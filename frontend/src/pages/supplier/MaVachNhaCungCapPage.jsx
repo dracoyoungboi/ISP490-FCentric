@@ -185,7 +185,7 @@ export default function MaVachNhaCungCapPage() {
                         setTuKhoaTim(g.ma);
                         setTrang(0);
                       }}
-                      className="border-bo-border bg-bo-surface text-xs"
+                      className="border-bo-border bg-bo-surface text-xs max-md:text-sm"
                     >
                       Xem mã này
                     </Button>
@@ -208,16 +208,75 @@ export default function MaVachNhaCungCapPage() {
     );
   } else {
     bang = (
-      <table className="w-full min-w-[1000px] text-sm">
+      <>
+      {/* Điện thoại: mỗi liên kết một thẻ — mã vạch NCC, biến thể FCentric (màu · cỡ · SKU), nhà cung cấp · mã hàng NCC,
+          lúc liên kết · người liên kết; chân thẻ: phiếu nhập đã liên kết (chạm mở phiếu) và Gỡ liên kết (người có quyền) */}
+      <ul className="divide-y divide-bo-border md:hidden">
+        {dong.map((r) => {
+          const coChan = Boolean(r.phieuNhapKhoId || r.soPhieuNhap) || coTheGo;
+          return (
+            <li key={r.id} className={cn("grid grid-cols-1 gap-1 px-4 pt-3", coChan ? "pb-1" : "pb-3")}>
+              <span className="break-all font-mono text-[15px] font-semibold text-bo-heading">{r.maVach}</span>
+              <span className="text-sm">
+                <span className="font-medium text-bo-heading">{r.tenBienThe}</span>
+                <span className="block text-[13px] text-bo-muted">
+                  {[r.mauSac, r.kichCo ? `Kích cỡ ${r.kichCo}` : null].filter(Boolean).join(" · ")}
+                  {r.mauSac || r.kichCo ? " · " : ""}
+                  <span className="font-mono">{r.sku}</span>
+                </span>
+              </span>
+              <span className="flex min-w-0 items-baseline gap-2 text-[13px]">
+                <span className="min-w-0 truncate text-bo-foreground">{r.tenNhaCungCap || "—"}</span>
+                {r.maHangNcc ? <span className="shrink-0 font-mono text-slate-600">{r.maHangNcc}</span> : null}
+              </span>
+              <span className="text-xs tabular-nums text-bo-muted">
+                {[r.ngayLienKet ? `Liên kết ${formatDate(r.ngayLienKet)}` : null, r.tenNguoiLienKet].filter(Boolean).join(" · ") || "—"}
+              </span>
+              {coChan ? (
+                <span className="flex min-h-9 items-center justify-between gap-3">
+                  {r.phieuNhapKhoId ? (
+                    <Link
+                      to={`/goods-receipts/${r.phieuNhapKhoId}`}
+                      aria-label={`Mở phiếu nhập ${r.soPhieuNhap ?? `#${r.phieuNhapKhoId}`}`}
+                      className="inline-flex h-9 min-w-0 items-center gap-1 text-[13px]"
+                    >
+                      <span className="shrink-0 text-bo-muted">Từ phiếu</span>
+                      <span className="truncate font-mono font-medium text-bo-primary">{r.soPhieuNhap ?? `#${r.phieuNhapKhoId}`}</span>
+                    </Link>
+                  ) : r.soPhieuNhap ? (
+                    <span className="min-w-0 truncate text-[13px] text-bo-muted">
+                      Từ phiếu <span className="font-mono text-slate-600">{r.soPhieuNhap}</span>
+                    </span>
+                  ) : <span />}
+                  {coTheGo ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setCanGo(r)}
+                      className="h-9 shrink-0 gap-1.5 border-bo-input-border bg-bo-surface px-3 text-sm font-medium text-bo-danger"
+                    >
+                      <Unlink className="size-4" aria-hidden="true" />
+                      Gỡ liên kết
+                    </Button>
+                  ) : null}
+                </span>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+      {/* Máy tính bảng dọc (cảm ứng): bỏ cột Mã hàng NCC, Nhà cung cấp (thành dòng phụ dưới mã vạch) và Thao tác —
+          Gỡ liên kết chuyển xuống dưới ô Liên kết từ, cao 44px — để bảng vừa khung, không vuốt ngang */}
+      <table className="w-full min-w-[1000px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
         <thead className="sticky top-0 z-10">
           <tr className="border-b border-bo-border bg-bo-surface-subtle">
             {[
               ["Mã vạch NCC", ""],
-              ["Mã hàng NCC", ""],
-              ["Nhà cung cấp", ""],
+              ["Mã hàng NCC", "cam-ung:max-lg:hidden"],
+              ["Nhà cung cấp", "cam-ung:max-lg:hidden"],
               ["Biến thể FCentric", ""],
-              ["Liên kết từ", "w-[220px]"],
-              ...(coTheGo ? [["Thao tác", "w-[88px] text-center"]] : []),
+              ["Liên kết từ", "w-[220px] cam-ung:max-lg:w-auto"],
+              ...(coTheGo ? [["Thao tác", "w-[88px] text-center cam-ung:max-lg:hidden"]] : []),
             ].map(([h, c]) => (
               <th key={h} className={cn("h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted", c)}>
                 {h}
@@ -228,9 +287,13 @@ export default function MaVachNhaCungCapPage() {
         <tbody className="divide-y divide-bo-border">
           {dong.map((r) => (
             <tr key={r.id} className="transition-colors hover:bg-bo-surface-subtle">
-              <td className="whitespace-nowrap px-3 py-3 font-mono text-[13px] font-semibold text-bo-heading">{r.maVach}</td>
-              <td className="whitespace-nowrap px-3 py-3 font-mono text-[13px] text-slate-600">{r.maHangNcc || "—"}</td>
-              <td className="px-3 py-3 text-bo-foreground">{r.tenNhaCungCap || "—"}</td>
+              <td className="whitespace-nowrap px-3 py-3 font-mono text-[13px] font-semibold text-bo-heading">
+                {r.maVach}
+                {r.maHangNcc ? <div className="hidden text-xs font-normal text-slate-600 cam-ung:max-lg:block">{r.maHangNcc}</div> : null}
+                <div className="mt-0.5 hidden whitespace-normal font-backoffice text-xs font-normal text-bo-foreground cam-ung:max-lg:block">{r.tenNhaCungCap || "—"}</div>
+              </td>
+              <td className="whitespace-nowrap px-3 py-3 font-mono text-[13px] text-slate-600 cam-ung:max-lg:hidden">{r.maHangNcc || "—"}</td>
+              <td className="px-3 py-3 text-bo-foreground cam-ung:max-lg:hidden">{r.tenNhaCungCap || "—"}</td>
               <td className="px-3 py-3">
                 <div className="font-medium text-bo-heading">{r.tenBienThe}</div>
                 <div className="text-xs text-bo-muted">
@@ -252,9 +315,20 @@ export default function MaVachNhaCungCapPage() {
                 <div className="text-xs tabular-nums text-bo-muted">
                   {[r.ngayLienKet ? formatDate(r.ngayLienKet) : null, r.tenNguoiLienKet].filter(Boolean).join(" · ") || "—"}
                 </div>
+                {coTheGo ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setCanGo(r)}
+                    className="mt-1.5 hidden h-9 w-fit gap-1.5 border-bo-input-border bg-bo-surface px-3 text-sm font-medium text-bo-danger cam-ung:max-lg:flex"
+                  >
+                    <Unlink className="size-4" aria-hidden="true" />
+                    Gỡ liên kết
+                  </Button>
+                ) : null}
               </td>
               {coTheGo ? (
-                <td className="px-3 py-3">
+                <td className="px-3 py-3 cam-ung:max-lg:hidden">
                   <RowActions>
                     <RowActionButton icon={Unlink} label="Gỡ liên kết" tone="danger" onClick={() => setCanGo(r)} />
                   </RowActions>
@@ -264,6 +338,7 @@ export default function MaVachNhaCungCapPage() {
           ))}
         </tbody>
       </table>
+      </>
     );
   }
 

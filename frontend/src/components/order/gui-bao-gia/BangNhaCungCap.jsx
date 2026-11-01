@@ -202,16 +202,23 @@ export default function BangNhaCungCap({
                         )}
                       >
                         <td className={cn(O, O_DAU)}>
-                          <input
-                            type="checkbox"
-                            data-ncc-id={d.id}
-                            checked={daChon}
-                            disabled={!d.guiDuoc}
-                            onChange={() => doi(d)}
+                          {/* Màn cảm ứng: nhãn bọc ô chọn thành vùng chạm 44px, lề âm bù lại nên dòng không cao thêm; máy tính: nhãn
+                              "contents" (không tạo hộp) nên ô chọn nằm y như cũ. Bấm nhãn không lan ra dòng để không đổi chọn hai lần */}
+                          <label
                             onClick={(e) => e.stopPropagation()}
-                            aria-label={`Chọn ${d.ten}`}
-                            className="size-4 cursor-pointer accent-bo-primary disabled:cursor-not-allowed"
-                          />
+                            className="contents cam-ung:-m-3.5 cam-ung:flex cam-ung:size-11 cam-ung:items-center cam-ung:justify-center"
+                          >
+                            <input
+                              type="checkbox"
+                              data-ncc-id={d.id}
+                              checked={daChon}
+                              disabled={!d.guiDuoc}
+                              onChange={() => doi(d)}
+                              onClick={(e) => e.stopPropagation()}
+                              aria-label={`Chọn ${d.ten}`}
+                              className="size-4 cursor-pointer accent-bo-primary disabled:cursor-not-allowed"
+                            />
+                          </label>
                         </td>
                         <td className={cn(O, "@max-2xl/khoi:pr-4")}>
                           <span className="flex min-w-0 items-center gap-3">

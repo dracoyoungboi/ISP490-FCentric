@@ -165,7 +165,8 @@ export default function DauTrangDonMua({ don, taoPhieu, onQuayLai, onIn, onTaoPh
               <Tooltip>
                 <TooltipTrigger asChild>
                   {/* span nhận rê chuột thay cho nút đang khóa (nút khóa không nhận sự kiện chuột) */}
-                  <span tabIndex={0} className="inline-flex rounded-md max-sm:w-full">
+                  {/* Màn cảm ứng: chạm 44px để xem lý do khóa (nút 36px bên trong không nhận chạm khi khóa) */}
+                  <span tabIndex={0} className="inline-flex rounded-md max-sm:w-full cam-ung:relative cam-ung:before:absolute cam-ung:before:inset-x-0 cam-ung:before:-inset-y-1 cam-ung:before:content-['']">
                     {nutTaoPhieu}
                   </span>
                 </TooltipTrigger>

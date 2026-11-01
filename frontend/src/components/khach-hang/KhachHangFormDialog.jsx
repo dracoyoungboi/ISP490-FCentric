@@ -358,7 +358,9 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
           // Bấm nhầm ra ngoài không làm mất dữ liệu: có thay đổi thì hỏi lại.
           requestClose();
         }}
-        className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden border-bo-border bg-bo-surface p-0 text-bo-foreground sm:max-w-2xl max-sm:inset-0 max-sm:top-0 max-sm:left-0 max-sm:h-dvh max-sm:max-h-none max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:border-0"
+        // Điện thoại: toàn màn. "!" để thắng lớp dùng chung của index.css (hộp thoại dưới 768px cao tối đa 100dvh − 24px và
+        // tự cuộn): không có nó, thanh điều hướng đáy lộ một dải 24px dưới chân hộp; thân biểu mẫu tự cuộn, chân hộp luôn thấy.
+        className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden border-bo-border bg-bo-surface p-0 text-bo-foreground sm:max-w-2xl max-sm:inset-0 max-sm:top-0 max-sm:left-0 max-sm:h-dvh max-sm:max-h-none! max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:border-0 max-sm:overflow-hidden!"
       >
         <div className="flex items-start gap-3 border-b border-bo-border px-5 py-4 max-sm:px-4 max-sm:py-3">
           <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-bo-primary-soft text-bo-primary max-sm:hidden">

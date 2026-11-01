@@ -503,17 +503,56 @@ export default function DonBanHangList() {
             />
           )
         ) : (
-          <table className="w-full min-w-[1080px] text-sm">
+          <>
+          {/* Điện thoại: mỗi đơn một thẻ — số đơn + trạng thái, kênh + khách, ngày · kho + tổng tiền, thanh toán */}
+          <ul className="divide-y divide-bo-border md:hidden">
+            {data.map((item) => {
+              const st = getDonBanHangStatus(item.trangThai);
+              return (
+                <li key={item.id}>
+                  <Link to={`/sales-orders/${item.id}`} className="grid grid-cols-1 gap-1 px-4 py-3 active:bg-bo-surface-subtle">
+                    <span className="flex items-center justify-between gap-3">
+                      <span className="min-w-0 truncate text-[15px] font-semibold uppercase tracking-wide text-bo-primary">{item.soDonHang}</span>
+                      <StatusBadge quyTrinh="donBan" label={st.label} />
+                    </span>
+                    <span className="flex min-w-0 items-center gap-2 text-sm">
+                      {item.kenhBanHang ? (
+                        <ChannelBadge className="h-5 shrink-0 px-1.5 text-[11px]" maKenh={item.kenhBanHang.maKenh} label={item.kenhBanHang.tenKenh} />
+                      ) : null}
+                      <span className="min-w-0 truncate font-semibold text-bo-foreground">{item.khachHang?.tenKhachHang || "Khách lẻ"}</span>
+                    </span>
+                    <span className="flex items-baseline justify-between gap-3 text-[13px] text-bo-muted">
+                      <span className="min-w-0 truncate">{formatDate(item.ngayDatHang)}{item.khoXuat?.tenKho ? ` · ${item.khoXuat.tenKho}` : ""}</span>
+                      <span className="shrink-0 text-[15px] font-semibold tabular-nums text-bo-foreground">{formatCurrency(item.tongCong)}</span>
+                    </span>
+                    {/* Cùng thẻ thanh toán với cột Thanh toán của bảng (đơn sàn / đã kết thúc không tô màu nhắc) */}
+                    {item.trangThaiThanhToan ? (
+                      <span className="flex">
+                        <StatusBadge
+                          label={DON_BAN_HANG_THANH_TOAN[item.trangThaiThanhToan]?.label ?? item.trangThaiThanhToan}
+                          nhom={item.trangThaiThanhToan === "chua_thanh_toan"
+                            && (item.kenhBanHang || item.maDonHangKenh || DON_BAN_HANG_DA_KET_THUC_KHONG_THU.includes(Number(item.trangThai))) ? "dong" : undefined}
+                        />
+                      </span>
+                    ) : null}
+                    {item.canXuLy ? <OrderFlagBadges value={item.canXuLy} /> : null}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+          {/* Máy tính bảng dọc (cảm ứng): bỏ cột Kho xuất, Ngày chốt đơn, Thanh toán, Thao tác — đưa thành dòng phụ — để không vuốt ngang */}
+          <table className="w-full min-w-[1080px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-bo-border bg-bo-surface-subtle">
                 <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Số đơn</th>
                 <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Khách hàng</th>
-                <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Kho xuất</th>
-                <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày chốt đơn</th>
+                <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">Kho xuất</th>
+                <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">Ngày chốt đơn</th>
                 <th className="h-10 whitespace-nowrap px-3 text-right tabular-nums text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Tổng tiền</th>
-                <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Thanh toán</th>
+                <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">Thanh toán</th>
                 <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
-                <th className="h-10 whitespace-nowrap px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Thao tác</th>
+                <th className="h-10 whitespace-nowrap px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-bo-border">
@@ -539,13 +578,15 @@ export default function DonBanHangList() {
                           ) : null}
                         </div>
                       ) : null}
+                      <div className="mt-0.5 hidden text-xs text-bo-muted cam-ung:max-lg:block">{formatDate(item.ngayDatHang)}</div>
                     </td>
                     <td className="px-3 py-3">
                       <div className="font-semibold text-bo-foreground">
                         {item.khachHang?.tenKhachHang || "Khách lẻ"}
                       </div>
+                      <div className="mt-0.5 hidden text-xs text-bo-muted cam-ung:max-lg:block">{item.khoXuat?.tenKho}</div>
                     </td>
-                    <td className="px-3 py-3">
+                    <td className="px-3 py-3 cam-ung:max-lg:hidden">
                       {item.khoXuat?.tenKho ? (
                         <div className="flex items-center gap-1.5 text-bo-muted">
                           <FileText className="size-3.5 shrink-0" />
@@ -555,15 +596,20 @@ export default function DonBanHangList() {
                         <span className="text-bo-muted">—</span>
                       )}
                     </td>
-                    <td className="whitespace-nowrap px-3 py-3 text-xs text-bo-muted">
+                    <td className="whitespace-nowrap px-3 py-3 text-xs text-bo-muted cam-ung:max-lg:hidden">
                       {formatDate(item.ngayDatHang)}
                     </td>
                     <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">
                       <span className="font-semibold text-bo-foreground">
                         {formatCurrency(item.tongCong)}
                       </span>
+                      {item.trangThaiThanhToan ? (
+                        <div className="mt-0.5 hidden text-xs text-bo-muted cam-ung:max-lg:block">
+                          {DON_BAN_HANG_THANH_TOAN[item.trangThaiThanhToan]?.label ?? item.trangThaiThanhToan}
+                        </div>
+                      ) : null}
                     </td>
-                    <td className="px-3 py-3">
+                    <td className="px-3 py-3 cam-ung:max-lg:hidden">
                       {/* "Chưa thanh toán" của đơn sàn chỉ chụp lúc đồng bộ; đơn đã hủy / hoàn trả không còn phải thu: không tô màu nhắc */}
                       {item.trangThaiThanhToan ? (
                         <StatusBadge
@@ -581,7 +627,7 @@ export default function DonBanHangList() {
                         </div>
                       ) : null}
                     </td>
-                    <td className="px-3 py-3">
+                    <td className="px-3 py-3 cam-ung:max-lg:hidden">
                       <RowActions>
                         <RowActionButton
                           icon={Eye}
@@ -595,6 +641,7 @@ export default function DonBanHangList() {
               })}
             </tbody>
           </table>
+          </>
         )}
       </TableShell>
     </PageContainer>

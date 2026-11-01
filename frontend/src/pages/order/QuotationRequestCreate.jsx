@@ -196,7 +196,8 @@ function ChonYeuCauNhapHang() {
                                         className={cn(DONG, "cursor-pointer", dangChon && DONG_SANG)}
                                     >
                                         <td className={cn(O, O_DAU)}>
-                                            <label className="flex min-w-0 cursor-pointer items-center gap-3">
+                                            {/* Màn cảm ứng: nhãn bọc ô chọn cao tối thiểu 44px (bảng ở 1180px ngang chỉ cao 36px) */}
+                                            <label className="flex min-w-0 cursor-pointer items-center gap-3 cam-ung:min-h-11">
                                                 <input
                                                     type="radio"
                                                     name={`${idBang}-yeu-cau`}

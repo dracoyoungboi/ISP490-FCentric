@@ -14,7 +14,9 @@ import { dongTimCua, khoaSanPham, laGoiY } from "./tinhTaoYeuCau";
 // Hiện dần theo sản phẩm: kho lớn có thể vài nghìn mã sắp hết, vẽ hết một lần làm hộp mở chậm
 const SO_SP_HIEN = 30;
 
-const LUOI = "grid grid-cols-[44px_minmax(220px,1fr)_84px_80px_84px] items-center";
+// Điện thoại (< 768px): chỉ 3 cột (chọn · sản phẩm · đề xuất), khả dụng / đang về ghi thành dòng phụ dưới SKU để hộp không cuộn ngang
+const LUOI = "grid grid-cols-[44px_minmax(0,1fr)_76px] items-center md:grid-cols-[44px_minmax(220px,1fr)_84px_80px_84px]";
+const CHI_MAY_TINH = "max-md:hidden";
 
 const trangThai = (ids, chon) => {
   const so = ids.filter((id) => chon.has(String(id))).length;
@@ -127,7 +129,7 @@ function NoiDung({ dsHang, dong, tenKho, nguong, onThem, onDong }) {
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto border-y border-bo-border" role="table" aria-label="Mã gợi ý cần nhập">
-        <div className="min-w-[560px]">
+        <div className="md:min-w-[560px]">
           <div role="row" className={cn(LUOI, "sticky top-0 z-[1] border-b border-bo-border bg-bo-surface-subtle text-xs font-medium leading-4 text-bo-muted")}>
             <span role="columnheader" className="flex items-center py-2.5 pl-5 sm:pl-6">
               <Checkbox
@@ -139,8 +141,8 @@ function NoiDung({ dsHang, dong, tenKho, nguong, onThem, onDong }) {
               />
             </span>
             <span role="columnheader" className="px-3 py-2.5">Sản phẩm</span>
-            <span role="columnheader" className="px-3 py-2.5 text-right">Khả dụng</span>
-            <span role="columnheader" className="px-3 py-2.5 text-right">Đang về</span>
+            <span role="columnheader" className={cn("px-3 py-2.5 text-right", CHI_MAY_TINH)}>Khả dụng</span>
+            <span role="columnheader" className={cn("px-3 py-2.5 text-right", CHI_MAY_TINH)}>Đang về</span>
             <span role="columnheader" className="py-2.5 pl-3 pr-5 text-right sm:pr-6">Đề xuất</span>
           </div>
           {nhom.slice(0, soSpHien).map((n) => {
@@ -168,8 +170,8 @@ function NoiDung({ dsHang, dong, tenKho, nguong, onThem, onDong }) {
                       </span>
                     </span>
                   </span>
-                  <span role="cell" className="px-3 py-2 text-right">{soVN(n.dong.reduce((s, bt) => s + Number(bt.khaDung || 0), 0))}</span>
-                  <span role="cell" className="px-3 py-2 text-right">{soVN(n.dong.reduce((s, bt) => s + Number(bt.dangVe || 0), 0))}</span>
+                  <span role="cell" className={cn("px-3 py-2 text-right", CHI_MAY_TINH)}>{soVN(n.dong.reduce((s, bt) => s + Number(bt.khaDung || 0), 0))}</span>
+                  <span role="cell" className={cn("px-3 py-2 text-right", CHI_MAY_TINH)}>{soVN(n.dong.reduce((s, bt) => s + Number(bt.dangVe || 0), 0))}</span>
                   <span role="cell" className="py-2 pl-3 pr-5 text-right font-semibold sm:pr-6">
                     {soVN(n.dong.reduce((s, bt) => s + Number(bt.soLuongDeXuat || 0), 0))}
                   </span>
@@ -196,9 +198,12 @@ function NoiDung({ dsHang, dong, tenKho, nguong, onThem, onDong }) {
                         {!coRoi && bt.yeuCauMo ? (
                           <span className={cn(NHAN_CANH_BAO, NHAN_TRUNG)}>Đang trong {bt.yeuCauMo.ma}</span>
                         ) : null}
+                        <span className="mt-0.5 text-xs leading-4 text-bo-muted md:hidden">
+                          Khả dụng {soVN(bt.khaDung)} · Đang về {soVN(bt.dangVe)}
+                        </span>
                       </span>
-                      <span role="cell" className="px-3 py-2 text-right">{soVN(bt.khaDung)}</span>
-                      <span role="cell" className="px-3 py-2 text-right">{soVN(bt.dangVe)}</span>
+                      <span role="cell" className={cn("px-3 py-2 text-right", CHI_MAY_TINH)}>{soVN(bt.khaDung)}</span>
+                      <span role="cell" className={cn("px-3 py-2 text-right", CHI_MAY_TINH)}>{soVN(bt.dangVe)}</span>
                       <span role="cell" className="py-2 pl-3 pr-5 text-right font-semibold sm:pr-6">{soVN(bt.soLuongDeXuat)}</span>
                     </div>
                   );

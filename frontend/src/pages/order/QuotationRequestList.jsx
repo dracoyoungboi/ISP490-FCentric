@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
     Calendar, ChevronDown, ChevronUp,
     Eye, Package, Plus,
@@ -31,6 +31,7 @@ import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useTaiLaiDanhSach from "@/hooks/useTaiLaiDanhSach";
 import { trangCuoiNeuVuot } from "@/lib/tinhTaiLai";
+import { cn } from "@/lib/utils";
 import purchaseOrderService from "../../services/purchaseOrderService";
 import { formatCurrency, formatDate } from "@/utils/formatters";
 
@@ -121,18 +122,23 @@ function DonMuaHangRows({ donMuaHangs = [], navigate }) {
                             {po.soDonMua}
                         </span>
                     </div>
+                    {/* Máy tính bảng dọc: ngày gửi + hạn chót thành hai dòng phụ (cột riêng bị ẩn) để bảng con vừa khung */}
+                    <p className="mt-0.5 hidden whitespace-nowrap pl-3.5 text-[11px] text-bo-muted cam-ung:max-lg:block">
+                        <span className="block">Gửi {formatDate(ngayGuiYeuCau(po))}</span>
+                        <span className="block">Hạn {formatDate(po.ngayGiaoDuKien)}</span>
+                    </p>
                 </td>
 
                 <td className="px-3 py-3">
-                    <p className="max-w-[120px] truncate text-[13px] font-semibold text-bo-foreground" title={po.nhaCungCap?.tenNhaCungCap}>{po.nhaCungCap?.tenNhaCungCap}</p>
+                    <p className="max-w-[120px] truncate text-[13px] font-semibold text-bo-foreground cam-ung:max-lg:max-w-[150px]" title={po.nhaCungCap?.tenNhaCungCap}>{po.nhaCungCap?.tenNhaCungCap}</p>
                     <p className="mt-0.5 font-mono text-[11px] text-bo-muted">{po.nhaCungCap?.maNhaCungCap}</p>
                 </td>
 
-                <td className="whitespace-nowrap px-3 py-3 text-[12px] font-medium text-bo-muted">
+                <td className="whitespace-nowrap px-3 py-3 text-[12px] font-medium text-bo-muted cam-ung:max-lg:hidden">
                     {formatDate(ngayGuiYeuCau(po))}
                 </td>
 
-                <td className="whitespace-nowrap px-3 py-3 text-[12px] font-medium text-bo-muted">
+                <td className="whitespace-nowrap px-3 py-3 text-[12px] font-medium text-bo-muted cam-ung:max-lg:hidden">
                     {formatDate(po.ngayGiaoDuKien)}
                 </td>
 
@@ -140,7 +146,7 @@ function DonMuaHangRows({ donMuaHangs = [], navigate }) {
                     <StatusBadge quyTrinh="yeuCauBaoGia" label={cfg.label} />
                 </td>
 
-                <td className="max-w-[120px] truncate px-3 py-3 text-[13px] font-medium text-bo-muted">
+                <td className="max-w-[120px] truncate px-3 py-3 text-[13px] font-medium text-bo-muted cam-ung:max-lg:hidden">
                     {po.nguoiTao?.hoTen || '-'}
                 </td>
 
@@ -154,7 +160,7 @@ function DonMuaHangRows({ donMuaHangs = [], navigate }) {
                 </td>
 
                 {/* Chặn bấm lan ra dòng: nút Xem đã tự điều hướng, không để cú bấm điều hướng lần hai */}
-                <td className="px-3 py-3" onClick={e => e.stopPropagation()}>
+                <td className="px-3 py-3 cam-ung:max-lg:hidden" onClick={e => e.stopPropagation()}>
                     <RowActions>
                         <RowActionButton
                             icon={Eye}
@@ -546,20 +552,114 @@ export default function QuotationRequestList() {
                         />
                     )
                 ) : (
-                    /* Bảng: khung giãn hết màn, thân bảng tự cuộn, tiêu đề cột đứng yên.
-                       Dòng mở rộng chứa bảng báo giá con nằm gọn trong một ô của bảng chính. */
-                    <table className="w-full min-w-[1040px] text-sm">
+                    <>
+                    {/* Điện thoại: mỗi yêu cầu một thẻ — mã + trạng thái, kho nhập, ngày tạo · người tạo + tổng tiền chốt;
+                        chạm thẻ mở chi tiết. Chân thẻ: ngày giao DK + nút "N báo giá" mở danh sách báo giá từng nhà cung cấp
+                        ngay dưới thẻ (mỗi báo giá một dòng, chạm mở chi tiết báo giá) thay cho bảng con */}
+                    <ul className="divide-y divide-bo-border md:hidden">
+                        {requests.map((req) => {
+                            const isExpanded = expandedRows.has(req.id);
+                            const prCfg = getYeuCauNhapHangStatus(req.trangThai);
+                            const poCount = req.donMuaHangs?.length || 0;
+                            const acceptedTotal = getAcceptedTotal(req);
+                            return (
+                                <li key={req.id}>
+                                    {/* Nhãn "Đã chuyển thành đơn mua hàng" dài: không đủ chỗ thì thẻ trạng thái xuống dòng dưới mã */}
+                                    <Link to={`/quotation-requests/${req.id}`} className="grid grid-cols-1 gap-1 px-4 pb-1 pt-3 active:bg-bo-surface-subtle">
+                                        <span className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                                            <span className="min-w-0 truncate text-[15px] font-semibold text-bo-primary">#{req.soYeuCauMuaHang}</span>
+                                            <StatusBadge quyTrinh="yeuCauNhap" label={prCfg.label} />
+                                        </span>
+                                        <span className="flex min-w-0 items-center gap-2 text-sm">
+                                            <span className="min-w-0 truncate font-semibold text-bo-foreground">{req.khoNhap?.tenKho || '—'}</span>
+                                            {req.khoNhap?.maKho ? (
+                                                <span className="shrink-0 font-mono text-xs text-bo-muted">{req.khoNhap.maKho}</span>
+                                            ) : null}
+                                        </span>
+                                        <span className="flex items-baseline justify-between gap-3 text-[13px] text-bo-muted">
+                                            <span className="min-w-0 truncate">
+                                                {formatDate(req.ngayTao)}{req.nguoiTao?.hoTen ? ` · ${req.nguoiTao.hoTen}` : ''}
+                                            </span>
+                                            {acceptedTotal !== null ? (
+                                                <span className="shrink-0 text-[15px] font-semibold tabular-nums text-bo-foreground">{formatCurrency(acceptedTotal)}</span>
+                                            ) : null}
+                                        </span>
+                                    </Link>
+                                    <div className="flex min-h-9 items-center justify-between gap-3 px-4 pb-2.5">
+                                        <span className="min-w-0 truncate text-[13px] text-bo-muted">Giao DK {formatDate(req.ngayGiaoDuKien)}</span>
+                                        {poCount > 0 ? (
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                aria-expanded={isExpanded}
+                                                onClick={(e) => toggleExpand(req.id, e)}
+                                                className={cn(
+                                                    "h-9 shrink-0 gap-1.5 border-bo-input-border bg-bo-surface px-3 text-sm font-medium text-bo-foreground",
+                                                    isExpanded && "border-bo-primary bg-bo-primary-soft text-bo-primary-strong",
+                                                )}
+                                            >
+                                                {poCount} báo giá
+                                                {isExpanded ? <ChevronUp className="size-4" aria-hidden="true" /> : <ChevronDown className="size-4" aria-hidden="true" />}
+                                            </Button>
+                                        ) : (
+                                            <span className="shrink-0 text-[13px] text-bo-muted">Chưa có báo giá</span>
+                                        )}
+                                    </div>
+                                    {isExpanded && poCount > 0 ? (
+                                        <ul
+                                            aria-label={`Báo giá từ nhà cung cấp của yêu cầu ${req.soYeuCauMuaHang}`}
+                                            className="mx-4 mb-3 divide-y divide-bo-border overflow-hidden rounded-lg border border-bo-border bg-bo-surface-subtle"
+                                        >
+                                            {req.donMuaHangs.map((po) => {
+                                                const nhan = nhanTrangThaiBaoGia(po, getBaoGiaNccStatus(po.trangThai).label);
+                                                const daChot = po.trangThai === 3 || po.trangThai === 5;
+                                                return (
+                                                    <li key={po.id}>
+                                                        <Link to={`/quotation/${po.id}`} className="grid grid-cols-1 gap-0.5 px-3 py-2.5 active:bg-bo-surface">
+                                                            <span className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                                                                <span className="min-w-0 truncate text-[13px] font-semibold text-bo-foreground">{po.soDonMua}</span>
+                                                                <StatusBadge quyTrinh="yeuCauBaoGia" label={nhan} />
+                                                            </span>
+                                                            <span className="flex items-baseline justify-between gap-3 text-sm">
+                                                                <span className="min-w-0 truncate text-bo-foreground">{po.nhaCungCap?.tenNhaCungCap || '—'}</span>
+                                                                <span className="shrink-0 font-semibold tabular-nums text-bo-foreground">
+                                                                    {po.tongTien != null ? formatCurrency(po.tongTien) : '—'}
+                                                                </span>
+                                                            </span>
+                                                            <span className="flex items-baseline justify-between gap-3 text-xs text-bo-muted">
+                                                                <span className="min-w-0 truncate">
+                                                                    Gửi {formatDate(ngayGuiYeuCau(po))} · Hạn {formatDate(po.ngayGiaoDuKien)}
+                                                                </span>
+                                                                {daChot ? (
+                                                                    <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-bo-success">Đã chốt</span>
+                                                                ) : null}
+                                                            </span>
+                                                        </Link>
+                                                    </li>
+                                                );
+                                            })}
+                                        </ul>
+                                    ) : null}
+                                </li>
+                            );
+                        })}
+                    </ul>
+                    {/* Bảng: khung giãn hết màn, thân bảng tự cuộn, tiêu đề cột đứng yên.
+                        Dòng mở rộng chứa bảng báo giá con nằm gọn trong một ô của bảng chính.
+                        Máy tính bảng dọc (cảm ứng): bỏ cột Ngày tạo, Ngày giao DK, Người tạo, Thao tác — đưa thành dòng phụ
+                        dưới mã yêu cầu / kho nhập / trạng thái (Xem chi tiết = chạm dòng) — để bảng vừa khung, không vuốt ngang */}
+                    <table className="w-full min-w-[1040px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
                         <thead className="sticky top-0 z-10">
                             <tr className="border-b border-bo-border bg-bo-surface-subtle">
                                 <th className="h-10 w-14 px-3" />
                                 <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Mã yêu cầu</th>
                                 <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Kho nhập</th>
-                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày tạo</th>
-                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày giao DK</th>
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">Ngày tạo</th>
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">Ngày giao DK</th>
                                 <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
-                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Người tạo</th>
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">Người tạo</th>
                                 <th className="h-10 px-3 text-right tabular-nums whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Tổng tiền chốt</th>
-                                <th className="h-10 w-24 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Thao tác</th>
+                                <th className="h-10 w-24 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">Thao tác</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-bo-border">
@@ -592,6 +692,7 @@ export default function QuotationRequestList() {
                                             <td className="px-3 py-3">
                                                 <div className="flex flex-col items-start gap-1.5">
                                                     <span className="text-[14px] font-semibold tracking-tight text-bo-primary">#{req.soYeuCauMuaHang}</span>
+                                                    <span className="hidden text-xs text-bo-muted cam-ung:max-lg:block">{formatDate(req.ngayTao)}</span>
                                                     {poCount > 0 && (
                                                         <span className="text-xs text-bo-muted">{poCount} báo giá</span>
                                                     )}
@@ -601,15 +702,18 @@ export default function QuotationRequestList() {
                                             <td className="px-3 py-3">
                                                 <p className="text-[13px] font-semibold text-bo-foreground">{req.khoNhap?.tenKho}</p>
                                                 <p className="mt-0.5 font-mono text-[11px] text-bo-muted">{req.khoNhap?.maKho}</p>
+                                                {req.nguoiTao?.hoTen ? (
+                                                    <p className="mt-0.5 hidden text-xs text-bo-muted cam-ung:max-lg:block">{req.nguoiTao.hoTen}</p>
+                                                ) : null}
                                             </td>
 
-                                            <td className="px-3 py-3">
+                                            <td className="px-3 py-3 cam-ung:max-lg:hidden">
                                                 <div className="flex items-center gap-1.5 whitespace-nowrap text-[12px] font-medium text-bo-muted">
                                                     <Calendar className="size-3.5 shrink-0" /> {formatDate(req.ngayTao)}
                                                 </div>
                                             </td>
 
-                                            <td className="px-3 py-3">
+                                            <td className="px-3 py-3 cam-ung:max-lg:hidden">
                                                 <div className="flex items-center gap-1.5 whitespace-nowrap text-[12px] font-medium text-bo-muted">
                                                     <Calendar className="size-3.5 shrink-0" /> {formatDate(req.ngayGiaoDuKien)}
                                                 </div>
@@ -617,9 +721,10 @@ export default function QuotationRequestList() {
 
                                             <td className="whitespace-nowrap px-3 py-3">
                                                 <StatusBadge quyTrinh="yeuCauNhap" label={prCfg.label} />
+                                                <p className="mt-1 hidden text-xs text-bo-muted cam-ung:max-lg:block">Giao DK {formatDate(req.ngayGiaoDuKien)}</p>
                                             </td>
 
-                                            <td className="px-3 py-3 text-[13px] font-medium text-bo-muted">
+                                            <td className="px-3 py-3 text-[13px] font-medium text-bo-muted cam-ung:max-lg:hidden">
                                                 {req.nguoiTao?.hoTen || '-'}
                                             </td>
 
@@ -631,7 +736,7 @@ export default function QuotationRequestList() {
                                                 )}
                                             </td>
 
-                                            <td className="px-3 py-3">
+                                            <td className="px-3 py-3 cam-ung:max-lg:hidden">
                                                 <RowActions>
                                                     <RowActionButton
                                                         icon={Eye}
@@ -658,12 +763,12 @@ export default function QuotationRequestList() {
                                                                         <tr className="border-b border-bo-border bg-bo-surface">
                                                                             <th className="h-9 whitespace-nowrap px-3 text-left text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Mã báo giá</th>
                                                                             <th className="h-9 whitespace-nowrap px-3 text-left text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Nhà cung cấp</th>
-                                                                            <th className="h-9 whitespace-nowrap px-3 text-left text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Ngày gửi</th>
-                                                                            <th className="h-9 whitespace-nowrap px-3 text-left text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Hạn chót</th>
+                                                                            <th className="h-9 whitespace-nowrap px-3 text-left text-[10px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">Ngày gửi</th>
+                                                                            <th className="h-9 whitespace-nowrap px-3 text-left text-[10px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">Hạn chót</th>
                                                                             <th className="h-9 whitespace-nowrap px-3 text-left text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
-                                                                            <th className="h-9 whitespace-nowrap px-3 text-left text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Người tạo (NCC)</th>
+                                                                            <th className="h-9 whitespace-nowrap px-3 text-left text-[10px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">Người tạo (NCC)</th>
                                                                             <th className="h-9 whitespace-nowrap px-3 text-right tabular-nums text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Giá NCC báo</th>
-                                                                            <th className="h-9 w-28 whitespace-nowrap px-3 text-center text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Thao tác</th>
+                                                                            <th className="h-9 w-28 whitespace-nowrap px-3 text-center text-[10px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">Thao tác</th>
                                                                         </tr>
                                                                     </thead>
                                                                     <tbody>
@@ -684,6 +789,7 @@ export default function QuotationRequestList() {
                             })}
                         </tbody>
                     </table>
+                    </>
                 )}
             </TableShell>
         </PageContainer>

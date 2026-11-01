@@ -390,15 +390,53 @@ export default function DoiSoatChuyenKhoan() {
             action={coLoc ? <Button variant="outline" onClick={xoaLoc} className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">Xóa lọc</Button> : null}
           />
         ) : (
-          <table className={`w-full min-w-[960px] text-sm transition-opacity ${danhSach.loading ? "opacity-60" : ""}`} aria-busy={danhSach.loading}>
+          <>
+          {/* Điện thoại: mỗi giao dịch một thẻ, chạm thẻ mở hộp xem như bấm dòng — số tiền + kết quả, kho · thu ngân,
+              lúc tạo mã · người chuyển, ghi chú tiền (đơn, đã nhận, tiền mặt) và người xử lý */}
+          <ul className={`divide-y divide-bo-border transition-opacity md:hidden ${danhSach.loading ? "opacity-60" : ""}`} aria-busy={danhSach.loading}>
+            {data.map((gd) => {
+              const ghiChuTien = [
+                gd.soDonHang ? `Đơn ${gd.soDonHang}` : null,
+                gd.soTienDaNhan != null && soTien(gd.soTienDaNhan) !== soTienHienThi(gd) ? `đã nhận ${formatCurrency(gd.soTienDaNhan)}` : null,
+                tienMatTruoc(gd) ? `+ tiền mặt trả trước ${formatCurrency(tienMatTruoc(gd))}` : null,
+              ].filter(Boolean).join(" · ");
+              return (
+                <li key={gd.orderCode}>
+                  <button
+                    type="button"
+                    aria-label={`Xem giao dịch ${formatCurrency(gd.soTien)} lúc ${gio(gd.ngayTao)}`}
+                    onClick={() => setHopThoai({ loai: "xem", gd })}
+                    className="grid w-full grid-cols-1 gap-1 px-4 py-3 text-left active:bg-bo-surface-subtle"
+                  >
+                    <span className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                      <span className="min-w-0 truncate text-[15px] font-semibold tabular-nums text-bo-foreground">{formatCurrency(soTienHienThi(gd))}</span>
+                      <StatusBadge label={nhanTrangThai(gd)} />
+                    </span>
+                    <span className="min-w-0 truncate text-sm text-bo-foreground">{gd.tenKho || "—"} · {gd.tenThuNgan || "—"}</span>
+                    <span className="min-w-0 truncate text-[13px] text-bo-muted">{gio(gd.ngayTao)}{gd.tenNguoiChuyen ? ` · ${gd.tenNguoiChuyen}` : ""}</span>
+                    {ghiChuTien ? <span className="text-[13px] text-bo-muted">{ghiChuTien}</span> : null}
+                    {canTraLaiTienMat(gd) ? (
+                      <span className="text-[13px] font-medium text-amber-800">Chưa trả lại tiền mặt {formatCurrency(tienMatTruoc(gd))}</span>
+                    ) : tienMatTruoc(gd) && gd.tienMatTraLaiLuc ? (
+                      <span className="text-[13px] text-bo-muted">Đã trả lại tiền mặt {gio(gd.tienMatTraLaiLuc)}{gd.tenNguoiTraLaiTienMat ? ` · ${gd.tenNguoiTraLaiTienMat}` : ""}</span>
+                    ) : null}
+                    {gd.tenNguoiXuLy ? <span className="text-[13px] text-bo-muted">Xử lý: {gd.tenNguoiXuLy} · {gio(gd.xuLyLuc)}</span> : null}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+          {/* Máy tính bảng dọc (cảm ứng): bỏ cột Người chuyển, Người xử lý — đưa thành dòng phụ dưới lúc tạo mã và kết quả —
+              để bảng vừa khung, không vuốt ngang */}
+          <table className={`w-full min-w-[960px] text-sm transition-opacity max-md:hidden cam-ung:max-lg:min-w-0 ${danhSach.loading ? "opacity-60" : ""}`} aria-busy={danhSach.loading}>
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-bo-border bg-bo-surface-subtle">
                 <th className={headCell}>Tạo mã QR lúc</th>
                 <th className={`${headCell} text-right`}>Số tiền</th>
-                <th className={headCell}>Người chuyển</th>
+                <th className={`${headCell} cam-ung:max-lg:hidden`}>Người chuyển</th>
                 <th className={headCell}>Kho · thu ngân</th>
                 <th className={headCell}>Kết quả</th>
-                <th className={headCell}>Người xử lý</th>
+                <th className={`${headCell} cam-ung:max-lg:hidden`}>Người xử lý</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-bo-border">
@@ -411,13 +449,16 @@ export default function DoiSoatChuyenKhoan() {
                   onClick={() => setHopThoai({ loai: "xem", gd })}
                   onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setHopThoai({ loai: "xem", gd }); } }}
                 >
-                  <td className="whitespace-nowrap px-3 py-3 text-xs text-bo-muted">{gio(gd.ngayTao)}</td>
+                  <td className="whitespace-nowrap px-3 py-3 text-xs text-bo-muted">
+                    {gio(gd.ngayTao)}
+                    {gd.tenNguoiChuyen ? <div className="mt-0.5 hidden text-bo-foreground cam-ung:max-lg:block">{gd.tenNguoiChuyen}</div> : null}
+                  </td>
                   <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums text-bo-foreground">
                     <span className="font-semibold">{formatCurrency(soTienHienThi(gd))}</span>
                     {gd.soTienDaNhan != null && soTien(gd.soTienDaNhan) !== soTienHienThi(gd) ? <div className="text-xs font-normal text-bo-muted">đã nhận {formatCurrency(gd.soTienDaNhan)}</div> : null}
                     {tienMatTruoc(gd) ? <div className="text-xs font-normal text-bo-muted">+ tiền mặt trả trước {formatCurrency(tienMatTruoc(gd))}</div> : null}
                   </td>
-                  <td className="px-3 py-3 text-bo-foreground">{gd.tenNguoiChuyen || <span className="text-bo-muted">—</span>}</td>
+                  <td className="px-3 py-3 text-bo-foreground cam-ung:max-lg:hidden">{gd.tenNguoiChuyen || <span className="text-bo-muted">—</span>}</td>
                   <td className="px-3 py-3"><div className="text-bo-foreground">{gd.tenKho || "—"}</div><div className="text-xs text-bo-muted">{gd.tenThuNgan || "—"}</div></td>
                   <td className="px-3 py-3">
                     <StatusBadge label={nhanTrangThai(gd)} />
@@ -427,12 +468,14 @@ export default function DoiSoatChuyenKhoan() {
                     ) : tienMatTruoc(gd) && gd.tienMatTraLaiLuc ? (
                       <div className="mt-1 text-xs text-bo-muted">Đã trả lại tiền mặt {gio(gd.tienMatTraLaiLuc)}{gd.tenNguoiTraLaiTienMat ? ` · ${gd.tenNguoiTraLaiTienMat}` : ""}</div>
                     ) : null}
+                    {gd.tenNguoiXuLy ? <div className="mt-1 hidden text-xs text-bo-muted cam-ung:max-lg:block">Xử lý: {gd.tenNguoiXuLy} · {gio(gd.xuLyLuc)}</div> : null}
                   </td>
-                  <td className="px-3 py-3 text-xs text-bo-muted">{gd.tenNguoiXuLy ? <>{gd.tenNguoiXuLy}<div>{gio(gd.xuLyLuc)}</div></> : "—"}</td>
+                  <td className="px-3 py-3 text-xs text-bo-muted cam-ung:max-lg:hidden">{gd.tenNguoiXuLy ? <>{gd.tenNguoiXuLy}<div>{gio(gd.xuLyLuc)}</div></> : "—"}</td>
                 </tr>
               ))}
             </tbody>
           </table>
+          </>
         )}
       </TableShell>
 
@@ -484,9 +527,10 @@ function TheCanXuLy({ gd, dangMo, onBan, onTraLai, dangTraTienMat, onTraTienMat 
         </div>
       ) : null}
       <p className="rounded-md bg-bo-primary-soft px-3 py-2 text-[13px] leading-5 text-bo-foreground">Gợi ý: {chuyen.goiY}</p>
+      {/* Cảm ứng: hai nút cao 44px; điện thoại: mỗi nút một hàng, rộng hết thẻ */}
       <div className="flex flex-wrap items-center gap-2">
         <Button
-          className="bg-bo-primary text-white hover:bg-bo-primary-hover"
+          className="bg-bo-primary text-white hover:bg-bo-primary-hover max-md:w-full"
           disabled={Boolean(khongBan) || dangMo}
           onClick={onBan}
           aria-label={`Bán cho khách khoản ${formatCurrency(soTienHienThi(gd))}`}
@@ -494,7 +538,7 @@ function TheCanXuLy({ gd, dangMo, onBan, onTraLai, dangTraTienMat, onTraTienMat 
         >
           Bán cho khách (tạo đơn)
         </Button>
-        <Button variant="outline" className="border-bo-border bg-bo-surface" disabled={dangMo} onClick={onTraLai} aria-label={`Trả lại tiền khoản ${formatCurrency(soTienHienThi(gd))}`}>
+        <Button variant="outline" className="border-bo-border bg-bo-surface max-md:w-full" disabled={dangMo} onClick={onTraLai} aria-label={`Trả lại tiền khoản ${formatCurrency(soTienHienThi(gd))}`}>
           {dangMo ? "Đang kiểm tra…" : "Trả lại tiền cho khách"}
         </Button>
         {khongBan ? <span id={`ly-do-khong-ban-${gd.orderCode}`} className="text-xs text-bo-muted">{khongBan}</span> : null}
@@ -534,7 +578,8 @@ function NutTraLaiTienMat({ gd, dangGui, onXacNhan }) {
 function ChiTietKyThuat({ gd }) {
   return (
     <details className="text-xs text-bo-muted">
-      <summary className="cursor-pointer select-none hover:text-bo-foreground">Chi tiết kỹ thuật</summary>
+      {/* Cảm ứng: vùng chạm cao 44px, lấn vào khe trên và lề dưới của thẻ nên thẻ không cao thêm nhiều */}
+      <summary className="cursor-pointer select-none hover:text-bo-foreground cam-ung:-mb-3.5 cam-ung:-mt-2.5 cam-ung:py-3.5">Chi tiết kỹ thuật</summary>
       <dl className="mt-2 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1">
         <dt>Mã QR (payOS)</dt><dd className="font-mono">{gd.orderCode}</dd>
         <dt>Nội dung CK</dt><dd className="break-all font-mono">{gd.noiDungCk || "—"}</dd>

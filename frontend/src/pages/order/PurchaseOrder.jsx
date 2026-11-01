@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from '@/lib/thongBaoNhanh';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -505,17 +505,66 @@ export default function PurchaseOrderList() {
                         />
                     )
                 ) : (
-                    /* Bảng: khung giãn hết màn, thân bảng tự cuộn, tiêu đề cột đứng yên */
-                    <table className="w-full min-w-[960px] text-sm">
+                    <>
+                    {/* Điện thoại: mỗi đơn một thẻ — mã đơn + trạng thái, nhà cung cấp, ngày tạo · yêu cầu gốc + tổng tiền;
+                        chạm thẻ mở chi tiết, Tạo phiếu nhập kho ở chân thẻ */}
+                    <ul className="divide-y divide-bo-border md:hidden">
+                        {orders.map((order) => {
+                            const cfg = getDonMuaHangStatus(order.trangThai);
+                            const coTheNhap = canCreateReceipt && (order.trangThai === 3 || order.trangThai === 5);
+                            return (
+                                <li key={order.id}>
+                                    <Link to={`/purchase-orders/${order.id}`} className="grid grid-cols-1 gap-1 px-4 py-3 active:bg-bo-surface-subtle">
+                                        <span className="flex items-center justify-between gap-3">
+                                            <span className="min-w-0 truncate text-[15px] font-semibold tracking-wide text-bo-primary">{order.soDonMua}</span>
+                                            <StatusBadge quyTrinh="donMua" label={cfg.label} />
+                                        </span>
+                                        <span className="flex min-w-0 items-center gap-2 text-sm">
+                                            <span className="min-w-0 truncate font-semibold text-bo-foreground">{order.nhaCungCap?.tenNhaCungCap || '—'}</span>
+                                            {order.nhaCungCap?.maNhaCungCap ? (
+                                                <span className="shrink-0 font-mono text-xs text-bo-muted">{order.nhaCungCap.maNhaCungCap}</span>
+                                            ) : null}
+                                        </span>
+                                        <span className="flex items-baseline justify-between gap-3 text-[13px] text-bo-muted">
+                                            <span className="min-w-0 truncate">
+                                                {formatDate(order.ngayTao)}
+                                                {order.yeuCauMuaHang?.soYeuCauMuaHang ? ` · Từ ${order.yeuCauMuaHang.soYeuCauMuaHang}` : ''}
+                                            </span>
+                                            <span className="shrink-0 text-[15px] font-semibold tabular-nums text-bo-foreground">
+                                                {order.tongTien != null ? formatCurrency(order.tongTien) : '—'}
+                                            </span>
+                                        </span>
+                                    </Link>
+                                    {coTheNhap ? (
+                                        <div className="flex justify-end px-4 pb-3">
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={() => navigate(`/goods-receipts/create?poId=${order.id}`)}
+                                                className="h-9 gap-1.5 border-bo-input-border bg-bo-surface px-3 text-sm font-medium text-bo-foreground"
+                                            >
+                                                <PackagePlus className="size-4" aria-hidden="true" />
+                                                Tạo phiếu nhập kho
+                                            </Button>
+                                        </div>
+                                    ) : null}
+                                </li>
+                            );
+                        })}
+                    </ul>
+                    {/* Bảng: khung giãn hết màn, thân bảng tự cuộn, tiêu đề cột đứng yên.
+                        Máy tính bảng dọc (cảm ứng): bỏ cột STT, Ngày tạo (thành dòng phụ dưới mã đơn), Thao tác — Tạo phiếu nhập
+                        chuyển xuống dưới thẻ trạng thái (Xem chi tiết = chạm dòng) — để bảng vừa khung, không vuốt ngang */}
+                    <table className="w-full min-w-[960px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
                         <thead className="sticky top-0 z-10">
                             <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                                <th className="h-10 w-14 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">STT</th>
+                                <th className="h-10 w-14 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">STT</th>
                                 <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Mã đơn mua</th>
                                 <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Nhà cung cấp</th>
-                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày tạo</th>
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">Ngày tạo</th>
                                 <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
                                 <th className="h-10 px-3 text-right tabular-nums whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Tổng tiền</th>
-                                <th className="h-10 w-32 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Thao tác</th>
+                                <th className="h-10 w-32 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">Thao tác</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-bo-border">
@@ -530,7 +579,7 @@ export default function PurchaseOrderList() {
                                         className="cursor-pointer transition-colors hover:bg-bo-surface-subtle"
                                         onClick={() => navigate(`/purchase-orders/${order.id}`)}
                                     >
-                                        <td className="px-3 py-3 text-center text-[13px] font-medium text-bo-muted">
+                                        <td className="px-3 py-3 text-center text-[13px] font-medium text-bo-muted cam-ung:max-lg:hidden">
                                             {pagination.pageNumber * pagination.pageSize + index + 1}
                                         </td>
 
@@ -539,6 +588,7 @@ export default function PurchaseOrderList() {
                                             {order.yeuCauMuaHang?.soYeuCauMuaHang && (
                                                 <p className="mt-0.5 font-mono text-[11px] text-bo-muted">Từ: {order.yeuCauMuaHang.soYeuCauMuaHang}</p>
                                             )}
+                                            <p className="mt-0.5 hidden text-xs text-bo-muted cam-ung:max-lg:block">{formatDate(order.ngayTao)}</p>
                                         </td>
 
                                         <td className="px-3 py-3">
@@ -546,7 +596,7 @@ export default function PurchaseOrderList() {
                                             <p className="mt-0.5 font-mono text-[11px] text-bo-muted">{order.nhaCungCap?.maNhaCungCap}</p>
                                         </td>
 
-                                        <td className="px-3 py-3">
+                                        <td className="px-3 py-3 cam-ung:max-lg:hidden">
                                             <div className="flex items-center gap-1.5 whitespace-nowrap text-[13px] font-medium text-slate-600">
                                                 <Calendar className="size-3.5 text-bo-muted" /> {formatDate(order.ngayTao)}
                                             </div>
@@ -554,13 +604,27 @@ export default function PurchaseOrderList() {
 
                                         <td className="whitespace-nowrap px-3 py-3">
                                             <StatusBadge quyTrinh="donMua" label={cfg.label} />
+                                            {canCreateReceipt && (isStatus3 || isStatus5) ? (
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        navigate(`/goods-receipts/create?poId=${order.id}`);
+                                                    }}
+                                                    className="mt-1.5 hidden h-9 w-fit gap-1.5 border-bo-input-border bg-bo-surface px-3 text-sm font-medium text-bo-foreground cam-ung:max-lg:flex"
+                                                >
+                                                    <PackagePlus className="size-4" aria-hidden="true" />
+                                                    Tạo phiếu nhập
+                                                </Button>
+                                            ) : null}
                                         </td>
 
                                         <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums font-semibold text-bo-foreground">
                                             {order.tongTien != null ? formatCurrency(order.tongTien) : <span className="font-normal text-bo-muted">—</span>}
                                         </td>
 
-                                        <td className="px-3 py-3">
+                                        <td className="px-3 py-3 cam-ung:max-lg:hidden">
                                             <RowActions>
                                                 <RowActionButton
                                                     icon={Eye}
@@ -582,6 +646,7 @@ export default function PurchaseOrderList() {
                             })}
                         </tbody>
                     </table>
+                    </>
                 )}
             </TableShell>
         </PageContainer>

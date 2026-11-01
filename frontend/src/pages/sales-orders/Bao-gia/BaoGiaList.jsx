@@ -373,16 +373,39 @@ export default function BaoGiaList() {
             />
           )
         ) : (
-          <table className="w-full min-w-[980px] text-sm">
+          <>
+          {/* Điện thoại: mỗi báo giá một thẻ, chạm thẻ mở chi tiết — mã + trạng thái, khách hàng, ngày lập + tổng tiền */}
+          <ul className="divide-y divide-bo-border md:hidden">
+            {data.map((item) => {
+              const st = getBaoGiaStatus(item.trangThai);
+              return (
+                <li key={item.id}>
+                  <Link to={`/sales-quotations/${item.id}`} className="grid grid-cols-1 gap-1 px-4 py-3 active:bg-bo-surface-subtle">
+                    <span className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                      <span className="min-w-0 truncate text-[15px] font-semibold uppercase tracking-wide text-bo-primary">{item.soDonHang}</span>
+                      <StatusBadge quyTrinh="baoGiaBan" label={st.label} />
+                    </span>
+                    <span className="min-w-0 truncate text-sm font-semibold text-bo-foreground">{item.khachHang?.tenKhachHang || "Khách lẻ"}</span>
+                    <span className="flex items-baseline justify-between gap-3 text-[13px] text-bo-muted">
+                      <span className="min-w-0 truncate">{formatDate(item.ngayTao)}{item.khoXuat?.tenKho ? ` · ${item.khoXuat.tenKho}` : ""}</span>
+                      <span className="shrink-0 text-[15px] font-semibold tabular-nums text-bo-foreground">{formatCurrency(item.tongCong)}</span>
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+          {/* Máy tính bảng dọc (cảm ứng): bỏ cột STT, Ngày lập, Thao tác — ngày lập xuống dưới mã báo giá — để không vuốt ngang */}
+          <table className="w-full min-w-[980px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                <th className="h-10 whitespace-nowrap px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">STT</th>
+                <th className="h-10 whitespace-nowrap px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">STT</th>
                 <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Mã báo giá</th>
                 <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Khách hàng</th>
-                <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày lập</th>
+                <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">Ngày lập</th>
                 <th className="h-10 whitespace-nowrap px-3 text-right tabular-nums text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Tổng tiền</th>
                 <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
-                <th className="h-10 whitespace-nowrap px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Thao tác</th>
+                <th className="h-10 whitespace-nowrap px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-bo-border">
@@ -394,16 +417,17 @@ export default function BaoGiaList() {
                     className="cursor-pointer transition-colors hover:bg-bo-surface-subtle"
                     onClick={() => navigate(`/sales-quotations/${item.id}`)}
                   >
-                    <td className="px-3 py-3 text-center text-xs text-bo-muted">
+                    <td className="px-3 py-3 text-center text-xs text-bo-muted cam-ung:max-lg:hidden">
                       {filters.page * filters.size + index + 1}
                     </td>
                     <td className="px-3 py-3">
                       <span className="font-semibold uppercase tracking-wide text-bo-primary">{item.soDonHang}</span>
+                      <div className="mt-0.5 hidden text-xs text-bo-muted cam-ung:max-lg:block">{formatDate(item.ngayTao)}</div>
                     </td>
                     <td className="px-3 py-3">
                       <div className="font-semibold text-bo-foreground">{item.khachHang?.tenKhachHang || "Khách lẻ"}</div>
                     </td>
-                    <td className="whitespace-nowrap px-3 py-3 text-xs text-bo-muted">
+                    <td className="whitespace-nowrap px-3 py-3 text-xs text-bo-muted cam-ung:max-lg:hidden">
                       {formatDate(item.ngayTao)}
                     </td>
                     <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">
@@ -414,7 +438,7 @@ export default function BaoGiaList() {
                     <td className="px-3 py-3">
                       <StatusBadge quyTrinh="baoGiaBan" label={st.label} />
                     </td>
-                    <td className="px-3 py-3">
+                    <td className="px-3 py-3 cam-ung:max-lg:hidden">
                       <RowActions>
                         <RowActionButton
                           icon={Eye}
@@ -428,6 +452,7 @@ export default function BaoGiaList() {
               })}
             </tbody>
           </table>
+          </>
         )}
       </TableShell>
     </PageContainer>

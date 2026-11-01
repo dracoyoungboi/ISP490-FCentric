@@ -368,7 +368,8 @@ function ManGuiBaoGia({ id }) {
             ma="Gửi yêu cầu báo giá"
             dongPhu={[
               <span key="yc">
-                Cho yêu cầu nhập hàng{" "}
+                {/* Điện thoại: dòng phụ hẹp (~266px) nên bỏ chữ "yêu cầu nhập hàng", giữ mã để mở được yêu cầu */}
+                Cho <span className="max-md:hidden">yêu cầu nhập hàng </span>
                 <Link to={`/purchase-requests/${id}`} className="font-medium tabular-nums text-bo-primary hover:underline">
                   {ma}
                 </Link>

@@ -337,17 +337,25 @@ export default function DonBanHangCreate() {
               <EmptyState
                 icon={ShoppingCart}
                 title="Chưa chọn báo giá"
-                description="Vui lòng tìm và chọn một báo giá bên trái để hiển thị sản phẩm."
+                // Điện thoại: khối chọn báo giá nằm phía trên, không phải bên trái. Mỗi câu nằm trọn trong một thẻ để chữ trên máy
+                // tính dựng y như cũ (tách giữa câu làm chữ dịch dưới một điểm ảnh)
+                description={
+                  <>
+                    <span className="max-md:hidden">Vui lòng tìm và chọn một báo giá bên trái để hiển thị sản phẩm.</span>
+                    <span className="md:hidden">Vui lòng tìm và chọn một báo giá ở trên để hiển thị sản phẩm.</span>
+                  </>
+                }
               />
             ) : (
               <>
+                {/* Điện thoại: bảng vừa khung (không vuốt ngang), cột Đơn giá thành dòng phụ dưới mã biến thể */}
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[640px] text-sm">
+                  <table className="w-full min-w-[640px] text-sm max-md:min-w-0">
                     <thead>
                       <tr className="border-b border-bo-border bg-bo-surface-subtle">
                         <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Sản phẩm</th>
                         <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Số lượng</th>
-                        <th className="h-10 px-3 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Đơn giá</th>
+                        <th className="h-10 px-3 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted max-md:hidden">Đơn giá</th>
                         <th className="h-10 px-3 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Thành tiền</th>
                       </tr>
                     </thead>
@@ -357,13 +365,14 @@ export default function DonBanHangCreate() {
                           <td className="px-3 py-3">
                             <span className="font-semibold text-bo-foreground">{item.tenSanPham}</span>
                             <span className="mt-0.5 block font-mono text-xs text-bo-muted">{item.maBienThe}</span>
+                            <span className="mt-0.5 block text-xs text-bo-muted md:hidden">Đơn giá {formatCurrency(item.donGia)}</span>
                           </td>
                           <td className="px-3 py-3 text-center">
                             <span className="inline-block rounded-md bg-bo-surface-subtle px-3 py-1 font-bold text-bo-foreground">
                               {item.soLuongDat}
                             </span>
                           </td>
-                          <td className="px-3 py-3 text-right">
+                          <td className="px-3 py-3 text-right max-md:hidden">
                             <span className="font-semibold text-bo-muted">{formatCurrency(item.donGia)}</span>
                           </td>
                           <td className="px-3 py-3 text-right">

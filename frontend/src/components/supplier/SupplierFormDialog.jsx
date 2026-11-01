@@ -285,7 +285,9 @@ function SupplierForm({ supplier, onClose, onSaved, oDauTien }) {
                     event.preventDefault();
                     if (!submitting && !isDirty) onClose();
                 }}
-                className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden border-bo-border bg-bo-surface p-0 text-bo-foreground sm:max-w-2xl"
+                // Điện thoại: toàn màn như hộp Khách hàng (biểu mẫu dài, nhiều ô nhập); thân tự cuộn, chân hộp luôn thấy. "!" để thắng
+                // lớp dùng chung của index.css (hộp thoại dưới 768px cao tối đa 100dvh − 24px và tự cuộn)
+                className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden border-bo-border bg-bo-surface p-0 text-bo-foreground sm:max-w-2xl max-sm:inset-0 max-sm:top-0 max-sm:left-0 max-sm:h-dvh max-sm:max-h-none! max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:border-0 max-sm:overflow-hidden!"
             >
                 <div className="flex items-start gap-3 border-b border-bo-border px-5 py-4">
                     <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-bo-primary-soft text-bo-primary">

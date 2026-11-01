@@ -23,6 +23,7 @@ export default function OTimThemHang({ dsHang, chiMuc, dong, khoa = false, onThe
   const id = useId();
   const henDongRef = useRef(0);
   const chonBangPhimRef = useRef(false); // dòng đang sáng do ↑ ↓ (không phải do rê chuột)
+  const chamVaoORef = useRef(false); // tiêu điểm vào ô do người dùng chạm / bấm (không phải do mã trả tiêu điểm về)
   const [tuKhoa, setTuKhoa] = useState("");
   const [mo, setMo] = useState(false);
   const [chiSo, setChiSo] = useState(-1);
@@ -130,7 +131,15 @@ export default function OTimThemHang({ dsHang, chiMuc, dong, khoa = false, onThe
         onChange={(e) => { setTuKhoa(e.target.value); setGoiY(""); setChiSo(-1); chonBangPhimRef.current = false; setMo(true); }}
         // Chỉ mở danh sách khi người dùng gõ, bấm ↑ ↓ hay bấm chuột vào ô: tiêu điểm được trả về ô (đóng hộp thoại, bỏ dòng)
         // thì không bung danh sách đè lên bảng
-        onFocus={() => clearTimeout(henDongRef.current)}
+        onFocus={(e) => {
+          clearTimeout(henDongRef.current);
+          // Điện thoại, chạm vào ô: đưa ô lên đầu vùng cuộn để danh sách gợi ý (380px dưới ô) còn chỗ khi bàn phím ảo mở;
+          // tiêu điểm trả về ô bằng mã (sau khi thêm / đóng hộp) thì không cuộn
+          if (chamVaoORef.current && window.innerWidth < 768) e.currentTarget.scrollIntoView({ block: "start" });
+          chamVaoORef.current = false;
+        }}
+        // Chạm vào ô đang có tiêu điểm thì không có sự kiện focus để xóa cờ: chỉ đặt cờ khi ô chưa có tiêu điểm
+        onPointerDown={(e) => { if (document.activeElement !== e.currentTarget) chamVaoORef.current = true; }}
         onMouseDown={() => setMo(true)}
         onBlur={() => { henDongRef.current = setTimeout(() => { setMo(false); setChiSo(-1); }, 150); }}
         onKeyDown={phim}

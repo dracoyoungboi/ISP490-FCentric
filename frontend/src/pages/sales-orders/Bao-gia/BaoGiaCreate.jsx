@@ -461,10 +461,11 @@ export default function BaoGiaCreate() {
   );
 
   // ── Cột bảng: đơn giá (ô nhập + khoảng cho phép), số lượng, thành tiền, bỏ dòng ──
+  // Điện thoại: ẩn cột Thành tiền và Bỏ dòng, ghi hai thứ đó dưới ô số lượng; cột Đơn giá hẹp lại — bảng vừa khung 390px
   const nhanDong = (d) => `${d.tenSanPham} ${d.tenMau || ""} ${d.kichCo || ""}`.replace(/\s+/g, " ").trim();
   const cotBang = [
     {
-      ma: "gia", nhan: "Đơn giá", lop: "w-40 text-right",
+      ma: "gia", nhan: "Đơn giá", lop: "w-40 text-right max-md:w-[120px]",
       nhom: (n) => {
         const soSai = soSaiTheoNhom.get(n.dong[0]?.khoaNhom ?? n.dong[0]?.tenSanPham) ?? 0;
         if (soSai) return <span className="text-bo-danger">{soVN(soSai)} dòng sai giá</span>;
@@ -499,7 +500,7 @@ export default function BaoGiaCreate() {
               }}
               className={cn(
                 O_NHAP,
-                "h-8 w-32 text-right font-semibold tabular-nums",
+                "h-8 w-32 text-right font-semibold tabular-nums max-md:w-24",
                 saiGia && "border-bo-danger focus:border-bo-danger focus:ring-bo-danger/15",
               )}
             />
@@ -511,9 +512,10 @@ export default function BaoGiaCreate() {
       },
     },
     {
-      ma: "sl", nhan: "SL", lop: "w-24 text-right",
+      ma: "sl", nhan: "SL", lop: "w-24 text-right max-md:w-[72px]",
       nhom: (n) => soVN(n.tong.soLuong),
       dong: (d) => (
+        <>
         <input
           inputMode="numeric"
           autoComplete="off"
@@ -525,17 +527,28 @@ export default function BaoGiaCreate() {
             if (sl !== undefined) datDong(d.id, { soLuong: sl }); // "3.5", "-2": giữ số cũ
           }}
           onBlur={() => { if (!(docSo(d.oSoLuong) >= 1)) datDong(d.id, { soLuong: 1 }); }}
-          className={cn(O_NHAP, "ml-auto h-8 w-20 text-right font-semibold tabular-nums")}
+          className={cn(O_NHAP, "ml-auto h-8 w-20 text-right font-semibold tabular-nums max-md:w-12")}
         />
+        <span className="mt-1 block whitespace-nowrap text-xs tabular-nums text-bo-muted md:hidden">{formatCurrency(d.thanhTien)}</span>
+        <button
+          type="button"
+          onClick={() => boDong(d.id)}
+          disabled={dangLuu}
+          aria-label={`Bỏ ${nhanDong(d)}`}
+          className="mt-0.5 text-xs font-medium text-bo-danger disabled:opacity-50 md:hidden"
+        >
+          Bỏ dòng
+        </button>
+        </>
       ),
     },
     {
-      ma: "tien", nhan: "Thành tiền", lop: "w-36 whitespace-nowrap text-right",
+      ma: "tien", nhan: "Thành tiền", lop: "w-36 whitespace-nowrap text-right max-md:hidden",
       nhom: (n) => formatCurrency(n.tong.thanhTien),
       dong: (d) => formatCurrency(d.thanhTien),
     },
     {
-      ma: "bo", nhan: <span className="sr-only">Bỏ dòng</span>, lop: "w-14 text-right",
+      ma: "bo", nhan: <span className="sr-only">Bỏ dòng</span>, lop: "w-14 text-right max-md:hidden",
       dong: (d) => (
         <button
           type="button"
@@ -690,8 +703,9 @@ export default function BaoGiaCreate() {
 
   const idDemGhiChu = `${idMan}-dem-ghi-chu`;
   const dungDiaChiGoc = Boolean(khach?.diaChi) && form.diaChiGiaoHang === khach.diaChi;
+  // Điện thoại: ô Khách hàng (bắt buộc, bước đầu) lên trước danh sách sản phẩm thay vì nằm cuối trang
   const cotPhai = (
-    <CotThuocTinh nhan="Thông tin báo giá">
+    <CotThuocTinh nhan="Thông tin báo giá" className="max-md:order-first max-md:border-t-0 max-md:border-b">
       <NhomThuocTinh nhan={<>Khách hàng <span className="text-bo-danger">*</span></>}>{oKhach}</NhomThuocTinh>
       <NhomThuocTinh nhan="Giao hàng">
         <label className="grid gap-1.5">

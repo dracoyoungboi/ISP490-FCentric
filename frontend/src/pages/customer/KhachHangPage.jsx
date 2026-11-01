@@ -1,6 +1,6 @@
 import { getApiErrorMessage } from "@/utils/apiError";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import apiClient from "@/services/apiClient";
 import { CircleCheck, CirclePause, Eye, Pencil, Plus, User, Mail, Phone, Users, SearchX } from "lucide-react";
@@ -42,6 +42,8 @@ const LOAI_KHACH_HANG_MAP = {
     doanh_nghiep: { label: "Doanh nghiệp" },
     si: { label: "Khách sỉ" }
 };
+// Tên loại cho thẻ (điện thoại) và dòng phụ (máy tính bảng); khách chưa lưu loại -> "Chưa phân loại" như ô của bảng
+const tenLoaiKhachHang = (loai) => LOAI_KHACH_HANG_MAP[loai]?.label ?? (loai || "Chưa phân loại");
 
 // Tab theo loại khách hàng (bố cục A+G), thứ tự giữ như bộ lọc loại cũ.
 // Giá trị tab là mã loại trong code, nằm trên URL ?loai= (tab "Tất cả" không ghi lên URL).
@@ -464,10 +466,65 @@ export default function KhachHangPage() {
                         />
                     )
                 ) : (
-                    <table className="w-full min-w-[900px] text-sm">
+                    <>
+                    {/* Điện thoại: mỗi khách một thẻ, chạm thẻ mở chi tiết — tên + trạng thái, mã · loại, người liên hệ;
+                        chân thẻ: SĐT · email và nút Gọi. Sửa / đổi trạng thái nằm ở trang chi tiết (nút "…") */}
+                    <ul className="divide-y divide-bo-border md:hidden">
+                        {khachHangs.map((khachHang) => {
+                            const lienHe = [khachHang.soDienThoai, khachHang.email].filter(Boolean).join(" · ");
+                            const LienHeIcon = khachHang.soDienThoai ? Phone : Mail;
+                            return (
+                                <li key={khachHang.id} className={khachHang.id === highlightId ? "bg-bo-primary-soft" : undefined}>
+                                    <Link
+                                        to={`/customers/${khachHang.id}`}
+                                        className={`block px-4 pt-3 active:bg-bo-surface-subtle ${lienHe ? "pb-1" : "pb-3"}`}
+                                    >
+                                        <span className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                                            <span className="min-w-0 truncate text-[15px] font-semibold text-bo-foreground">{khachHang.tenKhachHang}</span>
+                                            <StatusBadge doiTuong="nguoi" label={khachHang.trangThai === 1 ? "Hoạt động" : "Ngừng hoạt động"} />
+                                        </span>
+                                        <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[13px] text-bo-muted">
+                                            <span className="shrink-0 font-semibold tracking-wide text-bo-primary">{khachHang.maKhachHang}</span>
+                                            <span aria-hidden="true">·</span>
+                                            <span className="min-w-0 truncate">{tenLoaiKhachHang(khachHang.loaiKhachHang)}</span>
+                                        </span>
+                                        {khachHang.nguoiLienHe ? (
+                                            <span className="mt-0.5 flex min-w-0 items-center gap-1 text-[13px] text-bo-muted">
+                                                <User className="size-3.5 shrink-0" aria-hidden="true" />
+                                                <span className="min-w-0 truncate">{khachHang.nguoiLienHe}</span>
+                                            </span>
+                                        ) : null}
+                                    </Link>
+                                    {lienHe ? (
+                                        <div className={`flex items-center justify-between gap-3 px-4 pb-2.5 ${khachHang.soDienThoai ? "min-h-9" : ""}`}>
+                                            <span className="flex min-w-0 items-center gap-1.5 text-[13px] text-bo-muted">
+                                                <LienHeIcon className="size-3.5 shrink-0" aria-hidden="true" />
+                                                <span className="min-w-0 truncate">{lienHe}</span>
+                                            </span>
+                                            {khachHang.soDienThoai ? (
+                                                <Button
+                                                    asChild
+                                                    variant="outline"
+                                                    className="h-9 shrink-0 gap-1.5 border-bo-input-border bg-bo-surface px-3 text-sm font-medium text-bo-foreground"
+                                                >
+                                                    <a href={`tel:${khachHang.soDienThoai.replace(/\s/g, "")}`} aria-label={`Gọi ${khachHang.tenKhachHang}`}>
+                                                        <Phone className="size-4" aria-hidden="true" />
+                                                        Gọi
+                                                    </a>
+                                                </Button>
+                                            ) : null}
+                                        </div>
+                                    ) : null}
+                                </li>
+                            );
+                        })}
+                    </ul>
+                    {/* Máy tính bảng dọc (cảm ứng): bỏ cột STT, Loại KH, Thao tác để bảng vừa khung, không vuốt ngang;
+                        loại khách xuống dưới mã KH (Xem chi tiết = chạm dòng, Sửa / đổi trạng thái ở trang chi tiết) */}
+                    <table className="w-full min-w-[900px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
                         <thead className="sticky top-0 z-10">
                             <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                                <th className="h-10 w-14 whitespace-nowrap px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                <th className="h-10 w-14 whitespace-nowrap px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">
                                     STT
                                 </th>
                                 <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
@@ -476,7 +533,7 @@ export default function KhachHangPage() {
                                 <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
                                     Khách hàng
                                 </th>
-                                <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">
                                     Loại KH
                                 </th>
                                 <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
@@ -485,7 +542,7 @@ export default function KhachHangPage() {
                                 <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
                                     Trạng thái
                                 </th>
-                                <th className="h-10 whitespace-nowrap px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                <th className="h-10 whitespace-nowrap px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">
                                     Thao tác
                                 </th>
                             </tr>
@@ -497,13 +554,16 @@ export default function KhachHangPage() {
                                     onClick={() => handleRowClick(khachHang)}
                                     className={`cursor-pointer transition-colors hover:bg-bo-surface-subtle ${khachHang.id === highlightId ? "bg-bo-primary-soft" : ""}`}
                                 >
-                                    <td className="px-3 py-3 text-center text-xs text-bo-muted">
+                                    <td className="px-3 py-3 text-center text-xs text-bo-muted cam-ung:max-lg:hidden">
                                         {currentPage * pageSize + index + 1}
                                     </td>
                                     <td className="px-3 py-3">
                                         <span className="font-semibold tracking-wide text-bo-primary">
                                             {khachHang.maKhachHang}
                                         </span>
+                                        <div className="mt-0.5 hidden whitespace-nowrap text-xs text-bo-muted cam-ung:max-lg:block">
+                                            {tenLoaiKhachHang(khachHang.loaiKhachHang)}
+                                        </div>
                                     </td>
                                     <td className="px-3 py-3">
                                         <div className="font-semibold text-bo-foreground">
@@ -515,7 +575,7 @@ export default function KhachHangPage() {
                                             </div>
                                         )}
                                     </td>
-                                    <td className="px-3 py-3">
+                                    <td className="px-3 py-3 cam-ung:max-lg:hidden">
                                         {getLoaiKhachHangBadge(khachHang.loaiKhachHang)}
                                     </td>
                                     <td className="px-3 py-3">
@@ -531,7 +591,7 @@ export default function KhachHangPage() {
                                     <td className="px-3 py-3">
                                         <StatusBadge doiTuong="nguoi" label={khachHang.trangThai === 1 ? "Hoạt động" : "Ngừng hoạt động"} />
                                     </td>
-                                    <td className="px-3 py-3">
+                                    <td className="px-3 py-3 cam-ung:max-lg:hidden">
                                         <RowActions>
                                             <RowActionButton
                                                 icon={Eye}
@@ -558,6 +618,7 @@ export default function KhachHangPage() {
                             ))}
                         </tbody>
                     </table>
+                    </>
                 )}
             </TableShell>
 

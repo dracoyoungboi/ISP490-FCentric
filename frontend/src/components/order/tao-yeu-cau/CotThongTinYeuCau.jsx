@@ -39,8 +39,9 @@ export default function CotThongTinYeuCau({
   return (
     <CotThuocTinh
       nhan="Thông tin yêu cầu nhập hàng"
-      // Khung chứng từ của màn này không cắt tràn (để đầu khối dính khi cuộn): tự bo góc dưới cho nền xám của cột
-      className="rounded-b-lg xl:rounded-bl-none xl:[&>div]:sticky xl:[&>div]:top-[92px]"
+      // Khung chứng từ của màn này không cắt tràn (để đầu khối dính khi cuộn): tự bo góc dưới cho nền xám của cột.
+      // Điện thoại: cột lên trước bảng hàng (kho nhập, ngày giao là bước đầu), khi đó không bo góc dưới
+      className="rounded-b-lg xl:rounded-bl-none xl:[&>div]:sticky xl:[&>div]:top-[92px] max-md:order-first max-md:rounded-b-none max-md:border-t-0 max-md:border-b"
     >
       <div className="contents xl:block">
         <NhomThuocTinh nhan="Kho nhận">

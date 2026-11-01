@@ -64,13 +64,15 @@ function NoiDung({ chiMuc, dong, onThem, onDong }) {
           spellCheck={false}
           rows={8}
           placeholder={"AK2610234-CL001-M\t30\nAK2610234-CL001-L\t25\n2026102340003\t20"}
-          className="min-h-[168px] w-full resize-y rounded-md border border-bo-input-border bg-bo-surface px-2.5 py-2 font-mono text-[12.5px] leading-5 text-bo-foreground outline-none placeholder:text-slate-500 focus:border-bo-primary focus:ring-2 focus:ring-bo-primary/15"
+          // Điện thoại: chữ đã thành 16px theo quy tắc ô nhập chung (index.css) nên giãn dòng theo
+          className="min-h-[168px] w-full resize-y rounded-md border border-bo-input-border bg-bo-surface px-2.5 py-2 font-mono text-[12.5px] leading-5 text-bo-foreground outline-none placeholder:text-slate-500 focus:border-bo-primary focus:ring-2 focus:ring-bo-primary/15 max-md:leading-6"
         />
         {soDaCo > 0 ? (
           <fieldset className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[13px] leading-5">
             <legend className="float-left mr-1 text-bo-muted">{soVN(soDaCo)} mã đã có trong yêu cầu:</legend>
             {[["cong", "Cộng thêm"], ["thay", "Thay bằng số mới"]].map(([ma, nhan]) => (
-              <label key={ma} className="inline-flex cursor-pointer items-center gap-1.5">
+              // Màn cảm ứng: nhãn cao 44px cho dễ chạm (radio gốc không được lớp cảm ứng chung mở rộng)
+              <label key={ma} className="inline-flex cursor-pointer items-center gap-1.5 cam-ung:min-h-11">
                 <input
                   type="radio"
                   name={`${id}-cach`}

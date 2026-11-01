@@ -1,6 +1,6 @@
 // src/pages/supplier/SupplierList.jsx
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
     Plus, Edit, Trash2, Eye, Users,
     Phone, Mail, User2, SearchX,
@@ -46,6 +46,9 @@ const EMPTY_TAB_TITLE = {
     "hoat-dong":       "Không có nhà cung cấp nào đang hoạt động",
     "ngung-hoat-dong": "Không có nhà cung cấp nào ngừng hoạt động",
 };
+
+// Máy tính bảng dọc (cảm ứng): ẩn cột STT, Mã NCC, SĐT, Email (đưa thành dòng phụ dưới tên / người liên hệ)
+const COT_AN_TREN_TABLET = new Set([0, 1, 4, 5]);
 
 // Khớp badge trong bảng: trangThai = 1 là "Hoạt động", còn lại là "Ngừng hoạt động".
 const matchTab = (item, tab) =>
@@ -326,14 +329,81 @@ export default function SupplierList() {
                             />
                         )
                     ) : (
-                        /* Bảng: khung giãn hết màn, thân bảng tự cuộn, tiêu đề cột đứng yên */
-                        <table className="w-full min-w-[960px] text-sm">
+                        <>
+                        {/* Điện thoại: mỗi nhà cung cấp một thẻ — tên + trạng thái, mã NCC · người liên hệ, email; chạm thẻ mở chi tiết.
+                            Chân thẻ: số điện thoại bấm gọi được, Sửa / Xóa (người có quyền quản lý nhà cung cấp) */}
+                        <ul className="divide-y divide-bo-border md:hidden">
+                            {pageItems.map((item) => {
+                                const coChan = Boolean(item.soDienThoai) || coTheQuanLy;
+                                return (
+                                    <li key={item.id} className={item.id === highlightId ? "bg-bo-primary-soft" : undefined}>
+                                        <Link
+                                            to={`/supplier/${item.id}`}
+                                            className={`grid grid-cols-1 gap-1 px-4 active:bg-bo-surface-subtle ${coChan ? "pb-1 pt-3" : "py-3"}`}
+                                        >
+                                            {/* Tên dài xuống dòng (không cắt), thẻ trạng thái luôn ở góc phải */}
+                                            <span className="flex items-start justify-between gap-3">
+                                                <span className="min-w-0 text-[15px] font-semibold leading-snug text-bo-foreground">{item.tenNhaCungCap}</span>
+                                                <StatusBadge doiTuong="nguoi" label={laHoatDong(item) ? "Hoạt động" : "Ngừng hoạt động"} className="mt-0.5" />
+                                            </span>
+                                            <span className="flex min-w-0 items-center gap-2 text-sm text-slate-600">
+                                                <span className="shrink-0 font-mono text-xs font-semibold text-bo-foreground">{item.maNhaCungCap || "—"}</span>
+                                                {item.nguoiLienHe ? <span className="min-w-0 truncate">· {item.nguoiLienHe}</span> : null}
+                                            </span>
+                                            {item.email ? (
+                                                <span className="min-w-0 truncate text-[13px] text-bo-muted">{item.email}</span>
+                                            ) : null}
+                                        </Link>
+                                        {coChan ? (
+                                            <div className="flex min-h-9 items-center justify-between gap-2 px-4 pb-2">
+                                                {item.soDienThoai ? (
+                                                    <a
+                                                        href={`tel:${item.soDienThoai.replace(/\s/g, "")}`}
+                                                        aria-label={`Gọi ${item.tenNhaCungCap}: ${item.soDienThoai}`}
+                                                        className="inline-flex h-9 min-w-0 items-center gap-1.5 text-sm font-medium text-bo-primary"
+                                                    >
+                                                        <Phone className="size-4 shrink-0" aria-hidden="true" />
+                                                        <span className="truncate tabular-nums">{item.soDienThoai}</span>
+                                                    </a>
+                                                ) : <span />}
+                                                {coTheQuanLy ? (
+                                                    <span className="flex shrink-0 gap-2">
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            onClick={() => openForm(item)}
+                                                            className="h-9 gap-1.5 border-bo-input-border bg-bo-surface px-3 text-sm font-medium text-bo-foreground"
+                                                        >
+                                                            <Edit className="size-4" aria-hidden="true" />
+                                                            Sửa
+                                                        </Button>
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            onClick={() => setDeleteDialog({ open: true, supplier: item })}
+                                                            className="h-9 gap-1.5 border-bo-input-border bg-bo-surface px-3 text-sm font-medium text-bo-danger"
+                                                        >
+                                                            <Trash2 className="size-4" aria-hidden="true" />
+                                                            Xóa
+                                                        </Button>
+                                                    </span>
+                                                ) : null}
+                                            </div>
+                                        ) : null}
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                        {/* Bảng: khung giãn hết màn, thân bảng tự cuộn, tiêu đề cột đứng yên.
+                            Máy tính bảng dọc (cảm ứng): bỏ cột STT, Mã NCC, SĐT, Email (thành dòng phụ) để không vuốt ngang;
+                            Sửa / Xóa to lên 44px cho dễ chạm, Xem chi tiết = chạm dòng (không có quyền quản lý thì ẩn cả cột Thao tác) */}
+                        <table className="w-full min-w-[960px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
                             <thead className="sticky top-0 z-10">
                                 <tr className="border-b border-bo-border bg-bo-surface-subtle">
                                     {["STT", "Mã NCC", "Tên nhà cung cấp", "Người liên hệ", "SĐT", "Email", "Trạng thái", "Thao tác"].map((h, i) => (
                                         <th
                                             key={h}
-                                            className={`h-10 whitespace-nowrap px-3 text-[11px] font-semibold uppercase tracking-wide text-bo-muted ${i === 7 ? "text-center" : "text-left"}`}
+                                            className={`h-10 whitespace-nowrap px-3 text-[11px] font-semibold uppercase tracking-wide text-bo-muted ${i === 7 ? "text-center" : "text-left"}${COT_AN_TREN_TABLET.has(i) || (i === 7 && !coTheQuanLy) ? " cam-ung:max-lg:hidden" : ""}`}
                                         >
                                             {h}
                                         </th>
@@ -348,34 +418,49 @@ export default function SupplierList() {
                                         className={`cursor-pointer transition-colors hover:bg-bo-surface-subtle ${item.id === highlightId ? "bg-bo-primary-soft" : ""}`}
                                     >
                                         {/* STT */}
-                                        <td className="px-3 py-3 text-xs text-bo-muted">
+                                        <td className="px-3 py-3 text-xs text-bo-muted cam-ung:max-lg:hidden">
                                             {safePage * pageSize + index + 1}
                                         </td>
 
                                         {/* Mã NCC */}
-                                        <td className="px-3 py-3">
+                                        <td className="px-3 py-3 cam-ung:max-lg:hidden">
                                             <span className="font-mono text-xs font-semibold text-bo-foreground">
                                                 {item.maNhaCungCap || "—"}
                                             </span>
                                         </td>
 
-                                        {/* Tên */}
+                                        {/* Tên (máy tính bảng dọc: mã NCC thành dòng phụ) */}
                                         <td className="max-w-[220px] px-3 py-3">
                                             <span className="font-semibold leading-snug text-bo-foreground">
                                                 {item.tenNhaCungCap}
                                             </span>
+                                            <span className="mt-0.5 hidden font-mono text-xs text-bo-muted cam-ung:max-lg:block">
+                                                {item.maNhaCungCap || "—"}
+                                            </span>
                                         </td>
 
-                                        {/* Người liên hệ */}
+                                        {/* Người liên hệ (máy tính bảng dọc: SĐT + email thành dòng phụ) */}
                                         <td className="px-3 py-3">
                                             <div className="flex items-center gap-1.5 text-slate-600">
                                                 <User2 className="size-3.5 shrink-0 text-slate-400" />
                                                 <span>{item.nguoiLienHe || "—"}</span>
                                             </div>
+                                            {item.soDienThoai ? (
+                                                <div className="mt-1 hidden items-center gap-1.5 text-xs text-slate-600 cam-ung:max-lg:flex">
+                                                    <Phone className="size-3.5 shrink-0 text-slate-400" />
+                                                    <span className="tabular-nums">{item.soDienThoai}</span>
+                                                </div>
+                                            ) : null}
+                                            {item.email ? (
+                                                <div className="mt-1 hidden min-w-0 max-w-[240px] items-center gap-1.5 text-xs text-slate-600 cam-ung:max-lg:flex">
+                                                    <Mail className="size-3.5 shrink-0 text-slate-400" />
+                                                    <span className="truncate">{item.email}</span>
+                                                </div>
+                                            ) : null}
                                         </td>
 
                                         {/* SĐT */}
-                                        <td className="px-3 py-3">
+                                        <td className="px-3 py-3 cam-ung:max-lg:hidden">
                                             <div className="flex items-center gap-1.5 text-slate-600">
                                                 <Phone className="size-3.5 shrink-0 text-slate-400" />
                                                 <span>{item.soDienThoai || "—"}</span>
@@ -383,7 +468,7 @@ export default function SupplierList() {
                                         </td>
 
                                         {/* Email */}
-                                        <td className="px-3 py-3">
+                                        <td className="px-3 py-3 cam-ung:max-lg:hidden">
                                             <div className="flex items-center gap-1.5 text-xs text-slate-600">
                                                 <Mail className="size-3.5 shrink-0 text-slate-400" />
                                                 <span>{item.email || "—"}</span>
@@ -396,12 +481,13 @@ export default function SupplierList() {
                                         </td>
 
                                         {/* Thao tác */}
-                                        <td className="px-3 py-3">
+                                        <td className={`px-3 py-3${coTheQuanLy ? "" : " cam-ung:max-lg:hidden"}`}>
                                             <RowActions>
                                                 <RowActionButton
                                                     icon={Eye}
                                                     label="Xem chi tiết"
                                                     onClick={() => navigate(`/supplier/${item.id}`)}
+                                                    className="cam-ung:max-lg:hidden"
                                                 />
                                                 {coTheQuanLy ? (
                                                     <>
@@ -424,6 +510,7 @@ export default function SupplierList() {
                                 ))}
                             </tbody>
                         </table>
+                        </>
                     )}
                 </TableShell>
             </PageContainer>

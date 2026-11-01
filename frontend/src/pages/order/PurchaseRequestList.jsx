@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from '@/lib/thongBaoNhanh';
 import {
     AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -496,14 +496,44 @@ export default function PurchaseRequestList() {
                         />
                     )
                 ) : (
-                    /* Bảng: khung giãn hết màn, thân bảng tự cuộn, tiêu đề cột đứng yên */
-                    <table className="w-full min-w-[900px] text-sm">
+                    <>
+                    {/* Điện thoại: mỗi yêu cầu một thẻ — mã yêu cầu + trạng thái, kho nhập, ngày tạo · người tạo + ngày giao DK */}
+                    <ul className="divide-y divide-bo-border md:hidden">
+                        {requests.map((req) => {
+                            const cfg = getYeuCauNhapHangStatus(req.trangThai);
+                            return (
+                                <li key={req.id}>
+                                    <Link to={`/purchase-requests/${req.id}`} className="grid grid-cols-1 gap-1 px-4 py-3 active:bg-bo-surface-subtle">
+                                        <span className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                                            <span className="min-w-0 truncate text-[15px] font-semibold text-bo-primary">{req.soYeuCauMuaHang || `#${req.id}`}</span>
+                                            <StatusBadge quyTrinh="yeuCauNhap" label={cfg.label} />
+                                        </span>
+                                        <span className="flex min-w-0 items-center gap-2 text-sm">
+                                            <span className="min-w-0 truncate font-semibold text-bo-foreground">{req.khoNhap?.tenKho || '-'}</span>
+                                            {req.khoNhap?.maKho ? <span className="shrink-0 text-bo-muted">{req.khoNhap.maKho}</span> : null}
+                                        </span>
+                                        <span className="flex items-baseline justify-between gap-3 text-[13px] text-bo-muted">
+                                            <span className="min-w-0 truncate">
+                                                {formatDate(req.ngayTao)}{req.nguoiTao?.hoTen ? ` · ${req.nguoiTao.hoTen}` : ''}
+                                            </span>
+                                            {req.ngayGiaoDuKien ? (
+                                                <span className="shrink-0">Ngày giao DK {formatDate(req.ngayGiaoDuKien)}</span>
+                                            ) : null}
+                                        </span>
+                                    </Link>
+                                </li>
+                            );
+                        })}
+                    </ul>
+                    {/* Bảng: khung giãn hết màn, thân bảng tự cuộn, tiêu đề cột đứng yên.
+                        Máy tính bảng dọc (cảm ứng): bỏ cột STT, Ngày tạo (đưa thành dòng phụ dưới người tạo) để không vuốt ngang */}
+                    <table className="w-full min-w-[900px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
                         <thead className="sticky top-0 z-10">
                             <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                                <th className="h-10 w-14 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">STT</th>
+                                <th className="h-10 w-14 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">STT</th>
                                 <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Kho nhập</th>
                                 <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Người tạo</th>
-                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày tạo</th>
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">Ngày tạo</th>
                                 <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày giao DK</th>
                                 <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
                             </tr>
@@ -517,7 +547,7 @@ export default function PurchaseRequestList() {
                                         className="cursor-pointer transition-colors hover:bg-bo-surface-subtle"
                                         onClick={() => navigate(`/purchase-requests/${req.id}`)}
                                     >
-                                        <td className="px-3 py-3 text-center text-xs text-bo-muted">
+                                        <td className="px-3 py-3 text-center text-xs text-bo-muted cam-ung:max-lg:hidden">
                                             {pagination.pageNumber * pagination.pageSize + index + 1}
                                         </td>
                                         <td className="px-3 py-3">
@@ -527,8 +557,9 @@ export default function PurchaseRequestList() {
                                         <td className="px-3 py-3">
                                             <p className="font-semibold text-bo-foreground">{req.nguoiTao?.hoTen || '-'}</p>
                                             <p className="text-xs text-bo-muted">{req.nguoiTao?.email}</p>
+                                            <p className="mt-0.5 hidden text-xs text-bo-muted cam-ung:max-lg:block">{formatDate(req.ngayTao)}</p>
                                         </td>
-                                        <td className="px-3 py-3">
+                                        <td className="px-3 py-3 cam-ung:max-lg:hidden">
                                             <div className="flex items-center gap-1.5 whitespace-nowrap text-slate-600">
                                                 <Calendar className="size-3.5 shrink-0 text-slate-400" />{formatDate(req.ngayTao)}
                                             </div>
@@ -546,6 +577,7 @@ export default function PurchaseRequestList() {
                             })}
                         </tbody>
                     </table>
+                    </>
                 )}
             </TableShell>
 
