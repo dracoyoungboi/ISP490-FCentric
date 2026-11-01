@@ -218,7 +218,7 @@ export default function BrandFormDialog({ open, onOpenChange, onCreated }) {
                             />
                             <label
                                 htmlFor="brand-logo"
-                                className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-bo-border bg-bo-surface p-2 text-sm font-medium text-bo-foreground transition-colors hover:bg-bo-primary-soft hover:text-bo-primary"
+                                className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-bo-border bg-bo-surface p-2 text-sm font-medium text-bo-foreground transition-colors hover:bg-bo-primary-soft hover:text-bo-primary cam-ung:min-h-11"
                             >
                                 <Upload className="size-4" />
                                 <span>Chọn ảnh logo</span>

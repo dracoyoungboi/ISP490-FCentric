@@ -20,6 +20,7 @@ export default function ChipLyDo({ value, onChange, disabled = false, className,
                 onChange(lyDo);
               }}
               className={cn(
+                // Màn cảm ứng: chip cao 44px (vùng chạm), chữ to hơn một chút cho cân
                 "h-7 rounded-full border px-2.5 text-[12.5px] font-medium transition-colors disabled:opacity-60",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30",
                 chon ? "border-bo-primary bg-bo-primary-soft text-bo-primary-strong" : "border-bo-border bg-bo-surface text-slate-700 hover:border-slate-400",

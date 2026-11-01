@@ -474,7 +474,8 @@ export default function TrinhTaoBienThe({
                                             </button>
                                         )}
                                         {i === 0 && (
-                                            <span className="ml-auto flex items-center gap-4 pl-2">
+                                            // Điện thoại: hai nút chung xuống một hàng riêng, không chen giữa các nút kích cỡ
+                                            <span className="ml-auto flex items-center gap-4 pl-2 max-md:basis-full max-md:pl-0">
                                                 <button
                                                     type="button"
                                                     disabled={disabled || state.kichCoDaChon.length === kichCos.length}
@@ -620,8 +621,14 @@ export default function TrinhTaoBienThe({
 
             {/* Bảng biến thể */}
             {nhom.length > 0 && <p className="-mb-2 text-xs text-bo-muted md:hidden">Vuốt ngang bảng để xem và nhập giá.</p>}
+            {/* Điện thoại: bảng trống chỉ có tiêu đề cột, câu hướng dẫn bị cắt vì phải vuốt ngang → thay bằng một khung chữ */}
+            {nhom.length === 0 && (
+                <p className="rounded-lg border border-dashed border-bo-border bg-bo-surface px-3 py-8 text-center text-sm text-bo-muted md:hidden">
+                    Bảng biến thể hiện ở đây sau khi chọn màu sắc và kích cỡ.
+                </p>
+            )}
             {/* relative: giữ cả phần tử absolute (sr-only) bên trong vùng cuộn, không làm tràn hộp thoại */}
-            <div className="relative overflow-x-auto rounded-lg border border-bo-border bg-bo-surface">
+            <div className={cn("relative overflow-x-auto rounded-lg border border-bo-border bg-bo-surface", nhom.length === 0 && "max-md:hidden")}>
                 <table className={cn("w-full border-collapse text-sm", laSua ? "min-w-[800px]" : "min-w-[720px]")}>
                     <thead>
                         <tr className="border-b border-bo-border bg-bo-surface-subtle text-left text-xs font-medium text-bo-muted">

@@ -1,4 +1,4 @@
-import { createElement, useRef, useState } from "react";
+import { createElement, useState } from "react";
 import { CircleCheck, CirclePause, Ellipsis, FolderInput, Pencil, Plus, ScanSearch } from "lucide-react";
 
 import {
@@ -8,10 +8,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import SheetDay from "@/components/shared/SheetDay";
 import { cn } from "@/lib/utils";
 
-const MUC = "cursor-pointer items-start gap-2 rounded-md px-2.5 py-2 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-100";
+// Máy tính bảng dọc (cảm ứng): mục menu cao ~44px
+const MUC = "cursor-pointer items-start gap-2 rounded-md px-2.5 py-2 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-100 cam-ung:max-lg:py-3";
 
 /**
  * Menu ⋯ của một dòng.
@@ -76,67 +77,60 @@ function mauIconTrangThai(trangThai) {
   return trangThai.loai === "ngung" ? "text-bo-warning" : "text-bo-success";
 }
 
-/** Bảng trượt từ dưới lên của bản điện thoại: mỗi thao tác một hàng cao 52px. */
+/**
+ * Bảng trượt từ dưới lên của bản điện thoại: dùng SheetDay (cùng khung với sheet ⋯ của Sản phẩm, Thuộc tính: tay nắm,
+ * nút đóng 44px, chừa khoảng an toàn đáy máy). Mỗi thao tác một hàng cao 52px; dòng phụ dưới tiêu đề là đường dẫn cha.
+ */
 function BangTruot({ thaoTac, phu, onThemCon, onSua, onChuyen, onDoiTrangThai }) {
   const [mo, setMo] = useState(false);
-  const daChon = useRef(false);
 
+  // Đóng bảng trượt trước rồi mới mở hộp thoại kế tiếp, tránh hai lớp phủ tranh nhau giữ tiêu điểm
   const chon = (viec) => () => {
-    daChon.current = true;
     setMo(false);
-    // Mở hộp thoại tiếp theo sau khi bảng trượt đóng hẳn lớp phủ, tránh hai hộp tranh nhau giữ focus
     setTimeout(() => viec?.(), 0);
   };
 
   return (
-    <Sheet open={mo} onOpenChange={setMo}>
-      <SheetTrigger asChild>
+    <SheetDay
+      mo={mo}
+      onDoiMo={setMo}
+      tieuDe={thaoTac.ten}
+      moTa={`Thao tác với danh mục ${thaoTac.ten}`}
+      kichHoat={
         <button
           type="button"
           aria-label={`Thao tác cho ${thaoTac.ten}`}
-          onClick={(event) => {
-            event.stopPropagation();
-            daChon.current = false;
-          }}
+          onClick={(event) => event.stopPropagation()}
           className="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-bo-muted hover:bg-slate-100 hover:text-bo-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-bo-primary"
         >
           <Ellipsis className="size-5" aria-hidden="true" />
         </button>
-      </SheetTrigger>
-      <SheetContent
-        side="bottom"
-        onCloseAutoFocus={(event) => { if (daChon.current) event.preventDefault(); }}
-        className="gap-0 rounded-t-xl border-bo-border bg-bo-surface px-0 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))] text-bo-foreground"
-      >
-        <span aria-hidden="true" className="mx-auto mb-2 h-1 w-10 rounded-full bg-slate-200" />
-        <SheetHeader className="gap-0.5 border-b border-slate-100 px-5 pt-1 pb-3 pr-12 text-left">
-          <SheetTitle className="truncate text-base font-semibold text-bo-foreground">{thaoTac.ten}</SheetTitle>
-          <SheetDescription className="truncate text-xs text-bo-muted">{phu || "Danh mục gốc"}</SheetDescription>
-        </SheetHeader>
-        <div className="flex flex-col py-1">
-          {thaoTac.themCon ? (
-            <MucTruot icon={Plus} nhan="Thêm danh mục con" phu={thaoTac.themCon.khoa ? thaoTac.themCon.lyDo : ""} khoa={thaoTac.themCon.khoa} onClick={chon(onThemCon)} />
-          ) : null}
-          {thaoTac.sua ? (
-            <MucTruot icon={Pencil} nhan="Sửa" phu={thaoTac.sua.khoa ? thaoTac.sua.lyDo : ""} khoa={thaoTac.sua.khoa} onClick={chon(onSua)} />
-          ) : null}
-          {thaoTac.chuyen ? <MucTruot icon={FolderInput} nhan="Chuyển đến…" onClick={chon(onChuyen)} /> : null}
-          {thaoTac.trangThai ? (
-            <>
-              <span aria-hidden="true" className="mx-5 my-1 h-px bg-slate-100" />
-              <MucTruot
-                icon={thaoTac.trangThai.loai === "ngung" ? CirclePause : CircleCheck}
-                mauIcon={mauIconTrangThai(thaoTac.trangThai)}
-                nhan={thaoTac.trangThai.nhan}
-                phu={thaoTac.trangThai.phu}
-                khoa={thaoTac.trangThai.khoa}
-                onClick={chon(onDoiTrangThai)}
-              />
-            </>
-          ) : null}
-        </div>
-      </SheetContent>
-    </Sheet>
+      }
+    >
+      <p className="-mt-1 mb-1 truncate text-xs text-bo-muted">{phu || "Danh mục gốc"}</p>
+      <div className="-mx-1 flex flex-col">
+        {thaoTac.themCon ? (
+          <MucTruot icon={Plus} nhan="Thêm danh mục con" phu={thaoTac.themCon.khoa ? thaoTac.themCon.lyDo : ""} khoa={thaoTac.themCon.khoa} onClick={chon(onThemCon)} />
+        ) : null}
+        {thaoTac.sua ? (
+          <MucTruot icon={Pencil} nhan="Sửa" phu={thaoTac.sua.khoa ? thaoTac.sua.lyDo : ""} khoa={thaoTac.sua.khoa} onClick={chon(onSua)} />
+        ) : null}
+        {thaoTac.chuyen ? <MucTruot icon={FolderInput} nhan="Chuyển đến…" onClick={chon(onChuyen)} /> : null}
+        {thaoTac.trangThai ? (
+          <>
+            <span aria-hidden="true" className="mx-1 my-1 h-px bg-slate-100" />
+            <MucTruot
+              icon={thaoTac.trangThai.loai === "ngung" ? CirclePause : CircleCheck}
+              mauIcon={mauIconTrangThai(thaoTac.trangThai)}
+              nhan={thaoTac.trangThai.nhan}
+              phu={thaoTac.trangThai.phu}
+              khoa={thaoTac.trangThai.khoa}
+              onClick={chon(onDoiTrangThai)}
+            />
+          </>
+        ) : null}
+      </div>
+    </SheetDay>
   );
 }
 
@@ -146,7 +140,7 @@ function MucTruot({ icon, mauIcon, nhan, phu, khoa = false, onClick }) {
       type="button"
       disabled={khoa}
       onClick={onClick}
-      className="flex min-h-[52px] w-full items-center gap-3 px-5 py-2 text-left text-[15px] hover:bg-bo-surface-subtle focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-bo-primary disabled:cursor-not-allowed"
+      className="flex min-h-[52px] w-full items-center gap-3 rounded-md px-1 py-2 text-left text-[15px] hover:bg-bo-surface-subtle focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-bo-primary disabled:cursor-not-allowed"
     >
       {createElement(icon, { className: cn("size-[18px] shrink-0", mauIcon ?? (khoa ? "text-slate-300" : "text-slate-500")), "aria-hidden": true })}
       <span className="flex min-w-0 flex-col">

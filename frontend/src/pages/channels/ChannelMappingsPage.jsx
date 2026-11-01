@@ -50,6 +50,7 @@ import { LIEN_KET_STATUS, LIEN_KET_TABS, tinhSoTonDayLenSan } from "@/constants/
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { GHI_CHU_DU_LIEU_MAU_KENH, isChannelMock, kenhBanHangService } from "@/services/kenhBanHangService";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
+import { useIsMobile } from "@/hooks/use-mobile";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { getApiErrorCode, getApiErrorMessage } from "@/utils/apiError";
@@ -193,6 +194,8 @@ export default function ChannelMappingsPage() {
   const [vuaBat, setVuaBat] = useState(() => new Set());
   const [hoiNgung, setHoiNgung] = useState(null); // { tieuDe, dong: [...], xong? }
   const bangRef = useRef(null);
+  // Điện thoại (< 768px): danh sách thẻ thay cho bảng
+  const laDienThoai = useIsMobile();
 
   // Gõ tìm kiếm: chờ người dùng ngừng gõ rồi mới lọc
   useEffect(() => {
@@ -634,10 +637,122 @@ export default function ChannelMappingsPage() {
    * ở hàng sản phẩm. Cột Trạng thái chỉ hiện ngoại lệ (Lỗi, Ngừng đồng bộ): dòng đang đồng bộ bình thường để trống
    * vì công tắc bên cạnh đã cho biết (chốt 21/10, mỗi thông tin chỉ hiện một lần).
    */
+  const metaCua = (dong) =>
+    LIEN_KET_STATUS[dong.trangThaiLienKet] ?? { label: dong.trangThaiLienKet ? `Không xác định (mã ${dong.trangThaiLienKet})` : "Chưa có trạng thái" };
+
+  /** Nội dung ô Trạng thái của một SKU (dùng ở cột Trạng thái, và dưới tên sản phẩm trên máy tính bảng dọc). */
+  const oTrangThai = (dong, meta, dangXuLyDong) => (
+    <>
+      {dong.trangThaiLienKet === "da_lien_ket" ? (
+        <span className="sr-only">{meta.label}</span>
+      ) : (
+        <StatusBadge label={meta.label} />
+      )}
+      {dong.trangThaiLienKet === "loi" ? (
+        <div className="mt-1 flex max-w-[260px] items-baseline gap-2 text-xs">
+          {dong.chiTietLoi ? (
+            <span className="min-w-0 truncate text-bo-danger" title={dong.chiTietLoi}>
+              {dong.chiTietLoi}
+            </span>
+          ) : null}
+          <button
+            type="button"
+            disabled={khoaBang || hetHanUyQuyen}
+            title={lyDoHetHan ?? undefined}
+            aria-describedby={moTaHetHan}
+            onClick={(event) => {
+              event.stopPropagation();
+              thuLai(dong);
+            }}
+            className="shrink-0 font-medium text-bo-primary hover:underline disabled:cursor-not-allowed disabled:opacity-50 disabled:no-underline"
+          >
+            {dangXuLyDong && dangChay?.ten === "thu-lai" ? "Đang thử lại…" : "Thử lại"}
+          </button>
+        </div>
+      ) : null}
+    </>
+  );
+
+  /** Nút ⋯ của một SKU (Ghép biến thể khác, Xem chi tiết, Thử lại) kèm ô ghép biến thể mở ngay dưới nút. */
+  const menuThaoTac = (dong, dangXuLyDong) => (
+    <Popover open={ghepId === dong.id} onOpenChange={(mo) => !mo && dangChay?.ten !== "ghep" && setGhepId(null)}>
+      <PopoverAnchor asChild>
+        <span className="inline-flex">
+          <DropdownMenu modal={false}>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={khoa}
+                aria-label={`Thao tác khác cho ${dong.maSku || dong.skuSan}`}
+                className="size-8 rounded-md p-0 text-bo-muted hover:bg-slate-100 hover:text-bo-foreground"
+              >
+                {dangXuLyDong && dangChay?.ten !== "bat-tat" ? <Loader2 className="size-4 animate-spin" /> : <MoreHorizontal className="size-4" />}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="w-52 z-50 rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg"
+              onCloseAutoFocus={(event) => {
+                // Mở ô ghép sau khi menu đóng hẳn, không trả tiêu điểm về nút ⋯ (ô tìm sẽ nhận tiêu điểm)
+                if (moGhepSauMenuRef.current !== dong.id) return;
+                event.preventDefault();
+                moGhepSauMenuRef.current = null;
+                setGhepId(dong.id);
+              }}
+            >
+              <DropdownMenuItem
+                onSelect={() => {
+                  moGhepSauMenuRef.current = dong.id;
+                }}
+                className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
+              >
+                Ghép biến thể khác
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setChiTietId(dong.id)} className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900">
+                Xem chi tiết
+              </DropdownMenuItem>
+              {dong.trangThaiLienKet === "loi" ? (
+                <>
+                  <DropdownMenuSeparator className="bg-bo-border" />
+                  <DropdownMenuItem disabled={khoaBang || hetHanUyQuyen} onSelect={() => thuLai(dong)} className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900">
+                    Thử lại
+                  </DropdownMenuItem>
+                </>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </span>
+      </PopoverAnchor>
+      <PopoverContent
+        align="end"
+        onFocusOutside={(event) => event.preventDefault()}
+        className="w-auto rounded-xl border border-bo-border bg-bo-surface p-0 shadow-lg"
+      >
+        <GhepBienThe
+          dong={dong}
+          tenSan={SAN.ten}
+          dangGhep={dangChay?.ten === "ghep" && dangChay?.id === dong.id}
+          onHuy={() => setGhepId(null)}
+          onGhep={(bienThe) => ghep(dong, bienThe)}
+        />
+      </PopoverContent>
+    </Popover>
+  );
+
   const dongSku = (dong, trongNhom, gioNhom = null) => {
-    const meta = LIEN_KET_STATUS[dong.trangThaiLienKet] ?? { label: dong.trangThaiLienKet ? `Không xác định (mã ${dong.trangThaiLienKet})` : "Chưa có trạng thái" };
+    const meta = metaCua(dong);
     const dangXuLyDong = dangChay?.id === dong.id;
     const choPhepBat = dangDongBo(dong) || Boolean(dong.bienTheSanPhamId);
+    // Máy tính bảng dọc (cảm ứng): cột SKU FCentric, Trạng thái đã ẩn, ghi thành dòng phụ dưới tên
+    const dongPhuBang = (
+      <div className={cn("hidden min-w-0 cam-ung:max-lg:block", trongNhom && "pl-[30px]")}>
+        <p className="truncate text-[12.5px] tabular-nums text-slate-500">
+          {dong.maSku || "—"} · {SAN.ten} {dong.skuSan || "—"}
+        </p>
+        {dong.trangThaiLienKet !== "da_lien_ket" ? <div className="mt-1">{oTrangThai(dong, meta, dangXuLyDong)}</div> : null}
+      </div>
+    );
     return (
       <tr
         key={dong.id}
@@ -652,9 +767,12 @@ export default function ChannelMappingsPage() {
             className={CHECKBOX_CLASS}
           />
         </td>
-        <td className="max-w-[360px] px-3 py-2.5">
+        <td className="max-w-[360px] px-3 py-2.5 cam-ung:max-lg:max-w-[290px]">
           {trongNhom ? (
-            <p className="truncate pl-[30px] text-bo-foreground">{dong.tenBienThe || dong.tenBienTheSan || "—"}</p>
+            <>
+              <p className="truncate pl-[30px] text-bo-foreground">{dong.tenBienThe || dong.tenBienTheSan || "—"}</p>
+              {dongPhuBang}
+            </>
           ) : (
             <div className="flex min-w-0 items-center gap-2.5">
               <AnhSanPham src={dong.anhDaiDien} />
@@ -663,11 +781,12 @@ export default function ChannelMappingsPage() {
                   <ToKhop text={dong.tenSanPham || dong.tenSanPhamSan || "—"} tu={tuKhoa} />
                 </p>
                 <p className="truncate text-[13px] text-bo-muted">{dong.tenBienThe || dong.tenBienTheSan || "—"}</p>
+                {dongPhuBang}
               </div>
             </div>
           )}
         </td>
-        <td className="whitespace-nowrap px-3 py-2.5">
+        <td className="whitespace-nowrap px-3 py-2.5 cam-ung:max-lg:hidden">
           <p className="text-[13.5px] text-bo-foreground">
             <ToKhop text={dong.maSku || "—"} tu={tuKhoa} />
           </p>
@@ -679,35 +798,7 @@ export default function ChannelMappingsPage() {
         <td className="whitespace-nowrap px-3 py-2.5 text-right">
           <OTonDaDay dong={dong} seDay={soSeDay(dong)} vuaBat={vuaBat.has(dong.id)} gioNhom={gioNhom} />
         </td>
-        <td className="px-3 py-2.5">
-          {dong.trangThaiLienKet === "da_lien_ket" ? (
-            <span className="sr-only">{meta.label}</span>
-          ) : (
-            <StatusBadge label={meta.label} />
-          )}
-          {dong.trangThaiLienKet === "loi" ? (
-            <div className="mt-1 flex max-w-[260px] items-baseline gap-2 text-xs">
-              {dong.chiTietLoi ? (
-                <span className="min-w-0 truncate text-bo-danger" title={dong.chiTietLoi}>
-                  {dong.chiTietLoi}
-                </span>
-              ) : null}
-              <button
-                type="button"
-                disabled={khoaBang || hetHanUyQuyen}
-                title={lyDoHetHan ?? undefined}
-                aria-describedby={moTaHetHan}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  thuLai(dong);
-                }}
-                className="shrink-0 font-medium text-bo-primary hover:underline disabled:cursor-not-allowed disabled:opacity-50 disabled:no-underline"
-              >
-                {dangXuLyDong && dangChay?.ten === "thu-lai" ? "Đang thử lại…" : "Thử lại"}
-              </button>
-            </div>
-          ) : null}
-        </td>
+        <td className="px-3 py-2.5 cam-ung:max-lg:hidden">{oTrangThai(dong, meta, dangXuLyDong)}</td>
         <td className="px-3 py-2.5" onClick={(event) => event.stopPropagation()}>
           <Switch
             checked={dangDongBo(dong)}
@@ -719,95 +810,78 @@ export default function ChannelMappingsPage() {
           />
         </td>
         <td className="w-12 px-2 py-2.5 text-right" onClick={(event) => event.stopPropagation()}>
-          <Popover open={ghepId === dong.id} onOpenChange={(mo) => !mo && dangChay?.ten !== "ghep" && setGhepId(null)}>
-            <PopoverAnchor asChild>
-              <span className="inline-flex">
-                <DropdownMenu modal={false}>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      disabled={khoa}
-                      aria-label={`Thao tác khác cho ${dong.maSku || dong.skuSan}`}
-                      className="size-8 rounded-md p-0 text-bo-muted hover:bg-slate-100 hover:text-bo-foreground max-sm:size-11"
-                    >
-                      {dangXuLyDong && dangChay?.ten !== "bat-tat" ? <Loader2 className="size-4 animate-spin" /> : <MoreHorizontal className="size-4" />}
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    align="end"
-                    className="w-52 z-50 rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg"
-                    onCloseAutoFocus={(event) => {
-                      // Mở ô ghép sau khi menu đóng hẳn, không trả tiêu điểm về nút ⋯ (ô tìm sẽ nhận tiêu điểm)
-                      if (moGhepSauMenuRef.current !== dong.id) return;
-                      event.preventDefault();
-                      moGhepSauMenuRef.current = null;
-                      setGhepId(dong.id);
-                    }}
-                  >
-                    <DropdownMenuItem
-                      onSelect={() => {
-                        moGhepSauMenuRef.current = dong.id;
-                      }}
-                      className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
-                    >
-                      Ghép biến thể khác
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => setChiTietId(dong.id)} className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900">
-                      Xem chi tiết
-                    </DropdownMenuItem>
-                    {dong.trangThaiLienKet === "loi" ? (
-                      <>
-                        <DropdownMenuSeparator className="bg-bo-border" />
-                        <DropdownMenuItem disabled={khoaBang || hetHanUyQuyen} onSelect={() => thuLai(dong)} className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900">
-                          Thử lại
-                        </DropdownMenuItem>
-                      </>
-                    ) : null}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </span>
-            </PopoverAnchor>
-            <PopoverContent
-              align="end"
-              onFocusOutside={(event) => event.preventDefault()}
-              className="w-auto rounded-xl border border-bo-border bg-bo-surface p-0 shadow-lg"
-            >
-              <GhepBienThe
-                dong={dong}
-                tenSan={SAN.ten}
-                dangGhep={dangChay?.ten === "ghep" && dangChay?.id === dong.id}
-                onHuy={() => setGhepId(null)}
-                onGhep={(bienThe) => ghep(dong, bienThe)}
-              />
-            </PopoverContent>
-          </Popover>
+          {menuThaoTac(dong, dangXuLyDong)}
         </td>
       </tr>
     );
   };
 
+  /** Số liệu một nhóm sản phẩm, tính trên đủ SKU của nhóm (hàng sản phẩm của bảng và thẻ nhóm trên điện thoại). */
+  const soLieuNhom = (g) => {
+    const soNgung = g.dong.filter((d) => d.trangThaiLienKet === "chua_lien_ket").length;
+    return {
+      ids: g.dong.map((d) => d.id),
+      soLoi: g.dong.filter((d) => d.trangThaiLienKet === "loi").length,
+      soDangDongBo: g.dong.filter((d) => d.trangThaiLienKet === "da_lien_ket").length,
+      soNgung,
+      soBat: g.dong.length - soNgung,
+      tongKhaDung: g.dong.reduce((s, d) => s + (Number(d.soLuongKhaDung) || 0), 0),
+      daDay: g.dong.filter((d) => dangDongBo(d) && coSo(d.soLuongDaDay)).map((d) => Number(d.soLuongDaDay)),
+      soChoDay: g.dong.filter((d) => laChoDay(d, soSeDay(d), vuaBat.has(d.id))).length,
+      batDuoc: g.dong.some((d) => dangDongBo(d) || d.bienTheSanPhamId),
+    };
+  };
+
+  /** Tóm tắt cả nhóm: việc cần xử lý (lỗi, ngừng) đứng trước; đủ cả nhóm đang đồng bộ thì ghi gọn một cụm. */
+  const tomTatNhom = (g, { soLoi, soNgung, soDangDongBo }) => (
+    <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] leading-5 text-bo-foreground">
+      {soLoi ? <DemTrangThai so={soLoi} nhan="lỗi" mau="bg-bo-danger" className="font-medium text-bo-danger" /> : null}
+      {soNgung ? <DemTrangThai so={soNgung} nhan="ngừng" mau="bg-slate-400" /> : null}
+      {soDangDongBo === g.dong.length ? (
+        <DemTrangThai so={soDangDongBo} nhan="đang đồng bộ" mau="bg-bo-success" truoc="Đủ" />
+      ) : soDangDongBo ? (
+        <DemTrangThai so={soDangDongBo} nhan="đang đồng bộ" mau="bg-bo-success" />
+      ) : null}
+    </span>
+  );
+
+  /** Công tắc cả nhóm: đang bật hết → ngừng cả nhóm (hỏi lại); còn lại → bật hết. Bật một phần thì ghi "3/7". */
+  const congTacNhom = (g, { soBat, batDuoc }) => (
+    <div className="flex items-center gap-2">
+      <Switch
+        checked={soBat === g.dong.length}
+        disabled={khoaBang || !batDuoc}
+        onCheckedChange={() => batTatNhom(g)}
+        aria-label={
+          soBat === g.dong.length
+            ? `Ngừng đồng bộ cả ${g.ten}`
+            : `Bật đồng bộ cả ${g.ten} (đang bật ${soBat}/${g.dong.length})`
+        }
+        className={cn(SWITCH_CLASS, VUNG_CHAM_CONG_TAC)}
+      />
+      {soBat > 0 && soBat < g.dong.length ? (
+        <span className="text-xs tabular-nums text-bo-muted" title={`${soBat} trên ${g.dong.length} phân loại đang đồng bộ`}>
+          {soBat}/{g.dong.length}
+        </span>
+      ) : null}
+    </div>
+  );
+
   /**
    * Hàng sản phẩm (sản phẩm nhiều phân loại): bấm cả hàng để mở/đóng, chọn cả nhóm, tổng tồn, công tắc cả nhóm.
    * Số liệu tính trên đủ SKU của nhóm. Đang mở thì hàng dính dưới tiêu đề cột khi cuộn qua các phân loại.
+   * Máy tính bảng dọc (cảm ứng): ô SKU trống và ô tóm tắt trạng thái ẩn, tóm tắt ghi dưới số phân loại.
    */
   const hangNhom = (g, mo, gioNhom) => {
-    const ids = g.dong.map((d) => d.id);
-    const soLoi = g.dong.filter((d) => d.trangThaiLienKet === "loi").length;
-    const soDangDongBo = g.dong.filter((d) => d.trangThaiLienKet === "da_lien_ket").length;
-    const soNgung = g.dong.filter((d) => d.trangThaiLienKet === "chua_lien_ket").length;
-    const soBat = g.dong.length - soNgung;
-    const tongKhaDung = g.dong.reduce((s, d) => s + (Number(d.soLuongKhaDung) || 0), 0);
-    const daDay = g.dong.filter((d) => dangDongBo(d) && coSo(d.soLuongDaDay)).map((d) => Number(d.soLuongDaDay));
-    const soChoDay = g.dong.filter((d) => laChoDay(d, soSeDay(d), vuaBat.has(d.id))).length;
-    const batDuoc = g.dong.some((d) => dangDongBo(d) || d.bienTheSanPhamId);
+    const st = soLieuNhom(g);
+    const { ids, tongKhaDung, daDay, soChoDay } = st;
     const dinh = mo && "sticky top-10 z-[5] shadow-[inset_0_-1px_0_var(--color-bo-border)]";
     return (
       <tr key={g.khoa} onClick={() => doiGon(g.khoa)} className="group/nhom cursor-pointer">
         <td className={cn("w-10 bg-bo-row-group px-3 py-2.5 group-hover/nhom:bg-bo-row-group-hover", dinh)} onClick={(event) => event.stopPropagation()}>
           <Checkbox checked={trangThaiChon(ids)} onCheckedChange={(v) => doiChon(ids, v === true)} aria-label={`Chọn cả ${g.ten}`} className={CHECKBOX_CLASS} />
         </td>
-        <td className={cn("max-w-[360px] bg-bo-row-group px-3 py-2.5 group-hover/nhom:bg-bo-row-group-hover", dinh)}>
+        <td className={cn("max-w-[360px] bg-bo-row-group px-3 py-2.5 group-hover/nhom:bg-bo-row-group-hover cam-ung:max-lg:max-w-[290px]", dinh)}>
           <div className="flex min-w-0 items-center gap-2">
             <button
               type="button"
@@ -830,10 +904,11 @@ export default function ChannelMappingsPage() {
                 {nhanSoPhanLoai(g, formatNumberOrDash)}
                 {dangLoc && g.dong.length < g.tongPhanLoai ? " khớp" : ""}
               </p>
+              <div className="mt-0.5 hidden cam-ung:max-lg:block">{tomTatNhom(g, st)}</div>
             </div>
           </div>
         </td>
-        <td className={cn("bg-bo-row-group px-3 py-2.5 group-hover/nhom:bg-bo-row-group-hover", dinh)} />
+        <td className={cn("bg-bo-row-group px-3 py-2.5 group-hover/nhom:bg-bo-row-group-hover cam-ung:max-lg:hidden", dinh)} />
         <td className={cn("whitespace-nowrap bg-bo-row-group px-3 py-2.5 text-right font-medium tabular-nums text-bo-heading group-hover/nhom:bg-bo-row-group-hover", dinh)}>
           {formatNumberOrDash(tongKhaDung)}
         </td>
@@ -849,40 +924,136 @@ export default function ChannelMappingsPage() {
             ) : null}
           </div>
         </td>
-        <td className={cn("bg-bo-row-group px-3 py-2.5 group-hover/nhom:bg-bo-row-group-hover", dinh)}>
-          {/* Tóm tắt cả nhóm: việc cần xử lý (lỗi, ngừng) đứng trước; đủ cả nhóm đang đồng bộ thì ghi gọn một cụm */}
-          <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] leading-5 text-bo-foreground">
-            {soLoi ? <DemTrangThai so={soLoi} nhan="lỗi" mau="bg-bo-danger" className="font-medium text-bo-danger" /> : null}
-            {soNgung ? <DemTrangThai so={soNgung} nhan="ngừng" mau="bg-slate-400" /> : null}
-            {soDangDongBo === g.dong.length ? (
-              <DemTrangThai so={soDangDongBo} nhan="đang đồng bộ" mau="bg-bo-success" truoc="Đủ" />
-            ) : soDangDongBo ? (
-              <DemTrangThai so={soDangDongBo} nhan="đang đồng bộ" mau="bg-bo-success" />
-            ) : null}
-          </span>
+        <td className={cn("bg-bo-row-group px-3 py-2.5 group-hover/nhom:bg-bo-row-group-hover cam-ung:max-lg:hidden", dinh)}>
+          {tomTatNhom(g, st)}
         </td>
         <td className={cn("bg-bo-row-group px-3 py-2.5 group-hover/nhom:bg-bo-row-group-hover", dinh)} onClick={(event) => event.stopPropagation()}>
-          <div className="flex items-center gap-2">
-            <Switch
-              checked={soBat === g.dong.length}
-              disabled={khoaBang || !batDuoc}
-              onCheckedChange={() => batTatNhom(g)}
-              aria-label={
-                soBat === g.dong.length
-                  ? `Ngừng đồng bộ cả ${g.ten}`
-                  : `Bật đồng bộ cả ${g.ten} (đang bật ${soBat}/${g.dong.length})`
-              }
-              className={cn(SWITCH_CLASS, VUNG_CHAM_CONG_TAC)}
-            />
-            {soBat > 0 && soBat < g.dong.length ? (
-              <span className="text-xs tabular-nums text-bo-muted" title={`${soBat} trên ${g.dong.length} phân loại đang đồng bộ`}>
-                {soBat}/{g.dong.length}
-              </span>
-            ) : null}
-          </div>
+          {congTacNhom(g, st)}
         </td>
         <td className={cn("bg-bo-row-group px-2 py-2.5 group-hover/nhom:bg-bo-row-group-hover", dinh)} />
       </tr>
+    );
+  };
+
+  /**
+   * Điện thoại: thẻ một SKU — ô chọn bên trái, chạm thẻ mở chi tiết đồng bộ; tên (hoặc phân loại khi nằm trong nhóm),
+   * SKU FCentric · SKU sàn, khả dụng · số đã đẩy, trạng thái khi là ngoại lệ (Lỗi, Ngừng); công tắc + ⋯ bên phải.
+   */
+  const theSku = (dong, trongNhom) => {
+    const meta = metaCua(dong);
+    const dangXuLyDong = dangChay?.id === dong.id;
+    const choPhepBat = dangDongBo(dong) || Boolean(dong.bienTheSanPhamId);
+    const seDay = soSeDay(dong);
+    const choDay = laChoDay(dong, seDay, vuaBat.has(dong.id));
+    return (
+      <li key={dong.id} className={cn("flex items-start", chon.has(dong.id) && "bg-bo-primary-soft/50", trongNhom && "pl-6")}>
+        <label className="grid h-[52px] w-11 shrink-0 cursor-pointer place-items-center">
+          <Checkbox
+            checked={chon.has(dong.id)}
+            onCheckedChange={(v) => doiChon([dong.id], v === true)}
+            aria-label={`Chọn ${dong.maSku || dong.skuSan}`}
+            className={cn("size-5", CHECKBOX_CLASS)}
+          />
+        </label>
+        <button type="button" onClick={() => setChiTietId(dong.id)} className="grid min-w-0 flex-1 gap-0.5 py-3 text-left active:bg-bo-surface-subtle">
+          {trongNhom ? (
+            <span className="truncate font-medium text-bo-foreground">{dong.tenBienThe || dong.tenBienTheSan || "—"}</span>
+          ) : (
+            <span className="flex min-w-0 items-center gap-2.5">
+              <AnhSanPham src={dong.anhDaiDien} />
+              <span className="min-w-0">
+                <span className="block truncate font-medium text-bo-heading">
+                  <ToKhop text={dong.tenSanPham || dong.tenSanPhamSan || "—"} tu={tuKhoa} />
+                </span>
+                <span className="block truncate text-[13px] text-bo-muted">{dong.tenBienThe || dong.tenBienTheSan || "—"}</span>
+              </span>
+            </span>
+          )}
+          <span className="truncate text-[12.5px] tabular-nums text-slate-500">
+            <ToKhop text={dong.maSku || "—"} tu={tuKhoa} /> · {SAN.ten} <ToKhop text={dong.skuSan || "—"} tu={tuKhoa} />
+          </span>
+          <span className="flex flex-wrap items-baseline gap-x-1.5 text-[13px] tabular-nums text-bo-muted">
+            <span>
+              Khả dụng <span className="font-medium text-bo-foreground">{formatNumberOrDash(dong.soLuongKhaDung)}</span>
+            </span>
+            {dangDongBo(dong) ? (
+              <span>
+                · {coSo(dong.soLuongDaDay) ? (
+                  <>
+                    Đã đẩy <span className="font-medium text-bo-foreground">{formatNumberOrDash(dong.soLuongDaDay)}</span>
+                  </>
+                ) : (
+                  "Chưa đẩy"
+                )}
+              </span>
+            ) : null}
+            {choDay ? <span className="font-medium text-amber-600">{coSo(seDay) ? `→ sẽ đẩy ${formatNumberOrDash(seDay)}` : "Chờ đẩy"}</span> : null}
+          </span>
+          {dong.trangThaiLienKet !== "da_lien_ket" ? (
+            <span className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+              <StatusBadge label={meta.label} />
+              {dong.trangThaiLienKet === "loi" && dong.chiTietLoi ? (
+                <span className="w-full text-xs leading-4 text-bo-danger">{dong.chiTietLoi}</span>
+              ) : null}
+            </span>
+          ) : null}
+        </button>
+        <div className="flex shrink-0 items-center gap-0.5 pl-1 pr-1 pt-1">
+          <span className="grid h-11 w-12 place-items-center">
+            <Switch
+              checked={dangDongBo(dong)}
+              disabled={khoaBang || !choPhepBat}
+              onCheckedChange={() => batTat(dong)}
+              aria-label={`Đồng bộ ${dong.maSku || dong.skuSan}`}
+              className={cn(SWITCH_CLASS, VUNG_CHAM_CONG_TAC)}
+            />
+          </span>
+          {menuThaoTac(dong, dangXuLyDong)}
+        </div>
+      </li>
+    );
+  };
+
+  /** Điện thoại: thẻ một sản phẩm nhiều phân loại — chạm để mở/thu gọn các phân loại, chọn cả nhóm, công tắc cả nhóm. */
+  const theNhom = (g, mo) => {
+    const st = soLieuNhom(g);
+    return (
+      <li key={g.khoa} className="bg-bo-row-group">
+        <div className="flex items-start">
+          <label className="grid h-[60px] w-11 shrink-0 cursor-pointer place-items-center">
+            <Checkbox
+              checked={trangThaiChon(st.ids)}
+              onCheckedChange={(v) => doiChon(st.ids, v === true)}
+              aria-label={`Chọn cả ${g.ten}`}
+              className={cn("size-5", CHECKBOX_CLASS)}
+            />
+          </label>
+          <button
+            type="button"
+            onClick={() => doiGon(g.khoa)}
+            aria-expanded={mo}
+            aria-label={mo ? `Thu gọn các phân loại của ${g.ten}` : `Mở các phân loại của ${g.ten}`}
+            className="flex min-w-0 flex-1 items-start gap-2 py-3 text-left"
+          >
+            <ChevronRight className={cn("mt-2.5 size-4 shrink-0 text-bo-muted transition-transform duration-150 motion-reduce:transition-none", mo && "rotate-90")} />
+            <AnhSanPham src={g.anh} />
+            <span className="grid min-w-0 gap-0.5">
+              <span className="truncate font-medium text-bo-heading">
+                <ToKhop text={g.ten} tu={tuKhoa} />
+              </span>
+              <span className="text-[13px] tabular-nums text-bo-muted">
+                {nhanSoPhanLoai(g, formatNumberOrDash)}
+                {dangLoc && g.dong.length < g.tongPhanLoai ? " khớp" : ""} · Khả dụng{" "}
+                <span className="font-medium text-bo-foreground">{formatNumberOrDash(st.tongKhaDung)}</span>
+                {st.soChoDay ? <span className="font-medium text-amber-600"> · {formatNumberOrDash(st.soChoDay)} SKU chờ đẩy</span> : null}
+              </span>
+              {tomTatNhom(g, st)}
+            </span>
+          </button>
+          <div className="flex shrink-0 items-center pr-2 pt-2">{congTacNhom(g, st)}</div>
+        </div>
+        {mo ? <ul className="divide-y divide-bo-border border-t border-bo-border bg-bo-surface">{g.dong.map((dong) => theSku(dong, true))}</ul> : null}
+      </li>
     );
   };
 
@@ -1101,8 +1272,26 @@ export default function ChannelMappingsPage() {
               }
             />
           )
+        ) : laDienThoai ? (
+          // Điện thoại: thẻ thay cho bảng (dựng riêng, không ẩn bằng CSS, để menu ⋯ và ô ghép biến thể không có hai bản)
+          <ul ref={bangRef} className="divide-y divide-bo-border">
+            <li className="flex items-center">
+              <label className="flex h-11 min-w-0 flex-1 cursor-pointer items-center gap-3 pl-3 text-[13px] text-bo-muted">
+                <Checkbox
+                  checked={trangThaiChon(tatCaIds)}
+                  onCheckedChange={(v) => doiChon(tatCaIds, v === true)}
+                  aria-label="Chọn mọi SKU trên trang này"
+                  className={cn("size-5", CHECKBOX_CLASS)}
+                />
+                Chọn mọi SKU trên trang
+              </label>
+            </li>
+            {nhom.map((g) => (laMotPhanLoai(g) ? theSku(g.dong[0], false) : theNhom(g, laMo(g))))}
+          </ul>
         ) : (
-          <table ref={bangRef} className="w-full min-w-[1000px] text-sm">
+          // Máy tính bảng dọc (cảm ứng): bỏ cột SKU FCentric, Trạng thái (thành dòng phụ dưới tên sản phẩm), tiêu đề
+          // "Đã đẩy lên …" xuống dòng, để bảng vừa khung không vuốt ngang
+          <table ref={bangRef} className="w-full min-w-[1000px] text-sm cam-ung:max-lg:min-w-0">
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-bo-border bg-bo-surface-subtle">
                 <th className={`${TH} w-10 text-left`}>
@@ -1114,12 +1303,12 @@ export default function ChannelMappingsPage() {
                   />
                 </th>
                 <th className={`${TH} text-left`}>Sản phẩm</th>
-                <th className={`${TH} text-left`}>SKU FCentric</th>
+                <th className={`${TH} text-left cam-ung:max-lg:hidden`}>SKU FCentric</th>
                 <th className={`${TH} text-right`}>Khả dụng</th>
-                <th className={`${TH} text-right`} title={`Số ${SAN.ten} đã nhận ở lần đẩy tồn thành công gần nhất`}>
+                <th className={`${TH} text-right cam-ung:max-lg:whitespace-normal`} title={`Số ${SAN.ten} đã nhận ở lần đẩy tồn thành công gần nhất`}>
                   Đã đẩy lên {SAN.ten}
                 </th>
-                <th className={`${TH} text-left`}>Trạng thái</th>
+                <th className={`${TH} text-left cam-ung:max-lg:hidden`}>Trạng thái</th>
                 <th className={`${TH} text-left`}>Đồng bộ</th>
                 <th className={`${TH} w-12`}>
                   <span className="sr-only">Thao tác</span>

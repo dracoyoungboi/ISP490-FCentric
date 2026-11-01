@@ -75,8 +75,9 @@ export default function ChonMauSac({ mauSacs, daChon, khoa = KHONG_KHOA, dangTai
                                 key={mau.id}
                                 title={daKhoa ? GOI_Y_KHOA : undefined}
                                 className={cn(
+                                    // Màn cảm ứng: thẻ cao 44px để nút bỏ màu đủ vùng chạm mà không lòi ra khỏi thẻ
                                     "inline-flex h-[26px] items-center gap-1.5 rounded-md border border-bo-border bg-bo-surface-subtle pl-2 text-[13px] font-medium text-bo-foreground",
-                                    daKhoa ? "pr-2" : "pr-0.5",
+                                    daKhoa ? "pr-2 cam-ung:pr-3" : "pr-0.5",
                                 )}
                             >
                                 <ChamMau hex={mau.maMauHex} className="size-3" />
@@ -89,6 +90,8 @@ export default function ChonMauSac({ mauSacs, daChon, khoa = KHONG_KHOA, dangTai
                                         disabled={disabled}
                                         aria-label={`Bỏ màu ${mau.tenMau}`}
                                         onClick={() => onBatTat(mau.id)}
+                                        // Nút trong thẻ màu cao 26px: giữ cỡ vẽ 20px trên màn cảm ứng, vùng chạm 44px vẫn có (index.css)
+                                        data-nut-nho=""
                                         className="flex size-5 items-center justify-center rounded text-bo-muted transition-colors hover:bg-bo-danger-soft hover:text-bo-danger"
                                     >
                                         <X className="size-3" aria-hidden="true" />

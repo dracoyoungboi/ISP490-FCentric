@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { CalendarRange, ChevronLeft, ChevronRight, SearchX, ShoppingCart, X } from "lucide-react";
 import { trangCuoiNeuVuot } from "@/lib/tinhTaiLai";
 import { Button } from "@/components/ui/button";
@@ -510,13 +510,43 @@ export default function ChannelOrdersPage() {
             />
           )
         ) : (
-          <table className="w-full min-w-[900px] text-sm">
+          <>
+          {/* Điện thoại: mỗi đơn một thẻ (chạm mở đơn) — số đơn + trạng thái, khách (người nhận), ngày nhận · kho + tổng tiền, cờ */}
+          <ul className="divide-y divide-bo-border md:hidden">
+            {rows.map((don) => {
+              const st = getDonBanHangStatus(don.trangThai);
+              const nguoiNhan = uyQuyen ? nguoiNhanCua(don) : null;
+              const co = coCuaDon(don);
+              return (
+                <li key={don.id}>
+                  <Link to={`/sales-orders/${don.id}`} className="grid gap-1 px-4 py-3 active:bg-bo-surface-subtle">
+                    <span className="flex items-center justify-between gap-3">
+                      <span className="min-w-0 truncate text-[15px] font-semibold uppercase tracking-wide text-bo-primary">{don.soDonHang}</span>
+                      <StatusBadge quyTrinh="donBan" label={st.label} />
+                    </span>
+                    <span className="min-w-0 truncate text-sm font-semibold text-bo-foreground">{don.khachHang?.tenKhachHang || "Khách lẻ"}</span>
+                    {nguoiNhan ? <span className="min-w-0 truncate text-[13px] tabular-nums text-bo-muted">Người nhận {nguoiNhan}</span> : null}
+                    <span className="flex items-baseline justify-between gap-3 text-[13px] text-bo-muted">
+                      <span className="min-w-0 truncate tabular-nums">
+                        {formatDate(don.ngayDatHang)}
+                        {don.khoXuat?.tenKho ? ` · ${don.khoXuat.tenKho}` : ""}
+                      </span>
+                      <span className="shrink-0 text-[15px] font-semibold tabular-nums text-bo-heading">{formatCurrency(don.tongCong)}</span>
+                    </span>
+                    {co.length ? <OrderFlagBadges value={co} /> : null}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+          {/* Máy tính bảng dọc (cảm ứng): bỏ cột Kho xuất, Ngày nhận — thành dòng phụ dưới khách hàng, số đơn — để không vuốt ngang */}
+          <table className="w-full min-w-[900px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-bo-border bg-bo-surface-subtle">
                 <th className={`${TH} text-left`}>Số đơn</th>
                 <th className={`${TH} text-left`}>Khách hàng</th>
-                <th className={`${TH} text-left`}>Kho xuất</th>
-                <th className={`${TH} text-left`}>Ngày nhận</th>
+                <th className={`${TH} text-left cam-ung:max-lg:hidden`}>Kho xuất</th>
+                <th className={`${TH} text-left cam-ung:max-lg:hidden`}>Ngày nhận</th>
                 <th className={`${TH} text-right`}>Tổng tiền</th>
                 <th className={`${TH} text-left`}>Trạng thái</th>
               </tr>
@@ -544,14 +574,16 @@ export default function ChannelOrdersPage() {
                       {don.maDonHangKenh && !(uyQuyen && String(don.soDonHang ?? "").includes(don.maDonHangKenh)) ? (
                         <div className="text-xs tabular-nums text-bo-muted">#{don.maDonHangKenh} trên {SAN.ten}</div>
                       ) : null}
+                      <div className="hidden text-xs tabular-nums text-bo-muted cam-ung:max-lg:block">{formatDate(don.ngayDatHang)}</div>
                     </td>
                     <td className="px-3 py-3">
                       <div className="font-medium text-bo-foreground">{don.khachHang?.tenKhachHang || "Khách lẻ"}</div>
                       {/* Sàn ủy quyền che tên và số điện thoại người nhận; hiện đúng như sàn trả, sàn không trả thì bỏ dòng */}
                       {nguoiNhan ? <div className="text-xs tabular-nums text-bo-muted">Người nhận {nguoiNhan}</div> : null}
+                      {don.khoXuat?.tenKho ? <div className="hidden text-xs text-bo-muted cam-ung:max-lg:block">{don.khoXuat.tenKho}</div> : null}
                     </td>
-                    <td className="px-3 py-3 text-bo-muted">{don.khoXuat?.tenKho || "—"}</td>
-                    <td className="whitespace-nowrap px-3 py-3 tabular-nums text-bo-muted">{formatDate(don.ngayDatHang)}</td>
+                    <td className="px-3 py-3 text-bo-muted cam-ung:max-lg:hidden">{don.khoXuat?.tenKho || "—"}</td>
+                    <td className="whitespace-nowrap px-3 py-3 tabular-nums text-bo-muted cam-ung:max-lg:hidden">{formatDate(don.ngayDatHang)}</td>
                     <td className="whitespace-nowrap px-3 py-3 text-right font-semibold tabular-nums text-bo-heading">{formatCurrency(don.tongCong)}</td>
                     <td className="px-3 py-3">
                       <StatusBadge quyTrinh="donBan" label={st.label} />
@@ -566,6 +598,7 @@ export default function ChannelOrdersPage() {
               })}
             </tbody>
           </table>
+          </>
         )}
       </TableShell>
 

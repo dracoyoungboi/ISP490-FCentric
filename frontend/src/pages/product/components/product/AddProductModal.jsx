@@ -68,6 +68,7 @@ import {
     trangThaiBanDau,
     vietTatDanhMuc,
 } from "./logicBienThe";
+import { laCamUng } from "@/lib/camUng";
 
 // Biến thể, ảnh và giá được kiểm tra riêng (xem danhSachLoiBienThe); schema chỉ lo thông tin cơ bản.
 const addProductSchema = yup.object({
@@ -350,7 +351,14 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                     onKeyDown={handleKeyDown}
                     onOpenAutoFocus={nhoNutMoForm}
                     onCloseAutoFocus={traFocusNutMoForm}
-                    className="flex max-h-[94vh] flex-col gap-0 overflow-hidden border-bo-border bg-bo-canvas p-0 text-bo-foreground sm:max-w-[1180px]"
+                    // Màn cảm ứng: chạm ngoài hộp không hỏi bỏ (Radix báo chạm ngoài trễ tới lượt click, nên chạm "Tiếp tục nhập"
+                    // ở hộp hỏi lại bật hộp hỏi lần nữa); đóng bằng Hủy / ✕ như hộp Người dùng, Nhà cung cấp
+                    onInteractOutside={(e) => {
+                        if (laCamUng()) e.preventDefault();
+                    }}
+                    // Điện thoại: toàn màn như hộp Khách hàng (biểu mẫu dài, nhiều ô nhập); thân tự cuộn, chân hộp luôn thấy. "!" để thắng
+                    // lớp dùng chung của index.css (hộp thoại dưới 768px cao tối đa 100dvh − 24px và tự cuộn)
+                    className="flex max-h-[94vh] flex-col gap-0 overflow-hidden border-bo-border bg-bo-canvas p-0 text-bo-foreground sm:max-w-[1180px] max-sm:inset-0 max-sm:top-0 max-sm:left-0 max-sm:h-dvh max-sm:max-h-none! max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:border-0 max-sm:overflow-hidden!"
                 >
                     <DialogHeader className="gap-0 border-b border-bo-border bg-bo-surface px-4 py-3.5 pr-12 text-left sm:px-5 sm:pr-12">
                         <DialogTitle className="flex items-center gap-2 text-base font-semibold text-bo-foreground">
@@ -488,7 +496,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                     </div>
 
                     <DialogFooter className="border-t border-bo-border bg-bo-surface px-4 py-3 sm:px-5">
-                        <div className="flex w-full flex-wrap items-center justify-between gap-3">
+                        <div className="flex w-full flex-wrap items-center justify-between gap-3 max-sm:flex-col max-sm:items-stretch max-sm:gap-2">
                             <p className="text-sm text-bo-muted" aria-live="polite">
                                 {thongKe.soTao > 0 ? (
                                     <>
@@ -499,7 +507,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                                     "Chưa có biến thể nào"
                                 )}
                             </p>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 max-sm:w-full">
                                 <Button
                                     type="button"
                                     variant="outline"
@@ -514,7 +522,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                                     disabled={isSubmitting}
                                     title="Lưu (Ctrl + S)"
                                     aria-keyshortcuts="Control+S Meta+S"
-                                    className="bg-bo-primary text-white hover:bg-bo-primary-hover focus-visible:ring-[3px] focus-visible:ring-bo-primary/30"
+                                    className="bg-bo-primary text-white hover:bg-bo-primary-hover focus-visible:ring-[3px] focus-visible:ring-bo-primary/30 max-sm:flex-1"
                                     onClick={handleLuu}
                                 >
                                     {isSubmitting ? (

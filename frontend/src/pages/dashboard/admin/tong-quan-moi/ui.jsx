@@ -77,14 +77,15 @@ export function CardEmpty({ icon, text }) {
   );
 }
 
-/** Liên kết "Xem …" ở đầu thẻ: chữ xanh, mũi tên phải. Muốn ẩn chữ trên thẻ hẹp thì bọc chữ trong span có lớp ẩn. */
+/** Liên kết "Xem …" ở đầu thẻ: chữ xanh, mũi tên phải. Muốn ẩn chữ trên thẻ hẹp thì bọc chữ trong span có lớp ẩn.
+ *  Màn cảm ứng: khi chỉ còn mũi tên (thẻ hẹp) vẫn rộng tối thiểu 44px, mũi tên giữ sát mép phải như cũ. */
 export function MoreLink({ to, children, className, onClick }) {
   return (
     <Link
       to={to}
       onClick={onClick}
       className={cn(
-        "inline-flex items-center gap-0.5 whitespace-nowrap rounded text-sm font-medium text-bo-primary hover:text-bo-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30",
+        "inline-flex items-center gap-0.5 whitespace-nowrap rounded text-sm font-medium text-bo-primary hover:text-bo-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 cam-ung:min-w-11 cam-ung:justify-end",
         className,
       )}
     >

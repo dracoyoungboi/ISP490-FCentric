@@ -73,7 +73,7 @@ const DROPDOWN_CONTENT_CLASS =
 const DROPDOWN_ITEM_CLASS =
     "cursor-pointer rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900";
 const TH_CLASS =
-    "h-10 px-3 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
+    "h-10 px-3 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap cam-ung:max-lg:whitespace-normal";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -496,7 +496,8 @@ export default function TonKhoTongQuan() {
                     <div className="flex flex-col gap-3">
                         {/* Dòng tổng: cộng mọi dòng của tab đang chọn (không chỉ trang đang xem) */}
                         {filteredData.length > 0 ? (
-                            <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+                            // Điện thoại: mỗi chỉ số một dòng (nhãn trái, số phải), bỏ vạch ngăn — hàng ngang xuống dòng lộn xộn ở 390px
+                            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 max-md:grid max-md:gap-y-1 max-md:[&>span[aria-hidden=true]]:hidden">
                                 <SummaryItem
                                     label="Tổng tồn kho"
                                     value={formatNumber(filteredData.reduce((s, i) => s + Number(i.onHand ?? i.tongSoLuongKhaDung ?? 0), 0))}
@@ -619,21 +620,87 @@ export default function TonKhoTongQuan() {
                         />
                     )
                 ) : (
-                    <table className="w-full min-w-[1280px] text-sm">
+                    <>
+                    {/* Điện thoại: mỗi mã hàng một thẻ — tên + tình trạng, màu / cỡ · SKU (· kho khi xem tất cả kho),
+                        bốn số tồn như các cột của bảng, tồn tối thiểu · giá trị tồn, Yêu cầu nhập */}
+                    <ul className="divide-y divide-bo-border md:hidden">
+                        {pageItems.map((item, idx) => {
+                            // Kho Trung Chuyển: như bảng — không tồn tối thiểu, hết hàng thì không có tình trạng, không Yêu cầu nhập
+                            const trungChuyen = laTrungChuyen(item);
+                            const statusKey = trangThaiTon(item, trungChuyen);
+                            const statusCfg = statusKey ? STATUS_CFG[statusKey] ?? STATUS_CFG.binh_thuong : null;
+                            const coNutNhap = showNhapKho && !trungChuyen;
+                            const { onHand, incoming, outgoing, freeToUse, giaTri } = soTon(item);
+                            const mauCo = [item.tenMau, item.tenSize ?? item.maSize].filter(Boolean).join(" / ");
+                            return (
+                                <li key={`${item.bienTheId}-${item.khoId}-${idx}`} className="px-4 py-3">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <p className="line-clamp-2 min-w-0 font-semibold leading-5 text-bo-foreground">{item.tenSanPham}</p>
+                                        {statusCfg ? <StatusBadge label={statusCfg.label} /> : null}
+                                    </div>
+                                    <p className="mt-1 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[13px] text-slate-600">
+                                        {item.maMauHex && (
+                                            <svg className="size-3 shrink-0" viewBox="0 0 12 12" aria-hidden="true">
+                                                <circle cx="6" cy="6" r="6" fill={item.maMauHex} />
+                                            </svg>
+                                        )}
+                                        {mauCo ? <span className="font-medium">{mauCo}</span> : null}
+                                        {mauCo ? <span className="text-slate-300" aria-hidden="true">·</span> : null}
+                                        <span className="font-mono text-xs font-semibold text-slate-700">{item.maSku}</span>
+                                    </p>
+                                    {multiKho && !selectedKhoId ? <p className="mt-0.5 text-[13px] text-bo-muted">{item.tenKho}</p> : null}
+                                    <dl className="mt-2.5 grid grid-cols-4 gap-2 rounded-lg bg-bo-surface-subtle px-2 py-2 text-center">
+                                        {[
+                                            ["On Hand", onHand, "font-semibold text-bo-foreground"],
+                                            ["↓ Incoming", incoming],
+                                            ["↑ Outgoing", outgoing],
+                                            ["Free to Use", freeToUse, "font-semibold text-bo-foreground"],
+                                        ].map(([nhan, so, kieu]) => (
+                                            <div key={nhan} className="min-w-0">
+                                                <dt className="truncate text-[11px] leading-4 text-bo-muted">{nhan}</dt>
+                                                <dd className="text-[15px] leading-6 tabular-nums"><SoLuong value={so} className={kieu} /></dd>
+                                            </div>
+                                        ))}
+                                    </dl>
+                                    <div className={`mt-2 flex items-center justify-between gap-3 ${coNutNhap ? "min-h-9" : ""}`}>
+                                        <span className="min-w-0 text-[13px] text-bo-muted">
+                                            Tối thiểu {trungChuyen || item.mucTonToiThieu == null ? "—" : formatNumber(item.mucTonToiThieu)}
+                                            {" · "}
+                                            <b className="font-semibold tabular-nums text-bo-foreground">{formatCurrency(giaTri)}</b>
+                                        </span>
+                                        {coNutNhap ? (
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={() => navigate(`/purchase-requests/create?bienTheId=${item.bienTheId}&khoId=${item.khoId}`)}
+                                                className="h-9 shrink-0 gap-1.5 border-bo-input-border bg-bo-surface px-3 text-sm font-medium text-bo-foreground"
+                                            >
+                                                <PackagePlus className="size-4" aria-hidden="true" />
+                                                Yêu cầu nhập
+                                            </Button>
+                                        ) : null}
+                                    </div>
+                                </li>
+                            );
+                        })}
+                    </ul>
+                    {/* Máy tính bảng dọc (cảm ứng): bỏ cột STT, Mã SP / SKU, Kho, Tồn tối thiểu, Tình trạng, Thao tác — SKU · kho,
+                        tình trạng và Yêu cầu nhập xuống dưới tên sản phẩm — để không vuốt ngang */}
+                    <table className="w-full min-w-[1280px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
                         <thead className="sticky top-0 z-10 bg-bo-surface-subtle">
                             <tr className="border-b border-bo-border">
-                                <th className={`${TH_CLASS} text-center`}>STT</th>
-                                <th className={`${TH_CLASS} text-left`}>Mã SP / SKU</th>
+                                <th className={`${TH_CLASS} text-center cam-ung:max-lg:hidden`}>STT</th>
+                                <th className={`${TH_CLASS} text-left cam-ung:max-lg:hidden`}>Mã SP / SKU</th>
                                 <th className={`${TH_CLASS} min-w-[200px] text-left`}>Sản phẩm &amp; biến thể</th>
-                                <th className={`${TH_CLASS} text-left`}>Kho</th>
+                                <th className={`${TH_CLASS} text-left cam-ung:max-lg:hidden`}>Kho</th>
                                 <th className={`${TH_CLASS} text-right tabular-nums`}>On Hand</th>
                                 <th className={`${TH_CLASS} text-right tabular-nums`}>↓ Incoming</th>
                                 <th className={`${TH_CLASS} text-right tabular-nums`}>↑ Outgoing</th>
                                 <th className={`${TH_CLASS} text-right tabular-nums`}>Free to Use</th>
-                                <th className={`${TH_CLASS} text-right tabular-nums`}>Tồn tối thiểu</th>
+                                <th className={`${TH_CLASS} text-right tabular-nums cam-ung:max-lg:hidden`}>Tồn tối thiểu</th>
                                 <th className={`${TH_CLASS} text-right tabular-nums`}>Giá trị tồn</th>
-                                <th className={`${TH_CLASS} text-left`}>Tình trạng</th>
-                                <th className={`${TH_CLASS} text-center`}>Thao tác</th>
+                                <th className={`${TH_CLASS} text-left cam-ung:max-lg:hidden`}>Tình trạng</th>
+                                <th className={`${TH_CLASS} text-center cam-ung:max-lg:hidden`}>Thao tác</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-bo-border">
@@ -642,20 +709,16 @@ export default function TonKhoTongQuan() {
                                 const statusKey = trangThaiTon(item, trungChuyen);
                                 const statusCfg = statusKey ? STATUS_CFG[statusKey] ?? STATUS_CFG.binh_thuong : null;
 
-                                const onHand = Number(item.onHand ?? item.tongSoLuongKhaDung ?? 0);
-                                const incoming = Number(item.incoming ?? item.tongSoLuongChoNhan ?? 0);
-                                const outgoing = Number(item.outgoing ?? item.tongSoLuongChoDuaHang ?? 0);
-                                const freeToUse = item.freeToUse != null ? Number(item.freeToUse) : (onHand + incoming - outgoing);
-                                const giaTri = Number(item.tongGiaTri ?? item.giaTriTonKho ?? 0);
+                                const { onHand, incoming, outgoing, freeToUse, giaTri } = soTon(item);
 
                                 return (
                                     <tr
                                         key={`${item.bienTheId}-${item.khoId}-${idx}`}
                                         className="bg-bo-surface transition-colors hover:bg-bo-surface-subtle"
                                     >
-                                        <td className="px-3 py-3 text-center text-xs text-bo-muted">{safePage * pageSize + idx + 1}</td>
+                                        <td className="px-3 py-3 text-center text-xs text-bo-muted cam-ung:max-lg:hidden">{safePage * pageSize + idx + 1}</td>
 
-                                        <td className="px-3 py-3">
+                                        <td className="px-3 py-3 cam-ung:max-lg:hidden">
                                             <div className="flex flex-col gap-1">
                                                 <span className="text-[10px] font-semibold uppercase text-bo-muted">{item.maSanPham}</span>
                                                 <span className="font-mono text-xs font-semibold text-slate-700">{item.maSku}</span>
@@ -676,9 +739,27 @@ export default function TonKhoTongQuan() {
                                                 <span className="text-slate-300">|</span>
                                                 <span>{item.tenChatLieu}</span>
                                             </div>
+                                            <p className="mt-1 hidden truncate text-xs text-bo-muted cam-ung:max-lg:block">
+                                                <span className="font-mono font-semibold text-slate-700">{item.maSku}</span>
+                                                {item.tenKho ? ` · ${item.tenKho}` : ""}
+                                            </p>
+                                            <div className="mt-1.5 hidden flex-wrap items-center gap-2 cam-ung:max-lg:flex">
+                                                {statusCfg ? <StatusBadge label={statusCfg.label} /> : null}
+                                                {showNhapKho && !trungChuyen ? (
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        onClick={() => navigate(`/purchase-requests/create?bienTheId=${item.bienTheId}&khoId=${item.khoId}`)}
+                                                        className="h-9 gap-1.5 border-bo-input-border bg-bo-surface px-3 text-sm font-medium text-bo-foreground"
+                                                    >
+                                                        <PackagePlus className="size-4" aria-hidden="true" />
+                                                        Yêu cầu nhập
+                                                    </Button>
+                                                ) : null}
+                                            </div>
                                         </td>
 
-                                        <td className="px-3 py-3">
+                                        <td className="px-3 py-3 cam-ung:max-lg:hidden">
                                             <span className="whitespace-nowrap text-slate-700">{item.tenKho}</span>
                                         </td>
 
@@ -698,7 +779,7 @@ export default function TonKhoTongQuan() {
                                             <SoLuong value={freeToUse} className="font-semibold text-bo-foreground" />
                                         </td>
 
-                                        <td className="px-3 py-3 text-right text-xs tabular-nums">
+                                        <td className="px-3 py-3 text-right text-xs tabular-nums cam-ung:max-lg:hidden">
                                             {trungChuyen || item.mucTonToiThieu == null ? (
                                                 <span className="text-bo-muted">—</span>
                                             ) : (
@@ -707,7 +788,7 @@ export default function TonKhoTongQuan() {
                                         </td>
                                         <td className="whitespace-nowrap px-3 py-3 text-right text-xs font-bold tabular-nums text-bo-foreground">{formatCurrency(giaTri)}</td>
 
-                                        <td className="px-3 py-3">
+                                        <td className="px-3 py-3 cam-ung:max-lg:hidden">
                                             {statusCfg ? (
                                                 <StatusBadge label={statusCfg.label} />
                                             ) : (
@@ -715,7 +796,7 @@ export default function TonKhoTongQuan() {
                                             )}
                                         </td>
 
-                                        <td className="px-3 py-3 text-center">
+                                        <td className="px-3 py-3 text-center cam-ung:max-lg:hidden">
                                             {showNhapKho && !trungChuyen && (
                                                 <RowActions>
                                                     <RowActionButton
@@ -731,6 +812,7 @@ export default function TonKhoTongQuan() {
                             })}
                         </tbody>
                     </table>
+                    </>
                 )}
             </TableShell>
         </PageContainer>
@@ -738,6 +820,16 @@ export default function TonKhoTongQuan() {
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
+/** Bốn số tồn + giá trị của một dòng (máy chủ cũ trả tên trường khác nên đọc cả hai). */
+function soTon(item) {
+    const onHand = Number(item.onHand ?? item.tongSoLuongKhaDung ?? 0);
+    const incoming = Number(item.incoming ?? item.tongSoLuongChoNhan ?? 0);
+    const outgoing = Number(item.outgoing ?? item.tongSoLuongChoDuaHang ?? 0);
+    const freeToUse = item.freeToUse != null ? Number(item.freeToUse) : (onHand + incoming - outgoing);
+    const giaTri = Number(item.tongGiaTri ?? item.giaTriTonKho ?? 0);
+    return { onHand, incoming, outgoing, freeToUse, giaTri };
+}
+
 /** Số lượng trong bảng: chữ thường (không ô màu); 0 hiện xám, số âm hiện đỏ để nổi lên. */
 function SoLuong({ value, className = "text-slate-700" }) {
     const so = Number(value);
@@ -747,7 +839,7 @@ function SoLuong({ value, className = "text-slate-700" }) {
 
 function SummaryItem({ label, value, valueClass = "text-bo-foreground" }) {
     return (
-        <div className="flex items-baseline gap-2">
+        <div className="flex items-baseline gap-2 max-md:justify-between">
             <span className="text-[10px] font-bold uppercase tracking-wide text-bo-muted">{label}:</span>
             <span className={`text-sm font-bold ${valueClass}`}>{value}</span>
         </div>

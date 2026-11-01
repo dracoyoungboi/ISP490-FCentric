@@ -47,9 +47,10 @@ const CHART_COLORS = {
   axis: "#64748b",
 };
 
+// Máy tính bảng dọc (cảm ứng): đệm ô hẹp lại (px-3) để bảng vừa khung
 const TH_CLASS =
-  "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
-// Ô có nhãn nằm trong ô (theo mẫu ô ngày của PurchaseRequestList) để hàng công cụ gọn một dòng
+  "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap cam-ung:max-lg:px-3";
+// Ô có nhãn nằm trong ô (theo mẫu ô ngày của PurchaseRequestList) để hàng công cụ gọn một dòng; điện thoại: cao 44px cho dễ chạm
 const O_NHAN_CLASS =
   "flex h-9 w-full items-center gap-2 rounded-md border border-bo-border bg-white pl-3 pr-2 text-sm focus-within:border-bo-primary focus-within:ring-2 focus-within:ring-bo-primary/15 sm:w-auto";
 const O_NGAY_CLASS =
@@ -108,9 +109,10 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 // ─── Ô NHẬP CÓ NHÃN TRONG Ô ───
-function ONhan({ label, icon, children }) {
+// className: lớp thêm cho điện thoại (vd. ô ngày chiếm trọn hàng của lưới hai cột)
+function ONhan({ label, icon, children, className }) {
   return (
-    <label className={O_NHAN_CLASS}>
+    <label className={className ? `${O_NHAN_CLASS} ${className}` : O_NHAN_CLASS}>
       {icon}
       <span className="shrink-0 text-xs text-bo-muted">{label}</span>
       {children}
@@ -155,6 +157,41 @@ function LoaiGdBadge({ loai }) {
   };
   const cfg = map[loai] || { label: loai || "—", cls: "border-bo-border bg-bo-surface-subtle text-slate-600" };
   return <span className={`inline-block rounded-full border px-2.5 py-1 text-xs font-semibold ${cfg.cls}`}>{cfg.label}</span>;
+}
+
+// ─── THẺ MỘT KỲ (điện thoại) ───
+// Cùng màu, cùng định dạng với các cột của bảng: nhập xanh lá, xuất đỏ, chênh lệch là nhãn tròn có dấu;
+// số 0 (vd. giao dịch chỉ có chiều xuất ở kiểu Chi tiết GD) hiện xám để chiều có số nổi lên.
+function TheKyNhapXuat({ nhan, nhap, xuat, gtrNhap, gtrXuat, loaiGiaoDich, nen = "bg-bo-surface-subtle" }) {
+  const cl = nhap - xuat;
+  return (
+    <>
+      <div className="flex items-center justify-between gap-3">
+        <span className="min-w-0 truncate">{nhan}</span>
+        <span className="flex shrink-0 items-center gap-2">
+          {loaiGiaoDich ? <LoaiGdBadge loai={loaiGiaoDich} /> : null}
+          <span className={`inline-block rounded-full border px-2.5 py-1 text-xs font-semibold tabular-nums ${cl >= 0
+            ? "border-bo-success/20 bg-bo-success-soft text-bo-success"
+            : "border-bo-danger/20 bg-bo-danger-soft text-bo-danger"
+            }`}>
+            {fmtChenhLech(cl)}
+          </span>
+        </span>
+      </div>
+      <dl className={`mt-2 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-bo-border bg-bo-border`}>
+        {[
+          ["Nhập", nhap, gtrNhap, "text-bo-success", "text-bo-primary"],
+          ["Xuất", xuat, gtrXuat, "text-bo-danger", "text-slate-600"],
+        ].map(([ten, sl, gtr, mauSl, mauGtr]) => (
+          <div key={ten} className={`min-w-0 px-3 py-2 ${nen}`}>
+            <dt className="text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{ten}</dt>
+            <dd className={`text-[17px] font-bold leading-6 tabular-nums ${sl ? mauSl : "text-bo-muted"}`}>{formatNumber(sl)}</dd>
+            <dd className={`truncate text-[13px] font-semibold tabular-nums ${gtr ? mauGtr : "text-bo-muted"}`}>{formatCurrency(gtr)}</dd>
+          </div>
+        ))}
+      </dl>
+    </>
+  );
 }
 
 // ─── MAIN ───
@@ -287,21 +324,22 @@ export default function NhatKyNhapXuat() {
 
       {/* ── HÀNG CÔNG CỤ (thay khung "Bộ lọc nhật ký") ──
           Trái: kiểu báo cáo; phải: mốc thời gian, kho, loại giao dịch, nút xem.
-          Màn hẹp: bộ lọc lên trên, tab xuống dưới (tab tự cuộn ngang) để gạch chân tab nằm sát đường kẻ */}
+          Màn hẹp: bộ lọc lên trên, tab xuống dưới (tab tự cuộn ngang) để gạch chân tab nằm sát đường kẻ.
+          Điện thoại: bộ lọc xếp lưới hai cột (ô ngày chiếm trọn hàng; nút Xem báo cáo lẻ hàng cuối thì trải hết hàng) */}
       <div className="flex flex-wrap-reverse items-start gap-x-3 border-b border-bo-border">
         <div className="min-w-0 max-w-full">
           <StatusTabs tabs={TAB_KY} value={loai} onChange={setLoai} label="Kiểu báo cáo" />
         </div>
 
-        <div className="ml-auto flex w-full flex-wrap items-center justify-end gap-2 py-2 sm:w-auto">
+        <div className="ml-auto flex w-full flex-wrap items-center justify-end gap-2 py-2 sm:w-auto max-md:grid max-md:grid-cols-2 max-md:[&>*]:w-full">
           {/* Khoảng ngày */}
           {["ngay", "chi_tiet", "theo_kho"].includes(loai) && (
             <>
-              <ONhan label="Từ ngày" icon={<Calendar className="size-4 shrink-0 text-bo-muted" />}>
+              <ONhan label="Từ ngày" icon={<Calendar className="size-4 shrink-0 text-bo-muted" />} className="max-md:col-span-2">
                 <Input type="date" aria-label="Từ ngày" value={tuNgay} onChange={e => setTuNgay(e.target.value)}
                   className={O_NGAY_CLASS} />
               </ONhan>
-              <ONhan label="Đến ngày" icon={<Calendar className="size-4 shrink-0 text-bo-muted" />}>
+              <ONhan label="Đến ngày" icon={<Calendar className="size-4 shrink-0 text-bo-muted" />} className="max-md:col-span-2">
                 <Input type="date" aria-label="Đến ngày" value={denNgay} onChange={e => setDenNgay(e.target.value)}
                   className={O_NGAY_CLASS} />
               </ONhan>
@@ -379,7 +417,7 @@ export default function NhatKyNhapXuat() {
           <Button
             onClick={fetchData}
             disabled={loading}
-            className="h-9 w-full gap-2 bg-bo-primary px-4 text-sm font-medium text-white hover:bg-bo-primary-hover disabled:opacity-50 sm:w-auto"
+            className="h-9 w-full gap-2 bg-bo-primary px-4 text-sm font-medium text-white hover:bg-bo-primary-hover disabled:opacity-50 sm:w-auto max-md:odd:last:col-span-2"
           >
             {loading ? <RefreshCw className="size-4 animate-spin" /> : <Search className="size-4" />}
             Xem báo cáo
@@ -387,8 +425,8 @@ export default function NhatKyNhapXuat() {
         </div>
       </div>
 
-      {/* ── DẢI CHỈ SỐ (một khung, thay 4 ô rời) ── */}
-      <MetricStrip label="Chỉ số nhập xuất" items={chiSo} loading={loading} />
+      {/* ── DẢI CHỈ SỐ (một khung, thay 4 ô rời) ── điện thoại: lưới 2 × 2 thay vì 4 hàng dọc */}
+      <MetricStrip label="Chỉ số nhập xuất" items={chiSo} loading={loading} className="max-md:grid-cols-2 max-md:[&>div]:px-4" />
 
       {/* ── CHART + SUMMARY (lỗi tải thì ẩn, báo lỗi ở khung bảng) ── */}
       {!loi && (
@@ -505,11 +543,40 @@ export default function NhatKyNhapXuat() {
             description="Hãy thay đổi bộ lọc và thử lại."
           />
         ) : (
-          <table className="w-full min-w-[960px] text-sm">
+          <>
+          {/* Điện thoại: mỗi kỳ một thẻ — thời kỳ + chênh lệch, hai ô Nhập / Xuất (số lượng to, giá trị dưới);
+              dòng Tổng cộng thành khối riêng ở cuối danh sách */}
+          <ul className="divide-y divide-bo-border md:hidden">
+            {chartData.map((row, i) => (
+              <li key={i} className="px-4 py-3">
+                <TheKyNhapXuat
+                  nhan={<span className="font-semibold text-bo-foreground">{row.nhanThoiGian}</span>}
+                  nhap={row.tongNhap}
+                  xuat={row.tongXuat}
+                  gtrNhap={row.tongGiaTriNhap}
+                  gtrXuat={row.tongGiaTriXuat}
+                  loaiGiaoDich={row.loaiGiaoDich}
+                />
+              </li>
+            ))}
+          </ul>
+          <div className="border-t-2 border-bo-border bg-bo-surface-subtle px-4 py-3 md:hidden">
+            <TheKyNhapXuat
+              nhan={<span className="text-xs font-bold uppercase tracking-wide text-bo-foreground">Tổng cộng</span>}
+              nhap={kpi.tongNhap}
+              xuat={kpi.tongXuat}
+              gtrNhap={kpi.tongGtrNhap}
+              gtrXuat={kpi.tongGtrXuat}
+              nen="bg-bo-surface"
+            />
+          </div>
+          {/* Máy tính bảng dọc (cảm ứng): bỏ cột Loại GD (máy chủ không trả loại theo kỳ), đệm ô hẹp lại — bảng vừa khung, không vuốt ngang.
+              Giữ cột # để ô "Tổng cộng" (colSpan 2) vẫn thẳng cột */}
+          <table className="w-full min-w-[960px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
             <thead>
               <tr className="border-b border-bo-border bg-bo-surface-subtle">
                 {["#", "Thời kỳ", "SL nhập", "SL xuất", "Chênh lệch", "Giá trị nhập", "Giá trị xuất", "Loại GD"].map((h, i) => (
-                  <th key={i} className={`${TH_CLASS} ${i === 7 ? "text-center" : i > 1 ? "text-right tabular-nums" : "text-left"}`}>
+                  <th key={i} className={`${TH_CLASS} ${i === 7 ? "text-center cam-ung:max-lg:hidden" : i > 1 ? "text-right tabular-nums" : "text-left"}`}>
                     {h}
                   </th>
                 ))}
@@ -520,11 +587,11 @@ export default function NhatKyNhapXuat() {
                 const cl = row.tongNhap - row.tongXuat;
                 return (
                   <tr key={i} className="transition-colors hover:bg-bo-surface-subtle">
-                    <td className="px-4 py-3.5 text-xs font-medium tabular-nums text-bo-muted">{String(i + 1).padStart(2, "0")}</td>
-                    <td className="px-4 py-3.5 font-medium text-bo-foreground">{row.nhanThoiGian}</td>
-                    <td className="px-4 py-3.5 text-right font-bold tabular-nums text-bo-success">{formatNumber(row.tongNhap)}</td>
-                    <td className="px-4 py-3.5 text-right font-bold tabular-nums text-bo-danger">{formatNumber(row.tongXuat)}</td>
-                    <td className="px-4 py-3.5 text-right tabular-nums">
+                    <td className="px-4 py-3.5 text-xs font-medium tabular-nums text-bo-muted cam-ung:max-lg:px-3">{String(i + 1).padStart(2, "0")}</td>
+                    <td className="px-4 py-3.5 font-medium text-bo-foreground cam-ung:max-lg:px-3">{row.nhanThoiGian}</td>
+                    <td className="px-4 py-3.5 text-right font-bold tabular-nums text-bo-success cam-ung:max-lg:px-3">{formatNumber(row.tongNhap)}</td>
+                    <td className="px-4 py-3.5 text-right font-bold tabular-nums text-bo-danger cam-ung:max-lg:px-3">{formatNumber(row.tongXuat)}</td>
+                    <td className="px-4 py-3.5 text-right tabular-nums cam-ung:max-lg:px-3">
                       <span className={`inline-block rounded-full border px-2.5 py-1 text-xs font-semibold ${cl >= 0
                         ? "border-bo-success/20 bg-bo-success-soft text-bo-success"
                         : "border-bo-danger/20 bg-bo-danger-soft text-bo-danger"
@@ -532,9 +599,9 @@ export default function NhatKyNhapXuat() {
                         {fmtChenhLech(cl)}
                       </span>
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3.5 text-right font-semibold tabular-nums text-bo-primary">{formatCurrency(row.tongGiaTriNhap)}</td>
-                    <td className="whitespace-nowrap px-4 py-3.5 text-right font-semibold tabular-nums text-slate-600">{formatCurrency(row.tongGiaTriXuat)}</td>
-                    <td className="px-4 py-3.5 text-center">
+                    <td className="whitespace-nowrap px-4 py-3.5 text-right font-semibold tabular-nums text-bo-primary cam-ung:max-lg:px-3">{formatCurrency(row.tongGiaTriNhap)}</td>
+                    <td className="whitespace-nowrap px-4 py-3.5 text-right font-semibold tabular-nums text-slate-600 cam-ung:max-lg:px-3">{formatCurrency(row.tongGiaTriXuat)}</td>
+                    <td className="px-4 py-3.5 text-center cam-ung:max-lg:hidden">
                       {row.loaiGiaoDich ? <LoaiGdBadge loai={row.loaiGiaoDich} /> : <span className="text-xs text-bo-muted">—</span>}
                     </td>
                   </tr>
@@ -544,10 +611,10 @@ export default function NhatKyNhapXuat() {
 
             <tfoot>
               <tr className="border-t-2 border-bo-border bg-bo-surface-subtle">
-                <td colSpan={2} className="px-4 py-3.5 text-xs font-bold uppercase tracking-wide text-bo-foreground">Tổng cộng</td>
-                <td className="px-4 py-3.5 text-right text-sm font-extrabold tabular-nums text-bo-success">{formatNumber(kpi.tongNhap)}</td>
-                <td className="px-4 py-3.5 text-right text-sm font-extrabold tabular-nums text-bo-danger">{formatNumber(kpi.tongXuat)}</td>
-                <td className="px-4 py-3.5 text-right tabular-nums">
+                <td colSpan={2} className="px-4 py-3.5 text-xs font-bold uppercase tracking-wide text-bo-foreground cam-ung:max-lg:px-3">Tổng cộng</td>
+                <td className="px-4 py-3.5 text-right text-sm font-extrabold tabular-nums text-bo-success cam-ung:max-lg:px-3">{formatNumber(kpi.tongNhap)}</td>
+                <td className="px-4 py-3.5 text-right text-sm font-extrabold tabular-nums text-bo-danger cam-ung:max-lg:px-3">{formatNumber(kpi.tongXuat)}</td>
+                <td className="px-4 py-3.5 text-right tabular-nums cam-ung:max-lg:px-3">
                   <span className={`inline-block rounded-full border px-2.5 py-1 text-xs font-semibold ${tongChenhLech >= 0
                     ? "border-bo-success/20 bg-bo-success-soft text-bo-success"
                     : "border-bo-danger/20 bg-bo-danger-soft text-bo-danger"
@@ -555,12 +622,13 @@ export default function NhatKyNhapXuat() {
                     {fmtChenhLech(tongChenhLech)}
                   </span>
                 </td>
-                <td className="whitespace-nowrap px-4 py-3.5 text-right text-sm font-extrabold tabular-nums text-bo-primary">{formatCurrency(kpi.tongGtrNhap)}</td>
-                <td className="whitespace-nowrap px-4 py-3.5 text-right text-sm font-extrabold tabular-nums text-slate-600">{formatCurrency(kpi.tongGtrXuat)}</td>
-                <td />
+                <td className="whitespace-nowrap px-4 py-3.5 text-right text-sm font-extrabold tabular-nums text-bo-primary cam-ung:max-lg:px-3">{formatCurrency(kpi.tongGtrNhap)}</td>
+                <td className="whitespace-nowrap px-4 py-3.5 text-right text-sm font-extrabold tabular-nums text-slate-600 cam-ung:max-lg:px-3">{formatCurrency(kpi.tongGtrXuat)}</td>
+                <td className="cam-ung:max-lg:hidden" />
               </tr>
             </tfoot>
           </table>
+          </>
         )}
       </TableShell>
 

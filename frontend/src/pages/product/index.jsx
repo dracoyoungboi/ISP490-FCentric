@@ -7,6 +7,7 @@ import { useLocation, useNavigate, Link } from "react-router-dom";
 import { toast } from "@/lib/thongBaoNhanh";
 import { Eye, Edit, Trash2, Package, Plus, ChevronDown, Check, Info, SearchX } from "lucide-react";
 import { useToggle } from "@/hooks/useToggle";
+import { useIsMobile } from "@/hooks/use-mobile";
 import AddProductModal from "@/pages/product/components/product/AddProductModal";
 import EditProductModal from "@/pages/product/components/product/EditProductModal";
 import ConfirmModal from "@/components/ui/confirm-modal";
@@ -16,6 +17,7 @@ import { dinhDangKhoangGia } from "@/pages/product/components/product/khoangGiaB
 import PageContainer from "@/components/backoffice/PageContainer";
 import EmptyState from "@/components/shared/EmptyState";
 import ErrorState from "@/components/shared/ErrorState";
+import FilterSelect from "@/components/shared/FilterSelect";
 import ListPageHeader from "@/components/shared/ListPageHeader";
 import ListToolbar from "@/components/shared/ListToolbar";
 import LoadingState from "@/components/shared/LoadingState";
@@ -25,6 +27,7 @@ import StatusTabs from "@/components/shared/StatusTabs";
 import TableShell from "@/components/shared/TableShell";
 import TablePagination from "@/components/shared/TablePagination";
 import { RowActionButton, RowActions } from "@/components/shared/RowActions";
+import SheetThaoTac, { NutThaoTac } from "@/components/san-pham/SheetThaoTac";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { trangCuoiNeuVuot } from "@/lib/tinhTaiLai";
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
@@ -137,6 +140,14 @@ function buildProductFilterPayload(filters) {
     };
 }
 
+// Nhãn trạng thái sản phẩm: cùng nhãn với cột Trạng thái của bảng
+const nhanTrangThai = (trangThai) =>
+    trangThai === 1 ? "Còn hàng" : trangThai === 0 ? "Hết hàng" : "Ngừng hoạt động";
+
+// Ô khoảng giá trong sheet "Bộ lọc" (điện thoại): nhãn nằm trong khung như ô ngày của các màn danh sách khác
+const O_GIA_DIEN_THOAI =
+    "flex h-9 w-full items-center gap-2 rounded-md border border-bo-border bg-bo-surface pl-3 pr-3 text-sm focus-within:border-bo-primary focus-within:ring-2 focus-within:ring-bo-primary/15";
+
 // Nhãn tab kèm chú thích khi rê chuột (StatusTabs hiện `label` nguyên trạng nên truyền được phần tử).
 function TabLabel({ label, hint }) {
     if (!hint) return label;
@@ -179,6 +190,11 @@ export default function ProductList() {
     const [productToDelete, setProductToDelete] = useState(null);
     const [selectedProductId, setSelectedProductId] = useState(null);
     const [isDeleting, setIsDeleting] = useState(false);
+
+    // Điện thoại: thương hiệu + khoảng giá vào sheet "Bộ lọc"; nút ⋯ của thẻ / dòng (cảm ứng) mở sheet thao tác
+    const isMobile = useIsMobile();
+    const [spThaoTac, setSpThaoTac] = useState(null);
+    const [moThaoTac, setMoThaoTac] = useState(false);
 
     // Nạp danh sách thương hiệu cho bộ lọc (lỗi thì bỏ qua, không chặn màn danh sách)
     useEffect(() => {
@@ -356,6 +372,19 @@ export default function ProductList() {
     // Sau khi Them/Sua thanh cong, refresh lai danh sach va so tren tab de UI phan anh du lieu moi nhat.
     const handleModalSuccess = useCallback(() => { fetchProducts(); taiLaiSoTab(); }, [fetchProducts, taiLaiSoTab]);
 
+    // Sheet thao tác (điện thoại, máy tính bảng dọc): Xem / Sửa / Xóa của sản phẩm vừa bấm ⋯
+    const moSheetThaoTac = (product) => {
+        setSpThaoTac(product);
+        setMoThaoTac(true);
+    };
+    const luaChonThuongHieu = [
+        { value: "ALL", label: "Tất cả thương hiệu" },
+        ...brands.map((brand) => ({
+            value: String(brand.id),
+            label: Number(brand.trangThai) !== 1 ? `${brand.tenThuongHieu} (Ngừng)` : brand.tenThuongHieu,
+        })),
+    ];
+
     // Số chỉ hiện khi đã đếm xong và danh sách không lỗi (R9); số 0 tự ẩn trong StatusTabs.
     const statusTabs = STATUS_TABS.map((t) => ({
         value: t.value,
@@ -406,6 +435,44 @@ export default function ProductList() {
                             className="sm:w-[300px]"
                         />
 
+                        {isMobile ? (
+                            <>
+                                {/* Điện thoại: khoảng giá + thương hiệu thành ô của sheet "Bộ lọc" (có chip bỏ lọc) */}
+                                <label className={O_GIA_DIEN_THOAI}>
+                                    <span className="w-14 shrink-0 text-xs text-bo-muted">Giá từ</span>
+                                    <Input
+                                        type="number"
+                                        inputMode="numeric"
+                                        min="0"
+                                        aria-label="Giá từ"
+                                        value={draft.giaTu}
+                                        onChange={updateDraft("giaTu")}
+                                        className="h-8 min-w-0 flex-1 border-0 bg-transparent px-0 text-bo-foreground shadow-none focus-visible:ring-0"
+                                    />
+                                    <span className="shrink-0 text-xs text-bo-muted">₫</span>
+                                </label>
+                                <label className={O_GIA_DIEN_THOAI}>
+                                    <span className="w-14 shrink-0 text-xs text-bo-muted">Giá đến</span>
+                                    <Input
+                                        type="number"
+                                        inputMode="numeric"
+                                        min="0"
+                                        aria-label="Giá đến"
+                                        value={draft.giaDen}
+                                        onChange={updateDraft("giaDen")}
+                                        className="h-8 min-w-0 flex-1 border-0 bg-transparent px-0 text-bo-foreground shadow-none focus-visible:ring-0"
+                                    />
+                                    <span className="shrink-0 text-xs text-bo-muted">₫</span>
+                                </label>
+                                <FilterSelect
+                                    label="Thương hiệu"
+                                    value={filters.thuongHieu}
+                                    options={luaChonThuongHieu}
+                                    onChange={(value) => updateFilter("thuongHieu", value)}
+                                />
+                            </>
+                        ) : (
+                        <>
                         {/* Thương hiệu */}
                         <DropdownMenu modal={false}>
                             <DropdownMenuTrigger asChild>
@@ -472,6 +539,8 @@ export default function ProductList() {
                                 className="h-9 min-w-0 flex-1 border-bo-border bg-bo-surface text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20 sm:w-28 sm:flex-none"
                             />
                         </div>
+                        </>
+                        )}
                     </ListToolbar>
                 }
                 footer={
@@ -535,11 +604,55 @@ export default function ProductList() {
                         />
                     )
                 ) : (
-                    /* Bảng dữ liệu: khung giãn hết màn, thân bảng tự cuộn, tiêu đề cột đứng yên */
-                    <table className="w-full min-w-[1100px] text-sm">
+                    <>
+                    {/* Điện thoại: mỗi sản phẩm một thẻ — ảnh, tên + trạng thái, thương hiệu · số phân loại, ngày tạo + giá bán;
+                        chạm thẻ mở chi tiết, nút ⋯ (44px, góc trên phải) mở sheet Xem / Sửa / Xóa */}
+                    <ul className="divide-y divide-bo-border md:hidden">
+                        {products.map((product) => {
+                            const giaBan = dinhDangKhoangGia(product.bienTheSanPhams, "giaBan");
+                            const anh = product.anhQuanAos?.[0]?.tepTin?.duongDan;
+                            const soPhanLoai = product.bienTheSanPhams?.length ?? 0;
+                            return (
+                                <li key={product.id} className="relative">
+                                    <Link
+                                        to={`/products/${product.id}`}
+                                        className="flex min-w-0 items-start gap-3 px-4 py-3 active:bg-bo-surface-subtle"
+                                    >
+                                        <span className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-bo-border bg-slate-100">
+                                            {anh ? (
+                                                <img src={anh} alt="" className="h-full w-full object-cover" />
+                                            ) : (
+                                                <Package className="size-5 text-slate-300" aria-hidden="true" />
+                                            )}
+                                        </span>
+                                        <span className="grid min-w-0 flex-1 gap-0.5">
+                                            <span className="flex items-start justify-between gap-2 pr-8">
+                                                <span className="line-clamp-2 min-w-0 font-semibold leading-5 text-bo-foreground">{product.tenSanPham}</span>
+                                                <StatusBadge label={nhanTrangThai(product.trangThai)} />
+                                            </span>
+                                            <span className="truncate text-[13px] text-bo-muted">
+                                                {product.thuongHieu?.tenThuongHieu || "Chưa có thương hiệu"} · {soPhanLoai} phân loại
+                                            </span>
+                                            <span className="flex items-baseline justify-between gap-3 text-[13px] text-bo-muted">
+                                                <span className="shrink-0 tabular-nums">{formatDate(product.ngayTao)}</span>
+                                                <span className="min-w-0 truncate text-right text-[15px] font-semibold tabular-nums text-bo-foreground">
+                                                    {giaBan ?? "—"}
+                                                </span>
+                                            </span>
+                                        </span>
+                                    </Link>
+                                    <NutThaoTac nhan={product.tenSanPham} onClick={() => moSheetThaoTac(product)} className="absolute right-1 top-1.5" />
+                                </li>
+                            );
+                        })}
+                    </ul>
+                    {/* Bảng dữ liệu: khung giãn hết màn, thân bảng tự cuộn, tiêu đề cột đứng yên.
+                        Máy tính bảng dọc (cảm ứng): bỏ cột STT, Thương hiệu, Ngày tạo (đưa thành dòng phụ dưới tên);
+                        ba nút thao tác 32px thay bằng một nút ⋯ 44px mở sheet thao tác — để không vuốt ngang */}
+                    <table className="w-full min-w-[1100px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
                         <thead className="sticky top-0 z-10">
                         <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                            <th className="h-10 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                            <th className="h-10 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">
                                 STT
                             </th>
                             <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
@@ -548,7 +661,7 @@ export default function ProductList() {
                             <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
                                 Tên sản phẩm
                             </th>
-                            <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                            <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">
                                 Thương hiệu
                             </th>
                             <th className="h-10 px-3 text-right whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
@@ -557,7 +670,7 @@ export default function ProductList() {
                             <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
                                 Trạng thái
                             </th>
-                            <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                            <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">
                                 Ngày tạo
                             </th>
                             <th className="h-10 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
@@ -575,7 +688,7 @@ export default function ProductList() {
                                 className="transition-colors hover:bg-bo-surface-subtle"
                             >
                                 {/* STT */}
-                                <td className="px-3 py-3 text-center text-xs text-bo-muted">
+                                <td className="px-3 py-3 text-center text-xs text-bo-muted cam-ung:max-lg:hidden">
                                     {filters.page * filters.size + index + 1}
                                 </td>
 
@@ -595,7 +708,7 @@ export default function ProductList() {
                                 </td>
 
                                 {/* Tên sản phẩm */}
-                                <td className="max-w-[260px] px-3 py-3">
+                                <td className="max-w-[260px] px-3 py-3 cam-ung:max-lg:max-w-[220px]">
                                     <Link
                                         to={`/products/${product.id}`}
                                         title={product.tenSanPham}
@@ -608,10 +721,14 @@ export default function ProductList() {
                                             {product.moTa}
                                         </p>
                                     )}
+                                    {/* Máy tính bảng dọc: thương hiệu · ngày tạo thay cho hai cột đã ẩn */}
+                                    <p className="mt-0.5 hidden truncate text-xs text-bo-muted cam-ung:max-lg:block">
+                                        {product.thuongHieu?.tenThuongHieu || "Chưa có thương hiệu"} · {formatDate(product.ngayTao)}
+                                    </p>
                                 </td>
 
                                 {/* Thương hiệu */}
-                                <td className="max-w-[180px] px-3 py-3">
+                                <td className="max-w-[180px] px-3 py-3 cam-ung:max-lg:hidden">
                                     {product.thuongHieu?.tenThuongHieu ? (
                                         <span className="block truncate text-slate-700" title={product.thuongHieu.tenThuongHieu}>
                                             {product.thuongHieu.tenThuongHieu}
@@ -642,13 +759,13 @@ export default function ProductList() {
                                 </td>
 
                                 {/* Ngày tạo */}
-                                <td className="whitespace-nowrap px-3 py-3 text-sm tabular-nums text-bo-muted">
+                                <td className="whitespace-nowrap px-3 py-3 text-sm tabular-nums text-bo-muted cam-ung:max-lg:hidden">
                                     {formatDate(product.ngayTao)}
                                 </td>
 
                                 {/* Thao tác */}
                                 <td className="px-3 py-3">
-                                    <RowActions>
+                                    <RowActions className="cam-ung:max-lg:hidden">
                                         <RowActionButton
                                             icon={Eye}
                                             label="Xem chi tiết"
@@ -666,14 +783,34 @@ export default function ProductList() {
                                             onClick={() => handleDeleteClick(product)}
                                         />
                                     </RowActions>
+                                    <NutThaoTac
+                                        nhan={product.tenSanPham}
+                                        vien
+                                        onClick={() => moSheetThaoTac(product)}
+                                        className="mx-auto hidden cam-ung:max-lg:flex"
+                                    />
                                 </td>
                             </tr>
                             );
                         })}
                         </tbody>
                     </table>
+                    </>
                 )}
             </TableShell>
+
+            {/* Sheet thao tác của một sản phẩm (nút ⋯ trên thẻ điện thoại / dòng máy tính bảng dọc) */}
+            <SheetThaoTac
+                mo={moThaoTac}
+                onDoiMo={setMoThaoTac}
+                tieuDe={spThaoTac?.tenSanPham}
+                moTa="Thao tác với sản phẩm"
+                thaoTac={[
+                    { khoa: "xem", icon: Eye, nhan: "Xem chi tiết", onChon: () => navigate(`/products/${spThaoTac?.id}`) },
+                    { khoa: "sua", icon: Edit, nhan: "Chỉnh sửa", onChon: () => { setSelectedProductId(spThaoTac?.id); openEditModal(); } },
+                    { khoa: "xoa", icon: Trash2, nhan: "Xóa sản phẩm", nguyHiem: true, onChon: () => handleDeleteClick(spThaoTac) },
+                ]}
+            />
 
             {/* ══ MODALS & DRAWER ══════════════════════════════════════════════════ */}
             <AddProductModal

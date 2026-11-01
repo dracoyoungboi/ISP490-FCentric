@@ -623,7 +623,8 @@ export default function DanhMucQuanAoTree() {
         {thongKe.tong} danh mục · {thongKe.goc} danh mục gốc · {thongKe.ngung} ngừng hoạt động · sâu nhất {thongKe.sauNhat} cấp
       </span>
       {coTheSua && !laDienThoai ? (
-        <span aria-live="polite" className={cn(keo && (keo.duoc ? "text-bo-primary-hover" : keo.idDich !== undefined && "text-bo-warning"))}>
+        // Màn cảm ứng không kéo thả được (đã có "Chuyển đến…" trong menu ⋯): máy tính bảng dọc ẩn gợi ý kéo thả
+        <span aria-live="polite" className={cn(keo && (keo.duoc ? "text-bo-primary-hover" : keo.idDich !== undefined && "text-bo-warning"), "cam-ung:max-lg:hidden")}>
           {goiYKeo}
         </span>
       ) : null}
@@ -647,6 +648,7 @@ export default function DanhMucQuanAoTree() {
                 onClear={() => doiTuKhoa("")}
                 className="sm:w-[320px]"
               />
+              {/* Điện thoại: ô lọc nằm riêng một hàng trên ô tìm, cao 44px */}
               <LocTrangThai value={loc} onChange={doiLoc} dem={demLoc} />
             </ListToolbar>
             {taiDuLieu.error && danhSach ? (

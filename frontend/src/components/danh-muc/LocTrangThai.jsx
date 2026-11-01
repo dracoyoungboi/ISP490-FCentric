@@ -51,7 +51,7 @@ export default function LocTrangThai({ value, onChange, dem = {}, className }) {
           <DropdownMenuItem
             key={o.value}
             onSelect={() => onChange(o.value)}
-            className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
+            className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900 cam-ung:max-lg:min-h-11"
           >
             <span className="flex-1">{o.label}</span>
             <span className="inline-flex h-5 min-w-[22px] items-center justify-center rounded-full bg-slate-100 px-1.5 text-xs font-semibold tabular-nums text-slate-600">

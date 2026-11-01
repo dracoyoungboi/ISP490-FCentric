@@ -27,6 +27,7 @@ import SearchInput from "@/components/shared/SearchInput";
 import StatusTabs from "@/components/shared/StatusTabs";
 import TablePagination from "@/components/shared/TablePagination";
 import { RowActionButton, RowActions } from "@/components/shared/RowActions";
+import SheetThaoTac, { NutThaoTac } from "@/components/san-pham/SheetThaoTac";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { toast } from "@/lib/thongBaoNhanh";
 import { mauSacService, sizeService } from "@/services/attributeService";
@@ -239,6 +240,9 @@ const ProductAttributeHub = () => {
     const [viewItem, setViewItem] = useState(null);
     const [logoFile, setLogoFile] = useState(null);
     const [logoPreview, setLogoPreview] = useState(null);
+    // Nút ⋯ của thẻ (điện thoại) / dòng (máy tính bảng dọc) mở sheet Xem / Sửa / Xóa của mục này
+    const [mucThaoTac, setMucThaoTac] = useState(null);
+    const [moThaoTac, setMoThaoTac] = useState(false);
 
     // Đổi tab loại (bấm tab, quay lại, mở đường dẫn có ?loai=): về bộ lọc mặc định như trước,
     // và hiện vòng tải ngay để không lộ dòng của loại cũ dưới cột của loại mới.
@@ -449,6 +453,12 @@ const ProductAttributeHub = () => {
         ? data.slice(currentPage * filters.size, (currentPage + 1) * filters.size)
         : data;
     const TabIcon = TAB_ICONS[activeTab];
+    const maCua = (item) => item.maMau || item.maSize || item.maChatLieu || item.maThuongHieu;
+    const tenCua = (item) => item.tenMau || item.tenSize || item.tenChatLieu || item.tenThuongHieu;
+    const moSheetThaoTac = (item) => {
+        setMucThaoTac(item);
+        setMoThaoTac(true);
+    };
 
     return (
         <PageContainer fill className="space-y-4">
@@ -540,20 +550,68 @@ const ProductAttributeHub = () => {
                         />
                     )
                 ) : (
-                    /* Bảng dữ liệu: khung giãn hết màn, thân bảng tự cuộn, tiêu đề cột đứng yên */
-                        <table className="w-full min-w-[880px] text-sm">
+                    <>
+                    {/* Điện thoại: mỗi mục một thẻ — ô màu / cỡ / logo, tên (+ trạng thái thương hiệu), mã · thông tin phụ, mô tả;
+                        chạm thẻ mở hộp sửa như bấm dòng, nút ⋯ (44px) mở sheet Xem / Sửa / Xóa */}
+                    <ul className="divide-y divide-bo-border md:hidden">
+                        {rows.map((item) => (
+                            <li key={item.id} className="relative">
+                                <button
+                                    type="button"
+                                    onClick={() => handleOpenModal('edit', item)}
+                                    className="flex w-full min-w-0 items-start gap-3 py-3 pl-4 pr-14 text-left active:bg-bo-surface-subtle"
+                                >
+                                    {activeTab === 'color' ? (
+                                        <ColorSwatch hex={item.maMauHex} className="size-10" />
+                                    ) : activeTab === 'size' ? (
+                                        <span className="grid size-10 shrink-0 place-items-center rounded-lg border border-bo-border bg-bo-surface-subtle font-mono text-[13px] font-semibold text-bo-foreground">
+                                            {item.maSize}
+                                        </span>
+                                    ) : activeTab === 'brand' && item.logoUrl ? (
+                                        <img src={item.logoUrl} alt="" className="size-10 shrink-0 rounded-lg border border-bo-border bg-bo-surface object-contain p-0.5" />
+                                    ) : (
+                                        <span className="grid size-10 shrink-0 place-items-center rounded-lg border border-bo-border bg-bo-surface-subtle text-bo-muted">
+                                            <TabIcon className="size-4" aria-hidden="true" />
+                                        </span>
+                                    )}
+                                    <span className="grid min-w-0 flex-1 gap-0.5">
+                                        <span className="flex min-w-0 items-center justify-between gap-2">
+                                            <span className="truncate font-semibold text-bo-foreground">{tenCua(item)}</span>
+                                            {activeTab === 'brand' ? (
+                                                <StatusBadge label={Number(item.trangThai) === 1 ? 'Hoạt động' : 'Ngừng hoạt động'} />
+                                            ) : null}
+                                        </span>
+                                        <span className="truncate text-[13px] text-bo-muted">
+                                            <span className="font-mono font-semibold tracking-wide text-bo-primary">{maCua(item)}</span>
+                                            {activeTab === 'color' ? <span className="font-mono uppercase"> · {item.maMauHex || '—'}</span> : null}
+                                            {activeTab === 'size' ? ` · ${item.loaiSize || '—'} · Thứ tự ${item.thuTuSapXep ?? '—'}` : null}
+                                            {activeTab === 'brand' ? ` · ${formatDate(item.ngayTao)}` : null}
+                                        </span>
+                                        {activeTab !== 'color' && item.moTa ? (
+                                            <span className="line-clamp-2 text-[13px] italic text-bo-muted">{item.moTa}</span>
+                                        ) : null}
+                                    </span>
+                                </button>
+                                <NutThaoTac nhan={tenCua(item)} onClick={() => moSheetThaoTac(item)} className="absolute right-1 top-1.5" />
+                            </li>
+                        ))}
+                    </ul>
+                    {/* Bảng dữ liệu: khung giãn hết màn, thân bảng tự cuộn, tiêu đề cột đứng yên.
+                        Máy tính bảng dọc (cảm ứng): bỏ cột STT (thương hiệu bỏ thêm Mô tả, Ngày tạo — đưa thành dòng phụ),
+                        ba nút thao tác 32px thay bằng một nút ⋯ 44px — để không vuốt ngang */}
+                        <table className="w-full min-w-[880px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
                             <thead className="sticky top-0 z-10">
                                 <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                                    <th className="h-11 w-14 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">STT</th>
+                                    <th className="h-11 w-14 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">STT</th>
                                     <th className="h-11 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Mã</th>
                                     <th className="h-11 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Tên hiển thị</th>
                                     {activeTab === 'color' && <th className="h-11 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Màu sắc</th>}
                                     {activeTab === 'size' && <th className="h-11 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Phân loại</th>}
                                     {activeTab === 'material' && <th className="h-11 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Mô tả</th>}
                                     {activeTab === 'brand' && <th className="h-11 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Logo</th>}
-                                    {activeTab === 'brand' && <th className="h-11 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Mô tả</th>}
+                                    {activeTab === 'brand' && <th className="h-11 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">Mô tả</th>}
                                     {activeTab === 'brand' && <th className="h-11 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>}
-                                    {activeTab === 'brand' && <th className="h-11 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày tạo</th>}
+                                    {activeTab === 'brand' && <th className="h-11 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">Ngày tạo</th>}
                                     <th className="h-11 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Thao tác</th>
                                 </tr>
                             </thead>
@@ -564,16 +622,23 @@ const ProductAttributeHub = () => {
                                         className="cursor-pointer transition-colors hover:bg-bo-surface-subtle"
                                         onClick={() => handleOpenModal('edit', item)}
                                     >
-                                        <td className="w-14 px-3 py-3 text-center font-mono text-xs text-bo-muted">
+                                        <td className="w-14 px-3 py-3 text-center font-mono text-xs text-bo-muted cam-ung:max-lg:hidden">
                                             {currentPage * filters.size + index + 1}
                                         </td>
-                                        <td className="px-3 py-3">
+                                        <td className="px-3 py-3 cam-ung:max-lg:whitespace-nowrap">
                                             <span className="font-mono font-semibold tracking-wide text-bo-primary">
                                                 {item.maMau || item.maSize || item.maChatLieu || item.maThuongHieu}
                                             </span>
+                                            {activeTab === 'brand' ? (
+                                                <span className="mt-0.5 hidden whitespace-nowrap text-xs text-bo-muted cam-ung:max-lg:block">{formatDate(item.ngayTao)}</span>
+                                            ) : null}
                                         </td>
                                         <td className="px-3 py-3 font-semibold text-bo-foreground">
                                             {item.tenMau || item.tenSize || item.tenChatLieu || item.tenThuongHieu}
+                                            {/* Máy tính bảng dọc: mô tả thương hiệu thay cho cột đã ẩn */}
+                                            {activeTab === 'brand' && item.moTa ? (
+                                                <span className="mt-0.5 hidden text-xs font-normal italic text-bo-muted cam-ung:max-lg:line-clamp-2">{item.moTa}</span>
+                                            ) : null}
                                         </td>
                                         {activeTab === 'color' && (
                                             <td className="px-3 py-3">
@@ -591,7 +656,7 @@ const ProductAttributeHub = () => {
                                             </td>
                                         )}
                                         {activeTab === 'material' && (
-                                            <td className="min-w-[320px] max-w-[520px] whitespace-normal break-words px-3 py-3 italic text-bo-muted">
+                                            <td className="min-w-[320px] max-w-[520px] whitespace-normal break-words px-3 py-3 italic text-bo-muted cam-ung:max-lg:min-w-0">
                                                 {item.moTa || '—'}
                                             </td>
                                         )}
@@ -611,7 +676,7 @@ const ProductAttributeHub = () => {
                                             </td>
                                         )}
                                         {activeTab === 'brand' && (
-                                            <td className="min-w-[220px] max-w-[420px] whitespace-normal break-words px-3 py-3 italic text-bo-muted">
+                                            <td className="min-w-[220px] max-w-[420px] whitespace-normal break-words px-3 py-3 italic text-bo-muted cam-ung:max-lg:hidden">
                                                 {item.moTa || '—'}
                                             </td>
                                         )}
@@ -621,12 +686,12 @@ const ProductAttributeHub = () => {
                                             </td>
                                         )}
                                         {activeTab === 'brand' && (
-                                            <td className="whitespace-nowrap px-3 py-3 text-bo-muted">
+                                            <td className="whitespace-nowrap px-3 py-3 text-bo-muted cam-ung:max-lg:hidden">
                                                 {formatDate(item.ngayTao)}
                                             </td>
                                         )}
                                         <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
-                                            <RowActions>
+                                            <RowActions className="cam-ung:max-lg:hidden">
                                                 <RowActionButton
                                                     icon={Eye}
                                                     label="Xem chi tiết"
@@ -646,13 +711,35 @@ const ProductAttributeHub = () => {
                                                     />
                                                 )}
                                             </RowActions>
+                                            <NutThaoTac
+                                                nhan={tenCua(item)}
+                                                vien
+                                                onClick={() => moSheetThaoTac(item)}
+                                                className="mx-auto hidden cam-ung:max-lg:flex"
+                                            />
                                         </td>
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
+                    </>
                 )}
             </TableShell>
+
+            {/* Sheet thao tác của một mục (nút ⋯ trên thẻ điện thoại / dòng máy tính bảng dọc); thương hiệu không có Xóa */}
+            <SheetThaoTac
+                mo={moThaoTac}
+                onDoiMo={setMoThaoTac}
+                tieuDe={mucThaoTac ? tenCua(mucThaoTac) : ""}
+                moTa={`Thao tác với ${TAB_LABELS[activeTab]}`}
+                thaoTac={[
+                    { khoa: "xem", icon: Eye, nhan: "Xem chi tiết", onChon: () => handleOpenModal('view', mucThaoTac) },
+                    { khoa: "sua", icon: Edit, nhan: "Chỉnh sửa", onChon: () => handleOpenModal('edit', mucThaoTac) },
+                    ...(activeTab !== 'brand'
+                        ? [{ khoa: "xoa", icon: Trash2, nhan: `Xóa ${TAB_LABELS[activeTab]}`, nguyHiem: true, onChon: () => setDeleteConfig({ open: true, item: mucThaoTac }) }]
+                        : []),
+                ]}
+            />
 
             {/* ── Form Modal ── */}
             <Dialog open={modalConfig.open} onOpenChange={o => setModalConfig({ ...modalConfig, open: o })}>
@@ -815,7 +902,7 @@ const ProductAttributeHub = () => {
                                     />
                                     <label
                                         htmlFor="brand-logo-input"
-                                        className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-bo-border bg-bo-surface p-2 text-sm font-medium text-bo-foreground transition-colors hover:bg-bo-primary-soft hover:text-bo-primary"
+                                        className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-bo-border bg-bo-surface p-2 text-sm font-medium text-bo-foreground transition-colors hover:bg-bo-primary-soft hover:text-bo-primary cam-ung:min-h-11"
                                     >
                                         <Upload className="size-4" />
                                         <span>{logoPreview ? "Đổi logo khác" : "Chọn ảnh logo"}</span>

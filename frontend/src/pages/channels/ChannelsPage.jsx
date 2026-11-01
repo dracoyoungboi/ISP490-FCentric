@@ -22,7 +22,10 @@ const TD = "px-3 py-3 max-sm:p-0";
 /** Dưới sm: ô trạng thái / số liệu thành một dòng "nhãn … giá trị" rộng hết thẻ. */
 const DONG_THE = "max-sm:flex max-sm:items-baseline max-sm:justify-between max-sm:gap-3 max-sm:text-right";
 const NHAN_THE = "shrink-0 text-left text-[13px] text-bo-muted sm:hidden";
-const NUT = "h-8 rounded-lg px-3 text-[13px] max-sm:h-11 max-sm:w-full";
+/** Máy tính bảng dọc (cảm ứng, từ sm tới dưới lg; dưới sm là thẻ): bảng bỏ hai cột Đồng bộ tự động, Lần chạy gần nhất. */
+const AN_BANG = "cam-ung:sm:max-lg:hidden";
+const DONG_PHU_BANG = "mt-0.5 hidden text-[13px] cam-ung:sm:max-lg:block";
+const NUT = "h-8 rounded-lg px-3 text-[13px] max-sm:w-full";
 const NUT_PHU = cn(NUT, "border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle");
 const NUT_CHINH = cn(NUT, "bg-bo-primary text-white hover:bg-bo-primary-hover");
 const XUONG = "bg-slate-100";
@@ -54,8 +57,8 @@ export default function ChannelsPage() {
         <MockModeNotice show={isChannelMock} note={GHI_CHU_DU_LIEU_MAU_KENH} />
         <section className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
           <div className="w-full sm:overflow-x-auto">
-            <table className="w-full text-sm max-sm:block sm:min-w-[960px] sm:table-fixed">
-              <colgroup className="max-sm:hidden">
+            <table className="w-full text-sm max-sm:block sm:min-w-[960px] sm:table-fixed cam-ung:sm:max-lg:min-w-0 cam-ung:sm:max-lg:table-auto">
+              <colgroup className="max-sm:hidden cam-ung:sm:max-lg:hidden">
                 <col />
                 <col className="w-[176px]" />
                 <col className="w-[212px]" />
@@ -67,9 +70,9 @@ export default function ChannelsPage() {
                 <tr className="border-b border-bo-border bg-bo-surface-subtle">
                   <th className={`${TH} text-left`}>Gian hàng</th>
                   <th className={`${TH} text-left`}>Trạng thái</th>
-                  <th className={`${TH} text-left`}>Đồng bộ tự động</th>
+                  <th className={`${TH} text-left ${AN_BANG}`}>Đồng bộ tự động</th>
                   <th className={`${TH} text-right`}>SKU đang đồng bộ</th>
-                  <th className={`${TH} text-left`}>Lần chạy gần nhất</th>
+                  <th className={`${TH} text-left ${AN_BANG}`}>Lần chạy gần nhất</th>
                   <th className={TH}>
                     <span className="sr-only">Thao tác</span>
                   </th>
@@ -241,16 +244,25 @@ function DongSan({ san }) {
         ) : (
           <StatusBadge label={nhanTrangThaiKetNoi(trangThai, san.kieuKetNoi)} />
         )}
+        {/* Máy tính bảng dọc: cột Đồng bộ tự động đã ẩn, ghi dưới thẻ trạng thái */}
+        {ketNoi && !dangTai ? (
+          <div className={DONG_PHU_BANG}>
+            <span className="text-bo-muted">Tự động: </span>
+            <span className="text-bo-foreground">{tuDong}</span>
+          </div>
+        ) : null}
       </td>
-      <td className={cn(TD, DONG_THE, "text-bo-foreground", anSoLieuTrenThe && "max-sm:hidden")}>
+      <td className={cn(TD, DONG_THE, "text-bo-foreground", AN_BANG, anSoLieuTrenThe && "max-sm:hidden")}>
         <span className={NHAN_THE}>Đồng bộ tự động</span>
         {dangTai ? <Skeleton className={cn("h-4 w-40 max-sm:w-28", XUONG)} /> : tuDong}
       </td>
       <td className={cn(TD, DONG_THE, "text-right tabular-nums text-bo-foreground", anSoLieuTrenThe && "max-sm:hidden")}>
         <span className={NHAN_THE}>SKU đang đồng bộ</span>
         {dangTai ? <Skeleton className={cn("ml-auto h-4 w-14", XUONG)} /> : soSku}
+        {/* Máy tính bảng dọc: cột Lần chạy gần nhất đã ẩn, ghi dưới số SKU */}
+        {ketNoi && !dangTai && lanCuoi ? <div className={cn(DONG_PHU_BANG, "whitespace-nowrap text-bo-muted")}>Lần chạy {lanCuoi}</div> : null}
       </td>
-      <td className={cn(TD, DONG_THE, "tabular-nums text-bo-muted max-sm:text-bo-foreground", anSoLieuTrenThe && "max-sm:hidden")}>
+      <td className={cn(TD, DONG_THE, "tabular-nums text-bo-muted max-sm:text-bo-foreground", AN_BANG, anSoLieuTrenThe && "max-sm:hidden")}>
         <span className={NHAN_THE}>Lần chạy gần nhất</span>
         {dangTai ? <Skeleton className={cn("h-4 w-24", XUONG)} /> : lanCuoi || "—"}
       </td>
@@ -305,9 +317,9 @@ function DongTaiQuay() {
         <span className={NHAN_THE}>Trạng thái</span>
         <StatusBadge label="Đang hoạt động" />
       </td>
-      <td className={cn(TD, DONG_THE, "text-bo-foreground max-sm:hidden")}>—</td>
+      <td className={cn(TD, DONG_THE, "text-bo-foreground max-sm:hidden", AN_BANG)}>—</td>
       <td className={cn(TD, DONG_THE, "text-right tabular-nums text-bo-foreground max-sm:hidden")}>—</td>
-      <td className={cn(TD, DONG_THE, "tabular-nums text-bo-muted max-sm:hidden")}>—</td>
+      <td className={cn(TD, DONG_THE, "tabular-nums text-bo-muted max-sm:hidden", AN_BANG)}>—</td>
       <td className={cn(TD, "whitespace-nowrap text-right max-sm:pt-1")}>
         <Button asChild variant="outline" className={NUT_PHU}>
           <Link to="/pos" onClick={(event) => event.stopPropagation()}>

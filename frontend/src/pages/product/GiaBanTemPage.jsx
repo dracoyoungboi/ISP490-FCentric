@@ -47,6 +47,7 @@ import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { productService } from "@/services/productService";
 import { getApiErrorMessage } from "@/utils/apiError";
@@ -58,8 +59,9 @@ const TAB_MAC_DINH = "tat-ca";
 const SEARCH_DEBOUNCE_MS = 350;
 const TH = "h-10 whitespace-nowrap px-3 text-[11px] font-semibold uppercase tracking-wide text-bo-muted";
 const NUT_DAU_TRANG = "h-9 gap-2 rounded-md border-bo-border bg-white px-3 text-sm font-medium text-bo-foreground hover:bg-bo-surface-subtle max-sm:h-11";
+// Điện thoại / máy tính bảng dọc (cảm ứng): lớp after: phủ quanh ô 16px thành vùng chạm 44px
 const CHECKBOX_CLASS =
-  "border-slate-300 bg-white data-[state=checked]:border-bo-primary data-[state=checked]:bg-bo-primary data-[state=indeterminate]:border-bo-primary data-[state=indeterminate]:bg-bo-primary data-[state=indeterminate]:text-white";
+  "border-slate-300 bg-white data-[state=checked]:border-bo-primary data-[state=checked]:bg-bo-primary data-[state=indeterminate]:border-bo-primary data-[state=indeterminate]:bg-bo-primary data-[state=indeterminate]:text-white cam-ung:max-lg:relative cam-ung:max-lg:after:absolute cam-ung:max-lg:after:-inset-3.5";
 const nhanBienThe = (d) => [d.tenMau, d.kichCo].filter(Boolean).join(" - ") || "—";
 
 /** Chữ giá ở ô Giá bán của một SKU. */
@@ -128,6 +130,8 @@ export default function GiaBanTemPage() {
   const [hopChonPhieu, setHopChonPhieu] = useState(false);
   const [hopInTem, setHopInTem] = useState(null); // { nguon, dong, maPhieu? }
   const bangRef = useRef(null);
+  // Điện thoại vẽ danh sách thẻ thay cho bảng (chỉ vẽ một trong hai: ô giá mở theo popGia, id dòng dùng để cuộn tới)
+  const isMobile = useIsMobile();
 
   const ds = useTaiDuLieu(
     () => productService.locGiaBan({ page: trang.page, size: trang.size, tuKhoa, trangThai: tab, canXuLyGia: canXuLy }),
@@ -424,10 +428,16 @@ export default function GiaBanTemPage() {
         </td>
         <td className="max-w-[420px] px-3 py-2.5">
           {trongNhom ? (
-            <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 pl-[42px]">
-              <NhanBienThe dong={d} className="text-sm text-bo-foreground" />
-              {ngung ? <StatusBadge label="Ngừng hoạt động" className="text-[12.5px] font-normal text-bo-muted" /> : null}
-            </div>
+            <>
+              <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 pl-[42px]">
+                <NhanBienThe dong={d} className="text-sm text-bo-foreground" />
+                {ngung ? <StatusBadge label="Ngừng hoạt động" className="text-[12.5px] font-normal text-bo-muted" /> : null}
+              </div>
+              {/* Máy tính bảng dọc: SKU · mã vạch thay cho cột đã ẩn */}
+              <p className="hidden truncate pl-[42px] text-[12.5px] text-bo-muted cam-ung:max-lg:block">
+                <ToKhop text={d.maSku || "—"} tu={tuKhoa} /> · {d.maVachSku ? <ToKhop text={d.maVachSku} tu={tuKhoa} /> : "—"}
+              </p>
+            </>
           ) : (
             <div className="flex min-w-0 items-center gap-3">
               <AnhSanPham src={g.anh} />
@@ -439,11 +449,14 @@ export default function GiaBanTemPage() {
                   <NhanBienThe dong={d} className="text-[13px] text-bo-muted" />
                   {ngung ? <StatusBadge label="Ngừng hoạt động" className="text-[12.5px] font-normal text-bo-muted" /> : null}
                 </div>
+                <p className="hidden truncate text-[12.5px] text-bo-muted cam-ung:max-lg:block">
+                  <ToKhop text={d.maSku || "—"} tu={tuKhoa} /> · {d.maVachSku ? <ToKhop text={d.maVachSku} tu={tuKhoa} /> : "—"}
+                </p>
               </div>
             </div>
           )}
         </td>
-        <td className="max-w-[250px] px-3 py-2.5">
+        <td className="max-w-[250px] px-3 py-2.5 cam-ung:max-lg:hidden">
           <p className="truncate text-[13.5px] text-bo-foreground">
             <ToKhop text={d.maSku || "—"} tu={tuKhoa} />
           </p>
@@ -454,8 +467,11 @@ export default function GiaBanTemPage() {
         <td className={cn("whitespace-nowrap px-3 py-2.5 text-right tabular-nums", Number(d.tonKho) === 0 ? "text-slate-400" : "text-bo-foreground")}>
           {formatNumberOrDash(d.tonKho)}
         </td>
-        <td className="whitespace-nowrap px-3 py-2.5 text-right tabular-nums text-bo-muted">{formatNumberOrDash(d.giaVon)}</td>
-        <td className="whitespace-nowrap px-3 py-2.5 text-right">{oGiaDong(d)}</td>
+        <td className="whitespace-nowrap px-3 py-2.5 text-right tabular-nums text-bo-muted cam-ung:max-lg:hidden">{formatNumberOrDash(d.giaVon)}</td>
+        <td className="whitespace-nowrap px-3 py-2.5 text-right">
+          {oGiaDong(d)}
+          <p className="hidden text-xs tabular-nums text-bo-muted cam-ung:max-lg:block">Vốn {formatNumberOrDash(d.giaVon)}</p>
+        </td>
         <td className="w-16 px-2 py-2.5">
           <RowActions>
             <RowActionButton
@@ -512,9 +528,9 @@ export default function GiaBanTemPage() {
             </div>
           </div>
         </td>
-        <td className={cn("px-3 py-2.5", o)} />
+        <td className={cn("px-3 py-2.5 cam-ung:max-lg:hidden", o)} />
         <td className={cn("whitespace-nowrap px-3 py-2.5 text-right font-medium tabular-nums text-bo-heading", o)}>{formatNumberOrDash(tt.tongTon)}</td>
-        <td className={cn("whitespace-nowrap px-3 py-2.5 text-right tabular-nums text-bo-muted", o)}>
+        <td className={cn("whitespace-nowrap px-3 py-2.5 text-right tabular-nums text-bo-muted cam-ung:max-lg:hidden", o)}>
           {tt.giaVonChung !== null ? formatNumberOrDash(tt.giaVonChung) : null}
         </td>
         <td className={cn("whitespace-nowrap px-3 py-2.5 text-right", o)}>
@@ -534,6 +550,9 @@ export default function GiaBanTemPage() {
           ) : (
             <ChuGia hienThi={hienThi} />
           )}
+          {tt.giaVonChung !== null ? (
+            <p className="hidden text-xs tabular-nums text-bo-muted cam-ung:max-lg:block">Vốn {formatNumberOrDash(tt.giaVonChung)}</p>
+          ) : null}
         </td>
         <td className={cn("w-16 px-2 py-2.5", o)}>
           <RowActions>
@@ -541,6 +560,143 @@ export default function GiaBanTemPage() {
           </RowActions>
         </td>
       </tr>
+    );
+  };
+
+  /* ── Điện thoại: thẻ thay cho dòng bảng ───────────────────────────────── */
+  /** Ô chọn của thẻ: vùng chạm 44px bọc checkbox. */
+  const oChon = (checked, onChange, ariaLabel) => (
+    <span className="grid size-11 shrink-0 place-items-center">
+      <Checkbox checked={checked} onCheckedChange={onChange} aria-label={ariaLabel} className={CHECKBOX_CLASS} />
+    </span>
+  );
+  /** Nút In tem 44px của thẻ. */
+  const nutIn = (label, onClick, disabled = false) => (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      disabled={disabled}
+      onClick={onClick}
+      className="grid size-9 shrink-0 place-items-center rounded-md text-bo-muted hover:bg-slate-100 hover:text-bo-primary disabled:opacity-40"
+    >
+      <Printer className="size-[18px]" aria-hidden="true" />
+    </button>
+  );
+
+  /**
+   * Thẻ một SKU: ô chọn, (ảnh + tên khi là sản phẩm một phân loại); màu - cỡ cùng hàng với giá bán (bấm để đổi như ô giá
+   * của bảng) và In tem; dưới đó SKU · mã vạch, tồn · giá vốn trải hết bề ngang. `trongNhom`: nằm dưới thẻ sản phẩm nhiều
+   * phân loại (thụt vào, không ảnh).
+   */
+  const theSku = (d, g, trongNhom) => {
+    const ngung = !dangHoatDong(d);
+    return (
+      <li
+        key={d.id}
+        id={`gia-ban-dong-${d.id}`}
+        className={cn(
+          "flex items-start gap-1 py-1 pr-1",
+          trongNhom ? "pl-7" : "pl-1",
+          chon.has(d.id) && "bg-bo-primary-soft/50",
+          noiBat === d.id && "bg-bo-primary-soft shadow-[inset_3px_0_0_var(--color-bo-primary)]",
+        )}
+      >
+        {oChon(chon.has(d.id), (v) => doiChon([d.id], v === true), `Chọn ${d.maSku}`)}
+        {trongNhom ? null : <AnhSanPham src={g.anh} size={44} />}
+        <div className={cn("min-w-0 flex-1 pb-1.5", !trongNhom && "pl-2 pt-1.5")}>
+          {trongNhom ? null : (
+            <p className="line-clamp-2 font-medium leading-5 text-bo-heading">
+              <ToKhop text={g.ten} tu={tuKhoa} />
+            </p>
+          )}
+          <div className="flex min-h-9 items-center justify-between gap-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-x-1.5">
+              <NhanBienThe dong={d} className={trongNhom ? "text-sm text-bo-foreground" : "text-[13px] text-bo-muted"} />
+              {ngung ? <StatusBadge label="Ngừng hoạt động" className="text-[12.5px] font-normal text-bo-muted" /> : null}
+            </div>
+            <div className="flex shrink-0 items-center text-sm">
+              {oGiaDong(d)}
+              {nutIn(ngung ? "SKU ngừng hoạt động" : `In tem ${d.maSku}`, () => moInTem("chon", [d]), ngung)}
+            </div>
+          </div>
+          <p className="truncate text-[12.5px] text-bo-muted">
+            <ToKhop text={d.maSku || "—"} tu={tuKhoa} /> · {d.maVachSku ? <ToKhop text={d.maVachSku} tu={tuKhoa} /> : "—"}
+          </p>
+          <p className="text-[12.5px] tabular-nums text-bo-muted">
+            Tồn <span className={Number(d.tonKho) === 0 ? "text-slate-400" : "font-medium text-bo-foreground"}>{formatNumberOrDash(d.tonKho)}</span>
+            {" · "}Vốn {formatNumberOrDash(d.giaVon)}
+          </p>
+        </div>
+      </li>
+    );
+  };
+
+  /**
+   * Thẻ sản phẩm nhiều phân loại: ô chọn cả nhóm, bấm phần tên để mở / thu gọn các phân loại; số phân loại · tổng tồn,
+   * giá vốn chung, giá bán cả sản phẩm (một số / khoảng / chưa có) và In tem cả sản phẩm. Đang mở thì các SKU nằm ngay dưới.
+   */
+  const theNhom = (g, mo) => {
+    const ids = g.dong.map((d) => d.id);
+    const tt = tomTatNhom(g);
+    const hienThi = hienThiGiaNhom(tt.giaBan);
+    const soHoatDong = g.dong.filter(dangHoatDong).length;
+    const khoa = `nhom-${g.khoa}`;
+    const motPhan = ((Boolean(tuKhoa) && !g.khopTen) || canXuLy) && g.dong.length < g.tongPhanLoai;
+    return (
+      <li key={g.khoa}>
+        <div className="bg-bo-row-group pb-1 pl-1 pr-1 pt-1">
+          <div className="flex items-start gap-1">
+            {oChon(trangThaiChon(ids, chon), (v) => doiChon(ids, v === true), `Chọn cả ${g.ten}`)}
+            <button
+              type="button"
+              onClick={() => doiGon(g.khoa)}
+              aria-expanded={mo}
+              className="flex min-w-0 flex-1 items-start gap-2 rounded-md py-1 pr-1 text-left focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-bo-primary"
+            >
+              <AnhSanPham src={g.anh} size={44} />
+              <span className="min-w-0 flex-1 pl-1">
+                <span className="line-clamp-2 font-medium leading-5 text-bo-heading">
+                  <ToKhop text={g.ten} tu={tuKhoa} />
+                </span>
+                <span className="block text-[13px] tabular-nums text-bo-muted">
+                  {nhanPhanLoai(g, motPhan, formatNumberOrDash)} · Tồn {formatNumberOrDash(tt.tongTon)}
+                </span>
+              </span>
+              <span className="grid size-11 shrink-0 place-items-center text-bo-muted">
+                <ChevronRight className={cn("size-[18px] transition-transform duration-150 motion-reduce:transition-none", mo && "rotate-90")} aria-hidden="true" />
+              </span>
+            </button>
+          </div>
+          <div className="flex items-center justify-between gap-2 pl-[52px]">
+            <span className="min-w-0 truncate text-[12.5px] tabular-nums text-bo-muted">
+              {tt.giaVonChung !== null ? `Vốn ${formatNumberOrDash(tt.giaVonChung)}` : null}
+            </span>
+            <span className="flex shrink-0 items-center text-sm">
+              {laQuanTriVien && soHoatDong > 0 ? (
+                <OGiaBan
+                  dsDong={g.dong}
+                  hienThi={hienThi}
+                  tieuDe={motPhan ? "Giá bán các phân loại đang hiện" : "Giá bán cả sản phẩm"}
+                  phu={`Áp dụng cho ${formatNumberOrDash(soHoatDong)} phân loại đang hoạt động`}
+                  ariaLabel={`Đổi giá bán cả sản phẩm ${g.ten}`}
+                  open={popGia === khoa}
+                  onOpenChange={(moPop) => setPopGia(moPop ? khoa : null)}
+                  lyDoMacDinh={lyDoTruoc}
+                  dangLuu={dangLuuGia}
+                  onLuu={luuGia}
+                />
+              ) : (
+                <span className="px-2">
+                  <ChuGia hienThi={hienThi} />
+                </span>
+              )}
+              {nutIn(`In tem cả sản phẩm ${g.ten}`, () => moInTem("chon", g.dong))}
+            </span>
+          </div>
+        </div>
+        {mo ? <ul className="divide-y divide-[#eef1f5] border-t border-[#eef1f5]">{g.dong.map((d) => theSku(d, g, true))}</ul> : null}
+      </li>
     );
   };
 
@@ -732,8 +888,15 @@ export default function GiaBanTemPage() {
           ) : (
             <EmptyState icon={Layers} title="Chưa có SKU" description="SKU được tạo khi thêm sản phẩm ở trang Sản phẩm." />
           )
+        ) : isMobile ? (
+          // Điện thoại: mỗi sản phẩm một thẻ (nhiều phân loại thì mở / thu gọn như bảng), không vuốt ngang
+          <ul ref={bangRef} aria-label="SKU và giá bán" className="divide-y divide-bo-border md:hidden">
+            {nhom.map((g) => (laMotPhanLoai(g) ? theSku(g.dong[0], g, false) : theNhom(g, laMo(g))))}
+          </ul>
         ) : (
-          <table ref={bangRef} aria-label="SKU và giá bán" className="w-full min-w-[1040px] text-sm">
+          // Máy tính bảng dọc (cảm ứng): bỏ cột SKU · Mã vạch và Giá vốn (SKU xuống dưới tên, giá vốn dưới giá bán),
+          // nút In tem 44px — để bảng vừa khung, không vuốt ngang
+          <table ref={bangRef} aria-label="SKU và giá bán" className="w-full min-w-[1040px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-bo-border bg-bo-surface-subtle">
                 <th className={`${TH} w-10 text-left`}>
@@ -745,9 +908,9 @@ export default function GiaBanTemPage() {
                   />
                 </th>
                 <th className={`${TH} text-left`}>Sản phẩm</th>
-                <th className={`${TH} w-[250px] text-left`}>SKU · Mã vạch</th>
+                <th className={`${TH} w-[250px] text-left cam-ung:max-lg:hidden`}>SKU · Mã vạch</th>
                 <th className={`${TH} w-24 text-right`}>Tồn kho</th>
-                <th className={`${TH} w-[120px] text-right`}>Giá vốn</th>
+                <th className={`${TH} w-[120px] text-right cam-ung:max-lg:hidden`}>Giá vốn</th>
                 <th className={`${TH} w-40 text-right`}>Giá bán</th>
                 <th className={`${TH} w-16`}>
                   <span className="sr-only">Thao tác</span>

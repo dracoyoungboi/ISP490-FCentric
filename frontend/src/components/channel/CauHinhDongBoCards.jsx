@@ -154,10 +154,10 @@ export function TheDonHang({
             {duongDanDoiChuKy ? (
               <>
                 {" · "}
-                {/* Điện thoại: vùng chạm 44 px (lề âm giữ nguyên chỗ chữ) */}
+                {/* Điện thoại và màn cảm ứng: vùng chạm 44 px (lề âm giữ nguyên chỗ chữ) */}
                 <Link
                   to={duongDanDoiChuKy}
-                  className="rounded-sm font-medium text-bo-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 max-sm:-mx-3 max-sm:inline-flex max-sm:min-h-11 max-sm:items-center max-sm:px-3"
+                  className="rounded-sm font-medium text-bo-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 max-sm:-mx-3 max-sm:inline-flex max-sm:min-h-11 max-sm:items-center max-sm:px-3 cam-ung:-mx-3 cam-ung:inline-flex cam-ung:min-h-11 cam-ung:items-center cam-ung:px-3"
                 >
                   Đổi
                 </Link>

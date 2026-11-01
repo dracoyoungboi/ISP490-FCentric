@@ -425,11 +425,13 @@ export default function KhachHangReport() {
         </div>
       </div>
 
-      {/* ── DẢI CHỈ SỐ (một khung, thay 3 ô rời) ── */}
+      {/* ── DẢI CHỈ SỐ (một khung, thay 3 ô rời) ──
+          Điện thoại: 3 chỉ số chung một hàng (ô hẹp lề hơn) thay vì 3 hàng chồng nhau */}
       <MetricStrip
         label="Chỉ số khách hàng"
         items={chiSo}
         loading={loading}
+        className="max-md:grid-cols-3 max-md:[&>div]:px-3"
       />
 
 
@@ -439,7 +441,7 @@ export default function KhachHangReport() {
         <SurfaceCard
           title="Phân tích khách hàng"
           description="Xu hướng khách mới & quay lại"
-          contentClassName="h-[420px]"
+          contentClassName="h-[420px] max-md:h-[300px]"
         >
           {loading && data.length === 0 ? (
             <LoadingState rows={4} label="Đang tải biểu đồ khách hàng" />
@@ -521,7 +523,38 @@ export default function KhachHangReport() {
             description="Hãy thay đổi bộ lọc và thử lại."
           />
         ) : (
-          <table className="w-full min-w-[760px] text-sm">
+          <>
+          {/* Điện thoại: mỗi kỳ một thẻ — tên kỳ + tăng trưởng, bốn số như các cột của bảng */}
+          <ul className="divide-y divide-bo-border md:hidden">
+            {data.map((row, i) => (
+              <li key={i} className="px-4 py-3">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="min-w-0 truncate font-semibold text-bo-foreground">{row.nhanThoiGian}</span>
+                  <span className="shrink-0 text-[13px] text-bo-muted">
+                    Tăng trưởng{" "}
+                    {row.tyLeTangTruong != null ? (
+                      <b className="font-semibold tabular-nums text-bo-foreground">{`${row.tyLeTangTruong.toFixed(1)}%`}</b>
+                    ) : "—"}
+                  </span>
+                </div>
+                <dl className="mt-2 grid grid-cols-4 gap-2 rounded-lg bg-bo-surface-subtle px-2 py-2 text-center">
+                  {[
+                    ["Khách mới", row.soKhachMoi, "font-semibold text-bo-primary"],
+                    ["Quay lại", row.soKhachQuayLai, "text-bo-foreground"],
+                    ["Tổng mua", row.tongKhachMua, "text-bo-foreground"],
+                    ["Tích lũy", row.tichLuyKhachMoi, "text-bo-muted"],
+                  ].map(([nhan, so, kieu]) => (
+                    <div key={nhan} className="min-w-0">
+                      <dt className="truncate text-[11px] leading-4 text-bo-muted">{nhan}</dt>
+                      <dd className={`text-[15px] leading-6 tabular-nums ${kieu}`}>{fmt(so)}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </li>
+            ))}
+          </ul>
+          {/* Máy tính bảng dọc (cảm ứng): 6 cột số vừa khung nên chỉ bỏ bề rộng tối thiểu, không vuốt ngang */}
+          <table className="w-full min-w-[760px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
             <thead>
               <tr className="border-b border-bo-border bg-bo-surface-subtle">
                 <th className={`${TH_CLASS} text-left`}>Kỳ</th>
@@ -570,6 +603,7 @@ export default function KhachHangReport() {
               ))}
             </tbody>
           </table>
+          </>
         )}
       </TableShell>
 

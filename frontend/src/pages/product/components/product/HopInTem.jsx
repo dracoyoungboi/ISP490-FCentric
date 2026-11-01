@@ -32,7 +32,9 @@ import { ROLES, hasAnyRole } from "@/utils/roles";
 import { formatNumber } from "@/utils/formatters";
 
 const NGUONG_MAC_DINH = 200;
-const COT = "grid grid-cols-[minmax(0,1fr)_110px_76px_112px] items-center";
+// Máy tính bảng cảm ứng: cột số tem rộng hơn vì nút −/+ 44px và ô số 48px (44 + 48 + 44 + đệm 20 = 156px).
+// Điện thoại: còn 2 cột (SKU, số tem); giá trên tem và tồn thành dòng phụ dưới SKU — bảng không phải vuốt ngang.
+const COT = "grid grid-cols-[minmax(0,1fr)_110px_76px_112px] items-center cam-ung:md:grid-cols-[minmax(0,1fr)_100px_64px_156px] max-md:grid-cols-[minmax(0,1fr)_156px]";
 
 /**
  * Hộp "In tem sản phẩm" (thay BarcodePrint): mở từ màn Giá bán & tem mã vạch (SKU đã chọn, sau khi đổi giá) hoặc từ
@@ -360,11 +362,11 @@ function NoiDung({ nguon, dongBanDau, maPhieu, onDatGia, onDaMoIn, onDong }) {
           </p>
 
           <div className="overflow-x-auto rounded-lg border border-bo-border">
-            <div className="min-w-[460px]">
+            <div className="min-w-[460px] max-md:min-w-0 cam-ung:md:min-w-[528px]">
               <div className={cn(COT, "border-b border-[#eef1f5] bg-bo-surface-subtle text-[11px] font-semibold uppercase tracking-wide text-bo-muted *:px-2.5 *:py-2")}>
                 <div>SKU</div>
-                <div className="text-right">Giá trên tem</div>
-                <div className="text-right">{nguon === "phieu" ? "SL nhập" : "Tồn"}</div>
+                <div className="text-right max-md:hidden">Giá trên tem</div>
+                <div className="text-right max-md:hidden">{nguon === "phieu" ? "SL nhập" : "Tồn"}</div>
                 <div className="text-right">Số tem</div>
               </div>
               <div className="max-h-[340px] overflow-y-auto">
@@ -379,6 +381,9 @@ function NoiDung({ nguon, dongBanDau, maPhieu, onDatGia, onDaMoIn, onDong }) {
                           <p className="truncate font-medium">{d.tenSanPham}</p>
                           <p className="mt-px truncate text-xs text-bo-muted">
                             {[nhanBienThe(d), d.maVachSku].filter(Boolean).join(" · ") || "—"}
+                          </p>
+                          <p className="mt-px truncate text-xs tabular-nums text-bo-muted md:hidden">
+                            Giá {Number(d.giaBan) > 0 ? formatNumber(d.giaBan) : "—"} · {nguon === "phieu" ? "SL nhập" : "Tồn"} {formatNumber(nguon === "phieu" ? d.soLuong : d.tonKho)}
                           </p>
                           {lyDo ? (
                             <p className="mt-[3px] flex flex-wrap items-center gap-1.5 text-xs text-red-700">
@@ -397,8 +402,8 @@ function NoiDung({ nguon, dongBanDau, maPhieu, onDatGia, onDaMoIn, onDong }) {
                             </p>
                           ) : null}
                         </div>
-                        <div className="text-right font-semibold tabular-nums">{Number(d.giaBan) > 0 ? formatNumber(d.giaBan) : "—"}</div>
-                        <div className="text-right tabular-nums text-bo-muted">{formatNumber(nguon === "phieu" ? d.soLuong : d.tonKho)}</div>
+                        <div className="text-right font-semibold tabular-nums max-md:hidden">{Number(d.giaBan) > 0 ? formatNumber(d.giaBan) : "—"}</div>
+                        <div className="text-right tabular-nums text-bo-muted max-md:hidden">{formatNumber(nguon === "phieu" ? d.soLuong : d.tonKho)}</div>
                         <div className="flex justify-end">
                           {lyDo ? (
                             <span className="text-[12.5px] text-slate-400">Bỏ qua</span>
@@ -423,7 +428,7 @@ function NoiDung({ nguon, dongBanDau, maPhieu, onDatGia, onDaMoIn, onDong }) {
                                     const so = event.target.value.replace(/\D/g, "").slice(0, 4);
                                     datSoTem(d, so === "" ? 0 : Number(so));
                                   }}
-                                  className="h-[30px] w-12 border-y border-bo-border bg-white text-center text-[13px] tabular-nums text-bo-foreground focus:border-bo-primary focus:outline-none"
+                                  className="h-[30px] w-12 border-y border-bo-border bg-white text-center text-[13px] tabular-nums text-bo-foreground focus:border-bo-primary focus:outline-none cam-ung:text-base"
                                 />
                               </label>
                               <button
@@ -471,7 +476,8 @@ function NoiDung({ nguon, dongBanDau, maPhieu, onDatGia, onDaMoIn, onDong }) {
           <div className="-mt-0.5 flex justify-between gap-2 text-xs text-bo-muted">
             <span>Cuộn {kho.rongCuon} mm · CODE128 · giá đã gồm thuế</span>
             {xemCauHinh ? (
-              <Link to="/settings/print-templates" className="shrink-0 font-medium text-bo-primary hover:text-bo-primary-hover">
+              // Màn cảm ứng: liên kết cao 44px (hộp thoại nằm ngoài vùng nội dung chính nên lớp đệm liên kết chung không áp)
+              <Link to="/settings/print-templates" className="shrink-0 font-medium text-bo-primary hover:text-bo-primary-hover cam-ung:inline-flex cam-ung:min-h-11 cam-ung:items-center">
                 {suaCauHinh ? "Sửa trong Cấu hình" : "Xem trong Cấu hình"}
               </Link>
             ) : null}

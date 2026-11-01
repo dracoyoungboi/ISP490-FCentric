@@ -134,14 +134,15 @@ export default function BangCayDanhMuc({
   return (
     <>
       {/* Màn hẹp bớt cột phụ để cột Thao tác luôn nằm trong khung, không phải cuộn ngang:
-          dưới 1280px ẩn Ngày tạo, dưới 1024px ẩn Danh mục con (số con vẫn thấy khi mở nhánh). */}
+          dưới 1280px ẩn Ngày tạo, dưới 1024px ẩn Danh mục con (số con vẫn thấy khi mở nhánh).
+          Máy tính bảng dọc (cảm ứng): cột Mã rộng như màn lớn (mã không bị cắt), nút thao tác 44px nên cột Thao tác rộng hơn. */}
       <table className="w-full min-w-[480px] table-fixed text-sm">
         <colgroup>
           <col />
-          <col className="w-[96px] lg:w-[148px]" />
+          <col className="w-[96px] lg:w-[148px] cam-ung:max-lg:w-[148px]" />
           <col className={cn("w-[132px]", COT_CON)} />
           <col className={cn("w-[128px]", COT_NGAY)} />
-          <col className={coTheSua ? "w-[136px]" : "w-[96px]"} />
+          <col className={coTheSua ? "w-[136px] cam-ung:max-lg:w-[176px]" : "w-[96px] cam-ung:max-lg:w-[80px]"} />
         </colgroup>
         <thead className="sticky top-0 z-10">
           <tr className="border-b border-bo-border bg-bo-surface-subtle">
