@@ -19,8 +19,8 @@ import java.util.List;
  * Trigger: Hằng ngày lúc 3:00 AM (0 0 3 * * ?).
  * Retention period: 90 ngày.
  * Không xóa các hành động trong {@link IHanhDong#KHONG_TU_DON}: lịch sử phiên bản mẫu in (các phiên bản cấu hình để
- * xem lại / khôi phục, mỗi lần lưu mẫu một dòng nên không phình bảng) và nhật ký bảo mật (đăng nhập, khóa tài khoản,
- * mật khẩu, đổi quyền, đổi khóa thanh toán) cần giữ để truy vết sự cố.
+ * xem lại / khôi phục, mỗi lần lưu mẫu một dòng nên không phình bảng), dấu từ chối phiếu chuyển (chi tiết phiếu đọc) và
+ * nhật ký bảo mật (đăng nhập, khóa tài khoản, mật khẩu, đổi quyền, đổi khóa thanh toán) cần giữ để truy vết sự cố.
  * Xóa theo batch tối đa 5,000 dòng để tránh lock bảng DB trong thời gian dài.
  */
 @Component
