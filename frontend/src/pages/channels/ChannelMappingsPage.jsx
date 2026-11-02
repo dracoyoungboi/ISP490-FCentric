@@ -657,37 +657,49 @@ export default function ChannelMappingsPage() {
     LIEN_KET_STATUS[dong.trangThaiLienKet] ?? { label: dong.trangThaiLienKet ? `Không xác định (mã ${dong.trangThaiLienKet})` : "Chưa có trạng thái" };
 
   /** Nội dung ô Trạng thái của một SKU (dùng ở cột Trạng thái, và dưới tên sản phẩm trên máy tính bảng dọc). */
-  const oTrangThai = (dong, meta, dangXuLyDong) => (
-    <>
-      {dong.trangThaiLienKet === "da_lien_ket" ? (
-        <span className="sr-only">{meta.label}</span>
-      ) : (
-        <StatusBadge label={meta.label} />
-      )}
-      {dong.trangThaiLienKet === "loi" ? (
-        <div className="mt-1 flex max-w-[260px] items-baseline gap-2 text-xs">
-          {dong.chiTietLoi ? (
-            <span className="min-w-0 truncate text-bo-danger" title={dong.chiTietLoi}>
-              {dong.chiTietLoi}
-            </span>
-          ) : null}
-          <button
-            type="button"
-            disabled={khoaBang || hetHanUyQuyen}
-            title={lyDoHetHan ?? undefined}
-            aria-describedby={moTaHetHan}
-            onClick={(event) => {
-              event.stopPropagation();
-              thuLai(dong);
-            }}
-            className="shrink-0 font-medium text-bo-primary hover:underline disabled:cursor-not-allowed disabled:opacity-50 disabled:no-underline"
-          >
-            {dangXuLyDong && dangChay?.ten === "thu-lai" ? "Đang thử lại…" : "Thử lại"}
-          </button>
-        </div>
-      ) : null}
-    </>
-  );
+  const oTrangThai = (dong, meta, dangXuLyDong) => {
+    const laTamGiu = dong.chiTietLoi && (
+      dong.chiTietLoi.includes("tạm giữ tồn") ||
+      dong.chiTietLoi.includes("negative sellable") ||
+      dong.chiTietLoi.includes("mở khóa")
+    );
+    return (
+      <>
+        {dong.trangThaiLienKet === "da_lien_ket" ? (
+          <span className="sr-only">{meta.label}</span>
+        ) : laTamGiu ? (
+          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 ring-1 ring-inset ring-amber-600/20" title={dong.chiTietLoi}>
+            <span className="size-1.5 rounded-full bg-amber-500" />
+            Tạm giữ sàn
+          </span>
+        ) : (
+          <StatusBadge label={meta.label} />
+        )}
+        {dong.trangThaiLienKet === "loi" ? (
+          <div className="mt-1 flex max-w-[260px] items-baseline gap-2 text-xs">
+            {dong.chiTietLoi ? (
+              <span className={cn("min-w-0 truncate", laTamGiu ? "text-amber-700 font-normal" : "text-bo-danger")} title={dong.chiTietLoi}>
+                {dong.chiTietLoi}
+              </span>
+            ) : null}
+            <button
+              type="button"
+              disabled={khoaBang || hetHanUyQuyen}
+              title={lyDoHetHan ?? undefined}
+              aria-describedby={moTaHetHan}
+              onClick={(event) => {
+                event.stopPropagation();
+                thuLai(dong);
+              }}
+              className="shrink-0 font-medium text-bo-primary hover:underline disabled:cursor-not-allowed disabled:opacity-50 disabled:no-underline"
+            >
+              {dangXuLyDong && dangChay?.ten === "thu-lai" ? "Đang thử lại…" : "Thử lại"}
+            </button>
+          </div>
+        ) : null}
+      </>
+    );
+  };
 
   /** Nút ⋯ của một SKU (Ghép biến thể khác, Xem chi tiết, Thử lại) kèm ô ghép biến thể mở ngay dưới nút. */
   const menuThaoTac = (dong, dangXuLyDong) => (
@@ -841,9 +853,13 @@ export default function ChannelMappingsPage() {
   /** Số liệu một nhóm sản phẩm, tính trên đủ SKU của nhóm (hàng sản phẩm của bảng và thẻ nhóm trên điện thoại). */
   const soLieuNhom = (g) => {
     const soNgung = g.dong.filter((d) => d.trangThaiLienKet === "chua_lien_ket").length;
+    const dongLoi = g.dong.filter((d) => d.trangThaiLienKet === "loi");
+    const soTamGiu = dongLoi.filter((d) => d.chiTietLoi && (d.chiTietLoi.includes("tạm giữ tồn") || d.chiTietLoi.includes("negative sellable") || d.chiTietLoi.includes("mở khóa"))).length;
+    const soLoiThat = dongLoi.length - soTamGiu;
     return {
       ids: g.dong.map((d) => d.id),
-      soLoi: g.dong.filter((d) => d.trangThaiLienKet === "loi").length,
+      soLoi: soLoiThat,
+      soTamGiu,
       soDangDongBo: g.dong.filter((d) => d.trangThaiLienKet === "da_lien_ket").length,
       soNgung,
       soBat: g.dong.length - soNgung,
@@ -855,8 +871,9 @@ export default function ChannelMappingsPage() {
   };
 
   /** Tóm tắt cả nhóm: việc cần xử lý (lỗi, ngừng) đứng trước; đủ cả nhóm đang đồng bộ thì ghi gọn một cụm. */
-  const tomTatNhom = (g, { soLoi, soNgung, soDangDongBo }) => (
+  const tomTatNhom = (g, { soLoi, soTamGiu, soNgung, soDangDongBo }) => (
     <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] leading-5 text-bo-foreground">
+      {soTamGiu ? <DemTrangThai so={soTamGiu} nhan="tạm giữ sàn" mau="bg-amber-500" className="font-medium text-amber-700" /> : null}
       {soLoi ? <DemTrangThai so={soLoi} nhan="lỗi" mau="bg-bo-danger" className="font-medium text-bo-danger" /> : null}
       {soNgung ? <DemTrangThai so={soNgung} nhan="ngừng" mau="bg-slate-400" /> : null}
       {soDangDongBo === g.dong.length ? (
@@ -1016,9 +1033,16 @@ export default function ChannelMappingsPage() {
           </span>
           {dong.trangThaiLienKet !== "da_lien_ket" ? (
             <span className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
-              <StatusBadge label={meta.label} />
+              {dong.chiTietLoi && (dong.chiTietLoi.includes("tạm giữ tồn") || dong.chiTietLoi.includes("negative sellable") || dong.chiTietLoi.includes("mở khóa")) ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 ring-1 ring-inset ring-amber-600/20">
+                  <span className="size-1.5 rounded-full bg-amber-500" />
+                  Tạm giữ sàn
+                </span>
+              ) : (
+                <StatusBadge label={meta.label} />
+              )}
               {dong.trangThaiLienKet === "loi" && dong.chiTietLoi ? (
-                <span className="w-full text-xs leading-4 text-bo-danger">{dong.chiTietLoi}</span>
+                <span className={cn("w-full text-xs leading-4", (dong.chiTietLoi.includes("tạm giữ tồn") || dong.chiTietLoi.includes("negative sellable") || dong.chiTietLoi.includes("mở khóa")) ? "text-amber-700 font-normal" : "text-bo-danger")}>{dong.chiTietLoi}</span>
               ) : null}
             </span>
           ) : null}
