@@ -39,7 +39,8 @@ import java.util.*;
  *   Sự kiện                         Người nhận
  *   Tạo phiếu / phiếu giao bù        Quản lý Kho tổng (duyệt); không có ai thì quản trị viên
  *   Duyệt                            quản lý kho xuất + người tạo phiếu
- *   Hủy / từ chối                    người tạo phiếu + quản lý kho nhận (+ quản lý kho xuất nếu đã duyệt / đang vận chuyển)
+ *   Từ chối                          người tạo phiếu + quản lý kho nhận + quản lý kho xuất
+ *   Hủy                              người tạo phiếu + quản lý kho nhận (+ quản lý kho xuất nếu đã duyệt / đang vận chuyển)
  *   Xác nhận xuất                    quản lý kho nhận (kèm giờ dự kiến đến)
  *   Nhận lệch (chờ xử lý)            người xử lý chênh lệch theo Cấu hình › Chuyển kho (CHUYEN_KHO_QUYEN_XU_LY_LECH);
  *                                    không có ai thì quản trị viên
@@ -116,21 +117,20 @@ public class ThongBaoChuyenKhoService {
     }
 
     /**
-     * Hủy / từ chối (UC 7.2 A1 bước 4) → người tạo phiếu + quản lý kho nhận, thêm quản lý kho xuất khi phiếu đã duyệt
-     * hoặc đang vận chuyển. Câu ghi "bị từ chối" khi phiếu Chờ duyệt bị người không phải người tạo hủy; còn lại (người
-     * tạo tự hủy, hủy sau khi đã duyệt) ghi "đã hủy". Trạng thái phiếu vẫn là DA_HUY.
+     * Hủy / từ chối (UC 7.2 A1 bước 4) → người tạo phiếu + quản lý kho nhận; thêm quản lý kho xuất khi phiếu bị từ chối
+     * (kho cung cấp, UC 7.2) hoặc bị hủy lúc đã duyệt / đang vận chuyển. {@code tuChoi}: Quản lý Kho tổng từ chối phiếu
+     * Chờ duyệt (PhieuChuyenKhoService.tuChoi) → câu "bị từ chối"; mọi lần hủy khác (người lập hay quản lý kho nhận rút
+     * yêu cầu, hủy sau khi duyệt) → "đã hủy". Trạng thái phiếu vẫn là DA_HUY.
      */
-    public void daHuy(PhieuChuyenKho p, String trangThaiTruoc, NguoiDung nguoi) {
-        dangKy("đã hủy", p, nguoi, (ph, ng) -> {
+    public void daHuy(PhieuChuyenKho p, String trangThaiTruoc, NguoiDung nguoi, boolean tuChoi) {
+        dangKy(tuChoi ? "bị từ chối" : "đã hủy", p, nguoi, (ph, ng) -> {
             Map<Integer, String> ten = tenKho(ph);
             boolean khoXuatDaLam = IChuyenKho.DA_DUYET.equals(trangThaiTruoc) || IChuyenKho.DANG_VAN_CHUYEN.equals(trangThaiTruoc);
             List<Integer> nhan = new ArrayList<>();
             nhan.add(ph.nguoiTaoId());
             nhan.addAll(quanLyKho(ph.khoNhapId()));
-            if (khoXuatDaLam) nhan.addAll(quanLyKho(ph.khoXuatId()));
+            if (tuChoi || khoXuatDaLam) nhan.addAll(quanLyKho(ph.khoXuatId()));
 
-            boolean tuChoi = IChuyenKho.CHO_DUYET.equals(trangThaiTruoc) && ng.id() != null
-                    && !ng.id().equals(ph.nguoiTaoId());
             List<String> cau = new ArrayList<>();
             cau.add(tuyen(ph, ten));
             String lyDo = ph.lyDoHuy() == null ? "" : ph.lyDoHuy().trim().replaceAll("[.\\s]+$", "");

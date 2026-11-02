@@ -80,6 +80,13 @@ public class PhieuChuyenKhoController {
         return ok(data, "Đã duyệt và lập lệnh điều động " + p.getSoLenhDieuDong());
     }
 
+    /** Từ chối yêu cầu Chờ duyệt { lyDo } (bắt buộc): phiếu sang Đã hủy, nhả giữ chỗ. */
+    @PutMapping("/{id}/tu-choi")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho}, inWarehouse = true)
+    public ResponseEntity<ResponseData<Map<String, Object>>> tuChoi(@PathVariable Integer id, @RequestBody(required = false) PhieuChuyenKhoYeuCau.Huy yeuCau) {
+        return ok(tomTat(phieuChuyenKhoService.tuChoi(id, yeuCau)), "Đã từ chối yêu cầu chuyển kho");
+    }
+
     @PutMapping("/{id}/huy")
     @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho}, inWarehouse = true)
     public ResponseEntity<ResponseData<Map<String, Object>>> huy(@PathVariable Integer id, @RequestBody(required = false) PhieuChuyenKhoYeuCau.Huy yeuCau) {

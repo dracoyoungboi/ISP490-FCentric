@@ -318,6 +318,10 @@ public class PhieuChuyenKhoService {
         if (!IChuyenKho.CHO_DUYET.equals(truoc) && !IChuyenKho.DA_DUYET.equals(truoc) && !IChuyenKho.DANG_VAN_CHUYEN.equals(truoc)) {
             throw new CommonException(HttpStatus.CONFLICT, "Phiếu " + tenTrangThai(truoc).toLowerCase() + " không hủy được");
         }
+        // Quản lý Kho tổng không lập phiếu thì gác cổng duyệt: phiếu Chờ duyệt đóng bằng Từ chối, có lý do
+        if (IChuyenKho.CHO_DUYET.equals(truoc) && duocTuChoi(user, phieu)) {
+            throw new CommonException("Phiếu đang chờ duyệt: bấm Từ chối và ghi lý do");
+        }
         if (IChuyenKho.DA_DUYET.equals(truoc)) {
             for (PhieuXuatKho px : phieuXuatKhoRepository.findByPhieuChuyenKho_IdOrderByIdDesc(id)) {
                 if (Integer.valueOf(ITrangThaiPhieuXuat.NHAP).equals(px.getTrangThai())) {
@@ -328,14 +332,42 @@ public class PhieuChuyenKhoService {
             }
         }
         NguoiDung nguoi = nguoiDungRepository.findById(user.getId()).orElseThrow();
+        String lyDo = yeuCau == null ? null : toiDa(chuoiHoacNull(yeuCau.getLyDo()), 255, "Lý do hủy");
+        dongPhieuHuy(phieu, truoc, nguoi, lyDo, IHanhDong.huy_phieu_chuyen);
+        return phieu;
+    }
+
+    /**
+     * Quản lý Kho tổng từ chối yêu cầu đang Chờ duyệt (BF-04: kho cấp xem xét rồi từ chối), lý do bắt buộc. Phiếu sang
+     * Đã hủy như hủy (chưa có phiếu xuất con; giữ chỗ tính theo trạng thái nên tự nhả); nhật ký ghi "từ chối" để màn chi
+     * tiết phân biệt với hủy. Người lập phiếu không tự từ chối: dùng Hủy phiếu.
+     */
+    @Transactional
+    public PhieuChuyenKho tuChoi(Integer id, PhieuChuyenKhoYeuCau.Huy yeuCau) {
+        NguoiDungAuthInfo user = SecurityContextHolder.getUser();
+        PhieuChuyenKho phieu = khoa(id);
+        batBuocTrangThai(phieu, IChuyenKho.CHO_DUYET, "từ chối");
+        if (!laQuanLyKhoTong(user)) {
+            throw new CommonException(HttpStatus.FORBIDDEN, "Chỉ Quản lý Kho tổng từ chối được yêu cầu chuyển kho");
+        }
+        if (laNguoiTao(user, phieu)) {
+            throw new CommonException("Phiếu do bạn lập: dùng Hủy phiếu");
+        }
+        String lyDo = toiDa(batBuoc(yeuCau == null ? null : yeuCau.getLyDo(), "Nhập lý do từ chối"), 255, "Lý do từ chối");
+        NguoiDung nguoi = nguoiDungRepository.findById(user.getId()).orElseThrow();
+        dongPhieuHuy(phieu, IChuyenKho.CHO_DUYET, nguoi, lyDo, IHanhDong.tu_choi_phieu_chuyen);
+        return phieu;
+    }
+
+    /** Đóng phiếu ở Đã hủy (hủy hoặc từ chối): người, lý do, giờ; nhật ký và thông báo kèm trạng thái trước đó. */
+    private void dongPhieuHuy(PhieuChuyenKho phieu, String truoc, NguoiDung nguoi, String lyDo, String hanhDong) {
         phieu.setTrangThai(IChuyenKho.DA_HUY);
         phieu.setNguoiHuy(nguoi);
-        phieu.setLyDoHuy(yeuCau == null ? null : toiDa(chuoiHoacNull(yeuCau.getLyDo()), 255, "Lý do hủy"));
+        phieu.setLyDoHuy(lyDo);
         phieu.setNgayHuy(Instant.now());
         phieuChuyenKhoRepository.save(phieu);
-        ghiNhatKy(phieu, IHanhDong.huy_phieu_chuyen, truoc, IChuyenKho.DA_HUY, phieu.getLyDoHuy(), nguoi);
-        thongBaoChuyenKhoService.daHuy(phieu, truoc, nguoi);
-        return phieu;
+        ghiNhatKy(phieu, hanhDong, truoc, IChuyenKho.DA_HUY, lyDo, nguoi);
+        thongBaoChuyenKhoService.daHuy(phieu, truoc, nguoi, IHanhDong.tu_choi_phieu_chuyen.equals(hanhDong));
     }
 
     /** Kho xuất nhập hàng hoàn trả từ kho trung chuyển cho phiếu bị hủy khi đang vận chuyển (A5 bước 2): PN-RET. */
@@ -1089,6 +1121,8 @@ public class PhieuChuyenKhoService {
                 .nguoiHuy(ten(p.getNguoiHuy()))
                 .lyDoHuy(p.getLyDoHuy())
                 .ngayHuy(p.getNgayHuy())
+                .tuChoi(IChuyenKho.DA_HUY.equals(p.getTrangThai())
+                        && lichSuThayDoiService.daCoHanhDong(ITable.phieu_chuyen_kho, p.getId(), IHanhDong.tu_choi_phieu_chuyen))
                 .huyKhiDangChuyen(huyKhiDangChuyen)
                 .daNhapHoanTra(coHoanTra)
                 .phieuGoc(p.getPhieuGoc() == null ? null : chungTu(p.getPhieuGoc()))
@@ -1199,9 +1233,12 @@ public class PhieuChuyenKhoService {
         String tt = p.getTrangThai();
         boolean laKhoXuat = laQuanTri(user) || thuocKho(user, p.getKhoXuat());
         boolean laKhoNhap = laQuanTri(user) || thuocKho(user, p.getKhoNhap());
+        boolean tuChoi = IChuyenKho.CHO_DUYET.equals(tt) && duocTuChoi(user, p);
         return PhieuChuyenKhoDto.Quyen.builder()
                 .duyet(IChuyenKho.CHO_DUYET.equals(tt) && laQuanLyKhoTong(user))
-                .huy(duocHuy(user, p) && (IChuyenKho.CHO_DUYET.equals(tt) || IChuyenKho.DA_DUYET.equals(tt) || IChuyenKho.DANG_VAN_CHUYEN.equals(tt)))
+                .tuChoi(tuChoi)
+                // Phiếu Chờ duyệt Quản lý Kho tổng từ chối được thì không hủy (như máy chủ chặn ở huy)
+                .huy(!tuChoi && duocHuy(user, p) && (IChuyenKho.CHO_DUYET.equals(tt) || IChuyenKho.DA_DUYET.equals(tt) || IChuyenKho.DANG_VAN_CHUYEN.equals(tt)))
                 .nhat(IChuyenKho.DA_DUYET.equals(tt) && laKhoXuat)
                 .xuat(IChuyenKho.DA_DUYET.equals(tt) && laKhoXuat)
                 .ghiSoXknb(thieuXknb(p) && laKhoXuat)
@@ -1216,9 +1253,17 @@ public class PhieuChuyenKhoService {
     private boolean duocHuy(NguoiDungAuthInfo user, PhieuChuyenKho p) {
         if (laQuanLyKhoTong(user)) return true;
         if (IChuyenKho.DANG_VAN_CHUYEN.equals(p.getTrangThai())) return false;
-        boolean laNguoiTao = p.getNguoiTao() != null && p.getNguoiTao().getId().equals(user.getId());
         return thuocKho(user, p.getKhoNhap())
-                && (laNguoiTao || (user.getVaiTro() != null && user.getVaiTro().contains(IRoleType.quan_ly_kho)));
+                && (laNguoiTao(user, p) || (user.getVaiTro() != null && user.getVaiTro().contains(IRoleType.quan_ly_kho)));
+    }
+
+    /** Từ chối phiếu Chờ duyệt: Quản lý Kho tổng, quản trị viên, trừ người lập phiếu (người lập thì hủy). */
+    private boolean duocTuChoi(NguoiDungAuthInfo user, PhieuChuyenKho p) {
+        return laQuanLyKhoTong(user) && !laNguoiTao(user, p);
+    }
+
+    private static boolean laNguoiTao(NguoiDungAuthInfo user, PhieuChuyenKho p) {
+        return user != null && p.getNguoiTao() != null && p.getNguoiTao().getId().equals(user.getId());
     }
 
     private static boolean laQuanTri(NguoiDungAuthInfo user) {

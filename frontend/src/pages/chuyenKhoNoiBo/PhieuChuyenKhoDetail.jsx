@@ -57,6 +57,7 @@ import {
     HopGhiSoXknb,
     HopHuy,
     HopNhapHoanTra,
+    HopTuChoi,
     HopXacNhanXuat,
     HopXuLyChenhLech,
 } from "./HopThoaiChuyenKho";
@@ -88,7 +89,7 @@ function ManPhieuChuyenKho({ id }) {
     const [capNhatLuc, setCapNhatLuc] = useState(null);
     const [dangChay, setDangChay] = useState(false);
     const [choGoc, setChoGoc] = useState(false);
-    // Hộp đang mở: duyet | xuat | ghiSo | huy | xuLy | hoanTra | null; loiHop: câu lỗi máy chủ trong hộp
+    // Hộp đang mở: duyet | tuChoi | xuat | ghiSo | huy | xuLy | hoanTra | null; loiHop: câu lỗi máy chủ trong hộp
     const [hop, setHop] = useState(null);
     const [loiHop, setLoiHop] = useState(null);
     const huyChoGocRef = useRef(null);
@@ -287,6 +288,11 @@ function ManPhieuChuyenKho({ id }) {
     // ── Nút theo trạng thái (mỗi trạng thái nhiều nhất một nút chính) ──
     const nutPhu = [];
     const nutChinh = [];
+    // Quản lý Kho tổng: Từ chối (có lý do) ngay trước Duyệt, như Yêu cầu nhập hàng; phiếu này không còn mục Hủy phiếu
+    // (q.huy = false)
+    if (tt === TT_CHUYEN.CHO_DUYET && q.tuChoi) {
+        nutChinh.push({ nhan: "Từ chối", kieu: "vien", onClick: () => setHop("tuChoi") });
+    }
     if (tt === TT_CHUYEN.CHO_DUYET && q.duyet) {
         nutChinh.push({ nhan: "Duyệt và lập lệnh điều động", icon: Check, onClick: () => setHop("duyet") });
     }
@@ -432,9 +438,16 @@ function ManPhieuChuyenKho({ id }) {
         );
     }
     if (tt === TT_CHUYEN.DA_HUY) {
+        // Lý do bỏ dấu chấm cuối (câu tự thêm dấu chấm); chỉ còn dấu chấm thì coi như không ghi
+        const lyDoTuChoi = (ct.lyDoHuy ?? "").replace(/[.\s]+$/, "");
         thongBao.push(ct.huyKhiDangChuyen && !ct.daNhapHoanTra ? (
             <DongThongBao key="huy" tone="warn">
                 Phiếu đã hủy khi hàng đang trên đường. <B>{khoXuat}</B> cần nhập hàng hoàn trả để đưa hàng về kho.
+            </DongThongBao>
+        ) : ct.tuChoi ? (
+            <DongThongBao key="huy" tone="bad">
+                Yêu cầu bị từ chối {ct.ngayHuy ? gioNgayNgan(ct.ngayHuy) : ""}{ct.nguoiHuy ? ` bởi ${ct.nguoiHuy}` : ""}{lyDoTuChoi ? `. Lý do: ${lyDoTuChoi}` : ""}.
+                {` Hàng giữ chỗ đã trả về tồn ${khoXuat}.`}
             </DongThongBao>
         ) : (
             <DongThongBao key="huy" tone="neutral">
@@ -500,7 +513,7 @@ function ManPhieuChuyenKho({ id }) {
                     />
                 ) : (
                     <p className="text-[13px] leading-5 text-bo-muted">
-                        {tt === TT_CHUYEN.DA_HUY ? "Phiếu hủy trước khi có lệnh." : "Hệ thống cấp số lệnh khi phiếu được duyệt."}
+                        {ct.tuChoi ? "Yêu cầu bị từ chối, không lập lệnh." : tt === TT_CHUYEN.DA_HUY ? "Phiếu hủy trước khi có lệnh." : "Hệ thống cấp số lệnh khi phiếu được duyệt."}
                     </p>
                 )}
             </NhomThuocTinh>
@@ -572,9 +585,9 @@ function ManPhieuChuyenKho({ id }) {
                         { ma: "nhat", nhan: "Người nhặt", giaTri: ct.phieuNhat?.nguoi, an: !ct.phieuNhat?.nguoi },
                         { ma: "xuat", nhan: "Người xuất", giaTri: phieuXuatDaXuat(ct) ? ct.phieuXuat?.nguoi : null, an: !phieuXuatDaXuat(ct) },
                         { ma: "nhan", nhan: "Người nhận", giaTri: nguoiNhan, an: !nguoiNhan },
-                        { ma: "huy", nhan: "Người hủy", giaTri: ct.nguoiHuy, an: !ct.nguoiHuy },
+                        { ma: "huy", nhan: ct.tuChoi ? "Người từ chối" : "Người hủy", giaTri: ct.nguoiHuy, an: !ct.nguoiHuy },
                         { ma: "ghiChu", nhan: "Ghi chú", giaTri: ct.ghiChu },
-                        { ma: "lyDoHuy", nhan: "Lý do hủy", giaTri: ct.lyDoHuy, an: !ct.lyDoHuy },
+                        { ma: "lyDoHuy", nhan: ct.tuChoi ? "Lý do từ chối" : "Lý do hủy", giaTri: ct.lyDoHuy, an: !ct.lyDoHuy },
                     ]}
                 />
             </NhomThuocTinh>
@@ -621,6 +634,9 @@ function ManPhieuChuyenKho({ id }) {
                     {...props("duyet")}
                     onXacNhan={(body) => chay(() => phieuChuyenKhoService.duyet(id, body), (kq) => `Đã duyệt và lập lệnh điều động ${kq?.soLenhDieuDong ?? ""}`.trim(), "Không duyệt được phiếu")}
                 />
+            ) : null}
+            {hop === "tuChoi" ? (
+                <HopTuChoi {...props("tuChoi")} onXacNhan={(body) => chay(() => phieuChuyenKhoService.tuChoi(id, body), "Đã từ chối yêu cầu chuyển kho", "Không từ chối được phiếu")} />
             ) : null}
             {hop === "xuat" ? (
                 <HopXacNhanXuat

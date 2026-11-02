@@ -217,6 +217,8 @@ public final class PhieuChuyenKhoDto {
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class Quyen {
         boolean duyet;
+        /** Từ chối phiếu Chờ duyệt (Quản lý Kho tổng không lập phiếu); khi có thì không có {@code huy}. */
+        boolean tuChoi;
         boolean huy;
         boolean nhat;
         boolean xuat;
@@ -271,6 +273,8 @@ public final class PhieuChuyenKhoDto {
         String nguoiHuy;
         String lyDoHuy;
         Instant ngayHuy;
+        /** Đã hủy vì Quản lý Kho tổng từ chối lúc Chờ duyệt: nguoiHuy, lyDoHuy, ngayHuy là người, lý do, giờ từ chối. */
+        boolean tuChoi;
         /** Hủy khi hàng đã rời kho nguồn: phải nhập hoàn trả. */
         boolean huyKhiDangChuyen;
         boolean daNhapHoanTra;

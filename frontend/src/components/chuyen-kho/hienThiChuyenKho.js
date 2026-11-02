@@ -215,7 +215,12 @@ export function buocChuyenKho(ct, bayGio = Date.now()) {
         datTrangThai(den, "dung");
         ds[den - 1].canhBao = ct.huyKhiDangChuyen
             ? (ct.daNhapHoanTra ? "Đã hủy · đã nhập hoàn trả" : "Đã hủy · chờ nhập hoàn trả")
-            : "Đã hủy";
+            : ct.tuChoi ? "Bị từ chối" : "Đã hủy";
+        // Từ chối là quyết định của bước Lệnh điều động: ghi người và giờ từ chối ở bước đó
+        if (ct.tuChoi) {
+            ds[1].ai = ct.nguoiHuy || ds[1].ai;
+            ds[1].ngay = ct.ngayHuy ?? null;
+        }
     } else if (tt === TT_CHUYEN.CHO_DUYET) {
         datTrangThai(1, "dangLam");
     } else if (tt === TT_CHUYEN.DA_DUYET) {

@@ -206,14 +206,14 @@ class ThongBaoChuyenKhoServiceTest {
     // ══════════════════════════ Hủy / từ chối ══════════════════════════
 
     @Test
-    @DisplayName("Từ chối: Quản lý Kho tổng hủy phiếu Chờ duyệt của người khác → \"bị từ chối\", báo người tạo + quản lý kho nhận, không báo kho xuất")
-    void daHuy_choDuyet_quanLyKhoTong_tuChoi() {
+    @DisplayName("Từ chối: Quản lý Kho tổng từ chối phiếu Chờ duyệt → \"bị từ chối\", báo người tạo + quản lý kho nhận + quản lý kho xuất (kho cung cấp, UC 7.2)")
+    void daHuy_tuChoi_quanLyKhoTong() {
         PhieuChuyenKho p = phieu(IChuyenKho.DA_HUY);
         p.setLyDoHuy("Kho tổng hết hàng");
 
-        service.daHuy(p, IChuyenKho.CHO_DUYET, nguoi(11, IRoleType.quan_ly_kho));
+        service.daHuy(p, IChuyenKho.CHO_DUYET, nguoi(11, IRoleType.quan_ly_kho), true);
 
-        assertEquals(Set.of(21, 22, 23), nguoiNhan());
+        assertEquals(Set.of(21, 22, 23, 31), nguoiNhan());
         ThongBao t = motThongBao();
         assertEquals("Phiếu chuyển PX-TRF-202610281 bị từ chối", t.getTieuDe());
         assertEquals("danger", t.getTone());
@@ -222,11 +222,13 @@ class ThongBaoChuyenKhoServiceTest {
     }
 
     @Test
-    @DisplayName("Từ chối: quản trị viên hủy phiếu Chờ duyệt cũng ghi \"bị từ chối\"")
-    void daHuy_choDuyet_quanTriVien_tuChoi() {
-        service.daHuy(phieu(IChuyenKho.DA_HUY), IChuyenKho.CHO_DUYET, nguoi(1, IRoleType.quan_tri_vien));
+    @DisplayName("Từ chối phiếu xuất từ Kho tổng: Quản lý Kho tổng khác cũng nhận, người bấm từ chối không nhận")
+    void daHuy_tuChoi_khoXuatLaKhoTong() {
+        PhieuChuyenKho p = phieu(IChuyenKho.DA_HUY);
+        p.setKhoXuat(khoTong);
+        service.daHuy(p, IChuyenKho.CHO_DUYET, nguoi(11, IRoleType.quan_ly_kho), true);
+        assertEquals(Set.of(12, 21, 22, 23), nguoiNhan());
         assertEquals("Phiếu chuyển PX-TRF-202610281 bị từ chối", motThongBao().getTieuDe());
-        assertEquals(Set.of(21, 22, 23), nguoiNhan());
     }
 
     @Test
@@ -235,7 +237,7 @@ class ThongBaoChuyenKhoServiceTest {
         PhieuChuyenKho p = phieu(IChuyenKho.DA_HUY);
         p.setNguoiTao(NguoiDung.builder().id(21).build());
 
-        service.daHuy(p, IChuyenKho.CHO_DUYET, nguoi(21, IRoleType.quan_ly_kho));
+        service.daHuy(p, IChuyenKho.CHO_DUYET, nguoi(21, IRoleType.quan_ly_kho), false);
 
         assertEquals(Set.of(23), nguoiNhan(), "người tạo cũng là quản lý kho nhận: bỏ cả hai lần (người thao tác)");
         ThongBao t = motThongBao();
@@ -245,28 +247,28 @@ class ThongBaoChuyenKhoServiceTest {
     }
 
     @Test
-    @DisplayName("Quản lý kho nhận (không phải người tạo) hủy phiếu Chờ duyệt → \"bị từ chối\": mọi người không phải người tạo")
-    void daHuy_quanLyKhoNhanHuy_khongPhaiNguoiTao_tuChoi() {
-        service.daHuy(phieu(IChuyenKho.DA_HUY), IChuyenKho.CHO_DUYET, nguoi(23, IRoleType.quan_ly_kho));
-        assertEquals("Phiếu chuyển PX-TRF-202610281 bị từ chối", motThongBao().getTieuDe());
+    @DisplayName("Quản lý kho nhận (không phải người tạo) rút yêu cầu Chờ duyệt → \"đã hủy\" (chỉ Quản lý Kho tổng từ chối), không báo kho xuất")
+    void daHuy_quanLyKhoNhanRutYeuCau_daHuy() {
+        service.daHuy(phieu(IChuyenKho.DA_HUY), IChuyenKho.CHO_DUYET, nguoi(23, IRoleType.quan_ly_kho), false);
+        assertEquals("Phiếu chuyển PX-TRF-202610281 đã hủy", motThongBao().getTieuDe());
         assertEquals(Set.of(21, 22), nguoiNhan());
         verify(pqRepo, never()).nguoiDungTheoLoaiKhoTai(any(), any(), any());
     }
 
     @Test
-    @DisplayName("Phiếu cũ không lưu người tạo bị hủy khi Chờ duyệt → \"bị từ chối\", chỉ quản lý kho nhận nhận")
+    @DisplayName("Phiếu cũ không lưu người tạo bị hủy khi Chờ duyệt → \"đã hủy\", chỉ quản lý kho nhận nhận")
     void daHuy_phieuCuKhongCoNguoiTao() {
         PhieuChuyenKho p = phieu(IChuyenKho.DA_HUY);
         p.setNguoiTao(null);
-        service.daHuy(p, IChuyenKho.CHO_DUYET, nguoi(11, IRoleType.quan_ly_kho));
-        assertEquals("Phiếu chuyển PX-TRF-202610281 bị từ chối", motThongBao().getTieuDe());
-        assertEquals(Set.of(21, 23), nguoiNhan());
+        service.daHuy(p, IChuyenKho.CHO_DUYET, nguoi(23, IRoleType.quan_ly_kho), false);
+        assertEquals("Phiếu chuyển PX-TRF-202610281 đã hủy", motThongBao().getTieuDe());
+        assertEquals(Set.of(21), nguoiNhan());
     }
 
     @Test
     @DisplayName("Hủy phiếu Đã duyệt: thêm quản lý kho xuất; câu \"đã hủy\" (không phải từ chối) dù người hủy là Kho tổng")
     void daHuy_daDuyet_themKhoXuat() {
-        service.daHuy(phieu(IChuyenKho.DA_HUY), IChuyenKho.DA_DUYET, nguoi(11, IRoleType.quan_ly_kho));
+        service.daHuy(phieu(IChuyenKho.DA_HUY), IChuyenKho.DA_DUYET, nguoi(11, IRoleType.quan_ly_kho), false);
         assertEquals(Set.of(21, 22, 23, 31), nguoiNhan());
         assertEquals("Phiếu chuyển PX-TRF-202610281 đã hủy", motThongBao().getTieuDe());
     }
@@ -277,7 +279,7 @@ class ThongBaoChuyenKhoServiceTest {
         PhieuChuyenKho p = phieu(IChuyenKho.DA_HUY);
         p.setLyDoHuy("Xe hỏng");
 
-        service.daHuy(p, IChuyenKho.DANG_VAN_CHUYEN, nguoi(11, IRoleType.quan_ly_kho));
+        service.daHuy(p, IChuyenKho.DANG_VAN_CHUYEN, nguoi(11, IRoleType.quan_ly_kho), false);
 
         assertEquals(Set.of(21, 22, 23, 31), nguoiNhan());
         assertEquals("Cửa hàng 2 → Cửa hàng 1. Lý do: Xe hỏng. Hàng đang trên đường, Cửa hàng 2 nhập hoàn trả.",

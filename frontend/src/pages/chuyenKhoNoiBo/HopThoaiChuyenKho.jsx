@@ -459,6 +459,45 @@ export function HopGhiSoXknb({ mo, onDong, ct, dangChay, loi, onXacNhan, onTaiDu
     );
 }
 
+/**
+ * Quản lý Kho tổng từ chối phiếu Chờ duyệt (BF-04): lý do bắt buộc. Cùng cách với hộp Từ chối của Yêu cầu nhập hàng:
+ * nút xác nhận khóa tới khi có lý do, ô khóa khi đang gửi.
+ */
+export function HopTuChoi({ mo, onDong, ct, dangChay, loi, onXacNhan }) {
+    const [lyDo, setLyDo] = useState("");
+    const tong = tongCot(ct.hang, "soLuongChuyen");
+    return (
+        <HopXacNhanChungTu
+            mo={mo}
+            onDoiMo={(m) => !m && onDong()}
+            tieuDe="Từ chối yêu cầu chuyển kho"
+            moTa={`Phiếu chuyển sang Đã hủy, ${soVN(tong)} sản phẩm đang giữ chỗ được trả về tồn ${ct.khoXuat?.ten ?? "kho xuất"}. Người lập phiếu và quản lý hai kho nhận thông báo kèm lý do.`}
+            nhanXacNhan="Từ chối"
+            kieu="nguyHiem"
+            dangChay={dangChay}
+            khoaXacNhan={!lyDo.trim()}
+            lyDoKhoa="Nhập lý do từ chối"
+            loi={loi}
+            onXacNhan={() => onXacNhan({ lyDo: lyDo.trim() })}
+        >
+            <O nhan="Lý do từ chối" batBuoc goiY={`Bắt buộc · ${lyDo.length}/255`}>
+                {(p) => (
+                    <textarea
+                        {...p}
+                        aria-required="true"
+                        value={lyDo}
+                        maxLength={255}
+                        disabled={dangChay}
+                        onChange={(e) => setLyDo(e.target.value)}
+                        placeholder="Ví dụ: Kho tổng đang kiểm kê, gửi lại yêu cầu vào tuần sau"
+                        className={O_NHAP_NHIEU_DONG}
+                    />
+                )}
+            </O>
+        </HopXacNhanChungTu>
+    );
+}
+
 /** Hủy phiếu (A5): lý do không bắt buộc. */
 export function HopHuy({ mo, onDong, ct, dangChay, loi, onXacNhan }) {
     const [lyDo, setLyDo] = useState("");

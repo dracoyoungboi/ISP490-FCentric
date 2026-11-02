@@ -9,6 +9,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 public class LichSuThayDoiService extends BaseServiceImpl<LichSuThayDoi,Integer> {
     @Autowired
@@ -19,8 +21,17 @@ public class LichSuThayDoiService extends BaseServiceImpl<LichSuThayDoi,Integer>
         return entityManager;
     }
 
+    private final LichSuThayDoiRepository lichSuThayDoiRepository;
+
     public LichSuThayDoiService(LichSuThayDoiRepository repository) {
         super(repository);
+        this.lichSuThayDoiRepository = repository;
+    }
+
+    /** Đối tượng đã có bản ghi lịch sử với hành động này chưa (vd. phiếu chuyển bị từ chối, để phân biệt với hủy). */
+    public boolean daCoHanhDong(String loaiThamChieu, Integer idThamChieu, String hanhDong) {
+        return lichSuThayDoiRepository.findFirstByLoaiThamChieuAndIdThamChieuAndHanhDongInOrderByNgayThucHienDescIdDesc(
+                loaiThamChieu, idThamChieu, List.of(hanhDong)).isPresent();
     }
 
     /**

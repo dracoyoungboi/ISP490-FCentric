@@ -50,6 +50,8 @@ public interface IHanhDong {
             // Phiếu nhặt của phiếu chuyển hoàn tất: lô đã nhặt ghi vào PX-CK, chờ xác nhận xuất (trạng thái không đổi)
             nhat_xong_chuyen_kho = "nhat_xong_chuyen_kho",
             huy_phieu_chuyen = "huy_phieu_chuyen",
+            // Quản lý Kho tổng từ chối yêu cầu Chờ duyệt (phiếu sang Đã hủy, ghi_chu = lý do từ chối)
+            tu_choi_phieu_chuyen = "tu_choi_phieu_chuyen",
             xuat_chuyen_kho = "xuat_chuyen_kho",
             ghi_so_xknb = "ghi_so_xknb",
             nhan_chuyen_kho = "nhan_chuyen_kho",
@@ -76,14 +78,17 @@ public interface IHanhDong {
             cap_nhat_khoa_thanh_toan = "cap_nhat_khoa_thanh_toan";
 
     /**
-     * Nhật ký job dọn 90 ngày (AuditLogCleanupJob) KHÔNG xóa: phiên bản mẫu in (để khôi phục), lịch sử đổi giá bán và bản ghi bảo mật
-     * (đăng nhập, khóa tài khoản, mật khẩu, đổi quyền / vai trò, đổi khóa thanh toán). Không đưa cap_nhat_kenh_ban
-     * vào đây: hành động này còn ghi kết quả mỗi lần đồng bộ đơn từ sàn, giữ mãi thì bảng phình.
+     * Nhật ký job dọn 90 ngày (AuditLogCleanupJob) KHÔNG xóa: phiên bản mẫu in (để khôi phục), lịch sử đổi giá bán, dấu
+     * từ chối phiếu chuyển và bản ghi bảo mật (đăng nhập, khóa tài khoản, mật khẩu, đổi quyền / vai trò, đổi khóa thanh
+     * toán). Không đưa cap_nhat_kenh_ban vào đây: hành động này còn ghi kết quả mỗi lần đồng bộ đơn từ sàn, giữ mãi thì
+     * bảng phình.
      */
     java.util.List<String> KHONG_TU_DON = java.util.List.of(
             cap_nhat_mau_in,
             // Lịch sử giá bán: ai đổi, khi nào, vì sao; màn Giá bán đọc lần đổi gần nhất từ đây
             doi_gia_ban,
+            // Phiếu chuyển bị từ chối chỉ phân biệt với hủy qua dòng này (chi tiết phiếu đọc), mỗi phiếu một dòng
+            tu_choi_phieu_chuyen,
             dang_nhap, dang_nhap_that_bai, tao_tai_khoan, khoa_tai_khoan, mo_khoa_tai_khoan, doi_mat_khau,
             dat_lai_mat_khau,
             cap_nhat_khoa_thanh_toan,
