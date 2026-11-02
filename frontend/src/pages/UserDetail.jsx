@@ -46,20 +46,43 @@ function KhoaNho() {
 /** Số điện thoại 10 số hiển thị dạng 0987 654 321 cho dễ đọc; số khác giữ nguyên. */
 const sdtDeDoc = (sdt) => String(sdt ?? "").replace(/^(\d{4})(\d{3})(\d{3})$/, "$1 $2 $3");
 
-/** Một dòng thuộc tính ở cột Tài khoản: nhãn trên, giá trị dưới. */
-function ThuocTinh({ nhan, khoa, children }) {
+/**
+ * Một dòng thuộc tính ở cột Tài khoản: nhãn trên, giá trị dưới.
+ * Điện thoại (PA A, 02/11/2026): nhãn trái, giá trị phải, mỗi dòng cao 44px ngăn bằng đường kẻ mảnh cho trang ngắn lại.
+ */
+function ThuocTinh({ nhan, khoa, className, children }) {
   return (
-    <div className="group min-w-0 px-5 py-2">
-      <dt className={NHAN}>
+    <div
+      className={cn(
+        "group min-w-0 px-5 py-2",
+        "max-sm:grid max-sm:min-h-11 max-sm:grid-cols-[108px_minmax(0,1fr)] max-sm:items-center max-sm:gap-x-2 max-sm:border-b max-sm:border-slate-100 max-sm:px-0 max-sm:py-1",
+        className,
+      )}
+    >
+      <dt className={cn(NHAN, "max-sm:text-[13px]")}>
         {nhan}
         {khoa ? <KhoaNho /> : null}
       </dt>
-      <dd className="m-0 mt-0.5 flex min-h-[26px] min-w-0 items-center gap-1.5 text-sm leading-5 text-bo-foreground">{children}</dd>
+      <dd className="m-0 mt-0.5 flex min-h-[26px] min-w-0 items-center gap-1.5 text-sm leading-5 text-bo-foreground max-sm:mt-0">{children}</dd>
     </div>
   );
 }
 
-/** Nút sao chép cạnh giá trị: hiện khi rê chuột vào dòng (máy cảm ứng, điện thoại thì luôn hiện). */
+/** Điện thoại: hai ngày gộp thành một dòng phụ dưới mục Tài khoản thay cho hai dòng thuộc tính. */
+function DongNgay({ hoSo, className }) {
+  const ngay = [
+    hoSo.ngayTao ? `Tạo tài khoản ${ngayNgan(hoSo.ngayTao)}` : null,
+    hoSo.ngayCapNhat ? `Cập nhật hồ sơ ${ngayNgan(hoSo.ngayCapNhat)}` : null,
+  ].filter(Boolean);
+  if (!ngay.length) return null;
+  return (
+    <p className={cn("mt-1.5 border-t border-slate-100 pt-2.5 text-[12.5px] leading-[18px] text-bo-muted sm:hidden", className)}>
+      {ngay.join(" · ")}
+    </p>
+  );
+}
+
+/** Nút sao chép cạnh giá trị: hiện khi rê chuột vào dòng (máy cảm ứng, điện thoại thì luôn hiện, nằm sát mép phải). */
 function NutChep({ nhan, onClick }) {
   return (
     <button
@@ -67,7 +90,7 @@ function NutChep({ nhan, onClick }) {
       onClick={onClick}
       aria-label={nhan}
       title="Sao chép"
-      className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-bo-muted opacity-0 outline-none transition-opacity hover:bg-slate-100 hover:text-bo-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-bo-primary/40 group-hover:opacity-100 max-sm:size-9 max-sm:opacity-100 [@media(hover:none)]:opacity-100"
+      className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-bo-muted opacity-0 outline-none transition-opacity hover:bg-slate-100 hover:text-bo-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-bo-primary/40 group-hover:opacity-100 max-sm:-mr-1.5 max-sm:ml-auto max-sm:opacity-100 [@media(hover:none)]:opacity-100"
     >
       <Copy className="size-3.5" aria-hidden="true" />
     </button>
@@ -183,17 +206,18 @@ export default function UserDetail() {
         </button>
       )}
     </ThuocTinh>
-    <ThuocTinh nhan="Mật khẩu">
+    <ThuocTinh nhan="Mật khẩu" className="max-sm:border-b-0">
       {hoSo.mustChangePassword ? (
         <span className="inline-flex h-5 items-center rounded-[5px] bg-bo-tt-chu-y px-1.5 text-xs font-semibold text-bo-tt-chu-y-chu">
-          Tạm thời · cần đổi
+          {/* Điện thoại: cột giá trị hẹp, chỉ ghi "Tạm thời" cho vừa cạnh nút Đổi mật khẩu (thanh gợi ý đầu trang đã nhắc đổi) */}
+          Tạm thời<span className="max-sm:hidden">&nbsp;· cần đổi</span>
         </span>
       ) : (
         <span aria-label="Đã đặt mật khẩu" className="tracking-[0.12em] text-bo-foreground">
           ••••••••
         </span>
       )}
-      <button type="button" onClick={() => setMoMatKhau(true)} className={cn(NUT_CHU, "shrink-0", laQuanTri ? "ml-3" : "ml-auto")}>
+      <button type="button" onClick={() => setMoMatKhau(true)} className={cn(NUT_CHU, "shrink-0", laQuanTri ? "ml-3 max-sm:ml-auto" : "ml-auto")}>
         Đổi mật khẩu
       </button>
     </ThuocTinh>
@@ -201,8 +225,8 @@ export default function UserDetail() {
   );
   const truongNgay = (
     <>
-      {hoSo.ngayTao ? <ThuocTinh nhan="Tạo tài khoản">{ngayNgan(hoSo.ngayTao)}</ThuocTinh> : null}
-      {hoSo.ngayCapNhat ? <ThuocTinh nhan="Cập nhật hồ sơ">{ngayNgan(hoSo.ngayCapNhat)}</ThuocTinh> : null}
+      {hoSo.ngayTao ? <ThuocTinh nhan="Tạo tài khoản" className="max-sm:hidden">{ngayNgan(hoSo.ngayTao)}</ThuocTinh> : null}
+      {hoSo.ngayCapNhat ? <ThuocTinh nhan="Cập nhật hồ sơ" className="max-sm:hidden">{ngayNgan(hoSo.ngayCapNhat)}</ThuocTinh> : null}
     </>
   );
 
@@ -242,9 +266,10 @@ export default function UserDetail() {
   }
 
   return (
-    <PageContainer>
+    <PageContainer className="max-sm:p-3">
       <article className="@container overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
-        <header className="flex flex-wrap items-center gap-x-4 gap-y-3 px-4 py-4 sm:px-6 sm:py-5">
+        {/* Điện thoại (PA A, 02/11/2026): ảnh, tên và nút Chỉnh sửa (chỉ còn biểu tượng) cùng một hàng, vai trò và kho xếp dọc */}
+        <header className="flex flex-wrap items-center gap-x-4 gap-y-3 px-4 py-4 max-sm:flex-nowrap max-sm:items-start max-sm:gap-x-3.5 sm:px-6 sm:py-5">
           <button
             type="button"
             onClick={() => setMoAnh(true)}
@@ -266,11 +291,11 @@ export default function UserDetail() {
               <Camera className="size-3" />
             </span>
           </button>
-          <div className="min-w-0 flex-1 basis-56">
+          <div className="min-w-0 flex-1 basis-56 max-sm:basis-auto max-sm:pt-px">
             <PageHeading className="max-sm:line-clamp-2 max-sm:whitespace-normal">
               <span title={hoSo.hoTen || undefined}>{hoSo.hoTen || hoSo.tenDangNhap || "—"}</span>
             </PageHeading>
-            <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13.5px] leading-5 text-slate-700">
+            <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13.5px] leading-5 text-slate-700 max-sm:flex-col max-sm:items-start max-sm:gap-y-0.5">
               <span className="inline-flex items-center gap-1.5">
                 <ShieldCheck className="size-[15px] text-bo-primary" aria-hidden="true" />
                 {tenVaiTro(hoSo.vaiTro)}
@@ -283,9 +308,15 @@ export default function UserDetail() {
               ) : null}
             </div>
           </div>
-          <Button type="button" variant="outline" size="sm" onClick={() => moChinhSua()} className={cn("max-sm:h-10", NUT_VIEN)}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => moChinhSua()}
+            className={cn("max-sm:size-8 max-sm:p-0!", NUT_VIEN)}
+          >
             <Pencil className="size-3.5" aria-hidden="true" />
-            Chỉnh sửa
+            <span className="max-sm:sr-only">Chỉnh sửa</span>
           </Button>
         </header>
 
@@ -294,17 +325,22 @@ export default function UserDetail() {
         {laQuanTri ? (
           // Quản trị viên không có mục Quyền: một cột, Tài khoản thành một mục trải ngang rồi tới Thiết bị
           <div className="divide-y divide-slate-100 border-t border-bo-border">
-            <section aria-labelledby="ho-so-tai-khoan" className="px-4 py-5 sm:px-6 sm:py-[22px]">
+            <section aria-labelledby="ho-so-tai-khoan" className="px-4 py-5 max-sm:pb-4 max-sm:pt-[18px] sm:px-6 sm:py-[22px]">
               <h2 id="ho-so-tai-khoan" className="text-[15px] font-semibold leading-[22px] text-bo-foreground">
                 Tài khoản
               </h2>
-              <dl className="m-0 -mx-5 mt-2 grid @xl:grid-cols-2 @4xl:grid-cols-3">{truongTaiKhoan}{truongNgay}</dl>
+              <dl className="m-0 -mx-5 mt-2 grid max-sm:mx-0 max-sm:mt-1.5 max-sm:grid-cols-1! @xl:grid-cols-2 @4xl:grid-cols-3">
+                {truongTaiKhoan}
+                {truongNgay}
+              </dl>
+              <DongNgay hoSo={hoSo} />
             </section>
             <ThietBiDangNhap khoaTaiLai={lanDoiMatKhau} />
           </div>
         ) : (
+          // Điện thoại: mục Tài khoản lên đầu (cùng kiểu với trang của quản trị viên), rồi tới Thiết bị và Quyền
           <div className="grid border-t border-bo-border @5xl:grid-cols-[minmax(0,1fr)_320px]">
-            <div className="min-w-0 divide-y divide-slate-100">
+            <div className="min-w-0 divide-y divide-slate-100 max-sm:border-t max-sm:border-slate-100">
               <ThietBiDangNhap khoaTaiLai={lanDoiMatKhau} />
               <QuyenCuaToi
                 vaiTro={hoSo.vaiTro}
@@ -316,13 +352,20 @@ export default function UserDetail() {
               />
             </div>
 
-            <aside aria-labelledby="ho-so-tai-khoan" className="border-t border-bo-border bg-bo-surface-subtle/70 pb-3 @5xl:border-l @5xl:border-t-0">
-              <h2 id="ho-so-tai-khoan" className="px-5 pb-1.5 pt-[18px] text-xs font-semibold uppercase tracking-[0.04em] text-bo-muted">
+            <aside
+              aria-labelledby="ho-so-tai-khoan"
+              className="border-t border-bo-border bg-bo-surface-subtle/70 pb-3 max-sm:order-first max-sm:border-t-0 max-sm:bg-transparent max-sm:px-4 max-sm:pb-4 @5xl:border-l @5xl:border-t-0"
+            >
+              <h2
+                id="ho-so-tai-khoan"
+                className="px-5 pb-1.5 pt-[18px] text-xs font-semibold uppercase tracking-[0.04em] text-bo-muted max-sm:px-0 max-sm:pb-0 max-sm:text-[15px] max-sm:leading-[22px] max-sm:normal-case max-sm:tracking-normal max-sm:text-bo-foreground"
+              >
                 Tài khoản
               </h2>
-              <dl className="m-0 grid @xl:@max-5xl:grid-cols-2">{truongTaiKhoan}</dl>
-              <div className="mx-5 my-2 border-t border-slate-200/80" />
-              <dl className="m-0 grid @xl:@max-5xl:grid-cols-2">{truongNgay}</dl>
+              <dl className="m-0 grid max-sm:mt-1.5 max-sm:grid-cols-1! @xl:@max-5xl:grid-cols-2">{truongTaiKhoan}</dl>
+              <div className="mx-5 my-2 border-t border-slate-200/80 max-sm:hidden" />
+              <dl className="m-0 grid max-sm:hidden @xl:@max-5xl:grid-cols-2">{truongNgay}</dl>
+              <DongNgay hoSo={hoSo} />
             </aside>
           </div>
         )}
