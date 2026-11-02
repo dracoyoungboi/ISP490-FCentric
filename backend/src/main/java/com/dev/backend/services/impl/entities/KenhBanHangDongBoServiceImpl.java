@@ -2024,22 +2024,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 theoDoi.dangDay(item.sellerSku());
             }
 
-            StringBuilder batchXml = new StringBuilder();
-            batchXml.append("<Request><Product><Skus>");
-            for (DongCanCapNhat item : batch) {
-                batchXml.append("<Sku>");
-                if (item.skuId() != null && item.skuId().matches("\\d+")) {
-                    batchXml.append("<SkuId>").append(escapeXml(item.skuId())).append("</SkuId>");
-                }
-                batchXml.append("<SellerSku>").append(escapeXml(item.sellerSku())).append("</SellerSku>");
-                batchXml.append("<Quantity>").append(Math.max(0, item.soDay())).append("</Quantity>");
-                BienTheSanPham bt = item.dong().getBienTheSanPham();
-                if (bt != null && bt.getGiaBan() != null && bt.getGiaBan().compareTo(BigDecimal.ZERO) > 0) {
-                    batchXml.append("<Price>").append(bt.getGiaBan().setScale(2, RoundingMode.HALF_UP)).append("</Price>");
-                }
-                batchXml.append("</Sku>");
-            }
-            batchXml.append("</Skus></Product></Request>");
+            StringBuilder batchXml = buildLazadaBatchXml(batch);
 
             try {
                 JsonNode res = lazadaClient.updatePriceQuantity(appKey, appSecret, token, batchXml.toString());
@@ -2055,17 +2040,57 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     }
                 } else {
                     String msg = res.path("message").asText(res.path("sub_message").asText("Lỗi từ Lazada"));
+                    String detailMsg = "";
                     if (res.has("detail") && res.path("detail").isArray() && !res.path("detail").isEmpty()) {
-                        msg += " - " + res.path("detail").get(0).path("message").asText("");
+                        detailMsg = res.path("detail").get(0).path("message").asText("");
+                        msg += " - " + detailMsg;
                     }
                     if (code.contains("AppCallLimit") || msg.contains("exceeds the limit")) {
                         loiKenh = "Lazada giới hạn tần suất gọi API: " + msg;
                     }
+
+                    // [BATCH FALLBACK ISOLATION] Tự động tách lô khi 1 SKU bị lỗi sàn tạm giữ (501 negative sellable)
+                    boolean isNegativeSellable = msg.toLowerCase(Locale.ROOT).contains("negative sellable");
+                    if (isNegativeSellable && batch.size() > 1) {
+                        DongCanCapNhat culprit = timSkuViPhamNegativeSellable(batch, res, detailMsg);
+                        if (culprit != null) {
+                            culprit.dong().setTrangThaiDongBo("that_bai");
+                            culprit.dong().setChiTietLoi("Lazada đang tạm giữ tồn cho đơn chờ thanh toán hoặc chiến dịch (Mã sàn: "
+                                    + (culprit.skuId() != null && !culprit.skuId().isBlank() ? culprit.skuId() : culprit.sellerSku())
+                                    + "). Hệ thống sẽ tự động bù tồn khi sàn mở khóa.");
+                            soLoi++;
+                            theoDoi.daDay(culprit.sellerSku(), tenHienThi(culprit.dong().getBienTheSanPham()), false, "Sàn đang tạm giữ tồn");
+
+                            List<DongCanCapNhat> remaining = batch.stream().filter(it -> it != culprit).toList();
+                            StringBuilder subXml = buildLazadaBatchXml(remaining);
+                            try {
+                                JsonNode subRes = lazadaClient.updatePriceQuantity(appKey, appSecret, token, subXml.toString());
+                                String subCode = subRes != null ? subRes.path("code").asText("") : "";
+                                if ("0".equals(subCode)) {
+                                    for (DongCanCapNhat remItem : remaining) {
+                                        remItem.dong().setTrangThaiDongBo("thanh_cong");
+                                        remItem.dong().setChiTietLoi(null);
+                                        remItem.dong().setSoLuongDaDay(remItem.soDay());
+                                        remItem.dong().setNgayDayTonCuoi(now);
+                                        soThanhCong++;
+                                        theoDoi.daDay(remItem.sellerSku(), null, true, null);
+                                    }
+                                    log.info("[LAZADA-FALLBACK] Tự động tách lô thành công: 1 SKU tạm khóa sàn, {} SKU còn lại đẩy thành công 100%!",
+                                            remaining.size());
+                                    continue;
+                                }
+                            } catch (Exception subEx) {
+                                log.warn("[LAZADA-FALLBACK] Lỗi gửi sub-batch: {}", subEx.getMessage());
+                            }
+                        }
+                    }
+
+                    String friendlyMsg = dichLoiLazada(code, msg);
                     for (DongCanCapNhat item : batch) {
                         item.dong().setTrangThaiDongBo("that_bai");
-                        item.dong().setChiTietLoi("Lazada từ chối (" + code + "): " + msg);
+                        item.dong().setChiTietLoi(friendlyMsg);
                         soLoi++;
-                        theoDoi.daDay(item.sellerSku(), tenHienThi(item.dong().getBienTheSanPham()), false, msg);
+                        theoDoi.daDay(item.sellerSku(), tenHienThi(item.dong().getBienTheSanPham()), false, friendlyMsg);
                     }
                 }
             } catch (Exception ex) {
@@ -3427,12 +3452,81 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 if (res.has("detail") && res.path("detail").isArray() && !res.path("detail").isEmpty()) {
                     msg += " - " + res.path("detail").get(0).path("message").asText("");
                 }
-                return KetQuaGuiTon.loiSku("Lazada từ chối (" + code + "): " + msg);
+                return KetQuaGuiTon.loiSku(dichLoiLazada(code, msg));
             }
         } catch (Exception ex) {
             log.warn("Lỗi khi đẩy tồn Lazada cho SkuId [{}]: {}", maKenh, ex.getMessage());
             return KetQuaGuiTon.loiCaKenh("Lỗi kết nối tới Lazada: " + ex.getMessage());
         }
+    }
+
+    private static StringBuilder buildLazadaBatchXml(List<DongCanCapNhat> list) {
+        StringBuilder sb = new StringBuilder("<Request><Product><Skus>");
+        for (DongCanCapNhat item : list) {
+            sb.append("<Sku>");
+            if (item.skuId() != null && item.skuId().matches("\\d+")) {
+                sb.append("<SkuId>").append(escapeXml(item.skuId())).append("</SkuId>");
+            }
+            sb.append("<SellerSku>").append(escapeXml(item.sellerSku())).append("</SellerSku>");
+            sb.append("<Quantity>").append(Math.max(0, item.soDay())).append("</Quantity>");
+            BienTheSanPham bt = item.dong().getBienTheSanPham();
+            if (bt != null && bt.getGiaBan() != null && bt.getGiaBan().compareTo(BigDecimal.ZERO) > 0) {
+                sb.append("<Price>").append(bt.getGiaBan().setScale(2, RoundingMode.HALF_UP)).append("</Price>");
+            }
+            sb.append("</Sku>");
+        }
+        sb.append("</Skus></Product></Request>");
+        return sb;
+    }
+
+    private static DongCanCapNhat timSkuViPhamNegativeSellable(List<DongCanCapNhat> batch, JsonNode res, String detailMsg) {
+        String failingId = null;
+        String failingEntityId = null;
+        String failingSellerSku = null;
+
+        if (res.has("detail") && res.path("detail").isArray()) {
+            for (JsonNode d : res.path("detail")) {
+                String dMsg = d.path("message").asText("");
+                String sSku = d.path("seller_sku").asText("");
+                if (!sSku.isBlank()) failingSellerSku = sSku.trim();
+                java.util.regex.Matcher mId = java.util.regex.Pattern.compile("id=(\\d+)").matcher(dMsg);
+                if (mId.find()) failingId = mId.group(1);
+                java.util.regex.Matcher mEnt = java.util.regex.Pattern.compile("entityId=(\\d+)").matcher(dMsg);
+                if (mEnt.find()) failingEntityId = mEnt.group(1);
+            }
+        }
+        if (failingId == null && detailMsg != null) {
+            java.util.regex.Matcher mId = java.util.regex.Pattern.compile("id=(\\d+)").matcher(detailMsg);
+            if (mId.find()) failingId = mId.group(1);
+            java.util.regex.Matcher mEnt = java.util.regex.Pattern.compile("entityId=(\\d+)").matcher(detailMsg);
+            if (mEnt.find()) failingEntityId = mEnt.group(1);
+        }
+
+        for (DongCanCapNhat item : batch) {
+            if (failingSellerSku != null && failingSellerSku.equalsIgnoreCase(item.sellerSku())) return item;
+            if (failingId != null && failingId.equals(item.skuId())) return item;
+            if (failingEntityId != null && failingEntityId.equals(item.skuId())) return item;
+        }
+
+        return batch.stream().filter(it -> it.soDay() == 0).findFirst().orElse(null);
+    }
+
+    public static String dichLoiLazada(String code, String rawMsg) {
+        if (rawMsg == null) rawMsg = "";
+        String lower = rawMsg.toLowerCase(Locale.ROOT);
+        if (lower.contains("negative sellable")) {
+            return "Lazada đang tạm giữ tồn cho đơn chờ thanh toán hoặc chiến dịch khuyến mãi. Hệ thống sẽ tự động đồng bộ khi sàn giải phóng tồn.";
+        }
+        if (code.contains("AppCallLimit") || lower.contains("exceeds the limit") || lower.contains("call limit")) {
+            return "Sàn Lazada tạm thời quá tải tần suất gọi API. Hệ thống sẽ tự động thử lại sau ít phút.";
+        }
+        if (lower.contains("incomplete sku") || lower.contains("package") || lower.contains("missing required")) {
+            return "Biến thể thiếu thông tin bắt buộc (cân nặng/kích thước đóng gói) trên Lazada Seller Center.";
+        }
+        if (lower.contains("invalid access token") || lower.contains("token expired") || lower.contains("illegal access token")) {
+            return "Ủy quyền kết nối Lazada đã hết hạn. Vui lòng bấm 'Ủy quyền lại' ở đầu trang.";
+        }
+        return "Lazada từ chối (" + code + "): " + rawMsg;
     }
 
     private String traCuuLazadaSkuId(String appKey, String appSecret, String token, String sellerSku) {
@@ -3547,6 +3641,14 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             return KetQuaGuiTon.loiCaKenh("Shopify đang gặp sự cố (mã " + ma + "), vui lòng thử lại sau");
         }
         String chiTiet = loiTuShopify(body);
+        if (chiTiet != null) {
+            String lower = chiTiet.toLowerCase(Locale.ROOT);
+            if (lower.contains("cannot be tracked") || lower.contains("not tracked")) {
+                chiTiet = "Sản phẩm đang tắt tính năng theo dõi tồn kho (Track quantity) trên Shopify.";
+            } else if (lower.contains("does not exist at location") || lower.contains("location")) {
+                chiTiet = "Biến thể chưa được kích hoạt theo dõi tại vị trí kho mặc định trên Shopify.";
+            }
+        }
         return KetQuaGuiTon.loiSku("Shopify từ chối số tồn" + (chiTiet != null ? ": " + chiTiet : " (mã " + ma + ")"));
     }
 
@@ -3704,6 +3806,55 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         return false;
     }
 
+    @Override
+    public boolean huyDonHangTrenLazada(String maDonHangKenh, String lyDoHuy) {
+        if (maDonHangKenh == null || maDonHangKenh.isBlank()) {
+            return false;
+        }
+
+        String appKey = kenhBanHangService.getLazadaAppKey();
+        String appSecret = kenhBanHangService.getDecryptedLazadaAppSecret();
+        String token = kenhBanHangService.getDecryptedLazadaAccessToken();
+        if (appKey == null || appSecret == null || token == null) {
+            log.warn("[LAZADA-CANCEL] Chưa có cấu hình hoặc Access Token để hủy đơn {}", maDonHangKenh);
+            return false;
+        }
+
+        try {
+            List<String> orderItemIds = new ArrayList<>();
+            JsonNode itemsRes = lazadaClient.getOrderItems(appKey, appSecret, token, maDonHangKenh);
+            if (itemsRes != null && "0".equals(itemsRes.path("code").asText(""))) {
+                JsonNode data = itemsRes.path("data");
+                if (data.isArray()) {
+                    for (JsonNode it : data) {
+                        String itemId = it.path("order_item_id").asText("");
+                        if (!itemId.isBlank()) {
+                            orderItemIds.add(itemId);
+                        }
+                    }
+                }
+            }
+
+            JsonNode cancelRes = lazadaClient.cancelOrder(appKey, appSecret, token, maDonHangKenh, orderItemIds, "15", lyDoHuy);
+            String code = cancelRes != null ? cancelRes.path("code").asText("") : "";
+            if ("0".equals(code)) {
+                log.info("[LAZADA-CANCEL] Hủy thành công đơn hàng {} trên Lazada", maDonHangKenh);
+                return true;
+            } else {
+                String msg = cancelRes != null ? cancelRes.path("message").asText(cancelRes.path("sub_message").asText("")) : "Unknown";
+                if (msg.toLowerCase().contains("already") || msg.toLowerCase().contains("cancel")) {
+                    log.info("[LAZADA-CANCEL] Đơn hàng {} đã ở trạng thái hủy trên Lazada", maDonHangKenh);
+                    return true;
+                }
+                log.warn("[LAZADA-CANCEL] Lazada từ chối hủy đơn {}: code={}, msg={}", maDonHangKenh, code, msg);
+                return false;
+            }
+        } catch (Exception e) {
+            log.error("[LAZADA-CANCEL] Lỗi khi gọi Lazada cancel order {}: {}", maDonHangKenh, e.getMessage());
+            return false;
+        }
+    }
+
     /** Trích xuất URL trang tiếp theo từ Header Link của Shopify (RFC 5988 cursor pagination) */
     public static String trichXuatUrlTrangSau(String linkHeader) {
         if (linkHeader == null || linkHeader.isBlank()) return null;
@@ -3763,7 +3914,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         }
         return false;
     }
-
+
     @AllArgsConstructor
     @NoArgsConstructor
     @Getter
