@@ -7,7 +7,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import TheThietBi from "@/components/nguoi-dung/ho-so/TheThietBi";
 import { nhomPhien, timPhien } from "@/components/nguoi-dung/ho-so/thietBiHoSo";
 
-const NUT_DO_VIEN = "border-red-200 bg-white text-bo-danger shadow-none hover:bg-bo-danger-soft hover:text-bo-danger";
+export const NUT_DO_VIEN ="border-red-200 bg-white text-bo-danger shadow-none hover:bg-bo-danger-soft hover:text-bo-danger";
 
 /**
  * Ngăn kéo "Xem tất cả thiết bị" (kiểu trang thiết bị của Google / GitHub): tìm theo trình duyệt, hệ điều hành

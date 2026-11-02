@@ -17,6 +17,8 @@ const PHUT_MS = 60 * 1000;
 export const GIO_HIEU_LUC_PHIEN = 24;
 /** Số thẻ thiết bị hiện trên trang; nhiều hơn thì mở ngăn kéo "Xem tất cả thiết bị". */
 export const SO_THE_TREN_TRANG = 6;
+/** Điện thoại (PA A, 02/11/2026): chỉ hiện chừng này thiết bị trên trang, phần còn lại xem trong ngăn kéo. */
+export const SO_THE_DIEN_THOAI = 3;
 
 function docMs(giaTri) {
   if (!giaTri) return NaN;

@@ -65,7 +65,7 @@ export function TheThietBiDayDu({ phien }) {
  * - `kieu="dong"`: dòng trong ngăn kéo "Xem tất cả thiết bị"; rê chuột thì tô nền nhạt cả dòng cho thấy bấm được
  *   (thiết bị này không có nút nên không tô).
  */
-export default function TheThietBi({ phien, kieu = "the", onDangXuat }) {
+export default function TheThietBi({ phien, kieu = "the", onDangXuat, className }) {
   const Icon = ICON_LOAI[phien.loai] || Monitor;
   const laThe = kieu === "the";
   const nay = Boolean(phien.thietBiNay);
@@ -110,7 +110,9 @@ export default function TheThietBi({ phien, kieu = "the", onDangXuat }) {
   );
 
   if (laThe) {
-    return <li className="group flex min-w-0 items-center gap-3 rounded-lg border border-bo-border bg-bo-surface p-3">{noiDung}</li>;
+    return (
+      <li className={cn("group flex min-w-0 items-center gap-3 rounded-lg border border-bo-border bg-bo-surface p-3", className)}>{noiDung}</li>
+    );
   }
   // Dòng: nền tô nằm trong, cách đường kẻ 4px trên/dưới; tổng khoảng đệm dọc vẫn 10px như trước
   return (

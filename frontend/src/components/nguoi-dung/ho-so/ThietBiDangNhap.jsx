@@ -1,17 +1,23 @@
 import { useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, LogOut } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import ConfirmModal from "@/components/ui/confirm-modal";
 import LoadingState from "@/components/shared/LoadingState";
 import ErrorState from "@/components/shared/ErrorState";
-import NganKeoThietBi from "@/components/nguoi-dung/ho-so/NganKeoThietBi";
+import NganKeoThietBi, { NUT_DO_VIEN } from "@/components/nguoi-dung/ho-so/NganKeoThietBi";
 import TheThietBi, { TheThietBiDayDu } from "@/components/nguoi-dung/ho-so/TheThietBi";
-import { GIO_HIEU_LUC_PHIEN, SO_THE_TREN_TRANG, chuanBiPhien } from "@/components/nguoi-dung/ho-so/thietBiHoSo";
+import {
+  GIO_HIEU_LUC_PHIEN,
+  SO_THE_DIEN_THOAI,
+  SO_THE_TREN_TRANG,
+  chuanBiPhien,
+} from "@/components/nguoi-dung/ho-so/thietBiHoSo";
 import { nguoiDungService } from "@/services/nguoiDungService";
 import { getApiErrorMessage } from "@/utils/apiError";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import { toast } from "@/lib/thongBaoNhanh";
+import { cn } from "@/lib/utils";
 
 // Màn cảm ứng: nút dạng chữ vẫn chạm được 44px nhờ đệm dọc, lề âm bù lại nên dòng không giãn (lớp cảm ứng chung nâng mọi nút
 // lên 44px, làm khoảng cách giữa dòng đếm thiết bị và các thẻ lệch nhau)
@@ -27,6 +33,8 @@ const NUT_CHU = "rounded text-[13px] font-medium outline-none hover:underline fo
  * - Chỉ có thiết bị đang dùng: một thẻ đầy đủ trải hết chiều ngang (kèm lúc đăng nhập, địa chỉ IP).
  * - Thiết bị hiện tại không có nút đăng xuất ở đây (thoát bằng nút Đăng xuất trên thanh trên cùng).
  * Mọi lần đăng xuất đều hỏi lại; xong thì tải lại danh sách.
+ * - Điện thoại (PA A, 02/11/2026): các thẻ gộp thành một khung danh sách, chỉ hiện SO_THE_DIEN_THOAI thiết bị kèm dòng
+ *   "Xem tất cả N thiết bị" (mở ngăn kéo); nút "Đăng xuất các thiết bị khác" chuyển xuống dưới khung.
  */
 export default function ThietBiDangNhap({ khoaTaiLai = 0 }) {
   // khoaTaiLai đổi (vd. vừa đổi mật khẩu, máy chủ đã đăng xuất các thiết bị khác) thì tải lại danh sách
@@ -78,6 +86,7 @@ export default function ThietBiDangNhap({ khoaTaiLai = 0 }) {
   };
 
   const nhieu = ds.length > SO_THE_TREN_TRANG;
+  const nhieuDienThoai = ds.length > SO_THE_DIEN_THOAI;
   // Nói điều người dùng chưa biết (vì sao không thấy thiết bị cũ), thay cho số "hoạt động hôm nay" luôn bằng tổng
   const tomTatNgan = `${ds.length} thiết bị · Tự đăng xuất sau ${GIO_HIEU_LUC_PHIEN} giờ`;
 
@@ -98,14 +107,14 @@ export default function ThietBiDangNhap({ khoaTaiLai = 0 }) {
   }
 
   return (
-    <section aria-labelledby="ho-so-thiet-bi" className="px-4 py-5 sm:px-6 sm:py-[22px]">
-      <div className="mb-3.5 flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
+    <section aria-labelledby="ho-so-thiet-bi" className="px-4 py-5 max-sm:py-[18px] sm:px-6 sm:py-[22px]">
+      <div className="mb-3.5 flex flex-wrap items-start justify-between gap-x-3 gap-y-1 max-sm:mb-3">
         <h2 id="ho-so-thiet-bi" className="min-w-0 text-[15px] font-semibold leading-[22px] text-bo-foreground">
           Thiết bị đang đăng nhập
           {ds.length ? <span className="font-normal text-bo-muted"> ({ds.length})</span> : null}
         </h2>
         {khac.length ? (
-          <button type="button" onClick={hoiKhac} className={`${NUT_CHU} py-0.5 text-bo-danger`}>
+          <button type="button" onClick={hoiKhac} className={`${NUT_CHU} py-0.5 text-bo-danger max-sm:hidden`}>
             Đăng xuất các thiết bị khác
           </button>
         ) : null}
@@ -127,14 +136,41 @@ export default function ThietBiDangNhap({ khoaTaiLai = 0 }) {
       ) : (
         <>
           <div className="@container">
-            <ul className="m-0 grid list-none gap-2.5 p-0 @lg:grid-cols-2">
-              {ds.slice(0, SO_THE_TREN_TRANG).map((p) => (
-                <TheThietBi key={p.id} phien={p} onDangXuat={hoiMot} />
+            <ul className="m-0 grid list-none gap-2.5 p-0 max-sm:grid-cols-1! max-sm:gap-0 max-sm:overflow-hidden max-sm:rounded-lg max-sm:border max-sm:border-bo-border @lg:grid-cols-2">
+              {ds.slice(0, SO_THE_TREN_TRANG).map((p, i) => (
+                <TheThietBi
+                  key={p.id}
+                  phien={p}
+                  onDangXuat={hoiMot}
+                  className={cn(
+                    "max-sm:rounded-none max-sm:border-x-0 max-sm:border-t-0 max-sm:border-slate-100 max-sm:py-2.5 max-sm:last:border-b-0",
+                    i >= SO_THE_DIEN_THOAI && "max-sm:hidden",
+                  )}
+                />
               ))}
+              {nhieuDienThoai ? (
+                <li className="sm:hidden">
+                  <button
+                    type="button"
+                    onClick={moNganKeo}
+                    className="flex h-11 w-full items-center justify-center gap-1 text-[13px] font-medium text-bo-primary outline-none hover:bg-bo-surface-subtle focus-visible:bg-bo-surface-subtle focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-bo-primary/40"
+                  >
+                    Xem tất cả {ds.length} thiết bị
+                    <ChevronRight className="size-4" aria-hidden="true" />
+                  </button>
+                </li>
+              ) : null}
             </ul>
           </div>
+          {/* Điện thoại: nút viền đỏ rộng bằng khung danh sách, cùng kiểu nút trong ngăn kéo (góp ý 02/11: chữ đỏ lệch trái) */}
+          {khac.length ? (
+            <Button type="button" variant="outline" size="sm" onClick={hoiKhac} className={cn(NUT_DO_VIEN, "mt-3 w-full sm:hidden")}>
+              <LogOut className="size-3.5" aria-hidden="true" />
+              Đăng xuất các thiết bị khác
+            </Button>
+          ) : null}
           {nhieu ? (
-            <div className="mt-3 flex justify-center">
+            <div className="mt-3 flex justify-center max-sm:hidden">
               <Button
                 type="button"
                 variant="outline"
