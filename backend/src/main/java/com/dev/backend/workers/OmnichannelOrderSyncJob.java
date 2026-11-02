@@ -921,8 +921,20 @@ public class OmnichannelOrderSyncJob {
 
         if (existingOpt.isPresent()) {
             DonBanHang existing = existingOpt.get();
-            // Khắc phục đơn cũ từng bị gán nhầm sang khách hàng ID 1
-            if (existing.getKhachHang() != null && Objects.equals(existing.getKhachHang().getId(), 1)) {
+            // Khắc phục đơn cũ từng bị gán nhầm sang khách hàng ID 1 hoặc khách hàng dùng chung sai người
+            boolean canKhacPhuc = false;
+            if (existing.getKhachHang() == null || Objects.equals(existing.getKhachHang().getId(), 1)) {
+                canKhacPhuc = true;
+            } else {
+                String lzdCustomerName = extractLazadaCustomerName(orderNode);
+                String currentKhName = existing.getKhachHang().getTenKhachHang();
+                if (!lzdCustomerName.isBlank() && currentKhName != null && !currentKhName.isBlank()
+                        && !lzdCustomerName.equalsIgnoreCase(currentKhName)) {
+                    canKhacPhuc = true;
+                }
+            }
+
+            if (canKhacPhuc) {
                 KhachHang correctKh = resolveLazadaCustomer(orderNode, orderNumber, address);
                 if (correctKh != null && !Objects.equals(correctKh.getId(), 1)) {
                     existing.setKhachHang(correctKh);
@@ -933,8 +945,8 @@ public class OmnichannelOrderSyncJob {
                         existing.setDiaChiGiaoHang(address);
                     }
                     donBanHangRepository.save(existing);
-                    log.info("[JOB-01] Khắc phục đơn Lazada {} bị gán nhầm khách ID 1 -> chuyển sang khách {} (ID {})",
-                            soDonHang, correctKh.getTenKhachHang(), correctKh.getId());
+                    log.info("[JOB-01] Khắc phục đơn Lazada {} bị gán nhầm khách -> chuyển sang khách {} (ID {}, Mã {})",
+                            soDonHang, correctKh.getTenKhachHang(), correctKh.getId(), correctKh.getMaKhachHang());
                 }
             }
 
@@ -1079,7 +1091,10 @@ public class OmnichannelOrderSyncJob {
         return true;
     }
 
-    private KhachHang resolveLazadaCustomer(JsonNode orderNode, String orderNumber, String fullAddress) {
+    private String extractLazadaCustomerName(JsonNode orderNode) {
+        if (orderNode == null || orderNode.isMissingNode() || orderNode.isNull()) {
+            return "Khách hàng Lazada";
+        }
         String firstName = orderNode.path("customer_first_name").asText("").trim();
         String lastName = orderNode.path("customer_last_name").asText("").trim();
         String customerName = (firstName + " " + lastName).trim();
@@ -1096,6 +1111,11 @@ public class OmnichannelOrderSyncJob {
         if (customerName.isBlank()) {
             customerName = "Khách hàng Lazada";
         }
+        return customerName;
+    }
+
+    private KhachHang resolveLazadaCustomer(JsonNode orderNode, String orderNumber, String fullAddress) {
+        String customerName = extractLazadaCustomerName(orderNode);
 
         String phone = orderNode.path("address_shipping").path("phone").asText("").trim();
         if (phone.isBlank()) {
@@ -1116,16 +1136,16 @@ public class OmnichannelOrderSyncJob {
             email = orderNode.path("address_shipping").path("email").asText("").trim();
         }
 
-        // 1. Tìm kiếm khách hàng theo số điện thoại (tương tự như luồng Shopify)
-        if (!phone.isBlank()) {
+        // 1. Chỉ tìm kiếm khách hàng theo số điện thoại nếu là số thực (không che mờ, không chứa '*')
+        if (!phone.isBlank() && !phone.contains("*")) {
             Optional<KhachHang> khOpt = khachHangRepository.findFirstBySoDienThoai(phone);
             if (khOpt.isPresent()) {
                 return khOpt.get();
             }
         }
 
-        // 2. Tìm kiếm khách hàng theo email
-        if (!email.isBlank()) {
+        // 2. Chỉ tìm kiếm khách hàng theo email nếu là email thực (không phải mặc định và không chứa '*')
+        if (!email.isBlank() && !"lazada@customer.com".equalsIgnoreCase(email) && !email.contains("*")) {
             Optional<KhachHang> khOpt = khachHangRepository.findFirstByEmail(email);
             if (khOpt.isPresent()) {
                 return khOpt.get();
@@ -1133,7 +1153,10 @@ public class OmnichannelOrderSyncJob {
         }
 
         // 3. Tra cứu khách hàng theo mã định danh kênh Lazada
-        String suffix = !phone.isBlank() ? phone.replaceAll("\\D", "") : orderNumber;
+        // Nếu số điện thoại chuẩn không che thì lấy số điện thoại, ngược lại dùng mã đơn hàng orderNumber
+        String suffix = (!phone.isBlank() && !phone.contains("*"))
+                ? phone.replaceAll("\\D", "")
+                : orderNumber;
         if (suffix.isBlank()) suffix = orderNumber;
         String maKh = "KH-LZD-" + suffix;
         if (maKh.length() > 30) {
@@ -1145,7 +1168,7 @@ public class OmnichannelOrderSyncJob {
             return khByMaOpt.get();
         }
 
-        // 4. Tạo mới khách hàng không che, lưu đầy đủ thông tin thực tế từ sàn
+        // 4. Tạo mới khách hàng riêng biệt, lưu đầy đủ thông tin thực tế từ sàn
         final String finalPhone = !phone.isBlank() ? phone : "0900000000";
         final String finalEmail = !email.isBlank() ? email : "lazada@customer.com";
         KhachHang moi = KhachHang.builder()
@@ -1165,7 +1188,8 @@ public class OmnichannelOrderSyncJob {
                 ? addr.getName().trim() : "Khách hàng TikTok Shop";
         String fullAddress = addr != null && addr.getFullAddress() != null ? addr.getFullAddress().trim() : "";
 
-        if (!phone.isBlank()) {
+        // Chỉ tìm theo số điện thoại nếu là số thực không chứa *
+        if (!phone.isBlank() && !phone.contains("*")) {
             Optional<KhachHang> khOpt = khachHangRepository.findFirstBySoDienThoai(phone);
             if (khOpt.isPresent()) {
                 return khOpt.get();
@@ -1175,7 +1199,9 @@ public class OmnichannelOrderSyncJob {
         String orderId = order.getId() != null ? order.getId().trim() : "";
         String buyerUid = order.getBuyerUid() != null && !order.getBuyerUid().isBlank()
                 ? order.getBuyerUid().trim() : orderId;
-        String suffix = !phone.isBlank() ? phone.replaceAll("\\D", "") : buyerUid;
+        String suffix = (!phone.isBlank() && !phone.contains("*"))
+                ? phone.replaceAll("\\D", "")
+                : buyerUid;
         if (suffix.isBlank()) suffix = orderId;
         String maKh = "KH-TTS-" + suffix;
         if (maKh.length() > 30) {
