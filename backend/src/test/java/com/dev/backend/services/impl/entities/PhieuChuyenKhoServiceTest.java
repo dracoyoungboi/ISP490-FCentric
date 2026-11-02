@@ -1607,8 +1607,8 @@ class PhieuChuyenKhoServiceTest {
 
         service.huy(PCK, PhieuChuyenKhoYeuCau.Huy.builder().lyDo("Đổi kế hoạch").build());
 
-        verify(thongBao).daHuy(same(p), eq(IChuyenKho.DA_DUYET), argThat(n -> n.getId() == NGUOI));
-        assertEquals(IChuyenKho.DA_HUY, p.getTrangThai(), "từ chối vẫn là trạng thái Đã hủy");
+        verify(thongBao).daHuy(same(p), eq(IChuyenKho.DA_DUYET), argThat(n -> n.getId() == NGUOI), eq(false));
+        assertEquals(IChuyenKho.DA_HUY, p.getTrangThai());
         verifyNoMoreInteractions(thongBao);
     }
 
