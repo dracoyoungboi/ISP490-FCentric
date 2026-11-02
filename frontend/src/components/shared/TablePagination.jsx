@@ -48,11 +48,7 @@ export default function TablePagination({
   const from = total === 0 ? 0 : page * size + 1;
   const to = Math.min((page + 1) * size, total);
 
-  const pageNumbers = [...Array(Math.min(5, totalPages))].map((_, idx) => {
-    if (totalPages <= 5 || page < 3) return idx;
-    if (page > totalPages - 4) return totalPages - 5 + idx;
-    return page - 2 + idx;
-  });
+  const pageNumbers = dayTrang(page, totalPages);
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -113,49 +109,69 @@ export default function TablePagination({
         ) : null}
       </div>
 
-      <div className="flex items-center gap-2">
+      <nav aria-label="Phân trang" className="flex items-center gap-1">
         <Button
           variant="outline"
-          size="sm"
+          size="icon-sm"
           onClick={() => onPageChange(page - 1)}
           disabled={page === 0}
-          className="h-8 gap-1 border-bo-border bg-bo-surface px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
+          aria-label="Trang trước"
+          title="Trang trước"
+          className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
         >
-          <ChevronLeft className="size-3.5" />
-          Trước
+          <ChevronLeft className="size-4" />
         </Button>
         <div className="hidden items-center gap-1 sm:flex">
-          {pageNumbers.map((pageNum) => (
-            <Button
-              key={pageNum}
-              variant="outline"
-              size="sm"
-              onClick={() => onPageChange(pageNum)}
-              aria-current={page === pageNum ? "page" : undefined}
-              className={
-                page === pageNum
-                  ? "h-8 border-bo-primary bg-bo-primary px-2.5 text-xs text-white hover:bg-bo-primary-hover"
-                  : "h-8 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle"
-              }
-            >
-              {pageNum + 1}
-            </Button>
-          ))}
+          {pageNumbers.map((pageNum, idx) =>
+            pageNum === null ? (
+              <span key={`luoc-${idx}`} aria-hidden="true" className="w-6 text-center text-xs text-bo-muted">
+                …
+              </span>
+            ) : (
+              <Button
+                key={pageNum}
+                variant="ghost"
+                onClick={() => onPageChange(pageNum)}
+                aria-label={`Trang ${formatNumber(pageNum + 1)}`}
+                aria-current={page === pageNum ? "page" : undefined}
+                className={
+                  page === pageNum
+                    ? "h-8 min-w-8 px-2 text-xs tabular-nums bg-bo-primary text-white hover:bg-bo-primary-hover hover:text-white"
+                    : "h-8 min-w-8 px-2 text-xs font-normal tabular-nums text-bo-foreground hover:bg-bo-surface-subtle hover:text-bo-foreground"
+                }
+              >
+                {formatNumber(pageNum + 1)}
+              </Button>
+            ),
+          )}
         </div>
-        <span className="text-xs text-bo-muted tabular-nums sm:hidden">
-          {page + 1} / {totalPages}
+        <span className="px-1.5 text-xs text-bo-muted tabular-nums sm:hidden">
+          {formatNumber(page + 1)} / {formatNumber(totalPages)}
         </span>
         <Button
           variant="outline"
-          size="sm"
+          size="icon-sm"
           onClick={() => onPageChange(page + 1)}
           disabled={page + 1 >= totalPages}
-          className="h-8 gap-1 border-bo-border bg-bo-surface px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
+          aria-label="Trang sau"
+          title="Trang sau"
+          className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
         >
-          Sau
-          <ChevronRight className="size-3.5" />
+          <ChevronRight className="size-4" />
         </Button>
-      </div>
+      </nav>
     </div>
   );
+}
+
+/**
+ * Dãy số trang (tính từ 0), `null` là chỗ lược "…". Luôn có trang đầu và trang cuối;
+ * quá 7 trang thì luôn đủ 7 ô để dãy nút không co giãn khi chuyển trang.
+ */
+function dayTrang(page, totalPages) {
+  if (totalPages <= 7) return [...Array(totalPages).keys()];
+  const last = totalPages - 1;
+  if (page <= 3) return [0, 1, 2, 3, 4, null, last];
+  if (page >= last - 3) return [0, null, last - 4, last - 3, last - 2, last - 1, last];
+  return [0, null, page - 1, page, page + 1, null, last];
 }
