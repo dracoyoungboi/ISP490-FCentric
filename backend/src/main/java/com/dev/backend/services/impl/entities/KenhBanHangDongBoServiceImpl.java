@@ -214,7 +214,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         int soMoi = 0;
         int soCapNhat = 0;
 
-        String url = "https://" + domain + "/admin/api/" + DEFAULT_API_VERSION + "/products.json?limit=250";
+        String currentUrl = "https://" + domain + "/admin/api/" + DEFAULT_API_VERSION + "/products.json?limit=250";
         try {
             SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
             factory.setConnectTimeout(8000);
@@ -226,60 +226,77 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.set(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE);
 
-            HttpEntity<Void> entity = new HttpEntity<>(headers);
-            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+            int maxPages = 50;
+            int page = 0;
 
-            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                JsonNode root = objectMapper.readTree(response.getBody());
-                JsonNode products = root.path("products");
-                if (products.isArray()) {
-                    for (JsonNode productNode : products) {
-                        JsonNode variants = productNode.path("variants");
-                        if (variants.isArray()) {
-                            for (JsonNode varNode : variants) {
-                                soSku++;
-                                String variantId = varNode.path("id").asText();
-                                String sku = varNode.path("sku").asText("");
+            while (currentUrl != null && page < maxPages) {
+                page++;
+                HttpEntity<Void> entity = new HttpEntity<>(headers);
+                ResponseEntity<String> response = restTemplate.exchange(currentUrl, HttpMethod.GET, entity, String.class);
 
-                                // Tìm kiếm biến thể FCentric theo mã SKU trùng khớp
-                                Optional<BienTheSanPham> btOpt = Optional.empty();
-                                if (!sku.isBlank()) {
-                                    btOpt = bienTheSanPhamRepository.findByMaSkuIgnoreCase(sku.trim());
-                                }
+                if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                    kiemTraLeakyBucket(response.getHeaders().getFirst("X-Shopify-Shop-Api-Call-Limit"));
+                    JsonNode root = objectMapper.readTree(response.getBody());
+                    JsonNode products = root.path("products");
+                    if (products.isArray()) {
+                        for (JsonNode productNode : products) {
+                            JsonNode variants = productNode.path("variants");
+                            if (variants.isArray()) {
+                                for (JsonNode varNode : variants) {
+                                    soSku++;
+                                    String variantId = varNode.path("id").asText();
+                                    String sku = varNode.path("sku").asText("");
 
-                                if (btOpt.isPresent()) {
-                                    BienTheSanPham bt = btOpt.get();
-                                    Optional<TrangThaiDongBoSanPham> mappingOpt =
-                                            trangThaiDongBoSanPhamRepository.findByKenhBanHangIdAndBienTheSanPhamId(kenh.getId(), bt.getId());
-
-                                    TrangThaiDongBoSanPham record;
-                                    if (mappingOpt.isPresent()) {
-                                        record = mappingOpt.get();
-                                        record.setMaSanPhamKenh(variantId);
-                                        // Dòng người dùng đã ngừng đồng bộ thì giữ nguyên trạng thái ngừng
-                                        if (!TRANG_THAI_NGUNG.equals(record.getTrangThaiDongBo())) {
-                                            record.setTrangThaiDongBo("thanh_cong");
-                                            record.setChiTietLoi(null);
-                                        }
-                                        record.setNgayDongBoCuoi(Instant.now());
-                                        soCapNhat++;
-                                    } else {
-                                        record = TrangThaiDongBoSanPham.builder()
-                                                .bienTheSanPham(bt)
-                                                .kenhBanHang(kenh)
-                                                .maSanPhamKenh(variantId)
-                                                .trangThaiDongBo("thanh_cong")
-                                                .ngayDongBoCuoi(Instant.now())
-                                                .chiTietLoi(null)
-                                                .build();
-                                        soMoi++;
+                                    BigDecimal priceOnChannel = null;
+                                    if (varNode.hasNonNull("price")) {
+                                        try {
+                                            priceOnChannel = new BigDecimal(varNode.path("price").asText("0"));
+                                        } catch (Exception ignored) {}
                                     }
-                                    trangThaiDongBoSanPhamRepository.save(record);
+
+                                    // Tìm kiếm biến thể FCentric theo mã SKU trùng khớp
+                                    Optional<BienTheSanPham> btOpt = Optional.empty();
+                                    if (!sku.isBlank()) {
+                                        btOpt = bienTheSanPhamRepository.findByMaSkuIgnoreCase(sku.trim());
+                                    }
+
+                                    if (btOpt.isPresent()) {
+                                        BienTheSanPham bt = btOpt.get();
+                                        Optional<TrangThaiDongBoSanPham> mappingOpt =
+                                                trangThaiDongBoSanPhamRepository.findByKenhBanHangIdAndBienTheSanPhamId(kenh.getId(), bt.getId());
+
+                                        TrangThaiDongBoSanPham record;
+                                        if (mappingOpt.isPresent()) {
+                                            record = mappingOpt.get();
+                                            record.setMaSanPhamKenh(variantId);
+                                            record.setGiaBanSan(priceOnChannel);
+                                            // Dòng người dùng đã ngừng đồng bộ thì giữ nguyên trạng thái ngừng
+                                            if (!TRANG_THAI_NGUNG.equals(record.getTrangThaiDongBo())) {
+                                                record.setTrangThaiDongBo("thanh_cong");
+                                                record.setChiTietLoi(null);
+                                            }
+                                            record.setNgayDongBoCuoi(Instant.now());
+                                            soCapNhat++;
+                                        } else {
+                                            record = TrangThaiDongBoSanPham.builder()
+                                                    .bienTheSanPham(bt)
+                                                    .kenhBanHang(kenh)
+                                                    .maSanPhamKenh(variantId)
+                                                    .giaBanSan(priceOnChannel)
+                                                    .trangThaiDongBo("thanh_cong")
+                                                    .ngayDongBoCuoi(Instant.now())
+                                                    .chiTietLoi(null)
+                                                    .build();
+                                            soMoi++;
+                                        }
+                                        trangThaiDongBoSanPhamRepository.save(record);
+                                    }
                                 }
                             }
                         }
                     }
                 }
+                currentUrl = trichXuatUrlTrangSau(response.getHeaders().getFirst("Link"));
             }
         } catch (Exception e) {
             log.error("Lỗi khi tải sản phẩm từ Shopify [{}]: {}", maKenh, e.getMessage());
@@ -458,6 +475,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                                     tt.setTrangThaiDongBo("chua_dong_bo");
                                 }
                             }
+                            tt.setGiaBanSan(price);
                             tt.setNgayDongBoCuoi(Instant.now());
                             trangThaiDongBoSanPhamRepository.save(tt);
                         }
@@ -2851,39 +2869,62 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     /** Như trên nhưng báo lỗi ra ngoài, để luồng đẩy tồn phân biệt "gian hàng không có SKU" với "không tải được danh sách". */
     private Map<String, ShopifyVariantInfo> taiDanhSachSkuShopify(String domain, String token, Map<String, Long> titleToProductIdMap) throws Exception {
         Map<String, ShopifyVariantInfo> result = new HashMap<>();
-        String url = "https://" + domain + "/admin/api/" + DEFAULT_API_VERSION + "/products.json?limit=250";
+        String currentUrl = "https://" + domain + "/admin/api/" + DEFAULT_API_VERSION + "/products.json?limit=250";
         RestTemplate restTemplate = createRestTemplate();
         HttpHeaders headers = createHeaders(token);
-        HttpEntity<Void> entity = new HttpEntity<>(headers);
-        ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
-        if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
-            throw new IllegalStateException("Shopify trả mã " + response.getStatusCode().value() + " khi tải danh sách sản phẩm");
-        }
-        JsonNode root = objectMapper.readTree(response.getBody());
-        JsonNode products = root.path("products");
-        if (products.isArray()) {
-            for (JsonNode prod : products) {
-                Long prodId = prod.path("id").asLong();
-                String prodTitle = prod.path("title").asText("").trim().toLowerCase();
-                if (!prodTitle.isBlank() && titleToProductIdMap != null) {
-                    titleToProductIdMap.put(prodTitle, prodId);
-                }
-                JsonNode vars = prod.path("variants");
-                if (vars.isArray()) {
-                    for (JsonNode v : vars) {
-                        String sku = v.path("sku").asText("").trim().toLowerCase();
-                        if (!sku.isBlank()) {
-                            Long imgId = v.path("image_id").isNull() || v.path("image_id").asLong() == 0 ? null : v.path("image_id").asLong();
-                            result.put(sku, new ShopifyVariantInfo(
-                                    v.path("id").asLong(),
-                                    v.path("inventory_item_id").asLong(),
-                                    prodId,
-                                    imgId
-                            ));
+
+        int maxPages = 50;
+        int page = 0;
+
+        while (currentUrl != null && page < maxPages) {
+            page++;
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+            ResponseEntity<String> response = restTemplate.exchange(currentUrl, HttpMethod.GET, entity, String.class);
+            if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
+                throw new IllegalStateException("Shopify trả mã " + response.getStatusCode().value() + " khi tải danh sách sản phẩm");
+            }
+            kiemTraLeakyBucket(response.getHeaders().getFirst("X-Shopify-Shop-Api-Call-Limit"));
+
+            JsonNode root = objectMapper.readTree(response.getBody());
+            JsonNode products = root.path("products");
+            if (products.isArray()) {
+                for (JsonNode prod : products) {
+                    Long prodId = prod.path("id").asLong();
+                    String prodTitle = prod.path("title").asText("").trim().toLowerCase();
+                    if (!prodTitle.isBlank() && titleToProductIdMap != null) {
+                        titleToProductIdMap.put(prodTitle, prodId);
+                    }
+                    JsonNode vars = prod.path("variants");
+                    if (vars.isArray()) {
+                        for (JsonNode v : vars) {
+                            String sku = v.path("sku").asText("").trim().toLowerCase();
+                            if (!sku.isBlank()) {
+                                Long imgId = v.path("image_id").isNull() || v.path("image_id").asLong() == 0 ? null : v.path("image_id").asLong();
+                                BigDecimal price = null;
+                                if (v.hasNonNull("price")) {
+                                    try { price = new BigDecimal(v.path("price").asText("0")); } catch (Exception ignored) {}
+                                }
+                                BigDecimal compareAt = null;
+                                if (v.hasNonNull("compare_at_price")) {
+                                    try { compareAt = new BigDecimal(v.path("compare_at_price").asText("0")); } catch (Exception ignored) {}
+                                }
+                                String barcode = v.path("barcode").asText(null);
+
+                                result.put(sku, new ShopifyVariantInfo(
+                                        v.path("id").asLong(),
+                                        v.path("inventory_item_id").asLong(),
+                                        prodId,
+                                        imgId,
+                                        price,
+                                        compareAt,
+                                        barcode
+                                ));
+                            }
                         }
                     }
                 }
             }
+            currentUrl = trichXuatUrlTrangSau(response.getHeaders().getFirst("Link"));
         }
         return result;
     }
@@ -3651,6 +3692,66 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         return false;
     }
 
+    /** Trích xuất URL trang tiếp theo từ Header Link của Shopify (RFC 5988 cursor pagination) */
+    public static String trichXuatUrlTrangSau(String linkHeader) {
+        if (linkHeader == null || linkHeader.isBlank()) return null;
+        for (String part : linkHeader.split(",")) {
+            if (part.contains("rel=\"next\"") || part.contains("rel=next")) {
+                int start = part.indexOf('<');
+                int end = part.indexOf('>');
+                if (start >= 0 && end > start) {
+                    return part.substring(start + 1, end).trim();
+                }
+            }
+        }
+        return null;
+    }
+
+    /** Kiểm tra Leaky Bucket rate limit của Shopify (Header X-Shopify-Shop-Api-Call-Limit: 38/40) */
+    public static void kiemTraLeakyBucket(String callLimitHeader) {
+        if (callLimitHeader == null || !callLimitHeader.contains("/")) return;
+        try {
+            String[] parts = callLimitHeader.split("/");
+            int current = Integer.parseInt(parts[0].trim());
+            int max = Integer.parseInt(parts[1].trim());
+            if (current >= max - 3) {
+                Thread.sleep(500);
+            }
+        } catch (Exception ignored) {}
+    }
+
+    /** Cập nhật giá biến thể trực tiếp lên Shopify qua PUT /admin/api/{version}/variants/{id}.json */
+    public boolean capNhatGiaBienTheShopify(String domain, String token, Long shopifyVariantId, BigDecimal giaBan, BigDecimal compareAtPrice) {
+        if (shopifyVariantId == null || giaBan == null || giaBan.compareTo(BigDecimal.ZERO) <= 0) {
+            return false;
+        }
+        String url = "https://" + domain + "/admin/api/" + DEFAULT_API_VERSION + "/variants/" + shopifyVariantId + ".json";
+        RestTemplate restTemplate = createRestTemplate();
+        HttpHeaders headers = createHeaders(token);
+
+        Map<String, Object> variantObj = new LinkedHashMap<>();
+        variantObj.put("id", shopifyVariantId);
+        variantObj.put("price", giaBan.setScale(2, RoundingMode.HALF_UP).toPlainString());
+        if (compareAtPrice != null && compareAtPrice.compareTo(BigDecimal.ZERO) > 0) {
+            variantObj.put("compare_at_price", compareAtPrice.setScale(2, RoundingMode.HALF_UP).toPlainString());
+        }
+
+        Map<String, Object> body = Map.of("variant", variantObj);
+        try {
+            String jsonBody = objectMapper.writeValueAsString(body);
+            HttpEntity<String> entity = new HttpEntity<>(jsonBody, headers);
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.PUT, entity, String.class);
+            if (response.getStatusCode().is2xxSuccessful()) {
+                kiemTraLeakyBucket(response.getHeaders().getFirst("X-Shopify-Shop-Api-Call-Limit"));
+                log.info("Cập nhật thành công giá biến thể Shopify ID {}: {} (compare_at: {})", shopifyVariantId, giaBan, compareAtPrice);
+                return true;
+            }
+        } catch (Exception e) {
+            log.warn("Lỗi khi cập nhật giá biến thể Shopify ID {}: {}", shopifyVariantId, e.getMessage());
+        }
+        return false;
+    }
+
     @AllArgsConstructor
     @NoArgsConstructor
     @Getter
@@ -3660,5 +3761,12 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         Long inventoryItemId;
         Long productId;
         Long imageId;
+        BigDecimal price;
+        BigDecimal compareAtPrice;
+        String barcode;
+
+        public ShopifyVariantInfo(Long variantId, Long inventoryItemId, Long productId, Long imageId) {
+            this(variantId, inventoryItemId, productId, imageId, null, null, null);
+        }
     }
 }
