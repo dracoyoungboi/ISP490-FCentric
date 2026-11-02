@@ -19,7 +19,7 @@ import EmptyState from "@/components/shared/EmptyState";
 import ErrorState from "@/components/shared/ErrorState";
 import LoadingState from "@/components/shared/LoadingState";
 import MockModeNotice from "@/components/shared/MockModeNotice";
-import ChannelBadge from "@/components/channel/ChannelBadge";
+import BieuTuongKenhDon from "@/components/channel/BieuTuongKenhDon";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
@@ -389,7 +389,7 @@ export default function DonChoXuatPage() {
                         <span className="text-[13px] font-medium text-bo-muted">Chọn tất cả {data.length} đơn trong trang</span>
                     </label>
                     {/* Điện thoại: mỗi đơn một thẻ — chạm thẻ để chọn / bỏ chọn như dòng của bảng (ô chọn có vùng chạm 44px);
-                        số đơn + tồn kho, kênh + khách, ngày tạo · số SP + tổng tiền; chạm số đơn mở đơn bán */}
+                        logo kênh + số đơn + tồn kho, khách, ngày tạo · số SP + tổng tiền; chạm số đơn mở đơn bán */}
                     <ul className="divide-y divide-bo-border md:hidden">
                         {data.map((row) => {
                             const isSelected = selected.has(row.id);
@@ -409,22 +409,22 @@ export default function DonChoXuatPage() {
                                     </span>
                                     <span className="flex min-w-0 flex-1 flex-col gap-1 py-3">
                                         <span className="flex items-center justify-between gap-3">
-                                            <Link
-                                                to={`/sales-orders/${row.id}`}
-                                                onClick={(event) => event.stopPropagation()}
-                                                className="-my-2 min-w-0 truncate py-2 text-[15px] font-semibold uppercase tracking-wide text-bo-primary"
-                                            >
-                                                {row.soDonHang}
-                                            </Link>
+                                            <span className="flex min-w-0 items-center gap-2">
+                                                <BieuTuongKenhDon maKenh={row.maKenhBan} tenKenh={row.tenKenhBan} />
+                                                <Link
+                                                    to={`/sales-orders/${row.id}`}
+                                                    onClick={(event) => event.stopPropagation()}
+                                                    className="-my-2 min-w-0 truncate py-2 text-[15px] font-semibold uppercase tracking-wide text-bo-primary"
+                                                >
+                                                    {row.soDonHang}
+                                                </Link>
+                                            </span>
                                             <StatusBadge
                                                 nhom={row.duHang ? "xong" : "loi"}
                                                 label={row.khaDung || (row.duHang ? "Đủ hàng" : "Thiếu hàng")}
                                             />
                                         </span>
-                                        <span className="flex min-w-0 items-center gap-2 text-sm">
-                                            <ChannelBadge className="h-5 shrink-0 px-1.5 text-[11px]" maKenh={row.maKenhBan} label={row.maKenhBan ? row.tenKenhBan : undefined} />
-                                            <span className="min-w-0 truncate font-semibold text-bo-foreground">{row.tenKhachHang || "Khách lẻ"}</span>
-                                        </span>
+                                        <span className="min-w-0 truncate text-sm font-semibold text-bo-foreground">{row.tenKhachHang || "Khách lẻ"}</span>
                                         <span className="flex items-baseline justify-between gap-3 text-[13px] text-bo-muted">
                                             <span className="min-w-0 truncate">
                                                 {formatDateTime(row.ngayTao)} · {formatQuantity(row.tongSoLuong)} SP
@@ -438,7 +438,8 @@ export default function DonChoXuatPage() {
                             );
                         })}
                     </ul>
-                    {/* Máy tính bảng dọc (cảm ứng): bỏ cột Kênh, Kho xuất, Ngày tạo, SKU — kênh + ngày tạo xuống dưới số đơn,
+                    {/* Kênh là logo đứng trước số đơn (như danh sách Đơn bán), không còn cột Kênh riêng.
+                        Máy tính bảng dọc (cảm ứng): bỏ cột Kho xuất, Ngày tạo, SKU — ngày tạo xuống dưới số đơn,
                         kho xuống dưới khách hàng, số SKU dưới số lượng — để bảng vừa khung, không vuốt ngang */}
                     <table className="w-full min-w-[1040px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
                         <thead className="sticky top-0 z-10">
@@ -452,7 +453,6 @@ export default function DonChoXuatPage() {
                                     />
                                 </th>
                                 <th className={`${TH_CLASS} text-left`}>Số đơn</th>
-                                <th className={`${TH_CLASS} text-left cam-ung:max-lg:hidden`}>Kênh</th>
                                 <th className={`${TH_CLASS} text-left`}>Khách hàng</th>
                                 <th className={`${TH_CLASS} text-left cam-ung:max-lg:hidden`}>Kho xuất</th>
                                 <th className={`${TH_CLASS} text-left cam-ung:max-lg:hidden`}>Ngày tạo</th>
@@ -480,20 +480,19 @@ export default function DonChoXuatPage() {
                                             />
                                         </td>
                                         <td className="px-3 py-3">
-                                            <Link
-                                                to={`/sales-orders/${row.id}`}
-                                                onClick={(event) => event.stopPropagation()}
-                                                className="font-semibold uppercase tracking-wide text-bo-primary hover:underline"
-                                            >
-                                                {row.soDonHang}
-                                            </Link>
-                                            <div className="mt-1 hidden cam-ung:max-lg:flex">
-                                                <ChannelBadge className="h-5 px-1.5 text-[11px]" maKenh={row.maKenhBan} label={row.maKenhBan ? row.tenKenhBan : undefined} />
+                                            <div className="flex items-start gap-2">
+                                                <BieuTuongKenhDon maKenh={row.maKenhBan} tenKenh={row.tenKenhBan} className="mt-0.5" />
+                                                <div className="min-w-0">
+                                                    <Link
+                                                        to={`/sales-orders/${row.id}`}
+                                                        onClick={(event) => event.stopPropagation()}
+                                                        className="font-semibold uppercase tracking-wide text-bo-primary hover:underline"
+                                                    >
+                                                        {row.soDonHang}
+                                                    </Link>
+                                                    <div className="mt-0.5 hidden whitespace-nowrap text-xs text-bo-muted cam-ung:max-lg:block">{formatDateTime(row.ngayTao)}</div>
+                                                </div>
                                             </div>
-                                            <div className="mt-0.5 hidden whitespace-nowrap text-xs text-bo-muted cam-ung:max-lg:block">{formatDateTime(row.ngayTao)}</div>
-                                        </td>
-                                        <td className="px-3 py-3 cam-ung:max-lg:hidden">
-                                            <ChannelBadge maKenh={row.maKenhBan} label={row.maKenhBan ? row.tenKenhBan : undefined} />
                                         </td>
                                         <td className="px-3 py-3 font-semibold text-bo-foreground">
                                             {row.tenKhachHang || "Khách lẻ"}
@@ -553,14 +552,14 @@ export default function DonChoXuatPage() {
                         <div className="max-h-48 overflow-y-auto rounded-lg border border-bo-border">
                             <ul className="divide-y divide-bo-border">
                                 {selectedRows.map((row) => (
-                                    <li key={row.id} className="flex items-center justify-between gap-3 px-3 py-2">
+                                    <li key={row.id} className="flex items-start gap-2 px-3 py-2">
+                                        <BieuTuongKenhDon maKenh={row.maKenhBan} tenKenh={row.tenKenhBan} className="mt-0.5" />
                                         <span className="min-w-0">
                                             <span className="block truncate text-sm font-semibold text-bo-foreground">{row.soDonHang}</span>
                                             <span className="block truncate text-xs text-bo-muted">
                                                 {row.tenKhachHang || "Khách lẻ"} · {formatQuantity(row.tongSoLuong)} sản phẩm
                                             </span>
                                         </span>
-                                        <ChannelBadge maKenh={row.maKenhBan} label={row.maKenhBan ? row.tenKenhBan : undefined} />
                                     </li>
                                 ))}
                             </ul>
