@@ -141,8 +141,8 @@
  * Nút nổi nhẹ (chốt 01/11/2026): nút chính và nút nguy hiểm có viền sáng ở trên, viền tối ở dưới và bóng 1px,
  * nhấn thì lún xuống; nút phụ (Button variant="outline") có viền đậm hơn một bậc và bóng 1px.
  * Nằm trong @layer components và chỉ ghi vào biến bóng của Tailwind (--tw-inset-shadow, --tw-shadow), nên các lớp
- * shadow-*, ring-*, hover:border-* ghi ở từng nút vẫn thắng. Nút đang khóa và ô trang đang chọn ở phân trang
- * (có border-bo-primary) giữ phẳng.
+ * shadow-*, ring-*, hover:border-* ghi ở từng nút vẫn thắng. Nút đang khóa và ô chọn có border-bo-primary
+ * giữ phẳng (ô trang đang xem ở phân trang không có viền nên nổi như nút chính).
  */
 @layer components {
 	:is(button, a, [role="button"]):is(.bg-bo-primary:not(.border-bo-primary), .bg-bo-danger).text-white:not(:disabled) {
