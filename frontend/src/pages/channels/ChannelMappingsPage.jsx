@@ -64,6 +64,22 @@ const TH = "h-10 whitespace-nowrap px-3 text-[11px] font-semibold uppercase trac
 const CHECKBOX_CLASS =
   "border-slate-300 bg-white data-[state=checked]:border-bo-primary data-[state=checked]:bg-bo-primary data-[state=indeterminate]:border-bo-primary data-[state=indeterminate]:bg-bo-primary data-[state=indeterminate]:text-white";
 const dangDongBo = (dong) => dong.trangThaiLienKet !== "chua_lien_ket";
+// Giá bán FCentric khác giá trên sàn (máy chủ đánh dấu lechGia, hoặc hai giá đều có mà khác nhau)
+const coLechGia = (dong) =>
+  Boolean(dong.lechGia || (dong.giaBanSan != null && dong.giaBan != null && Number(dong.giaBanSan) !== Number(dong.giaBan)));
+
+/** Nhãn "Lệch giá" cạnh SKU sàn: cùng một nhãn cho dòng bảng, dòng phụ máy tính bảng dọc và thẻ điện thoại. */
+function NhanLechGia({ dong, tenSan, className }) {
+  return (
+    <span
+      // Nối chuỗi thay vì cn(): dòng bảng trên máy tính giữ đúng chuỗi lớp như trước
+      className={`inline-flex items-center rounded bg-amber-50 px-1 py-0.2 text-[10.5px] font-medium text-amber-700 border border-amber-200${className ? ` ${className}` : ""}`}
+      title={`Lệch giá: FCentric ${formatNumberOrDash(dong.giaBan)}đ vs ${tenSan} ${formatNumberOrDash(dong.giaBanSan)}đ`}
+    >
+      Lệch giá
+    </span>
+  );
+}
 const coSo = (n) => n !== null && n !== undefined;
 
 /**
@@ -747,9 +763,12 @@ export default function ChannelMappingsPage() {
     // Máy tính bảng dọc (cảm ứng): cột SKU FCentric, Trạng thái đã ẩn, ghi thành dòng phụ dưới tên
     const dongPhuBang = (
       <div className={cn("hidden min-w-0 cam-ung:max-lg:block", trongNhom && "pl-[30px]")}>
-        <p className="truncate text-[12.5px] tabular-nums text-slate-500">
-          {dong.maSku || "—"} · {SAN.ten} {dong.skuSan || "—"}
-        </p>
+        <div className="flex min-w-0 items-center gap-1.5">
+          <p className="truncate text-[12.5px] tabular-nums text-slate-500">
+            {dong.maSku || "—"} · {SAN.ten} {dong.skuSan || "—"}
+          </p>
+          {coLechGia(dong) ? <NhanLechGia dong={dong} tenSan={SAN.ten} className="shrink-0" /> : null}
+        </div>
         {dong.trangThaiLienKet !== "da_lien_ket" ? <div className="mt-1">{oTrangThai(dong, meta, dangXuLyDong)}</div> : null}
       </div>
     );
@@ -794,14 +813,7 @@ export default function ChannelMappingsPage() {
             <p className="text-[12.5px] tabular-nums text-slate-400">
               {SAN.ten} <ToKhop text={dong.skuSan || "—"} tu={tuKhoa} />
             </p>
-            {dong.lechGia || (dong.giaBanSan != null && dong.giaBan != null && Number(dong.giaBanSan) !== Number(dong.giaBan)) ? (
-              <span
-                className="inline-flex items-center rounded bg-amber-50 px-1 py-0.2 text-[10.5px] font-medium text-amber-700 border border-amber-200"
-                title={`Lệch giá: FCentric ${formatNumberOrDash(dong.giaBan)}đ vs ${SAN.ten} ${formatNumberOrDash(dong.giaBanSan)}đ`}
-              >
-                Lệch giá
-              </span>
-            ) : null}
+            {coLechGia(dong) ? <NhanLechGia dong={dong} tenSan={SAN.ten} /> : null}
           </div>
         </td>
         <td className="whitespace-nowrap px-3 py-2.5 text-right tabular-nums text-bo-foreground">{formatNumberOrDash(dong.soLuongKhaDung)}</td>
@@ -979,8 +991,11 @@ export default function ChannelMappingsPage() {
               </span>
             </span>
           )}
-          <span className="truncate text-[12.5px] tabular-nums text-slate-500">
-            <ToKhop text={dong.maSku || "—"} tu={tuKhoa} /> · {SAN.ten} <ToKhop text={dong.skuSan || "—"} tu={tuKhoa} />
+          <span className="flex min-w-0 items-center gap-1.5">
+            <span className="truncate text-[12.5px] tabular-nums text-slate-500">
+              <ToKhop text={dong.maSku || "—"} tu={tuKhoa} /> · {SAN.ten} <ToKhop text={dong.skuSan || "—"} tu={tuKhoa} />
+            </span>
+            {coLechGia(dong) ? <NhanLechGia dong={dong} tenSan={SAN.ten} className="shrink-0" /> : null}
           </span>
           <span className="flex flex-wrap items-baseline gap-x-1.5 text-[13px] tabular-nums text-bo-muted">
             <span>
