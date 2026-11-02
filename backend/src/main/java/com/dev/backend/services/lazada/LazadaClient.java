@@ -215,6 +215,39 @@ public class LazadaClient {
     }
 
     /**
+     * Hủy đơn hàng trên sàn Lazada (/order/cancel hoặc /order/reverse/cancel/create).
+     */
+    public JsonNode cancelOrder(String appKey, String appSecret, String accessToken, String orderId, List<String> orderItemIdList, String reasonId, String reasonDetail) {
+        String apiPath = "/order/cancel";
+        Map<String, String> params = new HashMap<>();
+        params.put("app_key", appKey.trim());
+        params.put("access_token", accessToken.trim());
+        params.put("timestamp", String.valueOf(System.currentTimeMillis()));
+        params.put("sign_method", LazadaSignatureHelper.SIGN_METHOD_SHA256);
+        params.put("order_id", orderId.trim());
+        if (orderItemIdList != null && !orderItemIdList.isEmpty()) {
+            params.put("order_item_id_list", "[" + String.join(",", orderItemIdList) + "]");
+        }
+        params.put("reason_id", reasonId != null && !reasonId.isBlank() ? reasonId : "15");
+        if (reasonDetail != null && !reasonDetail.isBlank()) {
+            params.put("reason_detail", reasonDetail);
+        }
+
+        String sign = LazadaSignatureHelper.calculateSignature(apiPath, params, appSecret);
+        params.put("sign", sign);
+
+        try {
+            return executePostForm(API_GATEWAY_VN + apiPath, params);
+        } catch (Exception ex) {
+            String reversePath = "/order/reverse/cancel/create";
+            params.remove("sign");
+            String reverseSign = LazadaSignatureHelper.calculateSignature(reversePath, params, appSecret);
+            params.put("sign", reverseSign);
+            return executePostForm(API_GATEWAY_VN + reversePath, params);
+        }
+    }
+
+    /**
      * Lấy tài liệu vận đơn (AWB / Shipping Label) từ Lazada Open Platform (/order/document/get).
      * @param appKey App Key của ứng dụng Lazada
      * @param appSecret App Secret của ứng dụng Lazada

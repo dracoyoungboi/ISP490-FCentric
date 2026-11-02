@@ -836,11 +836,17 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         phatSuKienHoanTon(don);
         lamMoiThongBaoDonCho(don);
 
-        // Đơn từ sàn (Shopify): gọi Shopify Order Cancel API SAU KHI commit — giao dịch rollback thì không hủy trên sàn
+        // Đơn từ sàn (Shopify / Lazada): gọi Order Cancel API SAU KHI commit — giao dịch rollback thì không hủy trên sàn
         if (don.getMaDonHangKenh() != null && !don.getMaDonHangKenh().isBlank()) {
             String maDonHangKenh = don.getMaDonHangKenh();
-            SauCommit.chay("Đồng bộ hủy đơn " + maDonHangKenh + " sang Shopify",
-                    () -> kenhBanHangDongBoService.huyDonHangTrenShopify(maDonHangKenh, "Hủy từ FCentric"));
+            KenhBanHang kenh = don.getKenhBanHang();
+            if (kenh != null && OmnichannelOrderSyncJob.MA_KENH_LAZADA.equalsIgnoreCase(kenh.getMaKenh())) {
+                SauCommit.chay("Đồng bộ hủy đơn " + maDonHangKenh + " sang Lazada",
+                        () -> kenhBanHangDongBoService.huyDonHangTrenLazada(maDonHangKenh, lyDoTuChoi != null ? lyDoTuChoi : "Hủy từ FCentric"));
+            } else {
+                SauCommit.chay("Đồng bộ hủy đơn " + maDonHangKenh + " sang Shopify",
+                        () -> kenhBanHangDongBoService.huyDonHangTrenShopify(maDonHangKenh, lyDoTuChoi != null ? lyDoTuChoi : "Hủy từ FCentric"));
+            }
         }
     }
 
