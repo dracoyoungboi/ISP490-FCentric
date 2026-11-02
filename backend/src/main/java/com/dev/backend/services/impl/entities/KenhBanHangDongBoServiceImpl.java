@@ -1397,6 +1397,20 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                                 .ngayDongBoCuoi(Instant.now())
                                 .build();
                     }
+
+                    // Cập nhật giá biến thể lên Shopify nếu phát hiện lệch giá hoặc chưa đồng bộ giá
+                    if (!dangNgung && variantInfo != null && variantInfo.getVariantId() != null && bt.getGiaBan() != null && bt.getGiaBan().compareTo(BigDecimal.ZERO) > 0) {
+                        boolean lechGia = variantInfo.getPrice() == null || variantInfo.getPrice().compareTo(bt.getGiaBan()) != 0;
+                        if (lechGia) {
+                            boolean ok = capNhatGiaBienTheShopify(domain, token, variantInfo.getVariantId(), bt.getGiaBan(), null);
+                            if (ok) {
+                                variantInfo.setPrice(bt.getGiaBan());
+                                record.setGiaBanSan(bt.getGiaBan());
+                            }
+                        } else {
+                            record.setGiaBanSan(variantInfo.getPrice());
+                        }
+                    }
                     trangThaiDongBoSanPhamRepository.save(record);
                     soDaGhep++;
 
@@ -3018,15 +3032,14 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             varMap.put("option3", opt3);
             varMap.put("sku", bt.getMaSku());
 
-            // Tính giá bán an toàn, tuyệt đối không để 0đ
+            // Tính giá bán: Phải dùng đúng giá của biến thể đó hoặc giá mặc định của sản phẩm cha, tuyệt đối không gán chéo
             BigDecimal price = bt.getGiaBan();
             if (price == null || price.compareTo(BigDecimal.ZERO) <= 0) {
-                price = allSpVariants != null ? allSpVariants.stream()
-                        .map(BienTheSanPham::getGiaBan)
-                        .filter(p -> p != null && p.compareTo(BigDecimal.ZERO) > 0)
-                        .findFirst()
-                        .orElse(sp != null && sp.getGiaBanMacDinh() != null ? sp.getGiaBanMacDinh() : BigDecimal.valueOf(100000))
-                        : (sp != null && sp.getGiaBanMacDinh() != null ? sp.getGiaBanMacDinh() : BigDecimal.valueOf(100000));
+                if (sp != null && sp.getGiaBanMacDinh() != null && sp.getGiaBanMacDinh().compareTo(BigDecimal.ZERO) > 0) {
+                    price = sp.getGiaBanMacDinh();
+                } else {
+                    throw new CommonException("Biến thể " + bt.getMaSku() + " chưa được thiết lập giá bán hợp lệ (> 0đ)", HttpStatus.BAD_REQUEST, null);
+                }
             }
             varMap.put("price", price.setScale(2, RoundingMode.HALF_UP).toPlainString());
 
@@ -3089,15 +3102,14 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 varMap.put("option3", opt3);
                 varMap.put("sku", bt.getMaSku());
 
-                // Tính giá bán an toàn, tuyệt đối không để 0đ
+                // Tính giá bán: Phải dùng đúng giá của biến thể đó hoặc giá mặc định của sản phẩm cha, tuyệt đối không gán chéo
                 BigDecimal price = bt.getGiaBan();
                 if (price == null || price.compareTo(BigDecimal.ZERO) <= 0) {
-                    price = allSpVariants != null ? allSpVariants.stream()
-                            .map(BienTheSanPham::getGiaBan)
-                            .filter(p -> p != null && p.compareTo(BigDecimal.ZERO) > 0)
-                            .findFirst()
-                            .orElse(sp != null && sp.getGiaBanMacDinh() != null ? sp.getGiaBanMacDinh() : BigDecimal.valueOf(100000))
-                            : (sp != null && sp.getGiaBanMacDinh() != null ? sp.getGiaBanMacDinh() : BigDecimal.valueOf(100000));
+                    if (sp != null && sp.getGiaBanMacDinh() != null && sp.getGiaBanMacDinh().compareTo(BigDecimal.ZERO) > 0) {
+                        price = sp.getGiaBanMacDinh();
+                    } else {
+                        throw new CommonException("Biến thể " + bt.getMaSku() + " chưa được thiết lập giá bán hợp lệ (> 0đ)", HttpStatus.BAD_REQUEST, null);
+                    }
                 }
                 varMap.put("price", price.setScale(2, RoundingMode.HALF_UP).toPlainString());
 
