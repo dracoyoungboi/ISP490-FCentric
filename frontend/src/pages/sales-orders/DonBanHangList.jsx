@@ -31,7 +31,7 @@ import { RowActionButton, RowActions } from "@/components/shared/RowActions";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import FilterSelect from "@/components/shared/FilterSelect";
 import MockModeNotice from "@/components/shared/MockModeNotice";
-import ChannelBadge from "@/components/channel/ChannelBadge";
+import BieuTuongKenhDon from "@/components/channel/BieuTuongKenhDon";
 import OrderFlagBadges from "@/components/channel/OrderFlagBadges";
 import { CHANNELS, MARKETPLACE_FILTER_OPTIONS } from "@/constants/channel";
 import { DON_BAN_HANG_DA_KET_THUC_KHONG_THU, DON_BAN_HANG_TABS, DON_BAN_HANG_THANH_TOAN, getDonBanHangStatus } from "@/constants/donBanHang";
@@ -504,7 +504,7 @@ export default function DonBanHangList() {
           )
         ) : (
           <>
-          {/* Điện thoại: mỗi đơn một thẻ — số đơn + trạng thái, kênh + khách, ngày · kho + tổng tiền, thanh toán */}
+          {/* Điện thoại: mỗi đơn một thẻ — logo kênh + số đơn + trạng thái, khách, ngày · kho + tổng tiền, thanh toán */}
           <ul className="divide-y divide-bo-border md:hidden">
             {data.map((item) => {
               const st = getDonBanHangStatus(item.trangThai);
@@ -512,19 +512,13 @@ export default function DonBanHangList() {
                 <li key={item.id}>
                   <Link to={`/sales-orders/${item.id}`} className="grid grid-cols-1 gap-1 px-4 py-3 active:bg-bo-surface-subtle">
                     <span className="flex items-center justify-between gap-3">
-                      <span className="min-w-0 truncate text-[15px] font-semibold uppercase tracking-wide text-bo-primary">{item.soDonHang}</span>
+                      <span className="flex min-w-0 items-center gap-2">
+                        <BieuTuongKenhDon maKenh={item.kenhBanHang?.maKenh} tenKenh={item.kenhBanHang?.tenKenh} />
+                        <span className="min-w-0 truncate text-[15px] font-semibold uppercase tracking-wide text-bo-primary">{item.soDonHang}</span>
+                      </span>
                       <StatusBadge quyTrinh="donBan" label={st.label} />
                     </span>
-                    <span className="flex min-w-0 items-center gap-2 text-sm">
-                      {item.kenhBanHang ? (
-                        <ChannelBadge className="h-5 shrink-0 px-1.5 text-[11px]" maKenh={item.kenhBanHang.maKenh} label={item.kenhBanHang.tenKenh} />
-                      ) : null}
-                      <span className="min-w-0 truncate font-semibold text-bo-foreground">{item.khachHang?.tenKhachHang || "Khách lẻ"}</span>
-                    </span>
-                    {/* Mã đơn trên sàn, như dòng của bảng (chỉ đơn có kênh) */}
-                    {item.kenhBanHang && item.maDonHangKenh ? (
-                      <span className="min-w-0 truncate font-mono text-[11px] text-bo-muted">#{item.maDonHangKenh}</span>
-                    ) : null}
+                    <span className="min-w-0 truncate text-sm font-semibold text-bo-foreground">{item.khachHang?.tenKhachHang || "Khách lẻ"}</span>
                     <span className="flex items-baseline justify-between gap-3 text-[13px] text-bo-muted">
                       <span className="min-w-0 truncate">{formatDate(item.ngayDatHang)}{item.khoXuat?.tenKho ? ` · ${item.khoXuat.tenKho}` : ""}</span>
                       <span className="shrink-0 text-[15px] font-semibold tabular-nums text-bo-foreground">{formatCurrency(item.tongCong)}</span>
@@ -568,21 +562,15 @@ export default function DonBanHangList() {
                     className="cursor-pointer transition-colors hover:bg-bo-surface-subtle"
                     onClick={() => navigate(`/sales-orders/${item.id}`)}
                   >
+                    {/* Logo kênh trước số đơn, một dòng; mã đơn trên sàn xem ở trang chi tiết (số đơn đã chứa số của sàn) */}
                     <td className="px-3 py-3">
-                      <span className="font-semibold uppercase tracking-wide text-bo-primary">{item.soDonHang}</span>
-                      {item.kenhBanHang ? (
-                        <div className="mt-1 flex items-center gap-1.5">
-                          <ChannelBadge
-                            className="h-5 px-1.5 text-[11px]"
-                            maKenh={item.kenhBanHang.maKenh}
-                            label={item.kenhBanHang.tenKenh}
-                          />
-                          {item.maDonHangKenh ? (
-                            <span className="font-mono text-[11px] text-bo-muted">#{item.maDonHangKenh}</span>
-                          ) : null}
+                      <div className="flex items-start gap-2">
+                        <BieuTuongKenhDon maKenh={item.kenhBanHang?.maKenh} tenKenh={item.kenhBanHang?.tenKenh} className="mt-0.5" />
+                        <div className="min-w-0">
+                          <span className="font-semibold uppercase tracking-wide text-bo-primary">{item.soDonHang}</span>
+                          <div className="mt-0.5 hidden text-xs text-bo-muted cam-ung:max-lg:block">{formatDate(item.ngayDatHang)}</div>
                         </div>
-                      ) : null}
-                      <div className="mt-0.5 hidden text-xs text-bo-muted cam-ung:max-lg:block">{formatDate(item.ngayDatHang)}</div>
+                      </div>
                     </td>
                     <td className="px-3 py-3">
                       <div className="font-semibold text-bo-foreground">
