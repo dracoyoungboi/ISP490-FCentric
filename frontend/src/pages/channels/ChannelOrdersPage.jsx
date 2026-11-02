@@ -97,6 +97,14 @@ function coCuaDon(don) {
   return coHuy || khac.length !== co.length ? ["YEU_CAU_HUY", ...khac] : khac;
 }
 
+/** Đơn sàn đang giữ tồn kho trên 24h chưa xuất: cảnh báo nhân viên kiểm tra hoặc chờ sàn tự hủy. */
+function laDonGiuChoLau(don) {
+  if (!don?.ngayDatHang) return false;
+  if (![0, 1].includes(don.trangThai)) return false;
+  const gioTroiQua = (Date.now() - new Date(don.ngayDatHang).getTime()) / (1000 * 60 * 60);
+  return gioTroiQua >= 24;
+}
+
 const hangTabTrong = (khung) => khung?.querySelector('[role="tablist"]') ?? null;
 
 /** Cuộn hàng tab để tab đang chọn nằm ngoài vùng mờ ở hai mép. */
@@ -522,7 +530,18 @@ export default function ChannelOrdersPage() {
                   <Link to={`/sales-orders/${don.id}`} className="grid gap-1 px-4 py-3 active:bg-bo-surface-subtle">
                     <span className="flex items-center justify-between gap-3">
                       <span className="min-w-0 truncate text-[15px] font-semibold uppercase tracking-wide text-bo-primary">{don.soDonHang}</span>
-                      <StatusBadge quyTrinh="donBan" label={st.label} />
+                      <span className="flex items-center gap-1.5">
+                        {laDonGiuChoLau(don) ? (
+                          <span
+                            title="Đơn hàng sàn đang giữ tồn kho trên 24 giờ chưa xuất"
+                            className="inline-flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-800 border border-amber-200"
+                          >
+                            <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                            Giữ chỗ &gt; 24h
+                          </span>
+                        ) : null}
+                        <StatusBadge quyTrinh="donBan" label={st.label} />
+                      </span>
                     </span>
                     {/* Mã đơn trên sàn, như dòng của bảng: số đơn LZD-/TTS- đã ghép đúng mã đơn sàn thì không ghi lại */}
                     {don.maDonHangKenh && !(uyQuyen && String(don.soDonHang ?? "").includes(don.maDonHangKenh)) ? (
@@ -590,7 +609,18 @@ export default function ChannelOrdersPage() {
                     <td className="whitespace-nowrap px-3 py-3 tabular-nums text-bo-muted cam-ung:max-lg:hidden">{formatDate(don.ngayDatHang)}</td>
                     <td className="whitespace-nowrap px-3 py-3 text-right font-semibold tabular-nums text-bo-heading">{formatCurrency(don.tongCong)}</td>
                     <td className="px-3 py-3">
-                      <StatusBadge quyTrinh="donBan" label={st.label} />
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <StatusBadge quyTrinh="donBan" label={st.label} />
+                        {laDonGiuChoLau(don) ? (
+                          <span
+                            title="Đơn hàng sàn đang giữ tồn kho trên 24 giờ chưa xuất"
+                            className="inline-flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-800 border border-amber-200"
+                          >
+                            <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                            Giữ chỗ &gt; 24h
+                          </span>
+                        ) : null}
+                      </div>
                       {co.length ? (
                         <div className="mt-1">
                           <OrderFlagBadges value={co} />
