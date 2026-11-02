@@ -1532,12 +1532,17 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 ? khaDungTheoBienThe.getOrDefault(bt.getId(), BigDecimal.ZERO)
                 : BigDecimal.ZERO;
 
+        BigDecimal giaBanSan = item.getGiaBanSan() != null ? item.getGiaBanSan() : (bt != null ? bt.getGiaBan() : null);
+        BigDecimal giaBan = bt != null ? bt.getGiaBan() : null;
+        Boolean lechGia = (item.getGiaBanSan() != null && giaBan != null) ? item.getGiaBanSan().compareTo(giaBan) != 0 : Boolean.FALSE;
+
         return LienKetSanPhamDto.builder()
                 .id(item.getId())
                 .skuSan(item.getMaSanPhamKenh())
                 .tenSanPhamSan(tenSanPham)
                 .tenBienTheSan(tenBienThe)
-                .giaBanSan(bt != null ? bt.getGiaBan() : null)
+                .giaBanSan(giaBanSan)
+                .lechGia(lechGia)
                 .bienTheSanPhamId(bt != null ? bt.getId() : null)
                 .sanPhamId(sanPhamId)
                 .anhDaiDien(sanPhamId != null ? anhTheoSanPham.get(sanPhamId) : null)
@@ -1613,12 +1618,17 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
         BienTheSanPham bt = saved.getBienTheSanPham();
         Integer sanPhamId = bt != null && bt.getSanPham() != null ? bt.getSanPham().getId() : null;
+        BigDecimal giaBanSanSaved = saved.getGiaBanSan() != null ? saved.getGiaBanSan() : (bt != null ? bt.getGiaBan() : null);
+        BigDecimal giaBanSaved = bt != null ? bt.getGiaBan() : null;
+        Boolean lechGiaSaved = (saved.getGiaBanSan() != null && giaBanSaved != null) ? saved.getGiaBanSan().compareTo(giaBanSaved) != 0 : Boolean.FALSE;
+
         return LienKetSanPhamDto.builder()
                 .id(saved.getId())
                 .skuSan(saved.getMaSanPhamKenh())
                 .tenSanPhamSan(bt != null && bt.getSanPham() != null ? bt.getSanPham().getTenSanPham() : null)
                 .tenBienTheSan(bt != null ? buildVariantName(bt) : null)
-                .giaBanSan(bt != null ? bt.getGiaBan() : null)
+                .giaBanSan(giaBanSanSaved)
+                .lechGia(lechGiaSaved)
                 .bienTheSanPhamId(bt != null ? bt.getId() : null)
                 .sanPhamId(sanPhamId)
                 .anhDaiDien(anhDaiDienCuaSanPham(sanPhamId))

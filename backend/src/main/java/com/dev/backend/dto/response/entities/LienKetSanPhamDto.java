@@ -18,6 +18,8 @@ public class LienKetSanPhamDto {
     String tenSanPhamSan;
     String tenBienTheSan;
     BigDecimal giaBanSan;
+    /** Cờ báo giá bán trên sàn khác giá bán FCentric */
+    Boolean lechGia;
     Integer bienTheSanPhamId;
     /** Sản phẩm FCentric của biến thể (chỉ đọc, để giao diện gom các SKU cùng sản phẩm). */
     Integer sanPhamId;

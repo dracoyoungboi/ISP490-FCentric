@@ -7,6 +7,7 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 
 import java.time.Instant;
+import java.math.BigDecimal;
 
 @AllArgsConstructor
 @Getter
@@ -43,6 +44,9 @@ public class TrangThaiDongBoSanPham {
 
     @Column(name = "chi_tiet_loi", columnDefinition = "TEXT")
     String chiTietLoi;
+
+    @Column(name = "gia_ban_san", precision = 15, scale = 2)
+    BigDecimal giaBanSan;
 
     @Column(name = "ngay_dong_bo_cuoi")
     Instant ngayDongBoCuoi;
