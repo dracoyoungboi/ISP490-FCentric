@@ -28,6 +28,7 @@ import {
 import SidebarKhoLamViec from "./SidebarKhoLamViec";
 import { useKenhDaKetNoi } from "@/components/channel/kenhDaKetNoi";
 import { useSoChuyenKhoanCanXuLy } from "@/components/pos/payosCanXuLy";
+import { useTaiTruocLienKet } from "@/lib/taiTrang";
 import { cn } from "@/lib/utils";
 
 // Một đích điều hướng (mục thẳng hoặc mục con) khớp đường dẫn: theo `match(pathname)` nếu mục khai báo
@@ -44,6 +45,9 @@ const namTrongMuc = (to, pathname) => Boolean(matchPath({ path: to, end: false }
 
 // Lề giữ lại khi cuộn mục đang chọn vào tầm nhìn của menu (px).
 const LE_CUON_MUC = 8;
+
+// Link trong menu (cả ngăn kéo trên điện thoại) và menu bay ra khi thu gọn: rê chuột / chạm / Tab tới thì tải trước trang
+const LINK_MENU = '[data-sidebar="sidebar"] a[href], #backoffice-sidebar-flyout a[href]';
 
 // Khoảng cách flyout tới mép sidebar và tới mép viewport (px).
 const FLYOUT_GAP = 8;
@@ -163,6 +167,7 @@ function SoDemMenu({ so, anChuDoc = false }) {
 export default function BackofficeSidebar() {
   const location = useLocation();
   const role = localStorage.getItem("role");
+  useTaiTruocLienKet(LINK_MENU);
   const { open, isMobile, setOpenMobile, toggleSidebar } = useSidebar();
   // Mục của từng sàn (khai báo `maKenh`) chỉ hiện khi gian hàng đã kết nối
   const kenhDaKetNoi = useKenhDaKetNoi();

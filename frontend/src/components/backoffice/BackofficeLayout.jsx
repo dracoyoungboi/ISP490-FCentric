@@ -3,7 +3,10 @@ import { Outlet, useLocation } from "react-router-dom";
 import BackofficeSidebar from "./BackofficeSidebar";
 import BackofficeHeader from "./BackofficeHeader";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
+import VungTaiTrang from "@/components/shared/VungTaiTrang";
 import { PageTitleContext } from "./pageTitle";
+import { duongDanMenuCuaVaiTro } from "./sidebar.config";
+import { taiDanLucRanh } from "@/lib/taiTrang";
 import { SETTINGS_PAGES } from "@/components/settings/settings.config";
 import { taiLaiKenhDaKetNoi } from "@/components/channel/kenhDaKetNoi";
 import { taiLaiSoChuyenKhoanCanXuLy } from "@/components/pos/payosCanXuLy";
@@ -511,6 +514,9 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
         return () => window.clearInterval(id);
     }, []);
 
+    // Vào khung quản trị xong, lúc rảnh tải dần các trang trong menu của vai trò: bấm tới là trang hiện ngay
+    useEffect(() => taiDanLucRanh(duongDanMenuCuaVaiTro(localStorage.getItem("role"))), []);
+
     return (
         <>
         <SidebarProvider defaultOpen>
@@ -537,7 +543,9 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
                         className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-bo-canvas"
                     >
                         <PageTitleContext.Provider value={pageTitleValue}>
-                            <Outlet />
+                            <VungTaiTrang>
+                                <Outlet />
+                            </VungTaiTrang>
                         </PageTitleContext.Provider>
                     </main>
                 </SidebarInset>

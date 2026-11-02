@@ -705,6 +705,32 @@
 @media (prefers-reduced-motion: reduce) {
 	.bo-vong-tai { animation-duration: 2.4s, 0.15s; }
 }
+/* Thanh mảnh trên đầu khi bấm sang trang chưa tải (ThanhTaiTrang): chờ quá 300ms mới hiện, mạng nhanh thì không thấy. */
+.bo-thanh-tai-trang {
+	position: fixed;
+	inset: 0 0 auto;
+	height: 3px;
+	z-index: 9999;
+	overflow: hidden;
+	pointer-events: none;
+	opacity: 0;
+	animation: bo-vong-tai-hien 0.15s ease-out 0.3s forwards;
+}
+.bo-thanh-tai-trang::before {
+	content: "";
+	position: absolute;
+	inset: 0 auto 0 0;
+	width: 40%;
+	background: var(--color-bo-primary);
+	animation: bo-thanh-tai-chay 1.1s ease-in-out infinite;
+}
+@keyframes bo-thanh-tai-chay {
+	from { transform: translateX(-100%); }
+	to { transform: translateX(250%); }
+}
+@media (prefers-reduced-motion: reduce) {
+	.bo-thanh-tai-trang::before { width: 100%; opacity: 0.6; animation: none; }
+}
 /* Chế độ tương phản cao (Windows): dấu tích trên vòng "xong" theo màu nền, khung Cần chú ý / Có vấn đề / Bình thường giữ viền. */
 @media (forced-colors: active) {
 	.bo-tt-tick { stroke: Canvas; }

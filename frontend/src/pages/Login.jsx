@@ -6,6 +6,7 @@ import { AlertCircle, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { getMineKhoList } from '../services/khoService';
 import AuthShell from '../components/auth/AuthShell';
 import { ensureTokenUsable } from '../utils/authToken';
+import { taiTruocLucRanh } from '@/lib/taiTrang';
 
 /* ── Class patterns dùng chung (theo thiết kế modern white/gray) ── */
 const INPUT_BASE =
@@ -38,6 +39,12 @@ export default function AuthPage() {
         const returnUrl = new URLSearchParams(window.location.search).get('returnUrl');
         navigate(returnUrl || '/dashboard', { replace: true });
     }, [navigate, vuaDatMatKhau]);
+
+    // Trong lúc người dùng gõ mật khẩu: tải sẵn trang sẽ vào sau khi đăng nhập, bấm Đăng nhập xong là trang hiện ngay
+    useEffect(() => {
+        const returnUrl = new URLSearchParams(window.location.search).get('returnUrl');
+        return taiTruocLucRanh(returnUrl?.startsWith('/') ? returnUrl : '/dashboard');
+    }, []);
 
     // Thông báo "tài khoản bị khóa" từ lần logout cưỡng bức (apiClient) — đọc 1 lần rồi xóa
     useEffect(() => {
