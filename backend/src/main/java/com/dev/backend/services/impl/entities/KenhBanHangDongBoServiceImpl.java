@@ -124,6 +124,12 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     // Khóa đẩy tồn theo id kênh: một kênh chỉ một đợt đẩy tồn cùng lúc (trong một máy chủ)
     Map<Integer, ReentrantLock> khoaDayTon = new java.util.concurrent.ConcurrentHashMap<>();
 
+    private record DongCanCapNhat(TrangThaiDongBoSanPham dong, int soDay, String skuSan, String sellerSku) {
+        public String skuId() {
+            return skuSan;
+        }
+    }
+
     @org.springframework.beans.factory.annotation.Autowired
     public KenhBanHangDongBoServiceImpl(
             KenhBanHangRepository kenhBanHangRepository,
@@ -1763,7 +1769,6 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             warehouseId = "default";
         }
 
-        record DongCanCapNhat(TrangThaiDongBoSanPham dong, int soDay, String skuSan, String sellerSku) {}
         List<DongCanCapNhat> dirtyList = new ArrayList<>();
         int soBoQuaKhongDoi = 0;
 
@@ -1966,7 +1971,6 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             return DayTonResultDto.builder().soDong(0).soLoi(dongCanDay.size()).soChuaDay(0).loiKenh(msg).build();
         }
 
-        record DongCanCapNhat(TrangThaiDongBoSanPham dong, int soDay, String skuId, String sellerSku) {}
         List<DongCanCapNhat> dirtyList = new ArrayList<>();
         int soBoQuaKhongDoi = 0;
 

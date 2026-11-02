@@ -58,6 +58,7 @@ import java.util.Base64;
 import com.dev.backend.event.InventoryRestockedEvent;
 import com.dev.backend.services.KenhBanHangDongBoService;
 import com.dev.backend.services.impl.multitable.GiuChoChuyenKhoService;
+import com.dev.backend.workers.OmnichannelOrderSyncJob;
 import com.dev.backend.services.multitable.BangChungDongGoiService;
 import com.dev.backend.services.multitable.NhatHangService;
 import lombok.extern.slf4j.Slf4j;
@@ -842,10 +843,10 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
             KenhBanHang kenh = don.getKenhBanHang();
             if (kenh != null && OmnichannelOrderSyncJob.MA_KENH_LAZADA.equalsIgnoreCase(kenh.getMaKenh())) {
                 SauCommit.chay("Đồng bộ hủy đơn " + maDonHangKenh + " sang Lazada",
-                        () -> kenhBanHangDongBoService.huyDonHangTrenLazada(maDonHangKenh, lyDoTuChoi != null ? lyDoTuChoi : "Hủy từ FCentric"));
+                        () -> kenhBanHangDongBoService.huyDonHangTrenLazada(maDonHangKenh, "Hủy từ FCentric"));
             } else {
                 SauCommit.chay("Đồng bộ hủy đơn " + maDonHangKenh + " sang Shopify",
-                        () -> kenhBanHangDongBoService.huyDonHangTrenShopify(maDonHangKenh, lyDoTuChoi != null ? lyDoTuChoi : "Hủy từ FCentric"));
+                        () -> kenhBanHangDongBoService.huyDonHangTrenShopify(maDonHangKenh, "Hủy từ FCentric"));
             }
         }
     }
