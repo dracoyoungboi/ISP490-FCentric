@@ -671,9 +671,19 @@ export default function ChannelMappingsPage() {
           <p className="text-[13.5px] text-bo-foreground">
             <ToKhop text={dong.maSku || "—"} tu={tuKhoa} />
           </p>
-          <p className="text-[12.5px] tabular-nums text-slate-400">
-            {SAN.ten} <ToKhop text={dong.skuSan || "—"} tu={tuKhoa} />
-          </p>
+          <div className="flex items-center gap-1.5">
+            <p className="text-[12.5px] tabular-nums text-slate-400">
+              {SAN.ten} <ToKhop text={dong.skuSan || "—"} tu={tuKhoa} />
+            </p>
+            {dong.lechGia || (dong.giaBanSan != null && dong.giaBan != null && Number(dong.giaBanSan) !== Number(dong.giaBan)) ? (
+              <span
+                className="inline-flex items-center rounded bg-amber-50 px-1 py-0.2 text-[10.5px] font-medium text-amber-700 border border-amber-200"
+                title={`Lệch giá: FCentric ${formatNumberOrDash(dong.giaBan)}đ vs ${SAN.ten} ${formatNumberOrDash(dong.giaBanSan)}đ`}
+              >
+                Lệch giá
+              </span>
+            ) : null}
+          </div>
         </td>
         <td className="whitespace-nowrap px-3 py-2.5 text-right tabular-nums text-bo-foreground">{formatNumberOrDash(dong.soLuongKhaDung)}</td>
         <td className="whitespace-nowrap px-3 py-2.5 text-right">

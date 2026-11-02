@@ -98,6 +98,12 @@ export default function SyncLogDetailSheet({ lienKet, open, onOpenChange, quyTac
               </Nhom>
               <Nhom ten="Giá">
                 <Dong nhan="Giá bán FCentric">{lienKet.giaBan != null ? formatCurrency(lienKet.giaBan) : "—"}</Dong>
+                <Dong nhan={`Giá trên ${tenSan}`}>{lienKet.giaBanSan != null ? formatCurrency(lienKet.giaBanSan) : "—"}</Dong>
+                {lienKet.giaBan != null && lienKet.giaBanSan != null && Number(lienKet.giaBan) !== Number(lienKet.giaBanSan) ? (
+                  <p className="mt-1 text-xs font-medium text-amber-600">
+                    ⚠️ Giá bán giữa FCentric và {tenSan} đang có sự chênh lệch (Lệch giá sàn)
+                  </p>
+                ) : null}
               </Nhom>
             </div>
 
