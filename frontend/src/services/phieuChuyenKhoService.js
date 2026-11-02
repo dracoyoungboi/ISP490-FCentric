@@ -17,6 +17,8 @@ export const phieuChuyenKhoService = {
     tao: (payload) => apiClient.post(`${GOC}/create`, payload).then(duLieu),
     /** { lyDoDieuDong: BO_SUNG | CAN_BANG | TRA_VE | KHAC, ghiChuLenh } */
     duyet: (id, body) => apiClient.put(`${GOC}/${id}/duyet`, body).then(duLieu),
+    /** Quản lý Kho tổng từ chối phiếu Chờ duyệt: { lyDo } (bắt buộc) → phiếu Đã hủy. */
+    tuChoi: (id, body) => apiClient.put(`${GOC}/${id}/tu-choi`, body).then(duLieu),
     /** { lyDo } (không bắt buộc) */
     huy: (id, body) => apiClient.put(`${GOC}/${id}/huy`, body ?? {}).then(duLieu),
     /**

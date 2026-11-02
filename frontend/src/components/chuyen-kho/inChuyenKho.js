@@ -23,6 +23,7 @@ export function lyDoChuaIn(loai, ct) {
   if (!LOAI_IN[loai] || loai === "dieu-chinh") return "Không có mẫu in này cho phiếu chuyển kho.";
   if (!ct) return null;
   if ((loai === "lenh-dieu-dong" || loai === "xknb") && !ct.soLenhDieuDong) {
+    if (ct.tuChoi) return "Yêu cầu bị từ chối nên không có lệnh điều động, phiếu XKNB.";
     return ct.trangThai === "DA_HUY"
       ? "Phiếu đã hủy trước khi được duyệt nên không có lệnh điều động, phiếu XKNB."
       : "Lệnh điều động và phiếu XKNB có sau khi Quản lý Kho tổng duyệt phiếu.";
