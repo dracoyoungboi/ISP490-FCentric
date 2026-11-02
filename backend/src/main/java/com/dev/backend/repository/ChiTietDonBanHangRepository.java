@@ -33,4 +33,40 @@ public interface ChiTietDonBanHangRepository extends JpaRepository<ChiTietDonBan
             @Param("boQuaDonId") Integer boQuaDonId,
             @Param("trangThais") List<Integer> trangThais
     );
+
+    /**
+     * Tổng số lượng biến thể đang được các đơn bán hàng của một kênh giữ chỗ (chưa xuất kho).
+     * Dùng để cộng bù tồn giữ chỗ (Dynamic Reservation Offset) khi đẩy tồn lên sàn (Lazada/Shopee).
+     */
+    @Query("""
+        SELECT ctdbh.bienTheSanPham.id,
+               COALESCE(SUM(CASE WHEN ctdbh.soLuongDat > COALESCE(ctdbh.soLuongDaGiao, 0)
+                                 THEN ctdbh.soLuongDat - COALESCE(ctdbh.soLuongDaGiao, 0)
+                                 ELSE 0 END), 0)
+        FROM ChiTietDonBanHang ctdbh
+        WHERE ctdbh.donBanHang.kenhBanHang.id = :kenhId
+          AND ctdbh.donBanHang.loaiChungTu = 'don_ban_hang'
+          AND ctdbh.donBanHang.trangThai IN :trangThais
+        GROUP BY ctdbh.bienTheSanPham.id
+    """)
+    List<Object[]> laySoLuongGiuHangTheoKenh(
+            @Param("kenhId") Integer kenhId,
+            @Param("trangThais") List<Integer> trangThais
+    );
+
+    @Query("""
+        SELECT COALESCE(SUM(CASE WHEN ctdbh.soLuongDat > COALESCE(ctdbh.soLuongDaGiao, 0)
+                                 THEN ctdbh.soLuongDat - COALESCE(ctdbh.soLuongDaGiao, 0)
+                                 ELSE 0 END), 0)
+        FROM ChiTietDonBanHang ctdbh
+        WHERE ctdbh.donBanHang.kenhBanHang.id = :kenhId
+          AND ctdbh.donBanHang.loaiChungTu = 'don_ban_hang'
+          AND ctdbh.donBanHang.trangThai IN :trangThais
+          AND ctdbh.bienTheSanPham.id = :bienTheId
+    """)
+    java.math.BigDecimal laySoLuongGiuHangTheoKenhVaBienThe(
+            @Param("kenhId") Integer kenhId,
+            @Param("bienTheId") Integer bienTheId,
+            @Param("trangThais") List<Integer> trangThais
+    );
 }
