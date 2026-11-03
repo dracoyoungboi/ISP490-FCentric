@@ -22,6 +22,11 @@ public class DanhSachNhatHangDto implements Serializable {
     String tenKhoXuat;
     Integer nguoiNhatId;
     String tenNguoiNhat;
+    /**
+     * Chỉ ở chi tiết phiếu đang mở: người được giao không còn nhặt được phiếu (tài khoản ngưng, không còn là nhân viên
+     * kho, hoặc không còn phân quyền ở kho của phiếu). Null = không có gì phải báo.
+     */
+    String canhBaoNguoiNhat;
     String trangThai;
     String ghiChu;
     Instant ngayTao;

@@ -12,6 +12,7 @@ public interface DanhSachNhatHangMapper {
     @Mapping(target = "tenKhoXuat", source = "khoXuat.tenKho")
     @Mapping(target = "nguoiNhatId", source = "nguoiNhat.id")
     @Mapping(target = "tenNguoiNhat", source = "nguoiNhat.hoTen")
+    @Mapping(target = "canhBaoNguoiNhat", ignore = true) // NhatHangServiceImpl.getChiTietPickList tự tính
     @Mapping(target = "tongDonHang", ignore = true)
     @Mapping(target = "tongSku", ignore = true)
     @Mapping(target = "tongSoLuongCanNhat", ignore = true)

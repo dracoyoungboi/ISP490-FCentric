@@ -781,6 +781,12 @@ public class NhatHangServiceImpl implements NhatHangService {
         // Chỉ phiếu đang mở (chờ nhặt / đang nhặt) mới hoàn tất được
         dto.setCoTheHoanTat(allDone && ("cho_nhat".equals(pickList.getTrangThai()) || "dang_nhat".equals(pickList.getTrangThai())));
         dto.setDanhSachMaDonHang(orderCodes);
+        // Người được giao đã đổi kho / bị thu hồi / ngưng tài khoản: báo để quản lý phân công lại (không tự gỡ người nhặt)
+        if (pickList.getNguoiNhat() != null
+                && ("cho_nhat".equals(pickList.getTrangThai()) || "dang_nhat".equals(pickList.getTrangThai()))) {
+            String lyDo = lyDoKhongNhatDuoc(pickList.getNguoiNhat(), pickList.getKhoXuat());
+            dto.setCanhBaoNguoiNhat(lyDo == null ? null : lyDo + " nên không nhặt được phiếu này.");
+        }
 
         if (pickList.getDonBanHangs() != null) {
             List<Integer> donIds = pickList.getDonBanHangs().stream().map(DonBanHang::getId).collect(Collectors.toList());
