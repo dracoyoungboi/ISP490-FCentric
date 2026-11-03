@@ -31,13 +31,13 @@ import { cn } from "@/lib/utils";
 /**
  * Phân công người nhặt cho phiếu nhặt hàng (màn chi tiết và danh sách phiếu nhặt). Kiểu hộp chung của các màn chứng từ
  * (chung-tu/kieuHopThoai: không nút ×, đóng bằng "Quay lại").
- * - Quản trị viên / quản lý kho: chọn người trong danh sách nhân viên kho.
+ * - Quản trị viên / quản lý kho: chọn người trong danh sách nhân viên kho / quản lý kho có phân quyền ở kho của phiếu
+ *   (backend lọc và chặn người ngoài kho; quản trị viên không có trong danh sách, chỉ tự nhận).
  * - Mọi vai trò kho: "Nhận việc" (tự phân công cho mình) — bắt buộc phân công trước khi nhặt, kể cả quản lý.
  * - Nhân viên kho chỉ nhận phiếu chưa có người nhặt (backend từ chối phiếu đã giao cho người khác).
  */
 export default function AssignPickerDialog({ open, onOpenChange, pickList, onAssigned }) {
   const canAssignOthers = hasAnyRole([ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO]);
-  const isAdmin = hasAnyRole([ROLES.QUAN_TRI_VIEN]);
   const currentUserId = getCurrentUserId();
   const daLaCuaToi = pickList?.nguoiNhatId != null && Number(pickList.nguoiNhatId) === Number(currentUserId);
   const daGiaoNguoiKhac = pickList?.nguoiNhatId != null && !daLaCuaToi;
@@ -47,6 +47,8 @@ export default function AssignPickerDialog({ open, onOpenChange, pickList, onAss
   const [staffError, setStaffError] = useState("");
   const [keyword, setKeyword] = useState("");
   const [selectedId, setSelectedId] = useState(null);
+  // Tăng khi giao thất bại: tải lại danh sách (người vừa chọn có thể đã mất quyền ở kho trong lúc hộp mở)
+  const [lanTai, setLanTai] = useState(0);
   // Thao tác đang chạy: "nhanViec" (Nhận việc cho tôi) | "phanCong" (Phân công) | null — vòng quay hiện đúng nút đã bấm
   const [dangChay, setDangChay] = useState(null);
   const saving = dangChay != null;
@@ -62,12 +64,14 @@ export default function AssignPickerDialog({ open, onOpenChange, pickList, onAss
       setSelectedId(pickList?.nguoiNhatId ?? null);
     });
     nhatHangService
-      .getNguoiNhat({ isAdmin })
+      .getNguoiNhat(pickList?.id)
       .then((list) => {
         if (!cancelled) setStaff(Array.isArray(list) ? list : []);
       })
-      .catch(() => {
-        if (!cancelled) setStaffError("Chưa lấy được danh sách nhân viên kho. Bạn vẫn có thể nhận việc cho mình.");
+      .catch((error) => {
+        if (cancelled) return;
+        const cau = cauMayChuPhieuNhat(getApiErrorMessage(error, "Chưa lấy được danh sách nhân viên kho"));
+        setStaffError(`${/[.!?]$/.test(cau) ? cau : `${cau}.`} Bạn vẫn có thể nhận việc cho mình.`);
       })
       .finally(() => {
         if (!cancelled) setLoadingStaff(false);
@@ -75,7 +79,13 @@ export default function AssignPickerDialog({ open, onOpenChange, pickList, onAss
     return () => {
       cancelled = true;
     };
-  }, [open, canAssignOthers, isAdmin, pickList?.nguoiNhatId]);
+  }, [open, canAssignOthers, pickList?.id, pickList?.nguoiNhatId, lanTai]);
+
+  // Từ khóa tìm không mang sang lần mở sau (phiếu khác có thể thuộc kho khác, danh sách khác)
+  const dongHop = () => {
+    setKeyword("");
+    onOpenChange(false);
+  };
 
   const filteredStaff = useMemo(() => {
     const key = normalizeText(keyword);
@@ -90,9 +100,10 @@ export default function AssignPickerDialog({ open, onOpenChange, pickList, onAss
       const dto = await nhatHangService.phanCong(pickList.id, { nguoiNhatId });
       toast.success(`Đã phân công ${pickList.maPickList} cho ${dto?.tenNguoiNhat || "nhân viên"}`);
       onAssigned?.(dto);
-      onOpenChange(false);
+      dongHop();
     } catch (error) {
       toast.error(cauMayChuPhieuNhat(getApiErrorMessage(error, "Không thể phân công người nhặt")));
+      if (thaoTac === "phanCong") setLanTai((n) => n + 1);
     } finally {
       savingRef.current = false;
       setDangChay(null);
@@ -100,7 +111,7 @@ export default function AssignPickerDialog({ open, onOpenChange, pickList, onAss
   };
 
   return (
-    <Dialog open={open} onOpenChange={(next) => !saving && onOpenChange(next)}>
+    <Dialog open={open} onOpenChange={(next) => !saving && (next ? onOpenChange(next) : dongHop())}>
       <DialogContent showCloseButton={false} className={HOP}>
         <DialogHeader className={DAU_HOP}>
           <DialogTitle className={TIEU_DE_HOP}>Phân công người nhặt</DialogTitle>
@@ -127,6 +138,10 @@ export default function AssignPickerDialog({ open, onOpenChange, pickList, onAss
                   </div>
                 ) : staffError ? (
                   <p className="px-3 py-6 text-center text-sm text-bo-muted">{staffError}</p>
+                ) : staff.length === 0 ? (
+                  <p className="px-3 py-6 text-center text-sm text-bo-muted">
+                    Chưa có nhân viên kho nào được phân quyền ở {pickList?.tenKhoXuat || "kho này"}. Bạn vẫn có thể nhận việc cho mình.
+                  </p>
                 ) : filteredStaff.length === 0 ? (
                   <p className="px-3 py-6 text-center text-sm text-bo-muted">Không có nhân viên phù hợp.</p>
                 ) : (
@@ -171,7 +186,7 @@ export default function AssignPickerDialog({ open, onOpenChange, pickList, onAss
             type="button"
             variant="outline"
             disabled={saving}
-            onClick={() => onOpenChange(false)}
+            onClick={dongHop}
             className={NUT_QUAY_LAI}
           >
             Quay lại

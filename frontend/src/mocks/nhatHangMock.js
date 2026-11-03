@@ -355,8 +355,10 @@ export const nhatHangMock = {
     return toDto(pl);
   },
 
-  async getNguoiNhat() {
+  // Dữ liệu mẫu chỉ có một kho: mọi nhân viên trong STAFF đều thuộc kho của phiếu
+  async getNguoiNhat(id) {
     await mockDelay();
+    findPickList(id);
     return clone(STAFF);
   },
 };

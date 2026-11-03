@@ -56,25 +56,12 @@ const realService = {
     return res.data?.data;
   },
   /**
-   * Nhân viên có thể nhận Pick List: nhân viên kho và quản lý kho đang hoạt động.
-   * POST /api/v1/nguoi-dung/filter cho phép quản trị viên và quản lý kho (NguoiDungController).
+   * Người giao được phiếu nhặt: nhân viên kho / quản lý kho đang hoạt động, có phân quyền ở kho của phiếu (quản trị viên
+   * và quản lý kho gọi được). Mỗi người: { id, hoTen, tenDangNhap, vaiTro }.
    */
-  async getNguoiNhat() {
-    const byRole = (vaiTro) =>
-      apiClient.post("/api/v1/nguoi-dung/filter", {
-        page: 0,
-        size: 200,
-        filters: [
-          { fieldName: "vaiTro", operation: "EQUALS", value: vaiTro, logicType: "AND" },
-          { fieldName: "trangThai", operation: "EQUALS", value: 1, logicType: "AND" },
-        ],
-        sorts: [{ fieldName: "hoTen", direction: "ASC" }],
-      });
-    const results = await Promise.all([byRole("nhan_vien_kho"), byRole("quan_ly_kho")]);
-    const seen = new Set();
-    return results
-      .flatMap((res) => res.data?.data?.content ?? [])
-      .filter((person) => (seen.has(person.id) ? false : seen.add(person.id)));
+  async getNguoiNhat(id) {
+    const res = await apiClient.get(`${BASE}/pick-list/${id}/nguoi-nhat`);
+    return res.data?.data;
   },
 };
 
