@@ -10,27 +10,29 @@ import useQuayLai from "@/hooks/useQuayLai";
 import { toast } from "@/lib/thongBaoNhanh";
 import { companyProfileService } from "@/services/companyProfileService";
 import { phieuChuyenKhoService } from "@/services/phieuChuyenKhoService";
-import { LY_DO_DIEU_DONG } from "@/constants/phieuChuyenKho";
+import { LY_DO_DIEU_DONG_HIEN_THI } from "@/constants/phieuChuyenKho";
 import {
   LOAI_IN,
+  bienBanMauCu,
   dauCongTy,
   dongBienBan,
   dongDieuChinh,
   dongHangXknb,
   dongHangYeuCau,
   gioPhut,
+  kyKhoGui,
   lyDoChuaIn,
+  lyDoTrongCau,
   ngayChu,
   ngayDu,
   phuongTienIn,
   sauTen,
   soIn,
-  tenLyDoDieuDong,
   tenPhuongAn,
   tienIn,
   veViec,
 } from "@/components/chuyen-kho/inChuyenKho";
-import { aiXuLyChenhLech } from "@/components/chuyen-kho/hienThiChuyenKho";
+import { aiXuLyChenhLech, cauChoXuLyLech } from "@/components/chuyen-kho/hienThiChuyenKho";
 
 /*
  * Giấy in của chuyển kho nội bộ theo bố cục bản demo đã duyệt (tài liệu BA): chữ đen trên nền trắng, phông có chân như
@@ -83,15 +85,19 @@ function TenGiay({ ten, ngay }) {
   );
 }
 
-/** Ô ký: mỗi cột một chức danh, "(Ký, ghi rõ họ tên)" và tên người (nếu có). */
+/**
+ * Ô ký: mỗi cột `[chức danh, tên, dòng nhắc, dòng dưới tên]`; dòng nhắc mặc định "(Ký, ghi rõ họ tên)". Ô xác nhận trên
+ * F Centric (kho gửi của biên bản giao nhận) ghi "(Xác nhận trên hệ thống)" và giờ xác nhận dưới tên.
+ */
 function Ky({ cot }) {
   return (
     <div className="ky" style={{ gridTemplateColumns: `repeat(${cot.length}, 1fr)` }}>
-      {cot.map(([chucDanh, ten]) => (
+      {cot.map(([chucDanh, ten, nhac = "(Ký, ghi rõ họ tên)", duoiTen]) => (
         <div key={chucDanh}>
           <b>{chucDanh}</b>
-          <i>(Ký, ghi rõ họ tên)</i>
+          <i>{nhac}</i>
           <div className="ten-ky">{ten || ""}</div>
+          {duoiTen ? <i>{duoiTen}</i> : null}
         </div>
       ))}
     </div>
@@ -156,7 +162,7 @@ function GiayLenhDieuDong({ ct, hoSo }) {
       <p>Quản lý Kho tổng điều động hàng hóa như sau:</p>
       <p>– Xuất tại kho: <b>{ct.khoXuat?.ten}</b>{sauTen(ct.khoXuat?.diaChi)}</p>
       <p>– Nhập tại kho: <b>{ct.khoNhap?.ten}</b>{sauTen(ct.khoNhap?.diaChi)}</p>
-      <p>– Về việc: {veViec(ct, LY_DO_DIEU_DONG)}</p>
+      <p>– Về việc: {veViec(ct, LY_DO_DIEU_DONG_HIEN_THI)}</p>
       <BangHangDon ct={ct} />
       <p>Kho xuất lập phiếu xuất kho kiêm vận chuyển nội bộ theo lệnh này trước khi hàng rời kho.</p>
       <Ky cot={[["Người đề nghị", ct.nguoiTao], ["Người ra lệnh", ct.nguoiRaLenh]]} />
@@ -170,7 +176,7 @@ function GiayXknb({ ct, hoSo }) {
   const daXuat = Boolean(ct.hinhThucVanChuyen);
   const { phuongTien, hopDong } = phuongTienIn(ct);
   const { dong, tongSoLuong, tongTien } = dongHangXknb(ct);
-  const lyDo = tenLyDoDieuDong(ct.lyDoDieuDong, ct.ghiChuLenh, LY_DO_DIEU_DONG);
+  const lyDo = lyDoTrongCau(ct, LY_DO_DIEU_DONG_HIEN_THI);
   const thuKhoXuat = ct.phieuXuat?.trangThai === "3" ? ct.phieuXuat?.nguoi : "";
   return (
     <>
@@ -185,7 +191,7 @@ function GiayXknb({ ct, hoSo }) {
       <TenGiay ten={LOAI_IN.xknb.ten} ngay={ngayChu(ct.ngayLapXknb || ct.ngayLenhDieuDong)} />
       <p>
         Căn cứ lệnh điều động số <b>{ct.soLenhDieuDong}</b> ngày {ngayDu(ct.ngayLenhDieuDong)} của {ct.nguoiRaLenh || "……"} –
-        Quản lý Kho tổng về việc {ct.lyDoDieuDong === "KHAC" ? lyDo : lyDo.toLowerCase()}
+        Quản lý Kho tổng về việc {lyDo}
       </p>
       <p>Họ tên người vận chuyển: <b>{daXuat && ct.nguoiVanChuyen ? ct.nguoiVanChuyen : "……………………"}</b></p>
       <p>Phương tiện vận chuyển: {phuongTien || "……………………"} · Hợp đồng số: {hopDong}</p>
@@ -251,10 +257,30 @@ function GiayXknb({ ct, hoSo }) {
   );
 }
 
+/**
+ * Chân biên bản: số bản giấy và việc trên F Centric. Mẫu mới (BA 03/11) lập 02 bản cho kho nhận và người vận chuyển, kho
+ * gửi xác nhận trên hệ thống; biên bản mẫu cũ giữ câu 03 bản.
+ */
+function chanBienBan(ct, bb, daXuLy) {
+  const nguoi = bb.nguoiDuyet ? `${bb.nguoiDuyet} ` : "";
+  const xuLy = `${nguoi}xử lý: ${tenPhuongAn(bb.phuongAn).toLowerCase()}`;
+  if (bienBanMauCu(bb)) {
+    return `Biên bản lập 03 bản, mỗi bên giữ 01 bản. Phần lệch đã được ${nguoi}xử lý trên F Centric: ${tenPhuongAn(bb.phuongAn).toLowerCase()}.`;
+  }
+  const khoGui = ct.khoXuat?.ten ?? "Kho gửi";
+  const viec = !bb.ngayXacNhanGui
+    ? `chờ ${cauChoXuLyLech(ct)} phần lệch`
+    : daXuLy
+      ? `${khoGui} đã xác nhận, phần lệch đã được ${xuLy}`
+      : `${khoGui} đã xác nhận, phần lệch chờ ${aiXuLyChenhLech(ct)} xử lý`;
+  return `Biên bản lập 02 bản, kho nhận và người vận chuyển mỗi bên giữ 01 bản. Trên F Centric: ${viec}.`;
+}
+
 function GiayBienBan({ ct, hoSo }) {
   const bb = ct.bienBan;
   const { dong, tong } = dongBienBan(bb);
   const daXuLy = bb.phuongAn && bb.phuongAn !== "CHUA_XU_LY";
+  const khoGui = kyKhoGui(bb);
   const phuongTien = [ct.loaiPhuongTien || ct.donViVanChuyen, ct.bienSoXe].filter(Boolean).join(" ");
   return (
     <>
@@ -306,15 +332,18 @@ function GiayBienBan({ ct, hoSo }) {
         Tổng gửi {soIn(tong.gui)}; nhận đạt {soIn(tong.dat)}; hỏng {soIn(tong.hong)}; thiếu {soIn(tong.thieu)}.
       </p>
       <p>Kết luận: {bb.ketLuan || "—"}</p>
+      {bb.ghiChuKhoGui ? <p>Ý kiến kho gửi: {bb.ghiChuKhoGui}</p> : null}
       {/* Ảnh không in (A3): chỉ ghi số ảnh đính kèm trên F Centric; không có ảnh thì bỏ dòng */}
       {bb.anh?.length ? <p>Ảnh kèm theo: {bb.anh.length} ảnh</p> : null}
-      <Ky cot={[["Đại diện kho nhận", bb.nguoiLap], ["Người vận chuyển (lái xe)", bb.nguoiVanChuyen || ct.nguoiVanChuyen], ["Đại diện kho gửi", ""]]} />
-      <div className="chan-giay">
-        Biên bản lập 03 bản, mỗi bên giữ 01 bản.{" "}
-        {daXuLy
-          ? `Phần lệch đã được ${bb.nguoiDuyet ? `${bb.nguoiDuyet} ` : ""}xử lý trên F Centric: ${tenPhuongAn(bb.phuongAn).toLowerCase()}.`
-          : `Phần lệch chờ ${aiXuLyChenhLech(ct)} xử lý trên F Centric.`}
-      </div>
+      {/* Kho gửi không ký tay: xác nhận trên F Centric (BA 03/11), ô ghi người và giờ xác nhận */}
+      <Ky
+        cot={[
+          ["Đại diện kho nhận", bb.nguoiLap],
+          ["Người vận chuyển (lái xe)", bb.nguoiVanChuyen || ct.nguoiVanChuyen],
+          ["Đại diện kho gửi", khoGui.ten, khoGui.nhac, khoGui.luc],
+        ]}
+      />
+      <div className="chan-giay">{chanBienBan(ct, bb, daXuLy)}</div>
     </>
   );
 }
