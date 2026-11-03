@@ -10,7 +10,8 @@ const GHI_CHU_TOI_DA = 500;
 
 /**
  * Xác nhận xuất kho & giao vận (SRS 6.3.2) — POST /api/v1/phieu-xuat-kho/{id}/xac-nhan-xuat-kho.
- * Thông tin vận chuyển không bắt buộc; backend ghi vào ghi chú phiếu xuất. Trang cha chỉ render khi mở.
+ * Thông tin vận chuyển không bắt buộc; backend ghi đơn vị, mã vận đơn (kèm cước) vào ghi chú phiếu xuất và cước vào cột
+ * phi_van_chuyen_thuc_te của phiếu, không đổi phí vận chuyển của đơn. Trang cha chỉ render khi mở.
  * Payload giữ nguyên: `{ donViVanChuyen, maVanDon, phiVanChuyenThucTe, ghiChu }`, chuỗi đã bỏ khoảng trắng hoặc null,
  * cước là số hoặc null. Khung, nút và tiêu điểm theo hộp dùng chung HopXacNhanChungTu (rộng 560px vì có biểu mẫu).
  * `tongSoLuong` (tùy chọn): tổng số lượng của cả phiếu, hiện trong câu mô tả.
@@ -59,7 +60,10 @@ export default function DispatchDialog({ open, onOpenChange, soPhieuXuat, tongSo
     >
       <div className={cn(GHI_CHU_HOP, "flex items-start gap-2.5")}>
         <Truck className="mt-0.5 size-4 shrink-0 text-bo-muted" aria-hidden="true" />
-        <p>Thông tin giao vận không bắt buộc. Nếu nhập, hệ thống lưu vào ghi chú của phiếu xuất để tra cứu khi giao hàng.</p>
+        <p>
+          Thông tin giao vận không bắt buộc. Nếu nhập, hệ thống lưu trên phiếu xuất để tra cứu khi giao hàng. Cước thực tế là
+          chi phí shop trả đơn vị vận chuyển, không đổi phí vận chuyển thu của khách trên đơn.
+        </p>
       </div>
 
       <div className="grid gap-1.5">
@@ -119,7 +123,8 @@ export default function DispatchDialog({ open, onOpenChange, soPhieuXuat, tongSo
             inputMode="numeric"
             disabled={submitting}
             value={feeDisplay}
-            onChange={(event) => change("phiVanChuyenThucTe", event.target.value.replace(/[^\d]/g, ""))}
+            // Cột lưu cước là DECIMAL(15,2): tối đa 13 chữ số phần nguyên (máy chủ chặn số lớn hơn)
+            onChange={(event) => change("phiVanChuyenThucTe", event.target.value.replace(/[^\d]/g, "").slice(0, 13))}
             placeholder="0"
             className={cn(O_NHAP, "text-right tabular-nums")}
           />

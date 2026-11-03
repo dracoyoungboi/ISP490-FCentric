@@ -5,7 +5,7 @@ import CotThuocTinh, {
   NhomThuocTinh,
 } from "@/components/chung-tu/CotThuocTinh";
 import TuyenChuyen from "@/components/chung-tu/TuyenChuyen";
-import { soVN } from "@/components/chung-tu/bangChungTu";
+import { docSo, soVN } from "@/components/chung-tu/bangChungTu";
 import { formatDate } from "@/utils/formatters";
 import { laDaXuat } from "./phieuXuat.js";
 
@@ -18,7 +18,8 @@ const doanGhiChu = (chu) => (chu ? <span className="whitespace-pre-line">{chu}</
  *   Chứng từ liên quan: phiếu chuyển kho (soPhieuChuyenKhoGoc / phieuChuyenKhoGocId của máy chủ, liên kết tới màn phiếu
  *   chuyển; dữ liệu cũ thiếu id thì chỉ hiện mã tách từ ghi chú).
  * - Bán hàng: Kho xuất, Ngày tạo / Ngày xuất (chỉ phiếu POS vì không có tiến trình), Người xuất khi đã xuất, Ghi chú;
- *   nhóm Giao vận khi ghi chú có thông tin vận chuyển; Chứng từ liên quan: đơn bán hàng (liên kết).
+ *   nhóm Giao vận khi ghi chú có thông tin vận chuyển hoặc phiếu có cước thực tế (cột phiVanChuyenThucTe; phiếu cũ
+ *   chỉ có cước trong ghi chú); Chứng từ liên quan: đơn bán hàng (liên kết).
  * `ghiChu`: kết quả tachGhiChuPhieuXuat.
  */
 export default function ThuocTinhPhieuXuat({ phieu, laCk, laPos, ghiChu }) {
@@ -57,6 +58,8 @@ export default function ThuocTinhPhieuXuat({ phieu, laCk, laPos, ghiChu }) {
 
   const don = phieu.donBanHang;
   const gv = ghiChu.giaoVan;
+  // Cước có thể được nhập mà không kèm đơn vị vận chuyển / mã vận đơn: khi đó chỉ có ở cột, không có trong ghi chú
+  const cuoc = phieu.phiVanChuyenThucTe != null ? docSo(phieu.phiVanChuyenThucTe) : (gv?.cuoc ?? null);
   return (
     <CotThuocTinh nhan="Thông tin phiếu xuất">
       <NhomThuocTinh>
@@ -78,19 +81,19 @@ export default function ThuocTinhPhieuXuat({ phieu, laCk, laPos, ghiChu }) {
           ]}
         />
       </NhomThuocTinh>
-      {gv ? (
+      {gv || cuoc != null ? (
         <NhomThuocTinh nhan="Giao vận">
           <BangThuocTinh
             rongNhan={124}
             muc={[
-              { nhan: "Đơn vị vận chuyển", giaTri: gv.donViVanChuyen },
+              { nhan: "Đơn vị vận chuyển", giaTri: gv?.donViVanChuyen ?? null },
               {
                 nhan: "Mã vận đơn",
-                giaTri: gv.maVanDon ? (
+                giaTri: gv?.maVanDon ? (
                   <GiaTriSaoChep giaTri={gv.maVanDon} nhanSaoChep="Sao chép mã vận đơn" className="font-mono" />
                 ) : null,
               },
-              { nhan: "Cước thực tế", giaTri: gv.cuoc != null ? <span className="tabular-nums">{soVN(gv.cuoc)} ₫</span> : null },
+              { nhan: "Cước thực tế", giaTri: cuoc != null ? <span className="tabular-nums">{soVN(cuoc)} ₫</span> : null },
             ]}
           />
         </NhomThuocTinh>

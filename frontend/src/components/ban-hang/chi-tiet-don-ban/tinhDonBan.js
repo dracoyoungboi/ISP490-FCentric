@@ -165,8 +165,10 @@ export function phieuDaXuatCuoi(ct) {
 }
 
 /**
- * Tiền của đơn: hiện NGUYÊN 3 số máy chủ trả (không tự cộng). Xác nhận xuất kho ghi đè phí vận chuyển bằng cước thực tế
- * mà không tính lại tổng → `lechTong`. Đơn sàn: tiền hàng = current_subtotal_price của Shopify, có thể khác tổng các dòng
+ * Tiền của đơn: hiện NGUYÊN 3 số máy chủ trả (không tự cộng). `lechTong` khi tiền hàng + phí ≠ tổng cộng: đơn sàn (tổng
+ * theo sàn gồm thuế, phí), hoặc đơn cũ mà xác nhận xuất kho từng ghi đè phí bằng cước thực tế (trước 25/10/2026; nay cước
+ * lưu trên phiếu xuất, migration-2026-10-25 khôi phục phí đơn bán buôn).
+ * Đơn sàn: tiền hàng = current_subtotal_price của Shopify, có thể khác tổng các dòng
  * (giảm giá, dòng chưa liên kết SKU bị bỏ qua) → `lechDong`, `chenhDong` (số dương).
  */
 export function tienDonBan(don, dong, { laSan = false } = {}) {
@@ -189,7 +191,7 @@ export function tienDonBan(don, dong, { laSan = false } = {}) {
 export function cauLechTong({ laSan, tenKenh = "sàn" }) {
   return laSan
     ? `Tổng cộng theo ${tenKenh} (gồm thuế, phí nếu có).`
-    : "Phí vận chuyển đã đổi theo cước thực tế lúc xuất kho; tổng cộng giữ số lúc tạo đơn.";
+    : "Phí vận chuyển của đơn cũ này từng bị thay bằng cước thực tế lúc xuất kho; tổng cộng là số đã chốt với khách.";
 }
 
 /**
