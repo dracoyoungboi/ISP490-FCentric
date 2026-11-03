@@ -10,7 +10,7 @@ const NUT_CHINH = "h-8 gap-1.5 bg-bo-primary px-3 text-[13px] font-semibold text
 /**
  * Các dòng thông báo của màn Thực hiện nhặt hàng (đặt trong vùng `thongBao` của KhungChungTu, dưới tiến trình):
  * cảnh báo hủy tức thời (WebSocket), đơn bị bỏ qua khi hoàn tất, phiếu chưa có người nhặt, đang giao người khác,
- * đã nhặt xong, đã hủy. Chữ của máy chủ có từ tiếng Anh ("Put-back", "Return-to-stock") nên câu ở đây tự viết lại
+ * người được giao không còn nhặt được, đã nhặt xong, đã hủy. Chữ của máy chủ có từ tiếng Anh ("Put-back", "Return-to-stock") nên câu ở đây tự viết lại
  * từ dữ liệu sự kiện. Trên điện thoại / khối hẹp, nút của dòng thông báo tự xuống hàng (chung-tu/DongThongBao).
  */
 
@@ -156,6 +156,22 @@ export function DongGiaoKhac({ laQuanLy, onPhanCong }) {
       actions={laQuanLy ? <NutChu onClick={onPhanCong}>Phân công lại</NutChu> : null}
     >
       Chỉ người được phân công mới quét được phiếu này.
+    </DongThongBao>
+  );
+}
+
+/**
+ * Người được giao không còn nhặt được phiếu (đổi kho, bị thu hồi phân quyền, không còn là nhân viên kho, tài khoản ngưng).
+ * `canhBao`: câu backend gửi (DanhSachNhatHangDto.canhBaoNguoiNhat). Không tự gỡ người nhặt: quản lý phân công lại.
+ */
+export function DongNguoiNhatKhongHopLe({ canhBao, laQuanLy, onPhanCong }) {
+  return (
+    <DongThongBao
+      tone="warn"
+      actions={laQuanLy ? <NutChu onClick={onPhanCong}>Phân công lại</NutChu> : null}
+    >
+      {canhBao}
+      {laQuanLy ? "" : " Báo quản lý kho phân công lại."}
     </DongThongBao>
   );
 }

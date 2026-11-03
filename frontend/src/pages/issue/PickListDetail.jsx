@@ -34,6 +34,7 @@ import {
     DongDaNhat,
     DongDaNhatChuyenKho,
     DongGiaoKhac,
+    DongNguoiNhatKhongHopLe,
     KetQuaBoQua,
 } from "@/components/outbound/phieu-nhat/ThongBaoPhieuNhat";
 import useSuKienPhieuNhat from "@/components/outbound/phieu-nhat/useSuKienPhieuNhat";
@@ -457,7 +458,15 @@ function ManNhatHang({ id }) {
                 onPhanCong={() => setMoPhanCong(true)}
             />
         ) : null,
-        quyen.dangMo && quyen.daPhanCong && !quyen.laNguoiNhat ? (
+        quyen.dangMo && quyen.daPhanCong && phieu.canhBaoNguoiNhat ? (
+            <DongNguoiNhatKhongHopLe
+                key="nguoiNhatKhongHopLe"
+                canhBao={phieu.canhBaoNguoiNhat}
+                laQuanLy={quyen.laQuanLy}
+                onPhanCong={chanKhiChoGoc(() => setMoPhanCong(true))}
+            />
+        ) : null,
+        quyen.dangMo && quyen.daPhanCong && !quyen.laNguoiNhat && !phieu.canhBaoNguoiNhat ? (
             <DongGiaoKhac key="giaoKhac" laQuanLy={quyen.laQuanLy} onPhanCong={chanKhiChoGoc(() => setMoPhanCong(true))} />
         ) : null,
         quyen.daXongNhat && laChuyenKho ? (
