@@ -67,6 +67,14 @@ public interface IHanhDong {
     //id_tham_chieu = id dòng cau_hinh_mau_in; gia_tri_cu / gia_tri_moi = ảnh chụp JSON cấu hình)
     String
             cap_nhat_mau_in = "cap_nhat_mau_in";
+    //Xuất dữ liệu kế toán: tạo lô (loai_tham_chieu = lo_xuat_ke_toan), mở khóa chứng từ (chung_tu_xuat_ke_toan,
+    //ghi_chu = lý do), đổi cấu hình / thuế suất, nhập hóa đơn nhà cung cấp (hoa_don_dau_vao, id = phiếu nhập)
+    String
+            tao_lo_xuat_ke_toan = "tao_lo_xuat_ke_toan",
+            mo_khoa_chung_tu_ke_toan = "mo_khoa_chung_tu_ke_toan",
+            cap_nhat_cau_hinh_ke_toan = "cap_nhat_cau_hinh_ke_toan",
+            cap_nhat_thue_suat = "cap_nhat_thue_suat",
+            cap_nhat_hoa_don_dau_vao = "cap_nhat_hoa_don_dau_vao";
     //Bảo mật (NhatKyBaoMatService): loai_tham_chieu = nguoi_dung / cau_hinh_thanh_toan; không bao giờ ghi mật khẩu,
     //mã hay khóa, chỉ ghi việc gì đã xảy ra
     String
@@ -81,9 +89,9 @@ public interface IHanhDong {
 
     /**
      * Nhật ký job dọn 90 ngày (AuditLogCleanupJob) KHÔNG xóa: phiên bản mẫu in (để khôi phục), lịch sử đổi giá bán, dấu
-     * từ chối phiếu chuyển và bản ghi bảo mật (đăng nhập, khóa tài khoản, mật khẩu, đổi quyền / vai trò, đổi khóa thanh
-     * toán). Không đưa cap_nhat_kenh_ban vào đây: hành động này còn ghi kết quả mỗi lần đồng bộ đơn từ sàn, giữ mãi thì
-     * bảng phình.
+     * từ chối phiếu chuyển, tạo lô / mở khóa chứng từ xuất kế toán và bản ghi bảo mật (đăng nhập, khóa tài khoản, mật
+     * khẩu, đổi quyền / vai trò, đổi khóa thanh toán). Không đưa cap_nhat_kenh_ban vào đây: hành động này còn ghi kết
+     * quả mỗi lần đồng bộ đơn từ sàn, giữ mãi thì bảng phình.
      */
     java.util.List<String> KHONG_TU_DON = java.util.List.of(
             cap_nhat_mau_in,
@@ -91,6 +99,8 @@ public interface IHanhDong {
             doi_gia_ban,
             // Phiếu chuyển bị từ chối chỉ phân biệt với hủy qua dòng này (chi tiết phiếu đọc), mỗi phiếu một dòng
             tu_choi_phieu_chuyen,
+            // Kiểm soát dữ liệu sang kế toán: ai tạo lô, ai mở khóa chứng từ đã giao và vì sao
+            tao_lo_xuat_ke_toan, mo_khoa_chung_tu_ke_toan,
             dang_nhap, dang_nhap_that_bai, tao_tai_khoan, khoa_tai_khoan, mo_khoa_tai_khoan, doi_mat_khau,
             dat_lai_mat_khau,
             cap_nhat_khoa_thanh_toan,

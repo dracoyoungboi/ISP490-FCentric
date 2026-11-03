@@ -132,6 +132,8 @@ public class SecurityConfig implements WebMvcConfigurer {
         config.setAllowedOriginPatterns(List.of("*")); // Cho phép mọi origin
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         config.setAllowedHeaders(List.of("*")); // Cho phép mọi header
+        // Tải tệp (xuất kế toán): giao diện khác origin khi chạy dev phải đọc được tên tệp và mã băm
+        config.setExposedHeaders(List.of("Content-Disposition", "X-Ma-Bam"));
         config.setAllowCredentials(false); // QUAN TRỌNG: phải false khi dùng "*"
         config.setMaxAge(3600L);
 
@@ -147,6 +149,7 @@ public class SecurityConfig implements WebMvcConfigurer {
                 // allow all origins, methods, and headers
                 .allowedOrigins("*")
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
-                .allowedHeaders("*");
+                .allowedHeaders("*")
+                .exposedHeaders("Content-Disposition", "X-Ma-Bam");
     }
 }

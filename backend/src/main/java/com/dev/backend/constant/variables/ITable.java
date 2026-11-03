@@ -38,5 +38,10 @@ public interface ITable {
             cau_hinh_he_thong = "cau_hinh_he_thong",
             cau_hinh_mau_in = "cau_hinh_mau_in",
             cau_hinh_thanh_toan = "cau_hinh_thanh_toan",
+            cau_hinh_ke_toan = "cau_hinh_ke_toan",
+            thue_suat_gtgt = "thue_suat_gtgt",
+            lo_xuat_ke_toan = "lo_xuat_ke_toan",
+            chung_tu_xuat_ke_toan = "chung_tu_xuat_ke_toan",
+            hoa_don_dau_vao = "hoa_don_dau_vao",
             lich_su_thay_doi = "lich_su_thay_doi";
 }

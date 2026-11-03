@@ -1,0 +1,234 @@
+package com.dev.backend.services.impl.ketoan;
+
+import com.dev.backend.config.SecurityContextHolder;
+import com.dev.backend.constant.variables.IHanhDong;
+import com.dev.backend.constant.variables.ITable;
+import com.dev.backend.dto.request.CauHinhKeToanRequest;
+import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
+import com.dev.backend.dto.response.ketoan.CauHinhKeToanDto;
+import com.dev.backend.entities.CauHinhKeToan;
+import com.dev.backend.entities.ChungTuXuatKeToan;
+import com.dev.backend.entities.LichSuThayDoi;
+import com.dev.backend.entities.NguoiDung;
+import com.dev.backend.exception.customize.CommonException;
+import com.dev.backend.repository.BienTheSanPhamRepository;
+import com.dev.backend.repository.CauHinhKeToanRepository;
+import com.dev.backend.repository.ChungTuXuatKeToanRepository;
+import com.dev.backend.repository.NguoiDungRepository;
+import com.dev.backend.services.impl.entities.LichSuThayDoiService;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Objects;
+import java.util.regex.Pattern;
+
+/**
+ * Cấu hình xuất kế toán (bảng một dòng). Giá trị mặc định theo hệ thống tài khoản TT 99/2025 thấy trên AMIS Kế toán
+ * doanh nghiệp dùng thử (25/10/2026). Ngày mốc bị khóa khi đã có chứng từ đang khóa trong lô: đổi lúc đó thì tồn đầu kỳ
+ * đã giao và chứng từ còn lại lệch nhau.
+ */
+@Service
+public class CauHinhKeToanService {
+
+    public static final String HO_SO_AMIS_DOANH_NGHIEP = "AMIS_DOANH_NGHIEP";
+    /** Ba hình thức chuyển kho AMIS nhận (danh sách thả xuống trong tệp mẫu Chuyển kho). */
+    public static final List<String> HINH_THUC_CHUYEN_KHO = List.of(
+            "Xuất kho kiêm vận chuyển nội bộ", "Xuất kho gửi bán đại lý", "Xuất chuyển kho nội bộ");
+    /** Chặn gõ nhầm năm; ngày mốc thực tế phải trùng "Ngày bắt đầu dữ liệu" trên AMIS (bản dùng thử: 01/01/2026). */
+    static final LocalDate NGAY_MOC_SOM_NHAT = LocalDate.of(2020, 1, 1);
+
+    /** Số tài khoản kế toán: chỉ chữ số, 3–20 ký tự (AMIS chỉ nhận tài khoản chi tiết nhất, vd. 33311). */
+    private static final Pattern TAI_KHOAN = Pattern.compile("^\\d{3,20}$");
+    /** Mã dịch vụ phí vận chuyển: như mã hàng của AMIS (tối đa 50 ký tự ở đây), không dấu cách. */
+    private static final Pattern MA_DICH_VU = Pattern.compile("^[A-Za-z0-9._-]{1,50}$");
+    private static final Pattern SO_TAI_KHOAN_NGAN_HANG = Pattern.compile("^[A-Za-z0-9]{4,30}$");
+
+    private final CauHinhKeToanRepository repository;
+    private final ChungTuXuatKeToanRepository chungTuRepository;
+    private final BienTheSanPhamRepository bienTheSanPhamRepository;
+    private final NguoiDungRepository nguoiDungRepository;
+    private final LichSuThayDoiService lichSuThayDoiService;
+
+    public CauHinhKeToanService(CauHinhKeToanRepository repository,
+                                ChungTuXuatKeToanRepository chungTuRepository,
+                                BienTheSanPhamRepository bienTheSanPhamRepository,
+                                NguoiDungRepository nguoiDungRepository,
+                                LichSuThayDoiService lichSuThayDoiService) {
+        this.repository = repository;
+        this.chungTuRepository = chungTuRepository;
+        this.bienTheSanPhamRepository = bienTheSanPhamRepository;
+        this.nguoiDungRepository = nguoiDungRepository;
+        this.lichSuThayDoiService = lichSuThayDoiService;
+    }
+
+    /** Cấu hình hiện tại; chưa có dòng (migration chưa chèn) thì trả giá trị mặc định chưa lưu. */
+    @Transactional(readOnly = true)
+    public CauHinhKeToan lay() {
+        return repository.findById(CauHinhKeToan.ID).orElseGet(CauHinhKeToanService::macDinh);
+    }
+
+    @Transactional(readOnly = true)
+    public CauHinhKeToanDto layDto() {
+        return toDto(lay());
+    }
+
+    @Transactional
+    public CauHinhKeToanDto capNhat(CauHinhKeToanRequest req) {
+        if (req == null) {
+            throw new CommonException("Thiếu dữ liệu cấu hình");
+        }
+        CauHinhKeToan ch = repository.findByIdForUpdate(CauHinhKeToan.ID).orElseGet(CauHinhKeToanService::macDinh);
+        // Dòng đã lưu có phiên bản: yêu cầu phải mang đúng phiên bản (thiếu cũng coi là cũ, không cho ghi đè)
+        if (ch.getVersion() != null && !ch.getVersion().equals(req.getVersion())) {
+            throw new CommonException(HttpStatus.CONFLICT,
+                    "Cấu hình kế toán vừa được người khác lưu. Tải lại trang rồi sửa lại.");
+        }
+        String truoc = tomTat(ch);
+
+        if (!Objects.equals(req.getNgayMoc(), ch.getNgayMoc())) {
+            if (daCoChungTuDangKhoa()) {
+                throw new CommonException(HttpStatus.CONFLICT, "Đã có chứng từ giao kế toán nên không đổi được ngày mốc. "
+                        + "Muốn đổi thì mở khóa mọi chứng từ của các lô trước.");
+            }
+            if (req.getNgayMoc() != null && req.getNgayMoc().isBefore(NGAY_MOC_SOM_NHAT)) {
+                throw new CommonException("Ngày mốc phải từ 01/01/2020 trở đi");
+            }
+            if (req.getNgayMoc() != null && req.getNgayMoc().isAfter(LocalDate.now(XuatKeToanService.MUI_GIO).plusYears(1))) {
+                throw new CommonException("Ngày mốc quá xa trong tương lai");
+            }
+            ch.setNgayMoc(req.getNgayMoc());
+        }
+        ch.setTkTienMat(taiKhoan(req.getTkTienMat(), "Tài khoản tiền mặt"));
+        ch.setTkNganHang(taiKhoan(req.getTkNganHang(), "Tài khoản tiền gửi ngân hàng"));
+        ch.setTkPhaiThu(taiKhoan(req.getTkPhaiThu(), "Tài khoản phải thu khách hàng"));
+        ch.setTkDoanhThu(taiKhoan(req.getTkDoanhThu(), "Tài khoản doanh thu"));
+        ch.setTkChietKhau(taiKhoan(req.getTkChietKhau(), "Tài khoản chiết khấu"));
+        ch.setTkThueDauRa(taiKhoan(req.getTkThueDauRa(), "Tài khoản thuế GTGT đầu ra"));
+        ch.setTkKho(taiKhoan(req.getTkKho(), "Tài khoản kho"));
+        ch.setTkGiaVon(taiKhoan(req.getTkGiaVon(), "Tài khoản giá vốn"));
+        ch.setTkPhaiTra(taiKhoan(req.getTkPhaiTra(), "Tài khoản phải trả nhà cung cấp"));
+        ch.setTkThueDauVao(taiKhoan(req.getTkThueDauVao(), "Tài khoản thuế GTGT đầu vào"));
+
+        String maDv = gon(req.getMaDichVuVanChuyen());
+        if (maDv == null || !MA_DICH_VU.matcher(maDv).matches()) {
+            throw new CommonException("Mã dịch vụ phí vận chuyển chỉ gồm chữ không dấu, số và . _ - (tối đa 50 ký tự)");
+        }
+        if (bienTheSanPhamRepository.findByMaSkuIgnoreCase(maDv).isPresent()) {
+            throw new CommonException("Mã dịch vụ phí vận chuyển trùng một mã SKU đang có. Chọn mã khác.");
+        }
+        ch.setMaDichVuVanChuyen(maDv);
+        String tenDv = gon(req.getTenDichVuVanChuyen());
+        if (tenDv == null || tenDv.length() > 100) {
+            throw new CommonException("Nhập tên dịch vụ phí vận chuyển (tối đa 100 ký tự)");
+        }
+        ch.setTenDichVuVanChuyen(tenDv);
+
+        String hinhThuc = gon(req.getHinhThucChuyenKho());
+        if (!HINH_THUC_CHUYEN_KHO.contains(hinhThuc)) {
+            throw new CommonException("Hình thức chuyển kho không hợp lệ");
+        }
+        ch.setHinhThucChuyenKho(hinhThuc);
+
+        String soTk = gon(req.getSoTkNganHangNhan());
+        if (soTk != null && !SO_TAI_KHOAN_NGAN_HANG.matcher(soTk).matches()) {
+            throw new CommonException("Số tài khoản ngân hàng chỉ gồm chữ và số (4–30 ký tự)");
+        }
+        ch.setSoTkNganHangNhan(soTk);
+
+        NguoiDung nguoi = nguoiDangThucHien();
+        ch.setVersion(ch.getVersion() == null ? 1 : ch.getVersion() + 1);
+        ch.setNguoiCapNhatId(nguoi.getId());
+        ch.setNgayCapNhat(Instant.now());
+        ch = repository.save(ch);
+
+        lichSuThayDoiService.create(LichSuThayDoi.builder()
+                .loaiThamChieu(ITable.cau_hinh_ke_toan)
+                .idThamChieu(CauHinhKeToan.ID)
+                .hanhDong(IHanhDong.cap_nhat_cau_hinh_ke_toan)
+                .giaTriCu(truoc)
+                .giaTriMoi(tomTat(ch))
+                .nguoiThucHien(nguoi)
+                .ngayThucHien(Instant.now())
+                .build());
+        return toDto(ch);
+    }
+
+    /** Có chứng từ nào đang khóa trong một lô xuất kế toán. */
+    boolean daCoChungTuDangKhoa() {
+        return chungTuRepository.existsByTrangThai(ChungTuXuatKeToan.TRANG_THAI_DA_XUAT);
+    }
+
+    CauHinhKeToanDto toDto(CauHinhKeToan ch) {
+        return CauHinhKeToanDto.builder()
+                .hoSo(ch.getHoSo())
+                .ngayMoc(ch.getNgayMoc())
+                .tkTienMat(ch.getTkTienMat())
+                .tkNganHang(ch.getTkNganHang())
+                .tkPhaiThu(ch.getTkPhaiThu())
+                .tkDoanhThu(ch.getTkDoanhThu())
+                .tkChietKhau(ch.getTkChietKhau())
+                .tkThueDauRa(ch.getTkThueDauRa())
+                .tkKho(ch.getTkKho())
+                .tkGiaVon(ch.getTkGiaVon())
+                .tkPhaiTra(ch.getTkPhaiTra())
+                .tkThueDauVao(ch.getTkThueDauVao())
+                .maDichVuVanChuyen(ch.getMaDichVuVanChuyen())
+                .tenDichVuVanChuyen(ch.getTenDichVuVanChuyen())
+                .hinhThucChuyenKho(ch.getHinhThucChuyenKho())
+                .soTkNganHangNhan(ch.getSoTkNganHangNhan())
+                .daCoLoXuat(daCoChungTuDangKhoa())
+                .version(ch.getVersion())
+                .ngayCapNhat(ch.getNgayCapNhat())
+                .build();
+    }
+
+    static CauHinhKeToan macDinh() {
+        return CauHinhKeToan.builder()
+                .id(CauHinhKeToan.ID)
+                .hoSo(HO_SO_AMIS_DOANH_NGHIEP)
+                .tkTienMat("111").tkNganHang("112").tkPhaiThu("131").tkDoanhThu("511").tkChietKhau("521")
+                .tkThueDauRa("33311").tkKho("156").tkGiaVon("632").tkPhaiTra("331").tkThueDauVao("1331")
+                .maDichVuVanChuyen("PVC").tenDichVuVanChuyen("Phí vận chuyển")
+                .hinhThucChuyenKho(HINH_THUC_CHUYEN_KHO.get(0))
+                .version(1)
+                .build();
+    }
+
+    private static String taiKhoan(String giaTri, String nhan) {
+        String gon = gon(giaTri);
+        if (gon == null || !TAI_KHOAN.matcher(gon).matches()) {
+            throw new CommonException(nhan + " chỉ gồm chữ số (3–20 số), vd. 33311");
+        }
+        return gon;
+    }
+
+    private static String gon(String s) {
+        if (s == null) return null;
+        String t = s.trim();
+        return t.isEmpty() ? null : t;
+    }
+
+    private static String tomTat(CauHinhKeToan ch) {
+        return "{\"ngayMoc\":" + (ch.getNgayMoc() == null ? "null" : "\"" + ch.getNgayMoc() + "\"")
+                + ",\"tk\":\"" + String.join("/", ch.getTkTienMat(), ch.getTkNganHang(), ch.getTkPhaiThu(),
+                ch.getTkDoanhThu(), ch.getTkChietKhau(), ch.getTkThueDauRa(), ch.getTkKho(), ch.getTkGiaVon(),
+                ch.getTkPhaiTra(), ch.getTkThueDauVao()) + "\""
+                + ",\"maDichVuVanChuyen\":\"" + ch.getMaDichVuVanChuyen() + "\""
+                + ",\"hinhThucChuyenKho\":\"" + ch.getHinhThucChuyenKho() + "\""
+                + ",\"soTkNganHangNhan\":" + (ch.getSoTkNganHangNhan() == null ? "null" : "\"" + ch.getSoTkNganHangNhan() + "\"")
+                + "}";
+    }
+
+    NguoiDung nguoiDangThucHien() {
+        NguoiDungAuthInfo auth = SecurityContextHolder.getUser();
+        if (auth == null || auth.getId() == null) {
+            throw new CommonException(HttpStatus.UNAUTHORIZED, "Không xác định được người thao tác. Đăng nhập lại rồi thử lại.");
+        }
+        return nguoiDungRepository.findById(auth.getId()).orElseThrow(
+                () -> new CommonException(HttpStatus.UNAUTHORIZED, "Không xác định được người thao tác. Đăng nhập lại rồi thử lại."));
+    }
+}
