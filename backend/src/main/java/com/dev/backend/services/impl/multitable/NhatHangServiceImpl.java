@@ -46,6 +46,7 @@ import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -141,7 +142,9 @@ public class NhatHangServiceImpl implements NhatHangService {
     @Autowired
     private com.dev.backend.services.multitable.BangChungDongGoiService bangChungDongGoiService;
 
+    // @Lazy: KenhBanHangDongBoService -> OmnichannelOrderSyncJob -> NhatHangService là vòng phụ thuộc, tiêm thẳng thì Spring không khởi động
     @Autowired(required = false)
+    @Lazy
     private KenhBanHangDongBoService kenhBanHangDongBoService;
 
     @Autowired

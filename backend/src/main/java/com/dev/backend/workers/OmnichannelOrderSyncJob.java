@@ -85,8 +85,10 @@ public class OmnichannelOrderSyncJob {
     @lombok.experimental.NonFinal
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     TikTokShopClient tiktokShopClient;
+    /** Tiêm kiểu @Lazy vì KenhBanHangDongBoService nhận job này qua constructor, tiêm thẳng thì Spring báo vòng phụ thuộc khi khởi động. */
     @lombok.experimental.NonFinal
     @org.springframework.beans.factory.annotation.Autowired(required = false)
+    @org.springframework.context.annotation.Lazy
     KenhBanHangDongBoService kenhBanHangDongBoService;
     /** Thông báo đơn sàn: mới chờ gửi sang kho, thiếu dòng, khách yêu cầu hủy (test dựng tay không có thì bỏ qua). */
     @lombok.experimental.NonFinal
