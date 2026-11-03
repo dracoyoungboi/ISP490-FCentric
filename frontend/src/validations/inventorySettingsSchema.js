@@ -124,7 +124,7 @@ export const INVENTORY_SETTINGS = [
       {
         value: "QL_KHO_TONG_VA_KHO_XUAT",
         label: "Thêm quản lý kho xuất",
-        moTa: "Như trên, thêm quản lý của kho gửi hàng trên phiếu (làm việc tại kho đó).",
+        moTa: "Như trên, thêm quản lý của kho gửi hàng trên phiếu (làm việc tại kho đó). Họ chọn Giao bù thì phiếu giao bù chờ Quản lý Kho tổng duyệt.",
       },
       {
         value: "CHI_QUAN_TRI",
