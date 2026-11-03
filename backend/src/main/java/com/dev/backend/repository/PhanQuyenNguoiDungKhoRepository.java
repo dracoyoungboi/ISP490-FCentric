@@ -1,6 +1,7 @@
 package com.dev.backend.repository;
 
 import com.dev.backend.dto.response.entities.KhoPhuTrachInfoDto;
+import com.dev.backend.entities.NguoiDung;
 import com.dev.backend.entities.PhanQuyenNguoiDungKho;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -134,6 +135,26 @@ public interface PhanQuyenNguoiDungKhoRepository extends JpaRepository<PhanQuyen
             """)
     boolean coHieuLucTaiKho(@Param("nguoiDungId") Integer nguoiDungId, @Param("khoId") Integer khoId,
                             @Param("now") Instant now);
+
+    /**
+     * Người dùng mang một trong các vai trò {@code vaiTros}, tài khoản đang hoạt động, có phân quyền hiệu lực tại
+     * {@code now} ở kho {@code khoId}; xếp theo họ tên. Dùng cho danh sách người nhặt của phiếu nhặt hàng.
+     */
+    @Query("""
+            SELECT nd FROM NguoiDung nd
+            WHERE nd.vaiTro IN :vaiTros
+              AND nd.trangThai = 1
+              AND EXISTS (
+                  SELECT 1 FROM PhanQuyenNguoiDungKho pqndk
+                  WHERE pqndk.nguoiDung = nd
+                    AND pqndk.kho.id = :khoId
+                    AND pqndk.trangThai = 1
+                    AND (pqndk.ngayBatDau IS NULL OR pqndk.ngayBatDau <= :now)
+                    AND (pqndk.ngayKetThuc IS NULL OR pqndk.ngayKetThuc > :now))
+            ORDER BY nd.hoTen, nd.id
+            """)
+    List<NguoiDung> nguoiDungTheoKhoVaVaiTroTai(@Param("khoId") Integer khoId, @Param("vaiTros") Collection<String> vaiTros,
+                                                @Param("now") Instant now);
 
     /**
      * Như {@link #nguoiDungTheoKhoTai} nhưng theo loại kho (vd. kho_tong): quản lý Kho tổng = quản lý kho đang được phân

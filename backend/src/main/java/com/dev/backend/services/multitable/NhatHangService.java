@@ -59,6 +59,12 @@ public interface NhatHangService {
     DanhSachNhatHangDto phanCongNguoiNhat(Integer id, PhanCongNguoiNhatRequest request);
 
     /**
+     * Người giao nhặt được cho phiếu nhặt: nhân viên kho / quản lý kho đang hoạt động, có phân quyền hiệu lực tại kho
+     * của phiếu; xếp theo họ tên.
+     */
+    java.util.List<com.dev.backend.dto.response.customize.NguoiNhatHopLeDto> getNguoiNhatHopLe(Integer pickListId);
+
+    /**
      * API 4: Quét barcode đối soát mặt hàng và cập nhật số lượng đã nhặt (SRS 6.3.1 Execute Picking)
      */
     com.dev.backend.dto.response.customize.KetQuaQuetBarcodeDto quetBarcode(Integer pickListId, com.dev.backend.dto.request.QuetBarcodeRequest request);

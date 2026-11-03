@@ -12,6 +12,7 @@ import com.dev.backend.dto.response.customize.DonChoXuatDto;
 import com.dev.backend.dto.response.customize.HangCanHoanKeDto;
 import com.dev.backend.dto.response.customize.KetQuaQuetBarcodeDto;
 import com.dev.backend.dto.response.customize.LoKhaDungNhatHangDto;
+import com.dev.backend.dto.response.customize.NguoiNhatHopLeDto;
 import com.dev.backend.dto.response.entities.DanhSachNhatHangDto;
 import com.dev.backend.services.multitable.NhatHangService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -144,6 +145,25 @@ public class NhatHangController {
                 dto,
                 null,
                 "Phân công nhân viên nhặt hàng thành công"
+        ));
+    }
+
+    @GetMapping("/pick-list/{id}/nguoi-nhat")
+    @RequireAuth(
+            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho},
+            inWarehouse = true,
+            rolesLogic = RequireAuth.LogicType.OR
+    )
+    @Operation(
+            summary = "Người giao nhặt được cho phiếu nhặt",
+            description = "Nhân viên kho / quản lý kho đang hoạt động và có phân quyền hiệu lực tại kho của phiếu, xếp theo họ tên. Quản trị viên không có trong danh sách (chỉ tự nhận việc)."
+    )
+    public ResponseEntity<ResponseData<List<NguoiNhatHopLeDto>>> getNguoiNhatHopLe(@PathVariable Integer id) {
+        return ResponseEntity.ok(new ResponseData<>(
+                HttpStatus.OK.value(),
+                nhatHangService.getNguoiNhatHopLe(id),
+                null,
+                "Lấy danh sách người nhặt thành công"
         ));
     }
 

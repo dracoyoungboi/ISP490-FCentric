@@ -17,6 +17,7 @@ import com.dev.backend.dto.response.customize.DonChoXuatDto;
 import com.dev.backend.dto.response.customize.HangCanHoanKeDto;
 import com.dev.backend.dto.response.customize.KetQuaQuetBarcodeDto;
 import com.dev.backend.dto.response.customize.LoKhaDungNhatHangDto;
+import com.dev.backend.dto.response.customize.NguoiNhatHopLeDto;
 import com.dev.backend.dto.response.customize.PhanBoLoDto;
 import com.dev.backend.dto.response.entities.ChiTietNhatHangDto;
 import com.dev.backend.dto.response.entities.DanhSachNhatHangDto;
@@ -1368,6 +1369,23 @@ public class NhatHangServiceImpl implements NhatHangService {
         thongBaoXuatKhoService.daGiaoPhieuNhat(pickList, oldPickerId, assignee.getId(), authUser.getId());
 
         return getChiTietPickList(pickList.getId());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<NguoiNhatHopLeDto> getNguoiNhatHopLe(Integer pickListId) {
+        DanhSachNhatHang pickList = danhSachNhatHangRepository.findById(pickListId)
+                .orElseThrow(() -> new CommonException("Không tìm thấy đợt nhặt hàng Pick List ID: " + pickListId));
+        kiemTraKhoPhieuNhat(pickList);
+        return phanQuyenNguoiDungKhoRepository
+                .nguoiDungTheoKhoVaVaiTroTai(pickList.getKhoXuat().getId(), VAI_TRO_NHAT_HANG, Instant.now()).stream()
+                .map(nd -> NguoiNhatHopLeDto.builder()
+                        .id(nd.getId())
+                        .hoTen(nd.getHoTen())
+                        .tenDangNhap(nd.getTenDangNhap())
+                        .vaiTro(nd.getVaiTro())
+                        .build())
+                .collect(Collectors.toList());
     }
 
     /** READ_COMMITTED: sau khi chờ khóa dòng nhặt / phiếu nhặt, các lần đọc tiếp thấy bản vừa ghi xong (xem khoaDongVaPhieuNhat). */
