@@ -1978,14 +1978,11 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
         List<DongCanCapNhat> dirtyList = new ArrayList<>();
         int soBoQuaKhongDoi = 0;
-        Map<Integer, Integer> mapGiuHang = layMapGiuHangTheoKenh(kenh.getId());
 
         for (TrangThaiDongBoSanPham dong : dongCanDay) {
             BienTheSanPham bt = dong.getBienTheSanPham();
             if (bt == null || bt.getMaSku() == null || bt.getMaSku().isBlank()) continue;
-            int targetSellable = tinhSoTonDay(khaDungToanChuoi(bt.getId()), tyLe, tonDem, nguongVe0);
-            int soGiu = mapGiuHang.getOrDefault(bt.getId(), 0);
-            int soDay = targetSellable + soGiu;
+            int soDay = tinhSoTonDay(khaDungToanChuoi(bt.getId()), tyLe, tonDem, nguongVe0);
 
             boolean daThanhCong = "thanh_cong".equalsIgnoreCase(dong.getTrangThaiDongBo());
             boolean soTonKhongDoi = dong.getSoLuongDaDay() != null && dong.getSoLuongDaDay().equals(soDay);
@@ -3394,10 +3391,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
      */
     KetQuaGuiTon dayTonChoDong(TrangThaiDongBoSanPham dong, KetNoiDayTon ketNoi, int soDay) {
         KetQuaGuiTon kq;
-        int soThucTeGui = soDay;
         if (dong.getKenhBanHang() != null && OmnichannelOrderSyncJob.MA_KENH_LAZADA.equalsIgnoreCase(dong.getKenhBanHang().getMaKenh())) {
-            soThucTeGui = tinhSoTonDayLazadaCoBu(dong, soDay);
-            kq = guiTonLenLazada(dong, soThucTeGui);
+            kq = guiTonLenLazada(dong, soDay);
         } else {
             BienTheSanPham bt = dong.getBienTheSanPham();
             String maSku = bt != null ? bt.getMaSku() : null;
@@ -3410,7 +3405,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         if (kq.thanhCong()) {
             dong.setTrangThaiDongBo("thanh_cong");
             dong.setChiTietLoi(null);
-            dong.setSoLuongDaDay(soThucTeGui);
+            dong.setSoLuongDaDay(soDay);
             dong.setNgayDayTonCuoi(now);
             dong.setNgayDongBoCuoi(now);
         } else if (!kq.loiKenh()) {
@@ -3523,48 +3518,6 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         }
 
         return batch.stream().filter(it -> it.soDay() == 0).findFirst().orElse(null);
-    }
-
-    private Map<Integer, Integer> layMapGiuHangTheoKenh(Integer kenhId) {
-        Map<Integer, Integer> map = new HashMap<>();
-        if (chiTietDonBanHangRepository == null || kenhId == null) {
-            return map;
-        }
-        try {
-            List<Object[]> rows = chiTietDonBanHangRepository.laySoLuongGiuHangTheoKenh(
-                    kenhId,
-                    ITrangThaiDonBanHang.DANG_GIU_HANG
-            );
-            for (Object[] r : rows) {
-                if (r != null && r.length >= 2 && r[0] != null) {
-                    Integer btId = (Integer) r[0];
-                    Number num = (Number) r[1];
-                    if (num != null && num.intValue() > 0) {
-                        map.put(btId, num.intValue());
-                    }
-                }
-            }
-        } catch (Exception ex) {
-            log.warn("Không lấy được số lượng giữ hàng cho kênh {}: {}", kenhId, ex.getMessage());
-        }
-        return map;
-    }
-
-    private int tinhSoTonDayLazadaCoBu(TrangThaiDongBoSanPham dong, int targetSellable) {
-        if (chiTietDonBanHangRepository == null || dong == null || dong.getKenhBanHang() == null || dong.getBienTheSanPham() == null) {
-            return targetSellable;
-        }
-        try {
-            BigDecimal soGiu = chiTietDonBanHangRepository.laySoLuongGiuHangTheoKenhVaBienThe(
-                    dong.getKenhBanHang().getId(),
-                    dong.getBienTheSanPham().getId(),
-                    ITrangThaiDonBanHang.DANG_GIU_HANG
-            );
-            int giu = soGiu != null ? soGiu.intValue() : 0;
-            return targetSellable + giu;
-        } catch (Exception ex) {
-            return targetSellable;
-        }
     }
 
     public static String dichLoiLazada(String code, String rawMsg) {
