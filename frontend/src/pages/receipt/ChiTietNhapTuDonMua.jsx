@@ -19,6 +19,7 @@ import MauKichCo from "@/components/chung-tu/MauKichCo";
 import DongThongBao from "@/components/nhap-kho/DongThongBao";
 import HopBienBanTraHang from "@/components/nhap-kho/HopBienBanTraHang";
 import HopXacNhanNhapKho from "@/components/nhap-kho/HopXacNhanNhapKho";
+import TheHoaDonNhaCungCap from "@/components/nhap-kho/TheHoaDonNhaCungCap";
 import { DaiO, OBuoc, ThanhMuc, TienDoSo } from "@/components/nhap-kho/ThanhBuoc";
 import { quyTacTonKho } from "@/components/channel/cauHinhDongBo";
 import { ketQuaDayTon } from "@/components/channel/ketQuaThaoTac";
@@ -402,6 +403,13 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
           />
         </DaiO>
       )}
+
+      {daNhap ? (
+        <TheHoaDonNhaCungCap
+          phieuNhapKhoId={id}
+          coTheSua={hasAnyRole([ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO, ROLES.NHAN_VIEN_MUA_HANG])}
+        />
+      ) : null}
 
       <TableShell
         toolbar={
