@@ -215,6 +215,44 @@ public class LazadaClient {
     }
 
     /**
+     * Lấy thông tin mã vận đơn (tracking_code), package_id và đơn vị vận chuyển từ Lazada (/order/items/get).
+     */
+    public com.dev.backend.dto.response.customize.LazadaOrderTrackingDto getOrderTracking(String appKey, String appSecret, String accessToken, String orderId) {
+        if (orderId == null || orderId.isBlank()) {
+            return new com.dev.backend.dto.response.customize.LazadaOrderTrackingDto("", "", "");
+        }
+        try {
+            JsonNode res = getOrderItems(appKey, appSecret, accessToken, orderId.trim());
+            if (res != null && "0".equals(res.path("code").asText("0"))) {
+                JsonNode data = res.path("data");
+                if (data.isArray() && !data.isEmpty()) {
+                    String bestTracking = "";
+                    String bestPackage = "";
+                    String bestProvider = "";
+                    for (JsonNode it : data) {
+                        String tracking = it.path("tracking_code").asText("").trim();
+                        String pkg = it.path("package_id").asText("").trim();
+                        String provider = it.path("shipment_provider").asText("").trim();
+                        if (!tracking.isBlank() && bestTracking.isBlank()) {
+                            bestTracking = tracking;
+                        }
+                        if (!pkg.isBlank() && bestPackage.isBlank()) {
+                            bestPackage = pkg;
+                        }
+                        if (!provider.isBlank() && bestProvider.isBlank()) {
+                            bestProvider = provider;
+                        }
+                    }
+                    return new com.dev.backend.dto.response.customize.LazadaOrderTrackingDto(bestTracking, bestPackage, bestProvider);
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("Lỗi khi tra cứu mã vận đơn Lazada cho đơn {}: {}", orderId, ex.getMessage());
+        }
+        return new com.dev.backend.dto.response.customize.LazadaOrderTrackingDto("", "", "");
+    }
+
+    /**
      * Đóng gói đơn hàng trên sàn Lazada (/order/fulfill/pack).
      * Chuyển trạng thái đơn/sản phẩm từ pending sang packed và sinh package_id.
      */
