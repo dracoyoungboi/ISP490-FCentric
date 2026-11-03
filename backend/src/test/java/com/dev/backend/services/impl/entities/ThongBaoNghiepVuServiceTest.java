@@ -481,7 +481,7 @@ class ThongBaoNghiepVuServiceTest {
         assertEquals("", ThongBaoXuatKhoService.lyDoHuySan(null));
     }
 
-    // ══════════════════════════ K1 Kiểm kê lệch ══════════════════════════
+    // ══════════════════════════ Kiểm kê ══════════════════════════
 
     private DotKiemKe dot() {
         DotKiemKe d = new DotKiemKe();
@@ -489,36 +489,6 @@ class ThongBaoNghiepVuServiceTest {
         d.setMaDotKiemKe("KK0005");
         d.setKho(cuaHang);
         return d;
-    }
-
-    @Test
-    @DisplayName("K1: có lô lệch → quản lý kho (trừ người hoàn thành), kèm tổng thừa / thiếu")
-    void k1_coLech() {
-        when(pqRepo.nguoiDungTheoKhoTai(eq(List.of(CUA_HANG)), eq(IRoleType.quan_ly_kho), any())).thenReturn(List.of(21, 22));
-        kiemKe.daHoanThanh(dot(), 2, new BigDecimal("1"), new BigDecimal("3"), nguoi(22, IRoleType.quan_ly_kho));
-
-        assertEquals(Set.of(21), nguoiNhan());
-        ThongBao t = cuaNguoi(21);
-        assertEquals("Đợt kiểm kê KK0005 lệch 2 lô", t.getTieuDe());
-        assertEquals("Cửa hàng 1: thừa 1, thiếu 3 sản phẩm. Tồn kho đã cập nhật theo số đếm.", t.getMoTa());
-        assertEquals("/stock-take/15", t.getDuongDan());
-        assertEquals("ton_kho", t.getLoai());
-        assertEquals("Kiểm kê", ThongBaoService.dong(t).getNhom());
-    }
-
-    @Test
-    @DisplayName("K1: không lô nào lệch → không gửi")
-    void k1_khongLech() {
-        kiemKe.daHoanThanh(dot(), 0, BigDecimal.ZERO, BigDecimal.ZERO, nguoi(60, IRoleType.nhan_vien_kho));
-        verifyNoInteractions(thongBaoRepo);
-    }
-
-    @Test
-    @DisplayName("K1: kho không có quản lý → quản trị viên")
-    void k1_khongQuanLy() {
-        when(pqRepo.nguoiDungTheoKhoTai(eq(List.of(CUA_HANG)), eq(IRoleType.quan_ly_kho), any())).thenReturn(List.of());
-        kiemKe.daHoanThanh(dot(), 1, BigDecimal.ZERO, new BigDecimal("2"), nguoi(60, IRoleType.nhan_vien_kho));
-        assertEquals(Set.of(1, 2), nguoiNhan());
     }
 
     // ══════════════════════════ Chung ══════════════════════════
@@ -544,7 +514,7 @@ class ThongBaoNghiepVuServiceTest {
         when(ndRepo.idDangHoatDongTheoVaiTro(any())).thenThrow(new RuntimeException("mất kết nối"));
         assertDoesNotThrow(() -> muaHang.yeuCauChoDuyet(yeuCau(), nguoi(40, IRoleType.nhan_vien_mua_hang), 1));
         assertDoesNotThrow(() -> xuatKho.sanHuyDonDaXuat(don(), null));
-        assertDoesNotThrow(() -> kiemKe.daHoanThanh(dot(), 1, BigDecimal.ONE, BigDecimal.ZERO, null));
+        assertDoesNotThrow(() -> kiemKe.choDuyet(dot(), 1, 1, 0, null));
         assertTrue(daLuu().isEmpty());
     }
 
@@ -553,7 +523,7 @@ class ThongBaoNghiepVuServiceTest {
     void chupLoiKhongNem() {
         assertDoesNotThrow(() -> muaHang.yeuCauChoDuyet(null, null, 0));
         assertDoesNotThrow(() -> xuatKho.donHuyTrongPhieuNhat(null, don(), GiaiDoanHuy.DANG_NHAT, catKe("A", 1), false));
-        assertDoesNotThrow(() -> kiemKe.daHoanThanh(null, 1, null, null, null));
+        assertDoesNotThrow(() -> kiemKe.choDuyet(null, 1, 0, 0, null));
         verifyNoInteractions(thongBaoRepo);
     }
 }
