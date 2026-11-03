@@ -22,13 +22,15 @@ public interface IPrintTemplateConfig {
             "sales_quotation",
             "sales_invoice",
             // Hóa đơn bán hàng in tại quầy (máy in nhiệt K80/K57) — mẫu riêng để đơn bán in A4/A5 không đổi theo
-            "pos_invoice"
+            "pos_invoice",
+            // Phiếu đóng gói kèm hàng đơn sàn TMĐT (Lazada, Shopee, TikTok) — in khổ A6 tem nhiệt hoặc A5/A4/K80
+            "ecommerce_packing_slip"
     );
 
-    Set<String> PAPER_SIZES = Set.of("A4", "A5", "K80", "K57");
+    Set<String> PAPER_SIZES = Set.of("A4", "A5", "K80", "K57", "A6");
 
-    /** Khổ giấy nhiệt (máy in hóa đơn) — luôn in khổ dọc. */
-    Set<String> THERMAL_PAPER_SIZES = Set.of("K80", "K57");
+    /** Khổ giấy nhiệt (máy in hóa đơn / tem mã vạch) — luôn in khổ dọc. */
+    Set<String> THERMAL_PAPER_SIZES = Set.of("K80", "K57", "A6");
 
     /** Loại chứng từ chỉ in khổ nhiệt: mẫu mặc định là K80 thay vì A4. */
     Set<String> THERMAL_ONLY_DOCUMENT_TYPES = Set.of("pos_invoice");
@@ -61,17 +63,23 @@ public interface IPrintTemplateConfig {
      */
     static boolean isRegistryTemplateId(String documentType, String templateId) {
         if (templateId == null) return false;
-        return templateId.matches(Pattern.quote(documentType) + "_default_(A4|A5|K80|K57)");
+        return templateId.matches(Pattern.quote(documentType) + "_default_(A4|A5|K80|K57|A6)");
     }
 
     /**
      * templateId mà frontend thực sự dùng để in (khớp paperProfiles trong printSchemas.js): chứng từ khổ
-     * tờ chỉ A4/A5, loại chỉ in nhiệt (hóa đơn tại quầy) chỉ K80/K57. Dòng cũ khác khổ còn trong DB
-     * (vd. sales_invoice_default_K80 trước khi tách mẫu tại quầy) không bao giờ là mẫu đang in.
+     * tờ chỉ A4/A5, loại chỉ in nhiệt (hóa đơn tại quầy) chỉ K80/K57, đơn sàn TMĐT hỗ trợ A6/A5/A4/K80.
      */
     static boolean isFrontendTemplateId(String documentType, String templateId) {
         if (documentType == null || templateId == null) return false;
-        Set<String> sizes = THERMAL_ONLY_DOCUMENT_TYPES.contains(documentType) ? THERMAL_PAPER_SIZES : Set.of("A4", "A5");
+        Set<String> sizes;
+        if ("ecommerce_packing_slip".equals(documentType)) {
+            sizes = Set.of("A6", "A5", "A4", "K80");
+        } else if (THERMAL_ONLY_DOCUMENT_TYPES.contains(documentType)) {
+            sizes = THERMAL_PAPER_SIZES;
+        } else {
+            sizes = Set.of("A4", "A5");
+        }
         for (String size : sizes) {
             if (templateId.equals(documentType + "_default_" + size)) return true;
         }
@@ -80,6 +88,9 @@ public interface IPrintTemplateConfig {
 
     /** templateId mặc định của một loại chứng từ khi không có lựa chọn nào khác. */
     static String defaultTemplateId(String documentType) {
+        if ("ecommerce_packing_slip".equals(documentType)) {
+            return "ecommerce_packing_slip_default_A6";
+        }
         return documentType + (THERMAL_ONLY_DOCUMENT_TYPES.contains(documentType) ? "_default_K80" : "_default_A4");
     }
 }
