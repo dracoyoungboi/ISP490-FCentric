@@ -29,6 +29,8 @@ const O_DAU_TIEN = "textarea:not([disabled]), input:not([disabled]):not([type=hi
  * - Tiêu điểm khi mở: ô nhập đầu tiên trong phần thêm; không có ô nhập thì nút xác nhận (kiểu chính) hoặc "Quay lại"
  *   (kiểu nguy hiểm, hoặc nút xác nhận đang khóa). Đóng hộp: tiêu điểm về phần tử đã mở hộp; mở từ mục menu ⋯ (mục bị
  *   gỡ khi menu đóng) thì về nút ⋯.
+ * - `tieuDiemONhap` = false: không đặt tiêu điểm vào ô nhập (ô ý kiến không bắt buộc nằm cuối hộp: đặt vào đó thì thân
+ *   hộp cuộn xuống, che bảng phải đọc trước); dùng nút như hộp không có ô nhập.
  * - `tieuDiemQuayLai`: luôn đặt tiêu điểm vào "Quay lại" — cho màn có máy quét, vì phím Enter máy quét gửi sau mỗi mã
  *   sẽ bấm nút đang có tiêu điểm.
  * - `traTieuDiemVe` (ref): đóng hộp thì đưa tiêu điểm về phần tử này thay cho phần tử đã mở hộp (vd. ô quét mã, để mã
@@ -52,6 +54,7 @@ export default function HopXacNhanChungTu({
   lyDoKhoa,
   rong = false,
   tieuDiemQuayLai = false,
+  tieuDiemONhap = true,
   traTieuDiemVe,
   loi,
   onXacNhan,
@@ -78,7 +81,7 @@ export default function HopXacNhanChungTu({
     // Mục menu Radix nằm trong [role=menu] có aria-labelledby = id nút mở menu (nút ⋯ của DauChungTu)
     const idNutMenu = truoc?.closest?.('[role="menu"]')?.getAttribute("aria-labelledby");
     nutMenuRef.current = idNutMenu ? document.getElementById(idNutMenu) : null;
-    const o = thanRef.current?.querySelector(O_DAU_TIEN);
+    const o = tieuDiemONhap ? thanRef.current?.querySelector(O_DAU_TIEN) : null;
     const nut = kieu === "nguyHiem" || khoaNut || tieuDiemQuayLai ? quayLaiRef.current : xacNhanRef.current;
     (o ?? nut ?? quayLaiRef.current)?.focus();
   };
