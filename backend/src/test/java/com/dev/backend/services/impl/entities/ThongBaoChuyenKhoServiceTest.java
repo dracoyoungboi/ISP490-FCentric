@@ -311,57 +311,57 @@ class ThongBaoChuyenKhoServiceTest {
         assertEquals("Từ Cửa hàng 2, chưa hẹn giờ đến.", motThongBao().getMoTa());
     }
 
-    // ══════════════════════════ Nhận lệch → người xử lý chênh lệch theo cấu hình ══════════════════════════
+    // ══════════════════════════ Kho gửi xác nhận biên bản → người xử lý chênh lệch theo cấu hình ══════════════════════════
 
     private BienBanGiaoNhan bienBan() {
         return BienBanGiaoNhan.builder().id(70).soBienBan("BBGN-20261028-001").tongSoLuongThieu(2).tongSoLuongHong(1).build();
     }
 
     @Test
-    @DisplayName("Nhận lệch, mặc định QL_KHO_TONG: Quản lý Kho tổng nhận; quản lý kho xuất, quản trị viên không")
-    void nhanLech_macDinh_quanLyKhoTong() {
-        service.nhanLech(phieu(IChuyenKho.CHO_XU_LY_LECH), bienBan(), nguoi(21, IRoleType.quan_ly_kho));
+    @DisplayName("Kho gửi xác nhận biên bản, mặc định QL_KHO_TONG: Quản lý Kho tổng nhận; quản lý kho xuất, quản trị viên không")
+    void daXacNhanBienBan_macDinh_quanLyKhoTong() {
+        service.daXacNhanBienBan(phieu(IChuyenKho.CHO_XU_LY_LECH), bienBan(), nguoi(21, IRoleType.quan_ly_kho));
 
         assertEquals(Set.of(11, 12), nguoiNhan());
         ThongBao t = motThongBao();
         assertEquals("warning", t.getTone());
-        assertEquals("Phiếu chuyển PX-TRF-202610281 nhận lệch, chờ xử lý", t.getTieuDe());
-        assertEquals("Biên bản BBGN-20261028-001: thiếu 2, hỏng 1. Chọn ghi giảm hao hụt hoặc giao bù.", t.getMoTa());
-        assertEquals("PCK:50:NHAN_LECH", t.getKhoaSuKien());
+        assertEquals("Phiếu chuyển PX-TRF-202610281 chờ xử lý chênh lệch", t.getTieuDe());
+        assertEquals("Cửa hàng 2 đã xác nhận biên bản BBGN-20261028-001: thiếu 2, hỏng 1. Chọn ghi giảm hao hụt hoặc giao bù.", t.getMoTa());
+        assertEquals("PCK:50:XAC_NHAN_BB", t.getKhoaSuKien());
     }
 
     @Test
-    @DisplayName("Nhận lệch, QL_KHO_TONG_VA_KHO_XUAT: thêm quản lý kho xuất")
-    void nhanLech_themKhoXuat() {
+    @DisplayName("Kho gửi xác nhận biên bản, QL_KHO_TONG_VA_KHO_XUAT: thêm quản lý kho xuất")
+    void daXacNhanBienBan_themKhoXuat() {
         cheDo(IChuyenKho.XU_LY_LECH_QL_KHO_TONG_VA_KHO_XUAT);
-        service.nhanLech(phieu(IChuyenKho.CHO_XU_LY_LECH), bienBan(), nguoi(21, IRoleType.quan_ly_kho));
+        service.daXacNhanBienBan(phieu(IChuyenKho.CHO_XU_LY_LECH), bienBan(), nguoi(21, IRoleType.quan_ly_kho));
         assertEquals(Set.of(11, 12, 31), nguoiNhan());
     }
 
     @Test
-    @DisplayName("Nhận lệch, QL_KHO_TONG_VA_KHO_XUAT khi kho xuất là Kho tổng: không nhận hai lần")
-    void nhanLech_khoXuatLaKhoTong_khongTrung() {
+    @DisplayName("Kho gửi xác nhận biên bản, QL_KHO_TONG_VA_KHO_XUAT khi kho xuất là Kho tổng: không nhận hai lần")
+    void daXacNhanBienBan_khoXuatLaKhoTong_khongTrung() {
         cheDo(IChuyenKho.XU_LY_LECH_QL_KHO_TONG_VA_KHO_XUAT);
         PhieuChuyenKho p = phieu(IChuyenKho.CHO_XU_LY_LECH);
         p.setKhoXuat(khoTong);
-        service.nhanLech(p, bienBan(), nguoi(21, IRoleType.quan_ly_kho));
+        service.daXacNhanBienBan(p, bienBan(), nguoi(21, IRoleType.quan_ly_kho));
         assertEquals(Set.of(11, 12), nguoiNhan());
     }
 
     @Test
-    @DisplayName("Nhận lệch, CHI_QUAN_TRI: chỉ quản trị viên đang hoạt động nhận (chỉ họ xử lý được)")
-    void nhanLech_chiQuanTri() {
+    @DisplayName("Kho gửi xác nhận biên bản, CHI_QUAN_TRI: chỉ quản trị viên đang hoạt động nhận (chỉ họ xử lý được)")
+    void daXacNhanBienBan_chiQuanTri() {
         cheDo(IChuyenKho.XU_LY_LECH_CHI_QUAN_TRI);
-        service.nhanLech(phieu(IChuyenKho.CHO_XU_LY_LECH), bienBan(), nguoi(21, IRoleType.quan_ly_kho));
+        service.daXacNhanBienBan(phieu(IChuyenKho.CHO_XU_LY_LECH), bienBan(), nguoi(21, IRoleType.quan_ly_kho));
         assertEquals(Set.of(1, 2), nguoiNhan());
         verify(pqRepo, never()).nguoiDungTheoLoaiKhoTai(any(), any(), any());
     }
 
     @Test
-    @DisplayName("Nhận lệch, cấu hình giá trị lạ: theo mặc định Quản lý Kho tổng")
-    void nhanLech_cauHinhLa_macDinh() {
+    @DisplayName("Kho gửi xác nhận biên bản, cấu hình giá trị lạ: theo mặc định Quản lý Kho tổng")
+    void daXacNhanBienBan_cauHinhLa_macDinh() {
         cheDo("KHONG_RO");
-        service.nhanLech(phieu(IChuyenKho.CHO_XU_LY_LECH), bienBan(), nguoi(21, IRoleType.quan_ly_kho));
+        service.daXacNhanBienBan(phieu(IChuyenKho.CHO_XU_LY_LECH), bienBan(), nguoi(21, IRoleType.quan_ly_kho));
         assertEquals(Set.of(11, 12), nguoiNhan());
     }
 
@@ -407,26 +407,26 @@ class ThongBaoChuyenKhoServiceTest {
     }
 
     @Test
-    @DisplayName("Nhận lệch, mặc định QL_KHO_TONG, Kho tổng không có quản lý: gửi quản trị viên")
-    void nhanLech_macDinh_khoTongKhongCoQuanLy_guiQuanTri() {
+    @DisplayName("Kho gửi xác nhận biên bản, mặc định QL_KHO_TONG, Kho tổng không có quản lý: gửi quản trị viên")
+    void daXacNhanBienBan_macDinh_khoTongKhongCoQuanLy_guiQuanTri() {
         when(pqRepo.nguoiDungTheoLoaiKhoTai(eq("kho_tong"), eq(IRoleType.quan_ly_kho), any())).thenReturn(List.of());
-        service.nhanLech(phieu(IChuyenKho.CHO_XU_LY_LECH), bienBan(), nguoi(21, IRoleType.quan_ly_kho));
+        service.daXacNhanBienBan(phieu(IChuyenKho.CHO_XU_LY_LECH), bienBan(), nguoi(21, IRoleType.quan_ly_kho));
         assertEquals(Set.of(1, 2), nguoiNhan());
-        assertEquals("PCK:50:NHAN_LECH", motThongBao().getKhoaSuKien());
+        assertEquals("PCK:50:XAC_NHAN_BB", motThongBao().getKhoaSuKien());
     }
 
     @Test
-    @DisplayName("Nhận lệch, QL_KHO_TONG_VA_KHO_XUAT, Kho tổng không có quản lý: quản lý kho xuất nhận; cả hai trống thì quản trị viên")
-    void nhanLech_khoXuat_khoTongKhongCoQuanLy() {
+    @DisplayName("Kho gửi xác nhận biên bản, QL_KHO_TONG_VA_KHO_XUAT, Kho tổng không có quản lý: quản lý kho xuất nhận; cả hai trống thì quản trị viên")
+    void daXacNhanBienBan_khoXuat_khoTongKhongCoQuanLy() {
         cheDo(IChuyenKho.XU_LY_LECH_QL_KHO_TONG_VA_KHO_XUAT);
         when(pqRepo.nguoiDungTheoLoaiKhoTai(eq("kho_tong"), eq(IRoleType.quan_ly_kho), any())).thenReturn(List.of());
-        service.nhanLech(phieu(IChuyenKho.CHO_XU_LY_LECH), bienBan(), nguoi(21, IRoleType.quan_ly_kho));
+        service.daXacNhanBienBan(phieu(IChuyenKho.CHO_XU_LY_LECH), bienBan(), nguoi(21, IRoleType.quan_ly_kho));
         assertEquals(Set.of(31), nguoiNhan(), "còn quản lý kho xuất xử lý được: không cần quản trị viên");
         verify(ndRepo, never()).idDangHoatDongTheoVaiTro(any());
 
         reset(thongBaoRepo);
         when(pqRepo.nguoiDungTheoKhoTai(eq(List.of(CUA_HANG_2)), eq(IRoleType.quan_ly_kho), any())).thenReturn(List.of());
-        service.nhanLech(phieu(IChuyenKho.CHO_XU_LY_LECH), bienBan(), nguoi(21, IRoleType.quan_ly_kho));
+        service.daXacNhanBienBan(phieu(IChuyenKho.CHO_XU_LY_LECH), bienBan(), nguoi(21, IRoleType.quan_ly_kho));
         assertEquals(Set.of(1, 2), nguoiNhan());
     }
 
