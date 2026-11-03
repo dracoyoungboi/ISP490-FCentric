@@ -121,11 +121,6 @@ public class InventoryChannelSyncJob {
         threshold = Math.max(0, Math.min(threshold, 100));
 
         if (event.getSoLuongTonConLai() != null && event.getSoLuongTonConLai().compareTo(BigDecimal.valueOf(threshold)) < 0) {
-            // Đẩy tồn khẩn cấp hiện chỉ đẩy lên Shopify; tôn trọng công tắc "Tự động đẩy tồn" của kênh này
-            if (!KenhCauHinhDongBo.tuDongDayTon(dieuHanhHeThongService, KenhCauHinhDongBo.MA_KENH_SHOPIFY)) {
-                log.info("[JOB-03 Real-time] Kênh Shopify đang tắt tự động đẩy tồn, bỏ qua đẩy khẩn SKU ID {}", event.getBienTheSanPhamId());
-                return;
-            }
             log.warn("[JOB-03 Real-time] CẢNH BÁO TỒN KHO THẤP: SKU ID {} chỉ còn {} đơn vị (< {} units theo cấu hình). Kích hoạt đẩy tồn tức thì!",
                     event.getBienTheSanPhamId(), event.getSoLuongTonConLai(), threshold);
             try {

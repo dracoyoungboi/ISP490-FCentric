@@ -7,6 +7,8 @@ import com.dev.backend.services.KenhBanHangService;
 import com.dev.backend.services.lazada.LazadaClient;
 import com.dev.backend.services.multitable.DieuHanhHeThongService;
 import com.dev.backend.services.multitable.NhatHangService;
+import com.dev.backend.services.KenhBanHangDongBoService;
+import com.dev.backend.utils.SauCommit;
 import com.dev.backend.constant.variables.ITrangThaiDonBanHang;
 import com.dev.backend.services.impl.entities.DonBanHangService;
 import com.dev.backend.services.impl.entities.KhoService;
@@ -83,6 +85,9 @@ public class OmnichannelOrderSyncJob {
     @lombok.experimental.NonFinal
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     TikTokShopClient tiktokShopClient;
+    @lombok.experimental.NonFinal
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    KenhBanHangDongBoService kenhBanHangDongBoService;
     /** Thông báo đơn sàn: mới chờ gửi sang kho, thiếu dòng, khách yêu cầu hủy (test dựng tay không có thì bỏ qua). */
     @lombok.experimental.NonFinal
     @org.springframework.beans.factory.annotation.Autowired(required = false)
@@ -417,6 +422,11 @@ public class OmnichannelOrderSyncJob {
                             .ghiChu(itemNode.path("title").asText(""))
                             .build();
                     chiTietDonBanHangRepository.save(chiTiet);
+                    if (kenhBanHangDongBoService != null && matchedVariant != null && matchedVariant.getId() != null) {
+                        Integer btId = matchedVariant.getId();
+                        SauCommit.chay("Đẩy tồn cập nhật tức thì sau đơn Shopify mới",
+                                () -> kenhBanHangDongBoService.dayTonKhoKhanCap(btId));
+                    }
                 } else {
                     skuThieu.merge(maDongThieu(sku, variantId, itemNode.path("title").asText("")), qty.intValue(), Integer::sum);
                 }
@@ -896,6 +906,11 @@ public class OmnichannelOrderSyncJob {
                             .ghiChu(it.getProductName() != null ? it.getProductName() : "")
                             .build();
                     chiTietDonBanHangRepository.save(chiTiet);
+                    if (kenhBanHangDongBoService != null && bt != null && bt.getId() != null) {
+                        Integer btId = bt.getId();
+                        SauCommit.chay("Đẩy tồn cập nhật tức thì sau đơn Lazada mới",
+                                () -> kenhBanHangDongBoService.dayTonKhoKhanCap(btId));
+                    }
                 } else {
                     skuThieu.merge(maDongThieu(sellerSku, skuId, it.getProductName()), sl.intValue(), Integer::sum);
                 }
@@ -1077,6 +1092,11 @@ public class OmnichannelOrderSyncJob {
                                     .ghiChu(it.path("name").asText(""))
                                     .build();
                             chiTietDonBanHangRepository.save(chiTiet);
+                            if (kenhBanHangDongBoService != null && bt != null && bt.getId() != null) {
+                                Integer btId = bt.getId();
+                                SauCommit.chay("Đẩy tồn cập nhật tức thì sau đơn Lazada mới",
+                                        () -> kenhBanHangDongBoService.dayTonKhoKhanCap(btId));
+                            }
                         } else {
                             skuThieu.merge(maDongThieu(sellerSku, shopSku, sku, it.path("name").asText("")), soLuong.intValue(), Integer::sum);
                         }
