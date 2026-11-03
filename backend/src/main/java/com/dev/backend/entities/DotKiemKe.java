@@ -33,8 +33,12 @@ public class DotKiemKe {
     @Enumerated(EnumType.STRING)
     private LoaiKiemKe loaiKiemKe;
 
+    /** Thời điểm bắt đầu thực tế (Nháp chưa có). */
     @Column(name = "ngay_bat_dau")
     private Instant ngayBatDau;
+
+    @Column(name = "ngay_du_kien_bat_dau")
+    private Instant ngayDuKienBatDau;
 
     @Column(name = "ngay_ket_thuc")
     private Instant ngayKetThuc;
@@ -43,7 +47,7 @@ public class DotKiemKe {
     private Instant ngayHoanThanh;
 
     @Column(name = "trang_thai")
-    private Byte trangThai; // 0: mới tạo, 1: hoàn thành
+    private Byte trangThai; // IKiemKe: 0 Nháp, 1 Đang kiểm kê, 2 Chờ duyệt, 3 Đã duyệt, 4 Đã hủy
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "nguoi_chu_tri_id")
@@ -65,6 +69,31 @@ public class DotKiemKe {
     @Column(name = "ghi_chu")
     private String ghiChu;
 
+    /** Danh mục gốc của đợt theo danh mục; tập hậu duệ chốt ở dot_kiem_ke_danh_muc khi bắt đầu. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "danh_muc_id")
+    private DanhMucQuanAo danhMuc;
+
+    /** Tăng ở mỗi lần đổi nháp / đổi trạng thái; client gửi lại làm expectedVersion. */
+    @Column(name = "phien_ban", nullable = false)
+    @Builder.Default
+    private Long phienBan = 0L;
+
+    /** 1: đợt của luồng cũ (theo lô, không kệ); 2: đợt kiểm kê khoanh vùng. */
+    @Column(name = "phien_ban_pham_vi", nullable = false)
+    @Builder.Default
+    private Integer phienBanPhamVi = 2;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "nguoi_huy_id")
+    private NguoiDung nguoiHuy;
+
+    @Column(name = "ngay_huy")
+    private Instant ngayHuy;
+
+    @Column(name = "ly_do_huy")
+    private String lyDoHuy;
+
     @Column(name = "ngay_tao")
     private Instant ngayTao;
 
@@ -72,6 +101,6 @@ public class DotKiemKe {
     private Instant ngayCapNhat;
 
     public enum LoaiKiemKe {
-        toan_bo, theo_danh_muc, theo_khu_vuc, dot_xuat
+        toan_bo, theo_danh_muc, theo_khu_vuc, theo_ke, dot_xuat
     }
 }

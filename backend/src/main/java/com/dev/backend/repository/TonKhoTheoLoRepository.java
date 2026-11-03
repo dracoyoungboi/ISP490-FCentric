@@ -18,14 +18,10 @@ import java.util.Optional;
 @Repository
 public interface TonKhoTheoLoRepository extends JpaRepository<TonKhoTheoLo, Integer>, JpaSpecificationExecutor<TonKhoTheoLo> {
 
-    // FIX: Thêm method tìm tất cả lô theo kho (dùng trong PhieuKiemKeService.create)
     List<TonKhoTheoLo> findByKho_Id(Integer khoId);
 
-    // FIX: Thêm method tìm tồn kho theo kho + lô (dùng trong PhieuKiemKeService.complete)
     Optional<TonKhoTheoLo> findByKho_IdAndLoHang_Id(Integer khoId, Integer loHangId);
 
-    // FIX: Thêm method tìm chi tiết kiểm kê theo phiếu (dùng trong ChiTietKiemKeRepository nếu cần)
-    // (giữ nguyên các method cũ bên dưới)
 
     /** Tổng số lượng tồn (mọi lô) của từng kho — cột "Tồn kho" ở danh sách kho. Trả về [khoId, tổng]. */
     @Query("""

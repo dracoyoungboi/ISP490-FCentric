@@ -262,7 +262,7 @@ public class TongQuanVaiTroRepository {
                 WHERE c.trang_thai = 'DA_DUYET' AND %2$s)                                              AS pck_cho_xuat,
               (SELECT COUNT(*) FROM phieu_chuyen_kho c
                 WHERE c.trang_thai = 'DANG_VAN_CHUYEN' AND %2$s)                                       AS pck_dang_chuyen,
-              (SELECT COUNT(*) FROM dot_kiem_ke dk WHERE dk.trang_thai = 0 AND dk.kho_id = :khoId)       AS kiem_ke_mo
+              (SELECT COUNT(*) FROM dot_kiem_ke dk WHERE dk.trang_thai IN (1, 2) AND dk.kho_id = :khoId)       AS kiem_ke_mo
             """.formatted(DANG_VE, CHUYEN_CUA_KHO, DK_CHUYEN_DEN, DK_CHUYEN_CHO_XUAT);
 
     /**
@@ -337,10 +337,10 @@ public class TongQuanVaiTroRepository {
                  FROM danh_sach_nhat_hang n
                 WHERE n.trang_thai IN ('cho_nhat', 'dang_nhat') AND n.nguoi_nhat_id IS NULL
                   AND n.kho_xuat_id = :khoId)                                                          AS pc_cu,
-              (SELECT COUNT(*) FROM dot_kiem_ke dk WHERE dk.trang_thai = 0 AND dk.kho_id = :khoId)       AS kk_so,
+              (SELECT COUNT(*) FROM dot_kiem_ke dk WHERE dk.trang_thai IN (1, 2) AND dk.kho_id = :khoId)       AS kk_so,
               (SELECT DATE_FORMAT(DATE_ADD(MIN(dk.ngay_tao), INTERVAL :lech MINUTE), %3$s)
-                 FROM dot_kiem_ke dk WHERE dk.trang_thai = 0 AND dk.kho_id = :khoId)                    AS kk_cu,
-              (SELECT dk.ten_dot_kiem_ke FROM dot_kiem_ke dk WHERE dk.trang_thai = 0 AND dk.kho_id = :khoId
+                 FROM dot_kiem_ke dk WHERE dk.trang_thai IN (1, 2) AND dk.kho_id = :khoId)                    AS kk_cu,
+              (SELECT dk.ten_dot_kiem_ke FROM dot_kiem_ke dk WHERE dk.trang_thai IN (1, 2) AND dk.kho_id = :khoId
                 ORDER BY dk.ngay_tao IS NULL, dk.ngay_tao, dk.id LIMIT 1)                               AS kk_ten
             """.formatted(PCK_CHO_KHO_TONG_DUYET,
             "d.loai_chung_tu = 'don_ban_hang' AND d.trang_thai IN (1, 2) AND d.danh_sach_nhat_hang_id IS NULL"
@@ -605,7 +605,7 @@ public class TongQuanVaiTroRepository {
                 + " + (SELECT COUNT(*) FROM phieu_chuyen_kho c WHERE " + DK_CHUYEN_CHO_XUAT + ")", thamSo(khoId));
     }
 
-    private static final String DK_KIEM_KE = "dk.trang_thai = 0 AND dk.kho_id = :khoId";
+    private static final String DK_KIEM_KE = "dk.trang_thai IN (1, 2) AND dk.kho_id = :khoId";
 
     static final String SQL_VIEC_KIEM_KE = """
             SELECT dk.id, dk.ma_dot_kiem_ke AS ma, dk.ten_dot_kiem_ke AS doi_tac,

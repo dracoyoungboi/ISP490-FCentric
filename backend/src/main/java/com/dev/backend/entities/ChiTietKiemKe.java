@@ -20,7 +20,6 @@ public class ChiTietKiemKe {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    // Không FK → chỉ là Integer group ID
     @Column(name = "dot_kiem_ke_id")
     private Integer dotKiemKeId;
 
@@ -47,7 +46,7 @@ public class ChiTietKiemKe {
     @Column(name = "chenh_lech_so_luong", precision = 15, scale = 3)
     private BigDecimal chenhLechSoLuong;
 
-    @Column(name = "ti_le_chenh_lech", precision = 10, scale = 2)
+    @Column(name = "ti_le_chenh_lech", precision = 18, scale = 2)
     private BigDecimal tiLeChenhLech;
 
     @Column(name = "gia_tri_chenh_lech", precision = 15, scale = 2)
@@ -57,11 +56,23 @@ public class ChiTietKiemKe {
     @Enumerated(EnumType.STRING)
     private LoaiChenhLech loaiChenhLech;
 
+    /** Mã kệ lúc chốt (chỉ để hiển thị / in; kệ thật ở viTriKe). */
     @Column(name = "vi_tri_kho", length = 200)
     private String viTriKho;
 
-    @Column(name = "lan_kiem_dem")
-    private Byte lanKiemDem;
+    /** Kệ của dòng; NULL ở dòng của luồng cũ (chưa biết kệ). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "vi_tri_kho_id")
+    private ViTriKho viTriKe;
+
+    @Column(name = "lan_kiem_dem", nullable = false)
+    @Builder.Default
+    private Integer lanKiemDem = 1;
+
+    /** Tăng ở mỗi lần lưu dòng; hai máy cùng sửa một dòng thì máy gửi phiên bản cũ nhận 409. */
+    @Column(name = "phien_ban", nullable = false)
+    @Builder.Default
+    private Long phienBan = 0L;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "nguoi_kiem_dem_id")
@@ -71,7 +82,7 @@ public class ChiTietKiemKe {
     private Instant ngayKiemDem;
 
     @Column(name = "trang_thai")
-    private Byte trangThai;
+    private Byte trangThai; // IKiemKe: 0 Chưa kiểm, 1 Đã kiểm, 2 Cần kiểm lại, 3 Đã xác nhận
 
     @Column(name = "ly_do_chenh_lech")
     private String lyDoChenhLech;

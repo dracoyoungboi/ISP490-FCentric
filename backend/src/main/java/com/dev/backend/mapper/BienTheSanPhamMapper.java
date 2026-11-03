@@ -19,7 +19,7 @@ public interface BienTheSanPhamMapper {
     List<BienTheSanPhamDto> toDtoList(List<BienTheSanPham> entities);
 
     /**
-     * Tên ghép "TênSảnPhẩm - TênMàu / TênSize", cùng định dạng với PhieuKiemKeService.buildTenBienThe.
+     * Tên ghép "TênSảnPhẩm - TênMàu / TênSize".
      * Không có thông tin nào -> trả về mã SKU.
      */
     default String buildTenBienThe(BienTheSanPham bt) {

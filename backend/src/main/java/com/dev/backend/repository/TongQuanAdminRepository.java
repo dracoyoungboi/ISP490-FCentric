@@ -690,7 +690,7 @@ public class TongQuanAdminRepository {
                 WHERE p.trang_thai = 'CHO_XU_LY_LECH'
                   AND (:khoId IS NULL OR p.kho_xuat_id = :khoId OR p.kho_nhap_id = :khoId)) AS pck_cho_xu_ly_lech,
               (SELECT COUNT(*) FROM dot_kiem_ke dk
-                WHERE dk.trang_thai = 0 AND (:khoId IS NULL OR dk.kho_id = :khoId))        AS kiem_ke_mo,
+                WHERE dk.trang_thai IN (1, 2) AND (:khoId IS NULL OR dk.kho_id = :khoId))  AS kiem_ke_mo,
               (SELECT COUNT(*) FROM nguoi_dung u WHERE u.trang_thai = 0)                   AS tk_khoa,
               (SELECT COUNT(*) FROM don_mua_hang dm
                 WHERE dm.trang_thai IN (3, 5)
@@ -834,14 +834,14 @@ public class TongQuanAdminRepository {
                  AND (:khoId IS NULL OR d.kho_xuat_id = :khoId)
                ORDER BY d.ngay_dat_hang DESC, d.id DESC LIMIT :soDong)
               UNION ALL
-              (SELECT 'kiem_ke', dk.id, dk.ma_dot_kiem_ke, dk.ngay_hoan_thanh, k.ten_kho, u.ho_ten,
+              (SELECT 'kiem_ke', dk.id, dk.ma_dot_kiem_ke, COALESCE(dk.ngay_duyet, dk.ngay_hoan_thanh), k.ten_kho, u.ho_ten,
                       dk.ten_dot_kiem_ke, NULL
                FROM dot_kiem_ke dk
                JOIN kho k             ON k.id = dk.kho_id
                LEFT JOIN nguoi_dung u ON u.id = dk.nguoi_chu_tri_id
-               WHERE dk.trang_thai = 1 AND dk.ngay_hoan_thanh IS NOT NULL
+               WHERE dk.trang_thai = 3 AND COALESCE(dk.ngay_duyet, dk.ngay_hoan_thanh) IS NOT NULL
                  AND (:khoId IS NULL OR dk.kho_id = :khoId)
-               ORDER BY dk.ngay_hoan_thanh DESC, dk.id DESC LIMIT :soDong)
+               ORDER BY COALESCE(dk.ngay_duyet, dk.ngay_hoan_thanh) DESC, dk.id DESC LIMIT :soDong)
             ) x
             ORDER BY x.thoi_gian_goc DESC, x.id DESC
             LIMIT :soDong

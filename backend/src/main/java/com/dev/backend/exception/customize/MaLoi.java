@@ -97,4 +97,30 @@ public final class MaLoi {
      * Ngừng hoạt động). data: sanPhamId, maSanPham của sản phẩm đã có.
      */
     public static final String TEN_SAN_PHAM_TRUNG = "TEN_SAN_PHAM_TRUNG";
+
+    // ---------------- Kiểm kê khoanh vùng (đặc tả BA 03/11, mục 9.2) ----------------
+
+    /** 409 · Phạm vi giao thoa với đợt khác đang giữ khóa. data: vanDe (danh sách mã đợt, kệ / lô, loại khóa). */
+    public static final String STK_SCOPE_CONFLICT = "STK_SCOPE_CONFLICT";
+    /** 409 · Còn phiếu nhặt đang mở, phiếu xuất đã nhặt chưa xuất hoặc QR payOS đang giữ hàng trong phạm vi. data: vanDe. */
+    public static final String STK_PENDING_PICK = "STK_PENDING_PICK";
+    /** 400 · Khu vực / kệ khác kho, thiếu lựa chọn, kho ảo, danh mục sai, kệ bảo trì, tồn chưa có kệ. data: vanDe. */
+    public static final String STK_INVALID_SCOPE = "STK_INVALID_SCOPE";
+    /** 409 · Thao tác không hợp lệ với trạng thái hiện tại của đợt hoặc dòng. data: trangThai. */
+    public static final String STK_INVALID_STATE = "STK_INVALID_STATE";
+    /** 409 · Còn dòng chưa kiểm / cần kiểm lại hoặc dòng lệch thiếu lý do. data: chuaKiem, canKiemLai, thieuLyDo. */
+    public static final String STK_COUNT_INCOMPLETE = "STK_COUNT_INCOMPLETE";
+    /** 409 · Tồn tại kệ khác số đã chốt lúc bắt đầu; không duyệt. data: vanDe. */
+    public static final String STK_STOCK_CHANGED = "STK_STOCK_CHANGED";
+    /** 409 · Tồn sau điều chỉnh thấp hơn phần đang giữ cho đơn. data: vanDe. */
+    public static final String STK_RESERVED_EXCEEDS_STOCK = "STK_RESERVED_EXCEEDS_STOCK";
+    /** 409 · expectedVersion không khớp, hoặc Idempotency-Key đã dùng cho yêu cầu khác. data: phienBan. */
+    public static final String STK_VERSION_CONFLICT = "STK_VERSION_CONFLICT";
+    /**
+     * 409 · Luồng nhập / xuất / bán / nhặt / sửa dữ liệu chủ chạm phạm vi đợt đang kiểm kê hoặc chờ duyệt.
+     * data: dotKiemKeId, maDotKiemKe, viTri, maLo.
+     */
+    public static final String STK_LOCKED = "STK_LOCKED";
+    /** 503 · CSDL chưa chạy migration-2026-11-03-kiem-ke-khoanh-vung.sql. */
+    public static final String STK_NOT_READY = "STK_NOT_READY";
 }

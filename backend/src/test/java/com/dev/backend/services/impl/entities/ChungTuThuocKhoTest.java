@@ -3,9 +3,7 @@ package com.dev.backend.services.impl.entities;
 import com.dev.backend.config.SecurityContextHolder;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.constant.variables.ITrangThaiPhieuXuat;
-import com.dev.backend.dto.request.ChiTietKiemKeUpdate;
 import com.dev.backend.dto.request.inbound.KhuVucKhoRequest;
-import com.dev.backend.dto.request.PhieuKiemKeCreate;
 import com.dev.backend.dto.response.entities.KhoDto;
 import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
 import com.dev.backend.dto.response.entities.PhanQuyenNguoiDungKhoDto;
@@ -24,7 +22,6 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
@@ -57,10 +54,7 @@ class ChungTuThuocKhoTest {
     @Mock private TonKhoTheoLoRepository tonRepo;
     @Mock private NguoiDungRepository ndRepo;
     @Mock private PhieuNhapKhoRepository pnRepo;
-    @Mock private DotKiemKeRepository dotRepo;
-    @Mock private ChiTietKiemKeRepository ctKkRepo;
     @Mock private KhoRepository khoRepo;
-    @Mock private LichSuGiaoDichKhoService lichSuService;
     @Mock private KhuVucKhoRepository kvRepo;
     @Mock private ViTriKhoRepository vtRepo;
     @Mock private TonKhoViTriRepository tkvtRepo;
@@ -70,7 +64,6 @@ class ChungTuThuocKhoTest {
 
     private PhieuXuatKhoService px;
     private PhieuNhapKhoService pn;
-    private PhieuKiemKeService kk;
     private ViTriKhoServiceImpl vt;
 
     @BeforeEach
@@ -84,8 +77,6 @@ class ChungTuThuocKhoTest {
         ReflectionTestUtils.setField(pn, "phieuXuatKhoRepository", pxRepo);
         ReflectionTestUtils.setField(pn, "nguoiDungRepository", ndRepo);
 
-        kk = new PhieuKiemKeService(dotRepo, ctKkRepo, tonRepo, khoRepo, ndRepo, lichSuService,
-                mock(ThongBaoKiemKeService.class));
         vt = new ViTriKhoServiceImpl(khoRepo, kvRepo, vtRepo, tkvtRepo, mbRepo, ctPnRepo, loRepo, new ObjectMapper());
 
         for (int id : new int[]{A, B, C}) {
@@ -340,141 +331,6 @@ class ChungTuThuocKhoTest {
         assertEquals(HttpStatus.BAD_REQUEST, ex.getHttpStatus(), ex.getMessage());
         assertEquals(0, phieuNhap.getTrangThai());
         verify(tonRepo, never()).save(any());
-    }
-
-    // ═════════════ Kiểm kê (H-3) — đợt 10 của kho A, dòng 100 (lô 5, hệ thống 20) ═════════════
-
-    private TonKhoTheoLo kichBanKiemKe() {
-        DotKiemKe dot = DotKiemKe.builder().id(10).maDotKiemKe("KK1").trangThai((byte) 0).kho(kho(A)).build();
-        ChiTietKiemKe ct = ChiTietKiemKe.builder().id(100).dotKiemKeId(10).loHang(LoHang.builder().id(5).build())
-                .soLuongHeThong(new BigDecimal("20")).build();
-        TonKhoTheoLo tonA = TonKhoTheoLo.builder().kho(kho(A)).soLuongTon(new BigDecimal("20")).build();
-        when(dotRepo.findById(10)).thenReturn(Optional.of(dot));
-        when(dotRepo.khoaTheoId(10)).thenReturn(Optional.of(dot)); // hoàn thành khóa dòng đợt
-        when(ctKkRepo.findById(100)).thenReturn(Optional.of(ct));
-        when(tonRepo.findByKho_IdAndLoHang_Id(A, 5)).thenReturn(Optional.of(tonA));
-        when(ndRepo.findByEmail(any())).thenReturn(Optional.of(NguoiDung.builder().id(7).build()));
-        org.springframework.security.core.context.SecurityContextHolder.getContext()
-                .setAuthentication(new UsernamePasswordAuthenticationToken("nv@kho.test", null, List.of()));
-        return tonA;
-    }
-
-    private static List<ChiTietKiemKeUpdate> dem(Integer soLuong) {
-        return List.of(ChiTietKiemKeUpdate.builder().chiTietId(100).soLuongThucTe(soLuong).build());
-    }
-
-    @Test
-    void kiemKe_hoanThanh_tuKhoKhac_biChan_tonGiuNguyen() {
-        TonKhoTheoLo tonA = kichBanKiemKe();
-        dangNhap(IRoleType.nhan_vien_kho, B, B);
-
-        biChan(() -> kk.complete(10, A, dem(0)));
-        assertEquals(new BigDecimal("20"), tonA.getSoLuongTon());
-        verify(tonRepo, never()).save(any());
-    }
-
-    @Test
-    void kiemKe_hoanThanh_khoIdLechKhoCuaDot_baoLoi_khongGhiKhoKhac() {
-        kichBanKiemKe();
-        TonKhoTheoLo tonB = TonKhoTheoLo.builder().kho(kho(B)).soLuongTon(new BigDecimal("20")).build();
-        when(tonRepo.findByKho_IdAndLoHang_Id(B, 5)).thenReturn(Optional.of(tonB));
-        dangNhap(IRoleType.nhan_vien_kho, A, A);
-
-        CommonException ex = assertThrows(CommonException.class, () -> kk.complete(10, B, dem(0)));
-        assertEquals(HttpStatus.BAD_REQUEST, ex.getHttpStatus());
-        assertEquals(new BigDecimal("20"), tonB.getSoLuongTon());
-        verify(tonRepo, never()).save(any());
-    }
-
-    @Test
-    void kiemKe_hoanThanh_dongCuaDotKhac_baoLoi() {
-        kichBanKiemKe();
-        when(ctKkRepo.findById(100)).thenReturn(Optional.of(ChiTietKiemKe.builder().id(100).dotKiemKeId(11)
-                .loHang(LoHang.builder().id(5).build()).build()));
-        dangNhap(IRoleType.nhan_vien_kho, A, A);
-
-        assertThrows(CommonException.class, () -> kk.complete(10, A, dem(0)));
-        verify(tonRepo, never()).save(any());
-    }
-
-    @Test
-    void kiemKe_hoanThanh_soLuongAmHoacTrong_baoLoi() {
-        TonKhoTheoLo tonA = kichBanKiemKe();
-        dangNhap(IRoleType.nhan_vien_kho, A, A);
-
-        assertThrows(CommonException.class, () -> kk.complete(10, A, dem(-50)));
-        assertThrows(CommonException.class, () -> kk.complete(10, A, dem(null)));
-        assertEquals(new BigDecimal("20"), tonA.getSoLuongTon());
-    }
-
-    @Test
-    void kiemKe_hoanThanh_dongGuiTrungHoacThieu_baoLoi() {
-        TonKhoTheoLo tonA = kichBanKiemKe();
-        dangNhap(IRoleType.nhan_vien_kho, A, A);
-        ChiTietKiemKeUpdate dong = ChiTietKiemKeUpdate.builder().chiTietId(100).soLuongThucTe(5).build();
-
-        assertThrows(CommonException.class, () -> kk.complete(10, A, List.of(dong, dong)));
-        assertThrows(CommonException.class, () -> kk.complete(10, A, Arrays.asList(dong, null)));
-        assertThrows(CommonException.class, () -> kk.complete(10, A,
-                List.of(ChiTietKiemKeUpdate.builder().soLuongThucTe(5).build())));
-        assertEquals(new BigDecimal("20"), tonA.getSoLuongTon());
-        verify(tonRepo, never()).save(any());
-    }
-
-    @Test
-    void kiemKe_hoanThanh_hopLe_ghiTonVaoKhoCuaDot() {
-        TonKhoTheoLo tonA = kichBanKiemKe();
-        dangNhap(IRoleType.nhan_vien_kho, A, A);
-
-        kk.complete(10, A, dem(15));
-        assertEquals(new BigDecimal("15"), tonA.getSoLuongTon());
-        verify(tonRepo).findByKho_IdAndLoHang_Id(A, 5);
-        // đọc đợt bằng khóa dòng: hai người bấm Hoàn thành cùng lúc thì người sau thấy đợt đã hoàn thành
-        verify(dotRepo).khoaTheoId(10);
-        verify(dotRepo, never()).findById(10);
-    }
-
-    @Test
-    void kiemKe_hoanThanhLanHai_sauKhiDotDaXong_baoLoi_khongGhiTonLanNua() {
-        TonKhoTheoLo tonA = kichBanKiemKe();
-        dangNhap(IRoleType.nhan_vien_kho, A, A);
-
-        kk.complete(10, A, dem(15));
-        // người thứ hai đọc đợt lúc người đầu chưa commit: bản không khóa vẫn "đang kiểm kê", bản khóa dòng (chờ người
-        // đầu commit) là đã hoàn thành. Phải đọc bằng khóa dòng thì mới bị chặn.
-        when(dotRepo.findById(10)).thenReturn(Optional.of(DotKiemKe.builder().id(10).maDotKiemKe("KK1")
-                .trangThai((byte) 0).kho(kho(A)).build()));
-        assertThrows(RuntimeException.class, () -> kk.complete(10, A, dem(12)));
-        assertEquals(new BigDecimal("15"), tonA.getSoLuongTon());
-    }
-
-    @Test
-    void kiemKe_xem_khoKhongDuocPhan_biChan_danhSachChiDotCuaKhoDuocPhan() {
-        kichBanKiemKe(); // đợt 10 của kho A
-        DotKiemKe dotB = DotKiemKe.builder().id(11).maDotKiemKe("KK2").trangThai((byte) 0).kho(kho(B)).build();
-        when(dotRepo.findAllWithDetails()).thenReturn(List.of(
-                DotKiemKe.builder().id(10).maDotKiemKe("KK1").trangThai((byte) 0).kho(kho(A)).build(), dotB));
-        when(ctKkRepo.findByDotKiemKeId(10)).thenReturn(List.of());
-
-        dangNhap(IRoleType.nhan_vien_kho, B, B);
-        biChan(() -> kk.getChiTiet(10));
-        biChan(() -> kk.getById(10));
-        assertEquals(List.of(11), kk.getList().stream().map(d -> d.getId()).toList());
-
-        dangNhap(IRoleType.nhan_vien_kho, B, A, B); // được phân kho A: xem được, không cần đang chọn A
-        assertEquals(List.of(), kk.getChiTiet(10));
-        assertEquals(2, kk.getList().size());
-    }
-
-    @Test
-    void kiemKe_taoDot_khoTrongBodyKhacKhoDangChon_biChan() {
-        kichBanKiemKe();
-        dangNhap(IRoleType.quan_ly_kho, A, A, B);
-        PhieuKiemKeCreate yeuCau = new PhieuKiemKeCreate();
-        yeuCau.setKhoId(B);
-
-        biChan(() -> kk.create(yeuCau));
-        verify(dotRepo, never()).save(any());
     }
 
     // ═════════════ Vị trí kho (M-8) ═════════════
