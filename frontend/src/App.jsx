@@ -73,6 +73,7 @@ const KhachHangReport = taiTrang(() => import("./pages/bao-cao/KhachHangReport")
 const NhatKyNhapXuat = taiTrang(() => import("./pages/bao-cao/NhatKyNhapXuat"));
 const PhieuNhapKhoPrint = taiTrang(() => import("./pages/receipt/PhieuNhapKhoPrint"));
 const PhieuXuatKhoPrint = taiTrang(() => import("./pages/issue/PhieuXuatKhoPrint"));
+const EcommercePackingSlipPrint = taiTrang(() => import("./pages/issue/EcommercePackingSlipPrint"));
 const Dashboard = taiTrang(() => import("@/pages/dashboard/Dashboard"));
 const TonKhoTongQuan = taiTrang(() => import("./pages/bao-cao/TonKhoTongQuan"));
 const LichSuGiaoDichKhoList = taiTrang(() => import("./pages/lich-su-giao-dich-kho/LichSuGiaoDichKhoList"));
@@ -403,6 +404,7 @@ const CAY_DUONG_DAN = (
       <Route path="/purchase-orders/:id/print" element={<PurchaseOrderPrint />} />
       <Route path="/goods-receipts/:id/print" element={<PhieuNhapKhoPrint />} />
       <Route path="/goods-issues/:id/print" element={<PhieuXuatKhoPrint />} />
+      <Route path="/goods-issues/:id/print-packing-slip" element={<EcommercePackingSlipPrint />} />
       {/* Chuyển kho nội bộ: loai = yeu-cau | lenh-dieu-dong | xknb | bien-ban; phiếu điều chỉnh kho in riêng */}
       <Route path="/transfer-tickets/:id/print/:loai" element={<InChuyenKho />} />
       <Route path="/transfer-tickets/adjustments/:id/print" element={<InChuyenKho dieuChinh />} />

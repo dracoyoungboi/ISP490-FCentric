@@ -409,6 +409,9 @@ function ManPhieuXuatKho({ id }) {
               laLazada && donId
                 ? { ma: "inAwb", nhan: "In vận đơn Lazada (AWB)", icon: Printer, onSelect: inVanDonLazada }
                 : null,
+              (laLazada || Boolean(phieu?.donBanHang?.maDonHangKenh))
+                ? { ma: "inPackingSlip", nhan: "In phiếu đóng gói đơn sàn", icon: Printer, onSelect: () => navigate(`/goods-issues/${phieu.id}/print-packing-slip`) }
+                : null,
               coXemBangChung
                 ? { ma: "bangChung", nhan: "Xem bằng chứng đóng gói", icon: ShieldCheck, onSelect: () => setHop("bangChung") }
                 : null,
