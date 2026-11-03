@@ -3941,10 +3941,64 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     }
                 }
             }
+
+            // Self-Healing: Nếu chưa có packageId hợp lệ, tự động gọi packOrder để tạo kiện trên sàn và lấy package_id
+            if ((packageId == null || packageId.isBlank()) && !orderItemIds.isEmpty()) {
+                log.info("[LAZADA-RTS] Đơn hàng {} chưa có package_id, kích hoạt tự động packOrder...", maDonHangKenh);
+                JsonNode packRes = lazadaClient.packOrder(appKey, appSecret, token, maDonHangKenh, orderItemIds);
+                if (packRes != null) {
+                    JsonNode packData = packRes.path("data");
+                    if (packData.path("order_item_list").isArray()) {
+                        for (JsonNode oi : packData.path("order_item_list")) {
+                            String pkg = oi.path("package_id").asText("");
+                            if (!pkg.isBlank()) {
+                                packageId = pkg;
+                                break;
+                            }
+                        }
+                    }
+                    if (packageId == null && packData.path("pack_order_list").isArray()) {
+                        for (JsonNode po : packData.path("pack_order_list")) {
+                            String pkg = po.path("package_id").asText("");
+                            if (!pkg.isBlank()) {
+                                packageId = pkg;
+                                break;
+                            }
+                        }
+                    }
+                    if (packageId == null && packData.path("packages").isArray()) {
+                        for (JsonNode pkgNode : packData.path("packages")) {
+                            String pkg = pkgNode.path("package_id").asText("");
+                            if (!pkg.isBlank()) {
+                                packageId = pkg;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (packageId == null || packageId.isBlank()) {
+                    JsonNode refreshedItems = lazadaClient.getOrderItems(appKey, appSecret, token, maDonHangKenh);
+                    if (refreshedItems != null && "0".equals(refreshedItems.path("code").asText(""))) {
+                        JsonNode data = refreshedItems.path("data");
+                        if (data.isArray()) {
+                            for (JsonNode it : data) {
+                                String pkg = it.path("package_id").asText("");
+                                if (!pkg.isBlank()) {
+                                    packageId = pkg;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             JsonNode rtsRes = lazadaClient.readyToShip(appKey, appSecret, token, packageId, orderItemIds);
             String code = rtsRes != null ? rtsRes.path("code").asText("") : "";
             if ("0".equals(code)) {
-                log.info("[LAZADA-RTS] Đã đồng bộ trạng thái ready_to_ship cho đơn hàng {} sang Lazada", maDonHangKenh);
+                log.info("[LAZADA-RTS] Đã đồng bộ trạng thái ready_to_ship cho đơn hàng {} sang Lazada (package_id: {})",
+                        maDonHangKenh, packageId != null ? packageId : "N/A");
                 return true;
             } else {
                 String msg = rtsRes != null ? rtsRes.path("message").asText(rtsRes.path("sub_message").asText("")) : "Unknown";

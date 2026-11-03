@@ -285,10 +285,10 @@ public class LazadaClient {
         params.put("sign_method", LazadaSignatureHelper.SIGN_METHOD_SHA256);
 
         if (packageId != null && !packageId.isBlank()) {
-            params.put("readyToShipReq", "{\"packages\":[{\"package_id\":\"" + packageId.trim() + "\"}]}");
+            params.put("readyToShipReq", "{\"packages\":[{\"package_id\":\"" + packageId.trim() + "\",\"delivery_type\":\"dropship\"}]}");
             params.put("packages", "[{\"package_id\":\"" + packageId.trim() + "\"}]");
         } else if (orderItemIdList != null && !orderItemIdList.isEmpty()) {
-            params.put("readyToShipReq", "{\"order_item_ids\":[" + String.join(",", orderItemIdList) + "]}");
+            params.put("readyToShipReq", "{\"order_item_ids\":[" + String.join(",", orderItemIdList) + "],\"delivery_type\":\"dropship\"}");
             params.put("order_item_ids", "[" + String.join(",", orderItemIdList) + "]");
         }
 
