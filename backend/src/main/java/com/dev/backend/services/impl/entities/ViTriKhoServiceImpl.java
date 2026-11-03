@@ -1,5 +1,6 @@
 package com.dev.backend.services.impl.entities;
 
+import com.dev.backend.constant.variables.IKiemKe;
 import com.dev.backend.dto.request.inbound.KhuVucKhoRequest;
 import com.dev.backend.dto.request.inbound.ViTriKhoRequest;
 import com.dev.backend.dto.response.inbound.KhuVucKhoDto;
@@ -20,12 +21,15 @@ import com.dev.backend.repository.MatBangKhoRepository;
 import com.dev.backend.repository.TonKhoViTriRepository;
 import com.dev.backend.repository.ViTriKhoRepository;
 import com.dev.backend.services.ViTriKhoService;
+import com.dev.backend.services.impl.kiemke.KhoaKiemKeGuard;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import lombok.experimental.NonFinal;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,6 +51,18 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
     ChiTietPhieuNhapKhoRepository chiTietPhieuNhapKhoRepository;
     LoHangRepository loHangRepository;
     ObjectMapper objectMapper;
+
+    /** Chốt chặn dữ liệu chủ của kiểm kê khoanh vùng; null khi unit test dựng tay. */
+    @NonFinal
+    @Autowired(required = false)
+    KhoaKiemKeGuard khoaKiemKeGuard;
+
+    /** KHOA_KIEM_KE chỉ do kiểm kê ghi khi khóa toàn kệ; sửa tay sang trạng thái này làm kệ khóa mà không đợt nào sở hữu. */
+    private static void kiemTraTrangThaiGhiTay(String trangThai) {
+        if (trangThai != null && IKiemKe.KE_KHOA_KIEM_KE.equalsIgnoreCase(trangThai.trim())) {
+            throw new CommonException(HttpStatus.BAD_REQUEST, "Trạng thái Đang kiểm kê do đợt kiểm kê tự đặt, không chọn tay được");
+        }
+    }
 
     // Sửa sơ đồ kho: kho trên đường dẫn phải là kho đang chọn (không chỉ người dùng thuộc kho trong header)
     private void kiemTraGhiKho(Integer khoId) {
@@ -239,6 +255,12 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
             throw new CommonException(HttpStatus.BAD_REQUEST, "Khu vực không thuộc kho chỉ định");
         }
 
+        kiemTraTrangThaiGhiTay(request.getTrangThai());
+        if (khoaKiemKeGuard != null) {
+            khoaKiemKeGuard.giuKho(khoId);
+            khoaKiemKeGuard.kiemTraKhuVuc(khuVuc.getId(), "thêm kệ vào khu vực");
+        }
+
         int sucChua = request.getSucChua() != null && request.getSucChua() > 0 ? request.getSucChua() : 100;
         String trangThai = request.getTrangThai() != null && !request.getTrangThai().isBlank() ? request.getTrangThai() : "HOAT_DONG";
 
@@ -321,12 +343,21 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
         if (!viTri.getKhuVucKho().getKho().getId().equals(khoId)) {
             throw new CommonException(HttpStatus.BAD_REQUEST, "Vị trí không thuộc kho chỉ định");
         }
+        kiemTraTrangThaiGhiTay(request.getTrangThai());
+        // Master Data Guard: kệ đang thuộc phạm vi đợt kiểm kê không đổi khu / trạng thái / sức chứa được
+        if (khoaKiemKeGuard != null) {
+            khoaKiemKeGuard.giuKho(khoId);
+            khoaKiemKeGuard.kiemTraKe(viTriId, "sửa kệ");
+        }
 
         if (request.getKhuVucId() != null && !request.getKhuVucId().equals(viTri.getKhuVucKho().getId())) {
             KhuVucKho khuMoi = khuVucKhoRepository.findById(request.getKhuVucId())
                     .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy khu vực mới"));
             if (!khuMoi.getKho().getId().equals(khoId)) {
                 throw new CommonException(HttpStatus.BAD_REQUEST, "Khu vực mới không cùng kho");
+            }
+            if (khoaKiemKeGuard != null) {
+                khoaKiemKeGuard.kiemTraKhuVuc(khuMoi.getId(), "chuyển kệ vào khu vực");
             }
             viTri.setKhuVucKho(khuMoi);
         }
@@ -368,6 +399,8 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void xoaViTri(Integer khoId, Integer viTriId) {
+        // Đ5: giữ mutex kho (chia sẻ, câu đọc có khóa nên không chốt ảnh dữ liệu) trước khi khóa dòng kệ
+        if (khoaKiemKeGuard != null) khoaKiemKeGuard.giuKho(khoId);
         // Khóa dòng kệ như lúc khóa lô: lô đang được khóa lên kệ này cùng lúc phải xong trước, rồi mới kiểm "chờ nhập".
         // Khóa TRƯỚC mọi lệnh đọc thường: ở REPEATABLE READ (mặc định của MySQL), lệnh đọc thường đầu tiên chốt ảnh dữ liệu
         // cho cả giao dịch, đọc trước khi có khóa thì không thấy lô vừa khóa lên kệ. Quyền kho vẫn kiểm trước khi báo 404.
@@ -378,6 +411,14 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
 
         if (!viTri.getKhuVucKho().getKho().getId().equals(khoId)) {
             throw new CommonException(HttpStatus.BAD_REQUEST, "Vị trí không thuộc kho chỉ định");
+        }
+        if (khoaKiemKeGuard != null) {
+            khoaKiemKeGuard.kiemTraKe(viTriId, "xóa kệ");
+            List<String> dotDung = khoaKiemKeGuard.dotTungDungKe(viTriId);
+            if (!dotDung.isEmpty()) {
+                throw new CommonException(HttpStatus.CONFLICT, "Kệ " + viTri.getMaViTri() + " đã có trong kiểm kê ("
+                        + String.join(", ", dotDung) + ") nên được giữ lại cho lịch sử. Chuyển kệ sang Bảo trì nếu không dùng nữa.");
+            }
         }
 
         int dangChua = tonKhoViTriRepository.sumDangChuaByViTriId(viTriId);

@@ -15,6 +15,7 @@ import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
 import com.dev.backend.entities.*;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.repository.*;
+import com.dev.backend.services.impl.kiemke.KhoaKiemKeGuard;
 import com.dev.backend.services.impl.multitable.DieuHanhHeThongServiceImpl;
 import com.dev.backend.services.impl.multitable.KhaDungChuyenKhoService;
 import com.dev.backend.services.impl.multitable.KhaDungChuyenKhoService.KhaDungChuyen;
@@ -27,6 +28,7 @@ import com.dev.backend.utils.KhoDangChon;
 import com.dev.backend.utils.SoChungTu;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
@@ -83,6 +85,10 @@ public class PhieuChuyenKhoService {
     private final BienBanGiaoNhanRepository bienBanGiaoNhanRepository;
     private final ChiTietBienBanGiaoNhanRepository chiTietBienBanGiaoNhanRepository;
     private final PhieuDieuChinhKhoRepository phieuDieuChinhKhoRepository;
+
+    /** Chốt chặn kiểm kê khoanh vùng ở kho nhận; null khi unit test dựng tay. */
+    @Autowired(required = false)
+    private KhoaKiemKeGuard khoaKiemKeGuard;
     private final ChiTietPhieuDieuChinhRepository chiTietPhieuDieuChinhRepository;
     private final PhieuXuatKhoRepository phieuXuatKhoRepository;
     private final ChiTietPhieuXuatKhoRepository chiTietPhieuXuatKhoRepository;
@@ -1543,6 +1549,12 @@ public class PhieuChuyenKhoService {
                                            NguoiDung nguoi, String ghiChu) {
         Kho trungChuyen = khoTrungChuyen();
         List<Integer> loIds = dong.stream().map(d -> d.lo().getId()).distinct().toList();
+        // Chốt chặn kiểm kê (BR-STK-13, BA 8.2): kho nhận đang kiểm toàn bộ hoặc lô thuộc danh mục đang kiểm thì chưa nhận,
+        // hàng vẫn ở trung chuyển. Hàng nhận vào kho chưa lên kệ (phần chưa có kệ), nên khóa kệ / khu vực không chặn.
+        if (khoaKiemKeGuard != null) {
+            khoaKiemKeGuard.giuKho(khoNhan.getId());
+            khoaKiemKeGuard.kiemTraNhapKho(khoNhan.getId(), loIds, "nhận hàng chuyển kho (hàng vẫn ở kho trung chuyển)");
+        }
         List<Integer> idsCanKhoa = new ArrayList<>(tonKhoTheoLoRepository.findIdsByKhoAndLots(trungChuyen.getId(), loIds));
         idsCanKhoa.addAll(tonKhoTheoLoRepository.findIdsByKhoAndLots(khoNhan.getId(), loIds));
         if (!idsCanKhoa.isEmpty()) tonKhoTheoLoRepository.lockLotsForUpdateByIds(idsCanKhoa.stream().distinct().sorted().toList());

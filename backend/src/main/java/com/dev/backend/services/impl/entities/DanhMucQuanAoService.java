@@ -7,6 +7,7 @@ import com.dev.backend.entities.DanhMucQuanAo;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.repository.DanhMucQuanAoRepository;
 import com.dev.backend.services.impl.BaseServiceImpl;
+import com.dev.backend.services.impl.kiemke.KhoaKiemKeGuard;
 import jakarta.persistence.EntityManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -27,6 +28,10 @@ public class DanhMucQuanAoService extends BaseServiceImpl<DanhMucQuanAo, Integer
     // Dùng cho các truy vấn JPQL tuỳ chỉnh ngoài phạm vi JpaRepository
     @Autowired
     private EntityManager entityManager;
+
+    /** Chốt chặn dữ liệu chủ của kiểm kê khoanh vùng; null khi unit test dựng tay. */
+    @Autowired(required = false)
+    private KhoaKiemKeGuard khoaKiemKeGuard;
 
     @Override
     protected EntityManager getEntityManager() {
@@ -130,6 +135,17 @@ public class DanhMucQuanAoService extends BaseServiceImpl<DanhMucQuanAo, Integer
         DanhMucQuanAo danhMucQuanAo = getOne(updating.getId()).orElseThrow(
                 () -> new CommonException("Không tìm thấy danh mục id: " + updating.getId())
         );
+
+        // Kiểm kê theo danh mục đang chạy: không đổi cha của danh mục thuộc tập đang kiểm, cũng không đưa danh mục
+        // khác vào nhánh đang kiểm (Master Data Guard)
+        Integer chaCu = danhMucQuanAo.getDanhMucCha() == null ? null : danhMucQuanAo.getDanhMucCha().getId();
+        if (khoaKiemKeGuard != null && !java.util.Objects.equals(chaCu, updating.getDanhMucChaId())) {
+            khoaKiemKeGuard.giuTatCaKho();
+            java.util.List<Integer> lienQuan = new java.util.ArrayList<>();
+            lienQuan.add(danhMucQuanAo.getId());
+            if (updating.getDanhMucChaId() != null) lienQuan.add(updating.getDanhMucChaId());
+            khoaKiemKeGuard.kiemTraDanhMuc(lienQuan, "đổi danh mục cha");
+        }
 
         // Bước 2 – Validate và xử lý quan hệ cha-con
         if (updating.getDanhMucChaId() != null) {

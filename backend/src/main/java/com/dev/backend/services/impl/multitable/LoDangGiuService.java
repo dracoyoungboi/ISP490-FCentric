@@ -4,6 +4,7 @@ import com.dev.backend.entities.TonKhoTheoLo;
 import com.dev.backend.repository.ChiTietPhieuXuatKhoRepository;
 import com.dev.backend.repository.PhanBoLoNhatHangRepository;
 import com.dev.backend.repository.TonKhoTheoLoRepository;
+import com.dev.backend.services.impl.kiemke.KhoaKiemKeGuard;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,6 +46,10 @@ public class LoDangGiuService {
     @Autowired
     private EntityManager entityManager;
 
+    /** Null khi unit test dựng tay. */
+    @Autowired(required = false)
+    private KhoaKiemKeGuard khoaKiemKeGuard;
+
     /**
      * Lượng đang bị phiếu nhặt đang mở và phiếu xuất bán chưa xuất giữ trên từng lô của một kho.
      *
@@ -59,6 +64,11 @@ public class LoDangGiuService {
         }
         cong(ketQua, phanBoLoNhatHangRepository.sumDangGiuTheoLo(khoId, loHangIds, boQuaPhieuNhatId));
         cong(ketQua, chiTietPhieuXuatKhoRepository.sumDangGiuPhieuBanChuaXuat(khoId, loHangIds, boQuaPhieuXuatId));
+        // Phần đang kiểm kê (kệ đang khóa, danh mục đang kiểm, kho kiểm toàn bộ) không được lấy: POS, phân bổ nhặt FIFO và
+        // chọn lô tự lấy ở kệ tự do (đặc tả kiểm kê khoanh vùng AC-22)
+        if (khoaKiemKeGuard != null) {
+            khoaKiemKeGuard.luongDangKiemKe(khoId, loHangIds).forEach((lo, sl) -> ketQua.merge(lo, sl, BigDecimal::add));
+        }
         return ketQua;
     }
 
@@ -111,6 +121,8 @@ public class LoDangGiuService {
         if (bienTheIds == null || bienTheIds.isEmpty()) {
             return List.of();
         }
+        // Đ5: giữ mutex kho (chia sẻ) trước khi khóa tồn, để không chen giữa lúc một đợt kiểm kê đang bắt đầu / duyệt
+        if (khoaKiemKeGuard != null) khoaKiemKeGuard.giuKho(khoId);
         List<TonKhoTheoLo> rows = tonKhoTheoLoRepository.lockLotsForUpdateByKhoAndVariants(khoId, bienTheIds);
         for (TonKhoTheoLo t : rows) {
             entityManager.refresh(t, LockModeType.PESSIMISTIC_WRITE);

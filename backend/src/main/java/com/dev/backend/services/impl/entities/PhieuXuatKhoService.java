@@ -19,6 +19,8 @@ import com.dev.backend.utils.HienThiBienThe;
 import com.dev.backend.utils.KhoDangChon;
 import com.dev.backend.utils.SauCommit;
 import com.dev.backend.utils.SoChungTu;
+import com.dev.backend.services.impl.kiemke.KhoaKiemKeGuard;
+import com.dev.backend.services.impl.kiemke.SoTonKeService;
 import com.dev.backend.constant.enums.TrangThaiPhieuNhap;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
@@ -87,6 +89,13 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
 
     @Autowired
     private LoDangGiuService loDangGiuService;
+
+    /** Chốt chặn và sổ kệ của kiểm kê khoanh vùng; null khi unit test dựng tay. */
+    @Autowired(required = false)
+    private KhoaKiemKeGuard khoaKiemKeGuard;
+
+    @Autowired(required = false)
+    private SoTonKeService soTonKeService;
 
     @Autowired
     private NguoiDungRepository nguoiDungRepository;
@@ -414,6 +423,11 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
         List<ChiTietPhieuXuatKho> detailedPicks = chiTietPhieuXuatKhoRepository.findByPhieuXuatKhoIdAndLoHangIsNotNull(id);
         Set<Integer> sanPhamIdsCanCapNhat = new HashSet<>();
 
+        // Chốt chặn kiểm kê (BR-STK-13): giữ mutex kho xuất trước khi khóa dòng tồn
+        if (khoaKiemKeGuard != null) {
+            khoaKiemKeGuard.giuKho(phieu.getKho().getId());
+        }
+
         // Khóa các dòng tồn sẽ ghi theo thứ tự PK ổn định (Quy tắc 8.1 - Ordered Pessimistic Locking)
         // để chống Lost Update và Deadlock khi xuất kho và bán quầy POS chạy đồng thời.
         List<Integer> variantIdsToLock = detailedPicks.stream()
@@ -451,9 +465,17 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
             if (soLuongTruoc.compareTo(soLuongXuat) < 0) {
                 throw new CommonException("Lô " + pick.getLoHang().getMaLo() + " không đủ tồn kho thực tế để xuất");
             }
+            // Lô ở kệ đang kiểm kê / thuộc danh mục đang kiểm / kho đang kiểm toàn bộ: dừng, không trừ phần đang chốt
+            if (khoaKiemKeGuard != null) {
+                khoaKiemKeGuard.kiemTraXuat(phieu.getKho().getId(), Map.of(pick.getLoHang().getId(), soLuongXuat),
+                        Map.of(pick.getLoHang().getId(), soLuongTruoc), "xuất kho");
+            }
 
             // Quy tắc 5: Trừ tồn kho vật lý On Hand
             tonKho.setSoLuongTon(soLuongTruoc.subtract(soLuongXuat));
+            if (soTonKeService != null) {
+                soTonKeService.tru(phieu.getKho().getId(), pick.getLoHang(), soLuongXuat, soLuongTruoc);
+            }
 
             // Quy tắc 5: Giải phóng phần phiếu xuất chuyển kho đã giữ (soLuongDaDat). Phiếu bán hàng không cộng vào
             // soLuongDaDat (đơn giữ hàng qua lượng chờ xuất / phân bổ lô) nên không được trừ — trừ là ăn mất phần

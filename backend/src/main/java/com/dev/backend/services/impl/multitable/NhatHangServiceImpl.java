@@ -31,6 +31,7 @@ import com.dev.backend.services.impl.entities.LichSuThayDoiService;
 import com.dev.backend.services.impl.entities.PhieuXuatKhoService;
 import com.dev.backend.services.impl.entities.ThongBaoXuatKhoService;
 import com.dev.backend.services.impl.entities.ThongBaoXuatKhoService.GiaiDoanHuy;
+import com.dev.backend.services.impl.kiemke.KhoaKiemKeGuard;
 import com.dev.backend.utils.PhanBoLoFifo;
 import com.dev.backend.utils.SauCommit;
 import com.dev.backend.utils.KhoDangChon;
@@ -163,6 +164,10 @@ public class NhatHangServiceImpl implements NhatHangService {
 
     @Autowired
     private LoDangGiuService loDangGiuService;
+
+    /** Chốt chặn kiểm kê khoanh vùng; null khi unit test dựng tay. */
+    @Autowired(required = false)
+    private KhoaKiemKeGuard khoaKiemKeGuard;
 
     @Autowired
     private GiuChoChuyenKhoService giuChoChuyenKhoService;
@@ -2321,6 +2326,16 @@ public class NhatHangServiceImpl implements NhatHangService {
         }
         // Chỉ người đang làm việc ở kho của lệnh (quản trị viên mọi kho)
         KhoDangChon.kiemTra(cb.getKho(), "Nhiệm vụ hoàn kệ");
+        // Kệ đích đang kiểm kê: giữ nhiệm vụ ở Chờ cất kệ tới khi kệ mở khóa (đặc tả kiểm kê khoanh vùng 8.2)
+        if (khoaKiemKeGuard != null && cb.getKho() != null && cb.getLoHang() != null) {
+            khoaKiemKeGuard.giuKho(cb.getKho().getId());
+            ViTriKho keCuaLo = cb.getLoHang().getViTriKho();
+            if (keCuaLo != null && keCuaLo.getKho() != null && cb.getKho().getId().equals(keCuaLo.getKho().getId())) {
+                khoaKiemKeGuard.kiemTraNhapKe(cb.getKho().getId(), keCuaLo.getId(), List.of(cb.getLoHang().getId()), "hoàn kệ");
+            } else {
+                khoaKiemKeGuard.kiemTraNhapKho(cb.getKho().getId(), List.of(cb.getLoHang().getId()), "hoàn kệ");
+            }
+        }
 
         // Đóng lệnh bằng một câu UPDATE có điều kiện "còn chờ": hai lần bấm (hoặc hai người cùng lúc) chỉ một lần đổi được,
         // nên sự kiện cộng tồn của kho chỉ phát một lần (save() không ghi được trang_thai, xem CanhBaoRepository)

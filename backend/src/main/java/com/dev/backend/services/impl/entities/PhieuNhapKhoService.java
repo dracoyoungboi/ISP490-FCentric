@@ -27,6 +27,7 @@ import com.dev.backend.constant.variables.IHanhDong;
 import com.dev.backend.constant.variables.ITable;
 import com.dev.backend.event.InventoryRestockedEvent;
 import com.dev.backend.utils.SauCommit;
+import com.dev.backend.services.impl.kiemke.KhoaKiemKeGuard;
 import org.springframework.http.HttpStatus;
 import org.springframework.context.ApplicationEventPublisher;
 
@@ -84,6 +85,10 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
 
     @Autowired
     private TonKhoViTriRepository tonKhoViTriRepository;
+
+    /** Chốt chặn của kiểm kê khoanh vùng; null khi unit test dựng tay. */
+    @Autowired(required = false)
+    private KhoaKiemKeGuard khoaKiemKeGuard;
 
     @Autowired
     private BienBanTraHangNccRepository bienBanTraHangNccRepository;
@@ -401,6 +406,22 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
         Kho kho = phieu.getKho();
         BigDecimal tongTien = BigDecimal.ZERO;
 
+        // Chốt chặn kiểm kê (BR-STK-13): giữ mutex kho TRƯỚC khi khóa dòng tồn; kệ đích đang khóa, kho đang kiểm toàn bộ
+        // hoặc lô thuộc danh mục đang kiểm thì dừng (hàng chưa vào kho)
+        if (khoaKiemKeGuard != null) {
+            khoaKiemKeGuard.giuKho(kho.getId());
+            for (ChiTietPhieuNhapKho ct : danhSachNhapTheoLo) {
+                if (ct.getSoLuongNhap() == null || ct.getSoLuongNhap().signum() <= 0) continue;
+                LoHang lo = ct.getLoHang();
+                ViTriKho keCuaLo = lo.getViTriKho();
+                if (keCuaLo != null && keCuaLo.getKho() != null && kho.getId().equals(keCuaLo.getKho().getId())) {
+                    khoaKiemKeGuard.kiemTraNhapKe(kho.getId(), keCuaLo.getId(), List.of(lo.getId()), "nhập hàng lên kệ");
+                } else {
+                    khoaKiemKeGuard.kiemTraNhapKho(kho.getId(), List.of(lo.getId()), "nhập hàng vào kho");
+                }
+            }
+        }
+
         // Khóa các dòng tồn theo lô sẽ ghi, thứ tự PK ổn định (chống lost update với POS checkout).
         List<Integer> lotIdsToLock = danhSachNhapTheoLo.stream()
                 .map(ct -> ct.getLoHang().getId())
@@ -437,12 +458,16 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
                 continue;
             }
 
-            // 2. Ghi nhận số lượng ĐẠT vào ton_kho_vi_tri (nếu có vị trí kệ)
-            if (loHang.getViTriKho() != null && soLuongNhap.compareTo(BigDecimal.ZERO) > 0) {
-                ViTriKho viTri = loHang.getViTriKho();
-                TonKhoViTri tkvt = tonKhoViTriRepository.findByViTriKho_IdAndLoHang_Id(viTri.getId(), loHang.getId())
+            // 2. Ghi nhận số lượng ĐẠT lên sổ kệ (ton_kho_vi_tri) khi kệ của lô thuộc đúng kho nhập; phiếu nhập hoàn trả về
+            // kho khác kho của kệ thì hàng vào phần chưa có kệ của kho nhập (sổ kệ phải đi cùng tồn lô ở kho, xem SoTonKeService)
+            ViTriKho keNhap = loHang.getViTriKho();
+            boolean keCungKho = keNhap != null && (keNhap.getKho() != null ? kho.getId().equals(keNhap.getKho().getId())
+                    : keNhap.getKhuVucKho() != null && keNhap.getKhuVucKho().getKho() != null
+                    && kho.getId().equals(keNhap.getKhuVucKho().getKho().getId()));
+            if (keCungKho && soLuongNhap.compareTo(BigDecimal.ZERO) > 0) {
+                TonKhoViTri tkvt = tonKhoViTriRepository.findByViTriKho_IdAndLoHang_Id(keNhap.getId(), loHang.getId())
                         .orElse(TonKhoViTri.builder()
-                                .viTriKho(viTri)
+                                .viTriKho(keNhap)
                                 .loHang(loHang)
                                 .bienTheSanPham(ct.getBienTheSanPham())
                                 .soLuong(0)
@@ -745,7 +770,8 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
 
         // Lô có hàng đạt phải lên kệ khi kho đã có kệ đang hoạt động (kho chưa dựng kệ thì nhập kho chưa gắn kệ)
         if (viTriKhoId == null && soLuongNhap.signum() > 0
-                && viTriKhoRepository.existsByKho_IdAndTrangThai(phieu.getKho().getId(), "HOAT_DONG")) {
+                && (viTriKhoRepository.existsByKho_IdAndTrangThai(phieu.getKho().getId(), "HOAT_DONG")
+                    || viTriKhoRepository.existsByKho_IdAndTrangThai(phieu.getKho().getId(), "DAY_HANG"))) {
             throw new CommonException(HttpStatus.BAD_REQUEST,
                     "Chọn kệ cho " + soLuongNhap.intValue() + " sản phẩm đạt của lô " + maLo);
         }
@@ -759,9 +785,12 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
             if (!viTri.getKhuVucKho().getKho().getId().equals(phieu.getKho().getId())) {
                 throw new CommonException(HttpStatus.FORBIDDEN, "Vị trí kệ không thuộc kho của phiếu nhập");
             }
-            if (viTri.getTrangThai() != null && !"HOAT_DONG".equalsIgnoreCase(viTri.getTrangThai())) {
+            if (viTri.getTrangThai() != null && !"HOAT_DONG".equalsIgnoreCase(viTri.getTrangThai())
+                    && !"DAY_HANG".equalsIgnoreCase(viTri.getTrangThai())) {
                 // Không viết "bị khóa": giao diện coi câu có cụm đó là tài khoản bị khóa và đăng xuất
-                throw new CommonException(HttpStatus.BAD_REQUEST, "Vị trí kệ đang tạm khóa hoặc ngừng hoạt động");
+                throw new CommonException(HttpStatus.BAD_REQUEST, "KHOA_KIEM_KE".equalsIgnoreCase(viTri.getTrangThai())
+                        ? "Kệ " + viTri.getMaViTri() + " đang kiểm kê, chọn kệ khác"
+                        : "Vị trí kệ đang tạm khóa hoặc ngừng hoạt động");
             }
             if (viTri.getSucChuaToiDa() != null && viTri.getSucChuaToiDa() > 0 && soLuongNhap.compareTo(BigDecimal.ZERO) > 0) {
                 Integer tonTrenKe = tonKhoViTriRepository.sumDangChuaByViTriId(viTri.getId());

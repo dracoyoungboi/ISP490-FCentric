@@ -29,6 +29,7 @@ import com.dev.backend.services.multitable.DieuHanhHeThongService;
 import com.dev.backend.utils.GioiHanSoThapPhan;
 import com.dev.backend.utils.KiemTraTepTai;
 import com.dev.backend.utils.MaVachSku;
+import com.dev.backend.services.impl.kiemke.KhoaKiemKeGuard;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -68,6 +69,17 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
         static final long ANH_TOI_DA_BYTE = 20L * 1024 * 1024;
 
         //Core bussiness logic
+        /** Chốt chặn dữ liệu chủ của kiểm kê khoanh vùng; null khi unit test dựng tay. */
+        @Autowired(required = false)
+        private KhoaKiemKeGuard khoaKiemKeGuard;
+
+        /** Đổi danh mục của sản phẩm khi danh mục cũ hoặc mới đang được kiểm kê ở kho nào đó: dừng (Master Data Guard). */
+        private void kiemTraDoiDanhMucKhiKiemKe(DanhMucQuanAo cu, DanhMucQuanAo moi) {
+                if (khoaKiemKeGuard == null || cu == null || moi == null || cu.getId().equals(moi.getId())) return;
+                khoaKiemKeGuard.giuTatCaKho();
+                khoaKiemKeGuard.kiemTraDanhMuc(java.util.List.of(cu.getId(), moi.getId()), "đổi danh mục sản phẩm");
+        }
+
         @Autowired
         private EntityManager entityManager;
         @Autowired
@@ -616,6 +628,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 }
 
                 // ===================== GHI DỮ LIỆU =====================
+                kiemTraDoiDanhMucKhiKiemKe(sanPhamQuanAo.getDanhMuc(), danhMucQuanAo);
                 sanPhamQuanAo.setTenSanPham(tenMoi);
                 sanPhamQuanAo.setDanhMuc(danhMucQuanAo);
                 // Giống PATCH /basic-info: ô để trống lưu null.
@@ -1149,6 +1162,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                                 () -> new CommonException("Không tìm thấy danh mục quần áo id: " + dto.getDanhMucId())
                         );
                         if (!danhMuc.getId().equals(sp.getDanhMuc().getId())) {
+                                kiemTraDoiDanhMucKhiKiemKe(sp.getDanhMuc(), danhMuc);
                                 giaTriCu.put("danhMucId", sp.getDanhMuc().getId());
                                 giaTriMoi.put("danhMucId", danhMuc.getId());
                                 sp.setDanhMuc(danhMuc);

@@ -13,6 +13,7 @@ import com.dev.backend.repository.KhoRepository;
 import com.dev.backend.repository.KhoTomTatRepository;
 import com.dev.backend.services.impl.BaseServiceImpl;
 import com.dev.backend.services.impl.multitable.TongQuanAdminServiceImpl;
+import com.dev.backend.services.impl.kiemke.KhoaKiemKeGuard;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.TypedQuery;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,6 +32,10 @@ import java.util.Optional;
 public class KhoService extends BaseServiceImpl<Kho, Integer> {
     @Autowired
     private EntityManager entityManager;
+
+    /** Chốt chặn dữ liệu chủ của kiểm kê khoanh vùng; null khi unit test dựng tay. */
+    @Autowired(required = false)
+    private KhoaKiemKeGuard khoaKiemKeGuard;
 
     @Override
     protected EntityManager getEntityManager() {
@@ -158,6 +163,9 @@ public class KhoService extends BaseServiceImpl<Kho, Integer> {
         kho.setQuanLy(findingQuanLy.get());
         kho.setTrangThai(creating.getTrangThai());
         kho = create(kho);
+        if (khoaKiemKeGuard != null) {
+            khoaKiemKeGuard.taoMutex(kho.getId());
+        }
         return ResponseEntity.ok(
                 ResponseData.<KhoDto>builder()
                         .status(HttpStatus.OK.value())
@@ -238,6 +246,10 @@ public class KhoService extends BaseServiceImpl<Kho, Integer> {
         }
         String loaiKho = kho.getLoaiKho() != null ? kho.getLoaiKho() : KHO_BAN_HANG;
         kiemTraKhoTong(kho.getId(), kho.getMaKho(), loaiKho, trangThai);
+        if (khoaKiemKeGuard != null && Integer.valueOf(0).equals(trangThai)) {
+            khoaKiemKeGuard.giuKho(kho.getId());
+            khoaKiemKeGuard.kiemTraKho(kho.getId(), "ngừng hoạt động kho");
+        }
         kho.setTrangThai(trangThai);
         return update(kho.getId(), kho);
     }

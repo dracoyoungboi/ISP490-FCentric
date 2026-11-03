@@ -13,6 +13,8 @@ import com.dev.backend.repository.*;
 import com.dev.backend.services.impl.multitable.BanDuocTaiQuayService;
 import com.dev.backend.services.impl.multitable.GiuChoChuyenKhoService;
 import com.dev.backend.services.impl.multitable.LoDangGiuService;
+import com.dev.backend.services.impl.kiemke.KhoaKiemKeGuard;
+import com.dev.backend.services.impl.kiemke.SoTonKeService;
 import com.dev.backend.utils.PosCheckoutPayloadHash;
 import com.dev.backend.utils.SoChungTu;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -70,6 +72,13 @@ public class PosCheckoutTransaction {
     private TonKhoTheoLoRepository tonKhoTheoLoRepository;
     @Autowired
     private LoDangGiuService loDangGiuService;
+
+    /** Chốt chặn và sổ kệ của kiểm kê khoanh vùng; null khi unit test dựng tay. */
+    @Autowired(required = false)
+    private KhoaKiemKeGuard khoaKiemKeGuard;
+
+    @Autowired(required = false)
+    private SoTonKeService soTonKeService;
     @Autowired
     private GiuChoChuyenKhoService giuChoChuyenKhoService;
     @Autowired
@@ -204,9 +213,16 @@ public class PosCheckoutTransaction {
                     throw new IllegalStateException("Lô " + t.getLoHang().getMaLo() + " bị phân bổ trùng trong checkout");
                 }
                 BigDecimal truoc = t.getSoLuongTon();
+                if (khoaKiemKeGuard != null) {
+                    khoaKiemKeGuard.kiemTraXuat(request.getKhoId(), Map.of(t.getLoHang().getId(), alloc.quantity),
+                            Map.of(t.getLoHang().getId(), truoc), "bán tại quầy");
+                }
                 t.setSoLuongTon(truoc.subtract(alloc.quantity));
                 t.setNgayXuatGanNhat(Instant.now());
                 tonKhoTheoLoRepository.save(t);
+                if (soTonKeService != null) {
+                    soTonKeService.tru(request.getKhoId(), t.getLoHang(), alloc.quantity, truoc);
+                }
                 if (eventPublisher != null && t.getSoLuongTon().compareTo(BigDecimal.valueOf(3)) < 0) {
                     eventPublisher.publishEvent(new com.dev.backend.event.InventoryDeductedEvent(this, variant.getId(), t.getSoLuongTon(), t.getKho().getId()));
                 }
@@ -356,6 +372,10 @@ public class PosCheckoutTransaction {
      * trả lại chính entity cũ thay vì số trong DB -> ghi đè mất cập nhật của quầy khác.
      */
     private List<TonKhoTheoLo> lockLots(Integer khoId, List<Integer> variantIds) {
+        // Chốt chặn kiểm kê (BR-STK-13): mutex kho trước dòng tồn; phân bổ FIFO bỏ qua phần đang kiểm kê (LoDangGiuService)
+        if (khoaKiemKeGuard != null) {
+            khoaKiemKeGuard.giuKho(khoId);
+        }
         List<TonKhoTheoLo> rows = tonKhoTheoLoRepository.lockLotsForUpdateByKhoAndVariants(khoId, variantIds);
         for (TonKhoTheoLo t : rows) {
             entityManager.refresh(t, LockModeType.PESSIMISTIC_WRITE);
