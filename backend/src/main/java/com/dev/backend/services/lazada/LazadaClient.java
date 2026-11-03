@@ -171,23 +171,37 @@ public class LazadaClient {
 
     /**
      * Lấy danh sách đơn hàng từ Lazada (/orders/get).
+     * Mặc định lọc theo updated_at để quét được cả đơn mới lẫn đơn cập nhật trạng thái (delivered, canceled, returned).
      */
-    public JsonNode getOrders(String appKey, String appSecret, String accessToken, Instant createdAfter, Integer limit, Integer offset) {
+    public JsonNode getOrders(String appKey, String appSecret, String accessToken, Instant filterAfter, Integer limit, Integer offset) {
+        return getOrders(appKey, appSecret, accessToken, filterAfter, limit, offset, true);
+    }
+
+    public JsonNode getOrders(String appKey, String appSecret, String accessToken, Instant filterAfter, Integer limit, Integer offset, boolean sortByUpdated) {
         String apiPath = "/orders/get";
         Map<String, String> params = new HashMap<>();
         params.put("app_key", appKey.trim());
         params.put("access_token", accessToken.trim());
         params.put("timestamp", String.valueOf(System.currentTimeMillis()));
         params.put("sign_method", LazadaSignatureHelper.SIGN_METHOD_SHA256);
-        params.put("sort_by", "created_at");
-        params.put("sort_direction", "DESC");
         params.put("limit", String.valueOf(limit != null ? limit : 50));
         params.put("offset", String.valueOf(offset != null ? offset : 0));
 
-        if (createdAfter != null) {
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX")
-                    .withZone(ZoneId.of("Asia/Ho_Chi_Minh"));
-            params.put("created_after", formatter.format(createdAfter));
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX")
+                .withZone(ZoneId.of("Asia/Ho_Chi_Minh"));
+
+        if (sortByUpdated) {
+            params.put("sort_by", "updated_at");
+            params.put("sort_direction", "DESC");
+            if (filterAfter != null) {
+                params.put("update_after", formatter.format(filterAfter));
+            }
+        } else {
+            params.put("sort_by", "created_at");
+            params.put("sort_direction", "DESC");
+            if (filterAfter != null) {
+                params.put("created_after", formatter.format(filterAfter));
+            }
         }
 
         String sign = LazadaSignatureHelper.calculateSignature(apiPath, params, appSecret);

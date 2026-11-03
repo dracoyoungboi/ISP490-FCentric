@@ -923,27 +923,46 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
             return false;
         }
         Integer trangThaiHienTai = don.getTrangThai();
-        // Chỉ cập nhật khi đơn đã xuất kho toàn bộ (trạng thái 3) để đảm bảo tính đơn điệu không kéo lùi
-        if (trangThaiHienTai == null || trangThaiHienTai != ITrangThaiDonBanHang.DA_XUAT_TOAN_BO) {
+        if (trangThaiHienTai == null) {
             return false;
         }
 
         String st = trangThaiSan.toLowerCase();
-        if (st.contains("delivered")) {
-            don.setTrangThai(ITrangThaiDonBanHang.HOAN_THANH);
-            don.setTrangThaiThanhToan("da_thanh_toan");
-            don.setNgayCapNhat(Instant.now());
-            repository.save(don);
-            ghiNhatKyDon(don, "giao_thanh_cong_tu_san", "Sàn cập nhật giao hàng thành công (delivered)");
-            log.info("[CHANNEL-DELIVERY] Đơn {} đã giao thành công trên sàn -> Chuyển Hoàn thành (5)", don.getSoDonHang());
-            return true;
-        } else if (st.contains("failed_delivery") || st.contains("returned")) {
-            don.setTrangThai(ITrangThaiDonBanHang.BI_HOAN_TRA);
-            don.setNgayCapNhat(Instant.now());
-            repository.save(don);
-            ghiNhatKyDon(don, "hoan_tra_tu_san", "Sàn cập nhật giao thất bại / hoàn trả (" + trangThaiSan + ")");
-            log.info("[CHANNEL-RETURN] Đơn {} giao thất bại / hoàn trả trên sàn -> Chuyển Bị hoàn trả (6)", don.getSoDonHang());
-            return true;
+        if (st.contains("delivered") || st.contains("fulfilled")) {
+            // Cho phép từ DA_XUAT_TOAN_BO (3), DA_DONG_GOI (8), CHO_DONG_GOI (7)
+            if (trangThaiHienTai == ITrangThaiDonBanHang.DA_XUAT_TOAN_BO
+                    || trangThaiHienTai == ITrangThaiDonBanHang.DA_DONG_GOI
+                    || trangThaiHienTai == ITrangThaiDonBanHang.CHO_DONG_GOI) {
+                don.setTrangThai(ITrangThaiDonBanHang.HOAN_THANH);
+                don.setTrangThaiThanhToan("da_thanh_toan");
+                don.setNgayCapNhat(Instant.now());
+                repository.save(don);
+                ghiNhatKyDon(don, "giao_thanh_cong_tu_san", "Sàn cập nhật giao hàng thành công (" + trangThaiSan + ")");
+                log.info("[CHANNEL-DELIVERY] Đơn {} đã giao thành công trên sàn -> Chuyển Hoàn thành (5)", don.getSoDonHang());
+                return true;
+            }
+        } else if (st.contains("shipped")) {
+            // Sàn đã xuất giao (shipped) -> nếu đang đóng gói (8) thì chuyển sang Đã xuất kho (3)
+            if (trangThaiHienTai == ITrangThaiDonBanHang.DA_DONG_GOI) {
+                don.setTrangThai(ITrangThaiDonBanHang.DA_XUAT_TOAN_BO);
+                don.setNgayCapNhat(Instant.now());
+                repository.save(don);
+                ghiNhatKyDon(don, "xuat_kho_tu_san", "Sàn cập nhật đang vận chuyển (shipped)");
+                log.info("[CHANNEL-SHIPPED] Đơn {} đang vận chuyển trên sàn -> Chuyển Đã xuất toàn bộ (3)", don.getSoDonHang());
+                return true;
+            }
+        } else if (st.contains("failed_delivery") || st.contains("returned") || st.contains("refunded")) {
+            // Chỉ hoàn trả khi đơn đã xuất hoặc đã hoàn thành
+            if (trangThaiHienTai == ITrangThaiDonBanHang.DA_XUAT_TOAN_BO
+                    || trangThaiHienTai == ITrangThaiDonBanHang.HOAN_THANH
+                    || trangThaiHienTai == ITrangThaiDonBanHang.DA_DONG_GOI) {
+                don.setTrangThai(ITrangThaiDonBanHang.BI_HOAN_TRA);
+                don.setNgayCapNhat(Instant.now());
+                repository.save(don);
+                ghiNhatKyDon(don, "hoan_tra_tu_san", "Sàn cập nhật giao thất bại / hoàn trả (" + trangThaiSan + ")");
+                log.info("[CHANNEL-RETURN] Đơn {} giao thất bại / hoàn trả trên sàn -> Chuyển Bị hoàn trả (6)", don.getSoDonHang());
+                return true;
+            }
         }
         return false;
     }
