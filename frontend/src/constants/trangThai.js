@@ -387,8 +387,10 @@ export const QUY_TRINH = {
   },
   kiemKe: {
     ten: "Kiểm kê",
-    tong: 2,
-    buoc: { "Đang kiểm kê": 1, "Hoàn thành": 2 },
+    tong: 3,
+    buoc: { "Nháp": 0, "Đang kiểm kê": 1, "Chờ duyệt": 2, "Đã duyệt": 3 },
+    nhap: ["Nháp"],
+    huy: ["Đã hủy"],
   },
   yeuCauNhap: {
     ten: "Yêu cầu nhập hàng",

@@ -67,6 +67,8 @@ const InChuyenKho = taiTrang(() => import("./pages/chuyenKhoNoiBo/InChuyenKho"))
 const StockTakeList = taiTrang(() => import("./pages/stock-take/StockTakeList"));
 const StockTakeCreate = taiTrang(() => import("./pages/stock-take/StockTakeCreate"));
 const StockTakeDetail = taiTrang(() => import("./pages/stock-take/StockTakeDetail"));
+const StockTakeLockMap = taiTrang(() => import("./pages/stock-take/StockTakeLockMap"));
+const StockTakeUnshelved = taiTrang(() => import("./pages/stock-take/StockTakeUnshelved"));
 const BaoCaoDoanhThu = taiTrang(() => import("./pages/bao-cao/BaoCaoDoanhThu"));
 const XuatDuLieuKeToan = taiTrang(() => import("./pages/bao-cao/XuatDuLieuKeToan"));
 const KhachHangReport = taiTrang(() => import("./pages/bao-cao/KhachHangReport"));
@@ -298,6 +300,9 @@ const CAY_DUONG_DAN = (
       {/* Kiểm kê kho hàng*/}
       <Route path="/stock-take" element={<StockTakeList />} />
       <Route path="/stock-take/new" element={<StockTakeCreate />} />
+      <Route path="/stock-take/lock-map" element={<StockTakeLockMap />} />
+      <Route path="/stock-take/unshelved" element={<StockTakeUnshelved />} />
+      <Route path="/stock-take/:id/edit" element={<StockTakeCreate />} />
       <Route path="/stock-take/:id" element={<StockTakeDetail />} />
 
       {/* Báo cáo. Doanh thu, khách hàng, nhập xuất: API chỉ cho quản trị viên và

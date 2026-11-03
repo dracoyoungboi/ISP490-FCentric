@@ -16,7 +16,7 @@ const LOAI = {
   don_ban: { ten: "Đơn bán mới", icon: ShoppingCart, mo: (x) => [x.soTien != null && formatTien(x.soTien), x.doiTac ?? "Đơn bán trực tiếp"], to: (x) => `/sales-orders/${x.id}` },
   ban_tai_quay: { ten: "Bán tại quầy", icon: Store, mo: (x) => [x.soTien != null && formatTien(x.soTien), x.tenKho], to: (x) => `/sales-orders/${x.id}` },
   // Tên đợt kiểm kê tự đặt thường đã chứa tên kho ("Kiểm kê kho Kho tổng") nên chỉ ghi khi khác
-  kiem_ke: { ten: "Kiểm kê xong", icon: ClipboardCheck, mo: (x) => [x.doiTac && !(x.tenKho && x.doiTac.includes(x.tenKho)) ? x.doiTac : null, x.tenKho], to: (x) => `/stock-take/${x.id}` },
+  kiem_ke: { ten: "Kiểm kê đã duyệt", icon: ClipboardCheck, mo: (x) => [x.doiTac && !(x.tenKho && x.doiTac.includes(x.tenKho)) ? x.doiTac : null, x.tenKho], to: (x) => `/stock-take/${x.id}` },
 };
 
 /**

@@ -176,6 +176,21 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
             title: "Chi tiết đợt kiểm kê",
         },
         {
+            key: "STOCK_TAKE_EDIT",
+            match: (path) => /^\/stock-take\/\d+\/edit$/.test(path),
+            title: "Sửa đợt kiểm kê",
+        },
+        {
+            key: "STOCK_TAKE_LOCK_MAP",
+            match: (path) => path === "/stock-take/lock-map",
+            title: "Sơ đồ khóa kiểm kê",
+        },
+        {
+            key: "STOCK_TAKE_UNSHELVED",
+            match: (path) => path === "/stock-take/unshelved",
+            title: "Hàng chưa có kệ",
+        },
+        {
             key: "DANH_MUC_QUAN_AO",
             match: (path) => path === "/categories",
             title: "Danh mục",

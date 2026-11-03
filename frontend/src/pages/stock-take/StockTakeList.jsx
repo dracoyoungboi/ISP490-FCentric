@@ -1,6 +1,7 @@
 // src/pages/stock-take/StockTakeList.jsx
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { ClipboardList, Eye, Grid2x2, Play, Plus, SearchX } from "lucide-react";
 import PageContainer from "@/components/backoffice/PageContainer";
 import AttentionBar from "@/components/shared/AttentionBar";
 import ListPageHeader from "@/components/shared/ListPageHeader";
@@ -15,243 +16,242 @@ import EmptyState from "@/components/shared/EmptyState";
 import ErrorState from "@/components/shared/ErrorState";
 import LoadingState from "@/components/shared/LoadingState";
 import { Button } from "@/components/ui/button";
-import { Plus, Eye, ClipboardList, Play, SearchX } from "lucide-react";
+import { boDau, soVN } from "@/components/chung-tu/bangChungTu";
+import { TAB_DOT, TT_DOT, moTaPhamVi, nhanPhamVi, nhanTrangThaiDot, tienCoDau } from "@/components/kiem-ke/kiemKe";
 import { toast } from "@/lib/thongBaoNhanh";
+import { cn } from "@/lib/utils";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
-import { getStockTakes } from "@/services/stockTakeService";
-import { donBanTam, layKhoLuu } from "@/components/kiem-ke/banTamKiemKe";
-import { getCurrentUserId, hasAnyRole, ROLES } from "@/utils/roles";
+import { layDanhSachDot } from "@/services/stockTakeService";
+import { hasAnyRole, ROLES } from "@/utils/roles";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
-import { trangThaiLa } from "@/constants/trangThaiChung";
 import { formatDate } from "@/utils/formatters";
 
-// ── Trạng thái (màu thẻ tra theo tên ở constants/trangThai) ──────────────
-const TRANG_THAI = {
-  0: { label: "Đang kiểm kê" },
-  1: { label: "Hoàn thành" },
-};
-
-// ── Tab trạng thái (bố cục A+G) — mã tab nằm trên URL ?trangThai= ─────────
-const STATUS_TABS = [
-  { value: "tat-ca",       label: "Tất cả",            trangThai: null },
-  { value: "dang-kiem-ke", label: TRANG_THAI[0].label, trangThai: 0 },
-  { value: "hoan-thanh",   label: TRANG_THAI[1].label, trangThai: 1 },
-];
-const STATUS_TAB_VALUES = STATUS_TABS.map((tab) => tab.value);
+const TAB_VALUES = TAB_DOT.map((t) => t.value);
 const TAB_MAC_DINH = "tat-ca";
-const TAB_DANG_KIEM_KE = "dang-kiem-ke";
+const TAB_CHO_DUYET = "cho-duyet";
 
-const matchTab = (item, tab) => {
-  const trangThai = STATUS_TABS.find((t) => t.value === tab)?.trangThai;
-  return trangThai == null || item.trangThai === trangThai;
+const khopTab = (item, tab) => {
+  const trangThai = TAB_DOT.find((t) => t.value === tab)?.trangThai;
+  return trangThai == null || Number(item.trangThai) === trangThai;
 };
 
-const matchSearch = (item, searchTerm) => {
-  const keyword = searchTerm.trim().toLowerCase();
-  return (
-    !keyword ||
-    item.maDotKiemKe?.toLowerCase().includes(keyword) ||
-    item.tenDotKiemKe?.toLowerCase().includes(keyword) ||
-    item.kho?.tenKho?.toLowerCase().includes(keyword)
+const khopTuKhoa = (item, tuKhoa) => {
+  const tu = boDau(tuKhoa.trim()).toLowerCase();
+  if (!tu) return true;
+  return [item.ma, item.ten, item.kho?.ten, item.nguoiChuTri?.hoTen, nhanPhamVi(item.loaiKiemKe)].some((x) =>
+    boDau(String(x ?? "")).toLowerCase().includes(tu),
   );
 };
 
-const TH_CLASS =
-  "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
+/** Ngày hiển thị của đợt: đã bắt đầu → ngày bắt đầu, nháp → ngày tạo. */
+const ngayCua = (d) => d.ngayBatDau ?? d.ngayTao;
 
-// ── Main component ────────────────────────────────────────────────────────
+const TH_CLASS = "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
+
+/** Thanh tiến độ nhỏ trong bảng: "12/40" + vạch. Nháp: "Chưa chốt". */
+function TienDo({ d }) {
+  const tk = d.thongKe ?? {};
+  if (Number(d.trangThai) === TT_DOT.NHAP) return <span className="text-xs text-bo-muted">Chưa chốt dòng</span>;
+  const tong = tk.tongDong ?? 0;
+  const da = tk.daDem ?? 0;
+  const pt = tong ? Math.floor((da / tong) * 100) : 0;
+  return (
+    <span className="block min-w-[112px]">
+      <span className="flex items-baseline justify-between gap-2 text-xs tabular-nums">
+        <span className="font-semibold text-bo-foreground">
+          {soVN(da)}
+          <span className="font-normal text-bo-muted">/{soVN(tong)}</span>
+        </span>
+        <span className="text-bo-muted">{pt}%</span>
+      </span>
+      <span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-slate-200/80" aria-hidden="true">
+        <span
+          className={cn("block h-full rounded-full", pt >= 100 ? "bg-bo-success" : "bg-bo-primary")}
+          // data-viz: bề rộng theo phần trăm dòng đã đếm
+          style={{ width: `${pt}%` }}
+        />
+      </span>
+    </span>
+  );
+}
+
+/** Chênh lệch ròng (hiện từ lúc trình duyệt, khi số đếm đã chốt). */
+function ChenhLech({ d }) {
+  const tt = Number(d.trangThai);
+  const tk = d.thongKe ?? {};
+  if (tt !== TT_DOT.CHO_DUYET && tt !== TT_DOT.DA_DUYET) return <span className="text-bo-muted">—</span>;
+  if (!tk.lech) return <span className="text-xs font-semibold text-bo-success">Khớp sổ</span>;
+  const rong = Number(tk.giaTriRong) || 0;
+  return (
+    <span className="block text-right leading-5">
+      <span className={cn("block font-semibold tabular-nums", rong < 0 ? "text-bo-danger" : "text-bo-primary-strong")}>{tienCoDau(rong)}</span>
+      <span className="block text-xs text-bo-muted tabular-nums">{soVN(tk.lech)} dòng lệch</span>
+    </span>
+  );
+}
+
+/**
+ * Danh sách đợt kiểm kê (/stock-take). Tab trên URL ?trangThai= (Tổng quan liên kết tới "dang-kiem-ke"). Dòng chú ý:
+ * quản lý kho / quản trị thấy đợt chờ duyệt; nhân viên kho thấy đợt đang kiểm kê. Lối vào Sơ đồ khóa ở đầu trang.
+ */
 export default function StockTakeList() {
   const navigate = useNavigate();
+  const [ds, setDs] = useState([]);
+  const [dangTai, setDangTai] = useState(true);
+  const [loiTai, setLoiTai] = useState(false);
+  const [tuKhoa, setTuKhoa] = useState("");
+  const [tab, setTab] = useTabTrenUrl(TAB_VALUES, TAB_MAC_DINH);
+  const [trang, setTrang] = useState(0);
+  const [coTrang, setCoTrang] = useState(SO_DONG_MAC_DINH);
+  const [laQuanLy] = useState(() => hasAnyRole([ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO]));
+  const [laNhanVien] = useState(() => !hasAnyRole([ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO]) && hasAnyRole([ROLES.NHAN_VIEN_KHO]));
 
-  const [stockTakes,   setStockTakes]   = useState([]);
-  const [loading,      setLoading]      = useState(true);
-  const [loadError,    setLoadError]    = useState(false);
-  const [searchTerm,   setSearchTerm]   = useState("");
-  const [tab,          setTab]          = useTabTrenUrl(STATUS_TAB_VALUES, TAB_MAC_DINH);
-  const [pageNumber,   setPageNumber]   = useState(0);
-  const [pageSize,     setPageSize]     = useState(SO_DONG_MAC_DINH);
-  // Dòng chú ý "đợt kiểm kê đang mở" chỉ cho người làm kiểm kê (R4)
-  const [coQuyenKiemKe] = useState(() => hasAnyRole([ROLES.QUAN_LY_KHO, ROLES.NHAN_VIEN_KHO]));
-
-  // Chỉ nhận kết quả của lần tải mới nhất: lần tải ngầm về chậm không đè dữ liệu tải sau một thao tác
-  const requestIdRef = useRef(0);
-  // silent: tải lại ngầm khi quay lại tab — giữ bảng đang xem, lỗi chỉ ghi log
-  const fetchData = useCallback(async ({ silent = false } = {}) => {
-    const requestId = ++requestIdRef.current;
-    if (!silent) {
-      setLoading(true);
-      setLoadError(false);
+  const lanTaiRef = useRef(0);
+  const tai = useCallback(async ({ ngam = false } = {}) => {
+    const lan = ++lanTaiRef.current;
+    if (!ngam) {
+      setDangTai(true);
+      setLoiTai(false);
     }
     try {
-      const data = await getStockTakes();
-      if (requestId !== requestIdRef.current) return;
-      // Dọn bản đếm tạm trên máy của đợt không còn / rỗng (giữ bản của đợt đã hoàn thành còn số: màn chi tiết báo số bị bỏ)
-      // Chỉ dọn bản của chính mình; không đọc được id (token hỏng) thì không dọn, kẻo xóa bản đếm dở của người khác
-      const nguoiDungId = getCurrentUserId();
-      if (nguoiDungId != null) donBanTam(layKhoLuu(), data, nguoiDungId);
-      setStockTakes(data);
-      setLoadError(false);
+      const data = await layDanhSachDot();
+      if (lan !== lanTaiRef.current) return;
+      setDs(data);
+      setLoiTai(false);
     } catch (error) {
-      if (requestId !== requestIdRef.current) return;
-      if (silent) {
+      if (lan !== lanTaiRef.current) return;
+      if (ngam) {
         console.error(error);
         return;
       }
-      // Không giữ dữ liệu cũ khi lỗi (R9)
-      setStockTakes([]);
-      setLoadError(true);
+      setDs([]);
+      setLoiTai(true);
       toast.error(error.response?.data?.message || "Không thể tải danh sách kiểm kê");
     } finally {
-      if (requestId === requestIdRef.current) setLoading(false);
+      if (lan === lanTaiRef.current) setDangTai(false);
     }
   }, []);
 
-  // Hoãn qua microtask để tránh setState đồng bộ trong effect
-  // (react-hooks/set-state-in-effect); dữ liệu vẫn tải ngay khi mount.
   useEffect(() => {
-    queueMicrotask(() => fetchData());
-  }, [fetchData]);
+    queueMicrotask(() => tai());
+  }, [tai]);
+  useTaiLaiKhiQuayLai(() => tai({ ngam: true }), { bat: !dangTai });
 
-  // Quay lại tab thì tải lại ngầm (đợt kiểm kê do nhân viên kho khác mở / hoàn thành)
-  useTaiLaiKhiQuayLai(() => fetchData({ silent: true }), { bat: !loading });
-
-  // Đổi tab: ghi lên URL và về trang đầu
-  const changeTab = (value) => {
-    setTab(value);
-    setPageNumber(0);
+  const doiTab = (v) => {
+    setTab(v);
+    setTrang(0);
   };
-
-  const changeSearch = (value) => {
-    setSearchTerm(value);
-    setPageNumber(0);
+  const doiTuKhoa = (v) => {
+    setTuKhoa(v);
+    setTrang(0);
   };
+  const xoaTuKhoa = () => doiTuKhoa("");
 
-  // "Xóa lọc": bỏ từ khóa, giữ tab đang chọn
-  const clearSearch = () => changeSearch("");
-
-  // Nút của dòng chú ý: mở tab Đang kiểm kê, bỏ từ khóa để số dòng khớp số trên dòng chú ý
-  const showOngoing = () => {
-    setSearchTerm("");
-    changeTab(TAB_DANG_KIEM_KE);
-  };
-
-  // ── Client-side filter: lọc mọi thứ trừ trạng thái, rồi mới lọc theo tab ──
-  const searched = useMemo(
-    () => stockTakes.filter((item) => matchSearch(item, searchTerm)),
-    [stockTakes, searchTerm]
-  );
-  const filtered = useMemo(
-    () => searched.filter((item) => matchTab(item, tab)),
-    [searched, tab]
+  const daTim = useMemo(() => ds.filter((x) => khopTuKhoa(x, tuKhoa)), [ds, tuKhoa]);
+  const daLoc = useMemo(() => daTim.filter((x) => khopTab(x, tab)), [daTim, tab]);
+  const tabs = useMemo(
+    () =>
+      TAB_DOT.map(({ value, label, tone }) => ({
+        value,
+        label,
+        tone,
+        count: dangTai || loiTai ? null : daTim.filter((x) => khopTab(x, value)).length,
+      })),
+    [daTim, dangTai, loiTai],
   );
 
-  // Số trên tab = số dòng sẽ thấy khi bấm tab, theo từ khóa đang tìm (R1); đang tải / lỗi thì không hiện (R9)
-  const statusTabs = useMemo(
-    () => STATUS_TABS.map(({ value, label }) => ({
-      value,
-      label,
-      count: loading || loadError ? null : searched.filter((item) => matchTab(item, value)).length,
-    })),
-    [searched, loading, loadError]
-  );
+  const choDuyet = ds.filter((x) => Number(x.trangThai) === TT_DOT.CHO_DUYET && x.quyen?.pheDuyet).length;
+  const dangKiem = ds.filter((x) => Number(x.trangThai) === TT_DOT.DANG_KIEM_KE).length;
+  const chuY =
+    dangTai || loiTai
+      ? null
+      : laQuanLy && choDuyet && tab !== TAB_CHO_DUYET
+        ? { tone: "warning", so: choDuyet, chu: "đợt kiểm kê chờ bạn thẩm định.", nut: "Xem đợt chờ duyệt", tab: TAB_CHO_DUYET }
+        : laNhanVien && dangKiem && tab !== "dang-kiem-ke"
+          ? { tone: "info", so: dangKiem, chu: "đợt kiểm kê đang đếm.", nut: "Xem đợt đang kiểm kê", tab: "dang-kiem-ke" }
+          : null;
 
-  // Dòng chú ý: đợt trạng thái 0 trên toàn dữ liệu đã tải, bỏ qua từ khóa; ẩn khi đang ở tab Đang kiểm kê
-  const soDotDangMo = coQuyenKiemKe && tab !== TAB_DANG_KIEM_KE && !loading && !loadError
-    ? stockTakes.filter((item) => item.trangThai === 0).length
-    : null;
-
-  // ── Pagination ────────────────────────────────────────────────────────
-  const totalElements = filtered.length;
-  const totalPages    = Math.max(1, Math.ceil(totalElements / pageSize));
-  const safePage      = Math.min(pageNumber, totalPages - 1);
-  const pageItems     = filtered.slice(safePage * pageSize, (safePage + 1) * pageSize);
-
-  const handlePageChange = (p) => {
-    if (p >= 0 && p < totalPages) setPageNumber(p);
-  };
-
-  const dangTimKiem = Boolean(searchTerm.trim());
-  const emptyTabLabel = STATUS_TABS.find((t) => t.value === tab)?.label;
+  const tong = daLoc.length;
+  const soTrang = Math.max(1, Math.ceil(tong / coTrang));
+  const trangAnToan = Math.min(trang, soTrang - 1);
+  const muc = daLoc.slice(trangAnToan * coTrang, (trangAnToan + 1) * coTrang);
+  const dangTim = Boolean(tuKhoa.trim());
+  const nhanTab = TAB_DOT.find((t) => t.value === tab)?.label;
+  const moDot = (d) => navigate(`/stock-take/${d.id}`);
 
   return (
     <PageContainer fill className="space-y-4">
       <ListPageHeader
         actions={
-          <Button
-            onClick={() => navigate("/stock-take/new")}
-            className="h-9 gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover"
-          >
-            <Plus className="size-4" />
-            Tạo đợt kiểm kê
-          </Button>
+          <>
+            <Button
+              variant="outline"
+              onClick={() => navigate("/stock-take/lock-map")}
+              className="h-9 gap-2 border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
+            >
+              <Grid2x2 className="size-4" />
+              Sơ đồ khóa
+            </Button>
+            {laQuanLy ? (
+              <Button onClick={() => navigate("/stock-take/new")} className="h-9 gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover">
+                <Plus className="size-4" />
+                Tạo đợt kiểm kê
+              </Button>
+            ) : null}
+          </>
         }
       />
 
-      <AttentionBar
-        tone="info"
-        count={soDotDangMo}
-        actionLabel="Xem đợt đang kiểm kê"
-        onAction={showOngoing}
-      >
-        <strong className="font-semibold">{soDotDangMo?.toLocaleString("vi-VN")} đợt kiểm kê</strong> đang mở.
+      <AttentionBar tone={chuY?.tone} count={chuY?.so ?? null} actionLabel={chuY?.nut} onAction={() => chuY && doiTab(chuY.tab)}>
+        <strong className="font-semibold">{soVN(chuY?.so ?? 0)}</strong> {chuY?.chu}
       </AttentionBar>
 
-      {/* ── Table ── */}
       <TableShell
         fill
         toolbar={
           <ListToolbar
-            tabs={
-              <StatusTabs
-                label="Lọc đợt kiểm kê theo trạng thái"
-                tabs={statusTabs}
-                value={tab}
-                onChange={changeTab}
-              />
-            }
-            hasFilter={dangTimKiem}
-            onClear={clearSearch}
+            tabs={<StatusTabs label="Lọc đợt kiểm kê theo trạng thái" tabs={tabs} value={tab} onChange={doiTab} />}
+            hasFilter={dangTim}
+            onClear={xoaTuKhoa}
           >
             <SearchInput
-              placeholder="Tìm theo mã đợt, tên đợt, kho..."
+              placeholder="Tìm mã đợt, tên đợt, kho, người chủ trì..."
               label="Tìm đợt kiểm kê"
-              value={searchTerm}
-              onChange={(e) => changeSearch(e.target.value)}
-              onClear={clearSearch}
+              value={tuKhoa}
+              onChange={(e) => doiTuKhoa(e.target.value)}
+              onClear={xoaTuKhoa}
               className="sm:w-[300px]"
             />
           </ListToolbar>
         }
-        footer={!loading && !loadError && totalElements > 0 ? (
-          <TablePagination
-            page={safePage}
-            size={pageSize}
-            total={totalElements}
-            onPageChange={handlePageChange}
-            onSizeChange={(size) => { setPageSize(size); setPageNumber(0); }}
-          />
-        ) : null}
+        footer={
+          !dangTai && !loiTai && tong > 0 ? (
+            <TablePagination
+              page={trangAnToan}
+              size={coTrang}
+              total={tong}
+              onPageChange={(p) => p >= 0 && p < soTrang && setTrang(p)}
+              onSizeChange={(n) => {
+                setCoTrang(n);
+                setTrang(0);
+              }}
+            />
+          ) : null
+        }
       >
-        {loading ? (
+        {dangTai ? (
           <LoadingState rows={6} label="Đang tải danh sách đợt kiểm kê" />
-        ) : loadError ? (
-          <ErrorState
-            description="Không thể tải danh sách đợt kiểm kê. Vui lòng thử lại."
-            onRetry={() => fetchData()}
-          />
-        ) : pageItems.length === 0 ? (
-          dangTimKiem ? (
+        ) : loiTai ? (
+          <ErrorState description="Không thể tải danh sách đợt kiểm kê. Vui lòng thử lại." onRetry={() => tai()} />
+        ) : muc.length === 0 ? (
+          dangTim ? (
             <EmptyState
               icon={SearchX}
               title="Không tìm thấy đợt kiểm kê phù hợp"
               description="Thử đổi từ khóa tìm kiếm."
               action={
-                <Button
-                  variant="outline"
-                  onClick={clearSearch}
-                  className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
-                >
+                <Button variant="outline" onClick={xoaTuKhoa} className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">
                   Xóa lọc
                 </Button>
               }
@@ -259,12 +259,12 @@ export default function StockTakeList() {
           ) : tab !== TAB_MAC_DINH ? (
             <EmptyState
               icon={ClipboardList}
-              title={`Không có đợt kiểm kê nào ở trạng thái "${emptyTabLabel}"`}
+              title={`Không có đợt kiểm kê nào ở trạng thái "${nhanTab}"`}
               description="Chọn tab Tất cả để xem mọi đợt kiểm kê."
               action={
                 <Button
                   variant="outline"
-                  onClick={() => changeTab(TAB_MAC_DINH)}
+                  onClick={() => doiTab(TAB_MAC_DINH)}
                   className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                 >
                   Xem tất cả
@@ -275,127 +275,108 @@ export default function StockTakeList() {
             <EmptyState
               icon={ClipboardList}
               title="Chưa có đợt kiểm kê nào"
-              description="Hãy tạo đợt kiểm kê đầu tiên để bắt đầu theo dõi tồn kho thực tế."
+              description={
+                laQuanLy
+                  ? "Kiểm kê theo khu vực, theo kệ hay theo danh mục để chỉ tạm dừng đúng phần hàng cần đếm."
+                  : "Quản lý kho sẽ lập đợt kiểm kê; đợt đang đếm sẽ hiện ở đây."
+              }
               action={
-                <Button
-                  onClick={() => navigate("/stock-take/new")}
-                  className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover"
-                >
-                  <Plus className="size-4" />
-                  Tạo đợt đầu tiên
-                </Button>
+                laQuanLy ? (
+                  <Button onClick={() => navigate("/stock-take/new")} className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover">
+                    <Plus className="size-4" />
+                    Tạo đợt đầu tiên
+                  </Button>
+                ) : null
               }
             />
           )
         ) : (
           <>
-          {/* Điện thoại: mỗi đợt một thẻ — mã đợt + trạng thái, tên đợt + kho, ngày bắt đầu · người chủ trì; chạm thẻ mở đợt */}
-          <ul className="divide-y divide-bo-border md:hidden">
-            {pageItems.map((item) => {
-              const tt = TRANG_THAI[item.trangThai] ?? trangThaiLa(item.trangThai);
-              return (
-                <li key={item.id}>
-                  <Link to={`/stock-take/${item.id}`} className="grid grid-cols-1 gap-1 px-4 py-3 active:bg-bo-surface-subtle">
+            {/* Điện thoại: mỗi đợt một thẻ — mã + trạng thái, tên + kho, phạm vi, tiến độ */}
+            <ul className="divide-y divide-bo-border md:hidden">
+              {muc.map((d) => (
+                <li key={d.id}>
+                  <Link to={`/stock-take/${d.id}`} className="grid grid-cols-1 gap-1.5 px-4 py-3 active:bg-bo-surface-subtle">
                     <span className="flex items-center justify-between gap-3">
-                      <span className="min-w-0 truncate font-mono text-[15px] font-semibold tracking-wide text-bo-primary">{item.maDotKiemKe}</span>
-                      <StatusBadge quyTrinh="kiemKe" label={tt.label} />
+                      <span className="min-w-0 truncate font-mono text-[15px] font-semibold tracking-wide text-bo-primary">{d.ma}</span>
+                      <StatusBadge quyTrinh="kiemKe" label={nhanTrangThaiDot(d.trangThai)} />
                     </span>
                     <span className="flex min-w-0 items-center gap-2 text-sm">
-                      <span className="min-w-0 truncate font-semibold text-bo-foreground">{item.tenDotKiemKe || "—"}</span>
-                      {item.kho?.tenKho ? <span className="shrink-0 text-bo-muted">{item.kho.tenKho}</span> : null}
+                      <span className="min-w-0 truncate font-semibold text-bo-foreground">{d.ten || "—"}</span>
+                      {d.kho?.ten ? <span className="shrink-0 text-bo-muted">{d.kho.ten}</span> : null}
                     </span>
                     <span className="min-w-0 truncate text-[13px] text-bo-muted">
-                      {formatDate(item.ngayBatDau)}{item.nguoiChuTri?.hoTen ? ` · ${item.nguoiChuTri.hoTen}` : ""}
+                      {nhanPhamVi(d.loaiKiemKe)}
+                      {d.loaiKiemKe !== "toan_bo" ? ` · ${moTaPhamVi(d, 2)}` : ""} · {formatDate(ngayCua(d))}
                     </span>
+                    {Number(d.trangThai) !== TT_DOT.NHAP ? <TienDo d={d} /> : null}
                   </Link>
                 </li>
-              );
-            })}
-          </ul>
-          {/* Máy tính bảng dọc (cảm ứng): bỏ cột STT, Người chủ trì, Ngày bắt đầu — đưa thành dòng phụ; giữ Thao tác vì dòng bảng không bấm được */}
-          <table className="w-full min-w-[1020px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
-            <thead className="sticky top-0 z-10">
-              <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                <th className={`${TH_CLASS} w-14 text-center cam-ung:max-lg:hidden`}>STT</th>
-                <th className={`${TH_CLASS} text-left`}>Mã đợt</th>
-                <th className={`${TH_CLASS} text-left`}>Tên đợt</th>
-                <th className={`${TH_CLASS} text-left`}>Kho</th>
-                <th className={`${TH_CLASS} text-left cam-ung:max-lg:hidden`}>Người chủ trì</th>
-                <th className={`${TH_CLASS} text-left cam-ung:max-lg:hidden`}>Ngày bắt đầu</th>
-                <th className={`${TH_CLASS} text-left`}>Trạng thái</th>
-                <th className={`${TH_CLASS} text-center`}>Thao tác</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-bo-border">
-              {pageItems.map((item, index) => {
-                const tt        = TRANG_THAI[item.trangThai] ?? trangThaiLa(item.trangThai);
-                const isOngoing = item.trangThai === 0;
-                return (
-                  <tr key={item.id} className="transition-colors hover:bg-bo-surface-subtle">
-
-                    <td className="px-4 py-3.5 text-center align-middle text-xs text-bo-muted cam-ung:max-lg:hidden">
-                      {safePage * pageSize + index + 1}
-                    </td>
-
-                    {/* Mã đợt */}
-                    <td className="px-4 py-3.5 align-middle">
-                      <span className="rounded-md bg-bo-primary-soft px-2 py-0.5 font-mono text-xs font-semibold tracking-wide text-bo-primary cam-ung:max-lg:whitespace-nowrap">
-                        {item.maDotKiemKe}
-                      </span>
-                      <span className="mt-1 hidden text-xs text-bo-muted cam-ung:max-lg:block">{formatDate(item.ngayBatDau)}</span>
-                    </td>
-
-                    {/* Tên đợt */}
-                    <td className="max-w-[200px] px-4 py-3.5 align-middle">
-                      <span className="font-semibold leading-snug text-bo-foreground">
-                        {item.tenDotKiemKe || "—"}
-                      </span>
-                    </td>
-
-                    {/* Kho */}
-                    <td className="px-4 py-3.5 align-middle">
-                      <span className="font-medium text-bo-foreground">
-                        {item.kho?.tenKho || "—"}
-                      </span>
-                      {item.nguoiChuTri?.hoTen ? (
-                        <span className="mt-0.5 hidden text-xs text-bo-muted cam-ung:max-lg:block">{item.nguoiChuTri.hoTen}</span>
-                      ) : null}
-                    </td>
-
-                    {/* Người chủ trì */}
-                    <td className="px-4 py-3.5 align-middle cam-ung:max-lg:hidden">
-                      <span className="font-medium text-bo-foreground">
-                        {item.nguoiChuTri?.hoTen || "—"}
-                      </span>
-                    </td>
-
-                    {/* Ngày bắt đầu */}
-                    <td className="px-4 py-3.5 align-middle cam-ung:max-lg:hidden">
-                      <span className="text-xs text-bo-muted">
-                        {formatDate(item.ngayBatDau)}
-                      </span>
-                    </td>
-
-                    {/* Trạng thái */}
-                    <td className="px-4 py-3.5 align-middle">
-                      <StatusBadge quyTrinh="kiemKe" label={tt.label} />
-                    </td>
-
-                    {/* Thao tác */}
-                    <td className="px-4 py-3.5 align-middle">
-                      <RowActions>
-                        <RowActionButton
-                          icon={isOngoing ? Play : Eye}
-                          label={isOngoing ? "Tiếp tục kiểm kê" : "Xem chi tiết"}
-                          onClick={() => navigate(`/stock-take/${item.id}`)}
-                        />
-                      </RowActions>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+              ))}
+            </ul>
+            <table className="w-full min-w-[1040px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
+              <thead className="sticky top-0 z-10">
+                <tr className="border-b border-bo-border bg-bo-surface-subtle">
+                  <th className={`${TH_CLASS} text-left`}>Đợt kiểm kê</th>
+                  <th className={`${TH_CLASS} text-left`}>Kho</th>
+                  <th className={`${TH_CLASS} text-left`}>Phạm vi</th>
+                  <th className={`${TH_CLASS} w-[150px] text-left cam-ung:max-lg:hidden`}>Tiến độ</th>
+                  <th className={`${TH_CLASS} w-[140px] text-right cam-ung:max-lg:hidden`}>Chênh lệch</th>
+                  <th className={`${TH_CLASS} text-left`}>Trạng thái</th>
+                  <th className={`${TH_CLASS} text-center`}>Thao tác</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-bo-border">
+                {muc.map((d) => {
+                  const dangDem = Number(d.trangThai) === TT_DOT.DANG_KIEM_KE && d.quyen?.dem;
+                  return (
+                    <tr key={d.id} className="transition-colors hover:bg-bo-surface-subtle">
+                      <td className="max-w-[260px] px-4 py-3.5 align-middle">
+                        <span className="rounded-md bg-bo-primary-soft px-2 py-0.5 font-mono text-xs font-semibold tracking-wide text-bo-primary">
+                          {d.ma}
+                        </span>
+                        <span className="mt-1 block truncate font-semibold leading-snug text-bo-foreground" title={d.ten}>
+                          {d.ten || "—"}
+                        </span>
+                        <span className="block text-xs text-bo-muted">
+                          {formatDate(ngayCua(d))}
+                          {d.nguoiChuTri?.hoTen ? ` · ${d.nguoiChuTri.hoTen}` : ""}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5 align-middle">
+                        <span className="font-medium text-bo-foreground">{d.kho?.ten || "—"}</span>
+                      </td>
+                      <td className="max-w-[240px] px-4 py-3.5 align-middle">
+                        <span className="block font-medium text-bo-foreground">{nhanPhamVi(d.loaiKiemKe)}</span>
+                        {d.loaiKiemKe !== "toan_bo" ? (
+                          <span className="block truncate text-xs text-bo-muted" title={moTaPhamVi(d, 50)}>
+                            {moTaPhamVi(d, 3)}
+                          </span>
+                        ) : null}
+                      </td>
+                      <td className="px-4 py-3.5 align-middle cam-ung:max-lg:hidden">
+                        <TienDo d={d} />
+                      </td>
+                      <td className="px-4 py-3.5 text-right align-middle cam-ung:max-lg:hidden">
+                        <ChenhLech d={d} />
+                      </td>
+                      <td className="px-4 py-3.5 align-middle">
+                        <StatusBadge quyTrinh="kiemKe" label={nhanTrangThaiDot(d.trangThai)} />
+                      </td>
+                      <td className="px-4 py-3.5 align-middle">
+                        <RowActions>
+                          <RowActionButton
+                            icon={dangDem ? Play : Eye}
+                            label={dangDem ? "Tiếp tục đếm" : "Xem chi tiết"}
+                            onClick={() => moDot(d)}
+                          />
+                        </RowActions>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </>
         )}
       </TableShell>
