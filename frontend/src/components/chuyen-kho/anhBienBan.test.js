@@ -140,7 +140,7 @@ test("taiLanLuot: tải lần lượt, ảnh lỗi không dừng ảnh sau, báo
     assert.equal(kq.loi[0].loi.message, "413");
     assert.deepEqual(tienDo, ["1/3", "2/3", "3/3"]);
     assert.equal(kq.daDung, false);
-    assert.equal(cauAnhChuaTai(kq.loi.length), "1 ảnh chưa tải được, thêm lại ở chi tiết phiếu");
+    assert.equal(cauAnhChuaTai(kq.loi.length), "1 ảnh chưa tải được, thêm lại ở chi tiết phiếu trước khi kho gửi xác nhận biên bản");
 });
 
 test("taiLanLuot: bấm dừng giữa chừng thì không gửi ảnh còn lại, ảnh chưa tải tính như ảnh lỗi", async () => {
@@ -161,7 +161,7 @@ test("taiLanLuot: bấm dừng giữa chừng thì không gửi ảnh còn lại
     assert.deepEqual(kq.daTai.map((a) => a.k), [1]);
     assert.deepEqual(kq.loi.map((l) => l.anh.k), [2, 3, 4]);
     assert.equal(kq.daDung, true);
-    assert.equal(cauAnhChuaTai(kq.loi.length), "3 ảnh chưa tải được, thêm lại ở chi tiết phiếu");
+    assert.equal(cauAnhChuaTai(kq.loi.length), "3 ảnh chưa tải được, thêm lại ở chi tiết phiếu trước khi kho gửi xác nhận biên bản");
 
     // Đã dừng trước khi bắt đầu: không gửi ảnh nào
     let goi = 0;

@@ -120,7 +120,7 @@ export async function taiLanLuot(ds, guiMot, khiTienDo, signal) {
 }
 
 /** Câu báo sau khi lập biên bản mà còn ảnh tải lỗi hoặc bị bỏ qua (biên bản vẫn thành công). */
-export const cauAnhChuaTai = (soLoi) => `${soLoi} ảnh chưa tải được, thêm lại ở chi tiết phiếu`;
+export const cauAnhChuaTai = (soLoi) => `${soLoi} ảnh chưa tải được, thêm lại ở chi tiết phiếu trước khi kho gửi xác nhận biên bản`;
 
 // ─────────────────────────────── Trình duyệt (canvas) ───────────────────────────────
 
