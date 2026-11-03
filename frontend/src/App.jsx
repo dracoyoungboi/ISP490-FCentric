@@ -68,6 +68,7 @@ const StockTakeList = taiTrang(() => import("./pages/stock-take/StockTakeList"))
 const StockTakeCreate = taiTrang(() => import("./pages/stock-take/StockTakeCreate"));
 const StockTakeDetail = taiTrang(() => import("./pages/stock-take/StockTakeDetail"));
 const BaoCaoDoanhThu = taiTrang(() => import("./pages/bao-cao/BaoCaoDoanhThu"));
+const XuatDuLieuKeToan = taiTrang(() => import("./pages/bao-cao/XuatDuLieuKeToan"));
 const KhachHangReport = taiTrang(() => import("./pages/bao-cao/KhachHangReport"));
 const NhatKyNhapXuat = taiTrang(() => import("./pages/bao-cao/NhatKyNhapXuat"));
 const PhieuNhapKhoPrint = taiTrang(() => import("./pages/receipt/PhieuNhapKhoPrint"));
@@ -94,6 +95,7 @@ const PurchaseOrderPrint = taiTrang(() => import("./pages/order/PurchaseOrderPri
 const PrintTemplateEditorPage = taiTrang(() => import("./pages/settings/PrintTemplateEditorPage"));
 const PaymentSettingsPage = taiTrang(() => import("./pages/settings/PaymentSettingsPage"));
 const VatSettingsPage = taiTrang(() => import("./pages/settings/VatSettingsPage"));
+const AccountingSettingsPage = taiTrang(() => import("./pages/settings/AccountingSettingsPage"));
 const OperationsSettingsPage = taiTrang(() => import("./pages/settings/OperationsSettingsPage"));
 const StoreSettingsPage = taiTrang(() => import("./pages/settings/StoreSettingsPage"));
 const PrintTemplateListPage = taiTrang(() => import("./pages/settings/PrintTemplateListPage"));
@@ -304,6 +306,10 @@ const CAY_DUONG_DAN = (
         <Route path="/reports/customers" element={<KhachHangReport />} />
         <Route path="/reports/stock-movements" element={<NhatKyNhapXuat />} />
       </Route>
+      {/* Xuất dữ liệu kế toán (AMIS): API chỉ cho quản trị viên */}
+      <Route element={<RequireRole roles={["quan_tri_vien"]} />}>
+        <Route path="/reports/accounting-export" element={<XuatDuLieuKeToan />} />
+      </Route>
       <Route path="/reports/inventory" element={<TonKhoTongQuan />} />
       {/* Legacy: URL tiếng Việt cũ chuyển hướng sang URL mới */}
       <Route path="/bao-cao/doanh-thu" element={<Navigate to="/reports/revenue" replace />} />
@@ -333,6 +339,7 @@ const CAY_DUONG_DAN = (
           <Route path="store" element={<StoreSettingsPage />} />
           <Route path="payment" element={<PaymentSettingsPage />} />
           <Route path="vat" element={<VatSettingsPage />} />
+          <Route path="accounting" element={<AccountingSettingsPage />} />
           <Route path="print-templates" element={<PrintTemplateListPage />} />
         </Route>
         {/* Đường dẫn cũ */}

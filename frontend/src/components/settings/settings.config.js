@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Barcode, Boxes, CreditCard, FileText, IdCard, PackageCheck, Percent, Printer, RefreshCcw, Store } from "lucide-react";
+import { ArrowLeftRight, Barcode, Boxes, Calculator, CreditCard, FileText, IdCard, PackageCheck, Percent, Printer, RefreshCcw, Store } from "lucide-react";
 
 /**
  * Trung tâm Cấu hình (/settings/*): menu trái của SettingsLayout, mục "Cấu hình" ghim ở đáy sidebar
@@ -8,7 +8,7 @@ import { ArrowLeftRight, Barcode, Boxes, CreditCard, FileText, IdCard, PackageCh
  * - editRoles: vai trò được sửa; vai trò còn lại chỉ xem (tiêu đề hiện nhãn "Chỉ xem").
  *
  * Thứ tự theo luồng hàng, khớp sidebar chính: Cửa hàng (thiết lập chung) → Kho (nhập rồi tồn) → Bán hàng
- * (tại quầy rồi kênh online). Mục đầu tiên vai trò được mở là trang /settings mở mặc định.
+ * (tại quầy rồi kênh online) → Kế toán (xuất sang phần mềm kế toán). Mục đầu tiên vai trò được mở là trang /settings mở mặc định.
  */
 const QTV = "quan_tri_vien";
 const QLK = "quan_ly_kho";
@@ -17,6 +17,7 @@ export const SETTINGS_GROUPS = [
   { key: "cua-hang", label: "Cửa hàng" },
   { key: "kho", label: "Kho" },
   { key: "ban-hang", label: "Bán hàng" },
+  { key: "ke-toan", label: "Kế toán" },
 ];
 
 export const SETTINGS_PAGES = [
@@ -38,6 +39,8 @@ export const SETTINGS_PAGES = [
   // VAT_BAT, VAT_LICH qua /dieu-hanh-he-thong/cau-hinh: GET cho QTV và QLK; PUT chỉ QTV
   { key: "vat", label: "Thuế GTGT", to: "/settings/vat", group: "ban-hang", icon: Percent, roles: [QTV, QLK], editRoles: [QTV] },
   { key: "sync", label: "Đồng bộ kênh bán", to: "/settings/sync", group: "ban-hang", icon: RefreshCcw, roles: [QTV, QLK], editRoles: [QTV] },
+  // KeToanController: chỉ QTV (chưa có vai trò kế toán)
+  { key: "accounting", label: "Xuất kế toán", to: "/settings/accounting", group: "ke-toan", icon: Calculator, roles: [QTV], editRoles: [QTV] },
 ];
 
 /** Vai trò được mở ít nhất một trang cấu hình. */

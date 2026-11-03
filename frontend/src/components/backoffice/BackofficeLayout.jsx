@@ -242,6 +242,11 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
             title: "Báo cáo nhập xuất",
         },
         {
+            key: "XUAT_DU_LIEU_KE_TOAN",
+            match: (path) => path === "/reports/accounting-export",
+            title: "Xuất dữ liệu kế toán",
+        },
+        {
             key: "PHIEU_NHAP_KHO_PRINT",
             match: (path) => /^\/goods-receipts\/\d+\/print$/.test(path),
             title: "In phiếu nhập kho",

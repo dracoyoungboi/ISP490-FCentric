@@ -259,6 +259,12 @@ export const SIDEBAR_MENU = [
         roles: ["quan_tri_vien", "quan_ly_kho"],
       },
       {
+        // Xuất sang AMIS Kế toán doanh nghiệp: KeToanController chỉ cho quản trị viên
+        label: "Xuất dữ liệu kế toán",
+        to: "/reports/accounting-export",
+        roles: ["quan_tri_vien"],
+      },
+      {
         label: "Lịch sử giao dịch kho",
         to: "/inventory-transactions",
         roles: VAI_TRO_KHO,
