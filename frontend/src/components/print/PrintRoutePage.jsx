@@ -133,7 +133,13 @@ export default function PrintRoutePage({
     const model = data ? adapter(data) : null;
     const title = model ? `In phiếu: ${model.documentNumber}` : titleFallback;
 
-    const goBack = () => navigate(backPath.replace(":id", id));
+    const goBack = () => {
+        if (backPath) {
+            navigate(backPath.replace(":id", id));
+        } else {
+            navigate(-1);
+        }
+    };
 
     const paper = config
         ? { size: config.paperSize, orientation: config.orientation, margin: config.margin }

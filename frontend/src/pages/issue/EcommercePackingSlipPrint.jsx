@@ -15,7 +15,11 @@ export default function EcommercePackingSlipPrint() {
         return detail || null;
       }}
       adapter={toEcommercePrintModel}
-      titleFallback="In phiếu đóng gói đơn sàn"
+      backPath="/goods-issues/:id"
+      loadingLabel="Đang tải dữ liệu phiếu đóng gói đơn sàn"
+      titleFallback="In phiếu vận đơn / đóng gói đơn sàn (A6)"
+      notFoundTitle="Không tìm thấy phiếu xuất kho"
+      notFoundDescription="Phiếu có thể đã bị xóa hoặc bạn không có quyền truy cập."
     />
   );
 }

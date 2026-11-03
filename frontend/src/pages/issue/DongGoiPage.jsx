@@ -331,57 +331,6 @@ function ManDongGoi({ donId }) {
     phien?.maDonHangKenh?.startsWith("LZD-")
   );
 
-  // Hàm thường, không useCallback: khai báo sau các lệnh return sớm (đang tải / lỗi) nên không được là hook
-  const inVanDonLazada = async () => {
-    if (!donId) return;
-    try {
-      toast.loading("Đang tải vận đơn Lazada...", { id: "in-awb" });
-      const blob = await donBanHangService.layVanDonSan(donId);
-      toast.dismiss("in-awb");
-      const blobUrl = URL.createObjectURL(blob);
-      const iframe = document.createElement("iframe");
-      iframe.style.position = "fixed";
-      iframe.style.right = "0";
-      iframe.style.bottom = "0";
-      iframe.style.width = "0";
-      iframe.style.height = "0";
-      iframe.style.border = "0";
-      iframe.src = blobUrl;
-      document.body.appendChild(iframe);
-      iframe.onload = () => {
-        try {
-          iframe.contentWindow?.focus();
-          iframe.contentWindow?.print();
-        } catch (e) {
-          console.error("Lỗi khi mở hộp thoại in:", e);
-        }
-        setTimeout(() => {
-          try {
-            document.body.removeChild(iframe);
-            URL.revokeObjectURL(blobUrl);
-          } catch {}
-        }, 60000);
-      };
-    } catch (err) {
-      toast.dismiss("in-awb");
-      let msg = "Không thể tải tem vận đơn Lazada";
-      if (err.response?.data instanceof Blob) {
-        try {
-          const text = await err.response.data.text();
-          const json = JSON.parse(text);
-          if (json.message) msg = json.message;
-        } catch {
-          // Phản hồi lỗi không phải JSON: giữ câu mặc định
-        }
-      } else if (err.response?.data?.message) {
-        msg = err.response.data.message;
-      } else if (err.message) {
-        msg = err.message;
-      }
-      toast.error(msg);
-    }
-  };
-
   // ── Đầu khối ────────────────────────────────────────────────────────────
   const moPx = () => pxId && xinRoiTrang(() => navigate(`/goods-issues/${pxId}`));
   const nutChinh = khoaKhiChoGoc(
@@ -461,7 +410,9 @@ function ManDongGoi({ donId }) {
             menu={[
               pxId ? { ma: "moPx", nhan: `Mở phiếu xuất ${px}`, icon: FileText, onSelect: moPx } : null,
               pxId ? { ma: "inPx", nhan: "In phiếu xuất", icon: Printer, onSelect: () => xinRoiTrang(() => navigate(`/goods-issues/${pxId}/print`)) } : null,
-              laLazada ? { ma: "inAwb", nhan: "In vận đơn Lazada (AWB)", icon: Printer, onSelect: inVanDonLazada } : null,
+              (laLazada || Boolean(phien?.maDonHangKenh)) && pxId
+                ? { ma: "inPackingSlip", nhan: "In vận đơn / phiếu đóng gói sàn (A6)", icon: Printer, onSelect: () => xinRoiTrang(() => navigate(`/goods-issues/${pxId}/print-packing-slip`)) }
+                : null,
             ].filter(Boolean)}
             nutChinh={nutChinh}
           />

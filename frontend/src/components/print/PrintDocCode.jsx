@@ -21,6 +21,7 @@ const MIN_MODULE_MM = 0.19;
 const SIZES = {
     A4: { moduleMm: 0.3, maxWidthMm: 70, heightMm: 10, qrMm: 20 },
     A5: { moduleMm: 0.26, maxWidthMm: 45, heightMm: 8, qrMm: 17 },
+    A6: { moduleMm: 0.25, minModuleMm: 0.22, maxWidthMm: 90, heightMm: 12, qrMm: 22 },
     K80: { moduleMm: 0.25, minModuleMm: 0.25, maxWidthMm: 70, heightMm: 9, qrMm: 24 },
     K57: { moduleMm: 0.25, minModuleMm: 0.25, maxWidthMm: 48, heightMm: 8, qrMm: 20 },
 };

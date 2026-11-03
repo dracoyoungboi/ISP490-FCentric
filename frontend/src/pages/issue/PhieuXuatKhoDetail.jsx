@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Ban, PackageCheck, Printer, ShieldCheck, Truck } from "lucide-react";
 import { phieuXuatKhoService } from "@/services/phieuXuatKhoService";
-import { donBanHangService } from "@/services/donBanHangService";
 import { getPhieuXuatKhoStatus } from "@/constants/phieuXuatKho";
 import { TRANG_THAI_PHIEU_XUAT } from "@/constants/trangThaiXuatBan";
 import { toast } from "@/lib/thongBaoNhanh";
@@ -319,57 +318,6 @@ function ManPhieuXuatKho({ id }) {
     phieu.donBanHang?.maDonHangKenh?.startsWith("LZD-")
   );
 
-  // Hàm thường, không useCallback: khai báo sau các lệnh return sớm (đang tải / lỗi) nên không được là hook
-  const inVanDonLazada = async () => {
-    if (!donId) return;
-    try {
-      toast.loading("Đang tải vận đơn Lazada...", { id: "in-awb" });
-      const blob = await donBanHangService.layVanDonSan(donId);
-      toast.dismiss("in-awb");
-      const blobUrl = URL.createObjectURL(blob);
-      const iframe = document.createElement("iframe");
-      iframe.style.position = "fixed";
-      iframe.style.right = "0";
-      iframe.style.bottom = "0";
-      iframe.style.width = "0";
-      iframe.style.height = "0";
-      iframe.style.border = "0";
-      iframe.src = blobUrl;
-      document.body.appendChild(iframe);
-      iframe.onload = () => {
-        try {
-          iframe.contentWindow?.focus();
-          iframe.contentWindow?.print();
-        } catch (e) {
-          console.error("Lỗi khi mở hộp thoại in:", e);
-        }
-        setTimeout(() => {
-          try {
-            document.body.removeChild(iframe);
-            URL.revokeObjectURL(blobUrl);
-          } catch {}
-        }, 60000);
-      };
-    } catch (err) {
-      toast.dismiss("in-awb");
-      let msg = "Không thể tải tem vận đơn Lazada";
-      if (err.response?.data instanceof Blob) {
-        try {
-          const text = await err.response.data.text();
-          const json = JSON.parse(text);
-          if (json.message) msg = json.message;
-        } catch {
-          // Phản hồi lỗi không phải JSON: giữ câu mặc định
-        }
-      } else if (err.response?.data?.message) {
-        msg = err.response.data.message;
-      } else if (err.message) {
-        msg = err.message;
-      }
-      toast.error(msg);
-    }
-  };
-
   const soDon = phieu.donBanHang?.soDonHang;
   const moTaHuy = `Hủy phiếu ${phieu.soPhieuXuat}? Số lượng đang giữ được trả lại tồn kho${
     soDon ? `; đơn ${soDon} quay về Chờ nhặt hàng (Đã xuất một phần nếu đơn đã xuất một phần trước đó)` : ""
@@ -427,11 +375,8 @@ function ManPhieuXuatKho({ id }) {
             nutPhu={quyen.coIn ? { ma: "in", nhan: "In phiếu", icon: Printer, onClick: () => navigate(`/goods-issues/${phieu.id}/print`) } : null}
             saoChepMa={{ giaTri: phieu.soPhieuXuat, nhan: "Sao chép mã phiếu" }}
                         menu={[
-              laLazada && donId
-                ? { ma: "inAwb", nhan: "In vận đơn Lazada (AWB)", icon: Printer, onSelect: inVanDonLazada }
-                : null,
               (laLazada || Boolean(phieu?.donBanHang?.maDonHangKenh))
-                ? { ma: "inPackingSlip", nhan: "In phiếu đóng gói đơn sàn", icon: Printer, onSelect: () => navigate(`/goods-issues/${phieu.id}/print-packing-slip`) }
+                ? { ma: "inPackingSlip", nhan: "In vận đơn / phiếu đóng gói sàn (A6)", icon: Printer, onSelect: () => navigate(`/goods-issues/${phieu.id}/print-packing-slip`) }
                 : null,
               coXemBangChung
                 ? { ma: "bangChung", nhan: "Xem bằng chứng đóng gói", icon: ShieldCheck, onSelect: () => setHop("bangChung") }
