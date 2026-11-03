@@ -24,6 +24,8 @@ export const SHEET_SIZE_CLASSES = {
     "A4-landscape": "w-[297mm] min-h-[210mm]",
     "A5-portrait": "w-[148mm] min-h-[210mm]",
     "A5-landscape": "w-[210mm] min-h-[148mm]",
+    "A6-portrait": "w-[105mm] min-h-[148mm]",
+    "A6-landscape": "w-[148mm] min-h-[105mm]",
     // K80 / K57: chiều cao tự do (giấy cuộn nhiệt), không ép chiều cao A4
     "K80-portrait": "w-[80mm] min-h-0",
     "K80-landscape": "w-[80mm] min-h-0",
@@ -75,6 +77,7 @@ const PAPER_WIDTH_MM = {
 const PAPER_HEIGHT_MM = {
     A4: { portrait: 297, landscape: 210 },
     A5: { portrait: 210, landscape: 148 },
+    A6: { portrait: 148, landscape: 105 },
     K80: { portrait: null, landscape: null },
     K57: { portrait: null, landscape: null },
 };

@@ -82,6 +82,42 @@ const sheetTemplates = (key) => [
  * Mẫu khổ nhiệt cho hóa đơn tại quầy: K80 (mặc định) và K57. Chỉ giữ thông tin cần thiết cho
  * khách mua mang về — người dùng vẫn bật lại được trong editor.
  */
+/** Mẫu tem in cho đơn hàng sàn TMĐT: A6 (tem nhiệt 100x150mm mặc định), A5, A4 và K80. */
+const ecommercePackingTemplates = (key) => [
+    {
+        id: `${key}_default_A6`,
+        name: "Mẫu FCentric tem nhiệt (A6)",
+        paperSize: "A6",
+        orientation: "portrait",
+        margin: "default",
+        isDefault: true,
+    },
+    {
+        id: `${key}_default_A5`,
+        name: "Mẫu FCentric mặc định (A5)",
+        paperSize: "A5",
+        orientation: "portrait",
+        margin: "default",
+        isDefault: false,
+    },
+    {
+        id: `${key}_default_A4`,
+        name: "Mẫu FCentric mặc định (A4)",
+        paperSize: "A4",
+        orientation: "portrait",
+        margin: "default",
+        isDefault: false,
+    },
+    {
+        id: `${key}_default_K80`,
+        name: "Mẫu FCentric cuộn nhiệt (K80)",
+        paperSize: "K80",
+        orientation: "portrait",
+        margin: "compact",
+        isDefault: false,
+    },
+];
+
 const thermalInvoiceTemplates = (key) =>
     ["K80", "K57"].map((paperSize, index) => ({
         id: `${key}_default_${paperSize}`,
@@ -693,6 +729,83 @@ export const PRINT_SCHEMAS = {
                         path: "signatures.accountant",
                         defaultOn: false,
                         hint: "Ô trống — bật khi phiếu chuyển kế toán ký",
+                    },
+                ],
+            },
+        ],
+    },
+
+    ecommerce_packing_slip: {
+        key: "ecommerce_packing_slip",
+        slug: "ecommerce-packing-slip",
+        description: "In dán lên kiện hàng sàn TMĐT (Lazada, Shopee, TikTok Shop)",
+        label: "Phiếu đóng gói đơn sàn",
+        docTitle: "PHIẾU ĐÓNG GÓI ĐƠN SÀN",
+        hasRealPrintRoute: true,
+        paperProfiles: ["A6", "A5", "A4", "K80"],
+        templates: ecommercePackingTemplates("ecommerce_packing_slip"),
+        footerNote: "Vui lòng quay video clip khi mở kiện hàng để được hỗ trợ khiếu nại.",
+        footerExample: "Ví dụ: Vui lòng quay video mở kiện hàng. Cảm ơn quý khách!",
+        sections: [
+            {
+                key: "channelOrderInfo",
+                type: "info",
+                title: "Thông tin đơn sàn",
+                columns: 2,
+                fields: [
+                    { key: "channelName", label: "Sàn thương mại", modelPath: "channelOrderInfo.channelName" },
+                    { key: "orderCode", label: "Mã đơn sàn", modelPath: "channelOrderInfo.orderCode" },
+                    { key: "trackingCode", label: "Mã vận đơn", modelPath: "channelOrderInfo.trackingCode" },
+                    { key: "carrierName", label: "Đơn vị vận chuyển", modelPath: "channelOrderInfo.carrierName" },
+                    { key: "packageId", label: "Mã kiện hàng", modelPath: "channelOrderInfo.packageId", hideWhenEmpty: true },
+                ],
+            },
+            {
+                key: "recipient",
+                type: "info",
+                title: "Thông tin người nhận",
+                columns: 2,
+                fields: [
+                    { key: "customer", label: "Người nhận", modelPath: "recipient.customer" },
+                    { key: "phone", label: "Điện thoại", modelPath: "recipient.phone" },
+                    { key: "address", label: "Địa chỉ giao hàng", modelPath: "recipient.address", span: 2 },
+                ],
+            },
+            {
+                key: "items",
+                type: "items",
+                essentialShow: true,
+                title: "Danh sách hàng đóng gói",
+                path: "items",
+                totals: [
+                    { label: "Tổng số lượng", modelPath: "totalQuantity", column: "quantity" },
+                ],
+                columns: [
+                    { key: "productName", label: "Tên sản phẩm", path: "name", essential: true },
+                    { key: "variant", label: "Biến thể", path: "variant", inline: true },
+                    { key: "sku", label: "Mã SKU", path: "sku", essential: true, kind: "code" },
+                    { key: "barcode", label: "Mã vạch", path: "barcode", kind: "code", defaultOn: false },
+                    { key: "quantity", label: "SL đóng gói", path: "quantity", essential: true, kind: "qty" },
+                    { key: "note", label: "Ghi chú", path: "note", hideWhenAllEmpty: true },
+                ],
+                compactColumns: [
+                    { key: "productName", label: "Tên sản phẩm", path: "name", essential: true },
+                    { key: "variant", label: "Biến thể", path: "variant", inline: true },
+                    { key: "quantity", label: "SL", path: "quantity", essential: true, kind: "qty" },
+                ],
+            },
+            { key: "notes", type: "notes", title: "Ghi chú", path: "notes" },
+            {
+                key: "signatures",
+                type: "signatures",
+                title: "Chữ ký",
+                blocks: [
+                    { key: "packer", label: "Người đóng gói", path: "signatures.packer" },
+                    {
+                        key: "checker",
+                        label: "Người kiểm hàng",
+                        path: "signatures.checker",
+                        hint: "Ô trống — người kiểm hàng ký xác nhận",
                     },
                 ],
             },

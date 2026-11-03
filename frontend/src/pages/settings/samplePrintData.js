@@ -2,6 +2,7 @@ import { toPurchaseRequestPrintModel } from "@/components/print/adapters/purchas
 import { toQuotationRequestPrintModel } from "@/components/print/adapters/quotationRequestPrintAdapter";
 import { toPurchaseOrderPrintModel } from "@/components/print/adapters/purchaseOrderPrintAdapter";
 import { toGoodsReceiptPrintModel } from "@/components/print/adapters/goodsReceiptPrintAdapter";
+import { toEcommercePrintModel } from "@/components/print/adapters/ecommercePrintAdapter";
 import { toGoodsIssuePrintModel } from "@/components/print/adapters/goodsIssuePrintAdapter";
 import {
     toSalesQuotationPrintModel,
@@ -476,6 +477,66 @@ export const SAMPLE_POS_INVOICE_RAW = {
  * MỌI loại đều đi qua đúng adapter của bản in thật — preview không thể
  * che giấu lỗi mapping giữa schema và adapter.
  */
+export const SAMPLE_ECOMMERCE_PACKING_SLIP_PAYLOAD = {
+    phieu: {
+        id: 193,
+        soPhieuXuat: "PXK-20261103-001",
+        ngayXuat: "2026-11-03T09:30:00Z",
+        trangThai: 6,
+        ghiChu: "Đóng gói cẩn thận, bọc chống sốc 2 lớp cho kiện hàng TMĐT.",
+        maVanDon: "JNTMP0043461028VNA",
+        donViVanChuyen: "J&T Express VN",
+        kho: {
+            tenKho: "Kho Tổng",
+            maKho: "KT-01",
+        },
+        nguoiXuat: {
+            hoTen: "Nguyễn Văn Đóng Gói",
+        },
+        donBanHang: {
+            id: 193,
+            soDonHang: "LZD-530345400649595",
+            maDonHangKenh: "530345400649595",
+            diaChiGiaoHang: "Số 88 đường Cầu Giấy, Phường Dịch Vọng, Cầu Giấy, Hà Nội",
+            ghiChu: "Giao trong giờ hành chính, gọi trước khi giao",
+            khachHang: {
+                tenKhachHang: "Trần Anh Tuấn",
+                soDienThoai: "0987654321",
+                diaChi: "Số 88 đường Cầu Giấy, Cầu Giấy, Hà Nội",
+            },
+            kenhBanHang: {
+                tenKenh: "Lazada Flagship Store",
+                maKenh: "LAZADA",
+            },
+        },
+    },
+    chiTiet: [
+        {
+            id: 1,
+            tenSanPham: "Áo polo nam thể thao cao cấp",
+            tenBienThe: "Áo polo nam thể thao cao cấp / Xanh Navy / L",
+            maSku: "AP-NAVY-L",
+            mauSac: "Xanh Navy",
+            kichCo: "L",
+            soLuongXuat: 2,
+            ghiChu: "Kèm túi zip",
+        },
+        {
+            id: 2,
+            tenSanPham: "Quần short đũi nam thoáng khí",
+            tenBienThe: "Quần short đũi nam thoáng khí / Đen / XL",
+            maSku: "QS-BLK-XL",
+            mauSac: "Đen",
+            kichCo: "XL",
+            soLuongXuat: 1,
+            ghiChu: null,
+        },
+    ],
+    packageId: "FP037911665450692",
+    trackingCode: "JNTMP0043461028VNA",
+    carrierName: "J&T Express VN",
+};
+
 export function getSamplePrintModel(documentType) {
     switch (documentType) {
         case "purchase_request":
@@ -486,6 +547,8 @@ export function getSamplePrintModel(documentType) {
             return toPurchaseOrderPrintModel(SAMPLE_PURCHASE_ORDER_RAW);
         case "goods_receipt":
             return toGoodsReceiptPrintModel(SAMPLE_GOODS_RECEIPT_PAYLOAD);
+        case "ecommerce_packing_slip":
+            return toEcommercePrintModel(SAMPLE_ECOMMERCE_PACKING_SLIP_PAYLOAD);
         case "goods_issue":
             return toGoodsIssuePrintModel(SAMPLE_GOODS_ISSUE_PAYLOAD);
         case "sales_quotation":
