@@ -13,7 +13,7 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class PhanCongNguoiNhatRequest {
 
-    @Schema(description = "ID của nhân viên kho được phân công nhặt hàng", example = "39", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "ID của nhân viên kho / quản lý kho được phân công nhặt hàng, phải có phân quyền ở kho của phiếu (quản trị viên chỉ tự nhận cho mình)", example = "39", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message = "ID nhân viên nhặt hàng không được để trống")
     Integer nguoiNhatId;
 

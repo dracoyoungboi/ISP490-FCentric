@@ -123,6 +123,18 @@ public interface PhanQuyenNguoiDungKhoRepository extends JpaRepository<PhanQuyen
     List<Integer> nguoiDungTheoKhoTai(@Param("khoIds") Collection<Integer> khoIds, @Param("vaiTro") String vaiTro,
                                       @Param("now") Instant now);
 
+    /** Người dùng có phân quyền hiệu lực tại {@code now} ở kho {@code khoId} không (cùng điều kiện với {@link #findHieuLucTai}). */
+    @Query("""
+            SELECT COUNT(pqndk) > 0 FROM PhanQuyenNguoiDungKho pqndk
+            WHERE pqndk.nguoiDung.id = :nguoiDungId
+              AND pqndk.kho.id = :khoId
+              AND pqndk.trangThai = 1
+              AND (pqndk.ngayBatDau IS NULL OR pqndk.ngayBatDau <= :now)
+              AND (pqndk.ngayKetThuc IS NULL OR pqndk.ngayKetThuc > :now)
+            """)
+    boolean coHieuLucTaiKho(@Param("nguoiDungId") Integer nguoiDungId, @Param("khoId") Integer khoId,
+                            @Param("now") Instant now);
+
     /**
      * Như {@link #nguoiDungTheoKhoTai} nhưng theo loại kho (vd. kho_tong): quản lý Kho tổng = quản lý kho đang được phân
      * công ở một kho loại kho_tong (cùng luật với PhieuChuyenKhoService.laQuanLyKhoTong).

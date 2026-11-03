@@ -75,6 +75,7 @@ class NhatHangChuyenKhoTest {
     @Mock private TonKhoTheoLoRepository tonKhoTheoLoRepository;
     @Mock private KhoRepository khoRepository;
     @Mock private NguoiDungRepository nguoiDungRepository;
+    @Mock private PhanQuyenNguoiDungKhoRepository phanQuyenNguoiDungKhoRepository;
     @Mock private ChiTietNhatHangMapper chiTietNhatHangMapper;
     @Mock private DanhSachNhatHangMapper danhSachNhatHangMapper;
     @Mock private LichSuThayDoiService lichSuThayDoiService;
@@ -597,8 +598,9 @@ class NhatHangChuyenKhoTest {
     @DisplayName("Phân công phiếu còn mở: khóa rồi mới lưu người nhặt mới")
     void phanCong_phieuConMo_luuSauKhiKhoa() {
         dangNhap(IRoleType.quan_ly_kho, KHO);
-        NguoiDung nguoiMoi = NguoiDung.builder().id(12).hoTen("Thủ kho B").trangThai(1).build();
+        NguoiDung nguoiMoi = NguoiDung.builder().id(12).hoTen("Thủ kho B").trangThai(1).vaiTro(IRoleType.nhan_vien_kho).build();
         when(nguoiDungRepository.findById(12)).thenReturn(Optional.of(nguoiMoi));
+        when(phanQuyenNguoiDungKhoRepository.coHieuLucTaiKho(eq(12), eq(KHO), any())).thenReturn(true);
         DanhSachNhatHang pl = phieuNhatBan("cho_nhat", "0");
 
         service.phanCongNguoiNhat(81, new PhanCongNguoiNhatRequest(12, null));

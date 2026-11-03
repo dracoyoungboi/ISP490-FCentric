@@ -73,6 +73,10 @@ import java.util.stream.Collectors;
 public class NhatHangServiceImpl implements NhatHangService {
 
     static final String LOI_NGUOI_NHAT_NGUNG_HOAT_DONG = "Tài khoản nhân viên nhặt hàng đang tạm khóa hoặc ngưng hoạt động";
+    static final String LOI_GIAO_QUAN_TRI_VIEN = "Không giao được phiếu nhặt cho quản trị viên. Quản trị viên muốn tự nhặt thì bấm Nhận việc cho tôi.";
+
+    /** Vai trò giao nhặt được (cùng kho với phiếu). Quản trị viên không thuộc kho nào: chỉ tự nhận việc cho mình. */
+    static final Set<String> VAI_TRO_NHAT_HANG = Set.of(IRoleType.nhan_vien_kho, IRoleType.quan_ly_kho);
 
     /** Loại phiếu nhặt (DTO, bộ lọc danh sách), suy ra từ danh_sach_nhat_hang.phieu_xuat_kho_id. */
     public static final String LOAI_BAN_HANG = "BAN_HANG";
@@ -108,6 +112,9 @@ public class NhatHangServiceImpl implements NhatHangService {
 
     @Autowired
     private NguoiDungRepository nguoiDungRepository;
+
+    @Autowired
+    private PhanQuyenNguoiDungKhoRepository phanQuyenNguoiDungKhoRepository;
 
     @Autowired
     private ChiTietNhatHangMapper chiTietNhatHangMapper;
@@ -389,6 +396,7 @@ public class NhatHangServiceImpl implements NhatHangService {
             if (!laQuanLy && !authUser.getId().equals(nguoiNhat.getId())) {
                 throw new CommonException("Nhân viên kho chỉ có quyền tự nhận việc (Self-assignment)");
             }
+            kiemTraNguoiDuocGiao(nguoiNhat, kho, authUser);
         }
 
         // Khởi tạo và lưu DanhSachNhatHang
@@ -1327,6 +1335,7 @@ public class NhatHangServiceImpl implements NhatHangService {
                     + pickList.getNguoiNhat().getHoTen() + ". Liên hệ quản lý kho nếu cần phân công lại.",
                     HttpStatus.CONFLICT, null);
         }
+        kiemTraNguoiDuocGiao(assignee, pickList.getKhoXuat(), authUser);
 
         String oldPickerName = pickList.getNguoiNhat() != null ? pickList.getNguoiNhat().getHoTen() : "Chưa phân công";
         Integer oldPickerId = pickList.getNguoiNhat() != null ? pickList.getNguoiNhat().getId() : null;
@@ -1559,6 +1568,43 @@ public class NhatHangServiceImpl implements NhatHangService {
                     + ". Chỉ người được phân công mới nhặt được — muốn tự nhặt thì phân công lại cho mình.",
                     HttpStatus.CONFLICT, null);
         }
+    }
+
+    /**
+     * Người được giao phải nhặt được phiếu ở kho này ({@link #lyDoKhongNhatDuoc}). Quản trị viên không thuộc kho nào nên
+     * chỉ tự nhận việc cho mình; người khác không giao phiếu cho quản trị viên được.
+     */
+    private void kiemTraNguoiDuocGiao(NguoiDung nguoiNhat, Kho kho, NguoiDungAuthInfo authUser) {
+        if (IRoleType.quan_tri_vien.equals(nguoiNhat.getVaiTro()) && !nguoiNhat.getId().equals(authUser.getId())) {
+            throw new CommonException(LOI_GIAO_QUAN_TRI_VIEN);
+        }
+        String lyDo = lyDoKhongNhatDuoc(nguoiNhat, kho);
+        if (lyDo != null) {
+            throw new CommonException(lyDo + " nên không giao được phiếu nhặt.");
+        }
+    }
+
+    /**
+     * Lý do người nhặt không nhặt được phiếu của kho {@code kho} (null = nhặt được): tài khoản đang hoạt động, là nhân viên
+     * kho / quản lý kho có phân quyền hiệu lực tại kho (cùng điều kiện với token đăng nhập). Quản trị viên nhặt được ở mọi kho.
+     */
+    private String lyDoKhongNhatDuoc(NguoiDung nguoiNhat, Kho kho) {
+        String ten = StringUtils.hasText(nguoiNhat.getHoTen()) ? nguoiNhat.getHoTen().trim()
+                : StringUtils.hasText(nguoiNhat.getTenDangNhap()) ? nguoiNhat.getTenDangNhap().trim()
+                : "Người dùng #" + nguoiNhat.getId();
+        if (!Integer.valueOf(1).equals(nguoiNhat.getTrangThai())) {
+            return "Tài khoản của " + ten + " đang tạm khóa hoặc ngưng hoạt động";
+        }
+        if (IRoleType.quan_tri_vien.equals(nguoiNhat.getVaiTro())) {
+            return null;
+        }
+        if (nguoiNhat.getVaiTro() == null || !VAI_TRO_NHAT_HANG.contains(nguoiNhat.getVaiTro())) {
+            return ten + " không phải nhân viên kho hay quản lý kho";
+        }
+        if (kho == null || !phanQuyenNguoiDungKhoRepository.coHieuLucTaiKho(nguoiNhat.getId(), kho.getId(), Instant.now())) {
+            return ten + " không làm việc ở " + (kho != null && StringUtils.hasText(kho.getTenKho()) ? kho.getTenKho().trim() : "kho của phiếu");
+        }
+        return null;
     }
 
     /**

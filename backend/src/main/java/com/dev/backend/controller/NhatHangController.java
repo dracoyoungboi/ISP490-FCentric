@@ -133,7 +133,7 @@ public class NhatHangController {
     )
     @Operation(
             summary = "Phân công nhân viên nhặt hàng cho Pick List (SRS 6.2.1 Action 'Phân công')",
-            description = "Gán người phụ trách đợt nhặt hàng — BẮT BUỘC trước khi quét nhặt. Quản lý kho / quản trị viên phân công được cho bất kỳ ai (kể cả chính mình); nhân viên kho chỉ tự nhận phiếu chưa có người nhặt (Self-assignment)."
+            description = "Gán người phụ trách đợt nhặt hàng — BẮT BUỘC trước khi quét nhặt. Quản lý kho / quản trị viên giao cho nhân viên kho / quản lý kho có phân quyền ở kho của phiếu (kể cả chính mình); quản trị viên chỉ tự nhận; nhân viên kho chỉ tự nhận phiếu chưa có người nhặt (Self-assignment)."
     )
     public ResponseEntity<ResponseData<DanhSachNhatHangDto>> phanCongNguoiNhat(
             @PathVariable Integer id,

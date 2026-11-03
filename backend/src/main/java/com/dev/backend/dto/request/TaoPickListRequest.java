@@ -18,5 +18,5 @@ public class TaoPickListRequest {
 
     String ghiChu;
 
-    Integer nguoiNhatId;     // Phân công nhân viên nhặt hàng (tùy chọn lúc tạo)
+    Integer nguoiNhatId;     // Phân công nhân viên nhặt hàng (tùy chọn lúc tạo), cùng luật với PUT phan-cong
 }
