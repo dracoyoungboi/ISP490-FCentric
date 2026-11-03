@@ -32,10 +32,21 @@ export default function HopGuiSangKho({ mo, onDoiMo, don, dangChay = false, loi,
   }
 
   const donId = don?.id;
+  const laDonLazada = Boolean(
+    don?.kenhBanHang?.maKenh?.toUpperCase() === "LAZADA" ||
+    don?.kenhBanHang?.tenKenh?.toLowerCase()?.includes("lazada") ||
+    don?.soDonHang?.startsWith("LZD-") ||
+    don?.maDonHangKenh?.startsWith("LZD-")
+  );
+
   const tai = useCallback(async () => khoChonDuoc(await donBanHangService.getKhoKhaDung(donId)), [donId]);
   const q = useTaiDuLieu(tai, `kho-kha-dung-${donId}`, { enabled: Boolean(mo && donId) });
 
-  const dsKho = useMemo(() => xepKho(Array.isArray(q.data) ? q.data : []), [q.data]);
+  const dsKho = useMemo(() => {
+    const tatCa = xepKho(Array.isArray(q.data) ? q.data : []);
+    if (!laDonLazada) return tatCa;
+    return tatCa.filter((k) => k?.laKhoTong === true || k?.loaiKho === "tong" || k?.loaiKho === "KHO_TONG");
+  }, [q.data, laDonLazada]);
   const khoHienTaiId = don?.khoXuat?.id ?? null;
   const macDinh = khoChonSan(dsKho, khoHienTaiId);
   const chonId = chonTay ?? macDinh;
@@ -72,6 +83,11 @@ export default function HopGuiSangKho({ mo, onDoiMo, don, dangChay = false, loi,
         <p className="py-6 text-center text-sm text-bo-muted">Không có kho nào đang hoạt động để gửi đơn.</p>
       ) : (
         <>
+          {laDonLazada ? (
+            <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-800">
+              Đơn hàng sàn Lazada theo yêu cầu nghiệp vụ chỉ được phép xuất từ <b>Kho Tổng</b>.
+            </p>
+          ) : null}
           <DanhSachChonKho
             ds={locKho(dsKho, tuKhoa)}
             coTim={coTimKho(dsKho.length)}

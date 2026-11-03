@@ -15,9 +15,9 @@ public class KhoKhaDungDto {
     String maKho;
     String tenKho;
     String diaChi;
+    Boolean laKhoTong;
     Boolean duHang;
     Integer soLuongMatHangDu;
     Integer tongSoMatHang;
     List<ChiTietTonKhoKhaDungDto> chiTietTonKho;
 }
-

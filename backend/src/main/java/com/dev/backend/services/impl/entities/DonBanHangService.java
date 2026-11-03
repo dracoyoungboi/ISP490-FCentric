@@ -585,6 +585,11 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         }
         // Cùng quy tắc lúc tạo đơn: kho đang hoạt động và không phải Kho Trung Chuyển (kho ảo)
         KhoService.kiemTraKhoGiaoDich(khoChon, "Kho xuất hàng");
+        if (don.getKenhBanHang() != null && OmnichannelOrderSyncJob.MA_KENH_LAZADA.equalsIgnoreCase(don.getKenhBanHang().getMaKenh())) {
+            if (!KhoService.laKhoTong(khoChon)) {
+                throw new CommonException("Đơn hàng Lazada theo yêu cầu nghiệp vụ chỉ được phép xuất từ Kho Tổng", HttpStatus.BAD_REQUEST, null);
+            }
+        }
         don.setKhoXuat(khoChon);
 
         don.setTrangThai(ITrangThaiDonBanHang.CHO_NHAT_HANG); // 1: Chờ nhặt hàng
@@ -631,9 +636,11 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         kiemTraPhamVi(don);
 
         List<ChiTietDonBanHang> chiTiets = chiTietDonBanHangRepository.findByDonBanHangId(donHangId);
+        boolean laDonLazada = don.getKenhBanHang() != null && OmnichannelOrderSyncJob.MA_KENH_LAZADA.equalsIgnoreCase(don.getKenhBanHang().getMaKenh());
         // Chỉ gợi ý kho nhận được đơn bán: bỏ Kho Trung Chuyển (kho ảo chứa hàng đang chuyển giữa các kho)
         List<Kho> activeKhos = khoRepository.findByTrangThai(1).stream()
                 .filter(k -> !KhoService.laKhoAo(k))
+                .filter(k -> !laDonLazada || KhoService.laKhoTong(k))
                 .toList();
 
         if (activeKhos == null || activeKhos.isEmpty()) {
@@ -646,6 +653,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                     .maKho(k.getMaKho())
                     .tenKho(k.getTenKho())
                     .diaChi(k.getDiaChi())
+                    .laKhoTong(KhoService.laKhoTong(k))
                     .duHang(true)
                     .soLuongMatHangDu(0)
                     .tongSoMatHang(0)
@@ -717,6 +725,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                     .maKho(kho.getMaKho())
                     .tenKho(kho.getTenKho())
                     .diaChi(kho.getDiaChi())
+                    .laKhoTong(KhoService.laKhoTong(kho))
                     .duHang(allDuHang)
                     .soLuongMatHangDu(matHangDuCount)
                     .tongSoMatHang(chiTiets.size())
