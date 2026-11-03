@@ -424,12 +424,17 @@ public class LazadaClient {
 
         JsonNode items = itemsRes.path("data");
         List<String> itemIds = new ArrayList<>();
+        String packageId = null;
         boolean needPack = false;
         if (items.isArray()) {
             for (JsonNode it : items) {
                 String itId = it.path("order_item_id").asText("").trim();
                 if (!itId.isBlank()) {
                     itemIds.add(itId);
+                }
+                String pkg = it.path("package_id").asText("").trim();
+                if (!pkg.isBlank() && packageId == null) {
+                    packageId = pkg;
                 }
                 String status = it.path("status").asText("").trim().toLowerCase();
                 if ("pending".equals(status) || "unpacked".equals(status)) {
@@ -442,42 +447,72 @@ public class LazadaClient {
             throw new IllegalArgumentException("Không tìm thấy sản phẩm nào trong đơn hàng Lazada " + orderId);
         }
 
-        if (needPack) {
+        if (needPack || packageId == null || packageId.isBlank()) {
             try {
-                packOrder(appKey, appSecret, accessToken, orderId, itemIds);
+                JsonNode packRes = packOrder(appKey, appSecret, accessToken, orderId, itemIds);
+                if (packRes != null) {
+                    JsonNode packData = packRes.path("data");
+                    if (packData.path("order_item_list").isArray()) {
+                        for (JsonNode oi : packData.path("order_item_list")) {
+                            String pkg = oi.path("package_id").asText("").trim();
+                            if (!pkg.isBlank()) {
+                                packageId = pkg;
+                                break;
+                            }
+                        }
+                    }
+                    if (packageId == null && packData.path("pack_order_list").isArray()) {
+                        for (JsonNode po : packData.path("pack_order_list")) {
+                            String pkg = po.path("package_id").asText("").trim();
+                            if (!pkg.isBlank()) {
+                                packageId = pkg;
+                                break;
+                            }
+                        }
+                    }
+                }
             } catch (Exception e) {
                 log.warn("Tự động pack đơn Lazada {} trước khi in vận đơn: {}", orderId, e.getMessage());
             }
         }
 
-        String orderItemIdsJson = "[" + String.join(",", itemIds) + "]";
+        // Thử API PrintAWB mới (/order/package/document/get) chuẩn theo Lazada Open Platform
+        if (packageId != null && !packageId.isBlank()) {
+            try {
+                String modernPath = "/order/package/document/get";
+                Map<String, String> modernParams = new HashMap<>();
+                modernParams.put("app_key", appKey.trim());
+                modernParams.put("access_token", accessToken.trim());
+                modernParams.put("doc_type", "PDF");
+                modernParams.put("packages", "[{\"package_id\":\"" + packageId + "\"}]");
+                modernParams.put("print_item_list", "true");
+                modernParams.put("timestamp", String.valueOf(System.currentTimeMillis()));
+                modernParams.put("sign_method", LazadaSignatureHelper.SIGN_METHOD_SHA256);
 
-        // Thử API PrintAWB mới (/order/package/document/get)
-        try {
-            String modernPath = "/order/package/document/get";
-            Map<String, String> modernParams = new HashMap<>();
-            modernParams.put("app_key", appKey.trim());
-            modernParams.put("access_token", accessToken.trim());
-            modernParams.put("doc_type", "shippingLabel");
-            modernParams.put("order_item_ids", orderItemIdsJson);
-            modernParams.put("timestamp", String.valueOf(System.currentTimeMillis()));
-            modernParams.put("sign_method", LazadaSignatureHelper.SIGN_METHOD_SHA256);
+                String modernSign = LazadaSignatureHelper.calculateSignature(modernPath, modernParams, appSecret);
+                modernParams.put("sign", modernSign);
 
-            String modernSign = LazadaSignatureHelper.calculateSignature(modernPath, modernParams, appSecret);
-            modernParams.put("sign", modernSign);
-
-            JsonNode modernRes = executeGet(API_GATEWAY_VN + modernPath, modernParams);
-            String modernCode = modernRes.path("code").asText("0");
-            if ("0".equals(modernCode) || "".equals(modernCode)) {
-                if (modernRes.path("data").path("document").has("file") || modernRes.path("data").has("document")) {
-                    return modernRes;
+                JsonNode modernRes = executeGet(API_GATEWAY_VN + modernPath, modernParams);
+                String modernCode = modernRes.path("code").asText("0");
+                if ("0".equals(modernCode) || "".equals(modernCode)) {
+                    if (modernRes.path("data").path("document").has("file")) {
+                        return modernRes;
+                    }
+                    if (modernRes.path("data").path("packages").isArray() && !modernRes.path("data").path("packages").isEmpty()) {
+                        JsonNode firstPkg = modernRes.path("data").path("packages").get(0);
+                        if (firstPkg.path("document").has("file")) {
+                            return firstPkg;
+                        }
+                    }
                 }
+            } catch (Exception ex) {
+                log.warn("Gọi /order/package/document/get gặp lỗi, chuyển sang fallback: {}", ex.getMessage());
             }
-        } catch (Exception ex) {
-            log.warn("Gọi /order/package/document/get gặp lỗi, chuyển sang fallback: {}", ex.getMessage());
         }
 
-        // Fallback sang API /order/document/get
+        String orderItemIdsJson = "[" + String.join(",", itemIds) + "]";
+
+        // Fallback sang API legacy /order/document/get
         String apiPath = "/order/document/get";
         Map<String, String> params = new HashMap<>();
         params.put("app_key", appKey.trim());
