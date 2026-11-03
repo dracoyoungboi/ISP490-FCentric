@@ -116,7 +116,7 @@ function ThanhGoiY({ kieu, tieuDe, noiDung, nut }) {
  * - đầu khối: ảnh đại diện (bấm để đổi), họ tên, vai trò và nơi làm việc, nút Chỉnh sửa (mở hộp sửa họ tên, số điện thoại);
  * - thanh gợi ý khi có việc phải làm ngay (mật khẩu tạm, quyền vừa đổi);
  * - cột chính: Thiết bị đang đăng nhập, Quyền của tôi; cột phải: thuộc tính tài khoản (khung hẹp thì xuống dưới);
- * - quản trị viên: không có mục Quyền (đầu trang ghi "Toàn quyền trên mọi kho"), trang một cột: Tài khoản rồi Thiết bị.
+ * - quản trị viên: không có mục Quyền, đầu trang chỉ ghi vai trò (không ghi kho), trang một cột: Tài khoản rồi Thiết bị.
  * Chỉ sửa được họ tên và số điện thoại; tên đăng nhập và email không đổi được (máy chủ cũng chặn).
  */
 export default function UserDetail() {
@@ -165,11 +165,9 @@ export default function UserDetail() {
   }
 
   const emailLienHe = congTyQ.data?.email?.trim() || "";
-  // Quản trị viên: không có mục Quyền, đầu trang ghi luôn phạm vi "Toàn quyền trên mọi kho"
+  // Quản trị viên: không có mục Quyền; đầu trang không ghi kho (vai trò đã nói là làm được mọi kho)
   const laQuanTri = hoSo.vaiTro === QUAN_TRI_VIEN || Boolean(quyen?.toanQuyen);
-  const khoNgan = laQuanTri
-    ? "Toàn quyền trên mọi kho"
-    : khoCuaToiNgan({ vaiTro: hoSo.vaiTro, quyen, khoTuHoSo: hoSo.khoPhuTrachActive?.[0] ?? null });
+  const khoNgan = khoCuaToiNgan({ vaiTro: hoSo.vaiTro, quyen, khoTuHoSo: hoSo.khoPhuTrachActive?.[0] ?? null });
 
   const moChinhSua = (o = "ho-ten") => {
     setODauTien(o);

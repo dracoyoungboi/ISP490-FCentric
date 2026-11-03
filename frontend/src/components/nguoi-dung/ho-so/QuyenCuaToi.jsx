@@ -120,7 +120,7 @@ function KhungQuyen({ nhom, hienMoTa }) {
 
 /**
  * Mục Quyền của tôi ở Hồ sơ (chốt 18/10/2026), đọc từ CSDL (GET /nguoi-dung/me/quyen, không từ phiên đăng nhập).
- * - Quản trị viên: không có mục này (chốt 31/10/2026) — đầu trang đã ghi "Quản trị viên · Toàn quyền trên mọi kho".
+ * - Quản trị viên: không có mục này (chốt 31/10/2026) — vai trò "Quản trị viên" ở đầu trang đã nói là làm được mọi kho.
  * - Ít việc (≤ SO_VIEC_HIEN_MO_TA): mô tả hiện luôn dưới mỗi việc để người dùng hiểu việc mình làm được.
  * - Nhân viên có kho: dòng "N việc · hiệu lực" (chữ cam khi sắp hết) và khung chia cột theo nhóm việc; quyền vừa
  *   cấp có thẻ "Mới" cho tới khi đăng nhập lại, quyền vừa thu hồi có một dòng mờ. Tên kho đã có ở đầu trang.

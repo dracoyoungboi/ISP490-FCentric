@@ -660,7 +660,8 @@ test("gợi ý đầu Hồ sơ: đúng thứ tự ưu tiên, mỗi lần một c
 });
 
 test("kho ở dòng phụ dưới tên Hồ sơ", () => {
-  assert.equal(khoCuaToiNgan({ vaiTro: QTV }), "Mọi kho");
+  assert.equal(khoCuaToiNgan({ vaiTro: QTV }), "", "quản trị viên không ghi kho");
+  assert.equal(khoCuaToiNgan({ vaiTro: NVK, quyen: { toanQuyen: true, kho: null } }), "");
   assert.equal(khoCuaToiNgan({ vaiTro: NVB, quyen: { kho: { tenKho: "Kho Hà Nội", maKho: "KHO_HN" } } }), "Kho Hà Nội");
   assert.equal(khoCuaToiNgan({ vaiTro: NVK, quyen: { kho: null } }), "Chưa có kho");
   assert.equal(khoCuaToiNgan({ vaiTro: NVK, quyen: undefined, khoTuHoSo: { maKho: "KHO_TONG" } }), "KHO_TONG");

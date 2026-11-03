@@ -840,9 +840,12 @@ export function goiYHoSo({ hoSo, quyen, now = new Date() } = {}) {
   return null;
 }
 
-/** Kho ghi ở dòng phụ dưới tên (Hồ sơ): "Mọi kho", tên kho đang phụ trách hoặc "Chưa có kho". */
+/**
+ * Kho ghi ở dòng phụ dưới tên (Hồ sơ): tên kho đang phụ trách hoặc "Chưa có kho".
+ * Quản trị viên trả "" (không ghi kho): vai trò đã nói là làm được mọi kho.
+ */
 export function khoCuaToiNgan({ vaiTro, quyen, khoTuHoSo } = {}) {
-  if (vaiTro === QUAN_TRI_VIEN || quyen?.toanQuyen) return "Mọi kho";
+  if (vaiTro === QUAN_TRI_VIEN || quyen?.toanQuyen) return "";
   const kho = quyen ? quyen.kho : khoTuHoSo;
   if (kho) return kho.tenKho || kho.maKho || "Chưa có kho";
   // Chưa tải xong quyền và hồ sơ cũng không có kho: chưa chắc là "chưa có kho" thì để trống
