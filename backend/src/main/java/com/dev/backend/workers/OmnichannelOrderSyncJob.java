@@ -421,6 +421,7 @@ public class OmnichannelOrderSyncJob {
                             .soLuongDat(qty)
                             .soLuongDaGiao(BigDecimal.ZERO)
                             .donGia(price)
+                            .tienGiamGia(giamGiaCuaDong(itemNode, qty.multiply(price)))
                             .ghiChu(itemNode.path("title").asText(""))
                             .build();
                     chiTietDonBanHangRepository.save(chiTiet);
@@ -481,6 +482,34 @@ public class OmnichannelOrderSyncJob {
             if (m != null && !m.isBlank()) return m.trim();
         }
         return "?";
+    }
+
+    /**
+     * Giảm giá của một dòng Shopify (tiền shop, đã gồm thuế như giá dòng): cộng discount_allocations của dòng; đơn cũ
+     * không có mảng này thì lấy total_discount. Giữ trong [0, tiền dòng] để xuất kế toán tách được thuế.
+     */
+    static BigDecimal giamGiaCuaDong(JsonNode itemNode, BigDecimal tienDong) {
+        BigDecimal giam = BigDecimal.ZERO;
+        JsonNode phanBo = itemNode.path("discount_allocations");
+        if (phanBo.isArray() && !phanBo.isEmpty()) {
+            for (JsonNode a : phanBo) {
+                giam = giam.add(soTien(a.path("amount").asText("0")));
+            }
+        } else {
+            giam = soTien(itemNode.path("total_discount").asText("0"));
+        }
+        if (giam.signum() < 0) {
+            return BigDecimal.ZERO;
+        }
+        return giam.min(tienDong).setScale(2, java.math.RoundingMode.HALF_UP);
+    }
+
+    private static BigDecimal soTien(String chu) {
+        try {
+            return new BigDecimal(chu.trim());
+        } catch (NumberFormatException e) {
+            return BigDecimal.ZERO;
+        }
     }
 
     /** Số đơn khi SHP-&lt;số&gt; đã thuộc đơn khác: thêm 4 số cuối id đơn Shopify, vẫn trùng thì thêm cả id (cột UNIQUE, 50 ký tự). */

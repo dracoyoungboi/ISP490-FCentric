@@ -55,6 +55,13 @@ public class ChiTietDonBanHang {
     @Generated(event = EventType.INSERT)
     BigDecimal thanhTien;
 
+    /** Giảm giá của dòng, tiền đã gồm thuế (đơn Shopify: tổng discount_allocations của dòng); đơn khác luôn 0. */
+    @NotNull
+    @ColumnDefault("0.00")
+    @Column(name = "tien_giam_gia", nullable = false, precision = 15, scale = 2)
+    @Builder.Default
+    BigDecimal tienGiamGia = BigDecimal.ZERO;
+
     @Lob
     @Column(name = "ghi_chu")
     String ghiChu;
