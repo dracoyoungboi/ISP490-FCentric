@@ -28,6 +28,10 @@ public interface BienBanGiaoNhanRepository extends JpaRepository<BienBanGiaoNhan
     @Query("SELECT b.phuongAnXuLy FROM BienBanGiaoNhan b WHERE b.id = :id")
     String docPhuongAnXuLy(@Param("id") Integer id);
 
+    /** Lúc kho gửi xác nhận biên bản, đọc thẳng từ CSDL như {@link #docPhuongAnXuLy}; null = chưa xác nhận. */
+    @Query("SELECT b.ngayXacNhanGui FROM BienBanGiaoNhan b WHERE b.id = :id")
+    java.time.Instant docNgayXacNhanGui(@Param("id") Integer id);
+
     java.util.List<BienBanGiaoNhan> findByPhieuChuyenKho_IdIn(java.util.Collection<Integer> phieuChuyenKhoIds);
 
     /** Số đuôi lớn nhất của số biên bản dạng `BBGN-yyyyMMdd-` + chữ số. */

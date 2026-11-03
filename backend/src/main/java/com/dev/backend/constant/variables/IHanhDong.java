@@ -56,6 +56,8 @@ public interface IHanhDong {
             ghi_so_xknb = "ghi_so_xknb",
             nhan_chuyen_kho = "nhan_chuyen_kho",
             lap_bien_ban_giao_nhan = "lap_bien_ban_giao_nhan",
+            // Đại diện kho gửi xác nhận biên bản giao nhận (ghi_chu = số biên bản, ý kiến kho gửi; trạng thái không đổi)
+            xac_nhan_bien_ban = "xac_nhan_bien_ban",
             // Ảnh chụp đính kèm biên bản giao nhận (ghi_chu = số biên bản, mô tả ảnh)
             them_anh_bien_ban = "them_anh_bien_ban",
             xoa_anh_bien_ban = "xoa_anh_bien_ban",

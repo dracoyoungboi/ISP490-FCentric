@@ -25,6 +25,11 @@ public interface IChuyenKho {
             LY_DO_TRA_VE = "TRA_VE",
             LY_DO_KHAC = "KHAC";
     Set<String> LY_DO_DIEU_DONG = Set.of(LY_DO_BO_SUNG, LY_DO_CAN_BANG, LY_DO_TRA_VE, LY_DO_KHAC);
+    /**
+     * Lý do của lệnh điều động máy chủ tự lập cho phiếu giao bù (BA 03/11), ghi chú lệnh ghi phiếu gốc và biên bản.
+     * Không nằm trong {@link #LY_DO_DIEU_DONG}: người duyệt không chọn được lý do này.
+     */
+    String LY_DO_GIAO_BU = "GIAO_BU";
 
     // Hình thức vận chuyển (B.3)
     String XE_CONG_TY = "XE_CONG_TY",

@@ -22,4 +22,8 @@ public interface BienBanGiaoNhanAnhRepository extends JpaRepository<BienBanGiaoN
     List<BienBanGiaoNhanAnh> danhSachTheoBienBan(@Param("bienBanId") Integer bienBanId);
 
     long countByBienBan_Id(Integer bienBanId);
+
+    /** Id ảnh đang có của biên bản (kho gửi xác nhận đúng bộ ảnh đã xem). */
+    @Query("SELECT a.id FROM BienBanGiaoNhanAnh a WHERE a.bienBan.id = :bienBanId")
+    List<Integer> idTheoBienBan(@Param("bienBanId") Integer bienBanId);
 }
