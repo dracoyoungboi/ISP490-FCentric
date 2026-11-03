@@ -42,6 +42,7 @@ import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -395,6 +396,17 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
             }
         }
 
+        // Làm tròn về 2 chữ số lẻ như cột lưu, để ghi chú / nhật ký / cột cùng một số (và không ra dạng 1E+5)
+        BigDecimal cuocThucTe = request != null && request.getPhiVanChuyenThucTe() != null
+                ? request.getPhiVanChuyenThucTe().setScale(2, RoundingMode.HALF_UP) : null;
+        if (cuocThucTe != null && cuocThucTe.signum() < 0) {
+            throw new CommonException("Cước thực tế không được âm");
+        }
+        // Cột phi_van_chuyen_thuc_te là DECIMAL(15,2): tối đa 13 chữ số phần nguyên
+        if (cuocThucTe != null && cuocThucTe.precision() - cuocThucTe.scale() > 13) {
+            throw new CommonException("Cước thực tế quá lớn");
+        }
+
         validatePickedQuantity(id);
         NguoiDung nguoiXuat = nguoiDungRepository.findById(nguoiXuatId)
                 .orElseThrow(() -> new CommonException("Không tìm thấy thông tin người xuất kho ID: " + nguoiXuatId));
@@ -494,6 +506,8 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
         phieu.setTrangThai(3);
         phieu.setNguoiXuat(nguoiXuat);
         phieu.setNgayXuat(Instant.now());
+        // Cước là chi phí của shop cho chuyến hàng này: lưu trên phiếu, không đụng phí vận chuyển thu của khách trên đơn
+        phieu.setPhiVanChuyenThucTe(cuocThucTe);
 
         // Ghi nhận thông tin vận đơn giao vận vào ghi chú phiếu xuất an toàn
         if (request != null) {
@@ -504,8 +518,8 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                 if (!sb.isEmpty()) sb.append(" | ");
                 sb.append("[Vận chuyển: ").append(request.getDonViVanChuyen() != null ? request.getDonViVanChuyen().trim() : "N/A")
                         .append(" - Vận đơn: ").append(request.getMaVanDon() != null ? request.getMaVanDon().trim() : "N/A");
-                if (request.getPhiVanChuyenThucTe() != null) {
-                    sb.append(" - Cước: ").append(request.getPhiVanChuyenThucTe());
+                if (cuocThucTe != null) {
+                    sb.append(" - Cước: ").append(cuocThucTe.toPlainString());
                 }
                 sb.append("]");
             }
@@ -529,8 +543,8 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
             if (request.getMaVanDon() != null && !request.getMaVanDon().isBlank()) {
                 auditDetail += " | Vận đơn: " + request.getMaVanDon().trim();
             }
-            if (request.getPhiVanChuyenThucTe() != null) {
-                auditDetail += " | Cước: " + request.getPhiVanChuyenThucTe();
+            if (cuocThucTe != null) {
+                auditDetail += " | Cước: " + cuocThucTe.toPlainString();
             }
         }
         try {
@@ -560,10 +574,6 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
             donBanHangId = don.getId();
             soDonHang = don.getSoDonHang();
 
-            if (request != null && request.getPhiVanChuyenThucTe() != null) {
-                don.setPhiVanChuyen(request.getPhiVanChuyenThucTe());
-            }
-
             updateTrangThaiDonBanHang(don.getId());
             trangThaiDonHang = don.getTrangThai();
 
@@ -586,7 +596,7 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                             .maDonHangKenh(don.getMaDonHangKenh())
                             .donViVanChuyen(request != null ? request.getDonViVanChuyen() : null)
                             .maVanDon(request != null ? request.getMaVanDon() : null)
-                            .phiVanChuyenThucTe(request != null ? request.getPhiVanChuyenThucTe() : null)
+                            .phiVanChuyenThucTe(cuocThucTe)
                             .build()
             );
         }
@@ -604,7 +614,7 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                 .trangThaiDonHang(trangThaiDonHang)
                 .donViVanChuyen(request != null ? request.getDonViVanChuyen() : null)
                 .maVanDon(request != null ? request.getMaVanDon() : null)
-                .phiVanChuyenThucTe(request != null ? request.getPhiVanChuyenThucTe() : null)
+                .phiVanChuyenThucTe(cuocThucTe)
                 .ngayXuat(phieu.getNgayXuat())
                 .nguoiXuatTen(nguoiXuat.getHoTen())
                 .message("Xác nhận xuất kho và điều phối giao vận thành công")
@@ -989,6 +999,7 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                 .ngayXuat(phieu.getNgayXuat())
                 .trangThai(phieu.getTrangThai())
                 .ghiChu(phieu.getGhiChu())
+                .phiVanChuyenThucTe(phieu.getPhiVanChuyenThucTe())
                 .nguoiXuat(nguoiXuatDto)
                 .nguoiDuyet(nguoiDuyetDto)
                 .ngayTao(phieu.getNgayTao())

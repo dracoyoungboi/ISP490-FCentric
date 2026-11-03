@@ -9,6 +9,7 @@ import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.Generated;
 import org.hibernate.generator.EventType;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 
 @AllArgsConstructor
@@ -56,6 +57,13 @@ public class PhieuXuatKho {
 
     @Column(name = "ghi_chu")
     String ghiChu;
+
+    /**
+     * Cước thực tế shop trả đơn vị vận chuyển cho chuyến hàng của phiếu, nhập lúc xác nhận xuất kho.
+     * Khác phí vận chuyển thu của khách (DonBanHang.phiVanChuyen). Cột thêm bởi migration-2026-10-25-cuoc-van-chuyen-thuc-te.
+     */
+    @Column(name = "phi_van_chuyen_thuc_te", precision = 15, scale = 2)
+    BigDecimal phiVanChuyenThucTe;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "nguoi_xuat_id")

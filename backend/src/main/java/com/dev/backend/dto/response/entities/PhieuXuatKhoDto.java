@@ -7,6 +7,7 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.time.Instant;
 
 /**
@@ -29,6 +30,8 @@ public class PhieuXuatKhoDto implements Serializable {
     KhoDto khoChuyenDen;
     Integer trangThai;
     String ghiChu;
+    /** Cước thực tế shop trả đơn vị vận chuyển cho chuyến hàng của phiếu (khác phí vận chuyển thu của khách). */
+    BigDecimal phiVanChuyenThucTe;
     NguoiDungDto nguoiXuat;
     NguoiDungDto nguoiDuyet;
     Instant ngayTao;
