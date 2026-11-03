@@ -327,10 +327,29 @@ function ManPhieuXuatKho({ id }) {
       const blob = await donBanHangService.layVanDonSan(donId);
       toast.dismiss("in-awb");
       const blobUrl = URL.createObjectURL(blob);
-      const win = window.open(blobUrl, "_blank");
-      if (!win) {
-        toast.error("Trình duyệt đã chặn cửa sổ bật lên. Vui lòng cho phép để mở vận đơn.");
-      }
+      const iframe = document.createElement("iframe");
+      iframe.style.position = "fixed";
+      iframe.style.right = "0";
+      iframe.style.bottom = "0";
+      iframe.style.width = "0";
+      iframe.style.height = "0";
+      iframe.style.border = "0";
+      iframe.src = blobUrl;
+      document.body.appendChild(iframe);
+      iframe.onload = () => {
+        try {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+        } catch (e) {
+          console.error("Lỗi khi mở hộp thoại in:", e);
+        }
+        setTimeout(() => {
+          try {
+            document.body.removeChild(iframe);
+            URL.revokeObjectURL(blobUrl);
+          } catch {}
+        }, 60000);
+      };
     } catch (err) {
       toast.dismiss("in-awb");
       let msg = "Không thể tải tem vận đơn Lazada";
@@ -342,6 +361,8 @@ function ManPhieuXuatKho({ id }) {
         } catch {
           // Phản hồi lỗi không phải JSON: giữ câu mặc định
         }
+      } else if (err.response?.data?.message) {
+        msg = err.response.data.message;
       } else if (err.message) {
         msg = err.message;
       }
