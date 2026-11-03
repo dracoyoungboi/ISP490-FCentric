@@ -336,9 +336,11 @@ public class OmnichannelOrderSyncJob {
 
         if (existingOpt.isPresent()) {
             DonBanHang existing = existingOpt.get();
-            // Nếu sàn hủy đơn -> cập nhật trạng thái đã hủy (4)
-            if ("cancelled".equalsIgnoreCase(orderNode.path("financial_status").asText())
-                    || !orderNode.path("cancelled_at").isNull()) {
+            String financialStatus = orderNode.path("financial_status").asText("").trim().toLowerCase();
+            String fulfillmentStatus = orderNode.path("fulfillment_status").asText("").trim().toLowerCase();
+            boolean isCancelled = "cancelled".equalsIgnoreCase(financialStatus) || !orderNode.path("cancelled_at").isNull();
+
+            if (isCancelled) {
                 // Xử lý trong giao dịch riêng của DonBanHangService (nạp lại đơn, phiếu nhặt, phiếu xuất) — không
                 // truyền entity tách rời. Đơn đã xuất / hoàn thành / hoàn trả được giữ nguyên, chỉ ghi nhật ký.
                 if (existing.getTrangThai() != null && existing.getTrangThai() != ITrangThaiDonBanHang.DA_HUY) {
@@ -350,6 +352,53 @@ public class OmnichannelOrderSyncJob {
                         }
                     } catch (Exception ex) {
                         log.error("[JOB-01] Lỗi khi hủy đơn {} theo sàn (giữ nguyên, thử lại lượt sau): {}", soDonHang, ex.getMessage());
+                    }
+                }
+            } else {
+                // 1. Đồng bộ trạng thái thanh toán nếu sàn đổi sang "paid"
+                if ("paid".equalsIgnoreCase(financialStatus) && !"da_thanh_toan".equals(existing.getTrangThaiThanhToan())) {
+                    existing.setTrangThaiThanhToan("da_thanh_toan");
+                    existing.setNgayCapNhat(Instant.now());
+                    donBanHangRepository.save(existing);
+                    log.info("[JOB-01] Đơn {} trên Shopify đã thanh toán -> Cập nhật trạng thái thanh toán = da_thanh_toan", soDonHang);
+                }
+
+                // 2. Đồng bộ trạng thái giao hàng / hoàn thành / hoàn trả
+                if ("fulfilled".equalsIgnoreCase(fulfillmentStatus)) {
+                    try {
+                        donBanHangService.capNhatTrangThaiGiaoHangTuSan(existing.getId(), "fulfilled");
+                    } catch (Exception ex) {
+                        log.error("[JOB-01] Lỗi khi cập nhật giao hàng đơn {} theo Shopify: {}", soDonHang, ex.getMessage());
+                    }
+                } else if ("refunded".equalsIgnoreCase(financialStatus)) {
+                    try {
+                        donBanHangService.capNhatTrangThaiGiaoHangTuSan(existing.getId(), "refunded");
+                    } catch (Exception ex) {
+                        log.error("[JOB-01] Lỗi khi cập nhật hoàn tiền đơn {} theo Shopify: {}", soDonHang, ex.getMessage());
+                    }
+                }
+
+                // 3. Trích xuất mã vận đơn và đơn vị vận chuyển từ fulfillments nếu chưa có
+                JsonNode fulfillments = orderNode.path("fulfillments");
+                if (fulfillments.isArray() && !fulfillments.isEmpty()) {
+                    for (JsonNode f : fulfillments) {
+                        String trackingNum = f.path("tracking_number").asText("").trim();
+                        if (trackingNum.isBlank() && f.path("tracking_numbers").isArray() && !f.path("tracking_numbers").isEmpty()) {
+                            trackingNum = f.path("tracking_numbers").get(0).asText("").trim();
+                        }
+                        String trackingCompany = f.path("tracking_company").asText("").trim();
+
+                        if (!trackingNum.isBlank()) {
+                            String currentNote = existing.getGhiChu() != null ? existing.getGhiChu() : "";
+                            if (!currentNote.contains("[VẬN ĐƠN:")) {
+                                String trackingInfo = "[VẬN ĐƠN: " + trackingNum + (!trackingCompany.isBlank() ? " - " + trackingCompany : "") + "]";
+                                existing.setGhiChu((currentNote.isBlank() ? "" : currentNote + " | ") + trackingInfo);
+                                existing.setNgayCapNhat(Instant.now());
+                                donBanHangRepository.save(existing);
+                                log.info("[JOB-01] Cập nhật mã vận đơn Shopify {} ({}) cho đơn {}", trackingNum, trackingCompany, soDonHang);
+                            }
+                            break;
+                        }
                     }
                 }
             }
@@ -372,6 +421,28 @@ public class OmnichannelOrderSyncJob {
         Kho defaultKho = khoHoatDong.stream().filter(KhoService::laKhoTong).findFirst()
                 .orElse(khoHoatDong.stream().filter(k -> !KhoService.laKhoAo(k)).findFirst().orElse(null));
 
+        String initTracking = null;
+        String initCarrier = null;
+        JsonNode newFulfillments = orderNode.path("fulfillments");
+        if (newFulfillments.isArray() && !newFulfillments.isEmpty()) {
+            for (JsonNode f : newFulfillments) {
+                String tn = f.path("tracking_number").asText("").trim();
+                if (tn.isBlank() && f.path("tracking_numbers").isArray() && !f.path("tracking_numbers").isEmpty()) {
+                    tn = f.path("tracking_numbers").get(0).asText("").trim();
+                }
+                if (!tn.isBlank()) {
+                    initTracking = tn;
+                    initCarrier = f.path("tracking_company").asText("").trim();
+                    break;
+                }
+            }
+        }
+
+        String shopifyNote = "Đơn hàng đồng bộ tự động từ Shopify #" + orderNumber;
+        if (initTracking != null && !initTracking.isBlank()) {
+            shopifyNote += " | [VẬN ĐƠN: " + initTracking + (initCarrier != null && !initCarrier.isBlank() ? " - " + initCarrier : "") + "]";
+        }
+
         DonBanHang don = DonBanHang.builder()
                 .soDonHang(soDonHang)
                 .maDonHangKenh(orderId)
@@ -386,7 +457,7 @@ public class OmnichannelOrderSyncJob {
                 .tongCong(totalPrice)
                 .trangThaiThanhToan(ttThanhToan)
                 .diaChiGiaoHang(diaChi)
-                .ghiChu("Đơn hàng đồng bộ tự động từ Shopify #" + orderNumber)
+                .ghiChu(shopifyNote)
                 .build();
 
         DonBanHang savedOrder = donBanHangRepository.save(don);
@@ -997,7 +1068,10 @@ public class OmnichannelOrderSyncJob {
             }
 
             String statuses = orderNode.path("statuses").toString().toLowerCase();
-            if (statuses.contains("canceled") || statuses.contains("cancelled")) {
+            String orderStatus = orderNode.path("status").asText("").toLowerCase();
+            String combinedStatus = statuses + " " + orderStatus;
+
+            if (combinedStatus.contains("canceled") || combinedStatus.contains("cancelled")) {
                 if (existing.getTrangThai() != null && existing.getTrangThai() != ITrangThaiDonBanHang.DA_HUY) {
                     try {
                         donBanHangService.huyDonTuSan(existing.getId(), "Hủy từ sàn Lazada");
@@ -1006,11 +1080,30 @@ public class OmnichannelOrderSyncJob {
                         log.error("[JOB-01] Lỗi khi hủy đơn {} theo sàn Lazada: {}", soDonHang, ex.getMessage());
                     }
                 }
-            } else if (statuses.contains("delivered") || statuses.contains("failed_delivery") || statuses.contains("returned")) {
+            } else {
                 try {
-                    donBanHangService.capNhatTrangThaiGiaoHangTuSan(existing.getId(), statuses);
+                    donBanHangService.capNhatTrangThaiGiaoHangTuSan(existing.getId(), combinedStatus);
                 } catch (Exception ex) {
                     log.error("[JOB-01] Lỗi khi cập nhật trạng thái giao hàng đơn {} theo sàn Lazada: {}", soDonHang, ex.getMessage());
+                }
+            }
+
+            // Đồng bộ bổ sung mã vận đơn nếu đơn hàng trước đó chưa kịp lưu
+            String currentLzdNote = existing.getGhiChu() != null ? existing.getGhiChu() : "";
+            if (!currentLzdNote.contains("[VẬN ĐƠN:")) {
+                try {
+                    com.dev.backend.dto.response.customize.LazadaOrderTrackingDto tracking =
+                            lazadaClient.getOrderTracking(appKey, appSecret, accessToken, orderId);
+                    if (tracking != null && tracking.getTrackingCode() != null && !tracking.getTrackingCode().isBlank()) {
+                        String trackingInfo = "[VẬN ĐƠN: " + tracking.getTrackingCode().trim() +
+                                (tracking.getShipmentProvider() != null && !tracking.getShipmentProvider().isBlank() ? " - " + tracking.getShipmentProvider().trim() : "") + "]";
+                        existing.setGhiChu((currentLzdNote.isBlank() ? "" : currentLzdNote + " | ") + trackingInfo);
+                        existing.setNgayCapNhat(Instant.now());
+                        donBanHangRepository.save(existing);
+                        log.info("[JOB-01] Cập nhật mã vận đơn Lazada {} ({}) cho đơn {}", tracking.getTrackingCode(), tracking.getShipmentProvider(), soDonHang);
+                    }
+                } catch (Exception ex) {
+                    log.warn("[JOB-01] Không thể lấy mã vận đơn bổ sung cho đơn {}: {}", soDonHang, ex.getMessage());
                 }
             }
             return false;
@@ -1067,6 +1160,14 @@ public class OmnichannelOrderSyncJob {
                 if (items.isArray()) {
                     layDuocDong = true;
                     for (JsonNode it : items) {
+                        String trackingCode = it.path("tracking_code").asText("").trim();
+                        String shipmentProvider = it.path("shipment_provider").asText("").trim();
+                        String curNote = savedOrder.getGhiChu() != null ? savedOrder.getGhiChu() : "";
+                        if (!trackingCode.isBlank() && !curNote.contains("[VẬN ĐƠN:")) {
+                            String trackingInfo = "[VẬN ĐƠN: " + trackingCode + (!shipmentProvider.isBlank() ? " - " + shipmentProvider : "") + "]";
+                            savedOrder.setGhiChu((curNote.isBlank() ? "" : curNote + " | ") + trackingInfo);
+                            donBanHangRepository.save(savedOrder);
+                        }
                         String sellerSku = it.path("seller_sku").asText("").trim();
                         String shopSku = it.path("shop_sku").asText("").trim();
                         String sku = it.path("sku").asText("").trim();
