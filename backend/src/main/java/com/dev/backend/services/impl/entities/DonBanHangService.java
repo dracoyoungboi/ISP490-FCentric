@@ -1330,6 +1330,10 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                 .orElseThrow(() -> new CommonException("Không tìm thấy đơn bán hàng ID: " + id, HttpStatus.NOT_FOUND, null));
         kiemTraPhamVi(don);
 
+        if (Integer.valueOf(ITrangThaiDonBanHang.DA_HUY).equals(don.getTrangThai())) {
+            throw new CommonException("Đơn hàng đã bị hủy trên hệ thống hoặc trên sàn, không thể in vận đơn.", HttpStatus.BAD_REQUEST, null);
+        }
+
         if (don.getKenhBanHang() == null) {
             throw new CommonException("Đơn hàng này không thuộc kênh bán hàng sàn", HttpStatus.BAD_REQUEST, null);
         }
@@ -1356,14 +1360,49 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
             }
 
             JsonNode docNode = labelRes.path("data").path("document");
-            String fileBase64 = docNode.path("file").asText("");
-            String mimeType = docNode.path("mime_type").asText("text/html");
+            String fileContent = docNode.path("file").asText("").trim();
+            String mimeType = docNode.path("mime_type").asText("text/html").trim();
 
-            if (fileBase64.isBlank()) {
+            if (fileContent.isBlank()) {
                 throw new CommonException("Lazada không trả về dữ liệu vận đơn cho đơn hàng này", HttpStatus.BAD_REQUEST, null);
             }
 
-            byte[] decodedBytes = Base64.getDecoder().decode(fileBase64);
+            byte[] decodedBytes;
+            boolean isHtml = mimeType.toLowerCase().contains("html")
+                    || fileContent.startsWith("<")
+                    || fileContent.contains("<html")
+                    || fileContent.contains("<!DOCTYPE")
+                    || fileContent.contains("<!doctype");
+
+            if (fileContent.startsWith("data:") && fileContent.contains("base64,")) {
+                String base64Part = fileContent.substring(fileContent.indexOf("base64,") + 7).trim();
+                try {
+                    decodedBytes = Base64.getMimeDecoder().decode(base64Part.replaceAll("\\s+", ""));
+                } catch (IllegalArgumentException ex) {
+                    if (isHtml) {
+                        decodedBytes = fileContent.getBytes(StandardCharsets.UTF_8);
+                    } else {
+                        throw new CommonException("Dữ liệu vận đơn từ Lazada không đúng định dạng Base64: " + ex.getMessage(), HttpStatus.BAD_REQUEST, null);
+                    }
+                }
+            } else if (fileContent.startsWith("<") || fileContent.contains("<body") || fileContent.contains("<table") || fileContent.contains("<html")) {
+                // Raw HTML từ Lazada (có thể chứa ký tự CSS '*' hoặc comment, không decode Base64)
+                decodedBytes = fileContent.getBytes(StandardCharsets.UTF_8);
+                if (mimeType.isBlank() || mimeType.equalsIgnoreCase("application/pdf")) {
+                    mimeType = "text/html";
+                }
+            } else {
+                try {
+                    decodedBytes = Base64.getMimeDecoder().decode(fileContent.replaceAll("\\s+", ""));
+                } catch (IllegalArgumentException ex) {
+                    if (isHtml) {
+                        decodedBytes = fileContent.getBytes(StandardCharsets.UTF_8);
+                    } else {
+                        throw new CommonException("Dữ liệu vận đơn từ sàn Lazada không đúng định dạng: " + ex.getMessage(), HttpStatus.BAD_REQUEST, null);
+                    }
+                }
+            }
+
             if (mimeType.toLowerCase().contains("html")) {
                 String html = new String(decodedBytes, StandardCharsets.UTF_8);
                 if (!html.contains("window.print")) {
