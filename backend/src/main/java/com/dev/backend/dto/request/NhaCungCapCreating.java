@@ -30,6 +30,9 @@ public class NhaCungCapCreating {
     public static final String NGAN_HANG_PATTERN = "^$|^[A-Za-z0-9]{2,20}$";
     /** Số tài khoản: chữ và số, 4–30 ký tự; để trống được. */
     public static final String SO_TAI_KHOAN_PATTERN = "^$|^[A-Za-z0-9]{4,30}$";
+    /** Mã số thuế: 10 số, đơn vị phụ thuộc thêm "-3 số", hộ / cá nhân kinh doanh 12 số (như khách hàng, công ty); để trống được. */
+    public static final String MA_SO_THUE_PATTERN = "^$|^\\s*(\\d{10}(-\\d{3})?|\\d{12})\\s*$";
+    public static final String MA_SO_THUE_MESSAGE = "Mã số thuế gồm 10 số (đơn vị phụ thuộc thêm -3 số) hoặc 12 số";
 
     @NotBlank(message = "Vui lòng nhập mã nhà cung cấp")
     @Size(max = 50, message = "Mã nhà cung cấp tối đa 50 ký tự")
@@ -39,6 +42,9 @@ public class NhaCungCapCreating {
     @NotBlank(message = "Vui lòng nhập tên nhà cung cấp")
     @Size(max = 200, message = "Tên nhà cung cấp tối đa 200 ký tự")
     private String tenNhaCungCap;
+
+    @Pattern(regexp = MA_SO_THUE_PATTERN, message = MA_SO_THUE_MESSAGE)
+    private String maSoThue;
 
     @Size(max = 100, message = "Người liên hệ tối đa 100 ký tự")
     private String nguoiLienHe;

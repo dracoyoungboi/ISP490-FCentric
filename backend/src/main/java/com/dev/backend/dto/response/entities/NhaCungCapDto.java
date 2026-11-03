@@ -13,6 +13,8 @@ public class NhaCungCapDto {
     private Integer id;
     private String maNhaCungCap;
     private String tenNhaCungCap;
+    /** Mã số thuế, gửi sang kế toán (danh mục nhà cung cấp, chứng từ mua hàng). */
+    private String maSoThue;
     private String nguoiLienHe;
     private String soDienThoai;
     private String email;

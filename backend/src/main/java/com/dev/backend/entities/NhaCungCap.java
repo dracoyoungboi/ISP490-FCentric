@@ -35,6 +35,11 @@ public class NhaCungCap {
     @Column(name = "ten_nha_cung_cap", nullable = false, length = 200)
     String tenNhaCungCap;
 
+    /** Mã số thuế: 10 số, 10 số + "-3 số" (đơn vị phụ thuộc) hoặc 12 số; gửi sang kế toán ở danh mục và chứng từ mua hàng. */
+    @Size(max = 14)
+    @Column(name = "ma_so_thue", length = 14)
+    String maSoThue;
+
     @Size(max = 20)
     @Column(name = "ngan_hang", length = 20)
     String nganHang;

@@ -131,6 +131,7 @@ public class NhaCungCapService extends BaseServiceImpl<NhaCungCap, Integer> {
         NhaCungCap entity = NhaCungCap.builder()
                 .maNhaCungCap(ma)
                 .tenNhaCungCap(creating.getTenNhaCungCap().trim())
+                .maSoThue(chuanHoa(creating.getMaSoThue()))
                 .nguoiLienHe(chuanHoa(creating.getNguoiLienHe()))
                 .soDienThoai(creating.getSoDienThoai().trim())
                 .email(creating.getEmail().trim())
@@ -159,6 +160,10 @@ public class NhaCungCapService extends BaseServiceImpl<NhaCungCap, Integer> {
         NhaCungCap entity = timTheoId(id);
 
         entity.setTenNhaCungCap(updating.getTenNhaCungCap().trim());
+        // Client cũ không gửi mã số thuế: giữ nguyên; gửi rỗng là xóa
+        if (updating.getMaSoThue() != null) {
+            entity.setMaSoThue(chuanHoa(updating.getMaSoThue()));
+        }
         entity.setNguoiLienHe(chuanHoa(updating.getNguoiLienHe()));
         entity.setSoDienThoai(updating.getSoDienThoai().trim());
         entity.setEmail(updating.getEmail().trim());

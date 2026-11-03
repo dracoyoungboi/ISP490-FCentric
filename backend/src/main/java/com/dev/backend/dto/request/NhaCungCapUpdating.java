@@ -22,6 +22,10 @@ public class NhaCungCapUpdating {
     @Size(max = 200, message = "Tên nhà cung cấp tối đa 200 ký tự")
     private String tenNhaCungCap;
 
+    /** Không gửi (null) = giữ nguyên (client cũ chưa có ô này); chuỗi rỗng = xóa. */
+    @Pattern(regexp = NhaCungCapCreating.MA_SO_THUE_PATTERN, message = NhaCungCapCreating.MA_SO_THUE_MESSAGE)
+    private String maSoThue;
+
     @Size(max = 100, message = "Người liên hệ tối đa 100 ký tự")
     private String nguoiLienHe;
 
