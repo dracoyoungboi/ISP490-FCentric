@@ -80,6 +80,8 @@ export default function ThuocTinhNcc({ ncc }) {
 
       <div>
         <dl className="grid grid-cols-[96px_minmax(0,1fr)] gap-x-3 gap-y-2.5 border-b border-slate-200/70 py-4 text-[13px] leading-5">
+          <dt className="text-bo-muted">Mã số thuế</dt>
+          <dd className="m-0 min-w-0 tabular-nums text-bo-foreground">{ncc.maSoThue || "—"}</dd>
           <dt className="text-bo-muted">Ngày tạo</dt>
           <dd className="m-0 min-w-0 tabular-nums text-bo-foreground">{formatDateTime(ncc.ngayTao)}</dd>
           <dt className="text-bo-muted">Cập nhật</dt>

@@ -29,6 +29,7 @@ import {
     MAX_LENGTH,
     VALIDATORS,
     chiGiuChuSo,
+    chuanHoaMaSoThueKhiNhap,
     formTuNhaCungCap,
     oCuaThongBaoMayChu,
     payloadTuForm,
@@ -37,7 +38,7 @@ import {
 // Thứ tự trên màn hình: lỗi đầu tiên theo thứ tự này được focus khi bấm Lưu.
 // Không có ô Ngân hàng / Số tài khoản: không quản lý thanh toán nhà cung cấp (chốt 16/10, gỡ ô 22/10/2026). Khi sửa,
 // payloadTuForm gửi lại nguyên giá trị đang có (PUT /api/supplier/{id} ghi đè mọi trường, bỏ trống là xóa mất).
-const FIELDS = ["maNhaCungCap", "tenNhaCungCap", "nguoiLienHe", "soDienThoai", "email", "diaChi"];
+const FIELDS = ["maNhaCungCap", "tenNhaCungCap", "maSoThue", "nguoiLienHe", "soDienThoai", "email", "diaChi"];
 
 const CONTROL_CLASS =
     "h-10 border-bo-border bg-white text-bo-foreground shadow-none placeholder:text-slate-400 focus-visible:border-bo-primary focus-visible:ring-[3px] focus-visible:ring-bo-primary/15";
@@ -372,6 +373,20 @@ function SupplierForm({ supplier, onClose, onSaved, oDauTien }) {
                             />
                         </Field>
 
+                        <Field
+                            id={fieldId("maSoThue")}
+                            label="Mã số thuế"
+                            error={errors.maSoThue}
+                            hint="Ghi trên hóa đơn của nhà cung cấp; gửi sang phần mềm kế toán."
+                        >
+                            <Input
+                                {...textInputProps("maSoThue", true)}
+                                spellCheck={false}
+                                className={cn(CONTROL_CLASS, "tabular-nums", errors.maSoThue && CONTROL_ERROR_CLASS)}
+                                onChange={(event) => changeField("maSoThue", chuanHoaMaSoThueKhiNhap(event.target.value))}
+                            />
+                        </Field>
+
                         <Field id={fieldId("nguoiLienHe")} label="Người liên hệ" error={errors.nguoiLienHe}>
                             <Input
                                 {...textInputProps("nguoiLienHe")}
@@ -400,7 +415,6 @@ function SupplierForm({ supplier, onClose, onSaved, oDauTien }) {
                             required
                             error={errors.email}
                             hint="Yêu cầu báo giá được gửi tới email này; nhà cung cấp cũng dùng email này để vào trang báo giá."
-                            className="sm:col-span-2"
                         >
                             <Input
                                 {...textInputProps("email", true)}

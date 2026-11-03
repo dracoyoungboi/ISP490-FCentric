@@ -15,6 +15,7 @@ export const coTheGuiYeuCauBaoGia = (supplier) =>
 export const MAX_LENGTH = {
     maNhaCungCap: 50,
     tenNhaCungCap: 200,
+    maSoThue: 14,
     nguoiLienHe: 100,
     soDienThoai: 11,
     email: 100,
@@ -28,6 +29,14 @@ const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 // di động 10 số (03/05/07/08/09), cố định 11 số (02…), tổng đài 1800/1900 (8–10 số).
 const SO_DIEN_THOAI_REGEX = /^(0[35789][0-9]{8}|02[0-9]{9}|1[89]00[0-9]{4,6})$/;
 
+// Trùng MA_SO_THUE_PATTERN của backend (như khách hàng, công ty): 10 số, đơn vị phụ thuộc thêm "-3 số", hộ / cá nhân 12 số.
+const MA_SO_THUE_REGEX = /^(\d{10}(-\d{3})?|\d{12})$/;
+export const MA_SO_THUE_MESSAGE = "Mã số thuế gồm 10 số (đơn vị phụ thuộc thêm -3 số) hoặc 12 số";
+
+/** Gõ / dán mã số thuế: chỉ giữ chữ số và dấu gạch ("0312345678-001"). */
+export const chuanHoaMaSoThueKhiNhap = (value) =>
+    String(value ?? "").replace(/[^\d-]/g, "").slice(0, MAX_LENGTH.maSoThue);
+
 export const SO_DIEN_THOAI_MESSAGE =
     "Số điện thoại không hợp lệ (di động 10 số, số bàn 11 số bắt đầu bằng 02, hoặc tổng đài 1800/1900)";
 
@@ -37,6 +46,7 @@ export const chiGiuChuSo = (value, max) => (value ?? "").replace(/\D/g, "").slic
 export const FORM_TRONG = {
     maNhaCungCap: "",
     tenNhaCungCap: "",
+    maSoThue: "",
     nguoiLienHe: "",
     soDienThoai: "",
     email: "",
@@ -60,6 +70,7 @@ export const formTuNhaCungCap = (supplier) =>
         ? {
               maNhaCungCap: supplier.maNhaCungCap ?? "",
               tenNhaCungCap: supplier.tenNhaCungCap ?? "",
+              maSoThue: supplier.maSoThue ?? "",
               nguoiLienHe: supplier.nguoiLienHe ?? "",
               soDienThoai: chuanHoaSoDienThoai(supplier.soDienThoai),
               email: supplier.email ?? "",
@@ -78,6 +89,11 @@ export const VALIDATORS = {
         return "";
     },
     tenNhaCungCap: (value) => (value.trim() ? "" : "Vui lòng nhập tên nhà cung cấp"),
+    // Không bắt buộc; có thì phải đúng định dạng (gửi sang kế toán ở danh mục và chứng từ mua hàng)
+    maSoThue: (value) => {
+        const mst = value.trim();
+        return !mst || MA_SO_THUE_REGEX.test(mst) ? "" : MA_SO_THUE_MESSAGE;
+    },
     nguoiLienHe: () => "",
     soDienThoai: (value) => {
         if (!value) return "Vui lòng nhập số điện thoại";
@@ -100,6 +116,8 @@ export function payloadTuForm(form, { laSua }) {
     const tuyChon = (value) => value.trim() || null;
     const payload = {
         tenNhaCungCap: form.tenNhaCungCap.trim(),
+        // Gửi chuỗi rỗng (không phải null) khi để trống: máy chủ hiểu null là "giữ nguyên", rỗng là "xóa"
+        maSoThue: form.maSoThue.trim(),
         nguoiLienHe: tuyChon(form.nguoiLienHe),
         soDienThoai: form.soDienThoai.trim(),
         email: form.email.trim(),
@@ -115,6 +133,7 @@ export function oCuaThongBaoMayChu(message) {
     const text = (message ?? "").toLowerCase();
     if (text.includes("mã nhà cung cấp")) return "maNhaCungCap";
     if (text.includes("tên nhà cung cấp")) return "tenNhaCungCap";
+    if (text.includes("mã số thuế")) return "maSoThue";
     if (text.includes("số tài khoản")) return "soNganHang";
     if (text.includes("ngân hàng")) return "nganHang";
     if (text.includes("email")) return "email";
