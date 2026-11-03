@@ -273,7 +273,7 @@ public class TongQuanVaiTroServiceImpl implements TongQuanVaiTroService {
         MuaHang mh = null;
         BanHang bh = null;
         switch (vaiTro) {
-            case VAI_TRO_QUAN_LY_KHO -> qlk = tinhQuanLyKho(bc, kho, khoTong);
+            case VAI_TRO_QUAN_LY_KHO -> qlk = tinhQuanLyKho(bc, kho, khoTong, nguoiDungId);
             case VAI_TRO_NHAN_VIEN_KHO -> nvk = tinhNhanVienKho(bc, kho.id(), nguoiDungId);
             case VAI_TRO_MUA_HANG -> mh = tinhMuaHang(bc, khoTong);
             case VAI_TRO_BAN_HANG -> bh = tinhBanHang(bc, kho.id(), nguoiDungId);
@@ -287,7 +287,7 @@ public class TongQuanVaiTroServiceImpl implements TongQuanVaiTroService {
 
     /* ---------------------------- Quản lý kho ---------------------------- */
 
-    private QuanLyKho tinhQuanLyKho(BoiCanh bc, KhoDong kho, KhoDong khoTong) {
+    private QuanLyKho tinhQuanLyKho(BoiCanh bc, KhoDong kho, KhoDong khoTong, Integer nguoiDungId) {
         Integer k = kho.id();
         ChiSoKho chiSo = bc.chay(KHOI_CHI_SO, () -> {
             Map<LocalDate, NhapXuatNgay> nx = theoNgay(admin.nhapXuatTheoNgay(bc.ngay(-6), bc.ngay(1), k));
@@ -317,7 +317,7 @@ public class TongQuanVaiTroServiceImpl implements TongQuanVaiTroService {
                 tongHop.soDong(), tongHop.hetHang(), tongHop.thieuHang(), tongHop.binhThuong(), tongHop.duHang());
 
         var nghiepVu = bc.chay(KHOI_NGHIEP_VU, () -> repo.nghiepVu(k, bc.dauNgay, bc.mocChoLau));
-        List<Viec> viec = bc.chay(KHOI_VIEC, () -> danhSachViec(repo.viecQuanLyKho(k), bc.mocChoLau));
+        List<Viec> viec = bc.chay(KHOI_VIEC, () -> danhSachViec(repo.viecQuanLyKho(k, nguoiDungId), bc.mocChoLau));
 
         List<DiemNhapXuat> nhapXuat = bc.chay(KHOI_NHAP_XUAT, () -> {
             Map<LocalDate, NhapXuatNgay> nx = theoNgay(admin.nhapXuatTheoNgay(bc.ngay(-29), bc.ngay(1), k));
@@ -342,6 +342,9 @@ public class TongQuanVaiTroServiceImpl implements TongQuanVaiTroService {
         }
         if (v.phieuChuyenChoDuyet() > 0) {
             ds.add(new Viec("duyet_phieu_chuyen", v.phieuChuyenChoDuyet(), v.phieuChuyenCuNhat(), null, true));
+        }
+        if (v.bienBanChoXacNhan() > 0) {
+            ds.add(new Viec("xac_nhan_bien_ban_chuyen", v.bienBanChoXacNhan(), v.bienBanXacNhanCuNhat(), null, true));
         }
         if (v.phieuChuyenChoXuLyLech() > 0) {
             ds.add(new Viec("xu_ly_chenh_lech_chuyen", v.phieuChuyenChoXuLyLech(), v.phieuChuyenLechCuNhat(), null, true));

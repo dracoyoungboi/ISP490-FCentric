@@ -23,7 +23,8 @@ import {
 } from "@/components/chung-tu/thoiHanThaoTac";
 import {
     HINH_THUC_VAN_CHUYEN,
-    LY_DO_DIEU_DONG,
+    LY_DO_DIEU_DONG_HIEN_THI,
+    LY_DO_GIAO_BU,
     PHUONG_AN_CHENH_LECH,
     TT_CHUYEN,
     getPhieuChuyenKhoStatus,
@@ -33,9 +34,10 @@ import { getPhieuXuatKhoStatus } from "@/constants/phieuXuatKho";
 import { getPickListStatus } from "@/constants/outbound";
 import { getGoodsReceiptStatus } from "@/constants/goodsReceipt";
 import {
-    aiXuLyChenhLech,
     buocChuyenKho,
+    cauChoXuLyLech,
     cheGiua,
+    choKhoGuiXacNhan,
     gioNgayNgan,
     ngayGioDu,
     nhanPhieuXuatLienQuan,
@@ -58,6 +60,7 @@ import {
     HopHuy,
     HopNhapHoanTra,
     HopTuChoi,
+    HopXacNhanBienBan,
     HopXacNhanXuat,
     HopXuLyChenhLech,
 } from "./HopThoaiChuyenKho";
@@ -89,7 +92,7 @@ function ManPhieuChuyenKho({ id }) {
     const [capNhatLuc, setCapNhatLuc] = useState(null);
     const [dangChay, setDangChay] = useState(false);
     const [choGoc, setChoGoc] = useState(false);
-    // Hộp đang mở: duyet | tuChoi | xuat | ghiSo | huy | xuLy | hoanTra | null; loiHop: câu lỗi máy chủ trong hộp
+    // Hộp đang mở: duyet | tuChoi | xuat | ghiSo | huy | xacNhanBb | xuLy | hoanTra | null; loiHop: câu lỗi máy chủ trong hộp
     const [hop, setHop] = useState(null);
     const [loiHop, setLoiHop] = useState(null);
     const huyChoGocRef = useRef(null);
@@ -322,6 +325,10 @@ function ManPhieuChuyenKho({ id }) {
             },
         });
     }
+    // Chờ xử lý chênh lệch qua hai bước (BA 03/11): kho gửi xác nhận biên bản, rồi người được xử lý mới thấy nút Xử lý
+    if (tt === TT_CHUYEN.CHO_XU_LY_LECH && q.xacNhanBienBan) {
+        nutChinh.push({ nhan: "Xác nhận biên bản", icon: ClipboardCheck, onClick: () => setHop("xacNhanBb") });
+    }
     if (tt === TT_CHUYEN.CHO_XU_LY_LECH && q.xuLyChenhLech) {
         nutChinh.push({ nhan: "Xử lý chênh lệch", icon: Scale, onClick: () => setHop("xuLy") });
     }
@@ -359,9 +366,15 @@ function ManPhieuChuyenKho({ id }) {
     // ── Thông báo (B.1) ──
     const thongBao = [];
     if (ct.phieuGoc) {
+        const goc = <LienKet to={`/transfer-tickets/${ct.phieuGoc.id}`}>{ct.phieuGoc.so}</LienKet>;
+        // Câu sau theo bước: còn chờ duyệt (quản lý kho xuất chọn Giao bù theo Cấu hình) thì đi lại từ bước duyệt; đã có
+        // lệnh (tự duyệt khi Quản lý Kho tổng xử lý chênh lệch, BA 03/11) thì nhặt, xuất như phiếu thường
         thongBao.push(
             <DongThongBao key="giaoBu" tone="info">
-                Phiếu giao bù cho <LienKet to={`/transfer-tickets/${ct.phieuGoc.id}`}>{ct.phieuGoc.so}</LienKet>. Đi lại từ bước duyệt như phiếu thường.
+                Phiếu giao bù cho {goc}
+                {tt === TT_CHUYEN.CHO_DUYET ? ". Đi lại từ bước duyệt như phiếu thường."
+                    : tt === TT_CHUYEN.DA_DUYET && ct.soLenhDieuDong ? <>, đã có lệnh điều động <B>{ct.soLenhDieuDong}</B>. Nhặt, xuất, nhận hàng như phiếu thường.</>
+                        : "."}
             </DongThongBao>,
         );
     }
@@ -418,10 +431,18 @@ function ManPhieuChuyenKho({ id }) {
         );
     }
     if (tt === TT_CHUYEN.CHO_XU_LY_LECH && bb) {
+        // Ý kiến kho gửi bỏ dấu chấm cuối (câu tự thêm dấu chấm)
+        const yKien = (bb.ghiChuKhoGui ?? "").replace(/[.\s]+$/, "");
         thongBao.push(
             <DongThongBao key="lech" tone="warn">
                 {khoNhap} nhận <B>{soVN(bb.tongNhan)}/{soVN(bb.tongGui)}</B>. Biên bản <B>{bb.soBienBan}</B> ghi thiếu {soVN(bb.tongThieu)}, hỏng {soVN(bb.tongHong)};
-                phần lệch giữ ở kho trung chuyển, chờ {aiXuLyChenhLech(ct)} xử lý.
+                phần lệch giữ ở kho trung chuyển, chờ {cauChoXuLyLech(ct)}.
+                {bb.ngayXacNhanGui ? (
+                    <>
+                        {" "}{khoXuat} đã xác nhận biên bản{bb.nguoiXacNhanGui ? <> ({bb.nguoiXacNhanGui}, {gioNgayNgan(bb.ngayXacNhanGui)})</> : null}
+                        {yKien ? <>. Ý kiến kho gửi: {yKien}</> : null}.
+                    </>
+                ) : q.xacNhanBienBan ? " Xem bảng hàng lệch, ảnh rồi bấm Xác nhận biên bản." : null}
             </DongThongBao>,
         );
     }
@@ -507,8 +528,15 @@ function ManPhieuChuyenKho({ id }) {
                             { ma: "so", nhan: "Số lệnh", giaTri: ct.soLenhDieuDong },
                             { ma: "ngay", nhan: "Ngày", giaTri: ngayGioDu(ct.ngayLenhDieuDong) },
                             { ma: "nguoi", nhan: "Người ra lệnh", giaTri: ct.nguoiRaLenh },
-                            { ma: "lyDo", nhan: "Lý do", giaTri: tenTheoMa(LY_DO_DIEU_DONG, ct.lyDoDieuDong) },
-                            { ma: "ghiChu", nhan: "Ghi chú", giaTri: ct.ghiChuLenh, an: !ct.ghiChuLenh },
+                            // Lệnh tự lập cho phiếu giao bù: ghi chú lệnh là câu lý do đầy đủ ("Giao bù hàng cho phiếu …")
+                            {
+                                ma: "lyDo",
+                                nhan: "Lý do",
+                                giaTri: ct.lyDoDieuDong === LY_DO_GIAO_BU.ma
+                                    ? ct.ghiChuLenh || LY_DO_GIAO_BU.nhan
+                                    : tenTheoMa(LY_DO_DIEU_DONG_HIEN_THI, ct.lyDoDieuDong),
+                            },
+                            { ma: "ghiChu", nhan: "Ghi chú", giaTri: ct.ghiChuLenh, an: !ct.ghiChuLenh || ct.lyDoDieuDong === LY_DO_GIAO_BU.ma },
                         ]}
                     />
                 ) : (
@@ -564,6 +592,16 @@ function ManPhieuChuyenKho({ id }) {
                             { ma: "lap", nhan: "Người lập", giaTri: bb.nguoiLap },
                             { ma: "giao", nhan: "Người giao", giaTri: bb.nguoiVanChuyen },
                             { ma: "lech", nhan: "Chênh lệch", giaTri: `Thiếu ${soVN(bb.tongThieu)} · hỏng ${soVN(bb.tongHong)}` },
+                            // Kho gửi xác nhận trên F Centric (BA 03/11); biên bản xử lý từ trước khi có bước này thì ẩn dòng
+                            {
+                                ma: "khoGui",
+                                nhan: "Kho gửi xác nhận",
+                                giaTri: bb.ngayXacNhanGui
+                                    ? `${bb.nguoiXacNhanGui ?? ""} · ${gioNgayNgan(bb.ngayXacNhanGui)}`
+                                    : <span className="inline-flex rounded-md bg-bo-tt-chu-y px-2 py-0.5 text-xs font-medium text-bo-tt-chu-y-chu">Chờ xác nhận</span>,
+                                an: !bb.ngayXacNhanGui && !choKhoGuiXacNhan(ct),
+                            },
+                            { ma: "yKien", nhan: "Ý kiến kho gửi", giaTri: bb.ghiChuKhoGui, an: !bb.ghiChuKhoGui },
                             {
                                 ma: "pa",
                                 nhan: "Phương án",
@@ -665,6 +703,18 @@ function ManPhieuChuyenKho({ id }) {
             ) : null}
             {hop === "huy" ? (
                 <HopHuy {...props("huy")} onXacNhan={(body) => chay(() => phieuChuyenKhoService.huy(id, body), "Đã hủy phiếu chuyển kho", "Không hủy được phiếu")} />
+            ) : null}
+            {hop === "xacNhanBb" ? (
+                <HopXacNhanBienBan
+                    {...props("xacNhanBb")}
+                    onXacNhan={(body) => chay(
+                        () => phieuChuyenKhoService.xacNhanBienBan(id, body),
+                        (kq) => `Đã xác nhận biên bản ${kq?.soBienBan ?? ""}`.trim(),
+                        "Không xác nhận được biên bản",
+                        // Kho gửi xác nhận tại kho xuất (máy chủ kiểm kho đang chọn như các bước ghi khác của kho xuất)
+                        ct.khoXuat,
+                    )}
+                />
             ) : null}
             {hop === "xuLy" ? (
                 <HopXuLyChenhLech

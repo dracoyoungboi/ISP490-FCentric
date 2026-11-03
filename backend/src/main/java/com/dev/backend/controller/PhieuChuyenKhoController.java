@@ -144,7 +144,8 @@ public class PhieuChuyenKhoController {
 
     /**
      * Thêm một ảnh chụp vào biên bản giao nhận (mockup B.4, không bắt buộc): multipart `file` (JPEG / PNG / WebP, tới
-     * 10 MB) và `moTa` (tùy chọn, tối đa 255 ký tự). Kho nhận thêm khi biên bản còn chờ xử lý, tối đa 6 ảnh.
+     * 10 MB) và `moTa` (tùy chọn, tối đa 255 ký tự). Kho nhận thêm khi biên bản còn chờ xử lý và kho gửi chưa xác nhận,
+     * tối đa 6 ảnh.
      */
     @PostMapping("/{id}/bien-ban/anh")
     @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho}, inWarehouse = true)
@@ -155,12 +156,27 @@ public class PhieuChuyenKhoController {
         return ok(anhBienBanGiaoNhanService.them(id, file, moTa), "Đã thêm ảnh vào biên bản giao nhận");
     }
 
-    /** Xóa một ảnh của biên bản giao nhận: người tải lên, quản lý kho nhận hoặc quản trị viên, khi biên bản còn chờ xử lý. */
+    /**
+     * Xóa một ảnh của biên bản giao nhận: người tải lên, quản lý kho nhận hoặc quản trị viên, khi biên bản còn chờ xử lý
+     * và kho gửi chưa xác nhận.
+     */
     @DeleteMapping("/{id}/bien-ban/anh/{anhId}")
     @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho}, inWarehouse = true)
     public ResponseEntity<ResponseData<Void>> xoaAnhBienBan(@PathVariable Integer id, @PathVariable Integer anhId) {
         anhBienBanGiaoNhanService.xoa(id, anhId);
         return ok(null, "Đã xóa ảnh khỏi biên bản giao nhận");
+    }
+
+    /** Đại diện kho gửi xác nhận biên bản giao nhận { ghiChu } (ý kiến, không bắt buộc): mở bước xử lý chênh lệch. */
+    @PutMapping("/{id}/xac-nhan-bien-ban")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho}, inWarehouse = true)
+    public ResponseEntity<ResponseData<Map<String, Object>>> xacNhanBienBan(@PathVariable Integer id,
+                                                                           @RequestBody(required = false) PhieuChuyenKhoYeuCau.XacNhanBienBan yeuCau) {
+        BienBanGiaoNhan bb = phieuChuyenKhoService.xacNhanBienBan(id, yeuCau);
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("bienBanId", bb.getId());
+        data.put("soBienBan", bb.getSoBienBan());
+        return ok(data, "Đã xác nhận biên bản " + bb.getSoBienBan());
     }
 
     @PutMapping("/{id}/xu-ly-chenh-lech")

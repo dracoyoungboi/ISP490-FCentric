@@ -10,6 +10,7 @@ import {
     HINH_THUC_VAN_CHUYEN,
     KY_HIEU_XKNB_RE,
     LY_DO_DIEU_DONG,
+    LY_DO_GIAO_BU,
     PHUONG_AN_CHENH_LECH,
     TT_CHUYEN,
     XKNB_CHE_DO,
@@ -96,7 +97,10 @@ export function HopDuyet({ mo, onDong, ct, dangChay, loi, onXacNhan }) {
     const [lyDo, setLyDo] = useState("BO_SUNG");
     const [ghiChu, setGhiChu] = useState("");
     const [daBam, setDaBam] = useState(false);
-    const thieuGhiChu = lyDo === "KHAC" && !ghiChu.trim();
+    // Phiếu giao bù còn chờ duyệt (quản lý kho xuất chọn Giao bù theo Cấu hình): lý do luôn là Giao bù hàng, máy chủ ghi
+    // phiếu gốc và biên bản vào ghi chú lệnh như phiếu giao bù tự duyệt
+    const laGiaoBu = Boolean(ct.phieuGoc);
+    const thieuGhiChu = !laGiaoBu && lyDo === "KHAC" && !ghiChu.trim();
     const tong = tongCot(ct.hang, "soLuongChuyen");
     return (
         <HopXacNhanChungTu
@@ -112,22 +116,33 @@ export function HopDuyet({ mo, onDong, ct, dangChay, loi, onXacNhan }) {
             onXacNhan={() => {
                 setDaBam(true);
                 if (thieuGhiChu) return;
-                onXacNhan({ lyDoDieuDong: lyDo, ghiChuLenh: ghiChu.trim() || null });
+                onXacNhan(laGiaoBu
+                    ? { lyDoDieuDong: LY_DO_GIAO_BU.ma }
+                    : { lyDoDieuDong: lyDo, ghiChuLenh: ghiChu.trim() || null });
             }}
         >
-            <ChonThe nhan="Lý do điều động" luaChon={LY_DO_DIEU_DONG} value={lyDo} onChange={setLyDo} />
-            <O nhan={lyDo === "KHAC" ? "Ghi rõ lý do" : "Ghi chú"} batBuoc={lyDo === "KHAC"} loi={daBam && thieuGhiChu ? "Ghi rõ lý do điều động" : null}>
-                {(p) => (
-                    <textarea
-                        {...p}
-                        value={ghiChu}
-                        maxLength={500}
-                        onChange={(e) => setGhiChu(e.target.value)}
-                        placeholder="Ví dụ: chuẩn bị hàng cho đợt khuyến mãi cuối tuần"
-                        className={cn(O_NHAP_NHIEU_DONG, daBam && thieuGhiChu && "border-bo-danger")}
-                    />
-                )}
-            </O>
+            {laGiaoBu ? (
+                <p className="m-0 text-[13px] leading-5 text-bo-foreground">
+                    <span className="text-bo-muted">Lý do điều động: </span>
+                    <B>{LY_DO_GIAO_BU.nhan} cho phiếu {ct.phieuGoc.so}</B> (hệ thống ghi kèm số biên bản của phiếu gốc).
+                </p>
+            ) : (
+                <>
+                    <ChonThe nhan="Lý do điều động" luaChon={LY_DO_DIEU_DONG} value={lyDo} onChange={setLyDo} />
+                    <O nhan={lyDo === "KHAC" ? "Ghi rõ lý do" : "Ghi chú"} batBuoc={lyDo === "KHAC"} loi={daBam && thieuGhiChu ? "Ghi rõ lý do điều động" : null}>
+                        {(p) => (
+                            <textarea
+                                {...p}
+                                value={ghiChu}
+                                maxLength={500}
+                                onChange={(e) => setGhiChu(e.target.value)}
+                                placeholder="Ví dụ: chuẩn bị hàng cho đợt khuyến mãi cuối tuần"
+                                className={cn(O_NHAP_NHIEU_DONG, daBam && thieuGhiChu && "border-bo-danger")}
+                            />
+                        )}
+                    </O>
+                </>
+            )}
         </HopXacNhanChungTu>
     );
 }
@@ -543,18 +558,147 @@ export function HopNhapHoanTra({ mo, onDong, ct, dangChay, loi, onXacNhan }) {
 }
 
 /**
- * Xử lý chênh lệch (bước 5): một phương án cho cả biên bản, lý do bắt buộc. Ai được làm theo Cấu hình › Chuyển kho
- * (máy chủ gửi câu mô tả ở `ct.aiXuLyChenhLech`).
+ * Bảng dòng lệch của biên bản (thiếu / hỏng theo lô) trong hộp thoại, cùng cách với hộp lập biên bản ở màn nhận hàng:
+ * bảng table-fixed, khung KHÔNG đặt overflow — thân hộp là lưới có chiều cao giới hạn, khung có overflow bị bóp tới mức
+ * chỉ còn dòng tiêu đề khi nội dung dài hơn màn hình (lỗi Hình 4, 03/11). Tên sản phẩm, màu / cỡ, lô một dòng; lý do
+ * dòng riêng dưới số lượng nên hộp 560px không phải cuộn ngang.
+ */
+function BangDongLech({ dong }) {
+    return (
+        <div className="rounded-lg border border-bo-border">
+            <table className="w-full table-fixed text-[13px]">
+                <thead className="text-left text-xs text-bo-muted">
+                    <tr>
+                        <th className="rounded-tl-lg bg-bo-surface-subtle px-3 py-2 font-medium">Sản phẩm</th>
+                        <th className="w-11 bg-bo-surface-subtle px-1.5 py-2 text-right font-medium sm:w-14 sm:px-2">Gửi</th>
+                        <th className="w-11 bg-bo-surface-subtle px-1.5 py-2 text-right font-medium sm:w-14 sm:px-2">Đạt</th>
+                        <th className="w-11 bg-bo-surface-subtle px-1.5 py-2 text-right font-medium sm:w-14 sm:px-2">Hỏng</th>
+                        <th className="w-12 rounded-tr-lg bg-bo-surface-subtle py-2 pl-1.5 pr-3 text-right font-medium sm:w-14">Thiếu</th>
+                    </tr>
+                </thead>
+                {dong.map((d) => {
+                    const bienThe = [d.tenMau, d.kichCo].filter(Boolean).join(" / ");
+                    return (
+                        <tbody key={d.id ?? `${d.bienTheId}-${d.loHangId}`} className="border-t border-bo-border tabular-nums">
+                            <tr>
+                                {/* Hộp hẹp (điện thoại): tên và dòng lô / SKU xuống dòng thay vì cắt mất mã lô */}
+                                <td className="px-3 pb-1 pt-2">
+                                    <div className="line-clamp-2 font-medium text-bo-foreground [overflow-wrap:anywhere]" title={d.tenSanPham}>{d.tenSanPham}</div>
+                                    <div className="text-xs text-bo-muted [overflow-wrap:anywhere]">
+                                        {bienThe ? `${bienThe} · ` : ""}lô <span className="font-mono">{d.maLo}</span> · {d.sku}
+                                    </div>
+                                </td>
+                                <td className="px-1.5 pb-1 pt-2 text-right align-top sm:px-2">{soVN(d.gui)}</td>
+                                <td className="px-1.5 pb-1 pt-2 text-right align-top sm:px-2">{soVN(d.nhan)}</td>
+                                <td className="px-1.5 pb-1 pt-2 text-right align-top sm:px-2">{soVN(d.hong)}</td>
+                                <td className="pb-1 pl-1.5 pr-3 pt-2 text-right align-top">{soVN(d.thieu)}</td>
+                            </tr>
+                            <tr>
+                                <td colSpan={5} className="px-3 pb-2 text-xs leading-5 text-bo-foreground [overflow-wrap:anywhere]">
+                                    <span className="text-bo-muted">Lý do: </span>
+                                    {d.lyDo || "—"}
+                                </td>
+                            </tr>
+                        </tbody>
+                    );
+                })}
+            </table>
+        </div>
+    );
+}
+
+const dongLechCua = (bb) => (bb?.dong ?? []).filter((d) => d.thieu > 0 || d.hong > 0);
+
+/**
+ * Đại diện kho gửi xác nhận biên bản giao nhận (BA 03/11): thay chữ ký tay ô "Đại diện kho gửi" trên giấy. Ý kiến
+ * không bắt buộc — kho gửi không đồng ý số liệu thì ghi vào đây, người xử lý chênh lệch đọc rồi quyết. Xác nhận xong kho
+ * nhận không thêm / xóa ảnh được nữa, và người được xử lý chênh lệch mới thấy nút Xử lý chênh lệch.
+ */
+export function HopXacNhanBienBan({ mo, onDong, ct, dangChay, loi, onXacNhan }) {
+    const [ghiChu, setGhiChu] = useState("");
+    const bb = ct.bienBan;
+    const anh = bb?.anh ?? [];
+    return (
+        <HopXacNhanChungTu
+            mo={mo}
+            onDoiMo={(m) => !m && onDong()}
+            tieuDe={`Xác nhận biên bản · ${bb?.soBienBan ?? ""}`}
+            moTa={`${ct.khoNhap?.ten} nhận ${soVN(bb?.tongNhan)}/${soVN(bb?.tongGui)} sản phẩm ${ct.khoXuat?.ten} gửi, ghi thiếu ${soVN(bb?.tongThieu)}, hỏng ${soVN(bb?.tongHong)}. Xác nhận thay chữ ký ở ô Đại diện kho gửi; sau đó ${aiXuLyChenhLech(ct)} chọn cách xử lý phần lệch.`}
+            nhanXacNhan="Xác nhận biên bản"
+            iconXacNhan={Check}
+            rong
+            // Đọc bảng lệch trước: không nhảy con trỏ xuống ô ý kiến ở cuối hộp (thân hộp cuộn, bàn phím điện thoại bật)
+            tieuDiemONhap={false}
+            tieuDiemQuayLai
+            dangChay={dangChay}
+            loi={loi}
+            // anhIds: bộ ảnh đang thấy; ảnh vừa đổi (còn đang tải, kho nhận thêm / xóa) thì máy chủ báo 409, màn tải lại phiếu
+            onXacNhan={() => onXacNhan({ ghiChu: ghiChu.trim() || null, anhIds: anh.map((a) => a.id) })}
+        >
+            <BangDongLech dong={dongLechCua(bb)} />
+            {bb?.ketLuan ? (
+                <p className="m-0 text-[13px] leading-5 text-bo-foreground [overflow-wrap:anywhere]">
+                    <span className="text-bo-muted">Kết luận của kho nhận: </span>
+                    {bb.ketLuan}
+                </p>
+            ) : null}
+            {anh.length ? (
+                <div className="grid gap-1.5">
+                    <span className={NHAN_O}>Ảnh chụp ({soVN(anh.length)})</span>
+                    <div className="flex flex-wrap gap-2">
+                        {anh.map((a) => (
+                            <a
+                                key={a.id}
+                                href={a.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                title={a.moTa || "Mở ảnh ở thẻ mới"}
+                                className="block size-14 overflow-hidden rounded-md border border-bo-border bg-bo-canvas focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/40"
+                            >
+                                <img src={a.url} alt={a.moTa || "Ảnh biên bản"} loading="lazy" className="size-full object-cover" />
+                            </a>
+                        ))}
+                    </div>
+                </div>
+            ) : (
+                <p className="m-0 text-[13px] leading-5 text-bo-muted">Kho nhận chưa đính kèm ảnh nào cho biên bản này.</p>
+            )}
+            <O nhan="Ý kiến của kho gửi" goiY={`Không bắt buộc · ${ghiChu.length}/255`}>
+                {(p) => (
+                    <textarea
+                        {...p}
+                        value={ghiChu}
+                        maxLength={255}
+                        disabled={dangChay}
+                        onChange={(e) => setGhiChu(e.target.value)}
+                        placeholder="Ví dụ: hàng đóng nguyên thùng, niêm phong còn nguyên khi xuất"
+                        className={O_NHAP_NHIEU_DONG}
+                    />
+                )}
+            </O>
+            <p className={GHI_CHU_HOP}>Xác nhận xong, kho nhận không thêm hay xóa ảnh biên bản được nữa.</p>
+        </HopXacNhanChungTu>
+    );
+}
+
+/**
+ * Xử lý chênh lệch (bước 5): một phương án cho cả biên bản, lý do bắt buộc, sau khi kho gửi đã xác nhận biên bản. Ai
+ * được làm theo Cấu hình › Chuyển kho (máy chủ gửi câu mô tả ở `ct.aiXuLyChenhLech`). Giao bù: Quản lý Kho tổng / quản
+ * trị viên xử lý thì phiếu giao bù đã duyệt, có lệnh điều động ngay (`quyen.giaoBuTuDuyet`); quản lý kho xuất xử lý theo
+ * Cấu hình thì phiếu giao bù chờ Quản lý Kho tổng duyệt.
  */
 export function HopXuLyChenhLech({ mo, onDong, ct, dangChay, loi, onXacNhan }) {
     const [phuongAn, setPhuongAn] = useState("");
     const [lyDo, setLyDo] = useState("");
     const [daBam, setDaBam] = useState(false);
     const bb = ct.bienBan;
-    const dongLech = (bb?.dong ?? []).filter((d) => d.thieu > 0 || d.hong > 0);
     const nLech = (bb?.tongThieu ?? 0) + (bb?.tongHong ?? 0);
     const loiPa = daBam && !phuongAn ? "Chọn phương án xử lý" : null;
     const loiLy = daBam && !lyDo.trim() ? "Nhập lý do" : null;
+    const khoXuat = ct.khoXuat?.ten ?? "kho xuất";
+    const sauGiaoBu = ct.quyen?.giaoBuTuDuyet
+        ? `phiếu đã duyệt, có lệnh điều động để ${khoXuat} nhặt hàng ngay`
+        : "phiếu chờ Quản lý Kho tổng duyệt";
     return (
         <HopXacNhanChungTu
             mo={mo}
@@ -571,43 +715,20 @@ export function HopXuLyChenhLech({ mo, onDong, ct, dangChay, loi, onXacNhan }) {
                 onXacNhan({ phuongAn, lyDo: lyDo.trim() });
             }}
         >
-            <div className="overflow-x-auto rounded-lg border border-bo-border">
-                <table className="w-full min-w-[480px] text-[13px]">
-                    <thead className="bg-bo-surface-subtle text-left text-xs text-bo-muted">
-                        <tr>
-                            <th className="px-3 py-2 font-medium">Sản phẩm</th>
-                            <th className="px-3 py-2 font-medium">Lô</th>
-                            <th className="px-3 py-2 text-right font-medium">Gửi</th>
-                            <th className="px-3 py-2 text-right font-medium">Đạt</th>
-                            <th className="px-3 py-2 text-right font-medium">Hỏng</th>
-                            <th className="px-3 py-2 text-right font-medium">Thiếu</th>
-                            <th className="px-3 py-2 font-medium">Lý do</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-bo-border tabular-nums">
-                        {dongLech.map((d) => (
-                            <tr key={d.id}>
-                                <td className="px-3 py-2">
-                                    {d.tenSanPham}
-                                    <span className="block font-mono text-xs text-bo-muted">{d.sku}</span>
-                                </td>
-                                <td className="px-3 py-2 font-mono text-xs">{d.maLo}</td>
-                                <td className="px-3 py-2 text-right">{soVN(d.gui)}</td>
-                                <td className="px-3 py-2 text-right">{soVN(d.nhan)}</td>
-                                <td className="px-3 py-2 text-right">{soVN(d.hong)}</td>
-                                <td className="px-3 py-2 text-right">{soVN(d.thieu)}</td>
-                                <td className="px-3 py-2">{d.lyDo || "—"}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+            <BangDongLech dong={dongLechCua(bb)} />
+            {bb?.ngayXacNhanGui ? (
+                <p className="m-0 text-[13px] leading-5 text-bo-foreground [overflow-wrap:anywhere]">
+                    <span className="text-bo-muted">{khoXuat} (kho gửi) đã xác nhận: </span>
+                    {bb.nguoiXacNhanGui ? <B>{bb.nguoiXacNhanGui}</B> : null}
+                    {bb.ghiChuKhoGui ? <> · Ý kiến: {bb.ghiChuKhoGui}</> : null}
+                </p>
+            ) : null}
             <ChonThe
                 nhan="Phương án xử lý"
                 luaChon={PHUONG_AN_CHENH_LECH.map((pa) => ({
                     ...pa,
                     moTa: pa.ma === "GIAO_BU_HANG"
-                        ? `Ghi giảm ${soVN(nLech)} sản phẩm lệch bằng phiếu điều chỉnh kho, đóng phiếu này với số đã nhận, rồi tự lập phiếu chuyển giao bù ${soVN(nLech)} sản phẩm từ ${ct.khoXuat?.ten} (đi lại từ bước duyệt).`
+                        ? `Ghi giảm ${soVN(nLech)} sản phẩm lệch bằng phiếu điều chỉnh kho, đóng phiếu này với số đã nhận, rồi tự lập phiếu chuyển giao bù ${soVN(nLech)} sản phẩm từ ${khoXuat} (${sauGiaoBu}).`
                         : `Lập phiếu điều chỉnh kho trừ ${soVN(nLech)} sản phẩm khỏi kho trung chuyển. Phiếu sang Hoàn tất (có chênh lệch).`,
                 }))}
                 value={phuongAn}

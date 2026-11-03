@@ -104,6 +104,21 @@ public final class PhieuChuyenKhoYeuCau {
         String lyDo;
     }
 
+    /**
+     * Kho gửi xác nhận biên bản giao nhận: ý kiến của kho gửi, không bắt buộc (tối đa 255 ký tự); {@code anhIds} = id các
+     * ảnh người xác nhận đã xem (giao diện luôn gửi, kể cả rỗng): khác bộ ảnh đang có thì 409, xem lại rồi xác nhận.
+     */
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class XacNhanBienBan {
+        String ghiChu;
+        List<Integer> anhIds;
+    }
+
     /** Duyệt xử lý chênh lệch (bước 5): GHI_GIAM_HAO_HUT | GIAO_BU_HANG cho cả biên bản, lý do bắt buộc. */
     @Getter
     @Setter

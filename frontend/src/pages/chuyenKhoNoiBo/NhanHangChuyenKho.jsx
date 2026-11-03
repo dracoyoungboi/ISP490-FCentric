@@ -21,7 +21,7 @@ import TheKetQuaQuet from "@/components/nhap-kho/TheKetQuaQuet";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { LY_DO_LOI } from "@/constants/nhapKho";
 import { TT_CHUYEN } from "@/constants/phieuChuyenKho";
-import { aiXuLyChenhLech, giaTriONgayGio, khoaLo, yeuCauNhanLech } from "@/components/chuyen-kho/hienThiChuyenKho";
+import { cauChoXuLyLech, giaTriONgayGio, khoaLo, yeuCauNhanLech } from "@/components/chuyen-kho/hienThiChuyenKho";
 import {
     GHI_CHU_TOI_DA,
     LY_DO_KHAC,
@@ -63,6 +63,9 @@ import useAnhChon from "@/components/chuyen-kho/useAnhChon";
 import useQuayLai from "@/hooks/useQuayLai";
 import { cn } from "@/lib/utils";
 import ChonAnhBienBan from "./ChonAnhBienBan";
+
+/** Phiếu như ngay sau khi lập biên bản (Chờ xử lý chênh lệch, kho gửi chưa xác nhận): để câu nói đúng bước tiếp theo. */
+const lapBienBan = (ct) => ({ ...ct, trangThai: TT_CHUYEN.CHO_XU_LY_LECH, bienBan: { phuongAn: "CHUA_XU_LY" } });
 
 const B = ({ children }) => <b className="font-semibold text-bo-foreground">{children}</b>;
 const O_SO = "h-8 w-[72px] rounded-md border border-bo-input-border bg-bo-surface px-2 text-right text-sm tabular-nums outline-none focus:border-bo-primary focus:ring-2 focus:ring-bo-primary/15";
@@ -138,7 +141,8 @@ function useKhungHep(nguong) {
  *   tay, điện thoại, iPad dọc): mỗi lô là một thẻ, ô Đạt / Hỏng to dễ bấm; không cỡ màn nào phải vuốt ngang.
  * - Thiếu = Gửi − Đạt − Hỏng. Khớp đủ → "Xác nhận nhận đủ" (phiếu nhập PN-TRF, phiếu Hoàn tất). Có lệch → "Xử lý chênh
  *   lệch": hỏng ghi theo lý do, phần thiếu (và lý do Khác) phải ghi chú; lập biên bản giao nhận, nhập ngay phần đạt, phần
- *   lệch giữ ở kho trung chuyển chờ người được xử lý chênh lệch (Quản lý Kho tổng theo mặc định, đổi ở Cấu hình › Chuyển kho).
+ *   lệch giữ ở kho trung chuyển chờ kho gửi xác nhận biên bản rồi người được xử lý chênh lệch (Quản lý Kho tổng theo mặc
+ *   định, đổi ở Cấu hình › Chuyển kho) xử lý.
  * - Số đếm và lượt quét giữ trong thẻ trình duyệt (tải lại trang không mất), rời trang khi chưa nhận thì trình duyệt hỏi lại.
  */
 export default function NhanHangChuyenKho() {
@@ -695,7 +699,7 @@ function ManNhanHang({ id }) {
     ) : (
         <DongThongBao tone="warn">
             Có <B>{kq.soDongLech} dòng</B> không khớp số gửi ({cauLech(kq.tong)}). Bấm <B>Xử lý chênh lệch</B> để nhập ngay phần đạt
-            và lập <B>biên bản giao nhận</B> cho ba bên ký. Phần thiếu và hỏng chưa vào kho, chờ {aiXuLyChenhLech(ct)} xử lý.
+            và lập <B>biên bản giao nhận</B> để kho nhận và người vận chuyển ký. Phần thiếu và hỏng chưa vào kho, chờ {cauChoXuLyLech(lapBienBan(ct))}.
         </DongThongBao>
     );
 
@@ -971,7 +975,7 @@ function ManNhanHang({ id }) {
                     }}
                     onXacNhan={(thongTin) => chay(
                         () => phieuChuyenKhoService.nhanLech(id, yeuCauNhanLech(kq, thongTin)),
-                        (res) => `Đã nhận phần đạt và lập biên bản ${res?.soBienBan ?? ""}. Phần lệch chờ ${aiXuLyChenhLech(ct)} xử lý.`,
+                        (res) => `Đã nhận phần đạt và lập biên bản ${res?.soBienBan ?? ""}. Phần lệch chờ ${cauChoXuLyLech(lapBienBan(ct))}.`,
                         taiAnhBienBan,
                     )}
                 />
@@ -1294,7 +1298,8 @@ function OHong({ d, conHong, onDoiHong, lon }) {
 function HopBienBan({ ct, khoNhap, kq, anhChon, tienDoAnh, dangChay, loi, onDong, onXacNhan, onBoQuaAnh, traTieuDiemVe }) {
     const [nguoi, setNguoi] = useState(ct.nguoiVanChuyen ?? "");
     const [thoiDiem, setThoiDiem] = useState(() => giaTriONgayGio(new Date()));
-    const [ketLuan, setKetLuan] = useState(`Hai bên xác nhận ${cauLech(kq.tong)} như bảng trên. Phần lệch chờ ${aiXuLyChenhLech(ct)} xử lý.`);
+    // Kết luận in lên giấy mãi: chỉ ghi số lệch, việc tiếp theo trên F Centric nằm ở chân giấy (đổi theo bước)
+    const [ketLuan, setKetLuan] = useState(`Hai bên xác nhận ${cauLech(kq.tong)} như bảng trên.`);
     const [daBam, setDaBam] = useState(false);
     // Thời điểm sau hiện tại: máy chủ từ chối (nhanLech cho lệch tối đa 5 phút), báo ngay ở ô
     const [tuongLai, setTuongLai] = useState(false);
@@ -1399,7 +1404,7 @@ function HopBienBan({ ct, khoNhap, kq, anhChon, tienDoAnh, dangChay, loi, onDong
                     </button>
                 ) : null}
             </div>
-            <p className={GHI_CHU_HOP}>In biên bản để 3 bên ký xác nhận tại chỗ: <B>Kho nhận – Người vận chuyển – Kho gửi</B>.</p>
+            <p className={GHI_CHU_HOP}>In biên bản để <B>kho nhận và người vận chuyển</B> ký tại chỗ; <B>{ct.khoXuat?.ten ?? "kho gửi"}</B> xác nhận biên bản trên F Centric.</p>
         </HopXacNhanChungTu>
     );
 }

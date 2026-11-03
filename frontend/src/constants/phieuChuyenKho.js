@@ -57,6 +57,13 @@ export const LY_DO_DIEU_DONG = [
     { ma: "KHAC", nhan: "Khác" },
 ];
 
+/**
+ * Lý do của lệnh điều động máy chủ tự lập cho phiếu giao bù (BA 03/11); ghi chú lệnh là câu đầy đủ "Giao bù hàng cho
+ * phiếu … theo biên bản …". Không có trong hộp duyệt (người duyệt không chọn được), chỉ để hiện tên.
+ */
+export const LY_DO_GIAO_BU = { ma: "GIAO_BU", nhan: "Giao bù hàng" };
+export const LY_DO_DIEU_DONG_HIEN_THI = [...LY_DO_DIEU_DONG, LY_DO_GIAO_BU];
+
 /** Hình thức vận chuyển (B.3). */
 export const HINH_THUC_VAN_CHUYEN = [
     { ma: "XE_CONG_TY", nhan: "Xe của công ty" },
@@ -67,7 +74,7 @@ export const HINH_THUC_VAN_CHUYEN = [
 /** Phương án xử lý chênh lệch (bước 5). */
 export const PHUONG_AN_CHENH_LECH = [
     { ma: "GHI_GIAM_HAO_HUT", nhan: "Ghi giảm hao hụt", moTa: "Lập phiếu điều chỉnh kho trừ phần thiếu, hỏng khỏi kho trung chuyển. Phiếu đóng với số đã nhận." },
-    { ma: "GIAO_BU_HANG", nhan: "Giao bù hàng", moTa: "Ghi giảm phần thiếu, hỏng như trên rồi lập phiếu chuyển mới cho đúng phần đó (Chờ duyệt)." },
+    { ma: "GIAO_BU_HANG", nhan: "Giao bù hàng", moTa: "Ghi giảm phần thiếu, hỏng như trên rồi lập phiếu chuyển giao bù đúng phần đó, đã duyệt và có lệnh điều động." },
 ];
 
 /** Chế độ khi xác nhận xuất mà chưa có số phiếu XKNB (Cấu hình > Chứng từ). */

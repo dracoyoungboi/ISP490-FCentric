@@ -42,9 +42,14 @@ import java.util.*;
  *   Từ chối                          người tạo phiếu + quản lý kho nhận + quản lý kho xuất
  *   Hủy                              người tạo phiếu + quản lý kho nhận (+ quản lý kho xuất nếu đã duyệt / đang vận chuyển)
  *   Xác nhận xuất                    quản lý kho nhận (kèm giờ dự kiến đến)
- *   Nhận lệch (chờ xử lý)            người xử lý chênh lệch theo Cấu hình › Chuyển kho (CHUYEN_KHO_QUYEN_XU_LY_LECH);
+ *   Nhận lệch (lập biên bản)         quản lý kho gửi (kho xuất) để xác nhận biên bản; không có ai thì quản trị viên
+ *   Kho gửi xác nhận biên bản        người xử lý chênh lệch theo Cấu hình › Chuyển kho (CHUYEN_KHO_QUYEN_XU_LY_LECH);
  *                                    không có ai thì quản trị viên
+ *   Xử lý chênh lệch giao bù         như Duyệt cho phiếu giao bù (Quản lý Kho tổng xử lý); như Tạo phiếu nếu phiếu giao bù
+ *                                    còn chờ duyệt
  * </pre>
+ * Kho gửi xác nhận xong thì thông báo "chờ kho gửi xác nhận" của mọi người đánh dấu đã đọc; xử lý chênh lệch xong thì
+ * thông báo "chờ xử lý chênh lệch" cũng vậy (việc đã có người làm).
  */
 @Slf4j
 @Service
@@ -158,31 +163,65 @@ public class ThongBaoChuyenKhoService {
     }
 
     /**
-     * Nhận lệch (Chờ xử lý chênh lệch) → người được xử lý theo Cấu hình › Chuyển kho: QL_KHO_TONG → Quản lý Kho tổng;
-     * QL_KHO_TONG_VA_KHO_XUAT → thêm quản lý kho xuất; CHI_QUAN_TRI → mọi quản trị viên đang hoạt động (chỉ họ xử lý được).
+     * Nhận lệch (kho nhận lập biên bản giao nhận) → quản lý kho gửi (kho xuất) vào phiếu xác nhận biên bản (BA 03/11).
+     * Người lập biên bản không tự xác nhận được: bỏ họ ra trước khi chọn; không còn ai (kho xuất chưa phân công quản lý,
+     * hoặc quản lý duy nhất chính là người lập) thì quản trị viên (xác nhận thay được).
      */
     public void nhanLech(PhieuChuyenKho p, BienBanGiaoNhan bb, NguoiDung nguoi) {
-        String soBienBan = bb == null ? null : bb.getSoBienBan();
-        Integer thieu = bb == null ? null : bb.getTongSoLuongThieu();
-        Integer hong = bb == null ? null : bb.getTongSoLuongHong();
+        String cauBienBan = cauBienBan(bb);
         dangKy("nhận lệch", p, nguoi, (ph, ng) -> {
-            String cheDo = cheDoXuLyLech();
-            List<Integer> nhan = new ArrayList<>();
-            if (IChuyenKho.XU_LY_LECH_CHI_QUAN_TRI.equals(cheDo)) {
-                nhan.addAll(nguoiDungRepository.idDangHoatDongTheoVaiTro(IRoleType.quan_tri_vien));
-            } else {
-                List<Integer> xuLy = new ArrayList<>(quanLyKhoTong());
-                if (IChuyenKho.XU_LY_LECH_QL_KHO_TONG_VA_KHO_XUAT.equals(cheDo)) xuLy.addAll(quanLyKho(ph.khoXuatId()));
-                nhan.addAll(hoacQuanTri(xuLy, ph, "nhận lệch"));
-            }
-            List<String> lech = new ArrayList<>();
-            if (thieu != null && thieu > 0) lech.add("thiếu " + thieu);
-            if (hong != null && hong > 0) lech.add("hỏng " + hong);
-            String moTa = (soBienBan != null ? "Biên bản " + soBienBan + (lech.isEmpty() ? "" : ": " + String.join(", ", lech)) + ". " : "")
-                    + "Chọn ghi giảm hao hụt hoặc giao bù.";
-            return List.of(new GuiDi(nhan, ng.id(), noiDung(ph, "NHAN_LECH", ThongBaoService.TONE_WARNING,
-                    "Phiếu chuyển " + ph.so() + " nhận lệch, chờ xử lý", moTa, ph.khoNhapId())));
+            Map<Integer, String> ten = tenKho(ph);
+            String moTa = ten(ten, ph.khoNhapId()) + " lập " + cauBienBan
+                    + ". Xem biên bản, ảnh rồi bấm Xác nhận biên bản thay chữ ký của kho gửi.";
+            List<Integer> khoGui = quanLyKho(ph.khoXuatId()).stream().filter(id -> id != null && !id.equals(ng.id())).toList();
+            return List.of(new GuiDi(hoacQuanTri(khoGui, ph, "nhận lệch"), ng.id(),
+                    noiDung(ph, "NHAN_LECH", ThongBaoService.TONE_WARNING,
+                            "Phiếu chuyển " + ph.so() + " nhận lệch, chờ kho gửi xác nhận", moTa, ph.khoXuatId())));
         });
+    }
+
+    /**
+     * Kho gửi xác nhận biên bản → người được xử lý theo Cấu hình › Chuyển kho: QL_KHO_TONG → Quản lý Kho tổng;
+     * QL_KHO_TONG_VA_KHO_XUAT → thêm quản lý kho xuất; CHI_QUAN_TRI → mọi quản trị viên đang hoạt động (chỉ họ xử lý được).
+     * Thông báo "chờ kho gửi xác nhận" của phiếu đánh dấu đã đọc.
+     */
+    public void daXacNhanBienBan(PhieuChuyenKho p, BienBanGiaoNhan bb, NguoiDung nguoi) {
+        String cauBienBan = cauBienBan(bb);
+        String yKien = bb == null || bb.getGhiChuKhoGui() == null ? "" : bb.getGhiChuKhoGui().trim().replaceAll("[.\\s]+$", "");
+        if (p != null && p.getId() != null) thongBaoService.daXuLySauCommit("PCK:" + p.getId() + ":NHAN_LECH");
+        dangKy("kho gửi xác nhận biên bản", p, nguoi, (ph, ng) -> {
+            Map<Integer, String> ten = tenKho(ph);
+            String moTa = ten(ten, ph.khoXuatId()) + " đã xác nhận " + cauBienBan + "."
+                    + (yKien.isEmpty() ? "" : " Ý kiến kho gửi: " + yKien + ".")
+                    + " Chọn ghi giảm hao hụt hoặc giao bù.";
+            return List.of(new GuiDi(nguoiXuLyLech(ph), ng.id(), noiDung(ph, "XAC_NHAN_BB", ThongBaoService.TONE_WARNING,
+                    "Phiếu chuyển " + ph.so() + " chờ xử lý chênh lệch", moTa, ph.khoNhapId())));
+        });
+    }
+
+    /** Xử lý chênh lệch xong (ghi giảm / giao bù): thông báo "chờ xử lý chênh lệch" của phiếu đánh dấu đã đọc. */
+    public void daXuLyChenhLech(PhieuChuyenKho p) {
+        if (p != null && p.getId() != null) thongBaoService.daXuLySauCommit("PCK:" + p.getId() + ":XAC_NHAN_BB");
+    }
+
+    /** "biên bản BBGN-…: thiếu 0, hỏng 2" — chụp ngay lúc gọi (không đọc CSDL sau commit). */
+    private static String cauBienBan(BienBanGiaoNhan bb) {
+        if (bb == null || bb.getSoBienBan() == null) return "biên bản giao nhận";
+        List<String> lech = new ArrayList<>();
+        if (bb.getTongSoLuongThieu() != null && bb.getTongSoLuongThieu() > 0) lech.add("thiếu " + bb.getTongSoLuongThieu());
+        if (bb.getTongSoLuongHong() != null && bb.getTongSoLuongHong() > 0) lech.add("hỏng " + bb.getTongSoLuongHong());
+        return "biên bản " + bb.getSoBienBan() + (lech.isEmpty() ? "" : ": " + String.join(", ", lech));
+    }
+
+    /** Người được xử lý chênh lệch theo Cấu hình › Chuyển kho (cùng luật PhieuChuyenKhoService.duocXuLyChenhLech). */
+    private List<Integer> nguoiXuLyLech(Phieu ph) {
+        String cheDo = cheDoXuLyLech();
+        if (IChuyenKho.XU_LY_LECH_CHI_QUAN_TRI.equals(cheDo)) {
+            return nguoiDungRepository.idDangHoatDongTheoVaiTro(IRoleType.quan_tri_vien);
+        }
+        List<Integer> xuLy = new ArrayList<>(quanLyKhoTong());
+        if (IChuyenKho.XU_LY_LECH_QL_KHO_TONG_VA_KHO_XUAT.equals(cheDo)) xuLy.addAll(quanLyKho(ph.khoXuatId()));
+        return hoacQuanTri(xuLy, ph, "kho gửi xác nhận biên bản");
     }
 
     // ─────────────────────────────────────────────────────────────

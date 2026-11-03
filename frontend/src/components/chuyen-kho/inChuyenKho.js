@@ -86,19 +86,56 @@ export function ngayChu(v) {
     : "Ngày …… tháng …… năm ……";
 }
 
-/** Tên lý do điều động; "Khác" thì lý do là ghi chú của lệnh (máy chủ bắt buộc ghi chú khi chọn Khác). */
+/**
+ * Lý do điều động có câu đầy đủ trong ghi chú lệnh: "Khác" (người duyệt ghi, máy chủ bắt buộc) và "Giao bù hàng" (máy
+ * chủ ghi "Giao bù hàng cho phiếu … theo biên bản …" khi tự lập lệnh cho phiếu giao bù).
+ */
+const LY_DO_THEO_GHI_CHU = new Set(["KHAC", "GIAO_BU"]);
+
+/** Tên lý do điều động; "Khác" / "Giao bù hàng" thì lý do là ghi chú của lệnh (thiếu ghi chú thì tên lý do). */
 export function tenLyDoDieuDong(ma, ghiChuLenh, danhSach = []) {
   if (!ma) return "";
-  if (ma === "KHAC") return String(ghiChuLenh ?? "").trim() || "Khác";
-  return danhSach.find((x) => x.ma === ma)?.nhan ?? ma;
+  const ten = danhSach.find((x) => x.ma === ma)?.nhan ?? (ma === "KHAC" ? "Khác" : ma);
+  if (LY_DO_THEO_GHI_CHU.has(ma)) return String(ghiChuLenh ?? "").trim() || ten;
+  return ten;
 }
 
-/** "Về việc: …" của lệnh điều động: lý do viết thường, kèm ghi chú lệnh (trừ khi ghi chú chính là lý do "Khác"). */
-export function veViec(ct, danhSach = []) {
+/**
+ * Lý do đứng giữa câu ("… về việc <lý do>"): "Khác" giữ nguyên chữ người duyệt gõ; "Giao bù hàng" chỉ viết thường chữ
+ * đầu (giữ số phiếu PX-TRF, BBGN viết hoa); lý do có sẵn viết thường cả cụm.
+ */
+export function lyDoTrongCau(ct, danhSach = []) {
   const lyDo = tenLyDoDieuDong(ct?.lyDoDieuDong, ct?.ghiChuLenh, danhSach);
-  const chu = ct?.lyDoDieuDong === "KHAC" ? lyDo : lyDo.toLowerCase();
-  const ghiChu = ct?.lyDoDieuDong !== "KHAC" ? String(ct?.ghiChuLenh ?? "").trim() : "";
+  if (ct?.lyDoDieuDong === "KHAC") return lyDo;
+  if (ct?.lyDoDieuDong === "GIAO_BU") return lyDo.charAt(0).toLowerCase() + lyDo.slice(1);
+  return lyDo.toLowerCase();
+}
+
+/** "Về việc: …" của lệnh điều động: lý do trong câu, kèm ghi chú lệnh (trừ khi ghi chú chính là lý do). */
+export function veViec(ct, danhSach = []) {
+  const chu = lyDoTrongCau(ct, danhSach);
+  const ghiChu = !LY_DO_THEO_GHI_CHU.has(ct?.lyDoDieuDong) ? String(ct?.ghiChuLenh ?? "").trim() : "";
   return ghiChu ? `${chu}. ${ghiChu}` : chu;
+}
+
+/**
+ * Biên bản đã xử lý chênh lệch từ trước khi có bước kho gửi xác nhận (BA 03/11): giấy giữ mẫu cũ — ba bên ký tay, lập
+ * 03 bản — vì đó là chứng từ đã lập theo mẫu đó.
+ */
+export const bienBanMauCu = (bb) => Boolean(bb?.phuongAn && bb.phuongAn !== "CHUA_XU_LY" && !bb.ngayXacNhanGui);
+
+/**
+ * Ô "Đại diện kho gửi" của biên bản giao nhận (BA 03/11): kho gửi không ký tay mà xác nhận trên F Centric. Đã xác nhận
+ * → tên + "lúc 10:20 ngày 03/11/2026"; chưa xác nhận → "Chưa xác nhận"; biên bản mẫu cũ ({@link bienBanMauCu}) → ô ký
+ * tay để trống như trước.
+ */
+export function kyKhoGui(bb) {
+  if (bienBanMauCu(bb)) return { ten: "", luc: "", nhac: "(Ký, ghi rõ họ tên)" };
+  const nhac = "(Xác nhận trên hệ thống)";
+  if (bb?.ngayXacNhanGui) {
+    return { ten: bb.nguoiXacNhanGui || "", luc: `lúc ${gioPhut(bb.ngayXacNhanGui)} ngày ${ngayDu(bb.ngayXacNhanGui)}`, nhac };
+  }
+  return { ten: "Chưa xác nhận", luc: "", nhac };
 }
 
 /** Phương án xử lý chênh lệch như trên giấy và màn phiếu điều chỉnh (đúng chữ bản demo đã duyệt). */

@@ -33,6 +33,8 @@ public final class PhieuChuyenKhoDto {
         String trangThai;
         /** Hoàn tất bằng ghi giảm chênh lệch (nhãn "Hoàn tất (có chênh lệch)"). */
         boolean coChenhLech;
+        /** Chờ xử lý chênh lệch mà kho gửi chưa xác nhận biên bản giao nhận. */
+        boolean choKhoGuiXacNhan;
         String soLenhDieuDong;
         String kyHieuXknb;
         String soPhieuXknb;
@@ -182,6 +184,11 @@ public final class PhieuChuyenKhoDto {
         Integer tongThieu;
         Integer tongHong;
         String ketLuan;
+        /** Đại diện kho gửi đã xác nhận biên bản trên F Centric (null = chưa xác nhận). */
+        String nguoiXacNhanGui;
+        Instant ngayXacNhanGui;
+        /** Ý kiến của kho gửi khi xác nhận (không bắt buộc). */
+        String ghiChuKhoGui;
         String phuongAn;
         String nguoiDuyet;
         Instant ngayDuyet;
@@ -224,7 +231,15 @@ public final class PhieuChuyenKhoDto {
         boolean xuat;
         boolean ghiSoXknb;
         boolean nhan;
+        /** Đại diện kho gửi xác nhận biên bản giao nhận (quản lý kho xuất, quản trị viên; không phải người lập biên bản). */
+        boolean xacNhanBienBan;
+        /** Xử lý chênh lệch: chỉ khi kho gửi đã xác nhận biên bản. */
         boolean xuLyChenhLech;
+        /**
+         * Chọn Giao bù thì phiếu giao bù được duyệt và có lệnh điều động ngay (người xử lý là Quản lý Kho tổng / quản trị
+         * viên, BR-TRF-01); quản lý kho xuất xử lý theo Cấu hình thì phiếu giao bù chờ Quản lý Kho tổng duyệt.
+         */
+        boolean giaoBuTuDuyet;
         boolean nhapHoanTra;
         /** Thêm ảnh vào biên bản giao nhận: người thuộc kho nhận, biên bản còn chờ xử lý (chưa tính số ảnh đã có). */
         boolean themAnhBienBan;

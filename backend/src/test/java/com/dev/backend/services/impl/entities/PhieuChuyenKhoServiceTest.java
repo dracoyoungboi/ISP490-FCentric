@@ -1115,12 +1115,17 @@ class PhieuChuyenKhoServiceTest {
 
     // ══════════════════════════ Xử lý chênh lệch (ghi giảm / giao bù) ══════════════════════════
 
-    /** Phiếu đã nhận lệch: gửi 10, đạt 7 (PN-TRF hoàn tất), thiếu 2, hỏng 1; trung chuyển còn 3 của lô 5. */
+    /**
+     * Phiếu đã nhận lệch: gửi 10, đạt 7 (PN-TRF hoàn tất), thiếu 2, hỏng 1; trung chuyển còn 3 của lô 5. Biên bản do người
+     * 21 (kho nhận) lập, kho gửi (người 31) đã xác nhận — điều kiện để xử lý chênh lệch.
+     */
     private BienBanGiaoNhan daNhanLech(PhieuChuyenKho p, String daNhan) {
         daXuat10(p);
         phieuNhapHoanTat(cuaHang, daNhan);
         BienBanGiaoNhan bb = BienBanGiaoNhan.builder().id(80).soBienBan("BBGN-" + HOM_NAY + "-001").phieuChuyenKho(p)
+                .nguoiLap(NguoiDung.builder().id(21).hoTen("Thủ kho nhận").build())
                 .tongSoLuongGui(10).tongSoLuongNhan(7).tongSoLuongThieu(2).tongSoLuongHong(1)
+                .nguoiXacNhanGui(NguoiDung.builder().id(31).hoTen("QL kho gửi").build()).ngayXacNhanGui(Instant.now())
                 .phuongAnXuLy(IChuyenKho.CHUA_XU_LY).build();
         when(bbRepo.findFirstByPhieuChuyenKho_IdOrderByIdDesc(PCK)).thenReturn(Optional.of(bb));
         when(ctBbRepo.findByBienBan_IdOrderByIdAsc(80)).thenReturn(List.of(ChiTietBienBanGiaoNhan.builder().id(81)
@@ -1175,7 +1180,7 @@ class PhieuChuyenKhoServiceTest {
     }
 
     @Test
-    @DisplayName("Giao bù: vẫn lập phiếu điều chỉnh giảm phần lệch, và sinh phiếu chuyển mới Chờ duyệt nối phiếu gốc, đúng số lệch")
+    @DisplayName("Giao bù: vẫn lập phiếu điều chỉnh giảm phần lệch, và sinh phiếu chuyển mới Đã duyệt nối phiếu gốc, đúng số lệch, có lệnh điều động Giao bù hàng, PX-CK và phiếu nhặt")
     void xuLy_giaoBu_ghiGiamVaTaoPhieuMoi() {
         quanLyKhoTong();
         PhieuChuyenKho p = phieu(IChuyenKho.CHO_XU_LY_LECH);
@@ -1194,7 +1199,13 @@ class PhieuChuyenKhoServiceTest {
         verify(pckRepo, atLeastOnce()).save(luu.capture());
         PhieuChuyenKho bu = luu.getAllValues().stream().filter(x -> x.getPhieuGoc() != null).findFirst().orElseThrow();
         assertSame(p, bu.getPhieuGoc());
-        assertEquals(IChuyenKho.CHO_DUYET, bu.getTrangThai());
+        assertEquals(IChuyenKho.DA_DUYET, bu.getTrangThai());
+        assertEquals("LDD-" + HOM_NAY + "-001", bu.getSoLenhDieuDong());
+        assertEquals(IChuyenKho.LY_DO_GIAO_BU, bu.getLyDoDieuDong());
+        assertEquals("Giao bù hàng cho phiếu " + p.getSoPhieuChuyen() + " theo biên bản BBGN-" + HOM_NAY + "-001", bu.getGhiChuLenh());
+        assertEquals(NGUOI, bu.getNguoiRaLenh().getId());
+        verify(pxRepo).save(argThat((PhieuXuatKho x) -> x.getPhieuChuyenKho() == bu && "chuyen_kho".equals(x.getLoaiXuat())));
+        verify(nhatHang).taoPhieuNhatChuyenKho(same(bu), any(PhieuXuatKho.class), argThat(d -> d.size() == 1 && d.get(0).getSoLuongChuyen() == 3));
         assertEquals(KHO_TONG, bu.getKhoXuat().getId());
         assertEquals(CUA_HANG, bu.getKhoNhap().getId());
         assertNotEquals(p.getSoPhieuChuyen(), bu.getSoPhieuChuyen());
@@ -1261,11 +1272,17 @@ class PhieuChuyenKhoServiceTest {
                 .thenReturn(cheDo);
     }
 
-    /** Phiếu Cửa hàng 2 → Cửa hàng 1 chờ xử lý lệch: quản lý kho xuất (Cửa hàng 2) không phải Quản lý Kho tổng. */
+    /**
+     * Phiếu Cửa hàng 2 → Cửa hàng 1 chờ xử lý lệch, kho gửi đã xác nhận biên bản: quản lý kho xuất (Cửa hàng 2) không
+     * phải Quản lý Kho tổng.
+     */
     private PhieuChuyenKho phieuLechGiuaHaiCuaHang() {
         PhieuChuyenKho p = phieu(IChuyenKho.CHO_XU_LY_LECH);
         p.setKhoXuat(khoKhac);
         p.setKhoNhap(cuaHang);
+        when(bbRepo.findFirstByPhieuChuyenKho_IdOrderByIdDesc(PCK)).thenReturn(Optional.of(BienBanGiaoNhan.builder().id(80)
+                .soBienBan("BBGN-" + HOM_NAY + "-001").phieuChuyenKho(p).phuongAnXuLy(IChuyenKho.CHUA_XU_LY)
+                .ngayXacNhanGui(Instant.now()).build()));
         return p;
     }
 
@@ -1537,6 +1554,7 @@ class PhieuChuyenKhoServiceTest {
         dangNhap(IRoleType.nhan_vien_kho, cuaHang, cuaHang);
         PhieuChuyenKho p = phieu(IChuyenKho.CHO_XU_LY_LECH);
         BienBanGiaoNhan bb = daNhanLech(p, "7");
+        bb.setNgayXacNhanGui(null); // kho gửi chưa xác nhận: kho nhận còn thêm ảnh được
         // Dịch vụ ảnh thật; kho ảnh ném lỗi SQL như khi chưa có bảng bien_ban_giao_nhan_anh
         BienBanGiaoNhanAnhRepository anhRepo = mock(BienBanGiaoNhanAnhRepository.class);
         when(anhRepo.danhSachTheoBienBan(bb.getId())).thenThrow(new InvalidDataAccessResourceUsageException(
@@ -1636,8 +1654,8 @@ class PhieuChuyenKhoServiceTest {
     }
 
     @Test
-    @DisplayName("Thông báo: xử lý chênh lệch giao bù → choDuyet(phiếu giao bù); ghi giảm không tạo phiếu nên không thông báo")
-    void thongBao_giaoBu_choDuyet() {
+    @DisplayName("Thông báo: xử lý chênh lệch giao bù → daDuyet(phiếu giao bù, đã có lệnh); ghi giảm không tạo phiếu; cả hai đánh dấu việc chờ xử lý đã xong")
+    void thongBao_giaoBu_daDuyet() {
         quanLyKhoTong();
         PhieuChuyenKho p = phieu(IChuyenKho.CHO_XU_LY_LECH);
         daNhanLech(p, "7");
@@ -1648,15 +1666,17 @@ class PhieuChuyenKhoServiceTest {
         service.xuLyChenhLech(PCK, xuLy(IChuyenKho.GIAO_BU_HANG));
 
         ArgumentCaptor<PhieuChuyenKho> bu = ArgumentCaptor.forClass(PhieuChuyenKho.class);
-        verify(thongBao).choDuyet(bu.capture(), argThat(n -> n.getId() == NGUOI));
+        verify(thongBao).daDuyet(bu.capture(), argThat(n -> n.getId() == NGUOI));
         assertSame(p, bu.getValue().getPhieuGoc());
-        assertEquals(IChuyenKho.CHO_DUYET, bu.getValue().getTrangThai());
+        assertEquals(IChuyenKho.DA_DUYET, bu.getValue().getTrangThai());
+        verify(thongBao).daXuLyChenhLech(same(p));
         verifyNoMoreInteractions(thongBao);
 
         PhieuChuyenKho p2 = phieu(IChuyenKho.CHO_XU_LY_LECH);
         daNhanLech(p2, "7");
         ton(transit, lo, "3");
         service.xuLyChenhLech(PCK, xuLy(IChuyenKho.GHI_GIAM_HAO_HUT));
+        verify(thongBao).daXuLyChenhLech(same(p2));
         verifyNoMoreInteractions(thongBao);
     }
 

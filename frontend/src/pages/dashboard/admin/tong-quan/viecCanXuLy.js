@@ -51,7 +51,7 @@ export function danhSachViec(v, khoId) {
     { loai: "phieuXuatChoXuatKho", ten: "Phiếu xuất chưa xuất kho", phu: "Đơn bán chờ đóng gói hoặc chờ xuất", so: v.phieuXuatChoXuatKho, muc: "warn", to: "/goods-issues" },
     { loai: "phieuChuyenChoDuyet", ten: "Phiếu chuyển kho chờ duyệt", phu: "Quản lý Kho tổng duyệt, lập lệnh điều động", so: v.phieuChuyenChoDuyet, muc: "warn", to: "/transfer-tickets?trangThai=cho-duyet" },
     // Quản trị viên luôn xử lý được chênh lệch và xem phiếu chuyển của mọi kho: không tách theo kho. Máy chủ cũ chưa trả thì không hiện
-    { loai: "phieuChuyenChoXuLyLech", ten: "Phiếu chuyển chờ xử lý chênh lệch", phu: "Nhận lệch, chọn ghi giảm hoặc giao bù", so: v.phieuChuyenChoXuLyLech, muc: "warn", to: "/transfer-tickets?trangThai=cho-xu-ly-chenh-lech" },
+    { loai: "phieuChuyenChoXuLyLech", ten: "Phiếu chuyển chờ xử lý chênh lệch", phu: "Nhận lệch: kho gửi xác nhận biên bản, rồi chọn ghi giảm hoặc giao bù", so: v.phieuChuyenChoXuLyLech, muc: "warn", to: "/transfer-tickets?trangThai=cho-xu-ly-chenh-lech" },
     { loai: "phieuNhatChuaPhanCong", ten: "Phiếu nhặt chưa phân công", phu: "Chưa giao người nhặt", so: v.phieuNhatChuaPhanCong, muc: "warn", to: "/goods-issues/pick-lists" },
     // Mở đúng tab Chờ duyệt (và đúng kho đang xem) để số trên dòng bằng số dòng trên trang
     { loai: "yeuCauNhapChoDuyet", ten: "Yêu cầu nhập hàng chờ duyệt", phu: "Mua hàng", so: v.yeuCauNhapChoDuyet, muc: "warn", to: `/purchase-requests?trangThai=cho-duyet${tatCaKho ? "" : `&kho=${khoId}`}` },

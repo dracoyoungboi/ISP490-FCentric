@@ -316,8 +316,10 @@ export function oNghiepVu(nv, kho, cauHinh) {
 const VIEC_QLK = {
   duyet_yeu_cau_nhap: { ten: "Duyệt yêu cầu nhập hàng", phu: "Yêu cầu nhập về kho này", icon: "duyet", tuoi: "Chờ từ" },
   duyet_phieu_chuyen: { ten: "Duyệt phiếu chuyển kho", phu: "Phiếu chuyển chờ Kho tổng duyệt", icon: "chuyen", tuoi: "Chờ từ" },
-  // Máy chủ chỉ trả cho người được xử lý chênh lệch theo Cấu hình › Chuyển kho; cũ nhất theo lúc nhận lệch
-  xu_ly_chenh_lech_chuyen: { ten: "Xử lý chênh lệch chuyển kho", phu: "Phiếu chuyển nhận lệch, chờ xử lý", icon: "chuyen", tuoi: "Chờ từ" },
+  // Kho gửi (kho xuất của phiếu) xác nhận biên bản giao nhận kho nhận lập; cũ nhất theo lúc nhận lệch
+  xac_nhan_bien_ban_chuyen: { ten: "Xác nhận biên bản giao nhận", phu: "Kho nhận báo thiếu, hỏng hàng kho bạn gửi", icon: "chuyen", tuoi: "Chờ từ" },
+  // Máy chủ chỉ trả cho người được xử lý chênh lệch theo Cấu hình › Chuyển kho, sau khi kho gửi đã xác nhận biên bản
+  xu_ly_chenh_lech_chuyen: { ten: "Xử lý chênh lệch chuyển kho", phu: "Kho gửi đã xác nhận biên bản, chờ xử lý", icon: "chuyen", tuoi: "Chờ từ" },
   gom_phieu_nhat: { ten: "Tạo phiếu nhặt cho đơn chờ xuất", phu: "Đơn chưa có phiếu nhặt", icon: "nhat", tuoi: "Cũ nhất" },
   phan_cong_nhat: { ten: "Phân công phiếu nhặt", phu: "Phiếu nhặt chưa giao người nhặt", icon: "nhat", tuoi: "Cũ nhất" },
   hoan_tat_kiem_ke: { ten: "Hoàn tất đợt kiểm kê", phu: "Đợt kiểm kê đang mở", icon: "kiemKe", tuoi: "Mở từ" },
@@ -348,6 +350,7 @@ function duongDanViecQuanLyKho(loai, kho) {
       return `/purchase-requests?trangThai=cho-duyet&kho=${kho.id}`;
     case "duyet_phieu_chuyen":
       return "/transfer-tickets?trangThai=cho-duyet";
+    case "xac_nhan_bien_ban_chuyen":
     case "xu_ly_chenh_lech_chuyen":
       return "/transfer-tickets?trangThai=cho-xu-ly-chenh-lech";
     case "gom_phieu_nhat":

@@ -36,7 +36,8 @@ import java.util.UUID;
  *   <li>Xem: ai xem được chi tiết phiếu.</li>
  *   <li>Thêm: người thuộc kho nhận (quản trị viên luôn được), đang chọn đúng kho nhận như khi nhận hàng.</li>
  *   <li>Xóa: người tải ảnh lên, quản lý kho nhận hoặc quản trị viên.</li>
- *   <li>Thêm / xóa chỉ khi biên bản còn chờ xử lý chênh lệch; xử lý xong thì ảnh chỉ xem (409).</li>
+ *   <li>Thêm / xóa chỉ khi biên bản còn chờ xử lý chênh lệch và kho gửi chưa xác nhận (kho gửi xác nhận đúng bộ ảnh đang
+ *   có, BA 03/11); sau đó ảnh chỉ xem (409).</li>
  *   <li>Thêm / xóa kiểm người dùng thuộc kho nhận TRƯỚC khi tìm biên bản / ảnh và trước khi khóa dòng: người kho khác
  *   không khóa được dòng, câu 403 không nêu tên kho hay số biên bản.</li>
  * </ul>
@@ -122,7 +123,7 @@ public class AnhBienBanGiaoNhanService {
         Integer bienBanId = giaoDichChiDoc.execute(s -> {
             kiemTraDuocThem(user, phieuCuaId(phieuId));
             BienBanGiaoNhan bb = bienBanCuaPhieu(phieuId);
-            kiemTraChuaXuLy(bb, bb.getPhuongAnXuLy());
+            kiemTraConSuaAnh(bb, bb.getPhuongAnXuLy(), bb.getNgayXacNhanGui());
             kiemTraConCho(bb);
             return bb.getId();
         });
@@ -154,9 +155,10 @@ public class AnhBienBanGiaoNhanService {
         kiemTraDuocThem(user, phieu);
         BienBanGiaoNhan bb = bienBanGiaoNhanRepository.khoaTheoId(bienBanId)
                 .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy biên bản giao nhận id: " + bienBanId));
-        // Đã giữ khóa dòng biên bản: đọc lại phương án và đếm ảnh theo dữ liệu mới nhất
+        // Đã giữ khóa dòng biên bản: đọc lại phương án, lần xác nhận của kho gửi và đếm ảnh theo dữ liệu mới nhất
         String phuongAn = bienBanGiaoNhanRepository.docPhuongAnXuLy(bienBanId);
-        kiemTraChuaXuLy(bb, phuongAn);
+        Instant daXacNhan = bienBanGiaoNhanRepository.docNgayXacNhanGui(bienBanId);
+        kiemTraConSuaAnh(bb, phuongAn, daXacNhan);
         kiemTraConCho(bb);
 
         NguoiDung nguoi = nguoiDungRepository.findById(user.getId()).orElseThrow();
@@ -182,7 +184,7 @@ public class AnhBienBanGiaoNhanService {
                 .build());
         ghiNhatKy(phieu, IHanhDong.them_anh_bien_ban, "Thêm ảnh vào biên bản " + bb.getSoBienBan()
                 + (moTa != null ? ": " + moTa : ""), nguoi);
-        return dto(anh, user, phieu, phuongAn);
+        return dto(anh, user, phieu, phuongAn, false);
     }
 
     /** Xóa ảnh {@code anhId} khỏi biên bản giao nhận của phiếu chuyển {@code phieuId}. */
@@ -200,7 +202,8 @@ public class AnhBienBanGiaoNhanService {
                     .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND,
                             "Không tìm thấy ảnh này trong biên bản " + bb.getSoBienBan() + ". Tải lại trang để xem ảnh hiện có."));
             kiemTraDuocXoa(user, phieu, anh);
-            kiemTraChuaXuLy(bb, bienBanGiaoNhanRepository.docPhuongAnXuLy(bienBanId));
+            kiemTraConSuaAnh(bb, bienBanGiaoNhanRepository.docPhuongAnXuLy(bienBanId),
+                    bienBanGiaoNhanRepository.docNgayXacNhanGui(bienBanId));
 
             TepTin tep = anh.getTepTin();
             anhRepository.delete(anh);
@@ -239,22 +242,32 @@ public class AnhBienBanGiaoNhanService {
             return List.of();
         }
         if (anh == null) return List.of();
+        boolean daXacNhan = bb.getNgayXacNhanGui() != null;
         return anh.stream()
-                .map(a -> dto(a, user, phieu, bb.getPhuongAnXuLy()))
+                .map(a -> dto(a, user, phieu, bb.getPhuongAnXuLy(), daXacNhan))
                 .toList();
     }
 
     /**
-     * Cờ quyen.themAnhBienBan: biên bản còn chờ xử lý và người xem thuộc kho nhận (quản trị viên luôn được). Kho đang
-     * chọn và số ảnh đã có kiểm khi bấm, như các cờ khác của phiếu chuyển.
+     * Id ảnh đang có của biên bản, trong giao dịch của người gọi. Kho gửi xác nhận gọi SAU khi khóa dòng biên bản (thêm /
+     * xóa ảnh cũng khóa dòng đó) để so với bộ ảnh người xác nhận đã xem.
      */
-    public boolean duocThem(NguoiDungAuthInfo user, PhieuChuyenKho phieu, BienBanGiaoNhan bb) {
-        return bb != null && IChuyenKho.CHUA_XU_LY.equals(bb.getPhuongAnXuLy()) && thuocKho(user, phieu.getKhoNhap());
+    public List<Integer> idAnh(Integer bienBanId) {
+        return bienBanId == null ? List.of() : anhRepository.idTheoBienBan(bienBanId);
     }
 
-    /** Người tải ảnh lên, quản lý kho nhận hoặc quản trị viên; biên bản còn chờ xử lý. */
-    boolean duocXoa(NguoiDungAuthInfo user, PhieuChuyenKho phieu, BienBanGiaoNhanAnh anh, String phuongAn) {
-        return IChuyenKho.CHUA_XU_LY.equals(phuongAn) && coQuyenXoa(user, phieu, anh);
+    /**
+     * Cờ quyen.themAnhBienBan: biên bản còn chờ xử lý, kho gửi chưa xác nhận và người xem thuộc kho nhận (quản trị viên
+     * luôn được). Kho đang chọn và số ảnh đã có kiểm khi bấm, như các cờ khác của phiếu chuyển.
+     */
+    public boolean duocThem(NguoiDungAuthInfo user, PhieuChuyenKho phieu, BienBanGiaoNhan bb) {
+        return bb != null && IChuyenKho.CHUA_XU_LY.equals(bb.getPhuongAnXuLy()) && bb.getNgayXacNhanGui() == null
+                && thuocKho(user, phieu.getKhoNhap());
+    }
+
+    /** Người tải ảnh lên, quản lý kho nhận hoặc quản trị viên; biên bản còn chờ xử lý, kho gửi chưa xác nhận. */
+    boolean duocXoa(NguoiDungAuthInfo user, PhieuChuyenKho phieu, BienBanGiaoNhanAnh anh, String phuongAn, boolean daXacNhan) {
+        return IChuyenKho.CHUA_XU_LY.equals(phuongAn) && !daXacNhan && coQuyenXoa(user, phieu, anh);
     }
 
     private boolean coQuyenXoa(NguoiDungAuthInfo user, PhieuChuyenKho phieu, BienBanGiaoNhanAnh anh) {
@@ -301,10 +314,15 @@ public class AnhBienBanGiaoNhanService {
         }
     }
 
-    private static void kiemTraChuaXuLy(BienBanGiaoNhan bb, String phuongAn) {
+    /** Ảnh còn thêm / xóa được: biên bản chưa xử lý chênh lệch và kho gửi chưa xác nhận ({@code ngayXacNhan} null). */
+    private static void kiemTraConSuaAnh(BienBanGiaoNhan bb, String phuongAn, Instant ngayXacNhan) {
         if (!IChuyenKho.CHUA_XU_LY.equals(phuongAn)) {
             throw new CommonException(HttpStatus.CONFLICT, "Biên bản " + bb.getSoBienBan()
                     + " đã xử lý chênh lệch, ảnh chỉ xem được, không thêm hay xóa");
+        }
+        if (ngayXacNhan != null) {
+            throw new CommonException(HttpStatus.CONFLICT, "Kho gửi đã xác nhận biên bản " + bb.getSoBienBan()
+                    + ", ảnh chỉ xem được, không thêm hay xóa");
         }
     }
 
@@ -319,7 +337,8 @@ public class AnhBienBanGiaoNhanService {
     // TIỆN ÍCH
     // ─────────────────────────────────────────────────────────────
 
-    private PhieuChuyenKhoDto.AnhBienBan dto(BienBanGiaoNhanAnh a, NguoiDungAuthInfo user, PhieuChuyenKho phieu, String phuongAn) {
+    private PhieuChuyenKhoDto.AnhBienBan dto(BienBanGiaoNhanAnh a, NguoiDungAuthInfo user, PhieuChuyenKho phieu, String phuongAn,
+                                             boolean daXacNhan) {
         TepTin tep = a.getTepTin();
         return PhieuChuyenKhoDto.AnhBienBan.builder()
                 .id(a.getId())
@@ -327,7 +346,7 @@ public class AnhBienBanGiaoNhanService {
                 .moTa(a.getMoTa())
                 .nguoiChup(a.getNguoiChup() != null ? a.getNguoiChup().getHoTen() : null)
                 .ngayChup(a.getNgayChup())
-                .duocXoa(duocXoa(user, phieu, a, phuongAn))
+                .duocXoa(duocXoa(user, phieu, a, phuongAn, daXacNhan))
                 .build();
     }
 

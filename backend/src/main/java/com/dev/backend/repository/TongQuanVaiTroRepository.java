@@ -149,6 +149,7 @@ public class TongQuanVaiTroRepository {
     /** Số việc chờ quản lý kho; cũ nhất theo giờ Việt Nam (chuỗi ISO) hoặc null. */
     public record ViecQuanLyKho(long yeuCauChoDuyet, String yeuCauCuNhat,
                                 long phieuChuyenChoDuyet, String phieuChuyenCuNhat,
+                                long bienBanChoXacNhan, String bienBanXacNhanCuNhat,
                                 long phieuChuyenChoXuLyLech, String phieuChuyenLechCuNhat,
                                 long donChoGomPhieu, String donChoGomCuNhat,
                                 long phieuNhatChuaPhanCong, String phieuNhatCuNhat,
@@ -291,14 +292,26 @@ public class TongQuanVaiTroRepository {
             + " WHERE ch.ma_cau_hinh = 'CHUYEN_KHO_QUYEN_XU_LY_LECH'), 'QL_KHO_TONG')";
 
     /**
-     * Phiếu chuyển chờ xử lý chênh lệch là việc của quản lý kho đang xem khi theo cấu hình họ được xử lý (cùng luật với
-     * PhieuChuyenKhoService.duocXuLyChenhLech): kho đang xem là Kho tổng, trừ chế độ CHI_QUAN_TRI (chỉ quản trị viên);
-     * hoặc chế độ QL_KHO_TONG_VA_KHO_XUAT và kho đang xem là kho xuất của phiếu. Giá trị lạ coi như mặc định.
+     * Phiếu chuyển chờ xử lý chênh lệch là việc của quản lý kho đang xem khi kho gửi đã xác nhận biên bản và theo cấu
+     * hình họ được xử lý (cùng luật với PhieuChuyenKhoService.duocXuLyChenhLech): kho đang xem là Kho tổng, trừ chế độ
+     * CHI_QUAN_TRI (chỉ quản trị viên); hoặc chế độ QL_KHO_TONG_VA_KHO_XUAT và kho đang xem là kho xuất của phiếu. Giá trị
+     * lạ coi như mặc định.
      */
-    private static final String PCK_CHO_XU_LY_LECH = "c.trang_thai = 'CHO_XU_LY_LECH' AND (("
+    private static final String PCK_CHO_XU_LY_LECH = "c.trang_thai = 'CHO_XU_LY_LECH'"
+            + " AND EXISTS (SELECT 1 FROM bien_ban_giao_nhan b WHERE b.phieu_chuyen_kho_id = c.id"
+            + " AND b.ngay_xac_nhan_gui IS NOT NULL) AND (("
             + CHE_DO_XU_LY_LECH + " <> 'CHI_QUAN_TRI'"
             + " AND EXISTS (SELECT 1 FROM kho kt WHERE kt.id = :khoId AND kt.loai_kho = 'kho_tong'))"
             + " OR (" + CHE_DO_XU_LY_LECH + " = 'QL_KHO_TONG_VA_KHO_XUAT' AND c.kho_xuat_id = :khoId))";
+
+    /**
+     * Phiếu chuyển đi từ kho đang xem đã có biên bản giao nhận mà kho gửi chưa xác nhận (BA 03/11). Người đã lập biên bản
+     * (quản lý được phân cả hai kho) không tự xác nhận được nên không đếm cho họ.
+     */
+    private static final String PCK_CHO_KHO_GUI_XAC_NHAN = "c.trang_thai = 'CHO_XU_LY_LECH' AND c.kho_xuat_id = :khoId"
+            + " AND EXISTS (SELECT 1 FROM bien_ban_giao_nhan b WHERE b.phieu_chuyen_kho_id = c.id"
+            + " AND b.phuong_an_xu_ly = 'CHUA_XU_LY' AND b.ngay_xac_nhan_gui IS NULL"
+            + " AND (:nguoiDungId IS NULL OR b.nguoi_lap_id <> :nguoiDungId))";
 
     static final String SQL_VIEC_QUAN_LY_KHO = """
             SELECT
@@ -308,6 +321,9 @@ public class TongQuanVaiTroRepository {
               (SELECT COUNT(*) FROM phieu_chuyen_kho c WHERE %1$s)                                     AS pck_so,
               (SELECT DATE_FORMAT(DATE_ADD(MIN(c.ngay_tao), INTERVAL :lechCsdl MINUTE), %3$s)
                  FROM phieu_chuyen_kho c WHERE %1$s)                                                   AS pck_cu,
+              (SELECT COUNT(*) FROM phieu_chuyen_kho c WHERE %5$s)                                     AS xn_so,
+              (SELECT DATE_FORMAT(DATE_ADD(MIN(c.ngay_thuc_te_den), INTERVAL :lech MINUTE), %3$s)
+                 FROM phieu_chuyen_kho c WHERE %5$s)                                                   AS xn_cu,
               (SELECT COUNT(*) FROM phieu_chuyen_kho c WHERE %4$s)                                     AS lech_so,
               (SELECT DATE_FORMAT(DATE_ADD(MIN(c.ngay_thuc_te_den), INTERVAL :lech MINUTE), %3$s)
                  FROM phieu_chuyen_kho c WHERE %4$s)                                                   AS lech_cu,
@@ -329,17 +345,19 @@ public class TongQuanVaiTroRepository {
             """.formatted(PCK_CHO_KHO_TONG_DUYET,
             "d.loai_chung_tu = 'don_ban_hang' AND d.trang_thai IN (1, 2) AND d.danh_sach_nhat_hang_id IS NULL"
                     + " AND d.kho_xuat_id = :khoId",
-            THOI_DIEM, PCK_CHO_XU_LY_LECH);
+            THOI_DIEM, PCK_CHO_XU_LY_LECH, PCK_CHO_KHO_GUI_XAC_NHAN);
 
     /**
-     * Việc quản lý kho phải tự làm ở kho này: duyệt yêu cầu nhập hàng (kho nhập), duyệt phiếu chuyển đi (kho gửi),
-     * xử lý chênh lệch phiếu chuyển (theo cấu hình; cũ nhất theo lúc nhận lệch), gom đơn thành phiếu nhặt, phân công
-     * phiếu nhặt, hoàn tất đợt kiểm kê.
+     * Việc quản lý kho phải tự làm ở kho này: duyệt yêu cầu nhập hàng (kho nhập), duyệt phiếu chuyển đi (kho gửi), xác
+     * nhận biên bản giao nhận của phiếu chuyển đi (kho gửi), xử lý chênh lệch phiếu chuyển (theo cấu hình; cũ nhất theo
+     * lúc nhận lệch), gom đơn thành phiếu nhặt, phân công phiếu nhặt, hoàn tất đợt kiểm kê. {@code nguoiDungId}: người
+     * đang xem (biên bản do chính họ lập không tính vào việc xác nhận).
      */
-    public ViecQuanLyKho viecQuanLyKho(Integer khoId) {
-        return jdbc.queryForObject(SQL_VIEC_QUAN_LY_KHO, thamSoGio(khoId), (rs, i) -> new ViecQuanLyKho(
+    public ViecQuanLyKho viecQuanLyKho(Integer khoId, Integer nguoiDungId) {
+        return jdbc.queryForObject(SQL_VIEC_QUAN_LY_KHO, thamSoGio(khoId).addValue("nguoiDungId", nguoiDungId), (rs, i) -> new ViecQuanLyKho(
                 rs.getLong("yc_so"), rs.getString("yc_cu"),
                 rs.getLong("pck_so"), rs.getString("pck_cu"),
+                rs.getLong("xn_so"), rs.getString("xn_cu"),
                 rs.getLong("lech_so"), rs.getString("lech_cu"),
                 rs.getLong("gom_so"), rs.getString("gom_cu"),
                 rs.getLong("pc_so"), rs.getString("pc_cu"),
