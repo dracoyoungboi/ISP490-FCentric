@@ -1367,6 +1367,14 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                 throw new CommonException("Lazada không trả về dữ liệu vận đơn cho đơn hàng này", HttpStatus.BAD_REQUEST, null);
             }
 
+            // Chặn chuỗi giả lập / ẩn danh P*** từ Lazada khi tài khoản test chưa cấp quyền DataMoat
+            if (fileContent.startsWith("P*") || fileContent.startsWith("p*") || (fileContent.startsWith("P") && fileContent.contains("****"))) {
+                throw new CommonException(
+                        "Vận đơn Lazada của đơn hàng này đang ở chế độ ẩn danh thử nghiệm (chuỗi 'P***' do tài khoản test sàn chưa cấp quyền in DataMoat). "
+                                + "Vui lòng sử dụng tính năng 'In phiếu đóng gói đơn sàn' của FCentric hoặc in trực tiếp trên Lazada Seller Center.",
+                        HttpStatus.BAD_REQUEST, null);
+            }
+
             byte[] decodedBytes;
             boolean isHtml = mimeType.toLowerCase().contains("html")
                     || fileContent.startsWith("<")
