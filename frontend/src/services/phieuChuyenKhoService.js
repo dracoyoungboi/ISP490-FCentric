@@ -21,6 +21,8 @@ export const phieuChuyenKhoService = {
     tuChoi: (id, body) => apiClient.put(`${GOC}/${id}/tu-choi`, body).then(duLieu),
     /** { lyDo } (không bắt buộc) */
     huy: (id, body) => apiClient.put(`${GOC}/${id}/huy`, body ?? {}).then(duLieu),
+    /** Đại diện kho gửi xác nhận biên bản giao nhận: { ghiChu } (ý kiến, không bắt buộc) → mở bước xử lý chênh lệch. */
+    xacNhanBienBan: (id, body) => apiClient.put(`${GOC}/${id}/xac-nhan-bien-ban`, body ?? {}).then(duLieu),
     /**
      * "Mở phiếu nhặt" của phiếu Đã duyệt: máy chủ bảo đảm có PX-CK và phiếu nhặt của nó (phiếu duyệt trước bản phiếu nhặt
      * thì lập lúc này) → { id, soPhieuXuat, phieuNhatId, maPickList }. `phieuNhatId` null = phiếu cũ đã chọn lô tay trên

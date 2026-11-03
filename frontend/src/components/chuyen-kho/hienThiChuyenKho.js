@@ -113,6 +113,22 @@ export const phieuXuatDaXuat = (ct) => String(ct?.phieuXuat?.trangThai ?? "") ==
  */
 export const aiXuLyChenhLech = (ct) => String(ct?.aiXuLyChenhLech ?? "").trim() || "Quản trị viên hoặc Quản lý Kho tổng";
 
+/**
+ * Phiếu Chờ xử lý chênh lệch mà kho gửi chưa xác nhận biên bản giao nhận (BA 03/11): bước này xong người được xử lý
+ * chênh lệch mới chọn ghi giảm / giao bù.
+ */
+export const choKhoGuiXacNhan = (ct) => ct?.trangThai === TT_CHUYEN.CHO_XU_LY_LECH && Boolean(ct?.bienBan)
+    && (!ct.bienBan.phuongAn || ct.bienBan.phuongAn === "CHUA_XU_LY") && !ct.bienBan.ngayXacNhanGui;
+
+/**
+ * Ai làm tiếp với phần lệch, chèn sau "chờ": "Kho tổng xác nhận biên bản, sau đó Quản trị viên hoặc Quản lý Kho tổng
+ * xử lý" khi kho gửi chưa xác nhận; "Quản trị viên hoặc Quản lý Kho tổng xử lý" khi đã xác nhận.
+ */
+export function cauChoXuLyLech(ct) {
+    const ai = aiXuLyChenhLech(ct);
+    return choKhoGuiXacNhan(ct) ? `${ct.khoXuat?.ten ?? "kho gửi"} xác nhận biên bản, sau đó ${ai} xử lý` : `${ai} xử lý`;
+}
+
 /** Tên trạng thái phiếu nhặt (cùng chữ constants/outbound.js PICK_LIST_STATUS). */
 const TEN_PHIEU_NHAT = { cho_nhat: "Chờ nhặt", dang_nhat: "Đang nhặt", da_nhat: "Đã nhặt", da_huy: "Đã hủy" };
 
@@ -230,6 +246,8 @@ export function buocChuyenKho(ct, bayGio = Date.now()) {
     } else if (tt === TT_CHUYEN.CHO_XU_LY_LECH) {
         datTrangThai(5, "dangLam");
         ds[4].canhBao = "Có chênh lệch";
+        // Biên bản qua hai bước: kho gửi xác nhận, rồi người được xử lý chênh lệch chọn ghi giảm / giao bù
+        if (ct.bienBan) ds[4].phu = choKhoGuiXacNhan(ct) ? "Chờ kho gửi xác nhận" : "Chờ xử lý";
     } else {
         datTrangThai(6, "dangLam");
         if (ct.bienBan) ds[4].canhBao = "Có chênh lệch · đã xử lý";
