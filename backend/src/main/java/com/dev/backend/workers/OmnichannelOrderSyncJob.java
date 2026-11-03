@@ -422,8 +422,8 @@ public class OmnichannelOrderSyncJob {
                             .ghiChu(itemNode.path("title").asText(""))
                             .build();
                     chiTietDonBanHangRepository.save(chiTiet);
-                    if (kenhBanHangDongBoService != null && matchedVariant != null && matchedVariant.getId() != null) {
-                        Integer btId = matchedVariant.getId();
+                    if (kenhBanHangDongBoService != null && bt != null && bt.getId() != null) {
+                        Integer btId = bt.getId();
                         SauCommit.chay("Đẩy tồn cập nhật tức thì sau đơn Shopify mới",
                                 () -> kenhBanHangDongBoService.dayTonKhoKhanCap(btId));
                     }
