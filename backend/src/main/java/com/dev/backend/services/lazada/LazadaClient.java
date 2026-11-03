@@ -215,22 +215,60 @@ public class LazadaClient {
     }
 
     /**
-     * Hủy đơn hàng trên sàn Lazada (/order/cancel hoặc /order/reverse/cancel/create).
+     * Đóng gói đơn hàng trên sàn Lazada (/order/fulfill/pack).
+     * Chuyển trạng thái đơn/sản phẩm từ pending sang packed và sinh package_id.
      */
-    public JsonNode cancelOrder(String appKey, String appSecret, String accessToken, String orderId, List<String> orderItemIdList, String reasonId, String reasonDetail) {
-        String apiPath = "/order/cancel";
+    public JsonNode packOrder(String appKey, String appSecret, String accessToken, String orderId, List<String> orderItemIdList) {
+        String apiPath = "/order/fulfill/pack";
         Map<String, String> params = new HashMap<>();
         params.put("app_key", appKey.trim());
         params.put("access_token", accessToken.trim());
         params.put("timestamp", String.valueOf(System.currentTimeMillis()));
         params.put("sign_method", LazadaSignatureHelper.SIGN_METHOD_SHA256);
-        params.put("order_id", orderId.trim());
+        params.put("delivery_type", "dropship");
+        params.put("shipping_allocate_type", "TFS");
+
+        StringBuilder packOrderListJson = new StringBuilder();
+        packOrderListJson.append("[{\"order_id\":").append(orderId.trim());
         if (orderItemIdList != null && !orderItemIdList.isEmpty()) {
-            params.put("order_item_id_list", "[" + String.join(",", orderItemIdList) + "]");
+            packOrderListJson.append(",\"order_item_list\":[")
+                    .append(String.join(",", orderItemIdList))
+                    .append("]");
         }
-        params.put("reason_id", reasonId != null && !reasonId.isBlank() ? reasonId : "15");
-        if (reasonDetail != null && !reasonDetail.isBlank()) {
-            params.put("reason_detail", reasonDetail);
+        packOrderListJson.append("}]");
+        params.put("pack_order_list", packOrderListJson.toString());
+
+        String sign = LazadaSignatureHelper.calculateSignature(apiPath, params, appSecret);
+        params.put("sign", sign);
+
+        try {
+            return executePostForm(API_GATEWAY_VN + apiPath, params);
+        } catch (Exception ex) {
+            String legacyPath = "/order/pack";
+            params.remove("sign");
+            params.remove("shipping_allocate_type");
+            String legacySign = LazadaSignatureHelper.calculateSignature(legacyPath, params, appSecret);
+            params.put("sign", legacySign);
+            return executePostForm(API_GATEWAY_VN + legacyPath, params);
+        }
+    }
+
+    /**
+     * Xác nhận sẵn sàng giao hàng trên sàn Lazada (/order/package/rts).
+     * Chuyển trạng thái kiện hàng từ packed sang ready_to_ship.
+     */
+    public JsonNode readyToShip(String appKey, String appSecret, String accessToken, String packageId, List<String> orderItemIdList) {
+        String apiPath = "/order/package/rts";
+        Map<String, String> params = new HashMap<>();
+        params.put("app_key", appKey.trim());
+        params.put("access_token", accessToken.trim());
+        params.put("timestamp", String.valueOf(System.currentTimeMillis()));
+        params.put("sign_method", LazadaSignatureHelper.SIGN_METHOD_SHA256);
+
+        if (packageId != null && !packageId.isBlank()) {
+            params.put("packages", "[{\"package_id\":\"" + packageId.trim() + "\"}]");
+        } else if (orderItemIdList != null && !orderItemIdList.isEmpty()) {
+            params.put("order_item_ids", "[" + String.join(",", orderItemIdList) + "]");
         }
 
         String sign = LazadaSignatureHelper.calculateSignature(apiPath, params, appSecret);
@@ -239,16 +277,100 @@ public class LazadaClient {
         try {
             return executePostForm(API_GATEWAY_VN + apiPath, params);
         } catch (Exception ex) {
-            String reversePath = "/order/reverse/cancel/create";
+            String legacyPath = "/order/rts";
             params.remove("sign");
-            String reverseSign = LazadaSignatureHelper.calculateSignature(reversePath, params, appSecret);
-            params.put("sign", reverseSign);
-            return executePostForm(API_GATEWAY_VN + reversePath, params);
+            String legacySign = LazadaSignatureHelper.calculateSignature(legacyPath, params, appSecret);
+            params.put("sign", legacySign);
+            return executePostForm(API_GATEWAY_VN + legacyPath, params);
         }
     }
 
     /**
-     * Lấy tài liệu vận đơn (AWB / Shipping Label) từ Lazada Open Platform (/order/document/get).
+     * Hủy đơn hàng trên sàn Lazada qua cổng chính thức /order/reverse/cancel/create.
+     */
+    public JsonNode cancelOrder(String appKey, String appSecret, String accessToken, String orderId, List<String> orderItemIdList, String reasonId, String reasonDetail) {
+        String apiPath = "/order/reverse/cancel/create";
+        Map<String, String> params = new HashMap<>();
+        params.put("app_key", appKey.trim());
+        params.put("access_token", accessToken.trim());
+        params.put("timestamp", String.valueOf(System.currentTimeMillis()));
+        params.put("sign_method", LazadaSignatureHelper.SIGN_METHOD_SHA256);
+        params.put("order_id", orderId.trim());
+        if (orderItemIdList != null && !orderItemIdList.isEmpty()) {
+            params.put("order_item_id_list", "[\"" + String.join("\",\"", orderItemIdList) + "\"]");
+        }
+        params.put("reason_id", reasonId != null && !reasonId.isBlank() ? reasonId : "15");
+
+        String sign = LazadaSignatureHelper.calculateSignature(apiPath, params, appSecret);
+        params.put("sign", sign);
+
+        try {
+            JsonNode res = executePostForm(API_GATEWAY_VN + apiPath, params);
+            String code = res.path("code").asText("");
+            if ("0".equals(code) || "".equals(code)) {
+                return res;
+            }
+            // Thử kiểm tra lý do hủy hợp lệ nếu Lazada yêu cầu validate
+            String msg = res.path("message").asText(res.path("sub_message").asText(""));
+            if (msg.toLowerCase().contains("reason") || msg.toLowerCase().contains("validate")) {
+                JsonNode validRes = validateReverseCancel(appKey, appSecret, accessToken, orderId, orderItemIdList);
+                JsonNode reasons = validRes.path("data").path("reasons");
+                if (reasons.isArray() && !reasons.isEmpty()) {
+                    String firstReasonId = reasons.get(0).path("reason_id").asText("");
+                    if (!firstReasonId.isBlank()) {
+                        params.put("reason_id", firstReasonId);
+                        params.remove("sign");
+                        params.put("sign", LazadaSignatureHelper.calculateSignature(apiPath, params, appSecret));
+                        return executePostForm(API_GATEWAY_VN + apiPath, params);
+                    }
+                }
+            }
+            return res;
+        } catch (Exception ex) {
+            String legacyPath = "/order/cancel";
+            params.remove("sign");
+            if (orderItemIdList != null && !orderItemIdList.isEmpty()) {
+                params.put("order_item_id_list", "[" + String.join(",", orderItemIdList) + "]");
+            }
+            if (reasonDetail != null && !reasonDetail.isBlank()) {
+                params.put("reason_detail", reasonDetail);
+            }
+            String legacySign = LazadaSignatureHelper.calculateSignature(legacyPath, params, appSecret);
+            params.put("sign", legacySign);
+            try {
+                return executePostForm(API_GATEWAY_VN + legacyPath, params);
+            } catch (Exception fallbackEx) {
+                log.error("Lỗi khi hủy đơn Lazada: {}", ex.getMessage());
+                throw new IllegalStateException("Không thể gửi yêu cầu hủy đơn sang Lazada: " + ex.getMessage(), ex);
+            }
+        }
+    }
+
+    public JsonNode validateReverseCancel(String appKey, String appSecret, String accessToken, String orderId, List<String> orderItemIdList) {
+        String apiPath = "/order/reverse/cancel/validate";
+        Map<String, String> params = new HashMap<>();
+        params.put("app_key", appKey.trim());
+        params.put("access_token", accessToken.trim());
+        params.put("timestamp", String.valueOf(System.currentTimeMillis()));
+        params.put("sign_method", LazadaSignatureHelper.SIGN_METHOD_SHA256);
+        params.put("order_id", orderId.trim());
+        if (orderItemIdList != null && !orderItemIdList.isEmpty()) {
+            params.put("order_item_id_list", "[\"" + String.join("\",\"", orderItemIdList) + "\"]");
+        }
+        String sign = LazadaSignatureHelper.calculateSignature(apiPath, params, appSecret);
+        params.put("sign", sign);
+        try {
+            return executePostForm(API_GATEWAY_VN + apiPath, params);
+        } catch (Exception e) {
+            log.warn("Validate cancel order Lazada thất bại: {}", e.getMessage());
+            return objectMapper.createObjectNode();
+        }
+    }
+
+    /**
+     * Lấy tài liệu vận đơn (AWB / Shipping Label) từ Lazada Open Platform.
+     * Tự động kiểm tra và pack đơn nếu đơn còn ở trạng thái pending/unpacked.
+     * Thử endpoint mới /order/package/document/get trước, fallback sang /order/document/get.
      * @param appKey App Key của ứng dụng Lazada
      * @param appSecret App Secret của ứng dụng Lazada
      * @param accessToken Access Token của gian hàng
@@ -264,11 +386,16 @@ public class LazadaClient {
 
         JsonNode items = itemsRes.path("data");
         List<String> itemIds = new ArrayList<>();
+        boolean needPack = false;
         if (items.isArray()) {
             for (JsonNode it : items) {
                 String itId = it.path("order_item_id").asText("").trim();
                 if (!itId.isBlank()) {
                     itemIds.add(itId);
+                }
+                String status = it.path("status").asText("").trim().toLowerCase();
+                if ("pending".equals(status) || "unpacked".equals(status)) {
+                    needPack = true;
                 }
             }
         }
@@ -277,8 +404,42 @@ public class LazadaClient {
             throw new IllegalArgumentException("Không tìm thấy sản phẩm nào trong đơn hàng Lazada " + orderId);
         }
 
+        if (needPack) {
+            try {
+                packOrder(appKey, appSecret, accessToken, orderId, itemIds);
+            } catch (Exception e) {
+                log.warn("Tự động pack đơn Lazada {} trước khi in vận đơn: {}", orderId, e.getMessage());
+            }
+        }
+
         String orderItemIdsJson = "[" + String.join(",", itemIds) + "]";
 
+        // Thử API PrintAWB mới (/order/package/document/get)
+        try {
+            String modernPath = "/order/package/document/get";
+            Map<String, String> modernParams = new HashMap<>();
+            modernParams.put("app_key", appKey.trim());
+            modernParams.put("access_token", accessToken.trim());
+            modernParams.put("doc_type", "shippingLabel");
+            modernParams.put("order_item_ids", orderItemIdsJson);
+            modernParams.put("timestamp", String.valueOf(System.currentTimeMillis()));
+            modernParams.put("sign_method", LazadaSignatureHelper.SIGN_METHOD_SHA256);
+
+            String modernSign = LazadaSignatureHelper.calculateSignature(modernPath, modernParams, appSecret);
+            modernParams.put("sign", modernSign);
+
+            JsonNode modernRes = executeGet(API_GATEWAY_VN + modernPath, modernParams);
+            String modernCode = modernRes.path("code").asText("0");
+            if ("0".equals(modernCode) || "".equals(modernCode)) {
+                if (modernRes.path("data").path("document").has("file") || modernRes.path("data").has("document")) {
+                    return modernRes;
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("Gọi /order/package/document/get gặp lỗi, chuyển sang fallback: {}", ex.getMessage());
+        }
+
+        // Fallback sang API /order/document/get
         String apiPath = "/order/document/get";
         Map<String, String> params = new HashMap<>();
         params.put("app_key", appKey.trim());

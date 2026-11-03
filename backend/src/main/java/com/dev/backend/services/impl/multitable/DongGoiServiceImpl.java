@@ -19,6 +19,8 @@ import com.dev.backend.repository.PhieuXuatKhoRepository;
 import com.dev.backend.services.impl.entities.LichSuThayDoiService;
 import com.dev.backend.services.multitable.BangChungDongGoiService;
 import com.dev.backend.services.multitable.DongGoiService;
+import com.dev.backend.services.KenhBanHangDongBoService;
+import com.dev.backend.workers.OmnichannelOrderSyncJob;
 import com.dev.backend.utils.SauCommit;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -58,6 +60,9 @@ public class DongGoiServiceImpl implements DongGoiService {
 
     @Autowired
     private BangChungDongGoiRepository bangChungDongGoiRepository;
+
+    @Autowired(required = false)
+    private KenhBanHangDongBoService kenhBanHangDongBoService;
 
     @Override
     @Transactional(readOnly = true)
@@ -182,6 +187,14 @@ public class DongGoiServiceImpl implements DongGoiService {
             don.setTrangThai(ITrangThaiDonBanHang.DA_DONG_GOI);
             don.setNgayCapNhat(Instant.now());
             donBanHangRepository.save(don);
+
+            if (don.getKenhBanHang() != null && OmnichannelOrderSyncJob.MA_KENH_LAZADA.equalsIgnoreCase(don.getKenhBanHang().getMaKenh())
+                    && don.getMaDonHangKenh() != null && !don.getMaDonHangKenh().isBlank()
+                    && kenhBanHangDongBoService != null) {
+                String lazOrderId = don.getMaDonHangKenh();
+                SauCommit.chay("Đồng bộ đóng gói xong sang Lazada (ready_to_ship)",
+                        () -> kenhBanHangDongBoService.dongBoTrangThaiReadyToShipLazada(lazOrderId));
+            }
         }
 
         ghiNhatKy(phieu, IHanhDong.hoan_tat_dong_goi, "trang_thai = 0 (Nháp)", "trang_thai = 6 (Chờ xuất - đã đóng gói)",

@@ -101,5 +101,9 @@ public interface KenhBanHangDongBoService {
     boolean huyDonHangTrenShopify(String maDonHangKenh, String lyDoHuy);
 
     boolean huyDonHangTrenLazada(String maDonHangKenh, String lyDoHuy);
+
+    boolean dongBoTrangThaiPackedLazada(String maDonHangKenh);
+
+    boolean dongBoTrangThaiReadyToShipLazada(String maDonHangKenh);
 }
 

@@ -35,6 +35,8 @@ import com.dev.backend.utils.SauCommit;
 import com.dev.backend.utils.KhoDangChon;
 import com.dev.backend.utils.SoChungTu;
 import com.dev.backend.services.multitable.NhatHangService;
+import com.dev.backend.services.KenhBanHangDongBoService;
+import com.dev.backend.workers.OmnichannelOrderSyncJob;
 import com.dev.backend.event.InventoryRestockedEvent;
 import org.springframework.context.ApplicationEventPublisher;
 import jakarta.persistence.EntityManager;
@@ -138,6 +140,9 @@ public class NhatHangServiceImpl implements NhatHangService {
 
     @Autowired
     private com.dev.backend.services.multitable.BangChungDongGoiService bangChungDongGoiService;
+
+    @Autowired(required = false)
+    private KenhBanHangDongBoService kenhBanHangDongBoService;
 
     @Autowired
     private PhanBoLoNhatHangRepository phanBoLoNhatHangRepository;
@@ -1648,6 +1653,14 @@ public class NhatHangServiceImpl implements NhatHangService {
                 // Tự động sinh Phiếu Xuất Kho nháp (chờ đóng gói) nếu đơn chưa có phiếu nháp / đã đóng gói
                 boolean daCoPhieu = phieuXuatKhoRepository.existsByDonBanHangIdAndTrangThaiIn(dbh.getId(),
                         List.of(ITrangThaiPhieuXuat.NHAP, ITrangThaiPhieuXuat.CHO_XUAT));
+                if (dbh.getKenhBanHang() != null && OmnichannelOrderSyncJob.MA_KENH_LAZADA.equalsIgnoreCase(dbh.getKenhBanHang().getMaKenh())
+                        && dbh.getMaDonHangKenh() != null && !dbh.getMaDonHangKenh().isBlank()
+                        && kenhBanHangDongBoService != null) {
+                    String lazOrderId = dbh.getMaDonHangKenh();
+                    SauCommit.chay("Đồng bộ nhặt hàng xong sang Lazada (packed)",
+                            () -> kenhBanHangDongBoService.dongBoTrangThaiPackedLazada(lazOrderId));
+                }
+
                 if (!daCoPhieu) {
                     long seq = phieuXuatKhoRepository.countBySoPhieuXuatStartingWith("PXK-") + 1;
                     String soPxk = String.format("PXK-%s-%03d",

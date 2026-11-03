@@ -3436,14 +3436,14 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 maKenh = resolvedSkuId;
                 dong.setMaSanPhamKenh(maKenh);
                 trangThaiDongBoSanPhamRepository.save(dong);
-            } else {
-                return KetQuaGuiTon.loiSku("Chưa xác định được SkuId trên Lazada cho SKU: " + maSku);
             }
         }
 
         StringBuilder skuXml = new StringBuilder();
         skuXml.append("<Request><Product><Skus><Sku>");
-        skuXml.append("<SkuId>").append(escapeXml(maKenh)).append("</SkuId>");
+        if (maKenh != null && !maKenh.isBlank() && maKenh.matches("\\d+")) {
+            skuXml.append("<SkuId>").append(escapeXml(maKenh)).append("</SkuId>");
+        }
         skuXml.append("<SellerSku>").append(escapeXml(maSku)).append("</SellerSku>");
         skuXml.append("<Quantity>").append(Math.max(0, soDay)).append("</Quantity>");
         if (bt.getGiaBan() != null && bt.getGiaBan().compareTo(BigDecimal.ZERO) > 0) {
@@ -3860,6 +3860,103 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             }
         } catch (Exception e) {
             log.error("[LAZADA-CANCEL] Lỗi khi gọi Lazada cancel order {}: {}", maDonHangKenh, e.getMessage());
+            return false;
+        }
+    }
+
+    @Override
+    public boolean dongBoTrangThaiPackedLazada(String maDonHangKenh) {
+        if (maDonHangKenh == null || maDonHangKenh.isBlank()) {
+            return false;
+        }
+        String appKey = kenhBanHangService.getLazadaAppKey();
+        String appSecret = kenhBanHangService.getDecryptedLazadaAppSecret();
+        String token = kenhBanHangService.getDecryptedLazadaAccessToken();
+        if (appKey == null || appSecret == null || token == null) {
+            log.warn("[LAZADA-PACK] Chưa có cấu hình hoặc Access Token để pack đơn {}", maDonHangKenh);
+            return false;
+        }
+        try {
+            List<String> orderItemIds = new ArrayList<>();
+            JsonNode itemsRes = lazadaClient.getOrderItems(appKey, appSecret, token, maDonHangKenh);
+            if (itemsRes != null && "0".equals(itemsRes.path("code").asText(""))) {
+                JsonNode data = itemsRes.path("data");
+                if (data.isArray()) {
+                    for (JsonNode it : data) {
+                        String itemId = it.path("order_item_id").asText("");
+                        if (!itemId.isBlank()) {
+                            orderItemIds.add(itemId);
+                        }
+                    }
+                }
+            }
+            JsonNode packRes = lazadaClient.packOrder(appKey, appSecret, token, maDonHangKenh, orderItemIds);
+            String code = packRes != null ? packRes.path("code").asText("") : "";
+            if ("0".equals(code)) {
+                log.info("[LAZADA-PACK] Đã đồng bộ trạng thái packed cho đơn hàng {} sang Lazada", maDonHangKenh);
+                return true;
+            } else {
+                String msg = packRes != null ? packRes.path("message").asText(packRes.path("sub_message").asText("")) : "Unknown";
+                if (msg.toLowerCase().contains("already") || msg.toLowerCase().contains("packed")) {
+                    log.info("[LAZADA-PACK] Đơn hàng {} đã ở trạng thái packed trên Lazada", maDonHangKenh);
+                    return true;
+                }
+                log.warn("[LAZADA-PACK] Lazada từ chối pack đơn {}: code={}, msg={}", maDonHangKenh, code, msg);
+                return false;
+            }
+        } catch (Exception e) {
+            log.error("[LAZADA-PACK] Lỗi khi gọi Lazada pack order {}: {}", maDonHangKenh, e.getMessage());
+            return false;
+        }
+    }
+
+    @Override
+    public boolean dongBoTrangThaiReadyToShipLazada(String maDonHangKenh) {
+        if (maDonHangKenh == null || maDonHangKenh.isBlank()) {
+            return false;
+        }
+        String appKey = kenhBanHangService.getLazadaAppKey();
+        String appSecret = kenhBanHangService.getDecryptedLazadaAppSecret();
+        String token = kenhBanHangService.getDecryptedLazadaAccessToken();
+        if (appKey == null || appSecret == null || token == null) {
+            log.warn("[LAZADA-RTS] Chưa có cấu hình hoặc Access Token để RTS đơn {}", maDonHangKenh);
+            return false;
+        }
+        try {
+            List<String> orderItemIds = new ArrayList<>();
+            String packageId = null;
+            JsonNode itemsRes = lazadaClient.getOrderItems(appKey, appSecret, token, maDonHangKenh);
+            if (itemsRes != null && "0".equals(itemsRes.path("code").asText(""))) {
+                JsonNode data = itemsRes.path("data");
+                if (data.isArray()) {
+                    for (JsonNode it : data) {
+                        String itemId = it.path("order_item_id").asText("");
+                        if (!itemId.isBlank()) {
+                            orderItemIds.add(itemId);
+                        }
+                        String pkg = it.path("package_id").asText("");
+                        if (!pkg.isBlank() && packageId == null) {
+                            packageId = pkg;
+                        }
+                    }
+                }
+            }
+            JsonNode rtsRes = lazadaClient.readyToShip(appKey, appSecret, token, packageId, orderItemIds);
+            String code = rtsRes != null ? rtsRes.path("code").asText("") : "";
+            if ("0".equals(code)) {
+                log.info("[LAZADA-RTS] Đã đồng bộ trạng thái ready_to_ship cho đơn hàng {} sang Lazada", maDonHangKenh);
+                return true;
+            } else {
+                String msg = rtsRes != null ? rtsRes.path("message").asText(rtsRes.path("sub_message").asText("")) : "Unknown";
+                if (msg.toLowerCase().contains("already") || msg.toLowerCase().contains("ready_to_ship") || msg.toLowerCase().contains("rts")) {
+                    log.info("[LAZADA-RTS] Đơn hàng {} đã ở trạng thái ready_to_ship trên Lazada", maDonHangKenh);
+                    return true;
+                }
+                log.warn("[LAZADA-RTS] Lazada từ chối RTS đơn {}: code={}, msg={}", maDonHangKenh, code, msg);
+                return false;
+            }
+        } catch (Exception e) {
+            log.error("[LAZADA-RTS] Lỗi khi gọi Lazada RTS order {}: {}", maDonHangKenh, e.getMessage());
             return false;
         }
     }
