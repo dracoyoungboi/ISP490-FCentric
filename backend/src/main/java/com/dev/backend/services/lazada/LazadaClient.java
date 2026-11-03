@@ -225,8 +225,6 @@ public class LazadaClient {
         params.put("access_token", accessToken.trim());
         params.put("timestamp", String.valueOf(System.currentTimeMillis()));
         params.put("sign_method", LazadaSignatureHelper.SIGN_METHOD_SHA256);
-        params.put("delivery_type", "dropship");
-        params.put("shipping_allocate_type", "TFS");
 
         StringBuilder packOrderListJson = new StringBuilder();
         packOrderListJson.append("[{\"order_id\":").append(orderId.trim());
@@ -236,25 +234,46 @@ public class LazadaClient {
                     .append("]");
         }
         packOrderListJson.append("}]");
-        params.put("pack_order_list", packOrderListJson.toString());
+
+        String packReqJson = "{\"pack_order_list\":" + packOrderListJson.toString()
+                + ",\"delivery_type\":\"dropship\",\"shipping_allocate_type\":\"TFS\"}";
+        params.put("packReq", packReqJson);
 
         String sign = LazadaSignatureHelper.calculateSignature(apiPath, params, appSecret);
         params.put("sign", sign);
 
         try {
-            return executePostForm(API_GATEWAY_VN + apiPath, params);
+            JsonNode res = executePostForm(API_GATEWAY_VN + apiPath, params);
+            String code = res.path("code").asText("");
+            if ("0".equals(code) || "".equals(code)) {
+                return res;
+            }
+            log.warn("Gọi /order/fulfill/pack trả về code={}, message={}, fallback sang /order/pack",
+                    code, res.path("message").asText(""));
         } catch (Exception ex) {
-            String legacyPath = "/order/pack";
-            params.remove("sign");
-            params.remove("shipping_allocate_type");
-            String legacySign = LazadaSignatureHelper.calculateSignature(legacyPath, params, appSecret);
-            params.put("sign", legacySign);
-            return executePostForm(API_GATEWAY_VN + legacyPath, params);
+            log.warn("Ngoại lệ khi gọi /order/fulfill/pack: {}, fallback sang /order/pack", ex.getMessage());
         }
+
+        // Fallback sang API legacy /order/pack
+        String legacyPath = "/order/pack";
+        Map<String, String> legacyParams = new HashMap<>();
+        legacyParams.put("app_key", appKey.trim());
+        legacyParams.put("access_token", accessToken.trim());
+        legacyParams.put("delivery_type", "dropship");
+        legacyParams.put("shipping_allocate_type", "TFS");
+        if (orderItemIdList != null && !orderItemIdList.isEmpty()) {
+            legacyParams.put("order_item_ids", "[" + String.join(",", orderItemIdList) + "]");
+        }
+        legacyParams.put("timestamp", String.valueOf(System.currentTimeMillis()));
+        legacyParams.put("sign_method", LazadaSignatureHelper.SIGN_METHOD_SHA256);
+        String legacySign = LazadaSignatureHelper.calculateSignature(legacyPath, legacyParams, appSecret);
+        legacyParams.put("sign", legacySign);
+        return executePostForm(API_GATEWAY_VN + legacyPath, legacyParams);
     }
 
     /**
      * Xác nhận sẵn sàng giao hàng trên sàn Lazada (/order/package/rts).
+     * Chuẩn hóa tham số readyToShipReq, tự động fallback sang /order/rts nếu cần.
      * Chuyển trạng thái kiện hàng từ packed sang ready_to_ship.
      */
     public JsonNode readyToShip(String appKey, String appSecret, String accessToken, String packageId, List<String> orderItemIdList) {
@@ -266,8 +285,10 @@ public class LazadaClient {
         params.put("sign_method", LazadaSignatureHelper.SIGN_METHOD_SHA256);
 
         if (packageId != null && !packageId.isBlank()) {
+            params.put("readyToShipReq", "{\"packages\":[{\"package_id\":\"" + packageId.trim() + "\"}]}");
             params.put("packages", "[{\"package_id\":\"" + packageId.trim() + "\"}]");
         } else if (orderItemIdList != null && !orderItemIdList.isEmpty()) {
+            params.put("readyToShipReq", "{\"order_item_ids\":[" + String.join(",", orderItemIdList) + "]}");
             params.put("order_item_ids", "[" + String.join(",", orderItemIdList) + "]");
         }
 
@@ -275,14 +296,31 @@ public class LazadaClient {
         params.put("sign", sign);
 
         try {
-            return executePostForm(API_GATEWAY_VN + apiPath, params);
+            JsonNode res = executePostForm(API_GATEWAY_VN + apiPath, params);
+            String code = res.path("code").asText("");
+            if ("0".equals(code) || "".equals(code)) {
+                return res;
+            }
+            log.warn("Gọi /order/package/rts trả về code={}, message={}, fallback sang /order/rts",
+                    code, res.path("message").asText(""));
         } catch (Exception ex) {
-            String legacyPath = "/order/rts";
-            params.remove("sign");
-            String legacySign = LazadaSignatureHelper.calculateSignature(legacyPath, params, appSecret);
-            params.put("sign", legacySign);
-            return executePostForm(API_GATEWAY_VN + legacyPath, params);
+            log.warn("Ngoại lệ khi gọi /order/package/rts: {}, fallback sang /order/rts", ex.getMessage());
         }
+
+        // Fallback sang API legacy /order/rts
+        String legacyPath = "/order/rts";
+        Map<String, String> legacyParams = new HashMap<>();
+        legacyParams.put("app_key", appKey.trim());
+        legacyParams.put("access_token", accessToken.trim());
+        legacyParams.put("delivery_type", "dropship");
+        if (orderItemIdList != null && !orderItemIdList.isEmpty()) {
+            legacyParams.put("order_item_ids", "[" + String.join(",", orderItemIdList) + "]");
+        }
+        legacyParams.put("timestamp", String.valueOf(System.currentTimeMillis()));
+        legacyParams.put("sign_method", LazadaSignatureHelper.SIGN_METHOD_SHA256);
+        String legacySign = LazadaSignatureHelper.calculateSignature(legacyPath, legacyParams, appSecret);
+        legacyParams.put("sign", legacySign);
+        return executePostForm(API_GATEWAY_VN + legacyPath, legacyParams);
     }
 
     /**
