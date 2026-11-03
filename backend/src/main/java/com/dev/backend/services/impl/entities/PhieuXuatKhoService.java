@@ -115,6 +115,12 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
     @Autowired
     private DanhSachNhatHangRepository danhSachNhatHangRepository;
 
+    @Autowired(required = false)
+    private com.dev.backend.services.lazada.LazadaClient lazadaClient;
+
+    @Autowired(required = false)
+    private com.dev.backend.services.KenhBanHangService kenhBanHangService;
+
     @Override
     protected EntityManager getEntityManager() {
         return entityManager;
@@ -991,10 +997,66 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                 .build() : null;
 
         // 3. Map Đơn bán hàng
-        DonBanHangDto donBanHangDto = (phieu.getDonBanHang() != null) ? DonBanHangDto.builder()
-                .id(phieu.getDonBanHang().getId())
-                .soDonHang(phieu.getDonBanHang().getSoDonHang()) // Lấy mã đơn hàng vào đây
-                .build() : null;
+        DonBanHang donGoc = phieu.getDonBanHang();
+        DonBanHangDto donBanHangDto = null;
+        String trackingCode = null;
+        String carrierName = null;
+        String packageId = null;
+
+        if (donGoc != null) {
+            KhachHang kh = donGoc.getKhachHang();
+            KhachHangDto khDto = kh != null ? KhachHangDto.builder()
+                    .id(kh.getId())
+                    .tenKhachHang(kh.getTenKhachHang())
+                    .soDienThoai(kh.getSoDienThoai())
+                    .diaChi(kh.getDiaChi())
+                    .build() : null;
+
+            KenhBanHang kb = donGoc.getKenhBanHang();
+            KenhBanHangTomTatDto kbDto = kb != null ? KenhBanHangTomTatDto.builder()
+                    .id(kb.getId())
+                    .maKenh(kb.getMaKenh())
+                    .tenKenh(kb.getTenKenh())
+                    .build() : null;
+
+            if (kb != null && "LAZADA".equalsIgnoreCase(kb.getMaKenh()) && donGoc.getMaDonHangKenh() != null
+                    && lazadaClient != null && kenhBanHangService != null) {
+                try {
+                    String appKey = kenhBanHangService.getLazadaAppKey();
+                    String appSecret = kenhBanHangService.getDecryptedLazadaAppSecret();
+                    String token = kenhBanHangService.getDecryptedLazadaAccessToken();
+                    if (appKey != null && appSecret != null && token != null) {
+                        com.dev.backend.dto.response.customize.LazadaOrderTrackingDto trk =
+                                lazadaClient.getOrderTracking(appKey, appSecret, token, donGoc.getMaDonHangKenh());
+                        if (trk != null) {
+                            trackingCode = trk.getTrackingCode();
+                            carrierName = trk.getShipmentProvider();
+                            packageId = trk.getPackageId();
+                            if ((trackingCode == null || trackingCode.isBlank()) && packageId != null && !packageId.isBlank()) {
+                                trackingCode = packageId;
+                            }
+                        }
+                    }
+                } catch (Exception ex) {
+                    log.warn("Không thể tra cứu mã vận đơn Lazada cho đơn {}: {}", donGoc.getMaDonHangKenh(), ex.getMessage());
+                }
+            }
+
+            donBanHangDto = DonBanHangDto.builder()
+                    .id(donGoc.getId())
+                    .soDonHang(donGoc.getSoDonHang())
+                    .maDonHangKenh(donGoc.getMaDonHangKenh())
+                    .khachHang(khDto)
+                    .kenhBanHang(kbDto)
+                    .diaChiGiaoHang(donGoc.getDiaChiGiaoHang())
+                    .ghiChu(donGoc.getGhiChu())
+                    .ngayDatHang(donGoc.getNgayDatHang())
+                    .tongCong(donGoc.getTongCong())
+                    .maVanDon(trackingCode)
+                    .donViVanChuyen(carrierName)
+                    .maKienHang(packageId)
+                    .build();
+        }
 
         NguoiDungDto nguoiXuatDto = (phieu.getNguoiXuat() != null) ? NguoiDungDto.builder()
                 .id(phieu.getNguoiXuat().getId())
@@ -1032,6 +1094,9 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                 .phieuNhatId(phieuNhat != null ? phieuNhat.getId() : null)
                 .maPhieuNhat(phieuNhat != null ? phieuNhat.getMaPickList() : null)
                 .trangThaiPhieuNhat(phieuNhat != null ? phieuNhat.getTrangThai() : null)
+                .maVanDon(trackingCode)
+                .donViVanChuyen(carrierName)
+                .maKienHang(packageId)
                 .build();
 
         List<ChiTietPhieuXuatKho> chiTietList = chiTietPhieuXuatKhoRepository.findByPhieuXuatKhoIdAndLoHangIsNull(phieu.getId());

@@ -47,4 +47,7 @@ public class DonBanHangDto implements Serializable {
     String maDonHangKenh;
     /** Cờ đơn hàng có yêu cầu hủy từ sàn (vd. TikTok Shop). */
     Boolean yeuCauHuy;
+    String maVanDon;
+    String donViVanChuyen;
+    String maKienHang;
 }

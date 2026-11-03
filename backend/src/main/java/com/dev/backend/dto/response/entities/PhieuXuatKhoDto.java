@@ -45,4 +45,7 @@ public class PhieuXuatKhoDto implements Serializable {
     private Integer phieuNhatId;
     private String maPhieuNhat;
     private String trangThaiPhieuNhat;
+    String maVanDon;
+    String donViVanChuyen;
+    String maKienHang;
 }
