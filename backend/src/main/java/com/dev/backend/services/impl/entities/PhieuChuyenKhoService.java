@@ -60,10 +60,10 @@ import java.util.stream.Collectors;
  *                              └──────────────────────────────────────────── HOAN_TAT ◀── xử lý lệch ── CHO_XU_LY_LECH
  * </pre>
  * Tồn kho: tạo / duyệt giữ chỗ ở kho nguồn (GiuChoChuyenKhoService); xuất: nguồn −, KHO_TRANSIT +; nhận: KHO_TRANSIT −,
- * đích +; phần thiếu, hỏng giữ ở KHO_TRANSIT tới khi Quản lý Kho tổng (mặc định, đổi ở Cấu hình › Chuyển kho) chọn Ghi
- * giảm hoặc Giao bù. Cả hai đều lập phiếu
+ * đích +; phần thiếu, hỏng giữ ở KHO_TRANSIT. Trong Chờ xử lý chênh lệch (BA 03/11): kho gửi xác nhận biên bản trước,
+ * rồi Quản lý Kho tổng (mặc định, đổi ở Cấu hình › Chuyển kho) mới chọn Ghi giảm hoặc Giao bù. Cả hai đều lập phiếu
  * điều chỉnh kho giảm cho phần lệch (giao bù không được trừ trung chuyển mà không có chứng từ), giao bù sinh thêm phiếu
- * chuyển mới nối phiếu gốc.
+ * chuyển mới nối phiếu gốc, đã duyệt và có lệnh điều động.
  */
 @Slf4j
 @Service
@@ -204,13 +204,23 @@ public class PhieuChuyenKhoService {
         if (!laQuanLyKhoTong(user)) {
             throw new CommonException(HttpStatus.FORBIDDEN, "Chỉ Quản lý Kho tổng duyệt và lập lệnh điều động");
         }
-        String lyDo = yeuCau == null ? null : chuoiHoacNull(yeuCau.getLyDoDieuDong());
-        if (lyDo == null || !IChuyenKho.LY_DO_DIEU_DONG.contains(lyDo)) {
-            throw new CommonException("Chọn lý do điều động");
-        }
-        String ghiChuLenh = chuoiHoacNull(yeuCau.getGhiChuLenh());
-        if (IChuyenKho.LY_DO_KHAC.equals(lyDo) && ghiChuLenh == null) {
-            throw new CommonException("Ghi rõ lý do điều động");
+        String lyDo;
+        String ghiChuLenh;
+        if (phieu.getPhieuGoc() != null) {
+            // Phiếu giao bù còn chờ duyệt (quản lý kho xuất chọn Giao bù theo Cấu hình): lý do luôn là Giao bù hàng, ghi
+            // chú lệnh như phiếu giao bù tự duyệt (BA 03/11) — lý do gửi lên không dùng
+            lyDo = IChuyenKho.LY_DO_GIAO_BU;
+            ghiChuLenh = ghiChuLenhGiaoBu(phieu.getPhieuGoc(), bienBanGiaoNhanRepository
+                    .findFirstByPhieuChuyenKho_IdOrderByIdDesc(phieu.getPhieuGoc().getId()).map(BienBanGiaoNhan::getSoBienBan).orElse(null));
+        } else {
+            lyDo = yeuCau == null ? null : chuoiHoacNull(yeuCau.getLyDoDieuDong());
+            if (lyDo == null || !IChuyenKho.LY_DO_DIEU_DONG.contains(lyDo)) {
+                throw new CommonException("Chọn lý do điều động");
+            }
+            ghiChuLenh = chuoiHoacNull(yeuCau.getGhiChuLenh());
+            if (IChuyenKho.LY_DO_KHAC.equals(lyDo) && ghiChuLenh == null) {
+                throw new CommonException("Ghi rõ lý do điều động");
+            }
         }
         List<ChiTietPhieuChuyenKho> dong = chiTietPhieuChuyenKhoRepository.findByPhieuChuyenKho_IdOrderByIdAsc(id);
         Map<Integer, Integer> soLuong = new LinkedHashMap<>();
@@ -223,6 +233,22 @@ public class PhieuChuyenKhoService {
         kiemTraKhaDung(phieu.getKhoXuat(), soLuong, bienThe, phieu.getId());
 
         NguoiDung quanLy = nguoiDungRepository.findById(user.getId()).orElseThrow();
+        lapLenhDieuDong(phieu, dong, quanLy, lyDo, ghiChuLenh);
+        return phieu;
+    }
+
+    /** Ghi chú lệnh điều động của phiếu giao bù (lý do GIAO_BU): "Giao bù hàng cho phiếu X theo biên bản Y". */
+    private static String ghiChuLenhGiaoBu(PhieuChuyenKho goc, String soBienBan) {
+        return "Giao bù hàng cho phiếu " + goc.getSoPhieuChuyen() + (soBienBan != null ? " theo biên bản " + soBienBan : "");
+    }
+
+    /**
+     * Lập lệnh điều động cho phiếu Chờ duyệt đã thẩm định tồn: cấp số LDD-yyyyMMdd-XXX, phiếu Đã duyệt, tự tạo PX-CK và
+     * phiếu nhặt ở kho xuất, ghi nhật ký duyệt, báo kho xuất. Dùng cho Duyệt và cho phiếu giao bù tự duyệt khi xử lý
+     * chênh lệch (BA 03/11).
+     */
+    private void lapLenhDieuDong(PhieuChuyenKho phieu, List<ChiTietPhieuChuyenKho> dong, NguoiDung quanLy, String lyDo,
+                                 String ghiChuLenh) {
         String tienTo = IChuyenKho.TIEN_TO_LENH + ngayHomNay() + "-";
         phieu.setSoLenhDieuDong(SoChungTu.tiepTheoBaChuSo(tienTo, phieuChuyenKhoRepository.soLenhLonNhat(tienTo)));
         phieu.setNgayLenhDieuDong(Instant.now());
@@ -235,7 +261,6 @@ public class PhieuChuyenKhoService {
         nhatHangService.taoPhieuNhatChuyenKho(phieu, px, dong);
         ghiNhatKy(phieu, IHanhDong.duyet_phieu_chuyen, IChuyenKho.CHO_DUYET, IChuyenKho.DA_DUYET, phieu.getSoLenhDieuDong(), quanLy);
         thongBaoChuyenKhoService.daDuyet(phieu, quanLy);
-        return phieu;
     }
 
     /**
@@ -711,14 +736,90 @@ public class PhieuChuyenKhoService {
     }
 
     // ─────────────────────────────────────────────────────────────
+    // KHO GỬI XÁC NHẬN BIÊN BẢN (BA 03/11)
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * Đại diện kho gửi xác nhận biên bản giao nhận trên F Centric (thay chữ ký tay ô "Đại diện kho gửi"): quản lý kho xuất
+     * đang đứng ở kho xuất, hoặc quản trị viên; người lập biên bản không tự xác nhận thay kho gửi. Ý kiến không bắt buộc
+     * (kho gửi không đồng ý thì ghi vào đây, người xử lý đọc rồi quyết). Xác nhận xong người được xử lý chênh lệch mới xử
+     * lý được, kho nhận không thêm / xóa ảnh biên bản nữa. Phiếu vẫn ở Chờ xử lý chênh lệch.
+     * Khóa phiếu rồi khóa dòng biên bản: hai lần xác nhận chạy lần lượt; thêm / xóa ảnh (khóa dòng biên bản) chạy trước
+     * hẳn hoặc sau hẳn lần xác nhận.
+     * READ_COMMITTED (như {@link #xuLyChenhLech}): sau khi chờ khóa dòng biên bản, lần đọc bộ ảnh thấy ảnh lần thêm kia
+     * vừa commit — REPEATABLE READ đọc theo ảnh chụp lập trước lúc chờ khóa nên bỏ sót ảnh mới và xác nhận lọt.
+     */
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public BienBanGiaoNhan xacNhanBienBan(Integer id, PhieuChuyenKhoYeuCau.XacNhanBienBan yeuCau) {
+        NguoiDungAuthInfo user = SecurityContextHolder.getUser();
+        PhieuChuyenKho phieu = khoa(id);
+        batBuocTrangThai(phieu, IChuyenKho.CHO_XU_LY_LECH, "xác nhận biên bản");
+        if (!duocXacNhanBienBan(user, phieu)) {
+            throw new CommonException(HttpStatus.FORBIDDEN, "Chỉ quản lý " + phieu.getKhoXuat().getTenKho()
+                    + " (kho gửi) hoặc quản trị viên xác nhận được biên bản này");
+        }
+        KhoDangChon.kiemTra(phieu.getKhoXuat(), "Phiếu chuyển " + phieu.getSoPhieuChuyen());
+        Integer bienBanId = bienBanGiaoNhanRepository.findFirstByPhieuChuyenKho_IdOrderByIdDesc(id)
+                .map(BienBanGiaoNhan::getId)
+                .orElseThrow(() -> new CommonException(HttpStatus.CONFLICT, "Phiếu chưa có biên bản giao nhận"));
+        BienBanGiaoNhan bb = bienBanGiaoNhanRepository.khoaTheoId(bienBanId)
+                .orElseThrow(() -> new CommonException(HttpStatus.CONFLICT, "Phiếu chưa có biên bản giao nhận"));
+        if (!IChuyenKho.CHUA_XU_LY.equals(bb.getPhuongAnXuLy())) {
+            throw new CommonException(HttpStatus.CONFLICT, "Biên bản " + bb.getSoBienBan() + " đã được xử lý");
+        }
+        if (bb.getNgayXacNhanGui() != null) {
+            throw new CommonException(HttpStatus.CONFLICT, "Biên bản " + bb.getSoBienBan() + " đã được kho gửi xác nhận"
+                    + (bb.getNguoiXacNhanGui() != null ? " (" + ten(bb.getNguoiXacNhanGui()) + ")" : ""));
+        }
+        if (laNguoiLapBienBan(user, bb)) {
+            throw new CommonException("Bạn đã lập biên bản " + bb.getSoBienBan()
+                    + ": đại diện kho gửi là người khác xác nhận");
+        }
+        // Kho gửi xác nhận đúng bộ ảnh đã xem: ảnh còn đang tải lên, hoặc kho nhận vừa thêm / xóa ảnh (cùng khóa dòng biên
+        // bản) thì báo xem lại thay vì xác nhận bộ ảnh khác
+        if (yeuCau != null && yeuCau.getAnhIds() != null
+                && !new HashSet<>(yeuCau.getAnhIds()).equals(new HashSet<>(anhBienBanGiaoNhanService.idAnh(bb.getId())))) {
+            throw new CommonException(HttpStatus.CONFLICT, "Ảnh của biên bản " + bb.getSoBienBan()
+                    + " vừa thay đổi (kho nhận thêm hoặc xóa ảnh). Xem lại ảnh rồi xác nhận");
+        }
+        String ghiChu = yeuCau == null ? null : toiDa(chuoiHoacNull(yeuCau.getGhiChu()), 255, "Ý kiến của kho gửi");
+        NguoiDung nguoi = nguoiDungRepository.findById(user.getId()).orElseThrow();
+        bb.setNguoiXacNhanGui(nguoi);
+        bb.setNgayXacNhanGui(Instant.now());
+        bb.setGhiChuKhoGui(ghiChu);
+        bienBanGiaoNhanRepository.save(bb);
+        ghiNhatKy(phieu, IHanhDong.xac_nhan_bien_ban, IChuyenKho.CHO_XU_LY_LECH, IChuyenKho.CHO_XU_LY_LECH,
+                bb.getSoBienBan() + (ghiChu != null ? ". Ý kiến kho gửi: " + ghiChu : ""), nguoi);
+        thongBaoChuyenKhoService.daXacNhanBienBan(phieu, bb, nguoi);
+        return bb;
+    }
+
+    /** Đại diện kho gửi: quản trị viên, hoặc quản lý kho đang được phân công ở kho xuất của phiếu (cả Kho tổng). */
+    private boolean duocXacNhanBienBan(NguoiDungAuthInfo user, PhieuChuyenKho p) {
+        return laQuanTri(user) || laQuanLyKho(user, p.getKhoXuat());
+    }
+
+    private static boolean laNguoiLapBienBan(NguoiDungAuthInfo user, BienBanGiaoNhan bb) {
+        return user != null && bb.getNguoiLap() != null && bb.getNguoiLap().getId().equals(user.getId());
+    }
+
+    /** Biên bản còn chờ xử lý mà kho gửi chưa xác nhận. */
+    private static boolean choKhoGuiXacNhan(BienBanGiaoNhan bb) {
+        return bb != null && IChuyenKho.CHUA_XU_LY.equals(bb.getPhuongAnXuLy()) && bb.getNgayXacNhanGui() == null;
+    }
+
+    // ─────────────────────────────────────────────────────────────
     // XỬ LÝ CHÊNH LỆCH (A4 bước 5, SDS bước 5; sửa R1, R2)
     // ─────────────────────────────────────────────────────────────
 
     /**
      * Người được xử lý chênh lệch (theo Cấu hình › Chuyển kho, xem {@link #duocXuLyChenhLech}) chọn một phương án cho cả
-     * biên bản. Cả hai phương án lập phiếu điều chỉnh kho giảm phần lệch (thiếu + hỏng) khỏi kho trung chuyển theo từng lô,
-     * nên tổng tồn công ty chỉ giảm qua chứng từ. Giao bù sinh thêm phiếu chuyển mới (Chờ duyệt, giữ chỗ ở kho nguồn) nối
-     * phiếu gốc, đúng số lệch.
+     * biên bản, sau khi kho gửi đã xác nhận biên bản ({@link #xacNhanBienBan}). Cả hai phương án lập phiếu điều chỉnh kho
+     * giảm phần lệch (thiếu + hỏng) khỏi kho trung chuyển theo từng lô, nên tổng tồn công ty chỉ giảm qua chứng từ. Giao bù
+     * sinh thêm phiếu chuyển mới nối phiếu gốc, đúng số lệch, giữ chỗ ở kho nguồn: người xử lý là Quản lý Kho tổng / quản
+     * trị viên thì phiếu giao bù Đã duyệt ngay với lệnh điều động lý do Giao bù hàng (BA 03/11, kèm PX-CK và phiếu nhặt
+     * như khi duyệt); quản lý kho xuất xử lý (theo Cấu hình) thì phiếu giao bù Chờ duyệt — chỉ Quản lý Kho tổng lập lệnh
+     * điều động (BR-TRF-01).
      * READ_COMMITTED (như {@link #tao}): Giao bù giữ chỗ mới ở kho nguồn, nên sau khi chờ khóa dòng tồn kho nguồn, lần đọc
      * khả dụng phải thấy bán POS / phiếu chuyển vừa ghi xong.
      */
@@ -737,6 +838,10 @@ public class PhieuChuyenKhoService {
                 .orElseThrow(() -> new CommonException(HttpStatus.CONFLICT, "Phiếu chưa có biên bản giao nhận"));
         if (!IChuyenKho.CHUA_XU_LY.equals(bb.getPhuongAnXuLy())) {
             throw new CommonException(HttpStatus.CONFLICT, "Biên bản " + bb.getSoBienBan() + " đã được xử lý");
+        }
+        if (bb.getNgayXacNhanGui() == null) {
+            throw new CommonException(HttpStatus.CONFLICT, "Biên bản " + bb.getSoBienBan() + " chờ "
+                    + phieu.getKhoXuat().getTenKho() + " (kho gửi) xác nhận trên F Centric trước khi xử lý chênh lệch");
         }
         List<ChiTietBienBanGiaoNhan> dongBb = chiTietBienBanGiaoNhanRepository.findByBienBan_IdOrderByIdAsc(bb.getId());
         NguoiDung quanLy = nguoiDungRepository.findById(user.getId()).orElseThrow();
@@ -864,18 +969,28 @@ public class PhieuChuyenKhoService {
                     .ghiChu("Giao bù cho " + phieu.getSoPhieuChuyen() + " theo biên bản " + bb.getSoBienBan())
                     .nguoiTao(quanLy)
                     .build());
+            List<ChiTietPhieuChuyenKho> dongBu = new ArrayList<>();
             for (Map.Entry<Integer, Integer> e : lechTheoBienThe.entrySet()) {
-                chiTietPhieuChuyenKhoRepository.save(ChiTietPhieuChuyenKho.builder()
+                ChiTietPhieuChuyenKho ct = ChiTietPhieuChuyenKho.builder()
                         .phieuChuyenKho(bu)
                         .bienTheSanPham(bienThe.get(e.getKey()))
                         .soLuongChuyen(e.getValue())
-                        .build());
+                        .build();
+                chiTietPhieuChuyenKhoRepository.save(ct);
+                dongBu.add(ct);
             }
             ghiNhatKy(bu, IHanhDong.tao_phieu_chuyen, null, IChuyenKho.CHO_DUYET, "Giao bù cho " + phieu.getSoPhieuChuyen(), quanLy);
-            thongBaoChuyenKhoService.choDuyet(bu, quanLy);
-            ghiChu += ", phiếu giao bù " + bu.getSoPhieuChuyen();
+            if (laQuanLyKhoTong(user)) {
+                // Quyết định giao bù của Quản lý Kho tổng là lần duyệt: không bắt duyệt lại phiếu giao bù (BA 03/11)
+                lapLenhDieuDong(bu, dongBu, quanLy, IChuyenKho.LY_DO_GIAO_BU, ghiChuLenhGiaoBu(phieu, bb.getSoBienBan()));
+                ghiChu += ", phiếu giao bù " + bu.getSoPhieuChuyen() + " (lệnh điều động " + bu.getSoLenhDieuDong() + ")";
+            } else {
+                thongBaoChuyenKhoService.choDuyet(bu, quanLy);
+                ghiChu += ", phiếu giao bù " + bu.getSoPhieuChuyen() + " chờ duyệt";
+            }
         }
         ghiNhatKy(phieu, IHanhDong.xu_ly_chenh_lech, IChuyenKho.CHO_XU_LY_LECH, IChuyenKho.HOAN_TAT, ghiChu, quanLy);
+        thongBaoChuyenKhoService.daXuLyChenhLech(phieu);
         sanPhamIds.forEach(sanPhamQuanAoService::recalculatePriceAndStatus);
         return dck;
     }
@@ -939,12 +1054,14 @@ public class PhieuChuyenKhoService {
         List<Integer> ids = page.getContent().stream().map(PhieuChuyenKho::getId).toList();
         Map<Integer, Integer> tongSl = new HashMap<>();
         Set<Integer> coChenhLech = new HashSet<>();
+        Set<Integer> choXacNhan = new HashSet<>();
         if (!ids.isEmpty()) {
             for (Object[] row : chiTietPhieuChuyenKhoRepository.tongSoLuongTheoPhieu(ids)) {
                 tongSl.put((Integer) row[0], ((Number) row[1]).intValue());
             }
             for (BienBanGiaoNhan bb : bienBanGiaoNhanRepository.findByPhieuChuyenKho_IdIn(ids)) {
                 if (IChuyenKho.GHI_GIAM_HAO_HUT.equals(bb.getPhuongAnXuLy())) coChenhLech.add(bb.getPhieuChuyenKho().getId());
+                if (choKhoGuiXacNhan(bb)) choXacNhan.add(bb.getPhieuChuyenKho().getId());
             }
         }
         List<PhieuChuyenKhoDto.DongDanhSach> dong = page.getContent().stream().map(p -> PhieuChuyenKhoDto.DongDanhSach.builder()
@@ -957,6 +1074,7 @@ public class PhieuChuyenKhoService {
                 .khoNhapTen(p.getKhoNhap().getTenKho())
                 .trangThai(p.getTrangThai())
                 .coChenhLech(IChuyenKho.HOAN_TAT.equals(p.getTrangThai()) && coChenhLech.contains(p.getId()))
+                .choKhoGuiXacNhan(IChuyenKho.CHO_XU_LY_LECH.equals(p.getTrangThai()) && choXacNhan.contains(p.getId()))
                 .soLenhDieuDong(p.getSoLenhDieuDong())
                 .kyHieuXknb(p.getKyHieuXknb())
                 .soPhieuXknb(p.getSoPhieuXknb())
@@ -1234,6 +1352,8 @@ public class PhieuChuyenKhoService {
         boolean laKhoXuat = laQuanTri(user) || thuocKho(user, p.getKhoXuat());
         boolean laKhoNhap = laQuanTri(user) || thuocKho(user, p.getKhoNhap());
         boolean tuChoi = IChuyenKho.CHO_DUYET.equals(tt) && duocTuChoi(user, p);
+        boolean lech = IChuyenKho.CHO_XU_LY_LECH.equals(tt) && bb != null && IChuyenKho.CHUA_XU_LY.equals(bb.getPhuongAnXuLy());
+        boolean daXacNhan = lech && bb.getNgayXacNhanGui() != null;
         return PhieuChuyenKhoDto.Quyen.builder()
                 .duyet(IChuyenKho.CHO_DUYET.equals(tt) && laQuanLyKhoTong(user))
                 .tuChoi(tuChoi)
@@ -1243,7 +1363,9 @@ public class PhieuChuyenKhoService {
                 .xuat(IChuyenKho.DA_DUYET.equals(tt) && laKhoXuat)
                 .ghiSoXknb(thieuXknb(p) && laKhoXuat)
                 .nhan(IChuyenKho.DANG_VAN_CHUYEN.equals(tt) && laKhoNhap)
-                .xuLyChenhLech(IChuyenKho.CHO_XU_LY_LECH.equals(tt) && duocXuLyChenhLech(user, p, cheDoXuLyLech))
+                .xacNhanBienBan(lech && !daXacNhan && duocXacNhanBienBan(user, p) && !laNguoiLapBienBan(user, bb))
+                .xuLyChenhLech(daXacNhan && duocXuLyChenhLech(user, p, cheDoXuLyLech))
+                .giaoBuTuDuyet(laQuanLyKhoTong(user))
                 .nhapHoanTra(conHoanTra && laKhoXuat)
                 .themAnhBienBan(anhBienBanGiaoNhanService.duocThem(user, p, bb))
                 .build();
@@ -1626,6 +1748,9 @@ public class PhieuChuyenKhoService {
                 .tongThieu(b.getTongSoLuongThieu())
                 .tongHong(b.getTongSoLuongHong())
                 .ketLuan(b.getGhiChu())
+                .nguoiXacNhanGui(b.getNgayXacNhanGui() != null ? ten(b.getNguoiXacNhanGui()) : null)
+                .ngayXacNhanGui(b.getNgayXacNhanGui())
+                .ghiChuKhoGui(b.getGhiChuKhoGui())
                 .phuongAn(b.getPhuongAnXuLy())
                 .nguoiDuyet(ten(b.getNguoiDuyetXuLy()))
                 .ngayDuyet(b.getNgayDuyetXuLy())
