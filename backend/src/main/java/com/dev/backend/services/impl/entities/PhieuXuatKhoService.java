@@ -20,6 +20,7 @@ import com.dev.backend.utils.KhoDangChon;
 import com.dev.backend.utils.SauCommit;
 import com.dev.backend.utils.SoChungTu;
 import com.dev.backend.services.impl.kiemke.KhoaKiemKeGuard;
+import com.dev.backend.services.impl.kiemke.PhanBoKeService;
 import com.dev.backend.services.impl.kiemke.SoTonKeService;
 import com.dev.backend.constant.enums.TrangThaiPhieuNhap;
 import jakarta.persistence.EntityManager;
@@ -96,6 +97,9 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
 
     @Autowired(required = false)
     private SoTonKeService soTonKeService;
+
+    @Autowired(required = false)
+    private PhanBoKeService phanBoKeService;
 
     @Autowired
     private NguoiDungRepository nguoiDungRepository;
@@ -480,7 +484,10 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
             // Quy tắc 5: Trừ tồn kho vật lý On Hand
             tonKho.setSoLuongTon(soLuongTruoc.subtract(soLuongXuat));
             if (soTonKeService != null) {
-                soTonKeService.tru(phieu.getKho().getId(), pick.getLoHang(), soLuongXuat, soLuongTruoc);
+                // Phiếu tạo từ phiếu nhặt có ghi kệ: trừ đúng kệ đã nhặt (Đ7); không có thì theo thứ tự kệ như cũ
+                Map<Integer, Integer> keDaNhat = phanBoKeService == null ? null
+                        : phanBoKeService.layKeDaNhat(phieu, pick.getLoHang(), soLuongXuat);
+                soTonKeService.tru(phieu.getKho().getId(), pick.getLoHang(), soLuongXuat, soLuongTruoc, keDaNhat);
             }
 
             // Quy tắc 5: Giải phóng phần phiếu xuất chuyển kho đã giữ (soLuongDaDat). Phiếu bán hàng không cộng vào

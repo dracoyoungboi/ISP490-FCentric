@@ -11,6 +11,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import jakarta.persistence.PersistenceContext;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
@@ -25,8 +26,8 @@ import java.util.*;
  * (ton_kho_theo_lo). Phần tồn của lô không nằm trên kệ nào của kho là hàng chưa có kệ:
  * <pre>chưa có kệ(lô, kho) = tồn lô ở kho − Σ số trên các kệ của kho</pre>
  * <ul>
- *   <li>{@link #tru}: tồn lô giảm (xuất, bán) — trừ ở kệ của lô trước, rồi các kệ khác, cuối cùng phần chưa có kệ
- *   (chốt Đ3); bỏ qua kệ đang kiểm kê.</li>
+ *   <li>{@link #tru}: tồn lô giảm (xuất, bán) — trừ ở kệ của lô trước, rồi các kệ khác theo mã, cuối cùng phần chưa
+ *   có kệ (chốt Đ3); bỏ qua kệ đang kiểm kê. Phần kệ phiếu nhặt đang giữ chỉ trừ sau cùng.</li>
  *   <li>{@link #cong}: nhập lên một kệ của đúng kho; kệ khác kho / không có kệ thì hàng vào phần chưa có kệ.</li>
  *   <li>{@link #xepKe} / {@link #chuyenKe}: đổi chỗ trong kho, tồn lô không đổi.</li>
  * </ul>
@@ -45,6 +46,10 @@ public class SoTonKeService {
     private final ViTriKhoRepository viTriKhoRepository;
     private final LoHangRepository loHangRepository;
     private final KhoaKiemKeGuard guard;
+
+    /** Phần kệ / hàng chưa có kệ phiếu nhặt đang giữ (phân bổ nhặt theo kệ); null khi unit test dựng tay. */
+    @Autowired(required = false)
+    private PhanBoKeService phanBoKeService;
 
     public SoTonKeService(TonKhoViTriRepository tonKhoViTriRepository, TonKhoTheoLoRepository tonKhoTheoLoRepository,
                           ViTriKhoRepository viTriKhoRepository, LoHangRepository loHangRepository,
@@ -73,6 +78,17 @@ public class SoTonKeService {
      */
     @Transactional
     public void tru(Integer khoId, LoHang lo, BigDecimal soLuong, BigDecimal tonLoTruoc) {
+        tru(khoId, lo, soLuong, tonLoTruoc, null);
+    }
+
+    /**
+     * Như {@link #tru(Integer, LoHang, BigDecimal, BigDecimal)}, có thêm {@code keDaNhat}: [kệ → số] hàng đã nhặt ở từng
+     * kệ (phiếu xuất tạo từ phiếu nhặt có ghi kệ, {@link PhanBoKeService#layKeDaNhat}). Trừ đúng các kệ đó trước; phần
+     * còn lại đã nhặt ở hàng chưa có kệ nên trừ phần chưa có kệ trước, thiếu mới tới các kệ theo thứ tự Đ3.
+     * {@code keDaNhat} null: trừ theo thứ tự Đ3 như cũ.
+     */
+    @Transactional
+    public void tru(Integer khoId, LoHang lo, BigDecimal soLuong, BigDecimal tonLoTruoc, Map<Integer, Integer> keDaNhat) {
         int can = soNguyen(soLuong);
         if (khoId == null || lo == null || can <= 0) return;
         List<TonKhoViTri> dong = khoaDong(khoId, lo.getId());
@@ -82,8 +98,48 @@ public class SoTonKeService {
         Set<Integer> dangKiem = guard.keDangKiemCuaLo(khoId, lo.getId());
         Integer keCuaLo = lo.getViTriKho() == null ? null : lo.getViTriKho().getId();
         List<TonKhoViTri> thuTu = new ArrayList<>(dong);
+        // Đ3: kệ của lô, rồi các kệ khác theo mã (cùng thứ tự phiếu nhặt chia kệ)
         thuTu.sort(Comparator.comparing((TonKhoViTri t) -> !Objects.equals(t.getViTriKho().getId(), keCuaLo))
+                .thenComparing(t -> t.getViTriKho().getMaViTri() == null ? "" : t.getViTriKho().getMaViTri())
                 .thenComparing(t -> t.getViTriKho().getId()));
+        // Phần trên kệ phiếu nhặt khác đang giữ (đang nhặt / đã nhặt chờ xuất): trừ sau cùng, để bán quầy hay phiếu không
+        // từ phiếu nhặt không ăn vào hàng người nhặt sẽ lấy ở kệ đó
+        Map<Integer, Integer> giu = phanBoKeService == null ? Map.of() : phanBoKeService.giuTrenKeCuaLo(khoId, lo.getId());
+        if (keDaNhat != null) {
+            for (TonKhoViTri t : thuTu) {
+                if (can == 0) break;
+                Integer goi = keDaNhat.get(t.getViTriKho().getId());
+                if (goi == null || goi <= 0 || dangKiem.contains(t.getViTriKho().getId())) continue;
+                int co = Math.max(0, t.getSoLuong() == null ? 0 : t.getSoLuong());
+                int lay = Math.min(Math.min(co, goi), can);
+                if (lay > 0) {
+                    t.setSoLuong(co - lay);
+                    tonKhoViTriRepository.save(t);
+                    can -= lay;
+                }
+            }
+            int tuChuaCoKe = Math.min(can, chuaCoKe);
+            can -= tuChuaCoKe;
+            chuaCoKe -= tuChuaCoKe;
+        }
+        // Phần kệ còn tự do (sổ kệ − phần phiếu nhặt giữ)
+        for (TonKhoViTri t : thuTu) {
+            if (can == 0) break;
+            if (dangKiem.contains(t.getViTriKho().getId())) continue;
+            int co = Math.max(0, t.getSoLuong() == null ? 0 : t.getSoLuong());
+            int lay = Math.min(Math.max(0, co - giu.getOrDefault(t.getViTriKho().getId(), 0)), can);
+            if (lay > 0) {
+                t.setSoLuong(co - lay);
+                tonKhoViTriRepository.save(t);
+                can -= lay;
+            }
+        }
+        if (keDaNhat == null) {
+            int tuChuaCoKe = Math.min(can, chuaCoKe);
+            can -= tuChuaCoKe;
+            chuaCoKe -= tuChuaCoKe;
+        }
+        // Cuối cùng phần đang giữ (dữ liệu lệch / phiếu không theo phân bổ)
         for (TonKhoViTri t : thuTu) {
             if (can == 0) break;
             if (dangKiem.contains(t.getViTriKho().getId())) continue;
@@ -199,6 +255,12 @@ public class SoTonKeService {
             throw new CommonException(HttpStatus.CONFLICT, "Lô " + ton.getLoHang().getMaLo() + " chỉ còn "
                     + Math.max(0, chuaCoKe) + " sản phẩm chưa có kệ ở kho này");
         }
+        int giuChua = phanBoKeService == null ? 0 : phanBoKeService.giuChuaCoKe(khoId, loId, null);
+        if (giuChua > 0 && soLuong > chuaCoKe - giuChua) {
+            throw new CommonException(HttpStatus.CONFLICT, "Lô " + ton.getLoHang().getMaLo() + " có " + giuChua
+                    + " sản phẩm chưa có kệ đang phân bổ cho phiếu nhặt (người nhặt sẽ lấy ở đó). Lúc này chỉ xếp được "
+                    + Math.max(0, chuaCoKe - giuChua) + " lên kệ.");
+        }
         kiemTraSucChua(viTri, soLuong);
         cong(khoId, viTri, ton.getLoHang(), ton.getLoHang().getBienTheSanPham(), BigDecimal.valueOf(soLuong));
         LoHang lo = ton.getLoHang();
@@ -228,6 +290,12 @@ public class SoTonKeService {
         int co = nguon.getSoLuong() == null ? 0 : nguon.getSoLuong();
         if (co < soLuong) {
             throw new CommonException(HttpStatus.CONFLICT, "Kệ " + tu.getMaViTri() + " chỉ còn " + Math.max(0, co) + " sản phẩm của lô này");
+        }
+        int giuO = phanBoKeService == null ? 0 : phanBoKeService.giuTrenKeCuaLo(khoId, loId).getOrDefault(tuViTriId, 0);
+        if (giuO > 0 && soLuong > co - giuO) {
+            throw new CommonException(HttpStatus.CONFLICT, "Kệ " + tu.getMaViTri() + " có " + giuO
+                    + " sản phẩm của lô này đang phân bổ cho phiếu nhặt. Lúc này chỉ chuyển được " + Math.max(0, co - giuO)
+                    + "; đổi kệ ở Phân bổ lô của phiếu nhặt hoặc đợi phiếu xuất xong.");
         }
         kiemTraSucChua(den, soLuong);
         nguon.setSoLuong(co - soLuong);
