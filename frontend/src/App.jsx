@@ -297,13 +297,17 @@ const CAY_DUONG_DAN = (
       <Route path="/transfer-tickets/:id/receive" element={<NhanHangChuyenKho />} />
       <Route path="/transfer-tickets/adjustments/:id" element={<PhieuDieuChinhChuyenKho />} />
 
-      {/* Kiểm kê kho hàng*/}
-      <Route path="/stock-take" element={<StockTakeList />} />
-      <Route path="/stock-take/new" element={<StockTakeCreate />} />
-      <Route path="/stock-take/lock-map" element={<StockTakeLockMap />} />
-      <Route path="/stock-take/unshelved" element={<StockTakeUnshelved />} />
-      <Route path="/stock-take/:id/edit" element={<StockTakeCreate />} />
-      <Route path="/stock-take/:id" element={<StockTakeDetail />} />
+      {/* Kiểm kê kho hàng: đúng vai trò máy chủ cho (KiemKeController). Lập / sửa đợt: quản trị viên + quản lý kho */}
+      <Route element={<RequireRole roles={["quan_tri_vien", "quan_ly_kho", "nhan_vien_kho"]} />}>
+        <Route path="/stock-take" element={<StockTakeList />} />
+        <Route path="/stock-take/lock-map" element={<StockTakeLockMap />} />
+        <Route path="/stock-take/unshelved" element={<StockTakeUnshelved />} />
+        <Route path="/stock-take/:id" element={<StockTakeDetail />} />
+      </Route>
+      <Route element={<RequireRole roles={["quan_tri_vien", "quan_ly_kho"]} />}>
+        <Route path="/stock-take/new" element={<StockTakeCreate />} />
+        <Route path="/stock-take/:id/edit" element={<StockTakeCreate />} />
+      </Route>
 
       {/* Báo cáo. Doanh thu, khách hàng, nhập xuất: API chỉ cho quản trị viên và
           quản lý kho (@RequireAuth ở backend), menu cũng chỉ hiện cho hai vai trò này. */}
