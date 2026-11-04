@@ -2,11 +2,12 @@ import { CircleCheck, Info, MapPin, ScanBarcode, TriangleAlert, X } from "lucide
 import { NutChu } from "@/components/chung-tu/DongThongBao";
 import { cn } from "@/lib/utils";
 
+// Phản hồi lần quét: ô nền nhạt theo kết quả, chữ 15px — người cầm máy quét đứng cách màn hình vẫn thấy đã cộng chưa
 const KIEU_PHAN_HOI = {
-  ok: { icon: CircleCheck, mau: "text-bo-success" },
-  canhBao: { icon: TriangleAlert, mau: "text-bo-warning" },
-  loi: { icon: TriangleAlert, mau: "text-bo-danger" },
-  thongTin: { icon: Info, mau: "text-bo-primary" },
+  ok: { icon: CircleCheck, mau: "text-bo-success", khung: "border-bo-success/30 bg-bo-success-soft" },
+  canhBao: { icon: TriangleAlert, mau: "text-bo-warning", khung: "border-amber-300/70 bg-bo-warning-soft" },
+  loi: { icon: TriangleAlert, mau: "text-bo-danger", khung: "border-bo-danger/25 bg-bo-danger-soft" },
+  thongTin: { icon: Info, mau: "text-bo-primary", khung: "border-bo-primary/25 bg-bo-primary-soft" },
 };
 
 /**
@@ -15,9 +16,10 @@ const KIEU_PHAN_HOI = {
  * kệ đang đếm và câu phản hồi lần quét cuối.
  *
  * - `phanHoi`: `{ kieu: "ok" | "canhBao" | "loi" | "thongTin", chu, nhanNut?, onNut? }` — đọc tự động bằng trình đọc màn hình.
+ * - `lanQuet`: đếm số lần quét, đổi mỗi lần để khung phản hồi hiện lại dù câu giống lần trước.
  * - `keDangDem`: `{ ma }` kệ đang lọc; `onBoKe` bỏ lọc kệ.
  */
-export default function ThanhQuetKiemKe({ oQuetRef, giaTri, onDoi, onQuet, phanHoi, keDangDem, onBoKe, khoa = false }) {
+export default function ThanhQuetKiemKe({ oQuetRef, giaTri, onDoi, onQuet, phanHoi, lanQuet = 0, keDangDem, onBoKe, khoa = false }) {
   const k = phanHoi ? KIEU_PHAN_HOI[phanHoi.kieu] ?? KIEU_PHAN_HOI.thongTin : null;
   const Icon = k?.icon;
   return (
@@ -60,27 +62,38 @@ export default function ThanhQuetKiemKe({ oQuetRef, giaTri, onDoi, onQuet, phanH
           </span>
         ) : null}
       </div>
-      <p role="status" aria-live="polite" className="flex min-h-5 items-start gap-1.5 text-[13px] leading-5">
+      <div role="status" aria-live="polite">
         {phanHoi ? (
-          <>
-            <Icon className={cn("mt-0.5 size-4 shrink-0", k.mau)} aria-hidden="true" />
-            <span className="min-w-0 text-bo-foreground">
+          // key đổi mỗi lần quét: khung hiện lại (mờ dần vào) kể cả khi câu giống lần trước
+          <p
+            key={lanQuet}
+            className={cn(
+              "flex min-h-11 items-start gap-2.5 rounded-lg border px-3 py-2.5 text-[15px] font-medium leading-6 text-bo-foreground motion-safe:animate-in motion-safe:fade-in motion-safe:duration-300",
+              k.khung,
+            )}
+          >
+            <Icon className={cn("mt-0.5 size-5 shrink-0", k.mau)} aria-hidden="true" />
+            <span className="min-w-0">
               {phanHoi.chu}
               {phanHoi.nhanNut && phanHoi.onNut ? (
                 <>
                   {" "}
-                  <NutChu onClick={phanHoi.onNut}>{phanHoi.nhanNut}</NutChu>
+                  <NutChu onClick={phanHoi.onNut} className="text-sm">
+                    {phanHoi.nhanNut}
+                  </NutChu>
                 </>
               ) : null}
             </span>
-          </>
+          </p>
         ) : (
-          <span className="text-bo-muted">
-            Mẹo: gõ <kbd className="rounded border border-bo-border bg-bo-surface-subtle px-1 font-mono text-xs">12*mã</kbd> rồi Enter để
-            cộng 12 sản phẩm một lần.
-          </span>
+          <p className="flex min-h-5 items-start text-[13px] leading-5 text-bo-muted">
+            <span>
+              Mẹo: gõ <kbd className="rounded border border-bo-border bg-bo-surface-subtle px-1 font-mono text-xs">12*mã</kbd> rồi Enter
+              để cộng 12 sản phẩm một lần.
+            </span>
+          </p>
         )}
-      </p>
+      </div>
     </div>
   );
 }

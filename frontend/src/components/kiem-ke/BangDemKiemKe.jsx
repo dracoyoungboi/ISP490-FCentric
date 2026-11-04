@@ -548,7 +548,8 @@ export default function BangDemKiemKe({
                         key={d.id}
                         data-dong-kiem-ke={d.id}
                         className={cn(
-                          "border-b border-slate-100 tabular-nums hover:bg-bo-surface-subtle",
+                          // Cuộn tới dòng vừa quét: chừa chỗ cho thanh quét dính đầu màn
+                          "scroll-mt-44 scroll-mb-24 border-b border-slate-100 tabular-nums hover:bg-bo-surface-subtle",
                           coDongPhu(d, mu) && "border-b-0",
                           dongSang === d.id && DONG_SANG,
                           chon?.has(d.id) && "bg-bo-primary-soft/60",

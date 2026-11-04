@@ -152,6 +152,51 @@ export function timDichQuet(dong, ma, keDangLoc = null, dsKe = []) {
   return { kieu: "khong" };
 }
 
+/**
+ * Thu hẹp lần quét bằng các dòng ứng viên của lần quét trước (mã khớp nhiều dòng) — BA UC-STK-03: quét thêm mã để chọn
+ * đúng dòng, không tự cộng vào dòng đầu.
+ * - `dich`: kết quả timDichQuet của lần quét này. `truoc`: `{ ids: Set, soLuong }` ứng viên lần trước (hoặc null).
+ * - `dong`: mọi dòng của đợt (để tìm ứng viên nằm ở kệ vừa quét).
+ * Dòng Đã xác nhận (quản lý đã chốt) không bao giờ là ứng viên; mọi dòng khớp đều đã xác nhận → `dich.kieu` "daXacNhan".
+ * `truoc.theo` ("lo" | "maVach"): lần trước khớp theo mã lô hay mã vạch, để màn chỉ đúng mã cần quét tiếp.
+ * Trả `{ dich, soLuong, ungVien }`:
+ * - Quét mã kệ sau lần quét nhiều dòng: còn đúng một ứng viên ở kệ đó → cộng vào dòng đó với số lượng lần trước; còn
+ *   nhiều → giữ các ứng viên ở kệ đó (`ungVien`) để lần quét kế thu hẹp tiếp; không còn → xử lý như quét mã kệ thường.
+ * - Quét lô / SKU: giao với ứng viên lần trước; còn một → dòng đó (không gõ số thì lấy số lượng lần trước).
+ */
+export function thuHepTheoUngVien(dich, { truoc = null, dong = [], soLuong = 1, coSo = false } = {}) {
+  const conDem = (ds) => ds.filter((d) => d.trangThai !== TT_DONG.DA_XAC_NHAN);
+  let kq = dich;
+  if (kq.kieu === "nhieu") {
+    const ds = conDem(kq.ds);
+    if (ds.length === 1) kq = { kieu: "dong", dong: ds[0], ds };
+    else if (ds.length > 1) kq = { ...kq, ds };
+    // Mọi dòng khớp đều đã được quản lý xác nhận: không còn dòng nào cộng được
+    else if (!truoc) return { dich: { kieu: "daXacNhan", ds: kq.ds }, soLuong, ungVien: null };
+  }
+  if (!truoc) return { dich: kq, soLuong, ungVien: null };
+  // Số lượng giữ từ lần trước, trừ khi lần này gõ số mới ("3*mã")
+  const soGiu = coSo ? soLuong : truoc.soLuong;
+  if (kq.kieu === "ke") {
+    const oKe = conDem(dong.filter((d) => truoc.ids.has(d.id) && d.viTri?.id === kq.viTriId));
+    if (oKe.length === 1) return { dich: { kieu: "dong", dong: oKe[0], ds: oKe, quaKe: kq }, soLuong: truoc.soLuong, ungVien: null };
+    if (oKe.length > 1) {
+      return {
+        dich: { ...kq, conUngVien: oKe.length, theo: truoc.theo },
+        soLuong: truoc.soLuong,
+        ungVien: { ids: new Set(oKe.map((d) => d.id)), soLuong: truoc.soLuong, theo: truoc.theo },
+      };
+    }
+    return { dich: kq, soLuong, ungVien: null };
+  }
+  if (kq.kieu === "dong" || kq.kieu === "nhieu") {
+    const giao = conDem(kq.ds.filter((d) => truoc.ids.has(d.id)));
+    if (giao.length === 1) return { dich: { kieu: "dong", dong: giao[0], ds: giao }, soLuong: soGiu, ungVien: null };
+    if (giao.length > 1) return { dich: { ...kq, kieu: "nhieu", ds: giao }, soLuong: soGiu, ungVien: null };
+  }
+  return { dich: kq, soLuong, ungVien: null };
+}
+
 // ── Dòng ────────────────────────────────────────────────────────────────────
 
 /** Dòng đã đếm và lệch (Q ≠ 0). */
