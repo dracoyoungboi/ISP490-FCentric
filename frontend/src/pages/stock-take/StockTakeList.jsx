@@ -1,9 +1,10 @@
 // src/pages/stock-take/StockTakeList.jsx
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ClipboardList, Eye, Grid2x2, Play, Plus, SearchX } from "lucide-react";
+import { BadgeCheck, ClipboardList, Eye, Grid2x2, PencilLine, Plus, ScanBarcode, SearchX } from "lucide-react";
 import PageContainer from "@/components/backoffice/PageContainer";
 import AttentionBar from "@/components/shared/AttentionBar";
+import FilterSelect from "@/components/shared/FilterSelect";
 import ListPageHeader from "@/components/shared/ListPageHeader";
 import ListToolbar from "@/components/shared/ListToolbar";
 import SearchInput from "@/components/shared/SearchInput";
@@ -30,6 +31,8 @@ import { formatDate } from "@/utils/formatters";
 const TAB_VALUES = TAB_DOT.map((t) => t.value);
 const TAB_MAC_DINH = "tat-ca";
 const TAB_CHO_DUYET = "cho-duyet";
+const MOI_KHO = "tat-ca";
+const PHAM_VI_CO_CHI_TIET = ["theo_khu_vuc", "theo_ke", "theo_danh_muc"];
 
 const khopTab = (item, tab) => {
   const trangThai = TAB_DOT.find((t) => t.value === tab)?.trangThai;
@@ -44,15 +47,34 @@ const khopTuKhoa = (item, tuKhoa) => {
   );
 };
 
+const khopKho = (item, kho) => kho === MOI_KHO || String(item.kho?.id ?? "") === kho;
+
 /** Ngày hiển thị của đợt: đã bắt đầu → ngày bắt đầu, nháp → ngày tạo. */
 const ngayCua = (d) => d.ngayBatDau ?? d.ngayTao;
 
+/** "Theo khu vực · Khu A, Khu B"; toàn kho / đợt cũ chỉ ghi nhãn (dòng trên đã có tên kho). */
+const phamViNgan = (d, toiDa) =>
+  PHAM_VI_CO_CHI_TIET.includes(d.loaiKiemKe) ? `${nhanPhamVi(d.loaiKiemKe)} · ${moTaPhamVi(d, toiDa)}` : nhanPhamVi(d.loaiKiemKe);
+
+/** Nút thao tác theo việc người xem làm được ở trạng thái hiện tại; còn lại là xem. */
+function thaoTacCua(d) {
+  const tt = Number(d.trangThai);
+  const q = d.quyen ?? {};
+  if (tt === TT_DOT.DANG_KIEM_KE && q.dem) return { icon: ScanBarcode, label: "Tiếp tục đếm" };
+  if (tt === TT_DOT.CHO_DUYET && (q.pheDuyet || q.demLai)) return { icon: BadgeCheck, label: "Thẩm định" };
+  if (tt === TT_DOT.NHAP && q.suaNhap) return { icon: PencilLine, label: "Mở nháp" };
+  return { icon: Eye, label: "Xem chi tiết" };
+}
+
 const TH_CLASS = "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
 
-/** Thanh tiến độ nhỏ trong bảng: "12/40" + vạch. Nháp: "Chưa chốt". */
+/** Đợt đã bắt đầu (đã khóa phạm vi, chốt dòng): chưa có ngày bắt đầu là nháp, hoặc đợt hủy ngay từ nháp. */
+const daBatDau = (d) => Boolean(d.ngayBatDau);
+
+/** Thanh tiến độ nhỏ trong bảng: "12/40" + vạch. Đợt chưa bắt đầu (nháp, hủy từ nháp): "Chưa chốt dòng", không vẽ vạch 0/0. */
 function TienDo({ d }) {
   const tk = d.thongKe ?? {};
-  if (Number(d.trangThai) === TT_DOT.NHAP) return <span className="text-xs text-bo-muted">Chưa chốt dòng</span>;
+  if (!daBatDau(d)) return <span className="text-xs text-bo-muted">Chưa chốt dòng</span>;
   const tong = tk.tongDong ?? 0;
   const da = tk.daDem ?? 0;
   const pt = tong ? Math.floor((da / tong) * 100) : 0;
@@ -67,7 +89,10 @@ function TienDo({ d }) {
       </span>
       <span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-slate-200/80" aria-hidden="true">
         <span
-          className={cn("block h-full rounded-full", pt >= 100 ? "bg-bo-success" : "bg-bo-primary")}
+          className={cn(
+            "block h-full rounded-full",
+            pt >= 100 ? "bg-bo-success" : Number(d.trangThai) === TT_DOT.DA_HUY ? "bg-slate-400" : "bg-bo-primary",
+          )}
           // data-viz: bề rộng theo phần trăm dòng đã đếm
           style={{ width: `${pt}%` }}
         />
@@ -76,11 +101,21 @@ function TienDo({ d }) {
   );
 }
 
-/** Chênh lệch ròng (hiện từ lúc trình duyệt, khi số đếm đã chốt). */
+/** Chênh lệch ròng (hiện từ lúc trình duyệt, khi số đếm đã chốt). Đợt hủy: lý do hủy. Đợt chưa bắt đầu: "—" (cột Tiến độ đã ghi "Chưa chốt dòng"). */
 function ChenhLech({ d }) {
   const tt = Number(d.trangThai);
   const tk = d.thongKe ?? {};
-  if (tt !== TT_DOT.CHO_DUYET && tt !== TT_DOT.DA_DUYET) return <span className="text-bo-muted">—</span>;
+  if (tt === TT_DOT.DA_HUY) {
+    const lyDo = d.lyDoHuy?.trim();
+    if (!lyDo) return <span className="text-bo-muted">—</span>;
+    return (
+      <span className="ml-auto block max-w-[160px] truncate text-xs text-bo-muted" title={`Hủy: ${lyDo}`}>
+        Hủy: {lyDo}
+      </span>
+    );
+  }
+  if (!daBatDau(d)) return <span className="text-bo-muted">—</span>;
+  if (tt !== TT_DOT.CHO_DUYET && tt !== TT_DOT.DA_DUYET) return <span className="text-xs text-bo-muted">Chưa chốt</span>;
   if (!tk.lech) return <span className="text-xs font-semibold text-bo-success">Khớp sổ</span>;
   const rong = Number(tk.giaTriRong) || 0;
   return (
@@ -93,7 +128,8 @@ function ChenhLech({ d }) {
 
 /**
  * Danh sách đợt kiểm kê (/stock-take). Tab trên URL ?trangThai= (Tổng quan liên kết tới "dang-kiem-ke"). Dòng chú ý:
- * quản lý kho / quản trị thấy đợt chờ duyệt; nhân viên kho thấy đợt đang kiểm kê. Lối vào Sơ đồ khóa ở đầu trang.
+ * quản lý kho / quản trị thấy đợt chờ duyệt (kèm số đợt đang đếm); nhân viên kho thấy đợt đang kiểm kê. Lối vào Sơ đồ
+ * khóa ở đầu trang. Lọc kho ở máy (?kho=), chỉ hiện khi danh sách có từ 2 kho.
  */
 export default function StockTakeList() {
   const navigate = useNavigate();
@@ -138,6 +174,21 @@ export default function StockTakeList() {
   }, [tai]);
   useTaiLaiKhiQuayLai(() => tai({ ngam: true }), { bat: !dangTai });
 
+  // Kho có đợt (lấy từ dữ liệu); ô lọc kho chỉ hiện khi từ 2 kho trở lên. Kho chọn nằm trên URL ?kho=
+  const dsKho = useMemo(() => {
+    const theoId = new Map();
+    ds.forEach((x) => x.kho?.id != null && !theoId.has(x.kho.id) && theoId.set(x.kho.id, x.kho));
+    return [...theoId.values()].sort((a, b) => String(a.ten ?? "").localeCompare(String(b.ten ?? ""), "vi"));
+  }, [ds]);
+  const coLocKho = dsKho.length >= 2;
+  const [kho, setKho] = useTabTrenUrl(coLocKho ? [MOI_KHO, ...dsKho.map((k) => String(k.id))] : [], MOI_KHO, { ten: "kho" });
+  const tuyChonKho = useMemo(
+    () => [{ value: MOI_KHO, label: "Mọi kho" }, ...dsKho.map((k) => ({ value: String(k.id), label: k.ten || k.ma || `Kho #${k.id}` }))],
+    [dsKho],
+  );
+  const tenKhoDangLoc = tuyChonKho.find((o) => o.value === kho)?.label;
+  const dangLocKho = kho !== MOI_KHO;
+
   const doiTab = (v) => {
     setTab(v);
     setTrang(0);
@@ -147,8 +198,17 @@ export default function StockTakeList() {
     setTrang(0);
   };
   const xoaTuKhoa = () => doiTuKhoa("");
+  const doiKho = (v) => {
+    setKho(v);
+    setTrang(0);
+  };
+  const xoaLoc = () => {
+    setTuKhoa("");
+    setKho(MOI_KHO);
+    setTrang(0);
+  };
 
-  const daTim = useMemo(() => ds.filter((x) => khopTuKhoa(x, tuKhoa)), [ds, tuKhoa]);
+  const daTim = useMemo(() => ds.filter((x) => khopKho(x, kho) && khopTuKhoa(x, tuKhoa)), [ds, kho, tuKhoa]);
   const daLoc = useMemo(() => daTim.filter((x) => khopTab(x, tab)), [daTim, tab]);
   const tabs = useMemo(
     () =>
@@ -161,13 +221,21 @@ export default function StockTakeList() {
     [daTim, dangTai, loiTai],
   );
 
-  const choDuyet = ds.filter((x) => Number(x.trangThai) === TT_DOT.CHO_DUYET && x.quyen?.pheDuyet).length;
-  const dangKiem = ds.filter((x) => Number(x.trangThai) === TT_DOT.DANG_KIEM_KE).length;
+  // Đếm trên cùng nguồn với số trên tab (đã lọc kho, từ khóa): bấm nút chuyển tab thấy đúng các đợt vừa đếm
+  const choDuyet = daTim.filter((x) => Number(x.trangThai) === TT_DOT.CHO_DUYET && x.quyen?.pheDuyet).length;
+  const dangKiem = daTim.filter((x) => Number(x.trangThai) === TT_DOT.DANG_KIEM_KE).length;
   const chuY =
     dangTai || loiTai
       ? null
       : laQuanLy && choDuyet && tab !== TAB_CHO_DUYET
-        ? { tone: "warning", so: choDuyet, chu: "đợt kiểm kê chờ bạn thẩm định.", nut: "Xem đợt chờ duyệt", tab: TAB_CHO_DUYET }
+        ? {
+            tone: "warning",
+            so: choDuyet,
+            chu: "đợt kiểm kê chờ bạn thẩm định.",
+            phu: dangKiem ? `Còn ${soVN(dangKiem)} đợt đang đếm.` : null,
+            nut: "Xem đợt chờ duyệt",
+            tab: TAB_CHO_DUYET,
+          }
         : laNhanVien && dangKiem && tab !== "dang-kiem-ke"
           ? { tone: "info", so: dangKiem, chu: "đợt kiểm kê đang đếm.", nut: "Xem đợt đang kiểm kê", tab: "dang-kiem-ke" }
           : null;
@@ -177,6 +245,7 @@ export default function StockTakeList() {
   const trangAnToan = Math.min(trang, soTrang - 1);
   const muc = daLoc.slice(trangAnToan * coTrang, (trangAnToan + 1) * coTrang);
   const dangTim = Boolean(tuKhoa.trim());
+  const dangLoc = dangTim || dangLocKho;
   const nhanTab = TAB_DOT.find((t) => t.value === tab)?.label;
   const moDot = (d) => navigate(`/stock-take/${d.id}`);
 
@@ -205,6 +274,7 @@ export default function StockTakeList() {
 
       <AttentionBar tone={chuY?.tone} count={chuY?.so ?? null} actionLabel={chuY?.nut} onAction={() => chuY && doiTab(chuY.tab)}>
         <strong className="font-semibold">{soVN(chuY?.so ?? 0)}</strong> {chuY?.chu}
+        {chuY?.phu ? <span className="opacity-75"> {chuY.phu}</span> : null}
       </AttentionBar>
 
       <TableShell
@@ -212,8 +282,8 @@ export default function StockTakeList() {
         toolbar={
           <ListToolbar
             tabs={<StatusTabs label="Lọc đợt kiểm kê theo trạng thái" tabs={tabs} value={tab} onChange={doiTab} />}
-            hasFilter={dangTim}
-            onClear={xoaTuKhoa}
+            hasFilter={dangLoc}
+            onClear={xoaLoc}
           >
             <SearchInput
               placeholder="Tìm mã đợt, tên đợt, kho, người chủ trì..."
@@ -223,6 +293,17 @@ export default function StockTakeList() {
               onClear={xoaTuKhoa}
               className="sm:w-[300px]"
             />
+            {coLocKho ? (
+              <FilterSelect
+                label="Lọc theo kho"
+                value={kho}
+                options={tuyChonKho}
+                onChange={doiKho}
+                onClear={() => doiKho(MOI_KHO)}
+                clearLabel="Xem mọi kho"
+                align="end"
+              />
+            ) : null}
           </ListToolbar>
         }
         footer={
@@ -249,10 +330,29 @@ export default function StockTakeList() {
             <EmptyState
               icon={SearchX}
               title="Không tìm thấy đợt kiểm kê phù hợp"
-              description="Thử đổi từ khóa tìm kiếm."
+              description={dangLocKho ? `Thử đổi từ khóa tìm kiếm hoặc xem mọi kho thay vì ${tenKhoDangLoc}.` : "Thử đổi từ khóa tìm kiếm."}
               action={
-                <Button variant="outline" onClick={xoaTuKhoa} className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">
+                <Button variant="outline" onClick={xoaLoc} className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">
                   Xóa lọc
+                </Button>
+              }
+            />
+          ) : dangLocKho ? (
+            <EmptyState
+              icon={ClipboardList}
+              title={
+                tab !== TAB_MAC_DINH
+                  ? `Không có đợt nào ở trạng thái "${nhanTab}" tại ${tenKhoDangLoc}`
+                  : `Không có đợt nào ở ${tenKhoDangLoc}`
+              }
+              description="Chọn Mọi kho để xem đợt kiểm kê của các kho khác."
+              action={
+                <Button
+                  variant="outline"
+                  onClick={() => doiKho(MOI_KHO)}
+                  className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
+                >
+                  Xem mọi kho
                 </Button>
               }
             />
@@ -306,20 +406,18 @@ export default function StockTakeList() {
                       {d.kho?.ten ? <span className="shrink-0 text-bo-muted">{d.kho.ten}</span> : null}
                     </span>
                     <span className="min-w-0 truncate text-[13px] text-bo-muted">
-                      {nhanPhamVi(d.loaiKiemKe)}
-                      {d.loaiKiemKe !== "toan_bo" ? ` · ${moTaPhamVi(d, 2)}` : ""} · {formatDate(ngayCua(d))}
+                      {phamViNgan(d, 2)} · {formatDate(ngayCua(d))}
                     </span>
-                    {Number(d.trangThai) !== TT_DOT.NHAP ? <TienDo d={d} /> : null}
+                    {daBatDau(d) ? <TienDo d={d} /> : null}
                   </Link>
                 </li>
               ))}
             </ul>
-            <table className="w-full min-w-[1040px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
+            <table className="w-full min-w-[960px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
               <thead className="sticky top-0 z-10">
                 <tr className="border-b border-bo-border bg-bo-surface-subtle">
                   <th className={`${TH_CLASS} text-left`}>Đợt kiểm kê</th>
-                  <th className={`${TH_CLASS} text-left`}>Kho</th>
-                  <th className={`${TH_CLASS} text-left`}>Phạm vi</th>
+                  <th className={`${TH_CLASS} text-left`}>Kho · phạm vi</th>
                   <th className={`${TH_CLASS} w-[150px] text-left cam-ung:max-lg:hidden`}>Tiến độ</th>
                   <th className={`${TH_CLASS} w-[140px] text-right cam-ung:max-lg:hidden`}>Chênh lệch</th>
                   <th className={`${TH_CLASS} text-left`}>Trạng thái</th>
@@ -328,9 +426,10 @@ export default function StockTakeList() {
               </thead>
               <tbody className="divide-y divide-bo-border">
                 {muc.map((d) => {
-                  const dangDem = Number(d.trangThai) === TT_DOT.DANG_KIEM_KE && d.quyen?.dem;
+                  const thaoTac = thaoTacCua(d);
+                  // Cả dòng bấm được để mở đợt; nút thao tác giữ cho bàn phím và trình đọc màn hình
                   return (
-                    <tr key={d.id} className="transition-colors hover:bg-bo-surface-subtle">
+                    <tr key={d.id} onClick={() => moDot(d)} className="cursor-pointer transition-colors hover:bg-bo-surface-subtle">
                       <td className="max-w-[260px] px-4 py-3.5 align-middle">
                         <span className="rounded-md bg-bo-primary-soft px-2 py-0.5 font-mono text-xs font-semibold tracking-wide text-bo-primary">
                           {d.ma}
@@ -343,16 +442,13 @@ export default function StockTakeList() {
                           {d.nguoiChuTri?.hoTen ? ` · ${d.nguoiChuTri.hoTen}` : ""}
                         </span>
                       </td>
-                      <td className="px-4 py-3.5 align-middle">
-                        <span className="font-medium text-bo-foreground">{d.kho?.ten || "—"}</span>
-                      </td>
-                      <td className="max-w-[240px] px-4 py-3.5 align-middle">
-                        <span className="block font-medium text-bo-foreground">{nhanPhamVi(d.loaiKiemKe)}</span>
-                        {d.loaiKiemKe !== "toan_bo" ? (
-                          <span className="block truncate text-xs text-bo-muted" title={moTaPhamVi(d, 50)}>
-                            {moTaPhamVi(d, 3)}
-                          </span>
-                        ) : null}
+                      <td className="max-w-[280px] px-4 py-3.5 align-middle">
+                        <span className={cn("block truncate font-medium", d.kho?.ten ? "text-bo-foreground" : "text-bo-muted")} title={d.kho?.ten}>
+                          {d.kho?.ten || "—"}
+                        </span>
+                        <span className="block truncate text-xs text-bo-muted" title={phamViNgan(d, 50)}>
+                          {phamViNgan(d, 3)}
+                        </span>
                       </td>
                       <td className="px-4 py-3.5 align-middle cam-ung:max-lg:hidden">
                         <TienDo d={d} />
@@ -365,11 +461,7 @@ export default function StockTakeList() {
                       </td>
                       <td className="px-4 py-3.5 align-middle">
                         <RowActions>
-                          <RowActionButton
-                            icon={dangDem ? Play : Eye}
-                            label={dangDem ? "Tiếp tục đếm" : "Xem chi tiết"}
-                            onClick={() => moDot(d)}
-                          />
+                          <RowActionButton icon={thaoTac.icon} label={thaoTac.label} onClick={() => moDot(d)} />
                         </RowActions>
                       </td>
                     </tr>
