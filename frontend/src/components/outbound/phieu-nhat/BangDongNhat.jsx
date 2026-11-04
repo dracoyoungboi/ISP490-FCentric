@@ -1,4 +1,4 @@
-import { Barcode, Layers } from "lucide-react";
+import { Barcode, Layers, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import StatusBadge from "@/components/shared/StatusBadge";
 import AnhBienThe from "@/components/chung-tu/AnhBienThe";
@@ -131,8 +131,76 @@ export default function BangDongNhat({ bang, duocPhanBoLo, dongSang, onPhanBoLo 
   );
 }
 
-/** Lô gợi ý của một dòng: thẻ lô (nhập trước lấy trước hoặc đã sửa tay), cảnh báo thiếu lô / chưa phân bổ. */
-function LoGoiY({ dong: d }) {
+const THE_KE = "inline-flex h-[22px] max-w-full items-center gap-1 whitespace-nowrap rounded border px-1.5 text-xs";
+
+/**
+ * "Lấy ở": kệ lấy hàng của dòng (phân bổ nhặt theo kệ, gộp các lô theo kệ) và phần lấy ở hàng chưa có kệ. Chỉ lấy ở hàng
+ * chưa có kệ: một dòng chữ nhạt (đa số hàng chưa lên kệ, thẻ ở mọi dòng sẽ rối). Kệ đang kiểm kê tô vàng; dòng chưa
+ * nhặt đủ thì nhắc đổi kệ (người được Phân bổ lô) hoặc chỉ báo kệ đang kiểm kê. Lô phân bổ trước khi có nhặt theo kệ:
+ * "Chưa ghi kệ". Thẻ nền trắng để vẫn rõ trên dòng vừa quét (nền xanh nhạt).
+ */
+function LayO({ layO, coNut, daDu }) {
+  if (!layO) return null;
+  const { ke, chuaCoKe, chuaRo } = layO;
+  if (!ke.length && !(chuaCoKe > 0) && !chuaRo) return null;
+  if (!ke.length && !chuaRo) {
+    return (
+      <div className="mt-1 flex items-center gap-1 text-xs leading-4 text-bo-muted">
+        <MapPin className="size-3 shrink-0" aria-hidden="true" />
+        Lấy ở hàng chưa có kệ
+      </div>
+    );
+  }
+  const coKiemKe = !daDu && ke.some((k) => k.dangKiemKe);
+  return (
+    <div className="mt-1.5">
+      <div className="flex flex-wrap items-center gap-1">
+        <span className="mr-0.5 text-xs leading-4 text-bo-muted">Lấy ở</span>
+        {ke.map((k) => (
+          <span
+            key={k.id}
+            title={k.dangKiemKe ? `Kệ ${k.ma} đang được kiểm kê` : `Kệ ${k.ma}`}
+            className={cn(
+              THE_KE,
+              "font-mono",
+              k.dangKiemKe
+                ? "border-bo-warning/40 bg-bo-warning-soft text-bo-warning"
+                : "border-bo-primary/25 bg-white text-bo-primary-strong",
+            )}
+          >
+            <MapPin className="size-3 shrink-0" aria-hidden="true" />
+            <span className="sr-only">Kệ </span>
+            <span className="truncate">{k.ma}</span>
+            <span className="font-sans tabular-nums">× {formatQuantity(k.soLuong)}</span>
+            {k.dangKiemKe ? <span className="sr-only"> (đang kiểm kê)</span> : null}
+          </span>
+        ))}
+        {chuaCoKe > 0 ? (
+          <span title="Hàng của lô chưa xếp lên kệ nào trong kho" className={cn(THE_KE, "border-slate-200 bg-white text-slate-600")}>
+            Chưa có kệ
+            <span className="tabular-nums">× {formatQuantity(chuaCoKe)}</span>
+          </span>
+        ) : null}
+        {chuaRo ? (
+          <span
+            title="Lô phân bổ trước khi có nhặt theo kệ. Lưu lại ở Phân bổ lô để hệ thống chia kệ."
+            className="text-xs leading-4 text-bo-muted"
+          >
+            Chưa ghi kệ
+          </span>
+        ) : null}
+      </div>
+      {coKiemKe ? (
+        <div className="mt-1 text-xs font-medium leading-4 text-bo-warning">
+          {coNut ? "Đổi kệ trước khi nhặt" : "Kệ đang kiểm kê"}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** Lô gợi ý của một dòng: thẻ lô (nhập trước lấy trước hoặc đã sửa tay), kệ lấy hàng, cảnh báo thiếu lô / chưa phân bổ. */
+function LoGoiY({ dong: d, coNut }) {
   if (d.trangThai === "bo") return <span className="text-bo-muted">—</span>;
   if (d.chuaLo) return <span className="text-xs font-medium leading-4 text-bo-warning">Chưa phân bổ lô</span>;
   return (
@@ -141,6 +209,7 @@ function LoGoiY({ dong: d }) {
       <div className={cn("mt-1 text-xs leading-4", d.thuCong ? "text-slate-600" : "text-bo-muted")}>
         {d.thuCong ? "Đã sửa tay" : "Nhập trước lấy trước"}
       </div>
+      <LayO layO={d.layO} coNut={coNut} daDu={d.trangThai === "du"} />
       {d.thieuLo > 0 ? (
         <div className="mt-1 text-xs font-medium leading-4 text-bo-warning">
           Còn thiếu {formatQuantity(d.thieuLo)} theo lô — tồn theo lô không đủ
@@ -201,7 +270,7 @@ function DongNhat({ dong: d, sang, duocPhanBoLo, onPhanBoLo }) {
             {/* Khối hẹp: lô và nút Phân bổ lô nằm dưới tên (cột riêng đang ẩn) */}
             {bo ? null : (
               <div className={cn("mt-2", CHI_DIEN_THOAI)}>
-                <LoGoiY dong={d} />
+                <LoGoiY dong={d} coNut={coNut} />
                 {coNut ? <NutPhanBoLo dong={d} onPhanBoLo={onPhanBoLo} className="mt-2" /> : null}
               </div>
             )}
@@ -210,7 +279,7 @@ function DongNhat({ dong: d, sang, duocPhanBoLo, onPhanBoLo }) {
       </td>
 
       <td className={cn(O, AN_DIEN_THOAI)}>
-        <LoGoiY dong={d} />
+        <LoGoiY dong={d} coNut={coNut} />
       </td>
 
       <td className={cn(O, duocPhanBoLo ? CUOI_KHI_HEP : O_CUOI)}>

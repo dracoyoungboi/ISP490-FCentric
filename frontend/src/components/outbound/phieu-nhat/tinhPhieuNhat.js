@@ -196,6 +196,43 @@ export const BO_LOC_DONG = Object.freeze({
 const SO_SANH_SKU = new Intl.Collator("vi", { numeric: true, sensitivity: "base" });
 
 /**
+ * Chỗ lấy hàng của một dòng (phân bổ nhặt theo kệ), gộp các lô theo kệ — người nhặt quét mã biến thể nên chỉ cần biết
+ * lấy bao nhiêu ở kệ nào: `{ ke: [{ id, ma, soLuong, dangKiemKe }], chuaCoKe, chuaRo }`. Kệ theo thứ tự lấy (kệ của lô
+ * trước). `chuaCoKe`: phần lấy ở hàng chưa có kệ. `chuaRo`: có lô phân bổ trước khi có nhặt theo kệ (chưa biết kệ).
+ * Lô không kèm `viTri` (phiếu đã nhặt xong, máy chủ chưa chia kệ) bỏ qua: không có gì để hiện.
+ */
+export function gomKeLay(phanBoLo) {
+  const theoKe = new Map();
+  let chuaCoKe = 0;
+  let chuaRo = false;
+  (Array.isArray(phanBoLo) ? phanBoLo : []).forEach((p) => {
+    // Không có viTri: phiếu đã kết thúc nhặt / máy chủ chưa chia kệ — không hiện chỗ lấy
+    if (!p || !Array.isArray(p.viTri)) return;
+    const viTri = p.viTri.filter((v) => v && v.viTriKhoId != null);
+    viTri.forEach((v) => {
+      const cu = theoKe.get(v.viTriKhoId);
+      if (cu) {
+        cu.soLuong += toNumber(v.soLuong);
+        cu.dangKiemKe = cu.dangKiemKe || Boolean(v.dangKiemKe);
+      } else {
+        theoKe.set(v.viTriKhoId, {
+          id: v.viTriKhoId,
+          ma: v.maViTri || `#${v.viTriKhoId}`,
+          soLuong: toNumber(v.soLuong),
+          dangKiemKe: Boolean(v.dangKiemKe),
+        });
+      }
+    });
+    if (p.chuaCoKe == null) {
+      if (viTri.length === 0) chuaRo = true;
+    } else {
+      chuaCoKe += toNumber(p.chuaCoKe);
+    }
+  });
+  return { ke: [...theoKe.values()], chuaCoKe, chuaRo };
+}
+
+/**
  * Đổi `chiTietNhatHangs` sang dòng của bảng chứng từ (xem components/chung-tu/bangChungTu.js) và giữ dòng gốc ở `goc`
  * (hộp Phân bổ lô cần). Thứ tự CỐ ĐỊNH theo mã SKU (rồi id): không phụ thuộc tiến độ, nên dòng không nhảy sau khi quét
  * và các biến thể của một sản phẩm nằm cạnh nhau.
@@ -207,9 +244,9 @@ export function dongBangNhat(chiTiet) {
       const can = toNumber(line.soLuongCanNhat);
       const da = toNumber(line.soLuongDaQuet);
       const trangThai = trangThaiDong(line);
-      const lo = (Array.isArray(line.phanBoLo) ? line.phanBoLo : [])
-        .filter((p) => p && p.maLo != null)
-        .map((p) => ({ maLo: p.maLo, soLuong: toNumber(p.soLuong) }));
+      const phanBo = (Array.isArray(line.phanBoLo) ? line.phanBoLo : []).filter((p) => p && p.maLo != null);
+      const lo = phanBo.map((p) => ({ maLo: p.maLo, soLuong: toNumber(p.soLuong) }));
+      const layO = gomKeLay(phanBo);
       const bo = trangThai === "bo";
       return {
         id: line.id,
@@ -220,8 +257,10 @@ export function dongBangNhat(chiTiet) {
         kichCo: line.tenSize || "",
         anh: line.anhBienTheUrl || null,
         maVach: line.maVachSku || "",
-        chuTimThem: line.tenChatLieu || "",
+        // Tìm được theo mã kệ lấy hàng (vd. "A-01-02")
+        chuTimThem: [line.tenChatLieu || "", ...layO.ke.map((k) => k.ma)].filter(Boolean).join(" "),
         lo,
+        layO,
         can,
         da,
         trangThai,
