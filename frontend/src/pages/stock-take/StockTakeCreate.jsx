@@ -14,6 +14,7 @@ import { GOI_Y_O, NHAN_O, O_NHAP, O_NHAP_NHIEU_DONG } from "@/components/chung-t
 import XemTruocPhamVi from "@/components/kiem-ke/XemTruocPhamVi";
 import { LOAI_PHAM_VI, THU_TU_PHAM_VI, TT_DOT, vanDeTuLoi } from "@/components/kiem-ke/kiemKe";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
+import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { toast } from "@/lib/thongBaoNhanh";
 import { cn } from "@/lib/utils";
 import { danhMucQuanAoService } from "@/services/danhMucQuanAoService";
@@ -130,7 +131,10 @@ function BieuMauDot({ dot }) {
   const qKho = useTaiDuLieu(taiKho, "kho-kiem-ke");
   const dsKho = useMemo(() => qKho.data ?? [], [qKho.data]);
   const [khoChon, setKhoChon] = useState(dot?.kho?.id ?? null);
-  const khoMacDinh = dsKho.find((k) => Number(k.id) === getKhoLamViecId()) ?? dsKho[0] ?? null;
+  // Kho làm việc lúc mở biểu mẫu: đổi kho làm việc ở thẻ khác / thanh bên sau đó không kéo biểu mẫu sang kho khác
+  // (khu, kệ đã chọn thuộc kho cũ)
+  const [khoLucMo] = useState(getKhoLamViecId);
+  const khoMacDinh = dsKho.find((k) => Number(k.id) === khoLucMo) ?? dsKho[0] ?? null;
   const khoId = laSua ? dot.kho?.id : dsKho.some((k) => Number(k.id) === Number(khoChon)) ? Number(khoChon) : khoMacDinh?.id ?? null;
   const tenKho = laSua ? dot.kho?.ten : dsKho.find((k) => Number(k.id) === Number(khoId))?.tenKho;
 
@@ -204,9 +208,9 @@ function BieuMauDot({ dot }) {
       setXem((cu) => ({ ...cu, dang: true, loi: null }));
       try {
         const kq = await xemTruocPhamVi({ ...yeuCau, tenDotKiemKe: "xem-truoc" }, dot?.id);
-        if (!bo) setXem({ khoa: khoaXem, kq, dang: false, loi: null });
+        if (!bo) setXem({ khoa: khoaXem, kq, dang: false, loi: null, luc: new Date() });
       } catch (error) {
-        if (!bo) setXem({ khoa: khoaXem, kq: null, dang: false, loi: getApiErrorMessage(error, "lỗi kết nối") });
+        if (!bo) setXem({ khoa: khoaXem, kq: null, dang: false, loi: getApiErrorMessage(error, "lỗi kết nối"), luc: null });
       }
     }, CHO_XEM_TRUOC_MS);
     return () => {
@@ -216,11 +220,15 @@ function BieuMauDot({ dot }) {
   }, [khoaXem, khoId, thieuPhamVi, yeuCau, dot?.id, lanXem]);
   const kqXem = !thieuPhamVi && xem.khoa === khoaXem ? xem.kq : null;
   const dangXem = !thieuPhamVi && (xem.dang || xem.khoa !== khoaXem);
+  const loiXem = !thieuPhamVi && xem.khoa === khoaXem ? xem.loi : null;
+  const tinhLaiXem = () => setLanXem((n) => n + 1);
 
   // ── Gửi ────────────────────────────────────────────────────────────────────────────────────────────
   const [dangGui, setDangGui] = useState(null); // "nhap" | "batDau"
   const [loi, setLoi] = useState(null);
   const [vanDeGui, setVanDeGui] = useState([]);
+  // Lần xem trước (lanXem) mà lỗi Bắt đầu gắn vào: xem trước mới hơn đã sạch vướng mắc thì lỗi đó cũ, không hiện nữa
+  const [loiTaiLanXem, setLoiTaiLanXem] = useState(null);
   const [hopBatDau, setHopBatDau] = useState(false);
   const [khoaLenh, setKhoaLenh] = useState(null);
   // Phiên bản đợt đang sửa: sau mỗi lần lưu nháp thành công máy chủ tăng phiên bản (Bắt đầu lỗi rồi thử lại vẫn đúng)
@@ -243,6 +251,7 @@ function BieuMauDot({ dot }) {
 
   const truocKhiGui = () => {
     setLoi(null);
+    setLoiTaiLanXem(null);
     setVanDeGui([]);
     if (!laQtv && khoId != null && getKhoLamViecId() !== Number(khoId)) setKhoLamViecId(khoId);
   };
@@ -280,6 +289,7 @@ function BieuMauDot({ dot }) {
       navigate(`/stock-take/${idDot}`, { replace: true });
     } catch (error) {
       loiGui(error, "Chưa bắt đầu được đợt kiểm kê");
+      setLoiTaiLanXem(lanXem + 1);
       setDangGui(null);
       setLanXem((n) => n + 1);
     }
@@ -305,6 +315,32 @@ function BieuMauDot({ dot }) {
 
   const dangTaiKho = qKho.loading && qKho.data === undefined;
   const coTheBatDau = Boolean(kqXem?.coTheBatDau) && !lyDoKhoa;
+  // Lý do chưa bắt đầu được, hiện ngay cạnh nút (không cần rê chuột): gom mọi thứ còn thiếu trong biểu mẫu thành một câu
+  const conThieu = [
+    thieuPhamVi ? { theo_khu_vuc: "khu vực", theo_ke: "kệ", theo_danh_muc: "danh mục" }[loai] : null,
+    !tenGui ? "tên đợt" : null,
+    !lyDo.trim() ? "lý do kiểm kê" : null,
+  ].filter(Boolean);
+  const lyDoBatDau = !suaDuoc
+    ? "Không sửa được đợt này"
+    : khoId == null
+      ? dangTaiKho
+        ? "Đang tải danh sách kho…"
+        : qKho.error
+          ? "Chưa tải được danh sách kho"
+          : lyDoKhoa
+      : conThieu.length
+      ? `Còn thiếu: ${conThieu.join(", ")}`
+      : dangXem
+        ? "Đang tính phạm vi…"
+        : loiXem
+          ? "Chưa xem trước được phạm vi"
+          : !kqXem?.coTheBatDau
+            ? "Gỡ các vướng mắc ở cột Xem trước"
+            : null;
+
+  // Quay lại thẻ này (vd. sau khi xếp kệ ở thẻ mới): tính lại xem trước để vướng mắc đã gỡ biến mất
+  useTaiLaiKhiQuayLai(tinhLaiXem, { bat: suaDuoc && khoId != null && !thieuPhamVi && !dangGui, giaCach: 5000 });
 
   const thongBao = [
     laSua && !suaDuoc ? (
@@ -317,7 +353,7 @@ function BieuMauDot({ dot }) {
         Không tải được danh sách kho: {getApiErrorMessage(qKho.error, "lỗi kết nối")}.
       </DongThongBao>
     ) : null,
-    loi && !hopBatDau ? (
+    loi && !hopBatDau && !(loiTaiLanXem != null && lanXem > loiTaiLanXem && kqXem?.coTheBatDau) ? (
       <DongThongBao key="loi" tone="bad">
         {loi}
         {vanDeGui.length ? (
@@ -352,7 +388,8 @@ function BieuMauDot({ dot }) {
               nhan: "Bắt đầu kiểm kê",
               icon: Play,
               khoa: !coTheBatDau || Boolean(dangGui),
-              lyDo: lyDoKhoa ?? (dangXem ? "Đang tính phạm vi" : !kqXem?.coTheBatDau ? "Gỡ các vướng mắc ở cột phải trước" : undefined),
+              lyDo: lyDoBatDau ?? undefined,
+              hienLyDo: true,
               dangChay: dangGui === "batDau",
               onClick: () => {
                 setKhoaLenh(taoKhoaLenh());
@@ -696,19 +733,31 @@ function BieuMauDot({ dot }) {
                   {thieuPhamVi} để xem trước.
                 </p>
               ) : (
+                <>
                 <XemTruocPhamVi
                   kq={kqXem}
                   dang={dangXem}
-                  loi={xem.khoa === khoaXem ? xem.loi : null}
-                  onThuLai={() => setLanXem((n) => n + 1)}
+                  loi={loiXem}
+                  onThuLai={tinhLaiXem}
                   cheDo={loai === "theo_danh_muc" ? "theo_lo" : "toan_ke"}
                   nutCuaVanDe={(v) =>
-                    /chưa có kệ/i.test(v.noiDung) ? (
-                      // Thẻ mới: biểu mẫu đang điền ở thẻ này không mất
+                    /hàng chưa có kệ/i.test(v.noiDung) ? (
+                      // Thẻ mới: biểu mẫu đang điền ở thẻ này không mất; quay lại thẻ này thì xem trước tự tính lại
                       <NutChu onClick={() => window.open(`/stock-take/unshelved?khoId=${khoId}`, "_blank", "noopener")}>Xếp kệ ở thẻ mới</NutChu>
                     ) : null
                   }
                 />
+                {kqXem && xem.luc ? (
+                  <p className="mt-2 flex items-center justify-between gap-3 text-xs leading-4 text-bo-muted">
+                    <span className="tabular-nums">
+                      Tính lúc {xem.luc.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                    <NutChu onClick={tinhLaiXem} disabled={dangXem} className="text-xs">
+                      Tính lại
+                    </NutChu>
+                  </p>
+                ) : null}
+                </>
               )}
             </NhomThuocTinh>
             <NhomThuocTinh nhan="Sau khi bắt đầu" rong>
