@@ -1,5 +1,5 @@
 import { useId, useRef } from "react";
-import { Camera, Check, History, Loader2, Lock, MapPin, Minus, Plus, RotateCcw, TriangleAlert, X } from "lucide-react";
+import { ArrowRight, Camera, Check, History, Loader2, Lock, MapPin, Minus, Plus, RotateCcw, TriangleAlert, X } from "lucide-react";
 import AnhBienThe from "@/components/chung-tu/AnhBienThe";
 import MauKichCo from "@/components/chung-tu/MauKichCo";
 import KhongKetQua from "@/components/chung-tu/KhongKetQua";
@@ -368,6 +368,8 @@ function DongGiaiTrinh({ d, mu, suaDong, soCot, onDoiLyDo, onRoiLyDo, onMoAnh })
  * - `chonDuoc` + `chon` + `onDoiChon(ids, bat)`: ô chọn dòng để yêu cầu đếm lại (đợt chờ duyệt, quản lý kho).
  * - `trangThaiLuu[id]`: useLuuSoDem.trangThai. `dongSang`: dòng vừa quét (tô xanh).
  * - `oQuetRef`: ô quét — Enter ở ô đếm đưa tiêu điểm về đây.
+ * - `tienDo`: kiemKe.tienDoTheoKe (đầu nhóm kệ đếm trên mọi dòng của kệ). `keTiep`: `{ id, ma }` kệ kế còn dòng chưa
+ *   đếm — kệ đang lọc đếm xong thì đầu nhóm có nút "Sang kệ …".
  */
 export default function BangDemKiemKe({
   dong,
@@ -394,6 +396,9 @@ export default function BangDemKiemKe({
   onMoAnh,
   onQuetNham,
   oQuetRef,
+  tienDo,
+  keTiep,
+  onThemPhatSinh,
 }) {
   const idBang = useId();
   const coPhanTrang = tong > NGUONG_CONG_CU && dong.length > 0;
@@ -513,7 +518,11 @@ export default function BangDemKiemKe({
               </tr>
             </thead>
             {nhom.map((n) => {
-              const daDem = n.ds.filter((d) => d.soLuongThucTe != null).length;
+              // Đếm trên mọi dòng của kệ (không theo bộ lọc / trang): lọc "Lệch" không làm kệ nào cũng "Đã đếm hết"
+              const tdKe = tienDo?.get(n.viTri?.id);
+              const daDem = tdKe ? tdKe.daDem : n.ds.filter((d) => d.soLuongThucTe != null).length;
+              const tongKe = tdKe ? tdKe.tong : n.ds.length;
+              const xongKe = tongKe > 0 && daDem === tongKe;
               return (
                 <tbody key={`${n.viTri?.id}-${n.ds[0].id}`}>
                   <tr className="border-b border-slate-100 bg-bo-surface-subtle/70">
@@ -524,9 +533,20 @@ export default function BangDemKiemKe({
                           <span className="font-mono tracking-wide">Kệ {n.viTri?.ma || "—"}</span>
                         </span>
                         {n.viTri?.khuVuc ? <span className="text-xs text-bo-muted">{n.viTri.khuVuc}</span> : null}
-                        <span className={cn("text-xs tabular-nums", daDem === n.ds.length ? "font-medium text-bo-success" : "text-bo-muted")}>
-                          {daDem === n.ds.length ? "Đã đếm hết" : `${soVN(daDem)}/${soVN(n.ds.length)} đã đếm`}
+                        <span className={cn("text-xs tabular-nums", xongKe ? "font-medium text-bo-success" : "text-bo-muted")}>
+                          {xongKe ? "Đã đếm hết" : `${soVN(daDem)}/${soVN(tongKe)} đã đếm`}
                         </span>
+                        {suaDuoc && xongKe && keTiep && boLoc.viTriId === n.viTri?.id ? (
+                          <button
+                            type="button"
+                            onClick={() => onDoiBoLoc({ viTriId: keTiep.id, tuKhoa: "" })}
+                            // Điện thoại: nút "Kệ …" nằm ở thanh đáy
+                            className="ml-auto inline-flex h-7 max-md:hidden items-center gap-1 rounded-md bg-bo-primary-soft px-2.5 text-xs font-semibold text-bo-primary-strong hover:bg-bo-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
+                          >
+                            Sang kệ <span className="font-mono">{keTiep.ma}</span>
+                            <ArrowRight className="size-3.5" aria-hidden="true" />
+                          </button>
+                        ) : null}
                         {boLoc.viTriId == null && dsKe.length > 1 && n.viTri?.id != null ? (
                           <button
                             type="button"
@@ -661,6 +681,17 @@ export default function BangDemKiemKe({
         <KhongKetQua chu="Đợt chưa có dòng kiểm kê nào. Dòng được chốt từ sổ kệ lúc bấm Bắt đầu." />
       ) : boLoc.tuKhoa.trim() && !dong.length ? (
         <KhongKetQua tuKhoa={boLoc.tuKhoa} donVi="dòng" onXoaTuKhoa={() => onDoiBoLoc({ tuKhoa: "" })} />
+      ) : !dong.length && keDangLoc && !tienDo?.get(keDangLoc.id)?.tong ? (
+        // Kệ của đợt mà sổ không ghi hàng (dù đang lọc gì): đang đếm thì nhìn kệ thật, có hàng thì thêm lô phát sinh
+        <KhongKetQua
+          chu={
+            onThemPhatSinh
+              ? `Sổ không ghi hàng ở kệ ${keDangLoc.ma}. Kệ trống thật thì sang kệ khác; thấy hàng thì thêm lô phát sinh.`
+              : `Sổ không ghi hàng ở kệ ${keDangLoc.ma}.`
+          }
+          nhanNut={onThemPhatSinh ? "Thêm lô phát sinh" : "Xem mọi kệ"}
+          onNut={onThemPhatSinh ?? (() => onDoiBoLoc({ viTriId: null }))}
+        />
       ) : !dong.length ? (
         <KhongKetQua
           chu={`Không có dòng ${TEN_LOC[boLoc.loc] ?? ""}${keDangLoc ? ` ở kệ ${keDangLoc.ma}` : ""}.`}

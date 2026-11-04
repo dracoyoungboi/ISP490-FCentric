@@ -305,6 +305,41 @@ export const GOI_Y_LY_DO = Object.freeze([
   "Lần đếm trước nhầm",
 ]);
 
+/**
+ * Tiến độ từng kệ trên MỌI dòng của đợt (không theo bộ lọc / trang): `Map(viTriId → { tong, daDem, nguoi })`.
+ * `nguoi`: người đếm dòng mới nhất của kệ (theo ngayKiemDem) — để quản lý thấy ai đang ở kệ nào.
+ */
+export function tienDoTheoKe(dong) {
+  const m = new Map();
+  for (const d of dong) {
+    const id = d.viTri?.id;
+    if (id == null) continue;
+    const x = m.get(id) ?? { tong: 0, daDem: 0, nguoi: null, luc: 0 };
+    x.tong += 1;
+    if (d.soLuongThucTe != null) {
+      x.daDem += 1;
+      const luc = d.ngayKiemDem ? new Date(d.ngayKiemDem).getTime() : 0;
+      if (d.nguoiKiemDem?.hoTen && luc >= x.luc) {
+        x.nguoi = d.nguoiKiemDem.hoTen;
+        x.luc = luc;
+      }
+    }
+    m.set(id, x);
+  }
+  return m;
+}
+
+/** Kệ kế tiếp (theo thứ tự `dsKe`) sau kệ `viTriId` còn dòng chưa đếm; hết thì null. */
+export function keTiepChuaXong(dsKe, viTriId, tienDo) {
+  const i = dsKe.findIndex((k) => k.id === viTriId);
+  if (i < 0) return null;
+  const sau = [...dsKe.slice(i + 1), ...dsKe.slice(0, i)];
+  return sau.find((k) => {
+    const t = tienDo.get(k.id);
+    return t && t.daDem < t.tong;
+  }) ?? null;
+}
+
 /** Kệ có trong các dòng (cho ô lọc kệ), theo mã. */
 export function keCuaDong(dong) {
   const m = new Map();
