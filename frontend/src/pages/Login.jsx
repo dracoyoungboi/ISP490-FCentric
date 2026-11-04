@@ -60,7 +60,6 @@ export default function AuthPage() {
     }, []);
 
     const [showPassword, setShowPassword] = useState(false);
-    const [rememberMe, setRememberMe] = useState(false);
 
     // Vừa đặt mật khẩu qua liên kết email: điền sẵn tên đăng nhập
     const [loginData, setLoginData] = useState({ username: location.state?.tenDangNhap || '', matKhau: '' });
@@ -171,12 +170,7 @@ export default function AuthPage() {
                 </div>
 
                 <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                        <label htmlFor="login-password" className={LABEL}>Mật khẩu</label>
-                        <button type="button" className={LINK_MUTED} onClick={() => navigate('/forgot-password')}>
-                            Quên mật khẩu?
-                        </button>
-                    </div>
+                    <label htmlFor="login-password" className={LABEL}>Mật khẩu</label>
                     <div className="relative">
                         <input
                             id="login-password"
@@ -196,23 +190,20 @@ export default function AuthPage() {
                             {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                         </button>
                     </div>
+                    {/* Bỏ ô "Ghi nhớ đăng nhập" (04/11/2026): ô không gửi đi đâu, phiên luôn 24 giờ; liên kết này xuống dòng
+                        của ô cũ. Màn cảm ứng: nút cao 36px + vùng chạm 44px (index.css), lề âm giữ dòng cao như máy tính */}
+                    <div className="flex justify-end pt-1">
+                        <button
+                            type="button"
+                            className={`${LINK_MUTED} cam-ung:-my-2`}
+                            onClick={() => navigate('/forgot-password')}
+                        >
+                            Quên mật khẩu?
+                        </button>
+                    </div>
                 </div>
 
-                <div className="flex items-center gap-2 pt-1">
-                    <input
-                        type="checkbox"
-                        id="remember"
-                        className="w-4 h-4 rounded border border-gray-300 accent-gray-900 cursor-pointer"
-                        checked={rememberMe}
-                        onChange={(e) => setRememberMe(e.target.checked)}
-                    />
-                    {/* Màn cảm ứng: nhãn cao 44px để chạm trúng ô Ghi nhớ dễ hơn */}
-                    <label htmlFor="remember" className="text-sm text-gray-600 cursor-pointer select-none cam-ung:flex cam-ung:min-h-11 cam-ung:items-center">
-                        Ghi nhớ đăng nhập
-                    </label>
-                </div>
-
-                <button type="submit" className={`${PRIMARY_BTN} mt-4`} disabled={isLoading}>
+                <button type="submit" className={`${PRIMARY_BTN} mt-1`} disabled={isLoading}>
                     {isLoading ? (
                         <><Loader2 size={16} className="animate-spin" /> Đang xử lý...</>
                     ) : (
