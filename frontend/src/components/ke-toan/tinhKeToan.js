@@ -126,45 +126,12 @@ export function payloadCauHinh(form, version) {
 
 // ── Thuế suất ─────────────────────────────────────────────────────────────
 
-/** Hai khoảng ngày (den rỗng = chưa hết hiệu lực) có chung ít nhất một ngày. */
+/** Hai khoảng ngày (den rỗng = chưa hết hiệu lực) có chung ít nhất một ngày (bảng thuế suất: pages/settings/vatLich.js). */
 export function chongNhau(tu1, den1, tu2, den2) {
   const cuoi1 = den1 || "9999-12-31";
   const cuoi2 = den2 || "9999-12-31";
   return tu1 <= cuoi2 && tu2 <= cuoi1;
 }
-
-/** Câu lỗi của form thuế suất ("" = hợp lệ). danhSach: các dòng đang có; idDangSua: dòng đang sửa (bỏ qua khi so). */
-export function kiemTraThueSuat(form, danhSach = [], idDangSua = null) {
-  if (!THUE_SUAT.includes(Number(form.tyLe)) || form.tyLe === "" || form.tyLe == null) {
-    return "Thuế suất chỉ nhận 0%, 5%, 8% hoặc 10%";
-  }
-  if (!form.hieuLucTu || !NGAY_REGEX.test(form.hieuLucTu)) return "Chọn ngày bắt đầu áp dụng";
-  if (form.hieuLucDen && form.hieuLucDen < form.hieuLucTu) return "Ngày kết thúc phải từ ngày bắt đầu trở đi";
-  const danhMucId = form.danhMucId ? Number(form.danhMucId) : null;
-  const trung = danhSach.find(
-    (t) =>
-      t.id !== idDangSua &&
-      (t.danhMucId ?? null) === danhMucId &&
-      chongNhau(form.hieuLucTu, form.hieuLucDen || null, t.hieuLucTu, t.hieuLucDen || null),
-  );
-  if (trung) {
-    return `Khoảng ngày chồng lên dòng ${Number(trung.tyLe)}% từ ${hienNgay(trung.hieuLucTu)}. Đặt ngày kết thúc cho dòng cũ trước.`;
-  }
-  return "";
-}
-
-export function payloadThueSuat(form) {
-  return {
-    tyLe: Number(form.tyLe),
-    hieuLucTu: form.hieuLucTu,
-    hieuLucDen: form.hieuLucDen || null,
-    danhMucId: form.danhMucId ? Number(form.danhMucId) : null,
-    ghiChu: gon(form.ghiChu) || null,
-  };
-}
-
-/** Dòng thuế suất đang áp dụng hôm nay. */
-export const dangApDung = (t, homNay) => t.hieuLucTu <= homNay && (!t.hieuLucDen || t.hieuLucDen >= homNay);
 
 const theoTen = (a, b) => (a.tenDanhMuc ?? "").localeCompare(b.tenDanhMuc ?? "", "vi");
 

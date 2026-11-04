@@ -1,10 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { FileSpreadsheet, Lock, Plus, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { FileSpreadsheet, Lock, Percent } from "lucide-react";
 import { toast } from "@/lib/thongBaoNhanh";
 import LoadingState from "@/components/shared/LoadingState";
 import ErrorState from "@/components/shared/ErrorState";
-import ConfirmModal from "@/components/ui/confirm-modal";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   SettingsCard,
@@ -15,42 +13,29 @@ import {
   SettingsFormActions,
   SettingsGroupLabel,
   SettingsPill,
-  SettingsTextButton,
 } from "@/components/settings/SettingsUI";
-import { OUTLINE_BUTTON, PRIMARY_BUTTON, settingsInputClass } from "@/components/settings/settingsStyles";
+import { settingsInputClass } from "@/components/settings/settingsStyles";
 import { useSettingsPage, useUnsavedChanges } from "@/components/settings/useSettingsPage";
 import {
   HINH_THUC_CHUYEN_KHO,
   TAI_KHOAN,
-  THUE_SUAT,
-  dangApDung,
   formCauHinh,
   hienNgay,
   kiemTraCauHinh,
-  kiemTraThueSuat,
-  ngayIso,
   payloadCauHinh,
-  payloadThueSuat,
-  phangDanhMuc,
 } from "@/components/ke-toan/tinhKeToan";
 import { keToanService } from "@/services/keToanService";
-import { danhMucQuanAoService } from "@/services/danhMucQuanAoService";
 import { getApiErrorMessage } from "@/utils/apiError";
-import { cn } from "@/lib/utils";
 
 const SELECT_CLASS = "h-9 w-full rounded-md border border-[#8a96a6] bg-white px-2 text-sm text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-[3px] focus-visible:ring-bo-primary/15 focus-visible:outline-none";
 
-const FORM_THUE_TRONG = { tyLe: "8", hieuLucTu: "", hieuLucDen: "", danhMucId: "", ghiChu: "" };
-
 /**
  * Cấu hình › Xuất kế toán: thiết lập xuất dữ liệu sang AMIS Kế toán doanh nghiệp (ngày mốc, tài khoản mặc định, dòng phí vận
- * chuyển, hình thức chuyển kho) và bảng thuế suất GTGT có ngày hiệu lực. Chỉ quản trị viên.
+ * chuyển, hình thức chuyển kho). Thuế suất GTGT dùng chung với hóa đơn bán hàng, sửa ở Cấu hình › Thuế GTGT. Chỉ quản trị viên.
  */
 export default function AccountingSettingsPage() {
   const { canEdit } = useSettingsPage();
   const [cauHinh, setCauHinh] = useState(null);
-  const [thueSuat, setThueSuat] = useState([]);
-  const [dsDanhMuc, setDsDanhMuc] = useState([]);
   const [dangTai, setDangTai] = useState(true);
   const [loiTai, setLoiTai] = useState(false);
   const [lanTai, setLanTai] = useState(0);
@@ -60,29 +45,11 @@ export default function AccountingSettingsPage() {
   const [loi, setLoi] = useState({});
   const [dangLuu, setDangLuu] = useState(false);
 
-  // Thuế suất: null = không sửa; "moi" = đang thêm; số = id dòng đang sửa
-  const [suaThue, setSuaThue] = useState(null);
-  const [formThue, setFormThue] = useState(FORM_THUE_TRONG);
-  // Giá trị lúc mở form (thêm mới đã điền sẵn ngày hôm nay): chỉ coi là "đang nhập dở" khi khác giá trị này
-  const [formThueGoc, setFormThueGoc] = useState(FORM_THUE_TRONG);
-  const [loiThue, setLoiThue] = useState("");
-  const [dangLuuThue, setDangLuuThue] = useState(false);
-  const [xoaThue, setXoaThue] = useState(null);
-  const [dangXoaThue, setDangXoaThue] = useState(false);
-
-  const homNay = ngayIso(new Date());
-
   useEffect(() => {
     const ctrl = new AbortController();
-    Promise.all([
-      keToanService.layCauHinh({ signal: ctrl.signal }),
-      keToanService.danhSachThueSuat({ signal: ctrl.signal }),
-      danhMucQuanAoService.getAll().then((r) => r?.data?.data ?? []).catch(() => []),
-    ])
-      .then(([ch, ts, dm]) => {
+    keToanService.layCauHinh({ signal: ctrl.signal })
+      .then((ch) => {
         setCauHinh(ch);
-        setThueSuat(ts);
-        setDsDanhMuc(dm);
         setLoiTai(false);
       })
       .catch(() => !ctrl.signal.aborted && setLoiTai(true))
@@ -91,14 +58,8 @@ export default function AccountingSettingsPage() {
   }, [lanTai]);
 
   const formGoc = useMemo(() => formCauHinh(cauHinh), [cauHinh]);
-  // Danh mục cho ô Phạm vi: bỏ danh mục đã ngừng, trừ danh mục đang có dòng thuế suất
-  const danhMuc = useMemo(
-    () => phangDanhMuc(dsDanhMuc, thueSuat.map((t) => t.danhMucId).filter(Boolean)),
-    [dsDanhMuc, thueSuat],
-  );
   const coThayDoi = dangSua && JSON.stringify(form) !== JSON.stringify(formGoc);
-  const thueDangNhap = suaThue !== null && JSON.stringify(formThue) !== JSON.stringify(formThueGoc);
-  useUnsavedChanges(coThayDoi || thueDangNhap);
+  useUnsavedChanges(coThayDoi);
 
   const batDauSua = () => {
     setForm(formGoc);
@@ -129,67 +90,6 @@ export default function AccountingSettingsPage() {
     }
   };
 
-  const taiLaiThue = useCallback(async () => {
-    try {
-      setThueSuat(await keToanService.danhSachThueSuat());
-    } catch (e) {
-      toast.error(getApiErrorMessage(e, "Không tải lại được bảng thuế suất"));
-    }
-  }, []);
-
-  const moFormThue = (id, giaTri) => {
-    setFormThue(giaTri);
-    setFormThueGoc(giaTri);
-    setLoiThue("");
-    setSuaThue(id);
-  };
-
-  const moThemThue = () => moFormThue("moi", { ...FORM_THUE_TRONG, hieuLucTu: homNay });
-
-  const moSuaThue = (t) =>
-    moFormThue(t.id, {
-      tyLe: String(Number(t.tyLe)),
-      hieuLucTu: t.hieuLucTu,
-      hieuLucDen: t.hieuLucDen ?? "",
-      danhMucId: t.danhMucId ? String(t.danhMucId) : "",
-      ghiChu: t.ghiChu ?? "",
-    });
-
-  const luuThue = async (event) => {
-    event.preventDefault();
-    if (dangLuuThue) return;
-    const cau = kiemTraThueSuat(formThue, thueSuat, suaThue === "moi" ? null : suaThue);
-    setLoiThue(cau);
-    if (cau) return;
-    setDangLuuThue(true);
-    try {
-      if (suaThue === "moi") await keToanService.themThueSuat(payloadThueSuat(formThue));
-      else await keToanService.suaThueSuat(suaThue, payloadThueSuat(formThue));
-      setSuaThue(null);
-      await taiLaiThue();
-      toast.success("Đã lưu thuế suất.");
-    } catch (e) {
-      setLoiThue(getApiErrorMessage(e, "Không lưu được thuế suất"));
-    } finally {
-      setDangLuuThue(false);
-    }
-  };
-
-  const xacNhanXoaThue = async () => {
-    if (dangXoaThue || !xoaThue) return;
-    setDangXoaThue(true);
-    try {
-      await keToanService.xoaThueSuat(xoaThue.id);
-      setXoaThue(null);
-      await taiLaiThue();
-      toast.success("Đã xóa dòng thuế suất.");
-    } catch (e) {
-      toast.error(getApiErrorMessage(e, "Không xóa được thuế suất"));
-    } finally {
-      setDangXoaThue(false);
-    }
-  };
-
   if (dangTai) {
     return (
       <SettingsCard>
@@ -214,7 +114,6 @@ export default function AccountingSettingsPage() {
   }
 
   const ngayMocKhoa = Boolean(cauHinh?.daCoLoXuat);
-  const tenDanhMuc = (id) => danhMuc.find((d) => d.id === id)?.ten?.replace(/^(— )+/, "") ?? `Danh mục #${id}`;
 
   return (
     <div className="flex flex-col gap-4">
@@ -337,106 +236,18 @@ export default function AccountingSettingsPage() {
         )}
       </SettingsCard>
 
-      <SettingsCard aria-labelledby="ke-toan-thue-suat">
-        <SettingsCardHeader
-          titleId="ke-toan-thue-suat"
-          title="Thuế suất GTGT"
-          note="Giá bán đang gồm thuế; khi xuất, thuế tách theo dòng áp dụng ở ngày hạch toán. Dòng có danh mục ghi đè mức chung cho danh mục đó và danh mục con. Bảng này chỉ dùng khi xuất kế toán; thuế in trên hóa đơn bán hàng đặt ở Cấu hình › Thuế GTGT — đổi mức thuế thì sửa cả hai nơi."
-          action={canEdit && suaThue === null ? (
-            <SettingsTextButton onClick={moThemThue}><Plus className="size-[15px]" aria-hidden="true" />Thêm dòng</SettingsTextButton>
-          ) : null}
-        />
-        <div className="overflow-x-auto px-5 pb-4">
-          <table className="w-full min-w-[640px] text-sm">
-            <thead>
-              <tr className="border-b border-[#eef1f5] text-left text-xs text-bo-muted">
-                <th className="py-2 pr-3 font-medium">Phạm vi</th>
-                <th className="py-2 pr-3 font-medium">Thuế suất</th>
-                <th className="py-2 pr-3 font-medium">Áp dụng</th>
-                <th className="py-2 pr-3 font-medium">Ghi chú</th>
-                <th className="py-2"><span className="sr-only">Thao tác</span></th>
-              </tr>
-            </thead>
-            <tbody>
-              {thueSuat.map((t) => (
-                <tr key={t.id} className="border-b border-[#eef1f5] last:border-0">
-                  <td className="py-2.5 pr-3">{t.danhMucId ? (t.tenDanhMuc ?? tenDanhMuc(t.danhMucId)) : "Mức chung"}</td>
-                  <td className="py-2.5 pr-3 font-semibold tabular-nums">{Number(t.tyLe)}%</td>
-                  <td className="py-2.5 pr-3 tabular-nums">
-                    {hienNgay(t.hieuLucTu)} – {t.hieuLucDen ? hienNgay(t.hieuLucDen) : "nay"}
-                    {dangApDung(t, homNay) ? <span className="ml-2"><SettingsPill tone="ok">Đang áp dụng</SettingsPill></span> : null}
-                  </td>
-                  <td className="py-2.5 pr-3 text-[13px] text-[#5b6676]">{t.ghiChu}</td>
-                  <td className="py-2.5 text-right whitespace-nowrap">
-                    {canEdit && suaThue === null ? (
-                      <>
-                        <SettingsTextButton className="mr-0" onClick={() => moSuaThue(t)}>Sửa</SettingsTextButton>
-                        <button type="button" aria-label="Xóa dòng thuế suất" onClick={() => setXoaThue(t)}
-                          className="ml-1 inline-flex size-8 items-center justify-center rounded-md text-bo-muted hover:bg-bo-danger-soft hover:text-bo-danger">
-                          <Trash2 className="size-4" aria-hidden="true" />
-                        </button>
-                      </>
-                    ) : null}
-                  </td>
-                </tr>
-              ))}
-              {thueSuat.length === 0 ? (
-                <tr><td colSpan={5} className="py-6 text-center text-sm text-bo-muted">Chưa có thuế suất nào: chưa xuất được chứng từ bán hàng.</td></tr>
-              ) : null}
-            </tbody>
-          </table>
-
-          {suaThue !== null ? (
-            <form onSubmit={luuThue} noValidate className="mt-3 rounded-md border border-[#eef1f5] bg-bo-surface-subtle p-3.5">
-              <p className="mb-2 text-sm font-medium text-bo-foreground">{suaThue === "moi" ? "Thêm dòng thuế suất" : "Sửa dòng thuế suất"}</p>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                <div className="flex flex-col gap-1">
-                  <label htmlFor="ts-pham-vi" className="text-xs font-medium text-bo-muted">Phạm vi</label>
-                  <select id="ts-pham-vi" value={formThue.danhMucId} onChange={(e) => setFormThue((f) => ({ ...f, danhMucId: e.target.value }))} className={SELECT_CLASS}>
-                    <option value="">Mức chung</option>
-                    {danhMuc.map((d) => <option key={d.id} value={String(d.id)}>{d.ten}</option>)}
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label htmlFor="ts-ty-le" className="text-xs font-medium text-bo-muted">Thuế suất</label>
-                  <select id="ts-ty-le" value={formThue.tyLe} onChange={(e) => setFormThue((f) => ({ ...f, tyLe: e.target.value }))} className={SELECT_CLASS}>
-                    {THUE_SUAT.map((t) => <option key={t} value={String(t)}>{t}%</option>)}
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label htmlFor="ts-tu" className="text-xs font-medium text-bo-muted">Từ ngày</label>
-                  <Input id="ts-tu" type="date" value={formThue.hieuLucTu} onChange={(e) => setFormThue((f) => ({ ...f, hieuLucTu: e.target.value }))} className={settingsInputClass()} />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label htmlFor="ts-den" className="text-xs font-medium text-bo-muted">Đến ngày (để trống = chưa hết)</label>
-                  <Input id="ts-den" type="date" value={formThue.hieuLucDen} onChange={(e) => setFormThue((f) => ({ ...f, hieuLucDen: e.target.value }))} className={settingsInputClass()} />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label htmlFor="ts-ghi-chu" className="text-xs font-medium text-bo-muted">Căn cứ / ghi chú</label>
-                  <Input id="ts-ghi-chu" value={formThue.ghiChu} maxLength={255} placeholder="VD: NQ 204/2025/QH15" onChange={(e) => setFormThue((f) => ({ ...f, ghiChu: e.target.value }))} className={settingsInputClass()} />
-                </div>
-              </div>
-              {loiThue ? <p role="alert" className="mt-2 text-xs text-bo-danger">{loiThue}</p> : null}
-              <div className="mt-3 flex justify-end gap-2">
-                <Button type="button" variant="outline" className={OUTLINE_BUTTON} onClick={() => setSuaThue(null)} disabled={dangLuuThue}>Hủy</Button>
-                <Button type="submit" className={cn(PRIMARY_BUTTON)} disabled={dangLuuThue}>{dangLuuThue ? "Đang lưu…" : "Lưu"}</Button>
-              </div>
-            </form>
-          ) : null}
-        </div>
-      </SettingsCard>
-
-      <ConfirmModal
-        isOpen={Boolean(xoaThue)}
-        onClose={() => !dangXoaThue && setXoaThue(null)}
-        onConfirm={xacNhanXoaThue}
-        isLoading={dangXoaThue}
-        variant="danger"
-        title="Xóa dòng thuế suất"
-        description={xoaThue ? `Xóa dòng ${Number(xoaThue.tyLe)}% từ ${hienNgay(xoaThue.hieuLucTu)}? Chứng từ đã giao kế toán không đổi; lô sau dùng bảng mới.` : ""}
-        confirmText="Xóa"
-        cancelText="Giữ lại"
-      />
+      {/* Ẩn khi đang sửa thẻ trên: liên kết trong trang không qua hộp hỏi rời trang, bấm sẽ mất phần đang nhập */}
+      {dangSua ? null : (
+        <SettingsCard as="div">
+          <SettingsFooterLink
+            to="/settings/vat"
+            className="rounded-lg border-t-0"
+            icon={Percent}
+            title="Thuế suất GTGT"
+            description="Bảng thuế suất dùng chung với hóa đơn bán hàng, ở Cấu hình › Thuế GTGT."
+          />
+        </SettingsCard>
+      )}
     </div>
   );
 }

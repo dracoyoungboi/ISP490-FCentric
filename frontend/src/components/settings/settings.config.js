@@ -36,7 +36,7 @@ export const SETTINGS_PAGES = [
   { key: "customer", label: "Khách hàng", to: "/settings/customer", group: "ban-hang", icon: IdCard, roles: [QTV, QLK], editRoles: [QTV] },
   // CauHinhThanhToanController: chỉ QTV
   { key: "payment", label: "Thanh toán", to: "/settings/payment", group: "ban-hang", icon: CreditCard, roles: [QTV], editRoles: [QTV] },
-  // VAT_BAT, VAT_LICH qua /dieu-hanh-he-thong/cau-hinh: GET cho QTV và QLK; PUT chỉ QTV
+  // VAT_BAT qua /dieu-hanh-he-thong/cau-hinh, bảng thuế suất qua /ke-toan/thue-suat: GET cho QTV và QLK; ghi chỉ QTV
   { key: "vat", label: "Thuế GTGT", to: "/settings/vat", group: "ban-hang", icon: Percent, roles: [QTV, QLK], editRoles: [QTV] },
   { key: "sync", label: "Đồng bộ kênh bán", to: "/settings/sync", group: "ban-hang", icon: RefreshCcw, roles: [QTV, QLK], editRoles: [QTV] },
   // KeToanController: chỉ QTV (chưa có vai trò kế toán)

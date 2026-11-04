@@ -1,37 +1,29 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Info, Plus, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Info } from "lucide-react";
 import { toast } from "@/lib/thongBaoNhanh";
 import { cn } from "@/lib/utils";
-import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import LoadingState from "@/components/shared/LoadingState";
 import ErrorState from "@/components/shared/ErrorState";
+import ConfirmModal from "@/components/ui/confirm-modal";
 import {
   SettingsCard,
   SettingsCardHeader,
   SettingsEditButton,
-  SettingsFieldHint,
   SettingsFormActions,
   SettingsGroupLabel,
-  SettingsPill,
   SettingsTextButton,
 } from "@/components/settings/SettingsUI";
-import { settingsInputClass } from "@/components/settings/settingsStyles";
 import { useSettingsPage, useUnsavedChanges } from "@/components/settings/useSettingsPage";
-import { bulkUpdateInventorySettings, getInventorySettings } from "@/services/inventorySettingsService";
+import { getInventorySettings } from "@/services/inventorySettingsService";
+import { keToanService } from "@/services/keToanService";
+import { danhMucQuanAoService } from "@/services/danhMucQuanAoService";
+import { ngayIso, phangDanhMuc } from "@/components/ke-toan/tinhKeToan";
 import { formatCurrency } from "@/utils/formatters";
-import { TOI_DA_MOC, VAT_BAT, VAT_LICH, docLich, ghiLich, loiLich, thueSuatTai, tienThue } from "./vatLich";
+import { getApiErrorMessage } from "@/utils/apiError";
+import { LichThueSuatSua, LichThueSuatXem } from "./LichThueSuat";
+import { VAT_BAT, formBang, idTuNgay, khoangNgay, kiemTraBang, mucChungTai, payloadBang, tienThue } from "./vatLich";
 
-/** Ngày yyyy-mm-dd theo giờ máy. */
-const ghiNgay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-const homNay = () => ghiNgay(new Date());
-/** Ngày liền trước (yyyy-mm-dd): mốc cũ hết hiệu lực trước ngày mốc kế tiếp một ngày. */
-const ngayTruoc = (s) => {
-  const d = new Date(`${s}T00:00:00`);
-  d.setDate(d.getDate() - 1);
-  return ghiNgay(d);
-};
-const ngayVN = (s) => (s ? s.split("-").reverse().join("/") : "");
 const laBat = (v) => /^(true|1)$/i.test(String(v ?? ""));
 
 /** Một dòng tiền kiểu hóa đơn giấy: nhãn … số tiền, nối bằng đường chấm. */
@@ -46,30 +38,44 @@ function DongHoaDon({ nhan, giaTri, className }) {
 }
 
 /**
- * Cấu hình › Thuế GTGT: bật in thuế GTGT trên hóa đơn bán hàng và lịch thuế suất theo ngày hiệu lực. Giá bán đã gồm
- * thuế: tiền thuế tách ngược từ tổng thanh toán (gồm phí vận chuyển). Đơn chụp thuế suất lúc chốt (bán tại quầy, tạo
- * đơn, chuyển báo giá thành đơn) nên đổi cấu hình không đổi hóa đơn đã bán. Đơn sàn không tính thuế.
- * Đọc / lưu qua /dieu-hanh-he-thong/cau-hinh (VAT_BAT, VAT_LICH); quản lý kho chỉ xem.
+ * Cấu hình › Thuế GTGT: một thẻ gồm công tắc In thuế GTGT và lịch thuế suất — bảng thuế suất dùng chung cho hóa đơn bán
+ * hàng (mức chung) và xuất kế toán (thêm dòng theo danh mục). Giá bán đã gồm thuế: tiền thuế tách ngược từ tổng thanh
+ * toán. Bấm Sửa thì công tắc và cả bảng cùng sửa, Lưu một lần (PUT /ke-toan/thue-suat, một giao dịch).
+ * Đọc công tắc qua /dieu-hanh-he-thong/cau-hinh (VAT_BAT), bảng qua /ke-toan/thue-suat. Quản lý kho chỉ xem.
  */
 export default function VatSettingsPage() {
   const { canEdit } = useSettingsPage();
   const [status, setStatus] = useState("loading");
-  const [saved, setSaved] = useState(null); // { bat, lich }
+  const [savedBat, setSavedBat] = useState(false);
+  const [thueSuat, setThueSuat] = useState([]);
+  // Bảng tải riêng: lỗi (vd. máy chủ cũ chưa cho quản lý kho đọc) thì vẫn hiện công tắc, nhưng không cho sửa
+  const [loiBang, setLoiBang] = useState(false);
   const [editing, setEditing] = useState(false);
   const [bat, setBat] = useState(false);
-  const [lich, setLich] = useState([]);
+  const [bang, setBang] = useState([]);
+  const [daThuLuu, setDaThuLuu] = useState(false);
+  const [dsDanhMuc, setDsDanhMuc] = useState([]);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+  // 409 vì người khác vừa sửa bảng: hiện nút tải lại
+  const [phaiTaiLai, setPhaiTaiLai] = useState(false);
+  // Dòng đã lưu sẽ bị xóa khi Lưu: chờ xác nhận
+  const [xoaCho, setXoaCho] = useState(null);
   const mountedRef = useRef(false);
 
   const load = useCallback(async () => {
     setStatus("loading");
     try {
-      const ds = await getInventorySettings();
-      const tim = (ma) => ds.find((item) => item?.maCauHinh === ma);
-      if (!tim(VAT_BAT) || !tim(VAT_LICH)) throw new Error("thiếu cấu hình");
+      const [ds, ts] = await Promise.all([
+        getInventorySettings(),
+        keToanService.danhSachThueSuat().then((kq) => ({ kq }), () => ({ loi: true })),
+      ]);
+      const cauHinhBat = ds.find((item) => item?.maCauHinh === VAT_BAT);
+      if (!cauHinhBat) throw new Error("thiếu cấu hình");
       if (!mountedRef.current) return;
-      setSaved({ bat: laBat(tim(VAT_BAT).giaTri), lich: docLich(tim(VAT_LICH).giaTri) });
+      setSavedBat(laBat(cauHinhBat.giaTri));
+      setThueSuat(ts.kq ?? []);
+      setLoiBang(Boolean(ts.loi));
       setStatus("ready");
     } catch {
       if (mountedRef.current) setStatus("error");
@@ -82,38 +88,84 @@ export default function VatSettingsPage() {
     return () => { mountedRef.current = false; };
   }, [load]);
 
-  const loi = editing ? loiLich(lich) : "";
-  const doi = editing && saved && (bat !== saved.bat || ghiLich(lich) !== ghiLich(saved.lich));
+  const bangGoc = useMemo(() => JSON.stringify(payloadBang(formBang(thueSuat))), [thueSuat]);
+  const doiBang = editing && JSON.stringify(payloadBang(bang)) !== bangGoc;
+  const doi = editing && (bat !== savedBat || doiBang);
+  const loi = editing && daThuLuu ? kiemTraBang(bang) : {};
+  const danhMuc = useMemo(
+    () => phangDanhMuc(dsDanhMuc, bang.map((d) => Number(d.danhMucId)).filter(Boolean)),
+    [dsDanhMuc, bang],
+  );
   useUnsavedChanges(doi);
 
   const batDauSua = () => {
-    setBat(saved.bat);
-    setLich(saved.lich.map((m) => ({ ...m })));
+    setBat(savedBat);
+    setBang(formBang(thueSuat));
+    setDaThuLuu(false);
     setSaveError("");
+    setPhaiTaiLai(false);
     setEditing(true);
+    // Danh mục chỉ cần cho ô chọn của dòng theo danh mục
+    if (!dsDanhMuc.length) {
+      danhMucQuanAoService.getAll()
+        .then((r) => mountedRef.current && setDsDanhMuc(r?.data?.data ?? []))
+        .catch(() => {});
+    }
   };
-  const huySua = () => { setEditing(false); setSaveError(""); };
-  const suaMoc = (i, khoa, giaTri) => setLich((ds) => ds.map((m, j) => (j === i ? { ...m, [khoa]: giaTri } : m)));
+  const huySua = () => { setEditing(false); setSaveError(""); setXoaCho(null); };
+  // Đưa con trỏ tới ô Từ ngày của một dòng (dòng vừa thêm, hoặc dòng lỗi đầu tiên) sau khi vẽ lại
+  const toiDong = (khoa) => setTimeout(() => document.getElementById(idTuNgay(khoa))?.focus(), 0);
 
-  const luu = async (event) => {
-    event.preventDefault();
-    if (!doi || loi || saving) return;
+  const gui = async () => {
+    setXoaCho(null);
     setSaving(true);
     setSaveError("");
-    const thayDoi = [];
-    if (bat !== saved.bat) thayDoi.push({ maCauHinh: VAT_BAT, giaTri: String(bat) });
-    if (ghiLich(lich) !== ghiLich(saved.lich)) thayDoi.push({ maCauHinh: VAT_LICH, giaTri: ghiLich(lich) });
+    setPhaiTaiLai(false);
     try {
-      await bulkUpdateInventorySettings(thayDoi);
+      const moi = await keToanService.luuBangThueSuat({
+        inThue: bat !== savedBat ? bat : null,
+        dong: payloadBang(bang),
+        idDaXem: thueSuat.map((t) => t.id),
+      });
       if (!mountedRef.current) return;
-      setSaved({ bat, lich: docLich(ghiLich(lich)) });
+      setThueSuat(moi);
+      setSavedBat(bat);
       setEditing(false);
-      toast.success("Đã lưu cấu hình thuế GTGT.");
+      toast.success("Đã lưu thuế GTGT.");
     } catch (error) {
-      if (mountedRef.current) setSaveError(error?.response?.data?.message || "Không lưu được. Thử lại.");
+      if (!mountedRef.current) return;
+      setSaveError(getApiErrorMessage(error, "Không lưu được. Thử lại."));
+      setPhaiTaiLai(error?.response?.status === 409 && /người khác/.test(error?.response?.data?.message ?? ""));
     } finally {
       if (mountedRef.current) setSaving(false);
     }
+  };
+
+  const luu = (event) => {
+    event.preventDefault();
+    if (!doi || saving) return;
+    setDaThuLuu(true);
+    const loiMoi = kiemTraBang(bang);
+    const khoaLoi = bang.map((d) => d.khoa).filter((k) => loiMoi[k]);
+    if (khoaLoi.length) {
+      setSaveError(khoaLoi.length === 1 ? "Còn 1 dòng cần sửa." : `Còn ${khoaLoi.length} dòng cần sửa.`);
+      setPhaiTaiLai(false);
+      toiDong(khoaLoi[0]);
+      return;
+    }
+    setSaveError("");
+    // Lưu sẽ xóa dòng đã có (gồm cả mức đang áp dụng): hỏi lại trước, liệt kê dòng sẽ xóa
+    const conLai = new Set(bang.map((d) => d.id).filter(Boolean));
+    const biXoa = thueSuat.filter((t) => !conLai.has(t.id));
+    if (biXoa.length) setXoaCho(biXoa);
+    else gui();
+  };
+
+  const taiLaiBang = () => {
+    setEditing(false);
+    setSaveError("");
+    setPhaiTaiLai(false);
+    load();
   };
 
   if (status === "loading") {
@@ -127,20 +179,23 @@ export default function VatSettingsPage() {
     );
   }
 
-  const ds = editing ? lich : saved.lich;
-  const dangBat = editing ? bat : saved.bat;
-  const ngay = homNay();
-  const tsHomNay = loiLich(ds) ? null : thueSuatTai(ds, ngay);
-  // Mốc đang hiệu lực hôm nay (lịch đã lưu luôn xếp theo ngày); -1 = chưa tới mốc nào.
-  const iHienHanh = ds.reduce((kq, m, i) => (m.tuNgay && m.tuNgay <= ngay ? i : kq), -1);
+  const dangBat = editing ? bat : savedBat;
+  const ngay = ngayIso(new Date());
+  // Ví dụ hóa đơn theo bảng đang sửa (bỏ dòng chưa đủ thông tin), để thấy ngay mức sẽ in
+  const dsXem = editing
+    ? payloadBang(bang.filter((d) => d.hieuLucTu && d.tyLe !== "" && !d.rieng))
+    : thueSuat;
+  const hienHanh = mucChungTai(dsXem, ngay);
+  const tsHomNay = hienHanh ? Number(hienHanh.tyLe) : null;
   const viDu = 120000;
   const thue = tsHomNay == null ? 0 : tienThue(viDu, tsHomNay);
   return (
-    <SettingsCard as="form" editing={editing} onSubmit={luu} noValidate aria-label="Thuế GTGT">
+    <>
+    <SettingsCard as="form" editing={editing} onSubmit={luu} noValidate aria-label="Thuế GTGT trên hóa đơn">
       <SettingsCardHeader
         title="Thuế GTGT trên hóa đơn"
         note="Áp dụng cho hóa đơn bán hàng (A4, A5 và khổ nhiệt tại quầy)"
-        action={canEdit && !editing ? <SettingsEditButton onClick={batDauSua} aria-label="Sửa cấu hình thuế GTGT" /> : null}
+        action={canEdit && !editing && !loiBang ? <SettingsEditButton onClick={batDauSua} aria-label="Sửa thuế GTGT" /> : null}
       />
       <div className="px-5 text-sm">
         <div className="mt-2 flex items-center gap-x-6 gap-y-3 border-t border-[#eef1f5] pt-3.5 pb-4">
@@ -164,60 +219,32 @@ export default function VatSettingsPage() {
           )}
         </div>
 
-        <div className="grid items-start gap-x-6 gap-y-4 border-t border-[#eef1f5] pt-1 pb-5 md:grid-cols-[minmax(0,1fr)_18rem]">
-          <fieldset className="m-0 min-w-0 border-0 p-0">
-            <legend className="contents"><SettingsGroupLabel className="pb-2">Lịch thuế suất</SettingsGroupLabel></legend>
-            <ul className="m-0 list-none divide-y divide-[#eef1f5] rounded-md border border-bo-border p-0">
-              {!ds.length ? <li className="px-3.5 py-2.5 text-bo-muted">Chưa có mốc thuế suất.</li> : null}
-              {ds.map((m, i) => (
-                editing ? (
-                  <li className="flex flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2.5" key={i}>
-                    <label className="flex items-center gap-2">
-                      <span className="text-bo-muted">Từ ngày</span>
-                      <Input aria-label={`Từ ngày, mốc ${i + 1}`} className={settingsInputClass({ className: "w-40" })} disabled={saving}
-                        onChange={(e) => suaMoc(i, "tuNgay", e.target.value)} type="date" value={m.tuNgay} />
-                    </label>
-                    <label className="flex items-center gap-2">
-                      <span className="text-bo-muted">Thuế suất</span>
-                      <span className="relative">
-                        <Input aria-label={`Thuế suất, mốc ${i + 1}`} className={settingsInputClass({ className: "w-24 pr-7 text-right tabular-nums" })} disabled={saving}
-                          inputMode="decimal" onChange={(e) => suaMoc(i, "thueSuat", e.target.value)} value={m.thueSuat} />
-                        <span aria-hidden="true" className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-bo-muted">%</span>
-                      </span>
-                    </label>
-                    <button aria-label={`Bỏ mốc ${i + 1}`} className="ml-auto rounded-md p-1.5 text-bo-muted hover:bg-bo-surface-subtle hover:text-red-600 disabled:opacity-40"
-                      disabled={saving || ds.length <= 1} onClick={() => setLich((cu) => cu.filter((_, j) => j !== i))} type="button">
-                      <X className="size-4" />
-                    </button>
-                  </li>
-                ) : (
-                  <li className={cn("flex min-h-11 items-center gap-3 px-3.5 py-2", i < iHienHanh ? "text-bo-muted" : "text-bo-foreground")} key={i}>
-                    <span className="min-w-0 flex-1 tabular-nums">
-                      {i + 1 < ds.length ? `${ngayVN(m.tuNgay)} – ${ngayVN(ngayTruoc(ds[i + 1].tuNgay))}` : `Từ ${ngayVN(m.tuNgay)}`}
-                    </span>
-                    {i === iHienHanh ? <SettingsPill tone="info">Hiện hành</SettingsPill> : null}
-                    {i > iHienHanh ? <SettingsPill tone="off">Sắp tới</SettingsPill> : null}
-                    {i < iHienHanh ? <span className="text-xs">Đã qua</span> : null}
-                    <span className="w-12 text-right font-semibold tabular-nums">{m.thueSuat}%</span>
-                  </li>
-                )
-              ))}
-            </ul>
-            {editing && ds.length < TOI_DA_MOC ? (
-              <SettingsTextButton className="mt-2 -ml-2.5" disabled={saving} onClick={() => setLich((cu) => [...cu, { tuNgay: "", thueSuat: "" }])}>
-                <Plus className="size-[15px]" aria-hidden="true" />Thêm mốc
-              </SettingsTextButton>
-            ) : null}
-            {loi ? <SettingsFieldHint className="mt-2" error={loi} /> : null}
-          </fieldset>
-
+        {/* Đang sửa: lịch chiếm cả chiều ngang, ví dụ hóa đơn xuống dưới — hàng nhập cần chỗ khi app còn thanh bên */}
+        <div className={cn("grid items-start gap-x-6 gap-y-4 border-t border-[#eef1f5] pt-1 pb-5", !editing && "md:grid-cols-[minmax(0,1fr)_18rem]")}>
           <div className="min-w-0">
+            <SettingsGroupLabel className="pb-2">Lịch thuế suất</SettingsGroupLabel>
+            {loiBang ? (
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-bo-border px-3.5 py-3 text-[#5b6676]">
+                <span className="min-w-0 flex-1">Không tải được bảng thuế suất.</span>
+                <SettingsTextButton onClick={load}>Thử lại</SettingsTextButton>
+              </div>
+            ) : editing ? (
+              <LichThueSuatSua bang={bang} loi={loi} danhMuc={danhMuc} disabled={saving} onDoiBang={setBang} onThemDong={toiDong} />
+            ) : (
+              <>
+                <LichThueSuatXem thueSuat={thueSuat} homNay={ngay} />
+                <p className="mt-2 mb-0 text-xs leading-5 text-[#5b6676]">Dùng chung cho hóa đơn bán hàng và xuất kế toán.</p>
+              </>
+            )}
+          </div>
+
+          <div className={cn("min-w-0", editing && "md:max-w-[18rem]")}>
             <SettingsGroupLabel className="pb-2">Hóa đơn sẽ in như sau</SettingsGroupLabel>
             {/* Cùng chữ với khối tổng của mẫu in (printSchemas: grandTotal, vatNote, vatPreTax, vatAmount) */}
             <div className="rounded-md border border-bo-border px-3.5 pt-3 pb-3.5 text-[13px] leading-5 tabular-nums">
               <DongHoaDon className="font-semibold text-bo-foreground" nhan="Tổng thanh toán" giaTri={formatCurrency(viDu)} />
-              {tsHomNay == null ? (
-                <p className="mt-2 text-xs leading-4 text-[#5b6676]">Hôm nay chưa có mốc thuế suất nào có hiệu lực: hóa đơn không in thuế.</p>
+              {loiBang ? null : tsHomNay == null ? (
+                <p className="mt-2 text-xs leading-4 text-[#5b6676]">Hôm nay chưa có mức chung: hóa đơn không in thuế.</p>
               ) : (
                 <>
                   <div className={cn("text-[#5b6676]", !dangBat && "opacity-45")}>
@@ -235,14 +262,32 @@ export default function VatSettingsPage() {
 
       <p className="m-0 flex gap-2 border-t border-[#eef1f5] px-5 py-3 text-xs leading-5 text-[#5b6676]">
         <Info className="mt-0.5 size-3.5 shrink-0 text-[#7a8594]" aria-hidden="true" />
-        <span>Đơn đã chốt giữ thuế suất lúc chốt; đơn sàn không tính thuế. Nên hỏi kế toán trước khi bật hoặc đổi thuế suất.</span>
+        <span>Thuế ghi vào đơn lúc chốt; đơn giao sau tính lại theo ngày giao khi xuất đủ hàng. Đơn sàn không in thuế. Nên hỏi kế toán trước khi bật hoặc đổi thuế suất.</span>
       </p>
       {editing ? (
         <>
-          {saveError ? <p role="alert" className="mx-5 mb-3 mt-1 rounded-md bg-bo-danger-soft px-3 py-2 text-[13px] leading-5 text-red-800">{saveError}</p> : null}
-          <SettingsFormActions className="mt-0" onCancel={huySua} saving={saving} disabled={!doi || Boolean(loi)} />
+          {saveError ? (
+            <div role="alert" className="mx-5 mb-3 mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md bg-bo-danger-soft px-3 py-2 text-[13px] leading-5 text-red-800">
+              <span className="min-w-0 flex-1">{saveError}</span>
+              {phaiTaiLai ? <SettingsTextButton onClick={taiLaiBang}>Tải lại bảng</SettingsTextButton> : null}
+            </div>
+          ) : null}
+          <SettingsFormActions className="mt-0" onCancel={huySua} saving={saving} disabled={!doi} />
         </>
       ) : null}
     </SettingsCard>
+
+    <ConfirmModal
+      isOpen={Boolean(xoaCho)}
+      onClose={() => !saving && setXoaCho(null)}
+      onConfirm={gui}
+      isLoading={saving}
+      variant="danger"
+      title={xoaCho?.length > 1 ? `Xóa ${xoaCho.length} dòng thuế suất?` : "Xóa dòng thuế suất?"}
+      description={xoaCho ? `Lưu sẽ xóa: ${xoaCho.map((t) => `${Number(t.tyLe)}% ${khoangNgay(t).toLowerCase()}${t.tenDanhMuc ? ` (${t.tenDanhMuc})` : ""}`).join("; ")}. Đơn đã giao và chứng từ đã giao kế toán không đổi; đơn chưa giao và lần xuất kế toán sau dùng bảng mới.` : ""}
+      confirmText="Xóa và lưu"
+      cancelText="Quay lại sửa"
+    />
+    </>
   );
 }

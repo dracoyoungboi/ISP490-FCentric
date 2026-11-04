@@ -4,8 +4,15 @@ const BASE = "/api/v1/ke-toan";
 
 const duLieu = (res) => res.data?.data;
 
+// Bảng thuế suất phải là mảng: thiếu dữ liệu mà coi là bảng rỗng thì lần lưu sau sẽ xóa sạch bảng
+const bangThueSuat = (res) => {
+    const ds = duLieu(res);
+    if (!Array.isArray(ds)) throw new Error("Máy chủ không trả bảng thuế suất");
+    return ds;
+};
+
 /**
- * API xuất dữ liệu kế toán (AMIS Kế toán doanh nghiệp). Cấu hình, thuế suất và xuất theo lô chỉ quản trị viên gọi được;
+ * API xuất dữ liệu kế toán (AMIS Kế toán doanh nghiệp). Cấu hình, sửa thuế suất và xuất theo lô chỉ quản trị viên gọi được (xem thuế suất thêm quản lý kho);
  * hóa đơn nhà cung cấp gắn với phiếu nhập (kiểm theo kho đang chọn nên giữ header kho_id).
  */
 export const keToanService = {
@@ -17,16 +24,14 @@ export const keToanService = {
     },
 
     async danhSachThueSuat({ signal } = {}) {
-        return duLieu(await apiClient.get(`${BASE}/thue-suat`, { signal, needKho: false })) ?? [];
+        return bangThueSuat(await apiClient.get(`${BASE}/thue-suat`, { signal, needKho: false }));
     },
-    async themThueSuat(payload) {
-        return duLieu(await apiClient.post(`${BASE}/thue-suat`, payload, { needKho: false }));
-    },
-    async suaThueSuat(id, payload) {
-        return duLieu(await apiClient.put(`${BASE}/thue-suat/${id}`, payload, { needKho: false }));
-    },
-    async xoaThueSuat(id) {
-        await apiClient.delete(`${BASE}/thue-suat/${id}`, { needKho: false });
+    /**
+     * Lưu cả bảng thuế suất (dòng không gửi lên bị xóa) và công tắc In thuế GTGT (inThue null = giữ nguyên) một lần.
+     * idDaXem: id các dòng lúc tải bảng — máy chủ báo 409 nếu có người vừa thêm dòng, thay vì xóa mất.
+     */
+    async luuBangThueSuat({ inThue, dong, idDaXem }) {
+        return bangThueSuat(await apiClient.put(`${BASE}/thue-suat`, { inThue, dong, idDaXem }, { needKho: false }));
     },
 
     /** Kiểm tra trước khi tạo lô; denNgay dạng yyyy-MM-dd. */

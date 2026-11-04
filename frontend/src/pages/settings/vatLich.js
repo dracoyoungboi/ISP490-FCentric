@@ -1,53 +1,99 @@
-// Lịch thuế suất GTGT (cấu hình VAT_LICH, máy chủ: ThueGtgt): [{ tuNgay: "yyyy-MM-dd", thueSuat: 8 }, ...], mỗi mốc có
-// hiệu lực từ tuNgay tới trước mốc kế tiếp.
+// Thuế GTGT (Cấu hình › Thuế GTGT): công tắc In thuế (cấu hình VAT_BAT) và bảng thuế suất có ngày hiệu lực (API
+// /ke-toan/thue-suat, lưu cả bảng một lần). Hóa đơn bán hàng in mức chung (dòng không danh mục) có hiệu lực ở ngày đó
+// (máy chủ: ThueGtgtService); dòng theo danh mục chỉ dùng khi xuất kế toán. Hàm thuần, chạy được bằng node --test.
+import { THUE_SUAT, chongNhau, hienNgay } from "../../components/ke-toan/tinhKeToan.js";
 
 export const VAT_BAT = "VAT_BAT";
-export const VAT_LICH = "VAT_LICH";
-export const TOI_DA_MOC = 10;
+export const TOI_DA_DONG = 50;
 
-/** Đọc lịch đã lưu; hỏng thì trả mảng rỗng (màn cấu hình cho sửa lại). */
-export function docLich(json) {
-  try {
-    const ds = JSON.parse(json || "[]");
-    if (!Array.isArray(ds)) return [];
-    return ds
-      .map((m) => ({ tuNgay: String(m?.tuNgay ?? ""), thueSuat: m?.thueSuat == null ? "" : String(m.thueSuat) }))
-      .sort((a, b) => a.tuNgay.localeCompare(b.tuNgay));
-  } catch {
-    return [];
-  }
+const laMucChung = (t) => !t?.danhMucId;
+const hieuLucNgay = (t, ngay) => t.hieuLucTu <= ngay && (!t.hieuLucDen || t.hieuLucDen >= ngay);
+
+/** Dòng mức chung có hiệu lực vào ngày (yyyy-MM-dd); null = chưa có (hóa đơn không in thuế). */
+export function mucChungTai(ds, ngay) {
+  return (ds ?? [])
+    .filter((t) => laMucChung(t) && hieuLucNgay(t, ngay))
+    .sort((a, b) => b.hieuLucTu.localeCompare(a.hieuLucTu))[0] ?? null;
 }
 
-/** Lỗi của lịch đang sửa (cùng quy tắc máy chủ); "" = hợp lệ. */
-export function loiLich(ds) {
-  if (!ds.length) return "Cần ít nhất một mốc thuế suất.";
-  if (ds.length > TOI_DA_MOC) return `Tối đa ${TOI_DA_MOC} mốc.`;
-  const ngay = new Set();
-  for (const m of ds) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(m.tuNgay) || Number.isNaN(Date.parse(m.tuNgay))) return "Chọn ngày bắt đầu cho mọi mốc.";
-    if (ngay.has(m.tuNgay)) return `Hai mốc trùng ngày ${m.tuNgay.split("-").reverse().join("/")}.`;
-    ngay.add(m.tuNgay);
-    const s = String(m.thueSuat).trim().replace(",", ".");
-    if (!/^\d{1,3}(\.\d{1,2})?$/.test(s) || Number(s) > 100) return "Thuế suất là số từ 0 đến 100, tối đa 2 chữ số thập phân.";
-  }
-  return "";
+/** Trạng thái dòng so với ngày (yyyy-MM-dd): "qua" đã hết hiệu lực, "toi" chưa tới, "hien" đang áp dụng. */
+export function trangThaiDong(t, ngay) {
+  if (t.hieuLucDen && t.hieuLucDen < ngay) return "qua";
+  return t.hieuLucTu > ngay ? "toi" : "hien";
 }
 
-/** Chuỗi lưu cấu hình: xếp theo ngày, thuế suất dạng số. */
-export function ghiLich(ds) {
-  return JSON.stringify([...ds]
-    .sort((a, b) => a.tuNgay.localeCompare(b.tuNgay))
-    .map((m) => ({ tuNgay: m.tuNgay, thueSuat: Number(String(m.thueSuat).trim().replace(",", ".")) })));
+/** "01/07/2025 – 31/12/2026" hoặc "Từ 01/01/2027" khi chưa hết hiệu lực. */
+export const khoangNgay = (t) =>
+  t.hieuLucDen ? `${hienNgay(t.hieuLucTu)} – ${hienNgay(t.hieuLucDen)}` : `Từ ${hienNgay(t.hieuLucTu)}`;
+
+/** Bảng xếp để hiện: mức chung theo ngày bắt đầu, rồi dòng theo danh mục (tên, ngày). */
+export function sapXep(ds) {
+  const theoNgay = (a, b) => a.hieuLucTu.localeCompare(b.hieuLucTu);
+  const chung = (ds ?? []).filter(laMucChung).sort(theoNgay);
+  const rieng = (ds ?? []).filter((t) => !laMucChung(t))
+    .sort((a, b) => (a.tenDanhMuc ?? "").localeCompare(b.tenDanhMuc ?? "", "vi") || theoNgay(a, b));
+  return { chung, rieng };
 }
 
-/** Thuế suất áp dụng vào ngày (yyyy-MM-dd); trước mốc đầu tiên thì null. */
-export function thueSuatTai(ds, ngay) {
-  let kq = null;
-  for (const m of [...ds].sort((a, b) => a.tuNgay.localeCompare(b.tuNgay))) {
-    if (m.tuNgay > ngay) break;
-    kq = Number(String(m.thueSuat).replace(",", "."));
+let dem = 0;
+/** Dòng đang sửa (giá trị chuỗi như ô nhập); khoa giữ ổn định khi thêm / bỏ dòng. rieng = dòng theo danh mục. */
+export function formDong(t, rieng = Boolean(t?.danhMucId)) {
+  return {
+    khoa: t?.id != null ? `id-${t.id}` : `moi-${++dem}`,
+    id: t?.id ?? null,
+    rieng,
+    danhMucId: t?.danhMucId ? String(t.danhMucId) : "",
+    tenDanhMuc: t?.tenDanhMuc ?? null,
+    tyLe: t?.tyLe != null ? String(Number(t.tyLe)) : "",
+    hieuLucTu: t?.hieuLucTu ?? "",
+    hieuLucDen: t?.hieuLucDen ?? "",
+    ghiChu: t?.ghiChu ?? "",
+  };
+}
+
+/** id ô "Từ ngày" của một dòng đang sửa (đưa con trỏ tới dòng mới thêm hoặc dòng lỗi đầu tiên). */
+export const idTuNgay = (khoa) => `ts-tu-${khoa}`;
+
+/** Bảng đang sửa từ bảng đã lưu: mức chung trước rồi dòng theo danh mục. */
+export function formBang(ds) {
+  const { chung, rieng } = sapXep(ds);
+  return [...chung, ...rieng].map((t) => formDong(t));
+}
+
+/**
+ * Lỗi của bảng đang sửa (cùng quy tắc máy chủ ThueSuatService.luuCaBang): { [khoa]: câu lỗi }, rỗng = hợp lệ.
+ * Chồng ngày trong cùng phạm vi (mức chung, hoặc cùng danh mục) báo ở dòng sau.
+ */
+export function kiemTraBang(ds) {
+  const loi = {};
+  const ok = [];
+  for (const d of ds) {
+    const ts = String(d.tyLe).trim();
+    if (d.rieng && !d.danhMucId) loi[d.khoa] = "Chọn danh mục";
+    else if (ts === "" || !THUE_SUAT.includes(Number(ts))) loi[d.khoa] = "Chọn thuế suất";
+    else if (!/^\d{4}-\d{2}-\d{2}$/.test(d.hieuLucTu)) loi[d.khoa] = "Chọn ngày bắt đầu";
+    else if (d.hieuLucDen && d.hieuLucDen < d.hieuLucTu) loi[d.khoa] = "Ngày kết thúc phải từ ngày bắt đầu trở đi";
+    else if (d.ghiChu.trim().length > 255) loi[d.khoa] = "Ghi chú tối đa 255 ký tự";
+    else {
+      const pv = d.rieng ? d.danhMucId : "";
+      const trung = ok.find((o) => o.pv === pv && chongNhau(o.d.hieuLucTu, o.d.hieuLucDen || null, d.hieuLucTu, d.hieuLucDen || null));
+      if (trung) loi[d.khoa] = `Trùng khoảng ngày với dòng ${Number(trung.d.tyLe)}% từ ${hienNgay(trung.d.hieuLucTu)}: đặt ngày kết thúc cho dòng trước`;
+      else ok.push({ pv, d });
+    }
   }
-  return kq;
+  return loi;
+}
+
+/** Dữ liệu gửi máy chủ (toàn bộ bảng). */
+export function payloadBang(ds) {
+  return ds.map((d) => ({
+    id: d.id,
+    tyLe: String(d.tyLe).trim() === "" ? null : Number(d.tyLe),
+    hieuLucTu: d.hieuLucTu,
+    hieuLucDen: d.hieuLucDen || null,
+    danhMucId: d.rieng && d.danhMucId ? Number(d.danhMucId) : null,
+    ghiChu: d.ghiChu.trim() || null,
+  }));
 }
 
 /** Tiền thuế tách ngược từ tổng đã gồm thuế, làm tròn tới đồng (ví dụ trên màn cấu hình). */
