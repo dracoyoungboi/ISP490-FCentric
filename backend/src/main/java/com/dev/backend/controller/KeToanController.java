@@ -23,7 +23,8 @@ import java.util.List;
 
 /**
  * API xuất dữ liệu kế toán (AMIS Kế toán doanh nghiệp).
- * - Cấu hình, thuế suất, xem trước, tạo lô, tải tệp, mở khóa: chỉ quan_tri_vien (chốt 25/10/2026; chưa có vai trò kế toán).
+ * - Cấu hình, sửa thuế suất, xem trước, tạo lô, tải tệp, mở khóa: chỉ quan_tri_vien (chốt 25/10/2026; chưa có vai trò kế toán).
+ * - Xem bảng thuế suất: thêm quan_ly_kho (bảng dùng chung với hóa đơn bán hàng, hiện ở Cấu hình › Thuế GTGT).
  * - Hóa đơn nhà cung cấp của phiếu nhập: xem với người xem được phiếu nhập; nhập / sửa với quản trị viên, quản lý kho,
  *   nhân viên mua hàng (service kiểm thêm kho đang chọn).
  */
@@ -63,29 +64,16 @@ public class KeToanController {
     // ── Thuế suất ──────────────────────────────────────────────────────────
 
     @GetMapping("/thue-suat")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
     public ResponseEntity<ResponseData<List<ThueSuatGtgtDto>>> danhSachThueSuat() {
         return ok(thueSuatService.danhSach());
     }
 
-    @PostMapping("/thue-suat")
+    /** Lưu cả bảng thuế suất và công tắc In thuế GTGT trong một giao dịch (Cấu hình › Thuế GTGT); trả bảng sau khi lưu. */
+    @PutMapping("/thue-suat")
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
-    public ResponseEntity<ResponseData<ThueSuatGtgtDto>> themThueSuat(@RequestBody ThueSuatGtgtRequest request) {
-        return ok(thueSuatService.them(request));
-    }
-
-    @PutMapping("/thue-suat/{id}")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien})
-    public ResponseEntity<ResponseData<ThueSuatGtgtDto>> suaThueSuat(@PathVariable Integer id,
-                                                                     @RequestBody ThueSuatGtgtRequest request) {
-        return ok(thueSuatService.sua(id, request));
-    }
-
-    @DeleteMapping("/thue-suat/{id}")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien})
-    public ResponseEntity<ResponseData<Void>> xoaThueSuat(@PathVariable Integer id) {
-        thueSuatService.xoa(id);
-        return ok(null);
+    public ResponseEntity<ResponseData<List<ThueSuatGtgtDto>>> luuBangThueSuat(@RequestBody ThueSuatCaBangRequest request) {
+        return ok(thueSuatService.luuCaBang(request));
     }
 
     // ── Xuất theo lô ───────────────────────────────────────────────────────

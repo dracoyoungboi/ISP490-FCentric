@@ -11,9 +11,10 @@ import java.time.Instant;
 import java.time.LocalDate;
 
 /**
- * Thuế suất GTGT có ngày hiệu lực, dùng khi xuất dữ liệu kế toán (giá bán đang gồm thuế, phải tách ra).
- * danhMuc để trống là mức chung toàn hệ thống; có danh mục thì ghi đè cho danh mục đó và các danh mục con.
- * Thuế của một dòng lấy theo ngày hạch toán của chứng từ.
+ * Thuế suất GTGT có ngày hiệu lực (Cấu hình › Thuế GTGT) — nguồn duy nhất cho cả hóa đơn bán hàng và xuất kế toán
+ * (giá bán đang gồm thuế, phải tách ra). danhMuc để trống là mức chung toàn hệ thống; có danh mục thì ghi đè cho danh
+ * mục đó và các danh mục con khi xuất kế toán (hóa đơn bán hàng chỉ in mức chung). Thuế lấy theo ngày giao hàng /
+ * ngày hạch toán của chứng từ.
  */
 @AllArgsConstructor
 @Getter
