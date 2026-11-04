@@ -1,23 +1,8 @@
 // src/pages/stock-take/StockTakeCreate.jsx
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import {
-  Boxes,
-  Check,
-  ChevronDown,
-  Circle,
-  CircleCheck,
-  Layers,
-  Loader2,
-  Lock,
-  MapPin,
-  Play,
-  Save,
-  Search,
-  Tags,
-  Warehouse,
-  Wrench,
-} from "lucide-react";
+import { jwtDecode } from "jwt-decode";
+import { Boxes, Check, ChevronDown, Layers, Lock, MapPin, Play, Save, Search, Tags, Warehouse, Wrench } from "lucide-react";
 import PageContainer from "@/components/backoffice/PageContainer";
 import KhungChungTu from "@/components/chung-tu/KhungChungTu";
 import DauChungTu from "@/components/chung-tu/DauChungTu";
@@ -28,6 +13,7 @@ import { KhungDangTai, KhungLoiChungTu } from "@/components/chung-tu/KhungTaiChu
 import { boDau, soVN } from "@/components/chung-tu/bangChungTu";
 import { GOI_Y_O, NHAN_O, O_NHAP, O_NHAP_NHIEU_DONG } from "@/components/chung-tu/kieuHopThoai";
 import ChonDanhMucKiemKe from "@/components/kiem-ke/ChonDanhMucKiemKe";
+import ChonKhoKiemKe, { BieuTuongKho } from "@/components/kiem-ke/ChonKhoKiemKe";
 import ChonKhuVucKiemKe from "@/components/kiem-ke/ChonKhuVucKiemKe";
 import XemTruocPhamVi from "@/components/kiem-ke/XemTruocPhamVi";
 import { LOAI_PHAM_VI, THU_TU_PHAM_VI, TT_DOT, vanDeTuLoi } from "@/components/kiem-ke/kiemKe";
@@ -41,8 +27,9 @@ import {
   laKhuThat,
   loaiKe,
   moTaPhamViChon,
+  ngayNgan,
   nhanDotGiu,
-  viecTruocBatDau,
+  thongTinKhoKiemKe,
 } from "@/components/kiem-ke/phamViKiemKe";
 import useHoiKhiRoiTrang from "@/hooks/useHoiKhiRoiTrang";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
@@ -72,6 +59,18 @@ import { ROLES, getCurrentUserId, hasAnyRole } from "@/utils/roles";
 
 const TEN_TOI_DA = 200;
 const LY_DO_TOI_DA = 2000;
+// Bộ đếm ký tự dưới ô Lý do chỉ hiện khi sắp chạm giới hạn
+const LY_DO_HIEN_DEM = 1800;
+
+/** Họ tên người đang đăng nhập (trong token) — để quản trị viên tự chủ trì đợt. */
+function hoTenTrongToken() {
+  try {
+    const p = jwtDecode(window.localStorage.getItem("access_token") ?? "");
+    return p?.hoTen || p?.tenDangNhap || p?.username || null;
+  } catch {
+    return null;
+  }
+}
 // Đổi phạm vi xong chờ ngần này rồi mới xem trước
 const CHO_XEM_TRUOC_MS = 400;
 
@@ -90,7 +89,7 @@ function phangCay(cay, sau = 0, kq = []) {
 }
 
 /** "Kiểm kê Khu A 04/11" — tên gợi ý khi người dùng chưa tự đặt. */
-function tenGoiY({ loai, kho, khuVuc, soKe, danhMuc }) {
+function tenGoiY({ loai, kho, khuVuc, maKe = [], danhMuc }) {
   // dd/MM cố định (toLocaleDateString cho "05-11" trên một số trình duyệt); tên kho gom dấu cách thừa
   const homNay = new Date();
   const ngay = `${String(homNay.getDate()).padStart(2, "0")}/${String(homNay.getMonth() + 1).padStart(2, "0")}`;
@@ -100,7 +99,11 @@ function tenGoiY({ loai, kho, khuVuc, soKe, danhMuc }) {
       ? `Kiểm kê ${khuVuc.slice(0, 2).join(", ")}${khuVuc.length > 2 ? ` +${khuVuc.length - 2}` : ""} ${ngay}`
       : `Kiểm kê theo khu vực ${ngay}`;
   }
-  if (loai === "theo_ke") return soKe ? `Kiểm kê ${soKe} kệ ${ngay}` : `Kiểm kê theo kệ ${ngay}`;
+  if (loai === "theo_ke") {
+    return maKe.length
+      ? `Kiểm kê kệ ${maKe.slice(0, 2).join(", ")}${maKe.length > 2 ? ` +${maKe.length - 2}` : ""} ${ngay}`
+      : `Kiểm kê theo kệ ${ngay}`;
+  }
   if (loai === "theo_danh_muc") return danhMuc ? `Kiểm kê danh mục ${danhMuc} ${ngay}` : `Kiểm kê theo danh mục ${ngay}`;
   return `Kiểm kê ${tenKho ? `toàn ${tenKho}` : "toàn kho"} ${ngay}`;
 }
@@ -145,9 +148,9 @@ function DongTrangThai({ dang, loi, onThuLai, children }) {
 
 /**
  * Tạo / sửa đợt kiểm kê khoanh vùng (/stock-take/new, /stock-take/:id/edit) — UC-STK-01 của đặc tả BA 03/11/2026.
- * Quản lý kho (của kho) và quản trị viên lập đợt: chọn kho → kiểu phạm vi (toàn kho, khu vực, kệ, danh mục) → phạm vi cụ thể →
+ * Quản lý kho (của kho) và quản trị viên lập đợt: kho + kiểu phạm vi (toàn kho, khu vực, kệ, danh mục) → phạm vi cụ thể →
  * thông tin. Cột phải xem trước ngay số kệ sẽ khóa / số dòng sẽ chốt và mọi vướng mắc (kệ đang thuộc đợt khác, hàng chưa có
- * kệ, phiếu nhặt đang giữ hàng…), kèm danh sách việc còn thiếu trước khi bắt đầu. "Lưu nháp" chưa khóa gì; "Bắt đầu kiểm kê"
+ * kệ, phiếu nhặt đang giữ hàng…); điều còn thiếu ghi ngay cạnh nút Bắt đầu. "Lưu nháp" chưa khóa gì; "Bắt đầu kiểm kê"
  * khóa và chốt ngay. Rời trang khi biểu mẫu có thay đổi chưa lưu thì hỏi trước.
  */
 export default function StockTakeCreate() {
@@ -228,9 +231,16 @@ function BieuMauDot({ dot }) {
   const taiCay = useCallback(async () => phangCay((await danhMucQuanAoService.getCayDanhMuc()).data?.data ?? []), []);
   const qCay = useTaiDuLieu(taiCay, "kk-cay-danh-muc", { enabled: loai === "theo_danh_muc" });
 
-  // Lần kiểm gần nhất của từng khu: từ các đợt đã duyệt của kho (lỗi tải chỉ làm cột này hiện "—", không chặn gì)
-  const taiLichSu = useCallback(() => layDanhSachDot({ khoId, trangThai: TT_DOT.DA_DUYET }), [khoId]);
-  const qLichSu = useTaiDuLieu(taiLichSu, `kk-da-duyet-${khoId}`, { enabled: khoId != null });
+  // Đợt đã duyệt + đợt đang chạy của mọi kho (một lần, không tải nháp / đã hủy): lần kiểm gần nhất của từng khu / danh mục /
+  // kho và số đợt đang chạy của từng kho trong ô chọn kho. Lỗi tải chỉ làm các số này trống (có nút Thử lại), không chặn gì
+  const taiLichSu = useCallback(
+    async () =>
+      (await Promise.all([TT_DOT.DA_DUYET, TT_DOT.DANG_KIEM_KE, TT_DOT.CHO_DUYET].map((trangThai) => layDanhSachDot({ trangThai })))).flat(),
+    [],
+  );
+  const qLichSu = useTaiDuLieu(taiLichSu, "kk-lich-su-dot");
+  const loiLichSu = !qLichSu.loading && qLichSu.error && !qLichSu.data;
+  const thongTinKho = useMemo(() => (qLichSu.data ? thongTinKhoKiemKe(qLichSu.data) : null), [qLichSu.data]);
   const kiemGanNhat = useMemo(
     () => (qLichSu.dungKhoa ? kiemGanNhatTheoKhu(qLichSu.data, khoId, dsKhu.map((kv) => Number(kv.id))) : null),
     [qLichSu.dungKhoa, qLichSu.data, khoId, dsKhu],
@@ -273,16 +283,43 @@ function BieuMauDot({ dot }) {
   const taiNguoi = useCallback(() => layNguoiChuTri(khoId), [khoId]);
   const qNguoi = useTaiDuLieu(taiNguoi, `kk-chu-tri-${khoId}`, { enabled: khoId != null });
   // Chỉ dùng danh sách của đúng kho đang chọn (như sơ đồ): vừa đổi kho thì danh sách kho cũ không còn chọn được
-  const dsNguoi = useMemo(() => (qNguoi.dungKhoa ? qNguoi.data ?? [] : []), [qNguoi.dungKhoa, qNguoi.data]);
+  // Máy chủ nhận quản lý kho của kho hoặc quản trị viên (bỏ trống = người tạo). Danh sách chỉ có quản lý kho, nên quản trị
+  // viên thêm chính mình lên đầu và chủ trì sẵn — không tự giao cho người đầu danh sách mà người tạo không để ý
+  const dsNguoi = useMemo(() => {
+    const ds = qNguoi.dungKhoa ? qNguoi.data ?? [] : [];
+    if (!qNguoi.dungKhoa) return ds;
+    const them = [];
+    // Sửa nháp: người đang chủ trì (vd. quản trị viên đã lập) có thể không nằm trong danh sách quản lý kho — giữ nguyên người
+    // đó, không lặng lẽ đổi sang người đang sửa
+    const cu = laSua ? dot.nguoiChuTri : null;
+    if (cu?.id != null && !ds.some((n) => n.id === cu.id)) them.push({ id: cu.id, hoTen: cu.hoTen || `Người dùng #${cu.id}` });
+    if (laQtv && nguoiDungId != null && !ds.some((n) => n.id === nguoiDungId) && !them.some((n) => n.id === nguoiDungId)) {
+      them.push({ id: nguoiDungId, hoTen: hoTenTrongToken() || "Bạn" });
+    }
+    return [...them, ...ds];
+  }, [qNguoi.dungKhoa, qNguoi.data, laQtv, nguoiDungId, laSua, dot]);
   const chuTri = dsNguoi.some((n) => n.id === nguoiChuTriId)
     ? nguoiChuTriId
-    : dsNguoi.find((n) => n.id === nguoiDungId)?.id ?? dsNguoi[0]?.id ?? null;
+    : dsNguoi.find((n) => n.id === nguoiDungId)?.id ?? (dsNguoi.length === 1 ? dsNguoi[0].id : null);
+  // Danh sách người chủ trì của kho đang chọn chưa tải xong: chưa gửi (máy chủ sẽ gán người đang sửa nếu để trống)
+  const dangTaiNguoi = khoId != null && !qNguoi.dungKhoa && qNguoi.loading;
 
   const tenKhu = dsKhu.filter((kv) => khuVucIds.has(kv.id)).map((kv) => kv.ten || kv.ma);
   const danhMucChon = (qCay.data ?? []).find((x) => x.id === danhMucId);
   const tenDanhMuc = danhMucChon?.ten ?? (danhMucId === dot?.danhMuc?.id ? dot?.danhMuc?.ten : undefined);
-  const tenDeXuat = tenGoiY({ loai, kho: tenKho, khuVuc: tenKhu, soKe: viTriIds.size, danhMuc: tenDanhMuc });
+  const maKeChon = useMemo(() => {
+    const ma = new Map();
+    (dot?.viTri ?? []).forEach((v) => ma.set(v.id, v.ma));
+    khuVuc.forEach((kv) => (kv.ke ?? []).forEach((k) => ma.set(k.id, k.ma)));
+    return [...viTriIds]
+      .map((x) => ma.get(x))
+      .filter(Boolean)
+      .sort((a, b) => String(a).localeCompare(String(b), "vi", { numeric: true }));
+  }, [dot, khuVuc, viTriIds]);
+  const tenDeXuat = tenGoiY({ loai, kho: tenKho, khuVuc: tenKhu, maKe: maKeChon, danhMuc: tenDanhMuc });
   const tenGui = (daSuaTen ? ten : ten || tenDeXuat).trim().slice(0, TEN_TOI_DA);
+  // Nhiều quản lý kho mà chưa ai được chọn (người tạo không nằm trong danh sách): phải chọn, không đoán
+  const thieuChuTri = dsNguoi.length > 1 && chuTri == null;
 
   // Chip lý do nhanh: chưa có thì nối thêm, đang có thì gỡ khỏi ô. Màn cảm ứng không đưa con trỏ vào ô (khỏi bật bàn phím ảo)
   const batTatLyDoNhanh = (chu) => {
@@ -349,7 +386,7 @@ function BieuMauDot({ dot }) {
   const thanGui = () => ({
     ...yeuCau,
     tenDotKiemKe: tenGui,
-    nguoiChuTriId: chuTri,
+    nguoiChuTriId: chuTri ?? (laSua ? dot.nguoiChuTri?.id ?? null : null),
     lyDo: lyDo.trim() || null,
     ngayDuKienBatDau: tuONgay(ngayDuKien),
     ghiChu: ghiChu.trim() || null,
@@ -360,7 +397,16 @@ function BieuMauDot({ dot }) {
       ? "Đợt không còn là nháp hoặc bạn không có quyền sửa"
       : khoId == null
         ? "Chưa có kho để kiểm kê"
-        : thieuPhamVi || (!tenGui ? "Nhập tên đợt" : !lyDo.trim() ? "Nhập lý do kiểm kê" : null);
+        : thieuPhamVi ||
+          (!tenGui
+            ? "Nhập tên đợt"
+            : !lyDo.trim()
+              ? "Nhập lý do kiểm kê"
+              : dangTaiNguoi
+                ? "Đang tải người chủ trì…"
+                : thieuChuTri
+                  ? "Chọn người chủ trì"
+                  : null);
 
   const truocKhiGui = () => {
     setLoi(null);
@@ -450,13 +496,6 @@ function BieuMauDot({ dot }) {
     }
     return kq;
   }, [khuVuc, timKe, hienKeTrong, viTriIds]);
-  const maKeChon = useMemo(() => {
-    const ma = new Map();
-    (dot?.viTri ?? []).forEach((v) => ma.set(v.id, v.ma));
-    khuVuc.forEach((kv) => (kv.ke ?? []).forEach((k) => ma.set(k.id, k.ma)));
-    return [...viTriIds].map((x) => ma.get(x)).filter(Boolean);
-  }, [dot, khuVuc, viTriIds]);
-
 
   const doiTapHop = (setter, ids, bat) =>
     setter((cu) => {
@@ -470,7 +509,7 @@ function BieuMauDot({ dot }) {
   const soKhuDangChon = khuChon.length;
   const soKeDangChon = viTriIds.size;
   const soDangChon = soKhuDangChon + soKeDangChon;
-  // Đang chờ xác nhận đổi kho mà người dùng bỏ hết khu / kệ: không còn gì để hỏi, thôi chờ (thẻ kho hết viền đứt)
+  // Đang chờ xác nhận đổi kho mà người dùng bỏ hết khu / kệ: không còn gì để hỏi, thôi chờ
   if (khoCho != null && !soDangChon) setKhoCho(null);
   const doiKho = (idMoi) => {
     setKhoChon(idMoi);
@@ -487,6 +526,7 @@ function BieuMauDot({ dot }) {
     thieuPhamVi ? { theo_khu_vuc: "khu vực", theo_ke: "kệ", theo_danh_muc: "danh mục" }[loai] : null,
     !tenGui ? "tên đợt" : null,
     !lyDo.trim() ? "lý do kiểm kê" : null,
+    thieuChuTri ? "người chủ trì" : null,
   ].filter(Boolean);
   const lyDoBatDau = !suaDuoc
     ? "Không sửa được đợt này"
@@ -505,9 +545,23 @@ function BieuMauDot({ dot }) {
           : !kqXem?.coTheBatDau
             ? GO_VUONG_MAC
             : null;
-  // Cùng điều kiện với lyDoBatDau, dạng danh sách việc cho cột phải
-  const viec = viecTruocBatDau({ khoId, dangTaiKho, loiKho: Boolean(qKho.error), thieuPhamVi, tenGui, lyDo, dangXem, loiXem, kqXem });
-  const soViecCon = viec.filter((v) => !v.xong).length;
+  // Kho đang chọn: số kệ (theo sơ đồ đã tải) · lần kiểm gần nhất · đợt đang chạy — ngay cạnh ô chọn kho
+  const ttKhoChon = khoId != null ? thongTinKho?.get(Number(khoId)) : null;
+  const soKeKho = soDo ? khuVuc.reduce((s, kv) => s + (kv.ke?.length ?? 0), 0) : null;
+  const moTaKhoChon = [
+    soKeKho != null ? `${soVN(soKeKho)} kệ` : null,
+    thongTinKho ? (ttKhoChon?.ganNhat ? `kiểm toàn kho ${ngayNgan(ttKhoChon.ganNhat)}` : "chưa kiểm toàn kho") : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const thongTinDongKho = (k) => {
+    const tt = thongTinKho?.get(Number(k.id));
+    if (!thongTinKho) return {};
+    return {
+      phu: tt?.ganNhat ? `Kiểm toàn kho ${ngayNgan(tt.ganNhat)}` : "Chưa kiểm toàn kho",
+      ban: tt?.dangChay ? `${soVN(tt.dangChay)} đợt đang chạy` : undefined,
+    };
+  };
 
   // Quay lại thẻ này (vd. sau khi xếp kệ ở thẻ mới): tính lại xem trước để vướng mắc đã gỡ biến mất
   useTaiLaiKhiQuayLai(tinhLaiXem, { bat: suaDuoc && khoId != null && !thieuPhamVi && !dangGui, giaCach: 5000 });
@@ -547,7 +601,7 @@ function BieuMauDot({ dot }) {
         dau={
           <DauChungTu
             ma={laSua ? `Sửa ${dot.ma}` : "Tạo đợt kiểm kê"}
-            dongPhu={laSua ? [dot.ten, "Nháp"] : "Chọn phạm vi càng hẹp, phần kho phải tạm dừng càng ít"}
+            dongPhu={laSua ? [dot.ten, "Nháp"] : undefined}
             onQuayLai={veTrangTruoc}
             nhanQuayLai={laSua ? "Về đợt kiểm kê" : "Về danh sách kiểm kê"}
             nutPhu={{
@@ -584,61 +638,59 @@ function BieuMauDot({ dot }) {
               luuNhapNgay();
             }}
           >
-            {/* 1. Kho */}
+            {/* 1. Phạm vi: kho ngay trên các kiểu phạm vi (kho là một phần của phạm vi: "Khu A của Cửa hàng Hà Nội") */}
             <section className="grid gap-3">
-              <TieuDeMuc so={1}>Kho kiểm kê</TieuDeMuc>
-              {laSua ? (
-                <p className="max-w-md rounded-md border border-bo-border bg-bo-surface-subtle px-3 py-2.5 text-sm font-medium text-bo-foreground">
-                  {dot.kho?.ten}
-                  <span className="ml-2 text-xs font-normal text-bo-muted">Không đổi được kho của đợt đã lập</span>
-                </p>
-              ) : dangTaiKho ? (
-                <p role="status" className="text-sm text-bo-muted">Đang tải danh sách kho…</p>
-              ) : !dsKho.length ? (
-                <p className="text-sm text-bo-muted">
-                  {qKho.error ? "Chưa tải được danh sách kho." : "Bạn chưa được phân kho nào đang hoạt động để kiểm kê."}
-                </p>
-              ) : dsKho.length === 1 ? (
-                // Một kho (thường là quản lý kho): không có gì để chọn, chỉ ghi tên kho
-                <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm">
-                  <Warehouse className="size-4 shrink-0 text-bo-muted" aria-hidden="true" />
-                  <span className="font-medium text-bo-foreground">{dsKho[0].tenKho}</span>
-                  <span className="text-xs text-bo-muted">{laQtv ? "Kho giao dịch duy nhất đang hoạt động" : "Kho bạn đang quản lý"}</span>
-                </p>
-              ) : (
-                <>
-                  <div role="radiogroup" aria-label="Kho kiểm kê" className="grid gap-2 @2xl/khoi:grid-cols-2 @5xl/khoi:grid-cols-3">
-                    {dsKho.map((k) => {
-                      const chon = Number(k.id) === Number(khoId);
-                      const cho = khoChoDoi && Number(k.id) === Number(khoChoDoi.id);
-                      return (
-                        <label
-                          key={k.id}
-                          className={cn(
-                            "flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2.5 text-sm transition-colors",
-                            chon
-                              ? "border-bo-primary bg-bo-primary-soft text-bo-foreground"
-                              : cho
-                                ? "border-dashed border-bo-primary bg-bo-surface text-slate-700"
-                                : "border-bo-border bg-bo-surface text-slate-700 hover:bg-bo-surface-subtle",
-                          )}
-                        >
-                          <input
-                            type="radio"
-                            name={`${idForm}-kho`}
-                            checked={chon}
-                            onChange={() => (soDangChon ? setKhoCho(k.id) : doiKho(k.id))}
-                            className="size-4 accent-bo-primary"
-                          />
-                          <Warehouse className={cn("size-4 shrink-0", chon ? "text-bo-primary" : "text-bo-muted")} aria-hidden="true" />
-                          <span className="min-w-0 truncate font-medium" title={k.tenKho}>
-                            {k.tenKho}
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                  {khoChoDoi && soDangChon ? (
+              <TieuDeMuc so={1} phu="Chỉ phần đã chọn bị tạm dừng; phần còn lại của kho vẫn nhập xuất bình thường">
+                Phạm vi kiểm kê
+              </TieuDeMuc>
+              <div className="grid gap-2">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                  <span className={cn(NHAN_O, "w-10 shrink-0")}>Kho</span>
+                  {laSua ? (
+                    <span className="flex h-9 min-w-0 items-center gap-2 rounded-md border border-bo-border bg-bo-surface-subtle px-3 text-sm">
+                      <BieuTuongKho kho={dsKho.find((k) => Number(k.id) === Number(dot.kho?.id)) ?? dot.kho} className="text-bo-muted" />
+                      <span className="truncate font-medium text-bo-foreground">{dot.kho?.ten}</span>
+                    </span>
+                  ) : dangTaiKho ? (
+                    <span role="status" className="text-sm text-bo-muted">
+                      Đang tải danh sách kho…
+                    </span>
+                  ) : !dsKho.length ? (
+                    <span className="text-sm text-bo-muted">
+                      {qKho.error ? "Chưa tải được danh sách kho." : "Bạn chưa được phân kho nào đang hoạt động để kiểm kê."}
+                    </span>
+                  ) : (
+                    <ChonKhoKiemKe
+                      dsKho={dsKho}
+                      value={khoId}
+                      // Chọn lại đúng kho đang dùng khi đang chờ xác nhận: thôi hỏi đổi kho
+                      onChange={(id) => (Number(id) === Number(khoId) ? setKhoCho(null) : soDangChon ? setKhoCho(id) : doiKho(id))}
+                      thongTin={thongTinDongKho}
+                      nhan="Kho kiểm kê"
+                      disabled={!suaDuoc || Boolean(dangGui)}
+                      className="w-full sm:w-auto sm:min-w-[240px] sm:max-w-[340px]"
+                    />
+                  )}
+                  {laSua ? (
+                    <span className="text-xs text-bo-muted">Không đổi được kho của đợt đã lập</span>
+                  ) : loiLichSu ? (
+                    <span className="text-xs text-bo-muted">
+                      Chưa tải được lịch sử kiểm kê. <NutChu onClick={qLichSu.reload} className="text-xs">Thử lại</NutChu>
+                    </span>
+                  ) : moTaKhoChon || ttKhoChon?.dangChay ? (
+                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-bo-muted tabular-nums">
+                      {moTaKhoChon}
+                      {ttKhoChon?.dangChay ? (
+                        <span className="rounded-full bg-amber-50 px-2 font-medium leading-5 text-amber-700">
+                          {soVN(ttKhoChon.dangChay)} đợt đang chạy
+                        </span>
+                      ) : null}
+                    </span>
+                  ) : null}
+                </div>
+                {khoChoDoi && soDangChon ? (
+                  // role="status": trình đọc màn hình đọc câu hỏi ngay khi ô chọn kho đóng lại
+                  <div role="status">
                     <DongThongBao
                       tone="warn"
                       actions={
@@ -654,16 +706,9 @@ function BieuMauDot({ dot }) {
                         .join(" và ")}{" "}
                       đã chọn ở {tenKho}.
                     </DongThongBao>
-                  ) : null}
-                </>
-              )}
-            </section>
-
-            {/* 2. Phạm vi */}
-            <section className="grid gap-3">
-              <TieuDeMuc so={2} phu="Chỉ phần đã chọn bị tạm dừng; phần còn lại của kho vẫn nhập xuất bình thường">
-                Phạm vi kiểm kê
-              </TieuDeMuc>
+                  </div>
+                ) : null}
+              </div>
               <div role="radiogroup" aria-label="Kiểu phạm vi" className="grid gap-2 @2xl/khoi:grid-cols-2 @7xl/khoi:grid-cols-4">
                 {THU_TU_PHAM_VI.map((ma) => {
                   const Icon = ICON_PHAM_VI[ma];
@@ -709,7 +754,17 @@ function BieuMauDot({ dot }) {
                   {khoId == null ? (
                     <DongTrangThai>Chưa có kho để chọn khu vực.</DongTrangThai>
                   ) : dangTaiSoDo ? (
-                    <DongTrangThai dang>Đang tải khu vực…</DongTrangThai>
+                    // Khung xương đúng chiều cao bảng khu (tiêu đề + 2 hàng): bảng tải xong không đẩy phần dưới xuống
+                    <div role="status" aria-label="Đang tải khu vực" className="overflow-hidden rounded-lg border border-bo-border bg-white">
+                      <div className="h-9 border-b border-bo-border bg-bo-surface-subtle" />
+                      {[0, 1].map((i) => (
+                        <div key={i} className="flex h-[52px] items-center gap-3 border-b border-bo-border px-3 last:border-b-0">
+                          <span className="size-4 rounded bg-slate-100" />
+                          <span className="h-3.5 w-24 animate-pulse rounded bg-slate-100" />
+                          <span className="ml-auto h-3 w-32 animate-pulse rounded bg-slate-100" />
+                        </div>
+                      ))}
+                    </div>
                   ) : loiSoDo ? (
                     <DongTrangThai loi={`Chưa tải được khu vực: ${loiSoDo}.`} onThuLai={qSoDo.reload} />
                   ) : !dsKhu.length ? (
@@ -869,9 +924,9 @@ function BieuMauDot({ dot }) {
               ) : null}
             </section>
 
-            {/* 3. Thông tin */}
+            {/* 2. Thông tin */}
             <section className="grid gap-4">
-              <TieuDeMuc so={3}>Thông tin đợt</TieuDeMuc>
+              <TieuDeMuc so={2}>Thông tin đợt</TieuDeMuc>
               <div className="grid gap-x-5 gap-y-4 @2xl/khoi:grid-cols-2">
                 <label className="grid content-start gap-1.5">
                   <span className={NHAN_O}>
@@ -896,15 +951,19 @@ function BieuMauDot({ dot }) {
                       <option value="">
                         {khoId != null && qNguoi.loading ? "Đang tải…" : qNguoi.error ? "Chưa tải được danh sách" : "Chưa có quản lý kho của kho này"}
                       </option>
+                    ) : chuTri == null ? (
+                      <option value="" disabled>
+                        Chọn người chủ trì
+                      </option>
                     ) : null}
                     {dsNguoi.map((n) => (
                       <option key={n.id} value={n.id}>
                         {n.hoTen}
-                        {n.id === nguoiDungId ? " (bạn)" : ""}
+                        {n.id === nguoiDungId && n.hoTen !== "Bạn" ? " (bạn)" : ""}
                       </option>
                     ))}
                   </select>
-                  <span className={GOI_Y_O}>Quản lý kho của kho; mọi nhân viên kho đều đếm được</span>
+                  <span className={GOI_Y_O}>Mọi nhân viên kho đều đếm được</span>
                 </label>
                 <div className="grid gap-1.5 @2xl/khoi:col-span-2">
                   <label htmlFor={idLyDo} className={NHAN_O}>
@@ -944,15 +1003,17 @@ function BieuMauDot({ dot }) {
                           );
                         })
                       : null}
-                    <span className="ml-auto text-xs leading-4 text-bo-muted tabular-nums">
-                      {lyDo.length}/{LY_DO_TOI_DA}
-                    </span>
+                    {lyDo.length > LY_DO_HIEN_DEM ? (
+                      <span className="ml-auto text-xs leading-4 text-bo-muted tabular-nums">
+                        {soVN(lyDo.length)}/{soVN(LY_DO_TOI_DA)}
+                      </span>
+                    ) : null}
                   </div>
                 </div>
                 <label className="grid content-start gap-1.5">
                   <span className={NHAN_O}>Dự kiến bắt đầu</span>
                   <input type="datetime-local" value={ngayDuKien} disabled={!suaDuoc} onChange={(e) => setNgayDuKien(e.target.value)} className={O_NHAP} />
-                  <span className={GOI_Y_O}>Không bắt buộc, để nhắc lịch</span>
+                  <span className={GOI_Y_O}>Không bắt buộc. Hiện ở danh sách đợt để mọi người biết lịch</span>
                 </label>
                 <label className="grid content-start gap-1.5">
                   <span className={NHAN_O}>Ghi chú cho người đếm</span>
@@ -982,15 +1043,15 @@ function BieuMauDot({ dot }) {
         }
         cotPhai={
           // Cột phải giãn hết chiều cao thân (nền xám tới đáy); phần nội dung dính đầu màn khi cuộn (từ 1280px), cao tối đa
-          // bằng vùng nội dung (màn trừ thanh đầu 56px + viền 1px) và tự cuộn, để danh sách việc không khuất trên laptop 720px.
+          // bằng vùng nội dung (màn trừ thanh đầu 56px + viền 1px) và tự cuộn, để phần xem trước không khuất trên laptop 720px.
           // Hẹp hơn: lớp bọc "contents" để các nhóm vẫn xếp 2 cột theo lưới của CotThuocTinh
           <CotThuocTinh nhan="Xem trước phạm vi">
             <div className="contents xl:sticky xl:top-0 xl:block xl:max-h-[calc(100dvh-57px)] xl:overflow-y-auto xl:overscroll-contain">
               <NhomThuocTinh nhan="Xem trước" rong>
                 {thieuPhamVi ? (
                   <p className="flex items-center gap-2 rounded-lg border border-dashed border-bo-border px-3 py-3 text-[13px] text-bo-muted">
-                    <Boxes className="size-4" aria-hidden="true" />
-                    {thieuPhamVi} để xem trước.
+                    <Boxes className="size-4 shrink-0" aria-hidden="true" />
+                    Số kệ sẽ khóa và các vướng mắc hiện ở đây khi đã chọn phạm vi.
                   </p>
                 ) : (
                   <>
@@ -1020,34 +1081,10 @@ function BieuMauDot({ dot }) {
                   </>
                 )}
               </NhomThuocTinh>
-              {suaDuoc ? (
-                <NhomThuocTinh nhan={soViecCon ? `Còn ${soVN(soViecCon)} việc trước khi bắt đầu` : "Sẵn sàng bắt đầu"} rong>
-                  <ul className="m-0 grid list-none gap-1.5 p-0">
-                    {viec.map((v) => (
-                      <li
-                        key={v.ma}
-                        className={cn("flex items-start gap-2 text-[13px] leading-5", v.xong ? "text-slate-600" : "font-medium text-bo-foreground")}
-                      >
-                        {v.xong ? (
-                          <CircleCheck className="mt-0.5 size-4 shrink-0 text-bo-success" aria-hidden="true" />
-                        ) : v.dang ? (
-                          <Loader2 className="mt-0.5 size-4 shrink-0 animate-spin text-bo-muted" aria-hidden="true" />
-                        ) : (
-                          <Circle className="mt-0.5 size-4 shrink-0 text-slate-300" aria-hidden="true" />
-                        )}
-                        <span className="min-w-0">
-                          <span className="sr-only">{v.xong ? "Xong: " : "Chưa xong: "}</span>
-                          {v.chu}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </NhomThuocTinh>
-              ) : null}
               <NhomThuocTinh rong>
                 <details className="group">
                   <summary className="flex cursor-pointer list-none items-center gap-2 rounded text-[13px] font-medium text-bo-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 [&::-webkit-details-marker]:hidden">
-                    Bấm Bắt đầu thì sao?
+                    Bắt đầu: khóa phạm vi, chốt sổ, rồi đếm
                     <ChevronDown className="ml-auto size-4 text-bo-muted transition-transform group-open:rotate-180" aria-hidden="true" />
                   </summary>
                   <ol className="m-0 mt-2 grid list-none gap-2 p-0 text-[13px] leading-5 text-slate-700">

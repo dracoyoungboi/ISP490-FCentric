@@ -1,11 +1,11 @@
-// Hàm thuần cho màn Tạo / sửa đợt kiểm kê (StockTakeCreate): phân loại kệ, lần kiểm gần nhất của khu, việc còn thiếu
-// trước khi bắt đầu, câu mô tả phạm vi đang chọn.
+// Hàm thuần cho màn Tạo / sửa đợt kiểm kê (StockTakeCreate): phân loại kệ, lần kiểm gần nhất của khu / danh mục / kho,
+// câu mô tả phạm vi đang chọn.
 import { TT_DOT } from "./kiemKe.js";
 
 /** Lý do hay dùng: bấm để điền vào ô Lý do kiểm kê (vẫn sửa được). */
 export const LY_DO_NHANH = Object.freeze(["Kiểm kê định kỳ", "Lệch tồn với kênh bán", "Sau đợt nhập hàng lớn", "Nghi thất thoát"]);
 
-/** Câu nhắc gỡ vướng mắc: dùng chung cho lý do cạnh nút Bắt đầu và danh sách việc ở cột phải. */
+/** Câu nhắc gỡ vướng mắc (lý do cạnh nút Bắt đầu). */
 export const GO_VUONG_MAC = "Gỡ các vướng mắc ở phần Xem trước";
 
 /**
@@ -114,38 +114,25 @@ export function ngayNgan(luc) {
 }
 
 /**
- * Danh sách việc trước khi bắt đầu (cột phải), cùng điều kiện với lý do khóa nút Bắt đầu của màn:
- * `[{ ma, xong, dang, chu }]` — `dang`: đang tính (hiện vòng quay thay cho ô tròn).
- * Chưa có kho chỉ xảy ra khi đang tải, tải lỗi (`loiKho`) hoặc người dùng không có kho nào (có kho thì màn tự chọn kho
- * đầu), nên câu khớp lý do cạnh nút thay vì "Chọn kho".
+ * Thông tin từng kho cho ô chọn kho của Tạo đợt: `Map(khoId → { ganNhat: Date | null, dangChay: số đợt })`.
+ * `ganNhat`: ngày duyệt mới nhất của đợt TOÀN KHO đã duyệt (đợt một khu / vài kệ không có nghĩa là cả kho vừa kiểm);
+ * `dangChay`: đợt Đang kiểm kê / Chờ duyệt (đang giữ khóa).
  */
-export function viecTruocBatDau({ khoId, dangTaiKho, loiKho = false, thieuPhamVi, tenGui, lyDo, dangXem, loiXem, kqXem }) {
-  const viec = [];
-  if (khoId == null) {
-    viec.push({
-      ma: "kho",
-      xong: false,
-      dang: dangTaiKho,
-      chu: dangTaiKho ? "Đang tải danh sách kho…" : loiKho ? "Chưa tải được danh sách kho" : "Chưa có kho để kiểm kê",
-    });
+export function thongTinKhoKiemKe(dsDot) {
+  const kq = new Map();
+  for (const d of Array.isArray(dsDot) ? dsDot : []) {
+    const id = Number(d?.kho?.id);
+    if (!Number.isFinite(id)) continue;
+    const x = kq.get(id) ?? { ganNhat: null, dangChay: 0 };
+    const tt = Number(d.trangThai);
+    if (tt === TT_DOT.DANG_KIEM_KE || tt === TT_DOT.CHO_DUYET) x.dangChay += 1;
+    if (tt === TT_DOT.DA_DUYET && d.loaiKiemKe === "toan_bo" && d.ngayDuyet) {
+      const luc = new Date(d.ngayDuyet);
+      if (!Number.isNaN(luc.getTime()) && (!x.ganNhat || luc > x.ganNhat)) x.ganNhat = luc;
+    }
+    kq.set(id, x);
   }
-  viec.push({ ma: "pham-vi", xong: !thieuPhamVi, chu: thieuPhamVi || "Đã chọn phạm vi" });
-  if (!tenGui) viec.push({ ma: "ten", xong: false, chu: "Nhập tên đợt" });
-  const coLyDo = Boolean(String(lyDo ?? "").trim());
-  viec.push({ ma: "ly-do", xong: coLyDo, chu: coLyDo ? "Đã có lý do kiểm kê" : "Nhập lý do kiểm kê" });
-  const soVanDe = Array.isArray(kqXem?.vanDe) ? kqXem.vanDe.length : 0;
-  const vuong =
-    khoId == null || thieuPhamVi
-      ? { xong: false, chu: "Kiểm tra vướng mắc (sau khi chọn phạm vi)" }
-      : dangXem
-        ? { xong: false, dang: true, chu: "Đang kiểm tra vướng mắc…" }
-        : loiXem
-          ? { xong: false, chu: "Chưa xem trước được phạm vi" }
-          : kqXem?.coTheBatDau
-            ? { xong: true, chu: "Không vướng mắc" }
-            : { xong: false, chu: `${GO_VUONG_MAC}${soVanDe ? ` (${soVanDe})` : ""}` };
-  viec.push({ ma: "vuong-mac", ...vuong });
-  return viec;
+  return kq;
 }
 
 const gon = (ds, toiDa = 3) => {
