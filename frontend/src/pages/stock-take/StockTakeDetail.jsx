@@ -9,7 +9,7 @@ import DongThongBao, { NutChu } from "@/components/chung-tu/DongThongBao";
 import HopXacNhanChungTu from "@/components/chung-tu/HopXacNhanChungTu";
 import { Button } from "@/components/ui/button";
 import { KhungDangTai, KhungLoiChungTu } from "@/components/chung-tu/KhungTaiChungTu";
-import { docSo, soVN } from "@/components/chung-tu/bangChungTu";
+import { boDau, docSo, soVN } from "@/components/chung-tu/bangChungTu";
 import { GHI_CHU_HOP } from "@/components/chung-tu/kieuHopThoai";
 import { lamViecTaiKho, moDuocTaiKho } from "@/components/chuyen-kho/lamViecTaiKho";
 import BanDoTienDoKe from "@/components/kiem-ke/BanDoTienDoKe";
@@ -22,6 +22,7 @@ import TomTatKiemKe from "@/components/kiem-ke/TomTatKiemKe";
 import XemTruocPhamVi from "@/components/kiem-ke/XemTruocPhamVi";
 import useLuuSoDem from "@/components/kiem-ke/useLuuSoDem";
 import {
+  BO_LOC,
   TT_DONG,
   TT_DOT,
   buocKiemKe,
@@ -94,6 +95,13 @@ function ghiMu(nguoiDungId, bat) {
 }
 
 /** Thân yêu cầu xem trước của một đợt nháp (cùng phạm vi đã lưu). */
+/** Tên đợt đã chứa tên kho (cả cụm, không phân biệt hoa thường / dấu) — dòng phụ đầu trang khỏi ghi lại tên kho. */
+function coTenKho(tenDot, tenKho) {
+  const chuan = (x) => ` ${boDau(String(x ?? "")).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()} `;
+  const kho = chuan(tenKho).trim();
+  return Boolean(kho) && chuan(tenDot).includes(` ${kho} `);
+}
+
 const phamViCuaDot = (dot) => ({
   tenDotKiemKe: dot.ten,
   khoId: dot.kho?.id,
@@ -232,15 +240,26 @@ function ManKiemKe({ dotId }) {
   const locMacDinh =
     ((tt === TT_DOT.CHO_DUYET && (quyen.pheDuyet || quyen.demLai)) || tt === TT_DOT.DA_DUYET) && rows.some(laLech) ? "lech" : "tatCa";
   const locChon = boLoc.loc ?? locMacDinh;
+  // Cùng điều kiện "đã qua bước đếm" với thanh tiến trình (kiemKe.buocKiemKe)
+  const daDemXong = tt === TT_DOT.CHO_DUYET || tt === TT_DOT.DA_DUYET || (tt === TT_DOT.DA_HUY && Boolean(dot?.ngayHoanThanh));
   const luaChon = useMemo(
     () =>
       luaChonLoc(rows, {
-        muc: mu ? ["tatCa", "chua", "demLai", "phatSinh"] : ["tatCa", "chua", "lech", "thieuLyDo", "demLai", "phatSinh"],
+        // "Chưa đếm" chỉ có nghĩa khi chưa đếm xong (đang đếm, hoặc hủy giữa lúc đếm); đợt đã trình / đã duyệt thì máy chủ đã
+        // chặn dòng chưa đếm
+        muc: (mu ? ["tatCa", "chua", "demLai", "phatSinh"] : ["tatCa", "chua", "lech", "thieuLyDo", "demLai", "phatSinh"]).filter(
+          (x) => x !== "chua" || !daDemXong,
+        ),
         giu: locChon,
       }),
-    [rows, mu, locChon],
+    [rows, mu, locChon, daDemXong],
   );
-  const locHienTai = luaChon.some((x) => x.value === locChon) ? locChon : "tatCa";
+  // Lọc đang chọn không còn hợp lệ (vd. "Chưa đếm" sau khi trình duyệt): về lọc mặc định của trạng thái mới
+  const locHienTai = luaChon.some((x) => x.value === locChon)
+    ? locChon
+    : luaChon.some((x) => x.value === locMacDinh)
+      ? locMacDinh
+      : "tatCa";
   const dsHien = useMemo(
     () => locDongKiemKe(rows, { ...boLoc, loc: locHienTai, giuLai }),
     [rows, boLoc, locHienTai, giuLai],
@@ -327,7 +346,7 @@ function ManKiemKe({ dotId }) {
     }
     if (dich.kieu === "ke") {
       const dsCuaKe = rows.filter((d) => d.viTri?.id === dich.viTriId);
-      const chua = dsCuaKe.filter((d) => d.soLuongThucTe == null).length;
+      const chua = dsCuaKe.filter(BO_LOC.chua).length;
       datBoLoc({ viTriId: dich.viTriId, tuKhoa: "", loc: "tatCa" });
       setPhanHoi(
         dsCuaKe.length
@@ -712,7 +731,7 @@ function ManKiemKe({ dotId }) {
     ) : null,
     tt === TT_DOT.DA_DUYET ? (
       <DongThongBao key="da-duyet" tone="ok">
-        Đã duyệt{dot.ngayDuyet ? ` lúc ${formatDateTime(dot.ngayDuyet)}` : ""}
+        Đã duyệt
         {dot.nguoiDuyet?.hoTen ? ` bởi ${dot.nguoiDuyet.hoTen}` : ""}
         {dot.phieuDieuChinh?.ma ? ` · phiếu điều chỉnh ${dot.phieuDieuChinh.ma}` : ""}. Tồn kho và sổ kệ đã cập nhật, kệ đã mở
         khóa.
@@ -720,7 +739,7 @@ function ManKiemKe({ dotId }) {
     ) : null,
     tt === TT_DOT.DA_HUY ? (
       <DongThongBao key="da-huy" tone="neutral">
-        Đã hủy{dot.ngayHuy ? ` lúc ${formatDateTime(dot.ngayHuy)}` : ""}
+        Đã hủy
         {dot.nguoiHuy?.hoTen ? ` bởi ${dot.nguoiHuy.hoTen}` : ""}
         {dot.lyDoHuy ? `: ${dot.lyDoHuy}` : ""}. Tồn kho không đổi, kệ đã mở khóa.
       </DongThongBao>
@@ -748,7 +767,8 @@ function ManKiemKe({ dotId }) {
           <DauChungTu
             ma={dot.ma || `#${dot.id}`}
             trangThai={{ label: nhanTrangThaiDot(tt), quyTrinh: "kiemKe" }}
-            dongPhu={[dot.ten, nhanPhamVi(dot.loaiKiemKe), dot.kho?.ten]}
+            // Tên kho chỉ ghi khi tên đợt chưa có (tên cũ "Kiểm kê kho Kho tổng" đã có tên kho)
+            dongPhu={[dot.ten, nhanPhamVi(dot.loaiKiemKe), dot.kho?.ten && !coTenKho(dot.ten, dot.kho.ten) ? dot.kho.ten : null].filter(Boolean)}
             onQuayLai={veDanhSach}
             nhanQuayLai="Về danh sách kiểm kê"
             saoChepMa={{ giaTri: dot.ma, nhan: "Sao chép mã đợt" }}
@@ -814,9 +834,17 @@ function ManKiemKe({ dotId }) {
                 }
               />
             </section>
+          ) : tt === TT_DOT.DA_HUY && !dot.ngayBatDau ? (
+            // Hủy khi còn nháp: chưa khóa kệ, chưa có dòng nào — không vẽ dải số 0 và bảng rỗng
+            <p className="px-4 py-6 text-sm text-bo-muted sm:px-6">Đợt hủy khi còn nháp: chưa khóa kệ và chưa đếm dòng nào.</p>
           ) : (
             <>
-              <TomTatKiemKe tk={tk} mu={mu} coRong={tt === TT_DOT.CHO_DUYET || tt === TT_DOT.DA_DUYET} />
+              <TomTatKiemKe
+                tk={tk}
+                mu={mu}
+                coRong={tt === TT_DOT.CHO_DUYET || tt === TT_DOT.DA_DUYET}
+                daDemXong={daDemXong}
+              />
               {tt === TT_DOT.DANG_KIEM_KE ? (
                 <BanDoTienDoKe
                   dsKe={dsKe}
@@ -864,6 +892,8 @@ function ManKiemKe({ dotId }) {
                 tienDo={tienDo}
                 keTiep={keTiep}
                 onThemPhatSinh={suaDuoc && quyen.dem ? () => moPhatSinh("") : undefined}
+                dangDem={tt === TT_DOT.DANG_KIEM_KE}
+                dotXong={tt === TT_DOT.DA_DUYET || tt === TT_DOT.DA_HUY}
               />
             </>
           )

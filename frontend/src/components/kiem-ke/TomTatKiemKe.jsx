@@ -21,8 +21,10 @@ function O({ icon: Icon, nhan, so, phu, mau, children }) {
  * Dải tổng hợp trên bảng đếm: tiến độ, dòng khớp, thiếu, thừa (số sản phẩm · giá trị theo giá vốn chốt lúc bắt đầu).
  * `tk`: kiemKe.thongKeDong (đã gộp phần đang gõ nên đổi ngay khi nhập). Đếm mù: chỉ còn tiến độ.
  * `coRong`: thêm ô Chênh lệch ròng (chờ duyệt / đã duyệt — lúc số đếm đã chốt).
+ * `daDemXong`: đợt đã qua bước đếm — ô đầu chỉ ghi tổng số dòng (tiến độ đã có ở thanh tiến trình).
+ * Thiếu / Thừa cộng số lượng (cái), không phải số mặt hàng.
  */
-export default function TomTatKiemKe({ tk, mu = false, coRong = false, className }) {
+export default function TomTatKiemKe({ tk, mu = false, coRong = false, daDemXong = false, className }) {
   const xong = tk.tong > 0 && tk.chua === 0;
   const hienRong = coRong && !mu;
   return (
@@ -33,30 +35,34 @@ export default function TomTatKiemKe({ tk, mu = false, coRong = false, className
         className,
       )}
     >
-      <O
-        nhan="Tiến độ đếm"
-        so={
-          <>
-            {soVN(tk.daDem)}
-            <span className="text-sm font-medium text-bo-muted">/{soVN(tk.tong)} dòng</span>
-          </>
-        }
-      >
-        <span
-          role="progressbar"
-          aria-label="Tiến độ đếm"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={tk.phanTram}
-          className="mt-2 block h-1.5 overflow-hidden rounded-full bg-slate-200/80"
+      {daDemXong ? (
+        <O nhan="Tổng dòng" so={soVN(tk.tong)} phu="cặp kệ – lô" />
+      ) : (
+        <O
+          nhan="Tiến độ đếm"
+          so={
+            <>
+              {soVN(tk.daDem)}
+              <span className="text-sm font-medium text-bo-muted">/{soVN(tk.tong)} dòng</span>
+            </>
+          }
         >
           <span
-            className={cn("block h-full rounded-full transition-[width] duration-300", xong ? "bg-bo-success" : "bg-bo-primary")}
-            // data-viz: bề rộng theo phần trăm dòng đã đếm
-            style={{ width: `${tk.phanTram}%` }}
-          />
-        </span>
-      </O>
+            role="progressbar"
+            aria-label="Tiến độ đếm"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={tk.phanTram}
+            className="mt-2 block h-1.5 overflow-hidden rounded-full bg-slate-200/80"
+          >
+            <span
+              className={cn("block h-full rounded-full transition-[width] duration-300", xong ? "bg-bo-success" : "bg-bo-primary")}
+              // data-viz: bề rộng theo phần trăm dòng đã đếm
+              style={{ width: `${tk.phanTram}%` }}
+            />
+          </span>
+        </O>
+      )}
       {mu ? (
         <div className="flex min-w-0 items-start gap-2.5 rounded-lg border border-dashed border-bo-border bg-bo-surface-subtle px-3.5 py-3 text-[13px] leading-5 text-slate-700">
           <EyeOff className="mt-0.5 size-4 shrink-0 text-bo-muted" aria-hidden="true" />
@@ -67,19 +73,19 @@ export default function TomTatKiemKe({ tk, mu = false, coRong = false, className
         </div>
       ) : (
         <>
-          <O icon={CircleCheck} nhan="Khớp sổ" so={soVN(tk.daDem - tk.lech)} phu="dòng" mau="text-bo-success" />
+          <O icon={CircleCheck} nhan="Khớp sổ" so={soVN(tk.khop)} phu="dòng" mau="text-bo-success" />
           <O
             icon={TrendingDown}
             nhan="Thiếu"
             so={tk.thieu ? `−${soVN(tk.thieu)}` : "0"}
-            phu={tk.thieu ? `sản phẩm · ${tienCoDau(-Math.abs(tk.giaTriThieu ?? 0))}` : "sản phẩm"}
+            phu={tk.thieu ? `cái · ${tienCoDau(-Math.abs(tk.giaTriThieu ?? 0))}` : "cái"}
             mau={tk.thieu ? "text-bo-danger" : undefined}
           />
           <O
             icon={TrendingUp}
             nhan="Thừa"
             so={tk.thua ? `+${soVN(tk.thua)}` : "0"}
-            phu={tk.thua ? `sản phẩm · ${tienCoDau(Math.abs(tk.giaTriThua ?? 0))}` : "sản phẩm"}
+            phu={tk.thua ? `cái · ${tienCoDau(Math.abs(tk.giaTriThua ?? 0))}` : "cái"}
             mau={tk.thua ? "text-bo-primary-strong" : undefined}
           />
           {hienRong ? (

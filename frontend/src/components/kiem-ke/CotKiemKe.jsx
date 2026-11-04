@@ -4,7 +4,7 @@ import CotThuocTinh, { BangThuocTinh, NhomThuocTinh } from "@/components/chung-t
 import { soVN } from "@/components/chung-tu/bangChungTu";
 import { cn } from "@/lib/utils";
 import { formatDateTime } from "@/utils/formatters";
-import { moTaKhoa, moTaPhamVi, nhanPhamVi, tienCoDau } from "./kiemKe";
+import { LOAI_PHAM_VI, moTaKhoa, moTaPhamVi, nhanPhamVi, tienCoDau } from "./kiemKe";
 
 // Nhật ký: số mục hiện trước, còn lại mở bằng "Xem thêm"
 const SO_NHAT_KY_HIEN = 6;
@@ -47,8 +47,15 @@ export default function CotKiemKe({ dot, nhatKy, phieu }) {
         <BangThuocTinh
           muc={[
             { nhan: "Kho", giaTri: dot.kho?.ten },
-            { nhan: "Kiểu", giaTri: nhanPhamVi(dot.loaiKiemKe) },
-            { nhan: "Gồm", giaTri: moTaPhamVi(dot, 4), an: dot.loaiKiemKe === "toan_bo" },
+            // Kiểu + chi tiết phạm vi trên một dòng: "Khu vực: Khu A, Khu B" · "Toàn bộ kho"
+            {
+              nhan: "Phạm vi",
+              giaTri:
+                // Toàn kho, đợt cũ không ghi kiểu, Đột xuất: chỉ tên kiểu (mô tả "Mọi kệ của …" chỉ lặp lại)
+                !dot.loaiKiemKe || dot.loaiKiemKe === "toan_bo" || dot.loaiKiemKe === "dot_xuat" || !moTaPhamVi(dot, 4)
+                  ? nhanPhamVi(dot.loaiKiemKe)
+                  : `${LOAI_PHAM_VI[dot.loaiKiemKe]?.ngan ?? nhanPhamVi(dot.loaiKiemKe)}: ${moTaPhamVi(dot, 4)}`,
+            },
             { nhan: "Khóa", giaTri: <TheKhoa dot={dot} /> },
           ]}
         />
@@ -148,7 +155,13 @@ export default function CotKiemKe({ dot, nhatKy, phieu }) {
             ) : null}
           </>
         ) : (
-          <p className="text-[13px] text-bo-muted">Chưa có thao tác nào.</p>
+          <p className="text-[13px] text-bo-muted">
+            {nhatKy == null
+              ? "Chưa tải được nhật ký."
+              : Number(dot.trangThai) === 0
+                ? "Chưa có thao tác nào."
+                : "Không có nhật ký: đợt lập trước khi hệ thống ghi nhật ký kiểm kê."}
+          </p>
         )}
       </NhomThuocTinh>
     </CotThuocTinh>

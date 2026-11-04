@@ -15,7 +15,9 @@ import { CO_TRANG_DONG, NGUONG_CONG_CU } from "@/config/bangChungTu";
 import { cn } from "@/lib/utils";
 import { formatDateTime } from "@/utils/formatters";
 import {
+  BO_LOC,
   GOI_Y_LY_DO,
+  KHONG_KE,
   TEN_LOC,
   TT_DONG,
   chuChenhLech,
@@ -189,7 +191,7 @@ function ChenhLech({ d, mu, canPhai = true }) {
 }
 
 /** Ô cuối: đang lưu / lỗi lưu (bấm để gửi lại) / vừa lưu / trạng thái dòng. */
-function TrangThaiDong({ d, tt, onThuLai }) {
+function TrangThaiDong({ d, tt, onThuLai, dotXong = false }) {
   if (tt?.dang) {
     return (
       <span className="inline-flex items-center gap-1 text-xs text-bo-muted" role="status">
@@ -221,6 +223,8 @@ function TrangThaiDong({ d, tt, onThuLai }) {
       </span>
     );
   }
+  // Đợt đã duyệt / đã hủy: không còn đếm lại hay xác nhận gì nữa, nhãn trạng thái từng dòng chỉ thêm nhiễu
+  if (dotXong) return null;
   if (d.trangThai === TT_DONG.CAN_KIEM_LAI) {
     return (
       <span className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-semibold text-bo-warning">
@@ -370,6 +374,7 @@ function DongGiaiTrinh({ d, mu, suaDong, soCot, onDoiLyDo, onRoiLyDo, onMoAnh })
  * - `oQuetRef`: ô quét — Enter ở ô đếm đưa tiêu điểm về đây.
  * - `tienDo`: kiemKe.tienDoTheoKe (đầu nhóm kệ đếm trên mọi dòng của kệ). `keTiep`: `{ id, ma }` kệ kế còn dòng chưa
  *   đếm — kệ đang lọc đếm xong thì đầu nhóm có nút "Sang kệ …".
+ * - `dangDem`: đợt đang kiểm kê — chỉ lúc này đầu nhóm kệ mới ghi tiến độ đếm. `dotXong`: đợt đã duyệt / đã hủy.
  */
 export default function BangDemKiemKe({
   dong,
@@ -399,13 +404,17 @@ export default function BangDemKiemKe({
   tienDo,
   keTiep,
   onThemPhatSinh,
+  dangDem = false,
+  dotXong = false,
 }) {
   const idBang = useId();
   const coPhanTrang = tong > NGUONG_CONG_CU && dong.length > 0;
   const cat = phanTrang(dong, trang, coPhanTrang ? coTrang : Infinity);
   const nhom = nhomTheoKe(cat.muc);
   const hienSo = !mu;
-  const soCot = 3 + (chonDuoc ? 1 : 0) + (hienSo ? 2 : 0) + 1;
+  // Đợt đã duyệt / đã hủy: cột trạng thái lưu luôn trống (TrangThaiDong trả null) nên bỏ hẳn; Chênh lệch thành cột cuối
+  const coCotTrangThai = !dotXong;
+  const soCot = 3 + (chonDuoc ? 1 : 0) + (hienSo ? 2 : 0) + (coCotTrangThai ? 1 : 0);
   const idO = (id) => `${idBang}-dem-${id}`;
   const veOQuet = () => {
     const o = oQuetRef?.current;
@@ -511,16 +520,22 @@ export default function BangDemKiemKe({
                 <th scope="col" className={cn(O_TIEU_DE, "w-[150px]", AN_DIEN_THOAI)}>Lô</th>
                 {hienSo ? <th scope="col" className={cn(O_TIEU_DE, "w-[84px] text-right", AN_DIEN_THOAI)}>Sổ</th> : null}
                 <th scope="col" className={cn(O_TIEU_DE, suaDuoc ? "w-[150px]" : "w-[90px] text-right")}>Thực tế</th>
-                {hienSo ? <th scope="col" className={cn(O_TIEU_DE, "w-[120px] text-right", AN_DIEN_THOAI)}>Chênh lệch</th> : null}
-                <th scope="col" className={cn(O_TIEU_DE, O_CUOI, "w-[92px] text-right", AN_DIEN_THOAI)}>
-                  <span className="sr-only">Trạng thái lưu</span>
-                </th>
+                {hienSo ? (
+                  <th scope="col" className={cn(O_TIEU_DE, "w-[120px] text-right", !coCotTrangThai && O_CUOI, AN_DIEN_THOAI)}>
+                    Chênh lệch
+                  </th>
+                ) : null}
+                {coCotTrangThai ? (
+                  <th scope="col" className={cn(O_TIEU_DE, O_CUOI, "w-[92px] text-right", AN_DIEN_THOAI)}>
+                    <span className="sr-only">Trạng thái lưu</span>
+                  </th>
+                ) : null}
               </tr>
             </thead>
             {nhom.map((n) => {
               // Đếm trên mọi dòng của kệ (không theo bộ lọc / trang): lọc "Lệch" không làm kệ nào cũng "Đã đếm hết"
-              const tdKe = tienDo?.get(n.viTri?.id);
-              const daDem = tdKe ? tdKe.daDem : n.ds.filter((d) => d.soLuongThucTe != null).length;
+              const tdKe = tienDo?.get(n.viTri?.id ?? KHONG_KE);
+              const daDem = tdKe ? tdKe.daDem : n.ds.filter((d) => !BO_LOC.chua(d)).length;
               const tongKe = tdKe ? tdKe.tong : n.ds.length;
               const xongKe = tongKe > 0 && daDem === tongKe;
               return (
@@ -530,12 +545,14 @@ export default function BangDemKiemKe({
                       <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
                         <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-bo-heading">
                           <MapPin className="size-3.5 text-bo-muted" aria-hidden="true" />
-                          <span className="font-mono tracking-wide">Kệ {n.viTri?.ma || "—"}</span>
+                          {n.viTri?.ma ? <span className="font-mono tracking-wide">Kệ {n.viTri.ma}</span> : <span>Chưa gắn kệ</span>}
                         </span>
                         {n.viTri?.khuVuc ? <span className="text-xs text-bo-muted">{n.viTri.khuVuc}</span> : null}
-                        <span className={cn("text-xs tabular-nums", xongKe ? "font-medium text-bo-success" : "text-bo-muted")}>
-                          {xongKe ? "Đã đếm hết" : `${soVN(daDem)}/${soVN(tongKe)} đã đếm`}
-                        </span>
+                        {dangDem ? (
+                          <span className={cn("text-xs tabular-nums", xongKe ? "font-medium text-bo-success" : "text-bo-muted")}>
+                            {xongKe ? "Đã đếm hết" : `${soVN(daDem)}/${soVN(tongKe)} đã đếm`}
+                          </span>
+                        ) : null}
                         {suaDuoc && xongKe && keTiep && boLoc.viTriId === n.viTri?.id ? (
                           <button
                             type="button"
@@ -645,18 +662,20 @@ export default function BangDemKiemKe({
                           <span className={cn("mt-1 block text-xs", !suaDong && "text-right", CHI_DIEN_THOAI)}>
                             <ChenhLech d={d} mu={mu} canPhai={!suaDong} />
                             <span className="mt-0.5 block">
-                              <TrangThaiDong d={d} tt={tt} onThuLai={() => onDoiSo(d.id, so, { ngay: true })} />
+                              <TrangThaiDong d={d} tt={tt} dotXong={dotXong} onThuLai={() => onDoiSo(d.id, so, { ngay: true })} />
                             </span>
                           </span>
                         </td>
                         {hienSo ? (
-                          <td className={cn(O, "text-right", AN_DIEN_THOAI)}>
+                          <td className={cn(O, "text-right", !coCotTrangThai && O_CUOI, AN_DIEN_THOAI)}>
                             <ChenhLech d={d} mu={mu} />
                           </td>
                         ) : null}
-                        <td className={cn(O, O_CUOI, "text-right", AN_DIEN_THOAI)}>
-                          <TrangThaiDong d={d} tt={tt} onThuLai={() => onDoiSo(d.id, so, { ngay: true })} />
-                        </td>
+                        {coCotTrangThai ? (
+                          <td className={cn(O, O_CUOI, "text-right", AN_DIEN_THOAI)}>
+                            <TrangThaiDong d={d} tt={tt} dotXong={dotXong} onThuLai={() => onDoiSo(d.id, so, { ngay: true })} />
+                          </td>
+                        ) : null}
                       </tr>,
                       <DongGiaiTrinh
                         key={`${d.id}-gt`}

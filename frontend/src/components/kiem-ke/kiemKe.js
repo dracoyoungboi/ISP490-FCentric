@@ -29,10 +29,11 @@ export const TAB_DOT = Object.freeze([
 ]);
 
 export const LOAI_PHAM_VI = Object.freeze({
-  toan_bo: { nhan: "Toàn bộ kho", ngan: "Toàn kho", moTa: "Mọi kệ của kho, kể cả kệ trống. Cả kho tạm dừng nhập xuất." },
-  theo_khu_vuc: { nhan: "Theo khu vực", ngan: "Khu vực", moTa: "Một hoặc nhiều khu. Khu khác vẫn vận hành." },
-  theo_ke: { nhan: "Theo vị trí kệ", ngan: "Kệ", moTa: "Chọn từng kệ cần đếm. Kệ khác vẫn vận hành." },
-  theo_danh_muc: { nhan: "Theo danh mục", ngan: "Danh mục", moTa: "Danh mục và mọi danh mục con. Hàng khác trên cùng kệ vẫn bán." },
+  // moTa: một dòng nói đúng điều khác nhau giữa các kiểu — phần nào tạm dừng
+  toan_bo: { nhan: "Toàn bộ kho", ngan: "Toàn kho", moTa: "Cả kho tạm dừng nhập xuất" },
+  theo_khu_vuc: { nhan: "Theo khu vực", ngan: "Khu vực", moTa: "Chỉ khu đã chọn tạm dừng" },
+  theo_ke: { nhan: "Theo vị trí kệ", ngan: "Kệ", moTa: "Chỉ kệ đã chọn tạm dừng" },
+  theo_danh_muc: { nhan: "Theo danh mục", ngan: "Danh mục", moTa: "Hàng khác cùng kệ vẫn bán" },
   dot_xuat: { nhan: "Đột xuất", ngan: "Đột xuất", moTa: "Đợt cũ" },
 });
 export const THU_TU_PHAM_VI = Object.freeze(["toan_bo", "theo_khu_vuc", "theo_ke", "theo_danh_muc"]);
@@ -91,7 +92,8 @@ export function buocKiemKe(dot) {
       ma: "dem",
       nhan: "Kiểm đếm",
       trangThai: trang(daDemXong, tt === TT_DOT.DANG_KIEM_KE),
-      phu: daBatDau && tk.tongDong ? `${soVN(tk.daDem)}/${soVN(tk.tongDong)} dòng` : undefined,
+      // Đã đếm xong: chỉ còn tổng số dòng (x/x lặp lại vô ích); đang đếm: tiến độ
+      phu: daBatDau && tk.tongDong ? (daDemXong ? `${soVN(tk.tongDong)} dòng` : `${soVN(tk.daDem)}/${soVN(tk.tongDong)} dòng`) : undefined,
     },
     { ma: "duyet", nhan: "Thẩm định", trangThai: trang(tt === TT_DOT.DA_DUYET, tt === TT_DOT.CHO_DUYET), ngay: daDemXong ? dot?.ngayHoanThanh : undefined, coGio: true },
   ];
@@ -306,17 +308,19 @@ export const GOI_Y_LY_DO = Object.freeze([
 ]);
 
 /**
- * Tiến độ từng kệ trên MỌI dòng của đợt (không theo bộ lọc / trang): `Map(viTriId → { tong, daDem, nguoi })`.
+ * Tiến độ từng kệ trên MỌI dòng của đợt (không theo bộ lọc / trang): `Map(viTriId → { tong, daDem, nguoi })`; dòng không
+ * gắn kệ gom vào khóa `KHONG_KE` (nhóm "Chưa gắn kệ" của bảng đếm).
  * `nguoi`: người đếm dòng mới nhất của kệ (theo ngayKiemDem) — để quản lý thấy ai đang ở kệ nào.
  */
+export const KHONG_KE = "khong-ke";
 export function tienDoTheoKe(dong) {
   const m = new Map();
   for (const d of dong) {
-    const id = d.viTri?.id;
-    if (id == null) continue;
+    const id = d.viTri?.id ?? KHONG_KE;
     const x = m.get(id) ?? { tong: 0, daDem: 0, nguoi: null, luc: 0 };
     x.tong += 1;
-    if (d.soLuongThucTe != null) {
+    // Cùng định nghĩa "đã đếm" với lọc Chưa đếm và máy chủ: có số VÀ đã lưu thành Đã kiểm / Đã xác nhận
+    if (!BO_LOC.chua(d)) {
       x.daDem += 1;
       const luc = d.ngayKiemDem ? new Date(d.ngayKiemDem).getTime() : 0;
       if (d.nguoiKiemDem?.hoTen && luc >= x.luc) {
@@ -349,10 +353,13 @@ export function keCuaDong(dong) {
 
 /** Đếm nhanh trên dòng đang có ở máy (thanh tổng hợp cập nhật ngay khi lưu một dòng). */
 export function thongKeDong(dong) {
-  let daDem = 0, lech = 0, thieu = 0, thua = 0, giaTriThieu = 0, giaTriThua = 0, thieuLD = 0, chua = 0;
+  let daDem = 0, khop = 0, lech = 0, thieu = 0, thua = 0, giaTriThieu = 0, giaTriThua = 0, thieuLD = 0, chua = 0;
   for (const d of dong) {
-    if (d.soLuongThucTe != null) daDem += 1;
+    // Đã đếm = không thuộc lọc Chưa đếm (cùng định nghĩa với máy chủ khi trình duyệt): dòng có số nhưng còn Chưa kiểm /
+    // Cần kiểm lại chưa tính là xong, để tiến độ và lọc "Chưa đếm" không nói hai điều khác nhau
     if (BO_LOC.chua(d)) chua += 1;
+    else daDem += 1;
+    if (BO_LOC.khop(d)) khop += 1;
     if (laLech(d)) {
       lech += 1;
       const q = docSo(d.chenhLechSoLuong);
@@ -370,7 +377,7 @@ export function thongKeDong(dong) {
   // Làm tròn phần trăm xuống: còn một dòng chưa đếm thì không hiện 100%
   const phanTram = dong.length ? Math.floor((daDem / dong.length) * 100) : 0;
   return {
-    tong: dong.length, daDem, chua, lech, thieu, thua, giaTriThieu, giaTriThua, giaTri: giaTriThua - giaTriThieu,
+    tong: dong.length, daDem, khop, chua, lech, thieu, thua, giaTriThieu, giaTriThua, giaTri: giaTriThua - giaTriThieu,
     thieuLyDo: thieuLD, phanTram,
   };
 }
