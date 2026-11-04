@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { boDau, soVN } from "@/components/chung-tu/bangChungTu";
 import { NutChu } from "@/components/chung-tu/DongThongBao";
 import { O_NHAP } from "@/components/chung-tu/kieuHopThoai";
+import ChonKhoKiemKe from "@/components/kiem-ke/ChonKhoKiemKe";
 import useKhoKiemKe from "@/components/kiem-ke/useKhoKiemKe";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
@@ -41,27 +42,46 @@ const CHU = {
   coHang: "Đang vận hành",
   trong: "Kệ trống",
 };
-const LOC = [
-  { ma: "tatCa", nhan: "Tất cả" },
-  { ma: "khoa", nhan: "Đang khóa" },
-  { ma: "baoTri", nhan: "Bảo trì" },
-];
+/** Mẫu màu đặc trên chip lọc (cùng sắc với ô kệ, đậm hơn để nhìn ra ở cỡ nhỏ). */
+const MAU_CHAM = {
+  toan: "bg-amber-400",
+  min: "bg-bo-primary",
+  baoTri: "bg-slate-400",
+  coHang: "bg-slate-600",
+  trong: "bg-slate-200",
+};
+const KIEU = ["toan", "min", "baoTri", "coHang", "trong"];
 const TRONG_THEO_LOC = {
-  khoa: { title: "Không có kệ nào đang khóa", description: "Mọi kệ của kho đang nhập xuất bình thường." },
+  toan: { title: "Không có kệ nào khóa toàn kệ", description: "Không đợt kiểm kê nào đang khóa trọn một kệ của kho." },
+  min: { title: "Không có kệ nào khóa mịn", description: "Không đợt kiểm kê nào đang giữ lô trên kệ của kho." },
   baoTri: { title: "Không có kệ nào đang bảo trì", description: "Mọi kệ của kho đang vận hành." },
+  coHang: { title: "Không có kệ nào đang vận hành có hàng", description: "Các kệ còn lại đang khóa, bảo trì hoặc trống." },
+  trong: { title: "Không có kệ trống", description: "Kệ nào chưa khóa, chưa bảo trì cũng đang có hàng." },
 };
 
-const hopLoc = (k, loc) => (loc === "khoa" ? Boolean(k.khoa) : loc === "baoTri" ? k.trangThai === "BAO_TRI" : true);
+/** Lọc theo đúng nhóm tô màu trên sơ đồ: mỗi kệ thuộc một nhóm, nên số trên các chip cộng lại bằng tổng kệ. */
+const hopLoc = (k, loc) => loc === "tatCa" || kieuKe(k) === loc;
 /** Đuôi mã đợt ghi trên ô kệ: một đợt "…002", nhiều đợt "2 đợt". */
 const nhanDot = (dot) => (!dot?.length ? null : dot.length > 1 ? `${dot.length} đợt` : `…${String(dot[0].ma ?? "").slice(-3)}`);
 
-function ChuGiai({ kieu, so }) {
+/** Chip lọc kiêm chú giải: mẫu màu đặc + tên nhóm + số kệ. Bấm chip đang chọn thì về Tất cả. */
+function ChipLoc({ chon, onClick, cham, so, children }) {
   return (
-    <span className="inline-flex items-center gap-1.5 text-[13px] text-slate-700">
-      <span aria-hidden="true" className={cn("inline-block size-3.5 rounded border", MAU[kieu])} />
-      {CHU[kieu]}
-      {so != null ? <b className="font-semibold tabular-nums text-bo-foreground">{soVN(so)}</b> : null}
-    </span>
+    <button
+      type="button"
+      aria-pressed={chon}
+      onClick={onClick}
+      className={cn(
+        "inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30",
+        chon
+          ? "border-bo-primary bg-bo-primary-soft font-semibold text-bo-primary-strong"
+          : "border-bo-border bg-bo-surface font-medium text-slate-700 hover:bg-bo-surface-subtle",
+      )}
+    >
+      {cham ? <span aria-hidden="true" className={cn("inline-block size-2.5 shrink-0 rounded-sm", cham)} /> : null}
+      {children}
+      {so != null ? <span className={cn("tabular-nums", chon ? "text-bo-primary-strong" : "font-semibold text-bo-foreground")}>{soVN(so)}</span> : null}
+    </button>
   );
 }
 
@@ -95,6 +115,13 @@ export default function StockTakeLockMap() {
   const soDo = q.dungKhoa ? q.data : undefined;
   const tatCaKe = useMemo(() => (soDo?.khuVuc ?? []).flatMap((kv) => kv.ke ?? []), [soDo]);
   const soKhoa = tatCaKe.filter((k) => k.khoa).length;
+  // Số kệ mỗi nhóm cho chip lọc (đếm ở máy theo đúng cách tô màu, khớp với kết quả lọc)
+  const soTheoKieu = useMemo(() => {
+    const dem = Object.fromEntries(KIEU.map((x) => [x, 0]));
+    for (const k of tatCaKe) dem[kieuKe(k)] += 1;
+    return dem;
+  }, [tatCaKe]);
+  const doiLoc = (ma) => setLoc((cu) => (cu === ma ? "tatCa" : ma));
   // Đợt đang giữ khóa: gom từ các kệ, đếm số kệ mỗi đợt
   const dsDot = useMemo(() => {
     const theoId = new Map();
@@ -123,10 +150,19 @@ export default function StockTakeLockMap() {
   // Lưới trống: nói đúng lý do theo bộ lọc / ô tìm
   const trong = (() => {
     if (!tatCaKe.length) return { title: "Kho chưa có kệ", description: "Thêm khu vực và kệ ở Vị trí kệ để xem sơ đồ khóa." };
-    if (loc !== "tatCa" && !tatCaKe.some((k) => hopLoc(k, loc))) return TRONG_THEO_LOC[loc];
+    if (loc !== "tatCa" && !tatCaKe.some((k) => hopLoc(k, loc))) {
+      return {
+        ...TRONG_THEO_LOC[loc],
+        action: (
+          <Button variant="outline" onClick={() => setLoc("tatCa")} className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">
+            Xem tất cả kệ
+          </Button>
+        ),
+      };
+    }
     return {
       title: `Không có kệ nào khớp “${tim.trim()}”`,
-      description: loc === "tatCa" ? "Thử mã kệ khác." : `Đang lọc “${LOC.find((x) => x.ma === loc)?.nhan}”. Thử mã kệ khác hoặc chọn Tất cả.`,
+      description: loc === "tatCa" ? "Thử mã kệ khác." : `Đang lọc “${CHU[loc]}”. Thử mã kệ khác hoặc chọn Tất cả.`,
       action: (
         <Button variant="outline" onClick={() => setTim("")} className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">
           Xóa tìm kiếm
@@ -172,49 +208,28 @@ export default function StockTakeLockMap() {
         </div>
       ) : (
         <>
-          <div className="flex flex-wrap items-center gap-3 rounded-lg border border-bo-border bg-bo-surface px-4 py-3">
-            {kho.dsKho.length > 1 ? (
-              <label className="flex items-center gap-2 text-[13px] font-medium text-bo-foreground">
-                Kho
-                <select value={kho.khoId ?? ""} onChange={(e) => kho.doiKho(e.target.value)} className={cn(O_NHAP, "h-9 w-auto min-w-[180px]")}>
-                  {kho.dsKho.map((k) => (
-                    <option key={k.id} value={k.id}>
-                      {k.tenKho}
-                    </option>
-                  ))}
-                </select>
+          <div className="grid gap-3 rounded-lg border border-bo-border bg-bo-surface px-4 py-3">
+            <div className="flex flex-wrap items-center gap-3">
+              {kho.dsKho.length ? (
+                <ChonKhoKiemKe dsKho={kho.dsKho} value={kho.khoId} onChange={kho.doiKho} className="w-full sm:w-[240px]" />
+              ) : null}
+              <label className="relative flex min-w-[180px] max-w-xs flex-1 items-center">
+                <span className="sr-only">Tìm kệ</span>
+                <Search className="pointer-events-none absolute left-2.5 size-4 text-bo-muted" aria-hidden="true" />
+                <input value={tim} onChange={(e) => setTim(e.target.value)} placeholder="Tìm mã kệ" className={cn(O_NHAP, "pl-8")} />
               </label>
-            ) : kho.dsKho[0] ? (
-              <span className="text-[13px] font-semibold text-bo-foreground">{kho.dsKho[0].tenKho}</span>
-            ) : null}
-            <div role="radiogroup" aria-label="Lọc kệ" className="inline-flex gap-0.5 rounded-lg bg-slate-100 p-0.5">
-              {LOC.map((x) => (
-                <button
-                  key={x.ma}
-                  type="button"
-                  role="radio"
-                  aria-checked={loc === x.ma}
-                  onClick={() => setLoc(x.ma)}
-                  className={cn(
-                    "h-8 rounded-md px-3 text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30",
-                    loc === x.ma ? "bg-bo-surface font-semibold text-bo-heading shadow-[0_1px_2px_rgba(15,23,42,0.14)]" : "font-medium text-slate-600 hover:text-bo-foreground",
-                  )}
-                >
-                  {x.nhan}
-                </button>
-              ))}
             </div>
-            <label className="relative flex min-w-[180px] max-w-xs flex-1 items-center">
-              <span className="sr-only">Tìm kệ</span>
-              <Search className="pointer-events-none absolute left-2.5 size-4 text-bo-muted" aria-hidden="true" />
-              <input value={tim} onChange={(e) => setTim(e.target.value)} placeholder="Tìm mã kệ" className={cn(O_NHAP, "pl-8")} />
-            </label>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 lg:ml-auto">
-              <ChuGiai kieu="toan" so={soDo?.keKhoaToan} />
-              <ChuGiai kieu="min" so={soDo?.keKhoaMin} />
-              <ChuGiai kieu="baoTri" so={soDo?.keBaoTri} />
-              <ChuGiai kieu="coHang" />
-              <ChuGiai kieu="trong" />
+            {/* Chip lọc kiêm chú giải màu ô kệ; số đếm chỉ hiện khi đã có sơ đồ của kho đang chọn */}
+            <div role="group" aria-label="Lọc kệ theo tình trạng" className="flex flex-wrap items-center gap-2">
+              <ChipLoc chon={loc === "tatCa"} onClick={() => setLoc("tatCa")}>
+                Tất cả
+                {soDo ? <span className="font-semibold tabular-nums text-bo-foreground">{soVN(tatCaKe.length)} kệ</span> : null}
+              </ChipLoc>
+              {KIEU.map((x) => (
+                <ChipLoc key={x} chon={loc === x} onClick={() => doiLoc(x)} cham={MAU_CHAM[x]} so={soDo ? soTheoKieu[x] : null}>
+                  {CHU[x]}
+                </ChipLoc>
+              ))}
             </div>
           </div>
 
@@ -303,7 +318,7 @@ export default function StockTakeLockMap() {
                 </div>
               ) : !khuVuc.length ? (
                 <div className="rounded-lg border border-bo-border bg-bo-surface">
-                  <EmptyState icon={trong === TRONG_THEO_LOC.khoa ? LockOpen : MapPin} title={trong.title} description={trong.description} action={trong.action} />
+                  <EmptyState icon={(loc === "toan" || loc === "min") && !soTheoKieu[loc] ? LockOpen : MapPin} title={trong.title} description={trong.description} action={trong.action} />
                 </div>
               ) : (
                 khuVuc.map((kv) => {
@@ -313,7 +328,7 @@ export default function StockTakeLockMap() {
                       <h2 className="mb-3 flex items-baseline gap-2 text-sm font-semibold text-bo-heading">
                         {kv.ten || kv.ma || "Chưa có khu vực"}
                         <span className="text-xs font-normal text-bo-muted tabular-nums">
-                          {soVN(kv.ke.length)} kệ{khoaTrongKhu && loc !== "khoa" ? ` · ${soVN(khoaTrongKhu)} đang khóa` : ""}
+                          {soVN(kv.ke.length)} kệ{khoaTrongKhu && loc === "tatCa" ? ` · ${soVN(khoaTrongKhu)} đang khóa` : ""}
                         </span>
                       </h2>
                       <ul className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(112px,1fr))] gap-2 p-0">
@@ -340,9 +355,15 @@ export default function StockTakeLockMap() {
                                   {kieu === "toan" || kieu === "min" ? <Lock className="ml-auto size-3.5 shrink-0" aria-label={CHU[kieu]} /> : null}
                                   {kieu === "baoTri" ? <Wrench className="ml-auto size-3.5 shrink-0" aria-label="Bảo trì" /> : null}
                                 </span>
-                                <span className="truncate text-[11px] leading-4 tabular-nums opacity-80">
-                                  {soVN(k.dangChua)}
-                                  {k.sucChua ? `/${soVN(k.sucChua)}` : ""} sp
+                                <span
+                                  className="truncate text-[11px] leading-4 tabular-nums opacity-80"
+                                  title={
+                                    k.sucChua
+                                      ? `${soVN(k.dangChua)} sp · sức chứa ${soVN(k.sucChua)}`
+                                      : `${soVN(k.dangChua)} sp`
+                                  }
+                                >
+                                  {k.dangChua > 0 ? `${soVN(k.dangChua)} sp` : "Trống"}
                                   {duoiDot ? (
                                     <span title={(k.dot ?? []).map((d) => d.ma).join(", ")}>
                                       {" · "}

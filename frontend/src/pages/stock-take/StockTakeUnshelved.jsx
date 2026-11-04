@@ -15,6 +15,7 @@ import MauKichCo from "@/components/chung-tu/MauKichCo";
 import HopXacNhanChungTu from "@/components/chung-tu/HopXacNhanChungTu";
 import { boDau, docSo, soVN } from "@/components/chung-tu/bangChungTu";
 import { GOI_Y_O, NHAN_O, O_NHAP } from "@/components/chung-tu/kieuHopThoai";
+import ChonKhoKiemKe from "@/components/kiem-ke/ChonKhoKiemKe";
 import { docSoDem } from "@/components/kiem-ke/kiemKe";
 import useKhoKiemKe from "@/components/kiem-ke/useKhoKiemKe";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
@@ -178,7 +179,6 @@ export default function StockTakeUnshelved() {
     <PageContainer fill className="space-y-4">
       <ListPageHeader
         title="Hàng chưa có kệ"
-        scope={kho.dsKho.find((k) => Number(k.id) === kho.khoId)?.tenKho}
         actions={
           <Button
             variant="outline"
@@ -223,17 +223,9 @@ export default function StockTakeUnshelved() {
             fill
             toolbar={
               <div className="flex flex-wrap items-center gap-3 px-4 py-3">
-                {kho.dsKho.length > 1 ? (
-                  <label className="flex items-center gap-2 text-[13px] font-medium text-bo-foreground">
-                    Kho
-                    <select value={kho.khoId ?? ""} onChange={(e) => kho.doiKho(e.target.value)} className={cn(O_NHAP, "h-9 w-auto min-w-[180px]")}>
-                      {kho.dsKho.map((k) => (
-                        <option key={k.id} value={k.id}>
-                          {k.tenKho}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                {/* Tên kho chỉ nằm ở đây (một kho: chữ tĩnh), tiêu đề trang không ghi lại */}
+                {kho.dsKho.length ? (
+                  <ChonKhoKiemKe dsKho={kho.dsKho} value={kho.khoId} onChange={kho.doiKho} className="w-full sm:w-[240px]" />
                 ) : null}
                 <label className="relative flex min-w-[220px] max-w-sm flex-1 items-center">
                   <span className="sr-only">Tìm lô</span>
@@ -296,21 +288,19 @@ export default function StockTakeUnshelved() {
                       </span>
                       <span className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
                         <span className="text-[13px] tabular-nums text-bo-muted">
-                          Tồn {soVN(h.tonLo)} · trên kệ {soVN(h.trenKe)} ·{" "}
-                          <b className="font-semibold text-bo-warning">chưa có kệ {soVN(h.chuaCoKe)}</b>
+                          <b className="font-semibold text-bo-warning">Chưa có kệ {soVN(h.chuaCoKe)}</b>
+                          {docSo(h.trenKe) > 0 ? ` / tồn ${soVN(h.tonLo)}` : null}
                         </span>
                         <span className="ml-auto shrink-0">{thaoTac(h)}</span>
                       </span>
                     </li>
                   ))}
                 </ul>
-                <table className="w-full min-w-[760px] text-sm max-md:hidden">
+                <table className="w-full min-w-[680px] text-sm max-md:hidden">
                   <thead className="sticky top-0 z-10">
                     <tr className="border-b border-bo-border bg-bo-surface-subtle">
                       <th className={`${TH} text-left`}>Sản phẩm</th>
                       <th className={`${TH} text-left`}>Lô</th>
-                      <th className={`${TH} text-right`}>Tồn lô</th>
-                      <th className={`${TH} text-right`}>Trên kệ</th>
                       <th className={`${TH} text-right`}>Chưa có kệ</th>
                       <th className={`${TH} text-right`}>Thao tác</th>
                     </tr>
@@ -330,9 +320,15 @@ export default function StockTakeUnshelved() {
                           </span>
                         </td>
                         <td className="px-4 py-3 font-mono text-[13px] text-slate-700">{h.maLo}</td>
-                        <td className="px-4 py-3 text-right tabular-nums">{soVN(h.tonLo)}</td>
-                        <td className="px-4 py-3 text-right tabular-nums text-bo-muted">{soVN(h.trenKe)}</td>
-                        <td className="px-4 py-3 text-right font-semibold tabular-nums text-bo-warning">{soVN(h.chuaCoKe)}</td>
+                        <td className="px-4 py-3 text-right tabular-nums">
+                          <span className="block font-semibold text-bo-warning">{soVN(h.chuaCoKe)}</span>
+                          {/* Lô đã lên kệ một phần: ghi tồn lô để thấy phần còn thiếu là bao nhiêu trên tổng */}
+                          {docSo(h.trenKe) > 0 ? (
+                            <span className="block text-xs text-bo-muted" title={`Trên kệ ${soVN(h.trenKe)}`}>
+                              / tồn {soVN(h.tonLo)}
+                            </span>
+                          ) : null}
+                        </td>
                         <td className="whitespace-nowrap px-4 py-3 text-right">{thaoTac(h)}</td>
                       </tr>
                     ))}
