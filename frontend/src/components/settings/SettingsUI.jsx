@@ -80,11 +80,11 @@ export function SettingsFormActions({ onCancel, saving = false, disabled = false
 }
 
 /** Liên kết "liên quan" ở chân thẻ chính (ẩn khi đang sửa). */
-export function SettingsFooterLink({ to, icon: Icon, title, description }) {
+export function SettingsFooterLink({ to, icon: Icon, title, description, className }) {
   return (
     <Link
       to={to}
-      className="flex items-center gap-3 rounded-b-lg border-t border-[#eef1f5] px-5 py-3.5 text-bo-foreground hover:bg-bo-surface-subtle focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-bo-primary"
+      className={cn("flex items-center gap-3 rounded-b-lg border-t border-[#eef1f5] px-5 py-3.5 text-bo-foreground hover:bg-bo-surface-subtle focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-bo-primary", className)}
     >
       {Icon ? <Icon className="size-[18px] shrink-0 text-[#7a8594]" aria-hidden="true" /> : null}
       <span className="min-w-0 flex-1">
