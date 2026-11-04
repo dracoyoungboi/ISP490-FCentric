@@ -416,9 +416,14 @@ public class KiemKePhamViService {
                     + ". Cất hàng về kệ và xác nhận hoàn kệ trước"));
         }
 
+        // Chỉ giao dịch còn có thể giữ hàng: chờ khách trả (PENDING) hoặc tiền về lỗi chờ quản lý xử lý (PAID_ERROR).
+        // Giao dịch đã thanh toán / đã đóng mà cờ còn bật là dữ liệu cũ (trước khi có cờ) — không chặn kiểm kê vì nó
         @SuppressWarnings("unchecked")
         List<Object[]> qr = em.createNativeQuery("SELECT order_code, giu_cho_json FROM pos_payos_payment "
-                + "WHERE kho_id = :kho AND dang_giu_cho = 1").setParameter("kho", kho.getId()).getResultList();
+                        + "WHERE kho_id = :kho AND dang_giu_cho = 1 AND trang_thai IN (:conGiu)")
+                .setParameter("kho", kho.getId())
+                .setParameter("conGiu", List.of(PosPayosPayment.PENDING, PosPayosPayment.PAID_ERROR))
+                .getResultList();
         if (!qr.isEmpty()) {
             Map<Integer, Integer> loCuaTon = new HashMap<>();
             Map<Long, Set<Integer>> tonTheoQr = new LinkedHashMap<>();
