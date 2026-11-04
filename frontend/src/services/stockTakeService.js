@@ -39,6 +39,10 @@ export const layNguoiChuTri = async (khoId) => du(await apiClient.get(`${GOC}/ng
 /** Lô có trong danh mục hàng hóa khớp đầu mã lô / SKU (hộp Thêm lô phát sinh), tối đa 20. */
 export const timLo = async (id, tuKhoa) => du(await apiClient.get(`${GOC}/${id}/tim-lo`, { params: { tuKhoa } })) ?? [];
 
+/** Số kệ và sản phẩm trên sổ kệ theo danh mục của kho (gộp cây con): `[{ danhMucId, soKe, soLuong }]`. */
+export const layDanhMucTrenKe = async (khoId) =>
+  du(await apiClient.get(`${GOC}/danh-muc-tren-ke`, { params: { khoId } })) ?? [];
+
 export const layHangChuaCoKe = async (khoId) =>
   du(await apiClient.get(`${GOC}/hang-chua-co-ke`, { params: { khoId } })) ?? [];
 
