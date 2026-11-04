@@ -22,4 +22,10 @@ public class LoKhaDungNhatHangDto {
     Instant ngayNhapGanNhat;
     BigDecimal conLai;
     BigDecimal daPhanBo;
+    /** Kệ của lô ở kho với phần còn lấy được (đã trừ phiếu nhặt khác), kệ của lô trước. */
+    java.util.List<KeNhatDto> ke;
+    /** Phần của chính dòng này trên từng kệ (phân bổ hiện tại). */
+    java.util.List<KeNhatDto> keDaChon;
+    /** Hàng chưa có kệ của lô ở kho (tồn lô − tổng sổ kệ), để kiểm phần chọn lấy ở hàng chưa có kệ. Null: chưa chia kệ. */
+    Integer chuaCoKe;
 }

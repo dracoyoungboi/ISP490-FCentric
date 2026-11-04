@@ -345,8 +345,8 @@ public class KhoaKiemKeGuard {
 
     /** Sửa / xóa kệ, đổi khu hoặc trạng thái của kệ khi kệ đang thuộc phạm vi một đợt (Master Data Guard). */
     /**
-     * Mã các đợt kiểm kê từng dùng kệ (phạm vi, dòng kiểm kê, phân bổ nhặt theo kệ): khóa ngoại giữ lịch sử nên kệ này không
-     * xóa được. Tối đa 3 mã.
+     * Mã các đợt kiểm kê từng dùng kệ (phạm vi, dòng kiểm kê): khóa ngoại giữ lịch sử nên kệ này không xóa được. Tối đa 3
+     * mã. Phân bổ nhặt theo kệ kiểm riêng ({@link PhanBoKeService#phieuDangGiuKe}).
      */
     @SuppressWarnings("unchecked")
     public List<String> dotTungDungKe(Integer viTriId) {
@@ -356,13 +356,7 @@ public class KhoaKiemKeGuard {
                         + "UNION SELECT c.dot_kiem_ke_id FROM chi_tiet_kiem_ke c WHERE c.vi_tri_kho_id = :id) "
                         + "ORDER BY d.ma_dot_kiem_ke DESC LIMIT 3")
                 .setParameter("id", viTriId).getResultList();
-        List<String> kq = r.stream().map(String::valueOf).toList();
-        if (kq.isEmpty()) {
-            Number nhat = (Number) em.createNativeQuery("SELECT COUNT(*) FROM phan_bo_lo_nhat_hang_vi_tri WHERE vi_tri_kho_id = :id")
-                    .setParameter("id", viTriId).getSingleResult();
-            if (nhat != null && nhat.longValue() > 0) return List.of("phân bổ nhặt hàng theo kệ");
-        }
-        return kq;
+        return r.stream().map(String::valueOf).toList();
     }
 
     public void kiemTraKe(Integer viTriId, String thaoTac) {
@@ -425,7 +419,7 @@ public class KhoaKiemKeGuard {
 
     // ───────────────────────────── Câu báo ─────────────────────────────
 
-    private LoiCoMaException loi(TrangThaiKhoa tt, Integer dotId, Integer viTriId, Integer loId, String thaoTac) {
+    LoiCoMaException loi(TrangThaiKhoa tt, Integer dotId, Integer viTriId, Integer loId, String thaoTac) {
         String ma = dotId == null ? null : tt.maDot.get(dotId);
         String maKe = null;
         String maLo = null;

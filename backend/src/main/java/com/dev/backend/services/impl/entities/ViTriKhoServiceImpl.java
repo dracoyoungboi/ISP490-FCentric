@@ -22,6 +22,7 @@ import com.dev.backend.repository.TonKhoViTriRepository;
 import com.dev.backend.repository.ViTriKhoRepository;
 import com.dev.backend.services.ViTriKhoService;
 import com.dev.backend.services.impl.kiemke.KhoaKiemKeGuard;
+import com.dev.backend.services.impl.kiemke.PhanBoKeService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AccessLevel;
@@ -56,6 +57,11 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
     @NonFinal
     @Autowired(required = false)
     KhoaKiemKeGuard khoaKiemKeGuard;
+
+    /** Phân bổ nhặt theo kệ: phiếu nhặt còn giữ hàng ở kệ thì chưa xóa kệ được; null khi unit test dựng tay. */
+    @NonFinal
+    @Autowired(required = false)
+    PhanBoKeService phanBoKeService;
 
     /** KHOA_KIEM_KE chỉ do kiểm kê ghi khi khóa toàn kệ; sửa tay sang trạng thái này làm kệ khóa mà không đợt nào sở hữu. */
     private static void kiemTraTrangThaiGhiTay(String trangThai) {
@@ -420,6 +426,13 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
                         + String.join(", ", dotDung) + ") nên được giữ lại cho lịch sử. Chuyển kệ sang Bảo trì nếu không dùng nữa.");
             }
         }
+        if (phanBoKeService != null) {
+            List<String> phieuNhat = phanBoKeService.phieuDangGiuKe(viTriId);
+            if (!phieuNhat.isEmpty()) {
+                throw new CommonException(HttpStatus.CONFLICT, "Kệ " + viTri.getMaViTri() + " đang có hàng phân bổ cho phiếu nhặt "
+                        + String.join(", ", phieuNhat) + " chưa xuất kho. Đợi phiếu xuất xong hoặc đổi kệ ở Phân bổ lô trước khi xóa kệ.");
+            }
+        }
 
         int dangChua = tonKhoViTriRepository.sumDangChuaByViTriId(viTriId);
         if (dangChua > 0) {
@@ -457,6 +470,8 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
             loHangRepository.goViTriKho(loTrenKe);
         }
         tonKhoViTriRepository.xoaDongSoKhongTheoViTri(viTriId);
+        // Dòng kệ của phiếu nhặt đã hủy / đã xuất xong (không còn nghĩa) cũng trỏ tới kệ: bỏ trước khi xóa
+        if (phanBoKeService != null) phanBoKeService.xoaDongCuCuaKe(viTriId);
         viTriKhoRepository.delete(viTri);
     }
 

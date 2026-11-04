@@ -15,6 +15,7 @@ import com.dev.backend.dto.request.TaoPickListRequest;
 import com.dev.backend.dto.request.QuetBarcodeRequest;
 import com.dev.backend.dto.response.customize.DonChoXuatDto;
 import com.dev.backend.dto.response.customize.HangCanHoanKeDto;
+import com.dev.backend.dto.response.customize.KeNhatDto;
 import com.dev.backend.dto.response.customize.KetQuaQuetBarcodeDto;
 import com.dev.backend.dto.response.customize.LoKhaDungNhatHangDto;
 import com.dev.backend.dto.response.customize.NguoiNhatHopLeDto;
@@ -32,6 +33,7 @@ import com.dev.backend.services.impl.entities.PhieuXuatKhoService;
 import com.dev.backend.services.impl.entities.ThongBaoXuatKhoService;
 import com.dev.backend.services.impl.entities.ThongBaoXuatKhoService.GiaiDoanHuy;
 import com.dev.backend.services.impl.kiemke.KhoaKiemKeGuard;
+import com.dev.backend.services.impl.kiemke.PhanBoKeService;
 import com.dev.backend.utils.PhanBoLoFifo;
 import com.dev.backend.utils.SauCommit;
 import com.dev.backend.utils.KhoDangChon;
@@ -168,6 +170,10 @@ public class NhatHangServiceImpl implements NhatHangService {
     /** Chốt chặn kiểm kê khoanh vùng; null khi unit test dựng tay. */
     @Autowired(required = false)
     private KhoaKiemKeGuard khoaKiemKeGuard;
+
+    /** Chia phân bổ lô ra kệ (kiểm kê khoanh vùng 8.2); null khi unit test dựng tay. */
+    @Autowired(required = false)
+    private PhanBoKeService phanBoKeService;
 
     @Autowired
     private GiuChoChuyenKhoService giuChoChuyenKhoService;
@@ -823,23 +829,42 @@ public class NhatHangServiceImpl implements NhatHangService {
         }
 
         if (pickList.getChiTietNhatHangs() != null) {
-            // Phân bổ lô của từng dòng, sắp FIFO theo ngày lô nhập vào kho xuất. Hệ thống chưa lưu vị trí kệ nên
-            // không trả vị trí (trước đây gán cứng "A-01-02").
+            // Phân bổ lô của từng dòng, sắp FIFO theo ngày lô nhập vào kho xuất, kèm kệ lấy hàng (phân bổ nhặt theo kệ).
+            // Chỉ phiếu đang mở mới trả kệ (viTri / chuaCoKe): phiếu đã nhặt thì dòng kệ giảm dần khi xuất kho, hiện ra sẽ
+            // sai. CSDL chưa nâng cấp cũng không trả (null: giao diện không hiện "Lấy ở").
             Map<Integer, List<PhanBoLoNhatHang>> phanBoTheoDong = phanBoLoNhatHangRepository.findByPhieuNhatId(pickList.getId())
                     .stream().collect(Collectors.groupingBy(pb -> pb.getChiTietNhatHang().getId()));
             Map<Integer, TonKhoTheoLo> tonTheoLo = tonTheoLo(pickList.getKhoXuat().getId(), phanBoTheoDong.values().stream()
                     .flatMap(List::stream).map(pb -> pb.getLoHang().getId()).collect(Collectors.toSet()));
+            boolean hienKe = phanBoKeService != null && phanBoKeService.batDuoc()
+                    && ("cho_nhat".equals(pickList.getTrangThai()) || "dang_nhat".equals(pickList.getTrangThai()));
+            Map<Integer, List<PhanBoKeService.KeLay>> keTheoPhanBo = !hienKe ? Collections.emptyMap()
+                    : phanBoKeService.docKe(phanBoTheoDong.values().stream().flatMap(List::stream).toList(),
+                    pickList.getKhoXuat().getId());
+            // Biết chắc phần chưa có kệ khi phân bổ đã chia kệ, hoặc lô không nằm trên kệ nào của kho (chỉ lấy được ở đó)
+            Set<Integer> daChiaKe = !hienKe ? Collections.emptySet() : phanBoKeService.daChia(phanBoTheoDong.values()
+                    .stream().flatMap(List::stream).map(PhanBoLoNhatHang::getId).toList());
+            Set<Integer> loTrenKe = !hienKe ? Collections.<Integer>emptySet()
+                    : phanBoKeService.loCoTrenKe(pickList.getKhoXuat().getId(), tonTheoLo.keySet());
             dto.setChiTietNhatHangs(pickList.getChiTietNhatHangs().stream()
                     .map(ctn -> {
                         ChiTietNhatHangDto itemDto = chiTietNhatHangMapper.toDto(ctn);
                         List<PhanBoLoNhatHang> phanBo = sapPhanBoFifo(phanBoTheoDong.getOrDefault(ctn.getId(), List.of()), tonTheoLo);
-                        itemDto.setPhanBoLo(phanBo.stream().map(pb -> PhanBoLoDto.builder()
-                                .loHangId(pb.getLoHang().getId())
-                                .maLo(pb.getLoHang().getMaLo())
-                                .soLuong(pb.getSoLuong())
-                                .ngayNhapGanNhat(tonTheoLo.containsKey(pb.getLoHang().getId())
-                                        ? tonTheoLo.get(pb.getLoHang().getId()).getNgayNhapGanNhat() : null)
-                                .build()).collect(Collectors.toList()));
+                        itemDto.setPhanBoLo(phanBo.stream().map(pb -> {
+                            List<PhanBoKeService.KeLay> ke = keTheoPhanBo.getOrDefault(pb.getId(), List.of());
+                            BigDecimal tren = ke.stream().map(PhanBoKeService.KeLay::soLuong).reduce(BigDecimal.ZERO, BigDecimal::add);
+                            return PhanBoLoDto.builder()
+                                    .loHangId(pb.getLoHang().getId())
+                                    .maLo(pb.getLoHang().getMaLo())
+                                    .soLuong(pb.getSoLuong())
+                                    .ngayNhapGanNhat(tonTheoLo.containsKey(pb.getLoHang().getId())
+                                            ? tonTheoLo.get(pb.getLoHang().getId()).getNgayNhapGanNhat() : null)
+                                    .viTri(!hienKe ? null : ke.stream().map(NhatHangServiceImpl::keDto).toList())
+                                    .chuaCoKe(hienKe && (daChiaKe.contains(pb.getId())
+                                            || !loTrenKe.contains(pb.getLoHang().getId()))
+                                            ? pb.getSoLuong().subtract(tren).max(BigDecimal.ZERO) : null)
+                                    .build();
+                        }).collect(Collectors.toList()));
                         itemDto.setSoLuongDaPhanBo(phanBo.stream().map(PhanBoLoNhatHang::getSoLuong)
                                 .reduce(BigDecimal.ZERO, BigDecimal::add));
                         itemDto.setPhanBoThuCong(phanBo.stream().anyMatch(pb -> pb.getNguoiCapNhat() != null));
@@ -869,6 +894,15 @@ public class NhatHangServiceImpl implements NhatHangService {
         List<TonKhoTheoLo> tonList = tonKhoTheoLoRepository.findByKhoAndBienThe(khoId, dong.getBienTheSanPham().getId());
         Map<Integer, BigDecimal> dangGiu = loDangGiuService.dangGiuTheoLo(khoId,
                 tonList.stream().map(t -> t.getLoHang().getId()).toList(), pickList.getId(), null);
+        // Kệ đang chọn của dòng (theo lô) để hộp Chọn lô mở ra đúng cách chia hiện tại
+        List<PhanBoLoNhatHang> phanBoCuaDong = phanBoLoNhatHangRepository.findByChiTietId(dong.getId());
+        Map<Integer, List<PhanBoKeService.KeLay>> keCuaPhanBo = phanBoKeService == null ? Collections.emptyMap()
+                : phanBoKeService.docKe(phanBoCuaDong, khoId);
+        Map<Integer, List<KeNhatDto>> keDaChon = new HashMap<>();
+        for (PhanBoLoNhatHang pb : phanBoCuaDong) {
+            keCuaPhanBo.getOrDefault(pb.getId(), List.of()).forEach(k ->
+                    keDaChon.computeIfAbsent(pb.getLoHang().getId(), x -> new ArrayList<>()).add(keDto(k)));
+        }
 
         return tonList.stream()
                 .filter(t -> cuaDong.containsKey(t.getLoHang().getId())
@@ -880,8 +914,36 @@ public class NhatHangServiceImpl implements NhatHangService {
                         .ngayNhapGanNhat(t.getNgayNhapGanNhat())
                         .conLai(LoDangGiuService.conLai(t, dangGiu).max(BigDecimal.ZERO))
                         .daPhanBo(cuaDong.getOrDefault(t.getLoHang().getId(), BigDecimal.ZERO))
+                        .ke(phanBoKeService == null ? List.of() : phanBoKeService.keConLay(khoId, t.getLoHang(), pickList.getId())
+                                .stream().map(NhatHangServiceImpl::keDto).toList())
+                        .keDaChon(keDaChon.getOrDefault(t.getLoHang().getId(), List.of()))
+                        .chuaCoKe(phanBoKeService == null || !phanBoKeService.batDuoc() ? null
+                                : phanBoKeService.soChuaCoKeTuDo(khoId, t.getLoHang().getId(), pickList.getId()))
                         .build())
                 .collect(Collectors.toList());
+    }
+
+    private static KeNhatDto keDto(PhanBoKeService.KeLay k) {
+        return KeNhatDto.builder().viTriKhoId(k.viTriId()).maViTri(k.maViTri()).soLuong(k.soLuong())
+                .dangKiemKe(k.dangKiemKe()).build();
+    }
+
+    /** "LO-1 × 5 (A-01 × 3, chưa có kệ × 2)": phân bổ kèm kệ cho nhật ký sửa phân bổ (Đ5). */
+    private String moTaPhanBoCoKe(List<PhanBoLoNhatHang> phanBo, Integer khoId) {
+        if (phanBo.isEmpty() || phanBoKeService == null) return moTaPhanBo(phanBo);
+        Map<Integer, List<PhanBoKeService.KeLay>> ke = phanBoKeService.docKe(phanBo, khoId);
+        Set<Integer> daChia = phanBoKeService.daChia(phanBo.stream().map(PhanBoLoNhatHang::getId).toList());
+        if (ke.isEmpty() && daChia.isEmpty()) return moTaPhanBo(phanBo);
+        return phanBo.stream().map(pb -> {
+            String s = pb.getLoHang().getMaLo() + " × " + hienThi(pb.getSoLuong());
+            if (!daChia.contains(pb.getId())) return s;
+            List<PhanBoKeService.KeLay> ds = ke.getOrDefault(pb.getId(), List.of());
+            BigDecimal tren = ds.stream().map(PhanBoKeService.KeLay::soLuong).reduce(BigDecimal.ZERO, BigDecimal::add);
+            List<String> phan = new ArrayList<>(ds.stream().map(k -> k.maViTri() + " × " + hienThi(k.soLuong())).toList());
+            BigDecimal chua = pb.getSoLuong().subtract(tren);
+            if (chua.signum() > 0) phan.add("chưa có kệ × " + hienThi(chua));
+            return s + " (" + String.join(", ", phan) + ")";
+        }).collect(Collectors.joining(", "));
     }
 
     /** READ_COMMITTED: sau khi chờ khóa dòng tồn, phần phiếu khác đang giữ đọc được bản vừa ghi xong (xem taoPickList). */
@@ -921,6 +983,8 @@ public class NhatHangServiceImpl implements NhatHangService {
             throw new CommonException("Thiếu danh sách phân bổ lô");
         }
         Map<Integer, BigDecimal> yeuCau = new LinkedHashMap<>();
+        // Kệ người nhặt chọn cho từng lô (Đ5); lô không gửi kệ thì tự chia theo thứ tự kệ
+        Map<Integer, List<PhanBoKeService.KeChon>> keChon = new HashMap<>();
         for (PhanBoLoNhatHangRequest.Item item : request.getPhanBo()) {
             if (item == null || item.getLoHangId() == null || item.getSoLuong() == null) {
                 throw new CommonException("Mỗi dòng phân bổ phải có lô và số lượng");
@@ -933,6 +997,10 @@ public class NhatHangServiceImpl implements NhatHangService {
             }
             if (item.getSoLuong().signum() > 0) {
                 yeuCau.put(item.getLoHangId(), item.getSoLuong());
+                if (item.getViTri() != null && !item.getViTri().isEmpty()) {
+                    keChon.put(item.getLoHangId(), item.getViTri().stream().filter(Objects::nonNull)
+                            .map(v -> new PhanBoKeService.KeChon(v.getViTriKhoId(), v.getSoLuong())).toList());
+                }
             }
         }
         BigDecimal tongYeuCau = yeuCau.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -978,20 +1046,25 @@ public class NhatHangServiceImpl implements NhatHangService {
         }
 
         NguoiDung nguoiSua = nguoiDungRepository.findById(authUser.getId()).orElse(null);
-        String cu = moTaPhanBo(phanBoLoNhatHangRepository.findByChiTietId(dong.getId()));
+        String cu = moTaPhanBoCoKe(phanBoLoNhatHangRepository.findByChiTietId(dong.getId()), khoId);
         phanBoLoNhatHangRepository.deleteByChiTietId(dong.getId());
+        List<PhanBoLoNhatHang> daLuu = new ArrayList<>();
         for (PhanBoLoFifo.Lo lo : phanBoMoi) {
-            phanBoLoNhatHangRepository.save(PhanBoLoNhatHang.builder()
+            PhanBoLoNhatHang pb = phanBoLoNhatHangRepository.save(PhanBoLoNhatHang.builder()
                     .chiTietNhatHang(dong)
                     .loHang(loHangRepository.getReferenceById(lo.loHangId()))
                     .soLuong(lo.soLuong())
                     .nguoiCapNhat(nguoiSua)
                     .ngayCapNhat(Instant.now())
                     .build());
+            // Chia ra kệ (kệ chọn tay hoặc tự chia), bỏ kệ đang kiểm kê và phần phiếu nhặt khác đã giữ trên kệ
+            if (phanBoKeService != null) {
+                phanBoKeService.ghiTheoChon(pb, khoId, pickList.getId(), keChon.get(lo.loHangId()));
+            }
+            daLuu.add(pb);
         }
 
-        String moi = phanBoMoi.stream().map(lo -> maLo(tonTheoLo, lo.loHangId()) + " × " + hienThi(lo.soLuong()))
-                .collect(Collectors.joining(", "));
+        String moi = daLuu.isEmpty() ? moTaPhanBo(daLuu) : moTaPhanBoCoKe(daLuu, khoId);
         ghiNhatKySauCommit(pickList, IHanhDong.phan_bo_lo_nhat_hang, cu, moi,
                 "Phân bổ lô cho [" + sku + "] ở phiếu nhặt " + pickList.getMaPickList(), authUser.getId());
         return getChiTietPickList(pickList.getId());
@@ -1036,12 +1109,15 @@ public class NhatHangServiceImpl implements NhatHangService {
             BigDecimal duocLay = PhanBoLoFifo.tong(conLai)
                     .subtract(giuChoChuyen.getOrDefault(dong.getBienTheSanPham().getId(), BigDecimal.ZERO)).max(BigDecimal.ZERO);
             for (PhanBoLoFifo.Lo lo : PhanBoLoFifo.layFifo(conLai, dong.getSoLuongCanNhat().min(duocLay))) {
-                phanBoLoNhatHangRepository.save(PhanBoLoNhatHang.builder()
+                PhanBoLoNhatHang pb = phanBoLoNhatHangRepository.save(PhanBoLoNhatHang.builder()
                         .chiTietNhatHang(dong)
                         .loHang(loHangRepository.getReferenceById(lo.loHangId()))
                         .soLuong(lo.soLuong())
                         .ngayCapNhat(Instant.now())
                         .build());
+                if (phanBoKeService != null) {
+                    phanBoKeService.ghi(pb, khoId, dong.getDanhSachNhatHang().getId());
+                }
             }
         }
     }
@@ -1180,8 +1256,12 @@ public class NhatHangServiceImpl implements NhatHangService {
 
             List<PhanBoLoFifo.Lo> phanBoFifo = chotLoCuaDong(dong, tongCanDon, tonList, tonTheoLo, dangGiu,
                     phanBoTheoDong.getOrDefault(dong.getId(), List.of()), giuChoChuyen.get(bienTheId));
-            PhanBoLoFifo.chiaChoDon(phanBoFifo, canTheoDon).forEach((donId, los) ->
-                    ketQua.computeIfAbsent(donId, k -> new HashMap<>()).put(bienTheId, los));
+            Map<Integer, BigDecimal> dungTheoLo = new HashMap<>();
+            PhanBoLoFifo.chiaChoDon(phanBoFifo, canTheoDon).forEach((donId, los) -> {
+                ketQua.computeIfAbsent(donId, k -> new HashMap<>()).put(bienTheId, los);
+                los.forEach(lo -> dungTheoLo.merge(lo.loHangId(), lo.soLuong(), BigDecimal::add));
+            });
+            catKeTheoPhanDung(dong, dungTheoLo);
         }
         return ketQua;
     }
@@ -1239,16 +1319,21 @@ public class NhatHangServiceImpl implements NhatHangService {
             for (PhanBoLoFifo.Lo lo : bu) {
                 PhanBoLoNhatHang cu = daLuu.stream().filter(pb -> pb.getLoHang().getId().equals(lo.loHangId()))
                         .findFirst().orElse(null);
+                Integer khoId = dong.getDanhSachNhatHang().getKhoXuat().getId();
+                Integer phieuNhatId = dong.getDanhSachNhatHang().getId();
                 if (cu != null) {
                     cu.setSoLuong(cu.getSoLuong().add(lo.soLuong()));
                     phanBoLoNhatHangRepository.save(cu);
+                    // Giữ kệ đã chia, chia thêm phần bù
+                    if (phanBoKeService != null) phanBoKeService.ghiThem(cu, khoId, phieuNhatId, lo.soLuong());
                 } else {
-                    phanBoLoNhatHangRepository.save(PhanBoLoNhatHang.builder()
+                    PhanBoLoNhatHang pb = phanBoLoNhatHangRepository.save(PhanBoLoNhatHang.builder()
                             .chiTietNhatHang(dong)
                             .loHang(loHangRepository.getReferenceById(lo.loHangId()))
                             .soLuong(lo.soLuong())
                             .ngayCapNhat(Instant.now())
                             .build());
+                    if (phanBoKeService != null) phanBoKeService.ghi(pb, khoId, phieuNhatId);
                 }
                 daCo.merge(lo.loHangId(), lo.soLuong(), BigDecimal::add);
             }
@@ -1261,6 +1346,18 @@ public class NhatHangServiceImpl implements NhatHangService {
                 }).thenComparing(Map.Entry::getKey))
                 .map(e -> new PhanBoLoFifo.Lo(e.getKey(), e.getValue()))
                 .toList();
+    }
+
+    /**
+     * Hoàn tất nhặt: phân bổ thừa so với phần thật sự lên phiếu xuất (đơn hủy ngoài luồng phiếu nhặt) thì bớt dòng kệ cho
+     * bằng phần dùng — phần thừa coi là hàng phải trả về, không giữ kệ tới lúc xuất. Bớt phần chưa có kệ trước.
+     */
+    private void catKeTheoPhanDung(ChiTietNhatHang dong, Map<Integer, BigDecimal> dungTheoLo) {
+        if (phanBoKeService == null || !phanBoKeService.batDuoc()) return;
+        for (PhanBoLoNhatHang pb : phanBoLoNhatHangRepository.findByChiTietId(dong.getId())) {
+            BigDecimal dung = dungTheoLo.getOrDefault(pb.getLoHang().getId(), BigDecimal.ZERO);
+            if (dung.compareTo(pb.getSoLuong()) < 0) phanBoKeService.catBot(pb, dung);
+        }
     }
 
     /**
@@ -1285,6 +1382,8 @@ public class NhatHangServiceImpl implements NhatHangService {
             } else if (moi.compareTo(pb.getSoLuong()) != 0) {
                 pb.setSoLuong(moi);
                 phanBoLoNhatHangRepository.save(pb);
+                // Bớt phần chưa có kệ trước, rồi từ kệ xếp cuối
+                if (phanBoKeService != null) phanBoKeService.catBot(pb, moi);
             }
         }
     }
@@ -1488,6 +1587,11 @@ public class NhatHangServiceImpl implements NhatHangService {
 
         if (currentScanned.compareTo(required) >= 0) {
             throw new CommonException("Mặt hàng [" + (lockedItem.getBienTheSanPham() != null ? lockedItem.getBienTheSanPham().getMaSku() : rawBarcode) + "] đã nhặt đủ số lượng yêu cầu (" + currentScanned + "/" + required + ")!");
+        }
+
+        // Phần phân bổ của dòng nằm ở kệ vừa vào kiểm kê: dừng nhặt ở kệ đó (BA 8.2), quản lý đổi kệ trong Chọn lô
+        if (phanBoKeService != null) {
+            phanBoKeService.kiemTraQuet(pickList.getKhoXuat().getId(), lockedItem.getId());
         }
 
         BigDecimal newScanned = currentScanned.add(qtyToAdd);
@@ -1943,6 +2047,9 @@ public class NhatHangServiceImpl implements NhatHangService {
             // Phân bổ có thể thừa (không xảy ra với phiếu chuyển, phòng dữ liệu lệch): chỉ lấy đủ phần cần theo FIFO
             List<PhanBoLoFifo.Lo> los = PhanBoLoFifo.layFifo(chotLoCuaDong(dong, can, tonList, tonTheoLo, dangGiu,
                     phanBoTheoDong.getOrDefault(dong.getId(), List.of()), BigDecimal.ZERO), can);
+            Map<Integer, BigDecimal> dungTheoLo = new HashMap<>();
+            los.forEach(lo -> dungTheoLo.merge(lo.loHangId(), lo.soLuong(), BigDecimal::add));
+            catKeTheoPhanDung(dong, dungTheoLo);
             Map<Integer, TonKhoTheoLo> tonCuaMa = tonList.stream()
                     .filter(t -> bt.getId().equals(t.getLoHang().getBienTheSanPham().getId()))
                     .collect(Collectors.toMap(t -> t.getLoHang().getId(), t -> t, (a, b) -> a));

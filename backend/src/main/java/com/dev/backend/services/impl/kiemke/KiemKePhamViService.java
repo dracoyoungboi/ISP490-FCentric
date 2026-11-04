@@ -14,6 +14,7 @@ import jakarta.persistence.LockModeType;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.TypedQuery;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
@@ -47,6 +48,10 @@ public class KiemKePhamViService {
     private final DanhMucQuanAoRepository danhMucQuanAoRepository;
     private final KhoaKiemKeGuard guard;
     private final ObjectMapper objectMapper;
+
+    /** Phân bổ nhặt theo kệ: biết phân bổ nào đã chia kệ để xét phiếu nhặt / phiếu xuất theo kệ thay vì theo lô. */
+    @Autowired(required = false)
+    private PhanBoKeService phanBoKeService;
 
     public KiemKePhamViService(KhoRepository khoRepository, KhuVucKhoRepository khuVucKhoRepository,
                                DanhMucQuanAoRepository danhMucQuanAoRepository, KhoaKiemKeGuard guard,
@@ -309,12 +314,16 @@ public class KiemKePhamViService {
         if (!toanKho && loTrongPhamVi.isEmpty() && loDanhMuc.isEmpty()) return List.of();
         List<VanDe> kq = new ArrayList<>();
 
-        // Phiếu nhặt đang mở: phân bổ có kệ thì xét kệ, chưa biết kệ thì chặn theo lô (bảo thủ, BA mục 9 bước 4)
+        // Phiếu nhặt đang mở: phân bổ đã chia kệ thì xét kệ (không có dòng kệ = lấy ở hàng chưa có kệ, ngoài phạm vi kệ),
+        // chưa biết kệ thì chặn theo lô (bảo thủ, BA mục 9 bước 4)
+        boolean coChiaKe = phanBoKeService != null && phanBoKeService.batDuoc();
         @SuppressWarnings("unchecked")
         List<Object[]> nhat = em.createNativeQuery("""
                 SELECT ds.ma_pick_list, l.ma_lo, pb.so_luong, pb.lo_hang_id,
                        (SELECT GROUP_CONCAT(pv.vi_tri_kho_id) FROM phan_bo_lo_nhat_hang_vi_tri pv
-                         WHERE pv.phan_bo_lo_nhat_hang_id = pb.id) AS ke_ids
+                         WHERE pv.phan_bo_lo_nhat_hang_id = pb.id) AS ke_ids,
+                """ + (coChiaKe ? "pb.chia_ke" : "0") + """
+                 AS chia_ke
                   FROM phan_bo_lo_nhat_hang pb
                   JOIN chi_tiet_nhat_hang ct ON ct.id = pb.chi_tiet_nhat_hang_id
                   JOIN danh_sach_nhat_hang ds ON ds.id = ct.danh_sach_nhat_hang_id
@@ -328,9 +337,8 @@ public class KiemKePhamViService {
             boolean vuong;
             if (toanKho) vuong = true;
             else if (theoDanhMuc) vuong = loDanhMuc.contains(lo);
-            else if (r[4] != null && !((String) r[4]).isBlank()) {
-                vuong = Arrays.stream(((String) r[4]).split(",")).map(String::trim).map(Integer::valueOf).anyMatch(keIds::contains);
-            } else vuong = loTrongPhamVi.contains(lo);
+            else if ((r[4] != null && !((String) r[4]).isBlank()) || daChia(r[5])) vuong = keTrongPhamVi((String) r[4], keIds);
+            else vuong = loTrongPhamVi.contains(lo);
             if (vuong) vuongNhat.add(r[0] + " (lô " + r[1] + ", " + so((BigDecimal) r[2]) + " sp)");
         }
         if (!vuongNhat.isEmpty()) {
@@ -338,21 +346,52 @@ public class KiemKePhamViService {
                     + ". Hoàn tất hoặc hủy phiếu nhặt trước"));
         }
 
+        // Phiếu xuất chưa xuất: hàng đã rời kệ nhưng sổ kệ còn tính. Phiếu tạo từ phiếu nhặt đã chia kệ thì xét các kệ còn
+        // chờ xuất của lô (dòng kệ giảm dần khi xuất); còn lại chặn theo lô như trước
         @SuppressWarnings("unchecked")
         List<Object[]> xuat = em.createNativeQuery("""
-                SELECT p.so_phieu_xuat, l.ma_lo, ct.so_luong_xuat, ct.lo_hang_id
+                SELECT p.so_phieu_xuat, l.ma_lo, ct.so_luong_xuat, ct.lo_hang_id,
+                       (SELECT ds.id FROM danh_sach_nhat_hang ds
+                         WHERE ds.trang_thai = 'da_nhat' AND ds.kho_xuat_id = p.kho_id
+                           AND (ds.phieu_xuat_kho_id = p.id
+                                OR ds.id = (SELECT d.danh_sach_nhat_hang_id FROM don_ban_hang d WHERE d.id = p.don_ban_hang_id))
+                         ORDER BY ds.id DESC LIMIT 1) AS phieu_nhat
                   FROM chi_tiet_phieu_xuat_kho ct
                   JOIN phieu_xuat_kho p ON p.id = ct.phieu_xuat_kho_id
                   JOIN lo_hang l ON l.id = ct.lo_hang_id
                  WHERE p.kho_id = :kho AND p.trang_thai IN (0, 1, 2, 6) AND ct.lo_hang_id IS NOT NULL
                  ORDER BY p.id, ct.id
                 """).setParameter("kho", kho.getId()).getResultList();
+        // [phiếu nhặt → [lô → kệ còn chờ xuất]] của các phân bổ đã chia kệ (lô có phân bổ chưa biết kệ thì không có ở đây)
+        Map<Integer, Map<Integer, String>> keChoXuat = new HashMap<>();
+        Set<Integer> phieuNhat = xuat.stream().filter(r -> r[4] != null).map(r -> ((Number) r[4]).intValue())
+                .collect(Collectors.toSet());
+        if (coChiaKe && !phieuNhat.isEmpty() && !toanKho && !theoDanhMuc) {
+            @SuppressWarnings("unchecked")
+            List<Object[]> ke = em.createNativeQuery("""
+                    SELECT ct.danh_sach_nhat_hang_id, pb.lo_hang_id,
+                           GROUP_CONCAT(pv.vi_tri_kho_id) AS ke_ids
+                      FROM phan_bo_lo_nhat_hang pb
+                      JOIN chi_tiet_nhat_hang ct ON ct.id = pb.chi_tiet_nhat_hang_id
+                      LEFT JOIN phan_bo_lo_nhat_hang_vi_tri pv ON pv.phan_bo_lo_nhat_hang_id = pb.id
+                     WHERE ct.danh_sach_nhat_hang_id IN (:ids)
+                     GROUP BY ct.danh_sach_nhat_hang_id, pb.lo_hang_id
+                    HAVING MIN(pb.chia_ke) = 1
+                    """).setParameter("ids", phieuNhat).getResultList();
+            for (Object[] r : ke) {
+                keChoXuat.computeIfAbsent(((Number) r[0]).intValue(), k -> new HashMap<>())
+                        .put(((Number) r[1]).intValue(), r[2] == null ? "" : (String) r[2]);
+            }
+        }
         List<String> vuongXuat = new ArrayList<>();
         for (Object[] r : xuat) {
             Integer lo = ((Number) r[3]).intValue();
-            if (toanKho || loTrongPhamVi.contains(lo) || loDanhMuc.contains(lo)) {
-                vuongXuat.add(r[0] + " (lô " + r[1] + ", " + so((BigDecimal) r[2]) + " sp)");
-            }
+            Map<Integer, String> cuaPhieu = r[4] == null ? null : keChoXuat.get(((Number) r[4]).intValue());
+            boolean vuong;
+            if (toanKho || theoDanhMuc) vuong = toanKho || loTrongPhamVi.contains(lo) || loDanhMuc.contains(lo);
+            else if (cuaPhieu != null && cuaPhieu.containsKey(lo)) vuong = keTrongPhamVi(cuaPhieu.get(lo), keIds);
+            else vuong = loTrongPhamVi.contains(lo);
+            if (vuong) vuongXuat.add(r[0] + " (lô " + r[1] + ", " + so((BigDecimal) r[2]) + " sp)");
         }
         if (!vuongXuat.isEmpty()) {
             kq.add(new VanDe(MaLoi.STK_PENDING_PICK, "Phiếu xuất đã nhặt hàng nhưng chưa xuất kho: " + gon(vuongXuat)
@@ -485,5 +524,18 @@ public class KiemKePhamViService {
 
     static String so(BigDecimal v) {
         return v == null ? "0" : v.stripTrailingZeros().toPlainString();
+    }
+
+    /** Danh sách id kệ dạng "3,7" (GROUP_CONCAT) có kệ nào trong phạm vi không. Rỗng: không. */
+    static boolean keTrongPhamVi(String keIdsCsv, Set<Integer> keIds) {
+        if (keIdsCsv == null || keIdsCsv.isBlank()) return false;
+        return Arrays.stream(keIdsCsv.split(",")).map(String::trim).filter(s -> !s.isEmpty()).map(Integer::valueOf)
+                .anyMatch(keIds::contains);
+    }
+
+    /** Cột TINYINT(1) đọc qua native query ra Boolean (hoặc số khi là hằng). */
+    static boolean daChia(Object v) {
+        if (v instanceof Boolean b) return b;
+        return v instanceof Number n && n.intValue() == 1;
     }
 }
