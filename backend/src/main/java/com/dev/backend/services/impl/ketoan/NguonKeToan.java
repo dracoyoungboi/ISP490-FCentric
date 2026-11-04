@@ -17,8 +17,8 @@ public final class NguonKeToan {
      * Đơn bán đã ghi nhận doanh thu (trạng thái 3, 5). phuongThucPos: CASH / PAYOS / KET_HOP (tiền mặt + QR payOS) với
      * đơn tại quầy đã thu đủ, null với đơn khác. laShopify: đơn kéo từ Shopify (kênh SHOPIFY, có mã đơn kênh). soPhieuXuat: các phiếu xuất
      * đã xuất của đơn, theo thứ tự xuất. tienMatDaThu / nganHangDaThu: tiền thu theo phương thức của đơn tại quầy (để
-     * báo kế toán cách tách đơn trả kết hợp). thueSuatHoaDon: thuế suất in trên hóa đơn bán hàng (chụp lúc chốt đơn khi
-     * bật Cấu hình › Thuế GTGT), null = hóa đơn không in thuế.
+     * báo kế toán cách tách đơn trả kết hợp). thueSuatHoaDon: thuế suất in trên hóa đơn bán hàng (mức chung chụp lúc chốt
+     * đơn khi bật in thuế, chụp lại theo ngày giao khi xuất đủ hàng), null = hóa đơn không in thuế.
      */
     public record DonBan(int id, String soDon, Instant ngayGiaoHang, String maKhachHang, String tenKhachHang,
                          String diaChiKhachHang, String maSoThueKhachHang, String maKho, BigDecimal tienHang,

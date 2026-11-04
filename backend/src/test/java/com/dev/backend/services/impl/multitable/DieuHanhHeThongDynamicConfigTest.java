@@ -58,9 +58,9 @@ class DieuHanhHeThongDynamicConfigTest {
 
         service.initDefaultConfigurations();
 
-        // 6 khóa vận hành + 5 khóa mã vạch / tem sản phẩm (MA_VACH_TIEN_TO, TEM_*) + 2 khóa VAT + 2 khóa giấy đi đường XKNB
+        // 6 khóa vận hành + 5 khóa mã vạch / tem sản phẩm (MA_VACH_TIEN_TO, TEM_*) + 1 khóa VAT (VAT_BAT; thuế suất ở bảng thue_suat_gtgt) + 2 khóa giấy đi đường XKNB
         // + 1 khóa ai được xử lý chênh lệch chuyển kho
-        verify(cauHinhRepository, times(16)).save(any(CauHinhHeThong.class));
+        verify(cauHinhRepository, times(15)).save(any(CauHinhHeThong.class));
         // Mặc định đúng mockup B.5: Quản trị viên hoặc Quản lý Kho tổng
         verify(cauHinhRepository).save(argThat(c -> "CHUYEN_KHO_QUYEN_XU_LY_LECH".equals(c.getMaCauHinh())
                 && "QL_KHO_TONG".equals(c.getGiaTri()) && c.getKieuDuLieu() == KieuDuLieuCauHinh.STRING));

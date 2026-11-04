@@ -153,7 +153,7 @@ public final class DungChungTuAmis {
                 BigDecimal ts = thueSuat.tra(d.danhMucId(), ngay);
                 if (ts == null) {
                     loiThue = "Chưa có thuế suất áp dụng ngày " + ngay.format(GhiTepAmis.NGAY) + " cho mã " + d.maSku()
-                            + ". Thêm mức chung hoặc mức cho danh mục ở Cấu hình › Xuất kế toán.";
+                            + ". Thêm mức chung hoặc mức cho danh mục ở Cấu hình › Thuế GTGT.";
                     break;
                 }
                 thueSuatDung.add(ts.stripTrailingZeros());
@@ -213,13 +213,13 @@ public final class DungChungTuAmis {
             }
             BigDecimal tsHoaDon = don.thueSuatHoaDon() == null ? null : don.thueSuatHoaDon().stripTrailingZeros();
             if (tsHoaDon != null && !(thueSuatDung.size() == 1 && thueSuatDung.contains(tsHoaDon))) {
-                // Hai lịch thuế độc lập: Cấu hình › Thuế GTGT (in hóa đơn, chụp lúc chốt đơn) và Cấu hình › Xuất kế toán
-                // (theo ngày giao hàng, có mức riêng theo danh mục). Lệch thì báo để xem lại, vẫn xuất theo kế toán.
+                // Cùng một bảng thuế suất (Cấu hình › Thuế GTGT) nhưng hóa đơn chỉ in mức chung, đã ghi trên đơn; vẫn lệch
+                // khi có dòng riêng cho danh mục, hoặc bảng sửa sau khi giao. Lệch thì báo để xem lại, vẫn xuất theo kế toán.
                 canhBao(ChungTuXuatKeToan.LOAI_BAN_HANG, don.id(), don.soDon(), "Hóa đơn bán hàng in thuế GTGT "
-                        + phanTram(tsHoaDon) + "% (lúc chốt đơn), xuất kế toán tính "
+                        + phanTram(tsHoaDon) + "% (đã ghi trên đơn), xuất kế toán tính "
                         + thueSuatDung.stream().map(DungChungTuAmis::phanTram).collect(java.util.stream.Collectors.joining("%, "))
                         + "% theo ngày giao hàng " + ngay.format(GhiTepAmis.NGAY)
-                        + ". Xem lại lịch thuế ở Cấu hình › Thuế GTGT và Cấu hình › Xuất kế toán.");
+                        + ". Thường do dòng thuế riêng cho danh mục, hoặc bảng thuế suất đã sửa sau khi giao: xem lại ở Cấu hình › Thuế GTGT.");
             }
             if (KET_HOP.equalsIgnoreCase(don.phuongThucPos())) {
                 // Mẫu Bán hàng AMIS chỉ mang một phương thức thanh toán: tạm ghi phải thu, kế toán lập phiếu thu tách

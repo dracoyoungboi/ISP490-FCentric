@@ -375,10 +375,8 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
     public static final String CAU_HINH_TEM_NGUONG_XAC_NHAN = "TEM_NGUONG_XAC_NHAN";
     public static final int TEM_NGUONG_XAC_NHAN_MAC_DINH = 200;
     public static final int TEM_NGUONG_XAC_NHAN_TOI_DA = 9999;
-    /** In thuế GTGT trên hóa đơn bán hàng (giá bán đã gồm thuế; đơn chụp thuế suất lúc chốt). */
+    /** In thuế GTGT trên hóa đơn bán hàng (giá bán đã gồm thuế; thuế suất lấy từ bảng thue_suat_gtgt, xem ThueGtgtService). */
     public static final String CAU_HINH_VAT_BAT = "VAT_BAT";
-    /** Lịch thuế suất GTGT theo ngày hiệu lực (JSON, xem ThueGtgt). */
-    public static final String CAU_HINH_VAT_LICH = "VAT_LICH";
 
     @EventListener(ApplicationReadyEvent.class)
     @Transactional(rollbackFor = Exception.class)
@@ -397,7 +395,6 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
         seedIfMissing(CAU_HINH_TEM_NGUONG_XAC_NHAN, String.valueOf(TEM_NGUONG_XAC_NHAN_MAC_DINH), KieuDuLieuCauHinh.INT,
                 "Số tem tối đa in không cần xác nhận");
         seedIfMissing(CAU_HINH_VAT_BAT, "false", KieuDuLieuCauHinh.BOOLEAN, "In thuế GTGT trên hóa đơn bán hàng");
-        seedIfMissing(CAU_HINH_VAT_LICH, ThueGtgt.LICH_MAC_DINH, KieuDuLieuCauHinh.STRING, "Lịch thuế suất GTGT theo ngày hiệu lực");
         seedIfMissing(CAU_HINH_XKNB_KY_HIEU, "", KieuDuLieuCauHinh.STRING, "Ký hiệu phiếu XKNB điền sẵn khi xác nhận xuất chuyển kho");
         seedIfMissing(CAU_HINH_XKNB_CHE_DO, IChuyenKho.XKNB_CHI_CANH_BAO, KieuDuLieuCauHinh.STRING, "Khi xác nhận xuất chuyển kho mà chưa có số phiếu XKNB");
         seedIfMissing(CAU_HINH_CHUYEN_KHO_QUYEN_XU_LY_LECH, IChuyenKho.XU_LY_LECH_QL_KHO_TONG, KieuDuLieuCauHinh.STRING,
@@ -613,11 +610,6 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
             if (giaTri == null || !IChuyenKho.QUYEN_XU_LY_LECH.contains(giaTri)) {
                 throw new CommonException("Người xử lý chênh lệch không hợp lệ. Chọn \"Quản lý Kho tổng\", \"Thêm quản lý kho xuất\" hoặc \"Chỉ Quản trị viên\".");
             }
-        } else if (CAU_HINH_VAT_LICH.equals(maCauHinh)) {
-            if (giaTri != null && giaTri.length() > 255) {
-                throw new CommonException("Lịch thuế suất GTGT quá dài: bớt số mốc");
-            }
-            ThueGtgt.docLich(giaTri);
         }
     }
 

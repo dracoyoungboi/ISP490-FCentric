@@ -1289,6 +1289,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         // Đơn cũ xuất kho trước khi có mốc ngày giao: lấy thời điểm xác nhận giao thành công
         if (don.getNgayGiaoHang() == null) {
             don.setNgayGiaoHang(Instant.now());
+            thueGtgtService.chupLaiTheoNgayGiao(don);
         }
         repository.save(don);
         // Khiếu nại số lượng / chất lượng tính từ ngày giao (Luật Thương mại Điều 318): giữ bằng chứng đóng gói tới

@@ -37,6 +37,7 @@ import com.dev.backend.dto.response.customize.XacNhanXuatKhoResponse;
 import com.dev.backend.event.DonHangXuatKhoEvent;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
@@ -132,6 +133,11 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
 
     @Autowired
     private SanPhamQuanAoService sanPhamQuanAoService;
+
+    /** Chụp lại thuế GTGT theo ngày giao khi xuất đủ hàng; @Lazy tránh vòng phụ thuộc, null khi unit test dựng tay. */
+    @Lazy
+    @Autowired(required = false)
+    private ThueGtgtService thueGtgtService;
 
     public PhieuXuatKhoService(PhieuXuatKhoRepository repository) {
         super(repository);
@@ -679,6 +685,8 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
             // Ghi nhận ngày giao (mốc ghi nhận doanh thu của Báo cáo doanh thu và màn Tổng quan) khi xuất đủ hàng
             if (don.getNgayGiaoHang() == null) {
                 don.setNgayGiaoHang(Instant.now());
+                // Thuế suất tính theo lúc giao hàng: đơn chốt trước ngày đổi thuế mà giao sau thì in theo mức lúc giao
+                if (thueGtgtService != null) thueGtgtService.chupLaiTheoNgayGiao(don);
             }
         } else if (!allZero) {
             don.setTrangThai(ITrangThaiDonBanHang.DANG_XUAT_KHO); // 2: Có hàng đã xuất nhưng chưa đủ -> Đã xuất một phần
