@@ -99,6 +99,13 @@ public class KiemKeController {
         return ok(doc.nguoiChuTri(khoId), "Lấy danh sách người chủ trì thành công");
     }
 
+    /** Số kệ và sản phẩm trên sổ kệ theo danh mục (gộp cây con) — bảng chọn danh mục ở Tạo đợt kiểm kê. */
+    @GetMapping("/danh-muc-tren-ke")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    public ResponseEntity<ResponseData<List<KiemKeDto.DanhMucTrenKe>>> danhMucTrenKe(@RequestParam Integer khoId) {
+        return ok(doc.danhMucTrenKe(khoId), "Lấy hàng trên kệ theo danh mục thành công");
+    }
+
     @GetMapping("/hang-chua-co-ke")
     @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho})
     public ResponseEntity<ResponseData<List<KiemKeDto.HangChuaCoKe>>> hangChuaCoKe(@RequestParam Integer khoId) {

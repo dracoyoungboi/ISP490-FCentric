@@ -463,6 +463,51 @@ public class KiemKeDocService {
 
     // ───────────────────────────── Hàng chưa có kệ ─────────────────────────────
 
+    /**
+     * Số kệ và số sản phẩm trên sổ kệ theo từng danh mục của kho, gộp cả cây con (cho bảng chọn danh mục ở Tạo đợt kiểm kê).
+     * Một kệ chứa hàng của nhiều danh mục con chỉ đếm một lần ở danh mục cha. Danh mục không có hàng trên kệ thì không trả về.
+     * Cây có vòng lặp / quá sâu: dừng leo ở mức {@link IKiemKe#DO_SAU_DANH_MUC_TOI_DA} (không báo lỗi, đây chỉ là số tham khảo;
+     * lúc bắt đầu, phạm vi vẫn tự báo lỗi cây như cũ).
+     */
+    public List<KiemKeDto.DanhMucTrenKe> danhMucTrenKe(Integer khoId) {
+        Kho kho = khoRepo.findById(khoId).orElseThrow(() -> KiemKePhamViService.phamViSai("Không tìm thấy kho"));
+        KhoDangChon.kiemTraXem(kho, "Kho " + kho.getTenKho());
+        Map<Integer, Integer> cha = new HashMap<>();
+        @SuppressWarnings("unchecked")
+        List<Object[]> cay = em.createNativeQuery("SELECT id, danh_muc_cha_id FROM danh_muc_quan_ao").getResultList();
+        for (Object[] r : cay) {
+            if (r[1] != null) cha.put(((Number) r[0]).intValue(), ((Number) r[1]).intValue());
+        }
+        List<Object[]> dong = em.createQuery("SELECT t.loHang.bienTheSanPham.sanPham.danhMuc.id, t.viTriKho.id, SUM(t.soLuong) "
+                        + "FROM TonKhoViTri t WHERE t.viTriKho.kho.id = :kho AND t.soLuong > 0 "
+                        + "GROUP BY t.loHang.bienTheSanPham.sanPham.danhMuc.id, t.viTriKho.id", Object[].class)
+                .setParameter("kho", khoId).getResultList();
+        return gopDanhMucTrenKe(cha, dong);
+    }
+
+    /** Gộp các dòng (danh mục sản phẩm, kệ, số lượng) lên mọi tổ tiên theo {@code cha}; kệ đếm khác nhau. Hàm thuần để test. */
+    static List<KiemKeDto.DanhMucTrenKe> gopDanhMucTrenKe(Map<Integer, Integer> cha, List<Object[]> dong) {
+        Map<Integer, Set<Integer>> keTheoDm = new HashMap<>();
+        Map<Integer, Long> slTheoDm = new HashMap<>();
+        for (Object[] r : dong) {
+            if (r[0] == null || r[1] == null) continue;
+            Integer ke = ((Number) r[1]).intValue();
+            long sl = r[2] == null ? 0 : ((Number) r[2]).longValue();
+            // Cộng vào danh mục của sản phẩm và mọi tổ tiên
+            Integer dm = ((Number) r[0]).intValue();
+            Set<Integer> daQua = new HashSet<>();
+            for (int sau = 0; dm != null && sau <= IKiemKe.DO_SAU_DANH_MUC_TOI_DA && daQua.add(dm); sau++) {
+                keTheoDm.computeIfAbsent(dm, k -> new HashSet<>()).add(ke);
+                slTheoDm.merge(dm, sl, Long::sum);
+                dm = cha.get(dm);
+            }
+        }
+        return keTheoDm.entrySet().stream()
+                .map(e -> new KiemKeDto.DanhMucTrenKe(e.getKey(), e.getValue().size(), slTheoDm.getOrDefault(e.getKey(), 0L)))
+                .sorted(Comparator.comparing(KiemKeDto.DanhMucTrenKe::danhMucId))
+                .toList();
+    }
+
     public List<KiemKeDto.HangChuaCoKe> hangChuaCoKe(Integer khoId) {
         Kho kho = khoRepo.findById(khoId).orElseThrow(() -> KiemKePhamViService.phamViSai("Không tìm thấy kho"));
         KhoDangChon.kiemTraXem(kho, "Kho " + kho.getTenKho());

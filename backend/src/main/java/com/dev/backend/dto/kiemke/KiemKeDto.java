@@ -103,6 +103,13 @@ public final class KiemKeDto {
     public record LoTim(Integer loHangId, String maLo, SanPham sanPham) {
     }
 
+    /**
+     * Hàng trên sổ kệ của một danh mục ở kho, GỘP cả cây con (đúng như phạm vi kiểm kê theo danh mục): {@code soKe} số kệ
+     * khác nhau đang có hàng của danh mục hoặc danh mục con, {@code soLuong} tổng sản phẩm trên các kệ đó.
+     */
+    public record DanhMucTrenKe(Integer danhMucId, int soKe, long soLuong) {
+    }
+
     /** Lô còn hàng chưa có kệ ở kho (Đ4). */
     public record HangChuaCoKe(Integer loHangId, String maLo, SanPham sanPham, BigDecimal tonLo, int trenKe,
                                int chuaCoKe, ViTri keGoiY) {
