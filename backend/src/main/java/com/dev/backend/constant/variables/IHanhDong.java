@@ -89,27 +89,48 @@ public interface IHanhDong {
             mo_khoa_tai_khoan = "mo_khoa_tai_khoan",
             doi_mat_khau = "doi_mat_khau",
             dat_lai_mat_khau = "dat_lai_mat_khau",
-            cap_nhat_khoa_thanh_toan = "cap_nhat_khoa_thanh_toan";
+            cap_nhat_khoa_thanh_toan = "cap_nhat_khoa_thanh_toan",
+            // Quản trị viên sửa họ tên / email / SĐT tài khoản người khác (gia_tri_cu / gia_tri_moi = các trường đổi)
+            sua_tai_khoan = "sua_tai_khoan";
 
+    // ===== Nhật ký nghiệp vụ (NhatKyNghiepVu): gia_tri_cu / gia_tri_moi = JSON chỉ các trường đổi, ghi_chu = lý do =====
+    // Theo BA (05/11) lịch sử thay đổi chỉ lưu cho danh mục dữ liệu (master data): người dùng, sản phẩm, giá bán, danh mục,
+    // thuộc tính, nhà cung cấp, kho, vị trí kệ, khách hàng. Nhật ký chứng từ chỉ giữ các dòng có từ trước.
+    //Nhà cung cấp (loai_tham_chieu = nha_cung_cap). Đổi MST thì ghi_chu bắt đầu "[Nhạy cảm]"
+    String
+            them_nha_cung_cap = "them_nha_cung_cap",
+            sua_nha_cung_cap = "sua_nha_cung_cap",
+            doi_trang_thai_nha_cung_cap = "doi_trang_thai_nha_cung_cap",
+            xoa_nha_cung_cap = "xoa_nha_cung_cap";
+    //Kho, vị trí kho, khách hàng, mã vạch nhà cung cấp (mã vạch ghi trên loai nha_cung_cap, id nhà cung cấp)
+    String
+            // Kho với tư cách danh mục (khác them_kho / xoa_kho ở trên: thêm / bớt kho trong phân quyền người dùng)
+            tao_kho = "tao_kho",
+            sua_kho = "sua_kho",
+            doi_trang_thai_kho = "doi_trang_thai_kho",
+            xoa_mem_kho = "xoa_mem_kho",
+            tao_khu_vuc = "tao_khu_vuc",
+            sua_khu_vuc = "sua_khu_vuc",
+            xoa_khu_vuc = "xoa_khu_vuc",
+            tao_vi_tri = "tao_vi_tri",
+            sua_vi_tri = "sua_vi_tri",
+            xoa_vi_tri = "xoa_vi_tri",
+            luu_mat_bang = "luu_mat_bang",
+            them_khach_hang = "them_khach_hang",
+            sua_khach_hang = "sua_khach_hang",
+            xoa_khach_hang = "xoa_khach_hang",
+            them_ma_vach_ncc = "them_ma_vach_ncc",
+            xoa_ma_vach_ncc = "xoa_ma_vach_ncc";
+    //Danh mục chung (danh mục, thương hiệu, chất liệu, màu, size): loai_tham_chieu = tên bảng
+    String
+            them_danh_muc_chung = "them_danh_muc_chung",
+            sua_danh_muc_chung = "sua_danh_muc_chung",
+            xoa_danh_muc_chung = "xoa_danh_muc_chung";
     /**
-     * Nhật ký job dọn 90 ngày (AuditLogCleanupJob) KHÔNG xóa: phiên bản mẫu in (để khôi phục), lịch sử đổi giá bán, dấu
-     * từ chối phiếu chuyển, tạo lô / mở khóa chứng từ xuất kế toán và bản ghi bảo mật (đăng nhập, khóa tài khoản, mật
-     * khẩu, đổi quyền / vai trò, đổi khóa thanh toán). Không đưa cap_nhat_kenh_ban vào đây: hành động này còn ghi kết
-     * quả mỗi lần đồng bộ đơn từ sàn, giữ mãi thì bảng phình.
+     * Job dọn 90 ngày (AuditLogCleanupJob) CHỈ xóa các hành động trong danh sách này: ghi rất nhiều, giá trị truy vết
+     * thấp (mỗi lần quét mã, mỗi lượt đồng bộ sàn). Mọi hành động khác giữ lại — chứng từ kế toán phải lưu tối thiểu 10
+     * năm, tài liệu quản lý tối thiểu 5 năm (Luật Kế toán 2015, Điều 41), nên lịch sử duyệt / hủy / sửa không tự xóa.
      */
-    java.util.List<String> KHONG_TU_DON = java.util.List.of(
-            cap_nhat_mau_in,
-            // Lịch sử giá bán: ai đổi, khi nào, vì sao; màn Giá bán đọc lần đổi gần nhất từ đây
-            doi_gia_ban,
-            // Phiếu chuyển bị từ chối chỉ phân biệt với hủy qua dòng này (chi tiết phiếu đọc), mỗi phiếu một dòng
-            tu_choi_phieu_chuyen,
-            // Kiểm soát dữ liệu sang kế toán: ai tạo lô, ai mở khóa chứng từ đã giao và vì sao
-            tao_lo_xuat_ke_toan, mo_khoa_chung_tu_ke_toan,
-            // Ai đã tải báo cáo nào về máy (truy vết rò rỉ dữ liệu); mỗi lần tải một dòng, ít
-            xuat_bao_cao,
-            dang_nhap, dang_nhap_that_bai, tao_tai_khoan, khoa_tai_khoan, mo_khoa_tai_khoan, doi_mat_khau,
-            dat_lai_mat_khau,
-            cap_nhat_khoa_thanh_toan,
-            cap_quyen, thu_hoi_quyen, cap_nhat_quyen, them_kho, xoa_kho, nang_cap_chuc_vu,
-            cap_nhat_phan_quyen, cap_nhat_mau_quyen);
+    java.util.List<String> DUOC_DON = java.util.List.of(
+            quet_barcode, quet_dong_goi, dong_bo_san_pham, dong_bo_ton_kho, cap_nhat_kenh_ban);
 }

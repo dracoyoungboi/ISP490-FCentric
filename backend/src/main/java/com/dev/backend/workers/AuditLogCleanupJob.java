@@ -18,9 +18,9 @@ import java.util.List;
  * JOB-04 (SRS 12.4): Clean Up Old Audit Log Entries.
  * Trigger: Hằng ngày lúc 3:00 AM (0 0 3 * * ?).
  * Retention period: 90 ngày.
- * Không xóa các hành động trong {@link IHanhDong#KHONG_TU_DON}: lịch sử phiên bản mẫu in (các phiên bản cấu hình để
- * xem lại / khôi phục, mỗi lần lưu mẫu một dòng nên không phình bảng), dấu từ chối phiếu chuyển (chi tiết phiếu đọc) và
- * nhật ký bảo mật (đăng nhập, khóa tài khoản, mật khẩu, đổi quyền, đổi khóa thanh toán) cần giữ để truy vết sự cố.
+ * CHỈ xóa các hành động trong {@link IHanhDong#DUOC_DON} (quét mã, đồng bộ sàn: ghi rất nhiều, giá trị truy vết thấp).
+ * Mọi hành động khác — duyệt / hủy / sửa chứng từ, bảo mật, phân quyền, dòng không có hành động — giữ lại: Luật Kế
+ * toán 2015 Điều 41 yêu cầu lưu chứng từ kế toán tối thiểu 10 năm, tài liệu quản lý tối thiểu 5 năm.
  * Xóa theo batch tối đa 5,000 dòng để tránh lock bảng DB trong thời gian dài.
  */
 @Component
@@ -40,18 +40,18 @@ public class AuditLogCleanupJob {
         int batchCount = 0;
         int batchSize = 5000;
 
-        List<String> giuLai = IHanhDong.KHONG_TU_DON;
+        List<String> duocDon = IHanhDong.DUOC_DON;
         String sql = "DELETE FROM lich_su_thay_doi WHERE ngay_thuc_hien < ?"
-                + " AND (hanh_dong IS NULL OR hanh_dong NOT IN ("
-                + String.join(", ", Collections.nCopies(giuLai.size(), "?")) + ")) LIMIT ?";
-        Object[] thamSo = new Object[giuLai.size() + 2];
+                + " AND hanh_dong IN ("
+                + String.join(", ", Collections.nCopies(duocDon.size(), "?")) + ") LIMIT ?";
+        Object[] thamSo = new Object[duocDon.size() + 2];
         thamSo[0] = threshold;
-        for (int i = 0; i < giuLai.size(); i++) thamSo[i + 1] = giuLai.get(i);
+        for (int i = 0; i < duocDon.size(); i++) thamSo[i + 1] = duocDon.get(i);
         thamSo[thamSo.length - 1] = batchSize;
 
         try {
             while (true) {
-                // Xóa từng đợt 5,000 dòng có thời gian cũ hơn 90 ngày (trừ phiên bản mẫu in và nhật ký bảo mật)
+                // Xóa từng đợt 5,000 dòng quét mã / đồng bộ sàn cũ hơn 90 ngày
                 int deleted = jdbcTemplate.update(sql, thamSo);
                 totalDeleted += deleted;
                 batchCount++;

@@ -43,5 +43,9 @@ public interface ITable {
             lo_xuat_ke_toan = "lo_xuat_ke_toan",
             chung_tu_xuat_ke_toan = "chung_tu_xuat_ke_toan",
             hoa_don_dau_vao = "hoa_don_dau_vao",
-            lich_su_thay_doi = "lich_su_thay_doi";
+            lich_su_thay_doi = "lich_su_thay_doi",
+            thuong_hieu = "thuong_hieu",
+            khu_vuc_kho = "khu_vuc_kho",
+            vi_tri_kho = "vi_tri_kho",
+            mat_bang_kho = "mat_bang_kho";
 }
