@@ -73,6 +73,7 @@ const BaoCaoDoanhThu = taiTrang(() => import("./pages/bao-cao/BaoCaoDoanhThu"));
 const XuatDuLieuKeToan = taiTrang(() => import("./pages/bao-cao/XuatDuLieuKeToan"));
 const KhachHangReport = taiTrang(() => import("./pages/bao-cao/KhachHangReport"));
 const NhatKyNhapXuat = taiTrang(() => import("./pages/bao-cao/NhatKyNhapXuat"));
+const BaoCaoSanPham = taiTrang(() => import("./pages/bao-cao/BaoCaoSanPham"));
 const PhieuNhapKhoPrint = taiTrang(() => import("./pages/receipt/PhieuNhapKhoPrint"));
 const PhieuXuatKhoPrint = taiTrang(() => import("./pages/issue/PhieuXuatKhoPrint"));
 const EcommercePackingSlipPrint = taiTrang(() => import("./pages/issue/EcommercePackingSlipPrint"));
@@ -316,6 +317,7 @@ const CAY_DUONG_DAN = (
           quản lý kho (@RequireAuth ở backend), menu cũng chỉ hiện cho hai vai trò này. */}
       <Route element={<RequireRole roles={["quan_tri_vien", "quan_ly_kho"]} />}>
         <Route path="/reports/revenue" element={<BaoCaoDoanhThu />} />
+        <Route path="/reports/products" element={<BaoCaoSanPham />} />
         <Route path="/reports/customers" element={<KhachHangReport />} />
         <Route path="/reports/stock-movements" element={<NhatKyNhapXuat />} />
       </Route>
