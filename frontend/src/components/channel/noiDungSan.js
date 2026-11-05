@@ -22,6 +22,22 @@ const NOI_DUNG = {
     // Không lặp số phút: thẻ Đơn hàng đã ghi chu kỳ ở công tắc và dòng "Chu kỳ chạy"
     ghiChuDon: "Lazada không gửi thông báo tới máy chủ này nên đơn mới chỉ về theo chu kỳ quét.",
   },
+  LAZADA_SANDBOX: {
+    nhanIdSan: "Seller ID (Test)",
+    khachMacDinh: "Khách Lazada Sandbox",
+    goiYAppKey: "Lấy ở Lazada Open Platform › App Console (Ứng dụng Sandbox).",
+    coServiceId: false,
+    moTaUyQuyen:
+      "Bấm Ủy quyền, Lazada mở cổng đăng nhập tài khoản Sandbox Seller Center và yêu cầu cấp quyền đọc sản phẩm, đơn hàng và tồn kho. Vui lòng sử dụng tài khoản test từ Lazada Console.",
+    hanUyQuyen: "Ủy quyền môi trường Sandbox có hiệu lực tương tự Production (50 ngày). Bạn có thể bấm Ủy quyền lại bất cứ lúc nào để làm mới token thử nghiệm.",
+    khoSan: {
+      nhan: "Kho trên Lazada Sandbox",
+      moTa: "Gian hàng thử nghiệm một kho: Lazada Sandbox nhận số vào kho mặc định, không cần chọn.",
+      chiDoc: "Kho mặc định (Sandbox)",
+    },
+    ghiChuTon: "Môi trường Sandbox phục vụ mô phỏng kiểm thử cập nhật tồn kho an toàn, không ảnh hưởng gian hàng thật.",
+    ghiChuDon: "Đơn hàng Sandbox đồng bộ độc lập với tiền tố LZD-SBX- và tự động gắn nhãn đơn test thử nghiệm.",
+  },
   TIKTOK: {
     nhanIdSan: "Shop ID",
     khachMacDinh: "Khách TikTok Shop",
