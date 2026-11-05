@@ -26,7 +26,28 @@ const SIZES = {
     K57: { moduleMm: 0.25, minModuleMm: 0.25, maxWidthMm: 48, heightMm: 8, qrMm: 20 },
 };
 
+/**
+ * Kích thước mã vạch nằm TRONG THÂN phiếu, một hàng riêng (mã vận đơn trên tem dán kiện): rộng hơn
+ * mã số phiếu ở góc đầu phiếu, vạch to hơn cho máy quét của đơn vị vận chuyển. Khổ nhiệt chỉ dùng
+ * mô-đun tròn số chấm máy in 203 dpi (`stepsMm`: 3 chấm, không vừa thì 2 chấm), không vừa nữa thì in QR.
+ */
+const BODY_SIZES = {
+    A4: { moduleMm: 0.33, maxWidthMm: 120, heightMm: 12, qrMm: 22 },
+    A5: { moduleMm: 0.3, maxWidthMm: 110, heightMm: 11, qrMm: 20 },
+    A6: { stepsMm: [0.375, 0.25], maxWidthMm: 90, heightMm: 12, qrMm: 22 },
+    K80: { stepsMm: [0.25], maxWidthMm: 70, heightMm: 10, qrMm: 24 },
+    K57: { stepsMm: [0.25], maxWidthMm: 48, heightMm: 9, qrMm: 20 },
+};
+
 const round = (value) => Math.round(value * 100) / 100;
+
+/** Mô-đun (mm) cho `modules` mô-đun; null = không vừa bề ngang mà vẫn quét chắc -> in QR. */
+function pickModuleMm(size, modules) {
+    if (size.stepsMm) return size.stepsMm.find((step) => modules * step <= size.maxWidthMm + 1e-9) ?? null;
+    const moduleMm = Math.min(size.moduleMm, size.maxWidthMm / modules);
+    // So sánh có dung sai làm tròn (0,25 mm chia đúng vẫn là 0,25 mm)
+    return moduleMm + 1e-9 < (size.minModuleMm ?? MIN_MODULE_MM) ? null : moduleMm;
+}
 
 function QrCode({ text, size }) {
     return (
@@ -48,9 +69,11 @@ function QrCode({ text, size }) {
  * dữ liệu khác). Vẽ bằng SVG thuần nên in sắc nét ở mọi máy in, cùng một DOM cho xem trước và in.
  * Không có số phiếu (phiếu chưa đánh số) thì không vẽ gì. Số phiếu quá dài để in mã vạch còn quét
  * được trong bề ngang của khổ thì tự in mã QR.
+ * `placement="body"`: mã nằm trên một hàng riêng trong thân phiếu (BODY_SIZES) thay vì góc đầu phiếu.
  */
-export default function PrintDocCode({ mode, value, paperSize }) {
-    const size = SIZES[paperSize] ?? SIZES.A4;
+export default function PrintDocCode({ mode, value, paperSize, placement = "head" }) {
+    const table = placement === "body" ? BODY_SIZES : SIZES;
+    const size = table[paperSize] ?? table.A4;
     if (mode === "ma_qr") {
         const text = toQrText(value);
         return text ? <QrCode text={text} size={size} /> : null;
@@ -60,9 +83,8 @@ export default function PrintDocCode({ mode, value, paperSize }) {
     const bits = encodeCode128(value);
     if (!bits) return null;
     const modules = bits.length + QUIET_ZONE * 2;
-    const moduleMm = Math.min(size.moduleMm, size.maxWidthMm / modules);
-    // So sánh có dung sai làm tròn (0,25 mm chia đúng vẫn là 0,25 mm)
-    if (moduleMm + 1e-9 < (size.minModuleMm ?? MIN_MODULE_MM)) {
+    const moduleMm = pickModuleMm(size, modules);
+    if (moduleMm === null) {
         // Cùng chuỗi với mã vạch (đã bỏ dấu) để hai kiểu mã quét ra giống nhau
         return <QrCode text={toBarcodeText(value)} size={size} />;
     }

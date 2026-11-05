@@ -120,7 +120,8 @@ function infoRows(section, config, compact, docNoun) {
                 id: labelKey(section.key, field.key),
                 path: `sections.${section.key}.${field.key}`,
                 defaultLabel: field.label,
-                labelKeyValue: field.labelModelPath ? null : labelKey(section.key, field.key),
+                // Mã vạch không in nhãn nên không có ô đổi tên
+                labelKeyValue: field.labelModelPath || field.kind === "barcode" ? null : labelKey(section.key, field.key),
                 locked: Boolean(field.essential),
                 hint: field.labelModelPath ? field.hint ?? `Nhãn tự đổi theo dữ liệu của ${docNoun}` : field.hint,
                 on: sectionConfig[field.key] !== false,

@@ -253,7 +253,8 @@ export function getRenameableLabels(schema, compact) {
         if (compact && section.compactHidden) continue;
         if (section.type === "info") {
             for (const field of section.fields) {
-                if (field.labelModelPath) continue;
+                // Nhãn động theo dữ liệu, hoặc mã vạch (không in nhãn)
+                if (field.labelModelPath || field.kind === "barcode") continue;
                 if ((field.compactOnly && !compact) || (field.compactHidden && compact)) continue;
                 labels.set(labelKey(section.key, field.key), field.label);
             }

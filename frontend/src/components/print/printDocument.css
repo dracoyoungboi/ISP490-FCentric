@@ -204,6 +204,18 @@
     grid-column: 1 / -1;
 }
 
+/* Mã vạch mã vận đơn (trường kind "barcode"): một hàng riêng, căn giữa */
+.pdoc-field--barcode {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 0.6mm;
+}
+
+.pdoc-field--barcode .pdoc-docode {
+    max-width: 100%;
+    margin-left: 0;
+}
+
 .pdoc-label {
     color: var(--pdoc-muted);
 }

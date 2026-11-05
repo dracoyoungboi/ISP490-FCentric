@@ -762,6 +762,14 @@ export const PRINT_SCHEMAS = {
                 title: "Thông tin đơn sàn",
                 columns: 2,
                 fields: [
+                    {
+                        key: "trackingBarcode",
+                        label: "Mã vạch mã vận đơn",
+                        modelPath: "channelOrderInfo.trackingBarcode",
+                        kind: "barcode",
+                        hideWhenEmpty: true,
+                        hint: "Mã vạch Code 128 của mã vận đơn, đơn vị vận chuyển quét được. Chưa có mã vận đơn thì không in",
+                    },
                     { key: "channelName", label: "Sàn thương mại", modelPath: "channelOrderInfo.channelName" },
                     { key: "orderCode", label: "Mã đơn sàn", modelPath: "channelOrderInfo.orderCode" },
                     { key: "trackingCode", label: "Mã vận đơn", modelPath: "channelOrderInfo.trackingCode" },

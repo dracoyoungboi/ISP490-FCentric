@@ -103,6 +103,16 @@ function renderInfoSection(section, ctx) {
                 columns={section.columns ?? 2}
                 items={fields.map((field) => ({
                     key: field.key,
+                    // `kind: "barcode"`: in mã vạch Code 128 của giá trị (mã vận đơn), không in nhãn
+                    barcode:
+                        field.kind === "barcode" ? (
+                            <PrintDocCode
+                                mode="ma_vach"
+                                value={resolveFieldValue(field, model, company)}
+                                paperSize={config.paperSize}
+                                placement="body"
+                            />
+                        ) : null,
                     // Nhãn động theo dữ liệu (vd. "Nguồn hàng" -> "Nhà cung cấp" / "Kho chuyển đi") > nhãn tự đặt > nhãn gốc
                     label:
                         (field.labelModelPath && getByPath(model, field.labelModelPath)) ||
