@@ -1,5 +1,6 @@
 // src/pages/lich-su-giao-dich-kho/LichSuGiaoDichKhoList.jsx
 import { createElement, useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
     Dialog, DialogContent, DialogTitle,
@@ -7,7 +8,7 @@ import {
 import {
     History, ArrowDownToLine, ArrowUpFromLine,
     ArrowLeftRight, SlidersHorizontal, Warehouse, Eye,
-    CalendarDays, User2, FileText, Hash, Package, SearchX,
+    CalendarDays, User2, FileText, Hash, Package, SearchX, X,
 } from "lucide-react";
 import { toast } from "@/lib/thongBaoNhanh";
 import PageContainer from "@/components/backoffice/PageContainer";
@@ -63,6 +64,12 @@ const matchSearch = (item, search) => {
         item.tenKho?.toLowerCase().includes(q) ||
         item.nguoiDungTen?.toLowerCase().includes(q);
 };
+
+// Bộ lọc kỳ, kho mở từ Báo cáo nhập xuất (?tu=yyyy-MM-dd&den=yyyy-MM-dd&kho=id): ngày theo giờ máy người xem
+const NGAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+const hai = (n) => String(n).padStart(2, "0");
+const ngayCua = (v) => { const d = new Date(v); return Number.isNaN(d.getTime()) ? "" : `${d.getFullYear()}-${hai(d.getMonth() + 1)}-${hai(d.getDate())}`; };
+const ngayVN = (s) => s.split("-").reverse().join("/");
 
 const TH_CLASS =
     "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
@@ -221,6 +228,21 @@ export default function LichSuGiaoDichKhoList() {
     // Tab loại giao dịch trên URL (?loai=nhap-kho | xuat-kho | dieu-chinh)
     const [filterLoai, setFilterLoai] = useTabTrenUrl(LOAI_TAB_VALUES, TAB_MAC_DINH, { ten: "loai" });
 
+    // Kỳ, kho từ liên kết "Xem từng giao dịch" của Báo cáo nhập xuất
+    const [searchParams, setSearchParams] = useSearchParams();
+    const locTu = NGAY_RE.test(searchParams.get("tu") ?? "") ? searchParams.get("tu") : "";
+    const locDen = NGAY_RE.test(searchParams.get("den") ?? "") ? searchParams.get("den") : "";
+    const locKho = /^\d+$/.test(searchParams.get("kho") ?? "") ? Number(searchParams.get("kho")) : null;
+    const coLocBaoCao = Boolean(locTu || locDen || locKho);
+    const boLocBaoCao = () => {
+        setSearchParams((prev) => {
+            const next = new URLSearchParams(prev);
+            ["tu", "den", "kho"].forEach((k) => next.delete(k));
+            return next;
+        }, { replace: true });
+        setPageNumber(0);
+    };
+
     // Phân quyền — giống PhieuChuyenKhoDetail
     const role     = localStorage.getItem("role");
     const isAdmin  = role === "quan_tri_vien";
@@ -275,9 +297,15 @@ export default function LichSuGiaoDichKhoList() {
     // ── Filter ─────────────────────────────────────────────────────────
     // Phân quyền lọc danh sách: admin thấy tất, còn lại chỉ thấy kho mình có quyền
     const visibleData = useMemo(() => {
-        if (isAdmin) return data;
-        return data.filter((item) => myWarehouseIds.includes(item.khoId));
-    }, [data, myWarehouseIds, isAdmin]);
+        const theoQuyen = isAdmin ? data : data.filter((item) => myWarehouseIds.includes(item.khoId));
+        if (!coLocBaoCao) return theoQuyen;
+        return theoQuyen.filter((item) => {
+            const ngay = ngayCua(item.ngayGiaoDich);
+            return (!locTu || ngay >= locTu) && (!locDen || ngay <= locDen) && (locKho == null || item.khoId === locKho);
+        });
+    }, [data, myWarehouseIds, isAdmin, coLocBaoCao, locTu, locDen, locKho]);
+
+    const tenKhoLoc = locKho == null ? null : data.find((item) => item.khoId === locKho)?.tenKho ?? `Kho #${locKho}`;
 
     // Lọc mọi thứ trừ loại (để đếm số trên tab), rồi lọc loại cho bảng
     const searched = useMemo(
@@ -344,6 +372,18 @@ export default function LichSuGiaoDichKhoList() {
 
             {/* Ghi chú phạm vi (R3): mọi vai trò không phải quản trị viên đều lọc theo kho phụ trách (visibleData) */}
             <ListPageHeader scope={isAdmin ? null : "Kho bạn phụ trách"} />
+
+            {coLocBaoCao ? (
+                <p className="-mt-2 flex flex-wrap items-center gap-2 text-sm text-bo-muted">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-bo-primary-soft py-0.5 pl-3 pr-1 font-medium text-bo-primary">
+                        {[locTu || locDen ? `${locTu ? ngayVN(locTu) : "…"} – ${locDen ? ngayVN(locDen) : "…"}` : null, tenKhoLoc].filter(Boolean).join(" · ")}
+                        <button type="button" onClick={boLocBaoCao} aria-label="Bỏ lọc kỳ, kho" className="grid size-6 cursor-pointer place-items-center rounded-full hover:bg-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30">
+                            <X className="size-3.5" aria-hidden="true" />
+                        </button>
+                    </span>
+                    Đang lọc theo kỳ, kho của Báo cáo nhập xuất
+                </p>
+            ) : null}
 
             {/* ── Table: tab loại giao dịch + tìm kiếm cùng một hàng ── */}
             <TableShell
@@ -417,6 +457,21 @@ export default function LichSuGiaoDichKhoList() {
                                     className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
                                     Xem tất cả
+                                </Button>
+                            }
+                        />
+                    ) : coLocBaoCao ? (
+                        <EmptyState
+                            icon={History}
+                            title="Không có giao dịch trong kỳ, kho đã chọn"
+                            description="Bỏ lọc kỳ, kho để xem mọi giao dịch kho."
+                            action={
+                                <Button
+                                    variant="outline"
+                                    onClick={boLocBaoCao}
+                                    className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
+                                >
+                                    Bỏ lọc
                                 </Button>
                             }
                         />
