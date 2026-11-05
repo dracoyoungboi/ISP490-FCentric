@@ -33,6 +33,7 @@ import {
   gioNgay,
   hauQuaHuy,
   laDonLazada,
+  laDonShopee,
   laDonSan,
   laDonTaiQuay,
   lyDoSanHuy,
@@ -106,6 +107,8 @@ function ChiTietDonBanHang({ id }) {
   const laPos = laDonTaiQuay(ct);
   const laSan = laDonSan(don);
   const laLazada = laDonLazada(don);
+  const laShopee = laDonShopee(don);
+  const laSanXuatKhoTong = laLazada || laShopee;
   const maBG = don && !laBaoGia ? maBaoGiaGoc(don.soDonHang, { laPos, laSan }) : null;
   const taiBaoGia = useCallback(async () => {
     const page = await donBanHangService.filter({
@@ -314,7 +317,7 @@ function ChiTietDonBanHang({ id }) {
             icon: Send,
             dangChay: dangChay === "guiKho",
             khoa: Boolean(dangChay),
-            onClick: laLazada ? guiKhoLazada : () => moHop("guiKho"),
+            onClick: laSanXuatKhoTong ? guiKhoLazada : () => moHop("guiKho"),
           }
         : null,
       v.nutDaGiao ? { ma: "daGiao", nhan: "Xác nhận đã giao", icon: CircleCheckBig, onClick: () => moHop("daGiao") } : null,

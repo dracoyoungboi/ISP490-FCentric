@@ -19,11 +19,13 @@ const LOGO_FILES = {
   LAZADA_SANDBOX: "/channel-logos/lazada.svg",
   TIKTOK: "/channel-logos/tiktok-shop.svg",
   SHOPEE: "/channel-logos/shopee.svg",
+  SHOPEE_SANDBOX: "/channel-logos/shopee.svg",
 };
 
 // Riêng ở menu trái (nền tối): Shopee dùng biểu tượng ô cam túi trắng 60 px (ảnh user chọn 30/10) thay cho túi cam
 const LOGO_MENU_FILES = {
   SHOPEE: "/channel-logos/shopee-menu.png",
+  SHOPEE_SANDBOX: "/channel-logos/shopee-menu.png",
 };
 
 // Logo tối (túi đen của TikTok Shop) trên menu nền tối: đặt trong ô nền trắng để thấy được, không đổi màu logo

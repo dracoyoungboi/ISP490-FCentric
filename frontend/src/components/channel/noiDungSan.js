@@ -38,6 +38,38 @@ const NOI_DUNG = {
     ghiChuTon: "Môi trường Sandbox phục vụ mô phỏng kiểm thử cập nhật tồn kho an toàn, không ảnh hưởng gian hàng thật.",
     ghiChuDon: "Đơn hàng Sandbox đồng bộ độc lập với tiền tố LZD-SBX- và tự động gắn nhãn đơn test thử nghiệm.",
   },
+  SHOPEE: {
+    nhanIdSan: "Shop ID",
+    khachMacDinh: "Khách Shopee",
+    goiYAppKey: "Lấy ở Shopee Open Platform › Console (Partner ID & Partner Key).",
+    coServiceId: false,
+    moTaUyQuyen:
+      "Bấm Ủy quyền, Shopee mở trang đăng nhập Seller Center và hỏi bạn có cho FCentric đọc sản phẩm, đơn hàng và cập nhật tồn không. Đồng ý xong Shopee đưa bạn quay lại đây.",
+    hanUyQuyen: "Ủy quyền Shopee có hạn 365 ngày; hệ thống tự động làm mới access token mỗi 4 giờ qua refresh token.",
+    khoSan: {
+      nhan: "Kho trên Shopee",
+      moTa: "Gian hàng một kho: Shopee nhận số vào kho mặc định, không cần chọn.",
+      chiDoc: "Kho mặc định",
+    },
+    ghiChuTon: "Hệ thống tự động đồng bộ tồn kho sang Shopee theo quy tắc tồn khả dụng đã cấu hình.",
+    ghiChuDon: "Đơn mới từ Shopee đồng bộ tự động theo chu kỳ quét định kỳ với tiền tố SHP-.",
+  },
+  SHOPEE_SANDBOX: {
+    nhanIdSan: "Shop ID (Sandbox)",
+    khachMacDinh: "Khách Shopee Sandbox",
+    goiYAppKey: "Môi trường giả lập Sandbox nội bộ: Không cần tài khoản Shopee thật.",
+    coServiceId: false,
+    moTaUyQuyen:
+      "Môi trường Sandbox nội bộ cho phép kích hoạt và thử nghiệm 1-chạm mà không cần tài khoản đối tác Shopee đã phê duyệt. Bấm Kết nối để sẵn sàng sinh đơn và đồng bộ.",
+    hanUyQuyen: "Môi trường thử nghiệm Sandbox nội bộ có hiệu lực vĩnh viễn (365 ngày tự gia hạn).",
+    khoSan: {
+      nhan: "Kho trên Shopee Sandbox",
+      moTa: "Môi trường thử nghiệm: Đơn Shopee Sandbox mặc định xuất từ Kho Tổng FCentric.",
+      chiDoc: "Kho Tổng (Sandbox)",
+    },
+    ghiChuTon: "Đẩy tồn giả lập an toàn 100%, bảo toàn dữ liệu thực tế của hệ thống.",
+    ghiChuDon: "Hỗ trợ sinh đơn mẫu tức thì với SKU có thật trong kho để kiểm thử toàn diện quy trình nhặt, đóng gói, xuất kho và in vận đơn SPX nhiệt A6.",
+  },
   TIKTOK: {
     nhanIdSan: "Shop ID",
     khachMacDinh: "Khách TikTok Shop",

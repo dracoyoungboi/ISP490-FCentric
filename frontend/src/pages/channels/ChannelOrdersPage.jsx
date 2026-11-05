@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { CalendarRange, ChevronLeft, ChevronRight, SearchX, ShoppingCart, X } from "lucide-react";
@@ -369,6 +370,27 @@ export default function ChannelOrdersPage() {
                 Icon: CalendarRange,
                 onChon: () => setMoLayDon(true),
               },
+              ...(SAN?.maKenh?.includes("SHOPEE")
+                ? [
+                    {
+                      ma: "sinh-don-shopee-mau",
+                      nhan: "Sinh đơn Shopee mẫu…",
+                      moTa: "Tạo đơn hàng Shopee Sandbox mẫu với SKU thực tế trong kho.",
+                      Icon: ShoppingCart,
+                      onChon: async () => {
+                        try {
+                          const res = await kenhBanHangService.sinhDonShopeeMau(1, "READY_TO_SHIP");
+                          toast.success(`Đã sinh đơn Shopee Sandbox mẫu (${res?.danhSachDonHang?.[0] || "SHP"})`, {
+                            description: "Đơn đã được đồng bộ tự động vào FCentric ở trạng thái Chờ nhặt hàng.",
+                          });
+                          taiLai();
+                        } catch (err) {
+                          toast.error("Không sinh được đơn Shopee mẫu: " + (err.message || "Lỗi hệ thống"));
+                        }
+                      },
+                    },
+                  ]
+                : []),
             ]}
           />
         }

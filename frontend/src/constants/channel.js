@@ -6,7 +6,29 @@ export const CHANNELS = {
   SHOPIFY: { id: 2, maKenh: "SHOPIFY", tenKenh: "Shopify" },
   LAZADA: { id: 3, maKenh: "LAZADA", tenKenh: "Lazada" },
   LAZADA_SANDBOX: { id: 6, maKenh: "LAZADA_SANDBOX", tenKenh: "Lazada Sandbox" },
+  SHOPEE: {
+    UNPAID: "Chờ thanh toán",
+    READY_TO_SHIP: "Chờ lấy hàng",
+    PROCESSED: "Đã đóng gói",
+    SHIPPED: "Đang giao",
+    COMPLETED: "Hoàn thành",
+    IN_CANCEL: "Đang yêu cầu hủy",
+    CANCELLED: "Đã hủy",
+    INVOICE_PENDING: "Chờ hóa đơn",
+  },
+  SHOPEE_SANDBOX: {
+    UNPAID: "Chờ thanh toán",
+    READY_TO_SHIP: "Chờ lấy hàng",
+    PROCESSED: "Đã đóng gói",
+    SHIPPED: "Đang giao",
+    COMPLETED: "Hoàn thành",
+    IN_CANCEL: "Đang yêu cầu hủy",
+    CANCELLED: "Đã hủy",
+    INVOICE_PENDING: "Chờ hóa đơn",
+  },
   TIKTOK: { id: 5, maKenh: "TIKTOK", tenKenh: "TikTok Shop" },
+  SHOPEE: { id: 4, maKenh: "SHOPEE", tenKenh: "Shopee" },
+  SHOPEE_SANDBOX: { id: 7, maKenh: "SHOPEE_SANDBOX", tenKenh: "Shopee Sandbox" },
 };
 
 /** Lựa chọn lọc theo kênh sàn (Đơn chờ xuất, Đơn bán hàng). */
@@ -16,6 +38,8 @@ export const MARKETPLACE_FILTER_OPTIONS = [
   { value: "lazada", label: "Lazada", id: CHANNELS.LAZADA.id },
   { value: "lazada_sandbox", label: "Lazada Sandbox", id: 6 },
   { value: "tiktok", label: "TikTok Shop", id: CHANNELS.TIKTOK.id },
+  { value: "shopee", label: "Shopee", id: 4 },
+  { value: "shopee_sandbox", label: "Shopee Sandbox", id: 7 },
 ];
 
 // Màu badge kênh theo SRS 8.1.1: Shopify xanh lá, Lazada xanh dương, TikTok xám đậm.
@@ -25,6 +49,7 @@ export const CHANNEL_BADGE_CLASS = {
   LAZADA_SANDBOX: "border-amber-200 bg-amber-50 text-amber-700",
   TIKTOK: "border-slate-300 bg-slate-100 text-slate-800",
   SHOPEE: "border-orange-200 bg-orange-50 text-orange-700",
+  SHOPEE_SANDBOX: "border-orange-300 bg-orange-100 text-orange-800",
   POS: "border-indigo-200 bg-indigo-50 text-indigo-700",
   DEFAULT: "border-bo-border bg-bo-surface-subtle text-slate-600",
 };
@@ -35,6 +60,7 @@ const CHANNEL_NAMES = {
   LAZADA_SANDBOX: "Lazada Sandbox",
   TIKTOK: "TikTok Shop",
   SHOPEE: "Shopee",
+  SHOPEE_SANDBOX: "Shopee Sandbox",
   POS: "POS",
 };
 
@@ -225,7 +251,8 @@ export const SAN_BAN_HANG = [
   { maKenh: "TIKTOK", ten: "TikTok Shop", duongDan: "/channels/tiktok", hoTro: true, kieuKetNoi: "uy_quyen", tienToDon: "TTS", maThuCong: true },
   // Đang xin cấp API ở Shopee Open Platform; máy chủ chưa có nhánh SHOPEE (GET /SHOPEE/ket-noi trả 400)
   // `hienMenu`: tạm hiện ở menu trái trong lúc chờ cấp API (yêu cầu 30/10)
-  { maKenh: "SHOPEE", ten: "Shopee", duongDan: "/channels/shopee", hoTro: false, kieuKetNoi: "uy_quyen", hienMenu: true },
+    { maKenh: "SHOPEE", ten: "Shopee", duongDan: "/channels/shopee", hoTro: true, kieuKetNoi: "uy_quyen", tienToDon: "SHP", hanUyQuyenNgay: 365, hienMenu: true },
+  { maKenh: "SHOPEE_SANDBOX", ten: "Shopee Sandbox", duongDan: "/channels/shopee-sandbox", hoTro: true, kieuKetNoi: "uy_quyen", tienToDon: "SHP", hanUyQuyenNgay: 365, isSandbox: true, hienMenu: true },
 ];
 
 /** Sàn theo mã kênh ("LAZADA") hoặc đoạn cuối đường dẫn ("lazada"), không phân biệt hoa thường; không có thì null. */

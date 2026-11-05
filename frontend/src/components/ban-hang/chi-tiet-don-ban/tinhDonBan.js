@@ -68,6 +68,16 @@ export const laDonLazada = (don) =>
     don?.maDonHangKenh?.startsWith("LZD-")
   );
 
+/** Đơn hàng thuộc sàn thương mại điện tử Shopee / Shopee Sandbox: bắt buộc chỉ xuất từ Kho Tổng. */
+export const laDonShopee = (don) =>
+  Boolean(
+    don?.kenhBanHang?.maKenh?.toUpperCase() === "SHOPEE" ||
+    don?.kenhBanHang?.maKenh?.toUpperCase() === "SHOPEE_SANDBOX" ||
+    don?.kenhBanHang?.tenKenh?.toLowerCase()?.includes("shopee") ||
+    don?.soDonHang?.startsWith("SHP-") ||
+    don?.maDonHangKenh?.startsWith("SHP-")
+  );
+
 /** Tên sàn để ghép câu ("Shopify"); thiếu thì "sàn". */
 export const tenKenhCua = (don) => String(don?.kenhBanHang?.tenKenh ?? "").trim() || "sàn";
 
