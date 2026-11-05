@@ -578,6 +578,11 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                     .orElseThrow(() -> new CommonException("Không tìm thấy kho xuất với ID: " + khoId, HttpStatus.NOT_FOUND, null));
         } else if (don.getKhoXuat() != null) {
             khoChon = don.getKhoXuat();
+        } else if (don.getKenhBanHang() != null && OmnichannelOrderSyncJob.isLazada(don.getKenhBanHang().getMaKenh())) {
+            khoChon = khoRepository.findByTrangThai(1).stream()
+                    .filter(KhoService::laKhoTong)
+                    .findFirst()
+                    .orElseThrow(() -> new CommonException("Không tìm thấy Kho Tổng đang hoạt động để gửi đơn Lazada", HttpStatus.BAD_REQUEST, null));
         } else {
             Integer contextKhoId = SecurityContextHolder.getKhoId();
             khoChon = contextKhoId != null ? khoRepository.findById(contextKhoId).orElse(null) : null;
