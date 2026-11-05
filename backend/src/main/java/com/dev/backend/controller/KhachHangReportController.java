@@ -3,8 +3,9 @@ package com.dev.backend.controller;
 import com.dev.backend.constant.variables.IPermissionType;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.customizeanotation.RequireAuth;
-import com.dev.backend.dto.response.KhachHangTangTruongDTO;
+import com.dev.backend.dto.response.BaoCaoKhachHangDTO;
 import com.dev.backend.dto.response.ResponseData;
+import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.services.impl.multitable.BaoCaoKhachHangService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -15,7 +16,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
-import java.util.List;
+import java.time.format.DateTimeParseException;
 
 @RestController
 @RequestMapping("/api/v1/admin/dashboard/bao-cao/khach-hang")
@@ -38,7 +39,7 @@ public class KhachHangReportController {
      */
     @GetMapping
     @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
-    public ResponseEntity<ResponseData<List<KhachHangTangTruongDTO>>> getBaoCaoKhachHang(
+    public ResponseEntity<ResponseData<BaoCaoKhachHangDTO>> getBaoCaoKhachHang(
             @RequestParam String loai,
             @RequestParam(required = false) String  tuNgay,
             @RequestParam(required = false) String  denNgay,
@@ -48,13 +49,44 @@ public class KhachHangReportController {
             @RequestParam(required = false) Integer denNam,
             @RequestParam(required = false) Integer khoId
     ) {
-        List<KhachHangTangTruongDTO> data = baoCaoKhachHangService.lay(new BaoCaoKhachHangService.ThamSo(loai,
+        BaoCaoKhachHangDTO data = baoCaoKhachHangService.lay(new BaoCaoKhachHangService.ThamSo(loai,
                 ngay(tuNgay), ngay(denNgay), nam, thang, tuNam, denNam, khoId));
 
         return ResponseEntity.ok(
-                ResponseData.<List<KhachHangTangTruongDTO>>builder()
+                ResponseData.<BaoCaoKhachHangDTO>builder()
                         .status(HttpStatus.OK.value())
-                        .message("Lấy báo cáo tăng trưởng khách hàng thành công")
+                        .message("Lấy báo cáo khách hàng thành công")
+                        .data(data)
+                        .build()
+        );
+    }
+
+    /**
+     * Khách mua trong kỳ của màn (cùng tham số kỳ, kho với GET ở trên; kiểu So sánh lấy tháng đang chọn), doanh thu lớn
+     * trước. nhom: tat_ca | mot_lan | mua_lai; q: tìm theo tên, mã, số điện thoại; page tính từ 0.
+     */
+    @GetMapping("/khach-mua")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    public ResponseEntity<ResponseData<BaoCaoKhachHangService.DanhSachKhachMua>> getKhachMua(
+            @RequestParam String loai,
+            @RequestParam(required = false) String  tuNgay,
+            @RequestParam(required = false) String  denNgay,
+            @RequestParam(required = false) Integer nam,
+            @RequestParam(required = false) Integer thang,
+            @RequestParam(required = false) Integer tuNam,
+            @RequestParam(required = false) Integer denNam,
+            @RequestParam(required = false) Integer khoId,
+            @RequestParam(required = false) String  nhom,
+            @RequestParam(required = false) String  q,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        BaoCaoKhachHangService.DanhSachKhachMua data = baoCaoKhachHangService.khachMua(new BaoCaoKhachHangService.ThamSo(
+                loai, ngay(tuNgay), ngay(denNgay), nam, thang, tuNam, denNam, khoId), nhom, q, page, size);
+        return ResponseEntity.ok(
+                ResponseData.<BaoCaoKhachHangService.DanhSachKhachMua>builder()
+                        .status(HttpStatus.OK.value())
+                        .message("Lấy danh sách khách mua thành công")
                         .data(data)
                         .build()
         );
@@ -82,6 +114,11 @@ public class KhachHangReportController {
     }
 
     private static LocalDate ngay(String s) {
-        return s == null || s.isBlank() ? null : LocalDate.parse(s);
+        if (s == null || s.isBlank()) return null;
+        try {
+            return LocalDate.parse(s);
+        } catch (DateTimeParseException e) {
+            throw new CommonException(HttpStatus.BAD_REQUEST, "Ngày không hợp lệ: " + s);
+        }
     }
 }
