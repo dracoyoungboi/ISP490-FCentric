@@ -263,7 +263,7 @@ function ManPhieuChuyenKho({ id }) {
 
     const tt = ct.trangThai;
     const q = ct.quyen ?? {};
-    const st = getPhieuChuyenKhoStatus(tt, ct.coChenhLech);
+    const st = getPhieuChuyenKhoStatus(tt, ct.coChenhLech, ct.tuChoi);
     const khoXuat = ct.khoXuat?.ten ?? "kho xuất";
     const khoNhap = ct.khoNhap?.ten ?? "kho nhận";
     // Chứng từ con (phiếu nhặt, PX, PN) kiểm theo kho của chứng từ: đổi sang đúng kho làm việc trước khi mở; người không
@@ -486,7 +486,7 @@ function ManPhieuChuyenKho({ id }) {
     const nguoiNhan = phieuNhapDich.find((pn) => String(pn.trangThai) === "3")?.nguoi;
 
     const lienQuan = [
-        ct.phieuGoc ? { khoa: "goc", loai: "Phiếu chuyển gốc", ma: ct.phieuGoc.so, to: `/transfer-tickets/${ct.phieuGoc.id}`, trangThai: getPhieuChuyenKhoStatus(ct.phieuGoc.trangThai).label, quyTrinh: "chuyenKho" } : null,
+        ct.phieuGoc ? { khoa: "goc", loai: "Phiếu chuyển gốc", ma: ct.phieuGoc.so, to: `/transfer-tickets/${ct.phieuGoc.id}`, trangThai: getPhieuChuyenKhoStatus(ct.phieuGoc.trangThai, false, ct.phieuGoc.tuChoi).label, quyTrinh: "chuyenKho" } : null,
         !ct.soLenhDieuDong ? { khoa: "yc", loai: "Yêu cầu chuyển kho · In", ma: ct.soPhieuChuyen, onClick: inTai("yeu-cau") } : null,
         ct.soLenhDieuDong ? { khoa: "ldd", loai: "Lệnh điều động · In", ma: ct.soLenhDieuDong, onClick: inTai("lenh-dieu-dong") } : null,
         hinhThuc ? { khoa: "xknb", loai: "Giấy đi đường (phiếu XKNB) · In", ma: ct.soPhieuXknb ? `${ct.kyHieuXknb} · ${ct.soPhieuXknb}` : "Chưa có số", onClick: inTai("xknb") } : null,
@@ -512,7 +512,7 @@ function ManPhieuChuyenKho({ id }) {
         ...phieuNhapDich.map((pn) => ({ khoa: `pn-${pn.id}`, loai: "Phiếu nhập kho", ma: pn.so, to: moTaiKhoNhap ? `/goods-receipts/${pn.id}` : undefined, onClick: moTaiKhoNhap ? denKhoNhap : undefined, trangThai: getGoodsReceiptStatus(Number(pn.trangThai)).label, quyTrinh: "phieuNhap" })),
         bb ? { khoa: "bb", loai: "Biên bản giao nhận · In", ma: bb.soBienBan, onClick: inTai("bien-ban") } : null,
         ct.phieuDieuChinh ? { khoa: "dck", loai: "Phiếu điều chỉnh kho (giảm)", ma: ct.phieuDieuChinh.so, to: `/transfer-tickets/adjustments/${ct.phieuDieuChinh.id}` } : null,
-        ...(ct.phieuGiaoBu ?? []).map((p) => ({ khoa: `gb-${p.id}`, loai: "Phiếu chuyển giao bù", ma: p.so, to: `/transfer-tickets/${p.id}`, trangThai: getPhieuChuyenKhoStatus(p.trangThai).label, quyTrinh: "chuyenKho" })),
+        ...(ct.phieuGiaoBu ?? []).map((p) => ({ khoa: `gb-${p.id}`, loai: "Phiếu chuyển giao bù", ma: p.so, to: `/transfer-tickets/${p.id}`, trangThai: getPhieuChuyenKhoStatus(p.trangThai, false, p.tuChoi).label, quyTrinh: "chuyenKho" })),
         ...phieuNhapHoanTra.map((pn) => ({ khoa: `pnr-${pn.id}`, loai: "Phiếu nhập hoàn trả", ma: pn.so, to: moTaiKhoXuat ? `/goods-receipts/${pn.id}` : undefined, onClick: moTaiKhoXuat ? denKhoXuat : undefined, trangThai: getGoodsReceiptStatus(Number(pn.trangThai)).label, quyTrinh: "phieuNhap" })),
     ].filter(Boolean);
 
