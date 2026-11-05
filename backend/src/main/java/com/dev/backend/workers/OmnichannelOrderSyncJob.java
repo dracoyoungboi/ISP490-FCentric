@@ -62,7 +62,12 @@ public class OmnichannelOrderSyncJob {
     public static final String MA_KENH_SHOPIFY = "SHOPIFY";
     public static final String DEFAULT_API_VERSION = "2024-01";
     public static final String MA_KENH_LAZADA = "LAZADA";
+    public static final String MA_KENH_LAZADA_SANDBOX = "LAZADA_SANDBOX";
     public static final String MA_KENH_TIKTOK = "TIKTOK";
+
+    public static boolean isLazada(String maKenh) {
+        return MA_KENH_LAZADA.equalsIgnoreCase(maKenh) || MA_KENH_LAZADA_SANDBOX.equalsIgnoreCase(maKenh);
+    }
 
     KenhBanHangRepository kenhBanHangRepository;
     DonBanHangRepository donBanHangRepository;
@@ -206,7 +211,7 @@ public class OmnichannelOrderSyncJob {
                 } catch (LoiCoMaException e) {
                     log.warn("[JOB-01] Kênh {} bỏ qua đợt lấy đơn: {}", kenh.getMaKenh(), e.getMessage());
                 }
-            } else if (MA_KENH_LAZADA.equalsIgnoreCase(kenh.getMaKenh())) {
+            } else if (isLazada(kenh.getMaKenh())) {
                 if (!KenhCauHinhDongBo.tuDongLayDon(dieuHanhHeThongService, kenh.getMaKenh())) {
                     log.info("[JOB-01] Kênh {} đang tắt tự động lấy đơn, bỏ qua", kenh.getMaKenh());
                     continue;
@@ -658,9 +663,10 @@ public class OmnichannelOrderSyncJob {
     }
 
     public int syncLazadaOrders(KenhBanHang kenh, Instant tuNgay, Instant denNgay) {
-        String appKey = kenhBanHangService.getLazadaAppKey();
-        String appSecret = kenhBanHangService.getDecryptedLazadaAppSecret();
-        String accessToken = kenhBanHangService.getDecryptedLazadaAccessToken();
+        String maKenh = kenh.getMaKenh();
+        String appKey = kenhBanHangService.getLazadaAppKey(maKenh);
+        String appSecret = kenhBanHangService.getDecryptedLazadaAppSecret(maKenh);
+        String accessToken = kenhBanHangService.getDecryptedLazadaAccessToken(maKenh);
 
         if (appKey == null || appSecret == null || accessToken == null) {
             log.warn("[JOB-01] Kênh {} chưa có credential đầy đủ (AppKey/Secret/Token), bỏ qua đợt sync", kenh.getMaKenh());
@@ -1027,7 +1033,9 @@ public class OmnichannelOrderSyncJob {
     public boolean processSingleLazadaOrder(JsonNode orderNode, KenhBanHang kenh, String appKey, String appSecret, String accessToken) {
         String orderId = orderNode.path("order_id").asText();
         String orderNumber = orderNode.path("order_number").asText(orderId);
-        String soDonHang = "LZD-" + orderNumber;
+        boolean isSandbox = MA_KENH_LAZADA_SANDBOX.equalsIgnoreCase(kenh.getMaKenh());
+        String prefix = isSandbox ? "LZD-SBX-" : "LZD-";
+        String soDonHang = prefix + orderNumber;
 
         Optional<DonBanHang> existingOpt = donBanHangRepository.findBySoDonHang(soDonHang);
         if (existingOpt.isEmpty()) {
@@ -1123,7 +1131,8 @@ public class OmnichannelOrderSyncJob {
         boolean daThanhToan = isPaidMethod(paymentMethod);
 
         String remarks = orderNode.path("remarks").asText("").trim();
-        String ghiChu = "Đơn hàng đồng bộ tự động từ Lazada #" + orderNumber;
+        String channelName = isSandbox ? "Lazada Sandbox" : "Lazada";
+        String ghiChu = (isSandbox ? "[ĐƠN HÀNG SANDBOX THỬ NGHIỆM] " : "") + "Đơn hàng đồng bộ tự động từ " + channelName + " #" + orderNumber;
         if (!remarks.isBlank()) {
             ghiChu += " | Lời nhắn người mua: " + remarks;
         }
