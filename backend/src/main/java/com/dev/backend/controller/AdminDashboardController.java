@@ -3,11 +3,13 @@ package com.dev.backend.controller;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.customizeanotation.RequireAuth;
 import com.dev.backend.dto.response.AdminDashboardResponse;
+import com.dev.backend.dto.response.BaoCaoSanPhamDTO;
 import com.dev.backend.dto.response.DoanhThuChartDTO;
 import com.dev.backend.dto.response.DoanhThuTongHopDTO;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.TienThuDTO;
 import com.dev.backend.dto.response.TongQuanAdminResponse;
+import com.dev.backend.services.impl.multitable.BaoCaoSanPhamService;
 import com.dev.backend.services.impl.multitable.DoanhThuReportService;
 import com.dev.backend.services.multitable.AdminDashboardService;
 import com.dev.backend.services.multitable.TongQuanAdminService;
@@ -33,6 +35,9 @@ public class AdminDashboardController {
 
     @Autowired
     private TongQuanAdminService tongQuanAdminService;
+
+    @Autowired
+    private BaoCaoSanPhamService baoCaoSanPhamService;
 
     public AdminDashboardController(AdminDashboardService adminDashboardService) {
         this.adminDashboardService = adminDashboardService;
@@ -181,6 +186,40 @@ public class AdminDashboardController {
         DoanhThuReportService.TepExcel tep = doanhThuReportService.xuatExcel(loai,
                 tuNgay == null ? null : LocalDate.parse(tuNgay), denNgay == null ? null : LocalDate.parse(denNgay),
                 nam, tuNam, denNam, khoId);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(tep.tenTep()).build().toString())
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(tep.noiDung());
+    }
+
+    /**
+     * Báo cáo sản phẩm (màn /reports/products): số bán, doanh thu hàng, giá vốn, hoàn theo sản phẩm và mã SKU trong
+     * [tuNgay, denNgay] (tối đa 1 năm, cắt tới hôm nay) so với kỳ liền trước, kèm khả dụng và đang về hiện tại.
+     * kenh: trống = mọi kênh, POS, TRUC_TIEP hoặc id kênh bán. Quản lý kho chỉ xem các cửa hàng mình phụ trách.
+     */
+    @GetMapping("/bao-cao/san-pham")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    public ResponseEntity<ResponseData<BaoCaoSanPhamDTO>> getBaoCaoSanPham(
+            @RequestParam String tuNgay,
+            @RequestParam String denNgay,
+            @RequestParam(required = false) Integer khoId,
+            @RequestParam(required = false) String kenh
+    ) {
+        BaoCaoSanPhamDTO data = baoCaoSanPhamService.layBaoCao(LocalDate.parse(tuNgay), LocalDate.parse(denNgay), khoId, kenh);
+        return ResponseEntity.ok(ResponseData.<BaoCaoSanPhamDTO>builder()
+                .status(HttpStatus.OK.value()).message("Success").data(data).build());
+    }
+
+    /** Tệp Excel (.xlsx) của Báo cáo sản phẩm, cùng tham số với /bao-cao/san-pham. */
+    @GetMapping("/bao-cao/san-pham/xuat-excel")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    public ResponseEntity<byte[]> xuatExcelSanPham(
+            @RequestParam String tuNgay,
+            @RequestParam String denNgay,
+            @RequestParam(required = false) Integer khoId,
+            @RequestParam(required = false) String kenh
+    ) {
+        BaoCaoSanPhamService.TepExcel tep = baoCaoSanPhamService.xuatExcel(LocalDate.parse(tuNgay), LocalDate.parse(denNgay), khoId, kenh);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(tep.tenTep()).build().toString())
                 .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
