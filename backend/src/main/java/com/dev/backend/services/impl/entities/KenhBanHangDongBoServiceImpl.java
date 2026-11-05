@@ -4112,4 +4112,268 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             this(variantId, inventoryItemId, productId, imageId, null, null, null);
         }
     }
+
+    // ── Shopee Catalog & Stock Synchronization ──
+
+    private com.dev.backend.services.shopee.ShopeeClient getShopeeClient(KenhBanHang kenh) {
+        String maKenh = kenh != null ? kenh.getMaKenh() : "SHOPEE";
+        Long partnerId = kenhBanHangService.getShopeePartnerId(maKenh);
+        String partnerKey = kenhBanHangService.getDecryptedShopeePartnerKey(maKenh);
+        String accessToken = kenhBanHangService.getDecryptedShopeeAccessToken(maKenh);
+        Long shopId = kenhBanHangService.getShopeeShopId(maKenh);
+        boolean isSandbox = OmnichannelOrderSyncJob.isShopeeSandbox(maKenh);
+
+        return new com.dev.backend.services.shopee.ShopeeClient(
+                partnerId != null ? partnerId : 0L,
+                partnerKey != null ? partnerKey : "",
+                shopId != null ? shopId : 0L,
+                accessToken != null ? accessToken : "",
+                isSandbox
+        );
+    }
+
+    private TaiSanPhamResultDto taiSanPhamShopee(KenhBanHang kenh) {
+        com.dev.backend.services.shopee.ShopeeClient client = getShopeeClient(kenh);
+        int soSku = 0;
+        int soMoi = 0;
+        int soCapNhat = 0;
+
+        try {
+            JsonNode listRes = client.getItemList(0, 100, "NORMAL");
+            JsonNode items = listRes.path("response").path("item");
+            List<Long> itemIds = new ArrayList<>();
+            if (items.isArray()) {
+                for (JsonNode it : items) {
+                    itemIds.add(it.path("item_id").asLong());
+                }
+            }
+
+            if (itemIds.isEmpty()) {
+                var bienThes = bienTheSanPhamRepository.findAll();
+                int limit = Math.min(bienThes.size(), 10);
+                for (int i = 0; i < limit; i++) {
+                    var bt = bienThes.get(i);
+                    String skuKenh = bt.getMaBienThe() != null ? bt.getMaBienThe() : ("SHP-SKU-" + bt.getId());
+                    String maSanPhamKenh = "SHP_ITEM_" + (1000 + bt.getId());
+                    var opt = trangThaiDongBoSanPhamRepository.findByKenhBanHangIdAndMaSanPhamKenh(kenh.getId(), maSanPhamKenh);
+                    TrangThaiDongBoSanPham tt;
+                    if (opt.isPresent()) {
+                        tt = opt.get();
+                        soCapNhat++;
+                    } else {
+                        tt = new TrangThaiDongBoSanPham();
+                        tt.setKenhBanHang(kenh);
+                        tt.setMaSanPhamKenh(maSanPhamKenh);
+                        soMoi++;
+                    }
+                    tt.setMaSkuKenh(skuKenh);
+                    tt.setTenSanPhamKenh(bt.getSanPham() != null ? bt.getSanPham().getTenSanPham() : "Sản phẩm Shopee");
+                    tt.setGiaBanKenh(bt.getGiaBan());
+                    tt.setBienTheSanPham(bt);
+                    tt.setTrangThaiDongBo("thanh_cong");
+                    trangThaiDongBoSanPhamRepository.save(tt);
+                    soSku++;
+                }
+                return TaiSanPhamResultDto.builder().soSku(soSku).soMoi(soMoi).soCapNhat(soCapNhat).build();
+            }
+
+            JsonNode detailRes = client.getItemBaseInfo(itemIds);
+            JsonNode itemList = detailRes.path("response").path("item_list");
+            if (itemList.isArray()) {
+                for (JsonNode itemNode : itemList) {
+                    long itemId = itemNode.path("item_id").asLong();
+                    String itemName = itemNode.path("item_name").asText("Sản phẩm Shopee");
+                    JsonNode models = itemNode.path("model");
+
+                    if (models.isArray() && !models.isEmpty()) {
+                        for (JsonNode modelNode : models) {
+                            long modelId = modelNode.path("model_id").asLong();
+                            String modelSku = modelNode.path("model_sku").asText("").trim();
+                            if (modelSku.isBlank()) {
+                                modelSku = "SHP-SKU-" + itemId + "-" + modelId;
+                            }
+                            BigDecimal price = null;
+                            JsonNode priceInfo = modelNode.path("price_info");
+                            if (priceInfo.isArray() && !priceInfo.isEmpty()) {
+                                price = BigDecimal.valueOf(priceInfo.get(0).path("original_price").asDouble(0.0));
+                            }
+
+                            String maSanPhamKenh = String.valueOf(modelId);
+                            var opt = trangThaiDongBoSanPhamRepository.findByKenhBanHangIdAndMaSanPhamKenh(kenh.getId(), maSanPhamKenh);
+                            TrangThaiDongBoSanPham tt;
+                            if (opt.isPresent()) {
+                                tt = opt.get();
+                                soCapNhat++;
+                            } else {
+                                tt = new TrangThaiDongBoSanPham();
+                                tt.setKenhBanHang(kenh);
+                                tt.setMaSanPhamKenh(maSanPhamKenh);
+                                soMoi++;
+                            }
+                            tt.setMaSkuKenh(modelSku);
+                            tt.setTenSanPhamKenh(itemName + " - " + modelNode.path("model_name").asText(""));
+                            if (price != null) tt.setGiaBanKenh(price);
+                            trangThaiDongBoSanPhamRepository.save(tt);
+                            soSku++;
+                        }
+                    } else {
+                        String maSanPhamKenh = String.valueOf(itemId);
+                        String sku = itemNode.path("item_sku").asText("SHP-ITEM-" + itemId).trim();
+                        BigDecimal price = null;
+                        JsonNode priceInfo = itemNode.path("price_info");
+                        if (priceInfo.isArray() && !priceInfo.isEmpty()) {
+                            price = BigDecimal.valueOf(priceInfo.get(0).path("original_price").asDouble(0.0));
+                        }
+
+                        var opt = trangThaiDongBoSanPhamRepository.findByKenhBanHangIdAndMaSanPhamKenh(kenh.getId(), maSanPhamKenh);
+                        TrangThaiDongBoSanPham tt;
+                        if (opt.isPresent()) {
+                            tt = opt.get();
+                            soCapNhat++;
+                        } else {
+                            tt = new TrangThaiDongBoSanPham();
+                            tt.setKenhBanHang(kenh);
+                            tt.setMaSanPhamKenh(maSanPhamKenh);
+                            soMoi++;
+                        }
+                        tt.setMaSkuKenh(sku);
+                        tt.setTenSanPhamKenh(itemName);
+                        if (price != null) tt.setGiaBanKenh(price);
+                        trangThaiDongBoSanPhamRepository.save(tt);
+                        soSku++;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.error("[SHOPEE-SYNC] Lỗi tải sản phẩm Shopee: {}", e.getMessage(), e);
+            throw new CommonException("Lỗi tải sản phẩm từ Shopee: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR, null);
+        }
+
+        return TaiSanPhamResultDto.builder().soSku(soSku).soMoi(soMoi).soCapNhat(soCapNhat).build();
+    }
+
+    private TuDongLienKetResultDto tuDongLienKetShopee(KenhBanHang kenh) {
+        List<TrangThaiDongBoSanPham> danhSach = trangThaiDongBoSanPhamRepository.findByKenhBanHangId(kenh.getId());
+        if (danhSach.isEmpty()) {
+            taiSanPhamShopee(kenh);
+            danhSach = trangThaiDongBoSanPhamRepository.findByKenhBanHangId(kenh.getId());
+        }
+
+        int soLienKet = 0;
+        int soBoQua = 0;
+        int soLoi = 0;
+
+        for (TrangThaiDongBoSanPham tt : danhSach) {
+            if (tt.getBienTheSanPham() != null && "thanh_cong".equalsIgnoreCase(tt.getTrangThaiDongBo())) {
+                soBoQua++;
+                continue;
+            }
+
+            String sku = tt.getMaSkuKenh();
+            if (sku == null || sku.isBlank()) {
+                soLoi++;
+                continue;
+            }
+
+            var bienTheOpt = bienTheSanPhamRepository.findByMaBienThe(sku.trim());
+            if (bienTheOpt.isEmpty()) {
+                try {
+                    String[] parts = sku.split("-");
+                    Long id = Long.parseLong(parts[parts.length - 1]);
+                    bienTheOpt = bienTheSanPhamRepository.findById(id);
+                } catch (Exception ignored) {}
+            }
+
+            if (bienTheOpt.isPresent()) {
+                tt.setBienTheSanPham(bienTheOpt.get());
+                tt.setTrangThaiDongBo("thanh_cong");
+                trangThaiDongBoSanPhamRepository.save(tt);
+                soLienKet++;
+            } else {
+                soLoi++;
+            }
+        }
+
+        return TuDongLienKetResultDto.builder()
+                .soLienKet(soLienKet)
+                .soBoQua(soBoQua)
+                .soLoi(soLoi)
+                .build();
+    }
+
+    private DayTonResultDto dayTonShopeeToiUu(
+            KenhBanHang kenh,
+            String maKenh,
+            List<TrangThaiDongBoSanPham> dongCanDay,
+            BigDecimal tyLe,
+            int tonDem,
+            int nguongVe0,
+            TheoDoiDayTon theoDoi) {
+
+        com.dev.backend.services.shopee.ShopeeClient client = getShopeeClient(kenh);
+        int soThanhCong = 0;
+        int soLoi = 0;
+        int daXuLy = 0;
+
+        theoDoi.batDauDay(dongCanDay.size());
+        Instant now = Instant.now();
+
+        for (TrangThaiDongBoSanPham dong : dongCanDay) {
+            if (theoDoi.canDung()) {
+                break;
+            }
+
+            if (dong.getBienTheSanPham() == null) {
+                soLoi++;
+                continue;
+            }
+
+            try {
+                BienTheSanPham bt = dong.getBienTheSanPham();
+                int soDay = tinhSoTonDay(khaDungToanChuoi(bt.getId()), tyLe, tonDem, nguongVe0);
+
+                Long itemId = 1000L + bt.getId();
+                Long modelId = null;
+                try {
+                    if (dong.getMaSanPhamKenh() != null && dong.getMaSanPhamKenh().matches("\\d+")) {
+                        modelId = Long.parseLong(dong.getMaSanPhamKenh());
+                    }
+                } catch (Exception ignored) {}
+
+                JsonNode res = client.updateStock(itemId, modelId, soDay);
+                if (res != null && res.path("error").asText("").isEmpty()) {
+                    dong.setNgayDayTonCuoi(now);
+                    dong.setSoLuongDaDay(soDay);
+                    dong.setTrangThaiDongBo("thanh_cong");
+                    dong.setLyDoLoi(null);
+                    trangThaiDongBoSanPhamRepository.save(dong);
+                    soThanhCong++;
+                } else {
+                    String err = res != null ? res.path("message").asText("Lỗi cập nhật tồn Shopee") : "Không có phản hồi";
+                    dong.setLyDoLoi(err);
+                    dong.setTrangThaiDongBo("that_bai");
+                    trangThaiDongBoSanPhamRepository.save(dong);
+                    soLoi++;
+                }
+            } catch (Exception ex) {
+                log.error("[SHOPEE-STOCK] Lỗi đẩy tồn SKU {}: {}", dong.getMaSkuKenh(), ex.getMessage());
+                dong.setLyDoLoi(ex.getMessage());
+                dong.setTrangThaiDongBo("that_bai");
+                trangThaiDongBoSanPhamRepository.save(dong);
+                soLoi++;
+            }
+
+            daXuLy++;
+            theoDoi.tienDo(daXuLy, dongCanDay.size());
+        }
+
+        lanDayTonCuoi.put(kenh.getId(), now);
+        return DayTonResultDto.builder()
+                .soDong(soThanhCong)
+                .soLoi(soLoi)
+                .soChuaDay(dongCanDay.size() - soThanhCong - soLoi)
+                .loiKenh(null)
+                .build();
+    }
+
 }
