@@ -1,7 +1,7 @@
 import apiClient from "./apiClient";
 
 /**
- * Tệp Excel (.xlsx; phản hồi axios, data là Blob) của Nhật ký nhập xuất và Báo cáo khách hàng. Tham số là chuỗi truy vấn trang đã dùng để tải
+ * Tệp Excel (.xlsx; phản hồi axios, data là Blob) của Báo cáo khách hàng. Tham số là chuỗi truy vấn trang đã dùng để tải
  * số liệu đang xem (URLSearchParams.toString()), để tệp đúng với màn. Gửi kèm kho làm việc: máy chủ kiểm quyền Xuất báo
  * cáo ở kho này.
  */
@@ -9,7 +9,6 @@ const tai = (duongDan, chuoiThamSo) =>
   apiClient.get(duongDan, { params: Object.fromEntries(new URLSearchParams(chuoiThamSo)), responseType: "blob" });
 
 export const xuatBaoCaoService = {
-  nhapXuat: (chuoiThamSo) => tai("/api/v1/admin/dashboard/bao-cao/nhat-ky-nhap-xuat/xuat-excel", chuoiThamSo),
   khachHang: (chuoiThamSo) => tai("/api/v1/admin/dashboard/bao-cao/khach-hang/xuat-excel", chuoiThamSo),
 };
 
