@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-    Package, ChevronRight, Info, Tag, Box, ArrowLeft, ChevronLeft
+    Package, ChevronRight, Info, Tag, Box, ArrowLeft, ChevronLeft, History
 } from "lucide-react";
 import { toast } from "@/lib/thongBaoNhanh";
 import { productService } from "@/services/productService.js";
@@ -18,6 +18,12 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import EmptyState from "@/components/shared/EmptyState";
 import LoadingState from "@/components/shared/LoadingState";
 import { trangThaiLa } from "@/constants/trangThaiChung";
+import NganKeoLichSu from "@/components/nhat-ky/NganKeoLichSu";
+import { layLichSuSanPham } from "@/services/nhatKyService";
+import { ROLES, hasAnyRole } from "@/utils/roles";
+
+// Lịch sử thay đổi sản phẩm: quản trị viên, quản lý kho (khớp @RequireAuth của GET /san-pham-quan-ao/{id}/lich-su)
+const VAI_TRO_XEM_LICH_SU = [ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO];
 
 export default function ProductDetail() {
     const { id } = useParams();
@@ -25,6 +31,8 @@ export default function ProductDetail() {
     const [allCategories, setAllCategories] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+    const [moLichSu, setMoLichSu] = useState(false);
+    const xemLichSu = hasAnyRole(VAI_TRO_XEM_LICH_SU);
     const navigate = useNavigate();
     const totalImages = product?.anhQuanAos?.length || 0;
 
@@ -160,6 +168,18 @@ export default function ProductDetail() {
                         {product.tenSanPham}
                     </span>
                 </nav>
+
+                {xemLichSu ? (
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setMoLichSu(true)}
+                        className="ml-auto h-9 gap-1.5 border-bo-border bg-bo-surface px-3 text-bo-foreground hover:bg-bo-surface-subtle"
+                    >
+                        <History className="size-4" aria-hidden="true" />
+                        Lịch sử thay đổi
+                    </Button>
+                ) : null}
             </div>
 
             <div className="grid items-start gap-5 xl:grid-cols-2">
@@ -383,6 +403,22 @@ export default function ProductDetail() {
                     </TabsContent>
                 </Tabs>
             </SurfaceCard>
+            {xemLichSu ? (
+                <NganKeoLichSu
+                    open={moLichSu}
+                    onOpenChange={setMoLichSu}
+                    tieuDe={`Lịch sử ${product.tenSanPham || product.maSanPham || "sản phẩm"}`}
+                    moTa="Thông tin, biến thể, ảnh, trạng thái và đổi giá bán các biến thể. Mới nhất ở trên."
+                    tai={() => layLichSuSanPham(product.id)}
+                    // Dòng đổi giá thuộc biến thể: hiện SKU (dòng cũ chưa có mã thì tra theo biến thể của sản phẩm)
+                    nhanDoiTuong={(dong) => {
+                        if (dong.loaiThamChieu !== "bien_the_san_pham") return null;
+                        const sku = dong.maDoiTuong
+                            || product.bienTheSanPhams?.find((bt) => bt.id === dong.idThamChieu)?.maSku;
+                        return sku ? `SKU ${sku}` : null;
+                    }}
+                />
+            ) : null}
         </PageContainer>
     );
 }
