@@ -147,10 +147,13 @@ function SuaKhachHangRedirect() {
 function RootOAuthRedirect() {
   const [searchParams] = useSearchParams();
   const code = searchParams.get("code");
+  const state = searchParams.get("state") || "";
   const token = localStorage.getItem("access_token");
 
   if (code) {
-    const target = `/channels/oauth/callback/lazada${window.location.search}`;
+    const isSandbox = state.toLowerCase().includes("sandbox") || searchParams.get("sandbox") === "true";
+    const kenhSlug = isSandbox ? "lazada-sandbox" : "lazada";
+    const target = `/channels/oauth/callback/${kenhSlug}${window.location.search}`;
     if (!token) {
       return <Navigate to={`/login?returnUrl=${encodeURIComponent(target)}`} replace />;
     }
