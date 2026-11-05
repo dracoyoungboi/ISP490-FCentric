@@ -7,25 +7,35 @@
  *
  * K80 / K57 là khổ giấy nhiệt cuộn 80mm / 58mm — có layout compact riêng,
  * KHÔNG phải bản A4 thu nhỏ (xem PrintTemplateDocument).
+ *
+ * A6 ở đây là TEM NHIỆT 100 × 150 mm (giấy in vận đơn sàn, quen gọi "giấy nhiệt A6"),
+ * KHÔNG phải tờ A6 ISO 105 × 148 mm: dùng bố cục khổ nhiệt, lề mỏng, trang cao cố định 150mm.
  */
 const MM_TO_PX = 96 / 25.4;
 
-/** Khổ giấy nhiệt cuộn (máy in hóa đơn tại quầy). */
-export const THERMAL_PAPER_SIZES = ["K80", "K57"];
+/** Khổ giấy nhiệt: cuộn K80 / K57 (máy in hóa đơn tại quầy) và tem A6 100 × 150 mm (đơn sàn). */
+export const THERMAL_PAPER_SIZES = ["K80", "K57", "A6"];
 
-/** Khổ nhiệt: bố cục một cột, chiều cao tự do, lề mỏng. */
+/** Khổ nhiệt: bố cục một cột, lề mỏng, luôn khổ dọc. */
 export const isThermalPaper = (size) => THERMAL_PAPER_SIZES.includes(size);
 
-/** Chiều rộng cuộn giấy nhiệt (mm): K57 là cuộn 57/58mm, tính 58mm như driver máy in. */
-const THERMAL_WIDTH_MM = { K80: 80, K57: 58 };
+/** Chiều rộng giấy nhiệt (mm): K57 là cuộn 57/58mm, tính 58mm như driver máy in. */
+const THERMAL_WIDTH_MM = { K80: 80, K57: 58, A6: 100 };
+
+/** Khổ nhiệt dạng TEM (cắt sẵn từng tờ): chiều cao trang cố định; không có ở đây = giấy cuộn, cao theo nội dung. */
+const THERMAL_FIXED_HEIGHT_MM = { A6: 150 };
+
+/** Chiều cao cố định (mm) của tem nhiệt; null = giấy cuộn hoặc khổ tờ. */
+export const getThermalFixedHeightMm = (size) => THERMAL_FIXED_HEIGHT_MM[size] ?? null;
 
 export const SHEET_SIZE_CLASSES = {
     "A4-portrait": "w-[210mm] min-h-[297mm]",
     "A4-landscape": "w-[297mm] min-h-[210mm]",
     "A5-portrait": "w-[148mm] min-h-[210mm]",
     "A5-landscape": "w-[210mm] min-h-[148mm]",
-    "A6-portrait": "w-[105mm] min-h-[148mm]",
-    "A6-landscape": "w-[148mm] min-h-[105mm]",
+    // A6: tem nhiệt 100 × 150 mm, luôn khổ dọc
+    "A6-portrait": "w-[100mm] min-h-[150mm]",
+    "A6-landscape": "w-[100mm] min-h-[150mm]",
     // K80 / K57: chiều cao tự do (giấy cuộn nhiệt), không ép chiều cao A4
     "K80-portrait": "w-[80mm] min-h-0",
     "K80-landscape": "w-[80mm] min-h-0",
@@ -68,6 +78,7 @@ export const SHEET_PADDING_CLASSES = {
 const PAPER_WIDTH_MM = {
     A4: { portrait: 210, landscape: 297 },
     A5: { portrait: 148, landscape: 210 },
+    A6: { portrait: 100, landscape: 100 },
     K80: { portrait: 80, landscape: 80 },
     K57: { portrait: 58, landscape: 58 },
 };
@@ -77,7 +88,7 @@ const PAPER_WIDTH_MM = {
 const PAPER_HEIGHT_MM = {
     A4: { portrait: 297, landscape: 210 },
     A5: { portrait: 210, landscape: 148 },
-    A6: { portrait: 148, landscape: 105 },
+    A6: { portrait: 150, landscape: 150 },
     K80: { portrait: null, landscape: null },
     K57: { portrait: null, landscape: null },
 };
@@ -105,10 +116,12 @@ export function getPaperSheetWidthPx(paper) {
     return Math.round(widthMm * MM_TO_PX);
 }
 
-/** Chiều cao tờ giấy tính bằng px (96 dpi); khổ nhiệt trả null (chiều cao tự nhiên). */
+/** Chiều cao tờ giấy tính bằng px (96 dpi); giấy cuộn K80 / K57 trả null (chiều cao tự nhiên). */
 export function getPaperSheetHeightPx(paper) {
     const dims = PAPER_HEIGHT_MM[paper.size] ?? PAPER_HEIGHT_MM.A4;
-    const heightMm = isThermalPaper(paper.size) ? null : dims[paper.orientation] ?? dims.portrait;
+    const heightMm = isThermalPaper(paper.size)
+        ? getThermalFixedHeightMm(paper.size)
+        : dims[paper.orientation] ?? dims.portrait;
     return heightMm === null ? null : Math.round(heightMm * MM_TO_PX);
 }
 
@@ -162,11 +175,12 @@ const cssString = (text) => String(text).replace(/[\r\n]+/g, " ").replace(/\\/g,
  * useThermalPageHeight) -> cả phiếu nằm trên MỘT trang, không bị cắt giữa
  * chừng và không đẩy ra giấy trắng thừa. Chưa đo được -> tạm 297mm.
  * Cần chọn khổ giấy cuộn 80mm (hoặc 58mm với K57) ở driver máy in nhiệt.
+ * Tem A6: trang cố định 100 × 150 mm — phiếu dài thì sang tem thứ hai, không kéo dài một tem.
  */
 export function getPaperPageCss(paper, { thermalHeightMm, footerText } = {}) {
     const margin = getPaperMarginMm(paper);
     if (isThermalPaper(paper.size)) {
-        const height = thermalHeightMm > 0 ? thermalHeightMm : 297;
+        const height = getThermalFixedHeightMm(paper.size) ?? (thermalHeightMm > 0 ? thermalHeightMm : 297);
         return `@media print { @page { size: ${THERMAL_WIDTH_MM[paper.size]}mm ${height}mm; margin: ${margin}mm; } }`;
     }
     const footer = footerText
@@ -236,9 +250,10 @@ export function getLabelPageCss(kho) {
  * bản in và khổ nhiệt (giấy liên tục, không có ranh giới trang cố định).
  */
 export function getPaperRulerCss(paper) {
-    if (isThermalPaper(paper.size)) return "";
+    // Giấy cuộn không có ranh giới trang; tem A6 thì có (cao cố định)
+    if (isThermalPaper(paper.size) && !getThermalFixedHeightMm(paper.size)) return "";
     const dims = PAPER_HEIGHT_MM[paper.size] ?? PAPER_HEIGHT_MM.A4;
-    const heightMm = dims[paper.orientation] ?? dims.portrait;
+    const heightMm = getThermalFixedHeightMm(paper.size) ?? dims[paper.orientation] ?? dims.portrait;
     if (!heightMm) return "";
     const contentHeightMm = heightMm - 2 * getPaperMarginMm(paper);
     return `@media screen {

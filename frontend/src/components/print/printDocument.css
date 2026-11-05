@@ -521,6 +521,26 @@
     font-size: 15pt;
 }
 
+/* Tem nhiệt A6 100 × 150 mm: bố cục và cỡ chữ K80; tem cao cố định nên khoảng cách và ô ký gọn hơn
+   để đơn vài dòng hàng nằm trọn một tem */
+.pdoc--k80.pdoc--a6 {
+    --pdoc-gap: 1.8mm;
+    --pdoc-cell-y: 0.6mm;
+    --pdoc-sign-h: 9mm;
+}
+
+.pdoc--k80.pdoc--a6 .pdoc-titleblock {
+    margin-top: 1.5mm;
+}
+
+/* Tem A6 rộng hơn K80: logo đứng cạnh thông tin cửa hàng (như khổ tờ) thay vì chồng lên trên */
+.pdoc--k80.pdoc--a6 .pdoc-head {
+    flex-direction: row;
+    gap: 3mm;
+    padding-bottom: 1.5mm;
+    text-align: left;
+}
+
 /* ── Khổ nhiệt K80 / K57: một cột, căn giữa đầu phiếu, kẻ nét đứt ──────── */
 .pdoc--k80 .pdoc-head {
     flex-direction: column;
@@ -581,6 +601,11 @@
 .pdoc--k80 .pdoc-signs {
     grid-template-columns: minmax(0, 1fr);
     row-gap: 3mm;
+}
+
+/* Tem A6 cao cố định 150mm: ô ký đứng cạnh nhau cho đỡ tốn chiều cao */
+.pdoc--k80.pdoc--a6 .pdoc-signs {
+    grid-template-columns: repeat(var(--pdoc-signs, 2), minmax(0, 1fr));
 }
 
 /* ── Ngắt trang ────────────────────────────────────────────────────────── */

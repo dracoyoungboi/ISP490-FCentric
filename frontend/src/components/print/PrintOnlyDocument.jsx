@@ -1,5 +1,5 @@
 import { createPortal } from "react-dom";
-import { getPaperPageCss, getPaperSheetClasses, isThermalPaper } from "./paperStyles";
+import { getPaperPageCss, getPaperSheetClasses, getThermalFixedHeightMm, isThermalPaper } from "./paperStyles";
 import { useThermalPageHeight } from "./useThermalPageHeight";
 
 /**
@@ -27,7 +27,7 @@ import { useThermalPageHeight } from "./useThermalPageHeight";
  */
 export default function PrintOnlyDocument({ paper, children }) {
     const isThermal = isThermalPaper(paper.size);
-    const { ref: thermalRef, heightMm: thermalHeightMm } = useThermalPageHeight(isThermal);
+    const { ref: thermalRef, heightMm: thermalHeightMm } = useThermalPageHeight(isThermal && !getThermalFixedHeightMm(paper.size));
     return createPortal(
         <div
             className="print-template-mirror pointer-events-none invisible fixed top-0 -left-[10000px] print:visible print:static"

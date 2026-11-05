@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { ArrowLeft, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getPaperPageCss, getPaperSheetClasses, getPaperSheetWidthPx, isThermalPaper } from "@/components/print/paperStyles";
+import { getPaperPageCss, getPaperSheetClasses, getPaperSheetWidthPx, getThermalFixedHeightMm, isThermalPaper } from "@/components/print/paperStyles";
 import { useThermalPageHeight } from "@/components/print/useThermalPageHeight";
 import "@/styles/print.css";
 
@@ -28,8 +28,10 @@ export default function PrintLayout({
     children,
 }) {
     const paperConfig = paper ?? DEFAULT_PAPER;
-    // K80 / K57 (giấy cuộn): chiều cao trang = chiều cao thật của phiếu
-    const { ref: thermalRef, heightMm: thermalHeightMm } = useThermalPageHeight(isThermalPaper(paperConfig.size));
+    // K80 / K57 (giấy cuộn): chiều cao trang = chiều cao thật của phiếu; tem A6 cao cố định nên không cần đo
+    const { ref: thermalRef, heightMm: thermalHeightMm } = useThermalPageHeight(
+        isThermalPaper(paperConfig.size) && !getThermalFixedHeightMm(paperConfig.size)
+    );
     // Điện thoại (< 768px): tờ giấy thu nhỏ vừa bề ngang màn để đọc hết mà không vuốt ngang (vẫn chụm hai ngón để phóng to);
     // chỉ khi xem trên màn hình — lúc in vẫn đủ khổ. Chưa có phiếu để in (đang tải, lỗi, chưa in được): khối thông báo dùng
     // bề ngang màn thay vì khổ giấy

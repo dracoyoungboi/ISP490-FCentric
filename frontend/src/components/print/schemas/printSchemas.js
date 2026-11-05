@@ -82,7 +82,10 @@ const sheetTemplates = (key) => [
  * Mẫu khổ nhiệt cho hóa đơn tại quầy: K80 (mặc định) và K57. Chỉ giữ thông tin cần thiết cho
  * khách mua mang về — người dùng vẫn bật lại được trong editor.
  */
-/** Mẫu tem in cho đơn hàng sàn TMĐT: A6 (tem nhiệt 100x150mm mặc định), A5, A4 và K80. */
+/**
+ * Mẫu in phiếu đóng gói đơn sàn TMĐT: A6 (mặc định — tem nhiệt 100 × 150 mm, bố cục khổ nhiệt, xem
+ * paperStyles), A5, A4 và K80.
+ */
 const ecommercePackingTemplates = (key) => [
     {
         id: `${key}_default_A6`,
@@ -91,6 +94,12 @@ const ecommercePackingTemplates = (key) => [
         orientation: "portrait",
         margin: "default",
         isDefault: true,
+        // Tem dán kiện cao cố định 150mm: bỏ bớt dòng không cần trên kiện để đơn vài dòng hàng
+        // vừa một tem (bật lại được trong trình sửa)
+        defaults: {
+            branding: { showTaxCode: false, showEmail: false },
+            sections: { signatures: { packer: false, checker: false } },
+        },
     },
     {
         id: `${key}_default_A5`,
@@ -788,9 +797,11 @@ export const PRINT_SCHEMAS = {
                     { key: "quantity", label: "SL đóng gói", path: "quantity", essential: true, kind: "qty" },
                     { key: "note", label: "Ghi chú", path: "note", hideWhenAllEmpty: true },
                 ],
+                // Tem A6 / K80: người đóng gói vẫn cần SKU để soát đúng hàng
                 compactColumns: [
                     { key: "productName", label: "Tên sản phẩm", path: "name", essential: true },
                     { key: "variant", label: "Biến thể", path: "variant", inline: true },
+                    { key: "sku", label: "Mã SKU", path: "sku", essential: true, kind: "code" },
                     { key: "quantity", label: "SL", path: "quantity", essential: true, kind: "qty" },
                 ],
             },
