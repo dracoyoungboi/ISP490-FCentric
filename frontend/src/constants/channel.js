@@ -5,6 +5,7 @@ export const CHANNELS = {
   POS: { id: 1, maKenh: "POS", tenKenh: "POS" },
   SHOPIFY: { id: 2, maKenh: "SHOPIFY", tenKenh: "Shopify" },
   LAZADA: { id: 3, maKenh: "LAZADA", tenKenh: "Lazada" },
+  LAZADA_SANDBOX: { id: 6, maKenh: "LAZADA_SANDBOX", tenKenh: "Lazada Sandbox" },
   TIKTOK: { id: 5, maKenh: "TIKTOK", tenKenh: "TikTok Shop" },
 };
 
@@ -13,6 +14,7 @@ export const MARKETPLACE_FILTER_OPTIONS = [
   { value: "", label: "Tất cả kênh" },
   { value: "shopify", label: "Shopify", id: CHANNELS.SHOPIFY.id },
   { value: "lazada", label: "Lazada", id: CHANNELS.LAZADA.id },
+  { value: "lazada_sandbox", label: "Lazada Sandbox", id: 6 },
   { value: "tiktok", label: "TikTok Shop", id: CHANNELS.TIKTOK.id },
 ];
 
@@ -20,6 +22,7 @@ export const MARKETPLACE_FILTER_OPTIONS = [
 export const CHANNEL_BADGE_CLASS = {
   SHOPIFY: "border-green-200 bg-green-50 text-green-700",
   LAZADA: "border-blue-200 bg-blue-50 text-blue-700",
+  LAZADA_SANDBOX: "border-amber-200 bg-amber-50 text-amber-700",
   TIKTOK: "border-slate-300 bg-slate-100 text-slate-800",
   SHOPEE: "border-orange-200 bg-orange-50 text-orange-700",
   POS: "border-indigo-200 bg-indigo-50 text-indigo-700",
@@ -29,6 +32,7 @@ export const CHANNEL_BADGE_CLASS = {
 const CHANNEL_NAMES = {
   SHOPIFY: "Shopify",
   LAZADA: "Lazada",
+  LAZADA_SANDBOX: "Lazada Sandbox",
   TIKTOK: "TikTok Shop",
   SHOPEE: "Shopee",
   POS: "POS",
@@ -217,6 +221,7 @@ export function locKhoDongBo(list) {
 export const SAN_BAN_HANG = [
   { maKenh: "SHOPIFY", ten: "Shopify", duongDan: "/channels/shopify", hoTro: true, kieuKetNoi: "khoa", tienToDon: "SHP" },
   { maKenh: "LAZADA", ten: "Lazada", duongDan: "/channels/lazada", hoTro: true, kieuKetNoi: "uy_quyen", tienToDon: "LZD", hanUyQuyenNgay: 50 },
+  { maKenh: "LAZADA_SANDBOX", ten: "Lazada Sandbox", duongDan: "/channels/lazada-sandbox", hoTro: true, kieuKetNoi: "uy_quyen", tienToDon: "LZD-SBX", hanUyQuyenNgay: 50, isSandbox: true },
   { maKenh: "TIKTOK", ten: "TikTok Shop", duongDan: "/channels/tiktok", hoTro: true, kieuKetNoi: "uy_quyen", tienToDon: "TTS", maThuCong: true },
   // Đang xin cấp API ở Shopee Open Platform; máy chủ chưa có nhánh SHOPEE (GET /SHOPEE/ket-noi trả 400)
   // `hienMenu`: tạm hiện ở menu trái trong lúc chờ cấp API (yêu cầu 30/10)
@@ -235,6 +240,25 @@ export function timSan(maKenh) {
  * TikTok theo cả đơn (chữ hoa). Mã lạ thì trả nguyên mã.
  */
 const TRANG_THAI_SAN = {
+  LAZADA_SANDBOX: {
+    unpaid: "Chờ thanh toán",
+    pending: "Chờ xử lý",
+    topack: "Chờ xử lý",
+    packed: "Chờ xử lý",
+    ready_to_ship: "Chờ lấy hàng",
+    toship: "Chờ lấy hàng",
+    shipping: "Đang giao",
+    shipped: "Đang giao",
+    delivered: "Đã giao",
+    canceled: "Đã hủy",
+    returned: "Hoàn hàng",
+    failed: "Hoàn hàng",
+    failed_delivery: "Hoàn hàng",
+    lost_by_3pl: "Hoàn hàng",
+    damaged_by_3pl: "Hoàn hàng",
+    lost: "Hoàn hàng",
+    package_scrapped: "Hoàn hàng",
+  },
   LAZADA: {
     unpaid: "Chờ thanh toán",
     pending: "Chờ xử lý",
