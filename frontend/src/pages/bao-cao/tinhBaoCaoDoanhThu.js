@@ -61,10 +61,13 @@ export const bienLai = (loiNhuan, doanhThu) => (N(doanhThu) ? N(loiNhuan) / N(do
 /** Chỉ số của dải đầu trang (đổi chỉ số thì biểu đồ đổi theo). */
 export const CHI_SO = [
   { ma: "doanhThu", ten: "Doanh thu", tien: true },
-  { ma: "loiNhuan", ten: "Lợi nhuận gộp", tien: true },
-  { ma: "giaVon", ten: "Giá vốn", tien: true },
+  { ma: "loiNhuan", ten: "Lợi nhuận gộp", tien: true, giaVon: true },
+  { ma: "giaVon", ten: "Giá vốn", tien: true, giaVon: true },
   { ma: "soDon", ten: "Đơn đã giao", tien: false },
 ];
+
+/** Chỉ số người xem được: không có giá vốn (nhân viên bán hàng) thì chỉ Doanh thu, Đơn đã giao. */
+export const chiSoXem = (coGiaVon) => (coGiaVon ? CHI_SO : CHI_SO.filter((c) => !c.giaVon));
 
 const truongCungKy = { doanhThu: "doanhThuCungKy", loiNhuan: "loiNhuanCungKy", giaVon: "giaVonCungKy", soDon: "soDonCungKy" };
 
@@ -130,6 +133,83 @@ export function dongBang(tongHop, tienThu) {
     .filter((d, i) => !tongHop.theoKy[i].chuaToi
       && (d.doanhThu || d.doanhThuCungKy || d.soDon || d.tienMat || d.chuyenKhoan || d.hoan))
     .reverse();
+}
+
+/** Số giá vốn / lợi nhuận: máy chủ gửi null khi người xem không được xem (nhân viên bán hàng) thì giữ null. */
+const soHoacNull = (v) => (v == null ? null : N(v));
+
+/**
+ * Dòng thẻ Theo kênh bán (máy chủ đã xếp doanh thu giảm dần): tỷ trọng trên tổng các kênh, tăng / giảm so với cùng kỳ
+ * năm trước, trung bình một đơn, độ dài thanh so với kênh lớn nhất (0–1).
+ */
+export function dongKenh(tongHop) {
+  const ds = tongHop?.theoKenh ?? [];
+  const tong = ds.reduce((s, k) => s + N(k.doanhThu), 0);
+  const lonNhat = ds.reduce((m, k) => Math.max(m, N(k.doanhThu)), 0);
+  return ds.map((k) => {
+    const doanhThu = N(k.doanhThu);
+    const soDon = N(k.soDon);
+    const loiNhuan = soHoacNull(k.loiNhuan);
+    return {
+      ma: k.ma,
+      ten: k.ten,
+      loai: k.ma === "POS" ? "quay" : k.ma === "TRUC_TIEP" ? "don" : "san",
+      doanhThu,
+      soDon,
+      soDonHoan: N(k.soDonHoan),
+      tb: soDon ? doanhThu / soDon : null,
+      tyTrong: tong ? doanhThu / tong : 0,
+      thanh: lonNhat ? doanhThu / lonNhat : 0,
+      tang: tyLeTang(doanhThu, k.doanhThuCungKy),
+      loiNhuan,
+      bien: loiNhuan == null ? null : bienLai(loiNhuan, doanhThu),
+    };
+  });
+}
+
+/** Chữ viết tắt của họ tên cho ô tròn: chữ đầu của từ đầu và từ cuối ("Trần Thu Hà" → "TH"). */
+export function chuTat(ten) {
+  const tu = String(ten ?? "").trim().split(/\s+/).filter(Boolean);
+  if (!tu.length) return "?";
+  const dau = tu[0][0];
+  return (tu.length > 1 ? dau + tu[tu.length - 1][0] : dau).toUpperCase();
+}
+
+/**
+ * Dòng thẻ Theo nhân viên (máy chủ đã xếp: nhân viên theo doanh thu giảm dần, rồi đơn không rõ người lập, cuối là đơn
+ * sàn): hạng (chỉ nhân viên), tỷ trọng trên tổng, trung bình một đơn, độ dài thanh so với dòng lớn nhất (0–1).
+ */
+export function dongNhanVien(tongHop) {
+  const ds = tongHop?.theoNhanVien ?? [];
+  const tong = ds.reduce((s, n) => s + N(n.doanhThu), 0);
+  const lonNhat = ds.reduce((m, n) => Math.max(m, N(n.doanhThu)), 0);
+  let hang = 0;
+  return ds.map((n) => {
+    const doanhThu = N(n.doanhThu);
+    const soDon = N(n.soDon);
+    const laNguoi = n.loai === "NHAN_VIEN";
+    const loiNhuan = soHoacNull(n.loiNhuan);
+    return {
+      khoa: laNguoi ? `nv-${n.nguoiDungId}` : n.loai,
+      loai: n.loai,
+      ten: n.ten,
+      chuTat: laNguoi ? chuTat(n.ten) : null,
+      hang: laNguoi ? (hang += 1) : null,
+      laToi: Boolean(n.laToi),
+      doanhThu,
+      soDon,
+      tb: soDon ? doanhThu / soDon : null,
+      tyTrong: tong ? doanhThu / tong : 0,
+      thanh: lonNhat ? doanhThu / lonNhat : 0,
+      loiNhuan,
+    };
+  });
+}
+
+/** Ô "Đơn của bạn" (nhân viên bán hàng): số đơn, doanh thu, tỷ trọng của dòng người đang xem; chưa có đơn thì 0. */
+export function cuaToi(tongHop) {
+  const dong = dongNhanVien(tongHop).find((d) => d.laToi);
+  return dong ? { soDon: dong.soDon, doanhThu: dong.doanhThu, tyTrong: dong.tyTrong } : { soDon: 0, doanhThu: 0, tyTrong: 0 };
 }
 
 /** Số tiền gọn cho ô chỉ số: { so, donVi } — "136,0" "triệu ₫", "455.625" "₫", "1,25" "tỷ ₫". */

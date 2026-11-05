@@ -119,7 +119,8 @@ const trieu = (v) => `${(Number(v) / 1e6).toLocaleString("vi-VN", { maximumFract
  * hoàn, sàn thu hộ và còn phải thu tới hôm nay. Tính theo ngày thu tiền nên khác doanh thu (theo ngày giao hàng) là bình
  * thường. Tải riêng: lỗi ở đây không chặn phần doanh thu.
  */
-export default function KhoiTienThu({ tienThu, loi, loading, khoId, onTaiLai, className }) {
+/** anGhiChuKho: trang đã ghi tên cửa hàng của người xem (nhân viên bán hàng một cửa hàng) nên bỏ dòng "Chỉ tính các cửa hàng…". */
+export default function KhoiTienThu({ tienThu, loi, loading, khoId, onTaiLai, className, anGhiChuKho = false }) {
   const [moDoiChieu, setMoDoiChieu] = useState(false);
   const t = tienThu;
   const tm = Number(t?.tienMat) || 0;
@@ -171,7 +172,7 @@ export default function KhoiTienThu({ tienThu, loi, loading, khoId, onTaiLai, cl
               {formatNumber(chuaDoiChieu)} phiếu chuyển khoản chưa đối chiếu ›
             </button>
           ) : null}
-          {t.theoKhoPhuTrach ? <p className="m-0 text-xs text-bo-muted">Chỉ tính các cửa hàng bạn phụ trách.</p> : null}
+          {t.theoKhoPhuTrach && !anGhiChuKho ? <p className="m-0 text-xs text-bo-muted">Chỉ tính các cửa hàng bạn phụ trách.</p> : null}
         </div>
       ) : null}
       {moDoiChieu ? (

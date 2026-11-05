@@ -21,14 +21,16 @@ import { baoCaoDoanhThuService } from "@/services/baoCaoDoanhThuService";
 import NutXuatExcel from "@/components/shared/NutXuatExcel";
 import useCoQuyenXuatBaoCao from "@/hooks/useCoQuyenXuatBaoCao";
 import { cn } from "@/lib/utils";
-import { formatAxisMoney, formatCurrency, formatNumber, formatPercent } from "@/utils/formatters";
+import { formatAxisMoney, formatCurrency, formatCurrencyCompact, formatNumber, formatPercent } from "@/utils/formatters";
 import KhoiTienThu from "./KhoiTienThu";
+import { TheTheoKenh, TheTheoNhanVien } from "./TheKenhNhanVien";
 import {
   CHI_SO,
   LOAI_KY,
   MOC_NGAY,
   SO_NAM,
   bienLai,
+  cuaToi,
   dongBang,
   duLieuBieuDo,
   khoangMoc,
@@ -142,9 +144,14 @@ function KhoangTuyChon({ khoang, onDoi }) {
   );
 }
 
-/** Dải đầu trang: ô phạm vi bên trái, 4 chỉ số (chọn được) bên phải — cùng bố cục với Tổng quan. */
-function DauTrang({ boLoc, setBoLoc, dsKho, data, loading, gio, onTaiLai, chiSo, setChiSo }) {
-  const tenKho = boLoc.khoId ? dsKho.find((k) => String(k.id) === String(boLoc.khoId))?.tenKho ?? "Kho đã chọn" : "Tất cả kho";
+/**
+ * Dải đầu trang: ô phạm vi bên trái, 4 chỉ số (chọn được) bên phải — cùng bố cục với Tổng quan. Không có giá vốn (nhân
+ * viên bán hàng): Doanh thu, Đơn đã giao và ô "Đơn của bạn" (chỉ xem, không chọn được); khoaKho: ô kho chỉ ghi tên cửa
+ * hàng mình làm, không mở danh sách.
+ */
+function DauTrang({ boLoc, setBoLoc, dsKho, data, loading, gio, onTaiLai, chiSo, setChiSo, coGiaVon, khoaKho, tenKhoKhoa }) {
+  const tenKho = khoaKho ? tenKhoKhoa
+    : boLoc.khoId ? dsKho.find((k) => String(k.id) === String(boLoc.khoId))?.tenKho ?? "Kho đã chọn" : "Tất cả kho";
   const homNay = new Date();
   const namHienTai = homNay.getFullYear();
   const nhanLoai = LOAI_KY.find((x) => x.value === boLoc.loai)?.label;
@@ -153,20 +160,35 @@ function DauTrang({ boLoc, setBoLoc, dsKho, data, loading, gio, onTaiLai, chiSo,
     : boLoc.loai === "nam" ? `${boLoc.soNam} năm gần nhất` : `Năm ${boLoc.nam}`;
   const a = data?.kyNay;
   const b = data?.cungKy;
-  const o = [
+  const toi = cuaToi(data);
+  const o = coGiaVon ? [
     { ...CHI_SO[0], gt: a?.doanhThu, phu: <SoVoi tyLe={tyLeTang(a?.doanhThu, b?.doanhThu)} /> },
     { ...CHI_SO[1], gt: a?.loiNhuan, phu: <BienLai a={a} b={b} /> },
     { ...CHI_SO[2], gt: a?.giaVon, phu: <span className="text-bo-muted">{a && Number(a.doanhThu) ? `${formatPercent(Number(a.giaVon) / Number(a.doanhThu))} doanh thu` : "—"}</span> },
     { ...CHI_SO[3], gt: a?.soDon, phu: <span className="text-bo-muted">{a && Number(a.soDon) ? `TB ${formatCurrency(Number(a.doanhThu) / Number(a.soDon))} / đơn` : "—"}</span> },
+  ] : [
+    { ...CHI_SO[0], gt: a?.doanhThu, phu: <SoVoi tyLe={tyLeTang(a?.doanhThu, b?.doanhThu)} /> },
+    { ...CHI_SO[3], gt: a?.soDon, phu: <span className="text-bo-muted">{a && Number(a.soDon) ? `TB ${formatCurrency(Number(a.doanhThu) / Number(a.soDon))} / đơn` : "—"}</span> },
+    {
+      ma: "cuaToi", ten: "Đơn của bạn", tien: false, chiXem: true, gt: toi.soDon,
+      phu: <span className="text-bo-muted">{toi.soDon ? `${formatCurrencyCompact(toi.doanhThu)} · ${formatPercent(toi.tyTrong, 0)} doanh thu` : "Chưa có đơn đã giao"}</span>,
+    },
   ];
   return (
     <div className="@container/dau">
       <section aria-label="Phạm vi và kết quả của kỳ" className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-[0_1px_2px_rgba(16,24,40,0.04)] @min-[980px]/dau:flex-row">
         <div className="flex min-w-0 flex-col gap-2 border-b border-bo-border bg-bo-surface-subtle px-4 py-3 @min-[980px]/dau:w-[300px] @min-[980px]/dau:shrink-0 @min-[980px]/dau:justify-center @min-[980px]/dau:border-b-0 @min-[980px]/dau:border-r @min-[980px]/dau:px-5">
-          <Menu ariaLabel={`Chọn kho, đang xem: ${tenKho}`} className={cn(FOCUS, "inline-flex max-w-full cursor-pointer items-center gap-1.5 self-start rounded text-base font-semibold leading-6 text-bo-foreground hover:text-bo-primary-hover")} nhan={tenKho} rong="w-72">
-            <Muc chon={!boLoc.khoId} onChon={() => setBoLoc({ khoId: "" })} phu={dsKho.length ? `${dsKho.length} kho` : null} ten="Tất cả kho" />
-            {dsKho.map((k) => <Muc key={k.id} chon={String(boLoc.khoId) === String(k.id)} onChon={() => setBoLoc({ khoId: String(k.id) })} ten={k.tenKho} />)}
-          </Menu>
+          {khoaKho ? (
+            <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-base font-semibold leading-6 text-bo-foreground">
+              <span className="min-w-0 truncate">{tenKho}</span>
+              {dsKho.length === 1 ? <span className="rounded border border-bo-border bg-bo-surface px-1.5 text-[11px] font-medium leading-[18px] text-bo-muted">Cửa hàng bạn làm</span> : null}
+            </span>
+          ) : (
+            <Menu ariaLabel={`Chọn kho, đang xem: ${tenKho}`} className={cn(FOCUS, "inline-flex max-w-full cursor-pointer items-center gap-1.5 self-start rounded text-base font-semibold leading-6 text-bo-foreground hover:text-bo-primary-hover")} nhan={tenKho} rong="w-72">
+              <Muc chon={!boLoc.khoId} onChon={() => setBoLoc({ khoId: "" })} phu={dsKho.length ? `${dsKho.length} kho` : null} ten="Tất cả kho" />
+              {dsKho.map((k) => <Muc key={k.id} chon={String(boLoc.khoId) === String(k.id)} onChon={() => setBoLoc({ khoId: String(k.id) })} ten={k.tenKho} />)}
+            </Menu>
+          )}
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
             <Menu ariaLabel={`Chọn cách xem, đang xem: ${nhanLoai}`} icon nhan={nhanLoai}>
               {LOAI_KY.map((x) => <Muc key={x.value} chon={boLoc.loai === x.value} onChon={() => setBoLoc({ loai: x.value })} ten={x.label} />)}
@@ -196,27 +218,23 @@ function DauTrang({ boLoc, setBoLoc, dsKho, data, loading, gio, onTaiLai, chiSo,
             </button>
           </span>
         </div>
-        <div role="tablist" aria-label="Chỉ số của kỳ, chọn để xem trên biểu đồ" className="grid min-w-0 flex-1 grid-cols-2 @min-[640px]/dau:grid-cols-4">
-          {o.map((c, i) => {
-            const on = chiSo === c.ma;
+        <div className={cn("grid min-w-0 flex-1 grid-cols-2", o.length === 3 ? "@min-[640px]/dau:grid-cols-3" : "@min-[640px]/dau:grid-cols-4")}>
+          {/* Thẻ chọn nằm trong tablist (display: contents để vẫn xếp theo lưới); ô "Đơn của bạn" chỉ xem nên ở ngoài */}
+          <div role="tablist" aria-label="Chỉ số của kỳ, chọn để xem trên biểu đồ" className="contents">
+          {o.filter((c) => !c.chiXem).map((c, i) => {
+            const on = !c.chiXem && chiSo === c.ma;
             const so = c.tien ? soGon(c.gt) : { so: formatNumber(Number(c.gt) || 0), donVi: "đơn" };
-            return (
-              <button
-                key={c.ma}
-                type="button"
-                role="tab"
-                aria-selected={on}
-                aria-controls="bc-bieu-do"
-                onClick={() => setChiSo(c.ma)}
-                className={cn(
-                  FOCUS,
-                  // Điện thoại: lề ngang hẹp hơn để dòng so sánh dưới số không bị cắt
-                  "flex min-w-0 cursor-pointer flex-col gap-0.5 border-b-2 px-4 py-3 text-left transition-colors @min-[640px]/dau:px-5 max-md:px-3",
-                  i % 2 === 1 && "border-l border-l-[#eef1f5]",
-                  i >= 2 && "border-t border-t-[#eef1f5] @min-[640px]/dau:border-t-0 @min-[640px]/dau:border-l @min-[640px]/dau:border-l-[#eef1f5]",
-                  on ? "border-b-bo-primary bg-[#f5f9ff]" : "border-b-transparent hover:bg-bo-surface-subtle",
-                )}
-              >
+            const lop = cn(
+              // Điện thoại: lề ngang hẹp hơn để dòng so sánh dưới số không bị cắt
+              "flex min-w-0 flex-col gap-0.5 border-b-2 px-4 py-3 text-left transition-colors @min-[640px]/dau:px-5 max-md:px-3",
+              i % 2 === 1 && "border-l border-l-[#eef1f5]",
+              i >= 2 && "border-t border-t-[#eef1f5] @min-[640px]/dau:border-t-0 @min-[640px]/dau:border-l @min-[640px]/dau:border-l-[#eef1f5]",
+              // Ô thứ ba của dải 3 ô: điện thoại chiếm cả hàng thứ hai
+              o.length === 3 && i === 2 && "col-span-2 @min-[640px]/dau:col-span-1",
+              on ? "border-b-bo-primary bg-[#f5f9ff]" : "border-b-transparent",
+            );
+            const noiDung = (
+              <>
                 <span className={cn("truncate text-sm", on ? "font-medium text-bo-foreground" : "text-bo-muted")}>{c.ten}</span>
                 {loading && !data ? (
                   <span className="flex flex-col gap-1.5 py-1" aria-hidden="true">
@@ -231,7 +249,51 @@ function DauTrang({ boLoc, setBoLoc, dsKho, data, loading, gio, onTaiLai, chiSo,
                     <span className="min-h-4 truncate text-xs max-md:whitespace-normal">{data ? c.phu : null}</span>
                   </>
                 )}
+              </>
+            );
+            return (
+              <button
+                key={c.ma}
+                type="button"
+                role="tab"
+                aria-selected={on}
+                aria-controls="bc-bieu-do"
+                onClick={() => setChiSo(c.ma)}
+                className={cn(FOCUS, lop, "cursor-pointer", !on && "hover:bg-bo-surface-subtle")}
+              >
+                {noiDung}
               </button>
+            );
+          })}
+          </div>
+          {o.filter((c) => c.chiXem).map((c) => {
+            const i = o.indexOf(c);
+            const so = { so: formatNumber(Number(c.gt) || 0), donVi: "đơn" };
+            return (
+              <div
+                key={c.ma}
+                className={cn(
+                  "flex min-w-0 flex-col gap-0.5 border-b-2 border-b-transparent px-4 py-3 @min-[640px]/dau:px-5 max-md:px-3",
+                  i % 2 === 1 && "border-l border-l-[#eef1f5]",
+                  i >= 2 && "border-t border-t-[#eef1f5] @min-[640px]/dau:border-t-0 @min-[640px]/dau:border-l @min-[640px]/dau:border-l-[#eef1f5]",
+                  o.length === 3 && i === 2 && "col-span-2 @min-[640px]/dau:col-span-1",
+                )}
+              >
+                <span className="truncate text-sm text-bo-muted">{c.ten}</span>
+                {loading && !data ? (
+                  <span className="flex flex-col gap-1.5 py-1" aria-hidden="true">
+                    <Skeleton className="h-6 w-3/4 bg-slate-100" />
+                    <Skeleton className="h-3 w-1/2 bg-slate-100" />
+                  </span>
+                ) : (
+                  <>
+                    <span className="truncate whitespace-nowrap text-xl font-bold leading-7 tracking-[-0.025em] text-bo-foreground @min-[800px]/dau:text-2xl @min-[800px]/dau:leading-8">
+                      {data ? so.so : "—"}<span className="ml-1 text-sm font-medium tracking-normal text-bo-muted">{data ? so.donVi : ""}</span>
+                    </span>
+                    <span className="min-h-4 truncate text-xs max-md:whitespace-normal">{data ? c.phu : null}</span>
+                  </>
+                )}
+              </div>
             );
           })}
         </div>
@@ -365,7 +427,7 @@ function TangGiam({ tyLe }) {
   return <span className={tyLe >= 0 ? "text-bo-success" : "text-bo-danger"}>{tyLe >= 0 ? "+" : "−"}{formatPercent(Math.abs(tyLe))}</span>;
 }
 
-function BangChiTiet({ data, tienThu, loading, loi, onTaiLai }) {
+function BangChiTiet({ data, tienThu, loading, loi, onTaiLai, coGiaVon }) {
   const rows = useMemo(() => dongBang(data, tienThu), [data, tienThu]);
   const coThu = Boolean(tienThu);
   const a = data?.kyNay;
@@ -388,16 +450,20 @@ function BangChiTiet({ data, tienThu, loading, loi, onTaiLai }) {
           Máy tính bảng dọc (cảm ứng): bỏ cột Cùng kỳ năm trước, Giá vốn, Biên lãi, Đơn, Hoàn — số đơn, cùng kỳ, biên lãi,
           tiền hoàn thành dòng phụ dưới kỳ, doanh thu, lợi nhuận gộp, chuyển khoản — để bảng vừa khung, không vuốt ngang */}
       <div className="hidden overflow-x-auto @min-[640px]:block">
-        <table className="w-full min-w-[1060px] border-collapse text-sm tabular-nums cam-ung:max-lg:min-w-0">
+        <table className={cn("w-full border-collapse text-sm tabular-nums cam-ung:max-lg:min-w-0", coGiaVon ? "min-w-[1060px]" : "min-w-[760px]")}>
           <thead>
             <tr className="border-b border-bo-border bg-bo-surface-subtle">
               <th scope="col" className={cn(TH, "pl-5 text-left cam-ung:max-lg:pl-5")}>{tenKy}</th>
               <th scope="col" className={TH}>Doanh thu</th>
               <th scope="col" className={cn(TH, "cam-ung:max-lg:hidden")}>Cùng kỳ năm trước</th>
               <th scope="col" className={TH}>Tăng / giảm</th>
-              <th scope="col" className={cn(TH, "cam-ung:max-lg:hidden")}>Giá vốn</th>
-              <th scope="col" className={TH}>Lợi nhuận gộp</th>
-              <th scope="col" className={cn(TH, "cam-ung:max-lg:hidden")}>Biên lãi</th>
+              {coGiaVon ? (
+                <>
+                  <th scope="col" className={cn(TH, "cam-ung:max-lg:hidden")}>Giá vốn</th>
+                  <th scope="col" className={TH}>Lợi nhuận gộp</th>
+                  <th scope="col" className={cn(TH, "cam-ung:max-lg:hidden")}>Biên lãi</th>
+                </>
+              ) : null}
               <th scope="col" className={cn(TH, "cam-ung:max-lg:hidden")}>Đơn</th>
               {coThu ? <th scope="col" className={cn(TH, "border-l border-bo-border")}>Tiền mặt</th> : null}
               {coThu ? <th scope="col" className={cn(TH, "cam-ung:max-lg:pr-5")}>Chuyển khoản</th> : null}
@@ -417,12 +483,16 @@ function BangChiTiet({ data, tienThu, loading, loi, onTaiLai }) {
                 </td>
                 <td className={cn(TD, "text-slate-600 cam-ung:max-lg:hidden")}>{formatCurrency(r.doanhThuCungKy)}</td>
                 <td className={TD}><TangGiam tyLe={r.tang} /></td>
-                <td className={cn(TD, "text-slate-600 cam-ung:max-lg:hidden")}>{formatCurrency(r.giaVon)}</td>
-                <td className={TD}>
-                  {formatCurrency(r.loiNhuan)}
-                  <span className="hidden text-xs text-bo-muted cam-ung:max-lg:block">biên lãi {r.bien == null ? "—" : formatPercent(r.bien)}</span>
-                </td>
-                <td className={cn(TD, "cam-ung:max-lg:hidden")}>{r.bien == null ? <span className="text-bo-muted">—</span> : formatPercent(r.bien)}</td>
+                {coGiaVon ? (
+                  <>
+                    <td className={cn(TD, "text-slate-600 cam-ung:max-lg:hidden")}>{formatCurrency(r.giaVon)}</td>
+                    <td className={TD}>
+                      {formatCurrency(r.loiNhuan)}
+                      <span className="hidden text-xs text-bo-muted cam-ung:max-lg:block">biên lãi {r.bien == null ? "—" : formatPercent(r.bien)}</span>
+                    </td>
+                    <td className={cn(TD, "cam-ung:max-lg:hidden")}>{r.bien == null ? <span className="text-bo-muted">—</span> : formatPercent(r.bien)}</td>
+                  </>
+                ) : null}
                 <td className={cn(TD, "text-slate-600 cam-ung:max-lg:hidden")}>{formatNumber(r.soDon)}</td>
                 {coThu ? <td className={cn(TD, "border-l border-bo-border")}>{formatCurrency(r.tienMat)}</td> : null}
                 {coThu ? (
@@ -448,12 +518,16 @@ function BangChiTiet({ data, tienThu, loading, loi, onTaiLai }) {
                 </td>
                 <td className={cn(TD, "cam-ung:max-lg:hidden")}>{formatCurrency(b?.doanhThu)}</td>
                 <td className={TD}><TangGiam tyLe={tyLeTang(a.doanhThu, b?.doanhThu)} /></td>
-                <td className={cn(TD, "cam-ung:max-lg:hidden")}>{formatCurrency(a.giaVon)}</td>
-                <td className={TD}>
-                  {formatCurrency(a.loiNhuan)}
-                  <span className="hidden text-xs font-normal text-bo-muted cam-ung:max-lg:block">biên lãi {bienCaKy == null ? "—" : formatPercent(bienCaKy)}</span>
-                </td>
-                <td className={cn(TD, "cam-ung:max-lg:hidden")}>{bienCaKy == null ? "—" : formatPercent(bienCaKy)}</td>
+                {coGiaVon ? (
+                  <>
+                    <td className={cn(TD, "cam-ung:max-lg:hidden")}>{formatCurrency(a.giaVon)}</td>
+                    <td className={TD}>
+                      {formatCurrency(a.loiNhuan)}
+                      <span className="hidden text-xs font-normal text-bo-muted cam-ung:max-lg:block">biên lãi {bienCaKy == null ? "—" : formatPercent(bienCaKy)}</span>
+                    </td>
+                    <td className={cn(TD, "cam-ung:max-lg:hidden")}>{bienCaKy == null ? "—" : formatPercent(bienCaKy)}</td>
+                  </>
+                ) : null}
                 <td className={cn(TD, "cam-ung:max-lg:hidden")}>{formatNumber(a.soDon)}</td>
                 {coThu ? <td className={cn(TD, "border-l border-bo-border")}>{formatCurrency(tienThu.tienMat)}</td> : null}
                 {coThu ? (
@@ -474,7 +548,7 @@ function BangChiTiet({ data, tienThu, loading, loi, onTaiLai }) {
           <li key={r.khoa} className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-0.5 border-b border-[#eef1f5] px-4 py-3 text-sm">
             <b className="font-semibold">{r.ten}</b>
             <b className="text-right font-semibold tabular-nums">{formatCurrency(r.doanhThu)}</b>
-            <span className="text-xs text-bo-muted">{formatNumber(r.soDon)} đơn · biên lãi {r.bien == null ? "—" : formatPercent(r.bien)}</span>
+            <span className="text-xs text-bo-muted">{formatNumber(r.soDon)} đơn{coGiaVon ? ` · biên lãi ${r.bien == null ? "—" : formatPercent(r.bien)}` : ""}</span>
             <span className="text-right text-xs"><TangGiam tyLe={r.tang} /></span>
             {coThu ? <span className="col-span-2 text-xs text-slate-600">Thu: tiền mặt {formatCurrency(r.tienMat)} · CK {formatCurrency(r.chuyenKhoan)}{r.hoan ? ` · hoàn −${formatCurrency(r.hoan)}` : ""}</span> : null}
           </li>
@@ -488,7 +562,11 @@ const loiCua = (e) => e?.response?.data?.message || e?.message || "";
 
 export default function BaoCaoDoanhThu() {
   const coQuyenXuat = useCoQuyenXuatBaoCao();
-  const laQtv = parseRoles(localStorage.getItem("role")).includes("quan_tri_vien");
+  const vaiTro = parseRoles(localStorage.getItem("role"));
+  const laQtv = vaiTro.includes("quan_tri_vien");
+  // Quản trị viên, quản lý kho: đủ số giá vốn, lợi nhuận, xuất Excel. Nhân viên bán hàng: chỉ doanh thu, đơn (máy chủ cũng
+  // không gửi giá vốn); cờ coGiaVon của máy chủ là chuẩn khi đã có số liệu.
+  const quanLy = laQtv || vaiTro.includes("quan_ly_kho");
   const [boLoc, datBoLoc] = useState(() => ({
     loai: "thang",
     nam: new Date().getFullYear(),
@@ -500,17 +578,28 @@ export default function BaoCaoDoanhThu() {
   const setBoLoc = useCallback((x) => datBoLoc((cu) => ({ ...cu, ...x })), []);
   const [chiSo, setChiSo] = useState("doanhThu");
   const [dsKho, setDsKho] = useState([]);
+  const [khoDaTai, setKhoDaTai] = useState(false);
   const [tongHop, setTongHop] = useState({ data: null, loading: true, loi: null, gio: null });
   const [tienThu, setTienThu] = useState({ data: null, loading: true, loi: null });
   const [lan, setLan] = useState(0);
 
-  // Kho cho bộ lọc: quản trị viên mọi kho; quản lý kho các kho mình phụ trách. Bỏ kho ảo, kho ngừng hoạt động.
+  // Kho cho bộ lọc: quản trị viên mọi kho; quản lý kho, nhân viên bán hàng các kho mình được phân công. Bỏ kho ảo, kho
+  // ngừng hoạt động.
   useEffect(() => {
     let huy = false;
     const tai = laQtv ? khoService.getAllKho().then((body) => body?.data?.content ?? []) : getMineKhoList();
-    tai.then((ds) => { if (!huy) setDsKho(ds.filter((k) => !laKhoAo(k) && Number(k.trangThai ?? 1) === 1)); }).catch(() => {});
+    tai.then((ds) => { if (!huy) setDsKho(ds.filter((k) => !laKhoAo(k) && Number(k.trangThai ?? 1) === 1)); })
+      .then(() => { if (!huy) setKhoDaTai(true); })
+      .catch(() => {});
     return () => { huy = true; };
   }, [laQtv]);
+
+  const coGiaVon = tongHop.data ? tongHop.data.coGiaVon !== false : quanLy;
+  // Đang xem chỉ số giá vốn / lợi nhuận mà người xem không có số đó: về Doanh thu
+  const chiSoXem = coGiaVon || !CHI_SO.find((c) => c.ma === chiSo)?.giaVon ? chiSo : "doanhThu";
+  // Nhân viên bán hàng làm ở một cửa hàng: ô kho chỉ ghi tên cửa hàng ("Tất cả kho" của họ chính là cửa hàng đó)
+  const khoaKho = !quanLy && dsKho.length <= 1;
+  const tenKhoKhoa = dsKho[0]?.tenKho ?? (khoDaTai ? "Chưa được phân công cửa hàng" : "Cửa hàng của bạn");
 
   const ts = useMemo(() => thamSo(boLoc), [boLoc]);
 
@@ -542,7 +631,7 @@ export default function BaoCaoDoanhThu() {
       <PageHeader
         className="mb-0"
         title="Báo cáo doanh thu"
-        actions={coQuyenXuat ? (
+        actions={coQuyenXuat && quanLy ? (
           <NutXuatExcel
             taiTep={() => baoCaoDoanhThuService.xuatExcel(ts)}
             tenTep={() => tenTepExcel(ts)}
@@ -553,7 +642,7 @@ export default function BaoCaoDoanhThu() {
 
       <DauTrang
         boLoc={boLoc}
-        chiSo={chiSo}
+        chiSo={chiSoXem}
         data={tongHop.data}
         dsKho={dsKho}
         gio={tongHop.gio}
@@ -561,17 +650,21 @@ export default function BaoCaoDoanhThu() {
         onTaiLai={taiLai}
         setBoLoc={setBoLoc}
         setChiSo={setChiSo}
+        coGiaVon={coGiaVon}
+        khoaKho={khoaKho}
+        tenKhoKhoa={tenKhoKhoa}
       />
       {tongHop.loi ? (
         <p role="alert" className="m-0 rounded-lg border border-red-200 bg-bo-danger-soft px-4 py-2.5 text-sm text-red-800">
           Không tải được doanh thu: {tongHop.loi}
         </p>
       ) : null}
-      {tongHop.data?.theoKhoPhuTrach ? <p className="-mt-2 mb-0 text-xs text-bo-muted">Chỉ tính các cửa hàng bạn phụ trách.</p> : null}
+      {tongHop.data?.theoKhoPhuTrach && !khoaKho ? <p className="-mt-2 mb-0 text-xs text-bo-muted">Chỉ tính các cửa hàng bạn phụ trách.</p> : null}
 
       <div className="flex flex-wrap items-stretch gap-4">
-        <TheBieuDo chiSo={chiSo} className="min-w-0 flex-[999_1_560px]" data={tongHop.data} loading={tongHop.loading} loi={tongHop.loi} onTaiLai={taiLai} />
+        <TheBieuDo chiSo={chiSoXem} className="min-w-0 flex-[999_1_560px]" data={tongHop.data} loading={tongHop.loading} loi={tongHop.loi} onTaiLai={taiLai} />
         <KhoiTienThu
+          anGhiChuKho={khoaKho}
           className="min-w-0 flex-[1_1_340px] xl:max-w-[420px]"
           khoId={boLoc.khoId || undefined}
           loading={tienThu.loading}
@@ -581,7 +674,12 @@ export default function BaoCaoDoanhThu() {
         />
       </div>
 
-      <BangChiTiet data={tongHop.data} loading={tongHop.loading} loi={tongHop.loi} onTaiLai={taiLai} tienThu={tienThu.data} />
+      <div className="flex flex-wrap items-stretch gap-4">
+        <TheTheoKenh className="min-w-0 flex-[1_1_420px]" data={tongHop.data} loading={tongHop.loading} loi={tongHop.loi} onTaiLai={taiLai} />
+        <TheTheoNhanVien className="min-w-0 flex-[1_1_420px]" data={tongHop.data} loading={tongHop.loading} loi={tongHop.loi} onTaiLai={taiLai} />
+      </div>
+
+      <BangChiTiet coGiaVon={coGiaVon} data={tongHop.data} loading={tongHop.loading} loi={tongHop.loi} onTaiLai={taiLai} tienThu={tienThu.data} />
     </PageContainer>
   );
 }
