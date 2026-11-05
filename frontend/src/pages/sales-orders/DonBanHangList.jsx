@@ -515,6 +515,9 @@ export default function DonBanHangList() {
                       <span className="flex min-w-0 items-center gap-2">
                         <BieuTuongKenhDon maKenh={item.kenhBanHang?.maKenh} tenKenh={item.kenhBanHang?.tenKenh} />
                         <span className="min-w-0 truncate text-[15px] font-semibold uppercase tracking-wide text-bo-primary">{item.soDonHang}</span>
+                        {item.kenhBanHang?.maKenh === "LAZADA_SANDBOX" || item.soDonHang?.startsWith("LZD-SBX-") ? (
+                          <span className="rounded border border-amber-200 bg-amber-50 px-1 py-0.5 text-[10px] font-semibold text-amber-800">Sandbox</span>
+                        ) : null}
                       </span>
                       <StatusBadge quyTrinh="donBan" label={st.label} />
                     </span>
@@ -567,7 +570,12 @@ export default function DonBanHangList() {
                       <div className="flex items-start gap-2">
                         <BieuTuongKenhDon maKenh={item.kenhBanHang?.maKenh} tenKenh={item.kenhBanHang?.tenKenh} className="mt-0.5" />
                         <div className="min-w-0">
-                          <span className="font-semibold uppercase tracking-wide text-bo-primary">{item.soDonHang}</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-semibold uppercase tracking-wide text-bo-primary">{item.soDonHang}</span>
+                            {item.kenhBanHang?.maKenh === "LAZADA_SANDBOX" || item.soDonHang?.startsWith("LZD-SBX-") ? (
+                              <span className="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">Sandbox</span>
+                            ) : null}
+                          </div>
                           <div className="mt-0.5 hidden text-xs text-bo-muted cam-ung:max-lg:block">{formatDate(item.ngayDatHang)}</div>
                         </div>
                       </div>

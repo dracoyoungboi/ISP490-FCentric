@@ -34,6 +34,7 @@ export default function HopGuiSangKho({ mo, onDoiMo, don, dangChay = false, loi,
   const donId = don?.id;
   const laDonLazada = Boolean(
     don?.kenhBanHang?.maKenh?.toUpperCase() === "LAZADA" ||
+    don?.kenhBanHang?.maKenh?.toUpperCase() === "LAZADA_SANDBOX" ||
     don?.kenhBanHang?.tenKenh?.toLowerCase()?.includes("lazada") ||
     don?.soDonHang?.startsWith("LZD-") ||
     don?.maDonHangKenh?.startsWith("LZD-")

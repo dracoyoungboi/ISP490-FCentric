@@ -529,7 +529,12 @@ export default function ChannelOrdersPage() {
                 <li key={don.id}>
                   <Link to={`/sales-orders/${don.id}`} className="grid gap-1 px-4 py-3 active:bg-bo-surface-subtle">
                     <span className="flex items-center justify-between gap-3">
-                      <span className="min-w-0 truncate text-[15px] font-semibold uppercase tracking-wide text-bo-primary">{don.soDonHang}</span>
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span className="min-w-0 truncate text-[15px] font-semibold uppercase tracking-wide text-bo-primary">{don.soDonHang}</span>
+                        {SAN.maKenh === "LAZADA_SANDBOX" || don.soDonHang?.startsWith("LZD-SBX-") ? (
+                          <span title="Đơn thử nghiệm Sandbox" className="rounded border border-amber-200 bg-amber-50 px-1 py-0.5 text-[10px] font-semibold text-amber-800">Sandbox</span>
+                        ) : null}
+                      </span>
                       <span className="flex items-center gap-1.5">
                         {laDonGiuChoLau(don) ? (
                           <span
@@ -592,7 +597,12 @@ export default function ChannelOrdersPage() {
                   >
                     <td className="px-3 py-3">
                       {/* Không gãy dòng ở dấu "-" của LZD-/TTS- */}
-                      <div className="whitespace-nowrap font-semibold uppercase tracking-wide text-bo-primary">{don.soDonHang}</div>
+                      <div className="flex items-center gap-2 whitespace-nowrap font-semibold uppercase tracking-wide text-bo-primary">
+                        <span>{don.soDonHang}</span>
+                        {SAN.maKenh === "LAZADA_SANDBOX" || don.soDonHang?.startsWith("LZD-SBX-") ? (
+                          <span title="Đơn thử nghiệm Sandbox" className="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">Sandbox</span>
+                        ) : null}
+                      </div>
                       {/* Số đơn LZD-/TTS- đã ghép đúng mã đơn sàn thì không ghi lại lần nữa */}
                       {don.maDonHangKenh && !(uyQuyen && String(don.soDonHang ?? "").includes(don.maDonHangKenh)) ? (
                         <div className="text-xs tabular-nums text-bo-muted">#{don.maDonHangKenh} trên {SAN.ten}</div>

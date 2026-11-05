@@ -314,6 +314,7 @@ function ManPhieuXuatKho({ id }) {
   const laLazada = Boolean(
     phieu.donBanHang?.soDonHang?.startsWith("LZD-") ||
     phieu.donBanHang?.kenhBanHang?.maKenh === "LAZADA" ||
+    phieu.donBanHang?.kenhBanHang?.maKenh === "LAZADA_SANDBOX" ||
     phieu.donBanHang?.kenhBanHang?.tenKenh?.toLowerCase()?.includes("lazada") ||
     phieu.donBanHang?.maDonHangKenh?.startsWith("LZD-")
   );
