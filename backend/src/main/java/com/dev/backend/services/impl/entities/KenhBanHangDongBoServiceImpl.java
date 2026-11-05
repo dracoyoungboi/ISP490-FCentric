@@ -15,6 +15,7 @@ import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
 import com.dev.backend.entities.AnhBienThe;
 import com.dev.backend.entities.AnhQuanAo;
 import com.dev.backend.entities.BienTheSanPham;
+import com.dev.backend.entities.DonBanHang;
 import com.dev.backend.entities.KenhBanHang;
 import com.dev.backend.entities.LichSuThayDoi;
 import com.dev.backend.entities.NguoiDung;
@@ -3424,11 +3425,11 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         if (maSku == null || maSku.isBlank()) {
             return KetQuaGuiTon.loiSku("Biến thể chưa có mã SKU");
         }
-        String maKenh = (dong.getKenhBanHang() != null && dong.getKenhBanHang().getMaKenh() != null)
+        String maKenhBan = (dong.getKenhBanHang() != null && dong.getKenhBanHang().getMaKenh() != null)
                 ? dong.getKenhBanHang().getMaKenh() : "LAZADA";
-        String appKey = kenhBanHangService.getLazadaAppKey(maKenh);
-        String appSecret = kenhBanHangService.getDecryptedLazadaAppSecret(maKenh);
-        String token = kenhBanHangService.getDecryptedLazadaAccessToken(maKenh);
+        String appKey = kenhBanHangService.getLazadaAppKey(maKenhBan);
+        String appSecret = kenhBanHangService.getDecryptedLazadaAppSecret(maKenhBan);
+        String token = kenhBanHangService.getDecryptedLazadaAccessToken(maKenhBan);
         if (appKey == null || appSecret == null || token == null) {
             return KetQuaGuiTon.loiCaKenh("Chưa có cấu hình hoặc Access Token cho kênh Lazada");
         }
