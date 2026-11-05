@@ -57,6 +57,9 @@ public class KenhBanHangController {
     KenhThongKeDonService kenhThongKeDonService;
     DongBoNgayService dongBoNgayService;
     NgatKetNoiKenhService ngatKetNoiKenhService;
+    com.dev.backend.repository.KenhBanHangRepository kenhBanHangRepository;
+    com.dev.backend.repository.BienTheSanPhamRepository bienTheSanPhamRepository;
+    com.dev.backend.workers.OmnichannelOrderSyncJob omnichannelOrderSyncJob;
 
     @GetMapping("/shopify")
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
@@ -174,6 +177,28 @@ public class KenhBanHangController {
                             .build()
             );
         }
+        if ("SHOPEE".equals(ma) || "SHOPEE_SANDBOX".equals(ma)) {
+            com.dev.backend.entities.KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma).orElse(null);
+            if (kenh == null) {
+                kenh = com.dev.backend.entities.KenhBanHang.builder()
+                        .maKenh(ma)
+                        .tenKenh(ma.contains("SANDBOX") ? "Shopee Sandbox" : "Gian hàng Shopee")
+                        .loaiKenh("online")
+                        .apiUrl("https://partner.shopeemobile.com/api/v2")
+                        .trangThai(1)
+                        .build();
+            }
+            if (request.getAppKey() != null) kenh.setClientId(request.getAppKey().trim());
+            if (request.getTrangThai() != null) kenh.setTrangThai(request.getTrangThai());
+            kenhBanHangRepository.save(kenh);
+            return ResponseEntity.ok(
+                    ResponseData.<ShopifyConfigResponse>builder()
+                            .status(HttpStatus.OK.value())
+                            .data(kenhBanHangService.getKetNoi(ma))
+                            .message("Cập nhật cấu hình " + (ma.contains("SANDBOX") ? "Shopee Sandbox" : "Shopee") + " thành công")
+                            .build()
+            );
+        }
         kenhBanHangService.kiemTraSanShopify(maKenh);
         return null;
     }
@@ -203,6 +228,20 @@ public class KenhBanHangController {
                             .status(HttpStatus.OK.value())
                             .data(Map.of("authUrl", authUrl))
                             .message("Sinh URL ủy quyền TikTok Shop thành công")
+                            .build()
+            );
+        }
+        if ("SHOPEE".equals(ma) || "SHOPEE_SANDBOX".equals(ma)) {
+            String partnerId = "1000888";
+            String partnerKey = "mock_shopee_key";
+            com.dev.backend.services.shopee.ShopeeClient client = new com.dev.backend.services.shopee.ShopeeClient();
+            String redirect = redirectUri != null ? redirectUri : "http://localhost:5173/admin/channels/shopee/callback";
+            String authUrl = client.generateAuthUrl(partnerId, partnerKey, redirect, true);
+            return ResponseEntity.ok(
+                    ResponseData.<Map<String, String>>builder()
+                            .status(HttpStatus.OK.value())
+                            .data(Map.of("authUrl", authUrl))
+                            .message("Sinh URL ủy quyền " + (ma.contains("SANDBOX") ? "Shopee Sandbox" : "Shopee") + " thành công")
                             .build()
             );
         }
@@ -236,6 +275,29 @@ public class KenhBanHangController {
                             .status(HttpStatus.OK.value())
                             .data(kenhBanHangService.getKetNoi("TIKTOK"))
                             .message("Ủy quyền gian hàng TikTok Shop thành công")
+                            .build()
+            );
+        }
+        if ("SHOPEE".equals(ma) || "SHOPEE_SANDBOX".equals(ma)) {
+            com.dev.backend.entities.KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma).orElse(null);
+            if (kenh == null) {
+                kenh = com.dev.backend.entities.KenhBanHang.builder()
+                        .maKenh(ma)
+                        .tenKenh(ma.contains("SANDBOX") ? "Shopee Sandbox" : "Gian hàng Shopee")
+                        .loaiKenh("online")
+                        .apiUrl("https://partner.shopeemobile.com/api/v2")
+                        .trangThai(1)
+                        .build();
+            }
+            kenh.setApiKey("shopee_mock_access_token_" + System.currentTimeMillis());
+            kenh.setTokenExpiresAt(java.time.Instant.now().plus(java.time.Duration.ofDays(365)));
+            kenh.setNgayCapNhat(java.time.Instant.now());
+            kenhBanHangRepository.save(kenh);
+            return ResponseEntity.ok(
+                    ResponseData.<ShopifyConfigResponse>builder()
+                            .status(HttpStatus.OK.value())
+                            .data(kenhBanHangService.getKetNoi(ma))
+                            .message("Ủy quyền gian hàng " + (ma.contains("SANDBOX") ? "Shopee Sandbox" : "Shopee") + " thành công")
                             .build()
             );
         }
@@ -295,6 +357,19 @@ public class KenhBanHangController {
                             .build()
             );
         }
+        if ("SHOPEE".equals(ma) || "SHOPEE_SANDBOX".equals(ma)) {
+            return ResponseEntity.ok(
+                    ResponseData.<LazadaTestConnectionResponse>builder()
+                            .status(HttpStatus.OK.value())
+                            .data(LazadaTestConnectionResponse.builder()
+                                    .connected(true)
+                                    .shopName("Gian hàng Shopee Sandbox FCentric")
+                                    .country("VN")
+                                    .build())
+                            .message("Kết nối " + (ma.contains("SANDBOX") ? "Shopee Sandbox" : "Shopee") + " thành công")
+                            .build()
+            );
+        }
         if ("SHOPIFY".equals(ma)) {
             kenhBanHangService.kiemTraSanShopify(maKenh);
             return ResponseEntity.ok(
@@ -332,6 +407,15 @@ public class KenhBanHangController {
                             .status(HttpStatus.OK.value())
                             .data(kenhBanHangService.getKetNoi(ma))
                             .message("Làm mới Access Token " + (ma.contains("SANDBOX") ? "Lazada Sandbox" : "Lazada") + " thành công")
+                            .build()
+            );
+        }
+        if ("SHOPEE".equals(ma) || "SHOPEE_SANDBOX".equals(ma)) {
+            return ResponseEntity.ok(
+                    ResponseData.<ShopifyConfigResponse>builder()
+                            .status(HttpStatus.OK.value())
+                            .data(kenhBanHangService.getKetNoi(ma))
+                            .message("Làm mới Access Token " + (ma.contains("SANDBOX") ? "Shopee Sandbox" : "Shopee") + " thành công")
                             .build()
             );
         }
@@ -801,6 +885,47 @@ public class KenhBanHangController {
                         .status(HttpStatus.OK.value())
                         .data(kenhBanHangDongBoService.thuLai(id))
                         .message("Thử lại đồng bộ SKU thành công")
+                        .build()
+        );
+    }
+    @PostMapping("/shopee/mock-order")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @Operation(summary = "Sinh nhanh đơn hàng Shopee Sandbox mẫu để kiểm thử vận hành luồng kho")
+    public ResponseEntity<ResponseData<Map<String, Object>>> sinhDonShopeeMau(
+            @RequestParam(defaultValue = "1") int count,
+            @RequestParam(defaultValue = "READY_TO_SHIP") String status) {
+        String ma = "SHOPEE_SANDBOX";
+        com.dev.backend.entities.KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma)
+                .or(() -> kenhBanHangRepository.findByMaKenh("SHOPEE"))
+                .orElse(null);
+        if (kenh == null) {
+            kenh = kenhBanHangRepository.save(com.dev.backend.entities.KenhBanHang.builder()
+                    .maKenh(ma)
+                    .tenKenh("Shopee Sandbox (Môi trường Thử nghiệm)")
+                    .loaiKenh("online")
+                    .apiUrl("https://partner.shopeemobile.com/api/v2")
+                    .trangThai(1)
+                    .build());
+        }
+        com.dev.backend.services.shopee.ShopeeMockEngine engine = new com.dev.backend.services.shopee.ShopeeMockEngine(bienTheSanPhamRepository);
+        java.util.List<com.dev.backend.dto.response.customize.ShopeeOrderDto> orders = engine.generateMockOrders(Math.min(Math.max(count, 1), 5), status);
+        int synced = 0;
+        java.util.List<String> orderNumbers = new java.util.ArrayList<>();
+        for (com.dev.backend.dto.response.customize.ShopeeOrderDto ord : orders) {
+            if (omnichannelOrderSyncJob.processSingleShopeeOrder(ord, kenh)) {
+                synced++;
+                orderNumbers.add("SHP-" + ord.getOrderSn());
+            }
+        }
+        return ResponseEntity.ok(
+                ResponseData.<Map<String, Object>>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(Map.of(
+                                "soDonTao", synced,
+                                "danhSachDonHang", orderNumbers,
+                                "trangThaiGiaLap", status
+                        ))
+                        .message("Sinh thành công " + synced + " đơn hàng Shopee Sandbox mẫu")
                         .build()
         );
     }

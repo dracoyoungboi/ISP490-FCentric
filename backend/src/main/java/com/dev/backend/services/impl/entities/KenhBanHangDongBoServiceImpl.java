@@ -2504,6 +2504,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         int synced = 0;
         if (OmnichannelOrderSyncJob.isLazada(kenh.getMaKenh())) {
             synced = omnichannelOrderSyncJob.syncLazadaOrders(kenh, tu, den);
+        } else if (OmnichannelOrderSyncJob.isShopee(kenh.getMaKenh())) {
+            synced = omnichannelOrderSyncJob.syncShopeeOrders(kenh, tu, den);
         } else if (OmnichannelOrderSyncJob.MA_KENH_TIKTOK.equalsIgnoreCase(kenh.getMaKenh()) || "TIKTOK".equalsIgnoreCase(kenh.getMaKenh())) {
             synced = omnichannelOrderSyncJob.syncTikTokOrders(kenh, tu, den);
         } else {
