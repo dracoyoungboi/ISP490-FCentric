@@ -578,11 +578,12 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                     .orElseThrow(() -> new CommonException("Không tìm thấy kho xuất với ID: " + khoId, HttpStatus.NOT_FOUND, null));
         } else if (don.getKhoXuat() != null) {
             khoChon = don.getKhoXuat();
-        } else if (don.getKenhBanHang() != null && OmnichannelOrderSyncJob.isLazada(don.getKenhBanHang().getMaKenh())) {
+        } else if (don.getKenhBanHang() != null && (OmnichannelOrderSyncJob.isLazada(don.getKenhBanHang().getMaKenh())
+                || OmnichannelOrderSyncJob.isShopee(don.getKenhBanHang().getMaKenh()))) {
             khoChon = khoRepository.findByTrangThai(1).stream()
                     .filter(KhoService::laKhoTong)
                     .findFirst()
-                    .orElseThrow(() -> new CommonException("Không tìm thấy Kho Tổng đang hoạt động để gửi đơn Lazada", HttpStatus.BAD_REQUEST, null));
+                    .orElseThrow(() -> new CommonException("Không tìm thấy Kho Tổng đang hoạt động để gửi đơn sàn", HttpStatus.BAD_REQUEST, null));
         } else {
             Integer contextKhoId = SecurityContextHolder.getKhoId();
             khoChon = contextKhoId != null ? khoRepository.findById(contextKhoId).orElse(null) : null;
@@ -592,9 +593,10 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         }
         // Cùng quy tắc lúc tạo đơn: kho đang hoạt động và không phải Kho Trung Chuyển (kho ảo)
         KhoService.kiemTraKhoGiaoDich(khoChon, "Kho xuất hàng");
-        if (don.getKenhBanHang() != null && OmnichannelOrderSyncJob.isLazada(don.getKenhBanHang().getMaKenh())) {
+        if (don.getKenhBanHang() != null && (OmnichannelOrderSyncJob.isLazada(don.getKenhBanHang().getMaKenh())
+                || OmnichannelOrderSyncJob.isShopee(don.getKenhBanHang().getMaKenh()))) {
             if (!KhoService.laKhoTong(khoChon)) {
-                throw new CommonException("Đơn hàng Lazada theo yêu cầu nghiệp vụ chỉ được phép xuất từ Kho Tổng", HttpStatus.BAD_REQUEST, null);
+                throw new CommonException("Đơn hàng sàn thương mại điện tử theo yêu cầu nghiệp vụ chỉ được phép xuất từ Kho Tổng", HttpStatus.BAD_REQUEST, null);
             }
         }
         don.setKhoXuat(khoChon);
@@ -1451,6 +1453,8 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
             }
 
             return new VanDonSanDto(decodedBytes, mimeType, "awb-" + don.getSoDonHang());
+        } else if (OmnichannelOrderSyncJob.isShopee(maKenh)) {
+            return taoVanDonShopeeHtml(don, don.getMaDonHangKenh());
         }
 
         throw new CommonException("Kênh bán hàng " + maKenh + " chưa hỗ trợ in vận đơn trực tiếp từ sàn", HttpStatus.BAD_REQUEST, null);
@@ -1615,6 +1619,173 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                 html.getBytes(StandardCharsets.UTF_8),
                 "text/html; charset=utf-8",
                 "van-don-lazada-" + don.getSoDonHang() + ".html"
+        );
+    }
+
+    /**
+     * Tạo tem vận đơn nhiệt khổ A6 chuẩn Shopee Express (SPX VN) có mã vạch barcode Code 128 cho đơn hàng Shopee.
+     */
+    private VanDonSanDto taoVanDonShopeeHtml(DonBanHang don, String orderId) {
+        String trackingCode = "SPXVN" + (orderId != null ? orderId : don.getSoDonHang());
+        String carrier = "Shopee Xpress (SPX)";
+        if (don.getGhiChu() != null && don.getGhiChu().contains("[VẬN ĐƠN:")) {
+            try {
+                int start = don.getGhiChu().indexOf("[VẬN ĐƠN:") + 9;
+                int end = don.getGhiChu().indexOf("]", start);
+                if (end > start) {
+                    trackingCode = don.getGhiChu().substring(start, end).trim();
+                }
+            } catch (Exception ignored) {}
+        }
+        if (don.getGhiChu() != null && don.getGhiChu().contains("[ĐƠN VỊ:")) {
+            try {
+                int start = don.getGhiChu().indexOf("[ĐƠN VỊ:") + 8;
+                int end = don.getGhiChu().indexOf("]", start);
+                if (end > start) {
+                    carrier = don.getGhiChu().substring(start, end).trim();
+                }
+            } catch (Exception ignored) {}
+        }
+
+        String recipientName = "Khách hàng sàn Shopee";
+        String recipientPhone = "09***888";
+        String recipientAddress = "Theo bưu kiện giao vận sàn Shopee";
+        if (don.getKhachHang() != null) {
+            if (don.getKhachHang().getTenKhachHang() != null && !don.getKhachHang().getTenKhachHang().isBlank()) {
+                recipientName = don.getKhachHang().getTenKhachHang();
+            }
+            if (don.getKhachHang().getSoDienThoai() != null && !don.getKhachHang().getSoDienThoai().isBlank()) {
+                recipientPhone = don.getKhachHang().getSoDienThoai();
+            }
+            if (don.getKhachHang().getDiaChi() != null && !don.getKhachHang().getDiaChi().isBlank()) {
+                recipientAddress = don.getKhachHang().getDiaChi();
+            }
+        }
+        if (don.getDiaChiGiaoHang() != null && !don.getDiaChiGiaoHang().isBlank()) {
+            recipientAddress = don.getDiaChiGiaoHang();
+        }
+
+        if (recipientPhone.length() >= 7 && !recipientPhone.contains("***")) {
+            recipientPhone = recipientPhone.substring(0, 2) + "***" + recipientPhone.substring(recipientPhone.length() - 3);
+        }
+
+        String trackingBarcodeSvg = BarcodeHelper.generateCode128Svg(trackingCode, 48);
+        String orderBarcodeSvg = BarcodeHelper.generateCode128Svg(orderId != null ? orderId : don.getSoDonHang(), 32);
+
+        StringBuilder itemsRows = new StringBuilder();
+        int totalQty = 0;
+        if (don.getChiTietDonBanHangs() != null) {
+            for (ChiTietDonBanHang ct : don.getChiTietDonBanHangs()) {
+                BienTheSanPham bt = ct.getBienTheSanPham();
+                String spName = (bt != null && bt.getSanPham() != null) ? bt.getSanPham().getTenSanPham() : "Sản phẩm";
+                String sku = bt != null ? bt.getMaSku() : "";
+                int qty = ct.getSoLuongDat() != null ? ct.getSoLuongDat().intValue() : 1;
+                totalQty += qty;
+                itemsRows.append("<tr>")
+                        .append("<td style=\"border:1px solid #ccc;padding:4px 6px;\">").append(spName).append("<br/><small style=\"color:#666;\">SKU: ").append(sku).append("</small></td>")
+                        .append("<td style=\"border:1px solid #ccc;padding:4px 6px;text-align:center;font-weight:bold;\">").append(qty).append("</td>")
+                        .append("</tr>");
+            }
+        }
+
+        boolean isCod = "chua_thanh_toan".equalsIgnoreCase(don.getTrangThaiThanhToan());
+        String codText = isCod ? String.format("%,d ₫", don.getTongCong() != null ? don.getTongCong().longValue() : 0) : "0 ₫ (ĐÃ THANH TOÁN)";
+
+        String html = """
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="utf-8"/>
+                    <title>Vận đơn Shopee - %s</title>
+                    <style>
+                        @page { size: 100mm 150mm; margin: 3mm; }
+                        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; margin: 0; padding: 4mm; color: #111; font-size: 11px; line-height: 1.3; }
+                        .thermal-card { border: 2px solid #000; padding: 6px; height: calc(100%% - 16px); box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; }
+                        .header-row { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #000; padding-bottom: 4px; margin-bottom: 6px; }
+                        .logo-text { font-size: 20px; font-weight: 900; letter-spacing: -0.5px; color: #ee4d2d; }
+                        .carrier-tag { font-size: 12px; font-weight: bold; background: #ee4d2d; color: #fff; padding: 3px 8px; border-radius: 3px; }
+                        .sorting-code { font-size: 20px; font-weight: 900; text-align: center; border: 2px dashed #000; padding: 5px; margin-bottom: 6px; letter-spacing: 1px; background: #fafafa; }
+                        .barcode-box { text-align: center; margin: 4px 0 6px 0; border-bottom: 1px dashed #000; padding-bottom: 6px; }
+                        .barcode-text { font-family: monospace; font-size: 14px; font-weight: bold; margin-top: 4px; letter-spacing: 1.5px; }
+                        .info-section { margin-bottom: 6px; font-size: 11px; }
+                        .info-title { font-weight: bold; text-transform: uppercase; font-size: 10px; color: #555; margin-bottom: 2px; }
+                        .items-table { width: 100%%; border-collapse: collapse; margin-top: 4px; font-size: 10px; }
+                        .cod-box { border: 2px solid #000; padding: 6px 8px; margin: 6px 0; display: flex; justify-content: space-between; align-items: center; background: #fdfdfd; }
+                        .footer { border-top: 1px dashed #000; padding-top: 4px; font-size: 9px; color: #666; text-align: center; }
+                    </style>
+                </head>
+                <body>
+                    <div class="thermal-card">
+                        <div>
+                            <div class="header-row">
+                                <div class="logo-text">Shopee</div>
+                                <div class="carrier-tag">%s</div>
+                            </div>
+                            <div class="sorting-code">20-HAN-ĐĐ / ĐỐNG ĐA</div>
+                            <div class="barcode-box">
+                                %s
+                                <div class="barcode-text">%s</div>
+                                <div style="font-size:10px;color:#555;margin-top:2px;">Mã đơn: %s</div>
+                            </div>
+                            <div class="barcode-box" style="padding-bottom:4px;margin-bottom:4px;">
+                                %s
+                            </div>
+                            <div class="cod-box">
+                                <span style="font-weight:bold;">TIỀN THU NGƯỜI NHẬN:</span>
+                                <span style="font-size:16px;font-weight:900;color:#ee4d2d;">%s</span>
+                            </div>
+                            <div class="info-section">
+                                <div class="info-title">NGƯỜI NHẬN:</div>
+                                <b>%s</b> - SĐT: <b>%s</b><br/>
+                                %s
+                            </div>
+                            <div class="info-section">
+                                <div class="info-title">DANH SÁCH SẢN PHẨM (TỔNG: %d):</div>
+                                <table class="items-table">
+                                    <thead>
+                                        <tr style="background:#eee;">
+                                            <th style="border:1px solid #ccc;padding:3px;text-align:left;">Sản phẩm</th>
+                                            <th style="border:1px solid #ccc;padding:3px;width:35px;text-align:center;">SL</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        %s
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="footer">
+                            <div>Shopee Express · Tem in nhiệt chuẩn A6 (100x150mm)</div>
+                            <div>Vui lòng quay video mở kiện hàng để hỗ trợ khiếu nại</div>
+                        </div>
+                    </div>
+                    <script>
+                        window.onload = function() {
+                            window.focus();
+                            window.print();
+                        };
+                    </script>
+                </body>
+                </html>
+                """.formatted(
+                orderId,
+                carrier,
+                trackingBarcodeSvg,
+                trackingCode,
+                orderId,
+                orderBarcodeSvg,
+                codText,
+                recipientName,
+                recipientPhone,
+                recipientAddress,
+                totalQty,
+                itemsRows.toString()
+        );
+
+        return new VanDonSanDto(
+                html.getBytes(StandardCharsets.UTF_8),
+                "text/html; charset=utf-8",
+                "van-don-shopee-" + don.getSoDonHang() + ".html"
         );
     }
 }

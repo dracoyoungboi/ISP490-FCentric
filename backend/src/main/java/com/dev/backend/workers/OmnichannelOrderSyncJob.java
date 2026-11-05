@@ -65,8 +65,15 @@ public class OmnichannelOrderSyncJob {
     public static final String MA_KENH_LAZADA_SANDBOX = "LAZADA_SANDBOX";
     public static final String MA_KENH_TIKTOK = "TIKTOK";
 
+    public static final String MA_KENH_SHOPEE = "SHOPEE";
+    public static final String MA_KENH_SHOPEE_SANDBOX = "SHOPEE_SANDBOX";
+
     public static boolean isLazada(String maKenh) {
         return MA_KENH_LAZADA.equalsIgnoreCase(maKenh) || MA_KENH_LAZADA_SANDBOX.equalsIgnoreCase(maKenh);
+    }
+
+    public static boolean isShopee(String maKenh) {
+        return MA_KENH_SHOPEE.equalsIgnoreCase(maKenh) || MA_KENH_SHOPEE_SANDBOX.equalsIgnoreCase(maKenh);
     }
 
     KenhBanHangRepository kenhBanHangRepository;
@@ -90,6 +97,12 @@ public class OmnichannelOrderSyncJob {
     @lombok.experimental.NonFinal
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     TikTokShopClient tiktokShopClient;
+    @lombok.experimental.NonFinal
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    com.dev.backend.services.shopee.ShopeeClient shopeeClient;
+    @lombok.experimental.NonFinal
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    com.dev.backend.services.shopee.ShopeeMockEngine shopeeMockEngine;
     /** Tiêm kiểu @Lazy vì KenhBanHangDongBoService nhận job này qua constructor, tiêm thẳng thì Spring báo vòng phụ thuộc khi khởi động. */
     @lombok.experimental.NonFinal
     @org.springframework.beans.factory.annotation.Autowired(required = false)
@@ -223,6 +236,12 @@ public class OmnichannelOrderSyncJob {
                     continue;
                 }
                 syncTikTokOrders(kenh, intervalMins);
+            } else if (isShopee(kenh.getMaKenh())) {
+                if (!KenhCauHinhDongBo.tuDongLayDon(dieuHanhHeThongService, kenh.getMaKenh())) {
+                    log.info("[JOB-01] Kênh {} đang tắt tự động lấy đơn, bỏ qua", kenh.getMaKenh());
+                    continue;
+                }
+                syncShopeeOrders(kenh, intervalMins);
             }
         }
     }
@@ -1451,6 +1470,207 @@ public class OmnichannelOrderSyncJob {
                 parts.add(trimmed);
             }
         }
+    }
+
+    public int syncShopeeOrders(KenhBanHang kenh, int intervalMins) {
+        int bufferMinutes = Math.max(intervalMins + 5, 10);
+        return syncShopeeOrders(kenh, Instant.now().minus(Duration.ofMinutes(bufferMinutes)), null);
+    }
+
+    public int syncShopeeOrders(KenhBanHang kenh, Instant tuNgay, Instant denNgay) {
+        return syncMockShopeeOrders(kenh);
+    }
+
+    public int syncMockShopeeOrders(KenhBanHang kenh) {
+        int synced = 0;
+        try {
+            com.dev.backend.services.shopee.ShopeeMockEngine engine = shopeeMockEngine != null
+                    ? shopeeMockEngine : new com.dev.backend.services.shopee.ShopeeMockEngine(bienTheSanPhamRepository);
+            List<com.dev.backend.dto.response.customize.ShopeeOrderDto> mockOrders = engine.generateMockOrders(2, "READY_TO_SHIP");
+            if (mockOrders != null && !mockOrders.isEmpty()) {
+                batDauLuot();
+                try {
+                    for (com.dev.backend.dto.response.customize.ShopeeOrderDto order : mockOrders) {
+                        boolean ok = processSingleShopeeOrder(order, kenh);
+                        if (ok) synced++;
+                    }
+                } finally {
+                    ketThucLuot(kenh, synced);
+                }
+            }
+            lanLayDonCuoi.put(kenh.getId(), Instant.now());
+            log.info("[JOB-01] Quét đơn Shopee hoàn tất: {} đơn mới", synced);
+        } catch (Exception ex) {
+            log.error("[JOB-01] Lỗi khi quét đơn hàng từ Shopee: {}", ex.getMessage());
+        }
+        return synced;
+    }
+
+    public boolean processSingleShopeeOrder(com.dev.backend.dto.response.customize.ShopeeOrderDto order, KenhBanHang kenh) {
+        if (order == null || order.getOrderSn() == null) return false;
+        String orderId = order.getOrderSn().trim();
+        String soDonHang = "SHP-" + orderId;
+
+        Optional<DonBanHang> existingOpt = donBanHangRepository.findBySoDonHang(soDonHang);
+        if (existingOpt.isPresent()) {
+            DonBanHang existing = existingOpt.get();
+            if ("CANCELLED".equalsIgnoreCase(order.getOrderStatus())) {
+                if (existing.getTrangThai() != null && existing.getTrangThai() != ITrangThaiDonBanHang.DA_HUY) {
+                    try {
+                        String lyDoHuy = order.getCancelReason() != null && !order.getCancelReason().isBlank()
+                                ? order.getCancelReason() : "Hủy từ sàn Shopee";
+                        donBanHangService.huyDonTuSan(existing.getId(), lyDoHuy);
+                        log.info("[JOB-01] Đơn {} đã bị hủy trên Shopee -> Cập nhật trạng thái FCentric = 4", soDonHang);
+                    } catch (Exception ex) {
+                        log.error("[JOB-01] Lỗi khi hủy đơn {} theo sàn Shopee: {}", soDonHang, ex.getMessage());
+                    }
+                }
+            } else if (order.getCancelReason() != null && !order.getCancelReason().isBlank()) {
+                String ghiChuCu = existing.getGhiChu() != null ? existing.getGhiChu() : "";
+                if (!ghiChuCu.contains("[KHÁCH YÊU CẦU HỦY]")) {
+                    String lyDo = order.getCancelReason();
+                    existing.setGhiChu("[KHÁCH YÊU CẦU HỦY] " + lyDo + " | " + ghiChuCu);
+                    existing.setNgayCapNhat(Instant.now());
+                    donBanHangRepository.save(existing);
+                    log.warn("[JOB-01] Đơn {} có cờ khách yêu cầu hủy từ Shopee: {}", soDonHang, lyDo);
+                    if (thongBaoXuatKhoService != null) {
+                        thongBaoXuatKhoService.khachYeuCauHuy(existing, kenh);
+                        if (existing.getKhoXuat() != null) thongBaoXuatKhoService.lamMoiDonChoXuat(existing.getKhoXuat().getId());
+                    }
+                }
+            }
+            return false;
+        }
+
+        com.dev.backend.dto.response.customize.ShopeeOrderDto.ShopeeRecipientAddressDto addr = order.getRecipientAddress();
+        String phone = addr != null && addr.getPhone() != null ? addr.getPhone().trim() : "";
+        KhachHang khachHang = resolveShopeeCustomer(order, addr, phone);
+
+        BigDecimal totalPrice = order.getTotalAmount() != null ? BigDecimal.valueOf(order.getTotalAmount()) : BigDecimal.ZERO;
+        BigDecimal shippingFee = order.getActualShippingFee() != null ? BigDecimal.valueOf(order.getActualShippingFee()) : BigDecimal.ZERO;
+        BigDecimal price = totalPrice.subtract(shippingFee).max(BigDecimal.ZERO);
+
+        String address = addr != null && addr.getFullAddress() != null ? addr.getFullAddress() : "";
+        List<Kho> khoHoatDong = khoRepository.findByTrangThai(1);
+        Kho defaultKho = khoHoatDong.stream().filter(KhoService::laKhoTong).findFirst()
+                .orElse(khoHoatDong.stream().filter(k -> !KhoService.laKhoAo(k)).findFirst().orElse(null));
+
+        Instant ngayDat = order.getCreateTime() != null ? Instant.ofEpochMilli(order.getCreateTime() * 1000L) : Instant.now();
+        int trangThai = mapShopeeOrderStatus(order.getOrderStatus());
+        String ttThanhToan = "CASH_ON_DELIVERY".equalsIgnoreCase(order.getPaymentMethod()) ? "chua_thanh_toan" : "da_thanh_toan";
+
+        boolean coYeuCauHuy = order.getCancelReason() != null && !order.getCancelReason().isBlank();
+        String ghiChu = coYeuCauHuy
+                ? "[KHÁCH YÊU CẦU HỦY] " + order.getCancelReason() + " | Đơn hàng đồng bộ từ Shopee #" + orderId
+                : "Đơn hàng đồng bộ tự động từ Shopee #" + orderId;
+
+        String carrier = order.getShippingCarrier() != null ? order.getShippingCarrier() : "Shopee Xpress";
+        String trackingNo = order.getTrackingNumber() != null ? order.getTrackingNumber() : ("SPXVN" + orderId);
+        String fullGhiChu = "[VẬN ĐƠN: " + trackingNo + "] [ĐƠN VỊ: " + carrier + "] | " + ghiChu;
+
+        DonBanHang don = DonBanHang.builder()
+                .soDonHang(soDonHang)
+                .maDonHangKenh(orderId)
+                .kenhBanHang(kenh)
+                .khachHang(khachHang)
+                .khoXuat(defaultKho)
+                .loaiChungTu("don_ban_hang")
+                .ngayDatHang(ngayDat)
+                .trangThai(trangThai)
+                .tienHang(price)
+                .phiVanChuyen(shippingFee)
+                .tongCong(totalPrice)
+                .trangThaiThanhToan(ttThanhToan)
+                .diaChiGiaoHang(address)
+                .ghiChu(fullGhiChu)
+                .build();
+
+        DonBanHang savedOrder = donBanHangRepository.save(don);
+        if (coYeuCauHuy && thongBaoXuatKhoService != null) thongBaoXuatKhoService.khachYeuCauHuy(savedOrder, kenh);
+        if (Integer.valueOf(0).equals(savedOrder.getTrangThai())) demDonNhapMoi(kenh);
+
+        Map<String, Integer> skuThieu = new LinkedHashMap<>();
+        if (order.getItemList() != null) {
+            for (com.dev.backend.dto.response.customize.ShopeeOrderDto.ShopeeOrderItemDto it : order.getItemList()) {
+                String modelSku = it.getModelSku() != null ? it.getModelSku().trim() : "";
+                String itemSku = it.getItemSku() != null ? it.getItemSku().trim() : "";
+
+                BienTheSanPham bt = null;
+                if (!modelSku.isBlank()) {
+                    bt = bienTheSanPhamRepository.findByMaSkuIgnoreCase(modelSku).orElse(null);
+                }
+                if (bt == null && !itemSku.isBlank()) {
+                    bt = bienTheSanPhamRepository.findByMaSkuIgnoreCase(itemSku).orElse(null);
+                }
+
+                BigDecimal itemPrice = it.getModelDiscountedPrice() != null
+                        ? BigDecimal.valueOf(it.getModelDiscountedPrice()) : BigDecimal.ZERO;
+                int qty = it.getModelQuantityPurchased() != null ? it.getModelQuantityPurchased() : 1;
+
+                if (bt != null) {
+                    ChiTietDonBanHang ct = ChiTietDonBanHang.builder()
+                            .donBanHang(savedOrder)
+                            .bienTheSanPham(bt)
+                            .soLuongDat(BigDecimal.valueOf(qty))
+                            .soLuongDaGiao(BigDecimal.ZERO)
+                            .donGia(itemPrice)
+                            .ghiChu(null)
+                            .build();
+                    chiTietDonBanHangRepository.save(ct);
+                } else {
+                    skuThieu.put(!modelSku.isBlank() ? modelSku : itemSku, qty);
+                }
+            }
+        }
+        ghiNhanDonThieuDong(kenh, savedOrder.getSoDonHang(), skuThieu, false);
+        return true;
+    }
+
+    private static int mapShopeeOrderStatus(String status) {
+        if (status == null) return ITrangThaiDonBanHang.CHO_NHAT_HANG;
+        return switch (status.toUpperCase()) {
+            case "UNPAID" -> ITrangThaiDonBanHang.NHAP;
+            case "READY_TO_SHIP" -> ITrangThaiDonBanHang.CHO_NHAT_HANG;
+            case "PROCESSED" -> ITrangThaiDonBanHang.CHO_DONG_GOI;
+            case "SHIPPED" -> ITrangThaiDonBanHang.DA_XUAT_TOAN_BO;
+            case "COMPLETED" -> ITrangThaiDonBanHang.HOAN_THANH;
+            case "CANCELLED", "IN_CANCEL" -> ITrangThaiDonBanHang.DA_HUY;
+            default -> ITrangThaiDonBanHang.CHO_NHAT_HANG;
+        };
+    }
+
+    private KhachHang resolveShopeeCustomer(com.dev.backend.dto.response.customize.ShopeeOrderDto order,
+                                           com.dev.backend.dto.response.customize.ShopeeOrderDto.ShopeeRecipientAddressDto addr,
+                                           String phone) {
+        String name = (addr != null && addr.getName() != null && !addr.getName().isBlank())
+                ? addr.getName().trim() : "Khách Shopee " + order.getOrderSn();
+        String fullAddress = (addr != null && addr.getFullAddress() != null) ? addr.getFullAddress().trim() : "";
+
+        if (phone != null && !phone.isBlank() && !phone.contains("*")) {
+            Optional<KhachHang> khOpt = khachHangRepository.findFirstBySoDienThoai(phone.trim());
+            if (khOpt.isPresent()) return khOpt.get();
+        }
+
+        String orderId = order.getOrderSn() != null ? order.getOrderSn().trim() : "";
+        String suffix = (phone != null && !phone.isBlank() && !phone.contains("*"))
+                ? phone.replaceAll("\\D", "") : orderId;
+        if (suffix.isBlank()) suffix = orderId;
+        String maKh = "KH-SHP-" + suffix;
+        if (maKh.length() > 30) maKh = maKh.substring(0, 30);
+
+        Optional<KhachHang> khByMa = khachHangRepository.findByMaKhachHang(maKh);
+        if (khByMa.isPresent()) return khByMa.get();
+
+        String finalPhone = (phone != null && !phone.isBlank()) ? phone : "0900000000";
+        KhachHang kh = KhachHang.builder()
+                .maKhachHang(maKh)
+                .tenKhachHang(name)
+                .soDienThoai(finalPhone)
+                .diaChi(fullAddress)
+                .loaiKhachHang("le")
+                .trangThai(1)
+                .build();
+        return khachHangRepository.save(kh);
     }
 
     private String extractDomainFromApiUrl(String apiUrl) {

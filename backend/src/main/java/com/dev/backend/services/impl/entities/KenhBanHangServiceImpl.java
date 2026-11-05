@@ -68,6 +68,8 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
     public static final String MA_KENH_LAZADA = "LAZADA";
     public static final String MA_KENH_LAZADA_SANDBOX = "LAZADA_SANDBOX";
     public static final String DEFAULT_LAZADA_API_URL = "https://api.lazada.vn/rest";
+    public static final String MA_KENH_SHOPEE = "SHOPEE";
+    public static final String MA_KENH_SHOPEE_SANDBOX = "SHOPEE_SANDBOX";
 
     /** Kiểu kết nối trả về giao diện: Shopify dán khóa, Lazada / TikTok Shop ủy quyền. */
     public static final String KIEU_KHOA = "khoa";
@@ -730,6 +732,55 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
             KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma).orElse(null);
             boolean isSandbox = MA_KENH_LAZADA_SANDBOX.equals(ma);
             String defaultTenKenh = isSandbox ? "Lazada Sandbox" : "Gian hàng Lazada";
+            if (kenh == null) {
+                return ShopifyConfigResponse.builder()
+                        .maKenh(ma)
+                        .tenKenh(defaultTenKenh)
+                        .loaiKenh("online")
+                        .kieuKetNoi(KIEU_UY_QUYEN)
+                        .trangThaiKetNoi(CHUA_KET_NOI)
+                        .trangThai(1)
+                        .build();
+            }
+            boolean hasSecret = kenh.getApiSecret() != null && !kenh.getApiSecret().isBlank();
+            boolean hasToken = kenh.getApiKey() != null && !kenh.getApiKey().isBlank();
+            boolean isExpired = hasToken && kenh.getTokenExpiresAt() != null && Instant.now().isAfter(kenh.getTokenExpiresAt());
+            String trangThaiKetNoi = CHUA_KET_NOI;
+            if (hasToken) {
+                trangThaiKetNoi = isExpired ? HET_HAN : (Integer.valueOf(1).equals(kenh.getTrangThai()) ? DANG_HOAT_DONG : "tam_dung");
+            }
+            Long soNgayCon = null;
+            if (kenh.getTokenExpiresAt() != null) {
+                long seconds = Duration.between(Instant.now(), kenh.getTokenExpiresAt()).getSeconds();
+                soNgayCon = Math.max(0L, seconds / 86400L);
+            }
+            String maskedToken = hasToken ? cheKhoa(kenh.getApiKey(), this::maskToken) : null;
+            return ShopifyConfigResponse.builder()
+                    .id(kenh.getId())
+                    .maKenh(ma)
+                    .tenKenh(kenh.getTenKenh() != null ? kenh.getTenKenh() : defaultTenKenh)
+                    .loaiKenh("online")
+                    .appKey(kenh.getClientId())
+                    .serviceId(kenh.getServiceId())
+                    .hasAppSecret(hasSecret)
+                    .hasAccessToken(hasToken)
+                    .accessTokenMasked(maskedToken)
+                    .tokenExpiresAt(kenh.getTokenExpiresAt())
+                    .hanUyQuyen(kenh.getTokenExpiresAt())
+                    .soNgayConUyQuyen(soNgayCon)
+                    .ngayUyQuyen(kenh.getNgayCapNhat())
+                    .tenGianHang(kenh.getTenKenh())
+                    .shopIdSan(kenh.getApiUrl())
+                    .trangThai(kenh.getTrangThai() != null ? kenh.getTrangThai() : 1)
+                    .kieuKetNoi(KIEU_UY_QUYEN)
+                    .trangThaiKetNoi(trangThaiKetNoi)
+                    .ngayCapNhat(kenh.getNgayCapNhat())
+                    .build();
+        }
+        if (MA_KENH_SHOPEE.equals(ma) || MA_KENH_SHOPEE_SANDBOX.equals(ma)) {
+            KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma).orElse(null);
+            boolean isSandbox = MA_KENH_SHOPEE_SANDBOX.equals(ma);
+            String defaultTenKenh = isSandbox ? "Shopee Sandbox" : "Gian hàng Shopee";
             if (kenh == null) {
                 return ShopifyConfigResponse.builder()
                         .maKenh(ma)
