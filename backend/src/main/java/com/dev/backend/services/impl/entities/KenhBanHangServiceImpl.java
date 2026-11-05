@@ -1919,4 +1919,335 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(MA_KENH_TIKTOK).orElse(null);
         return kenh != null ? kenh.getShopCipher() : null;
     }
+
+    // ── Shopee Open Platform Implementation ──
+
+    @Override
+    public com.dev.backend.dto.response.entities.ShopeeConfigResponse getShopeeConfig() {
+        return getShopeeConfig(MA_KENH_SHOPEE);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public com.dev.backend.dto.response.entities.ShopeeConfigResponse getShopeeConfig(String maKenh) {
+        String ma = (maKenh != null && !maKenh.isBlank()) ? maKenh.trim().toUpperCase() : MA_KENH_SHOPEE;
+        boolean isSandbox = MA_KENH_SHOPEE_SANDBOX.equals(ma);
+        String defaultTen = isSandbox ? "Shopee Sandbox (Môi trường Thử nghiệm)" : "Gian hàng Shopee";
+
+        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma).orElse(null);
+        if (kenh == null) {
+            return com.dev.backend.dto.response.entities.ShopeeConfigResponse.builder()
+                    .maKenh(ma)
+                    .tenKenh(defaultTen)
+                    .loaiKenh("online")
+                    .partnerId(null)
+                    .shopId(null)
+                    .hasPartnerKey(false)
+                    .hasAccessToken(false)
+                    .accessTokenMasked(null)
+                    .hasRefreshToken(false)
+                    .refreshTokenMasked(null)
+                    .tokenExpiresAt(null)
+                    .isTokenExpired(false)
+                    .secondsUntilExpiration(null)
+                    .trangThai(0)
+                    .isSandbox(isSandbox)
+                    .build();
+        }
+
+        boolean hasKey = kenh.getApiSecret() != null && !kenh.getApiSecret().isBlank();
+        boolean hasToken = kenh.getApiKey() != null && !kenh.getApiKey().isBlank();
+        String maskedToken = hasToken ? maskToken(paymentSecretCipher.decrypt(kenh.getApiKey())) : null;
+
+        boolean hasRefresh = kenh.getRefreshToken() != null && !kenh.getRefreshToken().isBlank();
+        String maskedRefresh = hasRefresh ? maskRefreshToken(paymentSecretCipher.decrypt(kenh.getRefreshToken())) : null;
+
+        boolean isExpired = false;
+        Long secondsUntilExpiration = null;
+        if (kenh.getTokenExpiresAt() != null) {
+            Instant now = Instant.now();
+            isExpired = now.isAfter(kenh.getTokenExpiresAt());
+            secondsUntilExpiration = java.time.Duration.between(now, kenh.getTokenExpiresAt()).getSeconds();
+        }
+
+        Long partnerId = null;
+        try {
+            if (kenh.getClientId() != null && !kenh.getClientId().isBlank()) {
+                partnerId = Long.parseLong(kenh.getClientId().trim());
+            }
+        } catch (Exception ignored) {}
+
+        Long shopId = null;
+        try {
+            if (kenh.getShopDomain() != null && !kenh.getShopDomain().isBlank()) {
+                shopId = Long.parseLong(kenh.getShopDomain().trim());
+            }
+        } catch (Exception ignored) {}
+
+        return com.dev.backend.dto.response.entities.ShopeeConfigResponse.builder()
+                .id(kenh.getId())
+                .maKenh(kenh.getMaKenh())
+                .tenKenh(kenh.getTenKenh())
+                .loaiKenh(kenh.getLoaiKenh())
+                .partnerId(partnerId)
+                .shopId(shopId)
+                .hasPartnerKey(hasKey)
+                .hasAccessToken(hasToken)
+                .accessTokenMasked(maskedToken)
+                .hasRefreshToken(hasRefresh)
+                .refreshTokenMasked(maskedRefresh)
+                .tokenExpiresAt(kenh.getTokenExpiresAt())
+                .isTokenExpired(isExpired)
+                .secondsUntilExpiration(secondsUntilExpiration)
+                .trangThai(kenh.getTrangThai() != null ? kenh.getTrangThai() : 0)
+                .isSandbox(isSandbox || (kenh.getApiUrl() != null && kenh.getApiUrl().contains("test-stable")))
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public com.dev.backend.dto.response.entities.ShopeeConfigResponse updateShopeeConfig(com.dev.backend.dto.request.ShopeeConfigUpdating request) {
+        return updateShopeeConfig(MA_KENH_SHOPEE, request);
+    }
+
+    @Override
+    @Transactional
+    public com.dev.backend.dto.response.entities.ShopeeConfigResponse updateShopeeConfig(String maKenh, com.dev.backend.dto.request.ShopeeConfigUpdating request) {
+        String ma = (maKenh != null && !maKenh.isBlank()) ? maKenh.trim().toUpperCase() : MA_KENH_SHOPEE;
+        boolean isSandbox = MA_KENH_SHOPEE_SANDBOX.equals(ma) || Boolean.TRUE.equals(request.getIsSandbox());
+
+        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma).orElseGet(() -> {
+            KenhBanHang newKenh = new KenhBanHang();
+            newKenh.setMaKenh(ma);
+            newKenh.setTenKenh(isSandbox ? "Shopee Sandbox (Môi trường Thử nghiệm)" : "Gian hàng Shopee");
+            newKenh.setLoaiKenh("online");
+            newKenh.setTrangThai(0);
+            return newKenh;
+        });
+
+        if (request.getPartnerId() != null) {
+            kenh.setClientId(String.valueOf(request.getPartnerId()));
+        }
+        if (request.getPartnerKey() != null && !request.getPartnerKey().isBlank()) {
+            kenh.setApiSecret(paymentSecretCipher.encrypt(request.getPartnerKey().trim()));
+        }
+        if (request.getShopId() != null) {
+            kenh.setShopDomain(String.valueOf(request.getShopId()));
+        }
+        if (request.getAccessToken() != null && !request.getAccessToken().isBlank()) {
+            kenh.setApiKey(paymentSecretCipher.encrypt(request.getAccessToken().trim()));
+        }
+        if (request.getRefreshToken() != null && !request.getRefreshToken().isBlank()) {
+            kenh.setRefreshToken(paymentSecretCipher.encrypt(request.getRefreshToken().trim()));
+        }
+        if (request.getTrangThai() != null) {
+            kenh.setTrangThai(request.getTrangThai());
+        }
+
+        String apiUrl = isSandbox ? "https://partner.test-stable.shopeemobile.com" : "https://partner.shopeemobile.com";
+        kenh.setApiUrl(apiUrl);
+
+        kenhBanHangRepository.save(kenh);
+        log.info("Cập nhật cấu hình kênh Shopee thành công: maKenh={}", ma);
+        return getShopeeConfig(ma);
+    }
+
+    @Override
+    public boolean testShopeeConnection(String maKenh) {
+        String ma = (maKenh != null && !maKenh.isBlank()) ? maKenh.trim().toUpperCase() : MA_KENH_SHOPEE;
+        Long partnerId = getShopeePartnerId(ma);
+        String partnerKey = getDecryptedShopeePartnerKey(ma);
+        String accessToken = getDecryptedShopeeAccessToken(ma);
+        Long shopId = getShopeeShopId(ma);
+
+        com.dev.backend.services.shopee.ShopeeClient client = new com.dev.backend.services.shopee.ShopeeClient(
+                partnerId != null ? partnerId : 0L,
+                partnerKey != null ? partnerKey : "",
+                shopId != null ? shopId : 0L,
+                accessToken != null ? accessToken : "",
+                MA_KENH_SHOPEE_SANDBOX.equals(ma)
+        );
+        try {
+            com.fasterxml.jackson.databind.JsonNode res = client.getShopInfo();
+            return res != null && res.path("error").asText("").isEmpty();
+        } catch (Exception e) {
+            log.error("Test Shopee connection failed: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    @Override
+    public String getShopeeAuthUrl(String redirectUri) {
+        return getShopeeAuthUrl(MA_KENH_SHOPEE, redirectUri);
+    }
+
+    @Override
+    public String getShopeeAuthUrl(String maKenh, String redirectUri) {
+        String ma = (maKenh != null && !maKenh.isBlank()) ? maKenh.trim().toUpperCase() : MA_KENH_SHOPEE;
+        Long partnerId = getShopeePartnerId(ma);
+        String partnerKey = getDecryptedShopeePartnerKey(ma);
+
+        com.dev.backend.services.shopee.ShopeeClient client = new com.dev.backend.services.shopee.ShopeeClient(
+                partnerId != null ? partnerId : 0L,
+                partnerKey != null ? partnerKey : "",
+                0L,
+                "",
+                MA_KENH_SHOPEE_SANDBOX.equals(ma)
+        );
+        return client.generateAuthUrl(redirectUri);
+    }
+
+    @Override
+    @Transactional
+    public com.dev.backend.dto.response.entities.ShopeeConfigResponse exchangeShopeeToken(String maKenh, String code, String shopIdStr) {
+        String ma = (maKenh != null && !maKenh.isBlank()) ? maKenh.trim().toUpperCase() : MA_KENH_SHOPEE;
+        Long partnerId = getShopeePartnerId(ma);
+        String partnerKey = getDecryptedShopeePartnerKey(ma);
+        Long shopId = null;
+        try {
+            if (shopIdStr != null && !shopIdStr.isBlank()) {
+                shopId = Long.parseLong(shopIdStr.trim());
+            }
+        } catch (Exception ignored) {}
+
+        com.dev.backend.services.shopee.ShopeeClient client = new com.dev.backend.services.shopee.ShopeeClient(
+                partnerId != null ? partnerId : 0L,
+                partnerKey != null ? partnerKey : "",
+                shopId != null ? shopId : 0L,
+                "",
+                MA_KENH_SHOPEE_SANDBOX.equals(ma)
+        );
+
+        com.fasterxml.jackson.databind.JsonNode tokenRes = client.getAccessToken(code, shopId != null ? shopId : 0L);
+        if (tokenRes == null || !tokenRes.path("error").asText("").isEmpty()) {
+            String err = tokenRes != null ? tokenRes.path("message").asText("Lỗi đổi token Shopee") : "Không nhận được phản hồi";
+            throw new CommonException(err, HttpStatus.BAD_REQUEST, null);
+        }
+
+        String accessToken = tokenRes.path("access_token").asText();
+        String refreshToken = tokenRes.path("refresh_token").asText();
+        long expireIn = tokenRes.path("expire_in").asLong(14400);
+
+        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma).orElseThrow(
+                () -> new CommonException("Không tìm thấy kênh " + ma, HttpStatus.NOT_FOUND, null)
+        );
+
+        kenh.setApiKey(paymentSecretCipher.encrypt(accessToken));
+        kenh.setRefreshToken(paymentSecretCipher.encrypt(refreshToken));
+        kenh.setTokenExpiresAt(Instant.now().plusSeconds(expireIn));
+        if (shopId != null) {
+            kenh.setShopDomain(String.valueOf(shopId));
+        }
+        kenh.setTrangThai(1);
+        kenhBanHangRepository.save(kenh);
+
+        return getShopeeConfig(ma);
+    }
+
+    @Override
+    @Transactional
+    public boolean refreshShopeeAccessToken(String maKenh) {
+        String ma = (maKenh != null && !maKenh.isBlank()) ? maKenh.trim().toUpperCase() : MA_KENH_SHOPEE;
+        Long partnerId = getShopeePartnerId(ma);
+        String partnerKey = getDecryptedShopeePartnerKey(ma);
+        Long shopId = getShopeeShopId(ma);
+
+        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma).orElse(null);
+        if (kenh == null || kenh.getRefreshToken() == null || kenh.getRefreshToken().isBlank()) {
+            return false;
+        }
+
+        String refreshToken = paymentSecretCipher.decrypt(kenh.getRefreshToken());
+        com.dev.backend.services.shopee.ShopeeClient client = new com.dev.backend.services.shopee.ShopeeClient(
+                partnerId != null ? partnerId : 0L,
+                partnerKey != null ? partnerKey : "",
+                shopId != null ? shopId : 0L,
+                "",
+                MA_KENH_SHOPEE_SANDBOX.equals(ma)
+        );
+
+        com.fasterxml.jackson.databind.JsonNode res = client.refreshAccessToken(refreshToken, shopId != null ? shopId : 0L);
+        if (res != null && res.path("error").asText("").isEmpty()) {
+            String newAccess = res.path("access_token").asText();
+            String newRefresh = res.path("refresh_token").asText();
+            long expireIn = res.path("expire_in").asLong(14400);
+
+            kenh.setApiKey(paymentSecretCipher.encrypt(newAccess));
+            kenh.setRefreshToken(paymentSecretCipher.encrypt(newRefresh));
+            kenh.setTokenExpiresAt(Instant.now().plusSeconds(expireIn));
+            kenhBanHangRepository.save(kenh);
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    @Transactional
+    public void xoaKhoaShopee(String maKenh) {
+        String ma = (maKenh != null && !maKenh.isBlank()) ? maKenh.trim().toUpperCase() : MA_KENH_SHOPEE;
+        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma).orElse(null);
+        if (kenh != null) {
+            kenh.setApiKey(null);
+            kenh.setRefreshToken(null);
+            kenh.setTokenExpiresAt(null);
+            kenh.setTrangThai(0);
+            kenhBanHangRepository.save(kenh);
+            log.info("Đã xóa khóa và ngắt kết nối kênh Shopee: {}", ma);
+        }
+    }
+
+    @Override
+    public Long getShopeePartnerId(String maKenh) {
+        String ma = (maKenh != null && !maKenh.isBlank()) ? maKenh.trim().toUpperCase() : MA_KENH_SHOPEE;
+        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma).orElse(null);
+        if (kenh != null && kenh.getClientId() != null && !kenh.getClientId().isBlank()) {
+            try {
+                return Long.parseLong(kenh.getClientId().trim());
+            } catch (Exception ignored) {}
+        }
+        return null;
+    }
+
+    @Override
+    public String getDecryptedShopeePartnerKey(String maKenh) {
+        String ma = (maKenh != null && !maKenh.isBlank()) ? maKenh.trim().toUpperCase() : MA_KENH_SHOPEE;
+        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma).orElse(null);
+        if (kenh == null || kenh.getApiSecret() == null || kenh.getApiSecret().isBlank()) {
+            return null;
+        }
+        try {
+            return paymentSecretCipher.decrypt(kenh.getApiSecret());
+        } catch (Exception e) {
+            log.error("Lỗi giải mã Partner Key Shopee: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    @Override
+    public String getDecryptedShopeeAccessToken(String maKenh) {
+        String ma = (maKenh != null && !maKenh.isBlank()) ? maKenh.trim().toUpperCase() : MA_KENH_SHOPEE;
+        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma).orElse(null);
+        if (kenh == null || kenh.getApiKey() == null || kenh.getApiKey().isBlank()) {
+            return null;
+        }
+        try {
+            return paymentSecretCipher.decrypt(kenh.getApiKey());
+        } catch (Exception e) {
+            log.error("Lỗi giải mã Access Token Shopee: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    @Override
+    public Long getShopeeShopId(String maKenh) {
+        String ma = (maKenh != null && !maKenh.isBlank()) ? maKenh.trim().toUpperCase() : MA_KENH_SHOPEE;
+        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma).orElse(null);
+        if (kenh != null && kenh.getShopDomain() != null && !kenh.getShopDomain().isBlank()) {
+            try {
+                return Long.parseLong(kenh.getShopDomain().trim());
+            } catch (Exception ignored) {}
+        }
+        return null;
+    }
+
 }

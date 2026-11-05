@@ -198,5 +198,65 @@ public interface KenhBanHangService {
      * Lấy Shop Cipher của gian hàng TikTok Shop đã ủy quyền.
      */
     String getTikTokShopCipher();
-}
 
+    // ── Shopee Open Platform Integration (Hỗ trợ Production & Sandbox) ──
+
+    /**
+     * Lấy thông tin cấu hình kênh Shopee (Token và Secret đã được che mờ).
+     */
+    com.dev.backend.dto.response.entities.ShopeeConfigResponse getShopeeConfig();
+    com.dev.backend.dto.response.entities.ShopeeConfigResponse getShopeeConfig(String maKenh);
+
+    /**
+     * Cập nhật cấu hình Shopee (mã hóa AES-256-GCM Partner Key và Tokens).
+     */
+    com.dev.backend.dto.response.entities.ShopeeConfigResponse updateShopeeConfig(com.dev.backend.dto.request.ShopeeConfigUpdating request);
+    com.dev.backend.dto.response.entities.ShopeeConfigResponse updateShopeeConfig(String maKenh, com.dev.backend.dto.request.ShopeeConfigUpdating request);
+
+    /**
+     * Kiểm tra kết nối tới Shopee Open Platform API.
+     */
+    boolean testShopeeConnection(String maKenh);
+
+    /**
+     * Sinh URL ủy quyền OAuth2 của Shopee.
+     */
+    String getShopeeAuthUrl(String redirectUri);
+    String getShopeeAuthUrl(String maKenh, String redirectUri);
+
+    /**
+     * Đổi mã code OAuth2 lấy Access Token và Refresh Token từ Shopee.
+     */
+    com.dev.backend.dto.response.entities.ShopeeConfigResponse exchangeShopeeToken(String maKenh, String code, String shopId);
+
+    /**
+     * Làm mới Access Token Shopee bằng Refresh Token.
+     */
+    boolean refreshShopeeAccessToken(String maKenh);
+
+    /**
+     * Ngắt kết nối Shopee.
+     */
+    void xoaKhoaShopee(String maKenh);
+
+    /**
+     * Lấy Partner ID Shopee.
+     */
+    Long getShopeePartnerId(String maKenh);
+
+    /**
+     * Lấy Partner Key Shopee đã giải mã phục vụ ký số HMAC-SHA256.
+     */
+    String getDecryptedShopeePartnerKey(String maKenh);
+
+    /**
+     * Lấy Access Token Shopee đã giải mã.
+     */
+    String getDecryptedShopeeAccessToken(String maKenh);
+
+    /**
+     * Lấy Shop ID Shopee.
+     */
+    Long getShopeeShopId(String maKenh);
+
+}
