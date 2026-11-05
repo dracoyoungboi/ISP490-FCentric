@@ -3,18 +3,22 @@ import { Shirt } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, LE, MoreLink } from "./ui";
 import { formatSo, formatTienNgan } from "../tong-quan/tongQuanFormat";
+import { duongDanBaoCaoSanPham } from "@/pages/bao-cao/tinhBaoCaoSanPham";
+import { ngayCuaKy } from "./boLoc";
 
 /**
  * Bán chạy trong kỳ: 5 sản phẩm bán nhiều nhất (theo số lượng), mỗi dòng: hạng, tên, đã bán · còn khả dụng, doanh thu.
  * Còn khả dụng là 0 thì ghi đỏ "hết hàng" để thấy ngay mã bán chạy đang thiếu. Mã sản phẩm ở chú thích khi rê chuột.
+ * "Xem tất cả" mở Báo cáo sản phẩm đúng khoảng ngày và kho đang xem (doanh thu, thứ hạng tính như báo cáo).
  */
-export default function ProductsCard({ data, loading, error, onRetry, className }) {
+export default function ProductsCard({ data, ky, khoId, loading, error, onRetry, className }) {
   const rows = data?.sanPhamBanChay ?? [];
+  const xemTatCa = duongDanBaoCaoSanPham({ nhom: "co-ban", ...ngayCuaKy(ky, data?.thoiDiem), khoId });
   return (
     <Card
       className={className}
       title="Bán chạy"
-      right={<MoreLink to="/reports/products?nhom=co-ban">Xem tất cả</MoreLink>}
+      right={<MoreLink to={xemTatCa}>Xem tất cả</MoreLink>}
       loading={loading}
       error={error}
       onRetry={onRetry}

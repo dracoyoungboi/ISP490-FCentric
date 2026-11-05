@@ -64,6 +64,27 @@ export function khoangKy(ky, thoiDiem) {
   };
 }
 
+const ngayMay = (d) => `${d.getFullYear()}-${hai(d.getMonth() + 1)}-${hai(d.getDate())}`;
+
+/**
+ * Ngày đầu và ngày cuối (yyyy-MM-dd, tính cả hai đầu) của kỳ xem, cùng quy tắc với khoangKy: 7/30 ngày tới hết hôm qua,
+ * 12 tháng là 12 tháng trọn trước tháng này. Dùng để mở báo cáo đúng khoảng ngày đang xem ở Tổng quan.
+ */
+export function ngayCuaKy(ky, thoiDiem) {
+  const t = docNgay(thoiDiem) ?? new Date();
+  if (ky === "12_thang") {
+    return {
+      tuNgay: ngayMay(new Date(t.getFullYear(), t.getMonth() - 12, 1)),
+      denNgay: ngayMay(new Date(t.getFullYear(), t.getMonth(), 0)),
+    };
+  }
+  const n = ky === "7_ngay" ? 7 : 30;
+  return {
+    tuNgay: ngayMay(new Date(t.getFullYear(), t.getMonth(), t.getDate() - n)),
+    denNgay: ngayMay(new Date(t.getFullYear(), t.getMonth(), t.getDate() - 1)),
+  };
+}
+
 /** Danh sách kho kèm cờ Kho tổng (lấy từ khối tồn kho hoặc doanh thu theo kho). */
 export function dsKhoDayDu(data, dsKho) {
   const tong = new Set(
