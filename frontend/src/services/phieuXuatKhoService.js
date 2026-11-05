@@ -20,8 +20,9 @@ export const phieuXuatKhoService = {
         return res.data;
     },
     // Hủy phiếu (-> 4)
-    async cancel(id) {
-        return apiClient.put(`/api/v1/phieu-xuat-kho/${id}/cancel`);
+    // lyDo bắt buộc (tối đa 500 ký tự): máy chủ ghi vào lịch sử phiếu
+    async cancel(id, lyDo) {
+        return apiClient.put(`/api/v1/phieu-xuat-kho/${id}/cancel`, { lyDo });
     },
     async getAvailableLots(phieuXuatKhoId, bienTheSanPhamId) {
         return apiClient.get(`/api/v1/phieu-xuat-kho/${phieuXuatKhoId}/available-lots`,

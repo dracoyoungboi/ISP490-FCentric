@@ -782,7 +782,8 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
      * tránh nhặt / đóng gói / xuất hàng cho đơn đã hủy. Sàn hủy đơn đi đường {@link #huyDonTuSan}.
      */
     @Transactional(rollbackFor = Exception.class)
-    public void cancel(Integer id) {
+    public void cancel(Integer id, String lyDo) {
+        String lyDoHuy = com.dev.backend.dto.request.LyDoHuyRequest.batBuoc(lyDo);
         DonBanHang don = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy chứng từ"));
         kiemTraPhamVi(don);
@@ -823,10 +824,13 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         }
 
         don.setTrangThai(ITrangThaiDonBanHang.DA_HUY);
+        // Lý do hủy bắt buộc lưu vào ghi chú của chính đơn (lịch sử chứng từ không ghi vào nhật ký)
+        don.setGhiChu(noiGhiChu(don.getGhiChu(), "Lý do hủy: " + lyDoHuy));
         repository.save(don);
 
         // Thu hồi phiếu xuất chưa xuất (nếu có) liên kết với đơn này (SRS 6.3.2) → 4 (Đã hủy)
-        phieuXuatKhoService.huyPhieuXuatNhapTheoDon(don.getId(), "Tự động thu hồi do đơn " + don.getSoDonHang() + " bị hủy");
+        phieuXuatKhoService.huyPhieuXuatNhapTheoDon(don.getId(), "Tự động thu hồi do đơn " + don.getSoDonHang()
+                + " bị hủy: " + lyDoHuy);
 
         // Khôi phục báo giá gốc nếu có
         if (don.getSoDonHang() != null && don.getSoDonHang().startsWith("SO")) {
@@ -976,6 +980,11 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                         don.getKhoXuat() != null ? don.getKhoXuat().getId() : null));
             }
         }
+    }
+
+    /** Nối một đoạn vào ghi chú đang có của chứng từ (cách nhau " | "). */
+    static String noiGhiChu(String ghiChu, String them) {
+        return (ghiChu != null && !ghiChu.isBlank() ? ghiChu.trim() + " | " : "") + them;
     }
 
     /**
@@ -1212,6 +1221,9 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         DonBanHang don = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy báo giá"));
         kiemTraPhamVi(don);
+        if (reason != null && reason.trim().length() > 500) {
+            throw new CommonException("Lý do từ chối tối đa 500 ký tự.");
+        }
         if (!"bao_gia".equals(don.getLoaiChungTu())) {
             throw new RuntimeException("Chỉ áp dụng từ chối cho loại chứng từ báo giá");
         }

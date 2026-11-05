@@ -4,6 +4,7 @@ import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.customizeanotation.RequireAuth;
 import com.dev.backend.dto.request.BaseFilterRequest;
 import com.dev.backend.dto.request.DonBanHangCreating;
+import com.dev.backend.dto.request.LyDoHuyRequest;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.customize.BienTheSanPhamSelectDto;
 import com.dev.backend.dto.response.customize.DonBanHangDetailResponse;
@@ -161,9 +162,10 @@ public class DonBanHangController {
             rolesLogic = RequireAuth.LogicType.OR
     )
     public ResponseEntity<ResponseData<String>> cancel(
-            @PathVariable Integer id
+            @PathVariable Integer id,
+            @RequestBody(required = false) LyDoHuyRequest body
     ) {
-        donBanHangService.cancel(id);
+        donBanHangService.cancel(id, LyDoHuyRequest.batBuoc(body));
 
         return ResponseEntity.ok(
                 ResponseData.<String>builder()

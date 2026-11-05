@@ -7,6 +7,7 @@ import DauChungTu from "@/components/chung-tu/DauChungTu";
 import TienTrinhChungTu from "@/components/chung-tu/TienTrinhChungTu";
 import DongThongBao, { NutChu } from "@/components/chung-tu/DongThongBao";
 import HopXacNhanChungTu from "@/components/chung-tu/HopXacNhanChungTu";
+import OLyDo from "@/components/chung-tu/OLyDo";
 import { KhungDangTai, KhungLoiChungTu } from "@/components/chung-tu/KhungTaiChungTu";
 import useBangChungTu from "@/components/chung-tu/useBangChungTu";
 import { soVN } from "@/components/chung-tu/bangChungTu";
@@ -123,6 +124,8 @@ function ChiTietDonBanHang({ id }) {
   const [hop, setHop] = useState(""); // "" | "guiKho" | "huy" | "daGiao" | "hoanTra"
   const [dangChay, setDangChay] = useState(""); // thao tác đang gửi lên máy chủ
   const [loiHop, setLoiHop] = useState(null);
+  // Lý do hủy đơn (bắt buộc, lưu vào ghi chú của đơn)
+  const [lyDoHuy, setLyDoHuy] = useState("");
   // Hết thời hạn mà máy chủ có thể vẫn đang làm: khóa nút thao tác tới khi lời gọi gốc kết thúc (khiGocKetThuc)
   const [choGoc, setChoGoc] = useState(false);
   const huyChoGocRef = useRef(null);
@@ -193,6 +196,7 @@ function ChiTietDonBanHang({ id }) {
   // ── Thao tác ────────────────────────────────────────────────────────────
   const moHop = (loai) => {
     setLoiHop(null);
+    if (loai === "huy") setLyDoHuy("");
     setHop(loai);
   };
   const doiMoHop = (mo) => {
@@ -257,7 +261,7 @@ function ChiTietDonBanHang({ id }) {
     thucHien(
       "huy",
       async () => {
-        await donBanHangService.cancel(id);
+        await donBanHangService.cancel(id, lyDoHuy.trim());
         const moi = await donBanHangService.getDetail(id).catch(() => null);
         return moi?.data?.donBanHang ?? null;
       },
@@ -456,6 +460,8 @@ function ChiTietDonBanHang({ id }) {
         nhanXacNhan="Hủy đơn"
         kieu="nguyHiem"
         dangChay={dangChay === "huy"}
+        khoaXacNhan={!lyDoHuy.trim()}
+        lyDoKhoa="Nhập lý do hủy"
         loi={loiHop}
         onXacNhan={huyDon}
       >
@@ -464,6 +470,14 @@ function ChiTietDonBanHang({ id }) {
             <li key={cau}>{cau}</li>
           ))}
         </ul>
+        <OLyDo
+          giaTri={lyDoHuy}
+          onDoi={(giaTri) => {
+            setLyDoHuy(giaTri);
+            setLoiHop(null);
+          }}
+          disabled={dangChay === "huy"}
+        />
       </HopXacNhanChungTu>
       <HopXacNhanChungTu
         mo={hop === "daGiao"}
