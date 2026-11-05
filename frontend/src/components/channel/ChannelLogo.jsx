@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 const LOGO_FILES = {
   SHOPIFY: "/channel-logos/shopify-bag.svg",
   LAZADA: "/channel-logos/lazada.svg",
+  LAZADA_SANDBOX: "/channel-logos/lazada.svg",
   TIKTOK: "/channel-logos/tiktok-shop.svg",
   SHOPEE: "/channel-logos/shopee.svg",
 };
@@ -101,6 +102,10 @@ export function ShopifyMenuIcon({ className }) {
 
 export function LazadaMenuIcon({ className }) {
   return <MenuIconKenh maKenh="LAZADA" className={className} />;
+}
+
+export function LazadaSandboxMenuIcon({ className }) {
+  return <MenuIconKenh maKenh="LAZADA_SANDBOX" className={className} />;
 }
 
 export function TiktokMenuIcon({ className }) {
