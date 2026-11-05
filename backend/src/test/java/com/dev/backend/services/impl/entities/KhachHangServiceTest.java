@@ -51,6 +51,8 @@ class KhachHangServiceTest {
     void setUp() {
         KhachHangMapper mapper = Mappers.getMapper(KhachHangMapper.class);
         service = new KhachHangService(repository, mapper, entityManager, donBanHangRepository, dieuHanhHeThongService);
+        // save() của JPA không bao giờ trả null; create() đọc id bản đã lưu để ghi nhật ký
+        lenient().when(repository.save(any(KhachHang.class))).thenAnswer(inv -> inv.getArgument(0));
     }
 
     private KhachHang khachHang(int id, String ma, String ten, String sdt, String email) {

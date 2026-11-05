@@ -15,8 +15,8 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * JOB-04: dọn nhật ký quá 90 ngày theo đợt, KHÔNG xóa phiên bản mẫu in (cap_nhat_mau_in) và nhật ký bảo mật
- * (IHanhDong.KHONG_TU_DON).
+ * JOB-04: dọn nhật ký quá 90 ngày theo đợt, CHỈ xóa các hành động trong IHanhDong.DUOC_DON (quét mã, đồng bộ sàn);
+ * phiên bản mẫu in và nhật ký bảo mật được giữ.
  */
 class AuditLogCleanupJobTest {
 
@@ -45,16 +45,16 @@ class AuditLogCleanupJobTest {
         new AuditLogCleanupJob(jdbc).cleanUpOldAuditLogs();
 
         assertEquals(2, jdbc.sqls.size(), "đợt đầu đủ 5000 dòng thì xóa tiếp, đợt sau ít hơn thì dừng");
-        int n = IHanhDong.KHONG_TU_DON.size();
+        int n = IHanhDong.DUOC_DON.size();
         String dauHoi = String.join(", ", java.util.Collections.nCopies(n, "?"));
         assertEquals("DELETE FROM lich_su_thay_doi WHERE ngay_thuc_hien < ?"
-                + " AND (hanh_dong IS NULL OR hanh_dong NOT IN (" + dauHoi + ")) LIMIT ?", jdbc.sqls.get(1));
+                + " AND hanh_dong IN (" + dauHoi + ") LIMIT ?", jdbc.sqls.get(1));
 
         Object[] thamSo = jdbc.thamSos.get(1);
         assertEquals(n + 2, thamSo.length);
         long ngay = ChronoUnit.DAYS.between((Instant) thamSo[0], Instant.now());
         assertTrue(ngay >= 89 && ngay <= 90, String.valueOf(ngay));
-        assertEquals(IHanhDong.KHONG_TU_DON, Arrays.asList(Arrays.copyOfRange(thamSo, 1, n + 1)));
+        assertEquals(IHanhDong.DUOC_DON, Arrays.asList(Arrays.copyOfRange(thamSo, 1, n + 1)));
         assertEquals(5000, thamSo[n + 1]);
     }
 
@@ -64,11 +64,11 @@ class AuditLogCleanupJobTest {
                 IHanhDong.khoa_tai_khoan, IHanhDong.mo_khoa_tai_khoan, IHanhDong.doi_mat_khau, IHanhDong.dat_lai_mat_khau,
                 IHanhDong.cap_nhat_khoa_thanh_toan, IHanhDong.cap_nhat_phan_quyen, IHanhDong.nang_cap_chuc_vu,
                 IHanhDong.cap_quyen, IHanhDong.thu_hoi_quyen)) {
-            assertTrue(IHanhDong.KHONG_TU_DON.contains(hanhDong), hanhDong);
+            assertFalse(IHanhDong.DUOC_DON.contains(hanhDong), hanhDong);
         }
         // Ghi kết quả mỗi lần đồng bộ đơn từ sàn: giữ mãi thì bảng phình
-        assertFalse(IHanhDong.KHONG_TU_DON.contains(IHanhDong.cap_nhat_kenh_ban));
-        assertFalse(IHanhDong.KHONG_TU_DON.contains(IHanhDong.quet_barcode));
+        assertTrue(IHanhDong.DUOC_DON.contains(IHanhDong.cap_nhat_kenh_ban));
+        assertTrue(IHanhDong.DUOC_DON.contains(IHanhDong.quet_barcode));
     }
 
     @Test

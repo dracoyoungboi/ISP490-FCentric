@@ -165,7 +165,7 @@ class ChungTuThuocKhoTest {
         dangNhap(IRoleType.quan_ly_kho, A, A);
         PhieuXuatKho p = phieuBan(B, ITrangThaiPhieuXuat.CHO_XUAT);
 
-        biChan(() -> px.cancel(PHIEU_ID));
+        biChan(() -> px.cancel(PHIEU_ID, "Lý do thử"));
         assertEquals(ITrangThaiPhieuXuat.CHO_XUAT, p.getTrangThai());
         verify(pxRepo, never()).save(any());
     }
@@ -175,7 +175,7 @@ class ChungTuThuocKhoTest {
         dangNhap(IRoleType.quan_ly_kho, B, B);
         PhieuXuatKho p = phieuBan(B, ITrangThaiPhieuXuat.CHO_XUAT);
 
-        px.cancel(PHIEU_ID);
+        px.cancel(PHIEU_ID, "Lý do thử");
         assertEquals(ITrangThaiPhieuXuat.DA_HUY, p.getTrangThai());
     }
 
@@ -250,7 +250,7 @@ class ChungTuThuocKhoTest {
     void quanTriVien_khongChonKho_vanThaoTacDuoc() {
         dangNhap(IRoleType.quan_tri_vien, null);
         PhieuXuatKho p = phieuBan(B, ITrangThaiPhieuXuat.CHO_XUAT);
-        px.cancel(PHIEU_ID);
+        px.cancel(PHIEU_ID, "Lý do thử");
         assertEquals(ITrangThaiPhieuXuat.DA_HUY, p.getTrangThai());
     }
 
@@ -268,7 +268,7 @@ class ChungTuThuocKhoTest {
         when(pxRepo.findById(60)).thenReturn(Optional.of(con));
         dangNhap(IRoleType.quan_ly_kho, A, A);
 
-        CommonException ex = assertThrows(CommonException.class, () -> px.cancel(60));
+        CommonException ex = assertThrows(CommonException.class, () -> px.cancel(60, "Lý do thử"));
         assertEquals(HttpStatus.BAD_REQUEST, ex.getHttpStatus());
         assertEquals(ITrangThaiPhieuXuat.NHAP, con.getTrangThai());
         verify(pxRepo, never()).save(any());
@@ -285,7 +285,7 @@ class ChungTuThuocKhoTest {
 
         biChan(() -> px.xuatPhieuXuatCon(60, 7));
         biChan(() -> px.pickLoHang(60, null));
-        biChan(() -> px.cancel(60));
+        biChan(() -> px.cancel(60, "Lý do thử"));
         // hai bên của phiếu chuyển đều xem được phiếu xuất con
         assertEquals(60, px.layPhieuDuocXem(60).getId());
         verify(tonRepo, never()).save(any());
@@ -297,7 +297,7 @@ class ChungTuThuocKhoTest {
         PhieuXuatKho p = phieuChuyen(A, B, 5);
         dangNhap(IRoleType.quan_ly_kho, A, A);
 
-        CommonException ex = assertThrows(CommonException.class, () -> px.cancel(PHIEU_ID));
+        CommonException ex = assertThrows(CommonException.class, () -> px.cancel(PHIEU_ID, "Lý do thử"));
         assertEquals(HttpStatus.BAD_REQUEST, ex.getHttpStatus());
         assertEquals(5, p.getTrangThai());
         verify(pxRepo, never()).save(any());

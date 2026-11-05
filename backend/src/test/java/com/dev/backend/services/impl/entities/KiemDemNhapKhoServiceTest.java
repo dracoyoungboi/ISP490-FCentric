@@ -777,7 +777,7 @@ class KiemDemNhapKhoServiceTest {
             dongDraft.setSoLuongDatQc(9);
             dongDraft.setTrangThaiKiemDem("DANG_KIEM_DEM");
 
-            service.huyPhieuNhap(1);
+            service.huyPhieuNhap(1, "Lý do thử");
 
             verify(chiTietLoiLoHangRepository).deleteByLoHangId(60);
             verify(chiTietTraHangNccRepository).boLienKetLo(60);
@@ -801,7 +801,7 @@ class KiemDemNhapKhoServiceTest {
                     .trangThai("HOAT_DONG").build();
             when(chiTietPhieuNhapKhoRepository.findAllByPhieuNhapKhoIdAndCoLo(1)).thenReturn(List.of(ctLo(loThat)));
 
-            service.huyPhieuNhap(1);
+            service.huyPhieuNhap(1, "Lý do thử");
 
             assertEquals(4, phieu.getTrangThai());
             verify(loHangRepository, never()).delete(any(LoHang.class));
@@ -820,7 +820,7 @@ class KiemDemNhapKhoServiceTest {
             ChiTietPhieuNhapKho ctKhac = ctLo(khac);
             when(chiTietPhieuNhapKhoRepository.findAllByPhieuNhapKhoIdAndCoLo(1)).thenReturn(List.of(ctTam, ctKhac));
 
-            service.huyPhieuNhap(1);
+            service.huyPhieuNhap(1, "Lý do thử");
 
             verify(loHangRepository).delete(tam);
             verify(loHangRepository, never()).delete(khac);
@@ -833,9 +833,9 @@ class KiemDemNhapKhoServiceTest {
         @DisplayName("Hủy lần hai hoặc hủy phiếu đã nhập kho: 400 (không phải lỗi 500)")
         void huyLai() {
             phieu.setTrangThai(4);
-            assertEquals(HttpStatus.BAD_REQUEST, loi(() -> service.huyPhieuNhap(1)).getStatus());
+            assertEquals(HttpStatus.BAD_REQUEST, loi(() -> service.huyPhieuNhap(1, "Lý do thử")).getStatus());
             phieu.setTrangThai(3);
-            assertEquals(HttpStatus.BAD_REQUEST, loi(() -> service.huyPhieuNhap(1)).getStatus());
+            assertEquals(HttpStatus.BAD_REQUEST, loi(() -> service.huyPhieuNhap(1, "Lý do thử")).getStatus());
         }
     }
 
