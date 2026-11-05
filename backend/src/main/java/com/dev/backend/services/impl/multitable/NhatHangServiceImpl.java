@@ -1835,7 +1835,7 @@ public class NhatHangServiceImpl implements NhatHangService {
                 // Tự động sinh Phiếu Xuất Kho nháp (chờ đóng gói) nếu đơn chưa có phiếu nháp / đã đóng gói
                 boolean daCoPhieu = phieuXuatKhoRepository.existsByDonBanHangIdAndTrangThaiIn(dbh.getId(),
                         List.of(ITrangThaiPhieuXuat.NHAP, ITrangThaiPhieuXuat.CHO_XUAT));
-                if (dbh.getKenhBanHang() != null && OmnichannelOrderSyncJob.MA_KENH_LAZADA.equalsIgnoreCase(dbh.getKenhBanHang().getMaKenh())
+                if (dbh.getKenhBanHang() != null && OmnichannelOrderSyncJob.isLazada(dbh.getKenhBanHang().getMaKenh())
                         && dbh.getMaDonHangKenh() != null && !dbh.getMaDonHangKenh().isBlank()
                         && kenhBanHangDongBoService != null) {
                     String lazOrderId = dbh.getMaDonHangKenh();

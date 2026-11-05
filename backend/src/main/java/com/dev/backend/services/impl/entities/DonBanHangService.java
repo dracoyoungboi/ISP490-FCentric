@@ -587,7 +587,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         }
         // Cùng quy tắc lúc tạo đơn: kho đang hoạt động và không phải Kho Trung Chuyển (kho ảo)
         KhoService.kiemTraKhoGiaoDich(khoChon, "Kho xuất hàng");
-        if (don.getKenhBanHang() != null && OmnichannelOrderSyncJob.MA_KENH_LAZADA.equalsIgnoreCase(don.getKenhBanHang().getMaKenh())) {
+        if (don.getKenhBanHang() != null && OmnichannelOrderSyncJob.isLazada(don.getKenhBanHang().getMaKenh())) {
             if (!KhoService.laKhoTong(khoChon)) {
                 throw new CommonException("Đơn hàng Lazada theo yêu cầu nghiệp vụ chỉ được phép xuất từ Kho Tổng", HttpStatus.BAD_REQUEST, null);
             }
@@ -638,7 +638,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         kiemTraPhamVi(don);
 
         List<ChiTietDonBanHang> chiTiets = chiTietDonBanHangRepository.findByDonBanHangId(donHangId);
-        boolean laDonLazada = don.getKenhBanHang() != null && OmnichannelOrderSyncJob.MA_KENH_LAZADA.equalsIgnoreCase(don.getKenhBanHang().getMaKenh());
+        boolean laDonLazada = don.getKenhBanHang() != null && OmnichannelOrderSyncJob.isLazada(don.getKenhBanHang().getMaKenh());
         // Chỉ gợi ý kho nhận được đơn bán: bỏ Kho Trung Chuyển (kho ảo chứa hàng đang chuyển giữa các kho)
         List<Kho> activeKhos = khoRepository.findByTrangThai(1).stream()
                 .filter(k -> !KhoService.laKhoAo(k))
@@ -852,7 +852,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         if (don.getMaDonHangKenh() != null && !don.getMaDonHangKenh().isBlank()) {
             String maDonHangKenh = don.getMaDonHangKenh();
             KenhBanHang kenh = don.getKenhBanHang();
-            if (kenh != null && OmnichannelOrderSyncJob.MA_KENH_LAZADA.equalsIgnoreCase(kenh.getMaKenh())) {
+            if (kenh != null && OmnichannelOrderSyncJob.isLazada(kenh.getMaKenh())) {
                 SauCommit.chay("Đồng bộ hủy đơn " + maDonHangKenh + " sang Lazada",
                         () -> kenhBanHangDongBoService.huyDonHangTrenLazada(maDonHangKenh, "Hủy từ FCentric"));
             } else {

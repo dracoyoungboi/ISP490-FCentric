@@ -188,7 +188,7 @@ public class DongGoiServiceImpl implements DongGoiService {
             don.setNgayCapNhat(Instant.now());
             donBanHangRepository.save(don);
 
-            if (don.getKenhBanHang() != null && OmnichannelOrderSyncJob.MA_KENH_LAZADA.equalsIgnoreCase(don.getKenhBanHang().getMaKenh())
+            if (don.getKenhBanHang() != null && OmnichannelOrderSyncJob.isLazada(don.getKenhBanHang().getMaKenh())
                     && don.getMaDonHangKenh() != null && !don.getMaDonHangKenh().isBlank()
                     && kenhBanHangDongBoService != null) {
                 String lazOrderId = don.getMaDonHangKenh();

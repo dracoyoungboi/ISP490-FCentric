@@ -204,7 +204,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     @Transactional(rollbackFor = Exception.class)
     public TaiSanPhamResultDto taiSanPhamTuKenh(String maKenh) {
         KenhBanHang kenh = getKenhActive(maKenh);
-        if (OmnichannelOrderSyncJob.MA_KENH_LAZADA.equalsIgnoreCase(kenh.getMaKenh())) {
+        if (OmnichannelOrderSyncJob.isLazada(kenh.getMaKenh())) {
             return taiSanPhamLazada(kenh);
         }
         if ("TIKTOK".equalsIgnoreCase(kenh.getMaKenh())) {
@@ -1250,7 +1250,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     @Transactional(rollbackFor = Exception.class)
     public TuDongLienKetResultDto tuDongLienKet(String maKenh) {
         KenhBanHang kenh = getKenhActive(maKenh);
-        if (OmnichannelOrderSyncJob.MA_KENH_LAZADA.equalsIgnoreCase(kenh.getMaKenh())) {
+        if (OmnichannelOrderSyncJob.isLazada(kenh.getMaKenh())) {
             return tuDongLienKetLazada(kenh);
         }
         if ("TIKTOK".equalsIgnoreCase(kenh.getMaKenh())) {
@@ -2150,7 +2150,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         List<TrangThaiDongBoSanPham> dongCanDay = trangThaiDongBoSanPhamRepository.findByKenhBanHangId(kenh.getId())
                 .stream().filter(KenhBanHangDongBoServiceImpl::duocDayTon).toList();
 
-        if (OmnichannelOrderSyncJob.MA_KENH_LAZADA.equalsIgnoreCase(kenh.getMaKenh())) {
+        if (OmnichannelOrderSyncJob.isLazada(kenh.getMaKenh())) {
             boolean canLienKetLai = dongCanDay.isEmpty()
                     || dongCanDay.stream().anyMatch(d -> d.getMaSanPhamKenh() == null || !d.getMaSanPhamKenh().trim().matches("\\d+"));
             if (canLienKetLai) {
@@ -2344,7 +2344,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     @Transactional(readOnly = true)
     public List<ShopifyLocationDto> getLocations(String maKenh) {
         KenhBanHang kenh = getKenhActive(maKenh);
-        if (OmnichannelOrderSyncJob.MA_KENH_LAZADA.equalsIgnoreCase(kenh.getMaKenh())) {
+        if (OmnichannelOrderSyncJob.isLazada(kenh.getMaKenh())) {
             return List.of(
                     ShopifyLocationDto.builder()
                             .maKhoSan("lazada-default-warehouse")
@@ -2499,7 +2499,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         }
 
         int synced = 0;
-        if (OmnichannelOrderSyncJob.MA_KENH_LAZADA.equalsIgnoreCase(kenh.getMaKenh())) {
+        if (OmnichannelOrderSyncJob.isLazada(kenh.getMaKenh())) {
             synced = omnichannelOrderSyncJob.syncLazadaOrders(kenh, tu, den);
         } else if (OmnichannelOrderSyncJob.MA_KENH_TIKTOK.equalsIgnoreCase(kenh.getMaKenh()) || "TIKTOK".equalsIgnoreCase(kenh.getMaKenh())) {
             synced = omnichannelOrderSyncJob.syncTikTokOrders(kenh, tu, den);
@@ -2527,7 +2527,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     totalSku += dayTonRes.getSoDong();
                 }
                 omnichannelOrderSyncJob.syncShopifyOrders(kenh);
-            } else if (OmnichannelOrderSyncJob.MA_KENH_LAZADA.equalsIgnoreCase(kenh.getMaKenh())) {
+            } else if (OmnichannelOrderSyncJob.isLazada(kenh.getMaKenh())) {
                 DayTonResultDto dayTonRes = dayTonKhoLenKenh(kenh.getMaKenh(), quyTacDaLuu(kenh.getMaKenh()));
                 if (dayTonRes != null) {
                     totalSku += dayTonRes.getSoDong();
@@ -3351,7 +3351,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
     /** Lấy khóa, địa điểm mặc định và danh sách SKU trên sàn của kênh; thiếu bước nào thì trả lý do lỗi cả gian hàng. */
     KetNoiDayTon moKetNoiDayTon(KenhBanHang kenh) {
-        if (kenh != null && OmnichannelOrderSyncJob.MA_KENH_LAZADA.equalsIgnoreCase(kenh.getMaKenh())) {
+        if (kenh != null && OmnichannelOrderSyncJob.isLazada(kenh.getMaKenh())) {
             String appKey = kenhBanHangService.getLazadaAppKey();
             String appSecret = kenhBanHangService.getDecryptedLazadaAppSecret();
             String token = kenhBanHangService.getDecryptedLazadaAccessToken();
@@ -3391,7 +3391,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
      */
     KetQuaGuiTon dayTonChoDong(TrangThaiDongBoSanPham dong, KetNoiDayTon ketNoi, int soDay) {
         KetQuaGuiTon kq;
-        if (dong.getKenhBanHang() != null && OmnichannelOrderSyncJob.MA_KENH_LAZADA.equalsIgnoreCase(dong.getKenhBanHang().getMaKenh())) {
+        if (dong.getKenhBanHang() != null && OmnichannelOrderSyncJob.isLazada(dong.getKenhBanHang().getMaKenh())) {
             kq = guiTonLenLazada(dong, soDay);
         } else {
             BienTheSanPham bt = dong.getBienTheSanPham();
@@ -3815,15 +3815,26 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         return false;
     }
 
+    private String xacDinhMaKenhLazada(String maDonHangKenh) {
+        if (maDonHangKenh != null && donBanHangRepository != null) {
+            DonBanHang don = donBanHangRepository.findByMaDonHangKenh(maDonHangKenh).orElse(null);
+            if (don != null && don.getKenhBanHang() != null && don.getKenhBanHang().getMaKenh() != null) {
+                return don.getKenhBanHang().getMaKenh();
+            }
+        }
+        return OmnichannelOrderSyncJob.MA_KENH_LAZADA;
+    }
+
     @Override
     public boolean huyDonHangTrenLazada(String maDonHangKenh, String lyDoHuy) {
         if (maDonHangKenh == null || maDonHangKenh.isBlank()) {
             return false;
         }
 
-        String appKey = kenhBanHangService.getLazadaAppKey();
-        String appSecret = kenhBanHangService.getDecryptedLazadaAppSecret();
-        String token = kenhBanHangService.getDecryptedLazadaAccessToken();
+        String maKenh = xacDinhMaKenhLazada(maDonHangKenh);
+        String appKey = kenhBanHangService.getLazadaAppKey(maKenh);
+        String appSecret = kenhBanHangService.getDecryptedLazadaAppSecret(maKenh);
+        String token = kenhBanHangService.getDecryptedLazadaAccessToken(maKenh);
         if (appKey == null || appSecret == null || token == null) {
             log.warn("[LAZADA-CANCEL] Chưa có cấu hình hoặc Access Token để hủy đơn {}", maDonHangKenh);
             return false;
@@ -3869,9 +3880,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         if (maDonHangKenh == null || maDonHangKenh.isBlank()) {
             return false;
         }
-        String appKey = kenhBanHangService.getLazadaAppKey();
-        String appSecret = kenhBanHangService.getDecryptedLazadaAppSecret();
-        String token = kenhBanHangService.getDecryptedLazadaAccessToken();
+        String maKenh = xacDinhMaKenhLazada(maDonHangKenh);
+        String appKey = kenhBanHangService.getLazadaAppKey(maKenh);
+        String appSecret = kenhBanHangService.getDecryptedLazadaAppSecret(maKenh);
+        String token = kenhBanHangService.getDecryptedLazadaAccessToken(maKenh);
         if (appKey == null || appSecret == null || token == null) {
             log.warn("[LAZADA-PACK] Chưa có cấu hình hoặc Access Token để pack đơn {}", maDonHangKenh);
             return false;
@@ -3915,9 +3927,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         if (maDonHangKenh == null || maDonHangKenh.isBlank()) {
             return false;
         }
-        String appKey = kenhBanHangService.getLazadaAppKey();
-        String appSecret = kenhBanHangService.getDecryptedLazadaAppSecret();
-        String token = kenhBanHangService.getDecryptedLazadaAccessToken();
+        String maKenh = xacDinhMaKenhLazada(maDonHangKenh);
+        String appKey = kenhBanHangService.getLazadaAppKey(maKenh);
+        String appSecret = kenhBanHangService.getDecryptedLazadaAppSecret(maKenh);
+        String token = kenhBanHangService.getDecryptedLazadaAccessToken(maKenh);
         if (appKey == null || appSecret == null || token == null) {
             log.warn("[LAZADA-RTS] Chưa có cấu hình hoặc Access Token để RTS đơn {}", maDonHangKenh);
             return false;
