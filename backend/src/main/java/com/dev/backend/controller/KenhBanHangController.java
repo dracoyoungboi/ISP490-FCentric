@@ -929,4 +929,221 @@ public class KenhBanHangController {
                         .build()
         );
     }
+
+    // ── Shopee REST Endpoints ──
+
+    @PostMapping("/shopee/orders/cancel")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @Operation(summary = "Shopee: Hủy đơn hàng từ phía nhà bán hàng (/api/v2/order/cancel_order)")
+    public ResponseEntity<ResponseData<JsonNode>> cancelShopeeOrder(
+            @RequestParam(required = false, defaultValue = "SHOPEE_SANDBOX") String maKenh,
+            @RequestParam String orderSn,
+            @RequestParam(defaultValue = "OUT_OF_STOCK") String cancelReason) {
+        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(maKenh.toUpperCase()).orElse(null);
+        com.dev.backend.services.shopee.ShopeeClient client = getShopeeClientForController(kenh, maKenh);
+        JsonNode res = client.cancelOrder(orderSn, cancelReason);
+        return ResponseEntity.ok(
+                ResponseData.<JsonNode>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(res)
+                        .message("Đã gửi yêu cầu hủy đơn hàng sang Shopee thành công")
+                        .build()
+        );
+    }
+
+    @PostMapping("/shopee/orders/handle-cancellation")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @Operation(summary = "Shopee: Xử lý chấp nhận hoặc từ chối yêu cầu hủy của người mua (/api/v2/order/handle_buyer_cancellation)")
+    public ResponseEntity<ResponseData<JsonNode>> handleShopeeBuyerCancellation(
+            @RequestParam(required = false, defaultValue = "SHOPEE_SANDBOX") String maKenh,
+            @RequestParam String orderSn,
+            @RequestParam(defaultValue = "ACCEPT") String operation) {
+        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(maKenh.toUpperCase()).orElse(null);
+        com.dev.backend.services.shopee.ShopeeClient client = getShopeeClientForController(kenh, maKenh);
+        JsonNode res = client.handleBuyerCancellation(orderSn, operation);
+        return ResponseEntity.ok(
+                ResponseData.<JsonNode>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(res)
+                        .message("Đã xử lý yêu cầu hủy từ người mua thành công (" + operation + ")")
+                        .build()
+        );
+    }
+
+    @PostMapping("/shopee/orders/{orderSn}/note")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @Operation(summary = "Shopee: Cập nhật ghi chú người bán cho đơn hàng (/api/v2/order/set_note)")
+    public ResponseEntity<ResponseData<JsonNode>> setShopeeOrderNote(
+            @PathVariable String orderSn,
+            @RequestParam(required = false, defaultValue = "SHOPEE_SANDBOX") String maKenh,
+            @RequestParam String note) {
+        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(maKenh.toUpperCase()).orElse(null);
+        com.dev.backend.services.shopee.ShopeeClient client = getShopeeClientForController(kenh, maKenh);
+        JsonNode res = client.setOrderNote(orderSn, note);
+        return ResponseEntity.ok(
+                ResponseData.<JsonNode>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(res)
+                        .message("Đã cập nhật ghi chú đơn hàng Shopee thành công")
+                        .build()
+        );
+    }
+
+    @GetMapping("/shopee/orders/{orderSn}/shipping-parameter")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho})
+    @Operation(summary = "Shopee: Lấy thông số phương thức giao nhận Dropoff/Pickup (/api/v2/logistics/get_shipping_parameter)")
+    public ResponseEntity<ResponseData<JsonNode>> getShopeeShippingParameter(
+            @PathVariable String orderSn,
+            @RequestParam(required = false, defaultValue = "SHOPEE_SANDBOX") String maKenh) {
+        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(maKenh.toUpperCase()).orElse(null);
+        com.dev.backend.services.shopee.ShopeeClient client = getShopeeClientForController(kenh, maKenh);
+        JsonNode res = client.getShippingParameter(orderSn);
+        return ResponseEntity.ok(
+                ResponseData.<JsonNode>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(res)
+                        .message("Lấy tham số vận chuyển đơn hàng Shopee thành công")
+                        .build()
+        );
+    }
+
+    @PostMapping("/shopee/orders/{orderSn}/ship")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho})
+    @Operation(summary = "Shopee: Xác nhận sẵn sàng giao / phát lệnh ship đơn hàng (/api/v2/logistics/ship_order)")
+    public ResponseEntity<ResponseData<JsonNode>> shipShopeeOrder(
+            @PathVariable String orderSn,
+            @RequestParam(required = false, defaultValue = "SHOPEE_SANDBOX") String maKenh,
+            @RequestParam(required = false, defaultValue = "dropoff") String method) {
+        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(maKenh.toUpperCase()).orElse(null);
+        com.dev.backend.services.shopee.ShopeeClient client = getShopeeClientForController(kenh, maKenh);
+        JsonNode res = client.shipOrder(orderSn, method);
+        return ResponseEntity.ok(
+                ResponseData.<JsonNode>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(res)
+                        .message("Phát lệnh giao hàng Shopee thành công")
+                        .build()
+        );
+    }
+
+    @GetMapping("/shopee/orders/{orderSn}/tracking-number")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho})
+    @Operation(summary = "Shopee: Lấy mã vận đơn Shopee/SPX Express (/api/v2/logistics/get_tracking_number)")
+    public ResponseEntity<ResponseData<JsonNode>> getShopeeTrackingNumber(
+            @PathVariable String orderSn,
+            @RequestParam(required = false, defaultValue = "SHOPEE_SANDBOX") String maKenh) {
+        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(maKenh.toUpperCase()).orElse(null);
+        com.dev.backend.services.shopee.ShopeeClient client = getShopeeClientForController(kenh, maKenh);
+        JsonNode res = client.getTrackingNumber(orderSn);
+        return ResponseEntity.ok(
+                ResponseData.<JsonNode>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(res)
+                        .message("Tra cứu mã vận đơn Shopee thành công")
+                        .build()
+        );
+    }
+
+    @GetMapping("/shopee/orders/{orderSn}/tracking-info")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho})
+    @Operation(summary = "Shopee: Tra cứu chi tiết hành trình vận chuyển đơn hàng (/api/v2/logistics/get_tracking_info)")
+    public ResponseEntity<ResponseData<JsonNode>> getShopeeTrackingInfo(
+            @PathVariable String orderSn,
+            @RequestParam(required = false, defaultValue = "SHOPEE_SANDBOX") String maKenh) {
+        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(maKenh.toUpperCase()).orElse(null);
+        com.dev.backend.services.shopee.ShopeeClient client = getShopeeClientForController(kenh, maKenh);
+        JsonNode res = client.getTrackingInfo(orderSn);
+        return ResponseEntity.ok(
+                ResponseData.<JsonNode>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(res)
+                        .message("Tra cứu lộ trình vận chuyển Shopee thành công")
+                        .build()
+        );
+    }
+
+    @GetMapping("/shopee/orders/{orderSn}/shipping-document")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho})
+    @Operation(summary = "Shopee: Tải tài liệu in vận đơn khổ A6 dạng HTML / PDF (/api/v2/logistics/download_shipping_document)")
+    public ResponseEntity<ResponseData<Map<String, String>>> downloadShopeeShippingDocument(
+            @PathVariable String orderSn,
+            @RequestParam(required = false, defaultValue = "SHOPEE_SANDBOX") String maKenh) {
+        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(maKenh.toUpperCase()).orElse(null);
+        com.dev.backend.services.shopee.ShopeeClient client = getShopeeClientForController(kenh, maKenh);
+        byte[] docBytes = client.downloadShippingDocument(orderSn);
+        String docHtml = docBytes != null ? new String(docBytes, java.nio.charset.StandardCharsets.UTF_8) : "";
+        return ResponseEntity.ok(
+                ResponseData.<Map<String, String>>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(Map.of(
+                                "orderSn", orderSn,
+                                "documentHtml", docHtml,
+                                "mimeType", "text/html"
+                        ))
+                        .message("Tải tem vận đơn Shopee A6 thành công")
+                        .build()
+        );
+    }
+
+    @GetMapping("/shopee/orders/{orderSn}/escrow")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @Operation(summary = "Shopee: Tra cứu đối soát chi tiết thanh toán và tiền về ví (/api/v2/payment/get_escrow_detail)")
+    public ResponseEntity<ResponseData<JsonNode>> getShopeeEscrowDetail(
+            @PathVariable String orderSn,
+            @RequestParam(required = false, defaultValue = "SHOPEE_SANDBOX") String maKenh) {
+        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(maKenh.toUpperCase()).orElse(null);
+        com.dev.backend.services.shopee.ShopeeClient client = getShopeeClientForController(kenh, maKenh);
+        JsonNode res = client.getEscrowDetail(orderSn);
+        return ResponseEntity.ok(
+                ResponseData.<JsonNode>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(res)
+                        .message("Đối soát tài chính đơn hàng Shopee thành công")
+                        .build()
+        );
+    }
+
+    @PostMapping("/shopee/webhook")
+    @Operation(summary = "Shopee: Webhook tiếp nhận sự kiện cập nhật trạng thái đơn hàng realtime từ Shopee")
+    public ResponseEntity<Map<String, Object>> handleShopeeWebhook(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestBody String payload) {
+        log.info("[SHOPEE-WEBHOOK] Nhận tín hiệu sự kiện từ Shopee: payload={}", payload);
+        return ResponseEntity.ok(Map.of("code", 0, "message", "success"));
+    }
+
+    @PostMapping("/shopee/mock-cancel")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @Operation(summary = "Shopee: Giả lập người mua hủy đơn trên sàn để kiểm thử luồng đồng bộ hủy")
+    public ResponseEntity<ResponseData<Map<String, Object>>> mockBuyerCancelShopeeOrder(
+            @RequestParam String orderSn) {
+        return ResponseEntity.ok(
+                ResponseData.<Map<String, Object>>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(Map.of(
+                                "orderSn", orderSn,
+                                "trangThaiMoi", "CANCELLED",
+                                "nguyenNhan", "Người mua đổi ý trên Shopee Sandbox"
+                        ))
+                        .message("Giả lập hủy đơn hàng Shopee thành công")
+                        .build()
+        );
+    }
+
+    private com.dev.backend.services.shopee.ShopeeClient getShopeeClientForController(KenhBanHang kenh, String maKenh) {
+        Long partnerId = kenhBanHangService.getShopeePartnerId(maKenh);
+        String partnerKey = kenhBanHangService.getDecryptedShopeePartnerKey(maKenh);
+        String accessToken = kenhBanHangService.getDecryptedShopeeAccessToken(maKenh);
+        Long shopId = kenhBanHangService.getShopeeShopId(maKenh);
+        boolean isSandbox = OmnichannelOrderSyncJob.isShopeeSandbox(maKenh);
+
+        return new com.dev.backend.services.shopee.ShopeeClient(
+                partnerId != null ? partnerId : 0L,
+                partnerKey != null ? partnerKey : "",
+                shopId != null ? shopId : 0L,
+                accessToken != null ? accessToken : "",
+                isSandbox
+        );
+    }
+
 }
