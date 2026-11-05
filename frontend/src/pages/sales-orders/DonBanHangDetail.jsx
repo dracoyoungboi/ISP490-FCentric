@@ -32,6 +32,7 @@ import {
   dongHangBan,
   gioNgay,
   hauQuaHuy,
+  laDonLazada,
   laDonSan,
   laDonTaiQuay,
   lyDoSanHuy,
@@ -104,6 +105,7 @@ function ChiTietDonBanHang({ id }) {
   // ── Báo giá gốc (suy SO → BG như backend): bán hàng tra trạng thái thật qua /filter; kho chỉ thấy mã ──
   const laPos = laDonTaiQuay(ct);
   const laSan = laDonSan(don);
+  const laLazada = laDonLazada(don);
   const maBG = don && !laBaoGia ? maBaoGiaGoc(don.soDonHang, { laPos, laSan }) : null;
   const taiBaoGia = useCallback(async () => {
     const page = await donBanHangService.filter({
@@ -252,6 +254,12 @@ function ChiTietDonBanHang({ id }) {
       cauLoi: "Không gửi được đơn sang kho",
       thanhCong: () => toast.success(`Đã gửi đơn ${so} sang ${kho.tenKho}`, { description: "Đơn chuyển sang Chờ nhặt hàng" }),
     });
+  const guiKhoLazada = () =>
+    thucHien("guiKho", () => donBanHangService.sendToWarehouse(id), {
+      coHop: false,
+      cauLoi: "Không gửi được đơn sang kho",
+      thanhCong: () => toast.success(`Đã gửi đơn ${so} sang Kho Tổng`, { description: "Đơn chuyển sang Chờ nhặt hàng" }),
+    });
   // Máy chủ trả thành công mà không làm gì khi đơn đã hủy (vd. sàn vừa hủy): đọc lại đơn để không báo nhầm "đã gửi sang sàn"
   const huyDon = () =>
     thucHien(
@@ -299,7 +307,16 @@ function ChiTietDonBanHang({ id }) {
   const nguon = laPos ? "Bán tại quầy" : laSan ? `Đơn ${tenKenh}` : "Đơn bán hàng";
   const nutChinh = khoaKhiChoGoc(
     [
-      v.nutGuiKho ? { ma: "guiKho", nhan: "Gửi sang kho", icon: Send, onClick: () => moHop("guiKho") } : null,
+      v.nutGuiKho
+        ? {
+            ma: "guiKho",
+            nhan: "Gửi sang kho",
+            icon: Send,
+            dangChay: dangChay === "guiKho",
+            khoa: Boolean(dangChay),
+            onClick: laLazada ? guiKhoLazada : () => moHop("guiKho"),
+          }
+        : null,
       v.nutDaGiao ? { ma: "daGiao", nhan: "Xác nhận đã giao", icon: CircleCheckBig, onClick: () => moHop("daGiao") } : null,
       v.nutDongGoi
         ? { ma: "dongGoi", nhan: "Đóng gói", icon: PackageCheck, dieuHuong: true, onClick: () => navigate(`/goods-issues/packing/${id}`) }

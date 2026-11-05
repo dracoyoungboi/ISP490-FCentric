@@ -55,8 +55,18 @@ export function gioNgay(value) {
 /** Đơn bán tại quầy: có lần thu tiền tại quầy (đơn POS không có kênh bán). */
 export const laDonTaiQuay = (ct) => ct?.thanhToanTaiQuay != null;
 
-/** Đơn đồng bộ từ sàn (Shopify): có kênh bán hoặc mã đơn bên sàn. */
+/** Đơn đồng bộ từ sàn (Shopify, Lazada): có kênh bán hoặc mã đơn bên sàn. */
 export const laDonSan = (don) => Boolean(don?.kenhBanHang) || coChu(don?.maDonHangKenh);
+
+/** Đơn hàng thuộc sàn thương mại điện tử Lazada / Lazada Sandbox: bắt buộc chỉ xuất từ Kho Tổng. */
+export const laDonLazada = (don) =>
+  Boolean(
+    don?.kenhBanHang?.maKenh?.toUpperCase() === "LAZADA" ||
+    don?.kenhBanHang?.maKenh?.toUpperCase() === "LAZADA_SANDBOX" ||
+    don?.kenhBanHang?.tenKenh?.toLowerCase()?.includes("lazada") ||
+    don?.soDonHang?.startsWith("LZD-") ||
+    don?.maDonHangKenh?.startsWith("LZD-")
+  );
 
 /** Tên sàn để ghép câu ("Shopify"); thiếu thì "sàn". */
 export const tenKenhCua = (don) => String(don?.kenhBanHang?.tenKenh ?? "").trim() || "sàn";
