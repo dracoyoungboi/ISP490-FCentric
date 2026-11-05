@@ -262,7 +262,11 @@ const NUT_MO = "inline-flex h-8 cursor-pointer items-center gap-1 rounded-md bor
 
 export default function BaoCaoSanPham() {
   const coQuyenXuat = useCoQuyenXuatBaoCao();
-  const laQtv = parseRoles(localStorage.getItem("role")).includes("quan_tri_vien");
+  const vaiTro = parseRoles(localStorage.getItem("role"));
+  const laQtv = vaiTro.includes("quan_tri_vien");
+  // Xuất Excel Báo cáo sản phẩm: máy chủ chỉ cho quản trị viên, quản lý kho (nhân viên bán hàng có quyền Xuất báo cáo để
+  // tải Báo cáo tồn kho vẫn không xuất được ở đây)
+  const xuatDuoc = coQuyenXuat && (laQtv || vaiTro.includes("quan_ly_kho"));
   const [nhom, setNhom] = useTabTrenUrl(NHOM.map((n) => n.value), "tat-ca", { ten: "nhom" });
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
@@ -381,14 +385,16 @@ export default function BaoCaoSanPham() {
   const doiMo = (id) => setMo((c) => { const m = new Set(c); if (m.has(id)) m.delete(id); else m.add(id); return m; });
 
 
-  const cot = [["sl", "Đã bán"], ["dt", "Doanh thu"], ["ln", "Lợi nhuận gộp"]];
+  // Nhân viên bán hàng: máy chủ không gửi giá vốn / lợi nhuận (coGiaVon = false) nên bỏ cột Lợi nhuận gộp (FO-090)
+  const coGiaVon = bc?.coGiaVon !== false;
+  const cot = coGiaVon ? [["sl", "Đã bán"], ["dt", "Doanh thu"], ["ln", "Lợi nhuận gộp"]] : [["sl", "Đã bán"], ["dt", "Doanh thu"]];
   const capNhat = { thoiDiem: kq.luc, dangTai: kq.loading, loi: kq.loi, taiLai: () => setLan((n) => n + 1) };
 
   return (
     <PageContainer fill className="space-y-4">
       <ListPageHeader
         scope={kq.data?.theoKhoPhuTrach ? "Các kho bạn phụ trách" : null}
-        actions={coQuyenXuat ? (
+        actions={xuatDuoc ? (
           <NutXuatExcel taiTep={() => baoCaoSanPhamService.xuatExcel(thamSo)} tenTep={() => tenTepExcel(thamSo)} disabled={!bc} />
         ) : null}
       />
@@ -425,8 +431,12 @@ export default function BaoCaoSanPham() {
                 <Vach />
                 <SummaryItem label="Doanh thu" value={formatCurrency(cong("doanhThu"))} valueClass="text-bo-success" />
                 <Vach />
-                <SummaryItem label="Lợi nhuận gộp" value={formatCurrency(cong("loiNhuan"))} />
-                <Vach />
+                {coGiaVon ? (
+                  <>
+                    <SummaryItem label="Lợi nhuận gộp" value={formatCurrency(cong("loiNhuan"))} />
+                    <Vach />
+                  </>
+                ) : null}
                 <SummaryItem label="Hoàn" value={formatNumber(cong("soLuongHoan"))} valueClass={cong("soLuongHoan") ? "text-bo-danger" : "text-bo-foreground"} />
                 <Vach />
                 <SummaryItem label="Kỳ" value={`${ngayVN(bc.tuNgay)} – ${ngayVN(bc.denNgay)}, so với ${ngayVN(bc.tuNgayTruoc)} – ${ngayVN(bc.denNgayTruoc)}`} />
@@ -530,10 +540,12 @@ export default function BaoCaoSanPham() {
                           <span className={N(p.doanhThu) ? undefined : "text-bo-muted"}>{formatCurrency(p.doanhThu)}</span>
                           {N(bc.tong?.doanhThu) && N(p.doanhThu) ? <span className="block text-xs text-bo-muted">{formatPercent(N(p.doanhThu) / N(bc.tong.doanhThu))} doanh thu</span> : null}
                         </td>
-                        <td className="px-3 py-3 text-right tabular-nums">
-                          <span className={N(p.doanhThu) ? undefined : "text-bo-muted"}>{formatCurrency(p.loiNhuan)}</span>
-                          {N(p.doanhThu) ? <span className="block text-xs text-bo-muted">biên {formatPercent(N(p.loiNhuan) / N(p.doanhThu))}</span> : null}
-                        </td>
+                        {coGiaVon ? (
+                          <td className="px-3 py-3 text-right tabular-nums">
+                            <span className={N(p.doanhThu) ? undefined : "text-bo-muted"}>{formatCurrency(p.loiNhuan)}</span>
+                            {N(p.doanhThu) ? <span className="block text-xs text-bo-muted">biên {formatPercent(N(p.loiNhuan) / N(p.doanhThu))}</span> : null}
+                          </td>
+                        ) : null}
                         <td className="px-3 py-3">
                           {N(p.soLuong) ? <DuongNho arr={p.theoNgay} /> : <span className="text-xs text-bo-muted">{p.ngayBanCuoi ? `bán gần nhất ${ngayVN(p.ngayBanCuoi)}` : "chưa từng bán"}</span>}
                         </td>
@@ -551,7 +563,7 @@ export default function BaoCaoSanPham() {
                       </tr>
                       {dangMo ? (
                         <tr className="border-b border-[#eef1f5] bg-[#fbfcfd]">
-                          <td colSpan={11} className="px-5 py-4"><ChiTietMoRong p={p} bc={bc} /></td>
+                          <td colSpan={coGiaVon ? 11 : 10} className="px-5 py-4"><ChiTietMoRong p={p} bc={bc} /></td>
                         </tr>
                       ) : null}
                     </Fragment>

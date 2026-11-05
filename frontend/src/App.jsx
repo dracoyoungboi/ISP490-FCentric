@@ -313,11 +313,14 @@ const CAY_DUONG_DAN = (
         <Route path="/stock-take/:id/edit" element={<StockTakeCreate />} />
       </Route>
 
-      {/* Báo cáo. Doanh thu, khách hàng, nhập xuất: API chỉ cho quản trị viên và
+      {/* Báo cáo doanh thu, sản phẩm: quản trị viên, quản lý kho và nhân viên bán hàng (FO-090; nhân viên bán hàng chỉ
+          cửa hàng mình làm, máy chủ không gửi giá vốn / lợi nhuận). Khách hàng, nhập xuất: API chỉ cho quản trị viên và
           quản lý kho (@RequireAuth ở backend), menu cũng chỉ hiện cho hai vai trò này. */}
-      <Route element={<RequireRole roles={["quan_tri_vien", "quan_ly_kho"]} />}>
+      <Route element={<RequireRole roles={["quan_tri_vien", "quan_ly_kho", "nhan_vien_ban_hang"]} />}>
         <Route path="/reports/revenue" element={<BaoCaoDoanhThu />} />
         <Route path="/reports/products" element={<BaoCaoSanPham />} />
+      </Route>
+      <Route element={<RequireRole roles={["quan_tri_vien", "quan_ly_kho"]} />}>
         <Route path="/reports/customers" element={<KhachHangReport />} />
         <Route path="/reports/stock-movements" element={<NhatKyNhapXuat />} />
       </Route>
