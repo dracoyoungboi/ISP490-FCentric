@@ -11,9 +11,6 @@ export const thongKeHeThongService = {
     filterTonKho: (filterPayload) =>
         apiClient.post("/api/v1/thong-ke-he-thong/ton-kho/filter", filterPayload),
 
-    getSanPhamBanChay: (top = 10) =>
-        apiClient.get(`/api/v1/thong-ke-he-thong/san-pham/ban-chay/${top}`),
-
     getBienTheByProduct: (sanPhamId) =>
         apiClient.get(`/api/v1/bien-the-san-pham/by-product/${sanPhamId}`),
 
