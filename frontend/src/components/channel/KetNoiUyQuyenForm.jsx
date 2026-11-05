@@ -325,6 +325,17 @@ export default function KetNoiUyQuyenForm({ san, ketNoi, quayVeThietLap = false,
 
   return (
     <div ref={khungRef} className="space-y-4 px-6 pb-6 pt-3">
+      {san.maKenh === "LAZADA_SANDBOX" ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50/80 p-3.5 text-xs text-amber-900">
+          <div className="flex items-center gap-1.5 font-semibold text-amber-950">
+            <span className="size-2 rounded-full bg-amber-500" />
+            Lưu ý môi trường Lazada Sandbox
+          </div>
+          <p className="mt-1 leading-relaxed text-amber-800">
+            Nhập App Key và App Secret từ <b>Lazada Open Platform › App Console (Sandbox)</b>. Khi bấm nút ủy quyền, hệ thống sẽ mở cổng SSO riêng của Lazada Sandbox để đăng nhập tài khoản người bán test.
+          </p>
+        </div>
+      ) : null}
       <CacOKhoaUngDung
         maKenh={san.maKenh}
         values={values}
