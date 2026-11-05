@@ -15,6 +15,12 @@ daily_task_tracking.md
 task_tracking*.md
 nhat_ky_*.md
 
+# Shopee Internal Research & Notes (Không đẩy lên Git)
+docs/tai_lieu_api_shopee*.md
+tai_lieu_api_shopee*.md
+shopee*.md
+docs/shopee*.md
+
 # Scratch scripts & temporary data
 scratch/
 Claude outputs/
