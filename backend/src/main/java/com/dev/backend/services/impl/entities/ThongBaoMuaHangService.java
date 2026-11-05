@@ -162,15 +162,23 @@ public class ThongBaoMuaHangService {
             Integer nguoiGuiId = don.getNguoiTao() == null ? null : don.getNguoiTao().getId();
             Integer nguoiLapId = yc == null || yc.getNguoiTao() == null ? null : yc.getNguoiTao().getId();
             String soYc = yc == null ? null : so(yc);
+            Integer ycId = yc == null ? null : yc.getId();
             String soDon = don.getSoDonMua() == null || don.getSoDonMua().isBlank() ? null : don.getSoDonMua().trim();
             long moc = ngayBaoGia == null ? Instant.now().getEpochSecond() : ngayBaoGia.getEpochSecond();
             return new Lan("báo giá đơn mua " + donId, null, () -> {
                 List<Integer> nhan = new ArrayList<>();
+                // Có vai trò xem báo giá nhưng kho nhập ngoài phạm vi (vd. nhân viên kho cửa hàng lập yêu cầu cho kho
+                // tổng): trang báo giá sẽ 403, nên dẫn tới trang yêu cầu nhập hàng
+                List<Integer> nhanQuaYeuCau = new ArrayList<>();
                 boolean coNguoiChot = false;
                 for (Integer id : new Integer[]{nguoiGuiId, nguoiLapId}) {
                     String vt = vaiTro(id);
                     // Vai trò không mở được màn báo giá (vd. nhân viên bán hàng lập yêu cầu): không gửi
                     if (id == null || !coVaiTro(VAI_TRO_XEM_BAO_GIA, vt)) continue;
+                    if (!xemDuocDonMua(id, vt, khoId)) {
+                        if (ycId != null && !nhanQuaYeuCau.contains(id)) nhanQuaYeuCau.add(id);
+                        continue;
+                    }
                     nhan.add(id);
                     coNguoiChot |= coVaiTro(VAI_TRO_CHOT_BAO_GIA, vt);
                 }
@@ -185,10 +193,19 @@ public class ThongBaoMuaHangService {
                 if (soYc != null) cau.add(cau.isEmpty() ? "Yêu cầu nhập hàng " + soYc : "yêu cầu nhập hàng " + soYc);
                 if (tongTien != null) cau.add("tổng " + tien(tongTien));
                 String moTa = cau.isEmpty() ? "Xem báo giá." : String.join(", ", cau) + ".";
-                return List.of(new GuiDi(nhan, null,
+                List<GuiDi> gui = new ArrayList<>();
+                gui.add(new GuiDi(nhan, null,
                         new NoiDung(ThongBaoService.LOAI_DON_MUA_HANG, ThongBaoService.TONE_INFO, tieuDe, moTa,
                                 "/quotation/" + donId, ThongBaoService.LOAI_DON_MUA_HANG, donId, khoId,
                                 "DMH:" + donId + ":BAO_GIA:" + moc)));
+                nhanQuaYeuCau.removeAll(nhan);
+                if (!nhanQuaYeuCau.isEmpty()) {
+                    gui.add(new GuiDi(nhanQuaYeuCau, null,
+                            new NoiDung(ThongBaoService.LOAI_YEU_CAU_NHAP_HANG, ThongBaoService.TONE_INFO, tieuDe, moTa,
+                                    "/purchase-requests/" + ycId, ThongBaoService.LOAI_YEU_CAU_NHAP_HANG, ycId, khoId,
+                                    "DMH:" + donId + ":BAO_GIA:" + moc)));
+                }
+                return gui;
             });
         });
     }
@@ -346,7 +363,9 @@ public class ThongBaoMuaHangService {
                 List<Integer> xemYeuCau = new ArrayList<>();
                 for (Integer id : new Integer[]{nguoiLapDonId, nguoiLapYcId}) {
                     if (id == null) continue;
-                    if (coVaiTro(VAI_TRO_XEM_BAO_GIA, vaiTro(id))) xemDonMua.add(id);
+                    String vt = vaiTro(id);
+                    // Mở được trang đơn mua (đúng vai trò và trong phạm vi kho nhập) thì dẫn tới đơn, không thì tới yêu cầu
+                    if (coVaiTro(VAI_TRO_XEM_BAO_GIA, vt) && xemDuocDonMua(id, vt, khoId)) xemDonMua.add(id);
                     else if (ycId != null) xemYeuCau.add(id);
                 }
                 List<GuiDi> gui = new ArrayList<>();
@@ -422,6 +441,18 @@ public class ThongBaoMuaHangService {
     /** Set.of không nhận contains(null): vai trò trống (không tìm thấy người) coi như không thuộc nhóm. */
     private static boolean coVaiTro(Set<String> nhom, String vaiTro) {
         return vaiTro != null && nhom.contains(vaiTro);
+    }
+
+    /**
+     * Người này mở được trang đơn mua của kho nhập {@code khoId} không — cùng luật DonMuaHangService.trongPhamVi: quản
+     * trị viên, nhân viên mua hàng mọi kho; quản lý kho, nhân viên kho chỉ kho mình được phân công.
+     */
+    private boolean xemDuocDonMua(Integer nguoiDungId, String vaiTro, Integer khoId) {
+        if (IRoleType.quan_tri_vien.equals(vaiTro) || IRoleType.nhan_vien_mua_hang.equals(vaiTro)) return true;
+        if (IRoleType.quan_ly_kho.equals(vaiTro) || IRoleType.nhan_vien_kho.equals(vaiTro)) {
+            return nguoiNhan.thuocKho(nguoiDungId, khoId);
+        }
+        return false;
     }
 
     /** Vai trò hiện tại của một người (null nếu không tìm thấy). */

@@ -6,7 +6,6 @@ import com.dev.backend.customizeanotation.RequireAuth;
 import com.dev.backend.dto.request.BaseFilterRequest;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.entities.DonMuaHangDto;
-import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.mapper.DonMuaHangMapper;
 import com.dev.backend.services.impl.entities.DonMuaHangService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,9 +39,8 @@ public class DonMuaHangController {
                 ResponseData.<DonMuaHangDto>builder()
                         .status(HttpStatus.OK.value())
                         .data(donMuaHangMapper.toDto(
-                                donMuaHangService.getOne(id).orElseThrow(
-                                        () -> new CommonException("Không tìm thấy đơn mua hàng id: " + id)
-                                )
+                                // Kiểm phạm vi kho nhập theo vai trò (quản lý kho, nhân viên kho chỉ thấy kho mình)
+                                donMuaHangService.layDuocXem(id)
                         ))
                         .build()
         );
