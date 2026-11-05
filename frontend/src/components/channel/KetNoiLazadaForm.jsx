@@ -10,7 +10,8 @@ import { getApiErrorMessage } from "@/utils/apiError";
 import { toast } from "@/lib/thongBaoNhanh";
 import { cn } from "@/lib/utils";
 
-export default function KetNoiLazadaForm({ values, errors = {}, onChange, config, disabled = false, result, onResult, onRefreshSuccess }) {
+export default function KetNoiLazadaForm({ maKenh = "LAZADA", values, errors = {}, onChange, config, disabled = false, result, onResult, onRefreshSuccess }) {
+  const isSandbox = String(maKenh).toUpperCase() === "LAZADA_SANDBOX";
   const id = useId();
   const [dangKiemTra, setDangKiemTra] = useState(false);
   const [dangLayAuthUrl, setDangLayAuthUrl] = useState(false);
@@ -30,7 +31,7 @@ export default function KetNoiLazadaForm({ values, errors = {}, onChange, config
     }
     setDangKetNoiMa(true);
     try {
-      const res = await kenhBanHangService.hoanTatUyQuyen("LAZADA", {
+      const res = await kenhBanHangService.hoanTatUyQuyen(maKenh, {
         code: maThuCong.trim(),
         state: null,
       });
@@ -77,7 +78,7 @@ export default function KetNoiLazadaForm({ values, errors = {}, onChange, config
     setDangLayAuthUrl(true);
     try {
       const redirectUri = window.location.href.split("?")[0];
-      const res = await kenhBanHangService.getLazadaAuthUrl(redirectUri);
+      const res = await kenhBanHangService.getLazadaAuthUrl(redirectUri, maKenh);
       const url = res?.authUrl || (typeof res === "string" ? res : null);
       if (url) {
         window.location.href = url;
@@ -94,7 +95,7 @@ export default function KetNoiLazadaForm({ values, errors = {}, onChange, config
   const lamMoiToken = async () => {
     setDangLamMoiToken(true);
     try {
-      const res = await kenhBanHangService.refreshLazadaToken();
+      const res = await kenhBanHangService.lamMoiToken(maKenh);
       if (res?.success) {
         toast.success(res.message || "Làm mới Access Token Lazada thành công!");
         onRefreshSuccess?.();
