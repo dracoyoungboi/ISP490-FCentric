@@ -1034,12 +1034,12 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                     .tenKenh(kb.getTenKenh())
                     .build() : null;
 
-            if (kb != null && "LAZADA".equalsIgnoreCase(kb.getMaKenh()) && donGoc.getMaDonHangKenh() != null
+            if (kb != null && ("LAZADA".equalsIgnoreCase(kb.getMaKenh()) || "LAZADA_SANDBOX".equalsIgnoreCase(kb.getMaKenh())) && donGoc.getMaDonHangKenh() != null
                     && lazadaClient != null && kenhBanHangService != null) {
                 try {
-                    String appKey = kenhBanHangService.getLazadaAppKey();
-                    String appSecret = kenhBanHangService.getDecryptedLazadaAppSecret();
-                    String token = kenhBanHangService.getDecryptedLazadaAccessToken();
+                    String appKey = kenhBanHangService.getLazadaAppKey(kb.getMaKenh());
+                    String appSecret = kenhBanHangService.getDecryptedLazadaAppSecret(kb.getMaKenh());
+                    String token = kenhBanHangService.getDecryptedLazadaAccessToken(kb.getMaKenh());
                     if (appKey != null && appSecret != null && token != null) {
                         com.dev.backend.dto.response.customize.LazadaOrderTrackingDto trk =
                                 lazadaClient.getOrderTracking(appKey, appSecret, token, donGoc.getMaDonHangKenh());

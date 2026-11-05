@@ -1361,15 +1361,15 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         }
 
         String maKenh = don.getKenhBanHang().getMaKenh();
-        if ("LAZADA".equalsIgnoreCase(maKenh)) {
+        if ("LAZADA".equalsIgnoreCase(maKenh) || "LAZADA_SANDBOX".equalsIgnoreCase(maKenh)) {
             String orderId = don.getMaDonHangKenh();
             if (orderId == null || orderId.isBlank()) {
                 throw new CommonException("Đơn hàng chưa có mã đơn trên sàn Lazada", HttpStatus.BAD_REQUEST, null);
             }
 
-            String appKey = kenhBanHangService.getLazadaAppKey();
-            String appSecret = kenhBanHangService.getDecryptedLazadaAppSecret();
-            String accessToken = kenhBanHangService.getDecryptedLazadaAccessToken();
+            String appKey = kenhBanHangService.getLazadaAppKey(maKenh);
+            String appSecret = kenhBanHangService.getDecryptedLazadaAppSecret(maKenh);
+            String accessToken = kenhBanHangService.getDecryptedLazadaAccessToken(maKenh);
             if (appKey == null || appSecret == null || accessToken == null) {
                 throw new CommonException("Kênh Lazada chưa được cấu hình hoặc chưa ủy quyền hợp lệ", HttpStatus.BAD_REQUEST, null);
             }
