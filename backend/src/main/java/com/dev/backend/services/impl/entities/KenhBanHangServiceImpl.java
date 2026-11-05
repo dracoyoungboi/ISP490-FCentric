@@ -66,6 +66,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
     public static final String MA_KENH_SHOPIFY = "SHOPIFY";
     public static final String DEFAULT_API_VERSION = "2024-01";
     public static final String MA_KENH_LAZADA = "LAZADA";
+    public static final String MA_KENH_LAZADA_SANDBOX = "LAZADA_SANDBOX";
     public static final String DEFAULT_LAZADA_API_URL = "https://api.lazada.vn/rest";
 
     /** Kiểu kết nối trả về giao diện: Shopify dán khóa, Lazada / TikTok Shop ủy quyền. */
@@ -725,12 +726,14 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         if (MA_KENH_SHOPIFY.equals(ma)) {
             return getShopifyConfig();
         }
-        if ("LAZADA".equals(ma)) {
-            KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(MA_KENH_LAZADA).orElse(null);
+        if (MA_KENH_LAZADA.equals(ma) || MA_KENH_LAZADA_SANDBOX.equals(ma)) {
+            KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma).orElse(null);
+            boolean isSandbox = MA_KENH_LAZADA_SANDBOX.equals(ma);
+            String defaultTenKenh = isSandbox ? "Lazada Sandbox" : "Gian hàng Lazada";
             if (kenh == null) {
                 return ShopifyConfigResponse.builder()
                         .maKenh(ma)
-                        .tenKenh("Lazada")
+                        .tenKenh(defaultTenKenh)
                         .loaiKenh("online")
                         .kieuKetNoi(KIEU_UY_QUYEN)
                         .trangThaiKetNoi(CHUA_KET_NOI)
@@ -753,7 +756,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
             return ShopifyConfigResponse.builder()
                     .id(kenh.getId())
                     .maKenh(ma)
-                    .tenKenh(kenh.getTenKenh() != null ? kenh.getTenKenh() : "Gian hàng Lazada")
+                    .tenKenh(kenh.getTenKenh() != null ? kenh.getTenKenh() : defaultTenKenh)
                     .loaiKenh("online")
                     .appKey(kenh.getClientId())
                     .serviceId(kenh.getServiceId())
@@ -1013,17 +1016,27 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // LAZADA OPEN PLATFORM INTEGRATION
+    // LAZADA OPEN PLATFORM INTEGRATION (Hỗ trợ song song Production & Sandbox)
     // ═══════════════════════════════════════════════════════════════════
 
     @Override
     @Transactional(readOnly = true)
     public LazadaConfigResponse getLazadaConfig() {
-        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(MA_KENH_LAZADA).orElse(null);
+        return getLazadaConfig(MA_KENH_LAZADA);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public LazadaConfigResponse getLazadaConfig(String maKenh) {
+        String ma = (maKenh != null && !maKenh.isBlank()) ? maKenh.trim().toUpperCase() : MA_KENH_LAZADA;
+        boolean isSandbox = MA_KENH_LAZADA_SANDBOX.equals(ma);
+        String defaultTenKenh = isSandbox ? "Lazada Sandbox (Môi trường Thử nghiệm)" : "Gian hàng Lazada";
+
+        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma).orElse(null);
         if (kenh == null) {
             return LazadaConfigResponse.builder()
-                    .maKenh(MA_KENH_LAZADA)
-                    .tenKenh("Gian hàng Lazada")
+                    .maKenh(ma)
+                    .tenKenh(defaultTenKenh)
                     .loaiKenh("online")
                     .apiUrl(DEFAULT_LAZADA_API_URL)
                     .appKey("")
@@ -1077,20 +1090,30 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public LazadaConfigResponse updateLazadaConfig(LazadaConfigUpdating request) {
+        return updateLazadaConfig(MA_KENH_LAZADA, request);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public LazadaConfigResponse updateLazadaConfig(String maKenh, LazadaConfigUpdating request) {
         if (request.getAppKey() == null || request.getAppKey().isBlank()) {
             throw new CommonException("Lazada App Key không được để trống", HttpStatus.BAD_REQUEST, null);
         }
 
-        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(MA_KENH_LAZADA)
+        String ma = (maKenh != null && !maKenh.isBlank()) ? maKenh.trim().toUpperCase() : MA_KENH_LAZADA;
+        boolean isSandbox = MA_KENH_LAZADA_SANDBOX.equals(ma);
+        String defaultTenKenh = isSandbox ? "Lazada Sandbox (Môi trường Thử nghiệm)" : "Gian hàng Lazada";
+
+        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma)
                 .orElseGet(() -> KenhBanHang.builder()
-                        .maKenh(MA_KENH_LAZADA)
-                        .tenKenh("Gian hàng Lazada")
+                        .maKenh(ma)
+                        .tenKenh(defaultTenKenh)
                         .loaiKenh("online")
                         .apiUrl(DEFAULT_LAZADA_API_URL)
                         .trangThai(1)
                         .build());
 
-        kenh.setTenKenh("Gian hàng Lazada");
+        kenh.setTenKenh(defaultTenKenh);
         kenh.setLoaiKenh("online");
         if (kenh.getApiUrl() == null || kenh.getApiUrl().isBlank()) {
             kenh.setApiUrl(DEFAULT_LAZADA_API_URL);
@@ -1118,62 +1141,107 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         }
 
         KenhBanHang saved = kenhBanHangRepository.save(kenh);
-        ghiLichSuThayDoi(saved, "Lazada AppKey: " + request.getAppKey());
+        ghiLichSuThayDoi(saved, (isSandbox ? "Lazada Sandbox" : "Lazada") + " AppKey: " + request.getAppKey());
 
-        return getLazadaConfig();
+        return getLazadaConfig(ma);
     }
 
     @Override
     public LazadaTestConnectionResponse testLazadaConnection(LazadaTestConnectionRequest request) {
+        return testLazadaConnection(MA_KENH_LAZADA, request);
+    }
+
+    @Override
+    public LazadaTestConnectionResponse testLazadaConnection(String maKenh, LazadaTestConnectionRequest request) {
+        String ma = (maKenh != null && !maKenh.isBlank()) ? maKenh.trim().toUpperCase() : MA_KENH_LAZADA;
         String appKey = request.getAppKey() != null && !request.getAppKey().isBlank()
                 ? request.getAppKey().trim()
-                : getLazadaAppKey();
+                : getLazadaAppKey(ma);
 
         String appSecret = request.getAppSecret() != null && !request.getAppSecret().isBlank()
                 ? request.getAppSecret().trim()
-                : getDecryptedLazadaAppSecret();
+                : getDecryptedLazadaAppSecret(ma);
 
         String accessToken = request.getAccessToken() != null && !request.getAccessToken().isBlank()
                 ? request.getAccessToken().trim()
-                : getDecryptedLazadaAccessToken();
+                : getDecryptedLazadaAccessToken(ma);
 
         return getLazadaClient().testConnection(appKey, appSecret, accessToken);
     }
 
     @Override
     public String getLazadaAuthUrl(String redirectUri) {
-        return getLazadaAuthUrl(redirectUri, null);
+        return getLazadaAuthUrl(MA_KENH_LAZADA, redirectUri, null);
     }
 
     @Override
     public String getLazadaAuthUrl(String redirectUri, String state) {
-        String appKey = getLazadaAppKey();
+        return getLazadaAuthUrl(MA_KENH_LAZADA, redirectUri, state);
+    }
+
+    @Override
+    public String getLazadaAuthUrl(String maKenh, String redirectUri, String state) {
+        String ma = (maKenh != null && !maKenh.isBlank()) ? maKenh.trim().toUpperCase() : MA_KENH_LAZADA;
+        boolean isSandbox = MA_KENH_LAZADA_SANDBOX.equals(ma);
+
+        String appKey = getLazadaAppKey(ma);
         if (appKey == null || appKey.isBlank()) {
-            throw new CommonException("Chưa cấu hình App Key cho kênh Lazada", HttpStatus.BAD_REQUEST, null);
+            if (isSandbox) {
+                appKey = getLazadaAppKey(MA_KENH_LAZADA);
+            }
+            if (appKey == null || appKey.isBlank()) {
+                throw new CommonException("Chưa cấu hình App Key cho kênh " + (isSandbox ? "Lazada Sandbox" : "Lazada"), HttpStatus.BAD_REQUEST, null);
+            }
         }
-        return getLazadaClient().generateAuthUrl(appKey, redirectUri, state);
+        return getLazadaClient().generateAuthUrl(appKey, redirectUri, state, !isSandbox);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public LazadaConfigResponse exchangeLazadaToken(LazadaOAuthCallbackRequest request) {
+        return exchangeLazadaToken(MA_KENH_LAZADA, request);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public LazadaConfigResponse exchangeLazadaToken(String maKenh, LazadaOAuthCallbackRequest request) {
         if (request.getCode() == null || request.getCode().isBlank()) {
             throw new CommonException("Mã authorization code không được để trống", HttpStatus.BAD_REQUEST, null);
         }
 
-        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(MA_KENH_LAZADA).orElse(null);
+        String ma = (maKenh != null && !maKenh.isBlank()) ? maKenh.trim().toUpperCase() : MA_KENH_LAZADA;
+        boolean isSandbox = MA_KENH_LAZADA_SANDBOX.equals(ma);
+
+        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma).orElse(null);
         if (kenh == null) {
-            throw new CommonException("Chưa thiết lập kênh Lazada trong hệ thống", HttpStatus.BAD_REQUEST, null);
+            kenh = KenhBanHang.builder()
+                    .maKenh(ma)
+                    .tenKenh(isSandbox ? "Lazada Sandbox (Môi trường Thử nghiệm)" : "Gian hàng Lazada")
+                    .loaiKenh("online")
+                    .apiUrl(DEFAULT_LAZADA_API_URL)
+                    .trangThai(1)
+                    .build();
         }
 
         String appKey = request.getAppKey() != null && !request.getAppKey().isBlank()
                 ? request.getAppKey().trim()
                 : kenh.getClientId();
+        if ((appKey == null || appKey.isBlank()) && isSandbox) {
+            appKey = getLazadaAppKey(MA_KENH_LAZADA);
+            kenh.setClientId(appKey);
+        }
 
-        String appSecret = getDecryptedLazadaAppSecret();
+        String appSecret = getDecryptedLazadaAppSecret(ma);
+        if ((appSecret == null || appSecret.isBlank()) && isSandbox) {
+            appSecret = getDecryptedLazadaAppSecret(MA_KENH_LAZADA);
+            KenhBanHang prodKenh = kenhBanHangRepository.findByMaKenh(MA_KENH_LAZADA).orElse(null);
+            if (prodKenh != null && prodKenh.getApiSecret() != null) {
+                kenh.setApiSecret(prodKenh.getApiSecret());
+            }
+        }
 
         if (appKey == null || appKey.isBlank() || appSecret == null || appSecret.isBlank()) {
-            throw new CommonException("Chưa cấu hình đủ App Key và App Secret cho kênh Lazada", HttpStatus.BAD_REQUEST, null);
+            throw new CommonException("Chưa cấu hình đủ App Key và App Secret cho kênh " + (isSandbox ? "Lazada Sandbox" : "Lazada"), HttpStatus.BAD_REQUEST, null);
         }
 
         try {
@@ -1205,10 +1273,10 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
             kenh.setTrangThai(1);
             kenhBanHangRepository.save(kenh);
 
-            ghiLichSuThayDoi(kenh, "Ủy quyền OAuth2 Lazada thành công (Token hiệu lực " + (expiresIn / 86400) + " ngày)");
-            uyQuyenDaOn(MA_KENH_LAZADA);
+            ghiLichSuThayDoi(kenh, "Ủy quyền OAuth2 " + (isSandbox ? "Lazada Sandbox" : "Lazada") + " thành công (Token hiệu lực " + (expiresIn / 86400) + " ngày)");
+            uyQuyenDaOn(ma);
 
-            return getLazadaConfig();
+            return getLazadaConfig(ma);
         } catch (CommonException ce) {
             throw ce;
         } catch (Exception e) {
@@ -1220,33 +1288,49 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void xoaKhoaLazada() {
-        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(MA_KENH_LAZADA).orElse(null);
+        xoaKhoaLazada(MA_KENH_LAZADA);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void xoaKhoaLazada(String maKenh) {
+        String ma = (maKenh != null && !maKenh.isBlank()) ? maKenh.trim().toUpperCase() : MA_KENH_LAZADA;
+        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma).orElse(null);
         if (kenh != null) {
             kenh.setApiKey(null);
             kenh.setRefreshToken(null);
             kenh.setTokenExpiresAt(null);
             kenh.setTrangThai(0);
             kenhBanHangRepository.save(kenh);
-            ghiLichSuThayDoi(kenh, "Ngắt kết nối gian hàng Lazada (xóa Access Token)");
+            ghiLichSuThayDoi(kenh, "Ngắt kết nối gian hàng " + (ma.contains("SANDBOX") ? "Lazada Sandbox" : "Lazada") + " (xóa Access Token)");
         }
     }
 
     @Override
     public boolean refreshLazadaAccessToken() {
+        return refreshLazadaAccessToken(MA_KENH_LAZADA);
+    }
+
+    @Override
+    public boolean refreshLazadaAccessToken(String maKenh) {
+        String ma = (maKenh != null && !maKenh.isBlank()) ? maKenh.trim().toUpperCase() : MA_KENH_LAZADA;
         lazadaTokenRefreshLock.lock();
         try {
-            KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(MA_KENH_LAZADA).orElse(null);
+            KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma).orElse(null);
             if (kenh == null || kenh.getRefreshToken() == null || kenh.getRefreshToken().isBlank()) {
-                log.warn("Không thể refresh token Lazada: thiếu Refresh Token");
+                log.warn("Không thể refresh token {}: thiếu Refresh Token", ma);
                 return false;
             }
 
             String appKey = kenh.getClientId();
-            String appSecret = getDecryptedLazadaAppSecret();
+            if (appKey == null || appKey.isBlank()) {
+                appKey = getLazadaAppKey(ma);
+            }
+            String appSecret = getDecryptedLazadaAppSecret(ma);
             String decryptedRefresh = paymentSecretCipher.decrypt(kenh.getRefreshToken());
 
             if (appKey == null || appSecret == null || decryptedRefresh == null) {
-                log.warn("Thiếu thông tin credential để refresh token Lazada");
+                log.warn("Thiếu thông tin credential để refresh token {}", ma);
                 return false;
             }
 
@@ -1262,15 +1346,14 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                 }
                 kenh.setTokenExpiresAt(Instant.now().plusSeconds(expiresIn));
                 kenhBanHangRepository.save(kenh);
-                log.info("Làm mới Access Token Lazada thành công qua Refresh Token!");
-                uyQuyenDaOn(MA_KENH_LAZADA);
+                log.info("Làm mới thành công Access Token {} qua LazOP API", ma);
                 return true;
             } else {
-                log.error("Lazada từ chối Refresh Token: {}", res.path("message").asText());
+                log.error("Lazada từ chối làm mới token {}: {}", ma, res);
                 return false;
             }
         } catch (Exception e) {
-            log.error("Lỗi làm mới token Lazada: {}", e.getMessage());
+            log.error("Ngoại lệ khi làm mới token {}: {}", ma, e.getMessage());
             return false;
         } finally {
             lazadaTokenRefreshLock.unlock();
@@ -1278,51 +1361,68 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public String getDecryptedLazadaAccessToken() {
-        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(MA_KENH_LAZADA).orElse(null);
-        if (kenh == null || kenh.getApiKey() == null || kenh.getApiKey().isBlank()) {
-            return null;
-        }
+        return getDecryptedLazadaAccessToken(MA_KENH_LAZADA);
+    }
 
-        // Proactive Refresh: nếu token sắp hết hạn trong vòng 48h
-        if (kenh.getTokenExpiresAt() != null && kenh.getRefreshToken() != null) {
-            long secondsLeft = java.time.Duration.between(Instant.now(), kenh.getTokenExpiresAt()).getSeconds();
+    @Override
+    public String getDecryptedLazadaAccessToken(String maKenh) {
+        String ma = (maKenh != null && !maKenh.isBlank()) ? maKenh.trim().toUpperCase() : MA_KENH_LAZADA;
+        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma).orElse(null);
+        if (kenh != null && kenh.getTokenExpiresAt() != null) {
+            long secondsLeft = Duration.between(Instant.now(), kenh.getTokenExpiresAt()).getSeconds();
             if (secondsLeft < 172_800) { // < 48 giờ
-                refreshLazadaAccessToken();
-                kenh = kenhBanHangRepository.findByMaKenh(MA_KENH_LAZADA).orElse(null);
+                refreshLazadaAccessToken(ma);
+                kenh = kenhBanHangRepository.findByMaKenh(ma).orElse(null);
             }
         }
 
         if (kenh == null || kenh.getApiKey() == null) {
             return null;
         }
-
         try {
             return paymentSecretCipher.decrypt(kenh.getApiKey());
         } catch (Exception e) {
-            log.error("Lỗi giải mã Access Token Lazada: {}", e.getMessage());
+            log.error("Lỗi giải mã Access Token {}: {}", ma, e.getMessage());
             return null;
         }
     }
 
     @Override
     public String getDecryptedLazadaAppSecret() {
-        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(MA_KENH_LAZADA).orElse(null);
+        return getDecryptedLazadaAppSecret(MA_KENH_LAZADA);
+    }
+
+    @Override
+    public String getDecryptedLazadaAppSecret(String maKenh) {
+        String ma = (maKenh != null && !maKenh.isBlank()) ? maKenh.trim().toUpperCase() : MA_KENH_LAZADA;
+        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma).orElse(null);
+        if ((kenh == null || kenh.getApiSecret() == null || kenh.getApiSecret().isBlank()) && MA_KENH_LAZADA_SANDBOX.equals(ma)) {
+            kenh = kenhBanHangRepository.findByMaKenh(MA_KENH_LAZADA).orElse(null);
+        }
         if (kenh == null || kenh.getApiSecret() == null || kenh.getApiSecret().isBlank()) {
             return null;
         }
         try {
             return paymentSecretCipher.decrypt(kenh.getApiSecret());
         } catch (Exception e) {
-            log.error("Lỗi giải mã App Secret Lazada: {}", e.getMessage());
+            log.error("Lỗi giải mã App Secret {}: {}", ma, e.getMessage());
             return null;
         }
     }
 
     @Override
     public String getLazadaAppKey() {
-        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(MA_KENH_LAZADA).orElse(null);
+        return getLazadaAppKey(MA_KENH_LAZADA);
+    }
+
+    @Override
+    public String getLazadaAppKey(String maKenh) {
+        String ma = (maKenh != null && !maKenh.isBlank()) ? maKenh.trim().toUpperCase() : MA_KENH_LAZADA;
+        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma).orElse(null);
+        if ((kenh == null || kenh.getClientId() == null || kenh.getClientId().isBlank()) && MA_KENH_LAZADA_SANDBOX.equals(ma)) {
+            kenh = kenhBanHangRepository.findByMaKenh(MA_KENH_LAZADA).orElse(null);
+        }
         return kenh != null ? kenh.getClientId() : null;
     }
 

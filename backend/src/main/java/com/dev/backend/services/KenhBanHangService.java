@@ -76,62 +76,68 @@ public interface KenhBanHangService {
     void xoaKhoaShopify();
 
 
-    // ── Lazada Open Platform Integration ──
+    // ── Lazada Open Platform Integration (Hỗ trợ song song Production & Sandbox) ──
 
     /**
      * Lấy thông tin cấu hình kênh Lazada (Token đã được masked an toàn).
      */
     LazadaConfigResponse getLazadaConfig();
+    LazadaConfigResponse getLazadaConfig(String maKenh);
 
     /**
      * Cập nhật thông tin cấu hình Lazada (mã hóa AES-256-GCM App Secret và Tokens).
      */
     LazadaConfigResponse updateLazadaConfig(LazadaConfigUpdating request);
+    LazadaConfigResponse updateLazadaConfig(String maKenh, LazadaConfigUpdating request);
 
     /**
      * Kiểm tra kết nối tới Lazada Open Platform API (/seller/get).
      */
     LazadaTestConnectionResponse testLazadaConnection(LazadaTestConnectionRequest request);
+    LazadaTestConnectionResponse testLazadaConnection(String maKenh, LazadaTestConnectionRequest request);
 
     /**
      * Sinh URL ủy quyền Seller Authorization để chuyển hướng tới Lazada Seller Center.
      */
     String getLazadaAuthUrl(String redirectUri);
-
-    /**
-     * Sinh URL ủy quyền Seller Authorization có kèm mã phiên bảo mật (state).
-     */
     String getLazadaAuthUrl(String redirectUri, String state);
+    String getLazadaAuthUrl(String maKenh, String redirectUri, String state);
 
     /**
      * Đổi mã code nhận được từ callback OAuth2 lấy Access Token và Refresh Token.
      */
     LazadaConfigResponse exchangeLazadaToken(LazadaOAuthCallbackRequest request);
+    LazadaConfigResponse exchangeLazadaToken(String maKenh, LazadaOAuthCallbackRequest request);
 
     /**
      * Làm mới Access Token Lazada bằng Refresh Token trước khi hết hạn 30 ngày.
      */
     boolean refreshLazadaAccessToken();
+    boolean refreshLazadaAccessToken(String maKenh);
 
     /**
      * Ngắt kết nối Lazada: xóa Access Token, Refresh Token và tắt trạng thái hoạt động.
      */
     void xoaKhoaLazada();
+    void xoaKhoaLazada(String maKenh);
 
     /**
      * Lấy Access Token Lazada đã giải mã phục vụ đồng bộ đơn và tồn kho.
      */
     String getDecryptedLazadaAccessToken();
+    String getDecryptedLazadaAccessToken(String maKenh);
 
     /**
      * Lấy App Secret Lazada đã giải mã phục vụ ký số HMAC-SHA256.
      */
     String getDecryptedLazadaAppSecret();
+    String getDecryptedLazadaAppSecret(String maKenh);
 
     /**
      * Lấy App Key của Lazada.
      */
     String getLazadaAppKey();
+    String getLazadaAppKey(String maKenh);
 
     /**
      * Lấy thông tin cấu hình kết nối TikTok Shop (đã che mờ secret và token).

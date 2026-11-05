@@ -143,18 +143,18 @@ public class KenhBanHangController {
                             .build()
             );
         }
-        if ("LAZADA".equals(ma)) {
+        if ("LAZADA".equals(ma) || "LAZADA_SANDBOX".equals(ma)) {
             LazadaConfigUpdating lazadaReq = LazadaConfigUpdating.builder()
                     .appKey(request.getAppKey() != null ? request.getAppKey() : request.getClientId())
                     .appSecret(request.getAppSecret() != null ? request.getAppSecret() : request.getApiSecret())
                     .trangThai(request.getTrangThai())
                     .build();
-            kenhBanHangService.updateLazadaConfig(lazadaReq);
+            kenhBanHangService.updateLazadaConfig(ma, lazadaReq);
             return ResponseEntity.ok(
                     ResponseData.<ShopifyConfigResponse>builder()
                             .status(HttpStatus.OK.value())
-                            .data(kenhBanHangService.getKetNoi("LAZADA"))
-                            .message("Cập nhật cấu hình Lazada thành công")
+                            .data(kenhBanHangService.getKetNoi(ma))
+                            .message("Cập nhật cấu hình " + (ma.contains("SANDBOX") ? "Lazada Sandbox" : "Lazada") + " thành công")
                             .build()
             );
         }
@@ -186,13 +186,13 @@ public class KenhBanHangController {
             @RequestParam(required = false) String redirectUri,
             @RequestParam(required = false) String state) {
         String ma = maKenh != null ? maKenh.trim().toUpperCase() : "";
-        if ("LAZADA".equals(ma)) {
-            String authUrl = kenhBanHangService.getLazadaAuthUrl(redirectUri, state);
+        if ("LAZADA".equals(ma) || "LAZADA_SANDBOX".equals(ma)) {
+            String authUrl = kenhBanHangService.getLazadaAuthUrl(ma, redirectUri, state);
             return ResponseEntity.ok(
                     ResponseData.<Map<String, String>>builder()
                             .status(HttpStatus.OK.value())
                             .data(Map.of("authUrl", authUrl))
-                            .message("Sinh URL ủy quyền Lazada thành công")
+                            .message("Sinh URL ủy quyền " + (ma.contains("SANDBOX") ? "Lazada Sandbox" : "Lazada") + " thành công")
                             .build()
             );
         }
@@ -216,13 +216,13 @@ public class KenhBanHangController {
             @PathVariable String maKenh,
             @RequestBody LazadaOAuthCallbackRequest request) {
         String ma = maKenh != null ? maKenh.trim().toUpperCase() : "";
-        if ("LAZADA".equals(ma)) {
-            kenhBanHangService.exchangeLazadaToken(request);
+        if ("LAZADA".equals(ma) || "LAZADA_SANDBOX".equals(ma)) {
+            kenhBanHangService.exchangeLazadaToken(ma, request);
             return ResponseEntity.ok(
                     ResponseData.<ShopifyConfigResponse>builder()
                             .status(HttpStatus.OK.value())
-                            .data(kenhBanHangService.getKetNoi("LAZADA"))
-                            .message("Ủy quyền gian hàng Lazada thành công")
+                            .data(kenhBanHangService.getKetNoi(ma))
+                            .message("Ủy quyền gian hàng " + (ma.contains("SANDBOX") ? "Lazada Sandbox" : "Lazada") + " thành công")
                             .build()
             );
         }
@@ -275,13 +275,13 @@ public class KenhBanHangController {
     @Operation(summary = "Kiểm tra kết nối tới sàn bán hàng")
     public ResponseEntity<ResponseData<?>> kiemTraKetNoi(@PathVariable String maKenh) {
         String ma = maKenh != null ? maKenh.trim().toUpperCase() : "";
-        if ("LAZADA".equals(ma)) {
-            LazadaTestConnectionResponse res = kenhBanHangService.testLazadaConnection(new LazadaTestConnectionRequest());
+        if ("LAZADA".equals(ma) || "LAZADA_SANDBOX".equals(ma)) {
+            LazadaTestConnectionResponse res = kenhBanHangService.testLazadaConnection(ma, new LazadaTestConnectionRequest());
             return ResponseEntity.ok(
                     ResponseData.<LazadaTestConnectionResponse>builder()
                             .status(HttpStatus.OK.value())
                             .data(res)
-                            .message(res.isConnected() ? "Kết nối Lazada thành công" : "Kiểm tra kết nối Lazada thất bại")
+                            .message(res.isConnected() ? ("Kết nối " + (ma.contains("SANDBOX") ? "Lazada Sandbox" : "Lazada") + " thành công") : ("Kiểm tra kết nối " + (ma.contains("SANDBOX") ? "Lazada Sandbox" : "Lazada") + " thất bại"))
                             .build()
             );
         }
@@ -322,16 +322,16 @@ public class KenhBanHangController {
                             .build()
             );
         }
-        if ("LAZADA".equals(ma)) {
-            boolean success = kenhBanHangService.refreshLazadaAccessToken();
+        if ("LAZADA".equals(ma) || "LAZADA_SANDBOX".equals(ma)) {
+            boolean success = kenhBanHangService.refreshLazadaAccessToken(ma);
             if (!success) {
-                throw new LoiCoMaException(HttpStatus.FAILED_DEPENDENCY, MaLoi.LAM_MOI_KHOA_LOI, "Không thể làm mới token Lazada");
+                throw new LoiCoMaException(HttpStatus.FAILED_DEPENDENCY, MaLoi.LAM_MOI_KHOA_LOI, "Không thể làm mới token " + (ma.contains("SANDBOX") ? "Lazada Sandbox" : "Lazada"));
             }
             return ResponseEntity.ok(
                     ResponseData.<ShopifyConfigResponse>builder()
                             .status(HttpStatus.OK.value())
-                            .data(kenhBanHangService.getKetNoi("LAZADA"))
-                            .message("Làm mới Access Token Lazada thành công")
+                            .data(kenhBanHangService.getKetNoi(ma))
+                            .message("Làm mới Access Token " + (ma.contains("SANDBOX") ? "Lazada Sandbox" : "Lazada") + " thành công")
                             .build()
             );
         }
@@ -344,13 +344,13 @@ public class KenhBanHangController {
     @Operation(summary = "Ngắt kết nối (hiện chỉ Shopify): xóa khóa, dừng job, giữ tên miền, liên kết và đơn; đang đồng bộ thì 409 DANG_DONG_BO")
     public ResponseEntity<ResponseData<ShopifyConfigResponse>> ngatKetNoi(@PathVariable String maKenh) {
         String ma = maKenh != null ? maKenh.trim().toUpperCase() : "";
-        if ("LAZADA".equals(ma)) {
-            kenhBanHangService.xoaKhoaLazada();
+        if ("LAZADA".equals(ma) || "LAZADA_SANDBOX".equals(ma)) {
+            kenhBanHangService.xoaKhoaLazada(ma);
             return ResponseEntity.ok(
                     ResponseData.<ShopifyConfigResponse>builder()
                             .status(HttpStatus.OK.value())
-                            .data(kenhBanHangService.getKetNoi("LAZADA"))
-                            .message("Đã ngắt kết nối kênh bán hàng")
+                            .data(kenhBanHangService.getKetNoi(ma))
+                            .message("Đã ngắt kết nối kênh " + (ma.contains("SANDBOX") ? "Lazada Sandbox" : "Lazada"))
                             .build()
             );
         }
