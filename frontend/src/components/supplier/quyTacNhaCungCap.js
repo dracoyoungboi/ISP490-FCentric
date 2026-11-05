@@ -51,8 +51,6 @@ export const FORM_TRONG = {
     soDienThoai: "",
     email: "",
     diaChi: "",
-    nganHang: "",
-    soNganHang: "",
 };
 
 /** Dữ liệu cũ có thể lưu "+84 987 654 321" (form cũ cho phép +84): đổi về dạng 0987654321 khi mở form sửa. */
@@ -75,8 +73,6 @@ export const formTuNhaCungCap = (supplier) =>
               soDienThoai: chuanHoaSoDienThoai(supplier.soDienThoai),
               email: supplier.email ?? "",
               diaChi: supplier.diaChi ?? "",
-              nganHang: supplier.nganHang ?? "",
-              soNganHang: supplier.soNganHang ?? "",
           }
         : FORM_TRONG;
 
@@ -122,8 +118,6 @@ export function payloadTuForm(form, { laSua }) {
         soDienThoai: form.soDienThoai.trim(),
         email: form.email.trim(),
         diaChi: tuyChon(form.diaChi),
-        nganHang: tuyChon(form.nganHang),
-        soNganHang: tuyChon(form.soNganHang),
     };
     return laSua ? payload : { maNhaCungCap: form.maNhaCungCap.trim(), ...payload };
 }
@@ -134,8 +128,6 @@ export function oCuaThongBaoMayChu(message) {
     if (text.includes("mã nhà cung cấp")) return "maNhaCungCap";
     if (text.includes("tên nhà cung cấp")) return "tenNhaCungCap";
     if (text.includes("mã số thuế")) return "maSoThue";
-    if (text.includes("số tài khoản")) return "soNganHang";
-    if (text.includes("ngân hàng")) return "nganHang";
     if (text.includes("email")) return "email";
     if (text.includes("số điện thoại")) return "soDienThoai";
     return null;

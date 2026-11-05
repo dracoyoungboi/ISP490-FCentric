@@ -13,6 +13,11 @@ import com.dev.backend.repository.MaVachNhaCungCapRepository;
 import com.dev.backend.repository.NhaCungCapRepository;
 import com.dev.backend.repository.PhieuNhapKhoRepository;
 import com.dev.backend.services.impl.BaseServiceImpl;
+import com.dev.backend.services.impl.utils.NhatKyNghiepVu;
+import com.dev.backend.config.SecurityContextHolder;
+import com.dev.backend.constant.variables.IHanhDong;
+import com.dev.backend.constant.variables.ITable;
+import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
 import jakarta.persistence.EntityManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
@@ -23,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -58,6 +64,17 @@ public class NhaCungCapService extends BaseServiceImpl<NhaCungCap, Integer> {
     // Mã vạch của nhà cung cấp là cấu hình, không phải giao dịch: xóa nhà cung cấp thì xóa kèm
     // (bảng ma_vach_nha_cung_cap không có khóa ngoại nên không tự chặn, để lại sẽ thành dòng mồ côi)
     private final MaVachNhaCungCapRepository maVachNhaCungCapRepository;
+
+    @Autowired
+    private NhatKyNghiepVu nhatKy;
+
+    // Thông báo quản trị viên khi đổi MST (Đ3); test dựng tay không có thì bỏ qua
+    @Autowired(required = false)
+    private ThongBaoHeThongService thongBaoHeThongService;
+
+    /** Trường nhạy cảm: đổi thì ghi chú "[Nhạy cảm]" và báo quản trị viên. Khóa ảnh chụp → tên hiển thị. */
+    static final Map<String, String> TRUONG_NHAY_CAM = Map.of(
+            "maSoThue", "mã số thuế");
 
     @Autowired
     public NhaCungCapService(NhaCungCapRepository repository,
@@ -124,10 +141,6 @@ public class NhaCungCapService extends BaseServiceImpl<NhaCungCap, Integer> {
             );
         }
 
-        String nganHang = chuanHoa(creating.getNganHang());
-        String soNganHang = chuanHoa(creating.getSoNganHang());
-        kiemTraThongTinNganHang(nganHang, soNganHang);
-
         NhaCungCap entity = NhaCungCap.builder()
                 .maNhaCungCap(ma)
                 .tenNhaCungCap(creating.getTenNhaCungCap().trim())
@@ -136,13 +149,14 @@ public class NhaCungCapService extends BaseServiceImpl<NhaCungCap, Integer> {
                 .soDienThoai(creating.getSoDienThoai().trim())
                 .email(creating.getEmail().trim())
                 .diaChi(chuanHoa(creating.getDiaChi()))
-                .nganHang(nganHang)
-                .soNganHang(soNganHang)
                 .trangThai(TRANG_THAI_HOAT_DONG)
                 .build();
 
         // Lưu vào database
         entity = repository.save(entity);
+        nhatKy.ghi(NhatKyNghiepVu.dong(ITable.nha_cung_cap, entity.getId(), IHanhDong.them_nha_cung_cap)
+                .ma(entity.getMaNhaCungCap())
+                .moi(anhChup(entity)));
 
         // Trả về DTO
         return mapper.toDto(entity);
@@ -158,6 +172,7 @@ public class NhaCungCapService extends BaseServiceImpl<NhaCungCap, Integer> {
 
         // Lấy entity hiện tại
         NhaCungCap entity = timTheoId(id);
+        Map<String, Object> truoc = anhChup(entity);
 
         entity.setTenNhaCungCap(updating.getTenNhaCungCap().trim());
         // Client cũ không gửi mã số thuế: giữ nguyên; gửi rỗng là xóa
@@ -172,6 +187,7 @@ public class NhaCungCapService extends BaseServiceImpl<NhaCungCap, Integer> {
 
         // Lưu lại entity sau khi update
         entity = repository.save(entity);
+        ghiSua(entity, truoc);
 
         return mapper.toDto(entity);
     }
@@ -194,9 +210,16 @@ public class NhaCungCapService extends BaseServiceImpl<NhaCungCap, Integer> {
             return mapper.toDto(entity);
         }
 
+        Integer trangThaiCu = entity.getTrangThai();
         entity.setTrangThai(trangThai);
         entity.setNgayCapNhat(Instant.now());
-        return mapper.toDto(repository.save(entity));
+        NhaCungCap daLuu = repository.save(entity);
+        nhatKy.ghi(NhatKyNghiepVu.dong(ITable.nha_cung_cap, daLuu.getId(), IHanhDong.doi_trang_thai_nha_cung_cap)
+                .ma(daLuu.getMaNhaCungCap())
+                .cu(NhatKyNghiepVu.anh("trangThai", trangThaiCu))
+                .moi(NhatKyNghiepVu.anh("trangThai", trangThai))
+                .ghiChu(trangThai == TRANG_THAI_HOAT_DONG ? "Cho hoạt động lại" : "Ngừng hoạt động"));
+        return mapper.toDto(daLuu);
     }
 
     /**
@@ -232,8 +255,49 @@ public class NhaCungCapService extends BaseServiceImpl<NhaCungCap, Integer> {
         if (!kiemTra.isCoTheXoa()) {
             throw new CommonException(lyDoKhongTheXoa(kiemTra), HttpStatus.CONFLICT, kiemTra);
         }
+        NhaCungCap entity = timTheoId(id);
+        // Xóa cứng: giữ ảnh chụp toàn bộ bản ghi trong nhật ký
+        nhatKy.ghi(NhatKyNghiepVu.dong(ITable.nha_cung_cap, id, IHanhDong.xoa_nha_cung_cap)
+                .ma(entity.getMaNhaCungCap())
+                .cu(anhChup(entity))
+                .ghiChu("Xóa nhà cung cấp " + entity.getTenNhaCungCap() + " (chưa phát sinh giao dịch)"));
         maVachNhaCungCapRepository.deleteByNhaCungCapId(id);
         repository.deleteById(id);
+    }
+
+    /** Ảnh chụp các trường nghiệp vụ của nhà cung cấp cho nhật ký (ngân hàng / số tài khoản đã bỏ, không ghi). */
+    static Map<String, Object> anhChup(NhaCungCap n) {
+        return NhatKyNghiepVu.anh(
+                "maNhaCungCap", n.getMaNhaCungCap(),
+                "tenNhaCungCap", n.getTenNhaCungCap(),
+                "maSoThue", n.getMaSoThue(),
+                "nguoiLienHe", n.getNguoiLienHe(),
+                "soDienThoai", n.getSoDienThoai(),
+                "email", n.getEmail(),
+                "diaChi", n.getDiaChi(),
+                "trangThai", n.getTrangThai());
+    }
+
+    /**
+     * Ghi dòng sửa nhà cung cấp (chỉ trường đổi). Đổi MST thì ghi chú "[Nhạy cảm]" và báo mọi
+     * quản trị viên trừ người sửa.
+     */
+    private void ghiSua(NhaCungCap entity, Map<String, Object> truoc) {
+        NhatKyNghiepVu.Dong dong = NhatKyNghiepVu.dong(ITable.nha_cung_cap, entity.getId(), IHanhDong.sua_nha_cung_cap)
+                .ma(entity.getMaNhaCungCap())
+                .thayDoi(truoc, anhChup(entity));
+        if (!dong.coThayDoi()) return;
+        List<String> nhayCam = new ArrayList<>();
+        for (Map.Entry<String, String> t : TRUONG_NHAY_CAM.entrySet()) {
+            if (dong.giaTriMoi().containsKey(t.getKey())) nhayCam.add(t.getValue());
+        }
+        if (!nhayCam.isEmpty()) dong.ghiChu("[Nhạy cảm] Đổi " + String.join(", ", nhayCam));
+        nhatKy.ghi(dong);
+        if (!nhayCam.isEmpty() && thongBaoHeThongService != null) {
+            NguoiDungAuthInfo nguoi = SecurityContextHolder.getUser();
+            thongBaoHeThongService.nhaCungCapDoiThongTinNhayCam(entity.getId(), entity.getMaNhaCungCap(),
+                    entity.getTenNhaCungCap(), nhayCam, nguoi == null ? null : nguoi.getId());
+        }
     }
 
     // ── Hàm hỗ trợ ─────────────────────────────────────────────────────────
@@ -251,16 +315,6 @@ public class NhaCungCapService extends BaseServiceImpl<NhaCungCap, Integer> {
         if (value == null) return null;
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
-    }
-
-    /** Mã QR thanh toán cần đủ cả ngân hàng và số tài khoản: nhập một thì phải nhập cả hai. */
-    private static void kiemTraThongTinNganHang(String nganHang, String soNganHang) {
-        if (nganHang == null && soNganHang != null) {
-            throw new CommonException("Vui lòng chọn ngân hàng cho số tài khoản đã nhập.");
-        }
-        if (nganHang != null && soNganHang == null) {
-            throw new CommonException("Vui lòng nhập số tài khoản cho ngân hàng đã chọn.");
-        }
     }
 
     private static String lyDoKhongTheXoa(NhaCungCapKiemTraXoaDto kiemTra) {

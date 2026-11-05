@@ -18,6 +18,8 @@ import DauTrangNcc from "@/components/supplier/chi-tiet/DauTrangNcc";
 import TinhHinhNcc from "@/components/supplier/chi-tiet/TinhHinhNcc";
 import GiaoDichNcc from "@/components/supplier/chi-tiet/GiaoDichNcc";
 import ThuocTinhNcc from "@/components/supplier/chi-tiet/ThuocTinhNcc";
+import NganKeoLichSu from "@/components/nhat-ky/NganKeoLichSu";
+import { layLichSuDanhMuc } from "@/services/nhatKyService";
 import {
   TRANG_THAI_DA_CHOT,
   demViecDangDo,
@@ -92,6 +94,8 @@ export default function SupplierDetailView() {
   const [editOpen, setEditOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  // Lịch sử thay đổi nhà cung cấp: chỉ quản trị viên (máy chủ cũng chỉ cho quản trị viên)
+  const [moLichSu, setMoLichSu] = useState(false);
 
   // ── Nhà cung cấp ────────────────────────────────────────────────────────
   const taiNcc = useCallback(() => getSupplierById(id), [id]);
@@ -282,6 +286,7 @@ export default function SupplierDetailView() {
           onChinhSua={() => setEditOpen(true)}
           onDoiTrangThai={() => setStatusOpen(true)}
           onXoa={() => setDeleteOpen(true)}
+          onLichSu={laQuanTriVien ? () => setMoLichSu(true) : undefined}
         />
 
         {!dangHoatDong ? (
@@ -358,6 +363,15 @@ export default function SupplierDetailView() {
             onChecked={xoaQ.setData}
           />
         </>
+      ) : null}
+      {laQuanTriVien ? (
+        <NganKeoLichSu
+          open={moLichSu}
+          onOpenChange={setMoLichSu}
+          tieuDe={`Lịch sử ${ncc.tenNhaCungCap || ncc.maNhaCungCap || "nhà cung cấp"}`}
+          moTa="Thêm, sửa, đổi trạng thái nhà cung cấp, thêm / gỡ mã vạch nhà cung cấp. Đổi mã số thuế được đánh dấu Nhạy cảm."
+          tai={() => layLichSuDanhMuc("nha_cung_cap", ncc.id)}
+        />
       ) : null}
     </PageContainer>
   );

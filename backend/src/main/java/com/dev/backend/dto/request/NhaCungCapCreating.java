@@ -26,10 +26,6 @@ public class NhaCungCapCreating {
     public static final String SO_DIEN_THOAI_PATTERN = "^(0[35789][0-9]{8}|02[0-9]{9}|1[89]00[0-9]{4,6})$";
     public static final String SO_DIEN_THOAI_MESSAGE =
             "Số điện thoại không hợp lệ (di động 10 số, số bàn 11 số bắt đầu bằng 02, hoặc tổng đài 1800/1900)";
-    /** Mã ngân hàng theo VietQR (thường là mã BIN 6 số); để trống được. */
-    public static final String NGAN_HANG_PATTERN = "^$|^[A-Za-z0-9]{2,20}$";
-    /** Số tài khoản: chữ và số, 4–30 ký tự; để trống được. */
-    public static final String SO_TAI_KHOAN_PATTERN = "^$|^[A-Za-z0-9]{4,30}$";
     /** Mã số thuế: 10 số, đơn vị phụ thuộc thêm "-3 số", hộ / cá nhân kinh doanh 12 số (như khách hàng, công ty); để trống được. */
     public static final String MA_SO_THUE_PATTERN = "^$|^\\s*(\\d{10}(-\\d{3})?|\\d{12})\\s*$";
     public static final String MA_SO_THUE_MESSAGE = "Mã số thuế gồm 10 số (đơn vị phụ thuộc thêm -3 số) hoặc 12 số";
@@ -62,9 +58,5 @@ public class NhaCungCapCreating {
     @Size(max = 500, message = "Địa chỉ tối đa 500 ký tự")
     private String diaChi;
 
-    @Pattern(regexp = NGAN_HANG_PATTERN, message = "Ngân hàng không hợp lệ")
-    private String nganHang;
-
-    @Pattern(regexp = SO_TAI_KHOAN_PATTERN, message = "Số tài khoản chỉ gồm chữ và số (4–30 ký tự)")
-    private String soNganHang;
+    // Ngân hàng / số tài khoản đã bỏ khỏi nhà cung cấp (22/10): máy chủ không nhận nữa; cột cũ trong DB giữ nguyên
 }
