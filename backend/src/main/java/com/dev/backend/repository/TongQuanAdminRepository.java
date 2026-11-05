@@ -368,17 +368,24 @@ public class TongQuanAdminRepository {
                         bd(rs, "doanh_thu"), rs.getLong("so_don"), rs.getLong("so_don_hoan")));
     }
 
+    /**
+     * Doanh thu hàng của dòng = thành tiền − giảm giá dòng (đơn Shopify), xếp hòa theo mã sản phẩm: cùng cách tính và
+     * thứ hạng với Báo cáo sản phẩm (BaoCaoSanPhamRepository.SQL_BAN_BIEN_THE, BaoCaoSanPhamService.xepHang), để số ở
+     * thẻ Bán chạy khớp trang báo cáo khi bấm "Xem tất cả". Mã so theo byte (CAST AS BINARY) cho cùng thứ tự với
+     * String.compareTo của Java; collation mặc định của cột không phân biệt hoa thường và xếp "Đ" ngay sau "D".
+     * Ngày ghi nhận vẫn theo quy tắc chung của Tổng quan (ngay_gn).
+     */
     static final String SQL_SAN_PHAM_BAN_CHAY = """
             SELECT sp.id AS san_pham_id, sp.ma_san_pham, sp.ten_san_pham,
-                   SUM(ct.so_luong_dat)                                         AS so_luong,
-                   SUM(COALESCE(ct.thanh_tien, ct.so_luong_dat * ct.don_gia))   AS doanh_thu
+                   SUM(ct.so_luong_dat)                                                                        AS so_luong,
+                   SUM(COALESCE(ct.thanh_tien, ct.so_luong_dat * ct.don_gia) - COALESCE(ct.tien_giam_gia, 0)) AS doanh_thu
             FROM don
             JOIN chi_tiet_don_ban_hang ct ON ct.don_ban_hang_id = don.id
             JOIN bien_the_san_pham bt     ON bt.id = ct.bien_the_san_pham_id
             JOIN san_pham_quan_ao sp      ON sp.id = bt.san_pham_id
             WHERE don.ngay_gn >= :tu AND don.ngay_gn < :den
             GROUP BY sp.id, sp.ma_san_pham, sp.ten_san_pham
-            ORDER BY so_luong DESC, doanh_thu DESC, sp.id
+            ORDER BY so_luong DESC, doanh_thu DESC, CAST(sp.ma_san_pham AS BINARY), sp.id
             LIMIT :soDong
             """;
 
