@@ -1,5 +1,5 @@
 // Phần tính của màn Báo cáo sản phẩm (không gọi API): nhóm tab, xếp cột, ma trận màu × size, lỗi khoảng ngày.
-import { ngayMay } from "./tinhBaoCaoDoanhThu";
+import { khoangMoc, ngayMay } from "./tinhBaoCaoDoanhThu";
 
 export const N = (v) => Number(v) || 0;
 
@@ -80,9 +80,99 @@ export function loiKhoang(tuNgay, denNgay, homNay = new Date()) {
   if (Number(tuNgay.slice(0, 4)) < 2000 || Number(denNgay.slice(0, 4)) < 2000) return "Ngày phải từ năm 2000 trở đi.";
   if (tuNgay > denNgay) return "Từ ngày phải trước hoặc bằng đến ngày.";
   if (denNgay > ngayMay(homNay)) return "Đến ngày không được sau hôm nay.";
-  const motNam = `${Number(tuNgay.slice(0, 4)) + 1}${tuNgay.slice(4)}`;
-  if (denNgay >= motNam) return "Mỗi lần xem tối đa 1 năm.";
+  // Mốc 1 năm như LocalDate.plusYears của máy chủ: 29/02 sang năm không nhuận thành 28/02
+  const [y, m, d] = tuNgay.split("-").map(Number);
+  const motNam = new Date(y + 1, m - 1, d);
+  if (motNam.getMonth() !== m - 1) motNam.setDate(0);
+  if (denNgay >= ngayMay(motNam)) return "Mỗi lần xem tối đa 1 năm.";
   return "";
 }
 
 export const tenTepExcel = ({ tuNgay, denNgay }) => `Bao-cao-san-pham_${tuNgay}_${denNgay}.xlsx`;
+
+/**
+ * Lên / xuống hạng so với kỳ trước (hạng theo số lượng bán, máy chủ tính). Trả null khi không có gì để hiện:
+ * sản phẩm không bán trong kỳ, hoặc kỳ trước cả cửa hàng chưa bán gì (mọi mã đều "mới vào" thì không có ý nghĩa).
+ */
+export function doiHang(hang, hangTruoc, coBanKyTruoc = true) {
+  if (!hang) return null;
+  if (!hangTruoc) return coBanKyTruoc ? { loai: "moi" } : null;
+  if (hangTruoc > hang) return { loai: "len", so: hangTruoc - hang };
+  if (hangTruoc < hang) return { loai: "xuong", so: hang - hangTruoc };
+  return { loai: "giu" };
+}
+
+/* ---------- Bộ lọc trên đường dẫn: ?ky=7 | ?tu=yyyy-MM-dd&den=yyyy-MM-dd, &kho=<id>, &kenh=POS|TRUC_TIEP|<id> ---------- */
+
+/** Mốc nhanh ghi được lên đường dẫn (30 ngày qua là mặc định nên không ghi; tùy chọn thì ghi tu/den). */
+const MOC_TREN_URL = ["7", "thang-nay", "thang-truoc"];
+const MOC_MAC_DINH = "30";
+const SO_ID = /^[1-9]\d{0,8}$/;
+const KENH_HOP_LE = /^(POS|TRUC_TIEP|[1-9]\d{0,8})$/;
+
+/** Chuỗi yyyy-MM-dd là một ngày có thật (loại 2026-02-30, 2026-13-01). */
+export function laNgayThat(s) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s ?? "")) return false;
+  const [y, m, d] = s.split("-").map(Number);
+  return ngayMay(new Date(y, m - 1, d)) === s;
+}
+
+/**
+ * Bộ lọc mở sẵn từ đường dẫn (vd. "Xem tất cả" ở Tổng quan). Giá trị lạ thì bỏ qua: kỳ về 30 ngày qua, kho / kênh về tất cả.
+ * Kho và kênh ở đây mới kiểm dạng; kho ngoài phạm vi được xem, kênh không còn trong danh sách do trang tự bỏ sau khi tải.
+ */
+export function boLocTuUrl(params, homNay = new Date()) {
+  const lay = (k) => params?.get?.(k) ?? null;
+  const tu = lay("tu"), den = lay("den"), ky = lay("ky");
+  let moc = MOC_MAC_DINH;
+  let khoang = khoangMoc(MOC_MAC_DINH, homNay);
+  if (tu != null || den != null) {
+    if (laNgayThat(tu) && laNgayThat(den) && !loiKhoang(tu, den, homNay)) {
+      moc = "tuy-chon";
+      khoang = { tuNgay: tu, denNgay: den };
+    }
+  } else if (MOC_TREN_URL.includes(ky)) {
+    moc = ky;
+    khoang = khoangMoc(ky, homNay);
+  }
+  const kho = lay("kho"), kenh = lay("kenh");
+  return { moc, khoang, khoId: SO_ID.test(kho ?? "") ? kho : "", kenh: KENH_HOP_LE.test(kenh ?? "") ? kenh : "" };
+}
+
+/** Phần bộ lọc (kỳ, kho, kênh) của đường dẫn, theo thứ tự cố định, để biết đường dẫn có đổi bộ lọc không (bỏ qua tab). */
+export function chuoiBoLocUrl(params) {
+  return ["ky", "tu", "den", "kho", "kenh"].map((k) => `${k}=${params?.get?.(k) ?? ""}`).join("&");
+}
+
+/** Đường dẫn mới khi bộ lọc đổi: giữ các tham số khác (vd. tab "nhom"), mặc định thì không ghi. */
+export function ghiBoLocLenUrl(params, { moc, khoang, khoId, kenh }) {
+  const next = new URLSearchParams(params);
+  ["ky", "tu", "den", "kho", "kenh"].forEach((k) => next.delete(k));
+  if (moc === "tuy-chon") {
+    next.set("tu", khoang.tuNgay);
+    next.set("den", khoang.denNgay);
+  } else if (MOC_TREN_URL.includes(moc)) {
+    next.set("ky", moc);
+  }
+  if (khoId) next.set("kho", String(khoId));
+  if (kenh) next.set("kenh", String(kenh));
+  return next;
+}
+
+/**
+ * Đường dẫn tới Báo cáo sản phẩm kèm bộ lọc (thẻ Bán chạy ở các trang Tổng quan): nhom (tab), tuNgay + denNgay (khoảng
+ * ngày cố định) hoặc ky (mốc nhanh), khoId.
+ */
+export function duongDanBaoCaoSanPham({ nhom, tuNgay, denNgay, ky, khoId } = {}) {
+  const p = new URLSearchParams();
+  if (nhom && nhom !== "tat-ca") p.set("nhom", nhom);
+  if (tuNgay && denNgay) {
+    p.set("tu", tuNgay);
+    p.set("den", denNgay);
+  } else if (MOC_TREN_URL.includes(ky)) {
+    p.set("ky", ky);
+  }
+  if (khoId != null && khoId !== "") p.set("kho", String(khoId));
+  const q = p.toString();
+  return q ? `/reports/products?${q}` : "/reports/products";
+}

@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { ChevronDown, Package, SearchX, Shirt } from "lucide-react";
 import { Area, ComposedChart, CartesianGrid, Line, Tooltip, XAxis, YAxis } from "recharts";
 import PageContainer from "@/components/backoffice/PageContainer";
@@ -24,16 +24,21 @@ import { MAU2 } from "@/pages/dashboard/admin/tong-quan-moi/mau";
 import NutXuatExcel from "@/components/shared/NutXuatExcel";
 import useCoQuyenXuatBaoCao from "@/hooks/useCoQuyenXuatBaoCao";
 import { cn } from "@/lib/utils";
+import { toast } from "@/lib/thongBaoNhanh";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { formatCurrency, formatCurrencyCompact, formatNumber, formatPercent } from "@/utils/formatters";
 import { MOC_NGAY, khoangMoc, ngayMay, ngayVN } from "./tinhBaoCaoDoanhThu";
-import { N, NHOM, TINH_TRANG, demNhom, locNhom, loiKhoang, maTran, tenTepExcel, timKiem, tyLeTang, xep } from "./tinhBaoCaoSanPham";
+import {
+  N, NHOM, TINH_TRANG, boLocTuUrl, chuoiBoLocUrl, demNhom, doiHang, ghiBoLocLenUrl, locNhom, loiKhoang, maTran, tenTepExcel, timKiem, tyLeTang, xep,
+} from "./tinhBaoCaoSanPham";
 
 /*
  * Báo cáo sản phẩm (bố cục như Báo cáo tồn kho, mẫu 2 chốt 05/11/2026):
  * - Một hàng: tab nhóm (Tất cả / Có bán / Sắp hết hàng / Dư hàng / Không bán), kỳ, kho, kênh, tìm kiếm.
  * - Bảng theo sản phẩm, bấm "Màu, size" mở ma trận màu × size (bán / còn), tỷ trọng kênh, bán mỗi ngày.
  * - Chân bảng: dòng tổng của nhóm đang xem, phân trang, giờ cập nhật. Xuất Excel do máy chủ dựng (cùng số với màn).
+ * - Tab, kỳ, kho, kênh nằm trên đường dẫn (?nhom, ?ky | ?tu&den, ?kho, ?kenh): thẻ Bán chạy ở Tổng quan mở đúng kỳ và kho.
+ * - Dòng phụ ghi hạng theo số lượng kèm lên / xuống so với kỳ trước (FO-091 bảng xếp hạng bán chạy).
  * Số bán tính như Báo cáo doanh thu (ngày giao hàng, đơn đã xuất / hoàn thành); so với kỳ liền trước cùng số ngày.
  */
 
@@ -65,6 +70,26 @@ function DuBan({ p }) {
       {n > 365 ? "hơn 1 năm" : `${formatNumber(n)} ngày`}
     </span>
   );
+}
+
+/** "Hạng 3 ▲2 · " ở dòng phụ: hạng theo số lượng bán, kèm lên / xuống so với kỳ trước, "mới vào" khi kỳ trước không bán. */
+function Hang({ p, coBanKyTruoc }) {
+  if (!p.hang) return null;
+  const d = doiHang(p.hang, p.hangTruoc, coBanKyTruoc);
+  const truoc = p.hangTruoc ? `Kỳ trước hạng ${p.hangTruoc}` : "Kỳ trước không bán";
+  let doi = null;
+  if (d?.loai === "len" || d?.loai === "xuong") {
+    const len = d.loai === "len";
+    doi = (
+      <span className={cn("font-medium", len ? "text-bo-success" : "text-bo-danger")} title={truoc}>
+        <span aria-hidden="true">{len ? "▲" : "▼"}{d.so}</span>
+        <span className="sr-only">{` (${len ? "lên" : "xuống"} ${d.so} hạng so với kỳ trước)`}</span>
+      </span>
+    );
+  } else if (d?.loai === "moi") {
+    doi = <span className="font-medium text-bo-primary" title={truoc}>mới vào</span>;
+  }
+  return <>Hạng {p.hang}{doi ? <>{" "}{doi}</> : null} · </>;
 }
 
 function TinhTrang({ ma }) {
@@ -239,7 +264,11 @@ export default function BaoCaoSanPham() {
   const coQuyenXuat = useCoQuyenXuatBaoCao();
   const laQtv = parseRoles(localStorage.getItem("role")).includes("quan_tri_vien");
   const [nhom, setNhom] = useTabTrenUrl(NHOM.map((n) => n.value), "tat-ca", { ten: "nhom" });
-  const [boLoc, datBoLoc] = useState(() => ({ moc: "30", khoang: khoangMoc("30"), khoId: "", kenh: "" }));
+  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  // Bộ lọc mở sẵn từ đường dẫn (vd. "Xem tất cả" ở Tổng quan mang theo kỳ, kho); giá trị lạ thì về mặc định
+  const [dau] = useState(() => boLocTuUrl(searchParams));
+  const [boLoc, datBoLoc] = useState(dau);
   const setBoLoc = useCallback((x) => datBoLoc((cu) => ({ ...cu, ...x })), []);
   const [tuKhoa, setTuKhoa] = useState("");
   const [theo, setTheo] = useState("sl");
@@ -249,21 +278,58 @@ export default function BaoCaoSanPham() {
   const [dsKho, setDsKho] = useState([]);
   const [kq, setKq] = useState({ data: null, khoa: null, loading: true, loi: null, luc: null });
   // Hai ô ngày của kỳ tùy chọn: giữ bản nhập riêng, chỉ đưa lên bộ lọc khi hợp lệ (báo lỗi dưới ô, không gọi máy chủ)
-  const [nhapKhoang, setNhapKhoang] = useState(() => khoangMoc("30"));
+  const [nhapKhoang, setNhapKhoang] = useState(dau.khoang);
   const [lan, setLan] = useState(0);
+  // Danh sách kho: "dang" (đang tải), "xong", "loi" (không tải được: giữ kho đang lọc, để máy chủ tự kiểm quyền)
+  const [taiKho, setTaiKho] = useState("dang");
+  const [khoBiBo, setKhoBiBo] = useState(0);
 
   // Kho cho bộ lọc: quản trị viên mọi kho; quản lý kho các kho mình phụ trách. Bỏ kho ảo, kho ngừng hoạt động.
   useEffect(() => {
     let huy = false;
     const tai = laQtv ? khoService.getAllKho().then((body) => body?.data?.content ?? []) : getMineKhoList();
-    tai.then((ds) => { if (!huy) setDsKho(ds.filter((k) => !laKhoAo(k) && Number(k.trangThai ?? 1) === 1)); }).catch(() => {});
+    tai.then((ds) => {
+      if (huy) return;
+      setDsKho(ds.filter((k) => !laKhoAo(k) && Number(k.trangThai ?? 1) === 1));
+      setTaiKho("xong");
+    }).catch(() => { if (!huy) setTaiKho("loi"); });
     return () => { huy = true; };
   }, [laQtv]);
+
+  // Đường dẫn đổi mà không do trang tự ghi (nút Quay lại / Tiến, bấm lại mục menu): đọc lại kỳ, kho, kênh từ đường dẫn
+  const urlLoc = chuoiBoLocUrl(searchParams);
+  const [urlDaThay, setUrlDaThay] = useState(urlLoc);
+  if (urlLoc !== urlDaThay) {
+    setUrlDaThay(urlLoc);
+    if (urlLoc !== chuoiBoLocUrl(ghiBoLocLenUrl(new URLSearchParams(), boLoc))) {
+      const moi = boLocTuUrl(searchParams);
+      datBoLoc(moi);
+      setNhapKhoang(moi.khoang);
+    }
+  }
+
+  // Kho (từ đường dẫn) không nằm trong các kho được xem: bỏ lọc kho, báo một dòng, không để máy chủ trả 403
+  if (taiKho === "xong" && boLoc.khoId && !dsKho.some((k) => String(k.id) === boLoc.khoId)) {
+    setBoLoc({ khoId: "" });
+    setKhoBiBo((n) => n + 1);
+  }
+  useEffect(() => {
+    if (khoBiBo) toast.info(`Không xem được kho trong đường dẫn, đang hiện ${laQtv ? "tất cả kho" : "các kho bạn phụ trách"}.`, { id: "bcsp-kho" });
+  }, [khoBiBo, laQtv]);
+  // Đang lọc một kho mà danh sách kho chưa về: chờ kiểm xong rồi mới tải số
+  const choKho = Boolean(boLoc.khoId) && taiKho === "dang";
+
+  // Bộ lọc ghi lên đường dẫn (thay mục lịch sử hiện tại): F5, quay lại từ trang sản phẩm, gửi link đều giữ kỳ, kho, kênh
+  useEffect(() => {
+    const moi = ghiBoLocLenUrl(searchParams, boLoc);
+    if (moi.toString() !== searchParams.toString()) setSearchParams(moi, { replace: true, state: location.state });
+  }, [boLoc, searchParams, setSearchParams, location.state]);
 
   const thamSo = useMemo(() => ({ ...boLoc.khoang, khoId: boLoc.khoId, kenh: boLoc.kenh }), [boLoc.khoang, boLoc.khoId, boLoc.kenh]);
   const khoa = JSON.stringify(thamSo);
 
   useEffect(() => {
+    if (choKho) return undefined;
     const ctrl = new AbortController();
     const k = JSON.stringify(thamSo);
     queueMicrotask(() => { if (!ctrl.signal.aborted) setKq((cu) => ({ ...cu, loading: true, loi: null })); });
@@ -271,7 +337,7 @@ export default function BaoCaoSanPham() {
       .then((d) => { if (!ctrl.signal.aborted) setKq({ data: d, khoa: k, loading: false, loi: null, luc: new Date() }); })
       .catch((e) => { if (!ctrl.signal.aborted) setKq((cu) => ({ ...cu, loading: false, loi: loiCua(e) || "Không tải được báo cáo" })); });
     return () => ctrl.abort();
-  }, [thamSo, lan]);
+  }, [thamSo, lan, choKho]);
 
   // Đổi bộ lọc / tab / tìm kiếm thì về trang đầu (đặt lại ngay lúc dựng, không qua effect)
   const [locTruoc, setLocTruoc] = useState({ thamSo, nhom, tuKhoa, theo });
@@ -295,6 +361,9 @@ export default function BaoCaoSanPham() {
   // Số trên màn chỉ dùng khi đúng bộ lọc đang chọn: đổi kho / kênh / kỳ thì chờ số mới, không hiện số cũ dưới bộ lọc mới
   const dungBoLoc = kq.khoa === khoa;
   const bc = dungBoLoc ? kq.data : null;
+  // Kênh lấy từ đường dẫn mà không có trong danh sách kênh (sai id, kênh không còn đơn): bỏ lọc kênh
+  if (bc && boLoc.kenh && !(bc.dsKenh ?? []).some((k) => k.ma === boLoc.kenh)) setBoLoc({ kenh: "" });
+  const coBanKyTruoc = N(bc?.tong?.soSanPhamCoBanTruoc) > 0;
   const ds = useMemo(() => bc?.sanPham ?? [], [bc]);
   const dem = useMemo(() => demNhom(timKiem(ds, tuKhoa)), [ds, tuKhoa]);
   const dong = useMemo(() => xep(locNhom(timKiem(ds, tuKhoa), nhom), theo), [ds, tuKhoa, nhom, theo]);
@@ -396,7 +465,7 @@ export default function BaoCaoSanPham() {
                           <Link to={`/products/${p.id}`} className="line-clamp-2 min-w-0 font-semibold leading-5 text-bo-foreground">{p.tenSanPham}</Link>
                           <TinhTrang ma={p.tinhTrang} />
                         </div>
-                        <p className="mt-0.5 truncate text-[13px] text-bo-muted">{p.hang ? `Hạng ${p.hang} · ` : ""}{p.maSanPham} · {p.danhMuc}</p>
+                        <p className="mt-0.5 truncate text-[13px] text-bo-muted"><Hang p={p} coBanKyTruoc={coBanKyTruoc} />{p.maSanPham} · {p.danhMuc}</p>
                       </div>
                     </div>
                     <dl className="mt-2.5 grid grid-cols-4 gap-2 rounded-lg bg-bo-surface-subtle px-2 py-2 text-center">
@@ -451,7 +520,7 @@ export default function BaoCaoSanPham() {
                         <td className="px-3 py-3"><Anh p={p} /></td>
                         <td className="max-w-[300px] px-3 py-3">
                           <Link to={`/products/${p.id}`} className="block truncate font-medium text-bo-foreground hover:text-bo-primary" title={p.tenSanPham}>{p.tenSanPham}</Link>
-                          <span className="block truncate text-xs text-bo-muted">{p.hang ? `Hạng ${p.hang} · ` : ""}{p.maSanPham} · {p.danhMuc} · {p.thuongHieu}</span>
+                          <span className="block truncate text-xs text-bo-muted"><Hang p={p} coBanKyTruoc={coBanKyTruoc} />{p.maSanPham} · {p.danhMuc} · {p.thuongHieu}</span>
                         </td>
                         <td className="px-3 py-3 text-right tabular-nums">
                           <b className={cn("font-semibold", N(p.soLuong) ? "text-bo-foreground" : "font-normal text-bo-muted")}>{formatNumber(p.soLuong)}</b>
