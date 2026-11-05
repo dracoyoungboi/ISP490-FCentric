@@ -14,7 +14,7 @@ export default function ProductsCard({ data, loading, error, onRetry, className 
     <Card
       className={className}
       title="Bán chạy"
-      right={<MoreLink to="/products">Xem tất cả</MoreLink>}
+      right={<MoreLink to="/reports/products?nhom=co-ban">Xem tất cả</MoreLink>}
       loading={loading}
       error={error}
       onRetry={onRetry}

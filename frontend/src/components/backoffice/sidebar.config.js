@@ -257,6 +257,12 @@ export const SIDEBAR_MENU = [
         roles: ["quan_tri_vien", "quan_ly_kho"],
       },
       {
+        // Bán chạy, sắp hết, dư hàng, không bán theo sản phẩm: API cùng quyền với Báo cáo doanh thu
+        label: "Báo cáo sản phẩm",
+        to: "/reports/products",
+        roles: ["quan_tri_vien", "quan_ly_kho"],
+      },
+      {
         label: "Báo cáo tồn kho",
         to: "/reports/inventory",
         roles: TAT_CA_VAI_TRO,
