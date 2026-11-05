@@ -26,6 +26,10 @@ import LoadingState from "@/components/shared/LoadingState";
 import MetricStrip from "@/components/shared/MetricStrip";
 import StatusTabs from "@/components/shared/StatusTabs";
 import FilterSelect from "@/components/shared/FilterSelect";
+import ListPageHeader from "@/components/shared/ListPageHeader";
+import NutXuatExcel from "@/components/shared/NutXuatExcel";
+import useCoQuyenXuatBaoCao from "@/hooks/useCoQuyenXuatBaoCao";
+import { tenTepTheoThamSo, xuatBaoCaoService } from "@/services/xuatBaoCaoService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { API_BASE_URL } from "@/config/apiBase";
@@ -140,6 +144,7 @@ function ONhan({ label, icon, children }) {
 
 
 export default function KhachHangReport() {
+  const coQuyenXuat = useCoQuyenXuatBaoCao();
 
   const [loai, setLoai] = useState("thang");
 
@@ -164,6 +169,8 @@ export default function KhachHangReport() {
 
   // null: không lỗi; { moTa }: lần tải gần nhất lỗi
   const [loi, setLoi] = useState(null);
+  // Tham số của số liệu đang hiện: tệp Excel xuất đúng theo đây
+  const [thamSoDaXem, setThamSoDaXem] = useState(null);
 
   const requestIdRef = useRef(0);
 
@@ -224,11 +231,13 @@ export default function KhachHangReport() {
       if (requestId !== requestIdRef.current) return;
 
       setData(Array.isArray(json?.data) ? json.data : []);
+      setThamSoDaXem(params);
       setLoi(null);
     } catch (e) {
       if (requestId !== requestIdRef.current) return;
 
       setData([]);
+      setThamSoDaXem(null);
       setLoi({ moTa: e?.message ?? "" });
     } finally {
       if (requestId === requestIdRef.current) setLoading(false);
@@ -284,6 +293,15 @@ export default function KhachHangReport() {
 
   return (
     <PageContainer className="space-y-4">
+      <ListPageHeader
+        actions={coQuyenXuat ? (
+          <NutXuatExcel
+            taiTep={() => xuatBaoCaoService.khachHang(thamSoDaXem)}
+            tenTep={() => tenTepTheoThamSo("Bao-cao-khach-hang", thamSoDaXem)}
+            disabled={loading || !thamSoDaXem}
+          />
+        ) : null}
+      />
 
       {/* ── HÀNG CÔNG CỤ (thay khung bộ lọc) ──
           Trái: kỳ báo cáo; phải: mốc thời gian, kho, nút xem.

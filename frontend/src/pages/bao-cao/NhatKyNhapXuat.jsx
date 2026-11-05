@@ -14,6 +14,10 @@ import LoadingState from "@/components/shared/LoadingState";
 import MetricStrip from "@/components/shared/MetricStrip";
 import StatusTabs from "@/components/shared/StatusTabs";
 import FilterSelect from "@/components/shared/FilterSelect";
+import ListPageHeader from "@/components/shared/ListPageHeader";
+import NutXuatExcel from "@/components/shared/NutXuatExcel";
+import useCoQuyenXuatBaoCao from "@/hooks/useCoQuyenXuatBaoCao";
+import { tenTepTheoThamSo, xuatBaoCaoService } from "@/services/xuatBaoCaoService";
 import { Button } from "@/components/ui/button";
 import { API_BASE_URL } from "@/config/apiBase";
 import { Input } from "@/components/ui/input";
@@ -196,6 +200,7 @@ function TheKyNhapXuat({ nhan, nhap, xuat, gtrNhap, gtrXuat, loaiGiaoDich, nen =
 
 // ─── MAIN ───
 export default function NhatKyNhapXuat() {
+  const coQuyenXuat = useCoQuyenXuatBaoCao();
   const [loai, setLoai] = useState("thang");
   const [nam, setNam] = useState(thisYear);
   const [thang, setThang] = useState(thisMonth);
@@ -211,6 +216,8 @@ export default function NhatKyNhapXuat() {
   const [loading, setLoading] = useState(true);
   // null: không lỗi; { moTa }: lần tải gần nhất lỗi
   const [loi, setLoi] = useState(null);
+  // Tham số của số liệu đang hiện (mốc thời gian chỉ áp dụng khi bấm Xem báo cáo): tệp Excel xuất đúng theo đây
+  const [thamSoDaXem, setThamSoDaXem] = useState(null);
   const requestIdRef = useRef(0);
 
   // Danh sách kho cho bộ lọc: bỏ kho ảo và kho ngừng hoạt động.
@@ -245,10 +252,12 @@ export default function NhatKyNhapXuat() {
       if (!res.ok) throw new Error(json?.message ?? "");
       if (requestId !== requestIdRef.current) return;
       setData(Array.isArray(json) ? json : json?.data ?? []);
+      setThamSoDaXem(params);
       setLoi(null);
     } catch (e) {
       if (requestId !== requestIdRef.current) return;
       setData([]);
+      setThamSoDaXem(null);
       setLoi({ moTa: e?.message ?? "" });
     } finally {
       if (requestId === requestIdRef.current) setLoading(false);
@@ -321,6 +330,15 @@ export default function NhatKyNhapXuat() {
 
   return (
     <PageContainer className="space-y-4">
+      <ListPageHeader
+        actions={coQuyenXuat ? (
+          <NutXuatExcel
+            taiTep={() => xuatBaoCaoService.nhapXuat(thamSoDaXem)}
+            tenTep={() => tenTepTheoThamSo("Nhat-ky-nhap-xuat", thamSoDaXem)}
+            disabled={loading || !thamSoDaXem}
+          />
+        ) : null}
+      />
 
       {/* ── HÀNG CÔNG CỤ (thay khung "Bộ lọc nhật ký") ──
           Trái: kiểu báo cáo; phải: mốc thời gian, kho, loại giao dịch, nút xem.

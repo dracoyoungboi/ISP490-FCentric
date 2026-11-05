@@ -20,4 +20,8 @@ export const thongKeHeThongService = {
     getTonKhoTongQuan: (params) =>
         apiClient.get("/api/v1/thong-ke-he-thong/ton-kho-tong-quan", { params }),
 
+    /** Tệp .xlsx (phản hồi axios, data là Blob) của Báo cáo tồn kho: khoId, keyword, tinhTrang (giá trị tab trên đường dẫn). */
+    xuatExcelTonKho: (params) =>
+        apiClient.get("/api/v1/thong-ke-he-thong/ton-kho-tong-quan/xuat-excel", { params, responseType: "blob" }),
+
 };
