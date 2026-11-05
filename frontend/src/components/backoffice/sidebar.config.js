@@ -9,10 +9,23 @@ import {
   Settings,
   Store,
 } from "lucide-react";
-import { LazadaMenuIcon, ShopeeMenuIcon, ShopifyMenuIcon, TaiQuayMenuIcon, TiktokMenuIcon } from "@/components/channel/ChannelLogo";
+import {
+  LazadaMenuIcon,
+  LazadaSandboxMenuIcon,
+  ShopeeMenuIcon,
+  ShopifyMenuIcon,
+  TaiQuayMenuIcon,
+  TiktokMenuIcon,
+} from "@/components/channel/ChannelLogo";
 import { SAN_BAN_HANG } from "@/constants/channel";
 
-const ICON_MENU_SAN = { SHOPIFY: ShopifyMenuIcon, LAZADA: LazadaMenuIcon, TIKTOK: TiktokMenuIcon, SHOPEE: ShopeeMenuIcon };
+const ICON_MENU_SAN = {
+  SHOPIFY: ShopifyMenuIcon,
+  LAZADA: LazadaMenuIcon,
+  LAZADA_SANDBOX: LazadaSandboxMenuIcon,
+  TIKTOK: TiktokMenuIcon,
+  SHOPEE: ShopeeMenuIcon,
+};
 import { SETTINGS_PAGES, SETTINGS_ROLES } from "@/components/settings/settings.config";
 import { canKho } from "@/components/nguoi-dung/phanQuyen";
 
