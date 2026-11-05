@@ -1,5 +1,6 @@
 package com.dev.backend.repository;
 
+import com.dev.backend.utils.PublicAssetUrl;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -351,7 +352,8 @@ public class BaoCaoSanPhamRepository {
                 FROM anh_quan_ao a JOIN tep_tin tt ON tt.id = a.tep_tin_id
                 WHERE tt.duong_dan IS NOT NULL
                 ORDER BY a.quan_ao_id, a.anh_chinh DESC, a.id""", new MapSqlParameterSource(),
-                rs -> { m.putIfAbsent(rs.getInt("sp_id"), rs.getString("duong_dan")); });
+                // Đổi đường dẫn MinIO theo IP nội bộ (http) sang tên miền https như mapper ảnh, kẻo trang https bị chặn ảnh
+                rs -> { m.putIfAbsent(rs.getInt("sp_id"), PublicAssetUrl.toHttps(rs.getString("duong_dan"))); });
         return m;
     }
 

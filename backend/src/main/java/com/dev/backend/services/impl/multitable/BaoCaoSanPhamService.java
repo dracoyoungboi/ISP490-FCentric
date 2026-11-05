@@ -58,6 +58,10 @@ public class BaoCaoSanPhamService {
     }
 
     static Ky ky(LocalDate tuNgay, LocalDate denNgay, LocalDate homNay) {
+        // Báo cáo này không có chế độ xem theo tháng: báo riêng giới hạn 1 năm (câu của Báo cáo doanh thu nhắc "xem theo tháng")
+        if (tuNgay != null && denNgay != null && !tuNgay.isAfter(denNgay) && !denNgay.isBefore(tuNgay.plusYears(1))) {
+            throw new CommonException("Mỗi lần xem tối đa 1 năm");
+        }
         DoanhThuReportService.kiemKhoangNgay(tuNgay, denNgay);
         if (tuNgay.isAfter(homNay)) throw new CommonException("Kỳ báo cáo chưa bắt đầu");
         LocalDate den = denNgay.isAfter(homNay) ? homNay : denNgay;
