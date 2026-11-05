@@ -7,3 +7,4 @@ VALUES ('SHOPEE_SANDBOX', 'Shopee Sandbox (Môi trường Thử nghiệm)', 'onl
 ON DUPLICATE KEY UPDATE 
     ten_kenh = VALUES(ten_kenh),
     loai_kenh = VALUES(loai_kenh);
+
