@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import {
   ArrowRightLeft,
+  History,
   Layers,
   Map as MapIcon,
   MapPin,
@@ -78,6 +79,9 @@ export default function DanhSachViTri({
   onXoaNhieu,
   onMoSoDo,
   onXemTrenMatBang,
+  // Có thì hiện "Lịch sử thay đổi" của khu vực / vị trí (trang chỉ truyền cho quản trị viên, quản lý kho)
+  onLichSuKhu,
+  onLichSuViTri,
 }) {
   const [tuKhoa, setTuKhoa] = useState("");
   const [trang, setTrang] = useState(0);
@@ -224,6 +228,12 @@ export default function DanhSachViTri({
                         <MapIcon className="size-4 text-bo-muted" />
                         Xem trên mặt bằng
                       </DropdownMenuItem>
+                      {onLichSuKhu ? (
+                        <DropdownMenuItem onClick={() => onLichSuKhu(k)} className={MUC_MENU}>
+                          <History className="size-4 text-bo-muted" />
+                          Lịch sử thay đổi
+                        </DropdownMenuItem>
+                      ) : null}
                       <DropdownMenuItem onClick={() => onXoaKhu(k)} className={cn(MUC_MENU, "text-bo-danger focus:bg-bo-danger-soft focus:text-bo-danger")}>
                         <Trash2 className="size-4" />
                         Xóa khu vực
@@ -279,7 +289,7 @@ export default function DanhSachViTri({
             {/* Điện thoại: đang xem một khu thì thao tác của khu (thay nút ⋯ ở cột Khu vực) nằm ngay dưới thanh lọc;
                 Xóa khu vực ở trong hộp Sửa khu vực */}
             {laDienThoai && khuId ? (
-              <div className={cn("grid gap-2 border-b border-bo-border px-3 py-2.5", coTheSua && "grid-cols-2")}>
+              <div className={cn("grid gap-2 border-b border-bo-border px-3 py-2.5", coTheSua && (onLichSuKhu ? "grid-cols-[1fr_1fr_auto]" : "grid-cols-2"))}>
                 <Button variant="outline" onClick={() => onXemTrenMatBang({ khuVucId: khuId })} className={cn("h-9 gap-1.5 px-3", NUT_PHU)}>
                   <MapIcon className="size-4" />
                   Mặt bằng khu
@@ -295,6 +305,21 @@ export default function DanhSachViTri({
                   >
                     <Pencil className="size-4" />
                     Sửa khu vực
+                  </Button>
+                ) : null}
+                {coTheSua && onLichSuKhu ? (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      const khu = khuVucs.find((k) => k.id === khuId);
+                      if (khu) onLichSuKhu(khu);
+                    }}
+                    // 375px: hai nút chữ đã chiếm gần hết hàng, nút Lịch sử chỉ còn biểu tượng (có nhãn đọc màn hình)
+                    aria-label="Lịch sử khu vực"
+                    title="Lịch sử khu vực"
+                    className={cn("size-9 px-0", NUT_PHU)}
+                  >
+                    <History className="size-4" />
                   </Button>
                 ) : null}
               </div>
@@ -413,6 +438,12 @@ export default function DanhSachViTri({
                               <Pencil className="size-4 text-bo-muted" />
                               Sửa vị trí
                             </DropdownMenuItem>
+                            {onLichSuViTri ? (
+                              <DropdownMenuItem onClick={() => onLichSuViTri(v)} className={cn(MUC_MENU, "py-2.5")}>
+                                <History className="size-4 text-bo-muted" />
+                                Lịch sử thay đổi
+                              </DropdownMenuItem>
+                            ) : null}
                             <DropdownMenuItem
                               disabled={Boolean(lyDo)}
                               onClick={() => onXoaViTri(v)}
@@ -452,7 +483,7 @@ export default function DanhSachViTri({
                   ["Dãy · Hàng · Tầng", "cam-ung:max-lg:hidden"],
                   ["Đang chứa / sức chứa", "w-[220px] cam-ung:max-lg:w-[168px]"],
                   ["Trạng thái", "w-[132px] cam-ung:max-lg:w-[112px]"],
-                  ["Thao tác", coTheSua ? "w-[136px] text-center cam-ung:max-lg:w-[160px]" : "w-[72px] text-center"],
+                  ["Thao tác", coTheSua ? "w-[164px] text-center cam-ung:max-lg:w-[184px]" : "w-[72px] text-center"],
                 ].map(([h, c]) => (
                   <th key={h} className={cn("h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted", c)}>
                     {h}
@@ -507,6 +538,9 @@ export default function DanhSachViTri({
                         {coTheSua ? (
                           <>
                             <RowActionButton icon={Pencil} label="Sửa vị trí" onClick={() => onSuaViTri(v)} />
+                            {onLichSuViTri ? (
+                              <RowActionButton icon={History} label={`Lịch sử vị trí ${v.maViTri}`} onClick={() => onLichSuViTri(v)} />
+                            ) : null}
                             <RowActionButton
                               icon={Trash2}
                               tone="danger"

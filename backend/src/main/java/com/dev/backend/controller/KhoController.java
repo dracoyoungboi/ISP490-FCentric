@@ -184,7 +184,7 @@ public class KhoController {
     public ResponseEntity<ResponseData<String>> softDelete(@PathVariable Integer id) {
         // "Xóa" kho chỉ là ngừng hoạt động: tồn kho và lịch sử giữ nguyên, cho phép hoạt động lại được.
         // Giữ đường dẫn cũ cho nơi khác còn gọi; giao diện dùng PUT /{id}/trang-thai.
-        khoService.doiTrangThai(id, 0);
+        khoService.xoaMem(id);
         return ResponseEntity.ok(
                 ResponseData.<String>builder()
                         .status(HttpStatus.OK.value())

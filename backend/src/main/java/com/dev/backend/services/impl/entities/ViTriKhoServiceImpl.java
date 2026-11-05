@@ -1,5 +1,9 @@
 package com.dev.backend.services.impl.entities;
 
+import com.dev.backend.constant.variables.IHanhDong;
+import com.dev.backend.constant.variables.ITable;
+import com.dev.backend.services.impl.utils.NhatKyNghiepVu;
+
 import com.dev.backend.constant.variables.IKiemKe;
 import com.dev.backend.dto.request.inbound.KhuVucKhoRequest;
 import com.dev.backend.dto.request.inbound.ViTriKhoRequest;
@@ -63,6 +67,14 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
     @Autowired(required = false)
     PhanBoKeService phanBoKeService;
 
+    /** Nhật ký nghiệp vụ (khu vực, kệ, mặt bằng); null khi unit test dựng tay. */
+    @NonFinal
+    @Autowired(required = false)
+    NhatKyNghiepVu nhatKy;
+
+    /** Tạo hàng loạt: nhật ký ghi tối đa chừng này mã kệ (còn lại chỉ ghi số lượng). */
+    static final int TOI_DA_MA_KE_NHAT_KY = 200;
+
     /** KHOA_KIEM_KE chỉ do kiểm kê ghi khi khóa toàn kệ; sửa tay sang trạng thái này làm kệ khóa mà không đợt nào sở hữu. */
     private static void kiemTraTrangThaiGhiTay(String trangThai) {
         if (trangThai != null && IKiemKe.KE_KHOA_KIEM_KE.equalsIgnoreCase(trangThai.trim())) {
@@ -125,6 +137,9 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
                 .build();
 
         KhuVucKho saved = khuVucKhoRepository.save(khuVuc);
+        ghiNhatKy(NhatKyNghiepVu.dong(ITable.khu_vuc_kho, saved.getId(), IHanhDong.tao_khu_vuc)
+                .ma(saved.getMaKhuVuc()).kho(khoId)
+                .moi(anhKhuVuc(saved)));
         return KhuVucKhoDto.builder()
                 .id(saved.getId())
                 .maKhuVuc(saved.getMaKhuVuc())
@@ -145,6 +160,7 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
         if (!khuVuc.getKho().getId().equals(khoId)) {
             throw new CommonException(HttpStatus.BAD_REQUEST, "Khu vực không thuộc kho chỉ định");
         }
+        Map<String, Object> truocKhu = anhKhuVuc(khuVuc);
 
         if (request.getTenKhuVuc() != null && !request.getTenKhuVuc().isBlank()) {
             khuVuc.setTenKhuVuc(request.getTenKhuVuc().trim());
@@ -155,6 +171,9 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
         khuVuc.setGhiChu(request.getGhiChu());
 
         KhuVucKho saved = khuVucKhoRepository.save(khuVuc);
+        ghiNhatKy(NhatKyNghiepVu.dong(ITable.khu_vuc_kho, saved.getId(), IHanhDong.sua_khu_vuc)
+                .ma(saved.getMaKhuVuc()).kho(khoId)
+                .thayDoi(truocKhu, anhKhuVuc(saved)));
         long count = viTriKhoRepository.countByKhuVucKho_Id(saved.getId());
         return KhuVucKhoDto.builder()
                 .id(saved.getId())
@@ -182,6 +201,9 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
             throw new CommonException(HttpStatus.CONFLICT, "Khu vực đang chứa " + count + " vị trí kệ, không thể xóa");
         }
 
+        ghiNhatKy(NhatKyNghiepVu.dong(ITable.khu_vuc_kho, khuVuc.getId(), IHanhDong.xoa_khu_vuc)
+                .ma(khuVuc.getMaKhuVuc()).kho(khoId)
+                .cu(anhKhuVuc(khuVuc)));
         khuVucKhoRepository.delete(khuVuc);
     }
 
@@ -324,6 +346,21 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
         }
 
         List<ViTriKho> savedList = viTriKhoRepository.saveAll(danhSachTao);
+        // Mỗi kệ một dòng "Tạo kệ" (lịch sử từng kệ có điểm bắt đầu); sinh hàng loạt thì thêm một dòng tóm tắt trên khu vực
+        for (ViTriKho moi : savedList) {
+            ghiNhatKy(NhatKyNghiepVu.dong(ITable.vi_tri_kho, moi.getId(), IHanhDong.tao_vi_tri)
+                    .ma(moi.getMaViTri()).kho(khoId)
+                    .moi(anhViTri(moi))
+                    .ghiChu(savedList.size() > 1 ? "Sinh hàng loạt " + savedList.size() + " kệ" : null));
+        }
+        if (savedList.size() > 1) {
+            // Sinh hàng loạt: một dòng trên khu vực, kèm danh sách mã kệ đã tạo
+            List<String> dsMa = savedList.stream().map(ViTriKho::getMaViTri).limit(TOI_DA_MA_KE_NHAT_KY).toList();
+            ghiNhatKy(NhatKyNghiepVu.dong(ITable.khu_vuc_kho, khuVuc.getId(), IHanhDong.tao_vi_tri)
+                    .ma(khuVuc.getMaKhuVuc()).kho(khoId)
+                    .moi(NhatKyNghiepVu.anh("soViTri", savedList.size(), "maViTri", dsMa,
+                            "sucChua", sucChua, "trangThai", trangThai)));
+        }
         return savedList.stream().map(v -> ViTriKhoDto.builder()
                 .id(v.getId())
                 .maViTri(v.getMaViTri())
@@ -355,6 +392,7 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
             khoaKiemKeGuard.giuKho(khoId);
             khoaKiemKeGuard.kiemTraKe(viTriId, "sửa kệ");
         }
+        Map<String, Object> truocKe = anhViTri(viTri);
 
         if (request.getKhuVucId() != null && !request.getKhuVucId().equals(viTri.getKhuVucKho().getId())) {
             KhuVucKho khuMoi = khuVucKhoRepository.findById(request.getKhuVucId())
@@ -376,6 +414,9 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
         }
 
         ViTriKho saved = viTriKhoRepository.save(viTri);
+        ghiNhatKy(NhatKyNghiepVu.dong(ITable.vi_tri_kho, saved.getId(), IHanhDong.sua_vi_tri)
+                .ma(saved.getMaViTri()).kho(khoId)
+                .thayDoi(truocKe, anhViTri(saved)));
         int dangChua = tonKhoViTriRepository.sumDangChuaByViTriId(saved.getId());
         // Giao diện thay cả dòng kệ bằng kết quả này: thiếu "chờ nhập" thì nút xóa kệ mở lại dù kệ còn lô chờ nhập
         long choNhap = 0;
@@ -472,6 +513,9 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
         tonKhoViTriRepository.xoaDongSoKhongTheoViTri(viTriId);
         // Dòng kệ của phiếu nhặt đã hủy / đã xuất xong (không còn nghĩa) cũng trỏ tới kệ: bỏ trước khi xóa
         if (phanBoKeService != null) phanBoKeService.xoaDongCuCuaKe(viTriId);
+        ghiNhatKy(NhatKyNghiepVu.dong(ITable.vi_tri_kho, viTri.getId(), IHanhDong.xoa_vi_tri)
+                .ma(viTri.getMaViTri()).kho(khoId)
+                .cu(anhViTri(viTri)));
         viTriKhoRepository.delete(viTri);
     }
 
@@ -523,6 +567,7 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
 
         MatBangKho entity = matBangKhoRepository.findByKho_Id(khoId)
                 .orElse(MatBangKho.builder().kho(kho).build());
+        Map<String, Object> matBangCu = docMatBang(entity.getCauHinhJson());
 
         entity.setSoCot(matBang.get("soCot") != null ? ((Number) matBang.get("soCot")).intValue() : 20);
         entity.setSoHang(matBang.get("soHang") != null ? ((Number) matBang.get("soHang")).intValue() : 20);
@@ -533,8 +578,94 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
             throw new CommonException(HttpStatus.BAD_REQUEST, "Cấu trúc mặt bằng không hợp lệ: " + e.getMessage());
         }
 
-        matBangKhoRepository.save(entity);
+        MatBangKho daLuu = matBangKhoRepository.save(entity);
+        // Chỉ ghi tóm tắt (kích thước lưới, số khu, số vật, số mục đổi), không ghi cả JSON mặt bằng
+        int soMucDoi = soMucDoi(matBangCu, matBang);
+        Map<String, Object> tomTatMoi = tomTatMatBang(matBang);
+        Map<String, Object> tomTatCu = matBangCu == null ? null : tomTatMatBang(matBangCu);
+        if (tomTatCu == null || soMucDoi > 0 || !tomTatCu.equals(tomTatMoi)) {
+            Map<String, Object> moi = new LinkedHashMap<>(tomTatMoi);
+            moi.put("soMucDoi", soMucDoi);
+            ghiNhatKy(NhatKyNghiepVu.dong(ITable.mat_bang_kho, daLuu.getId(), IHanhDong.luu_mat_bang)
+                    .ma(kho.getMaKho()).kho(khoId)
+                    .cu(tomTatCu)
+                    .moi(moi));
+        }
         return matBang;
+    }
+
+    private void ghiNhatKy(NhatKyNghiepVu.Dong dong) {
+        if (nhatKy != null) nhatKy.ghi(dong);
+    }
+
+    private static Map<String, Object> anhKhuVuc(KhuVucKho k) {
+        return NhatKyNghiepVu.anh(
+                "maKhuVuc", k.getMaKhuVuc(),
+                "tenKhuVuc", k.getTenKhuVuc(),
+                "loaiKhu", k.getLoaiKhu(),
+                "ghiChu", k.getGhiChu());
+    }
+
+    private static Map<String, Object> anhViTri(ViTriKho v) {
+        return NhatKyNghiepVu.anh(
+                "maViTri", v.getMaViTri(),
+                "khuVuc", v.getKhuVucKho() == null ? null : v.getKhuVucKho().getTenKhuVuc(),
+                "sucChua", v.getSucChuaToiDa(),
+                "trangThai", v.getTrangThai());
+    }
+
+    private Map<String, Object> docMatBang(String json) {
+        if (json == null || json.isBlank()) return null;
+        try {
+            return objectMapper.readValue(json, new TypeReference<Map<String, Object>>() {});
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** soCot, soHang, soKhuVuc (vật loại khuVuc), soVat (mọi vật khác: cửa, lối đi…). */
+    static Map<String, Object> tomTatMatBang(Map<String, Object> mb) {
+        int soKhu = 0;
+        int soVat = 0;
+        for (Map.Entry<String, Object> e : mb.entrySet()) {
+            Object v = e.getValue();
+            int n = v instanceof Collection<?> c ? c.size() : (v instanceof Map<?, ?> m ? m.size() : 0);
+            if ("khuVuc".equals(e.getKey())) soKhu += n;
+            else soVat += n;
+        }
+        return NhatKyNghiepVu.anh("soCot", mb.get("soCot"), "soHang", mb.get("soHang"), "soKhuVuc", soKhu, "soVat", soVat);
+    }
+
+    /** Số vật thêm / bớt / đổi: so từng phần tử của các danh sách theo vị trí, của các bảng theo khóa. */
+    static int soMucDoi(Map<String, Object> cu, Map<String, Object> moi) {
+        Map<String, Object> a0 = cu == null ? Map.of() : cu;
+        Map<String, Object> b0 = moi == null ? Map.of() : moi;
+        Set<String> khoa = new HashSet<>(a0.keySet());
+        khoa.addAll(b0.keySet());
+        int dem = 0;
+        for (String k : khoa) {
+            Object a = a0.get(k);
+            Object b = b0.get(k);
+            if (a instanceof List<?> || b instanceof List<?>) {
+                List<?> x = a instanceof List<?> l1 ? l1 : List.of();
+                List<?> y = b instanceof List<?> l2 ? l2 : List.of();
+                int n = Math.max(x.size(), y.size());
+                for (int i = 0; i < n; i++) {
+                    Object u = i < x.size() ? x.get(i) : null;
+                    Object w = i < y.size() ? y.get(i) : null;
+                    if (!Objects.equals(u, w)) dem++;
+                }
+            } else if (a instanceof Map<?, ?> || b instanceof Map<?, ?>) {
+                Map<?, ?> x = a instanceof Map<?, ?> m1 ? m1 : Map.of();
+                Map<?, ?> y = b instanceof Map<?, ?> m2 ? m2 : Map.of();
+                Set<Object> ks = new HashSet<>(x.keySet());
+                ks.addAll(y.keySet());
+                for (Object kk : ks) {
+                    if (!Objects.equals(x.get(kk), y.get(kk))) dem++;
+                }
+            }
+        }
+        return dem;
     }
 }
 

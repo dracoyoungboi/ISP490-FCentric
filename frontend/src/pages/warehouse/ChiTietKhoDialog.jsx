@@ -1,6 +1,6 @@
 import { createElement, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AlertCircle, ChevronRight, CircleCheck, CirclePause, Ellipsis, Mail, Pencil, Phone, X } from "lucide-react";
+import { AlertCircle, ChevronRight, CircleCheck, CirclePause, Ellipsis, History, Mail, Pencil, Phone, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -156,7 +156,7 @@ function LienKet({ children, onClick }) {
  * - Điện thoại: tấm trượt từ dưới lên, ô số 2 cột, Chỉnh sửa rộng hết chân.
  * Số liệu tải lại mỗi lần mở. `coTheQuanLy`: quản trị viên (sửa / đổi trạng thái là quyền của quản trị viên).
  */
-export default function ChiTietKhoDialog({ kho, open, onOpenChange, coTheQuanLy = false, onChinhSua, onDoiTrangThai }) {
+export default function ChiTietKhoDialog({ kho, open, onOpenChange, coTheQuanLy = false, onChinhSua, onDoiTrangThai, onLichSu }) {
     const navigate = useNavigate();
     const tieuDeRef = useRef(null);
 
@@ -295,6 +295,15 @@ export default function ChiTietKhoDialog({ kho, open, onOpenChange, coTheQuanLy 
                                             </span>
                                         </DropdownMenuItem>
                                     )}
+                                    {onLichSu ? (
+                                        <DropdownMenuItem onSelect={() => onLichSu(kho)} className={MUC_MENU}>
+                                            <History className="mt-0.5 size-4 text-slate-400" aria-hidden="true" />
+                                            <span>
+                                                Lịch sử thay đổi
+                                                <span className="mt-0.5 block text-xs leading-4 text-bo-muted">Tạo, sửa, đổi trạng thái kho.</span>
+                                            </span>
+                                        </DropdownMenuItem>
+                                    ) : null}
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         ) : null}
