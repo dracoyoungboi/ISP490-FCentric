@@ -10,6 +10,10 @@ import com.dev.backend.services.multitable.NhatHangService;
 import com.dev.backend.services.KenhBanHangDongBoService;
 import com.dev.backend.utils.SauCommit;
 import com.dev.backend.constant.variables.ITrangThaiDonBanHang;
+import com.dev.backend.constant.variables.IHanhDong;
+import com.dev.backend.constant.variables.INguonNhatKy;
+import com.dev.backend.constant.variables.ITable;
+import com.dev.backend.services.impl.utils.NhatKyNghiepVu;
 import com.dev.backend.services.impl.entities.DonBanHangService;
 import com.dev.backend.services.impl.entities.KhoService;
 import com.dev.backend.services.impl.entities.ThongBaoHeThongService;
@@ -90,6 +94,10 @@ public class OmnichannelOrderSyncJob {
     @lombok.experimental.NonFinal
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     TikTokShopClient tiktokShopClient;
+    /** Nhật ký "Thêm khách hàng" khi đơn sàn tự tạo khách (test dựng tay không có thì bỏ qua). */
+    @lombok.experimental.NonFinal
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    NhatKyNghiepVu nhatKy;
     /** Tiêm kiểu @Lazy vì KenhBanHangDongBoService nhận job này qua constructor, tiêm thẳng thì Spring báo vòng phụ thuộc khi khởi động. */
     @lombok.experimental.NonFinal
     @org.springframework.beans.factory.annotation.Autowired(required = false)
@@ -630,13 +638,13 @@ public class OmnichannelOrderSyncJob {
         String maKh = "KH-SP-" + suffix;
         if (maKh.length() > 30) maKh = maKh.substring(0, 30);
 
-        return khachHangRepository.save(KhachHang.builder()
+        return luuKhachTuSan(KhachHang.builder()
                 .maKhachHang(maKh)
                 .tenKhachHang(finalName.isBlank() ? "Khách hàng Shopify" : finalName)
                 .soDienThoai(finalPhone)
                 .email(finalEmail)
                 .trangThai(1)
-                .build());
+                .build(), INguonNhatKy.shopify);
     }
 
     private String extractShippingAddress(JsonNode shipNode) {
@@ -1341,7 +1349,7 @@ public class OmnichannelOrderSyncJob {
                 .loaiKhachHang("le")
                 .trangThai(1)
                 .build();
-        return khachHangRepository.save(moi);
+        return luuKhachTuSan(moi, INguonNhatKy.lazada);
     }
 
     private KhachHang resolveTikTokCustomer(TikTokOrderDto order, TikTokRecipientAddressDto addr, String phone) {
@@ -1383,7 +1391,31 @@ public class OmnichannelOrderSyncJob {
                 .loaiKhachHang("le")
                 .trangThai(1)
                 .build();
-        return khachHangRepository.save(moi);
+        return luuKhachTuSan(moi, INguonNhatKy.tiktok);
+    }
+
+    /**
+     * Lưu khách do đơn sàn tự tạo và ghi nhật ký "Thêm khách hàng" với nguồn là sàn (không có người thực hiện), cùng
+     * các khóa như KhachHangService để thẻ Lịch sử khách hàng đọc giống nhau.
+     */
+    private KhachHang luuKhachTuSan(KhachHang moi, String nguon) {
+        KhachHang daLuu = khachHangRepository.save(moi);
+        if (nhatKy != null && daLuu != null) {
+            String ten = daLuu.getTenKhachHang() == null ? daLuu.getMaKhachHang() : daLuu.getTenKhachHang();
+            nhatKy.ghi(NhatKyNghiepVu.dong(ITable.khach_hang, daLuu.getId(), IHanhDong.them_khach_hang)
+                    .ma(daLuu.getSoDienThoai() == null ? ten : ten + " · " + daLuu.getSoDienThoai())
+                    .moi(NhatKyNghiepVu.anh(
+                            "maKhachHang", daLuu.getMaKhachHang(),
+                            "tenKhachHang", daLuu.getTenKhachHang(),
+                            "loaiKhachHang", daLuu.getLoaiKhachHang(),
+                            "soDienThoai", daLuu.getSoDienThoai(),
+                            "email", daLuu.getEmail(),
+                            "diaChi", daLuu.getDiaChi(),
+                            "trangThai", daLuu.getTrangThai()))
+                    .nguon(nguon)
+                    .ghiChu("Tự tạo từ đơn sàn"));
+        }
+        return daLuu;
     }
 
     private Instant parseLazadaDate(String dateStr) {

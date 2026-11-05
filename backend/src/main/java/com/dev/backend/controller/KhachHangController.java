@@ -113,12 +113,8 @@ public class KhachHangController {
             rolesLogic = RequireAuth.LogicType.OR
     )
     public ResponseEntity<ResponseData<String>> softDelete(@PathVariable Integer id) {
-        KhachHang khachHang = khachHangService.getOne(id).orElseThrow(
-                () -> new CommonException("Không tìm thấy khách hàng id: " + id)
-        );
-
-        khachHang.setTrangThai(0);
-        khachHangService.update(khachHang.getId(), khachHang);
+        // Chỉ chuyển Ngừng hoạt động (lịch sử mua hàng giữ nguyên); service ghi nhật ký xoa_khach_hang
+        khachHangService.xoaMem(id);
         return ResponseEntity.ok(
                 ResponseData.<String>builder()
                         .status(HttpStatus.OK.value())

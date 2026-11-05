@@ -1,6 +1,10 @@
 // src/main/java/com/dev/backend/services/impl/entities/KhachHangService.java
 package com.dev.backend.services.impl.entities;
 
+import com.dev.backend.constant.variables.IHanhDong;
+import com.dev.backend.constant.variables.ITable;
+import com.dev.backend.services.impl.utils.NhatKyNghiepVu;
+
 import com.dev.backend.dto.request.KhachHangCreating;
 import com.dev.backend.dto.request.KhachHangUpdating;
 import com.dev.backend.dto.request.PosQuickCustomerCreating;
@@ -26,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -61,6 +66,10 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
     private final EntityManager entityManager;
     private final DonBanHangRepository donBanHangRepository; // Thêm repo đơn hàng để lấy lịch sử
     private final DieuHanhHeThongService dieuHanhHeThongService; // đọc tiền tố mã khách hàng
+
+    /** Nhật ký nghiệp vụ (thêm / sửa / ngừng khách hàng); null khi unit test dựng tay. */
+    @Autowired(required = false)
+    private NhatKyNghiepVu nhatKy;
 
     @Autowired
     public KhachHangService(KhachHangRepository repository,
@@ -171,6 +180,9 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
             saved.setMaKhachHang(maTuDong(saved.getId()));
             saved = repository.save(saved);
         }
+        ghiNhatKy(NhatKyNghiepVu.dong(ITable.khach_hang, saved.getId(), IHanhDong.them_khach_hang)
+                .ma(maNhatKy(saved))
+                .moi(anhKhachHang(saved)));
         return mapper.toDto(saved);
     }
 
@@ -238,6 +250,10 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
                 .loaiKhachHang("le")
                 .trangThai(1)
                 .build());
+        ghiNhatKy(NhatKyNghiepVu.dong(ITable.khach_hang, saved.getId(), IHanhDong.them_khach_hang)
+                .ma(maNhatKy(saved))
+                .moi(anhKhachHang(saved))
+                .ghiChu("Thêm nhanh tại quầy POS"));
         return mapper.toDto(saved);
     }
 
@@ -246,6 +262,7 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
     public KhachHangDto update(Integer id, KhachHangUpdating updating) {
         KhachHang entity = repository.findById(id)
                 .orElseThrow(() -> new CommonException("Không tìm thấy khách hàng với ID: " + id));
+        Map<String, Object> truoc = anhKhachHang(entity);
 
         // Trường chuỗi: null = giữ nguyên; chuỗi trắng = xóa trường (lưu NULL thay vì "")
         String ten = updating.getTenKhachHang() != null ? boTrong(updating.getTenKhachHang()) : entity.getTenKhachHang();
@@ -296,7 +313,52 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
         entity.setDiaChi(diaChi);
         // Ghi ngay để trả về đúng giờ cập nhật (cột ngay_cap_nhat do CSDL tự đặt khi sửa).
         entity = repository.saveAndFlush(entity);
+        ghiNhatKy(NhatKyNghiepVu.dong(ITable.khach_hang, entity.getId(), IHanhDong.sua_khach_hang)
+                .ma(maNhatKy(entity))
+                .thayDoi(truoc, anhKhachHang(entity)));
         return mapper.toDto(entity);
+    }
+
+    /**
+     * "Xóa" khách hàng (DELETE soft-delete): chỉ chuyển Ngừng hoạt động, lịch sử mua hàng giữ nguyên. Nhật ký ghi
+     * xoa_khach_hang để phân biệt với đổi trạng thái trong form sửa.
+     */
+    @Transactional
+    public void xoaMem(Integer id) {
+        KhachHang entity = repository.findById(id)
+                .orElseThrow(() -> new CommonException("Không tìm thấy khách hàng id: " + id));
+        Integer trangThaiCu = entity.getTrangThai();
+        entity.setTrangThai(0);
+        entity = repository.save(entity);
+        // Đã ngừng từ trước (bấm xóa lần nữa): không ghi thêm dòng vô nghĩa
+        if (Integer.valueOf(0).equals(trangThaiCu)) return;
+        ghiNhatKy(NhatKyNghiepVu.dong(ITable.khach_hang, entity.getId(), IHanhDong.xoa_khach_hang)
+                .ma(maNhatKy(entity))
+                .cu(NhatKyNghiepVu.anh("trangThai", trangThaiCu))
+                .moi(NhatKyNghiepVu.anh("trangThai", 0)));
+    }
+
+    private void ghiNhatKy(NhatKyNghiepVu.Dong dong) {
+        if (nhatKy != null) nhatKy.ghi(dong);
+    }
+
+    /** Mã dễ đọc trong nhật ký: tên khách + SĐT. */
+    private static String maNhatKy(KhachHang k) {
+        String ten = k.getTenKhachHang() == null ? k.getMaKhachHang() : k.getTenKhachHang();
+        return k.getSoDienThoai() == null ? ten : ten + " · " + k.getSoDienThoai();
+    }
+
+    private static Map<String, Object> anhKhachHang(KhachHang k) {
+        return NhatKyNghiepVu.anh(
+                "maKhachHang", k.getMaKhachHang(),
+                "tenKhachHang", k.getTenKhachHang(),
+                "loaiKhachHang", k.getLoaiKhachHang(),
+                "maSoThue", k.getMaSoThue(),
+                "nguoiLienHe", k.getNguoiLienHe(),
+                "soDienThoai", k.getSoDienThoai(),
+                "email", k.getEmail(),
+                "diaChi", k.getDiaChi(),
+                "trangThai", k.getTrangThai());
     }
 
     /**

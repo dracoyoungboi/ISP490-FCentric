@@ -16,6 +16,8 @@ import GiaoDichKhachHang from "@/components/khach-hang/chi-tiet/GiaoDichKhachHan
 import ThuocTinhKhachHang from "@/components/khach-hang/chi-tiet/ThuocTinhKhachHang";
 import TinhHinhMuaHang from "@/components/khach-hang/chi-tiet/TinhHinhMuaHang";
 import TrangThaiKhachHangDialog from "@/components/khach-hang/chi-tiet/TrangThaiKhachHangDialog";
+import NganKeoLichSu from "@/components/nhat-ky/NganKeoLichSu";
+import { layLichSuDanhMuc } from "@/services/nhatKyService";
 import { ghiChuPhamVi, laHoatDong, tinhKpi, tongSoDon } from "@/components/khach-hang/chi-tiet/tinhKhachHang";
 import useQuayLai from "@/hooks/useQuayLai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
@@ -47,6 +49,8 @@ export default function KhachHangDetails() {
   const phamVi = ghiChuPhamVi({ laQuanTriVien, laVaiTroKho, laBanHang });
 
   const [moTrangThai, setMoTrangThai] = useState(false);
+  // Lịch sử thay đổi khách hàng: chỉ quản trị viên (máy chủ cũng chỉ cho quản trị viên)
+  const [moLichSu, setMoLichSu] = useState(false);
   // Popup Sửa khách hàng; `oMoDau`: ô đặt con trỏ khi mở (bấm "Chưa có email · Thêm" thì vào ô Email).
   // Đường dẫn cũ /customers/:id/edit chuyển về đây kèm state để mở sẵn popup.
   const [formSua, setFormSua] = useState(() => ({
@@ -150,6 +154,7 @@ export default function KhachHangDetails() {
           onChinhSua={() => moSua()}
           onDoiTrangThai={() => setMoTrangThai(true)}
           onTaoBaoGia={taoBaoGia}
+          onLichSu={laQuanTriVien ? () => setMoLichSu(true) : undefined}
         />
 
         {!dangHoatDong ? (
@@ -220,6 +225,16 @@ export default function KhachHangDetails() {
           onOpenChange={setMoTrangThai}
           onChanged={handleTrangThaiDoi}
           soDonDangXuLy={tongQuan?.soDonDangXuLy}
+        />
+      ) : null}
+
+      {laQuanTriVien ? (
+        <NganKeoLichSu
+          open={moLichSu}
+          onOpenChange={setMoLichSu}
+          tieuDe={`Lịch sử ${khachHang.tenKhachHang || khachHang.maKhachHang || "khách hàng"}`}
+          moTa="Thêm, sửa, ngừng hoạt động khách hàng: ai làm, lúc nào, đổi gì."
+          tai={() => layLichSuDanhMuc("khach_hang", khachHang.id)}
         />
       ) : null}
     </PageContainer>

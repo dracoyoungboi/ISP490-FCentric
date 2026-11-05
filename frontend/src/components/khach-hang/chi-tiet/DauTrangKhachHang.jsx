@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Check, CircleCheck, CirclePause, Copy, Ellipsis, FilePlus2, Mail, Pencil, Phone } from "lucide-react";
+import { ArrowLeft, Check, CircleCheck, CirclePause, Copy, Ellipsis, FilePlus2, History, Mail, Pencil, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -39,12 +39,13 @@ export default function DauTrangKhachHang({
   onChinhSua,
   onDoiTrangThai,
   onTaoBaoGia,
+  onLichSu,
 }) {
   useClaimPageTitle(true);
 
   const dangHoatDong = laHoatDong(khachHang);
   const hienTaoBaoGia = coTheTaoBaoGia && dangHoatDong;
-  const coMenu = coTheSua || hienTaoBaoGia;
+  const coMenu = coTheSua || hienTaoBaoGia || Boolean(onLichSu);
   const [moMenu, setMoMenu] = useState(false);
   const { daChep, saoChep, quenDaChep, taiCho } = useSaoChep();
   const henDongMenu = useRef(0);
@@ -174,6 +175,13 @@ export default function DauTrangKhachHang({
                       Sao chép mã khách hàng
                     </>
                   )}
+                </DropdownMenuItem>
+              ) : null}
+              {/* Lịch sử thay đổi: chỉ quản trị viên (trang cha chỉ truyền onLichSu cho quản trị viên) */}
+              {onLichSu ? (
+                <DropdownMenuItem onClick={onLichSu} className={MUC_MENU}>
+                  <History className="mt-0.5 size-4 text-slate-400" aria-hidden="true" />
+                  Lịch sử thay đổi
                 </DropdownMenuItem>
               ) : null}
               {coTheSua ? (
