@@ -3434,20 +3434,20 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             return KetQuaGuiTon.loiCaKenh("Chưa có cấu hình hoặc Access Token cho kênh Lazada");
         }
 
-        String maKenh = dong.getMaSanPhamKenh() != null ? dong.getMaSanPhamKenh().trim() : "";
-        if (maKenh.isBlank() || !maKenh.matches("\\d+")) {
+        String skuIdKenh = dong.getMaSanPhamKenh() != null ? dong.getMaSanPhamKenh().trim() : "";
+        if (skuIdKenh.isBlank() || !skuIdKenh.matches("\\d+")) {
             String resolvedSkuId = traCuuLazadaSkuId(appKey, appSecret, token, maSku);
             if (resolvedSkuId != null && !resolvedSkuId.isBlank()) {
-                maKenh = resolvedSkuId;
-                dong.setMaSanPhamKenh(maKenh);
+                skuIdKenh = resolvedSkuId;
+                dong.setMaSanPhamKenh(skuIdKenh);
                 trangThaiDongBoSanPhamRepository.save(dong);
             }
         }
 
         StringBuilder skuXml = new StringBuilder();
         skuXml.append("<Request><Product><Skus><Sku>");
-        if (maKenh != null && !maKenh.isBlank() && maKenh.matches("\\d+")) {
-            skuXml.append("<SkuId>").append(escapeXml(maKenh)).append("</SkuId>");
+        if (skuIdKenh != null && !skuIdKenh.isBlank() && skuIdKenh.matches("\\d+")) {
+            skuXml.append("<SkuId>").append(escapeXml(skuIdKenh)).append("</SkuId>");
         }
         skuXml.append("<SellerSku>").append(escapeXml(maSku)).append("</SellerSku>");
         skuXml.append("<Quantity>").append(Math.max(0, soDay)).append("</Quantity>");
@@ -3469,7 +3469,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 return KetQuaGuiTon.loiSku(dichLoiLazada(code, msg));
             }
         } catch (Exception ex) {
-            log.warn("Lỗi khi đẩy tồn Lazada cho SkuId [{}]: {}", maKenh, ex.getMessage());
+            log.warn("Lỗi khi đẩy tồn Lazada cho SkuId [{}]: {}", skuIdKenh, ex.getMessage());
             return KetQuaGuiTon.loiCaKenh("Lỗi kết nối tới Lazada: " + ex.getMessage());
         }
     }

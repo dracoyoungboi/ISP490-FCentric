@@ -420,12 +420,14 @@ public class KenhBanHangController {
     @GetMapping("/lazada/auth-url")
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Sinh URL ủy quyền Seller Authorization để đăng nhập Lazada Seller Center")
-    public ResponseEntity<ResponseData<String>> getLazadaAuthUrl(@RequestParam(required = false) String redirectUri) {
+    public ResponseEntity<ResponseData<String>> getLazadaAuthUrl(
+            @RequestParam(required = false) String redirectUri,
+            @RequestParam(required = false, defaultValue = "LAZADA") String maKenh) {
         return ResponseEntity.ok(
                 ResponseData.<String>builder()
                         .status(HttpStatus.OK.value())
-                        .data(kenhBanHangService.getLazadaAuthUrl(redirectUri))
-                        .message("Sinh URL ủy quyền Lazada thành công")
+                        .data(kenhBanHangService.getLazadaAuthUrl(maKenh, redirectUri, null))
+                        .message("Sinh URL ủy quyền " + (maKenh.toUpperCase().contains("SANDBOX") ? "Lazada Sandbox" : "Lazada") + " thành công")
                         .build()
         );
     }

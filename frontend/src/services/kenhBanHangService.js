@@ -135,7 +135,7 @@ const realApi = {
     const maSan = ma(maKenh);
     return apiClient.post(`${BASE}/${maSan}/uy-quyen`, null, { params: redirectUri ? { redirectUri } : {} })
       .then(data)
-      .catch(() => apiClient.get(`${BASE}/lazada/auth-url`, { params: redirectUri ? { redirectUri } : {} }).then(data));
+      .catch(() => apiClient.get(`${BASE}/lazada/auth-url`, { params: { ...(redirectUri ? { redirectUri } : {}), maKenh: maSan } }).then(data));
   },
   /** { code, state } từ trang quay về; state null = mã nhập tay của tài khoản thử. */
   hoanTatUyQuyen: (maKenh, { code, state } = {}) =>
