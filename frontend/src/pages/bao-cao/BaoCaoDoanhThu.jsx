@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { BarChart3, CalendarDays, Check, ChevronDown, Download, LineChart as LineChartIcon, RefreshCcw, TrendingUp } from "lucide-react";
+import { BarChart3, CalendarDays, Check, ChevronDown, LineChart as LineChartIcon, RefreshCcw, TrendingUp } from "lucide-react";
 import { Area, Bar, CartesianGrid, ComposedChart, Line, Tooltip, XAxis, YAxis } from "recharts";
 import PageContainer from "@/components/backoffice/PageContainer";
 import PageHeader from "@/components/backoffice/PageHeader";
@@ -18,7 +18,8 @@ import { parseRoles } from "@/components/settings/settings.config";
 import { laKhoAo } from "@/pages/warehouse/loaiKho";
 import { khoService, getMineKhoList } from "@/services/khoService";
 import { baoCaoDoanhThuService } from "@/services/baoCaoDoanhThuService";
-import { toast } from "@/lib/thongBaoNhanh";
+import NutXuatExcel from "@/components/shared/NutXuatExcel";
+import useCoQuyenXuatBaoCao from "@/hooks/useCoQuyenXuatBaoCao";
 import { cn } from "@/lib/utils";
 import { formatAxisMoney, formatCurrency, formatNumber, formatPercent } from "@/utils/formatters";
 import KhoiTienThu from "./KhoiTienThu";
@@ -486,6 +487,7 @@ function BangChiTiet({ data, tienThu, loading, loi, onTaiLai }) {
 const loiCua = (e) => e?.response?.data?.message || e?.message || "";
 
 export default function BaoCaoDoanhThu() {
+  const coQuyenXuat = useCoQuyenXuatBaoCao();
   const laQtv = parseRoles(localStorage.getItem("role")).includes("quan_tri_vien");
   const [boLoc, datBoLoc] = useState(() => ({
     loai: "thang",
@@ -501,7 +503,6 @@ export default function BaoCaoDoanhThu() {
   const [tongHop, setTongHop] = useState({ data: null, loading: true, loi: null, gio: null });
   const [tienThu, setTienThu] = useState({ data: null, loading: true, loi: null });
   const [lan, setLan] = useState(0);
-  const [dangXuat, setDangXuat] = useState(false);
 
   // Kho cho bộ lọc: quản trị viên mọi kho; quản lý kho các kho mình phụ trách. Bỏ kho ảo, kho ngừng hoạt động.
   useEffect(() => {
@@ -535,45 +536,19 @@ export default function BaoCaoDoanhThu() {
 
   const taiLai = () => setLan((n) => n + 1);
 
-  const xuatExcel = async () => {
-    if (dangXuat) return;
-    setDangXuat(true);
-    try {
-      const blob = await baoCaoDoanhThuService.xuatExcel(ts);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = tenTepExcel(ts);
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-    } catch (e) {
-      // Lỗi trả về dạng Blob: đọc ra chữ để báo đúng câu của máy chủ
-      let cau = "";
-      try { cau = JSON.parse(await e?.response?.data?.text?.())?.message ?? ""; } catch { /* không đọc được */ }
-      toast.error(cau || "Không xuất được tệp Excel. Thử lại.");
-    } finally {
-      setDangXuat(false);
-    }
-  };
 
   return (
     <PageContainer className="flex flex-col gap-4">
       <PageHeader
         className="mb-0"
         title="Báo cáo doanh thu"
-        actions={(
-        <button
-          type="button"
-          onClick={xuatExcel}
-          disabled={dangXuat || !tongHop.data}
-          className={cn(FOCUS, "inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg border border-bo-input-border bg-bo-surface px-3.5 text-sm font-medium text-bo-foreground shadow-[0_1px_2px_rgba(16,24,40,0.05)] hover:bg-bo-surface-subtle disabled:cursor-not-allowed disabled:opacity-60")}
-        >
-          <Download className="size-4 text-bo-muted" aria-hidden="true" />
-          {dangXuat ? "Đang xuất…" : "Xuất Excel"}
-        </button>
-        )}
+        actions={coQuyenXuat ? (
+          <NutXuatExcel
+            taiTep={() => baoCaoDoanhThuService.xuatExcel(ts)}
+            tenTep={() => tenTepExcel(ts)}
+            disabled={!tongHop.data || tongHop.loading}
+          />
+        ) : null}
       />
 
       <DauTrang

@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ChevronDown, Download, Package, SearchX, Shirt } from "lucide-react";
+import { ChevronDown, Package, SearchX, Shirt } from "lucide-react";
 import { Area, ComposedChart, CartesianGrid, Line, Tooltip, XAxis, YAxis } from "recharts";
 import PageContainer from "@/components/backoffice/PageContainer";
 import ListPageHeader from "@/components/shared/ListPageHeader";
@@ -21,7 +21,8 @@ import { laKhoAo } from "@/pages/warehouse/loaiKho";
 import { khoService, getMineKhoList } from "@/services/khoService";
 import { baoCaoSanPhamService } from "@/services/baoCaoSanPhamService";
 import { MAU2 } from "@/pages/dashboard/admin/tong-quan-moi/mau";
-import { toast } from "@/lib/thongBaoNhanh";
+import NutXuatExcel from "@/components/shared/NutXuatExcel";
+import useCoQuyenXuatBaoCao from "@/hooks/useCoQuyenXuatBaoCao";
 import { cn } from "@/lib/utils";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { formatCurrency, formatCurrencyCompact, formatNumber, formatPercent } from "@/utils/formatters";
@@ -235,6 +236,7 @@ const MOC_KY = [...MOC_NGAY.filter((m) => m.value === "30"), ...MOC_NGAY.filter(
 const NUT_MO = "inline-flex h-8 cursor-pointer items-center gap-1 rounded-md border border-bo-border bg-bo-surface px-2.5 text-xs font-medium text-bo-foreground hover:bg-bo-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30";
 
 export default function BaoCaoSanPham() {
+  const coQuyenXuat = useCoQuyenXuatBaoCao();
   const laQtv = parseRoles(localStorage.getItem("role")).includes("quan_tri_vien");
   const [nhom, setNhom] = useTabTrenUrl(NHOM.map((n) => n.value), "tat-ca", { ten: "nhom" });
   const [boLoc, datBoLoc] = useState(() => ({ moc: "30", khoang: khoangMoc("30"), khoId: "", kenh: "" }));
@@ -249,7 +251,6 @@ export default function BaoCaoSanPham() {
   // Hai ô ngày của kỳ tùy chọn: giữ bản nhập riêng, chỉ đưa lên bộ lọc khi hợp lệ (báo lỗi dưới ô, không gọi máy chủ)
   const [nhapKhoang, setNhapKhoang] = useState(() => khoangMoc("30"));
   const [lan, setLan] = useState(0);
-  const [dangXuat, setDangXuat] = useState(false);
 
   // Kho cho bộ lọc: quản trị viên mọi kho; quản lý kho các kho mình phụ trách. Bỏ kho ảo, kho ngừng hoạt động.
   useEffect(() => {
@@ -272,8 +273,12 @@ export default function BaoCaoSanPham() {
     return () => ctrl.abort();
   }, [thamSo, lan]);
 
-  // Đổi bộ lọc / tab / tìm kiếm thì về trang đầu
-  useEffect(() => { setTrang(0); }, [thamSo, nhom, tuKhoa, theo]);
+  // Đổi bộ lọc / tab / tìm kiếm thì về trang đầu (đặt lại ngay lúc dựng, không qua effect)
+  const [locTruoc, setLocTruoc] = useState({ thamSo, nhom, tuKhoa, theo });
+  if (locTruoc.thamSo !== thamSo || locTruoc.nhom !== nhom || locTruoc.tuKhoa !== tuKhoa || locTruoc.theo !== theo) {
+    setLocTruoc({ thamSo, nhom, tuKhoa, theo });
+    setTrang(0);
+  }
 
   const chon = (moc) => {
     const k = khoangMoc(moc, new Date(), boLoc.khoang);
@@ -306,27 +311,6 @@ export default function BaoCaoSanPham() {
   const homNay = ngayMay(new Date());
   const doiMo = (id) => setMo((c) => { const m = new Set(c); if (m.has(id)) m.delete(id); else m.add(id); return m; });
 
-  const xuatExcel = async () => {
-    if (dangXuat) return;
-    setDangXuat(true);
-    try {
-      const blob = await baoCaoSanPhamService.xuatExcel(thamSo);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = tenTepExcel(thamSo);
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-    } catch (e) {
-      let cau = "";
-      try { cau = JSON.parse(await e?.response?.data?.text?.())?.message ?? ""; } catch { /* không đọc được */ }
-      toast.error(cau || "Không xuất được tệp Excel. Thử lại.");
-    } finally {
-      setDangXuat(false);
-    }
-  };
 
   const cot = [["sl", "Đã bán"], ["dt", "Doanh thu"], ["ln", "Lợi nhuận gộp"]];
   const capNhat = { thoiDiem: kq.luc, dangTai: kq.loading, loi: kq.loi, taiLai: () => setLan((n) => n + 1) };
@@ -335,13 +319,9 @@ export default function BaoCaoSanPham() {
     <PageContainer fill className="space-y-4">
       <ListPageHeader
         scope={kq.data?.theoKhoPhuTrach ? "Các kho bạn phụ trách" : null}
-        actions={(
-          <button type="button" onClick={xuatExcel} disabled={dangXuat || !bc}
-            className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg border border-bo-input-border bg-bo-surface px-3.5 text-sm font-medium text-bo-foreground shadow-[0_1px_2px_rgba(16,24,40,0.05)] hover:bg-bo-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 disabled:cursor-not-allowed disabled:opacity-60">
-            <Download className="size-4 text-bo-muted" aria-hidden="true" />
-            {dangXuat ? "Đang xuất…" : "Xuất Excel"}
-          </button>
-        )}
+        actions={coQuyenXuat ? (
+          <NutXuatExcel taiTep={() => baoCaoSanPhamService.xuatExcel(thamSo)} tenTep={() => tenTepExcel(thamSo)} disabled={!bc} />
+        ) : null}
       />
 
       <TableShell
