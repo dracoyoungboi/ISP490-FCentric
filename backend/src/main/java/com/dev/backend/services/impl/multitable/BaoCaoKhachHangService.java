@@ -57,8 +57,7 @@ public class BaoCaoKhachHangService {
     /** Tệp Excel của màn (đúng kiểu báo cáo, kỳ, kho đã xem); ghi nhật ký mỗi lần tải. */
     public XuatBaoCaoService.TepExcel xuatExcel(ThamSo t) {
         List<KhachHangTangTruongDTO> theoKy = lay(t);
-        BaoCaoNhapXuatService.Khoang kh = BaoCaoNhapXuatService.khoang(new BaoCaoNhapXuatService.ThamSo(t.loai(),
-                t.tuNgay(), t.denNgay(), t.nam(), t.thang(), t.tuNam(), t.denNam(), t.khoId(), null, null));
+        Khoang kh = khoang(t);
         if (kh.tu().isAfter(kh.den())) throw new IllegalArgumentException("Từ ngày phải trước hoặc bằng đến ngày");
         List<BaoCaoKhachHangRepository.KhachMua> khach = repo.khachMuaTrongKy(kh.tu(), kh.den(), t.khoId());
 
@@ -82,6 +81,23 @@ public class BaoCaoKhachHangService {
         nhatKy.put("soKhach", khach.size());
         xuatBaoCaoService.ghiNhatKy("Báo cáo khách hàng", tenTep, nhatKy);
         return new XuatBaoCaoService.TepExcel(tep, tenTep);
+    }
+
+    /** Khoảng ngày mà kiểu báo cáo đang chọn bao trùm. */
+    record Khoang(LocalDate tu, LocalDate den) {
+    }
+
+    /** Khoảng ngày của kiểu báo cáo (theo tuần, tháng: cả năm; so sánh: tháng trước tới hết tháng đang chọn). */
+    static Khoang khoang(ThamSo t) {
+        return switch (t.loai()) {
+            case "tuan", "thang" -> new Khoang(LocalDate.of(canNam(t), 1, 1), LocalDate.of(t.nam(), 12, 31));
+            case "nam" -> new Khoang(LocalDate.of(t.tuNam(), 1, 1), LocalDate.of(t.denNam(), 12, 31));
+            case "so_sanh" -> {
+                LocalDate dauThang = LocalDate.of(t.nam(), t.thang(), 1);
+                yield new Khoang(dauThang.minusMonths(1), dauThang.plusMonths(1).minusDays(1));
+            }
+            default -> new Khoang(t.tuNgay(), t.denNgay());
+        };
     }
 
     private static void canNgay(ThamSo t) {

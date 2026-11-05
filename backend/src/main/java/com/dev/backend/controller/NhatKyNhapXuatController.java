@@ -3,8 +3,9 @@ package com.dev.backend.controller;
 import com.dev.backend.constant.variables.IPermissionType;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.customizeanotation.RequireAuth;
-import com.dev.backend.dto.response.NhatKyNhapXuatDTO;
+import com.dev.backend.dto.response.NhapXuatTongHopDTO;
 import com.dev.backend.dto.response.ResponseData;
+import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.services.impl.multitable.BaoCaoNhapXuatService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -15,8 +16,14 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
-import java.util.List;
+import java.time.format.DateTimeParseException;
 
+/**
+ * Báo cáo nhập xuất (màn /reports/stock-movements). Tham số chung:
+ * loai = ngay (tuNgay, denNgay yyyy-MM-dd, tối đa 1 năm) | tuan, thang (nam) | nam (tuNam, denNam);
+ * khoId trống = mọi kho được xem (quản lý kho: các kho mình phụ trách; chọn kho khác thì 403);
+ * nhom trống = mọi loại, hoặc một mã như N_MUA, X_QUAY (xem BaoCaoNhapXuatService.NHOM).
+ */
 @RestController
 @RequestMapping("/api/v1/admin/dashboard/bao-cao/nhat-ky-nhap-xuat")
 public class NhatKyNhapXuatController {
@@ -24,48 +31,33 @@ public class NhatKyNhapXuatController {
     @Autowired
     private BaoCaoNhapXuatService baoCaoNhapXuatService;
 
-    /**
-     * GET /api/v1/admin/dashboard/bao-cao/nhat-ky-nhap-xuat
-     *
-     * @param loai           ngay | tuan | thang | nam | so_sanh | chi_tiet | theo_kho
-     * @param tuNgay         yyyy-MM-dd  (bắt buộc khi loai = ngay | chi_tiet | theo_kho)
-     * @param denNgay        yyyy-MM-dd  (bắt buộc khi loai = ngay | chi_tiet | theo_kho)
-     * @param nam            (bắt buộc khi loai = tuan | thang | so_sanh)
-     * @param thang          (bắt buộc khi loai = so_sanh)
-     * @param tuNam          (bắt buộc khi loai = nam)
-     * @param denNam         (bắt buộc khi loai = nam)
-     * @param khoId          null = tất cả kho
-     * @param loaiGiaoDich   null = tất cả | nhap_kho | xuat_kho | chuyen_kho | dieu_chinh
-     * @param bienTheSanPhamId  null = tất cả SKU (chỉ dùng khi loai = chi_tiet)
-     */
-    @GetMapping
+    /** Tồn đầu kỳ + Nhập − Xuất = Tồn cuối kỳ, nhập từ đâu, xuất đi đâu, theo kỳ, theo kho, theo sản phẩm. */
+    @GetMapping("/tong-hop")
     @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
-    public ResponseEntity<ResponseData<List<NhatKyNhapXuatDTO>>> getBaoCaoNhatKy(
+    public ResponseEntity<ResponseData<NhapXuatTongHopDTO>> tongHop(
             @RequestParam                   String  loai,
             @RequestParam(required = false) String  tuNgay,
             @RequestParam(required = false) String  denNgay,
             @RequestParam(required = false) Integer nam,
-            @RequestParam(required = false) Integer thang,
             @RequestParam(required = false) Integer tuNam,
             @RequestParam(required = false) Integer denNam,
             @RequestParam(required = false) Integer khoId,
-            @RequestParam(required = false) String  loaiGiaoDich,
-            @RequestParam(required = false) Integer bienTheSanPhamId
+            @RequestParam(required = false) String  nhom
     ) {
-        List<NhatKyNhapXuatDTO> data = baoCaoNhapXuatService.lay(new BaoCaoNhapXuatService.ThamSo(loai, ngay(tuNgay),
-                ngay(denNgay), nam, thang, tuNam, denNam, khoId, loaiGiaoDich, bienTheSanPhamId));
+        NhapXuatTongHopDTO data = baoCaoNhapXuatService.tongHop(new BaoCaoNhapXuatService.ThamSo(loai, ngay(tuNgay),
+                ngay(denNgay), nam, tuNam, denNam, khoId, nhom));
         return ResponseEntity.ok(
-                ResponseData.<List<NhatKyNhapXuatDTO>>builder()
+                ResponseData.<NhapXuatTongHopDTO>builder()
                         .status(HttpStatus.OK.value())
-                        .message("Lấy báo cáo nhật ký nhập xuất thành công")
+                        .message("Lấy báo cáo nhập xuất thành công")
                         .data(data)
                         .build()
         );
     }
 
     /**
-     * Tệp Excel (.xlsx) của Nhật ký nhập xuất, cùng tham số với GET ở trên: trang Tổng hợp, bảng theo kỳ / theo kho và
-     * chi tiết từng giao dịch (kỳ tối đa 1 năm). Cần quyền Xuất báo cáo ở kho làm việc.
+     * Tệp Excel (.xlsx), cùng tham số với /tong-hop: trang Tổng hợp, Theo kỳ, Theo sản phẩm và Chi tiết giao dịch (kỳ tối
+     * đa 1 năm). Cần quyền Xuất báo cáo ở kho làm việc.
      */
     @GetMapping("/xuat-excel")
     @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho},
@@ -75,17 +67,21 @@ public class NhatKyNhapXuatController {
             @RequestParam(required = false) String  tuNgay,
             @RequestParam(required = false) String  denNgay,
             @RequestParam(required = false) Integer nam,
-            @RequestParam(required = false) Integer thang,
             @RequestParam(required = false) Integer tuNam,
             @RequestParam(required = false) Integer denNam,
             @RequestParam(required = false) Integer khoId,
-            @RequestParam(required = false) String  loaiGiaoDich
+            @RequestParam(required = false) String  nhom
     ) {
         return baoCaoNhapXuatService.xuatExcel(new BaoCaoNhapXuatService.ThamSo(loai, ngay(tuNgay), ngay(denNgay), nam,
-                thang, tuNam, denNam, khoId, loaiGiaoDich, null)).phanHoi();
+                tuNam, denNam, khoId, nhom)).phanHoi();
     }
 
     private static LocalDate ngay(String s) {
-        return s == null || s.isBlank() ? null : LocalDate.parse(s);
+        if (s == null || s.isBlank()) return null;
+        try {
+            return LocalDate.parse(s);
+        } catch (DateTimeParseException e) {
+            throw new CommonException("Ngày không hợp lệ: " + s);
+        }
     }
 }
