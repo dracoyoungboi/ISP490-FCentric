@@ -56,11 +56,31 @@ public class LazadaClient {
      * Luôn đảm bảo có tham số redirect_uri (mặc định lấy Callback URL đã cấu hình trên Lazada Developer Console)
      * để tránh lỗi "Thiếu Tham số" khi người bán bấm [Use Seller Login].
      */
+    /**
+     * Kiểm tra kênh bán hàng có phải là kênh Lazada Sandbox thử nghiệm hay không.
+     */
+    public static boolean isSandbox(String channelCode) {
+        return channelCode != null && "LAZADA_SANDBOX".equalsIgnoreCase(channelCode.trim());
+    }
+
+    /**
+     * Tạo đường dẫn ủy quyền Seller Authorization để chuyển hướng người dùng sang Lazada Seller Center.
+     * Mặc định sử dụng chế độ Production (forceAuth = true).
+     */
     public String generateAuthUrl(String appKey, String redirectUri) {
-        return generateAuthUrl(appKey, redirectUri, java.util.UUID.randomUUID().toString());
+        return generateAuthUrl(appKey, redirectUri, java.util.UUID.randomUUID().toString(), true);
     }
 
     public String generateAuthUrl(String appKey, String redirectUri, String state) {
+        return generateAuthUrl(appKey, redirectUri, state, true);
+    }
+
+    /**
+     * Sinh URL ủy quyền Seller Authorization có hỗ trợ cờ forceAuth:
+     * - forceAuth = true (Production): Ép buộc nhập mật khẩu tài khoản bán hàng thật qua &force_auth=true.
+     * - forceAuth = false (Sandbox): Bỏ &force_auth=true để cho phép đăng nhập tự động qua phiên SSO của nhà phát triển.
+     */
+    public String generateAuthUrl(String appKey, String redirectUri, String state, boolean forceAuth) {
         if (appKey == null || appKey.isBlank()) {
             throw new IllegalArgumentException("App Key không được để trống");
         }
@@ -71,12 +91,9 @@ public class LazadaClient {
         String stateParam = (state != null && !state.isBlank())
                 ? "&state=" + URLEncoder.encode(state.trim(), StandardCharsets.UTF_8)
                 : "";
-        // Khi dùng tài khoản test sandbox (đăng nhập qua link SSO không có mật khẩu): tạm comment &force_auth=true
-        // Khi quay lại production với tài khoản thật, chỉ cần gỡ comment dòng dưới:
-        return String.format("%s?response_type=code&force_auth=true&redirect_uri=%s&client_id=%s%s",
-                OAUTH_AUTHORIZE_URL, encodedUri, appKey.trim(), stateParam);
-        // return String.format("%s?response_type=code&redirect_uri=%s&client_id=%s%s",
-        //         OAUTH_AUTHORIZE_URL, encodedUri, appKey.trim(), stateParam);
+        String forceAuthParam = forceAuth ? "&force_auth=true" : "";
+        return String.format("%s?response_type=code%s&redirect_uri=%s&client_id=%s%s",
+                OAUTH_AUTHORIZE_URL, forceAuthParam, encodedUri, appKey.trim(), stateParam);
     }
 
     /**
