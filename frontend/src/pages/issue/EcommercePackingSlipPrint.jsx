@@ -4,7 +4,8 @@ import { phieuXuatKhoService } from "@/services/phieuXuatKhoService";
 
 /**
  * Trang in thật của Phiếu đóng gói đơn sàn TMĐT (Lazada, Shopee, TikTok Shop).
- * Sử dụng mẫu in `ecommerce_packing_slip` (mặc định khổ nhiệt A6 100x150mm hoặc A5/A4/K80).
+ * Sử dụng mẫu in `ecommerce_packing_slip` (mặc định tem nhiệt A6 100 × 150 mm, hoặc A5 / A4 / K80).
+ * Tem dán lên kiện hàng (thay cho nút in vận đơn Lazada AWB đã gỡ ở commit aab0952b).
  */
 export default function EcommercePackingSlipPrint() {
   return (
