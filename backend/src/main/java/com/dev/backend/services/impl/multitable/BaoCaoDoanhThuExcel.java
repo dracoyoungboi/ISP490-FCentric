@@ -13,8 +13,8 @@ import java.util.Map;
 
 /**
  * Tệp Excel của Báo cáo doanh thu theo khuôn chung (KhuonExcelBaoCao): trang Tổng hợp (kết quả kinh doanh so với cùng
- * kỳ năm trước, tiền thu trong kỳ, chữ ký) và trang Chi tiết theo kỳ. Dòng chênh lệch, tỷ lệ, biên lãi và dòng cộng là
- * công thức.
+ * kỳ năm trước, tiền thu trong kỳ, chữ ký), Chi tiết theo kỳ, Theo kênh, Theo nhân viên. Dòng chênh lệch, tỷ lệ, biên lãi
+ * và dòng cộng là công thức.
  */
 public final class BaoCaoDoanhThuExcel extends KhuonExcelBaoCao {
 
@@ -26,7 +26,103 @@ public final class BaoCaoDoanhThuExcel extends KhuonExcelBaoCao {
         BaoCaoDoanhThuExcel x = new BaoCaoDoanhThuExcel();
         x.sheetTongHop(dt, tt, tin, tenKy);
         x.sheetChiTiet(dt, tin, tenKy, tt);
+        x.sheetTheoKenh(dt, tin, tenKy);
+        x.sheetTheoNhanVien(dt, tin, tenKy);
         return x.xuat("Báo cáo doanh thu", tin);
+    }
+
+    // ================= Trang 3: Theo kênh =================
+
+    private void sheetTheoKenh(DoanhThuTongHopDTO dt, ThongTin tin, String tenKy) {
+        Sheet s = wb.createSheet("Theo kênh");
+        doRongCot(s, 6, 30, 10, 18, 11, 18, 18, 10, 18, 12, 12);
+        int r = dauTrang(s, tin, "DOANH THU THEO KÊNH BÁN", 10,
+                "Kỳ báo cáo: " + tenKy + " (" + khoang(dt.getTuNgay(), dt.getDenNgay()) + ")",
+                "So với cùng kỳ năm trước: " + khoang(dt.getTuNgayCungKy(), dt.getDenNgayCungKy()));
+        int h = r;
+        tieuDe(s, r++, 30, "STT", "Kênh bán", "Số đơn", "Doanh thu", "Tỷ trọng", "Giá vốn", "Lợi nhuận gộp", "Biên lãi",
+                "Doanh thu cùng kỳ năm trước", "Tăng / giảm", "Đơn bị hoàn");
+        List<DoanhThuTongHopDTO.Kenh> ds = dt.getTheoKenh() == null ? List.of() : dt.getTheoKenh();
+        int dau = r;
+        int cuoi = dau + ds.size() - 1;
+        int rCong = cuoi + 1;
+        int stt = 1;
+        for (DoanhThuTongHopDTO.Kenh kn : ds) {
+            Row row = s.createRow(r);
+            o(row, 0, String.valueOf(stt++), k("stt"));
+            o(row, 1, kn.getTen(), k("chu"));
+            so(row, 2, kn.getSoDon(), k("so"));
+            so(row, 3, kn.getDoanhThu(), k("tien"));
+            f(row, 4, "IF(" + ref(rCong, 3) + "=0,\"\"," + ref(r, 3) + "/" + ref(rCong, 3) + ")", k("tyLe"));
+            so(row, 5, kn.getGiaVon(), k("tien"));
+            f(row, 6, ref(r, 3) + "-" + ref(r, 5), k("tien"));
+            f(row, 7, "IF(" + ref(r, 3) + "=0,\"\"," + ref(r, 6) + "/" + ref(r, 3) + ")", k("tyLe"));
+            so(row, 8, kn.getDoanhThuCungKy(), k("tien"));
+            f(row, 9, "IF(" + ref(r, 8) + "=0,\"\",(" + ref(r, 3) + "-" + ref(r, 8) + ")/" + ref(r, 8) + ")", k("tyLe"));
+            so(row, 10, kn.getSoDonHoan(), k("so"));
+            r++;
+        }
+        r = rCong;
+        Row cong = dongCong(s, r, 10, 1, "Cộng");
+        for (int c : new int[]{2, 3, 5, 6, 8, 10}) {
+            f(cong, c, tongCot(dau, cuoi, c, false), k(c == 2 || c == 10 ? "congSo" : "congTien"));
+        }
+        f(cong, 4, "IF(" + ref(r, 3) + "=0,\"\",1)", k("congTyLe"));
+        f(cong, 7, "IF(" + ref(r, 3) + "=0,\"\"," + ref(r, 6) + "/" + ref(r, 3) + ")", k("congTyLe"));
+        f(cong, 9, "IF(" + ref(r, 8) + "=0,\"\",(" + ref(r, 3) + "-" + ref(r, 8) + ")/" + ref(r, 8) + ")", k("congTyLe"));
+        r += 2;
+        o(s, r++, 1, "Ghi chú: Bán tại quầy gồm đơn tạo từ màn bán tại quầy; Đơn bán trực tiếp là đơn bán thường (qua báo giá);"
+                + " các kênh còn lại là đơn đồng bộ từ sàn / web. Đơn bị hoàn chỉ đếm, không cộng vào doanh thu.", k("ghiChu"));
+        o(s, r, 1, lapLuc(tin), k("ghiChu"));
+
+        s.createFreezePane(2, h + 1);
+        inTrang(s, true, h, h);
+    }
+
+    // ================= Trang 4: Theo nhân viên =================
+
+    private void sheetTheoNhanVien(DoanhThuTongHopDTO dt, ThongTin tin, String tenKy) {
+        Sheet s = wb.createSheet("Theo nhân viên");
+        doRongCot(s, 6, 30, 10, 18, 11, 16, 18, 18, 10);
+        int r = dauTrang(s, tin, "DOANH THU THEO NHÂN VIÊN", 8,
+                "Kỳ báo cáo: " + tenKy + " (" + khoang(dt.getTuNgay(), dt.getDenNgay()) + ")",
+                "Nhân viên là người lập đơn: thu ngân với đơn bán tại quầy, người lập báo giá với đơn bán thường");
+        int h = r;
+        tieuDe(s, r++, 30, "STT", "Nhân viên", "Số đơn", "Doanh thu", "Tỷ trọng", "Trung bình một đơn", "Giá vốn",
+                "Lợi nhuận gộp", "Biên lãi");
+        List<DoanhThuTongHopDTO.NhanVien> ds = dt.getTheoNhanVien() == null ? List.of() : dt.getTheoNhanVien();
+        int dau = r;
+        int cuoi = dau + ds.size() - 1;
+        int rCong = cuoi + 1;
+        int stt = 1;
+        for (DoanhThuTongHopDTO.NhanVien nv : ds) {
+            Row row = s.createRow(r);
+            boolean laNguoi = DoanhThuReportService.NV_NHAN_VIEN.equals(nv.getLoai());
+            o(row, 0, laNguoi ? String.valueOf(stt++) : "", k("stt"));
+            o(row, 1, DoanhThuReportService.NV_DON_SAN.equals(nv.getLoai()) ? "Đơn sàn (không gắn nhân viên)" : nv.getTen(), k("chu"));
+            so(row, 2, nv.getSoDon(), k("so"));
+            so(row, 3, nv.getDoanhThu(), k("tien"));
+            f(row, 4, "IF(" + ref(rCong, 3) + "=0,\"\"," + ref(r, 3) + "/" + ref(rCong, 3) + ")", k("tyLe"));
+            f(row, 5, "IF(" + ref(r, 2) + "=0,\"\"," + ref(r, 3) + "/" + ref(r, 2) + ")", k("tien"));
+            so(row, 6, nv.getGiaVon(), k("tien"));
+            f(row, 7, ref(r, 3) + "-" + ref(r, 6), k("tien"));
+            f(row, 8, "IF(" + ref(r, 3) + "=0,\"\"," + ref(r, 7) + "/" + ref(r, 3) + ")", k("tyLe"));
+            r++;
+        }
+        r = rCong;
+        Row cong = dongCong(s, r, 8, 1, "Cộng");
+        for (int c : new int[]{2, 3, 6, 7}) {
+            f(cong, c, tongCot(dau, cuoi, c, false), k(c == 2 ? "congSo" : "congTien"));
+        }
+        f(cong, 4, "IF(" + ref(r, 3) + "=0,\"\",1)", k("congTyLe"));
+        f(cong, 5, "IF(" + ref(r, 2) + "=0,\"\"," + ref(r, 3) + "/" + ref(r, 2) + ")", k("congTien"));
+        f(cong, 8, "IF(" + ref(r, 3) + "=0,\"\"," + ref(r, 7) + "/" + ref(r, 3) + ")", k("congTyLe"));
+        r += 2;
+        o(s, r++, 1, "Ghi chú: Đơn sàn đồng bộ tự động từ sàn / web nên không có người lập, tách thành dòng riêng.", k("ghiChu"));
+        o(s, r, 1, lapLuc(tin), k("ghiChu"));
+
+        s.createFreezePane(2, h + 1);
+        inTrang(s, false, h, h);
     }
 
     // ================= Trang 1: Tổng hợp =================

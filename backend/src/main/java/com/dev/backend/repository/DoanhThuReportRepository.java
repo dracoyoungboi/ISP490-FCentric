@@ -316,6 +316,81 @@ public interface DoanhThuReportRepository extends JpaRepository<DonBanHang, Inte
             nativeQuery = true)
     List<Object[]> conPhaiThu(@Param("tatCaKho") boolean tatCaKho, @Param("khoIds") Collection<Integer> khoIds);
 
+    // --------------------------------------------------
+    // 7. THEO KÊNH, THEO NHÂN VIÊN (cả kỳ)
+    // --------------------------------------------------
+    /**
+     * Doanh thu cả kỳ [tu, den) theo kênh bán, cùng điều kiện đơn với các câu theo ngày ở trên (tổng các kênh = doanh thu
+     * kỳ): [mã kênh, tên kênh, doanh thu, giá vốn, số đơn, số đơn bị hoàn]. Mã kênh: K + id kênh bán (sàn, web); POS = đơn
+     * từ quầy hoặc gắn bản ghi kênh mã POS; TRUC_TIEP = còn lại (như bộ lọc kênh của Báo cáo sản phẩm). Đơn bị hoàn (6)
+     * đã có phiếu xuất hoàn tất (hàng đã đi), tính theo ngày giao, chưa có thì ngày phiếu xuất hoàn tất cuối; chỉ đếm,
+     * không cộng doanh thu.
+     */
+    @Query(value = """
+        SELECT x.kenh, MAX(x.ten_kenh), SUM(x.doanh_thu), SUM(x.gia_von), SUM(x.so_don), SUM(x.so_hoan)
+        FROM (
+            SELECT CASE WHEN kb.id IS NOT NULL AND COALESCE(kb.ma_kenh, '') <> 'POS' THEN CONCAT('K', kb.id)
+                        WHEN kb.id IS NOT NULL
+                          OR EXISTS (SELECT 1 FROM pos_checkout_request r WHERE r.don_ban_hang_id = dbh.id) THEN 'POS'
+                        ELSE 'TRUC_TIEP' END                                        AS kenh,
+                   CASE WHEN COALESCE(kb.ma_kenh, '') <> 'POS' THEN kb.ten_kenh END  AS ten_kenh,
+                   CASE WHEN dbh.trang_thai IN (3, 5) THEN dbh.tong_cong ELSE 0 END  AS doanh_thu,
+                   CASE WHEN dbh.trang_thai IN (3, 5) THEN COALESCE((
+                        SELECT SUM(ctpx.so_luong_xuat * ctpx.gia_von)
+                        FROM phieu_xuat_kho pxk
+                        JOIN chi_tiet_phieu_xuat_kho ctpx ON ctpx.phieu_xuat_kho_id = pxk.id AND ctpx.lo_hang_id IS NOT NULL
+                        WHERE pxk.don_ban_hang_id = dbh.id AND pxk.trang_thai = 3), 0) ELSE 0 END AS gia_von,
+                   CASE WHEN dbh.trang_thai IN (3, 5) THEN 1 ELSE 0 END              AS so_don,
+                   CASE WHEN dbh.trang_thai = 6 THEN 1 ELSE 0 END                    AS so_hoan
+            FROM don_ban_hang dbh
+            LEFT JOIN kenh_ban_hang kb ON kb.id = dbh.kenh_ban_id
+            WHERE dbh.loai_chung_tu = 'don_ban_hang'
+              AND (:tatCaKho = TRUE OR dbh.kho_xuat_id IN (:khoIds))
+              AND ((dbh.trang_thai IN (3, 5) AND dbh.ngay_giao_hang >= :tu AND dbh.ngay_giao_hang < :den)
+                OR (dbh.trang_thai = 6
+                    AND EXISTS (SELECT 1 FROM phieu_xuat_kho p3 WHERE p3.don_ban_hang_id = dbh.id AND p3.trang_thai = 3)
+                    AND COALESCE(dbh.ngay_giao_hang, (SELECT MAX(p2.ngay_xuat) FROM phieu_xuat_kho p2
+                                                      WHERE p2.don_ban_hang_id = dbh.id AND p2.trang_thai = 3)) >= :tu
+                    AND COALESCE(dbh.ngay_giao_hang, (SELECT MAX(p2.ngay_xuat) FROM phieu_xuat_kho p2
+                                                      WHERE p2.don_ban_hang_id = dbh.id AND p2.trang_thai = 3)) < :den))
+        ) x
+        GROUP BY x.kenh
+        """,
+            nativeQuery = true)
+    List<Object[]> theoKenh(@Param("tu") LocalDate tu, @Param("den") LocalDate den,
+                            @Param("tatCaKho") boolean tatCaKho, @Param("khoIds") Collection<Integer> khoIds);
+
+    /**
+     * Doanh thu cả kỳ [tu, den) theo người lập đơn, cùng điều kiện đơn với các câu theo ngày: [mã người, họ tên, doanh
+     * thu, giá vốn, số đơn]. Mã người: -1 = đơn sàn (đồng bộ từ kênh bán khác POS, không có người lập), 0 = đơn không ghi
+     * người lập, còn lại = id người dùng (đơn tại quầy: thu ngân; đơn từ báo giá: người lập báo giá).
+     */
+    @Query(value = """
+        SELECT x.nguoi, MAX(x.ho_ten), SUM(x.doanh_thu), SUM(x.gia_von), COUNT(*)
+        FROM (
+            SELECT CASE WHEN kb.id IS NOT NULL AND COALESCE(kb.ma_kenh, '') <> 'POS' THEN -1
+                        ELSE COALESCE(dbh.nguoi_tao_id, 0) END AS nguoi,
+                   nd.ho_ten                                   AS ho_ten,
+                   dbh.tong_cong                               AS doanh_thu,
+                   COALESCE((
+                        SELECT SUM(ctpx.so_luong_xuat * ctpx.gia_von)
+                        FROM phieu_xuat_kho pxk
+                        JOIN chi_tiet_phieu_xuat_kho ctpx ON ctpx.phieu_xuat_kho_id = pxk.id AND ctpx.lo_hang_id IS NOT NULL
+                        WHERE pxk.don_ban_hang_id = dbh.id AND pxk.trang_thai = 3), 0) AS gia_von
+            FROM don_ban_hang dbh
+            LEFT JOIN kenh_ban_hang kb ON kb.id = dbh.kenh_ban_id
+            LEFT JOIN nguoi_dung nd    ON nd.id = dbh.nguoi_tao_id
+            WHERE dbh.loai_chung_tu = 'don_ban_hang'
+              AND dbh.trang_thai IN (3, 5)
+              AND dbh.ngay_giao_hang >= :tu AND dbh.ngay_giao_hang < :den
+              AND (:tatCaKho = TRUE OR dbh.kho_xuat_id IN (:khoIds))
+        ) x
+        GROUP BY x.nguoi
+        """,
+            nativeQuery = true)
+    List<Object[]> theoNhanVien(@Param("tu") LocalDate tu, @Param("den") LocalDate den,
+                                @Param("tatCaKho") boolean tatCaKho, @Param("khoIds") Collection<Integer> khoIds);
+
     /** Phiếu chuyển khoản còn hiệu lực chưa đối chiếu sao kê (lọc theo kho của phiếu). */
     @Query(value = """
         SELECT COUNT(*) FROM thanh_toan_don_ban t
