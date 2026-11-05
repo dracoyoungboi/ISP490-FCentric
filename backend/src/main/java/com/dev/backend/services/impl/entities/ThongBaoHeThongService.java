@@ -26,6 +26,8 @@ import java.util.concurrent.ConcurrentHashMap;
  *      còn ≤ 48 giờ / đã hết; sàn từ chối khóa)
  *   H2 Không đẩy được tồn lên kênh (lỗi cả kênh 2 lượt liền)   Quản trị viên      KENH:{ma}:DAY_TON:{ngày}
  *   H3 Quyền của bạn vừa thay đổi                            Người bị đổi quyền PQ:{id}:{epochMs}
+ *   H4 Nhà cung cấp đổi MST                                    Quản trị viên      NCC:{id}:NHAY_CAM:{epochMs}
+ *   H5 Email đăng nhập của một tài khoản bị quản trị đổi      Quản trị viên      ND:{id}:EMAIL:{epochMs}
  * </pre>
  * Kênh giả lập (TikTok Sandbox, shop cipher "mock_") không báo H1, H2: khóa giả không làm mới / đẩy tồn được, báo mỗi ngày
  * chỉ là nhiễu. Câu thông báo không chứa lỗi thô (lỗi kết nối của sàn có thể kèm đường dẫn mang khóa truy cập), chỉ ghi
@@ -56,6 +58,52 @@ public class ThongBaoHeThongService {
 
     /** Số lượt đẩy tồn lỗi cả kênh liên tiếp theo mã kênh (trong bộ nhớ: khởi động lại thì đếm lại). */
     private final Map<String, Integer> soLuotLoiDayTon = new ConcurrentHashMap<>();
+
+    // ─────────────────────────── H4, H5 thay đổi nhạy cảm ───────────────────────────
+
+    /**
+     * H4: mã số thuế của nhà cung cấp vừa đổi. Báo mọi quản trị viên, trừ người vừa sửa. Chi tiết cũ / mới xem ở thẻ
+     * Lịch sử nhà cung cấp.
+     */
+    public void nhaCungCapDoiThongTinNhayCam(Integer nhaCungCapId, String maNcc, String tenNcc, List<String> tenTruong,
+                                            Integer nguoiThaoTacId) {
+        try {
+            if (nhaCungCapId == null || tenTruong == null || tenTruong.isEmpty()) return;
+            String moc = Instant.now().toEpochMilli() + "." + ThongBaoService.mocDuyNhat();
+            String ten = (tenNcc == null || tenNcc.isBlank() ? "" : tenNcc.trim())
+                    + (maNcc == null || maNcc.isBlank() ? "" : " (" + maNcc.trim() + ")");
+            String moTa = "Đã đổi " + String.join(", ", tenTruong) + " của nhà cung cấp " + ten.trim()
+                    + ". Kiểm tra lại ở thẻ Lịch sử nếu không phải bạn chủ động.";
+            thongBaoService.guiSauCommit("Thông báo đổi thông tin nhạy cảm NCC " + nhaCungCapId, () ->
+                    List.of(new GuiDi(nguoiNhan.quanTriVien(), nguoiThaoTacId, new NoiDung(ThongBaoService.LOAI_NHA_CUNG_CAP,
+                            ThongBaoService.TONE_WARNING, "Mã số thuế nhà cung cấp vừa đổi", moTa,
+                            "/supplier/" + nhaCungCapId, ThongBaoService.LOAI_NHA_CUNG_CAP, nhaCungCapId, null,
+                            "NCC:" + nhaCungCapId + ":NHAY_CAM:" + moc))));
+        } catch (RuntimeException e) {
+            log.warn("[THONG-BAO] Không chuẩn bị được thông báo đổi thông tin NCC: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * H5: quản trị viên đổi email của tài khoản người khác (email nhận liên kết đặt lại mật khẩu). Báo mọi quản trị viên,
+     * trừ người vừa đổi. Không gửi email.
+     */
+    public void emailTaiKhoanDaDoi(Integer nguoiDungId, String tenDangNhap, Integer nguoiThaoTacId) {
+        try {
+            if (nguoiDungId == null) return;
+            String moc = Instant.now().toEpochMilli() + "." + ThongBaoService.mocDuyNhat();
+            String ten = tenDangNhap == null || tenDangNhap.isBlank() ? "#" + nguoiDungId : tenDangNhap.trim();
+            thongBaoService.guiSauCommit("Thông báo đổi email tài khoản " + nguoiDungId, () ->
+                    List.of(new GuiDi(nguoiNhan.quanTriVien(), nguoiThaoTacId, new NoiDung(ThongBaoService.LOAI_NGUOI_DUNG,
+                            ThongBaoService.TONE_WARNING, "Email tài khoản vừa đổi",
+                            "Email đăng nhập (nhận liên kết đặt lại mật khẩu) của tài khoản " + ten
+                                    + " vừa được đổi. Kiểm tra lại ở thẻ Lịch sử nếu không phải bạn chủ động.",
+                            "/users/" + nguoiDungId, ThongBaoService.LOAI_NGUOI_DUNG, nguoiDungId, null,
+                            "ND:" + nguoiDungId + ":EMAIL:" + moc))));
+        } catch (RuntimeException e) {
+            log.warn("[THONG-BAO] Không chuẩn bị được thông báo đổi email: {}", e.getMessage());
+        }
+    }
 
     // ─────────────────────────────── H1 ủy quyền kênh ───────────────────────────────
 

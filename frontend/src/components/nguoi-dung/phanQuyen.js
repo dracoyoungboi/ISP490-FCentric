@@ -673,6 +673,41 @@ export function dienGiaiLichSu(ls) {
   return { viec, the };
 }
 
+/** Hành động tài khoản gộp vào tab Lịch sử thay đổi của người dùng (không gồm đăng nhập). */
+export const HANH_DONG_TAI_KHOAN = [
+  "tao_tai_khoan",
+  "sua_tai_khoan",
+  "khoa_tai_khoan",
+  "mo_khoa_tai_khoan",
+  "doi_mat_khau",
+  "dat_lai_mat_khau",
+];
+
+/**
+ * Tab Lịch sử thay đổi của người dùng: dòng phân quyền (LichSuPhanQuyenDto) + dòng tài khoản (NhatKyDto của
+ * lich_su_thay_doi, loai nguoi_dung), mới nhất trước. Dòng tài khoản đổi về cùng dạng: { id: "tk-…", loai: "taiKhoan",
+ * luc, nguoiThucHien, nguoiThucHienId, dong }. Dòng phân quyền giữ nguyên (thêm loai "phanQuyen").
+ */
+export function gopLichSuNguoiDung(phanQuyen, taiKhoan) {
+  const pq = (Array.isArray(phanQuyen) ? phanQuyen : []).map((ls) => ({ ...ls, loai: "phanQuyen" }));
+  const tk = (Array.isArray(taiKhoan) ? taiKhoan : [])
+    .filter((d) => d && HANH_DONG_TAI_KHOAN.includes(d.hanhDong))
+    .map((d) => ({
+      id: `tk-${d.id}`,
+      loai: "taiKhoan",
+      luc: d.ngayThucHien,
+      nguoiThucHien: d.nguoiThucHienTen || d.nguoiThucHienTenDangNhap || null,
+      nguoiThucHienId: d.nguoiThucHienId ?? null,
+      dong: d,
+    }));
+  const thoiGian = (x) => {
+    const t = new Date(x?.luc ?? 0).getTime();
+    return Number.isNaN(t) ? 0 : t;
+  };
+  // sort ổn định: cùng thời điểm giữ thứ tự máy chủ trả (phân quyền trước)
+  return [...pq, ...tk].sort((a, b) => thoiGian(b) - thoiGian(a));
+}
+
 // ───────────────────────────── Hồ sơ của tôi ─────────────────────────────
 
 /** Mô tả quyền theo góc nhìn người được cấp (mục Quyền của tôi, hiện khi rê chuột). Quyền mới chưa có ở đây dùng mô tả trong CSDL. */
