@@ -130,11 +130,13 @@ const realApi = {
     apiClient.post(`${BASE}/${ma(maKenh)}/uy-quyen`, null, { params: redirectUri ? { redirectUri } : {} })
       .then(data)
       .catch(baoApiChuaCo(maKenh)),
-  /** { authUrl }: đường dẫn ủy quyền riêng của Lazada Open Platform */
-  getLazadaAuthUrl: (redirectUri) =>
-    apiClient.get(`${BASE}/lazada/auth-url`, { params: redirectUri ? { redirectUri } : {} })
+  /** { authUrl }: đường dẫn ủy quyền riêng của Lazada Open Platform (hỗ trợ cả LAZADA và LAZADA_SANDBOX) */
+  getLazadaAuthUrl: (redirectUri, maKenh = "LAZADA") => {
+    const maSan = ma(maKenh);
+    return apiClient.post(`${BASE}/${maSan}/uy-quyen`, null, { params: redirectUri ? { redirectUri } : {} })
       .then(data)
-      .catch(() => apiClient.post(`${BASE}/LAZADA/uy-quyen`, null, { params: redirectUri ? { redirectUri } : {} }).then(data)),
+      .catch(() => apiClient.get(`${BASE}/lazada/auth-url`, { params: redirectUri ? { redirectUri } : {} }).then(data));
+  },
   /** { code, state } từ trang quay về; state null = mã nhập tay của tài khoản thử. */
   hoanTatUyQuyen: (maKenh, { code, state } = {}) =>
     apiClient.post(`${BASE}/${ma(maKenh)}/uy-quyen/hoan-tat`, { code, state: state ?? null }).then(data).catch(baoApiChuaCo(maKenh)),
@@ -241,6 +243,7 @@ const cauHinhSanMau = (ma) => (daThietLapMau(ma) ? cauHinhMau(true) : cauHinhMau
 const mockCauHinh = {
   SHOPIFY: cauHinhMau(false),
   LAZADA: cauHinhSanMau("LAZADA"),
+  LAZADA_SANDBOX: cauHinhSanMau("LAZADA_SANDBOX"),
   TIKTOK: cauHinhSanMau("TIKTOK"),
   ...docSessionMau(KHOA_CAU_HINH_MAU),
 };
@@ -433,7 +436,7 @@ const mockApi = {
     return { ...chung, soKhongKhop: res.soKhongKhop, skuKhongKhop: res.skuKhongKhop, soNgung: res.soNgung };
   },
   async dayVaLienKetSanPham(maKenh) {
-    if (!laShopify(maKenh) && String(maKenh ?? "").toUpperCase() !== "LAZADA") {
+    if (!laShopify(maKenh) && String(maKenh ?? "").toUpperCase() !== "LAZADA" && String(maKenh ?? "").toUpperCase() !== "LAZADA_SANDBOX") {
       await mockDelay();
       throw mockError(400, "Sàn không hỗ trợ đưa sản phẩm lên từ FCentric");
     }
