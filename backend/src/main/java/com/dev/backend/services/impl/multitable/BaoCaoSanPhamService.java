@@ -1,22 +1,15 @@
 package com.dev.backend.services.impl.multitable;
 
-import com.dev.backend.config.SecurityContextHolder;
 import com.dev.backend.dto.response.BaoCaoSanPhamDTO;
-import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
-import com.dev.backend.entities.Kho;
-import com.dev.backend.entities.ThongTinCongTy;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.repository.BaoCaoSanPhamRepository;
 import com.dev.backend.repository.BaoCaoSanPhamRepository.PhamVi;
-import com.dev.backend.repository.KhoRepository;
-import com.dev.backend.repository.ThongTinCongTyRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -47,11 +40,9 @@ public class BaoCaoSanPhamService {
     static final int SAP_HET_DUOI_NGAY = 14;
     static final int DU_HANG_TREN_NGAY = 90;
     private static final ZoneId VN = ZoneId.of("Asia/Ho_Chi_Minh");
-    private static final int HO_SO_CONG_TY = 1;
 
     private final BaoCaoSanPhamRepository repo;
-    private final KhoRepository khoRepository;
-    private final ThongTinCongTyRepository thongTinCongTyRepository;
+    private final XuatBaoCaoService xuatBaoCaoService;
 
     /** Ngày đầu, ngày cuối (đã cắt tới hôm nay), kỳ trước và số ngày của kỳ. */
     record Ky(LocalDate tu, LocalDate den, LocalDate tuTruoc, LocalDate denTruoc, int soNgay) {
@@ -272,34 +263,19 @@ public class BaoCaoSanPhamService {
 
     // ================= Excel =================
 
-    public record TepExcel(byte[] noiDung, String tenTep) {
-    }
-
-    public TepExcel xuatExcel(LocalDate tuNgay, LocalDate denNgay, Integer khoId, String kenh) {
+    /** Tệp Excel của Báo cáo sản phẩm, cùng số với màn; ghi nhật ký mỗi lần tải. */
+    public XuatBaoCaoService.TepExcel xuatExcel(LocalDate tuNgay, LocalDate denNgay, Integer khoId, String kenh) {
         BaoCaoSanPhamDTO bc = layBaoCao(tuNgay, denNgay, khoId, kenh);
-        DoanhThuReportService.PhamVi quyen = DoanhThuReportService.phamVi(khoId);
-        String phamViKho;
-        if (khoId != null) {
-            phamViKho = khoRepository.findById(khoId).map(Kho::getTenKho).orElse("Kho #" + khoId);
-        } else if (quyen.tatCaKho()) {
-            phamViKho = "Tất cả kho";
-        } else {
-            List<String> ten = khoRepository.findAllById(quyen.khoIds()).stream().map(Kho::getTenKho).toList();
-            phamViKho = ten.isEmpty() ? "Không có cửa hàng phụ trách" : "Các cửa hàng phụ trách: " + String.join(", ", ten);
-        }
+        String phamViKho = xuatBaoCaoService.phamViKho(khoId, DoanhThuReportService.phamVi(khoId));
         String k = chuanKenh(kenh);
         String tenKenh = k == null ? "Tất cả kênh" : bc.getDsKenh().stream().filter(x -> x.getMa().equals(k))
                 .map(BaoCaoSanPhamDTO.Kenh::getTen).findFirst().orElse("Kênh #" + k);
-        ThongTinCongTy ct = thongTinCongTyRepository.findById(HO_SO_CONG_TY).orElse(null);
-        NguoiDungAuthInfo user = SecurityContextHolder.getUser();
-        BaoCaoSanPhamExcel.ThongTin tin = new BaoCaoSanPhamExcel.ThongTin(
-                ct == null ? null : (ct.getTenCongTy() != null && !ct.getTenCongTy().isBlank() ? ct.getTenCongTy() : ct.getTenDangKyKinhDoanh()),
-                ct == null ? null : ct.getDiaChi(),
-                ct == null ? null : ct.getMaSoThue(),
-                phamViKho + " · " + tenKenh,
-                user == null ? null : (user.getHoTen() != null && !user.getHoTen().isBlank() ? user.getHoTen() : user.getTenDangNhap()),
-                LocalDateTime.now(VN));
-        return new TepExcel(BaoCaoSanPhamExcel.tao(bc, tin), "Bao-cao-san-pham_" + bc.getTuNgay() + "_" + bc.getDenNgay() + ".xlsx");
+        String phamVi = phamViKho + " · " + tenKenh;
+        String tenTep = "Bao-cao-san-pham_" + bc.getTuNgay() + "_" + bc.getDenNgay() + ".xlsx";
+        byte[] tep = BaoCaoSanPhamExcel.tao(bc, xuatBaoCaoService.thongTin(phamVi));
+        xuatBaoCaoService.ghiNhatKy("Báo cáo sản phẩm", tenTep, Map.of(
+                "tuNgay", String.valueOf(bc.getTuNgay()), "denNgay", String.valueOf(bc.getDenNgay()), "phamVi", phamVi));
+        return new XuatBaoCaoService.TepExcel(tep, tenTep);
     }
 
     private static <T> Map<Integer, T> theo(List<T> ds, Function<T, Integer> khoa) {

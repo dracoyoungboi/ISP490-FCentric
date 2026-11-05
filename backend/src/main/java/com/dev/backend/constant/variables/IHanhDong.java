@@ -75,6 +75,10 @@ public interface IHanhDong {
             cap_nhat_cau_hinh_ke_toan = "cap_nhat_cau_hinh_ke_toan",
             cap_nhat_thue_suat = "cap_nhat_thue_suat",
             cap_nhat_hoa_don_dau_vao = "cap_nhat_hoa_don_dau_vao";
+    //Tải tệp Excel của một báo cáo (XuatBaoCaoService): loai_tham_chieu = bao_cao, không có id tham chiếu;
+    //gia_tri_moi = {"baoCao":…,"tenTep":…,"boLoc":{…}}, ghi_chu = tên báo cáo
+    String
+            xuat_bao_cao = "xuat_bao_cao";
     //Bảo mật (NhatKyBaoMatService): loai_tham_chieu = nguoi_dung / cau_hinh_thanh_toan; không bao giờ ghi mật khẩu,
     //mã hay khóa, chỉ ghi việc gì đã xảy ra
     String
@@ -101,6 +105,8 @@ public interface IHanhDong {
             tu_choi_phieu_chuyen,
             // Kiểm soát dữ liệu sang kế toán: ai tạo lô, ai mở khóa chứng từ đã giao và vì sao
             tao_lo_xuat_ke_toan, mo_khoa_chung_tu_ke_toan,
+            // Ai đã tải báo cáo nào về máy (truy vết rò rỉ dữ liệu); mỗi lần tải một dòng, ít
+            xuat_bao_cao,
             dang_nhap, dang_nhap_that_bai, tao_tai_khoan, khoa_tai_khoan, mo_khoa_tai_khoan, doi_mat_khau,
             dat_lai_mat_khau,
             cap_nhat_khoa_thanh_toan,

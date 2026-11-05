@@ -6,12 +6,8 @@ import com.dev.backend.dto.response.DoanhThuChartDTO;
 import com.dev.backend.dto.response.DoanhThuTongHopDTO;
 import com.dev.backend.dto.response.TienThuDTO;
 import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
-import com.dev.backend.entities.Kho;
-import com.dev.backend.entities.ThongTinCongTy;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.repository.DoanhThuReportRepository;
-import com.dev.backend.repository.KhoRepository;
-import com.dev.backend.repository.ThongTinCongTyRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -33,11 +29,7 @@ import java.util.function.Function;
 public class DoanhThuReportService {
 
     private final DoanhThuReportRepository repo;
-    private final KhoRepository khoRepository;
-    private final ThongTinCongTyRepository thongTinCongTyRepository;
-
-    /** Hồ sơ cửa hàng (một dòng, id 1 — như ThongTinCongTyService). */
-    private static final int HO_SO_CONG_TY = 1;
+    private final XuatBaoCaoService xuatBaoCaoService;
 
     public List<DoanhThuChartDTO> layBaoCaoTheoNgay(LocalDate tuNgay, LocalDate denNgay, Integer khoId) {
         return tinhTyLe(repo.baoCaoTheoNgay(tuNgay, denNgay, khoId));
@@ -204,45 +196,28 @@ public class DoanhThuReportService {
 
     /**
      * Tệp Excel của Báo cáo doanh thu: cùng số với màn (doanh thu kèm cùng kỳ năm trước, tiền thu trong kỳ), đầu trang lấy
-     * từ hồ sơ cửa hàng. Trả nội dung tệp và tên tệp (không dấu).
+     * từ hồ sơ cửa hàng. Ghi nhật ký mỗi lần tải.
      */
-    public record TepExcel(byte[] noiDung, String tenTep) {
-    }
-
-    public TepExcel xuatExcel(String loai, LocalDate tuNgay, LocalDate denNgay, Integer nam, Integer tuNam, Integer denNam,
-                              Integer khoId) {
+    public XuatBaoCaoService.TepExcel xuatExcel(String loai, LocalDate tuNgay, LocalDate denNgay, Integer nam, Integer tuNam,
+                                                Integer denNam, Integer khoId) {
         DoanhThuTongHopDTO dt = layTongHop(loai, tuNgay, denNgay, nam, tuNam, denNam, khoId);
         TienThuDTO tt = layTienThu(loai, tuNgay, denNgay, nam, null, tuNam, denNam, khoId);
-        PhamVi pv = phamVi(khoId);
-        String phamViChu;
-        if (khoId != null) {
-            phamViChu = khoRepository.findById(khoId).map(Kho::getTenKho).orElse("Kho #" + khoId);
-        } else if (pv.tatCaKho()) {
-            phamViChu = "Tất cả kho";
-        } else {
-            List<String> ten = khoRepository.findAllById(pv.khoIds()).stream().map(Kho::getTenKho).toList();
-            phamViChu = ten.isEmpty() ? "Không có cửa hàng phụ trách" : "Các cửa hàng phụ trách: " + String.join(", ", ten);
-        }
+        String phamViChu = xuatBaoCaoService.phamViKho(khoId, phamVi(khoId));
         String tenKy = switch (loai) {
             case "ngay" -> "Theo ngày";
             case "nam" -> "Từ năm " + tuNam + " đến năm " + denNam;
             default -> "Năm " + nam;
         };
-        ThongTinCongTy ct = thongTinCongTyRepository.findById(HO_SO_CONG_TY).orElse(null);
-        NguoiDungAuthInfo user = SecurityContextHolder.getUser();
-        BaoCaoDoanhThuExcel.ThongTin tin = new BaoCaoDoanhThuExcel.ThongTin(
-                ct == null ? null : (ct.getTenCongTy() != null && !ct.getTenCongTy().isBlank() ? ct.getTenCongTy() : ct.getTenDangKyKinhDoanh()),
-                ct == null ? null : ct.getDiaChi(),
-                ct == null ? null : ct.getMaSoThue(),
-                phamViChu, tenKy,
-                user == null ? null : (user.getHoTen() != null && !user.getHoTen().isBlank() ? user.getHoTen() : user.getTenDangNhap()),
-                java.time.LocalDateTime.now(VN));
         String hau = switch (loai) {
             case "ngay" -> dt.getTuNgay() + "_" + dt.getDenNgay();
             case "nam" -> tuNam + "-" + denNam;
             default -> String.valueOf(nam);
         };
-        return new TepExcel(BaoCaoDoanhThuExcel.tao(dt, tt, tin), "Bao-cao-doanh-thu_" + hau + ".xlsx");
+        String tenTep = "Bao-cao-doanh-thu_" + hau + ".xlsx";
+        byte[] tep = BaoCaoDoanhThuExcel.tao(dt, tt, xuatBaoCaoService.thongTin(phamViChu), tenKy);
+        xuatBaoCaoService.ghiNhatKy("Báo cáo doanh thu", tenTep, Map.of("loai", loai,
+                "tuNgay", String.valueOf(dt.getTuNgay()), "denNgay", String.valueOf(dt.getDenNgay()), "phamVi", phamViChu));
+        return new XuatBaoCaoService.TepExcel(tep, tenTep);
     }
 
     /** Chạy câu doanh thu cho phạm vi: mọi kho một lần (null), không thì từng kho rồi cộng theo nhãn kỳ. */

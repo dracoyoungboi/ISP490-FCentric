@@ -1,5 +1,6 @@
 package com.dev.backend.controller;
 
+import com.dev.backend.constant.variables.IPermissionType;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.customizeanotation.RequireAuth;
 import com.dev.backend.dto.response.AdminDashboardResponse;
@@ -14,10 +15,7 @@ import com.dev.backend.services.impl.multitable.DoanhThuReportService;
 import com.dev.backend.services.multitable.AdminDashboardService;
 import com.dev.backend.services.multitable.TongQuanAdminService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ContentDisposition;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -171,9 +169,10 @@ public class AdminDashboardController {
                 .status(HttpStatus.OK.value()).message("Success").data(data).build());
     }
 
-    /** Tệp Excel (.xlsx) của Báo cáo doanh thu, cùng tham số với /bao-cao/doanh-thu/tong-hop. */
+    /** Tệp Excel (.xlsx) của Báo cáo doanh thu, cùng tham số với /bao-cao/doanh-thu/tong-hop. Cần quyền Xuất báo cáo. */
     @GetMapping("/bao-cao/doanh-thu/xuat-excel")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho},
+            permissions = {IPermissionType.xuat_bao_cao}, inWarehouse = true)
     public ResponseEntity<byte[]> xuatExcelDoanhThu(
             @RequestParam String loai,
             @RequestParam(required = false) String tuNgay,
@@ -183,13 +182,9 @@ public class AdminDashboardController {
             @RequestParam(required = false) Integer denNam,
             @RequestParam(required = false) Integer khoId
     ) {
-        DoanhThuReportService.TepExcel tep = doanhThuReportService.xuatExcel(loai,
+        return doanhThuReportService.xuatExcel(loai,
                 tuNgay == null ? null : LocalDate.parse(tuNgay), denNgay == null ? null : LocalDate.parse(denNgay),
-                nam, tuNam, denNam, khoId);
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(tep.tenTep()).build().toString())
-                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
-                .body(tep.noiDung());
+                nam, tuNam, denNam, khoId).phanHoi();
     }
 
     /**
@@ -210,20 +205,17 @@ public class AdminDashboardController {
                 .status(HttpStatus.OK.value()).message("Success").data(data).build());
     }
 
-    /** Tệp Excel (.xlsx) của Báo cáo sản phẩm, cùng tham số với /bao-cao/san-pham. */
+    /** Tệp Excel (.xlsx) của Báo cáo sản phẩm, cùng tham số với /bao-cao/san-pham. Cần quyền Xuất báo cáo. */
     @GetMapping("/bao-cao/san-pham/xuat-excel")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho},
+            permissions = {IPermissionType.xuat_bao_cao}, inWarehouse = true)
     public ResponseEntity<byte[]> xuatExcelSanPham(
             @RequestParam String tuNgay,
             @RequestParam String denNgay,
             @RequestParam(required = false) Integer khoId,
             @RequestParam(required = false) String kenh
     ) {
-        BaoCaoSanPhamService.TepExcel tep = baoCaoSanPhamService.xuatExcel(LocalDate.parse(tuNgay), LocalDate.parse(denNgay), khoId, kenh);
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(tep.tenTep()).build().toString())
-                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
-                .body(tep.noiDung());
+        return baoCaoSanPhamService.xuatExcel(LocalDate.parse(tuNgay), LocalDate.parse(denNgay), khoId, kenh).phanHoi();
     }
 
     /**
