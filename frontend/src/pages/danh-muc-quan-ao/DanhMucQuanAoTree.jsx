@@ -44,6 +44,8 @@ import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { toast } from "@/lib/thongBaoNhanh";
 import { cn } from "@/lib/utils";
 import { danhMucQuanAoService } from "@/services/danhMucQuanAoService";
+import NganKeoLichSu from "@/components/nhat-ky/NganKeoLichSu";
+import { layLichSuDanhMuc } from "@/services/nhatKyService";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { ROLES, hasAnyRole } from "@/utils/roles";
 
@@ -120,6 +122,8 @@ export default function DanhMucQuanAoTree() {
   const [moRong, setMoRong] = useState({});
   const [daMoLanDau, setDaMoLanDau] = useState(false);
   const [hop, setHop] = useState(null);
+  // Danh mục đang xem Lịch sử thay đổi (chỉ quản trị viên); null = đóng ngăn
+  const [lichSu, setLichSu] = useState(null);
   const [keo, setKeo] = useState(null);
   const [dangBatLai, setDangBatLai] = useState(false);
 
@@ -388,6 +392,7 @@ export default function DanhMucQuanAoTree() {
     onThemCon: (nut) => setHop({ loai: "them", chaId: nut.id }),
     onSua: (nut) => setHop({ loai: "sua", id: nut.id }),
     onChuyen: (nut) => setHop({ loai: "chuyen", id: nut.id }),
+    onLichSu: coTheSua ? (nut) => setLichSu(nut) : undefined,
     onDoiTrangThai: (nut, viec) => {
       if (!viec || viec.khoa) return;
       if (viec.loai === "ngung") setHop({ loai: "ngung", id: nut.id });
@@ -710,6 +715,13 @@ export default function DanhMucQuanAoTree() {
             trangThai={trangThai}
             nut={hop?.loai === "ngung" ? nutHop : null}
             onDaNgung={daNgung}
+          />
+          <NganKeoLichSu
+            open={Boolean(lichSu)}
+            onOpenChange={(mo) => !mo && setLichSu(null)}
+            tieuDe={lichSu ? `Lịch sử danh mục ${lichSu.ten}` : "Lịch sử danh mục"}
+            moTa="Thêm, sửa, chuyển, ngừng / bật lại danh mục. Mới nhất ở trên."
+            tai={() => (lichSu ? layLichSuDanhMuc("danh_muc_quan_ao", lichSu.id) : Promise.resolve([]))}
           />
         </>
       ) : null}

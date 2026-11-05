@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     AlignLeft, Edit, Eye,
-    Hash, Layers, Palette, Pipette, Plus, RotateCcw, Ruler,
+    Hash, History, Layers, Palette, Pipette, Plus, RotateCcw, Ruler,
     Save, SearchX, SortAsc, Tag, Trash2, Upload, X,
 } from 'lucide-react';
 import { useForm, Controller } from 'react-hook-form';
@@ -38,6 +38,12 @@ import { getApiErrorMessage } from "@/utils/apiError";
 import { trangCuoiNeuVuot } from "@/lib/tinhTaiLai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
+import NganKeoLichSu from "@/components/nhat-ky/NganKeoLichSu";
+import { layLichSuDanhMuc } from "@/services/nhatKyService";
+import { ROLES, hasAnyRole } from "@/utils/roles";
+
+// loai_tham_chieu của nhật ký theo tab (khớp ITable ở máy chủ)
+const LOAI_NHAT_KY = { color: "mau_sac", size: "size", material: "chat_lieu", brand: "thuong_hieu" };
 
 // Chuẩn hoá mã màu về dạng #RRGGBB (chấp nhận thiếu '#', viết thường, dạng rút gọn #RGB).
 // Trả về null nếu không hợp lệ — <input type="color"> chỉ nhận đúng #rrggbb.
@@ -95,7 +101,7 @@ const LOAI_TABS = TAB_KEYS.map((tab) => {
 /* ══════════════════════════════════════════════════════
    VIEW MODAL — Chi tiết thuộc tính
 ══════════════════════════════════════════════════════ */
-const ViewModal = ({ viewItem, activeTab, onClose, onEdit }) => {
+const ViewModal = ({ viewItem, activeTab, onClose, onEdit, onLichSu }) => {
     if (!viewItem) return null;
 
     const TabIcon = TAB_ICONS[activeTab];
@@ -205,6 +211,17 @@ const ViewModal = ({ viewItem, activeTab, onClose, onEdit }) => {
 
                 {/* ── Footer ── */}
                 <DialogFooter>
+                    {/* Lịch sử thay đổi: chỉ quản trị viên (trang chỉ truyền onLichSu cho quản trị viên) */}
+                    {onLichSu ? (
+                        <Button
+                            variant="outline"
+                            onClick={() => { onLichSu(viewItem); onClose(); }}
+                            className="gap-1.5 border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle sm:mr-auto"
+                        >
+                            <History className="size-4" aria-hidden="true" />
+                            Lịch sử thay đổi
+                        </Button>
+                    ) : null}
                     <Button
                         variant="outline"
                         onClick={onClose}
@@ -225,8 +242,13 @@ const ViewModal = ({ viewItem, activeTab, onClose, onEdit }) => {
     );
 };
 
+const tenThuocTinh = (item) => item?.tenMau || item?.tenSize || item?.tenChatLieu || item?.tenThuongHieu || "";
+
 const ProductAttributeHub = () => {
     const [tabLoai, setTabLoai] = useTabTrenUrl(TAB_URL_VALUES, TAB_URL_CODES.color, { ten: 'loai' });
+    const laQuanTriVien = hasAnyRole([ROLES.QUAN_TRI_VIEN]);
+    // Thuộc tính đang xem Lịch sử thay đổi: { tab, item }; null = đóng ngăn
+    const [lichSu, setLichSu] = useState(null);
     const activeTab = TAB_KEYS.find((tab) => TAB_URL_CODES[tab] === tabLoai) ?? 'color';
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -967,7 +989,19 @@ const ProductAttributeHub = () => {
                 activeTab={activeTab}
                 onClose={() => setViewItem(null)}
                 onEdit={(item) => handleOpenModal('edit', item)}
+                onLichSu={laQuanTriVien ? (item) => setLichSu({ tab: activeTab, item }) : undefined}
             />
+
+            {/* ── Lịch sử thay đổi một thuộc tính (chỉ quản trị viên) ── */}
+            {laQuanTriVien ? (
+                <NganKeoLichSu
+                    open={Boolean(lichSu)}
+                    onOpenChange={(mo) => !mo && setLichSu(null)}
+                    tieuDe={lichSu ? `Lịch sử ${TAB_NAMES[lichSu.tab].toLocaleLowerCase("vi-VN")} ${tenThuocTinh(lichSu.item)}` : "Lịch sử thuộc tính"}
+                    moTa="Thêm, sửa, ngừng / xóa thuộc tính. Mới nhất ở trên."
+                    tai={() => (lichSu ? layLichSuDanhMuc(LOAI_NHAT_KY[lichSu.tab], lichSu.item.id) : Promise.resolve([]))}
+                />
+            ) : null}
 
             {/* ── Delete Modal ── */}
             <ConfirmModal

@@ -107,11 +107,8 @@ class DanhMucQuanAoController {
             roles = {IRoleType.quan_tri_vien}
     )
     public ResponseEntity<ResponseData<String>> delete(@PathVariable Integer id) {
-        DanhMucQuanAo danhMucQuanAo = danhMucQuanAoService.getOne(id).orElseThrow(
-                () -> new CommonException("Không tìm thấy danh mục id: " + id)
-        );
-        danhMucQuanAo.setTrangThai(0);
-        danhMucQuanAoService.update(id, danhMucQuanAo);
+        // Chỉ chuyển ngừng hoạt động; service ghi nhật ký xoa_danh_muc_chung
+        danhMucQuanAoService.xoaMem(id);
         return ResponseEntity.ok(
                 ResponseData.<String>builder()
                         .status(HttpStatus.OK.value())
