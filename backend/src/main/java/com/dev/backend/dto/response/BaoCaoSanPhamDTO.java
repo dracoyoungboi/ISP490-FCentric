@@ -28,6 +28,11 @@ public class BaoCaoSanPhamDTO {
     private int soNgay;
     /** Quản lý kho xem "Tất cả kho": chỉ tính các cửa hàng mình phụ trách. */
     private boolean theoKhoPhuTrach;
+    /**
+     * Người xem được giá vốn, lợi nhuận gộp, giá trị tồn (quản trị viên, quản lý kho). Nhân viên bán hàng: false, các trường
+     * đó là null.
+     */
+    private boolean coGiaVon;
     private Tong tong;
     /** Kênh có thể lọc: POS, TRUC_TIEP và id các kênh bán đã khai báo. */
     private List<Kenh> dsKenh;

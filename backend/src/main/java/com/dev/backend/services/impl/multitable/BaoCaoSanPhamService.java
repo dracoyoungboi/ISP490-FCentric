@@ -197,9 +197,31 @@ public class BaoCaoSanPhamService {
         dsKenh.add(new BaoCaoSanPhamDTO.Kenh("POS", "Bán tại quầy"));
         repo.kenhBan().forEach(x -> dsKenh.add(new BaoCaoSanPhamDTO.Kenh(String.valueOf(x.id()), x.ten())));
         dsKenh.add(new BaoCaoSanPhamDTO.Kenh("TRUC_TIEP", "Đơn bán trực tiếp"));
-        return BaoCaoSanPhamDTO.builder()
+        BaoCaoSanPhamDTO kq = BaoCaoSanPhamDTO.builder()
                 .tuNgay(k.tu()).denNgay(k.den()).tuNgayTruoc(k.tuTruoc()).denNgayTruoc(k.denTruoc()).soNgay(k.soNgay())
-                .theoKhoPhuTrach(quyen.theoKhoPhuTrach()).tong(tong).dsKenh(dsKenh).sanPham(ds).theoNgay(theoNgay).build();
+                .theoKhoPhuTrach(quyen.theoKhoPhuTrach()).tong(tong).dsKenh(dsKenh).sanPham(ds).theoNgay(theoNgay)
+                .coGiaVon(true).build();
+        if (!DoanhThuReportService.xemGiaVon()) anGiaVon(kq);
+        return kq;
+    }
+
+    /** Nhân viên bán hàng: bỏ giá vốn, lợi nhuận gộp, giá trị tồn khỏi báo cáo (máy chủ không gửi). */
+    static void anGiaVon(BaoCaoSanPhamDTO bc) {
+        bc.setCoGiaVon(false);
+        BaoCaoSanPhamDTO.Tong t = bc.getTong();
+        if (t != null) {
+            t.setGiaVon(null);
+            t.setGiaVonTruoc(null);
+            t.setLoiNhuan(null);
+            t.setLoiNhuanTruoc(null);
+        }
+        if (bc.getSanPham() == null) return;
+        for (BaoCaoSanPhamDTO.SanPham p : bc.getSanPham()) {
+            p.setGiaVon(null);
+            p.setLoiNhuan(null);
+            p.setGiaTriTon(null);
+            if (p.getBienThe() != null) p.getBienThe().forEach(b -> b.setGiaVon(null));
+        }
     }
 
     static String tinhTrang(BigDecimal sl, BigDecimal kd, BigDecimal duBan, LocalDate nhapDau, LocalDate tuKy) {
