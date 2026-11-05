@@ -16,6 +16,12 @@ public interface IChuyenKho {
             HOAN_TAT = "HOAN_TAT",
             DA_HUY = "DA_HUY";
 
+    /**
+     * Giá trị lọc "Đã từ chối" của danh sách (SRS UC 7.2 "Rejected"), KHÔNG phải trạng thái lưu: phiếu bị Quản lý Kho
+     * tổng từ chối lưu DA_HUY, phân biệt với hủy qua nhật ký tu_choi_phieu_chuyen.
+     */
+    String LOC_TU_CHOI = "TU_CHOI";
+
     /** Phiếu đang giữ chỗ tồn ở kho nguồn (BA: giữ chỗ khi tạo, khóa cứng khi duyệt). */
     Set<String> DANG_GIU_CHO = Set.of(CHO_DUYET, DA_DUYET);
 

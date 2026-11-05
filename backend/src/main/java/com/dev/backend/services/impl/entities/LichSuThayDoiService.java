@@ -9,7 +9,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class LichSuThayDoiService extends BaseServiceImpl<LichSuThayDoi,Integer> {
@@ -32,6 +35,12 @@ public class LichSuThayDoiService extends BaseServiceImpl<LichSuThayDoi,Integer>
     public boolean daCoHanhDong(String loaiThamChieu, Integer idThamChieu, String hanhDong) {
         return lichSuThayDoiRepository.findFirstByLoaiThamChieuAndIdThamChieuAndHanhDongInOrderByNgayThucHienDescIdDesc(
                 loaiThamChieu, idThamChieu, List.of(hanhDong)).isPresent();
+    }
+
+    /** Như {@link #daCoHanhDong} cho nhiều đối tượng một lượt (một câu truy vấn): trả các id đã có hành động này. */
+    public Set<Integer> idDaCoHanhDong(String loaiThamChieu, Collection<Integer> idThamChieus, String hanhDong) {
+        if (idThamChieus == null || idThamChieus.isEmpty()) return Set.of();
+        return new HashSet<>(lichSuThayDoiRepository.idCoHanhDong(loaiThamChieu, idThamChieus, hanhDong));
     }
 
     /**
