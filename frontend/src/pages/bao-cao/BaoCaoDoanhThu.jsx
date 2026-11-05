@@ -1,18 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { BarChart3, CalendarDays, Check, ChevronDown, LineChart as LineChartIcon, RefreshCcw, TrendingUp } from "lucide-react";
+import { BarChart3, LineChart as LineChartIcon, RefreshCcw, TrendingUp } from "lucide-react";
 import { Area, Bar, CartesianGrid, ComposedChart, Line, Tooltip, XAxis, YAxis } from "recharts";
 import PageContainer from "@/components/backoffice/PageContainer";
 import PageHeader from "@/components/backoffice/PageHeader";
 import KhungBieuDo from "@/components/shared/KhungBieuDo";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Card, LE } from "@/pages/dashboard/admin/tong-quan-moi/ui";
-import { FOCUS, MENU } from "@/pages/dashboard/admin/tong-quan-moi/boLoc";
+import { FOCUS } from "@/pages/dashboard/admin/tong-quan-moi/boLoc";
 import { MAU2 } from "@/pages/dashboard/admin/tong-quan-moi/mau";
 import { parseRoles } from "@/components/settings/settings.config";
 import { laKhoAo } from "@/pages/warehouse/loaiKho";
@@ -22,6 +16,7 @@ import NutXuatExcel from "@/components/shared/NutXuatExcel";
 import useCoQuyenXuatBaoCao from "@/hooks/useCoQuyenXuatBaoCao";
 import { cn } from "@/lib/utils";
 import { formatAxisMoney, formatCurrency, formatCurrencyCompact, formatNumber, formatPercent } from "@/utils/formatters";
+import { KhoangTuyChon, Menu, Muc } from "./BoLocKy";
 import KhoiTienThu from "./KhoiTienThu";
 import { TheTheoKenh, TheTheoNhanVien } from "./TheKenhNhanVien";
 import {
@@ -34,8 +29,6 @@ import {
   dongBang,
   duLieuBieuDo,
   khoangMoc,
-  loiKhoangNgay,
-  ngayMay,
   ngayVN,
   soGon,
   tenTepExcel,
@@ -51,37 +44,6 @@ import {
  * - Xuất Excel do máy chủ dựng (cùng số với màn).
  * Doanh thu tính theo ngày giao hàng, tiền thu theo ngày thu tiền. Kỳ đang chạy so với đúng phần đã qua của cùng kỳ năm trước.
  */
-
-const MUC = "flex cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2 text-[13px] text-slate-700 focus:bg-bo-surface-subtle focus:text-bo-foreground";
-const NUT_KY = cn(FOCUS, "inline-flex h-[30px] shrink-0 cursor-pointer items-center gap-1 rounded-md border border-bo-border bg-white px-2 text-sm font-medium text-bo-foreground shadow-[0_1px_2px_rgba(16,24,40,0.05)] hover:bg-bo-surface-subtle");
-const O_NGAY = "h-[30px] min-w-0 rounded-md border border-bo-border bg-white px-2 text-sm text-bo-foreground focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15";
-
-function Menu({ nhan, ariaLabel, children, rong = "w-60", align = "start", icon = false, className }) {
-  return (
-    <DropdownMenu modal={false}>
-      <DropdownMenuTrigger asChild>
-        <button type="button" aria-label={ariaLabel} className={className ?? NUT_KY}>
-          {icon ? <CalendarDays className="size-4 text-bo-muted" aria-hidden="true" /> : null}
-          <span className="truncate">{nhan}</span>
-          <ChevronDown className="size-4 shrink-0 text-bo-muted" aria-hidden="true" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align={align} sideOffset={6} className={cn(MENU, rong)}>{children}</DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-function Muc({ chon, onChon, ten, phu }) {
-  return (
-    <DropdownMenuItem onClick={onChon} className={MUC}>
-      <span className="min-w-0 flex-1">
-        <span className={cn("block truncate", chon ? "font-medium text-bo-primary-hover" : "text-bo-foreground")}>{ten}</span>
-        {phu ? <span className="block text-xs text-bo-muted">{phu}</span> : null}
-      </span>
-      {chon ? <Check className="size-4 shrink-0 text-bo-primary" aria-hidden="true" /> : <span className="size-4 shrink-0" />}
-    </DropdownMenuItem>
-  );
-}
 
 /** "▲ 12,8%" xanh / "▼ 3,1%" đỏ. tyLe null: không có số cùng kỳ. */
 function SoVoi({ tyLe, sau = "so với cùng kỳ" }) {
@@ -114,33 +76,6 @@ function BienLai({ a, b }) {
         </span>
       )}
     </span>
-  );
-}
-
-/**
- * Hai ô ngày của khoảng tùy chọn: giữ bản nhập riêng, chỉ đưa lên bộ lọc khi hợp lệ (năm gõ dở như 0002, quá 1 năm, sau
- * hôm nay thì báo dưới ô, không gọi máy chủ).
- */
-function KhoangTuyChon({ khoang, onDoi }) {
-  const [nhap, setNhap] = useState(khoang);
-  const loi = loiKhoangNgay(nhap.tuNgay, nhap.denNgay);
-  const homNay = ngayMay(new Date());
-  const doi = (x) => {
-    const moi = { ...nhap, ...x };
-    setNhap(moi);
-    if (!loiKhoangNgay(moi.tuNgay, moi.denNgay)) onDoi(moi);
-  };
-  return (
-    <div className="flex flex-col gap-1">
-      <div className="flex flex-wrap items-center gap-1.5 text-sm">
-        <label className="sr-only" htmlFor="bc-tu-ngay">Từ ngày</label>
-        <input aria-describedby={loi ? "bc-loi-ngay" : undefined} aria-invalid={loi ? true : undefined} className={O_NGAY} id="bc-tu-ngay" max={nhap.denNgay || homNay} min="2000-01-01" onChange={(e) => doi({ tuNgay: e.target.value })} type="date" value={nhap.tuNgay} />
-        <span className="text-bo-muted" aria-hidden="true">–</span>
-        <label className="sr-only" htmlFor="bc-den-ngay">Đến ngày</label>
-        <input aria-describedby={loi ? "bc-loi-ngay" : undefined} aria-invalid={loi ? true : undefined} className={O_NGAY} id="bc-den-ngay" max={homNay} min={nhap.tuNgay || "2000-01-01"} onChange={(e) => doi({ denNgay: e.target.value })} type="date" value={nhap.denNgay} />
-      </div>
-      {loi ? <p className="text-xs text-bo-danger" id="bc-loi-ngay" role="alert">{loi}</p> : null}
-    </div>
   );
 }
 
