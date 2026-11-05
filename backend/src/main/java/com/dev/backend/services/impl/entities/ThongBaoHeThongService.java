@@ -314,7 +314,7 @@ public class ThongBaoHeThongService {
      */
     static boolean laSanDayTon(KenhBanHang kenh) {
         String ma = kenh.getMaKenh() == null ? "" : kenh.getMaKenh().trim().toUpperCase(Locale.ROOT);
-        return Set.of("SHOPIFY", "LAZADA", "TIKTOK").contains(ma);
+        return Set.of("SHOPIFY", "LAZADA", "LAZADA_SANDBOX", "TIKTOK").contains(ma);
     }
 
     /** Kênh giả lập: TikTok Sandbox cấp shop cipher / khóa "mock_" (cùng dấu hiệu OmnichannelOrderSyncJob dùng). */
@@ -328,6 +328,7 @@ public class ThongBaoHeThongService {
         return switch (ma) {
             case "SHOPIFY" -> "Shopify";
             case "LAZADA" -> "Lazada";
+            case "LAZADA_SANDBOX" -> "Lazada Sandbox";
             case "TIKTOK" -> "TikTok Shop";
             case "SHOPEE" -> "Shopee";
             default -> tenKenh != null && !tenKenh.isBlank() ? tenKenh.trim() : ma;

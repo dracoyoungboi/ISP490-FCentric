@@ -46,13 +46,13 @@ public class KenhBanHangSyncServiceImpl implements KenhBanHangSyncService {
                 } else {
                     log.info("KenhBanHangSync: Đã nạp thành công Credential Shopify (API: {}), sẵn sàng đồng bộ đơn {}", apiUrl, don.getSoDonHang());
                 }
-            } else if ("LAZADA".equalsIgnoreCase(maKenh)) {
-                String appKey = kenhBanHangService.getLazadaAppKey();
-                String token = kenhBanHangService.getDecryptedLazadaAccessToken();
+            } else if ("LAZADA".equalsIgnoreCase(maKenh) || "LAZADA_SANDBOX".equalsIgnoreCase(maKenh)) {
+                String appKey = kenhBanHangService.getLazadaAppKey(maKenh);
+                String token = kenhBanHangService.getDecryptedLazadaAccessToken(maKenh);
                 if (token == null || token.isBlank()) {
-                    log.warn("KenhBanHangSync: Kênh bán Lazada chưa cấu hình Access Token trong DB, bỏ qua gọi API ngoài.");
+                    log.warn("KenhBanHangSync: Kênh bán {} chưa cấu hình Access Token trong DB, bỏ qua gọi API ngoài.", maKenh);
                 } else {
-                    log.info("KenhBanHangSync: Đã nạp thành công Credential Lazada (AppKey: {}), sẵn sàng đồng bộ trạng thái đơn {} sang Lazada", appKey, don.getSoDonHang());
+                    log.info("KenhBanHangSync: Đã nạp thành công Credential {} (AppKey: {}), sẵn sàng đồng bộ trạng thái đơn {} sang {}", maKenh, appKey, don.getSoDonHang(), maKenh);
                 }
             }
 
