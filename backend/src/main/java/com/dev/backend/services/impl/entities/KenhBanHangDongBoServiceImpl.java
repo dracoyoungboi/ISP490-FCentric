@@ -416,9 +416,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     }
 
     private TaiSanPhamResultDto taiSanPhamLazada(KenhBanHang kenh) {
-        String appKey = kenhBanHangService.getLazadaAppKey();
-        String appSecret = kenhBanHangService.getDecryptedLazadaAppSecret();
-        String token = kenhBanHangService.getDecryptedLazadaAccessToken();
+        String maKenh = kenh != null ? kenh.getMaKenh() : "LAZADA";
+        String appKey = kenhBanHangService.getLazadaAppKey(maKenh);
+        String appSecret = kenhBanHangService.getDecryptedLazadaAppSecret(maKenh);
+        String token = kenhBanHangService.getDecryptedLazadaAccessToken(maKenh);
         if (appKey == null || appSecret == null || token == null) {
             throw new CommonException("Chưa có App Key, App Secret hoặc Access Token cho kênh " + kenh.getMaKenh(), HttpStatus.BAD_REQUEST, null);
         }
@@ -1045,9 +1046,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     }
 
     private TuDongLienKetResultDto tuDongLienKetLazada(KenhBanHang kenh) {
-        String appKey = kenhBanHangService.getLazadaAppKey();
-        String appSecret = kenhBanHangService.getDecryptedLazadaAppSecret();
-        String token = kenhBanHangService.getDecryptedLazadaAccessToken();
+        String maKenh = kenh != null ? kenh.getMaKenh() : "LAZADA";
+        String appKey = kenhBanHangService.getLazadaAppKey(maKenh);
+        String appSecret = kenhBanHangService.getDecryptedLazadaAppSecret(maKenh);
+        String token = kenhBanHangService.getDecryptedLazadaAccessToken(maKenh);
         if (appKey == null || appSecret == null || token == null) {
             throw new CommonException("Chưa có cấu hình hoặc Access Token cho kênh " + kenh.getMaKenh(), HttpStatus.BAD_REQUEST, null);
         }
@@ -1967,9 +1969,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             int tonDem,
             int nguongVe0,
             TheoDoiDayTon theoDoi) {
-        String appKey = kenhBanHangService.getLazadaAppKey();
-        String appSecret = kenhBanHangService.getDecryptedLazadaAppSecret();
-        String token = kenhBanHangService.getDecryptedLazadaAccessToken();
+        String appKey = kenhBanHangService.getLazadaAppKey(maKenh);
+        String appSecret = kenhBanHangService.getDecryptedLazadaAppSecret(maKenh);
+        String token = kenhBanHangService.getDecryptedLazadaAccessToken(maKenh);
         if (appKey == null || appSecret == null || token == null) {
             String msg = "Chưa có cấu hình hoặc Access Token cho kênh Lazada";
             ghiNhatKy(kenh.getId(), IHanhDong.dong_bo_ton_kho, "Lazada: " + msg);
@@ -3352,9 +3354,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     /** Lấy khóa, địa điểm mặc định và danh sách SKU trên sàn của kênh; thiếu bước nào thì trả lý do lỗi cả gian hàng. */
     KetNoiDayTon moKetNoiDayTon(KenhBanHang kenh) {
         if (kenh != null && OmnichannelOrderSyncJob.isLazada(kenh.getMaKenh())) {
-            String appKey = kenhBanHangService.getLazadaAppKey();
-            String appSecret = kenhBanHangService.getDecryptedLazadaAppSecret();
-            String token = kenhBanHangService.getDecryptedLazadaAccessToken();
+            String appKey = kenhBanHangService.getLazadaAppKey(kenh.getMaKenh());
+            String appSecret = kenhBanHangService.getDecryptedLazadaAppSecret(kenh.getMaKenh());
+            String token = kenhBanHangService.getDecryptedLazadaAccessToken(kenh.getMaKenh());
             if (appKey == null || appSecret == null || token == null) {
                 return KetNoiDayTon.loi("Chưa có App Key, App Secret hoặc Access Token cho kênh Lazada");
             }
@@ -3422,9 +3424,11 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         if (maSku == null || maSku.isBlank()) {
             return KetQuaGuiTon.loiSku("Biến thể chưa có mã SKU");
         }
-        String appKey = kenhBanHangService.getLazadaAppKey();
-        String appSecret = kenhBanHangService.getDecryptedLazadaAppSecret();
-        String token = kenhBanHangService.getDecryptedLazadaAccessToken();
+        String maKenh = (dong.getKenhBanHang() != null && dong.getKenhBanHang().getMaKenh() != null)
+                ? dong.getKenhBanHang().getMaKenh() : "LAZADA";
+        String appKey = kenhBanHangService.getLazadaAppKey(maKenh);
+        String appSecret = kenhBanHangService.getDecryptedLazadaAppSecret(maKenh);
+        String token = kenhBanHangService.getDecryptedLazadaAccessToken(maKenh);
         if (appKey == null || appSecret == null || token == null) {
             return KetQuaGuiTon.loiCaKenh("Chưa có cấu hình hoặc Access Token cho kênh Lazada");
         }
