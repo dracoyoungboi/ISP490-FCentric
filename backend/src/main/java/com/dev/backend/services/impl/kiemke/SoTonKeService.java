@@ -203,18 +203,21 @@ public class SoTonKeService {
 
     // ───────────────────────────── Xếp kệ / chuyển kệ ─────────────────────────────
 
-    /** Một lô có hàng chưa có kệ ở kho. */
+    /** Một lô có hàng chưa có kệ ở kho; {@code keChinhId}: kệ chính của lô (lo_hang.vi_tri_kho_id) khi thuộc kho này. */
     public record HangChuaCoKe(Integer loHangId, String maLo, Integer bienTheId, String maSku, BigDecimal tonLo,
-                               int trenKe, int chuaCoKe, Integer keGoiYId, String keGoiY) {
+                               int trenKe, int chuaCoKe, Integer keChinhId, String keChinh) {
     }
 
-    /** Các lô còn hàng chưa có kệ ở kho, kèm kệ gợi ý (kệ của lô nếu thuộc kho). */
+    /**
+     * Các lô còn hàng chưa có kệ ở kho, kèm kệ chính của lô nếu thuộc kho (gợi ý kệ ở HangChuaCoKeService). Dòng sổ kệ
+     * âm (dữ liệu lệch) tính là 0, như {@link #xepKe}.
+     */
     @Transactional(readOnly = true)
     public List<HangChuaCoKe> hangChuaCoKe(Integer khoId) {
         @SuppressWarnings("unchecked")
         List<Object[]> rows = em.createNativeQuery("""
                 SELECT k.lo_hang_id, l.ma_lo, bt.id, bt.ma_sku, k.so_luong_ton,
-                       COALESCE((SELECT SUM(t.so_luong) FROM ton_kho_vi_tri t JOIN vi_tri_kho v ON v.id = t.vi_tri_kho_id
+                       COALESCE((SELECT SUM(GREATEST(t.so_luong, 0)) FROM ton_kho_vi_tri t JOIN vi_tri_kho v ON v.id = t.vi_tri_kho_id
                                   WHERE t.lo_hang_id = k.lo_hang_id AND v.kho_id = k.kho_id), 0) AS tren_ke,
                        CASE WHEN vk.kho_id = k.kho_id THEN vk.id END AS ke_id,
                        CASE WHEN vk.kho_id = k.kho_id THEN vk.ma_vi_tri END AS ke_ma

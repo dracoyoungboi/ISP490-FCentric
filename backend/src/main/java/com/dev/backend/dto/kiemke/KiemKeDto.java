@@ -110,9 +110,47 @@ public final class KiemKeDto {
     public record DanhMucTrenKe(Integer danhMucId, int soKe, long soLuong) {
     }
 
-    /** Lô còn hàng chưa có kệ ở kho (Đ4). */
+    /**
+     * Lô còn hàng chưa có kệ ở kho (Đ4). {@code dangGiuNhat}: phần chưa có kệ phiếu nhặt đang giữ (người nhặt lấy ở đó),
+     * chưa xếp lên kệ được — số xếp được = chuaCoKe − dangGiuNhat. {@code dangKiemKe}: cả lô đang thuộc đợt kiểm kê toàn
+     * kho / theo danh mục, chưa xếp được tới khi đợt kết thúc. {@code keGoiY} null khi không có kệ nào chọn được;
+     * {@code keLienQuan}: các kệ cùng kho đang liên quan tới lô theo thứ tự gợi ý, kể cả kệ không chọn được (để nói vì
+     * sao không có gợi ý). {@code nguon}: chứng từ nhập gần nhất đưa lô vào kho, null khi không tìm thấy (hàng có từ trước).
+     */
     public record HangChuaCoKe(Integer loHangId, String maLo, SanPham sanPham, BigDecimal tonLo, int trenKe,
-                               int chuaCoKe, ViTri keGoiY) {
+                               int chuaCoKe, int dangGiuNhat, boolean dangKiemKe, GoiYKe keGoiY,
+                               List<KeLienQuan> keLienQuan, NguonNhap nguon) {
+    }
+
+    /**
+     * Kệ gợi ý cho phần chưa có kệ của lô. {@code lyDo}: KE_CUA_LO · DANG_CHUA_LO · CUNG_SKU · CUNG_MAU (hằng ở
+     * {@code GoiYKe}). {@code conCho}: số sản phẩm kệ còn nhận được, null = kệ không giới hạn sức chứa.
+     */
+    public record GoiYKe(Integer id, String ma, String lyDo, Integer conCho) {
+    }
+
+    /**
+     * Kệ liên quan tới lô. {@code chan}: null = chọn được · BAO_TRI · KIEM_KE · DAY (hết chỗ) · DA_GOI_Y (chỗ còn lại đã
+     * gợi ý cho các lô phía trên trong danh sách; xếp lô này trước thì vẫn vào được).
+     */
+    public record KeLienQuan(Integer id, String ma, String lyDo, String chan) {
+    }
+
+    /**
+     * Chứng từ nhập gần nhất đưa lô vào kho. {@code loai}: CHUYEN_KHO · HUY_CHUYEN_KHO (hàng về lại kho xuất khi phiếu
+     * chuyển bị hủy lúc đang đi đường) · KHACH_TRA · NHA_CUNG_CAP · KHAC.
+     * {@code tuDau}: kho chuyển đi (CHUYEN_KHO) hoặc tên nhà cung cấp (NHA_CUNG_CAP), các loại khác null.
+     */
+    public record NguonNhap(Integer phieuNhapId, String soPhieuNhap, String loai, String tuDau, Integer phieuChuyenId,
+                            String soPhieuChuyen, Instant ngay, String nguoiNhap) {
+    }
+
+    /** Số lô và tổng sản phẩm chưa có kệ ở một kho (số đếm trên menu). */
+    public record DemChuaCoKe(int soLo, long soLuong) {
+    }
+
+    /** Kết quả xếp kệ của một lô trong lượt xếp nhiều lô: {@code loi} null khi đã xếp. */
+    public record KetQuaXepKe(Integer loHangId, Integer viTriKhoId, int soLuong, boolean daXep, String loi) {
     }
 
     /** Phần tóm tắt phiếu điều chỉnh của đợt đã duyệt. */
