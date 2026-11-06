@@ -1,7 +1,7 @@
 // src/pages/stock-take/StockTakeUnshelved.jsx
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, CircleCheck, Loader2, MapPinCheck, PackageOpen, Search, Warehouse } from "lucide-react";
+import { ArrowLeft, CircleCheck, Map as MapIcon, MapPinCheck, PackageOpen, Search, Warehouse, X } from "lucide-react";
 import PageContainer from "@/components/backoffice/PageContainer";
 import ListPageHeader from "@/components/shared/ListPageHeader";
 import TableShell from "@/components/shared/TableShell";
@@ -9,185 +9,332 @@ import EmptyState from "@/components/shared/EmptyState";
 import ErrorState from "@/components/shared/ErrorState";
 import LoadingState from "@/components/shared/LoadingState";
 import { Button } from "@/components/ui/button";
-import AnhBienThe from "@/components/chung-tu/AnhBienThe";
 import DongThongBao, { NutChu } from "@/components/chung-tu/DongThongBao";
-import MauKichCo from "@/components/chung-tu/MauKichCo";
-import HopXacNhanChungTu from "@/components/chung-tu/HopXacNhanChungTu";
-import { boDau, docSo, soVN } from "@/components/chung-tu/bangChungTu";
-import { GOI_Y_O, NHAN_O, O_NHAP } from "@/components/chung-tu/kieuHopThoai";
+import NutPhanDoan from "@/components/chung-tu/NutPhanDoan";
+import { soVN } from "@/components/chung-tu/bangChungTu";
+import { O_NHAP } from "@/components/chung-tu/kieuHopThoai";
+import BangHangChuaCoKe from "@/components/kiem-ke/BangHangChuaCoKe";
 import ChonKhoKiemKe from "@/components/kiem-ke/ChonKhoKiemKe";
-import { docSoDem } from "@/components/kiem-ke/kiemKe";
+import HopXepKe from "@/components/kiem-ke/HopXepKe";
+import {
+  coTheXep,
+  gomTheoLo,
+  locHangChuaCoKe,
+  soXepDuoc,
+  tomTatKetQua,
+  tongChuaCoKe,
+  xepNgayDuoc,
+} from "@/components/kiem-ke/hangChuaCoKe";
+import { taiLaiSoHangChuaCoKe } from "@/components/kiem-ke/soHangChuaCoKe";
 import useKhoKiemKe from "@/components/kiem-ke/useKhoKiemKe";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
+import useQuayLai from "@/hooks/useQuayLai";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { toast } from "@/lib/thongBaoNhanh";
 import { cn } from "@/lib/utils";
-import { layHangChuaCoKe, laySoDo, xepKe } from "@/services/stockTakeService";
+import { layHangChuaCoKe, xepKeNhieu } from "@/services/stockTakeService";
 import { getApiErrorMessage } from "@/utils/apiError";
-import { setKhoLamViecId, getKhoLamViecId } from "@/utils/khoLamViec";
+import { getKhoLamViecId, setKhoLamViecId } from "@/utils/khoLamViec";
 import { ROLES, hasAnyRole } from "@/utils/roles";
 
-const TH = "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
-const NUT_VIEN = "h-8 gap-1.5 border-bo-border bg-bo-surface text-[13px] hover:bg-bo-surface-subtle";
-// Hộp xếp kệ: danh sách kệ dài hơn ngần này thì có ô lọc theo mã kệ
-const SO_KE_CO_O_LOC = 12;
+const NUT_VIEN = "h-9 gap-2 border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle";
+const NUT_VIEN_NHO = "h-8 gap-1.5 border-bo-border bg-bo-surface text-[13px] text-bo-foreground hover:bg-bo-surface-subtle";
+const RONG = new Set();
+/** Số lô nêu tên trong thông báo sau khi xếp; còn lại ghi "và n lô khác". */
+const SO_LO_NEU_TEN = 3;
+
+/** Số nguyên dương từ tham số URL, không có / sai thì null. */
+const soTuUrl = (params, ten) => {
+  const n = Number(params.get(ten));
+  return Number.isInteger(n) && n > 0 ? n : null;
+};
+
+/** "LO1 → A-01-02 · LO2 → B-01-01, B-01-02 · và 3 lô khác". */
+function cauTheoLo(phan, maLo, maKe) {
+  const lo = gomTheoLo(phan);
+  const cau = lo.slice(0, SO_LO_NEU_TEN).map((l) => `${maLo(l.loHangId)} → ${l.ke.map(maKe).join(", ")}`);
+  return cau.join(" · ") + (lo.length > SO_LO_NEU_TEN ? ` · và ${soVN(lo.length - SO_LO_NEU_TEN)} lô khác` : "");
+}
 
 /**
- * Hàng chưa có kệ (/stock-take/unshelved?khoId=&tuDot=) — Đ4: lô còn tồn ở kho mà sổ kệ chưa ghi đủ (tồn lô ở kho − Σ kệ).
- * Kiểm kê toàn kho / theo danh mục bị chặn khi còn hàng này trong phạm vi; xếp lên kệ ở đây rồi bắt đầu lại. Lô có kệ gợi
- * ý (kệ lô đang nằm) xếp một chạm cả phần chưa có kệ vào kệ đó; muốn kệ khác hay số khác thì mở hộp. `tuDot` (nếu có): đợt
- * vừa bị chặn, để có nút quay lại.
+ * Hàng chưa có kệ (/warehouse/unshelved?khoId=&tuDot=&phieuChuyen=&phieuNhap=): lô còn tồn ở kho mà sổ kệ chưa ghi đủ
+ * (tồn lô ở kho − Σ kệ), thường là hàng vừa nhận chuyển kho hoặc khách trả. Gom theo chứng từ nhập; lô có kệ gợi ý đủ chỗ
+ * xếp một chạm, chọn nhiều lô xếp một lượt, cần kệ khác / chia kệ thì mở hộp. Chỉ ghi sổ kệ, tồn kho không đổi.
+ * `tuDot`: đợt kiểm kê vừa bị chặn vì hàng chưa có kệ (có nút quay lại). `phieuChuyen` / `phieuNhap`: chỉ hàng của một
+ * chứng từ (liên kết "Xếp kệ" ở phiếu chuyển kho, phiếu nhập; có nút về chứng từ).
  */
 export default function StockTakeUnshelved() {
   const navigate = useNavigate();
-  const [params] = useSearchParams();
-  const tuDot = Number(params.get("tuDot"));
-  const dotVe = Number.isInteger(tuDot) && tuDot > 0 ? tuDot : null;
+  const [params, setParams] = useSearchParams();
+  const dotVe = soTuUrl(params, "tuDot");
+  const phieuChuyen = soTuUrl(params, "phieuChuyen");
+  const phieuNhap = soTuUrl(params, "phieuNhap");
   const kho = useKhoKiemKe();
   const laQtv = hasAnyRole([ROLES.QUAN_TRI_VIEN]);
+
   const tai = useCallback(() => layHangChuaCoKe(kho.khoId), [kho.khoId]);
   const q = useTaiDuLieu(tai, `kk-chua-ke-${kho.khoId}`, { enabled: kho.khoId != null });
-  const taiKe = useCallback(() => laySoDo(kho.khoId), [kho.khoId]);
-  const [moHop, setMoHop] = useState(null);
-  const qKe = useTaiDuLieu(taiKe, `kk-ke-xep-${kho.khoId}`, { enabled: kho.khoId != null && moHop != null });
-  const [tim, setTim] = useState("");
   // Đổi kho: danh sách kho cũ còn giữ trong lúc tải — coi như đang tải, không hiện lô của kho cũ
   const duLieu = q.dungKhoa ? q.data : undefined;
-  const ds = useMemo(() => {
-    const tu = boDau(tim.trim()).toLowerCase();
-    return (duLieu ?? []).filter((h) => !tu || boDau(`${h.maLo} ${h.sanPham?.tenSanPham ?? ""} ${h.sanPham?.maSku ?? ""}`).toLowerCase().includes(tu));
-  }, [duLieu, tim]);
-  const tongChua = (duLieu ?? []).reduce((s, h) => s + docSo(h.chuaCoKe), 0);
 
-  // Xếp một chạm vào kệ gợi ý: lô đang chạy (một lô một lúc để danh sách tải lại không chen nhau)
-  const [dangXepLo, setDangXepLo] = useState(null);
-  useTaiLaiKhiQuayLai(() => q.reload(), { bat: !q.loading && moHop == null && dangXepLo == null, lanCuoi: q.capNhatLuc });
+  const [tim, setTim] = useState("");
+  const [loc, setLoc] = useState("tat-ca");
+  const [nhom, setNhom] = useState("phieu");
+  // Lô đang chọn gắn với kho: một lô có hàng chưa có kệ ở nhiều kho, đổi kho thì lựa chọn cũ không còn hiệu lực
+  const [chonTheoKho, setChonTheoKho] = useState({ khoId: null, ids: RONG });
+  const chon = chonTheoKho.khoId === kho.khoId ? chonTheoKho.ids : RONG;
+  const [dangXep, setDangXep] = useState(() => new Set());
+  // Hộp xếp kệ: `phien` đổi mỗi lần mở (hộp dựng lại với lô mới), giữ nguyên khi đóng để Radix trả tiêu điểm
+  const [hop, setHop] = useState({ phien: 0, mo: false, ds: [] });
+  const [dangChayHop, setDangChayHop] = useState(false);
+  const [loiHop, setLoiHop] = useState(null);
+  const [lanTaiKe, setLanTaiKe] = useState(0);
+  // Sau khi xếp, dòng (và nút vừa bấm) biến mất: đưa tiêu điểm về bảng để người dùng bàn phím không mất chỗ
+  const bangRef = useRef(null);
 
-  // Hộp xếp kệ. keIdChon null: người dùng chưa tự chọn — dùng kệ gợi ý nếu kệ đó có trong danh sách chọn được
-  // (danh sách kệ chỉ tải khi mở hộp, nên không gán sẵn lúc mở được)
-  const [keIdChon, setKeId] = useState(null);
-  const [soLuong, setSoLuong] = useState(null);
-  const [dangChay, setDangChay] = useState(false);
-  const [loi, setLoi] = useState(null);
-  const [timKe, setTimKe] = useState("");
-  const moXep = (h) => {
-    setMoHop(h);
-    setKeId(null);
-    setSoLuong(docSo(h.chuaCoKe));
-    setLoi(null);
-    setTimKe("");
-  };
-  const dsKe = useMemo(
-    () =>
-      ((qKe.dungKhoa ? qKe.data : undefined)?.khuVuc ?? [])
-        .flatMap((kv) => (kv.ke ?? []).map((k) => ({ ...k, khu: kv.ten || kv.ma })))
-        .filter((k) => k.trangThai !== "BAO_TRI" && k.khoa !== "toan_ke")
-        .sort((a, b) => String(a.ma).localeCompare(String(b.ma), "vi", { numeric: true })),
-    [qKe.data, qKe.dungKhoa],
-  );
-  // Kệ gợi ý bảo trì / đang khóa kiểm kê thì không có trong dsKe: để trống, người dùng tự chọn
-  const keGoiYId = moHop?.keGoiY?.id != null ? String(moHop.keGoiY.id) : "";
-  const keId = keIdChon ?? (keGoiYId && dsKe.some((k) => String(k.id) === keGoiYId) ? keGoiYId : "");
-  const coOLocKe = dsKe.length > SO_KE_CO_O_LOC;
-  // Lọc theo mã kệ; kệ đang chọn luôn giữ trong danh sách để ô chọn không mất giá trị
-  const dsKeHien = useMemo(() => {
-    const tu = boDau(timKe.trim()).toLowerCase();
-    if (!coOLocKe || !tu) return dsKe;
-    return dsKe.filter((k) => String(k.id) === String(keId) || boDau(String(k.ma)).toLowerCase().includes(tu));
-  }, [dsKe, coOLocKe, timKe, keId]);
-  const keDangTai = qKe.loading && !qKe.dungKhoa;
-  const loiTaiKe = !qKe.loading && qKe.error && !qKe.dungKhoa ? qKe.error : null;
+  const theoChungTu = useMemo(() => locHangChuaCoKe(duLieu, { phieuChuyen, phieuNhap }), [duLieu, phieuChuyen, phieuNhap]);
+  const ds = useMemo(() => locHangChuaCoKe(theoChungTu, { tim, loc }), [theoChungTu, tim, loc]);
+  const tong = tongChuaCoKe(theoChungTu);
+  const soXepNgay = theoChungTu.filter(xepNgayDuoc).length;
+  // Thanh "Đã chọn" chỉ tính lô đang hiện và xếp được (lô bị tìm kiếm / bộ lọc ẩn đi không bị xếp ngoài ý muốn)
+  const daChon = ds.filter((h) => chon.has(h.loHangId) && coTheXep(h));
+  const daChonXepNgay = daChon.filter(xepNgayDuoc);
+  const khoa = dangXep.size > 0 || dangChayHop;
 
-  /** Ghi sổ kệ (cùng API, cùng tham số cho hộp và nút một chạm); nhân viên kho đổi kho làm việc về kho đang xem trước. */
-  const ghiSoKe = (loHangId, viTriKhoId, sl) => {
-    if (!laQtv && getKhoLamViecId() !== kho.khoId) setKhoLamViecId(kho.khoId);
-    return xepKe(kho.khoId, { loHangId, viTriKhoId, soLuong: sl });
-  };
-  const xep = async () => {
-    if (!moHop) return;
-    setLoi(null);
-    setDangChay(true);
-    try {
-      await ghiSoKe(moHop.loHangId, Number(keId), soLuong);
-      const ke = dsKe.find((k) => String(k.id) === String(keId));
-      toast.success("Đã xếp lên kệ", { description: `${soVN(soLuong)} sản phẩm lô ${moHop.maLo} → kệ ${ke?.ma ?? ""}` });
-      setMoHop(null);
-      q.reload();
-    } catch (error) {
-      setLoi(getApiErrorMessage(error, "Chưa xếp được lên kệ"));
-    } finally {
-      setDangChay(false);
-    }
-  };
-  const xepVaoGoiY = async (h) => {
-    if (!h.keGoiY?.id || dangXepLo != null) return;
-    const sl = docSo(h.chuaCoKe);
-    setDangXepLo(h.loHangId);
-    try {
-      await ghiSoKe(h.loHangId, Number(h.keGoiY.id), sl);
-      // Đã xếp cả phần chưa có kệ: gỡ dòng ngay (không chờ tải lại), khỏi bấm lần hai vào dòng cũ
-      q.setData((cu) => (Array.isArray(cu) ? cu.filter((x) => x.loHangId !== h.loHangId) : cu));
-      toast.success("Đã xếp lên kệ", { description: `${soVN(sl)} sản phẩm lô ${h.maLo} → kệ ${h.keGoiY.ma}` });
-    } catch (error) {
-      toast.error(`Chưa xếp được lô ${h.maLo} vào kệ ${h.keGoiY.ma}`, {
-        description: getApiErrorMessage(error, "Lỗi kết nối. Thử lại hoặc chọn kệ khác."),
-      });
-    } finally {
-      setDangXepLo(null);
-      // Thành công hay lỗi đều tải lại: lỗi thường vì số chưa có kệ / kệ vừa đổi ở máy khác
-      q.reload();
-    }
-  };
-  const thieu = loiTaiKe ? "Chưa tải được danh sách kệ" : !keId ? "Chọn kệ" : !soLuong ? "Nhập số lượng" : moHop && soLuong > docSo(moHop.chuaCoKe) ? `Tối đa ${soVN(moHop.chuaCoKe)}` : null;
+  useTaiLaiKhiQuayLai(() => q.reload(), { bat: !q.loading && !hop.mo && !khoa, lanCuoi: q.capNhatLuc });
 
-  /** Nút thao tác của một lô: có kệ gợi ý thì xếp một chạm + "Kệ khác"; không có thì "Chọn kệ". */
-  const thaoTac = (h) => {
-    const dangXep = dangXepLo === h.loHangId;
-    if (!h.keGoiY?.id) {
-      return (
-        <Button size="sm" variant="outline" onClick={() => moXep(h)} disabled={dangXepLo != null} className={NUT_VIEN}>
-          <PackageOpen className="size-3.5" />
-          Chọn kệ
-        </Button>
-      );
-    }
-    return (
-      <span className="inline-flex items-center gap-3">
-        {/* Màn cảm ứng: nút chữ giữ cỡ vẽ, vùng chạm 44px là lớp ::before trong suốt do lớp cảm ứng dùng chung (index.css) lo */}
-        <NutChu onClick={() => moXep(h)} disabled={dangXepLo != null}>
-          Kệ khác
-        </NutChu>
-        <Button
-          size="sm"
-          onClick={() => xepVaoGoiY(h)}
-          disabled={dangXepLo != null}
-          aria-busy={dangXep || undefined}
-          title={`Xếp cả ${soVN(h.chuaCoKe)} sản phẩm chưa có kệ vào kệ ${h.keGoiY.ma}`}
-          className="h-8 gap-1.5 text-[13px]"
-        >
-          {dangXep ? <Loader2 className="size-3.5 animate-spin" /> : <MapPinCheck className="size-3.5" />}
-          {dangXep ? "Đang xếp…" : `Xếp vào ${h.keGoiY.ma}`}
-        </Button>
-      </span>
+  const doiChon = (ids, bat) =>
+    setChonTheoKho((cu) => {
+      const moi = new Set(cu.khoId === kho.khoId ? cu.ids : RONG);
+      ids.forEach((id) => (bat ? moi.add(id) : moi.delete(id)));
+      return { khoId: kho.khoId, ids: moi };
+    });
+  const boChon = () => setChonTheoKho({ khoId: kho.khoId, ids: RONG });
+
+  /** Đổi kho đang xem: bỏ lọc chứng từ (chứng từ thuộc kho cũ). */
+  const doiKho = (id) =>
+    setParams(
+      (cu) => {
+        const moi = new URLSearchParams(cu);
+        moi.set("khoId", String(id));
+        moi.delete("phieuChuyen");
+        moi.delete("phieuNhap");
+        return moi;
+      },
+      { replace: true },
     );
+  const boLocChungTu = () =>
+    setParams(
+      (cu) => {
+        const moi = new URLSearchParams(cu);
+        moi.delete("phieuChuyen");
+        moi.delete("phieuNhap");
+        return moi;
+      },
+      { replace: true },
+    );
+
+  /** Gửi các phần xếp kệ (nhân viên kho đổi kho làm việc về kho đang xem trước, như mọi thao tác ghi theo kho). */
+  const ghi = async (phan) => {
+    if (!laQtv && getKhoLamViecId() !== kho.khoId) setKhoLamViecId(kho.khoId);
+    return tomTatKetQua(await xepKeNhieu(kho.khoId, phan));
   };
+
+  /**
+   * Sau một lượt xếp: gỡ lô đã xếp hết phần xếp được khỏi bảng ngay, báo kết quả theo lô, tải lại bảng và số đếm trên
+   * menu. `maKeTheoId` (Map id → mã kệ, từ hộp xếp kệ): tên kệ không nằm trong gợi ý của lô.
+   */
+  const sauKhiXep = (kq, dsLo, maKeTheoId) => {
+    const maLo = (id) => dsLo.find((h) => h.loHangId === id)?.maLo ?? "";
+    const maKe = (id) =>
+      maKeTheoId?.get(id) ?? dsLo.flatMap((h) => [h.keGoiY, ...(h.keLienQuan ?? [])]).find((k) => k?.id === id)?.ma ?? "kệ đã chọn";
+    const daXepTheoLo = new Map();
+    kq.daXep.forEach((p) => daXepTheoLo.set(p.loHangId, (daXepTheoLo.get(p.loHangId) ?? 0) + p.soLuong));
+    const xepHet = new Set(dsLo.filter((h) => (daXepTheoLo.get(h.loHangId) ?? 0) >= h.chuaCoKe).map((h) => h.loHangId));
+    if (xepHet.size) q.setData((cu) => (Array.isArray(cu) ? cu.filter((h) => !xepHet.has(h.loHangId)) : cu));
+    if (daXepTheoLo.size) doiChon([...daXepTheoLo.keys()], false);
+    if (kq.daXep.length) {
+      toast.success(kq.soLoDaXep === 1 ? `Đã xếp lô ${maLo(kq.daXep[0].loHangId)} lên kệ` : `Đã xếp ${soVN(kq.soLoDaXep)} lô lên kệ`, {
+        description: `${soVN(kq.soSanPham)} sản phẩm · ${cauTheoLo(kq.daXep, maLo, maKe)}`,
+      });
+    }
+    if (kq.loi.length) {
+      const loLoi = gomTheoLo(kq.loi);
+      toast.error(loLoi.length === 1 ? `Chưa xếp được lô ${maLo(loLoi[0].loHangId)}` : `${soVN(loLoi.length)} lô chưa xếp được`, {
+        description: loLoi.slice(0, 2).map((l) => `${maLo(l.loHangId)}: ${l.loi.join(" ")}`).join(" · "),
+      });
+    }
+    q.reload();
+    taiLaiSoHangChuaCoKe();
+    if (!document.activeElement || document.activeElement === document.body) bangRef.current?.focus();
+  };
+
+  /** Xếp một chạm vào kệ gợi ý (một lô, cả nhóm hoặc các lô đang chọn); lô không xếp ngay được thì bỏ qua. */
+  const xepNgay = async (dsLo) => {
+    const ngay = dsLo.filter(xepNgayDuoc);
+    if (!ngay.length || khoa) return;
+    setDangXep(new Set(ngay.map((h) => h.loHangId)));
+    try {
+      const kq = await ghi(ngay.map((h) => ({ loHangId: h.loHangId, viTriKhoId: h.keGoiY.id, soLuong: soXepDuoc(h) })));
+      sauKhiXep(kq, ngay);
+    } catch (error) {
+      toast.error("Chưa xếp được lên kệ", { description: getApiErrorMessage(error, "Lỗi kết nối. Thử lại sau giây lát.") });
+      q.reload();
+    } finally {
+      setDangXep(new Set());
+    }
+  };
+
+  const moHop = (dsLo) => {
+    const xepDuoc = dsLo.filter(coTheXep);
+    if (!xepDuoc.length) return;
+    setLoiHop(null);
+    setHop((cu) => ({ phien: cu.phien + 1, mo: true, ds: xepDuoc }));
+  };
+  const dongHop = () => setHop((cu) => ({ ...cu, mo: false }));
+  // Lô trong hộp lấy theo dữ liệu mới nhất: sau lần xếp bị từ chối bảng tải lại, hộp thấy số chưa có kệ / chờ nhặt mới
+  const loTrongHop = useMemo(
+    () => hop.ds.map((h) => (duLieu ?? []).find((x) => x.loHangId === h.loHangId) ?? h),
+    [hop.ds, duLieu],
+  );
+  const xepTuHop = async (phan, maKeTheoId) => {
+    setLoiHop(null);
+    setDangChayHop(true);
+    try {
+      const kq = await ghi(phan);
+      if (!kq.daXep.length) {
+        // Không phần nào ghi được: giữ hộp để người dùng đổi kệ / số; tải lại bảng và sơ đồ kệ (sức chứa có thể đã đổi)
+        setLoiHop(gomTheoLo(kq.loi).flatMap((l) => l.loi).join(" ") || "Chưa xếp được lên kệ");
+        setLanTaiKe((n) => n + 1);
+        q.reload();
+        return;
+      }
+      dongHop();
+      sauKhiXep(kq, hop.ds, maKeTheoId);
+    } catch (error) {
+      setLoiHop(getApiErrorMessage(error, "Chưa xếp được lên kệ. Thử lại sau giây lát."));
+    } finally {
+      setDangChayHop(false);
+    }
+  };
+
+  const maChungTu = phieuChuyen
+    ? (duLieu ?? []).find((h) => h.nguon?.phieuChuyenId === phieuChuyen)?.nguon?.soPhieuChuyen
+    : phieuNhap
+      ? (duLieu ?? []).find((h) => h.nguon?.phieuNhapId === phieuNhap)?.nguon?.soPhieuNhap
+      : null;
+  const locChungTu = phieuChuyen != null || phieuNhap != null;
+  // Về chứng từ: lùi lịch sử nếu vừa từ chứng từ sang, mở thẳng bằng đường dẫn thì mở chứng từ
+  const quayLaiChungTu = useQuayLai(phieuChuyen ? `/transfer-tickets/${phieuChuyen}` : `/goods-receipts/${phieuNhap}`);
+  const veChungTu = locChungTu ? quayLaiChungTu : null;
 
   const khongCoKho = !kho.dangTai && !kho.loi && !kho.dsKho.length;
   const veDot = dotVe ? () => navigate(`/stock-take/${dotVe}`) : null;
+  const dangTai = kho.dangTai || (q.loading && !q.dungKhoa);
+
+  const thanBang = dangTai ? (
+    <LoadingState rows={5} label="Đang tải hàng chưa có kệ" />
+  ) : q.error && !duLieu ? (
+    <ErrorState description={`Không tải được: ${getApiErrorMessage(q.error, "lỗi kết nối")}.`} onRetry={q.reload} />
+  ) : !theoChungTu.length ? (
+    <EmptyState
+      icon={CircleCheck}
+      title={locChungTu ? "Hàng của chứng từ này đã lên kệ hết" : "Mọi hàng trong kho đã có kệ"}
+      description={
+        locChungTu
+          ? "Xem cả kho để xếp hàng của các chứng từ khác."
+          : veDot
+            ? "Sổ kệ khớp tồn lô. Quay lại đợt kiểm kê để bắt đầu."
+            : "Người nhặt hàng thấy đủ chỗ lấy; kiểm kê toàn kho, theo danh mục bắt đầu được."
+      }
+      action={
+        locChungTu ? (
+          <Button variant="outline" onClick={boLocChungTu} className={NUT_VIEN}>
+            Xem cả kho
+          </Button>
+        ) : veDot ? (
+          <Button onClick={veDot} className="gap-2">
+            <ArrowLeft className="size-4" />
+            Về đợt kiểm kê
+          </Button>
+        ) : undefined
+      }
+    />
+  ) : !ds.length ? (
+    <EmptyState
+      icon={Search}
+      title={tim.trim() ? `Không có lô nào khớp “${tim.trim()}”` : "Không có lô nào trong mục này"}
+      description={tim.trim() ? "Thử mã lô, SKU hoặc tên sản phẩm khác." : "Chọn Tất cả để xem mọi lô chưa có kệ."}
+      action={
+        <Button
+          variant="outline"
+          onClick={() => {
+            setTim("");
+            setLoc("tat-ca");
+          }}
+          className={NUT_VIEN}
+        >
+          Xóa bộ lọc
+        </Button>
+      }
+    />
+  ) : (
+    <div ref={bangRef} tabIndex={-1} aria-label="Danh sách hàng chưa có kệ" className="outline-none">
+      <BangHangChuaCoKe
+        ds={ds}
+        nhom={nhom}
+        chon={chon}
+        onDoiChon={doiChon}
+        dangXep={dangXep}
+        khoa={khoa}
+        onXepNgay={xepNgay}
+        onMoHop={moHop}
+      />
+    </div>
+  );
+
+  const thanhChon = daChon.length ? (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+      <span className="text-[13px] tabular-nums text-bo-foreground">
+        <b className="font-semibold">Đã chọn {soVN(daChon.length)} lô</b>
+        <span className="text-bo-muted"> · {soVN(daChon.reduce((s, h) => s + soXepDuoc(h), 0))} sản phẩm xếp được</span>
+      </span>
+      <NutChu onClick={boChon}>Bỏ chọn</NutChu>
+      <span className="ml-auto flex flex-wrap items-center gap-2">
+        {daChonXepNgay.length && daChonXepNgay.length < daChon.length ? (
+          <span className="text-xs text-bo-muted">{soVN(daChon.length - daChonXepNgay.length)} lô cần chọn kệ sẽ để lại</span>
+        ) : null}
+        <Button variant="outline" size="sm" onClick={() => moHop(daChon)} disabled={khoa} className={NUT_VIEN_NHO}>
+          <PackageOpen className="size-3.5" />
+          Chọn một kệ cho {soVN(daChon.length)} lô
+        </Button>
+        {daChonXepNgay.length ? (
+          <Button size="sm" onClick={() => xepNgay(daChonXepNgay)} disabled={khoa} className="h-8 gap-1.5 text-[13px]">
+            <MapPinCheck className="size-3.5" />
+            Xếp {soVN(daChonXepNgay.length)} lô theo gợi ý
+          </Button>
+        ) : null}
+      </span>
+    </div>
+  ) : null;
 
   return (
     <PageContainer fill className="space-y-4">
       <ListPageHeader
         title="Hàng chưa có kệ"
         actions={
-          <Button
-            variant="outline"
-            onClick={() => navigate("/stock-take")}
-            className="h-9 gap-2 border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
-          >
-            <ArrowLeft className="size-4" />
-            Đợt kiểm kê
-          </Button>
+          <>
+            {veChungTu ? (
+              <Button variant="outline" onClick={veChungTu} className={NUT_VIEN}>
+                <ArrowLeft className="size-4" />
+                {phieuChuyen ? "Về phiếu chuyển" : "Về phiếu nhập"}
+              </Button>
+            ) : null}
+            <Button variant="outline" onClick={() => navigate("/warehouse/locations")} className={NUT_VIEN}>
+              <MapIcon className="size-4" />
+              Vị trí kệ
+            </Button>
+          </>
         }
       />
 
@@ -209,195 +356,97 @@ export default function StockTakeUnshelved() {
         </div>
       ) : (
         <>
-          {duLieu?.length ? (
-            <DongThongBao
-              tone="warn"
-              actions={veDot ? <NutChu onClick={veDot}>Về đợt kiểm kê</NutChu> : undefined}
-            >
-              Kiểm kê toàn kho và theo danh mục cần mọi sản phẩm có kệ. Xếp các lô dưới đây lên kệ rồi bắt đầu lại đợt.{" "}
-              <span className="text-bo-muted">Chỉ ghi sổ kệ, tồn kho không đổi.</span>
-            </DongThongBao>
+          {theoChungTu.length ? (
+            veDot ? (
+              <DongThongBao tone="warn" actions={<NutChu onClick={veDot}>Về đợt kiểm kê</NutChu>}>
+                Đợt kiểm kê chưa bắt đầu được vì còn hàng chưa có kệ. Xếp hết các lô dưới đây rồi quay lại đợt.{" "}
+                <span className="text-bo-muted">Chỉ ghi sổ kệ, tồn kho không đổi.</span>
+              </DongThongBao>
+            ) : (
+              <DongThongBao tone="info">
+                Hàng đã vào kho nhưng chưa ghi ở kệ nào: người nhặt hàng không thấy chỗ lấy, kiểm kê toàn kho chưa bắt đầu được.{" "}
+                <span className="text-bo-muted">Xếp kệ chỉ ghi sổ kệ, tồn kho không đổi.</span>
+              </DongThongBao>
+            )
           ) : null}
 
           <TableShell
             fill
+            footer={thanhChon}
             toolbar={
-              <div className="flex flex-wrap items-center gap-3 px-4 py-3">
-                {/* Tên kho chỉ nằm ở đây (một kho: chữ tĩnh), tiêu đề trang không ghi lại */}
-                {kho.dsKho.length ? (
-                  <ChonKhoKiemKe dsKho={kho.dsKho} value={kho.khoId} onChange={kho.doiKho} className="w-full sm:w-[240px]" />
-                ) : null}
-                <label className="relative flex min-w-[220px] max-w-sm flex-1 items-center">
-                  <span className="sr-only">Tìm lô</span>
-                  <Search className="pointer-events-none absolute left-2.5 size-4 text-bo-muted" aria-hidden="true" />
-                  <input value={tim} onChange={(e) => setTim(e.target.value)} placeholder="Tìm mã lô, SKU, tên sản phẩm" className={cn(O_NHAP, "pl-8")} />
-                </label>
-                {duLieu?.length ? (
-                  <span className="text-[13px] text-bo-muted tabular-nums lg:ml-auto">
-                    {soVN(duLieu.length)} lô · <b className="font-semibold text-bo-foreground">{soVN(tongChua)}</b> sản phẩm chưa có kệ
+              <div className="grid gap-3 border-b border-bo-border px-4 py-3">
+                <div className="flex flex-wrap items-center gap-3">
+                  {kho.dsKho.length ? (
+                    <ChonKhoKiemKe dsKho={kho.dsKho} value={kho.khoId} onChange={doiKho} className="w-full sm:w-[240px]" />
+                  ) : null}
+                  <label className="relative flex min-w-[220px] max-w-sm flex-1 items-center">
+                    <span className="sr-only">Tìm lô</span>
+                    <Search className="pointer-events-none absolute left-2.5 size-4 text-bo-muted" aria-hidden="true" />
+                    <input value={tim} onChange={(e) => setTim(e.target.value)} placeholder="Tìm mã lô, SKU, tên sản phẩm" className={cn(O_NHAP, "pl-8")} />
+                  </label>
+                  {locChungTu ? (
+                    <span className="inline-flex h-8 items-center gap-1.5 rounded-full border border-blue-200 bg-bo-primary-soft pl-3 pr-1 text-[13px] font-medium text-bo-primary-strong">
+                      {phieuChuyen ? "Phiếu chuyển" : "Phiếu nhập"} <span className="font-mono">{maChungTu ?? `#${phieuChuyen ?? phieuNhap}`}</span>
+                      <button
+                        type="button"
+                        onClick={boLocChungTu}
+                        aria-label="Bỏ lọc chứng từ, xem cả kho"
+                        className="grid size-6 place-items-center rounded-full hover:bg-white/70"
+                      >
+                        <X className="size-3.5" />
+                      </button>
+                    </span>
+                  ) : null}
+                  <span className="flex items-center gap-2 lg:ml-auto">
+                    <span className="text-xs text-bo-muted">Xem</span>
+                    <NutPhanDoan
+                      nhan="Cách xem"
+                      value={nhom}
+                      onChange={setNhom}
+                      luaChon={[
+                        { value: "phieu", label: "Theo chứng từ" },
+                        { value: "lo", label: "Từng lô" },
+                      ]}
+                    />
                   </span>
+                </div>
+                {theoChungTu.length ? (
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <NutPhanDoan
+                      nhan="Lọc lô"
+                      value={loc}
+                      onChange={setLoc}
+                      luaChon={[
+                        { value: "tat-ca", label: "Tất cả", count: tong.soLo },
+                        { value: "ngay", label: "Xếp ngay được", count: soXepNgay },
+                        { value: "chon", label: "Cần chọn kệ", count: tong.soLo - soXepNgay },
+                      ]}
+                    />
+                    <span className="text-[13px] tabular-nums text-bo-muted">
+                      {soVN(tong.soLo)} lô · <b className="font-semibold text-bo-foreground">{soVN(tong.soLuong)}</b> sản phẩm chưa có kệ
+                    </span>
+                  </div>
                 ) : null}
               </div>
             }
           >
-            {kho.dangTai || (q.loading && !q.dungKhoa) ? (
-              <LoadingState rows={5} label="Đang tải hàng chưa có kệ" />
-            ) : q.error && !duLieu ? (
-              <ErrorState description={`Không tải được: ${getApiErrorMessage(q.error, "lỗi kết nối")}.`} onRetry={q.reload} />
-            ) : !duLieu?.length ? (
-              <EmptyState
-                icon={CircleCheck}
-                title="Mọi hàng trong kho đã có kệ"
-                description={
-                  veDot ? "Sổ kệ khớp tồn lô. Quay lại đợt kiểm kê để bắt đầu." : "Sổ kệ khớp tồn lô; có thể kiểm kê toàn kho hoặc theo danh mục."
-                }
-                action={
-                  veDot ? (
-                    <Button onClick={veDot} className="gap-2">
-                      <ArrowLeft className="size-4" />
-                      Về đợt kiểm kê
-                    </Button>
-                  ) : undefined
-                }
-              />
-            ) : !ds.length ? (
-              <EmptyState
-                icon={Search}
-                title={`Không có lô nào khớp “${tim.trim()}”`}
-                description="Thử mã lô, SKU hoặc tên sản phẩm khác."
-                action={
-                  <Button variant="outline" onClick={() => setTim("")} className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">
-                    Xóa tìm kiếm
-                  </Button>
-                }
-              />
-            ) : (
-              <>
-                {/* Điện thoại: mỗi lô một thẻ, nút xếp kệ trong tầm tay */}
-                <ul className="divide-y divide-bo-border md:hidden">
-                  {ds.map((h) => (
-                    <li key={h.loHangId} className="grid gap-2 px-4 py-3">
-                      <span className="flex min-w-0 items-center gap-3">
-                        <AnhBienThe src={h.sanPham?.anh} />
-                        <span className="min-w-0">
-                          <span className="block truncate text-sm font-medium text-bo-foreground">{h.sanPham?.tenSanPham || "—"}</span>
-                          <span className="block truncate text-xs text-bo-muted">
-                            <MauKichCo dong={h.sanPham} className="align-bottom" /> · lô <span className="font-mono">{h.maLo}</span>
-                          </span>
-                        </span>
-                      </span>
-                      <span className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-                        <span className="text-[13px] tabular-nums text-bo-muted">
-                          <b className="font-semibold text-bo-warning">Chưa có kệ {soVN(h.chuaCoKe)}</b>
-                          {docSo(h.trenKe) > 0 ? ` / tồn ${soVN(h.tonLo)}` : null}
-                        </span>
-                        <span className="ml-auto shrink-0">{thaoTac(h)}</span>
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-                <table className="w-full min-w-[680px] text-sm max-md:hidden">
-                  <thead className="sticky top-0 z-10">
-                    <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                      <th className={`${TH} text-left`}>Sản phẩm</th>
-                      <th className={`${TH} text-left`}>Lô</th>
-                      <th className={`${TH} text-right`}>Chưa có kệ</th>
-                      <th className={`${TH} text-right`}>Thao tác</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-bo-border">
-                    {ds.map((h) => (
-                      <tr key={h.loHangId} className="hover:bg-bo-surface-subtle">
-                        <td className="px-4 py-3">
-                          <span className="flex min-w-0 items-center gap-3">
-                            <AnhBienThe src={h.sanPham?.anh} />
-                            <span className="min-w-0">
-                              <span className="block truncate font-medium text-bo-foreground">{h.sanPham?.tenSanPham || "—"}</span>
-                              <span className="block text-xs text-bo-muted">
-                                <MauKichCo dong={h.sanPham} className="align-bottom" /> · <span className="font-mono">{h.sanPham?.maSku}</span>
-                              </span>
-                            </span>
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 font-mono text-[13px] text-slate-700">{h.maLo}</td>
-                        <td className="px-4 py-3 text-right tabular-nums">
-                          <span className="block font-semibold text-bo-warning">{soVN(h.chuaCoKe)}</span>
-                          {/* Lô đã lên kệ một phần: ghi tồn lô để thấy phần còn thiếu là bao nhiêu trên tổng */}
-                          {docSo(h.trenKe) > 0 ? (
-                            <span className="block text-xs text-bo-muted" title={`Trên kệ ${soVN(h.trenKe)}`}>
-                              / tồn {soVN(h.tonLo)}
-                            </span>
-                          ) : null}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-right">{thaoTac(h)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </>
-            )}
+            {thanBang}
           </TableShell>
         </>
       )}
 
-      <HopXacNhanChungTu
-        mo={Boolean(moHop)}
-        onDoiMo={(m) => !m && !dangChay && setMoHop(null)}
-        tieuDe={moHop ? `Xếp lô ${moHop.maLo} lên kệ` : ""}
-        moTa={moHop ? `${moHop.sanPham?.tenSanPham ?? ""} · còn ${soVN(moHop.chuaCoKe)} sản phẩm chưa có kệ. Chỉ ghi sổ kệ, tồn kho không đổi.` : undefined}
-        nhanXacNhan="Xếp lên kệ"
-        iconXacNhan={PackageOpen}
-        dangChay={dangChay}
-        khoaXacNhan={Boolean(thieu)}
-        lyDoKhoa={thieu ?? undefined}
-        loi={loi}
-        onXacNhan={xep}
-      >
-        <div className="grid gap-1.5">
-          <label htmlFor="xep-ke-chon" className={NHAN_O}>
-            Kệ <span className="text-bo-danger">*</span>
-          </label>
-          {coOLocKe ? (
-            <label className="relative flex items-center">
-              <span className="sr-only">Lọc theo mã kệ</span>
-              <Search className="pointer-events-none absolute left-2.5 size-4 text-bo-muted" aria-hidden="true" />
-              <input value={timKe} onChange={(e) => setTimKe(e.target.value)} placeholder="Lọc theo mã kệ" className={cn(O_NHAP, "pl-8")} />
-            </label>
-          ) : null}
-          <select id="xep-ke-chon" value={keId} onChange={(e) => setKeId(e.target.value)} className={O_NHAP} disabled={keDangTai || Boolean(loiTaiKe)}>
-            <option value="">
-              {keDangTai ? "Đang tải kệ…" : loiTaiKe ? "Chưa tải được danh sách kệ" : dsKeHien.length ? "Chọn kệ…" : timKe.trim() ? "Không có kệ khớp" : "Kho chưa có kệ chọn được"}
-            </option>
-            {dsKeHien.map((k) => (
-              <option key={k.id} value={k.id}>
-                {k.ma} · {k.khu}
-                {k.sucChua ? ` · ${soVN(k.dangChua)}/${soVN(k.sucChua)}` : ""}
-                {moHop?.keGoiY?.id === k.id ? " (lô đang ở kệ này)" : ""}
-              </option>
-            ))}
-          </select>
-          {loiTaiKe ? (
-            <span role="alert" className="text-[13px] leading-5 text-bo-danger">
-              Không tải được danh sách kệ: {getApiErrorMessage(loiTaiKe, "lỗi kết nối")}.{" "}
-              <NutChu onClick={qKe.reload}>Thử lại</NutChu>
-            </span>
-          ) : (
-            <span className={GOI_Y_O}>Kệ bảo trì và kệ đang khóa kiểm kê không chọn được</span>
-          )}
-        </div>
-        <label className="grid gap-1.5">
-          <span className={NHAN_O}>
-            Số lượng <span className="text-bo-danger">*</span>
-          </span>
-          <input
-            type="text"
-            inputMode="numeric"
-            value={soLuong == null ? "" : String(soLuong)}
-            onChange={(e) => setSoLuong(docSoDem(e.target.value, 1_000_000) || null)}
-            className={cn(O_NHAP, "max-w-[160px] tabular-nums")}
-          />
-        </label>
-      </HopXacNhanChungTu>
+      <HopXepKe
+        key={hop.phien}
+        mo={hop.mo}
+        dsLo={loTrongHop}
+        khoId={kho.khoId}
+        dangChay={dangChayHop}
+        loi={loiHop}
+        lanTaiKe={lanTaiKe}
+        onDoiMo={(m) => !m && !dangChayHop && dongHop()}
+        onSua={() => setLoiHop(null)}
+        onXep={xepTuHop}
+      />
     </PageContainer>
   );
 }
