@@ -1029,6 +1029,11 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         if (khachHang == null) {
             throw new RuntimeException("Khách hàng không tồn tại");
         }
+        // Báo giá dẫn tới đơn giao hàng, cần địa chỉ, SĐT và theo dõi phải thu của một khách cụ thể:
+        // khách lẻ mặc định (KHLE) chỉ dùng cho bán tại quầy.
+        if (KhachHang.MA_KHACH_LE.equals(khachHang.getMaKhachHang())) {
+            throw new CommonException("Báo giá cần khách hàng cụ thể, không dùng Khách lẻ. Hãy chọn hoặc thêm khách hàng mới.");
+        }
 
         if ("don_ban_hang".equals(request.getLoaiChungTu())) {
             throw new RuntimeException("Hệ thống không cho phép tạo Đơn bán hàng trực tiếp. Vui lòng tạo Báo giá và chờ khách hàng chấp nhận!");
