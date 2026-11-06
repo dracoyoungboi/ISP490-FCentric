@@ -1,7 +1,7 @@
 // src/pages/customer/KhachHangDetails.jsx — trang Chi tiết khách hàng (/customers/:id), bản "một khối" (chốt 18/10/2026)
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { CirclePause, SearchX } from "lucide-react";
+import { CirclePause, Info, SearchX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/thongBaoNhanh";
 
@@ -23,6 +23,7 @@ import useQuayLai from "@/hooks/useQuayLai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import { getKhachHangById, getTongQuanMuaHang } from "@/services/khachHangService";
+import { WALKIN_CUSTOMER_CODE } from "@/services/posService";
 import { getApiErrorStatus, getApiErrorMessage } from "@/utils/apiError";
 import { ROLES, hasAnyRole } from "@/utils/roles";
 
@@ -128,7 +129,10 @@ export default function KhachHangDetails() {
   }
 
   const dangHoatDong = laHoatDong(khachHang);
-  const chinhSua = coTheSua ? moSua : undefined;
+  // Khách lẻ mặc định (KHLE) là khách của hệ thống: máy chủ chặn sửa và ngừng (409) nên ẩn các nút đó
+  const laKhachLe = khachHang.maKhachHang === WALKIN_CUSTOMER_CODE;
+  const suaDuoc = coTheSua && !laKhachLe;
+  const chinhSua = suaDuoc ? moSua : undefined;
   const taoBaoGia = () => navigate(`/sales-quotations/create?khachHangId=${id}`);
 
   // Lưu xong cập nhật tại chỗ (không tải lại trang, không thêm bước vào lịch sử trình duyệt).
@@ -148,7 +152,7 @@ export default function KhachHangDetails() {
       <article className="kh-khoi flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
         <DauTrangKhachHang
           khachHang={khachHang}
-          coTheSua={coTheSua}
+          coTheSua={suaDuoc}
           coTheTaoBaoGia={coTheBanHang}
           onQuayLai={quayLai}
           onChinhSua={() => moSua()}
@@ -156,6 +160,19 @@ export default function KhachHangDetails() {
           onTaoBaoGia={taoBaoGia}
           onLichSu={laQuanTriVien ? () => setMoLichSu(true) : undefined}
         />
+
+        {laKhachLe ? (
+          <div
+            role="status"
+            className="flex items-start gap-2.5 border-t border-bo-border bg-slate-100 px-4 py-3 text-[13px] leading-5 text-slate-700 sm:px-6"
+          >
+            <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+            <span>
+              <span className="font-semibold text-bo-foreground">Khách mặc định của hệ thống.</span>{" "}
+              Dùng cho hóa đơn bán tại quầy không lưu thông tin người mua. Không sửa hay ngừng hoạt động được.
+            </span>
+          </div>
+        ) : null}
 
         {!dangHoatDong ? (
           <div
@@ -169,7 +186,7 @@ export default function KhachHangDetails() {
                 Không chọn được khi tạo báo giá và bán tại quầy. Lịch sử mua hàng giữ nguyên.
               </span>
             </span>
-            {coTheSua ? (
+            {suaDuoc ? (
               <Button
                 type="button"
                 variant="outline"
@@ -208,7 +225,7 @@ export default function KhachHangDetails() {
         </div>
       </article>
 
-      {coTheSua ? (
+      {suaDuoc ? (
         <KhachHangFormDialog
           open={formSua.open}
           onOpenChange={(open) => setFormSua((cu) => ({ ...cu, open }))}
@@ -218,7 +235,7 @@ export default function KhachHangDetails() {
         />
       ) : null}
 
-      {coTheSua ? (
+      {suaDuoc ? (
         <TrangThaiKhachHangDialog
           khachHang={khachHang}
           open={moTrangThai}

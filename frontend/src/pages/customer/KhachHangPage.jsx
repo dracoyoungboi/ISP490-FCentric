@@ -26,6 +26,7 @@ import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { toast } from "@/lib/thongBaoNhanh";
+import { WALKIN_CUSTOMER_CODE } from "@/services/posService";
 import { ROLES, hasAnyRole } from "@/utils/roles";
 
 // Khớp quyền ở backend (KhachHangController): thêm, sửa, đổi trạng thái khách hàng.
@@ -65,7 +66,11 @@ const TRANG_THAI_FILTER_OPTIONS = [
 
 // Điều kiện lọc dùng chung cho danh sách và số trên tab (chỉ khác điều kiện loại)
 function buildKhachHangFilters({ keyword, loai, trangThai }) {
-    const filters = [];
+    // Khách lẻ mặc định (KHLE) là khách của hệ thống cho bán tại quầy, không phải một khách hàng:
+    // không hiện trong danh sách, không tính vào số trên tab (như KiotViet, Sapo).
+    const filters = [
+        { fieldName: "maKhachHang", operation: "NOT_IN", value: [WALKIN_CUSTOMER_CODE], logicType: "AND" }
+    ];
 
     // Search filter - tìm theo tên, mã, số điện thoại, email
     if (keyword) {
