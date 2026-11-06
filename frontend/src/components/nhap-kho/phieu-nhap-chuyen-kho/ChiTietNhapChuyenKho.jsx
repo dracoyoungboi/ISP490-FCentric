@@ -5,7 +5,7 @@ import HopXacNhanChungTu from "@/components/chung-tu/HopXacNhanChungTu";
 import KhungChungTu from "@/components/chung-tu/KhungChungTu";
 import DauChungTu from "@/components/chung-tu/DauChungTu";
 import CotThuocTinh, { BangThuocTinh, ChungTuLienQuan, NhomThuocTinh } from "@/components/chung-tu/CotThuocTinh";
-import DongThongBao from "@/components/chung-tu/DongThongBao";
+import DongThongBao, { NutChu } from "@/components/chung-tu/DongThongBao";
 import useBangChungTu from "@/components/chung-tu/useBangChungTu";
 import { cauChungTuRong, soVN } from "@/components/chung-tu/bangChungTu";
 import { chayGioiHan } from "@/components/chung-tu/chayGioiHan";
@@ -18,6 +18,7 @@ import {
   laLoiHetThoiHan,
 } from "@/components/chung-tu/thoiHanThaoTac";
 import { getGoodsReceiptStatus, getGoodsReceiptTypeLabel } from "@/constants/goodsReceipt";
+import useHangChuaCoKeCuaChungTu from "@/components/kiem-ke/useHangChuaCoKeCuaChungTu";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import useQuayLai from "@/hooks/useQuayLai";
 import { toast } from "@/lib/thongBaoNhanh";
@@ -46,6 +47,8 @@ export default function ChiTietNhapChuyenKho({ data, onReload }) {
   const items = useMemo(() => data.items ?? [], [data.items]);
   const quyTac = quyTacPhieuNhap(data);
   const trangThai = getGoodsReceiptStatus(data.trangThai);
+  // Hàng của phiếu đã nhập mà chưa có kệ ở kho nhận (khách trả, nhận chuyển kho): dòng nhắc "Xếp kệ"
+  const chuaKe = useHangChuaCoKeCuaChungTu({ kho: { id: data.khoId }, phieuNhapId: id, bat: quyTac.daNhap });
 
   // Hộp thoại đang mở: "nhap" | null
   const [hop, setHop] = useState(null);
@@ -141,7 +144,14 @@ export default function ChiTietNhapChuyenKho({ data, onReload }) {
     ? <DongThongBao tone="info">{cauChoNhap(data)}</DongThongBao>
     : quyTac.daHuy
       ? <DongThongBao tone="neutral">Phiếu nhập đã hủy.</DongThongBao>
-      : null;
+      : chuaKe.soLo > 0
+        ? (
+          <DongThongBao tone="warn" actions={<NutChu onClick={() => navigate(chuaKe.duongDan)}>Xếp kệ</NutChu>}>
+            <B>{soVN(chuaKe.soLuong)} sản phẩm</B> ({soVN(chuaKe.soLo)} lô) của phiếu chưa có kệ ở {data.tenKho ?? "kho nhận"}: người
+            nhặt hàng chưa thấy chỗ lấy cho tới khi xếp.
+          </DongThongBao>
+        )
+        : null;
 
   return (
     <>

@@ -47,6 +47,7 @@ import {
     tongCot,
     treBaoLau,
 } from "@/components/chuyen-kho/hienThiChuyenKho";
+import useHangChuaCoKeCuaChungTu from "@/components/kiem-ke/useHangChuaCoKeCuaChungTu";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import useQuayLai from "@/hooks/useQuayLai";
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
@@ -143,6 +144,14 @@ function ManPhieuChuyenKho({ id }) {
     useEffect(() => {
         queueMicrotask(() => taiPhieu());
     }, [taiPhieu]);
+
+    // Hàng đã nhận của phiếu còn chưa có kệ ở kho nhận (dòng nhắc "Xếp kệ"): chỉ khi phiếu đã có phiếu nhập
+    const chuaKe = useHangChuaCoKeCuaChungTu({
+        kho: ct?.khoNhap,
+        phieuChuyenId: ct?.id ?? null,
+        bat: (ct?.phieuNhap ?? []).some((pn) => !pn.laHoanTra),
+        phienBan: (ct?.phieuNhap ?? []).length,
+    });
 
     // Kho xuất, kho nhận, Kho tổng là những người khác nhau: quay lại tab thì tải lại ngầm
     useTaiLaiKhiQuayLai(() => taiPhieu({ silent: true }), { bat: Boolean(ct) && !loading && !dangChay && !hop, lanCuoi: capNhatLuc });
@@ -476,6 +485,14 @@ function ManPhieuChuyenKho({ id }) {
                 {phieuNhapHoanTra[0] ? ` Hàng đã về ${khoXuat} theo phiếu nhập hoàn trả ${phieuNhapHoanTra[0].so}.` : ""}
             </DongThongBao>
         ));
+    }
+    if (chuaKe.soLo > 0) {
+        thongBao.push(
+            <DongThongBao key="chuaKe" tone="warn" actions={<NutChu onClick={() => navigate(chuaKe.duongDan)}>Xếp kệ</NutChu>}>
+                <B>{soVN(chuaKe.soLuong)} sản phẩm</B> ({soVN(chuaKe.soLo)} lô) đã nhận vào {khoNhap} chưa có kệ: người nhặt hàng chưa
+                thấy chỗ lấy cho tới khi xếp.
+            </DongThongBao>,
+        );
     }
 
     // ── Cột phải ──
