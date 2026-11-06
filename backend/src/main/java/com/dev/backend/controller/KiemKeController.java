@@ -35,6 +35,7 @@ public class KiemKeController {
     private final KiemKeDocService doc;
     private final AnhKiemKeService anh;
     private final SoTonKeService soTonKe;
+    private final HangChuaCoKeService hangChuaCoKeService;
 
     private static <T> ResponseEntity<ResponseData<T>> ok(T data, String message) {
         return ResponseEntity.ok(ResponseData.<T>builder().status(200).data(data).message(message).build());
@@ -109,7 +110,19 @@ public class KiemKeController {
     @GetMapping("/hang-chua-co-ke")
     @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho})
     public ResponseEntity<ResponseData<List<KiemKeDto.HangChuaCoKe>>> hangChuaCoKe(@RequestParam Integer khoId) {
-        return ok(doc.hangChuaCoKe(khoId), "Lấy hàng chưa có kệ thành công");
+        return ok(hangChuaCoKeService.danhSach(khoId), "Lấy hàng chưa có kệ thành công");
+    }
+
+    /**
+     * Số lô, số sản phẩm chưa có kệ ở kho — số đếm cạnh mục Hàng chưa có kệ trên menu; kèm {@code phieuChuyenId} /
+     * {@code phieuNhapId}: chỉ hàng của chứng từ đó (dòng nhắc trên phiếu chuyển kho, phiếu nhập).
+     */
+    @GetMapping("/hang-chua-co-ke/dem")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho})
+    public ResponseEntity<ResponseData<KiemKeDto.DemChuaCoKe>> demHangChuaCoKe(
+            @RequestParam Integer khoId, @RequestParam(required = false) Integer phieuChuyenId,
+            @RequestParam(required = false) Integer phieuNhapId) {
+        return ok(hangChuaCoKeService.dem(khoId, phieuChuyenId, phieuNhapId), "Đếm hàng chưa có kệ thành công");
     }
 
     @PostMapping("/xem-truoc")
@@ -224,6 +237,17 @@ public class KiemKeController {
         com.dev.backend.utils.KhoDangChon.kiemTra(com.dev.backend.entities.Kho.builder().id(khoId).build(), "Kho đang chọn");
         soTonKe.xepKe(khoId, yc.loHangId(), yc.viTriKhoId(), yc.soLuong() == null ? 0 : yc.soLuong());
         return ok("Success", "Đã xếp hàng lên kệ");
+    }
+
+    /** Xếp nhiều lô một lượt; phần nào lỗi báo riêng trong kết quả, các phần khác vẫn ghi. */
+    @PostMapping("/xep-ke-nhieu")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho}, inWarehouse = true)
+    public ResponseEntity<ResponseData<List<KiemKeDto.KetQuaXepKe>>> xepKeNhieu(@RequestParam Integer khoId,
+                                                                               @RequestBody KiemKeYeuCau.XepNhieu yc) {
+        com.dev.backend.utils.KhoDangChon.kiemTra(com.dev.backend.entities.Kho.builder().id(khoId).build(), "Kho đang chọn");
+        List<KiemKeDto.KetQuaXepKe> kq = hangChuaCoKeService.xepNhieu(khoId, yc);
+        long daXep = kq.stream().filter(KiemKeDto.KetQuaXepKe::daXep).count();
+        return ok(kq, "Đã xếp " + daXep + "/" + kq.size() + " phần lên kệ");
     }
 
     @PostMapping("/chuyen-ke")

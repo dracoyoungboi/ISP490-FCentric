@@ -43,6 +43,10 @@ public final class KiemKeYeuCau {
     public record XepKe(Integer loHangId, Integer viTriKhoId, Integer soLuong) {
     }
 
+    /** Xếp nhiều phần lên kệ một lượt; một lô chia nhiều kệ là nhiều phần cùng loHangId. */
+    public record XepNhieu(List<XepKe> ds) {
+    }
+
     /** Chuyển hàng giữa hai kệ cùng kho. */
     public record ChuyenKe(Integer loHangId, Integer tuViTriKhoId, Integer denViTriKhoId, Integer soLuong) {
     }

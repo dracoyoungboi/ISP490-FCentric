@@ -167,6 +167,32 @@ public class PhanBoKeService {
     }
 
     /**
+     * Các lô của kho có thể đang bị phiếu nhặt giữ (tập bao của những lô {@link #giuChuaCoKe} có thể &gt; 0): lô có phân bổ
+     * trong phiếu nhặt đang mở, hoặc nằm trên phiếu xuất chưa hoàn tất của kho. Dùng để chỉ gọi {@link #giuChuaCoKe} cho
+     * các lô này khi duyệt cả danh sách (màn Hàng chưa có kệ), thay vì mỗi lô vài câu truy vấn.
+     */
+    public Set<Integer> loCoTheDangGiu(Integer khoId) {
+        if (!batDuoc() || khoId == null) return Set.of();
+        @SuppressWarnings("unchecked")
+        List<Object> rows = em.createNativeQuery("""
+                SELECT pb.lo_hang_id
+                  FROM phan_bo_lo_nhat_hang pb
+                  JOIN chi_tiet_nhat_hang ct ON ct.id = pb.chi_tiet_nhat_hang_id
+                  JOIN danh_sach_nhat_hang ds ON ds.id = ct.danh_sach_nhat_hang_id
+                 WHERE ds.kho_xuat_id = :kho AND ds.trang_thai IN ('cho_nhat', 'dang_nhat')
+                UNION
+                SELECT c.lo_hang_id
+                  FROM chi_tiet_phieu_xuat_kho c JOIN phieu_xuat_kho p ON p.id = c.phieu_xuat_kho_id
+                 WHERE p.kho_id = :kho AND p.trang_thai IN (0, 1, 2, 6) AND c.lo_hang_id IS NOT NULL
+                """).setParameter("kho", khoId).getResultList();
+        Set<Integer> kq = new HashSet<>();
+        for (Object r : rows) {
+            if (r != null) kq.add(((Number) r).intValue());
+        }
+        return kq;
+    }
+
+    /**
      * Phần hàng chưa có kệ của lô ở kho mà phiếu nhặt khác (phân bổ đã chia kệ) đang giữ: phiếu đang mở = phân bổ − phần trên
      * kệ; phiếu đã nhặt = số chờ xuất của lô − dòng kệ còn lại (xuất kho trừ dòng kệ trước). Phân bổ chưa biết kệ không
      * tính (chỉ giữ theo lô). {@code boQuaPhieuNhatId}: phiếu đang phân bổ.

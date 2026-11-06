@@ -471,7 +471,7 @@ public class KiemKePhamViService {
             @SuppressWarnings("unchecked")
             List<Object[]> rows = em.createNativeQuery("""
                     SELECT k.lo_hang_id, l.ma_lo, FLOOR(k.so_luong_ton) AS ton,
-                           COALESCE((SELECT SUM(t.so_luong) FROM ton_kho_vi_tri t JOIN vi_tri_kho v ON v.id = t.vi_tri_kho_id
+                           COALESCE((SELECT SUM(GREATEST(t.so_luong, 0)) FROM ton_kho_vi_tri t JOIN vi_tri_kho v ON v.id = t.vi_tri_kho_id
                                       WHERE t.lo_hang_id = k.lo_hang_id AND v.kho_id = k.kho_id), 0) AS tren_ke
                       FROM ton_kho_theo_lo k JOIN lo_hang l ON l.id = k.lo_hang_id
                      WHERE k.kho_id = :kho AND k.so_luong_ton >= 1
@@ -487,7 +487,7 @@ public class KiemKePhamViService {
             }
             if (!chua.isEmpty()) {
                 kq.add(new VanDe(MaLoi.STK_INVALID_SCOPE, "Còn hàng chưa có kệ trong phạm vi: " + gon(chua)
-                        + ". Xếp các lô này lên kệ (Kiểm kê › Hàng chưa có kệ) rồi bắt đầu lại"));
+                        + ". Xếp các lô này lên kệ (Kho hàng › Hàng chưa có kệ) rồi bắt đầu lại"));
             }
         }
         if (!loTrongPhamVi.isEmpty()) {
@@ -496,7 +496,7 @@ public class KiemKePhamViService {
                     SELECT l.ma_lo FROM lo_hang l
                       LEFT JOIN ton_kho_theo_lo k ON k.lo_hang_id = l.id AND k.kho_id = :kho
                      WHERE l.id IN (:lo)
-                       AND COALESCE(FLOOR(k.so_luong_ton), 0) < (SELECT COALESCE(SUM(t.so_luong), 0) FROM ton_kho_vi_tri t
+                       AND COALESCE(FLOOR(k.so_luong_ton), 0) < (SELECT COALESCE(SUM(GREATEST(t.so_luong, 0)), 0) FROM ton_kho_vi_tri t
                              JOIN vi_tri_kho v ON v.id = t.vi_tri_kho_id WHERE t.lo_hang_id = l.id AND v.kho_id = :kho)
                     """).setParameter("kho", kho.getId()).setParameter("lo", loTrongPhamVi).getResultList();
             if (!lech.isEmpty()) {

@@ -46,6 +46,13 @@ export const layDanhMucTrenKe = async (khoId) =>
 export const layHangChuaCoKe = async (khoId) =>
   du(await apiClient.get(`${GOC}/hang-chua-co-ke`, { params: { khoId } })) ?? [];
 
+/**
+ * Số lô, số sản phẩm chưa có kệ ở kho: `{ soLo, soLuong }` — số đếm trên menu, hoặc chỉ hàng của một chứng từ
+ * (`phieuChuyenId` / `phieuNhapId`, dòng nhắc trên phiếu chuyển kho, phiếu nhập).
+ */
+export const demHangChuaCoKe = async (khoId, { phieuChuyenId, phieuNhapId } = {}) =>
+  du(await apiClient.get(`${GOC}/hang-chua-co-ke/dem`, { params: { khoId, phieuChuyenId, phieuNhapId } }));
+
 /** Xem trước phạm vi (không khóa, không ghi). `dotId`: đợt nháp đang sửa (không tự giao thoa với chính nó). */
 export const xemTruocPhamVi = async (thongTin, dotId) =>
   du(await apiClient.post(`${GOC}/xem-truoc`, thongTin, { params: { dotId } }));
@@ -87,8 +94,12 @@ export const pheDuyet = async (id, phienBan, khoa) =>
 export const huyDot = async (id, { lyDo, phienBan }, khoa) =>
   du(await apiClient.post(`${GOC}/${id}/huy`, { lyDo, phienBan }, voiKhoa(khoa)));
 
-export const xepKe = async (khoId, { loHangId, viTriKhoId, soLuong }) =>
-  du(await apiClient.post(`${GOC}/xep-ke`, { loHangId, viTriKhoId, soLuong }, { params: { khoId } }));
+/**
+ * Xếp nhiều phần lên kệ một lượt; `ds`: `[{ loHangId, viTriKhoId, soLuong }]` (một lô chia nhiều kệ là nhiều phần).
+ * Trả kết quả từng phần `[{ loHangId, viTriKhoId, soLuong, daXep, loi }]`: phần lỗi không làm hỏng các phần khác.
+ */
+export const xepKeNhieu = async (khoId, ds) =>
+  du(await apiClient.post(`${GOC}/xep-ke-nhieu`, { ds }, { params: { khoId } })) ?? [];
 
 export const chuyenKe = async (khoId, { loHangId, tuViTriKhoId, denViTriKhoId, soLuong }) =>
   du(await apiClient.post(`${GOC}/chuyen-ke`, { loHangId, tuViTriKhoId, denViTriKhoId, soLuong }, { params: { khoId } }));
