@@ -1,8 +1,9 @@
 import { dash, formatPrintLongDate, formatPrintNumber, textOrNull, toNumeric } from "./printFormat";
 
 /**
- * Số điện thoại giả OmnichannelOrderSyncJob gán khi sàn không trả số người mua (cùng giá trị
- * DungChungTuAmis.GIA_TRI_GIA bên xuất kế toán) — không in lên phiếu như số thật.
+ * Số điện thoại giả OmnichannelOrderSyncJob bản cũ gán khi sàn không trả số người mua (cùng giá trị
+ * DungChungTuAmis.GIA_TRI_GIA bên xuất kế toán) — không in lên phiếu như số thật. Bản mới để trống;
+ * giữ hằng này cho khách cũ tới khi chạy migration-2026-11-06-bo-lien-he-gia-khach-san.sql.
  */
 const SO_DIEN_THOAI_GIA = "0900000000";
 

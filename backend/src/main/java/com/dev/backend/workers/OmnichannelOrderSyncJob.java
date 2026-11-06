@@ -1355,14 +1355,13 @@ public class OmnichannelOrderSyncJob {
             return khByMaOpt.get();
         }
 
-        // 4. Tạo mới khách hàng riêng biệt, lưu đầy đủ thông tin thực tế từ sàn
-        final String finalPhone = !phone.isBlank() ? phone : "0900000000";
-        final String finalEmail = !email.isBlank() ? email : "lazada@customer.com";
+        // 4. Tạo mới khách hàng riêng biệt, lưu thông tin thực tế từ sàn; trường sàn không gửi thì để trống
+        //    (không ghi SĐT / email giả)
         KhachHang moi = KhachHang.builder()
                 .maKhachHang(maKh)
                 .tenKhachHang(customerName)
-                .soDienThoai(finalPhone)
-                .email(finalEmail)
+                .soDienThoai(phone.isBlank() ? null : phone)
+                .email(email.isBlank() ? null : email)
                 .diaChi(fullAddress)
                 .loaiKhachHang("le")
                 .trangThai(1)
@@ -1400,11 +1399,11 @@ public class OmnichannelOrderSyncJob {
             return khByMaOpt.get();
         }
 
-        final String finalPhone = !phone.isBlank() ? phone : "0900000000";
+        // Sàn không gửi SĐT thì để trống (không ghi số giả)
         KhachHang moi = KhachHang.builder()
                 .maKhachHang(maKh)
                 .tenKhachHang(name)
-                .soDienThoai(finalPhone)
+                .soDienThoai(phone.isBlank() ? null : phone)
                 .diaChi(fullAddress)
                 .loaiKhachHang("le")
                 .trangThai(1)
