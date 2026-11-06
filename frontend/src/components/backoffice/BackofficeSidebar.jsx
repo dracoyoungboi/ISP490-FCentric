@@ -28,6 +28,7 @@ import {
 import SidebarKhoLamViec from "./SidebarKhoLamViec";
 import { useKenhDaKetNoi } from "@/components/channel/kenhDaKetNoi";
 import { useSoChuyenKhoanCanXuLy } from "@/components/pos/payosCanXuLy";
+import { useSoHangChuaCoKe } from "@/components/kiem-ke/soHangChuaCoKe";
 import { useTaiTruocLienKet } from "@/lib/taiTrang";
 import { cn } from "@/lib/utils";
 
@@ -173,7 +174,9 @@ export default function BackofficeSidebar() {
   const kenhDaKetNoi = useKenhDaKetNoi();
   // Số đếm cạnh mục con khai báo `badge`
   const soChuyenKhoanCanXuLy = useSoChuyenKhoanCanXuLy();
-  const soDem = (child) => (child.badge === "payosCanXuLy" ? soChuyenKhoanCanXuLy : 0);
+  const soLoChuaCoKe = useSoHangChuaCoKe();
+  const soDem = (child) =>
+    child.badge === "payosCanXuLy" ? soChuyenKhoanCanXuLy : child.badge === "hangChuaCoKe" ? soLoChuaCoKe : 0;
 
   const filteredMenu = useMemo(
     () =>

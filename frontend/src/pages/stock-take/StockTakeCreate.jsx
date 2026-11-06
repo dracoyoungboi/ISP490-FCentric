@@ -1064,7 +1064,7 @@ function BieuMauDot({ dot }) {
                       nutCuaVanDe={(v) =>
                         /hàng chưa có kệ/i.test(v.noiDung) ? (
                           // Thẻ mới: biểu mẫu đang điền ở thẻ này không mất; quay lại thẻ này thì xem trước tự tính lại
-                          <NutChu onClick={() => window.open(`/stock-take/unshelved?khoId=${khoId}${laSua ? `&tuDot=${dot.id}` : ""}`, "_blank", "noopener")}>Xếp kệ ở thẻ mới</NutChu>
+                          <NutChu onClick={() => window.open(`/warehouse/unshelved?khoId=${khoId}${laSua ? `&tuDot=${dot.id}` : ""}`, "_blank", "noopener")}>Xếp kệ ở thẻ mới</NutChu>
                         ) : null
                       }
                     />

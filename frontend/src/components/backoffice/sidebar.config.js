@@ -201,6 +201,9 @@ export const SIDEBAR_MENU = [
       },
       // FO-094: khu vực, vị trí kệ và mặt bằng kho
       { label: "Vị trí kệ", to: "/warehouse/locations", nhom: DU_LIEU, roles: VAI_TRO_KHO },
+      // Lô đã vào kho mà chưa ghi ở kệ nào (nhận chuyển kho, khách trả…); badge: số lô ở kho làm việc
+      // (BackofficeSidebar đọc từ components/kiem-ke/soHangChuaCoKe)
+      { label: "Hàng chưa có kệ", to: "/warehouse/unshelved", nhom: DU_LIEU, roles: VAI_TRO_KHO, badge: "hangChuaCoKe" },
     ],
   },
 

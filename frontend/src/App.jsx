@@ -133,6 +133,13 @@ function ChuyenSangSanPham() {
   return <Navigate to={`/channels/${maKenh}/products`} replace />;
 }
 
+/** Hàng chưa có kệ chuyển từ /stock-take/unshelved sang mục Kho hàng /warehouse/unshelved: giữ ?khoId=&tuDot=. */
+function HangChuaCoKeRedirect() {
+  const [params] = useSearchParams();
+  const tham = params.toString();
+  return <Navigate to={`/warehouse/unshelved${tham ? `?${tham}` : ""}`} replace />;
+}
+
 /** Sửa khách hàng nay là popup trên trang chi tiết: đường dẫn cũ /customers/:id/edit mở trang chi tiết kèm popup. */
 function SuaKhachHangRedirect() {
   const { id } = useParams();
@@ -305,7 +312,9 @@ const CAY_DUONG_DAN = (
       <Route element={<RequireRole roles={["quan_tri_vien", "quan_ly_kho", "nhan_vien_kho"]} />}>
         <Route path="/stock-take" element={<StockTakeList />} />
         <Route path="/stock-take/lock-map" element={<StockTakeLockMap />} />
-        <Route path="/stock-take/unshelved" element={<StockTakeUnshelved />} />
+        {/* Hàng chưa có kệ: mục ở Kho hàng, cùng vai trò với API xếp kệ; URL cũ trong kiểm kê chuyển hướng */}
+        <Route path="/warehouse/unshelved" element={<StockTakeUnshelved />} />
+        <Route path="/stock-take/unshelved" element={<HangChuaCoKeRedirect />} />
         <Route path="/stock-take/:id" element={<StockTakeDetail />} />
       </Route>
       <Route element={<RequireRole roles={["quan_tri_vien", "quan_ly_kho"]} />}>
