@@ -83,6 +83,9 @@ public class ShopeeClient {
     String accessToken;
     @lombok.experimental.NonFinal
     boolean isSandbox;
+    @lombok.experimental.NonFinal
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    ShopeeMockEngine mockEngine;
 
     public ShopeeClient() {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
@@ -431,6 +434,9 @@ public class ShopeeClient {
                                 Long itemId, Long modelId, int stock, boolean isSandbox) {
         if (isSandbox || isMockCredentials(partnerId, partnerKey)) {
             log.info("[SHOPEE-MOCK-UPDATE-STOCK] Giả lập cập nhật tồn kho Shopee: item={}, model={}, stock={}", itemId, modelId, stock);
+            if (mockEngine != null) {
+                mockEngine.updateStockFromFCentric(itemId, modelId, stock);
+            }
             return objectMapper.createObjectNode().put("error", "").put("message", "success");
         }
 

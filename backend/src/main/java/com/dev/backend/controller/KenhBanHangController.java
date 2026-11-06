@@ -66,6 +66,7 @@ public class KenhBanHangController {
     com.dev.backend.repository.KenhBanHangRepository kenhBanHangRepository;
     com.dev.backend.repository.BienTheSanPhamRepository bienTheSanPhamRepository;
     com.dev.backend.workers.OmnichannelOrderSyncJob omnichannelOrderSyncJob;
+    com.dev.backend.services.shopee.ShopeeMockEngine shopeeMockEngine;
 
     @GetMapping("/shopify")
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
@@ -913,7 +914,7 @@ public class KenhBanHangController {
                     .trangThai(1)
                     .build());
         }
-        com.dev.backend.services.shopee.ShopeeMockEngine engine = new com.dev.backend.services.shopee.ShopeeMockEngine(bienTheSanPhamRepository);
+        com.dev.backend.services.shopee.ShopeeMockEngine engine = shopeeMockEngine;
         java.util.List<com.dev.backend.dto.response.customize.ShopeeOrderDto> orders = engine.generateMockOrders(Math.min(Math.max(count, 1), 5), status);
         int synced = 0;
         java.util.List<String> orderNumbers = new java.util.ArrayList<>();

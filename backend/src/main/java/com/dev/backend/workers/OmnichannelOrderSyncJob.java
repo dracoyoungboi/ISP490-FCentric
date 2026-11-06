@@ -1540,9 +1540,10 @@ public class OmnichannelOrderSyncJob {
     public int syncMockShopeeOrders(KenhBanHang kenh) {
         int synced = 0;
         try {
-            com.dev.backend.services.shopee.ShopeeMockEngine engine = shopeeMockEngine != null
-                    ? shopeeMockEngine : new com.dev.backend.services.shopee.ShopeeMockEngine(bienTheSanPhamRepository);
-            List<com.dev.backend.dto.response.customize.ShopeeOrderDto> mockOrders = engine.generateMockOrders(2, "READY_TO_SHIP");
+            com.dev.backend.services.shopee.ShopeeMockEngine engine = shopeeMockEngine;
+            List<com.dev.backend.dto.response.customize.ShopeeOrderDto> mockOrders = engine != null
+                    ? engine.getOrdersForSync("READY_TO_SHIP", 0L)
+                    : List.of();
             if (mockOrders != null && !mockOrders.isEmpty()) {
                 batDauLuot();
                 try {
