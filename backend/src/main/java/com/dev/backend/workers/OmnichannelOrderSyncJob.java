@@ -606,43 +606,61 @@ public class OmnichannelOrderSyncJob {
         return soDonHang + "-" + orderId;
     }
 
-    private KhachHang resolveCustomer(JsonNode customerNode, JsonNode shippingNode) {
-        String phone = customerNode.path("phone").asText("");
+    /**
+     * Khách của đơn Shopify:
+     * 1. Có SĐT / email: tìm khách theo SĐT rồi email; chưa có thì tạo khách mới.
+     * 2. Không có SĐT lẫn email (app chưa được Shopify cho xem hai trường này, đơn nhân viên tạo tay…) nhưng có
+     *    customer.id: một người mua là một khách mã KH-SP-&lt;customer.id&gt;, giữ tên, mua lại vẫn về đúng khách đó.
+     * 3. Không có cả customer.id: khách lẻ mặc định KHLE.
+     * Không ghi SĐT / email giả: trường nào sàn không gửi thì để trống.
+     */
+    KhachHang resolveCustomer(JsonNode customerNode, JsonNode shippingNode) {
+        String phone = customerNode.path("phone").asText("").trim();
         if (phone.isBlank()) {
-            phone = shippingNode.path("phone").asText("");
+            phone = shippingNode.path("phone").asText("").trim();
         }
-        String email = customerNode.path("email").asText("");
-        String name = customerNode.path("first_name").asText("") + " " + customerNode.path("last_name").asText("");
-        if (name.trim().isBlank()) {
-            name = shippingNode.path("name").asText("Khách hàng Shopify");
+        String email = customerNode.path("email").asText("").trim();
+        String shopifyKhachId = customerNode.path("id").asText("").trim();
+        String name = (customerNode.path("first_name").asText("") + " " + customerNode.path("last_name").asText("")).trim();
+        if (name.isBlank()) {
+            name = shippingNode.path("name").asText("").trim();
         }
 
         if (!phone.isBlank()) {
-            Optional<KhachHang> khOpt = khachHangRepository.findFirstBySoDienThoai(phone.trim());
+            Optional<KhachHang> khOpt = khachHangRepository.findFirstBySoDienThoai(phone);
             if (khOpt.isPresent()) return khOpt.get();
         }
         if (!email.isBlank()) {
-            Optional<KhachHang> khOpt = khachHangRepository.findFirstByEmail(email.trim());
+            Optional<KhachHang> khOpt = khachHangRepository.findFirstByEmail(email);
             if (khOpt.isPresent()) return khOpt.get();
         }
 
-        // Tìm khách lẻ mặc định KHLE
-        Optional<KhachHang> khLeOpt = khachHangRepository.findFirstBySoDienThoai("KHLE");
-        if (khLeOpt.isPresent()) return khLeOpt.get();
+        boolean coLienHe = !phone.isBlank() || !email.isBlank();
+        if (!coLienHe && shopifyKhachId.isBlank()) {
+            // Tìm theo MÃ khách — KHLE không có số điện thoại
+            Optional<KhachHang> khLeOpt = khachHangRepository.findByMaKhachHang(KhachHang.MA_KHACH_LE);
+            if (khLeOpt.isPresent()) return khLeOpt.get();
+        }
 
-        final String finalPhone = !phone.isBlank() ? phone.trim() : "0900000000";
-        final String finalEmail = !email.isBlank() ? email.trim() : "shopify@customer.com";
-        final String finalName = name.trim();
-
-        String suffix = !phone.isBlank() ? phone.replaceAll("\\D", "") : String.valueOf(System.currentTimeMillis() % 1000000);
+        String suffix;
+        if (!phone.isBlank()) {
+            suffix = phone.replaceAll("\\D", "");
+        } else if (!shopifyKhachId.isBlank()) {
+            suffix = shopifyKhachId;
+        } else {
+            suffix = String.valueOf(System.currentTimeMillis() % 1000000);
+        }
         String maKh = "KH-SP-" + suffix;
         if (maKh.length() > 30) maKh = maKh.substring(0, 30);
+        // Mã đã có (người mua này từ đơn trước, hoặc cùng dãy số SĐT viết khác kiểu): dùng lại, không tạo trùng mã
+        Optional<KhachHang> khTheoMa = khachHangRepository.findByMaKhachHang(maKh);
+        if (khTheoMa.isPresent()) return khTheoMa.get();
 
         return luuKhachTuSan(KhachHang.builder()
                 .maKhachHang(maKh)
-                .tenKhachHang(finalName.isBlank() ? "Khách hàng Shopify" : finalName)
-                .soDienThoai(finalPhone)
-                .email(finalEmail)
+                .tenKhachHang(name.isBlank() ? "Khách hàng Shopify" : name)
+                .soDienThoai(phone.isBlank() ? null : phone)
+                .email(email.isBlank() ? null : email)
                 .trangThai(1)
                 .build(), INguonNhatKy.shopify);
     }
