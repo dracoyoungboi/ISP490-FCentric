@@ -91,3 +91,4 @@ public class ShopeeMockOrder {
     @Column(name = "update_time", nullable = false)
     Long updateTime;
 }
+

@@ -18,3 +18,4 @@ public interface ShopeeMockOrderRepository extends JpaRepository<ShopeeMockOrder
 
     List<ShopeeMockOrder> findByCreateTimeGreaterThanEqual(Long createTime);
 }
+

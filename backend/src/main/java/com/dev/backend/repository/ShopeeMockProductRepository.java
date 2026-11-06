@@ -16,3 +16,4 @@ public interface ShopeeMockProductRepository extends JpaRepository<ShopeeMockPro
 
     List<ShopeeMockProduct> findAllByTrangThai(String trangThai);
 }
+

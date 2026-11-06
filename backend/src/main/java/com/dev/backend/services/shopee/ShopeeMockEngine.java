@@ -91,10 +91,7 @@ public class ShopeeMockEngine {
             BigDecimal price = bt.getGiaBan() != null ? bt.getGiaBan() : BigDecimal.valueOf(250000);
             int initStock = 45 + random.nextInt(30);
 
-            String img = null;
-            if (bt.getAnhBienThe() != null && bt.getAnhBienThe().getUrl() != null) {
-                img = bt.getAnhBienThe().getUrl();
-            }
+            String img = com.dev.backend.utils.HienThiBienThe.anh(bt);
 
             ShopeeMockProduct prod = ShopeeMockProduct.builder()
                     .itemId(itemId)

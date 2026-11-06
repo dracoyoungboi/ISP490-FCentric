@@ -43,3 +43,4 @@ CREATE TABLE IF NOT EXISTS `shopee_mock_order` (
   INDEX `idx_shopee_order_status` (`order_status`),
   INDEX `idx_shopee_order_create` (`create_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
