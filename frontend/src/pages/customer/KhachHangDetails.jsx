@@ -153,7 +153,7 @@ export default function KhachHangDetails() {
         <DauTrangKhachHang
           khachHang={khachHang}
           coTheSua={suaDuoc}
-          coTheTaoBaoGia={coTheBanHang}
+          coTheTaoBaoGia={coTheBanHang && !laKhachLe}
           onQuayLai={quayLai}
           onChinhSua={() => moSua()}
           onDoiTrangThai={() => setMoTrangThai(true)}
@@ -200,12 +200,15 @@ export default function KhachHangDetails() {
           </div>
         ) : null}
 
-        <TinhHinhMuaHang
-          kpi={kpi}
-          dangTai={tongQuan === undefined && !loiTongQuan}
-          loi={loiTongQuan}
-          onThuLai={tongQuanQ.reload}
-        />
+        {/* Tổng chi tiêu, số đơn của KHLE là mọi khách lẻ cộng lại, không nói gì về một khách: không hiện */}
+        {laKhachLe ? null : (
+          <TinhHinhMuaHang
+            kpi={kpi}
+            dangTai={tongQuan === undefined && !loiTongQuan}
+            loi={loiTongQuan}
+            onThuLai={tongQuanQ.reload}
+          />
+        )}
 
         <div className="kh-than @container grid flex-1 border-t border-bo-border xl:grid-cols-[minmax(0,1fr)_340px]">
           <GiaoDichKhachHang
@@ -216,7 +219,7 @@ export default function KhachHangDetails() {
             tongDon={tongQuan ? tongSoDon(tongQuan) : undefined}
             kenhMua={tongQuan?.kenhMua}
             xemBaoGia={xemBaoGia}
-            coTheTaoBaoGia={coTheBanHang && dangHoatDong}
+            coTheTaoBaoGia={coTheBanHang && dangHoatDong && !laKhachLe}
             coTheTaoDon={coTheBanHang}
             onTaoBaoGia={taoBaoGia}
             ghiChuPhamVi={phamVi}
