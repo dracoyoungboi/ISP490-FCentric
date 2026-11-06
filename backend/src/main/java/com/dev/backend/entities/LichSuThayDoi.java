@@ -30,6 +30,11 @@ public class LichSuThayDoi {
     @Column(name = "id_tham_chieu")
     Integer idThamChieu;
 
+    // Mã dễ đọc của đối tượng lúc ghi (số đơn, mã NCC, mã kho…); dòng cũ để trống
+    @Size(max = 100)
+    @Column(name = "ma_doi_tuong", length = 100)
+    String maDoiTuong;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "kho_id")
     Kho kho;
@@ -44,10 +49,16 @@ public class LichSuThayDoi {
     @Column(name = "gia_tri_moi")
     String giaTriMoi;
 
-    @NotNull
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "nguoi_thuc_hien_id", nullable = false)
+    // Trống khi việc do hệ thống / sàn làm — xem cột nguon
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "nguoi_thuc_hien_id")
     NguoiDung nguoiThucHien;
+
+    // Ai gây ra thay đổi: nguoi_dung / he_thong / shopify / lazada / tiktok / shopee (INguonNhatKy).
+    // Dòng cũ để trống = người dùng.
+    @Size(max = 30)
+    @Column(name = "nguon", length = 30)
+    String nguon;
 
     @ColumnDefault("CURRENT_TIMESTAMP")
     @Column(name = "ngay_thuc_hien")

@@ -1,5 +1,11 @@
 package com.dev.backend.services.impl.entities;
 
+import com.dev.backend.constant.variables.IHanhDong;
+import com.dev.backend.constant.variables.ITable;
+import com.dev.backend.services.impl.utils.NhatKyNghiepVu;
+import lombok.experimental.NonFinal;
+import org.springframework.beans.factory.annotation.Autowired;
+
 import com.dev.backend.dto.request.inbound.MaVachLienKetRequest;
 import com.dev.backend.dto.response.inbound.MaVachNhaCungCapDto;
 import com.dev.backend.dto.response.inbound.TraCuuMaVachResponse;
@@ -43,6 +49,11 @@ public class MaVachNhaCungCapServiceImpl implements MaVachNhaCungCapService {
     ChiTietPhieuNhapKhoRepository chiTietPhieuNhapKhoRepository;
     NguoiDungRepository nguoiDungRepository;
     com.dev.backend.repository.ViTriKhoRepository viTriKhoRepository;
+
+    /** Nhật ký nghiệp vụ (liên kết / gỡ mã vạch NCC); null khi unit test dựng tay. */
+    @NonFinal
+    @Autowired(required = false)
+    NhatKyNghiepVu nhatKy;
 
     @Override
     @Transactional(readOnly = true)
@@ -229,6 +240,15 @@ public class MaVachNhaCungCapServiceImpl implements MaVachNhaCungCapService {
                     "Mã " + maVach + " vừa được liên kết ở máy khác cùng lúc. Quét lại mã để xem mã đã gắn với sản phẩm nào"
                             + " trước khi tính lượt.");
         }
+        if (nhatKy != null) {
+            // Ghi lên nhà cung cấp (loai nha_cung_cap, id NCC) để hiện trong lịch sử nhà cung cấp
+            nhatKy.ghi(NhatKyNghiepVu.dong(ITable.nha_cung_cap,
+                            saved.getNhaCungCap() != null ? saved.getNhaCungCap().getId() : null, IHanhDong.them_ma_vach_ncc)
+                    .ma(saved.getNhaCungCap() != null ? saved.getNhaCungCap().getMaNhaCungCap() : maVach)
+                    .ghiChu("Liên kết mã vạch " + maVach)
+                    .kho(phieu.getKho() != null ? phieu.getKho().getId() : null)
+                    .moi(anhLienKet(saved)));
+        }
         log.info("[BARCODE-MAP] Đã liên kết mã vạch NCC `{}` với SKU `{}` (NCC ID: {}, phiếu {})", maVach, bt.getMaSku(), ncc.getId(), phieu.getSoPhieuNhap());
         return toDto(saved);
     }
@@ -238,8 +258,29 @@ public class MaVachNhaCungCapServiceImpl implements MaVachNhaCungCapService {
     public void huyLienKet(Integer id) {
         MaVachNhaCungCap entity = maVachNhaCungCapRepository.findById(id)
                 .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy liên kết ID: " + id));
+        if (nhatKy != null) {
+            PhieuNhapKho phieuGoc = entity.getPhieuNhapKho();
+            nhatKy.ghi(NhatKyNghiepVu.dong(ITable.nha_cung_cap,
+                            entity.getNhaCungCap() != null ? entity.getNhaCungCap().getId() : null, IHanhDong.xoa_ma_vach_ncc)
+                    .ma(entity.getNhaCungCap() != null ? entity.getNhaCungCap().getMaNhaCungCap() : entity.getBarcodeNcc())
+                    .ghiChu("Gỡ liên kết mã vạch " + entity.getBarcodeNcc())
+                    .kho(phieuGoc != null && phieuGoc.getKho() != null ? phieuGoc.getKho().getId() : null)
+                    .cu(anhLienKet(entity)));
+        }
         maVachNhaCungCapRepository.delete(entity);
         log.info("[BARCODE-MAP] Đã gỡ liên kết mã vạch NCC ID `{}` (Barcode: {})", id, entity.getBarcodeNcc());
+    }
+
+    /** Ảnh chụp liên kết cho nhật ký: mã vạch, mã hàng NCC, SKU, biến thể, NCC, phiếu nhập lúc liên kết. */
+    private static java.util.Map<String, Object> anhLienKet(MaVachNhaCungCap m) {
+        BienTheSanPham bt = m.getBienTheSanPham();
+        return NhatKyNghiepVu.anh(
+                "maVach", m.getBarcodeNcc(),
+                "maHangNcc", m.getMaSanPhamNcc(),
+                "sku", bt != null ? bt.getMaSku() : null,
+                "bienThe", bt != null ? nhan(bt) : null,
+                "nhaCungCap", m.getNhaCungCap() != null ? m.getNhaCungCap().getTenNhaCungCap() : null,
+                "phieuNhap", m.getPhieuNhapKho() != null ? m.getPhieuNhapKho().getSoPhieuNhap() : null);
     }
 
     private MaVachNhaCungCapDto toDto(MaVachNhaCungCap m) {

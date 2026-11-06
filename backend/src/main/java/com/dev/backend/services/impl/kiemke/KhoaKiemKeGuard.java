@@ -179,7 +179,7 @@ public class KhoaKiemKeGuard {
     }
 
     /** Danh mục của từng lô: [loId → danhMucId]. */
-    private Map<Integer, Integer> danhMucCuaLo(Collection<Integer> loIds) {
+    Map<Integer, Integer> danhMucCuaLo(Collection<Integer> loIds) {
         Map<Integer, Integer> kq = new HashMap<>();
         if (loIds == null || loIds.isEmpty()) return kq;
         @SuppressWarnings("unchecked")

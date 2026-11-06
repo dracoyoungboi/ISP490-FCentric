@@ -23,7 +23,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Nhật ký kiểm toán bảo mật, ghi vào bảng lich_su_thay_doi có sẵn (hành động trong IHanhDong, job dọn 90 ngày không
- * xóa — xem IHanhDong.KHONG_TU_DON).
+ * xóa — job chỉ dọn IHanhDong.DUOC_DON).
  * <ul>
  *   <li>Không bao giờ ghi mật khẩu, mã xác nhận hay khóa: chỉ ghi việc gì đã xảy ra, ai làm, từ IP nào.</li>
  *   <li>Ghi trên MỘT luồng nền, hàng đợi có giới hạn: request đang giữ một kết nối CSDL (open-in-view) không phải

@@ -1,5 +1,8 @@
 package com.dev.backend.services.impl.entities;
 
+import com.dev.backend.constant.variables.IHanhDong;
+import com.dev.backend.constant.variables.ITable;
+import com.dev.backend.services.impl.utils.NhatKyNghiepVu;
 import com.dev.backend.dto.request.DanhMucQuanAoCreating;
 import com.dev.backend.dto.request.DanhMucQuanAoUpdating;
 import com.dev.backend.dto.response.ResponseData;
@@ -17,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -33,6 +37,9 @@ public class DanhMucQuanAoService extends BaseServiceImpl<DanhMucQuanAo, Integer
     @Autowired(required = false)
     private KhoaKiemKeGuard khoaKiemKeGuard;
 
+    /** Nhật ký nghiệp vụ (danh mục chung); null khi unit test dựng tay. */
+    @Autowired(required = false)
+    private NhatKyNghiepVu nhatKy;
     @Override
     protected EntityManager getEntityManager() {
         return entityManager;
@@ -115,8 +122,10 @@ public class DanhMucQuanAoService extends BaseServiceImpl<DanhMucQuanAo, Integer
         }
 
         // Bước 4 – Lưu vào DB: Hibernate sinh SQL INSERT INTO danh_muc_quan_ao(...)
-        danhMucQuanAoRepository.save(danhMucQuanAo);
-
+        DanhMucQuanAo daTao = danhMucQuanAoRepository.save(danhMucQuanAo);
+        ghiNhatKy(NhatKyNghiepVu.dong(ITable.danh_muc_quan_ao, daTao.getId(), IHanhDong.them_danh_muc_chung)
+                .ma(daTao.getTenDanhMuc())
+                .moi(anhDanhMuc(daTao)));
         // Bước 5 – Trả ResponseData về Controller → FE nhận status=200 → toast.success + reload cây
         return ResponseEntity.ok(
                 ResponseData.<String>builder()
@@ -136,6 +145,7 @@ public class DanhMucQuanAoService extends BaseServiceImpl<DanhMucQuanAo, Integer
                 () -> new CommonException("Không tìm thấy danh mục id: " + updating.getId())
         );
 
+        Map<String, Object> truoc = anhDanhMuc(danhMucQuanAo);
         // Kiểm kê theo danh mục đang chạy: không đổi cha của danh mục thuộc tập đang kiểm, cũng không đưa danh mục
         // khác vào nhánh đang kiểm (Master Data Guard)
         Integer chaCu = danhMucQuanAo.getDanhMucCha() == null ? null : danhMucQuanAo.getDanhMucCha().getId();
@@ -182,7 +192,9 @@ public class DanhMucQuanAoService extends BaseServiceImpl<DanhMucQuanAo, Integer
 
         // Bước 4 – Lưu vào DB: Hibernate sinh SQL UPDATE danh_muc_quan_ao SET ... WHERE id=?
         danhMucQuanAoRepository.save(danhMucQuanAo);
-
+        ghiNhatKy(NhatKyNghiepVu.dong(ITable.danh_muc_quan_ao, danhMucQuanAo.getId(), IHanhDong.sua_danh_muc_chung)
+                .ma(danhMucQuanAo.getTenDanhMuc())
+                .thayDoi(truoc, anhDanhMuc(danhMucQuanAo)));
         // Bước 5 – Trả ResponseData về Controller → FE nhận status=200 → toast.success + reload cây
         return ResponseEntity.ok(
                 ResponseData.<String>builder()
@@ -191,6 +203,37 @@ public class DanhMucQuanAoService extends BaseServiceImpl<DanhMucQuanAo, Integer
                         .message("Cập nhật danh mục thành công")
                         .build()
         );
+    }
+
+    /** "Xóa" danh mục (DELETE /delete/{id}): chỉ chuyển ngừng hoạt động, nhật ký ghi xoa_danh_muc_chung. */
+    @Transactional
+    public void xoaMem(Integer id) {
+        DanhMucQuanAo danhMuc = getOne(id).orElseThrow(
+                () -> new CommonException("Không tìm thấy danh mục id: " + id)
+        );
+        Map<String, Object> truoc = anhDanhMuc(danhMuc);
+        boolean daNgung = java.util.Objects.equals(danhMuc.getTrangThai(), TRANG_THAI_NGUNG);
+        danhMuc.setTrangThai(TRANG_THAI_NGUNG);
+        danhMucQuanAoRepository.save(danhMuc);
+        // Đã ngừng từ trước (bấm xóa lần nữa): không ghi thêm dòng vô nghĩa
+        if (daNgung) return;
+        ghiNhatKy(NhatKyNghiepVu.dong(ITable.danh_muc_quan_ao, danhMuc.getId(), IHanhDong.xoa_danh_muc_chung)
+                .ma(danhMuc.getTenDanhMuc())
+                .cu(truoc)
+                .moi(NhatKyNghiepVu.anh("trangThai", TRANG_THAI_NGUNG)));
+    }
+
+    private void ghiNhatKy(NhatKyNghiepVu.Dong dong) {
+        if (nhatKy != null) nhatKy.ghi(dong);
+    }
+
+    private static Map<String, Object> anhDanhMuc(DanhMucQuanAo d) {
+        return NhatKyNghiepVu.anh(
+                "ma", d.getMaDanhMuc(),
+                "ten", d.getTenDanhMuc(),
+                "danhMucCha", d.getDanhMucCha() == null ? null : d.getDanhMucCha().getTenDanhMuc(),
+                "moTa", d.getMoTa(),
+                "trangThai", d.getTrangThai());
     }
 
 }

@@ -38,6 +38,7 @@ class NguoiDungServiceCapNhatThongTinTest {
     void setUp() {
         repository = mock(NguoiDungRepository.class);
         service = new NguoiDungService(repository);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "nhatKyNghiepVu", org.mockito.Mockito.mock(com.dev.backend.services.impl.utils.NhatKyNghiepVu.class));
         ReflectionTestUtils.setField(service, "nguoiDungMapper", mock(NguoiDungMapper.class));
         ReflectionTestUtils.setField(service, "nhatKyBaoMatService",
                 mock(com.dev.backend.services.impl.utils.NhatKyBaoMatService.class));

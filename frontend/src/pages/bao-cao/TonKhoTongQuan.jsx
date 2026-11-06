@@ -34,6 +34,8 @@ import EmptyState from "@/components/shared/EmptyState";
 import LoadingState from "@/components/shared/LoadingState";
 import ErrorState from "@/components/shared/ErrorState";
 import SearchInput from "@/components/shared/SearchInput";
+import NutXuatExcel from "@/components/shared/NutXuatExcel";
+import useCoQuyenXuatBaoCao from "@/hooks/useCoQuyenXuatBaoCao";
 
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useTaiLaiDanhSach from "@/hooks/useTaiLaiDanhSach";
@@ -87,6 +89,12 @@ function parseJwt(token) {
 function parseRoles(vaiTro) {
     if (!vaiTro) return [];
     return vaiTro.includes(" ") ? vaiTro.split(" ") : [vaiTro];
+}
+
+/** Ngày hôm nay theo giờ máy, dạng yyyy-MM-dd (tên tệp Excel). */
+function ngayHomNay() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 function canSeeAllKho(roles) {
@@ -143,6 +151,7 @@ const khopTab = (item, tab, laTrungChuyen) => {
 
 // ─── PAGE COMPONENT ───────────────────────────────────────────────────────────
 export default function TonKhoTongQuan() {
+    const coQuyenXuat = useCoQuyenXuatBaoCao();
     const navigate = useNavigate();
     // Kho đang xem là BỘ LỌC của báo cáo, tách khỏi nơi làm việc (selected_kho_id, header kho_id):
     // chọn kho ở đây chỉ ghi lên đường dẫn (?kho=<id> hoặc ?kho=tat-ca) để tải lại / chia sẻ vẫn giữ kho đang xem,
@@ -421,7 +430,21 @@ export default function TonKhoTongQuan() {
 
     return (
         <PageContainer fill className="space-y-4">
-            <ListPageHeader scope={scopeNote} />
+            <ListPageHeader
+                scope={scopeNote}
+                actions={coQuyenXuat ? (
+                    // Tệp đúng số đang xem: kho + từ khóa đã áp dụng + tab tình trạng
+                    <NutXuatExcel
+                        taiTep={() => thongKeHeThongService.xuatExcelTonKho({
+                            khoId: selectedKhoId ?? (khoList.length === 1 ? khoList[0].id : undefined),
+                            keyword: tuKhoaDaApDung || undefined,
+                            tinhTrang: trangThaiFilter === TAB_MAC_DINH ? undefined : trangThaiFilter,
+                        })}
+                        tenTep={() => `Bao-cao-ton-kho_${ngayHomNay()}.xlsx`}
+                        disabled={loading || Boolean(loadError) || !hasLoaded}
+                    />
+                ) : null}
+            />
 
             {/* ── Bảng dữ liệu: tab tình trạng + kho + tìm kiếm cùng một hàng ── */}
             <TableShell

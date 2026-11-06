@@ -99,8 +99,9 @@ export const phieuNhapKhoService = {
         const phieus = res.data?.content || [];
         return { nhaCungCapId: Number(nhaCungCapId), phieus, tong: res.data?.totalElements ?? phieus.length };
     },
-    async cancel(id) {
-        return apiClient.put(`/api/v1/phieu-nhap-kho/${id}/cancel`);
+    // lyDo bắt buộc (tối đa 500 ký tự): máy chủ ghi vào lịch sử phiếu
+    async cancel(id, lyDo) {
+        return apiClient.put(`/api/v1/phieu-nhap-kho/${id}/cancel`, { lyDo });
     },
     async khaiBaoLo(phieuNhapKhoId, payload) {
         const res = await apiClient.post(`/api/v1/phieu-nhap-kho/${phieuNhapKhoId}/khai-bao-lo`, payload);

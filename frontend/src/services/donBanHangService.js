@@ -17,8 +17,9 @@ export const donBanHangService = {
     const res = await apiClient.get(`/api/v1/don-ban-hang/${id}/kho-kha-dung`);
     return res.data?.data || res.data;
   },
-  async cancel(id) {
-    const res = await apiClient.put(`/api/v1/don-ban-hang/${id}/cancel`);
+  // lyDo bắt buộc (tối đa 500 ký tự): máy chủ ghi vào lịch sử đơn
+  async cancel(id, lyDo) {
+    const res = await apiClient.put(`/api/v1/don-ban-hang/${id}/cancel`, { lyDo });
     return res.data;
   },
   async create(payload) {

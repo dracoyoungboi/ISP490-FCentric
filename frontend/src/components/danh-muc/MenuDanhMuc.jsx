@@ -1,5 +1,5 @@
 import { createElement, useRef, useState } from "react";
-import { CircleCheck, CirclePause, Ellipsis, FolderInput, Pencil, Plus, ScanSearch } from "lucide-react";
+import { CircleCheck, CirclePause, Ellipsis, FolderInput, History, Pencil, Plus, ScanSearch } from "lucide-react";
 
 import {
   DropdownMenu,
@@ -19,16 +19,18 @@ const MUC = "cursor-pointer items-start gap-2 rounded-md px-2.5 py-2 text-sm tex
  * - `kieu="dong"` (máy tính): ô vuông 32px cạnh các nút trên dòng, mở menu thả xuống.
  * - `kieu="dien-thoai"`: nút 44px, mở bảng trượt từ dưới lên, có thêm Thêm danh mục con và Sửa.
  *   `phu`: dòng phụ dưới tên ở đầu bảng (đường dẫn danh mục cha).
+ * - `onLichSu`: có thì thêm mục "Lịch sử thay đổi" (trang chỉ truyền cho quản trị viên).
  */
-export default function MenuDanhMuc({ thaoTac, kieu = "dong", phu, onThemCon, onSua, onChuyen, onXemNhanh, onDoiTrangThai }) {
+export default function MenuDanhMuc({ thaoTac, kieu = "dong", phu, onThemCon, onSua, onChuyen, onXemNhanh, onDoiTrangThai, onLichSu }) {
   const dienThoai = kieu === "dien-thoai";
   const muc = [];
   if (dienThoai && thaoTac.themCon) muc.push("themCon");
   if (dienThoai && thaoTac.sua) muc.push("sua");
   if (thaoTac.chuyen) muc.push("chuyen");
   if (thaoTac.xemNhanh) muc.push("xemNhanh");
+  if (onLichSu) muc.push("lichSu");
   if (!muc.length && !thaoTac.trangThai) return null;
-  if (dienThoai) return <BangTruot thaoTac={thaoTac} phu={phu} onThemCon={onThemCon} onSua={onSua} onChuyen={onChuyen} onDoiTrangThai={onDoiTrangThai} />;
+  if (dienThoai) return <BangTruot thaoTac={thaoTac} phu={phu} onThemCon={onThemCon} onSua={onSua} onChuyen={onChuyen} onDoiTrangThai={onDoiTrangThai} onLichSu={onLichSu} />;
 
   return (
     <DropdownMenu modal={false}>
@@ -54,6 +56,7 @@ export default function MenuDanhMuc({ thaoTac, kieu = "dong", phu, onThemCon, on
       >
         {thaoTac.chuyen ? <MucMenu icon={FolderInput} nhan="Chuyển đến…" onSelect={onChuyen} /> : null}
         {thaoTac.xemNhanh ? <MucMenu icon={ScanSearch} nhan="Xem riêng nhánh này" onSelect={onXemNhanh} /> : null}
+        {onLichSu ? <MucMenu icon={History} nhan="Lịch sử thay đổi" onSelect={onLichSu} /> : null}
         {thaoTac.trangThai ? (
           <>
             {muc.length ? <DropdownMenuSeparator className="my-1 bg-bo-border" /> : null}
@@ -81,7 +84,7 @@ function mauIconTrangThai(trangThai) {
  * Bảng trượt từ dưới lên của bản điện thoại: dùng SheetDay (cùng khung với sheet ⋯ của Sản phẩm, Thuộc tính: tay nắm,
  * nút đóng 44px, chừa khoảng an toàn đáy máy). Mỗi thao tác một hàng cao 52px; dòng phụ dưới tiêu đề là đường dẫn cha.
  */
-function BangTruot({ thaoTac, phu, onThemCon, onSua, onChuyen, onDoiTrangThai }) {
+function BangTruot({ thaoTac, phu, onThemCon, onSua, onChuyen, onDoiTrangThai, onLichSu }) {
   const [mo, setMo] = useState(false);
   const daChon = useRef(false);
 
@@ -123,6 +126,7 @@ function BangTruot({ thaoTac, phu, onThemCon, onSua, onChuyen, onDoiTrangThai })
           <MucTruot icon={Pencil} nhan="Sửa" phu={thaoTac.sua.khoa ? thaoTac.sua.lyDo : ""} khoa={thaoTac.sua.khoa} onClick={chon(onSua)} />
         ) : null}
         {thaoTac.chuyen ? <MucTruot icon={FolderInput} nhan="Chuyển đến…" onClick={chon(onChuyen)} /> : null}
+        {onLichSu ? <MucTruot icon={History} nhan="Lịch sử thay đổi" onClick={chon(onLichSu)} /> : null}
         {thaoTac.trangThai ? (
           <>
             <span aria-hidden="true" className="mx-1 my-1 h-px bg-slate-100" />

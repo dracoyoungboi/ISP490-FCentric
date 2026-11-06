@@ -4,6 +4,7 @@ import com.dev.backend.config.SecurityContextHolder;
 import com.dev.backend.constant.variables.IPermissionType;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.customizeanotation.RequireAuth;
+import com.dev.backend.dto.request.LyDoHuyRequest;
 import com.dev.backend.dto.request.BaseFilterRequest;
 import com.dev.backend.dto.request.KhaiBaoLoRequest;
 import com.dev.backend.dto.request.PhieuNhapKhoCreating;
@@ -126,8 +127,9 @@ public class PhieuNhapKhoController {
             inWarehouse = true,
             rolesLogic = RequireAuth.LogicType.OR
     )
-    public ResponseEntity<ResponseData<String>> huyPhieuNhap(@PathVariable Integer id) {
-        phieuNhapKhoService.huyPhieuNhap(id);
+    public ResponseEntity<ResponseData<String>> huyPhieuNhap(@PathVariable Integer id,
+                                                            @RequestBody(required = false) LyDoHuyRequest body) {
+        phieuNhapKhoService.huyPhieuNhap(id, LyDoHuyRequest.batBuoc(body));
         return ResponseEntity.ok(
                 ResponseData.<String>builder()
                         .status(HttpStatus.OK.value())

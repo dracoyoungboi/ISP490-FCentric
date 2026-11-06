@@ -4,6 +4,7 @@ import { LogOut, Package, Save, ScanBarcode, Search, Trash2 } from "lucide-react
 import { toast } from "@/lib/thongBaoNhanh";
 import { cn } from "@/lib/utils";
 import { donBanHangService } from "@/services/donBanHangService";
+import { WALKIN_CUSTOMER_CODE } from "@/services/posService";
 import { formatCurrency } from "@/utils/formatters";
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import useHoiKhiRoiTrang from "@/hooks/useHoiKhiRoiTrang";
@@ -186,7 +187,9 @@ export default function BaoGiaCreate() {
     try {
       const res = await donBanHangService.getCustomersForCreate();
       if (luot !== luotKhachRef.current) return;
-      const ds = res?.data?.data || [];
+      // Khách lẻ mặc định chỉ dùng cho bán tại quầy: báo giá cần khách cụ thể (máy chủ cũng chặn)
+      const tatCa = res?.data?.data || [];
+      const ds = tatCa.filter((k) => k?.maKhachHang !== WALKIN_CUSTOMER_CODE);
       setDsKhach(ds);
       setLoiKhach(null);
       // Mở từ Chi tiết khách hàng: chọn sẵn một lần (danh sách chỉ gồm khách đang hoạt động)
@@ -196,6 +199,8 @@ export default function BaoGiaCreate() {
         if (khach) {
           setKhachId(khach.id);
           setForm((cu) => ({ ...cu, diaChiGiaoHang: khach.diaChi || "" }));
+        } else if (tatCa.some((k) => String(k.id) === khachHangIdBanDau)) {
+          toast.warning("Khách lẻ chỉ dùng cho bán tại quầy. Vui lòng chọn hoặc thêm khách hàng cụ thể cho báo giá.");
         } else {
           toast.warning("Khách hàng này đang ngừng hoạt động hoặc không còn trong hệ thống. Vui lòng chọn khách khác.");
         }

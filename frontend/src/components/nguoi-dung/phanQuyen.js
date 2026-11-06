@@ -145,8 +145,8 @@ export const MAN_DUNG_QUYEN = {
   huy_phieu_xuat: ["/goods-issues"],
   xem_bao_cao_ton_kho: ["/reports/inventory"],
   xem_bao_cao_nhap_xuat: ["/reports/stock-movements"],
-  xem_bao_cao_doanh_thu: ["/reports/revenue"],
-  xuat_bao_cao: ["/reports/inventory", "/reports/revenue", "/reports/stock-movements", "/reports/customers"],
+  xem_bao_cao_doanh_thu: ["/reports/revenue", "/reports/products"],
+  xuat_bao_cao: ["/reports/inventory", "/reports/revenue", "/reports/products", "/reports/stock-movements", "/reports/customers"],
   quan_ly_nhan_vien_kho: ["/warehouse"],
   cap_quyen_nhan_vien: ["/warehouse"],
   quan_ly_san_pham: ["/products"],
@@ -671,6 +671,41 @@ export function dienGiaiLichSu(ls) {
   const the = tatCa.slice(0, SO_THE_TOI_DA);
   if (tatCa.length > SO_THE_TOI_DA) the.push({ chu: `và ${tatCa.length - SO_THE_TOI_DA} thay đổi khác`, loai: "" });
   return { viec, the };
+}
+
+/** Hành động tài khoản gộp vào tab Lịch sử thay đổi của người dùng (không gồm đăng nhập). */
+export const HANH_DONG_TAI_KHOAN = [
+  "tao_tai_khoan",
+  "sua_tai_khoan",
+  "khoa_tai_khoan",
+  "mo_khoa_tai_khoan",
+  "doi_mat_khau",
+  "dat_lai_mat_khau",
+];
+
+/**
+ * Tab Lịch sử thay đổi của người dùng: dòng phân quyền (LichSuPhanQuyenDto) + dòng tài khoản (NhatKyDto của
+ * lich_su_thay_doi, loai nguoi_dung), mới nhất trước. Dòng tài khoản đổi về cùng dạng: { id: "tk-…", loai: "taiKhoan",
+ * luc, nguoiThucHien, nguoiThucHienId, dong }. Dòng phân quyền giữ nguyên (thêm loai "phanQuyen").
+ */
+export function gopLichSuNguoiDung(phanQuyen, taiKhoan) {
+  const pq = (Array.isArray(phanQuyen) ? phanQuyen : []).map((ls) => ({ ...ls, loai: "phanQuyen" }));
+  const tk = (Array.isArray(taiKhoan) ? taiKhoan : [])
+    .filter((d) => d && HANH_DONG_TAI_KHOAN.includes(d.hanhDong))
+    .map((d) => ({
+      id: `tk-${d.id}`,
+      loai: "taiKhoan",
+      luc: d.ngayThucHien,
+      nguoiThucHien: d.nguoiThucHienTen || d.nguoiThucHienTenDangNhap || null,
+      nguoiThucHienId: d.nguoiThucHienId ?? null,
+      dong: d,
+    }));
+  const thoiGian = (x) => {
+    const t = new Date(x?.luc ?? 0).getTime();
+    return Number.isNaN(t) ? 0 : t;
+  };
+  // sort ổn định: cùng thời điểm giữ thứ tự máy chủ trả (phân quyền trước)
+  return [...pq, ...tk].sort((a, b) => thoiGian(b) - thoiGian(a));
 }
 
 // ───────────────────────────── Hồ sơ của tôi ─────────────────────────────

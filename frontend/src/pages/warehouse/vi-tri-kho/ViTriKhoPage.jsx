@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Plus, Printer } from "lucide-react";
+import { History, Plus, Printer } from "lucide-react";
 import { toast } from "@/lib/thongBaoNhanh";
 
 import PageContainer from "@/components/backoffice/PageContainer";
@@ -21,6 +21,8 @@ import { THONG_BAO_CHUA_HO_TRO_VI_TRI, viTriKhoService } from "@/services/viTriK
 import { getApiErrorMessage } from "@/utils/apiError";
 import { getKhoLamViecId } from "@/utils/khoLamViec";
 import { ROLES, hasAnyRole } from "@/utils/roles";
+import NganKeoLichSu from "@/components/nhat-ky/NganKeoLichSu";
+import { layLichSuViTri } from "@/services/nhatKyService";
 
 import DanhSachViTri from "./DanhSachViTri";
 import HopChuyenKhu from "./HopChuyenKhu";
@@ -63,6 +65,9 @@ export default function ViTriKhoPage() {
   const tab = TAB_TRANG_THAI_KE.some((t) => t.value === thamSo.get("trangThai")) ? thamSo.get("trangThai") : "tat-ca";
 
   const [khoId, setKhoId] = useState(getKhoLamViecId);
+  // Lịch sử thay đổi đang xem: { loai: khu_vuc_kho | vi_tri_kho | mat_bang_kho, id, ten }; null = đóng ngăn.
+  // Quản trị viên, quản lý kho (cùng quyền sửa; máy chủ chỉ cho xem kho mình)
+  const [lichSu, setLichSu] = useState(null);
   const hoTro = viTriKhoService.hoTro;
 
   const { data, error, loading, initialLoading, capNhatLuc, reload, setData } = useTaiDuLieu(
@@ -317,6 +322,15 @@ export default function ViTriKhoPage() {
           <Printer className="size-4" />
           In tem kệ
         </Button>
+      ) : coTheSua ? (
+        <Button
+          variant="outline"
+          onClick={() => setLichSu({ loai: "mat_bang_kho", id: null, ten: "mặt bằng kho" })}
+          className={cn("gap-1.5", NUT_PHU)}
+        >
+          <History className="size-4" />
+          Lịch sử mặt bằng
+        </Button>
       ) : null}
       {coTheSua ? (
         <>
@@ -404,6 +418,8 @@ export default function ViTriKhoPage() {
           onXoaNhieu={yeuCauXoaNhieu}
           onMoSoDo={(v) => moSoDo(v.khuVucId, v.id)}
           onXemTrenMatBang={({ viTriId: v = null, khuVucId: k = null }) => setTimViTri({ open: true, viTriId: v, khuVucId: k })}
+          onLichSuKhu={coTheSua ? (k) => setLichSu({ loai: "khu_vuc_kho", id: k.id, ten: `khu ${k.tenKhuVuc || k.maKhuVuc}` }) : undefined}
+          onLichSuViTri={coTheSua ? (v) => setLichSu({ loai: "vi_tri_kho", id: v.id, ten: `vị trí ${v.maViTri}` }) : undefined}
         />
       );
     }
@@ -492,6 +508,15 @@ export default function ViTriKhoPage() {
               moSoDo(k, v);
             }}
           />
+          {coTheSua ? (
+            <NganKeoLichSu
+              open={Boolean(lichSu)}
+              onOpenChange={(mo) => !mo && setLichSu(null)}
+              tieuDe={lichSu ? `Lịch sử ${lichSu.ten}` : "Lịch sử thay đổi"}
+              moTa="Tạo, sửa, xóa khu vực / vị trí kệ và các lần lưu mặt bằng. Mới nhất ở trên."
+              tai={() => (lichSu ? layLichSuViTri(khoId, lichSu.loai, lichSu.id) : Promise.resolve([]))}
+            />
+          ) : null}
         </>
       ) : null}
     </PageContainer>

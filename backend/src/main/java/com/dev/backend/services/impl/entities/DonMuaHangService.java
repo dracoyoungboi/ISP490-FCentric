@@ -2,6 +2,8 @@ package com.dev.backend.services.impl.entities;
 
 import com.dev.backend.config.SecurityContextHolder;
 import com.dev.backend.constant.GlobalCache;
+import com.dev.backend.constant.enums.FilterOperation;
+import org.springframework.data.domain.Page;
 import com.dev.backend.constant.enums.OtpType;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.dto.ApplicationRequestObj;
@@ -145,6 +147,99 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
     private EmailNghiepVuService emailNghiepVuService;
     @Autowired
     private ThongTinCuaHangMuaHang thongTinCuaHangMuaHang;
+
+    /**
+     * Phạm vi xem đơn mua: quản trị viên và nhân viên mua hàng xem mọi đơn (mua hàng là việc chung của công ty); quản lý
+     * kho, nhân viên kho chỉ xem đơn có kho nhập thuộc kho mình được phân quyền. Gọi nội bộ (không có người) thì cho qua.
+     */
+    public static boolean trongPhamVi(DonMuaHang don, NguoiDungAuthInfo user) {
+        if (user == null) return true;
+        Set<String> vaiTro = user.getVaiTro() == null ? Set.of() : user.getVaiTro();
+        if (vaiTro.contains(IRoleType.quan_tri_vien) || vaiTro.contains(IRoleType.nhan_vien_mua_hang)) return true;
+        if (vaiTro.contains(IRoleType.quan_ly_kho) || vaiTro.contains(IRoleType.nhan_vien_kho)) {
+            Integer khoNhapId = don.getKhoNhap() == null ? null : don.getKhoNhap().getId();
+            return khoNhapId != null && khoCuaNguoiDung(user).contains(khoNhapId);
+        }
+        return false;
+    }
+
+    /** Điều kiện thêm vào bộ lọc danh sách theo {@link #trongPhamVi}; rỗng = không giới hạn. */
+    static List<FilterCriteria> dieuKienPhamVi(NguoiDungAuthInfo user) {
+        if (user == null) return List.of();
+        Set<String> vaiTro = user.getVaiTro() == null ? Set.of() : user.getVaiTro();
+        if (vaiTro.contains(IRoleType.quan_tri_vien) || vaiTro.contains(IRoleType.nhan_vien_mua_hang)) return List.of();
+        List<Integer> khoIds = (vaiTro.contains(IRoleType.quan_ly_kho) || vaiTro.contains(IRoleType.nhan_vien_kho))
+                ? khoCuaNguoiDung(user) : List.of();
+        if (khoIds.isEmpty()) {
+            // Chưa được gán kho nào (hoặc vai trò khác): không thấy đơn nào
+            return List.of(FilterCriteria.builder().fieldName("id").operation(FilterOperation.EQUALS).value(-1).build());
+        }
+        return List.of(FilterCriteria.builder().fieldName("khoNhap.id").operation(FilterOperation.IN).value(khoIds).build());
+    }
+
+    private static List<Integer> khoCuaNguoiDung(NguoiDungAuthInfo user) {
+        if (user.getPhanQuyenNguoiDungKhos() == null) return List.of();
+        return user.getPhanQuyenNguoiDungKhos().stream()
+                .filter(pq -> pq != null && pq.getKho() != null && pq.getKho().getId() != null)
+                .map(pq -> pq.getKho().getId())
+                .distinct()
+                .toList();
+    }
+
+    /**
+     * Đơn mua đi kèm yêu cầu nhập hàng (API yêu cầu nhập hàng trả cả danh sách đơn mua): quản lý kho, nhân viên kho chỉ
+     * nhận các đơn có kho nhập thuộc kho mình — cùng luật {@link #trongPhamVi}, để API này không thành đường vòng xem
+     * đơn mua của kho khác. Quản trị viên, nhân viên mua hàng giữ nguyên.
+     */
+    public static void locDonMuaTheoPhamVi(com.dev.backend.dto.response.entities.YeuCauMuaHangDto dto,
+                                           NguoiDungAuthInfo user) {
+        if (dto == null || dto.getDonMuaHangs() == null || user == null) return;
+        Set<String> vaiTro = user.getVaiTro() == null ? Set.of() : user.getVaiTro();
+        if (vaiTro.contains(IRoleType.quan_tri_vien) || vaiTro.contains(IRoleType.nhan_vien_mua_hang)) return;
+        if (!vaiTro.contains(IRoleType.quan_ly_kho) && !vaiTro.contains(IRoleType.nhan_vien_kho)) return;
+        List<Integer> khoIds = khoCuaNguoiDung(user);
+        dto.setDonMuaHangs(dto.getDonMuaHangs().stream()
+                .filter(d -> d != null && d.getKhoNhap() != null && khoIds.contains(d.getKhoNhap().getId()))
+                .toList());
+    }
+
+    /** Thao tác ghi trên đơn mua / yêu cầu của một kho nhập: ngoài phạm vi xem thì cũng không được thao tác (403). */
+    static void kiemTraPhamViKhoNhap(Kho khoNhap) {
+        NguoiDungAuthInfo user = SecurityContextHolder.getUser();
+        DonMuaHang tam = new DonMuaHang();
+        tam.setKhoNhap(khoNhap);
+        if (!trongPhamVi(tam, user)) {
+            throw new CommonException(HttpStatus.FORBIDDEN, LOI_NGOAI_PHAM_VI);
+        }
+    }
+
+    static final String LOI_NGOAI_PHAM_VI = "Đơn mua này thuộc kho nhập ngoài phạm vi của bạn.";
+
+    /** Xem chi tiết đơn mua: 404 nếu không có, 403 nếu ngoài phạm vi kho của người xem. */
+    @Transactional(readOnly = true)
+    public DonMuaHang layDuocXem(Integer id) {
+        DonMuaHang don = id == null ? null : donMuaHangRepository.findById(id).orElse(null);
+        if (don == null) {
+            throw new CommonException(HttpStatus.NOT_FOUND, LOI_KHONG_TIM_THAY_DON);
+        }
+        if (!trongPhamVi(don, SecurityContextHolder.getUser())) {
+            // Câu chung, không kèm số đơn: dò id không biết được đơn của kho khác
+            throw new CommonException(HttpStatus.FORBIDDEN, LOI_NGOAI_PHAM_VI);
+        }
+        return don;
+    }
+
+    /** Danh sách đơn mua: thêm điều kiện phạm vi kho theo vai trò (không sửa danh sách bộ lọc của bên gọi). */
+    @Override
+    @Transactional(readOnly = true)
+    public Page<DonMuaHang> filter(BaseFilterRequest request) {
+        List<FilterCriteria> phamVi = dieuKienPhamVi(SecurityContextHolder.getUser());
+        if (phamVi.isEmpty()) return super.filter(request);
+        List<FilterCriteria> boLoc = request.getFilters() == null ? new ArrayList<>() : new ArrayList<>(request.getFilters());
+        boLoc.addAll(phamVi);
+        request.setFilters(boLoc);
+        return super.filter(request);
+    }
 
     /** Đồng hồ cho thời hạn mã, phiên, chặn gửi lại (test thay bằng đồng hồ tua được). */
     private Clock dongHo = Clock.systemUTC();
@@ -807,6 +902,8 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
         List<DonMuaHang> cacDon = khoaCacDonCuaYeuCau(yeuCauId);
         DonMuaHang don = cacDon.stream().filter(d -> id.equals(d.getId())).findFirst().orElseThrow(
                 () -> new CommonException(HttpStatus.NOT_FOUND, LOI_KHONG_TIM_THAY_DON));
+        // Ngoài phạm vi kho nhập (không xem được đơn) thì cũng không thao tác được
+        kiemTraPhamViKhoNhap(don.getKhoNhap());
 
         if (!Objects.equals(don.getTrangThai(), TRANG_THAI_CHO_BAO_GIA)) {
             throw new LoiCoMaException(HttpStatus.CONFLICT, MaLoi.DON_DA_CO_KET_QUA, LOI_DON_DA_CO_KET_QUA);
@@ -889,6 +986,8 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
         if (yeuCauMuaHang == null) {
             throw new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy yêu cầu nhập hàng.");
         }
+        // Đơn mua sinh ra lấy kho nhập của yêu cầu: chỉ người xem được đơn của kho đó mới gửi được
+        kiemTraPhamViKhoNhap(yeuCauMuaHang.getKhoNhap());
         // Kiểm sau khi khóa: hai lần bấm cùng lúc thì lần sau chờ khóa, thấy yêu cầu đã ở 3 và dừng
         if (Objects.equals(yeuCauMuaHang.getTrangThai(), YeuCauMuaHangService.TRANG_THAI_DA_GUI_BAO_GIA)
                 || Objects.equals(yeuCauMuaHang.getTrangThai(), YeuCauMuaHangService.TRANG_THAI_DA_CHON_NCC)) {
@@ -1030,6 +1129,8 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
         List<DonMuaHang> cacDon = khoaCacDonCuaYeuCau(yeuCauId);
         DonMuaHang don = cacDon.stream().filter(d -> id.equals(d.getId())).findFirst().orElseThrow(
                 () -> new CommonException(HttpStatus.NOT_FOUND, LOI_KHONG_TIM_THAY_DON));
+        // Ngoài phạm vi kho nhập (không xem được đơn) thì cũng không thao tác được
+        kiemTraPhamViKhoNhap(don.getKhoNhap());
 
         if (!Objects.equals(don.getTrangThai(), TRANG_THAI_CHO_BAO_GIA)) {
             throw khongGuiLaiDuoc("Đơn này đã có kết quả nên không cần gửi lại email yêu cầu báo giá. Tải lại trang.");

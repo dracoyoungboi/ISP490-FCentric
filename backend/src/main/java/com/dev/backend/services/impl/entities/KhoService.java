@@ -1,5 +1,9 @@
 package com.dev.backend.services.impl.entities;
 
+import com.dev.backend.constant.variables.IHanhDong;
+import com.dev.backend.constant.variables.ITable;
+import com.dev.backend.services.impl.utils.NhatKyNghiepVu;
+
 import com.dev.backend.dto.request.KhoCreating;
 import com.dev.backend.dto.request.KhoUpdating;
 import com.dev.backend.dto.response.KhoTomTatResponse;
@@ -25,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -36,6 +41,10 @@ public class KhoService extends BaseServiceImpl<Kho, Integer> {
     /** Chốt chặn dữ liệu chủ của kiểm kê khoanh vùng; null khi unit test dựng tay. */
     @Autowired(required = false)
     private KhoaKiemKeGuard khoaKiemKeGuard;
+
+    /** Nhật ký nghiệp vụ (tạo / sửa / đổi trạng thái kho); null khi unit test dựng tay. */
+    @Autowired(required = false)
+    private NhatKyNghiepVu nhatKy;
 
     @Override
     protected EntityManager getEntityManager() {
@@ -166,6 +175,9 @@ public class KhoService extends BaseServiceImpl<Kho, Integer> {
         if (khoaKiemKeGuard != null) {
             khoaKiemKeGuard.taoMutex(kho.getId());
         }
+        ghiNhatKy(NhatKyNghiepVu.dong(ITable.kho, kho.getId(), IHanhDong.tao_kho)
+                .ma(kho.getMaKho()).kho(kho.getId())
+                .moi(anhKho(kho)));
         return ResponseEntity.ok(
                 ResponseData.<KhoDto>builder()
                         .status(HttpStatus.OK.value())
@@ -206,12 +218,16 @@ public class KhoService extends BaseServiceImpl<Kho, Integer> {
         // Sửa thông tin không đổi trạng thái (trangThai trong payload bị bỏ qua): form mở từ trước còn giữ trạng thái cũ,
         // lưu form sẽ lặng lẽ đảo lại thao tác Ngừng / Cho phép hoạt động. Trạng thái chỉ đổi qua doiTrangThai.
         kiemTraKhoTong(kho.getId(), updating.getMaKho(), loaiKho, kho.getTrangThai());
+        Map<String, Object> truoc = anhKho(kho);
         kho.setLoaiKho(loaiKho);
         kho.setMaKho(updating.getMaKho());
         kho.setTenKho(updating.getTenKho());
         kho.setDiaChi(updating.getDiaChi());
         kho.setQuanLy(findingQuanLy.get());
         kho = update(updating.getId(), kho);
+        ghiNhatKy(NhatKyNghiepVu.dong(ITable.kho, kho.getId(), IHanhDong.sua_kho)
+                .ma(kho.getMaKho()).kho(kho.getId())
+                .thayDoi(truoc, anhKho(kho)));
 
         return ResponseEntity.ok(
                 ResponseData.<KhoDto>builder()
@@ -236,6 +252,16 @@ public class KhoService extends BaseServiceImpl<Kho, Integer> {
      */
     @Transactional
     public Kho doiTrangThai(Integer id, Integer trangThai) {
+        return doiTrangThai(id, trangThai, IHanhDong.doi_trang_thai_kho);
+    }
+
+    /** "Xóa" kho (DELETE soft-delete): chỉ là ngừng hoạt động, nhật ký ghi xoa_mem_kho để phân biệt với nút Ngừng. */
+    @Transactional
+    public Kho xoaMem(Integer id) {
+        return doiTrangThai(id, 0, IHanhDong.xoa_mem_kho);
+    }
+
+    private Kho doiTrangThai(Integer id, Integer trangThai, String hanhDong) {
         if (trangThai == null || (trangThai != 0 && trangThai != 1)) {
             throw new CommonException("Trạng thái không hợp lệ");
         }
@@ -250,8 +276,29 @@ public class KhoService extends BaseServiceImpl<Kho, Integer> {
             khoaKiemKeGuard.giuKho(kho.getId());
             khoaKiemKeGuard.kiemTraKho(kho.getId(), "ngừng hoạt động kho");
         }
+        Integer trangThaiCu = kho.getTrangThai();
         kho.setTrangThai(trangThai);
-        return update(kho.getId(), kho);
+        Kho daLuu = update(kho.getId(), kho);
+        ghiNhatKy(NhatKyNghiepVu.dong(ITable.kho, daLuu.getId(), hanhDong)
+                .ma(daLuu.getMaKho()).kho(daLuu.getId())
+                .cu(NhatKyNghiepVu.anh("trangThai", trangThaiCu))
+                .moi(NhatKyNghiepVu.anh("trangThai", trangThai)));
+        return daLuu;
+    }
+
+    private void ghiNhatKy(NhatKyNghiepVu.Dong dong) {
+        if (nhatKy != null) nhatKy.ghi(dong);
+    }
+
+    /** Ảnh chụp kho để so cũ / mới: quanLy là họ tên người quản lý. */
+    private static Map<String, Object> anhKho(Kho kho) {
+        return NhatKyNghiepVu.anh(
+                "maKho", kho.getMaKho(),
+                "tenKho", kho.getTenKho(),
+                "loaiKho", kho.getLoaiKho(),
+                "diaChi", kho.getDiaChi(),
+                "quanLy", kho.getQuanLy() == null ? null : kho.getQuanLy().getHoTen(),
+                "trangThai", kho.getTrangThai());
     }
 
     /** Số liệu tóm tắt cho popup Chi tiết kho; xem KhoTomTatRepository về cách tính. */

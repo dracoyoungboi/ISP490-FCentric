@@ -25,12 +25,13 @@ import QuyenTruyCap from "@/components/nguoi-dung/chi-tiet/QuyenTruyCap";
 import LichSuPhanQuyen from "@/components/nguoi-dung/chi-tiet/LichSuPhanQuyen";
 import ThuocTinhNguoiDung from "@/components/nguoi-dung/chi-tiet/ThuocTinhNguoiDung";
 import NganKeoPhanQuyen from "@/components/nguoi-dung/chi-tiet/NganKeoPhanQuyen";
-import { danhGiaQuyen, phanQuyenHienCo, vanDeCanXemLai } from "@/components/nguoi-dung/phanQuyen";
+import { danhGiaQuyen, gopLichSuNguoiDung, phanQuyenHienCo, vanDeCanXemLai } from "@/components/nguoi-dung/phanQuyen";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import { toast } from "@/lib/thongBaoNhanh";
 import { cn } from "@/lib/utils";
 import { adminService } from "@/services/adminService.js";
+import { layLichSuDanhMuc } from "@/services/nhatKyService";
 import { quyenHanService } from "@/services/quyenHan";
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import { HAN_LIEN_KET_MAT_KHAU } from "@/utils/matKhau";
@@ -131,7 +132,33 @@ function ChiTietNguoiDung({ id }) {
         ]);
         return { dsQuyen, cauHinh };
     }, "");
-    const lichSuQ = useTaiDuLieu(() => adminService.layLichSuPhanQuyen(id), id);
+    // Tab Lịch sử thay đổi: phân quyền + tạo / sửa / khóa / mở khóa tài khoản, đổi / đặt lại mật khẩu (không có đăng nhập).
+    // Một phần không đọc được thì vẫn hiện phần còn lại kèm một dòng báo; cả hai lỗi mới là lỗi tải
+    const lichSuQ = useTaiDuLieu(async () => {
+        const [phanQuyen, taiKhoan] = await Promise.allSettled([
+            adminService.layLichSuPhanQuyen(id),
+            layLichSuDanhMuc("nguoi_dung", id),
+        ]);
+        if (phanQuyen.status === "rejected" && taiKhoan.status === "rejected") throw phanQuyen.reason;
+        const loiMotPhan = phanQuyen.status === "rejected"
+            ? "Không tải được phần phân quyền, đang hiện phần tài khoản."
+            : taiKhoan.status === "rejected"
+                ? "Không tải được phần tài khoản (khóa, mật khẩu, sửa thông tin), đang hiện phần phân quyền."
+                : null;
+        return {
+            ds: gopLichSuNguoiDung(phanQuyen.value ?? [], taiKhoan.value ?? []),
+            loiMotPhan,
+        };
+    }, id);
+    // Khóa / mở khóa, gửi liên kết đặt mật khẩu: tải lại lịch sử ngay và thêm một lần sau 1,5 giây (dòng bảo mật được
+    // máy chủ ghi trên luồng nền, có thể chưa có ở lần tải đầu)
+    const henTaiLaiLichSuRef = useRef(null);
+    useEffect(() => () => clearTimeout(henTaiLaiLichSuRef.current), []);
+    const taiLaiLichSuSauThaoTac = () => {
+        lichSuQ.reload();
+        clearTimeout(henTaiLaiLichSuRef.current);
+        henTaiLaiLichSuRef.current = setTimeout(() => lichSuQ.reload(), 1500);
+    };
 
     const [tab, setTab] = useTabTrenUrl(TABS, "quyen", { ten: "tab" });
     const [lanMo, setLanMo] = useState(0);
@@ -205,7 +232,7 @@ function ChiTietNguoiDung({ id }) {
     // Back khi còn thay đổi chưa lưu: ngăn kéo gọi lại để mở lại (giữ bản nháp) rồi hỏi bỏ thay đổi
     const moLaiNganKeo = useCallback(() => datNganKeo(true), [datNganKeo]);
 
-    const lichSu = lichSuQ.data;
+    const lichSu = lichSuQ.data?.ds;
     const idVuaLuu = mocLuu && lichSu?.length && lichSu[0].id !== mocLuu.idCu ? lichSu[0].id : null;
 
     const daLuuPhanQuyen = (moi, { catQuyen } = {}) => {
@@ -235,6 +262,7 @@ function ChiTietNguoiDung({ id }) {
                     : `Đã mở khóa tài khoản ${nguoiDung.tenDangNhap}.`,
             );
             nguoiDungQ.reload();
+            taiLaiLichSuSauThaoTac();
         } catch (err) {
             toast.error(getApiErrorMessage(err, "Không thể cập nhật trạng thái tài khoản"));
         } finally {
@@ -251,6 +279,7 @@ function ChiTietNguoiDung({ id }) {
             // Email đi sau khi lưu, qua hàng đợi (có thể thử lại): "sẽ được gửi", như hộp Thêm người dùng
             toast.success(`Liên kết đặt lại mật khẩu sẽ được gửi tới ${nguoiDung.email}.`);
             nguoiDungQ.reload();
+            taiLaiLichSuSauThaoTac();
         } catch (err) {
             toast.error(getApiErrorMessage(err, "Không gửi được liên kết đặt lại mật khẩu"));
         } finally {
@@ -357,7 +386,7 @@ function ChiTietNguoiDung({ id }) {
                             <div role="tablist" aria-label="Nội dung" className="-mb-px flex gap-6 overflow-x-auto overflow-y-hidden [scrollbar-width:none]">
                                 {[
                                     { ma: "quyen", nhan: "Quyền truy cập" },
-                                    { ma: "lich-su", nhan: "Lịch sử phân quyền", so: lichSu?.length },
+                                    { ma: "lich-su", nhan: "Lịch sử thay đổi", so: lichSu?.length },
                                 ].map((t) => {
                                     const chon = t.ma === tab;
                                     return (
@@ -404,6 +433,7 @@ function ChiTietNguoiDung({ id }) {
                                     // Lần lưu mới: dựng lại để về trang đầu, thấy ngay dòng "Vừa lưu"
                                     key={idVuaLuu ?? "lich-su"}
                                     lichSu={lichSu}
+                                    loiMotPhan={lichSuQ.data?.loiMotPhan}
                                     dangTai={lichSuQ.loading}
                                     loi={lichSuQ.error}
                                     onThuLai={lichSuQ.reload}

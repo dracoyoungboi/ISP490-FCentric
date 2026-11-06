@@ -27,6 +27,8 @@ import com.dev.backend.utils.HienThiBienThe;
 import com.dev.backend.utils.KhoDangChon;
 import com.dev.backend.utils.SoChungTu;
 import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import lombok.extern.slf4j.Slf4j;
@@ -1028,7 +1030,21 @@ public class PhieuChuyenKhoService {
             }
             if (khoXuatId != null) p.add(cb.equal(root.get("khoXuat").get("id"), khoXuatId));
             if (khoNhapId != null) p.add(cb.equal(root.get("khoNhap").get("id"), khoNhapId));
-            if (trangThai != null && !trangThai.isBlank()) p.add(cb.equal(root.get("trangThai"), trangThai));
+            if (trangThai != null && !trangThai.isBlank()) {
+                // "Đã từ chối" và "Đã hủy" cùng lưu DA_HUY, tách nhau bằng nhật ký từ chối (SRS UC 7.2 "Rejected")
+                if (IChuyenKho.LOC_TU_CHOI.equals(trangThai) || IChuyenKho.DA_HUY.equals(trangThai)) {
+                    Subquery<Integer> tuChoi = query.subquery(Integer.class);
+                    Root<LichSuThayDoi> ls = tuChoi.from(LichSuThayDoi.class);
+                    tuChoi.select(ls.get("idThamChieu")).where(
+                            cb.equal(ls.get("loaiThamChieu"), ITable.phieu_chuyen_kho),
+                            cb.equal(ls.get("hanhDong"), IHanhDong.tu_choi_phieu_chuyen),
+                            cb.equal(ls.get("idThamChieu"), root.get("id")));
+                    p.add(cb.equal(root.get("trangThai"), IChuyenKho.DA_HUY));
+                    p.add(IChuyenKho.LOC_TU_CHOI.equals(trangThai) ? cb.exists(tuChoi) : cb.not(cb.exists(tuChoi)));
+                } else {
+                    p.add(cb.equal(root.get("trangThai"), trangThai));
+                }
+            }
             switch (t == null ? "TAT_CA" : t) {
                 case "CHO_DUYET" -> p.add(cb.equal(root.get("trangThai"), IChuyenKho.CHO_DUYET));
                 case "DANG_VAN_CHUYEN" -> p.add(cb.equal(root.get("trangThai"), IChuyenKho.DANG_VAN_CHUYEN));
@@ -1061,6 +1077,9 @@ public class PhieuChuyenKhoService {
         Map<Integer, Integer> tongSl = new HashMap<>();
         Set<Integer> coChenhLech = new HashSet<>();
         Set<Integer> choXacNhan = new HashSet<>();
+        Set<Integer> biTuChoi = lichSuThayDoiService.idDaCoHanhDong(ITable.phieu_chuyen_kho,
+                page.getContent().stream().filter(p -> IChuyenKho.DA_HUY.equals(p.getTrangThai())).map(PhieuChuyenKho::getId).toList(),
+                IHanhDong.tu_choi_phieu_chuyen);
         if (!ids.isEmpty()) {
             for (Object[] row : chiTietPhieuChuyenKhoRepository.tongSoLuongTheoPhieu(ids)) {
                 tongSl.put((Integer) row[0], ((Number) row[1]).intValue());
@@ -1079,6 +1098,7 @@ public class PhieuChuyenKhoService {
                 .khoNhapId(p.getKhoNhap().getId())
                 .khoNhapTen(p.getKhoNhap().getTenKho())
                 .trangThai(p.getTrangThai())
+                .tuChoi(biTuChoi.contains(p.getId()))
                 .coChenhLech(IChuyenKho.HOAN_TAT.equals(p.getTrangThai()) && coChenhLech.contains(p.getId()))
                 .choKhoGuiXacNhan(IChuyenKho.CHO_XU_LY_LECH.equals(p.getTrangThai()) && choXacNhan.contains(p.getId()))
                 .soLenhDieuDong(p.getSoLenhDieuDong())
@@ -1744,8 +1764,12 @@ public class PhieuChuyenKhoService {
         return PhieuChuyenKhoDto.KhoTomTat.builder().id(k.getId()).ten(k.getTenKho()).diaChi(k.getDiaChi()).loaiKho(k.getLoaiKho()).build();
     }
 
+    /** Phiếu chuyển liên quan (phiếu gốc, phiếu giao bù); phiếu Đã hủy do bị từ chối có cờ tuChoi để hiện "Đã từ chối". */
     private PhieuChuyenKhoDto.ChungTu chungTu(PhieuChuyenKho p) {
-        return PhieuChuyenKhoDto.ChungTu.builder().id(p.getId()).so(p.getSoPhieuChuyen()).trangThai(p.getTrangThai()).ngay(p.getNgayTao()).build();
+        boolean tuChoi = IChuyenKho.DA_HUY.equals(p.getTrangThai())
+                && lichSuThayDoiService.daCoHanhDong(ITable.phieu_chuyen_kho, p.getId(), IHanhDong.tu_choi_phieu_chuyen);
+        return PhieuChuyenKhoDto.ChungTu.builder().id(p.getId()).so(p.getSoPhieuChuyen()).trangThai(p.getTrangThai())
+                .ngay(p.getNgayTao()).tuChoi(tuChoi ? Boolean.TRUE : null).build();
     }
 
     private static PhieuChuyenKhoDto.BienBan bienBanDto(BienBanGiaoNhan b, List<ChiTietBienBanGiaoNhan> dong) {

@@ -2,82 +2,138 @@ package com.dev.backend.services.impl.multitable;
 
 import com.dev.backend.dto.response.DoanhThuTongHopDTO;
 import com.dev.backend.dto.response.TienThuDTO;
-import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.util.CellRangeAddress;
-import org.apache.poi.ss.util.CellReference;
-import org.apache.poi.xssf.usermodel.XSSFFormulaEvaluator;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
- * Tệp Excel của Báo cáo doanh thu, trình bày như báo cáo quản trị của kế toán:
- * - Đầu trang: tên đơn vị, địa chỉ, mã số thuế; tên báo cáo; kỳ báo cáo và cùng kỳ năm trước; phạm vi; đơn vị tính.
- * - Số là ô số thật (cộng, lọc, vẽ biểu đồ được), định dạng #,##0, số âm trong ngoặc, 0 hiện "-"; tỷ lệ dạng %.
- *   Dòng chênh lệch, tỷ lệ, biên lãi và dòng cộng là công thức (đã tính sẵn giá trị để xem trước không cần mở Excel).
- * - Bảng: tiêu đề cột in đậm có nền, kẻ khung mảnh; cố định dòng tiêu đề; lọc ở bảng chi tiết.
- * - In: A4, vừa một trang theo chiều ngang, lặp dòng tiêu đề bảng mỗi trang, chân trang "Trang x/y".
- * - Cuối trang tổng hợp: ngày lập, Người lập biểu / Kế toán trưởng / Giám đốc.
- * Phông Times New Roman (quen thuộc với chứng từ, sổ sách kế toán).
+ * Tệp Excel của Báo cáo doanh thu theo khuôn chung (KhuonExcelBaoCao): trang Tổng hợp (kết quả kinh doanh so với cùng
+ * kỳ năm trước, tiền thu trong kỳ, chữ ký), Chi tiết theo kỳ, Theo kênh, Theo nhân viên. Dòng chênh lệch, tỷ lệ, biên lãi
+ * và dòng cộng là công thức.
  */
-public final class BaoCaoDoanhThuExcel {
-
-    /** Thông tin đầu trang và người lập. */
-    public record ThongTin(String tenDonVi, String diaChi, String maSoThue, String phamVi, String tenKy,
-                           String nguoiLap, LocalDateTime lapLuc) {
-    }
-
-    private static final String PHONG = "Times New Roman";
-    private static final DateTimeFormatter NGAY = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-    private static final String DD_TIEN = "#,##0;(#,##0);\"-\"";
-    private static final String DD_TY_LE = "0.0%;(0.0%);\"-\"";
-    private static final String DD_SO = "#,##0;(#,##0);\"-\"";
-
-    private final XSSFWorkbook wb = new XSSFWorkbook();
-    private final Map<String, CellStyle> kieu = new HashMap<>();
+public final class BaoCaoDoanhThuExcel extends KhuonExcelBaoCao {
 
     private BaoCaoDoanhThuExcel() {
-        Font macDinh = wb.getFontAt(0);
-        macDinh.setFontName(PHONG);
-        macDinh.setFontHeightInPoints((short) 11);
     }
 
-    public static byte[] tao(DoanhThuTongHopDTO dt, TienThuDTO tt, ThongTin tin) {
+    /** tenKy: tên kỳ trên dòng "Kỳ báo cáo" (vd. "Năm 2026", "Theo ngày"). */
+    public static byte[] tao(DoanhThuTongHopDTO dt, TienThuDTO tt, ThongTin tin, String tenKy) {
         BaoCaoDoanhThuExcel x = new BaoCaoDoanhThuExcel();
-        try (XSSFWorkbook wb = x.wb) {
-            x.sheetTongHop(dt, tt, tin);
-            x.sheetChiTiet(dt, tt, tin);
-            wb.getProperties().getCoreProperties().setTitle("Báo cáo doanh thu");
-            wb.getProperties().getCoreProperties().setCreator(tin.tenDonVi() == null ? "FCentric" : tin.tenDonVi());
-            // Lưu sẵn kết quả công thức: trình xem trước (điện thoại, thư) không tự tính vẫn thấy số
-            XSSFFormulaEvaluator.evaluateAllFormulaCells(wb);
-            wb.setForceFormulaRecalculation(true);
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            wb.write(out);
-            return out.toByteArray();
-        } catch (IOException e) {
-            throw new UncheckedIOException("Không tạo được tệp Excel", e);
+        x.sheetTongHop(dt, tt, tin, tenKy);
+        x.sheetChiTiet(dt, tin, tenKy, tt);
+        x.sheetTheoKenh(dt, tin, tenKy);
+        x.sheetTheoNhanVien(dt, tin, tenKy);
+        return x.xuat("Báo cáo doanh thu", tin);
+    }
+
+    // ================= Trang 3: Theo kênh =================
+
+    private void sheetTheoKenh(DoanhThuTongHopDTO dt, ThongTin tin, String tenKy) {
+        Sheet s = wb.createSheet("Theo kênh");
+        doRongCot(s, 6, 30, 10, 18, 11, 18, 18, 10, 18, 12, 12);
+        int r = dauTrang(s, tin, "DOANH THU THEO KÊNH BÁN", 10,
+                "Kỳ báo cáo: " + tenKy + " (" + khoang(dt.getTuNgay(), dt.getDenNgay()) + ")",
+                "So với cùng kỳ năm trước: " + khoang(dt.getTuNgayCungKy(), dt.getDenNgayCungKy()));
+        int h = r;
+        tieuDe(s, r++, 30, "STT", "Kênh bán", "Số đơn", "Doanh thu", "Tỷ trọng", "Giá vốn", "Lợi nhuận gộp", "Biên lãi",
+                "Doanh thu cùng kỳ năm trước", "Tăng / giảm", "Đơn bị hoàn");
+        List<DoanhThuTongHopDTO.Kenh> ds = dt.getTheoKenh() == null ? List.of() : dt.getTheoKenh();
+        int dau = r;
+        int cuoi = dau + ds.size() - 1;
+        int rCong = cuoi + 1;
+        int stt = 1;
+        for (DoanhThuTongHopDTO.Kenh kn : ds) {
+            Row row = s.createRow(r);
+            o(row, 0, String.valueOf(stt++), k("stt"));
+            o(row, 1, kn.getTen(), k("chu"));
+            so(row, 2, kn.getSoDon(), k("so"));
+            so(row, 3, kn.getDoanhThu(), k("tien"));
+            f(row, 4, "IF(" + ref(rCong, 3) + "=0,\"\"," + ref(r, 3) + "/" + ref(rCong, 3) + ")", k("tyLe"));
+            so(row, 5, kn.getGiaVon(), k("tien"));
+            f(row, 6, ref(r, 3) + "-" + ref(r, 5), k("tien"));
+            f(row, 7, "IF(" + ref(r, 3) + "=0,\"\"," + ref(r, 6) + "/" + ref(r, 3) + ")", k("tyLe"));
+            so(row, 8, kn.getDoanhThuCungKy(), k("tien"));
+            f(row, 9, "IF(" + ref(r, 8) + "=0,\"\",(" + ref(r, 3) + "-" + ref(r, 8) + ")/" + ref(r, 8) + ")", k("tyLe"));
+            so(row, 10, kn.getSoDonHoan(), k("so"));
+            r++;
         }
+        r = rCong;
+        Row cong = dongCong(s, r, 10, 1, "Cộng");
+        for (int c : new int[]{2, 3, 5, 6, 8, 10}) {
+            f(cong, c, tongCot(dau, cuoi, c, false), k(c == 2 || c == 10 ? "congSo" : "congTien"));
+        }
+        f(cong, 4, "IF(" + ref(r, 3) + "=0,\"\",1)", k("congTyLe"));
+        f(cong, 7, "IF(" + ref(r, 3) + "=0,\"\"," + ref(r, 6) + "/" + ref(r, 3) + ")", k("congTyLe"));
+        f(cong, 9, "IF(" + ref(r, 8) + "=0,\"\",(" + ref(r, 3) + "-" + ref(r, 8) + ")/" + ref(r, 8) + ")", k("congTyLe"));
+        r += 2;
+        o(s, r++, 1, "Ghi chú: Bán tại quầy gồm đơn tạo từ màn bán tại quầy; Đơn bán trực tiếp là đơn bán thường (qua báo giá);"
+                + " các kênh còn lại là đơn đồng bộ từ sàn / web. Đơn bị hoàn chỉ đếm, không cộng vào doanh thu.", k("ghiChu"));
+        o(s, r, 1, lapLuc(tin), k("ghiChu"));
+
+        s.createFreezePane(2, h + 1);
+        inTrang(s, true, h, h);
+    }
+
+    // ================= Trang 4: Theo nhân viên =================
+
+    private void sheetTheoNhanVien(DoanhThuTongHopDTO dt, ThongTin tin, String tenKy) {
+        Sheet s = wb.createSheet("Theo nhân viên");
+        doRongCot(s, 6, 30, 10, 18, 11, 16, 18, 18, 10);
+        int r = dauTrang(s, tin, "DOANH THU THEO NHÂN VIÊN", 8,
+                "Kỳ báo cáo: " + tenKy + " (" + khoang(dt.getTuNgay(), dt.getDenNgay()) + ")",
+                "Nhân viên là người lập đơn: thu ngân với đơn bán tại quầy, người lập báo giá với đơn bán thường");
+        int h = r;
+        tieuDe(s, r++, 30, "STT", "Nhân viên", "Số đơn", "Doanh thu", "Tỷ trọng", "Trung bình một đơn", "Giá vốn",
+                "Lợi nhuận gộp", "Biên lãi");
+        List<DoanhThuTongHopDTO.NhanVien> ds = dt.getTheoNhanVien() == null ? List.of() : dt.getTheoNhanVien();
+        int dau = r;
+        int cuoi = dau + ds.size() - 1;
+        int rCong = cuoi + 1;
+        int stt = 1;
+        for (DoanhThuTongHopDTO.NhanVien nv : ds) {
+            Row row = s.createRow(r);
+            boolean laNguoi = DoanhThuReportService.NV_NHAN_VIEN.equals(nv.getLoai());
+            o(row, 0, laNguoi ? String.valueOf(stt++) : "", k("stt"));
+            o(row, 1, DoanhThuReportService.NV_DON_SAN.equals(nv.getLoai()) ? "Đơn sàn (không gắn nhân viên)" : nv.getTen(), k("chu"));
+            so(row, 2, nv.getSoDon(), k("so"));
+            so(row, 3, nv.getDoanhThu(), k("tien"));
+            f(row, 4, "IF(" + ref(rCong, 3) + "=0,\"\"," + ref(r, 3) + "/" + ref(rCong, 3) + ")", k("tyLe"));
+            f(row, 5, "IF(" + ref(r, 2) + "=0,\"\"," + ref(r, 3) + "/" + ref(r, 2) + ")", k("tien"));
+            so(row, 6, nv.getGiaVon(), k("tien"));
+            f(row, 7, ref(r, 3) + "-" + ref(r, 6), k("tien"));
+            f(row, 8, "IF(" + ref(r, 3) + "=0,\"\"," + ref(r, 7) + "/" + ref(r, 3) + ")", k("tyLe"));
+            r++;
+        }
+        r = rCong;
+        Row cong = dongCong(s, r, 8, 1, "Cộng");
+        for (int c : new int[]{2, 3, 6, 7}) {
+            f(cong, c, tongCot(dau, cuoi, c, false), k(c == 2 ? "congSo" : "congTien"));
+        }
+        f(cong, 4, "IF(" + ref(r, 3) + "=0,\"\",1)", k("congTyLe"));
+        f(cong, 5, "IF(" + ref(r, 2) + "=0,\"\"," + ref(r, 3) + "/" + ref(r, 2) + ")", k("congTien"));
+        f(cong, 8, "IF(" + ref(r, 3) + "=0,\"\"," + ref(r, 7) + "/" + ref(r, 3) + ")", k("congTyLe"));
+        r += 2;
+        o(s, r++, 1, "Ghi chú: Đơn sàn đồng bộ tự động từ sàn / web nên không có người lập, tách thành dòng riêng.", k("ghiChu"));
+        o(s, r, 1, lapLuc(tin), k("ghiChu"));
+
+        s.createFreezePane(2, h + 1);
+        inTrang(s, false, h, h);
     }
 
     // ================= Trang 1: Tổng hợp =================
 
-    private void sheetTongHop(DoanhThuTongHopDTO dt, TienThuDTO tt, ThongTin tin) {
+    private void sheetTongHop(DoanhThuTongHopDTO dt, TienThuDTO tt, ThongTin tin, String tenKy) {
         Sheet s = wb.createSheet("Tổng hợp");
         int[] rong = {6, 46, 19, 19, 19, 15};
         for (int i = 0; i < rong.length; i++) s.setColumnWidth(i, rong[i] * 256);
         s.setDisplayGridlines(false);
         int r = dauTrang(s, tin, "BÁO CÁO DOANH THU", 5,
-                "Kỳ báo cáo: " + tin.tenKy() + " (" + khoang(dt.getTuNgay(), dt.getDenNgay()) + ")",
+                "Kỳ báo cáo: " + tenKy + " (" + khoang(dt.getTuNgay(), dt.getDenNgay()) + ")",
                 "So với cùng kỳ năm trước: " + khoang(dt.getTuNgayCungKy(), dt.getDenNgayCungKy()));
 
         // --- I. Kết quả kinh doanh ---
@@ -167,7 +223,7 @@ public final class BaoCaoDoanhThuExcel {
             }
         }
         r++;
-        chuKy(s, r, tin);
+        chuKy(s, r, tin, 3, 2, 3, 4, 5);
 
         s.createFreezePane(0, dauBang + 1);
         inTrang(s, false, dauBang, dauBang);
@@ -202,7 +258,7 @@ public final class BaoCaoDoanhThuExcel {
 
     // ================= Trang 2: Chi tiết theo kỳ =================
 
-    private void sheetChiTiet(DoanhThuTongHopDTO dt, TienThuDTO tt, ThongTin tin) {
+    private void sheetChiTiet(DoanhThuTongHopDTO dt, ThongTin tin, String tenKy, TienThuDTO tt) {
         Sheet s = wb.createSheet("Chi tiết theo kỳ");
         int[] rong = {6, 16, 12, 12, 17, 17, 17, 10, 9, 17, 11, 17, 17, 15};
         for (int i = 0; i < rong.length; i++) s.setColumnWidth(i, rong[i] * 256);
@@ -212,7 +268,7 @@ public final class BaoCaoDoanhThuExcel {
             default -> "THÁNG";
         };
         int r = dauTrang(s, tin, "CHI TIẾT DOANH THU VÀ TIỀN THU THEO " + don, 13,
-                "Kỳ báo cáo: " + tin.tenKy() + " (" + khoang(dt.getTuNgay(), dt.getDenNgay()) + ")",
+                "Kỳ báo cáo: " + tenKy + " (" + khoang(dt.getTuNgay(), dt.getDenNgay()) + ")",
                 "Doanh thu theo ngày giao hàng; tiền thu theo ngày thu tiền");
 
         // Tiêu đề hai tầng: nhóm cột rồi tên cột
@@ -274,8 +330,7 @@ public final class BaoCaoDoanhThuExcel {
         f(cong, 10, "IF(" + ref(r, 9) + "=0,\"\",(" + ref(r, 4) + "-" + ref(r, 9) + ")/" + ref(r, 9) + ")", k("congTyLe"));
         r += 2;
         o(s, r++, 1, "Ghi chú: Tăng / giảm so doanh thu kỳ này với cùng kỳ năm trước. Kỳ đang chạy so với đúng số ngày đã qua của cùng kỳ năm trước.", k("ghiChu"));
-        o(s, r, 1, "Lập lúc " + tin.lapLuc().format(DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy"))
-                + (tin.nguoiLap() == null ? "" : " — " + tin.nguoiLap()), k("ghiChu"));
+        o(s, r, 1, lapLuc(tin), k("ghiChu"));
 
         s.createFreezePane(2, h1 + 2);
         if (!ds.isEmpty()) s.setAutoFilter(new CellRangeAddress(h1 + 1, cuoi, 0, 13));
@@ -288,210 +343,5 @@ public final class BaoCaoDoanhThuExcel {
             case "nam" -> "Năm " + ky.getTuNgay().getYear();
             default -> "Tháng " + ky.getTuNgay().getMonthValue() + "/" + ky.getTuNgay().getYear();
         };
-    }
-
-    // ================= Dùng chung =================
-
-    /** Đầu trang: đơn vị (trái), tên báo cáo, kỳ, dòng phụ, phạm vi, đơn vị tính (phải). Trả dòng kế tiếp. */
-    private int dauTrang(Sheet s, ThongTin tin, String tieuDe, int cotCuoi, String dongKy, String dongPhu) {
-        int r = 0;
-        o(s, r++, 0, "Đơn vị: " + rong(tin.tenDonVi(), "[Tên đơn vị]"), k("donVi"));
-        // Hồ sơ cửa hàng chưa điền thì bỏ dòng (không để trơ nhãn); giữ đủ 3 dòng để tiêu đề luôn ở cùng chỗ
-        o(s, r++, 0, rong(tin.diaChi(), "").isEmpty() ? "" : "Địa chỉ: " + tin.diaChi().trim(), k("chuNho"));
-        o(s, r++, 0, rong(tin.maSoThue(), "").isEmpty() ? "" : "Mã số thuế: " + tin.maSoThue().trim(), k("chuNho"));
-        r++;
-        Row t = s.createRow(r);
-        t.setHeightInPoints(24);
-        o(t, 0, tieuDe, k("tieuDe"));
-        gop(s, r++, 0, cotCuoi);
-        o(s, r, 0, dongKy, k("giuaNghieng"));
-        gop(s, r++, 0, cotCuoi);
-        o(s, r, 0, dongPhu, k("giuaNghieng"));
-        gop(s, r++, 0, cotCuoi);
-        o(s, r, 0, "Phạm vi: " + tin.phamVi(), k("giua"));
-        gop(s, r++, 0, cotCuoi);
-        o(s, r++, cotCuoi, "Đơn vị tính: đồng", k("dvt"));
-        return r;
-    }
-
-    private void chuKy(Sheet s, int r, ThongTin tin) {
-        LocalDateTime l = tin.lapLuc();
-        o(s, r, 3, "Ngày " + String.format("%02d", l.getDayOfMonth()) + " tháng " + String.format("%02d", l.getMonthValue())
-                + " năm " + l.getYear(), k("giuaNghieng"));
-        gop(s, r++, 3, 5);
-        Row vt = s.createRow(r++);
-        o(vt, 1, "Người lập biểu", k("chuKy"));
-        o(vt, 2, "Kế toán trưởng", k("chuKy"));
-        gop(s, vt.getRowNum(), 2, 3);
-        o(vt, 4, "Giám đốc", k("chuKy"));
-        gop(s, vt.getRowNum(), 4, 5);
-        Row ky = s.createRow(r);
-        o(ky, 1, "(Ký, họ tên)", k("giuaNghieng"));
-        o(ky, 2, "(Ký, họ tên)", k("giuaNghieng"));
-        gop(s, r, 2, 3);
-        o(ky, 4, "(Ký, họ tên, đóng dấu)", k("giuaNghieng"));
-        gop(s, r, 4, 5);
-        r += 5;
-        if (tin.nguoiLap() != null) o(s, r, 1, tin.nguoiLap(), k("chuKy"));
-    }
-
-    /** A4, vừa một trang theo chiều ngang, lặp dòng tiêu đề bảng, chân trang "Trang x/y". */
-    private static void inTrang(Sheet s, boolean ngang, int lapTu, int lapDen) {
-        PrintSetup p = s.getPrintSetup();
-        p.setPaperSize(PrintSetup.A4_PAPERSIZE);
-        p.setLandscape(ngang);
-        p.setFitWidth((short) 1);
-        p.setFitHeight((short) 0);
-        s.setFitToPage(true);
-        s.setAutobreaks(true);
-        s.setHorizontallyCenter(true);
-        s.setMargin(Sheet.LeftMargin, 0.5);
-        s.setMargin(Sheet.RightMargin, 0.5);
-        s.setMargin(Sheet.TopMargin, 0.6);
-        s.setMargin(Sheet.BottomMargin, 0.6);
-        s.setRepeatingRows(new CellRangeAddress(lapTu, lapDen, -1, -1));
-        s.getFooter().setCenter("Trang &P/&N");
-    }
-
-    private static String khoang(LocalDate tu, LocalDate den) {
-        return "từ " + tu.format(NGAY) + " đến " + den.format(NGAY);
-    }
-
-    private static String rong(String s, String macDinh) {
-        return s == null || s.isBlank() ? macDinh : s.trim();
-    }
-
-    private static String ref(int r, int c) {
-        return new CellReference(r, c).formatAsString();
-    }
-
-    private static void gop(Sheet s, int r, int c1, int c2) {
-        s.addMergedRegion(new CellRangeAddress(r, r, c1, c2));
-    }
-
-    private static Cell o(Row row, int c, String v, CellStyle st) {
-        Cell cell = row.getCell(c) == null ? row.createCell(c) : row.getCell(c);
-        cell.setCellValue(v);
-        cell.setCellStyle(st);
-        return cell;
-    }
-
-    private static Cell o(Sheet s, int r, int c, String v, CellStyle st) {
-        Row row = s.getRow(r) == null ? s.createRow(r) : s.getRow(r);
-        return o(row, c, v, st);
-    }
-
-    private static void so(Row row, int c, BigDecimal v, CellStyle st) {
-        Cell cell = row.createCell(c);
-        cell.setCellValue(v == null ? 0 : v.doubleValue());
-        cell.setCellStyle(st);
-    }
-
-    private static void so(Row row, int c, long v, CellStyle st) {
-        Cell cell = row.createCell(c);
-        cell.setCellValue(v);
-        cell.setCellStyle(st);
-    }
-
-    private static void f(Row row, int c, String congThuc, CellStyle st) {
-        Cell cell = row.createCell(c);
-        cell.setCellFormula(congThuc);
-        cell.setCellStyle(st);
-    }
-
-    private void ngay(Row row, int c, LocalDate d) {
-        Cell cell = row.createCell(c);
-        if (d != null) cell.setCellValue(d);
-        cell.setCellStyle(k("ngay"));
-    }
-
-    // ================= Kiểu ô (tạo một lần mỗi kiểu) =================
-
-    private CellStyle k(String ten) {
-        return kieu.computeIfAbsent(ten, this::taoKieu);
-    }
-
-    private CellStyle taoKieu(String ten) {
-        CellStyle st = wb.createCellStyle();
-        DataFormat df = wb.createDataFormat();
-        boolean khung = switch (ten) {
-            case "tieuDeCot", "stt", "chu", "chuDam", "tien", "tienDam", "tyLe", "so", "ngay", "ghiChuO",
-                 "congChu", "congTien", "congSo", "congTyLe" -> true;
-            default -> false;
-        };
-        if (khung) {
-            st.setBorderTop(BorderStyle.THIN);
-            st.setBorderBottom(BorderStyle.THIN);
-            st.setBorderLeft(BorderStyle.THIN);
-            st.setBorderRight(BorderStyle.THIN);
-            st.setVerticalAlignment(VerticalAlignment.CENTER);
-        }
-        switch (ten) {
-            case "donVi" -> st.setFont(font(true, false, 11));
-            case "chuNho" -> st.setFont(font(false, false, 10));
-            case "tieuDe" -> {
-                st.setFont(font(true, false, 15));
-                st.setAlignment(HorizontalAlignment.CENTER);
-                st.setVerticalAlignment(VerticalAlignment.CENTER);
-            }
-            case "giua" -> st.setAlignment(HorizontalAlignment.CENTER);
-            case "giuaNghieng" -> {
-                st.setFont(font(false, true, 11));
-                st.setAlignment(HorizontalAlignment.CENTER);
-            }
-            case "dvt" -> {
-                st.setFont(font(false, true, 10));
-                st.setAlignment(HorizontalAlignment.RIGHT);
-            }
-            case "muc" -> st.setFont(font(true, false, 11));
-            case "chuKy" -> {
-                st.setFont(font(true, false, 11));
-                st.setAlignment(HorizontalAlignment.CENTER);
-            }
-            case "ghiChu" -> st.setFont(font(false, true, 10));
-            case "tieuDeCot" -> {
-                st.setFont(font(true, false, 11));
-                st.setAlignment(HorizontalAlignment.CENTER);
-                st.setWrapText(true);
-                st.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
-                st.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-            }
-            case "stt" -> st.setAlignment(HorizontalAlignment.CENTER);
-            case "chuDam" -> st.setFont(font(true, false, 11));
-            case "tien" -> st.setDataFormat(df.getFormat(DD_TIEN));
-            case "tienDam" -> {
-                st.setDataFormat(df.getFormat(DD_TIEN));
-                st.setFont(font(true, false, 11));
-            }
-            case "tyLe" -> st.setDataFormat(df.getFormat(DD_TY_LE));
-            case "so" -> st.setDataFormat(df.getFormat(DD_SO));
-            case "ngay" -> {
-                st.setDataFormat(df.getFormat("dd/mm/yyyy"));
-                st.setAlignment(HorizontalAlignment.CENTER);
-            }
-            case "ghiChuO" -> {
-                st.setFont(font(false, true, 10));
-                st.setWrapText(true);
-            }
-            case "congChu", "congTien", "congSo", "congTyLe" -> {
-                st.setFont(font(true, false, 11));
-                st.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
-                st.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-                if (ten.equals("congTien")) st.setDataFormat(df.getFormat(DD_TIEN));
-                if (ten.equals("congSo")) st.setDataFormat(df.getFormat(DD_SO));
-                if (ten.equals("congTyLe")) st.setDataFormat(df.getFormat(DD_TY_LE));
-            }
-            default -> { }
-        }
-        return st;
-    }
-
-    private Font font(boolean dam, boolean nghieng, int co) {
-        Font f = wb.createFont();
-        f.setFontName(PHONG);
-        f.setFontHeightInPoints((short) co);
-        f.setBold(dam);
-        f.setItalic(nghieng);
-        return f;
     }
 }

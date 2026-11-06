@@ -4,6 +4,7 @@ import com.dev.backend.config.SecurityContextHolder;
 import com.dev.backend.constant.variables.IHanhDong;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.constant.variables.ITable;
+import com.dev.backend.services.impl.utils.NhatKyNghiepVu;
 import com.dev.backend.customizeanotation.RequireAuth;
 import com.dev.backend.dto.request.ChiTietQuyenKhoCreating;
 import com.dev.backend.dto.request.LuuPhanQuyenRequest;
@@ -120,6 +121,10 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
     /** Báo người bị đổi quyền; null khi chạy unit test dựng tay. */
     @Autowired(required = false)
     private ThongBaoHeThongService thongBaoHeThongService;
+
+    /** Nhật ký kho (lịch sử master data) khi người quản lý bị gỡ khỏi kho; null khi unit test dựng tay. */
+    @Autowired(required = false)
+    private NhatKyNghiepVu nhatKyNghiepVu;
 
     /** Quyền đang được API kiểm chỉ đổi khi triển khai bản mới, nên quét một lần rồi giữ lại. */
     private volatile List<String> quyenDaApDungDaQuet;
@@ -312,8 +317,17 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
     private void boQuanLyKho(Kho kho, NguoiDung nguoiDung) {
         if (kho == null || nguoiDung == null || kho.getQuanLy() == null) return;
         if (Objects.equals(kho.getQuanLy().getId(), nguoiDung.getId())) {
+            String quanLyCu = kho.getQuanLy().getHoTen();
             kho.setQuanLy(null);
             khoRepository.save(kho);
+            // Lịch sử kho: cùng khóa "quanLy" (họ tên) như KhoService khi sửa kho
+            if (nhatKyNghiepVu != null) {
+                nhatKyNghiepVu.ghi(NhatKyNghiepVu.dong(ITable.kho, kho.getId(), IHanhDong.sua_kho)
+                        .ma(kho.getMaKho())
+                        .kho(kho.getId())
+                        .thayDoi(NhatKyNghiepVu.anh("quanLy", quanLyCu), NhatKyNghiepVu.anh("quanLy", null))
+                        .ghiChu("Bỏ người quản lý kho do đổi phân quyền của " + nguoiDung.getHoTen()));
+            }
         }
     }
 

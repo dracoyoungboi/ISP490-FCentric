@@ -61,6 +61,7 @@ class NhaCungCapServiceTest {
         NhaCungCapMapper mapper = Mappers.getMapper(NhaCungCapMapper.class);
         service = new NhaCungCapService(repository, mapper, entityManager,
                 donMuaHangRepository, phieuNhapKhoRepository, loHangRepository, maVachNhaCungCapRepository);
+                org.springframework.test.util.ReflectionTestUtils.setField(service, "nhatKy", org.mockito.Mockito.mock(com.dev.backend.services.impl.utils.NhatKyNghiepVu.class));
     }
 
     private NhaCungCap nhaCungCap(int id, int trangThai) {
@@ -97,7 +98,7 @@ class NhaCungCapServiceTest {
         when(repository.save(any(NhaCungCap.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         NhaCungCapDto dto = service.create(taoMoiHopLe()
-                .nguoiLienHe("   ").diaChi("").nganHang("").soNganHang("")
+                .nguoiLienHe("   ").diaChi("")
                 .build());
 
         NhaCungCap saved = savedEntity();
@@ -121,18 +122,6 @@ class NhaCungCapServiceTest {
 
         assertEquals(HttpStatus.CONFLICT, ex.getHttpStatus());
         assertTrue(ex.getMessage().contains("Mã nhà cung cấp 'SUP003' đã tồn tại"));
-        verify(repository, never()).save(any());
-    }
-
-    @Test
-    void create_coNganHangMaThieuSoTaiKhoan_baoLoi() {
-        when(repository.existsByMaNhaCungCap("SUP003")).thenReturn(false);
-
-        CommonException ex = assertThrows(CommonException.class,
-                () -> service.create(taoMoiHopLe().nganHang("970415").soNganHang(" ").build()));
-
-        assertEquals(HttpStatus.BAD_REQUEST, ex.getHttpStatus());
-        assertTrue(ex.getMessage().contains("số tài khoản"));
         verify(repository, never()).save(any());
     }
 
@@ -261,6 +250,8 @@ class NhaCungCapServiceTest {
         when(phieuNhapKhoRepository.countByNhaCungCap_Id(6)).thenReturn(0L);
         when(loHangRepository.countByNhaCungCap_Id(6)).thenReturn(0L);
         when(maVachNhaCungCapRepository.deleteByNhaCungCapId(6)).thenReturn(2);
+        // Xóa cứng ghi ảnh chụp bản ghi vào nhật ký nên đọc nhà cung cấp trước khi xóa
+        when(repository.findById(6)).thenReturn(java.util.Optional.of(nhaCungCap(6, 1)));
 
         service.delete(6);
 

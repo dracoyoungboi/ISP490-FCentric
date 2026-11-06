@@ -12,6 +12,8 @@ import { Card, LE, MoreLink } from "@/pages/dashboard/admin/tong-quan-moi/ui";
 import { MAU2 } from "@/pages/dashboard/admin/tong-quan-moi/mau";
 import { docNgay, formatNhanTien, formatSo, formatTien, formatTienNgan, tenThu } from "@/pages/dashboard/admin/tong-quan/tongQuanFormat";
 import TrangVaiTro from "@/pages/dashboard/vai-tro/TrangVaiTro";
+import { duongDanMenuCuaVaiTro } from "@/components/backoffice/sidebar.config";
+import { duongDanBaoCaoSanPham } from "@/pages/bao-cao/tinhBaoCaoSanPham";
 import { BoCuc, CAM, ChuGiai, DO, DaySo, FOCUS, NutBang, ThaoTacNhanh, VIEN, XANH } from "@/pages/dashboard/vai-tro/khung";
 import { phimTab } from "@/pages/dashboard/vai-tro/banPhim";
 import { THU_TU } from "@/pages/dashboard/vai-tro/lop";
@@ -68,7 +70,7 @@ export default function DashboardSalesStaff() {
                   ]}
                 />,
                 <TraTon key="tra" className={THU_TU[3]} />,
-                <BanChay key="bc" className={THU_TU[5]} dong={b?.banChay} loading={loading} error={loi("banChay")} onRetry={reload} />,
+                <BanChay key="bc" className={THU_TU[5]} dong={b?.banChay} khoId={data?.kho?.id} loading={loading} error={loi("banChay")} onRetry={reload} />,
               ]}
             />
           </>
@@ -312,10 +314,16 @@ function DonCuaBan({ don, baoGia, tom, thoiDiem, className, loading, loiDon, loi
 }
 
 /* ---------- Bán chạy 7 ngày tại kho này: số đã bán + còn hàng ---------- */
-function BanChay({ dong, className, loading, error, onRetry }) {
+/* "Xem tất cả" chỉ hiện khi vai trò mở được Báo cáo sản phẩm (theo menu): 7 ngày qua (cùng khoảng với thẻ, tính cả hôm nay), kho này. */
+const XEM_BAO_CAO_SAN_PHAM = duongDanMenuCuaVaiTro("nhan_vien_ban_hang").includes("/reports/products");
+
+function BanChay({ dong, khoId, className, loading, error, onRetry }) {
   const list = dong ?? [];
+  const xemTatCa = XEM_BAO_CAO_SAN_PHAM && khoId != null
+    ? <MoreLink to={duongDanBaoCaoSanPham({ nhom: "co-ban", ky: "7", khoId })}>Xem tất cả</MoreLink>
+    : null;
   return (
-    <Card className={className} title="Bán chạy" scope="7 ngày, tại kho này" loading={loading} error={error} onRetry={onRetry}>
+    <Card className={className} title="Bán chạy" scope="7 ngày, tại kho này" right={xemTatCa} loading={loading} error={error} onRetry={onRetry}>
       {list.length === 0 ? (
         <p className={cn(LE, "py-6 text-sm text-bo-muted")}>Chưa bán được sản phẩm nào trong 7 ngày qua.</p>
       ) : (

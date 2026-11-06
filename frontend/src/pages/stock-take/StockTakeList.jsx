@@ -444,12 +444,13 @@ export default function StockTakeList() {
             <table className="w-full min-w-[960px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
               <thead className="sticky top-0 z-10">
                 <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                  <th className={`${TH_CLASS} text-left`}>Đợt kiểm kê</th>
-                  <th className={`${TH_CLASS} text-left`}>Kho · phạm vi</th>
-                  <th className={`${TH_CLASS} w-[150px] text-left cam-ung:max-lg:hidden`}>Tiến độ</th>
-                  <th className={`${TH_CLASS} w-[140px] text-right cam-ung:max-lg:hidden`}>Chênh lệch</th>
-                  <th className={`${TH_CLASS} text-left`}>Trạng thái</th>
-                  {coCotThaoTac ? <th className={`${TH_CLASS} text-center`}>Thao tác</th> : null}
+                  {/* Chia bề rộng theo tỉ lệ (tổng 90%, chừa chỗ cột Thao tác) để phần ngang thừa rải đều, không dồn vào một cột */}
+                  <th className={`${TH_CLASS} w-[30%] text-left`}>Đợt kiểm kê</th>
+                  <th className={`${TH_CLASS} w-[22%] text-left`}>Kho · phạm vi</th>
+                  <th className={`${TH_CLASS} w-[12%] text-left cam-ung:max-lg:hidden`}>Tiến độ</th>
+                  <th className={`${TH_CLASS} w-[13%] pr-8 text-right cam-ung:max-lg:hidden`}>Chênh lệch</th>
+                  <th className={`${TH_CLASS} w-[13%] pl-8 text-left`}>Trạng thái</th>
+                  {coCotThaoTac ? <th className={`${TH_CLASS} w-[168px] text-center`}>Thao tác</th> : null}
                 </tr>
               </thead>
               <tbody className="divide-y divide-bo-border">
@@ -486,10 +487,10 @@ export default function StockTakeList() {
                       <td className="px-4 py-3.5 align-middle cam-ung:max-lg:hidden">
                         <TienDo d={d} />
                       </td>
-                      <td className="px-4 py-3.5 text-right align-middle cam-ung:max-lg:hidden">
+                      <td className="py-3.5 pl-4 pr-8 text-right align-middle cam-ung:max-lg:hidden">
                         <ChenhLech d={d} />
                       </td>
-                      <td className="px-4 py-3.5 align-middle">
+                      <td className="py-3.5 pl-8 pr-4 align-middle">
                         <StatusBadge quyTrinh="kiemKe" label={nhanTrangThaiDot(d.trangThai)} />
                       </td>
                       {coCotThaoTac ? (

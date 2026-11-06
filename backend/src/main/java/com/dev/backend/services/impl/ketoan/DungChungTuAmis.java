@@ -49,8 +49,11 @@ public final class DungChungTuAmis {
     /** Nhóm 1: hàng hóa, dịch vụ dùng riêng cho SXKD chịu thuế GTGT, đủ điều kiện khấu trừ (mặc định của AMIS). */
     static final String NHOM_HHDV_MUA_VAO = "1";
 
-    /** Số điện thoại / email giả do đồng bộ Shopify tạo cho khách thiếu thông tin: không gửi sang kế toán. */
-    static final Set<String> GIA_TRI_GIA = Set.of("0900000000", "shopify@customer.com");
+    /**
+     * Số điện thoại / email giả do đồng bộ sàn (bản cũ) tạo cho khách thiếu thông tin: không gửi sang kế toán.
+     * Backend mới không ghi các giá trị này nữa; migration-2026-11-06-bo-lien-he-gia-khach-san.sql dọn dữ liệu cũ.
+     */
+    static final Set<String> GIA_TRI_GIA = Set.of("0900000000", "shopify@customer.com", "lazada@customer.com");
 
     private static final DateTimeFormatter THANG = DateTimeFormatter.ofPattern("yyyy-MM");
 

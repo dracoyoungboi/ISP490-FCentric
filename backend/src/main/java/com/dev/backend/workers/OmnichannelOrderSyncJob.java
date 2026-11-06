@@ -10,6 +10,10 @@ import com.dev.backend.services.multitable.NhatHangService;
 import com.dev.backend.services.KenhBanHangDongBoService;
 import com.dev.backend.utils.SauCommit;
 import com.dev.backend.constant.variables.ITrangThaiDonBanHang;
+import com.dev.backend.constant.variables.IHanhDong;
+import com.dev.backend.constant.variables.INguonNhatKy;
+import com.dev.backend.constant.variables.ITable;
+import com.dev.backend.services.impl.utils.NhatKyNghiepVu;
 import com.dev.backend.services.impl.entities.DonBanHangService;
 import com.dev.backend.services.impl.entities.KhoService;
 import com.dev.backend.services.impl.entities.ThongBaoHeThongService;
@@ -103,6 +107,10 @@ public class OmnichannelOrderSyncJob {
     @lombok.experimental.NonFinal
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     com.dev.backend.services.shopee.ShopeeMockEngine shopeeMockEngine;
+    /** Nhật ký "Thêm khách hàng" khi đơn sàn tự tạo khách (test dựng tay không có thì bỏ qua). */
+    @lombok.experimental.NonFinal
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    NhatKyNghiepVu nhatKy;
     /** Tiêm kiểu @Lazy vì KenhBanHangDongBoService nhận job này qua constructor, tiêm thẳng thì Spring báo vòng phụ thuộc khi khởi động. */
     @lombok.experimental.NonFinal
     @org.springframework.beans.factory.annotation.Autowired(required = false)
@@ -617,45 +625,63 @@ public class OmnichannelOrderSyncJob {
         return soDonHang + "-" + orderId;
     }
 
-    private KhachHang resolveCustomer(JsonNode customerNode, JsonNode shippingNode) {
-        String phone = customerNode.path("phone").asText("");
+    /**
+     * Khách của đơn Shopify:
+     * 1. Có SĐT / email: tìm khách theo SĐT rồi email; chưa có thì tạo khách mới.
+     * 2. Không có SĐT lẫn email (app chưa được Shopify cho xem hai trường này, đơn nhân viên tạo tay…) nhưng có
+     *    customer.id: một người mua là một khách mã KH-SP-&lt;customer.id&gt;, giữ tên, mua lại vẫn về đúng khách đó.
+     * 3. Không có cả customer.id: khách lẻ mặc định KHLE.
+     * Không ghi SĐT / email giả: trường nào sàn không gửi thì để trống.
+     */
+    KhachHang resolveCustomer(JsonNode customerNode, JsonNode shippingNode) {
+        String phone = customerNode.path("phone").asText("").trim();
         if (phone.isBlank()) {
-            phone = shippingNode.path("phone").asText("");
+            phone = shippingNode.path("phone").asText("").trim();
         }
-        String email = customerNode.path("email").asText("");
-        String name = customerNode.path("first_name").asText("") + " " + customerNode.path("last_name").asText("");
-        if (name.trim().isBlank()) {
-            name = shippingNode.path("name").asText("Khách hàng Shopify");
+        String email = customerNode.path("email").asText("").trim();
+        String shopifyKhachId = customerNode.path("id").asText("").trim();
+        String name = (customerNode.path("first_name").asText("") + " " + customerNode.path("last_name").asText("")).trim();
+        if (name.isBlank()) {
+            name = shippingNode.path("name").asText("").trim();
         }
 
         if (!phone.isBlank()) {
-            Optional<KhachHang> khOpt = khachHangRepository.findFirstBySoDienThoai(phone.trim());
+            Optional<KhachHang> khOpt = khachHangRepository.findFirstBySoDienThoai(phone);
             if (khOpt.isPresent()) return khOpt.get();
         }
         if (!email.isBlank()) {
-            Optional<KhachHang> khOpt = khachHangRepository.findFirstByEmail(email.trim());
+            Optional<KhachHang> khOpt = khachHangRepository.findFirstByEmail(email);
             if (khOpt.isPresent()) return khOpt.get();
         }
 
-        // Tìm khách lẻ mặc định KHLE
-        Optional<KhachHang> khLeOpt = khachHangRepository.findFirstBySoDienThoai("KHLE");
-        if (khLeOpt.isPresent()) return khLeOpt.get();
+        boolean coLienHe = !phone.isBlank() || !email.isBlank();
+        if (!coLienHe && shopifyKhachId.isBlank()) {
+            // Tìm theo MÃ khách — KHLE không có số điện thoại
+            Optional<KhachHang> khLeOpt = khachHangRepository.findByMaKhachHang(KhachHang.MA_KHACH_LE);
+            if (khLeOpt.isPresent()) return khLeOpt.get();
+        }
 
-        final String finalPhone = !phone.isBlank() ? phone.trim() : "0900000000";
-        final String finalEmail = !email.isBlank() ? email.trim() : "shopify@customer.com";
-        final String finalName = name.trim();
-
-        String suffix = !phone.isBlank() ? phone.replaceAll("\\D", "") : String.valueOf(System.currentTimeMillis() % 1000000);
+        String suffix;
+        if (!phone.isBlank()) {
+            suffix = phone.replaceAll("\\D", "");
+        } else if (!shopifyKhachId.isBlank()) {
+            suffix = shopifyKhachId;
+        } else {
+            suffix = String.valueOf(System.currentTimeMillis() % 1000000);
+        }
         String maKh = "KH-SP-" + suffix;
         if (maKh.length() > 30) maKh = maKh.substring(0, 30);
+        // Mã đã có (người mua này từ đơn trước, hoặc cùng dãy số SĐT viết khác kiểu): dùng lại, không tạo trùng mã
+        Optional<KhachHang> khTheoMa = khachHangRepository.findByMaKhachHang(maKh);
+        if (khTheoMa.isPresent()) return khTheoMa.get();
 
-        return khachHangRepository.save(KhachHang.builder()
+        return luuKhachTuSan(KhachHang.builder()
                 .maKhachHang(maKh)
-                .tenKhachHang(finalName.isBlank() ? "Khách hàng Shopify" : finalName)
-                .soDienThoai(finalPhone)
-                .email(finalEmail)
+                .tenKhachHang(name.isBlank() ? "Khách hàng Shopify" : name)
+                .soDienThoai(phone.isBlank() ? null : phone)
+                .email(email.isBlank() ? null : email)
                 .trangThai(1)
-                .build());
+                .build(), INguonNhatKy.shopify);
     }
 
     private String extractShippingAddress(JsonNode shipNode) {
@@ -1348,19 +1374,18 @@ public class OmnichannelOrderSyncJob {
             return khByMaOpt.get();
         }
 
-        // 4. Tạo mới khách hàng riêng biệt, lưu đầy đủ thông tin thực tế từ sàn
-        final String finalPhone = !phone.isBlank() ? phone : "0900000000";
-        final String finalEmail = !email.isBlank() ? email : "lazada@customer.com";
+        // 4. Tạo mới khách hàng riêng biệt, lưu thông tin thực tế từ sàn; trường sàn không gửi thì để trống
+        //    (không ghi SĐT / email giả)
         KhachHang moi = KhachHang.builder()
                 .maKhachHang(maKh)
                 .tenKhachHang(customerName)
-                .soDienThoai(finalPhone)
-                .email(finalEmail)
+                .soDienThoai(phone.isBlank() ? null : phone)
+                .email(email.isBlank() ? null : email)
                 .diaChi(fullAddress)
                 .loaiKhachHang("le")
                 .trangThai(1)
                 .build();
-        return khachHangRepository.save(moi);
+        return luuKhachTuSan(moi, INguonNhatKy.lazada);
     }
 
     private KhachHang resolveTikTokCustomer(TikTokOrderDto order, TikTokRecipientAddressDto addr, String phone) {
@@ -1393,16 +1418,40 @@ public class OmnichannelOrderSyncJob {
             return khByMaOpt.get();
         }
 
-        final String finalPhone = !phone.isBlank() ? phone : "0900000000";
+        // Sàn không gửi SĐT thì để trống (không ghi số giả)
         KhachHang moi = KhachHang.builder()
                 .maKhachHang(maKh)
                 .tenKhachHang(name)
-                .soDienThoai(finalPhone)
+                .soDienThoai(phone.isBlank() ? null : phone)
                 .diaChi(fullAddress)
                 .loaiKhachHang("le")
                 .trangThai(1)
                 .build();
-        return khachHangRepository.save(moi);
+        return luuKhachTuSan(moi, INguonNhatKy.tiktok);
+    }
+
+    /**
+     * Lưu khách do đơn sàn tự tạo và ghi nhật ký "Thêm khách hàng" với nguồn là sàn (không có người thực hiện), cùng
+     * các khóa như KhachHangService để thẻ Lịch sử khách hàng đọc giống nhau.
+     */
+    private KhachHang luuKhachTuSan(KhachHang moi, String nguon) {
+        KhachHang daLuu = khachHangRepository.save(moi);
+        if (nhatKy != null && daLuu != null) {
+            String ten = daLuu.getTenKhachHang() == null ? daLuu.getMaKhachHang() : daLuu.getTenKhachHang();
+            nhatKy.ghi(NhatKyNghiepVu.dong(ITable.khach_hang, daLuu.getId(), IHanhDong.them_khach_hang)
+                    .ma(daLuu.getSoDienThoai() == null ? ten : ten + " · " + daLuu.getSoDienThoai())
+                    .moi(NhatKyNghiepVu.anh(
+                            "maKhachHang", daLuu.getMaKhachHang(),
+                            "tenKhachHang", daLuu.getTenKhachHang(),
+                            "loaiKhachHang", daLuu.getLoaiKhachHang(),
+                            "soDienThoai", daLuu.getSoDienThoai(),
+                            "email", daLuu.getEmail(),
+                            "diaChi", daLuu.getDiaChi(),
+                            "trangThai", daLuu.getTrangThai()))
+                    .nguon(nguon)
+                    .ghiChu("Tự tạo từ đơn sàn"));
+        }
+        return daLuu;
     }
 
     private Instant parseLazadaDate(String dateStr) {

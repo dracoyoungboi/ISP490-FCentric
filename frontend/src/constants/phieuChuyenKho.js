@@ -25,11 +25,22 @@ export const PHIEU_CHUYEN_KHO_STATUS = {
     HOAN_TAT: { label: "Hoàn tất" },
     HOAN_TAT_CHENH_LECH: { label: "Hoàn tất (có chênh lệch)" },
     DA_HUY: { label: "Đã hủy" },
+    DA_TU_CHOI: { label: "Đã từ chối" },
 };
 
-/** Thẻ trạng thái: phiếu hoàn tất bằng ghi giảm / giao bù chênh lệch (`coChenhLech`) có nhãn riêng. */
-export function getPhieuChuyenKhoStatus(trangThai, coChenhLech = false) {
+/**
+ * Giá trị lọc "Đã từ chối" gửi máy chủ (`trangThai=TU_CHOI`). Không phải trạng thái lưu: phiếu bị Quản lý Kho tổng từ
+ * chối lưu DA_HUY, máy chủ phân biệt qua nhật ký và trả cờ `tuChoi` (SRS UC 7.2 "Rejected").
+ */
+export const LOC_TU_CHOI = "TU_CHOI";
+
+/**
+ * Thẻ trạng thái: phiếu hoàn tất bằng ghi giảm / giao bù chênh lệch (`coChenhLech`) và phiếu Đã hủy do bị từ chối
+ * (`tuChoi`) có nhãn riêng.
+ */
+export function getPhieuChuyenKhoStatus(trangThai, coChenhLech = false, tuChoi = false) {
     if (trangThai === TT_CHUYEN.HOAN_TAT && coChenhLech) return PHIEU_CHUYEN_KHO_STATUS.HOAN_TAT_CHENH_LECH;
+    if (trangThai === TT_CHUYEN.DA_HUY && tuChoi) return PHIEU_CHUYEN_KHO_STATUS.DA_TU_CHOI;
     return PHIEU_CHUYEN_KHO_STATUS[trangThai] ?? trangThaiLa(trangThai);
 }
 

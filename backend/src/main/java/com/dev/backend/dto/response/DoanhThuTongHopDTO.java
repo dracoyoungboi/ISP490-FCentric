@@ -30,6 +30,50 @@ public class DoanhThuTongHopDTO {
     boolean theoKhoPhuTrach;
     /** Từng kỳ theo thứ tự thời gian: theo ngày mọi ngày trong khoảng, theo tháng đủ 12 tháng, theo năm mọi năm. */
     List<Ky> theoKy;
+    /**
+     * Người xem được giá vốn, lợi nhuận gộp (quản trị viên, quản lý kho). Nhân viên bán hàng: false, mọi trường giá vốn /
+     * lợi nhuận của báo cáo là null.
+     */
+    boolean coGiaVon;
+    /** Cả kỳ theo kênh bán (doanh thu giảm dần), kèm doanh thu cùng kỳ năm trước. */
+    List<Kenh> theoKenh;
+    /** Cả kỳ theo người lập đơn (doanh thu giảm dần); đơn sàn và đơn không rõ người lập là dòng riêng ở cuối. */
+    List<NhanVien> theoNhanVien;
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class Kenh {
+        /** POS (bán tại quầy), TRUC_TIEP (đơn bán thường) hoặc K + id kênh bán. */
+        String ma;
+        String ten;
+        BigDecimal doanhThu;
+        BigDecimal giaVon;
+        BigDecimal loiNhuan;
+        long soDon;
+        /** Đơn bị hoàn trả trong kỳ (theo ngày giao, chưa có thì ngày xuất kho cuối; như Báo cáo sản phẩm). */
+        long soDonHoan;
+        BigDecimal doanhThuCungKy;
+        long soDonCungKy;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class NhanVien {
+        /** NHAN_VIEN, DON_SAN (đơn đồng bộ từ sàn, không có người lập), KHONG_RO (đơn cũ không ghi người lập). */
+        String loai;
+        Integer nguoiDungId;
+        String ten;
+        BigDecimal doanhThu;
+        BigDecimal giaVon;
+        BigDecimal loiNhuan;
+        long soDon;
+        /** Dòng của chính người đang xem. */
+        boolean laToi;
+    }
 
     @Data
     @Builder

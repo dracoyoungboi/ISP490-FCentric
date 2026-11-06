@@ -117,7 +117,7 @@ class DonBanHangPhamViTest {
         biChan(() -> service.getDetail(DON_ID));
         biChan(() -> service.getKhoKhaDungChoDonHang(DON_ID));
         biChan(() -> service.sendToWarehouse(DON_ID, KHO_A));
-        biChan(() -> service.cancel(DON_ID));
+        biChan(() -> service.cancel(DON_ID, "Lý do thử"));
         biChan(() -> service.markAsDelivered(DON_ID));
         biChan(() -> service.returnOrder(DON_ID));
         assertEquals(3, d.getTrangThai());

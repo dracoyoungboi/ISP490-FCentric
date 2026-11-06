@@ -210,17 +210,26 @@ export function buildVariantFromDraft(schema, draft, targetPaper) {
     const sourceDef = schema.templates.find((template) => template.id === draft.id);
     const customName = draft.name?.trim() && draft.name !== sourceDef?.name;
     const crossesThermal = isThermalPaper(draft.paperSize) !== isThermalPaper(targetPaper);
+    // Chỉ mang sang phần người dùng ĐÃ ĐỔI so với mặc định của khổ cũ — mặc định riêng của khổ cũ
+    // (vd. tem A6 tắt MST, ô ký) không đè lên mặc định của khổ mới
+    const sourceDefault = sourceDef ? buildDefaultTemplateConfig(schema, sourceDef) : null;
+    const changed = (value, base) => {
+        if (!isPlainObject(value) || !isPlainObject(base)) return value;
+        return Object.fromEntries(
+            Object.entries(value).filter(([key, item]) => stableStringify(item) !== stableStringify(base[key]))
+        );
+    };
     const carried = {
         name: customName ? draft.name : targetDef.name,
         accentColor: draft.accentColor,
-        branding: draft.branding,
+        branding: changed(draft.branding, sourceDefault?.branding),
     };
     if (!crossesThermal) {
         Object.assign(carried, {
             orientation: isThermalPaper(targetPaper) ? "portrait" : draft.orientation,
             margin: draft.margin,
-            sections: draft.sections,
-            columns: draft.columns,
+            sections: changed(draft.sections, sourceDefault?.sections),
+            columns: changed(draft.columns, sourceDefault?.columns),
         });
     } else if (isPlainObject(draft.sections?.[CUSTOM_SECTION_KEY])) {
         carried.sections = { [CUSTOM_SECTION_KEY]: draft.sections[CUSTOM_SECTION_KEY] };
@@ -244,7 +253,8 @@ export function getRenameableLabels(schema, compact) {
         if (compact && section.compactHidden) continue;
         if (section.type === "info") {
             for (const field of section.fields) {
-                if (field.labelModelPath) continue;
+                // Nhãn động theo dữ liệu, hoặc mã vạch (không in nhãn)
+                if (field.labelModelPath || field.kind === "barcode") continue;
                 if ((field.compactOnly && !compact) || (field.compactHidden && compact)) continue;
                 labels.set(labelKey(section.key, field.key), field.label);
             }

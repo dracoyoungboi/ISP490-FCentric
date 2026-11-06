@@ -21,7 +21,7 @@ import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 
-/** Phần đọc của kiểm kê khoanh vùng: danh sách, chi tiết, dòng, nhật ký, sơ đồ khóa, hàng chưa có kệ. */
+/** Phần đọc của kiểm kê khoanh vùng: danh sách, chi tiết, dòng, nhật ký, sơ đồ khóa (hàng chưa có kệ ở HangChuaCoKeService). */
 @Service
 @Transactional(readOnly = true)
 public class KiemKeDocService {
@@ -46,7 +46,6 @@ public class KiemKeDocService {
     private final KiemKeQuyen quyen;
     private final KiemKeSanSang sanSang;
     private final KhoaKiemKeGuard guard;
-    private final SoTonKeService soTonKe;
     private final ObjectMapper objectMapper;
 
     public KiemKeDocService(DotKiemKeRepository dotRepo, ChiTietKiemKeRepository dongRepo,
@@ -55,8 +54,7 @@ public class KiemKeDocService {
                             LichSuKiemKeRepository nhatKyRepo, AnhKiemKeRepository anhRepo, KhuVucKhoRepository khuVucRepo,
                             ViTriKhoRepository viTriRepo, DanhMucQuanAoRepository danhMucRepo, KhoRepository khoRepo,
                             PhanQuyenNguoiDungKhoRepository phanQuyenRepo, ChiTietPhieuDieuChinhRepository dongPhieuRepo,
-                            KiemKeQuyen quyen, KiemKeSanSang sanSang, KhoaKiemKeGuard guard, SoTonKeService soTonKe,
-                            ObjectMapper objectMapper) {
+                            KiemKeQuyen quyen, KiemKeSanSang sanSang, KhoaKiemKeGuard guard, ObjectMapper objectMapper) {
         this.dotRepo = dotRepo;
         this.dongRepo = dongRepo;
         this.dotViTriRepo = dotViTriRepo;
@@ -74,7 +72,6 @@ public class KiemKeDocService {
         this.quyen = quyen;
         this.sanSang = sanSang;
         this.guard = guard;
-        this.soTonKe = soTonKe;
         this.objectMapper = objectMapper;
     }
 
@@ -506,19 +503,5 @@ public class KiemKeDocService {
                 .map(e -> new KiemKeDto.DanhMucTrenKe(e.getKey(), e.getValue().size(), slTheoDm.getOrDefault(e.getKey(), 0L)))
                 .sorted(Comparator.comparing(KiemKeDto.DanhMucTrenKe::danhMucId))
                 .toList();
-    }
-
-    public List<KiemKeDto.HangChuaCoKe> hangChuaCoKe(Integer khoId) {
-        Kho kho = khoRepo.findById(khoId).orElseThrow(() -> KiemKePhamViService.phamViSai("Không tìm thấy kho"));
-        KhoDangChon.kiemTraXem(kho, "Kho " + kho.getTenKho());
-        List<SoTonKeService.HangChuaCoKe> ds = soTonKe.hangChuaCoKe(khoId);
-        if (ds.isEmpty()) return List.of();
-        Map<Integer, BienTheSanPham> bt = em.createQuery("SELECT b FROM BienTheSanPham b LEFT JOIN FETCH b.sanPham WHERE b.id IN :ids",
-                        BienTheSanPham.class)
-                .setParameter("ids", ds.stream().map(SoTonKeService.HangChuaCoKe::bienTheId).distinct().toList())
-                .getResultList().stream().collect(Collectors.toMap(BienTheSanPham::getId, b -> b));
-        return ds.stream().map(h -> new KiemKeDto.HangChuaCoKe(h.loHangId(), h.maLo(), sanPham(bt.get(h.bienTheId())),
-                h.tonLo(), h.trenKe(), h.chuaCoKe(), h.keGoiYId() == null ? null
-                : new KiemKeDto.ViTri(h.keGoiYId(), h.keGoiY(), null))).toList();
     }
 }

@@ -28,6 +28,8 @@ import {
     WarehouseDialog
 } from '.';
 import ChiTietKhoDialog from './ChiTietKhoDialog';
+import NganKeoLichSu from '@/components/nhat-ky/NganKeoLichSu';
+import { layLichSuDanhMuc } from '@/services/nhatKyService';
 import HopTrangThaiKho from './HopTrangThaiKho';
 import { laKhoAo, nhanLoaiKho } from './loaiKho';
 
@@ -90,6 +92,7 @@ export default function WarehouseManagement() {
     // Popup Chi tiết kho (PA2) và hộp Ngừng / Cho phép hoạt động (thay cho nút "Xóa kho" cũ)
     const [chiTiet, setChiTiet] = useState({ open: false, kho: null });
     const [doiTrangThai, setDoiTrangThai] = useState({ open: false, kho: null });
+    const [lichSuKho, setLichSuKho] = useState({ open: false, kho: null });
     // Thêm / sửa / đổi trạng thái kho là quyền của quản trị viên (API create, update, trang-thai)
     const laQuanTriVien = hasAnyRole([ROLES.QUAN_TRI_VIEN]);
 
@@ -564,7 +567,22 @@ export default function WarehouseManagement() {
                     handleOpenDialog('edit', wh);
                 }}
                 onDoiTrangThai={(wh) => setDoiTrangThai({ open: true, kho: wh })}
+                onLichSu={laQuanTriVien ? (wh) => {
+                    setChiTiet(prev => ({ ...prev, open: false }));
+                    setLichSuKho({ open: true, kho: wh });
+                } : undefined}
             />
+
+            {/* Lịch sử thay đổi kho: chỉ quản trị viên (máy chủ cũng chỉ cho quản trị viên) */}
+            {laQuanTriVien ? (
+                <NganKeoLichSu
+                    open={lichSuKho.open}
+                    onOpenChange={(open) => setLichSuKho(prev => ({ ...prev, open }))}
+                    tieuDe={`Lịch sử ${lichSuKho.kho?.tenKho || "kho"}`}
+                    moTa="Tạo, sửa, đổi trạng thái kho: ai làm, lúc nào, đổi gì."
+                    tai={() => layLichSuDanhMuc("kho", lichSuKho.kho?.id)}
+                />
+            ) : null}
 
             <HopTrangThaiKho
                 kho={doiTrangThai.kho}

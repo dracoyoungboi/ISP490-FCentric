@@ -1,21 +1,21 @@
 package com.dev.backend.controller;
 
+import com.dev.backend.constant.variables.IPermissionType;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.customizeanotation.RequireAuth;
 import com.dev.backend.dto.response.AdminDashboardResponse;
+import com.dev.backend.dto.response.BaoCaoSanPhamDTO;
 import com.dev.backend.dto.response.DoanhThuChartDTO;
 import com.dev.backend.dto.response.DoanhThuTongHopDTO;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.TienThuDTO;
 import com.dev.backend.dto.response.TongQuanAdminResponse;
+import com.dev.backend.services.impl.multitable.BaoCaoSanPhamService;
 import com.dev.backend.services.impl.multitable.DoanhThuReportService;
 import com.dev.backend.services.multitable.AdminDashboardService;
 import com.dev.backend.services.multitable.TongQuanAdminService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ContentDisposition;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -33,6 +33,9 @@ public class AdminDashboardController {
 
     @Autowired
     private TongQuanAdminService tongQuanAdminService;
+
+    @Autowired
+    private BaoCaoSanPhamService baoCaoSanPhamService;
 
     public AdminDashboardController(AdminDashboardService adminDashboardService) {
         this.adminDashboardService = adminDashboardService;
@@ -146,10 +149,11 @@ public class AdminDashboardController {
 
     /**
      * Doanh thu kèm cùng kỳ năm trước (màn Báo cáo doanh thu). loai: ngay (tuNgay, denNgay) | thang (nam) | nam (tuNam,
-     * denNam). Kỳ này cắt tới hôm nay; quản lý kho chỉ xem các cửa hàng mình phụ trách.
+     * denNam). Kỳ này cắt tới hôm nay; kèm theo kênh và theo nhân viên của cả kỳ. Quản lý kho, nhân viên bán hàng chỉ xem
+     * các cửa hàng mình được phân công; nhân viên bán hàng không nhận số giá vốn, lợi nhuận gộp.
      */
     @GetMapping("/bao-cao/doanh-thu/tong-hop")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_ban_hang})
     public ResponseEntity<ResponseData<DoanhThuTongHopDTO>> getDoanhThuTongHop(
             @RequestParam String loai,
             @RequestParam(required = false) String tuNgay,
@@ -166,9 +170,10 @@ public class AdminDashboardController {
                 .status(HttpStatus.OK.value()).message("Success").data(data).build());
     }
 
-    /** Tệp Excel (.xlsx) của Báo cáo doanh thu, cùng tham số với /bao-cao/doanh-thu/tong-hop. */
+    /** Tệp Excel (.xlsx) của Báo cáo doanh thu, cùng tham số với /bao-cao/doanh-thu/tong-hop. Cần quyền Xuất báo cáo. */
     @GetMapping("/bao-cao/doanh-thu/xuat-excel")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho},
+            permissions = {IPermissionType.xuat_bao_cao}, inWarehouse = true)
     public ResponseEntity<byte[]> xuatExcelDoanhThu(
             @RequestParam String loai,
             @RequestParam(required = false) String tuNgay,
@@ -178,21 +183,49 @@ public class AdminDashboardController {
             @RequestParam(required = false) Integer denNam,
             @RequestParam(required = false) Integer khoId
     ) {
-        DoanhThuReportService.TepExcel tep = doanhThuReportService.xuatExcel(loai,
+        return doanhThuReportService.xuatExcel(loai,
                 tuNgay == null ? null : LocalDate.parse(tuNgay), denNgay == null ? null : LocalDate.parse(denNgay),
-                nam, tuNam, denNam, khoId);
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(tep.tenTep()).build().toString())
-                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
-                .body(tep.noiDung());
+                nam, tuNam, denNam, khoId).phanHoi();
+    }
+
+    /**
+     * Báo cáo sản phẩm (màn /reports/products): số bán, doanh thu hàng, giá vốn, hoàn theo sản phẩm và mã SKU trong
+     * [tuNgay, denNgay] (tối đa 1 năm, cắt tới hôm nay) so với kỳ liền trước, kèm khả dụng và đang về hiện tại.
+     * kenh: trống = mọi kênh, POS, TRUC_TIEP hoặc id kênh bán. Quản lý kho, nhân viên bán hàng chỉ xem các cửa hàng mình
+     * được phân công; nhân viên bán hàng không nhận số giá vốn, lợi nhuận gộp, giá trị tồn.
+     */
+    @GetMapping("/bao-cao/san-pham")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_ban_hang})
+    public ResponseEntity<ResponseData<BaoCaoSanPhamDTO>> getBaoCaoSanPham(
+            @RequestParam String tuNgay,
+            @RequestParam String denNgay,
+            @RequestParam(required = false) Integer khoId,
+            @RequestParam(required = false) String kenh
+    ) {
+        BaoCaoSanPhamDTO data = baoCaoSanPhamService.layBaoCao(LocalDate.parse(tuNgay), LocalDate.parse(denNgay), khoId, kenh);
+        return ResponseEntity.ok(ResponseData.<BaoCaoSanPhamDTO>builder()
+                .status(HttpStatus.OK.value()).message("Success").data(data).build());
+    }
+
+    /** Tệp Excel (.xlsx) của Báo cáo sản phẩm, cùng tham số với /bao-cao/san-pham. Cần quyền Xuất báo cáo. */
+    @GetMapping("/bao-cao/san-pham/xuat-excel")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho},
+            permissions = {IPermissionType.xuat_bao_cao}, inWarehouse = true)
+    public ResponseEntity<byte[]> xuatExcelSanPham(
+            @RequestParam String tuNgay,
+            @RequestParam String denNgay,
+            @RequestParam(required = false) Integer khoId,
+            @RequestParam(required = false) String kenh
+    ) {
+        return baoCaoSanPhamService.xuatExcel(LocalDate.parse(tuNgay), LocalDate.parse(denNgay), khoId, kenh).phanHoi();
     }
 
     /**
      * Tiền thu trong kỳ của Báo cáo doanh thu (theo ngày thu tiền): tiền mặt, chuyển khoản, hoàn, sàn thu hộ, còn phải
-     * thu. Cùng tham số với /bao-cao/doanh-thu; quản lý kho chỉ xem các cửa hàng mình phụ trách.
+     * thu. Cùng tham số với /bao-cao/doanh-thu; quản lý kho, nhân viên bán hàng chỉ xem các cửa hàng mình được phân công.
      */
     @GetMapping("/bao-cao/tien-thu")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_ban_hang})
     public ResponseEntity<ResponseData<TienThuDTO>> getTienThu(
             @RequestParam String loai,
             @RequestParam(required = false) String tuNgay,

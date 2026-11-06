@@ -1137,10 +1137,7 @@ export default function PosSalesPage({
       setPaymentError(OFFLINE_PAYMENT_MESSAGE);
       return;
     }
-    if (!invoice.customer) {
-      setPaymentError('Vui lòng chọn khách hàng trước khi thanh toán.');
-      return;
-    }
+    // Chưa chọn khách: gửi khachHangId null, máy chủ gán Khách lẻ mặc định
     const paid = Number(invoice.paymentAmount || 0);
     if (!invoice.cart.length || !Number.isFinite(paid) || paid < total || paid < 0) {
       setPaymentError('Số tiền khách thanh toán chưa đủ.');
@@ -1374,10 +1371,7 @@ export default function PosSalesPage({
       setPaymentError(OFFLINE_PAYMENT_MESSAGE);
       return;
     }
-    if (!invoice.customer) {
-      setPaymentError('Vui lòng chọn khách hàng trước khi thanh toán.');
-      return;
-    }
+    // Chưa chọn khách: máy chủ gán Khách lẻ mặc định (như lúc thanh toán)
     if (!invoice.cart.length) return;
     if (!isFrozenInvoice(invoice) && invoice.cart.some(isOverStock)) {
       setPaymentError(OVER_STOCK_MESSAGE);

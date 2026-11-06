@@ -6,6 +6,7 @@ import com.dev.backend.constant.enums.FilterOperation;
 import com.dev.backend.constant.variables.IPermissionType;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.customizeanotation.RequireAuth;
+import com.dev.backend.dto.request.LyDoHuyRequest;
 import com.dev.backend.dto.request.BaseFilterRequest;
 import com.dev.backend.dto.request.FilterCriteria;
 import com.dev.backend.dto.request.PhieuXuatKhoCreating;
@@ -147,8 +148,9 @@ public class PhieuXuatKhoController {
             inWarehouse = true,
             rolesLogic = RequireAuth.LogicType.OR
     )
-    public ResponseEntity<ResponseData<String>> cancel(@PathVariable Integer id) {
-        phieuXuatKhoService.cancel(id);
+    public ResponseEntity<ResponseData<String>> cancel(@PathVariable Integer id,
+                                                       @RequestBody(required = false) LyDoHuyRequest body) {
+        phieuXuatKhoService.cancel(id, LyDoHuyRequest.batBuoc(body));
         return ResponseEntity.ok(
                 ResponseData.<String>builder()
                         .status(HttpStatus.OK.value())

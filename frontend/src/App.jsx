@@ -73,6 +73,7 @@ const BaoCaoDoanhThu = taiTrang(() => import("./pages/bao-cao/BaoCaoDoanhThu"));
 const XuatDuLieuKeToan = taiTrang(() => import("./pages/bao-cao/XuatDuLieuKeToan"));
 const KhachHangReport = taiTrang(() => import("./pages/bao-cao/KhachHangReport"));
 const NhatKyNhapXuat = taiTrang(() => import("./pages/bao-cao/NhatKyNhapXuat"));
+const BaoCaoSanPham = taiTrang(() => import("./pages/bao-cao/BaoCaoSanPham"));
 const PhieuNhapKhoPrint = taiTrang(() => import("./pages/receipt/PhieuNhapKhoPrint"));
 const PhieuXuatKhoPrint = taiTrang(() => import("./pages/issue/PhieuXuatKhoPrint"));
 const EcommercePackingSlipPrint = taiTrang(() => import("./pages/issue/EcommercePackingSlipPrint"));
@@ -130,6 +131,13 @@ function MauInRedirect() {
 function ChuyenSangSanPham() {
   const { maKenh } = useParams();
   return <Navigate to={`/channels/${maKenh}/products`} replace />;
+}
+
+/** Hàng chưa có kệ chuyển từ /stock-take/unshelved sang mục Kho hàng /warehouse/unshelved: giữ ?khoId=&tuDot=. */
+function HangChuaCoKeRedirect() {
+  const [params] = useSearchParams();
+  const tham = params.toString();
+  return <Navigate to={`/warehouse/unshelved${tham ? `?${tham}` : ""}`} replace />;
 }
 
 /** Sửa khách hàng nay là popup trên trang chi tiết: đường dẫn cũ /customers/:id/edit mở trang chi tiết kèm popup. */
@@ -304,7 +312,9 @@ const CAY_DUONG_DAN = (
       <Route element={<RequireRole roles={["quan_tri_vien", "quan_ly_kho", "nhan_vien_kho"]} />}>
         <Route path="/stock-take" element={<StockTakeList />} />
         <Route path="/stock-take/lock-map" element={<StockTakeLockMap />} />
-        <Route path="/stock-take/unshelved" element={<StockTakeUnshelved />} />
+        {/* Hàng chưa có kệ: mục ở Kho hàng, cùng vai trò với API xếp kệ; URL cũ trong kiểm kê chuyển hướng */}
+        <Route path="/warehouse/unshelved" element={<StockTakeUnshelved />} />
+        <Route path="/stock-take/unshelved" element={<HangChuaCoKeRedirect />} />
         <Route path="/stock-take/:id" element={<StockTakeDetail />} />
       </Route>
       <Route element={<RequireRole roles={["quan_tri_vien", "quan_ly_kho"]} />}>
@@ -312,10 +322,14 @@ const CAY_DUONG_DAN = (
         <Route path="/stock-take/:id/edit" element={<StockTakeCreate />} />
       </Route>
 
-      {/* Báo cáo. Doanh thu, khách hàng, nhập xuất: API chỉ cho quản trị viên và
+      {/* Báo cáo doanh thu, sản phẩm: quản trị viên, quản lý kho và nhân viên bán hàng (FO-090; nhân viên bán hàng chỉ
+          cửa hàng mình làm, máy chủ không gửi giá vốn / lợi nhuận). Khách hàng, nhập xuất: API chỉ cho quản trị viên và
           quản lý kho (@RequireAuth ở backend), menu cũng chỉ hiện cho hai vai trò này. */}
-      <Route element={<RequireRole roles={["quan_tri_vien", "quan_ly_kho"]} />}>
+      <Route element={<RequireRole roles={["quan_tri_vien", "quan_ly_kho", "nhan_vien_ban_hang"]} />}>
         <Route path="/reports/revenue" element={<BaoCaoDoanhThu />} />
+        <Route path="/reports/products" element={<BaoCaoSanPham />} />
+      </Route>
+      <Route element={<RequireRole roles={["quan_tri_vien", "quan_ly_kho"]} />}>
         <Route path="/reports/customers" element={<KhachHangReport />} />
         <Route path="/reports/stock-movements" element={<NhatKyNhapXuat />} />
       </Route>

@@ -37,7 +37,7 @@ export function ChuGia({ hienThi, coTitle = true }) {
  * nên không bị cắt trong khung cuộn của bảng) gồm ô giá, dòng lãi gộp tính ngay khi gõ, chip lý do, lần đổi gần nhất.
  * Enter lưu, Esc đóng. `dsDong`: SKU sẽ đổi (một SKU, hoặc mọi phân loại đang hiện của sản phẩm) — SKU ngừng bỏ qua.
  */
-export default function OGiaBan({ dsDong, hienThi, tieuDe, phu, ariaLabel, open, onOpenChange, lyDoMacDinh, dangLuu, onLuu }) {
+export default function OGiaBan({ dsDong, hienThi, tieuDe, phu, ariaLabel, open, onOpenChange, lyDoMacDinh, dangLuu, onLuu, onXemLichSu }) {
   return (
     <Popover open={open} onOpenChange={(mo) => !dangLuu && onOpenChange(mo)}>
       <PopoverTrigger asChild>
@@ -76,6 +76,7 @@ export default function OGiaBan({ dsDong, hienThi, tieuDe, phu, ariaLabel, open,
           dangLuu={dangLuu}
           onHuy={() => onOpenChange(false)}
           onLuu={onLuu}
+          onXemLichSu={onXemLichSu}
         />
       </PopoverContent>
     </Popover>
@@ -83,7 +84,7 @@ export default function OGiaBan({ dsDong, hienThi, tieuDe, phu, ariaLabel, open,
 }
 
 /** Nội dung popover: chỉ dựng khi mở, nên mỗi lần mở lại bắt đầu từ giá đang lưu và lý do dùng lần trước. */
-function NoiDungGia({ dsDong, tieuDe, phu, lyDoMacDinh, dangLuu, onHuy, onLuu }) {
+function NoiDungGia({ dsDong, tieuDe, phu, lyDoMacDinh, dangLuu, onHuy, onLuu, onXemLichSu }) {
   const id = useId();
   const muc = mucDoiGia(dsDong);
   const giaChung = muc.muc.length && muc.muc.every((d) => Number(d.giaBan) > 0 && Number(d.giaBan) === Number(muc.muc[0].giaBan))
@@ -144,9 +145,21 @@ function NoiDungGia({ dsDong, tieuDe, phu, lyDoMacDinh, dangLuu, onHuy, onLuu })
       </div>
       {/* Điện thoại / máy tính bảng dọc (cảm ứng): ô giá và hai nút cao 44px */}
       <div className="flex items-center gap-2 rounded-b-[10px] border-t border-bo-border bg-[#fafbfc] px-4 py-2.5">
-        <span className="mr-auto text-[11.5px] text-bo-muted">
-          {muc.lanGanNhat ? `Đổi lần gần nhất ${ngayVN(muc.lanGanNhat)}` : "Chưa đổi giá lần nào"}
-        </span>
+        {/* Một SKU đã từng đổi giá: bấm dòng này mở ngăn Lịch sử giá của SKU đó */}
+        {muc.lanGanNhat && onXemLichSu ? (
+          <button
+            type="button"
+            onClick={onXemLichSu}
+            disabled={dangLuu}
+            className="mr-auto rounded text-left text-[11.5px] text-bo-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 disabled:opacity-50"
+          >
+            Đổi lần gần nhất {ngayVN(muc.lanGanNhat)} · Xem lịch sử
+          </button>
+        ) : (
+          <span className="mr-auto text-[11.5px] text-bo-muted">
+            {muc.lanGanNhat ? `Đổi lần gần nhất ${ngayVN(muc.lanGanNhat)}` : "Chưa đổi giá lần nào"}
+          </span>
+        )}
         <Button type="button" variant="outline" size="sm" disabled={dangLuu} onClick={onHuy} className="h-8 border-bo-border bg-bo-surface px-2.5 text-[13px] text-bo-foreground hover:bg-bo-surface-subtle">
           Hủy
         </Button>

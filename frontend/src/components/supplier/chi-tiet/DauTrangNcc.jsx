@@ -1,4 +1,4 @@
-import { ArrowLeft, CircleCheck, CirclePause, Ellipsis, Mail, Pencil, Phone, Trash2 } from "lucide-react";
+import { ArrowLeft, CircleCheck, CirclePause, Ellipsis, History, Mail, Pencil, Phone, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -28,7 +28,7 @@ const MUC_MENU = "cursor-pointer items-start gap-2 rounded-md px-2.5 py-2 text-s
  * Điện thoại: hai nút lớn Gọi và Gửi email, Chỉnh sửa chuyển vào ⋯.
  * Màn tự vẽ tiêu đề nên phải "nhận" tiêu đề để layout không vẽ thêm tiêu đề dự phòng.
  */
-export default function DauTrangNcc({ ncc, coTheQuanLy, trangThaiXoa, onQuayLai, onChinhSua, onDoiTrangThai, onXoa }) {
+export default function DauTrangNcc({ ncc, coTheQuanLy, trangThaiXoa, onQuayLai, onChinhSua, onDoiTrangThai, onXoa, onLichSu }) {
   useClaimPageTitle(true);
 
   const dangHoatDong = laHoatDong(ncc);
@@ -127,6 +127,13 @@ export default function DauTrangNcc({ ncc, coTheQuanLy, trangThaiXoa, onQuayLai,
                     </span>
                   </span>
                 </DropdownMenuItem>
+                {/* Lịch sử thay đổi: chỉ quản trị viên (trang cha chỉ truyền onLichSu cho quản trị viên) */}
+                {onLichSu ? (
+                  <DropdownMenuItem onClick={onLichSu} className={MUC_MENU}>
+                    <History className="mt-0.5 size-4 text-slate-400" aria-hidden="true" />
+                    Lịch sử thay đổi
+                  </DropdownMenuItem>
+                ) : null}
                 {hienXoa ? (
                   <>
                     <DropdownMenuSeparator className="my-1 bg-bo-border" />

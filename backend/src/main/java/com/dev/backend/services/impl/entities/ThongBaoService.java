@@ -67,7 +67,8 @@ public class ThongBaoService {
             LOAI_THANH_TOAN_QR = "pos_payos_payment",
             LOAI_PHIEU_THU = "thanh_toan_don_ban",
             LOAI_KENH_BAN_HANG = "kenh_ban_hang",
-            LOAI_NGUOI_DUNG = "nguoi_dung";
+            LOAI_NGUOI_DUNG = "nguoi_dung",
+            LOAI_NHA_CUNG_CAP = "nha_cung_cap";
     /** Tên nhóm hiển thị dưới mỗi thông báo theo loại; loại không có ở đây thì không ghi nhóm. */
     static final Map<String, String> NHOM_THEO_LOAI = Map.ofEntries(
             Map.entry(LOAI_PHIEU_CHUYEN_KHO, "Chuyển kho"),
@@ -80,7 +81,8 @@ public class ThongBaoService {
             Map.entry(LOAI_THANH_TOAN_QR, "Thanh toán"),
             Map.entry(LOAI_PHIEU_THU, "Thanh toán"),
             Map.entry(LOAI_KENH_BAN_HANG, "Kênh bán hàng"),
-            Map.entry(LOAI_NGUOI_DUNG, "Tài khoản"));
+            Map.entry(LOAI_NGUOI_DUNG, "Tài khoản"),
+            Map.entry(LOAI_NHA_CUNG_CAP, "Nhà cung cấp"));
     /** Cột loai_thong_bao của lược đồ gốc chỉ nhận các giá trị này; mã loại khác được quy về nhóm gần nhất. */
     static final Set<String> LOAI_LUOC_DO = Set.of("don_hang", "ton_kho", "he_thong", "phe_duyet", "khac");
     static final Map<String, String> LOAI_LUOC_DO_THEO_MA = Map.ofEntries(
@@ -94,7 +96,8 @@ public class ThongBaoService {
             Map.entry(LOAI_THANH_TOAN_QR, "don_hang"),
             Map.entry(LOAI_PHIEU_THU, "don_hang"),
             Map.entry(LOAI_KENH_BAN_HANG, "he_thong"),
-            Map.entry(LOAI_NGUOI_DUNG, "he_thong"));
+            Map.entry(LOAI_NGUOI_DUNG, "he_thong"),
+            Map.entry(LOAI_NHA_CUNG_CAP, "he_thong"));
 
     /** Số thứ tự trong một mili giây cho {@link #mocDuyNhat()}. */
     private static final java.util.concurrent.atomic.AtomicLong SO_THU_TU_MOC = new java.util.concurrent.atomic.AtomicLong();

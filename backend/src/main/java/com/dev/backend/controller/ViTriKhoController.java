@@ -4,11 +4,13 @@ import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.customizeanotation.RequireAuth;
 import com.dev.backend.dto.request.inbound.KhuVucKhoRequest;
 import com.dev.backend.dto.request.inbound.ViTriKhoRequest;
+import com.dev.backend.dto.response.NhatKyDto;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.inbound.KhuVucKhoDto;
 import com.dev.backend.dto.response.inbound.LoTrenKeDto;
 import com.dev.backend.dto.response.inbound.ViTriKhoDto;
 import com.dev.backend.services.ViTriKhoService;
+import com.dev.backend.services.impl.multitable.NhatKyDocService;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -26,6 +28,28 @@ import java.util.Map;
 public class ViTriKhoController {
 
     ViTriKhoService viTriKhoService;
+    NhatKyDocService nhatKyDocService;
+
+    /**
+     * Lịch sử thay đổi khu vực / kệ / mặt bằng của kho (N3: quản trị viên, quản lý kho — chỉ kho mình được phân công).
+     * loai = khu_vuc_kho | vi_tri_kho | mat_bang_kho; id = id khu vực / kệ / dòng mat_bang_kho (mặt bằng: bỏ trống id
+     * thì lấy mặt bằng của kho). Đối tượng phải thuộc đúng kho trong đường dẫn.
+     */
+    @GetMapping("/lich-su")
+    @RequireAuth(
+            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho},
+            inWarehouse = true,
+            rolesLogic = RequireAuth.LogicType.OR
+    )
+    public ResponseEntity<ResponseData<List<NhatKyDto>>> lichSu(@PathVariable Integer khoId,
+                                                                @RequestParam String loai,
+                                                                @RequestParam(required = false) Integer id) {
+        return ResponseEntity.ok(ResponseData.<List<NhatKyDto>>builder()
+                .status(HttpStatus.OK.value())
+                .message("Thành công")
+                .data(nhatKyDocService.theoViTriKho(khoId, loai, id))
+                .build());
+    }
 
     // ── Khu vực ──
 

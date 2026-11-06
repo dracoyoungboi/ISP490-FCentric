@@ -9,6 +9,8 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import TableShell from "@/components/shared/TableShell";
 import { Button } from "@/components/ui/button";
 import ConfirmModal from "@/components/ui/confirm-modal";
+import HopXacNhanChungTu from "@/components/chung-tu/HopXacNhanChungTu";
+import OLyDo from "@/components/chung-tu/OLyDo";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -79,6 +81,8 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
 
   const [moXacNhan, setMoXacNhan] = useState(false);
   const [moHuy, setMoHuy] = useState(false);
+  // Lý do hủy phiếu (bắt buộc, lưu vào ghi chú của phiếu)
+  const [lyDoHuy, setLyDoHuy] = useState("");
   const [moHuyBienBan, setMoHuyBienBan] = useState(false);
   const [moBienBan, setMoBienBan] = useState(false);
   const [dangXuLy, setDangXuLy] = useState(false);
@@ -198,7 +202,7 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
     dangXuLyRef.current = true;
     setDangXuLy(true);
     try {
-      await phieuNhapKhoService.cancel(id);
+      await phieuNhapKhoService.cancel(id, lyDoHuy.trim());
       toast.success("Đã hủy phiếu nhập kho");
       setMoHuy(false);
       navigate("/goods-receipts");
@@ -334,7 +338,13 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-44 rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg">
-                <DropdownMenuItem onClick={() => setMoHuy(true)} className="cursor-pointer gap-2 rounded-md text-bo-danger focus:bg-bo-danger-soft focus:text-bo-danger">
+                <DropdownMenuItem
+                  onClick={() => {
+                    setLyDoHuy("");
+                    setMoHuy(true);
+                  }}
+                  className="cursor-pointer gap-2 rounded-md text-bo-danger focus:bg-bo-danger-soft focus:text-bo-danger"
+                >
                   <X className="size-4" /> Hủy phiếu
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -576,16 +586,20 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
         cancelText="Quay lại"
         isLoading={dangXuLy}
       />
-      <ConfirmModal
-        isOpen={moHuy}
-        onClose={() => setMoHuy(false)}
-        onConfirm={huyPhieu}
-        title="Hủy phiếu nhập kho"
-        description="Các lô đã khóa của phiếu bị bỏ (chưa vào tồn kho) và biên bản trả hàng nếu có cũng bị hủy. Thao tác không hoàn tác được."
-        confirmText="Hủy phiếu"
-        cancelText="Quay lại"
-        isLoading={dangXuLy}
-      />
+      <HopXacNhanChungTu
+        mo={moHuy}
+        onDoiMo={setMoHuy}
+        tieuDe="Hủy phiếu nhập kho"
+        moTa="Các lô đã khóa của phiếu bị bỏ (chưa vào tồn kho) và biên bản trả hàng nếu có cũng bị hủy. Thao tác không hoàn tác được."
+        nhanXacNhan="Hủy phiếu"
+        kieu="nguyHiem"
+        dangChay={dangXuLy}
+        khoaXacNhan={!lyDoHuy.trim()}
+        lyDoKhoa="Nhập lý do hủy"
+        onXacNhan={huyPhieu}
+      >
+        <OLyDo giaTri={lyDoHuy} onDoi={setLyDoHuy} goiY="Ví dụ: Nhà cung cấp giao nhầm đơn, lập lại phiếu khác" disabled={dangXuLy} />
+      </HopXacNhanChungTu>
       <HopInTem
         open={Boolean(dongInTem)}
         onOpenChange={(mo) => !mo && setDongInTem(null)}

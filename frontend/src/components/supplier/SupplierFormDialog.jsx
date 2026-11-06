@@ -196,16 +196,12 @@ function SupplierForm({ supplier, onClose, onSaved, oDauTien }) {
             setTimeout(() => focusField(fromMap[0]), 0);
             return;
         }
-        // Chỉ gắn vào ô đang có trên hộp. Câu về ngân hàng / số tài khoản là dữ liệu cũ không hợp lệ mà hộp không còn ô để sửa.
+        // Chỉ gắn vào ô đang có trên hộp
         const field = error?.response ? oCuaThongBaoMayChu(message) : null;
         if (field && FIELDS.includes(field) && !(laSua && field === "maNhaCungCap")) {
             setFieldError(field, message);
             // Chờ render xong (ô hết readOnly) rồi mới focus vào ô cần sửa.
             setTimeout(() => focusField(field), 0);
-        } else if (field === "nganHang" || field === "soNganHang") {
-            setSubmitError(
-                `Chưa lưu được vì thông tin ngân hàng đã lưu của nhà cung cấp này không hợp lệ (${message.replace(/\.$/, "")}). Hãy báo quản trị hệ thống.`,
-            );
         } else {
             setSubmitError(message);
         }

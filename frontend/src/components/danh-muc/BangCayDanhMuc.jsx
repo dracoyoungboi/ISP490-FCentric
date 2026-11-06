@@ -44,6 +44,7 @@ export default function BangCayDanhMuc({
   onChuyen,
   onXemNhanh,
   onDoiTrangThai,
+  onLichSu,
   onTha,
   onDangKeo,
 }) {
@@ -173,6 +174,7 @@ export default function BangCayDanhMuc({
                 onChuyen={onChuyen}
                 onXemNhanh={onXemNhanh}
                 onDoiTrangThai={onDoiTrangThai}
+                onLichSu={onLichSu}
                 keoProps={
                   coTheSua
                     ? {
@@ -240,6 +242,7 @@ function DongDanhMuc({
   onChuyen,
   onXemNhanh,
   onDoiTrangThai,
+  onLichSu,
   keoProps,
 }) {
   const { nut, cap, coCon, dangMo, tt, laNguCanh, soCon } = d;
@@ -343,6 +346,7 @@ function DongDanhMuc({
               onChuyen={() => onChuyen(nut)}
               onXemNhanh={() => onXemNhanh(nut.id)}
               onDoiTrangThai={() => onDoiTrangThai(nut, thaoTac.trangThai)}
+              onLichSu={onLichSu ? () => onLichSu(nut) : undefined}
             />
           </RowActions>
         ) : coCon ? (

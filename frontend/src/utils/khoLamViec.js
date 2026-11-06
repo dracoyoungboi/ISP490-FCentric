@@ -53,6 +53,29 @@ export function khoTrongToken() {
 }
 
 /**
+ * Người dùng có quyền `maQuyen` (còn hiệu lực) ở kho làm việc đang chọn không — đúng cách backend kiểm khi API khai báo
+ * permissions + inWarehouse (AuthorizationAspect, JwtServiceImpl.quyenConHieuLucTaiKho): quản trị viên luôn có; người khác
+ * cần kho làm việc (header kho_id) nằm trong token và quyền đó ở kho này đang bật.
+ */
+export function coQuyenTaiKhoLamViec(maQuyen) {
+  if (laQuanTriVien()) return true;
+  const khoId = getKhoLamViecId();
+  if (!khoId) return false;
+  try {
+    const token = window.localStorage.getItem("access_token");
+    if (!token) return false;
+    const raw = jwtDecode(token)?.warehousePermissions;
+    const list = typeof raw === "string" ? JSON.parse(raw) : raw;
+    return (Array.isArray(list) ? list : []).some((pq) =>
+      Number(pq?.kho?.id) === khoId
+      && Array.isArray(pq.chiTietQuyenKhos)
+      && pq.chiTietQuyenKhos.some((ct) => Number(ct?.trangThai) === 1 && ct?.quyenHan?.maQuyen === maQuyen));
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Danh sách nơi làm việc của nhân viên / quản lý kho, đọc từ token (đồng bộ, không gọi API): đúng các kho
  * backend chấp nhận ở header kho_id, bỏ kho ảo và kho ngừng hoạt động. Dùng được cho mọi vai trò làm theo kho,
  * kể cả nhân viên mua hàng (POST /kho/mine không mở cho vai trò này).

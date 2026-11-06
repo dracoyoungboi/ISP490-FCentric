@@ -103,6 +103,16 @@ function renderInfoSection(section, ctx) {
                 columns={section.columns ?? 2}
                 items={fields.map((field) => ({
                     key: field.key,
+                    // `kind: "barcode"`: in mã vạch Code 128 của giá trị (mã vận đơn), không in nhãn
+                    barcode:
+                        field.kind === "barcode" ? (
+                            <PrintDocCode
+                                mode="ma_vach"
+                                value={resolveFieldValue(field, model, company)}
+                                paperSize={config.paperSize}
+                                placement="body"
+                            />
+                        ) : null,
                     // Nhãn động theo dữ liệu (vd. "Nguồn hàng" -> "Nhà cung cấp" / "Kho chuyển đi") > nhãn tự đặt > nhãn gốc
                     label:
                         (field.labelModelPath && getByPath(model, field.labelModelPath)) ||
@@ -310,7 +320,7 @@ function hasDocCode(mode, number) {
  * trình sửa mẫu, trang in thật và bản in trình duyệt — cùng DOM, cùng
  * printDocument.css nên các nơi luôn khớp.
  *
- * K80 / K57: bố cục khổ nhiệt riêng (không co bảng A4), cột bảng dùng `compactColumns`,
+ * K80 / K57 / tem A6: bố cục khổ nhiệt riêng (không co bảng A4), cột bảng dùng `compactColumns`,
  * mã số phiếu in ở cuối hóa đơn. A5: cùng bố cục A4 với cỡ chữ / khoảng cách nhỏ hơn.
  *
  * `editable` (chỉ trình sửa mẫu): các khối thành vùng bấm được (data-pdoc-khoi) và hiện chỗ
@@ -321,8 +331,17 @@ export default function PrintTemplateDocument({ documentType, config, model, com
     if (!schema || !model || !config) return null;
 
     const compact = isThermalPaper(config.paperSize);
-    // K57 dùng chung bố cục khổ nhiệt của K80 (class pdoc--k80) + cỡ chữ riêng (pdoc--k57)
-    const variant = config.paperSize === "K57" ? "k80 pdoc--k57" : compact ? "k80" : config.paperSize === "A5" ? "a5" : "a4";
+    // K57 / tem A6 dùng chung bố cục khổ nhiệt của K80 (class pdoc--k80) + chỉnh riêng (pdoc--k57, pdoc--a6)
+    const variant =
+        config.paperSize === "K57"
+            ? "k80 pdoc--k57"
+            : config.paperSize === "A6"
+              ? "k80 pdoc--a6"
+              : compact
+                ? "k80"
+                : config.paperSize === "A5"
+                  ? "a5"
+                  : "a4";
     const fontSize = getFontSize(config);
     const blockProps = makeBlockProps(editable);
     const ctx = { config: { ...config, sections: config.sections ?? {}, columns: config.columns ?? {} }, model, company, compact, blockProps };

@@ -225,7 +225,7 @@ function ManPhieuDieuChinh({ id }) {
       loai: "Phiếu chuyển giao bù",
       ma: pdc.phieuGiaoBu.so,
       to: `/transfer-tickets/${pdc.phieuGiaoBu.id}`,
-      trangThai: getPhieuChuyenKhoStatus(pdc.phieuGiaoBu.trangThai).label,
+      trangThai: getPhieuChuyenKhoStatus(pdc.phieuGiaoBu.trangThai, false, pdc.phieuGiaoBu.tuChoi).label,
       quyTrinh: "chuyenKho",
     } : null,
   ].filter(Boolean);

@@ -11,6 +11,7 @@ import DauChungTu from "@/components/chung-tu/DauChungTu";
 import TienTrinhChungTu from "@/components/chung-tu/TienTrinhChungTu";
 import DongThongBao, { NutChu } from "@/components/chung-tu/DongThongBao";
 import HopXacNhanChungTu from "@/components/chung-tu/HopXacNhanChungTu";
+import OLyDo from "@/components/chung-tu/OLyDo";
 import { KhungDangTai, KhungLoiChungTu } from "@/components/chung-tu/KhungTaiChungTu";
 import useBangChungTu from "@/components/chung-tu/useBangChungTu";
 import { docSo, soVN } from "@/components/chung-tu/bangChungTu";
@@ -75,6 +76,10 @@ function ManPhieuXuatKho({ id }) {
   // Hộp đang mở: "xuat" (xuất kho bán hàng) | "bangChung" | "huy"
   const [hop, setHop] = useState(null);
   const [dangXuLy, setDangXuLy] = useState(false);
+  // Lý do hủy phiếu (bắt buộc, lưu vào ghi chú của phiếu)
+  const [lyDoHuy, setLyDoHuy] = useState("");
+  // Lỗi khi hủy (máy chủ từ chối, mất mạng): hiện trong hộp, giữ hộp và lý do đã nhập để thử lại (như Đơn bán)
+  const [loiHuy, setLoiHuy] = useState(null);
   // Hết thời hạn mà máy chủ có thể vẫn đang làm: khóa nút thao tác tới khi lời gọi gốc kết thúc (khiGocKetThuc)
   const [choGoc, setChoGoc] = useState(false);
   const huyChoGocRef = useRef(null);
@@ -253,16 +258,22 @@ function ManPhieuXuatKho({ id }) {
   // Hủy phiếu bán hàng: PUT /phieu-xuat-kho/{id}/cancel (phiếu xuất chuyển kho hủy theo phiếu chuyển, không có nút ở đây)
   const huyPhieu = async () => {
     setDangXuLy(true);
+    setLoiHuy(null);
     try {
-      await chayCoThoiHan(() => phieuXuatKhoService.cancel(phieu.id));
+      await chayCoThoiHan(() => phieuXuatKhoService.cancel(phieu.id, lyDoHuy.trim()));
       toast.success(`Đã hủy phiếu xuất ${phieu.soPhieuXuat}`, { description: "Số lượng đang giữ đã trả lại tồn kho" });
-    } catch (e) {
-      if (laLoiHetThoiHan(e)) baoHetThoiHan(e);
-      else toast.error(getApiErrorMessage(e, "Không thể hủy phiếu"));
-    } finally {
-      // Thành công hay lỗi (kể cả hết thời hạn) đều đóng hộp và tải lại ngầm; màn đã gỡ thì không tải lại
       setHop(null);
+    } catch (e) {
+      if (laLoiHetThoiHan(e)) {
+        // Hết thời hạn: chưa rõ kết quả — đóng hộp, báo và tải lại như trước
+        baoHetThoiHan(e);
+        setHop(null);
+      } else {
+        setLoiHuy(getApiErrorMessage(e, "Không thể hủy phiếu"));
+      }
+    } finally {
       setDangXuLy(false);
+      // Tải lại ngầm để thấy trạng thái mới nhất (máy chủ có thể đã đổi phiếu); màn đã gỡ thì không tải lại
       if (!daGoRef.current) taiPhieu({ ngam: true });
     }
   };
@@ -310,7 +321,6 @@ function ManPhieuXuatKho({ id }) {
   }
   const nutChinh = khoaKhiChoGoc(nutChinhGoc, choGoc);
 
-  const donId = phieu.donBanHang?.id;
   const laLazada = Boolean(
     phieu.donBanHang?.soDonHang?.startsWith("LZD-") ||
     phieu.donBanHang?.kenhBanHang?.maKenh === "LAZADA" ||
@@ -390,7 +400,11 @@ function ManPhieuXuatKho({ id }) {
                   nguyHiem: true,
                   moTa: choGoc ? LY_DO_CHO_GOC : "Trả lại số lượng đang giữ cho tồn kho",
                   khoa: dangXuLy || choGoc,
-                  onSelect: () => setHop("huy"),
+                  onSelect: () => {
+                    setLyDoHuy("");
+                    setLoiHuy(null);
+                    setHop("huy");
+                  },
                 }
                 : null,
             ].filter(Boolean)}
@@ -440,8 +454,13 @@ function ManPhieuXuatKho({ id }) {
         iconXacNhan={Ban}
         kieu="nguyHiem"
         dangChay={dangXuLy}
+        khoaXacNhan={!lyDoHuy.trim()}
+        lyDoKhoa="Nhập lý do hủy"
+        loi={loiHuy}
         onXacNhan={huyPhieu}
-      />
+      >
+        <OLyDo giaTri={lyDoHuy} onDoi={(v) => { setLyDoHuy(v); setLoiHuy(null); }} goiY="Ví dụ: Đơn đổi kho xuất, lập lại phiếu khác" disabled={dangXuLy} />
+      </HopXacNhanChungTu>
     </PageContainer>
   );
 }

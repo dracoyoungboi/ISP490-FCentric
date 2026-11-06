@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import {
     LOC_TRANG_THAI_THEO_DUONG_DAN,
+    LOC_TU_CHOI,
     PHIEU_CHUYEN_KHO_STATUS,
     PHIEU_CHUYEN_KHO_TABS,
     TT_CHUYEN,
@@ -43,6 +44,8 @@ const TD = "px-4 py-3 align-top";
 const LOC_TRANG_THAI = [
     { value: "", label: "Tất cả trạng thái" },
     ...Object.values(TT_CHUYEN).map((ma) => ({ value: ma, label: PHIEU_CHUYEN_KHO_STATUS[ma].label })),
+    // Đã hủy chỉ còn phiếu hủy; phiếu bị từ chối lọc riêng (máy chủ tách theo nhật ký từ chối)
+    { value: LOC_TU_CHOI, label: PHIEU_CHUYEN_KHO_STATUS.DA_TU_CHOI.label },
 ];
 
 /** Kho làm việc hiện tại (apiClient gửi qua header `kho_id`); đọc lỗi thì coi như chưa chọn. */
@@ -332,7 +335,7 @@ function CanhBaoPhieu({ p, className = "" }) {
 
 /** Thẻ phiếu trên điện thoại: chạm thẻ mở phiếu. */
 function ThePhieu({ p }) {
-    const st = getPhieuChuyenKhoStatus(p.trangThai, p.coChenhLech);
+    const st = getPhieuChuyenKhoStatus(p.trangThai, p.coChenhLech, p.tuChoi);
     return (
         <li>
             <Link to={`/transfer-tickets/${p.id}`} className="grid grid-cols-1 gap-1 px-4 py-3 active:bg-bo-surface-subtle">
@@ -357,7 +360,7 @@ function ThePhieu({ p }) {
 }
 
 function DongPhieu({ p, onMo }) {
-    const st = getPhieuChuyenKhoStatus(p.trangThai, p.coChenhLech);
+    const st = getPhieuChuyenKhoStatus(p.trangThai, p.coChenhLech, p.tuChoi);
     const moBangPhim = (e) => {
         if (e.key === "Enter") onMo();
     };

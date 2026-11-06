@@ -830,7 +830,7 @@ function ManKiemKe({ dotId }) {
                 onThuLai={qXem.reload}
                 cheDo={theoDanhMuc ? "theo_lo" : "toan_ke"}
                 nutCuaVanDe={(v) =>
-                  /hàng chưa có kệ/i.test(v.noiDung) ? <NutChu onClick={() => navigate(`/stock-take/unshelved?khoId=${dot.kho?.id}&tuDot=${dot.id}`)}>Xếp kệ</NutChu> : null
+                  /hàng chưa có kệ/i.test(v.noiDung) ? <NutChu onClick={() => navigate(`/warehouse/unshelved?khoId=${dot.kho?.id}&tuDot=${dot.id}`)}>Xếp kệ</NutChu> : null
                 }
               />
             </section>

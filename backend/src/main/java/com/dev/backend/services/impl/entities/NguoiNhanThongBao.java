@@ -31,6 +31,13 @@ public class NguoiNhanThongBao {
         return phanQuyenNguoiDungKhoRepository.nguoiDungTheoKhoTai(List.of(khoId), vaiTro, Instant.now());
     }
 
+    /** Người này đang được phân công (còn hiệu lực) ở kho này không. */
+    public boolean thuocKho(Integer nguoiDungId, Integer khoId) {
+        if (nguoiDungId == null || khoId == null) return false;
+        return phanQuyenNguoiDungKhoRepository.findByNguoiDungIdAndActive(nguoiDungId).stream()
+                .anyMatch(pq -> pq.getKho() != null && khoId.equals(pq.getKho().getId()));
+    }
+
     /** Quản lý kho đang được phân công ở kho này. */
     public List<Integer> quanLyKho(Integer khoId) {
         return theoKho(khoId, IRoleType.quan_ly_kho);

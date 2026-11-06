@@ -43,13 +43,20 @@ public class YeuCauMuaHangController {
                         .status(HttpStatus.OK.value())
                         .message("Success")
                         .data(
-                                yeuCauMuaHangService.boSungThongTinDuyet(
+                                locDonMua(yeuCauMuaHangService.boSungThongTinDuyet(
                                         yeuCauMuaHangMapper.toDto(yeuCauMuaHangService.getOne(id).orElseThrow(
                                                 () -> new CommonException("Không tìm thấy yêu cầu mua hàng id: " + id)
-                                        )))
+                                        ))))
                         )
                         .build()
         );
+    }
+
+    // Đơn mua kèm theo: quản lý kho / nhân viên kho chỉ thấy đơn của kho mình (cùng luật xem đơn mua)
+    private YeuCauMuaHangDto locDonMua(YeuCauMuaHangDto dto) {
+        com.dev.backend.services.impl.entities.DonMuaHangService.locDonMuaTheoPhamVi(dto,
+                com.dev.backend.config.SecurityContextHolder.getUser());
+        return dto;
     }
 
     // Filter yêu cầu nhập hàng theo các trường của entity (bắt buộc đăng nhập)
@@ -68,7 +75,7 @@ public class YeuCauMuaHangController {
         return ResponseEntity.ok(
                 ResponseData.<Page<YeuCauMuaHangDto>>builder()
                         .status(HttpStatus.OK.value())
-                        .data(yeuCauMuaHangMapper.toDtoPage(yeuCauMuaHangService.filter(filter)))
+                        .data(yeuCauMuaHangMapper.toDtoPage(yeuCauMuaHangService.filter(filter)).map(this::locDonMua))
                         .message("Success")
                         .build()
         );

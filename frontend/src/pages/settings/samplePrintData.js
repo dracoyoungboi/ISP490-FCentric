@@ -478,6 +478,7 @@ export const SAMPLE_POS_INVOICE_RAW = {
  * che giấu lỗi mapping giữa schema và adapter.
  */
 export const SAMPLE_ECOMMERCE_PACKING_SLIP_PAYLOAD = {
+    // Cùng dạng GET /api/v1/phieu-xuat-kho/{id} (PhieuXuatKhoService.getDetail) để bản xem trước khớp bản in thật
     phieu: {
         id: 193,
         soPhieuXuat: "PXK-20261103-001",
@@ -486,6 +487,7 @@ export const SAMPLE_ECOMMERCE_PACKING_SLIP_PAYLOAD = {
         ghiChu: "Đóng gói cẩn thận, bọc chống sốc 2 lớp cho kiện hàng TMĐT.",
         maVanDon: "JNTMP0043461028VNA",
         donViVanChuyen: "J&T Express VN",
+        maKienHang: "FP037911665450692",
         kho: {
             tenKho: "Kho Tổng",
             maKho: "KT-01",
@@ -513,28 +515,25 @@ export const SAMPLE_ECOMMERCE_PACKING_SLIP_PAYLOAD = {
     chiTiet: [
         {
             id: 1,
+            sku: "AP-NAVY-L",
             tenSanPham: "Áo polo nam thể thao cao cấp",
-            tenBienThe: "Áo polo nam thể thao cao cấp / Xanh Navy / L",
-            maSku: "AP-NAVY-L",
-            mauSac: "Xanh Navy",
+            tenBienThe: "Áo polo nam thể thao cao cấp / Xanh Navy",
+            tenMau: "Xanh Navy",
             kichCo: "L",
-            soLuongXuat: 2,
-            ghiChu: "Kèm túi zip",
+            soLuongCanXuat: 2,
+            soLuongDaPick: 2,
         },
         {
             id: 2,
+            sku: "QS-BLK-XL",
             tenSanPham: "Quần short đũi nam thoáng khí",
-            tenBienThe: "Quần short đũi nam thoáng khí / Đen / XL",
-            maSku: "QS-BLK-XL",
-            mauSac: "Đen",
+            tenBienThe: "Quần short đũi nam thoáng khí / Đen",
+            tenMau: "Đen",
             kichCo: "XL",
-            soLuongXuat: 1,
-            ghiChu: null,
+            soLuongCanXuat: 1,
+            soLuongDaPick: 1,
         },
     ],
-    packageId: "FP037911665450692",
-    trackingCode: "JNTMP0043461028VNA",
-    carrierName: "J&T Express VN",
 };
 
 export function getSamplePrintModel(documentType) {

@@ -201,6 +201,9 @@ export const SIDEBAR_MENU = [
       },
       // FO-094: khu vực, vị trí kệ và mặt bằng kho
       { label: "Vị trí kệ", to: "/warehouse/locations", nhom: DU_LIEU, roles: VAI_TRO_KHO },
+      // Lô đã vào kho mà chưa ghi ở kệ nào (nhận chuyển kho, khách trả…); badge: số lô ở kho làm việc
+      // (BackofficeSidebar đọc từ components/kiem-ke/soHangChuaCoKe)
+      { label: "Hàng chưa có kệ", to: "/warehouse/unshelved", nhom: DU_LIEU, roles: VAI_TRO_KHO, badge: "hangChuaCoKe" },
     ],
   },
 
@@ -252,9 +255,16 @@ export const SIDEBAR_MENU = [
     roles: TAT_CA_VAI_TRO,
     children: [
       {
+        // Nhân viên bán hàng: cửa hàng mình làm, không có giá vốn / lợi nhuận (FO-090)
         label: "Báo cáo doanh thu",
         to: "/reports/revenue",
-        roles: ["quan_tri_vien", "quan_ly_kho"],
+        roles: ["quan_tri_vien", "quan_ly_kho", "nhan_vien_ban_hang"],
+      },
+      {
+        // Bán chạy, sắp hết, dư hàng, không bán theo sản phẩm: API cùng quyền với Báo cáo doanh thu
+        label: "Báo cáo sản phẩm",
+        to: "/reports/products",
+        roles: ["quan_tri_vien", "quan_ly_kho", "nhan_vien_ban_hang"],
       },
       {
         label: "Báo cáo tồn kho",

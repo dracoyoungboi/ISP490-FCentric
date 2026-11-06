@@ -8,6 +8,7 @@ import com.dev.backend.dto.request.LocGiaBanRequest;
 import com.dev.backend.dto.request.SanPhamQuanAoBasicInfoUpdating;
 import com.dev.backend.dto.request.SanPhamQuanAoCreating;
 import com.dev.backend.dto.request.SanPhamQuanAoUpdating;
+import com.dev.backend.dto.response.NhatKyDto;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.customize.KetQuaDoiGiaBanDto;
 import com.dev.backend.dto.response.customize.TrangGiaBanDto;
@@ -15,6 +16,7 @@ import com.dev.backend.dto.response.entities.SanPhamQuanAoDto;
 import com.dev.backend.mapper.SanPhamQuanAoMapper;
 import com.dev.backend.services.impl.entities.GiaBanBienTheService;
 import com.dev.backend.services.impl.entities.SanPhamQuanAoService;
+import com.dev.backend.services.impl.multitable.NhatKyDocService;
 import com.dev.backend.utils.XemGiaVon;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -42,6 +44,33 @@ public class SanPhamQuanAoController {
         private SanPhamQuanAoMapper sanPhamQuanAoMapper;
         @Autowired
         private GiaBanBienTheService giaBanBienTheService;
+        @Autowired
+        private NhatKyDocService nhatKyDocService;
+
+        /**
+         * Lịch sử thay đổi sản phẩm (ngăn "Lịch sử thay đổi" ở trang chi tiết): tạo, sửa thông tin / biến thể / ảnh / trạng
+         * thái, kèm các lần đổi giá bán của mọi biến thể; mới nhất trước, tối đa 300 dòng. Quản trị viên, quản lý kho (N3).
+         */
+        @GetMapping("/{id}/lich-su")
+        @RequireAuth(roles = { IRoleType.quan_tri_vien, IRoleType.quan_ly_kho })
+        public ResponseEntity<ResponseData<List<NhatKyDto>>> lichSu(@PathVariable Integer id) {
+                return ResponseEntity.ok(ResponseData.<List<NhatKyDto>>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(nhatKyDocService.theoSanPham(id))
+                        .message("Success")
+                        .build());
+        }
+
+        /** Lịch sử giá bán một biến thể (màn Giá bán & tem mã vạch): ai đổi, khi nào, cũ → mới, lý do. */
+        @GetMapping("/sku/{bienTheId}/lich-su-gia")
+        @RequireAuth(roles = { IRoleType.quan_tri_vien, IRoleType.quan_ly_kho })
+        public ResponseEntity<ResponseData<List<NhatKyDto>>> lichSuGia(@PathVariable Integer bienTheId) {
+                return ResponseEntity.ok(ResponseData.<List<NhatKyDto>>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(nhatKyDocService.lichSuGiaBienThe(bienTheId))
+                        .message("Success")
+                        .build());
+        }
 
         @PostMapping(value = "/create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
         @RequireAuth(roles = { IRoleType.quan_tri_vien, IRoleType.quan_ly_kho })

@@ -10,6 +10,8 @@ import { taiDanLucRanh } from "@/lib/taiTrang";
 import { SETTINGS_PAGES } from "@/components/settings/settings.config";
 import { taiLaiKenhDaKetNoi } from "@/components/channel/kenhDaKetNoi";
 import { taiLaiSoChuyenKhoanCanXuLy } from "@/components/pos/payosCanXuLy";
+import { VAI_TRO_XEP_KE, taiLaiSoHangChuaCoKe } from "@/components/kiem-ke/soHangChuaCoKe";
+import { KHO_LAM_VIEC_EVENT } from "@/utils/khoLamViec";
 import { SAN_BAN_HANG } from "@/constants/channel";
 import ThanhDieuHuongDay from "./ThanhDieuHuongDay";
 import { laTrangCapDau } from "./thanhDay";
@@ -186,8 +188,8 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
             title: "Sơ đồ khóa kiểm kê",
         },
         {
-            key: "STOCK_TAKE_UNSHELVED",
-            match: (path) => path === "/stock-take/unshelved",
+            key: "WAREHOUSE_UNSHELVED",
+            match: (path) => path === "/warehouse/unshelved",
             title: "Hàng chưa có kệ",
         },
         {
@@ -245,6 +247,11 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
             key: "BAO_CAO_DOANH_THU",
             match: (path) => path === "/reports/revenue",
             title: "Báo cáo doanh thu",
+        },
+        {
+            key: "BAO_CAO_SAN_PHAM",
+            match: (path) => path === "/reports/products",
+            title: "Báo cáo sản phẩm",
         },
         {
             key: "BAO_CAO_KHACH_HANG",
@@ -537,6 +544,18 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
         taiLaiSoChuyenKhoanCanXuLy();
         const id = window.setInterval(taiLaiSoChuyenKhoanCanXuLy, 120000);
         return () => window.clearInterval(id);
+    }, []);
+
+    // Số lô chưa có kệ ở kho làm việc (số đếm trên menu, vai trò kho): khi vào, mỗi 2 phút và khi đổi kho làm việc
+    useEffect(() => {
+        if (!VAI_TRO_XEP_KE.includes(localStorage.getItem("role"))) return undefined;
+        taiLaiSoHangChuaCoKe();
+        const id = window.setInterval(taiLaiSoHangChuaCoKe, 120000);
+        window.addEventListener(KHO_LAM_VIEC_EVENT, taiLaiSoHangChuaCoKe);
+        return () => {
+            window.clearInterval(id);
+            window.removeEventListener(KHO_LAM_VIEC_EVENT, taiLaiSoHangChuaCoKe);
+        };
     }, []);
 
     // Vào khung quản trị xong, lúc rảnh tải dần các trang trong menu của vai trò: bấm tới là trang hiện ngay

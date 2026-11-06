@@ -37,6 +37,7 @@ import com.dev.backend.services.email.EmailNghiepVuService;
 import com.dev.backend.services.impl.BaseServiceImpl;
 import com.dev.backend.services.impl.utils.LoginRateLimiter;
 import com.dev.backend.services.impl.utils.NhatKyBaoMatService;
+import com.dev.backend.services.impl.utils.NhatKyNghiepVu;
 import com.dev.backend.services.impl.utils.PasswordResetRateLimiter;
 import com.dev.backend.utils.AvatarImageValidator;
 import com.dev.backend.utils.HoTen;
@@ -100,6 +101,14 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
     // Nhật ký bảo mật (đăng nhập, khóa tài khoản, mật khẩu): lỗi ghi không làm hỏng thao tác chính
     @Autowired
     private NhatKyBaoMatService nhatKyBaoMatService;
+
+    // Nhật ký sửa tài khoản (sua_tai_khoan): ghi trong giao dịch, giữ mãi (nhóm Bảo mật)
+    @Autowired
+    private NhatKyNghiepVu nhatKyNghiepVu;
+
+    // H5: báo quản trị viên khi email của tài khoản người khác vừa được đổi / thêm; test dựng tay không có thì bỏ qua
+    @Autowired(required = false)
+    private ThongBaoHeThongService thongBaoHeThongService;
 
     // Mọi email nhân sự (E1, E2, E3, M4) đi qua đây: dựng dữ liệu trong transaction, gửi sau commit, không ném lỗi
     @Autowired
@@ -412,6 +421,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
 
         NguoiDung nguoiDung = nguoiDungRepository.findById(request.getId())
                 .orElseThrow(() -> new CommonException("Không tìm thấy người dùng id: " + request.getId()));
+        Map<String, Object> truocSua = anhTaiKhoan(nguoiDung);
         if (request.getTenDangNhap() != null && !request.getTenDangNhap().isBlank()) {
             String newUsername = request.getTenDangNhap().trim();
             if (!newUsername.equalsIgnoreCase(nguoiDung.getTenDangNhap())) {
@@ -453,6 +463,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
             nguoiDung.setSoDienThoai(soDienThoai);
         }
         nguoiDung = nguoiDungRepository.save(nguoiDung);
+        ghiSuaTaiKhoan(nguoiDung, truocSua, contextUser.getId());
         return ResponseEntity.ok(
                 ResponseData.<NguoiDungDto>builder()
                         .status(HttpStatus.OK.value())
@@ -460,6 +471,32 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
                         .message("Cập nhật thông tin người dùng thành công")
                         .error(null)
                         .build());
+    }
+
+    /** Các trường tài khoản được ghi nhật ký khi sửa (không bao giờ có mật khẩu). */
+    private static Map<String, Object> anhTaiKhoan(NguoiDung n) {
+        return NhatKyNghiepVu.anh(
+                "tenDangNhap", n.getTenDangNhap(),
+                "hoTen", n.getHoTen(),
+                "email", n.getEmail(),
+                "soDienThoai", n.getSoDienThoai());
+    }
+
+    /**
+     * sua_tai_khoan: chỉ các trường đổi. Email đổi (hoặc thêm lần đầu) bởi người khác chủ tài khoản thì báo mọi quản trị
+     * viên trừ người vừa sửa (H5) — email là nơi nhận liên kết đặt lại mật khẩu.
+     */
+    private void ghiSuaTaiKhoan(NguoiDung nguoiDung, Map<String, Object> truoc, Integer nguoiSuaId) {
+        boolean suaNguoiKhac = nguoiSuaId != null && !nguoiSuaId.equals(nguoiDung.getId());
+        NhatKyNghiepVu.Dong dong = NhatKyNghiepVu.dong(ITable.nguoi_dung, nguoiDung.getId(), IHanhDong.sua_tai_khoan)
+                .ma(nguoiDung.getTenDangNhap())
+                .thayDoi(truoc, anhTaiKhoan(nguoiDung))
+                .ghiChu(suaNguoiKhac ? "Quản trị viên sửa tài khoản" : "Tự sửa tài khoản");
+        if (!dong.coThayDoi()) return;
+        nhatKyNghiepVu.ghi(dong);
+        if (suaNguoiKhac && dong.giaTriMoi().containsKey("email") && thongBaoHeThongService != null) {
+            thongBaoHeThongService.emailTaiKhoanDaDoi(nguoiDung.getId(), nguoiDung.getTenDangNhap(), nguoiSuaId);
+        }
     }
 
     // Họ tên mới phải qua luật HoTen. Gửi lại đúng họ tên đang lưu thì giữ nguyên, không kiểm lại: tên tạo trước khi
@@ -556,6 +593,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
     @Transactional
     public ResponseEntity<ResponseData<NguoiDungDto>> updateMe(UpdateMeRequest request) {
         NguoiDung nguoiDung = getCurrentUserFromContext();
+        Map<String, Object> truocSua = anhTaiKhoan(nguoiDung);
         nguoiDung.setHoTen(hoTenSauKiem(request.getHoTen(), nguoiDung.getHoTen()));
         // cho phép xóa số điện thoại: rỗng -> null (giống createInternalUserByAdmin)
         String soDienThoai = normalizePhone(request.getSoDienThoai());
@@ -572,6 +610,8 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         nguoiDung.setSoDienThoai(soDienThoai);
 
         nguoiDung = nguoiDungRepository.save(nguoiDung); // ngayCapNhat tự cập nhật (@Generated UPDATE)
+        // Màn Hồ sơ: SĐT cũng dùng để đăng nhập nên cũng để vết như khi sửa ở màn quản trị
+        ghiSuaTaiKhoan(nguoiDung, truocSua, nguoiDung.getId());
 
         NguoiDungDto dto = nguoiDungMapper.toDto(nguoiDung);
         fillKhoPhuTrachActive(dto, nguoiDung);

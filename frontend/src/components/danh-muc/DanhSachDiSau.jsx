@@ -24,6 +24,7 @@ export default function DanhSachDiSau({
   onSua,
   onChuyen,
   onDoiTrangThai,
+  onLichSu,
   trong,
 }) {
   const dangTim = Boolean(tuKhoaChuan);
@@ -84,6 +85,7 @@ export default function DanhSachDiSau({
               onSua={onSua}
               onChuyen={onChuyen}
               onDoiTrangThai={onDoiTrangThai}
+              onLichSu={onLichSu}
             />
           ))}
         </ul>
@@ -111,7 +113,7 @@ function Chip({ children, onClick, hienTai = false }) {
   );
 }
 
-function MucDienThoai({ cay, d, dangTim, tuKhoaChuan, coTheSua, thaoTac, onVao, onThemCon, onSua, onChuyen, onDoiTrangThai }) {
+function MucDienThoai({ cay, d, dangTim, tuKhoaChuan, coTheSua, thaoTac, onVao, onThemCon, onSua, onChuyen, onDoiTrangThai, onLichSu }) {
   const { nut, tt, soCon } = d;
   const phan = tachChuKhop(nut.ten, tuKhoaChuan);
   const duongDanCha = layDuongDan(cay, d.id).slice(0, -1).map((n) => n.ten).join(" › ");
@@ -163,6 +165,7 @@ function MucDienThoai({ cay, d, dangTim, tuKhoaChuan, coTheSua, thaoTac, onVao, 
           onSua={() => onSua(nut)}
           onChuyen={() => onChuyen(nut)}
           onDoiTrangThai={() => onDoiTrangThai(nut, thaoTac.trangThai)}
+          onLichSu={onLichSu ? () => onLichSu(nut) : undefined}
         />
       ) : null}
     </li>

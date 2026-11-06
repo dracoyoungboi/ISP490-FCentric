@@ -562,9 +562,22 @@ public class PosCheckoutTransaction {
         return requestId.trim();
     }
 
+    /**
+     * Khách của hóa đơn POS. Quầy không gửi khách (chưa chọn ai) thì hóa đơn thuộc khách lẻ mặc định KHLE — máy chủ tự
+     * gán, quầy không cần tự tìm KHLE. Thiếu bản ghi KHLE (CSDL chưa chạy pos_checkout_v1.sql) thì báo rõ, không bán
+     * vô chủ.
+     */
     private KhachHang validateCustomer(Integer khachHangId) {
         if (khachHangId == null) {
-            throw new CommonException("Vui lòng chọn khách hàng cho hóa đơn");
+            KhachHang khachLe = entityManager.createQuery(
+                            "select k from KhachHang k where k.maKhachHang = :ma", KhachHang.class)
+                    .setParameter("ma", KhachHang.MA_KHACH_LE)
+                    .getResultStream().findFirst().orElse(null);
+            if (khachLe == null) {
+                throw new CommonException("Hệ thống chưa có Khách lẻ mặc định (mã " + KhachHang.MA_KHACH_LE
+                        + "). Hãy chọn khách hàng cho hóa đơn hoặc báo quản trị viên chạy Database/pos_checkout_v1.sql");
+            }
+            khachHangId = khachLe.getId();
         }
         KhachHang khachHang = entityManager.find(KhachHang.class, khachHangId);
         if (khachHang == null) {

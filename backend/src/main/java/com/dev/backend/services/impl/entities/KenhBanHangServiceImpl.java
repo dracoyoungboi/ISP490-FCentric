@@ -1020,6 +1020,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         return sanitizeShopDomain(apiUrl);
     }
 
+    // Che khóa / mã định danh trước khi hiện hoặc ghi nhật ký kênh: giữ 4 ký tự cuối
     private String maskToken(String plain) {
         if (plain == null || plain.isBlank()) return "";
         if (plain.length() <= 8) {
@@ -1192,7 +1193,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         }
 
         KenhBanHang saved = kenhBanHangRepository.save(kenh);
-        ghiLichSuThayDoi(saved, (isSandbox ? "Lazada Sandbox" : "Lazada") + " AppKey: " + request.getAppKey());
+        ghiLichSuThayDoi(saved, (isSandbox ? "Lazada Sandbox" : "Lazada") + " AppKey: " + maskToken(request.getAppKey()));
 
         return getLazadaConfig(ma);
     }
@@ -1603,7 +1604,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         }
 
         KenhBanHang saved = kenhBanHangRepository.save(kenh);
-        ghiLichSuThayDoi(saved, "Cập nhật cấu hình TikTok Shop (AppKey: " + request.getAppKey() + ")");
+        ghiLichSuThayDoi(saved, "Cập nhật cấu hình TikTok Shop (AppKey: " + maskToken(request.getAppKey()) + ")");
 
         return getTikTokConfig();
     }
@@ -1810,7 +1811,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
             kenh.setTrangThai(1);
             kenhBanHangRepository.save(kenh);
 
-            ghiLichSuThayDoi(kenh, "Ủy quyền OAuth2 TikTok Shop thành công (Shop Cipher: " + kenh.getShopCipher() + ")");
+            ghiLichSuThayDoi(kenh, "Ủy quyền OAuth2 TikTok Shop thành công (Shop Cipher: " + maskToken(kenh.getShopCipher()) + ")");
             uyQuyenDaOn(MA_KENH_TIKTOK);
 
             return getTikTokConfig();

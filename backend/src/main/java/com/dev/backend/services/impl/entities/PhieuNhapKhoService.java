@@ -14,6 +14,7 @@ import com.dev.backend.entities.*;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.repository.*;
 import com.dev.backend.services.impl.BaseServiceImpl;
+import com.dev.backend.dto.request.LyDoHuyRequest;
 import com.dev.backend.services.impl.multitable.DieuHanhHeThongServiceImpl;
 import com.dev.backend.utils.KhoDangChon;
 import jakarta.persistence.EntityManager;
@@ -604,7 +605,8 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
     }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
-    public void huyPhieuNhap(Integer id) {
+    public void huyPhieuNhap(Integer id, String lyDo) {
+        String lyDoHuy = LyDoHuyRequest.batBuoc(lyDo);
         PhieuNhapKho phieu = ((PhieuNhapKhoRepository) repository).khoaTheoId(id)
                 .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy phiếu nhập"));
 
@@ -652,6 +654,9 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
         }
 
         phieu.setTrangThai(TrangThaiPhieuNhap.CANCELLED.getValue());
+        // Lý do hủy bắt buộc lưu vào ghi chú của chính phiếu (lịch sử chứng từ không ghi vào nhật ký)
+        String ghiChuCu = phieu.getGhiChu();
+        phieu.setGhiChu((ghiChuCu != null && !ghiChuCu.isBlank() ? ghiChuCu.trim() + " | " : "") + "Lý do hủy: " + lyDoHuy);
         repository.save(phieu);
     }
 

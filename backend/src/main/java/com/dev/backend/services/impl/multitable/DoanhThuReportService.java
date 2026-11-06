@@ -6,12 +6,9 @@ import com.dev.backend.dto.response.DoanhThuChartDTO;
 import com.dev.backend.dto.response.DoanhThuTongHopDTO;
 import com.dev.backend.dto.response.TienThuDTO;
 import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
-import com.dev.backend.entities.Kho;
-import com.dev.backend.entities.ThongTinCongTy;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.repository.DoanhThuReportRepository;
-import com.dev.backend.repository.KhoRepository;
-import com.dev.backend.repository.ThongTinCongTyRepository;
+import com.dev.backend.utils.XemGiaVon;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -33,11 +30,7 @@ import java.util.function.Function;
 public class DoanhThuReportService {
 
     private final DoanhThuReportRepository repo;
-    private final KhoRepository khoRepository;
-    private final ThongTinCongTyRepository thongTinCongTyRepository;
-
-    /** Hồ sơ cửa hàng (một dòng, id 1 — như ThongTinCongTyService). */
-    private static final int HO_SO_CONG_TY = 1;
+    private final XuatBaoCaoService xuatBaoCaoService;
 
     public List<DoanhThuChartDTO> layBaoCaoTheoNgay(LocalDate tuNgay, LocalDate denNgay, Integer khoId) {
         return tinhTyLe(repo.baoCaoTheoNgay(tuNgay, denNgay, khoId));
@@ -192,57 +185,150 @@ public class DoanhThuReportService {
                 }
             }
         }
-        return DoanhThuTongHopDTO.builder()
+        DoanhThuTongHopDTO kq = DoanhThuTongHopDTO.builder()
                 .loai(loai)
                 .tuNgay(tu).denNgay(den).tuNgayCungKy(tuTruoc).denNgayCungKy(denTruoc)
                 .kyNay(tong(tuongLai ? List.of() : gop(pv, k -> repo.baoCaoTheoNgay(tu, den, k))))
                 .cungKy(tong(tuongLai ? List.of() : gop(pv, k -> repo.baoCaoTheoNgay(tuTruoc, denTruoc, k))))
                 .theoKhoPhuTrach(pv.theoKhoPhuTrach())
                 .theoKy(ky)
+                .coGiaVon(true)
+                .theoKenh(tuongLai ? List.of() : theoKenh(pv, tu, den.plusDays(1), tuTruoc, denTruoc.plusDays(1)))
+                .theoNhanVien(tuongLai ? List.of() : theoNhanVien(pv, tu, den.plusDays(1)))
                 .build();
+        if (!xemGiaVon()) anGiaVon(kq);
+        return kq;
+    }
+
+    // ================= Theo kênh, theo nhân viên =================
+
+    static final String KENH_POS = "POS";
+    static final String KENH_TRUC_TIEP = "TRUC_TIEP";
+
+    /** Cả kỳ [tu, den) theo kênh, kèm cùng kỳ [tuTruoc, denTruoc); kênh chỉ có số ở cùng kỳ vẫn hiện (doanh thu 0). */
+    List<DoanhThuTongHopDTO.Kenh> theoKenh(PhamVi pv, LocalDate tu, LocalDate den, LocalDate tuTruoc, LocalDate denTruoc) {
+        Map<String, DoanhThuTongHopDTO.Kenh> theoMa = new LinkedHashMap<>();
+        for (Object[] r : repo.theoKenh(tu, den, pv.tatCaKho(), pv.khoIds())) {
+            DoanhThuTongHopDTO.Kenh k = kenh(theoMa, String.valueOf(r[0]), r[1]);
+            k.setDoanhThu(so(r[2]));
+            k.setGiaVon(so(r[3]));
+            k.setLoiNhuan(so(r[2]).subtract(so(r[3])));
+            k.setSoDon(dem(r[4]));
+            k.setSoDonHoan(dem(r[5]));
+        }
+        for (Object[] r : repo.theoKenh(tuTruoc, denTruoc, pv.tatCaKho(), pv.khoIds())) {
+            DoanhThuTongHopDTO.Kenh k = kenh(theoMa, String.valueOf(r[0]), r[1]);
+            k.setDoanhThuCungKy(so(r[2]));
+            k.setSoDonCungKy(dem(r[4]));
+        }
+        List<DoanhThuTongHopDTO.Kenh> ds = new ArrayList<>(theoMa.values().stream()
+                .filter(k -> k.getSoDon() > 0 || k.getSoDonHoan() > 0 || k.getSoDonCungKy() > 0)
+                .toList());
+        ds.sort(Comparator.comparing(DoanhThuTongHopDTO.Kenh::getDoanhThu).reversed()
+                .thenComparing(Comparator.comparing(DoanhThuTongHopDTO.Kenh::getDoanhThuCungKy).reversed())
+                .thenComparing(DoanhThuTongHopDTO.Kenh::getTen));
+        return ds;
+    }
+
+    private static DoanhThuTongHopDTO.Kenh kenh(Map<String, DoanhThuTongHopDTO.Kenh> theoMa, String ma, Object ten) {
+        return theoMa.computeIfAbsent(ma, m -> DoanhThuTongHopDTO.Kenh.builder()
+                .ma(m)
+                .ten(switch (m) {
+                    case KENH_POS -> "Bán tại quầy";
+                    case KENH_TRUC_TIEP -> "Đơn bán trực tiếp";
+                    default -> ten == null || String.valueOf(ten).isBlank() ? "Kênh " + m.substring(1) : String.valueOf(ten).trim();
+                })
+                .doanhThu(BigDecimal.ZERO).giaVon(BigDecimal.ZERO).loiNhuan(BigDecimal.ZERO)
+                .doanhThuCungKy(BigDecimal.ZERO)
+                .build());
+    }
+
+    static final String NV_NHAN_VIEN = "NHAN_VIEN";
+    static final String NV_DON_SAN = "DON_SAN";
+    static final String NV_KHONG_RO = "KHONG_RO";
+
+    /** Cả kỳ [tu, den) theo người lập đơn: nhân viên theo doanh thu giảm dần, rồi đơn không rõ người lập, cuối là đơn sàn. */
+    List<DoanhThuTongHopDTO.NhanVien> theoNhanVien(PhamVi pv, LocalDate tu, LocalDate den) {
+        NguoiDungAuthInfo user = SecurityContextHolder.getUser();
+        Integer toi = user == null ? null : user.getId();
+        List<DoanhThuTongHopDTO.NhanVien> nv = new ArrayList<>();
+        List<DoanhThuTongHopDTO.NhanVien> cuoi = new ArrayList<>();
+        for (Object[] r : repo.theoNhanVien(tu, den, pv.tatCaKho(), pv.khoIds())) {
+            long ma = dem(r[0]);
+            BigDecimal dt = so(r[2]);
+            BigDecimal gv = so(r[3]);
+            DoanhThuTongHopDTO.NhanVien.NhanVienBuilder b = DoanhThuTongHopDTO.NhanVien.builder()
+                    .doanhThu(dt).giaVon(gv).loiNhuan(dt.subtract(gv)).soDon(dem(r[4]));
+            if (ma == -1) {
+                cuoi.add(b.loai(NV_DON_SAN).ten("Đơn sàn").build());
+            } else if (ma == 0) {
+                cuoi.add(0, b.loai(NV_KHONG_RO).ten("Không rõ người lập").build());
+            } else {
+                int id = (int) ma;
+                String ten = r[1] == null || String.valueOf(r[1]).isBlank() ? "Người dùng #" + id : String.valueOf(r[1]).trim();
+                nv.add(b.loai(NV_NHAN_VIEN).nguoiDungId(id).ten(ten).laToi(toi != null && toi == id).build());
+            }
+        }
+        nv.sort(Comparator.comparing(DoanhThuTongHopDTO.NhanVien::getDoanhThu).reversed()
+                .thenComparing(Comparator.comparingLong(DoanhThuTongHopDTO.NhanVien::getSoDon).reversed())
+                .thenComparing(DoanhThuTongHopDTO.NhanVien::getTen));
+        nv.addAll(cuoi);
+        return nv;
+    }
+
+    /** Người xem có được thấy giá vốn, lợi nhuận gộp không: nhân viên bán hàng thì không (quy tắc chung XemGiaVon, SRS 2.4.1). */
+    static boolean xemGiaVon() {
+        return XemGiaVon.nguoiDangNhapDuocXem();
+    }
+
+    /** Bỏ mọi số giá vốn, lợi nhuận gộp khỏi báo cáo (máy chủ không gửi, không chỉ ẩn trên giao diện). */
+    static void anGiaVon(DoanhThuTongHopDTO dt) {
+        dt.setCoGiaVon(false);
+        for (DoanhThuTongHopDTO.Tong t : new DoanhThuTongHopDTO.Tong[]{dt.getKyNay(), dt.getCungKy()}) {
+            if (t == null) continue;
+            t.setGiaVon(null);
+            t.setLoiNhuan(null);
+        }
+        if (dt.getTheoKy() != null) dt.getTheoKy().forEach(k -> {
+            k.setGiaVon(null);
+            k.setLoiNhuan(null);
+            k.setGiaVonCungKy(null);
+            k.setLoiNhuanCungKy(null);
+        });
+        if (dt.getTheoKenh() != null) dt.getTheoKenh().forEach(k -> {
+            k.setGiaVon(null);
+            k.setLoiNhuan(null);
+        });
+        if (dt.getTheoNhanVien() != null) dt.getTheoNhanVien().forEach(n -> {
+            n.setGiaVon(null);
+            n.setLoiNhuan(null);
+        });
     }
 
     /**
      * Tệp Excel của Báo cáo doanh thu: cùng số với màn (doanh thu kèm cùng kỳ năm trước, tiền thu trong kỳ), đầu trang lấy
-     * từ hồ sơ cửa hàng. Trả nội dung tệp và tên tệp (không dấu).
+     * từ hồ sơ cửa hàng. Ghi nhật ký mỗi lần tải.
      */
-    public record TepExcel(byte[] noiDung, String tenTep) {
-    }
-
-    public TepExcel xuatExcel(String loai, LocalDate tuNgay, LocalDate denNgay, Integer nam, Integer tuNam, Integer denNam,
-                              Integer khoId) {
+    public XuatBaoCaoService.TepExcel xuatExcel(String loai, LocalDate tuNgay, LocalDate denNgay, Integer nam, Integer tuNam,
+                                                Integer denNam, Integer khoId) {
         DoanhThuTongHopDTO dt = layTongHop(loai, tuNgay, denNgay, nam, tuNam, denNam, khoId);
         TienThuDTO tt = layTienThu(loai, tuNgay, denNgay, nam, null, tuNam, denNam, khoId);
-        PhamVi pv = phamVi(khoId);
-        String phamViChu;
-        if (khoId != null) {
-            phamViChu = khoRepository.findById(khoId).map(Kho::getTenKho).orElse("Kho #" + khoId);
-        } else if (pv.tatCaKho()) {
-            phamViChu = "Tất cả kho";
-        } else {
-            List<String> ten = khoRepository.findAllById(pv.khoIds()).stream().map(Kho::getTenKho).toList();
-            phamViChu = ten.isEmpty() ? "Không có cửa hàng phụ trách" : "Các cửa hàng phụ trách: " + String.join(", ", ten);
-        }
+        String phamViChu = xuatBaoCaoService.phamViKho(khoId, phamVi(khoId));
         String tenKy = switch (loai) {
             case "ngay" -> "Theo ngày";
             case "nam" -> "Từ năm " + tuNam + " đến năm " + denNam;
             default -> "Năm " + nam;
         };
-        ThongTinCongTy ct = thongTinCongTyRepository.findById(HO_SO_CONG_TY).orElse(null);
-        NguoiDungAuthInfo user = SecurityContextHolder.getUser();
-        BaoCaoDoanhThuExcel.ThongTin tin = new BaoCaoDoanhThuExcel.ThongTin(
-                ct == null ? null : (ct.getTenCongTy() != null && !ct.getTenCongTy().isBlank() ? ct.getTenCongTy() : ct.getTenDangKyKinhDoanh()),
-                ct == null ? null : ct.getDiaChi(),
-                ct == null ? null : ct.getMaSoThue(),
-                phamViChu, tenKy,
-                user == null ? null : (user.getHoTen() != null && !user.getHoTen().isBlank() ? user.getHoTen() : user.getTenDangNhap()),
-                java.time.LocalDateTime.now(VN));
         String hau = switch (loai) {
             case "ngay" -> dt.getTuNgay() + "_" + dt.getDenNgay();
             case "nam" -> tuNam + "-" + denNam;
             default -> String.valueOf(nam);
         };
-        return new TepExcel(BaoCaoDoanhThuExcel.tao(dt, tt, tin), "Bao-cao-doanh-thu_" + hau + ".xlsx");
+        String tenTep = "Bao-cao-doanh-thu_" + hau + ".xlsx";
+        byte[] tep = BaoCaoDoanhThuExcel.tao(dt, tt, xuatBaoCaoService.thongTin(phamViChu), tenKy);
+        xuatBaoCaoService.ghiNhatKy("Báo cáo doanh thu", tenTep, Map.of("loai", loai,
+                "tuNgay", String.valueOf(dt.getTuNgay()), "denNgay", String.valueOf(dt.getDenNgay()), "phamVi", phamViChu));
+        return new XuatBaoCaoService.TepExcel(tep, tenTep);
     }
 
     /** Chạy câu doanh thu cho phạm vi: mọi kho một lần (null), không thì từng kho rồi cộng theo nhãn kỳ. */

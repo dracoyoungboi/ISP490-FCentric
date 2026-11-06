@@ -1,17 +1,14 @@
 package com.dev.backend.controller;
 
 import com.dev.backend.config.SecurityContextHolder;
+import com.dev.backend.constant.variables.IPermissionType;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.customizeanotation.RequireAuth;
 import com.dev.backend.dto.TonKhoProjection;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.customize.TonKhoChiTietDTO;
-import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
-import com.dev.backend.dto.response.entities.SanPhamQuanAoDto;
-import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.mapper.TonKhoTheoLoMapper;
-import com.dev.backend.services.JwtService;
-import com.dev.backend.services.impl.entities.TonKhoTheoLoService;
+import com.dev.backend.services.impl.multitable.BaoCaoTonKhoService;
 import com.dev.backend.services.multitable.ThongKeHeThongService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -27,11 +24,9 @@ public class ThongKeHeThongController {
     private ThongKeHeThongService thongKeHeThongService;
 
     @Autowired
-    private TonKhoTheoLoService tonKhoTheoLoService;
-    @Autowired
     private TonKhoTheoLoMapper tonKhoTheoLoMapper;
     @Autowired
-    private JwtService jwtService;
+    private BaoCaoTonKhoService baoCaoTonKhoService;
 
     @GetMapping("/ton-kho")
     @RequireAuth(
@@ -66,19 +61,6 @@ public class ThongKeHeThongController {
         return thongKeHeThongService.findTonKhoChiTietByBienThe(bienTheId);
     }
 
-    @GetMapping("/san-pham/ban-chay/{top}")
-    @RequireAuth(
-            roles = {
-                    IRoleType.quan_tri_vien,
-                    IRoleType.quan_ly_kho,
-                    IRoleType.nhan_vien_ban_hang
-            },
-            rolesLogic = RequireAuth.LogicType.OR
-    )
-    public ResponseEntity<ResponseData<List<SanPhamQuanAoDto>>> sanPhamBanChay(@PathVariable Integer top) {
-        return tonKhoTheoLoService.sanPhamBanChay(top);
-    }
-
     //sau khi lấy được danh sách sản phẩm ở trong khoID thì xem được danh sách biến thể của từng sản phẩm
     //sau đó gọi api này để lấy danh sách tồn kho chi tiết của biến thể đó trong kho
     @GetMapping("/ton-kho-bien-the/{khoId}/{bienTheId}")
@@ -110,14 +92,30 @@ public class ThongKeHeThongController {
             rolesLogic = RequireAuth.LogicType.OR
     )
     public ResponseEntity<ResponseData<List<TonKhoProjection>>> tonKhoTongHop(@RequestParam(required = false) Integer khoId, @RequestParam(required = false) String keyword) {
-        NguoiDungAuthInfo authInfo = SecurityContextHolder.getUser();
-        if(authInfo.getVaiTro().contains(IRoleType.nhan_vien_kho)){
-            if(khoId == null) throw new CommonException("Phải có trường khoId");
-            if(!jwtService.inWorkspace(khoId,authInfo)){
-                throw new CommonException("Bạn không quản lý kho này");
-            }
-        }
+        baoCaoTonKhoService.kiemTraKhoXem(khoId);
         return thongKeHeThongService.tonKhoTongHop(khoId, keyword);
+    }
+
+    /**
+     * Tệp Excel (.xlsx) của Báo cáo tồn kho: cùng kho, từ khóa với /ton-kho-tong-quan, kèm tab tình trạng đang xem
+     * (tinhTrang = het-hang | thieu-hang | binh-thuong | du-hang, trống = tất cả). Cần quyền Xuất báo cáo ở kho làm việc.
+     */
+    @GetMapping("/ton-kho-tong-quan/xuat-excel")
+    @RequireAuth(
+            roles = {
+                    IRoleType.quan_tri_vien,
+                    IRoleType.quan_ly_kho,
+                    IRoleType.nhan_vien_kho,
+                    IRoleType.nhan_vien_mua_hang,
+                    IRoleType.nhan_vien_ban_hang
+            },
+            permissions = {IPermissionType.xuat_bao_cao},
+            inWarehouse = true
+    )
+    public ResponseEntity<byte[]> xuatExcelTonKho(@RequestParam(required = false) Integer khoId,
+                                                  @RequestParam(required = false) String keyword,
+                                                  @RequestParam(required = false) String tinhTrang) {
+        return baoCaoTonKhoService.xuatExcel(khoId, keyword, tinhTrang).phanHoi();
     }
 
 }

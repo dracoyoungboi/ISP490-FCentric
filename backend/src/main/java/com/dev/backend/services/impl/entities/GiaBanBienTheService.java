@@ -373,6 +373,8 @@ public class GiaBanBienTheService {
         lichSuThayDoiService.create(LichSuThayDoi.builder()
                 .loaiThamChieu(ITable.bien_the_san_pham)
                 .idThamChieu(bienTheId)
+                // Mã SKU: ngăn lịch sử sản phẩm gộp đổi giá mọi biến thể, cần biết dòng nào của SKU nào
+                .maDoiTuong(maSku(bienTheId))
                 .hanhDong(IHanhDong.doi_gia_ban)
                 .giaTriCu(jsonGiaBan(giaCu))
                 .giaTriMoi(jsonGiaBan(giaMoi))
@@ -380,6 +382,12 @@ public class GiaBanBienTheService {
                 .ngayThucHien(luc)
                 .ghiChu(lyDo)
                 .build());
+    }
+
+    /** Mã SKU của biến thể (thường đã nạp trong giao dịch nên không thêm câu truy vấn); không có thì trống. */
+    private String maSku(Integer bienTheId) {
+        if (bienTheId == null || bienTheSanPhamRepository == null) return null;
+        return bienTheSanPhamRepository.findById(bienTheId).map(BienTheSanPham::getMaSku).orElse(null);
     }
 
     /** {"giaBan":2000000} — số viết gọn, không số mũ, không đuôi .00. */

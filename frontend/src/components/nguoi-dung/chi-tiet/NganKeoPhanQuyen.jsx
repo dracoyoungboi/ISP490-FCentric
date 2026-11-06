@@ -845,7 +845,7 @@ export default function NganKeoPhanQuyen({
                   {catQuyen
                     ? "Có hiệu lực ngay: nếu người dùng đang đăng nhập, hệ thống buộc đăng nhập lại ở thao tác kế tiếp."
                     : "Quyền mới dùng được sau khi người dùng đăng nhập lại."}{" "}
-                  Thay đổi được ghi vào Lịch sử phân quyền.
+                  Thay đổi được ghi vào Lịch sử thay đổi.
                 </p>
               </div>
             </AlertDialogDescription>

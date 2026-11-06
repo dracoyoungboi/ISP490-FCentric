@@ -88,12 +88,12 @@ class DonBanHangServiceCancellationTest {
         when(donBanHangRepository.findById(100)).thenReturn(Optional.of(don));
         coMotDong(don);
 
-        service.cancel(100);
+        service.cancel(100, "Lý do thử");
 
         assertEquals(4, don.getTrangThai());
         verify(donBanHangRepository).save(don);
         verifyNoInteractions(nhatHangService);
-        verify(phieuXuatKhoService).huyPhieuXuatNhapTheoDon(100, "Tự động thu hồi do đơn SHP-100 bị hủy");
+        verify(phieuXuatKhoService).huyPhieuXuatNhapTheoDon(100, "Tự động thu hồi do đơn SHP-100 bị hủy: Lý do thử");
         verify(eventPublisher).publishEvent(any(InventoryRestockedEvent.class));
         // Không có giao dịch đang mở trong unit test nên lời gọi "sau commit" chạy ngay
         verify(kenhBanHangDongBoService).huyDonHangTrenShopify("SHOPIFY-100", "Hủy từ FCentric");
@@ -106,7 +106,7 @@ class DonBanHangServiceCancellationTest {
             DonBanHang don = don(101, "da_nhat".equals(ttPhieu) ? 7 : 1, pickList);
             when(donBanHangRepository.findById(101)).thenReturn(Optional.of(don));
 
-            CommonException ex = assertThrows(CommonException.class, () -> service.cancel(101));
+            CommonException ex = assertThrows(CommonException.class, () -> service.cancel(101, "Lý do thử"));
 
             assertEquals(HttpStatus.CONFLICT, ex.getHttpStatus(), ttPhieu);
             assertTrue(ex.getMessage().contains("phiếu nhặt hàng PL-001"), ex.getMessage());
@@ -122,7 +122,7 @@ class DonBanHangServiceCancellationTest {
             DonBanHang don = don(102, trangThai, null);
             when(donBanHangRepository.findById(102)).thenReturn(Optional.of(don));
 
-            CommonException ex = assertThrows(CommonException.class, () -> service.cancel(102));
+            CommonException ex = assertThrows(CommonException.class, () -> service.cancel(102, "Lý do thử"));
 
             assertEquals(HttpStatus.CONFLICT, ex.getHttpStatus());
             assertEquals(trangThai, don.getTrangThai());
@@ -136,7 +136,7 @@ class DonBanHangServiceCancellationTest {
             DonBanHang don = don(103, trangThai, null);
             when(donBanHangRepository.findById(103)).thenReturn(Optional.of(don));
 
-            assertThrows(RuntimeException.class, () -> service.cancel(103));
+            assertThrows(RuntimeException.class, () -> service.cancel(103, "Lý do thử"));
 
             assertEquals(trangThai, don.getTrangThai());
         }
@@ -150,7 +150,7 @@ class DonBanHangServiceCancellationTest {
         DonBanHang don = don(104, 4, pickList);
         when(donBanHangRepository.findById(104)).thenReturn(Optional.of(don));
 
-        service.cancel(104);
+        service.cancel(104, "Lý do thử");
 
         assertEquals(4, don.getTrangThai());
         verify(donBanHangRepository, never()).save(any());

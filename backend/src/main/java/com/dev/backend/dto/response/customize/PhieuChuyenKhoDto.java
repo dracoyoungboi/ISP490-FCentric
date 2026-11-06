@@ -31,6 +31,8 @@ public final class PhieuChuyenKhoDto {
         Integer khoNhapId;
         String khoNhapTen;
         String trangThai;
+        /** Đã hủy do Quản lý Kho tổng từ chối (nhãn "Đã từ chối", SRS UC 7.2); trạng thái lưu vẫn DA_HUY. */
+        boolean tuChoi;
         /** Hoàn tất bằng ghi giảm chênh lệch (nhãn "Hoàn tất (có chênh lệch)"). */
         boolean coChenhLech;
         /** Chờ xử lý chênh lệch mà kho gửi chưa xác nhận biên bản giao nhận. */
@@ -93,6 +95,8 @@ public final class PhieuChuyenKhoDto {
         String nguoi;
         /** Phiếu nhập: true khi là phiếu nhập hoàn trả về kho nguồn. */
         Boolean laHoanTra;
+        /** Phiếu chuyển: true khi Đã hủy do bị từ chối (nhãn "Đã từ chối"); chứng từ khác để null. */
+        Boolean tuChoi;
     }
 
     /** Hàng theo biến thể ở bảng "Hàng chuyển" (B.1). */

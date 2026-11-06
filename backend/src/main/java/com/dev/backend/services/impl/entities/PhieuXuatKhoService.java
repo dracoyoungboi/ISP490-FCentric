@@ -13,6 +13,7 @@ import com.dev.backend.entities.*;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.repository.*;
 import com.dev.backend.services.impl.BaseServiceImpl;
+import com.dev.backend.dto.request.LyDoHuyRequest;
 import com.dev.backend.services.impl.multitable.LoDangGiuService;
 import com.dev.backend.services.multitable.BangChungDongGoiService;
 import com.dev.backend.utils.HienThiBienThe;
@@ -697,7 +698,8 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
     }
 
     @Transactional
-    public void cancel(Integer id) {
+    public void cancel(Integer id, String lyDo) {
+        String lyDoHuy = LyDoHuyRequest.batBuoc(lyDo);
         PhieuXuatKho phieu = repository.findById(id).orElseThrow(() -> new RuntimeException("Không tìm thấy phiếu"));
         // Hủy tay từ màn phiếu xuất: phải thao tác từ đúng kho của phiếu (quyền huy_phieu_xuat kiểm theo kho đang chọn)
         KhoDangChon.kiemTra(phieu.getKho(), tenPhieu(phieu));
@@ -706,6 +708,9 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
         if ("khac".equals(phieu.getLoaiXuat()) || phieu.getPhieuChuyenKho() != null) {
             throw new CommonException("Phiếu chuyển kho và phiếu xuất của nó hủy ở màn Phiếu chuyển kho");
         }
+        // Lý do hủy bắt buộc lưu vào ghi chú của chính phiếu (lịch sử chứng từ không ghi vào nhật ký)
+        String ghiChu = phieu.getGhiChu();
+        phieu.setGhiChu((ghiChu != null && !ghiChu.isBlank() ? ghiChu.trim() + " | " : "") + "Lý do hủy: " + lyDoHuy);
         huyPhieu(phieu);
     }
 
@@ -767,7 +772,7 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
 
     /**
      * Thu hồi phiếu xuất chưa xuất (0 Nháp / 6 Chờ xuất - đã đóng gói) của một đơn bán vừa bị hủy: đi qua đúng logic hủy
-     * của {@link #cancel(Integer)} nên phiếu về 4 (Đã hủy), không phải 2 (Đã duyệt). Phiếu đã xuất (3) hoặc đã hủy (4) giữ nguyên.
+     * của {@link #cancel(Integer, String)} nên phiếu về 4 (Đã hủy), không phải 2 (Đã duyệt). Phiếu đã xuất (3) hoặc đã hủy (4) giữ nguyên.
      * Không kiểm kho đang chọn: người hủy đơn (bán hàng, đồng bộ sàn) có thể đang chọn kho khác kho của phiếu.
      * Chạy trong giao dịch của bên gọi (hủy đơn, hủy trong phiếu nhặt, đồng bộ sàn).
      *

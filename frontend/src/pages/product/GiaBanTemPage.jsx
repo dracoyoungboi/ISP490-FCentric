@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { ChevronRight, ChevronsDownUp, ChevronsUpDown, CircleCheck, FileText, Layers, Pencil, Printer, SearchX, X } from "lucide-react";
+import { ChevronRight, ChevronsDownUp, ChevronsUpDown, CircleCheck, FileText, History, Layers, Pencil, Printer, SearchX, X } from "lucide-react";
 import { toast } from "@/lib/thongBaoNhanh";
 import { trangCuoiNeuVuot } from "@/lib/tinhTaiLai";
 import { Button } from "@/components/ui/button";
@@ -43,6 +43,8 @@ import {
 } from "@/components/gia-ban/nhomGiaBan";
 import { chuanHoaDongInTem } from "@/components/print/tinhTem";
 import HopInTem from "@/pages/product/components/product/HopInTem";
+import NganKeoLichSu from "@/components/nhat-ky/NganKeoLichSu";
+import { layLichSuGiaBienThe } from "@/services/nhatKyService";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
@@ -121,6 +123,8 @@ export default function GiaBanTemPage() {
   const [ngoaiLe, setNgoaiLe] = useState(() => new Set());
   const [boTuMo, setBoTuMo] = useState(false);
   const [chon, setChon] = useState(() => new Set());
+  // SKU đang xem lịch sử giá (ngăn Lịch sử thay đổi); null = đóng. Trang chỉ mở cho quản trị viên, quản lý kho
+  const [lichSuGia, setLichSuGia] = useState(null);
   const [noiBat, setNoiBat] = useState(null); // id SKU vừa quét trúng
   const [choQuet, setChoQuet] = useState(() => (maDatGia ? { ma: maDatGia, moGia: laQuanTriVien } : null)); // { ma, moGia? } chờ dữ liệu của từ khóa vừa quét
   const [popGia, setPopGia] = useState(null); // khóa ô giá đang mở: "dong-<id>" | "nhom-<khoa>"
@@ -397,6 +401,10 @@ export default function GiaBanTemPage() {
         lyDoMacDinh={lyDoTruoc}
         dangLuu={dangLuuGia}
         onLuu={luuGia}
+        onXemLichSu={() => {
+          setPopGia(null);
+          setLichSuGia(d);
+        }}
       />
     );
   };
@@ -472,8 +480,9 @@ export default function GiaBanTemPage() {
           {oGiaDong(d)}
           <p className="hidden text-xs tabular-nums text-bo-muted cam-ung:max-lg:block">Vốn {formatNumberOrDash(d.giaVon)}</p>
         </td>
-        <td className="w-16 px-2 py-2.5">
+        <td className="w-24 px-2 py-2.5">
           <RowActions>
+            <RowActionButton icon={History} label={`Lịch sử giá ${d.maSku}`} onClick={() => setLichSuGia(d)} />
             <RowActionButton
               icon={Printer}
               label={ngung ? "SKU ngừng hoạt động" : `In tem ${d.maSku}`}
@@ -554,7 +563,7 @@ export default function GiaBanTemPage() {
             <p className="hidden text-xs tabular-nums text-bo-muted cam-ung:max-lg:block">Vốn {formatNumberOrDash(tt.giaVonChung)}</p>
           ) : null}
         </td>
-        <td className={cn("w-16 px-2 py-2.5", o)}>
+        <td className={cn("w-24 px-2 py-2.5", o)}>
           <RowActions>
             <RowActionButton icon={Printer} label={`In tem cả sản phẩm ${g.ten}`} onClick={() => moInTem("chon", g.dong)} />
           </RowActions>
@@ -618,6 +627,15 @@ export default function GiaBanTemPage() {
             <div className="flex shrink-0 items-center text-sm">
               {oGiaDong(d)}
               {nutIn(ngung ? "SKU ngừng hoạt động" : `In tem ${d.maSku}`, () => moInTem("chon", [d]), ngung)}
+              <button
+                type="button"
+                aria-label={`Lịch sử giá ${d.maSku}`}
+                title={`Lịch sử giá ${d.maSku}`}
+                onClick={() => setLichSuGia(d)}
+                className="grid size-9 shrink-0 place-items-center rounded-md text-bo-muted hover:bg-slate-100 hover:text-bo-primary"
+              >
+                <History className="size-[18px]" aria-hidden="true" />
+              </button>
             </div>
           </div>
           <p className="truncate text-[12.5px] text-bo-muted">
@@ -912,7 +930,7 @@ export default function GiaBanTemPage() {
                 <th className={`${TH} w-24 text-right`}>Tồn kho</th>
                 <th className={`${TH} w-[120px] text-right cam-ung:max-lg:hidden`}>Giá vốn</th>
                 <th className={`${TH} w-40 text-right`}>Giá bán</th>
-                <th className={`${TH} w-16`}>
+                <th className={`${TH} w-24`}>
                   <span className="sr-only">Thao tác</span>
                 </th>
               </tr>
@@ -959,6 +977,14 @@ export default function GiaBanTemPage() {
         maPhieu={hopInTem?.maPhieu}
         onDatGia={laQuanTriVien ? datGiaTuHopIn : undefined}
         onDaIn={() => setChon(new Set())}
+      />
+
+      <NganKeoLichSu
+        open={Boolean(lichSuGia)}
+        onOpenChange={(mo) => !mo && setLichSuGia(null)}
+        tieuDe={lichSuGia ? `Lịch sử giá ${lichSuGia.maSku || nhanBienThe(lichSuGia)}` : "Lịch sử giá"}
+        moTa="Ai đổi giá bán, lúc nào, từ bao nhiêu sang bao nhiêu và vì sao. Mới nhất ở trên."
+        tai={() => (lichSuGia ? layLichSuGiaBienThe(lichSuGia.id) : Promise.resolve([]))}
       />
     </PageContainer>
   );

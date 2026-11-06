@@ -19,10 +19,8 @@ public class NhaCungCapDto {
     private String soDienThoai;
     private String email;
     private String diaChi;
-    /** Mã ngân hàng theo VietQR (mã BIN), dùng tạo mã QR khi thanh toán đơn mua. */
-    private String nganHang;
-    /** Số tài khoản nhận tiền của nhà cung cấp. */
-    private String soNganHang;
+    // Không trả ngân hàng / số tài khoản (đã bỏ khỏi nhà cung cấp 22/10; số cũ còn trong DB không lộ qua API — DTO này
+    // đi kèm cả đơn mua mà vai trò kho xem được)
     private Integer trangThai;      // 0 = Ngừng hoạt động, 1 = Hoạt động
     private Instant ngayTao;
     private Instant ngayCapNhat;

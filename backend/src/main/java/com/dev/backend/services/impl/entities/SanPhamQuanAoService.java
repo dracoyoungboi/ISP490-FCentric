@@ -4,6 +4,7 @@ import com.dev.backend.config.SecurityContextHolder;
 import com.dev.backend.constant.enums.FileType;
 import com.dev.backend.constant.variables.IHanhDong;
 import com.dev.backend.constant.variables.ITable;
+import com.dev.backend.services.impl.utils.NhatKyNghiepVu;
 import com.dev.backend.dto.request.AnhSanPhamSapXep;
 import com.dev.backend.dto.request.BienTheSanPhamCreating;
 import com.dev.backend.dto.request.BienTheSanPhamUpdating;
@@ -31,9 +32,6 @@ import com.dev.backend.utils.KiemTraTepTai;
 import com.dev.backend.utils.MaVachSku;
 import com.dev.backend.services.impl.kiemke.KhoaKiemKeGuard;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Query;
 import lombok.extern.slf4j.Slf4j;
@@ -72,6 +70,9 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
         /** Chốt chặn dữ liệu chủ của kiểm kê khoanh vùng; null khi unit test dựng tay. */
         @Autowired(required = false)
         private KhoaKiemKeGuard khoaKiemKeGuard;
+        /** Nhật ký sản phẩm (lịch sử master data, ghi trong giao dịch); null khi unit test dựng tay. */
+        @Autowired(required = false)
+        private NhatKyNghiepVu nhatKy;
 
         /** Đổi danh mục của sản phẩm khi danh mục cũ hoặc mới đang được kiểm kê ở kho nào đó: dừng (Master Data Guard). */
         private void kiemTraDoiDanhMucKhiKiemKe(DanhMucQuanAo cu, DanhMucQuanAo moi) {
@@ -98,6 +99,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
         private ThuongHieuService thuongHieuService;
         @Autowired
         private NguoiDungService nguoiDungService;
+        // Không còn ghi trực tiếp (nhật ký đi qua NhatKyNghiepVu); giữ vì các test dựng service gán field này
         @Autowired
         private LichSuThayDoiService lichSuThayDoiService;
         @Autowired
@@ -122,7 +124,6 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
         //Mapper
         @Autowired
         private SanPhamQuanAoMapper sanPhamQuanAoMapper;
-        private final ObjectMapper objectMapper = new ObjectMapper();
 
         /** Số biến thể tối đa của một sản phẩm khi tạo mới (form sinh tổ hợp Màu × Kích cỡ). */
         private static final int SO_BIEN_THE_TOI_DA = 100;
@@ -380,7 +381,10 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
 
                 sanPhamQuanAo = getOne(sanPhamQuanAo.getId()).get();
 
-                saveLichSu(sanPhamQuanAo, creating, nguoiTao, instantNow);
+                ghiNhatKy(NhatKyNghiepVu.dong(ITable.san_pham_quan_ao, sanPhamQuanAo.getId(), IHanhDong.them_moi_san_pham)
+                        .ma(sanPhamQuanAo.getMaSanPham())
+                        .moi(anhTaoMoi(sanPhamQuanAo, dsBienThe.size()))
+                        .ghiChu("Tạo sản phẩm " + sanPhamQuanAo.getMaSanPham()));
 
                 return ResponseEntity.ok(
                         ResponseData.<SanPhamQuanAoDto>builder()
@@ -564,26 +568,38 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 return code.toString();
         }
 
-        private void saveLichSu(SanPhamQuanAo sp, SanPhamQuanAoCreating creating, NguoiDung nguoiTao, Instant now) {
-                try {
-                        objectMapper.registerModule(new JavaTimeModule());
-                        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-                        String giaTriMoiJson = objectMapper.writeValueAsString(creating);
+        // ---------- Nhật ký sản phẩm (lịch sử master data) ----------
 
-                        lichSuThayDoiService.create(
-                                LichSuThayDoi.builder()
-                                        .loaiThamChieu(ITable.san_pham_quan_ao)
-                                        .idThamChieu(sp.getId())
-                                        .hanhDong(IHanhDong.them_moi_san_pham)
-                                        .giaTriMoi(giaTriMoiJson)
-                                        .nguoiThucHien(nguoiTao)
-                                        .ngayThucHien(now)
-                                        .ghiChu("Tạo sản phẩm tự động mã: " + sp.getMaSanPham())
-                                        .build()
-                        );
-                } catch (Exception e) {
-                        log.error("Lỗi lưu lịch sử", e);
-                }
+        /** Ảnh chụp các trường chính của sản phẩm cho nhật ký: danh mục / thương hiệu ghi TÊN (không ghi id). */
+        static Map<String, Object> anhSanPham(SanPhamQuanAo sp) {
+                return NhatKyNghiepVu.anh(
+                        "tenSanPham", sp.getTenSanPham(),
+                        "maVach", sp.getMaVach(),
+                        "danhMuc", sp.getDanhMuc() == null ? null : sp.getDanhMuc().getTenDanhMuc(),
+                        "thuongHieu", sp.getThuongHieu() == null ? null : sp.getThuongHieu().getTenThuongHieu(),
+                        "moTa", sp.getMoTa(),
+                        "trangThai", sp.getTrangThai(),
+                        "mucTonToiThieu", sp.getMucTonToiThieu(),
+                        // Giá vốn trống coi như 0 (form gửi 0 khi trống): không sinh dòng "trống → 0" giả
+                        "giaVonMacDinh", sp.getGiaVonMacDinh() == null ? java.math.BigDecimal.ZERO : sp.getGiaVonMacDinh());
+        }
+
+        /** Ảnh chụp gọn lúc tạo sản phẩm: các trường chính + mã + số biến thể (không ghi nguyên yêu cầu gửi lên). */
+        static Map<String, Object> anhTaoMoi(SanPhamQuanAo sp, int soBienThe) {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("maSanPham", sp.getMaSanPham());
+                m.putAll(anhSanPham(sp));
+                m.put("soBienThe", soBienThe);
+                return m;
+        }
+
+        private void ghiNhatKy(NhatKyNghiepVu.Dong dong) {
+                if (nhatKy != null) nhatKy.ghi(dong);
+        }
+
+        /** Số tệp ảnh thật (bỏ tệp rỗng giữ chỗ) trong danh sách gửi lên. */
+        private static long soTepAnh(List<MultipartFile> ds) {
+                return ds == null ? 0 : ds.stream().filter(t -> t != null && !t.isEmpty()).count();
         }
 
 
@@ -628,6 +644,8 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 }
 
                 // ===================== GHI DỮ LIỆU =====================
+                // Ảnh chụp trước khi sửa (nhật ký chỉ giữ trường đổi); các mục biến thể / ảnh thêm vào sau
+                Map<String, Object> truocSua = anhSanPham(sanPhamQuanAo);
                 kiemTraDoiDanhMucKhiKiemKe(sanPhamQuanAo.getDanhMuc(), danhMucQuanAo);
                 sanPhamQuanAo.setTenSanPham(tenMoi);
                 sanPhamQuanAo.setDanhMuc(danhMucQuanAo);
@@ -642,8 +660,12 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                         applyThuongHieu(sanPhamQuanAo, updating.getThuongHieuId());
                 }
                 sanPhamQuanAo = update(updating.getId(), sanPhamQuanAo);
+                Map<String, Object> sauSua = anhSanPham(sanPhamQuanAo);
                 if (updating.isImageUpdated()) {
                         capNhatAnhSanPham(sanPhamQuanAo, sapXepAnh, anhSanPhams);
+                        // Ảnh: chỉ ghi tóm tắt (không ghi đường dẫn)
+                        long soTepMoi = soTepAnh(anhSanPhams);
+                        sauSua.put("anhSanPham", "Sắp xếp / thay ảnh" + (soTepMoi > 0 ? ", tải lên " + soTepMoi + " ảnh mới" : ""));
                 }
 
                 // Ảnh biến thể:
@@ -657,6 +679,9 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 List<Map<String, Object>> thuocTinhCu = new ArrayList<>();
                 List<Map<String, Object>> thuocTinhMoi = new ArrayList<>();
                 List<Map<String, Object>> bienTheThemMoi = new ArrayList<>();
+                List<Map<String, Object>> trangThaiBienTheCu = new ArrayList<>();
+                List<Map<String, Object>> trangThaiBienTheMoi = new ArrayList<>();
+                List<String> bienTheDoiAnh = new ArrayList<>();
                 String tienToMaVach = keHoachBienThes.stream().anyMatch(k -> k.bienThe == null) ? tienToMaVach() : null;
                 NguoiDung nguoiDoiGia = null;
                 for (KeHoachBienThe keHoach : keHoachBienThes) {
@@ -678,6 +703,11 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                                 // Giá bán gửi trống hoặc như cũ thì giữ nguyên; đổi giá đã qua kiểm tra ở lapKeHoachBienThe
                                 if (keHoach.doiGiaBan) {
                                         bienThe.setGiaBan(keHoach.giaBanMoi);
+                                }
+                                // Ngừng / mở bán biến thể: ghi SKU + trạng thái cũ → mới
+                                if (duLieu.getTrangThai() != null && !Objects.equals(bienThe.getTrangThai(), duLieu.getTrangThai())) {
+                                        trangThaiBienTheCu.add(NhatKyNghiepVu.anh("sku", bienThe.getMaSku(), "trangThai", bienThe.getTrangThai()));
+                                        trangThaiBienTheMoi.add(NhatKyNghiepVu.anh("sku", bienThe.getMaSku(), "trangThai", duLieu.getTrangThai()));
                                 }
                                 bienThe.setTrangThai(duLieu.getTrangThai());
                                 bienThe = bienTheSanPhamService.update(bienThe.getId(), bienThe);
@@ -708,6 +738,9 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                                 }
                                 bienTheThemMoi.add(moTaBienThe(bienThe));
                         }
+                        if (keHoach.bienThe != null && (duLieu.getViTriAnh() != null || duLieu.isImageUpdated())) {
+                                bienTheDoiAnh.add(bienThe.getMaSku());
+                        }
                         if (duLieu.getViTriAnh() != null) {
                                 int viTriAnh = duLieu.getViTriAnh();
                                 TepTin tepAnh = tepAnhTheoViTri.get(viTriAnh);
@@ -726,27 +759,43 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                         }
                 }
 
-                if (!thuocTinhMoi.isEmpty() || !bienTheThemMoi.isEmpty()) {
-                        Map<String, Object> giaTriCu = new LinkedHashMap<>();
-                        Map<String, Object> giaTriMoi = new LinkedHashMap<>();
-                        if (!thuocTinhMoi.isEmpty()) {
-                                giaTriCu.put("bienTheDoiThuocTinh", thuocTinhCu);
-                                giaTriMoi.put("bienTheDoiThuocTinh", thuocTinhMoi);
-                        }
-                        if (!bienTheThemMoi.isEmpty()) {
-                                giaTriMoi.put("bienTheThemMoi", bienTheThemMoi);
-                        }
-                        List<String> noiDung = new ArrayList<>();
-                        if (!thuocTinhMoi.isEmpty()) noiDung.add("đổi màu/kích cỡ " + thuocTinhMoi.size() + " biến thể");
-                        if (!bienTheThemMoi.isEmpty()) noiDung.add("thêm " + bienTheThemMoi.size() + " biến thể mới");
-                        ghiLichSuCapNhat(sanPhamQuanAo, giaTriCu, giaTriMoi,
-                                "Cập nhật biến thể sản phẩm " + sanPhamQuanAo.getMaSanPham() + ": " + String.join(", ", noiDung));
+                // Một dòng nhật ký cho cả lần lưu: trường chính đổi + biến thể (đổi màu/size, thêm, ngừng/mở bán, đổi ảnh)
+                // + ảnh sản phẩm. Đổi giá bán đã ghi riêng doi_gia_ban ở trên. Không đổi gì thì không ghi.
+                List<String> noiDung = new ArrayList<>();
+                if (!thuocTinhMoi.isEmpty()) {
+                        truocSua.put("bienTheDoiThuocTinh", thuocTinhCu);
+                        sauSua.put("bienTheDoiThuocTinh", thuocTinhMoi);
+                        noiDung.add("đổi màu/kích cỡ " + thuocTinhMoi.size() + " biến thể");
                 }
+                if (!bienTheThemMoi.isEmpty()) {
+                        sauSua.put("bienTheThemMoi", bienTheThemMoi);
+                        noiDung.add("thêm " + bienTheThemMoi.size() + " biến thể");
+                }
+                if (!trangThaiBienTheMoi.isEmpty()) {
+                        truocSua.put("bienTheDoiTrangThai", trangThaiBienTheCu);
+                        sauSua.put("bienTheDoiTrangThai", trangThaiBienTheMoi);
+                        noiDung.add("đổi trạng thái bán " + trangThaiBienTheMoi.size() + " biến thể");
+                }
+                if (!bienTheDoiAnh.isEmpty()) {
+                        sauSua.put("bienTheDoiAnh", bienTheDoiAnh);
+                        noiDung.add("đổi ảnh " + bienTheDoiAnh.size() + " biến thể");
+                }
+                if (sauSua.containsKey("anhSanPham")) noiDung.add(0, "cập nhật ảnh sản phẩm");
 
                 recalculatePriceAndStatus(sanPhamQuanAo.getId());
                 sanPhamQuanAo = getOne(sanPhamQuanAo.getId()).orElseThrow(
                         () -> new CommonException("Không tìm thấy sản phẩm quần áo id: " + updating.getId())
                 );
+                // Trường chính lấy từ bản ĐÃ tính lại (trạng thái có thể đổi theo tồn), không theo dữ liệu gửi lên
+                sauSua.putAll(anhSanPham(sanPhamQuanAo));
+                NhatKyNghiepVu.Dong dongSua = NhatKyNghiepVu.dong(ITable.san_pham_quan_ao, sanPhamQuanAo.getId(),
+                                IHanhDong.cap_nhat_san_pham)
+                        .ma(sanPhamQuanAo.getMaSanPham())
+                        .thayDoi(truocSua, sauSua);
+                if (dongSua.coThayDoi()) {
+                        dongSua.ghiChu("Sửa sản phẩm" + (noiDung.isEmpty() ? "" : ": " + String.join(", ", noiDung)));
+                        ghiNhatKy(dongSua);
+                }
                 return ResponseEntity.ok(
                         ResponseData.<SanPhamQuanAoDto>builder()
                                 .status(HttpStatus.OK.value())
@@ -979,13 +1028,10 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
 
         private Map<String, Object> moTaBienThe(BienTheSanPham bt) {
                 Map<String, Object> moTa = new LinkedHashMap<>();
-                moTa.put("id", bt.getId());
+                // Nhật ký: chỉ chữ đọc được (SKU, tên màu / kích cỡ / chất liệu), không ghi id
                 moTa.put("maSku", bt.getMaSku());
-                moTa.put("mauSacId", bt.getMauSac().getId());
                 moTa.put("tenMau", bt.getMauSac().getTenMau());
-                moTa.put("sizeId", bt.getSize().getId());
                 moTa.put("tenSize", bt.getSize().getTenSize());
-                moTa.put("chatLieuId", bt.getChatLieu().getId());
                 moTa.put("tenChatLieu", bt.getChatLieu().getTenChatLieu());
                 return moTa;
         }
@@ -1128,32 +1174,25 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
         public SanPhamQuanAoDto updateBasicInfo(Integer id, SanPhamQuanAoBasicInfoUpdating dto) {
                 SanPhamQuanAo sp = getOne(id).orElseThrow(
                         () -> new CommonException("Không tìm thấy sản phẩm id: " + id));
-
-                Map<String, Object> giaTriCu = new LinkedHashMap<>();
-                Map<String, Object> giaTriMoi = new LinkedHashMap<>();
+                // Nhật ký: so ảnh chụp trước / sau (danh mục, thương hiệu ghi tên)
+                Map<String, Object> truocSua = anhSanPham(sp);
 
                 if (dto.getTenSanPham() != null && !dto.getTenSanPham().isBlank()) {
                         String ten = chuanHoaTenSanPham(dto.getTenSanPham());
                         if (!ten.equals(sp.getTenSanPham())) {
                                 if (!cungTenSanPham(ten, sp.getTenSanPham())) kiemTraTenKhongTrung(ten, sp.getId());
-                                giaTriCu.put("tenSanPham", sp.getTenSanPham());
-                                giaTriMoi.put("tenSanPham", ten);
                                 sp.setTenSanPham(ten);
                         }
                 }
                 if (dto.getMoTa() != null) {
                         String moTa = blankToNull(dto.getMoTa());
                         if (!Objects.equals(moTa, sp.getMoTa())) {
-                                giaTriCu.put("moTa", sp.getMoTa());
-                                giaTriMoi.put("moTa", moTa);
                                 sp.setMoTa(moTa);
                         }
                 }
                 if (dto.getMaVach() != null) {
                         String maVach = blankToNull(dto.getMaVach());
                         if (!Objects.equals(maVach, sp.getMaVach())) {
-                                giaTriCu.put("maVach", sp.getMaVach());
-                                giaTriMoi.put("maVach", maVach);
                                 sp.setMaVach(maVach);
                         }
                 }
@@ -1163,14 +1202,10 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                         );
                         if (!danhMuc.getId().equals(sp.getDanhMuc().getId())) {
                                 kiemTraDoiDanhMucKhiKiemKe(sp.getDanhMuc(), danhMuc);
-                                giaTriCu.put("danhMucId", sp.getDanhMuc().getId());
-                                giaTriMoi.put("danhMucId", danhMuc.getId());
                                 sp.setDanhMuc(danhMuc);
                         }
                 }
                 if (dto.getMucTonToiThieu() != null && !dto.getMucTonToiThieu().equals(sp.getMucTonToiThieu())) {
-                        giaTriCu.put("mucTonToiThieu", sp.getMucTonToiThieu());
-                        giaTriMoi.put("mucTonToiThieu", dto.getMucTonToiThieu());
                         sp.setMucTonToiThieu(dto.getMucTonToiThieu());
                 }
                 if (dto.isCapNhatThuongHieu()) {
@@ -1178,17 +1213,16 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                         Integer newId = dto.getThuongHieuId();
                         if (!Objects.equals(oldId, newId)) {
                                 applyThuongHieu(sp, newId);
-                                giaTriCu.put("thuongHieuId", oldId);
-                                giaTriMoi.put("thuongHieuId", newId);
                         }
                 }
 
                 sp = repository.save(sp);
 
-                // Ghi lịch sử thay đổi nếu thực sự có field được cập nhật
-                if (!giaTriMoi.isEmpty()) {
-                        saveLichSuBasicInfo(sp, giaTriCu, giaTriMoi);
-                }
+                // Ghi lịch sử nếu thực sự có trường đổi (thayDoi bỏ dòng khi không đổi gì)
+                ghiNhatKy(NhatKyNghiepVu.dong(ITable.san_pham_quan_ao, sp.getId(), IHanhDong.cap_nhat_san_pham)
+                        .ma(sp.getMaSanPham())
+                        .thayDoi(truocSua, anhSanPham(sp))
+                        .ghiChu("Sửa nhanh thông tin cơ bản sản phẩm"));
 
                 return getDetail(id);
         }
@@ -1214,35 +1248,6 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                                 + "\" đang ngừng hoạt động, không thể gán cho sản phẩm");
                 }
                 sp.setThuongHieu(thuongHieu);
-        }
-
-        private void saveLichSuBasicInfo(SanPhamQuanAo sp, Map<String, Object> giaTriCu, Map<String, Object> giaTriMoi) {
-                ghiLichSuCapNhat(sp, giaTriCu, giaTriMoi, "Cập nhật thông tin cơ bản sản phẩm: " + sp.getMaSanPham());
-        }
-
-        private void ghiLichSuCapNhat(SanPhamQuanAo sp, Map<String, Object> giaTriCu, Map<String, Object> giaTriMoi, String ghiChu) {
-                try {
-                        objectMapper.registerModule(new JavaTimeModule());
-                        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-                        NguoiDung nguoiTao = nguoiDungService.getOne(SecurityContextHolder.getUser().getId()).orElse(null);
-                        if (nguoiTao == null) {
-                                return;
-                        }
-                        lichSuThayDoiService.create(
-                                LichSuThayDoi.builder()
-                                        .loaiThamChieu(ITable.san_pham_quan_ao)
-                                        .idThamChieu(sp.getId())
-                                        .hanhDong(IHanhDong.cap_nhat_san_pham)
-                                        .giaTriCu(objectMapper.writeValueAsString(giaTriCu))
-                                        .giaTriMoi(objectMapper.writeValueAsString(giaTriMoi))
-                                        .nguoiThucHien(nguoiTao)
-                                        .ngayThucHien(Instant.now())
-                                        .ghiChu(ghiChu)
-                                        .build()
-                        );
-                } catch (Exception e) {
-                        log.error("Lỗi lưu lịch sử cập nhật sản phẩm", e);
-                }
         }
 
         private String blankToNull(String value) {
@@ -1320,8 +1325,14 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 // Đổi trạng thái nhanh cho sản phẩm (1/0/2).
                 SanPhamQuanAo sanPhamQuanAo = getOne(id).orElseThrow(
                         () -> new CommonException("Không tìm thấy sản phẩm id: " + id));
+                Integer trangThaiCu = sanPhamQuanAo.getTrangThai();
                 sanPhamQuanAo.setTrangThai(status);
-                return repository.save(sanPhamQuanAo);
+                SanPhamQuanAo daLuu = repository.save(sanPhamQuanAo);
+                ghiNhatKy(NhatKyNghiepVu.dong(ITable.san_pham_quan_ao, daLuu.getId(), IHanhDong.cap_nhat_san_pham)
+                        .ma(daLuu.getMaSanPham())
+                        .thayDoi(NhatKyNghiepVu.anh("trangThai", trangThaiCu), NhatKyNghiepVu.anh("trangThai", status))
+                        .ghiChu("Đổi trạng thái sản phẩm"));
+                return daLuu;
         }
 
         public ResponseEntity<ResponseData<List<SanPhamQuanAoDto>>> getAllByKho(Integer khoId) {

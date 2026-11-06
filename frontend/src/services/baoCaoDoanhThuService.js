@@ -19,9 +19,8 @@ export const baoCaoDoanhThuService = {
     return res.data?.data ?? null;
   },
 
-  /** Tệp .xlsx (Blob). */
+  /** Tệp .xlsx (phản hồi axios: data là Blob, header Content-Disposition có tên tệp). Gửi kèm kho làm việc: máy chủ kiểm quyền Xuất báo cáo ở kho này. */
   async xuatExcel(params) {
-    const res = await apiClient.get(`${BASE}/doanh-thu/xuat-excel`, { params: sach(params), responseType: "blob", needKho: false });
-    return res.data;
+    return apiClient.get(`${BASE}/doanh-thu/xuat-excel`, { params: sach(params), responseType: "blob" });
   },
 };

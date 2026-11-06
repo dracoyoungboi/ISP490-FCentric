@@ -234,7 +234,7 @@ class ChuyenKhoNhanHangTest {
     void huyTuManPhieuXuat_phieuCon_biChan_trangThaiGiuNguyen() {
         PhieuXuatKho con = phieuXuatCon(phieuChuyen(IChuyenKho.DA_DUYET), ITrangThaiPhieuXuat.NHAP);
 
-        CommonException ex = assertThrows(CommonException.class, () -> px.cancel(PX));
+        CommonException ex = assertThrows(CommonException.class, () -> px.cancel(PX, "Lý do thử"));
         assertEquals(HttpStatus.BAD_REQUEST, ex.getHttpStatus());
         assertTrue(ex.getMessage().contains("màn Phiếu chuyển kho"), ex.getMessage());
         assertEquals(ITrangThaiPhieuXuat.NHAP, con.getTrangThai());

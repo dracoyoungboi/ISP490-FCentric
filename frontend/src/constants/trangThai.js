@@ -371,7 +371,7 @@ export const QUY_TRINH = {
       "Chờ duyệt": 1, "Đã duyệt": 2, "Đang vận chuyển": 3, "Chờ xử lý chênh lệch": 4, "Hoàn tất": 5,
       "Hoàn tất (có chênh lệch)": 5,
     },
-    huy: ["Đã hủy"],
+    huy: ["Đã hủy", "Đã từ chối"],
   },
   phieuNhap: {
     ten: "Phiếu nhập kho",

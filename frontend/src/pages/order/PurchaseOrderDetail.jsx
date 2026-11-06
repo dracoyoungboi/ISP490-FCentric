@@ -11,6 +11,8 @@ import DauTrangDonMua from "@/components/order/chi-tiet-don-mua/DauTrangDonMua";
 import TienTrinhDonMua from "@/components/order/chi-tiet-don-mua/TienTrinhDonMua";
 import BangDotNhan from "@/components/order/chi-tiet-don-mua/BangDotNhan";
 import ThuocTinhDonMua from "@/components/order/chi-tiet-don-mua/ThuocTinhDonMua";
+import { KhungLoiChungTu } from "@/components/chung-tu/KhungTaiChungTu";
+import { locCauMayChuMuaHang } from "@/components/order/chi-tiet-yeu-cau/tinhYeuCau";
 import {
     dungBangDotNhan,
     tinhBuocDonMua,
@@ -23,7 +25,7 @@ import purchaseOrderService from "@/services/purchaseOrderService";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import useQuayLai from "@/hooks/useQuayLai";
 import { phieuNhapKhoService } from "@/services/phieuNhapKhoService";
-import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
+import { getApiErrorMessage } from "@/utils/apiError";
 import { getKhoLamViecId } from "@/utils/khoLamViec";
 import { ROLES, hasAnyRole } from "@/utils/roles";
 
@@ -141,34 +143,17 @@ export default function PurchaseOrderDetail() {
     }
 
     if (!don) {
-        // Máy chủ trả 400 "Không tìm thấy đơn mua hàng id: …" khi mã không tồn tại
-        const status = getApiErrorStatus(donQ.error);
-        const khongThay = !donQ.error || status === 404 || status === 400;
+        // Cùng khung lỗi với trang Báo giá: không có đơn (404 / 400 "Không tìm thấy…") → "Không tìm thấy"; 403 (kho nhập
+        // ngoài phạm vi của quản lý kho / nhân viên kho) → "Bạn không có quyền xem", không có nút Thử lại
         return (
-            <PageContainer>
-                <SurfaceCard contentClassName="p-0 sm:p-0">
-                    {khongThay ? (
-                        <EmptyState
-                            icon={SearchX}
-                            title="Không tìm thấy đơn mua hàng"
-                            description="Đơn mua hàng không tồn tại hoặc đã bị xóa khỏi hệ thống."
-                            action={
-                                <Button
-                                    onClick={() => navigate("/purchase-orders")}
-                                    className="bg-bo-primary font-semibold text-white hover:bg-bo-primary-hover"
-                                >
-                                    Quay lại danh sách
-                                </Button>
-                            }
-                        />
-                    ) : (
-                        <ErrorState
-                            title="Không thể tải chi tiết đơn mua hàng"
-                            description={getApiErrorMessage(donQ.error, "Không thể tải chi tiết đơn mua hàng")}
-                            onRetry={donQ.reload}
-                        />
-                    )}
-                </SurfaceCard>
+            <PageContainer className="flex min-h-full flex-col">
+                <KhungLoiChungTu
+                    loi={donQ.error}
+                    tenChungTu="đơn mua hàng"
+                    locCauMayChu={locCauMayChuMuaHang}
+                    onVeDanhSach={() => navigate("/purchase-orders")}
+                    onThuLai={donQ.reload}
+                />
             </PageContainer>
         );
     }

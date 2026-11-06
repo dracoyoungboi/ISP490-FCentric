@@ -1,6 +1,9 @@
 package com.dev.backend.services.impl.entities;
 
 import com.dev.backend.constant.enums.FileType;
+import com.dev.backend.constant.variables.IHanhDong;
+import com.dev.backend.constant.variables.ITable;
+import com.dev.backend.services.impl.utils.NhatKyNghiepVu;
 import com.dev.backend.dto.request.ThuongHieuCreating;
 import com.dev.backend.dto.request.ThuongHieuUpdating;
 import com.dev.backend.dto.response.entities.ThuongHieuDto;
@@ -22,7 +25,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Instant;
 import java.util.List;
-
+import java.util.Map;
 @Service
 @Slf4j
 public class ThuongHieuService extends BaseServiceImpl<ThuongHieu, Integer> {
@@ -38,6 +41,9 @@ public class ThuongHieuService extends BaseServiceImpl<ThuongHieu, Integer> {
     @Autowired
     private TepTinService tepTinService;
 
+    /** Nhật ký nghiệp vụ (danh mục chung); null khi unit test dựng tay. */
+    @Autowired(required = false)
+    private NhatKyNghiepVu nhatKy;
     @Autowired
     public ThuongHieuService(ThuongHieuRepository repository,
                              ThuongHieuMapper mapper,
@@ -74,8 +80,11 @@ public class ThuongHieuService extends BaseServiceImpl<ThuongHieu, Integer> {
         entity.setMoTa(blankToNull(creating.getMoTa()));
         // Mặc định hoạt động nếu FE không truyền trạng thái
         entity.setTrangThai(creating.getTrangThai() == null ? 1 : creating.getTrangThai());
-
-        return mapper.toDto(repository.save(entity));
+        ThuongHieu daTao = repository.save(entity);
+        ghiNhatKy(NhatKyNghiepVu.dong(ITable.thuong_hieu, daTao.getId(), IHanhDong.them_danh_muc_chung)
+                .ma(daTao.getTenThuongHieu())
+                .moi(anhThuongHieu(daTao)));
+        return mapper.toDto(daTao);
     }
 
     // Cập nhật thương hiệu (partial update, bỏ qua field null)
@@ -84,7 +93,7 @@ public class ThuongHieuService extends BaseServiceImpl<ThuongHieu, Integer> {
 
         ThuongHieu entity = repository.findById(id)
                 .orElseThrow(() -> new CommonException("Không tìm thấy thương hiệu với ID: " + id));
-
+        Map<String, Object> truoc = anhThuongHieu(entity);
         // Nếu có sửa mã thì kiểm tra trùng (trừ chính bản ghi đang sửa)
         if (updating.getMaThuongHieu() != null
                 && !updating.getMaThuongHieu().trim().isEmpty()
@@ -101,8 +110,11 @@ public class ThuongHieuService extends BaseServiceImpl<ThuongHieu, Integer> {
         if (updating.getTenThuongHieu() != null) {
             entity.setTenThuongHieu(updating.getTenThuongHieu().trim());
         }
-
-        return mapper.toDto(repository.save(entity));
+        ThuongHieu daLuu = repository.save(entity);
+        ghiNhatKy(NhatKyNghiepVu.dong(ITable.thuong_hieu, daLuu.getId(), IHanhDong.sua_danh_muc_chung)
+                .ma(daLuu.getTenThuongHieu())
+                .thayDoi(truoc, anhThuongHieu(daLuu)));
+        return mapper.toDto(daLuu);
     }
 
     // Upload logo qua MinIO rồi lưu metadata vào tep_tin (chuẩn như ảnh sản phẩm).
@@ -136,7 +148,12 @@ public class ThuongHieuService extends BaseServiceImpl<ThuongHieu, Integer> {
 
             entity.setTepTin(tepTinMoi);
             entity = repository.save(entity);
-
+            ghiNhatKy(NhatKyNghiepVu.dong(ITable.thuong_hieu, entity.getId(), IHanhDong.sua_danh_muc_chung)
+                    .ma(entity.getTenThuongHieu())
+                    // Tên tệp người dùng tải lên (không ghi tên object lưu trữ); logo cũ không còn tên gốc nên ghi "Logo cũ"
+                    .cu(NhatKyNghiepVu.anh("logo", tepTinCu != null ? "Logo cũ" : null))
+                    .moi(NhatKyNghiepVu.anh("logo", file.getOriginalFilename() != null && !file.getOriginalFilename().isBlank()
+                            ? file.getOriginalFilename() : "Logo mới")));
             // Xóa tệp cũ (dòng tep_tin + object MinIO) sau khi đã gắn tệp mới thành công
             if (tepTinCu != null) {
                 tepTinService.hardDeleteNoMessage(tepTinCu.getId());
@@ -149,6 +166,18 @@ public class ThuongHieuService extends BaseServiceImpl<ThuongHieu, Integer> {
             log.error("Lỗi upload logo thương hiệu lên MinIO", e);
             throw new CommonException("Không thể tải logo lên, vui lòng thử lại");
         }
+    }
+
+    private void ghiNhatKy(NhatKyNghiepVu.Dong dong) {
+        if (nhatKy != null) nhatKy.ghi(dong);
+    }
+
+    private static Map<String, Object> anhThuongHieu(ThuongHieu t) {
+        return NhatKyNghiepVu.anh(
+                "ma", t.getMaThuongHieu(),
+                "ten", t.getTenThuongHieu(),
+                "moTa", t.getMoTa(),
+                "trangThai", t.getTrangThai());
     }
 
     private String blankToNull(String value) {
