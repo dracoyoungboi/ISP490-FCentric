@@ -39,8 +39,8 @@ public interface KhachHangRepository extends JpaRepository<KhachHang, Integer>, 
                or lower(k.tenKhachHang) like :pattern
                or k.soDienThoai like :pattern
                or lower(k.maKhachHang) like :pattern)
-        order by case when k.maKhachHang = 'KHLE' then 0 else 1 end, k.id desc
-    """, countQuery = """
+        order by case when k.maKhachHang = '""" + KhachHang.MA_KHACH_LE + "' then 0 else 1 end, k.id desc",
+            countQuery = """
         select count(k) from KhachHang k
         where k.trangThai = 1
           and (:pattern is null
