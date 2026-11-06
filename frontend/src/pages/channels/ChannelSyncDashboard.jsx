@@ -1,6 +1,6 @@
 import { useId } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowRight, BarChart3, ChevronRight, Info } from "lucide-react";
+import { ArrowRight, BarChart3, ChevronRight, ExternalLink, Info } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -235,6 +235,18 @@ function TongQuanGianHang() {
           </div>
           {/* max-w-full: màn hẹp thì nút xuống dòng dưới tên gian hàng (ml-auto giữ bên phải), không lẹm ra ngoài */}
           <div className="ml-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-2">
+            {Boolean(SAN.maKenh?.includes("SHOPEE")) && (
+              <a
+                href="/shopee-simulator"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-[#EE4D2D] hover:bg-[#d73211] text-white shadow-sm transition-colors"
+                title="Mở Cổng giả lập Shopee Simulator trong tab mới"
+              >
+                <span>Mở Shopee Simulator</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            )}
             <NutDongBoNgay
               tienDo={dongBo}
               tenSan={SAN.ten}

@@ -114,6 +114,7 @@ const ChannelSyncDashboard = taiTrang(() => import("./pages/channels/ChannelSync
 const ChannelOrdersPage = taiTrang(() => import("./pages/channels/ChannelOrdersPage"));
 const ChannelSettingsPage = taiTrang(() => import("./pages/channels/ChannelSettingsPage"));
 const OAuthCallbackPage = taiTrang(() => import("./pages/channels/OAuthCallbackPage"));
+const ShopeeSimulatorPage = taiTrang(() => import("./pages/channels/shopee-simulator/ShopeeSimulatorPage"));
 
 /** Đường dẫn cũ /supplier/view/:id → trang chi tiết /supplier/:id (giống /customers/:id, /users/:id). */
 function SupplierViewRedirect() {
@@ -436,6 +437,8 @@ const CAY_DUONG_DAN = (
       <Route path="/transfer-tickets/adjustments/:id/print" element={<InChuyenKho dieuChinh />} />
       <Route path="/sales-quotations/:id/print" element={<BaoGiaPrint />} />
       <Route path="/sales-orders/:id/invoice" element={<DonBanHangInvoice />} />
+      {/* Cổng Giả Lập Shopee Interactive Simulator v2 — Toàn màn hình ngoài BackofficeLayout */}
+      <Route path="/shopee-simulator" element={<ShopeeSimulatorPage />} />
     </Route>
 
     {/* ========== 404 ========== */}

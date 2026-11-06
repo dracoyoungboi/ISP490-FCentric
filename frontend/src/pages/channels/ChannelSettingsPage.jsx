@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
-import { KeyRound, ListRestart, Loader2, MoreHorizontal, RefreshCw, Unplug } from "lucide-react";
+import { ExternalLink, KeyRound, ListRestart, Loader2, MoreHorizontal, RefreshCw, Unplug } from "lucide-react";
 import { toast } from "@/lib/thongBaoNhanh";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -468,6 +468,14 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, onConfigSaved, onCauH
                           Chạy lại trình thiết lập
                         </Link>
                       </DropdownMenuItem>
+                      {Boolean(SAN.maKenh?.includes("SHOPEE")) && (
+                        <DropdownMenuItem asChild className={nutMenu}>
+                          <a href="/shopee-simulator" target="_blank" rel="noopener noreferrer">
+                            <ExternalLink className="size-4 text-bo-muted" />
+                            Mở Shopee Simulator
+                          </a>
+                        </DropdownMenuItem>
+                      )}
                       {/* Máy chủ cũ chưa có DELETE ket-noi: không hiện mục bấm vào chỉ để báo lỗi */}
                       {hoTroNgatKetNoi(config) ? (
                         <>
