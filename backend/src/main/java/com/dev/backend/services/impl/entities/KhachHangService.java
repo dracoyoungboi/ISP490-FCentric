@@ -262,6 +262,7 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
     public KhachHangDto update(Integer id, KhachHangUpdating updating) {
         KhachHang entity = repository.findById(id)
                 .orElseThrow(() -> new CommonException("Không tìm thấy khách hàng với ID: " + id));
+        chanSuaKhachLe(entity);
         Map<String, Object> truoc = anhKhachHang(entity);
 
         // Trường chuỗi: null = giữ nguyên; chuỗi trắng = xóa trường (lưu NULL thay vì "")
@@ -327,6 +328,7 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
     public void xoaMem(Integer id) {
         KhachHang entity = repository.findById(id)
                 .orElseThrow(() -> new CommonException("Không tìm thấy khách hàng id: " + id));
+        chanSuaKhachLe(entity);
         Integer trangThaiCu = entity.getTrangThai();
         entity.setTrangThai(0);
         entity = repository.save(entity);
@@ -336,6 +338,18 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
                 .ma(maNhatKy(entity))
                 .cu(NhatKyNghiepVu.anh("trangThai", trangThaiCu))
                 .moi(NhatKyNghiepVu.anh("trangThai", 0)));
+    }
+
+    /**
+     * Khách lẻ mặc định (KHLE) là khách của hệ thống: sửa thì đổi tên trên mọi hóa đơn cũ, ngừng thì quầy POS
+     * không bán được cho khách lẻ. Chặn cả sửa lẫn ngừng (409).
+     */
+    static void chanSuaKhachLe(KhachHang khachHang) {
+        if (KhachHang.MA_KHACH_LE.equals(khachHang.getMaKhachHang())) {
+            throw new CommonException(
+                    "Khách lẻ là khách mặc định của hệ thống cho bán tại quầy, không sửa hay ngừng hoạt động được",
+                    HttpStatus.CONFLICT, null);
+        }
     }
 
     private void ghiNhatKy(NhatKyNghiepVu.Dong dong) {

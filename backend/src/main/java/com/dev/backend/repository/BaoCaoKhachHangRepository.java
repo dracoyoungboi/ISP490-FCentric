@@ -1,5 +1,6 @@
 package com.dev.backend.repository;
 
+import com.dev.backend.entities.KhachHang;
 import com.dev.backend.services.impl.multitable.TinhBaoCaoKhachHang;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -24,7 +25,7 @@ import java.util.Map;
 public class BaoCaoKhachHangRepository {
 
     /** Mã khách lẻ mặc định của POS (posService.js WALKIN_CUSTOMER_CODE). */
-    public static final String MA_KHACH_LE = "KHLE";
+    public static final String MA_KHACH_LE = KhachHang.MA_KHACH_LE;
 
     private final NamedParameterJdbcTemplate jdbc;
 

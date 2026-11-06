@@ -20,6 +20,12 @@ import java.time.Instant;
 @Entity
 @Table(name = "khach_hang")
 public class KhachHang {
+    /**
+     * Mã khách lẻ mặc định (seed ở pos_checkout_v1.sql): khách của hệ thống cho hóa đơn bán tại quầy không lưu
+     * thông tin người mua. Không sửa, không ngừng hoạt động được; không tính là một khách trong danh sách, báo cáo.
+     */
+    public static final String MA_KHACH_LE = "KHLE";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
