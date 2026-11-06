@@ -19,7 +19,7 @@ import {
 import MoneyInput from '@/components/shared/MoneyInput';
 import PayosLogo from '@/components/shared/PayosLogo';
 import PosModal from './PosModal';
-import { posService, toPosCustomer } from '@/services/posService';
+import { WALKIN_CUSTOMER_CODE, posService, toPosCustomer } from '@/services/posService';
 import { formatMoney } from '../pos-format';
 import { canTraLaiTienMat, chiaThanhToanKetHop, kiemTienMatTruocQr, msToiHetHan, phaMaQr, tienMatTruocCua } from '../pos-payment';
 import { SCAN_HINT } from '../pos-scan';
@@ -336,6 +336,10 @@ function CustomerDialog({ state, actions, onClose }) {
   const remoteReady = remote.keyword === keyword && !remote.error;
   const localMatches = state.customers.filter((customer) => `${customer.name} ${customer.phone ?? ''}`.toLowerCase().includes(keyword.toLowerCase()));
   const matchingCustomers = remoteReady ? remote.items : localMatches;
+  // Câu "Hiển thị x/y khách" không đếm Khách lẻ (khách của hệ thống, luôn đứng đầu trang đầu nếu khớp từ khóa)
+  const coKhachLe = remote.items.some((customer) => customer.code === WALKIN_CUSTOMER_CODE) ? 1 : 0;
+  const soKhachHien = remote.items.length - coKhachLe;
+  const tongKhach = Math.max(0, remote.total - coKhachLe);
 
   const resetQuickAdd = () => {
     setQuickAddOpen(false);
@@ -399,8 +403,8 @@ function CustomerDialog({ state, actions, onClose }) {
       </ul>
       {remote.error && remote.keyword === keyword ? (
         <p className="mt-2 text-xs text-amber-700">Không tải được danh sách mới nhất — đang hiện danh sách lúc mở trang.</p>
-      ) : remoteReady && remote.total > remote.items.length ? (
-        <p className="mt-2 text-xs text-bo-muted">Hiển thị {remote.items.length}/{remote.total} khách — gõ thêm tên hoặc SĐT để lọc.</p>
+      ) : remoteReady && tongKhach > soKhachHien ? (
+        <p className="mt-2 text-xs text-bo-muted">Hiển thị {soKhachHien}/{tongKhach} khách — gõ thêm tên hoặc SĐT để lọc.</p>
       ) : null}
       {quickAddOpen ? (
         <form className="mt-4 rounded-lg border border-bo-border p-3" onSubmit={submitQuickAdd}>
