@@ -571,7 +571,7 @@ export default function PosDialogs({ dialog, state, actions, onClose, checkoutEn
             )}
           </div>
           <aside className="rounded-lg border border-bo-border bg-slate-50 p-4">
-            <div className="flex items-start justify-between gap-2"><div><p className="text-xs text-bo-muted">Khách hàng</p><p className="mt-1 text-sm font-semibold text-bo-foreground">{state.customer?.name || 'Chưa chọn khách hàng'}</p></div><span className="grid size-8 place-items-center rounded-full bg-white text-bo-primary"><Receipt aria-hidden="true" size={17} /></span></div>
+            <div className="flex items-start justify-between gap-2"><div><p className="text-xs text-bo-muted">Khách hàng</p><p className="mt-1 text-sm font-semibold text-bo-foreground">{state.customer?.name || 'Khách lẻ'}</p></div><span className="grid size-8 place-items-center rounded-full bg-white text-bo-primary"><Receipt aria-hidden="true" size={17} /></span></div>
             <div className="my-4 border-t border-dashed border-bo-border" />
             <div className="flex items-center justify-between text-xs text-bo-muted"><span>Tổng tiền hàng</span><span>{formatMoney(state.subtotal)}</span></div>
             <div className="mt-3 flex items-end justify-between gap-2"><span className="text-sm font-semibold text-bo-foreground">Khách cần trả</span><span className="text-lg font-bold text-bo-primary">{formatMoney(state.total)}</span></div>

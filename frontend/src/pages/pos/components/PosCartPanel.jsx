@@ -130,7 +130,7 @@ export default function PosCartPanel({
           <span className="grid size-8 shrink-0 place-items-center rounded-full bg-blue-50 text-bo-primary"><UserRound aria-hidden="true" size={16} /></span>
           <span className="min-w-0 flex-1">
             <span className="block text-[11px] text-bo-muted">Khách hàng</span>
-            <span className="block truncate text-sm font-medium text-bo-foreground">{customer?.name || 'Chưa chọn khách hàng'}</span>
+            <span className="block truncate text-sm font-medium text-bo-foreground">{customer?.name || 'Khách lẻ'}</span>
           </span>
           <ChevronDown aria-hidden="true" className="text-bo-muted" size={16} />
         </button>
