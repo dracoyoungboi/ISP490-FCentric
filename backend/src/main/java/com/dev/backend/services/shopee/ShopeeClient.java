@@ -73,12 +73,32 @@ public class ShopeeClient {
     RestTemplate restTemplate;
     ObjectMapper objectMapper;
 
+    @lombok.experimental.NonFinal
+    Long partnerId;
+    @lombok.experimental.NonFinal
+    String partnerKey;
+    @lombok.experimental.NonFinal
+    Long shopId;
+    @lombok.experimental.NonFinal
+    String accessToken;
+    @lombok.experimental.NonFinal
+    boolean isSandbox;
+
     public ShopeeClient() {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(10_000);
         factory.setReadTimeout(15_000);
         this.restTemplate = new RestTemplate(factory);
         this.objectMapper = new ObjectMapper();
+    }
+
+    public ShopeeClient(long partnerId, String partnerKey, long shopId, String accessToken, boolean isSandbox) {
+        this();
+        this.partnerId = partnerId;
+        this.partnerKey = partnerKey;
+        this.shopId = shopId;
+        this.accessToken = accessToken;
+        this.isSandbox = isSandbox;
     }
 
     public static boolean isSandbox(String channelCode) {
@@ -657,5 +677,134 @@ public class ShopeeClient {
             log.warn("[SHOPEE-CLIENT-POST] Lỗi khi gọi POST {}: {}", url, ex.getMessage());
             return objectMapper.createObjectNode().put("error", "API_ERROR").put("message", ex.getMessage());
         }
+    }
+
+    // =========================================================================
+    // CONVENIENCE OVERLOAD METHODS DÀNH CHO INSTANCE ĐÃ CẤU HÌNH (STATEFUL)
+    // =========================================================================
+
+    private String pIdStr() {
+        return String.valueOf(this.partnerId != null ? this.partnerId : 1000888L);
+    }
+
+    private String sIdStr() {
+        return String.valueOf(this.shopId != null ? this.shopId : 0L);
+    }
+
+    private String pKeyStr() {
+        return this.partnerKey != null ? this.partnerKey : "";
+    }
+
+    private String aTokenStr() {
+        return this.accessToken != null ? this.accessToken : "";
+    }
+
+    public JsonNode cancelOrder(String orderSn, String cancelReason) {
+        return cancelOrder(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), orderSn, cancelReason, null, null, this.isSandbox);
+    }
+
+    public JsonNode handleBuyerCancellation(String orderSn, String operation) {
+        return handleBuyerCancellation(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), orderSn, operation, this.isSandbox);
+    }
+
+    public JsonNode setOrderNote(String orderSn, String note) {
+        return setOrderNote(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), orderSn, note, this.isSandbox);
+    }
+
+    public JsonNode setOrderNote(String partnerId, String partnerKey, String accessToken, String shopId,
+                                String orderSn, String note, boolean isSandbox) {
+        if (isSandbox || isMockCredentials(partnerId, partnerKey)) {
+            return objectMapper.createObjectNode().put("error", "").put("message", "success");
+        }
+        long timestamp = Instant.now().getEpochSecond();
+        String base = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_ORDER_SET_NOTE, timestamp, accessToken, shopId);
+        String sign = ShopeeSignatureHelper.sign(partnerKey, base);
+        String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s",
+                PRODUCTION_HOST, PATH_ORDER_SET_NOTE, partnerId, timestamp, accessToken, shopId, sign);
+        Map<String, Object> body = Map.of("order_sn", orderSn, "note", note != null ? note : "");
+        return executePost(url, body);
+    }
+
+    public JsonNode getShippingParameter(String orderSn) {
+        return getShippingParameter(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), orderSn, this.isSandbox);
+    }
+
+    public JsonNode shipOrder(String orderSn, String pickupOrDropoff) {
+        return shipOrder(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), orderSn, pickupOrDropoff, this.isSandbox);
+    }
+
+    public JsonNode getTrackingNumber(String orderSn) {
+        return getTrackingNumber(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), orderSn, this.isSandbox);
+    }
+
+    public JsonNode getTrackingInfo(String orderSn) {
+        return getTrackingInfo(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), orderSn, this.isSandbox);
+    }
+
+    public byte[] downloadShippingDocument(String orderSn) {
+        return downloadShippingDocument(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), orderSn, this.isSandbox);
+    }
+
+    public byte[] downloadShippingDocument(String partnerId, String partnerKey, String accessToken, String shopId,
+                                          String orderSn, boolean isSandbox) {
+        if (isSandbox || isMockCredentials(partnerId, partnerKey)) {
+            String mockHtml = "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Shopee AWB " + orderSn + "</title>"
+                    + "<style>@page{size:100mm 150mm;margin:0;}body{font-family:sans-serif;margin:10mm;text-align:center;}"
+                    + ".box{border:2px solid #000;padding:10px;border-radius:4px;}.barcode{font-family:monospace;font-size:24px;letter-spacing:4px;font-weight:bold;margin:15px 0;}"
+                    + "</style></head><body><div class='box'><h2>SHOPEE EXPRESS (SPX VN)</h2>"
+                    + "<div class='barcode'>*SPX" + orderSn + "*</div>"
+                    + "<p>Mã đơn hàng: <strong>" + orderSn + "</strong></p>"
+                    + "<p>Người nhận: <strong>Khách hàng Shopee (09***382)</strong></p>"
+                    + "<p>Địa chỉ: <strong>Theo bưu kiện Shopee</strong></p>"
+                    + "</div></body></html>";
+            return mockHtml.getBytes(StandardCharsets.UTF_8);
+        }
+        try {
+            long timestamp = Instant.now().getEpochSecond();
+            String base = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_DOWNLOAD_DOC, timestamp, accessToken, shopId);
+            String sign = ShopeeSignatureHelper.sign(partnerKey, base);
+            String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s&order_sn=%s",
+                    PRODUCTION_HOST, PATH_DOWNLOAD_DOC, partnerId, timestamp, accessToken, shopId, sign, orderSn);
+            HttpHeaders headers = new HttpHeaders();
+            headers.setAccept(List.of(MediaType.APPLICATION_OCTET_STREAM, MediaType.ALL));
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+            ResponseEntity<byte[]> res = restTemplate.exchange(url, HttpMethod.GET, entity, byte[].class);
+            return res.getBody() != null ? res.getBody() : new byte[0];
+        } catch (Exception ex) {
+            log.warn("[SHOPEE-DOWNLOAD-DOC] Lỗi khi tải tài liệu in vận đơn: {}", ex.getMessage());
+            return new byte[0];
+        }
+    }
+
+    public JsonNode getEscrowDetail(String orderSn) {
+        return getEscrowDetail(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), orderSn, this.isSandbox);
+    }
+
+    public JsonNode getItemList(int offset, int pageSize, String itemStatus) {
+        return getItemList(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), offset, pageSize, itemStatus, this.isSandbox);
+    }
+
+    public JsonNode getItemBaseInfo(List<Long> itemIds) {
+        return getItemBaseInfo(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), itemIds, this.isSandbox);
+    }
+
+    public JsonNode updateStock(Long itemId, Long modelId, int stock) {
+        return updateStock(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), itemId, modelId, stock, this.isSandbox);
+    }
+
+    public JsonNode getAccessToken(String code, long shopId) {
+        return getToken(pIdStr(), pKeyStr(), code, String.valueOf(shopId), this.isSandbox);
+    }
+
+    public JsonNode refreshAccessToken(String refreshToken, long shopId) {
+        return refreshToken(pIdStr(), pKeyStr(), refreshToken, String.valueOf(shopId), this.isSandbox);
+    }
+
+    public JsonNode getShopInfo() {
+        return getShopInfo(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), this.isSandbox);
+    }
+
+    public String generateAuthUrl(String redirectUri) {
+        return generateAuthUrl(pIdStr(), pKeyStr(), redirectUri, this.isSandbox);
     }
 }

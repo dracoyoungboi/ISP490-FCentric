@@ -19,8 +19,9 @@ public class ShopeeConfigResponse implements Serializable {
     String tenKenh;
     String loaiKenh;
     String apiUrl;
-    String partnerId;
-    String shopId;
+    Long partnerId;
+    Long shopId;
+    boolean isSandbox;
     boolean hasPartnerKey;
     boolean hasAccessToken;
     String accessTokenMasked;

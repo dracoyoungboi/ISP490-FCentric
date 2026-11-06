@@ -47,5 +47,10 @@ public class ShopeeConfigUpdating implements Serializable {
      * Trạng thái hoạt động: 1 hoạt động, 0 tạm dừng.
      */
     Integer trangThai;
+
+    /**
+     * Môi trường thử nghiệm Sandbox (true) hay Production (false).
+     */
+    Boolean isSandbox;
 }
 

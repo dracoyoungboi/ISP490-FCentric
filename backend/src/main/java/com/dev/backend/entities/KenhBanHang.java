@@ -132,5 +132,16 @@ public class KenhBanHang {
             }
         }
     }
+
+    /**
+     * Tiện ích lấy / gán Shop Domain hoặc Shop ID định danh (Shopify / Shopee)
+     */
+    public String getShopDomain() {
+        return this.apiUrl;
+    }
+
+    public void setShopDomain(String shopDomain) {
+        this.apiUrl = shopDomain != null ? shopDomain.trim() : null;
+    }
 }
 

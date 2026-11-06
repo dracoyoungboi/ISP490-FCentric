@@ -80,6 +80,11 @@ public class OmnichannelOrderSyncJob {
         return MA_KENH_SHOPEE.equalsIgnoreCase(maKenh) || MA_KENH_SHOPEE_SANDBOX.equalsIgnoreCase(maKenh);
     }
 
+    public static boolean isShopeeSandbox(String maKenh) {
+        return MA_KENH_SHOPEE_SANDBOX.equalsIgnoreCase(maKenh)
+                || (maKenh != null && maKenh.toUpperCase().contains("SANDBOX"));
+    }
+
     KenhBanHangRepository kenhBanHangRepository;
     DonBanHangRepository donBanHangRepository;
     ChiTietDonBanHangRepository chiTietDonBanHangRepository;
@@ -88,7 +93,9 @@ public class OmnichannelOrderSyncJob {
     TrangThaiDongBoSanPhamRepository trangThaiDongBoSanPhamRepository;
     KenhBanHangService kenhBanHangService;
     KhoRepository khoRepository;
+    @SuppressWarnings("unused")
     NhatHangService nhatHangService;
+    @SuppressWarnings("unused")
     PhieuXuatKhoRepository phieuXuatKhoRepository;
     DieuHanhHeThongService dieuHanhHeThongService;
     DonBanHangService donBanHangService;

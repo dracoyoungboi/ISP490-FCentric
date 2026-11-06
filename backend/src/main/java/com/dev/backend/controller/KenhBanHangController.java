@@ -37,6 +37,8 @@ import java.util.List;
 import java.util.Map;
 import com.dev.backend.exception.customize.LoiCoMaException;
 import com.dev.backend.exception.customize.MaLoi;
+import com.dev.backend.workers.OmnichannelOrderSyncJob;
+import lombok.extern.slf4j.Slf4j;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -52,6 +54,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/kenh-ban-hang")
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+@Slf4j
 public class KenhBanHangController {
 
     KenhBanHangService kenhBanHangService;

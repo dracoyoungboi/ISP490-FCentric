@@ -4153,7 +4153,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 int limit = Math.min(bienThes.size(), 10);
                 for (int i = 0; i < limit; i++) {
                     var bt = bienThes.get(i);
-                    String skuKenh = bt.getMaBienThe() != null ? bt.getMaBienThe() : ("SHP-SKU-" + bt.getId());
+                    String skuKenh = bt.getMaSku() != null ? bt.getMaSku() : ("SHP-SKU-" + bt.getId());
                     String maSanPhamKenh = "SHP_ITEM_" + (1000 + bt.getId());
                     var opt = trangThaiDongBoSanPhamRepository.findByKenhBanHangIdAndMaSanPhamKenh(kenh.getId(), maSanPhamKenh);
                     TrangThaiDongBoSanPham tt;
@@ -4166,9 +4166,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                         tt.setMaSanPhamKenh(maSanPhamKenh);
                         soMoi++;
                     }
-                    tt.setMaSkuKenh(skuKenh);
-                    tt.setTenSanPhamKenh(bt.getSanPham() != null ? bt.getSanPham().getTenSanPham() : "Sản phẩm Shopee");
-                    tt.setGiaBanKenh(bt.getGiaBan());
+                    tt.setGiaBanSan(bt.getGiaBan());
                     tt.setBienTheSanPham(bt);
                     tt.setTrangThaiDongBo("thanh_cong");
                     trangThaiDongBoSanPhamRepository.save(tt);
@@ -4210,9 +4208,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                                 tt.setMaSanPhamKenh(maSanPhamKenh);
                                 soMoi++;
                             }
-                            tt.setMaSkuKenh(modelSku);
-                            tt.setTenSanPhamKenh(itemName + " - " + modelNode.path("model_name").asText(""));
-                            if (price != null) tt.setGiaBanKenh(price);
+                            if (price != null) tt.setGiaBanSan(price);
                             trangThaiDongBoSanPhamRepository.save(tt);
                             soSku++;
                         }
@@ -4236,9 +4232,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                             tt.setMaSanPhamKenh(maSanPhamKenh);
                             soMoi++;
                         }
-                        tt.setMaSkuKenh(sku);
-                        tt.setTenSanPhamKenh(itemName);
-                        if (price != null) tt.setGiaBanKenh(price);
+                        if (price != null) tt.setGiaBanSan(price);
                         trangThaiDongBoSanPhamRepository.save(tt);
                         soSku++;
                     }
@@ -4269,18 +4263,18 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 continue;
             }
 
-            String sku = tt.getMaSkuKenh();
+            String sku = tt.getMaSanPhamKenh();
             if (sku == null || sku.isBlank()) {
                 soLoi++;
                 continue;
             }
 
-            var bienTheOpt = bienTheSanPhamRepository.findByMaBienThe(sku.trim());
+            var bienTheOpt = bienTheSanPhamRepository.findByMaSkuIgnoreCase(sku.trim());
             if (bienTheOpt.isEmpty()) {
                 try {
                     String[] parts = sku.split("-");
                     Long id = Long.parseLong(parts[parts.length - 1]);
-                    bienTheOpt = bienTheSanPhamRepository.findById(id);
+                    bienTheOpt = bienTheSanPhamRepository.findById(id.intValue());
                 } catch (Exception ignored) {}
             }
 
@@ -4295,9 +4289,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         }
 
         return TuDongLienKetResultDto.builder()
-                .soLienKet(soLienKet)
-                .soBoQua(soBoQua)
-                .soLoi(soLoi)
+                .soDaGhep(soLienKet)
+                .soKhongKhop(soLoi)
+                .soThatBai(soLoi)
                 .build();
     }
 
@@ -4345,26 +4339,28 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     dong.setNgayDayTonCuoi(now);
                     dong.setSoLuongDaDay(soDay);
                     dong.setTrangThaiDongBo("thanh_cong");
-                    dong.setLyDoLoi(null);
+                    dong.setChiTietLoi(null);
                     trangThaiDongBoSanPhamRepository.save(dong);
                     soThanhCong++;
+                    theoDoi.daDay(dong.getMaSanPhamKenh(), null, true, null);
                 } else {
                     String err = res != null ? res.path("message").asText("Lỗi cập nhật tồn Shopee") : "Không có phản hồi";
-                    dong.setLyDoLoi(err);
+                    dong.setChiTietLoi(err);
                     dong.setTrangThaiDongBo("that_bai");
                     trangThaiDongBoSanPhamRepository.save(dong);
                     soLoi++;
+                    theoDoi.daDay(dong.getMaSanPhamKenh(), dong.getMaSanPhamKenh(), false, err);
                 }
             } catch (Exception ex) {
-                log.error("[SHOPEE-STOCK] Lỗi đẩy tồn SKU {}: {}", dong.getMaSkuKenh(), ex.getMessage());
-                dong.setLyDoLoi(ex.getMessage());
+                log.error("[SHOPEE-STOCK] Lỗi đẩy tồn SKU {}: {}", dong.getMaSanPhamKenh(), ex.getMessage());
+                dong.setChiTietLoi(ex.getMessage());
                 dong.setTrangThaiDongBo("that_bai");
                 trangThaiDongBoSanPhamRepository.save(dong);
                 soLoi++;
+                theoDoi.daDay(dong.getMaSanPhamKenh(), dong.getMaSanPhamKenh(), false, ex.getMessage());
             }
 
             daXuLy++;
-            theoDoi.tienDo(daXuLy, dongCanDay.size());
         }
 
         lanDayTonCuoi.put(kenh.getId(), now);
