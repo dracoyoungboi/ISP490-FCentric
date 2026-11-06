@@ -329,6 +329,16 @@ function ManPhieuXuatKho({ id }) {
     phieu.donBanHang?.maDonHangKenh?.startsWith("LZD-")
   );
 
+  const laShopee = Boolean(
+    phieu.donBanHang?.soDonHang?.startsWith("SHP-") ||
+    phieu.donBanHang?.kenhBanHang?.maKenh === "SHOPEE" ||
+    phieu.donBanHang?.kenhBanHang?.maKenh === "SHOPEE_SANDBOX" ||
+    phieu.donBanHang?.kenhBanHang?.tenKenh?.toLowerCase()?.includes("shopee") ||
+    phieu.donBanHang?.maDonHangKenh?.startsWith("SHP-")
+  );
+
+  const laDonSan = laLazada || laShopee || Boolean(phieu?.donBanHang?.maDonHangKenh);
+
   const soDon = phieu.donBanHang?.soDonHang;
   const moTaHuy = `Hủy phiếu ${phieu.soPhieuXuat}? Số lượng đang giữ được trả lại tồn kho${
     soDon ? `; đơn ${soDon} quay về Chờ nhặt hàng (Đã xuất một phần nếu đơn đã xuất một phần trước đó)` : ""
@@ -386,7 +396,7 @@ function ManPhieuXuatKho({ id }) {
             nutPhu={quyen.coIn ? { ma: "in", nhan: "In phiếu", icon: Printer, onClick: () => navigate(`/goods-issues/${phieu.id}/print`) } : null}
             saoChepMa={{ giaTri: phieu.soPhieuXuat, nhan: "Sao chép mã phiếu" }}
                         menu={[
-              (laLazada || Boolean(phieu?.donBanHang?.maDonHangKenh))
+              laDonSan
                 ? { ma: "inPackingSlip", nhan: "In vận đơn / phiếu đóng gói sàn (A6)", icon: Printer, onSelect: () => navigate(`/goods-issues/${phieu.id}/print-packing-slip`) }
                 : null,
               coXemBangChung

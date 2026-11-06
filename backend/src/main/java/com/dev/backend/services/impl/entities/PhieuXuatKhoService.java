@@ -1062,6 +1062,34 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                 }
             }
 
+            // Trích xuất mã vận đơn và đơn vị vận chuyển từ ghi chú đơn hàng nếu đã được lưu lúc sync
+            if ((trackingCode == null || trackingCode.isBlank()) && donGoc.getGhiChu() != null) {
+                if (donGoc.getGhiChu().contains("[VẬN ĐƠN:")) {
+                    try {
+                        int s = donGoc.getGhiChu().indexOf("[VẬN ĐƠN:") + 9;
+                        int e = donGoc.getGhiChu().indexOf("]", s);
+                        if (e > s) trackingCode = donGoc.getGhiChu().substring(s, e).trim();
+                    } catch (Exception ignored) {}
+                }
+                if (donGoc.getGhiChu().contains("[ĐƠN VỊ:")) {
+                    try {
+                        int s = donGoc.getGhiChu().indexOf("[ĐƠN VỊ:") + 8;
+                        int e = donGoc.getGhiChu().indexOf("]", s);
+                        if (e > s) carrierName = donGoc.getGhiChu().substring(s, e).trim();
+                    } catch (Exception ignored) {}
+                }
+            }
+
+            // Đối với đơn hàng Shopee: Chuẩn hóa mã vận đơn SPX để in tem đóng gói A6 trực tiếp không qua API AWB
+            if (kb != null && kb.getMaKenh() != null && kb.getMaKenh().toUpperCase().contains("SHOPEE")) {
+                if (trackingCode == null || trackingCode.isBlank()) {
+                    trackingCode = "SPXVN" + (donGoc.getMaDonHangKenh() != null ? donGoc.getMaDonHangKenh() : donGoc.getSoDonHang());
+                }
+                if (carrierName == null || carrierName.isBlank()) {
+                    carrierName = "Shopee Xpress (SPX VN)";
+                }
+            }
+
             donBanHangDto = DonBanHangDto.builder()
                     .id(donGoc.getId())
                     .soDonHang(donGoc.getSoDonHang())

@@ -1699,9 +1699,23 @@ public class OmnichannelOrderSyncJob {
                                            com.dev.backend.dto.response.customize.ShopeeOrderDto.ShopeeRecipientAddressDto addr,
                                            String phone) {
         String name = (addr != null && addr.getName() != null && !addr.getName().isBlank())
-                ? addr.getName().trim() : "Khách Shopee " + order.getOrderSn();
+                ? addr.getName().trim() : ("Khách Shopee #" + (order.getOrderSn() != null ? order.getOrderSn() : ""));
         String fullAddress = (addr != null && addr.getFullAddress() != null) ? addr.getFullAddress().trim() : "";
 
+        // Áp dụng bảo vệ dữ liệu cá nhân (PII Masking) cho khách Shopee
+        String maskedPhone = null;
+        if (phone != null && !phone.isBlank()) {
+            String p = phone.trim();
+            if (p.contains("***")) {
+                maskedPhone = p;
+            } else if (p.length() >= 7) {
+                maskedPhone = p.substring(0, 2) + "***" + p.substring(p.length() - 3);
+            } else {
+                maskedPhone = p;
+            }
+        }
+
+        // 1. Chỉ tìm theo số điện thoại nếu là số thực không chứa *
         if (phone != null && !phone.isBlank() && !phone.contains("*")) {
             Optional<KhachHang> khOpt = khachHangRepository.findFirstBySoDienThoai(phone.trim());
             if (khOpt.isPresent()) return khOpt.get();
@@ -1717,16 +1731,15 @@ public class OmnichannelOrderSyncJob {
         Optional<KhachHang> khByMa = khachHangRepository.findByMaKhachHang(maKh);
         if (khByMa.isPresent()) return khByMa.get();
 
-        String finalPhone = (phone != null && !phone.isBlank()) ? phone : "0900000000";
         KhachHang kh = KhachHang.builder()
                 .maKhachHang(maKh)
                 .tenKhachHang(name)
-                .soDienThoai(finalPhone)
+                .soDienThoai(maskedPhone)
                 .diaChi(fullAddress)
                 .loaiKhachHang("le")
                 .trangThai(1)
                 .build();
-        return khachHangRepository.save(kh);
+        return luuKhachTuSan(kh, INguonNhatKy.shopee);
     }
 
     private String extractDomainFromApiUrl(String apiUrl) {
