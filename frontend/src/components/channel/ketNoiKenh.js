@@ -195,18 +195,18 @@ export function hoTroNgatKetNoi(dto) {
 export function moTaNgatKetNoi(san, ketNoi) {
   const tenSan = san?.ten ?? "sàn";
   const tonVaDon = `Số tồn trên ${tenSan} giữ nguyên như lần đẩy cuối, đơn mới sẽ không về FCentric.`;
-  const giuLai = "Liên kết sản phẩm và các đơn đã về FCentric vẫn được giữ;";
+  const giuLai = "Toàn bộ đơn hàng đã nhận vẫn được bảo toàn trong hệ thống kho; các sản phẩm sẽ được làm sạch mã sàn cũ để sẵn sàng kết nối lại.";
   if (san?.kieuKetNoi === "khoa") {
     return [
       `Hệ thống sẽ xóa mọi khóa đã lưu và dừng đồng bộ với ${ketNoi?.shopDomain || `cửa hàng ${tenSan}`}.`,
       tonVaDon,
-      `${giuLai} kết nối lại bằng cửa hàng khác thì phải ghép sản phẩm lại.`,
+      giuLai,
       `Ứng dụng vẫn còn trong cửa hàng; muốn thu hồi hẳn khóa, hãy gỡ ứng dụng trong trang quản trị ${tenSan}.`,
     ].join(" ");
   }
   return [
     `Hệ thống sẽ xóa ủy quyền đã lưu và dừng đồng bộ với ${ketNoi?.tenGianHang || `gian hàng ${tenSan}`}.`,
     tonVaDon,
-    `${giuLai} ủy quyền lại bằng gian hàng khác thì phải ghép sản phẩm lại.`,
+    giuLai,
   ].join(" ");
 }

@@ -193,7 +193,7 @@ export default function TheGianHangUyQuyen({
                 </DropdownMenuItem>
                 <DropdownMenuSeparator className="bg-bo-border" />
                 <DropdownMenuItem onSelect={sauKhiDongMenu(onNgatKetNoi)} className={cn(MUC_MENU, "focus:bg-bo-danger-soft")}>
-                  <NoiDungMuc icon={Unplug} nhan="Ngắt kết nối" moTa="Xóa ủy quyền đã lưu, giữ liên kết sản phẩm và đơn đã nhận." nguyHiem />
+                  <NoiDungMuc icon={Unplug} nhan="Ngắt kết nối" moTa="Xóa ủy quyền đã lưu, làm sạch mã SKU sàn cũ và bảo toàn đơn hàng." nguyHiem />
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
