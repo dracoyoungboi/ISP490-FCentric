@@ -943,6 +943,9 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                     return null;
                 }
                 kenhBanHangRepository.xoaKhoaVaNgatKetNoi(khoa.getId());
+                // Làm sạch mã sản phẩm trên sàn cũ, bảo toàn 100% đơn hàng và tồn kho
+                trangThaiDongBoSanPhamRepository.xoaDuLieuCuaHangCu(khoa.getId());
+                trangThaiDongBoSanPhamRepository.danhDauChuaGhep(khoa.getId(), "Gian hàng đã ngắt kết nối. Vui lòng kết nối lại để tiếp tục đồng bộ.");
                 return khoa;
             });
         } finally {
@@ -1307,15 +1310,19 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                 throw new CommonException("Lỗi xác thực OAuth2 Lazada: " + errorMsg, HttpStatus.BAD_REQUEST, null);
             }
 
+            String oldSellerId = kenh.getApiUrl();
             String account = res.path("account").asText(null);
             String sellerId = res.path("country_user_info").path(0).path("seller_id").asText(null);
             if (sellerId == null || sellerId.isBlank()) {
                 sellerId = res.path("seller_id").asText(null);
             }
-            if (sellerId != null && !sellerId.isBlank()) {
-                kenh.setApiUrl(sellerId);
-            } else if (account != null && !account.isBlank()) {
-                kenh.setApiUrl(account);
+            String newIdentifier = (sellerId != null && !sellerId.isBlank()) ? sellerId : account;
+            boolean doiCuaHang = oldSellerId != null && !oldSellerId.isBlank()
+                    && newIdentifier != null && !newIdentifier.isBlank()
+                    && !oldSellerId.trim().equalsIgnoreCase(newIdentifier.trim());
+
+            if (newIdentifier != null && !newIdentifier.isBlank()) {
+                kenh.setApiUrl(newIdentifier);
             }
             kenh.setApiKey(paymentSecretCipher.encrypt(accessToken));
             if (refreshToken != null && !refreshToken.isBlank()) {
@@ -1323,7 +1330,15 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
             }
             kenh.setTokenExpiresAt(Instant.now().plusSeconds(expiresIn));
             kenh.setTrangThai(1);
-            kenhBanHangRepository.save(kenh);
+            KenhBanHang saved = kenhBanHangRepository.save(kenh);
+
+            // Khi kết nối sang gian hàng khác: làm sạch mã SKU sàn cũ để ghép lại, bảo toàn đơn hàng
+            if (doiCuaHang && saved.getId() != null) {
+                trangThaiDongBoSanPhamRepository.xoaDuLieuCuaHangCu(saved.getId());
+                trangThaiDongBoSanPhamRepository.danhDauChuaGhep(saved.getId(), LY_DO_CHUA_GHEP);
+                ghiLichSuThayDoi(saved.getId(), "Kết nối " + (isSandbox ? "Lazada Sandbox" : "Lazada") + " sang gian hàng khác: " + oldSellerId + " → " + newIdentifier,
+                        "Làm sạch mã SKU sàn cũ để ghép lại, bảo toàn 100% đơn hàng");
+            }
 
             ghiLichSuThayDoi(kenh, "Ủy quyền OAuth2 " + (isSandbox ? "Lazada Sandbox" : "Lazada") + " thành công (Token hiệu lực " + (expiresIn / 86400) + " ngày)");
             uyQuyenDaOn(ma);
@@ -1354,7 +1369,15 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
             kenh.setTokenExpiresAt(null);
             kenh.setTrangThai(0);
             kenhBanHangRepository.save(kenh);
-            ghiLichSuThayDoi(kenh, "Ngắt kết nối gian hàng " + (ma.contains("SANDBOX") ? "Lazada Sandbox" : "Lazada") + " (xóa Access Token)");
+
+            // Tự động làm sạch mã sản phẩm trên sàn cũ trong bảng trạng thái đồng bộ, bảo toàn 100% đơn hàng
+            if (kenh.getId() != null) {
+                trangThaiDongBoSanPhamRepository.xoaDuLieuCuaHangCu(kenh.getId());
+                trangThaiDongBoSanPhamRepository.danhDauChuaGhep(kenh.getId(), "Gian hàng đã ngắt kết nối. Vui lòng kết nối lại để tiếp tục đồng bộ.");
+            }
+
+            ghiLichSuThayDoi(kenh, "Ngắt kết nối gian hàng " + (ma.contains("SANDBOX") ? "Lazada Sandbox" : "Lazada") + " (xóa Access Token, làm sạch mã SKU sàn cũ, bảo toàn đơn hàng)");
+            if (thongBaoHeThongService != null) thongBaoHeThongService.kenhDaNgat(ma);
         }
     }
 
@@ -1834,7 +1857,15 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
             kenh.setShopCipher(null);
             kenh.setTrangThai(0);
             kenhBanHangRepository.save(kenh);
-            ghiLichSuThayDoi(kenh, "Ngắt kết nối gian hàng TikTok Shop (xóa Access Token và Shop Cipher)");
+
+            // Làm sạch mã sản phẩm trên sàn cũ, bảo toàn 100% đơn hàng
+            if (kenh.getId() != null) {
+                trangThaiDongBoSanPhamRepository.xoaDuLieuCuaHangCu(kenh.getId());
+                trangThaiDongBoSanPhamRepository.danhDauChuaGhep(kenh.getId(), "Gian hàng đã ngắt kết nối. Vui lòng kết nối lại để tiếp tục đồng bộ.");
+            }
+
+            ghiLichSuThayDoi(kenh, "Ngắt kết nối gian hàng TikTok Shop (xóa Access Token, làm sạch mã SKU sàn cũ, bảo toàn đơn hàng)");
+            if (thongBaoHeThongService != null) thongBaoHeThongService.kenhDaNgat(MA_KENH_TIKTOK);
         }
     }
 
@@ -2193,7 +2224,16 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
             kenh.setTokenExpiresAt(null);
             kenh.setTrangThai(0);
             kenhBanHangRepository.save(kenh);
-            log.info("Đã xóa khóa và ngắt kết nối kênh Shopee: {}", ma);
+
+            // Làm sạch mã sản phẩm trên sàn cũ, bảo toàn 100% đơn hàng
+            if (kenh.getId() != null) {
+                trangThaiDongBoSanPhamRepository.xoaDuLieuCuaHangCu(kenh.getId());
+                trangThaiDongBoSanPhamRepository.danhDauChuaGhep(kenh.getId(), "Gian hàng đã ngắt kết nối. Vui lòng kết nối lại để tiếp tục đồng bộ.");
+            }
+
+            log.info("Đã xóa khóa, làm sạch mã SKU sàn cũ và ngắt kết nối kênh Shopee: {}", ma);
+            ghiLichSuThayDoi(kenh, "Ngắt kết nối gian hàng Shopee (xóa Access Token, làm sạch mã SKU sàn cũ, bảo toàn đơn hàng)");
+            if (thongBaoHeThongService != null) thongBaoHeThongService.kenhDaNgat(ma);
         }
     }
 

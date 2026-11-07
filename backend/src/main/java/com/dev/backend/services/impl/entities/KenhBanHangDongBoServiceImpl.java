@@ -2097,6 +2097,45 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                         }
                     }
 
+                    // [BATCH FALLBACK SKU MISMATCH] Tự động thử lại chỉ với SellerSku khi SkuId cũ bị Lazada từ chối (Self-Healing khi đổi Shop)
+                    boolean isSkuMismatch = msg.toLowerCase(Locale.ROOT).contains("doesn't exist")
+                            || msg.toLowerCase(Locale.ROOT).contains("does not match")
+                            || msg.toLowerCase(Locale.ROOT).contains("invalid skuid");
+                    if (isSkuMismatch && batch.stream().anyMatch(it -> it.skuId() != null && !it.skuId().isBlank())) {
+                        log.info("[LAZADA-FALLBACK-SKU] Phát hiện SkuId không khớp với gian hàng hiện tại, tự động reset SkuId và gửi lại chỉ với SellerSku...");
+                        StringBuilder retryXml = new StringBuilder("<Request><Product><Skus>");
+                        for (DongCanCapNhat item : batch) {
+                            item.dong().setMaSanPhamKenh(null); // Xóa SkuId cũ sai
+                            retryXml.append("<Sku>");
+                            retryXml.append("<SellerSku>").append(escapeXml(item.sellerSku())).append("</SellerSku>");
+                            retryXml.append("<Quantity>").append(Math.max(0, item.soDay())).append("</Quantity>");
+                            BienTheSanPham bt = item.dong().getBienTheSanPham();
+                            if (bt != null && bt.getGiaBan() != null && bt.getGiaBan().compareTo(BigDecimal.ZERO) > 0) {
+                                retryXml.append("<Price>").append(bt.getGiaBan().setScale(2, RoundingMode.HALF_UP)).append("</Price>");
+                            }
+                            retryXml.append("</Sku>");
+                        }
+                        retryXml.append("</Skus></Product></Request>");
+                        try {
+                            JsonNode retryRes = lazadaClient.updatePriceQuantity(appKey, appSecret, token, retryXml.toString());
+                            String retryCode = retryRes != null ? retryRes.path("code").asText("") : "";
+                            if ("0".equals(retryCode)) {
+                                for (DongCanCapNhat item : batch) {
+                                    item.dong().setTrangThaiDongBo("thanh_cong");
+                                    item.dong().setChiTietLoi(null);
+                                    item.dong().setSoLuongDaDay(item.soDay());
+                                    item.dong().setNgayDayTonCuoi(now);
+                                    soThanhCong++;
+                                    theoDoi.daDay(item.sellerSku(), null, true, null);
+                                }
+                                log.info("[LAZADA-FALLBACK-SKU] Đẩy tồn tự chữa lành thành công cho {} SKU bằng SellerSku!", batch.size());
+                                continue;
+                            }
+                        } catch (Exception retryEx) {
+                            log.warn("[LAZADA-FALLBACK-SKU] Thử lại bằng SellerSku thất bại: {}", retryEx.getMessage());
+                        }
+                    }
+
                     String friendlyMsg = dichLoiLazada(code, msg);
                     for (DongCanCapNhat item : batch) {
                         item.dong().setTrangThaiDongBo("that_bai");
