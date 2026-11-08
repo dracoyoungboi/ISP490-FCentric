@@ -24,6 +24,7 @@ import {
   khoaKhiChoGoc,
   laLoiHetThoiHan,
 } from "@/components/chung-tu/thoiHanThaoTac";
+import DispatchConfirmDialog from "@/components/outbound/DispatchConfirmDialog";
 import DispatchDialog from "@/components/outbound/DispatchDialog";
 import PackingProofModal from "@/components/outbound/PackingProofModal";
 import BangSanPhamXuat from "@/components/outbound/phieu-xuat/BangSanPhamXuat";
@@ -34,6 +35,7 @@ import {
   LOAI_XUAT,
   cauThieuLo,
   laPhieuPos,
+  layThongTinGiaoVan,
   lyDoKhoaXuat,
   quyenPhieuXuat,
   tachGhiChuPhieuXuat,
@@ -201,6 +203,7 @@ function ManPhieuXuatKho({ id }) {
   const coXemBangChung = !laCk && !laPos && Boolean(phieu.donBanHang?.id)
     && (tt === TRANG_THAI_PHIEU_XUAT.CHO_XUAT || tt === TRANG_THAI_PHIEU_XUAT.DA_XUAT);
   const ghiChu = tachGhiChuPhieuXuat(phieu.ghiChu);
+  const thongTinGv = layThongTinGiaoVan(phieu, ghiChu);
   const soDong = bang.tong.soDong;
   const soThieu = dong.filter((d) => !d.du).length;
   const tongSl = bang.tong.soLuong;
@@ -436,12 +439,36 @@ function ManPhieuXuatKho({ id }) {
         cotPhai={<ThuocTinhPhieuXuat phieu={phieu} laCk={laCk} laPos={laPos} ghiChu={ghiChu} />}
       />
 
-      {hop === "xuat" ? (
+      {hop === "xuat" && thongTinGv.coSanThongTin ? (
+        <DispatchConfirmDialog
+          open
+          onOpenChange={dongHop}
+          soPhieuXuat={phieu.soPhieuXuat}
+          tongSoLuong={tongSl}
+          thongTinGiaoVan={thongTinGv}
+          onConfirm={xacNhanXuatKho}
+          onMoNangCao={() => setHop("xuatNangCao")}
+        />
+      ) : null}
+
+      {hop === "xuat" && !thongTinGv.coSanThongTin ? (
         <DispatchDialog
           open
           onOpenChange={dongHop}
           soPhieuXuat={phieu.soPhieuXuat}
           tongSoLuong={tongSl}
+          macDinh={thongTinGv}
+          onConfirm={xacNhanXuatKho}
+        />
+      ) : null}
+
+      {hop === "xuatNangCao" ? (
+        <DispatchDialog
+          open
+          onOpenChange={dongHop}
+          soPhieuXuat={phieu.soPhieuXuat}
+          tongSoLuong={tongSl}
+          macDinh={thongTinGv}
           onConfirm={xacNhanXuatKho}
         />
       ) : null}

@@ -16,8 +16,15 @@ const GHI_CHU_TOI_DA = 500;
  * cước là số hoặc null. Khung, nút và tiêu điểm theo hộp dùng chung HopXacNhanChungTu (rộng 560px vì có biểu mẫu).
  * `tongSoLuong` (tùy chọn): tổng số lượng của cả phiếu, hiện trong câu mô tả.
  */
-export default function DispatchDialog({ open, onOpenChange, soPhieuXuat, tongSoLuong, onConfirm }) {
-  const [values, setValues] = useState(EMPTY);
+export default function DispatchDialog({ open, onOpenChange, soPhieuXuat, tongSoLuong, macDinh, onConfirm }) {
+  const [values, setValues] = useState(() => ({
+    donViVanChuyen: macDinh?.donViVanChuyen || "",
+    maVanDon: macDinh?.maVanDon || "",
+    phiVanChuyenThucTe: macDinh?.cuocThucTe != null
+      ? String(macDinh.cuocThucTe)
+      : (macDinh?.phiVanChuyenThucTe != null ? String(macDinh.phiVanChuyenThucTe) : ""),
+    ghiChu: macDinh?.ghiChu || "",
+  }));
   const [submitting, setSubmitting] = useState(false);
   const submittingRef = useRef(false);
 
