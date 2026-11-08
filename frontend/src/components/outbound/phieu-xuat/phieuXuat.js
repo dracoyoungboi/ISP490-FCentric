@@ -107,6 +107,97 @@ export function tachGhiChuPhieuXuat(ghiChu) {
 }
 
 /**
+ * Trích xuất đầy đủ thông tin giao vận của phiếu xuất kho:
+ * Ưu tiên các trường trực tiếp từ `phieu` (hoặc `phieu.donBanHang` do backend trả ra),
+ * sau đó fallback về thông tin giao vận tách từ `ghiChu`.
+ *
+ * @param {object} phieu - Đối tượng PhieuXuatKhoDto
+ * @param {object} [tachGhiChu] - Kết quả từ tachGhiChuPhieuXuat (tùy chọn)
+ * @returns {{
+ *   coSanThongTin: boolean,
+ *   donViVanChuyen: string | null,
+ *   maVanDon: string | null,
+ *   maKienHang: string | null,
+ *   maDinhTuyen: string | null,
+ *   maTramPhat: string | null,
+ *   tagGiaoNhan: string | null,
+ *   donViPickup: string | null,
+ *   donViDelivery: string | null,
+ *   loaiDichVu: string | null,
+ *   tienThuHoCod: number | string | null,
+ *   nhanThanhToan: string | null,
+ *   chiDanDongKiem: string | null,
+ *   cuocThucTe: number | null,
+ * }}
+ */
+export function layThongTinGiaoVan(phieu, tachGhiChu) {
+  if (!phieu) {
+    return {
+      coSanThongTin: false,
+      donViVanChuyen: null,
+      maVanDon: null,
+      maKienHang: null,
+      maDinhTuyen: null,
+      maTramPhat: null,
+      tagGiaoNhan: null,
+      donViPickup: null,
+      donViDelivery: null,
+      loaiDichVu: null,
+      tienThuHoCod: null,
+      nhanThanhToan: null,
+      chiDanDongKiem: null,
+      cuocThucTe: null,
+    };
+  }
+
+  const don = phieu.donBanHang;
+  const gv = (tachGhiChu || tachGhiChuPhieuXuat(phieu.ghiChu))?.giaoVan;
+
+  const donViVanChuyen = giaTriHoacNull(phieu.donViVanChuyen)
+    || giaTriHoacNull(don?.donViVanChuyen)
+    || giaTriHoacNull(gv?.donViVanChuyen);
+
+  const maVanDon = giaTriHoacNull(phieu.maVanDon)
+    || giaTriHoacNull(don?.maVanDon)
+    || giaTriHoacNull(gv?.maVanDon);
+
+  const maKienHang = giaTriHoacNull(phieu.maKienHang) || giaTriHoacNull(don?.maKienHang);
+  const maDinhTuyen = giaTriHoacNull(phieu.maDinhTuyen) || giaTriHoacNull(don?.maDinhTuyen);
+  const maTramPhat = giaTriHoacNull(phieu.maTramPhat) || giaTriHoacNull(don?.maTramPhat);
+  const tagGiaoNhan = giaTriHoacNull(phieu.tagGiaoNhan) || giaTriHoacNull(don?.tagGiaoNhan);
+  const donViPickup = giaTriHoacNull(phieu.donViPickup) || giaTriHoacNull(don?.donViPickup);
+  const donViDelivery = giaTriHoacNull(phieu.donViDelivery) || giaTriHoacNull(don?.donViDelivery);
+  const loaiDichVu = giaTriHoacNull(phieu.loaiDichVu) || giaTriHoacNull(don?.loaiDichVu);
+
+  const tienThuHoCod = phieu.tienThuHoCod != null ? phieu.tienThuHoCod : (don?.tienThuHoCod ?? null);
+  const nhanThanhToan = giaTriHoacNull(phieu.nhanThanhToan) || giaTriHoacNull(don?.nhanThanhToan);
+  const chiDanDongKiem = giaTriHoacNull(phieu.chiDanDongKiem) || giaTriHoacNull(don?.chiDanDongKiem);
+
+  const cuoc = phieu.phiVanChuyenThucTe != null
+    ? (Number.isFinite(Number(phieu.phiVanChuyenThucTe)) ? Number(phieu.phiVanChuyenThucTe) : null)
+    : (gv?.cuoc ?? null);
+
+  const coSanThongTin = Boolean(donViVanChuyen || maVanDon);
+
+  return {
+    coSanThongTin,
+    donViVanChuyen,
+    maVanDon,
+    maKienHang,
+    maDinhTuyen,
+    maTramPhat,
+    tagGiaoNhan,
+    donViPickup,
+    donViDelivery,
+    loaiDichVu,
+    tienThuHoCod,
+    nhanThanhToan,
+    chiDanDongKiem,
+    cuocThucTe: cuoc,
+  };
+}
+
+/**
  * Các bước tiến trình (TienTrinhChungTu) — 3 bước, mốc giờ lấy từ ngayTao / ngayXuat:
  * - Bán hàng: Nhặt hàng (phiếu sinh khi nhặt xong) → Đóng gói → Xuất kho.
  * - Chuyển kho (PX-CK, máy chủ tạo khi duyệt phiếu chuyển): Tạo phiếu → Chọn lô (`soDongDuLo`/`soDong` dòng đủ lô) →

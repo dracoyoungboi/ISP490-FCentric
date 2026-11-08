@@ -7,7 +7,7 @@ import CotThuocTinh, {
 import TuyenChuyen from "@/components/chung-tu/TuyenChuyen";
 import { docSo, soVN } from "@/components/chung-tu/bangChungTu";
 import { formatDate } from "@/utils/formatters";
-import { laDaXuat } from "./phieuXuat.js";
+import { laDaXuat, layThongTinGiaoVan } from "./phieuXuat.js";
 
 const ngay = (value) => (value ? formatDate(value) : null);
 const doanGhiChu = (chu) => (chu ? <span className="whitespace-pre-line">{chu}</span> : null);
@@ -57,9 +57,15 @@ export default function ThuocTinhPhieuXuat({ phieu, laCk, laPos, ghiChu }) {
   }
 
   const don = phieu.donBanHang;
-  const gv = ghiChu.giaoVan;
-  // Cước có thể được nhập mà không kèm đơn vị vận chuyển / mã vận đơn: khi đó chỉ có ở cột, không có trong ghi chú
-  const cuoc = phieu.phiVanChuyenThucTe != null ? docSo(phieu.phiVanChuyenThucTe) : (gv?.cuoc ?? null);
+  const thongTin = layThongTinGiaoVan(phieu, ghiChu);
+  const cuoc = thongTin.cuocThucTe;
+
+  let nhanCod = thongTin.nhanThanhToan;
+  if (!nhanCod && thongTin.tienThuHoCod != null) {
+    const codNum = Number(thongTin.tienThuHoCod);
+    nhanCod = codNum > 0 ? `Thu hộ (COD): ${soVN(codNum)} ₫` : "Đã thanh toán (COD: 0 đ)";
+  }
+
   return (
     <CotThuocTinh nhan="Thông tin phiếu xuất">
       <NhomThuocTinh>
@@ -81,19 +87,59 @@ export default function ThuocTinhPhieuXuat({ phieu, laCk, laPos, ghiChu }) {
           ]}
         />
       </NhomThuocTinh>
-      {gv || cuoc != null ? (
+      {thongTin.coSanThongTin || cuoc != null ? (
         <NhomThuocTinh nhan="Giao vận">
           <BangThuocTinh
             rongNhan={124}
             muc={[
-              { nhan: "Đơn vị vận chuyển", giaTri: gv?.donViVanChuyen ?? null },
+              { nhan: "Đơn vị vận chuyển", giaTri: thongTin.donViVanChuyen ?? null, an: !thongTin.donViVanChuyen },
               {
                 nhan: "Mã vận đơn",
-                giaTri: gv?.maVanDon ? (
-                  <GiaTriSaoChep giaTri={gv.maVanDon} nhanSaoChep="Sao chép mã vận đơn" className="font-mono" />
+                giaTri: thongTin.maVanDon ? (
+                  <GiaTriSaoChep giaTri={thongTin.maVanDon} nhanSaoChep="Sao chép mã vận đơn" className="font-mono font-medium text-bo-primary" />
                 ) : null,
+                an: !thongTin.maVanDon,
               },
-              { nhan: "Cước thực tế", giaTri: cuoc != null ? <span className="tabular-nums">{soVN(cuoc)} ₫</span> : null },
+              {
+                nhan: "Mã kiện hàng",
+                giaTri: thongTin.maKienHang ? (
+                  <GiaTriSaoChep giaTri={thongTin.maKienHang} nhanSaoChep="Sao chép mã kiện hàng" className="font-mono text-xs" />
+                ) : null,
+                an: !thongTin.maKienHang,
+              },
+              {
+                nhan: "Mã chia chọn",
+                giaTri: thongTin.maDinhTuyen ? (
+                  <span className="inline-flex items-center rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 font-mono text-xs font-semibold text-amber-800">
+                    {thongTin.maDinhTuyen}
+                  </span>
+                ) : null,
+                an: !thongTin.maDinhTuyen,
+              },
+              {
+                nhan: "Trạm đích",
+                giaTri: thongTin.maTramPhat ? (
+                  <span className="font-mono text-xs text-slate-600">{thongTin.maTramPhat}</span>
+                ) : null,
+                an: !thongTin.maTramPhat,
+              },
+              {
+                nhan: "Thu hộ (COD)",
+                giaTri: nhanCod ? (
+                  <span className="font-medium text-slate-700">{nhanCod}</span>
+                ) : null,
+                an: !nhanCod,
+              },
+              {
+                nhan: "Chỉ dẫn sàn",
+                giaTri: thongTin.chiDanDongKiem ? (
+                  <span className="inline-flex items-center rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-xs font-medium text-emerald-700">
+                    {thongTin.chiDanDongKiem}
+                  </span>
+                ) : null,
+                an: !thongTin.chiDanDongKiem,
+              },
+              { nhan: "Cước thực tế", giaTri: cuoc != null ? <span className="tabular-nums font-mono">{soVN(cuoc)} ₫</span> : null, an: cuoc == null },
             ]}
           />
         </NhomThuocTinh>
