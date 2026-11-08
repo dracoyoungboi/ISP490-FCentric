@@ -24,6 +24,8 @@ import { ROLES, hasAnyRole } from "@/utils/roles";
 
 // Lịch sử thay đổi sản phẩm: quản trị viên, quản lý kho (khớp @RequireAuth của GET /san-pham-quan-ao/{id}/lich-su)
 const VAI_TRO_XEM_LICH_SU = [ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO];
+// Giá vốn là số nội bộ: khớp backend utils/XemGiaVon.DUOC_XEM (nhân viên bán hàng không thấy, máy chủ trả null)
+const VAI_TRO_XEM_GIA_VON = [ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO, ROLES.NHAN_VIEN_KHO, ROLES.NHAN_VIEN_MUA_HANG];
 
 export default function ProductDetail() {
     const { id } = useParams();
@@ -33,6 +35,7 @@ export default function ProductDetail() {
     const [selectedImageIndex, setSelectedImageIndex] = useState(0);
     const [moLichSu, setMoLichSu] = useState(false);
     const xemLichSu = hasAnyRole(VAI_TRO_XEM_LICH_SU);
+    const xemGiaVon = hasAnyRole(VAI_TRO_XEM_GIA_VON);
     const navigate = useNavigate();
     const totalImages = product?.anhQuanAos?.length || 0;
 
@@ -284,19 +287,21 @@ export default function ProductDetail() {
                             </div>
                         </div>
 
-                        <div className="grid gap-3 sm:grid-cols-3">
+                        <div className={`grid gap-3 ${xemGiaVon ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
                             <div className="rounded-lg border border-bo-border bg-bo-surface-subtle p-3">
                                 <p className="text-xs font-medium text-bo-muted">Giá bán</p>
                                 <p className="mt-1 text-lg font-bold tabular-nums text-bo-foreground">
                                     {giaBanHienThi ?? <span className="font-normal text-bo-muted">—</span>}
                                 </p>
                             </div>
-                            <div className="rounded-lg border border-bo-border bg-bo-surface-subtle p-3">
-                                <p className="text-xs font-medium text-bo-muted">Giá vốn</p>
-                                <p className="mt-1 text-lg font-bold tabular-nums text-bo-foreground">
-                                    {giaVonHienThi ?? <span className="font-normal text-bo-muted">—</span>}
-                                </p>
-                            </div>
+                            {xemGiaVon ? (
+                                <div className="rounded-lg border border-bo-border bg-bo-surface-subtle p-3">
+                                    <p className="text-xs font-medium text-bo-muted">Giá vốn</p>
+                                    <p className="mt-1 text-lg font-bold tabular-nums text-bo-foreground">
+                                        {giaVonHienThi ?? <span className="font-normal text-bo-muted">—</span>}
+                                    </p>
+                                </div>
+                            ) : null}
                             <div className="rounded-lg border border-bo-border bg-bo-surface-subtle p-3">
                                 <p className="text-xs font-medium text-bo-muted">Biến thể hiện có</p>
                                 <p className="mt-1 text-lg font-bold text-bo-foreground">{variantCount}</p>

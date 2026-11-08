@@ -2,8 +2,11 @@ package com.dev.backend.services.impl.entities;
 
 import com.dev.backend.config.SecurityContextHolder;
 import com.dev.backend.constant.enums.FileType;
+import com.dev.backend.constant.variables.IChuyenKho;
 import com.dev.backend.constant.variables.IHanhDong;
+import com.dev.backend.constant.variables.IKiemKe;
 import com.dev.backend.constant.variables.ITable;
+import com.dev.backend.constant.variables.ITrangThaiDonBanHang;
 import com.dev.backend.services.impl.utils.NhatKyNghiepVu;
 import com.dev.backend.dto.request.AnhSanPhamSapXep;
 import com.dev.backend.dto.request.BienTheSanPhamCreating;
@@ -40,6 +43,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -603,7 +607,8 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
         }
 
 
-        @Transactional
+        /** READ_COMMITTED: xem {@link #kiemTraTruocKhiNgung} (đổi sang trạng thái 2 qua form Sửa). */
+        @Transactional(isolation = Isolation.READ_COMMITTED)
         public ResponseEntity<ResponseData<SanPhamQuanAoDto>> update(
                 SanPhamQuanAoUpdating updating,
                 List<MultipartFile> anhSanPhams,
@@ -641,6 +646,10 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 String tenMoi = chuanHoaTenSanPham(updating.getTenSanPham());
                 if (!cungTenSanPham(tenMoi, sanPhamQuanAo.getTenSanPham())) {
                         kiemTraTenKhongTrung(tenMoi, sanPhamQuanAo.getId());
+                }
+                // Form Sửa gửi lại trạng thái đang có; gọi thẳng API đổi sang 2 thì kiểm như nút Ngừng kinh doanh
+                if (laNgungKinhDoanh(sanPhamQuanAo.getTrangThai(), updating.getTrangThai())) {
+                        kiemTraTruocKhiNgung(sanPhamQuanAo);
                 }
 
                 // ===================== GHI DỮ LIỆU =====================
@@ -1320,12 +1329,16 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 return dto;
         }
 
-        @Transactional
+        /** READ_COMMITTED: xem {@link #kiemTraTruocKhiNgung}. */
+        @Transactional(isolation = Isolation.READ_COMMITTED)
         public SanPhamQuanAo changeStatus(Integer id, Integer status) {
                 // Đổi trạng thái nhanh cho sản phẩm (1/0/2).
                 SanPhamQuanAo sanPhamQuanAo = getOne(id).orElseThrow(
                         () -> new CommonException("Không tìm thấy sản phẩm id: " + id));
                 Integer trangThaiCu = sanPhamQuanAo.getTrangThai();
+                if (laNgungKinhDoanh(trangThaiCu, status)) {
+                        kiemTraTruocKhiNgung(sanPhamQuanAo);
+                }
                 sanPhamQuanAo.setTrangThai(status);
                 SanPhamQuanAo daLuu = repository.save(sanPhamQuanAo);
                 ghiNhatKy(NhatKyNghiepVu.dong(ITable.san_pham_quan_ao, daLuu.getId(), IHanhDong.cap_nhat_san_pham)
@@ -1333,6 +1346,124 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                         .thayDoi(NhatKyNghiepVu.anh("trangThai", trangThaiCu), NhatKyNghiepVu.anh("trangThai", status))
                         .ghiChu("Đổi trạng thái sản phẩm"));
                 return daLuu;
+        }
+
+        // ---------- Ngừng kinh doanh (trạng thái 2) ----------
+
+        /** Trạng thái 2 = Ngừng hoạt động (ngừng kinh doanh), do người dùng đặt. */
+        static final int TRANG_THAI_NGUNG_KINH_DOANH = 2;
+        /** Ghép vào câu báo kiểm kê: "Tạm dừng việc ngừng kinh doanh sản phẩm tới khi đợt được duyệt hoặc hủy." */
+        private static final String THAO_TAC_NGUNG = "việc ngừng kinh doanh sản phẩm";
+
+        static boolean laNgungKinhDoanh(Integer trangThaiCu, Integer trangThaiMoi) {
+                return Objects.equals(trangThaiMoi, TRANG_THAI_NGUNG_KINH_DOANH)
+                        && !Objects.equals(trangThaiCu, TRANG_THAI_NGUNG_KINH_DOANH);
+        }
+
+        /**
+         * Chỉ ngừng kinh doanh khi sản phẩm không còn gì dở dang: còn tồn ở kho thật (không tính Kho Trung Chuyển — hàng đang
+         * đi đường thuộc phiếu chuyển), đơn bán còn giữ hàng, đơn mua đang về chưa nhận đủ, phiếu chuyển kho chưa xong
+         * → 409 kèm số liệu. Sản phẩm đang thuộc đợt kiểm kê (danh mục đang kiểm, hoặc biến thể có dòng trong đợt đang kiểm /
+         * chờ duyệt) → 409 STK_LOCKED như các thao tác sửa dữ liệu chủ khác.
+         * Hai luồng gọi (changeStatus, update) chạy READ_COMMITTED: ở REPEATABLE READ, lần đọc thường đầu tiên của giao dịch
+         * (getOne sản phẩm, cả câu đọc danh sách kho trong giuTatCaKho) chốt ảnh dữ liệu trước lúc chờ mutex, nên đợt kiểm
+         * kê vừa bắt đầu, tồn và chứng từ vừa ghi trong lúc chờ không hiện ở các câu đếm dưới (xem
+         * KhoaKiemKeGuard.khoaMutex). Luồng không đổi sang 2 không gọi hàm này, không giữ mutex.
+         */
+        void kiemTraTruocKhiNgung(SanPhamQuanAo sanPham) {
+                Integer id = sanPham.getId();
+                // Giữ mutex mọi kho trước khi đọc: đợt kiểm kê không bắt đầu xen giữa lúc kiểm và lúc lưu
+                if (khoaKiemKeGuard != null) khoaKiemKeGuard.giuTatCaKho();
+
+                List<String> conDo = new ArrayList<>();
+                Object[] ton = (Object[]) entityManager.createNativeQuery(
+                                "SELECT COALESCE(SUM(t.so_luong_ton), 0), COUNT(DISTINCT t.kho_id) FROM ton_kho_theo_lo t "
+                                        + "JOIN lo_hang l ON l.id = t.lo_hang_id "
+                                        + "JOIN bien_the_san_pham bt ON bt.id = l.bien_the_san_pham_id "
+                                        + "JOIN kho k ON k.id = t.kho_id "
+                                        + "WHERE bt.san_pham_id = :id AND t.so_luong_ton > 0 AND k.ma_kho <> :khoAo")
+                        .setParameter("id", id)
+                        .setParameter("khoAo", IKiemKe.MA_KHO_AO)
+                        .getSingleResult();
+                BigDecimal tongTon = ton[0] == null ? BigDecimal.ZERO : new BigDecimal(ton[0].toString());
+                if (tongTon.signum() > 0) {
+                        conDo.add(dinhDangSoLuong(tongTon) + " " + donViTinhChuThuong(sanPham)
+                                + " ở " + ((Number) ton[1]).longValue() + " kho");
+                }
+
+                long donBan = demChungTu("SELECT COUNT(DISTINCT d.id) FROM don_ban_hang d "
+                                + "JOIN chi_tiet_don_ban_hang ct ON ct.don_ban_hang_id = d.id "
+                                + "JOIN bien_the_san_pham bt ON bt.id = ct.bien_the_san_pham_id "
+                                + "WHERE bt.san_pham_id = :id AND d.loai_chung_tu = 'don_ban_hang' AND d.trang_thai IN (:trangThai)",
+                        id, ITrangThaiDonBanHang.DANG_GIU_HANG);
+                if (donBan > 0) conDo.add(donBan + " đơn bán đang xử lý");
+
+                long donMua = demChungTu("SELECT COUNT(DISTINCT d.id) FROM don_mua_hang d "
+                                + "JOIN chi_tiet_don_mua_hang ct ON ct.don_mua_hang_id = d.id "
+                                + "JOIN bien_the_san_pham bt ON bt.id = ct.bien_the_san_pham_id "
+                                + "WHERE bt.san_pham_id = :id AND d.trang_thai IN (:trangThai) "
+                                + "AND COALESCE(ct.so_luong_da_nhan, 0) < ct.so_luong_dat",
+                        id, List.of(DonMuaHangService.TRANG_THAI_DA_CHAP_NHAN));
+                if (donMua > 0) conDo.add(donMua + " đơn mua đang về");
+
+                long phieuChuyen = demChungTu("SELECT COUNT(DISTINCT p.id) FROM phieu_chuyen_kho p "
+                                + "JOIN chi_tiet_phieu_chuyen_kho ct ON ct.phieu_chuyen_kho_id = p.id "
+                                + "JOIN bien_the_san_pham bt ON bt.id = ct.bien_the_san_pham_id "
+                                + "WHERE bt.san_pham_id = :id AND p.trang_thai NOT IN (:trangThai)",
+                        id, List.of(IChuyenKho.HOAN_TAT, IChuyenKho.DA_HUY));
+                if (phieuChuyen > 0) conDo.add(phieuChuyen + " phiếu chuyển kho chưa hoàn tất");
+
+                if (!conDo.isEmpty()) {
+                        throw new CommonException(HttpStatus.CONFLICT, "Còn " + noiDanhSach(conDo)
+                                + " — không thể ngừng kinh doanh sản phẩm này.");
+                }
+
+                if (khoaKiemKeGuard != null && sanPham.getDanhMuc() != null) {
+                        khoaKiemKeGuard.kiemTraDanhMuc(List.of(sanPham.getDanhMuc().getId()), THAO_TAC_NGUNG);
+                }
+                @SuppressWarnings("unchecked")
+                List<Object[]> dotDangKiem = entityManager.createNativeQuery(
+                                "SELECT d.id, d.ma_dot_kiem_ke FROM dot_kiem_ke d WHERE d.trang_thai IN (:trangThai) "
+                                        + "AND EXISTS (SELECT 1 FROM chi_tiet_kiem_ke c "
+                                        + "JOIN bien_the_san_pham bt ON bt.id = c.bien_the_san_pham_id "
+                                        + "WHERE c.dot_kiem_ke_id = d.id AND bt.san_pham_id = :id) ORDER BY d.id LIMIT 1")
+                        .setParameter("trangThai", List.of((int) IKiemKe.DANG_KIEM_KE, (int) IKiemKe.CHO_DUYET))
+                        .setParameter("id", id)
+                        .getResultList();
+                if (!dotDangKiem.isEmpty()) {
+                        String ma = (String) dotDangKiem.get(0)[1];
+                        throw new LoiCoMaException(HttpStatus.CONFLICT, MaLoi.STK_LOCKED,
+                                "Sản phẩm đang được kiểm kê (đợt " + ma + "). Tạm dừng " + THAO_TAC_NGUNG
+                                        + " tới khi đợt được duyệt hoặc hủy.",
+                                Map.of("dotKiemKeId", ((Number) dotDangKiem.get(0)[0]).intValue(), "maDotKiemKe", ma));
+                }
+        }
+
+        private long demChungTu(String sql, Integer sanPhamId, Collection<?> trangThai) {
+                Object kq = entityManager.createNativeQuery(sql)
+                        .setParameter("id", sanPhamId)
+                        .setParameter("trangThai", trangThai)
+                        .getSingleResult();
+                return kq == null ? 0 : ((Number) kq).longValue();
+        }
+
+        /** "a", "a và b", "a, b và c". */
+        static String noiDanhSach(List<String> ds) {
+                if (ds.size() == 1) return ds.get(0);
+                return String.join(", ", ds.subList(0, ds.size() - 1)) + " và " + ds.get(ds.size() - 1);
+        }
+
+        /** "1.542" — đặt cứng dấu chấm ngăn nghìn (JRE thiếu dữ liệu locale vi-VN sẽ in "1,542"). */
+        static String dinhDangSoLuong(BigDecimal so) {
+                java.text.DecimalFormatSymbols kyHieu = java.text.DecimalFormatSymbols.getInstance(Locale.ROOT);
+                kyHieu.setGroupingSeparator('.');
+                kyHieu.setDecimalSeparator(',');
+                return new java.text.DecimalFormat("#,##0.###", kyHieu).format(so);
+        }
+
+        private static String donViTinhChuThuong(SanPhamQuanAo sanPham) {
+                String dvt = sanPham.getDonViTinh();
+                return dvt == null || dvt.isBlank() ? "cái" : dvt.trim().toLowerCase(Locale.forLanguageTag("vi"));
         }
 
         public ResponseEntity<ResponseData<List<SanPhamQuanAoDto>>> getAllByKho(Integer khoId) {

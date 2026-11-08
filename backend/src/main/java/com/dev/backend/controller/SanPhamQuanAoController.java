@@ -12,6 +12,7 @@ import com.dev.backend.dto.response.NhatKyDto;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.customize.KetQuaDoiGiaBanDto;
 import com.dev.backend.dto.response.customize.TrangGiaBanDto;
+import com.dev.backend.dto.response.entities.NguoiDungDto;
 import com.dev.backend.dto.response.entities.SanPhamQuanAoDto;
 import com.dev.backend.mapper.SanPhamQuanAoMapper;
 import com.dev.backend.services.impl.entities.GiaBanBienTheService;
@@ -79,7 +80,7 @@ public class SanPhamQuanAoController {
                 @RequestPart(value = "anhSanPhams", required = false) List<MultipartFile> anhSanPhams,
                 @RequestPart(value = "anhBienThes", required = false) List<MultipartFile> anhBienThes) {
                 // FE gửi multipart gồm JSON "creating" + ảnh sản phẩm + ảnh biến thể.
-                return sanPhamQuanAoService.create(creating, anhSanPhams, anhBienThes);
+                return chiGiuHoTenNguoiTao(sanPhamQuanAoService.create(creating, anhSanPhams, anhBienThes));
 
         }
 
@@ -90,11 +91,11 @@ public class SanPhamQuanAoController {
                 @RequestPart(value = "anhSanPhams", required = false) List<MultipartFile> anhSanPhams,
                 @RequestPart(value = "anhBienThes", required = false) List<MultipartFile> anhBienThes) {
                 // Cập nhật thông tin sản phẩm/biến thể và ảnh tương ứng.
-                return sanPhamQuanAoService.update(updating, anhSanPhams, anhBienThes);
+                return chiGiuHoTenNguoiTao(sanPhamQuanAoService.update(updating, anhSanPhams, anhBienThes));
         }
 
         @GetMapping("/get-by-id/{id}")
-        // phải đăng nhập: trả giá vốn và người tạo (email, SĐT)
+        // Mọi vai trò xem được; giá vốn chỉ trả cho vai trò được xem (XemGiaVon), người tạo chỉ còn họ tên
         @RequireAuth(roles = {
                 IRoleType.quan_tri_vien,
                 IRoleType.quan_ly_kho,
@@ -103,10 +104,12 @@ public class SanPhamQuanAoController {
                 IRoleType.nhan_vien_mua_hang
         })
         public ResponseEntity<ResponseData<SanPhamQuanAoDto>> getById(@PathVariable Integer id) {
+                SanPhamQuanAoDto dto = sanPhamQuanAoService.getDetail(id);
+                anThongTinNoiBo(List.of(dto));
                 return ResponseEntity.ok(
                         ResponseData.<SanPhamQuanAoDto>builder()
                                 .status(HttpStatus.OK.value())
-                                .data(sanPhamQuanAoService.getDetail(id))
+                                .data(dto)
                                 .message("Success")
                                 .build());
         }
@@ -118,10 +121,12 @@ public class SanPhamQuanAoController {
                 @RequestBody SanPhamQuanAoBasicInfoUpdating dto) {
                 // Cập nhật riêng thông tin cơ bản (tên/mô tả/mã vạch/danh mục/mức tồn tối thiểu/thương hiệu).
                 // KHÔNG tính lại giá/trạng thái theo tồn kho, không đụng ảnh và biến thể.
+                SanPhamQuanAoDto daLuu = sanPhamQuanAoService.updateBasicInfo(id, dto);
+                anThongTinNoiBo(List.of(daLuu));
                 return ResponseEntity.ok(
                         ResponseData.<SanPhamQuanAoDto>builder()
                                 .status(HttpStatus.OK.value())
-                                .data(sanPhamQuanAoService.updateBasicInfo(id, dto))
+                                .data(daLuu)
                                 .message("Cập nhật thông tin cơ bản thành công")
                                 .build());
         }
@@ -137,15 +142,25 @@ public class SanPhamQuanAoController {
         public ResponseEntity<ResponseData<Page<SanPhamQuanAoDto>>> filter(@RequestBody BaseFilterRequest filter) {
                 // Luồng chính cho màn danh sách: lọc + sort + phân trang.
                 Page<SanPhamQuanAoDto> trang = sanPhamQuanAoMapper.toDtoPage(sanPhamQuanAoService.filter(filter));
-                // Nhân viên bán hàng không được thấy giá vốn (SRS 2.4.1)
-                if (!XemGiaVon.nguoiDangNhapDuocXem()) {
-                        trang.forEach(SanPhamQuanAoController::anGiaVon);
-                }
+                anThongTinNoiBo(trang);
                 return ResponseEntity.ok(
                         ResponseData.<Page<SanPhamQuanAoDto>>builder()
                                 .status(HttpStatus.OK.value())
                                 .data(trang)
                                 .build());
+        }
+
+        /**
+         * Bỏ phần người xem không được nhận trước khi trả DTO sản phẩm: giá vốn với nhân viên bán hàng (SRS 2.4.1), và thông
+         * tin tài khoản của người tạo (tên đăng nhập, email, SĐT, cờ đổi mật khẩu, kho phụ trách) — các màn chỉ cần họ tên.
+         */
+        static void anThongTinNoiBo(Iterable<SanPhamQuanAoDto> dsSanPham) {
+                boolean anGia = !XemGiaVon.nguoiDangNhapDuocXem();
+                for (SanPhamQuanAoDto dto : dsSanPham) {
+                        if (dto == null) continue;
+                        if (anGia) anGiaVon(dto);
+                        chiGiuHoTenNguoiTao(dto);
+                }
         }
 
         static void anGiaVon(SanPhamQuanAoDto dto) {
@@ -155,16 +170,28 @@ public class SanPhamQuanAoController {
                 }
         }
 
+        static void chiGiuHoTenNguoiTao(SanPhamQuanAoDto dto) {
+                NguoiDungDto nguoiTao = dto.getNguoiTao();
+                if (nguoiTao == null) return;
+                dto.setNguoiTao(NguoiDungDto.builder().id(nguoiTao.getId()).hoTen(nguoiTao.getHoTen()).build());
+        }
+
+        /** Tạo / sửa (service trả sẵn ResponseEntity): chỉ quản trị viên, quản lý kho nên không cần ẩn giá vốn. */
+        private static ResponseEntity<ResponseData<SanPhamQuanAoDto>> chiGiuHoTenNguoiTao(
+                ResponseEntity<ResponseData<SanPhamQuanAoDto>> ketQua) {
+                if (ketQua.getBody() != null && ketQua.getBody().getData() != null) {
+                        chiGiuHoTenNguoiTao(ketQua.getBody().getData());
+                }
+                return ketQua;
+        }
+
+        /**
+         * Ngừng kinh doanh (nút "Xóa sản phẩm" ở danh sách): đổi trạng thái sang 2, không xóa vật lý; cùng quyền với
+         * PATCH /status. Còn tồn, đơn bán / đơn mua / phiếu chuyển dở dang hoặc đang kiểm kê thì máy chủ trả 409.
+         */
         @DeleteMapping("/soft-delete/{id}")
-        @RequireAuth(roles = {
-                IRoleType.quan_tri_vien,
-                IRoleType.quan_ly_kho,
-                IRoleType.nhan_vien_kho,
-                IRoleType.nhan_vien_ban_hang,
-                IRoleType.nhan_vien_mua_hang
-        })
+        @RequireAuth(roles = { IRoleType.quan_tri_vien, IRoleType.quan_ly_kho })
         public ResponseEntity<ResponseData<String>> softDelete(@PathVariable Integer id) {
-                // Xóa mềm: đổi trạng thái sang 2 (ngừng hoạt động), không xóa vật lý.
                 sanPhamQuanAoService.changeStatus(id, 2);
                 return ResponseEntity.ok(
                         ResponseData.<String>builder()
@@ -229,6 +256,10 @@ public class SanPhamQuanAoController {
                 rolesLogic = RequireAuth.LogicType.OR
         )
         public ResponseEntity<ResponseData<List<SanPhamQuanAoDto>>> getSanPhamByKho(@PathVariable Integer khoId) {
-                return sanPhamQuanAoService.getAllByKho(khoId);
+                ResponseEntity<ResponseData<List<SanPhamQuanAoDto>>> ketQua = sanPhamQuanAoService.getAllByKho(khoId);
+                if (ketQua.getBody() != null && ketQua.getBody().getData() != null) {
+                        anThongTinNoiBo(ketQua.getBody().getData());
+                }
+                return ketQua;
         }
 }

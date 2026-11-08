@@ -5,13 +5,15 @@ import { productService } from "@/services/productService.js";
 import { thuongHieuService } from "@/services/thuongHieuService.js";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { toast } from "@/lib/thongBaoNhanh";
-import { Eye, Edit, Trash2, Package, Plus, ChevronDown, Check, Info, SearchX } from "lucide-react";
+import { Eye, Edit, Package, Plus, ChevronDown, Check, Info, SearchX, Ban } from "lucide-react";
 import { useToggle } from "@/hooks/useToggle";
 import { useIsMobile } from "@/hooks/use-mobile";
 import AddProductModal from "@/pages/product/components/product/AddProductModal";
 import EditProductModal from "@/pages/product/components/product/EditProductModal";
-import ConfirmModal from "@/components/ui/confirm-modal";
+import HopXacNhanChungTu from "@/components/chung-tu/HopXacNhanChungTu";
 import { formatDate } from "@/utils/formatters";
+import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
+import { ROLES, hasAnyRole } from "@/utils/roles";
 import { dinhDangKhoangGia } from "@/pages/product/components/product/khoangGiaBienThe";
 
 import PageContainer from "@/components/backoffice/PageContainer";
@@ -56,6 +58,9 @@ const trangThaiCuaTab = (ma) => STATUS_TABS.find((tab) => tab.value === ma)?.tra
 
 const SEARCH_DEBOUNCE_MS = 500;
 const LOAD_ERROR_MESSAGE = "Không thể tải danh sách sản phẩm. Vui lòng thử lại.";
+
+// Thêm / sửa / ngừng kinh doanh sản phẩm: khớp @RequireAuth của POST /create, PUT /update, DELETE /soft-delete
+const VAI_TRO_SUA_SAN_PHAM = [ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO];
 
 // Bộ lọc ngoài tab trạng thái (trạng thái lấy từ URL).
 const DEFAULT_FILTERS = {
@@ -190,6 +195,10 @@ export default function ProductList() {
     const [productToDelete, setProductToDelete] = useState(null);
     const [selectedProductId, setSelectedProductId] = useState(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    // Lý do máy chủ không cho ngừng kinh doanh (409: còn tồn, chứng từ dở dang, đang kiểm kê) hoặc lỗi khác — hiện trong hộp
+    const [loiNgung, setLoiNgung] = useState(null);
+    const [khoaNgung, setKhoaNgung] = useState(false);
+    const coTheSua = hasAnyRole(VAI_TRO_SUA_SAN_PHAM);
 
     // Điện thoại: thương hiệu + khoảng giá vào sheet "Bộ lọc"; nút ⋯ của thẻ / dòng (cảm ứng) mở sheet thao tác
     const isMobile = useIsMobile();
@@ -256,11 +265,12 @@ export default function ProductList() {
                 setIsLoading(false);
                 return;
             }
-            toast.error("Không thể tải danh sách sản phẩm");
-            // Không giữ dòng + tổng số của lần tải trước (R9)
+            // 403 (không có quyền) đã có ô khóa riêng, không thông báo nhanh
+            if (error?.response?.status !== 403) toast.error("Không thể tải danh sách sản phẩm");
+            // Không giữ dòng + tổng số của lần tải trước (R9). Giữ lỗi gốc để ô lỗi phân biệt 403
             setProducts([]);
             setTotal(0);
-            setLoadError(error?.response?.data?.message || LOAD_ERROR_MESSAGE);
+            setLoadError(error);
             setIsLoading(false);
         }
     }, [filters, trangThai]);
@@ -328,8 +338,10 @@ export default function ProductList() {
     }, [setTab]);
 
     const handleDeleteClick = useCallback((product) => {
-        // Mo modal xac nhan xoa mem san pham.
+        // Mở hộp xác nhận ngừng kinh doanh (xóa mềm: trạng thái 2, không xóa dữ liệu).
         setProductToDelete(product);
+        setLoiNgung(null);
+        setKhoaNgung(false);
         openConfirm();
     }, [openConfirm]);
 
@@ -337,26 +349,27 @@ export default function ProductList() {
         if (!productToDelete) return;
         try {
             setIsDeleting(true);
-            // Luong xoa mem:
-            // Frontend -> productService.deleteProduct
-            // -> ProductController.softDelete -> ProductService.softDelete -> Repository.save(status)
-            // -> reload lai danh sach va so tren tab o frontend (R8).
+            setLoiNgung(null);
+            // Frontend -> productService.deleteProduct -> SanPhamQuanAoController.softDelete -> changeStatus(id, 2):
+            // máy chủ kiểm tồn, đơn bán / đơn mua / phiếu chuyển dở dang và kiểm kê trước khi ngừng (409 kèm số liệu).
             await productService.deleteProduct(productToDelete.id);
-            toast.success("Xóa sản phẩm thành công");
+            toast.success("Đã ngừng kinh doanh sản phẩm");
             closeConfirm();
             setProductToDelete(null);
             fetchProducts();
             taiLaiSoTab();
         } catch (error) {
-            console.error("Lỗi khi xóa sản phẩm:", error);
-            toast.error(error.response?.data?.message || "Có lỗi xảy ra khi xóa sản phẩm");
+            console.error("Lỗi khi ngừng kinh doanh sản phẩm:", error);
+            // Không đóng hộp: hiện lý do ngay trong hộp; 409 thì khóa nút (thử lại vẫn bị chặn tới khi xử lý xong)
+            setLoiNgung(getApiErrorMessage(error, "Không ngừng kinh doanh được sản phẩm. Vui lòng thử lại."));
+            setKhoaNgung(getApiErrorStatus(error) === 409);
         } finally {
             setIsDeleting(false);
         }
     }, [productToDelete, closeConfirm, fetchProducts, taiLaiSoTab]);
 
     const handleCancelDelete = useCallback(() => {
-        if (!isDeleting) { setProductToDelete(null); closeConfirm(); }
+        if (!isDeleting) { setProductToDelete(null); setLoiNgung(null); setKhoaNgung(false); closeConfirm(); }
     }, [isDeleting, closeConfirm]);
 
     const updateFilter = useCallback((field, value, resetPage = true) => {
@@ -397,13 +410,15 @@ export default function ProductList() {
         <PageContainer fill className="space-y-4">
             <ListPageHeader
                 actions={
-                    <Button
-                        onClick={openAddModal}
-                        className="bg-bo-primary text-white hover:bg-bo-primary-hover"
-                    >
-                        <Plus className="h-4 w-4" />
-                        Thêm sản phẩm
-                    </Button>
+                    coTheSua ? (
+                        <Button
+                            onClick={openAddModal}
+                            className="bg-bo-primary text-white hover:bg-bo-primary-hover"
+                        >
+                            <Plus className="h-4 w-4" />
+                            Thêm sản phẩm
+                        </Button>
+                    ) : null
                 }
             />
 
@@ -559,7 +574,8 @@ export default function ProductList() {
                     <LoadingState label="Đang tải danh sách sản phẩm" />
                 ) : loadError ? (
                     <ErrorState
-                        description={loadError}
+                        description={loadError?.response?.data?.message || LOAD_ERROR_MESSAGE}
+                        error={loadError}
                         onRetry={() => {
                             fetchProducts();
                             taiLaiSoTab();
@@ -600,7 +616,9 @@ export default function ProductList() {
                         <EmptyState
                             icon={Package}
                             title="Chưa có sản phẩm"
-                            description="Thêm sản phẩm để quản lý biến thể, giá bán và tồn kho."
+                            description={coTheSua
+                                ? "Thêm sản phẩm để quản lý biến thể, giá bán và tồn kho."
+                                : "Sản phẩm sẽ hiện tại đây khi được thêm."}
                         />
                     )
                 ) : (
@@ -771,17 +789,21 @@ export default function ProductList() {
                                             label="Xem chi tiết"
                                             onClick={() => navigate(`/products/${product.id}`)}
                                         />
-                                        <RowActionButton
-                                            icon={Edit}
-                                            label="Chỉnh sửa"
-                                            onClick={() => { setSelectedProductId(product.id); openEditModal(); }}
-                                        />
-                                        <RowActionButton
-                                            icon={Trash2}
-                                            label="Xóa sản phẩm"
-                                            tone="danger"
-                                            onClick={() => handleDeleteClick(product)}
-                                        />
+                                        {coTheSua ? (
+                                            <>
+                                                <RowActionButton
+                                                    icon={Edit}
+                                                    label="Chỉnh sửa"
+                                                    onClick={() => { setSelectedProductId(product.id); openEditModal(); }}
+                                                />
+                                                <RowActionButton
+                                                    icon={Ban}
+                                                    label="Ngừng kinh doanh"
+                                                    tone="danger"
+                                                    onClick={() => handleDeleteClick(product)}
+                                                />
+                                            </>
+                                        ) : null}
                                     </RowActions>
                                     <NutThaoTac
                                         nhan={product.tenSanPham}
@@ -799,7 +821,8 @@ export default function ProductList() {
                 )}
             </TableShell>
 
-            {/* Sheet thao tác của một sản phẩm (nút ⋯ trên thẻ điện thoại / dòng máy tính bảng dọc) */}
+            {/* Sheet thao tác của một sản phẩm (nút ⋯ trên thẻ điện thoại / dòng máy tính bảng dọc);
+                Sửa / Ngừng kinh doanh chỉ cho vai trò được ghi sản phẩm */}
             <SheetThaoTac
                 mo={moThaoTac}
                 onDoiMo={setMoThaoTac}
@@ -807,8 +830,12 @@ export default function ProductList() {
                 moTa="Thao tác với sản phẩm"
                 thaoTac={[
                     { khoa: "xem", icon: Eye, nhan: "Xem chi tiết", onChon: () => navigate(`/products/${spThaoTac?.id}`) },
-                    { khoa: "sua", icon: Edit, nhan: "Chỉnh sửa", onChon: () => { setSelectedProductId(spThaoTac?.id); openEditModal(); } },
-                    { khoa: "xoa", icon: Trash2, nhan: "Xóa sản phẩm", nguyHiem: true, onChon: () => handleDeleteClick(spThaoTac) },
+                    ...(coTheSua
+                        ? [
+                            { khoa: "sua", icon: Edit, nhan: "Chỉnh sửa", onChon: () => { setSelectedProductId(spThaoTac?.id); openEditModal(); } },
+                            { khoa: "ngung", icon: Ban, nhan: "Ngừng kinh doanh", nguyHiem: true, onChon: () => handleDeleteClick(spThaoTac) },
+                        ]
+                        : []),
                 ]}
             />
 
@@ -826,20 +853,19 @@ export default function ProductList() {
                 productId={selectedProductId}
             />
 
-            <ConfirmModal
-                isOpen={isConfirmOpen}
-                onClose={handleCancelDelete}
-                onConfirm={handleConfirmDelete}
-                title="Xác nhận xóa sản phẩm"
-                description={
-                    productToDelete
-                        ? `Bạn có chắc chắn muốn xóa sản phẩm "${productToDelete.tenSanPham}"? Hành động này không thể hoàn tác.`
-                        : "Bạn có chắc chắn muốn xóa sản phẩm này?"
-                }
-                confirmText="Xóa"
-                cancelText="Hủy"
-                variant="danger"
-                isLoading={isDeleting}
+            {/* "Xóa" là ngừng kinh doanh (trạng thái Ngừng hoạt động), không xóa dữ liệu; máy chủ chặn khi còn tồn / chứng từ dở dang */}
+            <HopXacNhanChungTu
+                mo={isConfirmOpen}
+                onDoiMo={(mo) => { if (!mo) handleCancelDelete(); }}
+                tieuDe="Ngừng kinh doanh sản phẩm"
+                moTa={`${productToDelete ? `"${productToDelete.tenSanPham}"` : "Sản phẩm"} sẽ chuyển sang Ngừng hoạt động, không bị xóa: thông tin và lịch sử chứng từ vẫn giữ nguyên. Chỉ ngừng được khi đã hết tồn kho và không còn đơn bán, đơn mua, phiếu chuyển kho đang xử lý.`}
+                nhanXacNhan="Ngừng kinh doanh"
+                iconXacNhan={Ban}
+                kieu="nguyHiem"
+                dangChay={isDeleting}
+                khoaXacNhan={khoaNgung}
+                loi={loiNgung}
+                onXacNhan={handleConfirmDelete}
             />
 
         </PageContainer>

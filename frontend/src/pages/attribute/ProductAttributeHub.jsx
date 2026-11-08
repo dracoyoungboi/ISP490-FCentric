@@ -79,6 +79,14 @@ const BRAND_STATUS_OPTIONS = [
     { value: "0", label: "Ngừng hoạt động" },
 ];
 const DEFAULT_FILTERS = { keyword: "", page: 0, size: SO_DONG_MAC_DINH, trangThai: "ALL" };
+// Vai trò được thêm / sửa / xóa theo từng loại, khớp @RequireAuth của API ghi: màu sắc, kích cỡ, chất liệu cho quản trị
+// viên + quản lý kho; thương hiệu chỉ quản trị viên. Vai trò khác chỉ xem (bấm dòng mở hộp Xem).
+const VAI_TRO_SUA = {
+    color: [ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO],
+    size: [ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO],
+    material: [ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO],
+    brand: [ROLES.QUAN_TRI_VIEN],
+};
 
 // Hàng tab loại thuộc tính (bố cục A+G) — giữ trên URL ?loai= bằng mã không dấu;
 // Màu sắc là tab mặc định nên không ghi lên URL.
@@ -229,13 +237,16 @@ const ViewModal = ({ viewItem, activeTab, onClose, onEdit, onLichSu }) => {
                     >
                         Đóng
                     </Button>
-                    <Button
-                        onClick={() => { onEdit(viewItem); onClose(); }}
-                        className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
-                    >
-                        <Edit className="size-4" />
-                        Chỉnh sửa
-                    </Button>
+                    {/* Chỉ vai trò được sửa loại thuộc tính này (trang chỉ truyền onEdit khi được sửa) */}
+                    {onEdit ? (
+                        <Button
+                            onClick={() => { onEdit(viewItem); onClose(); }}
+                            className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
+                        >
+                            <Edit className="size-4" />
+                            Chỉnh sửa
+                        </Button>
+                    ) : null}
                 </DialogFooter>
             </DialogContent>
         </Dialog>
@@ -250,6 +261,7 @@ const ProductAttributeHub = () => {
     // Thuộc tính đang xem Lịch sử thay đổi: { tab, item }; null = đóng ngăn
     const [lichSu, setLichSu] = useState(null);
     const activeTab = TAB_KEYS.find((tab) => TAB_URL_CODES[tab] === tabLoai) ?? 'color';
+    const coTheSua = hasAnyRole(VAI_TRO_SUA[activeTab]);
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState(null);
@@ -362,7 +374,8 @@ const ProductAttributeHub = () => {
             }
             // Lỗi: hiện khung báo lỗi trong bảng, không giữ dòng/tổng số cũ (R9)
             setData([]); setTotal(0);
-            setLoadError(getApiErrorMessage(err, `Không thể tải danh sách ${TAB_LABELS[activeTab]}`));
+            // Giữ lỗi gốc để ô lỗi phân biệt 403 (không có quyền: ổ khóa, không "Thử lại")
+            setLoadError({ moTa: getApiErrorMessage(err, `Không thể tải danh sách ${TAB_LABELS[activeTab]}`), goc: err });
             setLoading(false);
         }
     }, [activeTab, filters]);
@@ -486,13 +499,15 @@ const ProductAttributeHub = () => {
         <PageContainer fill className="space-y-4">
             <ListPageHeader
                 actions={
-                    <Button
-                        onClick={() => handleOpenModal('add')}
-                        className="h-9 gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
-                    >
-                        <Plus className="size-4" />
-                        Thêm {TAB_LABELS[activeTab]}
-                    </Button>
+                    coTheSua ? (
+                        <Button
+                            onClick={() => handleOpenModal('add')}
+                            className="h-9 gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
+                        >
+                            <Plus className="size-4" />
+                            Thêm {TAB_LABELS[activeTab]}
+                        </Button>
+                    ) : null
                 }
             />
 
@@ -547,7 +562,7 @@ const ProductAttributeHub = () => {
                 {loading ? (
                     <LoadingState label={`Đang tải danh sách ${TAB_LABELS[activeTab]}`} />
                 ) : loadError ? (
-                    <ErrorState description={loadError} onRetry={() => fetchData()} />
+                    <ErrorState description={loadError.moTa} error={loadError.goc} onRetry={() => fetchData()} />
                 ) : data.length === 0 ? (
                     hasActiveFilters ? (
                         <EmptyState
@@ -568,19 +583,21 @@ const ProductAttributeHub = () => {
                         <EmptyState
                             icon={TabIcon}
                             title={`Chưa có ${TAB_LABELS[activeTab]}`}
-                            description="Danh mục này hiện đang trống. Hãy bắt đầu bằng cách thêm mới một mục."
+                            description={coTheSua
+                                ? "Danh mục này hiện đang trống. Hãy bắt đầu bằng cách thêm mới một mục."
+                                : "Danh mục này hiện đang trống."}
                         />
                     )
                 ) : (
                     <>
                     {/* Điện thoại: mỗi mục một thẻ — ô màu / cỡ / logo, tên (+ trạng thái thương hiệu), mã · thông tin phụ, mô tả;
-                        chạm thẻ mở hộp sửa như bấm dòng, nút ⋯ (44px) mở sheet Xem / Sửa / Xóa */}
+                        chạm thẻ mở hộp sửa như bấm dòng (vai trò chỉ xem: hộp Xem), nút ⋯ (44px) mở sheet Xem / Sửa / Xóa */}
                     <ul className="divide-y divide-bo-border md:hidden">
                         {rows.map((item) => (
                             <li key={item.id} className="relative">
                                 <button
                                     type="button"
-                                    onClick={() => handleOpenModal('edit', item)}
+                                    onClick={() => handleOpenModal(coTheSua ? 'edit' : 'view', item)}
                                     className="flex w-full min-w-0 items-start gap-3 py-3 pl-4 pr-14 text-left active:bg-bo-surface-subtle"
                                 >
                                     {activeTab === 'color' ? (
@@ -642,7 +659,7 @@ const ProductAttributeHub = () => {
                                     <tr
                                         key={item.id}
                                         className="cursor-pointer transition-colors hover:bg-bo-surface-subtle"
-                                        onClick={() => handleOpenModal('edit', item)}
+                                        onClick={() => handleOpenModal(coTheSua ? 'edit' : 'view', item)}
                                     >
                                         <td className="w-14 px-3 py-3 text-center font-mono text-xs text-bo-muted cam-ung:max-lg:hidden">
                                             {currentPage * filters.size + index + 1}
@@ -719,12 +736,14 @@ const ProductAttributeHub = () => {
                                                     label="Xem chi tiết"
                                                     onClick={() => handleOpenModal('view', item)}
                                                 />
-                                                <RowActionButton
-                                                    icon={Edit}
-                                                    label="Chỉnh sửa"
-                                                    onClick={() => handleOpenModal('edit', item)}
-                                                />
-                                                {activeTab !== 'brand' && (
+                                                {coTheSua && (
+                                                    <RowActionButton
+                                                        icon={Edit}
+                                                        label="Chỉnh sửa"
+                                                        onClick={() => handleOpenModal('edit', item)}
+                                                    />
+                                                )}
+                                                {coTheSua && activeTab !== 'brand' && (
                                                     <RowActionButton
                                                         icon={Trash2}
                                                         label="Xóa"
@@ -748,7 +767,8 @@ const ProductAttributeHub = () => {
                 )}
             </TableShell>
 
-            {/* Sheet thao tác của một mục (nút ⋯ trên thẻ điện thoại / dòng máy tính bảng dọc); thương hiệu không có Xóa */}
+            {/* Sheet thao tác của một mục (nút ⋯ trên thẻ điện thoại / dòng máy tính bảng dọc); thương hiệu không có Xóa;
+                vai trò chỉ xem chỉ có Xem chi tiết */}
             <SheetThaoTac
                 mo={moThaoTac}
                 onDoiMo={setMoThaoTac}
@@ -756,8 +776,10 @@ const ProductAttributeHub = () => {
                 moTa={`Thao tác với ${TAB_LABELS[activeTab]}`}
                 thaoTac={[
                     { khoa: "xem", icon: Eye, nhan: "Xem chi tiết", onChon: () => handleOpenModal('view', mucThaoTac) },
-                    { khoa: "sua", icon: Edit, nhan: "Chỉnh sửa", onChon: () => handleOpenModal('edit', mucThaoTac) },
-                    ...(activeTab !== 'brand'
+                    ...(coTheSua
+                        ? [{ khoa: "sua", icon: Edit, nhan: "Chỉnh sửa", onChon: () => handleOpenModal('edit', mucThaoTac) }]
+                        : []),
+                    ...(coTheSua && activeTab !== 'brand'
                         ? [{ khoa: "xoa", icon: Trash2, nhan: `Xóa ${TAB_LABELS[activeTab]}`, nguyHiem: true, onChon: () => setDeleteConfig({ open: true, item: mucThaoTac }) }]
                         : []),
                 ]}
@@ -988,7 +1010,7 @@ const ProductAttributeHub = () => {
                 viewItem={viewItem}
                 activeTab={activeTab}
                 onClose={() => setViewItem(null)}
-                onEdit={(item) => handleOpenModal('edit', item)}
+                onEdit={coTheSua ? (item) => handleOpenModal('edit', item) : undefined}
                 onLichSu={laQuanTriVien ? (item) => setLichSu({ tab: activeTab, item }) : undefined}
             />
 
