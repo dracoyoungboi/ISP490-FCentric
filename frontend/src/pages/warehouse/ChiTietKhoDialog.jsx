@@ -346,7 +346,7 @@ export default function ChiTietKhoDialog({ kho, open, onOpenChange, coTheQuanLy 
                     {loiTomTat ? (
                         <DongBao onThuLai={khongQuyenTomTat ? null : tomTatQ.reload}>
                             {khongQuyenTomTat
-                                ? "Bạn không phụ trách kho này nên không xem được số liệu tồn kho."
+                                ? "Kho này không phải nơi làm việc của bạn nên không xem được số liệu tồn kho."
                                 : getApiErrorMessage(loiTomTat, "Không tải được số liệu tồn kho")}
                         </DongBao>
                     ) : (
@@ -404,7 +404,7 @@ export default function ChiTietKhoDialog({ kho, open, onOpenChange, coTheQuanLy 
                                     </ul>
                                 ) : keQ.error ? (
                                     <DongBao onThuLai={khongQuyenKe ? null : keQ.reload}>
-                                        {khongQuyenKe ? "Chỉ xem được khu vực kệ của kho bạn phụ trách." : "Không tải được khu vực kệ."}
+                                        {khongQuyenKe ? "Chỉ xem được khu vực kệ của nơi làm việc của bạn." : "Không tải được khu vực kệ."}
                                     </DongBao>
                                 ) : ke && ke.khu.length > 0 ? (
                                     <ul>

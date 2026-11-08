@@ -93,7 +93,7 @@ function docDeXuatTuDuongDan(thamSo, dsKho, dsKhoNhan, dsBienThe) {
     const bienThe = bienTheIdUrl ? dsBienThe.find((v) => String(v.id) === String(bienTheIdUrl)) : undefined;
 
     const canhBao = [];
-    if (khoNhapIdUrl && !khoNhap) canhBao.push("Kho nhận trong đề xuất không còn chọn được (đã ngừng hoạt động, không tồn tại hoặc không thuộc kho bạn phụ trách), hãy chọn lại kho nhận.");
+    if (khoNhapIdUrl && !khoNhap) canhBao.push("Kho nhận trong đề xuất không còn chọn được (đã ngừng hoạt động, không tồn tại hoặc không phải nơi làm việc của bạn), hãy chọn lại kho nhận.");
     if (bienTheIdUrl && !bienThe) canhBao.push("Không tìm thấy sản phẩm trong đề xuất (có thể đã ngừng kinh doanh), hãy tìm và thêm lại.");
     return {
         khoXuatId: khoXuat ? String(khoXuat.id) : "",
@@ -371,7 +371,7 @@ export default function PhieuChuyenKhoCreate() {
         // Không phải quản trị viên: kho nguồn mới (kho đích cũ) phải là kho chọn được làm kho đích
         const nhanMoi = prev.khoXuatId;
         if (!toanTuyen && nhanMoi && !khoNhanDuoc.some(k => String(k.id) === String(nhanMoi))) {
-            toast.warning("Không đổi chiều được: bạn chỉ tạo yêu cầu nhận hàng về kho mình phụ trách.");
+            toast.warning("Không đổi chiều được: bạn chỉ tạo yêu cầu nhận hàng về nơi làm việc của mình.");
             return prev;
         }
         return { ...prev, khoXuatId: prev.khoNhapId, khoNhapId: prev.khoXuatId };
@@ -578,7 +578,7 @@ export default function PhieuChuyenKhoCreate() {
                     goiYTrong={dangTai ? "Đang tải danh sách kho…" : loiKho ? "Chưa tải được danh sách kho." : "Bạn chưa được phân kho nào để nhận hàng."}
                 />
                 {!toanTuyen ? (
-                    <p className="mt-2 text-xs leading-[18px] text-bo-muted">Bạn tạo yêu cầu nhận hàng về kho mình phụ trách.</p>
+                    <p className="mt-2 text-xs leading-[18px] text-bo-muted">Bạn tạo yêu cầu nhận hàng về nơi làm việc của mình.</p>
                 ) : null}
             </NhomThuocTinh>
             <NhomThuocTinh>

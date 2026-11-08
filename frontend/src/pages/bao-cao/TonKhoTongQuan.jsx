@@ -273,11 +273,11 @@ export default function TonKhoTongQuan() {
         } catch (err) {
             if (requestId !== requestIdRef.current) return;
             if (silent) throw err;
-            const message = err?.response?.data?.message ?? "Không thể tải dữ liệu tồn kho";
-            // Không giữ dòng + tổng của lần tải trước (R9)
+            // Không giữ dòng + tổng của lần tải trước (R9). Giữ lỗi để ô lỗi phân biệt 403 (không có quyền: không
+            // "Thử lại", không thông báo nhanh)
             setData([]);
-            setLoadError(message);
-            toast.error(message);
+            setLoadError(err);
+            if (err?.response?.status !== 403) toast.error(err?.response?.data?.message ?? "Không thể tải dữ liệu tồn kho");
         } finally {
             if (requestId === requestIdRef.current) setLoading(false);
         }
@@ -380,12 +380,10 @@ export default function TonKhoTongQuan() {
         ? khoList.find(k => k.id === selectedKhoId)?.tenKho ?? "Chọn kho"
         : "Tất cả kho";
 
-    // Ghi chú phạm vi (R3): nhân viên kho chỉ xem được kho mình phụ trách
-    const scopeNote = canSeeAllKho(userRoles)
-        ? null
-        : khoList.length > 0
-            ? `Kho bạn phụ trách: ${khoList.map(k => k.tenKho).join(", ")}`
-            : "Bạn chưa được phân công kho nào.";
+    // Nhân viên kho chỉ xem được kho của mình (R3). Chỉ một kho: không vẽ nhãn phạm vi lẫn ô chọn kho bị khóa — đáy menu
+    // đã ghi "Nơi làm việc", cột Kho ghi ở từng dòng (PQ-17). Nhiều kho: ô chọn kho đã liệt kê các kho, không cần nhãn.
+    const chonKhoTrongTrang = canSeeAllKho(userRoles) || multiKho;
+    const noiLamViec = chonKhoTrongTrang ? null : khoList;
 
     // RENDER: Loading Auth
     if (loadingAuth) {
@@ -431,7 +429,7 @@ export default function TonKhoTongQuan() {
     return (
         <PageContainer fill className="space-y-4">
             <ListPageHeader
-                scope={scopeNote}
+                noiLamViec={noiLamViec}
                 actions={coQuyenXuat ? (
                     // Tệp đúng số đang xem: kho + từ khóa đã áp dụng + tab tình trạng
                     <NutXuatExcel
@@ -463,45 +461,47 @@ export default function TonKhoTongQuan() {
                         onClear={handleClearFilters}
                     >
                         {/* Bộ lọc kho của báo cáo (không đổi nơi làm việc) */}
-                        <DropdownMenu modal={false}>
-                            <DropdownMenuTrigger asChild>
-                                <Button
-                                    variant="outline"
-                                    aria-label="Chọn kho"
-                                    disabled={!multiKho}
-                                    className="h-9 w-full justify-between gap-2 border-bo-border bg-bo-surface px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50 sm:w-[200px]"
-                                >
-                                    <span className="flex min-w-0 items-center gap-2">
-                                        <Warehouse className="size-4 shrink-0 text-slate-400" />
-                                        <span className="truncate">{activeKhoLabel}</span>
-                                    </span>
-                                    <ChevronDown className="size-4 shrink-0 opacity-70" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className={`${DROPDOWN_CONTENT_CLASS} w-56`}>
-                                {multiKho && canSeeAllKho(userRoles) && (
-                                    <DropdownMenuItem
-                                        onClick={() => handleSelectKho(null)}
-                                        className={`${DROPDOWN_ITEM_CLASS} flex items-center justify-between gap-2`}
+                        {chonKhoTrongTrang ? (
+                            <DropdownMenu modal={false}>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        aria-label="Chọn kho"
+                                        disabled={!multiKho}
+                                        className="h-9 w-full justify-between gap-2 border-bo-border bg-bo-surface px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50 sm:w-[200px]"
                                     >
-                                        Tất cả kho
-                                        {!selectedKhoId && <Check className="size-4 shrink-0 text-bo-primary" />}
-                                    </DropdownMenuItem>
-                                )}
-                                {khoList.map(kho => (
-                                    <DropdownMenuItem
-                                        key={kho.id}
-                                        onClick={() => handleSelectKho(kho.id)}
-                                        className={`${DROPDOWN_ITEM_CLASS} flex items-center justify-between gap-2`}
-                                    >
-                                        <span className="truncate">{kho.tenKho}</span>
-                                        {selectedKhoId === kho.id && (
-                                            <Check className="size-4 shrink-0 text-bo-primary" />
-                                        )}
-                                    </DropdownMenuItem>
-                                ))}
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                                        <span className="flex min-w-0 items-center gap-2">
+                                            <Warehouse className="size-4 shrink-0 text-slate-400" />
+                                            <span className="truncate">{activeKhoLabel}</span>
+                                        </span>
+                                        <ChevronDown className="size-4 shrink-0 opacity-70" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className={`${DROPDOWN_CONTENT_CLASS} w-56`}>
+                                    {multiKho && canSeeAllKho(userRoles) && (
+                                        <DropdownMenuItem
+                                            onClick={() => handleSelectKho(null)}
+                                            className={`${DROPDOWN_ITEM_CLASS} flex items-center justify-between gap-2`}
+                                        >
+                                            Tất cả kho
+                                            {!selectedKhoId && <Check className="size-4 shrink-0 text-bo-primary" />}
+                                        </DropdownMenuItem>
+                                    )}
+                                    {khoList.map(kho => (
+                                        <DropdownMenuItem
+                                            key={kho.id}
+                                            onClick={() => handleSelectKho(kho.id)}
+                                            className={`${DROPDOWN_ITEM_CLASS} flex items-center justify-between gap-2`}
+                                        >
+                                            <span className="truncate">{kho.tenKho}</span>
+                                            {selectedKhoId === kho.id && (
+                                                <Check className="size-4 shrink-0 text-bo-primary" />
+                                            )}
+                                        </DropdownMenuItem>
+                                    ))}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        ) : null}
 
                         {/* Tìm kiếm: áp dụng khi bấm Enter (gọi lại API với từ khóa), như cũ */}
                         <SearchInput
@@ -586,7 +586,8 @@ export default function TonKhoTongQuan() {
                     <LoadingState rows={6} label="Đang tải bảng tồn kho" />
                 ) : loadError ? (
                     <ErrorState
-                        description={loadError}
+                        description={loadError?.response?.data?.message ?? "Không thể tải dữ liệu tồn kho"}
+                        error={loadError}
                         onRetry={handleRefresh}
                     />
                 ) : !hasLoaded ? (

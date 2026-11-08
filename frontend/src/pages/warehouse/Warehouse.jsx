@@ -152,11 +152,12 @@ export default function WarehouseManagement() {
             if (requestId !== requestIdRef.current) return;
             console.error("Lỗi khi tải danh sách kho:", err);
             if (silent) return;
-            toast.error("Không thể tải danh sách kho");
-            // Không giữ dòng + tổng số của lần tải trước (R9)
+            if (err?.response?.status !== 403) toast.error("Không thể tải danh sách kho");
+            // Không giữ dòng + tổng số của lần tải trước (R9). Giữ lỗi để ô lỗi phân biệt 403 (không có quyền: không
+            // "Thử lại", không thông báo nhanh)
             setWarehouses([]);
             setPagination(prev => ({ ...prev, totalElements: 0, totalPages: 0 }));
-            setLoadError(true);
+            setLoadError(err);
         } finally {
             if (requestId === requestIdRef.current) setIsLoading(false);
         }
@@ -359,6 +360,7 @@ export default function WarehouseManagement() {
                 ) : loadError ? (
                     <ErrorState
                         description="Không thể tải danh sách kho. Vui lòng thử lại."
+                        error={loadError}
                         onRetry={handleRetry}
                     />
                 ) : warehouses.length === 0 ? (

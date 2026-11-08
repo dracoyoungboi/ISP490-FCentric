@@ -318,7 +318,7 @@ export default function BaoCaoSanPham() {
     setKhoBiBo((n) => n + 1);
   }
   useEffect(() => {
-    if (khoBiBo) toast.info(`Không xem được kho trong đường dẫn, đang hiện ${laQtv ? "tất cả kho" : "các kho bạn phụ trách"}.`, { id: "bcsp-kho" });
+    if (khoBiBo) toast.info(`Không xem được kho trong đường dẫn, đang hiện ${laQtv ? "tất cả kho" : "nơi làm việc của bạn"}.`, { id: "bcsp-kho" });
   }, [khoBiBo, laQtv]);
   // Đang lọc một kho mà danh sách kho chưa về: chờ kiểm xong rồi mới tải số
   const choKho = Boolean(boLoc.khoId) && taiKho === "dang";
@@ -339,7 +339,8 @@ export default function BaoCaoSanPham() {
     queueMicrotask(() => { if (!ctrl.signal.aborted) setKq((cu) => ({ ...cu, loading: true, loi: null })); });
     baoCaoSanPhamService.lay(thamSo, { signal: ctrl.signal })
       .then((d) => { if (!ctrl.signal.aborted) setKq({ data: d, khoa: k, loading: false, loi: null, luc: new Date() }); })
-      .catch((e) => { if (!ctrl.signal.aborted) setKq((cu) => ({ ...cu, loading: false, loi: loiCua(e) || "Không tải được báo cáo" })); });
+      // Giữ lỗi gốc (loiGoc) để ô lỗi phân biệt 403 (không có quyền: không "Thử lại")
+      .catch((e) => { if (!ctrl.signal.aborted) setKq((cu) => ({ ...cu, loading: false, loi: loiCua(e) || "Không tải được báo cáo", loiGoc: e })); });
     return () => ctrl.abort();
   }, [thamSo, lan, choKho]);
 
@@ -378,7 +379,9 @@ export default function BaoCaoSanPham() {
   const tabs = NHOM.map((n) => ({ value: n.value, label: n.label, count: bc && !kq.loading ? dem[n.value] : null, tone: n.tone }));
 
   const dsKenh = [{ value: "", label: "Tất cả kênh" }, ...(kq.data?.dsKenh ?? []).map((k) => ({ value: k.ma, label: k.ten }))];
-  const dsKhoChon = [{ value: "", label: laQtv ? "Tất cả kho" : "Các kho bạn phụ trách" }, ...dsKho.map((k) => ({ value: String(k.id), label: k.tenKho }))];
+  const dsKhoChon = [{ value: "", label: laQtv ? "Tất cả kho" : "Tất cả nơi làm việc" }, ...dsKho.map((k) => ({ value: String(k.id), label: k.tenKho }))];
+  // Người không phải quản trị viên chỉ có một kho: bỏ ô Kho (hai lựa chọn như nhau), đầu trang ghi "Kho: <tên>" (PQ-17)
+  const motKho = !laQtv && taiKho === "xong" && dsKho.length === 1 ? dsKho[0] : null;
   const coLoc = Boolean(tuKhoa) || Boolean(boLoc.khoId) || Boolean(boLoc.kenh) || boLoc.moc !== "30";
   const xoaLoc = () => { setTuKhoa(""); setNhapKhoang(khoangMoc("30")); setBoLoc({ moc: "30", khoang: khoangMoc("30"), khoId: "", kenh: "" }); };
   const homNay = ngayMay(new Date());
@@ -393,7 +396,7 @@ export default function BaoCaoSanPham() {
   return (
     <PageContainer fill className="space-y-4">
       <ListPageHeader
-        scope={kq.data?.theoKhoPhuTrach ? "Các kho bạn phụ trách" : null}
+        scope={motKho ? `Kho: ${motKho.tenKho}` : null}
         actions={xuatDuoc ? (
           <NutXuatExcel taiTep={() => baoCaoSanPhamService.xuatExcel(thamSo)} tenTep={() => tenTepExcel(thamSo)} disabled={!bc} />
         ) : null}
@@ -418,7 +421,9 @@ export default function BaoCaoSanPham() {
                 {loiNgay ? <span id="bcsp-loi" role="alert" className="text-xs text-bo-danger">{loiNgay}</span> : null}
               </label>
             ) : null}
-            <FilterSelect label="Kho" value={boLoc.khoId} options={dsKhoChon} className="sm:w-[180px]" onChange={(v) => setBoLoc({ khoId: v })} onClear={() => setBoLoc({ khoId: "" })} clearLabel="Bỏ lọc kho" />
+            {!motKho ? (
+              <FilterSelect label="Kho" value={boLoc.khoId} options={dsKhoChon} className="sm:w-[180px]" onChange={(v) => setBoLoc({ khoId: v })} onClear={() => setBoLoc({ khoId: "" })} clearLabel="Bỏ lọc kho" />
+            ) : null}
             <FilterSelect label="Kênh bán" value={boLoc.kenh} options={dsKenh} className="sm:w-[170px]" onChange={(v) => setBoLoc({ kenh: v })} onClear={() => setBoLoc({ kenh: "" })} clearLabel="Bỏ lọc kênh" />
             <SearchInput label="Tìm sản phẩm" placeholder="Mã SP, SKU, tên sản phẩm..." value={tuKhoa} onChange={(e) => setTuKhoa(e.target.value)} onClear={() => setTuKhoa("")} className="sm:w-[260px]" />
           </ListToolbar>
@@ -449,7 +454,7 @@ export default function BaoCaoSanPham() {
         {!bc && !kq.loi ? (
           <LoadingState label="Đang tải báo cáo sản phẩm" />
         ) : !bc ? (
-          <ErrorState description={kq.loi} onRetry={() => setLan((n) => n + 1)} />
+          <ErrorState description={kq.loi} error={kq.loiGoc} onRetry={() => setLan((n) => n + 1)} />
         ) : !dong.length ? (
           tuKhoa ? (
             <EmptyState icon={SearchX} title="Không tìm thấy sản phẩm phù hợp" description="Thử từ khóa khác, hoặc xóa lọc để xem mọi sản phẩm."

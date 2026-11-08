@@ -222,7 +222,9 @@ export default function LichSuGiaoDichKhoList() {
     const [selectedId,     setSelectedId]     = useState(null);
     const [chiTiet,        setChiTiet]        = useState(null);
     const [loadingDetail,  setLoadingDetail]  = useState(false);
-    const [myWarehouseIds, setMyWarehouseIds] = useState([]);
+    // Kho mình có quyền (null = chưa tải): lọc dòng + nhãn "Nơi làm việc" ở đầu trang
+    const [khoCuaToi,      setKhoCuaToi]      = useState(null);
+    const myWarehouseIds = useMemo(() => (khoCuaToi ?? []).map((k) => k.id), [khoCuaToi]);
     const requestIdRef = useRef(0);
 
     // Tab loại giao dịch trên URL (?loai=nhap-kho | xuat-kho | dieu-chinh)
@@ -266,16 +268,17 @@ export default function LichSuGiaoDichKhoList() {
             ]);
             if (requestId !== requestIdRef.current) return;
             setData(list ?? []);
-            setMyWarehouseIds((listKho ?? []).map((k) => k.id));
+            setKhoCuaToi(listKho ?? []);
             setLoadError(false);
             if (!silent) setPageNumber(0);
         } catch (error) {
             if (requestId !== requestIdRef.current) return;
             if (silent) throw error;
-            // Không giữ dòng + tổng số của lần tải trước (R9)
+            // Không giữ dòng + tổng số của lần tải trước (R9). Giữ lỗi để ô lỗi phân biệt 403 (không có quyền: không
+            // "Thử lại", không thông báo nhanh)
             setData([]);
-            setLoadError(true);
-            toast.error("Không thể tải lịch sử giao dịch kho");
+            setLoadError(error);
+            if (error?.response?.status !== 403) toast.error("Không thể tải lịch sử giao dịch kho");
         } finally {
             if (requestId === requestIdRef.current) setLoading(false);
         }
@@ -370,8 +373,8 @@ export default function LichSuGiaoDichKhoList() {
 
             <DetailModal open={!!selectedId} onClose={handleCloseModal} item={chiTiet} loading={loadingDetail} />
 
-            {/* Ghi chú phạm vi (R3): mọi vai trò không phải quản trị viên đều lọc theo kho phụ trách (visibleData) */}
-            <ListPageHeader scope={isAdmin ? null : "Kho bạn phụ trách"} />
+            {/* Phạm vi (R3): mọi vai trò không phải quản trị viên đều lọc theo kho của mình (visibleData) — nhãn "Nơi làm việc" chung */}
+            <ListPageHeader noiLamViec={isAdmin ? null : khoCuaToi} />
 
             {coLocBaoCao ? (
                 <p className="-mt-2 flex flex-wrap items-center gap-2 text-sm text-bo-muted">
@@ -427,6 +430,7 @@ export default function LichSuGiaoDichKhoList() {
                 ) : loadError ? (
                     <ErrorState
                         description="Không thể tải lịch sử giao dịch kho. Vui lòng thử lại."
+                        error={loadError}
                         onRetry={() => fetchData()}
                     />
                 ) : pageItems.length === 0 ? (

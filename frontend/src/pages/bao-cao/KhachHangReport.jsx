@@ -163,8 +163,8 @@ async function taiJson(url, signal) {
   const json = await res.json().catch(() => null);
   // Yêu cầu đã hủy giữa lúc đọc thân (json() lỗi bị nuốt ở trên): báo hủy, không coi là thành công
   signal?.throwIfAborted();
-  // Máy chủ báo lỗi (vd. thiếu năm) thì ném lỗi để trang không hiện số 0 giả
-  if (!res.ok) throw new Error(json?.message ?? "");
+  // Máy chủ báo lỗi (vd. thiếu năm) thì ném lỗi để trang không hiện số 0 giả; kèm mã HTTP (403: ô lỗi không "Thử lại")
+  if (!res.ok) throw Object.assign(new Error(json?.message ?? ""), { status: res.status });
   return json?.data;
 }
 
@@ -363,9 +363,9 @@ export default function KhachHangReport() {
     return () => { huy = true; };
   }, [laQtv]);
 
-  // "" = tất cả kho (quản lý kho: các cửa hàng mình phụ trách)
+  // "" = tất cả kho (quản lý kho: mọi nơi làm việc của mình)
   const khoOptions = [
-    { value: "", label: laQtv ? "Tất cả kho" : "Các cửa hàng phụ trách" },
+    { value: "", label: laQtv ? "Tất cả kho" : "Tất cả nơi làm việc" },
     ...khoList.map((k) => ({ value: String(k.id), label: k.tenKho })),
   ];
 
@@ -406,7 +406,7 @@ export default function KhachHangReport() {
 
       setData(null);
       setThamSoDaXem(null);
-      setLoi({ moTa: e?.message ?? "" });
+      setLoi({ moTa: e?.message ?? "", status: e?.status });
     } finally {
       if (requestId === requestIdRef.current) setLoading(false);
     }
@@ -459,7 +459,7 @@ export default function KhachHangReport() {
         .catch((e) => {
           if (ctl.signal.aborted || e?.name === "AbortError") return;
           setKhach(null);
-          setLoiKhach({ moTa: e?.message ?? "" });
+          setLoiKhach({ moTa: e?.message ?? "", status: e?.status });
         })
         .finally(() => {
           if (!ctl.signal.aborted) setTaiKhach(false);
@@ -745,6 +745,7 @@ export default function KhachHangReport() {
         ) : loi ? (
           <ErrorState
             description={loi.moTa || undefined}
+            status={loi.status}
             onRetry={fetchData}
           />
         ) : dongBang.length === 0 ? (
@@ -882,6 +883,7 @@ export default function KhachHangReport() {
           ) : loiKhach ? (
             <ErrorState
               description={loiKhach.moTa || undefined}
+              status={loiKhach.status}
               onRetry={() => setLanTaiKhach((n) => n + 1)}
             />
           ) : dsKhach.length === 0 ? (

@@ -112,7 +112,8 @@ export default function SupplierList() {
                 console.error(error);
                 return;
             }
-            setLoadError(getApiErrorMessage(error, "Không thể tải danh sách nhà cung cấp"));
+            // Giữ lỗi gốc để ô lỗi phân biệt 403 (không có quyền: ổ khóa, không "Thử lại")
+            setLoadError({ moTa: getApiErrorMessage(error, "Không thể tải danh sách nhà cung cấp"), goc: error });
         } finally {
             if (requestId === requestIdRef.current) setLoading(false);
         }
@@ -276,7 +277,8 @@ export default function SupplierList() {
                     ) : loadError ? (
                         <ErrorState
                             title="Không thể tải danh sách nhà cung cấp"
-                            description={loadError}
+                            description={loadError.moTa}
+                            error={loadError.goc}
                             onRetry={() => fetchSuppliers()}
                         />
                     ) : pageItems.length === 0 ? (

@@ -4,6 +4,7 @@ import { ScanBarcode, SearchX, Unlink } from "lucide-react";
 import { toast } from "@/lib/thongBaoNhanh";
 
 import PageContainer from "@/components/backoffice/PageContainer";
+import { VAI_TRO_KHO } from "@/components/backoffice/sidebar.config";
 import EmptyState from "@/components/shared/EmptyState";
 import ErrorState from "@/components/shared/ErrorState";
 import FilterSelect from "@/components/shared/FilterSelect";
@@ -47,6 +48,9 @@ const bienTheDayDu = (r) => [r.tenBienThe, r.mauSac, r.kichCo ? `Kích cỡ ${r.
 export default function MaVachNhaCungCapPage() {
   const hoTro = maVachNhaCungCapService.hoTro;
   const coTheGo = hasAnyRole(QUYEN_GO_LIEN_KET);
+  // Chi tiết phiếu nhập chỉ mở được với vai trò kho (trang chặn như PhieuNhapKhoController): nhân viên mua hàng thấy
+  // mã phiếu dạng chữ thường
+  const xemPhieuNhap = hasAnyRole(VAI_TRO_KHO);
 
   const [tuKhoa, setTuKhoa] = useState("");
   const [tuKhoaTim, setTuKhoaTim] = useState("");
@@ -234,7 +238,7 @@ export default function MaVachNhaCungCapPage() {
               </span>
               {coChan ? (
                 <span className="flex min-h-9 items-center justify-between gap-3">
-                  {r.phieuNhapKhoId ? (
+                  {r.phieuNhapKhoId && xemPhieuNhap ? (
                     <Link
                       to={`/goods-receipts/${r.phieuNhapKhoId}`}
                       aria-label={`Mở phiếu nhập ${r.soPhieuNhap ?? `#${r.phieuNhapKhoId}`}`}
@@ -303,7 +307,7 @@ export default function MaVachNhaCungCapPage() {
                 </div>
               </td>
               <td className="px-3 py-3">
-                {r.phieuNhapKhoId ? (
+                {r.phieuNhapKhoId && xemPhieuNhap ? (
                   <Link to={`/goods-receipts/${r.phieuNhapKhoId}`} className="font-mono text-[13px] font-medium text-bo-primary hover:underline">
                     {r.soPhieuNhap ?? `#${r.phieuNhapKhoId}`}
                   </Link>

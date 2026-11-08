@@ -135,8 +135,9 @@ export default function PhieuChuyenKhoList() {
             setRows([]);
             setTotal(0);
             setSoTheoTab(null);
-            // Câu của máy chủ (vd. "Chọn kho làm việc để xem phiếu chuyển kho") rõ hơn câu chung
-            setLoadError(getApiErrorMessage(error, "Không thể tải danh sách phiếu chuyển kho. Vui lòng thử lại."));
+            // Giữ lỗi: ô lỗi hiện câu của máy chủ (vd. "Chọn kho làm việc để xem phiếu chuyển kho", rõ hơn câu chung) và
+            // phân biệt 403 (không có quyền: không "Thử lại")
+            setLoadError(error);
         } finally {
             if (requestId === requestIdRef.current) setLoading(false);
         }
@@ -247,7 +248,11 @@ export default function PhieuChuyenKhoList() {
                 {loading ? (
                     <LoadingState rows={6} label="Đang tải danh sách phiếu chuyển kho" />
                 ) : loadError ? (
-                    <ErrorState description={loadError} onRetry={() => fetchData()} />
+                    <ErrorState
+                        description={getApiErrorMessage(loadError, "Không thể tải danh sách phiếu chuyển kho. Vui lòng thử lại.")}
+                        error={loadError}
+                        onRetry={() => fetchData()}
+                    />
                 ) : rows.length === 0 ? (
                     coLoc ? (
                         <EmptyState

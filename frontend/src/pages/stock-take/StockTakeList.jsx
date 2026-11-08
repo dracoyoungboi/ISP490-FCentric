@@ -148,7 +148,7 @@ export default function StockTakeList() {
   const navigate = useNavigate();
   const [ds, setDs] = useState([]);
   const [dangTai, setDangTai] = useState(true);
-  const [loiTai, setLoiTai] = useState(false);
+  const [loiTai, setLoiTai] = useState(null);
   const [tuKhoa, setTuKhoa] = useState("");
   const [tab, setTab] = useTabTrenUrl(TAB_VALUES, TAB_MAC_DINH);
   const [trang, setTrang] = useState(0);
@@ -161,13 +161,13 @@ export default function StockTakeList() {
     const lan = ++lanTaiRef.current;
     if (!ngam) {
       setDangTai(true);
-      setLoiTai(false);
+      setLoiTai(null);
     }
     try {
       const data = await layDanhSachDot();
       if (lan !== lanTaiRef.current) return;
       setDs(data);
-      setLoiTai(false);
+      setLoiTai(null);
     } catch (error) {
       if (lan !== lanTaiRef.current) return;
       if (ngam) {
@@ -175,8 +175,9 @@ export default function StockTakeList() {
         return;
       }
       setDs([]);
-      setLoiTai(true);
-      toast.error(error.response?.data?.message || "Không thể tải danh sách kiểm kê");
+      // Giữ lỗi gốc để ô lỗi phân biệt 403 (không có quyền: ổ khóa, không "Thử lại", không thông báo nhanh)
+      setLoiTai(error);
+      if (error?.response?.status !== 403) toast.error(error.response?.data?.message || "Không thể tải danh sách kiểm kê");
     } finally {
       if (lan === lanTaiRef.current) setDangTai(false);
     }
@@ -352,7 +353,7 @@ export default function StockTakeList() {
         {dangTai ? (
           <LoadingState rows={6} label="Đang tải danh sách đợt kiểm kê" />
         ) : loiTai ? (
-          <ErrorState description="Không thể tải danh sách đợt kiểm kê. Vui lòng thử lại." onRetry={() => tai()} />
+          <ErrorState description="Không thể tải danh sách đợt kiểm kê. Vui lòng thử lại." error={loiTai} onRetry={() => tai()} />
         ) : muc.length === 0 ? (
           dangTim ? (
             <EmptyState

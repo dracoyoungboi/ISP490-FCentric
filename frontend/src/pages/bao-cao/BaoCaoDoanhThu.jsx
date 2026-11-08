@@ -3,9 +3,10 @@ import { BarChart3, LineChart as LineChartIcon, RefreshCcw, TrendingUp } from "l
 import { Area, Bar, CartesianGrid, ComposedChart, Line, Tooltip, XAxis, YAxis } from "recharts";
 import PageContainer from "@/components/backoffice/PageContainer";
 import PageHeader from "@/components/backoffice/PageHeader";
+import ErrorState from "@/components/shared/ErrorState";
 import KhungBieuDo from "@/components/shared/KhungBieuDo";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Card, LE } from "@/pages/dashboard/admin/tong-quan-moi/ui";
+import { Card, LE, THE } from "@/pages/dashboard/admin/tong-quan-moi/ui";
 import { FOCUS } from "@/pages/dashboard/admin/tong-quan-moi/boLoc";
 import { MAU2 } from "@/pages/dashboard/admin/tong-quan-moi/mau";
 import { parseRoles } from "@/components/settings/settings.config";
@@ -114,9 +115,10 @@ function DauTrang({ boLoc, setBoLoc, dsKho, data, loading, gio, onTaiLai, chiSo,
       <section aria-label="Phạm vi và kết quả của kỳ" className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-[0_1px_2px_rgba(16,24,40,0.04)] @min-[980px]/dau:flex-row">
         <div className="flex min-w-0 flex-col gap-2 border-b border-bo-border bg-bo-surface-subtle px-4 py-3 @min-[980px]/dau:w-[300px] @min-[980px]/dau:shrink-0 @min-[980px]/dau:justify-center @min-[980px]/dau:border-b-0 @min-[980px]/dau:border-r @min-[980px]/dau:px-5">
           {khoaKho ? (
-            <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-base font-semibold leading-6 text-bo-foreground">
+            // Một tên cho kho đang xem ở báo cáo: "Kho: <tên>" (PQ-17, thay nhãn "Cửa hàng bạn làm")
+            <span className="flex min-w-0 items-center gap-x-1.5 text-base font-semibold leading-6 text-bo-foreground">
+              {dsKho.length === 1 ? <span className="shrink-0 font-normal text-bo-muted">Kho:</span> : null}
               <span className="min-w-0 truncate">{tenKho}</span>
-              {dsKho.length === 1 ? <span className="rounded border border-bo-border bg-bo-surface px-1.5 text-[11px] font-medium leading-[18px] text-bo-muted">Cửa hàng bạn làm</span> : null}
             </span>
           ) : (
             <Menu ariaLabel={`Chọn kho, đang xem: ${tenKho}`} className={cn(FOCUS, "inline-flex max-w-full cursor-pointer items-center gap-1.5 self-start rounded text-base font-semibold leading-6 text-bo-foreground hover:text-bo-primary-hover")} nhan={tenKho} rong="w-72">
@@ -534,7 +536,7 @@ export default function BaoCaoDoanhThu() {
   const chiSoXem = coGiaVon || !CHI_SO.find((c) => c.ma === chiSo)?.giaVon ? chiSo : "doanhThu";
   // Nhân viên bán hàng làm ở một cửa hàng: ô kho chỉ ghi tên cửa hàng ("Tất cả kho" của họ chính là cửa hàng đó)
   const khoaKho = !quanLy && dsKho.length <= 1;
-  const tenKhoKhoa = dsKho[0]?.tenKho ?? (khoDaTai ? "Chưa được phân công cửa hàng" : "Cửa hàng của bạn");
+  const tenKhoKhoa = dsKho[0]?.tenKho ?? (khoDaTai ? "Chưa có nơi làm việc" : "Cửa hàng của bạn");
 
   const ts = useMemo(() => thamSo(boLoc), [boLoc]);
 
@@ -551,7 +553,8 @@ export default function BaoCaoDoanhThu() {
         if (ctrl.signal.aborted) return;
         setTongHop({ data: d, loading: false, loi: null, gio: new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) });
       })
-      .catch((e) => { if (!ctrl.signal.aborted) setTongHop({ data: null, loading: false, loi: loiCua(e) || "Không tải được", gio: null }); });
+      // Giữ lỗi gốc (loiGoc) để phân biệt 403: không có quyền thì không "Thử lại" ở từng thẻ
+      .catch((e) => { if (!ctrl.signal.aborted) setTongHop({ data: null, loading: false, loi: loiCua(e) || "Không tải được", loiGoc: e, gio: null }); });
     baoCaoDoanhThuService.tienThu(ts, { signal: ctrl.signal })
       .then((d) => { if (!ctrl.signal.aborted) setTienThu({ data: d, loading: false, loi: null }); })
       .catch((e) => { if (!ctrl.signal.aborted) setTienThu({ data: null, loading: false, loi: loiCua(e) || "Không tải được" }); });
@@ -559,6 +562,9 @@ export default function BaoCaoDoanhThu() {
   }, [ts, lan]);
 
   const taiLai = () => setLan((n) => n + 1);
+  // 403 (không có quyền xem doanh thu / cửa hàng đang lọc): một ô khóa như các trang danh sách (ErrorState), thay dải
+  // báo lỗi và các thẻ "Thử lại"; giữ đầu trang để còn đổi kho / kỳ
+  const khongQuyen = !tongHop.loading && tongHop.loiGoc?.response?.status === 403;
 
 
   return (
@@ -589,32 +595,40 @@ export default function BaoCaoDoanhThu() {
         khoaKho={khoaKho}
         tenKhoKhoa={tenKhoKhoa}
       />
-      {tongHop.loi ? (
-        <p role="alert" className="m-0 rounded-lg border border-red-200 bg-bo-danger-soft px-4 py-2.5 text-sm text-red-800">
-          Không tải được doanh thu: {tongHop.loi}
-        </p>
-      ) : null}
-      {tongHop.data?.theoKhoPhuTrach && !khoaKho ? <p className="-mt-2 mb-0 text-xs text-bo-muted">Chỉ tính các cửa hàng bạn phụ trách.</p> : null}
+      {khongQuyen ? (
+        <section className={THE}>
+          <ErrorState error={tongHop.loiGoc} />
+        </section>
+      ) : (
+        <>
+          {tongHop.loi ? (
+            <p role="alert" className="m-0 rounded-lg border border-red-200 bg-bo-danger-soft px-4 py-2.5 text-sm text-red-800">
+              Không tải được doanh thu: {tongHop.loi}
+            </p>
+          ) : null}
+          {tongHop.data?.theoKhoPhuTrach && !khoaKho ? <p className="-mt-2 mb-0 text-xs text-bo-muted">Chỉ tính nơi làm việc của bạn.</p> : null}
 
-      <div className="flex flex-wrap items-stretch gap-4">
-        <TheBieuDo chiSo={chiSoXem} className="min-w-0 flex-[999_1_560px]" data={tongHop.data} loading={tongHop.loading} loi={tongHop.loi} onTaiLai={taiLai} />
-        <KhoiTienThu
-          anGhiChuKho={khoaKho}
-          className="min-w-0 flex-[1_1_340px] xl:max-w-[420px]"
-          khoId={boLoc.khoId || undefined}
-          loading={tienThu.loading}
-          loi={tienThu.loi}
-          onTaiLai={taiLai}
-          tienThu={tienThu.data}
-        />
-      </div>
+          <div className="flex flex-wrap items-stretch gap-4">
+            <TheBieuDo chiSo={chiSoXem} className="min-w-0 flex-[999_1_560px]" data={tongHop.data} loading={tongHop.loading} loi={tongHop.loi} onTaiLai={taiLai} />
+            <KhoiTienThu
+              anGhiChuKho={khoaKho}
+              className="min-w-0 flex-[1_1_340px] xl:max-w-[420px]"
+              khoId={boLoc.khoId || undefined}
+              loading={tienThu.loading}
+              loi={tienThu.loi}
+              onTaiLai={taiLai}
+              tienThu={tienThu.data}
+            />
+          </div>
 
-      <div className="flex flex-wrap items-stretch gap-4">
-        <TheTheoKenh className="min-w-0 flex-[1_1_420px]" data={tongHop.data} loading={tongHop.loading} loi={tongHop.loi} onTaiLai={taiLai} />
-        <TheTheoNhanVien className="min-w-0 flex-[1_1_420px]" data={tongHop.data} loading={tongHop.loading} loi={tongHop.loi} onTaiLai={taiLai} />
-      </div>
+          <div className="flex flex-wrap items-stretch gap-4">
+            <TheTheoKenh className="min-w-0 flex-[1_1_420px]" data={tongHop.data} loading={tongHop.loading} loi={tongHop.loi} onTaiLai={taiLai} />
+            <TheTheoNhanVien className="min-w-0 flex-[1_1_420px]" data={tongHop.data} loading={tongHop.loading} loi={tongHop.loi} onTaiLai={taiLai} />
+          </div>
 
-      <BangChiTiet coGiaVon={coGiaVon} data={tongHop.data} loading={tongHop.loading} loi={tongHop.loi} onTaiLai={taiLai} tienThu={tienThu.data} />
+          <BangChiTiet coGiaVon={coGiaVon} data={tongHop.data} loading={tongHop.loading} loi={tongHop.loi} onTaiLai={taiLai} tienThu={tienThu.data} />
+        </>
+      )}
     </PageContainer>
   );
 }

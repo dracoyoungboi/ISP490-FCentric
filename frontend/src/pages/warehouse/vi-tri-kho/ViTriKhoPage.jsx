@@ -366,7 +366,7 @@ export default function ViTriKhoPage() {
   } else if (error && !data) {
     noiDung = (
       <section className="rounded-lg border border-bo-border bg-bo-surface shadow-sm">
-        <ErrorState title="Không tải được vị trí kệ" description={getApiErrorMessage(error, "Vui lòng thử lại.")} onRetry={reload} />
+        <ErrorState title="Không tải được vị trí kệ" description={getApiErrorMessage(error, "Vui lòng thử lại.")} error={error} onRetry={reload} />
       </section>
     );
   } else if (data) {

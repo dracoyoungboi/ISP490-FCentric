@@ -4,11 +4,12 @@ import { ArrowLeftRight, RefreshCcw, Shirt, X } from "lucide-react";
 import { Bar, CartesianGrid, ComposedChart, Tooltip, XAxis, YAxis } from "recharts";
 import PageContainer from "@/components/backoffice/PageContainer";
 import PageHeader from "@/components/backoffice/PageHeader";
+import ErrorState from "@/components/shared/ErrorState";
 import KhungBieuDo from "@/components/shared/KhungBieuDo";
 import NutXuatExcel from "@/components/shared/NutXuatExcel";
 import TablePagination from "@/components/shared/TablePagination";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Card, LE, MoreLink } from "@/pages/dashboard/admin/tong-quan-moi/ui";
+import { Card, LE, MoreLink, THE } from "@/pages/dashboard/admin/tong-quan-moi/ui";
 import { FOCUS } from "@/pages/dashboard/admin/tong-quan-moi/boLoc";
 import { MAU2 } from "@/pages/dashboard/admin/tong-quan-moi/mau";
 import { parseRoles } from "@/components/settings/settings.config";
@@ -576,12 +577,16 @@ export default function NhatKyNhapXuat() {
         if (ctrl.signal.aborted) return;
         setTongHop({ data: d, loading: false, loi: null, gio: new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) });
       })
-      .catch((e) => { if (!ctrl.signal.aborted) setTongHop({ data: null, loading: false, loi: loiCua(e) || "Không tải được", gio: null }); });
+      // Giữ lỗi gốc (loiGoc) để phân biệt 403: không có quyền thì không "Thử lại" ở từng thẻ
+      .catch((e) => { if (!ctrl.signal.aborted) setTongHop({ data: null, loading: false, loi: loiCua(e) || "Không tải được", loiGoc: e, gio: null }); });
     return () => ctrl.abort();
   }, [ts, lan]);
 
   const taiLai = () => setLan((n) => n + 1);
-  const { data, loading, loi, gio } = tongHop;
+  const { data, loading, loi, loiGoc, gio } = tongHop;
+  // 403 (không có quyền xem báo cáo / kho đang lọc): một ô khóa như các trang danh sách (ErrorState), thay dải báo lỗi
+  // và các thẻ "Thử lại"; giữ đầu trang để còn đổi kho / kỳ
+  const khongQuyen = !loading && loiGoc?.response?.status === 403;
   const tenLoc = boLoc.nhom ? tenNhom(data, boLoc.nhom) ?? "loại đã chọn" : null;
   const chonNhom = (ma) => setBoLoc({ nhom: ma });
   // Xem tất cả kho, hoặc quản lý kho phụ trách nhiều kho: chuyển kho nội bộ bù trừ nhau
@@ -602,19 +607,27 @@ export default function NhatKyNhapXuat() {
       />
 
       <DauTrang boLoc={boLoc} data={data} dsKho={dsKho} gio={gio} loading={loading} onTaiLai={taiLai} setBoLoc={setBoLoc} />
-      {loi ? (
-        <p role="alert" className="m-0 rounded-lg border border-red-200 bg-bo-danger-soft px-4 py-2.5 text-sm text-red-800">
-          Không tải được báo cáo nhập xuất: {loi}
-        </p>
-      ) : null}
-      {data?.theoKhoPhuTrach ? <p className="-mt-2 mb-0 text-xs text-bo-muted">Chỉ tính các kho bạn phụ trách.</p> : null}
+      {khongQuyen ? (
+        <section className={THE}>
+          <ErrorState error={loiGoc} />
+        </section>
+      ) : (
+        <>
+          {loi ? (
+            <p role="alert" className="m-0 rounded-lg border border-red-200 bg-bo-danger-soft px-4 py-2.5 text-sm text-red-800">
+              Không tải được báo cáo nhập xuất: {loi}
+            </p>
+          ) : null}
+          {data?.theoKhoPhuTrach ? <p className="-mt-2 mb-0 text-xs text-bo-muted">Chỉ tính nơi làm việc của bạn.</p> : null}
 
-      <div className="flex flex-wrap items-stretch gap-4">
-        <TheBieuDo className="min-w-0 flex-[999_1_560px]" data={data} loading={loading} loi={loi} onBoLoc={() => chonNhom("")} onTaiLai={taiLai} tenLoc={tenLoc} />
-        <TheLoai className="min-w-0 flex-[1_1_320px] xl:max-w-[380px]" data={data} loading={loading} loi={loi} nhieuKho={nhieuKho} nhom={boLoc.nhom} onChon={chonNhom} onTaiLai={taiLai} />
-      </div>
+          <div className="flex flex-wrap items-stretch gap-4">
+            <TheBieuDo className="min-w-0 flex-[999_1_560px]" data={data} loading={loading} loi={loi} onBoLoc={() => chonNhom("")} onTaiLai={taiLai} tenLoc={tenLoc} />
+            <TheLoai className="min-w-0 flex-[1_1_320px] xl:max-w-[380px]" data={data} loading={loading} loi={loi} nhieuKho={nhieuKho} nhom={boLoc.nhom} onChon={chonNhom} onTaiLai={taiLai} />
+          </div>
 
-      <BangNXT data={data} khoId={boLoc.khoId} loading={loading} loi={loi} onTaiLai={taiLai} setTab={setTab} tab={tab} tenLoc={tenLoc} />
+          <BangNXT data={data} khoId={boLoc.khoId} loading={loading} loi={loi} onTaiLai={taiLai} setTab={setTab} tab={tab} tenLoc={tenLoc} />
+        </>
+      )}
     </PageContainer>
   );
 }
