@@ -132,6 +132,43 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
 
     /** Đơn mua đã nhận đủ (constants/donMuaHang.js: 5 = "Đã nhận đủ"; 4 là "Không chấp nhận báo giá"). */
     private static final int DON_MUA_DA_NHAN_DU = 5;
+    /** Đơn mua đang vận chuyển (đã chấp nhận báo giá, chờ nhận hàng). */
+    private static final int DON_MUA_DANG_VAN_CHUYEN = 3;
+
+    /**
+     * Đơn mua còn nhận hàng (tạo phiếu nhập) được: đang vận chuyển (3) hoặc đã nhận đủ (5, phần còn lại = 0 nên tạo phiếu
+     * sẽ báo vượt). Đã đóng nhận thiếu (6) / đã hủy (7) — DonMuaHangService.ketThucDon — thì 409 "không nhập thêm được";
+     * trạng thái khác 400 như trước.
+     */
+    private static void kiemTraDonConNhanHang(DonMuaHang don, Integer trangThai) {
+        String cauKetThuc = cauDonDaKetThuc(don, trangThai);
+        if (cauKetThuc != null) {
+            throw new CommonException(HttpStatus.CONFLICT, cauKetThuc);
+        }
+        if (trangThai == null || (trangThai != DON_MUA_DANG_VAN_CHUYEN && trangThai != DON_MUA_DA_NHAN_DU)) {
+            throw new CommonException(HttpStatus.BAD_REQUEST,
+                    "Đơn mua " + don.getSoDonMua() + " không ở trạng thái chờ nhận hàng (Đang vận chuyển) nên không tạo phiếu nhập được");
+        }
+    }
+
+    /** Câu báo khi đơn mua đã đóng (6) / đã hủy (7): không tạo phiếu nhập, không nhập kho thêm. Trạng thái khác: null. */
+    private static String cauDonDaKetThuc(DonMuaHang don, Integer trangThai) {
+        String viec = Objects.equals(trangThai, DonMuaHangService.TRANG_THAI_DA_DONG) ? "đóng (nhận thiếu)"
+                : Objects.equals(trangThai, DonMuaHangService.TRANG_THAI_DA_HUY) ? "hủy" : null;
+        if (viec == null) return null;
+        String ma = don == null || don.getSoDonMua() == null || don.getSoDonMua().isBlank()
+                ? "Đơn mua này" : "Đơn mua " + don.getSoDonMua();
+        return ma + " đã " + viec + ", không nhập thêm được";
+    }
+
+    /**
+     * Khóa dòng đơn mua (SELECT … FOR UPDATE) và nạp lại từ CSDL. Chỉ gọi SAU khi đã khóa các dòng đơn
+     * (khoaTheoDonMua): cùng thứ tự với DonMuaHangService.ketThucDon (dòng đơn trước, đơn sau) nên không vòng chờ; đơn
+     * vừa được đóng / hủy ở giao dịch khác thì thấy trạng thái mới thay vì bản đã nạp trước khi chờ khóa.
+     */
+    private void khoaVaNapLaiDonMua(DonMuaHang don) {
+        entityManager.refresh(don, LockModeType.PESSIMISTIC_WRITE);
+    }
 
     /** Số phiếu Nháp đang giữ nêu tối đa trong câu báo tạo phiếu vượt phần còn lại. */
     private static final int SO_PHIEU_GIU_TOI_DA_TRONG_CAU = 5;
@@ -181,10 +218,7 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
 
         DonMuaHang donMuaHang = donMuaHangRepository.findById(request.getDonMuaHangId())
                 .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn mua hàng"));
-        if (donMuaHang.getTrangThai() == null || (donMuaHang.getTrangThai() != 3 && donMuaHang.getTrangThai() != 5)) {
-            throw new CommonException(HttpStatus.BAD_REQUEST,
-                    "Đơn mua " + donMuaHang.getSoDonMua() + " không ở trạng thái chờ nhận hàng (Đang vận chuyển) nên không tạo phiếu nhập được");
-        }
+        kiemTraDonConNhanHang(donMuaHang, donMuaHang.getTrangThai());
         var currentUser = SecurityContextHolder.getUser();
         boolean isAdmin = currentUser.getVaiTro().contains(IRoleType.quan_tri_vien);
         Integer currentKhoId = SecurityContextHolder.getKhoId();
@@ -204,6 +238,10 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
 
         // Khóa các dòng đơn mua: hai phiếu tạo cùng lúc cho một đơn không cùng giữ phần còn lại
         chiTietDonMuaHangRepository.khoaTheoDonMua(donMuaHang.getId());
+        // Rồi khóa đơn, kiểm lại trạng thái: đơn vừa được đóng / hủy trong lúc chờ khóa thì không tạo phiếu nháp (ketThucDon
+        // chỉ chặn phiếu nháp đã có trước khi nó khóa)
+        khoaVaNapLaiDonMua(donMuaHang);
+        kiemTraDonConNhanHang(donMuaHang, donMuaHang.getTrangThai());
 
         int retry = 0;
         int maxRetry = 5;
@@ -313,9 +351,15 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
         if (phieu.getTrangThai() != 0) {
             throw new CommonException("Phiếu không ở trạng thái có thể nhập kho");
         }
-        // Khóa các dòng đơn mua trước khi đọc số "đã nhận" (hai phiếu của cùng đơn nhập kho cùng lúc)
+        // Khóa các dòng đơn mua trước khi đọc số "đã nhận" (hai phiếu của cùng đơn nhập kho cùng lúc), rồi khóa đơn và
+        // đọc lại trạng thái: đơn đã đóng (nhận thiếu) / đã hủy thì không nhập thêm
         if (phieu.getDonMuaHang() != null) {
             chiTietDonMuaHangRepository.khoaTheoDonMua(phieu.getDonMuaHang().getId());
+            khoaVaNapLaiDonMua(phieu.getDonMuaHang());
+            String cauKetThuc = cauDonDaKetThuc(phieu.getDonMuaHang(), phieu.getDonMuaHang().getTrangThai());
+            if (cauKetThuc != null) {
+                throw new CommonException(HttpStatus.CONFLICT, cauKetThuc + ". Hủy phiếu nhập nháp này.");
+            }
         }
 
         List<ChiTietPhieuNhapKho> danhSachNhapTheoLo = chiTietPhieuNhapKhoRepository.findAllByPhieuNhapKhoIdAndCoLo(phieuNhapKhoId);
@@ -1008,9 +1052,13 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
         KhoDangChon.kiemTraXem(phieu.getKho(), "Phiếu nhập " + phieu.getSoPhieuNhap());
 
         List<ChiTietPhieuNhapKho> dsLo = chiTietPhieuNhapKhoRepository.findDeclaredLots(phieuNhapKhoId, bienTheSanPhamId);
+        // Số nhập là số trên DÒNG phiếu này (số vào tồn khi nhập kho), không phải số trên lô: phiếu chuyển kho, khách trả dùng
+        // lô thật của kho gửi (số trên lô là số nhập ban đầu từ nhà cung cấp), lô tạo trước khi có kiểm đếm mang số 0. Khóa lô
+        // của phiếu đơn mua ghi hai số bằng nhau. Hàng không đạt chỉ có ở phiếu đơn mua (như getDetail / completePhieuNhap).
+        boolean tuDonMua = phieu.getDonMuaHang() != null;
         Map<Integer, List<ChiTietLoiLoHangDto>> loiTheoLo = new HashMap<>();
         List<Integer> loIds = dsLo.stream().map(ct -> ct.getLoHang().getId()).toList();
-        if (!loIds.isEmpty()) {
+        if (tuDonMua && !loIds.isEmpty()) {
             for (ChiTietLoiLoHang loi : chiTietLoiLoHangRepository.findByLoHangIds(loIds)) {
                 loiTheoLo.computeIfAbsent(loi.getLoHang().getId(), k -> new ArrayList<>())
                         .add(ChiTietLoiLoHangDto.builder().lyDo(loi.getLyDo()).soLuong(loi.getSoLuong()).ghiChu(loi.getGhiChu()).build());
@@ -1024,8 +1072,8 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
                             .loHangId(lo.getId())
                             .maLo(lo.getMaLo())
                             .ngaySanXuat(lo.getNgaySanXuat())
-                            .soLuongNhap(BigDecimal.valueOf(lo.getSoLuongNhap() != null ? lo.getSoLuongNhap() : ct.getSoLuongNhap().intValue()))
-                            .soLuongLoi(BigDecimal.valueOf(lo.getSoLuongLoi() != null ? lo.getSoLuongLoi() : 0))
+                            .soLuongNhap(BigDecimal.valueOf(ct.getSoLuongNhap() != null ? ct.getSoLuongNhap().intValue() : 0))
+                            .soLuongLoi(BigDecimal.valueOf(tuDonMua && lo.getSoLuongLoi() != null ? lo.getSoLuongLoi() : 0))
                             .viTriKhoId(lo.getViTriKho() != null ? lo.getViTriKho().getId() : null)
                             .maViTri(lo.getViTriKho() != null ? lo.getViTriKho().getMaViTri() : null)
                             .trangThai(lo.getTrangThai())

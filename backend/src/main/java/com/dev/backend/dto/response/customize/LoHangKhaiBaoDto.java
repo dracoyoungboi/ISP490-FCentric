@@ -17,8 +17,10 @@ public class LoHangKhaiBaoDto {
     Integer loHangId;
     String maLo;
     Instant ngaySanXuat;
-    BigDecimal soLuongNhap; // số lượng theo lô (Đạt)
-    BigDecimal soLuongLoi;  // số lượng lỗi
+    // Số trên DÒNG phiếu nhập này của lô (số vào tồn khi nhập kho), không phải số nhập ban đầu ghi trên lô: phiếu chuyển
+    // kho / khách trả dùng lô thật của kho gửi. Phiếu đơn mua: bằng số Đạt của lô (khóa lô ghi hai số bằng nhau).
+    BigDecimal soLuongNhap;
+    BigDecimal soLuongLoi;  // số lượng lỗi (chỉ phiếu đơn mua; phiếu khác luôn 0)
     Integer viTriKhoId;
     String maViTri;
     String trangThai;

@@ -68,10 +68,10 @@ test("cauChoNhap và moTaXacNhan theo loại", () => {
   assert.equal(moTaXacNhan({}, tong), "Cộng lại 2 sản phẩm, 3 biến thể (tổng số lượng 1.240) vào tồn kho nhận theo đúng lô đã bán.");
 });
 
-test("loCuaDong: một lô ghi số của dòng, nhiều lô chỉ ghi mã (số của API là số nhập ban đầu của lô)", () => {
+test("loCuaDong: một lô ghi số của dòng, nhiều lô ghi số từng lô (số trên dòng phiếu nhập của lô)", () => {
   assert.deepEqual(loCuaDong([{ maLo: "L1", soLuongNhap: 100 }], "6.00"), [{ maLo: "L1", soLuong: 6 }]);
   assert.deepEqual(loCuaDong([{ maLo: "L1", soLuongNhap: 100 }, { maLo: "L1", soLuongNhap: 100 }], 6), [{ maLo: "L1", soLuong: 6 }]);
-  assert.deepEqual(loCuaDong([{ maLo: "L1", soLuongNhap: 4 }, { maLo: "L2", soLuongNhap: 2 }], 6), [{ maLo: "L1" }, { maLo: "L2" }]);
+  assert.deepEqual(loCuaDong([{ maLo: "L1", soLuongNhap: 4 }, { maLo: "L2", soLuongNhap: 2 }], 6), [{ maLo: "L1", soLuong: 4 }, { maLo: "L2", soLuong: 2 }]);
   assert.deepEqual(loCuaDong([{ maLo: " " }, null], 6), []);
   assert.deepEqual(loCuaDong(null, 6), []);
 });

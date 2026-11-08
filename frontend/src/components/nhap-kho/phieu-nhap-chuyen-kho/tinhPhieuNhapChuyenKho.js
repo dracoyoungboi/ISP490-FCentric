@@ -67,18 +67,22 @@ export function moTaXacNhan(data, tong, soLo = null) {
 }
 
 /**
- * Thẻ lô của một dòng từ GET …/{id}/bien-the/{bienTheId}/lo-hang (gộp mã lô trùng).
- * `soLuongNhap` ở API đó là số nhập ban đầu của LÔ (lúc lô vào kho từ đơn mua), không phải số kế thừa trên phiếu này,
- * nên chỉ ghi "× số lượng" khi dòng chỉ có một lô (số của lô = số của dòng); nhiều lô thì chỉ ghi mã lô.
+ * Thẻ lô của một dòng từ GET …/{id}/bien-the/{bienTheId}/lo-hang (gộp mã lô trùng, cộng số).
+ * `soLuongNhap` ở API đó là số trên DÒNG phiếu nhập này của lô (số vào tồn khi nhập kho, LoHangKhaiBaoDto), không phải
+ * số nhập ban đầu của lô. Một lô: ghi số của dòng. Nhiều lô: ghi "× số" từng lô khi các số cộng lại đúng số của dòng;
+ * lệch (dữ liệu cũ) thì chỉ ghi mã lô, không ghi số sai.
  */
 export function loCuaDong(lots, soLuongDong) {
-  const maLos = [];
+  const theoMa = new Map();
   for (const l of Array.isArray(lots) ? lots : []) {
     const ma = String(l?.maLo ?? "").trim();
-    if (ma && !maLos.includes(ma)) maLos.push(ma);
+    if (ma) theoMa.set(ma, (theoMa.get(ma) ?? 0) + docSo(l?.soLuongNhap));
   }
-  if (maLos.length === 1) return [{ maLo: maLos[0], soLuong: docSo(soLuongDong) }];
-  return maLos.map((maLo) => ({ maLo }));
+  const tongDong = docSo(soLuongDong);
+  if (theoMa.size === 1) return [{ maLo: [...theoMa.keys()][0], soLuong: tongDong }];
+  const tongLo = [...theoMa.values()].reduce((tong, so) => tong + so, 0);
+  const khopDong = Math.abs(tongLo - tongDong) < 1e-9;
+  return [...theoMa].map(([maLo, so]) => (khopDong ? { maLo, soLuong: so } : { maLo }));
 }
 
 /**

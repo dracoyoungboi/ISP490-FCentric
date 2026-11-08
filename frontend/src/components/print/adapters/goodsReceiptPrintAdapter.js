@@ -48,9 +48,16 @@ export function toGoodsReceiptPrintModel(payload) {
     const rows = (data.items || []).map((item) => {
         const lots = lotsByVariantId[item.bienTheSanPhamId] || [];
         const declared = toNumeric(item.soLuongDaKhaiBao);
+        const lotTotal = lots.length > 0 ? sumOrNull(lots.map((lot) => toNumeric(lot.soLuongNhap))) : null;
+        // Phiếu đã nhập kho mà các lô cộng ra 0 (lô tạo trước khi có kiểm đếm mang số 0, máy chủ cũ trả số của lô):
+        // lấy số trên dòng phiếu — số đã vào tồn — thay vì in "Thực nhập 0"
+        const lineQty = [declared, toNumeric(item.soLuongDatQc)].find((value) => value !== null && value > 0) ?? null;
+        const lotsZero = confirmed && lots.length > 0 && !lotTotal && lineQty !== null;
         const actual =
             lots.length > 0
-                ? sumOrNull(lots.map((lot) => toNumeric(lot.soLuongNhap)))
+                ? lotsZero
+                    ? lineQty
+                    : lotTotal
                 : declared !== null && (declared > 0 || confirmed)
                   ? declared
                   : null;
@@ -65,7 +72,8 @@ export function toGoodsReceiptPrintModel(payload) {
             lots: lots.map((lot) => ({
                 code: dash(lot.maLo),
                 note: lot.ngaySanXuat ? `SX ${formatPrintDate(lot.ngaySanXuat)}` : null,
-                quantity: formatPrintNumber(lot.soLuongNhap),
+                // Lấy số dòng phiếu thay cho lô: một lô thì số của lô là số của dòng, nhiều lô không biết chia nên "—"
+                quantity: lotsZero ? (lots.length === 1 ? formatPrintNumber(lineQty) : "—") : formatPrintNumber(lot.soLuongNhap),
             })),
             requestedQuantity: requested === null ? "—" : formatPrintNumber(requested),
             quantity: qtyCell(actual),

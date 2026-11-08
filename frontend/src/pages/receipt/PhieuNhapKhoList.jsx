@@ -160,8 +160,8 @@ export default function PhieuNhapKhoList() {
       if (requestId !== requestIdRef.current) return;
       console.error("Lỗi tải danh sách phiếu nhập:", err);
       if (silent) throw err;
-      // Không giữ dòng + tổng số của lần tải trước (R9)
-      setLoadError(true);
+      // Không giữ dòng + tổng số của lần tải trước (R9). Giữ lỗi để ô lỗi phân biệt 403 (không có quyền)
+      setLoadError(err);
       setData([]);
       setTotal(0);
     } finally {
@@ -324,6 +324,7 @@ export default function PhieuNhapKhoList() {
         ) : loadError ? (
           <ErrorState
             description="Không thể tải danh sách phiếu nhập kho. Vui lòng thử lại."
+            error={loadError}
             onRetry={handleRetry}
           />
         ) : data.length === 0 ? (
