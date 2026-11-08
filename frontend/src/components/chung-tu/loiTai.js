@@ -6,6 +6,11 @@
 
 export const CAU_MAT_KET_NOI = "Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.";
 export const CAU_LOI_MAY_CHU = "Máy chủ gặp lỗi khi tải. Vui lòng thử lại.";
+// Câu chuẩn của mọi ô "không có quyền" (403): danh sách (ErrorState) và chứng từ (KhungLoiChungTu) nói giống nhau
+export const CAU_LIEN_HE_QUAN_TRI = "Liên hệ quản trị viên nếu bạn cần quyền này.";
+// 403 mà quản trị viên không phải người gỡ được (AuthorizationAspect): "Bạn không thuộc kho đang chọn, vui lòng chọn lại
+// kho", "Bạn chưa chọn kho làm việc…", "Bạn chưa đăng nhập hoặc phiên đăng nhập đã hết hạn" — hiện đúng câu máy chủ
+const MAU_403_TU_GO_DUOC = /chọn (lại )?kho|phiên đăng nhập/i;
 const MAU_KHONG_THAY = /không tìm thấy/i;
 // "… thuộc kho khác …", "… của kho khác": chứng từ có thật nhưng ở kho khác kho đang làm việc (không bắt "chọn kho khác")
 const MAU_KHO_KHAC = /(thuộc|của) kho khác/i;
@@ -84,6 +89,25 @@ export function phanLoaiLoiTai(error, { mauKhongThay = MAU_KHONG_THAY, coi500LaK
   return { khongThay, khoKhac, khongQuyen, cauMayChu, moTaLoi, trangThai };
 }
 
+const chuanCauMayChu = (cauMayChu) => (typeof cauMayChu === "string" ? cauMayChu.replace(/\s+/g, " ").trim() : "");
+
+/**
+ * Câu 403 của máy chủ thuộc loại người dùng tự gỡ được (kho đang chọn, phiên đăng nhập): đổi nơi làm việc / đăng nhập lại
+ * rồi tải lại là xong — ô "không có quyền" vẫn giữ nút "Thử lại". 403 thật (thiếu vai trò, thiếu quyền) → false.
+ */
+export function la403TuGoDuoc(cauMayChu) {
+  const cau = chuanCauMayChu(cauMayChu);
+  return Boolean(cau) && MAU_403_TU_GO_DUOC.test(cau);
+}
+
+/**
+ * Mô tả của ô "không có quyền" (403) theo câu máy chủ: câu về kho đang chọn / phiên đăng nhập (người dùng tự gỡ được:
+ * đổi nơi làm việc, đăng nhập lại) thì hiện đúng câu đó; còn lại "Liên hệ quản trị viên nếu bạn cần quyền này.".
+ */
+export function moTaLoiKhongQuyen(cauMayChu) {
+  return la403TuGoDuoc(cauMayChu) ? chuanCauMayChu(cauMayChu) : CAU_LIEN_HE_QUAN_TRI;
+}
+
 /** Chữ hoa đầu câu: "phiếu nhặt hàng" → "Phiếu nhặt hàng". */
 export const vietHoaDau = (chu) => {
   const s = String(chu ?? "").trim();
@@ -104,7 +128,7 @@ export function chuLoiTai(tenChungTu) {
     // "Nơi làm việc": đúng nhãn ô chọn kho ở sidebar / ở trang (SidebarKhoLamViec, KhoLamViecSelect)
     moTaKhoKhac: `${vietHoaDau(ten)} thuộc kho khác với nơi làm việc đang chọn. Đổi “Nơi làm việc” sang kho đó để xem.`,
     tieuDeKhongQuyen: `Bạn không có quyền xem ${ten}`,
-    moTaKhongQuyen: `Tài khoản của bạn không được xem ${ten} này.`,
+    moTaKhongQuyen: CAU_LIEN_HE_QUAN_TRI,
     nhanVeDanhSach: `Về danh sách ${ten}`,
     tieuDeLoi: `Không tải được ${ten}`,
   };

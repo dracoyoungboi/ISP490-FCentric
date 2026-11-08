@@ -37,7 +37,7 @@ const CHU_DOC = {
 /**
  * Thanh tiến trình của chứng từ (tổng quát hóa TienTrinhDonMua): số bước tùy màn.
  * Mỗi bước `{ ma, nhan, trangThai: "xong" | "dangLam" | "chua" | "dung", phu, ngay, coGio, ai, canhBao }`, các dòng dưới nhãn:
- * `ai` (dòng nhỏ "ai làm", vd. "Kho nguồn") · `phu` kèm `canhBao` chữ đỏ · mốc `ngay` dòng riêng ("HH:mm · dd/MM" khi `coGio`).
+ * `ai` (dòng nhỏ "ai làm", vd. "Kho nguồn") · `phu` kèm `canhBao` (chuỗi, chữ đỏ) · mốc `ngay` dòng riêng ("HH:mm · dd/MM" khi `coGio`).
  * Thanh tự là container: rộng từ 576px (`@xl`) thì một hàng ngang chia đều, có vạch nối; hẹp hơn (điện thoại, 768px có
  * thanh bên) thì danh sách dọc. Bước đang làm có aria-current="step" (mỗi thanh chỉ nên có một bước "dangLam").
  * `nhan`: tên vùng cho trình đọc màn hình, vd. "Tiến trình phiếu chuyển kho".
@@ -53,7 +53,8 @@ export default function TienTrinhChungTu({ buoc, nhan = "Tiến trình", classNa
   if (iHienTai < 0) iHienTai = Math.max(0, ds.map((b) => b.trangThai).lastIndexOf("xong"));
   const hienTai = ds[iHienTai];
   const ttHienTai = KIEU_CHAM[hienTai.trangThai] ? hienTai.trangThai : "chua";
-  const coCanhBao = ds.some((b) => b.canhBao);
+  // Chỉ chữ thật mới là cảnh báo: true / số lọt vào chuỗi sẽ in "· true" ra màn
+  const canhBaoGon = chuCanhBao(hienTai) || ds.map(chuCanhBao).find(Boolean) || "";
 
   return (
     <nav
@@ -74,9 +75,7 @@ export default function TienTrinhChungTu({ buoc, nhan = "Tiến trình", classNa
             <span className="sr-only">{CHU_DOC[ttHienTai]}</span>
             {hienTai.phu ? ` · ${hienTai.phu}` : ""}
             {/* Cảnh báo (vd. "Lệch 2") của bất kỳ bước nào cũng phải thấy được khi thanh đang gập */}
-            {coCanhBao ? (
-              <span className="font-medium text-bo-danger">{` · ${hienTai.canhBao || ds.find((b) => b.canhBao).canhBao}`}</span>
-            ) : null}
+            {canhBaoGon ? <span className="font-medium text-bo-danger">{` · ${canhBaoGon}`}</span> : null}
           </span>
           <ChevronDown className="size-4 shrink-0 text-bo-muted transition-transform group-open:rotate-180" aria-hidden="true" />
           <span className="sr-only">Xem các bước</span>
@@ -104,10 +103,16 @@ const KIEU_CHAM_GON = {
   dung: "bg-bo-danger",
 };
 
+/** Chữ cảnh báo của bước (chuỗi khác rỗng), còn lại (true, số, trống) → "". */
+function chuCanhBao(b) {
+  return typeof b?.canhBao === "string" ? b.canhBao.trim() : "";
+}
+
 function veBuoc(b, i, soBuoc) {
   const cuoi = i === soBuoc - 1;
   const trangThai = KIEU_CHAM[b.trangThai] ? b.trangThai : "chua";
   const moc = ngayNgan(b.ngay, b.coGio);
+  const canhBao = chuCanhBao(b);
   return (
     <li
       key={b.ma ?? i}
@@ -142,13 +147,13 @@ function veBuoc(b, i, soBuoc) {
           <span className="sr-only">{CHU_DOC[trangThai]}</span>
         </div>
         {b.ai ? <div className="text-[11px] font-medium leading-4 text-slate-500">{b.ai}</div> : null}
-        {b.phu || b.canhBao ? (
+        {b.phu || canhBao ? (
           <div className="mt-0.5 text-xs leading-4 text-bo-muted tabular-nums">
             {b.phu}
-            {b.canhBao ? (
+            {canhBao ? (
               <>
                 {b.phu ? " · " : ""}
-                <span className="font-medium text-bo-danger">{b.canhBao}</span>
+                <span className="font-medium text-bo-danger">{canhBao}</span>
               </>
             ) : null}
           </div>

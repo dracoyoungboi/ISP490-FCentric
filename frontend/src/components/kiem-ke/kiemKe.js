@@ -98,7 +98,7 @@ export function buocKiemKe(dot) {
     { ma: "duyet", nhan: "Thẩm định", trangThai: trang(tt === TT_DOT.DA_DUYET, tt === TT_DOT.CHO_DUYET), ngay: daDemXong ? dot?.ngayHoanThanh : undefined, coGio: true },
   ];
   buoc.push(huy
-    ? { ma: "huy", nhan: "Đã hủy", trangThai: "dung", ngay: dot?.ngayHuy, coGio: true, ai: dot?.nguoiHuy?.hoTen, canhBao: true, phu: "Tồn kho không đổi" }
+    ? { ma: "huy", nhan: "Đã hủy", trangThai: "dung", ngay: dot?.ngayHuy, coGio: true, ai: dot?.nguoiHuy?.hoTen, phu: "Tồn kho không đổi" }
     : { ma: "xong", nhan: "Duyệt & mở khóa", trangThai: tt === TT_DOT.DA_DUYET ? "xong" : "chua", ngay: dot?.ngayDuyet, coGio: true, ai: dot?.nguoiDuyet?.hoTen });
   return buoc;
 }

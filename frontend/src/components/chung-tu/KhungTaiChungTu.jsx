@@ -1,11 +1,12 @@
 import { useEffect, useRef } from "react";
-import { AlertCircle, LockKeyhole, RefreshCcw, SearchX, Warehouse } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { AlertCircle, Lock, RefreshCcw, SearchX, Warehouse } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import EmptyState from "@/components/shared/EmptyState";
 import ErrorState from "@/components/shared/ErrorState";
 import { cn } from "@/lib/utils";
 import { KHO_LAM_VIEC_EVENT } from "@/utils/khoLamViec";
-import { CAU_LOI_MAY_CHU, CAU_MAT_KET_NOI, chuLoiTai, phanLoaiLoiTai } from "./loiTai.js";
+import { CAU_LOI_MAY_CHU, CAU_MAT_KET_NOI, chuLoiTai, la403TuGoDuoc, moTaLoiKhongQuyen, phanLoaiLoiTai } from "./loiTai.js";
 
 const KHUNG = "flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm";
 const NUT_VIEN = "border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle";
@@ -114,13 +115,14 @@ export function KhungKhongThay({ tieuDe, moTa, cauMayChu, nhanNut, onNut, onTaiL
 /**
  * Không tải được chứng từ (lỗi mạng, lỗi máy chủ): `moTa` (mặc định "Không kết nối được máy chủ. Kiểm tra mạng rồi thử
  * lại."; nên truyền `moTaLoi` của phanLoaiLoiTai) và nút "Thử lại". Có `onVeDanhSach` thì thêm nút về danh sách cạnh
- * "Thử lại" (`nhanVeDanhSach`, mặc định "Về danh sách").
+ * "Thử lại" (`nhanVeDanhSach`, mặc định "Về danh sách"). `loi` (lỗi axios, tùy chọn): 403 thì vẽ ô "Bạn không có quyền
+ * xem mục này" của ErrorState (không "Thử lại", trừ 403 vì kho đang chọn / phiên đăng nhập).
  */
-export function KhungLoiTai({ tieuDe, moTa = CAU_MAT_KET_NOI, onThuLai, nhanVeDanhSach, onVeDanhSach, className }) {
-  if (!onVeDanhSach) {
+export function KhungLoiTai({ tieuDe, moTa = CAU_MAT_KET_NOI, loi, onThuLai, nhanVeDanhSach, onVeDanhSach, className }) {
+  if (!onVeDanhSach || Number(loi?.response?.status) === 403) {
     return (
       <div className={cn(KHUNG, className)}>
-        <ErrorState className="flex-1" title={tieuDe} description={moTa} onRetry={onThuLai} />
+        <ErrorState className="flex-1" title={tieuDe} description={moTa} error={loi} onRetry={onThuLai} />
       </div>
     );
   }
@@ -153,7 +155,9 @@ export function KhungLoiTai({ tieuDe, moTa = CAU_MAT_KET_NOI, onThuLai, nhanVeDa
  * Một dòng cho mọi trường hợp khi chưa có chứng từ để vẽ (tải xong mà rỗng, hoặc lỗi): tự phân loại bằng
  * phanLoaiLoiTai rồi vẽ khung với chữ theo tên chứng từ:
  *   thuộc kho khác → KhungKhongThay (câu riêng; có `onThuLai` thì thêm nút "Tải lại" và tự tải lại khi đổi nơi làm
- *   việc — KHO_LAM_VIEC_EVENT); 403 → KhungKhongThay "Bạn không có quyền xem …" (câu máy chủ, không "Thử lại");
+ *   việc — KHO_LAM_VIEC_EVENT); 403 → KhungKhongThay "Bạn không có quyền xem …" ("Liên hệ quản trị viên…", không
+ *   "Thử lại"; không có nút về danh sách thì "Về trang tổng quan"; 403 vì kho đang chọn / phiên đăng nhập: câu máy
+ *   chủ, có `onThuLai` thì giữ "Tải lại" và tự tải lại khi đổi nơi làm việc);
  *   không tìm thấy → KhungKhongThay; còn lại → KhungLoiTai ("Thử lại" + nút về danh sách).
  *
  * - `loi`: lỗi của lần tải (axios); `null` = tải xong nhưng không có dữ liệu → "Không tìm thấy".
@@ -177,14 +181,18 @@ export function KhungLoiChungTu({
   moTaKhongThay,
   className,
 }) {
+  const navigate = useNavigate();
   const loai = phanLoaiLoiTai(loi, tuyChonLoi);
   const chu = chuLoiTai(tenChungTu);
   const loc = (cau) => (cau && locCauMayChu ? locCauMayChu(cau) : cau);
   const nhanVe = onVeDanhSach ? nhanVeDanhSach || chu.nhanVeDanhSach : undefined;
 
-  // Chứng từ thuộc kho khác: đổi "Nơi làm việc" (sidebar, ô chọn kho ở trang) thì tự tải lại. Giữ onThuLai mới nhất qua
-  // ref (nơi gọi hay truyền hàm viết tại chỗ) để không gỡ / gắn lại lắng nghe sau mỗi lần vẽ
-  const ngheDoiKho = loai.khoKhac && Boolean(onThuLai);
+  // 403 người dùng tự gỡ được (kho đang chọn, phiên đăng nhập): vẫn có "Tải lại" như chứng từ thuộc kho khác
+  const khongQuyenTuGo = loai.khongQuyen && la403TuGoDuoc(loc(loai.cauMayChu));
+
+  // Chứng từ thuộc kho khác (hoặc 403 vì kho đang chọn): đổi "Nơi làm việc" (sidebar, ô chọn kho ở trang) thì tự tải lại.
+  // Giữ onThuLai mới nhất qua ref (nơi gọi hay truyền hàm viết tại chỗ) để không gỡ / gắn lại lắng nghe sau mỗi lần vẽ
+  const ngheDoiKho = (loai.khoKhac || khongQuyenTuGo) && Boolean(onThuLai);
   const thuLaiRef = useRef(onThuLai);
   useEffect(() => {
     thuLaiRef.current = onThuLai;
@@ -212,14 +220,17 @@ export function KhungLoiChungTu({
     );
   }
   if (loai.khongQuyen) {
-    // 403: hiện câu máy chủ (không có quyền xem, không thuộc kho, phiên hết hạn…); thử lại vô ích nên chỉ có nút về danh sách
+    // 403: thử lại vô ích nên không có "Thử lại". Cùng cách ô lỗi của danh sách (ErrorState): ổ khóa như màn chặn vai trò,
+    // "Liên hệ quản trị viên…"; nút về danh sách, không có thì về Tổng quan. 403 vì kho đang chọn / phiên đăng nhập: câu
+    // máy chủ và giữ "Tải lại" (đổi nơi làm việc, đăng nhập lại rồi tải lại là xem được)
     return (
       <KhungKhongThay
-        icon={LockKeyhole}
+        icon={Lock}
         tieuDe={chu.tieuDeKhongQuyen}
-        moTa={loc(loai.cauMayChu) || chu.moTaKhongQuyen}
-        nhanNut={nhanVe}
-        onNut={onVeDanhSach}
+        moTa={moTaLoiKhongQuyen(loc(loai.cauMayChu))}
+        nhanNut={nhanVe ?? "Về trang tổng quan"}
+        onNut={onVeDanhSach ?? (() => navigate("/dashboard"))}
+        onTaiLai={khongQuyenTuGo ? onThuLai : undefined}
         className={className}
       />
     );

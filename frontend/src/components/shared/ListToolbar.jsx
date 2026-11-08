@@ -59,7 +59,8 @@ function ListToolbarDienThoai({ tabs, children, hasFilter, onClear, className })
   const ds = traiCon(children);
   const oTim = ds.find((c) => c.type === SearchInput) ?? null;
   const oLoc = ds.filter(laOLoc);
-  // Kho làm việc và các nút / chip riêng của trang giữ trên hàng (ô kho phải luôn gắn để nghe sự kiện đổi kho)
+  // Kho làm việc và các nút / chip riêng của trang giữ trên hàng (ô kho phải luôn gắn để nghe sự kiện đổi kho; ô kho
+  // không vẽ gì khi nhân viên chỉ có một kho — hàng trống thì ẩn, khỏi để một dải trống)
   const khac = ds.filter((c) => c !== oTim && !laOLoc(c));
   const dangLoc = oLoc.flatMap(chipLoc);
 
@@ -67,7 +68,7 @@ function ListToolbarDienThoai({ tabs, children, hasFilter, onClear, className })
     <div className={cn("border-b border-bo-border", className)}>
       {tabs ? <div className="relative z-[1] border-b border-bo-border px-3">{tabs}</div> : null}
       {khac.length ? (
-        <div className="flex flex-wrap items-center gap-2 px-3 pt-2.5 [&>*]:max-w-full">{khac}</div>
+        <div className="flex flex-wrap items-center gap-2 px-3 pt-2.5 empty:hidden [&>*]:max-w-full">{khac}</div>
       ) : null}
       {/* Không có ô tìm lẫn ô lọc (vd. tab Cần xử lý của Đối soát chuyển khoản): ẩn hàng, khỏi để một dải trống 20px */}
       <div className={cn("flex items-center gap-2 px-3 py-2.5", !oTim && !oLoc.length && "hidden")}>
