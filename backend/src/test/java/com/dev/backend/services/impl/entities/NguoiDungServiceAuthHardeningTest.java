@@ -87,6 +87,8 @@ class NguoiDungServiceAuthHardeningTest {
     private LienKetDatMatKhauRepository lienKetRepo;
     @Mock
     private PhienDangNhapService phienDangNhapService;
+    @Mock
+    private com.dev.backend.services.multitable.PhanQuyenNguoiDungService phanQuyenNguoiDungService;
 
     private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(4);
     private MutableClock clock;
@@ -120,6 +122,7 @@ class NguoiDungServiceAuthHardeningTest {
         ReflectionTestUtils.setField(service, "phanQuyenNguoiDungKhoService", phanQuyenNguoiDungKhoService);
         ReflectionTestUtils.setField(service, "lienKetDatMatKhauService", new LienKetDatMatKhauService(lienKetRepo));
         ReflectionTestUtils.setField(service, "phienDangNhapService", phienDangNhapService);
+        ReflectionTestUtils.setField(service, "phanQuyenNguoiDungService", phanQuyenNguoiDungService);
         lenient().when(phanQuyenNguoiDungKhoService.findByNguoiDungIdAndActive(any())).thenReturn(List.of());
         lenient().when(pqndkMapper.toDtoList(any())).thenReturn(List.of());
 
@@ -455,6 +458,7 @@ class NguoiDungServiceAuthHardeningTest {
                 .email("nhanvien@example.com")
                 .hoTen("Nhân Viên Mới")
                 .vaiTro(IRoleType.nhan_vien_kho)
+                .khoId(3)
                 .build();
 
         NguoiDung created = service.createInternalUserByAdmin(req);
@@ -496,9 +500,9 @@ class NguoiDungServiceAuthHardeningTest {
         when(repository.save(any(NguoiDung.class))).thenAnswer(inv -> inv.getArgument(0));
 
         NguoiDung macDinh = service.createInternalUserByAdmin(NguoiDungCreating.builder()
-                .tenDangNhap("nv1").email("nv1@example.com").vaiTro(" ").build());
+                .tenDangNhap("nv1").email("nv1@example.com").vaiTro(" ").khoId(3).build());
         NguoiDung quanLy = service.createInternalUserByAdmin(NguoiDungCreating.builder()
-                .tenDangNhap("ql1").email("ql1@example.com").vaiTro(" quan_ly_kho ").build());
+                .tenDangNhap("ql1").email("ql1@example.com").vaiTro(" quan_ly_kho ").khoId(3).build());
 
         assertEquals(IRoleType.nhan_vien_kho, macDinh.getVaiTro());
         assertEquals(IRoleType.quan_ly_kho, quanLy.getVaiTro());

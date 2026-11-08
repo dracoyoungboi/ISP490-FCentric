@@ -14,6 +14,13 @@ public interface PhanQuyenNguoiDungService {
     /** Lưu vai trò, kho, hạn hiệu lực và tập quyền đầy đủ trong một giao dịch; ghi một dòng lịch sử nếu có thay đổi. */
     void luuPhanQuyen(Integer nguoiDungId, LuuPhanQuyenRequest request);
 
+    /**
+     * Tài khoản vừa tạo ở hộp Thêm người dùng: vai trò làm theo kho thì gán nơi làm việc kèm mẫu quyền của vai trò, qua
+     * cùng luồng lưu của ngăn kéo Phân quyền (kho ngừng hoạt động, kho ảo bị từ chối; có ghi lịch sử). Quản trị viên
+     * không cần kho nên bỏ qua. Gọi trong giao dịch tạo tài khoản: kho không hợp lệ thì tài khoản cũng không được tạo.
+     */
+    void phanKhoTaiKhoanMoi(Integer nguoiDungId, String vaiTro, Integer khoId);
+
     /** Lịch sử phân quyền của một người dùng, mới nhất trước. */
     List<LichSuPhanQuyenDto> layLichSuPhanQuyen(Integer nguoiDungId);
 

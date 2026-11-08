@@ -90,7 +90,7 @@ const COLUMNS = [
     { label: "Người dùng" },
     { label: "Tên đăng nhập", className: AN_BANG },
     { label: "Vai trò", className: AN_BANG },
-    { label: "Kho phụ trách" },
+    { label: "Nơi làm việc" },
     { label: "Số điện thoại", className: AN_BANG },
     { label: "Trạng thái" },
     { label: "Ngày tạo", className: AN_BANG },
@@ -128,7 +128,7 @@ function tenTrongCau(user) {
 }
 
 /**
- * Cột Kho phụ trách: kho đang hiệu lực (mỗi người tối đa một kho) do POST /admin/filter trả trong `khoPhuTrachHieuLuc`.
+ * Cột Nơi làm việc: kho đang hiệu lực (mỗi người tối đa một kho) do POST /admin/filter trả trong `khoPhuTrachHieuLuc`.
  * Quản trị viên toàn quyền ở mọi kho. Máy chủ bản cũ chưa trả trường này thì ghi "—" thay vì báo nhầm "Chưa có kho".
  */
 function KhoPhuTrach({ user }) {
@@ -322,7 +322,8 @@ export default function ViewUserListByAdmin() {
             }
             setUsers([]);
             setTotal(0);
-            setLoadError(error?.response?.data?.message || LOAD_ERROR_MESSAGE);
+            // Giữ lỗi gốc để ô lỗi phân biệt 403 (không có quyền: ổ khóa, không "Thử lại")
+            setLoadError(error);
             setLoading(false);
         }
     }, [filters]);
@@ -592,7 +593,8 @@ export default function ViewUserListByAdmin() {
                     <LoadingState label="Đang tải danh sách người dùng" />
                 ) : loadError ? (
                     <ErrorState
-                        description={loadError}
+                        description={loadError?.response?.data?.message || LOAD_ERROR_MESSAGE}
+                        error={loadError}
                         onRetry={() => {
                             fetchUsers();
                             tabCounts.reload();
@@ -639,7 +641,7 @@ export default function ViewUserListByAdmin() {
                 ) : (
                     <>
                     {/* Điện thoại: mỗi người một thẻ (chạm mở Chi tiết người dùng, nơi có Phân quyền, Gửi liên kết đặt lại mật khẩu,
-                        Khóa / mở khóa): tên + trạng thái, vai trò · tên đăng nhập, kho phụ trách */}
+                        Khóa / mở khóa): tên + trạng thái, vai trò · tên đăng nhập, nơi làm việc */}
                     <ul className="divide-y divide-bo-border md:hidden">
                         {users.map((u) => {
                             const isActive = u.trangThai === 1;

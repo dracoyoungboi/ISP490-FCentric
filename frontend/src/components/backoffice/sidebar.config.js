@@ -72,7 +72,21 @@ const TAT_CA_VAI_TRO = [
   "nhan_vien_mua_hang",
   "nhan_vien_ban_hang",
 ];
-const VAI_TRO_KHO = ["quan_tri_vien", "quan_ly_kho", "nhan_vien_kho"];
+
+/*
+ * Vai trò của các mục menu mà App.jsx cũng dùng để chặn đường dẫn (RequireRole): menu và đường dẫn chung một danh sách
+ * nên không lệch nhau. Mỗi danh sách khớp @RequireAuth của API chính trang đó gọi.
+ */
+// Người dùng: AdminController
+export const VAI_TRO_NGUOI_DUNG = ["quan_tri_vien"];
+// Phiếu nhập, xuất, chuyển kho, vị trí kệ, lịch sử giao dịch kho
+export const VAI_TRO_KHO = ["quan_tri_vien", "quan_ly_kho", "nhan_vien_kho"];
+// Đơn mua hàng (GET /don-mua-hang/get-by-id, /filter); cũng là vai trò xem được giá mua ở yêu cầu báo giá, báo giá
+export const VAI_TRO_DON_MUA = ["quan_tri_vien", "quan_ly_kho", "nhan_vien_mua_hang", "nhan_vien_kho"];
+// Danh sách kho: GET /kho/{id}/tom-tat
+export const VAI_TRO_DANH_SACH_KHO = ["quan_tri_vien", "quan_ly_kho"];
+// Đơn bán hàng: POST /don-ban-hang/filter, GET /don-ban-hang/{id}/detail
+export const VAI_TRO_DON_BAN = ["quan_tri_vien", "nhan_vien_ban_hang", "nhan_vien_kho", "quan_ly_kho"];
 
 // Mục con khai báo `nhom` ("chung-tu" | "du-lieu"): BackofficeSidebar kẻ một đường mảnh giữa chứng từ và dữ liệu gốc
 // (nhà cung cấp, khách hàng, kho, vị trí kệ). Mỗi nhóm tối đa một đường kẻ.
@@ -95,7 +109,7 @@ export const SIDEBAR_MENU = [
     icon: User,
     section: "overview",
     to: "/users",
-    roles: ["quan_tri_vien"],
+    roles: VAI_TRO_NGUOI_DUNG,
   },
 
   // ================= SẢN PHẨM =================
@@ -150,7 +164,7 @@ export const SIDEBAR_MENU = [
         label: "Đơn mua hàng",
         to: "/purchase-orders",
         nhom: CHUNG_TU,
-        roles: ["quan_tri_vien", "quan_ly_kho", "nhan_vien_mua_hang", "nhan_vien_kho"],
+        roles: VAI_TRO_DON_MUA,
       },
       {
         label: "Nhà cung cấp",
@@ -197,7 +211,7 @@ export const SIDEBAR_MENU = [
         nhom: DU_LIEU,
         // /warehouse/locations thuộc mục "Vị trí kệ"
         match: (path) => path === "/warehouse",
-        roles: ["quan_tri_vien", "quan_ly_kho"],
+        roles: VAI_TRO_DANH_SACH_KHO,
       },
       // FO-094: khu vực, vị trí kệ và mặt bằng kho
       { label: "Vị trí kệ", to: "/warehouse/locations", nhom: DU_LIEU, roles: VAI_TRO_KHO },
@@ -227,7 +241,7 @@ export const SIDEBAR_MENU = [
         label: "Đơn bán hàng",
         to: "/sales-orders",
         nhom: CHUNG_TU,
-        roles: ["quan_tri_vien", "nhan_vien_ban_hang", "nhan_vien_kho", "quan_ly_kho"],
+        roles: VAI_TRO_DON_BAN,
       },
       {
         // Giao dịch chuyển khoản tại quầy; quản trị viên xử lý giao dịch đã nhận tiền nhưng chưa có đơn.

@@ -41,14 +41,12 @@ public class AdminDashboardController {
         this.adminDashboardService = adminDashboardService;
     }
 
+    /**
+     * Số liệu toàn chuỗi (doanh thu không lọc kho, số tài khoản, tài khoản bị khóa): chỉ quản trị viên như
+     * Tổng quan (ma trận phân quyền SRS); các vai trò khác dùng Tổng quan theo vai trò.
+     */
     @GetMapping
-    @RequireAuth(roles = {
-            IRoleType.quan_tri_vien,
-            IRoleType.quan_ly_kho,
-            IRoleType.nhan_vien_kho,
-            IRoleType.nhan_vien_ban_hang,
-            IRoleType.nhan_vien_mua_hang
-    })
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     public ResponseEntity<ResponseData<AdminDashboardResponse>> getDashboardByAdmin(
             @RequestHeader("Authorization") String authHeader
     ) {

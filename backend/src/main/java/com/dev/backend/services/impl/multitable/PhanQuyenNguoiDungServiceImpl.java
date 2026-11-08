@@ -146,6 +146,26 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
     @Override
     @Transactional
     public void luuPhanQuyen(Integer nguoiDungId, LuuPhanQuyenRequest request) {
+        luuPhanQuyen(nguoiDungId, request, true);
+    }
+
+    @Override
+    @Transactional
+    public void phanKhoTaiKhoanMoi(Integer nguoiDungId, String vaiTro, Integer khoId) {
+        if (!lamViecTheoKho(vaiTro)) {
+            return;
+        }
+        if (khoId == null) {
+            throw new CommonException("Vui lòng chọn nơi làm việc");
+        }
+        // Như chọn kho lần đầu trong ngăn kéo: điền sẵn mẫu quyền của vai trò (vai trò chưa có mẫu thì chưa có quyền nào).
+        // Không báo "quyền đã đổi" cho tài khoản chưa đăng nhập lần nào (câu "đăng nhập lại" sai ngữ cảnh).
+        List<Integer> mau = mauQuyenVaiTroRepository.layTatCa().getOrDefault(vaiTro, List.of());
+        luuPhanQuyen(nguoiDungId, new LuuPhanQuyenRequest(vaiTro, khoId, null, mau), false);
+    }
+
+    /** {@code baoNguoiDung}: gửi thông báo "Quyền của bạn vừa thay đổi" cho người được phân quyền. */
+    private void luuPhanQuyen(Integer nguoiDungId, LuuPhanQuyenRequest request, boolean baoNguoiDung) {
         if (nguoiDungId == null || request == null) {
             throw new CommonException("Thông tin phân quyền không hợp lệ");
         }
@@ -199,7 +219,7 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
                         .map(QuyenHan::getMaQuyen).collect(Collectors.toCollection(TreeSet::new)));
 
         if (!truoc.giongNhau(sau)) {
-            ghiLichSuPhanQuyen(nguoiDung, truoc, sau, nguoiThucHien, bayGio);
+            ghiLichSuPhanQuyen(nguoiDung, truoc, sau, nguoiThucHien, bayGio, baoNguoiDung);
         }
 
         // Controller đọc lại chi tiết ngay trong cùng request (open-in-view giữ nguyên phiên JPA). Phân quyền kho
@@ -368,7 +388,7 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
     }
 
     private void ghiLichSuPhanQuyen(NguoiDung nguoiDung, AnhChup truoc, AnhChup sau, NguoiDung nguoiThucHien,
-                                    Instant bayGio) {
+                                    Instant bayGio, boolean baoNguoiDung) {
         lichSuThayDoiRepository.save(LichSuThayDoi.builder()
                 .loaiThamChieu(ITable.nguoi_dung)
                 .idThamChieu(nguoiDung.getId())
@@ -381,7 +401,8 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
                 .ghiChu("Cập nhật phân quyền cho " + ITable.nguoi_dung + " id: " + nguoiDung.getId())
                 .build());
         // Mọi lần đổi phân quyền đều đi qua đây (lưu phân quyền, đổi vai trò, thu hồi kho): báo chính người đó sau commit
-        if (thongBaoHeThongService != null) {
+        // (trừ lần phân kho lúc vừa tạo tài khoản)
+        if (baoNguoiDung && thongBaoHeThongService != null) {
             thongBaoHeThongService.quyenDaDoi(nguoiDung.getId(), nguoiThucHien == null ? null : nguoiThucHien.getId(),
                     anhQuyen(truoc), anhQuyen(sau), bayGio);
         }
@@ -554,7 +575,8 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
         AnhChup truoc = chup(vaiTro, pq);
         thuHoiPhanQuyenKho(pq, bayGio);
         if (nguoiDung != null) {
-            ghiLichSuPhanQuyen(nguoiDung, truoc, new AnhChup(vaiTro, null, null, new TreeSet<>()), nguoiThucHien, bayGio);
+            ghiLichSuPhanQuyen(nguoiDung, truoc, new AnhChup(vaiTro, null, null, new TreeSet<>()), nguoiThucHien, bayGio,
+                    true);
         }
     }
 

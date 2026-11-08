@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import { AlertCircle, Loader2, Mail, ShieldAlert, UserPlus, X } from "lucide-react";
 
 import {
@@ -28,10 +28,14 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { canKho } from "@/components/nguoi-dung/phanQuyen";
 import { ROLES } from "@/constants/backend/role";
+import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import { cn } from "@/lib/utils";
 import { adminService } from "@/services/adminService";
+import { khoService } from "@/services/khoService";
 import { getApiErrorMessage } from "@/utils/apiError";
+import { laKhoGiaoDich } from "@/utils/kho";
 import { HAN_LIEN_KET_MAT_KHAU } from "@/utils/matKhau";
 import { PHONE_ERROR_MESSAGE, PHONE_REGEX, sanitizePhoneInput } from "@/utils/phoneValidation";
 import { chuanHoaHoTen, loiHoTen } from "@/validations/hoTen";
@@ -49,9 +53,17 @@ const MAX_LENGTH = { tenDangNhap: 50, email: 100 };
 // Trùng mặc định của backend khi không gửi vai trò. Danh sách chọn theo đúng thứ tự trong ROLES (Quản trị viên cuối).
 const DEFAULT_ROLE = "nhan_vien_kho";
 
-const EMPTY_FORM = { hoTen: "", tenDangNhap: "", email: "", soDienThoai: "", vaiTro: DEFAULT_ROLE };
-// Thứ tự trên màn hình: lỗi đầu tiên theo thứ tự này được focus khi bấm Tạo tài khoản.
+// khoId: id kho dạng chuỗi (giá trị của ô chọn), "" = chưa chọn
+const EMPTY_FORM = { hoTen: "", tenDangNhap: "", email: "", soDienThoai: "", vaiTro: DEFAULT_ROLE, khoId: "" };
 const TEXT_FIELDS = ["hoTen", "tenDangNhap", "email", "soDienThoai"];
+// Thứ tự trên màn hình: lỗi đầu tiên theo thứ tự này được focus khi bấm Tạo tài khoản.
+const FIELD_ORDER = ["hoTen", "tenDangNhap", "khoId", "email", "soDienThoai"];
+
+/**
+ * Nơi làm việc bắt buộc với vai trò làm theo kho (mọi vai trò trừ Quản trị viên, như ngăn kéo Phân quyền); máy chủ
+ * gán kho kèm mẫu quyền của vai trò ngay khi tạo, tài khoản không còn ở trạng thái "Chưa có kho".
+ */
+const loiNoiLamViec = (form) => (canKho(form.vaiTro) && !form.khoId ? "Vui lòng chọn nơi làm việc" : "");
 
 const VALIDATORS = {
     // Cùng luật với Hồ sơ của tôi và máy chủ (validations/hoTen.js ↔ HoTen.java)
@@ -93,6 +105,8 @@ function fieldOfServerMessage(message) {
     if (text.includes("email")) return "email";
     if (text.includes("số điện thoại")) return "soDienThoai";
     if (text.includes("họ tên") || text.includes("họ và tên")) return "hoTen";
+    // "Vui lòng chọn nơi làm việc", "Kho … đang ngừng hoạt động…", "Kho ảo…", "Không tìm thấy kho"
+    if (text.includes("nơi làm việc") || /(^|\s)kho(\s|$)/.test(text)) return "khoId";
     return null;
 }
 
@@ -183,8 +197,16 @@ function AddUserForm({ onClose, onCreated }) {
     const confirmReturnFocusRef = useRef(null);
     const discardingRef = useRef(false);
 
+    // Cùng nguồn và quy tắc với ngăn kéo Phân quyền: kho ảo (hàng đang chuyển) và kho ngừng hoạt động không phân người
+    const khoQ = useTaiDuLieu(async () => {
+        const res = await khoService.getAllKho();
+        return Array.isArray(res?.data?.content) ? res.data.content : [];
+    });
+    const dsKho = useMemo(() => (khoQ.data ?? []).filter(laKhoGiaoDich), [khoQ.data]);
+    const loiTaiKho = Boolean(khoQ.error) && !dsKho.length;
+
     const isDirty =
-        TEXT_FIELDS.some((name) => form[name].trim() !== "") || form.vaiTro !== DEFAULT_ROLE;
+        TEXT_FIELDS.some((name) => form[name].trim() !== "") || form.vaiTro !== DEFAULT_ROLE || form.khoId !== "";
 
     // Đặt con trỏ cuối ô (không bôi đen): sửa "nguyenvanan" thành "nguyenvanan2" chỉ cần gõ thêm.
     const focusField = (name) => {
@@ -210,8 +232,12 @@ function AddUserForm({ onClose, onCreated }) {
         // Ô đã báo lỗi: kiểm tra lại ngay (lỗi trùng từ máy chủ cũng mất khi giá trị đổi).
         const changed = name === "hoTen" && !usernameEdited ? ["hoTen", "tenDangNhap"] : [name];
         changed.forEach((field) => {
-            if (errors[field]) setFieldError(field, VALIDATORS[field](next[field]));
+            if (errors[field] && VALIDATORS[field]) setFieldError(field, VALIDATORS[field](next[field]));
         });
+        // Nơi làm việc phụ thuộc cả vai trò: chọn kho, hoặc đổi sang Quản trị viên (không cần kho) thì lỗi mất ngay
+        if ((name === "khoId" || name === "vaiTro") && errors.khoId) {
+            setFieldError("khoId", loiNoiLamViec(next));
+        }
         // SĐT đủ 10 số mà sai đầu số thì báo luôn, giống các màn khác.
         if (name === "soDienThoai" && value.length === 10) {
             setFieldError(name, VALIDATORS.soDienThoai(value));
@@ -245,10 +271,12 @@ function AddUserForm({ onClose, onCreated }) {
             const message = VALIDATORS[name](form[name]);
             if (message) nextErrors[name] = message;
         });
+        const khoMessage = loiNoiLamViec(form);
+        if (khoMessage) nextErrors.khoId = khoMessage;
         setErrors(nextErrors);
         setSubmitError("");
 
-        const firstInvalid = TEXT_FIELDS.find((name) => nextErrors[name]);
+        const firstInvalid = FIELD_ORDER.find((name) => nextErrors[name]);
         if (firstInvalid) {
             focusField(firstInvalid);
             return;
@@ -260,6 +288,8 @@ function AddUserForm({ onClose, onCreated }) {
             email: form.email.trim(),
             soDienThoai: form.soDienThoai || null,
             vaiTro: form.vaiTro,
+            // Quản trị viên không có nơi làm việc (ô bị ẩn, giá trị đã chọn trước đó bỏ đi)
+            khoId: canKho(form.vaiTro) ? Number(form.khoId) : null,
         };
 
         setSubmitting(true);
@@ -275,6 +305,11 @@ function AddUserForm({ onClose, onCreated }) {
             const field = error?.response ? fieldOfServerMessage(message) : null;
             if (field) {
                 setFieldError(field, message);
+                // Kho vừa bị ngừng hoạt động ở màn khác: bỏ chọn và tải lại danh sách để kho đó không còn trong ô chọn
+                if (field === "khoId") {
+                    setForm((prev) => ({ ...prev, khoId: "" }));
+                    khoQ.reload();
+                }
                 // Chờ render xong (ô hết readOnly) rồi mới focus vào ô cần sửa.
                 setTimeout(() => focusField(field), 0);
             } else {
@@ -284,7 +319,7 @@ function AddUserForm({ onClose, onCreated }) {
         }
     };
 
-    const describedBy = (name) => (errors[name] || name === "tenDangNhap" || name === "vaiTro"
+    const describedBy = (name) => (errors[name] || name === "tenDangNhap" || name === "vaiTro" || name === "khoId"
         ? `${fieldId(name)}-message`
         : undefined);
 
@@ -303,6 +338,7 @@ function AddUserForm({ onClose, onCreated }) {
     });
 
     const isAdminRole = form.vaiTro === "quan_tri_vien";
+    const needsWarehouse = canKho(form.vaiTro);
 
     return (
         <>
@@ -454,6 +490,82 @@ function AddUserForm({ onClose, onCreated }) {
                                 </SelectContent>
                             </Select>
                         </Field>
+
+                        {/* Ngay dưới Vai trò, cả hàng; Quản trị viên toàn quyền ở mọi kho nên không có ô này */}
+                        {needsWarehouse ? (
+                            <Field
+                                id={fieldId("khoId")}
+                                label="Nơi làm việc"
+                                required
+                                error={
+                                    loiTaiKho ? (
+                                        <>
+                                            Không tải được danh sách kho.{" "}
+                                            <button
+                                                type="button"
+                                                onClick={khoQ.reload}
+                                                className="font-medium text-bo-primary hover:underline focus-visible:underline focus-visible:outline-none"
+                                            >
+                                                Thử lại
+                                            </button>
+                                        </>
+                                    ) : (
+                                        errors.khoId
+                                    )
+                                }
+                                hint="Mỗi người 1 kho, quyền theo mẫu của vai trò."
+                                className="sm:col-span-2"
+                            >
+                                <Select
+                                    value={form.khoId}
+                                    onValueChange={(value) => changeField("khoId", value)}
+                                    disabled={submitting || !dsKho.length}
+                                >
+                                    <SelectTrigger
+                                        id={fieldId("khoId")}
+                                        ref={(element) => {
+                                            inputRefs.current.khoId = element;
+                                        }}
+                                        aria-required="true"
+                                        aria-invalid={errors.khoId || loiTaiKho ? true : undefined}
+                                        aria-describedby={describedBy("khoId")}
+                                        className={cn(
+                                            CONTROL_CLASS,
+                                            "w-full data-[size=default]:h-10 disabled:cursor-default disabled:opacity-100 data-[placeholder]:text-slate-400",
+                                            errors.khoId && CONTROL_ERROR_CLASS,
+                                        )}
+                                    >
+                                        <SelectValue
+                                            placeholder={
+                                                khoQ.loading && !dsKho.length
+                                                    ? "Đang tải danh sách kho..."
+                                                    : loiTaiKho || dsKho.length
+                                                      ? "Chọn kho"
+                                                      : "Chưa có kho đang hoạt động"
+                                            }
+                                        />
+                                    </SelectTrigger>
+                                    <SelectContent
+                                        position="popper"
+                                        sideOffset={4}
+                                        className="z-50 max-h-72 rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg"
+                                    >
+                                        {dsKho.map((kho) => (
+                                            <SelectItem
+                                                key={kho.id}
+                                                value={String(kho.id)}
+                                                className="rounded-md py-2 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
+                                            >
+                                                {kho.tenKho || kho.maKho}
+                                                {kho.tenKho && kho.maKho ? (
+                                                    <span className="font-mono text-xs text-bo-muted">{kho.maKho}</span>
+                                                ) : null}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </Field>
+                        ) : null}
 
                         <Field id={fieldId("email")} label="Email" required error={errors.email}>
                             <Input

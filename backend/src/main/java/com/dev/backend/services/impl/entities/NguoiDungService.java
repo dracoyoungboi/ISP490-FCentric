@@ -39,12 +39,14 @@ import com.dev.backend.services.impl.utils.LoginRateLimiter;
 import com.dev.backend.services.impl.utils.NhatKyBaoMatService;
 import com.dev.backend.services.impl.utils.NhatKyNghiepVu;
 import com.dev.backend.services.impl.utils.PasswordResetRateLimiter;
+import com.dev.backend.services.multitable.PhanQuyenNguoiDungService;
 import com.dev.backend.utils.AvatarImageValidator;
 import com.dev.backend.utils.HoTen;
 import jakarta.persistence.EntityManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -121,6 +123,11 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
     // Liên kết đặt mật khẩu dùng một lần (E2, E3) thay cho mật khẩu tạm gửi dạng rõ
     @Autowired
     private LienKetDatMatKhauService lienKetDatMatKhauService;
+
+    // Gán nơi làm việc cho tài khoản mới qua cùng luồng lưu của ngăn kéo Phân quyền; @Lazy tránh vòng phụ thuộc
+    @Autowired
+    @Lazy
+    private PhanQuyenNguoiDungService phanQuyenNguoiDungService;
 
     private static final Logger logger = LoggerFactory.getLogger(NguoiDungService.class);
 
@@ -1127,6 +1134,13 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
             throw new CommonException("Số điện thoại đã tồn tại");
         }
 
+        // Vai trò làm theo kho (mọi vai trò nhân sự trừ Quản trị viên, như PhanQuyenNguoiDungServiceImpl.lamViecTheoKho)
+        // phải có nơi làm việc ngay khi tạo: không có kho thì đăng nhập vào không làm được gì
+        boolean lamTheoKho = !IRoleType.quan_tri_vien.equals(vaiTro);
+        if (lamTheoKho && request.getKhoId() == null) {
+            throw new CommonException("Vui lòng chọn nơi làm việc");
+        }
+
         NguoiDung nguoiDung = new NguoiDung();
         nguoiDung.setTenDangNhap(tenDangNhap);
         nguoiDung.setEmail(email);
@@ -1150,6 +1164,11 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         emailNghiepVuService.guiTaiKhoanMoi(saved, lienKet.ma(), lienKet.hetHanLuc());
         nhatKyBaoMatService.ghiSauCommit(IHanhDong.tao_tai_khoan, ITable.nguoi_dung, saved.getId(),
                 quanTriId, "Vai trò " + vaiTro);
+
+        // Làm cuối cùng: kho ngừng hoạt động / kho ảo thì báo lỗi, cả giao dịch hoàn tác (email, nhật ký chỉ chạy sau commit)
+        if (lamTheoKho) {
+            phanQuyenNguoiDungService.phanKhoTaiKhoanMoi(saved.getId(), vaiTro, request.getKhoId());
+        }
 
         return saved;
     }
