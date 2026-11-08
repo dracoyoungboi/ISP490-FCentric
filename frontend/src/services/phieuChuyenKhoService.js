@@ -10,8 +10,11 @@ const THOI_HAN_TAI_ANH_MS = 60000;
  * PN-TRF / PN-RET, biên bản giao nhận và phiếu điều chỉnh kho. Chi tiết trả kèm `quyen` (nút người đang xem được bấm).
  */
 export const phieuChuyenKhoService = {
-    /** Danh sách B.6: { tab, q, khoXuatId, khoNhapId, trangThai, page, size } → { content, totalElements, totalPages, soTheoTab }. */
-    danhSach: (params) => apiClient.get(GOC, { params }).then(duLieu),
+    /**
+     * Danh sách B.6: { tab, q, khoXuatId, khoNhapId, trangThai, page, size } → { content, totalElements, totalPages, soTheoTab }.
+     * `config` (tùy chọn): cấu hình axios, vd. { signal } để hủy lần tìm cũ.
+     */
+    danhSach: (params, config) => apiClient.get(GOC, { ...config, params }).then(duLieu),
     chiTiet: (id) => apiClient.get(`${GOC}/${id}`).then(duLieu),
     /** { khoXuatId, khoNhapId, ghiChu, chiTietXuat: [{ bienTheSanPhamId, soLuongXuat }] } → phiếu Chờ duyệt. */
     tao: (payload) => apiClient.post(`${GOC}/create`, payload).then(duLieu),

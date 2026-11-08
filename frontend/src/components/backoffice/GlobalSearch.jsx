@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { History, LayoutGrid, Package, Search, ShoppingCart, UserRound, X } from "lucide-react";
+import { FileText, History, LayoutGrid, Package, Search, ShoppingCart, UserRound, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { xinRoiTrang } from "@/lib/chanRoiTrang";
@@ -10,15 +10,18 @@ import { useKenhDaKetNoi } from "@/components/channel/kenhDaKetNoi";
 import apiClient from "@/services/apiClient";
 import { productService } from "@/services/productService";
 import { donBanHangKenhService } from "@/services/donBanHangKenhService";
+import { LOAI_CHUNG_TU, timChungTu } from "@/services/timChungTuService";
 import { getDonBanHangStatus } from "@/constants/donBanHang";
 import { formatCurrency } from "@/utils/formatters";
 
 /*
  * Ô tìm kiếm toàn hệ thống trên thanh trên cùng (thay breadcrumb, phương án 14/10/2026).
  * - Ctrl/⌘ + K để mở. Chưa gõ: hàng tab + gợi ý, kèm "Tìm gần đây" nếu có.
- * - Gõ từ 2 ký tự: tab Tất cả / Màn hình / Sản phẩm / Đơn hàng / Khách hàng.
- *   Màn hình lọc tại chỗ từ menu bên trái; ba nhóm còn lại gọi đúng API lọc mà trang danh sách đang dùng.
- * - Nhóm nào người dùng không có quyền vào trang danh sách tương ứng thì ẩn (quyền lấy từ sidebar.config).
+ * - Gõ từ 2 ký tự: tab Tất cả / Màn hình / Sản phẩm / Đơn hàng / Khách hàng / Chứng từ.
+ *   Màn hình lọc tại chỗ từ menu bên trái; các nhóm còn lại gọi đúng API lọc mà trang danh sách đang dùng.
+ *   Chứng từ (phiếu xuất, nhập, chuyển kho, đơn mua, yêu cầu nhập) tìm theo mã, xem timChungTuService.
+ * - Nhóm nào người dùng không có quyền vào trang danh sách tương ứng thì ẩn (quyền lấy từ sidebar.config); nhóm
+ *   Chứng từ chỉ tìm các loại có trang danh sách người dùng được vào.
  */
 
 const SO_KY_TU_TOI_THIEU = 2;
@@ -32,6 +35,7 @@ const NHOM = [
   { key: "sanPham", label: "Sản phẩm", trangDanhSach: "/products", icon: Package },
   { key: "donHang", label: "Đơn hàng", trangDanhSach: "/sales-orders", icon: ShoppingCart },
   { key: "khachHang", label: "Khách hàng", trangDanhSach: "/customers", icon: UserRound },
+  { key: "chungTu", label: "Chứng từ", trangDanhSach: null, icon: FileText },
 ];
 
 const GOI_Y_THEO_TAB = {
@@ -40,6 +44,8 @@ const GOI_Y_THEO_TAB = {
   sanPham: "sản phẩm theo tên",
   donHang: "đơn hàng theo mã đơn",
   khachHang: "khách hàng theo tên, mã hoặc số điện thoại",
+  chungTu: "phiếu nhập, phiếu xuất, chuyển kho, đơn mua, yêu cầu nhập theo mã",
+  tatCaCoChungTu: "sản phẩm, đơn hàng, mã phiếu, khách hàng, màn hình",
 };
 
 const TRANG_THAI_SAN_PHAM = {
@@ -84,6 +90,9 @@ function vaiTroCuaTrang(duongDan) {
   }
   return [];
 }
+
+/** Loại chứng từ (LOAI_CHUNG_TU) mà vai trò được vào trang danh sách. */
+const loaiChungTuDuocXem = (role) => LOAI_CHUNG_TU.filter((l) => vaiTroCuaTrang(l.trang).includes(role));
 
 /**
  * Danh sách màn hình người dùng được vào, lấy từ menu bên trái. Mục của từng sàn (khai báo `maKenh`) chỉ có khi
@@ -169,7 +178,13 @@ async function timKhachHang(tuKhoa) {
   return res?.data?.data ?? trangRong;
 }
 
-const HAM_TIM = { sanPham: timSanPham, donHang: timDonHang, khachHang: timKhachHang };
+// `signal`: hủy lần tìm cũ khi người dùng gõ tiếp (hiện chỉ nhóm Chứng từ — năm API mỗi lần gõ — nhận)
+const HAM_TIM = {
+  sanPham: timSanPham,
+  donHang: timDonHang,
+  khachHang: timKhachHang,
+  chungTu: (tuKhoa, role, signal) => timChungTu(tuKhoa, loaiChungTuDuocXem(role), { signal }),
+};
 
 /* ---------- Thành phần ---------- */
 
@@ -191,9 +206,15 @@ export default function GlobalSearch({ userId, role, isPhone = false, placeholde
   const kenhDaKetNoi = useKenhDaKetNoi();
   const manHinh = useMemo(() => danhSachManHinh(role, kenhDaKetNoi), [role, kenhDaKetNoi]);
   const nhomDuocXem = useMemo(
-    () => NHOM.filter((n) => !n.trangDanhSach || vaiTroCuaTrang(n.trangDanhSach).includes(role)),
+    () =>
+      NHOM.filter((n) =>
+        n.key === "chungTu"
+          ? loaiChungTuDuocXem(role).length > 0
+          : !n.trangDanhSach || vaiTroCuaTrang(n.trangDanhSach).includes(role),
+      ),
     [role],
   );
+  const coChungTu = nhomDuocXem.some((n) => n.key === "chungTu");
 
   const tk = tuKhoa.trim();
   const daGoDu = tk.length >= SO_KY_TU_TOI_THIEU;
@@ -206,30 +227,35 @@ export default function GlobalSearch({ userId, role, isPhone = false, placeholde
     return manHinh.filter((m) => boDau(`${m.label} ${m.viTri}`).includes(k));
   }, [daGoDu, tk, manHinh]);
 
-  // Gọi API khi ngừng gõ; chỉ nhận kết quả của lần gõ mới nhất
+  // Gọi API khi ngừng gõ; chỉ nhận kết quả của lần gõ mới nhất. Gõ tiếp / đóng ô thì hủy các lời gọi đang chạy
   useEffect(() => {
     if (!daGoDu) return undefined;
     const lanTim = ++lanTimRef.current;
     const nhomApi = nhomDuocXem.filter((n) => HAM_TIM[n.key]);
+    const huy = new AbortController();
+    const boQua = () => lanTim !== lanTimRef.current || huy.signal.aborted;
     const hen = setTimeout(() => {
       setKetQua(Object.fromEntries(nhomApi.map((n) => [n.key, { trangThai: "dangTai" }])));
       nhomApi.forEach((n) => {
-        HAM_TIM[n.key](tk)
+        HAM_TIM[n.key](tk, role, huy.signal)
           .then((trang) => {
-            if (lanTim !== lanTimRef.current) return;
+            if (boQua()) return;
             setKetQua((cu) => ({
               ...cu,
               [n.key]: { trangThai: "xong", content: trang.content ?? [], totalElements: trang.totalElements ?? 0 },
             }));
           })
           .catch(() => {
-            if (lanTim !== lanTimRef.current) return;
+            if (boQua()) return;
             setKetQua((cu) => ({ ...cu, [n.key]: { trangThai: "loi" } }));
           });
       });
     }, THOI_GIAN_CHO_MS);
-    return () => clearTimeout(hen);
-  }, [daGoDu, tk, nhomDuocXem]);
+    return () => {
+      clearTimeout(hen);
+      huy.abort();
+    };
+  }, [daGoDu, tk, nhomDuocXem, role]);
 
   const dangCho = daGoDu && Object.keys(ketQua).length === 0;
 
@@ -292,6 +318,7 @@ export default function GlobalSearch({ userId, role, isPhone = false, placeholde
         sanPham: `/products/${d.giaTri.id}`,
         donHang: `/sales-orders/${d.giaTri.id}`,
         khachHang: `/customers/${d.giaTri.id}`,
+        chungTu: d.giaTri.to,
       }[d.loai];
       setTuKhoa("");
       setKetQua({});
@@ -425,6 +452,11 @@ export default function GlobalSearch({ userId, role, isPhone = false, placeholde
           {!item.soDienThoai && !item.maKhachHang ? "—" : null}
         </>
       );
+    } else if (d.loai === "chungTu") {
+      bieuTuong = <FileText className="size-4" />;
+      chinh = <ToDam text={item.ma} tuKhoa={tk} />;
+      phu = [item.tenLoai, item.phu].filter(Boolean).join(" · ");
+      benPhai = item.trangThai ? <StatusBadge quyTrinh={item.quyTrinh} label={item.trangThai} /> : null;
     } else {
       bieuTuong = <History className="size-4" />;
       chinh = item;
@@ -481,12 +513,14 @@ export default function GlobalSearch({ userId, role, isPhone = false, placeholde
       <TrangThaiRong>
         {tk.length > 0
           ? `Gõ thêm ít nhất ${SO_KY_TU_TOI_THIEU - tk.length} ký tự nữa`
-          : `Nhập từ khóa để tìm ${GOI_Y_THEO_TAB[tabHienTai]}…`}
+          : `Nhập từ khóa để tìm ${GOI_Y_THEO_TAB[tabHienTai === "tatCa" && coChungTu ? "tatCaCoChungTu" : tabHienTai]}…`}
       </TrangThaiRong>
     );
   } else if (!conDangTai && tongKetQua === 0 && nhomHienThi.every((n) => n.trangThai === "xong")) {
     than = (
-      <TrangThaiRong ghiChu="Thử tìm theo mã đơn, tên sản phẩm, tên hoặc số điện thoại khách hàng">
+      <TrangThaiRong
+        ghiChu={`Thử tìm theo mã đơn${coChungTu ? ", mã phiếu" : ""}, tên sản phẩm, tên hoặc số điện thoại khách hàng`}
+      >
         Không tìm thấy kết quả cho “{tk}”
       </TrangThaiRong>
     );

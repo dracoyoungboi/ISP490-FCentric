@@ -23,9 +23,9 @@ const purchaseRequestService = {
 
     /**
      * Lọc danh sách yêu cầu mua hàng
-     * POST /api/v1/yeu-cau-mua-hang/filter
+     * POST /api/v1/yeu-cau-mua-hang/filter — `config` (tùy chọn): cấu hình axios, vd. { signal } để hủy lần tìm cũ
      */
-    filter: (payload) => apiClient.post("/api/v1/yeu-cau-mua-hang/filter", payload),
+    filter: (payload, config) => apiClient.post("/api/v1/yeu-cau-mua-hang/filter", payload, config),
 
     /**
      * Duyệt hoặc từ chối yêu cầu mua hàng đang Chờ duyệt

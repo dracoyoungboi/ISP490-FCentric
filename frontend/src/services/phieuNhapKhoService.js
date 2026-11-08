@@ -1,8 +1,9 @@
 import apiClient from "./apiClient";
 
 export const phieuNhapKhoService = {
-    async filter(payload) {
-        const res = await apiClient.post("/api/v1/phieu-nhap-kho/filter", payload);
+    // `config` (tùy chọn): cấu hình axios, vd. { signal } để hủy lần tìm cũ (ô Tìm kiếm toàn hệ thống)
+    async filter(payload, config) {
+        const res = await apiClient.post("/api/v1/phieu-nhap-kho/filter", payload, config);
         return res.data;
     },
     async create(payload) {
