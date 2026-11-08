@@ -555,26 +555,83 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
         // Cước là chi phí của shop cho chuyến hàng này: lưu trên phiếu, không đụng phí vận chuyển thu của khách trên đơn
         phieu.setPhiVanChuyenThucTe(cuocThucTe);
 
-        // Ghi nhận thông tin vận đơn giao vận vào ghi chú phiếu xuất an toàn
-        if (request != null) {
-            StringBuilder sb = new StringBuilder(phieu.getGhiChu() != null ? phieu.getGhiChu() : "");
-            boolean hasShipping = (request.getDonViVanChuyen() != null && !request.getDonViVanChuyen().isBlank())
-                    || (request.getMaVanDon() != null && !request.getMaVanDon().isBlank());
-            if (hasShipping) {
-                if (!sb.isEmpty()) sb.append(" | ");
-                sb.append("[Vận chuyển: ").append(request.getDonViVanChuyen() != null ? request.getDonViVanChuyen().trim() : "N/A")
-                        .append(" - Vận đơn: ").append(request.getMaVanDon() != null ? request.getMaVanDon().trim() : "N/A");
-                if (cuocThucTe != null) {
-                    sb.append(" - Cước: ").append(cuocThucTe.toPlainString());
+        // Fallback an toàn cho thông tin giao vận (Rule 0.1 & Kế hoạch Smart Dispatch)
+        DonBanHang don = phieu.getDonBanHang();
+        String finalCarrier = (request != null && request.getDonViVanChuyen() != null && !request.getDonViVanChuyen().isBlank())
+                ? request.getDonViVanChuyen().trim() : null;
+        String finalTracking = (request != null && request.getMaVanDon() != null && !request.getMaVanDon().isBlank())
+                ? request.getMaVanDon().trim() : null;
+
+        if (don != null) {
+            // Trích xuất từ ghi chú đơn hàng nếu request chưa có
+            if (finalTracking == null && don.getGhiChu() != null && don.getGhiChu().contains("[VẬN ĐƠN:")) {
+                try {
+                    int s = don.getGhiChu().indexOf("[VẬN ĐƠN:") + 9;
+                    int e = don.getGhiChu().indexOf("]", s);
+                    if (e > s) finalTracking = don.getGhiChu().substring(s, e).trim();
+                } catch (Exception ignored) {}
+            }
+            if (finalCarrier == null && don.getGhiChu() != null && don.getGhiChu().contains("[ĐƠN VỊ:")) {
+                try {
+                    int s = don.getGhiChu().indexOf("[ĐƠN VỊ:") + 8;
+                    int e = don.getGhiChu().indexOf("]", s);
+                    if (e > s) finalCarrier = don.getGhiChu().substring(s, e).trim();
+                } catch (Exception ignored) {}
+            }
+
+            // Nếu là Shopee: fallback mã SPX nếu chưa có
+            KenhBanHang kb = don.getKenhBanHang();
+            if (kb != null && kb.getMaKenh() != null && kb.getMaKenh().toUpperCase().contains("SHOPEE")) {
+                if (finalTracking == null) {
+                    finalTracking = "SPXVN" + (don.getMaDonHangKenh() != null ? don.getMaDonHangKenh() : don.getSoDonHang());
                 }
-                sb.append("]");
+                if (finalCarrier == null) {
+                    finalCarrier = "Shopee Xpress (SPX VN)";
+                }
             }
-            if (request.getGhiChu() != null && !request.getGhiChu().isBlank()) {
-                if (!sb.isEmpty()) sb.append(" - ");
-                sb.append(request.getGhiChu().trim());
-            }
-            phieu.setGhiChu(sb.toString());
         }
+
+        // Nếu trong ghi chú phiếu xuất cũ đã có thì không bỏ sót
+        if (finalTracking == null && phieu.getGhiChu() != null && phieu.getGhiChu().contains("- Vận đơn:")) {
+            try {
+                int s = phieu.getGhiChu().indexOf("- Vận đơn:") + 10;
+                int e = phieu.getGhiChu().indexOf("-", s);
+                if (e == -1) e = phieu.getGhiChu().indexOf("]", s);
+                if (e > s) {
+                    String val = phieu.getGhiChu().substring(s, e).trim();
+                    if (!val.equalsIgnoreCase("N/A")) finalTracking = val;
+                }
+            } catch (Exception ignored) {}
+        }
+        if (finalCarrier == null && phieu.getGhiChu() != null && phieu.getGhiChu().contains("[Vận chuyển:")) {
+            try {
+                int s = phieu.getGhiChu().indexOf("[Vận chuyển:") + 12;
+                int e = phieu.getGhiChu().indexOf("-", s);
+                if (e > s) {
+                    String val = phieu.getGhiChu().substring(s, e).trim();
+                    if (!val.equalsIgnoreCase("N/A")) finalCarrier = val;
+                }
+            } catch (Exception ignored) {}
+        }
+
+        // Ghi nhận thông tin vận đơn giao vận vào ghi chú phiếu xuất an toàn
+        StringBuilder sb = new StringBuilder(phieu.getGhiChu() != null ? phieu.getGhiChu() : "");
+        boolean hasShipping = (finalCarrier != null && !finalCarrier.isBlank())
+                || (finalTracking != null && !finalTracking.isBlank());
+        if (hasShipping && !sb.toString().contains("[Vận chuyển:")) {
+            if (!sb.isEmpty()) sb.append(" | ");
+            sb.append("[Vận chuyển: ").append(finalCarrier != null ? finalCarrier : "N/A")
+                    .append(" - Vận đơn: ").append(finalTracking != null ? finalTracking : "N/A");
+            if (cuocThucTe != null) {
+                sb.append(" - Cước: ").append(cuocThucTe.toPlainString());
+            }
+            sb.append("]");
+        }
+        if (request != null && request.getGhiChu() != null && !request.getGhiChu().isBlank()) {
+            if (!sb.isEmpty()) sb.append(" - ");
+            sb.append(request.getGhiChu().trim());
+        }
+        phieu.setGhiChu(sb.toString());
 
         repository.save(phieu);
 
@@ -582,16 +639,14 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
 
         // SỔ 2: Ghi nhận Kiểm toán hành vi (LichSuThayDoi - Quy tắc 7 AGENTS.md)
         String auditDetail = "trang_thai = 3 (Đã xuất)";
-        if (request != null) {
-            if (request.getDonViVanChuyen() != null && !request.getDonViVanChuyen().isBlank()) {
-                auditDetail += " | ĐVVC: " + request.getDonViVanChuyen().trim();
-            }
-            if (request.getMaVanDon() != null && !request.getMaVanDon().isBlank()) {
-                auditDetail += " | Vận đơn: " + request.getMaVanDon().trim();
-            }
-            if (cuocThucTe != null) {
-                auditDetail += " | Cước: " + cuocThucTe.toPlainString();
-            }
+        if (finalCarrier != null) {
+            auditDetail += " | ĐVVC: " + finalCarrier;
+        }
+        if (finalTracking != null) {
+            auditDetail += " | Vận đơn: " + finalTracking;
+        }
+        if (cuocThucTe != null) {
+            auditDetail += " | Cước: " + cuocThucTe.toPlainString();
         }
         try {
             lichSuThayDoiService.create(
@@ -615,8 +670,7 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
         Integer trangThaiDonHang = null;
 
         // Cập nhật trạng thái Đơn bán hàng và kích hoạt Omnichannel Push
-        if ("ban_hang".equals(phieu.getLoaiXuat()) && phieu.getDonBanHang() != null) {
-            DonBanHang don = phieu.getDonBanHang();
+        if ("ban_hang".equals(phieu.getLoaiXuat()) && don != null) {
             donBanHangId = don.getId();
             soDonHang = don.getSoDonHang();
 
@@ -626,7 +680,7 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
             // Báo người lập đơn xác nhận đã giao; thông báo "cần sửa lô" của phiếu (nếu có) coi như xong
             if (thongBaoXuatKhoService != null) {
                 thongBaoXuatKhoService.daXuatKho(phieu.getId(), phieu.getSoPhieuXuat(), don, trangThaiDonHang,
-                        request == null ? null : request.getMaVanDon(), nguoiXuat.getId());
+                        finalTracking, nguoiXuat.getId());
                 thongBaoXuatKhoService.phieuXuatDaXong(phieu.getId());
             }
 
@@ -640,8 +694,8 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                             .soDonHang(don.getSoDonHang())
                             .kenhBanId(don.getKenhBanHang() != null ? don.getKenhBanHang().getId() : null)
                             .maDonHangKenh(don.getMaDonHangKenh())
-                            .donViVanChuyen(request != null ? request.getDonViVanChuyen() : null)
-                            .maVanDon(request != null ? request.getMaVanDon() : null)
+                            .donViVanChuyen(finalCarrier)
+                            .maVanDon(finalTracking)
                             .phiVanChuyenThucTe(cuocThucTe)
                             .build()
             );
@@ -658,8 +712,8 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                 .soDonHang(soDonHang)
                 .trangThaiPhieu(phieu.getTrangThai())
                 .trangThaiDonHang(trangThaiDonHang)
-                .donViVanChuyen(request != null ? request.getDonViVanChuyen() : null)
-                .maVanDon(request != null ? request.getMaVanDon() : null)
+                .donViVanChuyen(finalCarrier)
+                .maVanDon(finalTracking)
                 .phiVanChuyenThucTe(cuocThucTe)
                 .ngayXuat(phieu.getNgayXuat())
                 .nguoiXuatTen(nguoiXuat.getHoTen())
