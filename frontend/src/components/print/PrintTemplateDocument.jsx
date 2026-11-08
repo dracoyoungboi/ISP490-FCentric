@@ -5,6 +5,7 @@ import PrintItemsTable from "@/components/print/PrintItemsTable";
 import PrintSummary from "@/components/print/PrintSummary";
 import PrintSignatures from "@/components/print/PrintSignatures";
 import PrintDocCode from "@/components/print/PrintDocCode";
+import LazadaAwbDocument from "@/components/print/LazadaAwbDocument";
 import { toBarcodeText, toQrText } from "@/components/print/maVach";
 import { dongKhoiTong, getByPath, isEmptyValue } from "@/components/print/khoiTongIn";
 import {
@@ -329,6 +330,12 @@ function hasDocCode(mode, number) {
 export default function PrintTemplateDocument({ documentType, config, model, company, editable = false }) {
     const schema = getPrintSchema(documentType);
     if (!schema || !model || !config) return null;
+
+    // Vận đơn TMĐT chuẩn sàn AWB (Lazada / Shopee) khổ tem nhiệt A6 100 × 150 mm:
+    // Render mẫu tem AWB chuẩn sàn (có viền watermark, barcode to, cụm routing + QR code, 3 badge COD/Đồng kiểm)
+    if (documentType === "ecommerce_packing_slip" && config.paperSize === "A6" && !editable) {
+        return <LazadaAwbDocument model={model} company={company} config={config} />;
+    }
 
     const compact = isThermalPaper(config.paperSize);
     // K57 / tem A6 dùng chung bố cục khổ nhiệt của K80 (class pdoc--k80) + chỉnh riêng (pdoc--k57, pdoc--a6)

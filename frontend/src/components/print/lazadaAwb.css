@@ -1,0 +1,340 @@
+/* 
+ * CSS cho Vận Đơn Lazada Chuẩn Sàn AWB (Tem nhiệt 100 x 150 mm)
+ * Định dạng đơn vị in: mm và pt, tương thích 100% với máy in nhiệt 203/300 DPI
+ */
+
+.lawb-wrapper {
+    position: relative;
+    width: 100mm;
+    min-height: 146mm;
+    max-height: 150mm;
+    box-sizing: border-box;
+    padding: 3mm 4mm;
+    background: #ffffff;
+    color: #000000;
+    font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
+    font-size: 8pt;
+    line-height: 1.25;
+    overflow: hidden;
+    margin: 0 auto;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+
+/* 4 viền chữ watermark mã vận đơn */
+.lawb-watermark-top {
+    position: absolute;
+    top: 0.5mm;
+    left: 4mm;
+    right: 4mm;
+    display: flex;
+    justify-content: space-around;
+    font-size: 6.5pt;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.lawb-watermark-bottom {
+    position: absolute;
+    bottom: 0.5mm;
+    left: 4mm;
+    right: 4mm;
+    display: flex;
+    justify-content: space-around;
+    font-size: 6.5pt;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.lawb-watermark-left {
+    position: absolute;
+    left: -12mm;
+    top: 50%;
+    width: 32mm;
+    transform: rotate(-90deg) translateY(-50%);
+    transform-origin: center;
+    font-size: 6.5pt;
+    font-weight: 600;
+    white-space: nowrap;
+    text-align: center;
+}
+
+.lawb-watermark-right {
+    position: absolute;
+    right: -12mm;
+    top: 50%;
+    width: 32mm;
+    transform: rotate(90deg) translateY(-50%);
+    transform-origin: center;
+    font-size: 6.5pt;
+    font-weight: 600;
+    white-space: nowrap;
+    text-align: center;
+}
+
+/* Khung viền chính của tem */
+.lawb-card {
+    border: 1.2px solid #000000;
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+/* 1. Header 3 cột */
+.lawb-header {
+    display: flex;
+    border-bottom: 1.2px solid #000000;
+    text-align: center;
+}
+
+.lawb-header-col {
+    flex: 1;
+    padding: 1.5mm 1mm;
+    border-right: 1.2px solid #000000;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.lawb-header-col:last-child {
+    border-right: none;
+}
+
+.lawb-header-title {
+    font-size: 6pt;
+    font-weight: bold;
+    text-transform: uppercase;
+    margin-bottom: 0.5mm;
+}
+
+.lawb-carrier-logo {
+    font-size: 9pt;
+    font-weight: 900;
+    letter-spacing: 0.5px;
+    line-height: 1.1;
+    font-style: italic;
+}
+
+.lawb-carrier-sub {
+    font-size: 6pt;
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+.lawb-lazada-title {
+    display: flex;
+    align-items: center;
+    gap: 1.5mm;
+    font-size: 8.5pt;
+    font-weight: 900;
+}
+
+.lawb-heart-icon {
+    font-size: 8pt;
+}
+
+.lawb-lazada-tags {
+    display: flex;
+    gap: 2mm;
+    font-size: 6.5pt;
+    font-weight: bold;
+    margin-top: 0.5mm;
+}
+
+/* 2. Khối Barcode to bản */
+.lawb-barcode-section {
+    padding: 2mm 1mm 1.5mm;
+    text-align: center;
+    border-bottom: 1.2px solid #000000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.lawb-barcode-render {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1mm;
+}
+
+.lawb-barcode-text {
+    font-size: 8.5pt;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+/* 3. Khối Người nhận (Trái) & Định tuyến (Phải) */
+.lawb-routing-grid {
+    display: flex;
+    border-bottom: 1.2px solid #000000;
+}
+
+.lawb-recipient-col {
+    flex: 1.8;
+    padding: 1.5mm 2mm;
+    border-right: 1.2px solid #000000;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.lawb-recipient-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1mm;
+}
+
+.lawb-tag-wkd {
+    background: #000000;
+    color: #ffffff;
+    font-size: 7pt;
+    font-weight: 900;
+    padding: 0.3mm 1.5mm;
+    border-radius: 1px;
+}
+
+.lawb-address-text {
+    font-size: 7pt;
+    line-height: 1.25;
+    margin-bottom: 1.5mm;
+    color: #111111;
+}
+
+.lawb-sender-text {
+    font-size: 7.5pt;
+    border-top: 0.5px dashed #666666;
+    padding-top: 1mm;
+}
+
+.lawb-sorting-col {
+    flex: 1.2;
+    padding: 1.5mm 1mm;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.lawb-routing-code {
+    font-size: 13pt;
+    font-weight: 900;
+    letter-spacing: 0.5px;
+    margin-bottom: 1.5mm;
+    text-align: center;
+}
+
+.lawb-qrcode-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* 4. Dòng Số đơn hàng */
+.lawb-order-row {
+    padding: 1mm 2mm;
+    font-size: 8pt;
+    border-bottom: 1.2px solid #000000;
+}
+
+/* 5. Thanh 3 chỉ số nghiệp vụ */
+.lawb-metrics-row {
+    display: flex;
+    border-bottom: 1.2px solid #000000;
+    font-size: 7.5pt;
+    font-weight: bold;
+    text-align: center;
+}
+
+.lawb-metric-item {
+    padding: 1.5mm 1mm;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.lawb-metric-weight {
+    flex: 1;
+    background: #000000;
+    color: #ffffff;
+    font-weight: 800;
+}
+
+.lawb-metric-inspection {
+    flex: 1.4;
+    border-left: 1.2px solid #000000;
+    border-right: 1.2px solid #000000;
+    text-transform: uppercase;
+}
+
+.lawb-metric-cod {
+    flex: 1.6;
+    font-weight: 800;
+}
+
+/* 6. Bảng danh sách sản phẩm */
+.lawb-items-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    border-bottom: 1.2px solid #000000;
+    min-height: 18mm;
+}
+
+.lawb-items-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 6.5pt;
+    font-weight: bold;
+    padding: 1mm 2mm;
+    background: #f3f4f6;
+    border-bottom: 0.8px solid #000000;
+}
+
+.lawb-items-list {
+    padding: 1mm 2mm;
+    font-size: 7pt;
+    flex: 1;
+}
+
+.lawb-item-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 1mm;
+    line-height: 1.2;
+}
+
+.lawb-item-desc {
+    flex: 1;
+    padding-right: 2mm;
+}
+
+.lawb-item-qty {
+    font-weight: bold;
+    width: 6mm;
+    text-align: right;
+}
+
+/* 7. Footer pháp lý & mã trạm */
+.lawb-footer-section {
+    padding: 1.5mm 2mm 2mm;
+    text-align: center;
+}
+
+.lawb-legal-disclaimer {
+    font-size: 5pt;
+    line-height: 1.15;
+    color: #333333;
+    margin-bottom: 1mm;
+}
+
+.lawb-station-code {
+    font-size: 11pt;
+    font-weight: 900;
+    letter-spacing: 1px;
+}
+
