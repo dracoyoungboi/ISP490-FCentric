@@ -18,6 +18,37 @@ const TRANG_THAI_PHIEU_HOAN_TAT = 3;
 const TRANG_THAI_PHIEU_HUY = 4;
 const MS_MOT_NGAY = 24 * 60 * 60 * 1000;
 
+/** Trạng thái đơn mua dùng trong logic màn chi tiết (tên hiển thị ở constants/donMuaHang.js). */
+export const TRANG_THAI_DON_MUA = Object.freeze({
+  DANG_VAN_CHUYEN: 3,
+  DA_NHAN_DU: 5,
+  DA_DONG: 6,
+  DA_HUY: 7,
+});
+
+/** Lý do đóng / hủy đơn tối đa (khớp DonMuaHangService.LY_DO_KET_THUC_TOI_DA). */
+export const LY_DO_KET_THUC_TOI_DA = 255;
+
+/** Đơn đã kết thúc sớm: đã đóng (nhận thiếu) hoặc đã hủy — không còn hàng về, không tạo phiếu nhập. */
+export function daKetThucSom(trangThai) {
+  const tt = docSo(trangThai);
+  return tt === TRANG_THAI_DON_MUA.DA_DONG || tt === TRANG_THAI_DON_MUA.DA_HUY;
+}
+
+/**
+ * Mục "Đóng đơn (nhận thiếu)" / "Hủy đơn" ở menu ⋯ của Chi tiết đơn mua (cùng điều kiện máy chủ kiểm, trừ phiếu nhập
+ * nháp — máy chủ báo 409 kèm số phiếu). Chỉ đơn đang vận chuyển: đã nhận ít nhất một đợt thì đóng, chưa nhận gì thì hủy.
+ * @param duocThaoTac vai trò được đóng / hủy (quản trị viên, nhân viên mua hàng)
+ * @param tienDo `tinhTienDoNhan(don.chiTietDonMuaHangs)`
+ * @returns `{ dong, huy }` (boolean)
+ */
+export function thaoTacKetThuc(don, tienDo, duocThaoTac) {
+  const dangVe = Boolean(don) && docSo(don.trangThai) === TRANG_THAI_DON_MUA.DANG_VAN_CHUYEN;
+  if (!duocThaoTac || !dangVe) return { dong: false, huy: false };
+  const td = tienDo ?? tinhTienDoNhan(don.chiTietDonMuaHangs);
+  return { dong: !td.chuaNhan && !td.daDu, huy: td.chuaNhan };
+}
+
 /** Đọc số từ BigDecimal của backend (số hoặc chuỗi "80.00"); sai hoặc trống thì 0. */
 export function docSo(value) {
   const n = Number(value);
@@ -177,13 +208,17 @@ export function trangThaiGiao(ngayGiaoDuKien, daDu, homNay = new Date()) {
 
 /**
  * 6 bước của đơn mua hàng, theo đúng trạng thái đang dùng (constants/donMuaHang.js):
- * 1 Đã gửi · 2 Đã báo giá · 3 Đang vận chuyển · 4 Không chấp nhận báo giá · 5 Đã nhận đủ (dữ liệu cũ, trước gọi "Đã thanh toán").
+ * 1 Đã gửi · 2 Đã báo giá · 3 Đang vận chuyển · 4 Không chấp nhận báo giá · 5 Đã nhận đủ (dữ liệu cũ, trước gọi "Đã thanh toán")
+ * · 6 Đã đóng (nhận thiếu) · 7 Đã hủy. Đơn 6 / 7: bước cuối đổi thành "Đã đóng" / "Đã hủy" (dừng, mốc `ngayKetThuc`).
  * Mỗi bước: `{ ma, nhan, trangThai: "xong" | "dangLam" | "chua" | "dung", phu, ngay, canhBao }`.
  * `ngay` để màn tự định dạng; `canhBao` là chữ cảnh báo (vd. "quá hạn 1 ngày").
  */
 export function tinhBuocDonMua(don, tienDo, cotDot, homNay = new Date()) {
   const trangThai = docSo(don?.trangThai);
-  const daChot = trangThai === 3 || trangThai === 5;
+  const daDong = trangThai === TRANG_THAI_DON_MUA.DA_DONG;
+  const daHuy = trangThai === TRANG_THAI_DON_MUA.DA_HUY;
+  const daChot = trangThai === TRANG_THAI_DON_MUA.DANG_VAN_CHUYEN || trangThai === TRANG_THAI_DON_MUA.DA_NHAN_DU
+    || daDong || daHuy;
   const tuChoi = trangThai === 4;
   const td = tienDo ?? tinhTienDoNhan(don?.chiTietDonMuaHangs);
   const giao = trangThaiGiao(don?.ngayGiaoDuKien, td.daDu, homNay);
@@ -203,6 +238,11 @@ export function tinhBuocDonMua(don, tienDo, cotDot, homNay = new Date()) {
   let buocNhan;
   if (!daChot) {
     buocNhan = { trangThai: "chua", phu: "", canhBao: "" };
+  } else if (daDong) {
+    // Đã thôi nhận: các đợt đã nhận là xong, không còn cảnh báo quá hạn
+    buocNhan = { trangThai: "xong", phu: `${td.daNhan}/${td.dat}`, canhBao: "" };
+  } else if (daHuy) {
+    buocNhan = { trangThai: "chua", phu: "Không nhận", canhBao: "" };
   } else if (td.daDu) {
     buocNhan = { trangThai: "xong", phu: `${td.daNhan}/${td.dat}`, canhBao: "" };
   } else {
@@ -237,13 +277,22 @@ export function tinhBuocDonMua(don, tienDo, cotDot, homNay = new Date()) {
     { ma: "bao-gia", nhan: "Nhà cung cấp báo giá", ngay: null, canhBao: "", ...buocBaoGia },
     { ma: "chot-don", nhan: "Chốt đơn", ngay: null, canhBao: "", ...buocChot },
     { ma: "nhan-hang", nhan: "Nhận hàng", ngay: null, ...buocNhan },
-    {
-      ma: "nhan-du",
-      nhan: "Nhận đủ",
-      trangThai: daChot && td.daDu ? "xong" : "chua",
-      phu: !daChot ? "" : td.daDu ? "" : `Còn thiếu ${td.conThieu}`,
-      ngay: daChot && td.daDu ? ngayDotCuoi : null,
-      canhBao: "",
-    },
+    daDong || daHuy
+      ? {
+        ma: "nhan-du",
+        nhan: daDong ? "Đã đóng" : "Đã hủy",
+        trangThai: "dung",
+        phu: daDong ? `Thiếu ${td.conThieu}` : "",
+        ngay: don?.ngayKetThuc ?? null,
+        canhBao: "",
+      }
+      : {
+        ma: "nhan-du",
+        nhan: "Nhận đủ",
+        trangThai: daChot && td.daDu ? "xong" : "chua",
+        phu: !daChot ? "" : td.daDu ? "" : `Còn thiếu ${td.conThieu}`,
+        ngay: daChot && td.daDu ? ngayDotCuoi : null,
+        canhBao: "",
+      },
   ];
 }

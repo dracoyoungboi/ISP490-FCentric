@@ -5,7 +5,10 @@ import com.dev.backend.constant.GlobalCache;
 import com.dev.backend.constant.enums.FilterOperation;
 import org.springframework.data.domain.Page;
 import com.dev.backend.constant.enums.OtpType;
+import com.dev.backend.constant.enums.TrangThaiPhieuNhap;
+import com.dev.backend.constant.variables.IHanhDong;
 import com.dev.backend.constant.variables.IRoleType;
+import com.dev.backend.constant.variables.ITable;
 import com.dev.backend.dto.ApplicationRequestObj;
 import com.dev.backend.dto.OtpScheduleObj;
 import com.dev.backend.dto.PhienBaoGia;
@@ -23,7 +26,9 @@ import com.dev.backend.exception.customize.LoiCoMaException;
 import com.dev.backend.exception.customize.MaLoi;
 import com.dev.backend.mapper.DonMuaHangCongNccMapper;
 import com.dev.backend.mapper.DonMuaHangMapper;
+import com.dev.backend.repository.ChiTietDonMuaHangRepository;
 import com.dev.backend.repository.DonMuaHangRepository;
+import com.dev.backend.repository.LichSuThayDoiRepository;
 import com.dev.backend.services.CalcService;
 import com.dev.backend.services.email.EmailNghiepVuService;
 import com.dev.backend.services.impl.BaseServiceImpl;
@@ -70,6 +75,15 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
     public static final int TRANG_THAI_KHONG_CHAP_NHAN = 4;
     /** Đã nhận đủ hàng (PhieuNhapKhoService ghi khi hoàn tất phiếu nhập). */
     public static final int TRANG_THAI_DA_NHAN_DU = 5;
+    /**
+     * Đã đóng (nhận thiếu): đơn đang vận chuyển đã nhận ít nhất một đợt, nhà cung cấp không giao tiếp phần còn lại.
+     * Phần chưa nhận không còn tính là "đang về" (các truy vấn đang về chỉ lấy 3, 5).
+     */
+    public static final int TRANG_THAI_DA_DONG = 6;
+    /** Đã hủy: đơn đang vận chuyển chưa nhận đợt nào, nhà cung cấp không giao. Không còn tính là "đang về". */
+    public static final int TRANG_THAI_DA_HUY = 7;
+    /** Lý do đóng / hủy đơn (bắt buộc), nối vào ghi chú đơn. FE chi tiết đơn mua giữ cùng giá trị. */
+    public static final int LY_DO_KET_THUC_TOI_DA = 255;
 
     // ---------------- Cổng nhà cung cấp: thời hạn, giới hạn ----------------
 
@@ -147,6 +161,12 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
     private EmailNghiepVuService emailNghiepVuService;
     @Autowired
     private ThongTinCuaHangMuaHang thongTinCuaHangMuaHang;
+    @Autowired
+    private ChiTietDonMuaHangRepository chiTietDonMuaHangRepository;
+    @Autowired
+    private LichSuThayDoiService lichSuThayDoiService;
+    @Autowired
+    private LichSuThayDoiRepository lichSuThayDoiRepository;
 
     /**
      * Phạm vi xem đơn mua: quản trị viên và nhân viên mua hàng xem mọi đơn (mua hàng là việc chung của công ty); quản lý
@@ -187,20 +207,55 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
     }
 
     /**
-     * Đơn mua đi kèm yêu cầu nhập hàng (API yêu cầu nhập hàng trả cả danh sách đơn mua): quản lý kho, nhân viên kho chỉ
-     * nhận các đơn có kho nhập thuộc kho mình — cùng luật {@link #trongPhamVi}, để API này không thành đường vòng xem
-     * đơn mua của kho khác. Quản trị viên, nhân viên mua hàng giữ nguyên.
+     * Đơn mua đi kèm yêu cầu nhập hàng (API yêu cầu nhập hàng trả cả danh sách đơn mua):
+     * - quản trị viên, nhân viên mua hàng: giữ nguyên;
+     * - quản lý kho, nhân viên kho: chỉ các đơn có kho nhập thuộc kho mình — cùng luật {@link #trongPhamVi}, để API này
+     *   không thành đường vòng xem đơn mua của kho khác;
+     * - vai trò khác (nhân viên bán hàng — API đơn mua trả 403): vẫn thấy đơn nào thuộc yêu cầu (mã, nhà cung cấp, trạng
+     *   thái, số lượng) nhưng không thấy giá mua, xem {@link #anGiaMua}.
      */
     public static void locDonMuaTheoPhamVi(com.dev.backend.dto.response.entities.YeuCauMuaHangDto dto,
                                            NguoiDungAuthInfo user) {
-        if (dto == null || dto.getDonMuaHangs() == null || user == null) return;
+        if (dto == null || user == null) return;
         Set<String> vaiTro = user.getVaiTro() == null ? Set.of() : user.getVaiTro();
         if (vaiTro.contains(IRoleType.quan_tri_vien) || vaiTro.contains(IRoleType.nhan_vien_mua_hang)) return;
-        if (!vaiTro.contains(IRoleType.quan_ly_kho) && !vaiTro.contains(IRoleType.nhan_vien_kho)) return;
-        List<Integer> khoIds = khoCuaNguoiDung(user);
-        dto.setDonMuaHangs(dto.getDonMuaHangs().stream()
-                .filter(d -> d != null && d.getKhoNhap() != null && khoIds.contains(d.getKhoNhap().getId()))
-                .toList());
+        if (vaiTro.contains(IRoleType.quan_ly_kho) || vaiTro.contains(IRoleType.nhan_vien_kho)) {
+            if (dto.getDonMuaHangs() == null) return;
+            List<Integer> khoIds = khoCuaNguoiDung(user);
+            dto.setDonMuaHangs(dto.getDonMuaHangs().stream()
+                    .filter(d -> d != null && d.getKhoNhap() != null && khoIds.contains(d.getKhoNhap().getId()))
+                    .toList());
+            return;
+        }
+        anGiaMua(dto);
+    }
+
+    /**
+     * Bỏ giá mua khỏi yêu cầu nhập hàng cho người không xem được đơn mua: đơn giá, thành tiền, tổng tiền, phần báo giá
+     * của nhà cung cấp (ghi chú kèm báo giá, lý do không chấp nhận) và giá vốn của mã hàng (cùng luật XemGiaVon).
+     */
+    static void anGiaMua(com.dev.backend.dto.response.entities.YeuCauMuaHangDto dto) {
+        if (dto.getChiTietYeuCauMuaHangs() != null) {
+            dto.getChiTietYeuCauMuaHangs().forEach(ct -> anGiaVon(ct == null ? null : ct.getBienTheSanPham()));
+        }
+        if (dto.getDonMuaHangs() == null) return;
+        for (DonMuaHangDto don : dto.getDonMuaHangs()) {
+            if (don == null) continue;
+            don.setTongTien(null);
+            don.setGhiChuNhaCungCap(null);
+            don.setLyDoTuChoi(null);
+            if (don.getChiTietDonMuaHangs() == null) continue;
+            don.getChiTietDonMuaHangs().forEach(ct -> {
+                if (ct == null) return;
+                ct.setDonGia(null);
+                ct.setThanhTien(null);
+                anGiaVon(ct.getBienTheSanPham());
+            });
+        }
+    }
+
+    private static void anGiaVon(com.dev.backend.dto.response.entities.BienTheSanPhamDto bienThe) {
+        if (bienThe != null) bienThe.setGiaVon(null);
     }
 
     /** Thao tác ghi trên đơn mua / yêu cầu của một kho nhập: ngoài phạm vi xem thì cũng không được thao tác (403). */
@@ -839,14 +894,19 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
 
     /**
      * Yêu cầu còn chọn được báo giá: đang ở 3 (đã gửi yêu cầu báo giá) và chưa có đơn nào cùng yêu cầu đã được chấp
-     * nhận (3) hay đã nhận đủ (5). Kiểm cả hai vì CSDL chưa chạy migration có thể còn yêu cầu ở 3 đã có đơn được chọn.
+     * nhận (3, rồi 5 / 6 / 7). Kiểm cả hai vì CSDL chưa chạy migration có thể còn yêu cầu ở 3 đã có đơn được chọn.
      */
     static boolean yeuCauConMo(YeuCauMuaHang yeuCau, List<DonMuaHang> cacDonCuaYeuCau) {
         if (yeuCau == null || !Objects.equals(yeuCau.getTrangThai(), YeuCauMuaHangService.TRANG_THAI_DA_GUI_BAO_GIA)) {
             return false;
         }
-        return cacDonCuaYeuCau.stream().noneMatch(d -> Objects.equals(d.getTrangThai(), TRANG_THAI_DA_CHAP_NHAN)
-                || Objects.equals(d.getTrangThai(), TRANG_THAI_DA_NHAN_DU));
+        return cacDonCuaYeuCau.stream().noneMatch(d -> daChot(d.getTrangThai()));
+    }
+
+    /** Đơn đã chấp nhận báo giá: đang vận chuyển (3), đã nhận đủ (5), đã đóng nhận thiếu (6) hoặc đã hủy sau khi chốt (7). */
+    static boolean daChot(Integer trangThai) {
+        return trangThai != null && (trangThai == TRANG_THAI_DA_CHAP_NHAN || trangThai == TRANG_THAI_DA_NHAN_DU
+                || trangThai == TRANG_THAI_DA_DONG || trangThai == TRANG_THAI_DA_HUY);
     }
 
     private NguoiDung nguoiDangThaoTac() {
@@ -959,6 +1019,153 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
             emailNghiepVuService.guiKetQuaBaoGia(don);
             if (thongBaoMuaHangService != null) thongBaoMuaHangService.daXetBaoGia(don, List.of(), false, nguoiChot);
         }
+    }
+
+    // =====================================================================================================
+    // Kết thúc đơn đã chốt: đóng nhận thiếu (6) / hủy (7)
+    // =====================================================================================================
+
+    /** Đóng đơn đang vận chuyển khi nhà cung cấp giao thiếu: chỉ khi đã nhận ít nhất một đợt. Xem {@link #ketThucDon}. */
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public void dongDon(Integer id, String lyDo) {
+        ketThucDon(id, lyDo, TRANG_THAI_DA_DONG);
+    }
+
+    /** Hủy đơn đang vận chuyển khi nhà cung cấp không giao: chỉ khi chưa nhận đợt nào. Xem {@link #ketThucDon}. */
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public void huyDon(Integer id, String lyDo) {
+        ketThucDon(id, lyDo, TRANG_THAI_DA_HUY);
+    }
+
+    /**
+     * Đơn đang vận chuyển (3) sang Đã đóng (6) hoặc Đã hủy (7). Lý do bắt buộc (≤ {@link #LY_DO_KET_THUC_TOI_DA} ký tự),
+     * nối vào ghi chú đơn và ghi lich_su_thay_doi (người, lúc, lý do). Không gửi email cho nhà cung cấp, không đổi người
+     * duyệt (người chốt báo giá).
+     * - Đọc đơn không khóa trước: không còn ở 3 thì 409 ngay, chưa giữ khóa nào (không xếp hàng sau luồng báo giá — khóa
+     *   đơn trước rồi dòng — với đơn đã đổi trạng thái). Còn ở 3 mới khóa các dòng đơn rồi dòng đơn mua (cùng thứ tự với
+     *   hoàn tất phiếu nhập kho: dòng trước, đơn sau), kiểm lại trạng thái sau khóa rồi đọc số đã nhận, phiếu nhập nháp:
+     *   bấm hai lần chỉ ra một kết quả; phiếu nhập hoàn tất cùng lúc thì một bên chờ bên kia.
+     * - 409: đơn không còn ở 3; đóng mà chưa nhận gì / hủy mà đã nhận hàng; còn phiếu nhập nháp của đơn (hủy hoặc hoàn
+     *   tất phiếu đó trước). 400: thiếu / quá dài lý do. 404: không có đơn.
+     * - Xong thì thông báo "đã chốt, chờ nhận hàng" (M5) của đơn coi như đã xử lý: không còn hàng nào để nhận.
+     */
+    private void ketThucDon(Integer id, String lyDo, int trangThaiMoi) {
+        boolean dong = trangThaiMoi == TRANG_THAI_DA_DONG;
+        String viec = dong ? "đóng đơn" : "hủy đơn";
+        String lyDoChuan = lyDo == null ? "" : lyDo.trim();
+        if (lyDoChuan.isEmpty()) {
+            throw new CommonException("Vui lòng nhập lý do " + viec + ".");
+        }
+        if (lyDoChuan.length() > LY_DO_KET_THUC_TOI_DA) {
+            throw new CommonException("Lý do " + viec + " tối đa " + LY_DO_KET_THUC_TOI_DA + " ký tự.");
+        }
+        if (id == null) {
+            throw new CommonException(HttpStatus.NOT_FOUND, LOI_KHONG_TIM_THAY_DON);
+        }
+        NguoiDung nguoi = nguoiDangThaoTac();
+
+        // Đọc thường trước khi khóa: đơn không còn ở 3 thì báo ngay, không giữ khóa nào
+        DonMuaHang donChuaKhoa = donMuaHangRepository.findById(id).orElse(null);
+        if (donChuaKhoa == null) {
+            throw new CommonException(HttpStatus.NOT_FOUND, LOI_KHONG_TIM_THAY_DON);
+        }
+        kiemTraPhamViKhoNhap(donChuaKhoa.getKhoNhap());
+        chiKhiDangVanChuyen(donChuaKhoa, viec);
+
+        List<ChiTietDonMuaHang> cacDongDon = chiTietDonMuaHangRepository.khoaTheoDonMua(id);
+        DonMuaHang don = khoaDon(id);
+        if (don == null) {
+            throw new CommonException(HttpStatus.NOT_FOUND, LOI_KHONG_TIM_THAY_DON);
+        }
+        // Kiểm lại sau khóa: phiếu nhập hoàn tất / người khác đóng, hủy đơn trong lúc chờ khóa
+        chiKhiDangVanChuyen(don, viec);
+        String ma = tenDonTrongCau(don);
+
+        BigDecimal daNhan = donMuaHangRepository.tongDaNhan(id);
+        boolean coDotNhan = daNhan != null && daNhan.signum() > 0;
+        if (dong && !coDotNhan) {
+            throw new CommonException(HttpStatus.CONFLICT,
+                    ma + " chưa nhận đợt hàng nào. Nhà cung cấp không giao thì dùng Hủy đơn.");
+        }
+        // Đóng là "nhận thiếu": đơn đã nhận đủ mọi dòng thì không có phần nào để đóng (màn chi tiết cũng ẩn nút này)
+        if (dong && cacDongDon.stream().noneMatch(ct -> (ct.getSoLuongDaNhan() == null ? BigDecimal.ZERO : ct.getSoLuongDaNhan())
+                .compareTo(ct.getSoLuongDat() == null ? BigDecimal.ZERO : ct.getSoLuongDat()) < 0)) {
+            throw new CommonException(HttpStatus.CONFLICT, ma + " đã nhận đủ hàng, không có phần thiếu để đóng.");
+        }
+        if (!dong && coDotNhan) {
+            throw new CommonException(HttpStatus.CONFLICT,
+                    ma + " đã nhận hàng nên không hủy được. Dùng Đóng đơn (nhận thiếu) để kết thúc phần còn lại.");
+        }
+        // Phiếu nhập chưa hoàn tất, chưa hủy (nháp; chờ duyệt / đã duyệt của dữ liệu cũ) đang giữ phần còn lại của đơn
+        List<String> phieuNhap = donMuaHangRepository.soPhieuNhapTheoTrangThai(id, List.of(
+                TrangThaiPhieuNhap.DRAFT.getValue(), TrangThaiPhieuNhap.PENDING.getValue(),
+                TrangThaiPhieuNhap.APPROVED.getValue()));
+        if (!phieuNhap.isEmpty()) {
+            String so = phieuNhap.get(0) == null ? "" : " " + phieuNhap.get(0);
+            throw new CommonException(HttpStatus.CONFLICT, ma + " còn phiếu nhập" + so
+                    + " chưa nhập kho. Hủy hoặc hoàn tất phiếu nhập đó trước khi " + viec + ".");
+        }
+
+        don.setTrangThai(trangThaiMoi);
+        String ghiChuCu = don.getGhiChu();
+        don.setGhiChu((ghiChuCu != null && !ghiChuCu.isBlank() ? ghiChuCu.trim() + " | " : "")
+                + (dong ? "Lý do đóng đơn: " : "Lý do hủy đơn: ") + lyDoChuan);
+        donMuaHangRepository.save(don);
+
+        lichSuThayDoiService.create(LichSuThayDoi.builder()
+                .loaiThamChieu(ITable.don_mua_hang)
+                .idThamChieu(don.getId())
+                .maDoiTuong(don.getSoDonMua())
+                .kho(don.getKhoNhap())
+                .hanhDong(dong ? IHanhDong.dong_don_mua_hang : IHanhDong.huy_don_mua_hang)
+                .giaTriCu(String.valueOf(TRANG_THAI_DA_CHAP_NHAN))
+                .giaTriMoi(String.valueOf(trangThaiMoi))
+                .nguoiThucHien(nguoi)
+                .ngayThucHien(dongHo.instant())
+                .ghiChu(lyDoChuan)
+                .build());
+
+        if (thongBaoMuaHangService != null) thongBaoMuaHangService.donMuaDaKetThuc(don.getId());
+    }
+
+    /** 409 khi đơn không còn Đang vận chuyển (3), câu theo trạng thái hiện tại; {@code viec}: "đóng đơn" / "hủy đơn". */
+    private static void chiKhiDangVanChuyen(DonMuaHang don, String viec) {
+        Integer trangThai = don.getTrangThai();
+        if (Objects.equals(trangThai, TRANG_THAI_DA_CHAP_NHAN)) return;
+        String ma = tenDonTrongCau(don);
+        String cau;
+        if (Objects.equals(trangThai, TRANG_THAI_DA_DONG)) cau = ma + " đã được đóng trước đó.";
+        else if (Objects.equals(trangThai, TRANG_THAI_DA_HUY)) cau = ma + " đã được hủy trước đó.";
+        else if (Objects.equals(trangThai, TRANG_THAI_DA_NHAN_DU)) cau = ma + " đã nhận đủ hàng, không cần " + viec + ".";
+        else cau = "Chỉ " + viec + " được khi đơn đang vận chuyển.";
+        throw new CommonException(HttpStatus.CONFLICT, cau);
+    }
+
+    /** "Đơn mua PO…" để ghép câu báo; đơn chưa có số thì "Đơn mua này". */
+    private static String tenDonTrongCau(DonMuaHang don) {
+        return don.getSoDonMua() == null || don.getSoDonMua().isBlank() ? "Đơn mua này" : "Đơn mua " + don.getSoDonMua();
+    }
+
+    /**
+     * Điền lý do, lúc và người đóng / hủy (lần gần nhất trong lich_su_thay_doi) vào DTO chi tiết của đơn 6, 7. Đơn khác,
+     * hoặc đơn đổi trạng thái ngoài ứng dụng (không có dòng lịch sử): giữ null.
+     */
+    @Transactional(readOnly = true)
+    public DonMuaHangDto boSungKetThuc(DonMuaHangDto dto) {
+        if (dto == null || dto.getId() == null) return dto;
+        if (!Objects.equals(dto.getTrangThai(), TRANG_THAI_DA_DONG) && !Objects.equals(dto.getTrangThai(), TRANG_THAI_DA_HUY)) {
+            return dto;
+        }
+        lichSuThayDoiRepository
+                .findFirstByLoaiThamChieuAndIdThamChieuAndHanhDongInOrderByNgayThucHienDescIdDesc(
+                        ITable.don_mua_hang, dto.getId(),
+                        List.of(IHanhDong.dong_don_mua_hang, IHanhDong.huy_don_mua_hang))
+                .ifPresent(lichSu -> {
+                    dto.setLyDoKetThuc(lichSu.getGhiChu());
+                    dto.setNgayKetThuc(lichSu.getNgayThucHien());
+                    dto.setNguoiKetThuc(lichSu.getNguoiThucHien() == null ? null : lichSu.getNguoiThucHien().getHoTen());
+                });
+        return dto;
     }
 
     // =====================================================================================================

@@ -48,6 +48,13 @@ public class DonMuaHangDto implements Serializable {
      * đơn tạo quá DonMuaHangService.GUI_LAI_E4_SAU_PHUT phút). FE không tự tính mốc thời gian.
      */
     Boolean chuaGuiDuocYeuCau;
+    /**
+     * Đơn đã đóng (6) / đã hủy (7): lý do, lúc và họ tên người thao tác lần gần nhất, lấy từ lich_su_thay_doi
+     * (DonMuaHangService.boSungKetThuc). Chỉ điền ở API chi tiết; đơn khác để null.
+     */
+    String lyDoKetThuc;
+    Instant ngayKetThuc;
+    String nguoiKetThuc;
     NguoiDungDto nguoiTao;
     NguoiDungDto nguoiDuyet;
     Instant ngayTao;

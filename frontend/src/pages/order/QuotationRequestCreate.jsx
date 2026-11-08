@@ -130,7 +130,7 @@ function ChonYeuCauNhapHang() {
     const thongBao = [
         <DongThongBao key="mot-lan" tone="info">
             Chỉ hiện yêu cầu nhập hàng <b className="font-semibold">đã duyệt và chưa gửi</b>
-            {gioiHanKho ? " của kho bạn phụ trách" : ""}. Bước sau chọn nhà cung cấp; mỗi yêu cầu chỉ gửi yêu cầu báo giá một
+            {gioiHanKho ? " của nơi làm việc của bạn" : ""}. Bước sau chọn nhà cung cấp; mỗi yêu cầu chỉ gửi yêu cầu báo giá một
             lần, tới nhiều nhà cung cấp cùng lúc.
         </DongThongBao>,
         !duocGui ? (

@@ -59,7 +59,8 @@ import java.util.Set;
  * baoGiaUtils.daCoBaoGiaTruoc ở giao diện); chọn nhà cung cấp thì đơn sang 3; 5 là trạng thái cuối. Trạng thái 1 chỉ
  * có ở dữ liệu cũ, coi như đã gửi chưa báo giá. Hoàn tất phiếu nhập kho (PhieuNhapKhoService) chuyển đơn nhận đủ sang
  * 4, trùng mã "Không chấp nhận báo giá": số "đã chốt" (đặt mua, giao đúng hạn, nhà cung cấp) dùng DON_DA_CHOT để vẫn
- * tính các đơn này.
+ * tính các đơn này. Đơn 3 kết thúc sớm sang 6 (đóng nhận thiếu) / 7 (hủy, chưa nhận gì): đặt mua và nhà cung cấp mua
+ * nhiều nhất tính 6, không tính 7 (DON_DA_DAT_MUA); giao đúng hạn tính cả hai vào mẫu số, luôn là không đúng hạn.
  * "Đang về" = đơn 3 hoặc 5 còn dòng chưa nhận đủ (đơn 5 có thể còn hàng chưa nhận ở dữ liệu cũ), cùng cách tính với
  * Báo cáo tồn kho và Tổng quan quản trị (SQL_DANG_VE); dùng chung cho mọi số "đang về / đang giao / sắp về / trễ".
  */
@@ -88,16 +89,35 @@ public class TongQuanVaiTroRepository {
               OR (dm.trang_thai = 4 AND EXISTS (SELECT 1 FROM chi_tiet_don_mua_hang ctn
                                                  WHERE ctn.don_mua_hang_id = dm.id AND ctn.so_luong_da_nhan > 0)))""";
 
+    /**
+     * Đơn đã chốt rồi kết thúc sớm (DonMuaHangService.dongDon / huyDon): 6 Đã đóng (nhận thiếu, đã nhận ít nhất một
+     * đợt), 7 Đã hủy (chưa nhận gì). Cùng nhóm "đã chốt" với DonMuaHangService.daChot.
+     */
+    private static final String DON_KET_THUC_SOM = "(dm.trang_thai IN (6, 7))";
+
+    /**
+     * Đơn có đặt mua thật (giá trị đặt mua theo ngày, nhà cung cấp mua nhiều nhất): đã chốt và đơn 6 — đã mua một phần,
+     * tính tổng tiền đặt như đơn 3 / 5. Không tính 7: hủy khi chưa nhận gì là không mua gì, khớp màn Nhà cung cấp.
+     */
+    private static final String DON_DA_DAT_MUA = "(" + DON_DA_CHOT + " OR dm.trang_thai = 6)";
+
+    /**
+     * Đã chốt kể cả đơn kết thúc sớm 6, 7 (cùng nhóm với DonMuaHangService.daChot). Dùng cho yêu cầu nhập đã chọn nhà
+     * cung cấp (YC_DA_CHOT) và mẫu số "giao đúng hạn": 6 (giao không đủ), 7 (không giao) luôn tính là không đúng hạn
+     * (SQL_GIAO_DUNG_HAN), để nhà cung cấp giao thiếu / bỏ đơn không có tỷ lệ đẹp hơn thực tế.
+     */
+    private static final String DON_DA_CHOT_KE_CA_KET_THUC = "(" + DON_DA_CHOT + " OR " + DON_KET_THUC_SOM + ")";
+
     /** Nhà cung cấp đã báo giá cho đơn: có ngay_bao_gia (ghi mỗi lần nhà cung cấp gửi báo giá trên cổng). */
     private static final String DA_BAO_GIA = "dm.ngay_bao_gia IS NOT NULL";
 
     /** Yêu cầu báo giá đã gửi một nhà cung cấp, chưa có báo giá. */
     private static final String CHO_BAO_GIA = "dm.trang_thai IN (1, 2) AND NOT " + DA_BAO_GIA;
 
-    /** Yêu cầu nhập (bí danh y) đã có đơn mua được chọn nhà cung cấp. */
+    /** Yêu cầu nhập (bí danh y) đã có đơn mua được chọn nhà cung cấp (kể cả đơn đó đã đóng / hủy sau khi chốt). */
     private static final String YC_DA_CHOT = """
             EXISTS (SELECT 1 FROM don_mua_hang dm
-                     WHERE dm.yeu_cau_mua_hang_id = y.id AND %s)""".formatted(DON_DA_CHOT);
+                     WHERE dm.yeu_cau_mua_hang_id = y.id AND %s)""".formatted(DON_DA_CHOT_KE_CA_KET_THUC);
 
     /** Yêu cầu nhập (bí danh y) có ít nhất một yêu cầu báo giá đã được nhà cung cấp báo giá. */
     private static final String YC_CO_BAO_GIA = """
@@ -688,9 +708,9 @@ public class TongQuanVaiTroRepository {
             FROM don_mua_hang dm
             WHERE %s AND dm.ngay_dat_hang >= :tu AND dm.ngay_dat_hang < :den
             GROUP BY 1
-            """.formatted(NGAY, DON_DA_CHOT);
+            """.formatted(NGAY, DON_DA_DAT_MUA);
 
-    /** Giá trị đơn mua đã chốt (xem DON_DA_CHOT) theo ngày đặt hàng trong [tu, den). */
+    /** Giá trị đơn mua đã đặt (xem DON_DA_DAT_MUA: đã chốt và đơn đóng nhận thiếu, không tính đơn hủy) theo ngày đặt hàng trong [tu, den). */
     public Map<LocalDate, BigDecimal> datMuaTheoNgay(LocalDateTime tu, LocalDateTime den) {
         Map<LocalDate, BigDecimal> ketQua = new HashMap<>();
         jdbc.query(SQL_DAT_MUA_THEO_NGAY, thamSoGio(null)
@@ -709,7 +729,7 @@ public class TongQuanVaiTroRepository {
             SELECT dm.nha_cung_cap_id AS ncc_id,
                    COUNT(*) AS den_han,
                    COALESCE(SUM(CASE
-                     WHEN NOT %s
+                     WHEN NOT %s AND NOT %s
                       AND (SELECT MAX(pn.ngay_nhap) FROM phieu_nhap_kho pn
                             WHERE pn.don_mua_hang_id = dm.id AND pn.trang_thai = 3)
                           < DATE_SUB(TIMESTAMP(DATE(DATE_ADD(dm.ngay_giao_du_kien, INTERVAL :lech MINUTE)) + INTERVAL 1 DAY),
@@ -718,11 +738,13 @@ public class TongQuanVaiTroRepository {
             FROM don_mua_hang dm
             WHERE %s AND dm.ngay_giao_du_kien >= :tu AND dm.ngay_giao_du_kien < :den
             GROUP BY dm.nha_cung_cap_id
-            """.formatted(CON_HANG_CHUA_NHAN, DON_DA_CHOT);
+            """.formatted(DON_KET_THUC_SOM, CON_HANG_CHUA_NHAN, DON_DA_CHOT_KE_CA_KET_THUC);
 
     /**
-     * Đơn mua đã chốt có ngày giao dự kiến trong [tu, den) theo từng nhà cung cấp. Đúng hạn: mọi dòng đã nhận đủ và
-     * phiếu nhập (đã nhập kho) cuối cùng của đơn trước 0 giờ ngày hôm sau của ngày giao dự kiến (giờ Việt Nam).
+     * Đơn mua đã chốt (kể cả đơn đóng nhận thiếu 6, đơn hủy 7) có ngày giao dự kiến trong [tu, den) theo từng nhà cung
+     * cấp. Đúng hạn: đơn không bị đóng / hủy, mọi dòng đã nhận đủ và phiếu nhập (đã nhập kho) cuối cùng của đơn trước
+     * 0 giờ ngày hôm sau của ngày giao dự kiến (giờ Việt Nam). Đơn 6 vốn còn dòng chưa nhận đủ, đơn 7 không có phiếu
+     * nhập; điều kiện "không bị đóng / hủy" giữ chúng ngoài tử số cả khi dữ liệu lệch.
      */
     public List<GiaoHanNcc> giaoDungHan(LocalDateTime tu, LocalDateTime den) {
         return jdbc.query(SQL_GIAO_DUNG_HAN, thamSoGio(null)
@@ -809,9 +831,9 @@ public class TongQuanVaiTroRepository {
             GROUP BY ncc.id, ncc.ten_nha_cung_cap
             ORDER BY gia_tri DESC, ncc.id
             LIMIT :soDong
-            """.formatted(DON_DA_CHOT);
+            """.formatted(DON_DA_DAT_MUA);
 
-    /** Nhà cung cấp có giá trị đơn mua đã chốt lớn nhất, theo ngày đặt hàng trong [tu, den). */
+    /** Nhà cung cấp có giá trị đơn mua đã đặt lớn nhất (xem DON_DA_DAT_MUA), theo ngày đặt hàng trong [tu, den). */
     public List<NhaCungCapGiaTri> nhaCungCapNhieuNhat(LocalDateTime tu, LocalDateTime den, int soDong) {
         return jdbc.query(SQL_NHA_CUNG_CAP_NHIEU_NHAT, new MapSqlParameterSource()
                         .addValue("tu", admin.mocUngDung(tu)).addValue("den", admin.mocUngDung(den))

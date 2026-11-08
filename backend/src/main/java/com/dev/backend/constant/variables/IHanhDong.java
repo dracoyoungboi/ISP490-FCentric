@@ -38,6 +38,10 @@ public interface IHanhDong {
             tu_choi_yeu_cau_mua_hang = "tu_choi_yeu_cau_mua_hang",
             nhap_kho = "nhap_kho",
             xuat_kho = "xuat_kho",
+            // Đơn mua đã chốt kết thúc sớm (loai_tham_chieu = don_mua_hang, gia_tri_cu / gia_tri_moi = trạng thái,
+            // ghi_chu = lý do bắt buộc): đóng khi nhà cung cấp giao thiếu (6), hủy khi chưa nhận gì (7)
+            dong_don_mua_hang = "dong_don_mua_hang",
+            huy_don_mua_hang = "huy_don_mua_hang",
             cap_nhat_kenh_ban = "cap_nhat_kenh_ban",
             dong_bo_san_pham = "dong_bo_san_pham",
             dong_bo_ton_kho = "dong_bo_ton_kho",

@@ -22,6 +22,10 @@ import { docSoTienBangChu } from "./soTienBangChu";
 // Trạng thái đơn mua hàng — dùng chung hằng số với PurchaseOrder (danh sách) / PurchaseOrderDetail.
 export const PURCHASE_ORDER_STATUS = DON_MUA_HANG_STATUS;
 
+// Dấu chìm theo trạng thái: 0 (đơn đã xóa) và 7 (hủy khi chưa nhận gì) in "ĐÃ HỦY"; 6 (đóng khi nhà cung cấp giao
+// thiếu, phần chưa nhận không còn về) in "ĐÃ ĐÓNG" — bản in không bị dùng như đơn còn hiệu lực
+const WATERMARK_THEO_TRANG_THAI = { 0: "ĐÃ HỦY", 6: "ĐÃ ĐÓNG", 7: "ĐÃ HỦY" };
+
 const signer = (person) => ({ name: person ? dash(person.hoTen) : "" });
 
 export function toPurchaseOrderPrintModel(raw) {
@@ -48,8 +52,7 @@ export function toPurchaseOrderPrintModel(raw) {
     return {
         documentNumber: dash(data.soDonMua || `#${data.id}`),
         documentDate: formatPrintLongDate(data.ngayDatHang),
-        // Mã 0 = đơn đã xóa
-        watermark: data.trangThai === 0 ? "ĐÃ HỦY" : null,
+        watermark: WATERMARK_THEO_TRANG_THAI[data.trangThai] ?? null,
         expectedDate: formatPrintDate(data.ngayGiaoDuKien),
         purchaseRequest: textOrNull(data.yeuCauMuaHang?.soYeuCauMuaHang),
         status: { label: status.label },

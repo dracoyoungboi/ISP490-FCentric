@@ -153,6 +153,8 @@ export default function CreatePurchaseRequestPage() {
   // Kể cả khoảnh khắc trước khi lượt tải mới bắt đầu (loading chưa bật): chưa có lỗi thì coi như đang tải
   const dangTaiKho = duLieuCu && !q.error;
   const loiTai = q.error && (!duLieu || duLieuCu) ? moTaLoiTai(q.error) : null;
+  // Ô Kho nhận chưa có kho: phân biệt đang tải / không có quyền (403) / lỗi khác với "Chưa có Kho tổng" thật
+  const trangThaiKho = kho ? null : q.initialLoading ? "dangTai" : loiTai ? (loiTai.khongQuyen ? "khongQuyen" : "loi") : null;
 
   // ── Điền sẵn từ đường dẫn (một lần, khi danh mục tải xong) ──
   useEffect(() => {
@@ -653,6 +655,7 @@ export default function CreatePurchaseRequestPage() {
             kho={kho}
             khoChon={khoId}
             dangTaiKho={dangTaiKho}
+            trangThaiKho={trangThaiKho}
             dsKhoTong={duLieu?.dsKhoTong ?? []}
             onDoiKho={doiKho}
             khoDeXuatTen={dienSan?.khoDeXuat ? (dienSan.khoDeXuatTen || "kho bán hàng đã chọn") : null}

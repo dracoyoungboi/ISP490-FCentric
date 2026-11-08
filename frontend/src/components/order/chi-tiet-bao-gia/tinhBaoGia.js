@@ -12,7 +12,7 @@
  *   `ghiChuNhaCungCap`: ghi chú nhà cung cấp gửi kèm báo giá; `lyDoTuChoi`: lý do không chấp nhận (có thể trống).
  * - 3: chấp nhận (thành đơn mua hàng cùng mã) · 4: không chấp nhận (kể cả K1: chấp nhận báo giá khác cùng yêu cầu thì
  *   báo giá còn chờ tự chuyển 4, không có người duyệt; giữ nhãn "Không chấp nhận báo giá", đặc tả K1) · 5: đã nhận đủ
- *   hàng · 0: đã xóa · 1: chỉ đơn tạo tay (đã gửi, chờ giá).
+ *   hàng · 6 / 7: đơn mua của báo giá đã đóng (nhận thiếu) / đã hủy · 0: đã xóa · 1: chỉ đơn tạo tay (đã gửi, chờ giá).
  * - Xét (PUT duyet-don/{id}/3 hoặc /4, body `{ lyDo, ngayBaoGiaDaXem }`): chỉ báo giá đang 2, đã có `ngayBaoGia`, yêu cầu
  *   ở 3; `ngayBaoGiaDaXem` khác máy chủ (nhà cung cấp vừa gửi lại) thì 409. Máy chủ ghi người bấm vào `nguoiDuyet`.
  */
@@ -25,6 +25,8 @@ export const TRANG_THAI_BAO_GIA = Object.freeze({
   DA_CHOT: 3,
   TU_CHOI: 4,
   DA_NHAN_DU: 5,
+  DA_DONG: 6,
+  DA_HUY: 7,
 });
 
 /** Trạng thái yêu cầu mua hàng cho phép xét báo giá: "Đã gửi yêu cầu báo giá" (YeuCauMuaHangService, mã 3). */
@@ -36,10 +38,18 @@ export const NHAN_CHO_BAO_GIA = "Chờ báo giá";
 /** Số ký tự tối đa của lý do không chấp nhận, khớp máy chủ (HOP-DONG 2.3, cột ly_do_tu_choi VARCHAR(500)). */
 export const LY_DO_KHONG_CHAP_NHAN_TOI_DA = 500;
 
-/** Báo giá đã chấp nhận: thành đơn mua hàng (3) hoặc đã nhận đủ hàng (5). */
+/**
+ * Báo giá đã chấp nhận: thành đơn mua hàng (3), rồi đơn đó đã nhận đủ (5), đã đóng nhận thiếu (6) hoặc đã hủy (7) —
+ * báo giá vẫn là báo giá đã chốt, chỉ đơn mua kết thúc khác nhau.
+ */
 export const laDaChot = (trangThai) => {
   const tt = docSo(trangThai);
-  return tt === TRANG_THAI_BAO_GIA.DA_CHOT || tt === TRANG_THAI_BAO_GIA.DA_NHAN_DU;
+  return [
+    TRANG_THAI_BAO_GIA.DA_CHOT,
+    TRANG_THAI_BAO_GIA.DA_NHAN_DU,
+    TRANG_THAI_BAO_GIA.DA_DONG,
+    TRANG_THAI_BAO_GIA.DA_HUY,
+  ].includes(tt);
 };
 
 /**
@@ -98,9 +108,9 @@ export function tongTienBaoGia(don) {
 }
 
 /**
- * Người chốt báo giá: `nguoiDuyet` (máy chủ ghi người bấm Chấp nhận / Không chấp nhận). Chỉ khi là báo giá của một
- * yêu cầu mua hàng (`yeuCauMuaHang` gốc) đã chốt (3, 5) hoặc không chấp nhận (4) và có tên; dữ liệu cũ không có người
- * chốt → null (màn ẩn). Đơn mua tạo tay không có yêu cầu gốc: `nguoiDuyet` là người tạo (quản trị viên tạo đơn tự
+ * Người chốt báo giá: `nguoiDuyet` (máy chủ ghi người bấm Chấp nhận / Không chấp nhận; đóng / hủy đơn sau đó không
+ * đổi). Chỉ khi là báo giá của một yêu cầu mua hàng (`yeuCauMuaHang` gốc) đã chốt (laDaChot) hoặc không chấp nhận (4)
+ * và có tên; dữ liệu cũ không có người chốt → null (màn ẩn). Đơn mua tạo tay không có yêu cầu gốc: `nguoiDuyet` là người tạo (quản trị viên tạo đơn tự
  * được ghi là người duyệt), không phải người chốt báo giá → null.
  * @param tuyChon `coYeuCauGoc`: nơi gọi đã biết báo giá thuộc một yêu cầu (vd. `donMuaHangs` của yêu cầu); mặc định đọc
  *   `don.yeuCauMuaHang`
@@ -236,7 +246,7 @@ export function ghiChuNhaCungCap(don) {
  * - Nhà cung cấp gửi giá: xong khi có `ngayBaoGia` (mốc giờ là lần gửi cuối).
  * Máy chủ ghi người chốt (`nguoiDuyet`, xem nguoiChotBaoGia) nhưng không lưu ngày chốt nên bước Chốt không có mốc giờ.
  * @param tomTat  `congGia(don.chiTietDonMuaHangs)`
- * @param nhanDonMua  tên trạng thái đơn mua hàng của mã 3 / 5 (DON_MUA_HANG_STATUS), hiện dưới bước cuối
+ * @param nhanDonMua  tên trạng thái đơn mua hàng của mã 3, 5, 6, 7 (DON_MUA_HANG_STATUS), hiện dưới bước cuối
  */
 export function tinhBuocBaoGia(don, tomTat = congGia(don?.chiTietDonMuaHangs), { nhanDonMua = "" } = {}) {
   const tt = docSo(don?.trangThai);

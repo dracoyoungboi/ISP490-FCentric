@@ -3,7 +3,7 @@
  * Không import alias "@/..." để chạy được bằng `node --test`.
  *
  * Đầu vào lấy từ API có sẵn:
- * - `dons`: DonMuaHangDto của nhà cung cấp (trạng thái 1–5), có `chiTietDonMuaHangs`.
+ * - `dons`: DonMuaHangDto của nhà cung cấp (trạng thái 1–7), có `chiTietDonMuaHangs`.
  * - `phieus`: PhieuNhapKhoDto (chưa hủy) của nhà cung cấp, hoặc `null` khi vai trò không xem được phiếu nhập.
  */
 import { docSo, tinhTienDoNhan, trangThaiGiao } from "../../order/chi-tiet-don-mua/tinhNhanHang.js";
@@ -14,9 +14,21 @@ export const TRANG_THAI_DON = {
   DA_BAO_GIA: 2, // nhà cung cấp đã báo giá, chờ duyệt
   DANG_VAN_CHUYEN: 3, // đã chốt
   KHONG_CHAP_NHAN: 4,
-  DA_THANH_TOAN: 5, // dữ liệu cũ, vẫn tính là đã chốt
+  DA_THANH_TOAN: 5, // đã nhận đủ (dữ liệu cũ gọi là đã thanh toán), vẫn tính là đã chốt
+  DA_DONG: 6, // đã chốt rồi kết thúc sớm: nhận thiếu
+  DA_HUY: 7, // đã chốt rồi kết thúc sớm: nhà cung cấp không giao
 };
-export const TRANG_THAI_DA_CHOT = [TRANG_THAI_DON.DANG_VAN_CHUYEN, TRANG_THAI_DON.DA_THANH_TOAN];
+/** Đơn mua đã chốt báo giá: đang vận chuyển, đã nhận đủ, và đã kết thúc sớm (đóng nhận thiếu / hủy). */
+export const TRANG_THAI_DA_CHOT = [
+  TRANG_THAI_DON.DANG_VAN_CHUYEN,
+  TRANG_THAI_DON.DA_THANH_TOAN,
+  TRANG_THAI_DON.DA_DONG,
+  TRANG_THAI_DON.DA_HUY,
+];
+/** Đơn đã chốt còn nhận hàng (tạo phiếu nhập) được — khớp PhieuNhapKhoService.createDraft. */
+export const TRANG_THAI_NHAN_HANG = [TRANG_THAI_DON.DANG_VAN_CHUYEN, TRANG_THAI_DON.DA_THANH_TOAN];
+/** Tình trạng giao của đơn đã đóng / đã hủy (không còn chờ giao, không tính đúng hạn). */
+const GIAO_KET_THUC = { [TRANG_THAI_DON.DA_DONG]: "daDong", [TRANG_THAI_DON.DA_HUY]: "daHuy" };
 export const TRANG_THAI_BAO_GIA = [TRANG_THAI_DON.DA_GUI, TRANG_THAI_DON.DA_BAO_GIA, TRANG_THAI_DON.KHONG_CHAP_NHAN];
 
 const PHIEU_DA_NHAP = 3;
@@ -44,7 +56,7 @@ export function ngayDat(don) {
   return don?.ngayDatHang || don?.ngayTao || null;
 }
 
-/** Tách đơn đã chốt (3, 5) và báo giá chưa thành đơn (1, 2, 4); mới nhất lên trước. */
+/** Tách đơn đã chốt (3, 5, 6, 7) và báo giá chưa thành đơn (1, 2, 4); mới nhất lên trước. */
 export function phanLoaiDon(dons) {
   const ds = Array.isArray(dons) ? dons : [];
   const theoNgayMoi = (a, b) => moc(ngayDat(b)) - moc(ngayDat(a)) || (b.id ?? 0) - (a.id ?? 0);
@@ -70,12 +82,15 @@ export function ngayNhapCuoiTheoDon(phieus) {
 
 /**
  * Tình trạng giao hàng của một đơn đã chốt:
+ * - đã đóng (nhận thiếu) / đã hủy: `daDong` / `daHuy` — đơn đã kết thúc, không còn chờ giao, không xét đúng hạn;
  * - chưa nhận đủ: `conLai` / `homNay` / `quaHan` (theo ngày giao dự kiến) hoặc `khongCo` (đơn không có ngày);
  * - đã nhận đủ: `dungHan` / `tre` (so ngày nhập của phiếu cuối với ngày dự kiến),
  *   hoặc `daDu` khi không biết ngày nhập (vai trò không xem phiếu nhập) hay đơn không có ngày dự kiến.
  */
 export function tinhGiaoHang(don, ngayNhapCuoi, homNay = new Date()) {
   const tienDo = tinhTienDoNhan(don?.chiTietDonMuaHangs);
+  const ketThuc = GIAO_KET_THUC[Number(don?.trangThai)];
+  if (ketThuc) return { loai: ketThuc, soNgay: 0, tienDo };
   if (!tienDo.daDu) {
     const giao = trangThaiGiao(don?.ngayGiaoDuKien, false, homNay);
     return { ...giao, tienDo };
@@ -102,7 +117,9 @@ export function giaoHangTheoDon(chot, phieus, homNay = new Date()) {
  * - Tỉ lệ chốt báo giá: số đã chốt / (đã chốt + không chấp nhận); báo giá đang chờ không tính.
  */
 export function tinhChiSo(chot, baoGia, giaoTheoDon, { coNgayNhap = true } = {}) {
-  const giaTri = chot.reduce((tong, d) => tong + docSo(d?.tongTien), 0);
+  // Đơn đã hủy không mua gì nên không tính vào giá trị đơn mua
+  const muaThat = chot.filter((d) => Number(d?.trangThai) !== TRANG_THAI_DON.DA_HUY);
+  const giaTri = muaThat.reduce((tong, d) => tong + docSo(d?.tongTien), 0);
 
   let dungHan = 0;
   let daXet = 0;
@@ -128,7 +145,7 @@ export function tinhChiSo(chot, baoGia, giaoTheoDon, { coNgayNhap = true } = {})
     : [];
 
   return {
-    giaTri: { tong: giaTri, soDon: chot.length },
+    giaTri: { tong: giaTri, soDon: muaThat.length },
     giaoDungHan: {
       tinhDuoc: coNgayNhap,
       dungHan,
@@ -149,13 +166,14 @@ const THU_TU_GIAO = { quaHan: 0, homNay: 1, conLai: 2, khongCo: 3 };
 
 /**
  * Việc đang mở với nhà cung cấp, việc gấp lên trước:
- * 1. đơn đã chốt chưa nhận đủ: quá hạn (lâu nhất trước) → hôm nay → còn N ngày (gần nhất trước) → không có ngày;
+ * 1. đơn đã chốt chưa nhận đủ (bỏ đơn đã đóng / hủy): quá hạn (lâu nhất trước) → hôm nay → còn N ngày (gần nhất
+ *    trước) → không có ngày;
  * 2. báo giá nhà cung cấp đã gửi, đang chờ duyệt (trạng thái 2), mới nhất trước.
  */
 export function timViecDangMo(chot, baoGia, giaoTheoDon) {
   const don = chot
     .map((d) => ({ loai: "don", don: d, giao: giaoTheoDon.get(d.id) }))
-    .filter((v) => v.giao && !v.giao.tienDo.daDu)
+    .filter((v) => v.giao && !v.giao.tienDo.daDu && !Object.values(GIAO_KET_THUC).includes(v.giao.loai))
     .sort((a, b) => {
       const ta = THU_TU_GIAO[a.giao.loai] ?? 9;
       const tb = THU_TU_GIAO[b.giao.loai] ?? 9;
@@ -327,6 +345,8 @@ const NHOM_GIAO = {
   dungHan: { nhan: "Đúng hạn", loai: ["dungHan"] },
   tre: { nhan: "Trễ hạn", loai: ["tre"] },
   daDu: { nhan: "Đã nhận đủ", loai: ["daDu"] },
+  // Cùng tên tab "Đã đóng / Đã hủy" của trang Đơn mua hàng (constants/donMuaHang.js)
+  ketThuc: { nhan: "Đã đóng / Đã hủy", loai: ["daDong", "daHuy"] },
 };
 
 export function nhomGiao(loai) {

@@ -7,6 +7,12 @@ import { GOI_Y_O, NHAN_O, O_NHAP, O_NHAP_NHIEU_DONG } from "@/components/chung-t
 import { GHI_CHU_TOI_DA, MOC_NGAY_GIAO, isoNgay, moTaNgayGiao, sauNgay } from "./tinhTaoYeuCau";
 
 const O_CHON_KHO = cn(O_NHAP, "cursor-pointer appearance-none pr-9 font-medium");
+// Ô Kho nhận khi chưa có kho để hiện, theo lý do (không ghi "Chưa có Kho tổng" khi chỉ là đang tải / không có quyền)
+const CHU_KHO_TRONG = {
+  dangTai: "Đang tải Kho tổng…",
+  khongQuyen: "Tài khoản không có quyền tạo yêu cầu nhập",
+  loi: "Chưa tải được Kho tổng",
+};
 
 /**
  * Cột phải của màn Tạo yêu cầu nhập hàng (dính lại khi cuộn từ 1280px): Kho nhận (Kho tổng; nhiều Kho tổng thì chọn được),
@@ -14,11 +20,14 @@ const O_CHON_KHO = cn(O_NHAP, "cursor-pointer appearance-none pr-9 font-medium")
  * (tối đa GHI_CHU_TOI_DA ký tự) và Tóm tắt cho người duyệt (số sản phẩm, biến thể, tổng, theo số đề xuất, cần chú ý,
  * số lượng theo nhóm hàng).
  * `khoChon`: Kho tổng vừa chọn (danh mục có thể còn đang tải theo kho mới); `dangTaiKho`: đang tải hàng của kho đó.
+ * `trangThaiKho`: vì sao chưa có kho để hiện — "dangTai" (lần tải đầu), "khongQuyen" (403), "loi" (lỗi khác); bỏ trống
+ * mà vẫn không có kho thì máy chủ thật sự không có Kho tổng ("Chưa có Kho tổng").
  */
 export default function CotThongTinYeuCau({
   kho: khoTai,
   khoChon,
   dangTaiKho = false,
+  trangThaiKho,
   dsKhoTong = [],
   onDoiKho,
   khoDeXuatTen,
@@ -34,6 +43,8 @@ export default function CotThongTinYeuCau({
   // Vừa đổi kho: hiện ngay kho đã chọn (tên, quản lý lấy từ danh sách Kho tổng) dù danh mục chưa tải xong
   const kho = dsKhoTong.find((k) => String(k.id) === String(khoChon ?? khoTai?.id)) ?? khoTai;
   const moTa = moTaNgayGiao(ngayGiao, homNay);
+  const khongQuyen = !kho && trangThaiKho === "khongQuyen";
+  const chuKhoTrong = (!kho && CHU_KHO_TRONG[trangThaiKho]) || "Chưa có Kho tổng";
   const lonNhat = Math.max(1, ...(tomTat?.theoNhom ?? []).map((x) => x.soLuong));
 
   return (
@@ -59,11 +70,11 @@ export default function CotThongTinYeuCau({
                 <Warehouse className="size-4" aria-hidden="true" />
               </span>
               <span className="min-w-0">
-                <span className="block truncate text-sm font-semibold leading-5 text-bo-foreground">
-                  {kho?.tenKho || "Chưa có Kho tổng"}
+                <span className={cn("block text-sm font-semibold leading-5 text-bo-foreground", !khongQuyen && "truncate")}>
+                  {kho?.tenKho || chuKhoTrong}
                   {kho?.maKho ? <span className="ml-1.5 font-mono text-xs font-normal text-bo-muted">{kho.maKho}</span> : null}
                 </span>
-                <span className="block text-xs leading-4 text-bo-muted">Nhận hàng từ nhà cung cấp</span>
+                {khongQuyen ? null : <span className="block text-xs leading-4 text-bo-muted">Nhận hàng từ nhà cung cấp</span>}
               </span>
             </div>
           )}

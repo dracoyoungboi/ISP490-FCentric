@@ -28,6 +28,7 @@ import StatusTabs from '@/components/shared/StatusTabs';
 import TablePagination from '@/components/shared/TablePagination';
 import { SO_DONG_MAC_DINH } from '@/constants/phanTrang';
 import { formatCurrency, formatDate } from '@/utils/formatters';
+import { hasAnyRole } from '@/utils/roles';
 
 import { DON_MUA_HANG_TABS, DON_MUA_HANG_TAB_CU, getDonMuaHangStatus } from '@/constants/donMuaHang';
 import useDemTheoTrangThai from '@/hooks/useDemTheoTrangThai';
@@ -109,6 +110,9 @@ export default function PurchaseOrderList() {
 
     // Quyền thao tác
     const canCreateReceipt = userRoles.includes(ROLE.QUAN_TRI_VIEN) || userRoles.includes(ROLE.QUAN_LY_KHO) || userRoles.includes(ROLE.NHAN_VIEN_KHO);
+    // "Tạo đơn mua hàng" = chốt một báo giá đã nhận: cùng vai trò với PUT /nghiep-vu/don-mua-hang/duyet-don (máy chủ chặn
+    // các vai trò khác khi bấm Chấp nhận)
+    const canCreateOrder = hasAnyRole([ROLE.QUAN_TRI_VIEN, ROLE.QUAN_LY_KHO, ROLE.NHAN_VIEN_MUA_HANG]);
 
     // ── Load Auth & Warehouses ──
     useEffect(() => {
@@ -158,7 +162,7 @@ export default function PurchaseOrderList() {
     const buildFilterArray = useCallback(({ trangThai, tuKhoa, kho, ngay }) => {
         const filterArray = [];
 
-        // Chỉ lấy đơn hàng có trạng thái 3 hoặc 5 (tab Tất cả = cả hai)
+        // Trạng thái của tab đang chọn (DON_MUA_HANG_TABS ở constants/donMuaHang; tab Tất cả = mọi trạng thái của trang)
         if (trangThai.length === 1) {
             filterArray.push({ fieldName: 'trangThai', operation: 'EQUALS', value: trangThai[0], logicType: 'AND' });
         } else {
@@ -222,11 +226,12 @@ export default function PurchaseOrderList() {
         } catch (error) {
             if (requestId !== requestIdRef.current) return;
             if (silent) throw error;
-            // Không giữ dòng + tổng số của lần tải trước (R9)
-            setLoadError(true);
+            // Không giữ dòng + tổng số của lần tải trước (R9). Giữ lỗi để ô lỗi phân biệt 403 (không có quyền: không
+            // "Thử lại", không thông báo nhanh)
+            setLoadError(error);
             setOrders([]);
             setPagination(prev => ({ ...prev, totalElements: 0, totalPages: 0 }));
-            toast.error('Không thể tải danh sách đơn mua hàng');
+            if (error?.response?.status !== 403) toast.error('Không thể tải danh sách đơn mua hàng');
         } finally {
             if (requestId === requestIdRef.current) setLoading(false);
         }
@@ -336,25 +341,21 @@ export default function PurchaseOrderList() {
     }));
     const emptyTabLabel = DON_MUA_HANG_TABS.find((t) => t.ma === tab)?.label;
 
-    // Ghi chú phạm vi cho người chỉ xem kho mình phụ trách (R3)
-    const scopeNote = !isRestrictedWarehouse || loadingInitial
-        ? null
-        : warehouses.length > 0
-            ? `Kho bạn phụ trách: ${warehouses.map((w) => w.tenKho).join(', ')}`
-            : 'Bạn chưa được phân công kho nào nên danh sách đang trống.';
+    // Phạm vi cho người chỉ xem kho của mình (R3): nhãn "Nơi làm việc" chung (ListPageHeader)
+    const noiLamViec = !isRestrictedWarehouse || loadingInitial ? null : warehouses;
 
     return (
         <PageContainer fill className="space-y-4">
             <ListPageHeader
-                scope={scopeNote}
-                actions={
+                noiLamViec={noiLamViec}
+                actions={canCreateOrder ? (
                     <Button
                         className="gap-1.5 bg-bo-primary font-semibold text-white hover:bg-bo-primary-hover"
                         onClick={() => navigate('/purchase-orders/create')}
                     >
                         <Plus className="size-4" /> Tạo đơn mua hàng
                     </Button>
-                }
+                ) : null}
             />
 
             {/* ── Table (nhấn vào dòng để xem chi tiết đơn mua hàng) ── */}
@@ -464,6 +465,7 @@ export default function PurchaseOrderList() {
                 ) : loadError ? (
                     <ErrorState
                         description="Không thể tải danh sách đơn mua hàng. Vui lòng thử lại."
+                        error={loadError}
                         onRetry={handleRefresh}
                     />
                 ) : orders.length === 0 ? (
@@ -501,7 +503,7 @@ export default function PurchaseOrderList() {
                         <EmptyState
                             icon={ShoppingCart}
                             title="Chưa có đơn mua hàng"
-                            description="Đơn mua hàng đang vận chuyển và đã nhận đủ sẽ hiển thị tại đây."
+                            description="Đơn mua hàng chốt từ báo giá của nhà cung cấp sẽ hiển thị tại đây."
                         />
                     )
                 ) : (

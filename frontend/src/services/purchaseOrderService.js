@@ -58,9 +58,10 @@ const purchaseOrderService = {
      * Lọc và phân trang danh sách đơn mua hàng
      * POST /api/v1/don-mua-hang/filter
      */
-    filter: async (filterRequest) => {
-        // API chỉ cho nhân viên đã đăng nhập (quản trị, quản lý kho, mua hàng, nhân viên kho) nên phải gửi kèm token
-        const response = await apiClient.post(`/api/v1/don-mua-hang/filter`, filterRequest, { needKho: false });
+    filter: async (filterRequest, config) => {
+        // API chỉ cho nhân viên đã đăng nhập (quản trị, quản lý kho, mua hàng, nhân viên kho) nên phải gửi kèm token.
+        // `config` (tùy chọn): cấu hình axios thêm, vd. { signal } để hủy lần tìm cũ
+        const response = await apiClient.post(`/api/v1/don-mua-hang/filter`, filterRequest, { ...config, needKho: false });
         return response.data;
     },
 
@@ -72,14 +73,15 @@ const purchaseOrderService = {
     }),
 
     /**
-     * Đơn mua và báo giá của một nhà cung cấp cho màn Chi tiết nhà cung cấp (trạng thái 1–5, bỏ 0 "Đã xóa"),
+     * Đơn mua và báo giá của một nhà cung cấp cho màn Chi tiết nhà cung cấp (trạng thái 1–7, bỏ 0 "Đã xóa"; 6, 7 là đơn
+     * đã chốt rồi đóng nhận thiếu / hủy),
      * mới nhất trước. `khoIds`: chỉ lấy đơn nhập về các kho này (quản lý kho / nhân viên kho, như trang
      * Đơn mua hàng). Lấy tối đa `size` đơn; trả `{ nhaCungCapId, dons, tong }` để màn hình báo khi còn đơn chưa tải.
      */
     layTheoNhaCungCap: async (nhaCungCapId, { khoIds, size = 500 } = {}) => {
         const filters = [
             { fieldName: 'nhaCungCap.id', operation: 'EQUALS', value: Number(nhaCungCapId) },
-            { fieldName: 'trangThai', operation: 'IN', value: [1, 2, 3, 4, 5] },
+            { fieldName: 'trangThai', operation: 'IN', value: [1, 2, 3, 4, 5, 6, 7] },
         ];
         if (Array.isArray(khoIds)) {
             filters.push({ fieldName: 'khoNhap.id', operation: 'IN', value: khoIds.length ? khoIds : [-1] });
@@ -170,6 +172,26 @@ const purchaseOrderService = {
      */
     guiLaiYeuCau: async (id) => {
         const response = await apiClient.post(`/api/v1/nghiep-vu/don-mua-hang/${id}/gui-lai-yeu-cau`);
+        return response.data;
+    },
+
+    /**
+     * Đóng đơn đang vận chuyển khi nhà cung cấp giao thiếu (đã nhận ít nhất một đợt) → trạng thái 6.
+     * PUT /api/v1/don-mua-hang/dong-don/{id}, body { lyDo } (bắt buộc, ≤ 255). Không gửi email cho nhà cung cấp.
+     * Lỗi: 400 (thiếu / quá dài lý do), 409 (đơn không còn đang vận chuyển, chưa nhận đợt nào, còn phiếu nhập chưa nhập
+     * kho — câu máy chủ kèm số phiếu), 403 (vai trò khác quản trị viên, nhân viên mua hàng).
+     */
+    dongDon: async (id, lyDo) => {
+        const response = await apiClient.put(`/api/v1/don-mua-hang/dong-don/${id}`, { lyDo });
+        return response.data;
+    },
+
+    /**
+     * Hủy đơn đang vận chuyển khi nhà cung cấp không giao (chưa nhận đợt nào) → trạng thái 7.
+     * PUT /api/v1/don-mua-hang/huy-don/{id}, body { lyDo } (bắt buộc, ≤ 255). Lỗi như dongDon (409 khi đã nhận hàng).
+     */
+    huyDon: async (id, lyDo) => {
+        const response = await apiClient.put(`/api/v1/don-mua-hang/huy-don/${id}`, { lyDo });
         return response.data;
     },
 };

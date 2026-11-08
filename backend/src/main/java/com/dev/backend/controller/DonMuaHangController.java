@@ -4,6 +4,7 @@ package com.dev.backend.controller;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.customizeanotation.RequireAuth;
 import com.dev.backend.dto.request.BaseFilterRequest;
+import com.dev.backend.dto.request.LyDoHuyRequest;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.entities.DonMuaHangDto;
 import com.dev.backend.mapper.DonMuaHangMapper;
@@ -38,10 +39,9 @@ public class DonMuaHangController {
         return ResponseEntity.ok(
                 ResponseData.<DonMuaHangDto>builder()
                         .status(HttpStatus.OK.value())
-                        .data(donMuaHangMapper.toDto(
-                                // Kiểm phạm vi kho nhập theo vai trò (quản lý kho, nhân viên kho chỉ thấy kho mình)
-                                donMuaHangService.layDuocXem(id)
-                        ))
+                        // Kiểm phạm vi kho nhập theo vai trò (quản lý kho, nhân viên kho chỉ thấy kho mình); đơn đã đóng /
+                        // đã hủy kèm lý do, lúc, người thao tác
+                        .data(donMuaHangService.boSungKetThuc(donMuaHangMapper.toDto(donMuaHangService.layDuocXem(id))))
                         .build()
         );
     }
@@ -63,6 +63,50 @@ public class DonMuaHangController {
                         .data(donMuaHangMapper.toDtoPage(donMuaHangService.filter(filter)))
                         .error(null)
                         .message("Success")
+                        .build()
+        );
+    }
+
+    // Đóng đơn đang vận chuyển khi nhà cung cấp giao thiếu (đã nhận ít nhất một đợt). Body {"lyDo": "..."} bắt buộc,
+    // tối đa DonMuaHangService.LY_DO_KET_THUC_TOI_DA ký tự. Không gửi email cho nhà cung cấp.
+    @PutMapping("/dong-don/{id}")
+    @RequireAuth(
+            roles = {
+                    IRoleType.quan_tri_vien,
+                    IRoleType.nhan_vien_mua_hang
+            },
+            rolesLogic = RequireAuth.LogicType.OR
+    )
+    public ResponseEntity<ResponseData<String>> dongDon(@PathVariable Integer id,
+                                                       @RequestBody(required = false) LyDoHuyRequest body) {
+        donMuaHangService.dongDon(id, body != null ? body.getLyDo() : null);
+        return ResponseEntity.ok(
+                ResponseData.<String>builder()
+                        .status(HttpStatus.OK.value())
+                        .data("Success")
+                        .message("Đã đóng đơn mua.")
+                        .build()
+        );
+    }
+
+    // Hủy đơn đang vận chuyển khi nhà cung cấp không giao (chưa nhận đợt nào). Body {"lyDo": "..."} bắt buộc.
+    // Không gửi email cho nhà cung cấp.
+    @PutMapping("/huy-don/{id}")
+    @RequireAuth(
+            roles = {
+                    IRoleType.quan_tri_vien,
+                    IRoleType.nhan_vien_mua_hang
+            },
+            rolesLogic = RequireAuth.LogicType.OR
+    )
+    public ResponseEntity<ResponseData<String>> huyDon(@PathVariable Integer id,
+                                                      @RequestBody(required = false) LyDoHuyRequest body) {
+        donMuaHangService.huyDon(id, body != null ? body.getLyDo() : null);
+        return ResponseEntity.ok(
+                ResponseData.<String>builder()
+                        .status(HttpStatus.OK.value())
+                        .data("Success")
+                        .message("Đã hủy đơn mua.")
                         .build()
         );
     }

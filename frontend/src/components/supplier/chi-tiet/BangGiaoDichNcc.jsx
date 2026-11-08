@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { Clock, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import StatusBadge from "@/components/shared/StatusBadge";
-import { getBaoGiaNccStatus } from "@/constants/donMuaHang";
+import { getBaoGiaNccStatus, getDonMuaHangStatus } from "@/constants/donMuaHang";
 import { getGoodsReceiptStatus } from "@/constants/goodsReceipt";
 import { tinhTienDoNhan } from "@/components/order/chi-tiet-don-mua/tinhNhanHang";
 import { ngayDat } from "@/components/supplier/chi-tiet/tinhNhaCungCap";
@@ -22,10 +22,16 @@ function chuHanGiao(giao) {
   return "Chưa có hạn giao";
 }
 
-/** Cột "Giao hàng" của bảng đơn mua: thẻ trạng thái như mọi cột trạng thái khác. */
-function GiaoHang({ giao }) {
+/**
+ * Cột "Giao hàng" của bảng đơn mua: thẻ trạng thái như mọi cột trạng thái khác. Đơn đã đóng (nhận thiếu) / đã hủy ghi
+ * đúng trạng thái đơn (constants/donMuaHang.js).
+ */
+function GiaoHang({ giao, trangThai }) {
   if (!giao) return <span className="text-bo-muted">—</span>;
   switch (giao.loai) {
+    case "daDong":
+    case "daHuy":
+      return <StatusBadge quyTrinh="donMua" label={getDonMuaHangStatus(trangThai).label} />;
     case "dungHan":
       return <StatusBadge label="Đúng hạn" />;
     case "tre":
@@ -182,7 +188,7 @@ const O = "px-3 py-3";
 const O_CUOI = "py-3 pl-3 pr-4 text-right sm:pr-6";
 const DONG = "border-b border-slate-100 tabular-nums hover:bg-bo-surface-subtle";
 
-/** Tab "Đơn mua hàng": đơn đã chốt (3, 5), kèm tình trạng giao. */
+/** Tab "Đơn mua hàng": đơn đã chốt (3, 5, 6, 7), kèm tình trạng giao. */
 export function BangDonMuaNcc({ chot, giaoTheoDon }) {
   return (
     <Bang>
@@ -211,7 +217,7 @@ export function BangDonMuaNcc({ chot, giaoTheoDon }) {
               <td className={cn(O, "text-slate-700")}>{formatDate(ngayDat(d))}</td>
               <td className={cn(O, "text-slate-700")}>{formatDate(d.ngayGiaoDuKien)}</td>
               <td className={cn(O, "whitespace-nowrap text-[13px]")}>
-                <GiaoHang giao={giao} />
+                <GiaoHang giao={giao} trangThai={d.trangThai} />
               </td>
               <td className={cn(O, "text-right text-slate-700")}>
                 {formatNumber(tienDo.daNhan)}/{formatNumber(tienDo.dat)}

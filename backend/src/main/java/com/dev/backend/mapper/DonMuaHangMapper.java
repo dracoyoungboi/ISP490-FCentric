@@ -29,6 +29,9 @@ public interface DonMuaHangMapper {
 
     @Mapping(target = "khongDuocChon", ignore = true)
     @Mapping(target = "chuaGuiDuocYeuCau", ignore = true)
+    @Mapping(target = "lyDoKetThuc", ignore = true)
+    @Mapping(target = "ngayKetThuc", ignore = true)
+    @Mapping(target = "nguoiKetThuc", ignore = true)
     DonMuaHangDto toDto(DonMuaHang donMuaHang);
 
     /**

@@ -294,7 +294,15 @@ function ChiTietBaoGia({ id }) {
             </DongThongBao>,
         );
     }
-    if (daChot) {
+    if (daChot && (tt === TRANG_THAI_BAO_GIA.DA_DONG || tt === TRANG_THAI_BAO_GIA.DA_HUY)) {
+        // Đơn mua của báo giá đã kết thúc sớm: lý do xem ở đơn mua hàng
+        thongBao.push(
+            <DongThongBao key="ket-qua">
+                Báo giá đã chấp nhận và trở thành đơn mua hàng cùng mã; đơn mua hàng đó{" "}
+                {tt === TRANG_THAI_BAO_GIA.DA_DONG ? "đã đóng (nhận thiếu)" : "đã hủy"}. Xem lý do ở đơn mua hàng.
+            </DongThongBao>,
+        );
+    } else if (daChot) {
         thongBao.push(
             <DongThongBao key="ket-qua" tone="ok">
                 Báo giá đã chấp nhận và trở thành đơn mua hàng cùng mã. Theo dõi nhận hàng ở đơn mua hàng.

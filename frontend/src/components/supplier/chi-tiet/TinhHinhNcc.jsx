@@ -11,6 +11,8 @@ const VACH = {
   conLai: { mau: "bg-slate-300", chu: "chưa tới hạn" },
   khongCo: { mau: "bg-slate-300", chu: "chưa có ngày giao dự kiến" },
   daDu: { mau: "bg-slate-400", chu: "đã nhận đủ" },
+  daDong: { mau: "bg-slate-200", chu: "đã đóng (nhận thiếu)" },
+  daHuy: { mau: "bg-slate-200", chu: "đã hủy" },
 };
 
 function O({ nhan, giaTri, coGiaTri, children, phu }) {

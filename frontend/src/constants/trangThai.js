@@ -143,6 +143,7 @@ export const NHAN_THEO_NHOM = {
   ],
   dong: [
     "Đã hủy",
+    "Đã đóng (nhận thiếu)",
     "Đã xóa",
     "Từ chối",
     "Đã từ chối",
@@ -245,6 +246,7 @@ export const BIEU_TUONG_THEO_NHAN = {
   "Không chấp nhận báo giá": "Ban",
   "Còn thiếu": "TriangleAlert",
   "Đã nhận đủ": "PackageCheck",
+  "Đã đóng (nhận thiếu)": "PackageMinus",
   // Thanh toán, hàng khả dụng
   "Chưa thanh toán": "Banknote",
   "Chờ thanh toán": "Banknote",
@@ -406,13 +408,14 @@ export const QUY_TRINH = {
       "Đã gửi YC báo giá": 1, "Chờ báo giá": 1, "Đã nhận báo giá": 2, "Đã báo giá": 2,
       "Đã gửi báo giá": 2, "Đã chuyển thành đơn mua hàng": 3, "Đã nhận đủ": 3,
     },
-    huy: ["Từ chối báo giá", "Không chấp nhận báo giá", "Đã xóa"],
+    // Đơn mua của báo giá đã kết thúc sớm (đóng nhận thiếu / hủy): kết thúc không trọn
+    huy: ["Từ chối báo giá", "Không chấp nhận báo giá", "Đã xóa", "Đã đóng (nhận thiếu)", "Đã hủy"],
   },
   donMua: {
     ten: "Đơn mua hàng",
     tong: 4,
     buoc: { "Đã gửi": 1, "Đã báo giá": 2, "Đang vận chuyển": 3, "Đã nhận đủ": 4, "Đã thanh toán": 4 },
-    huy: ["Đã xóa", "Không chấp nhận báo giá"],
+    huy: ["Đã xóa", "Không chấp nhận báo giá", "Đã đóng (nhận thiếu)", "Đã hủy"],
   },
 };
 

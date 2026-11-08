@@ -165,13 +165,14 @@ public class YeuCauMuaHangService extends BaseServiceImpl<YeuCauMuaHang, Integer
         yeuCauMuaHang.setChiTietYeuCauMuaHangs(chiTietYeuCauMuaHangService.create(chiTietYeuCauMuaHangs));
         // Báo quản lý kho nhập có yêu cầu chờ duyệt (gửi sau commit)
         if (thongBaoMuaHangService != null) thongBaoMuaHangService.yeuCauChoDuyet(yeuCauMuaHang, nguoiTao, chiTietYeuCauMuaHangs.size());
+        // Nhân viên bán hàng cũng tạo được yêu cầu: không trả giá vốn của mã hàng (cùng luật API xem yêu cầu)
+        YeuCauMuaHangDto dto = yeuCauMuaHangMapper.toDto(yeuCauMuaHang);
+        DonMuaHangService.locDonMuaTheoPhamVi(dto, authInfo);
         return ResponseEntity.ok(
                 ResponseData.<YeuCauMuaHangDto>builder()
                         .status(HttpStatus.OK.value())
                         .message("Success")
-                        .data(
-                                yeuCauMuaHangMapper.toDto(yeuCauMuaHang)
-                        )
+                        .data(dto)
                         .build()
         );
     }

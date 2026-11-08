@@ -337,6 +337,19 @@ public class ThongBaoMuaHangService {
         }
     }
 
+    /**
+     * Đơn mua đã chốt vừa bị đóng (nhận thiếu, 6) hoặc hủy (7): không còn hàng để nhận nên thông báo "đã chốt, chờ nhận
+     * hàng" (M5) gửi kho nhập coi như xong. Không gửi thông báo mới.
+     */
+    public void donMuaDaKetThuc(Integer donId) {
+        if (donId == null) return;
+        try {
+            thongBaoService.daXuLySauCommit("DMH:" + donId + ":CHAP_NHAN");
+        } catch (RuntimeException e) {
+            log.warn("[THONG-BAO] Không đánh dấu được đơn mua đã đóng / hủy: {}", e.getMessage());
+        }
+    }
+
     /** M7: đơn mua vừa nhận đủ hàng (phiếu {@code phieu} chốt trạng thái 5). Thông báo "đã chốt, chờ nhận hàng" coi như xong. */
     public void donMuaDaNhanDu(DonMuaHang don, PhieuNhapKho phieu, NguoiDung nguoiNhap) {
         try {

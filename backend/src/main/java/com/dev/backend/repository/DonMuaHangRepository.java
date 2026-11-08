@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -41,6 +42,14 @@ public interface DonMuaHangRepository extends JpaRepository<DonMuaHang, Integer>
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select d from DonMuaHang d where d.yeuCauMuaHang.id = :yeuCauId order by d.id")
     List<DonMuaHang> khoaTheoYeuCau(@Param("yeuCauId") Integer yeuCauId);
+
+    /** Tổng số đã nhận (theo các phiếu nhập đã hoàn tất) của mọi dòng một đơn mua; đơn không có dòng thì 0. */
+    @Query("select coalesce(sum(c.soLuongDaNhan), 0) from ChiTietDonMuaHang c where c.donMuaHang.id = :donId")
+    BigDecimal tongDaNhan(@Param("donId") Integer donId);
+
+    /** Số phiếu nhập của một đơn mua đang ở các trạng thái cho trước, cũ trước (đóng / hủy đơn chặn khi còn phiếu mở). */
+    @Query("select p.soPhieuNhap from PhieuNhapKho p where p.donMuaHang.id = :donId and p.trangThai in :trangThais order by p.id")
+    List<String> soPhieuNhapTheoTrangThai(@Param("donId") Integer donId, @Param("trangThais") List<Integer> trangThais);
 
     /** Số đơn mua hàng / yêu cầu báo giá (mọi trạng thái) của một nhà cung cấp — dùng khi kiểm tra xóa nhà cung cấp. */
     long countByNhaCungCap_Id(Integer nhaCungCapId);

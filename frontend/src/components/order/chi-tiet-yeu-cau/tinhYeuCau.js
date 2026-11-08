@@ -103,7 +103,7 @@ export function baoGiaHieuLuc(yc) {
   );
 }
 
-/** Báo giá đã chấp nhận (đã thành đơn mua hàng): trạng thái 3 hoặc 5. Backend cho chấp nhận nhiều báo giá. */
+/** Báo giá đã chấp nhận (đã thành đơn mua hàng, xem tinhBaoGia.laDaChot). Backend cho chấp nhận nhiều báo giá. */
 export function baoGiaDaChot(yc) {
   return baoGiaHieuLuc(yc).filter((don) => laDaChot(don.trangThai));
 }
@@ -133,7 +133,7 @@ const tenNccCua = (don) => don?.nhaCungCap?.tenNhaCungCap || don?.nhaCungCap?.ma
  * Tóm tắt báo giá của yêu cầu cho màn Yêu cầu báo giá (dòng phụ đầu khối, nhóm "Báo giá" ở cột phải), tính trên các
  * báo giá còn hiệu lực (bỏ báo giá đã xóa).
  * @returns `{ daGui, daBaoGia, daChot, khongChapNhan, conCho, tongDaChot, nccChot, ngayGui }`
- *   - `daGui`: số nhà cung cấp được gửi yêu cầu · `daBaoGia`: đã gửi báo giá (`ngayBaoGia`) · `daChot`: đã chấp nhận (3, 5)
+ *   - `daGui`: số nhà cung cấp được gửi yêu cầu · `daBaoGia`: đã gửi báo giá (`ngayBaoGia`) · `daChot`: đã chấp nhận (3, 5, 6, 7)
  *   - `khongChapNhan`: đã không chấp nhận (4, kể cả báo giá tự chuyển 4 khi chấp nhận báo giá khác — K1)
  *   - `conCho`: còn chờ giá / chờ chốt (1, 2 — còn chấp nhận được)
  *   - `tongDaChot`: cộng tổng tiền các báo giá đã chấp nhận (tinhBaoGia.tongTienBaoGia) · `nccChot`: tên nhà cung cấp của chúng

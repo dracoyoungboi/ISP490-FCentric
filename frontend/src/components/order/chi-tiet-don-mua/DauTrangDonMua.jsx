@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Check, Copy, Ellipsis, FileText, PackagePlus, Printer } from "lucide-react";
+import { ArrowLeft, Ban, Check, Copy, Ellipsis, FileText, PackageMinus, PackagePlus, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import PageHeading from "@/components/backoffice/PageHeading";
 import { useClaimPageTitle } from "@/components/backoffice/pageTitle";
@@ -19,6 +21,8 @@ import { formatCurrency, formatDate } from "@/utils/formatters";
 
 const NUT_VIEN =
   "border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle";
+const MUC_MENU =
+  "cursor-pointer gap-2 rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900";
 
 /**
  * Đầu khối của màn Chi tiết đơn mua hàng: nút quay lại, mã đơn + trạng thái, dòng phụ
@@ -31,8 +35,12 @@ const NUT_VIEN =
  *
  * "Sao chép mã đơn" trong menu ⋯ theo config/thongBaoNhanh.js → nutSaoChep: "thong-bao" thì menu đóng
  * và bật thông báo "Đã sao chép mã đơn"; "tai-cho" thì mục đổi thành "Đã sao chép" rồi menu tự đóng.
+ *
+ * `ketThuc`: `{ dong, huy, khoa, lyDoKhoa }` (tinhNhanHang.thaoTacKetThuc) — mục cuối menu ⋯ "Đóng đơn (nhận thiếu)"
+ * (đã nhận ít nhất một đợt) hoặc "Hủy đơn" (chưa nhận gì), chữ đỏ có vạch ngăn; chọn thì `onKetThuc("dong" | "huy")`
+ * mở hộp nhập lý do. `khoa`: máy chủ còn đang xử lý thao tác trước (mục vẫn hiện, chọn không làm gì).
  */
-export default function DauTrangDonMua({ don, taoPhieu, onQuayLai, onIn, onTaoPhieu, onMoYeuCau }) {
+export default function DauTrangDonMua({ don, taoPhieu, ketThuc, onQuayLai, onIn, onTaoPhieu, onMoYeuCau, onKetThuc }) {
   useClaimPageTitle(true);
   const [moMenu, setMoMenu] = useState(false);
   const { daChep, saoChep, quenDaChep, taiCho } = useSaoChep();
@@ -63,6 +71,12 @@ export default function DauTrangDonMua({ don, taoPhieu, onQuayLai, onIn, onTaoPh
   const ncc = don.nhaCungCap;
   const kho = don.khoNhap;
   const coYeuCau = Boolean(don.yeuCauMuaHang?.id);
+  const mucKetThuc = ketThuc?.dong
+    ? { loai: "dong", nhan: "Đóng đơn (nhận thiếu)", icon: PackageMinus }
+    : ketThuc?.huy
+      ? { loai: "huy", nhan: "Hủy đơn", icon: Ban }
+      : null;
+  const IconKetThuc = mucKetThuc?.icon;
 
   const nutTaoPhieu = (
     <Button
@@ -152,6 +166,21 @@ export default function DauTrangDonMua({ don, taoPhieu, onQuayLai, onIn, onTaoPh
                 <FileText className="size-4 text-slate-400" aria-hidden="true" />
                 Mở yêu cầu nhập hàng
               </DropdownMenuItem>
+            ) : null}
+            {mucKetThuc ? (
+              <>
+                <DropdownMenuSeparator className="my-1 bg-bo-border" />
+                {/* Mục khóa vẫn tới được bằng phím (aria-disabled) để trình đọc màn hình đọc lý do; chọn thì không làm gì */}
+                <DropdownMenuItem
+                  onSelect={ketThuc.khoa ? (suKien) => suKien.preventDefault() : () => onKetThuc?.(mucKetThuc.loai)}
+                  aria-disabled={ketThuc.khoa ? true : undefined}
+                  title={ketThuc.khoa ? ketThuc.lyDoKhoa : undefined}
+                  className={cn(MUC_MENU, "focus:bg-bo-danger-soft", ketThuc.khoa && "cursor-not-allowed opacity-60")}
+                >
+                  <IconKetThuc className="size-4 text-bo-danger" aria-hidden="true" />
+                  <span className="font-medium text-bo-danger">{mucKetThuc.nhan}</span>
+                </DropdownMenuItem>
+              </>
             ) : null}
             <span className="sr-only" aria-live="polite">
               {daChep ? "Đã sao chép mã đơn" : ""}

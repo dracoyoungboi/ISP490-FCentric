@@ -38,7 +38,12 @@ import purchaseRequestService from '@/services/purchaseRequestService';
 import apiClient from '@/services/apiClient';
 import { getMineKhoList } from '@/services/khoService';
 import { VAI_TRO_TAO_YEU_CAU_NHAP } from '@/constants/vaiTroTaoYeuCauNhap';
+import { KHO_LAM_VIEC_EVENT, coQuyenTaiKhoLamViec } from '@/utils/khoLamViec';
 import { hasAnyRole } from '@/utils/roles';
+
+// Nút "Tạo yêu cầu nhập hàng": đúng điều kiện máy chủ (POST /nghiep-vu/yeu-cau-mua-hang/create) — vai trò lập yêu cầu
+// kèm quyền tao_don_mua_hang ở nơi làm việc (quản trị viên luôn có)
+const coQuyenTaoYeuCau = () => hasAnyRole(VAI_TRO_TAO_YEU_CAU_NHAP) && coQuyenTaiKhoLamViec('tao_don_mua_hang');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function parseJwt(token) {
@@ -78,6 +83,17 @@ export default function PurchaseRequestList() {
     const [isRestrictedWarehouse, setIsRestrictedWarehouse] = useState(false);
     // Quản trị viên và Quản lý kho duyệt được yêu cầu (YeuCauMuaHangService.coQuyenDuyetKho)
     const [canApprove, setCanApprove] = useState(false);
+    // Đổi nơi làm việc (đáy menu, tab khác) thì xét lại quyền tạo
+    const [canCreate, setCanCreate] = useState(coQuyenTaoYeuCau);
+    useEffect(() => {
+        const nghe = () => setCanCreate(coQuyenTaoYeuCau());
+        window.addEventListener(KHO_LAM_VIEC_EVENT, nghe);
+        window.addEventListener('storage', nghe);
+        return () => {
+            window.removeEventListener(KHO_LAM_VIEC_EVENT, nghe);
+            window.removeEventListener('storage', nghe);
+        };
+    }, []);
 
     // Pagination
     const [pagination, setPagination] = useState({ pageNumber: 0, pageSize: SO_DONG_MAC_DINH, totalElements: 0, totalPages: 0 });
@@ -206,11 +222,12 @@ export default function PurchaseRequestList() {
         } catch (error) {
             if (requestId !== requestIdRef.current) return;
             if (silent) throw error;
-            // Không giữ dòng + tổng số của lần tải trước: tránh hiện số liệu cũ như thể khớp bộ lọc mới (R9)
-            setLoadError(true);
+            // Không giữ dòng + tổng số của lần tải trước: tránh hiện số liệu cũ như thể khớp bộ lọc mới (R9).
+            // Giữ lỗi để ô lỗi phân biệt 403 (không có quyền: không "Thử lại", không thông báo nhanh)
+            setLoadError(error);
             setRequests([]);
             setPagination(prev => ({ ...prev, totalElements: 0, totalPages: 0 }));
-            toast.error('Không thể tải danh sách yêu cầu mua hàng');
+            if (error?.response?.status !== 403) toast.error('Không thể tải danh sách yêu cầu mua hàng');
         } finally {
             if (requestId === requestIdRef.current) setLoading(false);
         }
@@ -323,12 +340,8 @@ export default function PurchaseRequestList() {
         count: loadError ? null : tabCounts.counts[t.ma],
     }));
 
-    // Ghi chú phạm vi cho người chỉ xem kho mình phụ trách (R3)
-    const scopeNote = !isRestrictedWarehouse || loadingInitial
-        ? null
-        : warehouses.length > 0
-            ? `Kho bạn phụ trách: ${warehouses.map((w) => w.tenKho).join(', ')}`
-            : 'Bạn chưa được phân công kho nào nên danh sách đang trống.';
+    // Phạm vi cho người chỉ xem kho của mình (R3): nhãn "Nơi làm việc" chung (ListPageHeader)
+    const noiLamViec = !isRestrictedWarehouse || loadingInitial ? null : warehouses;
 
     const pendingCount = canApprove && tab !== 'cho-duyet' ? choDuyet.counts['cho-duyet'] : null;
     const emptyTabLabel = YEU_CAU_NHAP_HANG_TABS.find((t) => t.ma === tab)?.label;
@@ -336,10 +349,10 @@ export default function PurchaseRequestList() {
     return (
         <PageContainer fill className="space-y-4">
             <ListPageHeader
-                scope={scopeNote}
+                noiLamViec={noiLamViec}
                 actions={
-                    // Quản lý kho chỉ duyệt, không lập yêu cầu (máy chủ chặn): không hiện nút tạo
-                    hasAnyRole(VAI_TRO_TAO_YEU_CAU_NHAP) ? (
+                    // Quản lý kho chỉ duyệt, không lập yêu cầu; vai trò lập mà chưa có quyền tạo ở nơi làm việc: không hiện
+                    canCreate ? (
                         <Button
                             className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover"
                             onClick={() => navigate('/purchase-requests/create')}
@@ -455,6 +468,7 @@ export default function PurchaseRequestList() {
                 ) : loadError ? (
                     <ErrorState
                         description="Không thể tải danh sách yêu cầu nhập hàng. Vui lòng thử lại."
+                        error={loadError}
                         onRetry={handleRefresh}
                     />
                 ) : requests.length === 0 ? (

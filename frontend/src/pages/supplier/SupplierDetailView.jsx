@@ -21,7 +21,7 @@ import ThuocTinhNcc from "@/components/supplier/chi-tiet/ThuocTinhNcc";
 import NganKeoLichSu from "@/components/nhat-ky/NganKeoLichSu";
 import { layLichSuDanhMuc } from "@/services/nhatKyService";
 import {
-  TRANG_THAI_DA_CHOT,
+  TRANG_THAI_NHAN_HANG,
   demViecDangDo,
   dungHoatDong,
   giaoHangTheoDon,
@@ -154,7 +154,7 @@ export default function SupplierDetailView() {
   const suKien = useMemo(() => dungHoatDong({ ncc, dons, phieus }), [ncc, dons, phieus]);
 
   const loiDon = khoQ.error
-    ? getApiErrorMessage(khoQ.error, "Không tải được danh sách kho bạn phụ trách")
+    ? getApiErrorMessage(khoQ.error, "Không tải được danh sách nơi làm việc của bạn")
     : donQ.error
       ? getApiErrorMessage(donQ.error, "Không tải được đơn mua của nhà cung cấp")
       : null;
@@ -186,7 +186,7 @@ export default function SupplierDetailView() {
   const nutCuaDon = (don) => {
     const duocNhap =
       xemPhieu &&
-      TRANG_THAI_DA_CHOT.includes(Number(don.trangThai)) &&
+      TRANG_THAI_NHAN_HANG.includes(Number(don.trangThai)) &&
       (laQuanTriVien || (don.khoNhap?.id != null && khoLamViecId === don.khoNhap.id));
     return duocNhap
       ? { nhan: "Tạo phiếu nhập", href: `/goods-receipts/create?poId=${don.id}` }
@@ -196,8 +196,8 @@ export default function SupplierDetailView() {
   const ghiChu = [
     gioiHanKho && Array.isArray(khoIds)
       ? khoIds.length
-        ? `Chỉ tính đơn và phiếu nhập của kho bạn phụ trách: ${(khoQ.data ?? []).map((k) => k.tenKho).filter(Boolean).join(", ")}.`
-        : "Bạn chưa được phân công kho nào nên chưa thấy giao dịch."
+        ? `Chỉ tính đơn và phiếu nhập của nơi làm việc: ${(khoQ.data ?? []).map((k) => k.tenKho).filter(Boolean).join(", ")}.`
+        : "Bạn chưa có nơi làm việc nên chưa thấy giao dịch."
       : null,
     donData && donData.tong > donData.dons.length
       ? `Đang tính trên ${donData.dons.length} đơn gần nhất trong tổng số ${donData.tong} đơn.`
@@ -248,6 +248,7 @@ export default function SupplierDetailView() {
             <ErrorState
               title="Không thể tải thông tin nhà cung cấp"
               description={getApiErrorMessage(nccQ.error, "Không thể tải thông tin nhà cung cấp")}
+              error={nccQ.error}
               onRetry={nccQ.reload}
             />
           )}

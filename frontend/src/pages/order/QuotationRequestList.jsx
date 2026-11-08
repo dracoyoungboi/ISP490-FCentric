@@ -26,7 +26,9 @@ import TablePagination from "@/components/shared/TablePagination";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { YEU_CAU_BAO_GIA_TABS, getYeuCauNhapHangStatus } from "@/constants/yeuCauNhapHang";
 import { getBaoGiaNccStatus } from "@/constants/donMuaHang";
-import { ngayGuiYeuCau, nhanTrangThaiBaoGia } from "@/components/order/chi-tiet-bao-gia/tinhBaoGia";
+import { laDaChot, ngayGuiYeuCau, nhanTrangThaiBaoGia } from "@/components/order/chi-tiet-bao-gia/tinhBaoGia";
+import { VAI_TRO_XEM_DON_MUA } from "@/components/order/chi-tiet-yeu-cau/tinhYeuCau";
+import { VAI_TRO_GUI_YEU_CAU_BAO_GIA } from "@/constants/vaiTroGuiYeuCauBaoGia";
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useTaiLaiDanhSach from "@/hooks/useTaiLaiDanhSach";
@@ -34,6 +36,7 @@ import { trangCuoiNeuVuot } from "@/lib/tinhTaiLai";
 import { cn } from "@/lib/utils";
 import purchaseOrderService from "../../services/purchaseOrderService";
 import { formatCurrency, formatDate } from "@/utils/formatters";
+import { hasAnyRole } from "@/utils/roles";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const ROLE = {
@@ -88,11 +91,13 @@ async function countRequests(filters) {
 
 // ─── Sub-component: PO rows inside expandable panel ───────────────────────────
 // Ghi chú: UI duyệt/từ chối báo giá chưa từng được render (dead UI từ bản cũ).
-function DonMuaHangRows({ donMuaHangs = [], navigate }) {
+// `xemGia`: người xem được đơn mua (VAI_TRO_XEM_DON_MUA) mới có cột "Giá NCC báo" (giá mua là giá vốn) và mở được
+// Chi tiết báo giá (/quotation/:id cùng vai trò); vai trò khác (nhân viên bán hàng) chỉ xem dòng, không bấm, không cột Thao tác.
+function DonMuaHangRows({ donMuaHangs = [], navigate, xemGia }) {
     if (donMuaHangs.length === 0) {
         return (
             <tr>
-                <td colSpan={8}>
+                <td colSpan={xemGia ? 8 : 6}>
                     <EmptyState
                         icon={ShoppingCart}
                         title="Chưa có đơn mua hàng (báo giá) nào"
@@ -107,13 +112,16 @@ function DonMuaHangRows({ donMuaHangs = [], navigate }) {
     return donMuaHangs.map((po) => {
         // Nhãn suy diễn như màn So sánh / Chi tiết báo giá: "Chờ báo giá" khi chưa có ngayBaoGia
         const cfg = { label: nhanTrangThaiBaoGia(po, getBaoGiaNccStatus(po.trangThai).label) };
-        const isAccepted = po.trangThai === 3 || po.trangThai === 5;
+        const isAccepted = laDaChot(po.trangThai);
 
         return (
             <tr
                 key={po.id}
-                onClick={() => navigate(`/quotation/${po.id}`)}
-                className="cursor-pointer border-b border-bo-border transition-colors last:border-0 hover:bg-bo-surface-subtle"
+                onClick={xemGia ? () => navigate(`/quotation/${po.id}`) : undefined}
+                className={cn(
+                    "border-b border-bo-border transition-colors last:border-0",
+                    xemGia && "cursor-pointer hover:bg-bo-surface-subtle",
+                )}
             >
                 <td className="px-3 py-3">
                     <div className="flex items-center gap-2">
@@ -150,25 +158,29 @@ function DonMuaHangRows({ donMuaHangs = [], navigate }) {
                     {po.nguoiTao?.hoTen || '-'}
                 </td>
 
-                <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">
-                    {po.tongTien != null ? (
-                        <span className="text-[13px] font-semibold text-bo-foreground">{formatCurrency(po.tongTien)}</span>
-                    ) : (
-                        <span className="text-[13px] text-bo-muted">—</span>
-                    )}
-                    {isAccepted && <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-bo-success">Đã chốt</p>}
-                </td>
+                {xemGia ? (
+                    <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">
+                        {po.tongTien != null ? (
+                            <span className="text-[13px] font-semibold text-bo-foreground">{formatCurrency(po.tongTien)}</span>
+                        ) : (
+                            <span className="text-[13px] text-bo-muted">—</span>
+                        )}
+                        {isAccepted && <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-bo-success">Đã chốt</p>}
+                    </td>
+                ) : null}
 
                 {/* Chặn bấm lan ra dòng: nút Xem đã tự điều hướng, không để cú bấm điều hướng lần hai */}
-                <td className="px-3 py-3 cam-ung:max-lg:hidden" onClick={e => e.stopPropagation()}>
-                    <RowActions>
-                        <RowActionButton
-                            icon={Eye}
-                            label="Xem chi tiết báo giá"
-                            onClick={() => navigate(`/quotation/${po.id}`)}
-                        />
-                    </RowActions>
-                </td>
+                {xemGia ? (
+                    <td className="px-3 py-3 cam-ung:max-lg:hidden" onClick={e => e.stopPropagation()}>
+                        <RowActions>
+                            <RowActionButton
+                                icon={Eye}
+                                label="Xem chi tiết báo giá"
+                                onClick={() => navigate(`/quotation/${po.id}`)}
+                            />
+                        </RowActions>
+                    </td>
+                ) : null}
             </tr>
         );
     });
@@ -181,7 +193,7 @@ export default function QuotationRequestList() {
 
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [loadError, setLoadError] = useState(false);
+    const [loadError, setLoadError] = useState(null);
     const [expandedRows, setExpandedRows] = useState(new Set());
     // Đổi tab / bộ lọc liên tiếp có thể chạy 2 yêu cầu cùng lúc: chỉ nhận kết quả của yêu cầu mới nhất
     const requestIdRef = useRef(0);
@@ -269,13 +281,13 @@ export default function QuotationRequestList() {
                 totalElements: data.totalElements || 0,
                 totalPages: data.totalPages || 0,
             });
-            setLoadError(false);
+            setLoadError(null);
         } catch (e) {
             if (requestId !== requestIdRef.current) return;
             console.error('Error fetching purchase requests:', e);
             if (silent) throw e;
-            // Không giữ dòng + tổng số của lần tải trước (R9)
-            setLoadError(true);
+            // Không giữ dòng + tổng số của lần tải trước (R9). Giữ lỗi gốc để ô lỗi phân biệt 403
+            setLoadError(e);
             setRequests([]);
             setPagination(prev => ({ ...prev, totalElements: 0, totalPages: 0 }));
         } finally {
@@ -322,8 +334,14 @@ export default function QuotationRequestList() {
     };
 
     // ── Tổng tiền đã chấp nhận ────────────────────────────────────────────────
+    // Giá mua là giá vốn: chỉ người xem được đơn mua thấy tổng tiền chốt, giá nhà cung cấp báo (máy chủ cũng bỏ giá
+    // khỏi API yêu cầu nhập hàng với vai trò khác)
+    const xemGia = hasAnyRole(VAI_TRO_XEM_DON_MUA);
+    // "Tạo yêu cầu báo giá": trang tạo chặn đúng vai trò máy chủ cho gửi yêu cầu báo giá (nhân viên bán hàng chỉ theo dõi)
+    const duocTao = hasAnyRole(VAI_TRO_GUI_YEU_CAU_BAO_GIA);
     const getAcceptedTotal = (req) => {
-        const accepted = (req.donMuaHangs || []).filter(po => po.trangThai === 3 || po.trangThai === 5);
+        if (!xemGia) return null;
+        const accepted = (req.donMuaHangs || []).filter(po => laDaChot(po.trangThai));
         if (accepted.length === 0) return null;
         return accepted.reduce((sum, po) => sum + (Number(po.tongTien) || 0), 0);
     };
@@ -393,14 +411,14 @@ export default function QuotationRequestList() {
     return (
         <PageContainer fill className="space-y-4">
             <ListPageHeader
-                actions={
+                actions={duocTao ? (
                     <Button
                         onClick={() => navigate('/quotation-requests/create')}
                         className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover"
                     >
                         <Plus className="size-4" /> Tạo yêu cầu báo giá
                     </Button>
-                }
+                ) : null}
             />
 
             {/* Bấm vào dòng để xem chi tiết yêu cầu, mở rộng để xem các báo giá con */}
@@ -503,6 +521,7 @@ export default function QuotationRequestList() {
                 ) : loadError ? (
                     <ErrorState
                         description="Không thể tải danh sách yêu cầu báo giá. Vui lòng thử lại."
+                        error={loadError}
                         onRetry={handleRefresh}
                     />
                 ) : requests.length === 0 ? (
@@ -540,15 +559,17 @@ export default function QuotationRequestList() {
                         <EmptyState
                             icon={Package}
                             title="Chưa có yêu cầu báo giá"
-                            description="Tạo yêu cầu báo giá để gửi tới nhà cung cấp."
-                            action={
+                            description={duocTao
+                                ? "Tạo yêu cầu báo giá để gửi tới nhà cung cấp."
+                                : "Yêu cầu báo giá gửi tới nhà cung cấp sẽ hiển thị tại đây."}
+                            action={duocTao ? (
                                 <Button
                                     onClick={() => navigate('/quotation-requests/create')}
                                     className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover"
                                 >
                                     <Plus className="size-4" /> Tạo yêu cầu báo giá
                                 </Button>
-                            }
+                            ) : null}
                         />
                     )
                 ) : (
@@ -612,29 +633,41 @@ export default function QuotationRequestList() {
                                         >
                                             {req.donMuaHangs.map((po) => {
                                                 const nhan = nhanTrangThaiBaoGia(po, getBaoGiaNccStatus(po.trangThai).label);
-                                                const daChot = po.trangThai === 3 || po.trangThai === 5;
-                                                return (
-                                                    <li key={po.id}>
-                                                        <Link to={`/quotation/${po.id}`} className="grid grid-cols-1 gap-0.5 px-3 py-2.5 active:bg-bo-surface">
-                                                            <span className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                                                                <span className="min-w-0 truncate text-[13px] font-semibold text-bo-foreground">{po.soDonMua}</span>
-                                                                <StatusBadge quyTrinh="yeuCauBaoGia" label={nhan} />
-                                                            </span>
-                                                            <span className="flex items-baseline justify-between gap-3 text-sm">
-                                                                <span className="min-w-0 truncate text-bo-foreground">{po.nhaCungCap?.tenNhaCungCap || '—'}</span>
+                                                const daChot = laDaChot(po.trangThai);
+                                                const noiDung = (
+                                                    <>
+                                                        <span className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                                                            <span className="min-w-0 truncate text-[13px] font-semibold text-bo-foreground">{po.soDonMua}</span>
+                                                            <StatusBadge quyTrinh="yeuCauBaoGia" label={nhan} />
+                                                        </span>
+                                                        <span className="flex items-baseline justify-between gap-3 text-sm">
+                                                            <span className="min-w-0 truncate text-bo-foreground">{po.nhaCungCap?.tenNhaCungCap || '—'}</span>
+                                                            {xemGia ? (
                                                                 <span className="shrink-0 font-semibold tabular-nums text-bo-foreground">
                                                                     {po.tongTien != null ? formatCurrency(po.tongTien) : '—'}
                                                                 </span>
+                                                            ) : null}
+                                                        </span>
+                                                        <span className="flex items-baseline justify-between gap-3 text-xs text-bo-muted">
+                                                            <span className="min-w-0 truncate">
+                                                                Gửi {formatDate(ngayGuiYeuCau(po))} · Hạn {formatDate(po.ngayGiaoDuKien)}
                                                             </span>
-                                                            <span className="flex items-baseline justify-between gap-3 text-xs text-bo-muted">
-                                                                <span className="min-w-0 truncate">
-                                                                    Gửi {formatDate(ngayGuiYeuCau(po))} · Hạn {formatDate(po.ngayGiaoDuKien)}
-                                                                </span>
-                                                                {daChot ? (
-                                                                    <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-bo-success">Đã chốt</span>
-                                                                ) : null}
-                                                            </span>
-                                                        </Link>
+                                                            {daChot ? (
+                                                                <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-bo-success">Đã chốt</span>
+                                                            ) : null}
+                                                        </span>
+                                                    </>
+                                                );
+                                                // Chi tiết báo giá chỉ mở được với vai trò xem đơn mua: vai trò khác thấy dòng, không chạm mở
+                                                return (
+                                                    <li key={po.id}>
+                                                        {xemGia ? (
+                                                            <Link to={`/quotation/${po.id}`} className="grid grid-cols-1 gap-0.5 px-3 py-2.5 active:bg-bo-surface">
+                                                                {noiDung}
+                                                            </Link>
+                                                        ) : (
+                                                            <div className="grid grid-cols-1 gap-0.5 px-3 py-2.5">{noiDung}</div>
+                                                        )}
                                                     </li>
                                                 );
                                             })}
@@ -658,7 +691,9 @@ export default function QuotationRequestList() {
                                 <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">Ngày giao DK</th>
                                 <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
                                 <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">Người tạo</th>
-                                <th className="h-10 px-3 text-right tabular-nums whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Tổng tiền chốt</th>
+                                {xemGia ? (
+                                    <th className="h-10 px-3 text-right tabular-nums whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Tổng tiền chốt</th>
+                                ) : null}
                                 <th className="h-10 w-24 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">Thao tác</th>
                             </tr>
                         </thead>
@@ -728,13 +763,15 @@ export default function QuotationRequestList() {
                                                 {req.nguoiTao?.hoTen || '-'}
                                             </td>
 
-                                            <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">
-                                                {acceptedTotal !== null ? (
-                                                    <span className="font-semibold text-bo-foreground">{formatCurrency(acceptedTotal)}</span>
-                                                ) : (
-                                                    <span className="text-bo-muted">—</span>
-                                                )}
-                                            </td>
+                                            {xemGia ? (
+                                                <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">
+                                                    {acceptedTotal !== null ? (
+                                                        <span className="font-semibold text-bo-foreground">{formatCurrency(acceptedTotal)}</span>
+                                                    ) : (
+                                                        <span className="text-bo-muted">—</span>
+                                                    )}
+                                                </td>
+                                            ) : null}
 
                                             <td className="px-3 py-3 cam-ung:max-lg:hidden">
                                                 <RowActions>
@@ -750,7 +787,7 @@ export default function QuotationRequestList() {
                                         {/* ── Expanded PO sub-table (Đơn báo giá con) ── */}
                                         {isExpanded && hasPos && (
                                             <tr>
-                                                <td colSpan={9} className="border-b border-bo-border p-0">
+                                                <td colSpan={xemGia ? 9 : 8} className="border-b border-bo-border p-0">
                                                     {/* w-0 min-w-full: bảng con không đẩy rộng bảng chính — rộng bằng ô, thiếu chỗ thì tự cuộn ngang trong khung của nó */}
                                                     <div className="w-0 min-w-full bg-bo-surface-subtle pb-5 pt-3">
                                                         <div className="px-3">
@@ -767,14 +804,19 @@ export default function QuotationRequestList() {
                                                                             <th className="h-9 whitespace-nowrap px-3 text-left text-[10px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">Hạn chót</th>
                                                                             <th className="h-9 whitespace-nowrap px-3 text-left text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
                                                                             <th className="h-9 whitespace-nowrap px-3 text-left text-[10px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">Người tạo (NCC)</th>
-                                                                            <th className="h-9 whitespace-nowrap px-3 text-right tabular-nums text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Giá NCC báo</th>
-                                                                            <th className="h-9 w-28 whitespace-nowrap px-3 text-center text-[10px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">Thao tác</th>
+                                                                            {xemGia ? (
+                                                                                <>
+                                                                                    <th className="h-9 whitespace-nowrap px-3 text-right tabular-nums text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Giá NCC báo</th>
+                                                                                    <th className="h-9 w-28 whitespace-nowrap px-3 text-center text-[10px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">Thao tác</th>
+                                                                                </>
+                                                                            ) : null}
                                                                         </tr>
                                                                     </thead>
                                                                     <tbody>
                                                                         <DonMuaHangRows
                                                                             donMuaHangs={req.donMuaHangs}
                                                                             navigate={navigate}
+                                                                            xemGia={xemGia}
                                                                         />
                                                                     </tbody>
                                                                 </table>

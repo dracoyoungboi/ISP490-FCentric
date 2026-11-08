@@ -40,6 +40,8 @@ const VAI_TRO_CHOT_BAO_GIA = [ROLES.QUAN_TRI_VIEN, ROLES.NHAN_VIEN_MUA_HANG];
  * đầu cột mỗi nhà cung cấp có ngày gửi và người chốt. Không có cột "Hạn chót" theo nhà cung cấp: backend chép ngày giao
  * dự kiến của yêu cầu sang mọi báo giá nên trùng "Giao dự kiến" ở cột phải.
  * Bỏ cột thanh toán (thanh toán nhà cung cấp đã bỏ khỏi luồng 16/10) và lời gọi lấy vai trò không dùng.
+ * Giá mua là giá vốn: vai trò không xem được đơn mua (VAI_TRO_XEM_DON_MUA, vd. nhân viên bán hàng) không thấy bảng so giá
+ * và giá trị đã chốt — máy chủ cũng bỏ giá khỏi API yêu cầu nhập hàng với các vai trò này.
  */
 export default function QuotationRequestDetail() {
     const { id } = useParams();
@@ -108,7 +110,7 @@ function SoSanhBaoGia({ id }) {
     const duocChot = hasAnyRole(VAI_TRO_CHOT_BAO_GIA);
     // Còn báo giá chờ (chưa chốt, chưa không chấp nhận) mới mời "chấp nhận"; hết rồi thì chỉ mời xem chi tiết
     const moiChapNhan = duocChot && tongQuan.conCho > 0;
-    // Nhân viên bán hàng xem được yêu cầu nhưng máy chủ chặn (403) báo giá, đơn mua: hiện chữ thường, không link
+    // Nhân viên bán hàng xem được yêu cầu nhưng máy chủ chặn (403) báo giá, đơn mua: hiện chữ thường, không link, không giá
     const xemDonMua = hasAnyRole(VAI_TRO_XEM_DON_MUA);
 
     const lienQuan = [
@@ -140,7 +142,12 @@ function SoSanhBaoGia({ id }) {
                         ]}
                         onQuayLai={quayLai}
                         nhanQuayLai="Về danh sách yêu cầu báo giá"
-                        nutPhu={{ nhan: "In yêu cầu báo giá", icon: Printer, onClick: () => navigate(`/quotation-requests/${id}/print`) }}
+                        nutPhu={
+                            // Trang in chặn như đơn mua (in có giá mua): vai trò không xem đơn mua không có nút in
+                            xemDonMua
+                                ? { nhan: "In yêu cầu báo giá", icon: Printer, onClick: () => navigate(`/quotation-requests/${id}/print`) }
+                                : null
+                        }
                         saoChepMa={{ giaTri: yc.soYeuCauMuaHang, nhan: "Sao chép mã yêu cầu" }}
                         menu={[{
                             ma: "yeu-cau-nhap",
@@ -152,36 +159,38 @@ function SoSanhBaoGia({ id }) {
                     />
                 }
                 thongBao={
-                    soNcc ? null : (
+                    !xemDonMua ? (
+                        <DongThongBao>Giá nhà cung cấp báo chỉ hiện với nhân viên mua hàng, quản lý kho, nhân viên kho và quản trị viên.</DongThongBao>
+                    ) : soNcc ? null : (
                         <DongThongBao>Yêu cầu chưa gửi cho nhà cung cấp nào nên chưa có giá để so sánh.</DongThongBao>
                     )
                 }
                 chinh={
-                    <BangSoSanhGia
-                        bang={bang}
-                        ncc={ncc}
-                        tongCaYeuCau={tongCaYeuCau}
-                        xem={xem}
-                        onDoiXem={setXem}
-                        tomTatGui={tomTatGui}
-                        xemBaoGia={xemDonMua}
-                        chuThich={
-                            soNcc
-                                ? moiChapNhan
-                                    ? "Giá do nhà cung cấp nhập qua cổng báo giá. Bấm tên nhà cung cấp để xem chi tiết và chấp nhận báo giá."
-                                    : xemDonMua
-                                        ? "Giá do nhà cung cấp nhập qua cổng báo giá. Bấm tên nhà cung cấp để xem chi tiết báo giá."
-                                        : "Giá do nhà cung cấp nhập qua cổng báo giá."
-                                : ""
-                        }
-                    />
+                    xemDonMua ? (
+                        <BangSoSanhGia
+                            bang={bang}
+                            ncc={ncc}
+                            tongCaYeuCau={tongCaYeuCau}
+                            xem={xem}
+                            onDoiXem={setXem}
+                            tomTatGui={tomTatGui}
+                            xemBaoGia={xemDonMua}
+                            chuThich={
+                                soNcc
+                                    ? moiChapNhan
+                                        ? "Giá do nhà cung cấp nhập qua cổng báo giá. Bấm tên nhà cung cấp để xem chi tiết và chấp nhận báo giá."
+                                        : "Giá do nhà cung cấp nhập qua cổng báo giá. Bấm tên nhà cung cấp để xem chi tiết báo giá."
+                                    : ""
+                            }
+                        />
+                    ) : null
                 }
                 cotPhai={
                     <ThuocTinhYeuCau
                         yc={yc}
                         nhan="Thông tin yêu cầu báo giá"
                         conHieuLuc={tt === TRANG_THAI_YEU_CAU.DA_GUI_BAO_GIA}
-                        baoGia={tongQuan}
+                        baoGia={xemDonMua ? tongQuan : null}
                         lienQuan={lienQuan}
                     />
                 }

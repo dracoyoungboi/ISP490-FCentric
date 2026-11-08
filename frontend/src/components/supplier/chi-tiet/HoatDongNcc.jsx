@@ -1,11 +1,13 @@
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { TRANG_THAI_DA_CHOT } from "@/components/supplier/chi-tiet/tinhNhaCungCap";
 import { formatDateTime, formatNumber } from "@/utils/formatters";
 
 const LIEN_KET = "font-semibold text-bo-primary hover:text-bo-primary-hover hover:underline";
 
-/** Đơn đã chốt mở trang đơn mua; còn là báo giá thì mở trang báo giá. */
-const duongDanDon = (s) => ([3, 5].includes(s.trangThai) ? `/purchase-orders/${s.donId}` : `/quotation/${s.donId}`);
+/** Đơn đã chốt (kể cả đã đóng / đã hủy) mở trang đơn mua; còn là báo giá thì mở trang báo giá. */
+const duongDanDon = (s) =>
+  TRANG_THAI_DA_CHOT.includes(s.trangThai) ? `/purchase-orders/${s.donId}` : `/quotation/${s.donId}`;
 
 function NoiDung({ s }) {
   if (s.loai === "guiYeuCau") {

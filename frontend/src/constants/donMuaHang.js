@@ -4,12 +4,14 @@ import { trangThaiLa } from "@/constants/trangThaiChung";
  * Trạng thái ĐƠN MUA HÀNG (bảng don_mua_hang) — nguồn tên duy nhất cho danh sách, chi tiết và bản in
  * đơn mua hàng, để một trạng thái chỉ có một tên (bố cục A+G, mục 2 đặc tả).
  *
- * - Trang Đơn mua hàng chỉ lấy 3 và 5. Mã 3 chỉ một tên "Đang vận chuyển" (bỏ "Chờ vận chuyển").
+ * - Trang Đơn mua hàng lấy 3, 5, 6, 7 (đơn đã chốt). Mã 3 chỉ một tên "Đang vận chuyển" (bỏ "Chờ vận chuyển").
  * - 0, 1, 2, 4 giữ đúng tên bản in đơn mua hàng đang dùng. Các màn báo giá (QuotationDetail, bảng báo giá
  *   ở Yêu cầu báo giá, bản in yêu cầu báo giá) đang gọi cùng mã bằng tên khác — chờ chốt, chưa gộp.
  * - Hệ thống chưa có trạng thái "đã nhập kho" cho đơn mua (C6): đơn đã nhập kho vẫn ở 3 hoặc 5.
  * - Mã 5 hiện "Đã nhận đủ": thanh toán nhà cung cấp đã bỏ khỏi hệ thống (đổi tên ngày 17/10, trước là "Đã thanh toán").
- * Màu thẻ tra theo tên ở constants/trangThai.js.
+ * - 6, 7: đơn đang vận chuyển kết thúc sớm (DonMuaHangService.dongDon / huyDon, lý do bắt buộc) — 6 khi nhà cung cấp
+ *   giao thiếu (đã nhận ít nhất một đợt), 7 khi chưa nhận gì. Phần chưa nhận không còn tính là "đang về".
+ * Màu thẻ tra theo tên ở constants/trangThai.js (6, 7 ở nhóm Đã đóng, vòng gạch chéo trong quy trình đơn mua).
  */
 export const DON_MUA_HANG_STATUS = {
     0: { label: "Đã xóa" },
@@ -18,16 +20,19 @@ export const DON_MUA_HANG_STATUS = {
     3: { label: "Đang vận chuyển" },
     4: { label: "Không chấp nhận báo giá" },
     5: { label: "Đã nhận đủ" },
+    6: { label: "Đã đóng (nhận thiếu)" },
+    7: { label: "Đã hủy" },
 };
 
 /**
- * Tab của trang Đơn mua hàng: "Tất cả" vẫn chỉ gồm 3 và 5 như trang đang lọc.
+ * Tab của trang Đơn mua hàng: "Tất cả" gồm mọi đơn đã chốt (3, 5, 6, 7) như trang đang lọc.
  * `ma` là giá trị trên đường dẫn `?trangThai=`.
  */
 export const DON_MUA_HANG_TABS = [
-    { ma: "tat-ca", label: "Tất cả", trangThai: [3, 5] },
+    { ma: "tat-ca", label: "Tất cả", trangThai: [3, 5, 6, 7] },
     { ma: "dang-van-chuyen", label: DON_MUA_HANG_STATUS[3].label, trangThai: [3] },
     { ma: "da-nhan-du", label: DON_MUA_HANG_STATUS[5].label, trangThai: [5] },
+    { ma: "da-dong-huy", label: "Đã đóng / Đã hủy", trangThai: [6, 7] },
 ];
 
 /** Mã tab cũ trên đường dẫn (trước khi bỏ thanh toán đơn mua, K8) → mã mới: đường dẫn đã lưu vẫn mở đúng tab. */
@@ -40,7 +45,7 @@ export function getDonMuaHangStatus(trangThai) {
 /**
  * Cùng bảng don_mua_hang nhưng xem như BÁO GIÁ NHÀ CUNG CẤP (màn Yêu cầu báo giá, chi tiết báo giá,
  * bản in yêu cầu báo giá): các màn này gọi mã 1–3 theo bước báo giá. Trước đây mỗi màn tự khai báo một bảng
- * riêng; nay dùng chung bảng này. Mã 4, 5 dùng cùng tên với DON_MUA_HANG_STATUS.
+ * riêng; nay dùng chung bảng này. Mã 4–7 dùng cùng tên với DON_MUA_HANG_STATUS.
  */
 export const BAO_GIA_NCC_STATUS = {
     0: { label: "Đã xóa" },
@@ -51,6 +56,8 @@ export const BAO_GIA_NCC_STATUS = {
     // là "Từ chối" (đặc tả K1, TICH-HOP 1)
     4: { label: DON_MUA_HANG_STATUS[4].label },
     5: { label: DON_MUA_HANG_STATUS[5].label },
+    6: { label: DON_MUA_HANG_STATUS[6].label },
+    7: { label: DON_MUA_HANG_STATUS[7].label },
 };
 
 export function getBaoGiaNccStatus(trangThai) {
