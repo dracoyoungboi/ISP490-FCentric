@@ -155,6 +155,6 @@ test("ghi chú báo giá và phạm vi theo vai trò", () => {
   assert.equal(ghiChuBaoGia({ trangThai: 4, lyDoTuChoi: "", ghiChu: "Gửi lại tuần sau" }), "Gửi lại tuần sau");
   assert.equal(ghiChuBaoGia({ trangThai: 0, ghiChu: null }), "");
   assert.equal(ghiChuPhamVi({ laQuanTriVien: true, laVaiTroKho: true }), "");
-  assert.equal(ghiChuPhamVi({ laVaiTroKho: true, laBanHang: true }), "Chỉ tính đơn xuất từ kho bạn phụ trách.");
+  assert.equal(ghiChuPhamVi({ laVaiTroKho: true, laBanHang: true }), "Chỉ tính đơn xuất từ nơi làm việc của bạn.");
   assert.equal(ghiChuPhamVi({ laBanHang: true }), "Chỉ tính đơn do bạn tạo.");
 });

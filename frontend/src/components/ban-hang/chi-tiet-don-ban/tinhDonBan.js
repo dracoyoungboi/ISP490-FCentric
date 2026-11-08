@@ -58,25 +58,23 @@ export const laDonTaiQuay = (ct) => ct?.thanhToanTaiQuay != null;
 /** Đơn đồng bộ từ sàn (Shopify, Lazada): có kênh bán hoặc mã đơn bên sàn. */
 export const laDonSan = (don) => Boolean(don?.kenhBanHang) || coChu(don?.maDonHangKenh);
 
-/** Đơn hàng thuộc sàn thương mại điện tử Lazada / Lazada Sandbox: bắt buộc chỉ xuất từ Kho Tổng. */
-export const laDonLazada = (don) =>
-  Boolean(
-    don?.kenhBanHang?.maKenh?.toUpperCase() === "LAZADA" ||
-    don?.kenhBanHang?.maKenh?.toUpperCase() === "LAZADA_SANDBOX" ||
-    don?.kenhBanHang?.tenKenh?.toLowerCase()?.includes("lazada") ||
-    don?.soDonHang?.startsWith("LZD-") ||
-    don?.maDonHangKenh?.startsWith("LZD-")
-  );
+/** Mã kênh của đơn viết hoa ("LAZADA"); đơn không có kênh bán → "". */
+const maKenhCua = (don) => String(don?.kenhBanHang?.maKenh ?? "").trim().toUpperCase();
 
-/** Đơn hàng thuộc sàn thương mại điện tử Shopee / Shopee Sandbox: bắt buộc chỉ xuất từ Kho Tổng. */
-export const laDonShopee = (don) =>
-  Boolean(
-    don?.kenhBanHang?.maKenh?.toUpperCase() === "SHOPEE" ||
-    don?.kenhBanHang?.maKenh?.toUpperCase() === "SHOPEE_SANDBOX" ||
-    don?.kenhBanHang?.tenKenh?.toLowerCase()?.includes("shopee") ||
-    don?.soDonHang?.startsWith("SHP-") ||
-    don?.maDonHangKenh?.startsWith("SHP-")
-  );
+/**
+ * Đơn sàn Lazada / Lazada Sandbox: bắt buộc chỉ xuất từ Kho Tổng (khớp OmnichannelOrderSyncJob.isLazada). Nhận theo mã
+ * kênh; chỉ đơn cũ không có kênh bán mới đoán theo số đơn "LZD-".
+ */
+export const laDonLazada = (don) => {
+  if (don?.kenhBanHang) return ["LAZADA", "LAZADA_SANDBOX"].includes(maKenhCua(don));
+  return [don?.soDonHang, don?.maDonHangKenh].some((so) => String(so ?? "").startsWith("LZD-"));
+};
+
+/**
+ * Đơn sàn Shopee / Shopee Sandbox: bắt buộc chỉ xuất từ Kho Tổng (khớp OmnichannelOrderSyncJob.isShopee). Chỉ nhận theo
+ * mã kênh: Shopify và Shopee cùng tiền tố số đơn "SHP-", đoán theo số đơn sẽ khóa đơn Shopify vào Kho Tổng.
+ */
+export const laDonShopee = (don) => ["SHOPEE", "SHOPEE_SANDBOX"].includes(maKenhCua(don));
 
 /** Tên sàn để ghép câu ("Shopify"); thiếu thì "sàn". */
 export const tenKenhCua = (don) => String(don?.kenhBanHang?.tenKenh ?? "").trim() || "sàn";

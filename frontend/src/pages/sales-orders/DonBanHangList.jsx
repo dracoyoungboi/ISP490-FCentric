@@ -242,10 +242,10 @@ export default function DonBanHangList() {
       if (requestId !== requestIdRef.current) return;
       console.error(error);
       if (silent) throw error;
-      // Không giữ dòng + tổng số của lần tải trước (R9)
+      // Không giữ dòng + tổng số của lần tải trước (R9). Giữ lỗi để ô lỗi phân biệt 403 (không có quyền)
       setData([]);
       setTotal(0);
-      setLoadError(true);
+      setLoadError(error);
     } finally {
       if (requestId === requestIdRef.current) setLoading(false);
     }
@@ -341,18 +341,12 @@ export default function DonBanHangList() {
   }));
 
   // Ghi chú phạm vi (R3) theo đúng điều kiện backend tự thêm ở DonBanHangService.filter:
-  // quản trị viên xem tất cả; vai trò kho theo kho xuất phụ trách; còn lại NV bán hàng chỉ thấy đơn mình tạo.
-  const scopeNote = userRoles === null || isAdmin
-    ? null
-    : isKhoRole
-      ? khoPhuTrach === null
-        ? null
-        : khoPhuTrach.length > 0
-          ? `Kho bạn phụ trách: ${khoPhuTrach.map((k) => k.tenKho).join(", ")}`
-          : "Bạn chưa được phân công kho nào nên danh sách đang trống."
-      : roles.includes(ROLE.NHAN_VIEN_BAN_HANG)
-        ? "Đơn bán hàng bạn tạo"
-        : null;
+  // quản trị viên xem tất cả; vai trò kho theo kho xuất của mình (nhãn "Nơi làm việc" chung của ListPageHeader);
+  // còn lại NV bán hàng chỉ thấy đơn mình tạo.
+  const noiLamViec = userRoles === null || isAdmin || !isKhoRole ? null : khoPhuTrach;
+  const scopeNote = userRoles !== null && !isAdmin && !isKhoRole && roles.includes(ROLE.NHAN_VIEN_BAN_HANG)
+    ? "Đơn bán hàng bạn tạo"
+    : null;
 
   const draftCount = canSeeDrafts && tab !== TAB_NHAP ? donNhap.counts[TAB_NHAP] : null;
   const emptyTabLabel = DON_BAN_HANG_TABS.find((t) => t.ma === tab)?.label;
@@ -361,6 +355,7 @@ export default function DonBanHangList() {
     <PageContainer fill className="space-y-4">
       <ListPageHeader
         scope={scopeNote}
+        noiLamViec={noiLamViec}
         actions={
           !isKhoRole ? (
             <Link to="/sales-orders/create">
@@ -463,7 +458,7 @@ export default function DonBanHangList() {
         {loading ? (
           <LoadingState label="Đang tải danh sách đơn bán hàng" />
         ) : loadError ? (
-          <ErrorState description={LOAD_ERROR_MESSAGE} onRetry={handleRetry} />
+          <ErrorState description={LOAD_ERROR_MESSAGE} error={loadError} onRetry={handleRetry} />
         ) : data.length === 0 ? (
           hasActiveFilters ? (
             <EmptyState

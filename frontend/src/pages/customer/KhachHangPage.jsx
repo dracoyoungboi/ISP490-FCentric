@@ -132,7 +132,7 @@ export default function KhachHangPage() {
     // Tab loại khách hàng nằm trên URL ?loai= (F5 / quay lại từ chi tiết vẫn đúng tab)
     const [loaiKhachHang, setLoaiKhachHang] = useTabTrenUrl(LOAI_TAB_VALUES, LOAI_TAB_MAC_DINH, { ten: "loai" });
     const [trangThai, setTrangThai] = useState("all");
-    const [loadError, setLoadError] = useState(false);
+    const [loadError, setLoadError] = useState(null);
     // Đánh số mỗi lần tải danh sách: phản hồi về muộn của lần tải cũ bị bỏ qua
     const requestSeq = useRef(0);
 
@@ -175,16 +175,16 @@ export default function KhachHangPage() {
             }
             setKhachHangs(content);
             setTotalItems(data.totalElements || 0);
-            setLoadError(false);
+            setLoadError(null);
         } catch (error) {
             if (seq !== requestSeq.current) return;
             if (silent) {
                 console.error(error);
                 return;
             }
-            // Không giữ dòng + tổng số của lần tải trước (R9); bảng hiện thẻ lỗi kèm nút Thử lại
+            // Không giữ dòng + tổng số của lần tải trước (R9); bảng hiện thẻ lỗi kèm nút Thử lại (403: ổ khóa, không Thử lại)
             console.error(getApiErrorMessage(error, "Không tải được danh sách khách hàng"));
-            setLoadError(true);
+            setLoadError(error);
             setKhachHangs([]);
             setTotalItems(0);
         } finally {
@@ -300,7 +300,7 @@ export default function KhachHangPage() {
         // Danh sách xếp mới nhất lên đầu: thêm vào đầu, về trang 1 và tô nền dòng mới.
         setKhachHangs((prev) => [saved, ...prev.filter((item) => item.id !== saved.id)].slice(0, pageSize));
         setTotalItems((n) => n + 1);
-        setLoadError(false);
+        setLoadError(null);
         setHighlightId(saved.id);
         setCurrentPage(0);
         const tabLoai = LOAI_TABS.find((tab) => tab.value === saved.loaiKhachHang);
@@ -419,6 +419,7 @@ export default function KhachHangPage() {
                 ) : loadError ? (
                     <ErrorState
                         description="Không tải được danh sách khách hàng. Vui lòng thử lại."
+                        error={loadError}
                         onRetry={handleRetry}
                     />
                 ) : khachHangs.length === 0 ? (

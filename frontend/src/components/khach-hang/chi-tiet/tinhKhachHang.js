@@ -196,7 +196,7 @@ export function ghiChuBaoGia(baoGia) {
 /** Câu phạm vi dữ liệu theo vai trò (khớp DonBanHangService.dieuKienPhamViTheoVaiTro ở máy chủ). */
 export function ghiChuPhamVi({ laQuanTriVien, laVaiTroKho, laBanHang }) {
   if (laQuanTriVien) return "";
-  if (laVaiTroKho) return "Chỉ tính đơn xuất từ kho bạn phụ trách.";
+  if (laVaiTroKho) return "Chỉ tính đơn xuất từ nơi làm việc của bạn.";
   if (laBanHang) return "Chỉ tính đơn do bạn tạo.";
   return "";
 }
