@@ -275,6 +275,7 @@ public class PhieuXuatKhoController {
         String keyword = null;
         Integer trangThai = null;
         String tenKho = null;
+        String loaiXuat = null;
 
         // Bóc tách filter từ JSON của Frontend gửi lên
         if (request.getFilters() != null) {
@@ -288,6 +289,11 @@ public class PhieuXuatKhoController {
                 } else if ("kho.tenKho".equals(f.getFieldName())) {
                     tenKho = f.getValue() != null ? f.getValue().toString().trim() : null;
                     if (tenKho != null && tenKho.isEmpty()) tenKho = null;
+                } else if ("loaiXuat".equals(f.getFieldName())) {
+                    // Chỉ nhận hai loại của danh sách; giá trị lạ bỏ qua (cả hai loại) — "Việc cần xử lý" ở Tổng quan
+                    // mở phiếu bán hàng Nháp / Chờ xuất cho khớp số máy chủ đếm
+                    String loai = f.getValue() != null ? f.getValue().toString().trim() : "";
+                    loaiXuat = "ban_hang".equals(loai) || "chuyen_kho".equals(loai) ? loai : null;
                 }
             }
         }
@@ -304,7 +310,7 @@ public class PhieuXuatKhoController {
         Pageable pageable = PageRequest.of(request.getPage(), request.getSize(), sort);
 
         // Truyền khoIds (List<Integer>) thay vì khoId (Integer)
-        Page<PhieuXuatKho> pageEntity = phieuXuatKhoService.getDanhSachThucXuatCustom(khoIds, keyword, trangThai, tenKho, pageable);
+        Page<PhieuXuatKho> pageEntity = phieuXuatKhoService.getDanhSachThucXuatCustom(khoIds, keyword, trangThai, tenKho, loaiXuat, pageable);
         Page<PhieuXuatKhoDto> pageDto = pageEntity.map(phieuXuatKhoMapper::toDto);
 
         return ResponseEntity.ok(

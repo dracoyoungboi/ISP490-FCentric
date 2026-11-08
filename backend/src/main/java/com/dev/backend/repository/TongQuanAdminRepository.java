@@ -99,8 +99,9 @@ public class TongQuanAdminRepository {
     public record NhapXuatNgay(LocalDate ngay, BigDecimal nhap, BigDecimal xuat) {}
 
     public record ViecCanXuLyDong(long donNhapChuaGuiKho, long donChoXuatKho, long phieuNhatChuaPhanCong,
-                                  long phieuXuatChoXuatKho, long yeuCauNhapChoDuyet, long phieuNhapChoNhapKho,
-                                  long phieuChuyenChoDuyet, long phieuChuyenChoXuatHang, long dotKiemKeDangMo,
+                                  long phieuXuatChoDongGoi, long phieuXuatChoXuat, long yeuCauNhapChoDuyet,
+                                  long phieuNhapChoNhapKho, long phieuChuyenChoDuyet, long phieuChuyenChoXuatHang,
+                                  long dotKiemKeDangMo,
                                   long taiKhoanBiKhoa, long donMuaQuaHan, long phieuChuyenChoXuLyLech) {}
 
     public record LoiDongBoDong(Integer kenhId, String maKenh, String tenKenh, long soLoi) {}
@@ -531,7 +532,10 @@ public class TongQuanAdminRepository {
               AND (:khoId IS NULL OR dm.kho_nhap_id = :khoId)
             """;
 
-    /** Hàng đang về từ nhà cung cấp: phần chưa nhận của đơn mua đã chốt (cùng cách tính với Báo cáo tồn kho). */
+    /**
+     * Hàng đang về từ nhà cung cấp: phần chưa nhận của đơn mua đã chốt (cùng cách tính với Báo cáo tồn kho). Chỉ đơn 3, 5:
+     * đơn đã đóng nhận thiếu (6) / đã hủy (7) không còn hàng về.
+     */
     public BigDecimal hangDangVe(Integer khoId) {
         BigDecimal v = jdbc.queryForObject(SQL_DANG_VE, thamSo(khoId), BigDecimal.class);
         return v == null ? BigDecimal.ZERO : v;
@@ -681,7 +685,10 @@ public class TongQuanAdminRepository {
                 WHERE n.trang_thai IN ('cho_nhat', 'dang_nhat') AND n.nguoi_nhat_id IS NULL
                   AND (:khoId IS NULL OR n.kho_xuat_id = :khoId))                          AS nhat_chua_giao,
               (SELECT COUNT(*) FROM phieu_xuat_kho p
-                WHERE p.loai_xuat = 'ban_hang' AND p.trang_thai IN (0, 6)
+                WHERE p.loai_xuat = 'ban_hang' AND p.trang_thai = 0
+                  AND (:khoId IS NULL OR p.kho_id = :khoId))                               AS px_cho_dong_goi,
+              (SELECT COUNT(*) FROM phieu_xuat_kho p
+                WHERE p.loai_xuat = 'ban_hang' AND p.trang_thai = 6
                   AND (:khoId IS NULL OR p.kho_id = :khoId))                               AS px_cho_xuat,
               (SELECT COUNT(*) FROM yeu_cau_mua_hang y
                 WHERE y.trang_thai = 1 AND (:khoId IS NULL OR y.kho_nhap_id = :khoId))     AS yc_cho_duyet,
@@ -709,8 +716,10 @@ public class TongQuanAdminRepository {
             """;
 
     /**
-     * Đếm các việc đang chờ. Đơn mua quá hạn: đã chốt (3 hoặc 5), ngày giao dự kiến trước :homNay (0 giờ hôm nay,
-     * giờ Việt Nam) và còn dòng chưa nhận đủ, cùng cách tính phần "đang về" với SQL_DANG_VE.
+     * Đếm các việc đang chờ. Phiếu xuất bán hàng tách hai số: Nháp (chờ đóng gói, 0) và Chờ xuất (đã đóng gói, 6), mỗi
+     * số mở đúng một tab của danh sách phiếu xuất.
+     * Đơn mua quá hạn: đã chốt (3 hoặc 5; đơn đã đóng 6 / đã hủy 7 không tính), ngày giao dự kiến trước :homNay (0 giờ
+     * hôm nay, giờ Việt Nam) và còn dòng chưa nhận đủ, cùng cách tính phần "đang về" với SQL_DANG_VE.
      * Phiếu chuyển chờ xử lý chênh lệch: quản trị viên luôn xử lý được (mọi chế độ CHUYEN_KHO_QUYEN_XU_LY_LECH), kho
      * đang xem là kho xuất hoặc kho nhận của phiếu.
      */
@@ -718,7 +727,8 @@ public class TongQuanAdminRepository {
         return jdbc.queryForObject(SQL_VIEC_CAN_XU_LY, thamSo(khoId).addValue("homNay", moc(homNay)),
                 (rs, i) -> new ViecCanXuLyDong(
                         rs.getLong("don_nhap"), rs.getLong("don_cho_xuat"), rs.getLong("nhat_chua_giao"),
-                        rs.getLong("px_cho_xuat"), rs.getLong("yc_cho_duyet"), rs.getLong("pn_cho_nhap"),
+                        rs.getLong("px_cho_dong_goi"), rs.getLong("px_cho_xuat"), rs.getLong("yc_cho_duyet"),
+                        rs.getLong("pn_cho_nhap"),
                         rs.getLong("pck_cho_duyet"), rs.getLong("pck_cho_xuat"), rs.getLong("kiem_ke_mo"),
                         rs.getLong("tk_khoa"), rs.getLong("dm_qua_han"), rs.getLong("pck_cho_xu_ly_lech")));
     }

@@ -20,6 +20,23 @@ function tachTheoKho(dong, v, khoId) {
     .map((k) => ({ ...dong, key: `${dong.loai}-${k.khoId}`, so: k[dong.loai], phu: k.tenKho, kho: k.khoId }));
 }
 
+/**
+ * Phiếu xuất bán hàng chưa xuất kho, hai trạng thái — mỗi dòng mở đúng tab của danh sách phiếu xuất (mã tab ở
+ * constants/phieuXuatKho.js PHIEU_XUAT_KHO_TABS: Nháp mã 0 → "nhap", Chờ xuất mã 6 → "cho-xuat-kho"; không import vì tệp
+ * đó dùng bí danh "@/", node --test không nạp được). Máy chủ chỉ đếm phiếu loai_xuat = ban_hang (tab Nháp còn có phiếu
+ * chuyển kho) nên mọi dòng kèm ?loai=ban-hang (bộ lọc loại phiếu của PhieuXuatKhoList) cho số dòng khớp số đếm.
+ * Máy chủ cũ chỉ trả tổng phieuXuatChoXuatKho: một dòng, mở tab Tất cả.
+ */
+function viecPhieuXuat(v) {
+  if (v.phieuXuatChoDongGoi == null && v.phieuXuatChoXuat == null) {
+    return [{ loai: "phieuXuatChoXuatKho", ten: "Phiếu xuất chưa xuất kho", phu: "Đơn bán chờ đóng gói hoặc chờ xuất", so: v.phieuXuatChoXuatKho, muc: "warn", to: "/goods-issues?loai=ban-hang" }];
+  }
+  return [
+    { loai: "phieuXuatChoDongGoi", ten: "Phiếu xuất chờ đóng gói", phu: "Đơn bán đã nhặt, chưa đóng gói", so: v.phieuXuatChoDongGoi, muc: "warn", to: "/goods-issues?trangThai=nhap&loai=ban-hang" },
+    { loai: "phieuXuatChoXuat", ten: "Phiếu xuất chờ xuất kho", phu: "Đã đóng gói, chờ xác nhận xuất", so: v.phieuXuatChoXuat, muc: "warn", to: "/goods-issues?trangThai=cho-xuat-kho&loai=ban-hang" },
+  ];
+}
+
 /** Trang sản phẩm của kênh, mở sẵn tab Lỗi; kênh chưa có trang riêng (kể cả sàn chờ cấp API) thì mở danh sách kênh. */
 export function duongDanLoiDongBo(maKenh) {
   const san = SAN_BAN_HANG.find((s) => s.hoTro && s.maKenh === maKenh);
@@ -47,8 +64,8 @@ export function danhSachViec(v, khoId) {
     })),
     { loai: "donMuaQuaHan", ten: "Đơn mua quá hạn giao", phu: "Quá ngày giao dự kiến", so: v.donMuaQuaHan, muc: "bad", to: `/purchase-orders?trangThai=dang-van-chuyen${tatCaKho ? "" : `&kho=${khoId}`}` },
     { loai: "donChoXuatKho", ten: "Đơn chờ nhặt hàng", phu: "Chưa tạo phiếu nhặt", so: v.donChoXuatKho, muc: "warn", to: "/goods-issues/pending-orders" },
-    // Đếm phiếu bán hàng Nháp (chờ đóng gói) + Chờ xuất; danh sách phiếu xuất chỉ lọc được một trạng thái nên mở tab Tất cả
-    { loai: "phieuXuatChoXuatKho", ten: "Phiếu xuất chưa xuất kho", phu: "Đơn bán chờ đóng gói hoặc chờ xuất", so: v.phieuXuatChoXuatKho, muc: "warn", to: "/goods-issues" },
+    // Phiếu bán hàng Nháp (chờ đóng gói) và Chờ xuất tách hai dòng, mỗi dòng mở đúng tab (danh sách chỉ lọc một trạng thái)
+    ...viecPhieuXuat(v),
     { loai: "phieuChuyenChoDuyet", ten: "Phiếu chuyển kho chờ duyệt", phu: "Quản lý Kho tổng duyệt, lập lệnh điều động", so: v.phieuChuyenChoDuyet, muc: "warn", to: "/transfer-tickets?trangThai=cho-duyet" },
     // Quản trị viên luôn xử lý được chênh lệch và xem phiếu chuyển của mọi kho: không tách theo kho. Máy chủ cũ chưa trả thì không hiện
     { loai: "phieuChuyenChoXuLyLech", ten: "Phiếu chuyển chờ xử lý chênh lệch", phu: "Nhận lệch: kho gửi xác nhận biên bản, rồi chọn ghi giảm hoặc giao bù", so: v.phieuChuyenChoXuLyLech, muc: "warn", to: "/transfer-tickets?trangThai=cho-xu-ly-chenh-lech" },

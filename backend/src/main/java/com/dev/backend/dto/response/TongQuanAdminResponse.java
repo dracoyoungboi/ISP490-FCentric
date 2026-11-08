@@ -124,7 +124,13 @@ public record TongQuanAdminResponse(
              * Phiếu chuyển kho nhận lệch đang chờ xử lý chênh lệch (quản trị viên luôn xử lý được); kho đang xem là kho
              * xuất hoặc kho nhận của phiếu.
              */
-            long phieuChuyenChoXuLyLech
+            long phieuChuyenChoXuLyLech,
+            /**
+             * phieuXuatChoXuatKho tách theo trạng thái phiếu xuất bán hàng: Nháp (chờ đóng gói, 0) và Chờ xuất (đã đóng
+             * gói, 6) — mỗi số mở đúng một tab của danh sách phiếu xuất. phieuXuatChoXuatKho giữ tổng cho màn cũ.
+             */
+            long phieuXuatChoDongGoi,
+            long phieuXuatChoXuat
     ) {}
 
     public record ViecTheoKho(Integer khoId, String tenKho, long donChoXuatKho, long phieuNhatChuaPhanCong,

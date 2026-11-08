@@ -1,8 +1,9 @@
 import apiClient from "./apiClient";
 
 export const phieuXuatKhoService = {
-    async filter(payload) {
-        const res = await apiClient.post("/api/v1/phieu-xuat-kho/filter", payload);
+    // `config` (tùy chọn): cấu hình axios, vd. { signal } để hủy lần tìm cũ (ô Tìm kiếm toàn hệ thống)
+    async filter(payload, config) {
+        const res = await apiClient.post("/api/v1/phieu-xuat-kho/filter", payload, config);
         return res.data?.data || res.data;
     },
     // Phiếu xuất bán hàng sinh khi hoàn tất nhặt hàng; phiếu bị hủy sau khi nhặt thì tạo lại theo đơn (chép lô phiếu cũ)

@@ -63,12 +63,14 @@ WHERE DATE(p.ngayXuat) = CURRENT_DATE
             "AND p.loaiXuat IN ('ban_hang', 'chuyen_kho') " +
             "AND (:keyword IS NULL OR LOWER(p.soPhieuXuat) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(d.soDonHang) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
             "AND (:trangThai IS NULL OR p.trangThai = :trangThai) " +
+            "AND (:loaiXuat IS NULL OR p.loaiXuat = :loaiXuat) " +
             "AND (:tenKho IS NULL OR LOWER(p.kho.tenKho) LIKE LOWER(CONCAT('%', :tenKho, '%')))")
     Page<PhieuXuatKho> findDanhSachThucXuat(
             @Param("khoIds") List<Integer> khoIds, // Đổi sang List
             @Param("keyword") String keyword,
             @Param("trangThai") Integer trangThai,
             @Param("tenKho") String tenKho,
+            @Param("loaiXuat") String loaiXuat, // null = cả bán hàng và chuyển kho
             Pageable pageable
     );
 

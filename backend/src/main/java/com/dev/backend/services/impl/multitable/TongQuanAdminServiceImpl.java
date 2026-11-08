@@ -363,7 +363,8 @@ public class TongQuanAdminServiceImpl implements TongQuanAdminService {
                         r.phieuChuyenChoDuyet(), r.phieuChuyenChoXuatHang()))
                 .toList();
         return new ViecCanXuLy(
-                v.donNhapChuaGuiKho(), v.donChoXuatKho(), v.phieuNhatChuaPhanCong(), v.phieuXuatChoXuatKho(),
+                v.donNhapChuaGuiKho(), v.donChoXuatKho(), v.phieuNhatChuaPhanCong(),
+                v.phieuXuatChoDongGoi() + v.phieuXuatChoXuat(),
                 v.yeuCauNhapChoDuyet(), v.phieuNhapChoNhapKho(), v.phieuChuyenChoDuyet(), v.phieuChuyenChoXuatHang(),
                 v.dotKiemKeDangMo(),
                 ton == null ? null : ton.hetHang(),
@@ -374,7 +375,9 @@ public class TongQuanAdminServiceImpl implements TongQuanAdminService {
                 phu("loiDongBo", () -> repo.loiDongBoTheoKenh().stream()
                         .map(r -> new LoiDongBoKenh(r.kenhId(), r.maKenh(), tenKenh(r.maKenh(), r.tenKenh()), r.soLoi()))
                         .toList()),
-                v.phieuChuyenChoXuLyLech());
+                v.phieuChuyenChoXuLyLech(),
+                v.phieuXuatChoDongGoi(),
+                v.phieuXuatChoXuat());
     }
 
     private NhapXuat tinhNhapXuat(KhungKy khung, LocalDate homNay, Integer khoId) {

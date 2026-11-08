@@ -77,12 +77,14 @@ const viec = {
   ],
   donMuaQuaHan: 2,
   loiDongBo: [{ kenhId: 7, maKenh: "SHOPIFY", tenKenh: "Cửa hàng Shopify", soLoi: 3 }],
+  phieuXuatChoDongGoi: 0,
+  phieuXuatChoXuat: 5,
 };
 
 test("cần xử lý: việc gấp lên đầu, không có dòng hết/thiếu hàng, tách theo kho khi xem tất cả kho", () => {
   const ds = danhSachViec(viec, null);
   assert.deepEqual(ds.map((d) => d.key), [
-    "loiDongBo-7", "donMuaQuaHan", "donChoXuatKho-1", "donChoXuatKho-2", "phieuXuatChoXuatKho", "phieuNhapChoNhapKho", "taiKhoanBiKhoa",
+    "loiDongBo-7", "donMuaQuaHan", "donChoXuatKho-1", "donChoXuatKho-2", "phieuXuatChoXuat", "phieuNhapChoNhapKho", "taiKhoanBiKhoa",
   ]);
   assert.ok(!ds.some((d) => /hết|thiếu/i.test(d.ten)), "hết/thiếu hàng đã ở thẻ Tồn kho");
   assert.equal(ds[0].to, "/channels/shopify/products?trangThai=loi");

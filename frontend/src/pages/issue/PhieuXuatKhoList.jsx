@@ -6,6 +6,7 @@ import PageContainer from "@/components/backoffice/PageContainer";
 import AttentionBar from "@/components/shared/AttentionBar";
 import EmptyState from "@/components/shared/EmptyState";
 import ErrorState from "@/components/shared/ErrorState";
+import FilterSelect from "@/components/shared/FilterSelect";
 import ListPageHeader from "@/components/shared/ListPageHeader";
 import ListToolbar from "@/components/shared/ListToolbar";
 import LoadingState from "@/components/shared/LoadingState";
@@ -42,14 +43,25 @@ const VAI_TRO_XUAT_KHO = ["quan_ly_kho", "nhan_vien_kho"];
 
 const trangThaiCuaTab = (ma) => PHIEU_XUAT_KHO_TABS.find((tab) => tab.ma === ma)?.trangThai ?? null;
 
+// Loại phiếu trên URL ?loai= (đọc như ?trangThai=): "Việc cần xử lý" ở Tổng quan mở phiếu bán hàng Nháp / Chờ xuất
+// (?loai=ban-hang) để số dòng khớp số máy chủ đếm (chỉ phiếu loai_xuat = ban_hang). `loaiXuat` là giá trị gửi API.
+const LOAI_PHIEU = [
+    { value: "tat-ca", label: "Tất cả loại phiếu", loaiXuat: null },
+    { value: "ban-hang", label: "Xuất bán hàng", loaiXuat: "ban_hang" },
+    { value: "chuyen-kho", label: "Xuất chuyển kho", loaiXuat: "chuyen_kho" },
+];
+const LOAI_MAS = LOAI_PHIEU.map((loai) => loai.value);
+const LOAI_MAC_DINH = "tat-ca";
+const loaiXuatCua = (ma) => LOAI_PHIEU.find((loai) => loai.value === ma)?.loaiXuat ?? null;
+
 function parseRoles(vaiTro) {
     if (!vaiTro) return [];
     return vaiTro.includes(" ") ? vaiTro.split(" ") : [vaiTro];
 }
 
 // Điều kiện lọc dùng chung cho danh sách, số trên tab và dòng chú ý.
-// API chỉ nhận MỘT trạng thái và chưa lọc được theo loại xuất / ngày.
-function buildFilterPayload({ keyword, tenKho, trangThai, page, size }) {
+// API chỉ nhận MỘT trạng thái, lọc được một loại xuất (loaiXuat), chưa lọc được theo ngày.
+function buildFilterPayload({ keyword, tenKho, trangThai, loaiXuat, page, size }) {
     const filterList = [];
     if (keyword?.trim()) {
         const searchKeyword = keyword.trim();
@@ -59,6 +71,9 @@ function buildFilterPayload({ keyword, tenKho, trangThai, page, size }) {
     }
     if (trangThai != null) {
         filterList.push({ fieldName: "trangThai", operation: "EQUALS", value: trangThai });
+    }
+    if (loaiXuat) {
+        filterList.push({ fieldName: "loaiXuat", operation: "EQUALS", value: loaiXuat });
     }
     if (tenKho?.trim()) {
         filterList.push({ fieldName: "kho.tenKho", operation: "LIKE", value: tenKho.trim() });
@@ -87,6 +102,8 @@ export default function PhieuXuatKhoList() {
     const isMobile = useIsMobile();
     const [tab, setTab] = useTabTrenUrl(TAB_MAS, TAB_MAC_DINH);
     const tabTrangThai = trangThaiCuaTab(tab);
+    const [loai, setLoai] = useTabTrenUrl(LOAI_MAS, LOAI_MAC_DINH, { ten: "loai" });
+    const loaiXuat = loaiXuatCua(loai);
 
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -150,7 +167,7 @@ export default function PhieuXuatKhoList() {
         const requestId = ++requestIdRef.current;
         if (!silent) setLoading(true);
         try {
-            const res = await phieuXuatKhoService.filter(buildFilterPayload({ ...filters, trangThai: tabTrangThai }));
+            const res = await phieuXuatKhoService.filter(buildFilterPayload({ ...filters, trangThai: tabTrangThai, loaiXuat }));
             if (requestId !== requestIdRef.current) return;
             // Trang đang xem vượt số trang thật (vd. dòng cuối vừa được xử lý ở nơi khác) → lùi về trang cuối còn dữ liệu
             const trangCuoi = trangCuoiNeuVuot({ trang: filters.page, kichThuoc: filters.size, soDong: res?.content?.length ?? 0, tong: res?.totalElements });
@@ -180,14 +197,14 @@ export default function PhieuXuatKhoList() {
             if (requestId !== requestIdRef.current) return;
             console.error("Fetch list error:", e);
             if (silent) throw e;
-            // Không giữ dòng + tổng số của lần tải trước (R9)
+            // Không giữ dòng + tổng số của lần tải trước (R9). Giữ lỗi để ô lỗi phân biệt 403 (không có quyền)
             setData([]);
             setTotal(0);
-            setLoadError(true);
+            setLoadError(e);
         } finally {
             if (requestId === requestIdRef.current) setLoading(false);
         }
-    }, [filters, tabTrangThai]);
+    }, [filters, tabTrangThai, loaiXuat]);
 
     // Hoãn qua microtask để tránh setState đồng bộ trong effect
     // (react-hooks/set-state-in-effect); vẫn fetch lại ngay mỗi khi bộ lọc / tab đổi.
@@ -195,11 +212,11 @@ export default function PhieuXuatKhoList() {
         queueMicrotask(() => fetchData());
     }, [fetchData]);
 
-    // ── Số trên tab: cùng từ khóa + tên kho đang lọc, chỉ thay trạng thái (R1) ──
+    // ── Số trên tab: cùng từ khóa + tên kho + loại phiếu đang lọc, chỉ thay trạng thái (R1) ──
     const tabCounts = useDemTheoTrangThai(
         TAB_MAS,
-        (ma) => demPhieu({ keyword: filters.keyword, tenKho: filters.tenKho, trangThai: trangThaiCuaTab(ma) }),
-        `${filters.keyword}|${filters.tenKho}`
+        (ma) => demPhieu({ keyword: filters.keyword, tenKho: filters.tenKho, trangThai: trangThaiCuaTab(ma), loaiXuat }),
+        `${filters.keyword}|${filters.tenKho}|${loaiXuat ?? ""}`
     );
 
     // ── Dòng chú ý: phiếu đã đóng gói, chờ xuất kho trong phạm vi danh sách, bỏ qua các bộ lọc khác (R4).
@@ -218,18 +235,29 @@ export default function PhieuXuatKhoList() {
     };
 
     // Bộ lọc ngoài tab trạng thái ("Xóa lọc" chỉ xóa các bộ lọc này, giữ tab đang chọn)
-    const hasActiveFilters = Boolean(keywordInput.trim() || tenKhoInput.trim() || filters.ngayXuat);
+    const hasActiveFilters = Boolean(keywordInput.trim() || tenKhoInput.trim() || filters.ngayXuat || loaiXuat);
 
-    const clearFilters = () => {
+    const xoaLocTaiCho = () => {
         setKeywordInput("");
         setTenKhoInput("");
         setFilters((p) => ({ ...p, keyword: "", tenKho: "", ngayXuat: "", page: 0 }));
     };
 
+    // Loại phiếu nằm trên URL: bỏ cùng một lần ghi URL với tab (hai lần ghi liền nhau thì lần sau đè lần trước)
+    const clearFilters = () => {
+        xoaLocTaiCho();
+        if (loaiXuat) setTab(tab, { loai: null });
+    };
+
+    const changeLoai = (value) => {
+        setLoai(value);
+        setFilters((p) => (p.page === 0 ? p : { ...p, page: 0 }));
+    };
+
     // Nút của dòng chú ý: mở tab Chờ xuất, bỏ các bộ lọc khác để số dòng khớp số trên dòng chú ý
     const showPending = () => {
-        clearFilters();
-        setTab(TAB_CHO_XUAT);
+        xoaLocTaiCho();
+        setTab(TAB_CHO_XUAT, { loai: null });
     };
 
     const handleRetry = () => {
@@ -258,12 +286,8 @@ export default function PhieuXuatKhoList() {
         count: loadError || filters.ngayXuat ? null : tabCounts.counts[t.ma],
     }));
 
-    // Ghi chú phạm vi cho người chỉ xem kho mình phụ trách (R3)
-    const scopeNote = !roles || roles.includes("quan_tri_vien") || !khoPhuTrach
-        ? null
-        : khoPhuTrach.length > 0
-            ? `Kho bạn phụ trách: ${khoPhuTrach.map((kho) => kho.tenKho).join(", ")}`
-            : "Bạn chưa được phân công kho nào nên danh sách đang trống.";
+    // Phạm vi cho người chỉ xem kho của mình (R3): nhãn "Nơi làm việc" chung (ListPageHeader)
+    const noiLamViec = !roles || roles.includes("quan_tri_vien") ? null : khoPhuTrach;
 
     const pendingCount = coQuyenXuatKho && tab !== TAB_CHO_XUAT ? choXuat.counts[TAB_CHO_XUAT] : null;
     const emptyTabLabel = PHIEU_XUAT_KHO_TABS.find((t) => t.ma === tab)?.label;
@@ -271,7 +295,7 @@ export default function PhieuXuatKhoList() {
     return (
         <PageContainer fill className="space-y-4">
             {/* Không tạo phiếu xuất tay: phiếu xuất bán sinh khi nhặt xong, phiếu xuất chuyển kho (PX-CK) sinh khi duyệt phiếu chuyển */}
-            <ListPageHeader scope={scopeNote} />
+            <ListPageHeader noiLamViec={noiLamViec} />
 
             <AttentionBar
                 count={pendingCount}
@@ -307,6 +331,16 @@ export default function PhieuXuatKhoList() {
                                 setFilters((p) => (p.keyword === "" ? p : { ...p, keyword: "", page: 0 }));
                             }}
                             className="sm:w-[300px]"
+                        />
+
+                        <FilterSelect
+                            label="Loại phiếu xuất"
+                            value={loai}
+                            options={LOAI_PHIEU}
+                            onChange={changeLoai}
+                            onClear={() => changeLoai(LOAI_MAC_DINH)}
+                            clearLabel="Bỏ lọc loại phiếu"
+                            className="sm:w-[180px]"
                         />
 
                         {isMobile ? (
@@ -374,6 +408,7 @@ export default function PhieuXuatKhoList() {
                 ) : loadError ? (
                     <ErrorState
                         description="Không thể tải danh sách phiếu xuất kho. Vui lòng thử lại."
+                        error={loadError}
                         onRetry={handleRetry}
                     />
                 ) : data.length === 0 ? (
@@ -384,7 +419,7 @@ export default function PhieuXuatKhoList() {
                             description={
                                 filters.ngayXuat && total > 0
                                     ? "Trang này không có phiếu của ngày đã chọn. Chuyển trang ở dưới để xem tiếp, hoặc đổi điều kiện lọc."
-                                    : "Thử đổi từ khóa, tên kho hoặc ngày xuất."
+                                    : "Thử đổi từ khóa, loại phiếu, tên kho hoặc ngày xuất."
                             }
                             action={
                                 <Button

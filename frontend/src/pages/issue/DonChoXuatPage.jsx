@@ -114,11 +114,12 @@ export default function DonChoXuatPage() {
         } catch (error) {
             if (requestId !== requestIdRef.current) return;
             if (silent) throw error;
-            // Không giữ dòng + tổng số của lần tải trước (R9)
+            // Không giữ dòng + tổng số của lần tải trước (R9). Giữ lỗi để ô lỗi phân biệt 403 (không có quyền: không
+            // "Thử lại", không thông báo nhanh)
             setData([]);
             setTotal(0);
-            setLoadError(true);
-            toast.error(getApiErrorMessage(error, "Không tải được danh sách đơn chờ xuất"));
+            setLoadError(error);
+            if (error?.response?.status !== 403) toast.error(getApiErrorMessage(error, "Không tải được danh sách đơn chờ xuất"));
         } finally {
             if (requestId === requestIdRef.current) setLoading(false);
         }
@@ -348,6 +349,7 @@ export default function DonChoXuatPage() {
                 ) : loadError ? (
                     <ErrorState
                         description="Không thể tải danh sách đơn chờ xuất. Vui lòng thử lại."
+                        error={loadError}
                         onRetry={() => fetchData()}
                     />
                 ) : data.length === 0 ? (
