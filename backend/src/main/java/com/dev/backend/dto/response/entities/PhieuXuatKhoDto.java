@@ -48,4 +48,17 @@ public class PhieuXuatKhoDto implements Serializable {
     String maVanDon;
     String donViVanChuyen;
     String maKienHang;
+
+    // === CÁC TRƯỜNG DÀNH CHO VẬN ĐƠN SÀN AWB CHUẨN 100x150MM ===
+    BigDecimal tienThuHoCod;
+    String nhanThanhToan;
+    String chiDanDongKiem;
+    BigDecimal tongKhoiLuongKg;
+    String maDinhTuyen;
+    String maTramPhat;
+    String tagGiaoNhan;
+    String chuoiQrCode;
+    String donViPickup;
+    String donViDelivery;
+    String loaiDichVu;
 }

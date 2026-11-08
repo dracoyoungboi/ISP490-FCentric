@@ -125,6 +125,9 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
     private com.dev.backend.services.lazada.LazadaClient lazadaClient;
 
     @Autowired(required = false)
+    private com.dev.backend.services.lazada.LazadaRoutingDecoder lazadaRoutingDecoder;
+
+    @Autowired(required = false)
     private com.dev.backend.services.KenhBanHangService kenhBanHangService;
 
     @Override
@@ -1090,6 +1093,93 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                 }
             }
 
+            // === TÍNH TOÁN CÁC TRƯỜNG CHO VẬN ĐƠN SÀN AWB CHUẨN 100x150MM ===
+            BigDecimal tienThuHoCod = BigDecimal.ZERO;
+            String nhanThanhToan = "ĐÃ THANH TOÁN (COD: 0 đ)";
+            boolean isCod = "chua_thanh_toan".equalsIgnoreCase(donGoc.getTrangThaiThanhToan())
+                    || (donGoc.getGhiChu() != null && donGoc.getGhiChu().toUpperCase().contains("COD"));
+            if (isCod && donGoc.getTongCong() != null && donGoc.getTongCong().compareTo(BigDecimal.ZERO) > 0) {
+                tienThuHoCod = donGoc.getTongCong();
+                nhanThanhToan = "THU HỘ(COD): " + java.text.NumberFormat.getInstance(new java.util.Locale("vi", "VN")).format(tienThuHoCod) + " VNĐ";
+            }
+
+            String chiDanDongKiem = "ĐƯỢC ĐỒNG KIỂM";
+
+            BigDecimal tongKg = new BigDecimal("0.30");
+            try {
+                List<ChiTietPhieuXuatKho> rawDetails = chiTietPhieuXuatKhoRepository.findByPhieuXuatKhoIdAndLoHangIsNull(phieu.getId());
+                if (rawDetails != null && !rawDetails.isEmpty()) {
+                    int totalQty = 0;
+                    for (ChiTietPhieuXuatKho ct : rawDetails) {
+                        if (ct.getSoLuongXuat() != null) {
+                            totalQty += ct.getSoLuongXuat().intValue();
+                        } else {
+                            totalQty += 1;
+                        }
+                    }
+                    if (totalQty > 0) {
+                        BigDecimal estKg = new BigDecimal(totalQty).multiply(new BigDecimal("0.25")).add(new BigDecimal("0.05"));
+                        tongKg = estKg.setScale(2, java.math.RoundingMode.HALF_UP);
+                    }
+                }
+            } catch (Exception ignored) {}
+
+            String donViPickup = "BEST EXPRESS";
+            String donViDelivery = "BEST EXPRESS";
+            String loaiDichVu = "STANDARD";
+            String maDinhTuyen = "3-BNO-TAP";
+            String maTramPhat = "BN237B-00-00-03";
+            String tagGiaoNhan = "WKD";
+
+            if (carrierName != null && !carrierName.isBlank()) {
+                String upper = carrierName.toUpperCase();
+                if (upper.contains("BEST")) {
+                    donViPickup = "BEST EXPRESS";
+                    donViDelivery = "BEST EXPRESS";
+                } else if (upper.contains("LEX") || upper.contains("LAZADA")) {
+                    donViPickup = "LEX VN";
+                    donViDelivery = "LEX VN";
+                } else if (upper.contains("NINJA")) {
+                    donViPickup = "NINJA VAN";
+                    donViDelivery = "NINJA VAN";
+                } else if (upper.contains("J&T")) {
+                    donViPickup = "J&T EXPRESS";
+                    donViDelivery = "J&T EXPRESS";
+                } else if (upper.contains("SHOPEE") || upper.contains("SPX")) {
+                    donViPickup = "SPX EXPRESS";
+                    donViDelivery = "SPX EXPRESS";
+                } else {
+                    donViPickup = carrierName;
+                    donViDelivery = carrierName;
+                }
+            }
+
+            if (lazadaRoutingDecoder != null) {
+                com.fasterxml.jackson.databind.JsonNode traceNode = null;
+                if (kb != null && ("LAZADA".equalsIgnoreCase(kb.getMaKenh()) || "LAZADA_SANDBOX".equalsIgnoreCase(kb.getMaKenh()))
+                        && donGoc.getMaDonHangKenh() != null && lazadaClient != null && kenhBanHangService != null) {
+                    try {
+                        String appKey = kenhBanHangService.getLazadaAppKey(kb.getMaKenh());
+                        String appSecret = kenhBanHangService.getDecryptedLazadaAppSecret(kb.getMaKenh());
+                        String token = kenhBanHangService.getDecryptedLazadaAccessToken(kb.getMaKenh());
+                        if (appKey != null && appSecret != null && token != null) {
+                            traceNode = lazadaClient.getOrderTrace(appKey, appSecret, token, donGoc.getMaDonHangKenh());
+                        }
+                    } catch (Exception ex) {
+                        log.warn("Lỗi khi gọi trace Lazada cho đơn {}: {}", donGoc.getMaDonHangKenh(), ex.getMessage());
+                    }
+                }
+                var routeRes = lazadaRoutingDecoder.decode(traceNode, donGoc.getDiaChiGiaoHang(), carrierName);
+                if (routeRes != null) {
+                    maDinhTuyen = routeRes.routingCode();
+                    maTramPhat = routeRes.stationCode();
+                    tagGiaoNhan = routeRes.tagGiaoNhan();
+                }
+            }
+
+            String chuoiQrCode = (trackingCode != null && !trackingCode.isBlank()) ? trackingCode :
+                    (donGoc.getMaDonHangKenh() != null ? donGoc.getMaDonHangKenh() : (phieu.getSoPhieuXuat() != null ? phieu.getSoPhieuXuat() : ""));
+
             donBanHangDto = DonBanHangDto.builder()
                     .id(donGoc.getId())
                     .soDonHang(donGoc.getSoDonHang())
@@ -1103,6 +1193,17 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                     .maVanDon(trackingCode)
                     .donViVanChuyen(carrierName)
                     .maKienHang(packageId)
+                    .tienThuHoCod(tienThuHoCod)
+                    .nhanThanhToan(nhanThanhToan)
+                    .chiDanDongKiem(chiDanDongKiem)
+                    .tongKhoiLuongKg(tongKg)
+                    .maDinhTuyen(maDinhTuyen)
+                    .maTramPhat(maTramPhat)
+                    .tagGiaoNhan(tagGiaoNhan)
+                    .chuoiQrCode(chuoiQrCode)
+                    .donViPickup(donViPickup)
+                    .donViDelivery(donViDelivery)
+                    .loaiDichVu(loaiDichVu)
                     .build();
         }
 
@@ -1145,6 +1246,17 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                 .maVanDon(trackingCode)
                 .donViVanChuyen(carrierName)
                 .maKienHang(packageId)
+                .tienThuHoCod(donBanHangDto != null ? donBanHangDto.getTienThuHoCod() : BigDecimal.ZERO)
+                .nhanThanhToan(donBanHangDto != null ? donBanHangDto.getNhanThanhToan() : "ĐÃ THANH TOÁN (COD: 0 đ)")
+                .chiDanDongKiem(donBanHangDto != null ? donBanHangDto.getChiDanDongKiem() : "ĐƯỢC ĐỒNG KIỂM")
+                .tongKhoiLuongKg(donBanHangDto != null ? donBanHangDto.getTongKhoiLuongKg() : new BigDecimal("0.30"))
+                .maDinhTuyen(donBanHangDto != null ? donBanHangDto.getMaDinhTuyen() : "3-BNO-TAP")
+                .maTramPhat(donBanHangDto != null ? donBanHangDto.getMaTramPhat() : "BN237B-00-00-03")
+                .tagGiaoNhan(donBanHangDto != null ? donBanHangDto.getTagGiaoNhan() : "WKD")
+                .chuoiQrCode(donBanHangDto != null ? donBanHangDto.getChuoiQrCode() : trackingCode)
+                .donViPickup(donBanHangDto != null ? donBanHangDto.getDonViPickup() : "BEST EXPRESS")
+                .donViDelivery(donBanHangDto != null ? donBanHangDto.getDonViDelivery() : "BEST EXPRESS")
+                .loaiDichVu(donBanHangDto != null ? donBanHangDto.getLoaiDichVu() : "STANDARD")
                 .build();
 
         List<ChiTietPhieuXuatKho> chiTietList = chiTietPhieuXuatKhoRepository.findByPhieuXuatKhoIdAndLoHangIsNull(phieu.getId());
