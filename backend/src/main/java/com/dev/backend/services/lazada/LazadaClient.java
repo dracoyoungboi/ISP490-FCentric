@@ -284,6 +284,39 @@ public class LazadaClient {
     }
 
     /**
+     * Tra cứu lịch sử điều phối và luồng bưu chính của đơn hàng Lazada (/logistic/order/trace).
+     * Endpoint an toàn, không chứa PII bị hạn chế và không yêu cầu quyền AWB đặc thù.
+     * @param appKey App Key Lazada
+     * @param appSecret App Secret Lazada
+     * @param accessToken Access Token gian hàng
+     * @param orderId Mã đơn hàng trên Lazada
+     * @return JsonNode chứa chi tiết trace lịch sử vận chuyển và mã trạm
+     */
+    public JsonNode getOrderTrace(String appKey, String appSecret, String accessToken, String orderId) {
+        if (orderId == null || orderId.isBlank()) {
+            return null;
+        }
+        String apiPath = "/logistic/order/trace";
+        Map<String, String> params = new HashMap<>();
+        params.put("app_key", appKey.trim());
+        params.put("access_token", accessToken.trim());
+        params.put("order_id", orderId.trim());
+        params.put("locale", "vi");
+        params.put("timestamp", String.valueOf(System.currentTimeMillis()));
+        params.put("sign_method", LazadaSignatureHelper.SIGN_METHOD_SHA256);
+
+        String sign = LazadaSignatureHelper.calculateSignature(apiPath, params, appSecret);
+        params.put("sign", sign);
+
+        try {
+            return executeGet(API_GATEWAY_VN + apiPath, params);
+        } catch (Exception ex) {
+            log.warn("Lỗi khi gọi /logistic/order/trace cho đơn {}: {}", orderId, ex.getMessage());
+            return null;
+        }
+    }
+
+    /**
      * Đóng gói đơn hàng trên sàn Lazada (/order/fulfill/pack).
      * Chuyển trạng thái đơn/sản phẩm từ pending sang packed và sinh package_id.
      */
