@@ -11,7 +11,8 @@ import { VAI_TRO_XEP_KE } from "./soHangChuaCoKe";
  * đã hoàn tất. `kho`: `{ id }` kho nhận; `phieuChuyenId` hoặc `phieuNhapId`: chứng từ cần xem; `bat`: chứng từ đã nhập
  * kho; `phienBan`: đổi khi chứng từ có thêm phiếu nhập (vd. số phiếu nhập của phiếu chuyển) để đếm lại. Chỉ tải khi người
  * xem có vai trò kho và được phân kho đó (quản trị viên mọi kho); quay lại thẻ thì đếm lại; lỗi thì im lặng (không nhắc).
- * Trả `{ soLo, soLuong, duongDan }`; `soLo` 0 khi không có gì cần xếp.
+ * Trả `{ soLo, soLuong, duongDan, daTai, taiLai }`; `soLo` 0 khi không có gì cần xếp; `daTai`: đã có số đếm (không lỗi);
+ * `taiLai()`: đếm lại (vd. sau khi xếp kệ trong hộp).
  */
 export default function useHangChuaCoKeCuaChungTu({ kho, phieuChuyenId = null, phieuNhapId = null, bat = true, phienBan = "" }) {
   const khoId = kho?.id ?? null;
@@ -26,5 +27,7 @@ export default function useHangChuaCoKeCuaChungTu({ kho, phieuChuyenId = null, p
     soLo: Number(dem?.soLo) || 0,
     soLuong: Number(dem?.soLuong) || 0,
     duongDan: `/warehouse/unshelved?khoId=${khoId}&${loc}`,
+    daTai: dem != null && !q.loading,
+    taiLai: q.reload,
   };
 }

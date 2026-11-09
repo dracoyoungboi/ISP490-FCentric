@@ -93,16 +93,51 @@ export function tieuDeNguon(nguon) {
 }
 
 /**
+ * Phần chưa có kệ của lô tính cho một chứng từ (`phieuChuyen` / `phieuNhap`: id): cộng các phần máy chủ chia theo phiếu
+ * nhập (`phanTheoChungTu`, phiếu mới nhất trước). Máy chủ cũ chưa có `phanTheoChungTu`: cả lô nếu chứng từ nhập gần nhất
+ * là chứng từ đó.
+ */
+export function phanCuaChungTu(h, { phieuChuyen = null, phieuNhap = null } = {}) {
+  const khop = (p) => (phieuChuyen == null || p?.phieuChuyenId === phieuChuyen) && (phieuNhap == null || p?.phieuNhapId === phieuNhap);
+  if (!Array.isArray(h?.phanTheoChungTu)) return khop(h?.nguon) ? so(h?.chuaCoKe) : 0;
+  return Math.min(so(h.chuaCoKe), h.phanTheoChungTu.filter(khop).reduce((s, p) => s + so(p.soLuong), 0));
+}
+
+/**
+ * Lô thu về phần của một chứng từ: `chuaCoKe` = phần của chứng từ; phần phiếu nhặt đang giữ tính vào phần ngoài chứng từ
+ * trước, nên số xếp được = min(phần của chứng từ, số xếp được của cả lô). `nguon` đổi sang phiếu nhập của chứng từ đang
+ * lọc (`chungTu` của phần khớp mới nhất) khi phiếu nhập gần nhất của lô là phiếu khác (vd. phiếu giao bù cùng lô).
+ */
+function thuVePhan(h, phan, loc) {
+  const khop = (p) => (loc.phieuChuyen == null || p?.phieuChuyenId === loc.phieuChuyen) && (loc.phieuNhap == null || p?.phieuNhapId === loc.phieuNhap);
+  const chungTu = Array.isArray(h.phanTheoChungTu) ? h.phanTheoChungTu.find((p) => khop(p) && p.chungTu)?.chungTu : null;
+  const nguon = chungTu && chungTu.phieuNhapId !== h.nguon?.phieuNhapId ? chungTu : h.nguon;
+  if (phan >= so(h.chuaCoKe) && nguon === h.nguon) return h;
+  return {
+    ...h,
+    nguon,
+    chuaCoKe: Math.min(phan, so(h.chuaCoKe)),
+    dangGiuNhat: Math.max(0, so(h.dangGiuNhat) - (so(h.chuaCoKe) - Math.min(phan, so(h.chuaCoKe)))),
+  };
+}
+
+/**
  * Lọc danh sách: `tim` (mã lô, SKU, tên), `loc` ("tat-ca" | "ngay" | "chon"), `phieuChuyen` / `phieuNhap` (id chứng từ
- * từ liên kết "Xếp kệ" ở phiếu chuyển kho / phiếu nhập).
+ * từ liên kết "Xếp kệ" ở phiếu chuyển kho / phiếu nhập). Lọc theo chứng từ: chỉ lô có phần của chứng từ, mỗi lô thu về
+ * phần đó (xem phanCuaChungTu).
  */
 export function locHangChuaCoKe(ds, { tim = "", loc = "tat-ca", phieuChuyen = null, phieuNhap = null } = {}) {
   const tu = boDau(String(tim).trim()).toLowerCase();
-  return (ds ?? []).filter((h) => {
+  const theoChungTu = phieuChuyen != null || phieuNhap != null;
+  const nguon = theoChungTu
+    ? (ds ?? []).flatMap((h) => {
+        const phan = phanCuaChungTu(h, { phieuChuyen, phieuNhap });
+        return phan > 0 ? [thuVePhan(h, phan, { phieuChuyen, phieuNhap })] : [];
+      })
+    : (ds ?? []);
+  return nguon.filter((h) => {
     if (loc === "ngay" && !xepNgayDuoc(h)) return false;
     if (loc === "chon" && xepNgayDuoc(h)) return false;
-    if (phieuChuyen != null && h.nguon?.phieuChuyenId !== phieuChuyen) return false;
-    if (phieuNhap != null && h.nguon?.phieuNhapId !== phieuNhap) return false;
     if (!tu) return true;
     const chu = `${h.maLo ?? ""} ${h.sanPham?.maSku ?? ""} ${h.sanPham?.tenSanPham ?? ""}`;
     return boDau(chu).toLowerCase().includes(tu);

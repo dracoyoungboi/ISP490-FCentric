@@ -32,7 +32,7 @@ import useQuayLai from "@/hooks/useQuayLai";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { toast } from "@/lib/thongBaoNhanh";
 import { cn } from "@/lib/utils";
-import { layHangChuaCoKe, xepKeNhieu } from "@/services/stockTakeService";
+import { layHangChuaCoKe, laySoDo, xepKeNhieu } from "@/services/stockTakeService";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { getKhoLamViecId, setKhoLamViecId } from "@/utils/khoLamViec";
 import { ROLES, hasAnyRole } from "@/utils/roles";
@@ -76,6 +76,11 @@ export default function StockTakeUnshelved() {
   const q = useTaiDuLieu(tai, `kk-chua-ke-${kho.khoId}`, { enabled: kho.khoId != null });
   // Đổi kho: danh sách kho cũ còn giữ trong lúc tải — coi như đang tải, không hiện lô của kho cũ
   const duLieu = q.dungKhoa ? q.data : undefined;
+  // Danh sách rỗng: kho chưa khai báo kệ nào (máy chủ coi là kho không quản lý kệ, trả rỗng) hay đã xếp hết? Tra sơ đồ kệ
+  const taiSoDo = useCallback(() => laySoDo(kho.khoId), [kho.khoId]);
+  const soDo = useTaiDuLieu(taiSoDo, `kk-chua-ke-so-do-${kho.khoId}`, { enabled: kho.khoId != null && Array.isArray(duLieu) && duLieu.length === 0 });
+  const khoChuaCoKe = soDo.dungKhoa && !soDo.loading && !soDo.error
+    && !(soDo.data?.khuVuc ?? []).some((kv) => (kv.ke ?? []).length > 0);
 
   const [tim, setTim] = useState("");
   const [loc, setLoc] = useState("tat-ca");
@@ -193,9 +198,10 @@ export default function StockTakeUnshelved() {
   };
   const dongHop = () => setHop((cu) => ({ ...cu, mo: false }));
   // Lô trong hộp lấy theo dữ liệu mới nhất: sau lần xếp bị từ chối bảng tải lại, hộp thấy số chưa có kệ / chờ nhặt mới
+  // (đang lọc theo chứng từ: phần của chứng từ đó)
   const loTrongHop = useMemo(
-    () => hop.ds.map((h) => (duLieu ?? []).find((x) => x.loHangId === h.loHangId) ?? h),
-    [hop.ds, duLieu],
+    () => hop.ds.map((h) => theoChungTu.find((x) => x.loHangId === h.loHangId) ?? h),
+    [hop.ds, theoChungTu],
   );
   const xepTuHop = async (phan, maKeTheoId) => {
     setLoiHop(null);
@@ -218,10 +224,11 @@ export default function StockTakeUnshelved() {
     }
   };
 
+  // Lọc theo chứng từ: nguon của lô đã đổi sang phiếu nhập của chứng từ đang lọc (locHangChuaCoKe)
   const maChungTu = phieuChuyen
-    ? (duLieu ?? []).find((h) => h.nguon?.phieuChuyenId === phieuChuyen)?.nguon?.soPhieuChuyen
+    ? theoChungTu.find((h) => h.nguon?.phieuChuyenId === phieuChuyen)?.nguon?.soPhieuChuyen
     : phieuNhap
-      ? (duLieu ?? []).find((h) => h.nguon?.phieuNhapId === phieuNhap)?.nguon?.soPhieuNhap
+      ? theoChungTu.find((h) => h.nguon?.phieuNhapId === phieuNhap)?.nguon?.soPhieuNhap
       : null;
   const locChungTu = phieuChuyen != null || phieuNhap != null;
   // Về chứng từ: lùi lịch sử nếu vừa từ chứng từ sang, mở thẳng bằng đường dẫn thì mở chứng từ
@@ -236,6 +243,18 @@ export default function StockTakeUnshelved() {
     <LoadingState rows={5} label="Đang tải hàng chưa có kệ" />
   ) : q.error && !duLieu ? (
     <ErrorState description={`Không tải được: ${getApiErrorMessage(q.error, "lỗi kết nối")}.`} onRetry={q.reload} />
+  ) : !theoChungTu.length && khoChuaCoKe ? (
+    <EmptyState
+      icon={MapIcon}
+      title="Kho chưa khai báo kệ nào"
+      description="Kho này chưa quản lý vị trí kệ nên không có hàng nào cần xếp. Muốn quản lý kệ, thêm kệ ở Vị trí kệ; tồn hiện có sẽ hiện ở đây để xếp."
+      action={
+        <Button variant="outline" onClick={() => navigate("/warehouse/locations")} className={NUT_VIEN}>
+          <MapIcon className="size-4" />
+          Vị trí kệ
+        </Button>
+      }
+    />
   ) : !theoChungTu.length ? (
     <EmptyState
       icon={CircleCheck}
