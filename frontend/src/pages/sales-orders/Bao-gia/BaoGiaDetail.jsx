@@ -42,8 +42,9 @@ import { donBanHangService } from "@/services/donBanHangService";
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import { formatCurrency } from "@/utils/formatters";
 import { ROLES, hasAnyRole } from "@/utils/roles";
+import { t } from "@/i18n";
 
-const TEN_CHUNG_TU = "báo giá";
+const TEN_CHUNG_TU = t("báo giá");
 const TONG_THEO = Object.freeze({ soLuong: "soLuong", thanhTien: "thanhTien" });
 const LOI_DA_DOI_NOI_KHAC = [400, 403, 409];
 // Máy chủ ném RuntimeException "Không tìm thấy …" (HTTP 500) khi mã không có
@@ -130,7 +131,7 @@ function ChiTietBaoGiaBan({ id }) {
     if (laDonBan || q.loading || (!q.error && q.data === undefined)) {
       return (
         <PageContainer className="flex min-h-full flex-col">
-          <KhungDangTai nhan="Đang tải báo giá" />
+          <KhungDangTai nhan={t("Đang tải báo giá")} />
         </PageContainer>
       );
     }
@@ -193,13 +194,13 @@ function ChiTietBaoGiaBan({ id }) {
       if (daDoi === BO_QUA) return;
       setHop(false);
       if (daDoi != null) {
-        toast.error("Không ghi nhận được từ chối", {
+        toast.error(t("Không ghi nhận được từ chối"), {
           description: daDoi === TT_BAO_GIA.DA_CHOT
-            ? "Báo giá vừa được chốt thành đơn ở nơi khác. Đã tải lại."
-            : "Báo giá vừa đổi trạng thái ở nơi khác. Đã tải lại.",
+            ? t("Báo giá vừa được chốt thành đơn ở nơi khác. Đã tải lại.")
+            : t("Báo giá vừa đổi trạng thái ở nơi khác. Đã tải lại."),
         });
       } else {
-        toast.success("Đã ghi nhận khách từ chối", { description: so });
+        toast.success(t("Đã ghi nhận khách từ chối"), { description: so });
       }
       q.reload();
     } catch (error) {
@@ -212,7 +213,7 @@ function ChiTietBaoGiaBan({ id }) {
         khoaToiKhiGocXong(error);
         return;
       }
-      const cau = getApiErrorMessage(error, "Không ghi nhận được từ chối");
+      const cau = getApiErrorMessage(error, t("Không ghi nhận được từ chối"));
       if (LOI_DA_DOI_NOI_KHAC.includes(getApiErrorStatus(error))) {
         setHop(false);
         toast.error(cau);
@@ -229,7 +230,7 @@ function ChiTietBaoGiaBan({ id }) {
     choPhanHoi && laBan
       ? {
         ma: "chot",
-        nhan: "Chốt thành đơn",
+        nhan: t("Chốt thành đơn"),
         icon: CircleCheckBig,
         // Như màn cũ: sang trang tạo đơn từ báo giá (hộp thoại chốt ngay tại màn chờ chốt Q7)
         onClick: () => navigate(`/sales-orders/create?quoteId=${id}`),
@@ -240,8 +241,8 @@ function ChiTietBaoGiaBan({ id }) {
   const menu = choPhanHoi && laBan
     ? [{
       ma: "tuChoi",
-      nhan: "Khách từ chối",
-      moTa: "Ghi lý do, báo giá không chốt được nữa",
+      nhan: t("Khách từ chối"),
+      moTa: t("Ghi lý do, báo giá không chốt được nữa"),
       icon: XCircle,
       nguyHiem: true,
       khoa: choGoc,
@@ -257,8 +258,8 @@ function ChiTietBaoGiaBan({ id }) {
     )),
     // Tải lại (sau thao tác, khi quay lại tab) lỗi: màn đang hiện dữ liệu cũ
     q.loiTaiLai ? (
-      <DongThongBao key="loi-tai-lai" tone="bad" actions={<NutChu onClick={q.reload}>Thử lại</NutChu>}>
-        Không tải lại được báo giá: {getApiErrorMessage(q.error, "lỗi kết nối")}. Thông tin đang hiện có thể đã cũ.
+      <DongThongBao key="loi-tai-lai" tone="bad" actions={<NutChu onClick={q.reload}>{t("Thử lại")}</NutChu>}>
+        {t("Không tải lại được báo giá: {{error}}. Thông tin đang hiện có thể đã cũ.", { error: getApiErrorMessage(q.error, t("lỗi kết nối")) })}
       </DongThongBao>
     ) : null,
   ].filter(Boolean);
@@ -272,28 +273,28 @@ function ChiTietBaoGiaBan({ id }) {
             ma={so}
             trangThai={{ label: getBaoGiaStatus(don.trangThai).label, quyTrinh: "baoGiaBan" }}
             dongPhu={[
-              "Báo giá bán hàng",
-              bang.rong ? "chưa có sản phẩm" : <b key="bt" className="font-semibold text-bo-foreground">{soVN(bang.tong.soDong)} biến thể</b>,
-              bang.rong ? null : <b key="sl" className="font-semibold text-bo-foreground">tổng số lượng {soVN(bang.tong.soLuong)}</b>,
+              t("Báo giá bán hàng"),
+              bang.rong ? t("chưa có sản phẩm") : <b key="bt" className="font-semibold text-bo-foreground">{t("{{so}} biến thể", { count: bang.tong.soDong, so: soVN(bang.tong.soDong) })}</b>,
+              bang.rong ? null : <b key="sl" className="font-semibold text-bo-foreground">{t("tổng số lượng")} {soVN(bang.tong.soLuong)}</b>,
             ]}
             onQuayLai={quayLai}
-            nhanQuayLai="Về danh sách báo giá"
-            nutPhu={{ ma: "in", nhan: "In báo giá", icon: Printer, onClick: () => navigate(`/sales-quotations/${id}/print`) }}
-            saoChepMa={{ giaTri: don.soDonHang, nhan: "Sao chép mã báo giá" }}
+            nhanQuayLai={t("Về danh sách báo giá")}
+            nutPhu={{ ma: "in", nhan: t("In báo giá"), icon: Printer, onClick: () => navigate(`/sales-quotations/${id}/print`) }}
+            saoChepMa={{ giaTri: don.soDonHang, nhan: t("Sao chép mã báo giá") }}
             menu={menu}
             nutChinh={nutChinh}
           />
         }
-        tienTrinh={buoc.length ? <TienTrinhChungTu buoc={buoc} nhan="Tiến trình báo giá" /> : null}
+        tienTrinh={buoc.length ? <TienTrinhChungTu buoc={buoc} nhan={t("Tiến trình báo giá")} /> : null}
         thongBao={thongBao.length ? thongBao : null}
         chinh={
-          <BangHangBan bang={bang} tenChungTu={TEN_CHUNG_TU} nhanTim="Tìm trong báo giá">
+          <BangHangBan bang={bang} tenChungTu={TEN_CHUNG_TU} nhanTim={t("Tìm trong báo giá")}>
             <TongTienBan
-              trai="Giá theo báo giá: khi chốt, đơn bán hàng giữ nguyên đơn giá từng dòng; chỉ phí vận chuyển, địa chỉ và ghi chú sửa được."
+              trai={t("Giá theo báo giá: khi chốt, đơn bán hàng giữ nguyên đơn giá từng dòng; chỉ phí vận chuyển, địa chỉ và ghi chú sửa được.")}
               muc={[
-                { ma: "hang", nhan: "Tiền hàng", giaTri: formatCurrency(don.tienHang) },
-                { ma: "phi", nhan: "Phí vận chuyển", giaTri: formatCurrency(don.phiVanChuyen) },
-                { ma: "tong", nhan: "Tổng cộng", giaTri: formatCurrency(don.tongCong), tong: true },
+                { ma: "hang", nhan: t("Tiền hàng"), giaTri: formatCurrency(don.tienHang) },
+                { ma: "phi", nhan: t("Phí vận chuyển"), giaTri: formatCurrency(don.phiVanChuyen) },
+                { ma: "tong", nhan: t("Tổng cộng"), giaTri: formatCurrency(don.tongCong), tong: true },
               ]}
             />
           </BangHangBan>
@@ -303,7 +304,7 @@ function ChiTietBaoGiaBan({ id }) {
             don={don}
             laBan={laBan}
             donLienQuan={donLienQuan}
-            loiDonLienQuan={laBan && maSO && qDon.error && !qDon.loading ? getApiErrorMessage(qDon.error, "lỗi kết nối") : null}
+            loiDonLienQuan={laBan && maSO && qDon.error && !qDon.loading ? getApiErrorMessage(qDon.error, t("lỗi kết nối")) : null}
             onThuLaiDonLienQuan={qDon.reload}
           />
         }
@@ -312,17 +313,17 @@ function ChiTietBaoGiaBan({ id }) {
       <HopXacNhanChungTu
         mo={hop}
         onDoiMo={doiMoHop}
-        tieuDe={`Khách từ chối báo giá ${so}?`}
-        moTa="Báo giá chuyển sang Bị từ chối và không chốt thành đơn được nữa."
-        nhanXacNhan="Ghi nhận từ chối"
+        tieuDe={t("Khách từ chối báo giá {{so}}?", { so })}
+        moTa={t("Báo giá chuyển sang Bị từ chối và không chốt thành đơn được nữa.")}
+        nhanXacNhan={t("Ghi nhận từ chối")}
         kieu="nguyHiem"
         dangChay={dangChay}
         khoaXacNhan={!lyDo.trim()}
-        lyDoKhoa="Nhập lý do khách từ chối"
+        lyDoKhoa={t("Nhập lý do khách từ chối")}
         loi={loiHop}
         onXacNhan={ghiNhanTuChoi}
       >
-        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Lý do thường gặp">
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label={t("Lý do thường gặp")}>
           {LY_DO_TU_CHOI_GOI_Y.map((chu) => (
             <button
               key={chu}
@@ -340,13 +341,13 @@ function ChiTietBaoGiaBan({ id }) {
                   : "border-bo-border bg-bo-surface text-slate-700 hover:bg-bo-surface-subtle",
               )}
             >
-              {chu}
+              {t(chu)}
             </button>
           ))}
         </div>
         <div className="grid gap-1.5">
           <label htmlFor="ly-do-khach-tu-choi" className={NHAN_O}>
-            Lý do <span className="text-bo-danger">*</span>
+            {t("Lý do")} <span className="text-bo-danger">*</span>
           </label>
           <textarea
             id="ly-do-khach-tu-choi"
@@ -355,7 +356,7 @@ function ChiTietBaoGiaBan({ id }) {
               setLyDo(suKien.target.value.slice(0, LY_DO_TOI_DA));
               setLoiHop(null);
             }}
-            placeholder="Ví dụ: Khách chọn nhà cung cấp khác giá thấp hơn 8%"
+            placeholder={t("Ví dụ: Khách chọn nhà cung cấp khác giá thấp hơn 8%")}
             rows={3}
             maxLength={LY_DO_TOI_DA}
             aria-describedby="ly-do-khach-tu-choi-goi-y"
@@ -364,7 +365,7 @@ function ChiTietBaoGiaBan({ id }) {
             className={O_NHAP_NHIEU_DONG}
           />
           <p id="ly-do-khach-tu-choi-goi-y" className={GOI_Y_O}>
-            <span>Hiện ở chi tiết báo giá và tab Báo giá của khách hàng</span>
+            <span>{t("Hiện ở chi tiết báo giá và tab Báo giá của khách hàng")}</span>
             <span>{lyDo.length}/{LY_DO_TOI_DA}</span>
           </p>
         </div>

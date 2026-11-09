@@ -7,6 +7,7 @@
  */
 import { boDau, docSo, khopTuKhoa, tachTuKhoa } from "../../chung-tu/bangChungTu.js";
 import { SO_GOI_Y_KHACH, SO_GOI_Y_SAN_PHAM, TI_LE_GIA_BAO_GIA } from "../../../config/bangChungTu.js";
+import { t } from "../../../i18n/t.js";
 
 export const SO_LUONG_TOI_DA = 99999;
 const SO_CHU_SO_TIEN_TOI_DA = 12;
@@ -124,7 +125,7 @@ export function locKhach(dsKhach, tuKhoa, gioiHan = SO_GOI_Y_KHACH) {
   return ds.filter((k) => {
     const { chu, tu } = tuKhachCua(k);
     const khopTen = tuTim.length > 0
-      && tuTim.every((t) => (t.length > 2 ? chu.includes(t) : tu.some((w) => w.startsWith(t))));
+      && tuTim.every((tt) => (tt.length > 2 ? chu.includes(tt) : tu.some((w) => w.startsWith(tt))));
     if (khopTen) return true;
     return so.length >= 3 && String(k?.soDienThoai ?? "").replace(/\D/g, "").includes(so);
   }).slice(0, gioiHan);
@@ -144,18 +145,18 @@ export function chuanHoaDong(d) {
 
 /** Lý do nút "Lưu báo giá" đang khóa (chuỗi rỗng: lưu được). */
 export function lyDoKhoaLuu({ dangTai = false, coKhach = false, dong = [] } = {}) {
-  if (dangTai) return "Đang tải dữ liệu";
-  if (!coKhach) return "Chọn khách hàng";
-  if (!dong.length) return "Thêm ít nhất một sản phẩm";
+  if (dangTai) return t("Đang tải dữ liệu");
+  if (!coKhach) return t("Chọn khách hàng");
+  if (!dong.length) return t("Thêm ít nhất một sản phẩm");
   const loi = dong.map((d) => kiemTraDonGia(d.donGia, d.giaNiemYet).loi);
   const soChuaCoGia = loi.filter((l) => l === "chuaCoGia").length;
-  if (soChuaCoGia) return `${soChuaCoGia} sản phẩm chưa có giá niêm yết`;
+  if (soChuaCoGia) return t("{{count}} sản phẩm chưa có giá niêm yết", { count: soChuaCoGia });
   const soSai = loi.filter((l) => l === "thap" || l === "cao").length;
-  if (soSai) return `${soSai} dòng có đơn giá ngoài khoảng cho phép`;
+  if (soSai) return t("{{count}} dòng có đơn giá ngoài khoảng cho phép", { count: soSai });
   const soTrongGia = loi.filter((l) => l === "trong").length;
-  if (soTrongGia) return `${soTrongGia} dòng chưa nhập đơn giá`;
+  if (soTrongGia) return t("{{count}} dòng chưa nhập đơn giá", { count: soTrongGia });
   const soTrongSL = dong.filter((d) => !(docSo(d.soLuong) >= 1)).length;
-  if (soTrongSL) return `${soTrongSL} dòng chưa nhập số lượng`;
+  if (soTrongSL) return t("{{count}} dòng chưa nhập số lượng", { count: soTrongSL });
   return "";
 }
 

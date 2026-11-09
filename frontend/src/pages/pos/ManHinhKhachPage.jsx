@@ -3,9 +3,10 @@ import { Maximize2 } from 'lucide-react';
 import { currentUserKey } from '@/services/posService';
 import PosManKhach from './components/PosManKhach';
 import { useNhanManKhach } from './man-hinh-phu';
+import { t } from "@/i18n";
 
-const TIEU_DE = 'Màn hình khách · FCentric';
-const TIEU_DE_MAC_DINH = 'FCentric · Quản lý kho & bán lẻ thời trang đa kênh';
+const TIEU_DE = t("Màn hình khách · FCentric");
+const TIEU_DE_MAC_DINH = t("FCentric · Quản lý kho & bán lẻ thời trang đa kênh");
 
 /**
  * Cỡ chữ gốc theo cỡ cửa sổ: màn khách viết bằng rem theo bản thiết kế 1366×768 (ngang) / 800×1280 (dọc), nên màn
@@ -76,7 +77,7 @@ export default function ManHinhKhachPage() {
             onClick={() => document.documentElement.requestFullscreen?.().catch(() => {})}
             type="button"
           >
-            <Maximize2 aria-hidden="true" className="size-4" />Toàn màn hình
+            <Maximize2 aria-hidden="true" className="size-4" />{t("Toàn màn hình")}
           </button>
         ) : null}
       />

@@ -1,3 +1,4 @@
+/* i18n-giu-nguyen-ca-tep: nội dung chứng từ in */
 import { useSearchParams } from "react-router-dom";
 import PrintRoutePage from "@/components/print/PrintRoutePage";
 import { toSalesInvoicePrintModel } from "@/components/print/adapters/donBanHangPrintAdapter";

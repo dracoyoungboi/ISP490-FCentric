@@ -8,6 +8,7 @@
 import { NGUONG_TIM_KHO, SO_MAT_HANG_THIEU_HIEN } from "../../config/bangChungTu.js";
 import { laKhoAo } from "../../utils/kho.js";
 import { boDau, docSo, soVN } from "../chung-tu/bangChungTu.js";
+import { t } from "../../i18n/t.js";
 
 /** Id của một kho trong danh sách tồn khả dụng (bản cũ có thể trả `id`). */
 export const idKho = (kho) => kho?.khoId ?? kho?.id ?? null;
@@ -59,6 +60,7 @@ export function demMatHang(kho) {
 /** Nhãn thẻ của kho: "Đủ hàng (5/5)" hoặc "Thiếu hàng (2/5)" (số mặt hàng thiếu / tổng). */
 export function nhanKho(kho) {
   const { du, tong, thieu } = demMatHang(kho);
+  // i18n-giu-nguyen: nhãn đưa vào StatusBadge (tra màu theo tên Việt, thẻ tự dịch theo mẫu "Đủ hàng (…)")
   return kho?.duHang ? `Đủ hàng (${soVN(du)}/${soVN(tong)})` : `Thiếu hàng (${soVN(thieu)}/${soVN(tong)})`;
 }
 
@@ -79,7 +81,7 @@ export function matHangThieu(kho, toiDa = SO_MAT_HANG_THIEU_HIEN) {
     hien: thieu.slice(0, toiDa).map((ct, i) => ({
       khoa: `${ct.bienTheId ?? ct.maSku ?? "mh"}-${i}`,
       ten: tenMatHang(ct),
-      so: `cần ${soVN(ct.soLuongDat)} · còn ${soVN(ct.tonKhaDung)}`,
+      so: t("cần {{soLuongDat}} · còn {{tonKhaDung}}", { soLuongDat: soVN(ct.soLuongDat), tonKhaDung: soVN(ct.tonKhaDung) }),
     })),
     conLai: Math.max(0, thieu.length - toiDa),
   };
@@ -88,5 +90,5 @@ export function matHangThieu(kho, toiDa = SO_MAT_HANG_THIEU_HIEN) {
 /** Câu cảnh báo khi đã chọn kho thiếu hàng ở "Gửi sang kho" (vẫn gửi được). */
 export function cauKhoThieu(kho) {
   const { du, tong } = demMatHang(kho);
-  return `${kho?.tenKho || "Kho này"} chỉ đủ ${soVN(du)}/${soVN(tong)} mặt hàng. Vẫn gửi được, nhưng kho sẽ không nhặt đủ cho đơn: nên chuyển kho nội bộ trước hoặc chọn kho đủ hàng.`;
+  return t("{{tenKho}} chỉ đủ {{du}}/{{tong}} mặt hàng. Vẫn gửi được, nhưng kho sẽ không nhặt đủ cho đơn: nên chuyển kho nội bộ trước hoặc chọn kho đủ hàng.", { tenKho: kho?.tenKho || t("Kho này"), du: soVN(du), tong: soVN(tong) });
 }

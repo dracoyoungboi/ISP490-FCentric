@@ -1,5 +1,6 @@
 import { formatCount, formatMoney, formatPriceShort } from '../pos-format';
 import { groupTitle, isKnownOut, knownStock } from '../pos-group';
+import { t } from "@/i18n";
 
 // Tồn từ 1 tới mức này: số tồn trên ô kích cỡ chuyển màu cam để thu ngân để ý.
 const LOW_STOCK = 3;
@@ -18,18 +19,18 @@ function sizeState(group, variant, inCart) {
   const over = full && inCart > stock;
   const low = !out && stock !== null && stock <= LOW_STOCK;
   const label = `${groupTitle(group)} · ${variant.tenSize}`;
-  const inCartNote = inCart > 0 ? `, đang có ${inCart} trong hóa đơn` : '';
+  const inCartNote = inCart > 0 ? t(", đang có {{inCart}} trong hóa đơn", { inCart }) : '';
   let description;
-  if (out) description = `${label}: hết hàng`;
-  else if (over) description = `${label}: trong hóa đơn ${inCart} nhưng chỉ còn ${formatCount(stock)}`;
-  else if (full) description = `${label}: đã thêm đủ ${formatCount(stock)} sản phẩm tồn`;
-  else description = `Thêm ${label} (${stock === null ? 'chưa có số tồn' : `tồn ${formatCount(stock)}`}, giá ${formatMoney(variant.price)}${inCartNote})`;
+  if (out) description = t("{{label}}: hết hàng", { label });
+  else if (over) description = t("{{label}}: trong hóa đơn {{inCart}} nhưng chỉ còn {{stock}}", { label, inCart, stock: formatCount(stock) });
+  else if (full) description = t("{{label}}: đã thêm đủ {{stock}} sản phẩm tồn", { label, stock: formatCount(stock) });
+  else description = t("Thêm {{label}} ({{ton}}, giá {{price}}{{inCartNote}})", { label, ton: stock === null ? t("chưa có số tồn") : t("tồn {{stock}}", { stock: formatCount(stock) }), price: formatMoney(variant.price), inCartNote });
   return {
     out,
     full,
     over,
     low,
-    stockLabel: out ? 'Hết' : over ? `Còn ${formatCount(stock)}` : full ? 'Đủ' : stock === null ? '—' : formatCount(stock),
+    stockLabel: out ? t("Hết") : over ? t("Còn {{stock}}", { stock: formatCount(stock) }) : full ? t("Đủ") : stock === null ? '—' : formatCount(stock),
     description,
   };
 }
@@ -67,7 +68,7 @@ export function SizeChip({ group, variant, inCart = 0, justAdded = false, matche
       disabled={state.out}
       onClick={() => onPick(variant)}
       style={span > 1 ? { gridColumn: `span ${span} / span ${span}` } : undefined}
-      title={`${state.description} · Mã: ${variant.sku}${matched ? ' · khớp mã đang tìm' : ''}`}
+      title={t("{{description}} · Mã: {{sku}}{{khopMa}}", { description: state.description, sku: variant.sku, khopMa: matched ? t(" · khớp mã đang tìm") : '' })}
       type="button"
     >
       {/* Bố cục đã chia đủ khe cho nhãn; cắt chữ chỉ là chốt chặn khi font chưa tải xong. Khay thì xuống dòng. */}
@@ -99,7 +100,7 @@ export function MoreSizesChip({ count, size = 'list', expanded = false, controls
       type="button"
     >
       <span className={`font-semibold leading-4 tabular-nums ${dims.label}`}>+{formatCount(count)}</span>
-      <span className="text-[10px] leading-3">cỡ</span>
+      <span className="text-[10px] leading-3">{t("cỡ")}</span>
     </button>
   );
 }

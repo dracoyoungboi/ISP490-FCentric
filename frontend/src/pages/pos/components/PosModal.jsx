@@ -1,4 +1,5 @@
 import { X } from 'lucide-react';
+import { t } from "@/i18n";
 
 export default function PosModal({ title, description, onClose, children, footer, size = 'md' }) {
   const width = {
@@ -27,7 +28,7 @@ export default function PosModal({ title, description, onClose, children, footer
             {description ? <p className="mt-1 text-sm text-bo-muted">{description}</p> : null}
           </div>
           <button
-            aria-label="Đóng cửa sổ"
+            aria-label={t("Đóng cửa sổ")}
             className="rounded-md p-1.5 text-bo-muted transition hover:bg-slate-100 hover:text-bo-foreground focus-visible:outline-2 focus-visible:outline-bo-primary"
             onClick={onClose}
             type="button"

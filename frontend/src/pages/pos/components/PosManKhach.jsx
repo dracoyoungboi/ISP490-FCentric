@@ -5,6 +5,7 @@ import PayosLogo from '@/components/shared/PayosLogo';
 import { formatCount, formatMoney } from '../pos-format';
 import { matDoDanhSach, trangThaiManKhach } from '../pos-man-khach';
 import { hetHanTheoMay } from '../pos-payment';
+import { t } from "@/i18n";
 
 /*
  * Cỡ chữ, khoảng cách viết bằng rem: trang màn hình phụ đặt cỡ chữ gốc theo cỡ cửa sổ (ManHinhKhachPage) nên cả màn
@@ -15,24 +16,24 @@ const LOGO = '/branding/f-centric-logo-light.svg';
 
 /** Câu cho trình đọc màn hình theo trạng thái (không đọc từng giây của đồng hồ đếm ngược). */
 const THONG_BAO = {
-  trong: 'Chưa có hàng trong hóa đơn',
-  gio: 'Hóa đơn của quý khách',
-  qr: 'Mã QR chuyển khoản đã sẵn sàng',
-  choMa: 'Đang chuẩn bị mã QR',
-  hetGio: 'Mã đã hết hạn',
-  maDong: 'Mã QR không còn dùng được',
-  kiemTra: 'Đang xác nhận khoản chuyển',
-  daNhan: 'Đã nhận đủ tiền, cảm ơn quý khách',
+  trong: t("Chưa có hàng trong hóa đơn"),
+  gio: t("Hóa đơn của quý khách"),
+  qr: t("Mã QR chuyển khoản đã sẵn sàng"),
+  choMa: t("Đang chuẩn bị mã QR"),
+  hetGio: t("Mã đã hết hạn"),
+  maDong: t("Mã QR không còn dùng được"),
+  kiemTra: t("Đang xác nhận khoản chuyển"),
+  daNhan: t("Đã nhận đủ tiền, cảm ơn quý khách"),
 };
 
 /** Ô thay chỗ mã QR khi không vẽ mã: tiêu đề, lời dặn, kiểu biểu tượng (khách không thấy lỗi kỹ thuật). */
 const KHONG_MA = {
-  hetGio: { tieuDe: 'Mã đã hết hạn', loi: 'Nếu quý khách vừa chuyển khoản, vui lòng chờ trong giây lát.', kieu: 'canhBao' },
-  kiemTra: { tieuDe: 'Đang xác nhận khoản chuyển', loi: 'Quý khách vui lòng chờ trong giây lát.', kieu: 'cho' },
-  EXPIRED: { tieuDe: 'Mã đã hết hạn', loi: 'Vui lòng không quét mã cũ. Nếu cần chuyển khoản, quý khách báo thu ngân tạo mã mới.', kieu: 'canhBao' },
-  CANCELLED: { tieuDe: 'Mã đã được hủy', loi: 'Vui lòng không chuyển khoản theo mã này. Nếu cần mã mới, quý khách vui lòng báo thu ngân.', kieu: 'thuong' },
-  FAILED: { tieuDe: 'Chưa tạo được mã', loi: 'Quý khách vui lòng báo thu ngân để tạo lại mã.', kieu: 'thuong' },
-  REFUNDED: { tieuDe: 'Đã hoàn tiền chuyển khoản', loi: 'Tiền chuyển khoản đã được hoàn lại cho quý khách.', kieu: 'thuong' },
+  hetGio: { tieuDe: t("Mã đã hết hạn"), loi: t("Nếu quý khách vừa chuyển khoản, vui lòng chờ trong giây lát."), kieu: 'canhBao' },
+  kiemTra: { tieuDe: t("Đang xác nhận khoản chuyển"), loi: t("Quý khách vui lòng chờ trong giây lát."), kieu: 'cho' },
+  EXPIRED: { tieuDe: t("Mã đã hết hạn"), loi: t("Vui lòng không quét mã cũ. Nếu cần chuyển khoản, quý khách báo thu ngân tạo mã mới."), kieu: 'canhBao' },
+  CANCELLED: { tieuDe: t("Mã đã được hủy"), loi: t("Vui lòng không chuyển khoản theo mã này. Nếu cần mã mới, quý khách vui lòng báo thu ngân."), kieu: 'thuong' },
+  FAILED: { tieuDe: t("Chưa tạo được mã"), loi: t("Quý khách vui lòng báo thu ngân để tạo lại mã."), kieu: 'thuong' },
+  REFUNDED: { tieuDe: t("Đã hoàn tiền chuyển khoản"), loi: t("Tiền chuyển khoản đã được hoàn lại cho quý khách."), kieu: 'thuong' },
 };
 
 /** Khung bên phải: nền xám nhạt, viền trái (màn ngang) hoặc viền trên (màn dọc, khung nằm dưới danh sách). */
@@ -80,7 +81,7 @@ function NhanConNua({ so, phia }) {
   return (
     <div className={`pointer-events-none absolute inset-x-0 z-10 flex h-16 justify-center ${tren ? 'top-0 items-start bg-linear-to-b' : 'bottom-0 items-end bg-linear-to-t'} from-bo-surface from-35% to-transparent`}>
       <span className={`inline-flex items-center gap-1.5 rounded-full bg-bo-foreground px-3.5 py-1 text-[0.875rem] font-semibold text-white ${tren ? 'mt-1.5' : 'mb-1.5'}`}>
-        <Icon aria-hidden="true" className="size-4" strokeWidth={2.2} />Còn {so} mặt hàng phía {tren ? 'trên' : 'dưới'}
+        <Icon aria-hidden="true" className="size-4" strokeWidth={2.2} />{tren ? t("Còn {{count}} mặt hàng phía trên", { count: so }) : t("Còn {{count}} mặt hàng phía dưới", { count: so })}
       </span>
     </div>
   );
@@ -152,11 +153,11 @@ function DanhSachHang({ noiDung, coTongCuoi }) {
   }, [moiNhat]);
 
   return (
-    <section aria-label="Danh sách hàng" className="flex min-h-0 flex-col px-9 pb-6 pt-7 portrait:px-7 portrait:pb-4">
+    <section aria-label={t("Danh sách hàng")} className="flex min-h-0 flex-col px-9 pb-6 pt-7 portrait:px-7 portrait:pb-4">
       <div className="flex shrink-0 items-baseline justify-between gap-4 px-3.5 pb-3.5">
-        <h1 className="text-[1.5rem] font-semibold tracking-[-0.01em]">Hóa đơn của quý khách</h1>
+        <h1 className="text-[1.5rem] font-semibold tracking-[-0.01em]">{t("Hóa đơn của quý khách")}</h1>
         {/* "mặt hàng" (số dòng) tách với số sản phẩm như giỏ hàng của thu ngân */}
-        <span className="shrink-0 text-[1.0625rem] text-bo-muted">{dong.length} mặt hàng · {formatCount(soLuong)} sản phẩm</span>
+        <span className="shrink-0 text-[1.0625rem] text-bo-muted">{t("{{count}} mặt hàng", { count: dong.length })} · {t("{{so}} sản phẩm", { count: soLuong, so: formatCount(soLuong) })}</span>
       </div>
       <div className="relative min-h-0 flex-1">
         <NhanConNua phia="tren" so={an.tren} />
@@ -191,7 +192,7 @@ function DanhSachHang({ noiDung, coTongCuoi }) {
                   <div className="min-w-0">
                     <div className="flex min-w-0 items-center gap-2.5">
                       <span className="truncate text-[1.25rem] font-semibold">{d.ten}</span>
-                      {moi ? <span className="shrink-0 rounded-full bg-bo-primary px-2.5 py-0.5 text-[0.8125rem] font-semibold text-white">Vừa thêm</span> : null}
+                      {moi ? <span className="shrink-0 rounded-full bg-bo-primary px-2.5 py-0.5 text-[0.8125rem] font-semibold text-white">{t("Vừa thêm")}</span> : null}
                     </div>
                     <p className="mt-1 truncate text-base text-bo-muted">{[d.bienThe, formatMoney(d.donGia)].filter(Boolean).join(' · ')}</p>
                   </div>
@@ -207,7 +208,7 @@ function DanhSachHang({ noiDung, coTongCuoi }) {
       {/* Giỏ trống mà còn mã (nháp cũ): không ghi "Tổng tiền hàng 0 ₫" cạnh số phải trả theo mã */}
       {coTongCuoi && dong.length ? (
         <div className="flex shrink-0 items-baseline justify-between border-t border-bo-border px-3.5 pt-4 text-[1.1875rem] text-slate-600 portrait:hidden">
-          <span>Tổng tiền hàng</span>
+          <span>{t("Tổng tiền hàng")}</span>
           <span className="whitespace-nowrap font-semibold tabular-nums text-bo-foreground">{formatMoney(tongTienHang)}</span>
         </div>
       ) : null}
@@ -230,17 +231,17 @@ function PhanGio({ noiDung }) {
   const { tongTienHang, giamGia, tong } = noiDung;
   const chuTong = formatMoney(tong);
   return (
-    <aside aria-label="Thanh toán" className={`${KHUNG} gap-[1.375rem] px-10 pb-8 pt-9 portrait:gap-4 portrait:pb-9 portrait:pt-7`}>
-      <DongTien nhan="Tổng tiền hàng" so={formatMoney(tongTienHang)} />
-      {giamGia > 0 ? <DongTien nhan="Giảm giá" so={`−${formatMoney(giamGia)}`} /> : null}
+    <aside aria-label={t("Thanh toán")} className={`${KHUNG} gap-[1.375rem] px-10 pb-8 pt-9 portrait:gap-4 portrait:pb-9 portrait:pt-7`}>
+      <DongTien nhan={t("Tổng tiền hàng")} so={formatMoney(tongTienHang)} />
+      {giamGia > 0 ? <DongTien nhan={t("Giảm giá")} so={`−${formatMoney(giamGia)}`} /> : null}
       <div className="h-px shrink-0 bg-[#dde3ea]" />
       <div className="flex flex-col gap-1.5 portrait:flex-row portrait:items-baseline portrait:justify-between portrait:gap-4">
-        <span className="text-[1.25rem] text-slate-600">Khách cần trả</span>
+        <span className="text-[1.25rem] text-slate-600">{t("Khách cần trả")}</span>
         <span className={`whitespace-nowrap font-bold leading-[1.05] tracking-[-0.02em] tabular-nums ${coSoTien(chuTong, 'text-[4rem]', 'text-[3.25rem]', 'text-[2.75rem]')}`}>{chuTong}</span>
       </div>
       <div className="mt-auto flex items-start gap-3.5 rounded-[0.875rem] border border-bo-border bg-bo-surface px-5 py-[1.125rem] portrait:mt-1">
         <SquareCheckBig aria-hidden="true" className="mt-px size-[1.625rem] shrink-0 text-bo-primary" strokeWidth={1.8} />
-        <p className="text-[1.125rem] leading-[1.45] text-slate-600">Quý khách vui lòng kiểm tra tên hàng, số lượng và giá trước khi thanh toán.</p>
+        <p className="text-[1.125rem] leading-[1.45] text-slate-600">{t("Quý khách vui lòng kiểm tra tên hàng, số lượng và giá trước khi thanh toán.")}</p>
       </div>
     </aside>
   );
@@ -251,19 +252,19 @@ function PhanTienMat({ noiDung }) {
   const { tong, tienMat } = noiDung;
   const chuThua = formatMoney(tienMat.tienThua);
   return (
-    <aside aria-label="Thanh toán" className={`${KHUNG} gap-5 px-10 pb-8 pt-9 portrait:pt-7`}>
+    <aside aria-label={t("Thanh toán")} className={`${KHUNG} gap-5 px-10 pb-8 pt-9 portrait:pt-7`}>
       <span className="inline-flex items-center gap-2 self-start rounded-full border border-bo-border bg-bo-surface px-3.5 py-1.5 text-base font-semibold text-slate-600">
-        <Banknote aria-hidden="true" className="size-5" strokeWidth={1.8} />Thanh toán tiền mặt
+        <Banknote aria-hidden="true" className="size-5" strokeWidth={1.8} />{t("Thanh toán tiền mặt")}
       </span>
-      <DongTien className="text-[1.25rem]" nhan="Khách cần trả" so={formatMoney(tong)} soClassName="text-[1.875rem] font-bold" />
-      <DongTien className="text-[1.25rem]" nhan="Khách đưa" so={formatMoney(tienMat.khachDua)} soClassName="text-[1.875rem] font-bold" />
+      <DongTien className="text-[1.25rem]" nhan={t("Khách cần trả")} so={formatMoney(tong)} soClassName="text-[1.875rem] font-bold" />
+      <DongTien className="text-[1.25rem]" nhan={t("Khách đưa")} so={formatMoney(tienMat.khachDua)} soClassName="text-[1.875rem] font-bold" />
       <div className="h-px shrink-0 bg-[#dde3ea]" />
       <div className="flex flex-col gap-2 rounded-[1.125rem] border border-bo-border bg-bo-surface px-6 py-[1.375rem] shadow-[0_1px_2px_rgba(24,37,55,0.06)]">
-        <span className="text-[1.25rem] text-slate-600">Tiền thừa trả quý khách</span>
+        <span className="text-[1.25rem] text-slate-600">{t("Tiền thừa trả quý khách")}</span>
         {/* Căn phải, thẳng cột với các số phía trên: tiền thừa ít không để trống lệch một bên */}
         <span className={`self-end whitespace-nowrap font-bold leading-[1.05] tracking-[-0.02em] tabular-nums ${coSoTien(chuThua, 'text-[3.75rem]', 'text-[3rem]', 'text-[2.5rem]')}`}>{chuThua}</span>
       </div>
-      <p className="mt-auto text-[1.0625rem] leading-[1.45] text-bo-muted">Quý khách vui lòng nhận lại tiền thừa và kiểm tra trước khi rời quầy.</p>
+      <p className="mt-auto text-[1.0625rem] leading-[1.45] text-bo-muted">{t("Quý khách vui lòng nhận lại tiền thừa và kiểm tra trước khi rời quầy.")}</p>
     </aside>
   );
 }
@@ -272,8 +273,8 @@ function PhanTienMat({ noiDung }) {
 function TomTatKetHop({ tong, tienMatTruoc }) {
   return (
     <div className="flex shrink-0 flex-col gap-1.5 self-stretch rounded-[0.875rem] border border-bo-border bg-bo-surface px-4 py-3">
-      <DongTien className="text-[1.0625rem]" nhan="Khách cần trả" so={formatMoney(tong)} />
-      <DongTien className="text-[1.0625rem]" nhan="Đã nhận tiền mặt" so={`−${formatMoney(tienMatTruoc)}`} />
+      <DongTien className="text-[1.0625rem]" nhan={t("Khách cần trả")} so={formatMoney(tong)} />
+      <DongTien className="text-[1.0625rem]" nhan={t("Đã nhận tiền mặt")} so={`−${formatMoney(tienMatTruoc)}`} />
     </div>
   );
 }
@@ -286,7 +287,7 @@ function DemNguoc({ conLaiMs, sapHet }) {
   return (
     <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-base font-semibold tabular-nums ${sapHet ? 'border-amber-300 bg-bo-warning-soft text-amber-800' : 'border-bo-border bg-bo-surface text-slate-600'}`}>
       <Clock aria-hidden="true" className="size-[1.125rem]" strokeWidth={2} />
-      Còn {dongHo(conLaiMs)}
+      {t("Còn {{thoiGian}}", { thoiGian: dongHo(conLaiMs) })}
     </span>
   );
 }
@@ -316,10 +317,10 @@ function PhanMaQr({ noiDung, trangThai }) {
   const het = hetHanTheoMay(qr);
   const chuSoTien = formatMoney(qr.soTien);
   return (
-    <aside aria-label="Thanh toán chuyển khoản" className={`${KHUNG} items-center gap-3.5 px-10 pb-6 pt-[1.625rem] portrait:gap-4 portrait:px-12 portrait:pb-9 portrait:pt-[1.875rem]`}>
+    <aside aria-label={t("Thanh toán chuyển khoản")} className={`${KHUNG} items-center gap-3.5 px-10 pb-6 pt-[1.625rem] portrait:gap-4 portrait:px-12 portrait:pb-9 portrait:pt-[1.875rem]`}>
       {ketHop ? <TomTatKetHop tienMatTruoc={qr.tienMatTruoc} tong={tong} /> : null}
       <div className="flex shrink-0 items-center justify-between gap-3 self-stretch">
-        <h2 className="min-w-0 truncate text-[1.5rem] font-semibold">{ketHop ? 'Còn lại — quét mã' : 'Quét mã để chuyển khoản'}</h2>
+        <h2 className="min-w-0 truncate text-[1.5rem] font-semibold">{ketHop ? t("Còn lại — quét mã") : t("Quét mã để chuyển khoản")}</h2>
         {trangThai.loai === 'qr' && trangThai.conLaiMs != null ? <DemNguoc conLaiMs={trangThai.conLaiMs} sapHet={trangThai.sapHet} /> : null}
       </div>
       {/* Nền trắng cố định cho mã (kể cả khi giao diện tối): camera điện thoại đọc chắc hơn */}
@@ -329,25 +330,25 @@ function PhanMaQr({ noiDung, trangThai }) {
         ) : (
           <div className={`${coMa} flex flex-col items-center justify-center gap-3 text-bo-muted`}>
             <RefreshCcw aria-hidden="true" className="size-9 motion-safe:animate-spin" strokeWidth={1.8} />
-            <span className="text-[1.125rem]">Đang chuẩn bị mã…</span>
+            <span className="text-[1.125rem]">{t("Đang chuẩn bị mã…")}</span>
           </div>
         )}
         <div className="flex items-center gap-2.5">
-          <span className="text-[0.9375rem] text-bo-muted">Thanh toán qua</span>
+          <span className="text-[0.9375rem] text-bo-muted">{t("Thanh toán qua")}</span>
           <PayosLogo className="h-[1.375rem] w-auto" height={40} />
         </div>
       </div>
       <div className="flex shrink-0 flex-col items-center">
-        <span className="text-[1.125rem] text-slate-600">Số tiền chuyển khoản</span>
+        <span className="text-[1.125rem] text-slate-600">{t("Số tiền chuyển khoản")}</span>
         <span className={`whitespace-nowrap font-bold leading-[1.1] tracking-[-0.02em] tabular-nums ${ketHop ? coSoTien(chuSoTien, 'text-[2.625rem]', 'text-[2.25rem]', 'text-[1.875rem]') : coSoTien(chuSoTien, 'text-[2.875rem]', 'text-[2.5rem]', 'text-[2.125rem]')}`}>{chuSoTien}</span>
       </div>
       {qr.tenTaiKhoan ? (
-        <p className="shrink-0 text-center text-[1.0625rem] text-slate-600">Chủ tài khoản: <strong className="font-semibold text-bo-foreground">{qr.tenTaiKhoan}</strong></p>
+        <p className="shrink-0 text-center text-[1.0625rem] text-slate-600">{t("Chủ tài khoản:")} <strong className="font-semibold text-bo-foreground">{qr.tenTaiKhoan}</strong></p>
       ) : null}
       {qr.traLaiTienMat ? (
         <TraLaiTienMat tien={qr.tienMatTruoc} />
       ) : !ketHop ? (
-        <p className="mt-auto text-center text-[0.9375rem] leading-[1.45] text-bo-muted">Mở ứng dụng ngân hàng, quét mã và xác nhận. Số tiền và nội dung đã có sẵn trong mã.</p>
+        <p className="mt-auto text-center text-[0.9375rem] leading-[1.45] text-bo-muted">{t("Mở ứng dụng ngân hàng, quét mã và xác nhận. Số tiền và nội dung đã có sẵn trong mã.")}</p>
       ) : null}
     </aside>
   );
@@ -357,7 +358,7 @@ function PhanMaQr({ noiDung, trangThai }) {
 function TraLaiTienMat({ tien }) {
   return (
     <p className="shrink-0 self-stretch rounded-[0.875rem] border border-amber-300 bg-bo-warning-soft px-4 py-3 text-[1.125rem] text-amber-900">
-      Thu ngân sẽ trả lại quý khách <strong className="font-bold tabular-nums">{formatMoney(tien)}</strong> tiền mặt.
+      {t("Thu ngân sẽ trả lại quý khách")} <strong className="font-bold tabular-nums">{formatMoney(tien)}</strong> {t("tiền mặt.")}
     </p>
   );
 }
@@ -371,12 +372,12 @@ function PhanKhongMa({ noiDung, trangThai }) {
   // Đang xác nhận tiền / mã vừa hết giờ: khách có thể đã chuyển — ghi số chuyển khoản, không ghi "Khách cần trả" như
   // còn nợ tiền
   const dangCho = trangThai.loai === 'kiemTra' || trangThai.loai === 'hetGio';
-  const nhan = dangCho ? 'Số tiền chuyển khoản' : ketHop ? 'Phần chuyển khoản' : 'Khách cần trả';
+  const nhan = dangCho ? t("Số tiền chuyển khoản") : ketHop ? t("Phần chuyển khoản") : t("Khách cần trả");
   const chuSoTien = formatMoney(dangCho || ketHop ? qr.soTien : tong);
   return (
-    <aside aria-label="Thanh toán chuyển khoản" className={`${KHUNG} items-center gap-4 px-10 pb-6 pt-[1.625rem] portrait:pb-9`}>
+    <aside aria-label={t("Thanh toán chuyển khoản")} className={`${KHUNG} items-center gap-4 px-10 pb-6 pt-[1.625rem] portrait:pb-9`}>
       {ketHop ? <TomTatKetHop tienMatTruoc={qr.tienMatTruoc} tong={tong} /> : null}
-      <h2 className="shrink-0 self-stretch text-[1.5rem] font-semibold">Chuyển khoản</h2>
+      <h2 className="shrink-0 self-stretch text-[1.5rem] font-semibold">{t("Chuyển khoản")}</h2>
       <div className="flex w-[19.25rem] max-w-full shrink-0 flex-col items-center justify-center gap-3.5 rounded-[1.25rem] border-2 border-dashed border-[#cfd7e1] bg-bo-surface px-7 py-8 text-center">
         <span className={`grid size-16 place-items-center rounded-full ${o.kieu === 'canhBao' ? 'bg-bo-warning-soft text-amber-700' : o.kieu === 'cho' ? 'bg-bo-primary-soft text-bo-primary' : 'bg-bo-canvas text-bo-muted'}`}>
           {o.kieu === 'cho' ? (
@@ -420,31 +421,31 @@ function PhanDaNhan({ noiDung }) {
   const { daNhan } = noiDung;
   const chuTong = formatMoney(daNhan.tong);
   return (
-    <aside aria-label="Kết quả thanh toán" className={`${KHUNG} items-center justify-center gap-1.5 px-12 py-8 text-center`}>
+    <aside aria-label={t("Kết quả thanh toán")} className={`${KHUNG} items-center justify-center gap-1.5 px-12 py-8 text-center`}>
       <DauTich />
-      <h2 className="mt-1 text-[1.375rem] font-medium text-slate-600">Đã nhận đủ</h2>
+      <h2 className="mt-1 text-[1.375rem] font-medium text-slate-600">{t("Đã nhận đủ")}</h2>
       <p className={`whitespace-nowrap font-bold leading-[1.1] tracking-[-0.02em] tabular-nums ${coSoTien(chuTong, 'text-[3.5rem]', 'text-[3rem]', 'text-[2.5rem]')}`}>{chuTong}</p>
       <div className="mt-[1.125rem] flex flex-col gap-2.5 self-stretch rounded-2xl border border-bo-border bg-bo-surface px-5 py-4 text-left">
         {daNhan.hinhThuc === 'tienMat' ? (
           <>
-            <DongTien className="text-[1.125rem]" nhan="Hình thức" so="Tiền mặt" />
-            <DongTien className="text-[1.125rem]" nhan="Khách đưa" so={formatMoney(daNhan.khachDua)} />
-            {daNhan.tienThua > 0 ? <DongTien className="text-[1.25rem]" nhan="Tiền thừa trả quý khách" so={formatMoney(daNhan.tienThua)} soClassName="text-[1.5rem] font-bold" /> : null}
+            <DongTien className="text-[1.125rem]" nhan={t("Hình thức")} so={t("Tiền mặt")} />
+            <DongTien className="text-[1.125rem]" nhan={t("Khách đưa")} so={formatMoney(daNhan.khachDua)} />
+            {daNhan.tienThua > 0 ? <DongTien className="text-[1.25rem]" nhan={t("Tiền thừa trả quý khách")} so={formatMoney(daNhan.tienThua)} soClassName="text-[1.5rem] font-bold" /> : null}
           </>
         ) : daNhan.hinhThuc === 'ketHop' ? (
           <>
-            <DongTien className="text-[1.125rem]" nhan="Tiền mặt" so={formatMoney(daNhan.tienMat)} />
-            <DongTien className="text-[1.125rem]" nhan="Chuyển khoản (QR)" so={formatMoney(daNhan.chuyenKhoan)} />
+            <DongTien className="text-[1.125rem]" nhan={t("Tiền mặt")} so={formatMoney(daNhan.tienMat)} />
+            <DongTien className="text-[1.125rem]" nhan={t("Chuyển khoản (QR)")} so={formatMoney(daNhan.chuyenKhoan)} />
           </>
         ) : (
           <>
-            {daNhan.hinhThuc === 'chuyenKhoan' ? <DongTien className="text-[1.125rem]" nhan="Hình thức" so="Chuyển khoản (QR)" /> : null}
-            <DongTien className="text-[1.125rem]" nhan="Đã nhận" so={chuTong} />
+            {daNhan.hinhThuc === 'chuyenKhoan' ? <DongTien className="text-[1.125rem]" nhan={t("Hình thức")} so={t("Chuyển khoản (QR)")} /> : null}
+            <DongTien className="text-[1.125rem]" nhan={t("Đã nhận")} so={chuTong} />
           </>
         )}
       </div>
-      <p className="mt-7 text-[2rem] font-semibold leading-[1.2] tracking-[-0.01em]">Cảm ơn quý khách!</p>
-      <p className="text-[1.125rem] text-bo-muted">Quý khách vui lòng nhận hóa đơn tại quầy.</p>
+      <p className="mt-7 text-[2rem] font-semibold leading-[1.2] tracking-[-0.01em]">{t("Cảm ơn quý khách!")}</p>
+      <p className="text-[1.125rem] text-bo-muted">{t("Quý khách vui lòng nhận hóa đơn tại quầy.")}</p>
     </aside>
   );
 }
@@ -473,10 +474,10 @@ function ManChao({ noiDung, goiYKetNoi, thaoTac }) {
       {thaoTac ? <div className="absolute right-6 top-6">{thaoTac}</div> : null}
       <main className="flex min-h-0 flex-1 flex-col items-center justify-center gap-7 p-12 text-center">
         <img alt="F Centric" className="h-[4.75rem] w-auto" draggable={false} src={LOGO} />
-        <h1 className="mt-6 text-[3.5rem] font-semibold leading-[1.1] tracking-[-0.02em]">Xin chào quý khách</h1>
-        <p className="max-w-[45rem] text-[1.375rem] leading-normal text-bo-muted">Hóa đơn của quý khách sẽ hiện ở đây khi thu ngân quét hàng.</p>
+        <h1 className="mt-6 text-[3.5rem] font-semibold leading-[1.1] tracking-[-0.02em]">{t("Xin chào quý khách")}</h1>
+        <p className="max-w-[45rem] text-[1.375rem] leading-normal text-bo-muted">{t("Hóa đơn của quý khách sẽ hiện ở đây khi thu ngân quét hàng.")}</p>
         {goiYKetNoi ? (
-          <p className="mt-6 text-base text-bo-muted">Chưa nhận tín hiệu từ màn Bán hàng tại quầy — mở màn bán hàng trên chính máy này, cùng trình duyệt.</p>
+          <p className="mt-6 text-base text-bo-muted">{t("Chưa nhận tín hiệu từ màn Bán hàng tại quầy — mở màn bán hàng trên chính máy này, cùng trình duyệt.")}</p>
         ) : null}
       </main>
       {noiDung ? (
@@ -489,15 +490,15 @@ function ManChao({ noiDung, goiYKetNoi, thaoTac }) {
             </p>
           ) : <span />}
           <p className="inline-flex flex-wrap items-center gap-x-2.5 gap-y-1">
-            <span>Thanh toán bằng</span>
+            <span>{t("Thanh toán bằng")}</span>
             <span className="inline-flex items-center gap-1.5 text-slate-600">
-              <Banknote aria-hidden="true" className="size-[1.125rem]" strokeWidth={1.8} />Tiền mặt
+              <Banknote aria-hidden="true" className="size-[1.125rem]" strokeWidth={1.8} />{t("Tiền mặt")}
             </span>
             {noiDung.coChuyenKhoan ? (
               <>
                 <span aria-hidden="true">·</span>
                 <span className="inline-flex items-center gap-1.5 text-slate-600">
-                  <QrCode aria-hidden="true" className="size-[1.125rem]" strokeWidth={1.8} />Chuyển khoản (QR) qua
+                  <QrCode aria-hidden="true" className="size-[1.125rem]" strokeWidth={1.8} />{t("Chuyển khoản (QR) qua")}
                 </span>
                 <PayosLogo className="h-[1.25rem] w-auto" height={40} />
               </>
@@ -545,7 +546,7 @@ function ManHoaDon({ noiDung, thaoTac, trangThai }) {
           {noiDung.khachHang ? (
             <p className="flex min-w-0 items-center gap-2.5 text-[1.125rem] text-bo-muted">
               <UserRound aria-hidden="true" className="size-[1.375rem] shrink-0" strokeWidth={1.8} />
-              <span className="shrink-0">Khách hàng</span>
+              <span className="shrink-0">{t("Khách hàng")}</span>
               <strong className="truncate font-semibold text-bo-foreground">{noiDung.khachHang}</strong>
             </p>
           ) : null}

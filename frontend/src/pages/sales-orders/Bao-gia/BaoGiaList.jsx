@@ -32,6 +32,7 @@ import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { trangCuoiNeuVuot } from "@/lib/tinhTaiLai";
 import { dsKhoLamViecTrongToken } from "@/utils/khoLamViec";
+import { t } from "@/i18n";
 
 const ROLE = {
     QUAN_TRI_VIEN: "quan_tri_vien",
@@ -45,7 +46,7 @@ const ROLE = {
 const TAB_MAS = BAO_GIA_TABS.map((tab) => tab.ma);
 const TAB_MAC_DINH = "tat-ca";
 const SEARCH_DEBOUNCE_MS = 350;
-const LOAD_ERROR_MESSAGE = "Không thể tải danh sách báo giá. Vui lòng thử lại.";
+const LOAD_ERROR_MESSAGE = t("Không thể tải danh sách báo giá. Vui lòng thử lại.");
 
 function parseJwt(token) {
     try {
@@ -104,7 +105,7 @@ export default function BaoGiaList() {
   const [userRoles, setUserRoles] = useState([]);
 
   const [tab, setTab] = useTabTrenUrl(TAB_MAS, TAB_MAC_DINH);
-  const tabTrangThai = BAO_GIA_TABS.find((t) => t.ma === tab)?.trangThai ?? null;
+  const tabTrangThai = BAO_GIA_TABS.find((tb) => tb.ma === tab)?.trangThai ?? null;
 
   const [filters, setFilters] = useState({
     keyword: "",
@@ -189,7 +190,7 @@ export default function BaoGiaList() {
         filters: buildFilterList({
           keyword: filters.keyword,
           ngay: filters.ngayDatHang,
-          trangThai: BAO_GIA_TABS.find((t) => t.ma === ma)?.trangThai,
+          trangThai: BAO_GIA_TABS.find((tb) => tb.ma === ma)?.trangThai,
         }),
         sorts: [],
       });
@@ -237,10 +238,10 @@ export default function BaoGiaList() {
   }, { bat: !loading });
 
   // Số chỉ hiện khi đếm xong và danh sách không lỗi (R9); số 0 tự ẩn trong StatusTabs
-  const statusTabs = BAO_GIA_TABS.map((t) => ({
-    value: t.ma,
-    label: t.label,
-    count: loadError ? null : tabCounts.counts[t.ma],
+  const statusTabs = BAO_GIA_TABS.map((tb) => ({
+    value: tb.ma,
+    label: t(tb.label),
+    count: loadError ? null : tabCounts.counts[tb.ma],
   }));
 
   // Ghi chú phạm vi (R3) theo đúng điều kiện backend tự thêm ở DonBanHangService.filter:
@@ -249,10 +250,10 @@ export default function BaoGiaList() {
   const laQuanTriVien = userRoles.includes(ROLE.QUAN_TRI_VIEN);
   const noiLamViec = isKhoRole && !laQuanTriVien ? dsKhoLamViecTrongToken() : null;
   const scopeNote = !laQuanTriVien && !isKhoRole && userRoles.includes(ROLE.NHAN_VIEN_BAN_HANG)
-    ? "Báo giá bạn tạo"
+    ? t("Báo giá bạn tạo")
     : null;
 
-  const emptyTabLabel = BAO_GIA_TABS.find((t) => t.ma === tab)?.label;
+  const emptyTabLabel = BAO_GIA_TABS.find((tb) => tb.ma === tab)?.label;
 
   return (
     <PageContainer fill className="space-y-4">
@@ -264,7 +265,7 @@ export default function BaoGiaList() {
             <Link to="/sales-quotations/create">
               <Button className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover">
                 <Plus className="size-4" />
-                Tạo báo giá mới
+                {t("Tạo báo giá mới")}
               </Button>
             </Link>
           ) : null
@@ -278,7 +279,7 @@ export default function BaoGiaList() {
           <ListToolbar
             tabs={
               <StatusTabs
-                label="Lọc báo giá theo trạng thái"
+                label={t("Lọc báo giá theo trạng thái")}
                 tabs={statusTabs}
                 value={tab}
                 onChange={changeTab}
@@ -288,8 +289,8 @@ export default function BaoGiaList() {
             onClear={clearFilters}
           >
             <SearchInput
-              label="Tìm báo giá"
-              placeholder="Nhập mã báo giá..."
+              label={t("Tìm báo giá")}
+              placeholder={t("Nhập mã báo giá...")}
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               onKeyDown={(e) => {
@@ -305,10 +306,10 @@ export default function BaoGiaList() {
             {/* Ngày lập: nhãn nằm trong ô để hàng công cụ gọn một dòng */}
             <label className="flex h-9 w-full items-center gap-2 rounded-md border border-bo-border bg-bo-surface pl-3 pr-2 text-sm focus-within:border-bo-primary focus-within:ring-2 focus-within:ring-bo-primary/15 sm:w-auto">
               <Calendar className="size-4 shrink-0 text-bo-muted" />
-              <span className="shrink-0 text-xs text-bo-muted">Ngày lập</span>
+              <span className="shrink-0 text-xs text-bo-muted">{t("Ngày lập")}</span>
               <Input
                 type="date"
-                aria-label="Ngày lập"
+                aria-label={t("Ngày lập")}
                 className="h-8 min-w-0 flex-1 border-0 bg-transparent px-0 text-sm text-bo-foreground shadow-none focus-visible:ring-0"
                 value={filters.ngayDatHang}
                 onChange={(e) => setFilters((p) => ({ ...p, ngayDatHang: e.target.value, page: 0 }))}
@@ -332,45 +333,45 @@ export default function BaoGiaList() {
         }
       >
         {loading ? (
-          <LoadingState label="Đang tải danh sách báo giá" />
+          <LoadingState label={t("Đang tải danh sách báo giá")} />
         ) : loadError ? (
           <ErrorState description={LOAD_ERROR_MESSAGE} error={loadError} onRetry={handleRetry} />
         ) : data.length === 0 ? (
           hasActiveFilters ? (
             <EmptyState
               icon={SearchX}
-              title="Không tìm thấy báo giá phù hợp"
-              description="Thử đổi mã báo giá hoặc ngày lập."
+              title={t("Không tìm thấy báo giá phù hợp")}
+              description={t("Thử đổi mã báo giá hoặc ngày lập.")}
               action={
                 <Button
                   variant="outline"
                   onClick={clearFilters}
                   className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                 >
-                  Xóa lọc
+                  {t("Xóa lọc")}
                 </Button>
               }
             />
           ) : tab !== TAB_MAC_DINH ? (
             <EmptyState
               icon={FileText}
-              title={`Không có báo giá nào ở trạng thái "${emptyTabLabel}"`}
-              description="Chọn tab Tất cả để xem mọi báo giá."
+              title={t("Không có báo giá nào ở trạng thái \"{{tab}}\"", { tab: t(emptyTabLabel) })}
+              description={t("Chọn tab Tất cả để xem mọi báo giá.")}
               action={
                 <Button
                   variant="outline"
                   onClick={() => changeTab(TAB_MAC_DINH)}
                   className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                 >
-                  Xem tất cả
+                  {t("Xem tất cả")}
                 </Button>
               }
             />
           ) : (
             <EmptyState
               icon={FileText}
-              title="Chưa có báo giá"
-              description="Báo giá gửi khách hàng sẽ hiện ở đây. Khi khách đồng ý, báo giá được chốt thành đơn bán hàng."
+              title={t("Chưa có báo giá")}
+              description={t("Báo giá gửi khách hàng sẽ hiện ở đây. Khi khách đồng ý, báo giá được chốt thành đơn bán hàng.")}
             />
           )
         ) : (
@@ -386,7 +387,7 @@ export default function BaoGiaList() {
                       <span className="min-w-0 truncate text-[15px] font-semibold uppercase tracking-wide text-bo-primary">{item.soDonHang}</span>
                       <StatusBadge quyTrinh="baoGiaBan" label={st.label} />
                     </span>
-                    <span className="min-w-0 truncate text-sm font-semibold text-bo-foreground">{item.khachHang?.tenKhachHang || "Khách lẻ"}</span>
+                    <span className="min-w-0 truncate text-sm font-semibold text-bo-foreground">{item.khachHang?.tenKhachHang || t("Khách lẻ")}</span>
                     <span className="flex items-baseline justify-between gap-3 text-[13px] text-bo-muted">
                       <span className="min-w-0 truncate">{formatDate(item.ngayTao)}{item.khoXuat?.tenKho ? ` · ${item.khoXuat.tenKho}` : ""}</span>
                       <span className="shrink-0 text-[15px] font-semibold tabular-nums text-bo-foreground">{formatCurrency(item.tongCong)}</span>
@@ -400,13 +401,13 @@ export default function BaoGiaList() {
           <table className="w-full min-w-[980px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                <th className="h-10 whitespace-nowrap px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">STT</th>
-                <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Mã báo giá</th>
-                <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Khách hàng</th>
-                <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">Ngày lập</th>
-                <th className="h-10 whitespace-nowrap px-3 text-right tabular-nums text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Tổng tiền</th>
-                <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
-                <th className="h-10 whitespace-nowrap px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">Thao tác</th>
+                <th className="h-10 whitespace-nowrap px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">{t("STT")}</th>
+                <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Mã báo giá")}</th>
+                <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Khách hàng")}</th>
+                <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">{t("Ngày lập")}</th>
+                <th className="h-10 whitespace-nowrap px-3 text-right tabular-nums text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Tổng tiền")}</th>
+                <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Trạng thái")}</th>
+                <th className="h-10 whitespace-nowrap px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">{t("Thao tác")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-bo-border">
@@ -426,7 +427,7 @@ export default function BaoGiaList() {
                       <div className="mt-0.5 hidden text-xs text-bo-muted cam-ung:max-lg:block">{formatDate(item.ngayTao)}</div>
                     </td>
                     <td className="px-3 py-3">
-                      <div className="font-semibold text-bo-foreground">{item.khachHang?.tenKhachHang || "Khách lẻ"}</div>
+                      <div className="font-semibold text-bo-foreground">{item.khachHang?.tenKhachHang || t("Khách lẻ")}</div>
                     </td>
                     <td className="whitespace-nowrap px-3 py-3 text-xs text-bo-muted cam-ung:max-lg:hidden">
                       {formatDate(item.ngayTao)}
@@ -443,7 +444,7 @@ export default function BaoGiaList() {
                       <RowActions>
                         <RowActionButton
                           icon={Eye}
-                          label="Xem chi tiết"
+                          label={t("Xem chi tiết")}
                           onClick={() => navigate(`/sales-quotations/${item.id}`)}
                         />
                       </RowActions>

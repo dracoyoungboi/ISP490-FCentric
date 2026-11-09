@@ -7,12 +7,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { t } from "@/i18n";
 
 /** Hai dòng chữ "Kho bán hàng" / tên kho, không ô biểu tượng (chốt kiểu C: gọn ~140px, cao 36px). */
 function WarehouseLabel({ name, hidden = false }) {
   return (
     <span aria-hidden={hidden || undefined} className="min-w-0 text-left">
-      <span className="hidden text-[10px] leading-3 text-bo-muted sm:block">Kho bán hàng</span>
+      <span className="hidden text-[10px] leading-3 text-bo-muted sm:block">{t("Kho bán hàng")}</span>
       <span className="block max-w-[9rem] truncate text-[13px] font-semibold leading-4 text-bo-foreground sm:max-w-[16rem]">{name}</span>
     </span>
   );
@@ -53,21 +54,21 @@ export default function PosWarehousePicker({
   });
 
   const current = warehouses.find((warehouse) => warehouse.id === value) || null;
-  const name = current?.tenKho || (warehouses.length ? 'Chọn kho' : 'Chưa có kho');
+  const name = current?.tenKho || (warehouses.length ? t("Chọn kho") : t("Chưa có kho"));
   const fullName = current ? `${current.tenKho} (${current.maKho})` : name;
 
   if (warehouses.length <= 1) {
     return (
-      <div className="flex h-9 min-w-0 items-center px-2 xl:shrink-0" data-pos-warehouse="" title={`Kho bán hàng: ${fullName}`}>
+      <div className="flex h-9 min-w-0 items-center px-2 xl:shrink-0" data-pos-warehouse="" title={t("Kho bán hàng: {{fullName}}", { fullName })}>
         <WarehouseLabel hidden name={name} />
-        <span className="sr-only">Kho bán hàng: {fullName}</span>
+        <span className="sr-only">{t("Kho bán hàng: {{fullName}}", { fullName })}</span>
       </div>
     );
   }
 
   const label = disabled && disabledReason
-    ? `Kho bán hàng: ${fullName}. ${disabledReason}`
-    : `Kho bán hàng: ${fullName} — bấm để đổi kho`;
+    ? t("Kho bán hàng: {{fullName}}. {{disabledReason}}", { fullName, disabledReason })
+    : t("Kho bán hàng: {{fullName}} — bấm để đổi kho", { fullName });
   const isOpen = open && !disabled && !blocked;
 
   const handleOpenChange = (next) => {
@@ -110,7 +111,7 @@ export default function PosWarehousePicker({
         }}
         sideOffset={6}
       >
-        <p className="px-2.5 pb-1.5 pt-2 text-[11px] font-semibold leading-4 text-bo-muted" id={titleId}>Kho bán hàng</p>
+        <p className="px-2.5 pb-1.5 pt-2 text-[11px] font-semibold leading-4 text-bo-muted" id={titleId}>{t("Kho bán hàng")}</p>
         <DropdownMenuPrimitive.RadioGroup onValueChange={(next) => { pickedRef.current = true; onChange(Number(next)); }} value={value != null ? String(value) : ''}>
           {warehouses.map((warehouse) => (
             <DropdownMenuPrimitive.RadioItem
@@ -132,7 +133,7 @@ export default function PosWarehousePicker({
         <DropdownMenuSeparator className="bg-bo-border" />
         <p className="flex items-start gap-2 px-2.5 py-2 text-xs leading-4 text-bo-muted" id={noteId}>
           <Info aria-hidden="true" className="mt-px size-3.5 shrink-0" />
-          <span>Mỗi hóa đơn bán từ một kho. Nếu hóa đơn đã có hàng, hệ thống sẽ hỏi lại trước khi đổi kho vì giỏ sẽ bị xóa.</span>
+          <span>{t("Mỗi hóa đơn bán từ một kho. Nếu hóa đơn đã có hàng, hệ thống sẽ hỏi lại trước khi đổi kho vì giỏ sẽ bị xóa.")}</span>
         </p>
       </DropdownMenuContent>
     </DropdownMenu>

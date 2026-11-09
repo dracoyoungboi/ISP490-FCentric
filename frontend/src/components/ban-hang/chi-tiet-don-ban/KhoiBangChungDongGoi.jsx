@@ -13,6 +13,7 @@ import { dongGoiService } from "@/services/dongGoiService";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { formatDate } from "@/utils/formatters";
 import { TEN_NGAN_BANG_CHUNG, noiDungBangChung } from "./bangChungDon";
+import { t } from "@/i18n";
 
 /**
  * Khối "Bằng chứng đóng gói" ở cột phải Chi tiết đơn bán: chỉ xem (không chụp, xóa, tải lại — máy chủ cũng chặn khi đơn
@@ -37,20 +38,20 @@ export default function KhoiBangChungDongGoi({ donId, trangThai }) {
   if (!data && Number(trangThai) === TRANG_THAI_DON.DA_HUY) return null;
   if (!data && q.loading) {
     return (
-      <NhomThuocTinh nhan="Bằng chứng đóng gói">
+      <NhomThuocTinh nhan={t("Bằng chứng đóng gói")}>
         <span className="inline-flex items-center gap-2 text-[13px] text-bo-muted">
           <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-          Đang tải bằng chứng…
+          {t("Đang tải bằng chứng…")}
         </span>
       </NhomThuocTinh>
     );
   }
   if (!data) {
     return (
-      <NhomThuocTinh nhan="Bằng chứng đóng gói">
-        <DongThongBao tone="bad" actions={<NutChu onClick={q.reload}>Thử lại</NutChu>}>
+      <NhomThuocTinh nhan={t("Bằng chứng đóng gói")}>
+        <DongThongBao tone="bad" actions={<NutChu onClick={q.reload}>{t("Thử lại")}</NutChu>}>
           {/* Câu của máy chủ thường đã có dấu chấm cuối: bỏ đi để không thành ".." */}
-          Không tải được bằng chứng: {getApiErrorMessage(q.error, "lỗi không xác định").replace(/[.!\s]+$/, "")}.
+          {t("Không tải được bằng chứng: {{loi}}.", { loi: getApiErrorMessage(q.error, t("lỗi không xác định")).replace(/[.!\s]+$/, "") })}
         </DongThongBao>
       </NhomThuocTinh>
     );
@@ -61,14 +62,14 @@ export default function KhoiBangChungDongGoi({ donId, trangThai }) {
   // Một dòng chữ như các nhóm khác của cột phải; chỉ tô màu cảnh báo khi đơn còn Chờ đóng gói mà thiếu tệp
   const dong = nd.kieu === "co"
     ? nd.canChuY
-      ? nd.thieu.length ? `Còn thiếu: ${nd.thieu.join(", ")}` : "Chưa đủ bằng chứng để hoàn tất đóng gói."
-      : [nd.dem, nd.hanLuu ? `lưu đến ${formatDate(nd.hanLuu)}` : ""].filter(Boolean).join(" · ")
+      ? nd.thieu.length ? t("Còn thiếu: {{ds}}", { ds: nd.thieu.join(", ") }) : t("Chưa đủ bằng chứng để hoàn tất đóng gói.")
+      : [nd.dem, nd.hanLuu ? t("lưu đến {{hanLuu}}", { hanLuu: formatDate(nd.hanLuu) }) : ""].filter(Boolean).join(" · ")
     : nd.kieu === "daXoa"
-      ? `Tệp bằng chứng đã tự xóa sau hạn lưu (hết hạn ${formatDate(nd.ngay)}).`
+      ? t("Tệp bằng chứng đã tự xóa sau hạn lưu (hết hạn {{ngay}}).", { ngay: formatDate(nd.ngay) })
       : nd.cau;
 
   return (
-    <NhomThuocTinh nhan="Bằng chứng đóng gói">
+    <NhomThuocTinh nhan={t("Bằng chứng đóng gói")}>
       <div className="grid gap-2.5">
         <p className={cn("m-0 text-[13px] leading-5", nd.canChuY ? "font-medium text-bo-warning" : "text-bo-muted")}>{dong}</p>
 

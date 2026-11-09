@@ -2,15 +2,16 @@ import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, CheckCircle2, FileText, Lock, Plus, QrCode, X } from 'lucide-react';
 import { canTraLaiTienMat } from '../pos-payment';
 import './pos-invoice-tabs.css';
+import { t } from "@/i18n";
 
 /** Trạng thái hiển thị trên tab để thu ngân nhìn là biết hóa đơn nào đang chờ/đã xong. */
 function getTabStatus(invoice) {
-  if (invoice.attempt?.status === 'succeeded') return { icon: CheckCircle2, label: 'Đã thanh toán', className: 'text-emerald-600' };
-  if (invoice.payos?.trangThai === 'PENDING') return { icon: QrCode, label: 'Đang chờ chuyển khoản', className: 'text-amber-600' };
+  if (invoice.attempt?.status === 'succeeded') return { icon: CheckCircle2, label: t("Đã thanh toán"), className: 'text-emerald-600' };
+  if (invoice.payos?.trangThai === 'PENDING') return { icon: QrCode, label: t("Đang chờ chuyển khoản"), className: 'text-amber-600' };
   // Trước PAID_ERROR: tiền về muộn sau khi hủy mã thì quầy vẫn phải trả lại tiền mặt khách đưa trước
-  if (canTraLaiTienMat(invoice.payos)) return { icon: AlertTriangle, label: 'Cần trả lại tiền mặt khách đưa trước', className: 'text-red-600' };
-  if (invoice.payos?.trangThai === 'PAID_ERROR') return { icon: AlertTriangle, label: 'Đã nhận tiền, chờ quản lý xử lý', className: 'text-red-600' };
-  if (invoice.attempt?.status === 'pending' || invoice.attempt?.status === 'unknown') return { icon: Lock, label: 'Đang xử lý thanh toán', className: 'text-amber-600' };
+  if (canTraLaiTienMat(invoice.payos)) return { icon: AlertTriangle, label: t("Cần trả lại tiền mặt khách đưa trước"), className: 'text-red-600' };
+  if (invoice.payos?.trangThai === 'PAID_ERROR') return { icon: AlertTriangle, label: t("Đã nhận tiền, chờ quản lý xử lý"), className: 'text-red-600' };
+  if (invoice.attempt?.status === 'pending' || invoice.attempt?.status === 'unknown') return { icon: Lock, label: t("Đang xử lý thanh toán"), className: 'text-amber-600' };
   return null;
 }
 
@@ -74,7 +75,7 @@ export default function PosInvoiceTabs({ invoices, activeInvoice, disabled, onSe
   return (
     <div className={`pos-invoice-strip${variant === 'bar' ? ' is-bar' : ''}`}>
       <div
-        aria-label="Các hóa đơn đang mở"
+        aria-label={t("Các hóa đơn đang mở")}
         className={`pos-invoice-tabs${overflow.left ? ' has-left' : ''}${overflow.right ? ' has-right' : ''}`}
         ref={listRef}
         role="tablist"
@@ -84,7 +85,7 @@ export default function PosInvoiceTabs({ invoices, activeInvoice, disabled, onSe
           const status = getTabStatus(invoice);
           const StatusIcon = status?.icon ?? FileText;
           const itemCount = invoice.cart.reduce((sum, line) => sum + line.quantity, 0);
-          const title = `Hóa đơn ${invoice.number}${itemCount ? ` · ${itemCount} sản phẩm` : ''}${status ? ` · ${status.label}` : ''}`;
+          const title = t("Hóa đơn {{number}}{{soSanPham}}{{trangThai}}", { number: invoice.number, soSanPham: itemCount ? t(" · {{count}} sản phẩm", { count: itemCount }) : '', trangThai: status ? ` · ${status.label}` : '' });
           return (
             <div className={`pos-invoice-tab${active ? ' is-active' : ''}`} key={invoice.number}>
               <button
@@ -102,16 +103,16 @@ export default function PosInvoiceTabs({ invoices, activeInvoice, disabled, onSe
                 type="button"
               >
                 <StatusIcon aria-hidden="true" className={status?.className ?? 'pos-invoice-tab-icon'} size={15} strokeWidth={1.8} />
-                <span>Hóa đơn {invoice.number}</span>
+                <span>{t("Hóa đơn {{number}}", { number: invoice.number })}</span>
                 {status ? <span className="sr-only">({status.label})</span> : null}
-                {itemCount ? <span className="pos-invoice-tab-count" aria-label={`${itemCount} sản phẩm`}>{itemCount}</span> : null}
+                {itemCount ? <span className="pos-invoice-tab-count" aria-label={t("{{count}} sản phẩm", { count: itemCount })}>{itemCount}</span> : null}
               </button>
-              <button aria-label={`Đóng hóa đơn ${invoice.number}`} className="pos-invoice-tab-close" disabled={disabled} onClick={() => onClose(invoice.number)} title={`Đóng hóa đơn ${invoice.number}`} type="button"><X aria-hidden="true" size={14} strokeWidth={1.8} /></button>
+              <button aria-label={t("Đóng hóa đơn {{number}}", { number: invoice.number })} className="pos-invoice-tab-close" disabled={disabled} onClick={() => onClose(invoice.number)} title={t("Đóng hóa đơn {{number}}", { number: invoice.number })} type="button"><X aria-hidden="true" size={14} strokeWidth={1.8} /></button>
             </div>
           );
         })}
       </div>
-      <button aria-label="Thêm hóa đơn" className="pos-invoice-add" disabled={disabled} onClick={onAdd} title="Thêm hóa đơn (F2)" type="button"><Plus aria-hidden="true" size={19} strokeWidth={1.8} /></button>
+      <button aria-label={t("Thêm hóa đơn")} className="pos-invoice-add" disabled={disabled} onClick={onAdd} title={t("Thêm hóa đơn (F2)")} type="button"><Plus aria-hidden="true" size={19} strokeWidth={1.8} /></button>
     </div>
   );
 }

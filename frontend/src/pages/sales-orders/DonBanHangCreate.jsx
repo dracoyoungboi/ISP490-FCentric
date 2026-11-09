@@ -20,6 +20,7 @@ import EmptyState from "@/components/shared/EmptyState";
 import FormActions from "@/components/shared/FormActions";
 import LoadingState from "@/components/shared/LoadingState";
 import SurfaceCard from "@/components/shared/SurfaceCard";
+import { t } from "@/i18n";
 
 export default function DonBanHangCreate() {
   const navigate = useNavigate();
@@ -45,7 +46,7 @@ export default function DonBanHangCreate() {
   });
 
   const handleSelectQuote = useCallback(async (quote) => {
-    setQuoteSearch(`${quote.soDonHang} - ${quote.khachHang?.tenKhachHang || 'Khách lẻ'}`);
+    setQuoteSearch(`${quote.soDonHang} - ${quote.khachHang?.tenKhachHang || t("Khách lẻ")}`);
     setShowQuoteDropdown(false);
     setSelectedQuoteId(quote.id);
     setSelectedCustomer(quote.khachHang);
@@ -70,7 +71,7 @@ export default function DonBanHangCreate() {
         thanhTien: item.soLuongDat * item.donGia
       })));
     } catch {
-      toast.error("Lỗi khi tải chi tiết báo giá");
+      toast.error(t("Lỗi khi tải chi tiết báo giá"));
     } finally {
       setLoading(false);
     }
@@ -108,7 +109,7 @@ export default function DonBanHangCreate() {
       }
 
     } catch {
-      toast.error("Không thể tải dữ liệu hệ thống");
+      toast.error(t("Không thể tải dữ liệu hệ thống"));
     }
   }, [initialQuoteId, handleSelectQuote]);
 
@@ -145,8 +146,8 @@ export default function DonBanHangCreate() {
   const totalOrderMoney = totalProductMoney + Number(formData.phiVanChuyen || 0);
 
   async function handleCreateOrder() {
-    if (!selectedQuoteId) return toast.error("Vui lòng chọn báo giá để tạo đơn");
-    if (!formData.khoXuatId) return toast.error("Vui lòng chọn kho xuất hàng");
+    if (!selectedQuoteId) return toast.error(t("Vui lòng chọn báo giá để tạo đơn"));
+    if (!formData.khoXuatId) return toast.error(t("Vui lòng chọn kho xuất hàng"));
 
     try {
       setLoading(true);
@@ -157,10 +158,10 @@ export default function DonBanHangCreate() {
         diaChiGiaoHang: formData.diaChiGiaoHang
       });
 
-      toast.success("Tạo đơn bán hàng thành công");
+      toast.success(t("Tạo đơn bán hàng thành công"));
       navigate("/sales-orders");
     } catch (e) {
-      toast.error(e?.response?.data?.message || e?.response?.data?.errors?.[0] || "Lỗi tạo đơn hàng");
+      toast.error(e?.response?.data?.message || e?.response?.data?.errors?.[0] || t("Lỗi tạo đơn hàng"));
     } finally {
       setLoading(false);
     }
@@ -176,12 +177,12 @@ export default function DonBanHangCreate() {
           className="inline-flex items-center gap-1.5 text-sm font-medium text-bo-primary transition-colors hover:text-bo-primary-hover"
         >
           <ArrowLeft className="size-4" />
-          Quay lại danh sách đơn bán hàng
+          {t("Quay lại danh sách đơn bán hàng")}
         </button>
         <PageHeader
           className="mb-0"
-          title="Tạo đơn bán hàng"
-          description="Chọn báo giá đang chờ phản hồi và kho xuất hàng để chuyển thành đơn bán"
+          title={t("Tạo đơn bán hàng")}
+          description={t("Chọn báo giá đang chờ phản hồi và kho xuất hàng để chuyển thành đơn bán")}
         />
       </div>
 
@@ -189,19 +190,19 @@ export default function DonBanHangCreate() {
         {/* ── LEFT: Thông tin khởi tạo ── */}
         <div className="lg:col-span-1">
           <SurfaceCard
-            title="Thông tin khởi tạo"
-            description="Chọn báo giá và kho xuất"
+            title={t("Thông tin khởi tạo")}
+            description={t("Chọn báo giá và kho xuất")}
           >
             <div className="space-y-5">
               {/* Chọn báo giá */}
               <div className="relative space-y-1.5">
                 <Label className="text-xs font-semibold uppercase tracking-wide text-bo-muted">
-                  Chọn báo giá *
+                  {t("Chọn báo giá *")}
                 </Label>
                 <div className="relative">
                   <Search className="absolute left-3 top-3 size-4 text-bo-muted" />
                   <Input
-                    placeholder="Tìm theo mã BG hoặc tên KH..."
+                    placeholder={t("Tìm theo mã BG hoặc tên KH...")}
                     value={quoteSearch}
                     onChange={(e) => { setQuoteSearch(e.target.value); setShowQuoteDropdown(true); }}
                     onFocus={() => setShowQuoteDropdown(true)}
@@ -221,14 +222,14 @@ export default function DonBanHangCreate() {
                           <span className="text-sm font-bold text-bo-primary">{q.soDonHang}</span>
                           <span className="text-xs font-semibold text-bo-muted">{formatCurrency(q.tongCong)}</span>
                         </div>
-                        <div className="mt-1 text-xs text-bo-muted">{q.khachHang?.tenKhachHang || 'Khách lẻ'}</div>
+                        <div className="mt-1 text-xs text-bo-muted">{q.khachHang?.tenKhachHang || t("Khách lẻ")}</div>
                       </div>
                     ))}
                   </div>
                 )}
                 {filteredQuotes.length === 0 && showQuoteDropdown && (
                   <div className="absolute z-50 mt-1 w-full rounded-lg border border-bo-border bg-bo-surface p-4 text-center text-sm text-bo-muted shadow-lg">
-                    Không có báo giá nào đang chờ
+                    {t("Không có báo giá nào đang chờ")}
                   </div>
                 )}
               </div>
@@ -236,11 +237,11 @@ export default function DonBanHangCreate() {
               {selectedCustomer && (
                 <div className="space-y-2 rounded-md border border-bo-border bg-bo-surface-subtle p-3 text-xs text-bo-muted">
                   <div className="flex justify-between gap-3">
-                    <span>Khách hàng:</span>
+                    <span>{t("Khách hàng:")}</span>
                     <b className="text-bo-foreground">{selectedCustomer.tenKhachHang}</b>
                   </div>
                   <div className="flex justify-between gap-3">
-                    <span>SĐT:</span>
+                    <span>{t("SĐT:")}</span>
                     <b className="text-bo-foreground">{selectedCustomer.soDienThoai}</b>
                   </div>
                 </div>
@@ -251,12 +252,12 @@ export default function DonBanHangCreate() {
               {/* Kho xuất */}
               <div className="relative space-y-1.5">
                 <Label className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-bo-muted">
-                  <Warehouse className="size-3" /> Kho xuất hàng *
+                  <Warehouse className="size-3" /> {t("Kho xuất hàng *")}
                 </Label>
                 <div className="relative">
                   <Home className="absolute left-3 top-3 size-4 text-bo-muted" />
                   <Input
-                    placeholder="Gõ tên hoặc mã kho..."
+                    placeholder={t("Gõ tên hoặc mã kho...")}
                     value={warehouseSearch}
                     onChange={(e) => { setWarehouseSearch(e.target.value); setShowWarehouseDropdown(true); }}
                     onFocus={() => setShowWarehouseDropdown(true)}
@@ -285,7 +286,7 @@ export default function DonBanHangCreate() {
               {/* Phí vận chuyển */}
               <div className="space-y-1.5">
                 <Label className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-bo-muted">
-                  <Truck className="size-3" /> Phí vận chuyển
+                  <Truck className="size-3" /> {t("Phí vận chuyển")}
                 </Label>
                 <Input
                   type="number"
@@ -298,7 +299,7 @@ export default function DonBanHangCreate() {
               {/* Địa chỉ nhận */}
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold uppercase tracking-wide text-bo-muted">
-                  Địa chỉ nhận hàng
+                  {t("Địa chỉ nhận hàng")}
                 </Label>
                 <Input
                   value={formData.diaChiGiaoHang}
@@ -310,7 +311,7 @@ export default function DonBanHangCreate() {
               {/* Ghi chú */}
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold uppercase tracking-wide text-bo-muted">
-                  Ghi chú đơn hàng
+                  {t("Ghi chú đơn hàng")}
                 </Label>
                 <Textarea
                   value={formData.ghiChu}
@@ -326,23 +327,23 @@ export default function DonBanHangCreate() {
         {/* ── RIGHT: Chi tiết đơn hàng (Từ báo giá) ── */}
         <div className="lg:col-span-2">
           <SurfaceCard
-            title="Chi tiết đơn hàng"
-            description="Dữ liệu được kế thừa tự động từ báo giá"
+            title={t("Chi tiết đơn hàng")}
+            description={t("Dữ liệu được kế thừa tự động từ báo giá")}
             contentClassName="p-0"
             className="flex min-h-[400px] flex-col"
           >
             {loading ? (
-              <LoadingState rows={4} label="Đang tải chi tiết báo giá" />
+              <LoadingState rows={4} label={t("Đang tải chi tiết báo giá")} />
             ) : orderItems.length === 0 ? (
               <EmptyState
                 icon={ShoppingCart}
-                title="Chưa chọn báo giá"
+                title={t("Chưa chọn báo giá")}
                 // Điện thoại: khối chọn báo giá nằm phía trên, không phải bên trái. Mỗi câu nằm trọn trong một thẻ để chữ trên máy
                 // tính dựng y như cũ (tách giữa câu làm chữ dịch dưới một điểm ảnh)
                 description={
                   <>
-                    <span className="max-md:hidden">Vui lòng tìm và chọn một báo giá bên trái để hiển thị sản phẩm.</span>
-                    <span className="md:hidden">Vui lòng tìm và chọn một báo giá ở trên để hiển thị sản phẩm.</span>
+                    <span className="max-md:hidden">{t("Vui lòng tìm và chọn một báo giá bên trái để hiển thị sản phẩm.")}</span>
+                    <span className="md:hidden">{t("Vui lòng tìm và chọn một báo giá ở trên để hiển thị sản phẩm.")}</span>
                   </>
                 }
               />
@@ -353,10 +354,10 @@ export default function DonBanHangCreate() {
                   <table className="w-full min-w-[640px] text-sm max-md:min-w-0">
                     <thead>
                       <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                        <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Sản phẩm</th>
-                        <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Số lượng</th>
-                        <th className="h-10 px-3 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted max-md:hidden">Đơn giá</th>
-                        <th className="h-10 px-3 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Thành tiền</th>
+                        <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Sản phẩm")}</th>
+                        <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Số lượng")}</th>
+                        <th className="h-10 px-3 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted max-md:hidden">{t("Đơn giá")}</th>
+                        <th className="h-10 px-3 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Thành tiền")}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-bo-border">
@@ -365,7 +366,7 @@ export default function DonBanHangCreate() {
                           <td className="px-3 py-3">
                             <span className="font-semibold text-bo-foreground">{item.tenSanPham}</span>
                             <span className="mt-0.5 block font-mono text-xs text-bo-muted">{item.maBienThe}</span>
-                            <span className="mt-0.5 block text-xs text-bo-muted md:hidden">Đơn giá {formatCurrency(item.donGia)}</span>
+                            <span className="mt-0.5 block text-xs text-bo-muted md:hidden">{t("Đơn giá {{donGia}}", { donGia: formatCurrency(item.donGia) })}</span>
                           </td>
                           <td className="px-3 py-3 text-center">
                             <span className="inline-block rounded-md bg-bo-surface-subtle px-3 py-1 font-bold text-bo-foreground">
@@ -387,15 +388,15 @@ export default function DonBanHangCreate() {
                 {/* Footer tổng tiền */}
                 <div className="mt-auto space-y-2 border-t border-bo-border bg-bo-surface-subtle px-4 py-4 sm:px-5">
                   <div className="flex justify-between text-sm">
-                    <span className="text-bo-muted">Tổng tiền hàng:</span>
+                    <span className="text-bo-muted">{t("Tổng tiền hàng:")}</span>
                     <span className="font-semibold text-bo-foreground">{formatCurrency(totalProductMoney)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-bo-muted">Phí vận chuyển:</span>
+                    <span className="text-bo-muted">{t("Phí vận chuyển:")}</span>
                     <span className="font-semibold text-bo-foreground">{formatCurrency(Number(formData.phiVanChuyen) || 0)}</span>
                   </div>
                   <div className="flex justify-between border-t border-bo-border pt-3 text-base">
-                    <span className="font-bold text-bo-foreground">Tổng thanh toán</span>
+                    <span className="font-bold text-bo-foreground">{t("Tổng thanh toán")}</span>
                     <span className="text-xl font-bold text-bo-primary">{formatCurrency(totalOrderMoney)}</span>
                   </div>
                 </div>
@@ -413,8 +414,8 @@ export default function DonBanHangCreate() {
           className="min-w-[200px] gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover"
         >
           {loading
-            ? <><Loader2 className="size-4 animate-spin" />Đang xử lý...</>
-            : "Xác nhận tạo đơn hàng"
+            ? <><Loader2 className="size-4 animate-spin" />{t("Đang xử lý...")}</>
+            : t("Xác nhận tạo đơn hàng")
           }
         </Button>
       </FormActions>

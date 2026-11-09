@@ -5,14 +5,15 @@
  */
 import { TRANG_THAI_DON } from "../../../constants/trangThaiXuatBan.js";
 import { oBangChung } from "../../outbound/dong-goi/tinhDongGoi.js";
+import { t } from "../../../i18n/t.js";
 
 const TT = TRANG_THAI_DON;
 
 /** Tên ngắn dưới ảnh thu nhỏ (cột hẹp); hộp xem lớn dùng tên đầy đủ của máy chủ. */
 export const TEN_NGAN_BANG_CHUNG = Object.freeze({
-  VIDEO_DONG_GOI: "Video đóng gói",
-  ANH_HANG_TRONG_HOP: "Hàng trong hộp",
-  ANH_NIEM_PHONG_TEM_VC: "Niêm phong, tem vận chuyển",
+  VIDEO_DONG_GOI: t("Video đóng gói"),
+  ANH_HANG_TRONG_HOP: t("Hàng trong hộp"),
+  ANH_NIEM_PHONG_TEM_VC: t("Niêm phong, tem vận chuyển"),
 });
 
 /** Trạng thái đơn đã tới bước đóng gói trở đi: khối có thể có nội dung. Đơn hủy chỉ hiện khi còn tệp. */
@@ -31,7 +32,7 @@ export function coKhoiBangChung({ trangThai, laPos = false, laBaoGia = false, la
 function demTep(o) {
   const video = o.filter((x) => x.laVideo).length;
   const anh = o.length - video;
-  return [video ? `${video} video` : "", anh ? `${anh} ảnh` : ""].filter(Boolean).join(", ");
+  return [video ? `${video} video` : "", anh ? t("{{count}} ảnh", { count: anh }) : ""].filter(Boolean).join(", ");
 }
 
 /**
@@ -62,11 +63,11 @@ export function noiDungBangChung(duLieu, trangThai) {
     return { kieu: "co", o, dem: demTep(o), hanLuu, canChuY, thieu };
   }
   if (tt === TT.DA_HUY) return { kieu: "an" };
-  if (tt === TT.CHO_DONG_GOI) return { kieu: "chuaCo", canChuY: true, cau: "Chưa chụp hoặc quay bằng chứng đóng gói." };
+  if (tt === TT.CHO_DONG_GOI) return { kieu: "chuaCo", canChuY: true, cau: t("Chưa chụp hoặc quay bằng chứng đóng gói.") };
   if (duLieu?.ngayTuXoa) return { kieu: "daXoa", ngay: duLieu.ngayTuXoa };
   // Chờ xuất kho (đã đóng gói, chưa xuất) mà không còn tệp: không phải đơn cũ, không nói "xuất trước khi có bước đóng gói"
   const cau = tt === TT.DA_DONG_GOI
-    ? "Không tìm thấy tệp bằng chứng của đơn."
-    : "Đơn xuất kho trước khi có bước đóng gói nên không có bằng chứng.";
+    ? t("Không tìm thấy tệp bằng chứng của đơn.")
+    : t("Đơn xuất kho trước khi có bước đóng gói nên không có bằng chứng.");
   return { kieu: "khongCo", cau };
 }

@@ -45,6 +45,7 @@ import {
   tienMatChuaTraLai,
   tienMatTruocCua,
 } from './pos-payment';
+import { t } from "@/i18n";
 
 // Danh mục gộp kích cỡ: mỗi trang 60 dòng mẫu + màu (mỗi dòng gồm đủ các kích cỡ của nó).
 const PAGE_SIZE = 60;
@@ -193,10 +194,10 @@ const isPayosPaidError = (invoice) => invoice?.payos?.trangThai === 'PAID_ERROR'
 const knownStock = (stock) => (stock === null || stock === undefined || stock === '' || !Number.isFinite(Number(stock)) ? null : Number(stock));
 /** Dòng giỏ có số lượng vượt tồn khả dụng đã biết (tồn chưa biết = không chặn, server vẫn kiểm). */
 const isOverStock = (line) => Number.isFinite(line.product.stock) && line.quantity > line.product.stock;
-const OVER_STOCK_MESSAGE = 'Có sản phẩm vượt tồn khả dụng — giảm số lượng hoặc xóa dòng đó trước khi thanh toán.';
-const OFFLINE_PAYMENT_MESSAGE = 'Mất kết nối mạng — chưa thể thanh toán. Kiểm tra mạng rồi thử lại; hóa đơn vẫn được giữ.';
-const OFFLINE_CHECK_MESSAGE = 'Đang mất mạng — chưa kiểm tra được giao dịch. Có mạng lại hãy bấm kiểm tra kết quả.';
-const NETWORK_ERROR_MESSAGE = 'Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.';
+const OVER_STOCK_MESSAGE = t("Có sản phẩm vượt tồn khả dụng — giảm số lượng hoặc xóa dòng đó trước khi thanh toán.");
+const OFFLINE_PAYMENT_MESSAGE = t("Mất kết nối mạng — chưa thể thanh toán. Kiểm tra mạng rồi thử lại; hóa đơn vẫn được giữ.");
+const OFFLINE_CHECK_MESSAGE = t("Đang mất mạng — chưa kiểm tra được giao dịch. Có mạng lại hãy bấm kiểm tra kết quả.");
+const NETWORK_ERROR_MESSAGE = t("Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.");
 
 /**
  * Cập nhật tồn khả dụng mới (từ catalog vừa tải) vào các dòng giỏ của mọi hóa đơn CÙNG kho.
@@ -562,7 +563,7 @@ export default function PosSalesPage({
           const nhacTraLai = (current) => {
             patchInvoice(invoice.number, { payos: current });
             if (invoice.number === restoredDrafts.activeInvoice) setDialog('payos-qr');
-            else showToast(`Hóa đơn ${invoice.number}: mã QR không thành — trả lại khách ${formatMoney(tienMatTruocCua(current))} tiền mặt, rồi mở hóa đơn đó bấm "Đã trả lại tiền mặt".`, 'warning');
+            else showToast(t("Hóa đơn {{number}}: mã QR không thành — trả lại khách {{tienMat}} tiền mặt, rồi mở hóa đơn đó bấm \"Đã trả lại tiền mặt\".", { number: invoice.number, tienMat: formatMoney(tienMatTruocCua(current)) }), 'warning');
           };
           if (!PAYOS_LOCKING_STATUSES.includes(invoice.payos.trangThai)) {
             // Bản nháp chỉ còn nhắc trả lại tiền mặt đưa trước: đã xác nhận ở nơi khác -> mở lại hóa đơn; chưa -> nhắc tiếp
@@ -580,7 +581,7 @@ export default function PosSalesPage({
           } else {
             // Mã đã hết hạn/bị hủy: mở khóa giỏ để thanh toán lại (hàng giữ chỗ đã được server trả về kho).
             patchInvoice(invoice.number, { payos: null });
-            showToast('Mã QR trước đó đã hết hạn hoặc bị hủy — hóa đơn đã được mở lại.', 'warning');
+            showToast(t("Mã QR trước đó đã hết hạn hoặc bị hủy — hóa đơn đã được mở lại."), 'warning');
           }
         } catch {
           /* mất mạng: giữ nguyên, người bán bấm Thanh toán để xem lại mã QR */
@@ -638,8 +639,8 @@ export default function PosSalesPage({
           } else if (res?.trangThai === 'FAILED') {
             removePendingCheckoutId(target.requestId); // lỗi xác định — không cần giữ metadata
             if (target.invoiceNumber != null) {
-              setAttempt(target.invoiceNumber, { status: 'failed', error: res.errorMessage || 'Giao dịch đã thất bại trước đó' });
-              sonnerToast.warning(`Giao dịch của hóa đơn ${target.invoiceNumber} không thành công${res.errorMessage ? `: ${res.errorMessage}` : ''}. Hóa đơn đã được mở lại.`);
+              setAttempt(target.invoiceNumber, { status: 'failed', error: res.errorMessage || t("Giao dịch đã thất bại trước đó") });
+              sonnerToast.warning(t("Giao dịch của hóa đơn {{invoiceNumber}} không thành công{{chiTiet}}. Hóa đơn đã được mở lại.", { invoiceNumber: target.invoiceNumber, chiTiet: res.errorMessage ? `: ${res.errorMessage}` : '' }));
             }
           }
         } catch (error) {
@@ -685,15 +686,15 @@ export default function PosSalesPage({
     setPendingWarehouseId(null);
     const name = warehouses.find((w) => w.id === target)?.tenKho;
     showToast(hadItems
-      ? `Đã chuyển sang ${name || 'kho mới'}. Giỏ của hóa đơn hiện tại đã được xóa để tránh nhầm tồn kho.`
-      : `Đã chuyển sang ${name || 'kho mới'}.`, 'success');
+      ? t("Đã chuyển sang {{kho}}. Giỏ của hóa đơn hiện tại đã được xóa để tránh nhầm tồn kho.", { kho: name || t("kho mới") })
+      : t("Đã chuyển sang {{kho}}.", { kho: name || t("kho mới") }), 'success');
   };
 
   const changeWarehouse = (nextWarehouseId) => {
     // Đang có hộp thoại (biên lai, thanh toán…) hoặc đang gửi thanh toán: không đổi kho đè lên.
     if (dialog || isSubmitting) return;
     if (frozen) {
-      showToast('Hóa đơn đang trong giao dịch thanh toán — không thể đổi kho lúc này.', 'warning');
+      showToast(t("Hóa đơn đang trong giao dịch thanh toán — không thể đổi kho lúc này."), 'warning');
       return;
     }
     const target = Number(nextWarehouseId);
@@ -721,11 +722,11 @@ export default function PosSalesPage({
 
   /** Lý do KHÔNG được thêm 1 sản phẩm vào giỏ hiện tại (null = thêm được). */
   const getAddProblem = (product) => {
-    if (frozen) return 'Hóa đơn đang trong giao dịch thanh toán — giỏ đã được khóa.';
+    if (frozen) return t("Hóa đơn đang trong giao dịch thanh toán — giỏ đã được khóa.");
     const stock = Number(product.stock);
     // Kiểm tra tồn NGOÀI state updater (updater phải thuần — StrictMode gọi 2 lần sẽ bắn toast 2 lần).
     if (Number.isFinite(stock) && cartQuantity(product.id) + 1 > stock) {
-      return stock > 0 ? `Chỉ còn ${stock} sản phẩm khả dụng tại kho này.` : `${product.name} đã hết hàng tại kho này.`;
+      return stock > 0 ? t("Chỉ còn {{stock}} sản phẩm khả dụng tại kho này.", { stock }) : t("{{name}} đã hết hàng tại kho này.", { name: product.name });
     }
     return null;
   };
@@ -779,8 +780,8 @@ export default function PosSalesPage({
     const stock = knownStock(line.product.stock);
     if (stock !== null && quantity > stock && quantity > line.quantity) {
       showToast(stock > 0
-        ? `Chỉ còn ${stock} sản phẩm khả dụng tại kho này — số lượng giữ nguyên ${line.quantity}.`
-        : `${line.product.name} đã hết hàng tại kho này — số lượng giữ nguyên ${line.quantity}.`, 'warning');
+        ? t("Chỉ còn {{stock}} sản phẩm khả dụng tại kho này — số lượng giữ nguyên {{quantity}}.", { stock, quantity: line.quantity })
+        : t("{{name}} đã hết hàng tại kho này — số lượng giữ nguyên {{quantity}}.", { name: line.product.name, quantity: line.quantity }), 'warning');
       return;
     }
     setCart((current) => current.map((item) => item.product.id === variantId ? { ...item, quantity } : item));
@@ -795,7 +796,7 @@ export default function PosSalesPage({
     // Tiền mặt đưa trước là của khách cũ: không để điền sẵn cho khách sau.
     updateInvoice('tienMatTruoc', '');
     clearFailedAttemptAfterEdit();
-    showToast('Đã xóa nội dung hóa đơn.', 'success');
+    showToast(t("Đã xóa nội dung hóa đơn."), 'success');
   };
 
   const selectCustomerForInvoice = (selectedCustomer) => {
@@ -810,7 +811,7 @@ export default function PosSalesPage({
     const created = toPosCustomer(await posService.quickCreateCustomer({ tenKhachHang: name, soDienThoai: phone }));
     setAddedCustomers((current) => [created, ...current.filter((item) => item.id !== created.id)]);
     selectCustomerForInvoice(created);
-    showToast(`Đã thêm và chọn khách hàng ${created.name}.`, 'success');
+    showToast(t("Đã thêm và chọn khách hàng {{name}}.", { name: created.name }), 'success');
     return created;
   };
 
@@ -825,7 +826,7 @@ export default function PosSalesPage({
     const amount = Number(value);
     const cash = Number.isFinite(amount) && amount > 0 ? Math.round(amount) : 0;
     updateInvoice('paymentAmount', cash);
-    setPaymentError(cash < total ? 'Số tiền khách thanh toán chưa đủ.' : '');
+    setPaymentError(cash < total ? t("Số tiền khách thanh toán chưa đủ.") : '');
     clearFailedAttemptAfterEdit();
   };
 
@@ -890,7 +891,7 @@ export default function PosSalesPage({
     if (canTraLaiTienMat(target.payos)) {
       setActiveInvoice(number);
       setDialog('payos-qr');
-      showToast(`Hóa đơn ${number}: trả lại khách ${formatMoney(tienMatTruocCua(target.payos))} tiền mặt và bấm "Đã trả lại tiền mặt" trước khi đóng hóa đơn.`, 'warning');
+      showToast(t("Hóa đơn {{number}}: trả lại khách {{tienMat}} tiền mặt và bấm \"Đã trả lại tiền mặt\" trước khi đóng hóa đơn.", { number, tienMat: formatMoney(tienMatTruocCua(target.payos)) }), 'warning');
       return;
     }
     // Giao dịch lỗi đã chuyển cho quản lý (còn nằm ở màn Đối soát chuyển khoản): cho đóng tab sau khi hỏi lại.
@@ -900,7 +901,7 @@ export default function PosSalesPage({
       return;
     }
     if (isFrozenInvoice(target)) {
-      showToast('Hóa đơn đang trong giao dịch thanh toán — không thể đóng.', 'warning');
+      showToast(t("Hóa đơn đang trong giao dịch thanh toán — không thể đóng."), 'warning');
       return;
     }
     if (!isInvoiceUntouched(target)) {
@@ -930,24 +931,24 @@ export default function PosSalesPage({
     try {
       const result = await lookupForAdd(warehouseId, query, { allowPrefix: true });
       if (result.kind === 'ambiguous') {
-        showToast(`Mã “${query}” trùng ${result.count >= LOOKUP_BARCODE_LIMIT ? 'nhiều' : result.count} biến thể — chọn đúng màu/size trong danh mục.`, 'warning');
+        showToast(t("Mã “{{query}}” trùng {{soLuong}} biến thể — chọn đúng màu/size trong danh mục.", { query, soLuong: result.count >= LOOKUP_BARCODE_LIMIT ? t("nhiều") : result.count }), 'warning');
         return;
       }
       if (result.kind === 'not_found') {
-        showToast(`Không tìm thấy mã hàng bắt đầu bằng "${query}".`, 'warning');
+        showToast(t("Không tìm thấy mã hàng bắt đầu bằng \"{{query}}\".", { query }), 'warning');
         return;
       }
       const { product } = result;
       if (Number(product.stock) <= 0) {
-        showToast(`${product.name} đã hết hàng tại kho này.`, 'warning');
+        showToast(t("{{name}} đã hết hàng tại kho này.", { name: product.name }), 'warning');
         return;
       }
       if (addProduct(product)) {
-        showToast(`Đã thêm ${product.name}.`, 'success');
+        showToast(t("Đã thêm {{name}}.", { name: product.name }), 'success');
         setSearch(''); // sẵn sàng cho lần quét/gõ mã tiếp theo
       }
     } catch (error) {
-      showToast(isNetworkError(error) ? NETWORK_ERROR_MESSAGE : error?.response?.data?.message || 'Không thể tra cứu mã hàng. Vui lòng thử lại.', 'error');
+      showToast(isNetworkError(error) ? NETWORK_ERROR_MESSAGE : error?.response?.data?.message || t("Không thể tra cứu mã hàng. Vui lòng thử lại."), 'error');
     } finally {
       setLookupBusy(false);
     }
@@ -974,14 +975,14 @@ export default function PosSalesPage({
     const blocked = () => {
       const ctx = scanContext.current;
       if (ctx.activeInvoice !== invoiceNumber || ctx.warehouseId !== scanWarehouseId) {
-        return `Mã “${code}” chưa được thêm vì đã đổi hóa đơn hoặc kho — quét lại.`;
+        return t("Mã “{{code}}” chưa được thêm vì đã đổi hóa đơn hoặc kho — quét lại.", { code });
       }
-      if (ctx.frozen) return 'Hóa đơn đang chờ thanh toán — giỏ đã khóa. Bấm F2 để mở hóa đơn mới rồi quét.';
-      if (ctx.dialog || ctx.isSubmitting) return `Mã “${code}” chưa được thêm vì đang mở cửa sổ khác — đóng cửa sổ rồi quét lại.`;
+      if (ctx.frozen) return t("Hóa đơn đang chờ thanh toán — giỏ đã khóa. Bấm F2 để mở hóa đơn mới rồi quét.");
+      if (ctx.dialog || ctx.isSubmitting) return t("Mã “{{code}}” chưa được thêm vì đang mở cửa sổ khác — đóng cửa sổ rồi quét lại.", { code });
       return null;
     };
     if (!scanWarehouseId) {
-      report(false, 'Chưa chọn kho bán — chọn kho rồi quét lại.');
+      report(false, t("Chưa chọn kho bán — chọn kho rồi quét lại."));
       return;
     }
     const before = blocked();
@@ -994,7 +995,7 @@ export default function PosSalesPage({
       result = await lookupForAdd(scanWarehouseId, code, { allowPrefix: typed });
     } catch (error) {
       // Không tự thử lại: tránh một lần quét bị thêm hai lần.
-      report(false, isNetworkError(error) ? NETWORK_ERROR_MESSAGE : error?.response?.data?.message || `Không tra được mã “${code}” — quét lại.`);
+      report(false, isNetworkError(error) ? NETWORK_ERROR_MESSAGE : error?.response?.data?.message || t("Không tra được mã “{{code}}” — quét lại.", { code }));
       return;
     }
     const after = blocked();
@@ -1003,14 +1004,14 @@ export default function PosSalesPage({
       return;
     }
     if (result.kind === 'not_found') {
-      if (typed) report(false, `Không tìm thấy mã “${code}”. Enter chỉ thêm theo mã SKU / mã vạch — tìm theo tên thì bấm chọn hàng trong danh mục.`);
-      else if (hasNonAscii(code)) report(false, `Không tìm thấy mã “${code}”. Mã có chữ có dấu — có thể bộ gõ tiếng Việt (Unikey/EVKey) đang bật: chuyển sang E rồi quét lại.`);
-      else report(false, `Không tìm thấy mã “${code}”.`);
+      if (typed) report(false, t("Không tìm thấy mã “{{code}}”. Enter chỉ thêm theo mã SKU / mã vạch — tìm theo tên thì bấm chọn hàng trong danh mục.", { code }));
+      else if (hasNonAscii(code)) report(false, t("Không tìm thấy mã “{{code}}”. Mã có chữ có dấu — có thể bộ gõ tiếng Việt (Unikey/EVKey) đang bật: chuyển sang E rồi quét lại.", { code }));
+      else report(false, t("Không tìm thấy mã “{{code}}”.", { code }));
       return;
     }
     if (result.kind === 'ambiguous') {
-      const count = result.count >= LOOKUP_BARCODE_LIMIT ? 'nhiều' : result.count;
-      report(false, `Mã “${code}” trùng ${count} biến thể — chọn đúng màu/size trong danh mục.`, { ambiguous: true });
+      const count = result.count >= LOOKUP_BARCODE_LIMIT ? t("nhiều") : result.count;
+      report(false, t("Mã “{{code}}” trùng {{soLuong}} biến thể — chọn đúng màu/size trong danh mục.", { code, soLuong: count }), { ambiguous: true });
       return;
     }
     const { product } = result;
@@ -1023,7 +1024,7 @@ export default function PosSalesPage({
     const quantity = ctx.cartQuantity(product.id) + 1;
     // Render ngay để lần quét kế tiếp kiểm tồn theo giỏ MỚI NHẤT (quét nhanh cùng một món).
     flushSync(() => ctx.commitAddProduct(product));
-    report(true, `Đã thêm ${product.name} — SL trong hóa đơn: ${quantity}`);
+    report(true, t("Đã thêm {{name}} — SL trong hóa đơn: {{quantity}}", { name: product.name, quantity }));
   };
   const { enqueue: enqueueScanJob, pending: scanPending } = useScanQueue(processScan);
   const enqueueScan = (code, { typed = false } = {}) => {
@@ -1117,7 +1118,7 @@ export default function PosSalesPage({
     }
     // 2. Lỗi nghiệp vụ/xung đột XÁC ĐỊNH (4xx, kể cả 503 gate chưa mở): giữ draft, mở khóa.
     if (status && (status < 500 || status === 503)) {
-      const message = envelope?.message || 'Không thể hoàn tất thanh toán.';
+      const message = envelope?.message || t("Không thể hoàn tất thanh toán.");
       finishAttempt(invoiceNumber, { status: 'failed', error: message });
       removePendingCheckoutId(attemptState.requestId);
       setPaymentError(message);
@@ -1140,7 +1141,7 @@ export default function PosSalesPage({
     // Chưa chọn khách: gửi khachHangId null, máy chủ gán Khách lẻ mặc định
     const paid = Number(invoice.paymentAmount || 0);
     if (!invoice.cart.length || !Number.isFinite(paid) || paid < total || paid < 0) {
-      setPaymentError('Số tiền khách thanh toán chưa đủ.');
+      setPaymentError(t("Số tiền khách thanh toán chưa đủ."));
       return;
     }
     if (!isFrozenInvoice(invoice) && invoice.cart.some(isOverStock)) {
@@ -1184,19 +1185,19 @@ export default function PosSalesPage({
       if (res?.trangThai === 'SUCCESS' && res.result) {
         handleCheckoutSuccess(invoice.number, res.result, attemptState);
       } else if (res?.trangThai === 'FAILED') {
-        finishAttempt(invoice.number, { status: 'failed', error: res.errorMessage || 'Giao dịch đã thất bại trước đó' });
+        finishAttempt(invoice.number, { status: 'failed', error: res.errorMessage || t("Giao dịch đã thất bại trước đó") });
         removePendingCheckoutId(attemptState.requestId);
-        setPaymentError(res.errorMessage || 'Giao dịch đã thất bại trước đó');
+        setPaymentError(res.errorMessage || t("Giao dịch đã thất bại trước đó"));
         setDialog(null);
       } else {
-        showToast('Máy chủ chưa có kết quả cho giao dịch này. Có thể thử lại cùng mã giao dịch.', 'warning');
+        showToast(t("Máy chủ chưa có kết quả cho giao dịch này. Có thể thử lại cùng mã giao dịch."), 'warning');
       }
     } catch (error) {
       if (error?.response?.status === 404) {
         // Kết quả chưa rõ (server đã rollback): được phép thử lại CÙNG key + CÙNG payload.
-        showToast('Giao dịch chưa có kết quả trên máy chủ — có thể thử lại cùng mã giao dịch.', 'warning');
+        showToast(t("Giao dịch chưa có kết quả trên máy chủ — có thể thử lại cùng mã giao dịch."), 'warning');
       } else {
-        showToast(error?.response?.data?.message || 'Không thể kiểm tra kết quả. Vui lòng thử lại.', 'error');
+        showToast(error?.response?.data?.message || t("Không thể kiểm tra kết quả. Vui lòng thử lại."), 'error');
       }
     } finally {
       setIsSubmitting(false);
@@ -1229,7 +1230,7 @@ export default function PosSalesPage({
     // với key MỚI (payload đã đổi giá nên không tái dùng key cũ).
     setPriceChangeInfo(null);
     setDialog(null);
-    showToast('Giá đã được cập nhật theo giá mới nhất trên hệ thống. Vui lòng kiểm tra tổng mới và bấm Thanh toán lại.', 'warning');
+    showToast(t("Giá đã được cập nhật theo giá mới nhất trên hệ thống. Vui lòng kiểm tra tổng mới và bấm Thanh toán lại."), 'warning');
   };
 
   const openPayment = () => {
@@ -1239,7 +1240,7 @@ export default function PosSalesPage({
       return;
     }
     if (!cart.length) {
-      showToast('Thêm ít nhất một sản phẩm trước khi thanh toán.', 'warning');
+      showToast(t("Thêm ít nhất một sản phẩm trước khi thanh toán."), 'warning');
       return;
     }
     if (PAYOS_LOCKING_STATUSES.includes(currentInvoice.payos?.trangThai)) {
@@ -1338,29 +1339,29 @@ export default function PosSalesPage({
         openReceipt(invoiceNumber, link.result);
       } else {
         // Thu ngân đang thao tác hóa đơn khác: không cướp màn hình, chỉ báo; mở tab đó sẽ hiện receipt.
-        showToast(`Hóa đơn ${invoiceNumber} đã nhận đủ tiền chuyển khoản. Mở tab hóa đơn đó để in và hoàn tất.`, 'success');
+        showToast(t("Hóa đơn {{invoiceNumber}} đã nhận đủ tiền chuyển khoản. Mở tab hóa đơn đó để in và hoàn tất.", { invoiceNumber }), 'success');
       }
     } else if (link.trangThai === 'PAID_ERROR') {
       // Đang mở đúng mã QR của hóa đơn này thì hộp thoại đã hiện lỗi; còn lại báo để thu ngân không thu tiền lại.
       if (!(isActive && (quiet || ui.dialog === 'payos-qr'))) {
-        showToast(`Hóa đơn ${invoiceNumber}: khách đã chuyển khoản nhưng chưa tạo được đơn — hóa đơn đã khóa, chờ quản lý xử lý. Không thu tiền lại của khách.`, 'error');
+        showToast(t("Hóa đơn {{invoiceNumber}}: khách đã chuyển khoản nhưng chưa tạo được đơn — hóa đơn đã khóa, chờ quản lý xử lý. Không thu tiền lại của khách.", { invoiceNumber }), 'error');
       }
     } else if (link.trangThai === 'REFUNDED' && tienMatChuaTraLai(link)) {
       // Quản lý đã hoàn khoản chuyển khoản nhưng tiền mặt khách đưa trước vẫn ở quầy: giữ giao dịch để hộp mã QR
       // hiện ô "Trả lại khách"; xác nhận xong hóa đơn mới mở lại.
       if (isActive && (!ui.dialog || ui.dialog === 'payos-qr')) setDialog('payos-qr');
-      showToast(`Hóa đơn ${invoiceNumber}: quản lý đã hoàn tiền chuyển khoản cho khách — trả lại khách ${formatMoney(tienMatTruocCua(link))} tiền mặt rồi bấm "Đã trả lại tiền mặt".`, 'warning');
+      showToast(t("Hóa đơn {{invoiceNumber}}: quản lý đã hoàn tiền chuyển khoản cho khách — trả lại khách {{tienMat}} tiền mặt rồi bấm \"Đã trả lại tiền mặt\".", { invoiceNumber, tienMat: formatMoney(tienMatTruocCua(link)) }), 'warning');
     } else if (link.trangThai === 'REFUNDED') {
       // Quản lý đã hoàn tiền chuyển khoản, hàng giữ chỗ đã trả kho -> mở lại giỏ để bán lại nếu khách muốn.
       patchInvoice(invoiceNumber, { payos: null });
       if (isActive && ui.dialog === 'payos-qr') setDialog(null);
-      showToast(`Hóa đơn ${invoiceNumber}: quản lý đã hoàn tiền chuyển khoản cho khách — hóa đơn đã mở lại.`, 'warning');
+      showToast(t("Hóa đơn {{invoiceNumber}}: quản lý đã hoàn tiền chuyển khoản cho khách — hóa đơn đã mở lại.", { invoiceNumber }), 'warning');
     } else if (['EXPIRED', 'CANCELLED', 'FAILED'].includes(link.trangThai) && tienMatChuaTraLai(link)) {
       // Mã không thành mà khách đã đưa trước tiền mặt: hộp mã QR hiện ô "Trả lại khách" (chặn thu lại tới khi xác nhận).
       if (isActive && (!ui.dialog || ui.dialog === 'payos-qr')) setDialog('payos-qr');
-      else showToast(`Mã QR của hóa đơn ${invoiceNumber} đã hết hạn hoặc bị hủy — trả lại khách ${formatMoney(tienMatTruocCua(link))} tiền mặt, rồi mở hóa đơn ${invoiceNumber} bấm "Đã trả lại tiền mặt".`, 'warning');
+      else showToast(t("Mã QR của hóa đơn {{invoiceNumber}} đã hết hạn hoặc bị hủy — trả lại khách {{tienMat}} tiền mặt, rồi mở hóa đơn {{invoiceNumber}} bấm \"Đã trả lại tiền mặt\".", { invoiceNumber, tienMat: formatMoney(tienMatTruocCua(link)) }), 'warning');
     } else if (!isActive && ['EXPIRED', 'CANCELLED', 'FAILED'].includes(link.trangThai)) {
-      showToast(`Mã QR của hóa đơn ${invoiceNumber} đã hết hạn hoặc bị hủy — hóa đơn đã được mở khóa.`, 'warning');
+      showToast(t("Mã QR của hóa đơn {{invoiceNumber}} đã hết hạn hoặc bị hủy — hóa đơn đã được mở khóa.", { invoiceNumber }), 'warning');
     }
   };
 
@@ -1415,12 +1416,12 @@ export default function PosSalesPage({
           setInvoices((current) => withInsufficientStock(current, invoice.number, envelope.data.insufficient));
           setRefreshKey((key) => key + 1);
         }
-        let message = isNetworkError(error) ? NETWORK_ERROR_MESSAGE : envelope?.message || 'Không tạo được mã QR. Kiểm tra kết nối rồi thử lại.';
+        let message = isNetworkError(error) ? NETWORK_ERROR_MESSAGE : envelope?.message || t("Không tạo được mã QR. Kiểm tra kết nối rồi thử lại.");
         if (kemTienMat && error?.response?.status === 502 && chacChuaCoMa) {
           // payOS từ chối: không có mã QR nào, tiền mặt khách đưa chưa được ghi vào đâu
-          message += ` Chưa có mã QR nào được tạo — ${formatMoney(qr.tienMat)} tiền mặt khách đưa chưa được ghi nhận: thử tạo mã lại, thu cả hóa đơn bằng Tiền mặt hoặc trả lại khách.`;
+          message += t(" Chưa có mã QR nào được tạo — {{tienMat}} tiền mặt khách đưa chưa được ghi nhận: thử tạo mã lại, thu cả hóa đơn bằng Tiền mặt hoặc trả lại khách.", { tienMat: formatMoney(qr.tienMat) });
         } else if (kemTienMat && !chacChuaCoMa) {
-          message += ' Chưa rõ mã QR đã được tạo chưa: bấm Tạo mã QR lại (giữ nguyên giỏ hàng và số tiền mặt) để lấy đúng mã cũ nếu đã có.';
+          message += t(" Chưa rõ mã QR đã được tạo chưa: bấm Tạo mã QR lại (giữ nguyên giỏ hàng và số tiền mặt) để lấy đúng mã cũ nếu đã có.");
         }
         setPaymentError(message);
       }
@@ -1435,7 +1436,7 @@ export default function PosSalesPage({
     // Máy quầy đang tự hủy chính mã này (hết giờ): không gửi lệnh hủy thứ hai
     if (autoCloseRef.current.inFlight.has(String(invoice.payos.orderCode))) return;
     if (!online) {
-      showToast('Đang mất mạng — chưa hủy được mã QR. Có mạng lại hãy thử lại.', 'warning');
+      showToast(t("Đang mất mạng — chưa hủy được mã QR. Có mạng lại hãy thử lại."), 'warning');
       return;
     }
     setIsSubmitting(true);
@@ -1445,19 +1446,19 @@ export default function PosSalesPage({
         // Khách đã kịp chuyển tiền (đơn đã tạo, hoặc lỗi chờ quản lý): KHÔNG mở thu tiền mặt.
         applyPayosUpdate(invoice.number, link);
       } else if (link?.trangThai === 'PENDING') {
-        showToast('Mã QR vẫn đang chờ khách chuyển khoản — chưa hủy được, thử lại sau ít phút.', 'warning');
+        showToast(t("Mã QR vẫn đang chờ khách chuyển khoản — chưa hủy được, thử lại sau ít phút."), 'warning');
       } else if (canTraLaiTienMat(link)) {
         // Khách đã đưa trước tiền mặt: giữ hộp mã QR để trả lại khách và bấm xác nhận (hóa đơn mở lại sau đó).
         patchInvoice(invoice.number, { payos: link });
         setReturnCashError(null);
-        showToast(`Đã hủy mã QR, hàng giữ chỗ đã được trả lại kho. Trả lại khách ${formatMoney(tienMatTruocCua(link))} tiền mặt.`, 'warning');
+        showToast(t("Đã hủy mã QR, hàng giữ chỗ đã được trả lại kho. Trả lại khách {{tienMat}} tiền mặt.", { tienMat: formatMoney(tienMatTruocCua(link)) }), 'warning');
       } else {
         patchInvoice(invoice.number, { payos: null });
         setDialog('payment');
-        showToast('Đã hủy mã QR, hàng giữ chỗ đã được trả lại kho.', 'success');
+        showToast(t("Đã hủy mã QR, hàng giữ chỗ đã được trả lại kho."), 'success');
       }
     } catch (error) {
-      showToast(isNetworkError(error) ? NETWORK_ERROR_MESSAGE : error?.response?.data?.message || 'Không hủy được mã QR. Vui lòng thử lại.', 'error');
+      showToast(isNetworkError(error) ? NETWORK_ERROR_MESSAGE : error?.response?.data?.message || t("Không hủy được mã QR. Vui lòng thử lại."), 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -1475,7 +1476,7 @@ export default function PosSalesPage({
   const returnPayosCash = async (orderCode) => {
     if (!orderCode || isSubmitting) return;
     if (!online) {
-      setReturnCashError({ orderCode, message: 'Đang mất mạng — chưa ghi được. Có mạng lại hãy bấm lại.' });
+      setReturnCashError({ orderCode, message: t("Đang mất mạng — chưa ghi được. Có mạng lại hãy bấm lại.") });
       return;
     }
     const invoice = invoices.find((item) => String(item.payos?.orderCode) === String(orderCode));
@@ -1488,11 +1489,11 @@ export default function PosSalesPage({
         patchInvoice(invoice.number, { payos: null, tienMatTruoc: '' });
         if (invoice.number === activeInvoice) setDialog(invoice.payos?.trangThai === 'REFUNDED' || !invoice.cart.length ? null : 'payment');
       }
-      showToast(`Đã ghi nhận trả lại khách ${formatMoney(tienMatTruocCua(link) || tienMatTruocCua(invoice?.payos))} tiền mặt — hóa đơn đã mở lại.`, 'success');
+      showToast(t("Đã ghi nhận trả lại khách {{tienMat}} tiền mặt — hóa đơn đã mở lại.", { tienMat: formatMoney(tienMatTruocCua(link) || tienMatTruocCua(invoice?.payos)) }), 'success');
     } catch (error) {
       setReturnCashError({
         orderCode,
-        message: isNetworkError(error) ? NETWORK_ERROR_MESSAGE : error?.response?.data?.message || 'Không ghi nhận được. Vui lòng thử lại.',
+        message: isNetworkError(error) ? NETWORK_ERROR_MESSAGE : error?.response?.data?.message || t("Không ghi nhận được. Vui lòng thử lại."),
       });
     } finally {
       setIsSubmitting(false);
@@ -1617,7 +1618,7 @@ export default function PosSalesPage({
       // Mất mạng, 409 (payOS chưa xác nhận hủy), 5xx: thử lại. Lỗi khác (mất quyền kho, không còn mã) thử mãi cũng vậy.
       const status = error?.response?.status;
       retry = status == null || status === 409 || status >= 500;
-      loi = isNetworkError(error) ? 'máy đang mất mạng' : error?.response?.data?.message || 'máy chủ chưa phản hồi';
+      loi = isNetworkError(error) ? t("máy đang mất mạng") : error?.response?.data?.message || t("máy chủ chưa phản hồi");
     } finally {
       state.inFlight.delete(key);
     }
@@ -1677,7 +1678,7 @@ export default function PosSalesPage({
 
   const printReceipt = (result) => {
     if (!result?.donBanHangId) {
-      showToast('Không có thông tin hóa đơn để in.', 'error');
+      showToast(t("Không có thông tin hóa đơn để in."), 'error');
       return;
     }
     // In từ đơn ĐÃ LƯU trên server bằng mẫu hóa đơn tại quầy (khổ nhiệt); lỗi in chỉ thử lại in,
@@ -1739,7 +1740,7 @@ export default function PosSalesPage({
     }
     const cuaSo = window.open('', TEN_CUA_SO_MAN_HINH_PHU, 'popup=yes,width=1280,height=800');
     if (!cuaSo || cuaSo.closed) {
-      showToast('Trình duyệt đã chặn cửa sổ màn hình khách. Cho phép cửa sổ bật lên (pop-up) của trang này rồi thử lại.', 'warning');
+      showToast(t("Trình duyệt đã chặn cửa sổ màn hình khách. Cho phép cửa sổ bật lên (pop-up) của trang này rồi thử lại."), 'warning');
       return;
     }
     cuaSoManHinhPhuRef.current = cuaSo;
@@ -1751,7 +1752,7 @@ export default function PosSalesPage({
     }
     cuaSo.location.replace(DUONG_DAN_MAN_HINH_PHU);
     // Cửa sổ mới giữ con trỏ: mã quét lúc đó không tới màn bán hàng
-    showToast('Đã mở màn hình khách: kéo cửa sổ sang màn thứ hai, bấm Toàn màn hình, rồi bấm lại vào màn bán hàng để quét tiếp.', 'info');
+    showToast(t("Đã mở màn hình khách: kéo cửa sổ sang màn thứ hai, bấm Toàn màn hình, rồi bấm lại vào màn bán hàng để quét tiếp."), 'info');
   };
 
   const actions = {
@@ -1824,7 +1825,7 @@ export default function PosSalesPage({
       setPaymentAmountForInvoice(amount);
       // Ô số có thể còn hiện chữ dở dang của mã (state không đổi thì React không vẽ lại) -> ghi lại số tiền.
       target.value = amount ? hienTien(amount) : '';
-      setPaymentError('Vừa quét mã khi đang ở màn thanh toán — CHƯA xác nhận thanh toán, số tiền khách đưa đã trả về như trước. Cần thêm hàng: đóng màn thanh toán (Esc) rồi quét.');
+      setPaymentError(t("Vừa quét mã khi đang ở màn thanh toán — CHƯA xác nhận thanh toán, số tiền khách đưa đã trả về như trước. Cần thêm hàng: đóng màn thanh toán (Esc) rồi quét."));
       playScanBeep(false);
       return;
     }
@@ -1833,7 +1834,7 @@ export default function PosSalesPage({
       const previous = scan.snapshot?.tienMatTruoc ?? '';
       setTienMatTruocForInvoice(previous);
       target.value = hienTien(previous);
-      setPaymentError('Vừa quét mã khi đang ở màn thanh toán — CHƯA tạo mã QR, số tiền mặt khách đưa trước đã trả về như trước. Cần thêm hàng: đóng màn thanh toán (Esc) rồi quét.');
+      setPaymentError(t("Vừa quét mã khi đang ở màn thanh toán — CHƯA tạo mã QR, số tiền mặt khách đưa trước đã trả về như trước. Cần thêm hàng: đóng màn thanh toán (Esc) rồi quét."));
       playScanBeep(false);
       return;
     }
@@ -1847,7 +1848,7 @@ export default function PosSalesPage({
       showToast(message, 'warning');
     };
     if (dialog || isSubmitting) {
-      warn('Vừa quét mã khi đang mở cửa sổ khác — mã chưa được thêm. Đóng cửa sổ rồi quét lại.');
+      warn(t("Vừa quét mã khi đang mở cửa sổ khác — mã chưa được thêm. Đóng cửa sổ rồi quét lại."));
       return;
     }
     const code = scan.code.trim();
@@ -1856,7 +1857,7 @@ export default function PosSalesPage({
       searchRef.current?.focus();
       return;
     }
-    warn('Mã vừa quét chưa được thêm vào hóa đơn. Bật chế độ quét mã (F8) để quét.');
+    warn(t("Mã vừa quét chưa được thêm vào hóa đơn. Bật chế độ quét mã (F8) để quét."));
   };
 
   // Trạng thái/handler mới nhất cho callback chạy nền (polling payOS, phím tắt) — tránh closure cũ.
@@ -1989,7 +1990,7 @@ export default function PosSalesPage({
       customer={customer}
       frozen={frozen}
       frozenMessage={isPayosPaidError(currentInvoice)
-        ? 'Khách đã chuyển khoản nhưng chưa tạo được đơn — không thu tiền lại. Hóa đơn chờ quản lý xử lý ở màn Đối soát chuyển khoản.'
+        ? t("Khách đã chuyển khoản nhưng chưa tạo được đơn — không thu tiền lại. Hóa đơn chờ quản lý xử lý ở màn Đối soát chuyển khoản.")
         : ''}
       isSubmitting={isSubmitting}
       note={note}
@@ -2031,10 +2032,10 @@ export default function PosSalesPage({
         <PosWarehousePicker
           blocked={Boolean(dialog)}
           disabled={isSubmitting || frozen}
-          disabledReason={frozen ? 'Hóa đơn đang chờ thanh toán nên chưa đổi được kho.' : 'Đang xử lý thanh toán nên chưa đổi được kho.'}
+          disabledReason={frozen ? t("Hóa đơn đang chờ thanh toán nên chưa đổi được kho.") : t("Đang xử lý thanh toán nên chưa đổi được kho.")}
           onBlockedOpen={() => showToast(frozen
-            ? 'Hóa đơn đang trong giao dịch thanh toán — không thể đổi kho lúc này.'
-            : 'Đang xử lý thanh toán — đợi xong rồi đổi kho.', 'warning')}
+            ? t("Hóa đơn đang trong giao dịch thanh toán — không thể đổi kho lúc này.")
+            : t("Đang xử lý thanh toán — đợi xong rồi đổi kho."), 'warning')}
           onChange={changeWarehouse}
           onPicked={afterWarehousePicked}
           value={warehouseId}
@@ -2081,15 +2082,15 @@ export default function PosSalesPage({
         <div className="mx-auto flex max-w-3xl items-center gap-3">
           <button className="flex min-w-0 flex-1 items-center gap-2.5 text-left" onClick={() => setMobileCartOpen(true)} type="button">
             <span className="relative grid size-9 shrink-0 place-items-center rounded-lg bg-bo-primary-soft text-bo-primary"><ShoppingBag aria-hidden="true" size={17} /><span className="absolute -right-1 -top-1 grid min-w-4 place-items-center rounded-full bg-bo-primary px-1 text-[9px] font-bold text-white">{countCart(cart)}</span></span>
-            <span className="min-w-0"><span className="block text-[11px] text-bo-muted">Mở hóa đơn</span><span className="block truncate text-sm font-bold text-bo-foreground">{formatMoney(total)}</span></span>
+            <span className="min-w-0"><span className="block text-[11px] text-bo-muted">{t("Mở hóa đơn")}</span><span className="block truncate text-sm font-bold text-bo-foreground">{formatMoney(total)}</span></span>
           </button>
-          <button className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg bg-bo-primary px-4 text-sm font-semibold text-white transition hover:bg-bo-primary-hover disabled:cursor-not-allowed disabled:bg-slate-300" disabled={canTraLaiTienMat(currentInvoice?.payos) ? isSubmitting : (!cart.length || isSubmitting || overStock || (!online && !frozen))} onClick={openPayment} title={!online && !frozen ? OFFLINE_PAYMENT_MESSAGE : overStock ? OVER_STOCK_MESSAGE : undefined} type="button">{!online && !frozen ? 'Mất mạng' : 'Thanh toán'}</button>
+          <button className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg bg-bo-primary px-4 text-sm font-semibold text-white transition hover:bg-bo-primary-hover disabled:cursor-not-allowed disabled:bg-slate-300" disabled={canTraLaiTienMat(currentInvoice?.payos) ? isSubmitting : (!cart.length || isSubmitting || overStock || (!online && !frozen))} onClick={openPayment} title={!online && !frozen ? OFFLINE_PAYMENT_MESSAGE : overStock ? OVER_STOCK_MESSAGE : undefined} type="button">{!online && !frozen ? t("Mất mạng") : t("Thanh toán")}</button>
         </div>
       </div>
 
       {mobileCartOpen ? <div className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-950/40 p-3 sm:items-center xl:hidden cam-ung:lg:hidden" onMouseDown={(event) => { if (event.target === event.currentTarget) setMobileCartOpen(false); }}>
         <div className="flex h-[min(84dvh,760px)] w-full max-w-xl flex-col">
-          <div className="mb-2 flex justify-end"><button aria-label="Đóng hóa đơn" className="grid size-9 place-items-center rounded-full bg-bo-surface text-bo-foreground shadow-sm" onClick={() => setMobileCartOpen(false)} type="button"><X aria-hidden="true" size={18} /></button></div>
+          <div className="mb-2 flex justify-end"><button aria-label={t("Đóng hóa đơn")} className="grid size-9 place-items-center rounded-full bg-bo-surface text-bo-foreground shadow-sm" onClick={() => setMobileCartOpen(false)} type="button"><X aria-hidden="true" size={18} /></button></div>
           {renderCartPanel()}
         </div>
       </div> : null}

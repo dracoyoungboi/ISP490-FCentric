@@ -8,6 +8,7 @@ import { laDonLazada, laDonShopee } from "@/components/ban-hang/chi-tiet-don-ban
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import { donBanHangService } from "@/services/donBanHangService";
 import { getApiErrorMessage } from "@/utils/apiError";
+import { t } from "@/i18n";
 
 const giongId = (a, b) => a != null && b != null && String(a) === String(b);
 
@@ -49,16 +50,16 @@ export default function HopGuiSangKho({ mo, onDoiMo, don, dangChay = false, loi,
   const khoChon = dsKho.find((k) => giongId(idKho(k), chonId)) ?? null;
   const khoHienTai = dsKho.find((k) => giongId(idKho(k), khoHienTaiId)) ?? null;
   const dangTai = q.loading && !q.data;
-  const loiTai = !q.loading && q.error ? getApiErrorMessage(q.error, "Không tải được tồn khả dụng của các kho") : null;
+  const loiTai = !q.loading && q.error ? getApiErrorMessage(q.error, t("Không tải được tồn khả dụng của các kho")) : null;
 
   return (
     <HopXacNhanChungTu
       mo={mo}
       onDoiMo={onDoiMo}
       rong
-      tieuDe="Gửi sang kho"
-      moTa={`Chọn kho xuất cho đơn ${don?.soDonHang ?? ""}. Đơn chuyển sang Chờ nhặt hàng và hiện ở Đơn chờ xuất của kho đó.`}
-      nhanXacNhan="Gửi sang kho"
+      tieuDe={t("Gửi sang kho")}
+      moTa={t("Chọn kho xuất cho đơn {{so}}. Đơn chuyển sang Chờ nhặt hàng và hiện ở Đơn chờ xuất của kho đó.", { so: don?.soDonHang ?? "" })}
+      nhanXacNhan={t("Gửi sang kho")}
       iconXacNhan={Send}
       dangChay={dangChay}
       // Đang tải lại hoặc vừa tải lỗi: không gửi theo danh sách cũ (đang bị che bởi dòng lỗi)
@@ -69,19 +70,19 @@ export default function HopGuiSangKho({ mo, onDoiMo, don, dangChay = false, loi,
       {dangTai ? (
         <p role="status" className="flex items-center justify-center gap-2 py-8 text-sm text-bo-muted">
           <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-          Đang tải tồn khả dụng của các kho
+          {t("Đang tải tồn khả dụng của các kho")}
         </p>
       ) : loiTai ? (
-        <DongThongBao tone="bad" actions={<NutChu onClick={q.reload}>Thử lại</NutChu>}>
+        <DongThongBao tone="bad" actions={<NutChu onClick={q.reload}>{t("Thử lại")}</NutChu>}>
           {loiTai}
         </DongThongBao>
       ) : dsKho.length === 0 ? (
-        <p className="py-6 text-center text-sm text-bo-muted">Không có kho nào đang hoạt động để gửi đơn.</p>
+        <p className="py-6 text-center text-sm text-bo-muted">{t("Không có kho nào đang hoạt động để gửi đơn.")}</p>
       ) : (
         <>
           {chiChoKhoTong ? (
             <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-800">
-              Đơn hàng sàn Lazada theo yêu cầu nghiệp vụ chỉ được phép xuất từ <b>Kho Tổng</b>.
+              {t("Đơn hàng sàn Lazada theo yêu cầu nghiệp vụ chỉ được phép xuất từ")} <b>{t("Kho Tổng")}</b>.
             </p>
           ) : null}
           <DanhSachChonKho
@@ -97,8 +98,8 @@ export default function HopGuiSangKho({ mo, onDoiMo, don, dangChay = false, loi,
           {!khoChon && !(tuKhoa.trim() && locKho(dsKho, tuKhoa).length === 0) ? (
             <p className="text-[13px] leading-5 text-bo-muted">
               {khoHienTai && !khoHienTai.duHang
-                ? "Kho hiện tại không đủ hàng nên chưa chọn sẵn. Chọn một kho để gửi."
-                : "Chọn một kho để gửi."}
+                ? t("Kho hiện tại không đủ hàng nên chưa chọn sẵn. Chọn một kho để gửi.")
+                : t("Chọn một kho để gửi.")}
             </p>
           ) : khoChon && !khoChon.duHang ? (
             <DongThongBao tone="warn">{cauKhoThieu(khoChon)}</DongThongBao>

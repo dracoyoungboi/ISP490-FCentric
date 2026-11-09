@@ -8,6 +8,7 @@ import { priceLabelOf } from '../pos-group';
 import { GRID_GAP, GRID_SLOT, GRID_SLOT_CAM_UNG, LIST_GAP, LIST_SLOT, gridLayout, listLayout, priceSummary, slotSpan } from '../pos-size-layout';
 import { laCamUng } from '@/lib/camUng';
 import './pos-scan-indicator.css';
+import { t } from "@/i18n";
 
 // Chỉ lưu khi thu ngân tự bấm Lưới/Danh sách. Khóa cũ (fcentric.pos.productView) bị ghi "grid" ngay lần mở
 // đầu dù không ai chọn, nên chỉ coi "list" ở khóa cũ là lựa chọn thật.
@@ -28,9 +29,9 @@ const scanOnButton = 'grid size-10 shrink-0 place-items-center rounded-lg border
 
 /** Bộ lọc tồn kho (giá trị = tham số trangThaiTon gửi lên server). */
 const STOCK_FILTERS = [
-  { value: 'con_hang', label: 'Còn hàng', title: 'Mẫu còn ít nhất một kích cỡ có hàng (kích cỡ đã hết hiện mờ)' },
-  { value: 'het_hang', label: 'Hết hàng', title: 'Mẫu đã hết mọi kích cỡ' },
-  { value: 'tat_ca', label: 'Tất cả', title: 'Mọi mẫu đang bán' },
+  { value: 'con_hang', label: t("Còn hàng"), title: t("Mẫu còn ít nhất một kích cỡ có hàng (kích cỡ đã hết hiện mờ)") },
+  { value: 'het_hang', label: t("Hết hàng"), title: t("Mẫu đã hết mọi kích cỡ") },
+  { value: 'tat_ca', label: t("Tất cả"), title: t("Mọi mẫu đang bán") },
 ];
 
 function readInitialView() {
@@ -139,23 +140,23 @@ function useSearchFocusReady(inputRef, enabled) {
 /** Nội dung khi không có hàng nào khớp: nói rõ vì sao (từ khóa / bộ lọc tồn kho). */
 function emptyMessage({ search, stockFilter }) {
   if (search.trim()) {
-    return { title: 'Không tìm thấy hàng hóa', hint: stockFilter !== 'tat_ca' ? 'Thử đổi từ khóa hoặc xem tất cả hàng hóa.' : 'Thử đổi từ khóa khác.' };
+    return { title: t("Không tìm thấy hàng hóa"), hint: stockFilter !== 'tat_ca' ? t("Thử đổi từ khóa hoặc xem tất cả hàng hóa.") : t("Thử đổi từ khóa khác.") };
   }
   if (stockFilter === 'con_hang') {
-    return { title: 'Không còn hàng khả dụng', hint: 'Kho này không còn mặt hàng nào có tồn.' };
+    return { title: t("Không còn hàng khả dụng"), hint: t("Kho này không còn mặt hàng nào có tồn.") };
   }
   if (stockFilter === 'het_hang') {
-    return { title: 'Không có mẫu nào hết hàng', hint: 'Mọi mẫu tại kho này đều còn ít nhất một kích cỡ.' };
+    return { title: t("Không có mẫu nào hết hàng"), hint: t("Mọi mẫu tại kho này đều còn ít nhất một kích cỡ.") };
   }
-  return { title: 'Chưa có hàng hóa', hint: 'Kho này chưa có mặt hàng nào để bán.' };
+  return { title: t("Chưa có hàng hóa"), hint: t("Kho này chưa có mặt hàng nào để bán.") };
 }
 
 /** Lý do tải danh mục lỗi: câu máy chủ trả (không phụ trách kho, quyền hết hạn...) hoặc lỗi mạng. */
 function loadErrorReason(error) {
   const message = error?.response?.data?.message;
   if (message) return message;
-  if (error && !error.response) return 'Không kết nối được máy chủ. Kiểm tra mạng rồi bấm Thử lại.';
-  return 'Máy chủ chưa trả được danh mục. Bấm Thử lại.';
+  if (error && !error.response) return t("Không kết nối được máy chủ. Kiểm tra mạng rồi bấm Thử lại.");
+  return t("Máy chủ chưa trả được danh mục. Bấm Thử lại.");
 }
 
 /**
@@ -303,7 +304,7 @@ export default function PosProductCatalog({
   const searchTone = !scanMode ? 'border-bo-border pr-3' : scanAway ? 'border-bo-warning/45 pr-24 sm:pr-40' : 'border-bo-primary/50 pr-3';
 
   return (
-    <section aria-label="Danh mục hàng hóa" className="flex min-h-0 min-w-0 flex-col overflow-clip rounded-lg border border-bo-border bg-bo-surface">
+    <section aria-label={t("Danh mục hàng hóa")} className="flex min-h-0 min-w-0 flex-col overflow-clip rounded-lg border border-bo-border bg-bo-surface">
       <div className="shrink-0 border-b border-bo-border px-3 py-3">
         <div className="flex items-center gap-2">
           <div className="relative min-w-0 flex-1">
@@ -316,34 +317,34 @@ export default function PosProductCatalog({
               ) : (
                 <Search aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-bo-muted" size={17} />
               )}
-              <input aria-describedby={scanMode ? 'pos-scan-hint' : undefined} aria-label="Tìm hàng hóa" autoComplete="off" className={`block min-h-10 w-full text-ellipsis rounded-lg border bg-bo-surface py-2 pl-9 text-sm text-bo-foreground outline-none placeholder:text-bo-muted focus:border-bo-primary focus:ring-2 focus:ring-bo-primary/10 ${searchTone}`} onChange={(event) => onSearch(event.target.value)} onKeyDown={onSearchKeyDown} placeholder={scanMode ? 'Quét mã hoặc gõ tên / mã hàng (F3)' : 'Tên hoặc mã hàng (F3)'} ref={searchRef} spellCheck={false} value={search} />
+              <input aria-describedby={scanMode ? 'pos-scan-hint' : undefined} aria-label={t("Tìm hàng hóa")} autoComplete="off" className={`block min-h-10 w-full text-ellipsis rounded-lg border bg-bo-surface py-2 pl-9 text-sm text-bo-foreground outline-none placeholder:text-bo-muted focus:border-bo-primary focus:ring-2 focus:ring-bo-primary/10 ${searchTone}`} onChange={(event) => onSearch(event.target.value)} onKeyDown={onSearchKeyDown} placeholder={scanMode ? t("Quét mã hoặc gõ tên / mã hàng (F3)") : t("Tên hoặc mã hàng (F3)")} ref={searchRef} spellCheck={false} value={search} />
             </label>
             {scanMode ? <span className="sr-only" id="pos-scan-hint">{SCAN_HINT}</span> : null}
             {scanMode && scanTone ? <span aria-hidden="true" className="pos-scan-ring pointer-events-none absolute inset-0 rounded-lg" data-pos-scan-ring={scanTone} data-tone={scanTone} key={`scan-ring-${scanSeq}`} /> : null}
             {scanAway ? (
               // Bấm (chuột/chạm) đưa con trỏ về ô tìm kiếm; chặn mousedown để nút không giành focus rồi biến mất trước khi click.
               <button
-                aria-label="Đang gõ ở ô khác — bấm để về ô tìm kiếm"
+                aria-label={t("Đang gõ ở ô khác — bấm để về ô tìm kiếm")}
                 className="absolute right-1.5 top-1/2 inline-flex -translate-y-1/2 items-center gap-1.5 rounded-md px-1.5 py-1 text-xs font-semibold text-bo-warning transition hover:bg-bo-warning-soft"
                 data-pos-scan-nudge=""
                 onClick={focusSearch}
                 onMouseDown={(event) => { event.preventDefault(); focusSearch(); }}
                 tabIndex={-1}
-                title="Con trỏ đang ở ô khác. Máy quét vẫn nhận mã — bấm để gõ tìm kiếm."
+                title={t("Con trỏ đang ở ô khác. Máy quét vẫn nhận mã — bấm để gõ tìm kiếm.")}
                 type="button"
               >
                 <PenLine aria-hidden="true" size={14} />
-                <span className="hidden sm:inline">Đang gõ ở ô khác</span>
-                <span className="sm:hidden">Ô khác</span>
+                <span className="hidden sm:inline">{t("Đang gõ ở ô khác")}</span>
+                <span className="sm:hidden">{t("Ô khác")}</span>
               </button>
             ) : null}
           </div>
-          <button aria-label="Chế độ quét mã vạch" aria-pressed={scanMode} className={scanMode ? scanOnButton : iconButton} onClick={onToggleScanMode} title={scanMode ? `Đang bật quét mã — bấm để tắt (F8). ${SCAN_HINT}` : 'Bật chế độ quét mã (F8)'} type="button">
+          <button aria-label={t("Chế độ quét mã vạch")} aria-pressed={scanMode} className={scanMode ? scanOnButton : iconButton} onClick={onToggleScanMode} title={scanMode ? t("Đang bật quét mã — bấm để tắt (F8). {{SCAN_HINT}}", { SCAN_HINT }) : t("Bật chế độ quét mã (F8)")} type="button">
             <Barcode aria-hidden="true" size={19} />
           </button>
-          <div aria-label="Chế độ xem sản phẩm" className="flex shrink-0 gap-0.5 rounded-lg border border-bo-border p-0.5" role="group">
-            <button aria-label="Lưới" aria-pressed={view === 'grid'} className={`grid size-[34px] place-items-center rounded-md transition focus-visible:outline-2 focus-visible:outline-bo-primary ${view === 'grid' ? 'bg-bo-primary-soft text-bo-primary' : 'text-bo-muted hover:bg-slate-100'}`} onClick={() => chooseView('grid')} title="Lưới" type="button"><LayoutGrid aria-hidden="true" size={17} /></button>
-            <button aria-label="Danh sách" aria-pressed={view === 'list'} className={`grid size-[34px] place-items-center rounded-md transition focus-visible:outline-2 focus-visible:outline-bo-primary ${view === 'list' ? 'bg-bo-primary-soft text-bo-primary' : 'text-bo-muted hover:bg-slate-100'}`} onClick={() => chooseView('list')} title="Danh sách" type="button"><List aria-hidden="true" size={17} /></button>
+          <div aria-label={t("Chế độ xem sản phẩm")} className="flex shrink-0 gap-0.5 rounded-lg border border-bo-border p-0.5" role="group">
+            <button aria-label={t("Lưới")} aria-pressed={view === 'grid'} className={`grid size-[34px] place-items-center rounded-md transition focus-visible:outline-2 focus-visible:outline-bo-primary ${view === 'grid' ? 'bg-bo-primary-soft text-bo-primary' : 'text-bo-muted hover:bg-slate-100'}`} onClick={() => chooseView('grid')} title={t("Lưới")} type="button"><LayoutGrid aria-hidden="true" size={17} /></button>
+            <button aria-label={t("Danh sách")} aria-pressed={view === 'list'} className={`grid size-[34px] place-items-center rounded-md transition focus-visible:outline-2 focus-visible:outline-bo-primary ${view === 'list' ? 'bg-bo-primary-soft text-bo-primary' : 'text-bo-muted hover:bg-slate-100'}`} onClick={() => chooseView('list')} title={t("Danh sách")} type="button"><List aria-hidden="true" size={17} /></button>
           </div>
         </div>
         {/* Dòng kết quả quét: chỉ hiện khi đã có kết quả hoặc đang tra mã (chốt A4 — lúc chưa quét không chiếm
@@ -367,17 +368,17 @@ export default function PosProductCatalog({
             {hasScanRow ? (
               <span className="flex shrink-0 items-center gap-3">
                 {lastScan?.ambiguous && onShowScanMatches ? (
-                  <button className="font-semibold underline-offset-2 hover:underline" onClick={() => onShowScanMatches(lastScan.code)} type="button">Xem trong danh mục</button>
+                  <button className="font-semibold underline-offset-2 hover:underline" onClick={() => onShowScanMatches(lastScan.code)} type="button">{t("Xem trong danh mục")}</button>
                 ) : null}
                 {scanPending > 0 ? (
-                  <span className="inline-flex items-center gap-1.5 text-bo-muted"><Loader2 aria-hidden="true" className="animate-spin" size={13} />Đang tra {scanPending} mã</span>
+                  <span className="inline-flex items-center gap-1.5 text-bo-muted"><Loader2 aria-hidden="true" className="animate-spin" size={13} />{t("Đang tra {{scanPending}} mã", { scanPending })}</span>
                 ) : null}
               </span>
             ) : null}
           </div>
         ) : null}
         <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
-          <div aria-label="Lọc theo tồn kho" className="flex shrink-0 gap-0.5 rounded-lg border border-bo-border p-0.5" role="group">
+          <div aria-label={t("Lọc theo tồn kho")} className="flex shrink-0 gap-0.5 rounded-lg border border-bo-border p-0.5" role="group">
             {STOCK_FILTERS.map((option) => (
               <button
                 aria-pressed={stockFilter === option.value}
@@ -391,33 +392,33 @@ export default function PosProductCatalog({
               </button>
             ))}
           </div>
-          {showCount ? <span className="ml-auto hidden shrink-0 text-xs text-bo-muted sm:inline">{formatCount(totalElements)} mẫu (theo màu)</span> : null}
+          {showCount ? <span className="ml-auto hidden shrink-0 text-xs text-bo-muted sm:inline">{formatCount(totalElements)} {t("mẫu (theo màu)")}</span> : null}
         </div>
       </div>
 
       {/* scrollbar-gutter: stable — chừa sẵn chỗ thanh cuộn để số cột/khe không đổi khi thanh cuộn hiện/ẩn. */}
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 [scrollbar-gutter:stable]" data-pos-catalog-scroll="" ref={scrollRef}>
         {loading && !groups.length ? (
-          <LoadingState className="min-h-64" label="Đang tải hàng hóa" />
+          <LoadingState className="min-h-64" label={t("Đang tải hàng hóa")} />
         ) : error && !groups.length ? (
           <div className="flex min-h-64 flex-col items-center justify-center px-5 text-center" role="alert">
             <AlertCircle aria-hidden="true" className="text-bo-danger" size={22} />
-            <p className="mt-3 text-sm font-semibold text-bo-foreground">Không tải được danh mục hàng hóa</p>
+            <p className="mt-3 text-sm font-semibold text-bo-foreground">{t("Không tải được danh mục hàng hóa")}</p>
             <p className="mt-1 max-w-md text-xs leading-5 text-bo-muted">{loadErrorReason(error)}</p>
-            <button className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-bo-primary hover:underline" onClick={onRetry} type="button"><RotateCcw aria-hidden="true" size={13} />Thử lại</button>
+            <button className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-bo-primary hover:underline" onClick={onRetry} type="button"><RotateCcw aria-hidden="true" size={13} />{t("Thử lại")}</button>
           </div>
         ) : groups.length ? (
           <>
             {error ? (
               <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900" role="status">
-                <span>Không tải được trang mới — đang hiện trang đã tải. {loadErrorReason(error)}</span>
-                <button className="shrink-0 font-semibold hover:underline" onClick={onRetry} type="button">Thử lại</button>
+                <span>{t("Không tải được trang mới — đang hiện trang đã tải. {{error}}", { error: loadErrorReason(error) })}</span>
+                <button className="shrink-0 font-semibold hover:underline" onClick={onRetry} type="button">{t("Thử lại")}</button>
               </div>
             ) : null}
             {/* Đang tải kết quả mới (đổi bộ lọc/từ khóa/trang): làm mờ danh sách cũ để không bị hiểu nhầm là kết quả mới. */}
             <div
               aria-busy={loading}
-              aria-label={view === 'grid' ? 'Lưới sản phẩm' : 'Danh sách sản phẩm'}
+              aria-label={view === 'grid' ? t("Lưới sản phẩm") : t("Danh sách sản phẩm")}
               className={`${view === 'grid' ? 'grid w-full gap-3' : 'flex flex-col divide-y divide-bo-border'} transition-opacity ${loading ? 'opacity-60' : ''}`}
               style={view === 'grid' ? { gridTemplateColumns: `repeat(${layout.grid.cols}, minmax(0, 1fr))` } : undefined}
             >
@@ -430,7 +431,7 @@ export default function PosProductCatalog({
             <p className="mt-3 text-sm font-semibold text-bo-foreground">{empty.title}</p>
             <p className="mt-1 text-xs leading-5 text-bo-muted">{empty.hint}</p>
             {stockFilter !== 'tat_ca' && onStockFilterChange ? (
-              <button className="mt-3 text-xs font-semibold text-bo-primary hover:underline" onClick={() => onStockFilterChange('tat_ca')} type="button">Xem tất cả hàng hóa</button>
+              <button className="mt-3 text-xs font-semibold text-bo-primary hover:underline" onClick={() => onStockFilterChange('tat_ca')} type="button">{t("Xem tất cả hàng hóa")}</button>
             ) : null}
           </div>
         )}
@@ -439,9 +440,9 @@ export default function PosProductCatalog({
         <footer className="flex shrink-0 items-center justify-between gap-2 border-t border-bo-border px-3 py-2 text-xs text-bo-muted">
           <span className="tabular-nums">{formatCount(start)}–{formatCount(end)} / {formatCount(totalElements)}</span>
           <div className="flex items-center gap-2">
-            <button aria-label="Trang sản phẩm trước" className={`${iconButton} disabled:opacity-40`} disabled={loading || page === 0} onClick={() => onPageChange(page - 1)} type="button"><ChevronLeft aria-hidden="true" size={16} /></button>
+            <button aria-label={t("Trang sản phẩm trước")} className={`${iconButton} disabled:opacity-40`} disabled={loading || page === 0} onClick={() => onPageChange(page - 1)} type="button"><ChevronLeft aria-hidden="true" size={16} /></button>
             <span className="tabular-nums">{formatCount(page + 1)} / {formatCount(pageCount)}</span>
-            <button aria-label="Trang sản phẩm sau" className={`${iconButton} disabled:opacity-40`} disabled={loading || page + 1 >= pageCount} onClick={() => onPageChange(page + 1)} type="button"><ChevronRight aria-hidden="true" size={16} /></button>
+            <button aria-label={t("Trang sản phẩm sau")} className={`${iconButton} disabled:opacity-40`} disabled={loading || page + 1 >= pageCount} onClick={() => onPageChange(page + 1)} type="button"><ChevronRight aria-hidden="true" size={16} /></button>
           </div>
         </footer>
       ) : null}

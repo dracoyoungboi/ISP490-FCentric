@@ -1,3 +1,4 @@
+import { t } from "../../i18n/t.js";
 /**
  * Trả kết hợp tại quầy (hàm thuần, cùng quy tắc với máy chủ PosPayosTransaction.tienMatTruocQr): khách đưa trước một
  * phần bằng tiền mặt, mã QR payOS chỉ mang phần còn lại. Không nhập tiền mặt (trống / 0) = mã QR trọn hóa đơn như cũ.
@@ -20,15 +21,15 @@ export function kiemTienMatTruocQr(total, value) {
   const khongCo = { tienMat: 0, soTienQr: tong, loi: null };
   if (value === "" || value == null) return khongCo;
   const n = Number(value);
-  if (!Number.isFinite(n)) return { ...khongCo, loi: "Nhập số tiền mặt khách đưa trước bằng chữ số." };
+  if (!Number.isFinite(n)) return { ...khongCo, loi: t("Nhập số tiền mặt khách đưa trước bằng chữ số.") };
   if (n === 0) return khongCo;
-  if (n < 0) return { ...khongCo, loi: "Tiền mặt khách đưa trước không được âm." };
-  if (!Number.isInteger(n)) return { ...khongCo, loi: "Tiền mặt khách đưa trước phải là số đồng chẵn (không có số lẻ)." };
+  if (n < 0) return { ...khongCo, loi: t("Tiền mặt khách đưa trước không được âm.") };
+  if (!Number.isInteger(n)) return { ...khongCo, loi: t("Tiền mặt khách đưa trước phải là số đồng chẵn (không có số lẻ).") };
   const kq = { tienMat: n, soTienQr: tong - n, loi: null };
   if (n >= tong) {
-    return { ...kq, soTienQr: 0, loi: "Khách đưa đủ tiền mặt cho cả hóa đơn — chọn Tiền mặt thay vì tạo mã QR." };
+    return { ...kq, soTienQr: 0, loi: t("Khách đưa đủ tiền mặt cho cả hóa đơn — chọn Tiền mặt thay vì tạo mã QR.") };
   }
-  if (tong - n < MIN_QR) return { ...kq, loi: `Phần quét mã QR phải từ ${tien(MIN_QR)} trở lên — giảm số tiền mặt hoặc thu cả hóa đơn bằng tiền mặt.` };
+  if (tong - n < MIN_QR) return { ...kq, loi: t("Phần quét mã QR phải từ {{MIN_QR}} trở lên — giảm số tiền mặt hoặc thu cả hóa đơn bằng tiền mặt.", { MIN_QR: tien(MIN_QR) }) };
   return kq;
 }
 

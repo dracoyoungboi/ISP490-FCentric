@@ -9,6 +9,7 @@
 import { TRANG_THAI_DON, TRANG_THAI_PHIEU_XUAT } from "../../../constants/trangThaiXuatBan.js";
 import { docSo, nhanMauKichCo, soVN } from "../../chung-tu/bangChungTu.js";
 import { laDaXuat } from "../../outbound/phieu-xuat/phieuXuat.js";
+import { t } from "../../../i18n/t.js";
 
 const TT = TRANG_THAI_DON;
 
@@ -20,20 +21,20 @@ export const PHIEU_NHAT_KHOA_DON = Object.freeze(["cho_nhat", "dang_nhat", "da_n
  * quầy; TIEN_MAT / CHUYEN_KHOAN: phiếu thu / hoàn ghi tay của đơn bán thường (chuyển khoản kèm mã giao dịch trên sao kê).
  */
 export const PHUONG_THUC_TAI_QUAY = Object.freeze({
-  CASH: "Tiền mặt",
-  TIEN_MAT: "Tiền mặt",
-  PAYOS: "Chuyển khoản qua PayOS",
-  CHUYEN_KHOAN: "Chuyển khoản",
+  CASH: t("Tiền mặt"),
+  TIEN_MAT: t("Tiền mặt"),
+  PAYOS: t("Chuyển khoản qua PayOS"),
+  CHUYEN_KHOAN: t("Chuyển khoản"),
 });
 
 /** Mã lý do Shopify hủy đơn (cancel_reason) → tiếng Việt. */
 export const LY_DO_SAN_HUY = Object.freeze({
-  customer: "khách hủy",
-  fraud: "nghi gian lận",
-  inventory: "hết hàng",
-  declined: "thanh toán bị từ chối",
-  staff: "nhân viên Shopify hủy",
-  other: "lý do khác",
+  customer: t("khách hủy"),
+  fraud: t("nghi gian lận"),
+  inventory: t("hết hàng"),
+  declined: t("thanh toán bị từ chối"),
+  staff: t("nhân viên Shopify hủy"),
+  other: t("lý do khác"),
 });
 
 // Đơn sàn bị sàn hủy: OmnichannelOrderSyncJob ghi lyDoTuChoi = "Hủy từ sàn Shopify: <cancel_reason>"
@@ -77,7 +78,7 @@ export const laDonLazada = (don) => {
 export const laDonShopee = (don) => ["SHOPEE", "SHOPEE_SANDBOX"].includes(maKenhCua(don));
 
 /** Tên sàn để ghép câu ("Shopify"); thiếu thì "sàn". */
-export const tenKenhCua = (don) => String(don?.kenhBanHang?.tenKenh ?? "").trim() || "sàn";
+export const tenKenhCua = (don) => String(don?.kenhBanHang?.tenKenh ?? "").trim() || t("sàn");
 
 /** Ghi chú tự sinh khi đồng bộ đơn sàn ("Đơn hàng đồng bộ tự động từ Shopify #…") — trùng mã đơn nên ẩn. */
 export const laGhiChuTuSinh = (ghiChu) => MAU_GHI_CHU_TU_SINH.test(String(ghiChu ?? "").trim());
@@ -206,10 +207,10 @@ export function tienDonBan(don, dong, { laSan = false } = {}) {
 }
 
 /** Câu chú thích dưới Tổng cộng khi tiền hàng + phí ≠ tổng cộng. */
-export function cauLechTong({ laSan, tenKenh = "sàn" }) {
+export function cauLechTong({ laSan, tenKenh = t("sàn") }) {
   return laSan
-    ? `Tổng cộng theo ${tenKenh} (gồm thuế, phí nếu có).`
-    : "Phí vận chuyển của đơn cũ này từng bị thay bằng cước thực tế lúc xuất kho; tổng cộng là số đã chốt với khách.";
+    ? t("Tổng cộng theo {{tenKenh}} (gồm thuế, phí nếu có).", { tenKenh })
+    : t("Phí vận chuyển của đơn cũ này từng bị thay bằng cước thực tế lúc xuất kho; tổng cộng là số đã chốt với khách.");
 }
 
 /**
@@ -220,19 +221,19 @@ export function cauLechTong({ laSan, tenKenh = "sàn" }) {
 export function lyDoKhoaHuy(ct) {
   const tt = Number(ct?.donBanHang?.trangThai);
   if ([TT.DA_XUAT_KHO, TT.HOAN_THANH, TT.BI_HOAN_TRA].includes(tt)) {
-    return "Đơn đã xuất kho, hoàn thành hoặc đã hoàn trả, không thể hủy";
+    return t("Đơn đã xuất kho, hoàn thành hoặc đã hoàn trả, không thể hủy");
   }
   // Backend chỉ kiểm phiếu xuất ở mã 3 (existsByDonBanHangIdAndTrangThai(id, DA_XUAT))
   if (dsPhieuXuat(ct).some((p) => Number(p.trangThai) === TRANG_THAI_PHIEU_XUAT.DA_XUAT)) {
-    return "Đơn đã có phiếu xuất hoàn thành, không thể hủy";
+    return t("Đơn đã có phiếu xuất hoàn thành, không thể hủy");
   }
   const pl = String(ct?.maPickList ?? "").trim();
   const coPhieuNhat = ct?.phieuNhatHangId != null || Boolean(pl);
   if (coPhieuNhat && (ct?.trangThaiPhieuNhat == null || PHIEU_NHAT_KHOA_DON.includes(ct.trangThaiPhieuNhat))) {
-    return `Đơn đang nằm trong phiếu nhặt hàng${pl ? ` ${pl}` : ""} nên không thể hủy.`;
+    return t("Đơn đang nằm trong phiếu nhặt hàng{{maPhieu}} nên không thể hủy.", { maPhieu: pl ? ` ${pl}` : "" });
   }
   if (tt === TT.CHO_DONG_GOI || tt === TT.DA_DONG_GOI) {
-    return `Đơn đang ở khâu ${tt === TT.CHO_DONG_GOI ? "chờ đóng gói" : "chờ xuất kho"} nên không thể hủy. Vui lòng liên hệ kho.`;
+    return t("Đơn đang ở khâu {{khau}} nên không thể hủy. Vui lòng liên hệ kho.", { khau: tt === TT.CHO_DONG_GOI ? t("chờ đóng gói") : t("chờ xuất kho") });
   }
   return "";
 }
@@ -265,7 +266,7 @@ export function thaoTacDonBan(ct, { laBan = false, laKho = false } = {}) {
   };
 }
 
-const NHAN_BUOC = ["Tạo đơn", "Gửi kho", "Nhặt hàng", "Đóng gói", "Xuất kho", "Giao hàng"];
+const NHAN_BUOC = [t("Tạo đơn"), t("Gửi kho"), t("Nhặt hàng"), t("Đóng gói"), t("Xuất kho"), t("Giao hàng")];
 // Bước đang làm theo trạng thái đơn (chỉ số trong NHAN_BUOC); Hoàn thành = mọi bước xong
 const BUOC_DANG = { [TT.NHAP]: 1, [TT.CHO_NHAT_HANG]: 2, [TT.CHO_DONG_GOI]: 3, [TT.DA_DONG_GOI]: 4, [TT.DA_XUAT_MOT_PHAN]: 4, [TT.DA_XUAT_KHO]: 5, [TT.HOAN_THANH]: 6 };
 const BUOC_DONG_GOI = 3;
@@ -302,14 +303,14 @@ export function buocDonBan(ct) {
     if (tt === TT.DA_HUY) {
       b.trangThai = i < dung ? "xong" : i === dung ? "dung" : "chua";
       if (i === dung) {
-        b.nhan = "Đã hủy";
-        b.phu = `${tenKenh} hủy đơn`;
+        b.nhan = t("Đã hủy");
+        b.phu = t("{{tenKenh}} hủy đơn", { tenKenh });
       }
     } else if (tt === TT.BI_HOAN_TRA) {
       b.trangThai = i < BUOC_GIAO ? "xong" : "dung";
       if (i === BUOC_GIAO) {
-        b.nhan = "Bị hoàn trả";
-        b.phu = "Khách trả lại";
+        b.nhan = t("Bị hoàn trả");
+        b.phu = t("Khách trả lại");
       }
     } else {
       const d = BUOC_DANG[tt];
@@ -319,12 +320,12 @@ export function buocDonBan(ct) {
       b.ngay = don.ngayTao ?? don.ngayDatHang ?? null;
       b.coGio = true;
     }
-    if (i === BUOC_XUAT && tt === TT.DA_XUAT_MOT_PHAN) b.phu = "Còn phần chưa xuất";
+    if (i === BUOC_XUAT && tt === TT.DA_XUAT_MOT_PHAN) b.phu = t("Còn phần chưa xuất");
     else if (i === BUOC_XUAT && b.trangThai === "xong" && pxXuat?.ngayXuat) {
       b.ngay = pxXuat.ngayXuat;
       b.coGio = true;
     }
-    if (i === BUOC_GIAO && tt === TT.HOAN_THANH) b.phu = "Khách đã nhận";
+    if (i === BUOC_GIAO && tt === TT.HOAN_THANH) b.phu = t("Khách đã nhận");
     return b;
   });
 }
@@ -339,29 +340,29 @@ export function thongBaoDonBan(ct, { laBan = false, laKho = false } = {}) {
   const tt = Number(don.trangThai);
   const ds = [];
   const them = (ma, tone, chu, lienKet) => ds.push({ ma, tone, chu, lienKet: lienKet ?? null });
-  const tenKho = don.khoXuat?.tenKho || "kho xuất";
+  const tenKho = don.khoXuat?.tenKho || t("kho xuất");
   const laSan = laDonSan(don);
   const tenKenh = tenKenhCua(don);
   const pl = String(ct.maPickList ?? "").trim();
   const daNhat = ct.trangThaiPhieuNhat === "da_nhat";
 
   if (laDonTaiQuay(ct)) {
-    them("taiQuay", "neutral", `Đã thu tiền và trừ tồn ở ${tenKho} ngay lúc bán.`);
+    them("taiQuay", "neutral", t("Đã thu tiền và trừ tồn ở {{tenKho}} ngay lúc bán.", { tenKho }));
   } else if (tt === TT.NHAP) {
-    if (!laBan) them("nhap", "neutral", "Đơn nháp, bán hàng chưa gửi sang kho.");
-    else if (laSan) them("nhap", "info", `Đơn ${tenKenh} tự về ${tenKho}. Chọn kho gần khách rồi gửi sang kho.`);
-    else them("nhap", "info", `Đơn nháp đã trừ vào tồn có thể bán của ${tenKho}, chưa giữ lô. Gửi sang kho để kho bắt đầu nhặt hàng.`);
+    if (!laBan) them("nhap", "neutral", t("Đơn nháp, bán hàng chưa gửi sang kho."));
+    else if (laSan) them("nhap", "info", t("Đơn {{tenKenh}} tự về {{tenKho}}. Chọn kho gần khách rồi gửi sang kho.", { tenKenh, tenKho }));
+    else them("nhap", "info", t("Đơn nháp đã trừ vào tồn có thể bán của {{tenKho}}, chưa giữ lô. Gửi sang kho để kho bắt đầu nhặt hàng.", { tenKho }));
   } else if (tt === TT.CHO_NHAT_HANG && !pl) {
-    them("choGom", "neutral", `Đơn đang ở Đơn chờ xuất của ${tenKho}, chờ kho gom vào phiếu nhặt hàng.`, laKho ? "donChoXuat" : null);
+    them("choGom", "neutral", t("Đơn đang ở Đơn chờ xuất của {{tenKho}}, chờ kho gom vào phiếu nhặt hàng.", { tenKho }), laKho ? "donChoXuat" : null);
   } else if (tt === TT.CHO_NHAT_HANG && daNhat) {
     const px = dsPhieuXuat(ct).find((p) => Number(p.trangThai) === TRANG_THAI_PHIEU_XUAT.DA_HUY);
-    const soPx = px?.soPhieuXuat ? `Phiếu xuất ${px.soPhieuXuat}` : "Phiếu xuất";
+    const soPx = px?.soPhieuXuat ? t("Phiếu xuất {{soPhieuXuat}}", { soPhieuXuat: px.soPhieuXuat }) : t("Phiếu xuất");
     them(
       "pxHuy",
       "warn",
       laKho
-        ? `${soPx} đã bị hủy sau khi nhặt xong. Tạo lại phiếu xuất để dùng lại lô đã nhặt rồi đóng gói lại.`
-        : `${soPx} đã bị hủy sau khi nhặt xong. Kho cần tạo lại phiếu xuất để giao tiếp đơn.`,
+        ? t("{{soPx}} đã bị hủy sau khi nhặt xong. Tạo lại phiếu xuất để dùng lại lô đã nhặt rồi đóng gói lại.", { soPx })
+        : t("{{soPx}} đã bị hủy sau khi nhặt xong. Kho cần tạo lại phiếu xuất để giao tiếp đơn.", { soPx }),
     );
   } else if (tt === TT.DA_XUAT_MOT_PHAN) {
     if (daNhat) {
@@ -369,34 +370,34 @@ export function thongBaoDonBan(ct, { laBan = false, laKho = false } = {}) {
         "conLai",
         "warn",
         laKho
-          ? "Đơn còn phần chưa xuất. Tạo lại phiếu xuất để xuất nốt bằng lô đã nhặt."
-          : "Đơn còn phần chưa xuất. Kho cần tạo lại phiếu xuất cho phần còn lại.",
+          ? t("Đơn còn phần chưa xuất. Tạo lại phiếu xuất để xuất nốt bằng lô đã nhặt.")
+          : t("Đơn còn phần chưa xuất. Kho cần tạo lại phiếu xuất cho phần còn lại."),
       );
     } else {
-      them("conLai", "neutral", `Đơn còn phần chưa xuất, đang ở Đơn chờ xuất của ${tenKho}.`);
+      them("conLai", "neutral", t("Đơn còn phần chưa xuất, đang ở Đơn chờ xuất của {{tenKho}}.", { tenKho }));
     }
   } else if (tt === TT.DA_HUY) {
     const sanHuy = lyDoSanHuy(don.lyDoTuChoi);
     if (sanHuy) {
       const pxThuHoi = dsPhieuXuat(ct).find((p) => Number(p.trangThai) === TRANG_THAI_PHIEU_XUAT.DA_HUY);
-      const thuHoi = pxThuHoi?.soPhieuXuat ? ` Phiếu xuất ${pxThuHoi.soPhieuXuat} đã được thu hồi.` : "";
-      them("sanHuy", "neutral", `${sanHuy.tenSan} đã hủy đơn, lý do: ${sanHuy.chu}.${thuHoi}`);
+      const thuHoi = pxThuHoi?.soPhieuXuat ? t(" Phiếu xuất {{soPhieuXuat}} đã được thu hồi.", { soPhieuXuat: pxThuHoi.soPhieuXuat }) : "";
+      them("sanHuy", "neutral", t("{{tenSan}} đã hủy đơn, lý do: {{chu}}.{{thuHoi}}", { tenSan: sanHuy.tenSan, chu: sanHuy.chu, thuHoi }));
       // Phiếu nhặt chỉ còn đơn bị hủy thì máy chủ chuyển phiếu sang da_huy nhưng vẫn sinh lệnh cất hàng về kệ
       if (laKho && pl && ["dang_nhat", "da_nhat", "da_huy"].includes(ct.trangThaiPhieuNhat)) {
-        them("hoanKe", "warn", `Hàng đã lấy cho đơn này cần cất về khu hoàn kệ theo phiếu nhặt ${pl}.`);
+        them("hoanKe", "warn", t("Hàng đã lấy cho đơn này cần cất về khu hoàn kệ theo phiếu nhặt {{pl}}.", { pl }));
       }
     } else {
-      them("daHuy", "neutral", "Đơn đã hủy. Số hàng của đơn đã trả về tồn có thể bán.");
+      them("daHuy", "neutral", t("Đơn đã hủy. Số hàng của đơn đã trả về tồn có thể bán."));
     }
   } else if (tt === TT.BI_HOAN_TRA) {
-    them("hoanTra", "warn", "Khách đã trả lại hàng. Hàng chưa vào lại tồn kho.");
+    them("hoanTra", "warn", t("Khách đã trả lại hàng. Hàng chưa vào lại tồn kho."));
   }
   return ds;
 }
 
 /** Câu thông báo khi tiền hàng của đơn sàn khác tổng các dòng. */
-export function cauLechDong({ tenKenh = "sàn", chenh }) {
-  return `Tiền hàng lấy theo ${tenKenh}, khác tổng các dòng ${soVN(chenh)} ₫ (giảm giá trên ${tenKenh} hoặc dòng chưa liên kết SKU).`;
+export function cauLechDong({ tenKenh = t("sàn"), chenh }) {
+  return t("Tiền hàng lấy theo {{tenKenh}}, khác tổng các dòng {{chenh}} ₫ (giảm giá trên {{tenKenh}} hoặc dòng chưa liên kết SKU).", { tenKenh, chenh: soVN(chenh) });
 }
 
 /**
@@ -407,17 +408,17 @@ export function cauLechDong({ tenKenh = "sàn", chenh }) {
  */
 export function hauQuaHuy(ct, { baoGia = null } = {}) {
   const don = ct?.donBanHang;
-  const tenKho = don?.khoXuat?.tenKho || "kho xuất";
-  const ds = [`Trả số hàng của đơn về tồn có thể bán của ${tenKho}.`];
+  const tenKho = don?.khoXuat?.tenKho || t("kho xuất");
+  const ds = [t("Trả số hàng của đơn về tồn có thể bán của {{tenKho}}.", { tenKho })];
   if (baoGia?.ma) {
     ds.push(baoGia.chacChan
-      ? `Báo giá ${baoGia.ma} đang Đã chốt đơn sẽ trở lại Chờ phản hồi.`
-      : `Báo giá ${baoGia.ma} (nếu đang Đã chốt đơn) sẽ trở lại Chờ phản hồi.`);
+      ? t("Báo giá {{ma}} đang Đã chốt đơn sẽ trở lại Chờ phản hồi.", { ma: baoGia.ma })
+      : t("Báo giá {{ma}} (nếu đang Đã chốt đơn) sẽ trở lại Chờ phản hồi.", { ma: baoGia.ma }));
   }
   if (laDonSan(don)) {
     const tenKenh = tenKenhCua(don);
-    ds.push(`Gửi yêu cầu hủy sang ${tenKenh} sau khi lưu. Nếu ${tenKenh} báo lỗi, đơn vẫn hủy ở FCentric.`);
-    if (don?.trangThaiThanhToan === "da_thanh_toan") ds.push(`Không tự hoàn tiền cho khách: hoàn tiền trên ${tenKenh}.`);
+    ds.push(t("Gửi yêu cầu hủy sang {{tenKenh}} sau khi lưu. Nếu {{tenKenh}} báo lỗi, đơn vẫn hủy ở FCentric.", { tenKenh }));
+    if (don?.trangThaiThanhToan === "da_thanh_toan") ds.push(t("Không tự hoàn tiền cho khách: hoàn tiền trên {{tenKenh}}.", { tenKenh }));
   }
   return ds;
 }
@@ -441,7 +442,7 @@ export function thanhToanDonBan(ct) {
     const tong = Number(ttq.soTienThu) || 0;
     return {
       maTrangThai: "da_thanh_toan",
-      phuongThuc: tienMat > 0 ? "Tiền mặt + QR payOS" : PHUONG_THUC_TAI_QUAY[ma] ?? (ttq.phuongThuc || "—"),
+      phuongThuc: tienMat > 0 ? t("Tiền mặt + QR payOS") : PHUONG_THUC_TAI_QUAY[ma] ?? (ttq.phuongThuc || "—"),
       ngayThu: ttq.ngayThu ?? null,
       laTienMat: ma === "CASH",
       ketHop: tienMat > 0 ? { tienMat, qr: Math.max(tong - tienMat, 0) } : null,
@@ -451,7 +452,7 @@ export function thanhToanDonBan(ct) {
   if (laDonSan(don)) {
     return {
       maTrangThai: don?.trangThaiThanhToan === "da_thanh_toan" ? "da_thanh_toan" : "chua_thanh_toan",
-      chu: `Theo ${tenKenhCua(don)} lúc đồng bộ đơn.`,
+      chu: t("Theo {{tenKenh}} lúc đồng bộ đơn.", { tenKenh: tenKenhCua(don) }),
     };
   }
   if (tt?.donThuong) {
@@ -460,9 +461,9 @@ export function thanhToanDonBan(ct) {
       maTrangThai: tt.trangThai || null,
       laDonThuong: true,
       thuThua: Number(tt.thuThua) > 0 ? Number(tt.thuThua) : 0,
-      chu: !tt.trangThai ? "Đơn tạo trước khi có ghi nhận thanh toán: chưa theo dõi."
-        : coThu ? "Theo phiếu thu bên dưới." : "Chưa ghi nhận khoản thu nào.",
+      chu: !tt.trangThai ? t("Đơn tạo trước khi có ghi nhận thanh toán: chưa theo dõi.")
+        : coThu ? t("Theo phiếu thu bên dưới.") : t("Chưa ghi nhận khoản thu nào."),
     };
   }
-  return { maTrangThai: null, chu: "Hệ thống chưa theo dõi thanh toán của đơn bán thường." };
+  return { maTrangThai: null, chu: t("Hệ thống chưa theo dõi thanh toán của đơn bán thường.") };
 }

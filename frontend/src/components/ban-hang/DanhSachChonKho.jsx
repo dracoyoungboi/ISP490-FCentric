@@ -4,6 +4,7 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import { soVN } from "@/components/chung-tu/bangChungTu";
 import { cn } from "@/lib/utils";
 import { idKho, matHangThieu, nhanKho } from "./chonKho";
+import { t } from "@/i18n";
 
 const giongId = (a, b) => a != null && b != null && String(a) === String(b);
 
@@ -26,7 +27,7 @@ export default function DanhSachChonKho({
   onChon,
   khoHienTaiId = null,
   khoaKhoThieu = false,
-  nhan = "Kho xuất",
+  nhan = t("Kho xuất"),
   khoa = false,
 }) {
   // Kho thiếu đang mở danh sách mặt hàng thiếu (chỉ khi khoaKhoThieu)
@@ -58,8 +59,8 @@ export default function DanhSachChonKho({
           value={tuKhoa}
           onChange={(suKien) => onDoiTuKhoa?.(suKien.target.value)}
           onClear={() => onDoiTuKhoa?.("")}
-          placeholder="Tìm theo tên, mã hoặc địa chỉ kho"
-          label="Tìm kho"
+          placeholder={t("Tìm theo tên, mã hoặc địa chỉ kho")}
+          label={t("Tìm kho")}
           className="sm:max-w-none"
         />
       ) : null}
@@ -116,7 +117,7 @@ export default function DanhSachChonKho({
                 {kho.maKho ? <span className="ml-1.5 font-mono text-[11px] font-medium text-bo-muted">{kho.maKho}</span> : null}
                 {giongId(id, khoHienTaiId) ? (
                   <span className="ml-1.5 inline-flex h-5 items-center rounded bg-bo-primary-soft px-1.5 align-[1px] text-[11px] font-semibold text-bo-primary">
-                    Kho hiện tại của đơn
+                    {t("Kho hiện tại của đơn")}
                   </span>
                 ) : null}
               </span>
@@ -125,7 +126,7 @@ export default function DanhSachChonKho({
               </span>
               <span className="col-start-2 text-[13px] leading-5 text-bo-muted">
                 {kho.diaChi || "—"}
-                {tat ? " · bấm để xem mặt hàng thiếu" : null}
+                {tat ? t(" · bấm để xem mặt hàng thiếu") : null}
               </span>
               {ct ? (
                 <span id={idCt} className="col-span-full mt-2 grid gap-1 rounded-md bg-bo-surface-subtle px-3 py-2 sm:col-start-2">
@@ -136,7 +137,7 @@ export default function DanhSachChonKho({
                     </span>
                   ))}
                   {ct.conLai > 0 ? (
-                    <span className="text-[13px] leading-5 text-bo-muted">Còn {soVN(ct.conLai)} mặt hàng thiếu khác</span>
+                    <span className="text-[13px] leading-5 text-bo-muted">{t("Còn {{so}} mặt hàng thiếu khác", { count: ct.conLai, so: soVN(ct.conLai) })}</span>
                   ) : null}
                 </span>
               ) : null}
@@ -144,7 +145,7 @@ export default function DanhSachChonKho({
           );
         })}
         {mang.length === 0 && tuKhoa.trim() ? (
-          <p className="py-6 text-center text-sm text-bo-muted">Không có kho nào khớp “{tuKhoa.trim()}”.</p>
+          <p className="py-6 text-center text-sm text-bo-muted">{t("Không có kho nào khớp “{{tuKhoa}}”.", { tuKhoa: tuKhoa.trim() })}</p>
         ) : null}
       </div>
     </div>

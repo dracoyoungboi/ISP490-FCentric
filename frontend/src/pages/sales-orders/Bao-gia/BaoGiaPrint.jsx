@@ -1,3 +1,4 @@
+/* i18n-giu-nguyen-ca-tep: nội dung chứng từ in */
 import PrintRoutePage from "@/components/print/PrintRoutePage";
 import { toSalesQuotationPrintModel } from "@/components/print/adapters/donBanHangPrintAdapter";
 import { donBanHangService } from '@/services/donBanHangService';

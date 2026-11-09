@@ -2,9 +2,10 @@ import { useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import VungTaiTrang from '@/components/shared/VungTaiTrang';
 import '@/styles/print.css';
+import { t } from "@/i18n";
 
-const POS_DOCUMENT_TITLE = 'Bán hàng tại quầy · FCentric';
-const DEFAULT_DOCUMENT_TITLE = 'FCentric · Quản lý kho & bán lẻ thời trang đa kênh';
+const POS_DOCUMENT_TITLE = t("Bán hàng tại quầy · FCentric");
+const DEFAULT_DOCUMENT_TITLE = t("FCentric · Quản lý kho & bán lẻ thời trang đa kênh");
 
 /**
  * Shell toàn màn hình cho Bán hàng tại quầy — KHÔNG có sidebar/header backoffice.

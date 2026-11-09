@@ -1,3 +1,4 @@
+import { t } from "../../../i18n/t.js";
 // Dùng chung cho các hộp ghi phiếu thu / hoàn / hủy của đơn (KhoiPhieuThu).
 
 export const loiCua = (error, macDinh) => error?.response?.data?.message || macDinh;
@@ -10,4 +11,4 @@ export const KHUNG_HOP = "max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-md"
 export const taoKhoa = () => (globalThis.crypto?.randomUUID
   ? globalThis.crypto.randomUUID()
   : `k${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`);
-export const CHUA_RO = "Chưa rõ đã ghi được chưa (mất kết nối hoặc máy chủ lỗi). Bấm ghi lại: hệ thống không ghi trùng lần này.";
+export const CHUA_RO = t("Chưa rõ đã ghi được chưa (mất kết nối hoặc máy chủ lỗi). Bấm ghi lại: hệ thống không ghi trùng lần này.");

@@ -22,6 +22,7 @@ import {
 import { chuSoBienThe } from "@/components/order/chi-tiet-yeu-cau/tinhYeuCau";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/utils/formatters";
+import { t } from "@/i18n";
 
 /** Đơn giá chung của nhóm khi mọi biến thể cùng giá; khác giá thì để trống. */
 function donGiaNhom(dong) {
@@ -39,7 +40,7 @@ function DongPhuBienThe({ d }) {
         <span className="break-all font-mono">{d.sku || "—"}</span>
       </span>
       <span className={cn("block text-xs leading-4 text-bo-muted", CHI_DIEN_THOAI)}>
-        Đơn giá <b className="font-semibold text-bo-foreground">{formatCurrency(d.donGia)}</b>
+        {t("Đơn giá")} <b className="font-semibold text-bo-foreground">{formatCurrency(d.donGia)}</b>
       </span>
     </>
   );
@@ -56,7 +57,7 @@ function DongPhuBienThe({ d }) {
  * `bang`: useBangChungTu của các dòng. `tenChungTu`: "đơn bán hàng" | "báo giá" (câu khi chưa có dòng, ô tìm).
  * `children`: phần dưới bảng (tổng tiền).
  */
-export default function BangHangBan({ bang, tenChungTu = "đơn bán hàng", nhanTim = "Tìm trong đơn", children }) {
+export default function BangHangBan({ bang, tenChungTu = t("đơn bán hàng"), nhanTim = t("Tìm trong đơn"), children }) {
   const idBang = useId();
   const coDong = bang.nhom.length > 0;
 
@@ -64,10 +65,10 @@ export default function BangHangBan({ bang, tenChungTu = "đơn bán hàng", nha
     <section aria-labelledby={`${idBang}-tieu-de`} className="flex min-w-0 flex-1 flex-col">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-4 pb-3 pt-4 sm:px-6">
         <h2 id={`${idBang}-tieu-de`} className="text-base font-semibold leading-6 text-bo-foreground">
-          Sản phẩm
+          {t("Sản phẩm")}
         </h2>
         {bang.rong ? null : (
-          <p className="text-[13px] leading-5 text-bo-muted tabular-nums">{soVN(bang.tong.soSanPham)} sản phẩm</p>
+          <p className="text-[13px] leading-5 text-bo-muted tabular-nums">{t("{{so}} sản phẩm", { count: bang.tong.soSanPham, so: soVN(bang.tong.soSanPham) })}</p>
         )}
       </div>
       {bang.coCongCu ? (
@@ -75,7 +76,7 @@ export default function BangHangBan({ bang, tenChungTu = "đơn bán hàng", nha
           tuKhoa={bang.tuKhoa}
           onDoiTuKhoa={bang.datTuKhoa}
           onXoaTuKhoa={bang.xoaTuKhoa}
-          goiYTim="Tìm theo tên, màu, kích cỡ hoặc SKU"
+          goiYTim={t("Tìm theo tên, màu, kích cỡ hoặc SKU")}
           nhanTim={nhanTim}
           ketQua={bang.chuKetQua}
           khongKetQua={bang.khongKetQua}
@@ -93,10 +94,10 @@ export default function BangHangBan({ bang, tenChungTu = "đơn bán hàng", nha
           <table className={cn(BANG, "@2xl/khoi:min-w-[600px]")}>
             <thead>
               <tr className={DONG_TIEU_DE}>
-                <th scope="col" className={cn(O_TIEU_DE, O_DAU)}>Sản phẩm</th>
-                <th scope="col" className={cn(O_TIEU_DE, "w-[132px] text-right", AN_DIEN_THOAI)}>Đơn giá</th>
-                <th scope="col" className={cn(O_TIEU_DE, "w-16 text-right")}>SL</th>
-                <th scope="col" className={cn(O_TIEU_DE, O_CUOI, "w-[148px] text-right")}>Thành tiền</th>
+                <th scope="col" className={cn(O_TIEU_DE, O_DAU)}>{t("Sản phẩm")}</th>
+                <th scope="col" className={cn(O_TIEU_DE, "w-[132px] text-right", AN_DIEN_THOAI)}>{t("Đơn giá")}</th>
+                <th scope="col" className={cn(O_TIEU_DE, "w-16 text-right")}>{t("SL")}</th>
+                <th scope="col" className={cn(O_TIEU_DE, O_CUOI, "w-[148px] text-right")}>{t("Thành tiền")}</th>
               </tr>
             </thead>
             {bang.nhom.map((n, i) => {
@@ -149,7 +150,7 @@ export default function BangHangBan({ bang, tenChungTu = "đơn bán hàng", nha
                           <MauKichCo dong={d} className="max-w-full text-[13px] leading-5 text-slate-700" />
                           <span className="block break-all font-mono text-xs leading-4 text-bo-muted">{d.sku || "—"}</span>
                           <span className={cn("block text-xs leading-4 text-bo-muted", CHI_DIEN_THOAI)}>
-                            Đơn giá <b className="font-semibold text-bo-foreground">{formatCurrency(d.donGia)}</b>
+                            {t("Đơn giá")} <b className="font-semibold text-bo-foreground">{formatCurrency(d.donGia)}</b>
                           </span>
                         </td>
                         <td className={cn(O, "whitespace-nowrap text-right", AN_DIEN_THOAI)}>{formatCurrency(d.donGia)}</td>
@@ -165,7 +166,7 @@ export default function BangHangBan({ bang, tenChungTu = "đơn bán hàng", nha
         </div>
       ) : null}
 
-      <KhongKetQua bang={bang} tenChungTu={tenChungTu} donVi="sản phẩm" />
+      <KhongKetQua bang={bang} tenChungTu={tenChungTu} donVi={t("sản phẩm")} />
       {bang.phanTrang ? <PhanTrangBang {...bang.phanTrang} /> : null}
       {children}
     </section>

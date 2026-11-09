@@ -5,6 +5,7 @@ import { GRID_MAX_ROWS, LIST_SLOT, fitSizes, priceSummary } from '../pos-size-la
 import PosProductImage from './PosProductImage';
 import { MoreSizesChip, SizeChip } from './PosSizeChip';
 import PosSizeTray from './PosSizeTray';
+import { t } from "@/i18n";
 
 // Thời gian ô kích cỡ sáng xanh sau khi thêm vào hóa đơn.
 const ADDED_FLASH_MS = 1200;
@@ -28,7 +29,7 @@ function ColorText({ group }) {
   return (
     <>
       <ColorSwatch hex={group.colorHex} />
-      {group.colorName ? <>Màu: <b className="font-semibold text-slate-700">{group.colorName}</b></> : null}
+      {group.colorName ? <>{t("Màu:")} <b className="font-semibold text-slate-700">{group.colorName}</b></> : null}
       {group.materialName ? `${group.colorName ? ' · ' : ''}${group.materialName}` : null}
     </>
   );
@@ -101,7 +102,7 @@ function PosProductCard({
   const chipSize = isList ? 'list' : 'grid';
   const chips = (
     <div
-      aria-label={`Chọn kích cỡ ${groupLabel}`}
+      aria-label={t("Chọn kích cỡ {{groupLabel}}", { groupLabel })}
       className={`grid ${isList ? 'gap-1.5' : 'gap-1'}`}
       role="group"
       style={{ gridTemplateColumns: isList ? `repeat(${perRow}, ${LIST_SLOT}px)` : `repeat(${perRow}, minmax(0, 1fr))` }}
@@ -128,7 +129,7 @@ function PosProductCard({
           controls={trayId}
           count={fit.hidden.length}
           expanded={trayOpen}
-          label={`Xem đủ ${variants.length} kích cỡ của ${groupLabel}`}
+          label={t("Xem đủ {{count}} kích cỡ của {{groupLabel}}", { count: variants.length, groupLabel })}
           onClick={openTray}
           showPrice={summary.multi}
           size={chipSize}
@@ -176,7 +177,7 @@ function PosProductCard({
           {/* Màn hẹp: dòng phụ được xuống dòng (tối đa 2 dòng) thay vì cắt mất "còn N". */}
           <span className="line-clamp-2 text-[11px] leading-4 text-bo-muted sm:line-clamp-1">
             <ColorText group={group} />
-            {group.colorName || group.materialName ? ' · ' : ''}{variants.length} kích cỡ · {allOut ? 'hết hàng' : `còn ${formatCount(totalLeft)}`}
+            {group.colorName || group.materialName ? ' · ' : ''}{t("{{count}} kích cỡ", { count: variants.length })} · {allOut ? t("hết hàng") : t("còn {{totalLeft}}", { totalLeft: formatCount(totalLeft) })}
           </span>
         </button>
         {stacked ? null : chips}
@@ -198,7 +199,7 @@ function PosProductCard({
             mặt người mẫu, không để hai dải trống). Ảnh to hơn có ở khay chọn cỡ. */}
         <PosProductImage className="h-full w-full" fit="fill" iconSize={28} src={group.image} />
         <span className={`absolute left-1.5 top-1.5 rounded px-1.5 py-0.5 text-[11px] font-medium shadow-sm ${allOut ? 'bg-slate-200 text-slate-600' : 'bg-white/95 text-slate-700'}`}>
-          {allOut ? 'Hết hàng' : `Còn ${formatCount(totalLeft)}`}
+          {allOut ? t("Hết hàng") : t("Còn {{totalLeft}}", { totalLeft: formatCount(totalLeft) })}
         </span>
       </span>
       <div className="flex flex-1 flex-col pt-2">
