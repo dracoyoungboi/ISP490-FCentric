@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowRight, BadgeCheck, Ban, Grid2x2, PackagePlus, PencilLine, Play, RotateCcw, Send } from "lucide-react";
+import { ArrowRight, BadgeCheck, Ban, Grid2x2, PackagePlus, PencilLine, Play, Printer, RotateCcw, Send } from "lucide-react";
 import PageContainer from "@/components/backoffice/PageContainer";
 import KhungChungTu from "@/components/chung-tu/KhungChungTu";
 import DauChungTu from "@/components/chung-tu/DauChungTu";
@@ -133,6 +133,7 @@ function ManKiemKe({ dotId }) {
   const navigate = useNavigate();
   const veDanhSach = useCallback(() => navigate("/stock-take"), [navigate]);
   const laQtv = hasAnyRole([ROLES.QUAN_TRI_VIEN]);
+  const coTien = hasAnyRole([ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO]);
   const [nguoiDungId] = useState(getCurrentUserId);
 
   // ── Tải đợt + dòng + nhật ký (+ phiếu điều chỉnh khi đã duyệt) ───────────────────────────────────────
@@ -647,8 +648,18 @@ function ManKiemKe({ dotId }) {
           onClick: () => moHop("demLai"),
         }
         : null;
+  // In (Đ3, Đ4, Đ7 chốt 09/11): biên bản khi Chờ duyệt (bản nháp) và Đã duyệt; phiếu điều chỉnh khi đã duyệt có lệch, chỉ
+  // quản trị viên, quản lý kho (phiếu có giá vốn)
+  const inBienBan = tt === TT_DOT.CHO_DUYET || tt === TT_DOT.DA_DUYET;
+  const inPhieu = tt === TT_DOT.DA_DUYET && Boolean(dot.phieuDieuChinh?.ma) && coTien;
   const menu = [
     quyen.suaNhap ? { nhan: "Sửa đợt nháp", icon: PencilLine, onSelect: () => navigate(`/stock-take/${dot.id}/edit`) } : null,
+    inBienBan
+      ? { nhan: "In biên bản kiểm kê", icon: Printer, moTa: tt === TT_DOT.CHO_DUYET ? "Bản nháp, chưa duyệt" : dot.ma, onSelect: () => navigate(`/stock-take/${dot.id}/print`) }
+      : null,
+    inPhieu
+      ? { nhan: "In phiếu điều chỉnh kho", icon: Printer, moTa: dot.phieuDieuChinh.ma, onSelect: () => navigate(`/stock-take/${dot.id}/print-adjustment`) }
+      : null,
     dot.kho?.id ? { nhan: "Xem sơ đồ khóa của kho", icon: Grid2x2, onSelect: () => navigate(`/stock-take/lock-map?khoId=${dot.kho.id}`) } : null,
     quyen.huy ? { nhan: "Hủy đợt", moTa: "Mở khóa phạm vi, tồn kho không đổi", icon: Ban, nguyHiem: true, onSelect: () => moHop("huy") } : null,
   ].filter(Boolean);
@@ -730,7 +741,7 @@ function ManKiemKe({ dotId }) {
       )
     ) : null,
     tt === TT_DOT.DA_DUYET ? (
-      <DongThongBao key="da-duyet" tone="ok">
+      <DongThongBao key="da-duyet" tone="ok" actions={<NutChu onClick={() => navigate(`/stock-take/${dot.id}/print`)}>In biên bản</NutChu>}>
         Đã duyệt
         {dot.nguoiDuyet?.hoTen ? ` bởi ${dot.nguoiDuyet.hoTen}` : ""}
         {dot.phieuDieuChinh?.ma ? ` · phiếu điều chỉnh ${dot.phieuDieuChinh.ma}` : ""}. Tồn kho và sổ kệ đã cập nhật, kệ đã mở
