@@ -1,13 +1,14 @@
 // Phần tính của màn Báo cáo nhập xuất (không gọi API): kỳ xem, tham số gửi máy chủ, dữ liệu biểu đồ, bảng, thẻ loại.
 import { MOC_NGAY, SO_NAM, khoangMoc, ngayVN } from "./tinhBaoCaoDoanhThu";
+import { t } from "../../i18n/t.js";
 
 export { MOC_NGAY, SO_NAM, khoangMoc, ngayVN };
 
 export const LOAI_KY = [
-  { value: "ngay", label: "Theo ngày", don: "ngày" },
-  { value: "tuan", label: "Theo tuần", don: "tuần" },
-  { value: "thang", label: "Theo tháng", don: "tháng" },
-  { value: "nam", label: "Theo năm", don: "năm" },
+  { value: "ngay", label: t("Theo ngày"), don: t("ngày") },
+  { value: "tuan", label: t("Theo tuần"), don: t("tuần") },
+  { value: "thang", label: t("Theo tháng"), don: t("tháng") },
+  { value: "nam", label: t("Theo năm"), don: t("năm") },
 ];
 
 /** Tab của bảng cuối trang (giá trị ghi trên URL ?bang=). */
@@ -30,8 +31,8 @@ const so = (v) => (/^\d{4}$/.test(String(v ?? "")) && Number(v) >= 2000 ? Number
 const ngayHopLe = (v) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(v ?? "")) return null;
   const [y, m, d] = v.split("-").map(Number);
-  const t = new Date(y, m - 1, d);
-  return t.getFullYear() === y && t.getMonth() === m - 1 && t.getDate() === d ? v : null;
+  const tt = new Date(y, m - 1, d);
+  return tt.getFullYear() === y && tt.getMonth() === m - 1 && tt.getDate() === d ? v : null;
 };
 
 /**
@@ -88,7 +89,7 @@ export function tenTepExcel(ts) {
 }
 
 /** Đơn vị kỳ con: "ngày", "tuần", "tháng", "năm". */
-export const donKy = (loai) => LOAI_KY.find((x) => x.value === loai)?.don ?? "tháng";
+export const donKy = (loai) => LOAI_KY.find((x) => x.value === loai)?.don ?? t("tháng");
 
 /**
  * Dữ liệu biểu đồ: mỗi kỳ con { nhan, nhanDay, nhap, xuat, ... }; cheDo "sl" số lượng, "gt" giá trị. Kỳ chưa tới để
@@ -134,16 +135,17 @@ export function nhomLoai(data) {
     const lonNhat = cung.reduce((m, l) => Math.max(m, N(l.soLuong)), 0);
     return {
       chieu,
-      ten: chieu === "nhap" ? "Nhập" : "Xuất",
+      ten: chieu === "nhap" ? t("Nhập") : t("Xuất"),
       tong: N(chieu === "nhap" ? data?.nhap?.soLuong : data?.xuat?.soLuong),
-      dong: cung.filter((l) => N(l.soLuong)).map((l) => ({ ...l, soLuong: N(l.soLuong), giaTri: N(l.giaTri), tyLe: lonNhat ? N(l.soLuong) / lonNhat : 0 })),
-      khongCo: cung.filter((l) => !N(l.soLuong)).map((l) => l.ten),
+      // Tên loại do máy chủ trả (BaoCaoNhapXuatService.NHOM, chữ cố định): dịch lúc hiện
+      dong: cung.filter((l) => N(l.soLuong)).map((l) => ({ ...l, ten: t(l.ten), soLuong: N(l.soLuong), giaTri: N(l.giaTri), tyLe: lonNhat ? N(l.soLuong) / lonNhat : 0 })),
+      khongCo: cung.filter((l) => !N(l.soLuong)).map((l) => t(l.ten)),
     };
   });
 }
 
 /** Tên một nhóm theo mã (null nếu không thấy). */
-export const tenNhom = (data, ma) => (data?.theoLoai ?? []).find((l) => l.ma === ma)?.ten ?? null;
+export const tenNhom = (data, ma) => t((data?.theoLoai ?? []).find((l) => l.ma === ma)?.ten) ?? null;
 
 /** Số nhận / chuyển nội bộ giữa các kho (để ghi chú khi xem nhiều kho). */
 export function chuyenNoiBo(data) {

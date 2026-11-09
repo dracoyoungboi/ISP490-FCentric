@@ -3,6 +3,10 @@ import { cn } from "@/lib/utils";
 import { Card, Delta, LE } from "./ui";
 import { MAU2 } from "./mau";
 import { bienDong, formatPhanTram, formatSo, formatTienNgan, tyLe } from "../tong-quan/tongQuanFormat";
+import { t } from "@/i18n";
+
+/** Kênh POS / trực tiếp: máy chủ trả tên cố định tiếng Việt nên dịch; tên kênh sàn là dữ liệu, giữ nguyên. */
+const tenKenhHien = (k) => (k.maKenh === "POS" || k.maKenh === "TRUC_TIEP" ? t(k.tenKenh) : k.tenKenh);
 
 /* Mỗi dòng: tên trên nền trắng (nền xanh nhạt chỉ dành cho kho đang xem), Doanh thu, Tỷ trọng kèm thanh nhỏ, cột thứ tư.
    Lưới cột giống nhau ở cả hai danh sách để số thẳng hàng. Bản hẹp (bỏ cột Tỷ trọng, thanh mảnh xuống dưới tên) dùng khi
@@ -51,23 +55,23 @@ export default function Breakdowns({ data, ky, khoId, loading, loiKho, loiKenh, 
   return (
     <Card
       className={className}
-      title="Phân bổ doanh thu"
+      title={t("Phân bổ doanh thu")}
       loading={loading}
       empty={trong}
       emptyIcon={Store}
-      emptyText="Chưa có đơn đã giao trong kỳ."
+      emptyText={t("Chưa có đơn đã giao trong kỳ.")}
       bodyClassName="grid grid-cols-1 @min-[680px]:grid-cols-2"
     >
       <div className={cn(LE, "flex min-w-0 flex-col gap-0.5 pb-3.5 pt-3.5")}>
-        <DauCot ten="Kho bán" cot4={namTruoc ? "So năm trước" : "Biến động"} anCot4KhiCanh={!coCotBienDong} />
+        <DauCot ten={t("Kho bán")} cot4={namTruoc ? t("So năm trước") : t("Biến động")} anCot4KhiCanh={!coCotBienDong} />
         {loiKho ? (
           <Loi onRetry={onRetry} />
         ) : (
           dsKho.map((r) => {
             const bd = bienDong(r.doanhThu, r.doanhThuKyTruoc);
-            const chi = `${r.tenKho}${r.laKhoTong && !/kho tổng/i.test(r.tenKho) ? " (Kho tổng)" : ""}: ${
-              r.soDon ? `${formatSo(r.soDon)} đơn, trung bình ${formatTienNgan(r.doanhThu / r.soDon)}/đơn` : "chưa có đơn trong kỳ"
-            }${r.doanhThuKyTruoc ? `. Kỳ trước ${formatTienNgan(r.doanhThuKyTruoc)}` : ""}`;
+            const chi = `${r.tenKho}${r.laKhoTong && !/kho tổng/i.test(r.tenKho) ? t(" (Kho tổng)") : ""}: ${
+              r.soDon ? t("{{soDon}} đơn, trung bình {{trungBinh}}/đơn", { soDon: formatSo(r.soDon), trungBinh: formatTienNgan(r.doanhThu / r.soDon), count: r.soDon }) : t("chưa có đơn trong kỳ")
+            }${r.doanhThuKyTruoc ? t(". Kỳ trước {{doanhThuKyTruoc}}", { doanhThuKyTruoc: formatTienNgan(r.doanhThuKyTruoc) }) : ""}`;
             return (
               <DongThanh
                 key={r.khoId}
@@ -76,7 +80,7 @@ export default function Breakdowns({ data, ky, khoId, loading, loiKho, loiKenh, 
                 chon={khoId === r.khoId}
                 mo={khoId != null && khoId !== r.khoId}
                 giaTri={formatTienNgan(r.doanhThu)}
-                cot4={bd ? <Delta bd={bd} /> : <span className="text-bo-muted">{r.doanhThu > 0 && !r.doanhThuKyTruoc ? "Mới" : "—"}</span>}
+                cot4={bd ? <Delta bd={bd} /> : <span className="text-bo-muted">{r.doanhThu > 0 && !r.doanhThuKyTruoc ? t("Mới") : "—"}</span>}
                 anCot4KhiCanh={!coCotBienDong}
                 chiTiet={chi}
               />
@@ -86,30 +90,28 @@ export default function Breakdowns({ data, ky, khoId, loading, loiKho, loiKenh, 
       </div>
 
       <div className={cn(LE, "flex min-w-0 flex-col gap-0.5 border-t border-[#eef1f5] pb-3.5 pt-3.5 @min-[680px]:border-l @min-[680px]:border-t-0")}>
-        <DauCot ten="Kênh bán" cot4="Tỷ lệ hoàn" />
+        <DauCot ten={t("Kênh bán")} cot4={t("Tỷ lệ hoàn")} />
         {loiKenh ? (
           <Loi onRetry={onRetry} />
         ) : dsKenh.length === 0 ? (
-          <p className="py-2 text-[13px] text-bo-muted">Chưa có đơn đã giao trong kỳ.</p>
+          <p className="py-2 text-[13px] text-bo-muted">{t("Chưa có đơn đã giao trong kỳ.")}</p>
         ) : (
           <>
             {dsKenh.map((k) => (
               <DongThanh
                 key={k.maKenh}
-                ten={k.tenKenh}
+                ten={tenKenhHien(k)}
                 phanTram={tyLe(k.doanhThu, tongKenh)}
                 giaTri={formatTienNgan(k.doanhThu)}
                 cot4={<span className="tabular-nums text-bo-foreground">{formatPhanTram(tyLe(k.soDonHoan, k.soDon + k.soDonHoan))}</span>}
-                nhanHep="Hoàn"
-                chiTiet={`${k.tenKenh}: ${formatSo(k.soDon)} đơn đã giao, ${formatSo(k.soDonHoan)} đơn hoàn${
-                  k.soDon ? `, trung bình ${formatTienNgan(k.doanhThu / k.soDon)}/đơn` : ""
-                }`}
+                nhanHep={t("Hoàn")}
+                chiTiet={t("{{tenKenh}}: {{soDon}} đơn đã giao, {{soDonHoan}} đơn hoàn{{trungBinh}}", { tenKenh: tenKenhHien(k), soDon: formatSo(k.soDon), soDonHoan: formatSo(k.soDonHoan), trungBinh: k.soDon ? t(", trung bình {{tien}}/đơn", { tien: formatTienNgan(k.doanhThu / k.soDon) }) : "" })}
               />
             ))}
             <p className="pt-2 text-xs text-bo-muted">
               {tongHoan
-                ? `Đơn hoàn trong kỳ: ${formatSo(tongHoan)} đơn, bằng ${formatPhanTram(tyLe(tongHoan, tongDon))} số đơn.`
-                : "Không có đơn hoàn trong kỳ."}
+                ? t("Đơn hoàn trong kỳ: {{tongHoan}} đơn, bằng {{tyLe}} số đơn.", { tongHoan: formatSo(tongHoan), tyLe: formatPhanTram(tyLe(tongHoan, tongDon)), count: tongHoan })
+                : t("Không có đơn hoàn trong kỳ.")}
             </p>
           </>
         )}
@@ -123,8 +125,8 @@ function DauCot({ ten, cot4, anCot4KhiCanh }) {
   return (
     <div className={cn(anCot4KhiCanh ? LUOI_BO_COT4_KHI_CANH : LUOI, "pb-1 text-xs font-medium leading-4 text-bo-muted")} aria-hidden="true">
       <span>{ten}</span>
-      <span className="text-right">Doanh thu</span>
-      <span className={cn("text-right", AN_HEP)}>Tỷ trọng</span>
+      <span className="text-right">{t("Doanh thu")}</span>
+      <span className={cn("text-right", AN_HEP)}>{t("Tỷ trọng")}</span>
       <span className={cn("whitespace-nowrap text-right @max-[440px]:hidden", anCot4KhiCanh && "@min-[680px]:hidden")}>{cot4}</span>
     </div>
   );
@@ -138,7 +140,7 @@ function DongThanh({ ten, phanTram, giaTri, cot4, nhanHep, chiTiet, chon, mo, an
       <div className="min-w-0 @max-[440px]:row-span-2">
         <span className={cn("block truncate text-sm font-medium @max-[440px]:whitespace-normal", mo ? "text-bo-muted" : "text-bo-foreground")}>
           {ten}
-          <span className={cn("sr-only hidden", DOC_HEP)}>{`, tỷ trọng ${formatPhanTram(phanTram, 0)}`}</span>
+          <span className={cn("sr-only hidden", DOC_HEP)}>{t(", tỷ trọng {{phanTram}}", { phanTram: formatPhanTram(phanTram, 0) })}</span>
         </span>
         {/* Bản hẹp: cột Tỷ trọng ẩn, thanh mảnh nằm dưới tên */}
         <span className={cn("mt-1.5 hidden h-1 overflow-hidden rounded-full bg-[#eef1f5]", HIEN_HEP)} aria-hidden="true">
@@ -151,7 +153,7 @@ function DongThanh({ ten, phanTram, giaTri, cot4, nhanHep, chiTiet, chon, mo, an
           <span className="block h-full rounded-full" style={thanh} />
         </span>
         <span className="w-9 shrink-0 whitespace-nowrap text-right text-sm tabular-nums text-bo-muted">
-          <span className="sr-only">Tỷ trọng </span>
+          <span className="sr-only">{t("Tỷ trọng")} </span>
           {formatPhanTram(phanTram, 0)}
         </span>
       </span>
@@ -167,9 +169,9 @@ function DongThanh({ ten, phanTram, giaTri, cot4, nhanHep, chiTiet, chon, mo, an
 function Loi({ onRetry }) {
   return (
     <p role="alert" className="py-2 text-[13px] text-bo-warning">
-      Không tải được số liệu.{" "}
+      {t("Không tải được số liệu.")}{" "}
       <button type="button" onClick={onRetry} className="cursor-pointer font-medium text-bo-primary hover:underline">
-        Thử lại
+        {t("Thử lại")}
       </button>
     </p>
   );

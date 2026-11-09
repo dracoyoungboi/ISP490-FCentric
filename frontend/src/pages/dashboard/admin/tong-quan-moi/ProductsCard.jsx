@@ -5,6 +5,7 @@ import { Card, LE, MoreLink } from "./ui";
 import { formatSo, formatTienNgan } from "../tong-quan/tongQuanFormat";
 import { duongDanBaoCaoSanPham } from "@/pages/bao-cao/tinhBaoCaoSanPham";
 import { ngayCuaKy } from "./boLoc";
+import { t } from "@/i18n";
 
 /**
  * Bán chạy trong kỳ: 5 sản phẩm bán nhiều nhất (theo số lượng), mỗi dòng: hạng, tên, đã bán · còn khả dụng, doanh thu.
@@ -17,14 +18,14 @@ export default function ProductsCard({ data, ky, khoId, loading, error, onRetry,
   return (
     <Card
       className={className}
-      title="Bán chạy"
-      right={<MoreLink to={xemTatCa}>Xem tất cả</MoreLink>}
+      title={t("Bán chạy")}
+      right={<MoreLink to={xemTatCa}>{t("Xem tất cả")}</MoreLink>}
       loading={loading}
       error={error}
       onRetry={onRetry}
       empty={!error && rows.length === 0}
       emptyIcon={Shirt}
-      emptyText="Chưa có sản phẩm nào được bán trong kỳ."
+      emptyText={t("Chưa có sản phẩm nào được bán trong kỳ.")}
     >
       <ol>
         {rows.map((r, i) => (
@@ -38,8 +39,8 @@ export default function ProductsCard({ data, ky, khoId, loading, error, onRetry,
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm text-bo-foreground">{r.tenSanPham}</span>
                 <span className="block truncate text-xs text-bo-muted">
-                  Đã bán {formatSo(r.soLuongBan)} ·{" "}
-                  {r.khaDung > 0 ? `còn ${formatSo(r.khaDung)}` : <span className="font-medium text-[#b42318]">hết hàng</span>}
+                  {t("Đã bán")} {formatSo(r.soLuongBan)} ·{" "}
+                  {r.khaDung > 0 ? t("còn {{khaDung}}", { khaDung: formatSo(r.khaDung) }) : <span className="font-medium text-[#b42318]">{t("hết hàng")}</span>}
                 </span>
               </span>
               <span className="whitespace-nowrap text-sm font-semibold tabular-nums text-bo-foreground">{formatTienNgan(r.doanhThu)}</span>

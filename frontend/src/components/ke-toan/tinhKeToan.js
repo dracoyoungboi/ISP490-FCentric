@@ -1,3 +1,4 @@
+import { t } from "../../i18n/t.js";
 /**
  * Hàm thuần cho phần xuất dữ liệu kế toán (Cấu hình › Xuất kế toán, màn Xuất dữ liệu kế toán, thẻ hóa đơn nhà cung cấp).
  * Quy tắc kiểm trùng với máy chủ (CauHinhKeToanService, ThueSuatService, HoaDonDauVaoService) để hai phía báo cùng câu.
@@ -8,34 +9,35 @@
 export const THUE_SUAT = [0, 5, 8, 10];
 
 /** Ba hình thức chuyển kho AMIS nhận (danh sách trong tệp mẫu Chuyển kho). */
+// i18n-giu-nguyen: giá trị gửi máy chủ và so khớp (AMIS nhận đúng chữ Việt); nơi hiện ra màn hình tự bọc t()
 export const HINH_THUC_CHUYEN_KHO = [
-  "Xuất kho kiêm vận chuyển nội bộ",
-  "Xuất kho gửi bán đại lý",
-  "Xuất chuyển kho nội bộ",
+  "Xuất kho kiêm vận chuyển nội bộ", // i18n-giu-nguyen: giá trị gửi máy chủ
+  "Xuất kho gửi bán đại lý", // i18n-giu-nguyen: giá trị gửi máy chủ
+  "Xuất chuyển kho nội bộ", // i18n-giu-nguyen: giá trị gửi máy chủ
 ];
 
 /** Tài khoản mặc định theo hệ thống tài khoản TT 99/2025 của AMIS Kế toán doanh nghiệp. */
 export const TAI_KHOAN = [
-  { key: "tkTienMat", nhan: "Tiền mặt", goiY: "111", moTa: "Bán tại quầy thu tiền mặt" },
-  { key: "tkNganHang", nhan: "Tiền gửi ngân hàng", goiY: "112", moTa: "Bán tại quầy chuyển khoản (payOS)" },
-  { key: "tkPhaiThu", nhan: "Phải thu khách hàng", goiY: "131", moTa: "Bán buôn, đơn Shopify, đơn tại quầy trả kết hợp (tạm)" },
-  { key: "tkDoanhThu", nhan: "Doanh thu", goiY: "511", moTa: "Mọi chứng từ bán hàng" },
-  { key: "tkChietKhau", nhan: "Chiết khấu", goiY: "521", moTa: "Giảm giá đơn Shopify" },
-  { key: "tkThueDauRa", nhan: "Thuế GTGT đầu ra", goiY: "33311", moTa: "Thuế trên chứng từ bán hàng" },
-  { key: "tkKho", nhan: "Hàng hóa (kho)", goiY: "156", moTa: "Mua hàng, chuyển kho, giá vốn" },
-  { key: "tkGiaVon", nhan: "Giá vốn", goiY: "632", moTa: "AMIS tự tính tiền vốn" },
-  { key: "tkPhaiTra", nhan: "Phải trả nhà cung cấp", goiY: "331", moTa: "Mua hàng chưa thanh toán" },
-  { key: "tkThueDauVao", nhan: "Thuế GTGT đầu vào", goiY: "1331", moTa: "Hóa đơn nhà cung cấp" },
+  { key: "tkTienMat", nhan: t("Tiền mặt"), goiY: "111", moTa: t("Bán tại quầy thu tiền mặt") },
+  { key: "tkNganHang", nhan: t("Tiền gửi ngân hàng"), goiY: "112", moTa: t("Bán tại quầy chuyển khoản (payOS)") },
+  { key: "tkPhaiThu", nhan: t("Phải thu khách hàng"), goiY: "131", moTa: t("Bán buôn, đơn Shopify, đơn tại quầy trả kết hợp (tạm)") },
+  { key: "tkDoanhThu", nhan: t("Doanh thu"), goiY: "511", moTa: t("Mọi chứng từ bán hàng") },
+  { key: "tkChietKhau", nhan: t("Chiết khấu"), goiY: "521", moTa: t("Giảm giá đơn Shopify") },
+  { key: "tkThueDauRa", nhan: t("Thuế GTGT đầu ra"), goiY: "33311", moTa: t("Thuế trên chứng từ bán hàng") },
+  { key: "tkKho", nhan: t("Hàng hóa (kho)"), goiY: "156", moTa: t("Mua hàng, chuyển kho, giá vốn") },
+  { key: "tkGiaVon", nhan: t("Giá vốn"), goiY: "632", moTa: t("AMIS tự tính tiền vốn") },
+  { key: "tkPhaiTra", nhan: t("Phải trả nhà cung cấp"), goiY: "331", moTa: t("Mua hàng chưa thanh toán") },
+  { key: "tkThueDauVao", nhan: t("Thuế GTGT đầu vào"), goiY: "1331", moTa: t("Hóa đơn nhà cung cấp") },
 ];
 
 export const TEN_LOAI = {
-  ton_dau_ky: "Tồn đầu kỳ",
-  mua_hang: "Mua hàng",
-  chuyen_kho_xuat: "Chuyển kho (xuất đi)",
-  chuyen_kho_nhan: "Chuyển kho (nhận về)",
-  ban_hang: "Bán hàng",
-  danh_muc: "Danh mục",
-  bien_dong_kho: "Biến động kho",
+  ton_dau_ky: t("Tồn đầu kỳ"),
+  mua_hang: t("Mua hàng"),
+  chuyen_kho_xuat: t("Chuyển kho (xuất đi)"),
+  chuyen_kho_nhan: t("Chuyển kho (nhận về)"),
+  ban_hang: t("Bán hàng"),
+  danh_muc: t("Danh mục"),
+  bien_dong_kho: t("Biến động kho"),
 };
 
 export const tenLoai = (loai) => TEN_LOAI[loai] ?? loai ?? "";
@@ -83,7 +85,7 @@ export function formCauHinh(dto) {
   const form = {
     ngayMoc: dto?.ngayMoc ?? "",
     maDichVuVanChuyen: dto?.maDichVuVanChuyen ?? "PVC",
-    tenDichVuVanChuyen: dto?.tenDichVuVanChuyen ?? "Phí vận chuyển",
+    tenDichVuVanChuyen: dto?.tenDichVuVanChuyen ?? "Phí vận chuyển", // i18n-giu-nguyen: giá trị mặc định gửi máy chủ
     hinhThucChuyenKho: dto?.hinhThucChuyenKho ?? HINH_THUC_CHUYEN_KHO[0],
     soTkNganHangNhan: dto?.soTkNganHangNhan ?? "",
   };
@@ -95,19 +97,19 @@ export function formCauHinh(dto) {
 export function kiemTraCauHinh(form) {
   const loi = {};
   if (form.ngayMoc && (!NGAY_REGEX.test(form.ngayMoc) || form.ngayMoc < "2020-01-01")) {
-    loi.ngayMoc = "Ngày mốc phải từ 01/01/2020 trở đi";
+    loi.ngayMoc = t("Ngày mốc phải từ 01/01/2020 trở đi");
   }
   for (const tk of TAI_KHOAN) {
-    if (!TAI_KHOAN_REGEX.test(gon(form[tk.key]))) loi[tk.key] = "Chỉ gồm chữ số (3–20 số), vd. 33311";
+    if (!TAI_KHOAN_REGEX.test(gon(form[tk.key]))) loi[tk.key] = t("Chỉ gồm chữ số (3–20 số), vd. 33311");
   }
   if (!MA_DICH_VU_REGEX.test(gon(form.maDichVuVanChuyen))) {
-    loi.maDichVuVanChuyen = "Chữ không dấu, số và . _ - (tối đa 50 ký tự)";
+    loi.maDichVuVanChuyen = t("Chữ không dấu, số và . _ - (tối đa 50 ký tự)");
   }
   const ten = gon(form.tenDichVuVanChuyen);
-  if (!ten || ten.length > 100) loi.tenDichVuVanChuyen = "Nhập tên (tối đa 100 ký tự)";
-  if (!HINH_THUC_CHUYEN_KHO.includes(form.hinhThucChuyenKho)) loi.hinhThucChuyenKho = "Chọn hình thức chuyển kho";
+  if (!ten || ten.length > 100) loi.tenDichVuVanChuyen = t("Nhập tên (tối đa 100 ký tự)");
+  if (!HINH_THUC_CHUYEN_KHO.includes(form.hinhThucChuyenKho)) loi.hinhThucChuyenKho = t("Chọn hình thức chuyển kho");
   const soTk = gon(form.soTkNganHangNhan);
-  if (soTk && !SO_TK_NGAN_HANG_REGEX.test(soTk)) loi.soTkNganHangNhan = "Chỉ gồm chữ và số (4–30 ký tự)";
+  if (soTk && !SO_TK_NGAN_HANG_REGEX.test(soTk)) loi.soTkNganHangNhan = t("Chỉ gồm chữ và số (4–30 ký tự)");
   return loi;
 }
 
@@ -177,12 +179,12 @@ export function kiemTraHoaDon(form, homNay) {
   const loi = {};
   if (form.coHoaDon !== "co") return loi;
   const mauSo = gon(form.mauSo);
-  if (mauSo && !KY_HIEU_REGEX.test(mauSo)) loi.mauSo = "Chữ, số, / và - (tối đa 20 ký tự)";
-  if (!KY_HIEU_REGEX.test(gon(form.kyHieu))) loi.kyHieu = "Nhập ký hiệu, vd. C26TAA";
-  if (!SO_HOA_DON_REGEX.test(gon(form.soHoaDon))) loi.soHoaDon = "Nhập số hóa đơn (chỉ chữ số)";
-  if (!form.ngayHoaDon || !NGAY_REGEX.test(form.ngayHoaDon)) loi.ngayHoaDon = "Chọn ngày hóa đơn";
-  else if (form.ngayHoaDon > homNay || form.ngayHoaDon < "2020-01-01") loi.ngayHoaDon = "Ngày hóa đơn không hợp lệ";
-  if (!THUE_SUAT.includes(Number(form.thueSuat))) loi.thueSuat = "Chọn thuế suất";
+  if (mauSo && !KY_HIEU_REGEX.test(mauSo)) loi.mauSo = t("Chữ, số, / và - (tối đa 20 ký tự)");
+  if (!KY_HIEU_REGEX.test(gon(form.kyHieu))) loi.kyHieu = t("Nhập ký hiệu, vd. C26TAA");
+  if (!SO_HOA_DON_REGEX.test(gon(form.soHoaDon))) loi.soHoaDon = t("Nhập số hóa đơn (chỉ chữ số)");
+  if (!form.ngayHoaDon || !NGAY_REGEX.test(form.ngayHoaDon)) loi.ngayHoaDon = t("Chọn ngày hóa đơn");
+  else if (form.ngayHoaDon > homNay || form.ngayHoaDon < "2020-01-01") loi.ngayHoaDon = t("Ngày hóa đơn không hợp lệ");
+  if (!THUE_SUAT.includes(Number(form.thueSuat))) loi.thueSuat = t("Chọn thuế suất");
   return loi;
 }
 
@@ -203,9 +205,9 @@ export function payloadHoaDon(form) {
 /** Tổng của các dòng tổng hợp (để hiện dòng cộng). */
 export function congTongHop(tongHop = []) {
   return tongHop.reduce(
-    (t, d) => ({
-      soChungTu: t.soChungTu + (d.soChungTu || 0),
-      soDong: t.soDong + (d.soDong || 0),
+    (tt, d) => ({
+      soChungTu: tt.soChungTu + (d.soChungTu || 0),
+      soDong: tt.soDong + (d.soDong || 0),
     }),
     { soChungTu: 0, soDong: 0 },
   );

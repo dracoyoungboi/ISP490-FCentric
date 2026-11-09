@@ -5,18 +5,19 @@ import { cn } from "@/lib/utils";
 import { Card, CardEmpty, CardError, LE, MoreLink } from "./ui";
 import { NHAN_KY } from "./boLoc";
 import { formatSo, formatTien, thoiGianNgan } from "../tong-quan/tongQuanFormat";
+import { t } from "@/i18n";
 
 const SO_DONG = 5;
 
 const LOAI = {
-  nhap_kho: { ten: "Nhập kho", icon: Download, mo: (x) => [x.soLuong != null && `${formatSo(x.soLuong)} sản phẩm`, x.tenKho], to: (x) => `/goods-receipts/${x.id}` },
-  nhap_chuyen_kho: { ten: "Nhận hàng chuyển kho", icon: ArrowLeftRight, mo: (x) => [x.soLuong != null && `${formatSo(x.soLuong)} sản phẩm`, x.tenKho], to: (x) => `/goods-receipts/${x.id}` },
-  xuat_kho: { ten: "Xuất kho", icon: Upload, mo: (x) => [x.soLuong != null && `${formatSo(x.soLuong)} sản phẩm`, x.tenKho], to: (x) => `/goods-issues/${x.id}/view` },
-  xuat_chuyen_kho: { ten: "Xuất chuyển kho", icon: ArrowLeftRight, mo: (x) => [x.soLuong != null && `${formatSo(x.soLuong)} sản phẩm`, x.doiTac ? `đến ${x.doiTac}` : x.tenKho], to: (x) => `/goods-issues/${x.id}` }, // PX-CK không có đơn bán: mở chi tiết phiếu xuất, không mở màn xem của đơn bán
-  don_ban: { ten: "Đơn bán mới", icon: ShoppingCart, mo: (x) => [x.soTien != null && formatTien(x.soTien), x.doiTac ?? "Đơn bán trực tiếp"], to: (x) => `/sales-orders/${x.id}` },
-  ban_tai_quay: { ten: "Bán tại quầy", icon: Store, mo: (x) => [x.soTien != null && formatTien(x.soTien), x.tenKho], to: (x) => `/sales-orders/${x.id}` },
+  nhap_kho: { ten: t("Nhập kho"), icon: Download, mo: (x) => [x.soLuong != null && t("{{soLuong}} sản phẩm", { soLuong: formatSo(x.soLuong), count: x.soLuong }), x.tenKho], to: (x) => `/goods-receipts/${x.id}` },
+  nhap_chuyen_kho: { ten: t("Nhận hàng chuyển kho", { context: "hoat_dong" }), icon: ArrowLeftRight, mo: (x) => [x.soLuong != null && t("{{soLuong}} sản phẩm", { soLuong: formatSo(x.soLuong), count: x.soLuong }), x.tenKho], to: (x) => `/goods-receipts/${x.id}` },
+  xuat_kho: { ten: t("Xuất kho"), icon: Upload, mo: (x) => [x.soLuong != null && t("{{soLuong}} sản phẩm", { soLuong: formatSo(x.soLuong), count: x.soLuong }), x.tenKho], to: (x) => `/goods-issues/${x.id}/view` },
+  xuat_chuyen_kho: { ten: t("Xuất chuyển kho"), icon: ArrowLeftRight, mo: (x) => [x.soLuong != null && t("{{soLuong}} sản phẩm", { soLuong: formatSo(x.soLuong), count: x.soLuong }), x.doiTac ? t("đến {{doiTac}}", { doiTac: x.doiTac }) : x.tenKho], to: (x) => `/goods-issues/${x.id}` }, // PX-CK không có đơn bán: mở chi tiết phiếu xuất, không mở màn xem của đơn bán
+  don_ban: { ten: t("Đơn bán mới"), icon: ShoppingCart, mo: (x) => [x.soTien != null && formatTien(x.soTien), x.doiTac ?? t("Đơn bán trực tiếp")], to: (x) => `/sales-orders/${x.id}` },
+  ban_tai_quay: { ten: t("Bán tại quầy"), icon: Store, mo: (x) => [x.soTien != null && formatTien(x.soTien), x.tenKho], to: (x) => `/sales-orders/${x.id}` },
   // Tên đợt kiểm kê tự đặt thường đã chứa tên kho ("Kiểm kê kho Kho tổng") nên chỉ ghi khi khác
-  kiem_ke: { ten: "Kiểm kê đã duyệt", icon: ClipboardCheck, mo: (x) => [x.doiTac && !(x.tenKho && x.doiTac.includes(x.tenKho)) ? x.doiTac : null, x.tenKho], to: (x) => `/stock-take/${x.id}` },
+  kiem_ke: { ten: t("Kiểm kê đã duyệt"), icon: ClipboardCheck, mo: (x) => [x.doiTac && !(x.tenKho && x.doiTac.includes(x.tenKho)) ? x.doiTac : null, x.tenKho], to: (x) => `/stock-take/${x.id}` },
 };
 
 /**
@@ -30,8 +31,8 @@ export default function HoatDongGanDay({ data, ky, loading, error, loiNhapXuat, 
   return (
     <Card
       className={className}
-      title="Hoạt động gần đây"
-      right={<MoreLink to="/inventory-transactions">Lịch sử kho</MoreLink>}
+      title={t("Hoạt động gần đây")}
+      right={<MoreLink to="/inventory-transactions">{t("Lịch sử kho")}</MoreLink>}
       loading={loading}
     >
       {error ? (
@@ -40,12 +41,12 @@ export default function HoatDongGanDay({ data, ky, loading, error, loiNhapXuat, 
         </div>
       ) : ds.length === 0 ? (
         <div className={cn(LE, "flex flex-1 flex-col py-4")}>
-          <CardEmpty icon={History} text="Chưa có chứng từ nào hoàn tất." />
+          <CardEmpty icon={History} text={t("Chưa có chứng từ nào hoàn tất.")} />
         </div>
       ) : (
         <ol>
           {ds.map((x) => {
-            const l = LOAI[x.loai] ?? { ten: "Chứng từ", icon: History, mo: () => [x.tenKho], to: () => "/inventory-transactions" };
+            const l = LOAI[x.loai] ?? { ten: t("Chứng từ"), icon: History, mo: () => [x.tenKho], to: () => "/inventory-transactions" };
             const phu = [...l.mo(x), x.nguoiThucHien].filter(Boolean).join(" · ");
             return (
               <li key={`${x.loai}-${x.id}`} className="border-t border-[#eef1f5] first:border-t-0">
@@ -77,16 +78,16 @@ export default function HoatDongGanDay({ data, ky, loading, error, loiNhapXuat, 
 
       <div className={cn(LE, "flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-[#eef1f5] py-3 text-sm text-bo-muted")}>
         {loiNhapXuat || !io ? (
-          <span role={loiNhapXuat ? "alert" : undefined}>{loiNhapXuat ? "Không tải được số liệu nhập – xuất." : ""}</span>
+          <span role={loiNhapXuat ? "alert" : undefined}>{loiNhapXuat ? t("Không tải được số liệu nhập – xuất.") : ""}</span>
         ) : (
-          <span title={io.boChuyenKhoNoiBo ? "Không tính chuyển kho nội bộ giữa các kho" : "Gồm hàng chuyển đến và chuyển đi của kho này"}>
-            {NHAN_KY[ky] ?? "Trong kỳ"}: nhập <b className="font-semibold tabular-nums text-bo-foreground">{formatSo(io.tongNhap)}</b> · xuất{" "}
+          <span title={io.boChuyenKhoNoiBo ? t("Không tính chuyển kho nội bộ giữa các kho") : t("Gồm hàng chuyển đến và chuyển đi của kho này")}>
+            {t("{{ky}}: nhập", { ky: NHAN_KY[ky] ?? t("Trong kỳ") })} <b className="font-semibold tabular-nums text-bo-foreground">{formatSo(io.tongNhap)}</b> {t("· xuất")}{" "}
             <span className="whitespace-nowrap">
-              <b className="font-semibold tabular-nums text-bo-foreground">{formatSo(io.tongXuat)}</b> sản phẩm
+              <b className="font-semibold tabular-nums text-bo-foreground">{formatSo(io.tongXuat)}</b> {t("sản phẩm")}
             </span>
           </span>
         )}
-        <MoreLink to="/reports/stock-movements">Nhật ký nhập – xuất</MoreLink>
+        <MoreLink to="/reports/stock-movements">{t("Nhật ký nhập – xuất")}</MoreLink>
       </div>
     </Card>
   );

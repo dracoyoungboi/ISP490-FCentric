@@ -10,6 +10,7 @@ import { KHO_LAM_VIEC_EVENT, getKhoLamViecId } from "@/utils/khoLamViec";
 import { ChanTrang } from "./khung";
 import { TEN_KHOI, gioPhut } from "./soLieuVaiTro";
 import { useTongQuanVaiTro } from "./useTongQuanVaiTro";
+import { t } from "@/i18n";
 
 /**
  * Khung chung của Tổng quan theo vai trò: tiêu đề ẩn (h1), ô "Nơi làm việc" (chỉ quản lý kho — nhân viên đã thấy
@@ -30,7 +31,7 @@ export default function TrangVaiTro({ vaiTro, theoKho = false, children }) {
 
   return (
     <PageContainer className="@container/tq flex flex-col gap-4">
-      <h1 className="sr-only">Tổng quan</h1>
+      <h1 className="sr-only">{t("Tổng quan")}</h1>
       {chonKhoTrongTrang ? (
         <div className="flex min-h-9 flex-wrap items-center gap-2">
           <KhoLamViecSelect onChange={setKhoId} />
@@ -51,8 +52,8 @@ function NoiDung({ vaiTro, theoKho, children }) {
     return (
       <div className="rounded-lg border border-bo-border bg-bo-surface">
         <ErrorState
-          title="Không tải được trang Tổng quan"
-          description={getApiErrorMessage(error, theoKho ? "Kiểm tra kết nối và nơi làm việc rồi thử lại." : "Kiểm tra kết nối tới máy chủ rồi thử lại.")}
+          title={t("Không tải được trang Tổng quan")}
+          description={getApiErrorMessage(error, theoKho ? t("Kiểm tra kết nối và nơi làm việc rồi thử lại.") : t("Kiểm tra kết nối tới máy chủ rồi thử lại."))}
           onRetry={reload}
         />
       </div>
@@ -61,7 +62,7 @@ function NoiDung({ vaiTro, theoKho, children }) {
   if (data && data.vaiTro !== vaiTro) {
     return (
       <div className="rounded-lg border border-bo-border bg-bo-surface">
-        <ErrorState title="Vai trò của tài khoản đã thay đổi" description="Vui lòng đăng xuất rồi đăng nhập lại để xem đúng trang Tổng quan." />
+        <ErrorState title={t("Vai trò của tài khoản đã thay đổi")} description={t("Vui lòng đăng xuất rồi đăng nhập lại để xem đúng trang Tổng quan.")} />
       </div>
     );
   }
@@ -73,10 +74,10 @@ function NoiDung({ vaiTro, theoKho, children }) {
   return (
     <>
       {loiCapNhat ? (
-        <Banner onRetry={reload}>Không cập nhật được số liệu mới. Đang hiển thị số liệu lúc {gioPhut(data?.thoiDiem)}.</Banner>
+        <Banner onRetry={reload}>{t("Không cập nhật được số liệu mới. Đang hiển thị số liệu lúc {{gio}}.", { gio: gioPhut(data?.thoiDiem) })}</Banner>
       ) : khoiLoi.size ? (
         <Banner onRetry={reload}>
-          Chưa tải được: {[...khoiLoi].map((k) => TEN_KHOI[k] ?? k).join(", ")}. Các khối khác vẫn hiển thị bình thường.
+          {t("Chưa tải được: {{dsKhoi}}. Các khối khác vẫn hiển thị bình thường.", { dsKhoi: [...khoiLoi].map((k) => TEN_KHOI[k] ?? k).join(", ") })}
         </Banner>
       ) : null}
       <div className={cn("flex flex-col gap-4 transition-opacity", refreshing && !loading && "opacity-60")} aria-busy={refreshing || undefined}>
@@ -93,7 +94,7 @@ function Banner({ children, onRetry }) {
       <AlertTriangle className="size-4 shrink-0" aria-hidden="true" />
       <span className="min-w-0 flex-1">{children}</span>
       <button type="button" onClick={onRetry} className="cursor-pointer rounded-md border border-amber-300 bg-bo-surface px-2.5 py-1 text-xs font-medium hover:bg-amber-50">
-        Thử lại
+        {t("Thử lại")}
       </button>
     </div>
   );

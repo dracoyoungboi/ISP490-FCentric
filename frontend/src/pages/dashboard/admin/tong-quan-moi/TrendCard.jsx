@@ -9,22 +9,23 @@ import { khoangKy } from "./boLoc";
 import { ID_BIEU_DO } from "./KpiStrip";
 import { docNgay, formatSo, formatTienNgan, nhanTruc, tenThu } from "../tong-quan/tongQuanFormat";
 import { CHI_SO, diemDaTron, giaTriDiem, vachTruc } from "../tong-quan/tongQuanSoLieu";
+import { t } from "@/i18n";
 
 const nfTruc = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 2 });
 const nf1 = new Intl.NumberFormat("vi-VN", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const hai = (n) => String(n).padStart(2, "0");
 
 const KIEU = [
-  { value: "duong", ten: "Biểu đồ đường", icon: LineChartIcon },
-  { value: "cot", ten: "Biểu đồ cột", icon: BarChart3 },
-  { value: "bang", ten: "Bảng số liệu", icon: Table2 },
+  { value: "duong", ten: t("Biểu đồ đường"), icon: LineChartIcon },
+  { value: "cot", ten: t("Biểu đồ cột"), icon: BarChart3 },
+  { value: "bang", ten: t("Bảng số liệu"), icon: Table2 },
 ];
 
 /** Nhãn ngày trong tooltip và bảng: "Thứ Bảy, 10/10" hoặc "Tháng 10/2025". */
 function nhanNgan(tu, nhom) {
   const d = docNgay(tu);
   if (!d) return "";
-  if (nhom === "thang") return `Tháng ${d.getMonth() + 1}/${d.getFullYear()}`;
+  if (nhom === "thang") return t("Tháng {{thang}}/{{nam}}", { thang: d.getMonth() + 1, nam: d.getFullYear() });
   return `${tenThu(d)}, ${hai(d.getDate())}/${hai(d.getMonth() + 1)}`;
 }
 
@@ -62,22 +63,22 @@ export default function TrendCard({ data, ky, chon, loading, error, onRetry, cla
   const max = Math.max(0, ...giaTri);
   const min = Math.min(0, ...giaTri);
   const lonNhat = Math.max(max, -min);
-  const donVi = !cs.tien ? { chia: 1, ten: "đơn" } : lonNhat >= 1e9 ? { chia: 1e9, ten: "tỷ ₫" } : { chia: 1e6, ten: "triệu ₫" };
+  const donVi = !cs.tien ? { chia: 1, ten: t("đơn") } : lonNhat >= 1e9 ? { chia: 1e9, ten: t("tỷ ₫") } : { chia: 1e6, ten: t("triệu ₫") };
   const { ticks, day, dinh } = vachTruc(min, max > 0 || min < 0 ? max : 1, !cs.tien);
   const nhanX = rows.filter((r, i) => n <= 12 || i % 7 === 0).map((r) => r.nhan);
   const viTriCuoi = rows.reduce((cuoi, r, i) => (r.nay != null ? i : cuoi), -1);
 
-  const fmt = (v) => (v == null ? "Không có đơn" : cs.tien ? formatTienNgan(v) : `${formatSo(v)} đơn`);
-  const moiKy = nhom === "thang" ? "tháng" : "ngày";
+  const fmt = (v) => (v == null ? t("Không có đơn") : cs.tien ? formatTienNgan(v) : t("{{soDon}} đơn", { soDon: formatSo(v), count: v }));
+  const moiKy = nhom === "thang" ? t("tháng") : t("ngày");
   // Ô Giá trị đơn trung bình đã ghi số của cả kỳ ở đầu trang nên biểu đồ không nhắc lại (mỗi thông tin một chỗ)
   const tb =
     cs.key === "tbDon"
       ? null
       : cs.key === "soDon"
-        ? `${n ? nf1.format(rows.reduce((s, r) => s + (r.nay ?? 0), 0) / n) : 0} đơn/${moiKy}`
+        ? t("{{tb}} đơn/{{moiKy}}", { tb: n ? nf1.format(rows.reduce((s, r) => s + (r.nay ?? 0), 0) / n) : 0, moiKy })
         : `${n ? formatTienNgan(rows.reduce((s, r) => s + (r.nay ?? 0), 0) / n) : "—"}/${moiKy}`;
   const tieuDe = nhom === "thang" ? cs.theoThang : cs.theoNgay;
-  const tenTruoc = namTruoc ? "Cùng kỳ năm trước" : "Kỳ trước";
+  const tenTruoc = namTruoc ? t("Cùng kỳ năm trước") : t("Kỳ trước");
 
   return (
     <Card
@@ -93,7 +94,7 @@ export default function TrendCard({ data, ky, chon, loading, error, onRetry, cla
         <>
           {/* Chưa có số liệu hoặc lỗi thì không có gì để đổi cách xem */}
           {trong || error ? null : (
-            <div role="group" aria-label="Cách xem" className="inline-flex rounded-md bg-slate-100 p-0.5">
+            <div role="group" aria-label={t("Cách xem")} className="inline-flex rounded-md bg-slate-100 p-0.5">
               {KIEU.map((x) => {
                 const Icon = x.icon;
                 const on = kieu === x.value;
@@ -117,7 +118,7 @@ export default function TrendCard({ data, ky, chon, loading, error, onRetry, cla
             </div>
           )}
           <MoreLink to="/reports/revenue">
-            <span className="@max-[520px]:sr-only">Xem báo cáo</span>
+            <span className="@max-[520px]:sr-only">{t("Xem báo cáo")}</span>
           </MoreLink>
         </>
       }
@@ -127,7 +128,7 @@ export default function TrendCard({ data, ky, chon, loading, error, onRetry, cla
         <div className="mb-3.5 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs leading-4 text-bo-muted">
           <span className="inline-flex items-center gap-2 whitespace-nowrap">
             {kieu === "cot" ? <i className="inline-block size-2.5 rounded-[2px] bg-bo-primary" aria-hidden="true" /> : <i className="inline-block w-4 border-t-2 border-bo-primary" aria-hidden="true" />}
-            <b className="font-medium text-bo-foreground">Kỳ này</b>
+            <b className="font-medium text-bo-foreground">{t("Kỳ này")}</b>
           </span>
           {coTruoc ? (
             <span className="inline-flex items-center gap-2 whitespace-nowrap">
@@ -137,10 +138,10 @@ export default function TrendCard({ data, ky, chon, loading, error, onRetry, cla
             </span>
           ) : null}
           {/* Điện thoại: đơn vị ẩn khỏi đầu thẻ (chật) nên ghi ở đây */}
-          {kieu !== "bang" ? <span className="hidden whitespace-nowrap @max-[440px]:inline">Đơn vị: {donVi.ten}</span> : null}
+          {kieu !== "bang" ? <span className="hidden whitespace-nowrap @max-[440px]:inline">{t("Đơn vị: {{ten}}", { ten: donVi.ten })}</span> : null}
           {tb ? (
             <span className="ml-auto whitespace-nowrap @max-[560px]:hidden">
-              Trung bình <b className="font-medium text-bo-foreground">{tb}</b>
+              {t("Trung bình")} <b className="font-medium text-bo-foreground">{tb}</b>
             </span>
           ) : null}
         </div>
@@ -149,17 +150,17 @@ export default function TrendCard({ data, ky, chon, loading, error, onRetry, cla
       {trong ? (
         <div className="flex h-[220px] flex-col items-center justify-center gap-2 text-center text-[13px] text-bo-muted @max-[520px]:h-[190px]">
           <TrendingUp className="size-5 text-slate-400" aria-hidden="true" />
-          Chưa có đơn đã giao trong kỳ này.
+          {t("Chưa có đơn đã giao trong kỳ này.")}
         </div>
       ) : kieu === "bang" ? (
         <div className="max-h-[220px] overflow-auto rounded-md border border-[#eef1f5]">
           <table className="w-full text-[13px] tabular-nums">
-            <caption className="sr-only">{`${tieuDe}, ${k.day}, so với ${tenTruoc.toLowerCase()}`}</caption>
+            <caption className="sr-only">{t("{{tieuDe}}, {{day}}, so với {{kySoSanh}}", { tieuDe, day: k.day, kySoSanh: tenTruoc.toLowerCase() })}</caption>
             <thead className="sticky top-0 bg-bo-surface-subtle text-left text-xs text-bo-muted">
               <tr>
-                <th scope="col" className="px-3 py-2 font-medium">{nhom === "thang" ? "Tháng" : "Ngày"}</th>
-                <th scope="col" className="px-3 py-2 text-right font-medium">Kỳ này</th>
-                {dsTruoc ? <th scope="col" className="px-3 py-2 font-medium">{nhom === "thang" ? "Tháng so sánh" : "Ngày so sánh"}</th> : null}
+                <th scope="col" className="px-3 py-2 font-medium">{nhom === "thang" ? t("Tháng") : t("Ngày")}</th>
+                <th scope="col" className="px-3 py-2 text-right font-medium">{t("Kỳ này")}</th>
+                {dsTruoc ? <th scope="col" className="px-3 py-2 font-medium">{nhom === "thang" ? t("Tháng so sánh") : t("Ngày so sánh")}</th> : null}
                 {dsTruoc ? <th scope="col" className="px-3 py-2 text-right font-medium">{tenTruoc}</th> : null}
               </tr>
             </thead>
@@ -179,7 +180,7 @@ export default function TrendCard({ data, ky, chon, loading, error, onRetry, cla
         <div
           className="h-[220px] @max-[520px]:h-[190px]"
           role="figure"
-          aria-label={`${tieuDe} (${donVi.ten}), ${k.day}${coTruoc ? `, so với ${tenTruoc.toLowerCase()} ${k.soSanh}` : ""}. Bấm nút Bảng số liệu để đọc từng ${moiKy}.`}
+          aria-label={t("{{tieuDe}} ({{donVi}}), {{day}}{{soSanh}}. Bấm nút Bảng số liệu để đọc từng {{moiKy}}.", { tieuDe, donVi: donVi.ten, day: k.day, soSanh: coTruoc ? t(", so với {{kySoSanh}} {{khoang}}", { kySoSanh: tenTruoc.toLowerCase(), khoang: k.soSanh }) : "", moiKy })}
         >
           <KhungBieuDo>
             <ComposedChart data={rows} margin={{ top: 8, right: kieu === "duong" ? 22 : 6, bottom: 0, left: 0 }} barCategoryGap="30%" accessibilityLayer>
@@ -260,7 +261,7 @@ function DiemDuong({ cx, cy, index, rows, viTriCuoi }) {
 function TipBieuDo({ active, payload, nhom, chiSo, fmt, coTruoc, kieu, tenTruoc }) {
   if (!active || !payload?.length) return null;
   const r = payload[0].payload;
-  const phu = chiSo === "soDon" ? `Doanh thu ${formatTienNgan(r.d.doanhThu)}` : `${formatSo(r.d.soDon)} đơn đã giao`;
+  const phu = chiSo === "soDon" ? t("Doanh thu {{doanhThu}}", { doanhThu: formatTienNgan(r.d.doanhThu) }) : t("{{soDon}} đơn đã giao", { soDon: formatSo(r.d.soDon), count: r.d.soDon });
   return (
     <div className="min-w-52 rounded-md border border-bo-border bg-bo-surface px-3 py-2.5 text-xs leading-4 shadow-lg">
       <p className="flex items-center gap-2">

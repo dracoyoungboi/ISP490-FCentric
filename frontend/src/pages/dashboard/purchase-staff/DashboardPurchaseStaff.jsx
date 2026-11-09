@@ -9,6 +9,7 @@ import { BoCuc, DO, DaySo, FOCUS, HangCoNut, NgatTaiCham, Nut, ThaoTacNhanh, VIE
 import { phimTab } from "@/pages/dashboard/vai-tro/banPhim";
 import { THU_TU } from "@/pages/dashboard/vai-tro/lop";
 import { buocQuyTrinh, duongDanYeuCauNhap, lichTheoNgay, tenBienThe, theSoMuaHang } from "@/pages/dashboard/vai-tro/soLieuVaiTro";
+import { t } from "@/i18n";
 
 /**
  * Tổng quan của NHÂN VIÊN MUA HÀNG (mọi kho). Hàng 1: 4 ô số. Hàng 2 (rộng hết trang): quy trình mua 4 bước, mỗi
@@ -35,9 +36,9 @@ export default function DashboardPurchaseStaff() {
                   key="tn"
                   className={THU_TU[1]}
                   ds={[
-                    { ten: "Tạo đơn mua", to: "/purchase-orders/create" },
-                    { ten: "Yêu cầu báo giá", to: "/quotation-requests/create" },
-                    { ten: "Thêm nhà cung cấp", to: "/supplier/new" },
+                    { ten: t("Tạo đơn mua"), to: "/purchase-orders/create" },
+                    { ten: t("Yêu cầu báo giá"), to: "/quotation-requests/create" },
+                    { ten: t("Thêm nhà cung cấp"), to: "/supplier/new" },
                   ]}
                 />,
                 <NhaCungCap key="ncc" className={THU_TU[4]} ds={m?.nhaCungCap} loading={loading} error={loi("nhaCungCap")} onRetry={reload} />,
@@ -54,10 +55,10 @@ export default function DashboardPurchaseStaff() {
 function QuyTrinhMua({ buoc, loading, error, onRetry }) {
   return (
     <Card
-      title="Quy trình mua hàng"
-      scope="việc đang mở ở từng bước"
+      title={t("Quy trình mua hàng")}
+      scope={t("việc đang mở ở từng bước")}
       scopeClassName="@max-[520px]:hidden"
-      right={<MoreLink to="/purchase-orders">Đơn mua</MoreLink>}
+      right={<MoreLink to="/purchase-orders">{t("Đơn mua")}</MoreLink>}
       loading={loading}
       error={error}
       onRetry={onRetry}
@@ -73,10 +74,10 @@ function QuyTrinhMua({ buoc, loading, error, onRetry }) {
           >
             <span
               className={cn("grid size-7 shrink-0 place-items-center rounded-full text-xs font-semibold @min-[720px]:mb-3", b.gap ? "bg-bo-primary text-white" : "bg-[#eef1f5] text-[#475467]")}
-              title={b.gap ? "Đến lượt bạn" : undefined}
+              title={b.gap ? t("Đến lượt bạn") : undefined}
             >
               {i + 1}
-              {b.gap ? <span className="sr-only"> (đến lượt bạn)</span> : null}
+              {b.gap ? <span className="sr-only"> {t("(đến lượt bạn)")}</span> : null}
             </span>
             <div className="flex min-w-0 flex-1 flex-col @max-[719px]:flex-row @max-[719px]:items-center @max-[719px]:gap-3">
               <div className="min-w-0 flex-1 @min-[720px]:flex-none">
@@ -121,16 +122,16 @@ function LichHangVe({ ngay, className, loading, error, onRetry }) {
   return (
     <Card
       className={className}
-      title="Lịch hàng về"
-      scope="7 ngày tới"
-      right={<MoreLink to="/purchase-orders?trangThai=dang-van-chuyen">Đơn đang giao</MoreLink>}
+      title={t("Lịch hàng về")}
+      scope={t("7 ngày tới")}
+      right={<MoreLink to="/purchase-orders?trangThai=dang-van-chuyen">{t("Đơn đang giao")}</MoreLink>}
       loading={loading}
       error={error}
       onRetry={onRetry}
     >
       <div
         role="tablist"
-        aria-label="Chọn ngày"
+        aria-label={t("Chọn ngày")}
         className={cn(LE, "grid grid-cols-4 gap-1.5 pt-4 @min-[480px]:grid-cols-8")}
         onKeyDown={(e) => d && phimTab(e, ds.map((n) => n.key), d.key, setChon, "lich-")}
       >
@@ -145,7 +146,7 @@ function LichHangVe({ ngay, className, loading, error, onRetry }) {
               aria-selected={on}
               aria-controls="lich-ds"
               tabIndex={on ? 0 : -1}
-              aria-label={n.tre ? `Đã trễ hạn, ${n.so} đơn` : `${n.homNay ? "Hôm nay, " : ""}${n.ten} ${n.ngay}, ${n.so} đơn`}
+              aria-label={n.tre ? t("Đã trễ hạn, {{so}} đơn", { so: n.so, count: n.so }) : t("{{homNay}}{{ten}} {{ngay}}, {{so}} đơn", { homNay: n.homNay ? t("Hôm nay, ") : "", ten: n.ten, ngay: n.ngay, so: n.so, count: n.so })}
               onClick={() => setChon(n.key)}
               className={cn(
                 FOCUS,
@@ -154,19 +155,19 @@ function LichHangVe({ ngay, className, loading, error, onRetry }) {
               )}
             >
               <span className={cn("text-[11px] leading-4", n.tre && n.so ? cn("font-medium", DO) : n.homNay ? "font-semibold text-bo-primary" : "text-bo-muted")}>
-                {n.tre ? "Trễ" : n.homNay ? "Hôm nay" : n.thu}
+                {n.tre ? t("Trễ") : n.homNay ? t("Hôm nay") : n.thu}
               </span>
               <span className="grid h-5 place-items-center text-base font-semibold leading-5 text-bo-heading">
                 {n.tre ? <AlertTriangle className="size-4 text-[#8792a2]" aria-hidden="true" /> : n.ngay}
               </span>
-              <span className={cn("text-[11px] leading-4", n.so ? (n.tre ? cn("font-semibold", DO) : "font-semibold text-bo-foreground") : "text-bo-muted")}>{n.so ? `${n.so} đơn` : "–"}</span>
+              <span className={cn("text-[11px] leading-4", n.so ? (n.tre ? cn("font-semibold", DO) : "font-semibold text-bo-foreground") : "text-bo-muted")}>{n.so ? t("{{so}} đơn", { so: n.so, count: n.so }) : "–"}</span>
             </button>
           );
         })}
       </div>
       {d ? (
         <div id="lich-ds" role="tabpanel" aria-labelledby={`lich-${d.key}`}>
-          <p className={cn(LE, "pb-1 pt-4 text-[13px] font-medium text-bo-foreground")}>{d.tre ? "Đơn đã quá ngày giao" : `${d.homNay ? "Hôm nay · " : ""}${d.ten} ${String(d.ngay).padStart(2, "0")}/${d.iso.slice(5, 7)}`}</p>
+          <p className={cn(LE, "pb-1 pt-4 text-[13px] font-medium text-bo-foreground")}>{d.tre ? t("Đơn đã quá ngày giao") : `${d.homNay ? t("Hôm nay · ") : ""}${d.ten} ${String(d.ngay).padStart(2, "0")}/${d.iso.slice(5, 7)}`}</p>
           {d.ds.length ? (
             <ul>
               {d.ds.map((x) => (
@@ -184,7 +185,7 @@ function LichHangVe({ ngay, className, loading, error, onRetry }) {
               ))}
             </ul>
           ) : (
-            <p className={cn(LE, "pb-5 pt-2 text-sm text-bo-muted")}>{d.tre ? "Không có đơn nào trễ hạn." : "Không có hàng về ngày này."}</p>
+            <p className={cn(LE, "pb-5 pt-2 text-sm text-bo-muted")}>{d.tre ? t("Không có đơn nào trễ hạn.") : t("Không có hàng về ngày này.")}</p>
           )}
         </div>
       ) : null}
@@ -196,9 +197,9 @@ function LichHangVe({ ngay, className, loading, error, onRetry }) {
 function NhaCungCap({ ds, className, loading, error, onRetry }) {
   const list = ds ?? [];
   return (
-    <Card className={className} title="Nhà cung cấp" scope="30 ngày qua" right={<MoreLink to="/supplier">Tất cả</MoreLink>} loading={loading} error={error} onRetry={onRetry}>
+    <Card className={className} title={t("Nhà cung cấp")} scope={t("30 ngày qua")} right={<MoreLink to="/supplier">{t("Tất cả")}</MoreLink>} loading={loading} error={error} onRetry={onRetry}>
       {list.length === 0 ? (
-        <p className={cn(LE, "py-6 text-sm text-bo-muted")}>Chưa có đơn mua nào được chốt trong 30 ngày qua.</p>
+        <p className={cn(LE, "py-6 text-sm text-bo-muted")}>{t("Chưa có đơn mua nào được chốt trong 30 ngày qua.")}</p>
       ) : (
         <ul>
           {list.map((n) => {
@@ -211,7 +212,7 @@ function NhaCungCap({ ds, className, loading, error, onRetry }) {
                     <span className="shrink-0 text-sm font-semibold tabular-nums text-bo-heading">{formatTienNgan(n.giaTri)}</span>
                   </span>
                   <span className={cn("block text-xs", coTre ? DO : "text-bo-muted")}>
-                    {n.denHan ? `Giao đúng hạn ${formatSo(n.dungHan)}/${formatSo(n.denHan)} đơn` : "Chưa có đơn đến hạn giao"}
+                    {n.denHan ? t("Giao đúng hạn {{dungHan}}/{{denHan}} đơn", { dungHan: formatSo(n.dungHan), denHan: formatSo(n.denHan) }) : t("Chưa có đơn đến hạn giao")}
                   </span>
                 </Link>
               </li>
@@ -229,18 +230,18 @@ function CanMuaThem({ cm, className, loading, error, onRetry }) {
   return (
     <Card
       className={className}
-      title="Cần mua thêm"
-      scope="Kho tổng, dưới ngưỡng tồn"
+      title={t("Cần mua thêm")}
+      scope={t("Kho tổng, dưới ngưỡng tồn")}
       scopeClassName="@max-[520px]:hidden"
-      right={cm?.khoTongId != null ? <MoreLink to={`/reports/inventory?kho=${cm.khoTongId}`}>Báo cáo</MoreLink> : null}
+      right={cm?.khoTongId != null ? <MoreLink to={`/reports/inventory?kho=${cm.khoTongId}`}>{t("Báo cáo")}</MoreLink> : null}
       loading={loading}
       error={error}
       onRetry={onRetry}
     >
       {cm && cm.khoTongId == null ? (
-        <p className={cn(LE, "py-6 text-sm text-bo-muted")}>Chưa có Kho tổng đang hoạt động.</p>
+        <p className={cn(LE, "py-6 text-sm text-bo-muted")}>{t("Chưa có Kho tổng đang hoạt động.")}</p>
       ) : dong.length === 0 ? (
-        <p className={cn(LE, "py-6 text-sm text-bo-muted")}>Kho tổng không có mã nào cần mua thêm.</p>
+        <p className={cn(LE, "py-6 text-sm text-bo-muted")}>{t("Kho tổng không có mã nào cần mua thêm.")}</p>
       ) : (
         <>
           <ul>
@@ -257,16 +258,16 @@ function CanMuaThem({ cm, className, loading, error, onRetry }) {
                   }
                   phu={
                     <span className={r.khaDung > 0 ? undefined : DO}>
-                      <NgatTaiCham chu={`Kho tổng còn ${formatSo(r.khaDung)}${r.dangVe ? ` · đang về ${formatSo(r.dangVe)}` : ""} · ngưỡng ${formatSo(r.nguong)}`} />
+                      <NgatTaiCham chu={t("Kho tổng còn {{khaDung}}{{dangVe}} · ngưỡng {{nguong}}", { khaDung: formatSo(r.khaDung), dangVe: r.dangVe ? t(" · đang về {{dangVe}}", { dangVe: formatSo(r.dangVe) }) : "", nguong: formatSo(r.nguong) })} />
                     </span>
                   }
                   nut={
                     r.yeuCauMoId != null ? (
                       <Link to={`/purchase-requests/${r.yeuCauMoId}`} className={cn(FOCUS, "whitespace-nowrap rounded text-[13px] leading-8 text-bo-muted hover:text-bo-foreground hover:underline")}>
-                        {r.yeuCauMoMa ? `Đã có ${r.yeuCauMoMa}` : "Đã có yêu cầu nhập"}
+                        {r.yeuCauMoMa ? t("Đã có {{yeuCauMoMa}}", { yeuCauMoMa: r.yeuCauMoMa }) : t("Đã có yêu cầu nhập")}
                       </Link>
                     ) : (
-                      <Nut to={duongDanYeuCauNhap(r, cm.khoTongId)}>Yêu cầu nhập {formatSo(r.soLuongDeXuat)}</Nut>
+                      <Nut to={duongDanYeuCauNhap(r, cm.khoTongId)}>{t("Yêu cầu nhập")} {formatSo(r.soLuongDeXuat)}</Nut>
                     )
                   }
                 />
@@ -274,7 +275,7 @@ function CanMuaThem({ cm, className, loading, error, onRetry }) {
             })}
           </ul>
           {cm.tongSo > dong.length ? (
-            <p className={cn(LE, "border-t py-3 text-[13px] text-bo-muted", VIEN)}>Còn {formatSo(cm.tongSo - dong.length)} mã khác cần mua thêm.</p>
+            <p className={cn(LE, "border-t py-3 text-[13px] text-bo-muted", VIEN)}>{t("Còn {{soMa}} mã khác cần mua thêm.", { soMa: formatSo(cm.tongSo - dong.length), count: cm.tongSo - dong.length })}</p>
           ) : null}
         </>
       )}

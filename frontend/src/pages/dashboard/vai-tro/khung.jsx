@@ -25,6 +25,7 @@ import { Card, CardError, LE, MoreLink } from "@/pages/dashboard/admin/tong-quan
 import { MAU2 } from "@/pages/dashboard/admin/tong-quan-moi/mau";
 import { formatPhanTram, formatSo, tyLe } from "@/pages/dashboard/admin/tong-quan/tongQuanFormat";
 import { gioPhut, nhanNgay, ngayThangNgan, vachTron } from "./soLieuVaiTro";
+import { t } from "@/i18n";
 
 /* =====================================================================================
    KHUNG GIAO DIỆN CỦA TỔNG QUAN THEO VAI TRÒ (bản 5 – một màu nhấn, đã chốt 17/10/2026)
@@ -116,14 +117,14 @@ export function HangCoNut({ ten, phu, nut, className }) {
 export function DaySo({ the, loading, error, onRetry }) {
   if (error) {
     return (
-      <section aria-label="Số liệu chính" className="rounded-lg border border-bo-border bg-bo-surface shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
-        <CardError onRetry={onRetry} text="Không tải được số liệu chính" />
+      <section aria-label={t("Số liệu chính")} className="rounded-lg border border-bo-border bg-bo-surface shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+        <CardError onRetry={onRetry} text={t("Không tải được số liệu chính")} />
       </section>
     );
   }
   if (loading) {
     return (
-      <section aria-label="Số liệu chính" aria-busy="true" className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+      <section aria-label={t("Số liệu chính")} aria-busy="true" className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
         <div className="grid grid-cols-2 gap-px bg-[#eef1f5] @min-[880px]/tq:grid-cols-4">
           {[0, 1, 2, 3].map((i) => (
             <div key={i} className="flex h-[132px] flex-col gap-2 bg-bo-surface px-5 py-4" aria-hidden="true">
@@ -138,11 +139,11 @@ export function DaySo({ the, loading, error, onRetry }) {
   }
   if (!the?.length) return null;
   return (
-    <section aria-label="Số liệu chính" className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+    <section aria-label={t("Số liệu chính")} className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
       <div className={cn("grid grid-cols-2 gap-px bg-[#eef1f5]", the.length >= 4 ? "@min-[880px]/tq:grid-cols-4" : the.length === 3 ? "@min-[880px]/tq:grid-cols-3" : "")}>
-        {the.map((t, i) => (
+        {the.map((tt, i) => (
           // Số ô lẻ: ô cuối rộng hết hàng ở bố cục hai cột để không lộ ô trống
-          <OSo key={t.key} {...t} className={the.length % 2 && i === the.length - 1 ? "col-span-2 @min-[880px]/tq:col-span-1" : undefined} />
+          <OSo key={tt.key} {...tt} className={the.length % 2 && i === the.length - 1 ? "col-span-2 @min-[880px]/tq:col-span-1" : undefined} />
         ))}
       </div>
     </section>
@@ -189,7 +190,7 @@ export function BienDong({ chu, len, tot }) {
   if (len == null) return <span className="font-semibold">{chu}</span>;
   return (
     <span className={cn("inline-flex items-center gap-0.5 font-semibold", tot ? "text-[#137a3f]" : DO)}>
-      <span className="sr-only">{len ? "Tăng" : "Giảm"} </span>
+      <span className="sr-only">{len ? t("Tăng") : t("Giảm")} </span>
       {len ? <ArrowUp className="size-3" aria-hidden="true" /> : <ArrowDown className="size-3" aria-hidden="true" />}
       {chu}
     </span>
@@ -286,8 +287,8 @@ export function LuoiNghiepVu({ tieuDe, scope, the, className, loading, error, on
   return (
     <Card className={className} title={tieuDe} scope={scope} loading={loading} error={error} onRetry={onRetry}>
       <ul className="grid grid-cols-2 gap-px bg-[#eef1f5] @min-[700px]:grid-cols-3">
-        {(the ?? []).map((t) => (
-          <ONghiepVu key={t.key} {...t} />
+        {(the ?? []).map((tt) => (
+          <ONghiepVu key={tt.key} {...tt} />
         ))}
       </ul>
     </Card>
@@ -319,7 +320,7 @@ function ONghiepVu({ ten, icon, so, nhanSo, to, chip = [], tao }) {
         className="mt-2 flex items-baseline gap-2 rounded after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-bo-primary/30"
       >
         <span className={cn("text-2xl font-semibold leading-8 tracking-[-0.02em]", so ? "text-bo-heading" : "text-[#8792a2]")}>{formatSo(so)}</span>
-        <span className="min-w-0 text-[13px] leading-5 text-bo-muted">{so ? nhanSo : "Không có việc chờ"}</span>
+        <span className="min-w-0 text-[13px] leading-5 text-bo-muted">{so ? nhanSo : t("Không có việc chờ")}</span>
       </Link>
       {chip.length ? (
         // Màn cảm ứng: mỗi liên kết có vùng chạm cao 44px (index.css), hàng xuống dòng cách nhau đủ 44px để vùng chạm của
@@ -348,14 +349,14 @@ export function HangDoiViec({ tieuDe, viec, className, toiDa = 5, loading, error
     <Card
       className={className}
       title={tieuDe}
-      scope={soGap ? <span className={cn("text-[13px] font-medium", DO)}>{formatSo(soGap)} việc gấp</span> : null}
+      scope={soGap ? <span className={cn("text-[13px] font-medium", DO)}>{formatSo(soGap)} {t("việc gấp")}</span> : null}
       loading={loading}
       error={error}
       onRetry={onRetry}
     >
       {ds.length === 0 ? (
         <p className={cn(LE, "flex items-center gap-2 py-6 text-sm text-bo-muted")}>
-          <CheckCircle2 className="size-4 text-bo-success" aria-hidden="true" /> Không có việc nào đang chờ bạn.
+          <CheckCircle2 className="size-4 text-bo-success" aria-hidden="true" /> {t("Không có việc nào đang chờ bạn.")}
         </p>
       ) : (
         <>
@@ -382,7 +383,7 @@ export function HangDoiViec({ tieuDe, viec, className, toiDa = 5, loading, error
               onClick={() => setMoRong((x) => !x)}
               className={cn(LE, FOCUS, "cursor-pointer border-t py-3 text-left text-[13px] font-medium text-bo-primary hover:text-bo-primary-hover", VIEN)}
             >
-              {moRong ? "Thu gọn" : `Xem thêm ${ds.length - toiDa} việc`}
+              {moRong ? t("Thu gọn") : t("Xem thêm {{soViec}} việc", { soViec: ds.length - toiDa })}
             </button>
           ) : null}
         </>
@@ -394,9 +395,9 @@ export function HangDoiViec({ tieuDe, viec, className, toiDa = 5, loading, error
 /* ================= NÚT CHỌN KỲ VÀ NÚT BẢNG ================= */
 const KY = [7, 14, 30];
 
-export function NutKy({ ky, setKy, ds = KY, nhan = (k) => `${k} ngày` }) {
+export function NutKy({ ky, setKy, ds = KY, nhan = (k) => t("{{count}} ngày", { count: k }) }) {
   return (
-    <div role="group" aria-label="Khoảng thời gian" className="flex rounded-md bg-[#f1f4f8] p-0.5">
+    <div role="group" aria-label={t("Khoảng thời gian")} className="flex rounded-md bg-[#f1f4f8] p-0.5">
       {ds.map((k) => (
         <button
           key={k}
@@ -419,8 +420,8 @@ export function NutBang({ bang, setBang }) {
   return (
     <button
       type="button"
-      title={bang ? "Xem biểu đồ" : "Xem bảng số liệu"}
-      aria-label={bang ? "Xem biểu đồ" : "Xem bảng số liệu"}
+      title={bang ? t("Xem biểu đồ") : t("Xem bảng số liệu")}
+      aria-label={bang ? t("Xem biểu đồ") : t("Xem bảng số liệu")}
       onClick={() => setBang((x) => !x)}
       className={cn(
         "grid size-8 cursor-pointer place-items-center rounded-md text-bo-muted transition-colors hover:bg-[#f1f4f8] hover:text-bo-foreground",
@@ -437,8 +438,8 @@ export function NutBang({ bang, setBang }) {
    Một chuỗi một màu: chọn "Nhập kho" hoặc "Xuất kho" ở hai ô số đầu thẻ, chọn 7 / 14 / 30 ngày, nút bảng để đọc số.
    Ô nổi khi rê chuột vẫn ghi cả nhập và xuất. */
 const CHUOI = [
-  { key: "nhap", ten: "Nhập kho" },
-  { key: "xuat", ten: "Xuất kho" },
+  { key: "nhap", ten: t("Nhập kho") },
+  { key: "xuat", ten: t("Xuất kho") },
 ];
 
 export function BieuDoNhapXuat({ du, thoiDiem, className, loading, error, onRetry }) {
@@ -448,8 +449,8 @@ export function BieuDoNhapXuat({ du, thoiDiem, className, loading, error, onRetr
   const rows = useMemo(
     () =>
       (du ?? []).slice(-ky).map((d) => {
-        const homNay = nhanNgay(d.ngay, thoiDiem) === "Hôm nay";
-        return { nhan: ngayThangNgan(d.ngay), ngayDayDu: homNay ? "Hôm nay" : nhanNgay(d.ngay, thoiDiem), homNay, nhap: d.nhap, xuat: d.xuat };
+        const homNay = nhanNgay(d.ngay, thoiDiem) === t("Hôm nay");
+        return { nhan: ngayThangNgan(d.ngay), ngayDayDu: homNay ? t("Hôm nay") : nhanNgay(d.ngay, thoiDiem), homNay, nhap: d.nhap, xuat: d.xuat };
       }),
     [ky, du, thoiDiem],
   );
@@ -461,8 +462,8 @@ export function BieuDoNhapXuat({ du, thoiDiem, className, loading, error, onRetr
   return (
     <Card
       className={className}
-      title="Nhập và xuất kho"
-      scope="sản phẩm mỗi ngày"
+      title={t("Nhập và xuất kho")}
+      scope={t("sản phẩm mỗi ngày")}
       scopeClassName="@max-[440px]:hidden"
       right={<NutBang bang={bang} setBang={setBang} />}
       bodyClassName={cn(LE, "pb-4 pt-3")}
@@ -471,7 +472,7 @@ export function BieuDoNhapXuat({ du, thoiDiem, className, loading, error, onRetr
       onRetry={onRetry}
     >
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
-        <div role="group" aria-label="Chọn chuỗi số" className="flex gap-6">
+        <div role="group" aria-label={t("Chọn chuỗi số")} className="flex gap-6">
           {CHUOI.map((c) => {
             const on = c.key === chuoi;
             return (
@@ -486,10 +487,10 @@ export function BieuDoNhapXuat({ du, thoiDiem, className, loading, error, onRetr
                 )}
               >
                 <span className={cn("block text-xs", on ? "font-medium text-bo-foreground" : "text-bo-muted")}>
-                  {c.ten} {ky} ngày
+                  {t("{{ten}} {{ky}} ngày", { ten: c.ten, ky })}
                 </span>
                 <span className={cn("block text-lg font-semibold leading-7", on ? "text-bo-heading" : "text-bo-muted")}>
-                  {formatSo(tong[c.key])} <span className="text-[13px] font-normal text-bo-muted">sản phẩm</span>
+                  {formatSo(tong[c.key])} <span className="text-[13px] font-normal text-bo-muted">{t("sản phẩm")}</span>
                 </span>
               </button>
             );
@@ -500,18 +501,18 @@ export function BieuDoNhapXuat({ du, thoiDiem, className, loading, error, onRetr
       {bang ? (
         <div className="mt-3 max-h-[220px] overflow-y-auto rounded-md border border-[#eef1f5]">
           <table className="w-full text-sm">
-            <caption className="sr-only">Nhập và xuất kho theo ngày</caption>
+            <caption className="sr-only">{t("Nhập và xuất kho theo ngày")}</caption>
             <thead className="sticky top-0 bg-bo-surface-subtle text-left text-xs text-bo-muted">
               <tr>
-                <th className="px-3 py-2 font-medium">Ngày</th>
-                <th className="px-3 py-2 text-right font-medium">Nhập</th>
-                <th className="px-3 py-2 text-right font-medium">Xuất</th>
+                <th className="px-3 py-2 font-medium">{t("Ngày")}</th>
+                <th className="px-3 py-2 text-right font-medium">{t("Nhập")}</th>
+                <th className="px-3 py-2 text-right font-medium">{t("Xuất")}</th>
               </tr>
             </thead>
             <tbody>
               {[...rows].reverse().map((r) => (
                 <tr key={r.nhan} className="border-t border-[#eef1f5]">
-                  <td className="px-3 py-1.5">{r.homNay ? `Hôm nay (đến ${gio})` : r.ngayDayDu}</td>
+                  <td className="px-3 py-1.5">{r.homNay ? t("Hôm nay (đến {{gio}})", { gio }) : r.ngayDayDu}</td>
                   <td className="px-3 py-1.5 text-right tabular-nums">{formatSo(r.nhap)}</td>
                   <td className="px-3 py-1.5 text-right tabular-nums">{formatSo(r.xuat)}</td>
                 </tr>
@@ -520,7 +521,7 @@ export function BieuDoNhapXuat({ du, thoiDiem, className, loading, error, onRetr
           </table>
         </div>
       ) : rows.length ? (
-        <div className="mt-4 h-[200px] @max-[520px]:h-[180px]" role="figure" aria-label={`${chuoi === "nhap" ? "Nhập kho" : "Xuất kho"} ${ky} ngày qua. Bấm nút bảng để đọc từng ngày.`}>
+        <div className="mt-4 h-[200px] @max-[520px]:h-[180px]" role="figure" aria-label={t("{{chuoi}} {{ky}} ngày qua. Bấm nút bảng để đọc từng ngày.", { chuoi: chuoi === "nhap" ? t("Nhập kho") : t("Xuất kho"), ky })}>
           <KhungBieuDo>
             <BarChart data={rows} margin={{ top: 6, right: 4, bottom: 0, left: 0 }} barCategoryGap={ky === 30 ? "22%" : "38%"} accessibilityLayer>
               <CartesianGrid vertical={false} stroke={MAU2.luoi} />
@@ -546,7 +547,7 @@ export function NhanTrucX({ x, y, payload, cuoi, dinhDang = (v) => v }) {
 }
 
 /* Chú giải kèm tổng: một nét mẫu (liền / đứt) + tên + số. */
-export function ChuGiai({ mau, ten, so, donVi = "sản phẩm", net = "solid" }) {
+export function ChuGiai({ mau, ten, so, donVi = t("sản phẩm"), net = "solid" }) {
   return (
     <p className="min-w-0">
       <span className="flex items-center gap-1.5 text-xs text-bo-muted">
@@ -565,7 +566,7 @@ function TipNgay({ active, payload, chuoi, gio }) {
   const r = payload[0].payload;
   return (
     <div className="min-w-40 rounded-md border border-bo-border bg-bo-surface px-3 py-2.5 text-xs leading-4 shadow-lg">
-      <p className="mb-1.5 font-medium text-bo-foreground">{r.homNay ? `Hôm nay (đến ${gio})` : r.ngayDayDu}</p>
+      <p className="mb-1.5 font-medium text-bo-foreground">{r.homNay ? t("Hôm nay (đến {{gio}})", { gio }) : r.ngayDayDu}</p>
       {CHUOI.map((c) => (
         <p key={c.key} className="mt-1 flex items-center gap-2">
           <span className={cn("flex-1", c.key === chuoi ? "text-bo-foreground" : "text-bo-muted")}>{c.ten}</span>
@@ -579,19 +580,19 @@ function TipNgay({ active, payload, chuoi, gio }) {
 /* ================= TỒN KHO: 4 MỨC + MÃ CẦN BỔ SUNG =================
    Một thanh mảnh: hết hàng đỏ, sắp hết cam, còn lại xám (bình thường nhạt, dư đậm hơn). Số đọc bằng chữ. */
 const MUC = [
-  { key: "het", ten: "Hết hàng", mau: MAU_DO, chu: DO, tab: "het-hang" },
-  { key: "thieu", ten: "Sắp hết", mau: MAU_CAM, chu: CAM, tab: "thieu-hang" },
-  { key: "binhThuong", ten: "Bình thường", mau: "#dfe4ea", tab: "binh-thuong" },
-  { key: "du", ten: "Dư hàng", mau: "#a6b0bf", tab: "du-hang" },
+  { key: "het", ten: t("Hết hàng"), mau: MAU_DO, chu: DO, tab: "het-hang" },
+  { key: "thieu", ten: t("Sắp hết"), mau: MAU_CAM, chu: CAM, tab: "thieu-hang" },
+  { key: "binhThuong", ten: t("Bình thường"), mau: "#dfe4ea", tab: "binh-thuong" },
+  { key: "du", ten: t("Dư hàng"), mau: "#a6b0bf", tab: "du-hang" },
 ];
 
 export function TonKhoKho({ khoId, ton, boSung, className, loading, error, loiTon, onRetry, children }) {
   return (
     <Card
       className={className}
-      title="Tồn kho"
-      scope={ton ? `${formatSo(ton.soDong)} mã hàng` : null}
-      right={<MoreLink to={`/reports/inventory?kho=${khoId}`}>Báo cáo</MoreLink>}
+      title={t("Tồn kho")}
+      scope={ton ? t("{{soDong}} mã hàng", { soDong: formatSo(ton.soDong), count: ton.soDong }) : null}
+      right={<MoreLink to={`/reports/inventory?kho=${khoId}`}>{t("Báo cáo")}</MoreLink>}
       loading={loading}
       error={error}
       onRetry={onRetry}
@@ -615,9 +616,9 @@ export function TonKhoKho({ khoId, ton, boSung, className, loading, error, loiTo
         </div>
       ) : loiTon ? (
         <p className={cn(LE, "flex items-center justify-between gap-3 border-b py-3 text-[13px] text-bo-muted", VIEN)}>
-          Chưa tải được số tồn kho.
+          {t("Chưa tải được số tồn kho.")}
           <button type="button" onClick={onRetry} className={cn(FOCUS, "cursor-pointer rounded font-medium text-bo-primary")}>
-            Thử lại
+            {t("Thử lại")}
           </button>
         </p>
       ) : null}
@@ -628,7 +629,7 @@ export function TonKhoKho({ khoId, ton, boSung, className, loading, error, loiTo
 
 /* ================= TẠO NHANH =================
    Một nút chính rộng hết thẻ + các nút phụ viền xám. */
-export function ThaoTacNhanh({ tieuDe = "Tạo nhanh", ds, className }) {
+export function ThaoTacNhanh({ tieuDe = t("Tạo nhanh"), ds, className }) {
   const [chinh, ...phu] = ds;
   return (
     <Card className={className} title={tieuDe} bodyClassName={cn(LE, "flex flex-col gap-2 py-4")}>
@@ -690,7 +691,7 @@ export function DongThoiGian({ tieuDe, nhom, right, className, loading, error, o
 export function ChanTrang({ thoiDiem, onReload, dangTai }) {
   return (
     <footer className="flex flex-wrap items-center justify-center gap-x-1.5 pb-2 text-xs text-bo-muted">
-      {thoiDiem ? <span>Số liệu lúc {gioPhut(thoiDiem)} · tự cập nhật mỗi phút</span> : null}
+      {thoiDiem ? <span>{t("Số liệu lúc {{gio}} · tự cập nhật mỗi phút", { gio: gioPhut(thoiDiem) })}</span> : null}
       <button
         type="button"
         onClick={onReload}
@@ -698,7 +699,7 @@ export function ChanTrang({ thoiDiem, onReload, dangTai }) {
         className={cn(FOCUS, "inline-flex cursor-pointer items-center gap-1 rounded px-1.5 py-1 font-medium text-bo-primary hover:bg-[#eef3fb] disabled:cursor-default disabled:opacity-60")}
       >
         {dangTai ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> : <RefreshCw className="size-3.5" aria-hidden="true" />}
-        {dangTai ? "Đang tải…" : "Tải lại"}
+        {dangTai ? t("Đang tải…") : t("Tải lại")}
       </button>
     </footer>
   );

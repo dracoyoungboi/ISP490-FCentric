@@ -14,6 +14,7 @@ import HomNayCard from "./tong-quan-moi/HomNayCard";
 import ActionPanel from "./tong-quan-moi/ActionPanel";
 import ProductsCard from "./tong-quan-moi/ProductsCard";
 import HoatDongGanDay from "./tong-quan-moi/HoatDongGanDay";
+import { t } from "@/i18n";
 
 /* Hai cột khi vùng nội dung rộng từ 968px (cột chính ≥ 600px, cột phải 352px); hẹp hơn thì một cột
    theo thứ tự đọc của điện thoại: Cần xử lý, Hôm nay, biểu đồ, Phân bổ, Tồn kho, Bán chạy, Hoạt động.
@@ -55,7 +56,7 @@ export default function DashboardAdmin() {
     return (
       <PageContainer>
         <div className="rounded-lg border border-bo-border bg-bo-surface">
-          <ErrorState title="Không tải được trang Tổng quan" description="Kiểm tra kết nối tới máy chủ rồi thử lại." onRetry={reload} />
+          <ErrorState title={t("Không tải được trang Tổng quan")} description={t("Kiểm tra kết nối tới máy chủ rồi thử lại.")} onRetry={reload} />
         </div>
       </PageContainer>
     );
@@ -79,7 +80,7 @@ export default function DashboardAdmin() {
       />
 
       {/* Giờ số liệu đã ở đầu trang; khối nào lỗi thì tự báo lỗi và có nút Thử lại, nên dải này không liệt kê lại */}
-      {loiCapNhat ? <Banner onRetry={reload}>Không cập nhật được số liệu mới.</Banner> : null}
+      {loiCapNhat ? <Banner onRetry={reload}>{t("Không cập nhật được số liệu mới.")}</Banner> : null}
 
       <div
         className={cn(HANG, "transition-opacity", refreshing && !loading && "opacity-60")}
@@ -107,7 +108,7 @@ function Banner({ children, onRetry }) {
       <AlertTriangle className="size-4 shrink-0" aria-hidden="true" />
       <span className="min-w-0 flex-1">{children}</span>
       <button type="button" onClick={onRetry} className="cursor-pointer rounded-md border border-amber-300 bg-bo-surface px-2.5 py-1 text-xs font-medium hover:bg-amber-50">
-        Thử lại
+        {t("Thử lại")}
       </button>
     </div>
   );

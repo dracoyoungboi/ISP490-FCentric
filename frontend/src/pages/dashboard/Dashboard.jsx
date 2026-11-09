@@ -4,6 +4,7 @@ import DashboardWarehouseStaff from "./warehouse-staff/DashboardWarehouseStaff";
 import DashboardSalesStaff from "./sales-staff/DashboardSalesStaff";
 import DashboardPurchaseStaff from "./purchase-staff/DashboardPurchaseStaff";
 import { getStoredRoles } from "@/utils/roles";
+import { t } from "@/i18n";
 
 /**
  * Màn Tổng quan theo vai trò. Tài khoản nhiều vai trò ("role" lưu nhiều vai trò cách nhau khoảng trắng) xem màn của
@@ -23,7 +24,7 @@ export default function Dashboard() {
 
     if (!DashboardComponent) {
 
-        return <div className="flex min-h-screen items-center justify-center bg-bo-canvas p-6 font-backoffice text-bo-muted">Không có quyền truy cập</div>;
+        return <div className="flex min-h-screen items-center justify-center bg-bo-canvas p-6 font-backoffice text-bo-muted">{t("Không có quyền truy cập")}</div>;
     }
 
     return <DashboardComponent />;

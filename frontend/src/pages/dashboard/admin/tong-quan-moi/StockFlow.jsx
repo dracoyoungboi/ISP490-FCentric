@@ -10,12 +10,13 @@ import { dsKhoDayDu } from "./boLoc";
 import DauTichDong from "./DauTichDong";
 import { formatPhanTram, formatSo, formatTienNgan, tachTien, tyLe } from "../tong-quan/tongQuanFormat";
 import { demMaNhom, khaDungNhom, nhomCanBoSung, tomTatBienThe } from "../tong-quan/canBoSung";
+import { t } from "@/i18n";
 
 const MUC = [
-  { key: "hetHang", ten: "Hết hàng", tab: "het-hang" },
-  { key: "thieuHang", ten: "Sắp hết hàng", tab: "thieu-hang" },
-  { key: "binhThuong", ten: "Bình thường", tab: "binh-thuong" },
-  { key: "duHang", ten: "Dư hàng", tab: "du-hang" },
+  { key: "hetHang", ten: t("Hết hàng"), tab: "het-hang" },
+  { key: "thieuHang", ten: t("Sắp hết hàng"), tab: "thieu-hang" },
+  { key: "binhThuong", ten: t("Bình thường"), tab: "binh-thuong" },
+  { key: "duHang", ten: t("Dư hàng"), tab: "du-hang" },
 ];
 
 /* Bảng Cần bổ sung: thẻ rộng (≥ 860px) 4 cột; hẹp hơn thì tên kho vào dòng phụ để cột Sản phẩm đủ rộng (tên không bị cắt);
@@ -34,57 +35,57 @@ const LINK =
  * Số nhập – xuất của kỳ nằm ở chân thẻ Hoạt động gần đây để thẻ này chỉ chứa số hiện tại.
  */
 export default function StockFlow({ data, khoId, loading, loiTonKho, loiBoSung, onRetry, className }) {
-  const t = data?.tonKho;
+  const tt = data?.tonKho;
   const bs = data?.hangCanBoSung;
   const kho = khoId == null ? "tat-ca" : khoId;
-  const theoKho = t?.theoKho ?? [];
+  const theoKho = tt?.theoKho ?? [];
   const tongHeThong = theoKho.reduce((s, k) => s + k.giaTri, 0);
   const khoTong = theoKho.filter((k) => k.laKhoTong).reduce((s, k) => s + k.giaTri, 0);
-  const gt = tachTien(t?.giaTri ?? 0);
+  const gt = tachTien(tt?.giaTri ?? 0);
 
-  const so = t
+  const so = tt
     ? [
         {
-          ten: "Giá trị tồn",
+          ten: t("Giá trị tồn"),
           so: gt.so,
           donVi: gt.donVi,
           phu:
             khoId != null
-              ? `${formatPhanTram(tyLe(t.giaTri, tongHeThong), 0)} toàn hệ thống`
+              ? t("{{tyLe}} toàn hệ thống", { tyLe: formatPhanTram(tyLe(tt.giaTri, tongHeThong), 0) })
               : theoKho.some((k) => k.laKhoTong)
-                ? `${formatPhanTram(tyLe(khoTong, tongHeThong), 0)} ở Kho tổng`
-                : "theo giá vốn lô",
+                ? t("{{tyLe}} ở Kho tổng", { tyLe: formatPhanTram(tyLe(khoTong, tongHeThong), 0) })
+                : t("theo giá vốn lô"),
         },
         // Giữ cho đơn không còn ô riêng: khả dụng đã trừ phần đó, ghi ở dòng phụ
         {
-          ten: "Khả dụng",
-          so: formatSo(t.khaDung),
-          phu: t.dangGiu > 0 ? `đã trừ ${formatSo(t.dangGiu)} giữ cho đơn` : "sản phẩm",
-          chu: `Tồn thực tế ${formatSo(t.tonThucTe)} − đang giữ cho đơn ${formatSo(t.dangGiu)}`,
+          ten: t("Khả dụng"),
+          so: formatSo(tt.khaDung),
+          phu: tt.dangGiu > 0 ? t("đã trừ {{dangGiu}} giữ cho đơn", { dangGiu: formatSo(tt.dangGiu) }) : t("sản phẩm"),
+          chu: t("Tồn thực tế {{tonThucTe}} − đang giữ cho đơn {{dangGiu}}", { tonThucTe: formatSo(tt.tonThucTe), dangGiu: formatSo(tt.dangGiu) }),
         },
-        { ten: "Đang về", so: formatSo(t.dangVe), phu: "từ đơn mua" },
-        { ten: "Đang chuyển", so: formatSo(t.dangChuyen), phu: khoId == null ? "giữa các kho" : "đi hoặc đến kho này" },
+        { ten: t("Đang về"), so: formatSo(tt.dangVe), phu: t("từ đơn mua") },
+        { ten: t("Đang chuyển"), so: formatSo(tt.dangChuyen), phu: khoId == null ? t("giữa các kho") : t("đi hoặc đến kho này") },
       ]
     : [];
 
   return (
     <Card
       className={className}
-      title="Tồn kho"
-      scope="Hiện tại"
+      title={t("Tồn kho")}
+      scope={t("Hiện tại")}
       right={
         <MoreLink to={`/reports/inventory?kho=${kho}`}>
-          <span className="@max-[520px]:sr-only">Báo cáo tồn kho</span>
+          <span className="@max-[520px]:sr-only">{t("Báo cáo tồn kho")}</span>
         </MoreLink>
       }
       loading={loading}
       error={loiTonKho}
       onRetry={onRetry}
-      empty={t ? t.tonThucTe === 0 && t.soDong === 0 : false}
+      empty={tt ? tt.tonThucTe === 0 && tt.soDong === 0 : false}
       emptyIcon={Boxes}
-      emptyText="Tồn kho sẽ hiện sau khi xác nhận phiếu nhập đầu tiên."
+      emptyText={t("Tồn kho sẽ hiện sau khi xác nhận phiếu nhập đầu tiên.")}
     >
-      {t ? (
+      {tt ? (
         <>
           <dl className="grid grid-cols-4 border-b border-[#eef1f5] @max-[600px]:grid-cols-2">
             {so.map((f, i) => (
@@ -112,17 +113,17 @@ export default function StockFlow({ data, khoId, loading, loiTonKho, loiBoSung, 
 
           <div className={cn(LE, "border-b border-[#eef1f5] py-4")}>
             <div className="mb-2.5 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-              <h3 className="whitespace-nowrap text-sm font-semibold text-bo-foreground">Mức tồn so với ngưỡng</h3>
+              <h3 className="whitespace-nowrap text-sm font-semibold text-bo-foreground">{t("Mức tồn so với ngưỡng")}</h3>
               <span
                 className="whitespace-nowrap text-xs tabular-nums text-bo-muted"
-                title={`Mỗi mã hàng đang kinh doanh tại mỗi kho là một dòng. Ngưỡng là mức tồn tối thiểu của sản phẩm (chưa đặt thì dùng ${formatSo(t.nguongMacDinh)}); dư hàng khi khả dụng vượt ${formatSo(t.heSoDu)} lần ngưỡng.`}
+                title={t("Mỗi mã hàng đang kinh doanh tại mỗi kho là một dòng. Ngưỡng là mức tồn tối thiểu của sản phẩm (chưa đặt thì dùng {{nguongMacDinh}}); dư hàng khi khả dụng vượt {{heSoDu}} lần ngưỡng.", { nguongMacDinh: formatSo(tt.nguongMacDinh), heSoDu: formatSo(tt.heSoDu) })}
               >
-                {formatSo(t.soDong)} mã hàng tại các kho
+                {formatSo(tt.soDong)} {t("mã hàng tại các kho")}
               </span>
             </div>
             <StackBar
-              label={`Mức tồn: ${MUC.map((m) => `${m.ten} ${formatSo(t[m.key])}`).join(", ")}`}
-              segments={MUC.map((m) => ({ key: m.key, value: t[m.key], color: MAU2.tinhTrang[m.key] }))}
+              label={t("Mức tồn: {{chiTiet}}", { chiTiet: MUC.map((m) => `${m.ten} ${formatSo(tt[m.key])}`).join(", ") })}
+              segments={MUC.map((m) => ({ key: m.key, value: tt[m.key], color: MAU2.tinhTrang[m.key] }))}
             />
             <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-2">
               {MUC.map((m) => (
@@ -133,17 +134,16 @@ export default function StockFlow({ data, khoId, loading, loiTonKho, loiBoSung, 
                   >
                     <i className="inline-block size-2 rounded-[2px]" style={{ background: MAU2.tinhTrang[m.key] }} aria-hidden="true" />
                     <span className="group-hover:underline">{m.ten}</span>
-                    <b className="font-semibold tabular-nums">{formatSo(t[m.key])}</b>
-                    <span className="tabular-nums text-bo-muted">{formatPhanTram(tyLe(t[m.key], t.soDong), 0)}</span>
+                    <b className="font-semibold tabular-nums">{formatSo(tt[m.key])}</b>
+                    <span className="tabular-nums text-bo-muted">{formatPhanTram(tyLe(tt[m.key], tt.soDong), 0)}</span>
                   </Link>
                 </li>
               ))}
             </ul>
-            {t.giaTriDu > 0 ? (
+            {tt.giaTriDu > 0 ? (
               <p className="mt-3 text-xs leading-4 text-bo-muted">
-                Hàng dư đang giữ <b className="font-semibold text-bo-foreground">{formatTienNgan(t.giaTriDu)}</b>, bằng{" "}
-                {formatPhanTram(tyLe(t.giaTriDu, t.giaTri), 0)} giá trị tồn.
-                {t.duChamBan > 0 ? ` Trong đó ${formatSo(t.duChamBan)} mã chưa bán được trong ${formatSo(t.soNgayChamBan)} ngày.` : ""}
+                {t("Hàng dư đang giữ")} <b className="font-semibold text-bo-foreground">{formatTienNgan(tt.giaTriDu)}</b>{t(", bằng {{tyLe}} giá trị tồn.", { tyLe: formatPhanTram(tyLe(tt.giaTriDu, tt.giaTri), 0) })}
+                {tt.duChamBan > 0 ? t(" Trong đó {{duChamBan}} mã chưa bán được trong {{soNgayChamBan}} ngày.", { duChamBan: formatSo(tt.duChamBan), soNgayChamBan: formatSo(tt.soNgayChamBan) }) : ""}
               </p>
             ) : null}
           </div>
@@ -186,17 +186,17 @@ function duongDanDeXuat(d, khoTongId) {
 /** Nút đề xuất của một mã; chú thích ghi số Kho tổng có thể chuyển (đã trừ đơn bán chờ xuất) như bảng cũ. */
 function DeXuat({ d, coKhoTong, khoTongId }) {
   const chuyen = d.deXuat === "chuyen_kho";
-  const daTru = d.choXuatKhoTong > 0 ? ` (đã trừ ${formatSo(d.choXuatKhoTong)} đơn bán đang chờ xuất)` : "";
+  const daTru = d.choXuatKhoTong > 0 ? t(" (đã trừ {{choXuatKhoTong}} đơn bán đang chờ xuất)", { choXuatKhoTong: formatSo(d.choXuatKhoTong) }) : "";
   const ghiChu = chuyen
-    ? `Kho tổng còn ${formatSo(d.khaDungKhoTong)} có thể chuyển${daTru}`
+    ? t("Kho tổng còn {{khaDungKhoTong}} có thể chuyển{{daTru}}", { khaDungKhoTong: formatSo(d.khaDungKhoTong), daTru })
     : d.laKhoTong
-      ? "Kho tổng nhập từ nhà cung cấp"
+      ? t("Kho tổng nhập từ nhà cung cấp")
       : !coKhoTong
-        ? "Chưa đánh dấu Kho tổng"
-        : `Kho tổng chỉ còn ${formatSo(d.khaDungKhoTong ?? 0)} có thể chuyển${daTru}, không đủ chuyển`;
+        ? t("Chưa đánh dấu Kho tổng")
+        : t("Kho tổng chỉ còn {{khaDungKhoTong}} có thể chuyển{{daTru}}, không đủ chuyển", { khaDungKhoTong: formatSo(d.khaDungKhoTong ?? 0), daTru });
   return (
     <Link to={duongDanDeXuat(d, khoTongId)} title={ghiChu} className={LINK}>
-      <span className="text-pretty">{chuyen ? `Chuyển ${formatSo(d.soLuongDeXuat)} từ Kho tổng` : `Yêu cầu nhập ${formatSo(d.soLuongDeXuat)}`}</span>
+      <span className="text-pretty">{chuyen ? t("Chuyển {{soLuongDeXuat}} từ Kho tổng", { soLuongDeXuat: formatSo(d.soLuongDeXuat) }) : t("Yêu cầu nhập {{soLuongDeXuat}}", { soLuongDeXuat: formatSo(d.soLuongDeXuat) })}</span>
       <ChevronRight className="size-3.5 shrink-0" aria-hidden="true" />
     </Link>
   );
@@ -206,7 +206,9 @@ function DeXuat({ d, coKhoTong, khoTongId }) {
 function NhanNhom({ n }) {
   return (
     <>
+      {/* i18n-giu-nguyen: nhãn StatusBadge (badge tự dịch lúc vẽ, tra màu theo tên Việt) */}
       {n.soHet > 0 ? <StatusBadge label="Hết hàng" /> : null}
+      {/* i18n-giu-nguyen: nhãn StatusBadge */}
       {n.soSapHet > 0 ? <StatusBadge label="Sắp hết hàng" /> : null}
     </>
   );
@@ -235,18 +237,18 @@ function CanBoSung({ bs, data, kho, error, onRetry }) {
   return (
     <div>
       <div className={cn(LE, "flex items-center gap-2 pb-2.5 pt-3.5")}>
-        <h3 className="text-sm font-semibold text-bo-foreground">Cần bổ sung</h3>
+        <h3 className="text-sm font-semibold text-bo-foreground">{t("Cần bổ sung")}</h3>
         {tongSo > 0 ? (
           <MoreLink to={`/reports/inventory?kho=${kho}&tinhTrang=het-hang`} className="ml-auto">
-            {`Xem tất cả ${formatSo(tongSo)}`}
+            {t("Xem tất cả {{tongSo}}", { tongSo: formatSo(tongSo) })}
           </MoreLink>
         ) : null}
       </div>
       {error ? (
         <p role="alert" className={cn(LE, "pb-4 text-[13px] text-bo-warning")}>
-          Không tải được danh sách.{" "}
+          {t("Không tải được danh sách.")}{" "}
           <button type="button" onClick={onRetry} className="cursor-pointer font-medium text-bo-primary hover:underline">
-            Thử lại
+            {t("Thử lại")}
           </button>
         </p>
       ) : nhom.length === 0 ? (
@@ -255,21 +257,21 @@ function CanBoSung({ bs, data, kho, error, onRetry }) {
           <div className={cn(LE, "flex items-center gap-3 pb-4")}>
             <DauTichDong key={data?.thoiDiem} className="size-9" />
             <div>
-              <p className="text-sm font-medium text-bo-foreground">Không có mã nào hết hoặc sắp hết hàng</p>
-              <p className="text-xs text-bo-muted">Mã chạm ngưỡng tối thiểu sẽ hiện ở đây.</p>
+              <p className="text-sm font-medium text-bo-foreground">{t("Không có mã nào hết hoặc sắp hết hàng")}</p>
+              <p className="text-xs text-bo-muted">{t("Mã chạm ngưỡng tối thiểu sẽ hiện ở đây.")}</p>
             </div>
           </div>
         )
       ) : (
         <table className="w-full table-fixed text-sm">
-          <caption className="sr-only">Mã hàng cần bổ sung, gom theo sản phẩm tại từng kho, kèm đề xuất</caption>
+          <caption className="sr-only">{t("Mã hàng cần bổ sung, gom theo sản phẩm tại từng kho, kèm đề xuất")}</caption>
           {/* Điện thoại chỉ còn một cột: bỏ dòng tiêu đề cột như bản thiết kế */}
           <thead className="@max-[440px]:hidden">
             <tr className="border-y border-[#eef1f5] bg-bo-surface-subtle text-left text-xs text-bo-muted">
-              <th scope="col" className={cn(O_DAU, "py-2 font-medium")}>Sản phẩm</th>
-              <th scope="col" className="w-[26%] py-2 pr-4 font-medium @max-[860px]:hidden">Kho</th>
-              <th scope="col" className="w-[88px] py-2 pr-4 text-right font-medium @max-[440px]:hidden">Khả dụng</th>
-              <th scope="col" className={cn(O_CUOI, "w-[212px] py-2 text-right font-medium @max-[440px]:hidden")}>Đề xuất</th>
+              <th scope="col" className={cn(O_DAU, "py-2 font-medium")}>{t("Sản phẩm")}</th>
+              <th scope="col" className="w-[26%] py-2 pr-4 font-medium @max-[860px]:hidden">{t("Kho")}</th>
+              <th scope="col" className="w-[88px] py-2 pr-4 text-right font-medium @max-[440px]:hidden">{t("Khả dụng")}</th>
+              <th scope="col" className={cn(O_CUOI, "w-[212px] py-2 text-right font-medium @max-[440px]:hidden")}>{t("Đề xuất")}</th>
             </tr>
           </thead>
           {nhom.map((n, i) => {
@@ -306,8 +308,8 @@ function Nhom({ n, mo, onDoi, idMa, coKhoTong, khoTongId }) {
       aria-controls={idMa}
       className={cn(LINK, "cursor-pointer whitespace-nowrap")}
     >
-      {mo ? "Thu gọn" : `Xem ${formatSo(ds.length)} mã`}
-      <span className="sr-only">{mo ? ` các mã của ${n.tenSanPham}` : ` của ${n.tenSanPham}`}</span>
+      {mo ? t("Thu gọn") : t("Xem {{soMa}} mã", { soMa: formatSo(ds.length), count: ds.length })}
+      <span className="sr-only">{mo ? t(" các mã của {{tenSanPham}}", { tenSanPham: n.tenSanPham }) : t(" của {{tenSanPham}}", { tenSanPham: n.tenSanPham })}</span>
       <ChevronDown className={cn("size-3.5 shrink-0 transition-transform motion-reduce:transition-none", mo && "rotate-180")} aria-hidden="true" />
     </button>
   );
@@ -327,7 +329,7 @@ function Nhom({ n, mo, onDoi, idMa, coKhoTong, khoTongId }) {
               {nhieu ? demMaNhom(n) : bien0}
               {!nhieu && d0?.maSku ? <span className="@max-[440px]:hidden">{`${bien0 ? " · " : ""}${d0.maSku}`}</span> : null}
               <span className="hidden @max-[860px]:inline">{` · ${n.tenKho}`}</span>
-              <span className="hidden whitespace-nowrap @max-[440px]:inline">{` · khả dụng ${soKd}${nhieu ? (kd.deu ? " mỗi mã" : " thấp nhất") : ""}`}</span>
+              <span className="hidden whitespace-nowrap @max-[440px]:inline">{t(" · khả dụng {{soKd}}{{ghiChu}}", { soKd, ghiChu: nhieu ? (kd.deu ? t(" mỗi mã") : t(" thấp nhất")) : "" })}</span>
             </span>
             {nhieu ? <span className="block text-xs text-bo-muted">{tomTatBienThe(ds)}</span> : null}
             {/* Điện thoại: cột Đề xuất ẩn, nút xuống dưới tên */}
@@ -338,7 +340,7 @@ function Nhom({ n, mo, onDoi, idMa, coKhoTong, khoTongId }) {
           </td>
           <td className="whitespace-nowrap py-2.5 pr-4 text-right tabular-nums text-bo-foreground @max-[440px]:hidden">
             {soKd}
-            {nhieu ? <span className="block text-xs text-bo-muted">{kd.deu ? "mỗi mã" : "thấp nhất"}</span> : null}
+            {nhieu ? <span className="block text-xs text-bo-muted">{kd.deu ? t("mỗi mã") : t("thấp nhất")}</span> : null}
           </td>
           <td className={cn(O_CUOI, "py-2.5 text-right @max-[440px]:hidden")}>{hanhDong}</td>
         </tr>
@@ -353,7 +355,7 @@ function Nhom({ n, mo, onDoi, idMa, coKhoTong, khoTongId }) {
                   <span className="block text-bo-foreground">{[d.tenMau, d.tenKichCo].filter(Boolean).join(" / ")}</span>
                   <span className="block text-xs text-bo-muted">
                     {d.maSku}
-                    <span className="hidden whitespace-nowrap @max-[440px]:inline">{` · khả dụng ${formatSo(d.khaDung)} / ${formatSo(d.nguong)}`}</span>
+                    <span className="hidden whitespace-nowrap @max-[440px]:inline">{t(" · khả dụng {{khaDung}} / {{nguong}}", { khaDung: formatSo(d.khaDung), nguong: formatSo(d.nguong) })}</span>
                   </span>
                   <span className="mt-1 hidden @max-[440px]:block">
                     <DeXuat d={d} coKhoTong={coKhoTong} khoTongId={khoTongId} />

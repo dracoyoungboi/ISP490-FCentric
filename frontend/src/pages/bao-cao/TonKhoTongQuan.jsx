@@ -45,6 +45,7 @@ import { laKhoAo, laKhoGiaoDich, laKhoHoatDong } from "@/utils/kho";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { formatCurrency, formatNumber } from "@/utils/formatters";
 import { VAI_TRO_TAO_YEU_CAU_NHAP } from "@/constants/vaiTroTaoYeuCauNhap";
+import { t } from "@/i18n";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const ROLE = {
@@ -124,28 +125,29 @@ function trangThaiTon(item, laTrungChuyen = false) {
 
 // Tên tình trạng tồn; màu thẻ tra theo tên ở constants/trangThai ("Bình thường": biểu tượng xanh lá + chữ, không khung).
 // "Sắp hết hàng" (trước là "Thiếu hàng") để không trùng tên cờ "Thiếu hàng" của đơn kênh (đơn không giao được).
+// i18n-giu-nguyen: nhãn đưa vào StatusBadge (badge tự dịch lúc vẽ, tra màu theo tên Việt)
 const STATUS_CFG = {
-    het_hang: { label: "Hết hàng" },
-    thieu_hang: { label: "Sắp hết hàng" },
-    binh_thuong: { label: "Bình thường" },
-    du_hang: { label: "Dư hàng" },
-    dang_van_chuyen: { label: "Đang vận chuyển" },
+    het_hang: { label: "Hết hàng" }, // i18n-giu-nguyen: nhãn StatusBadge
+    thieu_hang: { label: "Sắp hết hàng" }, // i18n-giu-nguyen: nhãn StatusBadge
+    binh_thuong: { label: "Bình thường" }, // i18n-giu-nguyen: nhãn StatusBadge
+    du_hang: { label: "Dư hàng" }, // i18n-giu-nguyen: nhãn StatusBadge
+    dang_van_chuyen: { label: "Đang vận chuyển" }, // i18n-giu-nguyen: nhãn StatusBadge
 };
 
 // Tab tình trạng tồn (bố cục A+G) — mã tab trên URL ?tinhTrang=, `key` là kết quả của trangThaiTon()
 const TRANG_THAI_FILTERS = [
-    { value: "tat-ca", key: "tat_ca", label: "Tất cả" },
-    { value: "het-hang", key: "het_hang", label: "Hết hàng" },
-    { value: "thieu-hang", key: "thieu_hang", label: "Sắp hết hàng" },
-    { value: "binh-thuong", key: "binh_thuong", label: "Bình thường" },
-    { value: "du-hang", key: "du_hang", label: "Dư hàng" },
+    { value: "tat-ca", key: "tat_ca", label: t("Tất cả") },
+    { value: "het-hang", key: "het_hang", label: t("Hết hàng") },
+    { value: "thieu-hang", key: "thieu_hang", label: t("Sắp hết hàng") },
+    { value: "binh-thuong", key: "binh_thuong", label: t("Bình thường") },
+    { value: "du-hang", key: "du_hang", label: t("Dư hàng") },
 ];
-const TAB_VALUES = TRANG_THAI_FILTERS.map(t => t.value);
+const TAB_VALUES = TRANG_THAI_FILTERS.map(tt => tt.value);
 const TAB_MAC_DINH = "tat-ca";
 
 // Dòng thuộc tab nào: cùng một hàm cho bảng và số trên tab (R1)
 const khopTab = (item, tab, laTrungChuyen) => {
-    const cfg = TRANG_THAI_FILTERS.find(t => t.value === tab);
+    const cfg = TRANG_THAI_FILTERS.find(tt => tt.value === tab);
     return !cfg || cfg.key === "tat_ca" || trangThaiTon(item, laTrungChuyen) === cfg.key;
 };
 
@@ -191,10 +193,10 @@ export default function TonKhoTongQuan() {
     // STEP 0 — đọc userId từ JWT
     useEffect(() => {
         const token = localStorage.getItem("access_token");
-        if (!token) { setAuthError("Chưa đăng nhập."); setLoadingAuth(false); return; }
+        if (!token) { setAuthError(t("Chưa đăng nhập.")); setLoadingAuth(false); return; }
         const claims = parseJwt(token);
         if (claims?.id) setUserId(claims.id);
-        else { setAuthError("Phiên đăng nhập không hợp lệ, vui lòng đăng nhập lại."); setLoadingAuth(false); }
+        else { setAuthError(t("Phiên đăng nhập không hợp lệ, vui lòng đăng nhập lại.")); setLoadingAuth(false); }
     }, []);
 
     // STEP 1 — lấy thông tin user + danh sách kho
@@ -248,7 +250,7 @@ export default function TonKhoTongQuan() {
                     }
                 }
             })
-            .catch(() => setAuthError("Không thể tải thông tin tài khoản."))
+            .catch(() => setAuthError(t("Không thể tải thông tin tài khoản.")))
             .finally(() => setLoadingAuth(false));
     }, [userId]);
 
@@ -277,7 +279,7 @@ export default function TonKhoTongQuan() {
             // "Thử lại", không thông báo nhanh)
             setData([]);
             setLoadError(err);
-            if (err?.response?.status !== 403) toast.error(err?.response?.data?.message ?? "Không thể tải dữ liệu tồn kho");
+            if (err?.response?.status !== 403) toast.error(err?.response?.data?.message ?? t("Không thể tải dữ liệu tồn kho"));
         } finally {
             if (requestId === requestIdRef.current) setLoading(false);
         }
@@ -364,12 +366,12 @@ export default function TonKhoTongQuan() {
 
     // Số trên tab = số dòng thấy khi bấm tab, trên dữ liệu đã lọc kho + từ khóa (R1);
     // đang tải / lỗi / chưa tải thì không hiện số (R9)
-    const statusTabs = TRANG_THAI_FILTERS.map(t => ({
-        value: t.value,
-        label: t.label,
-        count: loading || loadError || !hasLoaded ? null : data.filter(item => khopTab(item, t.value, laTrungChuyen(item))).length,
+    const statusTabs = TRANG_THAI_FILTERS.map(tt => ({
+        value: tt.value,
+        label: tt.label,
+        count: loading || loadError || !hasLoaded ? null : data.filter(item => khopTab(item, tt.value, laTrungChuyen(item))).length,
     }));
-    const tabLabel = TRANG_THAI_FILTERS.find(t => t.value === trangThaiFilter)?.label;
+    const tabLabel = TRANG_THAI_FILTERS.find(tt => tt.value === trangThaiFilter)?.label;
     const hasFilter = Boolean(keyword.trim() || tuKhoaDaApDung);
 
     // Computed flags
@@ -377,8 +379,8 @@ export default function TonKhoTongQuan() {
     const showNhapKho = canNhapKho(userRoles);
     const multiKho = khoList.length > 1;
     const activeKhoLabel = selectedKhoId
-        ? khoList.find(k => k.id === selectedKhoId)?.tenKho ?? "Chọn kho"
-        : "Tất cả kho";
+        ? khoList.find(k => k.id === selectedKhoId)?.tenKho ?? t("Chọn kho")
+        : t("Tất cả kho");
 
     // Nhân viên kho chỉ xem được kho của mình (R3). Chỉ một kho: không vẽ nhãn phạm vi lẫn ô chọn kho bị khóa — đáy menu
     // đã ghi "Nơi làm việc", cột Kho ghi ở từng dòng (PQ-17). Nhiều kho: ô chọn kho đã liệt kê các kho, không cần nhãn.
@@ -390,7 +392,7 @@ export default function TonKhoTongQuan() {
         return (
             <PageContainer className="space-y-5">
                 <section className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
-                    <LoadingState rows={6} label="Đang tải dữ liệu" />
+                    <LoadingState rows={6} label={t("Đang tải dữ liệu")} />
                 </section>
             </PageContainer>
         );
@@ -403,7 +405,7 @@ export default function TonKhoTongQuan() {
                 <section className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
                     <ErrorState
                         title={authError}
-                        description="Vui lòng tải lại trang hoặc đăng nhập lại để tiếp tục."
+                        description={t("Vui lòng tải lại trang hoặc đăng nhập lại để tiếp tục.")}
                         onRetry={() => window.location.reload()}
                     />
                 </section>
@@ -418,8 +420,8 @@ export default function TonKhoTongQuan() {
                 <section className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
                     <EmptyState
                         icon={ShieldAlert}
-                        title="Không có quyền truy cập"
-                        description="Bạn không có quyền truy cập trang này."
+                        title={t("Không có quyền truy cập")}
+                        description={t("Bạn không có quyền truy cập trang này.")}
                     />
                 </section>
             </PageContainer>
@@ -451,7 +453,7 @@ export default function TonKhoTongQuan() {
                     <ListToolbar
                         tabs={
                             <StatusTabs
-                                label="Lọc tồn kho theo tình trạng"
+                                label={t("Lọc tồn kho theo tình trạng")}
                                 tabs={statusTabs}
                                 value={trangThaiFilter}
                                 onChange={changeTab}
@@ -466,7 +468,7 @@ export default function TonKhoTongQuan() {
                                 <DropdownMenuTrigger asChild>
                                     <Button
                                         variant="outline"
-                                        aria-label="Chọn kho"
+                                        aria-label={t("Chọn kho")}
                                         disabled={!multiKho}
                                         className="h-9 w-full justify-between gap-2 border-bo-border bg-bo-surface px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50 sm:w-[200px]"
                                     >
@@ -483,7 +485,7 @@ export default function TonKhoTongQuan() {
                                             onClick={() => handleSelectKho(null)}
                                             className={`${DROPDOWN_ITEM_CLASS} flex items-center justify-between gap-2`}
                                         >
-                                            Tất cả kho
+                                            {t("Tất cả kho")}
                                             {!selectedKhoId && <Check className="size-4 shrink-0 text-bo-primary" />}
                                         </DropdownMenuItem>
                                     )}
@@ -505,8 +507,8 @@ export default function TonKhoTongQuan() {
 
                         {/* Tìm kiếm: áp dụng khi bấm Enter (gọi lại API với từ khóa), như cũ */}
                         <SearchInput
-                            label="Tìm kiếm tồn kho"
-                            placeholder="SKU, mã SP, tên sản phẩm..."
+                            label={t("Tìm kiếm tồn kho")}
+                            placeholder={t("SKU, mã SP, tên sản phẩm...")}
                             value={keyword}
                             onChange={e => setKeyword(e.target.value)}
                             onClear={() => setKeyword("")}
@@ -522,30 +524,30 @@ export default function TonKhoTongQuan() {
                             // Điện thoại: mỗi chỉ số một dòng (nhãn trái, số phải), bỏ vạch ngăn — hàng ngang xuống dòng lộn xộn ở 390px
                             <div className="flex flex-wrap items-center gap-x-5 gap-y-2 max-md:grid max-md:gap-y-1 max-md:[&>span[aria-hidden=true]]:hidden">
                                 <SummaryItem
-                                    label="Tổng tồn kho"
+                                    label={t("Tổng tồn kho")}
                                     value={formatNumber(filteredData.reduce((s, i) => s + Number(i.onHand ?? i.tongSoLuongKhaDung ?? 0), 0))}
                                 />
                                 <Divider />
                                 <SummaryItem
-                                    label="Đang về"
+                                    label={t("Đang về")}
                                     value={formatNumber(filteredData.reduce((s, i) => s + Number(i.incoming ?? i.tongSoLuongChoNhan ?? 0), 0))}
                                     valueClass="text-bo-primary"
                                 />
                                 <Divider />
                                 <SummaryItem
-                                    label="Đang xuất"
+                                    label={t("Đang xuất")}
                                     value={formatNumber(filteredData.reduce((s, i) => s + Number(i.outgoing ?? i.tongSoLuongChoDuaHang ?? 0), 0))}
                                     valueClass="text-bo-warning"
                                 />
                                 <Divider />
                                 <SummaryItem
-                                    label="Tổng giá trị tồn"
+                                    label={t("Tổng giá trị tồn")}
                                     value={formatCurrency(filteredData.reduce((s, i) => s + Number(i.tongGiaTri ?? i.giaTriTonKho ?? 0), 0))}
                                     valueClass="text-bo-success"
                                 />
                                 <Divider />
                                 <SummaryItem
-                                    label="Cảnh báo (hết / sắp hết)"
+                                    label={t("Cảnh báo (hết / sắp hết)")}
                                     value={`${filteredData.filter(i => ["het_hang", "thieu_hang"].includes(trangThaiTon(i, laTrungChuyen(i)))).length} SKU`}
                                     valueClass="text-bo-danger"
                                 />
@@ -554,7 +556,7 @@ export default function TonKhoTongQuan() {
                                     <>
                                         <Divider />
                                         <SummaryItem
-                                            label="Đang vận chuyển"
+                                            label={t("Đang vận chuyển")}
                                             value={formatNumber(filteredData.filter(laTrungChuyen).reduce((s, i) => s + Number(i.onHand ?? i.tongSoLuongKhaDung ?? 0), 0))}
                                         />
                                     </>
@@ -563,8 +565,8 @@ export default function TonKhoTongQuan() {
                                     <>
                                         <Divider />
                                         <SummaryItem
-                                            label="Số lượng kho"
-                                            value={`${new Set(filteredData.map(i => i.khoId)).size} kho`}
+                                            label={t("Số lượng kho")}
+                                            value={t("{{count}} kho", { count: new Set(filteredData.map(i => i.khoId)).size })}
                                         />
                                     </>
                                 )}
@@ -583,25 +585,25 @@ export default function TonKhoTongQuan() {
                 ) : null}
             >
                 {loading ? (
-                    <LoadingState rows={6} label="Đang tải bảng tồn kho" />
+                    <LoadingState rows={6} label={t("Đang tải bảng tồn kho")} />
                 ) : loadError ? (
                     <ErrorState
-                        description={loadError?.response?.data?.message ?? "Không thể tải dữ liệu tồn kho"}
+                        description={loadError?.response?.data?.message ?? t("Không thể tải dữ liệu tồn kho")}
                         error={loadError}
                         onRetry={handleRefresh}
                     />
                 ) : !hasLoaded ? (
                     <EmptyState
                         icon={Warehouse}
-                        title="Chưa có dữ liệu tồn kho"
-                        description="Chọn kho hoặc bấm Tải dữ liệu để xem tồn kho."
+                        title={t("Chưa có dữ liệu tồn kho")}
+                        description={t("Chọn kho hoặc bấm Tải dữ liệu để xem tồn kho.")}
                         action={
                             <Button
                                 variant="outline"
                                 onClick={handleRefresh}
                                 className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                             >
-                                Tải dữ liệu
+                                {t("Tải dữ liệu")}
                             </Button>
                         }
                     />
@@ -609,38 +611,38 @@ export default function TonKhoTongQuan() {
                     tuKhoaDaApDung ? (
                         <EmptyState
                             icon={SearchX}
-                            title="Không tìm thấy mã hàng phù hợp"
-                            description="Thử đổi từ khóa tìm kiếm hoặc chọn kho khác."
+                            title={t("Không tìm thấy mã hàng phù hợp")}
+                            description={t("Thử đổi từ khóa tìm kiếm hoặc chọn kho khác.")}
                             action={
                                 <Button
                                     variant="outline"
                                     onClick={handleClearFilters}
                                     className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
-                                    Xóa lọc
+                                    {t("Xóa lọc")}
                                 </Button>
                             }
                         />
                     ) : trangThaiFilter !== TAB_MAC_DINH ? (
                         <EmptyState
                             icon={Warehouse}
-                            title={`Không có mã hàng nào ở tình trạng "${tabLabel}"`}
-                            description="Chọn tab Tất cả để xem mọi mã hàng của kho đang chọn."
+                            title={t("Không có mã hàng nào ở tình trạng \"{{tabLabel}}\"", { tabLabel })}
+                            description={t("Chọn tab Tất cả để xem mọi mã hàng của kho đang chọn.")}
                             action={
                                 <Button
                                     variant="outline"
                                     onClick={() => changeTab(TAB_MAC_DINH)}
                                     className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
-                                    Xem tất cả
+                                    {t("Xem tất cả")}
                                 </Button>
                             }
                         />
                     ) : (
                         <EmptyState
                             icon={Warehouse}
-                            title="Chưa có dữ liệu tồn kho"
-                            description="Kho đang chọn chưa có mã hàng nào."
+                            title={t("Chưa có dữ liệu tồn kho")}
+                            description={t("Kho đang chọn chưa có mã hàng nào.")}
                         />
                     )
                 ) : (
@@ -688,7 +690,7 @@ export default function TonKhoTongQuan() {
                                     </dl>
                                     <div className={`mt-2 flex items-center justify-between gap-3 ${coNutNhap ? "min-h-9" : ""}`}>
                                         <span className="min-w-0 text-[13px] text-bo-muted">
-                                            Tối thiểu {trungChuyen || item.mucTonToiThieu == null ? "—" : formatNumber(item.mucTonToiThieu)}
+                                            {t("Tối thiểu")} {trungChuyen || item.mucTonToiThieu == null ? "—" : formatNumber(item.mucTonToiThieu)}
                                             {" · "}
                                             <b className="font-semibold tabular-nums text-bo-foreground">{formatCurrency(giaTri)}</b>
                                         </span>
@@ -700,7 +702,7 @@ export default function TonKhoTongQuan() {
                                                 className="h-9 shrink-0 gap-1.5 border-bo-input-border bg-bo-surface px-3 text-sm font-medium text-bo-foreground"
                                             >
                                                 <PackagePlus className="size-4" aria-hidden="true" />
-                                                Yêu cầu nhập
+                                                {t("Yêu cầu nhập")}
                                             </Button>
                                         ) : null}
                                     </div>
@@ -713,18 +715,18 @@ export default function TonKhoTongQuan() {
                     <table className="w-full min-w-[1280px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
                         <thead className="sticky top-0 z-10 bg-bo-surface-subtle">
                             <tr className="border-b border-bo-border">
-                                <th className={`${TH_CLASS} text-center cam-ung:max-lg:hidden`}>STT</th>
-                                <th className={`${TH_CLASS} text-left cam-ung:max-lg:hidden`}>Mã SP / SKU</th>
-                                <th className={`${TH_CLASS} min-w-[200px] text-left`}>Sản phẩm &amp; biến thể</th>
-                                <th className={`${TH_CLASS} text-left cam-ung:max-lg:hidden`}>Kho</th>
+                                <th className={`${TH_CLASS} text-center cam-ung:max-lg:hidden`}>{t("STT")}</th>
+                                <th className={`${TH_CLASS} text-left cam-ung:max-lg:hidden`}>{t("Mã SP / SKU")}</th>
+                                <th className={`${TH_CLASS} min-w-[200px] text-left`}>{t("Sản phẩm & biến thể")}</th>
+                                <th className={`${TH_CLASS} text-left cam-ung:max-lg:hidden`}>{t("Kho")}</th>
                                 <th className={`${TH_CLASS} text-right tabular-nums`}>On Hand</th>
                                 <th className={`${TH_CLASS} text-right tabular-nums`}>↓ Incoming</th>
                                 <th className={`${TH_CLASS} text-right tabular-nums`}>↑ Outgoing</th>
                                 <th className={`${TH_CLASS} text-right tabular-nums`}>Free to Use</th>
-                                <th className={`${TH_CLASS} text-right tabular-nums cam-ung:max-lg:hidden`}>Tồn tối thiểu</th>
-                                <th className={`${TH_CLASS} text-right tabular-nums`}>Giá trị tồn</th>
-                                <th className={`${TH_CLASS} text-left cam-ung:max-lg:hidden`}>Tình trạng</th>
-                                <th className={`${TH_CLASS} text-center cam-ung:max-lg:hidden`}>Thao tác</th>
+                                <th className={`${TH_CLASS} text-right tabular-nums cam-ung:max-lg:hidden`}>{t("Tồn tối thiểu")}</th>
+                                <th className={`${TH_CLASS} text-right tabular-nums`}>{t("Giá trị tồn")}</th>
+                                <th className={`${TH_CLASS} text-left cam-ung:max-lg:hidden`}>{t("Tình trạng")}</th>
+                                <th className={`${TH_CLASS} text-center cam-ung:max-lg:hidden`}>{t("Thao tác")}</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-bo-border">
@@ -777,7 +779,7 @@ export default function TonKhoTongQuan() {
                                                         className="h-9 gap-1.5 border-bo-input-border bg-bo-surface px-3 text-sm font-medium text-bo-foreground"
                                                     >
                                                         <PackagePlus className="size-4" aria-hidden="true" />
-                                                        Yêu cầu nhập
+                                                        {t("Yêu cầu nhập")}
                                                     </Button>
                                                 ) : null}
                                             </div>
@@ -825,7 +827,7 @@ export default function TonKhoTongQuan() {
                                                 <RowActions>
                                                     <RowActionButton
                                                         icon={PackagePlus}
-                                                        label="Tạo yêu cầu nhập kho"
+                                                        label={t("Tạo yêu cầu nhập kho")}
                                                         onClick={() => navigate(`/purchase-requests/create?bienTheId=${item.bienTheId}&khoId=${item.khoId}`)}
                                                     />
                                                 </RowActions>

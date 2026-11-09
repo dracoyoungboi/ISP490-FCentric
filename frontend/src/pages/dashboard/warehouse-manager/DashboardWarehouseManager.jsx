@@ -5,6 +5,7 @@ import TrangVaiTro from "@/pages/dashboard/vai-tro/TrangVaiTro";
 import { BieuDoNhapXuat, BoCuc, DaySo, FOCUS, HangCoNut, HangDoiViec, LuoiNghiepVu, Nut, TonKhoKho } from "@/pages/dashboard/vai-tro/khung";
 import { THU_TU } from "@/pages/dashboard/vai-tro/lop";
 import { dongViecQuanLyKho, hanhDongBoSung, moTaBoSung, oNghiepVu, tenBienThe, theSoQuanLyKho } from "@/pages/dashboard/vai-tro/soLieuVaiTro";
+import { t } from "@/i18n";
 
 /**
  * Tổng quan của QUẢN LÝ KHO, theo kho làm việc (ô "Kho làm việc" đầu trang). Dữ liệu: GET /api/v1/tong-quan/cua-toi.
@@ -26,8 +27,8 @@ export default function DashboardWarehouseManager() {
                 <LuoiNghiepVu
                   key="nv"
                   className={THU_TU[2]}
-                  tieuDe="Công việc trong kho"
-                  scope="đang chờ xử lý"
+                  tieuDe={t("Công việc trong kho")}
+                  scope={t("đang chờ xử lý")}
                   the={q?.nghiepVu && kho ? oNghiepVu(q.nghiepVu, kho, data.cauHinh) : []}
                   loading={loading}
                   error={loi("nghiepVu")}
@@ -47,7 +48,7 @@ export default function DashboardWarehouseManager() {
                 <HangDoiViec
                   key="viec"
                   className={THU_TU[1]}
-                  tieuDe="Cần bạn xử lý"
+                  tieuDe={t("Cần bạn xử lý")}
                   viec={kho ? dongViecQuanLyKho(q?.viec, kho, data.thoiDiem) : []}
                   loading={loading}
                   error={loi("viec")}
@@ -80,24 +81,24 @@ function CanBoSung({ boSung, kho, loi, onRetry }) {
   if (loi) {
     return (
       <p className={cn(LE, "flex items-center justify-between gap-3 py-3 text-[13px] text-bo-muted")}>
-        Chưa tải được danh sách cần bổ sung.
+        {t("Chưa tải được danh sách cần bổ sung.")}
         <button type="button" onClick={onRetry} className={cn(FOCUS, "cursor-pointer rounded font-medium text-bo-primary")}>
-          Thử lại
+          {t("Thử lại")}
         </button>
       </p>
     );
   }
   if (!boSung) return null;
   if (!boSung.dong.length) {
-    return <p className={cn(LE, "py-3 text-[13px] text-bo-muted")}>Không có mã nào cần bổ sung.</p>;
+    return <p className={cn(LE, "py-3 text-[13px] text-bo-muted")}>{t("Không có mã nào cần bổ sung.")}</p>;
   }
   return (
     <>
       <p className={cn(LE, "flex items-baseline gap-2 pb-0.5 pt-3 text-[13px] font-medium text-bo-foreground")}>
-        Cần bổ sung
+        {t("Cần bổ sung")}
         {boSung.tongSo > boSung.dong.length ? (
           <span className="font-normal text-bo-muted">
-            {boSung.dong.length}/{boSung.tongSo} mã, thiếu nhiều nhất trước
+            {boSung.dong.length}/{boSung.tongSo} {t("mã, thiếu nhiều nhất trước")}
           </span>
         ) : null}
       </p>

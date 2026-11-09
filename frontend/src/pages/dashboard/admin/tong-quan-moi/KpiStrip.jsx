@@ -4,6 +4,7 @@ import { Delta } from "./ui";
 import { khoangKy } from "./boLoc";
 import { bienDong, formatPhanTram, formatSo, formatTienNgan, tachTien, tyLe } from "../tong-quan/tongQuanFormat";
 import { CHI_SO, diemDaTron, tongHopKy } from "../tong-quan/tongQuanSoLieu";
+import { t } from "@/i18n";
 
 export const ID_BIEU_DO = "tq-bieu-do-ky";
 
@@ -18,50 +19,50 @@ export default function KpiStrip({ data, ky, loading, error, onRetry, chon, setC
   const { nay, truoc } = tongHopKy(dt);
   const k = khoangKy(ky, data?.thoiDiem);
   const namTruoc = dt?.kieuSoSanh === "cung_ky_nam_truoc";
-  const soVoi = namTruoc ? " so với năm trước" : " so với kỳ trước";
+  const soVoi = namTruoc ? t(" so với năm trước") : t(" so với kỳ trước");
   const bien = nay ? tyLe(nay.loiNhuan, nay.doanhThu) : null;
   const daTron = diemDaTron(dt);
   const coDon = daTron.filter((d) => d.soDon > 0).length;
-  const donVi = dt?.nhom === "thang" ? "tháng" : "ngày";
+  const donVi = dt?.nhom === "thang" ? t("tháng", { context: "so_nhieu" }) : t("ngày", { context: "so_nhieu" });
 
   /* Phần chữ sau % là một khối không ngắt giữa chừng: ô hẹp thì cả khối xuống dòng ("+13,7%" / "so với kỳ trước"). */
   const khoiSoVoi = <span className="whitespace-nowrap">{soVoi}</span>;
   const khoiBien = (
     <span className="whitespace-nowrap @max-[400px]/dau:block">
-      <span className="@max-[400px]/dau:hidden"> ·</span> biên lãi {formatPhanTram(bien)}
+      <span className="@max-[400px]/dau:hidden"> ·</span> {t("biên lãi {{bien}}", { bien: formatPhanTram(bien) })}
     </span>
   );
   const phu = {
-    doanhThu: { soVoi: khoiSoVoi, khongSo: "Kỳ trước chưa có số liệu" },
-    loiNhuan: { soVoi: bien == null ? khoiSoVoi : khoiBien, khongSo: bien == null ? "" : `Biên lãi gộp ${formatPhanTram(bien)}` },
-    soDon: { soVoi: khoiSoVoi, khongSo: coDon ? `Có đơn trong ${formatSo(coDon)}/${formatSo(daTron.length)} ${donVi}` : "Chưa có đơn đã giao" },
-    tbDon: { soVoi: khoiSoVoi, khongSo: "", cachTinh: "Doanh thu ÷ số đơn đã giao" },
+    doanhThu: { soVoi: khoiSoVoi, khongSo: t("Kỳ trước chưa có số liệu") },
+    loiNhuan: { soVoi: bien == null ? khoiSoVoi : khoiBien, khongSo: bien == null ? "" : t("Biên lãi gộp {{bien}}", { bien: formatPhanTram(bien) }) },
+    soDon: { soVoi: khoiSoVoi, khongSo: coDon ? t("Có đơn trong {{coDon}}/{{tongSo}} {{donVi}}", { coDon: formatSo(coDon), tongSo: formatSo(daTron.length), donVi }) : t("Chưa có đơn đã giao") },
+    tbDon: { soVoi: khoiSoVoi, khongSo: "", cachTinh: t("Doanh thu ÷ số đơn đã giao") },
   };
 
   if (error && !loading) {
     return (
       <div role="alert" className="flex flex-1 flex-wrap items-center justify-center gap-x-3 gap-y-1 px-5 py-6 text-sm text-bo-muted">
-        Không tải được kết quả kinh doanh của kỳ.
+        {t("Không tải được kết quả kinh doanh của kỳ.")}
         <button type="button" onClick={onRetry} className="cursor-pointer font-medium text-bo-primary hover:underline">
-          Thử lại
+          {t("Thử lại")}
         </button>
       </div>
     );
   }
 
   return (
-    <div role="tablist" aria-label="Chỉ số của kỳ, chọn để xem theo ngày" className="grid min-w-0 flex-1 grid-cols-2 @min-[640px]/dau:grid-cols-4">
+    <div role="tablist" aria-label={t("Chỉ số của kỳ, chọn để xem theo ngày")} className="grid min-w-0 flex-1 grid-cols-2 @min-[640px]/dau:grid-cols-4">
       {CHI_SO.map((c, i) => {
         const on = c.key === chon;
         const gt = nay?.[c.key] ?? 0;
-        const so = c.tien ? tachTien(gt) : { so: formatSo(gt), donVi: "đơn" };
+        const so = c.tien ? tachTien(gt) : { so: formatSo(gt), donVi: t("đơn") };
         const bd = truoc ? bienDong(gt, truoc[c.key]) : null;
         const p = phu[c.key];
         const tieuDe =
           [
             p.cachTinh,
             truoc?.[c.key] != null
-              ? `${namTruoc ? "Cùng kỳ năm trước" : "Kỳ trước"} (${k.soSanh}): ${c.tien ? formatTienNgan(truoc[c.key]) : `${formatSo(truoc[c.key])} đơn`}`
+              ? `${namTruoc ? t("Cùng kỳ năm trước") : t("Kỳ trước")} (${k.soSanh}): ${c.tien ? formatTienNgan(truoc[c.key]) : t("{{soDon}} đơn", { soDon: formatSo(truoc[c.key]), count: truoc[c.key] })}`
               : null,
           ]
             .filter(Boolean)

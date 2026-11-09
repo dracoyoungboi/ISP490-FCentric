@@ -28,6 +28,7 @@ import {
   nhomTheoLoai,
   tenLoai,
 } from "@/components/ke-toan/tinhKeToan";
+import { t } from "@/i18n";
 
 const TH = "h-10 px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
 const TD = "px-4 py-2.5 align-top";
@@ -41,8 +42,8 @@ const NUT_ICON =
   "inline-flex size-7 items-center justify-center rounded-md text-bo-muted hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bo-primary";
 
 const TABS = [
-  { value: "tao", label: "Tạo lô" },
-  { value: "lo", label: "Các lô đã tạo" },
+  { value: "tao", label: t("Tạo lô") },
+  { value: "lo", label: t("Các lô đã tạo") },
 ];
 
 const MAU_VAN_DE = {
@@ -93,18 +94,18 @@ function HopMoKhoa({ chungTu, onDong, onXong, onLoiXungDot }) {
     event.preventDefault();
     if (dangMo) return;
     if (!lyDo.trim()) {
-      setLoi("Nhập lý do mở khóa");
+      setLoi(t("Nhập lý do mở khóa"));
       return;
     }
     setDangMo(true);
     try {
       const kq = await keToanService.moKhoa(chungTu.id, lyDo.trim());
-      toast.success(`Đã mở khóa ${chungTu.soChungTu}. Chứng từ sẽ vào lô sau.`);
+      toast.success(t("Đã mở khóa {{soChungTu}}. Chứng từ sẽ vào lô sau.", { soChungTu: chungTu.soChungTu }));
       onXong(kq);
     } catch (e) {
       // Người khác vừa mở khóa: tải lại danh sách để thấy đúng trạng thái
       if (e?.response?.status === 409) onLoiXungDot();
-      setLoi(getApiErrorMessage(e, "Không mở khóa được"));
+      setLoi(getApiErrorMessage(e, t("Không mở khóa được")));
     } finally {
       setDangMo(false);
     }
@@ -115,26 +116,25 @@ function HopMoKhoa({ chungTu, onDong, onXong, onLoiXungDot }) {
       <DialogContent className="flex flex-col gap-0 rounded-xl border-bo-border p-0 sm:max-w-[520px]">
         <form onSubmit={xacNhan} noValidate>
           <div className="border-b border-bo-border px-6 py-4">
-            <DialogTitle className="text-base font-semibold text-bo-foreground">Mở khóa {chungTu.soChungTu}</DialogTitle>
+            <DialogTitle className="text-base font-semibold text-bo-foreground">{t("Mở khóa")} {chungTu.soChungTu}</DialogTitle>
             <DialogDescription className="mt-1 text-[13px] leading-5 text-bo-muted">
-              Chứng từ quay về "chưa xuất" và vào lô sau. Kế toán phải xóa chứng từ này trên AMIS trước khi nhập lô mới,
-              vì AMIS chỉ thêm mới và báo trùng số chứng từ. Lần mở khóa được ghi nhật ký.
+              {t("Chứng từ quay về \"chưa xuất\" và vào lô sau. Kế toán phải xóa chứng từ này trên AMIS trước khi nhập lô mới, vì AMIS chỉ thêm mới và báo trùng số chứng từ. Lần mở khóa được ghi nhật ký.")}
             </DialogDescription>
           </div>
           <div className="flex flex-col gap-1.5 px-6 py-4">
-            <label htmlFor="ly-do-mo-khoa" className="text-sm font-medium text-bo-foreground">Lý do</label>
+            <label htmlFor="ly-do-mo-khoa" className="text-sm font-medium text-bo-foreground">{t("Lý do")}</label>
             <Textarea id="ly-do-mo-khoa" rows={3} maxLength={500} value={lyDo} autoFocus
               onChange={(e) => { setLyDo(e.target.value); setLoi(""); }}
-              placeholder="VD: Kế toán đã xóa chứng từ trên AMIS để sửa ngày hạch toán"
+              placeholder={t("VD: Kế toán đã xóa chứng từ trên AMIS để sửa ngày hạch toán")}
               className="resize-y border-bo-border bg-white text-sm"
               aria-invalid={loi ? true : undefined} aria-describedby={loi ? "ly-do-mo-khoa-loi" : undefined} />
             {loi ? <p id="ly-do-mo-khoa-loi" role="alert" className="text-xs text-bo-danger">{loi}</p> : null}
           </div>
           <div className="flex justify-end gap-2 border-t border-bo-border bg-bo-surface-subtle px-6 py-3">
-            <Button type="button" variant="outline" onClick={onDong} disabled={dangMo} className={NUT_PHU}>Hủy</Button>
+            <Button type="button" variant="outline" onClick={onDong} disabled={dangMo} className={NUT_PHU}>{t("Hủy")}</Button>
             <Button type="submit" disabled={dangMo} className="h-9 gap-2 bg-bo-danger px-4 text-white hover:bg-bo-danger-strong">
               {dangMo ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <LockOpen className="size-4" aria-hidden="true" />}
-              Mở khóa
+              {t("Mở khóa")}
             </Button>
           </div>
         </form>
@@ -158,7 +158,7 @@ function ChungTuCuaLo({ lo, onDaMoKhoa }) {
         setDs(kq);
         setLoi(null);
       })
-      .catch((e) => !ctrl.signal.aborted && setLoi(getApiErrorMessage(e, "Không tải được chứng từ của lô")));
+      .catch((e) => !ctrl.signal.aborted && setLoi(getApiErrorMessage(e, t("Không tải được chứng từ của lô"))));
     return () => ctrl.abort();
   }, [lo.id, lanTai]);
 
@@ -166,14 +166,14 @@ function ChungTuCuaLo({ lo, onDaMoKhoa }) {
     return (
       <p className="flex flex-wrap items-center gap-3 px-4 py-3 text-sm text-bo-danger">
         {loi}
-        <Button variant="outline" size="sm" className={NUT_PHU} onClick={() => setLanTai((k) => k + 1)}>Thử lại</Button>
+        <Button variant="outline" size="sm" className={NUT_PHU} onClick={() => setLanTai((k) => k + 1)}>{t("Thử lại")}</Button>
       </p>
     );
   }
   if (!ds) {
-    return <p className="flex items-center gap-2 px-4 py-3 text-sm text-bo-muted"><Loader2 className="size-4 animate-spin" aria-hidden="true" />Đang tải chứng từ</p>;
+    return <p className="flex items-center gap-2 px-4 py-3 text-sm text-bo-muted"><Loader2 className="size-4 animate-spin" aria-hidden="true" />{t("Đang tải chứng từ")}</p>;
   }
-  if (ds.length === 0) return <p className="px-4 py-3 text-sm text-bo-muted">Lô không có chứng từ.</p>;
+  if (ds.length === 0) return <p className="px-4 py-3 text-sm text-bo-muted">{t("Lô không có chứng từ.")}</p>;
 
   return (
     <div className="flex flex-col gap-3 px-4 py-3">
@@ -190,19 +190,19 @@ function ChungTuCuaLo({ lo, onDaMoKhoa }) {
                     <td className="w-[150px] px-3 py-2 text-right tabular-nums">{Number(ct.tongTien) ? tien(ct.tongTien) : ""}</td>
                     <td className="px-3 py-2">
                       {ct.trangThai === "da_xuat" ? (
-                        <span className="inline-flex items-center gap-1 text-xs text-bo-muted"><Lock className="size-3.5" aria-hidden="true" />Đang khóa</span>
+                        <span className="inline-flex items-center gap-1 text-xs text-bo-muted"><Lock className="size-3.5" aria-hidden="true" />{t("Đang khóa")}</span>
                       ) : (
                         <span className="text-xs text-bo-warning">
-                          Đã mở khóa {ct.moKhoaLuc ? formatDateTime(ct.moKhoaLuc) : ""}{ct.nguoiMoKhoa ? ` · ${ct.nguoiMoKhoa}` : ""}
+                          {t("Đã mở khóa")} {ct.moKhoaLuc ? formatDateTime(ct.moKhoaLuc) : ""}{ct.nguoiMoKhoa ? ` · ${ct.nguoiMoKhoa}` : ""}
                           {ct.lyDoMoKhoa ? <span className="block text-bo-muted">{ct.lyDoMoKhoa}</span> : null}
                         </span>
                       )}
                     </td>
                     <td className="w-[110px] px-3 py-2 text-right">
                       {ct.trangThai === "da_xuat" ? (
-                        <button type="button" onClick={() => setMoKhoa(ct)} aria-label={`Mở khóa ${ct.soChungTu}`}
+                        <button type="button" onClick={() => setMoKhoa(ct)} aria-label={t("Mở khóa {{soChungTu}}", { soChungTu: ct.soChungTu })}
                           className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium text-bo-danger hover:bg-bo-danger-soft focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bo-primary">
-                          <LockOpen className="size-3.5" aria-hidden="true" />Mở khóa
+                          <LockOpen className="size-3.5" aria-hidden="true" />{t("Mở khóa")}
                         </button>
                       ) : null}
                     </td>
@@ -260,7 +260,7 @@ export default function XuatDuLieuKeToan() {
     } catch (e) {
       if (lan !== lanKiemRef.current) return;
       setXemTruoc(null);
-      setLoiKiem(getApiErrorMessage(e, "Không kiểm tra được dữ liệu kế toán"));
+      setLoiKiem(getApiErrorMessage(e, t("Không kiểm tra được dữ liệu kế toán")));
     } finally {
       if (lan === lanKiemRef.current) setDangKiem(false);
     }
@@ -276,7 +276,7 @@ export default function XuatDuLieuKeToan() {
     try {
       setDsLo(await keToanService.danhSachLo());
     } catch (e) {
-      setLoiLo(getApiErrorMessage(e, "Không tải được danh sách lô"));
+      setLoiLo(getApiErrorMessage(e, t("Không tải được danh sách lô")));
     } finally {
       dangTaiLoRef.current = false;
     }
@@ -291,7 +291,7 @@ export default function XuatDuLieuKeToan() {
     try {
       await keToanService.taiTep(lo);
     } catch (e) {
-      toast.error(getApiErrorMessage(e, "Không tải được tệp của lô"));
+      toast.error(getApiErrorMessage(e, t("Không tải được tệp của lô")));
     } finally {
       setDangTai(null);
     }
@@ -304,7 +304,7 @@ export default function XuatDuLieuKeToan() {
       // Tạo lô theo đúng ngày đã kiểm tra; dấu vết để máy chủ từ chối nếu dữ liệu đổi sau lần kiểm tra
       const lo = await keToanService.taoLo({ denNgay: xemTruoc.denNgay, ghiChu: ghiChu.trim() || null, dauVet: xemTruoc.dauVet });
       setMoXacNhan(false);
-      toast.success(`Đã tạo lô ${lo.soLo} (${lo.soChungTu} chứng từ). Đang tải tệp.`);
+      toast.success(t("Đã tạo lô {{soLo}} ({{soChungTu}} chứng từ). Đang tải tệp.", { soLo: lo.soLo, soChungTu: lo.soChungTu }));
       setXemTruoc(null);
       setGhiChu("");
       setLoiLo(null);
@@ -312,7 +312,7 @@ export default function XuatDuLieuKeToan() {
       setTab("lo");
       await taiTep(lo);
     } catch (e) {
-      toast.error(getApiErrorMessage(e, "Không tạo được lô"));
+      toast.error(getApiErrorMessage(e, t("Không tạo được lô")));
       setMoXacNhan(false);
       // Dữ liệu đổi sau lần kiểm tra (hoặc chứng từ vừa vào lô khác): kiểm tra lại để thấy đúng nội dung lô
       if (e?.response?.status === 409) kiemTra();
@@ -322,130 +322,130 @@ export default function XuatDuLieuKeToan() {
   };
 
   const tong = xemTruoc ? congTongHop(xemTruoc.tongHop) : null;
-  const ban = xemTruoc?.tongHop?.find((t) => t.loai === "ban_hang");
+  const ban = xemTruoc?.tongHop?.find((tt) => tt.loai === "ban_hang");
   const dc = xemTruoc?.doiChieu;
 
   return (
     <PageContainer className="flex flex-col gap-4 pb-16">
       <div className="flex flex-wrap-reverse items-start gap-x-3 border-b border-bo-border">
         <div className="min-w-0 max-w-full">
-          <StatusTabs tabs={TABS} value={tab} onChange={setTab} label="Xuất dữ liệu kế toán" />
+          <StatusTabs tabs={TABS} value={tab} onChange={setTab} label={t("Xuất dữ liệu kế toán")} />
         </div>
         {tab === "tao" ? (
           <div className="ml-auto flex w-full flex-wrap items-center justify-end gap-2 py-2 sm:w-auto">
             <label className={O_NHAN_CLASS}>
               <Calendar className="size-4 shrink-0 text-bo-muted" aria-hidden="true" />
-              <span className="shrink-0 text-xs text-bo-muted">Xuất đến hết ngày</span>
-              <Input type="date" aria-label="Xuất đến hết ngày" value={denNgay} max={ngayIso(new Date())} disabled={dangKiem}
+              <span className="shrink-0 text-xs text-bo-muted">{t("Xuất đến hết ngày")}</span>
+              <Input type="date" aria-label={t("Xuất đến hết ngày")} value={denNgay} max={ngayIso(new Date())} disabled={dangKiem}
                 onChange={(e) => { setDenNgay(e.target.value); setXemTruoc(null); }} className={O_NGAY_CLASS} />
             </label>
             <Button onClick={kiemTra} disabled={dangKiem || !denNgay} className={cn(NUT_CHINH, "w-full sm:w-auto")}>
               {dangKiem ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Search className="size-4" aria-hidden="true" />}
-              Kiểm tra
+              {t("Kiểm tra")}
             </Button>
           </div>
         ) : (
           <div className="ml-auto py-2">
-            <Button variant="outline" onClick={taiDanhSachLo} className={NUT_PHU}>Tải lại</Button>
+            <Button variant="outline" onClick={taiDanhSachLo} className={NUT_PHU}>{t("Tải lại")}</Button>
           </div>
         )}
       </div>
 
       {tab === "tao" ? (
         dangKiem ? (
-          <LoadingState className="min-h-48" label="Đang kiểm tra chứng từ" />
+          <LoadingState className="min-h-48" label={t("Đang kiểm tra chứng từ")} />
         ) : loiKiem ? (
-          <ErrorState className="min-h-48" title="Lỗi kiểm tra" description={loiKiem} onRetry={kiemTra} />
+          <ErrorState className="min-h-48" title={t("Lỗi kiểm tra")} description={loiKiem} onRetry={kiemTra} />
         ) : !xemTruoc ? (
           <EmptyState
             icon={FileSpreadsheet}
-            title="Chọn ngày rồi bấm Kiểm tra"
-            description="Lô gồm mọi chứng từ chưa giao kế toán, có ngày hạch toán từ ngày mốc đến hết ngày đã chọn. Mặc định là hôm qua, vì chứng từ của hôm nay còn phát sinh."
+            title={t("Chọn ngày rồi bấm Kiểm tra")}
+            description={t("Lô gồm mọi chứng từ chưa giao kế toán, có ngày hạch toán từ ngày mốc đến hết ngày đã chọn. Mặc định là hôm qua, vì chứng từ của hôm nay còn phát sinh.")}
             action={
               <Link to="/settings/accounting" className="inline-flex items-center gap-1.5 text-sm font-medium text-bo-primary hover:text-bo-primary-hover">
-                <Settings className="size-4" aria-hidden="true" />Thiết lập xuất kế toán
+                <Settings className="size-4" aria-hidden="true" />{t("Thiết lập xuất kế toán")}
               </Link>
             }
           />
         ) : (
           <>
             <MetricStrip
-              label="Tóm tắt lô"
+              label={t("Tóm tắt lô")}
               items={[
-                { label: "Chứng từ trong lô", value: String(tong.soChungTu), hint: xemTruoc.tuNgay ? `${hienNgay(xemTruoc.tuNgay)} – ${hienNgay(xemTruoc.denNgay)}` : `đến hết ${hienNgay(xemTruoc.denNgay)}` },
-                { label: "Doanh thu trước thuế", value: tien(ban?.truocThue ?? 0), hint: "sau chiết khấu" },
-                { label: "Thuế GTGT đầu ra", value: tien(ban?.thue ?? 0) },
-                { label: "Tổng tiền khách trả", value: tien(ban?.tongCong ?? 0), hint: `${ban?.soChungTu ?? 0} chứng từ bán hàng` },
+                { label: t("Chứng từ trong lô"), value: String(tong.soChungTu), hint: xemTruoc.tuNgay ? `${hienNgay(xemTruoc.tuNgay)} – ${hienNgay(xemTruoc.denNgay)}` : t("đến hết {{denNgay}}", { denNgay: hienNgay(xemTruoc.denNgay) }) },
+                { label: t("Doanh thu trước thuế"), value: tien(ban?.truocThue ?? 0), hint: t("sau chiết khấu") },
+                { label: t("Thuế GTGT đầu ra"), value: tien(ban?.thue ?? 0) },
+                { label: t("Tổng tiền khách trả"), value: tien(ban?.tongCong ?? 0), hint: t("{{count}} chứng từ bán hàng", { count: ban?.soChungTu ?? 0 }) },
               ]}
             />
 
             {xemTruoc.coTonDauKy ? (
               <p className={cn("flex gap-2 rounded-lg border px-4 py-3 text-[13px]", MAU_VAN_DE.tin)}>
                 <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                Lô đầu tiên: gồm tồn đầu kỳ tại ngày mốc {hienNgay(xemTruoc.ngayMoc)}. Kế toán nhập số dư ban đầu trước mọi chứng từ.
+                {t("Lô đầu tiên: gồm tồn đầu kỳ tại ngày mốc {{ngayMoc}}. Kế toán nhập số dư ban đầu trước mọi chứng từ.", { ngayMoc: hienNgay(xemTruoc.ngayMoc) })}
               </p>
             ) : null}
 
-            <TableShell title="Theo loại chứng từ" description="Đúng thứ tự kế toán nhập vào AMIS: hàng vào kho trước khi xuất.">
+            <TableShell title={t("Theo loại chứng từ")} description={t("Đúng thứ tự kế toán nhập vào AMIS: hàng vào kho trước khi xuất.")}>
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[720px] text-sm">
                   <thead>
                     <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                      <th className={TH}>Loại</th>
-                      <th className={cn(TH, "text-right")}>Chứng từ</th>
-                      <th className={cn(TH, "text-right")}>Số dòng</th>
-                      <th className={cn(TH, "text-right")}>Trước thuế</th>
-                      <th className={cn(TH, "text-right")}>Thuế GTGT</th>
-                      <th className={cn(TH, "text-right")}>Tổng</th>
+                      <th className={TH}>{t("Loại")}</th>
+                      <th className={cn(TH, "text-right")}>{t("Chứng từ")}</th>
+                      <th className={cn(TH, "text-right")}>{t("Số dòng")}</th>
+                      <th className={cn(TH, "text-right")}>{t("Trước thuế")}</th>
+                      <th className={cn(TH, "text-right")}>{t("Thuế GTGT")}</th>
+                      <th className={cn(TH, "text-right")}>{t("Tổng")}</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {xemTruoc.tongHop.map((t) => (
-                      <tr key={t.loai} className="border-b border-slate-100 last:border-0">
-                        <td className={cn(TD, "font-medium")}>{t.ten}</td>
-                        <td className={cn(TD, SO)}>{t.soChungTu}</td>
-                        <td className={cn(TD, SO)}>{t.soDong}</td>
-                        <td className={cn(TD, SO)}>{t.loai.startsWith("chuyen_kho") ? "—" : tien(t.truocThue)}</td>
-                        <td className={cn(TD, SO)}>{t.loai === "ban_hang" || t.loai === "mua_hang" ? tien(t.thue) : "—"}</td>
-                        <td className={cn(TD, SO)}>{t.loai.startsWith("chuyen_kho") ? "—" : tien(t.tongCong)}</td>
+                    {xemTruoc.tongHop.map((tt) => (
+                      <tr key={tt.loai} className="border-b border-slate-100 last:border-0">
+                        <td className={cn(TD, "font-medium")}>{t(tt.ten)}</td>
+                        <td className={cn(TD, SO)}>{tt.soChungTu}</td>
+                        <td className={cn(TD, SO)}>{tt.soDong}</td>
+                        <td className={cn(TD, SO)}>{tt.loai.startsWith("chuyen_kho") ? "—" : tien(tt.truocThue)}</td>
+                        <td className={cn(TD, SO)}>{tt.loai === "ban_hang" || tt.loai === "mua_hang" ? tien(tt.thue) : "—"}</td>
+                        <td className={cn(TD, SO)}>{tt.loai.startsWith("chuyen_kho") ? "—" : tien(tt.tongCong)}</td>
                       </tr>
                     ))}
                     {xemTruoc.tongHop.length === 0 ? (
-                      <tr><td colSpan={6} className="px-4 py-6 text-center text-sm text-bo-muted">Không có chứng từ mới.</td></tr>
+                      <tr><td colSpan={6} className="px-4 py-6 text-center text-sm text-bo-muted">{t("Không có chứng từ mới.")}</td></tr>
                     ) : null}
                   </tbody>
                 </table>
               </div>
             </TableShell>
 
-            <NhomVanDe tone="chan" icon={XCircle} ds={xemTruoc.loiChan} tieuDe="Để lại lô sau"
-              moTa="Chứng từ có lỗi không vào lô này. Sửa rồi kiểm tra lại; các chứng từ khác vẫn xuất được." />
-            <NhomVanDe tone="canh" icon={AlertTriangle} ds={xemTruoc.canhBao} tieuDe="Cảnh báo"
-              moTa="Vẫn xuất, nhưng nên xem trước khi giao kế toán." />
-            <NhomVanDe tone="canh" icon={AlertTriangle} ds={xemTruoc.bienDongKho} tieuDe="Biến động kho cần lập tay"
-              moTa="Kiểm kê, xuất khác… không có chứng từ trong lô. Kế toán lập tay trên AMIS trước khi nhập bán hàng, không thì AMIS báo xuất quá tồn." />
-            <NhomVanDe tone="tin" icon={Info} ds={xemTruoc.phatSinhSauXuat} tieuDe="Phát sinh sau khi xuất"
-              moTa="Đơn đã giao kế toán rồi bị hoàn trả: kế toán lập Hàng bán trả lại trên AMIS." />
+            <NhomVanDe tone="chan" icon={XCircle} ds={xemTruoc.loiChan} tieuDe={t("Để lại lô sau")}
+              moTa={t("Chứng từ có lỗi không vào lô này. Sửa rồi kiểm tra lại; các chứng từ khác vẫn xuất được.")} />
+            <NhomVanDe tone="canh" icon={AlertTriangle} ds={xemTruoc.canhBao} tieuDe={t("Cảnh báo")}
+              moTa={t("Vẫn xuất, nhưng nên xem trước khi giao kế toán.")} />
+            <NhomVanDe tone="canh" icon={AlertTriangle} ds={xemTruoc.bienDongKho} tieuDe={t("Biến động kho cần lập tay")}
+              moTa={t("Kiểm kê, xuất khác… không có chứng từ trong lô. Kế toán lập tay trên AMIS trước khi nhập bán hàng, không thì AMIS báo xuất quá tồn.")} />
+            <NhomVanDe tone="tin" icon={Info} ds={xemTruoc.phatSinhSauXuat} tieuDe={t("Phát sinh sau khi xuất")}
+              moTa={t("Đơn đã giao kế toán rồi bị hoàn trả: kế toán lập Hàng bán trả lại trên AMIS.")} />
 
             {dc ? (
               <section className="rounded-lg border border-bo-border bg-white px-4 py-3">
-                <h2 className="text-sm font-semibold text-bo-foreground">Đối chiếu doanh thu với Báo cáo doanh thu</h2>
+                <h2 className="text-sm font-semibold text-bo-foreground">{t("Đối chiếu doanh thu với Báo cáo doanh thu")}</h2>
                 <dl className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] gap-x-6 gap-y-1 text-[13px]">
-                  <dt className="text-bo-muted">Báo cáo doanh thu ({hienNgay(xemTruoc.ngayMoc)} – {hienNgay(xemTruoc.denNgay)})</dt>
+                  <dt className="text-bo-muted">{t("Báo cáo doanh thu ({{ngayMoc}} – {{denNgay}})", { ngayMoc: hienNgay(xemTruoc.ngayMoc), denNgay: hienNgay(xemTruoc.denNgay) })}</dt>
                   <dd className="m-0 text-right tabular-nums">{tien(dc.doanhThuBaoCao)}</dd>
-                  <dt className="text-bo-muted">Đã giao kế toán ở các lô trước</dt>
+                  <dt className="text-bo-muted">{t("Đã giao kế toán ở các lô trước")}</dt>
                   <dd className="m-0 text-right tabular-nums">{tien(dc.doanhThuLoTruoc)}</dd>
-                  <dt className="text-bo-muted">Trong lô này</dt>
+                  <dt className="text-bo-muted">{t("Trong lô này")}</dt>
                   <dd className="m-0 text-right tabular-nums">{tien(dc.doanhThuTrongLo)}</dd>
-                  <dt className="text-bo-muted">Bị chặn, để lại lô sau</dt>
+                  <dt className="text-bo-muted">{t("Bị chặn, để lại lô sau")}</dt>
                   <dd className="m-0 text-right tabular-nums">{tien(dc.doanhThuBiChan)}</dd>
-                  <dt className="font-medium text-bo-foreground">Chênh lệch</dt>
+                  <dt className="font-medium text-bo-foreground">{t("Chênh lệch")}</dt>
                   <dd className={cn("m-0 text-right font-semibold tabular-nums", Number(dc.chenhLech) === 0 ? "text-bo-success" : "text-bo-warning")}>
                     {tien(dc.chenhLech)}
                   </dd>
                 </dl>
                 {Number(dc.chenhLech) !== 0 ? (
-                  <p className="mt-2 text-xs text-bo-muted">Chênh lệch khác 0 khi có đơn đã giao kế toán rồi bị hoàn trả (báo cáo bỏ đơn đó, kế toán vẫn có).</p>
+                  <p className="mt-2 text-xs text-bo-muted">{t("Chênh lệch khác 0 khi có đơn đã giao kế toán rồi bị hoàn trả (báo cáo bỏ đơn đó, kế toán vẫn có).")}</p>
                 ) : null}
               </section>
             ) : null}
@@ -454,11 +454,11 @@ export default function XuatDuLieuKeToan() {
             <section className="sticky bottom-[calc(56px+env(safe-area-inset-bottom))] z-10 flex flex-wrap md:bottom-0 items-center gap-3 rounded-lg border border-bo-border bg-white px-4 py-3 shadow-[0_-2px_8px_rgba(16,24,40,0.06)]">
               {xemTruoc.coTheTaoLo ? (
                 <>
-                  <Input value={ghiChu} maxLength={500} onChange={(e) => setGhiChu(e.target.value)} placeholder="Ghi chú cho lô (không bắt buộc)"
-                    aria-label="Ghi chú cho lô" className="h-9 min-w-[220px] flex-1 border-bo-border bg-white text-sm" />
+                  <Input value={ghiChu} maxLength={500} onChange={(e) => setGhiChu(e.target.value)} placeholder={t("Ghi chú cho lô (không bắt buộc)")}
+                    aria-label={t("Ghi chú cho lô")} className="h-9 min-w-[220px] flex-1 border-bo-border bg-white text-sm" />
                   <Button onClick={() => setMoXacNhan(true)} disabled={dangTao} className={NUT_CHINH}>
                     <Download className="size-4" aria-hidden="true" />
-                    Tạo lô và tải tệp
+                    {t("Tạo lô và tải tệp")}
                   </Button>
                 </>
               ) : (
@@ -471,25 +471,25 @@ export default function XuatDuLieuKeToan() {
           </>
         )
       ) : loiLo ? (
-        <ErrorState className="min-h-48" title="Lỗi tải danh sách lô" description={loiLo} onRetry={taiDanhSachLo} />
+        <ErrorState className="min-h-48" title={t("Lỗi tải danh sách lô")} description={loiLo} onRetry={taiDanhSachLo} />
       ) : dsLo === null ? (
-        <LoadingState className="min-h-48" label="Đang tải danh sách lô" />
+        <LoadingState className="min-h-48" label={t("Đang tải danh sách lô")} />
       ) : dsLo.length === 0 ? (
-        <EmptyState icon={FileSpreadsheet} title="Chưa có lô nào" description="Tạo lô ở tab Tạo lô. Mỗi lô giữ đúng tệp đã giao kế toán để tải lại." />
+        <EmptyState icon={FileSpreadsheet} title={t("Chưa có lô nào")} description={t("Tạo lô ở tab Tạo lô. Mỗi lô giữ đúng tệp đã giao kế toán để tải lại.")} />
       ) : (
         <TableShell>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[980px] text-sm">
               <thead>
                 <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                  <th className={cn(TH, "w-8")}><span className="sr-only">Mở rộng</span></th>
-                  <th className={TH}>Số lô</th>
-                  <th className={TH}>Tạo lúc</th>
-                  <th className={TH}>Chứng từ đến hết</th>
-                  <th className={cn(TH, "text-right")}>Chứng từ</th>
-                  <th className={cn(TH, "text-right")}>Tiền khách trả</th>
-                  <th className={TH}>Tệp</th>
-                  <th className={cn(TH, "w-[150px]")}><span className="sr-only">Thao tác</span></th>
+                  <th className={cn(TH, "w-8")}><span className="sr-only">{t("Mở rộng")}</span></th>
+                  <th className={TH}>{t("Số lô", { context: "ke_toan" })}</th>
+                  <th className={TH}>{t("Tạo lúc")}</th>
+                  <th className={TH}>{t("Chứng từ đến hết")}</th>
+                  <th className={cn(TH, "text-right")}>{t("Chứng từ")}</th>
+                  <th className={cn(TH, "text-right")}>{t("Tiền khách trả")}</th>
+                  <th className={TH}>{t("Tệp")}</th>
+                  <th className={cn(TH, "w-[150px]")}><span className="sr-only">{t("Thao tác")}</span></th>
                 </tr>
               </thead>
               <tbody>
@@ -497,14 +497,14 @@ export default function XuatDuLieuKeToan() {
                   <Fragment key={lo.id}>
                     <tr className="border-b border-slate-100">
                       <td className={TD}>
-                        <button type="button" aria-label={loMo === lo.id ? `Thu gọn lô ${lo.soLo}` : `Xem chứng từ của lô ${lo.soLo}`}
+                        <button type="button" aria-label={loMo === lo.id ? t("Thu gọn lô {{soLo}}", { soLo: lo.soLo }) : t("Xem chứng từ của lô {{soLo}}", { soLo: lo.soLo })}
                           aria-expanded={loMo === lo.id} onClick={() => setLoMo((m) => (m === lo.id ? null : lo.id))} className={NUT_ICON}>
                           {loMo === lo.id ? <ChevronDown className="size-4" aria-hidden="true" /> : <ChevronRight className="size-4" aria-hidden="true" />}
                         </button>
                       </td>
                       <td className={cn(TD, "font-medium")}>
                         <span className="whitespace-nowrap">{lo.soLo}</span>
-                        {lo.coTonDauKy ? <span className="ml-2 rounded-[3px] bg-bo-primary-soft px-1.5 py-0.5 text-[11px] font-semibold whitespace-nowrap text-bo-primary">Có tồn đầu kỳ</span> : null}
+                        {lo.coTonDauKy ? <span className="ml-2 rounded-[3px] bg-bo-primary-soft px-1.5 py-0.5 text-[11px] font-semibold whitespace-nowrap text-bo-primary">{t("Có tồn đầu kỳ")}</span> : null}
                         {lo.ghiChu ? <span className="block text-xs font-normal text-bo-muted">{lo.ghiChu}</span> : null}
                       </td>
                       <td className={cn(TD, "tabular-nums")}>{formatDateTime(lo.ngayTao)}<span className="block text-xs text-bo-muted">{lo.nguoiTao}</span></td>
@@ -514,15 +514,15 @@ export default function XuatDuLieuKeToan() {
                       <td className={TD}>
                         <span className="block text-xs whitespace-nowrap">{lo.tenTep} · {dinhDangKichThuoc(lo.kichThuoc)}</span>
                         <span className="flex items-center gap-1 text-[11px] text-bo-muted" title={lo.maBam}>
-                          Mã kiểm tra tệp <span className="font-mono">{lo.maBam?.slice(0, 12)}…</span>
-                          <NutSaoChep giaTri={lo.maBam} nhan={`Sao chép mã kiểm tra tệp của lô ${lo.soLo}`} />
+                          {t("Mã kiểm tra tệp")} <span className="font-mono">{lo.maBam?.slice(0, 12)}…</span>
+                          <NutSaoChep giaTri={lo.maBam} nhan={t("Sao chép mã kiểm tra tệp của lô {{soLo}}", { soLo: lo.soLo })} />
                         </span>
                       </td>
                       <td className={cn(TD, "text-right")}>
                         <Button variant="outline" size="sm" onClick={() => taiTep(lo)} disabled={dangTai === lo.id} className={NUT_PHU}
-                          aria-label={`Tải tệp của lô ${lo.soLo}`}>
+                          aria-label={t("Tải tệp của lô {{soLo}}", { soLo: lo.soLo })}>
                           {dangTai === lo.id ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Download className="size-4" aria-hidden="true" />}
-                          Tải tệp
+                          {t("Tải tệp")}
                         </Button>
                       </td>
                     </tr>
@@ -548,10 +548,10 @@ export default function XuatDuLieuKeToan() {
         onConfirm={taoLo}
         variant="info"
         isLoading={dangTao}
-        title="Tạo lô xuất kế toán"
-        description={tong ? `Lô gồm ${tong.soChungTu} chứng từ đến hết ${hienNgay(xemTruoc?.denNgay)}. Tạo xong, các chứng từ này bị khóa (không vào lô khác, hóa đơn nhà cung cấp không sửa được) và tệp nén được lưu để tải lại.` : ""}
-        confirmText="Tạo lô"
-        cancelText="Quay lại"
+        title={t("Tạo lô xuất kế toán")}
+        description={tong ? t("Lô gồm {{soChungTu}} chứng từ đến hết {{denNgay}}. Tạo xong, các chứng từ này bị khóa (không vào lô khác, hóa đơn nhà cung cấp không sửa được) và tệp nén được lưu để tải lại.", { soChungTu: tong.soChungTu, denNgay: hienNgay(xemTruoc?.denNgay) }) : ""}
+        confirmText={t("Tạo lô")}
+        cancelText={t("Quay lại")}
       />
     </PageContainer>
   );

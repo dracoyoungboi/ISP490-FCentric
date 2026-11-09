@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import { Card, Delta, LE } from "./ui";
 import { MAU2 } from "./mau";
 import { bienDong, docNgay, formatSo, formatTienNgan, tachTien, tenThuGiuaCau } from "../tong-quan/tongQuanFormat";
+import { t } from "@/i18n";
 
 const hai = (n) => String(n).padStart(2, "0");
 /** Khung giờ của cột thứ i: "06:00–07:00". */
@@ -17,7 +18,7 @@ const NHAN_GIO = [0, 6, 12, 18, 23];
  */
 export default function HomNayCard({ data, loading, error, onRetry, className }) {
   const c = data?.chiSo;
-  const t = docNgay(data?.thoiDiem);
+  const tt = docNgay(data?.thoiDiem);
   const coSo = c ? c.doanhThuHomNay > 0 || c.soDonMoiHomNay > 0 : false;
   const theoGio = c?.doanhThuTheoGio ?? [];
   const gioHienTai = theoGio.length - 1;
@@ -27,7 +28,7 @@ export default function HomNayCard({ data, loading, error, onRetry, className })
   return (
     <Card
       className={className}
-      title="Hôm nay"
+      title={t("Hôm nay")}
       loading={loading}
       error={error}
       onRetry={onRetry}
@@ -36,35 +37,35 @@ export default function HomNayCard({ data, loading, error, onRetry, className })
         <>
           <dl className="grid grid-cols-2">
             <So
-              ten="Doanh thu"
+              ten={t("Doanh thu")}
               so={dt.so}
               donVi={dt.donVi}
               bd={bienDong(c.doanhThuHomNay, c.doanhThuCungGioTuanTruoc)}
-              tieuDe={`Cùng giờ tuần trước: ${formatTienNgan(c.doanhThuCungGioTuanTruoc)}`}
+              tieuDe={t("Cùng giờ tuần trước: {{doanhThu}}", { doanhThu: formatTienNgan(c.doanhThuCungGioTuanTruoc) })}
             />
             <So
-              ten="Đơn bán mới"
+              ten={t("Đơn bán mới")}
               so={formatSo(c.soDonMoiHomNay)}
-              donVi="đơn"
+              donVi={t("đơn")}
               bd={bienDong(c.soDonMoiHomNay, c.soDonMoiCungGioTuanTruoc)}
-              tieuDe={`Cùng giờ tuần trước: ${formatSo(c.soDonMoiCungGioTuanTruoc)} đơn`}
+              tieuDe={t("Cùng giờ tuần trước: {{soDon}} đơn", { soDon: formatSo(c.soDonMoiCungGioTuanTruoc), count: c.soDonMoiCungGioTuanTruoc })}
               vach
             />
           </dl>
           <p className={cn(LE, "border-b border-[#eef1f5] pb-3 pt-1 text-xs text-bo-muted")}>
-            Cùng giờ {t ? tenThuGiuaCau(t) : ""} tuần trước:{" "}
+            {t("Cùng giờ {{thu}} tuần trước:", { thu: tt ? tenThuGiuaCau(tt) : "" })}{" "}
             <span className="whitespace-nowrap font-medium tabular-nums text-bo-foreground">{formatTienNgan(c.doanhThuCungGioTuanTruoc)}</span> ·{" "}
-            <span className="whitespace-nowrap font-medium tabular-nums text-bo-foreground">{formatSo(c.soDonMoiCungGioTuanTruoc)} đơn</span>
+            <span className="whitespace-nowrap font-medium tabular-nums text-bo-foreground">{formatSo(c.soDonMoiCungGioTuanTruoc)} {t("đơn")}</span>
           </p>
           <div className={cn(LE, "pb-3.5 pt-3")}>
             <div className="mb-2 flex justify-between gap-3 text-xs text-bo-muted">
-              <span>Doanh thu theo giờ</span>
-              <span>Đã giao {formatSo(c.soDonGiaoHomNay)} đơn</span>
+              <span>{t("Doanh thu theo giờ")}</span>
+              <span>{t("Đã giao {{soDon}} đơn", { soDon: formatSo(c.soDonGiaoHomNay), count: c.soDonGiaoHomNay })}</span>
             </div>
             <div
               className="flex h-16 items-end gap-[2px] border-b border-[#cbd5e1]"
               role="img"
-              aria-label={`Doanh thu hôm nay theo giờ: ${theoGio.map((v, i) => `${khungGio(i)} ${formatTienNgan(v)}`).join(", ")}. Giờ đang chạy tô nhạt.`}
+              aria-label={t("Doanh thu hôm nay theo giờ: {{chiTiet}}. Giờ đang chạy tô nhạt.", { chiTiet: theoGio.map((v, i) => `${khungGio(i)} ${formatTienNgan(v)}`).join(", ") })}
             >
               {Array.from({ length: 24 }, (_, i) => {
                 const v = theoGio[i] ?? 0;
@@ -73,7 +74,7 @@ export default function HomNayCard({ data, loading, error, onRetry, className })
                     key={i}
                     className="block flex-1 rounded-t-[2px]"
                     style={{ height: `${(v / maxGio) * 100}%`, background: i === gioHienTai ? "#9cc3ff" : MAU2.chinh }}
-                    title={i < theoGio.length ? `${khungGio(i)}: ${formatTienNgan(v)}${i === gioHienTai ? " (đang chạy)" : ""}` : undefined}
+                    title={i < theoGio.length ? `${khungGio(i)}: ${formatTienNgan(v)}${i === gioHienTai ? t(" (đang chạy)") : ""}` : undefined}
                   />
                 );
               })}
@@ -101,7 +102,7 @@ export default function HomNayCard({ data, loading, error, onRetry, className })
         <p className={cn(LE, "flex items-start gap-2 py-3.5 text-sm text-bo-muted")}>
           <Clock3 className="mt-0.5 size-4 shrink-0 text-slate-400" aria-hidden="true" />
           <span>
-            Chưa có đơn bán nào. Cùng giờ {t ? tenThuGiuaCau(t) : ""} tuần trước: {formatSo(c.soDonMoiCungGioTuanTruoc)} đơn.
+            {t("Chưa có đơn bán nào. Cùng giờ {{thu}} tuần trước: {{soDon}} đơn.", { thu: tt ? tenThuGiuaCau(tt) : "", soDon: formatSo(c.soDonMoiCungGioTuanTruoc), count: c.soDonMoiCungGioTuanTruoc })}
           </span>
         </p>
       )}

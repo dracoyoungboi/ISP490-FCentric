@@ -1,3 +1,4 @@
+import { t } from "../../i18n/t.js";
 // Phần tính của màn Báo cáo doanh thu (không gọi API): kỳ xem, chỉ số so với cùng kỳ năm trước, dữ liệu biểu đồ và bảng.
 
 const hai = (n) => String(n).padStart(2, "0");
@@ -6,18 +7,18 @@ export const ngayMay = (d) => `${d.getFullYear()}-${hai(d.getMonth() + 1)}-${hai
 export const ngayVN = (s) => (s ? String(s).slice(0, 10).split("-").reverse().join("/") : "");
 
 export const LOAI_KY = [
-  { value: "ngay", label: "Theo ngày" },
-  { value: "thang", label: "Theo tháng" },
-  { value: "nam", label: "Theo năm" },
+  { value: "ngay", label: t("Theo ngày") },
+  { value: "thang", label: t("Theo tháng") },
+  { value: "nam", label: t("Theo năm") },
 ];
 
 /** Mốc nhanh của kỳ theo ngày; "tuy-chon" dùng hai ô ngày. */
 export const MOC_NGAY = [
-  { value: "7", label: "7 ngày qua" },
-  { value: "30", label: "30 ngày qua" },
-  { value: "thang-nay", label: "Tháng này" },
-  { value: "thang-truoc", label: "Tháng trước" },
-  { value: "tuy-chon", label: "Tùy chọn khoảng ngày" },
+  { value: "7", label: t("7 ngày qua") },
+  { value: "30", label: t("30 ngày qua") },
+  { value: "thang-nay", label: t("Tháng này") },
+  { value: "thang-truoc", label: t("Tháng trước") },
+  { value: "tuy-chon", label: t("Tùy chọn khoảng ngày") },
 ];
 
 export const SO_NAM = [3, 5, 10];
@@ -60,10 +61,10 @@ export const bienLai = (loiNhuan, doanhThu) => (N(doanhThu) ? N(loiNhuan) / N(do
 
 /** Chỉ số của dải đầu trang (đổi chỉ số thì biểu đồ đổi theo). */
 export const CHI_SO = [
-  { ma: "doanhThu", ten: "Doanh thu", tien: true },
-  { ma: "loiNhuan", ten: "Lợi nhuận gộp", tien: true, giaVon: true },
-  { ma: "giaVon", ten: "Giá vốn", tien: true, giaVon: true },
-  { ma: "soDon", ten: "Đơn đã giao", tien: false },
+  { ma: "doanhThu", ten: t("Doanh thu"), tien: true },
+  { ma: "loiNhuan", ten: t("Lợi nhuận gộp"), tien: true, giaVon: true },
+  { ma: "giaVon", ten: t("Giá vốn"), tien: true, giaVon: true },
+  { ma: "soDon", ten: t("Đơn đã giao"), tien: false },
 ];
 
 /** Chỉ số người xem được: không có giá vốn (nhân viên bán hàng) thì chỉ Doanh thu, Đơn đã giao. */
@@ -73,7 +74,7 @@ const truongCungKy = { doanhThu: "doanhThuCungKy", loiNhuan: "loiNhuanCungKy", g
 
 /** Nhãn ngắn trên trục X: T1…T12 theo tháng, 01/10 theo ngày, năm theo năm. */
 export function nhanTruc(loai, ky) {
-  if (loai === "thang") return `T${N(ky.sortKey)}`;
+  if (loai === "thang") return t("T{{thang}}", { thang: N(ky.sortKey) });
   return ky.nhanThoiGian;
 }
 
@@ -85,7 +86,7 @@ export function duLieuBieuDo(tongHop, chiSo) {
   if (!tongHop?.theoKy) return [];
   return tongHop.theoKy.map((k) => ({
     nhan: nhanTruc(tongHop.loai, k),
-    nhanDay: tongHop.loai === "thang" ? `Tháng ${N(k.sortKey)}` : tongHop.loai === "nam" ? `Năm ${k.nhanThoiGian}` : ngayVN(k.tuNgay),
+    nhanDay: tongHop.loai === "thang" ? t("Tháng {{sortKey}}", { sortKey: N(k.sortKey) }) : tongHop.loai === "nam" ? t("Năm {{nhanThoiGian}}", { nhanThoiGian: k.nhanThoiGian }) : ngayVN(k.tuNgay),
     nay: k.chuaToi ? null : N(k[chiSo]),
     truoc: tongHop.loai === "nam" || k.chuaToi ? null : N(k[truongCungKy[chiSo]]),
   }));
@@ -96,12 +97,12 @@ export function duLieuBieuDo(tongHop, chiSo) {
  * "" = hợp lệ.
  */
 export function loiKhoangNgay(tuNgay, denNgay, homNay = new Date()) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(tuNgay ?? "") || !/^\d{4}-\d{2}-\d{2}$/.test(denNgay ?? "")) return "Chọn đủ từ ngày và đến ngày.";
-  if (Number(tuNgay.slice(0, 4)) < 2000 || Number(denNgay.slice(0, 4)) < 2000) return "Ngày phải từ năm 2000 trở đi.";
-  if (tuNgay > denNgay) return "Từ ngày phải trước hoặc bằng đến ngày.";
-  if (denNgay > ngayMay(homNay)) return "Đến ngày không được sau hôm nay.";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(tuNgay ?? "") || !/^\d{4}-\d{2}-\d{2}$/.test(denNgay ?? "")) return t("Chọn đủ từ ngày và đến ngày.");
+  if (Number(tuNgay.slice(0, 4)) < 2000 || Number(denNgay.slice(0, 4)) < 2000) return t("Ngày phải từ năm 2000 trở đi.");
+  if (tuNgay > denNgay) return t("Từ ngày phải trước hoặc bằng đến ngày.");
+  if (denNgay > ngayMay(homNay)) return t("Đến ngày không được sau hôm nay.");
   const motNam = `${Number(tuNgay.slice(0, 4)) + 1}${tuNgay.slice(4)}`;
-  if (denNgay >= motNam) return "Xem theo ngày tối đa 1 năm; khoảng dài hơn hãy xem theo tháng.";
+  if (denNgay >= motNam) return t("Xem theo ngày tối đa 1 năm; khoảng dài hơn hãy xem theo tháng.");
   return "";
 }
 
@@ -114,10 +115,10 @@ export function dongBang(tongHop, tienThu) {
   const thu = new Map((tienThu?.theoKy ?? []).map((k) => [k.nhanThoiGian, k]));
   return tongHop.theoKy
     .map((k) => {
-      const t = thu.get(k.nhanThoiGian);
+      const tt = thu.get(k.nhanThoiGian);
       return {
         khoa: k.nhanThoiGian,
-        ten: tongHop.loai === "thang" ? `Tháng ${N(k.sortKey)}` : tongHop.loai === "nam" ? `Năm ${k.nhanThoiGian}` : ngayVN(k.tuNgay),
+        ten: tongHop.loai === "thang" ? t("Tháng {{sortKey}}", { sortKey: N(k.sortKey) }) : tongHop.loai === "nam" ? t("Năm {{nhanThoiGian}}", { nhanThoiGian: k.nhanThoiGian }) : ngayVN(k.tuNgay),
         doanhThu: N(k.doanhThu),
         doanhThuCungKy: N(k.doanhThuCungKy),
         tang: tyLeTang(k.doanhThu, k.doanhThuCungKy),
@@ -125,9 +126,9 @@ export function dongBang(tongHop, tienThu) {
         loiNhuan: N(k.loiNhuan),
         bien: bienLai(k.loiNhuan, k.doanhThu),
         soDon: N(k.soDon),
-        tienMat: N(t?.tienMat),
-        chuyenKhoan: N(t?.chuyenKhoan),
-        hoan: N(t?.hoan),
+        tienMat: N(tt?.tienMat),
+        chuyenKhoan: N(tt?.chuyenKhoan),
+        hoan: N(tt?.hoan),
       };
     })
     .filter((d, i) => !tongHop.theoKy[i].chuaToi
@@ -152,7 +153,8 @@ export function dongKenh(tongHop) {
     const loiNhuan = soHoacNull(k.loiNhuan);
     return {
       ma: k.ma,
-      ten: k.ten,
+      // Kênh POS / trực tiếp: tên cố định máy chủ trả (DoanhThuReportService) nên dịch; tên kênh sàn là dữ liệu
+      ten: k.ma === "POS" || k.ma === "TRUC_TIEP" ? t(k.ten) : k.ten,
       loai: k.ma === "POS" ? "quay" : k.ma === "TRUC_TIEP" ? "don" : "san",
       doanhThu,
       soDon,
@@ -192,7 +194,8 @@ export function dongNhanVien(tongHop) {
     return {
       khoa: laNguoi ? `nv-${n.nguoiDungId}` : n.loai,
       loai: n.loai,
-      ten: n.ten,
+      // Dòng không phải người (Đơn sàn, Không rõ người lập): nhãn cố định máy chủ trả nên dịch; tên nhân viên giữ nguyên
+      ten: laNguoi ? n.ten : t(n.ten),
       chuTat: laNguoi ? chuTat(n.ten) : null,
       hang: laNguoi ? (hang += 1) : null,
       laToi: Boolean(n.laToi),
@@ -217,8 +220,8 @@ export function soGon(v) {
   const x = N(v);
   const a = Math.abs(x);
   const fmt = (n, d) => n.toLocaleString("vi-VN", { minimumFractionDigits: d, maximumFractionDigits: d });
-  if (a >= 1e9) return { so: fmt(x / 1e9, 2), donVi: "tỷ ₫" };
-  if (a >= 1e6) return { so: fmt(x / 1e6, 1), donVi: "triệu ₫" };
+  if (a >= 1e9) return { so: fmt(x / 1e9, 2), donVi: t("tỷ ₫") };
+  if (a >= 1e6) return { so: fmt(x / 1e6, 1), donVi: t("triệu ₫") };
   return { so: fmt(x, 0), donVi: "₫" };
 }
 

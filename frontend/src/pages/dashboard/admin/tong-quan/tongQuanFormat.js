@@ -1,3 +1,4 @@
+import { t } from "../../../../i18n/t.js";
 // Hằng số và hàm định dạng dùng chung cho màn Tổng quan quản trị viên.
 
 /** Màu số liệu: mỗi màu một nghĩa trên toàn màn (đã kiểm tra phân biệt được với người mù màu). */
@@ -12,17 +13,17 @@ export const MAU = {
 };
 
 export const KY_OPTIONS = [
-  { value: "7_ngay", label: "7 ngày" },
-  { value: "30_ngay", label: "30 ngày" },
-  { value: "12_thang", label: "12 tháng" },
+  { value: "7_ngay", label: t("7 ngày") },
+  { value: "30_ngay", label: t("30 ngày") },
+  { value: "12_thang", label: t("12 tháng") },
 ];
 
 export const KY_MAC_DINH = "30_ngay";
 
 export function moTaKy(ky) {
-  if (ky === "7_ngay") return "7 ngày qua";
-  if (ky === "12_thang") return "12 tháng qua";
-  return "30 ngày qua";
+  if (ky === "7_ngay") return t("7 ngày qua");
+  if (ky === "12_thang") return t("12 tháng qua");
+  return t("30 ngày qua");
 }
 
 const nf0 = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 });
@@ -43,15 +44,15 @@ export const formatTien = (v) => `${nf0.format(so(v))} ₫`;
 export function tachTienGon(v) {
   const n = so(v);
   const a = Math.abs(n);
-  if (a >= 1e9) return { so: nf2.format(n / 1e9), donVi: "tỷ ₫" };
-  if (a >= 1e6) return { so: nf1.format(n / 1e6), donVi: "triệu ₫" };
-  if (a >= 1e3) return { so: nf0.format(Math.round(n / 1e3)), donVi: "nghìn ₫" };
+  if (a >= 1e9) return { so: nf2.format(n / 1e9), donVi: t("tỷ ₫") };
+  if (a >= 1e6) return { so: nf1.format(n / 1e6), donVi: t("triệu ₫") };
+  if (a >= 1e3) return { so: nf0.format(Math.round(n / 1e3)), donVi: t("nghìn ₫") };
   return { so: nf0.format(n), donVi: "₫" };
 }
 
 export function formatTienGon(v) {
-  const t = tachTienGon(v);
-  return `${t.so} ${t.donVi}`;
+  const tt = tachTienGon(v);
+  return `${tt.so} ${tt.donVi}`;
 }
 
 /**
@@ -61,14 +62,14 @@ export function formatTienGon(v) {
 export function tachTien(v) {
   const n = so(v);
   const a = Math.abs(n);
-  if (a >= 1e9) return { so: nf2.format(n / 1e9), donVi: "tỷ ₫" };
-  if (a >= 1e6) return { so: nf1.format(n / 1e6), donVi: "triệu ₫" };
+  if (a >= 1e9) return { so: nf2.format(n / 1e9), donVi: t("tỷ ₫") };
+  if (a >= 1e6) return { so: nf1.format(n / 1e6), donVi: t("triệu ₫") };
   return { so: nf0.format(Math.round(n)), donVi: "₫" };
 }
 
 export function formatTienNgan(v) {
-  const t = tachTien(v);
-  return `${t.so} ${t.donVi}`;
+  const tt = tachTien(v);
+  return `${tt.so} ${tt.donVi}`;
 }
 
 /** Mức thay đổi có dấu: "+12,4%", "−3,1%", "0%"; null khi kỳ trước bằng 0 hoặc không có (không ghi % vô nghĩa). */
@@ -85,9 +86,9 @@ export function formatNhanTien(v) {
   const n = so(v);
   const a = Math.abs(n);
   const gon = (x) => (Math.abs(x) < 10 ? nfToiDa1 : nf0).format(x);
-  if (a >= 1e9) return `${gon(n / 1e9)} tỷ`;
-  if (a >= 1e6) return `${gon(n / 1e6)} tr`;
-  if (a >= 1e3) return `${nf0.format(n / 1e3)} nghìn`;
+  if (a >= 1e9) return t("{{so}} tỷ", { so: gon(n / 1e9) });
+  if (a >= 1e6) return t("{{so}} tr", { so: gon(n / 1e6) });
+  if (a >= 1e3) return t("{{so}} nghìn", { so: nf0.format(n / 1e3) });
   return nf0.format(n);
 }
 
@@ -104,9 +105,9 @@ export function phanTramThayDoi(hienTai, truoc) {
 
 export const tyLe = (a, b) => (so(b) === 0 ? null : (so(a) / so(b)) * 100);
 
-const TEN_THU = ["Chủ nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
-const TEN_THU_GIUA_CAU = ["Chủ nhật", "thứ Hai", "thứ Ba", "thứ Tư", "thứ Năm", "thứ Sáu", "thứ Bảy"];
-const THU_NGAN = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+const TEN_THU = [t("Chủ nhật"), t("Thứ Hai"), t("Thứ Ba"), t("Thứ Tư"), t("Thứ Năm"), t("Thứ Sáu"), t("Thứ Bảy")];
+const TEN_THU_GIUA_CAU = [t("Chủ nhật"), t("thứ Hai"), t("thứ Ba"), t("thứ Tư"), t("thứ Năm"), t("thứ Sáu"), t("thứ Bảy")];
+const THU_NGAN = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"].map((thu) => t(thu, { context: "thu" }));
 const hai = (n) => String(n).padStart(2, "0");
 
 /** "2026-10-12" hoặc "2026-10-12T15:30:00" → Date theo giờ địa phương (không đổi múi giờ). */
@@ -128,7 +129,7 @@ export function nhanTruc(tu, nhom, soDiem, viTri = 1) {
   if (!d) return "";
   if (nhom === "thang") {
     const kemNam = viTri === 0 || d.getMonth() === 0;
-    return `T${d.getMonth() + 1}${kemNam ? `/${String(d.getFullYear()).slice(2)}` : ""}`;
+    return `${t("T{{thang}}", { thang: d.getMonth() + 1 })}${kemNam ? `/${String(d.getFullYear()).slice(2)}` : ""}`;
   }
   return soDiem <= 8 ? `${THU_NGAN[d.getDay()]} ${hai(d.getDate())}/${hai(d.getMonth() + 1)}` : `${hai(d.getDate())}/${hai(d.getMonth() + 1)}`;
 }
@@ -136,7 +137,7 @@ export function nhanTruc(tu, nhom, soDiem, viTri = 1) {
 export function nhanDayDu(tu, nhom) {
   const d = docNgay(tu);
   if (!d) return "";
-  if (nhom === "thang") return `Tháng ${d.getMonth() + 1}/${d.getFullYear()}`;
+  if (nhom === "thang") return t("Tháng {{thang}}/{{nam}}", { thang: d.getMonth() + 1, nam: d.getFullYear() });
   return `${tenThu(d)}, ${hai(d.getDate())}/${hai(d.getMonth() + 1)}/${d.getFullYear()}`;
 }
 

@@ -8,6 +8,7 @@ import { BoCuc, CAM, DongThoiGian, FOCUS, HangCoNut, NgatTaiCham, Nut, XANH } fr
 import { THU_TU } from "@/pages/dashboard/vai-tro/lop";
 import { NHOM_VIEC_CHUNG, gioPhut, nhomHangSapVe, thoiDiemNgan, viecChungDong } from "@/pages/dashboard/vai-tro/soLieuVaiTro";
 import { phimTab } from "@/pages/dashboard/vai-tro/banPhim";
+import { t } from "@/i18n";
 
 /**
  * Tổng quan của NHÂN VIÊN KHO: màn làm việc, không phải màn báo cáo. Theo kho làm việc (ô đầu trang).
@@ -31,16 +32,16 @@ export default function DashboardWarehouseStaff() {
               <DongThoiGian
                 key="sv"
                 className={THU_TU[4]}
-                tieuDe="Hàng sắp về"
+                tieuDe={t("Hàng sắp về")}
                 nhom={n?.sapVe ? nhomHangSapVe(n.sapVe.ds, thoiDiem) : []}
                 right={
                   n?.sapVe && n.sapVe.tong > n.sapVe.ds.length && data?.kho ? (
                     <MoreLink to={data.kho.laKhoTong ? `/purchase-orders?trangThai=dang-van-chuyen&kho=${data.kho.id}` : "/transfer-tickets?trangThai=dang-van-chuyen"}>
-                      Xem tất cả {formatSo(n.sapVe.tong)}
+                      {t("Xem tất cả {{tong}}", { tong: formatSo(n.sapVe.tong) })}
                     </MoreLink>
                   ) : null
                 }
-                trong="Không có hàng nào sắp về trong 7 ngày tới."
+                trong={t("Không có hàng nào sắp về trong 7 ngày tới.")}
                 loading={loading}
                 error={loi("sapVe")}
                 onRetry={reload}
@@ -60,7 +61,7 @@ function VongTienDo({ da, tong }) {
   const r = (co - day) / 2;
   const C = 2 * Math.PI * r;
   return (
-    <div className="relative size-[72px] shrink-0" role="img" aria-label={`Đã nhặt ${formatSo(da)}/${formatSo(tong)} sản phẩm`}>
+    <div className="relative size-[72px] shrink-0" role="img" aria-label={t("Đã nhặt {{da}}/{{tong}} sản phẩm", { da: formatSo(da), tong: formatSo(tong) })}>
       <svg viewBox={`0 0 ${co} ${co}`} className="size-full -rotate-90" aria-hidden="true">
         <circle cx={co / 2} cy={co / 2} r={r} fill="none" stroke="#e3ecfb" strokeWidth={day} />
         {pt ? <circle cx={co / 2} cy={co / 2} r={r} fill="none" stroke={XANH} strokeWidth={day} strokeLinecap="round" strokeDasharray={`${(pt / 100) * C} ${C}`} /> : null}
@@ -78,14 +79,14 @@ function ViecCuaBan({ ds, thoiDiem, className, loading, error, onRetry }) {
   return (
     <Card
       className={className}
-      title="Việc của bạn"
-      scope={list.length ? `${list.length} phiếu nhặt đang giao cho bạn` : null}
+      title={t("Việc của bạn")}
+      scope={list.length ? t("{{count}} phiếu nhặt đang giao cho bạn", { count: list.length }) : null}
       loading={loading}
       error={error}
       onRetry={onRetry}
     >
       {list.length === 0 ? (
-        <p className={cn(LE, "py-6 text-sm text-bo-muted")}>Chưa có phiếu nhặt nào giao cho bạn. Nhận việc ở danh sách việc chung bên dưới.</p>
+        <p className={cn(LE, "py-6 text-sm text-bo-muted")}>{t("Chưa có phiếu nhặt nào giao cho bạn. Nhận việc ở danh sách việc chung bên dưới.")}</p>
       ) : (
         <ul>
           {list.map((v, i) => {
@@ -94,25 +95,25 @@ function ViecCuaBan({ ds, thoiDiem, className, loading, error, onRetry }) {
               <li key={v.id} className={cn(LE, "flex flex-wrap items-center gap-x-5 gap-y-4 border-t border-[#eef1f5] py-4 first:border-t-0")}>
                 <VongTienDo da={v.daQuet} tong={v.canNhat} />
                 <div className="min-w-0 flex-[1_1_220px]">
-                  <p className="text-xs font-medium text-bo-muted">{dangNhat ? "Đang nhặt hàng" : "Nhặt hàng · chưa bắt đầu"}</p>
+                  <p className="text-xs font-medium text-bo-muted">{dangNhat ? t("Đang nhặt hàng") : t("Nhặt hàng · chưa bắt đầu")}</p>
                   <p className="mt-0.5 text-base font-semibold text-bo-heading">
                     {/* Phiếu nhặt của phiếu chuyển kho không có đơn: ghi số phiếu chuyển thay cho "0 đơn" */}
-                    {v.ma} <span className="font-normal text-bo-muted">· {v.soPhieuChuyen ? `Chuyển kho ${v.soPhieuChuyen}` : `${formatSo(v.soDon)} đơn`}</span>
+                    {v.ma} <span className="font-normal text-bo-muted">· {v.soPhieuChuyen ? t("Chuyển kho {{soPhieuChuyen}}", { soPhieuChuyen: v.soPhieuChuyen }) : t("{{soDon}} đơn", { soDon: formatSo(v.soDon), count: v.soDon })}</span>
                   </p>
                   <p className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-bo-muted">
                     {v.ngayTao && (
                       <span className="inline-flex items-center gap-1">
                         <Clock3 className="size-3.5 shrink-0" aria-hidden="true" />
-                        Tạo lúc {thoiDiemNgan(v.ngayTao, thoiDiem)}
+                        {t("Tạo lúc {{ngayTao}}", { ngayTao: thoiDiemNgan(v.ngayTao, thoiDiem) })}
                       </span>
                     )}
                     <span className="tabular-nums">
-                      {formatSo(v.daQuet)}/{formatSo(v.canNhat)} sản phẩm
+                      {t("{{daQuet}}/{{canNhat}} sản phẩm", { daQuet: formatSo(v.daQuet), canNhat: formatSo(v.canNhat) })}
                     </span>
                   </p>
                 </div>
                 <Nut to={`/goods-issues/pick-lists/${v.id}`} kieu={i === 0 ? "chinh" : "phu"} co="vua" className="@max-[520px]:h-10 @max-[520px]:w-full">
-                  {dangNhat ? "Tiếp tục nhặt" : "Bắt đầu nhặt"}
+                  {dangNhat ? t("Tiếp tục nhặt") : t("Bắt đầu nhặt")}
                 </Nut>
               </li>
             );
@@ -127,13 +128,13 @@ function ViecCuaBan({ ds, thoiDiem, className, loading, error, onRetry }) {
 function HomNay({ so, thoiDiem, className, loading, error, onRetry }) {
   const o = so
     ? [
-        { key: "nhap", ten: "Đã nhận", so: so.sanPhamDaNhap, phu: `sản phẩm · ${formatSo(so.phieuDaNhap)} phiếu` },
-        { key: "nhat", ten: "Đã nhặt", so: so.sanPhamDaNhat, phu: `sản phẩm · ${formatSo(so.phieuDaNhat)} phiếu` },
-        { key: "xuat", ten: "Đã xuất kho", so: so.phieuDaXuat, phu: "phiếu" },
+        { key: "nhap", ten: t("Đã nhận"), so: so.sanPhamDaNhap, phu: t("sản phẩm · {{phieuDaNhap}} phiếu", { phieuDaNhap: formatSo(so.phieuDaNhap) }) },
+        { key: "nhat", ten: t("Đã nhặt"), so: so.sanPhamDaNhat, phu: t("sản phẩm · {{phieuDaNhat}} phiếu", { phieuDaNhat: formatSo(so.phieuDaNhat) }) },
+        { key: "xuat", ten: t("Đã xuất kho"), so: so.phieuDaXuat, phu: t("phiếu", { context: "so_nhieu" }) },
       ]
     : [];
   return (
-    <Card className={className} title="Hôm nay của bạn" scope={thoiDiem ? `đến ${gioPhut(thoiDiem)}` : null} loading={loading} error={error} onRetry={onRetry}>
+    <Card className={className} title={t("Hôm nay của bạn")} scope={thoiDiem ? t("đến {{thoiDiem}}", { thoiDiem: gioPhut(thoiDiem) }) : null} loading={loading} error={error} onRetry={onRetry}>
       <div className="grid grid-cols-3 gap-px bg-[#eef1f5]">
         {o.map((s) => (
           <div key={s.key} className="min-w-0 bg-bo-surface px-5 py-4 @max-[440px]:px-4">
@@ -152,26 +153,26 @@ function HomNay({ so, thoiDiem, className, loading, error, onRetry }) {
 /** Việc chung của kho: năm ô đếm (bấm để xem), dưới là việc chờ lâu nhất trước. */
 function ViecChung({ vc, thoiDiem, className, loading, error, onRetry }) {
   const [tab, setTab] = useState(null);
-  const tabHien = tab ?? NHOM_VIEC_CHUNG.find((t) => vc?.[t.key]?.tong)?.key ?? "nhanHang";
-  const nhom = NHOM_VIEC_CHUNG.find((t) => t.key === tabHien);
+  const tabHien = tab ?? NHOM_VIEC_CHUNG.find((tt) => vc?.[tt.key]?.tong)?.key ?? "nhanHang";
+  const nhom = NHOM_VIEC_CHUNG.find((tt) => tt.key === tabHien);
   const g = vc?.[tabHien];
   const ds = g?.ds ?? [];
   return (
     <Card
       className={className}
-      title="Việc chung của kho"
-      scope="việc đang chờ ở kho này"
+      title={t("Việc chung của kho")}
+      scope={t("việc đang chờ ở kho này")}
       scopeClassName="@max-[520px]:hidden"
-      right={g && g.tong > ds.length ? <MoreLink to={nhom.to}>Xem tất cả {formatSo(g.tong)}</MoreLink> : null}
+      right={g && g.tong > ds.length ? <MoreLink to={nhom.to}>{t("Xem tất cả {{tong}}", { tong: formatSo(g.tong) })}</MoreLink> : null}
       loading={loading}
       error={error}
       onRetry={onRetry}
     >
       <div
         role="tablist"
-        aria-label="Công đoạn"
+        aria-label={t("Công đoạn")}
         className={cn(LE, "grid grid-cols-3 gap-2 pb-1 pt-4 @min-[600px]:grid-cols-5")}
-        onKeyDown={(e) => phimTab(e, NHOM_VIEC_CHUNG.map((t) => t.key), tabHien, setTab, "viec-chung-")}
+        onKeyDown={(e) => phimTab(e, NHOM_VIEC_CHUNG.map((tt) => tt.key), tabHien, setTab, "viec-chung-")}
       >
         {NHOM_VIEC_CHUNG.map((x) => {
           const on = x.key === tabHien;
@@ -217,7 +218,7 @@ function ViecChung({ vc, thoiDiem, className, loading, error, onRetry }) {
                   phu={
                     v.choLau ? (
                       <span className={CAM}>
-                        <NgatTaiCham chu={moc ? `${moc} · đang chờ lâu` : "Đang chờ lâu"} />
+                        <NgatTaiCham chu={moc ? t("{{moc}} · đang chờ lâu", { moc }) : t("Đang chờ lâu")} />
                       </span>
                     ) : (
                       moc
