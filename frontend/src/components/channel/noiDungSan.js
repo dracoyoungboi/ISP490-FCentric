@@ -41,17 +41,17 @@ const NOI_DUNG = {
   SHOPEE: {
     nhanIdSan: "Shop ID",
     khachMacDinh: "Khách Shopee",
-    goiYAppKey: "Lấy ở Shopee Open Platform › Console (Partner ID & Partner Key).",
+    goiYAppKey: "Nhập mã Shop ID của gian hàng Shopee (ví dụ: 88201679).",
     coServiceId: false,
     moTaUyQuyen:
-      "Bấm Ủy quyền, Shopee mở trang đăng nhập Seller Center và hỏi bạn có cho FCentric đọc sản phẩm, đơn hàng và cập nhật tồn không. Đồng ý xong Shopee đưa bạn quay lại đây.",
-    hanUyQuyen: "Ủy quyền Shopee có hạn 365 ngày; hệ thống tự động làm mới access token mỗi 4 giờ qua refresh token.",
+      "Hệ thống kết nối trực tiếp với gian hàng Shopee thông qua Cổng ký chữ ký số bảo mật bên thứ ba (MinMinTool Gateway). Không yêu cầu tài khoản Shopee Developer hay ủy quyền OAuth2.",
+    hanUyQuyen: "Kết nối thông qua Cổng ký bên thứ ba có hiệu lực 365 ngày (hệ thống tự động gia hạn).",
     khoSan: {
       nhan: "Kho trên Shopee",
       moTa: "Gian hàng một kho: Shopee nhận số vào kho mặc định, không cần chọn.",
       chiDoc: "Kho mặc định",
     },
-    ghiChuTon: "Hệ thống tự động đồng bộ tồn kho sang Shopee theo quy tắc tồn khả dụng đã cấu hình.",
+    ghiChuTon: "Hệ thống tự động gom cụm đẩy tồn kho theo lô sang Shopee theo quy tắc tồn khả dụng đã cấu hình.",
     ghiChuDon: "Đơn mới từ Shopee đồng bộ tự động theo chu kỳ quét định kỳ với tiền tố SHP-.",
   },
   SHOPEE_SANDBOX: {

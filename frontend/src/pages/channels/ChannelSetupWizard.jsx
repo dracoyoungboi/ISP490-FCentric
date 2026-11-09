@@ -13,6 +13,8 @@ import SetupStepper from "@/components/channel/SetupStepper";
 import KetNoiShopifyForm from "@/components/channel/KetNoiShopifyForm";
 import KetNoiUyQuyenForm from "@/components/channel/KetNoiUyQuyenForm";
 import DongKhoSan from "@/components/channel/DongKhoSan";
+import ChannelLogo from "@/components/channel/ChannelLogo";
+import { INPUT_CLASS } from "@/components/channel/SettingsCard";
 import { TrangThaiCham } from "@/components/channel/HienThiKenh";
 import { ChonPhuongAn, CotCaiDat, DongCaiDat, TheCaiDat } from "@/components/channel/KhuonCaiDat";
 import { TheDonHang, TheTonKho } from "@/components/channel/CauHinhDongBoCards";
@@ -219,6 +221,17 @@ export default function ChannelSetupWizard() {
                 }}
                 onTiep={() => xongBuoc(1)}
               />
+            ) : buoc === 1 && SAN.kieuKetNoi === "ben_thu_ba" ? (
+              <BuocKetNoiShopeeThirdParty
+                key={`shopee-3rd-${config?.ngayCapNhat ?? "moi"}-${config?.shopDomain ?? ""}-${config?.clientId ?? ""}`}
+                config={config}
+                onHuy={huyBo}
+                onXong={(dto) => {
+                  if (dto) cfg.setData(dto);
+                  taiLaiKenhDaKetNoi();
+                  xongBuoc(1);
+                }}
+              />
             ) : buoc === 1 ? (
               <BuocKetNoi
                 key={`ket-noi-${config?.ngayCapNhat ?? "moi"}-${config?.shopDomain ?? ""}-${config?.trangThaiKetNoi ?? ""}`}
@@ -403,6 +416,129 @@ function BuocUyQuyen({ ketNoi, hetHan, quayVeThietLap, onHuy, onKetNoi, onTiep }
         />
       </TheCaiDat>
       <HangNut onHuy={onHuy} onTiep={onTiep} khoa={formDangChay} khoaTiep={khoaTiep} />
+    </>
+  );
+}
+
+function BuocKetNoiShopeeThirdParty({ config, onHuy, onXong }) {
+  const SAN = useSanHienTai();
+  const daCo = daKetNoi(config);
+  const [shopId, setShopId] = useState(() => config?.shopDomain || config?.clientId || "");
+  const [tenGianHang, setTenGianHang] = useState(() => config?.tenGianHang || "Gian Hàng Shopee FCentric");
+  const [dangChay, chay] = useDangChay();
+  const [errors, setErrors] = useState({});
+
+  const xuLyLienKet = () =>
+    chay("lien-ket", async () => {
+      let rawId = shopId.trim();
+      if (!rawId) {
+        setErrors({ shopId: "Vui lòng nhập Shop ID (hoặc đường dẫn link gian hàng Shopee)" });
+        return;
+      }
+      const match = rawId.match(/shopid=(\d+)/i) || rawId.match(/(\d{6,15})/);
+      const cleanShopId = match ? match[1] : rawId;
+
+      setErrors({});
+      try {
+        const payload = {
+          appKey: cleanShopId,
+          clientId: cleanShopId,
+          shopDomain: cleanShopId,
+          tenGianHang: tenGianHang.trim() || `Gian Hàng Shopee (${cleanShopId})`,
+          trangThai: 1,
+        };
+        const dto = await kenhBanHangService.luuKhoaUngDung("SHOPEE", payload);
+        toast.success(`Đã liên kết Shopee Production (Shop ID: ${cleanShopId}) qua Cổng ký bên thứ ba thành công!`);
+        onXong(dto);
+      } catch (error) {
+        toast.error(getApiErrorMessage(error, "Không thể lưu thông tin liên kết Shopee"));
+      }
+    });
+
+  return (
+    <>
+      <TheCaiDat
+        title="Liên kết Gian hàng Shopee Production"
+        description="Kết nối trung gian qua Cổng Ký Bên Thứ Ba (MinMinTool Gateway). Hệ thống tự động ký số di động cho mọi request đồng bộ, không cần tài khoản API hay ủy quyền OAuth2 phức tạp."
+      >
+        <div className="space-y-6">
+          <div className="rounded-lg border border-orange-200 bg-orange-50/70 p-4">
+            <div className="flex items-start gap-3">
+              <ChannelLogo maKenh="SHOPEE" size={28} />
+              <div className="min-w-0 flex-1 text-sm">
+                <p className="font-semibold text-orange-950">
+                  Cổng ký Chữ Ký Số Độc Lập MinMinTool Gateway
+                </p>
+                <p className="mt-1 text-orange-800 text-[13px] leading-relaxed">
+                  Để kết nối gian hàng Shopee thật, bạn chỉ cần nhập <strong>Shop ID</strong> của gian hàng.
+                  FCentric Omnichannel Hub sẽ chuyển tiếp mọi tác vụ đẩy tồn kho, quét đơn hàng và thông tin sản phẩm
+                  qua Cổng ký chữ ký di động bảo vệ chống bot an toàn.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="shopee-shop-id" className="mb-1.5 block text-sm font-medium text-bo-foreground">
+                Shop ID (Mã gian hàng Shopee) <span className="text-bo-danger">*</span>
+              </label>
+              <input
+                id="shopee-shop-id"
+                value={shopId}
+                onChange={(e) => {
+                  setShopId(e.target.value);
+                  setErrors((cu) => ({ ...cu, shopId: undefined }));
+                }}
+                placeholder="VD: 88201679 hoặc dán link shop"
+                className={cn(
+                  INPUT_CLASS,
+                  errors.shopId && "border-bo-danger focus:border-bo-danger focus:ring-bo-danger/15"
+                )}
+              />
+              <p className={cn("mt-1 text-xs", errors.shopId ? "text-bo-danger" : "text-bo-muted")}>
+                {errors.shopId || "Mã số định danh gian hàng trên Shopee (tìm thấy trong URL hoặc hồ sơ shop)."}
+              </p>
+            </div>
+
+            <div>
+              <label htmlFor="shopee-shop-name" className="mb-1.5 block text-sm font-medium text-bo-foreground">
+                Tên hiển thị gian hàng
+              </label>
+              <input
+                id="shopee-shop-name"
+                value={tenGianHang}
+                onChange={(e) => setTenGianHang(e.target.value)}
+                placeholder="VD: FCentric Fashion Official Store"
+                className={INPUT_CLASS}
+              />
+              <p className="mt-1 text-xs text-bo-muted">
+                Tên đại diện phân biệt trong danh sách kênh bán hàng FCentric.
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-bo-border bg-bo-surface-subtle p-3.5 text-xs text-bo-muted space-y-1.5">
+            <div className="flex items-center gap-2 font-medium text-bo-foreground">
+              <span className="size-2 rounded-full bg-emerald-500 inline-block" />
+              Chuẩn hóa tối ưu Gom Cụm Request (Batching Architecture):
+            </div>
+            <ul className="list-disc pl-5 space-y-1">
+              <li><strong>Đẩy tồn kho theo lô:</strong> Tự động gom toàn bộ biến thể của sản phẩm cha gửi trong 1 request <code>update_stock_batch</code>.</li>
+              <li><strong>Kéo đơn hàng theo lô:</strong> Tự động gom danh sách mã đơn gửi trong 1 request <code>get_order_detail_batch</code>.</li>
+              <li><strong>Tự động phòng vệ:</strong> Chống sập hệ thống khi mạng ngoài hoặc dịch vụ bên thứ ba gián đoạn.</li>
+            </ul>
+          </div>
+        </div>
+      </TheCaiDat>
+
+      <HangNut
+        onHuy={onHuy}
+        onTiep={xuLyLienKet}
+        nhanTiep={daCo ? "Cập nhật & Tiếp tục" : "Bắt đầu liên kết"}
+        dangLuu={dangChay === "lien-ket"}
+        khoa={dangChay === "lien-ket"}
+      />
     </>
   );
 }

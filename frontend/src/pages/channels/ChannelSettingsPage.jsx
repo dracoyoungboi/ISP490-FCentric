@@ -234,7 +234,7 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, onConfigSaved, onCauH
           setMaKhoSan(null);
         }
         if (doiGianHang) {
-          const dto = uyQuyen
+          const dto = uyQuyen || SAN.kieuKetNoi === "ben_thu_ba"
             ? await kenhBanHangService.luuKhoaUngDung(SAN.maKenh, { trangThai: dongBoGianHang ? 1 : 0 })
             : await kenhBanHangService.updateShopifyConfig({ shopDomain: config.shopDomain, trangThai: dongBoGianHang ? 1 : 0 });
           // Máy chủ không trả kết nối: đọc lại thay vì xóa thông tin đang hiện
@@ -276,7 +276,7 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, onConfigSaved, onCauH
     chay("kiem-tra", async () => {
       setKetQuaKetNoi(null);
       try {
-        if (uyQuyen) {
+        if (uyQuyen || SAN.kieuKetNoi === "ben_thu_ba") {
           const res = await kenhBanHangService.kiemTraKetNoi(SAN.maKenh);
           // Không ghi hạn của khóa truy cập: hệ thống tự làm mới, người dùng chỉ cần biết hạn ủy quyền (đã có ở dòng trên)
           setKetQuaKetNoi(res?.connected ? { ok: true, text: "Kết nối tốt" } : { ok: false, text: res?.message || "Kết nối thất bại" });
@@ -377,14 +377,14 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, onConfigSaved, onCauH
               <div className="flex min-w-0 items-center gap-4">
                 <ChannelLogo maKenh={SAN.maKenh} size={40} />
                 <div className="min-w-0">
-                  <p className="text-[15px] font-semibold leading-5 text-bo-heading">Gian hàng {SAN.ten}</p>
+                  <p className="text-[15px] font-semibold leading-5 text-bo-heading">{config.tenGianHang || `Gian hàng ${SAN.ten}`}</p>
                   {/* Điện thoại: mỗi ý một dòng, không có dấu "·" treo cuối dòng (như thẻ của sàn ủy quyền) */}
                   <p className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 text-[13px] leading-5 text-bo-muted max-sm:flex-col max-sm:items-start">
-                    <span className="truncate">{config.shopDomain}</span>
+                    <span className="truncate">{config.shopDomain ? (SAN.kieuKetNoi === "ben_thu_ba" ? `Shop ID: ${config.shopDomain}` : config.shopDomain) : ""}</span>
                     <span aria-hidden="true" className="max-sm:hidden">
                       ·
                     </span>
-                    <span className="tabular-nums">Khóa {config.accessTokenMasked || "đã lưu"}</span>
+                    <span className="tabular-nums">{SAN.kieuKetNoi === "ben_thu_ba" ? "Cổng ký MinMinTool" : `Khóa ${config.accessTokenMasked || "đã lưu"}`}</span>
                   </p>
                   {ketQuaKetNoi ? (
                     <p role="status" className="mt-1">
@@ -454,7 +454,7 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, onConfigSaved, onCauH
                     >
                       <DropdownMenuItem onClick={() => setMoDoiKhoa(true)} className={nutMenu}>
                         <KeyRound className="size-4 text-bo-muted" />
-                        Cập nhật khóa truy cập
+                        {SAN.kieuKetNoi === "ben_thu_ba" ? "Đổi Shop ID" : "Cập nhật khóa truy cập"}
                       </DropdownMenuItem>
                       {config.hasRefreshToken ? (
                         <DropdownMenuItem onClick={capLaiKhoa} className={nutMenu}>
@@ -544,7 +544,7 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, onConfigSaved, onCauH
 
       <ThanhLuuTrenCung hien={coThayDoi} dangLuu={dangChay === "luu"} khoa={khoa} onHuy={huyThayDoi} onLuu={luu} />
 
-      {moDoiKhoa && !uyQuyen ? (
+      {moDoiKhoa && !uyQuyen && SAN.kieuKetNoi !== "ben_thu_ba" ? (
         <ShopifyConfigDialog
           open
           onOpenChange={setMoDoiKhoa}
@@ -573,7 +573,7 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, onConfigSaved, onCauH
         />
       ) : null}
 
-      {moDoiKhoa && uyQuyen ? (
+      {moDoiKhoa && (uyQuyen || SAN.kieuKetNoi === "ben_thu_ba") ? (
         <KhoaUngDungDialog
           open
           onOpenChange={setMoDoiKhoa}
