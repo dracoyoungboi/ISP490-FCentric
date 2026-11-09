@@ -330,6 +330,8 @@ public final class PhieuChuyenKhoDto {
         String xknbCheDo;
         /** Ai được xử lý chênh lệch theo Cấu hình › Chuyển kho, VD "Quản trị viên hoặc Quản lý Kho tổng" (câu nhắc ở giao diện). */
         String aiXuLyChenhLech;
+        /** Câu tiếng Việt gốc của aiXuLyChenhLech (giấy biên bản in luôn tiếng Việt; giao diện tự dịch). */
+        String aiXuLyChenhLechGoc;
         Quyen quyen;
     }
 

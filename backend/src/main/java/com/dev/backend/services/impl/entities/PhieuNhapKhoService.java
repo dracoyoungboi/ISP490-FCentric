@@ -38,6 +38,8 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.*;
+import com.dev.backend.i18n.ThongDiep;
+import com.dev.backend.i18n.LoiChungException;
 
 @Service
 public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> {
@@ -141,24 +143,25 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
      * trạng thái khác 400 như trước.
      */
     private static void kiemTraDonConNhanHang(DonMuaHang don, Integer trangThai) {
-        String cauKetThuc = cauDonDaKetThuc(don, trangThai);
+        ThongDiep cauKetThuc = cauDonDaKetThuc(don, trangThai);
         if (cauKetThuc != null) {
             throw new CommonException(HttpStatus.CONFLICT, cauKetThuc);
         }
         if (trangThai == null || (trangThai != DON_MUA_DANG_VAN_CHUYEN && trangThai != DON_MUA_DA_NHAN_DU)) {
             throw new CommonException(HttpStatus.BAD_REQUEST,
-                    "Đơn mua " + don.getSoDonMua() + " không ở trạng thái chờ nhận hàng (Đang vận chuyển) nên không tạo phiếu nhập được");
+                    ThongDiep.of("chungTuKho.donMuaKhongChoNhanHang", don.getSoDonMua()));
         }
     }
 
     /** Câu báo khi đơn mua đã đóng (6) / đã hủy (7): không tạo phiếu nhập, không nhập kho thêm. Trạng thái khác: null. */
-    private static String cauDonDaKetThuc(DonMuaHang don, Integer trangThai) {
-        String viec = Objects.equals(trangThai, DonMuaHangService.TRANG_THAI_DA_DONG) ? "đóng (nhận thiếu)"
-                : Objects.equals(trangThai, DonMuaHangService.TRANG_THAI_DA_HUY) ? "hủy" : null;
-        if (viec == null) return null;
-        String ma = don == null || don.getSoDonMua() == null || don.getSoDonMua().isBlank()
-                ? "Đơn mua này" : "Đơn mua " + don.getSoDonMua();
-        return ma + " đã " + viec + ", không nhập thêm được";
+    private static ThongDiep cauDonDaKetThuc(DonMuaHang don, Integer trangThai) {
+        boolean daDong = Objects.equals(trangThai, DonMuaHangService.TRANG_THAI_DA_DONG);
+        boolean daHuy = !daDong && Objects.equals(trangThai, DonMuaHangService.TRANG_THAI_DA_HUY);
+        if (!daDong && !daHuy) return null;
+        if (don == null || don.getSoDonMua() == null || don.getSoDonMua().isBlank()) {
+            return daDong ? ThongDiep.of("chungTuKho.donMuaNayDaDong") : ThongDiep.of("chungTuKho.donMuaNayDaHuy");
+        }
+        return daDong ? ThongDiep.of("chungTuKho.donMuaDaDong", don.getSoDonMua()) : ThongDiep.of("chungTuKho.donMuaDaHuy", don.getSoDonMua());
     }
 
     /**
@@ -174,10 +177,10 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
     private static final int SO_PHIEU_GIU_TOI_DA_TRONG_CAU = 5;
 
     /** Tên trạng thái lô trong câu báo. */
-    private static String tenTrangThaiLo(String trangThai) {
-        if ("HOAT_DONG".equals(trangThai)) return "Hoạt động";
-        if ("TAM_KHOA".equals(trangThai)) return "Tạm khóa";
-        return trangThai == null || trangThai.isBlank() ? "không xác định" : trangThai;
+    private static Object tenTrangThaiLo(String trangThai) {
+        if ("HOAT_DONG".equals(trangThai)) return ThongDiep.of("chungTuKho.ttLoHoatDong");
+        if ("TAM_KHOA".equals(trangThai)) return ThongDiep.of("chungTuKho.ttLoTamKhoa");
+        return trangThai == null || trangThai.isBlank() ? ThongDiep.of("chungTuKho.ttLoKhongXacDinh") : trangThai;
     }
 
     @Override
@@ -193,11 +196,11 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
     public PhieuNhapKho createDraft(PhieuNhapKhoCreating request) {
         // Lỗi dữ liệu gửi lên / không đúng kho là lỗi nghiệp vụ (4xx có câu tiếng Việt), không phải lỗi máy chủ
         if (request.getDonMuaHangId() == null) {
-            throw new CommonException(HttpStatus.BAD_REQUEST, "Chưa chọn đơn mua hàng để tạo phiếu nhập");
+            throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.chuaChonDonMua"));
         }
         if (request.getChiTietPhieuNhapKhos() == null
                 || request.getChiTietPhieuNhapKhos().isEmpty()) {
-            throw new CommonException(HttpStatus.BAD_REQUEST, "Danh sách sản phẩm nhập không được rỗng");
+            throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.dsSanPhamNhapRong"));
         }
 
         // Mỗi dòng: có biến thể, số lượng nguyên dương; mỗi biến thể một dòng (hai dòng cùng biến thể làm phiếu giữ
@@ -205,34 +208,33 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
         java.util.Set<Integer> bienTheDaCo = new java.util.HashSet<>();
         for (ChiTietPhieuNhapKhoCreating dong : request.getChiTietPhieuNhapKhos()) {
             if (dong == null || dong.getBienTheSanPhamId() == null) {
-                throw new CommonException(HttpStatus.BAD_REQUEST, "Mỗi dòng sản phẩm nhập phải có biến thể");
+                throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.dongNhapThieuBienThe"));
             }
             if (dong.getSoLuongDuKienNhap() != null && dong.getSoLuongDuKienNhap().stripTrailingZeros().scale() > 0) {
-                throw new CommonException(HttpStatus.BAD_REQUEST, "Số lượng nhập phải là số nguyên");
+                throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.soLuongNhapNguyen"));
             }
             if (!bienTheDaCo.add(dong.getBienTheSanPhamId())) {
                 throw new CommonException(HttpStatus.BAD_REQUEST,
-                        "Biến thể " + dong.getBienTheSanPhamId() + " có hai dòng trong phiếu. Gộp thành một dòng.");
+                        ThongDiep.of("chungTuKho.bienTheHaiDong", dong.getBienTheSanPhamId()));
             }
         }
 
         DonMuaHang donMuaHang = donMuaHangRepository.findById(request.getDonMuaHangId())
-                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn mua hàng"));
+                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("chungTuKho.donMuaKhongTimThay")));
         kiemTraDonConNhanHang(donMuaHang, donMuaHang.getTrangThai());
         var currentUser = SecurityContextHolder.getUser();
         boolean isAdmin = currentUser.getVaiTro().contains(IRoleType.quan_tri_vien);
         Integer currentKhoId = SecurityContextHolder.getKhoId();
         if (!isAdmin) {
             if (currentKhoId == null) {
-                throw new CommonException(HttpStatus.BAD_REQUEST, "Chưa chọn kho đang làm việc");
+                throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.chuaChonKhoLamViec"));
             }
 
             if (donMuaHang.getKhoNhap() == null
                     || !donMuaHang.getKhoNhap().getId().equals(currentKhoId)) {
-                throw new CommonException(HttpStatus.FORBIDDEN,
-                        "Đơn mua " + donMuaHang.getSoDonMua() + " nhập về "
-                                + (donMuaHang.getKhoNhap() != null ? donMuaHang.getKhoNhap().getTenKho() : "kho khác")
-                                + ", không phải kho đang chọn");
+                throw new CommonException(HttpStatus.FORBIDDEN, donMuaHang.getKhoNhap() != null
+                        ? ThongDiep.of("chungTuKho.donMuaNhapVeKho", donMuaHang.getSoDonMua(), donMuaHang.getKhoNhap().getTenKho())
+                        : ThongDiep.of("chungTuKho.donMuaNhapVeKhoKhac", donMuaHang.getSoDonMua()));
             }
         }
 
@@ -270,14 +272,14 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
                             .findFirst()
                             .orElseThrow(() ->
                                     new CommonException(HttpStatus.BAD_REQUEST,
-                                            "Sản phẩm (biến thể " + item.getBienTheSanPhamId() + ") không có trong đơn mua " + donMuaHang.getSoDonMua())
+                                            ThongDiep.of("chungTuKho.bienTheKhongCoTrongDonMua", item.getBienTheSanPhamId(), donMuaHang.getSoDonMua()))
                             );
 
                     BigDecimal soLuongNhap = item.getSoLuongDuKienNhap();
                     if (soLuongNhap == null
                             || soLuongNhap.compareTo(BigDecimal.ZERO) <= 0) {
                         throw new CommonException(HttpStatus.BAD_REQUEST,
-                                "Số lượng nhập của " + ctPo.getBienTheSanPham().getMaSku() + " phải lớn hơn 0");
+                                ThongDiep.of("chungTuKho.soLuongNhapCuaSkuPhaiDuong", ctPo.getBienTheSanPham().getMaSku()));
                     }
                     BigDecimal soLuongDat = ctPo.getSoLuongDat();
                     BigDecimal soLuongDaNhan =
@@ -292,23 +294,22 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
                             soLuongDat.subtract(soLuongDaNhan).subtract(daGiu);
                     if (soLuongNhap.compareTo(soLuongConLai) > 0) {
                         // Nêu số phiếu Nháp đang giữ để người dùng mở phiếu đó kiểm đếm tiếp thay vì tạo phiếu mới
-                        String phieuGiu = "";
+                        String maSku = ctPo.getBienTheSanPham().getMaSku();
+                        String conLai = soLuongConLai.max(BigDecimal.ZERO).stripTrailingZeros().toPlainString();
+                        ThongDiep cauVuot = ThongDiep.of("chungTuKho.nhapVuotConLai", maSku, conLai);
                         if (daGiu.signum() > 0) {
                             List<String> dsPhieu = chiTietPhieuNhapKhoRepository.soPhieuNhapGiuCungDon(
                                     donMuaHang.getId(), ctPo.getBienTheSanPham().getId());
-                            String tenPhieu = dsPhieu == null || dsPhieu.isEmpty() ? "khác"
-                                    : dsPhieu.size() <= SO_PHIEU_GIU_TOI_DA_TRONG_CAU ? String.join(", ", dsPhieu)
-                                    : String.join(", ", dsPhieu.subList(0, SO_PHIEU_GIU_TOI_DA_TRONG_CAU)) + "…";
-                            phieuGiu = ". Phiếu nhập nháp " + tenPhieu
-                                    + " của đơn này đã giữ " + daGiu.stripTrailingZeros().toPlainString() + ".";
+                            String soDaGiu = daGiu.stripTrailingZeros().toPlainString();
+                            if (dsPhieu == null || dsPhieu.isEmpty()) {
+                                cauVuot = ThongDiep.of("chungTuKho.nhapVuotConLaiPhieuKhacGiu", maSku, conLai, soDaGiu);
+                            } else {
+                                String tenPhieu = dsPhieu.size() <= SO_PHIEU_GIU_TOI_DA_TRONG_CAU ? String.join(", ", dsPhieu)
+                                        : String.join(", ", dsPhieu.subList(0, SO_PHIEU_GIU_TOI_DA_TRONG_CAU)) + "…";
+                                cauVuot = ThongDiep.of("chungTuKho.nhapVuotConLaiPhieuGiu", maSku, conLai, tenPhieu, soDaGiu);
+                            }
                         }
-                        throw new CommonException(HttpStatus.BAD_REQUEST,
-                                "Sản phẩm "
-                                        + ctPo.getBienTheSanPham().getMaSku()
-                                        + " nhập vượt quá số lượng còn lại ("
-                                        + soLuongConLai.max(BigDecimal.ZERO).stripTrailingZeros().toPlainString() + ")"
-                                        + phieuGiu
-                        );
+                        throw new CommonException(HttpStatus.BAD_REQUEST, cauVuot);
                     }
                     ChiTietPhieuNhapKho ct = ChiTietPhieuNhapKho.builder()
                             .phieuNhapKho(phieuNhapKho)
@@ -339,26 +340,26 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
     public void completePhieuNhap(Integer phieuNhapKhoId, Integer nguoiNhapId) {
         // Khóa dòng phiếu trước tiên: hai người bấm nhập kho cùng lúc thì người sau thấy phiếu đã hoàn tất
         PhieuNhapKho phieu = ((PhieuNhapKhoRepository) repository).khoaTheoId(phieuNhapKhoId)
-                .orElseThrow(() -> new CommonException("Không tìm thấy phiếu nhập"));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("chungTuKho.phieuNhapKhongTimThay")));
 
         KhoDangChon.kiemTra(phieu.getKho(), "Phiếu nhập " + phieu.getSoPhieuNhap());
         // Phiếu nhập của luồng chuyển kho chỉ lập và hoàn tất ở màn Nhận hàng của phiếu chuyển (trừ kho trung chuyển, chốt
         // phiếu chuyển). Hoàn tất ở đây sẽ cộng hàng mà không trừ trung chuyển, phiếu chuyển còn nhận được lần nữa.
         if (phieu.getPhieuChuyenKho() != null) {
-            throw new CommonException("Phiếu nhập chuyển kho nhận hàng ở màn Nhận hàng của phiếu chuyển kho");
+            throw new CommonException(ThongDiep.of("chungTuKho.phieuNhapChuyenKhoNhanOManChuyen"));
         }
 
         if (phieu.getTrangThai() != 0) {
-            throw new CommonException("Phiếu không ở trạng thái có thể nhập kho");
+            throw new CommonException(ThongDiep.of("chungTuKho.phieuKhongTheNhapKho"));
         }
         // Khóa các dòng đơn mua trước khi đọc số "đã nhận" (hai phiếu của cùng đơn nhập kho cùng lúc), rồi khóa đơn và
         // đọc lại trạng thái: đơn đã đóng (nhận thiếu) / đã hủy thì không nhập thêm
         if (phieu.getDonMuaHang() != null) {
             chiTietDonMuaHangRepository.khoaTheoDonMua(phieu.getDonMuaHang().getId());
             khoaVaNapLaiDonMua(phieu.getDonMuaHang());
-            String cauKetThuc = cauDonDaKetThuc(phieu.getDonMuaHang(), phieu.getDonMuaHang().getTrangThai());
+            ThongDiep cauKetThuc = cauDonDaKetThuc(phieu.getDonMuaHang(), phieu.getDonMuaHang().getTrangThai());
             if (cauKetThuc != null) {
-                throw new CommonException(HttpStatus.CONFLICT, cauKetThuc + ". Hủy phiếu nhập nháp này.");
+                throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("chungTuKho.cauKemHuyPhieuNhapNhap", cauKetThuc));
             }
         }
 
@@ -370,7 +371,7 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
         // nên không kiểm ở đây.
         if (phieu.getDonMuaHang() != null) {
             // Báo mọi lô sai trong một lần (theo thứ tự dòng), để người dùng không phải xóa lô rồi bấm nhập kho nhiều lần
-            List<String> loSai = new ArrayList<>();
+            List<ThongDiep> loSai = new ArrayList<>();
             boolean coLoKhongTamKhoa = false;
             for (ChiTietPhieuNhapKho ct : danhSachNhapTheoLo.stream()
                     .sorted(Comparator.comparing(ChiTietPhieuNhapKho::getId, Comparator.nullsLast(Comparator.naturalOrder())))
@@ -379,20 +380,19 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
                 BigDecimal soTrenDong = ct.getSoLuongNhap() != null ? ct.getSoLuongNhap() : BigDecimal.ZERO;
                 if (!"TAM_KHOA".equals(lo.getTrangThai())) {
                     coLoKhongTamKhoa = true;
-                    loSai.add("Lô " + lo.getMaLo() + " của " + ct.getBienTheSanPham().getMaSku()
-                            + " đang ở trạng thái " + tenTrangThaiLo(lo.getTrangThai()) + " dù phiếu chưa nhập kho");
+                    loSai.add(ThongDiep.of("chungTuKho.loSaiTrangThai", lo.getMaLo(), ct.getBienTheSanPham().getMaSku(), tenTrangThaiLo(lo.getTrangThai())));
                 } else if (lo.getSoLuongNhap() != null && soTrenDong.compareTo(BigDecimal.valueOf(lo.getSoLuongNhap())) != 0) {
-                    loSai.add("Lô " + lo.getMaLo() + " của " + ct.getBienTheSanPham().getMaSku()
-                            + " lệch số (dòng phiếu " + soTrenDong.stripTrailingZeros().toPlainString()
-                            + ", lô " + lo.getSoLuongNhap() + ")");
+                    loSai.add(ThongDiep.of("chungTuKho.loSaiLechSo",
+                            lo.getMaLo(), ct.getBienTheSanPham().getMaSku(), soTrenDong.stripTrailingZeros().toPlainString(), lo.getSoLuongNhap()));
                 }
             }
             if (!loSai.isEmpty()) {
                 // Lô không ở Tạm khóa không xóa được ở phiếu nháp (xoaLo chặn): chỉ còn cách hủy phiếu
-                String cachSua = coLoKhongTamKhoa
-                        ? ". Hủy phiếu này rồi tạo phiếu mới để kiểm đếm lại."
-                        : (loSai.size() == 1 ? ". Xóa lô này" : ". Xóa các lô này") + " rồi khóa lại trước khi nhập kho.";
-                throw new CommonException(HttpStatus.CONFLICT, String.join("; ", loSai) + cachSua);
+                ThongDiep dsLoSai = loSai.stream()
+                        .reduce((truoc, sau) -> ThongDiep.of("chungTuKho.noiDanhSach", truoc, sau)).orElseThrow();
+                throw new CommonException(HttpStatus.CONFLICT, coLoKhongTamKhoa
+                        ? ThongDiep.of("chungTuKho.loSaiHuyPhieu", dsLoSai)
+                        : loSai.size() == 1 ? ThongDiep.of("chungTuKho.loSaiXoaLo", dsLoSai) : ThongDiep.of("chungTuKho.loSaiXoaCacLo", dsLoSai));
             }
         }
 
@@ -407,14 +407,13 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
                 .filter(BienBanTraHangNcc::dangHieuLuc).orElse(null);
         if (tongLoi > 0 && bienBanRtv == null) {
             throw new CommonException(HttpStatus.CONFLICT,
-                    "Không thể hoàn tất nhập kho: Đơn có " + tongLoi + " sản phẩm lỗi kiểm đếm nhưng chưa phát hành Biên bản trả hàng (RTV). Vui lòng phát hành biên bản RTV để giải phóng chốt chặn an toàn.");
+                    ThongDiep.of("chungTuKho.chuaPhatHanhRtv", tongLoi));
         }
         // Biên bản phát hành xong mà lô lỗi bị xóa / khóa lại: dòng biên bản không còn khớp lô, lý do, số lượng
         if (bienBanRtv != null && !bienBanTraHangService.khopHangLoiHienTai(bienBanRtv)) {
             int loiTrenBienBan = bienBanRtv.getTongSoLuongLoi() != null ? bienBanRtv.getTongSoLuongLoi() : 0;
             throw new CommonException(HttpStatus.CONFLICT,
-                    "Biên bản trả hàng " + bienBanRtv.getMaBienBan() + " không còn khớp hàng không đạt hiện tại (biên bản ghi "
-                            + loiTrenBienBan + ", kiểm đếm hiện có " + tongLoi + "). Lập lại biên bản trước khi nhập kho.");
+                    ThongDiep.of("chungTuKho.bienBanRtvKhongKhop", bienBanRtv.getMaBienBan(), loiTrenBienBan, tongLoi));
         }
         // Đổi hàng mới: nhà cung cấp giao bù phần lỗi, đơn mua vẫn chờ nhận số đó
         boolean doiHang = bienBanRtv != null && PHUONG_AN_DOI_HANG.contains(bienBanRtv.getPhuongAnXuLy());
@@ -433,20 +432,18 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
                         .sum();
                 if (datQc + loiQc > canNhap) {
                     throw new CommonException(HttpStatus.CONFLICT,
-                            "Sản phẩm " + ctDraft.getBienTheSanPham().getMaSku() + " đã khóa lô " + (datQc + loiQc)
-                                    + ", vượt số cần nhập " + canNhap + ". Xóa bớt lô thừa rồi nhập kho.");
+                            ThongDiep.of("chungTuKho.daKhoaLoVuotCanNhap", ctDraft.getBienTheSanPham().getMaSku(), (datQc + loiQc), canNhap));
                 }
                 boolean daXong = "DA_HOAN_TAT".equals(ctDraft.getTrangThaiKiemDem()) || (datQc + loiQc >= canNhap);
                 if (!daXong && canNhap > 0) {
                     throw new CommonException(HttpStatus.BAD_REQUEST,
-                            "Vui lòng khai báo đầy đủ thông tin lô hoặc kiểm đếm cho sản phẩm "
-                                    + ctDraft.getBienTheSanPham().getMaSku() + " (Đã kiểm: " + (datQc + loiQc) + "/" + canNhap + ")");
+                            ThongDiep.of("chungTuKho.chuaKiemDemDu", ctDraft.getBienTheSanPham().getMaSku(), (datQc + loiQc), canNhap));
                 }
             }
         }
 
         NguoiDung nguoiNhap = nguoiDungRepository.findById(nguoiNhapId)
-                .orElseThrow(() -> new CommonException("Không tìm thấy thông tin người nhập"));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("chungTuKho.nguoiNhapKhongTimThay")));
 
         Kho kho = phieu.getKho();
         BigDecimal tongTien = BigDecimal.ZERO;
@@ -596,12 +593,11 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
                     BigDecimal daNhanHienTai = ctPo.getSoLuongDaNhan() != null ? ctPo.getSoLuongDaNhan() : BigDecimal.ZERO;
                     BigDecimal sauKhiNhan = daNhanHienTai.add(totalPoHandled);
                     if (ctPo.getSoLuongDat() != null && sauKhiNhan.compareTo(ctPo.getSoLuongDat()) > 0) {
-                        throw new CommonException(HttpStatus.CONFLICT,
-                                "Đơn mua " + donMuaHang.getSoDonMua() + ": sản phẩm " + ctPo.getBienTheSanPham().getMaSku()
-                                        + " đã nhận " + daNhanHienTai.stripTrailingZeros().toPlainString()
-                                        + "/" + ctPo.getSoLuongDat().stripTrailingZeros().toPlainString()
-                                        + ", phiếu này thêm " + totalPoHandled.stripTrailingZeros().toPlainString()
-                                        + " sẽ vượt số đặt. Kiểm tra các phiếu nhập khác của đơn.");
+                        throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("chungTuKho.nhanVuotSoDat",
+                                donMuaHang.getSoDonMua(), ctPo.getBienTheSanPham().getMaSku(),
+                                daNhanHienTai.stripTrailingZeros().toPlainString(),
+                                ctPo.getSoLuongDat().stripTrailingZeros().toPlainString(),
+                                totalPoHandled.stripTrailingZeros().toPlainString()));
                     }
                     ctPo.setSoLuongDaNhan(sauKhiNhan);
                     chiTietDonMuaHangRepository.save(ctPo);
@@ -652,19 +648,19 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
     public void huyPhieuNhap(Integer id, String lyDo) {
         String lyDoHuy = LyDoHuyRequest.batBuoc(lyDo);
         PhieuNhapKho phieu = ((PhieuNhapKhoRepository) repository).khoaTheoId(id)
-                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy phiếu nhập"));
+                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("chungTuKho.phieuNhapKhongTimThay")));
 
         if (phieu.getSoPhieuNhap().startsWith("PN-RET-")) {
-            throw new CommonException(HttpStatus.BAD_REQUEST, "Đây là phiếu nhập hoàn trả bắt buộc, hệ thống không cho phép hủy!");
+            throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.phieuHoanTraKhongHuy"));
         }
 
         KhoDangChon.kiemTra(phieu.getKho(), "Phiếu nhập " + phieu.getSoPhieuNhap());
 
         if (phieu.getTrangThai() == TrangThaiPhieuNhap.COMPLETED.getValue()) {
-            throw new CommonException(HttpStatus.BAD_REQUEST, "Phiếu đã hoàn thành, không thể huỷ");
+            throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.phieuDaHoanThanhKhongHuy"));
         }
         if (phieu.getTrangThai() == TrangThaiPhieuNhap.CANCELLED.getValue()) {
-            throw new CommonException(HttpStatus.BAD_REQUEST, "Phiếu nhập đã bị hủy trước đó");
+            throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.phieuNhapDaHuyTruocDo"));
         }
 
         // Phiếu từ đơn mua: lô do kiểm đếm tạo (TAM_KHOA) chưa vào tồn kho — bỏ hết để giải phóng mã lô và chỗ
@@ -710,40 +706,39 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
         // Khóa dòng phiếu đầu tiên: khóa lô không chạy chen với nhập kho / hủy phiếu / xóa lô của cùng phiếu
         // (trạng thái phiếu đọc ra là trạng thái mới nhất), và các thao tác không khóa ngược thứ tự nhau (hết deadlock).
         PhieuNhapKho phieu = ((PhieuNhapKhoRepository) repository).khoaTheoId(phieuNhapKhoId)
-                .orElseThrow(() -> new CommonException("Không tìm thấy phiếu nhập"));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("chungTuKho.phieuNhapKhongTimThay")));
         List<ChiTietPhieuNhapKho> dongDuKien = request.getBienTheSanPhamId() != null
                 ? chiTietPhieuNhapKhoRepository.khoaDongDuKien(phieuNhapKhoId, request.getBienTheSanPhamId())
                 : List.of();
         KhoDangChon.kiemTra(phieu.getKho(), "Phiếu nhập " + phieu.getSoPhieuNhap());
 
         if (phieu.getSoPhieuNhap().startsWith("PN-RET-")) {
-            throw new CommonException("Phiếu nhập hoàn trả đã được hệ thống cố định lô hàng, không thể chỉnh sửa!");
+            throw new CommonException(ThongDiep.of("chungTuKho.phieuHoanTraKhongSuaLo"));
         }
 
         if (phieu.getTrangThai() == TrangThaiPhieuNhap.CANCELLED.getValue()) {
-            throw new CommonException(HttpStatus.BAD_REQUEST, "Phiếu nhập " + phieu.getSoPhieuNhap() + " đã bị hủy, không khóa lô được nữa");
+            throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.phieuNhapDaHuyKhongKhoaLo", phieu.getSoPhieuNhap()));
         }
         if (phieu.getTrangThai() != TrangThaiPhieuNhap.DRAFT.getValue()) {
-            throw new CommonException("Chỉ được khai báo lô ở trạng thái Nháp");
+            throw new CommonException(ThongDiep.of("chungTuKho.chiKhaiBaoLoKhiNhap"));
         }
 
         String maLo = request.getMaLo() != null ? request.getMaLo().trim() : "";
         if (maLo.isEmpty()) {
-            throw new CommonException(HttpStatus.BAD_REQUEST, "Mã lô không được để trống");
+            throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.maLoTrong"));
         }
         if (maLo.length() > 50) {
-            throw new CommonException(HttpStatus.BAD_REQUEST, "Mã lô tối đa 50 ký tự");
+            throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.maLoToiDa"));
         }
         // Tem lô in ra bị quét nhầm sẽ thành thẻ lệnh (FC-KHOA-LO, FC-DAT…); mã lô có chứa FC- thường là máy quét
         // gõ nhầm thẻ lệnh vào ô Mã lô (LO-…-04FC-KHOA-LO): chặn cả hai
         if (maLo.toUpperCase().contains(com.dev.backend.utils.MaVachUtils.TIEN_TO_THE_LENH)) {
             throw new CommonException(HttpStatus.BAD_REQUEST,
-                    "Mã lô không được chứa " + com.dev.backend.utils.MaVachUtils.TIEN_TO_THE_LENH
-                            + " (dành cho thẻ lệnh kiểm đếm, có thể máy quét đã gõ nhầm vào ô Mã lô). Sửa lại mã lô.");
+                    ThongDiep.of("chungTuKho.maLoChuaTienToTheLenh", com.dev.backend.utils.MaVachUtils.TIEN_TO_THE_LENH));
         }
 
         if (dongDuKien.isEmpty()) {
-            throw new CommonException("Sản phẩm không thuộc phiếu này");
+            throw new CommonException(ThongDiep.of("chungTuKho.sanPhamKhongThuocPhieu"));
         }
         ChiTietPhieuNhapKho dongDraft = dongDuKien.get(0);
 
@@ -768,19 +763,18 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
                 : giuLoiCu && loDangSua.getSoLuongLoi() != null ? BigDecimal.valueOf(loDangSua.getSoLuongLoi()) : BigDecimal.ZERO;
 
         if (soLuongNhap.compareTo(BigDecimal.ZERO) < 0 || soLuongLoi.compareTo(BigDecimal.ZERO) < 0) {
-            throw new CommonException(HttpStatus.BAD_REQUEST, "Số lượng Đạt hoặc Lỗi không được âm");
+            throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.soDatLoiKhongAm"));
         }
         if (soLuongNhap.stripTrailingZeros().scale() > 0 || soLuongLoi.stripTrailingZeros().scale() > 0) {
-            throw new CommonException(HttpStatus.BAD_REQUEST, "Số lượng Đạt và Lỗi phải là số nguyên");
+            throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.soDatLoiNguyen"));
         }
         if (soLuongNhap.add(soLuongLoi).compareTo(BigDecimal.ZERO) <= 0) {
-            throw new CommonException(HttpStatus.BAD_REQUEST, "Tổng số lượng Đạt và Lỗi của thùng hàng phải lớn hơn 0");
+            throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.tongDatLoiPhaiDuong"));
         }
         // So bằng BigDecimal trước khi đổi sang int: số rất lớn không bị tràn thành số nhỏ hoặc âm
         if (soLuongNhap.add(soLuongLoi).compareTo(soLuongCanNhap) > 0) {
-            throw new CommonException(HttpStatus.BAD_REQUEST,
-                    "Lô có " + soLuongNhap.add(soLuongLoi).stripTrailingZeros().toPlainString()
-                            + " sản phẩm, vượt quá số lượng cần nhập của PO (" + soLuongCanNhap.intValue() + ")");
+            throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.loVuotCanNhapPo",
+                    soLuongNhap.add(soLuongLoi).stripTrailingZeros().toPlainString(), soLuongCanNhap.intValue()));
         }
         soLuongNhap = BigDecimal.valueOf(soLuongNhap.intValueExact());
         soLuongLoi = BigDecimal.valueOf(soLuongLoi.intValueExact());
@@ -788,14 +782,14 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
         // Ngày sản xuất: bắt buộc (khóa duy nhất của lô gồm ngày sản xuất), không sau hôm nay, quy về đầu ngày
         // theo lịch Việt Nam (lưu nửa đêm UTC của ngày đó như frontend gửi) để so trùng và lưu nhất quán.
         if (request.getNgaySanXuat() == null) {
-            throw new CommonException(HttpStatus.BAD_REQUEST, "Chọn ngày sản xuất của lô");
+            throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.chonNgaySanXuat"));
         }
         LocalDate ngaySanXuat = LocalDate.ofInstant(request.getNgaySanXuat(), MUI_GIO_VN);
         if (ngaySanXuat.isAfter(LocalDate.now(MUI_GIO_VN))) {
-            throw new CommonException(HttpStatus.BAD_REQUEST, "Ngày sản xuất không được sau hôm nay");
+            throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.ngaySanXuatTuongLai"));
         }
         if (ngaySanXuat.isBefore(NSX_SOM_NHAT)) {
-            throw new CommonException(HttpStatus.BAD_REQUEST, "Ngày sản xuất không hợp lệ, kiểm tra lại năm");
+            throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.ngaySanXuatKhongHopLe"));
         }
         Instant nsx = ngaySanXuat.atStartOfDay(ZoneOffset.UTC).toInstant();
 
@@ -803,8 +797,7 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
         List<ChiTietLoiLoHang> dsLoi = giuLoiCu ? List.of() : chuanHoaChiTietLoi(request, soLuongLoi.intValue());
 
         if (Boolean.TRUE.equals(request.getTaoMoi()) && existingCtOpt.isPresent()) {
-            throw new CommonException(HttpStatus.CONFLICT,
-                    "Mã lô " + maLo + " đã có ở một lô đã khóa của biến thể này trong phiếu. Đổi mã lô khác.");
+            throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("chungTuKho.maLoDaCoTrongPhieu", maLo));
         }
         Integer loDangSuaId = existingCtOpt.map(ct -> ct.getLoHang().getId()).orElse(null);
 
@@ -812,8 +805,7 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
         for (LoHang loCungMa : loHangRepository.findByBienTheSanPham_IdAndMaLo(request.getBienTheSanPhamId(), maLo)) {
             if (loCungMa.getId().equals(loDangSuaId)) continue;
             if (Objects.equals(loCungMa.getNgaySanXuat(), nsx)) {
-                throw new CommonException(HttpStatus.CONFLICT,
-                        "Mã lô " + maLo + " với ngày sản xuất này đã dùng cho một lô khác của biến thể (có thể ở phiếu nhập khác). Đổi mã lô khác.");
+                throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("chungTuKho.maLoNsxDaDung", maLo));
             }
         }
 
@@ -821,8 +813,7 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
         if (viTriKhoId == null && soLuongNhap.signum() > 0
                 && (viTriKhoRepository.existsByKho_IdAndTrangThai(phieu.getKho().getId(), "HOAT_DONG")
                     || viTriKhoRepository.existsByKho_IdAndTrangThai(phieu.getKho().getId(), "DAY_HANG"))) {
-            throw new CommonException(HttpStatus.BAD_REQUEST,
-                    "Chọn kệ cho " + soLuongNhap.intValue() + " sản phẩm đạt của lô " + maLo);
+            throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.chonKeChoLo", soLuongNhap.intValue(), maLo));
         }
 
         // Kiểm tra và xác thực vị trí kệ (nếu có chọn)
@@ -830,16 +821,16 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
         if (viTriKhoId != null) {
             // Khóa dòng kệ: hai lô lên cùng kệ cùng lúc chạy tuần tự, lô sau thấy "chờ nhập" của lô trước
             viTri = viTriKhoRepository.khoaTheoId(viTriKhoId)
-                    .orElseThrow(() -> new CommonException("Không tìm thấy vị trí kệ ID: " + viTriKhoId));
+                    .orElseThrow(() -> new CommonException(ThongDiep.of("chungTuKho.viTriKeKhongTimThay", viTriKhoId)));
             if (!viTri.getKhuVucKho().getKho().getId().equals(phieu.getKho().getId())) {
-                throw new CommonException(HttpStatus.FORBIDDEN, "Vị trí kệ không thuộc kho của phiếu nhập");
+                throw new CommonException(HttpStatus.FORBIDDEN, ThongDiep.of("chungTuKho.viTriKeKhacKhoPhieuNhap"));
             }
             if (viTri.getTrangThai() != null && !"HOAT_DONG".equalsIgnoreCase(viTri.getTrangThai())
                     && !"DAY_HANG".equalsIgnoreCase(viTri.getTrangThai())) {
                 // Không viết "bị khóa": giao diện coi câu có cụm đó là tài khoản bị khóa và đăng xuất
                 throw new CommonException(HttpStatus.BAD_REQUEST, "KHOA_KIEM_KE".equalsIgnoreCase(viTri.getTrangThai())
-                        ? "Kệ " + viTri.getMaViTri() + " đang kiểm kê, chọn kệ khác"
-                        : "Vị trí kệ đang tạm khóa hoặc ngừng hoạt động");
+                        ? ThongDiep.of("chungTuKho.keDangKiemKeChonKhac", viTri.getMaViTri())
+                        : ThongDiep.of("chungTuKho.viTriKeTamKhoa"));
             }
             if (viTri.getSucChuaToiDa() != null && viTri.getSucChuaToiDa() > 0 && soLuongNhap.compareTo(BigDecimal.ZERO) > 0) {
                 Integer tonTrenKe = tonKhoViTriRepository.sumDangChuaByViTriId(viTri.getId());
@@ -849,10 +840,8 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
                 int choNhap = choNhapTrenKe != null ? choNhapTrenKe.intValue() : 0;
                 if (dangChua + choNhap + soLuongNhap.intValue() > viTri.getSucChuaToiDa()) {
                     int conTrong = Math.max(0, viTri.getSucChuaToiDa() - dangChua - choNhap);
-                    throw new CommonException(HttpStatus.BAD_REQUEST,
-                            "Vị trí kệ " + viTri.getMaViTri() + " chỉ còn trống " + conTrong + ", lô có " + soLuongNhap.intValue()
-                                    + " sản phẩm đạt (Sức chứa: " + viTri.getSucChuaToiDa() + ", Đang chứa: " + dangChua
-                                    + ", Chờ nhập từ lô đã khóa: " + choNhap + "). Chọn kệ khác.");
+                    throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.keKhongDuCho",
+                            viTri.getMaViTri(), conTrong, soLuongNhap.intValue(), viTri.getSucChuaToiDa(), dangChua, choNhap));
                 }
             }
         }
@@ -871,8 +860,7 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
 
         int tongKiemDemSau = tongDatCu + tongLoiCu + soLuongNhap.intValue() + soLuongLoi.intValue();
         if (tongKiemDemSau > soLuongCanNhap.intValue()) {
-            throw new CommonException(HttpStatus.BAD_REQUEST,
-                    "Tổng số lượng kiểm đếm (Đạt + Lỗi: " + tongKiemDemSau + ") vượt quá số lượng cần nhập của PO (" + soLuongCanNhap.intValue() + ")");
+            throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.tongKiemDemVuotPo", tongKiemDemSau, soLuongCanNhap.intValue()));
         }
 
         LoHang loDaLuu;
@@ -925,8 +913,7 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
             // Hai phiếu khác nhau khóa cùng (biến thể, mã lô, ngày sản xuất) cùng lúc: kiểm tra trùng ở trên không
             // thấy nhau, máy sau vướng khóa duy nhất unique_bien_the_lo. Lỗi ràng buộc khác vẫn ném nguyên.
             if (isDuplicateLoHang(ex)) {
-                throw new CommonException(HttpStatus.CONFLICT,
-                        "Mã lô " + maLo + " với ngày sản xuất này vừa được dùng cho một lô khác của biến thể (phiếu nhập khác khóa cùng lúc). Đổi mã lô khác.");
+                throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("chungTuKho.maLoNsxVuaDung", maLo));
             }
             throw ex;
         }
@@ -966,17 +953,16 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
                 if (dong == null) continue;
                 String lyDo = dong.getLyDo() != null ? dong.getLyDo().trim().replaceAll("\\s+", " ") : "";
                 if (lyDo.isEmpty()) {
-                    throw new CommonException(HttpStatus.BAD_REQUEST, "Mỗi dòng hàng không đạt cần có lý do");
+                    throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.dongLoiCanLyDo"));
                 }
                 if (lyDo.length() > 50) {
-                    throw new CommonException(HttpStatus.BAD_REQUEST, "Lý do không đạt tối đa 50 ký tự");
+                    throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.lyDoLoiToiDa"));
                 }
                 if (dong.getSoLuong() == null || dong.getSoLuong() <= 0) {
-                    throw new CommonException(HttpStatus.BAD_REQUEST, "Số lượng không đạt theo lý do \"" + lyDo + "\" phải lớn hơn 0");
+                    throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.soLoiTheoLyDoPhaiDuong", lyDo));
                 }
                 if (dong.getSoLuong() > soLuongLoi) {
-                    throw new CommonException(HttpStatus.BAD_REQUEST,
-                            "Số lượng không đạt theo lý do \"" + lyDo + "\" vượt số không đạt của lô (" + soLuongLoi + ")");
+                    throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.soLoiTheoLyDoVuot", lyDo, soLuongLoi));
                 }
                 String ghiChu = dong.getGhiChu() != null && !dong.getGhiChu().isBlank() ? dong.getGhiChu().trim() : null;
                 tong += dong.getSoLuong();
@@ -990,17 +976,16 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
                 }
             }
             if (tong != soLuongLoi) {
-                throw new CommonException(HttpStatus.BAD_REQUEST,
-                        "Tổng hàng không đạt theo lý do (" + tong + ") phải bằng số không đạt của lô (" + soLuongLoi + ")");
+                throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.tongLoiTheoLyDoKhongKhop", tong, soLuongLoi));
             }
         } else if (soLuongLoi > 0) {
             String lyDo = request.getLyDoLoi() != null ? request.getLyDoLoi().trim().replaceAll("\\s+", " ") : "";
             if (lyDo.isEmpty()) {
-                throw new CommonException(HttpStatus.BAD_REQUEST, "Cần chọn lý do cho " + soLuongLoi + " sản phẩm không đạt");
+                throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.canChonLyDoLoi", soLuongLoi));
             }
             // Báo lỗi thay vì cắt bớt: lý do bị cắt ngầm sẽ khác lý do người kiểm đã chọn trên biên bản
             if (lyDo.length() > 50) {
-                throw new CommonException(HttpStatus.BAD_REQUEST, "Lý do không đạt tối đa 50 ký tự");
+                throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.lyDoLoiToiDa"));
             }
             theoLyDo.put(lyDo, ChiTietLoiLoHang.builder().lyDo(lyDo).soLuong(soLuongLoi).build());
         }
@@ -1015,14 +1000,14 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public void hoanTatKiemDemBienThe(Integer phieuNhapKhoId, Integer bienTheSanPhamId) {
         PhieuNhapKho phieu = ((PhieuNhapKhoRepository) repository).khoaTheoId(phieuNhapKhoId)
-                .orElseThrow(() -> new CommonException("Không tìm thấy phiếu nhập"));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("chungTuKho.phieuNhapKhongTimThay")));
         KhoDangChon.kiemTra(phieu.getKho(), "Phiếu nhập " + phieu.getSoPhieuNhap());
         if (phieu.getTrangThai() != TrangThaiPhieuNhap.DRAFT.getValue()) {
-            throw new CommonException("Chỉ được hoàn tất kiểm đếm khi phiếu ở trạng thái Nháp");
+            throw new CommonException(ThongDiep.of("chungTuKho.chiHoanTatKiemDemKhiNhap"));
         }
         ChiTietPhieuNhapKho dongDraft = chiTietPhieuNhapKhoRepository
                 .findFirstByPhieuNhapKho_IdAndBienTheSanPham_IdAndLoHangIsNull(phieuNhapKhoId, bienTheSanPhamId)
-                .orElseThrow(() -> new CommonException("Biến thể không thuộc phiếu nhập này"));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("chungTuKho.bienTheKhongThuocPhieuNhap")));
 
         List<ChiTietPhieuNhapKho> dsLo = chiTietPhieuNhapKhoRepository.findDeclaredLots(phieuNhapKhoId, bienTheSanPhamId);
         int tongDat = dsLo.stream()
@@ -1035,8 +1020,7 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
         int soLuongPo = dongDraft.getSoLuongNhap().intValue();
 
         if (tongKiemDem < soLuongPo) {
-            throw new CommonException(HttpStatus.BAD_REQUEST,
-                    "Tổng kiểm đếm (" + tongKiemDem + ") chưa đạt số lượng yêu cầu của PO (" + soLuongPo + ")");
+            throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.tongKiemDemChuaDu", tongKiemDem, soLuongPo));
         }
 
         dongDraft.setSoLuongDatQc(tongDat);
@@ -1048,7 +1032,7 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
     @Transactional(readOnly = true)
     public List<LoHangKhaiBaoDto> getDanhSachLoDaKhaiBao(Integer phieuNhapKhoId, Integer bienTheSanPhamId) {
         PhieuNhapKho phieu = repository.findById(phieuNhapKhoId)
-                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy phiếu nhập"));
+                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("chungTuKho.phieuNhapKhongTimThay")));
         KhoDangChon.kiemTraXem(phieu.getKho(), "Phiếu nhập " + phieu.getSoPhieuNhap());
 
         List<ChiTietPhieuNhapKho> dsLo = chiTietPhieuNhapKhoRepository.findDeclaredLots(phieuNhapKhoId, bienTheSanPhamId);
@@ -1088,26 +1072,25 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
     public void xoaLo(Integer phieuNhapKhoId, Integer chiTietId) {
         // Khóa dòng phiếu trước (cùng thứ tự với khóa lô / nhập kho / hủy phiếu): xóa lô không chạy chen với nhập kho
         PhieuNhapKho phieu = ((PhieuNhapKhoRepository) repository).khoaTheoId(phieuNhapKhoId)
-                .orElseThrow(() -> new CommonException("Không tìm thấy phiếu"));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("chungTuKho.phieuKhongTimThay")));
         KhoDangChon.kiemTra(phieu.getKho(), "Phiếu nhập " + phieu.getSoPhieuNhap());
 
         if (phieu.getSoPhieuNhap().startsWith("PN-RET-")) {
-            throw new CommonException("Phiếu nhập hoàn trả đã được hệ thống cố định lô hàng, không thể xóa!");
+            throw new CommonException(ThongDiep.of("chungTuKho.phieuHoanTraKhongXoaLo"));
         }
 
         if (phieu.getTrangThai() != TrangThaiPhieuNhap.DRAFT.getValue()) {
-            throw new CommonException("Chỉ được xóa lô ở trạng thái Nháp");
+            throw new CommonException(ThongDiep.of("chungTuKho.chiXoaLoKhiNhap"));
         }
         // Như huyPhieuNhap: phiếu chuyển kho mang lô THẬT của kho gửi (đang có tồn, lịch sử), không phải lô kiểm đếm tạo
         if (phieu.getDonMuaHang() == null) {
-            throw new CommonException(HttpStatus.BAD_REQUEST,
-                    "Phiếu nhập " + phieu.getSoPhieuNhap() + " dùng lô của kho gửi (lô tự động), không xóa lô được. Chỉ xóa lô của phiếu nhập từ đơn mua.");
+            throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.phieuNhapLoTuDongKhongXoa", phieu.getSoPhieuNhap()));
         }
         ChiTietPhieuNhapKho ct = chiTietPhieuNhapKhoRepository.findByIdAndPhieuNhapKho_Id(chiTietId, phieuNhapKhoId)
-                .orElseThrow(() -> new CommonException("Không tìm thấy lô"));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("chungTuKho.loKhongTimThay")));
         // Dòng dự kiến (chưa có lô) không xóa được qua đây: xóa nó làm mất số cần nhập, phiếu thiếu hàng vẫn nhập kho được
         if (ct.getLoHang() == null) {
-            throw new CommonException(HttpStatus.BAD_REQUEST, "Không tìm thấy lô");
+            throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.loKhongTimThay"));
         }
         Integer bienTheId = ct.getBienTheSanPham().getId();
         LoHang lo = ct.getLoHang();
@@ -1115,8 +1098,7 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
         // trỏ tới: xóa ở đây vướng ràng buộc hoặc mất dấu vết, nên chỉ cho hủy cả phiếu (hủy phiếu bỏ qua lô Hoạt động).
         if (lo != null && !"TAM_KHOA".equals(lo.getTrangThai())) {
             throw new CommonException(HttpStatus.CONFLICT,
-                    "Lô " + lo.getMaLo() + " đang ở trạng thái " + tenTrangThaiLo(lo.getTrangThai())
-                            + ", không xóa được ở phiếu nháp. Hủy phiếu này rồi tạo phiếu mới để kiểm đếm lại.");
+                    ThongDiep.of("chungTuKho.loKhongXoaDuocOPhieuNhap", lo.getMaLo(), tenTrangThaiLo(lo.getTrangThai())));
         }
         if (lo != null) {
             // Chi tiết lỗi đi theo lô; dòng biên bản trả hàng (nếu đã lập) chỉ còn giữ mã lô và biên bản bị đánh dấu lệch
@@ -1153,7 +1135,7 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
     @Transactional(readOnly = true)
     public ChiTietPhieuNhapKhoDto getDetail(Integer id) {
         PhieuNhapKho phieu = repository.findById(id)
-                .orElseThrow(() -> new CommonException("Không tìm thấy phiếu nhập id: " + id));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("chungTuKho.phieuNhapIdKhongTimThay", id)));
         KhoDangChon.kiemTraXem(phieu.getKho(), "Phiếu nhập " + phieu.getSoPhieuNhap());
 
         Integer phieuXuatGocId = null;
@@ -1370,16 +1352,16 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
     @Transactional
     public PhieuNhapKho createReturnImportDraft(Integer phieuXuatKhoId, String ghiChu) {
         PhieuXuatKho px = phieuXuatKhoRepository.findById(phieuXuatKhoId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy phiếu xuất kho"));
+                .orElseThrow(() -> new LoiChungException(ThongDiep.of("chungTuKho.phieuXuatKhoKhongTimThay")));
 
         DonBanHang donBanHang = px.getDonBanHang();
         if (donBanHang == null || donBanHang.getTrangThai() != 6) {
-            throw new RuntimeException("Phiếu xuất này không thuộc Đơn hàng bị hoàn trả!");
+            throw new LoiChungException(ThongDiep.of("chungTuKho.phieuXuatKhongThuocDonHoanTra"));
         }
 
         Kho khoNhan = px.getKho() != null ? px.getKho() : donBanHang.getKhoXuat();
         if (khoNhan == null) {
-            throw new RuntimeException("Không xác định được kho nhận trả hàng");
+            throw new LoiChungException(ThongDiep.of("chungTuKho.khongXacDinhKhoNhanTra"));
         }
 
         // Tạo số phiếu
@@ -1486,10 +1468,10 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
     @Transactional(readOnly = true)
     public List<com.dev.backend.dto.response.customize.DongInTemDto> soLuongInTem(Integer id) {
         PhieuNhapKho phieu = repository.findById(id)
-                .orElseThrow(() -> new CommonException("Không tìm thấy phiếu nhập id: " + id));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("chungTuKho.phieuNhapIdKhongTimThay", id)));
         KhoDangChon.kiemTraXem(phieu.getKho(), "Phiếu nhập " + phieu.getSoPhieuNhap());
         if (!Objects.equals(phieu.getTrangThai(), TrangThaiPhieuNhap.COMPLETED.getValue())) {
-            throw new CommonException("Phiếu nhập " + phieu.getSoPhieuNhap() + " chưa hoàn tất nhập kho nên chưa in tem theo phiếu được");
+            throw new CommonException(ThongDiep.of("chungTuKho.phieuNhapChuaHoanTatInTem", phieu.getSoPhieuNhap()));
         }
         Map<Integer, Integer> soLuong = soLuongThucNhan(phieu.getChiTietPhieuNhapKhos());
         return temSanPhamService.dongTheoIds(new ArrayList<>(soLuong.keySet()), soLuong);

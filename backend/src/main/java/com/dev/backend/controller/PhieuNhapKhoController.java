@@ -24,6 +24,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import com.dev.backend.i18n.ThongDiep;
 
 @RestController
 @RequestMapping("/api/v1/phieu-nhap-kho")
@@ -114,7 +115,7 @@ public class PhieuNhapKhoController {
         return ResponseEntity.ok(
                 ResponseData.<String>builder()
                         .status(HttpStatus.OK.value())
-                        .message("Hoàn tất nhập kho thành công")
+                        .message(ThongDiep.dich("chungTuKho.hoanTatNhapKhoThanhCong"))
                         .data("SUCCESS")
                         .build()
         );
@@ -133,7 +134,7 @@ public class PhieuNhapKhoController {
         return ResponseEntity.ok(
                 ResponseData.<String>builder()
                         .status(HttpStatus.OK.value())
-                        .message("Hủy phiếu nhập thành công")
+                        .message(ThongDiep.dich("chungTuKho.huyPhieuNhapThanhCong"))
                         .data("SUCCESS")
                         .build()
         );
@@ -149,7 +150,7 @@ public class PhieuNhapKhoController {
         return ResponseEntity.ok(
                 ResponseData.<String>builder()
                         .status(HttpStatus.OK.value())
-                        .message("Khai báo lô thành công")
+                        .message(ThongDiep.dich("chungTuKho.khaiBaoLoThanhCong"))
                         .data("SUCCESS")
                         .build()
         );
@@ -189,7 +190,7 @@ public class PhieuNhapKhoController {
         return ResponseEntity.ok(
                 ResponseData.<String>builder()
                         .status(HttpStatus.OK.value())
-                        .message("Chốt hoàn tất kiểm đếm biến thể thành công")
+                        .message(ThongDiep.dich("chungTuKho.chotKiemDemBienTheThanhCong"))
                         .data("SUCCESS")
                         .build()
         );
@@ -206,7 +207,7 @@ public class PhieuNhapKhoController {
         return ResponseEntity.ok(
                 ResponseData.<String>builder()
                         .status(HttpStatus.OK.value())
-                        .message("Xoá lô thành công")
+                        .message(ThongDiep.dich("chungTuKho.xoaLoThanhCong"))
                         .data("SUCCESS")
                         .build()
         );
@@ -232,7 +233,7 @@ public class PhieuNhapKhoController {
         return ResponseEntity.ok(
                 ResponseData.<PhieuNhapKhoDto>builder()
                         .status(HttpStatus.OK.value())
-                        .message("Khởi tạo phiếu nhập trả hàng thành công")
+                        .message(ThongDiep.dich("chungTuKho.khoiTaoPhieuNhapTraHangThanhCong"))
                         .data(phieuNhapKhoMapper.toDto(entity))
                         .build()
         );

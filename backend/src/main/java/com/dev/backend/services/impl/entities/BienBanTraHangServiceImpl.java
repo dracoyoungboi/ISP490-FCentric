@@ -23,6 +23,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import com.dev.backend.i18n.ThongDiep;
 
 @Service
 @RequiredArgsConstructor
@@ -68,14 +69,14 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
     public BienBanTraHangDto phatHanh(Integer phieuNhapKhoId, PhatHanhBienBanRequest request, Integer nguoiTaoId) {
         // Khóa dòng phiếu trước (cùng thứ tự với khóa lô / nhập kho): biên bản lập từ đúng số lô đang có, không chen giữa lúc nhập kho
         PhieuNhapKho phieu = phieuNhapKhoRepository.khoaTheoId(phieuNhapKhoId)
-                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy phiếu nhập kho ID: " + phieuNhapKhoId));
+                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("chungTuKho.phieuNhapKhoIdKhongTimThay", phieuNhapKhoId)));
         KhoDangChon.kiemTra(phieu.getKho(), "Phiếu nhập " + phieu.getSoPhieuNhap());
 
         if (phieu.getTrangThai() == null || phieu.getTrangThai() != TrangThaiPhieuNhap.DRAFT.getValue()) {
-            throw new CommonException(HttpStatus.BAD_REQUEST, "Chỉ lập biên bản trả hàng khi phiếu nhập đang kiểm đếm (Nháp)");
+            throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.chiLapBienBanTraHangKhiNhap"));
         }
         if (phieu.getNhaCungCap() == null) {
-            throw new CommonException(HttpStatus.BAD_REQUEST, "Phiếu nhập không có thông tin Nhà cung cấp để lập biên bản trả hàng");
+            throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.phieuNhapThieuNccLapBienBan"));
         }
 
         String phuongAn = request != null && request.getPhuongAn() != null && !request.getPhuongAn().isBlank()
@@ -84,7 +85,7 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
         if ("DOI_HANG_MOI".equals(phuongAn)) phuongAn = "DOI_HANG";
         if (!PHUONG_AN_HOP_LE.contains(phuongAn)) {
             throw new CommonException(HttpStatus.BAD_REQUEST,
-                    "Phương án xử lý không hợp lệ. Chọn Đổi hàng, Trừ công nợ hoặc Trả tài xế.");
+                    ThongDiep.of("chungTuKho.phuongAnTraHangKhongHopLe"));
         }
         String ghiChu = request != null && request.getGhiChu() != null && !request.getGhiChu().isBlank()
                 ? request.getGhiChu().trim() : null;
@@ -98,7 +99,7 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
 
         if (dongMoi.isEmpty()) {
             if (bienBan == null || !bienBan.dangHieuLuc()) {
-                throw new CommonException(HttpStatus.BAD_REQUEST, "Phiếu nhập không có hàng không đạt nên không cần lập biên bản trả hàng");
+                throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.phieuNhapKhongCoHangLoi"));
             }
             // Hủy, không xóa: số biên bản đã cấp không được cấp lại cho biên bản khác
             bienBan.setTrangThai(BienBanTraHangNcc.DA_HUY);
@@ -114,7 +115,7 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
                 || !Objects.equals(bienBan.getTongSoLuongLoi(), dongMoi.stream().mapToInt(ChiTietTraHangNcc::getSoLuongLoi).sum());
         if (bienBan == null) {
             NguoiDung nguoiTao = nguoiDungRepository.findById(nguoiTaoId)
-                    .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy người tạo ID: " + nguoiTaoId));
+                    .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("chungTuKho.nguoiTaoKhongTimThay", nguoiTaoId)));
             bienBan = BienBanTraHangNcc.builder()
                     .maBienBan(sinhMaBienBan())
                     .phieuNhapKho(phieu)
@@ -136,7 +137,7 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
         } catch (org.springframework.dao.DataIntegrityViolationException ex) {
             // Hai biên bản lập cùng lúc được cùng số: biên bản sau lập lại sẽ nhận số kế tiếp
             throw new CommonException(HttpStatus.CONFLICT,
-                    "Số biên bản " + bienBan.getMaBienBan() + " vừa được cấp cho biên bản khác lập cùng lúc. Bấm lập biên bản lại.");
+                    ThongDiep.of("chungTuKho.soBienBanTraHangTrung", bienBan.getMaBienBan()));
         }
         for (ChiTietTraHangNcc dong : dongMoi) {
             dong.setBienBanTraHangNcc(savedHeader);
@@ -302,7 +303,7 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
     @Transactional(readOnly = true)
     public BienBanTraHangDto chiTiet(Integer id) {
         BienBanTraHangNcc b = bienBanTraHangNccRepository.findById(id)
-                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy biên bản trả hàng ID: " + id));
+                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("chungTuKho.bienBanTraHangKhongTimThay", id)));
         KhoDangChon.kiemTraXem(b.getPhieuNhapKho().getKho(), "Biên bản trả hàng " + b.getMaBienBan());
         return toDto(b);
     }

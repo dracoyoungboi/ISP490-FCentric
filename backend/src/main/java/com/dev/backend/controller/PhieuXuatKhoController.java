@@ -40,6 +40,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import com.dev.backend.i18n.ThongDiep;
 
 @RestController
 @RequestMapping("/api/v1/phieu-xuat-kho")
@@ -85,9 +86,9 @@ public class PhieuXuatKhoController {
                 .status(HttpStatus.OK.value())
                 .data(result)
                 .message(result.getCanSuaLo().isEmpty()
-                        ? "Đã tạo lại phiếu xuất " + result.getSoPhieuXuat()
-                        : "Đã tạo lại phiếu xuất " + result.getSoPhieuXuat() + ". Lô cũ không còn đủ cho: "
-                                + String.join(", ", result.getCanSuaLo()) + " — quản lý kho sửa lô trước khi xuất.")
+                        ? ThongDiep.dich("chungTuKho.daTaoLaiPhieuXuat", result.getSoPhieuXuat())
+                        : ThongDiep.dich("chungTuKho.daTaoLaiPhieuXuatCanSuaLo", result.getSoPhieuXuat(),
+                                String.join(", ", result.getCanSuaLo())))
                 .build());
     }
 
@@ -117,7 +118,7 @@ public class PhieuXuatKhoController {
         return ResponseEntity.ok(
                 ResponseData.<XacNhanXuatKhoResponse>builder()
                         .status(HttpStatus.OK.value())
-                        .message("Xác nhận xuất kho và cập nhật vận đơn thành công")
+                        .message(ThongDiep.dich("chungTuKho.xacNhanXuatCapNhatVanDonThanhCong"))
                         .data(response)
                         .build()
         );
@@ -135,7 +136,7 @@ public class PhieuXuatKhoController {
         return ResponseEntity.ok(
                 ResponseData.<String>builder()
                         .status(HttpStatus.OK.value())
-                        .message("Xác nhận xuất kho thành công")
+                        .message(ThongDiep.dich("chungTuKho.xacNhanXuatKhoThanhCong"))
                         .data("SUCCESS")
                         .build()
         );
@@ -154,7 +155,7 @@ public class PhieuXuatKhoController {
         return ResponseEntity.ok(
                 ResponseData.<String>builder()
                         .status(HttpStatus.OK.value())
-                        .message("Hủy phiếu xuất thành công")
+                        .message(ThongDiep.dich("chungTuKho.huyPhieuXuatThanhCong"))
                         .data("SUCCESS")
                         .build()
         );
@@ -174,7 +175,7 @@ public class PhieuXuatKhoController {
         return ResponseEntity.ok(
                 ResponseData.<String>builder()
                         .status(HttpStatus.OK.value())
-                        .message("Chọn lô thành công")
+                        .message(ThongDiep.dich("chungTuKho.chonLoThanhCong"))
                         .data("SUCCESS")
                         .build()
         );
@@ -266,7 +267,7 @@ public class PhieuXuatKhoController {
                         ResponseData.<Page<PhieuXuatKhoDto>>builder()
                                 .status(HttpStatus.OK.value())
                                 .data(Page.empty())
-                                .message("Bạn chưa được giao phụ trách kho nào.")
+                                .message(ThongDiep.dich("chungTuKho.chuaPhuTrachKhoNao"))
                                 .build()
                 );
             }
@@ -317,7 +318,7 @@ public class PhieuXuatKhoController {
                 ResponseData.<Page<PhieuXuatKhoDto>>builder()
                         .status(HttpStatus.OK.value())
                         .data(pageDto)
-                        .message("Lấy danh sách thành công")
+                        .message(ThongDiep.dich("chungTuKho.layDanhSachThanhCong"))
                         .build()
         );
     }
@@ -356,7 +357,7 @@ public class PhieuXuatKhoController {
                 ResponseData.<com.dev.backend.dto.response.customize.ScanToPackResultDto>builder()
                         .status(HttpStatus.OK.value())
                         .data(result)
-                        .message("Quét mã phiếu xuất / đơn hàng thành công")
+                        .message(ThongDiep.dich("chungTuKho.quetMaPhieuXuatThanhCong"))
                         .build()
         );
     }

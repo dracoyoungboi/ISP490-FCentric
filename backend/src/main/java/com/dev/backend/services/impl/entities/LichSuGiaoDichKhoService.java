@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
+import com.dev.backend.i18n.ThongDiep;
 
 @Service
 @RequiredArgsConstructor
@@ -50,7 +51,7 @@ public class LichSuGiaoDichKhoService {
             result = repository.findAllByNhanVienId(currentUser.getId());
 
         } else {
-            throw new CommonException("Không có quyền truy cập");
+            throw new CommonException(ThongDiep.of("chungTuKho.khongCoQuyenTruyCap"));
         }
 
         return result.stream()
@@ -61,7 +62,7 @@ public class LichSuGiaoDichKhoService {
     @Transactional(readOnly = true)
     public LichSuGiaoDichKhoDto getChiTiet(Integer id) {
         LichSuGiaoDichKho entity = repository.findByIdWithDetails(id)
-                .orElseThrow(() -> new CommonException("Không tìm thấy lịch sử ID: " + id));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("chungTuKho.lichSuKhongTimThay", id)));
         return mapper.toDto(entity);
     }
 

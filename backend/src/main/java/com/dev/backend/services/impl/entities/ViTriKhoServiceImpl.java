@@ -41,6 +41,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 import java.util.stream.Collectors;
+import com.dev.backend.i18n.ThongDiep;
 
 @Service
 @RequiredArgsConstructor
@@ -78,7 +79,7 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
     /** KHOA_KIEM_KE chỉ do kiểm kê ghi khi khóa toàn kệ; sửa tay sang trạng thái này làm kệ khóa mà không đợt nào sở hữu. */
     private static void kiemTraTrangThaiGhiTay(String trangThai) {
         if (trangThai != null && IKiemKe.KE_KHOA_KIEM_KE.equalsIgnoreCase(trangThai.trim())) {
-            throw new CommonException(HttpStatus.BAD_REQUEST, "Trạng thái Đang kiểm kê do đợt kiểm kê tự đặt, không chọn tay được");
+            throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.trangThaiKiemKeKhongChonTay"));
         }
     }
 
@@ -116,15 +117,15 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
     @Transactional(rollbackFor = Exception.class)
     public KhuVucKhoDto taoKhuVuc(Integer khoId, KhuVucKhoRequest request) {
         Kho kho = khoRepository.findById(khoId)
-                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy kho ID: " + khoId));
+                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("chungTuKho.khoKhongTimThay", khoId)));
         KhoDangChon.kiemTra(kho, "Sơ đồ kho " + kho.getTenKho());
 
         String ma = request.getMaKhuVuc() != null ? request.getMaKhuVuc().trim().toUpperCase() : "";
         if (ma.isBlank()) {
-            throw new CommonException(HttpStatus.BAD_REQUEST, "Mã khu vực không được để trống");
+            throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.maKhuVucTrong"));
         }
         if (khuVucKhoRepository.existsByKho_IdAndMaKhuVuc(khoId, ma)) {
-            throw new CommonException(HttpStatus.CONFLICT, "Mã khu vực `" + ma + "` đã tồn tại trong kho này");
+            throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("chungTuKho.maKhuVucDaTonTai", ma));
         }
 
         KhuVucKho khuVuc = KhuVucKho.builder()
@@ -155,10 +156,10 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
     public KhuVucKhoDto suaKhuVuc(Integer khoId, Integer khuVucId, KhuVucKhoRequest request) {
         kiemTraGhiKho(khoId);
         KhuVucKho khuVuc = khuVucKhoRepository.findById(khuVucId)
-                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy khu vực ID: " + khuVucId));
+                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("chungTuKho.khuVucKhongTimThay", khuVucId)));
 
         if (!khuVuc.getKho().getId().equals(khoId)) {
-            throw new CommonException(HttpStatus.BAD_REQUEST, "Khu vực không thuộc kho chỉ định");
+            throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.khuVucKhongThuocKho"));
         }
         Map<String, Object> truocKhu = anhKhuVuc(khuVuc);
 
@@ -190,15 +191,15 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
     public void xoaKhuVuc(Integer khoId, Integer khuVucId) {
         kiemTraGhiKho(khoId);
         KhuVucKho khuVuc = khuVucKhoRepository.findById(khuVucId)
-                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy khu vực ID: " + khuVucId));
+                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("chungTuKho.khuVucKhongTimThay", khuVucId)));
 
         if (!khuVuc.getKho().getId().equals(khoId)) {
-            throw new CommonException(HttpStatus.BAD_REQUEST, "Khu vực không thuộc kho chỉ định");
+            throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.khuVucKhongThuocKho"));
         }
 
         long count = viTriKhoRepository.countByKhuVucKho_Id(khuVucId);
         if (count > 0) {
-            throw new CommonException(HttpStatus.CONFLICT, "Khu vực đang chứa " + count + " vị trí kệ, không thể xóa");
+            throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("chungTuKho.khuVucDangChuaKe", count));
         }
 
         ghiNhatKy(NhatKyNghiepVu.dong(ITable.khu_vuc_kho, khuVuc.getId(), IHanhDong.xoa_khu_vuc)
@@ -274,13 +275,13 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
     public List<ViTriKhoDto> taoViTri(Integer khoId, ViTriKhoRequest request) {
         kiemTraGhiKho(khoId);
         if (request.getKhuVucId() == null) {
-            throw new CommonException(HttpStatus.BAD_REQUEST, "Vui lòng chọn khu vực kho");
+            throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.chonKhuVucKho"));
         }
         KhuVucKho khuVuc = khuVucKhoRepository.findById(request.getKhuVucId())
-                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy khu vực ID: " + request.getKhuVucId()));
+                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("chungTuKho.khuVucKhongTimThay", request.getKhuVucId())));
 
         if (!khuVuc.getKho().getId().equals(khoId)) {
-            throw new CommonException(HttpStatus.BAD_REQUEST, "Khu vực không thuộc kho chỉ định");
+            throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.khuVucKhongThuocKho"));
         }
 
         kiemTraTrangThaiGhiTay(request.getTrangThai());
@@ -324,10 +325,10 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
             // Tạo một vị trí đơn lẻ
             String ma = request.getMaViTri() != null ? request.getMaViTri().trim().toUpperCase() : "";
             if (ma.isBlank()) {
-                throw new CommonException(HttpStatus.BAD_REQUEST, "Mã vị trí kệ không được để trống");
+                throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.maViTriTrong"));
             }
             if (viTriKhoRepository.existsByKho_IdAndMaViTri(khoId, ma)) {
-                throw new CommonException(HttpStatus.CONFLICT, "Mã vị trí `" + ma + "` đã tồn tại trong kho này");
+                throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("chungTuKho.maViTriDaTonTai", ma));
             }
             danhSachTao.add(ViTriKho.builder()
                     .kho(khuVuc.getKho())
@@ -381,10 +382,10 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
     public ViTriKhoDto suaViTri(Integer khoId, Integer viTriId, ViTriKhoRequest request) {
         kiemTraGhiKho(khoId);
         ViTriKho viTri = viTriKhoRepository.findById(viTriId)
-                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy vị trí ID: " + viTriId));
+                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("chungTuKho.viTriKhongTimThay", viTriId)));
 
         if (!viTri.getKhuVucKho().getKho().getId().equals(khoId)) {
-            throw new CommonException(HttpStatus.BAD_REQUEST, "Vị trí không thuộc kho chỉ định");
+            throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.viTriKhongThuocKho"));
         }
         kiemTraTrangThaiGhiTay(request.getTrangThai());
         // Master Data Guard: kệ đang thuộc phạm vi đợt kiểm kê không đổi khu / trạng thái / sức chứa được
@@ -396,9 +397,9 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
 
         if (request.getKhuVucId() != null && !request.getKhuVucId().equals(viTri.getKhuVucKho().getId())) {
             KhuVucKho khuMoi = khuVucKhoRepository.findById(request.getKhuVucId())
-                    .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy khu vực mới"));
+                    .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("chungTuKho.khuVucMoiKhongTimThay")));
             if (!khuMoi.getKho().getId().equals(khoId)) {
-                throw new CommonException(HttpStatus.BAD_REQUEST, "Khu vực mới không cùng kho");
+                throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.khuVucMoiKhacKho"));
             }
             if (khoaKiemKeGuard != null) {
                 khoaKiemKeGuard.kiemTraKhuVuc(khuMoi.getId(), "chuyển kệ vào khu vực");
@@ -454,35 +455,35 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
         Optional<ViTriKho> keDaKhoa = viTriKhoRepository.khoaTheoId(viTriId);
         kiemTraGhiKho(khoId);
         ViTriKho viTri = keDaKhoa
-                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy vị trí ID: " + viTriId));
+                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("chungTuKho.viTriKhongTimThay", viTriId)));
 
         if (!viTri.getKhuVucKho().getKho().getId().equals(khoId)) {
-            throw new CommonException(HttpStatus.BAD_REQUEST, "Vị trí không thuộc kho chỉ định");
+            throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.viTriKhongThuocKho"));
         }
         if (khoaKiemKeGuard != null) {
             khoaKiemKeGuard.kiemTraKe(viTriId, "xóa kệ");
             List<String> dotDung = khoaKiemKeGuard.dotTungDungKe(viTriId);
             if (!dotDung.isEmpty()) {
-                throw new CommonException(HttpStatus.CONFLICT, "Kệ " + viTri.getMaViTri() + " đã có trong kiểm kê ("
-                        + String.join(", ", dotDung) + ") nên được giữ lại cho lịch sử. Chuyển kệ sang Bảo trì nếu không dùng nữa.");
+                throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("chungTuKho.keDaCoTrongKiemKe",
+                        viTri.getMaViTri(), String.join(", ", dotDung)));
             }
         }
         if (phanBoKeService != null) {
             List<String> phieuNhat = phanBoKeService.phieuDangGiuKe(viTriId);
             if (!phieuNhat.isEmpty()) {
-                throw new CommonException(HttpStatus.CONFLICT, "Kệ " + viTri.getMaViTri() + " đang có hàng phân bổ cho phiếu nhặt "
-                        + String.join(", ", phieuNhat) + " chưa xuất kho. Đợi phiếu xuất xong hoặc đổi kệ ở Phân bổ lô trước khi xóa kệ.");
+                throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("chungTuKho.keDangPhanBoPhieuNhat",
+                        viTri.getMaViTri(), String.join(", ", phieuNhat)));
             }
         }
 
         int dangChua = tonKhoViTriRepository.sumDangChuaByViTriId(viTriId);
         if (dangChua > 0) {
-            throw new CommonException(HttpStatus.CONFLICT, "Kệ đang chứa " + dangChua + " sản phẩm, không thể xóa!");
+            throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("chungTuKho.keDangChuaSanPham", dangChua));
         }
         // Tổng có thể về 0 khi có dòng âm bù dòng dương: dòng dương còn lại sẽ trỏ tới kệ đã xóa
         if (tonKhoViTriRepository.existsByViTriKho_IdAndSoLuongGreaterThan(viTriId, 0)) {
             throw new CommonException(HttpStatus.CONFLICT,
-                    "Kệ " + viTri.getMaViTri() + " còn lô có tồn trên kệ (tổng tồn kệ đang lệch), không thể xóa. Kiểm lại tồn theo kệ trước.");
+                    ThongDiep.of("chungTuKho.keConLoTonLech", viTri.getMaViTri()));
         }
 
         // Lô đã khóa của phiếu Nháp còn chờ lên kệ: xóa kệ thì lô trỏ tới kệ không còn, phiếu không nhập kho được
@@ -496,10 +497,9 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
                 soLo += ((Number) dong[1]).longValue();
                 soHang += ((Number) dong[2]).longValue();
             }
-            String dangGiu = soHang > 0 ? "đang chờ nhập " + soHang + " sản phẩm" : "đang gắn " + soLo + " lô đã khóa";
-            throw new CommonException(HttpStatus.CONFLICT,
-                    "Kệ " + viTri.getMaViTri() + " " + dangGiu + " của phiếu " + String.join(", ", dsPhieu)
-                            + ". Sửa kệ của các lô đó ở màn kiểm đếm hoặc hủy phiếu trước khi xóa kệ.");
+            throw new CommonException(HttpStatus.CONFLICT, soHang > 0
+                    ? ThongDiep.of("chungTuKho.keDangChoNhapCuaPhieu", viTri.getMaViTri(), soHang, String.join(", ", dsPhieu))
+                    : ThongDiep.of("chungTuKho.keDangGanLoKhoaCuaPhieu", viTri.getMaViTri(), soLo, String.join(", ", dsPhieu)));
         }
 
         // Lô đã nhập kho từng nằm trên kệ (kệ nay trống): gỡ kệ khỏi lô và bỏ các dòng tồn số 0 của kệ, để không còn gì
@@ -527,7 +527,7 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
         viTriKhoRepository.findById(viTriId).ifPresent(viTri -> {
             if (viTri.getKhuVucKho() == null || viTri.getKhuVucKho().getKho() == null
                     || !viTri.getKhuVucKho().getKho().getId().equals(khoId)) {
-                throw new CommonException(HttpStatus.BAD_REQUEST, "Vị trí không thuộc kho chỉ định");
+                throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.viTriKhongThuocKho"));
             }
         });
         List<TonKhoViTri> activeLots = tonKhoViTriRepository.findActiveLotsByViTriId(viTriId);
@@ -562,7 +562,7 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> luuMatBang(Integer khoId, Map<String, Object> matBang) {
         Kho kho = khoRepository.findById(khoId)
-                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy kho ID: " + khoId));
+                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("chungTuKho.khoKhongTimThay", khoId)));
         KhoDangChon.kiemTra(kho, "Sơ đồ kho " + kho.getTenKho());
 
         MatBangKho entity = matBangKhoRepository.findByKho_Id(khoId)
@@ -575,7 +575,7 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
         try {
             entity.setCauHinhJson(objectMapper.writeValueAsString(matBang));
         } catch (Exception e) {
-            throw new CommonException(HttpStatus.BAD_REQUEST, "Cấu trúc mặt bằng không hợp lệ: " + e.getMessage());
+            throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.matBangKhongHopLe", e.getMessage()));
         }
 
         MatBangKho daLuu = matBangKhoRepository.save(entity);
