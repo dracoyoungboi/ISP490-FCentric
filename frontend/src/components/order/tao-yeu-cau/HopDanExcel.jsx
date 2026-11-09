@@ -7,6 +7,7 @@ import {
   CHAN_HOP, DAU_HOP, GHI_CHU_HOP, HOP, HOP_RONG, MO_TA_HOP, NUT_CHINH, NUT_QUAY_LAI, THAN_HOP, TIEU_DE_HOP,
 } from "@/components/chung-tu/kieuHopThoai";
 import { docDanhSachDan, khoaSanPham, SO_LOI_DAN_HIEN } from "./tinhTaoYeuCau";
+import { t } from "@/i18n";
 
 /**
  * Hộp "Dán từ Excel": dán 2 cột (SKU hoặc mã vạch, số lượng) — chép thẳng từ Excel (cách bằng Tab) hoặc gõ cách bằng
@@ -49,14 +50,13 @@ function NoiDung({ chiMuc, dong, onThem, onDong }) {
   return (
     <>
       <DialogHeader className={DAU_HOP}>
-        <DialogTitle className={TIEU_DE_HOP}>Dán danh sách từ Excel</DialogTitle>
+        <DialogTitle className={TIEU_DE_HOP}>{t("Dán danh sách từ Excel")}</DialogTitle>
         <DialogDescription className={MO_TA_HOP}>
-          Mỗi dòng một mã: SKU hoặc mã vạch, rồi số lượng. Chép thẳng 2 cột từ Excel, hoặc gõ cách nhau bằng dấu phẩy,
-          khoảng trắng. Mã lặp lại được cộng dồn.
+          {t("Mỗi dòng một mã: SKU hoặc mã vạch, rồi số lượng. Chép thẳng 2 cột từ Excel, hoặc gõ cách nhau bằng dấu phẩy, khoảng trắng. Mã lặp lại được cộng dồn.")}
         </DialogDescription>
       </DialogHeader>
       <div className={cn(THAN_HOP, "pb-1")}>
-        <label htmlFor={`${id}-dan`} className="sr-only">Danh sách mã và số lượng</label>
+        <label htmlFor={`${id}-dan`} className="sr-only">{t("Danh sách mã và số lượng")}</label>
         <textarea
           id={`${id}-dan`}
           value={chu}
@@ -69,8 +69,8 @@ function NoiDung({ chiMuc, dong, onThem, onDong }) {
         />
         {soDaCo > 0 ? (
           <fieldset className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[13px] leading-5">
-            <legend className="float-left mr-1 text-bo-muted">{soVN(soDaCo)} mã đã có trong yêu cầu:</legend>
-            {[["cong", "Cộng thêm"], ["thay", "Thay bằng số mới"]].map(([ma, nhan]) => (
+            <legend className="float-left mr-1 text-bo-muted">{t("{{soDaCo}} mã đã có trong yêu cầu:", { count: soDaCo, soDaCo: soVN(soDaCo) })}</legend>
+            {[["cong", t("Cộng thêm")], ["thay", t("Thay bằng số mới")]].map(([ma, nhan]) => (
               // Màn cảm ứng: nhãn cao 44px cho dễ chạm (radio gốc không được lớp cảm ứng chung mở rộng)
               <label key={ma} className="inline-flex cursor-pointer items-center gap-1.5 cam-ung:min-h-11">
                 <input
@@ -90,14 +90,16 @@ function NoiDung({ chiMuc, dong, onThem, onDong }) {
           <div className={GHI_CHU_HOP} role="status" aria-live="polite">
             <p className="flex flex-wrap gap-x-4 gap-y-1">
               <span className={cn("font-medium", kq.hop.length ? "text-bo-success" : "text-bo-muted")}>
-                {soVN(kq.hop.length)} mã hợp lệ{kq.hop.length ? ` (${soVN(soSp)} sản phẩm, tổng ${soVN(tong)})` : ""}
+                {kq.hop.length
+                  ? t("{{soMa}} mã hợp lệ ({{soSp}} sản phẩm, tổng {{tong}})", { count: kq.hop.length, soMa: soVN(kq.hop.length), soSp: soVN(soSp), tong: soVN(tong) })
+                  : t("0 mã hợp lệ")}
               </span>
-              {kq.loi.length ? <span className="font-medium text-bo-danger-strong">{soVN(kq.loi.length)} dòng lỗi, sẽ bỏ qua</span> : null}
+              {kq.loi.length ? <span className="font-medium text-bo-danger-strong">{t("{{soLoi}} dòng lỗi, sẽ bỏ qua", { count: kq.loi.length, soLoi: soVN(kq.loi.length) })}</span> : null}
               <span className="text-bo-muted">
                 {[
-                  soMoi ? `${soVN(soMoi)} mã mới` : "",
-                  soDaCo ? `${soVN(soDaCo)} mã đã có` : "",
-                  kq.soDongLap > 0 ? `${soVN(kq.soDongLap)} dòng lặp đã cộng dồn` : "",
+                  soMoi ? t("{{soMoi}} mã mới", { count: soMoi, soMoi: soVN(soMoi) }) : "",
+                  soDaCo ? t("{{soDaCo}} mã đã có", { count: soDaCo, soDaCo: soVN(soDaCo) }) : "",
+                  kq.soDongLap > 0 ? t("{{soDongLap}} dòng lặp đã cộng dồn", { count: kq.soDongLap, soDongLap: soVN(kq.soDongLap) }) : "",
                 ].filter(Boolean).join(" · ")}
               </span>
             </p>
@@ -105,24 +107,24 @@ function NoiDung({ chiMuc, dong, onThem, onDong }) {
               <ul className="mt-1.5 list-disc space-y-0.5 pl-5 text-[12.5px]">
                 {kq.loi.slice(0, SO_LOI_DAN_HIEN).map((e) => (
                   <li key={e.dongSo}>
-                    Dòng {e.dongSo}: <span className="break-all font-mono text-bo-foreground">{e.chu}</span> — {e.lyDo}
+                    {t("Dòng {{dongSo}}:", { dongSo: e.dongSo })} <span className="break-all font-mono text-bo-foreground">{e.chu}</span> — {e.lyDo}
                   </li>
                 ))}
-                {kq.loi.length > SO_LOI_DAN_HIEN ? <li>và {soVN(kq.loi.length - SO_LOI_DAN_HIEN)} dòng lỗi khác</li> : null}
+                {kq.loi.length > SO_LOI_DAN_HIEN ? <li>{t("và {{soKhac}} dòng lỗi khác", { count: kq.loi.length - SO_LOI_DAN_HIEN, soKhac: soVN(kq.loi.length - SO_LOI_DAN_HIEN) })}</li> : null}
               </ul>
             ) : null}
           </div>
         ) : null}
       </div>
       <div className={CHAN_HOP}>
-        <Button type="button" variant="outline" className={NUT_QUAY_LAI} onClick={onDong}>Quay lại</Button>
+        <Button type="button" variant="outline" className={NUT_QUAY_LAI} onClick={onDong}>{t("Quay lại")}</Button>
         <Button
           type="button"
           className={NUT_CHINH}
           disabled={!kq.hop.length}
           onClick={() => onThem?.(kq.hop, cach, kq.loi.length)}
         >
-          {kq.hop.length ? `Thêm ${soVN(kq.hop.length)} mã` : "Thêm vào yêu cầu"}
+          {kq.hop.length ? t("Thêm {{soMa}} mã", { count: kq.hop.length, soMa: soVN(kq.hop.length) }) : t("Thêm vào yêu cầu")}
         </Button>
       </div>
     </>

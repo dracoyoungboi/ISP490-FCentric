@@ -27,6 +27,7 @@ import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import purchaseRequestService from "@/services/purchaseRequestService";
 import { ROLES, hasAnyRole } from "@/utils/roles";
+import { t } from "@/i18n";
 
 // Ai chấp nhận / không chấp nhận báo giá ở Chi tiết báo giá (giữ như màn đó): quản trị viên, nhân viên mua hàng
 const VAI_TRO_CHOT_BAO_GIA = [ROLES.QUAN_TRI_VIEN, ROLES.NHAN_VIEN_MUA_HANG];
@@ -71,7 +72,7 @@ function SoSanhBaoGia({ id }) {
     if (!yc && (q.loading || (!q.error && q.data === undefined))) {
         return (
             <PageContainer className="flex min-h-full flex-col">
-                <KhungDangTai nhan="Đang tải yêu cầu báo giá" coTienTrinh={false} />
+                <KhungDangTai nhan={t("Đang tải yêu cầu báo giá")} coTienTrinh={false} />
             </PageContainer>
         );
     }
@@ -82,7 +83,7 @@ function SoSanhBaoGia({ id }) {
             <PageContainer className="flex min-h-full flex-col">
                 <KhungLoiChungTu
                     loi={q.error}
-                    tenChungTu="yêu cầu báo giá"
+                    tenChungTu={t("yêu cầu báo giá")}
                     locCauMayChu={locCauMayChuMuaHang}
                     onVeDanhSach={() => navigate("/quotation-requests")}
                     onThuLai={q.reload}
@@ -101,8 +102,8 @@ function SoSanhBaoGia({ id }) {
     const dem = demGuiGia(soSanh.dong, soNcc);
     const tomTatGui = soNcc
         ? [
-            `${soVN(dem.daGui)} nhà cung cấp đã gửi giá`,
-            dem.thieuDong ? `${soVN(dem.thieuDong)} nhà cung cấp còn thiếu giá` : "",
+            t("{{daGui}} nhà cung cấp đã gửi giá", { count: dem.daGui, daGui: soVN(dem.daGui) }),
+            dem.thieuDong ? t("{{thieuDong}} nhà cung cấp còn thiếu giá", { count: dem.thieuDong, thieuDong: soVN(dem.thieuDong) }) : "",
         ].filter(Boolean).join(" · ")
         : "";
     // Đã gửi / đã báo giá / đã chốt / không chấp nhận (dòng phụ đầu khối), giá trị đã chốt và lúc gửi yêu cầu (nhóm "Báo giá" cột phải)
@@ -114,10 +115,10 @@ function SoSanhBaoGia({ id }) {
     const xemDonMua = hasAnyRole(VAI_TRO_XEM_DON_MUA);
 
     const lienQuan = [
-        { khoa: "yeu-cau-nhap", loai: "Yêu cầu nhập hàng", ma: "Xem phần duyệt yêu cầu", to: `/purchase-requests/${yc.id}` },
+        { khoa: "yeu-cau-nhap", loai: t("Yêu cầu nhập hàng"), ma: t("Xem phần duyệt yêu cầu"), to: `/purchase-requests/${yc.id}` },
         ...baoGiaDaChot(yc).map((don) => ({
             khoa: `don-mua-${don.id}`,
-            loai: "Đơn mua hàng",
+            loai: t("Đơn mua hàng"),
             ma: don.soDonMua,
             to: xemDonMua ? `/purchase-orders/${don.id}` : undefined,
             trangThai: getDonMuaHangStatus(don.trangThai).label,
@@ -133,26 +134,26 @@ function SoSanhBaoGia({ id }) {
                         ma={ma}
                         trangThai={{ label: getYeuCauNhapHangStatus(yc.trangThai).label, quyTrinh: "yeuCauNhap" }}
                         dongPhu={[
-                            "Yêu cầu báo giá",
+                            t("Yêu cầu báo giá"),
                             bang.rong
-                                ? "chưa có sản phẩm"
-                                : <b key="sp" className="font-semibold text-bo-foreground">{`${soVN(bang.tong.soSanPham)} sản phẩm, ${soVN(bang.tong.soDong)} biến thể`}</b>,
-                            bang.rong ? null : <span key="sl">tổng số lượng <b className="font-semibold text-bo-foreground">{soVN(bang.tong.soLuong)}</b></span>,
+                                ? t("chưa có sản phẩm")
+                                : <b key="sp" className="font-semibold text-bo-foreground">{`${t("{{soSanPham}} sản phẩm", { count: bang.tong.soSanPham, soSanPham: soVN(bang.tong.soSanPham) })}, ${t("{{soBienThe}} biến thể", { count: bang.tong.soDong, soBienThe: soVN(bang.tong.soDong) })}`}</b>,
+                            bang.rong ? null : <span key="sl">{t("tổng số lượng")} <b className="font-semibold text-bo-foreground">{soVN(bang.tong.soLuong)}</b></span>,
                             ...chuDemBaoGia(tongQuan),
                         ]}
                         onQuayLai={quayLai}
-                        nhanQuayLai="Về danh sách yêu cầu báo giá"
+                        nhanQuayLai={t("Về danh sách yêu cầu báo giá")}
                         nutPhu={
                             // Trang in chặn như đơn mua (in có giá mua): vai trò không xem đơn mua không có nút in
                             xemDonMua
-                                ? { nhan: "In yêu cầu báo giá", icon: Printer, onClick: () => navigate(`/quotation-requests/${id}/print`) }
+                                ? { nhan: t("In yêu cầu báo giá"), icon: Printer, onClick: () => navigate(`/quotation-requests/${id}/print`) }
                                 : null
                         }
-                        saoChepMa={{ giaTri: yc.soYeuCauMuaHang, nhan: "Sao chép mã yêu cầu" }}
+                        saoChepMa={{ giaTri: yc.soYeuCauMuaHang, nhan: t("Sao chép mã yêu cầu") }}
                         menu={[{
                             ma: "yeu-cau-nhap",
-                            nhan: "Mở yêu cầu nhập hàng",
-                            moTa: "Người tạo, duyệt và tiến trình",
+                            nhan: t("Mở yêu cầu nhập hàng"),
+                            moTa: t("Người tạo, duyệt và tiến trình"),
                             icon: FileText,
                             onSelect: () => navigate(`/purchase-requests/${yc.id}`),
                         }]}
@@ -160,9 +161,9 @@ function SoSanhBaoGia({ id }) {
                 }
                 thongBao={
                     !xemDonMua ? (
-                        <DongThongBao>Giá nhà cung cấp báo chỉ hiện với nhân viên mua hàng, quản lý kho, nhân viên kho và quản trị viên.</DongThongBao>
+                        <DongThongBao>{t("Giá nhà cung cấp báo chỉ hiện với nhân viên mua hàng, quản lý kho, nhân viên kho và quản trị viên.")}</DongThongBao>
                     ) : soNcc ? null : (
-                        <DongThongBao>Yêu cầu chưa gửi cho nhà cung cấp nào nên chưa có giá để so sánh.</DongThongBao>
+                        <DongThongBao>{t("Yêu cầu chưa gửi cho nhà cung cấp nào nên chưa có giá để so sánh.")}</DongThongBao>
                     )
                 }
                 chinh={
@@ -178,8 +179,8 @@ function SoSanhBaoGia({ id }) {
                             chuThich={
                                 soNcc
                                     ? moiChapNhan
-                                        ? "Giá do nhà cung cấp nhập qua cổng báo giá. Bấm tên nhà cung cấp để xem chi tiết và chấp nhận báo giá."
-                                        : "Giá do nhà cung cấp nhập qua cổng báo giá. Bấm tên nhà cung cấp để xem chi tiết báo giá."
+                                        ? t("Giá do nhà cung cấp nhập qua cổng báo giá. Bấm tên nhà cung cấp để xem chi tiết và chấp nhận báo giá.")
+                                        : t("Giá do nhà cung cấp nhập qua cổng báo giá. Bấm tên nhà cung cấp để xem chi tiết báo giá.")
                                     : ""
                             }
                         />
@@ -188,7 +189,7 @@ function SoSanhBaoGia({ id }) {
                 cotPhai={
                     <ThuocTinhYeuCau
                         yc={yc}
-                        nhan="Thông tin yêu cầu báo giá"
+                        nhan={t("Thông tin yêu cầu báo giá")}
                         conHieuLuc={tt === TRANG_THAI_YEU_CAU.DA_GUI_BAO_GIA}
                         baoGia={xemDonMua ? tongQuan : null}
                         lienQuan={lienQuan}

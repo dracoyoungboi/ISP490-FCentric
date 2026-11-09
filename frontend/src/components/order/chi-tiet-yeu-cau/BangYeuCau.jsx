@@ -21,11 +21,12 @@ import {
 } from "@/components/chung-tu/kieuBang";
 import { cn } from "@/lib/utils";
 import { chuChatLieu, chuSoBienThe } from "./tinhYeuCau";
+import { t } from "@/i18n";
 
 const MA_HEX = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
 const CACH_XEM = [
-  { value: "danhSach", label: "Danh sách" },
-  { value: "luoi", label: "Lưới màu × kích cỡ" },
+  { value: "danhSach", label: t("Danh sách") },
+  { value: "luoi", label: t("Lưới màu × kích cỡ") },
 ];
 
 /** Lưới một sản phẩm: một hàng mỗi màu, một cột mỗi kích cỡ, ô là số lượng (rê chuột thấy SKU), cột Cộng. */
@@ -34,14 +35,14 @@ function LuoiSanPham({ ten, dong }) {
   return (
     <div className="overflow-x-auto rounded-md border border-slate-200 bg-bo-surface">
       <table className="w-full min-w-max border-collapse text-[13px] tabular-nums">
-        <caption className="sr-only">Lưới màu và kích cỡ của {ten}</caption>
+        <caption className="sr-only">{t("Lưới màu và kích cỡ của {{ten}}", { ten })}</caption>
         <thead>
           <tr className="border-b border-slate-200 bg-bo-surface-subtle text-xs text-bo-muted">
-            <th scope="col" className="px-3 py-2 text-left font-medium">Màu \ Kích cỡ</th>
+            <th scope="col" className="px-3 py-2 text-left font-medium">{t("Màu \\ Kích cỡ")}</th>
             {luoi.cotKichCo.map((k) => (
               <th key={k} scope="col" className="min-w-12 px-3 py-2 text-right font-medium">{k}</th>
             ))}
-            <th scope="col" className="px-3 py-2 text-right font-medium">Cộng</th>
+            <th scope="col" className="px-3 py-2 text-right font-medium">{t("Cộng")}</th>
           </tr>
         </thead>
         <tbody>
@@ -63,7 +64,7 @@ function LuoiSanPham({ ten, dong }) {
               {h.o.map((o) => (
                 <td
                   key={o.kichCo}
-                  title={o.giaTri == null ? "Không có biến thể này" : o.dong?.sku || undefined}
+                  title={o.giaTri == null ? t("Không có biến thể này") : o.dong?.sku || undefined}
                   className={cn("px-3 py-2 text-right", o.giaTri == null ? "text-bo-muted" : "text-bo-foreground")}
                 >
                   {o.giaTri == null ? "—" : soVN(o.giaTri)}
@@ -94,7 +95,7 @@ export default function BangYeuCau({ bang }) {
     <section aria-labelledby={`${idBang}-tieu-de`} className="flex min-w-0 flex-1 flex-col">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-4 pb-3 pt-4 sm:px-6">
         <h2 id={`${idBang}-tieu-de`} className="text-base font-semibold leading-6 text-bo-foreground">
-          Sản phẩm cần nhập
+          {t("Sản phẩm cần nhập")}
         </h2>
         {bang.chuGoiYThuGon ? <p className="text-[13px] leading-5 text-bo-muted">{bang.chuGoiYThuGon}</p> : null}
       </div>
@@ -104,13 +105,13 @@ export default function BangYeuCau({ bang }) {
           tuKhoa={bang.tuKhoa}
           onDoiTuKhoa={bang.datTuKhoa}
           onXoaTuKhoa={bang.xoaTuKhoa}
-          nhanTim="Tìm trong yêu cầu"
+          nhanTim={t("Tìm trong yêu cầu")}
           ketQua={bang.chuKetQua}
           khongKetQua={bang.khongKetQua}
           moHet={bang.moHet}
           onDoiMoHet={coDong ? bang.doiMoTatCa : undefined}
           nutXem={
-            <NutPhanDoan nhan="Cách xem biến thể" value={bang.cheDoXem} onChange={bang.datCheDoXem} luaChon={CACH_XEM} />
+            <NutPhanDoan nhan={t("Cách xem biến thể")} value={bang.cheDoXem} onChange={bang.datCheDoXem} luaChon={CACH_XEM} />
           }
         />
       ) : null}
@@ -121,9 +122,9 @@ export default function BangYeuCau({ bang }) {
             {luoi ? null : (
               <thead>
                 <tr className={DONG_TIEU_DE}>
-                  <th scope="col" className={cn(O_TIEU_DE, O_DAU)}>Biến thể</th>
-                  <th scope="col" className={cn(O_TIEU_DE, AN_DIEN_THOAI)}>Mã SKU</th>
-                  <th scope="col" className={cn(O_TIEU_DE, O_CUOI, "text-right")}>Số lượng</th>
+                  <th scope="col" className={cn(O_TIEU_DE, O_DAU)}>{t("Biến thể")}</th>
+                  <th scope="col" className={cn(O_TIEU_DE, AN_DIEN_THOAI)}>{t("Mã SKU")}</th>
+                  <th scope="col" className={cn(O_TIEU_DE, O_CUOI, "text-right")}>{t("Số lượng")}</th>
                 </tr>
               </thead>
             )}
@@ -184,7 +185,7 @@ export default function BangYeuCau({ bang }) {
         </div>
       ) : null}
 
-      <KhongKetQua bang={bang} tenChungTu="yêu cầu nhập hàng" donVi="biến thể" />
+      <KhongKetQua bang={bang} tenChungTu={t("yêu cầu nhập hàng")} donVi={t("biến thể")} />
       {bang.phanTrang ? <PhanTrangBang {...bang.phanTrang} /> : null}
     </section>
   );

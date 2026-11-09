@@ -43,8 +43,9 @@ import purchaseRequestService from "@/services/purchaseRequestService";
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import { khoTrongToken } from "@/utils/khoLamViec";
 import { ROLES, getCurrentUserId, hasAnyRole } from "@/utils/roles";
+import { t } from "@/i18n";
 
-const TEN_CHUNG_TU = "yêu cầu nhập hàng";
+const TEN_CHUNG_TU = t("yêu cầu nhập hàng");
 const LY_DO_RONG = cauChungTuRong(TEN_CHUNG_TU, { dauCham: false });
 // Máy chủ từ chối vì yêu cầu đã đổi ở nơi khác (vd. 400 "Chỉ duyệt hoặc từ chối được yêu cầu đang ở trạng thái Chờ
 // duyệt" khi người khác vừa duyệt) hoặc không còn quyền: đóng hộp, báo lỗi, tải lại; lỗi khác giữ hộp để bấm lại
@@ -103,7 +104,7 @@ function ChiTietYeuCauNhapHang({ id }) {
     if (!yc && (q.loading || (!q.error && q.data === undefined))) {
         return (
             <PageContainer className="flex min-h-full flex-col">
-                <KhungDangTai nhan="Đang tải yêu cầu nhập hàng" />
+                <KhungDangTai nhan={t("Đang tải yêu cầu nhập hàng")} />
             </PageContainer>
         );
     }
@@ -126,7 +127,7 @@ function ChiTietYeuCauNhapHang({ id }) {
     const tt = Number(yc.trangThai);
     const ma = yc.soYeuCauMuaHang || `#${yc.id}`;
     const kho = yc.khoNhap;
-    const tenKho = kho?.tenKho || "kho nhận";
+    const tenKho = kho?.tenKho || t("kho nhận");
 
     // ── Quyền ───────────────────────────────────────────────────────────────
     const quyen = quyenDuyetYeuCau({
@@ -154,14 +155,14 @@ function ChiTietYeuCauNhapHang({ id }) {
         coYeuCauBaoGia
             ? {
                 khoa: "yeu-cau-bao-gia",
-                loai: "Yêu cầu báo giá",
-                ma: baoGia.length ? `Gửi ${soVN(baoGia.length)} nhà cung cấp` : ma,
+                loai: t("Yêu cầu báo giá"),
+                ma: baoGia.length ? t("Gửi {{soNcc}} nhà cung cấp", { count: baoGia.length, soNcc: soVN(baoGia.length) }) : ma,
                 to: `/quotation-requests/${yc.id}`,
             }
             : null,
         ...baoGiaDaChot(yc).map((don) => ({
             khoa: `don-mua-${don.id}`,
-            loai: "Đơn mua hàng",
+            loai: t("Đơn mua hàng"),
             ma: don.soDonMua,
             to: xemDonMua ? `/purchase-orders/${don.id}` : undefined,
             trangThai: getDonMuaHangStatus(don.trangThai).label,
@@ -196,14 +197,14 @@ function ChiTietYeuCauNhapHang({ id }) {
     const thucHien = async (trangThai) => {
         const lyDoGui = lyDo.trim();
         if (trangThai === TRANG_THAI_YEU_CAU.TU_CHOI && !lyDoGui) {
-            toast.error("Vui lòng nhập lý do từ chối");
+            toast.error(t("Vui lòng nhập lý do từ chối"));
             return;
         }
         setLoiHop(null);
         setDangChay(true);
         try {
             await chayCoThoiHan(() => purchaseRequestService.approve(id, trangThai, lyDoGui));
-            toast.success(trangThai === TRANG_THAI_YEU_CAU.DA_DUYET ? `Đã phê duyệt yêu cầu ${ma}.` : `Đã từ chối yêu cầu ${ma}.`);
+            toast.success(trangThai === TRANG_THAI_YEU_CAU.DA_DUYET ? t("Đã phê duyệt yêu cầu {{ma}}.", { ma }) : t("Đã từ chối yêu cầu {{ma}}.", { ma }));
             setHop("");
             setLyDo("");
             // Ở lại trang: đổi trạng thái tại chỗ (nút duyệt ẩn ngay) rồi tải lại ngầm lấy người duyệt, ngày duyệt
@@ -222,7 +223,7 @@ function ChiTietYeuCauNhapHang({ id }) {
                 return;
             }
             // Câu dự phòng không có dấu chấm: mất mạng thì getApiErrorMessage nối thêm ": không nhận được phản hồi…"
-            const cau = getApiErrorMessage(error, "Không thực hiện được thao tác");
+            const cau = getApiErrorMessage(error, t("Không thực hiện được thao tác"));
             if (LOI_DA_DOI_NOI_KHAC.includes(getApiErrorStatus(error))) {
                 setHop("");
                 setLyDo("");
@@ -236,17 +237,17 @@ function ChiTietYeuCauNhapHang({ id }) {
         }
     };
 
-    const demSp = `${soVN(bang.tong.soSanPham)} sản phẩm, ${soVN(bang.tong.soDong)} biến thể`;
+    const demSp = `${t("{{soSanPham}} sản phẩm", { count: bang.tong.soSanPham, soSanPham: soVN(bang.tong.soSanPham) })}, ${t("{{soBienThe}} biến thể", { count: bang.tong.soDong, soBienThe: soVN(bang.tong.soDong) })}`;
     const tongSl = soVN(bang.tong.soLuong);
     const nutChinh = khoaKhiChoGoc(hienDuyet
         ? [
-            { ma: "tuChoi", nhan: "Từ chối", kieu: "vien", onClick: () => moHop("tuChoi") },
-            { ma: "duyet", nhan: "Phê duyệt", icon: Check, onClick: () => moHop("duyet"), khoa: bang.rong, lyDo: LY_DO_RONG },
+            { ma: "tuChoi", nhan: t("Từ chối"), kieu: "vien", onClick: () => moHop("tuChoi") },
+            { ma: "duyet", nhan: t("Phê duyệt"), icon: Check, onClick: () => moHop("duyet"), khoa: bang.rong, lyDo: LY_DO_RONG },
         ]
         : hienGui
             ? {
                 ma: "gui",
-                nhan: "Gửi yêu cầu báo giá",
+                nhan: t("Gửi yêu cầu báo giá"),
                 icon: Send,
                 onClick: () => navigate(`/purchase-requests/${id}/send-quotation`),
                 khoa: bang.rong,
@@ -257,13 +258,14 @@ function ChiTietYeuCauNhapHang({ id }) {
     const thongBao = [
         tt === TRANG_THAI_YEU_CAU.TU_CHOI && yc.lyDoTuChoi ? (
             <DongThongBao key="ly-do" tone="bad">
-                <b className="font-semibold">Lý do từ chối:</b>{" "}
+                <b className="font-semibold">{t("Lý do từ chối:")}</b>{" "}
                 <span className="whitespace-pre-wrap">{yc.lyDoTuChoi}</span>
             </DongThongBao>
         ) : null,
         choDuyet && quyen.khacKho ? (
             <DongThongBao key="khac-kho">
-                Yêu cầu nhập vào <b className="font-semibold">{tenKho}</b>. Chỉ quản lý {tenKho} hoặc quản trị viên duyệt được.
+                {t("Yêu cầu nhập vào")} <b className="font-semibold">{tenKho}</b>.{" "}
+                {t("Chỉ quản lý {{tenKho}} hoặc quản trị viên duyệt được.", { tenKho })}
             </DongThongBao>
         ) : null,
     ].filter(Boolean);
@@ -276,20 +278,20 @@ function ChiTietYeuCauNhapHang({ id }) {
                         ma={ma}
                         trangThai={{ label: getYeuCauNhapHangStatus(yc.trangThai).label, quyTrinh: "yeuCauNhap" }}
                         dongPhu={[
-                            "Yêu cầu nhập hàng",
-                            bang.rong ? "chưa có sản phẩm" : <b key="sp" className="font-semibold text-bo-foreground">{demSp}</b>,
-                            bang.rong ? null : <span key="sl">tổng số lượng <b className="font-semibold text-bo-foreground">{tongSl}</b></span>,
+                            t("Yêu cầu nhập hàng"),
+                            bang.rong ? t("chưa có sản phẩm") : <b key="sp" className="font-semibold text-bo-foreground">{demSp}</b>,
+                            bang.rong ? null : <span key="sl">{t("tổng số lượng")} <b className="font-semibold text-bo-foreground">{tongSl}</b></span>,
                         ]}
                         onQuayLai={quayLai}
-                        nhanQuayLai="Về danh sách yêu cầu nhập hàng"
-                        nutPhu={{ nhan: "In yêu cầu", icon: Printer, onClick: () => navigate(`/purchase-requests/${id}/print`) }}
-                        saoChepMa={{ giaTri: yc.soYeuCauMuaHang, nhan: "Sao chép mã yêu cầu" }}
+                        nhanQuayLai={t("Về danh sách yêu cầu nhập hàng")}
+                        nutPhu={{ nhan: t("In yêu cầu"), icon: Printer, onClick: () => navigate(`/purchase-requests/${id}/print`) }}
+                        saoChepMa={{ giaTri: yc.soYeuCauMuaHang, nhan: t("Sao chép mã yêu cầu") }}
                         menu={
                             coYeuCauBaoGia
                                 ? [{
                                     ma: "yeu-cau-bao-gia",
-                                    nhan: "Mở yêu cầu báo giá",
-                                    moTa: "So sánh giá các nhà cung cấp",
+                                    nhan: t("Mở yêu cầu báo giá"),
+                                    moTa: t("So sánh giá các nhà cung cấp"),
                                     icon: FileText,
                                     onSelect: () => navigate(`/quotation-requests/${yc.id}`),
                                 }]
@@ -298,13 +300,13 @@ function ChiTietYeuCauNhapHang({ id }) {
                         nutChinh={nutChinh}
                     />
                 }
-                tienTrinh={<TienTrinhChungTu buoc={buoc} nhan="Tiến trình yêu cầu nhập hàng" />}
+                tienTrinh={<TienTrinhChungTu buoc={buoc} nhan={t("Tiến trình yêu cầu nhập hàng")} />}
                 thongBao={thongBao.length ? thongBao : null}
                 chinh={<BangYeuCau bang={bang} />}
                 cotPhai={
                     <ThuocTinhYeuCau
                         yc={yc}
-                        nhan="Thông tin yêu cầu nhập hàng"
+                        nhan={t("Thông tin yêu cầu nhập hàng")}
                         conHieuLuc={[TRANG_THAI_YEU_CAU.NHAP, TRANG_THAI_YEU_CAU.CHO_DUYET, TRANG_THAI_YEU_CAU.DA_DUYET, TRANG_THAI_YEU_CAU.DA_GUI_BAO_GIA].includes(tt)}
                         coNguoiDuyet
                         lienQuan={lienQuan}
@@ -315,9 +317,9 @@ function ChiTietYeuCauNhapHang({ id }) {
             <HopXacNhanChungTu
                 mo={hop === "duyet"}
                 onDoiMo={doiMoHop}
-                tieuDe="Phê duyệt yêu cầu nhập hàng"
-                moTa={`${ma} · ${demSp}, tổng số lượng ${tongSl} nhập về ${tenKho}. Sau khi duyệt, nhân viên mua hàng gửi được yêu cầu báo giá cho nhà cung cấp.`}
-                nhanXacNhan="Phê duyệt"
+                tieuDe={t("Phê duyệt yêu cầu nhập hàng")}
+                moTa={t("{{ma}} · {{demSp}}, tổng số lượng {{tongSl}} nhập về {{tenKho}}. Sau khi duyệt, nhân viên mua hàng gửi được yêu cầu báo giá cho nhà cung cấp.", { ma, demSp, tongSl, tenKho })}
+                nhanXacNhan={t("Phê duyệt")}
                 iconXacNhan={Check}
                 dangChay={dangChay}
                 loi={loiHop}
@@ -326,25 +328,25 @@ function ChiTietYeuCauNhapHang({ id }) {
             <HopXacNhanChungTu
                 mo={hop === "tuChoi"}
                 onDoiMo={doiMoHop}
-                tieuDe="Từ chối yêu cầu nhập hàng"
-                moTa="Người tạo yêu cầu sẽ thấy lý do này. Từ chối rồi thì không duyệt lại được."
-                nhanXacNhan="Từ chối"
+                tieuDe={t("Từ chối yêu cầu nhập hàng")}
+                moTa={t("Người tạo yêu cầu sẽ thấy lý do này. Từ chối rồi thì không duyệt lại được.")}
+                nhanXacNhan={t("Từ chối")}
                 kieu="nguyHiem"
                 dangChay={dangChay}
                 khoaXacNhan={!lyDo.trim()}
-                lyDoKhoa="Nhập lý do từ chối"
+                lyDoKhoa={t("Nhập lý do từ chối")}
                 loi={loiHop}
                 onXacNhan={() => thucHien(TRANG_THAI_YEU_CAU.TU_CHOI)}
             >
                 <div className="grid gap-1.5">
                     <label htmlFor="ly-do-tu-choi" className={NHAN_O}>
-                        Lý do từ chối <span className="text-bo-danger">*</span>
+                        {t("Lý do từ chối")} <span className="text-bo-danger">*</span>
                     </label>
                     <textarea
                         id="ly-do-tu-choi"
                         value={lyDo}
                         onChange={(suKien) => setLyDo(suKien.target.value.slice(0, LY_DO_TU_CHOI_TOI_DA))}
-                        placeholder="Ví dụ: Tồn kho hiện tại còn đủ cho 2 tuần tới"
+                        placeholder={t("Ví dụ: Tồn kho hiện tại còn đủ cho 2 tuần tới")}
                         rows={3}
                         maxLength={LY_DO_TU_CHOI_TOI_DA}
                         aria-describedby="ly-do-tu-choi-goi-y"
@@ -353,7 +355,7 @@ function ChiTietYeuCauNhapHang({ id }) {
                         className={O_NHAP_NHIEU_DONG}
                     />
                     <p id="ly-do-tu-choi-goi-y" className={GOI_Y_O}>
-                        <span>Bắt buộc</span>
+                        <span>{t("Bắt buộc")}</span>
                         <span>{lyDo.length}/{LY_DO_TU_CHOI_TOI_DA}</span>
                     </p>
                 </div>

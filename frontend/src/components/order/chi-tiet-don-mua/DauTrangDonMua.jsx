@@ -18,6 +18,7 @@ import { getDonMuaHangStatus } from "@/constants/donMuaHang";
 import { CAU_HINH_THONG_BAO_NHANH } from "@/config/thongBaoNhanh";
 import useSaoChep from "@/hooks/useSaoChep";
 import { formatCurrency, formatDate } from "@/utils/formatters";
+import { t } from "@/i18n";
 
 const NUT_VIEN =
   "border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle";
@@ -57,7 +58,7 @@ export default function DauTrangDonMua({ don, taoPhieu, ketThuc, onQuayLai, onIn
   const saoChepMa = async (suKien) => {
     if (!taiCho) {
       // Menu đóng như mọi mục khác, thông báo nhanh báo đã chép
-      await saoChep(don.soDonMua, { nhan: "Sao chép mã đơn" });
+      await saoChep(don.soDonMua, { nhan: t("Sao chép mã đơn") });
       return;
     }
     suKien.preventDefault(); // giữ menu mở để người dùng thấy "Đã sao chép"
@@ -72,9 +73,9 @@ export default function DauTrangDonMua({ don, taoPhieu, ketThuc, onQuayLai, onIn
   const kho = don.khoNhap;
   const coYeuCau = Boolean(don.yeuCauMuaHang?.id);
   const mucKetThuc = ketThuc?.dong
-    ? { loai: "dong", nhan: "Đóng đơn (nhận thiếu)", icon: PackageMinus }
+    ? { loai: "dong", nhan: t("Đóng đơn (nhận thiếu)"), icon: PackageMinus }
     : ketThuc?.huy
-      ? { loai: "huy", nhan: "Hủy đơn", icon: Ban }
+      ? { loai: "huy", nhan: t("Hủy đơn", { context: "hanh_dong" }), icon: Ban }
       : null;
   const IconKetThuc = mucKetThuc?.icon;
 
@@ -87,7 +88,7 @@ export default function DauTrangDonMua({ don, taoPhieu, ketThuc, onQuayLai, onIn
       className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover disabled:cursor-not-allowed disabled:opacity-50 max-sm:w-full"
     >
       {taoPhieu.moPhieu ? <FileText className="size-4" aria-hidden="true" /> : <PackagePlus className="size-4" aria-hidden="true" />}
-      {taoPhieu.nhan || "Tạo phiếu nhập kho"}
+      {taoPhieu.nhan || t("Tạo phiếu nhập kho")}
     </Button>
   );
 
@@ -99,8 +100,8 @@ export default function DauTrangDonMua({ don, taoPhieu, ketThuc, onQuayLai, onIn
           variant="outline"
           size="icon"
           onClick={onQuayLai}
-          aria-label="Về danh sách đơn mua hàng"
-          title="Về danh sách đơn mua hàng"
+          aria-label={t("Về danh sách đơn mua hàng")}
+          title={t("Về danh sách đơn mua hàng")}
           className={`shrink-0 ${NUT_VIEN}`}
         >
           <ArrowLeft className="size-4" aria-hidden="true" />
@@ -121,7 +122,7 @@ export default function DauTrangDonMua({ don, taoPhieu, ketThuc, onQuayLai, onIn
               </>
             ) : null}
             {kho?.tenKho ? ` · ${kho.tenKho}` : null}
-            {don.ngayTao ? ` · tạo ${formatDate(don.ngayTao)}` : null}
+            {don.ngayTao ? t(" · tạo {{ngayTao}}", { ngayTao: formatDate(don.ngayTao) }) : null}
           </p>
         </div>
       </div>
@@ -129,12 +130,12 @@ export default function DauTrangDonMua({ don, taoPhieu, ketThuc, onQuayLai, onIn
       <div className="flex flex-wrap items-center gap-2 max-sm:w-full">
         <Button type="button" variant="outline" onClick={onIn} className={`gap-1.5 ${NUT_VIEN}`}>
           <Printer className="size-4" aria-hidden="true" />
-          In đơn hàng
+          {t("In đơn hàng")}
         </Button>
 
         <DropdownMenu modal={false} open={moMenu} onOpenChange={doiMenu}>
           <DropdownMenuTrigger asChild>
-            <Button type="button" variant="outline" size="icon" aria-label="Thao tác khác" title="Thao tác khác" className={NUT_VIEN}>
+            <Button type="button" variant="outline" size="icon" aria-label={t("Thao tác khác")} title={t("Thao tác khác")} className={NUT_VIEN}>
               <Ellipsis className="size-4" aria-hidden="true" />
             </Button>
           </DropdownMenuTrigger>
@@ -149,12 +150,12 @@ export default function DauTrangDonMua({ don, taoPhieu, ketThuc, onQuayLai, onIn
               {daChep ? (
                 <>
                   <Check className="size-4 text-bo-success" strokeWidth={2.5} aria-hidden="true" />
-                  <span className="text-bo-success">Đã sao chép</span>
+                  <span className="text-bo-success">{t("Đã sao chép")}</span>
                 </>
               ) : (
                 <>
                   <Copy className="size-4 text-slate-400" aria-hidden="true" />
-                  Sao chép mã đơn
+                  {t("Sao chép mã đơn")}
                 </>
               )}
             </DropdownMenuItem>
@@ -164,7 +165,7 @@ export default function DauTrangDonMua({ don, taoPhieu, ketThuc, onQuayLai, onIn
                 className="cursor-pointer gap-2 rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
               >
                 <FileText className="size-4 text-slate-400" aria-hidden="true" />
-                Mở yêu cầu nhập hàng
+                {t("Mở yêu cầu nhập hàng")}
               </DropdownMenuItem>
             ) : null}
             {mucKetThuc ? (
@@ -183,7 +184,7 @@ export default function DauTrangDonMua({ don, taoPhieu, ketThuc, onQuayLai, onIn
               </>
             ) : null}
             <span className="sr-only" aria-live="polite">
-              {daChep ? "Đã sao chép mã đơn" : ""}
+              {daChep ? t("Đã sao chép mã đơn") : ""}
             </span>
           </DropdownMenuContent>
         </DropdownMenu>

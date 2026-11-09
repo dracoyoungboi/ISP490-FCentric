@@ -25,6 +25,7 @@ import {
 } from "@/components/chung-tu/kieuBang";
 import { TRANG_THAI_YEU_CAU, VAI_TRO_XEM_DON_MUA } from "@/components/order/chi-tiet-yeu-cau/tinhYeuCau";
 import { chanGuiBaoGia, maYeuCau, tongSoLuongDat } from "@/components/order/gui-bao-gia/tinhGuiBaoGia";
+import { t } from "@/i18n";
 
 /**
  * Vai trò gửi được yêu cầu báo giá: trùng @RequireAuth của POST /nghiep-vu/don-mua-hang/gui-yeu-cau-bao-gia
@@ -83,7 +84,7 @@ function ChonYeuCauNhapHang() {
             });
             setDsYeuCau(res.data?.data?.content || res.data?.content || []);
         } catch (e) {
-            setLoiTai(getApiErrorMessage(e, "máy chủ không phản hồi").trim().replace(/[.。]+$/, ""));
+            setLoiTai(getApiErrorMessage(e, t("máy chủ không phản hồi")).trim().replace(/[.。]+$/, ""));
         } finally {
             setDangTai(false);
         }
@@ -108,12 +109,12 @@ function ChonYeuCauNhapHang() {
             yc,
         };
     }), [dsYeuCau]);
-    const bang = useBangChungTu(dong, { theo: "dong", donVi: "yêu cầu" });
+    const bang = useBangChungTu(dong, { theo: "dong", donVi: t("yêu cầu") });
 
     if (dangTai && !dsYeuCau.length) {
         return (
             <PageContainer>
-                <LoadingState label="Đang tải yêu cầu nhập hàng đã duyệt" />
+                <LoadingState label={t("Đang tải yêu cầu nhập hàng đã duyệt")} />
             </PageContainer>
         );
     }
@@ -121,27 +122,26 @@ function ChonYeuCauNhapHang() {
     const chon = dong.find((d) => String(d.id) === String(chonId)) ?? null;
     const yc = chon?.yc ?? null;
     const lyDoKhoa = !duocGui
-        ? "Vai trò của bạn không gửi được yêu cầu báo giá"
-        : !chon ? "Chọn một yêu cầu nhập hàng" : chon.chan?.tieuDe ?? "";
+        ? t("Vai trò của bạn không gửi được yêu cầu báo giá")
+        : !chon ? t("Chọn một yêu cầu nhập hàng") : chon.chan?.tieuDe ?? "";
     const diTiep = (d) => {
         if (duocGui && d && !d.chan) navigate(duongGui(d.id));
     };
 
     const thongBao = [
         <DongThongBao key="mot-lan" tone="info">
-            Chỉ hiện yêu cầu nhập hàng <b className="font-semibold">đã duyệt và chưa gửi</b>
-            {gioiHanKho ? " của nơi làm việc của bạn" : ""}. Bước sau chọn nhà cung cấp; mỗi yêu cầu chỉ gửi yêu cầu báo giá một
-            lần, tới nhiều nhà cung cấp cùng lúc.
+            {t("Chỉ hiện yêu cầu nhập hàng")} <b className="font-semibold">{t("đã duyệt và chưa gửi")}</b>
+            {gioiHanKho ? <> {t("của nơi làm việc của bạn")}</> : null}.{" "}
+            {t("Bước sau chọn nhà cung cấp; mỗi yêu cầu chỉ gửi yêu cầu báo giá một lần, tới nhiều nhà cung cấp cùng lúc.")}
         </DongThongBao>,
         !duocGui ? (
             <DongThongBao key="vai-tro" tone="warn">
-                Vai trò của bạn xem được yêu cầu nhập hàng nhưng không gửi được yêu cầu báo giá. Hãy báo nhân viên mua hàng
-                hoặc quản lý kho.
+                {t("Vai trò của bạn xem được yêu cầu nhập hàng nhưng không gửi được yêu cầu báo giá. Hãy báo nhân viên mua hàng hoặc quản lý kho.")}
             </DongThongBao>
         ) : null,
         loiTai ? (
-            <DongThongBao key="loi-tai" tone="bad" actions={<NutChu onClick={taiDanhSach}>Thử lại</NutChu>}>
-                Không tải được danh sách yêu cầu nhập hàng: {loiTai}.
+            <DongThongBao key="loi-tai" tone="bad" actions={<NutChu onClick={taiDanhSach}>{t("Thử lại")}</NutChu>}>
+                {t("Không tải được danh sách yêu cầu nhập hàng: {{loiTai}}.", { loiTai })}
             </DongThongBao>
         ) : null,
     ].filter(Boolean);
@@ -149,26 +149,26 @@ function ChonYeuCauNhapHang() {
     const chinh = !dong.length ? (
         <EmptyState
             icon={ClipboardList}
-            title={loiTai ? "Chưa tải được danh sách" : "Không có yêu cầu nhập hàng nào chờ gửi yêu cầu báo giá"}
-            description={loiTai ? "Bấm Thử lại ở dòng báo lỗi phía trên." : "Yêu cầu nhập hàng cần được duyệt trước khi gửi yêu cầu báo giá cho nhà cung cấp."}
+            title={loiTai ? t("Chưa tải được danh sách") : t("Không có yêu cầu nhập hàng nào chờ gửi yêu cầu báo giá")}
+            description={loiTai ? t("Bấm Thử lại ở dòng báo lỗi phía trên.") : t("Yêu cầu nhập hàng cần được duyệt trước khi gửi yêu cầu báo giá cho nhà cung cấp.")}
             action={loiTai ? null : (
                 <Link to="/purchase-requests" className="text-sm font-semibold text-bo-primary hover:underline">
-                    Mở danh sách yêu cầu nhập hàng
+                    {t("Mở danh sách yêu cầu nhập hàng")}
                 </Link>
             )}
             className="min-h-[280px] flex-1"
         />
     ) : (
         <section aria-labelledby={`${idBang}-tieu-de`} className="flex min-w-0 flex-1 flex-col">
-            <h2 id={`${idBang}-tieu-de`} className="sr-only">Yêu cầu nhập hàng đã duyệt</h2>
+            <h2 id={`${idBang}-tieu-de`} className="sr-only">{t("Yêu cầu nhập hàng đã duyệt")}</h2>
             {bang.coCongCu ? (
                 <ThanhCongCuBang
                     className="pt-3"
                     tuKhoa={bang.tuKhoa}
                     onDoiTuKhoa={bang.datTuKhoa}
                     onXoaTuKhoa={bang.xoaTuKhoa}
-                    goiYTim="Tìm theo mã yêu cầu, kho nhập, người tạo"
-                    nhanTim="Tìm yêu cầu nhập hàng"
+                    goiYTim={t("Tìm theo mã yêu cầu, kho nhập, người tạo")}
+                    nhanTim={t("Tìm yêu cầu nhập hàng")}
                     ketQua={bang.chuKetQua}
                     khongKetQua={bang.khongKetQua}
                 />
@@ -178,11 +178,11 @@ function ChonYeuCauNhapHang() {
                     <table className={cn(BANG, "@2xl/khoi:min-w-[640px]")}>
                         <thead>
                             <tr className={DONG_TIEU_DE}>
-                                <th scope="col" className={cn(O_TIEU_DE, O_DAU)}>Yêu cầu nhập hàng</th>
-                                <th scope="col" className={cn(O_TIEU_DE, AN_DIEN_THOAI)}>Kho nhập</th>
-                                <th scope="col" className={cn(O_TIEU_DE, "w-36", AN_DIEN_THOAI)}>Giao dự kiến</th>
-                                <th scope="col" className={cn(O_TIEU_DE, "w-24 text-right")}>Biến thể</th>
-                                <th scope="col" className={cn(O_TIEU_DE, O_CUOI, "w-28 text-right")}>Tổng số lượng</th>
+                                <th scope="col" className={cn(O_TIEU_DE, O_DAU)}>{t("Yêu cầu nhập hàng")}</th>
+                                <th scope="col" className={cn(O_TIEU_DE, AN_DIEN_THOAI)}>{t("Kho nhập")}</th>
+                                <th scope="col" className={cn(O_TIEU_DE, "w-36", AN_DIEN_THOAI)}>{t("Giao dự kiến")}</th>
+                                <th scope="col" className={cn(O_TIEU_DE, "w-24 text-right")}>{t("Biến thể")}</th>
+                                <th scope="col" className={cn(O_TIEU_DE, O_CUOI, "w-28 text-right")}>{t("Tổng số lượng")}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -208,10 +208,10 @@ function ChonYeuCauNhapHang() {
                                                 <span className="min-w-0">
                                                     <span className="block font-medium tabular-nums text-bo-foreground">{d.tenSanPham}</span>
                                                     <span className="block text-xs text-bo-muted">
-                                                        {d.yc.nguoiTao?.hoTen ? `${d.yc.nguoiTao.hoTen} · ` : ""}tạo {formatDate(d.yc.ngayTao) || "—"}
+                                                        {d.yc.nguoiTao?.hoTen ? `${d.yc.nguoiTao.hoTen} · ` : ""}{t("tạo {{ngayTao}}", { ngayTao: formatDate(d.yc.ngayTao) || "—" })}
                                                     </span>
                                                     <span className={cn("block text-xs text-bo-muted", CHI_DIEN_THOAI)}>
-                                                        {d.yc.khoNhap?.tenKho || "—"} · giao {formatDate(d.yc.ngayGiaoDuKien) || "—"}
+                                                        {d.yc.khoNhap?.tenKho || "—"} · {t("giao {{ngayGiao}}", { ngayGiao: formatDate(d.yc.ngayGiaoDuKien) || "—" })}
                                                     </span>
                                                 </span>
                                             </label>
@@ -219,7 +219,7 @@ function ChonYeuCauNhapHang() {
                                         <td className={cn(O, AN_DIEN_THOAI)}>{d.yc.khoNhap?.tenKho || "—"}</td>
                                         <td className={cn(O, AN_DIEN_THOAI)}>{formatDate(d.yc.ngayGiaoDuKien) || "—"}</td>
                                         <td className={cn(O, "text-right", d.soBienThe === 0 && "text-bo-muted")}>
-                                            {d.soBienThe == null ? "—" : d.soBienThe === 0 ? "Chưa có" : soVN(d.soBienThe)}
+                                            {d.soBienThe == null ? "—" : d.soBienThe === 0 ? t("Chưa có") : soVN(d.soBienThe)}
                                         </td>
                                         <td className={cn(O, O_CUOI, "text-right font-semibold")}>{d.soLuong == null ? "—" : soVN(d.soLuong)}</td>
                                     </tr>
@@ -229,7 +229,7 @@ function ChonYeuCauNhapHang() {
                     </table>
                 </div>
             ) : null}
-            <KhongKetQua bang={bang} tenChungTu="Danh sách" donVi="yêu cầu" />
+            <KhongKetQua bang={bang} tenChungTu={t("Danh sách")} donVi={t("yêu cầu")} />
             {/* Giữ thanh phân trang khi người dùng đã tăng cỡ trang (một trang) để còn đổi lại được */}
             {bang.phanTrang && (bang.soTrang > 1 || bang.tongMuc > Math.min(...(bang.luaChonCoTrang?.length ? bang.luaChonCoTrang : [Infinity])))
                 ? <PhanTrangBang {...bang.phanTrang} />
@@ -238,26 +238,26 @@ function ChonYeuCauNhapHang() {
     );
 
     const cotPhai = yc ? (
-        <CotThuocTinh nhan="Yêu cầu nhập hàng đã chọn">
-            <NhomThuocTinh nhan="Yêu cầu đã chọn">
+        <CotThuocTinh nhan={t("Yêu cầu nhập hàng đã chọn")}>
+            <NhomThuocTinh nhan={t("Yêu cầu đã chọn")}>
                 {/* Mã đã hiện ở dòng đang chọn của bảng: ở đây chỉ là lối mở chi tiết */}
                 <Link to={`/purchase-requests/${yc.id}`} className="text-sm font-semibold text-bo-primary hover:underline">
-                    Mở chi tiết yêu cầu nhập hàng
+                    {t("Mở chi tiết yêu cầu nhập hàng")}
                 </Link>
             </NhomThuocTinh>
             <NhomThuocTinh>
                 <BangThuocTinh
                     muc={[
-                        { nhan: "Người duyệt", giaTri: yc.nguoiDuyet?.hoTen },
-                        { nhan: "Ghi chú", giaTri: yc.ghiChu, an: !yc.ghiChu },
+                        { nhan: t("Người duyệt"), giaTri: yc.nguoiDuyet?.hoTen },
+                        { nhan: t("Ghi chú"), giaTri: yc.ghiChu, an: !yc.ghiChu },
                     ]}
                 />
             </NhomThuocTinh>
-            <NhomThuocTinh nhan="Bước tiếp theo">
+            <NhomThuocTinh nhan={t("Bước tiếp theo")}>
                 <p className="m-0 text-[13px] leading-5 text-slate-700">
                     {chon?.chan
                         ? chon.chan.moTa
-                        : "Chọn nhà cung cấp nhận yêu cầu báo giá. Nhà cung cấp chưa có email hoặc đang ngừng hoạt động không chọn được."}
+                        : t("Chọn nhà cung cấp nhận yêu cầu báo giá. Nhà cung cấp chưa có email hoặc đang ngừng hoạt động không chọn được.")}
                 </p>
             </NhomThuocTinh>
         </CotThuocTinh>
@@ -268,13 +268,13 @@ function ChonYeuCauNhapHang() {
             <KhungChungTu
                 dau={
                     <DauChungTu
-                        ma="Tạo yêu cầu báo giá"
-                        dongPhu={["Bước 1: chọn yêu cầu nhập hàng đã duyệt", "Bước 2: chọn nhà cung cấp và gửi"]}
+                        ma={t("Tạo yêu cầu báo giá")}
+                        dongPhu={[t("Bước 1: chọn yêu cầu nhập hàng đã duyệt"), t("Bước 2: chọn nhà cung cấp và gửi")]}
                         onQuayLai={() => navigate("/quotation-requests")}
-                        nhanQuayLai="Quay lại danh sách"
+                        nhanQuayLai={t("Quay lại danh sách")}
                         nutChinh={{
                             ma: "tiep",
-                            nhan: "Chọn nhà cung cấp",
+                            nhan: t("Chọn nhà cung cấp"),
                             icon: ArrowRight,
                             onClick: () => diTiep(chon),
                             khoa: Boolean(lyDoKhoa),

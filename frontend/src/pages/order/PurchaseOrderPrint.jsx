@@ -1,6 +1,7 @@
 import PrintRoutePage from "@/components/print/PrintRoutePage";
 import { toPurchaseOrderPrintModel } from "@/components/print/adapters/purchaseOrderPrintAdapter";
 import apiClient from '@/services/apiClient';
+import { t } from "@/i18n";
 
 /**
  * Trang in thật của đơn mua hàng — dùng ĐÚNG cách gọi API của
@@ -22,7 +23,7 @@ export default function PurchaseOrderPrint() {
                 if (!order) {
                     // Envelope báo lỗi nghiệp vụ (vd: status 400 "Không tìm thấy đơn mua hàng...")
                     // -> phân loại thành trạng thái "not found" thay vì lỗi chung.
-                    const err = new Error(response?.data?.message || "Không tìm thấy đơn mua hàng");
+                    const err = new Error(response?.data?.message || t("Không tìm thấy đơn mua hàng"));
                     err.isNotFound = (response?.data?.status === 400);
                     throw err;
                 }
@@ -30,13 +31,13 @@ export default function PurchaseOrderPrint() {
             }}
             adapter={toPurchaseOrderPrintModel}
             backPath="/purchase-orders/:id"
-            loadingLabel="Đang tải dữ liệu đơn mua hàng"
-            titleFallback="In đơn mua hàng"
-            notFoundTitle="Không tìm thấy đơn mua hàng."
-            notFoundDescription="Đơn mua hàng có thể đã bị xóa hoặc bạn không có quyền truy cập."
-            forbiddenTitle="Bạn không có quyền xem đơn mua hàng này."
-            forbiddenDescription="Tài khoản của bạn không có quyền truy cập đơn mua hàng này."
-            errorDescription="Không thể tải dữ liệu đơn mua hàng. Vui lòng thử lại."
+            loadingLabel={t("Đang tải dữ liệu đơn mua hàng")}
+            titleFallback={t("In đơn mua hàng")}
+            notFoundTitle={t("Không tìm thấy đơn mua hàng.")}
+            notFoundDescription={t("Đơn mua hàng có thể đã bị xóa hoặc bạn không có quyền truy cập.")}
+            forbiddenTitle={t("Bạn không có quyền xem đơn mua hàng này.")}
+            forbiddenDescription={t("Tài khoản của bạn không có quyền truy cập đơn mua hàng này.")}
+            errorDescription={t("Không thể tải dữ liệu đơn mua hàng. Vui lòng thử lại.")}
         />
     );
 }

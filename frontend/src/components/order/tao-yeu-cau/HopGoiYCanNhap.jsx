@@ -10,6 +10,7 @@ import { khopTuKhoa, soVN, tachTuKhoa } from "@/components/chung-tu/bangChungTu"
 import { CHAN_HOP, DAU_HOP, HOP, MO_TA_HOP, NUT_CHINH, NUT_QUAY_LAI, O_NHAP, TIEU_DE_HOP } from "@/components/chung-tu/kieuHopThoai";
 import { NHAN_CANH_BAO, NHAN_TRUNG, O_CHON } from "./kieuTaoYeuCau";
 import { dongTimCua, khoaSanPham, laGoiY } from "./tinhTaoYeuCau";
+import { t } from "@/i18n";
 
 // Hiện dần theo sản phẩm: kho lớn có thể vài nghìn mã sắp hết, vẽ hết một lần làm hộp mở chậm
 const SO_SP_HIEN = 30;
@@ -96,39 +97,38 @@ function NoiDung({ dsHang, dong, tenKho, nguong, onThem, onDong }) {
       <DialogHeader className={DAU_HOP}>
         <DialogTitle className={cn(TIEU_DE_HOP, "flex items-center gap-2")}>
           <Sparkles className="size-[18px] text-bo-primary" aria-hidden="true" />
-          Gợi ý cần nhập · {tenKho || "Kho tổng"}
+          {t("Gợi ý cần nhập · {{tenKho}}", { tenKho: tenKho || t("Kho tổng") })}
         </DialogTitle>
         <DialogDescription className={MO_TA_HOP}>
-          Mã đã từng nhập về {tenKho || "Kho tổng"} mà khả dụng + đang về không quá ngưỡng (mặc định {soVN(nguong)}, sản phẩm
-          có ngưỡng riêng thì theo ngưỡng đó). Số đề xuất đưa lên gấp đôi ngưỡng, cùng quy tắc mục Cần mua ở Tổng quan.
+          {t("Mã đã từng nhập về {{tenKho}} mà khả dụng + đang về không quá ngưỡng (mặc định {{nguong}}, sản phẩm có ngưỡng riêng thì theo ngưỡng đó). Số đề xuất đưa lên gấp đôi ngưỡng, cùng quy tắc mục Cần mua ở Tổng quan.", { tenKho: tenKho || t("Kho tổng"), nguong: soVN(nguong) })}
         </DialogDescription>
       </DialogHeader>
 
       <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 px-5 pb-3 pt-4 sm:px-6">
         <label className="relative w-full min-w-0 sm:w-72">
-          <span className="sr-only">Tìm trong gợi ý</span>
+          <span className="sr-only">{t("Tìm trong gợi ý")}</span>
           <Search className="pointer-events-none absolute left-2.5 top-2.5 size-4 text-bo-muted" aria-hidden="true" />
           <input
             type="search"
             autoComplete="off"
             value={tuKhoa}
             onChange={(e) => { setTuKhoa(e.target.value); setSoSpHien(SO_SP_HIEN); }}
-            placeholder="Tìm tên, SKU, màu, cỡ, nhóm hàng"
+            placeholder={t("Tìm tên, SKU, màu, cỡ, nhóm hàng")}
             className={cn(O_NHAP, "pl-8")}
           />
         </label>
         {soTrung > 0 ? (
           <label className="flex cursor-pointer items-center gap-2 text-[13px] leading-5 text-slate-700">
             <Checkbox checked={anTrung} onCheckedChange={(v) => setAnTrung(v === true)} className={O_CHON} />
-            Ẩn mã đang trong yêu cầu khác ({soVN(soTrung)})
+            {t("Ẩn mã đang trong yêu cầu khác ({{soTrung}})", { soTrung: soVN(soTrung) })}
           </label>
         ) : null}
         <span className="text-[13px] tabular-nums text-bo-muted sm:ml-auto">
-          {soVN(hien.length)} mã · {soVN(nhom.length)} sản phẩm
+          {t("{{soMa}} mã · {{soSp}} sản phẩm", { soMa: soVN(hien.length), soSp: soVN(nhom.length) })}
         </span>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto border-y border-bo-border" role="table" aria-label="Mã gợi ý cần nhập">
+      <div className="min-h-0 flex-1 overflow-auto border-y border-bo-border" role="table" aria-label={t("Mã gợi ý cần nhập")}>
         <div className="md:min-w-[560px]">
           <div role="row" className={cn(LUOI, "sticky top-0 z-[1] border-b border-bo-border bg-bo-surface-subtle text-xs font-medium leading-4 text-bo-muted")}>
             <span role="columnheader" className="flex items-center py-2.5 pl-5 sm:pl-6">
@@ -136,14 +136,14 @@ function NoiDung({ dsHang, dong, tenKho, nguong, onThem, onDong }) {
                 checked={ttTatCa}
                 disabled={!chonDuoc.length}
                 onCheckedChange={() => datChon(chonDuoc, ttTatCa !== true)}
-                aria-label="Chọn tất cả mã gợi ý đang hiện"
+                aria-label={t("Chọn tất cả mã gợi ý đang hiện")}
                 className={O_CHON}
               />
             </span>
-            <span role="columnheader" className="px-3 py-2.5">Sản phẩm</span>
-            <span role="columnheader" className={cn("px-3 py-2.5 text-right", CHI_MAY_TINH)}>Khả dụng</span>
-            <span role="columnheader" className={cn("px-3 py-2.5 text-right", CHI_MAY_TINH)}>Đang về</span>
-            <span role="columnheader" className="py-2.5 pl-3 pr-5 text-right sm:pr-6">Đề xuất</span>
+            <span role="columnheader" className="px-3 py-2.5">{t("Sản phẩm")}</span>
+            <span role="columnheader" className={cn("px-3 py-2.5 text-right", CHI_MAY_TINH)}>{t("Khả dụng")}</span>
+            <span role="columnheader" className={cn("px-3 py-2.5 text-right", CHI_MAY_TINH)}>{t("Đang về")}</span>
+            <span role="columnheader" className="py-2.5 pl-3 pr-5 text-right sm:pr-6">{t("Đề xuất")}</span>
           </div>
           {nhom.slice(0, soSpHien).map((n) => {
             const ids = n.dong.filter((bt) => !daCo.has(String(bt.bienTheId))).map((bt) => String(bt.bienTheId));
@@ -157,7 +157,7 @@ function NoiDung({ dsHang, dong, tenKho, nguong, onThem, onDong }) {
                       checked={tt}
                       disabled={!ids.length}
                       onCheckedChange={() => datChon(ids, tt !== true)}
-                      aria-label={`Chọn các mã gợi ý của ${n.bt.tenSanPham}`}
+                      aria-label={t("Chọn các mã gợi ý của {{tenSanPham}}", { tenSanPham: n.bt.tenSanPham })}
                       className={O_CHON}
                     />
                   </span>
@@ -166,7 +166,7 @@ function NoiDung({ dsHang, dong, tenKho, nguong, onThem, onDong }) {
                     <span className="min-w-0">
                       <span className="block truncate font-medium text-bo-foreground" title={n.bt.tenSanPham}>{n.bt.tenSanPham}</span>
                       <span className="block text-xs leading-4 text-bo-muted">
-                        {[n.bt.maSanPham, n.bt.nhomHang, `${soVN(n.dong.length)} mã sắp hết`].filter(Boolean).join(" · ")}
+                        {[n.bt.maSanPham, n.bt.nhomHang, t("{{soMa}} mã sắp hết", { count: n.dong.length, soMa: soVN(n.dong.length) })].filter(Boolean).join(" · ")}
                       </span>
                     </span>
                   </span>
@@ -187,19 +187,19 @@ function NoiDung({ dsHang, dong, tenKho, nguong, onThem, onDong }) {
                           checked={coRoi || daTich}
                           disabled={coRoi}
                           onCheckedChange={() => datChon([String(bt.bienTheId)], !daTich)}
-                          aria-label={`Chọn ${bt.tenSanPham} ${bt.tenMau || ""} ${bt.tenSize || ""}`.trim()}
+                          aria-label={t("Chọn {{ten}}", { ten: `${bt.tenSanPham} ${bt.tenMau || ""} ${bt.tenSize || ""}`.trim() })}
                           className={O_CHON}
                         />
                       </span>
                       <span role="cell" className="flex min-w-0 flex-col items-start py-2 pl-[50px] pr-3">
                         <MauKichCo tenMau={bt.tenMau} maMauHex={bt.maMauHex} kichCo={bt.tenSize} className={coRoi ? "" : "text-bo-foreground"} />
                         <span className="break-all font-mono text-xs leading-4 text-bo-muted">{bt.maSku}</span>
-                        {coRoi ? <span className="mt-0.5 text-xs text-bo-muted">Đã có trong yêu cầu này · {soVN(slCo)}</span> : null}
+                        {coRoi ? <span className="mt-0.5 text-xs text-bo-muted">{t("Đã có trong yêu cầu này · {{slCo}}", { slCo: soVN(slCo) })}</span> : null}
                         {!coRoi && bt.yeuCauMo ? (
-                          <span className={cn(NHAN_CANH_BAO, NHAN_TRUNG)}>Đang trong {bt.yeuCauMo.ma}</span>
+                          <span className={cn(NHAN_CANH_BAO, NHAN_TRUNG)}>{t("Đang trong {{ma}}", { ma: bt.yeuCauMo.ma })}</span>
                         ) : null}
                         <span className="mt-0.5 text-xs leading-4 text-bo-muted md:hidden">
-                          Khả dụng {soVN(bt.khaDung)} · Đang về {soVN(bt.dangVe)}
+                          {t("Khả dụng {{khaDung}} · Đang về {{dangVe}}", { khaDung: soVN(bt.khaDung), dangVe: soVN(bt.dangVe) })}
                         </span>
                       </span>
                       <span role="cell" className={cn("px-3 py-2 text-right", CHI_MAY_TINH)}>{soVN(bt.khaDung)}</span>
@@ -220,13 +220,17 @@ function NoiDung({ dsHang, dong, tenKho, nguong, onThem, onDong }) {
                 className="border-bo-border bg-bo-surface text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
                 onClick={() => setSoSpHien((n) => n + SO_SP_HIEN)}
               >
-                Hiện thêm {soVN(Math.min(SO_SP_HIEN, nhom.length - soSpHien))} sản phẩm (còn {soVN(nhom.length - soSpHien)})
+                {t("Hiện thêm {{soThem}} sản phẩm (còn {{soCon}})", {
+                  count: Math.min(SO_SP_HIEN, nhom.length - soSpHien),
+                  soThem: soVN(Math.min(SO_SP_HIEN, nhom.length - soSpHien)),
+                  soCon: soVN(nhom.length - soSpHien),
+                })}
               </Button>
             </div>
           ) : null}
           {!nhom.length ? (
             <p className="px-6 py-8 text-center text-sm text-bo-muted">
-              {goiY.length ? "Không có mã gợi ý nào khớp." : `${tenKho || "Kho tổng"} chưa có mã nào hết hoặc sắp hết.`}
+              {goiY.length ? t("Không có mã gợi ý nào khớp.") : t("{{tenKho}} chưa có mã nào hết hoặc sắp hết.", { tenKho: tenKho || t("Kho tổng") })}
             </p>
           ) : null}
         </div>
@@ -234,17 +238,18 @@ function NoiDung({ dsHang, dong, tenKho, nguong, onThem, onDong }) {
 
       <div className={CHAN_HOP}>
         <span className="mr-auto text-[13px] tabular-nums text-bo-muted">
-          Đã chọn <b className="font-semibold text-bo-foreground">{soVN(daChon.length)}</b> mã · {soVN(soSp)} sản phẩm · tổng{" "}
+          {t("Đã chọn")} <b className="font-semibold text-bo-foreground">{soVN(daChon.length)}</b>{" "}
+          {t("mã · {{soSp}} sản phẩm · tổng", { soSp: soVN(soSp) })}{" "}
           <b className="font-semibold text-bo-foreground">{soVN(tong)}</b>
         </span>
-        <Button type="button" variant="outline" className={NUT_QUAY_LAI} onClick={onDong}>Quay lại</Button>
+        <Button type="button" variant="outline" className={NUT_QUAY_LAI} onClick={onDong}>{t("Quay lại")}</Button>
         <Button
           type="button"
           className={NUT_CHINH}
           disabled={!daChon.length}
           onClick={() => onThem?.(daChon.map((bt) => bt.bienTheId))}
         >
-          Thêm {soVN(daChon.length)} mã theo số đề xuất
+          {t("Thêm {{soMa}} mã theo số đề xuất", { count: daChon.length, soMa: soVN(daChon.length) })}
         </Button>
       </div>
     </>

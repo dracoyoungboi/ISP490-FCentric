@@ -23,6 +23,7 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/utils/formatters";
 import { congGia, NHAN_CHO_BAO_GIA } from "./tinhBaoGia";
+import { t } from "@/i18n";
 
 /**
  * Tổng phụ của một sản phẩm: chưa dòng nào có giá → thẻ "Chờ báo giá" khi báo giá còn chờ giá, không thì "—";
@@ -31,7 +32,7 @@ import { congGia, NHAN_CHO_BAO_GIA } from "./tinhBaoGia";
 function TongNhom({ dong, choGia }) {
   const g = congGia(dong);
   if (g.chuaCoGia) return choGia ? <StatusBadge label={NHAN_CHO_BAO_GIA} /> : <span className="text-bo-muted">—</span>;
-  if (g.thieu > 0) return <span className="text-[13px] text-bo-warning">Thiếu giá {soVN(g.thieu)} dòng</span>;
+  if (g.thieu > 0) return <span className="text-[13px] text-bo-warning">{t("Thiếu giá {{thieu}} dòng", { count: g.thieu, thieu: soVN(g.thieu) })}</span>;
   return formatCurrency(g.tongTien);
 }
 
@@ -51,7 +52,7 @@ export default function BangBaoGia({ bang, choGia = true }) {
     <section aria-labelledby={`${idBang}-tieu-de`} className="flex min-w-0 flex-1 flex-col">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-4 pb-3 pt-4 sm:px-6">
         <h2 id={`${idBang}-tieu-de`} className="text-base font-semibold leading-6 text-bo-foreground">
-          Giá nhà cung cấp báo
+          {t("Giá nhà cung cấp báo")}
         </h2>
         {bang.chuGoiYThuGon ? <p className="text-[13px] leading-5 text-bo-muted">{bang.chuGoiYThuGon}</p> : null}
       </div>
@@ -61,7 +62,7 @@ export default function BangBaoGia({ bang, choGia = true }) {
           tuKhoa={bang.tuKhoa}
           onDoiTuKhoa={bang.datTuKhoa}
           onXoaTuKhoa={bang.xoaTuKhoa}
-          nhanTim="Tìm trong báo giá"
+          nhanTim={t("Tìm trong báo giá")}
           ketQua={bang.chuKetQua}
           khongKetQua={bang.khongKetQua}
           moHet={bang.moHet}
@@ -74,10 +75,10 @@ export default function BangBaoGia({ bang, choGia = true }) {
           <table className={cn(BANG, "@2xl/khoi:min-w-[600px]")}>
             <thead>
               <tr className={DONG_TIEU_DE}>
-                <th scope="col" className={cn(O_TIEU_DE, O_DAU)}>Biến thể</th>
-                <th scope="col" className={cn(O_TIEU_DE, "w-24 text-right", AN_DIEN_THOAI)}>Số lượng</th>
-                <th scope="col" className={cn(O_TIEU_DE, "w-[150px] text-right")}>Đơn giá</th>
-                <th scope="col" className={cn(O_TIEU_DE, O_CUOI, "w-[170px] text-right")}>Thành tiền</th>
+                <th scope="col" className={cn(O_TIEU_DE, O_DAU)}>{t("Biến thể")}</th>
+                <th scope="col" className={cn(O_TIEU_DE, "w-24 text-right", AN_DIEN_THOAI)}>{t("Số lượng")}</th>
+                <th scope="col" className={cn(O_TIEU_DE, "w-[150px] text-right")}>{t("Đơn giá")}</th>
+                <th scope="col" className={cn(O_TIEU_DE, O_CUOI, "w-[170px] text-right")}>{t("Thành tiền")}</th>
               </tr>
             </thead>
             {bang.nhom.map((n, i) => {
@@ -114,7 +115,7 @@ export default function BangBaoGia({ bang, choGia = true }) {
                           <MauKichCo dong={d} />
                           <span className="mt-0.5 block break-all font-mono text-xs text-bo-muted">{d.sku || "—"}</span>
                           <span className={cn("block text-xs text-bo-muted", CHI_DIEN_THOAI)}>
-                            Số lượng <b className="font-semibold text-bo-foreground">{soVN(d.soLuong)}</b>
+                            {t("Số lượng")} <b className="font-semibold text-bo-foreground">{soVN(d.soLuong)}</b>
                           </span>
                         </td>
                         <td className={cn(O, "text-right", AN_DIEN_THOAI)}>{soVN(d.soLuong)}</td>
@@ -134,7 +135,7 @@ export default function BangBaoGia({ bang, choGia = true }) {
         </div>
       ) : null}
 
-      <KhongKetQua bang={bang} tenChungTu="báo giá" donVi="biến thể" />
+      <KhongKetQua bang={bang} tenChungTu={t("báo giá")} donVi={t("biến thể")} />
       {bang.phanTrang ? <PhanTrangBang {...bang.phanTrang} /> : null}
     </section>
   );

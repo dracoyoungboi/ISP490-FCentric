@@ -13,6 +13,7 @@
  * - Phiếu đã hủy (4) không thành cột.
  */
 import { laDoiHang } from "../../../constants/nhapKho.js";
+import { t } from "../../../i18n/t.js";
 
 const TRANG_THAI_PHIEU_HOAN_TAT = 3;
 const TRANG_THAI_PHIEU_HUY = 4;
@@ -224,15 +225,15 @@ export function tinhBuocDonMua(don, tienDo, cotDot, homNay = new Date()) {
   const giao = trangThaiGiao(don?.ngayGiaoDuKien, td.daDu, homNay);
 
   const buocBaoGia = daChot || tuChoi || trangThai === 2
-    ? { trangThai: "xong", phu: "Đã có giá" }
-    : { trangThai: "dangLam", phu: "Chờ nhà cung cấp" };
+    ? { trangThai: "xong", phu: t("Đã có giá") }
+    : { trangThai: "dangLam", phu: t("Chờ nhà cung cấp") };
 
   const buocChot = daChot
-    ? { trangThai: "xong", phu: "Đã chốt" }
+    ? { trangThai: "xong", phu: t("Đã chốt") }
     : tuChoi
-      ? { trangThai: "dung", phu: "Không chấp nhận báo giá" }
+      ? { trangThai: "dung", phu: t("Không chấp nhận báo giá") }
       : trangThai === 2
-        ? { trangThai: "dangLam", phu: "Chờ duyệt báo giá" }
+        ? { trangThai: "dangLam", phu: t("Chờ duyệt báo giá") }
         : { trangThai: "chua", phu: "" };
 
   let buocNhan;
@@ -242,14 +243,14 @@ export function tinhBuocDonMua(don, tienDo, cotDot, homNay = new Date()) {
     // Đã thôi nhận: các đợt đã nhận là xong, không còn cảnh báo quá hạn
     buocNhan = { trangThai: "xong", phu: `${td.daNhan}/${td.dat}`, canhBao: "" };
   } else if (daHuy) {
-    buocNhan = { trangThai: "chua", phu: "Không nhận", canhBao: "" };
+    buocNhan = { trangThai: "chua", phu: t("Không nhận"), canhBao: "" };
   } else if (td.daDu) {
     buocNhan = { trangThai: "xong", phu: `${td.daNhan}/${td.dat}`, canhBao: "" };
   } else {
     buocNhan = {
       trangThai: "dangLam",
-      phu: td.chuaNhan ? "Chưa nhận" : `${td.daNhan}/${td.dat}`,
-      canhBao: giao.loai === "quaHan" ? `quá hạn ${giao.soNgay} ngày` : "",
+      phu: td.chuaNhan ? t("Chưa nhận") : `${td.daNhan}/${td.dat}`,
+      canhBao: giao.loai === "quaHan" ? t("quá hạn {{count}} ngày", { count: giao.soNgay }) : "",
     };
   }
 
@@ -259,7 +260,7 @@ export function tinhBuocDonMua(don, tienDo, cotDot, homNay = new Date()) {
   return [
     {
       ma: "yeu-cau",
-      nhan: "Yêu cầu nhập hàng",
+      nhan: t("Yêu cầu nhập hàng"),
       trangThai: "xong",
       phu: don?.yeuCauMuaHang?.soYeuCauMuaHang || "",
       ngay: don?.yeuCauMuaHang?.ngayTao ?? null,
@@ -267,30 +268,30 @@ export function tinhBuocDonMua(don, tienDo, cotDot, homNay = new Date()) {
     },
     {
       ma: "gui-yeu-cau-bao-gia",
-      nhan: "Gửi yêu cầu báo giá",
+      nhan: t("Gửi yêu cầu báo giá"),
       trangThai: "xong",
       phu: "",
       // Lúc email yêu cầu báo giá gửi được (ngayGuiYeuCau); dữ liệu cũ thì ngày tạo đơn
       ngay: don?.ngayGuiYeuCau ?? don?.ngayDatHang ?? don?.ngayTao ?? null,
       canhBao: "",
     },
-    { ma: "bao-gia", nhan: "Nhà cung cấp báo giá", ngay: null, canhBao: "", ...buocBaoGia },
-    { ma: "chot-don", nhan: "Chốt đơn", ngay: null, canhBao: "", ...buocChot },
-    { ma: "nhan-hang", nhan: "Nhận hàng", ngay: null, ...buocNhan },
+    { ma: "bao-gia", nhan: t("Nhà cung cấp báo giá"), ngay: null, canhBao: "", ...buocBaoGia },
+    { ma: "chot-don", nhan: t("Chốt đơn"), ngay: null, canhBao: "", ...buocChot },
+    { ma: "nhan-hang", nhan: t("Nhận hàng"), ngay: null, ...buocNhan },
     daDong || daHuy
       ? {
         ma: "nhan-du",
-        nhan: daDong ? "Đã đóng" : "Đã hủy",
+        nhan: daDong ? t("Đã đóng") : t("Đã hủy"),
         trangThai: "dung",
-        phu: daDong ? `Thiếu ${td.conThieu}` : "",
+        phu: daDong ? t("Thiếu {{conThieu}}", { conThieu: td.conThieu }) : "",
         ngay: don?.ngayKetThuc ?? null,
         canhBao: "",
       }
       : {
         ma: "nhan-du",
-        nhan: "Nhận đủ",
+        nhan: t("Nhận đủ"),
         trangThai: daChot && td.daDu ? "xong" : "chua",
-        phu: !daChot ? "" : td.daDu ? "" : `Còn thiếu ${td.conThieu}`,
+        phu: !daChot ? "" : td.daDu ? "" : t("Còn thiếu {{conThieu}}", { conThieu: td.conThieu }),
         ngay: daChot && td.daDu ? ngayDotCuoi : null,
         canhBao: "",
       },

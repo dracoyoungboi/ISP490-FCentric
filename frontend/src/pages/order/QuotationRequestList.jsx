@@ -37,6 +37,7 @@ import { cn } from "@/lib/utils";
 import purchaseOrderService from "../../services/purchaseOrderService";
 import { formatCurrency, formatDate } from "@/utils/formatters";
 import { hasAnyRole } from "@/utils/roles";
+import { t } from "@/i18n";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const ROLE = {
@@ -100,8 +101,8 @@ function DonMuaHangRows({ donMuaHangs = [], navigate, xemGia }) {
                 <td colSpan={xemGia ? 8 : 6}>
                     <EmptyState
                         icon={ShoppingCart}
-                        title="Chưa có đơn mua hàng (báo giá) nào"
-                        description="Các báo giá gửi tới nhà cung cấp sẽ hiển thị tại đây."
+                        title={t("Chưa có đơn mua hàng (báo giá) nào")}
+                        description={t("Các báo giá gửi tới nhà cung cấp sẽ hiển thị tại đây.")}
                         className="min-h-0 py-8"
                     />
                 </td>
@@ -132,8 +133,8 @@ function DonMuaHangRows({ donMuaHangs = [], navigate, xemGia }) {
                     </div>
                     {/* Máy tính bảng dọc: ngày gửi + hạn chót thành hai dòng phụ (cột riêng bị ẩn) để bảng con vừa khung */}
                     <p className="mt-0.5 hidden whitespace-nowrap pl-3.5 text-[11px] text-bo-muted cam-ung:max-lg:block">
-                        <span className="block">Gửi {formatDate(ngayGuiYeuCau(po))}</span>
-                        <span className="block">Hạn {formatDate(po.ngayGiaoDuKien)}</span>
+                        <span className="block">{t("Gửi {{ngayGui}}", { ngayGui: formatDate(ngayGuiYeuCau(po)) })}</span>
+                        <span className="block">{t("Hạn {{ngayHan}}", { ngayHan: formatDate(po.ngayGiaoDuKien) })}</span>
                     </p>
                 </td>
 
@@ -165,7 +166,7 @@ function DonMuaHangRows({ donMuaHangs = [], navigate, xemGia }) {
                         ) : (
                             <span className="text-[13px] text-bo-muted">—</span>
                         )}
-                        {isAccepted && <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-bo-success">Đã chốt</p>}
+                        {isAccepted && <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-bo-success">{t("Đã chốt")}</p>}
                     </td>
                 ) : null}
 
@@ -175,7 +176,7 @@ function DonMuaHangRows({ donMuaHangs = [], navigate, xemGia }) {
                         <RowActions>
                             <RowActionButton
                                 icon={Eye}
-                                label="Xem chi tiết báo giá"
+                                label={t("Xem chi tiết báo giá")}
                                 onClick={() => navigate(`/quotation/${po.id}`)}
                             />
                         </RowActions>
@@ -209,7 +210,7 @@ export default function QuotationRequestList() {
 
     // Tab trạng thái trên URL ?trangThai= (F5 / quay lại từ chi tiết vẫn đúng tab)
     const [tab, setTab] = useTabTrenUrl(TAB_MAS, TAB_MAC_DINH);
-    const tabTrangThai = YEU_CAU_BAO_GIA_TABS.find((t) => t.ma === tab)?.trangThai;
+    const tabTrangThai = YEU_CAU_BAO_GIA_TABS.find((tb) => tb.ma === tab)?.trangThai;
 
     // Kho trên URL ?kho=. Lúc danh sách kho chưa tải xong vẫn nhận mã kho dạng số để không tải danh sách 2 lần;
     // tải xong thì chỉ nhận kho có trong danh sách.
@@ -305,7 +306,7 @@ export default function QuotationRequestList() {
     const tabCounts = useDemTheoTrangThai(
         TAB_MAS,
         (ma) => countRequests(buildFilterArray({
-            trangThai: YEU_CAU_BAO_GIA_TABS.find((t) => t.ma === ma)?.trangThai,
+            trangThai: YEU_CAU_BAO_GIA_TABS.find((tb) => tb.ma === ma)?.trangThai,
             tuKhoa: keyword,
             kho: khoId,
             ngay: dateRange,
@@ -395,17 +396,17 @@ export default function QuotationRequestList() {
     };
 
     const getWarehouseName = () => {
-        if (!khoId) return "Tất cả kho";
-        return warehouses.find(w => String(w.id) === khoId)?.tenKho || "Đang tải...";
+        if (!khoId) return t("Tất cả kho");
+        return warehouses.find(w => String(w.id) === khoId)?.tenKho || t("Đang tải...");
     };
 
     // Số chỉ hiện khi đếm xong và danh sách không lỗi (R9); số 0 tự ẩn trong StatusTabs
-    const statusTabs = YEU_CAU_BAO_GIA_TABS.map((t) => ({
-        value: t.ma,
-        label: t.label,
-        count: loadError ? null : tabCounts.counts[t.ma],
+    const statusTabs = YEU_CAU_BAO_GIA_TABS.map((tb) => ({
+        value: tb.ma,
+        label: t(tb.label),
+        count: loadError ? null : tabCounts.counts[tb.ma],
     }));
-    const emptyTabLabel = YEU_CAU_BAO_GIA_TABS.find((t) => t.ma === tab)?.label;
+    const emptyTabLabel = t(YEU_CAU_BAO_GIA_TABS.find((tb) => tb.ma === tab)?.label);
 
     // ── Render ────────────────────────────────────────────────────────────────
     return (
@@ -416,7 +417,7 @@ export default function QuotationRequestList() {
                         onClick={() => navigate('/quotation-requests/create')}
                         className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover"
                     >
-                        <Plus className="size-4" /> Tạo yêu cầu báo giá
+                        <Plus className="size-4" /> {t("Tạo yêu cầu báo giá")}
                     </Button>
                 ) : null}
             />
@@ -428,7 +429,7 @@ export default function QuotationRequestList() {
                     <ListToolbar
                         tabs={
                             <StatusTabs
-                                label="Lọc yêu cầu báo giá theo trạng thái"
+                                label={t("Lọc yêu cầu báo giá theo trạng thái")}
                                 tabs={statusTabs}
                                 value={tab}
                                 onChange={changeTab}
@@ -442,8 +443,8 @@ export default function QuotationRequestList() {
                             onChange={e => setSearchText(e.target.value)}
                             onKeyDown={e => { if (e.key === 'Enter') applyKeyword(searchText.trim()); }}
                             onClear={() => { setSearchText(''); applyKeyword(''); }}
-                            placeholder="Nhập mã yêu cầu rồi nhấn Enter"
-                            label="Tìm theo mã yêu cầu"
+                            placeholder={t("Nhập mã yêu cầu rồi nhấn Enter")}
+                            label={t("Tìm theo mã yêu cầu")}
                             className="sm:w-[300px]"
                         />
 
@@ -452,7 +453,7 @@ export default function QuotationRequestList() {
                             <DropdownMenuTrigger asChild>
                                 <Button
                                     variant="outline"
-                                    aria-label="Lọc theo kho nhập"
+                                    aria-label={t("Lọc theo kho nhập")}
                                     className="h-9 w-full justify-between border-bo-border bg-bo-surface px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle sm:w-[200px]"
                                     disabled={warehouses.length === 0}
                                 >
@@ -468,7 +469,7 @@ export default function QuotationRequestList() {
                                 className="z-50 max-h-[300px] min-w-[var(--radix-dropdown-menu-trigger-width)] overflow-y-auto rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg"
                             >
                                 <DropdownMenuItem onClick={() => changeKho('')} className="cursor-pointer rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900">
-                                    Tất cả kho
+                                    {t("Tất cả kho")}
                                 </DropdownMenuItem>
                                 {warehouses.map(w => (
                                     <DropdownMenuItem key={w.id} onClick={() => changeKho(w.id)} className="cursor-pointer rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900">
@@ -483,8 +484,8 @@ export default function QuotationRequestList() {
 
                         {/* Từ ngày / Đến ngày: nhãn nằm trong ô để hàng công cụ gọn một dòng */}
                         {[
-                            { key: 'from', label: 'Từ ngày' },
-                            { key: 'to', label: 'Đến ngày' },
+                            { key: 'from', label: t("Từ ngày") },
+                            { key: 'to', label: t("Đến ngày") },
                         ].map(({ key, label }) => (
                             <label
                                 key={key}
@@ -517,10 +518,10 @@ export default function QuotationRequestList() {
                 }
             >
                 {loading ? (
-                    <LoadingState label="Đang tải danh sách yêu cầu báo giá" />
+                    <LoadingState label={t("Đang tải danh sách yêu cầu báo giá")} />
                 ) : loadError ? (
                     <ErrorState
-                        description="Không thể tải danh sách yêu cầu báo giá. Vui lòng thử lại."
+                        description={t("Không thể tải danh sách yêu cầu báo giá. Vui lòng thử lại.")}
                         error={loadError}
                         onRetry={handleRefresh}
                     />
@@ -528,46 +529,46 @@ export default function QuotationRequestList() {
                     hasActiveFilters ? (
                         <EmptyState
                             icon={SearchX}
-                            title="Không tìm thấy yêu cầu báo giá phù hợp"
-                            description="Thử đổi mã yêu cầu, kho hoặc khoảng ngày."
+                            title={t("Không tìm thấy yêu cầu báo giá phù hợp")}
+                            description={t("Thử đổi mã yêu cầu, kho hoặc khoảng ngày.")}
                             action={
                                 <Button
                                     variant="outline"
                                     onClick={clearFilters}
                                     className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
-                                    Xóa lọc
+                                    {t("Xóa lọc")}
                                 </Button>
                             }
                         />
                     ) : tab !== TAB_MAC_DINH ? (
                         <EmptyState
                             icon={Package}
-                            title={`Không có yêu cầu báo giá nào ở trạng thái "${emptyTabLabel}"`}
-                            description="Chọn tab Tất cả để xem mọi yêu cầu báo giá."
+                            title={t("Không có yêu cầu báo giá nào ở trạng thái \"{{emptyTabLabel}}\"", { emptyTabLabel })}
+                            description={t("Chọn tab Tất cả để xem mọi yêu cầu báo giá.")}
                             action={
                                 <Button
                                     variant="outline"
                                     onClick={() => changeTab(TAB_MAC_DINH)}
                                     className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
-                                    Xem tất cả
+                                    {t("Xem tất cả")}
                                 </Button>
                             }
                         />
                     ) : (
                         <EmptyState
                             icon={Package}
-                            title="Chưa có yêu cầu báo giá"
+                            title={t("Chưa có yêu cầu báo giá")}
                             description={duocTao
-                                ? "Tạo yêu cầu báo giá để gửi tới nhà cung cấp."
-                                : "Yêu cầu báo giá gửi tới nhà cung cấp sẽ hiển thị tại đây."}
+                                ? t("Tạo yêu cầu báo giá để gửi tới nhà cung cấp.")
+                                : t("Yêu cầu báo giá gửi tới nhà cung cấp sẽ hiển thị tại đây.")}
                             action={duocTao ? (
                                 <Button
                                     onClick={() => navigate('/quotation-requests/create')}
                                     className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover"
                                 >
-                                    <Plus className="size-4" /> Tạo yêu cầu báo giá
+                                    <Plus className="size-4" /> {t("Tạo yêu cầu báo giá")}
                                 </Button>
                             ) : null}
                         />
@@ -607,7 +608,7 @@ export default function QuotationRequestList() {
                                         </span>
                                     </Link>
                                     <div className="flex min-h-9 items-center justify-between gap-3 px-4 pb-2.5">
-                                        <span className="min-w-0 truncate text-[13px] text-bo-muted">Giao DK {formatDate(req.ngayGiaoDuKien)}</span>
+                                        <span className="min-w-0 truncate text-[13px] text-bo-muted">{t("Giao DK {{ngayGiao}}", { ngayGiao: formatDate(req.ngayGiaoDuKien) })}</span>
                                         {poCount > 0 ? (
                                             <Button
                                                 type="button"
@@ -619,16 +620,16 @@ export default function QuotationRequestList() {
                                                     isExpanded && "border-bo-primary bg-bo-primary-soft text-bo-primary-strong",
                                                 )}
                                             >
-                                                {poCount} báo giá
+                                                {t("{{count}} báo giá", { count: poCount })}
                                                 {isExpanded ? <ChevronUp className="size-4" aria-hidden="true" /> : <ChevronDown className="size-4" aria-hidden="true" />}
                                             </Button>
                                         ) : (
-                                            <span className="shrink-0 text-[13px] text-bo-muted">Chưa có báo giá</span>
+                                            <span className="shrink-0 text-[13px] text-bo-muted">{t("Chưa có báo giá")}</span>
                                         )}
                                     </div>
                                     {isExpanded && poCount > 0 ? (
                                         <ul
-                                            aria-label={`Báo giá từ nhà cung cấp của yêu cầu ${req.soYeuCauMuaHang}`}
+                                            aria-label={t("Báo giá từ nhà cung cấp của yêu cầu {{soYeuCauMuaHang}}", { soYeuCauMuaHang: req.soYeuCauMuaHang })}
                                             className="mx-4 mb-3 divide-y divide-bo-border overflow-hidden rounded-lg border border-bo-border bg-bo-surface-subtle"
                                         >
                                             {req.donMuaHangs.map((po) => {
@@ -650,10 +651,10 @@ export default function QuotationRequestList() {
                                                         </span>
                                                         <span className="flex items-baseline justify-between gap-3 text-xs text-bo-muted">
                                                             <span className="min-w-0 truncate">
-                                                                Gửi {formatDate(ngayGuiYeuCau(po))} · Hạn {formatDate(po.ngayGiaoDuKien)}
+                                                                {t("Gửi {{ngayGui}} · Hạn {{ngayHan}}", { ngayGui: formatDate(ngayGuiYeuCau(po)), ngayHan: formatDate(po.ngayGiaoDuKien) })}
                                                             </span>
                                                             {daChot ? (
-                                                                <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-bo-success">Đã chốt</span>
+                                                                <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-bo-success">{t("Đã chốt")}</span>
                                                             ) : null}
                                                         </span>
                                                     </>
@@ -685,16 +686,16 @@ export default function QuotationRequestList() {
                         <thead className="sticky top-0 z-10">
                             <tr className="border-b border-bo-border bg-bo-surface-subtle">
                                 <th className="h-10 w-14 px-3" />
-                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Mã yêu cầu</th>
-                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Kho nhập</th>
-                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">Ngày tạo</th>
-                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">Ngày giao DK</th>
-                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
-                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">Người tạo</th>
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Mã yêu cầu")}</th>
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Kho nhập")}</th>
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">{t("Ngày tạo")}</th>
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">{t("Ngày giao DK")}</th>
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Trạng thái")}</th>
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">{t("Người tạo")}</th>
                                 {xemGia ? (
-                                    <th className="h-10 px-3 text-right tabular-nums whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Tổng tiền chốt</th>
+                                    <th className="h-10 px-3 text-right tabular-nums whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Tổng tiền chốt")}</th>
                                 ) : null}
-                                <th className="h-10 w-24 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">Thao tác</th>
+                                <th className="h-10 w-24 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">{t("Thao tác")}</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-bo-border">
@@ -729,7 +730,7 @@ export default function QuotationRequestList() {
                                                     <span className="text-[14px] font-semibold tracking-tight text-bo-primary">#{req.soYeuCauMuaHang}</span>
                                                     <span className="hidden text-xs text-bo-muted cam-ung:max-lg:block">{formatDate(req.ngayTao)}</span>
                                                     {poCount > 0 && (
-                                                        <span className="text-xs text-bo-muted">{poCount} báo giá</span>
+                                                        <span className="text-xs text-bo-muted">{t("{{count}} báo giá", { count: poCount })}</span>
                                                     )}
                                                 </div>
                                             </td>
@@ -756,7 +757,7 @@ export default function QuotationRequestList() {
 
                                             <td className="whitespace-nowrap px-3 py-3">
                                                 <StatusBadge quyTrinh="yeuCauNhap" label={prCfg.label} />
-                                                <p className="mt-1 hidden text-xs text-bo-muted cam-ung:max-lg:block">Giao DK {formatDate(req.ngayGiaoDuKien)}</p>
+                                                <p className="mt-1 hidden text-xs text-bo-muted cam-ung:max-lg:block">{t("Giao DK {{ngayGiao}}", { ngayGiao: formatDate(req.ngayGiaoDuKien) })}</p>
                                             </td>
 
                                             <td className="px-3 py-3 text-[13px] font-medium text-bo-muted cam-ung:max-lg:hidden">
@@ -777,7 +778,7 @@ export default function QuotationRequestList() {
                                                 <RowActions>
                                                     <RowActionButton
                                                         icon={Eye}
-                                                        label="Xem chi tiết yêu cầu"
+                                                        label={t("Xem chi tiết yêu cầu")}
                                                         onClick={() => navigate(`/quotation-requests/${req.id}`)}
                                                     />
                                                 </RowActions>
@@ -792,22 +793,22 @@ export default function QuotationRequestList() {
                                                     <div className="w-0 min-w-full bg-bo-surface-subtle pb-5 pt-3">
                                                         <div className="px-3">
                                                             <TableShell
-                                                                title="Danh sách báo giá từ NCC thuộc yêu cầu này"
+                                                                title={t("Danh sách báo giá từ NCC thuộc yêu cầu này")}
                                                                 className="shadow-none"
                                                             >
                                                                 <table className="w-full text-sm">
                                                                     <thead>
                                                                         <tr className="border-b border-bo-border bg-bo-surface">
-                                                                            <th className="h-9 whitespace-nowrap px-3 text-left text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Mã báo giá</th>
-                                                                            <th className="h-9 whitespace-nowrap px-3 text-left text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Nhà cung cấp</th>
-                                                                            <th className="h-9 whitespace-nowrap px-3 text-left text-[10px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">Ngày gửi</th>
-                                                                            <th className="h-9 whitespace-nowrap px-3 text-left text-[10px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">Hạn chót</th>
-                                                                            <th className="h-9 whitespace-nowrap px-3 text-left text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
-                                                                            <th className="h-9 whitespace-nowrap px-3 text-left text-[10px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">Người tạo (NCC)</th>
+                                                                            <th className="h-9 whitespace-nowrap px-3 text-left text-[10px] font-semibold uppercase tracking-wide text-bo-muted">{t("Mã báo giá")}</th>
+                                                                            <th className="h-9 whitespace-nowrap px-3 text-left text-[10px] font-semibold uppercase tracking-wide text-bo-muted">{t("Nhà cung cấp")}</th>
+                                                                            <th className="h-9 whitespace-nowrap px-3 text-left text-[10px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">{t("Ngày gửi")}</th>
+                                                                            <th className="h-9 whitespace-nowrap px-3 text-left text-[10px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">{t("Hạn chót")}</th>
+                                                                            <th className="h-9 whitespace-nowrap px-3 text-left text-[10px] font-semibold uppercase tracking-wide text-bo-muted">{t("Trạng thái")}</th>
+                                                                            <th className="h-9 whitespace-nowrap px-3 text-left text-[10px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">{t("Người tạo (NCC)")}</th>
                                                                             {xemGia ? (
                                                                                 <>
-                                                                                    <th className="h-9 whitespace-nowrap px-3 text-right tabular-nums text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Giá NCC báo</th>
-                                                                                    <th className="h-9 w-28 whitespace-nowrap px-3 text-center text-[10px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">Thao tác</th>
+                                                                                    <th className="h-9 whitespace-nowrap px-3 text-right tabular-nums text-[10px] font-semibold uppercase tracking-wide text-bo-muted">{t("Giá NCC báo")}</th>
+                                                                                    <th className="h-9 w-28 whitespace-nowrap px-3 text-center text-[10px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">{t("Thao tác")}</th>
                                                                                 </>
                                                                             ) : null}
                                                                         </tr>

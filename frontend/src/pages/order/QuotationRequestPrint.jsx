@@ -1,6 +1,7 @@
 import PrintRoutePage from "@/components/print/PrintRoutePage";
 import { toQuotationRequestPrintModel } from "@/components/print/adapters/quotationRequestPrintAdapter";
 import apiClient from '@/services/apiClient';
+import { t } from "@/i18n";
 
 /**
  * Trang in thật của yêu cầu báo giá — dữ liệu API thật
@@ -17,10 +18,10 @@ export default function QuotationRequestPrint() {
             }}
             adapter={toQuotationRequestPrintModel}
             backPath="/quotation-requests/:id"
-            loadingLabel="Đang tải dữ liệu phiếu in"
-            titleFallback="In phiếu yêu cầu báo giá"
-            notFoundTitle="Không tìm thấy yêu cầu báo giá"
-            notFoundDescription="Yêu cầu có thể đã bị xóa hoặc bạn không có quyền truy cập."
+            loadingLabel={t("Đang tải dữ liệu phiếu in")}
+            titleFallback={t("In phiếu yêu cầu báo giá")}
+            notFoundTitle={t("Không tìm thấy yêu cầu báo giá")}
+            notFoundDescription={t("Yêu cầu có thể đã bị xóa hoặc bạn không có quyền truy cập.")}
         />
     );
 }

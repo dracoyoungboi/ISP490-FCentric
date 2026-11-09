@@ -21,6 +21,7 @@ import useBangChungTu from "@/components/chung-tu/useBangChungTu";
 import { soVN, tuBienThe } from "@/components/chung-tu/bangChungTu";
 import { NHAN_O, O_NHAP } from "@/components/chung-tu/kieuHopThoai";
 import { formatCurrency } from "@/utils/formatters";
+import { t } from "@/i18n";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 // Ô chọn gốc của trình duyệt nhưng bỏ mũi tên mặc định (Windows vẽ thành ô vuông), thay bằng ChevronDown
@@ -66,7 +67,7 @@ export default function PurchaseOrderCreateManual() {
                 quotationId: data.id,
             }));
         } catch {
-            toast.error("Không thể tải chi tiết báo giá");
+            toast.error(t("Không thể tải chi tiết báo giá"));
             setSelectedQuotation(null);
             setForm(prev => ({ ...prev, quotationId: "" }));
         } finally {
@@ -93,7 +94,7 @@ export default function PurchaseOrderCreateManual() {
                 await loadQuotationDetails(initialId);
             }
         } catch {
-            toast.error("Không thể tải danh sách báo giá");
+            toast.error(t("Không thể tải danh sách báo giá"));
             setLoiTai(true);
         } finally {
             setLoading(false);
@@ -126,7 +127,7 @@ export default function PurchaseOrderCreateManual() {
     };
 
     const handleCreate = () => {
-        if (!form.quotationId) return toast.error("Vui lòng chọn một báo giá từ danh sách");
+        if (!form.quotationId) return toast.error(t("Vui lòng chọn một báo giá từ danh sách"));
         setLoiXacNhan(null);
         setShowConfirmDialog(true);
     };
@@ -142,11 +143,11 @@ export default function PurchaseOrderCreateManual() {
                 taoBodyXetBaoGia({ ngayBaoGiaDaXem: selectedQuotation?.ngayBaoGia }),
             );
 
-            toast.success('Đã chấp nhận báo giá và tạo đơn mua hàng.');
+            toast.success(t("Đã chấp nhận báo giá và tạo đơn mua hàng."));
             setShowConfirmDialog(false);
             setTimeout(() => navigate(`/purchase-orders/${form.quotationId}`), 1000);
         } catch (err) {
-            const cau = err.response?.data?.message || 'Không thể tạo đơn mua hàng. Vui lòng thử lại.';
+            const cau = err.response?.data?.message || t("Không thể tạo đơn mua hàng. Vui lòng thử lại.");
             // 409 / 404: báo giá vừa đổi, đã có kết quả hoặc không còn — bỏ chọn và tải lại danh sách báo giá đang chờ,
             // lần bấm sau dùng dữ liệu mới nhất (như màn Chi tiết báo giá)
             if (cachXuLyLoiXetBaoGia(err.response?.status) === "dongVaTaiLai") {
@@ -167,7 +168,7 @@ export default function PurchaseOrderCreateManual() {
     if (loading) {
         return (
             <PageContainer>
-                <LoadingState rows={4} label="Đang tải dữ liệu khởi tạo" />
+                <LoadingState rows={4} label={t("Đang tải dữ liệu khởi tạo")} />
             </PageContainer>
         );
     }
@@ -175,24 +176,24 @@ export default function PurchaseOrderCreateManual() {
     const ncc = selectedQuotation?.nhaCungCap;
     const yeuCau = selectedQuotation?.yeuCauMuaHang;
     const lyDoKhoa = actionLoading
-        ? "Đang tải báo giá"
+        ? t("Đang tải báo giá")
         : !form.quotationId || !selectedQuotation
-            ? "Chọn báo giá"
+            ? t("Chọn báo giá")
             : dongBang.length === 0
-                ? "Báo giá chưa có sản phẩm"
+                ? t("Báo giá chưa có sản phẩm")
                 : "";
 
     const dongPhu = selectedQuotation
         ? [
-            "Chốt báo giá đã nhận với nhà cung cấp",
-            `${soVN(bangHang.tong.soSanPham)} sản phẩm · ${soVN(bangHang.tong.soDong)} biến thể`,
-            `Tổng số lượng ${soVN(bangHang.tong.soLuong)}`,
+            t("Chốt báo giá đã nhận với nhà cung cấp"),
+            `${t("{{soSanPham}} sản phẩm", { count: bangHang.tong.soSanPham, soSanPham: soVN(bangHang.tong.soSanPham) })} · ${t("{{soBienThe}} biến thể", { count: bangHang.tong.soDong, soBienThe: soVN(bangHang.tong.soDong) })}`,
+            t("Tổng số lượng {{soLuong}}", { soLuong: soVN(bangHang.tong.soLuong) }),
         ]
-        : "Chọn một báo giá đã nhận để chốt giá và tạo đơn mua hàng";
+        : t("Chọn một báo giá đã nhận để chốt giá và tạo đơn mua hàng");
 
     const thongBao = loiTai ? [
-        <DongThongBao key="loi-tai" tone="bad" actions={<NutChu onClick={fetchInitialData}>Thử lại</NutChu>}>
-            Không tải được danh sách báo giá đã nhận.
+        <DongThongBao key="loi-tai" tone="bad" actions={<NutChu onClick={fetchInitialData}>{t("Thử lại")}</NutChu>}>
+            {t("Không tải được danh sách báo giá đã nhận.")}
         </DongThongBao>,
     ] : null;
 
@@ -200,7 +201,7 @@ export default function PurchaseOrderCreateManual() {
         <div className="flex flex-wrap items-end gap-x-6 gap-y-3 border-t border-bo-border px-4 py-4 sm:px-6">
             <label className="relative grid w-full min-w-0 gap-1.5 sm:w-[480px]">
                 <span className={NHAN_O}>
-                    Báo giá đã nhận <span className="text-bo-danger">*</span>
+                    {t("Báo giá đã nhận")} <span className="text-bo-danger">*</span>
                 </span>
                 <select
                     className={O_CHON}
@@ -208,10 +209,10 @@ export default function PurchaseOrderCreateManual() {
                     onChange={(e) => handleSelectQuotation(e.target.value)}
                     disabled={actionLoading}
                 >
-                    <option value="">{quotationList.length ? "Chọn báo giá cần chốt" : loiTai ? "Chưa tải được danh sách báo giá" : "Không có báo giá nào đang chờ chốt"}</option>
+                    <option value="">{quotationList.length ? t("Chọn báo giá cần chốt") : loiTai ? t("Chưa tải được danh sách báo giá") : t("Không có báo giá nào đang chờ chốt")}</option>
                     {quotationList.map(q => (
                         <option key={q.id} value={q.id}>
-                            {q.soDonMua} · {q.nhaCungCap?.tenNhaCungCap || "Chưa rõ nhà cung cấp"}
+                            {q.soDonMua} · {q.nhaCungCap?.tenNhaCungCap || t("Chưa rõ nhà cung cấp")}
                         </option>
                     ))}
                 </select>
@@ -223,28 +224,28 @@ export default function PurchaseOrderCreateManual() {
     const bang = !selectedQuotation ? (
         <EmptyState
             icon={FileText}
-            title={actionLoading ? "Đang tải báo giá…" : "Chưa chọn báo giá"}
-            description="Chỉ hiện báo giá nhà cung cấp đã gửi và đang chờ chốt."
+            title={actionLoading ? t("Đang tải báo giá…") : t("Chưa chọn báo giá")}
+            description={t("Chỉ hiện báo giá nhà cung cấp đã gửi và đang chờ chốt.")}
             className="min-h-[280px] flex-1"
         />
     ) : (
         <BangHangTaoPhieu
             bang={bangHang}
-            nhan="Hàng trong báo giá"
-            tenChungTu="Báo giá"
+            nhan={t("Hàng trong báo giá")}
+            tenChungTu={t("Báo giá")}
             rongToiThieu="@2xl/khoi:min-w-[620px]"
             cot={[
                 {
-                    ma: "sl", nhan: "SL duyệt", lop: "w-24 text-right",
+                    ma: "sl", nhan: t("SL duyệt"), lop: "w-24 text-right",
                     nhom: (n) => soVN(n.tong.soLuong), dong: (d) => soVN(d.soLuong),
                 },
                 {
-                    ma: "gia", nhan: "Đơn giá", lop: "w-36 text-right whitespace-nowrap", anHep: true,
+                    ma: "gia", nhan: t("Đơn giá"), lop: "w-36 text-right whitespace-nowrap", anHep: true,
                     nhom: () => null, dong: (d) => formatCurrency(d.donGia),
-                    phuHep: (d) => `Đơn giá ${formatCurrency(d.donGia)}`,
+                    phuHep: (d) => t("Đơn giá {{donGia}}", { donGia: formatCurrency(d.donGia) }),
                 },
                 {
-                    ma: "tien", nhan: "Thành tiền", lop: "w-40 text-right whitespace-nowrap",
+                    ma: "tien", nhan: t("Thành tiền"), lop: "w-40 text-right whitespace-nowrap",
                     nhom: (n) => formatCurrency(n.tong.thanhTien), dong: (d) => formatCurrency(d.thanhTien),
                 },
             ]}
@@ -252,12 +253,12 @@ export default function PurchaseOrderCreateManual() {
     );
 
     const cotPhai = selectedQuotation ? (
-        <CotThuocTinh nhan="Thông tin báo giá">
-            <NhomThuocTinh nhan="Nhà cung cấp">
+        <CotThuocTinh nhan={t("Thông tin báo giá")}>
+            <NhomThuocTinh nhan={t("Nhà cung cấp")}>
                 <div className="text-sm font-semibold text-bo-foreground">{ncc?.tenNhaCungCap || "—"}</div>
                 {ncc?.maNhaCungCap ? <div className="mt-0.5 font-mono text-xs text-bo-muted">{ncc.maNhaCungCap}</div> : null}
             </NhomThuocTinh>
-            <NhomThuocTinh nhan="Tổng tiền báo giá">
+            <NhomThuocTinh nhan={t("Tổng tiền báo giá")}>
                 <div className="text-xl font-semibold tabular-nums tracking-tight text-bo-foreground">
                     {formatCurrency(selectedQuotation.tongTien)}
                 </div>
@@ -265,7 +266,7 @@ export default function PurchaseOrderCreateManual() {
             <ChungTuLienQuan
                 ds={yeuCau ? [{
                     khoa: "yeu-cau",
-                    loai: "Yêu cầu mua hàng gốc",
+                    loai: t("Yêu cầu mua hàng gốc"),
                     ma: yeuCau.soYeuCauMuaHang || `#${yeuCau.id}`,
                     to: yeuCau.id ? `/purchase-requests/${yeuCau.id}` : undefined,
                 }] : []}
@@ -278,13 +279,13 @@ export default function PurchaseOrderCreateManual() {
             <KhungChungTu
                 dau={
                     <DauChungTu
-                        ma="Tạo đơn mua hàng"
+                        ma={t("Tạo đơn mua hàng")}
                         dongPhu={dongPhu}
                         onQuayLai={() => navigate("/purchase-orders")}
-                        nhanQuayLai="Quay lại danh sách"
+                        nhanQuayLai={t("Quay lại danh sách")}
                         nutChinh={{
                             ma: "tao",
-                            nhan: "Chấp nhận & Tạo Đơn",
+                            nhan: t("Chấp nhận & Tạo Đơn"),
                             icon: CheckCircle,
                             onClick: handleCreate,
                             khoa: Boolean(lyDoKhoa) || submitting,
@@ -303,11 +304,11 @@ export default function PurchaseOrderCreateManual() {
             <HopXacNhanChungTu
                 mo={showConfirmDialog}
                 onDoiMo={(mo) => { if (!mo) { setShowConfirmDialog(false); setLoiXacNhan(null); } }}
-                tieuDe="Xác nhận tạo đơn hàng"
+                tieuDe={t("Xác nhận tạo đơn hàng")}
                 moTa={selectedQuotation
-                    ? `Chốt báo giá ${selectedQuotation.soDonMua} của ${ncc?.tenNhaCungCap || "nhà cung cấp"}, tổng ${formatCurrency(selectedQuotation.tongTien)}. Đơn mua hàng được tạo theo đúng giá và số lượng trong báo giá.`
+                    ? t("Chốt báo giá {{soDonMua}} của {{tenNcc}}, tổng {{tongTien}}. Đơn mua hàng được tạo theo đúng giá và số lượng trong báo giá.", { soDonMua: selectedQuotation.soDonMua, tenNcc: ncc?.tenNhaCungCap || t("nhà cung cấp"), tongTien: formatCurrency(selectedQuotation.tongTien) })
                     : ""}
-                nhanXacNhan="Xác nhận"
+                nhanXacNhan={t("Xác nhận")}
                 iconXacNhan={CheckCircle}
                 dangChay={submitting}
                 loi={loiXacNhan}

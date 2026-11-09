@@ -6,6 +6,7 @@ import MauKichCo from "@/components/chung-tu/MauKichCo";
 import { soVN } from "@/components/chung-tu/bangChungTu";
 import { O_NHAP } from "@/components/chung-tu/kieuHopThoai";
 import { chonKhiEnter, khoaSanPham, timHang } from "./tinhTaoYeuCau";
+import { t } from "@/i18n";
 
 const DANH_SACH = "absolute inset-x-0 top-[calc(100%+4px)] z-30 max-h-[380px] overflow-y-auto rounded-lg border border-bo-border bg-white p-1 shadow-lg";
 
@@ -84,8 +85,8 @@ export default function OTimThemHang({ dsHang, chiMuc, dong, khoa = false, onThe
     const tho = tuKhoa.trim();
     setMo(true);
     setGoiY(chon.loi === "nhieu"
-      ? `Nhiều sản phẩm khớp “${tho}”, chọn trong danh sách (phím ↑ ↓ rồi Enter).`
-      : `Không tìm thấy sản phẩm “${tho}”.`);
+      ? t("Nhiều sản phẩm khớp “{{tho}}”, chọn trong danh sách (phím ↑ ↓ rồi Enter).", { tho })
+      : t("Không tìm thấy sản phẩm “{{tho}}”.", { tho }));
   };
 
   const phim = (e) => {
@@ -113,7 +114,7 @@ export default function OTimThemHang({ dsHang, chiMuc, dong, khoa = false, onThe
 
   return (
     <div className={cn("relative min-w-0 flex-1", className)}>
-      <label htmlFor={`${id}-o`} className="sr-only">Thêm sản phẩm: tìm hoặc quét mã</label>
+      <label htmlFor={`${id}-o`} className="sr-only">{t("Thêm sản phẩm: tìm hoặc quét mã")}</label>
       <ScanBarcode className="pointer-events-none absolute left-3 top-2.5 size-4 text-bo-muted" aria-hidden="true" />
       <input
         id={`${id}-o`}
@@ -127,7 +128,7 @@ export default function OTimThemHang({ dsHang, chiMuc, dong, khoa = false, onThe
         aria-activedescendant={dangMo && chiSo >= 0 ? `${id}-muc-${chiSo}` : undefined}
         aria-describedby={goiY ? `${id}-goi-y` : undefined}
         disabled={khoa}
-        placeholder="Thêm sản phẩm: tìm tên, mã SKU hoặc quét mã vạch rồi Enter"
+        placeholder={t("Thêm sản phẩm: tìm tên, mã SKU hoặc quét mã vạch rồi Enter")}
         onChange={(e) => { setTuKhoa(e.target.value); setGoiY(""); setChiSo(-1); chonBangPhimRef.current = false; setMo(true); }}
         // Chỉ mở danh sách khi người dùng gõ, bấm ↑ ↓ hay bấm chuột vào ô: tiêu điểm được trả về ô (đóng hộp thoại, bỏ dòng)
         // thì không bung danh sách đè lên bảng
@@ -147,7 +148,7 @@ export default function OTimThemHang({ dsHang, chiMuc, dong, khoa = false, onThe
       />
       {goiY ? <p id={`${id}-goi-y`} className="mt-1.5 text-xs leading-4 text-bo-warning">{goiY}</p> : null}
       {dangMo ? (
-        <div id={idDs} role="listbox" aria-label="Sản phẩm khớp" className={DANH_SACH}>
+        <div id={idDs} role="listbox" aria-label={t("Sản phẩm khớp")} className={DANH_SACH}>
           {nhom.length ? nhom.map((n) => (
             <Fragment key={n.khoa}>
               <div className="flex items-center gap-2.5 px-2.5 pb-1 pt-2 first:pt-1.5" role="presentation">
@@ -155,7 +156,7 @@ export default function OTimThemHang({ dsHang, chiMuc, dong, khoa = false, onThe
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[13px] font-semibold leading-[18px] text-bo-foreground" title={n.bt.tenSanPham}>{n.bt.tenSanPham}</span>
                   <span className="block text-xs leading-4 text-bo-muted">
-                    {[n.bt.maSanPham, n.bt.nhomHang, `${soVN(n.tong)} biến thể`].filter(Boolean).join(" · ")}
+                    {[n.bt.maSanPham, n.bt.nhomHang, t("{{tong}} biến thể", { count: n.tong, tong: soVN(n.tong) })].filter(Boolean).join(" · ")}
                   </span>
                 </span>
                 {n.thieu > 0 ? (
@@ -167,10 +168,10 @@ export default function OTimThemHang({ dsHang, chiMuc, dong, khoa = false, onThe
                     className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-bo-border bg-bo-surface px-2 text-xs font-medium text-bo-primary hover:border-blue-200 hover:bg-bo-primary-soft"
                   >
                     <Plus className="size-3.5" aria-hidden="true" />
-                    {n.thieu === n.tong ? `Thêm cả ${soVN(n.thieu)} biến thể` : `Thêm ${soVN(n.thieu)} biến thể còn lại`}
+                    {n.thieu === n.tong ? t("Thêm cả {{thieu}} biến thể", { count: n.thieu, thieu: soVN(n.thieu) }) : t("Thêm {{thieu}} biến thể còn lại", { count: n.thieu, thieu: soVN(n.thieu) })}
                   </button>
                 ) : (
-                  <span className="shrink-0 text-xs text-bo-muted">Đã thêm đủ biến thể</span>
+                  <span className="shrink-0 text-xs text-bo-muted">{t("Đã thêm đủ biến thể")}</span>
                 )}
               </div>
               {n.muc.map(({ bt, i }) => {
@@ -196,9 +197,9 @@ export default function OTimThemHang({ dsHang, chiMuc, dong, khoa = false, onThe
                       <span className="block break-all font-mono text-xs leading-4 text-bo-muted">{bt.maSku}</span>
                     </span>
                     <span className="flex shrink-0 items-center gap-3.5 text-xs leading-4 tabular-nums">
-                      <span className="text-bo-muted">Khả dụng {soVN(bt.khaDung)}</span>
+                      <span className="text-bo-muted">{t("Khả dụng {{khaDung}}", { khaDung: soVN(bt.khaDung) })}</span>
                       <span className={cn("min-w-11 text-right", daCo != null ? "text-bo-muted" : "font-medium text-bo-primary")}>
-                        {daCo != null ? `Đang có ${soVN(daCo)} · +1` : "Thêm"}
+                        {daCo != null ? t("Đang có {{daCo}} · +1", { daCo: soVN(daCo) }) : t("Thêm")}
                       </span>
                     </span>
                   </button>
@@ -207,18 +208,18 @@ export default function OTimThemHang({ dsHang, chiMuc, dong, khoa = false, onThe
             </Fragment>
           )) : (
             <p className="px-2.5 py-2 text-sm text-bo-muted">
-              {!dsHang?.length ? chuTrong || "Chưa có sản phẩm nào nhập được." : `Không tìm thấy sản phẩm khớp “${tuKhoa.trim()}”. Thử tên, mã SKU hoặc mã vạch khác.`}
+              {!dsHang?.length ? chuTrong || t("Chưa có sản phẩm nào nhập được.") : t("Không tìm thấy sản phẩm khớp “{{tuKhoa}}”. Thử tên, mã SKU hoặc mã vạch khác.", { tuKhoa: tuKhoa.trim() })}
             </p>
           )}
           {nhom.length ? (
             <p className="hidden border-t border-slate-100 px-2.5 pb-1 pt-2 text-xs leading-4 text-bo-muted sm:block">
-              <kbd className="font-sans font-medium text-slate-600">↑ ↓</kbd> chọn · <kbd className="font-sans font-medium text-slate-600">Enter</kbd> thêm mã ·{" "}
-              <kbd className="font-sans font-medium text-slate-600">Shift + Enter</kbd> thêm cả sản phẩm
+              <kbd className="font-sans font-medium text-slate-600">↑ ↓</kbd> {t("chọn ·")} <kbd className="font-sans font-medium text-slate-600">Enter</kbd> {t("thêm mã ·")}{" "}
+              <kbd className="font-sans font-medium text-slate-600">Shift + Enter</kbd> {t("thêm cả sản phẩm")}
             </p>
           ) : null}
           {kq.tong > kq.ds.length ? (
             <p className="px-2.5 py-2 text-xs text-bo-muted">
-              Còn {soVN(kq.tong - kq.ds.length)} biến thể khác, gõ thêm tên, màu hoặc cỡ để lọc.
+              {t("Còn {{soKhac}} biến thể khác, gõ thêm tên, màu hoặc cỡ để lọc.", { count: kq.tong - kq.ds.length, soKhac: soVN(kq.tong - kq.ds.length) })}
             </p>
           ) : null}
         </div>

@@ -9,6 +9,7 @@ import { SO_DONG_YEU_CAU_HIEN, SO_NCC_GUI_HIEN } from "@/config/bangChungTu";
 import { getYeuCauNhapHangStatus } from "@/constants/yeuCauNhapHang";
 import { formatDate } from "@/utils/formatters";
 import { maYeuCau, tenDongYeuCau } from "./tinhGuiBaoGia";
+import { t } from "@/i18n";
 
 /**
  * Cột phải của màn Gửi yêu cầu báo giá: "Gửi đến" (nhà cung cấp đã chọn, bỏ từng người; quá SO_NCC_GUI_HIEN thì gom
@@ -24,8 +25,8 @@ export default function ThuocTinhGuiBaoGia({ yc, id, daChon, onBo }) {
   const tt = getYeuCauNhapHangStatus(yc.trangThai);
 
   return (
-    <CotThuocTinh nhan="Danh sách gửi và yêu cầu nhập hàng">
-      <NhomThuocTinh nhan="Gửi đến">
+    <CotThuocTinh nhan={t("Danh sách gửi và yêu cầu nhập hàng")}>
+      <NhomThuocTinh nhan={t("Gửi đến")}>
         {daChon.length ? (
           <>
             <ul className="m-0 mt-1 grid list-none gap-1.5 p-0">
@@ -38,7 +39,7 @@ export default function ThuocTinhGuiBaoGia({ yc, id, daChon, onBo }) {
                   <button
                     type="button"
                     onClick={() => onBo(d.id)}
-                    aria-label={`Bỏ ${d.ten}`}
+                    aria-label={t("Bỏ {{ten}}", { ten: d.ten })}
                     className="grid size-6 shrink-0 place-items-center rounded text-slate-400 hover:bg-slate-200 hover:text-bo-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
                   >
                     <X className="size-3.5" aria-hidden="true" />
@@ -48,16 +49,16 @@ export default function ThuocTinhGuiBaoGia({ yc, id, daChon, onBo }) {
             </ul>
             {daChon.length > SO_NCC_GUI_HIEN ? (
               <NutChu className="mt-2" aria-expanded={moHet} onClick={() => setMoHet((x) => !x)}>
-                {moHet ? "Thu gọn" : `và ${soVN(daChon.length - SO_NCC_GUI_HIEN)} nhà cung cấp khác`}
+                {moHet ? t("Thu gọn") : t("và {{soKhac}} nhà cung cấp khác", { count: daChon.length - SO_NCC_GUI_HIEN, soKhac: soVN(daChon.length - SO_NCC_GUI_HIEN) })}
               </NutChu>
             ) : null}
           </>
         ) : (
-          <p className="m-0 mt-1 text-[13px] leading-5 text-bo-muted">Chưa chọn nhà cung cấp nào. Chọn ở danh sách nhà cung cấp.</p>
+          <p className="m-0 mt-1 text-[13px] leading-5 text-bo-muted">{t("Chưa chọn nhà cung cấp nào. Chọn ở danh sách nhà cung cấp.")}</p>
         )}
       </NhomThuocTinh>
 
-      <NhomThuocTinh nhan="Yêu cầu nhập hàng">
+      <NhomThuocTinh nhan={t("Yêu cầu nhập hàng")}>
         <div className="mb-2.5 flex flex-wrap items-center gap-2">
           <Link to={`/purchase-requests/${yc.id ?? id}`} className="font-semibold tabular-nums text-bo-primary hover:underline">
             {ma}
@@ -66,15 +67,15 @@ export default function ThuocTinhGuiBaoGia({ yc, id, daChon, onBo }) {
         </div>
         <BangThuocTinh
           muc={[
-            { nhan: "Kho nhận", giaTri: yc.khoNhap?.tenKho },
-            { nhan: "Cần hàng trước", giaTri: yc.ngayGiaoDuKien ? formatDate(yc.ngayGiaoDuKien) : null },
-            { nhan: "Người tạo", giaTri: yc.nguoiTao?.hoTen },
-            { nhan: "Ghi chú", giaTri: yc.ghiChu ? <span className="whitespace-pre-line break-words">{yc.ghiChu}</span> : null },
+            { nhan: t("Kho nhận"), giaTri: yc.khoNhap?.tenKho },
+            { nhan: t("Cần hàng trước"), giaTri: yc.ngayGiaoDuKien ? formatDate(yc.ngayGiaoDuKien) : null },
+            { nhan: t("Người tạo"), giaTri: yc.nguoiTao?.hoTen },
+            { nhan: t("Ghi chú"), giaTri: yc.ghiChu ? <span className="whitespace-pre-line break-words">{yc.ghiChu}</span> : null },
           ]}
         />
       </NhomThuocTinh>
 
-      <NhomThuocTinh nhan="Sản phẩm cần báo giá">
+      <NhomThuocTinh nhan={t("Sản phẩm cần báo giá")}>
         <ul className="m-0 mt-1 grid list-none gap-1.5 p-0">
           {dong.slice(0, SO_DONG_YEU_CAU_HIEN).map((ct, i) => (
             <li key={ct.id ?? i} className="flex min-w-0 justify-between gap-3 text-[13px] leading-[18px]">
@@ -85,7 +86,7 @@ export default function ThuocTinhGuiBaoGia({ yc, id, daChon, onBo }) {
         </ul>
         {dong.length > SO_DONG_YEU_CAU_HIEN ? (
           <Link to={`/purchase-requests/${yc.id ?? id}`} className="mt-2 inline-block text-[13px] font-semibold text-bo-primary hover:underline">
-            Xem đủ {soVN(dong.length)} biến thể ở yêu cầu
+            {t("Xem đủ {{soDong}} biến thể ở yêu cầu", { count: dong.length, soDong: soVN(dong.length) })}
           </Link>
         ) : null}
       </NhomThuocTinh>

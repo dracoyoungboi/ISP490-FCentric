@@ -17,6 +17,7 @@
  *   ở 3; `ngayBaoGiaDaXem` khác máy chủ (nhà cung cấp vừa gửi lại) thì 409. Máy chủ ghi người bấm vào `nguoiDuyet`.
  */
 import { docSo, soVN, tuBienThe } from "../../chung-tu/bangChungTu.js";
+import { t } from "../../../i18n/t.js";
 
 export const TRANG_THAI_BAO_GIA = Object.freeze({
   DA_XOA: 0,
@@ -33,6 +34,7 @@ export const TRANG_THAI_BAO_GIA = Object.freeze({
 export const TRANG_THAI_YEU_CAU_DANG_NHAN_BAO_GIA = 3;
 
 /** Nhãn suy ra ở giao diện cho báo giá trạng thái 2 mà nhà cung cấp chưa gửi báo giá (có trong constants/trangThai.js). */
+// i18n-giu-nguyen: nhãn trạng thái truyền vào StatusBadge (badge tự dịch, tra màu theo tên Việt)
 export const NHAN_CHO_BAO_GIA = "Chờ báo giá";
 
 /** Số ký tự tối đa của lý do không chấp nhận, khớp máy chủ (HOP-DONG 2.3, cột ly_do_tu_choi VARCHAR(500)). */
@@ -130,8 +132,8 @@ export function nguoiChotBaoGia(don, { coYeuCauGoc = don?.yeuCauMuaHang != null 
     hoTen,
     email,
     khongChapNhan,
-    nhan: "Người chốt",
-    chu: khongChapNhan ? `Không chấp nhận bởi ${hoTen}` : `Chốt bởi ${hoTen}`,
+    nhan: t("Người chốt"),
+    chu: khongChapNhan ? t("Không chấp nhận bởi {{hoTen}}", { hoTen }) : t("Chốt bởi {{hoTen}}", { hoTen }),
   };
 }
 
@@ -169,10 +171,10 @@ export function coTheXetBaoGia(don) {
  * "Nhà cung cấp chưa gửi báo giá"; còn lại kiểm từng dòng cho dữ liệu cũ (dòng thiếu giá).
  */
 export function lyDoKhoaChapNhan(tomTat, don) {
-  if (don !== undefined && !daCoBaoGia(don)) return "Nhà cung cấp chưa gửi báo giá";
-  if (!tomTat?.soDong) return "Báo giá chưa có sản phẩm nào";
-  if (!tomTat.coMotPhan) return "Nhà cung cấp chưa gửi giá";
-  if (tomTat.thieu > 0) return `Còn ${soVN(tomTat.thieu)} dòng chưa có giá`;
+  if (don !== undefined && !daCoBaoGia(don)) return t("Nhà cung cấp chưa gửi báo giá");
+  if (!tomTat?.soDong) return t("Báo giá chưa có sản phẩm nào");
+  if (!tomTat.coMotPhan) return t("Nhà cung cấp chưa gửi giá");
+  if (tomTat.thieu > 0) return t("Còn {{thieu}} dòng chưa có giá", { count: tomTat.thieu, thieu: soVN(tomTat.thieu) });
   return "";
 }
 
@@ -181,8 +183,8 @@ export function cauCanhBaoChapNhan(tomTat, don) {
   const lyDo = lyDoKhoaChapNhan(tomTat, don);
   if (!lyDo) return "";
   if (don !== undefined && !daCoBaoGia(don)) return `${lyDo}.`;
-  if (!tomTat?.soDong) return "Báo giá chưa có sản phẩm nào nên chưa chấp nhận được.";
-  return `${lyDo}. Chấp nhận được khi mọi dòng đã có đơn giá.`;
+  if (!tomTat?.soDong) return t("Báo giá chưa có sản phẩm nào nên chưa chấp nhận được.");
+  return t("{{lyDo}}. Chấp nhận được khi mọi dòng đã có đơn giá.", { lyDo });
 }
 
 /**
@@ -253,27 +255,27 @@ export function tinhBuocBaoGia(don, tomTat = congGia(don?.chiTietDonMuaHangs), {
   const daChot = laDaChot(tt);
   const choGia = laConChoGia(tt);
   const daBaoGia = daCoBaoGia(don);
-  const dongCoGia = `${soVN(tomTat.soCoGia)}/${soVN(tomTat.soDong)} dòng có giá`;
+  const dongCoGia = t("{{soCoGia}}/{{soDong}} dòng có giá", { soCoGia: soVN(tomTat.soCoGia), soDong: soVN(tomTat.soDong) });
 
   const chuaGuiEmail = tt === TRANG_THAI_BAO_GIA.CHO_CHOT && !daBaoGia && !don?.ngayGuiYeuCau;
 
   let guiGia;
   if (chuaGuiEmail) {
-    guiGia = { trangThai: "chua", phu: "Chưa gửi giá" };
+    guiGia = { trangThai: "chua", phu: t("Chưa gửi giá") };
   } else if (daBaoGia) {
     guiGia = { trangThai: "xong", phu: dongCoGia, ngay: don.ngayBaoGia, coGio: true };
   } else if (daChot && tomTat.coMotPhan) {
     // Dữ liệu cũ đã chốt mà không có ngayBaoGia: vẫn là đã gửi giá, chỉ không có mốc giờ
     guiGia = { trangThai: "xong", phu: dongCoGia };
   } else {
-    guiGia = choGia ? { trangThai: "dangLam", phu: "Chờ nhà cung cấp" } : { trangThai: "chua", phu: "Chưa gửi giá" };
+    guiGia = choGia ? { trangThai: "dangLam", phu: t("Chờ nhà cung cấp") } : { trangThai: "chua", phu: t("Chưa gửi giá") };
   }
 
   let chot;
-  if (daChot) chot = { trangThai: "xong", phu: "Đã chấp nhận" };
-  else if (tt === TRANG_THAI_BAO_GIA.TU_CHOI) chot = { trangThai: "dung", phu: "Không chấp nhận" };
-  else if (tt === TRANG_THAI_BAO_GIA.DA_XOA) chot = { trangThai: "dung", phu: "Đã xóa" };
-  else if (tt === TRANG_THAI_BAO_GIA.CHO_CHOT && daBaoGia) chot = { trangThai: "dangLam", phu: "Chờ nhân viên mua hàng chốt" };
+  if (daChot) chot = { trangThai: "xong", phu: t("Đã chấp nhận") };
+  else if (tt === TRANG_THAI_BAO_GIA.TU_CHOI) chot = { trangThai: "dung", phu: t("Không chấp nhận") };
+  else if (tt === TRANG_THAI_BAO_GIA.DA_XOA) chot = { trangThai: "dung", phu: t("Đã xóa") };
+  else if (tt === TRANG_THAI_BAO_GIA.CHO_CHOT && daBaoGia) chot = { trangThai: "dangLam", phu: t("Chờ nhân viên mua hàng chốt") };
   else chot = { trangThai: "chua", phu: "" };
 
   const gui = chuaGuiEmail
@@ -281,10 +283,10 @@ export function tinhBuocBaoGia(don, tomTat = congGia(don?.chiTietDonMuaHangs), {
     : { trangThai: "xong", ngay: ngayGuiYeuCau(don), coGio: true };
 
   return [
-    { ma: "gui", nhan: "Gửi yêu cầu", ...gui },
-    { ma: "guiGia", nhan: "Nhà cung cấp gửi giá", ...guiGia },
-    { ma: "chot", nhan: "Chốt báo giá", ...chot },
-    { ma: "donMua", nhan: "Thành đơn mua hàng", trangThai: daChot ? "xong" : "chua", phu: daChot ? nhanDonMua : "" },
+    { ma: "gui", nhan: t("Gửi yêu cầu"), ...gui },
+    { ma: "guiGia", nhan: t("Nhà cung cấp gửi giá"), ...guiGia },
+    { ma: "chot", nhan: t("Chốt báo giá"), ...chot },
+    { ma: "donMua", nhan: t("Thành đơn mua hàng"), trangThai: daChot ? "xong" : "chua", phu: daChot ? nhanDonMua : "" },
   ];
 }
 
