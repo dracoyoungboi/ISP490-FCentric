@@ -920,16 +920,16 @@ function AppAuthManagementView({ authStatus, loading, onRefresh }) {
   };
 
   const handleRevoke = async () => {
-    if (!window.confirm("Bạn có chắc chắn muốn hủy ủy quyền ứng dụng FCentric khỏi gian hàng Shopee không? Sau khi hủy, hệ thống FCentric sẽ không thể đọc đơn hàng và cập nhật tồn kho nữa.")) {
+    if (!window.confirm(t("Bạn có chắc chắn muốn hủy ủy quyền ứng dụng FCentric khỏi gian hàng Shopee không? Sau khi hủy, hệ thống FCentric sẽ không thể đọc đơn hàng và cập nhật tồn kho nữa."))) {
       return;
     }
     setRevoking(true);
     try {
       await shopeeSimulatorService.revokeAppAuth();
-      toast.success("Đã hủy ủy quyền ứng dụng FCentric khỏi gian hàng Shopee thành công!");
+      toast.success(t("Đã hủy ủy quyền ứng dụng FCentric khỏi gian hàng Shopee thành công!"));
       if (onRefresh) onRefresh();
     } catch (err) {
-      toast.error("Lỗi khi hủy ủy quyền ứng dụng");
+      toast.error(t("Lỗi khi hủy ủy quyền ứng dụng"));
     } finally {
       setRevoking(false);
     }
@@ -939,7 +939,7 @@ function AppAuthManagementView({ authStatus, loading, onRefresh }) {
     return (
       <div className="py-24 text-center text-slate-400 flex flex-col items-center gap-3">
         <RefreshCw className="w-8 h-8 animate-spin text-[#EE4D2D]" />
-        <p className="text-sm font-medium">Đang kiểm tra trạng thái ủy quyền gian hàng Shopee...</p>
+        <p className="text-sm font-medium">{t("Đang kiểm tra trạng thái ủy quyền gian hàng Shopee...")}</p>
       </div>
     );
   }
@@ -947,10 +947,10 @@ function AppAuthManagementView({ authStatus, loading, onRefresh }) {
   // ── TRƯỜNG HỢP 1: ĐÃ ỦY QUYỀN THÀNH CÔNG (HIỂN THỊ GIAO DIỆN SHOPEE SELLER CENTER) ──
   if (authStatus?.isAuthorized) {
     const scopes = authStatus.scopes || [
-      { code: "product", name: "Quản lý sản phẩm & tồn kho", desc: "Tự động đồng bộ tồn kho khả dụng thời gian thực" },
-      { code: "order", name: "Quản lý đơn hàng", desc: "Đọc đơn hàng mới và đồng bộ hủy đơn hai chiều" },
-      { code: "logistics", name: "Hậu cần & Vận chuyển SPX", desc: "Cấp mã vận đơn Shopee Xpress, in tem nhãn nhiệt A6" },
-      { code: "payment", name: "Quyết toán ví Shopee & Escrow", desc: "Bóc tách doanh thu và đối soát biểu phí sàn" },
+      { code: "product", name: t("Quản lý sản phẩm & tồn kho"), desc: t("Tự động đồng bộ tồn kho khả dụng thời gian thực") },
+      { code: "order", name: t("Quản lý đơn hàng"), desc: t("Đọc đơn hàng mới và đồng bộ hủy đơn hai chiều") },
+      { code: "logistics", name: t("Hậu cần & Vận chuyển SPX"), desc: t("Cấp mã vận đơn Shopee Xpress, in tem nhãn nhiệt A6") },
+      { code: "payment", name: t("Quyết toán ví Shopee & Escrow"), desc: t("Bóc tách doanh thu và đối soát biểu phí sàn") },
     ];
 
     return (
@@ -959,9 +959,9 @@ function AppAuthManagementView({ authStatus, loading, onRefresh }) {
         <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
           <span>Shopee Seller Center</span>
           <span>›</span>
-          <span>Thiết Lập Shop</span>
+          <span>{t("Thiết Lập Shop")}</span>
           <span>›</span>
-          <span className="text-slate-800 font-bold">Nền tảng đối tác (Partner Platforms)</span>
+          <span className="text-slate-800 font-bold">{t("Nền tảng đối tác (Partner Platforms)")}</span>
         </div>
 
         {/* Khung quản lý ứng dụng đối tác */}
@@ -974,13 +974,13 @@ function AppAuthManagementView({ authStatus, loading, onRefresh }) {
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-bold text-slate-800">Quản lý Ứng dụng & Đối tác đã liên kết</h2>
+                  <h2 className="text-lg font-bold text-slate-800">{t("Quản lý Ứng dụng & Đối tác đã liên kết")}</h2>
                   <span className="bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-emerald-200">
-                    Đã liên kết 1 App
+                    {t("Đã liên kết 1 App")}
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Gian hàng: <strong>{authStatus.shopName || "FCentric Official Store"}</strong> • Shop ID: {authStatus.shopId || 10892019}
+                  {t("Gian hàng:")} <strong>{authStatus.shopName || "FCentric Official Store"}</strong> • Shop ID: {authStatus.shopId || 10892019}
                 </p>
               </div>
             </div>
@@ -990,7 +990,7 @@ function AppAuthManagementView({ authStatus, loading, onRefresh }) {
               className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 rounded-xl text-xs font-semibold shadow-xs transition-colors"
             >
               <RefreshCw className="w-3.5 h-3.5" />
-              <span>Làm mới</span>
+              <span>{t("Làm mới")}</span>
             </button>
           </div>
 
@@ -1009,9 +1009,9 @@ function AppAuthManagementView({ authStatus, loading, onRefresh }) {
                     </span>
                   </div>
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
-                    <span>Mã đối tác (Partner ID): <strong className="font-mono text-slate-700 font-semibold">{authStatus.partnerId || 1000888}</strong></span>
+                    <span>{t("Mã đối tác (Partner ID):")} <strong className="font-mono text-slate-700 font-semibold">{authStatus.partnerId || 1000888}</strong></span>
                     <span className="hidden sm:inline text-slate-300">•</span>
-                    <span>Nhà phát triển: <strong className="text-slate-700 font-semibold">{authStatus.developerName || "FCentric Technology JSC"}</strong></span>
+                    <span>{t("Nhà phát triển:")} <strong className="text-slate-700 font-semibold">{authStatus.developerName || "FCentric Technology JSC"}</strong></span>
                   </div>
                 </div>
               </div>
@@ -1019,16 +1019,16 @@ function AppAuthManagementView({ authStatus, loading, onRefresh }) {
               <div className="flex flex-row md:flex-col items-start md:items-end justify-between w-full md:w-auto gap-2 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-200/60">
                 <span className="inline-flex items-center gap-1.5 bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full text-xs font-bold border border-emerald-300 shrink-0">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  Đang hoạt động (Connected)
+                  {t("Đang hoạt động (Connected)")}
                 </span>
-                <span className="text-[11px] text-slate-400 font-medium">Hiệu lực: Còn 364 ngày</span>
+                <span className="text-[11px] text-slate-400 font-medium">{t("Hiệu lực: Còn 364 ngày")}</span>
               </div>
             </div>
 
             {/* Danh sách các quyền hạn được cấp (Scopes) */}
             <div className="space-y-3">
               <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                Phạm vi quyền hạn được cấp phép (Authorized Scopes):
+                {t("Phạm vi quyền hạn được cấp phép (Authorized Scopes):")}
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {scopes.map((sc) => (
@@ -1048,7 +1048,7 @@ function AppAuthManagementView({ authStatus, loading, onRefresh }) {
             {/* Cảnh báo bảo mật & Thao tác */}
             <div className="pt-5 border-t border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <p className="text-xs text-slate-400 leading-relaxed max-w-md">
-                Bạn có thể ngắt kết nối bất kỳ lúc nào nếu không còn sử dụng dịch vụ quản lý kho của ứng dụng này.
+                {t("Bạn có thể ngắt kết nối bất kỳ lúc nào nếu không còn sử dụng dịch vụ quản lý kho của ứng dụng này.")}
               </p>
 
               <div className="flex items-center gap-3 w-full md:w-auto justify-end shrink-0">
@@ -1057,7 +1057,7 @@ function AppAuthManagementView({ authStatus, loading, onRefresh }) {
                   target="_blank"
                   className="flex-1 md:flex-none inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors whitespace-nowrap"
                 >
-                  <span>Mở FCentric</span>
+                  <span>{t("Mở FCentric")}</span>
                   <ExternalLink className="w-3.5 h-3.5" />
                 </Link>
 
@@ -1069,12 +1069,12 @@ function AppAuthManagementView({ authStatus, loading, onRefresh }) {
                   {revoking ? (
                     <>
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      <span>Đang hủy ủy quyền...</span>
+                      <span>{t("Đang hủy ủy quyền...")}</span>
                     </>
                   ) : (
                     <>
                       <Trash2 className="w-3.5 h-3.5" />
-                      <span>Hủy ủy quyền (Ngắt kết nối)</span>
+                      <span>{t("Hủy ủy quyền (Ngắt kết nối)")}</span>
                     </>
                   )}
                 </button>
@@ -1134,7 +1134,7 @@ function AppAuthManagementView({ authStatus, loading, onRefresh }) {
               <div className="flex items-start gap-2">
                 <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                 <span>
-                  <strong>Quyết toán ví Shopee & Escrow:</strong> Bóc tách tiền thực nhận và đối soát chi tiết thanh toán.
+                  <strong>{t("Quyết toán ví Shopee & Escrow:")}</strong> {t("Bóc tách tiền thực nhận và đối soát chi tiết thanh toán.")}
                 </span>
               </div>
             </div>
