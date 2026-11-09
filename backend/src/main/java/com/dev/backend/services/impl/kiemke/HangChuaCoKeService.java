@@ -17,6 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -69,7 +70,8 @@ public class HangChuaCoKeService {
         if (ds.isEmpty()) return List.of();
 
         List<Integer> loIds = ds.stream().map(SoTonKeService.HangChuaCoKe::loHangId).toList();
-        Map<Integer, KiemKeDto.NguonNhap> nguon = nguonNhap(khoId, loIds);
+        Map<Integer, List<DongNhapLo>> nhapTheoLo = nhapTheoLo(khoId, loIds);
+        Map<Integer, KiemKeDto.NguonNhap> nguon = ganNhat(nhapTheoLo);
         List<SoTonKeService.HangChuaCoKe> theoThuTu = new ArrayList<>(ds);
         theoThuTu.sort(Comparator.comparing((SoTonKeService.HangChuaCoKe h) -> ngayNguon(nguon.get(h.loHangId())), Comparator.reverseOrder())
                 .thenComparing(h -> phieuNhapId(nguon.get(h.loHangId())), Comparator.reverseOrder())
@@ -93,28 +95,123 @@ public class HangChuaCoKeService {
                     h.chuaCoKe() - giuNhat, dangKiemKe);
             kq.add(new KiemKeDto.HangChuaCoKe(h.loHangId(), h.maLo(), KiemKeDocService.sanPham(bt), h.tonLo(), h.trenKe(),
                     h.chuaCoKe(), giuNhat, dangKiemKe, goiYDto(goiY.goiY()),
-                    goiY.lienQuan().stream().map(HangChuaCoKeService::lienQuanDto).toList(), nguon.get(h.loHangId())));
+                    goiY.lienQuan().stream().map(HangChuaCoKeService::lienQuanDto).toList(), nguon.get(h.loHangId()),
+                    chiaPhan(h, nhapTheoLo.get(h.loHangId()))));
         }
         return kq;
     }
 
     /**
      * Số lô và tổng sản phẩm chưa có kệ ở kho: số đếm trên menu, hoặc (truyền {@code phieuChuyenId} / {@code phieuNhapId})
-     * chỉ hàng có chứng từ nhập gần nhất là chứng từ đó — dòng nhắc "Xếp kệ" trên phiếu chuyển kho, phiếu nhập.
+     * chỉ phần chưa có kệ tính cho chứng từ đó ({@link #chiaPhan}) — dòng nhắc "Xếp kệ" trên phiếu chuyển kho, phiếu nhập.
      */
     @Transactional(readOnly = true)
     public KiemKeDto.DemChuaCoKe dem(Integer khoId, Integer phieuChuyenId, Integer phieuNhapId) {
         kiemTraXemKho(khoId);
         List<SoTonKeService.HangChuaCoKe> ds = soTonKe.hangChuaCoKe(khoId);
-        if (!ds.isEmpty() && (phieuChuyenId != null || phieuNhapId != null)) {
-            Map<Integer, KiemKeDto.NguonNhap> nguon = nguonNhap(khoId, ds.stream().map(SoTonKeService.HangChuaCoKe::loHangId).toList());
-            ds = ds.stream().filter(h -> {
-                KiemKeDto.NguonNhap n = nguon.get(h.loHangId());
-                return n != null && (phieuChuyenId == null || phieuChuyenId.equals(n.phieuChuyenId()))
-                        && (phieuNhapId == null || phieuNhapId.equals(n.phieuNhapId()));
-            }).toList();
+        if (ds.isEmpty() || (phieuChuyenId == null && phieuNhapId == null)) {
+            return new KiemKeDto.DemChuaCoKe(ds.size(), ds.stream().mapToLong(SoTonKeService.HangChuaCoKe::chuaCoKe).sum());
         }
-        return new KiemKeDto.DemChuaCoKe(ds.size(), ds.stream().mapToLong(SoTonKeService.HangChuaCoKe::chuaCoKe).sum());
+        Map<Integer, List<DongNhapLo>> nhapTheoLo = nhapTheoLo(khoId, ds.stream().map(SoTonKeService.HangChuaCoKe::loHangId).toList());
+        int soLo = 0;
+        long soLuong = 0;
+        for (SoTonKeService.HangChuaCoKe h : ds) {
+            int phan = chiaPhan(h, nhapTheoLo.get(h.loHangId())).stream()
+                    .filter(p -> (phieuChuyenId == null || phieuChuyenId.equals(p.phieuChuyenId()))
+                            && (phieuNhapId == null || phieuNhapId.equals(p.phieuNhapId())))
+                    .mapToInt(KiemKeDto.PhanChungTu::soLuong).sum();
+            if (phan > 0) {
+                soLo++;
+                soLuong += phan;
+            }
+        }
+        return new KiemKeDto.DemChuaCoKe(soLo, soLuong);
+    }
+
+    /**
+     * Phần chưa có kệ theo phiếu chuyển kho (tab "Chờ xếp kệ" và số trên dòng của danh sách phiếu chuyển): id phiếu chuyển
+     * → tổng phần chưa có kệ tính cho các phiếu nhập của phiếu đó ({@link #chiaPhan}) — nhận chuyển kho ở kho nhận, hàng
+     * về lại kho xuất khi phiếu bị hủy lúc đang đi đường. {@code khoId}: chỉ kho đó; null: mọi kho đã khai báo kệ. Không
+     * kiểm quyền (nơi gọi tự giới hạn phạm vi).
+     */
+    @Transactional(readOnly = true)
+    public Map<Integer, Integer> chuaXepTheoPhieuChuyen(Integer khoId) {
+        List<Integer> dsKho = khoId != null ? List.of(khoId) : khoCoKe();
+        Map<Integer, Integer> kq = new HashMap<>();
+        for (Integer kho : dsKho) {
+            // Danh sách kho lấy từ vi_tri_kho thì kho đã có kệ: khỏi kiểm lại
+            List<SoTonKeService.HangChuaCoKe> ds = soTonKe.hangChuaCoKe(kho, khoId != null);
+            if (ds.isEmpty()) continue;
+            // Chỉ lô từng vào kho này bằng phiếu nhập của phiếu chuyển mới góp vào kết quả: bỏ lô chỉ có phiếu nhà cung cấp /
+            // khách trả trước khi tra mọi phiếu nhập (kho mới khai báo kệ có thể có hàng nghìn lô chưa có kệ)
+            Set<Integer> loCoChuyenKho = loCoPhieuNhapChuyenKho(kho);
+            ds = ds.stream().filter(h -> loCoChuyenKho.contains(h.loHangId())).toList();
+            if (ds.isEmpty()) continue;
+            Map<Integer, List<DongNhapLo>> nhapTheoLo = nhapTheoLo(kho, ds.stream().map(SoTonKeService.HangChuaCoKe::loHangId).toList());
+            for (SoTonKeService.HangChuaCoKe h : ds) {
+                for (KiemKeDto.PhanChungTu p : chiaPhan(h, nhapTheoLo.get(h.loHangId()))) {
+                    if (p.phieuChuyenId() != null && p.soLuong() > 0) kq.merge(p.phieuChuyenId(), p.soLuong(), Integer::sum);
+                }
+            }
+        }
+        return kq;
+    }
+
+    /** Lô có ít nhất một phiếu nhập hoàn tất của phiếu chuyển kho vào kho (nhận chuyển kho, hàng về lại khi hủy). */
+    private Set<Integer> loCoPhieuNhapChuyenKho(Integer khoId) {
+        @SuppressWarnings("unchecked")
+        List<Object> rows = em.createNativeQuery("""
+                SELECT DISTINCT ct.lo_hang_id
+                  FROM chi_tiet_phieu_nhap_kho ct
+                  JOIN phieu_nhap_kho pn ON pn.id = ct.phieu_nhap_kho_id
+                 WHERE pn.kho_id = :kho AND pn.trang_thai = :hoanTat AND pn.phieu_chuyen_kho_id IS NOT NULL
+                   AND ct.lo_hang_id IS NOT NULL
+                """)
+                .setParameter("kho", khoId)
+                .setParameter("hoanTat", TrangThaiPhieuNhap.COMPLETED.getValue())
+                .getResultList();
+        return rows.stream().map(HangChuaCoKeService::so).collect(Collectors.toSet());
+    }
+
+    /** Các kho đã khai báo ít nhất một kệ. */
+    private List<Integer> khoCoKe() {
+        @SuppressWarnings("unchecked")
+        List<Object> rows = em.createNativeQuery("SELECT DISTINCT kho_id FROM vi_tri_kho WHERE kho_id IS NOT NULL").getResultList();
+        return rows.stream().map(HangChuaCoKeService::so).toList();
+    }
+
+    /**
+     * {@link #chiaPhan(int, List, boolean)} cho một lô: lô có kệ chính thuộc kho này thì phiếu nhập không qua chuyển kho
+     * (nhà cung cấp, khách trả) đã cộng thẳng lên kệ đó khi hoàn tất (PhieuNhapKhoService.completePhieuNhap) nên không
+     * giữ phần chưa có kệ nào. Xấp xỉ: kệ chính của lô có thể được gán sau lần nhập đó.
+     */
+    static List<KiemKeDto.PhanChungTu> chiaPhan(SoTonKeService.HangChuaCoKe h, List<DongNhapLo> nhapMoiTruoc) {
+        return chiaPhan(h.chuaCoKe(), nhapMoiTruoc, h.keChinhId() != null);
+    }
+
+    static List<KiemKeDto.PhanChungTu> chiaPhan(int chuaCoKe, List<DongNhapLo> nhapMoiTruoc) {
+        return chiaPhan(chuaCoKe, nhapMoiTruoc, false);
+    }
+
+    /**
+     * Chia {@code chuaCoKe} sản phẩm chưa có kệ của một lô cho các phiếu nhập của lô vào kho theo thứ tự mới nhất trước,
+     * mỗi phiếu tối đa số đã nhập lô đó: hàng về sau là hàng chưa kịp xếp (hệ thống không biết món nào trong lô đã xếp).
+     * Phần còn lại sau phiếu cũ nhất (hàng có từ trước, điều chỉnh kiểm kê) không thuộc phiếu nào.
+     * {@code boQuaNhapLenThangKe}: bỏ qua phiếu nhập không qua chuyển kho (hàng đã lên thẳng kệ chính của lô).
+     */
+    static List<KiemKeDto.PhanChungTu> chiaPhan(int chuaCoKe, List<DongNhapLo> nhapMoiTruoc, boolean boQuaNhapLenThangKe) {
+        if (chuaCoKe <= 0 || nhapMoiTruoc == null || nhapMoiTruoc.isEmpty()) return List.of();
+        List<KiemKeDto.PhanChungTu> kq = new ArrayList<>();
+        int con = chuaCoKe;
+        for (DongNhapLo d : nhapMoiTruoc) {
+            if (con <= 0) break;
+            if (boQuaNhapLenThangKe && d.nguon().phieuChuyenId() == null) continue;
+            int lay = Math.min(con, Math.max(0, d.soLuong()));
+            if (lay <= 0) continue;
+            kq.add(new KiemKeDto.PhanChungTu(d.nguon().phieuNhapId(), d.nguon().soPhieuNhap(), d.nguon().phieuChuyenId(), lay, d.nguon()));
+            con -= lay;
+        }
+        return kq;
     }
 
     private void kiemTraXemKho(Integer khoId) {
@@ -167,15 +264,31 @@ public class HangChuaCoKeService {
                 so(r[4]))).toList();
     }
 
-    /** Phiếu nhập hoàn tất gần nhất của mỗi lô vào kho (nhận chuyển kho, hoàn trả, khách trả, nhà cung cấp). */
-    private Map<Integer, KiemKeDto.NguonNhap> nguonNhap(Integer khoId, List<Integer> loIds) {
+    /** Một phiếu nhập của lô vào kho và tổng số đã nhập lô đó theo phiếu. */
+    record DongNhapLo(KiemKeDto.NguonNhap nguon, int soLuong) {
+    }
+
+    /** Phiếu nhập gần nhất của mỗi lô (đầu danh sách của {@link #nhapTheoLo}). */
+    private static Map<Integer, KiemKeDto.NguonNhap> ganNhat(Map<Integer, List<DongNhapLo>> nhapTheoLo) {
         Map<Integer, KiemKeDto.NguonNhap> kq = new HashMap<>();
+        nhapTheoLo.forEach((lo, ds) -> {
+            if (!ds.isEmpty()) kq.put(lo, ds.get(0).nguon());
+        });
+        return kq;
+    }
+
+    /**
+     * Mọi phiếu nhập hoàn tất của mỗi lô vào kho (nhận chuyển kho, hoàn trả, khách trả, nhà cung cấp), mới nhất trước,
+     * kèm tổng số đã nhập lô đó theo phiếu (gộp các dòng cùng lô của một phiếu).
+     */
+    private Map<Integer, List<DongNhapLo>> nhapTheoLo(Integer khoId, List<Integer> loIds) {
+        Map<Integer, LinkedHashMap<Integer, DongNhapLo>> gom = new HashMap<>();
         for (int i = 0; i < loIds.size(); i += CO_LO_IN) {
             List<Integer> lo = loIds.subList(i, Math.min(loIds.size(), i + CO_LO_IN));
             @SuppressWarnings("unchecked")
             List<Object[]> rows = em.createNativeQuery("""
                     SELECT ct.lo_hang_id, pn.id, pn.so_phieu_nhap, COALESCE(pn.ngay_nhap, pn.ngay_tao),
-                           pck.id, pck.so_phieu_chuyen, kx.ten_kho, ncc.ten_nha_cung_cap, nd.ho_ten
+                           pck.id, pck.so_phieu_chuyen, kx.ten_kho, ncc.ten_nha_cung_cap, nd.ho_ten, ct.so_luong_nhap
                       FROM chi_tiet_phieu_nhap_kho ct
                       JOIN phieu_nhap_kho pn ON pn.id = ct.phieu_nhap_kho_id
                       LEFT JOIN phieu_chuyen_kho pck ON pck.id = pn.phieu_chuyen_kho_id
@@ -189,8 +302,15 @@ public class HangChuaCoKeService {
                     .setParameter("hoanTat", TrangThaiPhieuNhap.COMPLETED.getValue())
                     .setParameter("lo", lo)
                     .getResultList();
-            for (Object[] r : rows) kq.putIfAbsent(so(r[0]), nguonDto(r));
+            for (Object[] r : rows) {
+                int sl = r[9] == null ? 0 : SoTonKeService.soNguyen(new BigDecimal(r[9].toString()));
+                gom.computeIfAbsent(so(r[0]), k -> new LinkedHashMap<>())
+                        .merge(so(r[1]), new DongNhapLo(nguonDto(r), sl),
+                                (a, b) -> new DongNhapLo(a.nguon(), a.soLuong() + b.soLuong()));
+            }
         }
+        Map<Integer, List<DongNhapLo>> kq = new HashMap<>();
+        gom.forEach((lo, theoPhieu) -> kq.put(lo, new ArrayList<>(theoPhieu.values())));
         return kq;
     }
 

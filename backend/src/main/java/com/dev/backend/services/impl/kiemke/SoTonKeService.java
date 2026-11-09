@@ -210,10 +210,18 @@ public class SoTonKeService {
 
     /**
      * Các lô còn hàng chưa có kệ ở kho, kèm kệ chính của lô nếu thuộc kho (gợi ý kệ ở HangChuaCoKeService). Dòng sổ kệ
-     * âm (dữ liệu lệch) tính là 0, như {@link #xepKe}.
+     * âm (dữ liệu lệch) tính là 0, như {@link #xepKe}. Kho chưa khai báo kệ nào là kho không quản lý kệ: trả rỗng (menu
+     * không có số đếm, chứng từ không nhắc xếp kệ).
      */
     @Transactional(readOnly = true)
     public List<HangChuaCoKe> hangChuaCoKe(Integer khoId) {
+        return hangChuaCoKe(khoId, true);
+    }
+
+    /** Như {@link #hangChuaCoKe(Integer)}; {@code kiemCoKe} false khi nơi gọi đã biết kho có kệ (khỏi một câu truy vấn). */
+    @Transactional(readOnly = true)
+    public List<HangChuaCoKe> hangChuaCoKe(Integer khoId, boolean kiemCoKe) {
+        if (khoId == null || (kiemCoKe && !khoCoKe(khoId))) return List.of();
         @SuppressWarnings("unchecked")
         List<Object[]> rows = em.createNativeQuery("""
                 SELECT k.lo_hang_id, l.ma_lo, bt.id, bt.ma_sku, k.so_luong_ton,
@@ -238,6 +246,12 @@ public class SoTonKeService {
                     ton, trenKe, chua, r[6] == null ? null : ((Number) r[6]).intValue(), (String) r[7]));
         }
         return kq;
+    }
+
+    /** Kho đã khai báo ít nhất một kệ. */
+    private boolean khoCoKe(Integer khoId) {
+        return !em.createNativeQuery("SELECT 1 FROM vi_tri_kho WHERE kho_id = :kho LIMIT 1")
+                .setParameter("kho", khoId).getResultList().isEmpty();
     }
 
     /**

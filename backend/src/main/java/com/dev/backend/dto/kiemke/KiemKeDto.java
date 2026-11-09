@@ -116,10 +116,20 @@ public final class KiemKeDto {
      * kho / theo danh mục, chưa xếp được tới khi đợt kết thúc. {@code keGoiY} null khi không có kệ nào chọn được;
      * {@code keLienQuan}: các kệ cùng kho đang liên quan tới lô theo thứ tự gợi ý, kể cả kệ không chọn được (để nói vì
      * sao không có gợi ý). {@code nguon}: chứng từ nhập gần nhất đưa lô vào kho, null khi không tìm thấy (hàng có từ trước).
+     * {@code phanTheoChungTu}: phần chưa có kệ chia cho các phiếu nhập của lô vào kho, phiếu mới nhất trước, mỗi phiếu tối
+     * đa số đã nhập lô đó ({@link PhanChungTu}); phần không chia hết (hàng có từ trước) không có dòng.
      */
     public record HangChuaCoKe(Integer loHangId, String maLo, SanPham sanPham, BigDecimal tonLo, int trenKe,
                                int chuaCoKe, int dangGiuNhat, boolean dangKiemKe, GoiYKe keGoiY,
-                               List<KeLienQuan> keLienQuan, NguonNhap nguon) {
+                               List<KeLienQuan> keLienQuan, NguonNhap nguon, List<PhanChungTu> phanTheoChungTu) {
+    }
+
+    /**
+     * Phần chưa có kệ của một lô được tính cho một phiếu nhập ({@code phieuChuyenId}: phiếu chuyển kho của phiếu nhập đó —
+     * nhận chuyển kho, hoặc hàng về lại kho xuất khi phiếu bị hủy lúc đang đi đường; null với phiếu nhập khác).
+     * {@code chungTu}: đủ thông tin phiếu nhập đó (cùng dạng {@link NguonNhap}) để màn lọc theo chứng từ gom nhóm đúng phiếu.
+     */
+    public record PhanChungTu(Integer phieuNhapId, String soPhieuNhap, Integer phieuChuyenId, int soLuong, NguonNhap chungTu) {
     }
 
     /**
