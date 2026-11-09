@@ -92,22 +92,22 @@ export const productSchema = yup.object().shape({
     //     .min(1, "Phải có ít nhất 1 biến thể sản phẩm"),
     anhSanPhams: yup
         .mixed()
-        .test('fileSize', 'Mỗi ảnh không được quá 5MB', (files) => {
+        .test('fileSize', t("Mỗi ảnh không được quá 5MB"), (files) => {
             if (!files || files.length === 0) return true;
             return Array.from(files).every(file => file.size <= 5 * 1024 * 1024);
         })
-        .test('fileType', 'Chỉ chấp nhận file ảnh (JPG, PNG, WEBP)', (files) => {
+        .test('fileType', t("Chỉ chấp nhận file ảnh (JPG, PNG, WEBP)"), (files) => {
             if (!files || files.length === 0) return true;
             const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
             return Array.from(files).every(file => validTypes.includes(file.type));
         }),
     anhBienThes: yup
         .mixed()
-        .test('fileSize', 'Mỗi ảnh không được quá 5MB', (files) => {
+        .test('fileSize', t("Mỗi ảnh không được quá 5MB"), (files) => {
             if (!files || files.length === 0) return true;
             return Array.from(files).every(file => file.size <= 5 * 1024 * 1024);
         })
-        .test('fileType', 'Chỉ chấp nhận file ảnh (JPG, PNG, WEBP)', (files) => {
+        .test('fileType', t("Chỉ chấp nhận file ảnh (JPG, PNG, WEBP)"), (files) => {
             if (!files || files.length === 0) return true;
             const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
             return Array.from(files).every(file => validTypes.includes(file.type));

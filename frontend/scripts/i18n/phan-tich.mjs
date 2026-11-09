@@ -68,7 +68,10 @@ export function laNgoaiLe(duongDi) {
       // Chỉ khi chuỗi là ĐỐI SỐ trực tiếp của lời gọi đó (không tính `a("…").test(…)` của yup: chuỗi nằm ở bên gọi)
       const laDoiSo = n.arguments.includes(p.node);
       if (laTenHam(n.callee, HAM_DICH) && n.arguments[0] === p.node) return true;
-      if (laDoiSo && laTenHam(n.callee, HAM_SO_KHOP)) return true;
+      // yup .test("tên", "câu báo lỗi", hàm): câu thứ hai hiện ra màn hình, không phải regex.test
+      const laCauYup = laTenHam(n.callee, new Set(["test"])) && n.arguments.length === 3 && n.arguments[1] === p.node
+        && n.arguments[0]?.type === "StringLiteral";
+      if (laDoiSo && !laCauYup && laTenHam(n.callee, HAM_SO_KHOP)) return true;
       const c = n.callee;
       if (laDoiSo && c.type === "MemberExpression" && c.object.type === "Identifier" && c.object.name === "console") return true;
       if (laDoiSo && c.type === "Identifier" && c.name === "RegExp") return true;

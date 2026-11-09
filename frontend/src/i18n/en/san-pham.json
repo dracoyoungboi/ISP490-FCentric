@@ -724,5 +724,7 @@
   "VD: COTTON, NYLON": "e.g. COTTON, NYLON",
   "VD: Cotton 100%, Polyester": "e.g. 100% Cotton, Polyester",
   "VD: NIKE, ZARA": "e.g. NIKE, ZARA",
-  "VD: Nike": "e.g. Nike"
+  "VD: Nike": "e.g. Nike",
+  "Mỗi ảnh không được quá 5MB": "Each image must be 5MB or smaller",
+  "Chỉ chấp nhận file ảnh (JPG, PNG, WEBP)": "Only image files are accepted (JPG, PNG, WEBP)"
 }

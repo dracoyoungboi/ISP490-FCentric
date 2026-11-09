@@ -82,6 +82,36 @@ for (const tep of cacTep) {
   const { chuaBoc, thieu } = kiemTep(tep, gop);
   if (chuaBoc.length || thieu.length) ketQua.push({ tep: path.relative(GOC, tep).split(path.sep).join("/"), chuaBoc, thieu });
 }
+
+/**
+ * constants/ giữ chữ tiếng Việt (dùng chung với mẫu in) và chỉ dịch lúc vẽ bằng t(nhan): mọi chữ ở đây phải có sẵn
+ * bản dịch, nếu không màn tiếng Anh hiện lại tiếng Việt. Bỏ qua dòng i18n-giu-nguyen và trường `mau` (tên màu ghi chú).
+ */
+function kiemHangSo(tep, gop) {
+  const ma = fs.readFileSync(tep, "utf8");
+  if (giuNguyenCaTep(ma)) return [];
+  const giuNguyen = dongGiuNguyen(ma);
+  const thieu = [];
+  traverse(docCay(ma), {
+    StringLiteral(p) {
+      const chu = p.node.value.trim();
+      if (!CO_DAU.test(chu) || p.parentPath.isImportDeclaration() || p.parentPath.isExportDeclaration()) return;
+      if (p.parentPath.isObjectProperty() && p.parentPath.node.value === p.node && p.parentPath.node.key?.name === "mau") return;
+      const so = p.node.loc?.start.line ?? 0;
+      if (giuNguyen(so) || coKhoa(gop, chu) || coKhoa(gop, `${chu}_trang_thai`)) return;
+      thieu.push({ dong: so, chu: `${chu}  (nhãn trong constants chưa có bản dịch)`, thieuCount: true });
+    },
+  });
+  return thieu;
+}
+if (!dsDuongDan.length) {
+  const thuMucHangSo = path.join(GOC, "src", "constants");
+  for (const tep of fs.readdirSync(thuMucHangSo, { recursive: true }).map((x) => path.join(thuMucHangSo, x))
+    .filter((x) => /\.(js|jsx)$/.test(x) && !/\.test\.js$/.test(x))) {
+    const thieu = kiemHangSo(tep, gop);
+    if (thieu.length) ketQua.push({ tep: path.relative(GOC, tep).split(path.sep).join("/"), chuaBoc: [], thieu });
+  }
+}
 if (tepGhi) {
   const duongDan = path.join(THU_MUC_EN, `${tepGhi.replace(/\.json$/, "")}.json`);
   const cu = fs.existsSync(duongDan) ? JSON.parse(fs.readFileSync(duongDan, "utf8")) : {};
