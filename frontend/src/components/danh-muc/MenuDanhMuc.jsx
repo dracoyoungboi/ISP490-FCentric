@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import SheetDay from "@/components/shared/SheetDay";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 // Máy tính bảng dọc (cảm ứng): mục menu cao ~44px
 const MUC = "cursor-pointer items-start gap-2 rounded-md px-2.5 py-2 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-100 cam-ung:max-lg:py-3";
@@ -37,8 +38,8 @@ export default function MenuDanhMuc({ thaoTac, kieu = "dong", phu, onThemCon, on
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          aria-label={`Thao tác khác cho ${thaoTac.ten}`}
-          title="Thao tác khác"
+          aria-label={t("Thao tác khác cho {{ten}}", { ten: thaoTac.ten })}
+          title={t("Thao tác khác")}
           onClick={(event) => event.stopPropagation()}
           className={cn(
             "inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-bo-border text-bo-muted transition-colors",
@@ -54,9 +55,9 @@ export default function MenuDanhMuc({ thaoTac, kieu = "dong", phu, onThemCon, on
         onClick={(event) => event.stopPropagation()}
         className="z-50 w-[272px] rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg"
       >
-        {thaoTac.chuyen ? <MucMenu icon={FolderInput} nhan="Chuyển đến…" onSelect={onChuyen} /> : null}
-        {thaoTac.xemNhanh ? <MucMenu icon={ScanSearch} nhan="Xem riêng nhánh này" onSelect={onXemNhanh} /> : null}
-        {onLichSu ? <MucMenu icon={History} nhan="Lịch sử thay đổi" onSelect={onLichSu} /> : null}
+        {thaoTac.chuyen ? <MucMenu icon={FolderInput} nhan={t("Chuyển đến…")} onSelect={onChuyen} /> : null}
+        {thaoTac.xemNhanh ? <MucMenu icon={ScanSearch} nhan={t("Xem riêng nhánh này")} onSelect={onXemNhanh} /> : null}
+        {onLichSu ? <MucMenu icon={History} nhan={t("Lịch sử thay đổi")} onSelect={onLichSu} /> : null}
         {thaoTac.trangThai ? (
           <>
             {muc.length ? <DropdownMenuSeparator className="my-1 bg-bo-border" /> : null}
@@ -100,13 +101,13 @@ function BangTruot({ thaoTac, phu, onThemCon, onSua, onChuyen, onDoiTrangThai, o
       mo={mo}
       onDoiMo={setMo}
       tieuDe={thaoTac.ten}
-      moTa={`Thao tác với danh mục ${thaoTac.ten}`}
+      moTa={t("Thao tác với danh mục {{ten}}", { ten: thaoTac.ten })}
       // Đã chọn một việc (hộp thoại kế tiếp đang mở): không trả tiêu điểm về nút ⋯
       onCloseAutoFocus={(event) => { if (daChon.current) event.preventDefault(); }}
       kichHoat={
         <button
           type="button"
-          aria-label={`Thao tác cho ${thaoTac.ten}`}
+          aria-label={t("Thao tác cho {{ten}}", { ten: thaoTac.ten })}
           onClick={(event) => {
             event.stopPropagation();
             daChon.current = false;
@@ -117,16 +118,16 @@ function BangTruot({ thaoTac, phu, onThemCon, onSua, onChuyen, onDoiTrangThai, o
         </button>
       }
     >
-      <p className="-mt-1 mb-1 truncate text-xs text-bo-muted">{phu || "Danh mục gốc"}</p>
+      <p className="-mt-1 mb-1 truncate text-xs text-bo-muted">{phu || t("Danh mục gốc")}</p>
       <div className="-mx-1 flex flex-col">
         {thaoTac.themCon ? (
-          <MucTruot icon={Plus} nhan="Thêm danh mục con" phu={thaoTac.themCon.khoa ? thaoTac.themCon.lyDo : ""} khoa={thaoTac.themCon.khoa} onClick={chon(onThemCon)} />
+          <MucTruot icon={Plus} nhan={t("Thêm danh mục con")} phu={thaoTac.themCon.khoa ? thaoTac.themCon.lyDo : ""} khoa={thaoTac.themCon.khoa} onClick={chon(onThemCon)} />
         ) : null}
         {thaoTac.sua ? (
-          <MucTruot icon={Pencil} nhan="Sửa" phu={thaoTac.sua.khoa ? thaoTac.sua.lyDo : ""} khoa={thaoTac.sua.khoa} onClick={chon(onSua)} />
+          <MucTruot icon={Pencil} nhan={t("Sửa")} phu={thaoTac.sua.khoa ? thaoTac.sua.lyDo : ""} khoa={thaoTac.sua.khoa} onClick={chon(onSua)} />
         ) : null}
-        {thaoTac.chuyen ? <MucTruot icon={FolderInput} nhan="Chuyển đến…" onClick={chon(onChuyen)} /> : null}
-        {onLichSu ? <MucTruot icon={History} nhan="Lịch sử thay đổi" onClick={chon(onLichSu)} /> : null}
+        {thaoTac.chuyen ? <MucTruot icon={FolderInput} nhan={t("Chuyển đến…")} onClick={chon(onChuyen)} /> : null}
+        {onLichSu ? <MucTruot icon={History} nhan={t("Lịch sử thay đổi")} onClick={chon(onLichSu)} /> : null}
         {thaoTac.trangThai ? (
           <>
             <span aria-hidden="true" className="mx-1 my-1 h-px bg-slate-100" />

@@ -23,6 +23,7 @@ import {
   layDuongDan,
   taoBodyCapNhat,
 } from "./cayDanhMuc";
+import { t } from "@/i18n";
 
 const CHUA_CHON = "chua-chon";
 
@@ -94,15 +95,15 @@ function NoiDung({ cay, trangThai, nut, onDong, onDaChuyen }) {
 
   const goc = kiemTraChuyen(cay, nut.id, null, trangThai);
   const xemTruoc = chon === CHUA_CHON
-    ? "Chọn danh mục cha mới"
-    : `Sau khi chuyển: ${[...(chon == null ? [] : layDuongDan(cay, chon).map((n) => n.ten)), nut.ten].join(" › ")}`;
+    ? t("Chọn danh mục cha mới")
+    : t("Sau khi chuyển: {{duongDan}}", { duongDan: [...(chon == null ? [] : layDuongDan(cay, chon).map((n) => n.ten)), nut.ten].join(" › ") });
 
   const chuyen = async () => {
     if (chon === CHUA_CHON || dangLuu) return;
     // Kiểm lại trên cây mới nhất (cây có thể vừa tải lại trong lúc popup đang mở)
     const kq = kiemTraChuyen(cay, nut.id, chon, trangThai);
     if (!kq.duoc) {
-      setLoi(`Không chuyển vào đây được: ${kq.lyDo}`);
+      setLoi(t("Không chuyển vào đây được: {{lyDo}}", { lyDo: kq.lyDo }));
       return;
     }
     setDangLuu(true);
@@ -113,7 +114,7 @@ function NoiDung({ cay, trangThai, nut, onDong, onDaChuyen }) {
       onDaChuyen?.({ nut, tuChaId: nut.chaId ?? null, denChaId: chon, body });
       onDong();
     } catch (err) {
-      setLoi(getApiErrorMessage(err, "Không chuyển được danh mục. Vui lòng thử lại."));
+      setLoi(getApiErrorMessage(err, t("Không chuyển được danh mục. Vui lòng thử lại.")));
       setDangLuu(false);
     }
   };
@@ -127,15 +128,15 @@ function NoiDung({ cay, trangThai, nut, onDong, onDaChuyen }) {
     >
       <DialogHeader className="border-b border-bo-border px-5 py-4 pr-12 text-left">
         <DialogTitle className="text-base font-semibold leading-6 text-bo-foreground">
-          Chuyển “{nut.ten}”{soCon ? ` cùng ${soCon} danh mục con` : ""}
+          {t("Chuyển “{{ten}}”", { ten: nut.ten })}{soCon ? t(" cùng {{count}} danh mục con", { count: soCon }) : ""}
         </DialogTitle>
-        <DialogDescription className="text-sm leading-6 text-bo-muted">Đang ở: {duongDanHienTai}</DialogDescription>
+        <DialogDescription className="text-sm leading-6 text-bo-muted">{t("Đang ở: {{duongDan}}", { duongDan: duongDanHienTai })}</DialogDescription>
       </DialogHeader>
 
       <div className="flex min-h-0 flex-1 flex-col gap-3 px-5 py-4">
         <SearchInput
-          label="Tìm danh mục cha mới"
-          placeholder="Tìm danh mục cha mới"
+          label={t("Tìm danh mục cha mới")}
+          placeholder={t("Tìm danh mục cha mới")}
           value={tuKhoa}
           onChange={(e) => setTuKhoa(e.target.value)}
           onClear={() => setTuKhoa("")}
@@ -143,13 +144,13 @@ function NoiDung({ cay, trangThai, nut, onDong, onDaChuyen }) {
         />
         <div
           role="radiogroup"
-          aria-label="Danh mục cha mới"
+          aria-label={t("Danh mục cha mới")}
           className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-bo-border sm:max-h-[360px]"
         >
           {!tuKhoa.trim() ? (
             <LuaChon
-              ten="Không có danh mục cha"
-              phu="Thành danh mục gốc (cấp 1)"
+              ten={t("Không có danh mục cha")}
+              phu={t("Thành danh mục gốc (cấp 1)")}
               cap={0}
               dangChon={chon === null}
               {...goc}
@@ -171,7 +172,7 @@ function NoiDung({ cay, trangThai, nut, onDong, onDaChuyen }) {
             />
           ))}
           {tuKhoa.trim() && luaChon.length === 0 ? (
-            <p className="px-4 py-6 text-center text-sm text-bo-muted">Không có danh mục khớp từ khóa.</p>
+            <p className="px-4 py-6 text-center text-sm text-bo-muted">{t("Không có danh mục khớp từ khóa.")}</p>
           ) : null}
         </div>
         {loi ? (
@@ -192,7 +193,7 @@ function NoiDung({ cay, trangThai, nut, onDong, onDaChuyen }) {
             disabled={dangLuu}
             className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
           >
-            Hủy
+            {t("Hủy")}
           </Button>
           <Button
             type="button"
@@ -203,9 +204,9 @@ function NoiDung({ cay, trangThai, nut, onDong, onDaChuyen }) {
             {dangLuu ? (
               <>
                 <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                Đang chuyển...
+                {t("Đang chuyển...")}
               </>
-            ) : "Chuyển đến đây"}
+            ) : t("Chuyển đến đây")}
           </Button>
         </div>
       </DialogFooter>
@@ -236,7 +237,7 @@ function LuaChon({ ten, phu, cap, dangChon, duoc, lyDo, dangOday, onChon, dam = 
         {phu ? <span className={cn("truncate text-xs", khoa ? "text-slate-400" : "text-bo-muted")}>{phu}</span> : null}
       </span>
       {dangOday ? (
-        <span className="shrink-0 text-xs font-semibold text-bo-primary-hover">Đang ở đây</span>
+        <span className="shrink-0 text-xs font-semibold text-bo-primary-hover">{t("Đang ở đây")}</span>
       ) : khoa && lyDo ? (
         <span className="shrink-0 text-xs text-bo-muted">{lyDo}</span>
       ) : dangChon ? (

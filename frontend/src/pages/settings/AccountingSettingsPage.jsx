@@ -26,6 +26,7 @@ import {
 } from "@/components/ke-toan/tinhKeToan";
 import { keToanService } from "@/services/keToanService";
 import { getApiErrorMessage } from "@/utils/apiError";
+import { t } from "@/i18n";
 
 const SELECT_CLASS = "h-9 w-full rounded-md border border-[#8a96a6] bg-white px-2 text-sm text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-[3px] focus-visible:ring-bo-primary/15 focus-visible:outline-none";
 
@@ -82,9 +83,9 @@ export default function AccountingSettingsPage() {
     try {
       setCauHinh(await keToanService.luuCauHinh(payloadCauHinh(form, cauHinh?.version)));
       setDangSua(false);
-      toast.success("Đã lưu cấu hình kế toán.");
+      toast.success(t("Đã lưu cấu hình kế toán."));
     } catch (e) {
-      toast.error(getApiErrorMessage(e, "Không lưu được cấu hình kế toán"));
+      toast.error(getApiErrorMessage(e, t("Không lưu được cấu hình kế toán")));
     } finally {
       setDangLuu(false);
     }
@@ -93,7 +94,7 @@ export default function AccountingSettingsPage() {
   if (dangTai) {
     return (
       <SettingsCard>
-        <LoadingState className="min-h-48" label="Đang tải cấu hình kế toán" />
+        <LoadingState className="min-h-48" label={t("Đang tải cấu hình kế toán")} />
       </SettingsCard>
     );
   }
@@ -102,8 +103,8 @@ export default function AccountingSettingsPage() {
       <SettingsCard>
         <ErrorState
           className="min-h-48"
-          title="Lỗi tải cấu hình"
-          description="Không tải được cấu hình xuất kế toán. Thử lại sau ít phút; nếu vẫn lỗi, báo quản trị hệ thống."
+          title={t("Lỗi tải cấu hình")}
+          description={t("Không tải được cấu hình xuất kế toán. Thử lại sau ít phút; nếu vẫn lỗi, báo quản trị hệ thống.")}
           onRetry={() => {
             setDangTai(true);
             setLanTai((k) => k + 1);
@@ -126,15 +127,15 @@ export default function AccountingSettingsPage() {
       >
         <SettingsCardHeader
           titleId="ke-toan-thiet-lap"
-          title="Xuất sang AMIS Kế toán doanh nghiệp"
-          note="Tệp xuất theo đúng mẫu nhập khẩu nâng cao của AMIS (chế độ TT 99/2025). Tài khoản phải là tài khoản chi tiết nhất trên AMIS."
+          title={t("Xuất sang AMIS Kế toán doanh nghiệp")}
+          note={t("Tệp xuất theo đúng mẫu nhập khẩu nâng cao của AMIS (chế độ TT 99/2025). Tài khoản phải là tài khoản chi tiết nhất trên AMIS.")}
           action={canEdit && !dangSua ? <SettingsEditButton onClick={batDauSua} /> : null}
         />
         <div className="px-5 pb-4">
-          <SettingsGroupLabel>Ngày mốc</SettingsGroupLabel>
+          <SettingsGroupLabel>{t("Ngày mốc")}</SettingsGroupLabel>
           {dangSua ? (
             <div className="flex max-w-sm flex-col gap-1">
-              <label htmlFor="kt-ngay-moc" className="text-sm font-medium text-bo-foreground">Ngày bắt đầu chuyển sang kế toán</label>
+              <label htmlFor="kt-ngay-moc" className="text-sm font-medium text-bo-foreground">{t("Ngày bắt đầu chuyển sang kế toán")}</label>
               <Input
                 id="kt-ngay-moc"
                 type="date"
@@ -145,18 +146,18 @@ export default function AccountingSettingsPage() {
               />
               <SettingsFieldHint error={loi.ngayMoc}>
                 {ngayMocKhoa
-                  ? "Đã có chứng từ giao kế toán nên không đổi được ngày mốc."
-                  : "Đặt trùng \"Ngày bắt đầu dữ liệu\" trên AMIS. Tồn đầu kỳ tính tại ngày này; chứng từ trước ngày này không xuất."}
+                  ? t("Đã có chứng từ giao kế toán nên không đổi được ngày mốc.")
+                  : t("Đặt trùng \"Ngày bắt đầu dữ liệu\" trên AMIS. Tồn đầu kỳ tính tại ngày này; chứng từ trước ngày này không xuất.")}
               </SettingsFieldHint>
             </div>
           ) : (
             <p className="flex items-center gap-2 text-sm text-bo-foreground">
-              {cauHinh?.ngayMoc ? hienNgay(cauHinh.ngayMoc) : <SettingsPill tone="warn">Chưa đặt — chưa xuất được</SettingsPill>}
-              {ngayMocKhoa ? <Lock className="size-3.5 text-bo-muted" aria-label="Đã khóa" /> : null}
+              {cauHinh?.ngayMoc ? hienNgay(cauHinh.ngayMoc) : <SettingsPill tone="warn">{t("Chưa đặt — chưa xuất được")}</SettingsPill>}
+              {ngayMocKhoa ? <Lock className="size-3.5 text-bo-muted" aria-label={t("Đã khóa")} /> : null}
             </p>
           )}
 
-          <SettingsGroupLabel className="mt-2">Tài khoản mặc định</SettingsGroupLabel>
+          <SettingsGroupLabel className="mt-2">{t("Tài khoản mặc định")}</SettingsGroupLabel>
           <div className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
             {TAI_KHOAN.map((tk) => (
               <div key={tk.key} className="flex min-w-0 flex-col gap-1">
@@ -182,37 +183,37 @@ export default function AccountingSettingsPage() {
             ))}
           </div>
 
-          <SettingsGroupLabel className="mt-2">Phí vận chuyển và chuyển kho</SettingsGroupLabel>
+          <SettingsGroupLabel className="mt-2">{t("Phí vận chuyển và chuyển kho")}</SettingsGroupLabel>
           <div className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
             {dangSua ? (
               <>
                 <div className="flex flex-col gap-1">
-                  <label htmlFor="kt-ma-dv" className="text-[13px] font-medium text-bo-foreground">Mã dịch vụ phí vận chuyển</label>
+                  <label htmlFor="kt-ma-dv" className="text-[13px] font-medium text-bo-foreground">{t("Mã dịch vụ phí vận chuyển")}</label>
                   <Input id="kt-ma-dv" value={form.maDichVuVanChuyen} maxLength={50} spellCheck={false}
                     onChange={(e) => doi("maDichVuVanChuyen", e.target.value)}
                     className={settingsInputClass({ error: Boolean(loi.maDichVuVanChuyen), className: "font-mono" })} />
-                  <SettingsFieldHint error={loi.maDichVuVanChuyen}>Dòng phí ship thu khách trên chứng từ bán hàng; không được trùng SKU.</SettingsFieldHint>
+                  <SettingsFieldHint error={loi.maDichVuVanChuyen}>{t("Dòng phí ship thu khách trên chứng từ bán hàng; không được trùng SKU.")}</SettingsFieldHint>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label htmlFor="kt-ten-dv" className="text-[13px] font-medium text-bo-foreground">Tên dịch vụ</label>
+                  <label htmlFor="kt-ten-dv" className="text-[13px] font-medium text-bo-foreground">{t("Tên dịch vụ")}</label>
                   <Input id="kt-ten-dv" value={form.tenDichVuVanChuyen} maxLength={100}
                     onChange={(e) => doi("tenDichVuVanChuyen", e.target.value)}
                     className={settingsInputClass({ error: Boolean(loi.tenDichVuVanChuyen) })} />
                   <SettingsFieldHint error={loi.tenDichVuVanChuyen} />
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label htmlFor="kt-hinh-thuc" className="text-[13px] font-medium text-bo-foreground">Hình thức bước xuất chuyển kho</label>
+                  <label htmlFor="kt-hinh-thuc" className="text-[13px] font-medium text-bo-foreground">{t("Hình thức bước xuất chuyển kho")}</label>
                   <select id="kt-hinh-thuc" value={form.hinhThucChuyenKho} onChange={(e) => doi("hinhThucChuyenKho", e.target.value)} className={SELECT_CLASS}>
-                    {HINH_THUC_CHUYEN_KHO.map((h) => <option key={h} value={h}>{h}</option>)}
+                    {HINH_THUC_CHUYEN_KHO.map((h) => <option key={h} value={h}>{t(h)}</option>)}
                   </select>
-                  <SettingsFieldHint error={loi.hinhThucChuyenKho}>Bước nhận và hủy giữa đường luôn là "Xuất chuyển kho nội bộ".</SettingsFieldHint>
+                  <SettingsFieldHint error={loi.hinhThucChuyenKho}>{t("Bước nhận và hủy giữa đường luôn là \"Xuất chuyển kho nội bộ\".")}</SettingsFieldHint>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label htmlFor="kt-so-tk" className="text-[13px] font-medium text-bo-foreground">Số tài khoản nhận chuyển khoản tại quầy</label>
+                  <label htmlFor="kt-so-tk" className="text-[13px] font-medium text-bo-foreground">{t("Số tài khoản nhận chuyển khoản tại quầy")}</label>
                   <Input id="kt-so-tk" value={form.soTkNganHangNhan} maxLength={30} inputMode="numeric"
                     onChange={(e) => doi("soTkNganHangNhan", e.target.value.replace(/[^A-Za-z0-9]/g, ""))}
                     className={settingsInputClass({ error: Boolean(loi.soTkNganHangNhan), className: "tabular-nums" })} />
-                  <SettingsFieldHint error={loi.soTkNganHangNhan}>Cột "Nộp vào TK"; phải là tài khoản đã khai báo trên AMIS. Để trống nếu chưa có.</SettingsFieldHint>
+                  <SettingsFieldHint error={loi.soTkNganHangNhan}>{t("Cột \"Nộp vào TK\"; phải là tài khoản đã khai báo trên AMIS. Để trống nếu chưa có.")}</SettingsFieldHint>
                 </div>
               </>
             ) : (
@@ -220,7 +221,7 @@ export default function AccountingSettingsPage() {
                 <p className="text-sm text-bo-foreground"><span className="font-mono">{cauHinh?.maDichVuVanChuyen}</span> · {cauHinh?.tenDichVuVanChuyen}</p>
                 <p className="text-sm text-bo-foreground">{cauHinh?.hinhThucChuyenKho}</p>
                 <p className="text-sm text-bo-foreground">
-                  Nộp vào TK: {cauHinh?.soTkNganHangNhan ? <span className="tabular-nums">{cauHinh.soTkNganHangNhan}</span> : <span className="text-bo-muted">chưa đặt</span>}
+                  {t("Nộp vào TK:")} {cauHinh?.soTkNganHangNhan ? <span className="tabular-nums">{cauHinh.soTkNganHangNhan}</span> : <span className="text-bo-muted">{t("chưa đặt")}</span>}
                 </p>
               </>
             )}
@@ -230,8 +231,8 @@ export default function AccountingSettingsPage() {
           <SettingsFooterLink
             to="/reports/accounting-export"
             icon={FileSpreadsheet}
-            title="Xuất dữ liệu kế toán"
-            description="Kiểm tra, tạo lô và tải tệp nén cho kế toán."
+            title={t("Xuất dữ liệu kế toán")}
+            description={t("Kiểm tra, tạo lô và tải tệp nén cho kế toán.")}
           />
         )}
       </SettingsCard>
@@ -243,8 +244,8 @@ export default function AccountingSettingsPage() {
             to="/settings/vat"
             className="rounded-lg border-t-0"
             icon={Percent}
-            title="Thuế suất GTGT"
-            description="Bảng thuế suất dùng chung với hóa đơn bán hàng, ở Cấu hình › Thuế GTGT."
+            title={t("Thuế suất GTGT")}
+            description={t("Bảng thuế suất dùng chung với hóa đơn bán hàng, ở Cấu hình › Thuế GTGT.")}
           />
         </SettingsCard>
       )}

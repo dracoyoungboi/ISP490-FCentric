@@ -28,6 +28,7 @@ import {
   validateInventoryField,
   validateInventorySetting,
 } from "@/validations/inventorySettingsSchema";
+import { t } from "@/i18n";
 
 /**
  * Các mục Vận hành của trung tâm Cấu hình (Sản phẩm, Tồn kho, Đồng bộ kênh bán, Khách hàng, Nhập kho, Chuyển kho, Chứng
@@ -37,79 +38,79 @@ import {
  */
 const PARTS = {
   product: {
-    cardTitle: "Mã vạch sản phẩm",
-    scope: "biến thể mới để trống mã vạch",
+    cardTitle: t("Mã vạch sản phẩm"),
+    scope: t("biến thể mới để trống mã vạch"),
     footer: {
       to: "/products/gia-ban-tem",
       icon: Tags,
-      title: "Giá bán & tem mã vạch",
-      description: "Mã đã cấp giữ nguyên khi đổi tiền tố; in tem theo mã của từng SKU",
+      title: t("Giá bán & tem mã vạch"),
+      description: t("Mã đã cấp giữ nguyên khi đổi tiền tố; in tem theo mã của từng SKU"),
       roles: ["quan_tri_vien", "quan_ly_kho"],
     },
   },
   stock: {
-    cardTitle: "Cảnh báo tồn kho",
-    scope: "sản phẩm chưa đặt ngưỡng riêng",
+    cardTitle: t("Cảnh báo tồn kho"),
+    scope: t("sản phẩm chưa đặt ngưỡng riêng"),
     footer: {
       to: "/products",
       icon: Package,
-      title: "Danh sách sản phẩm",
-      description: "Sản phẩm có ngưỡng riêng sẽ không dùng ngưỡng mặc định",
+      title: t("Danh sách sản phẩm"),
+      description: t("Sản phẩm có ngưỡng riêng sẽ không dùng ngưỡng mặc định"),
     },
   },
   sync: {
-    cardTitle: "Nhịp đồng bộ",
-    scope: "kênh bật tự động đồng bộ · đẩy tồn ngay hiện áp dụng cho Shopify",
+    cardTitle: t("Nhịp đồng bộ"),
+    scope: t("kênh bật tự động đồng bộ · đẩy tồn ngay hiện áp dụng cho Shopify"),
     footer: {
       to: "/channels",
       icon: Link2,
-      title: "Kết nối gian hàng",
-      description: "Bật/tắt tự động lấy đơn, đẩy tồn và kho nguồn của từng kênh",
+      title: t("Kết nối gian hàng", { context: "lien_ket" }),
+      description: t("Bật/tắt tự động lấy đơn, đẩy tồn và kho nguồn của từng kênh"),
       roles: ["quan_tri_vien"],
     },
   },
   customer: {
-    cardTitle: "Mã khách hàng",
-    scope: "khách hàng mới để trống ô mã",
+    cardTitle: t("Mã khách hàng"),
+    scope: t("khách hàng mới để trống ô mã"),
     footer: {
       to: "/customers",
       icon: List,
-      title: "Danh sách khách hàng",
-      description: "Mã đã cấp giữ nguyên khi đổi tiền tố",
+      title: t("Danh sách khách hàng"),
+      description: t("Mã đã cấp giữ nguyên khi đổi tiền tố"),
       roles: ["quan_tri_vien", "nhan_vien_ban_hang"],
     },
   },
   inbound: {
-    cardTitle: "Kiểm đếm hàng nhập",
-    scope: "màn Kiểm đếm & khóa lô của mọi kho",
+    cardTitle: t("Kiểm đếm hàng nhập"),
+    scope: t("màn Kiểm đếm & khóa lô của mọi kho"),
     footer: {
       to: "/goods-receipts",
       icon: ClipboardList,
-      title: "Phiếu nhập kho",
-      description: "Mở phiếu nhập từ đơn mua để kiểm đếm và khóa lô",
+      title: t("Phiếu nhập kho"),
+      description: t("Mở phiếu nhập từ đơn mua để kiểm đếm và khóa lô"),
     },
   },
   // Ai được xử lý chênh lệch khi nhận hàng chuyển kho (đặc tả BA, B.5)
   transfer: {
-    cardTitle: "Xử lý chênh lệch khi nhận hàng",
-    scope: "phiếu chuyển kho chờ xử lý chênh lệch",
+    cardTitle: t("Xử lý chênh lệch khi nhận hàng"),
+    scope: t("phiếu chuyển kho chờ xử lý chênh lệch"),
     footer: {
       to: "/transfer-tickets",
       icon: ArrowLeftRight,
-      title: "Chuyển kho nội bộ",
-      description: "Phiếu nhận thiếu, hỏng nằm ở trạng thái Chờ xử lý chênh lệch",
+      title: t("Chuyển kho nội bộ"),
+      description: t("Phiếu nhận thiếu, hỏng nằm ở trạng thái Chờ xử lý chênh lệch"),
       roles: ["quan_tri_vien", "quan_ly_kho", "nhan_vien_kho"],
     },
   },
   // Giấy đi đường của phiếu chuyển kho (đặc tả BA, B.3)
   documents: {
-    cardTitle: "Phiếu xuất kho kiêm vận chuyển nội bộ (XKNB)",
-    scope: "hộp Xác nhận xuất của phiếu chuyển kho",
+    cardTitle: t("Phiếu xuất kho kiêm vận chuyển nội bộ (XKNB)"),
+    scope: t("hộp Xác nhận xuất của phiếu chuyển kho"),
     footer: {
       to: "/transfer-tickets",
       icon: ArrowLeftRight,
-      title: "Chuyển kho nội bộ",
-      description: "Phiếu xuất khi chưa có số XKNB nằm ở mục Thiếu giấy đi đường tới khi ghi số",
+      title: t("Chuyển kho nội bộ"),
+      description: t("Phiếu xuất khi chưa có số XKNB nằm ở mục Thiếu giấy đi đường tới khi ghi số"),
       roles: ["quan_tri_vien", "quan_ly_kho", "nhan_vien_kho"],
     },
   },
@@ -205,7 +206,7 @@ export default function OperationsSettingsPage({ part }) {
     try {
       const updated = selectInventorySettings((await bulkUpdateInventorySettings(changes)).data);
       if (changes.some((change) => !updated.some((item) => item.maCauHinh === change.maCauHinh))) {
-        throw new Error("Phản hồi lưu thiếu cấu hình đã gửi.");
+        throw new Error(t("Phản hồi lưu thiếu cấu hình đã gửi."));
       }
       const merged = readCompleteInventorySettings(
         loaded.map((item) => updated.find((result) => result.maCauHinh === item.maCauHinh) ?? item),
@@ -213,16 +214,16 @@ export default function OperationsSettingsPage({ part }) {
       );
       if (merged.some((item) => !(item.giaTri === "" && duocDeTrong(item.maCauHinh))
         && validateInventorySetting(item.giaTri, item.kieuDuLieu))) {
-        throw new Error("Phản hồi lưu có giá trị cấu hình không hợp lệ.");
+        throw new Error(t("Phản hồi lưu có giá trị cấu hình không hợp lệ."));
       }
       if (!mountedRef.current) return;
       setLoaded(merged);
       setEditing(false);
-      toast.success(`Đã lưu ${config.cardTitle.toLowerCase()}.`);
+      toast.success(t("Đã lưu {{ten}}.", { ten: config.cardTitle.toLowerCase() }));
     } catch (error) {
       if (!mountedRef.current) return;
       const message = error?.response?.status === 400 ? error?.response?.data?.message : null;
-      setSaveError(message || "Chưa lưu được. Vui lòng thử lại, các giá trị bạn nhập vẫn được giữ.");
+      setSaveError(message || t("Chưa lưu được. Vui lòng thử lại, các giá trị bạn nhập vẫn được giữ."));
     } finally {
       if (mountedRef.current) setSaving(false);
     }
@@ -231,7 +232,7 @@ export default function OperationsSettingsPage({ part }) {
   if (status === "loading") {
     return (
       <SettingsCard>
-        <LoadingState label="Đang tải cấu hình" className="min-h-48" />
+        <LoadingState label={t("Đang tải cấu hình")} className="min-h-48" />
       </SettingsCard>
     );
   }
@@ -240,8 +241,8 @@ export default function OperationsSettingsPage({ part }) {
     return (
       <SettingsCard>
         <ErrorState
-          title="Không thể tải cấu hình"
-          description="Không đọc được cấu hình từ máy chủ. Vui lòng thử lại."
+          title={t("Không thể tải cấu hình")}
+          description={t("Không đọc được cấu hình từ máy chủ. Vui lòng thử lại.")}
           onRetry={load}
           className="min-h-48"
         />
@@ -253,13 +254,13 @@ export default function OperationsSettingsPage({ part }) {
     <SettingsCard as="form" editing={editing} onSubmit={save} noValidate aria-label={config.cardTitle}>
       <SettingsCardHeader
         title={config.cardTitle}
-        note={`Áp dụng cho ${config.scope}`}
+        note={t("Áp dụng cho {{scope}}", { scope: config.scope })}
         action={
           canEdit && !editing ? (
             <SettingsEditButton
               ref={editButtonRef}
               onClick={startEdit}
-              aria-label={`Sửa ${config.cardTitle.toLowerCase()}`}
+              aria-label={t("Sửa {{ten}}", { ten: config.cardTitle.toLowerCase() })}
             />
           ) : null
         }
@@ -271,7 +272,7 @@ export default function OperationsSettingsPage({ part }) {
           const hintId = `${id}-pham-vi`;
           const value = editing ? draft[field.code] ?? "" : saved[field.code] ?? "";
           const error = errors[field.code];
-          const [truoc, dam, sau] = error ? ["Nhập giá trị hợp lệ để xem tác động.", "", ""] : moTaTacDong(field.code, value);
+          const [truoc, dam, sau] = error ? [t("Nhập giá trị hợp lệ để xem tác động."), "", ""] : moTaTacDong(field.code, value);
           const laChu = field.type === "STRING";
           if (field.options) {
             const dangChon = field.options.find((o) => o.value === value);
@@ -381,7 +382,7 @@ export default function OperationsSettingsPage({ part }) {
                     </SettingsFieldHint>
                   </>
                 ) : value === "" && field.choPhepTrong ? (
-                  <p className="flex h-9 items-center text-sm text-bo-muted">Chưa đặt</p>
+                  <p className="flex h-9 items-center text-sm text-bo-muted">{t("Chưa đặt")}</p>
                 ) : (
                   <p className="flex h-9 items-center gap-1.5">
                     <span

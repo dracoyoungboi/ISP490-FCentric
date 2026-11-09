@@ -37,6 +37,7 @@ import {
     resolveInUseTemplateId,
 } from "@/services/printTemplateConfigService";
 import { companyProfileService } from "@/services/companyProfileService";
+import { t } from "@/i18n";
 
 // Padding màn hình của khung preview (p-3 sm:p-4 = 12-16px) — trừ khỏi kích
 // thước viewport khi tính zoom "Vừa trang" để tờ giấy không tràn/không thiếu.
@@ -56,18 +57,18 @@ function PreviewHeader() {
                     variant="outline"
                     size="icon"
                     onClick={quayLai}
-                    aria-label="Quay lại danh sách mẫu in"
-                    title="Quay lại"
+                    aria-label={t("Quay lại danh sách mẫu in")}
+                    title={t("Quay lại")}
                     className={`shrink-0 ${OUTLINE_BUTTON}`}
                 >
                     <ArrowLeft className="size-4" aria-hidden="true" />
                 </Button>
-                <PageHeading>Mẫu in</PageHeading>
+                <PageHeading>{t("Mẫu in")}</PageHeading>
             </div>
             <Button asChild variant="outline" className={OUTLINE_BUTTON}>
                 <Link to="/settings/store">
                     <Store className="size-4" aria-hidden="true" />
-                    Thông tin cửa hàng
+                    {t("Thông tin cửa hàng")}
                 </Link>
             </Button>
         </div>
@@ -187,7 +188,7 @@ export default function PrintTemplatesPage() {
     if (loading) {
         return (
             <PageContainer>
-                <LoadingState label="Đang tải cấu hình mẫu in" />
+                <LoadingState label={t("Đang tải cấu hình mẫu in")} />
             </PageContainer>
         );
     }
@@ -200,8 +201,8 @@ export default function PrintTemplatesPage() {
                 <PageContainer>
                     <EmptyState
                         icon={Lock}
-                        title="Bạn không có quyền đọc cấu hình mẫu in"
-                        description="Tài khoản của bạn không được phép đọc cấu hình mẫu in trên máy chủ. Liên hệ quản trị viên nếu bạn cần quyền này."
+                        title={t("Bạn không có quyền đọc cấu hình mẫu in")}
+                        description={t("Tài khoản của bạn không được phép đọc cấu hình mẫu in trên máy chủ. Liên hệ quản trị viên nếu bạn cần quyền này.")}
                     />
                 </PageContainer>
             );
@@ -209,8 +210,8 @@ export default function PrintTemplatesPage() {
         return (
             <PageContainer>
                 <ErrorState
-                    title="Không thể tải cấu hình mẫu in"
-                    description="Không thể tải cấu hình mẫu in từ máy chủ. Vui lòng thử lại."
+                    title={t("Không thể tải cấu hình mẫu in")}
+                    description={t("Không thể tải cấu hình mẫu in từ máy chủ. Vui lòng thử lại.")}
                     onRetry={reload}
                 />
             </PageContainer>
@@ -222,14 +223,14 @@ export default function PrintTemplatesPage() {
             <PageContainer>
                 <EmptyState
                     icon={FileX}
-                    title="Không tìm thấy loại chứng từ"
-                    description="Loại chứng từ trong đường dẫn không tồn tại."
+                    title={t("Không tìm thấy loại chứng từ")}
+                    description={t("Loại chứng từ trong đường dẫn không tồn tại.")}
                     action={
                         <Button
                             className="bg-bo-primary text-white hover:bg-bo-primary-hover"
                             onClick={() => navigate("/settings/print-templates")}
                         >
-                            Về danh sách mẫu in
+                            {t("Về danh sách mẫu in")}
                         </Button>
                     }
                 />
@@ -254,14 +255,14 @@ export default function PrintTemplatesPage() {
 
     const orientationLabel =
         isThermalPaper(displayConfig?.paperSize)
-            ? "Khổ nhiệt"
+            ? t("Khổ nhiệt")
             : displayConfig?.orientation === "landscape"
-                ? "Ngang"
-                : "Dọc";
+                ? t("Ngang")
+                : t("Dọc");
     // Nhãn khổ giấy CHỈ ĐỌC — phản ánh cấu hình đã lưu (không chọn tương tác)
     const formatLabel = displayConfig
         ? isThermalPaper(displayConfig.paperSize)
-            ? `${displayConfig.paperSize} · Khổ nhiệt`
+            ? t("{{paperSize}} · Khổ nhiệt", { paperSize: displayConfig.paperSize })
             : `${displayConfig.paperSize} · ${orientationLabel}`
         : null;
 
@@ -288,26 +289,26 @@ export default function PrintTemplatesPage() {
                 <div className="no-print flex min-h-0 flex-col gap-3">
                     <div className="lg:hidden">
                         <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                            Loại chứng từ
+                            {t("Loại chứng từ")}
                         </label>
                         <Select
                             value={schema.slug}
                             onValueChange={(value) => goToDocType(value)}
                         >
                             <SelectTrigger className="w-full border-bo-border bg-white">
-                                <SelectValue placeholder="Chọn loại chứng từ" />
+                                <SelectValue placeholder={t("Chọn loại chứng từ")} />
                             </SelectTrigger>
                             <SelectContent>
                                 {PRINT_DOCUMENT_TYPES.map((type) => (
                                     <SelectItem key={type.key} value={type.slug}>
-                                        {type.label}
+                                        {t(type.label)}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
                     </div>
                     <SurfaceCard
-                        title="Loại chứng từ"
+                        title={t("Loại chứng từ")}
                         contentClassName="flex min-h-0 flex-1 flex-col p-0"
                         className="hidden min-h-0 lg:flex lg:flex-col"
                     >
@@ -326,7 +327,7 @@ export default function PrintTemplatesPage() {
                                                 : "border-transparent text-bo-foreground hover:bg-bo-surface-subtle"
                                         )}
                                     >
-                                        <span className="truncate">{type.label}</span>
+                                        <span className="truncate">{t(type.label)}</span>
                                     </button>
                                 );
                             })}
@@ -342,13 +343,13 @@ export default function PrintTemplatesPage() {
                     >
                         <div className="min-w-0">
                             <h2 className="truncate text-sm font-semibold text-bo-foreground">
-                                {schema.label}
+                                {t(schema.label)}
                             </h2>
                             <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                                <StatusBadge label="Dữ liệu mẫu" />
+                                <StatusBadge /* i18n-giu-nguyen: StatusBadge tự dịch nhãn lúc vẽ */ label="Dữ liệu mẫu" />
                                 {formatLabel ? (
                                     <span className="text-xs text-bo-muted">
-                                        Khổ giấy đã lưu: <strong className="font-semibold">{formatLabel}</strong>
+                                        {t("Khổ giấy đã lưu:")} <strong className="font-semibold">{formatLabel}</strong>
                                     </span>
                                 ) : null}
                             </div>
@@ -365,7 +366,7 @@ export default function PrintTemplatesPage() {
                                 onChange={(value) =>
                                     setZoomMode(value === "fit" ? "fit" : Number(value))
                                 }
-                                ariaLabel="Thu phóng bản xem trước"
+                                ariaLabel={t("Thu phóng bản xem trước")}
                             />
                             <Button
                                 variant="outline"
@@ -374,7 +375,7 @@ export default function PrintTemplatesPage() {
                                 disabled={!displayConfig}
                             >
                                 <Printer className="size-4" />
-                                In thử
+                                {t("In thử")}
                             </Button>
                             <Button
                                 className="h-9 bg-bo-primary text-white hover:bg-bo-primary-hover"
@@ -382,7 +383,7 @@ export default function PrintTemplatesPage() {
                                 disabled={!displayConfig}
                             >
                                 <Pencil className="size-4" />
-                                Chỉnh sửa
+                                {t("Chỉnh sửa")}
                             </Button>
                         </div>
                     </SurfaceCard>
@@ -403,7 +404,7 @@ export default function PrintTemplatesPage() {
                             className="print-preview-scroll min-h-0 flex-1 overflow-auto bg-bo-canvas p-3 sm:p-4"
                         >
                             {!displayConfig ? (
-                                <LoadingState label="Đang tải bản xem trước" className="min-h-64" />
+                                <LoadingState label={t("Đang tải bản xem trước")} className="min-h-64" />
                             ) : (
                                 <div
                                     className={`print-preview-sheet print-ruled mx-auto border border-bo-border bg-white shadow-sm ${getPaperSheetClasses(paperObj)}`}

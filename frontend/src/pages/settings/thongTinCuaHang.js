@@ -10,23 +10,24 @@ import {
   lechLoaiMaSoThue,
   loaiMaSoThue,
 } from "../../validations/companyProfileSchema.js";
+import { t } from "../../i18n/t.js";
 
-export const CHU_THICH_THE_TEN_VA_LOGO = "Hiện ở đầu phiếu in, đầu email và là tên người gửi email";
-export const CHU_THICH_THE_PHAP_LY = "In trên phiếu in và email";
+export const CHU_THICH_THE_TEN_VA_LOGO = t("Hiện ở đầu phiếu in, đầu email và là tên người gửi email");
+export const CHU_THICH_THE_PHAP_LY = t("In trên phiếu in và email");
 // Giới hạn dung lượng lấy từ LOGO_TOI_DA_BYTE (không viết cứng số): với 2 MB ra đúng chữ demo
-export const GOI_Y_LOGO_TRANG = `PNG hoặc JPG, tối đa ${LOGO_TOI_DA_CHU}. Không nhận ảnh SVG vì email không hiện được.`;
-export const GOI_Y_LOGO_HOP = `PNG hoặc JPG, tối đa ${LOGO_TOI_DA_CHU}.`;
+export const GOI_Y_LOGO_TRANG = t("PNG hoặc JPG, tối đa {{dungLuong}}. Không nhận ảnh SVG vì email không hiện được.", { dungLuong: LOGO_TOI_DA_CHU });
+export const GOI_Y_LOGO_HOP = t("PNG hoặc JPG, tối đa {{dungLuong}}.", { dungLuong: LOGO_TOI_DA_CHU });
 /** Chú thích hai dòng ngắn dưới khung logo 64px (câu đầy đủ GOI_Y_LOGO_TRANG nằm ở chú thích khi rê chuột). */
-export const CHU_DUOI_LOGO = `PNG, JPG\ntối đa ${LOGO_TOI_DA_CHU}`;
-export const CHU_DUOI_LOGO_SE_XOA = "Sẽ gỡ khi\nbấm Lưu";
-export const CHU_THICH_HOP_SUA_NHANH = "Dùng chung cho mọi mẫu in và email.";
+export const CHU_DUOI_LOGO = t("PNG, JPG\ntối đa {{dungLuong}}", { dungLuong: LOGO_TOI_DA_CHU });
+export const CHU_DUOI_LOGO_SE_XOA = t("Sẽ gỡ khi\nbấm Lưu");
+export const CHU_THICH_HOP_SUA_NHANH = t("Dùng chung cho mọi mẫu in và email.");
 
 /** Chú thích nút Sửa bị khóa (đặt ở lớp bọc vì nút bị khóa không hiện chú thích). */
-export const CHU_THICH_KHOA_THE_KHAC = "Lưu hoặc hủy phần đang sửa trước";
-export const CHU_THICH_CHUA_CO_TEN = "Lưu tên cửa hàng trước";
+export const CHU_THICH_KHOA_THE_KHAC = t("Lưu hoặc hủy phần đang sửa trước");
+export const CHU_THICH_CHUA_CO_TEN = t("Lưu tên cửa hàng trước");
 
-export const TOAST_DA_LUU = "Đã lưu thông tin cửa hàng.";
-export const TOAST_CHUA_LUU = "Chưa lưu được thông tin cửa hàng.";
+export const TOAST_DA_LUU = t("Đã lưu thông tin cửa hàng.");
+export const TOAST_CHUA_LUU = t("Chưa lưu được thông tin cửa hàng.");
 
 /** Ô trên trang (gợi ý đầy đủ). Thứ tự thẻ Pháp lý: tên đăng ký, mã số thuế; địa chỉ (cả hàng); điện thoại, email. */
 export const O_TRANG = {
@@ -34,28 +35,28 @@ export const O_TRANG = {
     label: NHAN.name,
     required: true,
     type: "text",
-    placeholder: "Ví dụ: Thời trang Linh Lan",
-    hint: "Tên trên biển hiệu, thương hiệu khách quen gọi.",
+    placeholder: t("Ví dụ: Thời trang Linh Lan"),
+    hint: t("Tên trên biển hiệu, thương hiệu khách quen gọi."),
   },
   legalName: {
     label: NHAN.legalName,
     required: true,
     type: "text",
-    placeholder: "Ví dụ: Công ty TNHH Thời trang Linh Lan",
-    hint: 'Ghi đúng như trên giấy chứng nhận đăng ký: "Công ty TNHH …", "Hộ kinh doanh …"; chi nhánh thêm "Chi nhánh …".',
+    placeholder: t("Ví dụ: Công ty TNHH Thời trang Linh Lan"),
+    hint: t("Ghi đúng như trên giấy chứng nhận đăng ký: \"Công ty TNHH …\", \"Hộ kinh doanh …\"; chi nhánh thêm \"Chi nhánh …\"."),
   },
   taxCode: {
     label: NHAN.taxCode,
     type: "text",
-    placeholder: "Ví dụ: 0109123456",
-    hint: "Doanh nghiệp 10 số, chi nhánh 10 số kèm -3 số, hộ kinh doanh 12 số.",
+    placeholder: t("Ví dụ: 0109123456"),
+    hint: t("Doanh nghiệp 10 số, chi nhánh 10 số kèm -3 số, hộ kinh doanh 12 số."),
   },
   address: {
     label: NHAN.address,
     required: true,
     type: "text",
-    placeholder: "Số nhà, đường, phường/xã, tỉnh/thành phố",
-    hint: "Ghi đúng địa chỉ trên giấy chứng nhận đăng ký. Địa chỉ từng cửa hàng, kho nằm ở mục Kho.",
+    placeholder: t("Số nhà, đường, phường/xã, tỉnh/thành phố"),
+    hint: t("Ghi đúng địa chỉ trên giấy chứng nhận đăng ký. Địa chỉ từng cửa hàng, kho nằm ở mục Kho."),
     wide: true,
   },
   phone: { label: NHAN.phone, type: "tel", placeholder: "028 7300 0000", hint: "" },
@@ -63,16 +64,16 @@ export const O_TRANG = {
     label: NHAN.email,
     type: "email",
     placeholder: "lienhe@tencuahang.vn",
-    hint: "Nhà cung cấp gửi hóa đơn điện tử về địa chỉ này.",
+    hint: t("Nhà cung cấp gửi hóa đơn điện tử về địa chỉ này."),
   },
 };
 
 /** Ô trong hộp sửa nhanh (gợi ý ngắn; mỗi ô pháp lý một hàng, Email trước Điện thoại). */
 export const O_HOP_SUA_NHANH = {
   name: { ...O_TRANG.name, hint: "" },
-  legalName: { ...O_TRANG.legalName, hint: "Ghi đúng như trên giấy chứng nhận đăng ký.", wide: true },
-  taxCode: { ...O_TRANG.taxCode, hint: "10 số, chi nhánh thêm -3 số, hộ kinh doanh 12 số.", wide: true },
-  address: { ...O_TRANG.address, hint: "Ghi đúng địa chỉ trên giấy chứng nhận đăng ký.", wide: true },
+  legalName: { ...O_TRANG.legalName, hint: t("Ghi đúng như trên giấy chứng nhận đăng ký."), wide: true },
+  taxCode: { ...O_TRANG.taxCode, hint: t("10 số, chi nhánh thêm -3 số, hộ kinh doanh 12 số."), wide: true },
+  address: { ...O_TRANG.address, hint: t("Ghi đúng địa chỉ trên giấy chứng nhận đăng ký."), wide: true },
   email: { ...O_TRANG.email, hint: "" },
   phone: { ...O_TRANG.phone, hint: "" },
 };
@@ -100,7 +101,7 @@ export function goiYKhiSua(key, form, { noi = "trang" } = {}) {
 export function xemTenCuaHang(profile) {
   const ten = (profile?.name ?? "").trim();
   if (ten) return { text: ten, canhBao: false, phu: "" };
-  return { text: "Chưa nhập", canhBao: true, phu: "Cần để in phiếu và gửi email." };
+  return { text: t("Chưa nhập"), canhBao: true, phu: t("Cần để in phiếu và gửi email.") };
 }
 
 /**
@@ -114,7 +115,7 @@ export function xemPhapLyLienHe(profile) {
     const dong = {
       key,
       label: NHAN[key],
-      text: raw || "Chưa nhập",
+      text: raw || t("Chưa nhập"),
       trong: !raw,
       canhBao: false,
       tag: "",
@@ -125,14 +126,14 @@ export function xemPhapLyLienHe(profile) {
     if (key === "legalName") {
       if (!raw) {
         dong.canhBao = true;
-        dong.phu = "Hóa đơn và email phải ghi đúng tên trên giấy chứng nhận đăng ký.";
+        dong.phu = t("Hóa đơn và email phải ghi đúng tên trên giấy chứng nhận đăng ký.");
       } else {
         dong.phu = lechLoaiMaSoThue(raw, profile?.taxCode);
       }
     }
     if (key === "address" && !raw) {
       dong.canhBao = true;
-      dong.phu = "Hóa đơn và email gửi nhà cung cấp phải có địa chỉ này.";
+      dong.phu = t("Hóa đơn và email gửi nhà cung cấp phải có địa chỉ này.");
     }
     if (key === "taxCode" && raw) {
       dong.tag = loaiMaSoThue(raw);
@@ -159,22 +160,22 @@ export function nutSuaThe(the, { dangSua = null, coTen = false, canEdit = false 
   return { hien: true, khoa: false, chuThich: "" };
 }
 
-export const GOI_Y_SE_XOA_LOGO = "Logo sẽ được gỡ khi bấm Lưu. Phiếu in và email sẽ hiện tên cửa hàng.";
+export const GOI_Y_SE_XOA_LOGO = t("Logo sẽ được gỡ khi bấm Lưu. Phiếu in và email sẽ hiện tên cửa hàng.");
 
 /**
  * Lưu thông tin xong mà tải (hoặc gỡ) logo lỗi: báo riêng, nói rõ phần nào đã lưu (logo luôn xử lý SAU khi lưu
  * thông tin). Trang chỉ lưu tên cùng logo; hộp sửa nhanh lưu cả hồ sơ.
  */
 export function thongBaoLogoLoi({ daLuuThongTin, noi = "trang", xoa = false }) {
-  const viec = xoa ? "chưa xóa được logo" : "chưa tải được logo";
+  const viec = xoa ? t("chưa xóa được logo") : t("chưa tải được logo");
   if (!daLuuThongTin) return viec.charAt(0).toUpperCase() + viec.slice(1);
-  return noi === "hop" ? `Đã lưu thông tin, ${viec}` : `Đã lưu tên, ${viec}`;
+  return noi === "hop" ? t("Đã lưu thông tin, {{viec}}", { viec }) : t("Đã lưu tên, {{viec}}", { viec });
 }
 
 /** Câu chi tiết từ lỗi máy chủ (câu tiếng Việt của máy chủ, hoặc mất kết nối). */
 export function chiTietLoi(error) {
   const message = error?.response?.data?.message;
   if (typeof message === "string" && message.trim()) return message.trim();
-  if (!error?.response && error?.request) return "Không nhận được phản hồi từ máy chủ. Vui lòng thử lại.";
-  return "Vui lòng thử lại.";
+  if (!error?.response && error?.request) return t("Không nhận được phản hồi từ máy chủ. Vui lòng thử lại.");
+  return t("Vui lòng thử lại.");
 }

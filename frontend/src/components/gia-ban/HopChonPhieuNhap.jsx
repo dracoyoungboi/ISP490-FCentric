@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { phieuNhapKhoService } from "@/services/phieuNhapKhoService";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { formatNumber } from "@/utils/formatters";
+import { t } from "@/i18n";
 
 const ngayVN = (iso) => {
   const d = iso ? new Date(iso) : null;
@@ -53,7 +54,7 @@ function NoiDung({ onHuy, onTiepTuc }) {
       const dong = await phieuNhapKhoService.soLuongInTem(chon.id);
       if (conMoRef.current) onTiepTuc({ maPhieu: chon.soPhieuNhap, dong });
     } catch (error) {
-      if (conMoRef.current) toast.error(getApiErrorMessage(error, `Không lấy được số lượng của phiếu ${chon.soPhieuNhap}`));
+      if (conMoRef.current) toast.error(getApiErrorMessage(error, t("Không lấy được số lượng của phiếu {{soPhieuNhap}}", { soPhieuNhap: chon.soPhieuNhap })));
     } finally {
       if (conMoRef.current) setDangLay(false);
     }
@@ -73,19 +74,19 @@ function NoiDung({ onHuy, onTiepTuc }) {
   return (
     <DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden rounded-xl border-bo-border p-0 sm:max-w-[min(560px,calc(100%-2rem))]">
       <DialogHeader className="shrink-0 border-b border-bo-border px-5 py-4 pr-12 text-left">
-        <DialogTitle className="text-[17px] text-bo-foreground">In tem theo phiếu nhập</DialogTitle>
-        <DialogDescription className="text-[13px] text-bo-muted">Số tem lấy bằng số lượng thực nhận của phiếu.</DialogDescription>
+        <DialogTitle className="text-[17px] text-bo-foreground">{t("In tem theo phiếu nhập")}</DialogTitle>
+        <DialogDescription className="text-[13px] text-bo-muted">{t("Số tem lấy bằng số lượng thực nhận của phiếu.")}</DialogDescription>
       </DialogHeader>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
         {ds.initialLoading ? (
-          <LoadingState label="Đang tải phiếu nhập" className="min-h-48" />
+          <LoadingState label={t("Đang tải phiếu nhập")} className="min-h-48" />
         ) : ds.error ? (
-          <ErrorState description="Không tải được danh sách phiếu nhập. Vui lòng thử lại." onRetry={ds.reload} className="min-h-48" />
+          <ErrorState description={t("Không tải được danh sách phiếu nhập. Vui lòng thử lại.")} onRetry={ds.reload} className="min-h-48" />
         ) : !phieus.length ? (
-          <EmptyState icon={FileText} title="Chưa có phiếu nhập đã hoàn tất" description="Phiếu nhập kho xác nhận nhập xong sẽ hiện ở đây để in tem." className="min-h-48" />
+          <EmptyState icon={FileText} title={t("Chưa có phiếu nhập đã hoàn tất")} description={t("Phiếu nhập kho xác nhận nhập xong sẽ hiện ở đây để in tem.")} className="min-h-48" />
         ) : (
-          <div ref={nhomRef} role="radiogroup" aria-label="Phiếu nhập kho đã hoàn tất" onKeyDown={diChuyen} className="flex flex-col gap-2">
+          <div ref={nhomRef} role="radiogroup" aria-label={t("Phiếu nhập kho đã hoàn tất")} onKeyDown={diChuyen} className="flex flex-col gap-2">
             {phieus.map((p) => {
               const dangChon = chon?.id === p.id;
               return (
@@ -113,7 +114,7 @@ function NoiDung({ onHuy, onTiepTuc }) {
                       <span className="shrink-0 text-[13px] text-bo-muted">{ngayVN(p.ngayNhap)}</span>
                     </span>
                     <span className="mt-0.5 block truncate text-[13px] text-bo-muted">
-                      {[p.tenKho, p.tenNhaCungCap, `${formatNumber(p.soSku)} SKU`, `${formatNumber(p.tongSoLuong)} sản phẩm`].filter(Boolean).join(" · ")}
+                      {[p.tenKho, p.tenNhaCungCap, `${formatNumber(p.soSku)} SKU`, t("{{so}} sản phẩm", { count: Number(p.tongSoLuong), so: formatNumber(p.tongSoLuong) })].filter(Boolean).join(" · ")}
                     </span>
                   </span>
                 </button>
@@ -125,11 +126,11 @@ function NoiDung({ onHuy, onTiepTuc }) {
 
       <DialogFooter className="shrink-0 flex-row justify-end gap-2 border-t border-bo-border bg-[#fafbfc] px-5 py-3">
         <Button type="button" variant="outline" onClick={onHuy} className={NUT_PHU}>
-          Hủy
+          {t("Hủy")}
         </Button>
         <Button type="button" disabled={!chon || dangLay} onClick={tiepTuc} className={NUT_CHINH}>
           {dangLay ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
-          Tiếp tục
+          {t("Tiếp tục")}
         </Button>
       </DialogFooter>
     </DialogContent>

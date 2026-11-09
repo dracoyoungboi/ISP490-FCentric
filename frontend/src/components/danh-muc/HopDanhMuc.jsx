@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { danhMucQuanAoService } from "@/services/danhMucQuanAoService";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { GIOI_HAN, goiYMaMoi, kiemTraForm, kiemTraPhanHoi, layDuongDan, taoBodyCapNhat } from "./cayDanhMuc";
+import { t } from "@/i18n";
 
 const O_NHAP =
   "border-bo-border bg-white text-bo-foreground placeholder:text-bo-muted focus-visible:border-bo-primary focus-visible:ring-bo-primary/15";
@@ -66,7 +67,7 @@ function NoiDung({ cheDo, nut, chaId, cay, onDong, onDaLuu }) {
   const oMa = useRef(null);
 
   const duongDanCha = chaId != null ? layDuongDan(cay, chaId).map((n) => n.ten) : [];
-  const tieuDe = laSua ? "Sửa danh mục" : "Thêm danh mục";
+  const tieuDe = laSua ? t("Sửa danh mục") : t("Thêm danh mục");
   const kiemTra = kiemTraForm(cay, { ma, ten, chaId, idDangSua: laSua ? nut.id : null });
 
   const luu = async (event) => {
@@ -87,7 +88,7 @@ function NoiDung({ cheDo, nut, chaId, cay, onDong, onDaLuu }) {
       onDaLuu?.({ cheDo, ten: ten.trim(), body, duLieu: phanHoi.data.data });
       onDong();
     } catch (err) {
-      setLoiMayChu(getApiErrorMessage(err, laSua ? "Không lưu được danh mục. Vui lòng thử lại." : "Không thêm được danh mục. Vui lòng thử lại."));
+      setLoiMayChu(getApiErrorMessage(err, laSua ? t("Không lưu được danh mục. Vui lòng thử lại.") : t("Không thêm được danh mục. Vui lòng thử lại.")));
       setDangLuu(false);
     }
   };
@@ -103,7 +104,7 @@ function NoiDung({ cheDo, nut, chaId, cay, onDong, onDaLuu }) {
         <DialogHeader className="border-b border-bo-border px-5 py-4 text-left">
           <DialogTitle className="text-base font-semibold text-bo-foreground">{tieuDe}</DialogTitle>
           <DialogDescription className="text-sm leading-6 text-bo-muted">
-            {duongDanCha.length ? `Nằm trong: ${duongDanCha.join(" › ")}` : "Danh mục gốc (cấp 1)"}
+            {duongDanCha.length ? t("Nằm trong: {{duongDan}}", { duongDan: duongDanCha.join(" › ") }) : t("Danh mục gốc (cấp 1)")}
           </DialogDescription>
         </DialogHeader>
 
@@ -111,7 +112,7 @@ function NoiDung({ cheDo, nut, chaId, cay, onDong, onDaLuu }) {
           <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
             <div className="space-y-1.5">
               <Label htmlFor="dm-ma">
-                Mã danh mục {laSua ? null : <span className="text-bo-danger">*</span>}
+                {t("Mã danh mục")} {laSua ? null : <span className="text-bo-danger">*</span>}
               </Label>
               {laSua ? (
                 <Input
@@ -138,13 +139,13 @@ function NoiDung({ cheDo, nut, chaId, cay, onDong, onDaLuu }) {
                 <p id="dm-ma-loi" className="text-xs text-bo-danger">{loi.ma}</p>
               ) : (
                 <p id="dm-ma-goi-y" className="text-xs text-bo-muted">
-                  {laSua ? "Mã không đổi được sau khi tạo." : "Gợi ý theo mã đang dùng, sửa được."}
+                  {laSua ? t("Mã không đổi được sau khi tạo.") : t("Gợi ý theo mã đang dùng, sửa được.")}
                 </p>
               )}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="dm-ten">
-                Tên danh mục <span className="text-bo-danger">*</span>
+                {t("Tên danh mục")} <span className="text-bo-danger">*</span>
               </Label>
               <Input
                 id="dm-ten"
@@ -152,7 +153,7 @@ function NoiDung({ cheDo, nut, chaId, cay, onDong, onDaLuu }) {
                 autoFocus
                 value={ten}
                 maxLength={GIOI_HAN.TEN}
-                placeholder="VD: Áo thun"
+                placeholder={t("VD: Áo thun")}
                 onChange={(e) => { setTen(e.target.value); setLoi((cu) => ({ ...cu, ten: undefined })); }}
                 aria-invalid={loi.ten ? true : undefined}
                 aria-describedby={loi.ten ? "dm-ten-loi" : kiemTra.trungTen ? "dm-ten-trung" : undefined}
@@ -163,19 +164,19 @@ function NoiDung({ cheDo, nut, chaId, cay, onDong, onDaLuu }) {
                 <p id="dm-ten-loi" className="text-xs text-bo-danger">{loi.ten}</p>
               ) : kiemTra.trungTen ? (
                 <p id="dm-ten-trung" className="text-xs text-bo-warning">
-                  Đã có danh mục cùng tên trong {duongDanCha.length ? `“${duongDanCha[duongDanCha.length - 1]}”` : "danh mục gốc"}.
+                  {t("Đã có danh mục cùng tên trong")} {duongDanCha.length ? `“${duongDanCha[duongDanCha.length - 1]}”` : t("danh mục gốc")}.
                 </p>
               ) : null}
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="dm-mo-ta">Mô tả</Label>
+            <Label htmlFor="dm-mo-ta">{t("Mô tả")}</Label>
             <Textarea
               id="dm-mo-ta"
               rows={3}
               value={moTa}
-              placeholder="Không bắt buộc"
+              placeholder={t("Không bắt buộc")}
               onChange={(e) => setMoTa(e.target.value)}
               disabled={dangLuu}
               className={`${O_NHAP} min-h-20 resize-none`}
@@ -184,7 +185,7 @@ function NoiDung({ cheDo, nut, chaId, cay, onDong, onDaLuu }) {
 
           {laSua ? (
             <p className="text-xs leading-5 text-bo-muted">
-              Muốn đổi danh mục cha, dùng “Chuyển đến…” trong menu ⋯ của dòng.
+              {t("Muốn đổi danh mục cha, dùng “Chuyển đến…” trong menu ⋯ của dòng.")}
             </p>
           ) : null}
 
@@ -204,15 +205,15 @@ function NoiDung({ cheDo, nut, chaId, cay, onDong, onDaLuu }) {
             disabled={dangLuu}
             className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
           >
-            Hủy
+            {t("Hủy")}
           </Button>
           <Button type="submit" disabled={dangLuu} className="min-w-[132px] bg-bo-primary text-white hover:bg-bo-primary-hover">
             {dangLuu ? (
               <>
                 <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                Đang lưu...
+                {t("Đang lưu...")}
               </>
-            ) : laSua ? "Lưu thay đổi" : "Thêm danh mục"}
+            ) : laSua ? t("Lưu thay đổi") : t("Thêm danh mục")}
           </Button>
         </DialogFooter>
       </form>

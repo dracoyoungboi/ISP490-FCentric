@@ -4,6 +4,7 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import { cn } from "@/lib/utils";
 import { demConHien, layDongCap, layDuongDan, tachChuKhop, timPhang } from "./cayDanhMuc";
 import MenuDanhMuc from "./MenuDanhMuc";
+import { t } from "@/i18n";
 
 /**
  * Bản điện thoại (< 640px): không thụt lề. Bấm một danh mục có danh mục con để vào cấp con;
@@ -42,10 +43,10 @@ export default function DanhSachDiSau({
   return (
     <div className="flex flex-col">
       {!dangTim && duongDan.length ? (
-        <nav aria-label="Cấp đang xem" className="flex items-center gap-1 border-b border-bo-border bg-bo-surface-subtle py-1.5 pl-1 pr-3">
+        <nav aria-label={t("Cấp đang xem")} className="flex items-center gap-1 border-b border-bo-border bg-bo-surface-subtle py-1.5 pl-1 pr-3">
           <button
             type="button"
-            aria-label="Quay lại cấp trên"
+            aria-label={t("Quay lại cấp trên")}
             onClick={() => onVao(duongDan.length > 1 ? duongDan[duongDan.length - 2].id : null)}
             className="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-bo-foreground hover:bg-slate-100 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-bo-primary"
           >
@@ -53,7 +54,7 @@ export default function DanhSachDiSau({
           </button>
           <ol className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto py-1 [scrollbar-width:none]">
             <li className="shrink-0">
-              <Chip onClick={() => onVao(null)}>Tất cả</Chip>
+              <Chip onClick={() => onVao(null)}>{t("Tất cả")}</Chip>
             </li>
             {duongDan.map((n, i) => (
               <li key={n.id} className="flex shrink-0 items-center gap-1.5">
@@ -119,8 +120,8 @@ function MucDienThoai({ cay, d, dangTim, tuKhoaChuan, coTheSua, thaoTac, onVao, 
   const duongDanCha = layDuongDan(cay, d.id).slice(0, -1).map((n) => n.ten).join(" › ");
   const vaoDuoc = soCon > 0;
   const dongPhu = tt.ngung && !tt.tuNgung && tt.doCha
-    ? `Ngừng theo “${tt.doCha.ten}”`
-    : [nut.ma, soCon ? `${soCon} danh mục con` : ""].filter(Boolean).join(" · ");
+    ? t("Ngừng theo “{{ten}}”", { ten: tt.doCha.ten })
+    : [nut.ma, soCon ? t("{{count}} danh mục con", { count: soCon }) : ""].filter(Boolean).join(" · ");
 
   const noiDung = (
     <>
@@ -134,7 +135,7 @@ function MucDienThoai({ cay, d, dangTim, tuKhoaChuan, coTheSua, thaoTac, onVao, 
             {phan.khop ? <mark className="rounded-[2px] bg-yellow-200 text-inherit">{phan.khop}</mark> : null}
             {phan.sau}
           </span>
-          {tt.tuNgung ? <StatusBadge label="Ngừng hoạt động" /> : null}
+          {tt.tuNgung ? <StatusBadge /* i18n-giu-nguyen: StatusBadge tự dịch nhãn lúc vẽ */ label="Ngừng hoạt động" /> : null}
         </span>
         {dongPhu ? <span className="truncate text-xs leading-4 text-bo-muted">{dongPhu}</span> : null}
       </span>
@@ -148,7 +149,7 @@ function MucDienThoai({ cay, d, dangTim, tuKhoaChuan, coTheSua, thaoTac, onVao, 
         <button
           type="button"
           onClick={() => onVao(d.id)}
-          aria-label={`${nut.ten}, ${soCon} danh mục con. Mở cấp con`}
+          aria-label={t("{{ten}}, {{count}} danh mục con. Mở cấp con", { ten: nut.ten, count: soCon })}
           className="flex min-h-16 min-w-0 flex-1 items-center gap-2 py-2 pl-4 pr-1 text-left text-sm hover:bg-bo-surface-subtle focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-bo-primary"
         >
           {noiDung}

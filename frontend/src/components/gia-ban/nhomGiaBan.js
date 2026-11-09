@@ -4,14 +4,15 @@
  * Mở / thu gọn nhóm, chọn nhiều, phân trang theo đúng khuôn của màn Sản phẩm theo sàn (components/channel/nhomLienKet.js).
  */
 import { khoaNhom, laMotPhanLoai, nhanSoPhanLoai, nhomDangMo } from "../channel/nhomLienKet.js";
+import { t } from "../../i18n/t.js";
 
 export { laMotPhanLoai, nhomDangMo };
 
 /** Tab trạng thái (đếm theo SKU), mã nằm trên URL ?trangThai=. */
 export const TAB_GIA_BAN = Object.freeze([
-  { value: "tat-ca", label: "Tất cả" },
-  { value: "hoat-dong", label: "Hoạt động" },
-  { value: "ngung-hoat-dong", label: "Ngừng hoạt động" },
+  { value: "tat-ca", label: t("Tất cả") },
+  { value: "hoat-dong", label: t("Hoạt động") },
+  { value: "ngung-hoat-dong", label: t("Ngừng hoạt động") },
 ]);
 
 /** Số sản phẩm mỗi trang: mỗi sản phẩm kéo theo đủ SKU nên không cho 100. */
@@ -21,6 +22,7 @@ export const SO_SAN_PHAM_MOI_TRANG = [10, 20, 50];
 export const GIA_BAN_TOI_DA = 9999999999999;
 
 /** Lý do đổi giá (chip); lần sau chọn sẵn lý do dùng lần trước. */
+// i18n-giu-nguyen: lý do gửi máy chủ (lịch sử đổi giá) và lưu trình duyệt; dịch lúc vẽ ở ChipLyDo
 export const LY_DO_DOI_GIA = Object.freeze(["Giá nhập mới", "Khuyến mãi", "Điều chỉnh theo thị trường", "Sửa giá nhập sai"]);
 
 const so = (n) => {
@@ -100,7 +102,7 @@ export function tuMoNhom(nhom, { tab, canXuLy, tuKhoa, idNoiBat = null }) {
 
 /** Dòng phụ ở hàng sản phẩm: "5 phân loại", "4/5 phân loại" (lọc theo tab), "2/5 phân loại khớp" (tìm / cần xử lý giá). */
 export function nhanPhanLoai(nhom, dangLoc, dinhDangSo = (n) => String(n)) {
-  return `${nhanSoPhanLoai(nhom, dinhDangSo)}${dangLoc && nhom.dong.length < nhom.tongPhanLoai ? " khớp" : ""}`;
+  return `${nhanSoPhanLoai(nhom, dinhDangSo)}${dangLoc && nhom.dong.length < nhom.tongPhanLoai ? t(" khớp") : ""}`;
 }
 
 /** Trạng thái checkbox của một nhóm id: false | true | "indeterminate" (lưng chừng). */
@@ -119,7 +121,7 @@ export function trangThaiChon(ids, chon) {
 export function tomTatNhom(nhom) {
   const hoatDong = nhom.dong.filter(dangHoatDong);
   const xet = hoatDong.length ? hoatDong : nhom.dong;
-  const tongTon = nhom.dong.reduce((t, d) => t + so(d.tonKho), 0);
+  const tongTon = nhom.dong.reduce((tong, d) => tong + so(d.tonKho), 0);
   const von = xet.map((d) => d.giaVon);
   const giaVonChung = von.length && von.every((v) => v !== null && v !== undefined && so(v) === so(von[0])) ? so(von[0]) : null;
   const ban = xet.map((d) => d.giaBan);

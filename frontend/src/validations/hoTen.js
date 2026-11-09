@@ -1,3 +1,4 @@
+import { t } from "../i18n/t.js";
 // Họ tên người dùng (Hồ sơ của tôi, Thêm người dùng): chuẩn hóa cách viết rồi kiểm.
 // Cùng luật với máy chủ (backend utils/HoTen.java); sửa một bên thì sửa cả bên kia.
 // Chuẩn hóa (không báo lỗi): dấu tiếng Việt về một dạng (NFC), bỏ ký tự vô hình, gộp khoảng trắng, cắt hai đầu.
@@ -8,10 +9,10 @@ export const HO_TEN_TOI_THIEU = 2;
 export const HO_TEN_TOI_DA = 100;
 
 // Cùng câu với máy chủ (hiện dưới ô nên giữ trong một dòng)
-export const LOI_HO_TEN_TRONG = "Nhập họ và tên";
-export const LOI_HO_TEN_KY_TU = "Họ tên chỉ gồm chữ cái và dấu cách";
-export const LOI_HO_TEN_NGAN = `Họ tên cần ít nhất ${HO_TEN_TOI_THIEU} ký tự`;
-export const LOI_HO_TEN_DAI = `Họ tên tối đa ${HO_TEN_TOI_DA} ký tự`;
+export const LOI_HO_TEN_TRONG = t("Nhập họ và tên");
+export const LOI_HO_TEN_KY_TU = t("Họ tên chỉ gồm chữ cái và dấu cách");
+export const LOI_HO_TEN_NGAN = t("Họ tên cần ít nhất {{toiThieu}} ký tự", { toiThieu: HO_TEN_TOI_THIEU });
+export const LOI_HO_TEN_DAI = t("Họ tên tối đa {{toiDa}} ký tự", { toiDa: HO_TEN_TOI_DA });
 
 // Ký tự vô hình hay dính khi dán (liệt kê tường minh như bienSoXe.js)
 const VO_HINH = /[\u00AD\u180E\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u206F\uFEFF]/g;

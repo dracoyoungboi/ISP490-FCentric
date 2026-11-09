@@ -1,3 +1,4 @@
+import { t } from "../../i18n/t.js";
 /**
  * Logic thuần của màn Danh mục (bản cây dạng bảng PA1, chốt 17/10/2026).
  * Không import alias "@/…" để chạy được bằng `node --test`.
@@ -300,14 +301,14 @@ export function timPhang(cay, tuKhoa, { loc = LOC_TRANG_THAI.TAT_CA, trangThai }
  */
 export function kiemTraChuyen(cay, idChuyen, idDich, trangThai) {
   const nut = cay.theoId.get(idChuyen);
-  if (!nut) return { duoc: false, lyDo: "Không tìm thấy danh mục" };
+  if (!nut) return { duoc: false, lyDo: t("Không tìm thấy danh mục") };
   const dangOday = (nut.chaId ?? null) === (idDich ?? null);
-  if (dangOday) return { duoc: false, lyDo: "Đang ở đây", dangOday: true };
+  if (dangOday) return { duoc: false, lyDo: t("Đang ở đây"), dangOday: true };
   if (idDich == null) return { duoc: true, lyDo: "" };
-  if (idDich === idChuyen) return { duoc: false, lyDo: "Danh mục đang chuyển" };
-  if (laConChau(cay, idChuyen, idDich)) return { duoc: false, lyDo: "Nằm trong nhánh đang chuyển" };
+  if (idDich === idChuyen) return { duoc: false, lyDo: t("Danh mục đang chuyển") };
+  if (laConChau(cay, idChuyen, idDich)) return { duoc: false, lyDo: t("Nằm trong nhánh đang chuyển") };
   const tt = trangThai ?? tinhTrangThai(cay);
-  if (tt.get(idDich)?.ngung) return { duoc: false, lyDo: "Ngừng hoạt động" };
+  if (tt.get(idDich)?.ngung) return { duoc: false, lyDo: t("Ngừng hoạt động") };
   return { duoc: true, lyDo: "" };
 }
 
@@ -317,12 +318,12 @@ export function kiemTraChuyen(cay, idChuyen, idDich, trangThai) {
  */
 export function kiemTraSua(cay, id) {
   const nut = cay.theoId.get(id);
-  if (!nut) return { duoc: false, lyDo: "Không tìm thấy danh mục" };
+  if (!nut) return { duoc: false, lyDo: t("Không tìm thấy danh mục") };
   const cha = nut.chaId != null ? cay.theoId.get(nut.chaId) : null;
   if (cha && cha.trangThai === 0) {
     return {
       duoc: false,
-      lyDo: `Danh mục cha “${cha.ten}” đang ngừng hoạt động. Cho danh mục đó hoạt động lại, hoặc chuyển danh mục này sang nhánh khác.`,
+      lyDo: t("Danh mục cha “{{ten}}” đang ngừng hoạt động. Cho danh mục đó hoạt động lại, hoặc chuyển danh mục này sang nhánh khác.", { ten: cha.ten }),
     };
   }
   return { duoc: true, lyDo: "" };
@@ -382,13 +383,13 @@ export function kiemTraForm(cay, { ma, ten, chaId, idDangSua = null }) {
   const loi = {};
   const tenGon = String(ten ?? "").trim();
   const maGon = String(ma ?? "").trim();
-  if (!tenGon) loi.ten = "Nhập tên danh mục";
-  else if (tenGon.length > GIOI_HAN.TEN) loi.ten = `Tên tối đa ${GIOI_HAN.TEN} ký tự`;
+  if (!tenGon) loi.ten = t("Nhập tên danh mục");
+  else if (tenGon.length > GIOI_HAN.TEN) loi.ten = t("Tên tối đa {{toiDa}} ký tự", { toiDa: GIOI_HAN.TEN });
   if (idDangSua == null) {
-    if (!maGon) loi.ma = "Nhập mã danh mục";
-    else if (maGon.length > GIOI_HAN.MA) loi.ma = `Mã tối đa ${GIOI_HAN.MA} ký tự`;
+    if (!maGon) loi.ma = t("Nhập mã danh mục");
+    else if (maGon.length > GIOI_HAN.MA) loi.ma = t("Mã tối đa {{toiDa}} ký tự", { toiDa: GIOI_HAN.MA });
     else if ([...cay.theoId.values()].some((n) => String(n.ma).trim().toLowerCase() === maGon.toLowerCase())) {
-      loi.ma = "Mã này đã có";
+      loi.ma = t("Mã này đã có");
     }
   }
   const chuanTen = chuanHoaChu(tenGon);
@@ -435,20 +436,20 @@ export function tinhThaoTac({ dong, coTheSua, kiemTraSua: sua, soHoatDongLai = 0
   const themCon = !coTheSua
     ? null
     : tt.ngung
-      ? { khoa: true, lyDo: "Danh mục đang ngừng hoạt động" }
+      ? { khoa: true, lyDo: t("Danh mục đang ngừng hoạt động") }
       : { khoa: false, lyDo: "" };
   let trangThai = null;
   if (coTheSua) {
     if (!tt.ngung) {
-      trangThai = { loai: "ngung", khoa: false, nhan: "Ngừng hoạt động", phu: "Không chọn được khi thêm sản phẩm mới" };
+      trangThai = { loai: "ngung", khoa: false, nhan: t("Ngừng hoạt động"), phu: t("Không chọn được khi thêm sản phẩm mới") };
     } else if (tt.doCha) {
-      trangThai = { loai: "bat", khoa: true, nhan: "Cho hoạt động lại", phu: `Đang ngừng theo “${tt.doCha.ten}”` };
+      trangThai = { loai: "bat", khoa: true, nhan: t("Cho hoạt động lại"), phu: t("Đang ngừng theo “{{ten}}”", { ten: tt.doCha.ten }) };
     } else {
       trangThai = {
         loai: "bat",
         khoa: false,
-        nhan: "Cho hoạt động lại",
-        phu: soHoatDongLai > 0 ? `Cùng ${soHoatDongLai} danh mục con` : "Được chọn lại khi thêm sản phẩm",
+        nhan: t("Cho hoạt động lại"),
+        phu: soHoatDongLai > 0 ? t("Cùng {{count}} danh mục con", { count: soHoatDongLai }) : t("Được chọn lại khi thêm sản phẩm"),
       };
     }
   }
@@ -491,7 +492,7 @@ export function apDungCapNhat(danhSach, body) {
  * Phản hồi của máy chủ không phải status 200 thì ném lỗi cùng dạng lỗi axios,
  * để `getApiErrorMessage` vẫn đọc được câu báo của máy chủ.
  */
-export function kiemTraPhanHoi(phanHoi, macDinh = "Máy chủ không nhận thay đổi") {
+export function kiemTraPhanHoi(phanHoi, macDinh = t("Máy chủ không nhận thay đổi")) {
   if (phanHoi?.data?.status === 200) return phanHoi;
   const cau = phanHoi?.data?.message || macDinh;
   const loi = new Error(cau);

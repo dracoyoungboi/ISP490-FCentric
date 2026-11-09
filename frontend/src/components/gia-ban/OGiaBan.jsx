@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import ChipLyDo from "./ChipLyDo";
 import { GIA_BAN_TOI_DA, dinhDangPhanTram, mucDoiGia, tinhLaiGop } from "./nhomGiaBan";
 import { formatNumber } from "@/utils/formatters";
+import { t } from "@/i18n";
 
 const vnd = (n) => `${formatNumber(n)} ₫`;
 const ngayVN = (d) => d.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
@@ -43,8 +44,8 @@ export default function OGiaBan({ dsDong, hienThi, tieuDe, phu, ariaLabel, open,
       <PopoverTrigger asChild>
         <button
           type="button"
-          aria-label={`${ariaLabel}, giá hiện tại: ${hienThi.chu}${hienThi.title ? ` (${hienThi.title.toLocaleLowerCase("vi")})` : ""}`}
-          title={hienThi.title ?? "Đổi giá bán"}
+          aria-label={t("{{ariaLabel}}, giá hiện tại: {{chu}}{{ghiChu}}", { ariaLabel, chu: hienThi.chu, ghiChu: hienThi.title ? ` (${hienThi.title.toLocaleLowerCase("vi")})` : "" })}
+          title={hienThi.title ?? t("Đổi giá bán")}
           onClick={(event) => event.stopPropagation()}
           className={cn(
             // Điện thoại / máy tính bảng dọc (cảm ứng): nút cao 44px, bút chì luôn hiện (không rê chuột được để biết ô sửa được)
@@ -102,11 +103,11 @@ function NoiDungGia({ dsDong, tieuDe, phu, lyDoMacDinh, dangLuu, onHuy, onLuu, o
   const vonTxt = muc.vonCao === null ? null : muc.vonThap === muc.vonCao ? vnd(muc.vonCao) : `${formatNumber(muc.vonThap)} – ${vnd(muc.vonCao)}`;
   const lai = tinhLaiGop(soGia, muc.vonCao);
   let thongTin;
-  if (quaLon) thongTin = "Giá bán vượt giới hạn cho phép";
-  else if (!vonTxt) thongTin = "Chưa có giá vốn";
-  else if (!(soGia > 0)) thongTin = `Giá vốn ${vonTxt}`;
-  else if (lai.lo) thongTin = `Thấp hơn giá vốn ${vonTxt} — bán lỗ ${vnd(-lai.lai)}/sp`;
-  else thongTin = `Giá vốn ${vonTxt} · Lãi gộp ${vnd(lai.lai)} (${dinhDangPhanTram(lai.phanTram)})`;
+  if (quaLon) thongTin = t("Giá bán vượt giới hạn cho phép");
+  else if (!vonTxt) thongTin = t("Chưa có giá vốn");
+  else if (!(soGia > 0)) thongTin = t("Giá vốn {{vonTxt}}", { vonTxt });
+  else if (lai.lo) thongTin = t("Thấp hơn giá vốn {{vonTxt}} — bán lỗ {{lo}}/sp", { vonTxt, lo: vnd(-lai.lai) });
+  else thongTin = t("Giá vốn {{vonTxt}} · Lãi gộp {{lai}} ({{phanTram}})", { vonTxt, lai: vnd(lai.lai), phanTram: dinhDangPhanTram(lai.phanTram) });
 
   return (
     <div role="group" aria-labelledby={`${id}-tieu-de`}>
@@ -116,7 +117,7 @@ function NoiDungGia({ dsDong, tieuDe, phu, lyDoMacDinh, dangLuu, onHuy, onLuu, o
       </div>
       <div className="flex flex-col gap-2.5 px-4 py-3">
         <label className="flex flex-col gap-1 text-xs font-medium text-slate-700">
-          Giá bán mới (₫)
+          {t("Giá bán mới (₫)")}
           <MoneyInput
             autoFocus
             // Ô điền sẵn giá đang lưu: chọn hết để gõ là thay giá, không nối vào số cũ
@@ -153,19 +154,19 @@ function NoiDungGia({ dsDong, tieuDe, phu, lyDoMacDinh, dangLuu, onHuy, onLuu, o
             disabled={dangLuu}
             className="mr-auto rounded text-left text-[11.5px] text-bo-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 disabled:opacity-50"
           >
-            Đổi lần gần nhất {ngayVN(muc.lanGanNhat)} · Xem lịch sử
+            {t("Đổi lần gần nhất {{lanGanNhat}} · Xem lịch sử", { lanGanNhat: ngayVN(muc.lanGanNhat) })}
           </button>
         ) : (
           <span className="mr-auto text-[11.5px] text-bo-muted">
-            {muc.lanGanNhat ? `Đổi lần gần nhất ${ngayVN(muc.lanGanNhat)}` : "Chưa đổi giá lần nào"}
+            {muc.lanGanNhat ? t("Đổi lần gần nhất {{lanGanNhat}}", { lanGanNhat: ngayVN(muc.lanGanNhat) }) : t("Chưa đổi giá lần nào")}
           </span>
         )}
         <Button type="button" variant="outline" size="sm" disabled={dangLuu} onClick={onHuy} className="h-8 border-bo-border bg-bo-surface px-2.5 text-[13px] text-bo-foreground hover:bg-bo-surface-subtle">
-          Hủy
+          {t("Hủy")}
         </Button>
         <Button type="button" size="sm" disabled={!hopLe || dangLuu} onClick={luu} className="h-8 gap-1.5 bg-bo-primary px-2.5 text-[13px] text-white hover:bg-bo-primary-hover">
           {dangLuu ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> : null}
-          {dangLuu ? "Đang lưu…" : "Lưu giá"}
+          {dangLuu ? t("Đang lưu…") : t("Lưu giá")}
         </Button>
       </div>
     </div>

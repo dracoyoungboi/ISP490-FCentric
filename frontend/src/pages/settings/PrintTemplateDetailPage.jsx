@@ -23,6 +23,7 @@ import { printTemplateConfigService } from "@/services/printTemplateConfigServic
 import { companyProfileService } from "@/services/companyProfileService";
 import PrintOnlyDocument from "@/components/print/PrintOnlyDocument";
 import { isThermalPaper } from "@/components/print/paperStyles";
+import { t } from "@/i18n";
 
 /**
  * Trang xem trước riêng của một mẫu (route cũ, giữ lại cho deep-link).
@@ -87,14 +88,14 @@ export default function PrintTemplateDetailPage() {
             <PageContainer>
                 <EmptyState
                     icon={FileX}
-                    title="Không tìm thấy loại chứng từ"
-                    description="Loại chứng từ trong đường dẫn không tồn tại."
+                    title={t("Không tìm thấy loại chứng từ")}
+                    description={t("Loại chứng từ trong đường dẫn không tồn tại.")}
                     action={
                         <Button
                             className="bg-bo-primary text-white hover:bg-bo-primary-hover"
                             onClick={() => navigate("/settings/print-templates")}
                         >
-                            Về trang cấu hình mẫu in
+                            {t("Về trang cấu hình mẫu in")}
                         </Button>
                     }
                 />
@@ -105,7 +106,7 @@ export default function PrintTemplateDetailPage() {
     if (loading) {
         return (
             <PageContainer>
-                <LoadingState rows={4} label="Đang tải mẫu in" />
+                <LoadingState rows={4} label={t("Đang tải mẫu in")} />
             </PageContainer>
         );
     }
@@ -114,8 +115,8 @@ export default function PrintTemplateDetailPage() {
         return (
             <PageContainer>
                 <ErrorState
-                    title="Không thể tải mẫu in"
-                    description="Không thể tải cấu hình mẫu in từ máy chủ. Vui lòng thử lại."
+                    title={t("Không thể tải mẫu in")}
+                    description={t("Không thể tải cấu hình mẫu in từ máy chủ. Vui lòng thử lại.")}
                     onRetry={reload}
                 />
             </PageContainer>
@@ -127,14 +128,14 @@ export default function PrintTemplateDetailPage() {
             <PageContainer>
                 <EmptyState
                     icon={FileX}
-                    title="Không tìm thấy mẫu in"
-                    description="Mẫu in trong đường dẫn không tồn tại hoặc đã bị xóa."
+                    title={t("Không tìm thấy mẫu in")}
+                    description={t("Mẫu in trong đường dẫn không tồn tại hoặc đã bị xóa.")}
                     action={
                         <Button
                             className="bg-bo-primary text-white hover:bg-bo-primary-hover"
                             onClick={() => navigate("/settings/print-templates")}
                         >
-                            Về trang cấu hình mẫu in
+                            {t("Về trang cấu hình mẫu in")}
                         </Button>
                     }
                 />
@@ -150,10 +151,10 @@ export default function PrintTemplateDetailPage() {
 
     const orientationLabel =
         isThermalPaper(config.paperSize)
-            ? "Khổ nhiệt"
+            ? t("Khổ nhiệt")
             : config.orientation === "landscape"
-                ? "Ngang"
-                : "Dọc";
+                ? t("Ngang")
+                : t("Dọc");
 
     // Trang này cuộn theo trang (page-level scroll) nên "Vừa trang" chỉ cần
     // khớp chiều rộng khung preview, cap 100% — không phóng to quá khổ in thật.
@@ -172,9 +173,9 @@ export default function PrintTemplateDetailPage() {
 
             <PageHeader
                 className="no-print"
-                eyebrow="Cấu hình mẫu in"
+                eyebrow={t("Cấu hình mẫu in")}
                 title={config.name}
-                description={`Loại chứng từ: ${schema.label} · Khổ giấy: ${config.paperSize} (${orientationLabel})`}
+                description={t("Loại chứng từ: {{loai}} · Khổ giấy: {{paperSize}} ({{huong}})", { loai: t(schema.label), paperSize: config.paperSize, huong: orientationLabel })}
                 actions={
                     <>
                         <Button
@@ -187,7 +188,7 @@ export default function PrintTemplateDetailPage() {
                             }
                         >
                             <ArrowLeft className="size-4" />
-                            Quay lại
+                            {t("Quay lại")}
                         </Button>
                         <Button
                             variant="outline"
@@ -195,7 +196,7 @@ export default function PrintTemplateDetailPage() {
                             onClick={() => window.print()}
                         >
                             <Printer className="size-4" />
-                            Xem bản in mẫu
+                            {t("Xem bản in mẫu")}
                         </Button>
                         <Button
                             className="bg-bo-primary text-white hover:bg-bo-primary-hover"
@@ -206,17 +207,17 @@ export default function PrintTemplateDetailPage() {
                             }
                         >
                             <Pencil className="size-4" />
-                            Chỉnh sửa mẫu
+                            {t("Chỉnh sửa mẫu")}
                         </Button>
                     </>
                 }
             />
 
-            <SurfaceCard className="no-print" title="Thông tin mẫu">
+            <SurfaceCard className="no-print" title={t("Thông tin mẫu")}>
                 <dl className="grid gap-4 sm:grid-cols-2">
                     <div>
                         <dt className="text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                            Tên mẫu
+                            {t("Tên mẫu")}
                         </dt>
                         <dd className="mt-0.5 text-sm font-semibold text-bo-foreground">
                             {config.name}
@@ -224,15 +225,15 @@ export default function PrintTemplateDetailPage() {
                     </div>
                     <div>
                         <dt className="text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                            Loại chứng từ
+                            {t("Loại chứng từ")}
                         </dt>
                         <dd className="mt-0.5 text-sm font-semibold text-bo-foreground">
-                            {schema.label}
+                            {t(schema.label)}
                         </dd>
                     </div>
                     <div>
                         <dt className="text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                            Khổ giấy
+                            {t("Khổ giấy")}
                         </dt>
                         <dd className="mt-0.5 text-sm font-semibold text-bo-foreground">
                             {config.paperSize} ({orientationLabel})
@@ -240,14 +241,14 @@ export default function PrintTemplateDetailPage() {
                     </div>
                     <div>
                         <dt className="text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                            Lề
+                            {t("Lề")}
                         </dt>
                         <dd className="mt-0.5 text-sm font-semibold text-bo-foreground">
                             {config.margin === "narrow"
-                                ? "Hẹp"
+                                ? t("Hẹp")
                                 : config.margin === "wide"
-                                    ? "Rộng"
-                                    : "Mặc định"}
+                                    ? t("Rộng")
+                                    : t("Mặc định")}
                         </dd>
                     </div>
                 </dl>
@@ -255,11 +256,11 @@ export default function PrintTemplateDetailPage() {
 
             <SurfaceCard
                 className="print-template-preview"
-                title="Bản xem trước"
+                title={t("Bản xem trước")}
                 description={
                     schema.hasRealPrintRoute
-                        ? "Dữ liệu mẫu minh họa — không phải dữ liệu thật. Bản xem trước áp dụng đúng cấu hình mẫu đã lưu."
-                        : "Dữ liệu mẫu minh họa — loại chứng từ này chưa có bản in thật."
+                        ? t("Dữ liệu mẫu minh họa — không phải dữ liệu thật. Bản xem trước áp dụng đúng cấu hình mẫu đã lưu.")
+                        : t("Dữ liệu mẫu minh họa — loại chứng từ này chưa có bản in thật.")
                 }
                 contentClassName="p-0"
                 action={<PreviewZoomControl value={zoom} onChange={setZoom} />}

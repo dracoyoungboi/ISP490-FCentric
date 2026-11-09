@@ -6,6 +6,7 @@ import ErrorState from "@/components/shared/ErrorState";
 import EmptyState from "@/components/shared/EmptyState";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { OUTLINE_BUTTON } from "@/components/settings/settingsStyles";
+import { t } from "@/i18n";
 
 /**
  * Ngăn kéo "Lịch sử chỉnh sửa" của trình sửa mẫu in: mỗi lần lưu là một phiên bản (giờ lưu,
@@ -23,7 +24,7 @@ export default function NganKeoLichSu({
     onRetry,
     onRestore,
     restoreDisabled = false,
-    docNoun = "phiếu",
+    docNoun = t("phiếu", { context: "mau_in" }),
 }) {
     const entries = history?.entries ?? [];
     return (
@@ -35,17 +36,16 @@ export default function NganKeoLichSu({
                 <div className="flex shrink-0 items-start justify-between gap-3 border-b border-bo-border px-5 py-4">
                     <div className="min-w-0">
                         <SheetTitle className="text-base leading-6 font-semibold text-bo-foreground">
-                            Lịch sử chỉnh sửa
+                            {t("Lịch sử chỉnh sửa")}
                         </SheetTitle>
                         <SheetDescription className="mt-0.5 text-[13px] leading-5 text-bo-muted">
-                            Mỗi lần lưu là một phiên bản. Khôi phục sẽ đưa phiên bản cũ vào bản đang sửa — bấm Lưu để
-                            áp dụng cho {docNoun} in ra.
+                            {t("Mỗi lần lưu là một phiên bản. Khôi phục sẽ đưa phiên bản cũ vào bản đang sửa — bấm Lưu để áp dụng cho {{docNoun}} in ra.", { docNoun })}
                         </SheetDescription>
                     </div>
                     <button
                         type="button"
                         onClick={() => onOpenChange(false)}
-                        aria-label="Đóng lịch sử chỉnh sửa"
+                        aria-label={t("Đóng lịch sử chỉnh sửa")}
                         className="inline-flex size-9 shrink-0 items-center justify-center rounded-md text-bo-muted hover:bg-bo-surface-subtle hover:text-bo-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bo-primary"
                     >
                         <X className="size-4" aria-hidden="true" />
@@ -54,15 +54,15 @@ export default function NganKeoLichSu({
 
                 <div className="min-h-0 flex-1 overflow-y-auto px-5">
                     {history?.status === "loading" ? (
-                        <LoadingState className="min-h-48" label="Đang tải lịch sử chỉnh sửa" />
+                        <LoadingState className="min-h-48" label={t("Đang tải lịch sử chỉnh sửa")} />
                     ) : history?.status === "error" ? (
                         <ErrorState
                             className="min-h-48"
-                            title="Không tải được lịch sử chỉnh sửa"
+                            title={t("Không tải được lịch sử chỉnh sửa")}
                             description={
                                 history.errorStatus === 403
-                                    ? "Tài khoản của bạn không có quyền xem lịch sử mẫu in."
-                                    : "Không đọc được lịch sử từ máy chủ. Vui lòng thử lại."
+                                    ? t("Tài khoản của bạn không có quyền xem lịch sử mẫu in.")
+                                    : t("Không đọc được lịch sử từ máy chủ. Vui lòng thử lại.")
                             }
                             onRetry={history.errorStatus === 403 ? undefined : onRetry}
                         />
@@ -70,11 +70,11 @@ export default function NganKeoLichSu({
                         <EmptyState
                             className="min-h-48"
                             icon={History}
-                            title="Chưa có phiên bản nào"
-                            description="Mỗi lần bấm Lưu, mẫu in được ghi lại ở đây kèm người lưu và những gì đã đổi."
+                            title={t("Chưa có phiên bản nào")}
+                            description={t("Mỗi lần bấm Lưu, mẫu in được ghi lại ở đây kèm người lưu và những gì đã đổi.")}
                         />
                     ) : (
-                        <ol aria-label="Các phiên bản đã lưu, mới nhất trước">
+                        <ol aria-label={t("Các phiên bản đã lưu, mới nhất trước")}>
                             {entries.map((entry) => (
                                 <li
                                     key={entry.id}
@@ -88,7 +88,7 @@ export default function NganKeoLichSu({
                                         <p className="mt-1.5 text-sm leading-5 break-words text-bo-foreground">{entry.summary}</p>
                                     </div>
                                     {entry.isCurrent ? (
-                                        <StatusBadge label="Đang dùng" nhom="xong" className="mt-0.5" />
+                                        <StatusBadge /* i18n-giu-nguyen: StatusBadge tự dịch nhãn lúc vẽ */ label="Đang dùng" nhom="xong" className="mt-0.5" />
                                     ) : (
                                         <Button
                                             type="button"
@@ -96,10 +96,10 @@ export default function NganKeoLichSu({
                                             size="sm"
                                             className={`h-8 shrink-0 ${OUTLINE_BUTTON}`}
                                             disabled={!entry.restorable || restoreDisabled}
-                                            title={entry.restorable ? undefined : "Mẫu của phiên bản này không còn dùng được"}
+                                            title={entry.restorable ? undefined : t("Mẫu của phiên bản này không còn dùng được")}
                                             onClick={() => onRestore(entry)}
                                         >
-                                            Khôi phục
+                                            {t("Khôi phục")}
                                         </Button>
                                     )}
                                 </li>

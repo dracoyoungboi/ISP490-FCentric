@@ -27,6 +27,7 @@ import {
   selectInventorySettings,
   validateInventoryField,
 } from "@/validations/inventorySettingsSchema";
+import { t } from "@/i18n";
 
 const NHOM = "label";
 const KHO = "TEM_KHO_MAC_DINH";
@@ -37,8 +38,9 @@ const fieldCua = (code) => INVENTORY_SETTINGS.find((f) => f.code === code);
 // Khớp Boolean.parseBoolean của máy chủ (không phân biệt hoa thường); "1" giữ như cũ
 const laBat = (giaTri) => ["true", "1"].includes(String(giaTri ?? "").trim().toLowerCase());
 const valuesOf = (settings) => Object.fromEntries(settings.map((item) => [item.maCauHinh, item.giaTri]));
+// i18n-giu-nguyen: dữ liệu tem mẫu in ra giấy (bản xem trước nội dung tem)
 const TEM_MAU = { id: 0, tenSanPham: "Áo thun cotton basic", tenMau: "Đen", kichCo: "M", maVachSku: "2000000150", maSku: "AT2610151-CL001-M-MS-2691", giaBan: 199000 };
-const MO_TA = "In từ màn Giá bán & tem mã vạch và phiếu nhập kho";
+const MO_TA = t("In từ màn Giá bán & tem mã vạch và phiếu nhập kho");
 // Cùng kiểu chữ / nút với các dòng mẫu chứng từ ở PrintTemplateListPage
 const CHU_TEN =
   "text-left text-sm leading-5 font-medium text-bo-foreground hover:text-bo-primary focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bo-primary";
@@ -93,8 +95,8 @@ export default function DongMauTem({ coVachTren = false }) {
 
   const kho = layKhoTem(valuesOf(settings ?? [])[KHO]);
   const khoGiay =
-    status === "loaded" ? `Tem ${kho.rongTem} × ${kho.caoTem} mm · máy in tem` : status === "error" ? "Không tải được cấu hình tem" : "Đang tải…";
-  const nhanNut = status === "error" ? "Thử lại" : canEdit ? "Sửa mẫu" : "Xem mẫu";
+    status === "loaded" ? t("Tem {{rongTem}} × {{caoTem}} mm · máy in tem", { rongTem: kho.rongTem, caoTem: kho.caoTem }) : status === "error" ? t("Không tải được cấu hình tem") : t("Đang tải…");
+  const nhanNut = status === "error" ? t("Thử lại") : canEdit ? t("Sửa mẫu") : t("Xem mẫu");
   const bam = () => {
     if (status === "error") load();
     else if (status === "loaded") setMo(true);
@@ -110,7 +112,7 @@ export default function DongMauTem({ coVachTren = false }) {
       <Tags className="size-[18px] shrink-0 text-[#7a8594]" aria-hidden="true" />
       <div className="min-w-0 flex-1">
         <button type="button" onClick={bam} disabled={status === "loading"} className={CHU_TEN}>
-          Tem sản phẩm
+          {t("Tem sản phẩm")}
         </button>
         <p className="mt-0.5 text-[13px] leading-5 text-bo-muted">{MO_TA}</p>
         {/* Màn hẹp: khổ tem xuống dòng dưới mô tả (màn rộng có cột riêng bên phải) */}
@@ -121,7 +123,7 @@ export default function DongMauTem({ coVachTren = false }) {
         type="button"
         onClick={bam}
         disabled={status === "loading"}
-        aria-label={status === "error" ? "Tải lại cấu hình tem sản phẩm" : `${nhanNut} tem sản phẩm`}
+        aria-label={status === "error" ? t("Tải lại cấu hình tem sản phẩm") : canEdit ? t("Sửa mẫu tem sản phẩm") : t("Xem mẫu tem sản phẩm")}
         className={cn(NUT_SUA, "disabled:opacity-50")}
       >
         {nhanNut}
@@ -179,15 +181,15 @@ function HopMauTem({ canEdit, settings, tenCuaHang, onDong, onDaLuu }) {
     try {
       const updated = selectInventorySettings((await bulkUpdateInventorySettings(changes)).data);
       if (changes.some((change) => !updated.some((item) => item.maCauHinh === change.maCauHinh))) {
-        throw new Error("Phản hồi lưu thiếu cấu hình đã gửi.");
+        throw new Error(t("Phản hồi lưu thiếu cấu hình đã gửi."));
       }
       if (!mountedRef.current) return;
-      toast.success("Đã lưu cấu hình tem sản phẩm.");
+      toast.success(t("Đã lưu cấu hình tem sản phẩm."));
       onDaLuu(settings.map((item) => updated.find((result) => result.maCauHinh === item.maCauHinh) ?? item));
     } catch (error) {
       if (!mountedRef.current) return;
       const message = error?.response?.status === 400 ? error?.response?.data?.message : null;
-      setSaveError(message || "Chưa lưu được. Vui lòng thử lại, các giá trị bạn nhập vẫn được giữ.");
+      setSaveError(message || t("Chưa lưu được. Vui lòng thử lại, các giá trị bạn nhập vẫn được giữ."));
     } finally {
       if (mountedRef.current) setSaving(false);
     }
@@ -197,7 +199,7 @@ function HopMauTem({ canEdit, settings, tenCuaHang, onDong, onDaLuu }) {
   const khoField = fieldCua(KHO);
   const kho = layKhoTem(draft[KHO]);
   const rongTemMau = khungTemMau.width ? Math.min(280, khungTemMau.width - 24) : 280;
-  const [truocNguong, damNguong, sauNguong] = errors[NGUONG] ? ["Nhập giá trị hợp lệ để xem tác động.", "", ""] : moTaTacDong(NGUONG, draft[NGUONG]);
+  const [truocNguong, damNguong, sauNguong] = errors[NGUONG] ? [t("Nhập giá trị hợp lệ để xem tác động."), "", ""] : moTaTacDong(NGUONG, draft[NGUONG]);
   const congTac = (code, ghiChu) => (
     <div className="flex items-center gap-4 border-t border-[#eef1f5] py-3">
       <div className="min-w-0 flex-1">
@@ -224,15 +226,15 @@ function HopMauTem({ canEdit, settings, tenCuaHang, onDong, onDaLuu }) {
       <form onSubmit={save} noValidate className="flex min-h-0 flex-1 flex-col">
         <DialogHeader className="shrink-0 border-b border-bo-border px-5 py-4 pr-12 text-left">
           <DialogTitle className="flex items-center gap-2 text-[17px] text-bo-foreground">
-            Tem sản phẩm
+            {t("Tem sản phẩm")}
             {!canEdit ? (
               <span className="inline-flex h-6 items-center gap-1 rounded-full bg-[#e9edf2] px-2 text-xs font-medium text-slate-700">
                 <Lock className="size-3" aria-hidden="true" />
-                Chỉ xem
+                {t("Chỉ xem")}
               </span>
             ) : null}
           </DialogTitle>
-          <DialogDescription className="text-[13px] text-bo-muted">{MO_TA} · mã CODE128 · giá đã gồm thuế</DialogDescription>
+          <DialogDescription className="text-[13px] text-bo-muted">{t("{{moTa}} · mã CODE128 · giá đã gồm thuế", { moTa: MO_TA })}</DialogDescription>
         </DialogHeader>
 
         <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-5 py-4 md:flex-row">
@@ -280,7 +282,7 @@ function HopMauTem({ canEdit, settings, tenCuaHang, onDong, onDaLuu }) {
                       {k.rongTem} × {k.caoTem} mm
                     </span>
                     <span className="col-start-2 text-xs leading-5 text-bo-muted">
-                      {k.soCot} tem/hàng · cuộn {k.rongCuon} mm
+                      {k.soCot} {t("tem/hàng · cuộn {{rongCuon}} mm", { rongCuon: k.rongCuon })}
                     </span>
                   </button>
                 );
@@ -291,12 +293,12 @@ function HopMauTem({ canEdit, settings, tenCuaHang, onDong, onDaLuu }) {
             {congTac(
               IN_TEN,
               tenCuaHang
-                ? `In dòng "${tenCuaHang}" ở đầu tem.`
+                ? t("In dòng \"{{tenCuaHang}}\" ở đầu tem.", { tenCuaHang })
                 : tenCuaHang === undefined
-                  ? "Không tải được tên cửa hàng."
-                  : "Chưa khai báo tên ở Thông tin cửa hàng.",
+                  ? t("Không tải được tên cửa hàng.")
+                  : t("Chưa khai báo tên ở Thông tin cửa hàng."),
             )}
-            {congTac(IN_SKU, "In thêm mã SKU dưới giá (tem chật hơn).")}
+            {congTac(IN_SKU, t("In thêm mã SKU dưới giá (tem chật hơn)."))}
 
             <div className="flex flex-wrap items-start gap-x-4 gap-y-2 border-t border-[#eef1f5] pt-3">
               <div className="min-w-0 flex-[1_1_200px]">
@@ -322,7 +324,7 @@ function HopMauTem({ canEdit, settings, tenCuaHang, onDong, onDaLuu }) {
                     disabled={khoaO}
                     className={settingsInputClass({ error: Boolean(errors[NGUONG]), className: "pr-11 text-right font-medium tabular-nums" })}
                   />
-                  <span aria-hidden="true" className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-[13px] text-bo-muted">tem</span>
+                  <span aria-hidden="true" className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-[13px] text-bo-muted">{t("tem")}</span>
                 </div>
                 <SettingsFieldHint id="tem-nguong-goi-y" error={errors[NGUONG]} className="sm:text-right">
                   {phamViCauHinh(NGUONG)}
@@ -344,7 +346,7 @@ function HopMauTem({ canEdit, settings, tenCuaHang, onDong, onDaLuu }) {
                 pxMoiMm={pxMoiMmXemTruoc(kho, rongTemMau)}
               />
             </div>
-            <span className="text-xs text-bo-muted">Tem mẫu (phóng to)</span>
+            <span className="text-xs text-bo-muted">{t("Tem mẫu (phóng to)")}</span>
           </div>
         </div>
 
@@ -355,16 +357,16 @@ function HopMauTem({ canEdit, settings, tenCuaHang, onDong, onDaLuu }) {
           {canEdit ? (
             <>
               <Button type="button" variant="outline" onClick={onDong} disabled={saving} className={NUT_PHU}>
-                Hủy
+                {t("Hủy")}
               </Button>
               <Button type="submit" disabled={!changes.length || hasErrors || saving} className={NUT_CHINH}>
                 {saving ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
-                {saving ? "Đang lưu…" : "Lưu"}
+                {saving ? t("Đang lưu…") : t("Lưu")}
               </Button>
             </>
           ) : (
             <Button type="button" variant="outline" onClick={onDong} className={NUT_PHU}>
-              Đóng
+              {t("Đóng")}
             </Button>
           )}
         </DialogFooter>

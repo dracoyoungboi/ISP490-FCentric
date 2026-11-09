@@ -9,12 +9,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { LOC_MAC_DINH, LOC_TRANG_THAI } from "./cayDanhMuc";
+import { t } from "@/i18n";
 
 // Đang hoạt động đứng đầu và là bộ lọc mặc định
 const LUA_CHON_TRANG_THAI = [
-  { value: LOC_TRANG_THAI.HOAT_DONG, label: "Đang hoạt động" },
-  { value: LOC_TRANG_THAI.NGUNG, label: "Ngừng hoạt động" },
-  { value: LOC_TRANG_THAI.TAT_CA, label: "Tất cả" },
+  { value: LOC_TRANG_THAI.HOAT_DONG, label: t("Đang hoạt động") },
+  { value: LOC_TRANG_THAI.NGUNG, label: t("Ngừng hoạt động") },
+  { value: LOC_TRANG_THAI.TAT_CA, label: t("Tất cả") },
 ];
 
 /**
@@ -31,7 +32,7 @@ export default function LocTrangThai({ value, onChange, dem = {}, className }) {
       <DropdownMenuTrigger asChild>
         <Button
           variant="outline"
-          aria-label={`Lọc theo trạng thái: ${hienTai.label}`}
+          aria-label={t("Lọc theo trạng thái: {{label}}", { label: hienTai.label })}
           className={cn(
             "h-9 w-full justify-between gap-2 px-3 text-sm font-normal sm:w-auto",
             dangLoc
@@ -41,7 +42,7 @@ export default function LocTrangThai({ value, onChange, dem = {}, className }) {
           )}
         >
           <span className="truncate">
-            Trạng thái: <span className="font-semibold">{hienTai.label}</span>
+            {t("Trạng thái:")} <span className="font-semibold">{hienTai.label}</span>
           </span>
           <ChevronDown className="size-4 shrink-0 opacity-60" aria-hidden="true" />
         </Button>
