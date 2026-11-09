@@ -44,8 +44,8 @@ function NoiDung({ dsDong, lyDoMacDinh, dangLuu, onHuy, onLuu }) {
       <DialogHeader className="shrink-0 border-b border-bo-border px-5 py-4 pr-12 text-left">
         <DialogTitle className="text-[17px] text-bo-foreground">{t("Đổi giá bán")}</DialogTitle>
         <DialogDescription className="text-[13px] text-bo-muted">
-          {t("{{so}} SKU đang hoạt động", { so: formatNumber(muc.muc.length) })}
-          {muc.boQua ? t(" · bỏ qua {{boQua}} SKU ngừng hoạt động", { boQua: formatNumber(muc.boQua) }) : ""}
+          {t("{{so}} SKU đang hoạt động", { count: muc.muc.length, so: formatNumber(muc.muc.length) })}
+          {muc.boQua ? t(" · bỏ qua {{boQua}} SKU ngừng hoạt động", { count: Number(muc.boQua), boQua: formatNumber(muc.boQua) }) : ""}
         </DialogDescription>
       </DialogHeader>
 

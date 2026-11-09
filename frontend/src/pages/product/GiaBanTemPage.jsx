@@ -813,7 +813,7 @@ export default function GiaBanTemPage() {
             {daChon.length ? (
               <div className="flex flex-wrap items-center gap-2 border-b border-bo-border bg-bo-primary-soft px-3 py-2 text-sm text-bo-primary-strong sm:px-4">
                 <span className="mr-1">
-                  <strong className="font-semibold tabular-nums">{formatNumberOrDash(daChon.length)}</strong> {t("SKU đã chọn trên trang này")}
+                  <strong className="font-semibold tabular-nums">{formatNumberOrDash(daChon.length)}</strong> {t("SKU đã chọn trên trang này", { count: daChon.length })}
                 </span>
                 <Button type="button" variant="outline" onClick={() => moInTem("chon", daChon)} className={nutPhu}>
                   <Printer className="size-3.5" aria-hidden="true" />

@@ -517,7 +517,7 @@ function NoiDung({ nguon, dongBanDau, maPhieu, onDatGia, onDaMoIn, onDong }) {
       {xacNhan ? (
         <div role="alert" className="flex shrink-0 items-center gap-2 border-t border-orange-200 bg-orange-50 px-5 py-2.5 text-[13px] text-orange-800">
           <TriangleAlert className="size-[15px] shrink-0" aria-hidden="true" />
-          {t("Lần in này có {{tong}} tem, vượt ngưỡng {{nguong}} tem đặt trong Cấu hình. Bấm lần nữa để xác nhận.", { tong: formatNumber(lan.tong), nguong: formatNumber(nguong) })}
+          {t("Lần in này có {{tong}} tem, vượt ngưỡng {{nguong}} tem đặt trong Cấu hình. Bấm lần nữa để xác nhận.", { count: Number(lan.tong) || 0, tong: formatNumber(lan.tong), nguong: formatNumber(nguong) })}
         </div>
       ) : null}
 

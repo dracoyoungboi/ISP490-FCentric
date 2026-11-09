@@ -380,7 +380,7 @@ export default function TrinhTaoBienThe({
                         state.mauDaChon.length > 0 && (
                             <div className="flex items-center justify-between gap-3 text-xs text-bo-muted">
                                 <span>
-                                    {t("Đã chọn {{daChon}}/{{tong}} màu", { daChon: state.mauDaChon.length, tong: mauSacs.length })}
+                                    {t("Đã chọn {{daChon}}/{{tong}} màu", { count: mauSacs.length, daChon: state.mauDaChon.length, tong: mauSacs.length })}
                                     {mauKhoa.length > 0 && t(" · {{count}} màu đang có biến thể, không bỏ được", { count: mauKhoa.length })}
                                 </span>
                                 {soMauBoDuoc > 0 && (
@@ -545,7 +545,7 @@ export default function TrinhTaoBienThe({
                                     </span>
                                     {thongKe.mauThieuAnh.length > 0 ? (
                                         <span className="rounded-full bg-bo-danger-soft px-2.5 py-0.5 text-xs font-semibold text-bo-danger">
-                                            {t("{{thieu}}/{{tong}} màu chưa có ảnh", { thieu: thongKe.mauThieuAnh.length, tong: thongKe.soMauCoBienThe })}
+                                            {t("{{thieu}}/{{tong}} màu chưa có ảnh", { count: thongKe.soMauCoBienThe, thieu: thongKe.mauThieuAnh.length, tong: thongKe.soMauCoBienThe })}
                                         </span>
                                     ) : (
                                         thongKe.soMauCoBienThe > 0 && (
@@ -759,7 +759,7 @@ const NhomMau = memo(function NhomMau({
     const nhanSoLuong = !laSua
         ? chuaCoKichCo
             ? t("Chưa chọn kích cỡ")
-            : t("{{soTao}}/{{tong}} kích cỡ", { soTao, tong: dong.length })
+            : t("{{soTao}}/{{tong}} kích cỡ", { count: dong.length, soTao, tong: dong.length })
         : soCu + soTao === 0
           ? chuaCoKichCo
               ? t("Chưa chọn kích cỡ")
