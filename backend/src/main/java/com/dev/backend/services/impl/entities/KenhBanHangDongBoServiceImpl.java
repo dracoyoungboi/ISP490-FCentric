@@ -120,6 +120,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     @lombok.experimental.NonFinal
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     com.dev.backend.services.shopee.ShopeeMockEngine shopeeMockEngine;
+    @lombok.experimental.NonFinal
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    com.dev.backend.services.shopee.ShopeeThirdPartySignClient shopeeThirdPartySignClient;
 
     public TikTokShopClient getTikTokShopClient() {
         if (tiktokShopClient == null) {
@@ -4245,13 +4248,24 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
     private TaiSanPhamResultDto taiSanPhamShopee(KenhBanHang kenh) {
         com.dev.backend.services.shopee.ShopeeClient client = getShopeeClient(kenh);
+        boolean isProductionShopee = !"SHOPEE_SANDBOX".equalsIgnoreCase(kenh.getMaKenh());
+        String shopIdStr = kenh.getClientId() != null ? kenh.getClientId() : (kenh.getShopDomain() != null ? kenh.getShopDomain() : "88201679");
+
         int soSku = 0;
         int soMoi = 0;
         int soCapNhat = 0;
 
         try {
-            JsonNode listRes = client.getItemList(0, 100, "NORMAL");
+            JsonNode listRes;
+            if (isProductionShopee && shopeeThirdPartySignClient != null) {
+                listRes = shopeeThirdPartySignClient.getItemList(shopIdStr, 0, 100);
+            } else {
+                listRes = client.getItemList(0, 100, "NORMAL");
+            }
             JsonNode items = listRes.path("response").path("item");
+            if (!items.isArray() || items.isEmpty()) {
+                items = listRes.path("response").path("item_list");
+            }
             List<Long> itemIds = new ArrayList<>();
             if (items.isArray()) {
                 for (JsonNode it : items) {
@@ -4286,7 +4300,12 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 return TaiSanPhamResultDto.builder().soSku(soSku).soMoi(soMoi).soCapNhat(soCapNhat).build();
             }
 
-            JsonNode detailRes = client.getItemBaseInfo(itemIds);
+            JsonNode detailRes;
+            if (isProductionShopee && shopeeThirdPartySignClient != null) {
+                detailRes = shopeeThirdPartySignClient.getItemBaseInfo(shopIdStr, itemIds);
+            } else {
+                detailRes = client.getItemBaseInfo(itemIds);
+            }
             JsonNode itemList = detailRes.path("response").path("item_list");
             if (itemList.isArray()) {
                 for (JsonNode itemNode : itemList) {
@@ -4319,6 +4338,15 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                                 tt.setMaSanPhamKenh(maSanPhamKenh);
                                 soMoi++;
                             }
+                            if (tt.getBienTheSanPham() == null) {
+                                BienTheSanPham bt = bienTheSanPhamRepository.findByMaSkuIgnoreCase(modelSku).orElse(null);
+                                if (bt != null) {
+                                    tt.setBienTheSanPham(bt);
+                                    tt.setTrangThaiDongBo("thanh_cong");
+                                } else {
+                                    tt.setTrangThaiDongBo("chua_dong_bo");
+                                }
+                            }
                             if (price != null) tt.setGiaBanSan(price);
                             trangThaiDongBoSanPhamRepository.save(tt);
                             soSku++;
@@ -4342,6 +4370,15 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                             tt.setKenhBanHang(kenh);
                             tt.setMaSanPhamKenh(maSanPhamKenh);
                             soMoi++;
+                        }
+                        if (tt.getBienTheSanPham() == null) {
+                            BienTheSanPham bt = bienTheSanPhamRepository.findByMaSkuIgnoreCase(sku).orElse(null);
+                            if (bt != null) {
+                                tt.setBienTheSanPham(bt);
+                                tt.setTrangThaiDongBo("thanh_cong");
+                            } else {
+                                tt.setTrangThaiDongBo("chua_dong_bo");
+                            }
                         }
                         if (price != null) tt.setGiaBanSan(price);
                         trangThaiDongBoSanPhamRepository.save(tt);
@@ -4506,7 +4543,14 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
             try {
                 // Gọi API cập nhật tồn kho theo lô (Batching) cho sản phẩm cha
-                JsonNode res = client.updateStockBatch(itemId, stockList);
+                JsonNode res;
+                boolean isProductionShopee = !"SHOPEE_SANDBOX".equalsIgnoreCase(kenh.getMaKenh());
+                String shopIdStr = kenh.getClientId() != null ? kenh.getClientId() : (kenh.getShopDomain() != null ? kenh.getShopDomain() : "88201679");
+                if (isProductionShopee && shopeeThirdPartySignClient != null) {
+                    res = shopeeThirdPartySignClient.updateStockBatch(shopIdStr, itemId, stockList);
+                } else {
+                    res = client.updateStockBatch(itemId, stockList);
+                }
                 boolean ok = res != null && res.path("error").asText("").isEmpty();
 
                 for (TrangThaiDongBoSanPham dong : nhomDong) {

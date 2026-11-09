@@ -48,9 +48,10 @@ public class ShopifyConfigUpdating implements Serializable {
     Integer trangThai;
 
     /**
-     * Các trường tương thích cho sàn ủy quyền (Lazada, TikTok Shop)
+     * Các trường tương thích cho sàn ủy quyền (Lazada, TikTok Shop, Shopee)
      */
     String appKey;
     String appSecret;
     String serviceId;
+    String tenGianHang;
 }
