@@ -358,7 +358,7 @@ export function BangSanPhamGiaNcc({ dong }) {
           { nhan: t("Giá gần nhất"), phai: true },
           { nhan: t("Thấp – cao"), phai: true },
           { nhan: t("So với lần trước") },
-          { nhan: t("Đã đặt"), phai: true },
+          { nhan: t("Đã đặt", { context: "ncc" }), phai: true },
           { nhan: t("Lần mua gần nhất"), phai: true },
         ]}
       />

@@ -382,7 +382,7 @@
   ". Đi lại từ bước duyệt như phiếu thường.": ". It goes through approval again like a regular order.",
   ", đã có lệnh điều động": ", with dispatch order",
   ". Nhặt, xuất, nhận hàng như phiếu thường.": ". Pick, issue and receive it like a regular order.",
-  "Đang giữ chỗ": "Reserving",
+  "Đang giữ chỗ": "Reserved:",
   "sản phẩm tại_one": "product at",
   "sản phẩm tại_other": "products at",
   ". Quản lý Kho tổng duyệt và lập lệnh điều động thì kho xuất mới nhặt hàng.": ". The source warehouse can pick only after the Central warehouse manager approves and creates the dispatch order.",

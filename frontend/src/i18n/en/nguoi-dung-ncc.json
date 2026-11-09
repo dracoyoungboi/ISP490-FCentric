@@ -920,5 +920,6 @@
   "Thêm/sửa/xóa sản phẩm và biến thể": "Add/edit/delete products and variants",
   "Thêm/sửa/xóa nhà cung cấp": "Add/edit/delete suppliers",
   "Thêm/sửa/xóa khách hàng": "Add/edit/delete customers",
-  "Đơn_mot": "Order"
+  "Đơn_mot": "Order",
+  "Đã đặt_ncc": "Ordered"
 }
