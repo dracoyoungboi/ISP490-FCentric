@@ -1,5 +1,6 @@
 package com.dev.backend.services.impl.entities;
 
+import com.dev.backend.i18n.DichCauDaLuu;
 import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.i18n.LoiTrangThaiException;
 import com.dev.backend.config.SecurityContextHolder;
@@ -137,7 +138,8 @@ public class PosCheckoutService {
                 PosCheckoutRecoveryResponse.builder()
                         .requestId(row.getRequestId())
                         .trangThai(row.getTrangThai())
-                        .errorMessage(row.getErrorMessage());
+                        // Câu lỗi lưu tiếng Việt: dịch lúc đọc theo ngôn ngữ người xem
+                        .errorMessage(DichCauDaLuu.dich(row.getErrorMessage()));
         if (PosCheckoutRequest.TRANG_THAI_SUCCESS.equals(row.getTrangThai()) && row.getResultJson() != null) {
             try {
                 builder.result(objectMapper.readValue(row.getResultJson(), PosCheckoutResponse.class));

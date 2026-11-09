@@ -1,5 +1,6 @@
 package com.dev.backend.controller;
 
+import com.dev.backend.i18n.DichCauDaLuu;
 import com.dev.backend.i18n.ThongDiep;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.dev.backend.entities.KenhBanHang;
@@ -641,7 +642,7 @@ public class KenhBanHangController {
         return ResponseEntity.ok(
                 ResponseData.<DayTonResultDto>builder()
                         .status(HttpStatus.OK.value())
-                        .data(kenhBanHangDongBoService.dayTonKhoLenKenh(maKenh, request))
+                        .data(dichLoiKenh(kenhBanHangDongBoService.dayTonKhoLenKenh(maKenh, request)))
                         .message(ThongDiep.dich("kenhBan.dayTonLenKenhThanhCong"))
                         .build()
         );
@@ -878,7 +879,7 @@ public class KenhBanHangController {
         return ResponseEntity.ok(
                 ResponseData.<DayTonResultDto>builder()
                         .status(HttpStatus.OK.value())
-                        .data(kenhBanHangDongBoService.dongBoTatCa())
+                        .data(dichLoiKenh(kenhBanHangDongBoService.dongBoTatCa()))
                         .message(ThongDiep.dich("kenhBan.chayDongBoToanBoThanhCong"))
                         .build()
         );
@@ -1152,6 +1153,17 @@ public class KenhBanHangController {
                 accessToken != null ? accessToken : "",
                 isSandbox
         );
+    }
+
+    /**
+     * Lỗi cả gian hàng (loiKenh) là câu tiếng Việt dùng chung với job, thông báo hệ thống và lý do lưu từng SKU:
+     * chỉ dịch ở response trả giao diện, theo ngôn ngữ người bấm.
+     */
+    private static DayTonResultDto dichLoiKenh(DayTonResultDto ketQua) {
+        if (ketQua != null && ketQua.getLoiKenh() != null) {
+            ketQua.setLoiKenh(DichCauDaLuu.dich(ketQua.getLoiKenh()));
+        }
+        return ketQua;
     }
 
 }

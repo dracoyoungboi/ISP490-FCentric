@@ -1,5 +1,6 @@
 package com.dev.backend.services.impl.entities;
 
+import com.dev.backend.i18n.DichCauDaLuu;
 import com.dev.backend.i18n.LoiTrangThaiException;
 import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.config.SecurityContextHolder;
@@ -1604,7 +1605,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 .choPhepDongBo(true)
                 .trangThaiLienKet(mapStatusToFrontend(item.getTrangThaiDongBo()))
                 .ngayDongBoCuoi(item.getNgayDongBoCuoi())
-                .chiTietLoi(item.getChiTietLoi())
+                .chiTietLoi(DichCauDaLuu.dich(item.getChiTietLoi()))
                 .build();
     }
 
@@ -1690,7 +1691,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 .choPhepDongBo(Boolean.TRUE.equals(request.getChoPhepDongBo()))
                 .trangThaiLienKet(mapStatusToFrontend(saved.getTrangThaiDongBo()))
                 .ngayDongBoCuoi(saved.getNgayDongBoCuoi())
-                .chiTietLoi(saved.getChiTietLoi())
+                .chiTietLoi(DichCauDaLuu.dich(saved.getChiTietLoi()))
                 .build();
     }
 
@@ -2643,7 +2644,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 .choPhepDongBo(true)
                 .trangThaiLienKet(mapStatusToFrontend(tt.getTrangThaiDongBo()))
                 .ngayDongBoCuoi(tt.getNgayDongBoCuoi())
-                .chiTietLoi(tt.getChiTietLoi())
+                .chiTietLoi(DichCauDaLuu.dich(tt.getChiTietLoi()))
                 .build();
     }
 
@@ -2697,7 +2698,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             statusStr = "LOI";
             canRetry = true;
             errCode = "SYNC_FAILED";
-            errorMsg = tt.getChiTietLoi() != null ? tt.getChiTietLoi() : ThongDiep.dich("kenhBan.loiDongBoTonKhoSangSan");
+            // Lý do lưu tiếng Việt (trang_thai_dong_bo.chi_tiet_loi): dịch lúc đọc, không đổi dữ liệu lưu
+            errorMsg = tt.getChiTietLoi() != null ? DichCauDaLuu.dich(tt.getChiTietLoi()) : ThongDiep.dich("kenhBan.loiDongBoTonKhoSangSan");
         }
 
         String skuRef = bt != null ? bt.getMaSku() : tt.getMaSanPhamKenh();
@@ -2733,7 +2735,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 .maThamChieu(skuRef)
                 .thongDiep(message)
                 .maLoi(errCode)
-                .chiTietLoi(tt.getChiTietLoi())
+                .chiTietLoi(DichCauDaLuu.dich(tt.getChiTietLoi()))
                 .ngayTao(tt.getNgayDongBoCuoi() != null ? tt.getNgayDongBoCuoi() : Instant.now())
                 .coTheThuLai(canRetry)
                 .duLieuTomTat(summary)
@@ -2761,7 +2763,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     private static LoiCoMaException kenhChuaKetNoi(String maKenh) {
         ThongDiep thongDiep = maKenh == null || maKenh.isBlank()
                 ? ThongDiep.of("kenhBan.sanNayChuaKetNoi")
-                : ThongDiep.of("kenhBan.sanChuaKetNoi", KenhBanHangServiceImpl.tenSan(maKenh));
+                : ThongDiep.of("kenhBan.sanChuaKetNoi", KenhBanHangServiceImpl.tenSanTrongCau(maKenh));
         return new LoiCoMaException(HttpStatus.CONFLICT, MaLoi.KENH_CHUA_KET_NOI, thongDiep);
     }
 

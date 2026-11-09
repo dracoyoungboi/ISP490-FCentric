@@ -808,5 +808,11 @@
   "{{ky}} qua": "the last {{ky}}",
   "Kết nối_nut": "Connect",
   "Hủy đơn_nut": "Cancel order",
-  "Số đơn_dem": "Orders"
+  "Số đơn_dem": "Orders",
+  "Kho mặc định Lazada": "Lazada default warehouse",
+  "Kho bán hàng TikTok Shop": "TikTok Shop sales warehouse",
+  "Kho mặc định Shopify": "Shopify default location",
+  "Địa điểm {{id}}": "Location {{id}}",
+  "Kho {{id}}": "Warehouse {{id}}",
+  "Kho Shopify {{id}}": "Shopify location {{id}}"
 }

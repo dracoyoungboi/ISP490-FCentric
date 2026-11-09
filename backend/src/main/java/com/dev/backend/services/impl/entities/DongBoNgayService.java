@@ -1,5 +1,6 @@
 package com.dev.backend.services.impl.entities;
 
+import com.dev.backend.i18n.DichCauDaLuu;
 import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.config.SecurityContextHolder;
 import com.dev.backend.dto.request.LayDonHangKenhRequest;
@@ -330,15 +331,23 @@ public class DongBoNgayService {
                     .soChuaDay(soChuaDay)
                     .skuDangDay(skuDangDay)
                     .soDonMoi(soDonMoi)
-                    .loi(loi)
+                    // Câu lỗi giữ tiếng Việt trong phiên; dịch lúc trả về theo ngôn ngữ người xem (chup gọi trong request)
+                    .loi(DichCauDaLuu.dich(loi))
                     .yeuCauDung(yeuCauDung)
                     .nguoiBam(nguoiBam)
                     .batDau(batDau)
                     .ketThuc(thoiDiemKetThuc)
                     .daChayMs(Duration.between(batDau, mocCuoi).toMillis())
                     .dayTonDaChayMs(dayTonMs)
-                    .dsLoi(List.copyOf(dsLoi))
+                    .dsLoi(dsLoi.stream().map(Phien::dichLyDo).toList())
                     .build();
+        }
+
+        /** Dòng lỗi SKU với lý do theo ngôn ngữ người xem; bản trong phiên giữ tiếng Việt (tạo dòng mới khi dịch). */
+        private static DongBoNgayDto.LoiSkuDto dichLyDo(DongBoNgayDto.LoiSkuDto dong) {
+            String lyDo = DichCauDaLuu.dich(dong.getLyDo());
+            if (lyDo == null || lyDo.equals(dong.getLyDo())) return dong;
+            return DongBoNgayDto.LoiSkuDto.builder().maSku(dong.getMaSku()).tenSku(dong.getTenSku()).lyDo(lyDo).build();
         }
     }
 }

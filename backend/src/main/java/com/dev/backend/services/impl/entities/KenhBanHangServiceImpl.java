@@ -237,6 +237,14 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         };
     }
 
+    /**
+     * Tên sàn làm tham số của câu theo khóa: thiếu mã thì "sàn này" theo đúng ngôn ngữ của câu (câu tiếng Anh không lẫn
+     * chữ Việt); có mã thì như {@link #tenSan}.
+     */
+    public static Object tenSanTrongCau(String maKenh) {
+        return maKenh == null || maKenh.isBlank() ? ThongDiep.of("hienThiKenhPos.sanNay") : tenSan(maKenh);
+    }
+
     @Autowired
     public KenhBanHangServiceImpl(
             KenhBanHangRepository kenhBanHangRepository,
@@ -971,7 +979,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
 
     private static LoiCoMaException sanKhongHoTro(String ma) {
         return new LoiCoMaException(HttpStatus.BAD_REQUEST, MaLoi.SAN_KHONG_HO_TRO,
-                ThongDiep.of("kenhBan.sanKhongHoTroKetNoi", tenSan(ma)));
+                ThongDiep.of("kenhBan.sanKhongHoTroKetNoi", tenSanTrongCau(ma)));
     }
 
     private static boolean coGiaTri(String s) {

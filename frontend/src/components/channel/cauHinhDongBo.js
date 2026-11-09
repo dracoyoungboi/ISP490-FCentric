@@ -1,4 +1,4 @@
-import { t } from "@/i18n";
+import { t, tDuLieu } from "@/i18n";
 /** Chuyển cấu hình đồng bộ (API) ↔ giá trị form, kiểm tra hợp lệ trước khi lưu. */
 
 const GIOI_HAN_SO_LUONG = 100000;
@@ -62,7 +62,23 @@ export function cheDoTheoGiaTri(values) {
  */
 export function tenDiaDiemNhanTon(kho) {
   if (kho?.initialLoading) return t("Đang đọc từ Shopify…");
-  return (Array.isArray(kho?.data) ? kho.data.find((k) => k.macDinh)?.tenKhoSan : null) ?? null;
+  return tenKhoSanHienThi((Array.isArray(kho?.data) ? kho.data.find((k) => k.macDinh)?.tenKhoSan : null) ?? null);
+}
+
+/**
+ * Tên kho / địa điểm trên sàn để HIỆN (kết quả getKhoSan). Tên máy chủ tự đặt khi sàn không trả tên ("Kho mặc định
+ * Lazada", "Địa điểm 123", "Kho 456", "Kho Shopify 789") được dịch; tên thật trên sàn không khớp khóa nên giữ nguyên.
+ * Chỉ dùng lúc vẽ: tenKhoSan gửi lưu cấu hình vẫn là bản gốc.
+ */
+export function tenKhoSanHienThi(ten) {
+  if (typeof ten !== "string" || !ten) return ten;
+  const diaDiem = ten.match(/^Địa điểm (\d+)$/);
+  if (diaDiem) return t("Địa điểm {{id}}", { id: diaDiem[1] });
+  const kho = ten.match(/^Kho (\d+)$/);
+  if (kho) return t("Kho {{id}}", { id: kho[1] });
+  const khoShopify = ten.match(/^Kho Shopify (\d+)$/);
+  if (khoShopify) return t("Kho Shopify {{id}}", { id: khoShopify[1] });
+  return tDuLieu(ten);
 }
 
 export function coThayDoiCauHinh(values, dto) {

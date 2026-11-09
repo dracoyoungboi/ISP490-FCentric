@@ -82,6 +82,16 @@ function NhanLechGia({ dong, tenSan, className }) {
   );
 }
 const coSo = (n) => n !== null && n !== undefined;
+/**
+ * Lỗi do sàn tạm giữ tồn (Lazada giữ cho đơn chờ thanh toán / chiến dịch), không phải lỗi thật. Máy chủ dịch lý do lúc
+ * đọc theo ngôn ngữ giao diện: câu tiếng Anh tương ứng có "holding stock".
+ */
+const laLoiTamGiu = (chiTiet) => Boolean(chiTiet) && (
+  chiTiet.includes("tạm giữ tồn") ||
+  chiTiet.includes("negative sellable") ||
+  chiTiet.includes("mở khóa") ||
+  chiTiet.includes("holding stock")
+);
 
 /**
  * Số sản phẩm mỗi trang của màn này: mỗi sản phẩm kéo theo đủ SKU, nên không cho 100 (Mở tất cả có thể ra hàng nghìn dòng).
@@ -661,11 +671,7 @@ export default function ChannelMappingsPage() {
 
   /** Nội dung ô Trạng thái của một SKU (dùng ở cột Trạng thái, và dưới tên sản phẩm trên máy tính bảng dọc). */
   const oTrangThai = (dong, meta, dangXuLyDong) => {
-    const laTamGiu = dong.chiTietLoi && (
-      dong.chiTietLoi.includes("tạm giữ tồn") ||
-      dong.chiTietLoi.includes("negative sellable") ||
-      dong.chiTietLoi.includes("mở khóa")
-    );
+    const laTamGiu = laLoiTamGiu(dong.chiTietLoi);
     return (
       <>
         {dong.trangThaiLienKet === "da_lien_ket" ? (
@@ -857,7 +863,7 @@ export default function ChannelMappingsPage() {
   const soLieuNhom = (g) => {
     const soNgung = g.dong.filter((d) => d.trangThaiLienKet === "chua_lien_ket").length;
     const dongLoi = g.dong.filter((d) => d.trangThaiLienKet === "loi");
-    const soTamGiu = dongLoi.filter((d) => d.chiTietLoi && (d.chiTietLoi.includes("tạm giữ tồn") || d.chiTietLoi.includes("negative sellable") || d.chiTietLoi.includes("mở khóa"))).length;
+    const soTamGiu = dongLoi.filter((d) => laLoiTamGiu(d.chiTietLoi)).length;
     const soLoiThat = dongLoi.length - soTamGiu;
     return {
       ids: g.dong.map((d) => d.id),
@@ -1036,7 +1042,7 @@ export default function ChannelMappingsPage() {
           </span>
           {dong.trangThaiLienKet !== "da_lien_ket" ? (
             <span className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
-              {dong.chiTietLoi && (dong.chiTietLoi.includes("tạm giữ tồn") || dong.chiTietLoi.includes("negative sellable") || dong.chiTietLoi.includes("mở khóa")) ? (
+              {laLoiTamGiu(dong.chiTietLoi) ? (
                 <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 ring-1 ring-inset ring-amber-600/20">
                   <span className="size-1.5 rounded-full bg-amber-500" />
                   {t("Tạm giữ sàn")}
@@ -1045,7 +1051,7 @@ export default function ChannelMappingsPage() {
                 <StatusBadge label={meta.label} />
               )}
               {dong.trangThaiLienKet === "loi" && dong.chiTietLoi ? (
-                <span className={cn("w-full text-xs leading-4", (dong.chiTietLoi.includes("tạm giữ tồn") || dong.chiTietLoi.includes("negative sellable") || dong.chiTietLoi.includes("mở khóa")) ? "text-amber-700 font-normal" : "text-bo-danger")}>{dong.chiTietLoi}</span>
+                <span className={cn("w-full text-xs leading-4", laLoiTamGiu(dong.chiTietLoi) ? "text-amber-700 font-normal" : "text-bo-danger")}>{dong.chiTietLoi}</span>
               ) : null}
             </span>
           ) : null}

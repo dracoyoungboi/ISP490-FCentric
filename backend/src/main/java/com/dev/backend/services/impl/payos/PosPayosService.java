@@ -1,5 +1,7 @@
 package com.dev.backend.services.impl.payos;
 
+import com.dev.backend.i18n.DichCauDaLuu;
+import com.dev.backend.i18n.NgonNgu;
 import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.config.SecurityContextHolder;
 import com.dev.backend.constant.variables.IRoleType;
@@ -371,7 +373,8 @@ public class PosPayosService {
                 .tenNguoiTraLaiTienMat(row.getNguoiTraLaiTienMatId() == null ? null : tenNguoi.get(row.getNguoiTraLaiTienMatId()))
                 .noiDungCk(row.getNoiDungCk())
                 .maGiaoDichNganHang(row.getMaGiaoDichNganHang())
-                .errorMessage(row.getErrorMessage())
+                // Câu lưu tiếng Việt: dịch lúc đọc theo ngôn ngữ người xem, không đổi dữ liệu lưu
+                .errorMessage(DichCauDaLuu.dich(row.getErrorMessage()))
                 .lyDo(lyDo(row))
                 .tienVeSauHuy(row.isTienVeSauHuy())
                 .tenNguoiChuyen(row.getTenNguoiChuyen())
@@ -511,7 +514,9 @@ public class PosPayosService {
         try {
             PosPayosPayment row = tx.reload(orderCode).orElse(null);
             if (row != null && posWebSocketHandler != null) {
-                posWebSocketHandler.broadcastPayment(row.getOrderCode(), row.getKhoId(), toDto(row));
+                // Câu lỗi để nguyên tiếng Việt: lượt đẩy có thể chạy trong request của người khác (ngôn ngữ khác),
+                // PosWebSocketHandler dịch theo ngôn ngữ từng màn đang nghe
+                posWebSocketHandler.broadcastPayment(row.getOrderCode(), row.getKhoId(), toDto(row, NgonNgu.VI));
             }
         } catch (Exception e) {
             log.warn("WebSocket POS: Lỗi khi push notification cho đơn {}: {}", orderCode, e.getMessage());
@@ -536,6 +541,11 @@ public class PosPayosService {
     }
 
     private PayosPaymentLinkDto toDto(PosPayosPayment row) {
+        return toDto(row, NgonNgu.hienTai());
+    }
+
+    /** {@code ngonNgu}: ngôn ngữ của câu lỗi (câu lưu tiếng Việt, dịch lúc đọc). */
+    private PayosPaymentLinkDto toDto(PosPayosPayment row, java.util.Locale ngonNgu) {
         return PayosPaymentLinkDto.builder()
                 .orderCode(row.getOrderCode())
                 .requestId(row.getRequestId())
@@ -552,7 +562,7 @@ public class PosPayosService {
                 .noiDungCk(row.getNoiDungCk())
                 .hetHanLuc(row.getHetHanLuc())
                 .gioMayChu(Instant.now())
-                .errorMessage(row.getErrorMessage())
+                .errorMessage(DichCauDaLuu.dich(row.getErrorMessage(), ngonNgu))
                 .result(PosPayosPayment.PAID.equals(row.getTrangThai())
                         ? tx.read(row.getResultJson(), PosCheckoutResponse.class) : null)
                 .build();

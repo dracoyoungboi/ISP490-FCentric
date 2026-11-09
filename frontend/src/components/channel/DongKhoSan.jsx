@@ -1,6 +1,7 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DongCaiDat } from "@/components/channel/KhuonCaiDat";
 import { khoDaLuuKhongCon, khoSanDangChon, noiDungSan } from "@/components/channel/noiDungSan";
+import { tenKhoSanHienThi } from "@/components/channel/cauHinhDongBo";
 import { t } from "@/i18n";
 
 /**
@@ -51,7 +52,7 @@ export default function DongKhoSan({ maKenh, tenSan, khoSan, value, maKhoDaLuu, 
         <SelectContent position="popper" align="end" className="z-50 rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg">
           {ds.map((kho) => (
             <SelectItem key={kho.maKhoSan} value={kho.maKhoSan} className="rounded-md focus:bg-bo-primary-soft">
-              {kho.tenKhoSan}
+              {tenKhoSanHienThi(kho.tenKhoSan)}
               {kho.macDinh ? t(" (mặc định)") : ""}
             </SelectItem>
           ))}

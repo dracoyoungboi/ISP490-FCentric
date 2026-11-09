@@ -45,7 +45,7 @@ import {
   tienMatChuaTraLai,
   tienMatTruocCua,
 } from './pos-payment';
-import { t } from "@/i18n";
+import { laTiengAnh, t } from "@/i18n";
 
 // Danh mục gộp kích cỡ: mỗi trang 60 dòng mẫu + màu (mỗi dòng gồm đủ các kích cỡ của nó).
 const PAGE_SIZE = 60;
@@ -1521,7 +1521,8 @@ export default function PosSalesPage({
 
     targets.forEach((target) => {
       try {
-        const wsUrl = `${wsProtocol}//${wsHost}/ws-pos?orderCode=${target.orderCode}`;
+        // lang=en: máy chủ gửi câu lỗi (errorMessage) bằng tiếng Anh cho màn này
+        const wsUrl = `${wsProtocol}//${wsHost}/ws-pos?orderCode=${target.orderCode}${laTiengAnh() ? '&lang=en' : ''}`;
         const ws = new WebSocket(wsUrl);
         ws.onmessage = (event) => {
           if (stopped) return;
