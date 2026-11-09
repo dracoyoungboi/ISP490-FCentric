@@ -506,7 +506,7 @@ export default function ProductList() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent
                                 align="end"
-                                className="z-50 max-h-[400px] w-[220px] overflow-y-auto rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg"
+                                className="z-50 max-h-[400px] min-w-[var(--radix-dropdown-menu-trigger-width)] overflow-y-auto rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg"
                             >
                                 <DropdownMenuItem
                                     onClick={() => updateFilter("thuongHieu", "ALL")}

@@ -168,7 +168,7 @@ export default function ChatLieuList() {
                                             <ChevronDown className="h-4 w-4 opacity-70 flex-shrink-0" />
                                         </button>
                                     </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-[200px] bg-bo-surface border border-gray-100 shadow-xl z-50">
+                                    <DropdownMenuContent align="end" className="min-w-[var(--radix-dropdown-menu-trigger-width)] bg-bo-surface border border-gray-100 shadow-xl z-50">
                                         {[
                                             { value: "all",      label: "Tất cả trạng thái" },
                                             { value: "active",   label: "Hoạt động" },
