@@ -1,6 +1,7 @@
 package com.dev.backend.dto.response;
 
 import com.dev.backend.config.SecurityContextHolder;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
@@ -18,6 +19,9 @@ public class ResponseData<T> implements Serializable {
     T data;
     String error;
     String message;
+    /** Câu gốc tiếng Việt khi `message` đã được dịch (giao diện tiếng Anh); để giao diện so khớp câu cũ nếu cần. */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    String messageGoc;
     @Builder.Default
     Date timestamp = new Date();
     @Builder.Default
