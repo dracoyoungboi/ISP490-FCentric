@@ -1,5 +1,6 @@
 package com.dev.backend.services.impl.ketoan;
 
+import com.dev.backend.i18n.ThongDiep;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.streaming.SXSSFSheet;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
@@ -103,7 +104,7 @@ public final class GhiTepAmis {
             wb.write(ra);
             return ra.toByteArray();
         } catch (IOException e) {
-            throw new UncheckedIOException("Không ghi được tệp " + mau.khoa(), e);
+            throw new UncheckedIOException(ThongDiep.vi("keToanDuLieuVao.khongGhiDuocTep", mau.khoa()), e);
         } finally {
             // Xóa tệp tạm của SXSSF cả khi ghi lỗi giữa chừng
             wb.dispose();

@@ -12,6 +12,7 @@ import com.dev.backend.entities.LichSuThayDoi;
 import com.dev.backend.entities.NguoiDung;
 import com.dev.backend.entities.PhieuNhapKho;
 import com.dev.backend.exception.customize.CommonException;
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.repository.CauHinhKeToanRepository;
 import com.dev.backend.repository.ChungTuXuatKeToanRepository;
 import com.dev.backend.repository.HoaDonDauVaoRepository;
@@ -73,23 +74,22 @@ public class HoaDonDauVaoService {
     @Transactional
     public HoaDonDauVaoDto luu(Integer phieuNhapKhoId, HoaDonDauVaoRequest req) {
         PhieuNhapKho phieu = phieuNhapKhoRepository.khoaTheoId(phieuNhapKhoId)
-                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy phiếu nhập"));
+                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("keToanDuLieuVao.phieuNhapKhongTimThay")));
         KhoDangChon.kiemTra(phieu.getKho(), "Phiếu nhập " + phieu.getSoPhieuNhap());
         if (phieu.getDonMuaHang() == null) {
-            throw new CommonException("Chỉ phiếu nhập mua hàng (từ đơn mua) mới có hóa đơn nhà cung cấp");
+            throw new CommonException(ThongDiep.of("keToanDuLieuVao.hoaDonChiChoPhieuNhapMua"));
         }
         if (!Integer.valueOf(TrangThaiPhieuNhap.COMPLETED.getValue()).equals(phieu.getTrangThai())) {
-            throw new CommonException("Nhập hóa đơn sau khi phiếu nhập đã hoàn tất");
+            throw new CommonException(ThongDiep.of("keToanDuLieuVao.hoaDonSauKhiHoanTat"));
         }
         // Xếp hàng sau lô đang tạo (tạo lô khóa dòng cấu hình trước): không để hóa đơn đổi giữa lúc dựng tệp và lúc khóa
         cauHinhKeToanRepository.findByIdForUpdate(CauHinhKeToan.ID);
         Optional<String> loKhoa = chungTuRepository.soLoDangKhoa(ChungTuXuatKeToan.LOAI_MUA_HANG, phieu.getId());
         if (loKhoa.isPresent()) {
-            throw new CommonException(HttpStatus.CONFLICT, "Phiếu nhập đã xuất sang kế toán ở lô "
-                    + loKhoa.get() + " nên không sửa được hóa đơn. Quản trị viên mở khóa chứng từ trước.");
+            throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("keToanDuLieuVao.hoaDonDaXuatKeToan", loKhoa.get()));
         }
         if (req == null || req.getCoHoaDon() == null) {
-            throw new CommonException("Chọn nhà cung cấp có xuất hóa đơn GTGT hay không");
+            throw new CommonException(ThongDiep.of("keToanDuLieuVao.chonCoHoaDon"));
         }
 
         HoaDonDauVao hd = repository.findByPhieuNhapKho_Id(phieu.getId())
@@ -100,24 +100,24 @@ public class HoaDonDauVaoService {
             String kyHieu = gon(req.getKyHieu());
             String so = gon(req.getSoHoaDon());
             if (mauSo != null && !KY_HIEU.matcher(mauSo).matches()) {
-                throw new CommonException("Ký hiệu mẫu số chỉ gồm chữ, số, / và - (tối đa 20 ký tự)");
+                throw new CommonException(ThongDiep.of("keToanDuLieuVao.mauSoSai"));
             }
             if (kyHieu == null || !KY_HIEU.matcher(kyHieu).matches()) {
-                throw new CommonException("Nhập ký hiệu hóa đơn (chữ, số, / và -, tối đa 20 ký tự), vd. C26TAA");
+                throw new CommonException(ThongDiep.of("keToanDuLieuVao.kyHieuSai"));
             }
             if (so == null || !SO_HOA_DON.matcher(so).matches()) {
-                throw new CommonException("Nhập số hóa đơn (chỉ chữ số)");
+                throw new CommonException(ThongDiep.of("keToanDuLieuVao.soHoaDonSai"));
             }
             LocalDate ngay = req.getNgayHoaDon();
             if (ngay == null) {
-                throw new CommonException("Chọn ngày hóa đơn");
+                throw new CommonException(ThongDiep.of("keToanDuLieuVao.chonNgayHoaDon"));
             }
             if (ngay.isAfter(LocalDate.now(XuatKeToanService.MUI_GIO)) || ngay.isBefore(NGAY_HOA_DON_SOM_NHAT)) {
-                throw new CommonException("Ngày hóa đơn không hợp lệ");
+                throw new CommonException(ThongDiep.of("keToanDuLieuVao.ngayHoaDonSai"));
             }
             BigDecimal thue = req.getThueSuat();
             if (thue == null || ThueSuatService.THUE_SUAT_HOP_LE.stream().noneMatch(h -> h.compareTo(thue) == 0)) {
-                throw new CommonException("Thuế suất trên hóa đơn chỉ nhận 0%, 5%, 8% hoặc 10%");
+                throw new CommonException(ThongDiep.of("keToanDuLieuVao.thueSuatHoaDonSai"));
             }
             hd.setCoHoaDon(true);
             hd.setMauSo(mauSo);
@@ -172,7 +172,7 @@ public class HoaDonDauVaoService {
 
     private PhieuNhapKho timPhieu(Integer id) {
         return phieuNhapKhoRepository.findById(id)
-                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy phiếu nhập"));
+                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("keToanDuLieuVao.phieuNhapKhongTimThay")));
     }
 
     private static String gon(String s) {

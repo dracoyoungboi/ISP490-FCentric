@@ -11,6 +11,7 @@ import com.dev.backend.entities.ChungTuXuatKeToan;
 import com.dev.backend.entities.LichSuThayDoi;
 import com.dev.backend.entities.NguoiDung;
 import com.dev.backend.exception.customize.CommonException;
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.repository.BienTheSanPhamRepository;
 import com.dev.backend.repository.CauHinhKeToanRepository;
 import com.dev.backend.repository.ChungTuXuatKeToanRepository;
@@ -79,63 +80,62 @@ public class CauHinhKeToanService {
     @Transactional
     public CauHinhKeToanDto capNhat(CauHinhKeToanRequest req) {
         if (req == null) {
-            throw new CommonException("Thiếu dữ liệu cấu hình");
+            throw new CommonException(ThongDiep.of("keToanDuLieuVao.thieuDuLieuCauHinh"));
         }
         CauHinhKeToan ch = repository.findByIdForUpdate(CauHinhKeToan.ID).orElseGet(CauHinhKeToanService::macDinh);
         // Dòng đã lưu có phiên bản: yêu cầu phải mang đúng phiên bản (thiếu cũng coi là cũ, không cho ghi đè)
         if (ch.getVersion() != null && !ch.getVersion().equals(req.getVersion())) {
             throw new CommonException(HttpStatus.CONFLICT,
-                    "Cấu hình kế toán vừa được người khác lưu. Tải lại trang rồi sửa lại.");
+                    ThongDiep.of("keToanDuLieuVao.cauHinhVuaDuocLuu"));
         }
         String truoc = tomTat(ch);
 
         if (!Objects.equals(req.getNgayMoc(), ch.getNgayMoc())) {
             if (daCoChungTuDangKhoa()) {
-                throw new CommonException(HttpStatus.CONFLICT, "Đã có chứng từ giao kế toán nên không đổi được ngày mốc. "
-                        + "Muốn đổi thì mở khóa mọi chứng từ của các lô trước.");
+                throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("keToanDuLieuVao.khongDoiDuocNgayMoc"));
             }
             if (req.getNgayMoc() != null && req.getNgayMoc().isBefore(NGAY_MOC_SOM_NHAT)) {
-                throw new CommonException("Ngày mốc phải từ 01/01/2020 trở đi");
+                throw new CommonException(ThongDiep.of("keToanDuLieuVao.ngayMocQuaSom"));
             }
             if (req.getNgayMoc() != null && req.getNgayMoc().isAfter(LocalDate.now(XuatKeToanService.MUI_GIO).plusYears(1))) {
-                throw new CommonException("Ngày mốc quá xa trong tương lai");
+                throw new CommonException(ThongDiep.of("keToanDuLieuVao.ngayMocQuaXa"));
             }
             ch.setNgayMoc(req.getNgayMoc());
         }
-        ch.setTkTienMat(taiKhoan(req.getTkTienMat(), "Tài khoản tiền mặt"));
-        ch.setTkNganHang(taiKhoan(req.getTkNganHang(), "Tài khoản tiền gửi ngân hàng"));
-        ch.setTkPhaiThu(taiKhoan(req.getTkPhaiThu(), "Tài khoản phải thu khách hàng"));
-        ch.setTkDoanhThu(taiKhoan(req.getTkDoanhThu(), "Tài khoản doanh thu"));
-        ch.setTkChietKhau(taiKhoan(req.getTkChietKhau(), "Tài khoản chiết khấu"));
-        ch.setTkThueDauRa(taiKhoan(req.getTkThueDauRa(), "Tài khoản thuế GTGT đầu ra"));
-        ch.setTkKho(taiKhoan(req.getTkKho(), "Tài khoản kho"));
-        ch.setTkGiaVon(taiKhoan(req.getTkGiaVon(), "Tài khoản giá vốn"));
-        ch.setTkPhaiTra(taiKhoan(req.getTkPhaiTra(), "Tài khoản phải trả nhà cung cấp"));
-        ch.setTkThueDauVao(taiKhoan(req.getTkThueDauVao(), "Tài khoản thuế GTGT đầu vào"));
+        ch.setTkTienMat(taiKhoan(req.getTkTienMat(), ThongDiep.of("keToanDuLieuVao.tkTienMatSai")));
+        ch.setTkNganHang(taiKhoan(req.getTkNganHang(), ThongDiep.of("keToanDuLieuVao.tkNganHangSai")));
+        ch.setTkPhaiThu(taiKhoan(req.getTkPhaiThu(), ThongDiep.of("keToanDuLieuVao.tkPhaiThuSai")));
+        ch.setTkDoanhThu(taiKhoan(req.getTkDoanhThu(), ThongDiep.of("keToanDuLieuVao.tkDoanhThuSai")));
+        ch.setTkChietKhau(taiKhoan(req.getTkChietKhau(), ThongDiep.of("keToanDuLieuVao.tkChietKhauSai")));
+        ch.setTkThueDauRa(taiKhoan(req.getTkThueDauRa(), ThongDiep.of("keToanDuLieuVao.tkThueDauRaSai")));
+        ch.setTkKho(taiKhoan(req.getTkKho(), ThongDiep.of("keToanDuLieuVao.tkKhoSai")));
+        ch.setTkGiaVon(taiKhoan(req.getTkGiaVon(), ThongDiep.of("keToanDuLieuVao.tkGiaVonSai")));
+        ch.setTkPhaiTra(taiKhoan(req.getTkPhaiTra(), ThongDiep.of("keToanDuLieuVao.tkPhaiTraSai")));
+        ch.setTkThueDauVao(taiKhoan(req.getTkThueDauVao(), ThongDiep.of("keToanDuLieuVao.tkThueDauVaoSai")));
 
         String maDv = gon(req.getMaDichVuVanChuyen());
         if (maDv == null || !MA_DICH_VU.matcher(maDv).matches()) {
-            throw new CommonException("Mã dịch vụ phí vận chuyển chỉ gồm chữ không dấu, số và . _ - (tối đa 50 ký tự)");
+            throw new CommonException(ThongDiep.of("keToanDuLieuVao.maDichVuVanChuyenSai"));
         }
         if (bienTheSanPhamRepository.findByMaSkuIgnoreCase(maDv).isPresent()) {
-            throw new CommonException("Mã dịch vụ phí vận chuyển trùng một mã SKU đang có. Chọn mã khác.");
+            throw new CommonException(ThongDiep.of("keToanDuLieuVao.maDichVuVanChuyenTrungSku"));
         }
         ch.setMaDichVuVanChuyen(maDv);
         String tenDv = gon(req.getTenDichVuVanChuyen());
         if (tenDv == null || tenDv.length() > 100) {
-            throw new CommonException("Nhập tên dịch vụ phí vận chuyển (tối đa 100 ký tự)");
+            throw new CommonException(ThongDiep.of("keToanDuLieuVao.tenDichVuVanChuyenSai"));
         }
         ch.setTenDichVuVanChuyen(tenDv);
 
         String hinhThuc = gon(req.getHinhThucChuyenKho());
         if (!HINH_THUC_CHUYEN_KHO.contains(hinhThuc)) {
-            throw new CommonException("Hình thức chuyển kho không hợp lệ");
+            throw new CommonException(ThongDiep.of("keToanDuLieuVao.hinhThucChuyenKhoSai"));
         }
         ch.setHinhThucChuyenKho(hinhThuc);
 
         String soTk = gon(req.getSoTkNganHangNhan());
         if (soTk != null && !SO_TAI_KHOAN_NGAN_HANG.matcher(soTk).matches()) {
-            throw new CommonException("Số tài khoản ngân hàng chỉ gồm chữ và số (4–30 ký tự)");
+            throw new CommonException(ThongDiep.of("keToanDuLieuVao.soTkNganHangSai"));
         }
         ch.setSoTkNganHangNhan(soTk);
 
@@ -198,10 +198,11 @@ public class CauHinhKeToanService {
                 .build();
     }
 
-    private static String taiKhoan(String giaTri, String nhan) {
+    /** {@code loi}: câu "Tài khoản … chỉ gồm chữ số (3–20 số), vd. 33311" của đúng ô (mỗi ô một khóa để dịch trọn câu). */
+    private static String taiKhoan(String giaTri, ThongDiep loi) {
         String gon = gon(giaTri);
         if (gon == null || !TAI_KHOAN.matcher(gon).matches()) {
-            throw new CommonException(nhan + " chỉ gồm chữ số (3–20 số), vd. 33311");
+            throw new CommonException(loi);
         }
         return gon;
     }
@@ -226,9 +227,9 @@ public class CauHinhKeToanService {
     NguoiDung nguoiDangThucHien() {
         NguoiDungAuthInfo auth = SecurityContextHolder.getUser();
         if (auth == null || auth.getId() == null) {
-            throw new CommonException(HttpStatus.UNAUTHORIZED, "Không xác định được người thao tác. Đăng nhập lại rồi thử lại.");
+            throw new CommonException(HttpStatus.UNAUTHORIZED, ThongDiep.of("keToanDuLieuVao.khongXacDinhNguoiThaoTac"));
         }
         return nguoiDungRepository.findById(auth.getId()).orElseThrow(
-                () -> new CommonException(HttpStatus.UNAUTHORIZED, "Không xác định được người thao tác. Đăng nhập lại rồi thử lại."));
+                () -> new CommonException(HttpStatus.UNAUTHORIZED, ThongDiep.of("keToanDuLieuVao.khongXacDinhNguoiThaoTac")));
     }
 }
