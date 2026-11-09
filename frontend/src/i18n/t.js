@@ -36,6 +36,10 @@ function dienThamSo(khoa, thamSo) {
 export function t(khoa, thamSo) {
   if (khoa === null || khoa === undefined || khoa === "") return khoa;
   if (!i18next.isInitialized) return dienThamSo(String(khoa), thamSo);
+  // i18next chỉ chia số ít/nhiều khi count là số: API trả số dạng chuỗi ("1") thì đổi sang số
+  if (typeof thamSo?.count === "string" && thamSo.count.trim() !== "" && Number.isFinite(Number(thamSo.count))) {
+    thamSo = { ...thamSo, count: Number(thamSo.count) };
+  }
   return i18next.t(String(khoa), thamSo);
 }
 

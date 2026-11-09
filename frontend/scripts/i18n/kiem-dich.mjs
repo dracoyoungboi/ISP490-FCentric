@@ -60,6 +60,13 @@ function kiemTep(tep, gop) {
       // Mọi khóa viết thẳng đều phải có bản dịch, kể cả câu không dấu ("In tem", "STT")
       if (a?.type === "StringLiteral" && /\p{L}/u.test(a.value) && !coKhoa(gop, a.value)) {
         thieu.push({ dong: a.loc?.start.line ?? 0, chu: a.value });
+      } else if (a?.type === "StringLiteral" && !gop.has(a.value) && (gop.has(`${a.value}_one`) || gop.has(`${a.value}_other`))) {
+        // Khóa chỉ có dạng số ít/nhiều: thiếu count thì tiếng Anh không tìm thấy câu, hiện lại tiếng Việt
+        const tuyChon = p.node.arguments[1];
+        const coTen = (ten) => tuyChon?.type === "ObjectExpression" && tuyChon.properties.some((x) => x.type === "SpreadElement" || x.key?.name === ten || x.key?.value === ten);
+        if (!tuyChon || (tuyChon.type === "ObjectExpression" && !coTen("count") && !coTen("context"))) {
+          thieu.push({ dong: a.loc?.start.line ?? 0, chu: `${a.value}  (khóa chỉ có _one/_other, chỗ gọi thiếu count)`, thieuCount: true });
+        }
       } else if (a?.type === "TemplateLiteral" && a.expressions.length > 0) {
         chuaBoc.push({ dong: a.loc?.start.line ?? 0, chu: `t() nhận template có biến, phải viết t("…{{ten}}…", { ten })` });
       }
@@ -79,7 +86,7 @@ if (tepGhi) {
   const duongDan = path.join(THU_MUC_EN, `${tepGhi.replace(/\.json$/, "")}.json`);
   const cu = fs.existsSync(duongDan) ? JSON.parse(fs.readFileSync(duongDan, "utf8")) : {};
   let them = 0;
-  for (const { thieu } of ketQua) for (const { chu } of thieu) if (!(chu in cu)) { cu[chu] = ""; them++; }
+  for (const { thieu } of ketQua) for (const { chu, thieuCount } of thieu) if (!thieuCount && !(chu in cu)) { cu[chu] = ""; them++; }
   fs.writeFileSync(duongDan, JSON.stringify(cu, null, 2) + "\n");
   console.log(`Đã thêm ${them} khóa rỗng vào ${path.relative(GOC, duongDan)}`);
 }

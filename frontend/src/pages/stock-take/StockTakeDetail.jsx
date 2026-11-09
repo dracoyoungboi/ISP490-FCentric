@@ -634,7 +634,7 @@ function ManKiemKe({ dotId }) {
   const khoa = moTaKhoa(dot);
   // Chỉ chặn khi còn dòng chưa đếm. Dòng lệch chưa giải trình: bấm Trình duyệt mở hộp "Rà lại trước khi trình" (nhãn nút
   // không đổi theo lệch / khớp, nên đếm mù không đoán được số trên sổ qua nút)
-  const lyDoTrinh = tk.chua ? t("Còn {{chua}} dòng chưa đếm", { chua: soVN(tk.chua) }) : null;
+  const lyDoTrinh = tk.chua ? t("Còn {{chua}} dòng chưa đếm", { chua: soVN(tk.chua), count: Number(tk.chua) || 0 }) : null;
   const dsLoiLuu = suaDuoc ? Object.values(luu.trangThai).filter((x) => x?.loi) : [];
   const soLoiLuu = dsLoiLuu.length;
   const nutChinh =
