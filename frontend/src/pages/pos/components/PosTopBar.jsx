@@ -253,7 +253,7 @@ export default function PosTopBar({ children, tabs = null, onHelp, pendingPaymen
         {confirmLogout ? (
           <PosModal description={t("Hóa đơn đang chờ thanh toán vẫn được giữ trên máy này cho tài khoản của bạn.")} onClose={() => setConfirmLogout(false)} size="sm" title={t("Đăng xuất?")}>
             <p className="text-sm leading-6 text-bo-foreground">
-              {t("Còn")} <strong>{pendingPaymentCount}</strong> {t("hóa đơn đang chờ thanh toán (mã QR chưa nhận tiền hoặc giao dịch chưa rõ kết quả).")}
+              {t("Còn", { count: pendingPaymentCount })} <strong>{pendingPaymentCount}</strong> {t("hóa đơn đang chờ thanh toán (mã QR chưa nhận tiền hoặc giao dịch chưa rõ kết quả).", { count: pendingPaymentCount })}
             </p>
             <p className="mt-2 text-sm leading-6 text-bo-muted">
               {t("Đăng nhập lại bằng tài khoản này trong vòng 12 giờ để tiếp tục và kiểm tra kết quả. Tiền khách chuyển trong lúc bạn đăng xuất vẫn được hệ thống ghi nhận.")}

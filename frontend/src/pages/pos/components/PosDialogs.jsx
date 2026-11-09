@@ -405,7 +405,7 @@ function CustomerDialog({ state, actions, onClose }) {
       {remote.error && remote.keyword === keyword ? (
         <p className="mt-2 text-xs text-amber-700">{t("Không tải được danh sách mới nhất — đang hiện danh sách lúc mở trang.")}</p>
       ) : remoteReady && tongKhach > soKhachHien ? (
-        <p className="mt-2 text-xs text-bo-muted">{t("Hiển thị {{soKhachHien}}/{{tongKhach}} khách — gõ thêm tên hoặc SĐT để lọc.", { soKhachHien, tongKhach })}</p>
+        <p className="mt-2 text-xs text-bo-muted">{t("Hiển thị {{soKhachHien}}/{{tongKhach}} khách — gõ thêm tên hoặc SĐT để lọc.", { soKhachHien, tongKhach, count: tongKhach })}</p>
       ) : null}
       {quickAddOpen ? (
         <form className="mt-4 rounded-lg border border-bo-border p-3" onSubmit={submitQuickAdd}>

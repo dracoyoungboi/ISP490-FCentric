@@ -457,7 +457,7 @@ export default function BaoGiaCreate() {
           )}
           {goiYSP.tong > goiYSP.ds.length ? (
             <p className="border-t border-slate-100 px-2.5 pb-1 pt-1.5 text-xs text-bo-muted">
-              {t("Hiện {{soHien}}/{{tong}} kết quả, gõ thêm để lọc", { soHien: soVN(goiYSP.ds.length), tong: soVN(goiYSP.tong) })}
+              {t("Hiện {{soHien}}/{{tong}} kết quả, gõ thêm để lọc", { soHien: soVN(goiYSP.ds.length), tong: soVN(goiYSP.tong), count: Number(goiYSP.tong) })}
             </p>
           ) : null}
         </div>

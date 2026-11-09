@@ -371,7 +371,7 @@ export default function PosProductCatalog({
                   <button className="font-semibold underline-offset-2 hover:underline" onClick={() => onShowScanMatches(lastScan.code)} type="button">{t("Xem trong danh mục")}</button>
                 ) : null}
                 {scanPending > 0 ? (
-                  <span className="inline-flex items-center gap-1.5 text-bo-muted"><Loader2 aria-hidden="true" className="animate-spin" size={13} />{t("Đang tra {{scanPending}} mã", { scanPending })}</span>
+                  <span className="inline-flex items-center gap-1.5 text-bo-muted"><Loader2 aria-hidden="true" className="animate-spin" size={13} />{t("Đang tra {{scanPending}} mã", { scanPending, count: scanPending })}</span>
                 ) : null}
               </span>
             ) : null}

@@ -90,5 +90,5 @@ export function matHangThieu(kho, toiDa = SO_MAT_HANG_THIEU_HIEN) {
 /** Câu cảnh báo khi đã chọn kho thiếu hàng ở "Gửi sang kho" (vẫn gửi được). */
 export function cauKhoThieu(kho) {
   const { du, tong } = demMatHang(kho);
-  return t("{{tenKho}} chỉ đủ {{du}}/{{tong}} mặt hàng. Vẫn gửi được, nhưng kho sẽ không nhặt đủ cho đơn: nên chuyển kho nội bộ trước hoặc chọn kho đủ hàng.", { tenKho: kho?.tenKho || t("Kho này"), du: soVN(du), tong: soVN(tong) });
+  return t("{{tenKho}} chỉ đủ {{du}}/{{tong}} mặt hàng. Vẫn gửi được, nhưng kho sẽ không nhặt đủ cho đơn: nên chuyển kho nội bộ trước hoặc chọn kho đủ hàng.", { tenKho: kho?.tenKho || t("Kho này"), du: soVN(du), tong: soVN(tong), count: tong });
 }
