@@ -5,12 +5,13 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import { laKhoTong } from "@/utils/kho";
+import { t } from "@/i18n";
 
 // Từ bao nhiêu kho thì chia nhóm Kho tổng / Cửa hàng (ít kho chia nhóm chỉ thêm tiêu đề thừa)
 const NGUONG_CHIA_NHOM = 6;
 const MA_MOI_KHO = "moi-kho";
 
-const tenCuaKho = (k) => k?.tenKho || k?.ten || k?.maKho || (k?.id != null ? `Kho #${k.id}` : "");
+const tenCuaKho = (k) => k?.tenKho || k?.ten || k?.maKho || (k?.id != null ? t("Kho #{{id}}", { id: k.id }) : "");
 const boDau = (s) =>
   String(s ?? "")
     .normalize("NFD")
@@ -45,7 +46,7 @@ export default function ChonKhoKiemKe({
   onChange,
   nhanMoiKho,
   thongTin,
-  nhan = "Kho",
+  nhan = t("Kho"),
   disabled = false,
   align = "start",
   className,
@@ -54,7 +55,7 @@ export default function ChonKhoKiemKe({
   const [tim, setTim] = useState("");
   const [dongTo, setDongTo] = useState("");
   const khoChon = value == null ? null : dsKho.find((k) => Number(k.id) === Number(value)) ?? null;
-  const chu = khoChon ? tenCuaKho(khoChon) : nhanMoiKho || "Chọn kho";
+  const chu = khoChon ? tenCuaKho(khoChon) : nhanMoiKho || t("Chọn kho");
 
   if (dsKho.length === 1 && !nhanMoiKho && khoChon) {
     return (
@@ -89,8 +90,8 @@ export default function ChonKhoKiemKe({
   const chiaNhom = dsKho.length >= NGUONG_CHIA_NHOM && dsKho.some(laKhoTong) && dsKho.some((k) => !laKhoTong(k));
   const nhom = chiaNhom
     ? [
-        { ten: "Kho tổng", ds: dsKhop.filter(laKhoTong) },
-        { ten: "Cửa hàng", ds: dsKhop.filter((k) => !laKhoTong(k)) },
+        { ten: t("Kho tổng"), ds: dsKhop.filter(laKhoTong) },
+        { ten: t("Cửa hàng"), ds: dsKhop.filter((k) => !laKhoTong(k)) },
       ]
     : [{ ten: null, ds: dsKhop }];
 
@@ -143,7 +144,7 @@ export default function ChonKhoKiemKe({
           variant="outline"
           role="combobox"
           aria-expanded={mo}
-          aria-label={`${nhan}: ${chu}. Bấm để đổi`}
+          aria-label={t("{{nhan}}: {{chu}}. Bấm để đổi", { nhan, chu })}
           disabled={disabled}
           className={cn(
             "h-9 min-w-0 justify-between gap-2 border-bo-border bg-bo-surface px-3 text-sm font-normal text-bo-foreground shadow-none hover:bg-bo-surface-subtle",
@@ -169,15 +170,15 @@ export default function ChonKhoKiemKe({
         )}
       >
         <Command
-          label={`Tìm ${nhan.toLowerCase()}`}
+          label={t("Tìm {{nhan}}", { nhan: nhan.toLowerCase() })}
           shouldFilter={false}
           value={dongTo}
           onValueChange={setDongTo}
           className="rounded-lg [&_[data-slot=command-input-wrapper]]:border-bo-border"
         >
-          <CommandInput value={tim} onValueChange={setTim} placeholder="Tìm kho…" className="text-bo-foreground" />
+          <CommandInput value={tim} onValueChange={setTim} placeholder={t("Tìm kho…")} className="text-bo-foreground" />
           <CommandList className="max-h-[300px]">
-            <CommandEmpty className="py-5 text-center text-sm text-bo-muted">Không có kho nào khớp “{tim.trim()}”</CommandEmpty>
+            <CommandEmpty className="py-5 text-center text-sm text-bo-muted">{t("Không có kho nào khớp “{{tuKhoa}}”", { tuKhoa: tim.trim() })}</CommandEmpty>
             {/* Chia nhóm: "Mọi kho" đứng riêng trên các tiêu đề nhóm. Không chia nhóm: chung một nhóm với các kho
                 để khoảng cách giữa các dòng đều nhau (hai nhóm liền nhau bị cộng dồn đệm). */}
             {chiaNhom && dongMoiKho ? <CommandGroup>{dongMoiKho}</CommandGroup> : null}

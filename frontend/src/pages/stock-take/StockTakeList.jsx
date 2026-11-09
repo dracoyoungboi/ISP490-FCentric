@@ -30,15 +30,16 @@ import { hasAnyRole, ROLES } from "@/utils/roles";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { formatDate } from "@/utils/formatters";
 import { formatDateTime } from "@/utils/dateTime";
+import { t } from "@/i18n";
 
-const TAB_VALUES = TAB_DOT.map((t) => t.value);
+const TAB_VALUES = TAB_DOT.map((muc) => muc.value);
 const TAB_MAC_DINH = "tat-ca";
 const TAB_CHO_DUYET = "cho-duyet";
 const MOI_KHO = "tat-ca";
 const PHAM_VI_CO_CHI_TIET = ["theo_khu_vuc", "theo_ke", "theo_danh_muc"];
 
 const khopTab = (item, tab) => {
-  const trangThai = TAB_DOT.find((t) => t.value === tab)?.trangThai;
+  const trangThai = TAB_DOT.find((muc) => muc.value === tab)?.trangThai;
   return trangThai == null || Number(item.trangThai) === trangThai;
 };
 
@@ -63,9 +64,9 @@ const phamViNgan = (d, toiDa) =>
 function thaoTacCua(d) {
   const tt = Number(d.trangThai);
   const q = d.quyen ?? {};
-  if (tt === TT_DOT.DANG_KIEM_KE && q.dem) return { icon: ScanBarcode, label: "Tiếp tục đếm" };
-  if (tt === TT_DOT.CHO_DUYET && (q.pheDuyet || q.demLai)) return { icon: BadgeCheck, label: "Thẩm định" };
-  if (tt === TT_DOT.NHAP && q.suaNhap) return { icon: PencilLine, label: "Mở nháp" };
+  if (tt === TT_DOT.DANG_KIEM_KE && q.dem) return { icon: ScanBarcode, label: t("Tiếp tục đếm") };
+  if (tt === TT_DOT.CHO_DUYET && (q.pheDuyet || q.demLai)) return { icon: BadgeCheck, label: t("Thẩm định") };
+  if (tt === TT_DOT.NHAP && q.suaNhap) return { icon: PencilLine, label: t("Mở nháp") };
   return null;
 }
 
@@ -86,10 +87,10 @@ function TienDo({ d }) {
   const tt = Number(d.trangThai);
   if (tt === TT_DOT.NHAP) {
     const duKien = formatDateTime(d.ngayDuKienBatDau, { withYear: false });
-    return <span className="text-xs text-bo-muted">{duKien ? `Dự kiến ${duKien}` : "—"}</span>;
+    return <span className="text-xs text-bo-muted">{duKien ? t("Dự kiến {{duKien}}", { duKien }) : "—"}</span>;
   }
   if (!dangChay(d)) {
-    return <span className="text-xs text-bo-muted tabular-nums">{daBatDau(d) ? `${soVN(tk.tongDong ?? 0)} dòng` : "—"}</span>;
+    return <span className="text-xs text-bo-muted tabular-nums">{daBatDau(d) ? t("{{soDong}} dòng", { count: Number(tk.tongDong) || 0, soDong: soVN(tk.tongDong ?? 0) }) : "—"}</span>;
   }
   const tong = tk.tongDong ?? 0;
   const da = tk.daDem ?? 0;
@@ -122,19 +123,19 @@ function ChenhLech({ d }) {
     const lyDo = d.lyDoHuy?.trim();
     if (!lyDo) return <span className="text-bo-muted">—</span>;
     return (
-      <span className="ml-auto block max-w-[160px] truncate text-xs text-bo-muted" title={`Hủy: ${lyDo}`}>
-        Hủy: {lyDo}
+      <span className="ml-auto block max-w-[160px] truncate text-xs text-bo-muted" title={t("Hủy: {{lyDo}}", { lyDo })}>
+        {t("Hủy: {{lyDo}}", { lyDo })}
       </span>
     );
   }
   if (!daBatDau(d)) return <span className="text-bo-muted">—</span>;
-  if (tt !== TT_DOT.CHO_DUYET && tt !== TT_DOT.DA_DUYET) return <span className="text-xs text-bo-muted">Chưa chốt</span>;
-  if (!tk.lech) return <span className="text-xs font-semibold text-bo-success">Khớp sổ</span>;
+  if (tt !== TT_DOT.CHO_DUYET && tt !== TT_DOT.DA_DUYET) return <span className="text-xs text-bo-muted">{t("Chưa chốt", { context: "chenh_lech" })}</span>;
+  if (!tk.lech) return <span className="text-xs font-semibold text-bo-success">{t("Khớp sổ")}</span>;
   const rong = Number(tk.giaTriRong) || 0;
   return (
     <span className="block text-right leading-5">
       <span className={cn("block font-semibold tabular-nums", rong < 0 ? "text-bo-danger" : "text-bo-primary-strong")}>{tienCoDau(rong)}</span>
-      <span className="block text-xs text-bo-muted tabular-nums">{soVN(tk.lech)} dòng lệch</span>
+      <span className="block text-xs text-bo-muted tabular-nums">{t("{{soLech}} dòng lệch", { count: tk.lech, soLech: soVN(tk.lech) })}</span>
     </span>
   );
 }
@@ -177,7 +178,7 @@ export default function StockTakeList() {
       setDs([]);
       // Giữ lỗi gốc để ô lỗi phân biệt 403 (không có quyền: ổ khóa, không "Thử lại", không thông báo nhanh)
       setLoiTai(error);
-      if (error?.response?.status !== 403) toast.error(error.response?.data?.message || "Không thể tải danh sách kiểm kê");
+      if (error?.response?.status !== 403) toast.error(error.response?.data?.message || t("Không thể tải danh sách kiểm kê"));
     } finally {
       if (lan === lanTaiRef.current) setDangTai(false);
     }
@@ -197,12 +198,12 @@ export default function StockTakeList() {
   const coLocKho = dsKho.length >= 2;
   const [kho, setKho] = useTabTrenUrl(coLocKho ? [MOI_KHO, ...dsKho.map((k) => String(k.id))] : [], MOI_KHO, { ten: "kho" });
   const khoDangLoc = dsKho.find((k) => String(k.id) === kho);
-  const tenKhoDangLoc = khoDangLoc ? khoDangLoc.ten || khoDangLoc.ma || `Kho #${khoDangLoc.id}` : undefined;
+  const tenKhoDangLoc = khoDangLoc ? khoDangLoc.ten || khoDangLoc.ma || t("Kho #{{id}}", { id: khoDangLoc.id }) : undefined;
   const dangLocKho = kho !== MOI_KHO;
   // Điện thoại: ô lọc kho vào sheet "Bộ lọc" của ListToolbar (chip + Xóa lọc) nên vẫn dùng FilterSelect; máy tính: ô chọn có tìm
   const laDienThoai = useIsMobile();
   const tuyChonKho = useMemo(
-    () => [{ value: MOI_KHO, label: "Mọi kho" }, ...dsKho.map((k) => ({ value: String(k.id), label: k.ten || k.ma || `Kho #${k.id}` }))],
+    () => [{ value: MOI_KHO, label: t("Mọi kho") }, ...dsKho.map((k) => ({ value: String(k.id), label: k.ten || k.ma || t("Kho #{{id}}", { id: k.id }) }))],
     [dsKho],
   );
 
@@ -248,13 +249,13 @@ export default function StockTakeList() {
         ? {
             tone: "warning",
             so: choDuyet,
-            chu: "đợt kiểm kê chờ bạn thẩm định.",
-            phu: dangKiem ? `Còn ${soVN(dangKiem)} đợt đang đếm.` : null,
-            nut: "Xem đợt chờ duyệt",
+            chu: t("đợt kiểm kê chờ bạn thẩm định.", { count: choDuyet }),
+            phu: dangKiem ? t("Còn {{dangKiem}} đợt đang đếm.", { count: dangKiem, dangKiem: soVN(dangKiem) }) : null,
+            nut: t("Xem đợt chờ duyệt"),
             tab: TAB_CHO_DUYET,
           }
         : laNhanVien && dangKiem && tab !== "dang-kiem-ke"
-          ? { tone: "info", so: dangKiem, chu: "đợt kiểm kê đang đếm.", nut: "Xem đợt đang kiểm kê", tab: "dang-kiem-ke" }
+          ? { tone: "info", so: dangKiem, chu: t("đợt kiểm kê đang đếm.", { count: dangKiem }), nut: t("Xem đợt đang kiểm kê"), tab: "dang-kiem-ke" }
           : null;
 
   const tong = daLoc.length;
@@ -266,7 +267,7 @@ export default function StockTakeList() {
   const coCotThaoTac = daLoc.some((d) => thaoTacCua(d));
   const dangTim = Boolean(tuKhoa.trim());
   const dangLoc = dangTim || dangLocKho;
-  const nhanTab = TAB_DOT.find((t) => t.value === tab)?.label;
+  const nhanTab = TAB_DOT.find((muc) => muc.value === tab)?.label;
   const moDot = (d) => navigate(`/stock-take/${d.id}`);
 
   return (
@@ -280,12 +281,12 @@ export default function StockTakeList() {
               className="h-9 gap-2 border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
             >
               <Grid2x2 className="size-4" />
-              Sơ đồ khóa
+              {t("Sơ đồ khóa")}
             </Button>
             {laQuanLy ? (
               <Button onClick={() => navigate("/stock-take/new")} className="h-9 gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover">
                 <Plus className="size-4" />
-                Tạo đợt kiểm kê
+                {t("Tạo đợt kiểm kê")}
               </Button>
             ) : null}
           </>
@@ -301,13 +302,13 @@ export default function StockTakeList() {
         fill
         toolbar={
           <ListToolbar
-            tabs={<StatusTabs label="Lọc đợt kiểm kê theo trạng thái" tabs={tabs} value={tab} onChange={doiTab} />}
+            tabs={<StatusTabs label={t("Lọc đợt kiểm kê theo trạng thái")} tabs={tabs} value={tab} onChange={doiTab} />}
             hasFilter={dangLoc}
             onClear={xoaLoc}
           >
             <SearchInput
-              placeholder="Tìm đợt, kho, người chủ trì"
-              label="Tìm đợt kiểm kê"
+              placeholder={t("Tìm đợt, kho, người chủ trì")}
+              label={t("Tìm đợt kiểm kê")}
               value={tuKhoa}
               onChange={(e) => doiTuKhoa(e.target.value)}
               onClear={xoaTuKhoa}
@@ -315,12 +316,12 @@ export default function StockTakeList() {
             />
             {coLocKho && laDienThoai ? (
               <FilterSelect
-                label="Lọc theo kho"
+                label={t("Lọc theo kho")}
                 value={kho}
                 options={tuyChonKho}
                 onChange={doiKho}
                 onClear={() => doiKho(MOI_KHO)}
-                clearLabel="Xem mọi kho"
+                clearLabel={t("Xem mọi kho")}
                 align="end"
               />
             ) : coLocKho ? (
@@ -328,8 +329,8 @@ export default function StockTakeList() {
                 dsKho={dsKho}
                 value={dangLocKho ? Number(kho) : null}
                 onChange={(id) => doiKho(id == null ? MOI_KHO : String(id))}
-                nhanMoiKho="Mọi kho"
-                nhan="Lọc theo kho"
+                nhanMoiKho={t("Mọi kho")}
+                nhan={t("Lọc theo kho")}
                 align="end"
                 className="w-full sm:w-[220px]"
               />
@@ -352,18 +353,18 @@ export default function StockTakeList() {
         }
       >
         {dangTai ? (
-          <LoadingState rows={6} label="Đang tải danh sách đợt kiểm kê" />
+          <LoadingState rows={6} label={t("Đang tải danh sách đợt kiểm kê")} />
         ) : loiTai ? (
-          <ErrorState description="Không thể tải danh sách đợt kiểm kê. Vui lòng thử lại." error={loiTai} onRetry={() => tai()} />
+          <ErrorState description={t("Không thể tải danh sách đợt kiểm kê. Vui lòng thử lại.")} error={loiTai} onRetry={() => tai()} />
         ) : muc.length === 0 ? (
           dangTim ? (
             <EmptyState
               icon={SearchX}
-              title="Không tìm thấy đợt kiểm kê phù hợp"
-              description={dangLocKho ? `Thử đổi từ khóa tìm kiếm hoặc xem mọi kho thay vì ${tenKhoDangLoc}.` : "Thử đổi từ khóa tìm kiếm."}
+              title={t("Không tìm thấy đợt kiểm kê phù hợp")}
+              description={dangLocKho ? t("Thử đổi từ khóa tìm kiếm hoặc xem mọi kho thay vì {{tenKhoDangLoc}}.", { tenKhoDangLoc }) : t("Thử đổi từ khóa tìm kiếm.")}
               action={
                 <Button variant="outline" onClick={xoaLoc} className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">
-                  Xóa lọc
+                  {t("Xóa lọc")}
                 </Button>
               }
             />
@@ -372,49 +373,49 @@ export default function StockTakeList() {
               icon={ClipboardList}
               title={
                 tab !== TAB_MAC_DINH
-                  ? `Không có đợt nào ở trạng thái "${nhanTab}" tại ${tenKhoDangLoc}`
-                  : `Không có đợt nào ở ${tenKhoDangLoc}`
+                  ? t("Không có đợt nào ở trạng thái \"{{nhanTab}}\" tại {{tenKhoDangLoc}}", { nhanTab, tenKhoDangLoc })
+                  : t("Không có đợt nào ở {{tenKhoDangLoc}}", { tenKhoDangLoc })
               }
-              description="Chọn Mọi kho để xem đợt kiểm kê của các kho khác."
+              description={t("Chọn Mọi kho để xem đợt kiểm kê của các kho khác.")}
               action={
                 <Button
                   variant="outline"
                   onClick={() => doiKho(MOI_KHO)}
                   className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                 >
-                  Xem mọi kho
+                  {t("Xem mọi kho")}
                 </Button>
               }
             />
           ) : tab !== TAB_MAC_DINH ? (
             <EmptyState
               icon={ClipboardList}
-              title={`Không có đợt kiểm kê nào ở trạng thái "${nhanTab}"`}
-              description="Chọn tab Tất cả để xem mọi đợt kiểm kê."
+              title={t("Không có đợt kiểm kê nào ở trạng thái \"{{nhanTab}}\"", { nhanTab })}
+              description={t("Chọn tab Tất cả để xem mọi đợt kiểm kê.")}
               action={
                 <Button
                   variant="outline"
                   onClick={() => doiTab(TAB_MAC_DINH)}
                   className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                 >
-                  Xem tất cả
+                  {t("Xem tất cả")}
                 </Button>
               }
             />
           ) : (
             <EmptyState
               icon={ClipboardList}
-              title="Chưa có đợt kiểm kê nào"
+              title={t("Chưa có đợt kiểm kê nào")}
               description={
                 laQuanLy
-                  ? "Kiểm kê theo khu vực, theo kệ hay theo danh mục để chỉ tạm dừng đúng phần hàng cần đếm."
-                  : "Quản lý kho sẽ lập đợt kiểm kê; đợt đang đếm sẽ hiện ở đây."
+                  ? t("Kiểm kê theo khu vực, theo kệ hay theo danh mục để chỉ tạm dừng đúng phần hàng cần đếm.")
+                  : t("Quản lý kho sẽ lập đợt kiểm kê; đợt đang đếm sẽ hiện ở đây.")
               }
               action={
                 laQuanLy ? (
                   <Button onClick={() => navigate("/stock-take/new")} className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover">
                     <Plus className="size-4" />
-                    Tạo đợt đầu tiên
+                    {t("Tạo đợt đầu tiên")}
                   </Button>
                 ) : null
               }
@@ -447,12 +448,12 @@ export default function StockTakeList() {
               <thead className="sticky top-0 z-10">
                 <tr className="border-b border-bo-border bg-bo-surface-subtle">
                   {/* Chia bề rộng theo tỉ lệ (tổng 90%, chừa chỗ cột Thao tác) để phần ngang thừa rải đều, không dồn vào một cột */}
-                  <th className={`${TH_CLASS} w-[30%] text-left`}>Đợt kiểm kê</th>
-                  <th className={`${TH_CLASS} w-[22%] text-left`}>Kho · phạm vi</th>
-                  <th className={`${TH_CLASS} w-[12%] text-left cam-ung:max-lg:hidden`}>Tiến độ</th>
-                  <th className={`${TH_CLASS} w-[13%] pr-8 text-right cam-ung:max-lg:hidden`}>Chênh lệch</th>
-                  <th className={`${TH_CLASS} w-[13%] pl-8 text-left`}>Trạng thái</th>
-                  {coCotThaoTac ? <th className={`${TH_CLASS} w-[168px] text-center`}>Thao tác</th> : null}
+                  <th className={`${TH_CLASS} w-[30%] text-left`}>{t("Đợt kiểm kê")}</th>
+                  <th className={`${TH_CLASS} w-[22%] text-left`}>{t("Kho · phạm vi")}</th>
+                  <th className={`${TH_CLASS} w-[12%] text-left cam-ung:max-lg:hidden`}>{t("Tiến độ")}</th>
+                  <th className={`${TH_CLASS} w-[13%] pr-8 text-right cam-ung:max-lg:hidden`}>{t("Chênh lệch")}</th>
+                  <th className={`${TH_CLASS} w-[13%] pl-8 text-left`}>{t("Trạng thái")}</th>
+                  {coCotThaoTac ? <th className={`${TH_CLASS} w-[168px] text-center`}>{t("Thao tác")}</th> : null}
                 </tr>
               </thead>
               <tbody className="divide-y divide-bo-border">
@@ -465,7 +466,7 @@ export default function StockTakeList() {
                         <Link
                           to={`/stock-take/${d.id}`}
                           onClick={(e) => e.stopPropagation()}
-                          aria-label={`Mở đợt ${d.ma}`}
+                          aria-label={t("Mở đợt {{ma}}", { ma: d.ma })}
                           className="rounded-md bg-bo-primary-soft px-2 py-0.5 font-mono text-xs font-semibold tracking-wide text-bo-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/40"
                         >
                           {d.ma}

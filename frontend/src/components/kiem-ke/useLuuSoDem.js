@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { docSo } from "@/components/chung-tu/bangChungTu";
 import { luuSoDem } from "@/services/stockTakeService";
 import { getApiErrorCode, getApiErrorMessage } from "@/utils/apiError";
+import { t } from "@/i18n";
 
 // Gõ số xong chờ ngần này rồi mới tự lưu (gõ liền "1", "12", "120" chỉ gửi một lần); Enter / rời ô thì lưu ngay
 const CHO_LUU_SO_MS = 700;
@@ -104,9 +105,9 @@ export default function useLuuSoDem({ dotId, dong, capNhatDong, onLoiDong }) {
           guiLaiRef.current[id] = false;
           boNhapCua(id);
           datTrangThai(id, { dang: false, loi: null });
-          loiDongRef.current?.(id, ma, getApiErrorMessage(error, "Dòng vừa đổi ở nơi khác"));
+          loiDongRef.current?.(id, ma, getApiErrorMessage(error, t("Dòng vừa đổi ở nơi khác")));
         } else {
-          datTrangThai(id, { dang: false, loi: getApiErrorMessage(error, "Chưa lưu được số đếm") });
+          datTrangThai(id, { dang: false, loi: getApiErrorMessage(error, t("Chưa lưu được số đếm")) });
         }
       } finally {
         delete dangGuiRef.current[id];
@@ -164,7 +165,7 @@ export default function useLuuSoDem({ dotId, dong, capNhatDong, onLoiDong }) {
     };
   }, [gui]);
 
-  const dangGui = Object.values(trangThai).some((t) => t?.dang);
+  const dangGui = Object.values(trangThai).some((tt) => tt?.dang);
   const conCho = Object.keys(nhap).length > 0;
   return { nhap, trangThai, doiSo, doiLyDo, luuNgay, luuHet, dangGui, conCho };
 }

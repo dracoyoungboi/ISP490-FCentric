@@ -12,6 +12,7 @@ import { lamViecTaiKho } from "@/components/chuyen-kho/lamViecTaiKho";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { ROLES, getCurrentUserId, hasAnyRole } from "@/utils/roles";
 import { docSoDem } from "./kiemKe";
+import { t } from "@/i18n";
 
 const LY_DO_TOI_DA = 2000;
 const SO_LUONG_TOI_DA = 1_000_000;
@@ -44,7 +45,7 @@ export function HopLyDo({ mo, onDoiMo, tieuDe, moTa, nhanO, goiY, nhanXacNhan, i
       await onXacNhan(lyDo.trim());
       setLyDo("");
     } catch (error) {
-      setLoi(getApiErrorMessage(error, "Máy chủ chưa nhận thao tác. Thử lại sau ít phút."));
+      setLoi(getApiErrorMessage(error, t("Máy chủ chưa nhận thao tác. Thử lại sau ít phút.")));
     } finally {
       setDangChay(false);
     }
@@ -61,7 +62,7 @@ export function HopLyDo({ mo, onDoiMo, tieuDe, moTa, nhanO, goiY, nhanXacNhan, i
       rong
       dangChay={dangChay}
       khoaXacNhan={!lyDo.trim()}
-      lyDoKhoa={!lyDo.trim() ? "Nhập lý do trước" : undefined}
+      lyDoKhoa={!lyDo.trim() ? t("Nhập lý do trước") : undefined}
       traTieuDiemVe={traTieuDiemVe}
       loi={loi}
       onXacNhan={xacNhan}
@@ -83,7 +84,7 @@ export function HopLyDo({ mo, onDoiMo, tieuDe, moTa, nhanO, goiY, nhanXacNhan, i
           className={O_NHAP_NHIEU_DONG}
         />
         <span className={GOI_Y_O}>
-          <span>Bắt buộc</span>
+          <span>{t("Bắt buộc")}</span>
           <span>
             {lyDo.length}/{LY_DO_TOI_DA}
           </span>
@@ -134,14 +135,14 @@ export function HopPhatSinh({ mo, onDoiMo, dot, dsKe, keDau, tuKhoaDau, traTieuD
         const ds = await timLo(dot.id, tu);
         if (lan === lanTimRef.current) setKq({ tu, ds, dang: false, loi: null });
       } catch (error) {
-        if (lan === lanTimRef.current) setKq({ tu, ds: [], dang: false, loi: getApiErrorMessage(error, "Chưa tìm được lô") });
+        if (lan === lanTimRef.current) setKq({ tu, ds: [], dang: false, loi: getApiErrorMessage(error, t("Chưa tìm được lô")) });
       }
     }, CHO_TIM_MS);
     return () => clearTimeout(hen);
   }, [mo, tu, dot.id]);
 
   const dsLo = tu && kq.tu === tu ? kq.ds : [];
-  const thieu = !keId ? "Chọn kệ" : !lo ? "Chọn lô" : !soLuong ? "Nhập số lượng đếm được" : !lyDo.trim() ? "Nhập giải trình" : null;
+  const thieu = !keId ? t("Chọn kệ") : !lo ? t("Chọn lô") : !soLuong ? t("Nhập số lượng đếm được") : !lyDo.trim() ? t("Nhập giải trình") : null;
 
   const doiMo = (m) => {
     if (dangChay) return;
@@ -158,11 +159,11 @@ export function HopPhatSinh({ mo, onDoiMo, dot, dsKe, keDau, tuKhoaDau, traTieuD
         soLuongThucTe: soLuong,
         lyDoChenhLech: lyDo.trim(),
       });
-      toast.success("Đã thêm lô phát sinh", { description: `Lô ${lo.maLo} · ${soVN(soLuong)} sản phẩm` });
+      toast.success(t("Đã thêm lô phát sinh"), { description: t("Lô {{maLo}} · {{soLuong}} sản phẩm", { count: Number(soLuong) || 0, maLo: lo.maLo, soLuong: soVN(soLuong) }) });
       onXong?.(dong);
       onDoiMo(false);
     } catch (error) {
-      setLoi(getApiErrorMessage(error, "Chưa thêm được lô phát sinh"));
+      setLoi(getApiErrorMessage(error, t("Chưa thêm được lô phát sinh")));
     } finally {
       setDangChay(false);
     }
@@ -172,9 +173,9 @@ export function HopPhatSinh({ mo, onDoiMo, dot, dsKe, keDau, tuKhoaDau, traTieuD
     <HopXacNhanChungTu
       mo={mo}
       onDoiMo={doiMo}
-      tieuDe="Thêm lô phát sinh"
-      moTa="Lô có thật trên kệ nhưng sổ kệ không ghi. Sổ của dòng là 0, số đếm được tính là thừa và cần giải trình."
-      nhanXacNhan="Thêm lô"
+      tieuDe={t("Thêm lô phát sinh")}
+      moTa={t("Lô có thật trên kệ nhưng sổ kệ không ghi. Sổ của dòng là 0, số đếm được tính là thừa và cần giải trình.")}
+      nhanXacNhan={t("Thêm lô")}
       iconXacNhan={PackagePlus}
       rong
       dangChay={dangChay}
@@ -186,13 +187,13 @@ export function HopPhatSinh({ mo, onDoiMo, dot, dsKe, keDau, tuKhoaDau, traTieuD
     >
       <label className="grid gap-1.5">
         <span className={NHAN_O}>
-          Kệ tìm thấy hàng <span className="text-bo-danger">*</span>
+          {t("Kệ tìm thấy hàng")} <span className="text-bo-danger">*</span>
         </span>
         <select value={keId} onChange={(e) => setKeId(e.target.value)} className={O_NHAP}>
-          <option value="">Chọn kệ…</option>
+          <option value="">{t("Chọn kệ…")}</option>
           {dsKe.map((k) => (
             <option key={k.id} value={k.id}>
-              Kệ {k.ma}
+              {t("Kệ {{ma}}", { ma: k.ma })}
             </option>
           ))}
         </select>
@@ -200,7 +201,7 @@ export function HopPhatSinh({ mo, onDoiMo, dot, dsKe, keDau, tuKhoaDau, traTieuD
 
       <div className="grid gap-1.5">
         <label htmlFor={`${id}-tim`} className={NHAN_O}>
-          Lô hàng <span className="text-bo-danger">*</span>
+          {t("Lô hàng")} <span className="text-bo-danger">*</span>
         </label>
         <span className="relative flex items-center">
           <Search className="pointer-events-none absolute left-2.5 size-4 text-bo-muted" aria-hidden="true" />
@@ -213,7 +214,7 @@ export function HopPhatSinh({ mo, onDoiMo, dot, dsKe, keDau, tuKhoaDau, traTieuD
               setTuKhoa(e.target.value);
               setLo(null);
             }}
-            placeholder="Quét tem hoặc gõ đầu mã lô, SKU"
+            placeholder={t("Quét tem hoặc gõ đầu mã lô, SKU")}
             className={cn(O_NHAP, "pl-8")}
           />
         </span>
@@ -221,17 +222,16 @@ export function HopPhatSinh({ mo, onDoiMo, dot, dsKe, keDau, tuKhoaDau, traTieuD
           <div className="max-h-56 overflow-y-auto rounded-md border border-bo-border">
             {kq.dang && kq.tu !== tu ? (
               <p role="status" className="flex items-center gap-2 px-3 py-3 text-[13px] text-bo-muted">
-                <Loader2 className="size-4 animate-spin" aria-hidden="true" /> Đang tìm lô…
+                <Loader2 className="size-4 animate-spin" aria-hidden="true" /> {t("Đang tìm lô…")}
               </p>
             ) : kq.loi ? (
               <p className="px-3 py-3 text-[13px] text-bo-danger">{kq.loi}</p>
             ) : !dsLo.length ? (
               <p className="px-3 py-3 text-[13px] text-bo-muted">
-                Không có lô nào khớp “{tu}”{dot.loaiKiemKe === "theo_danh_muc" ? " trong danh mục của đợt" : ""}. Lô chưa có trong
-                hệ thống thì nhập kho trước, không thêm qua kiểm kê.
+                {t("Không có lô nào khớp “{{tu}}”", { tu })}{dot.loaiKiemKe === "theo_danh_muc" ? t(" trong danh mục của đợt") : ""}{t(". Lô chưa có trong hệ thống thì nhập kho trước, không thêm qua kiểm kê.")}
               </p>
             ) : (
-              <ul role="radiogroup" aria-label="Chọn lô" className="m-0 list-none divide-y divide-slate-100 p-0">
+              <ul role="radiogroup" aria-label={t("Chọn lô")} className="m-0 list-none divide-y divide-slate-100 p-0">
                 {dsLo.map((x) => {
                   const chon = lo?.loHangId === x.loHangId;
                   return (
@@ -271,7 +271,7 @@ export function HopPhatSinh({ mo, onDoiMo, dot, dsKe, keDau, tuKhoaDau, traTieuD
 
       <label className="grid gap-1.5">
         <span className={NHAN_O}>
-          Số lượng đếm được <span className="text-bo-danger">*</span>
+          {t("Số lượng đếm được")} <span className="text-bo-danger">*</span>
         </span>
         <input
           type="text"
@@ -279,20 +279,20 @@ export function HopPhatSinh({ mo, onDoiMo, dot, dsKe, keDau, tuKhoaDau, traTieuD
           autoComplete="off"
           value={soLuong == null ? "" : String(soLuong)}
           onChange={(e) => setSoLuong(docSoDem(e.target.value, SO_LUONG_TOI_DA) || null)}
-          placeholder="Ví dụ: 3"
+          placeholder={t("Ví dụ: 3")}
           className={cn(O_NHAP, "max-w-[160px] tabular-nums")}
         />
       </label>
 
       <label className="grid gap-1.5">
         <span className={NHAN_O}>
-          Giải trình <span className="text-bo-danger">*</span>
+          {t("Giải trình")} <span className="text-bo-danger">*</span>
         </span>
         <textarea
           value={lyDo}
           maxLength={LY_DO_TOI_DA}
           onChange={(e) => setLyDo(e.target.value.slice(0, LY_DO_TOI_DA))}
-          placeholder="Ví dụ: Hàng trả từ quầy để nhầm sang kệ A-01-02, chưa ghi chuyển kệ"
+          placeholder={t("Ví dụ: Hàng trả từ quầy để nhầm sang kệ A-01-02, chưa ghi chuyển kệ")}
           className={O_NHAP_NHIEU_DONG}
         />
       </label>
@@ -320,11 +320,11 @@ export function HopAnhKiemKe({ mo, onDoiMo, dot, dong, suaDuoc, traTieuDiemVe, o
     if (!tep || !dong) return;
     setLoi(null);
     if (!/^image\/(png|jpeg|webp)$/.test(tep.type)) {
-      setLoi("Chỉ nhận ảnh PNG, JPEG hoặc WebP.");
+      setLoi(t("Chỉ nhận ảnh PNG, JPEG hoặc WebP."));
       return;
     }
     if (tep.size > DUNG_LUONG_ANH_TOI_DA) {
-      setLoi("Ảnh lớn hơn 5 MB. Chụp lại ở chất lượng thấp hơn hoặc chọn ảnh khác.");
+      setLoi(t("Ảnh lớn hơn 5 MB. Chụp lại ở chất lượng thấp hơn hoặc chọn ảnh khác."));
       return;
     }
     setDang(true);
@@ -333,7 +333,7 @@ export function HopAnhKiemKe({ mo, onDoiMo, dot, dong, suaDuoc, traTieuDiemVe, o
       await themAnh(dot.id, dong.id, tep);
       await onDaDoi?.();
     } catch (error) {
-      setLoi(getApiErrorMessage(error, "Chưa tải được ảnh lên"));
+      setLoi(getApiErrorMessage(error, t("Chưa tải được ảnh lên")));
     } finally {
       setDang(false);
     }
@@ -346,7 +346,7 @@ export function HopAnhKiemKe({ mo, onDoiMo, dot, dong, suaDuoc, traTieuDiemVe, o
       await xoaAnh(dot.id, dong.id, a.id);
       await onDaDoi?.();
     } catch (error) {
-      setLoi(getApiErrorMessage(error, "Chưa xóa được ảnh"));
+      setLoi(getApiErrorMessage(error, t("Chưa xóa được ảnh")));
     } finally {
       setDang(false);
     }
@@ -356,13 +356,13 @@ export function HopAnhKiemKe({ mo, onDoiMo, dot, dong, suaDuoc, traTieuDiemVe, o
     <HopXacNhanChungTu
       mo={mo}
       onDoiMo={(m) => !dang && onDoiMo(m)}
-      tieuDe="Ảnh bằng chứng"
-      moTa={dong ? `Lô ${dong.loHang?.ma || "—"} · kệ ${dong.viTri?.ma || "—"}. Chụp rõ tem lô và tình trạng hàng.` : undefined}
+      tieuDe={t("Ảnh bằng chứng")}
+      moTa={dong ? t("Lô {{lo}} · kệ {{ke}}. Chụp rõ tem lô và tình trạng hàng.", { lo: dong.loHang?.ma || "—", ke: dong.viTri?.ma || "—" }) : undefined}
       nhanXacNhan="Xong"
       rong
       dangChay={false}
       khoaXacNhan={dang}
-      lyDoKhoa={dang ? "Đang tải ảnh…" : undefined}
+      lyDoKhoa={dang ? t("Đang tải ảnh…") : undefined}
       traTieuDiemVe={traTieuDiemVe}
       loi={loi}
       onXacNhan={() => onDoiMo(false)}
@@ -374,16 +374,16 @@ export function HopAnhKiemKe({ mo, onDoiMo, dot, dong, suaDuoc, traTieuDiemVe, o
             return (
               <li key={a.id} className="relative overflow-hidden rounded-md border border-bo-border bg-bo-surface-subtle">
                 <a href={a.url} target="_blank" rel="noreferrer" className="block aspect-square">
-                  <img src={a.url} alt={a.moTa || `Ảnh kiểm kê lô ${dong.loHang?.ma || ""}`} className="size-full object-cover" loading="lazy" />
+                  <img src={a.url} alt={a.moTa || t("Ảnh kiểm kê lô {{maLo}}", { maLo: dong.loHang?.ma || "" })} className="size-full object-cover" loading="lazy" />
                 </a>
                 {lanTruoc ? (
                   <span className="absolute left-1 top-1 rounded bg-black/60 px-1.5 text-[11px] font-medium leading-5 text-white">
-                    Lần {a.lanKiemDem}
+                    {t("Lần {{lan}}", { lan: a.lanKiemDem })}
                   </span>
                 ) : suaDuoc && xoaDuoc(a) ? (
                   <button
                     type="button"
-                    aria-label="Xóa ảnh"
+                    aria-label={t("Xóa ảnh")}
                     disabled={dang}
                     onClick={() => xoa(a)}
                     className="absolute right-1 top-1 grid size-8 place-items-center rounded-md bg-white/90 text-bo-danger shadow-sm hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-danger/30 disabled:opacity-50"
@@ -398,7 +398,7 @@ export function HopAnhKiemKe({ mo, onDoiMo, dot, dong, suaDuoc, traTieuDiemVe, o
       ) : (
         <div className={cn(GHI_CHU_HOP, "flex items-center gap-2")}>
           <Camera className="size-4 shrink-0 text-bo-muted" aria-hidden="true" />
-          Chưa có ảnh nào. Ảnh không bắt buộc nhưng giúp người duyệt hiểu chênh lệch.
+          {t("Chưa có ảnh nào. Ảnh không bắt buộc nhưng giúp người duyệt hiểu chênh lệch.")}
         </div>
       )}
       {suaDuoc && dong?.trangThai !== 3 ? (
@@ -411,7 +411,7 @@ export function HopAnhKiemKe({ mo, onDoiMo, dot, dong, suaDuoc, traTieuDiemVe, o
             )}
           >
             {dang ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <ImagePlus className="size-4" aria-hidden="true" />}
-            {dang ? "Đang tải ảnh…" : `Chụp hoặc chọn ảnh (còn ${conCho})`}
+            {dang ? t("Đang tải ảnh…") : t("Chụp hoặc chọn ảnh (còn {{conCho}})", { conCho })}
             <input
               id={`${id}-tep`}
               type="file"
@@ -427,7 +427,7 @@ export function HopAnhKiemKe({ mo, onDoiMo, dot, dong, suaDuoc, traTieuDiemVe, o
             />
           </label>
         ) : (
-          <p className="text-[13px] text-bo-muted">Đã đủ {ANH_TOI_DA} ảnh cho lần đếm này.</p>
+          <p className="text-[13px] text-bo-muted">{t("Đã đủ {{toiDa}} ảnh cho lần đếm này.", { count: ANH_TOI_DA, toiDa: ANH_TOI_DA })}</p>
         )
       ) : null}
     </HopXacNhanChungTu>

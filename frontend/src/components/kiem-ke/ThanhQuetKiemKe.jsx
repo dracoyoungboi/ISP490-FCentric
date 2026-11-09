@@ -1,6 +1,7 @@
 import { CircleCheck, Info, MapPin, ScanBarcode, TriangleAlert, X } from "lucide-react";
 import { NutChu } from "@/components/chung-tu/DongThongBao";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 // Phản hồi lần quét: ô nền nhạt theo kết quả, chữ 15px — người cầm máy quét đứng cách màn hình vẫn thấy đã cộng chưa
 const KIEU_PHAN_HOI = {
@@ -26,7 +27,7 @@ export default function ThanhQuetKiemKe({ oQuetRef, giaTri, onDoi, onQuet, phanH
     <div className="grid gap-2">
       <div className="flex flex-wrap items-center gap-2">
         <label className="relative flex min-w-[220px] flex-1 items-center">
-          <span className="sr-only">Quét mã kệ, tem lô hoặc SKU</span>
+          <span className="sr-only">{t("Quét mã kệ, tem lô hoặc SKU")}</span>
           <ScanBarcode className="pointer-events-none absolute left-3 size-[18px] text-bo-primary" aria-hidden="true" />
           <input
             ref={oQuetRef}
@@ -41,7 +42,7 @@ export default function ThanhQuetKiemKe({ oQuetRef, giaTri, onDoi, onQuet, phanH
               e.preventDefault();
               onQuet(giaTri);
             }}
-            placeholder="Quét mã kệ, tem lô hoặc SKU"
+            placeholder={t("Quét mã kệ, tem lô hoặc SKU")}
             className="h-11 w-full rounded-lg border border-bo-input-border bg-white pl-10 pr-3 text-[15px] text-bo-foreground outline-none placeholder:text-[13px] placeholder:text-slate-500 focus:border-bo-primary focus:ring-[3px] focus:ring-bo-primary/15 disabled:cursor-not-allowed disabled:bg-bo-surface-subtle"
           />
         </label>
@@ -49,11 +50,11 @@ export default function ThanhQuetKiemKe({ oQuetRef, giaTri, onDoi, onQuet, phanH
           <span className="inline-flex h-11 items-center gap-1.5 rounded-lg border border-bo-primary/30 bg-bo-primary-soft pl-3 pr-1.5 text-[13px] font-semibold text-bo-primary-strong">
             <MapPin className="size-4" aria-hidden="true" />
             <span className="whitespace-nowrap">
-              Đang đếm kệ <span className="font-mono">{keDangDem.ma}</span>
+              {t("Đang đếm kệ")} <span className="font-mono">{keDangDem.ma}</span>
             </span>
             <button
               type="button"
-              aria-label="Bỏ kệ đang đếm"
+              aria-label={t("Bỏ kệ đang đếm")}
               onClick={onBoKe}
               className="grid size-8 place-items-center rounded-md hover:bg-bo-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
             >
@@ -88,8 +89,7 @@ export default function ThanhQuetKiemKe({ oQuetRef, giaTri, onDoi, onQuet, phanH
         ) : (
           <p className="flex min-h-5 items-start text-[13px] leading-5 text-bo-muted">
             <span>
-              Mẹo: gõ <kbd className="rounded border border-bo-border bg-bo-surface-subtle px-1 font-mono text-xs">12*mã</kbd> rồi Enter
-              để cộng 12 sản phẩm một lần.
+              {t("Mẹo: gõ")} <kbd className="rounded border border-bo-border bg-bo-surface-subtle px-1 font-mono text-xs">{t("12*mã")}</kbd> {t("rồi Enter để cộng 12 sản phẩm một lần.")}
             </span>
           </p>
         )}

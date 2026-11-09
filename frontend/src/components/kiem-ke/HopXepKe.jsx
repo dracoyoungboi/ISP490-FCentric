@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { laySoDo } from "@/services/stockTakeService";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { LY_DO_KE, conChoKe, dongMoSan, kiemChiaKe, lyDoKhongChonKe, soXepDuoc } from "./hangChuaCoKe";
+import { t } from "@/i18n";
 
 /** Một lô chia tối đa ngần này kệ trong một lần xếp. */
 const SO_KE_TOI_DA = 4;
@@ -20,13 +21,13 @@ const so = (v) => Number(v) || 0;
 /** Thanh sức chứa của kệ: xám, gần đầy (> 90%) chuyển cam. */
 function ThanhSucChua({ ke }) {
   const suc = so(ke.sucChua);
-  if (suc <= 0) return <span className="text-xs text-bo-muted">Không giới hạn</span>;
+  if (suc <= 0) return <span className="text-xs text-bo-muted">{t("Không giới hạn")}</span>;
   const con = conChoKe(ke);
   const tiLe = Math.min(1, so(ke.dangChua) / suc);
   return (
     <span className="grid w-[112px] gap-1 text-right">
       <span className={cn("text-xs tabular-nums", con === 0 ? "font-medium text-bo-danger" : "text-bo-muted")}>
-        {con === 0 ? "Đầy" : `còn chỗ ${soVN(con)}`}
+        {con === 0 ? t("Đầy") : t("còn chỗ {{con}}", { con: soVN(con) })}
       </span>
       <span className="block h-1 overflow-hidden rounded-full bg-slate-200" aria-hidden="true">
         <span className={cn("block h-full rounded-full", tiLe > 0.9 ? "bg-amber-500" : "bg-slate-400")} style={{ width: `${Math.round(tiLe * 100)}%` }} />
@@ -68,11 +69,11 @@ function DongKe({ ke, the, chan, dangLa, daChonDongKhac, vaoTab, onChon }) {
         ) : null}
         {chan ? (
           <span className="inline-flex h-5 items-center gap-1 rounded bg-bo-warning-soft px-1.5 text-[11px] font-semibold text-bo-warning">
-            {chan === "Bảo trì" ? <Wrench className="size-3" aria-hidden="true" /> : <Lock className="size-3" aria-hidden="true" />}
+            {chan === t("Bảo trì") ? <Wrench className="size-3" aria-hidden="true" /> : <Lock className="size-3" aria-hidden="true" />}
             {chan}
           </span>
         ) : null}
-        {daChonDongKhac ? <span className="text-xs text-bo-muted">đã chọn ở dòng khác</span> : null}
+        {daChonDongKhac ? <span className="text-xs text-bo-muted">{t("đã chọn ở dòng khác")}</span> : null}
         {!the && !chan && !daChonDongKhac ? <span className="truncate text-xs text-bo-muted">{ke.khu}</span> : null}
       </span>
       <ThanhSucChua ke={ke} />
@@ -113,7 +114,7 @@ export default function HopXepKe({ mo, dsLo, khoId, dangChay, loi, lanTaiKe = 0,
   const dsKe = useMemo(
     () =>
       ((q.dungKhoa ? q.data : undefined)?.khuVuc ?? [])
-        .flatMap((kv) => (kv.ke ?? []).map((k) => ({ ...k, khu: kv.ten || kv.ma || "Khác" })))
+        .flatMap((kv) => (kv.ke ?? []).map((k) => ({ ...k, khu: kv.ten || kv.ma || t("Khác") })))
         .sort((a, b) => String(a.ma).localeCompare(String(b.ma), "vi", { numeric: true })),
     [q.data, q.dungKhoa],
   );
@@ -163,15 +164,15 @@ export default function HopXepKe({ mo, dsLo, khoId, dangChay, loi, lanTaiKe = 0,
   const keNhieuLo = keTheoId.get(dong[0]?.keId);
   const conChoNhieuLo = conChoKe(keNhieuLo);
   const lyDoKhoa = dangTaiKe
-    ? "Đang tải danh sách kệ"
+    ? t("Đang tải danh sách kệ")
     : loiTaiKe
-    ? "Chưa tải được danh sách kệ"
+    ? t("Chưa tải được danh sách kệ")
     : motLo
       ? kiem.loi
       : !keNhieuLo
-        ? "Chọn kệ"
+        ? t("Chọn kệ")
         : conChoNhieuLo != null && conChoNhieuLo < tongNhieuLo
-          ? `Kệ ${keNhieuLo.ma} chỉ còn chỗ ${soVN(conChoNhieuLo)}`
+          ? t("Kệ {{ma}} chỉ còn chỗ {{conChoNhieuLo}}", { ma: keNhieuLo.ma, conChoNhieuLo: soVN(conChoNhieuLo) })
           : null;
 
   const xep = () => {
@@ -193,7 +194,7 @@ export default function HopXepKe({ mo, dsLo, khoId, dangChay, loi, lanTaiKe = 0,
       <DongKe
         key={k.id}
         ke={k}
-        the={lq ? { nhan: LY_DO_KE[lq.lyDo] ?? "Liên quan", chinh: lq.lyDo === "KE_CUA_LO" || lq.lyDo === "DANG_CHUA_LO" } : null}
+        the={lq ? { nhan: LY_DO_KE[lq.lyDo] ?? t("Liên quan"), chinh: lq.lyDo === "KE_CUA_LO" || lq.lyDo === "DANG_CHUA_LO" } : null}
         chan={chanKe}
         dangLa={keDangSua === k.id}
         daChonDongKhac={keDangChon.has(k.id) && keDangSua !== k.id}
@@ -208,15 +209,13 @@ export default function HopXepKe({ mo, dsLo, khoId, dangChay, loi, lanTaiKe = 0,
       mo={mo}
       onDoiMo={onDoiMo}
       rong
-      tieuDe={motLo ? `Xếp lô ${motLo.maLo} lên kệ` : `Xếp ${soVN(dsLo.length)} lô lên một kệ`}
+      tieuDe={motLo ? t("Xếp lô {{maLo}} lên kệ", { maLo: motLo.maLo }) : t("Xếp {{soLo}} lô lên một kệ", { count: dsLo.length, soLo: soVN(dsLo.length) })}
       moTa={
         motLo
-          ? `${motLo.sanPham?.tenSanPham ?? ""} · xếp được ${soVN(toiDaMotLo)}/${soVN(motLo.chuaCoKe)} sản phẩm chưa có kệ${
-              Number(motLo.dangGiuNhat) > 0 ? ` (${soVN(motLo.dangGiuNhat)} đang chờ nhặt)` : ""
-            }. Chỉ ghi sổ kệ, tồn kho không đổi.`
-          : `${soVN(tongNhieuLo)} sản phẩm, xếp hết phần chưa có kệ của từng lô. Chỉ ghi sổ kệ, tồn kho không đổi.`
+          ? t("{{tenSp}} · xếp được {{toiDaMotLo}}/{{chuaCoKe}} sản phẩm chưa có kệ{{dangGiu}}. Chỉ ghi sổ kệ, tồn kho không đổi.", { count: Number(motLo.chuaCoKe) || 0, tenSp: motLo.sanPham?.tenSanPham ?? "", toiDaMotLo: soVN(toiDaMotLo), chuaCoKe: soVN(motLo.chuaCoKe), dangGiu: Number(motLo.dangGiuNhat) > 0 ? t(" ({{dangGiuNhat}} đang chờ nhặt)", { dangGiuNhat: soVN(motLo.dangGiuNhat) }) : "" })
+          : t("{{tongNhieuLo}} sản phẩm, xếp hết phần chưa có kệ của từng lô. Chỉ ghi sổ kệ, tồn kho không đổi.", { count: tongNhieuLo, tongNhieuLo: soVN(tongNhieuLo) })
       }
-      nhanXacNhan="Xếp lên kệ"
+      nhanXacNhan={t("Xếp lên kệ")}
       iconXacNhan={PackageCheck}
       dangChay={dangChay}
       khoaXacNhan={Boolean(lyDoKhoa)}
@@ -244,18 +243,18 @@ export default function HopXepKe({ mo, dsLo, khoId, dangChay, loi, lanTaiKe = 0,
               <button
                 type="button"
                 onClick={() => setDangSua(i)}
-                aria-label={`Dòng ${i + 1}: ${d.keId != null ? `kệ ${keTheoId.get(d.keId)?.ma ?? ""}` : "chưa chọn kệ"}. Bấm để chọn kệ cho dòng này`}
+                aria-label={t("Dòng {{so}}: {{ke}}. Bấm để chọn kệ cho dòng này", { so: i + 1, ke: d.keId != null ? t("kệ {{ma}}", { ma: keTheoId.get(d.keId)?.ma ?? "" }) : t("chưa chọn kệ") })}
                 className="flex min-w-0 flex-1 items-center gap-2 text-left"
               >
                 {d.keId != null ? (
                   <ChipKe ma={keTheoId.get(d.keId)?.ma ?? motLo.keLienQuan?.find((k) => k.id === d.keId)?.ma ?? "…"} />
                 ) : (
-                  <span className="text-[13px] text-bo-muted">Chọn kệ ở danh sách dưới</span>
+                  <span className="text-[13px] text-bo-muted">{t("Chọn kệ ở danh sách dưới")}</span>
                 )}
                 {d.keId != null && kiem.loiDong[i] ? <span className="text-xs font-medium text-bo-danger">{kiem.loiDong[i]}</span> : null}
               </button>
               <label className="flex items-center gap-1.5 text-xs text-bo-muted">
-                Số lượng
+                {t("Số lượng")}
                 <input
                   type="text"
                   inputMode="numeric"
@@ -269,7 +268,7 @@ export default function HopXepKe({ mo, dsLo, khoId, dangChay, loi, lanTaiKe = 0,
                 <button
                   type="button"
                   onClick={() => boDong(i)}
-                  aria-label={`Bỏ dòng ${i + 1}`}
+                  aria-label={t("Bỏ dòng {{so}}", { so: i + 1 })}
                   className="grid size-8 place-items-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-bo-danger"
                 >
                   <X className="size-4" />
@@ -281,15 +280,15 @@ export default function HopXepKe({ mo, dsLo, khoId, dangChay, loi, lanTaiKe = 0,
             <NutChu onClick={themDong} disabled={kiem.conLai <= 0 || dong.length >= SO_KE_TOI_DA}>
               <span className="inline-flex items-center gap-1">
                 <Plus className="size-3.5" aria-hidden="true" />
-                Chia thêm kệ
+                {t("Chia thêm kệ")}
               </span>
             </NutChu>
             <span className={cn("tabular-nums", kiem.conLai < 0 ? "font-medium text-bo-danger" : "text-bo-muted")}>
               {kiem.conLai > 0
-                ? `Còn ${soVN(kiem.conLai)} sản phẩm để lại ở hàng chưa có kệ`
+                ? t("Còn {{conLai}} sản phẩm để lại ở hàng chưa có kệ", { count: kiem.conLai, conLai: soVN(kiem.conLai) })
                 : kiem.conLai === 0
-                  ? "Xếp hết phần chưa có kệ"
-                  : `Vượt ${soVN(-kiem.conLai)} so với phần chưa có kệ`}
+                  ? t("Xếp hết phần chưa có kệ")
+                  : t("Vượt {{so}} so với phần chưa có kệ", { so: soVN(-kiem.conLai) })}
             </span>
           </div>
         </div>
@@ -303,13 +302,13 @@ export default function HopXepKe({ mo, dsLo, khoId, dangChay, loi, lanTaiKe = 0,
               <span className="shrink-0 font-semibold tabular-nums">{soVN(soXepDuoc(h))}</span>
             </div>
           ))}
-          {dsLo.length > 4 ? <div className="text-xs text-bo-muted">và {soVN(dsLo.length - 4)} lô khác</div> : null}
+          {dsLo.length > 4 ? <div className="text-xs text-bo-muted">{t("và {{soLo}} lô khác", { count: dsLo.length - 4, soLo: soVN(dsLo.length - 4) })}</div> : null}
           <div className="mt-1 flex items-center justify-between gap-3 border-t border-bo-border pt-2">
             <span className="flex items-center gap-1.5 text-bo-muted">
               <Layers className="size-3.5" aria-hidden="true" />
-              Kệ nhận
+              {t("Kệ nhận")}
             </span>
-            {keNhieuLo ? <ChipKe ma={keNhieuLo.ma} /> : <span className="text-bo-muted">Chọn ở danh sách dưới</span>}
+            {keNhieuLo ? <ChipKe ma={keNhieuLo.ma} /> : <span className="text-bo-muted">{t("Chọn ở danh sách dưới")}</span>}
           </div>
         </div>
       )}
@@ -317,14 +316,14 @@ export default function HopXepKe({ mo, dsLo, khoId, dangChay, loi, lanTaiKe = 0,
       <div className="grid gap-2 pb-1">
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
           <span id="xep-ke-nhan" className={NHAN_O}>
-            {motLo && dong.length > 1 ? `Kệ cho dòng ${dangSua + 1}` : "Kệ"} <span className="text-bo-danger">*</span>
+            {motLo && dong.length > 1 ? t("Kệ cho dòng {{so}}", { so: dangSua + 1 }) : t("Kệ")} <span className="text-bo-danger">*</span>
           </span>
-          <span className="text-xs text-bo-muted">Kệ bảo trì, đang kiểm kê hoặc đã đầy không chọn được</span>
+          <span className="text-xs text-bo-muted">{t("Kệ bảo trì, đang kiểm kê hoặc đã đầy không chọn được")}</span>
         </div>
         <label className="relative flex items-center">
-          <span className="sr-only">Tìm kệ</span>
+          <span className="sr-only">{t("Tìm kệ")}</span>
           <Search className="pointer-events-none absolute left-2.5 size-4 text-bo-muted" aria-hidden="true" />
-          <input value={tim} onChange={(e) => setTim(e.target.value)} placeholder="Tìm mã kệ hoặc khu, ví dụ A-02" className={cn(O_NHAP, "pl-8")} />
+          <input value={tim} onChange={(e) => setTim(e.target.value)} placeholder={t("Tìm mã kệ hoặc khu, ví dụ A-02")} className={cn(O_NHAP, "pl-8")} />
         </label>
         <div
           ref={dsKeRef}
@@ -334,20 +333,20 @@ export default function HopXepKe({ mo, dsLo, khoId, dangChay, loi, lanTaiKe = 0,
           className="max-h-[300px] overflow-y-auto rounded-md border border-bo-border p-1"
         >
           {dangTaiKe ? (
-            <p className="px-3 py-6 text-center text-[13px] text-bo-muted">Đang tải danh sách kệ…</p>
+            <p className="px-3 py-6 text-center text-[13px] text-bo-muted">{t("Đang tải danh sách kệ…")}</p>
           ) : loiTaiKe ? (
             <p role="alert" className="px-3 py-6 text-center text-[13px] text-bo-danger">
-              Không tải được danh sách kệ: {getApiErrorMessage(loiTaiKe, "lỗi kết nối")}. <NutChu onClick={q.reload}>Thử lại</NutChu>
+              {t("Không tải được danh sách kệ: {{loiTaiKe}}.", { loiTaiKe: getApiErrorMessage(loiTaiKe, t("lỗi kết nối")) })} <NutChu onClick={q.reload}>{t("Thử lại")}</NutChu>
             </p>
           ) : !dsKe.length ? (
-            <p className="px-3 py-6 text-center text-[13px] text-bo-muted">Kho chưa có kệ nào. Thêm kệ ở Vị trí kệ rồi quay lại.</p>
+            <p className="px-3 py-6 text-center text-[13px] text-bo-muted">{t("Kho chưa có kệ nào. Thêm kệ ở Vị trí kệ rồi quay lại.")}</p>
           ) : !keGoiY.length && !keKhac.length ? (
-            <p className="px-3 py-6 text-center text-[13px] text-bo-muted">Không có kệ khớp “{tim.trim()}”</p>
+            <p className="px-3 py-6 text-center text-[13px] text-bo-muted">{t("Không có kệ khớp “{{tuKhoa}}”", { tuKhoa: tim.trim() })}</p>
           ) : (
             <>
               {keGoiY.length ? (
                 <>
-                  <div className="px-2.5 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Gợi ý cho lô này</div>
+                  <div className="px-2.5 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Gợi ý cho lô này")}</div>
                   {keGoiY.map(dongKe)}
                 </>
               ) : null}

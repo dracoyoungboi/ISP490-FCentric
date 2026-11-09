@@ -67,6 +67,7 @@ import { getApiErrorCode, getApiErrorMessage } from "@/utils/apiError";
 import { formatDateTime } from "@/utils/formatters";
 import { getKhoLamViecId } from "@/utils/khoLamViec";
 import { ROLES, getCurrentUserId, hasAnyRole } from "@/utils/roles";
+import { t } from "@/i18n";
 
 const SO_DEM_TOI_DA = 1_000_000;
 // Ứng viên của lần quét khớp nhiều dòng chỉ dùng để thu hẹp trong ngần này (ms)
@@ -148,7 +149,7 @@ function ManKiemKe({ dotId }) {
       const mo = [TT_DOT.NHAP, TT_DOT.DANG_KIEM_KE, TT_DOT.CHO_DUYET].includes(Number(dot.trangThai));
       if (mo && !laQtv && dot.kho?.id && getKhoLamViecId() !== dot.kho.id && moDuocTaiKho(dot.kho)) {
         lamViecTaiKho(dot.kho);
-        doiKho = dot.kho.ten || "kho của đợt";
+        doiKho = dot.kho.ten || t("kho của đợt");
         dot = await layDot(dotId);
       }
     }
@@ -185,7 +186,7 @@ function ManKiemKe({ dotId }) {
         };
       });
     } catch (error) {
-      toast.error("Không tải lại được các dòng", { description: getApiErrorMessage(error, "lỗi kết nối") });
+      toast.error(t("Không tải lại được các dòng"), { description: getApiErrorMessage(error, t("lỗi kết nối")) });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dotId, q.setData]);
@@ -197,11 +198,11 @@ function ManKiemKe({ dotId }) {
     onLoiDong: (_id, ma, cau) => {
       if (ma === "STK_INVALID_STATE") {
         // Đợt đã trình duyệt / dòng đã xác nhận ở nơi khác: tải lại cả đợt
-        toast.error(cau, { description: "Đã tải lại đợt để bạn xem trạng thái mới nhất." });
+        toast.error(cau, { description: t("Đã tải lại đợt để bạn xem trạng thái mới nhất.") });
         q.reload();
         return;
       }
-      toast.error("Dòng vừa được lưu từ máy khác", { description: "Bảng đã hiện số mới nhất trên máy chủ. Nhập lại nếu cần." });
+      toast.error(t("Dòng vừa được lưu từ máy khác"), { description: t("Bảng đã hiện số mới nhất trên máy chủ. Nhập lại nếu cần.") });
       taiLaiDong();
     },
   });
@@ -321,7 +322,7 @@ function ManKiemKe({ dotId }) {
     if (!p) return;
     setLanPhanHoi((n) => n + 1);
     if (p.soLuong == null) {
-      setPhanHoi({ kieu: "loi", chu: "Số trước dấu * phải lớn hơn 0, ví dụ 12*mã." });
+      setPhanHoi({ kieu: "loi", chu: t("Số trước dấu * phải lớn hơn 0, ví dụ 12*mã.") });
       return;
     }
     const truoc = ungVienRef.current && Date.now() - ungVienRef.current.luc < UNG_VIEN_SONG_MS ? ungVienRef.current : null;
@@ -341,7 +342,13 @@ function ManKiemKe({ dotId }) {
       datBoLoc({ viTriId: dich.viTriId, loc: "tatCa" });
       setPhanHoi({
         kieu: "canhBao",
-        chu: `Kệ ${dich.maKe} có ${soVN(dich.conUngVien)} dòng khớp mã quét lần trước. Tiếp theo ${dich.theo === "lo" ? "quét mã vạch sản phẩm" : "quét mã lô"} trên tem để chọn đúng dòng${soLuong > 1 ? ` (sẽ cộng ${soVN(soLuong)})` : ""}, hoặc nhập số ở dòng đó.`,
+        chu: t("Kệ {{maKe}} có {{conUngVien}} dòng khớp mã quét lần trước. Tiếp theo {{buocTiep}} trên tem để chọn đúng dòng{{seCong}}, hoặc nhập số ở dòng đó.", {
+          count: dich.conUngVien,
+          maKe: dich.maKe,
+          conUngVien: soVN(dich.conUngVien),
+          buocTiep: dich.theo === "lo" ? t("quét mã vạch sản phẩm") : t("quét mã lô"),
+          seCong: soLuong > 1 ? t(" (sẽ cộng {{soLuong}})", { soLuong: soVN(soLuong) }) : "",
+        }),
       });
       return;
     }
@@ -353,25 +360,30 @@ function ManKiemKe({ dotId }) {
         dsCuaKe.length
           ? {
             kieu: "thongTin",
-            chu: `Đang đếm kệ ${dich.maKe}: ${soVN(dsCuaKe.length)} dòng${chua ? `, ${soVN(chua)} chưa đếm` : ", đã đếm hết"}. Quét tem từng sản phẩm để cộng.`,
+            chu: t("Đang đếm kệ {{maKe}}: {{soDong}} dòng{{tinhTrang}}. Quét tem từng sản phẩm để cộng.", {
+              count: dsCuaKe.length,
+              maKe: dich.maKe,
+              soDong: soVN(dsCuaKe.length),
+              tinhTrang: chua ? t(", {{chua}} chưa đếm", { chua: soVN(chua) }) : t(", đã đếm hết"),
+            }),
           }
           : {
             kieu: "thongTin",
-            chu: `Kệ ${dich.maKe} trống trên sổ. Thấy hàng trên kệ thì thêm lô phát sinh.`,
-            nhanNut: quyen.dem ? "Thêm lô phát sinh" : undefined,
+            chu: t("Kệ {{maKe}} trống trên sổ. Thấy hàng trên kệ thì thêm lô phát sinh.", { maKe: dich.maKe }),
+            nhanNut: quyen.dem ? t("Thêm lô phát sinh") : undefined,
             onNut: quyen.dem ? () => moPhatSinh("") : undefined,
           },
       );
       return;
     }
     if (dich.kieu === "daXacNhan") {
-      setPhanHoi({ kieu: "loi", chu: `Các dòng khớp “${p.ma}” đã được quản lý xác nhận, không cộng thêm được.` });
+      setPhanHoi({ kieu: "loi", chu: t("Các dòng khớp “{{ma}}” đã được quản lý xác nhận, không cộng thêm được.", { ma: p.ma }) });
       return;
     }
     if (dich.kieu === "dong") {
       const d = dich.dong;
       if (d.trangThai === TT_DONG.DA_XAC_NHAN) {
-        setPhanHoi({ kieu: "loi", chu: `Lô ${d.loHang?.ma} ở kệ ${d.viTri?.ma} đã được quản lý xác nhận, không cộng thêm được.` });
+        setPhanHoi({ kieu: "loi", chu: t("Lô {{maLo}} ở kệ {{maKe}} đã được quản lý xác nhận, không cộng thêm được.", { maLo: d.loHang?.ma, maKe: d.viTri?.ma }) });
         return;
       }
       const cu = d.soLuongThucTe == null ? 0 : docSo(d.soLuongThucTe);
@@ -400,24 +412,31 @@ function ManKiemKe({ dotId }) {
       if (viTri >= 0 && ds.length > coTrang) setTrang(Math.floor(viTri / coTrang));
       setDongSang(d.id);
       setLanQuet((n) => n + 1);
-      setPhanHoi({ kieu: "ok", chu: `+${soVN(soLuong)} lô ${d.loHang?.ma} · kệ ${d.viTri?.ma} → ${soVN(moi)} sản phẩm` });
+      setPhanHoi({ kieu: "ok", chu: t("+{{soLuong}} lô {{maLo}} · kệ {{maKe}} → {{moi}} sản phẩm", { count: moi, soLuong: soVN(soLuong), maLo: d.loHang?.ma, maKe: d.viTri?.ma, moi: soVN(moi) }) });
       return;
     }
     if (dich.kieu === "nhieu") {
       const soKe = new Set(dich.ds.map((d) => d.viTri?.id)).size;
       ungVienRef.current = { ids: new Set(dich.ds.map((d) => d.id)), soLuong, theo: dich.theo, luc: Date.now() };
       datBoLoc({ tuKhoa: p.ma });
-      const tiep = soKe > 1 ? "quét mã kệ" : dich.theo === "lo" ? "quét mã vạch sản phẩm trên tem" : "quét mã lô trên tem";
+      const tiep = soKe > 1 ? t("quét mã kệ") : dich.theo === "lo" ? t("quét mã vạch sản phẩm trên tem") : t("quét mã lô trên tem");
       setPhanHoi({
         kieu: "canhBao",
-        chu: `Mã ${p.ma} khớp ${soVN(dich.ds.length)} dòng${soKe > 1 ? ` ở ${soVN(soKe)} kệ` : " cùng kệ"}. Tiếp theo ${tiep} để chọn đúng dòng${soLuong > 1 ? ` (sẽ cộng ${soVN(soLuong)})` : ""}, hoặc nhập số ở dòng đó.`,
+        chu: t("Mã {{ma}} khớp {{soDong}} dòng{{oKe}}. Tiếp theo {{tiep}} để chọn đúng dòng{{seCong}}, hoặc nhập số ở dòng đó.", {
+          count: dich.ds.length,
+          ma: p.ma,
+          soDong: soVN(dich.ds.length),
+          oKe: soKe > 1 ? t(" ở {{soKe}} kệ", { count: soKe, soKe: soVN(soKe) }) : t(" cùng kệ"),
+          tiep,
+          seCong: soLuong > 1 ? t(" (sẽ cộng {{soLuong}})", { soLuong: soVN(soLuong) }) : "",
+        }),
       });
       return;
     }
     setPhanHoi({
       kieu: "canhBao",
-      chu: `Không thấy “${p.ma}” trong đợt${keLoc ? ` ở kệ ${keLoc.ma}` : ""}. Hàng nằm ở kệ nhưng sổ không ghi?`,
-      nhanNut: quyen.dem ? "Thêm lô phát sinh" : undefined,
+      chu: t("Không thấy “{{ma}}” trong đợt{{oKe}}. Hàng nằm ở kệ nhưng sổ không ghi?", { ma: p.ma, oKe: keLoc ? t(" ở kệ {{ma}}", { ma: keLoc.ma }) : "" }),
+      nhanNut: quyen.dem ? t("Thêm lô phát sinh") : undefined,
       onNut: quyen.dem ? () => moPhatSinh(p.ma) : undefined,
     });
   };
@@ -490,7 +509,7 @@ function ManKiemKe({ dotId }) {
     if (ma === "STK_VERSION_CONFLICT" || ma === "STK_INVALID_STATE") {
       // Đợt vừa đổi ở nơi khác: đóng hộp, tải lại
       setHop(null);
-      toast.error(getApiErrorMessage(error, cauMacDinh), { description: "Đã tải lại đợt để bạn xem trạng thái mới nhất." });
+      toast.error(getApiErrorMessage(error, cauMacDinh), { description: t("Đã tải lại đợt để bạn xem trạng thái mới nhất.") });
       q.reload();
       return;
     }
@@ -513,9 +532,9 @@ function ManKiemKe({ dotId }) {
 
   const lenhBatDau = () =>
     chay((khoa) => batDau(dot.id, dot.phienBan, khoa), {
-      tieuDe: `Đã bắt đầu kiểm kê ${dot.ma}`,
-      moTa: "Phạm vi đã khóa, số trên sổ kệ đã chốt. Bắt đầu đếm.",
-      loi: "Chưa bắt đầu được đợt kiểm kê",
+      tieuDe: t("Đã bắt đầu kiểm kê {{ma}}", { ma: dot.ma }),
+      moTa: t("Phạm vi đã khóa, số trên sổ kệ đã chốt. Bắt đầu đếm."),
+      loi: t("Chưa bắt đầu được đợt kiểm kê"),
     });
   const lenhTrinh = () =>
     chay(
@@ -523,17 +542,20 @@ function ManKiemKe({ dotId }) {
         // Chờ mọi số đang gõ / đang gửi lưu xong thật; còn dòng chưa lưu được thì không trình duyệt (máy chủ sẽ chốt số cũ)
         const chuaLuu = await luu.luuHet();
         if (chuaLuu.length) {
-          throw { cauRieng: `${soVN(chuaLuu.length)} dòng chưa lưu được lên máy chủ. Kiểm tra kết nối rồi bấm Trình duyệt lần nữa; dòng lỗi ghi “Chưa lưu được”.` };
+          throw { cauRieng: t("{{soDong}} dòng chưa lưu được lên máy chủ. Kiểm tra kết nối rồi bấm Trình duyệt lần nữa; dòng lỗi ghi “Chưa lưu được”.", {
+              count: chuaLuu.length,
+              soDong: soVN(chuaLuu.length),
+            }) };
         }
         await trinhDuyet(dot.id, dot.phienBan, khoa);
       },
-      { tieuDe: `Đã trình duyệt ${dot.ma}`, moTa: "Quản lý kho sẽ thẩm định chênh lệch. Kệ vẫn giữ khóa.", loi: "Chưa trình duyệt được" },
+      { tieuDe: t("Đã trình duyệt {{ma}}", { ma: dot.ma }), moTa: t("Quản lý kho sẽ thẩm định chênh lệch. Kệ vẫn giữ khóa."), loi: t("Chưa trình duyệt được") },
     );
   const lenhDuyet = () =>
     chay((khoa) => pheDuyet(dot.id, dot.phienBan, khoa), {
-      tieuDe: `Đã duyệt ${dot.ma}`,
-      moTa: "Tồn kho và sổ kệ đã cập nhật theo số đếm, kệ đã mở khóa.",
-      loi: "Chưa phê duyệt được",
+      tieuDe: t("Đã duyệt {{ma}}", { ma: dot.ma }),
+      moTa: t("Tồn kho và sổ kệ đã cập nhật theo số đếm, kệ đã mở khóa."),
+      loi: t("Chưa phê duyệt được"),
     });
   // Hộp có ô lý do (Đếm lại, Hủy): đợt vừa đổi ở nơi khác thì đóng hộp và tải lại như các lệnh khác; lỗi còn lại hiện trong hộp
   const lenhCoLyDo = async (lenh, { tieuDe, moTa }) => {
@@ -543,7 +565,7 @@ function ManKiemKe({ dotId }) {
     } catch (error) {
       const ma = getApiErrorCode(error);
       if (ma === "STK_VERSION_CONFLICT" || ma === "STK_INVALID_STATE") {
-        loiLenh(error, "Đợt vừa thay đổi");
+        loiLenh(error, t("Đợt vừa thay đổi"));
         return;
       }
       throw error;
@@ -552,13 +574,13 @@ function ManKiemKe({ dotId }) {
   };
   const lenhDemLai = (lyDo) =>
     lenhCoLyDo(() => demLai(dot.id, { dongIds: [...chon], lyDo, phienBan: dot.phienBan }, khoaLenhRef.current), {
-      tieuDe: `Đã yêu cầu đếm lại ${soVN(chon.size)} dòng`,
-      moTa: "Đợt quay về Đang kiểm kê để nhân viên đếm lại các dòng này.",
+      tieuDe: t("Đã yêu cầu đếm lại {{soDong}} dòng", { count: chon.size, soDong: soVN(chon.size) }),
+      moTa: t("Đợt quay về Đang kiểm kê để nhân viên đếm lại các dòng này."),
     });
   const lenhHuy = (lyDo) =>
     lenhCoLyDo(() => huyDot(dot.id, { lyDo, phienBan: dot.phienBan }, khoaLenhRef.current), {
-      tieuDe: `Đã hủy ${dot.ma}`,
-      moTa: "Tồn kho không đổi, kệ đã mở khóa.",
+      tieuDe: t("Đã hủy {{ma}}", { ma: dot.ma }),
+      moTa: t("Tồn kho không đổi, kệ đã mở khóa."),
     });
 
   const conChoLuu = suaDuoc && (luu.conCho || luu.dangGui);
@@ -583,7 +605,7 @@ function ManKiemKe({ dotId }) {
   useEffect(() => {
     if (!doiKho || daBaoDoiKhoRef.current) return;
     daBaoDoiKhoRef.current = true;
-    toast.info(`Đã chuyển nơi làm việc sang ${doiKho}`, { description: "Để thao tác được trên đợt kiểm kê này." });
+    toast.info(t("Đã chuyển nơi làm việc sang {{doiKho}}", { doiKho }), { description: t("Để thao tác được trên đợt kiểm kê này.") });
   }, [doiKho]);
 
   // ── Đang tải / lỗi ─────────────────────────────────────────────────────────────────────────────────
@@ -591,7 +613,7 @@ function ManKiemKe({ dotId }) {
     if (q.loading || (dotHopLe && !q.error && q.data === undefined)) {
       return (
         <PageContainer className="flex min-h-full flex-col">
-          <KhungDangTai nhan="Đang tải đợt kiểm kê" />
+          <KhungDangTai nhan={t("Đang tải đợt kiểm kê")} />
         </PageContainer>
       );
     }
@@ -599,9 +621,9 @@ function ManKiemKe({ dotId }) {
       <PageContainer className="flex min-h-full flex-col">
         <KhungLoiChungTu
           loi={q.error}
-          tenChungTu="đợt kiểm kê"
+          tenChungTu={t("đợt kiểm kê")}
           onVeDanhSach={veDanhSach}
-          nhanVeDanhSach="Về danh sách kiểm kê"
+          nhanVeDanhSach={t("Về danh sách kiểm kê")}
           onThuLai={q.reload}
         />
       </PageContainer>
@@ -612,39 +634,39 @@ function ManKiemKe({ dotId }) {
   const khoa = moTaKhoa(dot);
   // Chỉ chặn khi còn dòng chưa đếm. Dòng lệch chưa giải trình: bấm Trình duyệt mở hộp "Rà lại trước khi trình" (nhãn nút
   // không đổi theo lệch / khớp, nên đếm mù không đoán được số trên sổ qua nút)
-  const lyDoTrinh = tk.chua ? `Còn ${soVN(tk.chua)} dòng chưa đếm` : null;
+  const lyDoTrinh = tk.chua ? t("Còn {{chua}} dòng chưa đếm", { chua: soVN(tk.chua) }) : null;
   const dsLoiLuu = suaDuoc ? Object.values(luu.trangThai).filter((x) => x?.loi) : [];
   const soLoiLuu = dsLoiLuu.length;
   const nutChinh =
     tt === TT_DOT.NHAP && quyen.batDau
-      ? { nhan: "Bắt đầu kiểm kê", icon: Play, onClick: () => moHop("batDau"), khoa: dangChay }
+      ? { nhan: t("Bắt đầu kiểm kê"), icon: Play, onClick: () => moHop("batDau"), khoa: dangChay }
       : tt === TT_DOT.DANG_KIEM_KE && quyen.trinhDuyet
         ? {
-          nhan: "Trình duyệt",
+          nhan: t("Trình duyệt", { context: "gui_duyet" }),
           icon: Send,
           khoa: Boolean(lyDoTrinh) || dangChay || tk.tong === 0,
-          lyDo: tk.tong === 0 ? "Đợt chưa có dòng nào" : lyDoTrinh ?? undefined,
+          lyDo: tk.tong === 0 ? t("Đợt chưa có dòng nào") : lyDoTrinh ?? undefined,
           hienLyDo: true,
           onClick: () => moHop(tk.thieuLyDo ? "raLai" : "trinh"),
         }
         : tt === TT_DOT.CHO_DUYET && quyen.pheDuyet
-          ? { nhan: "Phê duyệt", icon: BadgeCheck, onClick: () => moHop("duyet"), khoa: dangChay || chon.size > 0, lyDo: chon.size ? "Đang chọn dòng để đếm lại" : undefined, hienLyDo: true }
+          ? { nhan: t("Phê duyệt"), icon: BadgeCheck, onClick: () => moHop("duyet"), khoa: dangChay || chon.size > 0, lyDo: chon.size ? t("Đang chọn dòng để đếm lại") : undefined, hienLyDo: true }
           : null;
   // Điện thoại đang đếm theo kệ: kệ đang xem đếm xong thì nút sang kệ kế nằm trên thanh đáy, trong tầm ngón cái
   const tdKeLoc = keLoc ? tienDo.get(keLoc.id) ?? { tong: 0, daDem: 0 } : null;
   const nutKeTiep =
     isMobile && suaDuoc && keTiep && tdKeLoc && tdKeLoc.daDem === tdKeLoc.tong
-      ? { nhan: `Kệ ${keTiep.ma}`, icon: ArrowRight, kieu: "vien", onClick: () => datBoLocTay({ viTriId: keTiep.id, tuKhoa: "" }) }
+      ? { nhan: t("Kệ {{ma}}", { ma: keTiep.ma }), icon: ArrowRight, kieu: "vien", onClick: () => datBoLocTay({ viTriId: keTiep.id, tuKhoa: "" }) }
       : null;
   const nutPhu =
     tt === TT_DOT.DANG_KIEM_KE && quyen.dem
-      ? { nhan: "Thêm lô phát sinh", icon: PackagePlus, onClick: () => moPhatSinh(""), khoa: dangChay }
+      ? { nhan: t("Thêm lô phát sinh"), icon: PackagePlus, onClick: () => moPhatSinh(""), khoa: dangChay }
       : tt === TT_DOT.CHO_DUYET && quyen.demLai && !chonDuoc
         ? {
-          nhan: chon.size ? `Yêu cầu đếm lại (${soVN(chon.size)})` : "Yêu cầu đếm lại",
+          nhan: chon.size ? t("Yêu cầu đếm lại ({{soDong}})", { soDong: soVN(chon.size) }) : t("Yêu cầu đếm lại"),
           icon: RotateCcw,
           khoa: !chon.size || dangChay,
-          lyDo: !chon.size ? "Chọn dòng cần đếm lại trong bảng" : undefined,
+          lyDo: !chon.size ? t("Chọn dòng cần đếm lại trong bảng") : undefined,
           onClick: () => moHop("demLai"),
         }
         : null;
@@ -653,15 +675,15 @@ function ManKiemKe({ dotId }) {
   const inBienBan = tt === TT_DOT.CHO_DUYET || tt === TT_DOT.DA_DUYET;
   const inPhieu = tt === TT_DOT.DA_DUYET && Boolean(dot.phieuDieuChinh?.ma) && coTien;
   const menu = [
-    quyen.suaNhap ? { nhan: "Sửa đợt nháp", icon: PencilLine, onSelect: () => navigate(`/stock-take/${dot.id}/edit`) } : null,
+    quyen.suaNhap ? { nhan: t("Sửa đợt nháp"), icon: PencilLine, onSelect: () => navigate(`/stock-take/${dot.id}/edit`) } : null,
     inBienBan
-      ? { nhan: "In biên bản kiểm kê", icon: Printer, moTa: tt === TT_DOT.CHO_DUYET ? "Bản nháp, chưa duyệt" : dot.ma, onSelect: () => navigate(`/stock-take/${dot.id}/print`) }
+      ? { nhan: t("In biên bản kiểm kê"), icon: Printer, moTa: tt === TT_DOT.CHO_DUYET ? t("Bản nháp, chưa duyệt") : dot.ma, onSelect: () => navigate(`/stock-take/${dot.id}/print`) }
       : null,
     inPhieu
-      ? { nhan: "In phiếu điều chỉnh kho", icon: Printer, moTa: dot.phieuDieuChinh.ma, onSelect: () => navigate(`/stock-take/${dot.id}/print-adjustment`) }
+      ? { nhan: t("In phiếu điều chỉnh kho"), icon: Printer, moTa: dot.phieuDieuChinh.ma, onSelect: () => navigate(`/stock-take/${dot.id}/print-adjustment`) }
       : null,
-    dot.kho?.id ? { nhan: "Xem sơ đồ khóa của kho", icon: Grid2x2, onSelect: () => navigate(`/stock-take/lock-map?khoId=${dot.kho.id}`) } : null,
-    quyen.huy ? { nhan: "Hủy đợt", moTa: "Mở khóa phạm vi, tồn kho không đổi", icon: Ban, nguyHiem: true, onSelect: () => moHop("huy") } : null,
+    dot.kho?.id ? { nhan: t("Xem sơ đồ khóa của kho"), icon: Grid2x2, onSelect: () => navigate(`/stock-take/lock-map?khoId=${dot.kho.id}`) } : null,
+    quyen.huy ? { nhan: t("Hủy đợt"), moTa: t("Mở khóa phạm vi, tồn kho không đổi"), icon: Ban, nguyHiem: true, onSelect: () => moHop("huy") } : null,
   ].filter(Boolean);
 
   // ── Thông báo ────────────────────────────────────────────────────────────────────────────────────────
@@ -670,18 +692,18 @@ function ManKiemKe({ dotId }) {
   const thongBao = [
     moChiXem ? (
       <DongThongBao key="chi-xem" tone="neutral">
-        Bạn không được phân {dot.kho?.ten || "kho của đợt"} nên chỉ xem được đợt này.
+        {t("Bạn không được phân {{tenKho}} nên chỉ xem được đợt này.", { tenKho: dot.kho?.ten || t("kho của đợt") })}
       </DongThongBao>
     ) : null,
     tt === TT_DOT.NHAP ? (
       <DongThongBao key="nhap" tone="info">
         {quyen.batDau ? (
           <>
-            Đợt nháp chưa khóa kệ nào. Bấm <b className="font-semibold">Bắt đầu kiểm kê</b> để khóa phạm vi và chốt số trên sổ kệ;
-            lúc đó các dòng kiểm kê mới được tạo.
+            {t("Đợt nháp chưa khóa kệ nào. Bấm")} <b className="font-semibold">{t("Bắt đầu kiểm kê")}</b>{" "}
+            {t("để khóa phạm vi và chốt số trên sổ kệ; lúc đó các dòng kiểm kê mới được tạo.")}
           </>
         ) : (
-          <>Đợt nháp chưa khóa kệ nào. Quản lý kho của {dot.kho?.ten || "kho"} bắt đầu đợt khi sẵn sàng.</>
+          <>{t("Đợt nháp chưa khóa kệ nào. Quản lý kho của {{tenKho}} bắt đầu đợt khi sẵn sàng.", { tenKho: dot.kho?.ten || t("kho") })}</>
         )}
       </DongThongBao>
     ) : null,
@@ -692,26 +714,30 @@ function ManKiemKe({ dotId }) {
         actions={
           <>
             {canKiemLai ? (
-              <NutChu onClick={() => datBoLocTay({ loc: "demLai", viTriId: null, tuKhoa: "" })}>Xem các dòng đếm lại</NutChu>
+              <NutChu onClick={() => datBoLocTay({ loc: "demLai", viTriId: null, tuKhoa: "" })}>{t("Xem các dòng đếm lại")}</NutChu>
             ) : null}
-            <NutChu onClick={() => navigate(`/stock-take/lock-map?khoId=${dot.kho?.id}`)}>Xem sơ đồ khóa</NutChu>
+            <NutChu onClick={() => navigate(`/stock-take/lock-map?khoId=${dot.kho?.id}`)}>{t("Xem sơ đồ khóa")}</NutChu>
           </>
         }
       >
         {khoa.kieu === "min" ? (
           <>
-            Đang giữ hàng thuộc danh mục trên {soVN(dot.soKeKhoa)} kệ: hàng này tạm dừng xuất, chuyển kho và bán tại quầy. Hàng
-            khác trên cùng kệ vẫn vận hành.
+            {t("Đang giữ hàng thuộc danh mục trên {{soKe}} kệ: hàng này tạm dừng xuất, chuyển kho và bán tại quầy. Hàng khác trên cùng kệ vẫn vận hành.", {
+              count: Number(dot.soKeKhoa) || 0,
+              soKe: soVN(dot.soKeKhoa),
+            })}
           </>
         ) : (
           <>
-            Đang khóa {soVN(dot.soKeKhoa)} kệ: nhập, xuất, chuyển kho, nhặt hàng và bán tại quầy ở các kệ này tạm dừng tới khi
-            duyệt hoặc hủy.
+            {t("Đang khóa {{soKe}} kệ: nhập, xuất, chuyển kho, nhặt hàng và bán tại quầy ở các kệ này tạm dừng tới khi duyệt hoặc hủy.", {
+              count: Number(dot.soKeKhoa) || 0,
+              soKe: soVN(dot.soKeKhoa),
+            })}
           </>
         )}
         {canKiemLai ? (
           <span className="mt-1 block font-medium">
-            Quản lý yêu cầu đếm lại {soVN(canKiemLai)} dòng. Đếm lại rồi trình duyệt lần nữa.
+            {t("Quản lý yêu cầu đếm lại {{soDong}} dòng. Đếm lại rồi trình duyệt lần nữa.", { count: canKiemLai, soDong: soVN(canKiemLai) })}
           </span>
         ) : null}
       </DongThongBao>
@@ -719,7 +745,7 @@ function ManKiemKe({ dotId }) {
     // Ghi chú của người lập cho người đếm (vd. "hàng lỗi để riêng thùng đỏ"): đặt ở đầu màn lúc đang đếm, không chỉ ở cột phải
     suaDuoc && String(dot.ghiChu ?? "").trim() ? (
       <DongThongBao key="ghi-chu" tone="neutral">
-        <b className="font-semibold">Ghi chú cho người đếm:</b> <span className="whitespace-pre-line">{dot.ghiChu}</span>
+        <b className="font-semibold">{t("Ghi chú cho người đếm:")}</b> <span className="whitespace-pre-line">{dot.ghiChu}</span>
       </DongThongBao>
     ) : null,
     tt === TT_DOT.CHO_DUYET ? (
@@ -727,43 +753,54 @@ function ManKiemKe({ dotId }) {
         <DongThongBao
           key="cho-duyet"
           tone="info"
-          actions={tk.lech && quyen.demLai ? <NutChu onClick={chonLech}>Chọn {soVN(tk.lech)} dòng lệch</NutChu> : null}
+          actions={
+            tk.lech && quyen.demLai ? (
+              <NutChu onClick={chonLech}>{t("Chọn {{soLech}} dòng lệch", { count: tk.lech, soLech: soVN(tk.lech) })}</NutChu>
+            ) : null
+          }
         >
-          Kiểm đếm xong{dot.ngayHoanThanh ? ` lúc ${formatDateTime(dot.ngayHoanThanh)}` : ""}, chờ bạn thẩm định:{" "}
-          {tk.lech ? `${soVN(tk.lech)} dòng lệch, giá trị ròng ${tienCoDau(tk.giaTri)}.` : "mọi dòng khớp sổ."} Chọn dòng cần
-          đếm lại, hoặc Phê duyệt để điều chỉnh tồn.
+          {dot.ngayHoanThanh
+            ? t("Kiểm đếm xong lúc {{luc}}, chờ bạn thẩm định:", { luc: formatDateTime(dot.ngayHoanThanh) })
+            : t("Kiểm đếm xong, chờ bạn thẩm định:")}{" "}
+          {tk.lech
+            ? t("{{soLech}} dòng lệch, giá trị ròng {{tien}}.", { count: tk.lech, soLech: soVN(tk.lech), tien: tienCoDau(tk.giaTri) })
+            : t("mọi dòng khớp sổ.")}{" "}
+          {t("Chọn dòng cần đếm lại, hoặc Phê duyệt để điều chỉnh tồn.")}
         </DongThongBao>
       ) : (
         <DongThongBao key="cho-duyet" tone="info">
-          Đã trình duyệt{dot.ngayHoanThanh ? ` lúc ${formatDateTime(dot.ngayHoanThanh)}` : ""}, chờ quản lý kho thẩm định. Số
-          đếm chỉ xem; kệ vẫn giữ khóa.
+          {dot.ngayHoanThanh
+            ? t("Đã trình duyệt lúc {{luc}}, chờ quản lý kho thẩm định. Số đếm chỉ xem; kệ vẫn giữ khóa.", { luc: formatDateTime(dot.ngayHoanThanh) })
+            : t("Đã trình duyệt, chờ quản lý kho thẩm định. Số đếm chỉ xem; kệ vẫn giữ khóa.")}
         </DongThongBao>
       )
     ) : null,
     tt === TT_DOT.DA_DUYET ? (
-      <DongThongBao key="da-duyet" tone="ok" actions={<NutChu onClick={() => navigate(`/stock-take/${dot.id}/print`)}>In biên bản</NutChu>}>
-        Đã duyệt
-        {dot.nguoiDuyet?.hoTen ? ` bởi ${dot.nguoiDuyet.hoTen}` : ""}
-        {dot.phieuDieuChinh?.ma ? ` · phiếu điều chỉnh ${dot.phieuDieuChinh.ma}` : ""}. Tồn kho và sổ kệ đã cập nhật, kệ đã mở
-        khóa.
+      <DongThongBao key="da-duyet" tone="ok" actions={<NutChu onClick={() => navigate(`/stock-take/${dot.id}/print`)}>{t("In biên bản")}</NutChu>}>
+        {t("Đã duyệt")}
+        {dot.nguoiDuyet?.hoTen ? t(" bởi {{hoTen}}", { hoTen: dot.nguoiDuyet.hoTen }) : ""}
+        {dot.phieuDieuChinh?.ma ? t(" · phiếu điều chỉnh {{ma}}", { ma: dot.phieuDieuChinh.ma }) : ""}{t(". Tồn kho và sổ kệ đã cập nhật, kệ đã mở khóa.")}
       </DongThongBao>
     ) : null,
     tt === TT_DOT.DA_HUY ? (
       <DongThongBao key="da-huy" tone="neutral">
-        Đã hủy
-        {dot.nguoiHuy?.hoTen ? ` bởi ${dot.nguoiHuy.hoTen}` : ""}
-        {dot.lyDoHuy ? `: ${dot.lyDoHuy}` : ""}. Tồn kho không đổi, kệ đã mở khóa.
+        {t("Đã hủy")}
+        {dot.nguoiHuy?.hoTen ? t(" bởi {{hoTen}}", { hoTen: dot.nguoiHuy.hoTen }) : ""}
+        {dot.lyDoHuy ? `: ${dot.lyDoHuy}` : ""}{t(". Tồn kho không đổi, kệ đã mở khóa.")}
       </DongThongBao>
     ) : null,
     soLoiLuu ? (
       <DongThongBao key="loi-luu" tone="bad">
-        {soVN(soLoiLuu)} dòng chưa lưu được lên máy chủ ({dsLoiLuu[0]?.loi}). Bấm “Lưu lại” ở từng dòng; số đang gõ vẫn giữ trên
-        màn.
+        {t("{{soDong}} dòng chưa lưu được lên máy chủ ({{loi}}). Bấm “Lưu lại” ở từng dòng; số đang gõ vẫn giữ trên màn.", {
+          count: soLoiLuu,
+          soDong: soVN(soLoiLuu),
+          loi: dsLoiLuu[0]?.loi,
+        })}
       </DongThongBao>
     ) : null,
     q.loiTaiLai ? (
-      <DongThongBao key="loi-tai-lai" tone="bad" actions={<NutChu onClick={q.reload}>Thử lại</NutChu>}>
-        Không tải lại được đợt kiểm kê: {getApiErrorMessage(q.error, "lỗi kết nối")}. Thông tin đang hiện có thể đã cũ.
+      <DongThongBao key="loi-tai-lai" tone="bad" actions={<NutChu onClick={q.reload}>{t("Thử lại")}</NutChu>}>
+        {t("Không tải lại được đợt kiểm kê: {{loi}}. Thông tin đang hiện có thể đã cũ.", { loi: getApiErrorMessage(q.error, t("lỗi kết nối")) })}
       </DongThongBao>
     ) : null,
   ].filter(Boolean);
@@ -781,14 +818,14 @@ function ManKiemKe({ dotId }) {
             // Tên kho chỉ ghi khi tên đợt chưa có (tên cũ "Kiểm kê kho Kho tổng" đã có tên kho)
             dongPhu={[dot.ten, nhanPhamVi(dot.loaiKiemKe), dot.kho?.ten && !coTenKho(dot.ten, dot.kho.ten) ? dot.kho.ten : null].filter(Boolean)}
             onQuayLai={veDanhSach}
-            nhanQuayLai="Về danh sách kiểm kê"
-            saoChepMa={{ giaTri: dot.ma, nhan: "Sao chép mã đợt" }}
+            nhanQuayLai={t("Về danh sách kiểm kê")}
+            saoChepMa={{ giaTri: dot.ma, nhan: t("Sao chép mã đợt") }}
             menu={menu}
             nutPhu={nutPhu}
             nutChinh={nutKeTiep ? [nutKeTiep, nutChinh].filter(Boolean) : nutChinh}
           />
         }
-        tienTrinh={<TienTrinhChungTu buoc={buocKiemKe({ ...dot, thongKe: { ...dot.thongKe, tongDong: tk.tong, daDem: tk.daDem } })} nhan="Tiến trình kiểm kê" />}
+        tienTrinh={<TienTrinhChungTu buoc={buocKiemKe({ ...dot, thongKe: { ...dot.thongKe, tongDong: tk.tong, daDem: tk.daDem } })} nhan={t("Tiến trình kiểm kê")} />}
         thongBao={thongBao.length ? thongBao : null}
         dinh={
           chonDuoc ? (
@@ -796,14 +833,13 @@ function ManKiemKe({ dotId }) {
               <span className="min-w-0 flex-1">
                 {chon.size ? (
                   <>
-                    <b className="font-semibold tabular-nums">{soVN(chon.size)}</b> dòng đã chọn để đếm lại. Các dòng còn lại được
-                    xác nhận theo số đếm.
+                    <b className="font-semibold tabular-nums">{soVN(chon.size)}</b> {t("dòng đã chọn để đếm lại. Các dòng còn lại được xác nhận theo số đếm.", { count: chon.size })}
                   </>
                 ) : (
-                  <span className="text-bo-muted">Chọn dòng cần đếm lại trong bảng, hoặc Phê duyệt để điều chỉnh tồn.</span>
+                  <span className="text-bo-muted">{t("Chọn dòng cần đếm lại trong bảng, hoặc Phê duyệt để điều chỉnh tồn.")}</span>
                 )}
               </span>
-              {chon.size ? <NutChu onClick={() => setChon(new Set())}>Bỏ chọn</NutChu> : null}
+              {chon.size ? <NutChu onClick={() => setChon(new Set())}>{t("Bỏ chọn")}</NutChu> : null}
               <Button
                 type="button"
                 variant="outline"
@@ -812,7 +848,7 @@ function ManKiemKe({ dotId }) {
                 className="h-9 gap-1.5 border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
               >
                 <RotateCcw className="size-4" aria-hidden="true" />
-                {chon.size ? `Yêu cầu đếm lại ${soVN(chon.size)} dòng` : "Yêu cầu đếm lại"}
+                {chon.size ? t("Yêu cầu đếm lại {{soDong}} dòng", { count: chon.size, soDong: soVN(chon.size) }) : t("Yêu cầu đếm lại")}
               </Button>
             </div>
           ) : suaDuoc ? (
@@ -832,22 +868,22 @@ function ManKiemKe({ dotId }) {
           tt === TT_DOT.NHAP ? (
             <section className="grid max-w-2xl gap-4 px-4 py-5 sm:px-6" aria-labelledby="kk-xem-truoc">
               <h2 id="kk-xem-truoc" className="text-base font-semibold leading-6 text-bo-foreground">
-                Xem trước phạm vi
+                {t("Xem trước phạm vi")}
               </h2>
               <XemTruocPhamVi
                 kq={qXem.data}
                 dang={qXem.loading}
-                loi={qXem.error && !qXem.loading ? getApiErrorMessage(qXem.error, "lỗi kết nối") : null}
+                loi={qXem.error && !qXem.loading ? getApiErrorMessage(qXem.error, t("lỗi kết nối")) : null}
                 onThuLai={qXem.reload}
                 cheDo={theoDanhMuc ? "theo_lo" : "toan_ke"}
                 nutCuaVanDe={(v) =>
-                  /hàng chưa có kệ/i.test(v.noiDung) ? <NutChu onClick={() => navigate(`/warehouse/unshelved?khoId=${dot.kho?.id}&tuDot=${dot.id}`)}>Xếp kệ</NutChu> : null
+                  /hàng chưa có kệ/i.test(v.noiDungGoc ?? v.noiDung) ? <NutChu onClick={() => navigate(`/warehouse/unshelved?khoId=${dot.kho?.id}&tuDot=${dot.id}`)}>{t("Xếp kệ")}</NutChu> : null
                 }
               />
             </section>
           ) : tt === TT_DOT.DA_HUY && !dot.ngayBatDau ? (
             // Hủy khi còn nháp: chưa khóa kệ, chưa có dòng nào — không vẽ dải số 0 và bảng rỗng
-            <p className="px-4 py-6 text-sm text-bo-muted sm:px-6">Đợt hủy khi còn nháp: chưa khóa kệ và chưa đếm dòng nào.</p>
+            <p className="px-4 py-6 text-sm text-bo-muted sm:px-6">{t("Đợt hủy khi còn nháp: chưa khóa kệ và chưa đếm dòng nào.")}</p>
           ) : (
             <>
               <TomTatKiemKe
@@ -916,14 +952,14 @@ function ManKiemKe({ dotId }) {
       <HopXacNhanChungTu
         mo={hop === "batDau"}
         onDoiMo={dongHop}
-        tieuDe={`Bắt đầu kiểm kê ${dot.ma}?`}
-        moTa="Hệ thống khóa phạm vi và chốt số trên sổ kệ của từng lô ngay lúc này. Từ đó tới khi duyệt hoặc hủy, hàng trong phạm vi tạm dừng nhập, xuất và bán."
-        nhanXacNhan="Bắt đầu kiểm kê"
+        tieuDe={t("Bắt đầu kiểm kê {{ma}}?", { ma: dot.ma })}
+        moTa={t("Hệ thống khóa phạm vi và chốt số trên sổ kệ của từng lô ngay lúc này. Từ đó tới khi duyệt hoặc hủy, hàng trong phạm vi tạm dừng nhập, xuất và bán.")}
+        nhanXacNhan={t("Bắt đầu kiểm kê")}
         iconXacNhan={Play}
         rong
         dangChay={dangChay}
         khoaXacNhan={qXem.loading || (qXem.data && !qXem.data.coTheBatDau)}
-        lyDoKhoa={qXem.loading ? "Đang tính phạm vi…" : qXem.data && !qXem.data.coTheBatDau ? "Gỡ các vướng mắc trước" : undefined}
+        lyDoKhoa={qXem.loading ? t("Đang tính phạm vi…") : qXem.data && !qXem.data.coTheBatDau ? t("Gỡ các vướng mắc trước") : undefined}
         loi={loiHop}
         onXacNhan={lenhBatDau}
       >
@@ -952,9 +988,9 @@ function ManKiemKe({ dotId }) {
       <HopXacNhanChungTu
         mo={hop === "trinh" && suaDuoc}
         onDoiMo={dongHop}
-        tieuDe={`Trình duyệt ${dot.ma}?`}
-        moTa="Số đếm khóa lại để quản lý kho thẩm định. Kệ vẫn giữ khóa tới khi duyệt."
-        nhanXacNhan="Trình duyệt"
+        tieuDe={t("Trình duyệt {{ma}}?", { ma: dot.ma })}
+        moTa={t("Số đếm khóa lại để quản lý kho thẩm định. Kệ vẫn giữ khóa tới khi duyệt.")}
+        nhanXacNhan={t("Trình duyệt", { context: "gui_duyet" })}
         iconXacNhan={Send}
         tieuDiemQuayLai
         traTieuDiemVe={oQuetRef}
@@ -969,9 +1005,9 @@ function ManKiemKe({ dotId }) {
       <HopXacNhanChungTu
         mo={hop === "duyet"}
         onDoiMo={dongHop}
-        tieuDe={`Phê duyệt ${dot.ma}?`}
-        moTa="Tạo phiếu điều chỉnh, cập nhật tồn lô và sổ kệ theo số đếm, mở khóa phạm vi, đồng bộ tồn lên kênh bán. Không hoàn tác được."
-        nhanXacNhan="Phê duyệt và điều chỉnh tồn"
+        tieuDe={t("Phê duyệt {{ma}}?", { ma: dot.ma })}
+        moTa={t("Tạo phiếu điều chỉnh, cập nhật tồn lô và sổ kệ theo số đếm, mở khóa phạm vi, đồng bộ tồn lên kênh bán. Không hoàn tác được.")}
+        nhanXacNhan={t("Phê duyệt và điều chỉnh tồn")}
         iconXacNhan={BadgeCheck}
         rong
         dangChay={dangChay}
@@ -994,11 +1030,11 @@ function ManKiemKe({ dotId }) {
       <HopLyDo
         mo={hop === "demLai"}
         onDoiMo={dongHop}
-        tieuDe={`Yêu cầu đếm lại ${soVN(chon.size)} dòng?`}
-        moTa="Đợt quay về Đang kiểm kê; các dòng khác được chốt, chỉ dòng đã chọn phải đếm lại. Số lần trước vẫn lưu trong lịch sử."
-        nhanO="Lý do đếm lại"
-        goiY="Ví dụ: Chênh lệch lớn, đếm lại cả kệ và chụp ảnh tem"
-        nhanXacNhan="Yêu cầu đếm lại"
+        tieuDe={t("Yêu cầu đếm lại {{soDong}} dòng?", { count: chon.size, soDong: soVN(chon.size) })}
+        moTa={t("Đợt quay về Đang kiểm kê; các dòng khác được chốt, chỉ dòng đã chọn phải đếm lại. Số lần trước vẫn lưu trong lịch sử.")}
+        nhanO={t("Lý do đếm lại")}
+        goiY={t("Ví dụ: Chênh lệch lớn, đếm lại cả kệ và chụp ảnh tem")}
+        nhanXacNhan={t("Yêu cầu đếm lại")}
         iconXacNhan={RotateCcw}
         onXacNhan={lenhDemLai}
       >
@@ -1006,7 +1042,7 @@ function ManKiemKe({ dotId }) {
           {dsChonDemLai.map((d) => (
             <li key={d.id} className="flex min-w-0 justify-between gap-3">
               <span className="min-w-0 truncate">
-                Kệ {d.viTri?.ma} · {d.sanPham?.tenSanPham} · lô {d.loHang?.ma}
+                {t("Kệ {{ma}} · {{tenSanPham}} · lô {{maLo}}", { ma: d.viTri?.ma, tenSanPham: d.sanPham?.tenSanPham, maLo: d.loHang?.ma })}
               </span>
               <span className="shrink-0 tabular-nums">
                 {soVN(d.soLuongHeThong)} → {d.soLuongThucTe == null ? "—" : soVN(d.soLuongThucTe)}
@@ -1020,15 +1056,15 @@ function ManKiemKe({ dotId }) {
       <HopLyDo
         mo={hop === "huy"}
         onDoiMo={dongHop}
-        tieuDe={`Hủy đợt ${dot.ma}?`}
+        tieuDe={t("Hủy đợt {{ma}}?", { ma: dot.ma })}
         moTa={
           tt === TT_DOT.NHAP
-            ? "Đợt nháp chưa khóa gì; hủy thì đợt chuyển sang Đã hủy."
-            : "Mở khóa toàn bộ phạm vi, tồn kho giữ nguyên, số đã đếm vẫn lưu để tra cứu. Không hoàn tác được."
+            ? t("Đợt nháp chưa khóa gì; hủy thì đợt chuyển sang Đã hủy.")
+            : t("Mở khóa toàn bộ phạm vi, tồn kho giữ nguyên, số đã đếm vẫn lưu để tra cứu. Không hoàn tác được.")
         }
-        nhanO="Lý do hủy"
-        goiY="Ví dụ: Lập nhầm phạm vi, sẽ tạo đợt khác"
-        nhanXacNhan="Hủy đợt"
+        nhanO={t("Lý do hủy")}
+        goiY={t("Ví dụ: Lập nhầm phạm vi, sẽ tạo đợt khác")}
+        nhanXacNhan={t("Hủy đợt")}
         iconXacNhan={Ban}
         kieu="nguyHiem"
         onXacNhan={lenhHuy}
@@ -1071,14 +1107,14 @@ function TomTatHop({ tk, mu = false }) {
         <b className="tabular-nums">
           {soVN(tk.daDem)}/{soVN(tk.tong)}
         </b>{" "}
-        dòng đã đếm. Đang đếm mù nên chênh lệch hiện cho quản lý khi thẩm định.
+        {t("dòng đã đếm. Đang đếm mù nên chênh lệch hiện cho quản lý khi thẩm định.", { count: tk.tong })}
       </div>
     );
   }
   const o = [
-    { ma: "dem", so: `${soVN(tk.daDem)}/${soVN(tk.tong)}`, nhan: `dòng đã đếm · ${soVN(tk.lech)} lệch` },
-    { ma: "thieu", so: tk.thieu ? `−${soVN(tk.thieu)}` : "0", nhan: `thiếu · ${tienCoDau(-tk.giaTriThieu)}`, mau: "text-bo-danger" },
-    { ma: "thua", so: tk.thua ? `+${soVN(tk.thua)}` : "0", nhan: `thừa · ${tienCoDau(tk.giaTriThua)}`, mau: "text-bo-primary-strong" },
+    { ma: "dem", so: `${soVN(tk.daDem)}/${soVN(tk.tong)}`, nhan: t("dòng đã đếm · {{lech}} lệch", { lech: soVN(tk.lech) }) },
+    { ma: "thieu", so: tk.thieu ? `−${soVN(tk.thieu)}` : "0", nhan: t("thiếu · {{tien}}", { tien: tienCoDau(-tk.giaTriThieu) }), mau: "text-bo-danger" },
+    { ma: "thua", so: tk.thua ? `+${soVN(tk.thua)}` : "0", nhan: t("thừa · {{tien}}", { tien: tienCoDau(tk.giaTriThua) }), mau: "text-bo-primary-strong" },
   ];
   return (
     <div className="grid gap-2">
@@ -1091,7 +1127,7 @@ function TomTatHop({ tk, mu = false }) {
         ))}
       </div>
       <p className="flex justify-between gap-3 rounded-md bg-bo-surface-subtle px-2.5 py-2 text-[13px] leading-5">
-        <span className="text-slate-700">Giá trị chênh lệch ròng (theo giá vốn chốt)</span>
+        <span className="text-slate-700">{t("Giá trị chênh lệch ròng (theo giá vốn chốt)")}</span>
         <b className="font-semibold tabular-nums text-bo-heading">{tienCoDau(tk.giaTri)}</b>
       </p>
     </div>

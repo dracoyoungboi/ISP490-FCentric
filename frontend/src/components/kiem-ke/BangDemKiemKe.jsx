@@ -27,6 +27,7 @@ import {
   thieuLyDo,
   tienCoDau,
 } from "./kiemKe";
+import { t } from "@/i18n";
 
 // Số đếm tối đa trên một dòng (IKiemKe.SO_LUONG_TOI_DA ở máy chủ)
 const SO_DEM_TOI_DA = 1_000_000;
@@ -85,7 +86,7 @@ function ODem({ d, onDoiSo, onRoiO, onXong, onQuetNham, idO }) {
     >
       <button
         type="button"
-        aria-label={`Bớt 1 ở lô ${tenLo(d)}, kệ ${d.viTri?.ma}`}
+        aria-label={t("Bớt 1 ở lô {{lo}}, kệ {{ma}}", { lo: tenLo(d), ma: d.viTri?.ma })}
         disabled={so == null || so <= 0}
         onClick={() => doi(Math.max(0, (so ?? 0) - 1))}
         className={NUT_DEM}
@@ -97,8 +98,8 @@ function ODem({ d, onDoiSo, onRoiO, onXong, onQuetNham, idO }) {
         type="text"
         inputMode="numeric"
         autoComplete="off"
-        aria-label={`Số thực tế lô ${tenLo(d)}, kệ ${d.viTri?.ma}`}
-        placeholder="Đếm"
+        aria-label={t("Số thực tế lô {{lo}}, kệ {{ma}}", { lo: tenLo(d), ma: d.viTri?.ma })}
+        placeholder={t("Đếm")}
         value={so == null ? "" : String(so)}
         onFocus={(e) => {
           soKhiVaoRef.current = so;
@@ -162,7 +163,7 @@ function ODem({ d, onDoiSo, onRoiO, onXong, onQuetNham, idO }) {
       />
       <button
         type="button"
-        aria-label={`Thêm 1 ở lô ${tenLo(d)}, kệ ${d.viTri?.ma}`}
+        aria-label={t("Thêm 1 ở lô {{lo}}, kệ {{ma}}", { lo: tenLo(d), ma: d.viTri?.ma })}
         disabled={(so ?? 0) >= SO_DEM_TOI_DA}
         onClick={() => doi((so ?? 0) + 1)}
         className={NUT_DEM}
@@ -176,9 +177,9 @@ function ODem({ d, onDoiSo, onRoiO, onXong, onQuetNham, idO }) {
 /** Chênh lệch của dòng: "Thiếu 2" / "Thừa 1" / "Khớp" + giá trị; đếm mù chỉ "Đã đếm". */
 function ChenhLech({ d, mu, canPhai = true }) {
   if (d.soLuongThucTe == null) {
-    return <span className="whitespace-nowrap text-[13px] font-medium text-slate-500">Chưa đếm</span>;
+    return <span className="whitespace-nowrap text-[13px] font-medium text-slate-500">{t("Chưa đếm")}</span>;
   }
-  if (mu) return <span className="whitespace-nowrap text-[13px] font-medium text-bo-foreground">Đã đếm</span>;
+  if (mu) return <span className="whitespace-nowrap text-[13px] font-medium text-bo-foreground">{t("Đã đếm")}</span>;
   const c = chuChenhLech(d);
   return (
     <span className={cn("block leading-5", canPhai && "text-right")}>
@@ -196,7 +197,7 @@ function TrangThaiDong({ d, tt, onThuLai, dotXong = false }) {
     return (
       <span className="inline-flex items-center gap-1 text-xs text-bo-muted" role="status">
         <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
-        Đang lưu
+        {t("Đang lưu")}
       </span>
     );
   }
@@ -209,17 +210,17 @@ function TrangThaiDong({ d, tt, onThuLai, dotXong = false }) {
         className="inline-flex items-center gap-1 rounded text-xs font-semibold text-bo-danger hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-danger/30"
       >
         <TriangleAlert className="size-3.5" aria-hidden="true" />
-        Lưu lại
+        {t("Lưu lại")}
         <span className="sr-only">: {tt.loi}</span>
       </button>
     );
   }
-  if (d.dangGo) return <span className="text-xs text-bo-muted">Chờ lưu…</span>;
+  if (d.dangGo) return <span className="text-xs text-bo-muted">{t("Chờ lưu…")}</span>;
   if (tt?.vuaLuu) {
     return (
       <span className="inline-flex items-center gap-1 text-xs font-medium text-bo-success">
         <Check className="size-3.5" aria-hidden="true" />
-        Đã lưu
+        {t("Đã lưu")}
       </span>
     );
   }
@@ -229,15 +230,15 @@ function TrangThaiDong({ d, tt, onThuLai, dotXong = false }) {
     return (
       <span className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-semibold text-bo-warning">
         <RotateCcw className="size-3.5" aria-hidden="true" />
-        Đếm lại
+        {t("Đếm lại")}
       </span>
     );
   }
   if (d.trangThai === TT_DONG.DA_XAC_NHAN) {
     return (
-      <span className="inline-flex items-center gap-1 whitespace-nowrap text-xs text-bo-muted" title="Quản lý đã xác nhận dòng này, không cần đếm lại">
+      <span className="inline-flex items-center gap-1 whitespace-nowrap text-xs text-bo-muted" title={t("Quản lý đã xác nhận dòng này, không cần đếm lại")}>
         <Lock className="size-3.5" aria-hidden="true" />
-        Đã xác nhận
+        {t("Đã xác nhận")}
       </span>
     );
   }
@@ -278,7 +279,7 @@ function DongGiaiTrinh({ d, mu, suaDong, soCot, onDoiLyDo, onRoiLyDo, onMoAnh })
             <p className="flex items-start gap-1.5 text-[13px] leading-5 text-bo-foreground">
               <RotateCcw className="mt-0.5 size-3.5 shrink-0 text-bo-warning" aria-hidden="true" />
               <span>
-                <b className="font-semibold">Quản lý yêu cầu đếm lại</b>
+                <b className="font-semibold">{t("Quản lý yêu cầu đếm lại")}</b>
                 {yeuCauGanNhat.nguoiYeuCau?.hoTen ? ` (${yeuCauGanNhat.nguoiYeuCau.hoTen})` : ""}: {yeuCauGanNhat.lyDoKiemLai}
               </span>
             </p>
@@ -287,7 +288,7 @@ function DongGiaiTrinh({ d, mu, suaDong, soCot, onDoiLyDo, onRoiLyDo, onMoAnh })
             suaDong ? (
               <div className="grid gap-1.5">
                 <label htmlFor={idLyDo} className="text-xs font-medium leading-4 text-bo-foreground">
-                  Giải trình chênh lệch{" "}
+                  {t("Giải trình chênh lệch")}{" "}
                   {lech ? <span className="text-bo-danger">*</span> : null}
                 </label>
                 <input
@@ -298,7 +299,7 @@ function DongGiaiTrinh({ d, mu, suaDong, soCot, onDoiLyDo, onRoiLyDo, onMoAnh })
                   value={lyDo}
                   onChange={(e) => onDoiLyDo(d.id, e.target.value)}
                   onBlur={() => onRoiLyDo(d.id)}
-                  placeholder="Ví dụ: 2 áo rách tem, đã để riêng chờ xử lý"
+                  placeholder={t("Ví dụ: 2 áo rách tem, đã để riêng chờ xử lý")}
                   aria-invalid={thieu || undefined}
                   className={cn(
                     "h-9 w-full max-w-xl rounded-md border bg-white px-2.5 text-sm text-bo-foreground outline-none placeholder:text-slate-500 focus:border-bo-primary focus:ring-2 focus:ring-bo-primary/15",
@@ -314,7 +315,7 @@ function DongGiaiTrinh({ d, mu, suaDong, soCot, onDoiLyDo, onRoiLyDo, onMoAnh })
                         onClick={() => onDoiLyDo(d.id, g)}
                         className="h-7 rounded-full border border-bo-border bg-white px-2.5 text-xs font-medium text-slate-700 hover:border-bo-primary/40 hover:bg-bo-primary-soft hover:text-bo-primary-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
                       >
-                        {g}
+                        {t(g)}
                       </button>
                     ))}
                   </span>
@@ -322,8 +323,8 @@ function DongGiaiTrinh({ d, mu, suaDong, soCot, onDoiLyDo, onRoiLyDo, onMoAnh })
               </div>
             ) : (
               <p className="text-[13px] leading-5 text-bo-foreground">
-                <span className="text-bo-muted">Giải trình: </span>
-                {lyDo.trim() ? lyDo : <span className="font-medium text-bo-danger">chưa có</span>}
+                <span className="text-bo-muted">{t("Giải trình:")} </span>
+                {lyDo.trim() ? lyDo : <span className="font-medium text-bo-danger">{t("chưa có")}</span>}
               </p>
             )
           ) : null}
@@ -335,7 +336,7 @@ function DongGiaiTrinh({ d, mu, suaDong, soCot, onDoiLyDo, onRoiLyDo, onMoAnh })
                 className="inline-flex items-center gap-1 rounded font-medium text-bo-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
               >
                 <Camera className="size-3.5" aria-hidden="true" />
-                {soAnh ? `Ảnh bằng chứng (${soAnh})` : "Thêm ảnh bằng chứng"}
+                {soAnh ? t("Ảnh bằng chứng ({{soAnh}})", { soAnh }) : t("Thêm ảnh bằng chứng")}
               </button>
             ) : null}
             {lanTruoc.length ? (
@@ -343,7 +344,7 @@ function DongGiaiTrinh({ d, mu, suaDong, soCot, onDoiLyDo, onRoiLyDo, onMoAnh })
                 <History className="size-3.5" aria-hidden="true" />
                 {lanTruoc.map((l) => (
                   <span key={l.lanKiemDem} className="tabular-nums">
-                    Lần {l.lanKiemDem}: {l.soLuongThucTe == null ? "—" : soVN(l.soLuongThucTe)}
+                    {t("Lần {{lan}}:", { lan: l.lanKiemDem })} {l.soLuongThucTe == null ? "—" : soVN(l.soLuongThucTe)}
                     {l.nguoiKiemDem?.hoTen ? ` · ${l.nguoiKiemDem.hoTen}` : ""}
                   </span>
                 ))}
@@ -351,7 +352,7 @@ function DongGiaiTrinh({ d, mu, suaDong, soCot, onDoiLyDo, onRoiLyDo, onMoAnh })
             ) : null}
             {d.nguoiKiemDem?.hoTen && d.soLuongThucTe != null && !d.dangGo ? (
               <span>
-                Đếm bởi {d.nguoiKiemDem.hoTen}
+                {t("Đếm bởi {{ten}}", { ten: d.nguoiKiemDem.hoTen })}
                 {d.ngayKiemDem ? ` · ${formatDateTime(d.ngayKiemDem)}` : ""}
               </span>
             ) : null}
@@ -430,8 +431,8 @@ export default function BangDemKiemKe({
     <section aria-labelledby={`${idBang}-tieu-de`} className="flex min-w-0 flex-col">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-4 pb-3 pt-5 sm:px-6">
         <h2 id={`${idBang}-tieu-de`} className="text-base font-semibold leading-6 text-bo-foreground">
-          Dòng kiểm kê
-          <span className="ml-2 text-sm font-normal text-bo-muted tabular-nums">{soVN(tong)} cặp kệ – lô</span>
+          {t("Dòng kiểm kê")}
+          <span className="ml-2 text-sm font-normal text-bo-muted tabular-nums">{t("{{tong}} cặp kệ – lô", { count: tong, tong: soVN(tong) })}</span>
         </h2>
       </div>
 
@@ -439,26 +440,26 @@ export default function BangDemKiemKe({
         tuKhoa={boLoc.tuKhoa}
         onDoiTuKhoa={(chu) => onDoiBoLoc({ tuKhoa: chu })}
         onXoaTuKhoa={() => onDoiBoLoc({ tuKhoa: "" })}
-        goiYTim="Tìm tên, SKU, mã lô hoặc mã kệ"
-        nhanTim="Tìm dòng kiểm kê"
-        ketQua={boLoc.tuKhoa.trim() ? `${soVN(dong.length)} dòng khớp` : ""}
+        goiYTim={t("Tìm tên, SKU, mã lô hoặc mã kệ")}
+        nhanTim={t("Tìm dòng kiểm kê")}
+        ketQua={boLoc.tuKhoa.trim() ? t("{{soDong}} dòng khớp", { count: dong.length, soDong: soVN(dong.length) }) : ""}
         khongKetQua={Boolean(boLoc.tuKhoa.trim()) && !dong.length}
-        boLoc={<NutPhanDoan nhan="Lọc dòng" value={boLoc.loc} onChange={(v) => onDoiBoLoc({ loc: v })} luaChon={luaChon} />}
+        boLoc={<NutPhanDoan nhan={t("Lọc dòng")} value={boLoc.loc} onChange={(v) => onDoiBoLoc({ loc: v })} luaChon={luaChon} />}
         nutXem={
           <>
             {dsKe.length > 1 ? (
               <label className="relative flex h-8 items-center">
-                <span className="sr-only">Lọc theo kệ</span>
+                <span className="sr-only">{t("Lọc theo kệ")}</span>
                 <MapPin className="pointer-events-none absolute left-2.5 size-3.5 text-bo-muted" aria-hidden="true" />
                 <select
                   value={boLoc.viTriId ?? ""}
                   onChange={(e) => onDoiBoLoc({ viTriId: e.target.value ? Number(e.target.value) : null })}
                   className="h-8 max-w-[180px] appearance-none rounded-md border border-bo-border bg-bo-surface pl-7 pr-7 text-[13px] font-medium text-bo-foreground outline-none focus-visible:border-bo-primary focus-visible:ring-2 focus-visible:ring-bo-primary/15"
                 >
-                  <option value="">Mọi kệ ({soVN(dsKe.length)})</option>
+                  <option value="">{t("Mọi kệ ({{soKe}})", { soKe: soVN(dsKe.length) })}</option>
                   {dsKe.map((k) => (
                     <option key={k.id} value={k.id}>
-                      Kệ {k.ma}
+                      {t("Kệ {{ma}}", { ma: k.ma })}
                     </option>
                   ))}
                 </select>
@@ -475,9 +476,9 @@ export default function BangDemKiemKe({
                   onKeyDown={(e) => e.key === "Enter" && e.preventDefault()}
                 />
                 <Label htmlFor={`${idBang}-mu`} className="cursor-pointer text-[13px] font-medium text-bo-foreground">
-                  Đếm mù
+                  {t("Đếm mù")}
                 </Label>
-                <span id={`${idBang}-mu-mo-ta`} className="sr-only">Ẩn số trên sổ và chênh lệch khi đếm</span>
+                <span id={`${idBang}-mu-mo-ta`} className="sr-only">{t("Ẩn số trên sổ và chênh lệch khi đếm")}</span>
               </span>
             ) : null}
           </>
@@ -488,10 +489,10 @@ export default function BangDemKiemKe({
         <div className="-mt-1 flex flex-wrap items-center gap-2 px-4 pb-3 text-[13px] sm:px-6">
           <span className="inline-flex h-7 items-center gap-1.5 rounded-full bg-bo-primary-soft pl-2.5 pr-1 font-medium text-bo-primary-strong">
             <MapPin className="size-3.5" aria-hidden="true" />
-            Đang xem kệ {keDangLoc.ma}
+            {t("Đang xem kệ {{ma}}", { ma: keDangLoc.ma })}
             <button
               type="button"
-              aria-label="Bỏ lọc kệ"
+              aria-label={t("Bỏ lọc kệ")}
               onClick={() => onDoiBoLoc({ viTriId: null })}
               className="grid size-5 place-items-center rounded-full hover:bg-bo-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
             >
@@ -509,25 +510,25 @@ export default function BangDemKiemKe({
                 {chonDuoc ? (
                   <th scope="col" className={cn(O_TIEU_DE, O_DAU, "w-10 pr-0")}>
                     <Checkbox
-                      aria-label="Chọn mọi dòng đã đếm trên trang"
+                      aria-label={t("Chọn mọi dòng đã đếm trên trang")}
                       checked={chonHet}
                       disabled={!dsChonDuoc.length}
                       onCheckedChange={(bat) => onDoiChon(dsChonDuoc.map((d) => d.id), Boolean(bat))}
                     />
                   </th>
                 ) : null}
-                <th scope="col" className={cn(O_TIEU_DE, !chonDuoc && O_DAU)}>Sản phẩm</th>
-                <th scope="col" className={cn(O_TIEU_DE, "w-[150px]", AN_DIEN_THOAI)}>Lô</th>
-                {hienSo ? <th scope="col" className={cn(O_TIEU_DE, "w-[84px] text-right", AN_DIEN_THOAI)}>Sổ</th> : null}
-                <th scope="col" className={cn(O_TIEU_DE, suaDuoc ? "w-[150px]" : "w-[90px] text-right")}>Thực tế</th>
+                <th scope="col" className={cn(O_TIEU_DE, !chonDuoc && O_DAU)}>{t("Sản phẩm")}</th>
+                <th scope="col" className={cn(O_TIEU_DE, "w-[150px]", AN_DIEN_THOAI)}>{t("Lô")}</th>
+                {hienSo ? <th scope="col" className={cn(O_TIEU_DE, "w-[84px] text-right", AN_DIEN_THOAI)}>{t("Sổ")}</th> : null}
+                <th scope="col" className={cn(O_TIEU_DE, suaDuoc ? "w-[150px]" : "w-[90px] text-right")}>{t("Thực tế")}</th>
                 {hienSo ? (
                   <th scope="col" className={cn(O_TIEU_DE, "w-[120px] text-right", !coCotTrangThai && O_CUOI, AN_DIEN_THOAI)}>
-                    Chênh lệch
+                    {t("Chênh lệch")}
                   </th>
                 ) : null}
                 {coCotTrangThai ? (
                   <th scope="col" className={cn(O_TIEU_DE, O_CUOI, "w-[92px] text-right", AN_DIEN_THOAI)}>
-                    <span className="sr-only">Trạng thái lưu</span>
+                    <span className="sr-only">{t("Trạng thái lưu")}</span>
                   </th>
                 ) : null}
               </tr>
@@ -545,12 +546,12 @@ export default function BangDemKiemKe({
                       <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
                         <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-bo-heading">
                           <MapPin className="size-3.5 text-bo-muted" aria-hidden="true" />
-                          {n.viTri?.ma ? <span className="font-mono tracking-wide">Kệ {n.viTri.ma}</span> : <span>Chưa gắn kệ</span>}
+                          {n.viTri?.ma ? <span className="font-mono tracking-wide">{t("Kệ {{ma}}", { ma: n.viTri.ma })}</span> : <span>{t("Chưa gắn kệ")}</span>}
                         </span>
                         {n.viTri?.khuVuc ? <span className="text-xs text-bo-muted">{n.viTri.khuVuc}</span> : null}
                         {dangDem ? (
                           <span className={cn("text-xs tabular-nums", xongKe ? "font-medium text-bo-success" : "text-bo-muted")}>
-                            {xongKe ? "Đã đếm hết" : `${soVN(daDem)}/${soVN(tongKe)} đã đếm`}
+                            {xongKe ? t("Đã đếm hết") : t("{{daDem}}/{{tongKe}} đã đếm", { daDem: soVN(daDem), tongKe: soVN(tongKe) })}
                           </span>
                         ) : null}
                         {suaDuoc && xongKe && keTiep && boLoc.viTriId === n.viTri?.id ? (
@@ -560,7 +561,7 @@ export default function BangDemKiemKe({
                             // Điện thoại: nút "Kệ …" nằm ở thanh đáy
                             className="ml-auto inline-flex h-7 max-md:hidden items-center gap-1 rounded-md bg-bo-primary-soft px-2.5 text-xs font-semibold text-bo-primary-strong hover:bg-bo-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
                           >
-                            Sang kệ <span className="font-mono">{keTiep.ma}</span>
+                            {t("Sang kệ")} <span className="font-mono">{keTiep.ma}</span>
                             <ArrowRight className="size-3.5" aria-hidden="true" />
                           </button>
                         ) : null}
@@ -570,7 +571,7 @@ export default function BangDemKiemKe({
                             onClick={() => onDoiBoLoc({ viTriId: n.viTri.id })}
                             className="ml-auto rounded text-xs font-medium text-bo-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
                           >
-                            Chỉ xem kệ này
+                            {t("Chỉ xem kệ này")}
                           </button>
                         ) : null}
                       </span>
@@ -595,7 +596,7 @@ export default function BangDemKiemKe({
                         {chonDuoc ? (
                           <td className={cn(O, O_DAU, "w-10 pr-0")}>
                             <Checkbox
-                              aria-label={`Chọn dòng lô ${tenLo(d)} kệ ${d.viTri?.ma}`}
+                              aria-label={t("Chọn dòng lô {{lo}} kệ {{ma}}", { lo: tenLo(d), ma: d.viTri?.ma })}
                               checked={chon?.has(d.id) ?? false}
                               disabled={d.trangThai === TT_DONG.CHUA_KIEM}
                               onCheckedChange={(bat) => onDoiChon([d.id], Boolean(bat))}
@@ -610,12 +611,12 @@ export default function BangDemKiemKe({
                                 {d.sanPham?.tenSanPham || "—"}
                                 {d.phatSinh ? (
                                   <span className="ml-1.5 inline-flex h-5 items-center rounded bg-bo-warning-soft px-1.5 align-[1px] text-[11px] font-semibold text-bo-warning">
-                                    Phát sinh
+                                    {t("Phát sinh")}
                                   </span>
                                 ) : null}
                                 {(d.lanKiemDem ?? 1) > 1 ? (
                                   <span className="ml-1.5 inline-flex h-5 items-center rounded bg-slate-100 px-1.5 align-[1px] text-[11px] font-semibold text-slate-600">
-                                    Lần {d.lanKiemDem}
+                                    {t("Lần {{lan}}", { lan: d.lanKiemDem })}
                                   </span>
                                 ) : null}
                               </span>
@@ -626,10 +627,10 @@ export default function BangDemKiemKe({
                                   <span className="break-all font-mono">{d.sanPham?.maSku || "—"}</span>
                                 </span>
                                 <span className={cn("block", CHI_DIEN_THOAI)}>
-                                  Lô <span className="font-mono text-slate-700">{ngatTaiGach(d.loHang?.ma)}</span>
+                                  {t("Lô")} <span className="font-mono text-slate-700">{ngatTaiGach(d.loHang?.ma)}</span>
                                   {hienSo ? (
                                     <>
-                                      {" · sổ "}
+                                      {t(" · sổ ")}
                                       <b className="font-semibold text-slate-700">{soVN(d.soLuongHeThong)}</b>
                                     </>
                                   ) : null}
@@ -697,24 +698,24 @@ export default function BangDemKiemKe({
       ) : null}
 
       {!tong ? (
-        <KhongKetQua chu="Đợt chưa có dòng kiểm kê nào. Dòng được chốt từ sổ kệ lúc bấm Bắt đầu." />
+        <KhongKetQua chu={t("Đợt chưa có dòng kiểm kê nào. Dòng được chốt từ sổ kệ lúc bấm Bắt đầu.")} />
       ) : boLoc.tuKhoa.trim() && !dong.length ? (
-        <KhongKetQua tuKhoa={boLoc.tuKhoa} donVi="dòng" onXoaTuKhoa={() => onDoiBoLoc({ tuKhoa: "" })} />
+        <KhongKetQua tuKhoa={boLoc.tuKhoa} donVi={t("dòng")} onXoaTuKhoa={() => onDoiBoLoc({ tuKhoa: "" })} />
       ) : !dong.length && keDangLoc && !tienDo?.get(keDangLoc.id)?.tong ? (
         // Kệ của đợt mà sổ không ghi hàng (dù đang lọc gì): đang đếm thì nhìn kệ thật, có hàng thì thêm lô phát sinh
         <KhongKetQua
           chu={
             onThemPhatSinh
-              ? `Sổ không ghi hàng ở kệ ${keDangLoc.ma}. Kệ trống thật thì sang kệ khác; thấy hàng thì thêm lô phát sinh.`
-              : `Sổ không ghi hàng ở kệ ${keDangLoc.ma}.`
+              ? t("Sổ không ghi hàng ở kệ {{ma}}. Kệ trống thật thì sang kệ khác; thấy hàng thì thêm lô phát sinh.", { ma: keDangLoc.ma })
+              : t("Sổ không ghi hàng ở kệ {{ma}}.", { ma: keDangLoc.ma })
           }
-          nhanNut={onThemPhatSinh ? "Thêm lô phát sinh" : "Xem mọi kệ"}
+          nhanNut={onThemPhatSinh ? t("Thêm lô phát sinh") : t("Xem mọi kệ")}
           onNut={onThemPhatSinh ?? (() => onDoiBoLoc({ viTriId: null }))}
         />
       ) : !dong.length ? (
         <KhongKetQua
-          chu={`Không có dòng ${TEN_LOC[boLoc.loc] ?? ""}${keDangLoc ? ` ở kệ ${keDangLoc.ma}` : ""}.`}
-          nhanNut="Xem tất cả"
+          chu={t("Không có dòng {{loc}}{{oKe}}.", { loc: TEN_LOC[boLoc.loc] ?? "", oKe: keDangLoc ? t(" ở kệ {{ma}}", { ma: keDangLoc.ma }) : "" })}
+          nhanNut={t("Xem tất cả")}
           onNut={() => onDoiBoLoc({ loc: "tatCa", viTriId: null })}
         />
       ) : null}
@@ -726,8 +727,8 @@ export default function BangDemKiemKe({
           onPageChange={onDoiTrang}
           onSizeChange={onDoiCoTrang}
           sizeOptions={CO_TRANG_DONG}
-          sizeLabel="dòng"
-          totalLabel="dòng"
+          sizeLabel={t("dòng")}
+          totalLabel={t("dòng")}
         />
       ) : null}
     </section>

@@ -1,12 +1,14 @@
 // Hàm thuần cho màn Tạo / sửa đợt kiểm kê (StockTakeCreate): phân loại kệ, lần kiểm gần nhất của khu / danh mục / kho,
 // câu mô tả phạm vi đang chọn.
 import { TT_DOT } from "./kiemKe.js";
+import { t } from "../../i18n/t.js";
 
 /** Lý do hay dùng: bấm để điền vào ô Lý do kiểm kê (vẫn sửa được). */
+// i18n-giu-nguyen: lý do điền vào ô Lý do kiểm kê, gửi máy chủ và in lên biên bản; nút gợi ý hiện t(x) lúc vẽ
 export const LY_DO_NHANH = Object.freeze(["Kiểm kê định kỳ", "Lệch tồn với kênh bán", "Sau đợt nhập hàng lớn", "Nghi thất thoát"]);
 
 /** Câu nhắc gỡ vướng mắc (lý do cạnh nút Bắt đầu). */
-export const GO_VUONG_MAC = "Gỡ các vướng mắc ở phần Xem trước";
+export const GO_VUONG_MAC = t("Gỡ các vướng mắc ở phần Xem trước");
 
 /**
  * Thêm / gỡ một lý do nhanh trong ô Lý do kiểm kê: chưa có thì nối thêm ("; " khi ô đã có chữ), đã có thì gỡ ra
@@ -22,8 +24,8 @@ export function batTatLyDo(cu, chu, toiDa = Infinity) {
       .replace(/\s*;\s*(?:;\s*)+/g, "; ")
       .replace(/^[\s;]+|[\s;]+$/g, "");
   }
-  const t = hienTai.trim();
-  return (t ? `${t}; ${chu}` : chu).slice(0, toiDa);
+  const daCo = hienTai.trim();
+  return (daCo ? `${daCo}; ${chu}` : chu).slice(0, toiDa);
 }
 
 /** Khu vực tick được: bỏ nhóm "Khác" mà máy chủ trả cho kệ chưa thuộc khu nào (id null hoặc 0). */
@@ -53,7 +55,7 @@ export function nhanDotGiu(ds) {
   if (!ds?.length) return "";
   const ma = String(ds[0].ma ?? ds[0].id ?? "");
   const duoi = ma.length > 8 ? ma.slice(-8) : ma;
-  return `đợt ${duoi}${ds.length > 1 ? ` +${ds.length - 1}` : ""}`;
+  return t("đợt {{duoi}}{{them}}", { duoi, them: ds.length > 1 ? ` +${ds.length - 1}` : "" });
 }
 
 /**
@@ -143,8 +145,8 @@ const gon = (ds, toiDa = 3) => {
 
 /** Phạm vi đang chọn trên biểu mẫu thành một cụm: "Khu A, Khu B" · "3 kệ (A-01, A-02, B-07)" · "danh mục Áo (kể cả danh mục con)". */
 export function moTaPhamViChon({ loai, tenKho, tenKhu = [], maKe = [], tenDanhMuc, coDanhMucCon = false }) {
-  if (loai === "theo_khu_vuc") return tenKhu.length ? gon(tenKhu) : "chưa chọn khu vực";
-  if (loai === "theo_ke") return maKe.length ? `${maKe.length} kệ (${gon(maKe)})` : "chưa chọn kệ";
-  if (loai === "theo_danh_muc") return tenDanhMuc ? `danh mục ${tenDanhMuc}${coDanhMucCon ? " (kể cả danh mục con)" : ""}` : "chưa chọn danh mục";
-  return `toàn bộ ${tenKho || "kho"}`;
+  if (loai === "theo_khu_vuc") return tenKhu.length ? gon(tenKhu) : t("chưa chọn khu vực");
+  if (loai === "theo_ke") return maKe.length ? t("{{count}} kệ ({{maKe}})", { count: maKe.length, maKe: gon(maKe) }) : t("chưa chọn kệ");
+  if (loai === "theo_danh_muc") return tenDanhMuc ? (coDanhMucCon ? t("danh mục {{tenDanhMuc}} (kể cả danh mục con)", { tenDanhMuc }) : t("danh mục {{tenDanhMuc}}", { tenDanhMuc })) : t("chưa chọn danh mục");
+  return tenKho ? t("toàn bộ {{tenKho}}", { tenKho }) : t("toàn bộ kho");
 }

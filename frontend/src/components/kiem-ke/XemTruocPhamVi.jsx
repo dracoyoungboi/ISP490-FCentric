@@ -2,6 +2,7 @@ import { CircleCheck, Loader2, OctagonAlert } from "lucide-react";
 import { NutChu } from "@/components/chung-tu/DongThongBao";
 import { soVN } from "@/components/chung-tu/bangChungTu";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 function O({ so, nhan }) {
   return (
@@ -25,7 +26,7 @@ export default function XemTruocPhamVi({ kq, dang = false, loi, onThuLai, cheDo 
   if (loi) {
     return (
       <div className={cn("rounded-lg border border-bo-danger/25 bg-bo-danger-soft px-3 py-2.5 text-[13px] leading-5 text-bo-danger-strong", className)}>
-        Chưa xem trước được phạm vi: {loi}. {onThuLai ? <NutChu onClick={onThuLai}>Thử lại</NutChu> : null}
+        {t("Chưa xem trước được phạm vi: {{loi}}.", { loi })} {onThuLai ? <NutChu onClick={onThuLai}>{t("Thử lại")}</NutChu> : null}
       </div>
     );
   }
@@ -33,7 +34,7 @@ export default function XemTruocPhamVi({ kq, dang = false, loi, onThuLai, cheDo 
     return (
       <div className={cn("flex items-center gap-2 rounded-lg border border-dashed border-bo-border px-3 py-3 text-[13px] text-bo-muted", className)}>
         {dang ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
-        {dang ? "Đang tính phạm vi…" : "Chọn phạm vi để xem trước."}
+        {dang ? t("Đang tính phạm vi…") : t("Chọn phạm vi để xem trước.")}
       </div>
     );
   }
@@ -41,13 +42,13 @@ export default function XemTruocPhamVi({ kq, dang = false, loi, onThuLai, cheDo 
   return (
     <div className={cn("grid gap-3", dang && "opacity-70 transition-opacity", className)} aria-busy={dang || undefined}>
       <div className="grid grid-cols-2 gap-2">
-        <O so={soVN(kq.soViTri)} nhan={cheDo === "theo_lo" ? "kệ có hàng thuộc phạm vi" : "kệ sẽ khóa"} />
-        <O so={soVN(kq.soDong)} nhan="dòng sẽ chốt (kệ – lô)" />
-        <O so={soVN(kq.soLo)} nhan="lô hàng" />
-        <O so={soVN(kq.tongSoLuong)} nhan="sản phẩm trên sổ kệ" />
+        <O so={soVN(kq.soViTri)} nhan={cheDo === "theo_lo" ? t("kệ có hàng thuộc phạm vi") : t("kệ sẽ khóa")} />
+        <O so={soVN(kq.soDong)} nhan={t("dòng sẽ chốt (kệ – lô)")} />
+        <O so={soVN(kq.soLo)} nhan={t("lô hàng")} />
+        <O so={soVN(kq.tongSoLuong)} nhan={t("sản phẩm trên sổ kệ")} />
       </div>
       {kq.soDanhMuc ? (
-        <p className="text-xs leading-4 text-bo-muted">Gồm {soVN(kq.soDanhMuc)} danh mục (kể cả danh mục con).</p>
+        <p className="text-xs leading-4 text-bo-muted">{t("Gồm {{soDanhMuc}} danh mục (kể cả danh mục con).", { count: kq.soDanhMuc, soDanhMuc: soVN(kq.soDanhMuc) })}</p>
       ) : null}
       {vanDe.length ? (
         <ul className="m-0 grid list-none gap-1.5 p-0">
@@ -68,11 +69,11 @@ export default function XemTruocPhamVi({ kq, dang = false, loi, onThuLai, cheDo 
         <p className="flex items-start gap-2 text-[13px] leading-5 text-bo-success">
           <CircleCheck className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
           <span>
-            Sẵn sàng bắt đầu.{" "}
+            {t("Sẵn sàng bắt đầu.")}{" "}
             <span className="text-slate-700">
               {cheDo === "theo_lo"
-                ? "Chỉ hàng thuộc danh mục bị giữ; hàng khác trên cùng kệ vẫn nhập, xuất, bán bình thường."
-                : "Các kệ trên tạm dừng nhập, xuất, chuyển kho và bán tại quầy tới khi duyệt hoặc hủy."}
+                ? t("Chỉ hàng thuộc danh mục bị giữ; hàng khác trên cùng kệ vẫn nhập, xuất, bán bình thường.")
+                : t("Các kệ trên tạm dừng nhập, xuất, chuyển kho và bán tại quầy tới khi duyệt hoặc hủy.")}
             </span>
           </span>
         </p>

@@ -10,6 +10,7 @@ import { soVN } from "@/components/chung-tu/bangChungTu";
 import { cn } from "@/lib/utils";
 import { formatDateTime } from "@/utils/formatters";
 import { LY_DO_KE, cauKhongGoiY, coTheXep, nhomTheoNguon, soXepDuoc, tieuDeNguon, xepNgayDuoc } from "./hangChuaCoKe";
+import { t } from "@/i18n";
 
 const TH = "h-10 pr-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
 const NUT_VIEN = "h-8 gap-1.5 border-bo-border bg-bo-surface text-[13px] hover:bg-bo-surface-subtle";
@@ -46,7 +47,7 @@ function OGoiY({ h }) {
       </span>
       {g.conCho != null ? (
         <span className={cn("text-xs tabular-nums", du ? "text-bo-muted" : "font-medium text-bo-warning")}>
-          {du ? `Còn chỗ ${soVN(g.conCho)}` : `Chỉ còn chỗ ${soVN(g.conCho)}, cần chia thêm kệ`}
+          {du ? t("Còn chỗ {{conCho}}", { conCho: soVN(g.conCho) }) : t("Chỉ còn chỗ {{conCho}}, cần chia thêm kệ", { conCho: soVN(g.conCho) })}
         </span>
       ) : null}
     </span>
@@ -59,31 +60,31 @@ function OGoiY({ h }) {
  */
 function ThaoTac({ h, dangXep, khoa, onXepNgay, onMoHop }) {
   if (!coTheXep(h)) {
-    return <span className="text-xs font-medium text-bo-muted">{h.dangKiemKe ? "Đang kiểm kê" : "Chờ nhặt"}</span>;
+    return <span className="text-xs font-medium text-bo-muted">{h.dangKiemKe ? t("Đang kiểm kê") : t("Chờ nhặt")}</span>;
   }
   if (!xepNgayDuoc(h)) {
     return (
       <Button size="sm" variant="outline" onClick={() => onMoHop([h])} disabled={khoa} className={NUT_VIEN}>
         <PackageOpen className="size-3.5" />
-        Chọn kệ
+        {t("Chọn kệ")}
       </Button>
     );
   }
   return (
     <span className="inline-flex items-center gap-3">
       <NutChu onClick={() => onMoHop([h])} disabled={khoa}>
-        Kệ khác
+        {t("Kệ khác")}
       </NutChu>
       <Button
         size="sm"
         onClick={() => onXepNgay([h])}
         disabled={khoa}
         aria-busy={dangXep || undefined}
-        title={`Xếp ${soVN(soXepDuoc(h))} sản phẩm vào kệ ${h.keGoiY.ma}`}
+        title={t("Xếp {{soSp}} sản phẩm vào kệ {{ma}}", { count: soXepDuoc(h), soSp: soVN(soXepDuoc(h)), ma: h.keGoiY.ma })}
         className="h-8 gap-1.5 text-[13px]"
       >
         {dangXep ? <Loader2 className="size-3.5 animate-spin" /> : <MapPinCheck className="size-3.5" />}
-        {dangXep ? "Đang xếp…" : `Xếp vào ${h.keGoiY.ma}`}
+        {dangXep ? t("Đang xếp…") : t("Xếp vào {{ma}}", { ma: h.keGoiY.ma })}
       </Button>
     </span>
   );
@@ -95,10 +96,10 @@ function ChungTu({ nguon }) {
   const phu = nguon
     ? [
         formatDateTime(nguon.ngay),
-        nguon.nguoiNhap ? `người nhận ${nguon.nguoiNhap}` : null,
-        nguon.soPhieuChuyen ? `phiếu chuyển ${nguon.soPhieuChuyen}` : null,
+        nguon.nguoiNhap ? t("người nhận {{nguoiNhap}}", { nguoiNhap: nguon.nguoiNhap }) : null,
+        nguon.soPhieuChuyen ? t("phiếu chuyển {{soPhieuChuyen}}", { soPhieuChuyen: nguon.soPhieuChuyen }) : null,
       ].filter(Boolean)
-    : ["Hàng có từ trước khi sổ kệ được ghi đúng"];
+    : [t("Hàng có từ trước khi sổ kệ được ghi đúng")];
   return (
     <span className="flex min-w-0 items-center gap-2.5">
       <span
@@ -127,10 +128,10 @@ function ChungTu({ nguon }) {
 /** Nút xếp cả nhóm theo gợi ý (chỉ các lô xếp ngay được). */
 function NutXepNhom({ ds, khoa, onXepNgay }) {
   const ngay = ds.filter(xepNgayDuoc);
-  if (!ngay.length) return <span className="text-xs text-bo-muted">Cần chọn kệ từng lô</span>;
+  if (!ngay.length) return <span className="text-xs text-bo-muted">{t("Cần chọn kệ từng lô")}</span>;
   return (
     <NutChu onClick={() => onXepNgay(ngay)} disabled={khoa}>
-      {ngay.length === ds.length ? "Xếp cả nhóm theo gợi ý" : `Xếp ${soVN(ngay.length)} lô theo gợi ý`}
+      {ngay.length === ds.length ? t("Xếp cả nhóm theo gợi ý") : t("Xếp {{soLo}} lô theo gợi ý", { count: ngay.length, soLo: soVN(ngay.length) })}
     </NutChu>
   );
 }
@@ -141,8 +142,8 @@ const idChonDuoc = (ds) => ds.filter(coTheXep).map((h) => h.loHangId);
 
 /** Dòng phụ dưới số chưa có kệ: phần phiếu nhặt đang giữ, hoặc tồn lô khi lô đã lên kệ một phần. */
 function PhuSoChuaCoKe({ h }) {
-  if (Number(h.dangGiuNhat) > 0) return <span className="block text-xs text-bo-muted">{soVN(h.dangGiuNhat)} chờ nhặt</span>;
-  if (Number(h.trenKe) > 0) return <span className="block text-xs text-bo-muted">/ tồn {soVN(h.tonLo)}</span>;
+  if (Number(h.dangGiuNhat) > 0) return <span className="block text-xs text-bo-muted">{t("{{soGiu}} chờ nhặt", { soGiu: soVN(h.dangGiuNhat) })}</span>;
+  if (Number(h.trenKe) > 0) return <span className="block text-xs text-bo-muted">{t("/ tồn {{tonLo}}", { tonLo: soVN(h.tonLo) })}</span>;
   return null;
 }
 
@@ -175,7 +176,7 @@ export default function BangHangChuaCoKe({ ds, nhom, chon, onDoiChon, dangXep, k
           checked={chon.has(h.loHangId)}
           disabled={!coTheXep(h)}
           onCheckedChange={(v) => onDoiChon([h.loHangId], v === true)}
-          aria-label={`Chọn lô ${h.maLo}`}
+          aria-label={t("Chọn lô {{maLo}}", { maLo: h.maLo })}
           className={O_CHON}
         />
       </td>
@@ -195,7 +196,7 @@ export default function BangHangChuaCoKe({ ds, nhom, chon, onDoiChon, dangXep, k
           {h.maLo}
         </span>
         {nhom === "lo" ? (
-          <span className="mt-1 block text-xs text-bo-muted">{h.nguon?.soPhieuNhap ? <span className="font-mono">{h.nguon.soPhieuNhap}</span> : "Không rõ chứng từ"}</span>
+          <span className="mt-1 block text-xs text-bo-muted">{h.nguon?.soPhieuNhap ? <span className="font-mono">{h.nguon.soPhieuNhap}</span> : t("Không rõ chứng từ")}</span>
         ) : null}
       </td>
       <td className="py-3 pr-4">
@@ -231,15 +232,15 @@ export default function BangHangChuaCoKe({ ds, nhom, chon, onDoiChon, dangXep, k
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-medium text-bo-foreground">{h.sanPham?.tenSanPham || "—"}</span>
                       <span className="block truncate text-xs text-bo-muted">
-                        <MauKichCo dong={h.sanPham} className="align-bottom" /> · lô <span className="font-mono">{h.maLo}</span>
+                        <MauKichCo dong={h.sanPham} className="align-bottom" /> {t("· lô")} <span className="font-mono">{h.maLo}</span>
                       </span>
                     </span>
                     <span className="shrink-0 text-right tabular-nums">
                       <span className="block text-base font-semibold leading-6 text-bo-foreground">{soVN(h.chuaCoKe)}</span>
                       {Number(h.dangGiuNhat) > 0 ? (
-                        <span className="block text-[11px] text-bo-muted">{soVN(h.dangGiuNhat)} chờ nhặt</span>
+                        <span className="block text-[11px] text-bo-muted">{t("{{soGiu}} chờ nhặt", { soGiu: soVN(h.dangGiuNhat) })}</span>
                       ) : (
-                        <span className="block text-[11px] text-bo-muted">chưa có kệ</span>
+                        <span className="block text-[11px] text-bo-muted">{t("chưa có kệ")}</span>
                       )}
                     </span>
                   </span>
@@ -262,13 +263,13 @@ export default function BangHangChuaCoKe({ ds, nhom, chon, onDoiChon, dangXep, k
         <thead className="sticky top-0 z-10">
           <tr className="border-b border-bo-border bg-bo-surface-subtle">
             <th className="w-11 pl-4 text-left">
-              <OChonNhom ids={tatCa} chon={chon} onDoiChon={onDoiChon} nhan="Chọn tất cả lô đang hiện" />
+              <OChonNhom ids={tatCa} chon={chon} onDoiChon={onDoiChon} nhan={t("Chọn tất cả lô đang hiện")} />
             </th>
-            <th className={`${TH} text-left`}>Sản phẩm</th>
-            <th className={`${TH} text-left`}>{nhom === "lo" ? "Lô · phiếu nhập" : "Lô"}</th>
-            <th className={`${TH} text-left`}>Kệ gợi ý</th>
-            <th className={`${TH} text-right`}>Chưa có kệ</th>
-            <th className={`${TH} text-right`}>Thao tác</th>
+            <th className={`${TH} text-left`}>{t("Sản phẩm")}</th>
+            <th className={`${TH} text-left`}>{nhom === "lo" ? t("Lô · phiếu nhập") : t("Lô")}</th>
+            <th className={`${TH} text-left`}>{t("Kệ gợi ý")}</th>
+            <th className={`${TH} text-right`}>{t("Chưa có kệ")}</th>
+            <th className={`${TH} text-right`}>{t("Thao tác")}</th>
           </tr>
         </thead>
         <tbody>
@@ -283,14 +284,14 @@ export default function BangHangChuaCoKe({ ds, nhom, chon, onDoiChon, dangXep, k
                         ids={ids}
                         chon={chon}
                         onDoiChon={onDoiChon}
-                        nhan={`Chọn cả nhóm ${tieuDeNguon(n.nguon)}${n.nguon?.soPhieuNhap ? ` ${n.nguon.soPhieuNhap}` : ""}`}
+                        nhan={t("Chọn cả nhóm {{nguon}}{{soPhieu}}", { nguon: tieuDeNguon(n.nguon), soPhieu: n.nguon?.soPhieuNhap ? ` ${n.nguon.soPhieuNhap}` : "" })}
                       />
                     </td>
                     <td colSpan={3} className="py-2.5 pr-4">
                       <ChungTu nguon={n.nguon} />
                     </td>
                     <td className="whitespace-nowrap py-2.5 pr-4 text-right text-xs tabular-nums text-bo-muted">
-                      {soVN(n.ds.length)} lô · <b className="font-semibold text-bo-foreground">{soVN(tongSo(n.ds))}</b> sp
+                      {t("{{soLo}} lô ·", { count: n.ds.length, soLo: soVN(n.ds.length) })} <b className="font-semibold text-bo-foreground">{soVN(tongSo(n.ds))}</b> {t("sp")}
                     </td>
                     <td className="whitespace-nowrap py-2.5 pr-4 text-right">
                       <NutXepNhom ds={n.ds} khoa={khoa} onXepNgay={onXepNgay} />

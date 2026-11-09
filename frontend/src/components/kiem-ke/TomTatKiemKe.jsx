@@ -2,6 +2,7 @@ import { CircleCheck, EyeOff, Scale, TrendingDown, TrendingUp } from "lucide-rea
 import { soVN } from "@/components/chung-tu/bangChungTu";
 import { cn } from "@/lib/utils";
 import { tienCoDau } from "./kiemKe";
+import { t } from "@/i18n";
 
 function O({ icon: Icon, nhan, so, phu, mau, children }) {
   return (
@@ -36,20 +37,20 @@ export default function TomTatKiemKe({ tk, mu = false, coRong = false, daDemXong
       )}
     >
       {daDemXong ? (
-        <O nhan="Tổng dòng" so={soVN(tk.tong)} phu="cặp kệ – lô" />
+        <O nhan={t("Tổng dòng")} so={soVN(tk.tong)} phu={t("cặp kệ – lô")} />
       ) : (
         <O
-          nhan="Tiến độ đếm"
+          nhan={t("Tiến độ đếm")}
           so={
             <>
               {soVN(tk.daDem)}
-              <span className="text-sm font-medium text-bo-muted">/{soVN(tk.tong)} dòng</span>
+              <span className="text-sm font-medium text-bo-muted">{t("/{{tong}} dòng", { count: tk.tong, tong: soVN(tk.tong) })}</span>
             </>
           }
         >
           <span
             role="progressbar"
-            aria-label="Tiến độ đếm"
+            aria-label={t("Tiến độ đếm")}
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={tk.phanTram}
@@ -67,25 +68,24 @@ export default function TomTatKiemKe({ tk, mu = false, coRong = false, daDemXong
         <div className="flex min-w-0 items-start gap-2.5 rounded-lg border border-dashed border-bo-border bg-bo-surface-subtle px-3.5 py-3 text-[13px] leading-5 text-slate-700">
           <EyeOff className="mt-0.5 size-4 shrink-0 text-bo-muted" aria-hidden="true" />
           <span>
-            <b className="font-semibold text-bo-foreground">Đang đếm mù.</b> Số trên sổ và chênh lệch được ẩn để không ảnh hưởng
-            người đếm. Tắt công tắc Đếm mù để xem.
+            <b className="font-semibold text-bo-foreground">{t("Đang đếm mù.")}</b> {t("Số trên sổ và chênh lệch được ẩn để không ảnh hưởng người đếm. Tắt công tắc Đếm mù để xem.")}
           </span>
         </div>
       ) : (
         <>
-          <O icon={CircleCheck} nhan="Khớp sổ" so={soVN(tk.khop)} phu="dòng" mau="text-bo-success" />
+          <O icon={CircleCheck} nhan={t("Khớp sổ")} so={soVN(tk.khop)} phu={t("dòng")} mau="text-bo-success" />
           <O
             icon={TrendingDown}
-            nhan="Thiếu"
+            nhan={t("Thiếu")}
             so={tk.thieu ? `−${soVN(tk.thieu)}` : "0"}
-            phu={tk.thieu ? `cái · ${tienCoDau(-Math.abs(tk.giaTriThieu ?? 0))}` : "cái"}
+            phu={tk.thieu ? t("cái · {{tien}}", { tien: tienCoDau(-Math.abs(tk.giaTriThieu ?? 0)) }) : t("cái")}
             mau={tk.thieu ? "text-bo-danger" : undefined}
           />
           <O
             icon={TrendingUp}
-            nhan="Thừa"
+            nhan={t("Thừa")}
             so={tk.thua ? `+${soVN(tk.thua)}` : "0"}
-            phu={tk.thua ? `cái · ${tienCoDau(Math.abs(tk.giaTriThua ?? 0))}` : "cái"}
+            phu={tk.thua ? t("cái · {{tien}}", { tien: tienCoDau(Math.abs(tk.giaTriThua ?? 0)) }) : t("cái")}
             mau={tk.thua ? "text-bo-primary-strong" : undefined}
           />
           {hienRong ? (
@@ -93,9 +93,9 @@ export default function TomTatKiemKe({ tk, mu = false, coRong = false, daDemXong
             <div className="col-span-2 @3xl/khoi:col-span-1">
               <O
                 icon={Scale}
-                nhan="Chênh lệch ròng"
+                nhan={t("Chênh lệch ròng")}
                 so={tienCoDau(tk.giaTri)}
-                phu="theo giá vốn lúc chốt sổ"
+                phu={t("theo giá vốn lúc chốt sổ")}
                 mau={tk.giaTri < 0 ? "text-bo-danger" : tk.giaTri > 0 ? "text-bo-primary-strong" : undefined}
               />
             </div>

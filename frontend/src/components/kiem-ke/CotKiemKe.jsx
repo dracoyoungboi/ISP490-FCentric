@@ -5,6 +5,7 @@ import { soVN } from "@/components/chung-tu/bangChungTu";
 import { cn } from "@/lib/utils";
 import { formatDateTime } from "@/utils/formatters";
 import { LOAI_PHAM_VI, moTaKhoa, moTaPhamVi, nhanPhamVi, tienCoDau } from "./kiemKe";
+import { t } from "@/i18n";
 
 // Nhật ký: số mục hiện trước, còn lại mở bằng "Xem thêm"
 const SO_NHAT_KY_HIEN = 6;
@@ -42,26 +43,26 @@ export default function CotKiemKe({ dot, nhatKy, phieu }) {
   const nhatKyHien = moHetNhatKy ? ds : ds.slice(0, SO_NHAT_KY_HIEN);
 
   return (
-    <CotThuocTinh nhan="Thông tin đợt kiểm kê">
-      <NhomThuocTinh nhan="Phạm vi">
+    <CotThuocTinh nhan={t("Thông tin đợt kiểm kê")}>
+      <NhomThuocTinh nhan={t("Phạm vi")}>
         <BangThuocTinh
           muc={[
-            { nhan: "Kho", giaTri: dot.kho?.ten },
+            { nhan: t("Kho"), giaTri: dot.kho?.ten },
             // Kiểu + chi tiết phạm vi trên một dòng: "Khu vực: Khu A, Khu B" · "Toàn bộ kho"
             {
-              nhan: "Phạm vi",
+              nhan: t("Phạm vi"),
               giaTri:
                 // Toàn kho, đợt cũ không ghi kiểu, Đột xuất: chỉ tên kiểu (mô tả "Mọi kệ của …" chỉ lặp lại)
                 !dot.loaiKiemKe || dot.loaiKiemKe === "toan_bo" || dot.loaiKiemKe === "dot_xuat" || !moTaPhamVi(dot, 4)
                   ? nhanPhamVi(dot.loaiKiemKe)
                   : `${LOAI_PHAM_VI[dot.loaiKiemKe]?.ngan ?? nhanPhamVi(dot.loaiKiemKe)}: ${moTaPhamVi(dot, 4)}`,
             },
-            { nhan: "Khóa", giaTri: <TheKhoa dot={dot} /> },
+            { nhan: t("Khóa"), giaTri: <TheKhoa dot={dot} /> },
           ]}
         />
         {dsKe.length && dot.trangThai !== 0 ? (
           <div className="mt-3">
-            <span className="text-xs leading-4 text-bo-muted">Kệ trong phạm vi ({soVN(dsKe.length)})</span>
+            <span className="text-xs leading-4 text-bo-muted">{t("Kệ trong phạm vi ({{soKe}})", { soKe: soVN(dsKe.length) })}</span>
             <ul className="m-0 mt-1.5 flex list-none flex-wrap gap-1.5 p-0">
               {keHien.map((k) => (
                 <li
@@ -78,7 +79,7 @@ export default function CotKiemKe({ dot, nhatKy, phieu }) {
                     onClick={() => setMoHetKe(true)}
                     className="h-6 rounded-md px-1.5 text-xs font-semibold text-bo-primary hover:bg-bo-primary-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
                   >
-                    +{soVN(dsKe.length - SO_KE_HIEN)} kệ
+                    {t("+{{soKe}} kệ", { count: dsKe.length - SO_KE_HIEN, soKe: soVN(dsKe.length - SO_KE_HIEN) })}
                   </button>
                 </li>
               ) : null}
@@ -87,33 +88,33 @@ export default function CotKiemKe({ dot, nhatKy, phieu }) {
         ) : null}
       </NhomThuocTinh>
 
-      <NhomThuocTinh nhan="Thông tin">
+      <NhomThuocTinh nhan={t("Thông tin")}>
         <BangThuocTinh
           muc={[
-            { nhan: "Tên đợt", giaTri: dot.ten },
-            { nhan: "Người chủ trì", giaTri: dot.nguoiChuTri?.hoTen },
-            { nhan: "Lý do", giaTri: dot.lyDo ? <span className="whitespace-pre-line">{dot.lyDo}</span> : null },
-            { nhan: "Ghi chú", giaTri: dot.ghiChu ? <span className="whitespace-pre-line">{dot.ghiChu}</span> : null, an: !dot.ghiChu },
-            { nhan: "Dự kiến", giaTri: dot.ngayDuKienBatDau ? formatDateTime(dot.ngayDuKienBatDau) : null, an: !dot.ngayDuKienBatDau },
-            { nhan: "Lý do hủy", giaTri: dot.lyDoHuy, an: !dot.lyDoHuy },
+            { nhan: t("Tên đợt"), giaTri: dot.ten },
+            { nhan: t("Người chủ trì"), giaTri: dot.nguoiChuTri?.hoTen },
+            { nhan: t("Lý do"), giaTri: dot.lyDo ? <span className="whitespace-pre-line">{dot.lyDo}</span> : null },
+            { nhan: t("Ghi chú"), giaTri: dot.ghiChu ? <span className="whitespace-pre-line">{dot.ghiChu}</span> : null, an: !dot.ghiChu },
+            { nhan: t("Dự kiến"), giaTri: dot.ngayDuKienBatDau ? formatDateTime(dot.ngayDuKienBatDau) : null, an: !dot.ngayDuKienBatDau },
+            { nhan: t("Lý do hủy"), giaTri: dot.lyDoHuy, an: !dot.lyDoHuy },
           ]}
         />
       </NhomThuocTinh>
 
       {phieu ? (
-        <NhomThuocTinh nhan="Phiếu điều chỉnh tồn">
+        <NhomThuocTinh nhan={t("Phiếu điều chỉnh tồn")}>
           <div className="rounded-md border border-bo-border bg-white px-3 py-2.5">
             <span className="flex items-center gap-2">
               <FileCheck2 className="size-4 text-bo-success" aria-hidden="true" />
               <span className="font-mono text-[13px] font-semibold text-bo-heading">{phieu.soPhieu}</span>
-              <span className="ml-auto text-xs text-bo-muted tabular-nums">{soVN(phieu.soDong)} dòng</span>
+              <span className="ml-auto text-xs text-bo-muted tabular-nums">{t("{{soDong}} dòng", { count: Number(phieu.soDong) || 0, soDong: soVN(phieu.soDong) })}</span>
             </span>
             <dl className="m-0 mt-2 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-[13px] leading-5">
-              <dt className="text-bo-muted">Tăng</dt>
+              <dt className="text-bo-muted">{t("Tăng", { context: "dieu_chinh" })}</dt>
               <dd className="m-0 text-right font-medium tabular-nums text-bo-primary-strong">{tienCoDau(phieu.tongGiaTriTang)}</dd>
-              <dt className="text-bo-muted">Giảm</dt>
+              <dt className="text-bo-muted">{t("Giảm", { context: "dieu_chinh" })}</dt>
               <dd className="m-0 text-right font-medium tabular-nums text-bo-danger">{tienCoDau(-Math.abs(Number(phieu.tongGiaTriGiam) || 0))}</dd>
-              <dt className="font-medium text-bo-foreground">Ròng</dt>
+              <dt className="font-medium text-bo-foreground">{t("Ròng")}</dt>
               <dd className="m-0 text-right font-semibold tabular-nums text-bo-heading">{tienCoDau(phieu.giaTriChenhLechThuan)}</dd>
             </dl>
             <p className="mt-2 text-xs leading-4 text-bo-muted">
@@ -124,7 +125,7 @@ export default function CotKiemKe({ dot, nhatKy, phieu }) {
         </NhomThuocTinh>
       ) : null}
 
-      <NhomThuocTinh nhan="Nhật ký" rong>
+      <NhomThuocTinh nhan={t("Nhật ký")} rong>
         {ds.length ? (
           <>
             <ol className="m-0 grid list-none gap-0 p-0">
@@ -150,17 +151,17 @@ export default function CotKiemKe({ dot, nhatKy, phieu }) {
                 onClick={() => setMoHetNhatKy((x) => !x)}
                 className="mt-2 rounded text-xs font-semibold text-bo-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
               >
-                {moHetNhatKy ? "Thu gọn" : `Xem thêm ${soVN(ds.length - SO_NHAT_KY_HIEN)} mục`}
+                {moHetNhatKy ? t("Thu gọn") : t("Xem thêm {{soMuc}} mục", { count: ds.length - SO_NHAT_KY_HIEN, soMuc: soVN(ds.length - SO_NHAT_KY_HIEN) })}
               </button>
             ) : null}
           </>
         ) : (
           <p className="text-[13px] text-bo-muted">
             {nhatKy == null
-              ? "Chưa tải được nhật ký."
+              ? t("Chưa tải được nhật ký.")
               : Number(dot.trangThai) === 0
-                ? "Chưa có thao tác nào."
-                : "Không có nhật ký: đợt lập trước khi hệ thống ghi nhật ký kiểm kê."}
+                ? t("Chưa có thao tác nào.")
+                : t("Không có nhật ký: đợt lập trước khi hệ thống ghi nhật ký kiểm kê.")}
           </p>
         )}
       </NhomThuocTinh>

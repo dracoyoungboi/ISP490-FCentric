@@ -2,6 +2,7 @@ import { useState } from "react";
 import { CircleCheck } from "lucide-react";
 import { soVN } from "@/components/chung-tu/bangChungTu";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 // Số ô kệ hiện trước (khoảng 2 hàng trên máy tính); còn lại mở bằng "Xem tất cả"
 const SO_KE_HIEN = 14;
@@ -24,11 +25,11 @@ export default function BanDoTienDoKe({ dsKe, tienDo, keDangXem, onChonKe, tongD
     ? dsKe.filter((k, i) => i < SO_KE_HIEN || k.id === keDangXem)
     : dsKe;
   return (
-    <section aria-label="Tiến độ theo kệ" className="grid gap-2.5 px-4 pt-5 sm:px-6">
+    <section aria-label={t("Tiến độ theo kệ")} className="grid gap-2.5 px-4 pt-5 sm:px-6">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h2 className="text-base font-semibold leading-6 text-bo-foreground">Tiến độ theo kệ</h2>
+        <h2 className="text-base font-semibold leading-6 text-bo-foreground">{t("Tiến độ theo kệ")}</h2>
         <span className="text-sm text-bo-muted tabular-nums">
-          {soVN(daDem)}/{soVN(tongDong)} dòng · {phanTram}%
+          {t("{{daDem}}/{{tongDong}} dòng · {{phanTram}}%", { count: tongDong, daDem: soVN(daDem), tongDong: soVN(tongDong), phanTram })}
         </span>
         {keDangXem != null ? (
           <button
@@ -36,15 +37,15 @@ export default function BanDoTienDoKe({ dsKe, tienDo, keDangXem, onChonKe, tongD
             onClick={() => onChonKe(null)}
             className="ml-auto rounded text-xs font-semibold text-bo-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
           >
-            Xem mọi kệ
+            {t("Xem mọi kệ")}
           </button>
         ) : null}
       </div>
       <ul className="m-0 flex list-none gap-2 overflow-x-auto p-0 pb-1 [scrollbar-width:thin] @2xl/khoi:grid @2xl/khoi:grid-cols-[repeat(auto-fill,minmax(132px,1fr))] @2xl/khoi:overflow-visible @2xl/khoi:pb-0">
         {keHien.map((k) => {
-          const t = tienDo.get(k.id) ?? { tong: 0, daDem: 0, nguoi: null };
-          const trong = t.tong === 0;
-          const xong = !trong && t.daDem === t.tong;
+          const td = tienDo.get(k.id) ?? { tong: 0, daDem: 0, nguoi: null };
+          const trong = td.tong === 0;
+          const xong = !trong && td.daDem === td.tong;
           const dangXem = keDangXem === k.id;
           return (
             <li key={k.id} className="shrink-0 basis-[132px] @2xl/khoi:basis-auto">
@@ -69,13 +70,13 @@ export default function BanDoTienDoKe({ dsKe, tienDo, keDangXem, onChonKe, tongD
                   <span
                     className={cn("block h-full rounded-full transition-[width] duration-300", xong ? "bg-bo-success" : "bg-bo-primary")}
                     // data-viz: bề rộng theo phần trăm dòng đã đếm của kệ
-                    style={{ width: `${trong ? 0 : Math.floor((t.daDem / t.tong) * 100)}%` }}
+                    style={{ width: `${trong ? 0 : Math.floor((td.daDem / td.tong) * 100)}%` }}
                   />
                 </span>
                 <span className="text-xs leading-4 text-bo-muted tabular-nums">
-                  {trong ? "Trống trên sổ" : xong ? "Đã đếm hết" : `${soVN(t.daDem)}/${soVN(t.tong)} dòng`}
+                  {trong ? t("Trống trên sổ") : xong ? t("Đã đếm hết") : t("{{daDem}}/{{tongDong}} dòng", { count: td.tong, daDem: soVN(td.daDem), tongDong: soVN(td.tong) })}
                 </span>
-                <span className="block min-h-4 truncate text-[11px] font-medium leading-4 text-slate-500">{t.nguoi ?? ""}</span>
+                <span className="block min-h-4 truncate text-[11px] font-medium leading-4 text-slate-500">{td.nguoi ?? ""}</span>
               </button>
             </li>
           );
@@ -87,7 +88,7 @@ export default function BanDoTienDoKe({ dsKe, tienDo, keDangXem, onChonKe, tongD
           onClick={() => setMoHet((x) => !x)}
           className="justify-self-start rounded text-xs font-semibold text-bo-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
         >
-          {moHet ? "Thu gọn" : `Xem tất cả ${soVN(dsKe.length)} kệ`}
+          {moHet ? t("Thu gọn") : t("Xem tất cả {{soKe}} kệ", { count: dsKe.length, soKe: soVN(dsKe.length) })}
         </button>
       ) : null}
     </section>

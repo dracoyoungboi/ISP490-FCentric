@@ -8,54 +8,57 @@
  *   trangThai 0 Chưa kiểm · 1 Đã kiểm · 2 Cần kiểm lại · 3 Đã xác nhận.
  */
 import { boDau, docSo, soVN } from "../chung-tu/bangChungTu.js";
+import { t } from "../../i18n/t.js";
 
 export const TT_DOT = Object.freeze({ NHAP: 0, DANG_KIEM_KE: 1, CHO_DUYET: 2, DA_DUYET: 3, DA_HUY: 4 });
 export const TT_DONG = Object.freeze({ CHUA_KIEM: 0, DA_KIEM: 1, CAN_KIEM_LAI: 2, DA_XAC_NHAN: 3 });
 
 /** Nhãn trạng thái đợt (constants/trangThai.js → kiemKe tô màu theo tên nhãn). */
+// i18n-giu-nguyen: nhãn đưa vào StatusBadge — badge tra màu theo tên Việt và tự dịch lúc vẽ
 export const NHAN_TT_DOT = Object.freeze(["Nháp", "Đang kiểm kê", "Chờ duyệt", "Đã duyệt", "Đã hủy"]);
-export const nhanTrangThaiDot = (tt) => NHAN_TT_DOT[Number(tt)] ?? "Không rõ";
+export const nhanTrangThaiDot = (tt) => NHAN_TT_DOT[Number(tt)] ?? "Không rõ"; // i18n-giu-nguyen: nhãn StatusBadge, badge tự dịch
 
+// i18n-giu-nguyen: bảng nhãn trạng thái gốc như constants/; nơi hiện ra màn hình bọc t() lúc vẽ
 export const NHAN_TT_DONG = Object.freeze(["Chưa kiểm", "Đã kiểm", "Cần kiểm lại", "Đã xác nhận"]);
 
 /** Tab danh sách: mã tab nằm trên URL ?trangThai= (dashboard liên kết tới "dang-kiem-ke"). */
 export const TAB_DOT = Object.freeze([
-  { value: "tat-ca", label: "Tất cả", trangThai: null },
-  { value: "nhap", label: "Nháp", trangThai: 0 },
-  { value: "dang-kiem-ke", label: "Đang kiểm kê", trangThai: 1 },
-  { value: "cho-duyet", label: "Chờ duyệt", trangThai: 2, tone: "warning" },
-  { value: "da-duyet", label: "Đã duyệt", trangThai: 3 },
-  { value: "da-huy", label: "Đã hủy", trangThai: 4 },
+  { value: "tat-ca", label: t("Tất cả"), trangThai: null },
+  { value: "nhap", label: t("Nháp"), trangThai: 0 },
+  { value: "dang-kiem-ke", label: t("Đang kiểm kê"), trangThai: 1 },
+  { value: "cho-duyet", label: t("Chờ duyệt"), trangThai: 2, tone: "warning" },
+  { value: "da-duyet", label: t("Đã duyệt"), trangThai: 3 },
+  { value: "da-huy", label: t("Đã hủy"), trangThai: 4 },
 ]);
 
 export const LOAI_PHAM_VI = Object.freeze({
   // moTa: một dòng nói đúng điều khác nhau giữa các kiểu — phần nào tạm dừng
-  toan_bo: { nhan: "Toàn bộ kho", ngan: "Toàn kho", moTa: "Cả kho tạm dừng nhập xuất" },
-  theo_khu_vuc: { nhan: "Theo khu vực", ngan: "Khu vực", moTa: "Chỉ khu đã chọn tạm dừng" },
-  theo_ke: { nhan: "Theo vị trí kệ", ngan: "Kệ", moTa: "Chỉ kệ đã chọn tạm dừng" },
-  theo_danh_muc: { nhan: "Theo danh mục", ngan: "Danh mục", moTa: "Hàng khác cùng kệ vẫn bán" },
-  dot_xuat: { nhan: "Đột xuất", ngan: "Đột xuất", moTa: "Đợt cũ" },
+  toan_bo: { nhan: t("Toàn bộ kho"), ngan: t("Toàn kho"), moTa: t("Cả kho tạm dừng nhập xuất") },
+  theo_khu_vuc: { nhan: t("Theo khu vực"), ngan: t("Khu vực"), moTa: t("Chỉ khu đã chọn tạm dừng") },
+  theo_ke: { nhan: t("Theo vị trí kệ"), ngan: t("Kệ"), moTa: t("Chỉ kệ đã chọn tạm dừng") },
+  theo_danh_muc: { nhan: t("Theo danh mục"), ngan: t("Danh mục"), moTa: t("Hàng khác cùng kệ vẫn bán") },
+  dot_xuat: { nhan: t("Đột xuất"), ngan: t("Đột xuất"), moTa: t("Đợt cũ") },
 });
 export const THU_TU_PHAM_VI = Object.freeze(["toan_bo", "theo_khu_vuc", "theo_ke", "theo_danh_muc"]);
 
-export const nhanPhamVi = (loai) => LOAI_PHAM_VI[loai]?.nhan ?? "Toàn bộ kho";
+export const nhanPhamVi = (loai) => LOAI_PHAM_VI[loai]?.nhan ?? t("Toàn bộ kho");
 
 /** Một dòng mô tả phạm vi của đợt: "Khu A, Khu B" · "A-01-01, A-01-02 +3" · "Quần (gồm 2 danh mục con)". */
 export function moTaPhamVi(dot, toiDa = 3) {
   if (!dot) return "";
   const loai = dot.loaiKiemKe;
-  if (loai === "toan_bo" || loai === "dot_xuat" || !loai) return dot.kho?.ten ? `Mọi kệ của ${dot.kho.ten}` : "Mọi kệ của kho";
+  if (loai === "toan_bo" || loai === "dot_xuat" || !loai) return dot.kho?.ten ? t("Mọi kệ của {{ten}}", { ten: dot.kho.ten }) : t("Mọi kệ của kho");
   const gon = (ds) => {
     const ten = ds.filter(Boolean);
     if (!ten.length) return "";
     return ten.length <= toiDa ? ten.join(", ") : `${ten.slice(0, toiDa).join(", ")} +${ten.length - toiDa}`;
   };
-  if (loai === "theo_khu_vuc") return gon((dot.khuVuc ?? []).map((k) => k.ten || k.ma)) || "Chưa chọn khu vực";
-  if (loai === "theo_ke") return gon((dot.viTri ?? []).map((v) => v.ma)) || "Chưa chọn kệ";
+  if (loai === "theo_khu_vuc") return gon((dot.khuVuc ?? []).map((k) => k.ten || k.ma)) || t("Chưa chọn khu vực");
+  if (loai === "theo_ke") return gon((dot.viTri ?? []).map((v) => v.ma)) || t("Chưa chọn kệ");
   if (loai === "theo_danh_muc") {
-    const goc = dot.danhMuc?.ten || "Chưa chọn danh mục";
+    const goc = dot.danhMuc?.ten || t("Chưa chọn danh mục");
     const con = Math.max(0, (dot.danhMucChot?.length ?? 0) - 1);
-    return con > 0 ? `${goc} (gồm ${con} danh mục con)` : goc;
+    return con > 0 ? t("{{goc}} (gồm {{con}} danh mục con)", { count: con, goc, con }) : goc;
   }
   return "";
 }
@@ -63,14 +66,14 @@ export function moTaPhamVi(dot, toiDa = 3) {
 /** Khóa đang giữ của đợt cho danh sách / đầu màn. */
 export function moTaKhoa(dot) {
   const tt = Number(dot?.trangThai);
-  if (tt === TT_DOT.NHAP) return { kieu: "chua", nhan: "Chưa khóa" };
+  if (tt === TT_DOT.NHAP) return { kieu: "chua", nhan: t("Chưa khóa") };
   if (tt === TT_DOT.DANG_KIEM_KE || tt === TT_DOT.CHO_DUYET) {
     const soKe = Number(dot.soKeKhoa) || 0;
     return dot.cheDoKhoa === "theo_lo"
-      ? { kieu: "min", nhan: `Khóa mịn · ${soVN(soKe)} kệ` }
-      : { kieu: "toan", nhan: `Khóa toàn kệ · ${soVN(soKe)} kệ` };
+      ? { kieu: "min", nhan: t("Khóa mịn · {{soKe}} kệ", { count: soKe, soKe: soVN(soKe) }) }
+      : { kieu: "toan", nhan: t("Khóa toàn kệ · {{soKe}} kệ", { count: soKe, soKe: soVN(soKe) }) };
   }
-  return { kieu: "mo", nhan: tt === TT_DOT.DA_HUY ? "Đã mở khóa (hủy)" : "Đã mở khóa" };
+  return { kieu: "mo", nhan: tt === TT_DOT.DA_HUY ? t("Đã mở khóa (hủy)") : t("Đã mở khóa") };
 }
 
 /**
@@ -86,20 +89,20 @@ export function buocKiemKe(dot) {
   const daDemXong = tt === TT_DOT.CHO_DUYET || tt === TT_DOT.DA_DUYET || (huy && Boolean(dot?.ngayHoanThanh));
   const trang = (xong, dang) => (xong ? "xong" : dang ? "dangLam" : "chua");
   const buoc = [
-    { ma: "nhap", nhan: "Lập kế hoạch", trangThai: "xong", ngay: dot?.ngayTao, ai: dot?.nguoiChuTri?.hoTen },
-    { ma: "chot", nhan: "Khóa & chốt sổ", trangThai: trang(daBatDau, tt === TT_DOT.NHAP), ngay: dot?.ngayBatDau, coGio: true },
+    { ma: "nhap", nhan: t("Lập kế hoạch"), trangThai: "xong", ngay: dot?.ngayTao, ai: dot?.nguoiChuTri?.hoTen },
+    { ma: "chot", nhan: t("Khóa & chốt sổ"), trangThai: trang(daBatDau, tt === TT_DOT.NHAP), ngay: dot?.ngayBatDau, coGio: true },
     {
       ma: "dem",
-      nhan: "Kiểm đếm",
+      nhan: t("Kiểm đếm"),
       trangThai: trang(daDemXong, tt === TT_DOT.DANG_KIEM_KE),
       // Đã đếm xong: chỉ còn tổng số dòng (x/x lặp lại vô ích); đang đếm: tiến độ
-      phu: daBatDau && tk.tongDong ? (daDemXong ? `${soVN(tk.tongDong)} dòng` : `${soVN(tk.daDem)}/${soVN(tk.tongDong)} dòng`) : undefined,
+      phu: daBatDau && tk.tongDong ? (daDemXong ? t("{{tongDong}} dòng", { count: tk.tongDong, tongDong: soVN(tk.tongDong) }) : t("{{daDem}}/{{tongDong}} dòng", { count: tk.tongDong, daDem: soVN(tk.daDem), tongDong: soVN(tk.tongDong) })) : undefined,
     },
-    { ma: "duyet", nhan: "Thẩm định", trangThai: trang(tt === TT_DOT.DA_DUYET, tt === TT_DOT.CHO_DUYET), ngay: daDemXong ? dot?.ngayHoanThanh : undefined, coGio: true },
+    { ma: "duyet", nhan: t("Thẩm định"), trangThai: trang(tt === TT_DOT.DA_DUYET, tt === TT_DOT.CHO_DUYET), ngay: daDemXong ? dot?.ngayHoanThanh : undefined, coGio: true },
   ];
   buoc.push(huy
-    ? { ma: "huy", nhan: "Đã hủy", trangThai: "dung", ngay: dot?.ngayHuy, coGio: true, ai: dot?.nguoiHuy?.hoTen, phu: "Tồn kho không đổi" }
-    : { ma: "xong", nhan: "Duyệt & mở khóa", trangThai: tt === TT_DOT.DA_DUYET ? "xong" : "chua", ngay: dot?.ngayDuyet, coGio: true, ai: dot?.nguoiDuyet?.hoTen });
+    ? { ma: "huy", nhan: t("Đã hủy"), trangThai: "dung", ngay: dot?.ngayHuy, coGio: true, ai: dot?.nguoiHuy?.hoTen, phu: t("Tồn kho không đổi") }
+    : { ma: "xong", nhan: t("Duyệt & mở khóa"), trangThai: tt === TT_DOT.DA_DUYET ? "xong" : "chua", ngay: dot?.ngayDuyet, coGio: true, ai: dot?.nguoiDuyet?.hoTen });
   return buoc;
 }
 
@@ -218,12 +221,12 @@ export const BO_LOC = Object.freeze({
 });
 
 export const TEN_LOC = Object.freeze({
-  chua: "chưa đếm",
-  lech: "lệch",
-  thieuLyDo: "lệch chưa có lý do",
-  khop: "khớp",
-  demLai: "cần kiểm lại",
-  phatSinh: "phát sinh",
+  chua: t("chưa đếm"),
+  lech: t("lệch"),
+  thieuLyDo: t("lệch chưa có lý do"),
+  khop: t("khớp"),
+  demLai: t("cần kiểm lại"),
+  phatSinh: t("phát sinh"),
 });
 
 /**
@@ -231,7 +234,7 @@ export const TEN_LOC = Object.freeze({
  * đếm xong dòng cuối thì lọc vẫn giữ, dòng vừa đếm không nhảy sang trang khác.
  */
 export function luaChonLoc(dong, { muc = ["tatCa", "chua", "lech", "thieuLyDo", "demLai", "phatSinh"], giu = null } = {}) {
-  const nhan = { tatCa: "Tất cả", chua: "Chưa đếm", lech: "Lệch", thieuLyDo: "Thiếu lý do", khop: "Khớp", demLai: "Đếm lại", phatSinh: "Phát sinh" };
+  const nhan = { tatCa: t("Tất cả"), chua: t("Chưa đếm"), lech: t("Lệch"), thieuLyDo: t("Thiếu lý do"), khop: t("Khớp"), demLai: t("Đếm lại"), phatSinh: t("Phát sinh") };
   return muc
     .map((value) => ({ value, label: nhan[value], count: value === "tatCa" ? dong.length : dong.filter(BO_LOC[value]).length }))
     .filter((x) => x.value === "tatCa" || x.count > 0 || x.value === giu);
@@ -299,12 +302,13 @@ export function gopNhap(dong, nhap) {
 }
 
 /** Gợi ý giải trình (chạm để điền, vẫn sửa được). */
+// i18n-giu-nguyen: lý do điền sẵn vào ô giải trình, gửi máy chủ và in lên biên bản; nút gợi ý hiện t(g) lúc vẽ
 export const GOI_Y_LY_DO = Object.freeze([
-  "Hàng lỗi, hỏng",
-  "Thất lạc",
-  "Để nhầm kệ",
-  "Nhập, xuất chưa ghi nhận",
-  "Lần đếm trước nhầm",
+  "Hàng lỗi, hỏng", // i18n-giu-nguyen: dữ liệu gửi máy chủ
+  "Thất lạc", // i18n-giu-nguyen: dữ liệu gửi máy chủ
+  "Để nhầm kệ", // i18n-giu-nguyen: dữ liệu gửi máy chủ
+  "Nhập, xuất chưa ghi nhận", // i18n-giu-nguyen: dữ liệu gửi máy chủ
+  "Lần đếm trước nhầm", // i18n-giu-nguyen: dữ liệu gửi máy chủ
 ]);
 
 /**
@@ -339,8 +343,8 @@ export function keTiepChuaXong(dsKe, viTriId, tienDo) {
   if (i < 0) return null;
   const sau = [...dsKe.slice(i + 1), ...dsKe.slice(0, i)];
   return sau.find((k) => {
-    const t = tienDo.get(k.id);
-    return t && t.daDem < t.tong;
+    const td = tienDo.get(k.id);
+    return td && td.daDem < td.tong;
   }) ?? null;
 }
 
@@ -387,24 +391,24 @@ export function lyDoChuaTrinh(tk) {
   if (!tk) return null;
   if (tk.tong === 0) return null;
   const phan = [];
-  if (tk.chua) phan.push(`${soVN(tk.chua)} dòng chưa đếm`);
-  if (tk.thieuLyDo) phan.push(`${soVN(tk.thieuLyDo)} dòng lệch chưa có lý do`);
-  return phan.length ? `Còn ${phan.join(", ")}` : null;
+  if (tk.chua) phan.push(t("{{chua}} dòng chưa đếm", { count: tk.chua, chua: soVN(tk.chua) }));
+  if (tk.thieuLyDo) phan.push(t("{{thieuLyDo}} dòng lệch chưa có lý do", { count: tk.thieuLyDo, thieuLyDo: soVN(tk.thieuLyDo) }));
+  return phan.length ? t("Còn {{danhSach}}", { danhSach: phan.join(", ") }) : null;
 }
 
 /** "−1 · thiếu" / "+2 · thừa" / "Khớp" cho cột chênh lệch. */
 export function chuChenhLech(d) {
   if (d?.soLuongThucTe == null) return null;
   const q = docSo(d.chenhLechSoLuong);
-  if (q === 0) return { kieu: "khop", chu: "Khớp" };
-  return q < 0 ? { kieu: "thieu", chu: `Thiếu ${soVN(-q)}` } : { kieu: "thua", chu: `Thừa ${soVN(q)}` };
+  if (q === 0) return { kieu: "khop", chu: t("Khớp") };
+  return q < 0 ? { kieu: "thieu", chu: t("Thiếu {{so}}", { so: soVN(-q) }) } : { kieu: "thua", chu: t("Thừa {{so}}", { so: soVN(q) }) };
 }
 
 /** Tiền có dấu: "−100.000 đ" / "+30.000 đ" / "0 đ". */
 export function tienCoDau(v) {
   const n = Math.round(docSo(v));
   const tri = Math.abs(n).toLocaleString("vi-VN", { maximumFractionDigits: 0 });
-  return n < 0 ? `−${tri} đ` : n > 0 ? `+${tri} đ` : "0 đ";
+  return n < 0 ? `−${tri} đ` : n > 0 ? `+${tri} đ` : "0 đ"; // i18n-giu-nguyen: định dạng tiền kiểu Việt Nam ở cả hai ngôn ngữ
 }
 
 // ── Lỗi có mã của máy chủ ────────────────────────────────────────────────────
