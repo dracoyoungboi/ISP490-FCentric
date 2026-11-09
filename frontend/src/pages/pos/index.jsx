@@ -11,6 +11,7 @@ import LoadingState from '@/components/shared/LoadingState';
 import ErrorState from '@/components/shared/ErrorState';
 import EmptyState from '@/components/shared/EmptyState';
 import PosTopBar from './components/PosTopBar';
+import { t } from "@/i18n";
 
 /**
  * Gate checkout phía frontend: BẬT ở cả `npm run dev` lẫn bản build deploy.
@@ -77,32 +78,32 @@ export default function PosPage() {
   if (tabLock.status === 'blocked' || tabLock.status === 'lost') {
     return renderState(
       <EmptyState
-        action={<Button className="bg-bo-primary text-white hover:bg-bo-primary-hover" onClick={tabLock.takeOver}>Dùng ở tab này</Button>}
+        action={<Button className="bg-bo-primary text-white hover:bg-bo-primary-hover" onClick={tabLock.takeOver}>{t("Dùng ở tab này")}</Button>}
         description={tabLock.status === 'lost'
-          ? 'Bạn vừa mở màn bán hàng ở một tab khác nên tab này đã ngừng để tránh hai tab ghi đè hóa đơn của nhau. Bấm "Dùng ở tab này" để chuyển toàn bộ hóa đơn đang làm về đây.'
-          : 'Tài khoản này đang mở màn bán hàng ở một tab khác. Bấm "Dùng ở tab này" để chuyển toàn bộ hóa đơn đang làm sang tab này; tab kia sẽ tự ngừng.'}
+          ? t("Bạn vừa mở màn bán hàng ở một tab khác nên tab này đã ngừng để tránh hai tab ghi đè hóa đơn của nhau. Bấm \"Dùng ở tab này\" để chuyển toàn bộ hóa đơn đang làm về đây.")
+          : t("Tài khoản này đang mở màn bán hàng ở một tab khác. Bấm \"Dùng ở tab này\" để chuyển toàn bộ hóa đơn đang làm sang tab này; tab kia sẽ tự ngừng.")}
         icon={MonitorSmartphone}
-        title="POS đang mở ở tab khác"
+        title={t("POS đang mở ở tab khác")}
       />
     );
   }
   if (loading || tabLock.status === 'checking') {
-    return renderState(<LoadingState label="Đang tải dữ liệu bán hàng" />);
+    return renderState(<LoadingState label={t("Đang tải dữ liệu bán hàng")} />);
   }
   if (error) {
     return renderState(
       <ErrorState
-        description="Không thể tải kho hoặc danh sách khách hàng. Không hiển thị dữ liệu mẫu."
+        description={t("Không thể tải kho hoặc danh sách khách hàng. Không hiển thị dữ liệu mẫu.")}
         onRetry={retry}
-        title="Không thể mở màn bán hàng tại quầy"
+        title={t("Không thể mở màn bán hàng tại quầy")}
       />
     );
   }
   if (!warehouses.length) {
     return renderState(
       <EmptyState
-        description="Tài khoản của bạn chưa được giao kho bán hàng nào đang hoạt động (Kho tổng không bán tại quầy). Hãy liên hệ quản trị viên để được phân quyền kho bán hàng."
-        title="Chưa có kho bán hàng"
+        description={t("Tài khoản của bạn chưa được giao kho bán hàng nào đang hoạt động (Kho tổng không bán tại quầy). Hãy liên hệ quản trị viên để được phân quyền kho bán hàng.")}
+        title={t("Chưa có kho bán hàng")}
       />
     );
   }

@@ -8,6 +8,7 @@ import com.dev.backend.dto.response.entities.ChatLieuDto;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.mapper.ChatLieuMapper;
 import com.dev.backend.services.impl.entities.ChatLieuService;
+import com.dev.backend.i18n.ThongDiep;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -44,7 +45,7 @@ public class ChatLieuController {
         return ResponseEntity.ok(ResponseData.builder()
                 .status(200)
                 .data(dtos)
-                .message("Lấy danh sách chất liệu thành công")
+                .message(ThongDiep.dich("sanPhamMuaHang.chatLieuLayDanhSachThanhCong"))
                 .build());
     }
 
@@ -78,7 +79,7 @@ public class ChatLieuController {
         return ResponseEntity.ok(ResponseData.builder()
                 .status(200)
                 .data(dto)
-                .message("Lấy chi tiết chất liệu thành công")
+                .message(ThongDiep.dich("sanPhamMuaHang.chatLieuLayChiTietThanhCong"))
                 .build());
     }
 
@@ -96,7 +97,7 @@ public class ChatLieuController {
         return ResponseEntity.ok(ResponseData.builder()
                 .status(200)
                 .data(dto)
-                .message("Thêm chất liệu mới thành công")
+                .message(ThongDiep.dich("sanPhamMuaHang.chatLieuThemThanhCong"))
                 .build());
     }
 
@@ -114,7 +115,7 @@ public class ChatLieuController {
         return ResponseEntity.ok(ResponseData.builder()
                 .status(200)
                 .data(dto)
-                .message("Cập nhật chất liệu thành công")
+                .message(ThongDiep.dich("sanPhamMuaHang.chatLieuCapNhatThanhCong"))
                 .build());
     }
 
@@ -131,7 +132,7 @@ public class ChatLieuController {
         service.delete(id);
         return ResponseEntity.ok(ResponseData.builder()
                 .status(200)
-                .message("Xóa chất liệu thành công")
+                .message(ThongDiep.dich("sanPhamMuaHang.chatLieuXoaThanhCong"))
                 .build());
     }
 }

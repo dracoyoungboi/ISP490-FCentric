@@ -7,6 +7,10 @@ import com.dev.backend.dto.request.BaseFilterRequest;
 import com.dev.backend.dto.request.FilterCriteria;
 import com.dev.backend.dto.request.SortCriteria;
 import com.dev.backend.exception.customize.InvalidFieldException;
+import com.dev.backend.i18n.LoiChungException;
+import com.dev.backend.i18n.LoiThamSoException;
+import com.dev.backend.i18n.LoiTrangThaiException;
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.services.BaseService;
 import com.dev.backend.utils.GioiHanSoThapPhan;
 import jakarta.persistence.Column;
@@ -52,7 +56,7 @@ public abstract class BaseServiceImpl<T, ID> implements BaseService<T, ID> {
         this.statusFieldName = statusFieldName;
 
         if (!(repository instanceof JpaSpecificationExecutor)) {
-            throw new IllegalArgumentException("Repository phải implement JpaSpecificationExecutor để sử dụng filter");
+            throw new LoiThamSoException(ThongDiep.of("heThong.repositoryThieuSpecification"));
         }
         // An toàn: đã kiểm tra instanceof ở trên, và repository quản lý đúng entity T
         @SuppressWarnings("unchecked")
@@ -74,7 +78,7 @@ public abstract class BaseServiceImpl<T, ID> implements BaseService<T, ID> {
             ParameterizedType parameterizedType = (ParameterizedType) getClass().getGenericSuperclass();
             return (Class<T>) parameterizedType.getActualTypeArguments()[0];
         } catch (Exception e) {
-            throw new IllegalStateException("Không thể tự động detect entity class. Hãy override method getEntityClass()", e);
+            throw new LoiTrangThaiException(ThongDiep.of("heThong.khongDetectDuocEntity"), e);
         }
     }
 
@@ -145,13 +149,11 @@ public abstract class BaseServiceImpl<T, ID> implements BaseService<T, ID> {
                 field.set(entity, convertedValue);
 
             } catch (NoSuchFieldException e) {
-                throw new InvalidFieldException(
-                        String.format("Field '%s' không tồn tại trong entity %s",
-                                fieldName, getEntityClass().getSimpleName()));
+                throw new InvalidFieldException(ThongDiep.of("heThong.fieldKhongTonTai",
+                        fieldName, getEntityClass().getSimpleName()));
             } catch (Exception e) {
-                throw new IllegalStateException(
-                        String.format("Không thể cập nhật field '%s': %s",
-                                fieldName, e.getMessage()), e);
+                throw new LoiTrangThaiException(ThongDiep.of("heThong.khongCapNhatDuocField",
+                        fieldName, e.getMessage()), e);
             }
         }
 
@@ -255,7 +257,7 @@ public abstract class BaseServiceImpl<T, ID> implements BaseService<T, ID> {
         String[] parts = fieldName.split("\\.");
         for (String part : parts) {
             if (TRUONG_BI_MAT_THUONG.contains(part.trim().toLowerCase(Locale.ROOT))) {
-                throw new InvalidFieldException("Không được lọc hoặc sắp xếp theo trường này");
+                throw new InvalidFieldException(ThongDiep.of("heThong.khongDuocLocTruongNay"));
             }
         }
 
@@ -263,11 +265,8 @@ public abstract class BaseServiceImpl<T, ID> implements BaseService<T, ID> {
         String firstPart = parts[0];
 
         if (!validFields.contains(firstPart)) {
-            throw new InvalidFieldException(
-                    String.format("Field '%s' không tồn tại hoặc không có annotation hợp lệ trong entity %s. " +
-                                    "Các field hợp lệ: %s",
-                            firstPart, getEntityClass().getSimpleName(), validFields)
-            );
+            throw new InvalidFieldException(ThongDiep.of("heThong.fieldKhongHopLe",
+                    firstPart, getEntityClass().getSimpleName(), validFields));
         }
     }
 
@@ -360,37 +359,37 @@ public abstract class BaseServiceImpl<T, ID> implements BaseService<T, ID> {
                 if (Comparable.class.isAssignableFrom(path.getJavaType())) {
                     return cb.lessThan((Expression<? extends Comparable>) path, (Comparable) value);
                 }
-                throw new IllegalArgumentException("Trường '" + filter.getFieldName() + "' không phải kiểu Comparable");
+                throw new LoiThamSoException(ThongDiep.of("heThong.truongKhongComparable", filter.getFieldName()));
 
             case LESS_THAN_OR_EQUAL:
                 if (Comparable.class.isAssignableFrom(path.getJavaType())) {
                     return cb.lessThanOrEqualTo((Expression<? extends Comparable>) path, (Comparable) value);
                 }
-                throw new IllegalArgumentException("Trường '" + filter.getFieldName() + "' không phải kiểu Comparable");
+                throw new LoiThamSoException(ThongDiep.of("heThong.truongKhongComparable", filter.getFieldName()));
 
             case GREATER_THAN:
                 if (Comparable.class.isAssignableFrom(path.getJavaType())) {
                     return cb.greaterThan((Expression<? extends Comparable>) path, (Comparable) value);
                 }
-                throw new IllegalArgumentException("Trường '" + filter.getFieldName() + "' không phải kiểu Comparable");
+                throw new LoiThamSoException(ThongDiep.of("heThong.truongKhongComparable", filter.getFieldName()));
 
             case GREATER_THAN_OR_EQUAL:
                 if (Comparable.class.isAssignableFrom(path.getJavaType())) {
                     return cb.greaterThanOrEqualTo((Expression<? extends Comparable>) path, (Comparable) value);
                 }
-                throw new IllegalArgumentException("Trường '" + filter.getFieldName() + "' không phải kiểu Comparable");
+                throw new LoiThamSoException(ThongDiep.of("heThong.truongKhongComparable", filter.getFieldName()));
 
             case LIKE:
                 if (value instanceof String str) {
                     return cb.like(cb.lower((Expression<String>) path), "%" + str.toLowerCase() + "%");
                 }
-                throw new IllegalArgumentException("LIKE chỉ áp dụng cho String");
+                throw new LoiThamSoException(ThongDiep.of("heThong.likeChiChoString"));
 
             case ILIKE:
                 if (value instanceof String str) {
                     return cb.like(cb.lower((Expression<String>) path), "%" + str.toLowerCase() + "%");
                 }
-                throw new IllegalArgumentException("ILIKE chỉ áp dụng cho String");
+                throw new LoiThamSoException(ThongDiep.of("heThong.ilikeChiChoString"));
 
             case IN:
                 if (value instanceof Collection<?> collection) {
@@ -405,7 +404,7 @@ public abstract class BaseServiceImpl<T, ID> implements BaseService<T, ID> {
                 return cb.not(path.in(value));
 
             default:
-                throw new IllegalArgumentException("Không hỗ trợ operation: " + filter.getOperation());
+                throw new LoiThamSoException(ThongDiep.of("heThong.operationKhongHoTro", filter.getOperation()));
         }
     }
 
@@ -425,10 +424,10 @@ public abstract class BaseServiceImpl<T, ID> implements BaseService<T, ID> {
         try {
             so = value instanceof BigDecimal bd ? bd : new BigDecimal(String.valueOf(value).trim());
         } catch (NumberFormatException e) {
-            throw new InvalidFieldException("Giá trị lọc của trường '" + tenTruong + "' không phải số");
+            throw new InvalidFieldException(ThongDiep.of("heThong.giaTriLocKhongPhaiSo", tenTruong));
         }
         if (!GioiHanSoThapPhan.hopLe(so)) {
-            throw new InvalidFieldException("Giá trị lọc của trường '" + tenTruong + "' vượt giới hạn cho phép");
+            throw new InvalidFieldException(ThongDiep.of("heThong.giaTriLocVuotGioiHan", tenTruong));
         }
         return so;
     }
@@ -476,7 +475,7 @@ public abstract class BaseServiceImpl<T, ID> implements BaseService<T, ID> {
             if (kieuTruong == OffsetDateTime.class) return thoiDiem.atZone(MUI_GIO_NGHIEP_VU).toOffsetDateTime();
             return thoiDiem.atZone(MUI_GIO_NGHIEP_VU);
         } catch (DateTimeParseException | StringIndexOutOfBoundsException e) {
-            throw new IllegalArgumentException("Giá trị thời gian không hợp lệ cho trường '" + tenTruong + "': " + chuoi);
+            throw new LoiThamSoException(ThongDiep.of("heThong.giaTriThoiGianKhongHopLe", tenTruong, chuoi));
         }
     }
 
@@ -514,7 +513,7 @@ public abstract class BaseServiceImpl<T, ID> implements BaseService<T, ID> {
             if (e instanceof InvalidFieldException) {
                 throw e;
             }
-            throw new RuntimeException("Lỗi khi thực hiện filter: " + e.getMessage(), e);
+            throw new LoiChungException(ThongDiep.of("heThong.loiKhiFilter", e.getMessage()), e);
         }
     }
 
@@ -567,7 +566,7 @@ public abstract class BaseServiceImpl<T, ID> implements BaseService<T, ID> {
             idField.setAccessible(true);
             idField.set(entity, id);
         } catch (Exception e) {
-            throw new IllegalStateException("Không thể gán ID cho entity: " + e.getMessage(), e);
+            throw new LoiTrangThaiException(ThongDiep.of("heThong.khongGanDuocId", e.getMessage()), e);
         }
     }
 
@@ -581,6 +580,6 @@ public abstract class BaseServiceImpl<T, ID> implements BaseService<T, ID> {
             }
             current = current.getSuperclass();
         }
-        throw new IllegalStateException("Không tìm thấy field @Id trong class " + clazz.getSimpleName());
+        throw new LoiTrangThaiException(ThongDiep.of("heThong.khongTimThayFieldId", clazz.getSimpleName()));
     }
 }

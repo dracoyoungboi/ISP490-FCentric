@@ -24,6 +24,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
+import com.dev.backend.i18n.ThongDiep;
+import com.dev.backend.i18n.LoiThamSoException;
 
 @Service
 @RequiredArgsConstructor
@@ -68,13 +70,13 @@ public class DoanhThuReportService {
      * cùng dd/MM sẽ bị cộng lẫn); xem dài hơn thì dùng theo tháng.
      */
     static void kiemKhoangNgay(LocalDate tuNgay, LocalDate denNgay) {
-        if (tuNgay == null || denNgay == null) throw new IllegalArgumentException("Vui lòng chọn từ ngày và đến ngày");
+        if (tuNgay == null || denNgay == null) throw new LoiThamSoException(ThongDiep.of("khoVanHanh.chonTuNgayDenNgay"));
         if (tuNgay.getYear() < NAM_NHO_NHAT || denNgay.getYear() < NAM_NHO_NHAT) {
-            throw new CommonException("Ngày phải từ năm " + NAM_NHO_NHAT + " trở đi");
+            throw new CommonException(ThongDiep.of("khoVanHanh.ngayPhaiTuNam", NAM_NHO_NHAT));
         }
-        if (tuNgay.isAfter(denNgay)) throw new CommonException("Từ ngày phải trước hoặc bằng đến ngày");
+        if (tuNgay.isAfter(denNgay)) throw new CommonException(ThongDiep.of("khoVanHanh.tuNgayTruocDenNgay"));
         if (!denNgay.isBefore(tuNgay.plusYears(1))) {
-            throw new CommonException("Xem theo ngày tối đa 1 năm; khoảng dài hơn hãy xem theo tháng");
+            throw new CommonException(ThongDiep.of("khoVanHanh.xemTheoNgayToiDaMotNam"));
         }
     }
 
@@ -92,7 +94,7 @@ public class DoanhThuReportService {
                 : user.getPhanQuyenNguoiDungKhos().stream()
                         .filter(pq -> pq.getKho() != null).map(pq -> pq.getKho().getId()).distinct().toList();
         if (khoId != null && !quanTri && !khoCuaToi.contains(khoId)) {
-            throw new CommonException(HttpStatus.FORBIDDEN, "Bạn không phụ trách cửa hàng này");
+            throw new CommonException(HttpStatus.FORBIDDEN, ThongDiep.of("khoVanHanh.khongPhuTrachCuaHang"));
         }
         // Tham số "in" không được rỗng: không phụ trách kho nào thì -1 (không khớp dòng nào)
         List<Integer> khoIds = khoId != null ? List.of(khoId) : khoCuaToi.isEmpty() ? List.of(-1) : khoCuaToi;
@@ -119,20 +121,20 @@ public class DoanhThuReportService {
                 denDayDu = denNgay;
             }
             case "thang" -> {
-                if (nam == null) throw new IllegalArgumentException("Vui lòng chọn năm");
-                if (nam < NAM_NHO_NHAT) throw new CommonException("Năm phải từ " + NAM_NHO_NHAT + " trở đi");
+                if (nam == null) throw new LoiThamSoException(ThongDiep.of("khoVanHanh.chonNam"));
+                if (nam < NAM_NHO_NHAT) throw new CommonException(ThongDiep.of("khoVanHanh.namPhaiTu", NAM_NHO_NHAT));
                 tu = LocalDate.of(nam, 1, 1);
                 denDayDu = LocalDate.of(nam, 12, 31);
             }
             case "nam" -> {
-                if (tuNam == null || denNam == null) throw new IllegalArgumentException("Vui lòng chọn từ năm và đến năm");
-                if (tuNam > denNam) throw new CommonException("Từ năm phải trước hoặc bằng đến năm");
-                if (tuNam < NAM_NHO_NHAT) throw new CommonException("Năm phải từ " + NAM_NHO_NHAT + " trở đi");
-                if (denNam - tuNam > 20) throw new CommonException("Mỗi lần xem tối đa 20 năm");
+                if (tuNam == null || denNam == null) throw new LoiThamSoException(ThongDiep.of("khoVanHanh.chonTuNamDenNam"));
+                if (tuNam > denNam) throw new CommonException(ThongDiep.of("khoVanHanh.tuNamTruocDenNam"));
+                if (tuNam < NAM_NHO_NHAT) throw new CommonException(ThongDiep.of("khoVanHanh.namPhaiTu", NAM_NHO_NHAT));
+                if (denNam - tuNam > 20) throw new CommonException(ThongDiep.of("khoVanHanh.moiLanXemToiDaHaiMuoiNam"));
                 tu = LocalDate.of(tuNam, 1, 1);
                 denDayDu = LocalDate.of(denNam, 12, 31);
             }
-            default -> throw new IllegalArgumentException("Kiểu báo cáo không hợp lệ");
+            default -> throw new LoiThamSoException(ThongDiep.of("khoVanHanh.kieuBaoCaoKhongHopLe"));
         }
         // Cả khoảng ở tương lai: không có số liệu, cũng không so cùng kỳ (trả 0)
         boolean tuongLai = tu.isAfter(homNay);
@@ -409,20 +411,20 @@ public class DoanhThuReportService {
                 yield new KhoangKy(tuNgay, denNgay.plusDays(1), loai);
             }
             case "tuan", "thang" -> {
-                if (nam == null) throw new IllegalArgumentException("Vui lòng chọn năm");
+                if (nam == null) throw new LoiThamSoException(ThongDiep.of("khoVanHanh.chonNam"));
                 yield new KhoangKy(LocalDate.of(nam, 1, 1), LocalDate.of(nam + 1, 1, 1), loai);
             }
             case "nam" -> {
-                if (tuNam == null || denNam == null) throw new IllegalArgumentException("Vui lòng chọn từ năm và đến năm");
-                if (tuNam > denNam) throw new CommonException("Từ năm phải trước hoặc bằng đến năm");
+                if (tuNam == null || denNam == null) throw new LoiThamSoException(ThongDiep.of("khoVanHanh.chonTuNamDenNam"));
+                if (tuNam > denNam) throw new CommonException(ThongDiep.of("khoVanHanh.tuNamTruocDenNam"));
                 yield new KhoangKy(LocalDate.of(tuNam, 1, 1), LocalDate.of(denNam + 1, 1, 1), loai);
             }
             case "so_sanh" -> {
-                if (nam == null || thang == null) throw new IllegalArgumentException("Vui lòng chọn năm và tháng cần so sánh");
+                if (nam == null || thang == null) throw new LoiThamSoException(ThongDiep.of("khoVanHanh.chonNamThangSoSanh"));
                 LocalDate dau = LocalDate.of(nam, thang, 1);
                 yield new KhoangKy(dau.minusMonths(1), dau.plusMonths(1), loai);
             }
-            default -> throw new IllegalArgumentException("Kiểu báo cáo không hợp lệ");
+            default -> throw new LoiThamSoException(ThongDiep.of("khoVanHanh.kieuBaoCaoKhongHopLe"));
         };
     }
 

@@ -4,6 +4,7 @@ import { gioPhut } from "../tong-quan/tongQuanFormat";
 import { KhoMenu, KyMenu } from "./BoLocMenu";
 import { FOCUS, NHAN_KY, khoangKy, tenKhoDangXem } from "./boLoc";
 import KpiStrip from "./KpiStrip";
+import { t } from "@/i18n";
 
 /*
  * Dải đầu trang Tổng quan (Kiểu 3): một thẻ gồm ô phạm vi và 4 chỉ số của kỳ, phủ hết bề ngang để đầu trang không còn
@@ -22,10 +23,10 @@ export default function TongQuanHeader({ data, ky, setKy, khoId, setKhoId, dsKho
   return (
     <div className="@container/dau">
       <section
-        aria-label="Phạm vi và kết quả kinh doanh"
+        aria-label={t("Phạm vi và kết quả kinh doanh")}
         className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-[0_1px_2px_rgba(16,24,40,0.04)] @min-[980px]/dau:flex-row"
       >
-        <h1 className="sr-only">Tổng quan</h1>
+        <h1 className="sr-only">{t("Tổng quan")}</h1>
 
         <div
           className={cn(
@@ -37,7 +38,7 @@ export default function TongQuanHeader({ data, ky, setKy, khoId, setKhoId, dsKho
           <KhoMenu data={data} dsKho={dsKho} khoId={khoId} onChange={setKhoId} disabled={loading}>
             <button
               type="button"
-              aria-label={`Chọn kho, đang xem: ${tenKho}`}
+              aria-label={t("Chọn kho, đang xem: {{tenKho}}", { tenKho })}
               title={tenKho}
               className={cn(FOCUS, "inline-flex max-w-full cursor-pointer items-center gap-1.5 self-start rounded text-base font-semibold leading-6 text-bo-foreground hover:text-bo-primary-hover disabled:opacity-60")}
             >
@@ -50,7 +51,7 @@ export default function TongQuanHeader({ data, ky, setKy, khoId, setKhoId, dsKho
             <KyMenu ky={ky} onChange={setKy} thoiDiem={data?.thoiDiem}>
               <button
                 type="button"
-                aria-label={`Chọn kỳ xem, đang xem: ${NHAN_KY[ky]}`}
+                aria-label={t("Chọn kỳ xem, đang xem: {{ky}}", { ky: NHAN_KY[ky] })}
                 className={cn(
                   FOCUS,
                   "inline-flex h-[30px] shrink-0 cursor-pointer items-center gap-1 rounded-md border border-bo-border bg-bo-surface px-2 text-sm font-medium text-bo-foreground shadow-[0_1px_2px_rgba(16,24,40,0.05)] hover:bg-bo-surface-subtle",
@@ -61,20 +62,20 @@ export default function TongQuanHeader({ data, ky, setKy, khoId, setKhoId, dsKho
                 <ChevronDown className="size-3.5 text-bo-muted" aria-hidden="true" />
               </button>
             </KyMenu>
-            <span className="whitespace-nowrap text-xs tabular-nums text-bo-muted" title={`${k.day}, so với ${k.tenSoSanh.toLowerCase()} (${k.soSanh})`}>
+            <span className="whitespace-nowrap text-xs tabular-nums text-bo-muted" title={t("{{day}}, so với {{kySoSanh}} ({{soSanh}})", { day: k.day, kySoSanh: k.tenSoSanh.toLowerCase(), soSanh: k.soSanh })}>
               {k.gon}
             </span>
           </div>
 
           <p className="text-xs text-bo-muted @min-[640px]/dau:ml-auto @min-[980px]/dau:ml-0" aria-live="polite">
-            {gio ? `Số liệu lúc ${gio} · ` : "Đang tải số liệu… "}
+            {gio ? t("Số liệu lúc {{gio}} · ", { gio }) : t("Đang tải số liệu… ")}
             <button
               type="button"
               onClick={onReload}
               disabled={refreshing}
               className={cn(FOCUS, "cursor-pointer rounded font-medium text-bo-primary hover:text-bo-primary-hover hover:underline disabled:cursor-default disabled:text-bo-muted disabled:no-underline")}
             >
-              {refreshing && !loading ? "Đang cập nhật…" : "Cập nhật"}
+              {refreshing && !loading ? t("Đang cập nhật…") : t("Cập nhật", { context: "lam_moi" })}
             </button>
           </p>
         </div>

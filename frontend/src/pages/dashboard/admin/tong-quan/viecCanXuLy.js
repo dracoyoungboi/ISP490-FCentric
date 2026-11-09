@@ -1,5 +1,6 @@
 // Danh sách "Cần xử lý" của màn Tổng quan: thuần dữ liệu (không React) để kiểm thử bằng node --test.
 import { SAN_BAN_HANG } from "../../../../constants/channel.js";
+import { t } from "../../../../i18n/t.js";
 
 const UU_TIEN = { bad: 0, warn: 1, info: 2 };
 
@@ -29,11 +30,11 @@ function tachTheoKho(dong, v, khoId) {
  */
 function viecPhieuXuat(v) {
   if (v.phieuXuatChoDongGoi == null && v.phieuXuatChoXuat == null) {
-    return [{ loai: "phieuXuatChoXuatKho", ten: "Phiếu xuất chưa xuất kho", phu: "Đơn bán chờ đóng gói hoặc chờ xuất", so: v.phieuXuatChoXuatKho, muc: "warn", to: "/goods-issues?loai=ban-hang" }];
+    return [{ loai: "phieuXuatChoXuatKho", ten: t("Phiếu xuất chưa xuất kho"), phu: t("Đơn bán chờ đóng gói hoặc chờ xuất"), so: v.phieuXuatChoXuatKho, muc: "warn", to: "/goods-issues?loai=ban-hang" }];
   }
   return [
-    { loai: "phieuXuatChoDongGoi", ten: "Phiếu xuất chờ đóng gói", phu: "Đơn bán đã nhặt, chưa đóng gói", so: v.phieuXuatChoDongGoi, muc: "warn", to: "/goods-issues?trangThai=nhap&loai=ban-hang" },
-    { loai: "phieuXuatChoXuat", ten: "Phiếu xuất chờ xuất kho", phu: "Đã đóng gói, chờ xác nhận xuất", so: v.phieuXuatChoXuat, muc: "warn", to: "/goods-issues?trangThai=cho-xuat-kho&loai=ban-hang" },
+    { loai: "phieuXuatChoDongGoi", ten: t("Phiếu xuất chờ đóng gói"), phu: t("Đơn bán đã nhặt, chưa đóng gói"), so: v.phieuXuatChoDongGoi, muc: "warn", to: "/goods-issues?trangThai=nhap&loai=ban-hang" },
+    { loai: "phieuXuatChoXuat", ten: t("Phiếu xuất chờ xuất kho"), phu: t("Đã đóng gói, chờ xác nhận xuất"), so: v.phieuXuatChoXuat, muc: "warn", to: "/goods-issues?trangThai=cho-xuat-kho&loai=ban-hang" },
   ];
 }
 
@@ -56,27 +57,27 @@ export function danhSachViec(v, khoId) {
     ...loiKenh.map((k) => ({
       key: `loiDongBo-${k.kenhId}`,
       loai: "loiDongBo",
-      ten: `Lỗi đồng bộ ${k.tenKenh}`,
-      phu: "Sản phẩm chưa đẩy được tồn lên kênh",
+      ten: t("Lỗi đồng bộ {{tenKenh}}", { tenKenh: k.tenKenh }),
+      phu: t("Sản phẩm chưa đẩy được tồn lên kênh"),
       so: k.soLoi,
       muc: "bad",
       to: duongDanLoiDongBo(k.maKenh),
     })),
-    { loai: "donMuaQuaHan", ten: "Đơn mua quá hạn giao", phu: "Quá ngày giao dự kiến", so: v.donMuaQuaHan, muc: "bad", to: `/purchase-orders?trangThai=dang-van-chuyen${tatCaKho ? "" : `&kho=${khoId}`}` },
-    { loai: "donChoXuatKho", ten: "Đơn chờ nhặt hàng", phu: "Chưa tạo phiếu nhặt", so: v.donChoXuatKho, muc: "warn", to: "/goods-issues/pending-orders" },
+    { loai: "donMuaQuaHan", ten: t("Đơn mua quá hạn giao"), phu: t("Quá ngày giao dự kiến"), so: v.donMuaQuaHan, muc: "bad", to: `/purchase-orders?trangThai=dang-van-chuyen${tatCaKho ? "" : `&kho=${khoId}`}` },
+    { loai: "donChoXuatKho", ten: t("Đơn chờ nhặt hàng"), phu: t("Chưa tạo phiếu nhặt"), so: v.donChoXuatKho, muc: "warn", to: "/goods-issues/pending-orders" },
     // Phiếu bán hàng Nháp (chờ đóng gói) và Chờ xuất tách hai dòng, mỗi dòng mở đúng tab (danh sách chỉ lọc một trạng thái)
     ...viecPhieuXuat(v),
-    { loai: "phieuChuyenChoDuyet", ten: "Phiếu chuyển kho chờ duyệt", phu: "Quản lý Kho tổng duyệt, lập lệnh điều động", so: v.phieuChuyenChoDuyet, muc: "warn", to: "/transfer-tickets?trangThai=cho-duyet" },
+    { loai: "phieuChuyenChoDuyet", ten: t("Phiếu chuyển kho chờ duyệt"), phu: t("Quản lý Kho tổng duyệt, lập lệnh điều động"), so: v.phieuChuyenChoDuyet, muc: "warn", to: "/transfer-tickets?trangThai=cho-duyet" },
     // Quản trị viên luôn xử lý được chênh lệch và xem phiếu chuyển của mọi kho: không tách theo kho. Máy chủ cũ chưa trả thì không hiện
-    { loai: "phieuChuyenChoXuLyLech", ten: "Phiếu chuyển chờ xử lý chênh lệch", phu: "Nhận lệch: kho gửi xác nhận biên bản, rồi chọn ghi giảm hoặc giao bù", so: v.phieuChuyenChoXuLyLech, muc: "warn", to: "/transfer-tickets?trangThai=cho-xu-ly-chenh-lech" },
-    { loai: "phieuNhatChuaPhanCong", ten: "Phiếu nhặt chưa phân công", phu: "Chưa giao người nhặt", so: v.phieuNhatChuaPhanCong, muc: "warn", to: "/goods-issues/pick-lists" },
+    { loai: "phieuChuyenChoXuLyLech", ten: t("Phiếu chuyển chờ xử lý chênh lệch"), phu: t("Nhận lệch: kho gửi xác nhận biên bản, rồi chọn ghi giảm hoặc giao bù"), so: v.phieuChuyenChoXuLyLech, muc: "warn", to: "/transfer-tickets?trangThai=cho-xu-ly-chenh-lech" },
+    { loai: "phieuNhatChuaPhanCong", ten: t("Phiếu nhặt chưa phân công"), phu: t("Chưa giao người nhặt"), so: v.phieuNhatChuaPhanCong, muc: "warn", to: "/goods-issues/pick-lists" },
     // Mở đúng tab Chờ duyệt (và đúng kho đang xem) để số trên dòng bằng số dòng trên trang
-    { loai: "yeuCauNhapChoDuyet", ten: "Yêu cầu nhập hàng chờ duyệt", phu: "Mua hàng", so: v.yeuCauNhapChoDuyet, muc: "warn", to: `/purchase-requests?trangThai=cho-duyet${tatCaKho ? "" : `&kho=${khoId}`}` },
-    { loai: "donNhapChuaGuiKho", ten: "Đơn nháp chưa gửi kho", phu: "Bán hàng", so: v.donNhapChuaGuiKho, muc: "info", to: "/sales-orders?trangThai=nhap" },
-    { loai: "phieuNhapChoNhapKho", ten: "Phiếu nhập chờ nhập kho", phu: "Hàng đã về, chờ kiểm đếm", so: v.phieuNhapChoNhapKho, muc: "info", to: "/goods-receipts?trangThai=cho-nhap-kho" },
-    { loai: "phieuChuyenChoXuatHang", ten: "Phiếu chuyển chờ xuất hàng", phu: "Đã duyệt, chờ xuất", so: v.phieuChuyenChoXuatHang, muc: "info", to: "/transfer-tickets?trangThai=cho-xuat-hang" },
-    { loai: "dotKiemKeDangMo", ten: "Đợt kiểm kê đang mở", phu: "Kiểm kê", so: v.dotKiemKeDangMo, muc: "info", to: "/stock-take?trangThai=dang-kiem-ke" },
-    ...(tatCaKho ? [{ loai: "taiKhoanBiKhoa", ten: "Tài khoản bị khóa", phu: "Người dùng", so: v.taiKhoanBiKhoa, muc: "info", to: "/users?trangThai=0" }] : []),
+    { loai: "yeuCauNhapChoDuyet", ten: t("Yêu cầu nhập hàng chờ duyệt"), phu: t("Mua hàng"), so: v.yeuCauNhapChoDuyet, muc: "warn", to: `/purchase-requests?trangThai=cho-duyet${tatCaKho ? "" : `&kho=${khoId}`}` },
+    { loai: "donNhapChuaGuiKho", ten: t("Đơn nháp chưa gửi kho"), phu: t("Bán hàng"), so: v.donNhapChuaGuiKho, muc: "info", to: "/sales-orders?trangThai=nhap" },
+    { loai: "phieuNhapChoNhapKho", ten: t("Phiếu nhập chờ nhập kho"), phu: t("Hàng đã về, chờ kiểm đếm"), so: v.phieuNhapChoNhapKho, muc: "info", to: "/goods-receipts?trangThai=cho-nhap-kho" },
+    { loai: "phieuChuyenChoXuatHang", ten: t("Phiếu chuyển chờ xuất hàng"), phu: t("Đã duyệt, chờ xuất"), so: v.phieuChuyenChoXuatHang, muc: "info", to: "/transfer-tickets?trangThai=cho-xuat-hang" },
+    { loai: "dotKiemKeDangMo", ten: t("Đợt kiểm kê đang mở"), phu: t("Kiểm kê"), so: v.dotKiemKeDangMo, muc: "info", to: "/stock-take?trangThai=dang-kiem-ke" },
+    ...(tatCaKho ? [{ loai: "taiKhoanBiKhoa", ten: t("Tài khoản bị khóa"), phu: t("Người dùng"), so: v.taiKhoanBiKhoa, muc: "info", to: "/users?trangThai=0" }] : []),
   ];
   return ds
     .map((d) => ({ key: d.loai, ...d }))

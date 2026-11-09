@@ -7,6 +7,7 @@ import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.repository.GiaBanBienTheRepository;
 import com.dev.backend.services.multitable.DieuHanhHeThongService;
 import com.dev.backend.utils.HienThiBienThe;
+import com.dev.backend.i18n.ThongDiep;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,7 +53,7 @@ public class TemSanPhamService {
     public DongInTemDto traMa(String ma) {
         String gon = ma == null ? "" : ma.trim();
         if (gon.isEmpty()) {
-            throw new CommonException("Nhập mã vạch hoặc SKU cần tìm");
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.temNhapMaCanTim"));
         }
         List<BienTheSanPham> ds = giaBanRepository.timTheoMa(gon);
         return ds.isEmpty() ? null : dungDong(List.of(ds.get(0)), Map.of()).get(0);

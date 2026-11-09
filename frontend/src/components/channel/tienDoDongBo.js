@@ -1,4 +1,5 @@
 import { formatNumber } from "../../utils/formatters.js";
+import { t } from "../../i18n/t.js";
 
 /**
  * Đọc ảnh chụp tiến độ "Đồng bộ ngay" (DongBoNgayDto của máy chủ) thành số liệu hiển thị.
@@ -42,17 +43,17 @@ export function uocTinhConLaiMs(p) {
 export function moTaConLai(ms) {
   if (ms == null || Number.isNaN(ms)) return null;
   const giay = ms / 1000;
-  if (giay < 10) return "Còn vài giây";
+  if (giay < 10) return t("Còn vài giây");
   const lam = Math.round(giay / 5) * 5;
-  if (lam < 60) return `Còn khoảng ${lam} giây`;
-  return `Còn khoảng ${Math.round(giay / 60)} phút`;
+  if (lam < 60) return t("Còn khoảng {{lam}} giây", { lam });
+  return t("Còn khoảng {{phut}} phút", { phut: Math.round(giay / 60) });
 }
 
 /** Câu thời gian còn lại cho chân bảng lúc đang chạy. */
 export function cauConLai(p, conLaiMs) {
   if (!dangChayDongBo(p)) return null;
-  if (p.giaiDoan === "lay_don") return "Sắp xong";
-  return moTaConLai(conLaiMs) ?? "Đang ước tính thời gian";
+  if (p.giaiDoan === "lay_don") return t("Sắp xong");
+  return moTaConLai(conLaiMs) ?? t("Đang ước tính thời gian");
 }
 
 /** Đồng hồ đã chạy: "0:07", "2:45". */
@@ -64,16 +65,16 @@ export function dongHoDaChay(ms) {
 /** Thời lượng cả đợt: "43 giây", "2 phút 5 giây". */
 export function thoiLuong(ms) {
   const s = Math.max(1, Math.round((Number(ms) || 0) / 1000));
-  if (s < 60) return `${s} giây`;
-  return `${Math.floor(s / 60)} phút${s % 60 ? ` ${s % 60} giây` : ""}`;
+  if (s < 60) return t("{{s}} giây", { s });
+  return t("{{phut}} phút{{phanGiay}}", { phut: Math.floor(s / 60), phanGiay: s % 60 ? t(" {{giay}} giây", { giay: s % 60 }) : "" });
 }
 
 /** Kết quả gọn của đợt đã kết thúc: tone cho màu, nhan cho nút/chấm. */
 export function ketQuaDongBo(p) {
-  if (p?.trangThai === DB_TRANG_THAI.LOI) return { tone: "loi", tieuDe: "Đồng bộ dừng giữa chừng", nhan: "Đồng bộ lỗi" };
-  if (p?.trangThai === DB_TRANG_THAI.DA_DUNG) return { tone: "dung", tieuDe: "Đã dừng đồng bộ", nhan: "Đã dừng" };
-  if (p?.soLoi) return { tone: "canh", tieuDe: "Đồng bộ xong", nhan: `Xong · ${formatNumber(p.soLoi)} SKU lỗi` };
-  return { tone: "ok", tieuDe: "Đồng bộ xong", nhan: "Đã đồng bộ" };
+  if (p?.trangThai === DB_TRANG_THAI.LOI) return { tone: "loi", tieuDe: t("Đồng bộ dừng giữa chừng"), nhan: t("Đồng bộ lỗi") };
+  if (p?.trangThai === DB_TRANG_THAI.DA_DUNG) return { tone: "dung", tieuDe: t("Đã dừng đồng bộ"), nhan: t("Đã dừng") };
+  if (p?.soLoi) return { tone: "canh", tieuDe: t("Đồng bộ xong"), nhan: t("Xong · {{soLoi}} SKU lỗi", { count: Number(p.soLoi), soLoi: formatNumber(p.soLoi) }) };
+  return { tone: "ok", tieuDe: t("Đồng bộ xong"), nhan: t("Đã đồng bộ") };
 }
 
 /** Số SKU chưa đẩy của đợt dừng giữa chừng (0 nếu không có). */
@@ -95,27 +96,27 @@ export function cacBuocDongBo(p, tenSan = "Shopify") {
 
   let docSp;
   if (giaiDoan > 0) docSp = { tt: "xong", phu: `${formatNumber(tong)} SKU` };
-  else if (chay) docSp = { tt: "dang", phu: "Đang đọc…" };
-  else if (tt === DB_TRANG_THAI.LOI) docSp = { tt: "loi", phu: "Không đọc được" };
-  else docSp = { tt: "dung", phu: "Đã dừng" };
+  else if (chay) docSp = { tt: "dang", phu: t("Đang đọc…") };
+  else if (tt === DB_TRANG_THAI.LOI) docSp = { tt: "loi", phu: t("Không đọc được") };
+  else docSp = { tt: "dung", phu: t("Đã dừng") };
 
-  const loi = p?.soLoi ? ` · ${formatNumber(p.soLoi)} lỗi` : "";
+  const loi = p?.soLoi ? t(" · {{soLoi}} lỗi", { count: Number(p.soLoi), soLoi: formatNumber(p.soLoi) }) : "";
   let dayTon;
-  if (giaiDoan < 1) dayTon = chay ? { tt: "cho", phu: "Chờ" } : { tt: "boqua", phu: "Chưa đẩy" };
+  if (giaiDoan < 1) dayTon = chay ? { tt: "cho", phu: t("Chờ") } : { tt: "boqua", phu: t("Chưa đẩy") };
   else if (giaiDoan === 1 && chay) dayTon = { tt: "dang", phu: `${formatNumber(p.daXuLy)}/${formatNumber(tong)} SKU${loi}` };
-  else if (giaiDoan === 1 && tt === DB_TRANG_THAI.LOI) dayTon = { tt: "loi", phu: `Dừng ở SKU ${formatNumber(Number(p.daXuLy) + 1)}/${formatNumber(tong)}` };
-  else if (giaiDoan === 1 && tt === DB_TRANG_THAI.DA_DUNG) dayTon = { tt: "dung", phu: `Đã đẩy ${formatNumber(p.daXuLy)}/${formatNumber(tong)} SKU` };
+  else if (giaiDoan === 1 && tt === DB_TRANG_THAI.LOI) dayTon = { tt: "loi", phu: t("Dừng ở SKU {{thuTu}}/{{tong}}", { thuTu: formatNumber(Number(p.daXuLy) + 1), tong: formatNumber(tong) }) };
+  else if (giaiDoan === 1 && tt === DB_TRANG_THAI.DA_DUNG) dayTon = { tt: "dung", phu: t("Đã đẩy {{daXuLy}}/{{tong}} SKU", { count: Number(tong), daXuLy: formatNumber(p.daXuLy), tong: formatNumber(tong) }) };
   else dayTon = { tt: p?.soLoi ? "canh" : "xong", phu: `${formatNumber(p?.soThanhCong)}/${formatNumber(tong)} SKU${loi}` };
 
   let layDon;
-  if (giaiDoan < 2) layDon = chay ? { tt: "cho", phu: "Đơn 24 giờ qua" } : { tt: "boqua", phu: "Chưa lấy" };
-  else if (chay) layDon = { tt: "dang", phu: "Đang lấy…" };
-  else if (tt === DB_TRANG_THAI.XONG) layDon = { tt: "xong", phu: p.soDonMoi ? `${formatNumber(p.soDonMoi)} đơn mới` : "Không có đơn mới" };
-  else layDon = { tt: "loi", phu: "Không lấy được" };
+  if (giaiDoan < 2) layDon = chay ? { tt: "cho", phu: t("Đơn 24 giờ qua") } : { tt: "boqua", phu: t("Chưa lấy") };
+  else if (chay) layDon = { tt: "dang", phu: t("Đang lấy…") };
+  else if (tt === DB_TRANG_THAI.XONG) layDon = { tt: "xong", phu: p.soDonMoi ? t("{{soDonMoi}} đơn mới", { soDonMoi: formatNumber(p.soDonMoi), count: Number(p.soDonMoi) || 0 }) : t("Không có đơn mới") };
+  else layDon = { tt: "loi", phu: t("Không lấy được") };
 
   return [
-    { ma: "doc-san-pham", ten: `Đọc sản phẩm trên ${tenSan}`, ...docSp },
-    { ma: "day-ton", ten: "Đẩy tồn kho", ...dayTon },
-    { ma: "lay-don", ten: "Lấy đơn mới", ...layDon },
+    { ma: "doc-san-pham", ten: t("Đọc sản phẩm trên {{tenSan}}", { tenSan }), ...docSp },
+    { ma: "day-ton", ten: t("Đẩy tồn kho"), ...dayTon },
+    { ma: "lay-don", ten: t("Lấy đơn mới"), ...layDon },
   ];
 }

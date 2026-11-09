@@ -60,8 +60,9 @@ import { phieuXuatKhoService } from "@/services/phieuXuatKhoService";
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import { formatCurrency } from "@/utils/formatters";
 import { ROLES, hasAnyRole } from "@/utils/roles";
+import { t } from "@/i18n";
 
-const TEN_CHUNG_TU = "đơn bán hàng";
+const TEN_CHUNG_TU = t("đơn bán hàng");
 const TONG_THEO = Object.freeze({ soLuong: "soLuong", thanhTien: "thanhTien" });
 // Máy chủ từ chối vì đơn đã đổi ở nơi khác (409 khi hủy đơn đã vào phiếu nhặt…), dữ liệu sai (400) hoặc không còn
 // quyền (403): đóng hộp, báo câu máy chủ, tải lại; lỗi khác giữ hộp để bấm lại
@@ -155,7 +156,7 @@ function ChiTietDonBanHang({ id }) {
     if (laBaoGia || q.loading || (!q.error && q.data === undefined)) {
       return (
         <PageContainer className="flex min-h-full flex-col">
-          <KhungDangTai nhan="Đang tải đơn bán hàng" />
+          <KhungDangTai nhan={t("Đang tải đơn bán hàng")} />
         </PageContainer>
       );
     }
@@ -222,7 +223,7 @@ function ChiTietDonBanHang({ id }) {
   /** Chạy một thao tác (có thời hạn); `coHop`: thao tác chạy từ hộp xác nhận (lỗi thường hiện trong hộp). */
   // `loi500LaDaDoi`: thao tác mà máy chủ báo "trạng thái không còn đúng" bằng RuntimeException (HTTP 500) — vd. đã giao,
   // hoàn trả khi tab khác vừa làm — thì đóng hộp và tải lại như lỗi 400/409 (bấm lại cũng chỉ lỗi y như vậy)
-  const thucHien = async (ma, viec, { thanhCong, coHop = true, loi500LaDaDoi = false, cauLoi = "Không thực hiện được thao tác" }) => {
+  const thucHien = async (ma, viec, { thanhCong, coHop = true, loi500LaDaDoi = false, cauLoi = t("Không thực hiện được thao tác") }) => {
     setLoiHop(null);
     setDangChay(ma);
     try {
@@ -258,14 +259,14 @@ function ChiTietDonBanHang({ id }) {
 
   const guiSangKho = (kho) =>
     thucHien("guiKho", () => donBanHangService.sendToWarehouse(id, { khoId: Number(idKho(kho)) }), {
-      cauLoi: "Không gửi được đơn sang kho",
-      thanhCong: () => toast.success(`Đã gửi đơn ${so} sang ${kho.tenKho}`, { description: "Đơn chuyển sang Chờ nhặt hàng" }),
+      cauLoi: t("Không gửi được đơn sang kho"),
+      thanhCong: () => toast.success(t("Đã gửi đơn {{so}} sang {{tenKho}}", { so, tenKho: kho.tenKho }), { description: t("Đơn chuyển sang Chờ nhặt hàng") }),
     });
   const guiKhoLazada = () =>
     thucHien("guiKho", () => donBanHangService.sendToWarehouse(id), {
       coHop: false,
-      cauLoi: "Không gửi được đơn sang kho",
-      thanhCong: () => toast.success(`Đã gửi đơn ${so} sang Kho Tổng`, { description: "Đơn chuyển sang Chờ nhặt hàng" }),
+      cauLoi: t("Không gửi được đơn sang kho"),
+      thanhCong: () => toast.success(t("Đã gửi đơn {{so}} sang Kho Tổng", { so }), { description: t("Đơn chuyển sang Chờ nhặt hàng") }),
     });
   // Máy chủ trả thành công mà không làm gì khi đơn đã hủy (vd. sàn vừa hủy): đọc lại đơn để không báo nhầm "đã gửi sang sàn"
   const huyDon = () =>
@@ -277,75 +278,75 @@ function ChiTietDonBanHang({ id }) {
         return moi?.data?.donBanHang ?? null;
       },
       {
-        cauLoi: "Không hủy được đơn",
+        cauLoi: t("Không hủy được đơn"),
         thanhCong: (donMoi) => {
           const sanHuy = lyDoSanHuy(donMoi?.lyDoTuChoi);
-          if (sanHuy) toast.info(`${sanHuy.tenSan} đã hủy đơn ${so} trước đó`);
-          else toast.success(`Đã hủy đơn ${so}`, { description: laSan ? `Đã gửi yêu cầu hủy sang ${tenKenh}` : "Hàng của đơn đã trả về tồn có thể bán" });
+          if (sanHuy) toast.info(t("{{tenSan}} đã hủy đơn {{so}} trước đó", { tenSan: sanHuy.tenSan, so }));
+          else toast.success(t("Đã hủy đơn {{so}}", { so }), { description: laSan ? t("Đã gửi yêu cầu hủy sang {{tenKenh}}", { tenKenh }) : t("Hàng của đơn đã trả về tồn có thể bán") });
         },
       },
     );
   const xacNhanDaGiao = () =>
     thucHien("daGiao", () => donBanHangKenhService.markAsDelivered(id), {
       loi500LaDaDoi: true,
-      cauLoi: "Không xác nhận được giao hàng",
-      thanhCong: () => toast.success("Đã xác nhận giao hàng", { description: `Đơn ${so} chuyển sang Hoàn thành` }),
+      cauLoi: t("Không xác nhận được giao hàng"),
+      thanhCong: () => toast.success(t("Đã xác nhận giao hàng"), { description: t("Đơn {{so}} chuyển sang Hoàn thành", { so }) }),
     });
   const ghiNhanHoanTra = () =>
     thucHien("hoanTra", () => donBanHangService.returnOrder(id), {
       loi500LaDaDoi: true,
-      cauLoi: "Không ghi nhận được hoàn trả",
-      thanhCong: () => toast.success(`Đã ghi nhận hoàn trả đơn ${so}`, { description: "Đơn chuyển sang Bị hoàn trả" }),
+      cauLoi: t("Không ghi nhận được hoàn trả"),
+      thanhCong: () => toast.success(t("Đã ghi nhận hoàn trả đơn {{so}}", { so }), { description: t("Đơn chuyển sang Bị hoàn trả") }),
     });
   // Phiếu xuất bị hủy sau khi nhặt xong: tạo phiếu mới dùng lại lô đã nhặt; lô cũ không còn đủ thì máy chủ báo canSuaLo
   const taoLaiPhieuXuat = () =>
     thucHien("taoLai", () => phieuXuatKhoService.taoLaiTheoDon(id), {
       coHop: false,
-      cauLoi: "Không tạo lại được phiếu xuất",
+      cauLoi: t("Không tạo lại được phiếu xuất"),
       thanhCong: (res) => {
         const kq = res?.data;
-        const cau = res?.message || (kq?.soPhieuXuat ? `Đã tạo lại phiếu xuất ${kq.soPhieuXuat}` : "Đã tạo lại phiếu xuất");
+        const cau = res?.message || (kq?.soPhieuXuat ? t("Đã tạo lại phiếu xuất {{soPhieuXuat}}", { soPhieuXuat: kq.soPhieuXuat }) : t("Đã tạo lại phiếu xuất"));
         if (kq?.canSuaLo?.length) toast.warning(cau);
-        else toast.success(cau, { description: "Dùng lại lô đã nhặt, đơn chuyển sang Chờ đóng gói." });
+        else toast.success(cau, { description: t("Dùng lại lô đã nhặt, đơn chuyển sang Chờ đóng gói.") });
       },
     });
 
   // ── Đầu khối ────────────────────────────────────────────────────────────
-  const nguon = laPos ? "Bán tại quầy" : laSan ? `Đơn ${tenKenh}` : "Đơn bán hàng";
+  const nguon = laPos ? t("Bán tại quầy") : laSan ? t("Đơn {{tenKenh}}", { tenKenh }) : t("Đơn bán hàng");
   const nutChinh = khoaKhiChoGoc(
     [
       v.nutGuiKho
         ? {
             ma: "guiKho",
-            nhan: "Gửi sang kho",
+            nhan: t("Gửi sang kho"),
             icon: Send,
             dangChay: dangChay === "guiKho",
             khoa: Boolean(dangChay),
             onClick: laSanXuatKhoTong ? guiKhoLazada : () => moHop("guiKho"),
           }
         : null,
-      v.nutDaGiao ? { ma: "daGiao", nhan: "Xác nhận đã giao", icon: CircleCheckBig, onClick: () => moHop("daGiao") } : null,
+      v.nutDaGiao ? { ma: "daGiao", nhan: t("Xác nhận đã giao"), icon: CircleCheckBig, onClick: () => moHop("daGiao") } : null,
       v.nutDongGoi
-        ? { ma: "dongGoi", nhan: "Đóng gói", icon: PackageCheck, dieuHuong: true, onClick: () => navigate(`/goods-issues/packing/${id}`) }
+        ? { ma: "dongGoi", nhan: t("Đóng gói"), icon: PackageCheck, dieuHuong: true, onClick: () => navigate(`/goods-issues/packing/${id}`) }
         : null,
       v.nutXuat
-        ? { ma: "xuat", nhan: "Xuất kho", icon: Truck, dieuHuong: true, onClick: () => navigate(`/goods-issues/${v.pxMo.id}`) }
+        ? { ma: "xuat", nhan: t("Xuất kho"), icon: Truck, dieuHuong: true, onClick: () => navigate(`/goods-issues/${v.pxMo.id}`) }
         : null,
       v.nutTaoLai
-        ? { ma: "taoLai", nhan: "Tạo lại phiếu xuất", icon: RefreshCw, dangChay: dangChay === "taoLai", khoa: Boolean(dangChay), onClick: taoLaiPhieuXuat }
+        ? { ma: "taoLai", nhan: t("Tạo lại phiếu xuất"), icon: RefreshCw, dangChay: dangChay === "taoLai", khoa: Boolean(dangChay), onClick: taoLaiPhieuXuat }
         : null,
     ].filter(Boolean),
     choGoc,
   );
   const menu = [
     v.menuHoanTra
-      ? { ma: "hoanTra", nhan: "Ghi nhận hoàn trả", moTa: "Khách trả lại cả đơn", icon: Undo2, khoa: choGoc, onSelect: () => moHop("hoanTra") }
+      ? { ma: "hoanTra", nhan: t("Ghi nhận hoàn trả"), moTa: t("Khách trả lại cả đơn"), icon: Undo2, khoa: choGoc, onSelect: () => moHop("hoanTra") }
       : null,
     v.menuHuy
       ? {
         ma: "huy",
-        nhan: "Hủy đơn",
-        moTa: v.lyDoKhoaHuy || (laSan ? `Gửi yêu cầu hủy sang ${tenKenh}` : "Trả hàng về tồn có thể bán"),
+        nhan: t("Hủy đơn", { context: "nut" }),
+        moTa: v.lyDoKhoaHuy || (laSan ? t("Gửi yêu cầu hủy sang {{tenKenh}}", { tenKenh }) : t("Trả hàng về tồn có thể bán")),
         icon: XCircle,
         nguyHiem: true,
         khoa: Boolean(v.lyDoKhoaHuy) || choGoc,
@@ -360,7 +361,7 @@ function ChiTietDonBanHang({ id }) {
       <DongThongBao
         key={n.ma}
         tone={n.tone}
-        actions={n.lienKet === "donChoXuat" ? <NutChu onClick={() => navigate("/goods-issues/pending-orders")}>Mở Đơn chờ xuất</NutChu> : null}
+        actions={n.lienKet === "donChoXuat" ? <NutChu onClick={() => navigate("/goods-issues/pending-orders")}>{t("Mở Đơn chờ xuất")}</NutChu> : null}
       >
         {n.chu}
       </DongThongBao>
@@ -370,8 +371,8 @@ function ChiTietDonBanHang({ id }) {
     ) : null,
     // Tải lại (sau thao tác, khi quay lại tab) lỗi: màn đang hiện dữ liệu cũ
     q.loiTaiLai ? (
-      <DongThongBao key="loi-tai-lai" tone="bad" actions={<NutChu onClick={q.reload}>Thử lại</NutChu>}>
-        Không tải lại được đơn: {getApiErrorMessage(q.error, "lỗi kết nối")}. Thông tin đang hiện có thể đã cũ.
+      <DongThongBao key="loi-tai-lai" tone="bad" actions={<NutChu onClick={q.reload}>{t("Thử lại")}</NutChu>}>
+        {t("Không tải lại được đơn: {{error}}. Thông tin đang hiện có thể đã cũ.", { error: getApiErrorMessage(q.error, t("lỗi kết nối")) })}
       </DongThongBao>
     ) : null,
   ].filter(Boolean);
@@ -381,7 +382,7 @@ function ChiTietDonBanHang({ id }) {
   const khoiThanhToan = (
     <>
       <div className="flex flex-wrap items-center gap-2.5">
-        <span>Thanh toán</span>
+        <span>{t("Thanh toán")}</span>
         {nhanThanhToan ? (
           // "Chưa thanh toán" của đơn sàn chỉ là trạng thái chụp lúc đồng bộ, hệ thống không thu; đơn thường đã hủy / hoàn
           // trả không còn phải thu: không tô màu nhắc
@@ -400,24 +401,24 @@ function ChiTietDonBanHang({ id }) {
   // Thiếu số của máy chủ thì hiện "—" (không ghi "0 ₫" như thể khách đưa 0 đồng)
   const tienHoacTrong = (so) => (so == null || so === "" ? null : formatCurrency(so));
   const mucTien = [
-    { ma: "hang", nhan: "Tiền hàng", giaTri: formatCurrency(tien.tienHang) },
-    { ma: "phi", nhan: "Phí vận chuyển", giaTri: formatCurrency(tien.phi) },
-    { ma: "tong", nhan: "Tổng cộng", giaTri: formatCurrency(tien.tongCong), tong: true },
+    { ma: "hang", nhan: t("Tiền hàng"), giaTri: formatCurrency(tien.tienHang) },
+    { ma: "phi", nhan: t("Phí vận chuyển"), giaTri: formatCurrency(tien.phi) },
+    { ma: "tong", nhan: t("Tổng cộng"), giaTri: formatCurrency(tien.tongCong), tong: true },
     // Thuế GTGT chụp lúc chốt đơn (giá đã gồm thuế, tách ngược từ tổng cộng): phần "trong đó" ngay dưới Tổng cộng, như
     // bản in hóa đơn — không xếp trước tổng để khỏi đọc thành thuế cộng thêm
     ...(don.thueSuatGtgt != null && don.tienThueGtgt != null ? [
-      { ma: "gom-thue", nhan: "Giá đã gồm thuế GTGT, trong đó:", ghiChu: true },
-      { ma: "chua-thue", nhan: "Tiền trước thuế", giaTri: formatCurrency(Number(don.tongCong) - Number(don.tienThueGtgt)), con: true },
-      { ma: "thue", nhan: `Thuế GTGT (${Number(don.thueSuatGtgt).toLocaleString("vi-VN")}%)`, giaTri: formatCurrency(don.tienThueGtgt), con: true },
+      { ma: "gom-thue", nhan: t("Giá đã gồm thuế GTGT, trong đó:"), ghiChu: true },
+      { ma: "chua-thue", nhan: t("Tiền trước thuế"), giaTri: formatCurrency(Number(don.tongCong) - Number(don.tienThueGtgt)), con: true },
+      { ma: "thue", nhan: t("Thuế GTGT ({{thueSuat}}%)", { thueSuat: Number(don.thueSuatGtgt).toLocaleString("vi-VN") }), giaTri: formatCurrency(don.tienThueGtgt), con: true },
     ] : []),
-    thanhToan.laTienMat ? { ma: "dua", nhan: "Khách đưa", giaTri: tienHoacTrong(ttq?.soTienThu) ?? "—" } : null,
-    thanhToan.laTienMat ? { ma: "thua", nhan: "Tiền thừa", giaTri: tienHoacTrong(ttq?.soTienThua) ?? "—" } : null,
+    thanhToan.laTienMat ? { ma: "dua", nhan: t("Khách đưa"), giaTri: tienHoacTrong(ttq?.soTienThu) ?? "—" } : null,
+    thanhToan.laTienMat ? { ma: "thua", nhan: t("Tiền thừa"), giaTri: tienHoacTrong(ttq?.soTienThua) ?? "—" } : null,
     // Trả kết hợp tại quầy: phần tiền mặt khách trả trước và phần quét QR payOS
-    thanhToan.ketHop ? { ma: "tien-mat", nhan: "Tiền mặt", giaTri: formatCurrency(thanhToan.ketHop.tienMat) } : null,
+    thanhToan.ketHop ? { ma: "tien-mat", nhan: t("Tiền mặt"), giaTri: formatCurrency(thanhToan.ketHop.tienMat) } : null,
     thanhToan.ketHop ? { ma: "qr", nhan: "QR payOS", giaTri: formatCurrency(thanhToan.ketHop.qr) } : null,
   ];
 
-  const tieuDeHuy = `Hủy đơn ${so}?`;
+  const tieuDeHuy = t("Hủy đơn {{so}}?", { so });
 
   return (
     <PageContainer className="flex min-h-full flex-col gap-3">
@@ -429,31 +430,31 @@ function ChiTietDonBanHang({ id }) {
             trangThai={{ label: getDonBanHangStatus(don.trangThai).label, quyTrinh: "donBan" }}
             dongPhu={[
               nguon,
-              bang.rong ? "chưa có sản phẩm" : <b key="bt" className="font-semibold text-bo-foreground">{soVN(bang.tong.soDong)} biến thể</b>,
-              bang.rong ? null : <b key="sl" className="font-semibold text-bo-foreground">tổng số lượng {soVN(bang.tong.soLuong)}</b>,
+              bang.rong ? t("chưa có sản phẩm") : <b key="bt" className="font-semibold text-bo-foreground">{t("{{so}} biến thể", { count: bang.tong.soDong, so: soVN(bang.tong.soDong) })}</b>,
+              bang.rong ? null : <b key="sl" className="font-semibold text-bo-foreground">{t("tổng số lượng")} {soVN(bang.tong.soLuong)}</b>,
             ]}
             onQuayLai={quayLai}
-            nhanQuayLai="Về danh sách đơn bán hàng"
+            nhanQuayLai={t("Về danh sách đơn bán hàng")}
             nutPhu={
               v.coIn
                 ? {
                   ma: "in",
-                  nhan: "In hóa đơn",
+                  nhan: t("In hóa đơn"),
                   icon: Printer,
                   // Đơn bán tại quầy in lại bằng mẫu khổ nhiệt như lúc thanh toán
                   onClick: () => navigate(`/sales-orders/${id}/invoice${laPos ? "?mau=tai-quay" : ""}`),
                 }
                 : null
             }
-            saoChepMa={{ giaTri: don.soDonHang, nhan: "Sao chép mã đơn" }}
+            saoChepMa={{ giaTri: don.soDonHang, nhan: t("Sao chép mã đơn") }}
             menu={menu}
             nutChinh={nutChinh}
           />
         }
-        tienTrinh={buoc.length ? <TienTrinhChungTu buoc={buoc} nhan="Tiến trình đơn bán hàng" /> : null}
+        tienTrinh={buoc.length ? <TienTrinhChungTu buoc={buoc} nhan={t("Tiến trình đơn bán hàng")} /> : null}
         thongBao={thongBao.length ? thongBao : null}
         chinh={
-          <BangHangBan bang={bang} tenChungTu={TEN_CHUNG_TU} nhanTim="Tìm trong đơn">
+          <BangHangBan bang={bang} tenChungTu={TEN_CHUNG_TU} nhanTim={t("Tìm trong đơn")}>
             <TongTienBan
               trai={khoiThanhToan}
               muc={mucTien}
@@ -476,12 +477,12 @@ function ChiTietDonBanHang({ id }) {
         mo={hop === "huy"}
         onDoiMo={doiMoHop}
         tieuDe={tieuDeHuy}
-        moTa="Không hoàn tác được."
-        nhanXacNhan="Hủy đơn"
+        moTa={t("Không hoàn tác được.")}
+        nhanXacNhan={t("Hủy đơn", { context: "nut" })}
         kieu="nguyHiem"
         dangChay={dangChay === "huy"}
         khoaXacNhan={!lyDoHuy.trim()}
-        lyDoKhoa="Nhập lý do hủy"
+        lyDoKhoa={t("Nhập lý do hủy")}
         loi={loiHop}
         onXacNhan={huyDon}
       >
@@ -502,9 +503,9 @@ function ChiTietDonBanHang({ id }) {
       <HopXacNhanChungTu
         mo={hop === "daGiao"}
         onDoiMo={doiMoHop}
-        tieuDe="Xác nhận đã giao"
-        moTa={`Khách đã nhận đủ hàng của đơn ${so}? Đơn chuyển sang Hoàn thành.`}
-        nhanXacNhan="Xác nhận đã giao"
+        tieuDe={t("Xác nhận đã giao")}
+        moTa={t("Khách đã nhận đủ hàng của đơn {{so}}? Đơn chuyển sang Hoàn thành.", { so })}
+        nhanXacNhan={t("Xác nhận đã giao")}
         iconXacNhan={CircleCheckBig}
         dangChay={dangChay === "daGiao"}
         loi={loiHop}
@@ -513,17 +514,17 @@ function ChiTietDonBanHang({ id }) {
       <HopXacNhanChungTu
         mo={hop === "hoanTra"}
         onDoiMo={doiMoHop}
-        tieuDe="Ghi nhận hoàn trả"
-        moTa={`Khách trả lại toàn bộ đơn ${so}? Đơn chuyển sang Bị hoàn trả.`}
-        nhanXacNhan="Ghi nhận hoàn trả"
+        tieuDe={t("Ghi nhận hoàn trả")}
+        moTa={t("Khách trả lại toàn bộ đơn {{so}}? Đơn chuyển sang Bị hoàn trả.", { so })}
+        nhanXacNhan={t("Ghi nhận hoàn trả")}
         iconXacNhan={Undo2}
         dangChay={dangChay === "hoanTra"}
         loi={loiHop}
         onXacNhan={ghiNhanHoanTra}
       >
         <div className={GHI_CHU_HOP}>
-          Hàng chưa vào lại tồn kho khi ghi nhận. Hiện chỉ ghi nhận trả cả đơn, chưa trả từng phần.
-          {tt === TRANG_THAI_DON.DA_XUAT_MOT_PHAN ? " Phần chưa xuất của đơn thôi giữ chỗ trong tồn có thể bán." : null}
+          {t("Hàng chưa vào lại tồn kho khi ghi nhận. Hiện chỉ ghi nhận trả cả đơn, chưa trả từng phần.")}
+          {tt === TRANG_THAI_DON.DA_XUAT_MOT_PHAN ? t(" Phần chưa xuất của đơn thôi giữ chỗ trong tồn có thể bán.") : null}
         </div>
       </HopXacNhanChungTu>
     </PageContainer>

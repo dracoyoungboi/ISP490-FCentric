@@ -11,6 +11,7 @@ import { toast } from "@/lib/thongBaoNhanh";
 import { cn } from "@/lib/utils";
 import { laKhoTong } from "@/utils/kho";
 import { KHO_LAM_VIEC_EVENT, dsKhoLamViecTrongToken, getKhoLamViecId, setKhoLamViecId } from "@/utils/khoLamViec";
+import { t } from "@/i18n";
 
 /**
  * Ô "Nơi làm việc" (kho làm việc) ở đáy sidebar cho vai trò làm việc theo kho mà không có mục Cấu hình
@@ -37,15 +38,15 @@ export default function SidebarKhoLamViec({ isExpanded, layoutClass, fadeClass, 
   if (dsKho.length === 0) return null;
 
   const khoHienTai = dsKho.find((kho) => kho.id === khoId) ?? null;
-  const tenKho = khoHienTai?.tenKho ?? "Chưa chọn kho";
+  const tenKho = khoHienTai?.tenKho ?? t("Chưa chọn kho");
   const doiDuoc = dsKho.length > 1 || !khoHienTai;
 
   const tooltipProps = isExpanded
     ? {}
     : {
-        onPointerOver: (event) => onShowTooltip(event, tenKho, "Nơi làm việc"),
+        onPointerOver: (event) => onShowTooltip(event, tenKho, t("Nơi làm việc")),
         onPointerOut: onHideTooltip,
-        onFocus: (event) => onShowTooltip(event, tenKho, "Nơi làm việc"),
+        onFocus: (event) => onShowTooltip(event, tenKho, t("Nơi làm việc")),
         onBlur: onHideTooltip,
       };
 
@@ -57,7 +58,7 @@ export default function SidebarKhoLamViec({ isExpanded, layoutClass, fadeClass, 
         <Warehouse className="size-[18px]" aria-hidden="true" />
       )}
       <span data-nhan className={cn("min-w-0 flex-1 text-left", fadeClass)}>
-        <span className="block truncate text-[11px] leading-4 text-bo-sidebar-muted">Nơi làm việc</span>
+        <span className="block truncate text-[11px] leading-4 text-bo-sidebar-muted">{t("Nơi làm việc")}</span>
         <span className="block truncate text-[13px] leading-4 font-medium text-white">{tenKho}</span>
       </span>
       {doiDuoc ? <ChevronsUpDown className={cn("ml-auto size-4 opacity-70", fadeClass)} aria-hidden="true" /> : null}
@@ -71,7 +72,7 @@ export default function SidebarKhoLamViec({ isExpanded, layoutClass, fadeClass, 
       <SidebarMenuItem>
         <SidebarMenuButton
           className={cn(nutClass, "cursor-default hover:bg-transparent hover:text-bo-sidebar-muted")}
-          aria-label={`Nơi làm việc: ${tenKho}`}
+          aria-label={t("Nơi làm việc: {{tenKho}}", { tenKho })}
           {...tooltipProps}
         >
           {noiDung}
@@ -84,7 +85,7 @@ export default function SidebarKhoLamViec({ isExpanded, layoutClass, fadeClass, 
     if (kho.id === khoId) return;
     setKhoId(kho.id);
     setKhoLamViecId(kho.id);
-    toast.success(`Đã chuyển sang ${kho.tenKho}.`);
+    toast.success(t("Đã chuyển sang {{tenKho}}.", { tenKho: kho.tenKho }));
   };
 
   return (
@@ -93,7 +94,7 @@ export default function SidebarKhoLamViec({ isExpanded, layoutClass, fadeClass, 
         <DropdownMenuTrigger asChild>
           <SidebarMenuButton
             className={cn(nutClass, "data-[state=open]:bg-bo-sidebar-hover data-[state=open]:text-white")}
-            aria-label={`Nơi làm việc: ${tenKho}. Bấm để đổi nơi làm việc`}
+            aria-label={t("Nơi làm việc: {{tenKho}}. Bấm để đổi nơi làm việc", { tenKho })}
             {...tooltipProps}
           >
             {noiDung}
@@ -106,7 +107,7 @@ export default function SidebarKhoLamViec({ isExpanded, layoutClass, fadeClass, 
           className="z-[90] w-[240px] rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg"
         >
           <p className="px-2.5 pt-1.5 pb-1 text-xs text-bo-muted">
-            Đổi nơi làm việc. Các trang theo kho sẽ hiện số liệu của nơi này.
+            {t("Đổi nơi làm việc. Các trang theo kho sẽ hiện số liệu của nơi này.")}
           </p>
           {dsKho.map((kho) => (
             <DropdownMenuItem

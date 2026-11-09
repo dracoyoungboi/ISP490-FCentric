@@ -11,7 +11,7 @@ import java.time.Instant;
 @Getter
 @Setter
 @NoArgsConstructor
-@Builder
+@Builder(toBuilder = true)
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class PayosPaymentLinkDto {
     Long orderCode;

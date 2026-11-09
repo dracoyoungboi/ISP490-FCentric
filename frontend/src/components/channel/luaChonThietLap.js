@@ -1,3 +1,4 @@
+import { t } from "../../i18n/t.js";
 /**
  * Lựa chọn chờ "Hoàn tất" của Thiết lập sàn ủy quyền (KH mục B.3): lần thiết lập đầu, công tắc tự động ở bước 2–3
  * lưu tạm là tắt, lựa chọn thật và "Lấy thêm đơn cũ" giữ ở đây tới khi bấm Hoàn tất (lúc đó sản phẩm đã ghép).
@@ -53,13 +54,13 @@ export function viecKhiHoanTat(luaChon, cauHinh) {
   const viec = [];
   if (luaChon?.tuDongDayTon === true && cauHinh?.tuDongDayTon === false) {
     batTuDong.tuDongDayTon = true;
-    viec.push("bật tự động cập nhật tồn");
+    viec.push(t("bật tự động cập nhật tồn"));
   }
   if (luaChon?.tuDongLayDon === true && cauHinh?.tuDongLayDon === false) {
     batTuDong.tuDongLayDon = true;
-    viec.push("bật tự động lấy đơn");
+    viec.push(t("bật tự động lấy đơn"));
   }
   const soNgayDonCu = Number(luaChon?.layDonCu) > 0 ? Number(luaChon.layDonCu) : 0;
-  if (soNgayDonCu) viec.push(`lấy đơn ${soNgayDonCu} ngày qua`);
+  if (soNgayDonCu) viec.push(t("lấy đơn {{soNgayDonCu}} ngày qua", { count: soNgayDonCu, soNgayDonCu }));
   return { batTuDong, soNgayDonCu, viec };
 }

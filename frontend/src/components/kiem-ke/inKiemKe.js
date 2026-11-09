@@ -8,12 +8,19 @@
  */
 import { docSo } from "../chung-tu/bangChungTu.js";
 import { tenHangIn } from "../chuyen-kho/inChuyenKho.js";
-import { TT_DOT, laLech, moTaPhamVi, nhanPhamVi, sapXepDong } from "./kiemKe.js";
+import { TT_DOT, laLech, sapXepDong } from "./kiemKe.js";
+import { t } from "../../i18n/t.js";
 
-/** Loại giấy theo đường dẫn. `tieuDe`: tên ở thanh công cụ; `ten`: tiêu đề in trên giấy. */
+/** Loại giấy theo đường dẫn. `tieuDe`: tên ở thanh công cụ (dịch theo ngôn ngữ giao diện). */
 export const LOAI_IN_KIEM_KE = Object.freeze({
-  "bien-ban": { tieuDe: "Biên bản kiểm kê", ten: "BIÊN BẢN KIỂM KÊ HÀNG HÓA" },
-  "dieu-chinh": { tieuDe: "Phiếu điều chỉnh kho", ten: "PHIẾU ĐIỀU CHỈNH KHO" },
+  "bien-ban": { tieuDe: t("Biên bản kiểm kê") },
+  "dieu-chinh": { tieuDe: t("Phiếu điều chỉnh kho") },
+});
+
+/** Tiêu đề in trên giấy: chữ trên chứng từ giữ tiếng Việt ở mọi ngôn ngữ giao diện. */
+export const TEN_GIAY_KIEM_KE = Object.freeze({
+  "bien-ban": "BIÊN BẢN KIỂM KÊ HÀNG HÓA", // i18n-giu-nguyen: nội dung chứng từ in
+  "dieu-chinh": "PHIẾU ĐIỀU CHỈNH KHO", // i18n-giu-nguyen: nội dung chứng từ in
 });
 
 /**
@@ -21,16 +28,16 @@ export const LOAI_IN_KIEM_KE = Object.freeze({
  * Biên bản: Chờ duyệt (bản nháp để ban kiểm kê ký trước khi trình) và Đã duyệt. Phiếu điều chỉnh: đợt đã duyệt có lệch.
  */
 export function lyDoChuaInKiemKe(loai, dot, phieu) {
-  if (!LOAI_IN_KIEM_KE[loai]) return "Không có mẫu in này cho đợt kiểm kê.";
+  if (!LOAI_IN_KIEM_KE[loai]) return t("Không có mẫu in này cho đợt kiểm kê.");
   if (!dot) return null;
   const tt = Number(dot.trangThai);
   if (loai === "bien-ban") {
     if (tt === TT_DOT.CHO_DUYET || tt === TT_DOT.DA_DUYET) return null;
-    if (tt === TT_DOT.DA_HUY) return "Đợt đã hủy nên không lập biên bản kiểm kê.";
-    return "Biên bản in được khi đợt đã kiểm đếm xong (Chờ duyệt hoặc Đã duyệt).";
+    if (tt === TT_DOT.DA_HUY) return t("Đợt đã hủy nên không lập biên bản kiểm kê.");
+    return t("Biên bản in được khi đợt đã kiểm đếm xong (Chờ duyệt hoặc Đã duyệt).");
   }
-  if (tt !== TT_DOT.DA_DUYET) return "Phiếu điều chỉnh kho có sau khi đợt kiểm kê được duyệt.";
-  if (!phieu) return "Đợt không có chênh lệch nên không có phiếu điều chỉnh kho.";
+  if (tt !== TT_DOT.DA_DUYET) return t("Phiếu điều chỉnh kho có sau khi đợt kiểm kê được duyệt.");
+  if (!phieu) return t("Đợt không có chênh lệch nên không có phiếu điều chỉnh kho.");
   return null;
 }
 
@@ -40,12 +47,32 @@ export const laBanNhap = (dot) => Number(dot?.trangThai) !== TT_DOT.DA_DUYET;
 const so = (v) => (v === null || v === undefined || v === "" ? null : docSo(v));
 const chu = (s) => String(s ?? "").trim();
 
+// Nhãn phạm vi trên giấy giữ tiếng Việt (màn hình dùng nhanPhamVi / moTaPhamVi của kiemKe.js, đã dịch)
+// i18n-giu-nguyen: nội dung chứng từ in
+const NHAN_PHAM_VI_IN = Object.freeze({ toan_bo: "Toàn bộ kho", theo_khu_vuc: "Theo khu vực", theo_ke: "Theo vị trí kệ", theo_danh_muc: "Theo danh mục", dot_xuat: "Đột xuất" });
+const TOI_DA_PHAM_VI_IN = 12;
+
 /** Phạm vi in trên giấy: "Theo danh mục: Áo Polo (gồm 2 danh mục con)"; toàn kho thì "Toàn bộ kho". */
 export function phamViIn(dot) {
   if (!dot) return "";
   const loai = dot.loaiKiemKe;
-  if (loai === "toan_bo" || loai === "dot_xuat" || !loai) return `${nhanPhamVi(loai)} (mọi kệ của kho)`;
-  return `${nhanPhamVi(loai)}: ${moTaPhamVi(dot, 12)}`;
+  const nhan = NHAN_PHAM_VI_IN[loai] ?? NHAN_PHAM_VI_IN.toan_bo;
+  if (loai === "toan_bo" || loai === "dot_xuat" || !loai) return `${nhan} (mọi kệ của kho)`; // i18n-giu-nguyen: nội dung chứng từ in
+  const gon = (ds) => {
+    const ten = ds.filter(Boolean);
+    if (ten.length <= TOI_DA_PHAM_VI_IN) return ten.join(", ");
+    return `${ten.slice(0, TOI_DA_PHAM_VI_IN).join(", ")} +${ten.length - TOI_DA_PHAM_VI_IN}`;
+  };
+  let chiTiet = "";
+  // i18n-giu-nguyen: nội dung chứng từ in
+  if (loai === "theo_khu_vuc") chiTiet = gon((dot.khuVuc ?? []).map((k) => k.ten || k.ma)) || "Chưa chọn khu vực";
+  else if (loai === "theo_ke") chiTiet = gon((dot.viTri ?? []).map((v) => v.ma)) || "Chưa chọn kệ"; // i18n-giu-nguyen: nội dung chứng từ in
+  else if (loai === "theo_danh_muc") {
+    const goc = dot.danhMuc?.ten || "Chưa chọn danh mục"; // i18n-giu-nguyen: nội dung chứng từ in
+    const con = Math.max(0, (dot.danhMucChot?.length ?? 0) - 1);
+    chiTiet = con > 0 ? `${goc} (gồm ${con} danh mục con)` : goc; // i18n-giu-nguyen: nội dung chứng từ in
+  }
+  return `${nhan}: ${chiTiet}`;
 }
 
 /** Một dòng in: tên hàng, mã, lô, kệ, số sổ / thực tế / chênh lệch, giá vốn chốt và giá trị chênh lệch. */
@@ -78,39 +105,40 @@ export function lyDoIn(d) {
   const lan = Number(d?.lanKiemDem) || 1;
   const lyDo = chu(d?.lyDoChenhLech).replace(/[.。]+$/, "");
   const xuLy = chu(d?.bienPhapXuLy).replace(/[.。]+$/, "");
+  // i18n-giu-nguyen: nội dung chứng từ in
   return [lan > 1 ? `Đếm lần ${lan}` : "", lyDo, xuLy ? `Xử lý: ${xuLy}` : ""].filter(Boolean).join(". ");
 }
 
 /** Tổng hợp của biên bản (mục II). Số đã làm tròn tiền tới đồng ở lúc in, ở đây giữ nguyên. */
 export function tongHopIn(dong) {
-  const t = { soDong: 0, khop: 0, chuaDem: 0, soSach: 0, thucTe: 0, thua: 0, thieu: 0, dongThua: 0, dongThieu: 0,
+  const tong = { soDong: 0, khop: 0, chuaDem: 0, soSach: 0, thucTe: 0, thua: 0, thieu: 0, dongThua: 0, dongThieu: 0,
     giaTriSo: 0, giaTriThua: 0, giaTriThieu: 0 };
   for (const d of dong) {
-    t.soDong++;
-    t.soSach += d.soSach;
-    t.giaTriSo += d.soSach * d.giaVon;
+    tong.soDong++;
+    tong.soSach += d.soSach;
+    tong.giaTriSo += d.soSach * d.giaVon;
     if (d.thucTe === null) {
-      t.chuaDem++;
+      tong.chuaDem++;
       continue;
     }
-    t.thucTe += d.thucTe;
+    tong.thucTe += d.thucTe;
     if (d.chenhLech > 0) {
-      t.thua += d.chenhLech;
-      t.dongThua++;
-      t.giaTriThua += Math.abs(d.giaTri ?? 0);
+      tong.thua += d.chenhLech;
+      tong.dongThua++;
+      tong.giaTriThua += Math.abs(d.giaTri ?? 0);
     } else if (d.chenhLech < 0) {
-      t.thieu += -d.chenhLech;
-      t.dongThieu++;
-      t.giaTriThieu += Math.abs(d.giaTri ?? 0);
+      tong.thieu += -d.chenhLech;
+      tong.dongThieu++;
+      tong.giaTriThieu += Math.abs(d.giaTri ?? 0);
     } else {
-      t.khop++;
+      tong.khop++;
     }
   }
-  t.chenhLech = t.thua - t.thieu;
-  t.giaTriRong = t.giaTriThua - t.giaTriThieu;
+  tong.chenhLech = tong.thua - tong.thieu;
+  tong.giaTriRong = tong.giaTriThua - tong.giaTriThieu;
   // Tỷ lệ chênh lệch ròng trên giá trị theo sổ (%); sổ bằng 0 thì không tính
-  t.tiLe = t.giaTriSo > 0 ? (t.giaTriRong / t.giaTriSo) * 100 : null;
-  return t;
+  tong.tiLe = tong.giaTriSo > 0 ? (tong.giaTriRong / tong.giaTriSo) * 100 : null;
+  return tong;
 }
 
 /**
@@ -184,7 +212,7 @@ export function dongPhieuDieuChinh(dongApi) {
 
 /** Loại phiếu điều chỉnh in trên giấy. */
 export function tenLoaiDieuChinh(loai) {
-  if (loai === "tang") return "Tăng";
-  if (loai === "giam") return "Giảm";
-  return "Tăng và giảm";
+  if (loai === "tang") return "Tăng"; // i18n-giu-nguyen: nội dung chứng từ in
+  if (loai === "giam") return "Giảm"; // i18n-giu-nguyen: nội dung chứng từ in
+  return "Tăng và giảm"; // i18n-giu-nguyen: nội dung chứng từ in
 }

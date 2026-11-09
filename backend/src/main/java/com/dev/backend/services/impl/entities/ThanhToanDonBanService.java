@@ -1,5 +1,6 @@
 package com.dev.backend.services.impl.entities;
 
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.config.SecurityContextHolder;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.constant.variables.ITrangThaiDonBanHang;
@@ -228,9 +229,9 @@ public class ThanhToanDonBanService {
         NguoiDungAuthInfo user = SecurityContextHolder.getUser();
         DonBanHang don = khoaDon(donId);
         if (!DonBanHangService.trongPhamVi(don, user)) {
-            throw new CommonException(HttpStatus.FORBIDDEN, "Đơn " + don.getSoDonHang() + " không thuộc phạm vi của bạn.");
+            throw new CommonException(HttpStatus.FORBIDDEN, ThongDiep.of("banHang.donNgoaiPhamVi", don.getSoDonHang()));
         }
-        if (req == null) throw new CommonException("Thiếu thông tin thanh toán");
+        if (req == null) throw new CommonException(ThongDiep.of("banHang.thieuThongTinThanhToan"));
         String khoa = khoaChongTrung(req.getKhoaChongTrung());
         if (khoa != null) {
             ThanhToanDonBan daGhi = repository.findByKhoaChongTrung(khoa).orElse(null);
@@ -239,52 +240,54 @@ public class ThanhToanDonBanService {
                         req.getMaThamChieu(), req.getNgayThu());
             }
         }
-        if ("bao_gia".equals(don.getLoaiChungTu())) throw new CommonException("Báo giá chưa thành đơn bán: chưa ghi nhận thanh toán được");
+        if ("bao_gia".equals(don.getLoaiChungTu())) throw new CommonException(ThongDiep.of("banHang.baoGiaChuaThuTien"));
         if (laDonSan(don)) {
-            throw new CommonException("Đơn " + don.getSoDonHang() + " đồng bộ từ sàn: thanh toán theo sàn, không ghi nhận ở đây",
+            throw new CommonException(ThongDiep.of("banHang.donSanKhongThuTien", don.getSoDonHang()),
                     HttpStatus.CONFLICT, null);
         }
         if (!laDonThuong(don)) {
-            throw new CommonException("Đơn " + don.getSoDonHang() + " bán tại quầy: đã thu tiền ở màn Bán hàng", HttpStatus.CONFLICT, null);
+            throw new CommonException(ThongDiep.of("banHang.donTaiQuayDaThuTien", don.getSoDonHang()), HttpStatus.CONFLICT, null);
         }
         Integer tt = don.getTrangThai();
         if (tt != null && (tt == ITrangThaiDonBanHang.DA_HUY || tt == ITrangThaiDonBanHang.BI_HOAN_TRA)) {
-            throw new CommonException("Đơn " + don.getSoDonHang() + (tt == ITrangThaiDonBanHang.DA_HUY ? " đã hủy" : " bị hoàn trả")
-                    + ": không ghi nhận thu tiền", HttpStatus.CONFLICT, null);
+            throw new CommonException(tt == ITrangThaiDonBanHang.DA_HUY
+                    ? ThongDiep.of("banHang.donDaHuyKhongThuTien", don.getSoDonHang())
+                    : ThongDiep.of("banHang.donHoanTraKhongThuTien", don.getSoDonHang()), HttpStatus.CONFLICT, null);
         }
         List<ThanhToanDonBan> ds = new ArrayList<>(repository.findByDonBanHangIdOrderByIdAsc(donId));
         String pt = chuanHoaPhuongThuc(req.getPhuongThuc());
-        if (pt == null) throw new CommonException("Chọn Tiền mặt hoặc Chuyển khoản");
+        if (pt == null) throw new CommonException(ThongDiep.of("banHang.chonTienMatHoacChuyenKhoan"));
         BigDecimal phai = TinhThanhToan.phaiThu(don.getTrangThai(), don.getTongCong());
         BigDecimal conLai = phai.subtract(TinhThanhToan.daThu(ds));
         BigDecimal soTien = req.getSoTien();
         // Số lẻ đồng chỉ nhận khi đúng bằng phần còn lại (đơn cũ / tạo qua API có đơn giá lẻ vẫn thu đủ được)
         if (soTien == null || soTien.signum() <= 0
                 || (soTien.stripTrailingZeros().scale() > 0 && (soTien.scale() > 2 || soTien.compareTo(conLai) != 0))) {
-            throw new CommonException("Số tiền phải là số nguyên đồng lớn hơn 0");
+            throw new CommonException(ThongDiep.of("banHang.soTienPhaiNguyenDuong"));
         }
-        if (soTien.compareTo(MAX_THU) > 0) throw new CommonException("Số tiền vượt giới hạn cho phép");
+        if (soTien.compareTo(MAX_THU) > 0) throw new CommonException(ThongDiep.of("banHang.soTienVuotGioiHan"));
         boolean chuyenKhoan = ThanhToanDonBan.CHUYEN_KHOAN.equals(pt);
-        String thamChieu = chuyenKhoan ? catChuoi(req.getMaThamChieu(), 100, "Mã giao dịch") : null;
+        String thamChieu = chuyenKhoan ? catChuoi(req.getMaThamChieu(), 100, "banHang.maGiaoDichQuaDai") : null;
         if (chuyenKhoan && thamChieu == null) {
-            throw new CommonException("Nhập mã giao dịch trên sao kê ngân hàng (COD đơn vị vận chuyển chuyển về: mã bảng kê)");
+            throw new CommonException(ThongDiep.of("banHang.nhapMaGiaoDich"));
         }
         LocalDate homNay = LocalDate.now(VN);
         LocalDate ngay = req.getNgayThu() == null ? homNay : req.getNgayThu();
-        if (ngay.isAfter(homNay)) throw new CommonException("Ngày thu không được sau hôm nay");
+        if (ngay.isAfter(homNay)) throw new CommonException(ThongDiep.of("banHang.ngayThuSauHomNay"));
         boolean quanTri = laQuanTri(user);
         int luiToiDa = quanTri ? MAX_NGAY_THU_LUI : MAX_NGAY_THU_LUI_NHAN_VIEN;
         if (ngay.isBefore(homNay.minusDays(luiToiDa))) {
-            throw new CommonException("Ngày thu chỉ lùi tối đa " + luiToiDa + " ngày"
-                    + (quanTri ? "" : " — khoản chuyển cũ hơn nhờ quản trị viên ghi"));
+            throw new CommonException(quanTri
+                    ? ThongDiep.of("banHang.ngayThuLuiToiDa", luiToiDa)
+                    : ThongDiep.of("banHang.ngayThuLuiToiDaNhanVien", luiToiDa));
         }
         LocalDate ngayMo = ngayMoChungTu(don);
         if (ngayMo != null && ngay.isBefore(ngayMo)) {
-            throw new CommonException("Ngày thu không được trước ngày lập báo giá / đơn ("
-                    + ngayMo.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + ")");
+            throw new CommonException(ThongDiep.of("banHang.ngayThuTruocNgayLap",
+                    ngayMo.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))));
         }
         if (!chuyenKhoan && !ngay.equals(homNay)) {
-            throw new CommonException("Tiền mặt ghi ngày hôm nay (lúc nhận tiền)");
+            throw new CommonException(ThongDiep.of("banHang.tienMatGhiHomNay"));
         }
         // Cột thoi_diem_thu lưu tới giây: cắt sẵn để không làm tròn sang ngày sau lúc 23:59:59,6
         Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
@@ -292,7 +295,7 @@ public class ThanhToanDonBanService {
             if (!p.hieuLuc() || !ThanhToanDonBan.LOAI_THU.equals(p.getLoai())) continue;
             // Ghi trùng mã giao dịch trên cùng đơn (cũng chặn gửi lại chuyển khoản khi mất phản hồi)
             if (chuyenKhoan && ThanhToanDonBan.CHUYEN_KHOAN.equals(p.getPhuongThuc()) && thamChieu.equalsIgnoreCase(p.getMaThamChieu())) {
-                throw new CommonException("Mã giao dịch " + thamChieu + " đã ghi ở phiếu " + p.maPhieu() + " của đơn này",
+                throw new CommonException(ThongDiep.of("banHang.maGiaoDichDaGhiPhieu", thamChieu, p.maPhieu()),
                         HttpStatus.CONFLICT, Map.of("code", "MA_GD_TRUNG"));
             }
             // Tiền mặt bấm hai lần / gửi lại khi mạng chập chờn: cùng người, cùng số trong vài giây. Chuyển khoản đã có
@@ -300,7 +303,7 @@ public class ThanhToanDonBanService {
             if (!chuyenKhoan && Objects.equals(p.getNguoiThuId(), user.getId())
                     && pt.equals(p.getPhuongThuc()) && soTien.compareTo(p.getSoTien()) == 0
                     && p.getNgayTao() != null && p.getNgayTao().isAfter(now.minusSeconds(GIAY_CHAN_GHI_LAP))) {
-                throw new CommonException("Bạn vừa ghi phiếu " + p.maPhieu() + " giống hệt. Xem lại danh sách phiếu trước khi ghi thêm.",
+                throw new CommonException(ThongDiep.of("banHang.vuaGhiPhieuGiongHet", p.maPhieu()),
                         HttpStatus.CONFLICT, Map.of("code", "GHI_LAP"));
             }
         }
@@ -308,15 +311,15 @@ public class ThanhToanDonBanService {
         if (chuyenKhoan && !req.isChoMaDaDung()) {
             List<String> donKhac = donDaGhiMa(thamChieu, don.getId());
             if (!donKhac.isEmpty()) {
-                throw new CommonException("Mã giao dịch " + thamChieu + " đã ghi cho đơn " + String.join(", ", donKhac)
-                        + ". Chỉ ghi tiếp nếu đây là bảng kê gồm nhiều đơn.", HttpStatus.CONFLICT,
+                throw new CommonException(ThongDiep.of("banHang.maGiaoDichDaGhiDonKhac", thamChieu, String.join(", ", donKhac)),
+                        HttpStatus.CONFLICT,
                         Map.of("code", "MA_GD_DA_DUNG", "don", String.join(", ", donKhac)));
             }
         }
         if (soTien.compareTo(conLai) > 0 && !req.isChoThuThua()) {
             BigDecimal du = soTien.subtract(conLai.max(BigDecimal.ZERO));
-            throw new CommonException("Đơn còn phải thu " + plain(conLai.max(BigDecimal.ZERO)) + "đ; ghi " + plain(soTien)
-                    + "đ thì thu dư " + plain(du) + "đ và đơn thành Cần hoàn tiền.", HttpStatus.CONFLICT,
+            throw new CommonException(ThongDiep.of("banHang.thuThua", plain(conLai.max(BigDecimal.ZERO)), plain(soTien),
+                    plain(du)), HttpStatus.CONFLICT,
                     Map.of("code", "THU_THUA", "du", plain(du)));
         }
         ThanhToanDonBan phieu = ThanhToanDonBan.builder()
@@ -330,7 +333,7 @@ public class ThanhToanDonBanService {
                 .thoiDiemThu(ngay.equals(homNay) ? now : ngay.atTime(12, 0).atZone(VN).toInstant())
                 .nguoiThuId(user.getId())
                 .trangThai(ThanhToanDonBan.HIEU_LUC)
-                .ghiChu(catChuoi(req.getGhiChu(), 500, "Ghi chú"))
+                .ghiChu(catChuoi(req.getGhiChu(), 500, "banHang.ghiChuQuaDai"))
                 .ngayTao(now)
                 .khoaChongTrung(khoa)
                 // Quản trị viên tự ghi chuyển khoản từ sao kê: coi như đã đối chiếu
@@ -348,7 +351,7 @@ public class ThanhToanDonBanService {
     static String khoaChongTrung(String s) {
         if (s == null || s.isBlank()) return null;
         String k = s.trim();
-        if (!k.matches("[A-Za-z0-9_-]{8,64}")) throw new CommonException("Khóa chống gửi trùng không hợp lệ");
+        if (!k.matches("[A-Za-z0-9_-]{8,64}")) throw new CommonException(ThongDiep.of("banHang.khoaChongTrungSai"));
         return k;
     }
 
@@ -369,8 +372,8 @@ public class ThanhToanDonBanService {
                 && Objects.equals(pt, daGhi.getPhuongThuc()) && soTien != null && soTien.compareTo(daGhi.getSoTien()) == 0
                 && cungMa && cungNgay;
         if (!giong) {
-            throw new CommonException("Lần gửi trước đã ghi phiếu " + daGhi.maPhieu() + " với nội dung khác. Tải lại trang để xem "
-                    + "các phiếu rồi ghi lại nếu cần.", HttpStatus.CONFLICT, Map.of("code", "KHOA_DA_DUNG"));
+            throw new CommonException(ThongDiep.of("banHang.lanGuiTruocKhacNoiDung", daGhi.maPhieu()),
+                    HttpStatus.CONFLICT, Map.of("code", "KHOA_DA_DUNG"));
         }
         return tomTatDon(don, repository.findByDonBanHangIdOrderByIdAsc(don.getId()));
     }
@@ -387,9 +390,9 @@ public class ThanhToanDonBanService {
         NguoiDungAuthInfo user = SecurityContextHolder.getUser();
         DonBanHang don = khoaDon(donId);
         if (!DonBanHangService.trongPhamVi(don, user)) {
-            throw new CommonException(HttpStatus.FORBIDDEN, "Đơn " + don.getSoDonHang() + " không thuộc phạm vi của bạn.");
+            throw new CommonException(HttpStatus.FORBIDDEN, ThongDiep.of("banHang.donNgoaiPhamVi", don.getSoDonHang()));
         }
-        if (req == null) throw new CommonException("Thiếu thông tin hoàn tiền");
+        if (req == null) throw new CommonException(ThongDiep.of("banHang.thieuThongTinHoanTien"));
         String khoa = khoaChongTrung(req.getKhoaChongTrung());
         if (khoa != null) {
             ThanhToanDonBan daGhi = repository.findByKhoaChongTrung(khoa).orElse(null);
@@ -401,23 +404,23 @@ public class ThanhToanDonBanService {
         List<ThanhToanDonBan> ds = new ArrayList<>(repository.findByDonBanHangIdOrderByIdAsc(donId));
         BigDecimal thua = TinhThanhToan.daThu(ds).subtract(TinhThanhToan.phaiThu(don.getTrangThai(), don.getTongCong()));
         if (thua.signum() <= 0) {
-            throw new CommonException("Đơn " + don.getSoDonHang() + " không có tiền thu thừa cần hoàn");
+            throw new CommonException(ThongDiep.of("banHang.donKhongCoThuThua", don.getSoDonHang()));
         }
         String pt = chuanHoaPhuongThuc(req.getPhuongThuc());
-        if (pt == null) throw new CommonException("Hoàn tiền bằng tiền mặt hoặc chuyển khoản");
+        if (pt == null) throw new CommonException(ThongDiep.of("banHang.hoanTienChonPhuongThuc"));
         BigDecimal soTien = req.getSoTien();
         // Số lẻ đồng chỉ nhận khi đúng bằng phần thu thừa (đơn có tổng lẻ đã thu đủ rồi bị hủy)
         if (soTien == null || soTien.signum() <= 0
                 || (soTien.stripTrailingZeros().scale() > 0 && (soTien.scale() > 2 || soTien.compareTo(thua) != 0))) {
-            throw new CommonException("Số tiền hoàn phải là số nguyên đồng lớn hơn 0");
+            throw new CommonException(ThongDiep.of("banHang.soTienHoanPhaiNguyenDuong"));
         }
         if (soTien.compareTo(thua) > 0) {
-            throw new CommonException("Chỉ hoàn tối đa " + plain(thua) + "đ (phần đã thu thừa)");
+            throw new CommonException(ThongDiep.of("banHang.hoanToiDa", plain(thua)));
         }
         boolean chuyenKhoan = ThanhToanDonBan.CHUYEN_KHOAN.equals(pt);
-        String thamChieu = chuyenKhoan ? catChuoi(req.getMaThamChieu(), 100, "Mã giao dịch hoàn") : null;
+        String thamChieu = chuyenKhoan ? catChuoi(req.getMaThamChieu(), 100, "banHang.maGiaoDichHoanQuaDai") : null;
         if (chuyenKhoan && thamChieu == null) {
-            throw new CommonException("Nhập mã giao dịch hoàn tiền trên sao kê ngân hàng");
+            throw new CommonException(ThongDiep.of("banHang.nhapMaGiaoDichHoan"));
         }
         Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
         ThanhToanDonBan phieu = ThanhToanDonBan.builder()
@@ -430,7 +433,7 @@ public class ThanhToanDonBanService {
                 .thoiDiemThu(now)
                 .nguoiThuId(user.getId())
                 .trangThai(ThanhToanDonBan.HIEU_LUC)
-                .ghiChu(catChuoi(req.getGhiChu(), 500, "Ghi chú"))
+                .ghiChu(catChuoi(req.getGhiChu(), 500, "banHang.ghiChuQuaDai"))
                 .ngayTao(now)
                 .khoaChongTrung(khoa)
                 // Chỉ quản trị viên hoàn tiền: phiếu hoàn chuyển khoản coi như đã đối chiếu
@@ -450,20 +453,20 @@ public class ThanhToanDonBanService {
      */
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public ThanhToanDonBanDto.TheoDon huyPhieu(Long id, String lyDo) {
-        String ly = catChuoi(lyDo, 500, "Lý do hủy");
-        if (ly == null) throw new CommonException("Nhập lý do hủy phiếu");
+        String ly = catChuoi(lyDo, 500, "banHang.lyDoHuyQuaDai");
+        if (ly == null) throw new CommonException(ThongDiep.of("banHang.nhapLyDoHuyPhieu"));
         ThanhToanDonBan p = repository.findById(id)
-                .orElseThrow(() -> new CommonException("Không tìm thấy phiếu " + id, HttpStatus.NOT_FOUND, null));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("banHang.phieuKhongTimThay", id), HttpStatus.NOT_FOUND, null));
         DonBanHang don = khoaDon(p.getDonBanHangId());
         // Khóa ghi phiếu: hai lần hủy cùng lúc không ghi đè nhau
         entityManager.refresh(p, LockModeType.PESSIMISTIC_WRITE);
         if (!p.hieuLuc()) {
-            throw new CommonException("Phiếu " + p.maPhieu() + " đã bị hủy trước đó", HttpStatus.CONFLICT, null);
+            throw new CommonException(ThongDiep.of("banHang.phieuDaHuyTruocDo", p.maPhieu()), HttpStatus.CONFLICT, null);
         }
         List<ThanhToanDonBan> ds = new ArrayList<>(repository.findByDonBanHangIdOrderByIdAsc(don.getId()));
         // Kiểm trước khi đổi phiếu: bỏ phiếu này ra mà số đã thu âm thì còn phiếu hoàn phải hủy trước
         if (TinhThanhToan.daThu(ds.stream().filter(x -> !Objects.equals(x.getId(), p.getId())).toList()).signum() < 0) {
-            throw new CommonException("Đơn còn phiếu hoàn tiền: hủy phiếu hoàn trước rồi mới hủy phiếu thu này");
+            throw new CommonException(ThongDiep.of("banHang.conPhieuHoanTien"));
         }
         p.setTrangThai(ThanhToanDonBan.DA_HUY);
         p.setLyDoHuy(ly);
@@ -499,8 +502,8 @@ public class ThanhToanDonBanService {
     @Transactional
     public int doiChieu(List<Long> ids) {
         List<Long> ds = ids == null ? List.of() : ids.stream().filter(Objects::nonNull).distinct().toList();
-        if (ds.isEmpty()) throw new CommonException("Chọn các phiếu chuyển khoản đã thấy trên sao kê");
-        if (ds.size() > 200) throw new CommonException("Mỗi lần đánh dấu tối đa 200 phiếu");
+        if (ds.isEmpty()) throw new CommonException(ThongDiep.of("banHang.chonPhieuDoiChieu"));
+        if (ds.size() > 200) throw new CommonException(ThongDiep.of("banHang.danhDauToiDa200"));
         int soPhieu = repository.danhDauDoiChieu(ds, Instant.now(), SecurityContextHolder.getUser().getId());
         if (soPhieu > 0 && thongBaoThanhToanService != null) thongBaoThanhToanService.choDoiChieu(false);
         return soPhieu;
@@ -548,7 +551,7 @@ public class ThanhToanDonBanService {
     /** Khóa dòng đơn (SELECT ... FOR UPDATE) rồi nạp lại trạng thái mới nhất. */
     DonBanHang khoaDon(Integer donId) {
         DonBanHang don = entityManager.find(DonBanHang.class, donId);
-        if (don == null) throw new CommonException("Không tìm thấy đơn bán", HttpStatus.NOT_FOUND, null);
+        if (don == null) throw new CommonException(ThongDiep.of("banHang.donBanKhongTimThay"), HttpStatus.NOT_FOUND, null);
         entityManager.refresh(don, LockModeType.PESSIMISTIC_WRITE);
         return don;
     }
@@ -604,10 +607,11 @@ public class ThanhToanDonBanService {
         return out;
     }
 
-    static String catChuoi(String s, int max, String ten) {
+    /** khoaLoi: khóa câu "<tên ô> dài quá {0} ký tự" trong banHang.properties. */
+    static String catChuoi(String s, int max, String khoaLoi) {
         if (s == null || s.isBlank()) return null;
         String t = s.trim();
-        if (t.length() > max) throw new CommonException(ten + " dài quá " + max + " ký tự");
+        if (t.length() > max) throw new CommonException(ThongDiep.of(khoaLoi, max));
         return t;
     }
 

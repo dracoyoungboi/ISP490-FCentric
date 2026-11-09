@@ -20,6 +20,8 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
+import com.dev.backend.i18n.NgonNgu;
+import com.dev.backend.i18n.ThongDiep;
 
 /** Phần đọc của kiểm kê khoanh vùng: danh sách, chi tiết, dòng, nhật ký, sơ đồ khóa (hàng chưa có kệ ở HangChuaCoKeService). */
 @Service
@@ -85,7 +87,7 @@ public class KiemKeDocService {
 
     private DotKiemKe dotXemDuoc(Integer id) {
         DotKiemKe dot = dotRepo.findById(id)
-                .orElseThrow(() -> new LoiCoMaException(HttpStatus.NOT_FOUND, MaLoi.STK_INVALID_STATE, "Không tìm thấy đợt kiểm kê id " + id));
+                .orElseThrow(() -> new LoiCoMaException(HttpStatus.NOT_FOUND, MaLoi.STK_INVALID_STATE, ThongDiep.of("khoVanHanh.dotKiemKeKhongTimThayId", id)));
         KhoDangChon.kiemTraXem(dot.getKho(), KiemKeService.ten(dot));
         return dot;
     }
@@ -363,7 +365,7 @@ public class KiemKeDocService {
     // ───────────────────────────── Người chủ trì ─────────────────────────────
 
     public List<KiemKeDto.Nguoi> nguoiChuTri(Integer khoId) {
-        Kho kho = khoRepo.findById(khoId).orElseThrow(() -> KiemKePhamViService.phamViSai("Không tìm thấy kho"));
+        Kho kho = khoRepo.findById(khoId).orElseThrow(() -> KiemKePhamViService.phamViSai(ThongDiep.of("khoVanHanh.khoKhongTimThay")));
         KhoDangChon.kiemTraXem(kho, "Kho " + kho.getTenKho());
         return phanQuyenRepo.nguoiDungTheoKhoVaVaiTroTai(khoId, List.of(IRoleType.quan_ly_kho), Instant.now()).stream()
                 .map(KiemKeDocService::nguoi).toList();
@@ -373,7 +375,7 @@ public class KiemKeDocService {
 
     public KiemKeDto.SoDo soDo(Integer khoId) {
         sanSang.batBuoc();
-        Kho kho = khoRepo.findById(khoId).orElseThrow(() -> KiemKePhamViService.phamViSai("Không tìm thấy kho"));
+        Kho kho = khoRepo.findById(khoId).orElseThrow(() -> KiemKePhamViService.phamViSai(ThongDiep.of("khoVanHanh.khoKhongTimThay")));
         KhoDangChon.kiemTraXem(kho, "Kho " + kho.getTenKho());
         List<ViTriKho> ke = viTriRepo.findByKho_IdOrderByMaViTriAsc(khoId);
         Map<Integer, List<KiemKeDto.Ma>> dotCuaKe = new HashMap<>();
@@ -426,7 +428,8 @@ public class KiemKeDocService {
             List<KiemKeDto.KeSoDo> keKhu = theoKhu.remove(k.getId());
             if (keKhu != null) ds.add(new KiemKeDto.KhuVucSoDo(k.getId(), k.getMaKhuVuc(), k.getTenKhuVuc(), keKhu));
         }
-        theoKhu.forEach((k, v) -> ds.add(new KiemKeDto.KhuVucSoDo(k, null, "Khác", v)));
+        String tenKhac = ThongDiep.of("hienThiBaoCao.khuKhac").theoNgonNgu(NgonNgu.hienTai());
+        theoKhu.forEach((k, v) -> ds.add(new KiemKeDto.KhuVucSoDo(k, null, tenKhac, v)));
         return new KiemKeDto.SoDo(ma(kho), ds, toan, min, baoTri);
     }
 
@@ -467,7 +470,7 @@ public class KiemKeDocService {
      * lúc bắt đầu, phạm vi vẫn tự báo lỗi cây như cũ).
      */
     public List<KiemKeDto.DanhMucTrenKe> danhMucTrenKe(Integer khoId) {
-        Kho kho = khoRepo.findById(khoId).orElseThrow(() -> KiemKePhamViService.phamViSai("Không tìm thấy kho"));
+        Kho kho = khoRepo.findById(khoId).orElseThrow(() -> KiemKePhamViService.phamViSai(ThongDiep.of("khoVanHanh.khoKhongTimThay")));
         KhoDangChon.kiemTraXem(kho, "Kho " + kho.getTenKho());
         Map<Integer, Integer> cha = new HashMap<>();
         @SuppressWarnings("unchecked")

@@ -9,6 +9,7 @@ import {
 import CapNhatLuc from "@/components/shared/CapNhatLuc";
 import { LUA_CHON_SO_DONG } from "@/constants/phanTrang";
 import { formatNumber } from "@/utils/formatters";
+import { t } from "@/i18n";
 
 /**
  * Chân bảng phân trang dùng chung. `page` tính từ 0.
@@ -28,8 +29,8 @@ export default function TablePagination({
   onPageChange,
   onSizeChange,
   sizeOptions = LUA_CHON_SO_DONG,
-  sizeLabel = "dòng",
-  totalLabel = "kết quả",
+  sizeLabel = t("dòng"),
+  totalLabel = t("kết quả"),
   totalNote,
   sizeMenuTitle,
   sizeMenuNote,
@@ -58,7 +59,7 @@ export default function TablePagination({
             <DropdownMenuTrigger asChild>
               <Button
                 variant="outline"
-                aria-label={`Số ${sizeLabel} mỗi trang`}
+                aria-label={t("Số {{donVi}} mỗi trang", { donVi: sizeLabel })}
                 className="h-8 w-auto min-w-[110px] justify-between border-bo-border bg-bo-surface px-2.5 text-xs font-normal text-bo-foreground hover:bg-bo-surface-subtle"
               >
                 {size} {sizeLabel}
@@ -94,10 +95,10 @@ export default function TablePagination({
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <p className="text-xs text-bo-muted tabular-nums">
-          Hiển thị <span className="font-semibold text-bo-foreground">{formatNumber(from)}</span>
+          {t("Hiển thị")} <span className="font-semibold text-bo-foreground">{formatNumber(from)}</span>
           {" – "}
           <span className="font-semibold text-bo-foreground">{formatNumber(to)}</span>
-          {" trong tổng số "}
+          {" "}{t("trong tổng số")}{" "}
           <span className="font-semibold text-bo-primary">{formatNumber(total)}</span> {totalLabel}
           {totalNote ? <> · {totalNote}</> : null}
         </p>
@@ -109,14 +110,14 @@ export default function TablePagination({
         ) : null}
       </div>
 
-      <nav aria-label="Phân trang" className="flex items-center gap-1">
+      <nav aria-label={t("Phân trang")} className="flex items-center gap-1">
         <Button
           variant="outline"
           size="icon-sm"
           onClick={() => onPageChange(page - 1)}
           disabled={page === 0}
-          aria-label="Trang trước"
-          title="Trang trước"
+          aria-label={t("Trang trước")}
+          title={t("Trang trước")}
           className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
         >
           <ChevronLeft className="size-4" />
@@ -153,8 +154,8 @@ export default function TablePagination({
           size="icon-sm"
           onClick={() => onPageChange(page + 1)}
           disabled={page + 1 >= totalPages}
-          aria-label="Trang sau"
-          title="Trang sau"
+          aria-label={t("Trang sau")}
+          title={t("Trang sau")}
           className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
         >
           <ChevronRight className="size-4" />

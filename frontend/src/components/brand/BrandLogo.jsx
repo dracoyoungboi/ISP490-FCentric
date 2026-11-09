@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils';
+import { t } from "@/i18n";
 
 /**
  * BrandLogo — logo dùng chung cho toàn hệ thống FCentric.
@@ -19,7 +20,7 @@ const ASSETS = {
   icon: '/branding/f-centric-icon.svg',
 };
 
-const ALT = 'FCentric – Quản lý kho thời trang';
+const ALT = t("FCentric – Quản lý kho thời trang");
 
 export default function BrandLogo({ variant = 'auth', chip = false, className = '' }) {
   if (variant === 'sidebar') {
@@ -36,7 +37,7 @@ export default function BrandLogo({ variant = 'auth', chip = false, className = 
             FCentric
           </span>
           <span className="block truncate text-[10px] font-medium text-bo-sidebar-muted">
-            Quản lý kho thời trang
+            {t("Quản lý kho thời trang")}
           </span>
         </span>
       </span>

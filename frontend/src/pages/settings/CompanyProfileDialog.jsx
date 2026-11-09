@@ -40,6 +40,7 @@ import {
     goiYKhiSua,
     thongBaoLogoLoi,
 } from "./thongTinCuaHang";
+import { t } from "@/i18n";
 
 const MAX_LENGTH = { name: TEN_TOI_DA, legalName: TEN_TOI_DA, email: EMAIL_TOI_DA };
 // Màu gợi ý dưới ô (khớp demo: xám, xanh nhận dạng mã số thuế, cam lệch loại)
@@ -295,7 +296,7 @@ export default function CompanyProfileDialog({ open, onOpenChange, onSaved }) {
             <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-xl bg-bo-surface shadow-lg sm:max-w-[620px]">
                 <DialogHeader>
                     <DialogTitle className="text-lg font-semibold text-bo-foreground">
-                        Thông tin cửa hàng
+                        {t("Thông tin cửa hàng")}
                     </DialogTitle>
                     <DialogDescription className="pt-1 text-sm text-bo-muted">
                         {CHU_THICH_HOP_SUA_NHANH}
@@ -303,27 +304,27 @@ export default function CompanyProfileDialog({ open, onOpenChange, onSaved }) {
                 </DialogHeader>
 
                 {loading ? (
-                    <LoadingState label="Đang tải thông tin cửa hàng" className="min-h-40" />
+                    <LoadingState label={t("Đang tải thông tin cửa hàng")} className="min-h-40" />
                 ) : loadError || !form ? (
                     <div className="flex flex-col items-center gap-3 rounded-md border border-bo-border bg-bo-surface-subtle px-4 py-6 text-center">
                         <p className="text-sm text-bo-muted">
-                            Không thể tải thông tin cửa hàng từ máy chủ. Vui lòng thử lại.
+                            {t("Không thể tải thông tin cửa hàng từ máy chủ. Vui lòng thử lại.")}
                         </p>
                         <Button
                             variant="outline"
                             className={OUTLINE_BUTTON}
                             onClick={() => setReloadKey((key) => key + 1)}
                         >
-                            Thử lại
+                            {t("Thử lại")}
                         </Button>
                     </div>
                 ) : (
                     <form id="ho-so-cua-hang-form" noValidate onSubmit={handleSave} className="flex flex-col gap-4">
-                        <SettingsGroupLabel className="pt-1 pb-0 text-bo-muted">Tên và logo</SettingsGroupLabel>
+                        <SettingsGroupLabel className="pt-1 pb-0 text-bo-muted">{t("Tên và logo")}</SettingsGroupLabel>
                         <div className="flex flex-wrap items-center gap-3">
                             <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-md border border-bo-border bg-bo-surface p-1">
                                 {logoShown ? (
-                                    <img src={logoShown} alt="Logo cửa hàng" className="max-h-full max-w-full object-contain" />
+                                    <img src={logoShown} alt={t("Logo cửa hàng")} className="max-h-full max-w-full object-contain" />
                                 ) : (
                                     <Store className="size-5 text-[#94a3b8]" aria-hidden="true" />
                                 )}
@@ -338,7 +339,7 @@ export default function CompanyProfileDialog({ open, onOpenChange, onSaved }) {
                                         disabled={saving}
                                         aria-describedby="ho-so-cua-hang-logo-goi-y"
                                     >
-                                        {logoShown ? "Đổi logo" : "Chọn ảnh logo"}
+                                        {logoShown ? t("Đổi logo") : t("Chọn ảnh logo")}
                                     </Button>
                                     {pendingLogoFile ? (
                                         <Button
@@ -349,7 +350,7 @@ export default function CompanyProfileDialog({ open, onOpenChange, onSaved }) {
                                             disabled={saving}
                                         >
                                             <X className="size-4" aria-hidden="true" />
-                                            Bỏ ảnh vừa chọn
+                                            {t("Bỏ ảnh vừa chọn")}
                                         </Button>
                                     ) : logoShown ? (
                                         <Button
@@ -360,7 +361,7 @@ export default function CompanyProfileDialog({ open, onOpenChange, onSaved }) {
                                             disabled={saving}
                                         >
                                             <Trash2 className="size-4" aria-hidden="true" />
-                                            Xóa logo
+                                            {t("Xóa logo")}
                                         </Button>
                                     ) : null}
                                     <input
@@ -384,7 +385,7 @@ export default function CompanyProfileDialog({ open, onOpenChange, onSaved }) {
                         </div>
                         <Field {...fieldProps("name")} autoFocus />
 
-                        <SettingsGroupLabel className="pt-1 pb-0 text-bo-muted">Pháp lý và liên hệ</SettingsGroupLabel>
+                        <SettingsGroupLabel className="pt-1 pb-0 text-bo-muted">{t("Pháp lý và liên hệ")}</SettingsGroupLabel>
                         <div className="grid grid-cols-1 gap-x-4 gap-y-3.5 sm:grid-cols-2">
                             {THU_TU_PHAP_LY_HOP.map((key) => (
                                 <Field key={key} {...fieldProps(key)} />
@@ -401,7 +402,7 @@ export default function CompanyProfileDialog({ open, onOpenChange, onSaved }) {
                         onClick={requestClose}
                         disabled={saving}
                     >
-                        Hủy
+                        {t("Hủy")}
                     </Button>
                     <Button
                         type="submit"
@@ -409,7 +410,7 @@ export default function CompanyProfileDialog({ open, onOpenChange, onSaved }) {
                         className={PRIMARY_BUTTON}
                         disabled={saving || !isDirty || !form}
                     >
-                        {saving ? "Đang lưu…" : "Lưu thông tin"}
+                        {saving ? t("Đang lưu…") : t("Lưu thông tin")}
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -422,10 +423,10 @@ export default function CompanyProfileDialog({ open, onOpenChange, onSaved }) {
                     onOpenChange(false);
                 }}
                 variant="warning"
-                title="Hủy thay đổi thông tin cửa hàng?"
-                description="Các thay đổi chưa lưu (kể cả logo đã chọn) sẽ bị bỏ."
-                confirmText="Bỏ thay đổi"
-                cancelText="Ở lại"
+                title={t("Hủy thay đổi thông tin cửa hàng?")}
+                description={t("Các thay đổi chưa lưu (kể cả logo đã chọn) sẽ bị bỏ.")}
+                confirmText={t("Bỏ thay đổi")}
+                cancelText={t("Ở lại")}
             />
         </Dialog>
     );

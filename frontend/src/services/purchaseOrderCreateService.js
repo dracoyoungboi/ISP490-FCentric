@@ -1,4 +1,5 @@
 import apiClient from './apiClient';
+import { t } from "@/i18n";
 
 const purchaseOrderCreateService = {
     /**
@@ -48,7 +49,7 @@ const purchaseOrderCreateService = {
                             maBienThe: variant.maSku,
                             tenSanPham: product.tenSanPham,
                             thuocTinh: attributes,
-                            donViTinh: 'Cái', // Mặc định hoặc lấy từ DB nếu có
+                            donViTinh: t("Cái"), // Mặc định hoặc lấy từ DB nếu có
                             tonKho: 0, // Cần bổ sung logic lấy tồn kho nếu có API
                             giaVon: variant.giaVon,
                             giaBan: variant.giaBan,

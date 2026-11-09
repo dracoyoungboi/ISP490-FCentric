@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 const inputClass =
   "h-10 w-full rounded-lg border border-bo-border bg-bo-surface px-3 text-sm text-bo-foreground outline-none placeholder:text-slate-500 focus:border-bo-primary focus:ring-2 focus:ring-bo-primary/15 disabled:cursor-not-allowed disabled:bg-bo-surface-subtle";
@@ -36,7 +37,7 @@ export default function SecretInput({ id, label, value, onChange, error, hint, d
           value={value}
         />
         <button
-          aria-label={visible ? `Ẩn ${label}` : `Hiện ${label}`}
+          aria-label={visible ? t("Ẩn {{label}}", { label }) : t("Hiện {{label}}", { label })}
           className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1.5 text-slate-500 outline-none hover:text-bo-foreground focus-visible:ring-2 focus-visible:ring-bo-primary/30"
           onClick={() => setVisible((v) => !v)}
           type="button"

@@ -11,6 +11,7 @@ import com.dev.backend.entities.MauSac;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.mapper.MauSacMapper;
 import com.dev.backend.services.impl.entities.MauSacService;
+import com.dev.backend.i18n.ThongDiep;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -36,7 +37,7 @@ public class MauSacController {
     public ResponseEntity<ResponseData<MauSacDto>> getById(@PathVariable Integer id) {
         Optional<MauSac> finding = mauSacService.getOne(id);
         if (finding.isEmpty()) {
-            throw new CommonException("Không tìm thấy màu id: " + id);
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.mauKhongTimThay", id));
         }
         return ResponseEntity.ok(
                 ResponseData.<MauSacDto>builder()
@@ -112,7 +113,7 @@ public class MauSacController {
     public ResponseEntity<ResponseData<String>> delete(@PathVariable Integer id) {
         Optional<MauSac> finding = mauSacService.getOne(id);
         if (finding.isEmpty()) {
-            throw new CommonException("Không tìm thấy màu id: " + id);
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.mauKhongTimThay", id));
         }
         mauSacService.delete(id);
         return ResponseEntity.ok(

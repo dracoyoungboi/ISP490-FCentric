@@ -44,6 +44,7 @@ import {
   oThieuHienTai,
   xuLyLoiGui,
 } from "./chanGuiYeuCauBaoGia";
+import { t } from "@/i18n";
 
 const taiNhaCungCap = () => getAllSupplier();
 
@@ -139,7 +140,7 @@ function ManGuiBaoGia({ id }) {
       const ds = Array.isArray(cu) ? cu : [];
       return laSua ? ds.map((n) => (n.id === luu.id ? { ...n, ...luu } : n)) : [luu, ...ds.filter((n) => n.id !== luu.id)];
     });
-    const ten = luu.tenNhaCungCap || "nhà cung cấp";
+    const ten = luu.tenNhaCungCap || t("nhà cung cấp");
     const guiDuoc = coTheGuiYeuCauBaoGia(luu);
     if (guiDuoc) setChon((cu) => new Set(cu).add(luu.id));
     if (!laSua) {
@@ -152,9 +153,9 @@ function ManGuiBaoGia({ id }) {
       setTimeout(() => document.querySelector(`input[data-ncc-id="${luu.id}"]`)?.focus(), 350);
     }
     if (guiDuoc) {
-      toast.success(laSua ? `Đã cập nhật email của ${ten} và chọn vào danh sách gửi` : `Đã thêm nhà cung cấp "${ten}" và chọn vào danh sách gửi`);
+      toast.success(laSua ? t("Đã cập nhật email của {{ten}} và chọn vào danh sách gửi", { ten }) : t("Đã thêm nhà cung cấp \"{{ten}}\" và chọn vào danh sách gửi", { ten }));
     } else {
-      toast.success(laSua ? `Đã lưu nhà cung cấp ${ten}` : `Đã thêm nhà cung cấp "${ten}"`);
+      toast.success(laSua ? t("Đã lưu nhà cung cấp {{ten}}", { ten }) : t("Đã thêm nhà cung cấp \"{{ten}}\"", { ten }));
     }
   };
 
@@ -195,7 +196,7 @@ function ManGuiBaoGia({ id }) {
       await purchaseRequestService.sendQuotationRequest({ yeuCauMuaHangId: Number(yc.id ?? id), nhaCungCapIds: daChon.map((d) => d.id) });
       // Thông báo nhanh là chung toàn ứng dụng: vẫn báo kết quả dù người dùng đã rời màn trong lúc gửi.
       // Email gửi sau khi lưu đơn nên không khẳng định email đã đi (HOP-DONG 6.11).
-      toast.success(cauDaGui(soVN(soNcc)), { description: `Theo dõi báo giá ở ${ma}` });
+      toast.success(cauDaGui(soVN(soNcc)), { description: t("Theo dõi báo giá ở {{ma}}", { ma }) });
       if (daGoRef.current) return;
       setHop(false);
       // Q12 chưa chốt: về danh sách yêu cầu nhập hàng như màn cũ
@@ -205,7 +206,7 @@ function ManGuiBaoGia({ id }) {
       const coMa = xuLyLoiGui(error);
       if (coMa.loai === "thieu" || coMa.loai === "daGui") {
         if (daGoRef.current) {
-          toast.error(`Gửi yêu cầu báo giá ${ma} chưa xong`, { description: coMa.message ?? CAU_LY_DO_KHUNG_CHAN });
+          toast.error(t("Gửi yêu cầu báo giá {{ma}} chưa xong", { ma }), { description: coMa.message ?? CAU_LY_DO_KHUNG_CHAN });
           return;
         }
         setHop(false);
@@ -225,12 +226,12 @@ function ManGuiBaoGia({ id }) {
         phanLoaiLoiGui(getApiErrorStatus(error), getApiErrorMessage(error, ""), { laJson: laLoiJson(error) }),
       );
       if (daGoRef.current) {
-        if (loi.chu) toast.error(`Gửi yêu cầu báo giá ${ma} chưa xong`, { description: loi.chu });
+        if (loi.chu) toast.error(t("Gửi yêu cầu báo giá {{ma}} chưa xong", { ma }), { description: loi.chu });
         return;
       }
       setHop(false);
       if (loi.loai === "doiTrangThai") {
-        toast.info("Yêu cầu đã đổi trạng thái ở nơi khác", { description: "Đã tải lại yêu cầu" });
+        toast.info(t("Yêu cầu đã đổi trạng thái ở nơi khác"), { description: t("Đã tải lại yêu cầu") });
         qYc.reload();
         return;
       }
@@ -256,7 +257,7 @@ function ManGuiBaoGia({ id }) {
     if (qYc.loading || (!qYc.error && qYc.data === undefined)) {
       return (
         <PageContainer className="flex min-h-full flex-col">
-          <KhungDangTai nhan="Đang tải yêu cầu nhập hàng" coTienTrinh={false} />
+          <KhungDangTai nhan={t("Đang tải yêu cầu nhập hàng")} coTienTrinh={false} />
         </PageContainer>
       );
     }
@@ -264,7 +265,7 @@ function ManGuiBaoGia({ id }) {
       <PageContainer className="flex min-h-full flex-col">
         <KhungLoiChungTu
           loi={qYc.error}
-          tenChungTu="yêu cầu nhập hàng"
+          tenChungTu={t("yêu cầu nhập hàng")}
           onVeDanhSach={() => navigate("/purchase-requests")}
           onThuLai={qYc.reload}
           locCauMayChu={locCauMayChuMuaHang}
@@ -300,7 +301,7 @@ function ManGuiBaoGia({ id }) {
                   onClick={veYeuCau}
                   className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                 >
-                  Về yêu cầu nhập hàng {ma}
+                  {t("Về yêu cầu nhập hàng {{ma}}", { ma })}
                 </Button>
               </div>
             }
@@ -311,18 +312,17 @@ function ManGuiBaoGia({ id }) {
   }
 
   const lyDoKhoa = choGuiLai
-    ? "Đang chờ máy chủ xử lý xong lần gửi trước"
+    ? t("Đang chờ máy chủ xử lý xong lần gửi trước")
     : thieu.length
-      ? "Thông tin cửa hàng còn thiếu"
+      ? t("Thông tin cửa hàng còn thiếu")
       : dangTaiHoSo
-        ? "Đang kiểm tra thông tin cửa hàng"
+        ? t("Đang kiểm tra thông tin cửa hàng")
         : !daChon.length
-      ? "Chọn ít nhất một nhà cung cấp"
+      ? t("Chọn ít nhất một nhà cung cấp")
       : "";
   const thongBao = [
     <DongThongBao key="mot-lan" tone="info">
-      Mỗi nhà cung cấp nhận một email có đường dẫn vào cổng báo giá. <b className="font-semibold">Chỉ gửi một lần:</b> sau khi gửi,
-      yêu cầu chuyển sang Đã gửi yêu cầu báo giá và không thêm nhà cung cấp được nữa.
+      {t("Mỗi nhà cung cấp nhận một email có đường dẫn vào cổng báo giá.")} <b className="font-semibold">{t("Chỉ gửi một lần:")}</b> {t("sau khi gửi, yêu cầu chuyển sang Đã gửi yêu cầu báo giá và không thêm nhà cung cấp được nữa.")}
     </DongThongBao>,
     thieu.length ? (
       <DongThongBao
@@ -336,26 +336,26 @@ function ManGuiBaoGia({ id }) {
           ) : null
         }
       >
-        <b className="font-semibold">{TIEU_DE_KHUNG_CHAN}.</b> Thông tin cửa hàng còn thiếu{" "}
+        <b className="font-semibold">{TIEU_DE_KHUNG_CHAN}.</b> {t("Thông tin cửa hàng còn thiếu")}{" "}
         {doanNhanThieu(thieu).map((doan, i) => (i % 2 === 0 ? <b key={i} className="font-semibold">{doan}</b> : <span key={i}>{doan}</span>))}
         . {CAU_LY_DO_KHUNG_CHAN}
         {suaThongTinCuaHang ? null : <> {CAU_BAO_NGUOI_CO_QUYEN}</>}
       </DongThongBao>
     ) : null,
     loiGui ? (
-      <DongThongBao key="loi-gui" tone="bad" actions={<NutChu onClick={() => setLoiGui(null)}>Đã hiểu</NutChu>}>
+      <DongThongBao key="loi-gui" tone="bad" actions={<NutChu onClick={() => setLoiGui(null)}>{t("Đã hiểu")}</NutChu>}>
         {loiGui}
       </DongThongBao>
     ) : null,
     qYc.loiTaiLai ? (
-      <DongThongBao key="loi-tai-lai" tone="bad" actions={<NutChu onClick={qYc.reload}>Thử lại</NutChu>}>
-        Không tải lại được yêu cầu: {getApiErrorMessage(qYc.error, "lỗi kết nối")}. Thông tin đang hiện có thể đã cũ.
+      <DongThongBao key="loi-tai-lai" tone="bad" actions={<NutChu onClick={qYc.reload}>{t("Thử lại")}</NutChu>}>
+        {t("Không tải lại được yêu cầu: {{loi}}. Thông tin đang hiện có thể đã cũ.", { loi: getApiErrorMessage(qYc.error, t("lỗi kết nối")) })}
       </DongThongBao>
     ) : null,
     // Danh sách nhà cung cấp đã có mà tải lại lỗi: giữ bảng đang xem, báo ở đây
     qNcc.loiTaiLai ? (
-      <DongThongBao key="loi-tai-lai-ncc" tone="bad" actions={<NutChu onClick={qNcc.reload}>Thử lại</NutChu>}>
-        Không tải lại được danh sách nhà cung cấp: {getApiErrorMessage(qNcc.error, "lỗi kết nối")}. Danh sách đang hiện có thể đã cũ.
+      <DongThongBao key="loi-tai-lai-ncc" tone="bad" actions={<NutChu onClick={qNcc.reload}>{t("Thử lại")}</NutChu>}>
+        {t("Không tải lại được danh sách nhà cung cấp: {{loi}}. Danh sách đang hiện có thể đã cũ.", { loi: getApiErrorMessage(qNcc.error, t("lỗi kết nối")) })}
       </DongThongBao>
     ) : null,
   ].filter(Boolean);
@@ -365,36 +365,36 @@ function ManGuiBaoGia({ id }) {
       <KhungChungTu
         dau={
           <DauChungTu
-            ma="Gửi yêu cầu báo giá"
+            ma={t("Gửi yêu cầu báo giá")}
             dongPhu={[
               <span key="yc">
                 {/* Điện thoại: dòng phụ hẹp (~266px) nên bỏ chữ "yêu cầu nhập hàng", giữ mã để mở được yêu cầu */}
-                Cho <span className="max-md:hidden">yêu cầu nhập hàng </span>
+                {t("Cho")} <span className="max-md:hidden">{t("yêu cầu nhập hàng")} </span>
                 <Link to={`/purchase-requests/${id}`} className="font-medium tabular-nums text-bo-primary hover:underline">
                   {ma}
                 </Link>
               </span>,
-              <b key="bt" className="font-semibold text-bo-foreground">{soVN(soBienThe)} biến thể</b>,
-              <b key="sl" className="font-semibold text-bo-foreground">tổng số lượng {soVN(tongSoLuongDat(yc))}</b>,
+              <b key="bt" className="font-semibold text-bo-foreground">{t("{{soBienThe}} biến thể", { count: soBienThe, soBienThe: soVN(soBienThe) })}</b>,
+              <b key="sl" className="font-semibold text-bo-foreground">{t("tổng số lượng {{tongSoLuong}}", { tongSoLuong: soVN(tongSoLuongDat(yc)) })}</b>,
             ]}
             onQuayLai={veYeuCau}
-            nhanQuayLai="Về yêu cầu nhập hàng"
+            nhanQuayLai={t("Về yêu cầu nhập hàng")}
             nutPhu={
               suaNcc
                 ? {
                   ma: "them",
-                  nhan: "Thêm nhà cung cấp",
+                  nhan: t("Thêm nhà cung cấp"),
                   icon: Plus,
                   // Chờ danh sách tải xong: lần tải đầu về sau sẽ đè mất nhà cung cấp vừa thêm
                   khoa: !coDanhSach,
-                  lyDo: !coDanhSach ? "Đang tải danh sách nhà cung cấp" : undefined,
+                  lyDo: !coDanhSach ? t("Đang tải danh sách nhà cung cấp") : undefined,
                   onClick: () => moHopNcc(null),
                 }
                 : null
             }
             nutChinh={{
               ma: "gui",
-              nhan: daChon.length ? `Gửi yêu cầu (${soVN(daChon.length)})` : "Gửi yêu cầu",
+              nhan: daChon.length ? t("Gửi yêu cầu ({{soDaChon}})", { soDaChon: soVN(daChon.length) }) : t("Gửi yêu cầu"),
               icon: Send,
               khoa: Boolean(lyDoKhoa) || dangGui,
               lyDo: lyDoKhoa || undefined,
@@ -426,7 +426,7 @@ function ManGuiBaoGia({ id }) {
             suaDuoc={suaNcc}
             onSuaEmail={(ncc) => moHopNcc(ncc, "email")}
             onThem={suaNcc && coDanhSach ? () => moHopNcc(null) : undefined}
-            loi={qNcc.error && !qNcc.loading && !coDanhSach ? getApiErrorMessage(qNcc.error, "lỗi kết nối") : null}
+            loi={qNcc.error && !qNcc.loading && !coDanhSach ? getApiErrorMessage(qNcc.error, t("lỗi kết nối")) : null}
             dangTai={qNcc.loading && qNcc.data === undefined}
             onThuLai={qNcc.reload}
           />
@@ -450,9 +450,9 @@ function ManGuiBaoGia({ id }) {
       <HopXacNhanChungTu
         mo={hop}
         onDoiMo={(mo) => !mo && setHop(false)}
-        tieuDe={`Gửi yêu cầu báo giá đến ${soVN(daChon.length)} nhà cung cấp?`}
-        moTa={`Mỗi nhà cung cấp nhận một yêu cầu báo giá cho ${soVN(soBienThe)} biến thể của ${ma}. Sau khi gửi không thêm hay bỏ nhà cung cấp được nữa.`}
-        nhanXacNhan="Gửi yêu cầu"
+        tieuDe={t("Gửi yêu cầu báo giá đến {{soDaChon}} nhà cung cấp?", { count: daChon.length, soDaChon: soVN(daChon.length) })}
+        moTa={t("Mỗi nhà cung cấp nhận một yêu cầu báo giá cho {{soBienThe}} biến thể của {{ma}}. Sau khi gửi không thêm hay bỏ nhà cung cấp được nữa.", { count: soBienThe, soBienThe: soVN(soBienThe), ma })}
+        nhanXacNhan={t("Gửi yêu cầu")}
         iconXacNhan={Send}
         rong
         dangChay={dangGui}
@@ -460,11 +460,11 @@ function ManGuiBaoGia({ id }) {
         khoaXacNhan={!daChon.length || choGuiLai || thieu.length > 0}
         lyDoKhoa={
           !daChon.length
-            ? "Không còn nhà cung cấp nào được chọn"
+            ? t("Không còn nhà cung cấp nào được chọn")
             : choGuiLai
-              ? "Đang chờ máy chủ xử lý xong lần gửi trước"
+              ? t("Đang chờ máy chủ xử lý xong lần gửi trước")
               : thieu.length
-                ? "Thông tin cửa hàng còn thiếu"
+                ? t("Thông tin cửa hàng còn thiếu")
                 : undefined
         }
         onXacNhan={gui}

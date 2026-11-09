@@ -28,6 +28,7 @@ import { ROLES, hasAnyRole } from "@/utils/roles";
 import { soNguyenDuong } from "@/utils/thamSoDuongDan";
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import { NGUONG_CONG_CU } from "@/config/bangChungTu";
+import { t } from "@/i18n";
 
 /**
  * Tạo phiếu chuyển kho nội bộ (/transfer-tickets/create): khối chứng từ "một khối" như Chi tiết phiếu chuyển.
@@ -48,11 +49,11 @@ const SO_KET_QUA_TOI_DA = 20;
 const GHI_CHU_TOI_DA = 500;
 
 const BUOC = [
-    { ma: "yeuCau", nhan: "Yêu cầu", ai: "Kho nhận", trangThai: "dangLam", phu: "Đang lập" },
-    { ma: "lenh", nhan: "Lệnh điều động", ai: "Quản lý Kho tổng", trangThai: "chua" },
-    { ma: "xuat", nhan: "Xuất kho", ai: "Kho xuất", trangThai: "chua" },
-    { ma: "vanChuyen", nhan: "Đang vận chuyển", ai: "Người vận chuyển", trangThai: "chua" },
-    { ma: "nhan", nhan: "Nhận hàng", ai: "Kho nhận", trangThai: "chua" },
+    { ma: "yeuCau", nhan: t("Yêu cầu", { context: "buoc" }), ai: t("Kho nhận"), trangThai: "dangLam", phu: t("Đang lập") },
+    { ma: "lenh", nhan: t("Lệnh điều động"), ai: t("Quản lý Kho tổng", { context: "mot_nguoi" }), trangThai: "chua" },
+    { ma: "xuat", nhan: t("Xuất kho"), ai: t("Kho xuất"), trangThai: "chua" },
+    { ma: "vanChuyen", nhan: t("Đang vận chuyển"), ai: t("Người vận chuyển"), trangThai: "chua" },
+    { ma: "nhan", nhan: t("Nhận hàng"), ai: t("Kho nhận"), trangThai: "chua" },
 ];
 
 /** Một dòng hàng điều chuyển từ biến thể (dữ liệu /don-ban-hang/variants-for-create). */
@@ -93,8 +94,8 @@ function docDeXuatTuDuongDan(thamSo, dsKho, dsKhoNhan, dsBienThe) {
     const bienThe = bienTheIdUrl ? dsBienThe.find((v) => String(v.id) === String(bienTheIdUrl)) : undefined;
 
     const canhBao = [];
-    if (khoNhapIdUrl && !khoNhap) canhBao.push("Kho nhận trong đề xuất không còn chọn được (đã ngừng hoạt động, không tồn tại hoặc không phải nơi làm việc của bạn), hãy chọn lại kho nhận.");
-    if (bienTheIdUrl && !bienThe) canhBao.push("Không tìm thấy sản phẩm trong đề xuất (có thể đã ngừng kinh doanh), hãy tìm và thêm lại.");
+    if (khoNhapIdUrl && !khoNhap) canhBao.push(t("Kho nhận trong đề xuất không còn chọn được (đã ngừng hoạt động, không tồn tại hoặc không phải nơi làm việc của bạn), hãy chọn lại kho nhận."));
+    if (bienTheIdUrl && !bienThe) canhBao.push(t("Không tìm thấy sản phẩm trong đề xuất (có thể đã ngừng kinh doanh), hãy tìm và thêm lại."));
     return {
         khoXuatId: khoXuat ? String(khoXuat.id) : "",
         khoNhapId: khoNhap ? String(khoNhap.id) : "",
@@ -106,14 +107,16 @@ function docDeXuatTuDuongDan(thamSo, dsKho, dsKhoNhan, dsBienThe) {
 /** Câu lỗi tải danh sách sản phẩm: 403 → thiếu quyền (Thử lại vô ích); còn lại câu của máy chủ, bỏ dấu chấm cuối. */
 function moTaLoiBienThe(e) {
     if (getApiErrorStatus(e) === 403) {
-        return { chu: "tài khoản chưa có quyền xem danh sách sản phẩm. Nhờ quản trị viên cấp quyền hoặc nhờ quản lý kho tạo phiếu", khongQuyen: true };
+        return { chu: t("tài khoản chưa có quyền xem danh sách sản phẩm. Nhờ quản trị viên cấp quyền hoặc nhờ quản lý kho tạo phiếu"), khongQuyen: true };
     }
-    return { chu: getApiErrorMessage(e, "máy chủ không phản hồi").trim().replace(/[.。]+$/, ""), khongQuyen: false };
+    return { chu: getApiErrorMessage(e, t("máy chủ không phản hồi")).trim().replace(/[.。]+$/, ""), khongQuyen: false };
 }
 
 /** Ô chọn kho trong cột "Tuyến chuyển" (cùng dáng thẻ kho của TuyenChuyen ở Chi tiết phiếu chuyển). */
+/** `vaiTro`: "Kho nguồn" | "Kho đích" (khóa so khớp, chữ hiện ra dịch ở đây). */
 function ChonKho({ vaiTro, icon, mau, kho, dsKho, khoKhac, onChon, goiYTrong }) {
     const Icon = icon;
+    const laNguon = vaiTro === "Kho nguồn";
     return (
         <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
@@ -126,9 +129,9 @@ function ChonKho({ vaiTro, icon, mau, kho, dsKho, khoKhac, onChon, goiYTrong }) 
                     </span>
                     <span className="min-w-0 flex-1">
                         <span className={cn("block truncate text-sm leading-5", kho ? "font-semibold text-bo-foreground" : "font-medium text-bo-muted")}>
-                            {kho ? kho.tenKho : `Chọn ${vaiTro.toLowerCase()}`}
+                            {kho ? kho.tenKho : laNguon ? t("Chọn kho nguồn") : t("Chọn kho đích")}
                         </span>
-                        <span className="block text-xs leading-4 text-bo-muted">{vaiTro === "Kho nguồn" ? "Kho nguồn · xuất hàng" : "Kho đích · nhận hàng"}</span>
+                        <span className="block text-xs leading-4 text-bo-muted">{laNguon ? t("Kho nguồn · xuất hàng") : t("Kho đích · nhận hàng")}</span>
                     </span>
                     <ChevronDown className="size-4 shrink-0 text-bo-muted" aria-hidden="true" />
                 </button>
@@ -140,7 +143,7 @@ function ChonKho({ vaiTro, icon, mau, kho, dsKho, khoKhac, onChon, goiYTrong }) 
                         <DropdownMenuItem key={k.id} disabled={trung} onSelect={() => onChon(String(k.id))} className={DROPDOWN_ITEM_CLASS}>
                             <span className="font-medium text-slate-900">{k.tenKho}</span>
                             <span className="text-xs text-bo-muted">
-                                {laKhoTong(k) ? "Kho tổng" : "Kho bán hàng"}{trung ? ` · đang là ${vaiTro === "Kho nguồn" ? "kho đích" : "kho nguồn"}` : ""}
+                                {laKhoTong(k) ? t("Kho tổng") : t("Kho bán hàng")}{trung ? ` · ${laNguon ? t("đang là kho đích") : t("đang là kho nguồn")}` : ""}
                             </span>
                         </DropdownMenuItem>
                     );
@@ -210,7 +213,7 @@ export default function PhieuChuyenKhoCreate() {
             }
             setVariants(dsBienThe);
             if (kqKho.status === "rejected") {
-                setLoiKho(getApiErrorMessage(kqKho.reason, "máy chủ không phản hồi").trim().replace(/[.。]+$/, ""));
+                setLoiKho(getApiErrorMessage(kqKho.reason, t("máy chủ không phản hồi")).trim().replace(/[.。]+$/, ""));
                 return;
             }
             setLoiKho("");
@@ -241,10 +244,10 @@ export default function PhieuChuyenKhoCreate() {
             if (deXuat.canhBao.length) {
                 toast.warning(deXuat.canhBao.join(" "));
             } else {
-                toast.success("Đã điền sẵn theo đề xuất bổ sung. Kiểm tra lại kho và số lượng trước khi tạo phiếu.");
+                toast.success(t("Đã điền sẵn theo đề xuất bổ sung. Kiểm tra lại kho và số lượng trước khi tạo phiếu."));
             }
         } catch {
-            toast.error("Không thể tải dữ liệu khởi tạo");
+            toast.error(t("Không thể tải dữ liệu khởi tạo"));
         } finally {
             setDangTai(false);
         }
@@ -314,19 +317,19 @@ export default function PhieuChuyenKhoCreate() {
         const trungMa = variants.find(v => v.maBienThe?.toLowerCase() === tuKhoa || v.maVachSku?.toLowerCase() === tuKhoa);
         const chon = trungMa || (filteredProducts.length === 1 ? filteredProducts[0] : null);
         if (chon) handleAddProduct(chon);
-        else if (filteredProducts.length > 1) toast.warning(`Nhiều sản phẩm khớp "${searchTerm.trim()}", chọn trong danh sách`);
-        else if (loiBienThe) toast.error("Chưa tải được danh sách sản phẩm, xem dòng báo lỗi phía trên.");
-        else toast.warning(`Không tìm thấy sản phẩm "${searchTerm.trim()}"`);
+        else if (filteredProducts.length > 1) toast.warning(t("Nhiều sản phẩm khớp \"{{tuKhoa}}\", chọn trong danh sách", { tuKhoa: searchTerm.trim() }));
+        else if (loiBienThe) toast.error(t("Chưa tải được danh sách sản phẩm, xem dòng báo lỗi phía trên."));
+        else toast.warning(t("Không tìm thấy sản phẩm \"{{tuKhoa}}\"", { tuKhoa: searchTerm.trim() }));
     };
 
     async function handleCreate() {
         if (dangTaoRef.current) return; // chặn bấm đúp (state chỉ cập nhật ở lần render sau)
         if (!formData.khoXuatId || !formData.khoNhapId)
-            return toast.error("Vui lòng chọn đầy đủ kho gửi và kho nhận");
+            return toast.error(t("Vui lòng chọn đầy đủ kho gửi và kho nhận"));
         if (formData.khoXuatId === formData.khoNhapId)
-            return toast.error("Kho gửi và kho nhận không được trùng nhau");
+            return toast.error(t("Kho gửi và kho nhận không được trùng nhau"));
         if (transferItems.length === 0)
-            return toast.error("Vui lòng chọn ít nhất 1 sản phẩm để điều chuyển");
+            return toast.error(t("Vui lòng chọn ít nhất 1 sản phẩm để điều chuyển"));
         dangTaoRef.current = true;
         try {
             setLoading(true);
@@ -342,10 +345,10 @@ export default function PhieuChuyenKhoCreate() {
                 })),
             };
             const res = await phieuChuyenKhoService.tao(payload);
-            toast.success(`Đã tạo yêu cầu chuyển kho ${res?.soPhieuChuyen ?? ""}`.trim(), { description: "Phiếu chờ Quản lý Kho tổng duyệt và lập lệnh điều động; hàng đang được giữ chỗ tại kho xuất." });
+            toast.success(t("Đã tạo yêu cầu chuyển kho {{so}}", { so: res?.soPhieuChuyen ?? "" }).trim(), { description: t("Phiếu chờ Quản lý Kho tổng duyệt và lập lệnh điều động; hàng đang được giữ chỗ tại kho xuất.") });
             navigate(`/transfer-tickets/${res.id}`);
         } catch (e) {
-            toast.error(getApiErrorMessage(e, "Không tạo được yêu cầu chuyển kho"));
+            toast.error(getApiErrorMessage(e, t("Không tạo được yêu cầu chuyển kho")));
         } finally {
             setLoading(false);
             dangTaoRef.current = false;
@@ -358,20 +361,20 @@ export default function PhieuChuyenKhoCreate() {
     const khoNhap = warehouses.find(k => String(k.id) === String(formData.khoNhapId)) || null;
 
     const lyDoKhoa = dangTai
-        ? "Đang tải dữ liệu"
+        ? t("Đang tải dữ liệu")
         : !formData.khoXuatId
-        ? "Chọn kho nguồn"
+        ? t("Chọn kho nguồn")
         : !formData.khoNhapId
-            ? "Chọn kho đích"
+            ? t("Chọn kho đích")
             : transferItems.length === 0
-                ? "Thêm ít nhất một sản phẩm"
+                ? t("Thêm ít nhất một sản phẩm")
                 : "";
 
     const doiChieu = () => setFormData(prev => {
         // Không phải quản trị viên: kho nguồn mới (kho đích cũ) phải là kho chọn được làm kho đích
         const nhanMoi = prev.khoXuatId;
         if (!toanTuyen && nhanMoi && !khoNhanDuoc.some(k => String(k.id) === String(nhanMoi))) {
-            toast.warning("Không đổi chiều được: bạn chỉ tạo yêu cầu nhận hàng về nơi làm việc của mình.");
+            toast.warning(t("Không đổi chiều được: bạn chỉ tạo yêu cầu nhận hàng về nơi làm việc của mình."));
             return prev;
         }
         return { ...prev, khoXuatId: prev.khoNhapId, khoNhapId: prev.khoXuatId };
@@ -392,34 +395,33 @@ export default function PhieuChuyenKhoCreate() {
             setWarehouses(await taiKho());
             setLoiKho("");
         } catch (e) {
-            setLoiKho(getApiErrorMessage(e, "máy chủ không phản hồi").trim().replace(/[.。]+$/, ""));
+            setLoiKho(getApiErrorMessage(e, t("máy chủ không phản hồi")).trim().replace(/[.。]+$/, ""));
         }
     };
 
     const thongBao = [
         <DongThongBao key="nhap" tone="info">
-            Tạo yêu cầu là <b className="font-semibold">giữ chỗ</b> số lượng tại kho xuất và gửi luôn cho Quản lý Kho tổng duyệt, lập lệnh điều động.
-            Hàng chỉ rời kho khi kho xuất nhặt hàng và xác nhận xuất.
+            {t("Tạo yêu cầu là")} <b className="font-semibold">{t("giữ chỗ")}</b> {t("số lượng tại kho xuất và gửi luôn cho Quản lý Kho tổng duyệt, lập lệnh điều động. Hàng chỉ rời kho khi kho xuất nhặt hàng và xác nhận xuất.")}
         </DongThongBao>,
         loiKho ? (
-            <DongThongBao key="loi-kho" tone="bad" actions={<NutChu onClick={taiLaiKho}>Thử lại</NutChu>}>
-                Không tải được danh sách kho: {loiKho}.
+            <DongThongBao key="loi-kho" tone="bad" actions={<NutChu onClick={taiLaiKho}>{t("Thử lại")}</NutChu>}>
+                {t("Không tải được danh sách kho: {{loiKho}}.", { loiKho })}
             </DongThongBao>
         ) : null,
         loiBienThe ? (
             <DongThongBao
                 key="loi-bt"
                 tone="bad"
-                actions={loiBienThe.khongQuyen ? undefined : <NutChu onClick={taiLaiBienThe}>Thử lại</NutChu>}
+                actions={loiBienThe.khongQuyen ? undefined : <NutChu onClick={taiLaiBienThe}>{t("Thử lại")}</NutChu>}
             >
-                Không tải được danh sách sản phẩm: {loiBienThe.chu}.
+                {t("Không tải được danh sách sản phẩm: {{chu}}.", { chu: loiBienThe.chu })}
             </DongThongBao>
         ) : null,
     ].filter(Boolean);
 
     const timSanPham = (
         <div className="relative px-4 pb-3 pt-4 sm:px-6">
-            <label htmlFor={`${idDs}-tim`} className="sr-only">Tìm hoặc quét sản phẩm</label>
+            <label htmlFor={`${idDs}-tim`} className="sr-only">{t("Tìm hoặc quét sản phẩm")}</label>
             <ScanBarcode className="pointer-events-none absolute left-7 top-[26px] size-4 text-bo-muted sm:left-9" aria-hidden="true" />
             <input
                 id={`${idDs}-tim`}
@@ -429,7 +431,7 @@ export default function PhieuChuyenKhoCreate() {
                 role="combobox"
                 aria-expanded={moKetQua}
                 aria-controls={`${idDs}-ds`}
-                placeholder="Tìm tên, mã SKU hoặc quét mã vạch rồi Enter"
+                placeholder={t("Tìm tên, mã SKU hoặc quét mã vạch rồi Enter")}
                 onChange={(e) => { setSearchTerm(e.target.value); setMoKetQua(true); }}
                 onFocus={() => setMoKetQua(true)}
                 onBlur={() => setTimeout(() => setMoKetQua(false), 150)}
@@ -464,12 +466,12 @@ export default function PhieuChuyenKhoCreate() {
                                         <span className="font-mono">{p.maBienThe}</span>
                                     </span>
                                 </span>
-                                <span className="shrink-0 text-xs text-bo-muted">{daCo ? `Đang có ${soVN(daCo.quantity)} · +1` : "Thêm"}</span>
+                                <span className="shrink-0 text-xs text-bo-muted">{daCo ? t("Đang có {{so}} · +1", { so: soVN(daCo.quantity) }) : t("Thêm")}</span>
                             </button>
                         );
                     }) : (
                         <p className="px-2.5 py-2 text-sm text-bo-muted">
-                            {dangTai ? "Đang tải danh sách sản phẩm…" : loiBienThe ? "Chưa tải được danh sách sản phẩm." : variants.length ? "Không tìm thấy sản phẩm, thử tên hoặc mã khác." : "Chưa có sản phẩm đang kinh doanh nào."}
+                            {dangTai ? t("Đang tải danh sách sản phẩm…") : loiBienThe ? t("Chưa tải được danh sách sản phẩm.") : variants.length ? t("Không tìm thấy sản phẩm, thử tên hoặc mã khác.") : t("Chưa có sản phẩm đang kinh doanh nào.")}
                         </p>
                     )}
                 </div>
@@ -482,14 +484,14 @@ export default function PhieuChuyenKhoCreate() {
 
     const cotBang = [
         {
-            ma: "sl", nhan: "Số lượng", lop: "w-32 text-right",
+            ma: "sl", nhan: t("Số lượng"), lop: "w-32 text-right",
             nhom: (n) => soVN(n.tong.soLuong),
             dong: (d) => (
                 <input
                     type="number"
                     min={1}
                     inputMode="numeric"
-                    aria-label={`Số lượng chuyển: ${d.tenSanPham} ${d.tenMau || ""} ${d.kichCo || ""}`.trim()}
+                    aria-label={t("Số lượng chuyển: {{ten}}", { ten: `${d.tenSanPham} ${d.tenMau || ""} ${d.kichCo || ""}`.trim() })}
                     value={d.oNhap}
                     onChange={(e) => {
                         let val = e.target.value;
@@ -509,7 +511,7 @@ export default function PhieuChuyenKhoCreate() {
             ),
         },
         {
-            ma: "bo", nhan: <span className="sr-only">Bỏ dòng</span>, lop: "w-14 text-right",
+            ma: "bo", nhan: <span className="sr-only">{t("Bỏ dòng")}</span>, lop: "w-14 text-right",
             dong: (d) => (
                 <button
                     type="button"
@@ -518,8 +520,8 @@ export default function PhieuChuyenKhoCreate() {
                         if (transferItems.length - 1 <= NGUONG_CONG_CU) bangHang.xoaTuKhoa();
                         setTransferItems(prev => prev.filter(it => it.variantId !== d.id));
                     }}
-                    aria-label={`Bỏ ${d.tenSanPham} ${d.tenMau || ""} ${d.kichCo || ""}`.trim()}
-                    title="Bỏ dòng"
+                    aria-label={t("Bỏ {{ten}}", { ten: `${d.tenSanPham} ${d.tenMau || ""} ${d.kichCo || ""}`.trim() })}
+                    title={t("Bỏ dòng")}
                     className="inline-flex size-8 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-bo-danger-soft hover:text-bo-danger"
                 >
                     <Trash2 className="size-4" aria-hidden="true" />
@@ -531,28 +533,28 @@ export default function PhieuChuyenKhoCreate() {
     const bang = transferItems.length === 0 ? (
         <EmptyState
             icon={Package}
-            title="Chưa có sản phẩm nào"
-            description="Gõ tên hoặc quét mã vạch ở ô phía trên. Quét lại cùng mã sẽ cộng thêm 1."
+            title={t("Chưa có sản phẩm nào")}
+            description={t("Gõ tên hoặc quét mã vạch ở ô phía trên. Quét lại cùng mã sẽ cộng thêm 1.")}
             className="min-h-[260px] flex-1"
         />
     ) : (
-        <BangHangTaoPhieu bang={bangHang} cot={cotBang} dongSang={dongSang} tenChungTu="Phiếu chuyển kho" nhan="Hàng điều chuyển" rongToiThieu="@2xl/khoi:min-w-[480px]" />
+        <BangHangTaoPhieu bang={bangHang} cot={cotBang} dongSang={dongSang} tenChungTu={t("Phiếu chuyển kho")} nhan={t("Hàng điều chuyển")} rongToiThieu="@2xl/khoi:min-w-[480px]" />
     );
 
     // Điện thoại: cột Tuyến chuyển lên trước danh sách hàng (phải chọn kho nguồn trước mới thêm được hàng; xếp dưới thì nằm
     // tận cuối trang, sau khối "Chưa có sản phẩm nào")
     const cotPhai = (
-        <CotThuocTinh nhan="Thông tin phiếu chuyển" className="max-md:order-first max-md:border-t-0 max-md:border-b">
-            <NhomThuocTinh nhan="Tuyến chuyển">
+        <CotThuocTinh nhan={t("Thông tin phiếu chuyển")} className="max-md:order-first max-md:border-t-0 max-md:border-b">
+            <NhomThuocTinh nhan={t("Tuyến chuyển")}>
                 <ChonKho
-                    vaiTro="Kho nguồn"
+                    vaiTro="Kho nguồn" // i18n-giu-nguyen: khóa so khớp trong ChonKho
                     icon={Warehouse}
                     mau="bg-bo-primary-soft text-bo-primary"
                     kho={khoXuat}
                     dsKho={warehouses}
                     khoKhac={formData.khoNhapId}
                     onChon={(id) => setFormData(prev => ({ ...prev, khoXuatId: id }))}
-                    goiYTrong={dangTai ? "Đang tải danh sách kho…" : loiKho ? "Chưa tải được danh sách kho." : "Không có kho nào đang hoạt động."}
+                    goiYTrong={dangTai ? t("Đang tải danh sách kho…") : loiKho ? t("Chưa tải được danh sách kho.") : t("Không có kho nào đang hoạt động.")}
                 />
                 <div className="flex h-[30px] items-center justify-between pl-4 text-slate-400">
                     <ArrowDown className="size-4" aria-hidden="true" />
@@ -563,36 +565,36 @@ export default function PhieuChuyenKhoCreate() {
                             className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium text-bo-primary hover:bg-bo-primary-soft"
                         >
                             <ArrowUpDown className="size-3.5" aria-hidden="true" />
-                            Đổi chiều
+                            {t("Đổi chiều")}
                         </button>
                     ) : null}
                 </div>
                 <ChonKho
-                    vaiTro="Kho đích"
+                    vaiTro="Kho đích" // i18n-giu-nguyen: khóa so khớp trong ChonKho
                     icon={Store}
                     mau="bg-bo-success-soft text-bo-success"
                     kho={khoNhap}
                     dsKho={khoNhanDuoc}
                     khoKhac={formData.khoXuatId}
                     onChon={(id) => setFormData(prev => ({ ...prev, khoNhapId: id }))}
-                    goiYTrong={dangTai ? "Đang tải danh sách kho…" : loiKho ? "Chưa tải được danh sách kho." : "Bạn chưa được phân kho nào để nhận hàng."}
+                    goiYTrong={dangTai ? t("Đang tải danh sách kho…") : loiKho ? t("Chưa tải được danh sách kho.") : t("Bạn chưa được phân kho nào để nhận hàng.")}
                 />
                 {!toanTuyen ? (
-                    <p className="mt-2 text-xs leading-[18px] text-bo-muted">Bạn tạo yêu cầu nhận hàng về nơi làm việc của mình.</p>
+                    <p className="mt-2 text-xs leading-[18px] text-bo-muted">{t("Bạn tạo yêu cầu nhận hàng về nơi làm việc của mình.")}</p>
                 ) : null}
             </NhomThuocTinh>
             <NhomThuocTinh>
                 <label className="grid gap-1.5">
-                    <span className={NHAN_O}>Ghi chú</span>
+                    <span className={NHAN_O}>{t("Ghi chú")}</span>
                     <textarea
                         value={formData.ghiChu}
                         maxLength={GHI_CHU_TOI_DA}
                         onChange={(e) => setFormData(prev => ({ ...prev, ghiChu: e.target.value.slice(0, GHI_CHU_TOI_DA) }))}
-                        placeholder="Lý do điều phối hàng, vd. bổ sung hàng cho đợt khuyến mãi"
+                        placeholder={t("Lý do điều phối hàng, vd. bổ sung hàng cho đợt khuyến mãi")}
                         className={O_NHAP_NHIEU_DONG}
                     />
                     <span className={GOI_Y_O}>
-                        <span>Không bắt buộc</span>
+                        <span>{t("Không bắt buộc")}</span>
                         <span>{formData.ghiChu.length}/{GHI_CHU_TOI_DA}</span>
                     </span>
                 </label>
@@ -605,18 +607,18 @@ export default function PhieuChuyenKhoCreate() {
             <KhungChungTu
                 dau={
                     <DauChungTu
-                        ma="Tạo phiếu chuyển kho nội bộ"
+                        ma={t("Tạo phiếu chuyển kho nội bộ")}
                         dongPhu={[
                             // Tên hai kho đã ở cột Tuyến chuyển: không lặp ở dòng phụ
-                            transferItems.length ? "" : "Chọn kho nguồn, kho đích và hàng cần chuyển",
-                            transferItems.length ? `${soVN(bangHang.tong.soSanPham)} sản phẩm · ${soVN(bangHang.tong.soDong)} biến thể` : "",
-                            transferItems.length ? `Tổng chuyển ${soVN(totalQty)}` : "",
+                            transferItems.length ? "" : t("Chọn kho nguồn, kho đích và hàng cần chuyển"),
+                            transferItems.length ? `${t("{{so}} sản phẩm", { count: bangHang.tong.soSanPham, so: soVN(bangHang.tong.soSanPham) })} · ${t("{{so}} biến thể", { count: bangHang.tong.soDong, so: soVN(bangHang.tong.soDong) })}` : "",
+                            transferItems.length ? t("Tổng chuyển {{so}}", { so: soVN(totalQty) }) : "",
                         ]}
                         onQuayLai={() => navigate("/transfer-tickets")}
-                        nhanQuayLai="Quay lại danh sách"
+                        nhanQuayLai={t("Quay lại danh sách")}
                         nutChinh={{
                             ma: "tao",
-                            nhan: "Tạo phiếu điều chuyển",
+                            nhan: t("Tạo phiếu điều chuyển"),
                             icon: Truck,
                             onClick: handleCreate,
                             khoa: Boolean(lyDoKhoa) || loading,
@@ -626,7 +628,7 @@ export default function PhieuChuyenKhoCreate() {
                         }}
                     />
                 }
-                tienTrinh={<TienTrinhChungTu buoc={BUOC} nhan="Các bước của phiếu chuyển kho" />}
+                tienTrinh={<TienTrinhChungTu buoc={BUOC} nhan={t("Các bước của phiếu chuyển kho")} />}
                 thongBao={thongBao}
                 chinh={<>{timSanPham}{bang}</>}
                 cotPhai={cotPhai}

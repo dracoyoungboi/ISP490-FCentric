@@ -19,42 +19,43 @@ import { getStoredRoles } from "@/utils/roles";
 import { useBanPhimAoMo } from "@/hooks/useBanPhimAo";
 import { useTaiTruocLienKet } from "@/lib/taiTrang";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 /**
  * Thanh điều hướng đáy trên điện thoại (< 768px): 3–4 việc chính của vai trò + "Menu" mở ngăn kéo menu đầy đủ
  * (sidebar hiện có). Chỉ hiện ở trang cấp đầu (danh sách, Tổng quan); trang chi tiết / tạo mới dùng thanh thao tác đáy.
  * Đường dẫn và nhãn lấy đúng như menu bên trái; phân quyền vẫn do route và máy chủ chặn.
  */
-const TONG_QUAN = { nhan: "Tổng quan", icon: LayoutDashboard, to: "/dashboard" };
+const TONG_QUAN = { nhan: t("Tổng quan"), icon: LayoutDashboard, to: "/dashboard" };
 const THEO_VAI_TRO = [
   ["quan_tri_vien", [
     TONG_QUAN,
-    { nhan: "Đơn bán", icon: ShoppingCart, to: "/sales-orders" },
-    { nhan: "Tồn kho", icon: Package, to: "/reports/inventory" },
-    { nhan: "Báo cáo", icon: BarChart3, to: "/reports/revenue", khop: (p) => p.startsWith("/reports/") && p !== "/reports/inventory" },
+    { nhan: t("Đơn bán"), icon: ShoppingCart, to: "/sales-orders" },
+    { nhan: t("Tồn kho"), icon: Package, to: "/reports/inventory" },
+    { nhan: t("Báo cáo"), icon: BarChart3, to: "/reports/revenue", khop: (p) => p.startsWith("/reports/") && p !== "/reports/inventory" },
   ]],
   ["quan_ly_kho", [
     TONG_QUAN,
-    { nhan: "Yêu cầu", icon: FileText, to: "/purchase-requests" },
-    { nhan: "Chuyển kho", icon: ArrowLeftRight, to: "/transfer-tickets" },
-    { nhan: "Tồn kho", icon: Package, to: "/reports/inventory" },
+    { nhan: t("Yêu cầu"), icon: FileText, to: "/purchase-requests" },
+    { nhan: t("Chuyển kho"), icon: ArrowLeftRight, to: "/transfer-tickets" },
+    { nhan: t("Tồn kho"), icon: Package, to: "/reports/inventory" },
   ]],
   ["nhan_vien_kho", [
     TONG_QUAN,
-    { nhan: "Nhặt hàng", icon: ClipboardList, to: "/goods-issues/pick-lists" },
-    { nhan: "Nhận hàng", icon: ArrowDownToLine, to: "/goods-receipts" },
-    { nhan: "Kiểm kê", icon: ClipboardCheck, to: "/stock-take" },
+    { nhan: t("Nhặt hàng"), icon: ClipboardList, to: "/goods-issues/pick-lists" },
+    { nhan: t("Nhận hàng"), icon: ArrowDownToLine, to: "/goods-receipts" },
+    { nhan: t("Kiểm kê"), icon: ClipboardCheck, to: "/stock-take" },
   ]],
   ["nhan_vien_ban_hang", [
     TONG_QUAN,
-    { nhan: "Đơn bán", icon: ShoppingCart, to: "/sales-orders" },
-    { nhan: "Khách hàng", icon: Users, to: "/customers" },
+    { nhan: t("Đơn bán"), icon: ShoppingCart, to: "/sales-orders" },
+    { nhan: t("Khách hàng"), icon: Users, to: "/customers" },
   ]],
   ["nhan_vien_mua_hang", [
     TONG_QUAN,
-    { nhan: "Yêu cầu", icon: FileText, to: "/purchase-requests" },
-    { nhan: "Đơn mua", icon: Truck, to: "/purchase-orders" },
-    { nhan: "Nhà cung cấp", icon: Users, to: "/supplier" },
+    { nhan: t("Yêu cầu"), icon: FileText, to: "/purchase-requests" },
+    { nhan: t("Đơn mua"), icon: Truck, to: "/purchase-orders" },
+    { nhan: t("Nhà cung cấp"), icon: Users, to: "/supplier" },
   ]],
 ];
 
@@ -77,7 +78,7 @@ export default function ThanhDieuHuongDay() {
 
   return (
     <nav
-      aria-label="Điều hướng chính"
+      aria-label={t("Điều hướng chính")}
       data-thanh-dieu-huong-day=""
       // Số cột = số mục của vai trò + Menu (bán hàng 3 mục, các vai trò khác 4)
       style={{ gridTemplateColumns: `repeat(${muc.length + 1}, minmax(0, 1fr))` }}

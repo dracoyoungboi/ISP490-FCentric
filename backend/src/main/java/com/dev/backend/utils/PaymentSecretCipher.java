@@ -1,5 +1,7 @@
 package com.dev.backend.utils;
 
+import com.dev.backend.i18n.ThongDiep;
+import com.dev.backend.i18n.LoiTrangThaiException;
 import com.dev.backend.exception.customize.CommonException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -50,14 +52,14 @@ public class PaymentSecretCipher {
         } catch (CommonException e) {
             throw e;
         } catch (Exception e) {
-            throw new IllegalStateException("Không thể mã hóa khóa thanh toán", e);
+            throw new LoiTrangThaiException(ThongDiep.of("banHang.khongMaHoaKhoa"), e);
         }
     }
 
     public String decrypt(String stored) {
         if (stored == null || stored.isBlank()) return null;
         if (!stored.startsWith(PREFIX)) {
-            throw new IllegalStateException("Định dạng khóa thanh toán đã lưu không hợp lệ");
+            throw new LoiTrangThaiException(ThongDiep.of("banHang.dinhDangKhoaDaLuuSai"));
         }
         try {
             byte[] all = Base64.getDecoder().decode(stored.substring(PREFIX.length()));
@@ -73,7 +75,7 @@ public class PaymentSecretCipher {
             throw e;
         } catch (Exception e) {
             throw new CommonException(
-                    "Không giải mã được khóa payOS đã lưu (PAYMENT_CONFIG_SECRET đã bị đổi?). Vui lòng nhập lại khóa ở trang Cài đặt thanh toán.",
+                    ThongDiep.of("banHang.khongGiaiMaKhoaPayos"),
                     HttpStatus.CONFLICT, null);
         }
     }
@@ -81,7 +83,7 @@ public class PaymentSecretCipher {
     private SecretKeySpec key() throws Exception {
         if (!isConfigured()) {
             throw new CommonException(
-                    "Máy chủ chưa đặt biến môi trường PAYMENT_CONFIG_SECRET nên không thể lưu/đọc khóa thanh toán",
+                    ThongDiep.of("banHang.chuaDatPaymentSecret"),
                     HttpStatus.SERVICE_UNAVAILABLE, null);
         }
         byte[] hash = MessageDigest.getInstance("SHA-256").digest(secret.getBytes(StandardCharsets.UTF_8));

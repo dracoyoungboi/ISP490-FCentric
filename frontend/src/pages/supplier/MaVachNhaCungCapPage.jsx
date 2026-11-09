@@ -29,6 +29,7 @@ import { getApiErrorMessage } from "@/utils/apiError";
 import { formatDate } from "@/utils/formatters";
 import { ganGiong, trongNhuMa } from "@/utils/maVach";
 import { ROLES, hasAnyRole } from "@/utils/roles";
+import { t } from "@/i18n";
 
 // Gỡ liên kết gắn nhầm: quản trị viên và quản lý kho (người duyệt nhập hàng).
 const QUYEN_GO_LIEN_KET = [ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO];
@@ -38,7 +39,7 @@ const CHO_GO_MS = 300;
 // Số liên kết tối đa tải về để gợi ý mã gần giống khi tìm không thấy (chỉ tải khi từ khóa trông như mã)
 const SO_LIEN_KET_GOI_Y = 1000;
 
-const bienTheDayDu = (r) => [r.tenBienThe, r.mauSac, r.kichCo ? `Kích cỡ ${r.kichCo}` : null].filter(Boolean).join(" · ");
+const bienTheDayDu = (r) => [r.tenBienThe, r.mauSac, r.kichCo ? t("Kích cỡ {{kichCo}}", { kichCo: r.kichCo }) : null].filter(Boolean).join(" · ");
 
 /**
  * Mã vạch nhà cung cấp (FO-095, PA1): tra mã vạch trên tem của nhà cung cấp ứng với biến thể nào của FCentric.
@@ -61,8 +62,8 @@ export default function MaVachNhaCungCapPage() {
   const [dangGo, setDangGo] = useState(false);
 
   useEffect(() => {
-    const t = setTimeout(() => setTuKhoaTim(tuKhoa.trim()), CHO_GO_MS);
-    return () => clearTimeout(t);
+    const hen = setTimeout(() => setTuKhoaTim(tuKhoa.trim()), CHO_GO_MS);
+    return () => clearTimeout(hen);
   }, [tuKhoa]);
 
   const ncc = useTaiDuLieu(() => maVachNhaCungCapService.dsNhaCungCap(), "ncc", { enabled: hoTro });
@@ -104,7 +105,7 @@ export default function MaVachNhaCungCapPage() {
 
   const luaChonNcc = useMemo(
     () => [
-      { value: "", label: "Tất cả nhà cung cấp" },
+      { value: "", label: t("Tất cả nhà cung cấp") },
       ...(Array.isArray(ncc.data) ? ncc.data : []).map((n) => ({ value: String(n.id), label: n.tenNhaCungCap })),
     ],
     [ncc.data],
@@ -122,11 +123,11 @@ export default function MaVachNhaCungCapPage() {
     setDangGo(true);
     try {
       await maVachNhaCungCapService.huyLienKet(canGo.id);
-      toast.success(`Đã gỡ liên kết mã ${canGo.maVach}`, { description: "Lần quét sau, mã được hỏi lại như mã chưa có trong hệ thống." });
+      toast.success(t("Đã gỡ liên kết mã {{maVach}}", { maVach: canGo.maVach }), { description: t("Lần quét sau, mã được hỏi lại như mã chưa có trong hệ thống.") });
       setCanGo(null);
       ketQua.reload();
     } catch (err) {
-      toast.error(getApiErrorMessage(err, "Không gỡ được liên kết."));
+      toast.error(getApiErrorMessage(err, t("Không gỡ được liên kết.")));
     } finally {
       setDangGo(false);
     }
@@ -144,12 +145,12 @@ export default function MaVachNhaCungCapPage() {
   let bang;
   // Đang lùi về trang cuối (trang vừa tải rỗng vì vượt số trang) thì hiện đang tải, không hiện ô trống
   if (ketQua.initialLoading || (ketQua.loading && !dong.length && trang > 0)) {
-    bang = <LoadingState rows={6} label="Đang tải mã vạch nhà cung cấp" />;
+    bang = <LoadingState rows={6} label={t("Đang tải mã vạch nhà cung cấp")} />;
   } else if (ketQua.error && !ketQua.data) {
     bang = (
       <ErrorState
-        title="Không tải được mã vạch nhà cung cấp"
-        description={getApiErrorMessage(ketQua.error, "Vui lòng thử lại.")}
+        title={t("Không tải được mã vạch nhà cung cấp")}
+        description={getApiErrorMessage(ketQua.error, t("Vui lòng thử lại."))}
         onRetry={ketQua.reload}
       />
     );
@@ -159,17 +160,19 @@ export default function MaVachNhaCungCapPage() {
         icon={SearchX}
         // Từ khóa trông như mã có thể là SKU / mã hàng NCC (đã có trong hệ thống), hoặc mã liên kết ở nhà cung cấp
         // khác khi đang lọc: chỉ nói là chưa có liên kết khớp, không nói mã chưa có trong hệ thống
-        title={timMa ? `Không có liên kết nào khớp ${tuKhoaTim}${nhaCungCapId ? " ở nhà cung cấp đang lọc" : ""}` : "Không có liên kết nào khớp"}
+        title={timMa ? nhaCungCapId
+              ? t("Không có liên kết nào khớp {{tuKhoa}} ở nhà cung cấp đang lọc", { tuKhoa: tuKhoaTim })
+              : t("Không có liên kết nào khớp {{tuKhoa}}", { tuKhoa: tuKhoaTim }) : t("Không có liên kết nào khớp")}
         description={
           timMa
-            ? `Mã vạch nhà cung cấp được liên kết lúc kiểm đếm hàng nhập: quét mã chưa có trong hệ thống, quét lại để xác nhận rồi chọn biến thể.${nhaCungCapId ? " Bỏ lọc nhà cung cấp để tìm cả ở nhà cung cấp khác." : ""}`
-            : "Thử tìm theo mã vạch, mã hàng NCC hoặc SKU khác, hoặc bỏ lọc nhà cung cấp."
+            ? `${t("Mã vạch nhà cung cấp được liên kết lúc kiểm đếm hàng nhập: quét mã chưa có trong hệ thống, quét lại để xác nhận rồi chọn biến thể.")}${nhaCungCapId ? ` ${t("Bỏ lọc nhà cung cấp để tìm cả ở nhà cung cấp khác.")}` : ""}`
+            : t("Thử tìm theo mã vạch, mã hàng NCC hoặc SKU khác, hoặc bỏ lọc nhà cung cấp.")
         }
         action={
           <div className="flex w-full max-w-[560px] flex-col items-center gap-3">
             {ganDung.length ? (
               <div className="w-full overflow-hidden rounded-lg border border-orange-200 bg-bo-warning-soft/40 text-left">
-                <p className="border-b border-orange-200 px-3 py-2 text-[13px] font-semibold text-orange-900">Gần giống mã đã liên kết</p>
+                <p className="border-b border-orange-200 px-3 py-2 text-[13px] font-semibold text-orange-900">{t("Gần giống mã đã liên kết")}</p>
                 {ganDung.map((g) => (
                   <div key={g.ma} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-orange-100 px-3 py-2.5 first:border-t-0">
                     <div className="flex min-w-0 flex-[1_1_220px] flex-col gap-0.5">
@@ -180,7 +183,7 @@ export default function MaVachNhaCungCapPage() {
                       </span>
                       <span className="text-xs text-bo-muted">{g.nhan}</span>
                     </div>
-                    <span className="whitespace-nowrap text-xs font-medium text-orange-800">lệch {g.lech} ký tự</span>
+                    <span className="whitespace-nowrap text-xs font-medium text-orange-800">{t("lệch {{count}} ký tự", { count: g.lech })}</span>
                     <Button
                       variant="outline"
                       size="sm"
@@ -191,14 +194,14 @@ export default function MaVachNhaCungCapPage() {
                       }}
                       className="border-bo-border bg-bo-surface text-xs max-md:text-sm"
                     >
-                      Xem mã này
+                      {t("Xem mã này")}
                     </Button>
                   </div>
                 ))}
               </div>
             ) : null}
             <Button variant="outline" onClick={xoaLoc} className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">
-              Xóa lọc
+              {t("Xóa lọc")}
             </Button>
           </div>
         }
@@ -206,8 +209,8 @@ export default function MaVachNhaCungCapPage() {
     ) : (
       <EmptyState
         icon={ScanBarcode}
-        title="Chưa có mã vạch nhà cung cấp nào"
-        description="Khi kiểm đếm hàng nhập, quét phải mã chưa có trong hệ thống và xác nhận đó là mã vạch của nhà cung cấp, mã được liên kết với biến thể FCentric và hiện ở đây."
+        title={t("Chưa có mã vạch nhà cung cấp nào")}
+        description={t("Khi kiểm đếm hàng nhập, quét phải mã chưa có trong hệ thống và xác nhận đó là mã vạch của nhà cung cấp, mã được liên kết với biến thể FCentric và hiện ở đây.")}
       />
     );
   } else {
@@ -224,7 +227,7 @@ export default function MaVachNhaCungCapPage() {
               <span className="text-sm">
                 <span className="font-medium text-bo-heading">{r.tenBienThe}</span>
                 <span className="block text-[13px] text-bo-muted">
-                  {[r.mauSac, r.kichCo ? `Kích cỡ ${r.kichCo}` : null].filter(Boolean).join(" · ")}
+                  {[r.mauSac, r.kichCo ? t("Kích cỡ {{kichCo}}", { kichCo: r.kichCo }) : null].filter(Boolean).join(" · ")}
                   {r.mauSac || r.kichCo ? " · " : ""}
                   <span className="font-mono">{r.sku}</span>
                 </span>
@@ -234,22 +237,22 @@ export default function MaVachNhaCungCapPage() {
                 {r.maHangNcc ? <span className="shrink-0 font-mono text-slate-600">{r.maHangNcc}</span> : null}
               </span>
               <span className="text-xs tabular-nums text-bo-muted">
-                {[r.ngayLienKet ? `Liên kết ${formatDate(r.ngayLienKet)}` : null, r.tenNguoiLienKet].filter(Boolean).join(" · ") || "—"}
+                {[r.ngayLienKet ? t("Liên kết {{ngay}}", { ngay: formatDate(r.ngayLienKet) }) : null, r.tenNguoiLienKet].filter(Boolean).join(" · ") || "—"}
               </span>
               {coChan ? (
                 <span className="flex min-h-9 items-center justify-between gap-3">
                   {r.phieuNhapKhoId && xemPhieuNhap ? (
                     <Link
                       to={`/goods-receipts/${r.phieuNhapKhoId}`}
-                      aria-label={`Mở phiếu nhập ${r.soPhieuNhap ?? `#${r.phieuNhapKhoId}`}`}
+                      aria-label={t("Mở phiếu nhập {{soPhieu}}", { soPhieu: r.soPhieuNhap ?? `#${r.phieuNhapKhoId}` })}
                       className="inline-flex h-9 min-w-0 items-center gap-1 text-[13px]"
                     >
-                      <span className="shrink-0 text-bo-muted">Từ phiếu</span>
+                      <span className="shrink-0 text-bo-muted">{t("Từ phiếu")}</span>
                       <span className="truncate font-mono font-medium text-bo-primary">{r.soPhieuNhap ?? `#${r.phieuNhapKhoId}`}</span>
                     </Link>
                   ) : r.soPhieuNhap ? (
                     <span className="min-w-0 truncate text-[13px] text-bo-muted">
-                      Từ phiếu <span className="font-mono text-slate-600">{r.soPhieuNhap}</span>
+                      {t("Từ phiếu")} <span className="font-mono text-slate-600">{r.soPhieuNhap}</span>
                     </span>
                   ) : <span />}
                   {coTheGo ? (
@@ -260,7 +263,7 @@ export default function MaVachNhaCungCapPage() {
                       className="h-9 shrink-0 gap-1.5 border-bo-input-border bg-bo-surface px-3 text-sm font-medium text-bo-danger"
                     >
                       <Unlink className="size-4" aria-hidden="true" />
-                      Gỡ liên kết
+                      {t("Gỡ liên kết")}
                     </Button>
                   ) : null}
                 </span>
@@ -275,12 +278,12 @@ export default function MaVachNhaCungCapPage() {
         <thead className="sticky top-0 z-10">
           <tr className="border-b border-bo-border bg-bo-surface-subtle">
             {[
-              ["Mã vạch NCC", ""],
-              ["Mã hàng NCC", "cam-ung:max-lg:hidden"],
-              ["Nhà cung cấp", "cam-ung:max-lg:hidden"],
-              ["Biến thể FCentric", ""],
-              ["Liên kết từ", "w-[220px] cam-ung:max-lg:w-auto"],
-              ...(coTheGo ? [["Thao tác", "w-[88px] text-center cam-ung:max-lg:hidden"]] : []),
+              [t("Mã vạch NCC"), ""],
+              [t("Mã hàng NCC"), "cam-ung:max-lg:hidden"],
+              [t("Nhà cung cấp"), "cam-ung:max-lg:hidden"],
+              [t("Biến thể FCentric"), ""],
+              [t("Liên kết từ"), "w-[220px] cam-ung:max-lg:w-auto"],
+              ...(coTheGo ? [[t("Thao tác"), "w-[88px] text-center cam-ung:max-lg:hidden"]] : []),
             ].map(([h, c]) => (
               <th key={h} className={cn("h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted", c)}>
                 {h}
@@ -301,7 +304,7 @@ export default function MaVachNhaCungCapPage() {
               <td className="px-3 py-3">
                 <div className="font-medium text-bo-heading">{r.tenBienThe}</div>
                 <div className="text-xs text-bo-muted">
-                  {[r.mauSac, r.kichCo ? `Kích cỡ ${r.kichCo}` : null].filter(Boolean).join(" · ")}
+                  {[r.mauSac, r.kichCo ? t("Kích cỡ {{kichCo}}", { kichCo: r.kichCo }) : null].filter(Boolean).join(" · ")}
                   {r.mauSac || r.kichCo ? " · " : ""}
                   <span className="font-mono">{r.sku}</span>
                 </div>
@@ -327,14 +330,14 @@ export default function MaVachNhaCungCapPage() {
                     className="mt-1.5 hidden h-9 w-fit gap-1.5 border-bo-input-border bg-bo-surface px-3 text-sm font-medium text-bo-danger cam-ung:max-lg:flex"
                   >
                     <Unlink className="size-4" aria-hidden="true" />
-                    Gỡ liên kết
+                    {t("Gỡ liên kết")}
                   </Button>
                 ) : null}
               </td>
               {coTheGo ? (
                 <td className="px-3 py-3 cam-ung:max-lg:hidden">
                   <RowActions>
-                    <RowActionButton icon={Unlink} label="Gỡ liên kết" tone="danger" onClick={() => setCanGo(r)} />
+                    <RowActionButton icon={Unlink} label={t("Gỡ liên kết")} tone="danger" onClick={() => setCanGo(r)} />
                   </RowActions>
                 </td>
               ) : null}
@@ -349,14 +352,14 @@ export default function MaVachNhaCungCapPage() {
   return (
     <PageContainer fill className="space-y-4">
       <ListPageHeader />
-      <MockModeNotice show={maVachNhaCungCapService.mau} reason="máy chủ chưa có API mã vạch nhà cung cấp" />
+      <MockModeNotice show={maVachNhaCungCapService.mau} reason={t("máy chủ chưa có API mã vạch nhà cung cấp")} />
       <TableShell
         fill
         toolbar={
           <ListToolbar hasFilter={dangLoc} onClear={xoaLoc}>
             <SearchInput
-              label="Tìm mã vạch nhà cung cấp"
-              placeholder="Quét hoặc nhập mã vạch, mã hàng, SKU, tên, màu"
+              label={t("Tìm mã vạch nhà cung cấp")}
+              placeholder={t("Quét hoặc nhập mã vạch, mã hàng, SKU, tên, màu")}
               value={tuKhoa}
               onChange={(e) => {
                 setTuKhoa(e.target.value);
@@ -369,7 +372,7 @@ export default function MaVachNhaCungCapPage() {
               className="sm:w-[380px]"
             />
             <FilterSelect
-              label="Lọc theo nhà cung cấp"
+              label={t("Lọc theo nhà cung cấp")}
               value={nhaCungCapId}
               options={luaChonNcc}
               onChange={(v) => {
@@ -402,14 +405,14 @@ export default function MaVachNhaCungCapPage() {
         isOpen={Boolean(canGo)}
         onClose={() => !dangGo && setCanGo(null)}
         onConfirm={goLienKet}
-        title="Gỡ liên kết mã vạch?"
+        title={t("Gỡ liên kết mã vạch?")}
         description={
           canGo
-            ? `Mã ${canGo.maVach} của ${canGo.tenNhaCungCap} sẽ không còn tự nhận là ${bienTheDayDu(canGo)}. Lần quét sau, mã được hỏi lại như mã chưa có trong hệ thống.`
+            ? t("Mã {{maVach}} của {{tenNhaCungCap}} sẽ không còn tự nhận là {{bienThe}}. Lần quét sau, mã được hỏi lại như mã chưa có trong hệ thống.", { maVach: canGo.maVach, tenNhaCungCap: canGo.tenNhaCungCap, bienThe: bienTheDayDu(canGo) })
             : ""
         }
-        confirmText="Gỡ liên kết"
-        cancelText="Không gỡ"
+        confirmText={t("Gỡ liên kết")}
+        cancelText={t("Không gỡ")}
         isLoading={dangGo}
       />
     </PageContainer>

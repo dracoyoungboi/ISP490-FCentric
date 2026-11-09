@@ -13,6 +13,7 @@ import { DaiO } from "@/components/nhap-kho/ThanhBuoc";
 import { laDoiHang } from "@/constants/nhapKho";
 import { thongKeHeThongService } from "@/services/thongKeHeThongService";
 import { formatNumber } from "@/utils/formatters";
+import { t } from "@/i18n";
 
 /**
  * Hộp xác nhận nhập kho chính thức (FO-100).
@@ -36,7 +37,7 @@ export default function HopXacNhanNhapKho({ open, onOpenChange, phieu, dong, coT
       .then((res) => {
         if (huy) return;
         const rows = (res?.data?.data ?? []).filter((r) => ids.has(Number(r.bienTheId)) && Number(r.khoId) === Number(khoId));
-        const cong = (k) => rows.reduce((t, r) => t + Number(r[k] || 0), 0);
+        const cong = (k) => rows.reduce((tg, r) => tg + Number(r[k] || 0), 0);
         setTon({ onHand: cong("onHand"), incoming: cong("incoming"), freeToUse: cong("freeToUse") });
       })
       .catch(() => {
@@ -47,8 +48,8 @@ export default function HopXacNhanNhapKho({ open, onOpenChange, phieu, dong, coT
     };
   }, [open, khoId, khoaBienThe]);
 
-  const tongDat = (dong ?? []).reduce((t, d) => t + Number(d.dat || 0), 0);
-  const tongLoi = (dong ?? []).reduce((t, d) => t + Number(d.loi || 0), 0);
+  const tongDat = (dong ?? []).reduce((tg, d) => tg + Number(d.dat || 0), 0);
+  const tongLoi = (dong ?? []).reduce((tg, d) => tg + Number(d.loi || 0), 0);
   // Incoming = phần đơn mua chưa nhận. Nhập kho cộng "đã nhận" của đơn: chỉ hàng đạt khi phương án là Đổi hàng
   // (nhà cung cấp giao bù phần lỗi), cả đạt và lỗi với Trừ công nợ / Trả tài xế.
   // Free to Use = On Hand + Incoming − Outgoing, nên chỉ giảm phần lỗi không được giao bù.
@@ -69,9 +70,9 @@ export default function HopXacNhanNhapKho({ open, onOpenChange, phieu, dong, coT
       {/* Đầu và chân hộp cố định, chỉ phần giữa cuộn: nút Xác nhận luôn thấy, điện thoại không tràn ngang */}
       <DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden rounded-xl border-bo-border p-0 sm:max-w-[min(800px,calc(100%-2rem))]">
         <DialogHeader className="shrink-0 border-b border-bo-border px-6 py-4 pr-12 text-left">
-          <DialogTitle className="text-base text-bo-foreground">Xác nhận nhập kho chính thức</DialogTitle>
+          <DialogTitle className="text-base text-bo-foreground">{t("Xác nhận nhập kho chính thức")}</DialogTitle>
           <DialogDescription className="text-[13px] text-bo-muted">
-            Tồn kho được cộng ngay và không hoàn tác được.
+            {t("Tồn kho được cộng ngay và không hoàn tác được.")}
           </DialogDescription>
         </DialogHeader>
 
@@ -81,9 +82,9 @@ export default function HopXacNhanNhapKho({ open, onOpenChange, phieu, dong, coT
             <table className="w-full table-fixed text-sm">
               <thead>
                 <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                  <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted sm:px-4">Biến thể</th>
-                  <th className="hidden h-10 px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted sm:table-cell">Lô</th>
-                  <th className="h-10 w-24 px-3 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted sm:w-32 sm:px-4">Nhập (đạt)</th>
+                  <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted sm:px-4">{t("Biến thể")}</th>
+                  <th className="hidden h-10 px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted sm:table-cell">{t("Lô")}</th>
+                  <th className="h-10 w-24 px-3 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted sm:w-32 sm:px-4">{t("Nhập (đạt)")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-bo-border">
@@ -99,7 +100,7 @@ export default function HopXacNhanNhapKho({ open, onOpenChange, phieu, dong, coT
                           {d.mauSac || d.kichCo ? " · " : ""}
                           <span className="font-mono">{d.sku}</span>
                         </div>
-                        <div className="mt-0.5 break-all font-mono text-xs text-slate-600 sm:hidden">Lô {lo}</div>
+                        <div className="mt-0.5 break-all font-mono text-xs text-slate-600 sm:hidden">{t("Lô {{lo}}", { lo })}</div>
                       </td>
                       <td className="hidden break-all px-4 py-2 font-mono text-xs text-slate-600 sm:table-cell">{lo}</td>
                       <td className="px-3 py-2 text-right font-medium tabular-nums sm:px-4">{formatNumber(d.dat)}</td>
@@ -109,8 +110,8 @@ export default function HopXacNhanNhapKho({ open, onOpenChange, phieu, dong, coT
               </tbody>
               <tfoot>
                 <tr className="border-t border-bo-border bg-bo-surface-subtle font-semibold">
-                  <td className="h-12 px-3 sm:px-4 sm:hidden">Tổng nhập vào kho</td>
-                  <td className="hidden h-12 px-4 sm:table-cell" colSpan={2}>Tổng nhập vào kho</td>
+                  <td className="h-12 px-3 sm:px-4 sm:hidden">{t("Tổng nhập vào kho")}</td>
+                  <td className="hidden h-12 px-4 sm:table-cell" colSpan={2}>{t("Tổng nhập vào kho")}</td>
                   <td className="px-3 text-right tabular-nums sm:px-4">{formatNumber(tongDat)}</td>
                 </tr>
               </tfoot>
@@ -118,7 +119,7 @@ export default function HopXacNhanNhapKho({ open, onOpenChange, phieu, dong, coT
           </div>
 
           {ton === false ? (
-            <p className="text-[13px] text-bo-muted">Không tải được tồn kho hiện tại để so sánh.</p>
+            <p className="text-[13px] text-bo-muted">{t("Không tải được tồn kho hiện tại để so sánh.")}</p>
           ) : (
             <DaiO soO={3}>
               {ton
@@ -145,8 +146,8 @@ export default function HopXacNhanNhapKho({ open, onOpenChange, phieu, dong, coT
                 className="mt-0.5 size-4 accent-[var(--color-bo-primary)]"
               />
               <span>
-                <span className="block text-sm font-medium text-bo-foreground">Đẩy tồn mới lên Shopify ngay</span>
-                <span className="block text-xs text-bo-muted">Bỏ chọn thì hệ thống tự đẩy ở chu kỳ đồng bộ tiếp theo.</span>
+                <span className="block text-sm font-medium text-bo-foreground">{t("Đẩy tồn mới lên Shopify ngay")}</span>
+                <span className="block text-xs text-bo-muted">{t("Bỏ chọn thì hệ thống tự đẩy ở chu kỳ đồng bộ tiếp theo.")}</span>
               </span>
             </label>
           ) : null}
@@ -159,7 +160,7 @@ export default function HopXacNhanNhapKho({ open, onOpenChange, phieu, dong, coT
             onClick={() => onOpenChange(false)}
             className="min-w-28 border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
           >
-            Kiểm tra lại
+            {t("Kiểm tra lại")}
           </Button>
           <Button
             disabled={dangXuLy}
@@ -167,7 +168,7 @@ export default function HopXacNhanNhapKho({ open, onOpenChange, phieu, dong, coT
             className="min-w-28 gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover"
           >
             {dangXuLy ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
-            Xác nhận nhập kho
+            {t("Xác nhận nhập kho")}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -1,5 +1,6 @@
 import StatusBadge from "@/components/shared/StatusBadge";
 import { FLAG_META, parseFlags } from "@/constants/channel";
+import { t } from "@/i18n";
 
 /** Các cờ cần xử lý của đơn (TK 7.4). `max` giới hạn số badge, phần còn lại hiện "+n". */
 export default function OrderFlagBadges({ value, max = 2, emptyText = "—" }) {
@@ -21,7 +22,7 @@ export default function OrderFlagBadges({ value, max = 2, emptyText = "—" }) {
         );
       })}
       {rest > 0 ? (
-        <span className="text-xs font-semibold text-bo-muted" title={flags.slice(max).map((f) => FLAG_META[f]?.label ?? f).join(", ")}>
+        <span className="text-xs font-semibold text-bo-muted" title={flags.slice(max).map((f) => t(FLAG_META[f]?.label ?? f)).join(", ")}>
           +{rest}
         </span>
       ) : null}

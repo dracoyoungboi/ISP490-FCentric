@@ -33,14 +33,15 @@ import { NhomChon } from "./KhungHop";
 import MatBangKho from "./MatBangKho";
 import SoDoKe from "./SoDoKe";
 import { NUT_CHINH, NUT_PHU, TAB_TRANG_THAI_KE } from "./kieuNhap";
+import { t } from "@/i18n";
 
 // Thêm / sửa khu, vị trí, vẽ mặt bằng: quản trị viên và quản lý kho. Nhân viên kho chỉ xem và in tem.
 const QUYEN_SUA = [ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO];
 
 const CHE_DO_XEM = [
-  { ma: "danh-sach", ten: "Danh sách" },
-  { ma: "so-do", ten: "Sơ đồ kệ" },
-  { ma: "mat-bang", ten: "Mặt bằng" },
+  { ma: "danh-sach", ten: t("Danh sách") },
+  { ma: "so-do", ten: t("Sơ đồ kệ") },
+  { ma: "mat-bang", ten: t("Mặt bằng") },
 ];
 
 const soHoacNull = (v) => {
@@ -62,7 +63,7 @@ export default function ViTriKhoPage() {
   const xem = CHE_DO_XEM.some((c) => c.ma === thamSo.get("xem")) ? thamSo.get("xem") : "danh-sach";
   const khuId = soHoacNull(thamSo.get("khu"));
   const viTriId = soHoacNull(thamSo.get("viTri"));
-  const tab = TAB_TRANG_THAI_KE.some((t) => t.value === thamSo.get("trangThai")) ? thamSo.get("trangThai") : "tat-ca";
+  const tab = TAB_TRANG_THAI_KE.some((tg) => tg.value === thamSo.get("trangThai")) ? thamSo.get("trangThai") : "tat-ca";
 
   const [khoId, setKhoId] = useState(getKhoLamViecId);
   // Lịch sử thay đổi đang xem: { loai: khu_vuc_kho | vi_tri_kho | mat_bang_kho, id, ten }; null = đóng ngăn.
@@ -153,18 +154,18 @@ export default function ViTriKhoPage() {
     }
     if (laSua) {
       setData((d) => ({ ...d, khuVucs: d.khuVucs.map((k) => (k.id === khu.id ? { ...k, ...khu } : k)) }));
-      toast.success(`Đã lưu khu vực ${khu.tenKhuVuc}`);
+      toast.success(t("Đã lưu khu vực {{tenKhuVuc}}", { tenKhuVuc: khu.tenKhuVuc }));
     } else {
       themKhu(khu);
-      toast.success(`Đã thêm khu vực ${khu.tenKhuVuc}`);
+      toast.success(t("Đã thêm khu vực {{tenKhuVuc}}", { tenKhuVuc: khu.tenKhuVuc }));
     }
   };
   const yeuCauXoaKhu = (khu) => {
     const soViTri = data.viTris.filter((v) => v.khuVucId === khu.id).length;
     if (soViTri) {
-      toast.warning(`Không xóa được ${khu.tenKhuVuc}: khu còn ${soViTri} vị trí kệ`, {
-        description: "Xóa các vị trí trống hoặc chọn vị trí rồi bấm Chuyển khu sang khu khác trước.",
-        action: { label: "Xem vị trí", onClick: () => doiThamSo({ xem: "danh-sach", khu: khu.id, viTri: null, trangThai: null }, { push: true }) },
+      toast.warning(t("Không xóa được {{tenKhuVuc}}: khu còn {{soViTri}} vị trí kệ", { tenKhuVuc: khu.tenKhuVuc, count: soViTri, soViTri }), {
+        description: t("Xóa các vị trí trống hoặc chọn vị trí rồi bấm Chuyển khu sang khu khác trước."),
+        action: { label: t("Xem vị trí"), onClick: () => doiThamSo({ xem: "danh-sach", khu: khu.id, viTri: null, trangThai: null }, { push: true }) },
       });
       return;
     }
@@ -172,9 +173,9 @@ export default function ViTriKhoPage() {
     setXacNhan({
       loai: "khu",
       doiTuong: khu,
-      tieuDe: `Xóa khu vực ${khu.tenKhuVuc}?`,
-      moTa: `Khu ${khu.maKhuVuc} chưa có vị trí kệ nào.${daDat ? " Khu cũng được gỡ khỏi mặt bằng." : ""} Không hoàn tác được.`,
-      nutXoa: "Xóa khu vực",
+      tieuDe: t("Xóa khu vực {{tenKhuVuc}}?", { tenKhuVuc: khu.tenKhuVuc }),
+      moTa: t("Khu {{maKhuVuc}} chưa có vị trí kệ nào.{{phanMatBang}} Không hoàn tác được.", { maKhuVuc: khu.maKhuVuc, phanMatBang: daDat ? t(" Khu cũng được gỡ khỏi mặt bằng.") : "" }),
+      nutXoa: t("Xóa khu vực"),
     });
   };
   const xoaKhu = async (khu) => {
@@ -186,32 +187,32 @@ export default function ViTriKhoPage() {
     }));
     setHopKhu((h) => ({ ...h, open: false }));
     if (khuId === khu.id) doiThamSo({ khu: null, viTri: null });
-    toast.success(`Đã xóa khu vực ${khu.tenKhuVuc}`);
+    toast.success(t("Đã xóa khu vực {{tenKhuVuc}}", { tenKhuVuc: khu.tenKhuVuc }));
   };
 
   // ── Vị trí: xóa một / nhiều, chuyển khu ──
   const yeuCauXoaViTri = (v) => {
     if (Number(v.dangChua) > 0) {
-      toast.warning(`Không xóa được ${v.maViTri}: kệ còn ${v.dangChua} sản phẩm`, {
-        description: "Chuyển hàng sang kệ khác trước, hoặc chuyển kệ sang Bảo trì để ngừng nhận hàng.",
+      toast.warning(t("Không xóa được {{maViTri}}: kệ còn {{dangChua}} sản phẩm", { maViTri: v.maViTri, count: Number(v.dangChua), dangChua: v.dangChua }), {
+        description: t("Chuyển hàng sang kệ khác trước, hoặc chuyển kệ sang Bảo trì để ngừng nhận hàng."),
       });
       return;
     }
     // Lô đã khóa của phiếu nhập chưa nhập kho đang chờ lên kệ (kể cả lô chỉ có hàng không đạt): xóa kệ thì phiếu đó
     // không nhập kho được
     if (Number(v.choNhap) > 0 || Number(v.soLoChoNhap) > 0) {
-      const lyDo = Number(v.choNhap) > 0 ? `đang chờ nhập ${v.choNhap} sản phẩm` : `đang gắn ${v.soLoChoNhap} lô đã khóa của phiếu nhập`;
-      toast.warning(`Không xóa được ${v.maViTri}: kệ ${lyDo}`, {
-        description: "Sửa kệ của các lô đó ở màn kiểm đếm, hoặc hủy phiếu nhập trước khi xóa kệ.",
+      const lyDo = Number(v.choNhap) > 0 ? t("đang chờ nhập {{choNhap}} sản phẩm", { count: Number(v.choNhap), choNhap: v.choNhap }) : t("đang gắn {{soLoChoNhap}} lô đã khóa của phiếu nhập", { count: Number(v.soLoChoNhap), soLoChoNhap: v.soLoChoNhap });
+      toast.warning(t("Không xóa được {{maViTri}}: kệ {{lyDo}}", { maViTri: v.maViTri, lyDo }), {
+        description: t("Sửa kệ của các lô đó ở màn kiểm đếm, hoặc hủy phiếu nhập trước khi xóa kệ."),
       });
       return;
     }
     setXacNhan({
       loai: "viTri",
       doiTuong: v,
-      tieuDe: `Xóa vị trí ${v.maViTri}?`,
-      moTa: "Kệ đang trống. Nhớ gỡ tem dán trên kệ sau khi xóa. Không hoàn tác được.",
-      nutXoa: "Xóa vị trí",
+      tieuDe: t("Xóa vị trí {{maViTri}}?", { maViTri: v.maViTri }),
+      moTa: t("Kệ đang trống. Nhớ gỡ tem dán trên kệ sau khi xóa. Không hoàn tác được."),
+      nutXoa: t("Xóa vị trí"),
     });
   };
   const xoaViTri = async (v) => {
@@ -219,7 +220,7 @@ export default function ViTriKhoPage() {
     setData((d) => ({ ...d, viTris: d.viTris.filter((x) => x.id !== v.id) }));
     setHopViTri((h) => ({ ...h, open: false }));
     if (viTriId === v.id) doiThamSo({ viTri: null });
-    toast.success(`Đã xóa vị trí ${v.maViTri}`);
+    toast.success(t("Đã xóa vị trí {{maViTri}}", { maViTri: v.maViTri }));
   };
   // Trả về Promise<boolean> cho danh sách: true khi thao tác xong (để bỏ chọn)
   const choKetQua = () => new Promise((resolve) => setChoHangLoat(() => resolve));
@@ -233,9 +234,9 @@ export default function ViTriKhoPage() {
     setXacNhan({
       loai: "nhieu",
       ds: trong,
-      tieuDe: `Xóa ${trong.length} vị trí kệ trống?`,
-      moTa: `${trong.map((v) => v.maViTri).slice(0, 6).join(", ")}${trong.length > 6 ? "…" : ""}.${conHang ? ` ${conHang} kệ còn hàng hoặc đang chờ nhập được giữ lại.` : ""} Không hoàn tác được.`,
-      nutXoa: `Xóa ${trong.length} vị trí`,
+      tieuDe: t("Xóa {{soViTri}} vị trí kệ trống?", { count: trong.length, soViTri: trong.length }),
+      moTa: t("{{dsMa}}.{{phanConHang}} Không hoàn tác được.", { dsMa: `${trong.map((v) => v.maViTri).slice(0, 6).join(", ")}${trong.length > 6 ? "…" : ""}`, phanConHang: conHang ? t(" {{conHang}} kệ còn hàng hoặc đang chờ nhập được giữ lại.", { count: conHang, conHang }) : "" }),
+      nutXoa: t("Xóa {{soViTri}} vị trí", { count: trong.length, soViTri: trong.length }),
     });
     return choKetQua();
   };
@@ -245,8 +246,8 @@ export default function ViTriKhoPage() {
     setData((d) => ({ ...d, viTris: d.viTris.filter((x) => !daXoa.has(x.id)) }));
     if (viTriId && daXoa.has(viTriId)) doiThamSo({ viTri: null });
     const loi = ds.length - daXoa.size;
-    if (loi) toast.warning(`Đã xóa ${daXoa.size} vị trí, ${loi} vị trí không xóa được`, { description: getApiErrorMessage(kq.find((r) => r.status === "rejected")?.reason, "") });
-    else toast.success(`Đã xóa ${daXoa.size} vị trí kệ`);
+    if (loi) toast.warning(t("Đã xóa {{soDaXoa}} vị trí, {{loi}} vị trí không xóa được", { count: daXoa.size, soDaXoa: daXoa.size, loi }), { description: getApiErrorMessage(kq.find((r) => r.status === "rejected")?.reason, "") });
+    else toast.success(t("Đã xóa {{soViTri}} vị trí kệ", { count: daXoa.size, soViTri: daXoa.size }));
   };
   const yeuCauChuyenKhu = (ds) => {
     setHopChuyenKhu({ open: true, ds });
@@ -260,10 +261,10 @@ export default function ViTriKhoPage() {
     const daChuyen = new Set(ds.filter((_, i) => kq[i].status === "fulfilled").map((v) => v.id));
     setData((d) => ({ ...d, viTris: d.viTris.map((v) => (daChuyen.has(v.id) ? { ...v, khuVucId: khuVucIdMoi } : v)) }));
     setHopChuyenKhu({ open: false, ds: [] });
-    const ten = data.khuVucs.find((k) => k.id === khuVucIdMoi)?.tenKhuVuc ?? "khu mới";
+    const ten = data.khuVucs.find((k) => k.id === khuVucIdMoi)?.tenKhuVuc ?? t("khu mới");
     const loi = ds.length - daChuyen.size;
-    if (loi) toast.warning(`Đã chuyển ${daChuyen.size} vị trí sang ${ten}, ${loi} vị trí lỗi`);
-    else toast.success(`Đã chuyển ${daChuyen.size} vị trí sang ${ten}`);
+    if (loi) toast.warning(t("Đã chuyển {{soViTri}} vị trí sang {{ten}}, {{loi}} vị trí lỗi", { count: daChuyen.size, soViTri: daChuyen.size, ten, loi }));
+    else toast.success(t("Đã chuyển {{soViTri}} vị trí sang {{ten}}", { count: daChuyen.size, soViTri: daChuyen.size, ten }));
     xongHangLoat(true);
   };
 
@@ -279,7 +280,7 @@ export default function ViTriKhoPage() {
       }
       setXacNhan(null);
     } catch (err) {
-      toast.error(getApiErrorMessage(err, "Không xóa được. Vui lòng thử lại."));
+      toast.error(getApiErrorMessage(err, t("Không xóa được. Vui lòng thử lại.")));
     } finally {
       setDangXoa(false);
     }
@@ -295,20 +296,20 @@ export default function ViTriKhoPage() {
           ? { ...v, ...moi, choNhap: moi.choNhap ?? v.choNhap, soLoChoNhap: moi.soLoChoNhap ?? v.soLoChoNhap }
           : v)),
       }));
-      toast.success(`Đã lưu vị trí ${moi?.maViTri ?? ""}`.trim());
+      toast.success(t("Đã lưu vị trí {{maViTri}}", { maViTri: moi?.maViTri ?? "" }).trim());
       if (!moi) reload();
       return;
     }
     if (!ds.length) {
       reload();
-      toast.success("Đã tạo vị trí kệ");
+      toast.success(t("Đã tạo vị trí kệ"));
       return;
     }
     setData((d) => {
       const daCo = new Set(d.viTris.map((v) => v.id));
       return { ...d, viTris: [...d.viTris, ...ds.filter((v) => !daCo.has(v.id))] };
     });
-    toast.success(ds.length === 1 ? `Đã tạo vị trí ${ds[0].maViTri}` : `Đã tạo ${ds.length} vị trí kệ`);
+    toast.success(ds.length === 1 ? t("Đã tạo vị trí {{maViTri}}", { maViTri: ds[0].maViTri }) : t("Đã tạo {{soViTri}} vị trí kệ", { count: ds.length, soViTri: ds.length }));
   };
 
   // ── Điều hướng giữa các chế độ xem ──
@@ -316,36 +317,36 @@ export default function ViTriKhoPage() {
 
   const hanhDong = hoTro && khoId && data ? (
     <div className="flex flex-wrap items-center gap-2">
-      <NhomChon nhan="Chế độ xem" value={xem} onChange={(ma) => doiThamSo({ xem: ma }, { push: true })} luaChon={CHE_DO_XEM} />
+      <NhomChon nhan={t("Chế độ xem")} value={xem} onChange={(ma) => doiThamSo({ xem: ma }, { push: true })} luaChon={CHE_DO_XEM} />
       {xem !== "mat-bang" ? (
         <Button variant="outline" onClick={() => setHopIn({ open: true, ds: null })} disabled={!data.viTris.length} className={cn("gap-1.5", NUT_PHU)}>
           <Printer className="size-4" />
-          In tem kệ
+          {t("In tem kệ")}
         </Button>
       ) : coTheSua ? (
         <Button
           variant="outline"
-          onClick={() => setLichSu({ loai: "mat_bang_kho", id: null, ten: "mặt bằng kho" })}
+          onClick={() => setLichSu({ loai: "mat_bang_kho", id: null, ten: t("mặt bằng kho") })}
           className={cn("gap-1.5", NUT_PHU)}
         >
           <History className="size-4" />
-          Lịch sử mặt bằng
+          {t("Lịch sử mặt bằng")}
         </Button>
       ) : null}
       {coTheSua ? (
         <>
           <Button variant="outline" onClick={() => setHopKhu({ open: true, khu: null })} className={cn("gap-1.5", NUT_PHU)}>
             <Plus className="size-4" />
-            Thêm khu vực
+            {t("Thêm khu vực")}
           </Button>
           <Button
             onClick={() => setHopViTri({ open: true, viTri: null, khu: khuId })}
             disabled={!data.khuVucs.length}
-            title={data.khuVucs.length ? undefined : "Tạo khu vực trước"}
+            title={data.khuVucs.length ? undefined : t("Tạo khu vực trước")}
             className={cn("gap-1.5", NUT_CHINH)}
           >
             <Plus className="size-4" />
-            Thêm vị trí kệ
+            {t("Thêm vị trí kệ")}
           </Button>
         </>
       ) : null}
@@ -356,17 +357,17 @@ export default function ViTriKhoPage() {
   if (!hoTro) {
     noiDung = <DongThongBao>{THONG_BAO_CHUA_HO_TRO_VI_TRI}</DongThongBao>;
   } else if (!khoId) {
-    noiDung = <DongThongBao tone="warn">Chọn kho ở ô bên trên để xem vị trí kệ.</DongThongBao>;
+    noiDung = <DongThongBao tone="warn">{t("Chọn kho ở ô bên trên để xem vị trí kệ.")}</DongThongBao>;
   } else if (initialLoading) {
     noiDung = (
       <section className="rounded-lg border border-bo-border bg-bo-surface shadow-sm">
-        <LoadingState rows={6} label="Đang tải vị trí kệ" />
+        <LoadingState rows={6} label={t("Đang tải vị trí kệ")} />
       </section>
     );
   } else if (error && !data) {
     noiDung = (
       <section className="rounded-lg border border-bo-border bg-bo-surface shadow-sm">
-        <ErrorState title="Không tải được vị trí kệ" description={getApiErrorMessage(error, "Vui lòng thử lại.")} error={error} onRetry={reload} />
+        <ErrorState title={t("Không tải được vị trí kệ")} description={getApiErrorMessage(error, t("Vui lòng thử lại."))} error={error} onRetry={reload} />
       </section>
     );
   } else if (data) {
@@ -406,7 +407,7 @@ export default function ViTriKhoPage() {
           khuId={khuId}
           onChonKhu={(k) => doiThamSo({ khu: k })}
           tab={tab}
-          onDoiTab={(t) => doiThamSo({ trangThai: t })}
+          onDoiTab={(tg) => doiThamSo({ trangThai: tg })}
           onThemKhu={() => setHopKhu({ open: true, khu: null })}
           onSuaKhu={(khu) => setHopKhu({ open: true, khu })}
           onXoaKhu={yeuCauXoaKhu}
@@ -419,7 +420,7 @@ export default function ViTriKhoPage() {
           onMoSoDo={(v) => moSoDo(v.khuVucId, v.id)}
           onXemTrenMatBang={({ viTriId: v = null, khuVucId: k = null }) => setTimViTri({ open: true, viTriId: v, khuVucId: k })}
           onLichSuKhu={coTheSua ? (k) => setLichSu({ loai: "khu_vuc_kho", id: k.id, ten: `khu ${k.tenKhuVuc || k.maKhuVuc}` }) : undefined}
-          onLichSuViTri={coTheSua ? (v) => setLichSu({ loai: "vi_tri_kho", id: v.id, ten: `vị trí ${v.maViTri}` }) : undefined}
+          onLichSuViTri={coTheSua ? (v) => setLichSu({ loai: "vi_tri_kho", id: v.id, ten: t("vị trí {{maViTri}}", { maViTri: v.maViTri }) }) : undefined}
         />
       );
     }
@@ -430,13 +431,13 @@ export default function ViTriKhoPage() {
     <PageContainer fill={Boolean(data) && noiDung?.type === DanhSachViTri} className="flex flex-col gap-4">
       <div className="flex min-h-9 flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 flex-wrap items-center gap-3">
-          <PageHeading>{title || "Vị trí kệ"}</PageHeading>
+          <PageHeading>{title || t("Vị trí kệ")}</PageHeading>
           {hoTro ? <KhoLamViecSelect onChange={doiKho} /> : null}
         </div>
         {hanhDong}
       </div>
 
-      <MockModeNotice show={viTriKhoService.mau} reason="máy chủ chưa có API khu vực, vị trí kệ và mặt bằng" />
+      <MockModeNotice show={viTriKhoService.mau} reason={t("máy chủ chưa có API khu vực, vị trí kệ và mặt bằng")} />
 
       {noiDung}
 
@@ -492,19 +493,19 @@ export default function ViTriKhoPage() {
             onConfirm={thucHienXoa}
             title={xacNhan?.tieuDe ?? ""}
             description={xacNhan?.moTa ?? ""}
-            confirmText={xacNhan?.nutXoa ?? "Xóa"}
-            cancelText="Không xóa"
+            confirmText={xacNhan?.nutXoa ?? t("Xóa")}
+            cancelText={t("Không xóa")}
             isLoading={dangXoa}
           />
           <HopViTriNamODau
             open={timViTri.open}
-            onOpenChange={(o) => setTimViTri((t) => ({ ...t, open: o }))}
+            onOpenChange={(o) => setTimViTri((tg) => ({ ...tg, open: o }))}
             khoId={khoId}
             viTriId={timViTri.viTriId}
             khuVucId={timViTri.khuVucId}
             duLieu={data}
             onMoSoDoKe={({ khuVucId: k, viTriId: v }) => {
-              setTimViTri((t) => ({ ...t, open: false }));
+              setTimViTri((tg) => ({ ...tg, open: false }));
               moSoDo(k, v);
             }}
           />
@@ -512,8 +513,8 @@ export default function ViTriKhoPage() {
             <NganKeoLichSu
               open={Boolean(lichSu)}
               onOpenChange={(mo) => !mo && setLichSu(null)}
-              tieuDe={lichSu ? `Lịch sử ${lichSu.ten}` : "Lịch sử thay đổi"}
-              moTa="Tạo, sửa, xóa khu vực / vị trí kệ và các lần lưu mặt bằng. Mới nhất ở trên."
+              tieuDe={lichSu ? t("Lịch sử {{ten}}", { ten: lichSu.ten }) : t("Lịch sử thay đổi")}
+              moTa={t("Tạo, sửa, xóa khu vực / vị trí kệ và các lần lưu mặt bằng. Mới nhất ở trên.")}
               tai={() => (lichSu ? layLichSuViTri(khoId, lichSu.loai, lichSu.id) : Promise.resolve([]))}
             />
           ) : null}

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import FormSection from "@/components/shared/FormSection";
 import { cn } from "@/lib/utils";
 import { NUT_VIEN_CLASS } from "./kieuForm";
+import { t } from "@/i18n";
 
 /**
  * Khu ảnh sản phẩm chính dùng chung cho form Thêm và form Chỉnh sửa: kéo thả hoặc chọn ảnh từ máy,
@@ -37,8 +38,8 @@ export default function KhuAnhSanPham({ id, anhs, thieuAnh, disabled, onThemTep,
             <FormSection
                 title={
                     <span className="flex items-center justify-between gap-2">
-                        <span>Ảnh sản phẩm chính <span className="text-bo-danger">*</span></span>
-                        <span className="text-xs font-normal text-bo-muted">{anhs.length} ảnh</span>
+                        <span>{t("Ảnh sản phẩm chính")} <span className="text-bo-danger">*</span></span>
+                        <span className="text-xs font-normal text-bo-muted">{t("{{count}} ảnh", { count: anhs.length })}</span>
                     </span>
                 }
             >
@@ -59,7 +60,7 @@ export default function KhuAnhSanPham({ id, anhs, thieuAnh, disabled, onThemTep,
                     />
                     {/* Màn hình cảm ứng không kéo thả được nên chỉ để nút chọn ảnh */}
                     <p className="text-sm text-bo-foreground pointer-coarse:hidden">
-                        {dangKeo ? "Thả ảnh vào đây" : "Kéo thả ảnh vào đây hoặc"}
+                        {dangKeo ? t("Thả ảnh vào đây") : t("Kéo thả ảnh vào đây hoặc")}
                     </p>
                     <input
                         ref={inputRef}
@@ -85,21 +86,21 @@ export default function KhuAnhSanPham({ id, anhs, thieuAnh, disabled, onThemTep,
                         className={cn(NUT_VIEN_CLASS, "hover:bg-bo-primary-soft hover:text-bo-primary")}
                     >
                         <Upload className="size-4" aria-hidden="true" />
-                        Chọn ảnh từ máy
+                        {t("Chọn ảnh từ máy")}
                     </Button>
                     <p className={cn("text-xs", thieuAnh ? "text-bo-danger" : "text-bo-muted")}>
                         {thieuAnh
-                            ? "Vui lòng thêm ít nhất 1 ảnh sản phẩm chính"
-                            : "JPG, PNG, WEBP, tối đa 10 MB mỗi ảnh. Ảnh đầu tiên là ảnh chính."}
+                            ? t("Vui lòng thêm ít nhất 1 ảnh sản phẩm chính")
+                            : t("JPG, PNG, WEBP, tối đa 10 MB mỗi ảnh. Ảnh đầu tiên là ảnh chính.")}
                     </p>
                 </div>
                 {anhs.length > 0 && (
-                    <ul className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-4" aria-label="Ảnh sản phẩm đã chọn">
+                    <ul className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-4" aria-label={t("Ảnh sản phẩm đã chọn")}>
                         {anhs.map((anh, index) => (
                             <li key={anh.id} className="group relative">
                                 <img
                                     src={anh.url}
-                                    alt={`Ảnh sản phẩm ${index + 1}`}
+                                    alt={t("Ảnh sản phẩm {{so}}", { so: index + 1 })}
                                     className={cn(
                                         "aspect-square w-full rounded-md border object-cover shadow-sm",
                                         index === 0 ? "border-bo-primary ring-1 ring-bo-primary" : "border-bo-border",
@@ -108,27 +109,27 @@ export default function KhuAnhSanPham({ id, anhs, thieuAnh, disabled, onThemTep,
                                 {index === 0 ? (
                                     <span className="absolute bottom-1 left-1 inline-flex items-center gap-1 rounded bg-bo-primary px-1.5 py-0.5 text-[10px] font-medium text-white">
                                         <Star className="size-2.5 fill-current" aria-hidden="true" />
-                                        Ảnh chính
+                                        {t("Ảnh chính")}
                                     </span>
                                 ) : (
                                     <button
                                         type="button"
                                         onClick={() => onDatChinh(anh)}
                                         disabled={disabled}
-                                        aria-label={`Đặt ảnh ${index + 1} làm ảnh chính`}
+                                        aria-label={t("Đặt ảnh {{so}} làm ảnh chính", { so: index + 1 })}
                                         // Màn cảm ứng: nút không đè lên ảnh nữa mà nằm thành hàng dưới ảnh (relative, không static, để
                                         // lớp vùng chạm ::before bám vào nút chứ không phủ cả ô ảnh)
                                         className="absolute bottom-1 left-1 inline-flex items-center gap-1 rounded bg-bo-surface/95 px-1.5 py-0.5 text-[10px] font-medium text-bo-foreground opacity-0 shadow-sm transition-opacity hover:text-bo-primary focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-bo-primary group-hover:opacity-100 pointer-coarse:opacity-100 cam-ung:relative cam-ung:inset-auto cam-ung:mt-1.5 cam-ung:flex cam-ung:w-full cam-ung:justify-center cam-ung:rounded-md cam-ung:border cam-ung:border-bo-border cam-ung:bg-bo-surface cam-ung:text-xs cam-ung:shadow-none"
                                     >
                                         <Star className="size-2.5" aria-hidden="true" />
-                                        Đặt làm ảnh chính
+                                        {t("Đặt làm ảnh chính")}
                                     </button>
                                 )}
                                 <button
                                     type="button"
                                     onClick={() => onXoa(anh)}
                                     disabled={disabled}
-                                    aria-label={`Xóa ảnh ${index + 1}`}
+                                    aria-label={t("Xóa ảnh {{so}}", { so: index + 1 })}
                                     className="absolute -right-2 -top-2 flex size-6 items-center justify-center rounded-full bg-bo-danger text-white shadow-sm transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bo-danger"
                                 >
                                     <X className="size-3.5" aria-hidden="true" />

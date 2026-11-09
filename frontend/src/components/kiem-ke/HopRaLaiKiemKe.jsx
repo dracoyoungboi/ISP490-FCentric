@@ -6,6 +6,7 @@ import MauKichCo from "@/components/chung-tu/MauKichCo";
 import { soVN } from "@/components/chung-tu/bangChungTu";
 import { cn } from "@/lib/utils";
 import { GOI_Y_LY_DO, TT_DONG, chuChenhLech, laLech, tienCoDau } from "./kiemKe";
+import { t } from "@/i18n";
 
 const LY_DO_TOI_DA = 2000;
 
@@ -15,7 +16,7 @@ function TrangThaiLuu({ tt }) {
     return (
       <span className="inline-flex items-center gap-1 text-xs text-bo-muted" role="status">
         <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
-        Đang lưu
+        {t("Đang lưu")}
       </span>
     );
   }
@@ -23,7 +24,7 @@ function TrangThaiLuu({ tt }) {
     return (
       <span className="inline-flex items-center gap-1 text-xs font-semibold text-bo-danger" title={tt.loi}>
         <TriangleAlert className="size-3.5" aria-hidden="true" />
-        Chưa lưu được
+        {t("Chưa lưu được")}
       </span>
     );
   }
@@ -31,7 +32,7 @@ function TrangThaiLuu({ tt }) {
     return (
       <span className="inline-flex items-center gap-1 text-xs font-medium text-bo-success">
         <Check className="size-3.5" aria-hidden="true" />
-        Đã lưu
+        {t("Đã lưu")}
       </span>
     );
   }
@@ -55,13 +56,13 @@ function DongRaLai({ d, tt, onDoiLyDo, onRoiLyDo }) {
           <span className="text-sm font-medium leading-5 text-bo-foreground">{d.sanPham?.tenSanPham || "—"}</span>
           <span className="text-xs leading-4 text-bo-muted">
             <MauKichCo dong={d.sanPham} className="align-bottom" />
-            {" · kệ "}
+            {t(" · kệ ")}
             <span className="font-mono">{d.viTri?.ma || "—"}</span>
           </span>
           <span className="flex flex-wrap items-baseline gap-x-2 text-xs leading-4 tabular-nums">
             <span className={cn("text-[13px] font-semibold", c?.kieu === "thieu" ? "text-bo-danger" : "text-bo-primary-strong")}>{c?.chu}</span>
             <span className="text-bo-muted">
-              sổ {soVN(d.soLuongHeThong)} · đếm {soVN(d.soLuongThucTe)} · {tienCoDau(d.giaTriChenhLech)}
+              {t("sổ {{soSach}} · đếm {{dem}}", { soSach: soVN(d.soLuongHeThong), dem: soVN(d.soLuongThucTe) })} · {tienCoDau(d.giaTriChenhLech)}
             </span>
             <TrangThaiLuu tt={tt} />
           </span>
@@ -71,14 +72,14 @@ function DongRaLai({ d, tt, onDoiLyDo, onRoiLyDo }) {
         <p className="flex items-start gap-1.5 text-[13px] leading-5 text-bo-foreground">
           <Lock className="mt-0.5 size-3.5 shrink-0 text-bo-muted" aria-hidden="true" />
           <span>
-            <span className="text-bo-muted">Quản lý đã xác nhận · </span>
+            <span className="text-bo-muted">{t("Quản lý đã xác nhận ·")} </span>
             {lyDo.trim() || "—"}
           </span>
         </p>
       ) : (
         <>
           <label htmlFor={id} className="sr-only">
-            Giải trình chênh lệch
+            {t("Giải trình chênh lệch")}
           </label>
           <input
             id={id}
@@ -88,7 +89,7 @@ function DongRaLai({ d, tt, onDoiLyDo, onRoiLyDo }) {
             value={lyDo}
             onChange={(e) => onDoiLyDo(d.id, e.target.value)}
             onBlur={() => onRoiLyDo(d.id)}
-            placeholder="Giải trình chênh lệch (bắt buộc)"
+            placeholder={t("Giải trình chênh lệch (bắt buộc)")}
             className="h-9 w-full rounded-md border border-bo-input-border bg-white px-2.5 text-sm text-bo-foreground outline-none placeholder:text-slate-500 focus:border-bo-primary focus:ring-2 focus:ring-bo-primary/15"
           />
           <span className="flex flex-wrap gap-1.5">
@@ -107,7 +108,7 @@ function DongRaLai({ d, tt, onDoiLyDo, onRoiLyDo }) {
                       : "border-bo-border bg-white text-slate-700 hover:border-bo-primary/40 hover:bg-bo-primary-soft hover:text-bo-primary-strong",
                   )}
                 >
-                  {g}
+                  {t(g)}
                 </button>
               );
             })}
@@ -133,16 +134,16 @@ export default function HopRaLaiKiemKe({ mo, onDoiMo, dong, trangThaiLuu, onDoiL
     <HopXacNhanChungTu
       mo={mo}
       onDoiMo={onDoiMo}
-      tieuDe="Rà lại trước khi trình"
-      moTa={`Đã đếm hết. ${soVN(lech.length)} dòng lệch so với sổ cần lý do để quản lý thẩm định. Ảnh bằng chứng thêm ở bảng đếm.`}
-      nhanXacNhan="Trình duyệt"
+      tieuDe={t("Rà lại trước khi trình")}
+      moTa={t("Đã đếm hết. {{soLech}} dòng lệch so với sổ cần lý do để quản lý thẩm định. Ảnh bằng chứng thêm ở bảng đếm.", { count: lech.length, soLech: soVN(lech.length) })}
+      nhanXacNhan={t("Trình duyệt", { context: "gui_duyet" })}
       iconXacNhan={Send}
       rong
       tieuDiemONhap={false}
       traTieuDiemVe={traTieuDiemVe}
       dangChay={dangChay}
       khoaXacNhan={thieu > 0}
-      lyDoKhoa={thieu > 0 ? `Còn ${soVN(thieu)} dòng chưa có lý do` : undefined}
+      lyDoKhoa={thieu > 0 ? t("Còn {{thieu}} dòng chưa có lý do", { count: thieu, thieu: soVN(thieu) }) : undefined}
       loi={loi}
       onXacNhan={onTrinh}
     >
@@ -153,7 +154,7 @@ export default function HopRaLaiKiemKe({ mo, onDoiMo, dong, trangThaiLuu, onDoiL
           ))}
         </ul>
       ) : (
-        <p className="text-[13px] text-bo-muted">Mọi dòng đều khớp sổ.</p>
+        <p className="text-[13px] text-bo-muted">{t("Mọi dòng đều khớp sổ.")}</p>
       )}
     </HopXacNhanChungTu>
   );

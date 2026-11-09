@@ -56,6 +56,7 @@ import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { getApiErrorCode, getApiErrorMessage } from "@/utils/apiError";
 import { cn } from "@/lib/utils";
 import { formatNumberOrDash } from "@/utils/formatters";
+import { t } from "@/i18n";
 
 const TAB_MAS = LIEN_KET_TABS.map((tab) => tab.ma);
 const TAB_MAC_DINH = "tat-ca";
@@ -74,13 +75,23 @@ function NhanLechGia({ dong, tenSan, className }) {
     <span
       // Nối chuỗi thay vì cn(): dòng bảng trên máy tính giữ đúng chuỗi lớp như trước
       className={`inline-flex items-center rounded bg-amber-50 px-1 py-0.2 text-[10.5px] font-medium text-amber-700 border border-amber-200${className ? ` ${className}` : ""}`}
-      title={`Lệch giá: FCentric ${formatNumberOrDash(dong.giaBan)}đ vs ${tenSan} ${formatNumberOrDash(dong.giaBanSan)}đ`}
+      title={t("Lệch giá: FCentric {{giaBan}}đ vs {{tenSan}} {{giaBanSan}}đ", { giaBan: formatNumberOrDash(dong.giaBan), tenSan, giaBanSan: formatNumberOrDash(dong.giaBanSan) })}
     >
-      Lệch giá
+      {t("Lệch giá")}
     </span>
   );
 }
 const coSo = (n) => n !== null && n !== undefined;
+/**
+ * Lỗi do sàn tạm giữ tồn (Lazada giữ cho đơn chờ thanh toán / chiến dịch), không phải lỗi thật. Máy chủ dịch lý do lúc
+ * đọc theo ngôn ngữ giao diện: câu tiếng Anh tương ứng có "holding stock".
+ */
+const laLoiTamGiu = (chiTiet) => Boolean(chiTiet) && (
+  chiTiet.includes("tạm giữ tồn") ||
+  chiTiet.includes("negative sellable") ||
+  chiTiet.includes("mở khóa") ||
+  chiTiet.includes("holding stock")
+);
 
 /**
  * Số sản phẩm mỗi trang của màn này: mỗi sản phẩm kéo theo đủ SKU, nên không cho 100 (Mở tất cả có thể ra hàng nghìn dòng).
@@ -130,14 +141,14 @@ function OTonDaDay({ dong, seDay, vuaBat = false, gioNhom = null }) {
   return (
     <div className="flex flex-col items-end">
       {coSo(daDay) ? (
-        <span className="tabular-nums text-bo-foreground" title={gioRieng ? `${SAN.ten} đã nhận lúc ${gioRieng}` : undefined}>
+        <span className="tabular-nums text-bo-foreground" title={gioRieng ? t("{{ten}} đã nhận lúc {{gioRieng}}", { ten: SAN.ten, gioRieng }) : undefined}>
           {formatNumberOrDash(daDay)}
         </span>
       ) : (
-        <span className="text-[13px] text-bo-muted">Chưa đẩy</span>
+        <span className="text-[13px] text-bo-muted">{t("Chưa đẩy")}</span>
       )}
       {choDay ? (
-        <span className="text-[12px] font-medium tabular-nums text-amber-600">{coSo(seDay) ? `→ sẽ đẩy ${formatNumberOrDash(seDay)}` : "Chờ đẩy"}</span>
+        <span className="text-[12px] font-medium tabular-nums text-amber-600">{coSo(seDay) ? t("→ sẽ đẩy {{seDay}}", { seDay: formatNumberOrDash(seDay) }) : t("Chờ đẩy")}</span>
       ) : gio ? (
         <span className="text-[12px] tabular-nums text-slate-400">{gio}</span>
       ) : null}
@@ -180,7 +191,7 @@ export default function ChannelMappingsPage() {
   const NHO_SO_DONG = nhoSoDong(SAN.maKenh);
   const NHO_MO_TAT_CA = nhoMoTatCa(SAN.maKenh);
   const [tab, setTab] = useTabTrenUrl(TAB_MAS, TAB_MAC_DINH);
-  const tabTrangThai = LIEN_KET_TABS.find((t) => t.ma === tab)?.trangThai ?? null;
+  const tabTrangThai = LIEN_KET_TABS.find((tb) => tb.ma === tab)?.trangThai ?? null;
   const [searchText, setSearchText] = useState("");
   const [tuKhoa, setTuKhoa] = useState("");
   const [trang, setTrang] = useState(() => ({ page: 0, size: soDongDaNho(SAN.maKenh) }));
@@ -293,13 +304,13 @@ export default function ChannelMappingsPage() {
   // Công tắc, Thử lại, thao tác hàng loạt: khóa khi đang lưu một thao tác trên bảng hoặc khi đợt Đồng bộ ngay đang chạy
   // (đợt đang đẩy tồn, đổi trạng thái giữa chừng thì kết quả đợt và bảng lệch nhau)
   const khoaBang = khoa || dongBoDangChay;
-  const viecPhu = dangChay?.ten === "tai" ? "Đang tải sản phẩm…" : dangChay?.ten === "day-len" ? "Đang đưa sản phẩm lên…" : null;
-  const baoDangDongBo = () => toast.warning(`Đang đồng bộ với ${SAN.ten}, chờ đợt này xong rồi chạy`);
+  const viecPhu = dangChay?.ten === "tai" ? t("Đang tải sản phẩm…") : dangChay?.ten === "day-len" ? t("Đang đưa sản phẩm lên…") : null;
+  const baoDangDongBo = () => toast.warning(t("Đang đồng bộ với {{ten}}, chờ đợt này xong rồi chạy", { ten: SAN.ten }));
   // Ủy quyền hết hạn: khóa mọi việc gọi tới sàn (tải sản phẩm, Đồng bộ ngay, đẩy tồn lại, Thử lại). Thanh nhắc ở đầu trang
   // đã ghi hết hạn nên lý do không lặp thành chữ: hiện ở chú thích của nút và đọc qua aria-describedby
-  const lyDoHetHan = hetHanUyQuyen ? `Ủy quyền ${SAN.ten} đã hết hạn, ủy quyền lại trước khi chạy.` : null;
+  const lyDoHetHan = hetHanUyQuyen ? t("Ủy quyền {{ten}} đã hết hạn, ủy quyền lại trước khi chạy.", { ten: SAN.ten }) : null;
   const moTaHetHan = lyDoHetHan ? idLyDoHetHan : undefined;
-  const baoHetHan = () => toast.warning(`Ủy quyền ${SAN.ten} đã hết hạn, ủy quyền lại trước khi chạy`);
+  const baoHetHan = () => toast.warning(t("Ủy quyền {{ten}} đã hết hạn, ủy quyền lại trước khi chạy", { ten: SAN.ten }));
 
   const chay = async (ten, viec, id) => {
     if (dangChayRef.current) return undefined;
@@ -342,7 +353,7 @@ export default function ChannelMappingsPage() {
         taiLaiTatCa();
       } catch (error) {
         khiMatKetNoi(error);
-        toast.error(getApiErrorMessage(error, `Không tải được sản phẩm từ ${SAN.ten}`));
+        toast.error(getApiErrorMessage(error, t("Không tải được sản phẩm từ {{ten}}", { ten: SAN.ten })));
       }
     });
   };
@@ -363,7 +374,7 @@ export default function ChannelMappingsPage() {
       } catch (error) {
         setHoiDayLen(false);
         khiMatKetNoi(error);
-        toast.error(getApiErrorMessage(error, `Không đưa được sản phẩm lên ${SAN.ten}`));
+        toast.error(getApiErrorMessage(error, t("Không đưa được sản phẩm lên {{ten}}", { ten: SAN.ten })));
       }
     });
   };
@@ -393,11 +404,11 @@ export default function ChannelMappingsPage() {
           await doiDongBo(dong, true);
           doiVuaBat([dong.id], true);
           tq.reload();
-          toast.success(hoanTac ? `Đã bật lại ${dong.maSku}` : `Đã bật đồng bộ ${dong.maSku}`, {
-            description: `Số tồn sẽ được đẩy lên ${SAN.ten} ở lần đồng bộ tới.`,
+          toast.success(hoanTac ? t("Đã bật lại {{maSku}}", { maSku: dong.maSku }) : t("Đã bật đồng bộ {{maSku}}", { maSku: dong.maSku }), {
+            description: t("Số tồn sẽ được đẩy lên {{ten}} ở lần đồng bộ tới.", { ten: SAN.ten }),
           });
         } catch (error) {
-          toast.error(getApiErrorMessage(error, "Không bật lại được đồng bộ"));
+          toast.error(getApiErrorMessage(error, t("Không bật lại được đồng bộ")));
         }
       },
       dong.id,
@@ -418,14 +429,14 @@ export default function ChannelMappingsPage() {
           await doiDongBo(dong, false);
           doiVuaBat([dong.id], false);
           tq.reload();
-          toast.success(`Đã ngừng đồng bộ ${dong.maSku}`, {
+          toast.success(t("Đã ngừng đồng bộ {{maSku}}", { maSku: dong.maSku }), {
             description: coSo(dong.soLuongDaDay)
-              ? `${SAN.ten} giữ nguyên số ${formatNumberOrDash(dong.soLuongDaDay)} đang hiện.`
-              : `${SAN.ten} giữ nguyên số đang hiện.`,
-            action: { label: "Hoàn tác", onClick: () => batLai(dong, true) },
+              ? t("{{ten}} giữ nguyên số {{soLuongDaDay}} đang hiện.", { ten: SAN.ten, soLuongDaDay: formatNumberOrDash(dong.soLuongDaDay) })
+              : t("{{ten}} giữ nguyên số đang hiện.", { ten: SAN.ten }),
+            action: { label: t("Hoàn tác"), onClick: () => batLai(dong, true) },
           });
         } catch (error) {
-          toast.error(getApiErrorMessage(error, "Không đổi được trạng thái đồng bộ"));
+          toast.error(getApiErrorMessage(error, t("Không đổi được trạng thái đồng bộ")));
         }
       },
       dong.id,
@@ -450,9 +461,11 @@ export default function ChannelMappingsPage() {
       doiVuaBat(daDoi, bat);
       tq.reload();
       xong?.();
-      const cau = `${bat ? "Đã bật" : "Đã ngừng"} đồng bộ ${formatNumberOrDash(daDoi.length)} SKU`;
-      const ghiChu = bat && daDoi.length ? `Số tồn sẽ được đẩy lên ${SAN.ten} ở lần đồng bộ tới.` : undefined;
-      if (loi) toast.warning(cau, { description: `${formatNumberOrDash(loi)} SKU không đổi được, thử lại sau.` });
+      const cau = bat
+        ? t("Đã bật đồng bộ {{so}} SKU", { so: formatNumberOrDash(daDoi.length), count: daDoi.length })
+        : t("Đã ngừng đồng bộ {{so}} SKU", { so: formatNumberOrDash(daDoi.length), count: daDoi.length });
+      const ghiChu = bat && daDoi.length ? t("Số tồn sẽ được đẩy lên {{ten}} ở lần đồng bộ tới.", { ten: SAN.ten }) : undefined;
+      if (loi) toast.warning(cau, { description: t("{{loi}} SKU không đổi được, thử lại sau.", { loi: formatNumberOrDash(loi), count: Number(loi) || 0 }) });
       else toast.success(cau, ghiChu ? { description: ghiChu } : undefined);
     });
   };
@@ -461,20 +474,20 @@ export default function ChannelMappingsPage() {
   const hoiNgungNhieu = (dsDong, tieuDe, xong) => {
     if (dongBoDangChay) return baoDangDongBo();
     const dangBat = dsDong.filter(dangDongBo);
-    if (!dangBat.length) return toast.info("Các SKU đã chọn đều đang ngừng đồng bộ");
+    if (!dangBat.length) return toast.info(t("Các SKU đã chọn đều đang ngừng đồng bộ"));
     setHoiNgung({ tieuDe: tieuDe(dangBat.length), dong: dangBat, xong });
   };
   const batTatNhieu = (bat) => {
     const boChon = () => setChon(new Set());
     if (bat) {
-      if (!daChon.some((dong) => !dangDongBo(dong))) return toast.info("Các SKU đã chọn đều đang đồng bộ");
+      if (!daChon.some((dong) => !dangDongBo(dong))) return toast.info(t("Các SKU đã chọn đều đang đồng bộ"));
       return doiNhieu(daChon, true, boChon);
     }
-    return hoiNgungNhieu(daChon, (n) => `Ngừng đồng bộ ${formatNumberOrDash(n)} SKU?`, boChon);
+    return hoiNgungNhieu(daChon, (n) => t("Ngừng đồng bộ {{so}} SKU?", { so: formatNumberOrDash(n), count: n }), boChon);
   };
   /** Công tắc hàng sản phẩm: đang bật hết → hỏi rồi ngừng cả nhóm; còn lại (tắt hết / lưng chừng) → bật hết. */
   const batTatNhom = (g) => {
-    if (g.dong.every(dangDongBo)) return hoiNgungNhieu(g.dong, (n) => `Ngừng đồng bộ cả ${g.ten} (${formatNumberOrDash(n)} SKU)?`);
+    if (g.dong.every(dangDongBo)) return hoiNgungNhieu(g.dong, (n) => t("Ngừng đồng bộ cả {{ten}} ({{so}} SKU)?", { ten: g.ten, so: formatNumberOrDash(n), count: n }));
     return doiNhieu(g.dong, true);
   };
 
@@ -484,7 +497,7 @@ export default function ChannelMappingsPage() {
     if (dongBoDangChay) return baoDangDongBo();
     const canDay = daChon.filter(dangDongBo);
     const boQua = daChon.length - canDay.length;
-    if (!canDay.length) return toast.info("Các SKU đã chọn đều đang ngừng đồng bộ, bật lại trước khi đẩy tồn");
+    if (!canDay.length) return toast.info(t("Các SKU đã chọn đều đang ngừng đồng bộ, bật lại trước khi đẩy tồn"));
     return chay("day-ton", async () => {
       let ok = 0;
       let conLoi = 0;
@@ -498,19 +511,19 @@ export default function ChannelMappingsPage() {
         } catch (error) {
           // Lỗi cả gian hàng (mất kết nối, hết hạn mức…): các SKU sau cũng sẽ lỗi y vậy → dừng
           khiMatKetNoi(error);
-          loiKenh = getApiErrorMessage(error, `Không đẩy được tồn lên ${SAN.ten}`);
+          loiKenh = getApiErrorMessage(error, t("Không đẩy được tồn lên {{ten}}", { ten: SAN.ten }));
           break;
         }
       }
       doiVuaBat(canDay.map((d) => d.id), false);
       tq.reload();
       setChon(new Set());
-      const ghiChu = [conLoi ? `${formatNumberOrDash(conLoi)} SKU vẫn lỗi` : null, boQua ? `bỏ qua ${formatNumberOrDash(boQua)} SKU đang ngừng` : null]
+      const ghiChu = [conLoi ? t("{{conLoi}} SKU vẫn lỗi", { conLoi: formatNumberOrDash(conLoi), count: conLoi }) : null, boQua ? t("bỏ qua {{boQua}} SKU đang ngừng", { boQua: formatNumberOrDash(boQua), count: boQua }) : null]
         .filter(Boolean)
         .join(", ");
-      if (loiKenh) toast.error(`Dừng giữa chừng: ${loiKenh}`, { description: `Đã đẩy ${formatNumberOrDash(ok)} SKU trước khi dừng.` });
-      else if (conLoi) toast.warning(`Đã đẩy tồn ${formatNumberOrDash(ok)} SKU lên ${SAN.ten}`, { description: ghiChu });
-      else toast.success(`Đã đẩy tồn ${formatNumberOrDash(ok)} SKU lên ${SAN.ten}`, ghiChu ? { description: ghiChu } : undefined);
+      if (loiKenh) toast.error(t("Dừng giữa chừng: {{loiKenh}}", { loiKenh }), { description: t("Đã đẩy {{ok}} SKU trước khi dừng.", { ok: formatNumberOrDash(ok), count: ok }) });
+      else if (conLoi) toast.warning(t("Đã đẩy tồn {{ok}} SKU lên {{ten}}", { ok: formatNumberOrDash(ok), ten: SAN.ten, count: ok }), { description: ghiChu });
+      else toast.success(t("Đã đẩy tồn {{ok}} SKU lên {{ten}}", { ok: formatNumberOrDash(ok), ten: SAN.ten, count: ok }), ghiChu ? { description: ghiChu } : undefined);
     });
   };
 
@@ -525,11 +538,11 @@ export default function ChannelMappingsPage() {
           capNhatDong(res);
           doiVuaBat([dong.id], false);
           tq.reload();
-          if (res?.trangThaiLienKet === "loi") toast.error(`Vẫn lỗi: ${res.chiTietLoi || "không đẩy được tồn kho"}`);
-          else toast.success(`Đã đẩy lại tồn ${dong.maSku}`);
+          if (res?.trangThaiLienKet === "loi") toast.error(t("Vẫn lỗi: {{chiTiet}}", { chiTiet: res.chiTietLoi || t("không đẩy được tồn kho") }));
+          else toast.success(t("Đã đẩy lại tồn {{maSku}}", { maSku: dong.maSku }));
         } catch (error) {
           khiMatKetNoi(error);
-          toast.error(getApiErrorMessage(error, "Không thử lại được"));
+          toast.error(getApiErrorMessage(error, t("Không thử lại được")));
         }
       },
       dong.id,
@@ -552,24 +565,24 @@ export default function ChannelMappingsPage() {
           }
           tq.reload();
           setGhepId(null);
-          toast.success(`Đã ghép với ${bienThe.maSku}`);
+          toast.success(t("Đã ghép với {{maSku}}", { maSku: bienThe.maSku }));
         } catch (error) {
-          toast.error(getApiErrorMessage(error, "Không ghép được biến thể"));
+          toast.error(getApiErrorMessage(error, t("Không ghép được biến thể")));
         }
       },
       dong.id,
     );
 
-  const statusTabs = LIEN_KET_TABS.map((t) => ({
-    value: t.ma,
-    label: t.label,
-    tone: t.ma === "loi" ? "danger" : t.ma === "ngung-dong-bo" ? "warning" : undefined,
+  const statusTabs = LIEN_KET_TABS.map((tb) => ({
+    value: tb.ma,
+    label: t(tb.label),
+    tone: tb.ma === "loi" ? "danger" : tb.ma === "ngung-dong-bo" ? "warning" : undefined,
     count: tongQuan
-      ? t.ma === "tat-ca"
+      ? tb.ma === "tat-ca"
         ? tongQuan.tongSkuSan
-        : t.ma === "dang-dong-bo"
+        : tb.ma === "dang-dong-bo"
           ? tongQuan.daLienKet
-          : t.ma === "ngung-dong-bo"
+          : tb.ma === "ngung-dong-bo"
             ? tongQuan.chuaLienKet
             : tongQuan.loiDongBo
       : null,
@@ -580,7 +593,7 @@ export default function ChannelMappingsPage() {
     ? ds.data.tongSku
     : dangLoc
       ? null
-      : (statusTabs.find((t) => t.value === tab)?.count ?? null);
+      : (statusTabs.find((tb) => tb.value === tab)?.count ?? null);
 
   /** Thân bảng về đầu khi đổi trang / số dòng / bộ lọc, để không đứng giữa danh sách mới. */
   const cuonLenDau = () => bangRef.current?.closest(".bo-table-body")?.scrollTo?.({ top: 0 });
@@ -658,23 +671,19 @@ export default function ChannelMappingsPage() {
    * vì công tắc bên cạnh đã cho biết (chốt 21/10, mỗi thông tin chỉ hiện một lần).
    */
   const metaCua = (dong) =>
-    LIEN_KET_STATUS[dong.trangThaiLienKet] ?? { label: dong.trangThaiLienKet ? `Không xác định (mã ${dong.trangThaiLienKet})` : "Chưa có trạng thái" };
+    LIEN_KET_STATUS[dong.trangThaiLienKet] ?? { label: dong.trangThaiLienKet ? t("Không xác định (mã {{so}})", { so: dong.trangThaiLienKet }) : "Chưa có trạng thái" }; // i18n-giu-nguyen: nhãn đưa vào StatusBadge, thẻ tự dịch
 
   /** Nội dung ô Trạng thái của một SKU (dùng ở cột Trạng thái, và dưới tên sản phẩm trên máy tính bảng dọc). */
   const oTrangThai = (dong, meta, dangXuLyDong) => {
-    const laTamGiu = dong.chiTietLoi && (
-      dong.chiTietLoi.includes("tạm giữ tồn") ||
-      dong.chiTietLoi.includes("negative sellable") ||
-      dong.chiTietLoi.includes("mở khóa")
-    );
+    const laTamGiu = laLoiTamGiu(dong.chiTietLoi);
     return (
       <>
         {dong.trangThaiLienKet === "da_lien_ket" ? (
-          <span className="sr-only">{meta.label}</span>
+          <span className="sr-only">{t(meta.label)}</span>
         ) : laTamGiu ? (
           <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 ring-1 ring-inset ring-amber-600/20" title={dong.chiTietLoi}>
             <span className="size-1.5 rounded-full bg-amber-500" />
-            Tạm giữ sàn
+            {t("Tạm giữ sàn")}
           </span>
         ) : (
           <StatusBadge label={meta.label} />
@@ -697,7 +706,7 @@ export default function ChannelMappingsPage() {
               }}
               className="shrink-0 font-medium text-bo-primary hover:underline disabled:cursor-not-allowed disabled:opacity-50 disabled:no-underline"
             >
-              {dangXuLyDong && dangChay?.ten === "thu-lai" ? "Đang thử lại…" : "Thử lại"}
+              {dangXuLyDong && dangChay?.ten === "thu-lai" ? t("Đang thử lại…") : t("Thử lại")}
             </button>
           </div>
         ) : null}
@@ -716,7 +725,7 @@ export default function ChannelMappingsPage() {
                 type="button"
                 variant="ghost"
                 disabled={khoa}
-                aria-label={`Thao tác khác cho ${dong.maSku || dong.skuSan}`}
+                aria-label={t("Thao tác khác cho {{sku}}", { sku: dong.maSku || dong.skuSan })}
                 className="size-8 rounded-md p-0 text-bo-muted hover:bg-slate-100 hover:text-bo-foreground"
               >
                 {dangXuLyDong && dangChay?.ten !== "bat-tat" ? <Loader2 className="size-4 animate-spin" /> : <MoreHorizontal className="size-4" />}
@@ -739,16 +748,16 @@ export default function ChannelMappingsPage() {
                 }}
                 className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
               >
-                Ghép biến thể khác
+                {t("Ghép biến thể khác")}
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => setChiTietId(dong.id)} className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900">
-                Xem chi tiết
+                {t("Xem chi tiết")}
               </DropdownMenuItem>
               {dong.trangThaiLienKet === "loi" ? (
                 <>
                   <DropdownMenuSeparator className="bg-bo-border" />
                   <DropdownMenuItem disabled={khoaBang || hetHanUyQuyen} onSelect={() => thuLai(dong)} className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900">
-                    Thử lại
+                    {t("Thử lại")}
                   </DropdownMenuItem>
                 </>
               ) : null}
@@ -798,7 +807,7 @@ export default function ChannelMappingsPage() {
           <Checkbox
             checked={chon.has(dong.id)}
             onCheckedChange={(v) => doiChon([dong.id], v === true)}
-            aria-label={`Chọn ${dong.maSku || dong.skuSan}`}
+            aria-label={t("Chọn {{sku}}", { sku: dong.maSku || dong.skuSan })}
             className={CHECKBOX_CLASS}
           />
         </td>
@@ -842,8 +851,8 @@ export default function ChannelMappingsPage() {
             checked={dangDongBo(dong)}
             disabled={khoaBang || !choPhepBat}
             onCheckedChange={() => batTat(dong)}
-            aria-label={`Đồng bộ ${dong.maSku || dong.skuSan}`}
-            title={choPhepBat ? undefined : "Chưa ghép biến thể FCentric"}
+            aria-label={t("Đồng bộ {{sku}}", { sku: dong.maSku || dong.skuSan })}
+            title={choPhepBat ? undefined : t("Chưa ghép biến thể FCentric")}
             className={cn(SWITCH_CLASS, VUNG_CHAM_CONG_TAC)}
           />
         </td>
@@ -858,7 +867,7 @@ export default function ChannelMappingsPage() {
   const soLieuNhom = (g) => {
     const soNgung = g.dong.filter((d) => d.trangThaiLienKet === "chua_lien_ket").length;
     const dongLoi = g.dong.filter((d) => d.trangThaiLienKet === "loi");
-    const soTamGiu = dongLoi.filter((d) => d.chiTietLoi && (d.chiTietLoi.includes("tạm giữ tồn") || d.chiTietLoi.includes("negative sellable") || d.chiTietLoi.includes("mở khóa"))).length;
+    const soTamGiu = dongLoi.filter((d) => laLoiTamGiu(d.chiTietLoi)).length;
     const soLoiThat = dongLoi.length - soTamGiu;
     return {
       ids: g.dong.map((d) => d.id),
@@ -877,13 +886,13 @@ export default function ChannelMappingsPage() {
   /** Tóm tắt cả nhóm: việc cần xử lý (lỗi, ngừng) đứng trước; đủ cả nhóm đang đồng bộ thì ghi gọn một cụm. */
   const tomTatNhom = (g, { soLoi, soTamGiu, soNgung, soDangDongBo }) => (
     <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] leading-5 text-bo-foreground">
-      {soTamGiu ? <DemTrangThai so={soTamGiu} nhan="tạm giữ sàn" mau="bg-amber-500" className="font-medium text-amber-700" /> : null}
-      {soLoi ? <DemTrangThai so={soLoi} nhan="lỗi" mau="bg-bo-danger" className="font-medium text-bo-danger" /> : null}
-      {soNgung ? <DemTrangThai so={soNgung} nhan="ngừng" mau="bg-slate-400" /> : null}
+      {soTamGiu ? <DemTrangThai so={soTamGiu} nhan={t("tạm giữ sàn")} mau="bg-amber-500" className="font-medium text-amber-700" /> : null}
+      {soLoi ? <DemTrangThai so={soLoi} nhan={t("lỗi")} mau="bg-bo-danger" className="font-medium text-bo-danger" /> : null}
+      {soNgung ? <DemTrangThai so={soNgung} nhan={t("ngừng")} mau="bg-slate-400" /> : null}
       {soDangDongBo === g.dong.length ? (
-        <DemTrangThai so={soDangDongBo} nhan="đang đồng bộ" mau="bg-bo-success" truoc="Đủ" />
+        <DemTrangThai so={soDangDongBo} nhan={t("đang đồng bộ")} mau="bg-bo-success" truoc={t("Đủ", { context: "tat_ca" })} />
       ) : soDangDongBo ? (
-        <DemTrangThai so={soDangDongBo} nhan="đang đồng bộ" mau="bg-bo-success" />
+        <DemTrangThai so={soDangDongBo} nhan={t("đang đồng bộ")} mau="bg-bo-success" />
       ) : null}
     </span>
   );
@@ -897,13 +906,13 @@ export default function ChannelMappingsPage() {
         onCheckedChange={() => batTatNhom(g)}
         aria-label={
           soBat === g.dong.length
-            ? `Ngừng đồng bộ cả ${g.ten}`
-            : `Bật đồng bộ cả ${g.ten} (đang bật ${soBat}/${g.dong.length})`
+            ? t("Ngừng đồng bộ cả {{ten}}", { ten: g.ten })
+            : t("Bật đồng bộ cả {{ten}} (đang bật {{soBat}}/{{tong}})", { ten: g.ten, soBat, tong: g.dong.length })
         }
         className={cn(SWITCH_CLASS, VUNG_CHAM_CONG_TAC)}
       />
       {soBat > 0 && soBat < g.dong.length ? (
-        <span className="text-xs tabular-nums text-bo-muted" title={`${soBat} trên ${g.dong.length} phân loại đang đồng bộ`}>
+        <span className="text-xs tabular-nums text-bo-muted" title={t("{{soBat}} trên {{tong}} phân loại đang đồng bộ", { soBat, tong: g.dong.length, count: g.dong.length })}>
           {soBat}/{g.dong.length}
         </span>
       ) : null}
@@ -922,7 +931,7 @@ export default function ChannelMappingsPage() {
     return (
       <tr key={g.khoa} onClick={() => doiGon(g.khoa)} className="group/nhom cursor-pointer">
         <td className={cn("w-10 bg-bo-row-group px-3 py-2.5 group-hover/nhom:bg-bo-row-group-hover", dinh)} onClick={(event) => event.stopPropagation()}>
-          <Checkbox checked={trangThaiChon(ids)} onCheckedChange={(v) => doiChon(ids, v === true)} aria-label={`Chọn cả ${g.ten}`} className={CHECKBOX_CLASS} />
+          <Checkbox checked={trangThaiChon(ids)} onCheckedChange={(v) => doiChon(ids, v === true)} aria-label={t("Chọn cả {{ten}}", { ten: g.ten })} className={CHECKBOX_CLASS} />
         </td>
         <td className={cn("max-w-[360px] bg-bo-row-group px-3 py-2.5 group-hover/nhom:bg-bo-row-group-hover cam-ung:max-lg:max-w-[290px]", dinh)}>
           <div className="flex min-w-0 items-center gap-2">
@@ -933,7 +942,7 @@ export default function ChannelMappingsPage() {
                 doiGon(g.khoa);
               }}
               aria-expanded={mo}
-              aria-label={mo ? `Thu gọn các phân loại của ${g.ten}` : `Mở các phân loại của ${g.ten}`}
+              aria-label={mo ? t("Thu gọn các phân loại của {{ten}}", { ten: g.ten }) : t("Mở các phân loại của {{ten}}", { ten: g.ten })}
               className="grid size-[22px] shrink-0 place-items-center rounded text-bo-muted hover:bg-slate-200/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
             >
               <ChevronRight className={cn("size-3.5 transition-transform duration-150 motion-reduce:transition-none", mo && "rotate-90")} />
@@ -945,7 +954,7 @@ export default function ChannelMappingsPage() {
               </p>
               <p className="text-[13px] text-bo-muted">
                 {nhanSoPhanLoai(g, formatNumberOrDash)}
-                {dangLoc && g.dong.length < g.tongPhanLoai ? " khớp" : ""}
+                {dangLoc && g.dong.length < g.tongPhanLoai ? t(" khớp") : ""}
               </p>
               <div className="mt-0.5 hidden cam-ung:max-lg:block">{tomTatNhom(g, st)}</div>
             </div>
@@ -959,9 +968,9 @@ export default function ChannelMappingsPage() {
           <div className="flex flex-col items-end">
             <span className="font-medium tabular-nums text-bo-heading">{daDay.length ? formatNumberOrDash(daDay.reduce((s, v) => s + v, 0)) : "—"}</span>
             {soChoDay ? (
-              <span className="text-[12px] font-medium tabular-nums text-amber-600">{formatNumberOrDash(soChoDay)} SKU chờ đẩy</span>
+              <span className="text-[12px] font-medium tabular-nums text-amber-600">{formatNumberOrDash(soChoDay)} {t("SKU chờ đẩy", { count: soChoDay })}</span>
             ) : gioNhom ? (
-              <span className="text-[12px] tabular-nums text-slate-400" title={`Lần đẩy tồn gần nhất của sản phẩm`}>
+              <span className="text-[12px] tabular-nums text-slate-400" title={t("Lần đẩy tồn gần nhất của sản phẩm")}>
                 {gioNhom}
               </span>
             ) : null}
@@ -994,7 +1003,7 @@ export default function ChannelMappingsPage() {
           <Checkbox
             checked={chon.has(dong.id)}
             onCheckedChange={(v) => doiChon([dong.id], v === true)}
-            aria-label={`Chọn ${dong.maSku || dong.skuSan}`}
+            aria-label={t("Chọn {{sku}}", { sku: dong.maSku || dong.skuSan })}
             className={cn("size-5", CHECKBOX_CLASS)}
           />
         </label>
@@ -1020,33 +1029,33 @@ export default function ChannelMappingsPage() {
           </span>
           <span className="flex flex-wrap items-baseline gap-x-1.5 text-[13px] tabular-nums text-bo-muted">
             <span>
-              Khả dụng <span className="font-medium text-bo-foreground">{formatNumberOrDash(dong.soLuongKhaDung)}</span>
+              {t("Khả dụng")} <span className="font-medium text-bo-foreground">{formatNumberOrDash(dong.soLuongKhaDung)}</span>
             </span>
             {dangDongBo(dong) ? (
               <span>
                 · {coSo(dong.soLuongDaDay) ? (
                   <>
-                    Đã đẩy <span className="font-medium text-bo-foreground">{formatNumberOrDash(dong.soLuongDaDay)}</span>
+                    {t("Đã đẩy")} <span className="font-medium text-bo-foreground">{formatNumberOrDash(dong.soLuongDaDay)}</span>
                   </>
                 ) : (
-                  "Chưa đẩy"
+                  t("Chưa đẩy")
                 )}
               </span>
             ) : null}
-            {choDay ? <span className="font-medium text-amber-600">{coSo(seDay) ? `→ sẽ đẩy ${formatNumberOrDash(seDay)}` : "Chờ đẩy"}</span> : null}
+            {choDay ? <span className="font-medium text-amber-600">{coSo(seDay) ? t("→ sẽ đẩy {{seDay}}", { seDay: formatNumberOrDash(seDay) }) : t("Chờ đẩy")}</span> : null}
           </span>
           {dong.trangThaiLienKet !== "da_lien_ket" ? (
             <span className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
-              {dong.chiTietLoi && (dong.chiTietLoi.includes("tạm giữ tồn") || dong.chiTietLoi.includes("negative sellable") || dong.chiTietLoi.includes("mở khóa")) ? (
+              {laLoiTamGiu(dong.chiTietLoi) ? (
                 <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 ring-1 ring-inset ring-amber-600/20">
                   <span className="size-1.5 rounded-full bg-amber-500" />
-                  Tạm giữ sàn
+                  {t("Tạm giữ sàn")}
                 </span>
               ) : (
                 <StatusBadge label={meta.label} />
               )}
               {dong.trangThaiLienKet === "loi" && dong.chiTietLoi ? (
-                <span className={cn("w-full text-xs leading-4", (dong.chiTietLoi.includes("tạm giữ tồn") || dong.chiTietLoi.includes("negative sellable") || dong.chiTietLoi.includes("mở khóa")) ? "text-amber-700 font-normal" : "text-bo-danger")}>{dong.chiTietLoi}</span>
+                <span className={cn("w-full text-xs leading-4", laLoiTamGiu(dong.chiTietLoi) ? "text-amber-700 font-normal" : "text-bo-danger")}>{dong.chiTietLoi}</span>
               ) : null}
             </span>
           ) : null}
@@ -1057,7 +1066,7 @@ export default function ChannelMappingsPage() {
               checked={dangDongBo(dong)}
               disabled={khoaBang || !choPhepBat}
               onCheckedChange={() => batTat(dong)}
-              aria-label={`Đồng bộ ${dong.maSku || dong.skuSan}`}
+              aria-label={t("Đồng bộ {{sku}}", { sku: dong.maSku || dong.skuSan })}
               className={cn(SWITCH_CLASS, VUNG_CHAM_CONG_TAC)}
             />
           </span>
@@ -1077,7 +1086,7 @@ export default function ChannelMappingsPage() {
             <Checkbox
               checked={trangThaiChon(st.ids)}
               onCheckedChange={(v) => doiChon(st.ids, v === true)}
-              aria-label={`Chọn cả ${g.ten}`}
+              aria-label={t("Chọn cả {{ten}}", { ten: g.ten })}
               className={cn("size-5", CHECKBOX_CLASS)}
             />
           </label>
@@ -1085,7 +1094,7 @@ export default function ChannelMappingsPage() {
             type="button"
             onClick={() => doiGon(g.khoa)}
             aria-expanded={mo}
-            aria-label={mo ? `Thu gọn các phân loại của ${g.ten}` : `Mở các phân loại của ${g.ten}`}
+            aria-label={mo ? t("Thu gọn các phân loại của {{ten}}", { ten: g.ten }) : t("Mở các phân loại của {{ten}}", { ten: g.ten })}
             className="flex min-w-0 flex-1 items-start gap-2 py-3 text-left"
           >
             <ChevronRight className={cn("mt-2.5 size-4 shrink-0 text-bo-muted transition-transform duration-150 motion-reduce:transition-none", mo && "rotate-90")} />
@@ -1096,9 +1105,9 @@ export default function ChannelMappingsPage() {
               </span>
               <span className="text-[13px] tabular-nums text-bo-muted">
                 {nhanSoPhanLoai(g, formatNumberOrDash)}
-                {dangLoc && g.dong.length < g.tongPhanLoai ? " khớp" : ""} · Khả dụng{" "}
+                {dangLoc && g.dong.length < g.tongPhanLoai ? t(" khớp") : ""} {t("· Khả dụng")}{" "}
                 <span className="font-medium text-bo-foreground">{formatNumberOrDash(st.tongKhaDung)}</span>
-                {st.soChoDay ? <span className="font-medium text-amber-600"> · {formatNumberOrDash(st.soChoDay)} SKU chờ đẩy</span> : null}
+                {st.soChoDay ? <span className="font-medium text-amber-600"> · {formatNumberOrDash(st.soChoDay)} {t("SKU chờ đẩy", { count: st.soChoDay })}</span> : null}
               </span>
               {tomTatNhom(g, st)}
             </span>
@@ -1115,7 +1124,7 @@ export default function ChannelMappingsPage() {
   return (
     <PageContainer fill className="space-y-4">
       <ListPageHeader
-        title={`Sản phẩm ${SAN.ten}`}
+        title={t("Sản phẩm {{ten}}", { ten: SAN.ten })}
         actions={
           <ThaoTacDongBo
             tienDo={dongBo}
@@ -1124,16 +1133,16 @@ export default function ChannelMappingsPage() {
             viecPhu={viecPhu}
             khoaThaoTac={
               !ketNoi
-                ? "Chưa tải xong thông tin gian hàng."
-                : lyDoHetHan || (khoa ? "Đang lưu thay đổi trên bảng, chờ xong rồi chạy." : false)
+                ? t("Chưa tải xong thông tin gian hàng.")
+                : lyDoHetHan || (khoa ? t("Đang lưu thay đổi trên bảng, chờ xong rồi chạy.") : false)
             }
-            lyDoKhoaDongBo={hetHanUyQuyen ? "Ủy quyền lại trước khi đồng bộ" : null}
+            lyDoKhoaDongBo={hetHanUyQuyen ? t("Ủy quyền lại trước khi đồng bộ") : null}
             thaoTac={[
               {
                 ma: "tai-san-pham",
-                nhan: `Tải sản phẩm từ ${SAN.ten}`,
+                nhan: t("Tải sản phẩm từ {{ten}}", { ten: SAN.ten }),
                 // Mô tả mục menu là một câu, có dấu chấm cuối (như menu ⋯ của thẻ Gian hàng)
-                moTa: coDuaLen ? `Ghép SKU trùng với FCentric, không đổi gì trên ${SAN.ten}.` : `Ghép SKU trùng mã, không đổi gì trên ${SAN.ten}.`,
+                moTa: coDuaLen ? t("Ghép SKU trùng với FCentric, không đổi gì trên {{ten}}.", { ten: SAN.ten }) : t("Ghép SKU trùng mã, không đổi gì trên {{ten}}.", { ten: SAN.ten }),
                 Icon: CloudDownload,
                 onChon: taiTuSan,
               },
@@ -1141,8 +1150,8 @@ export default function ChannelMappingsPage() {
                 ? [
                     {
                       ma: "dua-len",
-                      nhan: `Đưa sản phẩm FCentric lên ${SAN.ten}…`,
-                      moTa: "Tạo sản phẩm thật trên gian hàng, có hỏi lại trước.",
+                      nhan: t("Đưa sản phẩm FCentric lên {{ten}}…", { ten: SAN.ten }),
+                      moTa: t("Tạo sản phẩm thật trên gian hàng, có hỏi lại trước."),
                       Icon: CloudUpload,
                       onChon: () => setHoiDayLen(true),
                     },
@@ -1163,8 +1172,8 @@ export default function ChannelMappingsPage() {
       ) : null}
 
       {tab !== "loi" ? (
-        <AttentionBar count={tongQuan?.loiDongBo} tone="danger" actionLabel="Xem SKU lỗi" onAction={() => doiTab("loi")}>
-          <strong className="font-semibold">{formatNumberOrDash(tongQuan?.loiDongBo)} SKU</strong> đồng bộ lỗi ở lần gần nhất.
+        <AttentionBar count={tongQuan?.loiDongBo} tone="danger" actionLabel={t("Xem SKU lỗi")} onAction={() => doiTab("loi")}>
+          <strong className="font-semibold">{formatNumberOrDash(tongQuan?.loiDongBo)} SKU</strong> {t("đồng bộ lỗi ở lần gần nhất.")}
         </AttentionBar>
       ) : null}
 
@@ -1173,7 +1182,7 @@ export default function ChannelMappingsPage() {
         toolbar={
           <>
             <ListToolbar
-              tabs={<StatusTabs label="Lọc SKU theo trạng thái đồng bộ" tabs={statusTabs} value={tab} onChange={doiTab} />}
+              tabs={<StatusTabs label={t("Lọc SKU theo trạng thái đồng bộ")} tabs={statusTabs} value={tab} onChange={doiTab} />}
               hasFilter={dangLoc}
               onClear={xoaLoc}
             >
@@ -1182,15 +1191,15 @@ export default function ChannelMappingsPage() {
                 variant="ghost"
                 onClick={doiMoTatCa}
                 disabled={nhomNhieu.length === 0}
-                title={nhomNhieu.length === 0 && rows.length > 0 ? "Trang này không có sản phẩm nhiều phân loại" : undefined}
+                title={nhomNhieu.length === 0 && rows.length > 0 ? t("Trang này không có sản phẩm nhiều phân loại") : undefined}
                 className="h-9 gap-1.5 px-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-bo-foreground max-sm:h-11"
               >
                 {tatCaDangMo ? <ChevronsDownUp className="size-4" aria-hidden="true" /> : <ChevronsUpDown className="size-4" aria-hidden="true" />}
-                {tatCaDangMo ? "Thu gọn tất cả" : "Mở tất cả"}
+                {tatCaDangMo ? t("Thu gọn tất cả") : t("Mở tất cả")}
               </Button>
               <SearchInput
-                label="Tìm sản phẩm"
-                placeholder={`Tìm theo tên sản phẩm, SKU hoặc mã ${SAN.ten}`}
+                label={t("Tìm sản phẩm")}
+                placeholder={t("Tìm theo tên sản phẩm, SKU hoặc mã {{ten}}", { ten: SAN.ten })}
                 value={searchText}
                 onChange={(event) => setSearchText(event.target.value)}
                 onClear={xoaLoc}
@@ -1200,19 +1209,19 @@ export default function ChannelMappingsPage() {
             {dongBoDangChay && rows.length ? (
               <div role="status" className="flex items-center gap-2 border-b border-bo-border bg-bo-surface-subtle px-4 py-2 text-[13px] text-bo-muted">
                 <RefreshCw className="size-3.5 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-                Đang đồng bộ với {SAN.ten}: công tắc và thao tác hàng loạt tạm khóa tới khi xong.
+                {t("Đang đồng bộ với {{ten}}: công tắc và thao tác hàng loạt tạm khóa tới khi xong.", { ten: SAN.ten })}
               </div>
             ) : null}
             {daChon.length ? (
               <div className="flex flex-wrap items-center gap-2 border-b border-bo-border bg-bo-primary-soft px-3 py-2 text-sm text-bo-heading">
                 <span className="mr-1">
-                  <strong className="font-semibold tabular-nums">{formatNumberOrDash(daChon.length)}</strong> SKU đã chọn trên trang này
+                  <strong className="font-semibold tabular-nums">{formatNumberOrDash(daChon.length)}</strong> {t("SKU đã chọn trên trang này", { count: daChon.length })}
                 </span>
                 <Button type="button" variant="outline" disabled={khoaBang} onClick={() => batTatNhieu(true)} className="h-8 rounded-lg border-bo-border bg-bo-surface px-3 text-[13px] text-bo-foreground hover:bg-bo-surface-subtle max-sm:h-11">
-                  Bật đồng bộ
+                  {t("Bật đồng bộ")}
                 </Button>
                 <Button type="button" variant="outline" disabled={khoaBang} onClick={() => batTatNhieu(false)} className="h-8 rounded-lg border-bo-border bg-bo-surface px-3 text-[13px] text-bo-foreground hover:bg-bo-surface-subtle max-sm:h-11">
-                  Ngừng đồng bộ
+                  {t("Ngừng đồng bộ", { context: "nut" })}
                 </Button>
                 {/* Đẩy tồn gọi tới sàn: khóa khi hết hạn ủy quyền; nút bị khóa bỏ qua chuột nên chú thích đặt ở phần tử bọc */}
                 <span title={lyDoHetHan ?? undefined} className="inline-flex">
@@ -1225,14 +1234,14 @@ export default function ChannelMappingsPage() {
                     className="h-8 gap-1.5 rounded-lg border-bo-border bg-bo-surface px-3 text-[13px] text-bo-foreground hover:bg-bo-surface-subtle max-sm:h-11"
                   >
                     <RefreshCw className="size-3.5" aria-hidden="true" />
-                    Đẩy tồn lại
+                    {t("Đẩy tồn lại")}
                   </Button>
                 </span>
                 {dangChay?.ten === "nhieu" || dangChay?.ten === "day-ton" ? (
-                  <Loader2 className="size-4 animate-spin text-bo-muted" aria-label="Đang cập nhật" />
+                  <Loader2 className="size-4 animate-spin text-bo-muted" aria-label={t("Đang cập nhật")} />
                 ) : null}
                 <Button type="button" variant="ghost" disabled={khoa} onClick={() => setChon(new Set())} className="ml-auto h-8 rounded-lg px-3 text-[13px] text-bo-foreground hover:bg-bo-surface/70 max-sm:h-11">
-                  Bỏ chọn
+                  {t("Bỏ chọn")}
                 </Button>
               </div>
             ) : null}
@@ -1244,11 +1253,11 @@ export default function ChannelMappingsPage() {
               page={trang.page}
               size={trang.size}
               total={tongSanPham}
-              sizeLabel="sản phẩm"
-              totalLabel="sản phẩm"
+              sizeLabel={t("sản phẩm")}
+              totalLabel={t("sản phẩm")}
               sizeOptions={SO_SAN_PHAM_MOI_TRANG}
-              sizeMenuTitle="Số sản phẩm mỗi trang"
-              sizeMenuNote="Đếm theo sản phẩm; mỗi sản phẩm luôn kèm đủ phân loại nên không bị cắt sang trang sau."
+              sizeMenuTitle={t("Số sản phẩm mỗi trang")}
+              sizeMenuNote={t("Đếm theo sản phẩm; mỗi sản phẩm luôn kèm đủ phân loại nên không bị cắt sang trang sau.")}
               totalNote={soSkuTheoTab != null ? `${formatNumberOrDash(soSkuTheoTab)} SKU` : null}
               onPageChange={(page) => {
                 if (page < 0 || page === trang.page) return;
@@ -1263,7 +1272,7 @@ export default function ChannelMappingsPage() {
                 setTrang({ page: 0, size });
                 setChon(new Set());
                 cuonLenDau();
-                if (boChon) toast.info(`Đã bỏ chọn ${formatNumberOrDash(boChon)} SKU khi đổi số sản phẩm mỗi trang`);
+                if (boChon) toast.info(t("Đã bỏ chọn {{boChon}} SKU khi đổi số sản phẩm mỗi trang", { boChon: formatNumberOrDash(boChon), count: boChon }));
               }}
             />
           ) : null
@@ -1271,40 +1280,40 @@ export default function ChannelMappingsPage() {
       >
         {/* Đang lùi về trang cuối (trang vừa tải rỗng vì vượt số trang) thì hiện đang tải, không hiện ô trống */}
         {cfg.initialLoading || ds.initialLoading || (ds.loading && rows.length === 0 && trang.page > 0) ? (
-          <LoadingState label="Đang tải sản phẩm" />
+          <LoadingState label={t("Đang tải sản phẩm")} />
         ) : (ds.error && !loiTaiNgam) || (cfg.error && !cfg.data) ? (
-          <ErrorState description="Không tải được danh sách sản phẩm. Vui lòng thử lại." onRetry={taiLaiTatCa} />
+          <ErrorState description={t("Không tải được danh sách sản phẩm. Vui lòng thử lại.")} onRetry={taiLaiTatCa} />
         ) : rows.length === 0 ? (
           dangLoc ? (
             <EmptyState
               icon={SearchX}
-              title="Không tìm thấy sản phẩm phù hợp"
-              description="Thử từ khóa khác hoặc xóa lọc."
+              title={t("Không tìm thấy sản phẩm phù hợp")}
+              description={t("Thử từ khóa khác hoặc xóa lọc.")}
               action={
                 <Button variant="outline" onClick={xoaLoc} className={NUT_PHU}>
-                  Xóa lọc
+                  {t("Xóa lọc")}
                 </Button>
               }
             />
           ) : tab !== TAB_MAC_DINH ? (
             <EmptyState
               icon={PackageSearch}
-              title={`Không có SKU nào ở trạng thái "${LIEN_KET_TABS.find((t) => t.ma === tab)?.label}"`}
-              description="Chọn tab Tất cả để xem mọi SKU đã liên kết."
+              title={t("Không có SKU nào ở trạng thái \"{{label}}\"", { label: t(LIEN_KET_TABS.find((tb) => tb.ma === tab)?.label) })}
+              description={t("Chọn tab Tất cả để xem mọi SKU đã liên kết.")}
               action={
                 <Button variant="outline" onClick={() => doiTab(TAB_MAC_DINH)} className={NUT_PHU}>
-                  Xem tất cả
+                  {t("Xem tất cả")}
                 </Button>
               }
             />
           ) : (
             <EmptyState
               icon={PackageSearch}
-              title="Chưa có sản phẩm nào được liên kết"
+              title={t("Chưa có sản phẩm nào được liên kết")}
               description={
                 hoTroDuaLen
-                  ? `Tải sản phẩm từ ${SAN.ten} để ghép theo SKU trùng với FCentric, hoặc đưa sản phẩm FCentric lên ${SAN.ten}.`
-                  : `Tải sản phẩm từ ${SAN.ten} để ghép theo SKU trùng với FCentric.`
+                  ? t("Tải sản phẩm từ {{ten}} để ghép theo SKU trùng với FCentric, hoặc đưa sản phẩm FCentric lên {{ten}}.", { ten: SAN.ten })
+                  : t("Tải sản phẩm từ {{ten}} để ghép theo SKU trùng với FCentric.", { ten: SAN.ten })
               }
               action={
                 <div className="flex flex-wrap justify-center gap-2">
@@ -1312,13 +1321,13 @@ export default function ChannelMappingsPage() {
                   <span title={lyDoHetHan ?? undefined} className="inline-flex">
                     <Button type="button" onClick={taiTuSan} disabled={khoaViecGianHang} aria-describedby={moTaHetHan} className={NUT_CHINH}>
                       {dangChay?.ten === "tai" ? <Loader2 className="size-4 animate-spin" /> : <CloudDownload className="size-4" />}
-                      Tải sản phẩm từ {SAN.ten}
+                      {t("Tải sản phẩm từ {{ten}}", { ten: SAN.ten })}
                     </Button>
                   </span>
                   {hoTroDuaLen ? (
                     <Button type="button" variant="outline" onClick={() => setHoiDayLen(true)} disabled={khoaViecGianHang} className={NUT_PHU}>
                       <CloudUpload className="size-4" />
-                      Đưa sản phẩm FCentric lên {SAN.ten}
+                      {t("Đưa sản phẩm FCentric lên {{ten}}", { ten: SAN.ten })}
                     </Button>
                   ) : null}
                 </div>
@@ -1333,10 +1342,10 @@ export default function ChannelMappingsPage() {
                 <Checkbox
                   checked={trangThaiChon(tatCaIds)}
                   onCheckedChange={(v) => doiChon(tatCaIds, v === true)}
-                  aria-label="Chọn mọi SKU trên trang này"
+                  aria-label={t("Chọn mọi SKU trên trang này")}
                   className={cn("size-5", CHECKBOX_CLASS)}
                 />
-                Chọn mọi SKU trên trang
+                {t("Chọn mọi SKU trên trang")}
               </label>
             </li>
             {nhom.map((g) => (laMotPhanLoai(g) ? theSku(g.dong[0], false) : theNhom(g, laMo(g))))}
@@ -1351,20 +1360,20 @@ export default function ChannelMappingsPage() {
                   <Checkbox
                     checked={trangThaiChon(tatCaIds)}
                     onCheckedChange={(v) => doiChon(tatCaIds, v === true)}
-                    aria-label="Chọn mọi SKU trên trang này"
+                    aria-label={t("Chọn mọi SKU trên trang này")}
                     className={CHECKBOX_CLASS}
                   />
                 </th>
-                <th className={`${TH} text-left`}>Sản phẩm</th>
+                <th className={`${TH} text-left`}>{t("Sản phẩm")}</th>
                 <th className={`${TH} text-left cam-ung:max-lg:hidden`}>SKU FCentric</th>
-                <th className={`${TH} text-right`}>Khả dụng</th>
-                <th className={`${TH} text-right cam-ung:max-lg:whitespace-normal`} title={`Số ${SAN.ten} đã nhận ở lần đẩy tồn thành công gần nhất`}>
-                  Đã đẩy lên {SAN.ten}
+                <th className={`${TH} text-right`}>{t("Khả dụng")}</th>
+                <th className={`${TH} text-right cam-ung:max-lg:whitespace-normal`} title={t("Số {{ten}} đã nhận ở lần đẩy tồn thành công gần nhất", { ten: SAN.ten })}>
+                  {t("Đã đẩy lên {{ten}}", { ten: SAN.ten })}
                 </th>
-                <th className={`${TH} text-left cam-ung:max-lg:hidden`}>Trạng thái</th>
-                <th className={`${TH} text-left`}>Đồng bộ</th>
+                <th className={`${TH} text-left cam-ung:max-lg:hidden`}>{t("Trạng thái")}</th>
+                <th className={`${TH} text-left`}>{t("Đồng bộ")}</th>
                 <th className={`${TH} w-12`}>
-                  <span className="sr-only">Thao tác</span>
+                  <span className="sr-only">{t("Thao tác")}</span>
                 </th>
               </tr>
             </thead>
@@ -1419,13 +1428,16 @@ export default function ChannelMappingsPage() {
         title={hoiNgung?.tieuDe ?? ""}
         description={
           hoiNgung
-            ? `FCentric sẽ không đẩy tồn kho của ${formatNumberOrDash(hoiNgung.dong.length)} SKU này lên ${SAN.ten} nữa. ${SAN.ten} giữ nguyên số đang hiện (tổng ${formatNumberOrDash(
-                hoiNgung.dong.reduce((s, d) => s + (Number(d.soLuongDaDay) || 0), 0),
-              )}) nên khách vẫn đặt được và có thể bán vượt tồn. Liên kết vẫn giữ, bật lại là đẩy tiếp; muốn dừng bán hẳn, hãy ẩn sản phẩm trên ${SAN.ten}.`
+            ? t("FCentric sẽ không đẩy tồn kho của {{so}} SKU này lên {{ten}} nữa. {{ten}} giữ nguyên số đang hiện (tổng {{tong}}) nên khách vẫn đặt được và có thể bán vượt tồn. Liên kết vẫn giữ, bật lại là đẩy tiếp; muốn dừng bán hẳn, hãy ẩn sản phẩm trên {{ten}}.", {
+                so: formatNumberOrDash(hoiNgung.dong.length),
+                count: hoiNgung.dong.length,
+                ten: SAN.ten,
+                tong: formatNumberOrDash(hoiNgung.dong.reduce((s, d) => s + (Number(d.soLuongDaDay) || 0), 0)),
+              })
             : ""
         }
-        confirmText={hoiNgung ? `Ngừng ${formatNumberOrDash(hoiNgung.dong.length)} SKU` : "Ngừng đồng bộ"}
-        cancelText="Hủy"
+        confirmText={hoiNgung ? t("Ngừng {{so}} SKU", { so: formatNumberOrDash(hoiNgung.dong.length), count: hoiNgung.dong.length }) : t("Ngừng đồng bộ", { context: "nut" })}
+        cancelText={t("Hủy")}
       />
 
       <ConfirmModal
@@ -1434,10 +1446,10 @@ export default function ChannelMappingsPage() {
         onConfirm={dayLenSan}
         isLoading={dangChay?.ten === "day-len"}
         variant="info"
-        title={`Đưa sản phẩm lên ${SAN.ten}?`}
-        description={`Các sản phẩm đang bán ở FCentric mà ${SAN.ten} chưa có sẽ được tạo mới trên gian hàng thật, kèm ảnh và số tồn. Sản phẩm đã có được cập nhật thương hiệu, loại và thẻ.`}
-        confirmText="Đưa lên"
-        cancelText="Hủy bỏ"
+        title={t("Đưa sản phẩm lên {{ten}}?", { ten: SAN.ten })}
+        description={t("Các sản phẩm đang bán ở FCentric mà {{ten}} chưa có sẽ được tạo mới trên gian hàng thật, kèm ảnh và số tồn. Sản phẩm đã có được cập nhật thương hiệu, loại và thẻ.", { ten: SAN.ten })}
+        confirmText={t("Đưa lên")}
+        cancelText={t("Hủy bỏ")}
       />
     </PageContainer>
   );

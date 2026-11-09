@@ -3,6 +3,7 @@ import { NutChu } from "@/components/chung-tu/DongThongBao";
 import { soVN } from "@/components/chung-tu/bangChungTu";
 import { cn } from "@/lib/utils";
 import { ngayNgan } from "./phamViKiemKe";
+import { t } from "@/i18n";
 
 // Dải kệ thu nhỏ: mỗi kệ một ô 10×14px; khu nhiều kệ chỉ vẽ tối đa 3 hàng (128px chứa 9 ô mỗi hàng), phần còn lại ghi "+n"
 const KE_TOI_DA = 27;
@@ -15,20 +16,20 @@ const MAU_KE = {
 // data-viz: sọc chéo cho kệ bảo trì (không có lớp Tailwind sẵn cho nền sọc)
 const SOC = { backgroundImage: "repeating-linear-gradient(135deg, #94a3b8 0 1.5px, transparent 1.5px 4px)" };
 const CHU_GIAI = [
-  ["co_hang", "Có hàng"],
-  ["trong", "Trống"],
-  ["ban", "Đợt khác đang giữ"],
+  ["co_hang", t("Có hàng")],
+  ["trong", t("Trống")],
+  ["ban", t("Đợt khác đang giữ")],
   // Máy chủ chặn Bắt đầu khi phạm vi có kệ bảo trì (đưa kệ về hoạt động hoặc bỏ khu khỏi phạm vi), không bỏ qua
-  ["bao_tri", "Bảo trì (chặn bắt đầu)"],
+  ["bao_tri", t("Bảo trì (chặn bắt đầu)")],
 ];
-const TITLE_KIEM_GAN_NHAT = "Chỉ tính đợt theo khu vực / toàn kho đã duyệt";
+const TITLE_KIEM_GAN_NHAT = t("Chỉ tính đợt theo khu vực / toàn kho đã duyệt");
 
 function OKe({ loai, className }) {
   return <span className={cn("h-3.5 w-2.5 shrink-0 rounded-[2px]", MAU_KE[loai], className)} style={loai === "bao_tri" ? SOC : undefined} />;
 }
 
 function DaiKe({ ke, phanLoai }) {
-  if (!ke.length) return <span className="text-xs text-bo-muted">Chưa có kệ</span>;
+  if (!ke.length) return <span className="text-xs text-bo-muted">{t("Chưa có kệ")}</span>;
   const ve = ke.length > KE_TOI_DA ? ke.slice(0, KE_TOI_DA - 1) : ke;
   return (
     <span className="flex flex-wrap items-center gap-[3px]" aria-hidden="true">
@@ -41,11 +42,11 @@ function DaiKe({ ke, phanLoai }) {
 }
 
 function KiemGanNhat({ luc, lichSu }) {
-  if (lichSu === "loi") return <span className="text-bo-muted" title="Chưa tải được lịch sử kiểm kê">—</span>;
+  if (lichSu === "loi") return <span className="text-bo-muted" title={t("Chưa tải được lịch sử kiểm kê")}>—</span>;
   if (lichSu === "dang") return <span className="text-bo-muted">…</span>;
-  if (!luc) return <span className="font-medium text-bo-warning">Chưa kiểm</span>;
+  if (!luc) return <span className="font-medium text-bo-warning">{t("Chưa kiểm")}</span>;
   return (
-    <span className="text-slate-600" title={`Đợt kiểm gần nhất được duyệt lúc ${luc.toLocaleString("vi-VN")}`}>
+    <span className="text-slate-600" title={t("Đợt kiểm gần nhất được duyệt lúc {{luc}}", { luc: luc.toLocaleString("vi-VN") })}>
       {ngayNgan(luc)}
     </span>
   );
@@ -72,15 +73,15 @@ export default function ChonKhuVucKiemKe({ dsKhu, chon, onDoi, khoa = false, pha
     <div className="@container/bangkhu overflow-hidden rounded-lg border border-bo-border bg-white">
       <div className={cn(LUOI, "items-center border-b border-bo-border bg-bo-surface-subtle px-3.5 py-2 text-xs font-medium text-bo-muted")}>
         <span className="col-span-2">
-          Khu vực · đã chọn{" "}
+          {t("Khu vực · đã chọn")}{" "}
           <b className="font-semibold tabular-nums text-bo-foreground">
             {soVN(soChon)}/{soVN(dsKhu.length)}
           </b>
         </span>
-        <span className="hidden @xl/bangkhu:block">Kệ</span>
-        <span className="hidden text-right @xl/bangkhu:block">Trên sổ kệ</span>
+        <span className="hidden @xl/bangkhu:block">{t("Kệ")}</span>
+        <span className="hidden text-right @xl/bangkhu:block">{t("Trên sổ kệ")}</span>
         <span className="hidden text-right @xl/bangkhu:block" title={TITLE_KIEM_GAN_NHAT}>
-          Kiểm gần nhất
+          {t("Kiểm gần nhất")}
         </span>
       </div>
       <ul className="m-0 list-none divide-y divide-slate-100 p-0">
@@ -93,13 +94,13 @@ export default function ChonKhuVucKiemKe({ dsKhu, chon, onDoi, khoa = false, pha
           // Dòng phụ dưới tên: mã khu · kệ thuộc đợt khác · kệ bảo trì (hai mục sau chữ cam: đều chặn Bắt đầu)
           const dongPhu = [
             coMa ? kv.ma : null,
-            soBan ? <span key="ban" className="font-medium text-bo-warning">{soVN(soBan)} kệ đang thuộc đợt khác</span> : null,
-            soBaoTri ? <span key="bao-tri" className="font-medium text-bo-warning">{soVN(soBaoTri)} kệ bảo trì</span> : null,
+            soBan ? <span key="ban" className="font-medium text-bo-warning">{t("{{soBan}} kệ đang thuộc đợt khác", { count: soBan, soBan: soVN(soBan) })}</span> : null,
+            soBaoTri ? <span key="bao-tri" className="font-medium text-bo-warning">{t("{{soBaoTri}} kệ bảo trì", { count: soBaoTri, soBaoTri: soVN(soBaoTri) })}</span> : null,
           ].filter(Boolean);
           const coHang = ke.filter((k) => Number(k.dangChua) > 0).length;
           const tongSp = ke.reduce((s, k) => s + (Number(k.dangChua) || 0), 0);
-          const ten = kv.ten || kv.ma || `Khu ${kv.id}`;
-          const soKe = `${soVN(ke.length)} kệ · ${soVN(coHang)} có hàng`;
+          const ten = kv.ten || kv.ma || t("Khu {{id}}", { id: kv.id });
+          const soKe = t("{{soKe}} kệ · {{coHang}} có hàng", { count: ke.length, soKe: soVN(ke.length), coHang: soVN(coHang) });
           const luc = kiemGanNhat?.get(Number(kv.id));
           return (
             <li key={kv.id}>
@@ -136,7 +137,7 @@ export default function ChonKhuVucKiemKe({ dsKhu, chon, onDoi, khoa = false, pha
                   <span className="mt-1.5 grid gap-1 @xl/bangkhu:hidden">
                     <DaiKe ke={ke} phanLoai={phanLoai} />
                     <span className="text-xs leading-4 text-bo-muted tabular-nums">
-                      {soKe} · {soVN(tongSp)} sp · <span title={TITLE_KIEM_GAN_NHAT}>Kiểm gần nhất</span>{" "}
+                      {soKe} · {t("{{soSp}} sp", { soSp: soVN(tongSp) })} · <span title={TITLE_KIEM_GAN_NHAT}>{t("Kiểm gần nhất")}</span>{" "}
                       <KiemGanNhat luc={luc} lichSu={lichSu} />
                     </span>
                   </span>
@@ -145,7 +146,7 @@ export default function ChonKhuVucKiemKe({ dsKhu, chon, onDoi, khoa = false, pha
                   <DaiKe ke={ke} phanLoai={phanLoai} />
                   <span className="text-xs leading-4 text-bo-muted tabular-nums">{soKe}</span>
                 </span>
-                <span className="hidden text-right text-[13px] tabular-nums text-bo-foreground @xl/bangkhu:block">{soVN(tongSp)} sp</span>
+                <span className="hidden text-right text-[13px] tabular-nums text-bo-foreground @xl/bangkhu:block">{t("{{soSp}} sp", { soSp: soVN(tongSp) })}</span>
                 <span className="hidden text-right text-[13px] tabular-nums @xl/bangkhu:block">
                   <KiemGanNhat luc={luc} lichSu={lichSu} />
                 </span>
@@ -165,12 +166,12 @@ export default function ChonKhuVucKiemKe({ dsKhu, chon, onDoi, khoa = false, pha
           <span className="ml-auto flex items-center gap-4">
             {soChon < dsKhu.length ? (
               <NutChu onClick={() => onDoi(tatCaId, true)} className="text-xs">
-                Chọn tất cả khu
+                {t("Chọn tất cả khu")}
               </NutChu>
             ) : null}
             {soChon ? (
               <NutChu onClick={() => onDoi(tatCaId, false)} className="text-xs">
-                Bỏ chọn hết
+                {t("Bỏ chọn hết")}
               </NutChu>
             ) : null}
           </span>

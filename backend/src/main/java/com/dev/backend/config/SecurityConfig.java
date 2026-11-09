@@ -3,6 +3,7 @@ package com.dev.backend.config;
 
 import com.dev.backend.constant.variables.ConstantVariables;
 import com.dev.backend.dto.response.ResponseData;
+import com.dev.backend.i18n.ThongDiep;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.JWSAlgorithm;
 import jakarta.servlet.http.HttpServletRequest;
@@ -42,9 +43,9 @@ import java.util.List;
 @EnableWebSecurity
 public class SecurityConfig implements WebMvcConfigurer {
 
-    private static final String TOKEN_INVALID_MESSAGE =
-            "Phiên đăng nhập đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại.";
-    private static final String ACCESS_DENIED_MESSAGE = "Bạn không có quyền truy cập tài nguyên này.";
+    // Khóa câu thông báo; dịch theo Accept-Language lúc ghi response (tầng filter không qua bộ xử lý lỗi chung)
+    private static final String KHOA_TOKEN_INVALID = "heThong.tokenKhongHopLe";
+    private static final String KHOA_ACCESS_DENIED = "heThong.khongCoQuyenTruyCap";
 
     @Autowired
     private AuthInterceptor authInterceptor;
@@ -85,7 +86,7 @@ public class SecurityConfig implements WebMvcConfigurer {
         BearerTokenAuthenticationEntryPoint delegate = new BearerTokenAuthenticationEntryPoint();
         return (request, response, authException) -> {
             delegate.commence(request, response, authException);
-            writeJson(request, response, response.getStatus(), "TOKEN_INVALID", TOKEN_INVALID_MESSAGE);
+            writeJson(request, response, response.getStatus(), "TOKEN_INVALID", KHOA_TOKEN_INVALID);
         };
     }
 
@@ -93,18 +94,22 @@ public class SecurityConfig implements WebMvcConfigurer {
         BearerTokenAccessDeniedHandler delegate = new BearerTokenAccessDeniedHandler();
         return (request, response, accessDeniedException) -> {
             delegate.handle(request, response, accessDeniedException);
-            writeJson(request, response, HttpStatus.FORBIDDEN.value(), "Forbidden", ACCESS_DENIED_MESSAGE);
+            writeJson(request, response, HttpStatus.FORBIDDEN.value(), "Forbidden", KHOA_ACCESS_DENIED);
         };
     }
 
     // Cùng cấu trúc ResponseData với RestControllerGlobalExceptionHandler. path lấy từ request vì ở tầng filter
     // AuthInterceptor chưa chạy, ThreadLocal path (mặc định của ResponseData) chưa được set.
     private void writeJson(HttpServletRequest request, HttpServletResponse response,
-                           int status, String error, String message) throws IOException {
+                           int status, String error, String khoaThongDiep) throws IOException {
+        // Như bộ xử lý lỗi chung: câu theo ngôn ngữ request, kèm câu Việt gốc khi đã dịch
+        String cau = ThongDiep.dich(khoaThongDiep);
+        String cauViet = ThongDiep.vi(khoaThongDiep);
         ResponseData<Void> body = ResponseData.<Void>builder()
                 .status(status)
                 .error(error)
-                .message(message)
+                .message(cau)
+                .messageGoc(cau.equals(cauViet) ? null : cauViet)
                 .path(request.getRequestURI())
                 .build();
         response.setStatus(status);

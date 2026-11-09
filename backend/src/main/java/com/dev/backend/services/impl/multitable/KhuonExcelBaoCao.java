@@ -17,6 +17,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
+import com.dev.backend.i18n.ThongDiep;
 
 /**
  * Khuôn chung của các tệp Excel báo cáo (doanh thu, sản phẩm, tồn kho, nhập xuất, khách hàng), trình bày như báo cáo
@@ -88,7 +89,8 @@ abstract class KhuonExcelBaoCao {
             if (sx == null) w.write(out); else sx.write(out);
             return out.toByteArray();
         } catch (IOException e) {
-            throw new UncheckedIOException("Không tạo được tệp Excel", e);
+            // Giữ kiểu UncheckedIOException; câu tiếng Việt lấy từ kho câu để bộ xử lý lỗi chung dịch được theo câu
+            throw new UncheckedIOException(ThongDiep.vi("khoVanHanh.khongTaoDuocTepExcel"), e);
         }
     }
 

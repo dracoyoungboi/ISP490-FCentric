@@ -29,22 +29,23 @@ import { toast } from "@/lib/thongBaoNhanh";
 import { cn } from "@/lib/utils";
 import { dongGoiService } from "@/services/dongGoiService";
 import { getApiErrorMessage } from "@/utils/apiError";
+import { t } from "@/i18n";
 
 /** Câu báo khi không mở được camera hoặc không bắt đầu quay được, theo loại lỗi của trình duyệt. */
 function cauLoiCamera(err) {
   switch (err?.name) {
     case "NotAllowedError":
     case "SecurityError":
-      return "Trình duyệt chưa được phép dùng camera. Hãy cho phép dùng camera rồi thử lại.";
+      return t("Trình duyệt chưa được phép dùng camera. Hãy cho phép dùng camera rồi thử lại.");
     case "NotFoundError":
     case "OverconstrainedError":
-      return "Không tìm thấy camera hoặc micro trên thiết bị này.";
+      return t("Không tìm thấy camera hoặc micro trên thiết bị này.");
     case "NotReadableError":
-      return "Camera đang được ứng dụng khác dùng. Hãy tắt ứng dụng đó rồi thử lại.";
+      return t("Camera đang được ứng dụng khác dùng. Hãy tắt ứng dụng đó rồi thử lại.");
     case "NotSupportedError":
-      return "Trình duyệt này không quay được video. Hãy dùng Chrome hoặc Edge, hoặc chọn tệp video từ thiết bị.";
+      return t("Trình duyệt này không quay được video. Hãy dùng Chrome hoặc Edge, hoặc chọn tệp video từ thiết bị.");
     default:
-      return "Không mở được camera để quay video. Vui lòng thử lại.";
+      return t("Không mở được camera để quay video. Vui lòng thử lại.");
   }
 }
 
@@ -161,7 +162,7 @@ function useQuayVideo({ gioiHan, onXong, onLoi }) {
         audio: true,
       });
       if (huyRef.current) {
-        s.getTracks().forEach((t) => t.stop());
+        s.getTracks().forEach((track) => track.stop());
         return;
       }
       const rec = new MediaRecorder(s, { mimeType: "video/webm", videoBitsPerSecond: CHAT_LUONG_QUAY_VIDEO.bitGiay });
@@ -171,7 +172,7 @@ function useQuayVideo({ gioiHan, onXong, onLoi }) {
       };
       rec.onstop = () => {
         clearInterval(henRef.current);
-        s.getTracks().forEach((t) => t.stop());
+        s.getTracks().forEach((track) => track.stop());
         setStream(null);
         setGiay(null);
         if (huyRef.current) return;
@@ -203,7 +204,7 @@ function useQuayVideo({ gioiHan, onXong, onLoi }) {
         if (daQua >= gioiHanRef.current.toiDa) dung();
       }, 250);
     } catch (err) {
-      s?.getTracks().forEach((t) => t.stop());
+      s?.getTracks().forEach((track) => track.stop());
       setStream(null);
       setGiay(null);
       loiRef.current?.(cauLoiCamera(err));
@@ -236,17 +237,17 @@ function OBangChung({ o, suaDuoc, khoaThem, lyDoKhoaXoa, hetHan, trangThai, quay
   const khoaDung = dangQuay && quay.giay < quay.gioiHan.toiThieu;
   const tuDungSau = dangQuay ? giayTuDung(quay.giay, quay.gioiHan) : null;
   const phanTram = dangTai ? trangThai?.phanTram ?? null : null;
-  const chuTai = phanTram != null && phanTram >= 100 ? "Đang lưu…" : "Đang tải lên…";
+  const chuTai = phanTram != null && phanTram >= 100 ? t("Đang lưu…") : t("Đang tải lên…");
   // Vùng thông báo luôn có sẵn trong DOM (gắn cùng lúc với nội dung thì trình đọc màn hình hay bỏ qua); câu sắp tự dừng
   // giữ nguyên suốt khoảng báo trước để chỉ đọc một lần
-  const thongBaoDoc = dangTai ? chuTai : tuDungSau != null ? `Sắp tự dừng quay ở ${dongHo(quay.gioiHan.toiDa)}` : "";
+  const thongBaoDoc = dangTai ? chuTai : tuDungSau != null ? t("Sắp tự dừng quay ở {{toiDa}}", { toiDa: dongHo(quay.gioiHan.toiDa) }) : "";
   const meta = bc
     ? chuThongTinTep(bc, { dinhGio, dinhNgay })
     : hetHan
-      ? "Tệp đã tự xóa sau hạn lưu"
+      ? t("Tệp đã tự xóa sau hạn lưu")
       : loi
-        ? "Chưa lưu"
-        : o.laVideo ? "Chưa có video" : "Chưa có ảnh";
+        ? t("Chưa lưu")
+        : o.laVideo ? t("Chưa có video") : t("Chưa có ảnh");
 
   return (
     <div className={cn("overflow-hidden rounded-lg border bg-bo-surface", o.laVideo && "md:col-span-2", loi ? "border-bo-danger/40" : "border-bo-border")}>
@@ -264,7 +265,7 @@ function OBangChung({ o, suaDuoc, khoaThem, lyDoKhoaXoa, hetHan, trangThai, quay
             <XemTruocTrucTiep stream={quay.stream} />
             <span className="absolute left-2 top-2 inline-flex items-center gap-1.5 rounded bg-black/70 px-2 py-0.5 font-mono text-xs font-semibold text-red-300">
               <span className="size-2 animate-pulse rounded-full bg-red-500 motion-reduce:animate-none" aria-hidden="true" />
-              Đang quay {dongHo(quay.giay)} / {dongHo(quay.gioiHan.toiDa)}
+              {t("Đang quay {{giay}} / {{toiDa}}", { giay: dongHo(quay.giay), toiDa: dongHo(quay.gioiHan.toiDa) })}
             </span>
             <span
               className={cn(
@@ -273,8 +274,8 @@ function OBangChung({ o, suaDuoc, khoaThem, lyDoKhoaXoa, hetHan, trangThai, quay
               )}
             >
               {tuDungSau == null
-                ? "Quay từ lúc cho hàng vào hộp đến khi dán niêm phong"
-                : tuDungSau > 0 ? `Tự dừng sau ${tuDungSau} giây` : "Đang dừng quay…"}
+                ? t("Quay từ lúc cho hàng vào hộp đến khi dán niêm phong")
+                : tuDungSau > 0 ? t("Tự dừng sau {{tuDungSau}} giây", { tuDungSau }) : t("Đang dừng quay…")}
             </span>
           </>
         ) : null}
@@ -285,7 +286,7 @@ function OBangChung({ o, suaDuoc, khoaThem, lyDoKhoaXoa, hetHan, trangThai, quay
             {phanTram != null && phanTram < 100 ? (
               <span
                 role="progressbar"
-                aria-label={`Tải lên: ${o.ten}`}
+                aria-label={t("Tải lên: {{ten}}", { ten: o.ten })}
                 aria-valuemin={0}
                 aria-valuemax={100}
                 aria-valuenow={phanTram}
@@ -333,23 +334,23 @@ function OBangChung({ o, suaDuoc, khoaThem, lyDoKhoaXoa, hetHan, trangThai, quay
           {(trong || loi) && suaDuoc ? (
             <>
               {/* Giữ "Quay video" cả khi ô đang báo lỗi: câu báo tệp quá lớn nhắc đúng tên nút này */}
-              <Button type="button" size="sm" disabled={khoaThem} onClick={onChup} aria-label={`${o.laVideo ? "Quay video" : "Chụp ảnh"}: ${o.ten}`} className="h-8 bg-bo-primary px-2.5 text-[13px] text-white hover:bg-bo-primary-hover">
-                {o.laVideo ? "Quay video" : "Chụp ảnh"}
+              <Button type="button" size="sm" disabled={khoaThem} onClick={onChup} aria-label={`${o.laVideo ? t("Quay video") : t("Chụp ảnh")}: ${o.ten}`} className="h-8 bg-bo-primary px-2.5 text-[13px] text-white hover:bg-bo-primary-hover">
+                {o.laVideo ? t("Quay video") : t("Chụp ảnh")}
               </Button>
-              <Button type="button" size="sm" variant="outline" disabled={khoaThem} onClick={onChonTep} aria-label={`Chọn tệp: ${o.ten}`} className="h-8 border-bo-border bg-bo-surface px-2.5 text-[13px] shadow-none hover:bg-bo-surface-subtle">
-                Chọn tệp
+              <Button type="button" size="sm" variant="outline" disabled={khoaThem} onClick={onChonTep} aria-label={t("Chọn tệp: {{ten}}", { ten: o.ten })} className="h-8 border-bo-border bg-bo-surface px-2.5 text-[13px] shadow-none hover:bg-bo-surface-subtle">
+                {t("Chọn tệp")}
               </Button>
             </>
           ) : null}
           {dangQuay ? (
             <Button type="button" size="sm" disabled={khoaDung} onClick={quay.dung} className="h-8 bg-bo-danger px-2.5 text-[13px] text-white hover:bg-bo-danger-strong disabled:opacity-60">
-              {khoaDung ? `Dừng được sau ${quay.gioiHan.toiThieu - quay.giay} giây` : "Dừng quay"}
+              {khoaDung ? t("Dừng được sau {{giay}} giây", { giay: quay.gioiHan.toiThieu - quay.giay }) : t("Dừng quay")}
             </Button>
           ) : null}
           {bc && !dangQuay && !dangTai ? (
             <>
               <Button type="button" size="sm" variant="outline" onClick={onXem} aria-label={`Xem: ${o.ten}`} className="h-8 border-bo-border bg-bo-surface px-2.5 text-[13px] shadow-none hover:bg-bo-surface-subtle">
-                Xem
+                {t("Xem")}
               </Button>
               <Button
                 type="button"
@@ -357,11 +358,11 @@ function OBangChung({ o, suaDuoc, khoaThem, lyDoKhoaXoa, hetHan, trangThai, quay
                 variant="ghost"
                 disabled={!suaDuoc}
                 title={!suaDuoc ? lyDoKhoaXoa : undefined}
-                aria-label={`Xóa: ${o.ten}`}
+                aria-label={t("Xóa: {{ten}}", { ten: o.ten })}
                 onClick={onXoa}
                 className="h-8 px-2.5 text-[13px] text-bo-foreground"
               >
-                Xóa
+                {t("Xóa")}
               </Button>
             </>
           ) : null}
@@ -430,8 +431,8 @@ export default function PackingProofSection({
     const dangTai = huyTaiRef.current;
     return () => {
       daGoRef.current = true;
-      Object.values(dangTai).forEach((t) => {
-        if (!t.daGuiHet) t.dieuKhien.abort();
+      Object.values(dangTai).forEach((tai) => {
+        if (!tai.daGuiHet) tai.dieuKhien.abort();
       });
     };
   }, []);
@@ -475,15 +476,15 @@ export default function PackingProofSection({
         return;
       }
       datO(loai, null);
-      toast.success(loai === LOAI.VIDEO_DONG_GOI ? "Đã lưu video đóng gói" : "Đã lưu ảnh đóng gói", {
-        description: bc?.ngayHetHan ? `Lưu đến ${dinhNgay(bc.ngayHetHan)} rồi tự xóa` : undefined,
+      toast.success(loai === LOAI.VIDEO_DONG_GOI ? t("Đã lưu video đóng gói") : t("Đã lưu ảnh đóng gói"), {
+        description: bc?.ngayHetHan ? t("Lưu đến {{ngayHetHan}} rồi tự xóa", { ngayHetHan: dinhNgay(bc.ngayHetHan) }) : undefined,
       });
       onRefresh?.();
     } catch (error) {
       // Rời màn, hoặc lần tải này bị lần tải mới cùng loại thay: không ghi đè trạng thái của lần mới
       if (daGoRef.current || dieuKhien.signal.aborted) return;
       // Câu của máy chủ (định dạng, dung lượng, thời lượng, đơn đã hủy…) hiện nguyên văn trong ô
-      datO(loai, { dangTai: false, loi: getApiErrorMessage(error, "Không tải được tệp lên") });
+      datO(loai, { dangTai: false, loi: getApiErrorMessage(error, t("Không tải được tệp lên")) });
     }
     if (huyTaiRef.current[loai] === lanTai) delete huyTaiRef.current[loai];
     // Nút vừa bấm có thể đã bị gỡ (ô đổi trạng thái): trả tiêu điểm cho nơi gọi (vd. ô quét mã)
@@ -495,11 +496,11 @@ export default function PackingProofSection({
     onXong: (file, giay) => taiLen(LOAI.VIDEO_DONG_GOI, file, giay),
     onLoi: (cau) => datO(LOAI.VIDEO_DONG_GOI, { dangTai: false, loi: cau }),
   });
-  const ban = quay.dangQuay || quay.dangMo || Object.values(trangThai).some((t) => t?.dangTai);
+  const ban = quay.dangQuay || quay.dangMo || Object.values(trangThai).some((tt) => tt?.dangTai);
   // Hỏi trước khi rời trang / đóng hộp: đang mở camera, đang quay, hoặc tệp chưa gửi hết (gửi xong 100% thì máy chủ
   // vẫn lưu dù rời trang)
   const canHoi =
-    quay.dangQuay || quay.dangMo || Object.values(trangThai).some((t) => t?.dangTai && !(t.phanTram >= 100));
+    quay.dangQuay || quay.dangMo || Object.values(trangThai).some((tt) => tt?.dangTai && !(tt.phanTram >= 100));
   const [hoiRoi, setHoiRoi] = useState(null); // hàm đi tiếp khi người dùng đồng ý rời
   useHoiKhiRoiTrang(canHoi, (tiepTuc) => setHoiRoi(() => tiepTuc));
   useEffect(() => {
@@ -546,30 +547,30 @@ export default function PackingProofSection({
       await dongGoiService.xoaBangChung(bc.id);
       if (daGoRef.current) return;
       setXoa(null);
-      toast.success("Đã xóa bằng chứng", { description: "Chụp hoặc quay lại để hoàn tất" });
+      toast.success(t("Đã xóa bằng chứng"), { description: t("Chụp hoặc quay lại để hoàn tất") });
       traTieuDiem?.();
       onRefresh?.();
     } catch (error) {
-      if (!daGoRef.current) setLoiXoa(getApiErrorMessage(error, "Không xóa được bằng chứng"));
+      if (!daGoRef.current) setLoiXoa(getApiErrorMessage(error, t("Không xóa được bằng chứng")));
     } finally {
       if (!daGoRef.current) setDangXoa(false);
     }
   };
 
-  const tenXoa = xoa?.laVideo ? "video đóng gói" : xoa?.loai === LOAI.ANH_NIEM_PHONG_TEM_VC ? "ảnh niêm phong" : "ảnh hàng trong hộp";
+  const tenXoa = xoa?.laVideo ? t("video đóng gói") : xoa?.loai === LOAI.ANH_NIEM_PHONG_TEM_VC ? t("ảnh niêm phong") : t("ảnh hàng trong hộp");
 
   return (
-    <section aria-labelledby={coTieuDe ? "bang-chung-dong-goi" : undefined} aria-label={coTieuDe ? undefined : "Bằng chứng đóng gói"} className={cn("border-t border-bo-border", className)}>
+    <section aria-labelledby={coTieuDe ? "bang-chung-dong-goi" : undefined} aria-label={coTieuDe ? undefined : t("Bằng chứng đóng gói")} className={cn("border-t border-bo-border", className)}>
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 pb-3 pt-4 sm:px-6">
         {coTieuDe ? (
-          <h2 id="bang-chung-dong-goi" className="text-base font-semibold leading-6 text-bo-foreground">Bằng chứng đóng gói</h2>
+          <h2 id="bang-chung-dong-goi" className="text-base font-semibold leading-6 text-bo-foreground">{t("Bằng chứng đóng gói")}</h2>
         ) : null}
-        {hetHan ? null : <StatusBadge label={daDuBangChung ? "Đã đủ bằng chứng" : "Chưa đủ bằng chứng"} />}
+        {hetHan ? null : <StatusBadge /* i18n-giu-nguyen: StatusBadge tự dịch lúc vẽ */ label={daDuBangChung ? "Đã đủ bằng chứng" : "Chưa đủ bằng chứng"} />}
       </div>
       {loiYeuCau ? (
         <div className="mx-4 mb-3 sm:mx-6">
-          <DongThongBao tone="bad" actions={onThuLaiYeuCau ? <NutChu onClick={onThuLaiYeuCau}>Thử lại</NutChu> : null}>
-            Không tải được yêu cầu bằng chứng của đơn: {loiYeuCau}.
+          <DongThongBao tone="bad" actions={onThuLaiYeuCau ? <NutChu onClick={onThuLaiYeuCau}>{t("Thử lại")}</NutChu> : null}>
+            {t("Không tải được yêu cầu bằng chứng của đơn: {{loiYeuCau}}.", { loiYeuCau })}
           </DongThongBao>
         </div>
       ) : null}
@@ -617,7 +618,7 @@ export default function PackingProofSection({
           setChupLoai(null);
           taiLen(loai, file);
         }}
-        title={`Chụp: ${o.find((x) => x.loai === chupLoai)?.ten ?? ""}`}
+        title={t("Chụp: {{ten}}", { ten: o.find((x) => x.loai === chupLoai)?.ten ?? "" })}
         description={o.find((x) => x.loai === chupLoai)?.goiY}
       />
 
@@ -638,9 +639,9 @@ export default function PackingProofSection({
           setXoa(null);
           traTieuDiem?.();
         }}
-        tieuDe={`Xóa ${tenXoa}?`}
-        moTa="Xóa để chụp hoặc quay lại. Tệp đã xóa không khôi phục được."
-        nhanXacNhan="Xóa"
+        tieuDe={t("Xóa {{tenXoa}}?", { tenXoa })}
+        moTa={t("Xóa để chụp hoặc quay lại. Tệp đã xóa không khôi phục được.")}
+        nhanXacNhan={t("Xóa")}
         kieu="nguyHiem"
         dangChay={dangXoa}
         loi={loiXoa}
@@ -656,15 +657,15 @@ export default function PackingProofSection({
           // Ở lại: tiêu điểm về ô quét (không để trên link vừa bấm — Enter của máy quét sẽ bấm lại link)
           traTieuDiem?.();
         }}
-        tieuDe="Rời trang khi bằng chứng chưa lưu xong?"
+        tieuDe={t("Rời trang khi bằng chứng chưa lưu xong?")}
         moTa={
           quay.dangQuay
-            ? "Video đang quay sẽ bị bỏ, phải quay lại từ đầu."
+            ? t("Video đang quay sẽ bị bỏ, phải quay lại từ đầu.")
             : quay.dangMo
-              ? "Camera đang mở để quay sẽ bị tắt."
-              : "Tệp đang tải lên sẽ bị dừng, phải chụp, quay hoặc chọn tệp lại."
+              ? t("Camera đang mở để quay sẽ bị tắt.")
+              : t("Tệp đang tải lên sẽ bị dừng, phải chụp, quay hoặc chọn tệp lại.")
         }
-        nhanXacNhan="Rời trang"
+        nhanXacNhan={t("Rời trang")}
         kieu="nguyHiem"
         onXacNhan={() => {
           const tiepTuc = hoiRoi;

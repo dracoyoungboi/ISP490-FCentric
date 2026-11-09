@@ -1,5 +1,7 @@
 package com.dev.backend.utils;
 
+import com.dev.backend.i18n.ThongDiep;
+import com.dev.backend.i18n.LoiTrangThaiException;
 import com.dev.backend.dto.request.PosCheckoutCreating;
 
 import java.nio.charset.StandardCharsets;
@@ -63,7 +65,7 @@ public final class PosCheckoutPayloadHash {
             }
             return sb.toString();
         } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 không khả dụng", e);
+            throw new LoiTrangThaiException(ThongDiep.of("banHang.sha256KhongKhaDung"), e);
         }
     }
 }

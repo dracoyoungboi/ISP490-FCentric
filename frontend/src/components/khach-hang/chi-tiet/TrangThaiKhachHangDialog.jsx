@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { capNhatTrangThaiKhachHang } from "@/services/khachHangService";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { TRANG_THAI_KHACH, laHoatDong } from "./tinhKhachHang";
+import { t } from "@/i18n";
 
 /**
  * Xác nhận Ngừng hoạt động / Cho phép hoạt động lại một khách hàng — nói rõ hệ quả trước khi đổi
@@ -59,7 +60,7 @@ function NoiDung({ khachHang: khachLucMo, onClose, onChanged, soDonDangXuLy }) {
       onChanged?.(moi ?? { ...khachHang, trangThai: trangThaiMoi });
       onClose();
     } catch (err) {
-      setLoi(getApiErrorMessage(err, "Không thể đổi trạng thái khách hàng. Vui lòng thử lại."));
+      setLoi(getApiErrorMessage(err, t("Không thể đổi trạng thái khách hàng. Vui lòng thử lại.")));
       setDangLuu(false);
     }
   };
@@ -86,27 +87,26 @@ function NoiDung({ khachHang: khachLucMo, onClose, onChanged, soDonDangXuLy }) {
           ) : (
             <CircleCheck className="size-5 shrink-0 text-bo-success" aria-hidden="true" />
           )}
-          {dangHoatDong ? "Ngừng hoạt động khách hàng?" : "Cho phép khách hàng hoạt động lại?"}
+          {dangHoatDong ? t("Ngừng hoạt động khách hàng?") : t("Cho phép khách hàng hoạt động lại?")}
         </AlertDialogTitle>
         <AlertDialogDescription asChild>
           <div className="space-y-2 text-sm leading-6 text-bo-muted">
             {dangHoatDong ? (
               <>
-                <p>{ten} sẽ không chọn được khi tạo báo giá mới và khi bán tại quầy.</p>
+                <p>{t("{{ten}} sẽ không chọn được khi tạo báo giá mới và khi bán tại quầy.", { ten })}</p>
                 <ul className="list-disc space-y-1 pl-5">
                   {soDonDangXuLy === undefined ? (
-                    <li>Đơn đang xử lý của khách vẫn nhặt hàng, giao hàng bình thường.</li>
+                    <li>{t("Đơn đang xử lý của khách vẫn nhặt hàng, giao hàng bình thường.")}</li>
                   ) : soDon > 0 ? (
                     <li>
-                      Đang có <span className="font-semibold text-bo-foreground">{soDon} đơn chưa hoàn thành</span>: vẫn
-                      nhặt hàng, giao hàng bình thường.
+                      {t("Đang có")} <span className="font-semibold text-bo-foreground">{t("{{count}} đơn chưa hoàn thành", { count: soDon })}</span>{t(": vẫn nhặt hàng, giao hàng bình thường.")}
                     </li>
                   ) : null}
-                  <li>Thông tin và lịch sử mua hàng giữ nguyên; có thể cho phép hoạt động lại bất cứ lúc nào.</li>
+                  <li>{t("Thông tin và lịch sử mua hàng giữ nguyên; có thể cho phép hoạt động lại bất cứ lúc nào.")}</li>
                 </ul>
               </>
             ) : (
-              <p>{ten} sẽ chọn lại được khi tạo báo giá và bán tại quầy.</p>
+              <p>{t("{{ten}} sẽ chọn lại được khi tạo báo giá và bán tại quầy.", { ten })}</p>
             )}
           </div>
         </AlertDialogDescription>
@@ -127,7 +127,7 @@ function NoiDung({ khachHang: khachLucMo, onClose, onChanged, soDonDangXuLy }) {
           disabled={dangLuu}
           className="border-bo-border bg-bo-surface text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
         >
-          Hủy
+          {t("Hủy")}
         </AlertDialogCancel>
         <Button
           type="button"
@@ -142,12 +142,12 @@ function NoiDung({ khachHang: khachLucMo, onClose, onChanged, soDonDangXuLy }) {
           {dangLuu ? (
             <>
               <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-              Đang lưu...
+              {t("Đang lưu...")}
             </>
           ) : dangHoatDong ? (
-            "Ngừng hoạt động"
+            t("Ngừng hoạt động")
           ) : (
-            "Cho phép hoạt động"
+            t("Cho phép hoạt động")
           )}
         </Button>
       </AlertDialogFooter>

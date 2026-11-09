@@ -10,6 +10,7 @@ import com.dev.backend.entities.DanhMucQuanAo;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.mapper.DanhMucQuanAoMapper;
 import com.dev.backend.services.impl.entities.DanhMucQuanAoService;
+import com.dev.backend.i18n.ThongDiep;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -61,7 +62,7 @@ class DanhMucQuanAoController {
     )
     public ResponseEntity<ResponseData<DanhMucQuanAoDto>> getById(@PathVariable Integer id) {
         DanhMucQuanAo danhMucQuanAo = danhMucQuanAoService.getOne(id).orElseThrow(
-                () -> new CommonException("Không tìm thấy danh mục id: " + id)
+                () -> new CommonException(ThongDiep.of("sanPhamMuaHang.danhMucKhongTimThay", id))
         );
         return ResponseEntity.ok(
                 ResponseData.<DanhMucQuanAoDto>builder()

@@ -6,6 +6,7 @@ import ErrorState from "@/components/shared/ErrorState";
 import EmptyState from "@/components/shared/EmptyState";
 import DongThoiGianNhatKy from "@/components/nhat-ky/DongThoiGianNhatKy";
 import { getApiErrorStatus } from "@/utils/apiError";
+import { t } from "@/i18n";
 
 /**
  * Ngăn kéo "Lịch sử thay đổi" của một mục danh mục dữ liệu (sản phẩm, giá bán, danh mục, thuộc tính, nhà cung cấp, kho,
@@ -15,7 +16,7 @@ import { getApiErrorStatus } from "@/utils/apiError";
  * - `tieuDe` / `moTa`: vd. "Lịch sử sản phẩm AK2610051".
  * - `nhanDoiTuong`: (dong) => chữ phụ sau tên hành động (vd. SKU của dòng đổi giá), xem DongThoiGianNhatKy.
  */
-export default function NganKeoLichSu({ open, onOpenChange, tieuDe = "Lịch sử thay đổi", moTa, tai, nhanDoiTuong }) {
+export default function NganKeoLichSu({ open, onOpenChange, tieuDe = t("Lịch sử thay đổi"), moTa, tai, nhanDoiTuong }) {
   const [trangThai, setTrangThai] = useState({ dang: "tai", ds: [], loi: null });
   // Trang cha thường đặt đối tượng về null khi đóng: giữ tiêu đề / mô tả của lần mở cuối để lúc ngăn trượt ra không
   // nhảy sang chữ dự phòng
@@ -67,13 +68,13 @@ export default function NganKeoLichSu({ open, onOpenChange, tieuDe = "Lịch s�
           <div className="min-w-0">
             <SheetTitle className="truncate text-base font-semibold leading-6 text-bo-foreground">{tieuDeHien}</SheetTitle>
             <SheetDescription className="mt-0.5 text-[13px] leading-5 text-bo-muted">
-              {moTaHien || "Ai đã làm gì, lúc nào, đổi gì và vì sao. Mới nhất ở trên."}
+              {moTaHien || t("Ai đã làm gì, lúc nào, đổi gì và vì sao. Mới nhất ở trên.")}
             </SheetDescription>
           </div>
           <button
             type="button"
             onClick={() => onOpenChange(false)}
-            aria-label="Đóng lịch sử"
+            aria-label={t("Đóng lịch sử")}
             className="inline-flex size-9 shrink-0 items-center justify-center rounded-md text-bo-muted hover:bg-bo-surface-subtle hover:text-bo-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bo-primary"
           >
             <X className="size-4" aria-hidden="true" />
@@ -82,15 +83,15 @@ export default function NganKeoLichSu({ open, onOpenChange, tieuDe = "Lịch s�
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-[env(safe-area-inset-bottom)]">
           {trangThai.dang === "tai" ? (
-            <LoadingState className="min-h-48" label="Đang tải lịch sử" />
+            <LoadingState className="min-h-48" label={t("Đang tải lịch sử")} />
           ) : trangThai.dang === "loi" ? (
             <ErrorState
               className="min-h-48"
-              title="Không tải được lịch sử"
+              title={t("Không tải được lịch sử")}
               description={
                 maLoi === 403
-                  ? "Tài khoản của bạn không có quyền xem lịch sử này."
-                  : "Không đọc được lịch sử từ máy chủ. Vui lòng thử lại."
+                  ? t("Tài khoản của bạn không có quyền xem lịch sử này.")
+                  : t("Không đọc được lịch sử từ máy chủ. Vui lòng thử lại.")
               }
               onRetry={maLoi === 403 ? undefined : taiLai}
             />
@@ -98,8 +99,8 @@ export default function NganKeoLichSu({ open, onOpenChange, tieuDe = "Lịch s�
             <EmptyState
               className="min-h-48"
               icon={History}
-              title="Chưa có lịch sử"
-              description="Các thao tác thêm, sửa, đổi trạng thái, xóa sẽ được ghi lại ở đây."
+              title={t("Chưa có lịch sử")}
+              description={t("Các thao tác thêm, sửa, đổi trạng thái, xóa sẽ được ghi lại ở đây.")}
             />
           ) : (
             <DongThoiGianNhatKy ds={trangThai.ds} nhanDoiTuong={nhanDoiTuong} />

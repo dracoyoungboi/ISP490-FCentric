@@ -1,6 +1,7 @@
 import { Component } from "react";
 import ErrorState from "@/components/shared/ErrorState";
 import { laLoiTaiTep } from "@/lib/taiTrang";
+import { t } from "@/i18n";
 
 /**
  * Hứng lỗi khi dựng một trang để chỉ vùng đó báo lỗi, phần còn lại (menu trái, thanh trên) vẫn dùng được.
@@ -30,15 +31,15 @@ export default class ErrorBoundary extends Component {
     return laLoiTaiTep(loi) ? (
       <ErrorState
         className={this.props.className}
-        title="Không tải được trang này"
-        description="Kết nối mạng có thể đang chập chờn. Kiểm tra mạng rồi bấm Thử lại."
+        title={t("Không tải được trang này")}
+        description={t("Kết nối mạng có thể đang chập chờn. Kiểm tra mạng rồi bấm Thử lại.")}
         onRetry={() => window.location.reload()}
       />
     ) : (
       <ErrorState
         className={this.props.className}
-        title="Không mở được trang này"
-        description="Trang gặp lỗi khi hiển thị. Bấm Thử lại; nếu vẫn lỗi, hãy báo quản trị viên kèm đường dẫn trang."
+        title={t("Không mở được trang này")}
+        description={t("Trang gặp lỗi khi hiển thị. Bấm Thử lại; nếu vẫn lỗi, hãy báo quản trị viên kèm đường dẫn trang.")}
         onRetry={() => window.location.reload()}
       />
     );

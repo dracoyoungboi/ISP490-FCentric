@@ -18,6 +18,7 @@ import { getApiErrorMessage } from "@/utils/apiError";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import { toast } from "@/lib/thongBaoNhanh";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 // Màn cảm ứng: nút dạng chữ vẫn chạm được 44px nhờ đệm dọc, lề âm bù lại nên dòng không giãn (lớp cảm ứng chung nâng mọi nút
 // lên 44px, làm khoảng cách giữa dòng đếm thiết bị và các thẻ lệch nhau)
@@ -70,15 +71,15 @@ export default function ThietBiDangNhap({ khoaTaiLai = 0 }) {
     try {
       if (xacNhan.kieu === "mot") {
         await nguoiDungService.dangXuatPhien(xacNhan.id);
-        toast.success(`Đã đăng xuất ${xacNhan.ten}.`);
+        toast.success(t("Đã đăng xuất {{ten}}.", { ten: xacNhan.ten }));
       } else if (xacNhan.kieu === "khac") {
         await nguoiDungService.dangXuatThietBiKhac();
-        toast.success("Đã đăng xuất các thiết bị khác.");
+        toast.success(t("Đã đăng xuất các thiết bị khác."));
         setMoNgan(false);
       }
       setMoXacNhan(false);
     } catch (err) {
-      toast.error(getApiErrorMessage(err, "Không đăng xuất được. Vui lòng thử lại."));
+      toast.error(getApiErrorMessage(err, t("Không đăng xuất được. Vui lòng thử lại.")));
     } finally {
       setDangXuLy(false);
       phienQ.reload();
@@ -88,48 +89,48 @@ export default function ThietBiDangNhap({ khoaTaiLai = 0 }) {
   const nhieu = ds.length > SO_THE_TREN_TRANG;
   const nhieuDienThoai = ds.length > SO_THE_DIEN_THOAI;
   // Nói điều người dùng chưa biết (vì sao không thấy thiết bị cũ), thay cho số "hoạt động hôm nay" luôn bằng tổng
-  const tomTatNgan = `${ds.length} thiết bị · Tự đăng xuất sau ${GIO_HIEU_LUC_PHIEN} giờ`;
+  const tomTatNgan = t("{{count}} thiết bị · Tự đăng xuất sau {{gio}} giờ", { count: ds.length, gio: GIO_HIEU_LUC_PHIEN });
 
   const hoiMot = (p) => moHoi({ kieu: "mot", id: p.id, ten: p.ten });
   const hoiKhac = () => moHoi({ kieu: "khac", so: khac.length });
 
   let tieuDeHoi = "";
   let moTaHoi = "";
-  let nutHoi = "Đăng xuất";
+  let nutHoi = t("Đăng xuất");
   if (xacNhan?.kieu === "mot") {
-    tieuDeHoi = `Đăng xuất ${xacNhan.ten}?`;
+    tieuDeHoi = t("Đăng xuất {{ten}}?", { ten: xacNhan.ten });
     // Lời khuyên an ninh đặt đúng lúc người dùng định đăng xuất một thiết bị, không treo sẵn trên trang
-    moTaHoi = "Thiết bị đó sẽ phải đăng nhập lại. Nếu bạn không nhận ra thiết bị này, hãy đổi mật khẩu ngay sau đó.";
+    moTaHoi = t("Thiết bị đó sẽ phải đăng nhập lại. Nếu bạn không nhận ra thiết bị này, hãy đổi mật khẩu ngay sau đó.");
   } else if (xacNhan?.kieu === "khac") {
-    tieuDeHoi = `Đăng xuất ${xacNhan.so} thiết bị khác?`;
-    moTaHoi = "Mọi thiết bị trừ thiết bị bạn đang dùng sẽ phải đăng nhập lại.";
-    nutHoi = `Đăng xuất ${xacNhan.so} thiết bị`;
+    tieuDeHoi = t("Đăng xuất {{count}} thiết bị khác?", { count: xacNhan.so });
+    moTaHoi = t("Mọi thiết bị trừ thiết bị bạn đang dùng sẽ phải đăng nhập lại.");
+    nutHoi = t("Đăng xuất {{count}} thiết bị", { count: xacNhan.so });
   }
 
   return (
     <section aria-labelledby="ho-so-thiet-bi" className="px-4 py-5 max-sm:py-[18px] sm:px-6 sm:py-[22px]">
       <div className="mb-3.5 flex flex-wrap items-start justify-between gap-x-3 gap-y-1 max-sm:mb-3">
         <h2 id="ho-so-thiet-bi" className="min-w-0 text-[15px] font-semibold leading-[22px] text-bo-foreground">
-          Thiết bị đang đăng nhập
+          {t("Thiết bị đang đăng nhập")}
           {ds.length ? <span className="font-normal text-bo-muted"> ({ds.length})</span> : null}
         </h2>
         {khac.length ? (
           <button type="button" onClick={hoiKhac} className={`${NUT_CHU} py-0.5 text-bo-danger max-sm:hidden`}>
-            Đăng xuất các thiết bị khác
+            {t("Đăng xuất các thiết bị khác")}
           </button>
         ) : null}
       </div>
 
       {phienQ.initialLoading ? (
-        <LoadingState label="Đang tải thiết bị" className="min-h-[88px]" />
+        <LoadingState label={t("Đang tải thiết bị")} className="min-h-[88px]" />
       ) : phienQ.error && !phienQ.data ? (
         <ErrorState
-          title="Không tải được danh sách thiết bị"
-          description={getApiErrorMessage(phienQ.error, "Kiểm tra kết nối rồi thử lại.")}
+          title={t("Không tải được danh sách thiết bị")}
+          description={getApiErrorMessage(phienQ.error, t("Kiểm tra kết nối rồi thử lại."))}
           onRetry={phienQ.reload}
         />
       ) : ds.length === 0 ? (
-        <p className="text-sm text-bo-muted">Không có thiết bị nào đang đăng nhập.</p>
+        <p className="text-sm text-bo-muted">{t("Không có thiết bị nào đang đăng nhập.")}</p>
       ) : ds.length === 1 && ds[0].thietBiNay ? (
         // Chỉ thiết bị đang dùng: một thẻ đầy đủ trải hết chiều ngang thay vì nửa ô lưới
         <TheThietBiDayDu phien={ds[0]} />
@@ -155,7 +156,7 @@ export default function ThietBiDangNhap({ khoaTaiLai = 0 }) {
                     onClick={moNganKeo}
                     className="flex h-11 w-full items-center justify-center gap-1 text-[13px] font-medium text-bo-primary outline-none hover:bg-bo-surface-subtle focus-visible:bg-bo-surface-subtle focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-bo-primary/40"
                   >
-                    Xem tất cả {ds.length} thiết bị
+                    {t("Xem tất cả {{count}} thiết bị", { count: ds.length })}
                     <ChevronRight className="size-4" aria-hidden="true" />
                   </button>
                 </li>
@@ -166,7 +167,7 @@ export default function ThietBiDangNhap({ khoaTaiLai = 0 }) {
           {khac.length ? (
             <Button type="button" variant="outline" size="sm" onClick={hoiKhac} className={cn(NUT_DO_VIEN, "mt-3 w-full sm:hidden")}>
               <LogOut className="size-3.5" aria-hidden="true" />
-              Đăng xuất các thiết bị khác
+              {t("Đăng xuất các thiết bị khác")}
             </Button>
           ) : null}
           {nhieu ? (
@@ -178,7 +179,7 @@ export default function ThietBiDangNhap({ khoaTaiLai = 0 }) {
                 onClick={moNganKeo}
                 className="border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
               >
-                Xem tất cả thiết bị
+                {t("Xem tất cả thiết bị")}
                 <ChevronRight className="size-4" aria-hidden="true" />
               </Button>
             </div>
@@ -207,7 +208,7 @@ export default function ThietBiDangNhap({ khoaTaiLai = 0 }) {
         title={tieuDeHoi}
         description={moTaHoi}
         confirmText={nutHoi}
-        cancelText="Hủy"
+        cancelText={t("Hủy")}
       />
     </section>
   );

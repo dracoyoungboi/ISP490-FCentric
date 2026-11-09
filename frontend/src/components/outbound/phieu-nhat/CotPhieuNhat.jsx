@@ -11,6 +11,7 @@ import { formatCurrency } from "@/utils/formatters";
 import { cn } from "@/lib/utils";
 import { getPhieuChuyenKhoStatus } from "@/constants/phieuChuyenKho";
 import { laPhieuChuyenKho, nhanBangChung } from "./tinhPhieuNhat";
+import { t, tDuLieu } from "@/i18n";
 
 /**
  * Cột phải của màn Thực hiện nhặt hàng: Kho xuất, Người nhặt, Ghi chú và "Đơn trong phiếu" — hiện trước SO_DON_HIEN
@@ -29,22 +30,22 @@ export default function CotPhieuNhat({ phieu, dsDon, onMoBangChung, onDongGoi })
   if (laPhieuChuyenKho(phieu)) return <CotPhieuNhatChuyenKho phieu={phieu} />;
 
   return (
-    <CotThuocTinh nhan="Thông tin phiếu nhặt hàng">
+    <CotThuocTinh nhan={t("Thông tin phiếu nhặt hàng")}>
       <NhomThuocTinh>
         <BangThuocTinh
           muc={[
-            { ma: "kho", nhan: "Kho xuất", giaTri: phieu.tenKhoXuat },
+            { ma: "kho", nhan: t("Kho xuất"), giaTri: phieu.tenKhoXuat },
             {
               ma: "nguoi",
-              nhan: "Người nhặt",
-              giaTri: phieu.tenNguoiNhat || <span className="text-bo-muted">Chưa phân công</span>,
+              nhan: t("Người nhặt"),
+              giaTri: phieu.tenNguoiNhat || <span className="text-bo-muted">{t("Chưa phân công")}</span>,
             },
-            { ma: "ghiChu", nhan: "Ghi chú", giaTri: phieu.ghiChu },
+            { ma: "ghiChu", nhan: t("Ghi chú"), giaTri: phieu.ghiChu },
           ]}
         />
       </NhomThuocTinh>
 
-      <NhomThuocTinh nhan="Đơn trong phiếu">
+      <NhomThuocTinh nhan={t("Đơn trong phiếu")}>
         {dsDon.length ? (
           <ul id={idDs} className="m-0 grid list-none gap-2 p-0">
             {hien.map((don) => (
@@ -54,7 +55,7 @@ export default function CotPhieuNhat({ phieu, dsDon, onMoBangChung, onDongGoi })
             ))}
           </ul>
         ) : (
-          <p className="text-[13px] leading-5 text-bo-muted">Không có đơn nào.</p>
+          <p className="text-[13px] leading-5 text-bo-muted">{t("Không có đơn nào.")}</p>
         )}
         {conAn > 0 ? (
           <Button
@@ -66,12 +67,12 @@ export default function CotPhieuNhat({ phieu, dsDon, onMoBangChung, onDongGoi })
             onClick={() => setMoHet((x) => !x)}
             className="mt-2 w-full text-[13px] font-medium text-bo-primary hover:bg-bo-surface hover:text-bo-primary-hover"
           >
-            {moHet ? "Thu gọn" : `Xem thêm ${conAn} đơn`}
+            {moHet ? t("Thu gọn") : t("Xem thêm {{conAn}} đơn", { conAn })}
           </Button>
         ) : null}
         {coDonHuy ? (
           <p className="mt-2.5 text-xs leading-4 text-bo-muted">
-            Đơn gạch ngang đã hủy: không tạo phiếu xuất, số cần nhặt đã tự trừ.
+            {t("Đơn gạch ngang đã hủy: không tạo phiếu xuất, số cần nhặt đã tự trừ.")}
           </p>
         ) : null}
       </NhomThuocTinh>
@@ -83,31 +84,31 @@ export default function CotPhieuNhat({ phieu, dsDon, onMoBangChung, onDongGoi })
 function CotPhieuNhatChuyenKho({ phieu }) {
   const trangThaiChuyen = phieu.trangThaiPhieuChuyen ? getPhieuChuyenKhoStatus(phieu.trangThaiPhieuChuyen).label : null;
   return (
-    <CotThuocTinh nhan="Thông tin phiếu nhặt hàng">
+    <CotThuocTinh nhan={t("Thông tin phiếu nhặt hàng")}>
       <NhomThuocTinh>
         <BangThuocTinh
           muc={[
-            { ma: "kho", nhan: "Kho xuất", giaTri: phieu.tenKhoXuat },
+            { ma: "kho", nhan: t("Kho xuất"), giaTri: phieu.tenKhoXuat },
             {
               ma: "nguoi",
-              nhan: "Người nhặt",
-              giaTri: phieu.tenNguoiNhat || <span className="text-bo-muted">Chưa phân công</span>,
+              nhan: t("Người nhặt"),
+              giaTri: phieu.tenNguoiNhat || <span className="text-bo-muted">{t("Chưa phân công")}</span>,
             },
-            { ma: "ghiChu", nhan: "Ghi chú", giaTri: phieu.ghiChu },
+            { ma: "ghiChu", nhan: t("Ghi chú"), giaTri: phieu.ghiChu },
           ]}
         />
       </NhomThuocTinh>
 
-      <NhomThuocTinh nhan="Phiếu chuyển kho">
+      <NhomThuocTinh nhan={t("Phiếu chuyển kho")}>
         <BangThuocTinh
           muc={[
             {
               ma: "so",
-              nhan: "Số phiếu",
+              nhan: t("Số phiếu"),
               giaTri: phieu.phieuChuyenKhoId != null ? (
                 <Link
                   to={`/transfer-tickets/${phieu.phieuChuyenKhoId}`}
-                  title="Mở phiếu chuyển kho"
+                  title={t("Mở phiếu chuyển kho")}
                   className="rounded font-semibold text-bo-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
                 >
                   {phieu.soPhieuChuyen}
@@ -116,15 +117,15 @@ function CotPhieuNhatChuyenKho({ phieu }) {
             },
             {
               ma: "tt",
-              nhan: "Trạng thái",
+              nhan: t("Trạng thái"),
               giaTri: trangThaiChuyen ? <StatusBadge label={trangThaiChuyen} quyTrinh="chuyenKho" /> : null,
             },
-            { ma: "khoNhan", nhan: "Kho nhận", giaTri: phieu.tenKhoNhan },
-            { ma: "px", nhan: "Phiếu xuất", giaTri: phieu.soPhieuXuat },
+            { ma: "khoNhan", nhan: t("Kho nhận"), giaTri: phieu.tenKhoNhan },
+            { ma: "px", nhan: t("Phiếu xuất"), giaTri: phieu.soPhieuXuat },
           ]}
         />
         <p className="mt-2.5 text-xs leading-4 text-bo-muted">
-          Hoàn tất nhặt thì lô đã nhặt được giữ cho phiếu xuất; hàng rời kho khi bấm Xác nhận xuất ở phiếu chuyển.
+          {t("Hoàn tất nhặt thì lô đã nhặt được giữ cho phiếu xuất; hàng rời kho khi bấm Xác nhận xuất ở phiếu chuyển.")}
         </p>
       </NhomThuocTinh>
     </CotThuocTinh>
@@ -146,7 +147,7 @@ function TheDon({ don, onMoBangChung, onDongGoi }) {
         {info?.id != null ? (
           <Link
             to={`/sales-orders/${info.id}`}
-            title="Mở chi tiết đơn bán hàng"
+            title={t("Mở chi tiết đơn bán hàng")}
             className={cn(
               kieuMa,
               "rounded hover:text-bo-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30",
@@ -164,8 +165,9 @@ function TheDon({ don, onMoBangChung, onDongGoi }) {
       </div>
       {info ? (
         <div className="text-xs leading-4 text-bo-muted">
-          {info.tenKenh || "Trực tiếp"}
-          {info.tenKhachHang ? ` · ${info.tenKhachHang}` : ""}
+          {/* Máy chủ trả "Trực tiếp" / "Khách lẻ" khi đơn không gắn kênh / khách: dịch lúc vẽ, tên thật không có khóa nên giữ nguyên */}
+          {tDuLieu(info.tenKenh) || t("Trực tiếp")}
+          {info.tenKhachHang ? ` · ${tDuLieu(info.tenKhachHang)}` : ""}
         </div>
       ) : null}
       {info?.tomTatHang ? (
@@ -193,21 +195,21 @@ function TheDon({ don, onMoBangChung, onDongGoi }) {
             variant="outline"
             size="sm"
             onClick={() => onMoBangChung(info)}
-            title={bangChung.chiXem ? "Xem lại bằng chứng đóng gói" : "Xem hoặc tải lên bằng chứng đóng gói"}
-            aria-label={`Bằng chứng đóng gói đơn ${so}`}
+            title={bangChung.chiXem ? t("Xem lại bằng chứng đóng gói") : t("Xem hoặc tải lên bằng chứng đóng gói")}
+            aria-label={t("Bằng chứng đóng gói đơn {{so}}", { so })}
             className="h-7 border-bo-border bg-bo-surface px-2 text-xs font-medium text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
           >
-            Bằng chứng
+            {t("Bằng chứng")}
           </Button>
           {trangThai === TRANG_THAI_DON.CHO_DONG_GOI ? (
             <Button
               type="button"
               size="sm"
               onClick={() => onDongGoi(info)}
-              aria-label={`Đóng gói đơn ${so}`}
+              aria-label={t("Đóng gói đơn {{so}}", { so })}
               className="h-7 bg-bo-primary px-2.5 text-xs font-semibold text-white hover:bg-bo-primary-hover"
             >
-              Đóng gói
+              {t("Đóng gói")}
             </Button>
           ) : null}
         </div>

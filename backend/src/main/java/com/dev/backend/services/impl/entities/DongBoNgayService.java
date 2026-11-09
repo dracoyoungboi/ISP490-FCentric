@@ -1,5 +1,7 @@
 package com.dev.backend.services.impl.entities;
 
+import com.dev.backend.i18n.DichCauDaLuu;
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.config.SecurityContextHolder;
 import com.dev.backend.dto.request.LayDonHangKenhRequest;
 import com.dev.backend.dto.response.customize.DayTonResultDto;
@@ -88,7 +90,7 @@ public class DongBoNgayService {
         String ma = chuanHoaMa(maKenh);
         // Kiểm tra trước khi lập phiếu theo dõi, để mã kênh không có thật không nằm lại trong bộ nhớ
         if (!dongBoService.coKenh(ma)) {
-            throw new CommonException("Không tìm thấy kênh bán hàng: " + ma, HttpStatus.NOT_FOUND, null);
+            throw new CommonException(ThongDiep.of("kenhBan.khongTimThayKenhBanHang", ma), HttpStatus.NOT_FOUND, null);
         }
         // Kênh chưa kết nối (hoặc vừa ngắt) thì báo ngay, không mở đợt chỉ để thất bại ở bước đầu
         dongBoService.kiemTraDaKetNoi(ma);
@@ -176,7 +178,7 @@ public class DongBoNgayService {
 
     private static String chuanHoaMa(String maKenh) {
         if (maKenh == null || maKenh.isBlank()) {
-            throw new CommonException("Mã kênh không được để trống", HttpStatus.BAD_REQUEST, null);
+            throw new CommonException(ThongDiep.of("kenhBan.maKenhTrong"), HttpStatus.BAD_REQUEST, null);
         }
         return maKenh.trim().toUpperCase(Locale.ROOT);
     }
@@ -329,15 +331,23 @@ public class DongBoNgayService {
                     .soChuaDay(soChuaDay)
                     .skuDangDay(skuDangDay)
                     .soDonMoi(soDonMoi)
-                    .loi(loi)
+                    // Câu lỗi giữ tiếng Việt trong phiên; dịch lúc trả về theo ngôn ngữ người xem (chup gọi trong request)
+                    .loi(DichCauDaLuu.dich(loi))
                     .yeuCauDung(yeuCauDung)
                     .nguoiBam(nguoiBam)
                     .batDau(batDau)
                     .ketThuc(thoiDiemKetThuc)
                     .daChayMs(Duration.between(batDau, mocCuoi).toMillis())
                     .dayTonDaChayMs(dayTonMs)
-                    .dsLoi(List.copyOf(dsLoi))
+                    .dsLoi(dsLoi.stream().map(Phien::dichLyDo).toList())
                     .build();
+        }
+
+        /** Dòng lỗi SKU với lý do theo ngôn ngữ người xem; bản trong phiên giữ tiếng Việt (tạo dòng mới khi dịch). */
+        private static DongBoNgayDto.LoiSkuDto dichLyDo(DongBoNgayDto.LoiSkuDto dong) {
+            String lyDo = DichCauDaLuu.dich(dong.getLyDo());
+            if (lyDo == null || lyDo.equals(dong.getLyDo())) return dong;
+            return DongBoNgayDto.LoiSkuDto.builder().maSku(dong.getMaSku()).tenSku(dong.getTenSku()).lyDo(lyDo).build();
         }
     }
 }

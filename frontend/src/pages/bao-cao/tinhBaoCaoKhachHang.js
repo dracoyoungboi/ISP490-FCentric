@@ -1,10 +1,11 @@
+import { t } from "../../i18n/t.js";
 // Phần tính thuần của Báo cáo khách hàng (không gọi máy chủ, không React).
 
 /** Năm sớm nhất trong ô chọn năm. */
 export const NAM_DAU = 2020;
 
 /** Đơn vị kỳ theo kiểu báo cáo, dùng trong câu mô tả bảng. */
-const DON_VI_KY = { ngay: "ngày", tuan: "tuần", thang: "tháng", nam: "năm", so_sanh: "tháng" };
+const DON_VI_KY = { ngay: t("ngày"), tuan: t("tuần"), thang: t("tháng"), nam: t("năm"), so_sanh: t("tháng") };
 
 /** Các năm cho ô chọn năm: mới nhất trước, từ năm nay về NAM_DAU. */
 export function cacNam(homNay = new Date()) {
@@ -29,9 +30,9 @@ export function moTaBangKy(ky, loai) {
   const daToi = (ky ?? []).filter((k) => !k.chuaToi);
   const co = kyCoDon(ky).length;
   const khong = daToi.length - co;
-  const dv = DON_VI_KY[loai] ?? "kỳ";
+  const dv = DON_VI_KY[loai] ?? t("kỳ");
   if (daToi.length === 0) return "";
-  return khong > 0 ? `${co} ${dv} có đơn · ${khong} ${dv} không có đơn` : `${co} ${dv} có đơn`;
+  return khong > 0 ? t("{{co}} {{dv}} có đơn · {{khong}} {{dv}} không có đơn", { co, dv, khong }) : t("{{count}} {{dv}} có đơn", { count: co, dv });
 }
 
 /** % khách quay lại trong tổng khách mua của một kỳ, làm tròn số nguyên; null khi không có khách. */

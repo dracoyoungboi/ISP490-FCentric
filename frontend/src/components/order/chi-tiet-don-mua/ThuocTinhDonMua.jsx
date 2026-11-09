@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import NutSaoChep from "@/components/shared/NutSaoChep";
 import { formatDate } from "@/utils/formatters";
+import { t } from "@/i18n";
 
 function NhanNhom({ children }) {
   return <div className="text-xs font-medium leading-4 text-bo-muted">{children}</div>;
@@ -21,9 +22,9 @@ function DongSaoChep({ giaTri, nhanSaoChep, kieu }) {
 }
 
 function HanGiao({ giao }) {
-  if (giao.loai === "quaHan") return <span className="whitespace-nowrap font-medium text-bo-danger"> · quá hạn {giao.soNgay} ngày</span>;
-  if (giao.loai === "homNay") return <span className="whitespace-nowrap font-medium text-bo-warning"> · hôm nay</span>;
-  if (giao.loai === "conLai") return <span className="whitespace-nowrap text-bo-muted"> · còn {giao.soNgay} ngày</span>;
+  if (giao.loai === "quaHan") return <span className="whitespace-nowrap font-medium text-bo-danger"> {t("· quá hạn {{count}} ngày", { count: giao.soNgay })}</span>;
+  if (giao.loai === "homNay") return <span className="whitespace-nowrap font-medium text-bo-warning"> {t("· hôm nay")}</span>;
+  if (giao.loai === "conLai") return <span className="whitespace-nowrap text-bo-muted"> {t("· còn {{count}} ngày", { count: giao.soNgay })}</span>;
   return null;
 }
 
@@ -38,11 +39,11 @@ export default function ThuocTinhDonMua({ don, giao, soDonCuaNcc }) {
 
   return (
     <aside
-      aria-label="Thông tin đơn mua hàng"
+      aria-label={t("Thông tin đơn mua hàng")}
       className="grid min-w-0 content-start gap-x-8 border-t border-bo-border bg-bo-surface-subtle px-4 pb-5 sm:grid-cols-2 sm:px-6 xl:block xl:border-l xl:border-t-0"
     >
       <section className="border-b border-slate-200/70 py-4 sm:col-span-1">
-        <NhanNhom>Nhà cung cấp</NhanNhom>
+        <NhanNhom>{t("Nhà cung cấp")}</NhanNhom>
         {ncc ? (
           <>
             <Link
@@ -53,19 +54,19 @@ export default function ThuocTinhDonMua({ don, giao, soDonCuaNcc }) {
             </Link>
             <div className="mt-0.5 text-[13px] text-bo-muted">
               {ncc.maNhaCungCap ? <span className="font-mono">{ncc.maNhaCungCap}</span> : null}
-              {soDonCuaNcc != null ? `${ncc.maNhaCungCap ? " · " : ""}${soDonCuaNcc} đơn mua` : null}
+              {soDonCuaNcc != null ? `${ncc.maNhaCungCap ? " · " : ""}${t("{{count}} đơn mua", { count: soDonCuaNcc })}` : null}
             </div>
             {ncc.nguoiLienHe ? <div className="mt-3 text-sm text-bo-foreground">{ncc.nguoiLienHe}</div> : null}
-            <DongSaoChep giaTri={ncc.soDienThoai} nhanSaoChep="Sao chép số điện thoại" kieu="tabular-nums" />
-            <DongSaoChep giaTri={ncc.email} nhanSaoChep="Sao chép email" />
+            <DongSaoChep giaTri={ncc.soDienThoai} nhanSaoChep={t("Sao chép số điện thoại")} kieu="tabular-nums" />
+            <DongSaoChep giaTri={ncc.email} nhanSaoChep={t("Sao chép email")} />
           </>
         ) : (
-          <div className="mt-2 text-sm text-bo-muted">Đơn chưa gắn nhà cung cấp.</div>
+          <div className="mt-2 text-sm text-bo-muted">{t("Đơn chưa gắn nhà cung cấp.")}</div>
         )}
       </section>
 
       <section className="border-b border-slate-200/70 py-4">
-        <NhanNhom>Kho nhận</NhanNhom>
+        <NhanNhom>{t("Kho nhận")}</NhanNhom>
         <div className="mt-2 text-sm font-medium text-bo-foreground">
           {kho?.tenKho || "—"}
           {kho?.maKho ? <span className="ml-1.5 font-mono font-normal text-bo-muted">{kho.maKho}</span> : null}
@@ -74,7 +75,7 @@ export default function ThuocTinhDonMua({ don, giao, soDonCuaNcc }) {
       </section>
 
       <dl className="grid grid-cols-[104px_minmax(0,1fr)] gap-x-3 gap-y-2.5 pt-4 text-[13px] leading-5 sm:col-span-2 xl:col-span-1">
-        <dt className="text-bo-muted">Yêu cầu gốc</dt>
+        <dt className="text-bo-muted">{t("Yêu cầu gốc")}</dt>
         <dd className="m-0 min-w-0">
           {yeuCau?.id ? (
             <Link to={`/purchase-requests/${yeuCau.id}`} className="font-medium text-bo-primary hover:text-bo-primary-hover hover:underline">
@@ -84,9 +85,9 @@ export default function ThuocTinhDonMua({ don, giao, soDonCuaNcc }) {
             <span className="text-bo-muted">—</span>
           )}
         </dd>
-        <dt className="text-bo-muted">Người tạo</dt>
+        <dt className="text-bo-muted">{t("Người tạo")}</dt>
         <dd className="m-0 min-w-0 break-words text-bo-foreground">{don.nguoiTao?.hoTen || "—"}</dd>
-        <dt className="text-bo-muted">Giao dự kiến</dt>
+        <dt className="text-bo-muted">{t("Giao dự kiến")}</dt>
         <dd className="m-0 min-w-0 tabular-nums text-bo-foreground">
           {don.ngayGiaoDuKien ? (
             <>

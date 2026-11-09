@@ -58,22 +58,23 @@ import { getApiErrorMessage } from "@/utils/apiError";
 import { formatDate } from "@/utils/formatters";
 import { HAN_LIEN_KET_MAT_KHAU } from "@/utils/matKhau";
 import { getCurrentUserId } from "@/utils/roles";
+import { t } from "@/i18n";
 
 // Lọc theo vai trò nhân sự, cùng danh sách và thứ tự với popup "Thêm người dùng".
-const ROLE_OPTIONS = [{ value: "ALL", label: "Tất cả vai trò" }, ...ROLES];
+const ROLE_OPTIONS = [{ value: "ALL", label: t("Tất cả vai trò") }, ...ROLES.map((r) => ({ ...r, label: t(r.label) }))];
 
 // Tab trạng thái (bố cục A+G). Giá trị giữ như tham số ?trangThai= cũ trên URL.
 // "Bị khóa" = mọi tài khoản trangThai ≠ 1: khớp badge trong bảng và điều kiện chặn đăng nhập ở backend.
 // "Chưa đặt mật khẩu riêng" không phải trạng thái: người đó vẫn Hoạt động, chỉ ghi thêm dòng phụ.
 const STATUS_TABS = [
-    { value: "ALL", label: "Tất cả" },
-    { value: "1", label: "Hoạt động" },
-    { value: "0", label: "Bị khóa", tone: "danger" },
+    { value: "ALL", label: t("Tất cả") },
+    { value: "1", label: t("Hoạt động") },
+    { value: "0", label: t("Bị khóa"), tone: "danger" },
 ];
 const STATUS_TAB_VALUES = STATUS_TABS.map((tab) => tab.value);
 const EMPTY_TAB_TITLE = {
-    1: "Không có tài khoản nào đang hoạt động",
-    0: "Không có tài khoản nào bị khóa",
+    1: t("Không có tài khoản nào đang hoạt động"),
+    0: t("Không có tài khoản nào bị khóa"),
 };
 
 const SEARCH_DEBOUNCE_MS = 350;
@@ -87,19 +88,19 @@ const SEARCH_FIELDS = ["hoTen", "tenDangNhap", "email", "soDienThoai"];
 const AN_BANG = "cam-ung:max-lg:hidden";
 const COLUMNS = [
     { label: "STT", center: true, className: `w-px ${AN_BANG}` },
-    { label: "Người dùng" },
-    { label: "Tên đăng nhập", className: AN_BANG },
-    { label: "Vai trò", className: AN_BANG },
-    { label: "Nơi làm việc" },
-    { label: "Số điện thoại", className: AN_BANG },
-    { label: "Trạng thái" },
-    { label: "Ngày tạo", className: AN_BANG },
-    { label: "Thao tác", center: true, sticky: true, className: "w-px" },
+    { label: t("Người dùng") },
+    { label: t("Tên đăng nhập"), className: AN_BANG },
+    { label: t("Vai trò"), className: AN_BANG },
+    { label: t("Nơi làm việc") },
+    { label: t("Số điện thoại"), className: AN_BANG },
+    { label: t("Trạng thái") },
+    { label: t("Ngày tạo"), className: AN_BANG },
+    { label: t("Thao tác"), center: true, sticky: true, className: "w-px" },
 ];
 
 // Viền + bóng bên trái cột ghim — chỉ bật khi còn cột bị che phía dưới.
 const STICKY_EDGE = "border-l border-bo-border shadow-[-6px_0_8px_-6px_rgb(15_23_42/0.15)]";
-const LOAD_ERROR_MESSAGE = "Không thể tải danh sách người dùng. Vui lòng thử lại.";
+const LOAD_ERROR_MESSAGE = t("Không thể tải danh sách người dùng. Vui lòng thử lại.");
 // Dòng người dùng vừa tạo được tô nền trong chừng này thời gian để dễ nhận ra.
 const NEW_ROW_HIGHLIGHT_MS = 4000;
 
@@ -117,7 +118,7 @@ const DEFAULT_FILTERS = {
     size: SO_DONG_MAC_DINH,
 };
 
-const formatRole = (role) => ROLES.find((r) => r.value === role)?.label || role || "—";
+const formatRole = (role) => t(ROLES.find((r) => r.value === role)?.label) || role || "—";
 
 /** Gọi tên trong câu (hộp xác nhận, thông báo): họ tên kèm tên đăng nhập, vì họ tên không duy nhất. */
 function tenTrongCau(user) {
@@ -132,11 +133,11 @@ function tenTrongCau(user) {
  * Quản trị viên toàn quyền ở mọi kho. Máy chủ bản cũ chưa trả trường này thì ghi "—" thay vì báo nhầm "Chưa có kho".
  */
 function KhoPhuTrach({ user }) {
-    if (user.vaiTro === QUAN_TRI_VIEN) return <span className="text-bo-muted">Mọi kho</span>;
+    if (user.vaiTro === QUAN_TRI_VIEN) return <span className="text-bo-muted">{t("Mọi kho")}</span>;
     if (!canKho(user.vaiTro) || !Object.prototype.hasOwnProperty.call(user, "khoPhuTrachHieuLuc")) {
         return <span className="text-bo-muted">—</span>;
     }
-    if (!user.khoPhuTrachHieuLuc) return <StatusBadge label="Chưa có kho" />;
+    if (!user.khoPhuTrachHieuLuc) return <StatusBadge /* i18n-giu-nguyen: StatusBadge tự dịch */ label="Chưa có kho" />;
 
     const tenKho = user.khoPhuTrachHieuLuc.tenKho || user.khoPhuTrachHieuLuc.maKho || "—";
     // Cùng mốc nhắc gia hạn với Hồ sơ: còn ≤ 7 ngày thì chữ cam "Hết hiệu lực …"
@@ -153,7 +154,7 @@ function KhoPhuTrach({ user }) {
                         hieuLuc.sapHet ? "font-medium text-bo-warning" : "text-bo-muted"
                     )}
                 >
-                    {hieuLuc.sapHet ? `Hết hiệu lực ${hieuLuc.denNgay}` : `Đến ${hieuLuc.denNgay}`}
+                    {hieuLuc.sapHet ? t("Hết hiệu lực {{denNgay}}", { denNgay: hieuLuc.denNgay }) : t("Đến {{denNgay}}", { denNgay: hieuLuc.denNgay })}
                 </div>
             ) : null}
         </div>
@@ -406,11 +407,11 @@ export default function ViewUserListByAdmin() {
     const handleUserCreated = (user) => {
         // Vai trò dùng kho thường cần phân kho ngay sau khi tạo: mở thẳng ngăn kéo Phân quyền ở trang chi tiết.
         const canAssignWarehouse = user.id != null && canKho(user.vaiTro);
-        toast.success("Đã tạo tài khoản.", {
-            description: `Liên kết đặt mật khẩu cho ${user.tenDangNhap} sẽ được gửi tới ${user.email}.`,
+        toast.success(t("Đã tạo tài khoản."), {
+            description: t("Liên kết đặt mật khẩu cho {{tenDangNhap}} sẽ được gửi tới {{email}}.", { tenDangNhap: user.tenDangNhap, email: user.email }),
             action: canAssignWarehouse
                 ? {
-                      label: "Phân quyền",
+                      label: t("Phân quyền"),
                       onClick: () => navigate(`/users/${user.id}?phan-quyen=1`, { state: detailLinkState }),
                   }
                 : undefined,
@@ -462,13 +463,13 @@ export default function ViewUserListByAdmin() {
         try {
             await adminService.resetUserPasswordRandomByAdmin(user.id);
             // Email đi sau khi lưu, qua hàng đợi (có thể thử lại): "sẽ được gửi", như hộp Thêm người dùng
-            toast.success(`Liên kết đặt lại mật khẩu sẽ được gửi tới ${user.email}.`);
+            toast.success(t("Liên kết đặt lại mật khẩu sẽ được gửi tới {{email}}.", { email: user.email }));
             setResetDialog((d) => ({ ...d, open: false }));
             // Dòng phụ "Chưa đặt mật khẩu riêng" hiện ngay, không cần tải lại trang
             fetchUsers({ silent: true });
         } catch (err) {
             setResettingUser(false);
-            toast.error(getApiErrorMessage(err, "Không gửi được liên kết đặt lại mật khẩu"));
+            toast.error(getApiErrorMessage(err, t("Không gửi được liên kết đặt lại mật khẩu")));
         }
     };
 
@@ -483,16 +484,16 @@ export default function ViewUserListByAdmin() {
             const moiNhat = await adminService.getByIdByAdmin(user.id);
             const trangThaiMoiNhat = moiNhat?.data?.trangThai;
             if (trangThaiMoiNhat != null && (trangThaiMoiNhat === 1) !== dangHoatDong) {
-                toast.warning("Tài khoản này vừa được đổi trạng thái ở nơi khác.", {
-                    description: "Danh sách đã được tải lại, hãy kiểm tra rồi thao tác lại.",
+                toast.warning(t("Tài khoản này vừa được đổi trạng thái ở nơi khác."), {
+                    description: t("Danh sách đã được tải lại, hãy kiểm tra rồi thao tác lại."),
                 });
                 setToggleDialog((d) => ({ ...d, open: false }));
             } else {
                 await adminService.toggleUserStatusByAdmin(user.id);
                 toast.success(
                     dangHoatDong
-                        ? `Đã khóa tài khoản ${tenTrongCau(user)}.`
-                        : `Đã mở khóa tài khoản ${tenTrongCau(user)}.`
+                        ? t("Đã khóa tài khoản {{ten}}.", { ten: tenTrongCau(user) })
+                        : t("Đã mở khóa tài khoản {{ten}}.", { ten: tenTrongCau(user) })
                 );
                 setToggleDialog((d) => ({ ...d, open: false }));
             }
@@ -500,7 +501,7 @@ export default function ViewUserListByAdmin() {
             tabCounts.reload();
         } catch (err) {
             setTogglingUser(false);
-            toast.error(getApiErrorMessage(err, "Không thể cập nhật trạng thái tài khoản"));
+            toast.error(getApiErrorMessage(err, t("Không thể cập nhật trạng thái tài khoản")));
         }
     };
 
@@ -526,7 +527,7 @@ export default function ViewUserListByAdmin() {
                         className="bg-bo-primary text-white hover:bg-bo-primary-hover"
                     >
                         <Plus className="size-4" />
-                        Thêm người dùng
+                        {t("Thêm người dùng")}
                     </Button>
                 }
             />
@@ -538,7 +539,7 @@ export default function ViewUserListByAdmin() {
                     <ListToolbar
                         tabs={
                             <StatusTabs
-                                label="Lọc người dùng theo trạng thái"
+                                label={t("Lọc người dùng theo trạng thái")}
                                 tabs={statusTabs}
                                 value={filters.trangThai}
                                 onChange={(value) => changeFilter("trangThai", value)}
@@ -548,8 +549,8 @@ export default function ViewUserListByAdmin() {
                         onClear={clearFilters}
                     >
                         <SearchInput
-                            label="Tìm người dùng"
-                            placeholder="Tên, tên đăng nhập, email hoặc SĐT"
+                            label={t("Tìm người dùng")}
+                            placeholder={t("Tên, tên đăng nhập, email hoặc SĐT")}
                             value={searchText}
                             onChange={(e) => setSearchText(e.target.value)}
                             onKeyDown={(e) => {
@@ -562,7 +563,7 @@ export default function ViewUserListByAdmin() {
                             className="sm:w-[340px]"
                         />
                         <FilterSelect
-                            label="Lọc theo vai trò"
+                            label={t("Lọc theo vai trò")}
                             value={filters.vaiTro}
                             options={ROLE_OPTIONS}
                             onChange={(value) => changeFilter("vaiTro", value)}
@@ -590,7 +591,7 @@ export default function ViewUserListByAdmin() {
                 }
             >
                 {loading ? (
-                    <LoadingState label="Đang tải danh sách người dùng" />
+                    <LoadingState label={t("Đang tải danh sách người dùng")} />
                 ) : loadError ? (
                     <ErrorState
                         description={loadError?.response?.data?.message || LOAD_ERROR_MESSAGE}
@@ -604,15 +605,15 @@ export default function ViewUserListByAdmin() {
                     hasActiveFilters ? (
                         <EmptyState
                             icon={SearchX}
-                            title="Không tìm thấy người dùng phù hợp"
-                            description="Thử đổi từ khóa hoặc bỏ bớt bộ lọc."
+                            title={t("Không tìm thấy người dùng phù hợp")}
+                            description={t("Thử đổi từ khóa hoặc bỏ bớt bộ lọc.")}
                             action={
                                 <Button
                                     variant="outline"
                                     onClick={clearFilters}
                                     className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
-                                    Xóa lọc
+                                    {t("Xóa lọc")}
                                 </Button>
                             }
                         />
@@ -620,22 +621,22 @@ export default function ViewUserListByAdmin() {
                         <EmptyState
                             icon={Users}
                             title={EMPTY_TAB_TITLE[filters.trangThai]}
-                            description="Chọn tab Tất cả để xem mọi tài khoản."
+                            description={t("Chọn tab Tất cả để xem mọi tài khoản.")}
                             action={
                                 <Button
                                     variant="outline"
                                     onClick={() => changeFilter("trangThai", "ALL")}
                                     className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
-                                    Xem tất cả
+                                    {t("Xem tất cả")}
                                 </Button>
                             }
                         />
                     ) : (
                         <EmptyState
                             icon={Users}
-                            title="Chưa có người dùng"
-                            description="Thêm tài khoản cho nhân viên để họ đăng nhập vào hệ thống."
+                            title={t("Chưa có người dùng")}
+                            description={t("Thêm tài khoản cho nhân viên để họ đăng nhập vào hệ thống.")}
                         />
                     )
                 ) : (
@@ -674,11 +675,11 @@ export default function ViewUserListByAdmin() {
                                                     </span>
                                                     {isCurrentUser(u) ? (
                                                         <span className="shrink-0 rounded-full bg-bo-primary-soft px-1.5 py-0.5 text-[10px] font-semibold text-bo-primary">
-                                                            Bạn
+                                                            {t("Bạn")}
                                                         </span>
                                                     ) : null}
                                                 </span>
-                                                <StatusBadge doiTuong="nguoi" label={isActive ? "Hoạt động" : "Bị khóa"} />
+                                                <StatusBadge /* i18n-giu-nguyen: StatusBadge tự dịch */ doiTuong="nguoi" label={isActive ? "Hoạt động" : "Bị khóa"} />
                                             </span>
                                             <span className="truncate text-[13px] text-bo-muted">
                                                 {formatRole(u.vaiTro)} · {u.tenDangNhap}
@@ -687,7 +688,7 @@ export default function ViewUserListByAdmin() {
                                                 <KhoPhuTrach user={u} />
                                             </span>
                                             {u.mustChangePassword ? (
-                                                <span className="text-xs leading-4 text-bo-muted">Chưa đặt mật khẩu riêng</span>
+                                                <span className="text-xs leading-4 text-bo-muted">{t("Chưa đặt mật khẩu riêng")}</span>
                                             ) : null}
                                         </span>
                                     </Link>
@@ -783,7 +784,7 @@ export default function ViewUserListByAdmin() {
                                                         </Link>
                                                         {isSelf ? (
                                                             <span className="shrink-0 rounded-full bg-bo-primary-soft px-1.5 py-0.5 text-[10px] font-semibold text-bo-primary">
-                                                                Bạn
+                                                                {t("Bạn")}
                                                             </span>
                                                         ) : null}
                                                     </div>
@@ -791,7 +792,7 @@ export default function ViewUserListByAdmin() {
                                                         className="max-w-[260px] truncate text-[13px] leading-[18px] text-bo-muted cam-ung:max-lg:max-w-[200px]"
                                                         title={email || undefined}
                                                     >
-                                                        {email || "Chưa có email"}
+                                                        {email || t("Chưa có email")}
                                                     </div>
                                                     {/* Máy tính bảng dọc: cột Vai trò, Tên đăng nhập đã ẩn, ghi thành dòng phụ */}
                                                     <div className="hidden max-w-[200px] truncate text-[13px] leading-[18px] text-slate-600 cam-ung:max-lg:block">
@@ -821,10 +822,10 @@ export default function ViewUserListByAdmin() {
                                         </td>
 
                                         <td className="px-4 py-2.5">
-                                            <StatusBadge doiTuong="nguoi" label={isActive ? "Hoạt động" : "Bị khóa"} />
+                                            <StatusBadge /* i18n-giu-nguyen: StatusBadge tự dịch */ doiTuong="nguoi" label={isActive ? "Hoạt động" : "Bị khóa"} />
                                             {u.mustChangePassword ? (
                                                 <div className="mt-1 whitespace-nowrap text-xs leading-4 text-bo-muted cam-ung:max-lg:whitespace-normal">
-                                                    Chưa đặt mật khẩu riêng
+                                                    {t("Chưa đặt mật khẩu riêng")}
                                                 </div>
                                             ) : null}
                                         </td>
@@ -855,8 +856,8 @@ export default function ViewUserListByAdmin() {
                                                     <button
                                                         type="button"
                                                         data-menu-nguoi-dung={u.id}
-                                                        aria-label={`Thao tác với ${tenTrongCau(u)}`}
-                                                        title="Thao tác"
+                                                        aria-label={t("Thao tác với {{ten}}", { ten: tenTrongCau(u) })}
+                                                        title={t("Thao tác")}
                                                         className={NUT_MENU}
                                                     >
                                                         <Ellipsis className="size-4" aria-hidden="true" />
@@ -871,7 +872,7 @@ export default function ViewUserListByAdmin() {
                                                         className={MUC_MENU}
                                                     >
                                                         <Eye className="mt-0.5 size-4 text-slate-400" aria-hidden="true" />
-                                                        <span className="font-medium text-bo-foreground">Xem chi tiết</span>
+                                                        <span className="font-medium text-bo-foreground">{t("Xem chi tiết")}</span>
                                                     </DropdownMenuItem>
                                                     <DropdownMenuItem
                                                         disabled={isSelf}
@@ -882,13 +883,13 @@ export default function ViewUserListByAdmin() {
                                                     >
                                                         <ShieldCheck className="mt-0.5 size-4 text-slate-400" aria-hidden="true" />
                                                         <span className="flex min-w-0 flex-col gap-0.5">
-                                                            <span className="font-medium text-bo-foreground">Phân quyền</span>
+                                                            <span className="font-medium text-bo-foreground">{t("Phân quyền")}</span>
                                                             <span className="text-xs leading-4 text-bo-muted">
                                                                 {isSelf
-                                                                    ? "Bạn không tự phân quyền cho chính mình được"
+                                                                    ? t("Bạn không tự phân quyền cho chính mình được")
                                                                     : u.vaiTro === QUAN_TRI_VIEN
-                                                                      ? "Vai trò · quản trị viên có toàn quyền ở mọi kho"
-                                                                      : "Vai trò, kho làm việc và quyền"}
+                                                                      ? t("Vai trò · quản trị viên có toàn quyền ở mọi kho")
+                                                                      : t("Vai trò, kho làm việc và quyền")}
                                                             </span>
                                                         </span>
                                                     </DropdownMenuItem>
@@ -899,13 +900,13 @@ export default function ViewUserListByAdmin() {
                                                     >
                                                         <KeyRound className="mt-0.5 size-4 text-slate-400" aria-hidden="true" />
                                                         <span className="flex min-w-0 flex-col gap-0.5">
-                                                            <span className="font-medium text-bo-foreground">Gửi liên kết đặt lại mật khẩu</span>
+                                                            <span className="font-medium text-bo-foreground">{t("Gửi liên kết đặt lại mật khẩu")}</span>
                                                             <span className="break-all text-xs leading-4 text-bo-muted">
                                                                 {isSelf
-                                                                    ? "Tài khoản của bạn: dùng Đổi mật khẩu"
+                                                                    ? t("Tài khoản của bạn: dùng Đổi mật khẩu")
                                                                     : email
-                                                                      ? `Người dùng tự đặt mật khẩu mới qua email ${email}`
-                                                                      : "Tài khoản chưa có email nên không gửi được"}
+                                                                      ? t("Người dùng tự đặt mật khẩu mới qua email {{email}}", { email })
+                                                                      : t("Tài khoản chưa có email nên không gửi được")}
                                                             </span>
                                                         </span>
                                                     </DropdownMenuItem>
@@ -918,11 +919,11 @@ export default function ViewUserListByAdmin() {
                                                         >
                                                             <Lock className="mt-0.5 size-4 text-bo-danger" aria-hidden="true" />
                                                             <span className="flex min-w-0 flex-col gap-0.5">
-                                                                <span className="font-medium text-bo-danger">Khóa tài khoản</span>
+                                                                <span className="font-medium text-bo-danger">{t("Khóa tài khoản")}</span>
                                                                 <span className="text-xs leading-4 text-bo-muted">
                                                                     {isSelf
-                                                                        ? "Không thể tự khóa tài khoản của mình"
-                                                                        : "Không đăng nhập được · phiếu và lịch sử giữ nguyên"}
+                                                                        ? t("Không thể tự khóa tài khoản của mình")
+                                                                        : t("Không đăng nhập được · phiếu và lịch sử giữ nguyên")}
                                                                 </span>
                                                             </span>
                                                         </DropdownMenuItem>
@@ -933,9 +934,9 @@ export default function ViewUserListByAdmin() {
                                                         >
                                                             <LockOpen className="mt-0.5 size-4 text-bo-success" aria-hidden="true" />
                                                             <span className="flex min-w-0 flex-col gap-0.5">
-                                                                <span className="font-medium text-bo-foreground">Mở khóa tài khoản</span>
+                                                                <span className="font-medium text-bo-foreground">{t("Mở khóa tài khoản")}</span>
                                                                 <span className="text-xs leading-4 text-bo-muted">
-                                                                    Người dùng đăng nhập lại được
+                                                                    {t("Người dùng đăng nhập lại được")}
                                                                 </span>
                                                             </span>
                                                         </DropdownMenuItem>
@@ -967,28 +968,25 @@ export default function ViewUserListByAdmin() {
                     onCloseAutoFocus={(e) => traFocusVeNutMenu(e, resetTarget)}
                 >
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Gửi liên kết đặt lại mật khẩu cho {tenTrongCau(resetTarget)}?</AlertDialogTitle>
+                        <AlertDialogTitle>{t("Gửi liên kết đặt lại mật khẩu cho {{tenHienThi}}?", { tenHienThi: tenTrongCau(resetTarget) })}</AlertDialogTitle>
                         {/* asChild: Description mặc định render <p>; bên trong có <p> sẽ sai cấu trúc HTML */}
                         <AlertDialogDescription asChild>
                             <div className="space-y-2 text-sm text-slate-600">
                                 <p>
-                                    Hệ thống gửi tới{" "}
-                                    <span className="font-medium text-slate-900">{resetTarget?.email}</span> một liên kết
-                                    để người dùng tự đặt mật khẩu mới (dùng một lần, hết hạn sau {HAN_LIEN_KET_MAT_KHAU}). Mật khẩu hiện
-                                    tại hết hiệu lực ngay và mọi thiết bị đang đăng nhập bị đăng xuất.
+                                    {t("Hệ thống gửi tới")}{" "}
+                                    <span className="font-medium text-slate-900">{resetTarget?.email}</span> {t("một liên kết để người dùng tự đặt mật khẩu mới (dùng một lần, hết hạn sau {{han}}). Mật khẩu hiện tại hết hiệu lực ngay và mọi thiết bị đang đăng nhập bị đăng xuất.", { han: HAN_LIEN_KET_MAT_KHAU })}
                                 </p>
                                 {resetTarget && resetTarget.trangThai !== 1 ? (
                                     <p className="flex items-start gap-1.5 text-xs font-medium text-bo-warning">
                                         <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-                                        Tài khoản đang bị khóa: người dùng vẫn đặt được mật khẩu, nhưng chỉ đăng nhập được
-                                        sau khi được mở khóa.
+                                        {t("Tài khoản đang bị khóa: người dùng vẫn đặt được mật khẩu, nhưng chỉ đăng nhập được sau khi được mở khóa.")}
                                     </p>
                                 ) : null}
                             </div>
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter className="gap-2 sm:justify-end">
-                        <AlertDialogCancel disabled={resettingUser}>Hủy</AlertDialogCancel>
+                        <AlertDialogCancel disabled={resettingUser}>{t("Hủy")}</AlertDialogCancel>
                         <AlertDialogAction
                             disabled={resettingUser || !resetTarget?.email}
                             onClick={(e) => {
@@ -997,7 +995,7 @@ export default function ViewUserListByAdmin() {
                             }}
                             className="bg-bo-primary text-white hover:bg-bo-primary-hover"
                         >
-                            {resettingUser ? "Đang gửi..." : "Gửi liên kết"}
+                            {resettingUser ? t("Đang gửi...") : t("Gửi liên kết")}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
@@ -1017,17 +1015,17 @@ export default function ViewUserListByAdmin() {
                     <AlertDialogHeader>
                         <AlertDialogTitle>
                             {toggleTargetActive
-                                ? `Khóa tài khoản ${tenTrongCau(toggleTarget)}?`
-                                : `Mở khóa tài khoản ${tenTrongCau(toggleTarget)}?`}
+                                ? t("Khóa tài khoản {{tenHienThi}}?", { tenHienThi: tenTrongCau(toggleTarget) })
+                                : t("Mở khóa tài khoản {{tenHienThi}}?", { tenHienThi: tenTrongCau(toggleTarget) })}
                         </AlertDialogTitle>
                         <AlertDialogDescription>
                             {toggleTargetActive
-                                ? "Người dùng bị đăng xuất ở thao tác tiếp theo và không đăng nhập được cho tới khi mở khóa. Phiếu, đơn và lịch sử do người này tạo vẫn giữ nguyên."
-                                : "Người dùng đăng nhập lại được bằng mật khẩu hiện tại. Vai trò, nơi làm việc và quyền giữ như trước khi khóa."}
+                                ? t("Người dùng bị đăng xuất ở thao tác tiếp theo và không đăng nhập được cho tới khi mở khóa. Phiếu, đơn và lịch sử do người này tạo vẫn giữ nguyên.")
+                                : t("Người dùng đăng nhập lại được bằng mật khẩu hiện tại. Vai trò, nơi làm việc và quyền giữ như trước khi khóa.")}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter className="gap-2 sm:justify-end">
-                        <AlertDialogCancel disabled={togglingUser}>Hủy</AlertDialogCancel>
+                        <AlertDialogCancel disabled={togglingUser}>{t("Hủy")}</AlertDialogCancel>
                         <AlertDialogAction
                             disabled={togglingUser}
                             onClick={(e) => {
@@ -1041,10 +1039,10 @@ export default function ViewUserListByAdmin() {
                             }
                         >
                             {togglingUser
-                                ? "Đang xử lý..."
+                                ? t("Đang xử lý...")
                                 : toggleTargetActive
-                                  ? "Khóa tài khoản"
-                                  : "Mở khóa tài khoản"}
+                                  ? t("Khóa tài khoản")
+                                  : t("Mở khóa tài khoản")}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

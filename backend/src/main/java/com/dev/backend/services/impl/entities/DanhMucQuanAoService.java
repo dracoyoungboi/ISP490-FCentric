@@ -11,6 +11,7 @@ import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.repository.DanhMucQuanAoRepository;
 import com.dev.backend.services.impl.BaseServiceImpl;
 import com.dev.backend.services.impl.kiemke.KhoaKiemKeGuard;
+import com.dev.backend.i18n.ThongDiep;
 import jakarta.persistence.EntityManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -75,10 +76,10 @@ public class DanhMucQuanAoService extends BaseServiceImpl<DanhMucQuanAo, Integer
         while (hienTai != null) {
             Integer id = hienTai.getId();
             if (Objects.equals(id, idDangSua)) {
-                throw new CommonException("Không thể chuyển danh mục vào nhánh con của chính nó");
+                throw new CommonException(ThongDiep.of("sanPhamMuaHang.danhMucKhongChuyenVaoNhanhCon"));
             }
             if (!daDiQua.add(id)) {
-                throw new CommonException("Dữ liệu danh mục cha đang bị lỗi vòng lặp, không chuyển vào đây được");
+                throw new CommonException(ThongDiep.of("sanPhamMuaHang.danhMucChaLoiVongLap"));
             }
             hienTai = hienTai.getDanhMucCha();
         }
@@ -99,7 +100,7 @@ public class DanhMucQuanAoService extends BaseServiceImpl<DanhMucQuanAo, Integer
                 .findByMaDanhMuc(creating.getMaDanhMuc());
         if (findingDanhMucQuanAo.isPresent()) {
             // Mã đã tồn tại → ném exception → GlobalExceptionHandler trả 400 cho Frontend
-            throw new CommonException("Mã danh mục đã tồn tại");
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.danhMucMaDaTonTai"));
         }
 
         // Bước 2 – Map RequestDTO → Entity (không nhận Entity trực tiếp từ FE để tránh lỗ hổng bảo mật)
@@ -114,7 +115,7 @@ public class DanhMucQuanAoService extends BaseServiceImpl<DanhMucQuanAo, Integer
         if (creating.getDanhMucChaId() != null) {
             // Repository sinh SQL: SELECT * FROM danh_muc_quan_ao WHERE id = ?
             DanhMucQuanAo danhMucCha = getOne(creating.getDanhMucChaId()).orElseThrow(
-                    () -> new CommonException("Danh mục cha không tồn tại id: " + creating.getDanhMucChaId())
+                    () -> new CommonException(ThongDiep.of("sanPhamMuaHang.danhMucChaKhongTonTai", creating.getDanhMucChaId()))
             );
             danhMucQuanAo.setDanhMucCha(danhMucCha);
         } else {
@@ -142,7 +143,7 @@ public class DanhMucQuanAoService extends BaseServiceImpl<DanhMucQuanAo, Integer
 
         // Bước 1 – Kiểm tra danh mục cần cập nhật có tồn tại không; không có → ném exception 400
         DanhMucQuanAo danhMucQuanAo = getOne(updating.getId()).orElseThrow(
-                () -> new CommonException("Không tìm thấy danh mục id: " + updating.getId())
+                () -> new CommonException(ThongDiep.of("sanPhamMuaHang.danhMucKhongTimThay", updating.getId()))
         );
 
         Map<String, Object> truoc = anhDanhMuc(danhMucQuanAo);
@@ -161,18 +162,18 @@ public class DanhMucQuanAoService extends BaseServiceImpl<DanhMucQuanAo, Integer
         if (updating.getDanhMucChaId() != null) {
 
             if (updating.getDanhMucChaId().equals(updating.getId())) {
-                throw new CommonException("Không thể gán danh mục cha cho chính nó");
+                throw new CommonException(ThongDiep.of("sanPhamMuaHang.danhMucKhongGanChaChinhNo"));
             }
 
             // Kiểm tra danh mục cha tồn tại trong DB
             DanhMucQuanAo danhMucCha = getOne(updating.getDanhMucChaId()).orElseThrow(
-                    () -> new CommonException("Danh mục cha không tồn tại id: " + updating.getDanhMucChaId())
+                    () -> new CommonException(ThongDiep.of("sanPhamMuaHang.danhMucChaKhongTonTai", updating.getDanhMucChaId()))
             );
 
             // Không cho phép gán cha đang bị khoá (trangThai = 0).
             // So sánh an toàn với null: trước đây `getTrangThai() == 0` ném NullPointerException (lỗi 500) khi cha có trạng thái trống
             if (dangNgungHoatDong(danhMucCha)) {
-                throw new CommonException("Danh mục cha đã bị xoá");
+                throw new CommonException(ThongDiep.of("sanPhamMuaHang.danhMucChaDaBiXoa"));
             }
 
             // Không cho chuyển vào nhánh con của chính nó (tạo vòng lặp cha–con)
@@ -200,7 +201,7 @@ public class DanhMucQuanAoService extends BaseServiceImpl<DanhMucQuanAo, Integer
                 ResponseData.<String>builder()
                         .status(HttpStatus.OK.value())
                         .data("Success")
-                        .message("Cập nhật danh mục thành công")
+                        .message(ThongDiep.dich("sanPhamMuaHang.danhMucCapNhatThanhCong"))
                         .build()
         );
     }
@@ -209,7 +210,7 @@ public class DanhMucQuanAoService extends BaseServiceImpl<DanhMucQuanAo, Integer
     @Transactional
     public void xoaMem(Integer id) {
         DanhMucQuanAo danhMuc = getOne(id).orElseThrow(
-                () -> new CommonException("Không tìm thấy danh mục id: " + id)
+                () -> new CommonException(ThongDiep.of("sanPhamMuaHang.danhMucKhongTimThay", id))
         );
         Map<String, Object> truoc = anhDanhMuc(danhMuc);
         boolean daNgung = java.util.Objects.equals(danhMuc.getTrangThai(), TRANG_THAI_NGUNG);

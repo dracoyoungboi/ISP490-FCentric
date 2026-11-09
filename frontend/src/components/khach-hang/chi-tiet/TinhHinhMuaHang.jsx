@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 // 5 ô: rộng thì một hàng; hẹp thì 2 cột, ô cuối (Còn phải thu) trải hết hàng thứ ba
 const O_LOP =
@@ -7,7 +8,7 @@ const O_LOP =
 
 function DangTai() {
   return (
-    <div className="@container border-t border-bo-border bg-bo-surface-subtle" aria-busy="true" aria-label="Đang tải tình hình mua hàng">
+    <div className="@container border-t border-bo-border bg-bo-surface-subtle" aria-busy="true" aria-label={t("Đang tải tình hình mua hàng")}>
       <div className="grid grid-cols-2 @5xl:grid-cols-5">
         {[0, 1, 2, 3, 4].map((i) => (
           <div key={i} className={O_LOP}>
@@ -30,7 +31,7 @@ export default function TinhHinhMuaHang({ kpi, dangTai, loi, onThuLai }) {
   if (dangTai) return <DangTai />;
 
   return (
-    <section aria-label="Tình hình mua hàng" className="@container border-t border-bo-border bg-bo-surface-subtle">
+    <section aria-label={t("Tình hình mua hàng")} className="@container border-t border-bo-border bg-bo-surface-subtle">
       <div className="grid grid-cols-2 @5xl:grid-cols-5">
         {kpi.map((o, i) => {
           const coGiaTri = !loi && o.coGiaTri;
@@ -39,17 +40,17 @@ export default function TinhHinhMuaHang({ kpi, dangTai, loi, onThuLai }) {
             phu =
               i === kpi.length - 1 ? (
                 <>
-                  Không tải được ·{" "}
+                  {t("Không tải được ·")}{" "}
                   <button
                     type="button"
                     onClick={onThuLai}
                     className="font-medium text-bo-primary hover:text-bo-primary-hover hover:underline"
                   >
-                    Thử lại
+                    {t("Thử lại")}
                   </button>
                 </>
               ) : (
-                "Không tải được"
+                t("Không tải được")
               );
           } else if (o.donGanNhat) {
             phu = (

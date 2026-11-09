@@ -3,6 +3,8 @@
  * để hai phía báo cùng một câu. Không có JSX để chạy kiểm thử bằng node --test, nên import bằng đường dẫn tương đối.
  */
 import { nhanDiaChi } from "./chi-tiet/tinhKhachHang.js";
+import { t } from "../../i18n/t.js";
+import { cauGocMayChu } from "../../i18n/cauGoc.js";
 
 export { nhanDiaChi };
 
@@ -19,9 +21,9 @@ export const MAX_LENGTH = {
 
 /** Ba loại khách (cột loai_khach_hang); thêm mới chọn sẵn Khách lẻ như mặc định của cột. */
 export const LOAI_KHACH_HANG = [
-  { value: "le", label: "Khách lẻ", moTa: "Cá nhân mua để dùng" },
-  { value: "si", label: "Khách sỉ", moTa: "Cửa hàng, đại lý mua để bán lại" },
-  { value: "doanh_nghiep", label: "Doanh nghiệp", moTa: "Công ty mua theo báo giá" },
+  { value: "le", label: t("Khách lẻ"), moTa: t("Cá nhân mua để dùng") },
+  { value: "si", label: t("Khách sỉ"), moTa: t("Cửa hàng, đại lý mua để bán lại") },
+  { value: "doanh_nghiep", label: t("Doanh nghiệp"), moTa: t("Công ty mua theo báo giá") },
 ];
 const LOAI_HOP_LE = LOAI_KHACH_HANG.map((loai) => loai.value);
 export const LOAI_MAC_DINH_KHI_THEM = "le";
@@ -31,13 +33,13 @@ export const THU_TU_O = ["loaiKhachHang", "tenKhachHang", "maKhachHang", "maSoTh
 
 /** Tên ô trong dòng "Đã sửa: …" ở chân popup. */
 export const NHAN_O = {
-  loaiKhachHang: "Loại khách",
-  tenKhachHang: "Tên",
-  maSoThue: "Mã số thuế",
-  nguoiLienHe: "Người liên hệ",
-  soDienThoai: "Số điện thoại",
+  loaiKhachHang: t("Loại khách"),
+  tenKhachHang: t("Tên"),
+  maSoThue: t("Mã số thuế"),
+  nguoiLienHe: t("Người liên hệ"),
+  soDienThoai: t("Số điện thoại"),
   email: "Email",
-  diaChi: "Địa chỉ",
+  diaChi: t("Địa chỉ"),
 };
 
 const MA_REGEX = /^[A-Za-z0-9._-]+$/;
@@ -47,11 +49,11 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SO_DIEN_THOAI_REGEX = /^(0[35789][0-9]{8}|02[0-9]{9}|1[89]00[0-9]{4,6})$/;
 // Trùng MA_SO_THUE_PATTERN của backend: doanh nghiệp 10 số, đơn vị phụ thuộc thêm "-3 số"; hộ/cá nhân kinh doanh 12 số.
 const MA_SO_THUE_REGEX = /^(\d{10}(-\d{3})?|\d{12})$/;
-export const MA_SO_THUE_MESSAGE = "Mã số thuế gồm 10 số (đơn vị phụ thuộc thêm -3 số) hoặc 12 số";
+export const MA_SO_THUE_MESSAGE = t("Mã số thuế gồm 10 số (đơn vị phụ thuộc thêm -3 số) hoặc 12 số");
 
-export const CAN_LIEN_HE = "Cần số điện thoại hoặc email để liên hệ khách hàng";
+export const CAN_LIEN_HE = t("Cần số điện thoại hoặc email để liên hệ khách hàng");
 export const SO_DIEN_THOAI_MESSAGE =
-  "Số điện thoại chưa đúng: di động 10 số, máy bàn 11 số (02…) hoặc tổng đài 1800/1900";
+  t("Số điện thoại chưa đúng: di động 10 số, máy bàn 11 số (02…) hoặc tổng đài 1800/1900");
 
 const gon = (value) => String(value ?? "").normalize("NFC").trim();
 
@@ -101,9 +103,9 @@ export function formTuKhachHang(khachHang) {
 
 /** Gợi ý ô tên theo loại khách. */
 export function goiYTen(loai) {
-  if (loai === "si") return "VD: Cửa hàng Thời trang An Phát";
-  if (loai === "doanh_nghiep") return "VD: Công ty TNHH Thời trang Minh Khôi";
-  return "VD: Nguyễn Văn An";
+  if (loai === "si") return t("VD: Cửa hàng Thời trang An Phát");
+  if (loai === "doanh_nghiep") return t("VD: Công ty TNHH Thời trang Minh Khôi");
+  return t("VD: Nguyễn Văn An");
 }
 
 /** Người liên hệ: hiện với khách sỉ, doanh nghiệp, hoặc khi khách đã có dữ liệu (đổi sang Khách lẻ không làm mất). */
@@ -146,32 +148,32 @@ export function kiemTraForm(form, { laSua = false, banDau = FORM_THEM } = {}) {
   const giuNguyen = (name) => laSua && gon(form[name]) === gon(banDau[name]);
 
   const ten = gon(form.tenKhachHang);
-  if (!ten) loi.tenKhachHang = "Nhập tên khách hàng";
-  else if (ten.length > MAX_LENGTH.tenKhachHang) loi.tenKhachHang = "Tên khách hàng tối đa 200 ký tự";
+  if (!ten) loi.tenKhachHang = t("Nhập tên khách hàng");
+  else if (ten.length > MAX_LENGTH.tenKhachHang) loi.tenKhachHang = t("Tên khách hàng tối đa 200 ký tự");
 
   if (!laSua) {
     const ma = gon(form.maKhachHang);
-    if (ma.length > MAX_LENGTH.maKhachHang) loi.maKhachHang = "Mã khách hàng tối đa 50 ký tự";
-    else if (ma && !MA_REGEX.test(ma)) loi.maKhachHang = "Mã chỉ gồm chữ không dấu, số và . _ -";
+    if (ma.length > MAX_LENGTH.maKhachHang) loi.maKhachHang = t("Mã khách hàng tối đa 50 ký tự");
+    else if (ma && !MA_REGEX.test(ma)) loi.maKhachHang = t("Mã chỉ gồm chữ không dấu, số và . _ -");
   }
 
   const maSoThue = gon(form.maSoThue);
   if (maSoThue && !giuNguyen("maSoThue") && !MA_SO_THUE_REGEX.test(maSoThue)) loi.maSoThue = MA_SO_THUE_MESSAGE;
 
-  if (gon(form.nguoiLienHe).length > MAX_LENGTH.nguoiLienHe) loi.nguoiLienHe = "Người liên hệ tối đa 100 ký tự";
+  if (gon(form.nguoiLienHe).length > MAX_LENGTH.nguoiLienHe) loi.nguoiLienHe = t("Người liên hệ tối đa 100 ký tự");
 
   const sdt = gon(form.soDienThoai);
   const email = gon(form.email);
   if (sdt && !giuNguyen("soDienThoai") && !SO_DIEN_THOAI_REGEX.test(sdt)) loi.soDienThoai = SO_DIEN_THOAI_MESSAGE;
   if (email && !giuNguyen("email")) {
-    if (email.length > MAX_LENGTH.email) loi.email = "Email tối đa 100 ký tự";
-    else if (!EMAIL_REGEX.test(email)) loi.email = "Email chưa đúng, VD: ten@congty.vn";
+    if (email.length > MAX_LENGTH.email) loi.email = t("Email tối đa 100 ký tự");
+    else if (!EMAIL_REGEX.test(email)) loi.email = t("Email chưa đúng, VD: ten@congty.vn");
   }
   // Khách cũ vốn không có cả hai thì vẫn sửa được ô khác; chỉ chặn khi người dùng xóa hết.
   const banDauCoLienHe = !laSua || Boolean(gon(banDau.soDienThoai) || gon(banDau.email));
   if (!sdt && !email && banDauCoLienHe) loi.soDienThoai = CAN_LIEN_HE;
 
-  if (!giuNguyen("diaChi") && gon(form.diaChi).length > MAX_LENGTH.diaChi) loi.diaChi = "Địa chỉ tối đa 500 ký tự";
+  if (!giuNguyen("diaChi") && gon(form.diaChi).length > MAX_LENGTH.diaChi) loi.diaChi = t("Địa chỉ tối đa 500 ký tự");
   return loi;
 }
 
@@ -208,7 +210,8 @@ export function payloadSua(form, banDau) {
 
 /** Câu báo lỗi của máy chủ → ô tương ứng, để hiện ngay dưới ô đó; không nhận ra ô thì null. */
 export function oCuaThongBaoMayChu(message) {
-  const text = String(message ?? "").toLocaleLowerCase("vi-VN");
+  // Dò trên câu gốc tiếng Việt (giao diện tiếng Anh nhận câu đã dịch)
+  const text = String(cauGocMayChu(message) ?? "").toLocaleLowerCase("vi-VN");
   if (text.includes("mã khách hàng")) return "maKhachHang";
   if (text.includes("tên khách hàng")) return "tenKhachHang";
   if (text.includes("mã số thuế")) return "maSoThue";
@@ -224,7 +227,7 @@ export function oCuaThongBaoMayChu(message) {
 /** Câu báo trùng khi kiểm tra trước lúc rời ô (cùng câu với máy chủ, thêm chữ "này" cho tự nhiên trong form). */
 export function thongBaoTrung(name, khach) {
   const ai = `${khach.tenKhachHang}${khach.maKhachHang ? ` (${khach.maKhachHang})` : ""}`;
-  return `${name === "email" ? "Email này" : "Số này"} đã thuộc khách hàng ${ai}`;
+  return name === "email" ? t("Email này đã thuộc khách hàng {{ai}}", { ai }) : t("Số này đã thuộc khách hàng {{ai}}", { ai });
 }
 
 /** Có cần hỏi máy chủ xem số / email đã thuộc khách khác chưa: có giá trị, hợp lệ, và (khi sửa) đã đổi. */

@@ -4,6 +4,7 @@
  * Loại phiếu, nút, câu chữ, dòng bảng và lô kế thừa. Không gọi API, không phụ thuộc React, chạy được bằng `node --test`.
  */
 import { docSo, soVN } from "../../chung-tu/bangChungTu.js";
+import { t } from "../../../i18n/t.js";
 
 export const LOAI_PHIEU_NHAP = Object.freeze({ CHUYEN_KHO: "chuyenKho", HOAN_TRA: "hoanTraChuyenKho", KHACH_TRA: "khachTra" });
 const TT = Object.freeze({ CHO_NHAP: 0, DA_NHAP: 3, DA_HUY: 4 });
@@ -38,9 +39,9 @@ export function quyTacPhieuNhap(data) {
     inDuoc: tt !== TT.DA_HUY,
     huyDuoc: false,
     moPhieuChuyen: !khachTra && choNhap && data?.phieuXuatGocId != null,
-    nhanNut: khachTra ? "Xác nhận nhập trả" : null,
-    tieuDeHop: "Xác nhận nhập trả kho",
-    cauThanhCong: "Đã nhập kho hoàn trả",
+    nhanNut: khachTra ? t("Xác nhận nhập trả") : null,
+    tieuDeHop: t("Xác nhận nhập trả kho"),
+    cauThanhCong: t("Đã nhập kho hoàn trả"),
   };
 }
 
@@ -48,12 +49,12 @@ export function quyTacPhieuNhap(data) {
 export function cauChoNhap(data) {
   const loai = loaiPhieuNhap(data);
   if (loai === LOAI_PHIEU_NHAP.CHUYEN_KHO) {
-    return "Phiếu nhập này lập theo cách cũ. Nhận hàng ở màn phiếu chuyển kho: hệ thống tự lập phiếu nhập mới, trừ kho trung chuyển và hủy phiếu này.";
+    return t("Phiếu nhập này lập theo cách cũ. Nhận hàng ở màn phiếu chuyển kho: hệ thống tự lập phiếu nhập mới, trừ kho trung chuyển và hủy phiếu này.");
   }
   if (loai === LOAI_PHIEU_NHAP.HOAN_TRA) {
-    return `Phiếu nhập hoàn trả này lập theo cách cũ. Nhập hàng hoàn trả về ${data?.tenKho || "kho nguồn"} ở màn phiếu chuyển kho: hệ thống tự lập phiếu nhập mới và hủy phiếu này.`;
+    return t("Phiếu nhập hoàn trả này lập theo cách cũ. Nhập hàng hoàn trả về {{tenKho}} ở màn phiếu chuyển kho: hệ thống tự lập phiếu nhập mới và hủy phiếu này.", { tenKho: data?.tenKho || t("kho nguồn") });
   }
-  return "Hàng khách trả nhập lại đúng lô đã bán. Kiểm hàng thực tế rồi bấm Xác nhận nhập trả để cộng lại tồn.";
+  return t("Hàng khách trả nhập lại đúng lô đã bán. Kiểm hàng thực tế rồi bấm Xác nhận nhập trả để cộng lại tồn.");
 }
 
 /**
@@ -61,9 +62,9 @@ export function cauChoNhap(data) {
  * `soLo`: số mã lô (null khi chưa biết).
  */
 export function moTaXacNhan(data, tong, soLo = null) {
-  const t = tong ?? {};
-  const tomTat = `${soVN(t.soSanPham)} sản phẩm, ${soVN(t.soDong)} biến thể (tổng số lượng ${soVN(t.soLuong)}${soLo != null ? `, ${soVN(soLo)} lô` : ""})`;
-  return `Cộng lại ${tomTat} vào tồn ${data?.tenKho || "kho nhận"} theo đúng lô đã bán.`;
+  const tg = tong ?? {};
+  const tomTat = t("{{soSanPham}} sản phẩm, {{soDong}} biến thể (tổng số lượng {{soLuong}}{{phanLo}})", { count: Number(tg.soSanPham) || 0, soSanPham: soVN(tg.soSanPham), soDong: soVN(tg.soDong), soLuong: soVN(tg.soLuong), phanLo: soLo != null ? t(", {{soLo}} lô", { count: Number(soLo) || 0, soLo: soVN(soLo) }) : "" });
+  return t("Cộng lại {{tomTat}} vào tồn {{tenKho}} theo đúng lô đã bán.", { tomTat, tenKho: data?.tenKho || t("kho nhận") });
 }
 
 /**

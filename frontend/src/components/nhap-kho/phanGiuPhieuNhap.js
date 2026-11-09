@@ -1,3 +1,4 @@
+import { t } from "../../i18n/t.js";
 /*
  * Phần hàng của một đơn mua đang nằm ở các phiếu nhập Nháp (đã tạo phiếu, chưa nhập kho). Máy chủ trừ phần này khi tạo
  * phiếu mới (PhieuNhapKhoService.createDraft, ChiTietPhieuNhapKhoRepository.sumDuKienPhieuNhapCungDon), nên màn hình phải
@@ -106,5 +107,5 @@ export function donMuaCoPhieuNhap(dsPhieu) {
 export function noiSoPhieu(phieu) {
   const so = (Array.isArray(phieu) ? phieu : []).map((p) => p.soPhieuNhap);
   if (so.length <= 1) return so[0] ?? "";
-  return `${so.slice(0, -1).join(", ")} và ${so[so.length - 1]}`;
+  return t("{{dauDanhSach}} và {{cuoiDanhSach}}", { dauDanhSach: so.slice(0, -1).join(", "), cuoiDanhSach: so[so.length - 1] });
 }

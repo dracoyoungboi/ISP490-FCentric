@@ -1,3 +1,4 @@
+import { t } from "../i18n/t.js";
 /**
  * THẺ TRẠNG THÁI dùng chung toàn hệ thống (chốt 21/10/2026: H1 + khung của H4, "chỉ bọc khi cần").
  *
@@ -456,10 +457,63 @@ function taoBangTra() {
 
 const BANG_TRA = taoBangTra();
 
+/**
+ * Đa ngôn ngữ: bảng tra ở trên viết bằng tên TIẾNG VIỆT. Nơi gọi truyền tên tiếng Việt, StatusBadge dịch lúc vẽ
+ * (dichNhanTrangThai). Lỡ truyền tên đã dịch thì veNhanGoc đổi về tên Việt để vẫn tra đúng màu, biểu tượng, bước.
+ */
+/** Ngữ cảnh i18next: chữ trùng nghĩa khác ("Từ chối" là nút Từ chối hay trạng thái Đã từ chối) dịch riêng bằng khóa "<câu>_trang_thai". */
+const NGU_CANH = { context: "trang_thai" };
+
+const MAU_DICH_NHAN = [
+  { mau: /^Quá hạn (.+) ngày$/, khoa: "Quá hạn {{so}} ngày" },
+  { mau: /^Còn (\d+) ngày$/, khoa: "Còn {{so}} ngày" },
+  { mau: /^Trễ (\d+) ngày$/, khoa: "Trễ {{so}} ngày" },
+  { mau: /^Đủ hàng \((.+)\)$/, khoa: "Đủ hàng ({{so}})" },
+  { mau: /^Thiếu hàng \((.+)\)$/, khoa: "Thiếu hàng ({{so}})" },
+  { mau: /^Không xác định \(mã (.+)\)$/, khoa: "Không xác định (mã {{so}})" },
+  { mau: /^Trạng thái khác \((.+)\)$/, khoa: "Trạng thái khác ({{so}})" },
+];
+
+/** Tên hiển thị của nhãn theo ngôn ngữ giao diện (nhãn có số dịch theo mẫu). Không phải chuỗi thì trả nguyên. */
+export function dichNhanTrangThai(nhan) {
+  if (typeof nhan !== "string") return nhan;
+  const chu = nhan.trim();
+  for (const { mau, khoa } of MAU_DICH_NHAN) {
+    const khop = chu.match(mau);
+    // Số đếm thì truyền count để tiếng Anh chia số ít/nhiều ("1 day left")
+    if (khop) return t(khoa, /^\d+$/.test(khop[1]) ? { so: khop[1], count: Number(khop[1]) } : { so: khop[1] });
+  }
+  return t(chu, NGU_CANH);
+}
+
+let bangNguoc = null;
+
+/** Tên Việt của một nhãn đã dịch (ngôn ngữ cố định trong một lần tải trang nên dựng bảng một lần). */
+export function veNhanGoc(nhan) {
+  if (typeof nhan !== "string") return nhan;
+  const chu = nhan.trim();
+  if (BANG_TRA.has(chu)) return chu;
+  if (!bangNguoc) {
+    bangNguoc = new Map();
+    const tatCa = [
+      ...BANG_TRA.keys(),
+      ...Object.keys(BIEU_TUONG_THEO_NHAN),
+      ...NHAN_DANG_CHAY,
+      ...Object.values(QUY_TRINH).flatMap((qt) => [...Object.keys(qt.buoc), ...(qt.huy ?? [])]),
+      ...Object.values(BIEU_TUONG_THEO_DOI_TUONG).flatMap((bang) => Object.keys(bang)),
+    ];
+    for (const goc of tatCa) {
+      const daDich = t(goc, NGU_CANH);
+      if (daDich !== goc && !bangNguoc.has(daDich)) bangNguoc.set(daDich, goc);
+    }
+  }
+  return bangNguoc.get(chu) ?? chu;
+}
+
 /** Nhóm của một nhãn theo bảng (cả nhãn có số). `undefined` nếu chưa khai báo. */
 export function nhomCuaNhan(nhan) {
   if (typeof nhan !== "string") return undefined;
-  const chu = nhan.trim();
+  const chu = veNhanGoc(nhan);
   if (BANG_TRA.has(chu)) return BANG_TRA.get(chu);
   const khop = NHOM_THEO_MAU_NHAN.find((m) => m.mau.test(chu));
   return khop?.nhom;
@@ -480,7 +534,7 @@ export function layNhomTrangThai(nhan, { nhom, tone } = {}) {
 /** Tên icon lucide của nhãn, hoặc `undefined` (vẽ chấm). */
 export function bieuTuongCuaNhan(nhan, doiTuong) {
   if (typeof nhan !== "string") return undefined;
-  const chu = nhan.trim();
+  const chu = veNhanGoc(nhan);
   return BIEU_TUONG_THEO_DOI_TUONG[doiTuong]?.[chu] ?? BIEU_TUONG_THEO_NHAN[chu] ?? BIEU_TUONG_THEO_MAU.find((m) => m.mau.test(chu))?.ten;
 }
 
@@ -491,7 +545,7 @@ export function bieuTuongCuaNhan(nhan, doiTuong) {
 export function viTriTrongQuyTrinh(quyTrinh, nhan) {
   const qt = QUY_TRINH[quyTrinh];
   if (!qt || typeof nhan !== "string") return undefined;
-  const chu = nhan.trim();
+  const chu = veNhanGoc(nhan);
   if (qt.huy?.includes(chu)) return { kieu: "huy", tiLe: 0 };
   if (!Object.hasOwn(qt.buoc, chu)) return undefined;
   if (qt.nhap?.includes(chu)) return { kieu: "nhap", tiLe: 0 };
@@ -515,7 +569,7 @@ export function layCachVe(nhan, { nhom, tone, quyTrinh, doiTuong } = {}) {
   if (NHOM_TRANG_THAI[nhomMau].vien) return { nhom: nhomMau, kieu: "vien", bieuTuong };
   const viTri = quyTrinh ? viTriTrongQuyTrinh(quyTrinh, nhan) : undefined;
   if (viTri) return { nhom: nhomMau, kieu: "vong", quyTrinh: viTri };
-  if (typeof nhan === "string" && NHAN_DANG_CHAY.includes(nhan.trim())) return { nhom: nhomMau, kieu: "nhip" };
+  if (typeof nhan === "string" && NHAN_DANG_CHAY.includes(veNhanGoc(nhan))) return { nhom: nhomMau, kieu: "nhip" };
   if (bieuTuong) return { nhom: nhomMau, kieu: "bieuTuong", bieuTuong };
   return { nhom: nhomMau, kieu: "cham" };
 }

@@ -53,6 +53,7 @@ import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import { getApiErrorCode, getApiErrorMessage } from "@/utils/apiError";
 import { cn } from "@/lib/utils";
 import { formatNumber } from "@/utils/formatters";
+import { t } from "@/i18n";
 
 /** Mã lỗi máy chủ trả khi gian hàng không còn gọi được sàn: đọc lại kết nối để trang hiện đúng tình trạng. */
 const MA_MAT_KET_NOI = new Set(["UY_QUYEN_HET_HAN", "KENH_CHUA_KET_NOI", "LAM_MOI_KHOA_LOI"]);
@@ -92,7 +93,7 @@ export default function ChannelSetupWizard() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [xongTrongPhien, setXongTrongPhien] = useState(() => new Set());
   const SAN = useSanHienTai();
-  const TIEU_DE = `Thiết lập gian hàng ${SAN.ten}`;
+  const TIEU_DE = t("Thiết lập gian hàng {{ten}}", { ten: SAN.ten });
   const uyQuyen = SAN.kieuKetNoi === "uy_quyen";
 
   const cfg = useTaiDuLieu(() => kenhBanHangService.getKetNoi(SAN.maKenh), `ket-noi|${SAN.maKenh}`);
@@ -164,7 +165,7 @@ export default function ChannelSetupWizard() {
             ch.setData(await kenhBanHangService.luuCauHinhDongBo(SAN.maKenh, batTuDong));
           } catch (error) {
             khiLoi(error);
-            toast.error(getApiErrorMessage(error, "Chưa bật được tự động đồng bộ, vui lòng thử lại"));
+            toast.error(getApiErrorMessage(error, t("Chưa bật được tự động đồng bộ, vui lòng thử lại")));
             return;
           }
         }
@@ -172,7 +173,7 @@ export default function ChannelSetupWizard() {
         // Mất kết nối giữa chừng: trang tự về bước 1 (khiLoi), không báo xong
         if (soNgayDonCu && !(await layDonCu(SAN, soNgayDonCu, khiLoi))) return;
       }
-      toast.success(`Đã thiết lập xong gian hàng ${SAN.ten}`);
+      toast.success(t("Đã thiết lập xong gian hàng {{ten}}", { ten: SAN.ten }));
       navigate(SAN.duongDan);
     });
 
@@ -189,10 +190,10 @@ export default function ChannelSetupWizard() {
         <MockModeNotice show={isChannelMock} note={GHI_CHU_DU_LIEU_MAU_KENH} />
 
         {dangTaiLanDau ? (
-          <LoadingState label="Đang tải thông tin gian hàng" />
+          <LoadingState label={t("Đang tải thông tin gian hàng")} />
         ) : loiTai ? (
           <ErrorState
-            description="Không tải được thông tin gian hàng. Vui lòng thử lại."
+            description={t("Không tải được thông tin gian hàng. Vui lòng thử lại.")}
             onRetry={() => {
               cfg.reload();
               ch.reload();
@@ -297,9 +298,9 @@ export default function ChannelSetupWizard() {
                   !uyQuyen
                     ? null
                     : viecHoanTat.viec.length
-                      ? `Hoàn tất sẽ ${viecHoanTat.viec.join(", ")}.`
+                      ? t("Hoàn tất sẽ {{viec}}.", { viec: viecHoanTat.viec.join(", ") })
                       : ch.data && !ch.data.tuDongDayTon && !ch.data.tuDongLayDon
-                        ? "Tự động đồng bộ đang tắt, bật ở Cấu hình khi sẵn sàng."
+                        ? t("Tự động đồng bộ đang tắt, bật ở Cấu hình khi sẵn sàng.")
                         : null
                 }
               />
@@ -321,10 +322,10 @@ async function layDonCu(SAN, soNgay, onLoi) {
       tu: new Date(`${ngayIso(soNgay - 1)}T00:00:00`).toISOString(),
       den: new Date().toISOString(),
     });
-    toast.success(`Đã lấy ${formatNumber(res?.soDonMoi)} đơn mới từ ${SAN.ten}`);
+    toast.success(t("Đã lấy {{soDonMoi}} đơn mới từ {{tenSan}}", { soDonMoi: formatNumber(res?.soDonMoi), tenSan: SAN.ten, count: Number(res?.soDonMoi) || 0 }));
   } catch (error) {
     onLoi?.(error);
-    toast.error(getApiErrorMessage(error, "Chưa lấy được đơn cũ, có thể lấy lại ở trang Đơn hàng"));
+    toast.error(getApiErrorMessage(error, t("Chưa lấy được đơn cũ, có thể lấy lại ở trang Đơn hàng")));
     if (MA_MAT_KET_NOI.has(getApiErrorCode(error))) return false;
   }
   return true;
@@ -336,7 +337,7 @@ async function layDonCu(SAN, soNgay, onLoi) {
  * `khoaTiep`: lý do chưa cho sang bước sau (vd. chưa ủy quyền), khóa nút chính và hiện thành chữ cạnh nút;
  * `ghiChu`: lời nhắc không chặn. Điện thoại: chữ nằm trên hàng nút, nút cao 44 px.
  */
-function HangNut({ onHuy, onQuayLai, onTiep, nhanTiep = "Tiếp theo", khoa = false, dangLuu = false, ghiChu, khoaTiep = null }) {
+function HangNut({ onHuy, onQuayLai, onTiep, nhanTiep = t("Tiếp theo"), khoa = false, dangLuu = false, ghiChu, khoaTiep = null }) {
   const idLoiNhac = useId();
   const loiNhac = khoaTiep || ghiChu;
   return (
@@ -348,7 +349,7 @@ function HangNut({ onHuy, onQuayLai, onTiep, nhanTiep = "Tiếp theo", khoa = fa
         onClick={onHuy}
         className="h-9 rounded-lg px-3 text-bo-foreground hover:bg-slate-100 max-sm:h-11"
       >
-        Hủy bỏ
+        {t("Hủy bỏ")}
       </Button>
       {loiNhac ? (
         <p
@@ -370,7 +371,7 @@ function HangNut({ onHuy, onQuayLai, onTiep, nhanTiep = "Tiếp theo", khoa = fa
             onClick={onQuayLai}
             className="h-9 rounded-lg border-bo-border bg-bo-surface px-4 text-bo-foreground hover:bg-bo-surface-subtle max-sm:h-11"
           >
-            Quay lại
+            {t("Quay lại")}
           </Button>
         ) : null}
         <Button
@@ -381,7 +382,7 @@ function HangNut({ onHuy, onQuayLai, onTiep, nhanTiep = "Tiếp theo", khoa = fa
           className="h-9 gap-2 rounded-lg bg-bo-primary px-4 text-white hover:bg-bo-primary-hover max-sm:h-11"
         >
           {dangLuu ? <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : null}
-          {dangLuu ? "Đang lưu…" : nhanTiep}
+          {dangLuu ? t("Đang lưu…") : nhanTiep}
         </Button>
       </div>
     </div>
@@ -400,13 +401,13 @@ function BuocUyQuyen({ ketNoi, hetHan, quayVeThietLap, onHuy, onKetNoi, onTiep }
   // Form đang lưu khóa / mở trang ủy quyền: khóa cả hàng nút (bấm Hủy bỏ lúc này thì trang vẫn chuyển sang sàn)
   const [formDangChay, setFormDangChay] = useState(false);
   const khoaTiep = !daUyQuyen
-    ? "Ủy quyền gian hàng trước khi sang bước Tồn kho."
+    ? t("Ủy quyền gian hàng trước khi sang bước Tồn kho.")
     : hetHan
-      ? "Ủy quyền lại trước khi sang bước Tồn kho."
+      ? t("Ủy quyền lại trước khi sang bước Tồn kho.")
       : null;
   return (
     <>
-      <TheCaiDat title="Ủy quyền gian hàng" description={noiDungSan(SAN.maKenh)?.moTaUyQuyen}>
+      <TheCaiDat title={t("Ủy quyền gian hàng")} description={noiDungSan(SAN.maKenh)?.moTaUyQuyen}>
         <KetNoiUyQuyenForm
           san={SAN}
           ketNoi={ketNoi}
@@ -577,21 +578,21 @@ function BuocKetNoi({ config, onHuy, onXong, onDoiKetNoi }) {
           accessToken: payload.accessToken,
         });
         if (!kiemTra?.connected) {
-          setResult({ ok: false, title: "Chưa kết nối được", message: kiemTra?.message || "Shopify không chấp nhận khóa này." });
+          setResult({ ok: false, title: t("Chưa kết nối được"), message: kiemTra?.message || t("Shopify không chấp nhận khóa này.") });
           return;
         }
         const dto = await kenhBanHangService.updateShopifyConfig(payload);
-        toast.success(`Đã kết nối ${kiemTra.shopName || payload.shopDomain}`);
+        toast.success(t("Đã kết nối {{cuaHang}}", { cuaHang: kiemTra.shopName || payload.shopDomain }));
         onXong(dto);
       } catch (error) {
         setValues((cu) => ({ ...cu, accessToken: "", apiSecret: "", refreshToken: "" }));
-        const cau = getApiErrorMessage(error, "Không lưu được kết nối Shopify");
+        const cau = getApiErrorMessage(error, t("Không lưu được kết nối Shopify"));
         // Đọc lại để ô tên miền khóa / mở đúng tình trạng mới; thẻ dựng lại theo kết nối mới nên báo bằng toast (một chỗ)
         if (MA_DOI_KET_NOI.has(getApiErrorCode(error))) {
           toast.error(cau);
           onDoiKetNoi?.();
         } else {
-          setResult({ ok: false, title: "Chưa lưu được kết nối", message: cau });
+          setResult({ ok: false, title: t("Chưa lưu được kết nối"), message: cau });
         }
       }
     });
@@ -599,8 +600,8 @@ function BuocKetNoi({ config, onHuy, onXong, onDoiKetNoi }) {
   return (
     <>
       <TheCaiDat
-        title="Kết nối gian hàng"
-        description="Dùng khóa của ứng dụng đã cài trong cửa hàng, có quyền đọc sản phẩm, đơn hàng và đọc, ghi tồn kho."
+        title={t("Kết nối gian hàng")}
+        description={t("Dùng khóa của ứng dụng đã cài trong cửa hàng, có quyền đọc sản phẩm, đơn hàng và đọc, ghi tồn kho.")}
       >
         <div className="px-6 pb-6 pt-3">
           <KetNoiShopifyForm
@@ -650,9 +651,9 @@ function BuocTonKho({ cauHinh, choHoanTat, khoSan, ketNoi, dsKhoSan, onLoi, onHu
   const khoaTiep = !chonDuocKho
     ? null
     : dsKhoSan?.initialLoading
-      ? `Đang đọc kho từ ${SAN.ten}…`
+      ? t("Đang đọc kho từ {{ten}}…", { ten: SAN.ten })
       : !(maKhoSan || khoDangLuu || ketNoi?.maKhoSan)
-        ? `Cần một kho bán hàng trên ${SAN.ten} để nhận số tồn.`
+        ? t("Cần một kho bán hàng trên {{ten}} để nhận số tồn.", { ten: SAN.ten })
         : null;
 
   const doi = (name, value) => {
@@ -692,13 +693,13 @@ function BuocTonKho({ cauHinh, choHoanTat, khoSan, ketNoi, dsKhoSan, onLoi, onHu
         onXong(dto, khoMoi);
       } catch (error) {
         onLoi?.(error);
-        toast.error(getApiErrorMessage(error, "Không lưu được cấu hình tồn kho"));
+        toast.error(getApiErrorMessage(error, t("Không lưu được cấu hình tồn kho")));
       }
     });
 
   const moTa = choHoanTat
-    ? `Số FCentric gửi lên ${SAN.ten}. Tự động cập nhật bắt đầu khi bấm Hoàn tất ở bước cuối.`
-    : `Số FCentric gửi lên ${SAN.ten}. Sửa lại được ở Cấu hình.`;
+    ? t("Số FCentric gửi lên {{ten}}. Tự động cập nhật bắt đầu khi bấm Hoàn tất ở bước cuối.", { ten: SAN.ten })
+    : t("Số FCentric gửi lên {{ten}}. Sửa lại được ở Cấu hình.", { ten: SAN.ten });
 
   return (
     <>
@@ -743,9 +744,9 @@ function BuocTonKho({ cauHinh, choHoanTat, khoSan, ketNoi, dsKhoSan, onLoi, onHu
 // ─────────────────────────── Bước 3: Đơn hàng ───────────────────────────
 
 const LAY_DON_CU = [
-  { value: "0", label: "Không lấy" },
-  { value: "7", label: "7 ngày qua" },
-  { value: "30", label: "30 ngày qua" },
+  { value: "0", label: t("Không lấy") },
+  { value: "7", label: t("7 ngày qua") },
+  { value: "30", label: t("30 ngày qua") },
 ];
 
 /**
@@ -780,7 +781,7 @@ function BuocDonHang({ cauHinh, ketNoi, choHoanTat, onLoi, onHuy, onQuayLai, onX
         dto = await kenhBanHangService.luuCauHinhDongBo(SAN.maKenh, payload);
       } catch (error) {
         onLoi?.(error);
-        toast.error(getApiErrorMessage(error, "Không lưu được cấu hình đơn hàng"));
+        toast.error(getApiErrorMessage(error, t("Không lưu được cấu hình đơn hàng")));
         return;
       }
       const soNgay = Number(layDonCuChon);
@@ -795,8 +796,8 @@ function BuocDonHang({ cauHinh, ketNoi, choHoanTat, onLoi, onHuy, onQuayLai, onX
       <TheDonHang
         moTa={
           choHoanTat
-            ? `Đơn ${SAN.ten} thành đơn bán hàng để kho xử lý. Tự động lấy đơn bắt đầu khi bấm Hoàn tất ở bước cuối.`
-            : `Đơn ${SAN.ten} thành đơn bán hàng để kho xử lý.`
+            ? t("Đơn {{ten}} thành đơn bán hàng để kho xử lý. Tự động lấy đơn bắt đầu khi bấm Hoàn tất ở bước cuối.", { ten: SAN.ten })
+            : t("Đơn {{ten}} thành đơn bán hàng để kho xử lý.", { ten: SAN.ten })
         }
         values={values}
         onChange={(name, value) => setValues((cu) => ({ ...cu, [name]: value }))}
@@ -804,20 +805,20 @@ function BuocDonHang({ cauHinh, ketNoi, choHoanTat, onLoi, onHuy, onQuayLai, onX
         disabled={Boolean(dangChay)}
         tenSan={SAN.ten}
         tienToDon={SAN.tienToDon}
-        nhanCongTac={noiDung ? `Tự động lấy đơn từ ${SAN.ten}` : undefined}
+        nhanCongTac={noiDung ? t("Tự động lấy đơn từ {{ten}}", { ten: SAN.ten }) : undefined}
         khachMacDinh={noiDung?.khachMacDinh}
         ghiChu={noiDung?.ghiChuDon}
       >
         <DongCaiDat
-          title="Lấy thêm đơn cũ"
+          title={t("Lấy thêm đơn cũ")}
           description={
             layOHoanTat
-              ? "Lấy một lần khi bấm Hoàn tất, sau khi đã liên kết sản phẩm."
-              : "Lấy một lần khi bấm Tiếp theo, tối đa 50 đơn."
+              ? t("Lấy một lần khi bấm Hoàn tất, sau khi đã liên kết sản phẩm.")
+              : t("Lấy một lần khi bấm Tiếp theo, tối đa 50 đơn.")
           }
           control={
             <ChonPhuongAn
-              label="Lấy thêm đơn cũ"
+              label={t("Lấy thêm đơn cũ")}
               value={layDonCuChon}
               options={LAY_DON_CU}
               onChange={setLayDonCuChon}
@@ -900,8 +901,8 @@ function BuocLienKet({
         setKetQuaTai({ ok: true, title: kq.title });
         onTaiLai();
       } catch (error) {
-        const cau = getApiErrorMessage(error, `Không tải được sản phẩm từ ${SAN.ten}`);
-        if (!baoMatKetNoi(error, cau)) setKetQuaTai({ ok: false, title: "Chưa tải được sản phẩm", message: cau });
+        const cau = getApiErrorMessage(error, t("Không tải được sản phẩm từ {{ten}}", { ten: SAN.ten }));
+        if (!baoMatKetNoi(error, cau)) setKetQuaTai({ ok: false, title: t("Chưa tải được sản phẩm"), message: cau });
       }
     });
 
@@ -915,37 +916,37 @@ function BuocLienKet({
         onTaiLai();
       } catch (error) {
         setHoiDay(false);
-        const cau = getApiErrorMessage(error, "Không đưa được sản phẩm lên Shopify");
-        if (!baoMatKetNoi(error, cau)) setKetQuaDay({ ok: false, title: "Chưa đưa được sản phẩm lên", message: cau });
+        const cau = getApiErrorMessage(error, t("Không đưa được sản phẩm lên Shopify"));
+        if (!baoMatKetNoi(error, cau)) setKetQuaDay({ ok: false, title: t("Chưa đưa được sản phẩm lên"), message: cau });
       }
     });
 
   const nutPhu =
     "h-8 gap-2 rounded-lg border-bo-border bg-white px-3 text-[13px] text-bo-foreground hover:bg-bo-surface-subtle max-sm:h-11";
-  const loiNhacDongBo = dongBo.dangChay ? "Đang chạy Đồng bộ ngay, chờ xong rồi làm tiếp." : null;
+  const loiNhacDongBo = dongBo.dangChay ? t("Đang chạy Đồng bộ ngay, chờ xong rồi làm tiếp.") : null;
 
   return (
     <>
-      <TheCaiDat title="Liên kết sản phẩm" description="Ghép theo SKU, nên SKU hai bên cần giống nhau. Làm lại được ở trang Sản phẩm.">
+      <TheCaiDat title={t("Liên kết sản phẩm")} description={t("Ghép theo SKU, nên SKU hai bên cần giống nhau. Làm lại được ở trang Sản phẩm.")}>
         <div className="flex flex-wrap items-end gap-x-10 gap-y-3 px-6 pb-5 pt-2">
-          <SoTomTat nhan="Đã ghép" giaTri={chuaCo ? "…" : `${formatNumber(tong)} SKU`} />
-          <SoTomTat nhan="Đang đồng bộ" giaTri={chuaCo ? "…" : formatNumber(tongQuan?.daLienKet)} />
-          <SoTomTat nhan="Lỗi" giaTri={chuaCo ? "…" : formatNumber(tongQuan?.loiDongBo)} loi={Number(tongQuan?.loiDongBo) > 0} />
-          <SoTomTat nhan="Ngừng đồng bộ" giaTri={chuaCo ? "…" : formatNumber(tongQuan?.chuaLienKet)} />
+          <SoTomTat nhan={t("Đã ghép")} giaTri={chuaCo ? "…" : `${formatNumber(tong)} SKU`} />
+          <SoTomTat nhan={t("Đang đồng bộ")} giaTri={chuaCo ? "…" : formatNumber(tongQuan?.daLienKet)} />
+          <SoTomTat nhan={t("Lỗi")} giaTri={chuaCo ? "…" : formatNumber(tongQuan?.loiDongBo)} loi={Number(tongQuan?.loiDongBo) > 0} />
+          <SoTomTat nhan={t("Ngừng đồng bộ")} giaTri={chuaCo ? "…" : formatNumber(tongQuan?.chuaLienKet)} />
           <Link
             to={`${SAN.duongDan}/products`}
             className="ml-auto inline-flex items-center rounded text-sm font-medium text-bo-primary hover:text-bo-primary-hover hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 max-sm:min-h-11"
           >
-            Xem danh sách
+            {t("Xem danh sách")}
           </Link>
         </div>
         <DongCaiDat
-          title={`Ghép với sản phẩm đang có trên ${SAN.ten}`}
-          description={loiNhacDongBo ?? `Không thay đổi gì trên ${SAN.ten}.`}
+          title={t("Ghép với sản phẩm đang có trên {{ten}}", { ten: SAN.ten })}
+          description={loiNhacDongBo ?? t("Không thay đổi gì trên {{ten}}.", { ten: SAN.ten })}
           control={
             <Button type="button" variant="outline" disabled={khoaThaoTac} onClick={taiVaGhep} className={nutPhu}>
               {dangChay === "tai" ? <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : null}
-              {`Tải sản phẩm từ ${SAN.ten}`}
+              {t("Tải sản phẩm từ {{ten}}", { ten: SAN.ten })}
             </Button>
           }
         >
@@ -953,11 +954,11 @@ function BuocLienKet({
         </DongCaiDat>
         {coDuaLen ? (
           <DongCaiDat
-            title={`Đưa sản phẩm FCentric lên ${SAN.ten}`}
-            description={loiNhacDongBo ?? "Tạo sản phẩm còn thiếu, kèm ảnh và số tồn."}
+            title={t("Đưa sản phẩm FCentric lên {{ten}}", { ten: SAN.ten })}
+            description={loiNhacDongBo ?? t("Tạo sản phẩm còn thiếu, kèm ảnh và số tồn.")}
             control={
               <Button type="button" variant="outline" disabled={khoaThaoTac} onClick={() => setHoiDay(true)} className={nutPhu}>
-                Đưa lên…
+                {t("Đưa lên…")}
               </Button>
             }
           >
@@ -970,12 +971,12 @@ function BuocLienKet({
         onHuy={onHuy}
         onQuayLai={onQuayLai}
         onTiep={onHoanTat}
-        nhanTiep="Hoàn tất"
+        nhanTiep={t("Hoàn tất", { context: "nut" })}
         khoa={Boolean(dangChay) || dangHoanTat}
         dangLuu={dangHoanTat}
         // Cho biết trước Hoàn tất sẽ bật gì / lấy đơn nào (sàn ủy quyền), kèm nhắc khi chưa ghép SKU nào
         ghiChu={
-          [!chuaCo && tong === 0 ? "Chưa ghép SKU nào: tồn kho và đơn hàng chưa đồng bộ được." : null, ghiChuHoanTat]
+          [!chuaCo && tong === 0 ? t("Chưa ghép SKU nào: tồn kho và đơn hàng chưa đồng bộ được.") : null, ghiChuHoanTat]
             .filter(Boolean)
             .join(" ") || null
         }
@@ -987,10 +988,10 @@ function BuocLienKet({
         onConfirm={dayLenSan}
         isLoading={dangChay === "day"}
         variant="info"
-        title={`Đưa sản phẩm lên ${SAN.ten}?`}
-        description={`Các sản phẩm đang bán ở FCentric mà ${SAN.ten} chưa có sẽ được tạo mới trên gian hàng thật, kèm ảnh và số tồn. Thao tác có thể mất vài phút nếu nhiều sản phẩm.`}
-        confirmText="Đưa lên"
-        cancelText="Hủy bỏ"
+        title={t("Đưa sản phẩm lên {{ten}}?", { ten: SAN.ten })}
+        description={t("Các sản phẩm đang bán ở FCentric mà {{ten}} chưa có sẽ được tạo mới trên gian hàng thật, kèm ảnh và số tồn. Thao tác có thể mất vài phút nếu nhiều sản phẩm.", { ten: SAN.ten })}
+        confirmText={t("Đưa lên")}
+        cancelText={t("Hủy bỏ")}
       />
     </>
   );

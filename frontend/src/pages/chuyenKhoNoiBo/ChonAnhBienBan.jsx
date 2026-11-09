@@ -3,6 +3,7 @@ import { Camera, Loader2, X } from "lucide-react";
 import { NHAN_O, O_NHAP } from "@/components/chung-tu/kieuHopThoai";
 import { MO_TA_TOI_DA, SO_ANH_TOI_DA } from "@/components/chuyen-kho/anhBienBan";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 /**
  * Ô "Ảnh chụp" của biên bản giao nhận (mockup B.4): nút máy ảnh mở chọn ảnh (điện thoại mở được máy ảnh), ảnh xem trước
@@ -10,7 +11,7 @@ import { cn } from "@/lib/utils";
  * `daCo` tăng sau khi đã chọn (máy chủ vừa có thêm ảnh) mà vượt giới hạn: báo số ảnh phải bỏ bớt (nơi gọi khóa nút tải).
  * `anh`: kết quả useAnhChon. `khoa`: đang gửi, khóa mọi thao tác.
  */
-export default function ChonAnhBienBan({ anh, daCo = 0, khoa = false, nhan = "Ảnh chụp", nhanNut = "Thêm ảnh (không bắt buộc)" }) {
+export default function ChonAnhBienBan({ anh, daCo = 0, khoa = false, nhan = t("Ảnh chụp"), nhanNut = t("Thêm ảnh (không bắt buộc)") }) {
     const oTepRef = useRef(null);
     const idNhan = useId();
     const tong = daCo + anh.ds.length;
@@ -28,20 +29,20 @@ export default function ChonAnhBienBan({ anh, daCo = 0, khoa = false, nhan = "�
         <div role="group" aria-labelledby={idNhan} className="grid gap-1.5">
             <div className="flex items-center justify-between gap-3">
                 <span id={idNhan} className={NHAN_O}>{nhan}</span>
-                <span className={cn("text-xs tabular-nums", vuot ? "font-medium text-bo-danger" : "text-bo-muted")}>{tong}/{SO_ANH_TOI_DA} ảnh</span>
+                <span className={cn("text-xs tabular-nums", vuot ? "font-medium text-bo-danger" : "text-bo-muted")}>{t("{{tong}}/{{toiDa}} ảnh", { tong, toiDa: SO_ANH_TOI_DA })}</span>
             </div>
             {anh.ds.length ? (
                 <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                     {anh.ds.map((a, i) => (
                         <li key={a.khoa} className="grid min-w-0 gap-1.5 rounded-lg border border-bo-border p-1.5">
                             <div className="relative aspect-[4/3] overflow-hidden rounded-md bg-bo-canvas">
-                                <img src={a.url} alt={`Ảnh ${daCo + i + 1}`} className="size-full object-cover" />
+                                <img src={a.url} alt={t("Ảnh {{so}}", { so: daCo + i + 1 })} className="size-full object-cover" />
                                 <button
                                     type="button"
                                     onClick={() => anh.bo(a.khoa)}
                                     disabled={khoa}
-                                    aria-label={`Bỏ ảnh ${daCo + i + 1}`}
-                                    title="Bỏ ảnh"
+                                    aria-label={t("Bỏ ảnh {{so}}", { so: daCo + i + 1 })}
+                                    title={t("Bỏ ảnh")}
                                     // Nút hiện 28 px nhưng vùng bấm 40 px (lớp ::after nới ra mỗi bên 6 px, phần tràn ngoài ảnh bị cắt)
                                     className="absolute right-1 top-1 grid size-7 place-items-center rounded-full bg-black/60 text-white after:absolute after:-inset-1.5 hover:bg-black/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:cursor-not-allowed disabled:opacity-60"
                                 >
@@ -53,8 +54,8 @@ export default function ChonAnhBienBan({ anh, daCo = 0, khoa = false, nhan = "�
                                 maxLength={MO_TA_TOI_DA}
                                 onChange={(e) => anh.doiMoTa(a.khoa, e.target.value)}
                                 disabled={khoa}
-                                aria-label={`Mô tả ảnh ${daCo + i + 1} (không bắt buộc)`}
-                                placeholder="Mô tả ngắn"
+                                aria-label={t("Mô tả ảnh {{so}} (không bắt buộc)", { so: daCo + i + 1 })}
+                                placeholder={t("Mô tả ngắn")}
                                 className={cn(O_NHAP, "h-8 px-2 text-[13px]")}
                             />
                         </li>
@@ -69,14 +70,14 @@ export default function ChonAnhBienBan({ anh, daCo = 0, khoa = false, nhan = "�
                     className="inline-flex h-9 items-center gap-1.5 rounded-md border border-dashed border-bo-input-border bg-bo-surface px-3 text-sm font-medium text-bo-foreground hover:bg-bo-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                     {anh.dangXuLy ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Camera className="size-4" aria-hidden="true" />}
-                    {anh.dangXuLy ? "Đang xử lý ảnh…" : nhanNut}
+                    {anh.dangXuLy ? t("Đang xử lý ảnh…") : nhanNut}
                 </button>
                 {vuot ? (
                     <span className="text-xs text-bo-danger">
-                        Biên bản đã có {daCo} ảnh, tối đa {SO_ANH_TOI_DA}: bỏ bớt {vuot} ảnh rồi mới tải lên được.
+                        {t("Biên bản đã có {{daCo}} ảnh, tối đa {{toiDa}}: bỏ bớt {{count}} ảnh rồi mới tải lên được.", { daCo, toiDa: SO_ANH_TOI_DA, count: vuot })}
                     </span>
                 ) : day ? (
-                    <span className="text-xs text-bo-muted">Đã đủ {SO_ANH_TOI_DA} ảnh.</span>
+                    <span className="text-xs text-bo-muted">{t("Đã đủ {{toiDa}} ảnh.", { toiDa: SO_ANH_TOI_DA })}</span>
                 ) : null}
                 <input
                     ref={oTepRef}

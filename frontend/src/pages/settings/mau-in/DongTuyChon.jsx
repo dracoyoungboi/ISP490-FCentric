@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { LABEL_MAX_LENGTH } from "@/components/print/schemas/printSchemas";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 const ICON_BUTTON =
     "inline-flex size-8 shrink-0 items-center justify-center rounded-md text-bo-muted hover:bg-bo-surface-subtle hover:text-bo-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bo-primary disabled:pointer-events-none disabled:opacity-50";
@@ -67,7 +68,7 @@ export default function DongTuyChon({ row, onToggle, onRename, disabled = false 
                 disabled={row.locked || row.inactive || disabled}
                 onCheckedChange={(checked) => onToggle(checked === true)}
                 aria-label={
-                    row.locked ? `${row.label} (bắt buộc)` : row.inactive && row.hint ? `${row.label} (${row.hint})` : row.label
+                    row.locked ? t("{{label}} (bắt buộc)", { label: row.label }) : row.inactive && row.hint ? `${row.label} (${row.hint})` : row.label
                 }
                 className="mt-[9px] size-[18px] rounded-[4px] border-[#94a3b8] data-[state=checked]:border-bo-primary data-[state=checked]:bg-bo-primary disabled:opacity-100 data-[state=checked]:disabled:border-[#94a3b8] data-[state=checked]:disabled:bg-[#94a3b8]"
             />
@@ -96,7 +97,7 @@ export default function DongTuyChon({ row, onToggle, onRename, disabled = false 
                                 cancel();
                             }
                         }}
-                        aria-label={`Nhãn in trên giấy thay cho “${row.defaultLabel}”`}
+                        aria-label={t("Nhãn in trên giấy thay cho “{{defaultLabel}}”", { defaultLabel: row.defaultLabel })}
                         placeholder={row.defaultLabel}
                         className="h-8 min-w-0 flex-1 border-[#8a96a6] bg-bo-surface px-2 text-sm shadow-none focus-visible:border-bo-primary focus-visible:ring-[3px] focus-visible:ring-bo-primary/15"
                     />
@@ -108,14 +109,14 @@ export default function DongTuyChon({ row, onToggle, onRename, disabled = false 
                         onClick={commit}
                         className="inline-flex h-8 shrink-0 items-center rounded-md bg-bo-primary px-2.5 text-[13px] font-medium text-white hover:bg-bo-primary-hover focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bo-primary"
                     >
-                        Xong
+                        {t("Xong")}
                     </button>
                     <button
                         type="button"
                         onMouseDown={(event) => event.preventDefault()}
                         onClick={() => finish("")}
-                        aria-label="Trả về tên gốc"
-                        title="Trả về tên gốc"
+                        aria-label={t("Trả về tên gốc")}
+                        title={t("Trả về tên gốc")}
                         className={ICON_BUTTON}
                     >
                         <RotateCcw className="size-4" aria-hidden="true" />
@@ -136,9 +137,9 @@ export default function DongTuyChon({ row, onToggle, onRename, disabled = false 
                                 {row.label}
                             </label>
                             {row.renamed ? (
-                                <span className="text-xs leading-4 text-bo-muted">gốc: {row.defaultLabel}</span>
+                                <span className="text-xs leading-4 text-bo-muted">{t("gốc: {{defaultLabel}}", { defaultLabel: row.defaultLabel })}</span>
                             ) : null}
-                            {row.locked ? <StatusBadge label="Bắt buộc" nhom="dong" /> : null}
+                            {row.locked ? <StatusBadge /* i18n-giu-nguyen: StatusBadge tự dịch nhãn lúc vẽ */ label="Bắt buộc" nhom="dong" /> : null}
                         </div>
                         {row.hint ? <p className="mt-0.5 text-xs leading-4 text-bo-muted">{row.hint}</p> : null}
                     </div>
@@ -148,8 +149,8 @@ export default function DongTuyChon({ row, onToggle, onRename, disabled = false 
                             type="button"
                             onClick={startEdit}
                             disabled={disabled}
-                            aria-label={`Đổi tên “${row.label}”`}
-                            title="Đổi tên"
+                            aria-label={t("Đổi tên “{{label}}”", { label: row.label })}
+                            title={t("Đổi tên")}
                             className={cn(ICON_BUTTON, "mt-[3px]")}
                         >
                             <Pencil className="size-[15px]" aria-hidden="true" />

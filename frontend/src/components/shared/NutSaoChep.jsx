@@ -1,6 +1,7 @@
 import { Check, Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import useSaoChep from "@/hooks/useSaoChep";
+import { t } from "@/i18n";
 
 /**
  * Nút sao chép dùng chung (số điện thoại, email, mã…). Cách báo đã chép theo config/thongBaoNhanh.js → nutSaoChep:
@@ -38,10 +39,10 @@ export default function NutSaoChep({ giaTri, nhan, className }) {
           xong && "translate-y-0 opacity-100",
         )}
       >
-        Đã chép
+        {t("Đã chép")}
       </span>
       <span className="sr-only" aria-live="polite">
-        {xong ? "Đã sao chép" : ""}
+        {xong ? t("Đã sao chép") : ""}
       </span>
     </button>
   );

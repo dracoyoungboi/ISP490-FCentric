@@ -14,10 +14,11 @@ import { cn } from "@/lib/utils";
 import { formatCurrency, formatDate } from "@/utils/formatters";
 import { soSanhDong, soSanhTong } from "./soSanhGia";
 import { chuSoBienThe } from "./tinhYeuCau";
+import { t } from "@/i18n";
 
 const CACH_XEM_GIA = [
-  { value: "donGia", label: "Đơn giá" },
-  { value: "thanhTien", label: "Thành tiền" },
+  { value: "donGia", label: t("Đơn giá") },
+  { value: "thanhTien", label: t("Thành tiền") },
 ];
 // Bề rộng (px) các cột: biến thể (cột dính trái; 180px khi khối hẹp), số lượng, mỗi nhà cung cấp. 3 nhà cung cấp vừa khối
 // ở 1440px có thanh bên (~810px); nhiều hơn thì bảng cuộn ngang trong khung, cột biến thể đứng yên.
@@ -38,7 +39,7 @@ function OGia({ chu, kieu, thapNhat, chot }) {
       >
         {chu}
       </span>
-      {thapNhat ? <span className="block text-[11px] font-semibold leading-[14px] text-bo-success">thấp nhất</span> : null}
+      {thapNhat ? <span className="block text-[11px] font-semibold leading-[14px] text-bo-success">{t("thấp nhất")}</span> : null}
     </td>
   );
 }
@@ -64,7 +65,7 @@ function OGhiChu({ ghiChu, chot, cuoi }) {
               onClick={() => setMo((x) => !x)}
               className="mt-1 text-xs font-semibold text-bo-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
             >
-              {mo ? "Thu gọn" : "Xem thêm"}
+              {mo ? t("Thu gọn") : t("Xem thêm")}
             </button>
           ) : null}
         </>
@@ -78,7 +79,7 @@ function OGhiChu({ ghiChu, chot, cuoi }) {
 /** Đổi tổng theo nhà cung cấp (soSanhTong) sang ô: thiếu dòng nào thì báo thiếu thay vì cộng thiếu. */
 function oTong(x, chuKhiChuaCo) {
   if (x.khongCo) return { chu: chuKhiChuaCo, kieu: "chua", thapNhat: false };
-  if (x.thieu > 0) return { chu: `Thiếu giá ${soVN(x.thieu)} dòng`, kieu: "thieu", thapNhat: false };
+  if (x.thieu > 0) return { chu: t("Thiếu giá {{thieu}} dòng", { count: x.thieu, thieu: soVN(x.thieu) }), kieu: "thieu", thapNhat: false };
   return { chu: formatCurrency(x.tong), kieu: "", thapNhat: x.thapNhat };
 }
 
@@ -110,12 +111,12 @@ export default function BangSoSanhGia({ bang, ncc, tongCaYeuCau, xem, onDoiXem, 
     <section aria-labelledby={`${idBang}-tieu-de`} className="flex min-w-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 pb-3 pt-4 sm:px-6">
         <h2 id={`${idBang}-tieu-de`} className="text-base font-semibold leading-6 text-bo-foreground">
-          So sánh báo giá
+          {t("So sánh báo giá")}
         </h2>
         {soNcc ? (
           <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2">
             {tomTatGui ? <span className="text-[13px] leading-5 text-bo-muted">{tomTatGui}</span> : null}
-            <NutPhanDoan nhan="Cách xem giá" value={xem} onChange={onDoiXem} luaChon={CACH_XEM_GIA} />
+            <NutPhanDoan nhan={t("Cách xem giá")} value={xem} onChange={onDoiXem} luaChon={CACH_XEM_GIA} />
           </div>
         ) : null}
       </div>
@@ -126,7 +127,7 @@ export default function BangSoSanhGia({ bang, ncc, tongCaYeuCau, xem, onDoiXem, 
             tuKhoa={bang.tuKhoa}
             onDoiTuKhoa={bang.datTuKhoa}
             onXoaTuKhoa={bang.xoaTuKhoa}
-            nhanTim="Tìm trong yêu cầu"
+            nhanTim={t("Tìm trong yêu cầu")}
             ketQua={bang.chuKetQua}
             khongKetQua={bang.khongKetQua}
             moHet={bang.moHet}
@@ -152,10 +153,10 @@ export default function BangSoSanhGia({ bang, ncc, tongCaYeuCau, xem, onDoiXem, 
             <thead>
               <tr className={cn(DONG_TIEU_DE, "whitespace-normal")}>
                 <th scope="col" className={cn(O_TIEU_DE, O_DAU, COT_DINH, "bg-bo-surface-subtle align-bottom")}>
-                  Biến thể
+                  {t("Biến thể")}
                 </th>
                 <th scope="col" className={cn(O_TIEU_DE, "whitespace-nowrap text-right align-bottom", soNcc ? "" : O_CUOI)}>
-                  Số lượng
+                  {t("Số lượng")}
                 </th>
                 {ncc.map((n, i) => (
                   <th
@@ -178,7 +179,7 @@ export default function BangSoSanhGia({ bang, ncc, tongCaYeuCau, xem, onDoiXem, 
                       )}
                       {n.soDonMua ? <span className="font-mono text-xs font-normal text-bo-muted">{n.soDonMua}</span> : null}
                       {n.ngayGui ? (
-                        <span className="text-xs font-normal tabular-nums text-bo-muted">Gửi {formatDate(n.ngayGui)}</span>
+                        <span className="text-xs font-normal tabular-nums text-bo-muted">{t("Gửi {{ngayGui}}", { ngayGui: formatDate(n.ngayGui) })}</span>
                       ) : null}
                       {/* Cột hẹp: nhãn dài ("Đã chuyển thành đơn mua hàng") xuống dòng trong cột thay vì tràn sang cột bên */}
                       <StatusBadge label={n.nhan} quyTrinh="yeuCauBaoGia" className="max-w-full whitespace-normal text-left" />
@@ -249,11 +250,11 @@ export default function BangSoSanhGia({ bang, ncc, tongCaYeuCau, xem, onDoiXem, 
               <tfoot>
                 <tr className="border-t border-bo-border font-semibold">
                   <th scope="row" className={cn(O, O_DAU, COT_DINH, "bg-bo-surface text-left font-semibold text-bo-foreground")}>
-                    Tổng tiền cả yêu cầu
+                    {t("Tổng tiền cả yêu cầu")}
                   </th>
                   <td className={O} />
                   {tongCaYeuCau.map((x, j) => {
-                    const o = oTong(x, "Chưa báo giá");
+                    const o = oTong(x, t("Chưa báo giá"));
                     return <OGia key={ncc[j].id} {...o} chu={<span className={o.kieu ? "" : "text-[15px]"}>{o.chu}</span>} chot={ncc[j].chot} />;
                   })}
                 </tr>
@@ -261,7 +262,7 @@ export default function BangSoSanhGia({ bang, ncc, tongCaYeuCau, xem, onDoiXem, 
                 {coGhiChu ? (
                   <tr className="border-t border-bo-border">
                     <th scope="row" className={cn(O, O_DAU, COT_DINH, "bg-bo-surface align-top text-left font-semibold text-bo-foreground")}>
-                      Ghi chú của nhà cung cấp
+                      {t("Ghi chú của nhà cung cấp")}
                     </th>
                     <td className={O} />
                     {ncc.map((n, j) => (
@@ -275,7 +276,7 @@ export default function BangSoSanhGia({ bang, ncc, tongCaYeuCau, xem, onDoiXem, 
         </div>
       ) : null}
 
-      <KhongKetQua bang={bang} tenChungTu="yêu cầu báo giá" donVi="biến thể" />
+      <KhongKetQua bang={bang} tenChungTu={t("yêu cầu báo giá")} donVi={t("biến thể")} />
       {bang.phanTrang ? <PhanTrangBang {...bang.phanTrang} /> : null}
 
       {chuThich ? (

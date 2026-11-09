@@ -2,52 +2,53 @@
 // /ke-toan/thue-suat, lưu cả bảng một lần). Hóa đơn bán hàng in mức chung (dòng không danh mục) có hiệu lực ở ngày đó
 // (máy chủ: ThueGtgtService); dòng theo danh mục chỉ dùng khi xuất kế toán. Hàm thuần, chạy được bằng node --test.
 import { THUE_SUAT, chongNhau, hienNgay } from "../../components/ke-toan/tinhKeToan.js";
+import { t } from "../../i18n/t.js";
 
 export const VAT_BAT = "VAT_BAT";
 export const TOI_DA_DONG = 50;
 
-const laMucChung = (t) => !t?.danhMucId;
-const hieuLucNgay = (t, ngay) => t.hieuLucTu <= ngay && (!t.hieuLucDen || t.hieuLucDen >= ngay);
+const laMucChung = (ts) => !ts?.danhMucId;
+const hieuLucNgay = (ts, ngay) => ts.hieuLucTu <= ngay && (!ts.hieuLucDen || ts.hieuLucDen >= ngay);
 
 /** Dòng mức chung có hiệu lực vào ngày (yyyy-MM-dd); null = chưa có (hóa đơn không in thuế). */
 export function mucChungTai(ds, ngay) {
   return (ds ?? [])
-    .filter((t) => laMucChung(t) && hieuLucNgay(t, ngay))
+    .filter((ts) => laMucChung(ts) && hieuLucNgay(ts, ngay))
     .sort((a, b) => b.hieuLucTu.localeCompare(a.hieuLucTu))[0] ?? null;
 }
 
 /** Trạng thái dòng so với ngày (yyyy-MM-dd): "qua" đã hết hiệu lực, "toi" chưa tới, "hien" đang áp dụng. */
-export function trangThaiDong(t, ngay) {
-  if (t.hieuLucDen && t.hieuLucDen < ngay) return "qua";
-  return t.hieuLucTu > ngay ? "toi" : "hien";
+export function trangThaiDong(ts, ngay) {
+  if (ts.hieuLucDen && ts.hieuLucDen < ngay) return "qua";
+  return ts.hieuLucTu > ngay ? "toi" : "hien";
 }
 
 /** "01/07/2025 – 31/12/2026" hoặc "Từ 01/01/2027" khi chưa hết hiệu lực. */
-export const khoangNgay = (t) =>
-  t.hieuLucDen ? `${hienNgay(t.hieuLucTu)} – ${hienNgay(t.hieuLucDen)}` : `Từ ${hienNgay(t.hieuLucTu)}`;
+export const khoangNgay = (ts) =>
+  ts.hieuLucDen ? `${hienNgay(ts.hieuLucTu)} – ${hienNgay(ts.hieuLucDen)}` : t("Từ {{ngay}}", { ngay: hienNgay(ts.hieuLucTu) });
 
 /** Bảng xếp để hiện: mức chung theo ngày bắt đầu, rồi dòng theo danh mục (tên, ngày). */
 export function sapXep(ds) {
   const theoNgay = (a, b) => a.hieuLucTu.localeCompare(b.hieuLucTu);
   const chung = (ds ?? []).filter(laMucChung).sort(theoNgay);
-  const rieng = (ds ?? []).filter((t) => !laMucChung(t))
+  const rieng = (ds ?? []).filter((ts) => !laMucChung(ts))
     .sort((a, b) => (a.tenDanhMuc ?? "").localeCompare(b.tenDanhMuc ?? "", "vi") || theoNgay(a, b));
   return { chung, rieng };
 }
 
 let dem = 0;
 /** Dòng đang sửa (giá trị chuỗi như ô nhập); khoa giữ ổn định khi thêm / bỏ dòng. rieng = dòng theo danh mục. */
-export function formDong(t, rieng = Boolean(t?.danhMucId)) {
+export function formDong(ts, rieng = Boolean(ts?.danhMucId)) {
   return {
-    khoa: t?.id != null ? `id-${t.id}` : `moi-${++dem}`,
-    id: t?.id ?? null,
+    khoa: ts?.id != null ? `id-${ts.id}` : `moi-${++dem}`,
+    id: ts?.id ?? null,
     rieng,
-    danhMucId: t?.danhMucId ? String(t.danhMucId) : "",
-    tenDanhMuc: t?.tenDanhMuc ?? null,
-    tyLe: t?.tyLe != null ? String(Number(t.tyLe)) : "",
-    hieuLucTu: t?.hieuLucTu ?? "",
-    hieuLucDen: t?.hieuLucDen ?? "",
-    ghiChu: t?.ghiChu ?? "",
+    danhMucId: ts?.danhMucId ? String(ts.danhMucId) : "",
+    tenDanhMuc: ts?.tenDanhMuc ?? null,
+    tyLe: ts?.tyLe != null ? String(Number(ts.tyLe)) : "",
+    hieuLucTu: ts?.hieuLucTu ?? "",
+    hieuLucDen: ts?.hieuLucDen ?? "",
+    ghiChu: ts?.ghiChu ?? "",
   };
 }
 
@@ -57,7 +58,7 @@ export const idTuNgay = (khoa) => `ts-tu-${khoa}`;
 /** Bảng đang sửa từ bảng đã lưu: mức chung trước rồi dòng theo danh mục. */
 export function formBang(ds) {
   const { chung, rieng } = sapXep(ds);
-  return [...chung, ...rieng].map((t) => formDong(t));
+  return [...chung, ...rieng].map((ts) => formDong(ts));
 }
 
 /**
@@ -69,15 +70,15 @@ export function kiemTraBang(ds) {
   const ok = [];
   for (const d of ds) {
     const ts = String(d.tyLe).trim();
-    if (d.rieng && !d.danhMucId) loi[d.khoa] = "Chọn danh mục";
-    else if (ts === "" || !THUE_SUAT.includes(Number(ts))) loi[d.khoa] = "Chọn thuế suất";
-    else if (!/^\d{4}-\d{2}-\d{2}$/.test(d.hieuLucTu)) loi[d.khoa] = "Chọn ngày bắt đầu";
-    else if (d.hieuLucDen && d.hieuLucDen < d.hieuLucTu) loi[d.khoa] = "Ngày kết thúc phải từ ngày bắt đầu trở đi";
-    else if (d.ghiChu.trim().length > 255) loi[d.khoa] = "Ghi chú tối đa 255 ký tự";
+    if (d.rieng && !d.danhMucId) loi[d.khoa] = t("Chọn danh mục");
+    else if (ts === "" || !THUE_SUAT.includes(Number(ts))) loi[d.khoa] = t("Chọn thuế suất");
+    else if (!/^\d{4}-\d{2}-\d{2}$/.test(d.hieuLucTu)) loi[d.khoa] = t("Chọn ngày bắt đầu");
+    else if (d.hieuLucDen && d.hieuLucDen < d.hieuLucTu) loi[d.khoa] = t("Ngày kết thúc phải từ ngày bắt đầu trở đi");
+    else if (d.ghiChu.trim().length > 255) loi[d.khoa] = t("Ghi chú tối đa 255 ký tự");
     else {
       const pv = d.rieng ? d.danhMucId : "";
       const trung = ok.find((o) => o.pv === pv && chongNhau(o.d.hieuLucTu, o.d.hieuLucDen || null, d.hieuLucTu, d.hieuLucDen || null));
-      if (trung) loi[d.khoa] = `Trùng khoảng ngày với dòng ${Number(trung.d.tyLe)}% từ ${hienNgay(trung.d.hieuLucTu)}: đặt ngày kết thúc cho dòng trước`;
+      if (trung) loi[d.khoa] = t("Trùng khoảng ngày với dòng {{tyLe}}% từ {{ngay}}: đặt ngày kết thúc cho dòng trước", { tyLe: Number(trung.d.tyLe), ngay: hienNgay(trung.d.hieuLucTu) });
       else ok.push({ pv, d });
     }
   }

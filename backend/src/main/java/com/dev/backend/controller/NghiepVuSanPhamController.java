@@ -15,6 +15,7 @@ import com.dev.backend.dto.response.entities.YeuCauMuaHangDto;
 import com.dev.backend.services.impl.entities.DonMuaHangService;
 import com.dev.backend.services.impl.entities.YeuCauMuaHangService;
 import com.dev.backend.services.impl.multitable.HangNhapKhoTongService;
+import com.dev.backend.i18n.ThongDiep;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -146,7 +147,7 @@ public class NghiepVuSanPhamController {
                 ResponseData.<GuiLaiYeuCauDto>builder()
                         .status(HttpStatus.OK.value())
                         .data(donMuaHangService.guiLaiYeuCauBaoGia(id))
-                        .message("Đã đưa email vào hàng đợi gửi.")
+                        .message(ThongDiep.dich("sanPhamMuaHang.emailDaVaoHangDoi"))
                         .error(null)
                         .build()
         );

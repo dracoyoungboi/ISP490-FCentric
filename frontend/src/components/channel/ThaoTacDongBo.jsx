@@ -3,6 +3,7 @@ import { Ellipsis } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import NutDongBoNgay from "./NutDongBoNgay";
+import { t } from "@/i18n";
 
 const NUT_BA_CHAM = "rounded-lg border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle max-sm:size-11";
 const MUC_MENU = "cursor-pointer items-start gap-2 rounded-md px-2.5 py-2 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900";
@@ -23,9 +24,9 @@ export default function ThaoTacDongBo({ tienDo, tenSan, onDen, thaoTac = [], vie
   const idLyDo = useId();
   const dangDongBo = tienDo.dangChay || tienDo.dangGui;
   const lyDoKhoa = dangDongBo
-    ? `Đang đồng bộ với ${tenSan}, chờ đợt này xong rồi chạy.`
+    ? t("Đang đồng bộ với {{tenSan}}, chờ đợt này xong rồi chạy.", { tenSan })
     : viecPhu
-      ? `${viecPhu.replace(/…$/, "")}, chờ xong rồi chạy việc khác.`
+      ? t("{{viec}}, chờ xong rồi chạy việc khác.", { viec: viecPhu.replace(/…$/, "") })
       : khoaThaoTac || null;
 
   return (
@@ -33,7 +34,7 @@ export default function ThaoTacDongBo({ tienDo, tenSan, onDen, thaoTac = [], vie
       {thaoTac.length ? (
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
-            <Button type="button" variant="outline" size="icon" aria-label="Thao tác khác" title="Thao tác khác" className={NUT_BA_CHAM}>
+            <Button type="button" variant="outline" size="icon" aria-label={t("Thao tác khác")} title={t("Thao tác khác")} className={NUT_BA_CHAM}>
               <Ellipsis className="size-4" aria-hidden="true" />
             </Button>
           </DropdownMenuTrigger>

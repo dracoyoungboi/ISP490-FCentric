@@ -9,6 +9,7 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { NUT_VIEN_CLASS } from "./kieuForm";
+import { t } from "@/i18n";
 
 /** Hộp hỏi trước khi bỏ dữ liệu đang nhập; cùng mẫu với hộp "Bỏ thông tin đang nhập?" của popup Thêm người dùng. */
 export default function HopHoiBoThayDoi({ open, onOpenChange, onBo, onCloseAutoFocus, tieuDe, moTa }) {
@@ -20,12 +21,12 @@ export default function HopHoiBoThayDoi({ open, onOpenChange, onBo, onCloseAutoF
                     <AlertDialogDescription className="text-sm text-bo-muted">{moTa}</AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter className="gap-2">
-                    <AlertDialogCancel className={NUT_VIEN_CLASS}>Tiếp tục nhập</AlertDialogCancel>
+                    <AlertDialogCancel className={NUT_VIEN_CLASS}>{t("Tiếp tục nhập")}</AlertDialogCancel>
                     <AlertDialogAction
                         onClick={onBo}
                         className="bg-bo-danger text-white hover:bg-bo-danger/90 focus-visible:ring-[3px] focus-visible:ring-bo-danger/20"
                     >
-                        Bỏ thay đổi
+                        {t("Bỏ thay đổi")}
                     </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>

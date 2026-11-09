@@ -15,6 +15,7 @@ import UserAvatar from "@/components/UserAvatar";
 import { CAU_HINH_THONG_BAO_NHANH } from "@/config/thongBaoNhanh";
 import useSaoChep from "@/hooks/useSaoChep";
 import { canKho, hienTenDangNhapRieng, tenVaiTro } from "@/components/nguoi-dung/phanQuyen";
+import { t } from "@/i18n";
 
 const NUT_VIEN = "border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle";
 const MUC_MENU =
@@ -58,7 +59,7 @@ export default function DauTrangNguoiDung({ nguoiDung, pq, laChinhMinh, onQuayLa
 
   const saoChepTen = async (suKien) => {
     if (!taiCho) {
-      await saoChep(nguoiDung.tenDangNhap, { nhan: "Sao chép tên đăng nhập" });
+      await saoChep(nguoiDung.tenDangNhap, { nhan: t("Sao chép tên đăng nhập") });
       return;
     }
     suKien.preventDefault(); // giữ menu mở để người dùng thấy "Đã sao chép"
@@ -76,8 +77,8 @@ export default function DauTrangNguoiDung({ nguoiDung, pq, laChinhMinh, onQuayLa
           variant="outline"
           size="icon"
           onClick={onQuayLai}
-          aria-label="Quay lại danh sách"
-          title="Quay lại danh sách"
+          aria-label={t("Quay lại danh sách")}
+          title={t("Quay lại danh sách")}
           className={`shrink-0 ${NUT_VIEN}`}
         >
           <ArrowLeft className="size-4" aria-hidden="true" />
@@ -94,7 +95,7 @@ export default function DauTrangNguoiDung({ nguoiDung, pq, laChinhMinh, onQuayLa
             <PageHeading className="max-sm:line-clamp-2 max-sm:whitespace-normal">
               <span title={nguoiDung.hoTen || undefined}>{nguoiDung.hoTen || nguoiDung.tenDangNhap || "—"}</span>
             </PageHeading>
-            <StatusBadge doiTuong="nguoi" size="lg" label={dangHoatDong ? "Hoạt động" : "Bị khóa"} />
+            <StatusBadge /* i18n-giu-nguyen: StatusBadge tự dịch */ doiTuong="nguoi" size="lg" label={dangHoatDong ? "Hoạt động" : "Bị khóa"} />
           </div>
           <p className="mt-0.5 break-words text-[13px] leading-5 text-bo-muted">{dongPhu(nguoiDung, pq)}</p>
         </div>
@@ -107,8 +108,8 @@ export default function DauTrangNguoiDung({ nguoiDung, pq, laChinhMinh, onQuayLa
               type="button"
               variant="outline"
               size="icon"
-              aria-label="Thao tác khác"
-              title="Thao tác khác"
+              aria-label={t("Thao tác khác")}
+              title={t("Thao tác khác")}
               className={`max-sm:size-11 ${NUT_VIEN}`}
             >
               <Ellipsis className="size-4" aria-hidden="true" />
@@ -118,13 +119,13 @@ export default function DauTrangNguoiDung({ nguoiDung, pq, laChinhMinh, onQuayLa
             <DropdownMenuItem onClick={onCapLaiMatKhau} disabled={laChinhMinh || !email} className={MUC_MENU}>
               <KeyRound className="mt-0.5 size-4 text-slate-400" aria-hidden="true" />
               <span className="flex min-w-0 flex-col gap-0.5">
-                <span className="font-medium text-bo-foreground">Gửi liên kết đặt lại mật khẩu</span>
+                <span className="font-medium text-bo-foreground">{t("Gửi liên kết đặt lại mật khẩu")}</span>
                 <span className="break-all text-xs leading-4 text-bo-muted">
                   {laChinhMinh
-                    ? "Tài khoản của bạn: dùng Đổi mật khẩu"
+                    ? t("Tài khoản của bạn: dùng Đổi mật khẩu")
                     : email
-                      ? `Người dùng tự đặt mật khẩu mới qua email ${email}`
-                      : "Tài khoản chưa có email nên không gửi được"}
+                      ? t("Người dùng tự đặt mật khẩu mới qua email {{email}}", { email })
+                      : t("Tài khoản chưa có email nên không gửi được")}
                 </span>
               </span>
             </DropdownMenuItem>
@@ -133,12 +134,12 @@ export default function DauTrangNguoiDung({ nguoiDung, pq, laChinhMinh, onQuayLa
                 {daChep ? (
                   <>
                     <Check className="mt-0.5 size-4 text-bo-success" strokeWidth={2.5} aria-hidden="true" />
-                    <span className="text-bo-success">Đã sao chép</span>
+                    <span className="text-bo-success">{t("Đã sao chép")}</span>
                   </>
                 ) : (
                   <>
                     <Copy className="mt-0.5 size-4 text-slate-400" aria-hidden="true" />
-                    Sao chép tên đăng nhập
+                    {t("Sao chép tên đăng nhập")}
                   </>
                 )}
               </DropdownMenuItem>
@@ -149,14 +150,14 @@ export default function DauTrangNguoiDung({ nguoiDung, pq, laChinhMinh, onQuayLa
                 <DropdownMenuItem onClick={onKhoaMoKhoa} className={`${MUC_MENU} focus:bg-bo-danger-soft`}>
                   <Lock className="mt-0.5 size-4 text-bo-danger" aria-hidden="true" />
                   <span className="flex min-w-0 flex-col gap-0.5">
-                    <span className="font-medium text-bo-danger">Khóa tài khoản</span>
-                    <span className="text-xs leading-4 text-bo-muted">Không đăng nhập được · phiếu và lịch sử giữ nguyên</span>
+                    <span className="font-medium text-bo-danger">{t("Khóa tài khoản")}</span>
+                    <span className="text-xs leading-4 text-bo-muted">{t("Không đăng nhập được · phiếu và lịch sử giữ nguyên")}</span>
                   </span>
                 </DropdownMenuItem>
               </>
             ) : null}
             <span className="sr-only" aria-live="polite">
-              {daChep ? "Đã sao chép tên đăng nhập" : ""}
+              {daChep ? t("Đã sao chép tên đăng nhập") : ""}
             </span>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -164,7 +165,7 @@ export default function DauTrangNguoiDung({ nguoiDung, pq, laChinhMinh, onQuayLa
         {/* Nút bị tắt không nhận chuột (pointer-events-none) nên lý do đặt ở span bọc ngoài */}
         <span
           className="inline-flex max-sm:flex-1"
-          title={laChinhMinh ? "Bạn không tự phân quyền cho chính mình được" : undefined}
+          title={laChinhMinh ? t("Bạn không tự phân quyền cho chính mình được") : undefined}
         >
           <Button
             type="button"
@@ -173,7 +174,7 @@ export default function DauTrangNguoiDung({ nguoiDung, pq, laChinhMinh, onQuayLa
             className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover max-sm:h-11 max-sm:flex-1"
           >
             <ShieldCheck className="size-4" aria-hidden="true" />
-            Phân quyền
+            {t("Phân quyền")}
           </Button>
         </span>
       </div>

@@ -26,11 +26,12 @@ import {
 import { formatQuantity } from "@/constants/outbound";
 import { cn } from "@/lib/utils";
 import { DON_VI_DONG, TEN_CHUNG_TU } from "./tinhPhieuNhat";
+import { t } from "@/i18n";
 
 // Câu khi lọc nhanh không còn dòng (theo demo, rõ hơn câu chung "Không có … ở bộ lọc này.")
 const CHU_LOC_RONG = {
-  conThieu: "Mọi dòng đã nhặt đủ.",
-  du: "Chưa có dòng nào nhặt đủ.",
+  conThieu: t("Mọi dòng đã nhặt đủ."),
+  du: t("Chưa có dòng nào nhặt đủ."),
 };
 
 // Ô cuối của hàng khi khối hẹp mà cột Thao tác đang ẩn: lề phải trùng lề khối như O_CUOI
@@ -47,13 +48,13 @@ const CUOI_KHI_HEP = "@max-2xl/khoi:pr-4 @max-2xl/khoi:sm:pr-6";
 export default function BangDongNhat({ bang, duocPhanBoLo, dongSang, onPhanBoLo }) {
   const boLoc = bang.rong ? null : (
     <NutPhanDoan
-      nhan="Lọc dòng"
+      nhan={t("Lọc dòng")}
       value={bang.locNhanh}
       onChange={bang.datLoc}
       luaChon={[
-        { value: "tatCa", label: "Tất cả" },
-        { value: "conThieu", label: "Còn thiếu", count: bang.demLoc.conThieu ?? 0 },
-        { value: "du", label: "Đủ", count: bang.demLoc.du ?? 0 },
+        { value: "tatCa", label: t("Tất cả") },
+        { value: "conThieu", label: t("Còn thiếu"), count: bang.demLoc.conThieu ?? 0 },
+        { value: "du", label: t("Đủ"), count: bang.demLoc.du ?? 0 },
       ]}
     />
   );
@@ -62,7 +63,7 @@ export default function BangDongNhat({ bang, duocPhanBoLo, dongSang, onPhanBoLo 
     <section aria-labelledby="bang-nhat" className="flex min-w-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 pb-3 pt-4 sm:px-6">
         <h2 id="bang-nhat" className="text-base font-semibold leading-6 text-bo-foreground">
-          Sản phẩm cần nhặt
+          {t("Sản phẩm cần nhặt")}
         </h2>
         {bang.coCongCu ? null : boLoc}
       </div>
@@ -72,8 +73,8 @@ export default function BangDongNhat({ bang, duocPhanBoLo, dongSang, onPhanBoLo 
           tuKhoa={bang.tuKhoa}
           onDoiTuKhoa={bang.datTuKhoa}
           onXoaTuKhoa={bang.xoaTuKhoa}
-          goiYTim="Tìm theo tên, SKU hoặc mã vạch"
-          nhanTim="Tìm trong phiếu nhặt hàng"
+          goiYTim={t("Tìm theo tên, SKU hoặc mã vạch")}
+          nhanTim={t("Tìm trong phiếu nhặt hàng")}
           ketQua={bang.chuKetQua}
           khongKetQua={bang.khongKetQua}
           boLoc={boLoc}
@@ -88,14 +89,14 @@ export default function BangDongNhat({ bang, duocPhanBoLo, dongSang, onPhanBoLo 
           >
             <thead>
               <tr className={DONG_TIEU_DE}>
-                <th scope="col" className={cn(O_TIEU_DE, O_DAU)}>Sản phẩm</th>
-                <th scope="col" className={cn(O_TIEU_DE, "w-[176px]", AN_DIEN_THOAI)}>Lô gợi ý</th>
+                <th scope="col" className={cn(O_TIEU_DE, O_DAU)}>{t("Sản phẩm")}</th>
+                <th scope="col" className={cn(O_TIEU_DE, "w-[176px]", AN_DIEN_THOAI)}>{t("Lô gợi ý")}</th>
                 <th scope="col" className={cn(O_TIEU_DE, "w-[156px]", duocPhanBoLo ? CUOI_KHI_HEP : O_CUOI)}>
-                  Đã nhặt
+                  {t("Đã nhặt")}
                 </th>
                 {duocPhanBoLo ? (
                   <th scope="col" className={cn(O_TIEU_DE, O_CUOI, "w-[128px]", AN_DIEN_THOAI)}>
-                    <span className="sr-only">Thao tác</span>
+                    <span className="sr-only">{t("Thao tác")}</span>
                   </th>
                 ) : null}
               </tr>
@@ -120,7 +121,7 @@ export default function BangDongNhat({ bang, duocPhanBoLo, dongSang, onPhanBoLo 
           bang={bang}
           chu={CHU_LOC_RONG[bang.locNhanh]}
           donVi={DON_VI_DONG}
-          nhanNut="Xem tất cả"
+          nhanNut={t("Xem tất cả")}
           onNut={bang.xoaLoc}
         />
       ) : (
@@ -147,7 +148,7 @@ function LayO({ layO, coNut, daDu }) {
     return (
       <div className="mt-1 flex items-center gap-1 text-xs leading-4 text-bo-muted">
         <MapPin className="size-3 shrink-0" aria-hidden="true" />
-        Lấy ở hàng chưa có kệ
+        {t("Lấy ở hàng chưa có kệ")}
       </div>
     );
   }
@@ -155,11 +156,11 @@ function LayO({ layO, coNut, daDu }) {
   return (
     <div className="mt-1.5">
       <div className="flex flex-wrap items-center gap-1">
-        <span className="mr-0.5 text-xs leading-4 text-bo-muted">Lấy ở</span>
+        <span className="mr-0.5 text-xs leading-4 text-bo-muted">{t("Lấy ở")}</span>
         {ke.map((k) => (
           <span
             key={k.id}
-            title={k.dangKiemKe ? `Kệ ${k.ma} đang được kiểm kê` : `Kệ ${k.ma}`}
+            title={k.dangKiemKe ? t("Kệ {{ma}} đang được kiểm kê", { ma: k.ma }) : t("Kệ {{ma}}", { ma: k.ma })}
             className={cn(
               THE_KE,
               "font-mono",
@@ -169,30 +170,30 @@ function LayO({ layO, coNut, daDu }) {
             )}
           >
             <MapPin className="size-3 shrink-0" aria-hidden="true" />
-            <span className="sr-only">Kệ </span>
+            <span className="sr-only">{t("Kệ")} </span>
             <span className="truncate">{k.ma}</span>
             <span className="font-sans tabular-nums">× {formatQuantity(k.soLuong)}</span>
-            {k.dangKiemKe ? <span className="sr-only"> (đang kiểm kê)</span> : null}
+            {k.dangKiemKe ? <span className="sr-only"> {t("(đang kiểm kê)")}</span> : null}
           </span>
         ))}
         {chuaCoKe > 0 ? (
-          <span title="Hàng của lô chưa xếp lên kệ nào trong kho" className={cn(THE_KE, "border-slate-200 bg-white text-slate-600")}>
-            Chưa có kệ
+          <span title={t("Hàng của lô chưa xếp lên kệ nào trong kho")} className={cn(THE_KE, "border-slate-200 bg-white text-slate-600")}>
+            {t("Chưa có kệ")}
             <span className="tabular-nums">× {formatQuantity(chuaCoKe)}</span>
           </span>
         ) : null}
         {chuaRo ? (
           <span
-            title="Lô phân bổ trước khi có nhặt theo kệ. Lưu lại ở Phân bổ lô để hệ thống chia kệ."
+            title={t("Lô phân bổ trước khi có nhặt theo kệ. Lưu lại ở Phân bổ lô để hệ thống chia kệ.")}
             className="text-xs leading-4 text-bo-muted"
           >
-            Chưa ghi kệ
+            {t("Chưa ghi kệ")}
           </span>
         ) : null}
       </div>
       {coKiemKe ? (
         <div className="mt-1 text-xs font-medium leading-4 text-bo-warning">
-          {coNut ? "Đổi kệ trước khi nhặt" : "Kệ đang kiểm kê"}
+          {coNut ? t("Đổi kệ trước khi nhặt") : t("Kệ đang kiểm kê")}
         </div>
       ) : null}
     </div>
@@ -202,17 +203,17 @@ function LayO({ layO, coNut, daDu }) {
 /** Lô gợi ý của một dòng: thẻ lô (nhập trước lấy trước hoặc đã sửa tay), kệ lấy hàng, cảnh báo thiếu lô / chưa phân bổ. */
 function LoGoiY({ dong: d, coNut }) {
   if (d.trangThai === "bo") return <span className="text-bo-muted">—</span>;
-  if (d.chuaLo) return <span className="text-xs font-medium leading-4 text-bo-warning">Chưa phân bổ lô</span>;
+  if (d.chuaLo) return <span className="text-xs font-medium leading-4 text-bo-warning">{t("Chưa phân bổ lô")}</span>;
   return (
     <>
       <ChipLo lo={d.lo} cuaDong={d.sku} />
       <div className={cn("mt-1 text-xs leading-4", d.thuCong ? "text-slate-600" : "text-bo-muted")}>
-        {d.thuCong ? "Đã sửa tay" : "Nhập trước lấy trước"}
+        {d.thuCong ? t("Đã sửa tay") : t("Nhập trước lấy trước")}
       </div>
       <LayO layO={d.layO} coNut={coNut} daDu={d.trangThai === "du"} />
       {d.thieuLo > 0 ? (
         <div className="mt-1 text-xs font-medium leading-4 text-bo-warning">
-          Còn thiếu {formatQuantity(d.thieuLo)} theo lô — tồn theo lô không đủ
+          {t("Còn thiếu {{thieuLo}} theo lô — tồn theo lô không đủ", { thieuLo: formatQuantity(d.thieuLo) })}
         </div>
       ) : null}
     </>
@@ -226,14 +227,14 @@ function NutPhanBoLo({ dong: d, onPhanBoLo, className }) {
       variant="outline"
       size="sm"
       onClick={() => onPhanBoLo(d.goc)}
-      aria-label={`Phân bổ lô cho ${d.sku || d.tenSanPham}`}
+      aria-label={t("Phân bổ lô cho {{sanPham}}", { sanPham: d.sku || d.tenSanPham })}
       className={cn(
         "h-7 gap-1 border-bo-border bg-bo-surface px-2 text-xs font-medium text-bo-foreground shadow-none hover:bg-bo-surface-subtle",
         className,
       )}
     >
       <Layers className="size-3.5" aria-hidden="true" />
-      Phân bổ lô
+      {t("Phân bổ lô")}
     </Button>
   );
 }
@@ -262,7 +263,7 @@ function DongNhat({ dong: d, sang, duocPhanBoLo, onPhanBoLo }) {
               {d.maVach ? (
                 <span className="inline-flex min-w-0 items-center gap-1 break-all font-mono max-md:break-normal">
                   <Barcode className="size-3 shrink-0" aria-hidden="true" />
-                  <span className="sr-only">Mã vạch </span>
+                  <span className="sr-only">{t("Mã vạch")} </span>
                   {d.maVach}
                 </span>
               ) : null}
@@ -284,9 +285,9 @@ function DongNhat({ dong: d, sang, duocPhanBoLo, onPhanBoLo }) {
 
       <td className={cn(O, duocPhanBoLo ? CUOI_KHI_HEP : O_CUOI)}>
         {bo ? (
-          <span title="Đơn chứa dòng này đã hủy, số cần nhặt giảm về 0">
-            <StatusBadge label="Đã bỏ" />
-            <span className="sr-only">: đơn chứa dòng này đã hủy, số cần nhặt giảm về 0</span>
+          <span title={t("Đơn chứa dòng này đã hủy, số cần nhặt giảm về 0")}>
+            <StatusBadge /* i18n-giu-nguyen: StatusBadge tự dịch lúc vẽ */ label="Đã bỏ" />
+            <span className="sr-only">{t(": đơn chứa dòng này đã hủy, số cần nhặt giảm về 0")}</span>
           </span>
         ) : (
           <OTienDo da={d.da} can={d.can} />

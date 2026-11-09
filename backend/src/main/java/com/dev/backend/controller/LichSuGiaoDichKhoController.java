@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import com.dev.backend.i18n.ThongDiep;
 
 @RestController
 @RequestMapping("/api/lich-su-giao-dich-kho")
@@ -28,7 +29,7 @@ public class LichSuGiaoDichKhoController {
         return ResponseEntity.ok(ResponseData.builder()
                 .status(200)
                 .data(list)
-                .message("Lấy lịch sử giao dịch thành công")
+                .message(ThongDiep.dich("chungTuKho.layLichSuGiaoDichThanhCong"))
                 .build());
     }
 
@@ -42,7 +43,7 @@ public class LichSuGiaoDichKhoController {
         return ResponseEntity.ok(ResponseData.builder()
                 .status(200)
                 .data(dto)
-                .message("Lấy chi tiết lịch sử thành công")
+                .message(ThongDiep.dich("chungTuKho.layChiTietLichSuThanhCong"))
                 .build());
     }
 }

@@ -5,14 +5,21 @@
  * điều chỉnh kho). Không gọi API, không phụ thuộc React, chạy được bằng `node --test`.
  */
 import { docSo } from "../chung-tu/bangChungTu.js";
+import { t } from "../../i18n/t.js";
 
-/** Loại giấy theo đường dẫn `:loai`. `tieuDe`: tên ở thanh công cụ; `ten`: tiêu đề in trên giấy. */
+/*
+ * Đa ngôn ngữ: chữ in trên giấy (tiêu đề giấy, ngày chữ, ô ký, phương án, đơn vị tính…) giữ tiếng Việt; `tieuDe` và
+ * `tenPhuongAn` dịch lúc vẽ trên màn hình (t(...)); câu chỉ hiện trên màn hình (lyDoChuaIn, chuLech, tenLoaiSoKho) dịch ở đây.
+ */
+
+/** Loại giấy theo đường dẫn `:loai`. `tieuDe`: tên ở thanh công cụ (dịch lúc vẽ); `ten`: tiêu đề in trên giấy. */
 export const LOAI_IN = Object.freeze({
-  "yeu-cau": { tieuDe: "Yêu cầu chuyển kho", ten: "YÊU CẦU CHUYỂN KHO" },
-  "lenh-dieu-dong": { tieuDe: "Lệnh điều động nội bộ", ten: "LỆNH ĐIỀU ĐỘNG NỘI BỘ" },
+  "yeu-cau": { tieuDe: "Yêu cầu chuyển kho", ten: "YÊU CẦU CHUYỂN KHO" }, // i18n-giu-nguyen: dịch lúc vẽ / chữ in
+  "lenh-dieu-dong": { tieuDe: "Lệnh điều động nội bộ", ten: "LỆNH ĐIỀU ĐỘNG NỘI BỘ" }, // i18n-giu-nguyen: như trên
+  // i18n-giu-nguyen: như trên
   xknb: { tieuDe: "Phiếu xuất kho kiêm vận chuyển nội bộ (Mẫu 03/XKNB)", ten: "PHIẾU XUẤT KHO KIÊM VẬN CHUYỂN NỘI BỘ" },
-  "bien-ban": { tieuDe: "Biên bản giao nhận", ten: "BIÊN BẢN GIAO NHẬN HÀNG HÓA" },
-  "dieu-chinh": { tieuDe: "Phiếu điều chỉnh kho", ten: "PHIẾU ĐIỀU CHỈNH KHO" },
+  "bien-ban": { tieuDe: "Biên bản giao nhận", ten: "BIÊN BẢN GIAO NHẬN HÀNG HÓA" }, // i18n-giu-nguyen: như trên
+  "dieu-chinh": { tieuDe: "Phiếu điều chỉnh kho", ten: "PHIẾU ĐIỀU CHỈNH KHO" }, // i18n-giu-nguyen: như trên
 });
 
 /**
@@ -20,16 +27,16 @@ export const LOAI_IN = Object.freeze({
  * Lệnh điều động và phiếu XKNB có sau khi duyệt; biên bản có khi nhận hàng có chênh lệch.
  */
 export function lyDoChuaIn(loai, ct) {
-  if (!LOAI_IN[loai] || loai === "dieu-chinh") return "Không có mẫu in này cho phiếu chuyển kho.";
+  if (!LOAI_IN[loai] || loai === "dieu-chinh") return t("Không có mẫu in này cho phiếu chuyển kho.");
   if (!ct) return null;
   if ((loai === "lenh-dieu-dong" || loai === "xknb") && !ct.soLenhDieuDong) {
-    if (ct.tuChoi) return "Yêu cầu bị từ chối nên không có lệnh điều động, phiếu XKNB.";
+    if (ct.tuChoi) return t("Yêu cầu bị từ chối nên không có lệnh điều động, phiếu XKNB.");
     return ct.trangThai === "DA_HUY"
-      ? "Phiếu đã hủy trước khi được duyệt nên không có lệnh điều động, phiếu XKNB."
-      : "Lệnh điều động và phiếu XKNB có sau khi Quản lý Kho tổng duyệt phiếu.";
+      ? t("Phiếu đã hủy trước khi được duyệt nên không có lệnh điều động, phiếu XKNB.")
+      : t("Lệnh điều động và phiếu XKNB có sau khi Quản lý Kho tổng duyệt phiếu.");
   }
   if (loai === "bien-ban" && !ct.bienBan) {
-    return "Phiếu chưa có biên bản giao nhận. Biên bản lập khi kho nhận ghi nhận hàng thiếu hoặc hỏng.";
+    return t("Phiếu chưa có biên bản giao nhận. Biên bản lập khi kho nhận ghi nhận hàng thiếu hoặc hỏng.");
   }
   return null;
 }
@@ -81,9 +88,10 @@ export function ngayGio(v) {
 /** Dòng ngày dưới tiêu đề giấy: "Ngày 28 tháng 10 năm 2026"; không có ngày → để trống cho người ký điền tay. */
 export function ngayChu(v) {
   const d = docNgay(v);
+  // i18n-giu-nguyen: chữ in trên giấy
   return d
-    ? `Ngày ${hai(d.getDate())} tháng ${hai(d.getMonth() + 1)} năm ${d.getFullYear()}`
-    : "Ngày …… tháng …… năm ……";
+    ? `Ngày ${hai(d.getDate())} tháng ${hai(d.getMonth() + 1)} năm ${d.getFullYear()}` // i18n-giu-nguyen: chữ in
+    : "Ngày …… tháng …… năm ……"; // i18n-giu-nguyen: chữ in
 }
 
 /**
@@ -95,6 +103,7 @@ const LY_DO_THEO_GHI_CHU = new Set(["KHAC", "GIAO_BU"]);
 /** Tên lý do điều động; "Khác" / "Giao bù hàng" thì lý do là ghi chú của lệnh (thiếu ghi chú thì tên lý do). */
 export function tenLyDoDieuDong(ma, ghiChuLenh, danhSach = []) {
   if (!ma) return "";
+  // i18n-giu-nguyen: lý do in trên lệnh điều động, phiếu XKNB
   const ten = danhSach.find((x) => x.ma === ma)?.nhan ?? (ma === "KHAC" ? "Khác" : ma);
   if (LY_DO_THEO_GHI_CHU.has(ma)) return String(ghiChuLenh ?? "").trim() || ten;
   return ten;
@@ -130,19 +139,24 @@ export const bienBanMauCu = (bb) => Boolean(bb?.phuongAn && bb.phuongAn !== "CHU
  * tay để trống như trước.
  */
 export function kyKhoGui(bb) {
-  if (bienBanMauCu(bb)) return { ten: "", luc: "", nhac: "(Ký, ghi rõ họ tên)" };
-  const nhac = "(Xác nhận trên hệ thống)";
+  // Ô ký trên giấy biên bản: giữ tiếng Việt (chứng từ in)
+  if (bienBanMauCu(bb)) return { ten: "", luc: "", nhac: "(Ký, ghi rõ họ tên)" }; // i18n-giu-nguyen: chữ in
+  const nhac = "(Xác nhận trên hệ thống)"; // i18n-giu-nguyen: chữ in
   if (bb?.ngayXacNhanGui) {
+    // i18n-giu-nguyen: chữ in
     return { ten: bb.nguoiXacNhanGui || "", luc: `lúc ${gioPhut(bb.ngayXacNhanGui)} ngày ${ngayDu(bb.ngayXacNhanGui)}`, nhac };
   }
-  return { ten: "Chưa xác nhận", luc: "", nhac };
+  return { ten: "Chưa xác nhận", luc: "", nhac }; // i18n-giu-nguyen: chữ in
 }
 
-/** Phương án xử lý chênh lệch như trên giấy và màn phiếu điều chỉnh (đúng chữ bản demo đã duyệt). */
+/**
+ * Phương án xử lý chênh lệch như trên giấy và màn phiếu điều chỉnh (đúng chữ bản demo đã duyệt). Trả tiếng Việt (giấy
+ * in dùng); màn hình bọc t(tenPhuongAn(ma)) lúc vẽ.
+ */
 export function tenPhuongAn(ma) {
-  if (ma === "GHI_GIAM_HAO_HUT") return "Ghi giảm hao hụt / Đền bù";
-  if (ma === "GIAO_BU_HANG") return "Giao bù hàng";
-  if (ma === "CHUA_XU_LY") return "Chờ xử lý";
+  if (ma === "GHI_GIAM_HAO_HUT") return "Ghi giảm hao hụt / Đền bù"; // i18n-giu-nguyen: chữ in, dịch lúc vẽ
+  if (ma === "GIAO_BU_HANG") return "Giao bù hàng"; // i18n-giu-nguyen: như trên
+  if (ma === "CHUA_XU_LY") return "Chờ xử lý"; // i18n-giu-nguyen: như trên
   return ma ?? "";
 }
 
@@ -154,7 +168,7 @@ export function tenHangIn(d) {
 }
 
 /** Đơn vị tính in khi sản phẩm chưa khai báo (như bản demo). */
-export const DVT_MAC_DINH = "Cái";
+export const DVT_MAC_DINH = "Cái"; // i18n-giu-nguyen: chữ in
 
 const dvtCua = (d) => String(d?.donViTinh ?? "").trim() || DVT_MAC_DINH;
 
@@ -211,12 +225,12 @@ export function phuongTienIn(ct) {
   const noi = (...phan) => phan.map((x) => String(x ?? "").trim()).filter(Boolean).join(" – ");
   if (ct.hinhThucVanChuyen === "CHUYEN_PHAT") {
     return {
-      phuongTien: noi(ct.donViVanChuyen, ct.maVanDonHopDong ? `mã vận đơn ${ct.maVanDonHopDong}` : ""),
+      phuongTien: noi(ct.donViVanChuyen, ct.maVanDonHopDong ? `mã vận đơn ${ct.maVanDonHopDong}` : ""), // i18n-giu-nguyen: chữ in
       hopDong: "—",
     };
   }
   return {
-    phuongTien: noi(ct.loaiPhuongTien, ct.bienSoXe ? `biển số ${ct.bienSoXe}` : ""),
+    phuongTien: noi(ct.loaiPhuongTien, ct.bienSoXe ? `biển số ${ct.bienSoXe}` : ""), // i18n-giu-nguyen: chữ in
     hopDong: ct.hinhThucVanChuyen === "THUE_NGOAI" && ct.maVanDonHopDong ? ct.maVanDonHopDong : "—",
   };
 }
@@ -281,20 +295,24 @@ export function dongDieuChinh(pdc) {
 
 /** "Thiếu 2 · Hỏng 1" của một dòng điều chỉnh theo biên bản; không có số nào → "". */
 export function chuLech(d) {
-  return [d?.thieu ? `Thiếu ${soIn(d.thieu)}` : "", d?.hong ? `Hỏng ${soIn(d.hong)}` : ""].filter(Boolean).join(" · ");
+  return [
+    d?.thieu ? t("Thiếu {{so}}", { so: soIn(d.thieu) }) : "",
+    d?.hong ? t("Hỏng {{so}}", { so: soIn(d.hong) }) : "",
+  ].filter(Boolean).join(" · ");
 }
 
 /** Loại giao dịch sổ kho → chữ. */
 export function tenLoaiSoKho(loai) {
-  return { dieu_chinh: "Điều chỉnh", nhap_kho: "Nhập kho", xuat_kho: "Xuất kho", chuyen_kho: "Chuyển kho" }[loai] ?? loai ?? "";
+  return { dieu_chinh: t("Điều chỉnh"), nhap_kho: t("Nhập kho"), xuat_kho: t("Xuất kho"), chuyen_kho: t("Chuyển kho") }[loai] ?? loai ?? "";
 }
 
 /** Nhãn trạng thái phiếu điều chỉnh kho (máy chủ lưu 2 khi duyệt xử lý chênh lệch = đã trừ kho). */
 export function trangThaiDieuChinh(trangThai) {
+  // i18n-giu-nguyen: nhãn StatusBadge (badge tự dịch lúc vẽ)
   if (trangThai === 2) return { label: "Đã áp dụng", nhom: "xong" };
-  if (trangThai === 1) return { label: "Chờ duyệt", nhom: "canChuY" };
-  if (trangThai === 0) return { label: "Nháp", nhom: "cho" };
-  return { label: "Đã hủy", nhom: "dong" };
+  if (trangThai === 1) return { label: "Chờ duyệt", nhom: "canChuY" }; // i18n-giu-nguyen: như trên
+  if (trangThai === 0) return { label: "Nháp", nhom: "cho" }; // i18n-giu-nguyen: như trên
+  return { label: "Đã hủy", nhom: "dong" }; // i18n-giu-nguyen: như trên
 }
 
 /** Địa chỉ kho sau tên: " – 12 Lê Lợi" (không có địa chỉ thì bỏ). */

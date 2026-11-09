@@ -3,11 +3,12 @@ import { Check, Minus, RefreshCcw, ShieldCheck, Warehouse } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { QUAN_TRI_VIEN, maTranQuyen, moTaHieuLuc, vietHoaDau } from "@/components/nguoi-dung/phanQuyen";
+import { t } from "@/i18n";
 
 const COT = [
-  { khoa: "tao", nhan: "Tạo" },
-  { khoa: "duyet", nhan: "Duyệt" },
-  { khoa: "huy", nhan: "Hủy" },
+  { khoa: "tao", nhan: t("Tạo") },
+  { khoa: "duyet", nhan: t("Duyệt") },
+  { khoa: "huy", nhan: t("Hủy") },
 ];
 
 /**
@@ -49,7 +50,7 @@ function kieuDanhDau(danhDau, ma) {
 
 /** Chữ cho trình đọc màn hình: trạng thái cấp, kèm "cần xem lại" khi ô đang được tô. */
 function chuDocMan(danhDau, d) {
-  return `${d.cap ? "Đã cấp" : "Chưa cấp"}${danhDau?.has(d.ma) ? " · cần xem lại" : ""}`;
+  return `${d.cap ? t("Đã cấp") : t("Chưa cấp")}${danhDau?.has(d.ma) ? t(" · cần xem lại") : ""}`;
 }
 
 function MaTranChungTu({ hang, danhDau }) {
@@ -57,11 +58,11 @@ function MaTranChungTu({ hang, danhDau }) {
     // Hẹp: ma trận một hàng riêng (tối đa 560px), các nhóm việc xếp dưới; rộng từ 1024px (vùng tab): cùng một hàng
     <div className="min-w-0 @xl/quyen:col-span-3 @xl/quyen:max-w-[560px] @5xl/quyen:col-span-1 @5xl/quyen:max-w-none">
       <table className="w-full border-collapse text-[13.5px]">
-        <caption className="sr-only">Quyền theo chứng từ: tạo, duyệt, hủy</caption>
+        <caption className="sr-only">{t("Quyền theo chứng từ: tạo, duyệt, hủy")}</caption>
         <thead>
           <tr className="h-9 border-b border-bo-border text-[12.5px] text-bo-muted">
             <th scope="col" className="text-left font-medium">
-              Chứng từ
+              {t("Chứng từ")}
             </th>
             {COT.map((c) => (
               <th key={c.khoa} scope="col" className="w-[19%] text-center font-medium">
@@ -83,7 +84,7 @@ function MaTranChungTu({ hang, danhDau }) {
                   d ? (
                     <td
                       key={COT[i].khoa}
-                      title={`${d.ten} · ${d.cap ? "đã cấp" : "chưa cấp"}`}
+                      title={`${d.ten} · ${d.cap ? t("đã cấp") : t("chưa cấp")}`}
                       className={cn("text-center", kieuDanhDau(danhDau, d.ma))}
                     >
                       <span className="inline-flex align-middle">
@@ -93,7 +94,7 @@ function MaTranChungTu({ hang, danhDau }) {
                     </td>
                   ) : (
                     <td key={COT[i].khoa} className="text-center">
-                      <span className="sr-only">Không áp dụng</span>
+                      <span className="sr-only">{t("Không áp dụng")}</span>
                     </td>
                   ),
                 )}
@@ -153,8 +154,8 @@ export default function QuyenTruyCap({
     return (
       <Trong
         icon={ShieldCheck}
-        tieuDe="Toàn quyền ở mọi kho"
-        noiDung="Không cần nơi làm việc hay quyền tại kho. Mọi thao tác của tài khoản này vẫn được ghi vào lịch sử."
+        tieuDe={t("Toàn quyền ở mọi kho")}
+        noiDung={t("Không cần nơi làm việc hay quyền tại kho. Mọi thao tác của tài khoản này vẫn được ghi vào lịch sử.")}
       />
     );
   }
@@ -163,12 +164,12 @@ export default function QuyenTruyCap({
       <Trong
         icon={Warehouse}
         mau="cam"
-        tieuDe="Chưa có nơi làm việc"
-        noiDung="Chọn nơi làm việc để cấp quyền. Chưa có thì mọi thao tác theo kho đều bị chặn."
+        tieuDe={t("Chưa có nơi làm việc")}
+        noiDung={t("Chọn nơi làm việc để cấp quyền. Chưa có thì mọi thao tác theo kho đều bị chặn.")}
       >
         {coThePhanQuyen ? (
           <Button type="button" onClick={onPhanQuyen} className="bg-bo-primary text-white hover:bg-bo-primary-hover">
-            Chọn nơi làm việc
+            {t("Chọn nơi làm việc")}
           </Button>
         ) : null}
       </Trong>
@@ -177,9 +178,9 @@ export default function QuyenTruyCap({
 
   const { hang, viecKhac } = maTranQuyen(danhGia);
   const meta = [
-    `${danhGia.soCap}/${danhGia.tong} quyền`,
+    t("{{soCap}}/{{tong}} quyền", { soCap: danhGia.soCap, tong: danhGia.tong }),
     vietHoaDau(moTaHieuLuc(pq)),
-    pq.tenNguoiCapQuyen ? `Người cấp: ${pq.tenNguoiCapQuyen}` : null,
+    pq.tenNguoiCapQuyen ? t("Người cấp: {{tenNguoiCapQuyen}}", { tenNguoiCapQuyen: pq.tenNguoiCapQuyen }) : null,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -187,12 +188,12 @@ export default function QuyenTruyCap({
   return (
     <div className="@container/quyen">
       <div className="mb-4">
-        <h2 className="text-[15px] font-semibold leading-[22px] text-bo-heading">Quyền được cấp</h2>
+        <h2 className="text-[15px] font-semibold leading-[22px] text-bo-heading">{t("Quyền được cấp")}</h2>
         <p className="mt-0.5 text-[13px] leading-5 text-bo-muted">{meta}</p>
-        {pq.ghiChu ? <p className="mt-0.5 break-words text-[13px] leading-5 text-bo-muted">Ghi chú: {pq.ghiChu}</p> : null}
+        {pq.ghiChu ? <p className="mt-0.5 break-words text-[13px] leading-5 text-bo-muted">{t("Ghi chú: {{ghiChu}}", { ghiChu: pq.ghiChu })}</p> : null}
         {khongDocDuocCauHinh ? (
           <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[13px] leading-5 text-bo-muted">
-            Không đọc được mẫu quyền theo vai trò nên chưa so được với mẫu.
+            {t("Không đọc được mẫu quyền theo vai trò nên chưa so được với mẫu.")}
             {onTaiLaiCauHinh ? (
               <button
                 type="button"
@@ -201,7 +202,7 @@ export default function QuyenTruyCap({
                 className="inline-flex items-center gap-1 font-medium text-bo-primary hover:text-bo-primary-hover disabled:opacity-50"
               >
                 <RefreshCcw className="size-3.5" aria-hidden="true" />
-                Thử lại
+                {t("Thử lại")}
               </button>
             ) : null}
           </p>

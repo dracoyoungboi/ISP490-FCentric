@@ -8,6 +8,7 @@ import { viTriKhoService } from "@/services/viTriKhoService";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { KhungHop, Truong } from "./KhungHop";
 import { O_GHI_CHU, O_NHAP, kiemTraKhuMoi } from "./kieuNhap";
+import { t } from "@/i18n";
 
 /**
  * Thêm hoặc sửa khu vực trong kho (FO-094). Mã khu không trùng trong cùng kho và không đổi sau khi tạo.
@@ -61,18 +62,18 @@ function NoiDung({ khoId, khuVucs, khuSua, onDong, onDaLuu, onXoa }) {
         : await viTriKhoService.taoKhuVuc(khoId, { maKhuVuc: kiemTra.maChuan, ...thongTin });
       onDaLuu(sua ? { ...khuSua, ...thongTin, ...(khu ?? {}) } : khu, { laSua: sua });
     } catch (err) {
-      setLoiMayChu(getApiErrorMessage(err, "Không lưu được khu vực. Vui lòng thử lại."));
+      setLoiMayChu(getApiErrorMessage(err, t("Không lưu được khu vực. Vui lòng thử lại.")));
       setDangLuu(false);
     }
   };
 
   return (
     <KhungHop
-      tieuDe={sua ? `Sửa khu vực ${khuSua.maKhuVuc}` : "Thêm khu vực"}
-      moTa={sua ? "Mã khu không đổi được; tên, loại và ghi chú sửa thoải mái." : "Khu vực gom các dãy kệ cùng loại hàng, VD Khu A – Áo."}
+      tieuDe={sua ? t("Sửa khu vực {{maKhuVuc}}", { maKhuVuc: khuSua.maKhuVuc }) : t("Thêm khu vực")}
+      moTa={sua ? t("Mã khu không đổi được; tên, loại và ghi chú sửa thoải mái.") : t("Khu vực gom các dãy kệ cùng loại hàng, VD Khu A – Áo.")}
       onHuy={onDong}
       onGui={luu}
-      nhanGui={sua ? "Lưu thay đổi" : "Lưu khu vực"}
+      nhanGui={sua ? t("Lưu thay đổi") : t("Lưu khu vực")}
       dangGui={dangLuu}
       chanTrai={
         sua && onXoa ? (
@@ -84,17 +85,17 @@ function NoiDung({ khoId, khuVucs, khuSua, onDong, onDaLuu, onXoa }) {
             className="h-9 gap-1.5 px-2 text-bo-danger hover:bg-bo-danger-soft hover:text-bo-danger"
           >
             <Trash2 className="size-4" />
-            Xóa khu vực
+            {t("Xóa khu vực")}
           </Button>
         ) : null
       }
     >
       <div className="grid gap-4 sm:grid-cols-2">
         <Truong
-          nhan="Mã khu vực"
+          nhan={t("Mã khu vực")}
           htmlFor="kv-ma"
           loi={daGui && !sua ? loi.ma : ""}
-          goiY={sua ? "Không đổi sau khi tạo" : "Không trùng trong cùng kho"}
+          goiY={sua ? t("Không đổi sau khi tạo") : t("Không trùng trong cùng kho")}
         >
           <input
             id="kv-ma"
@@ -102,32 +103,32 @@ function NoiDung({ khoId, khuVucs, khuSua, onDong, onDaLuu, onXoa }) {
             disabled={sua}
             value={ma}
             onChange={(e) => setMa(e.target.value.toUpperCase())}
-            placeholder="VD: KHU-A"
+            placeholder={t("VD: {{viDu}}", { viDu: "KHU-A" })}
             aria-invalid={daGui && !sua && Boolean(loi.ma)}
             className={`${O_NHAP} font-mono`}
           />
         </Truong>
-        <Truong nhan="Tên khu vực" htmlFor="kv-ten" loi={daGui ? loi.ten : ""}>
+        <Truong nhan={t("Tên khu vực")} htmlFor="kv-ten" loi={daGui ? loi.ten : ""}>
           <input
             id="kv-ten"
             autoFocus={sua}
             value={ten}
             onChange={(e) => setTen(e.target.value)}
-            placeholder="VD: Khu A – Áo"
+            placeholder={t("VD: Khu A – Áo")}
             aria-invalid={daGui && Boolean(loi.ten)}
             className={O_NHAP}
           />
         </Truong>
       </div>
-      <Truong nhan="Loại khu" htmlFor="kv-loai">
+      <Truong nhan={t("Loại khu")} htmlFor="kv-loai">
         <select id="kv-loai" value={loai} onChange={(e) => setLoai(e.target.value)} className={O_NHAP}>
           {dsLoai.map((l) => (
-            <option key={l}>{l}</option>
+            <option key={l} value={l}>{t(l)}</option>
           ))}
         </select>
       </Truong>
-      <Truong nhan="Ghi chú" htmlFor="kv-ghi-chu">
-        <textarea id="kv-ghi-chu" value={ghiChu} onChange={(e) => setGhiChu(e.target.value)} placeholder="Không bắt buộc" className={O_GHI_CHU} />
+      <Truong nhan={t("Ghi chú")} htmlFor="kv-ghi-chu">
+        <textarea id="kv-ghi-chu" value={ghiChu} onChange={(e) => setGhiChu(e.target.value)} placeholder={t("Không bắt buộc")} className={O_GHI_CHU} />
       </Truong>
       {loiMayChu ? <DongThongBao tone="bad">{loiMayChu}</DongThongBao> : null}
     </KhungHop>

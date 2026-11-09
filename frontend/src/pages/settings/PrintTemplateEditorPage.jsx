@@ -92,6 +92,7 @@ import {
     toggleRow,
 } from "./mau-in/moHinhTrinhSua";
 import "./mau-in/trinhSuaMauIn.css";
+import { t } from "@/i18n";
 
 const LIST_HREF = "/settings/print-templates";
 const editorHref = (schema) => `${LIST_HREF}/${schema.slug}`;
@@ -106,23 +107,23 @@ const BLOCK_KEY = /^[A-Za-z0-9_]+$/;
 function collectIssues(schema, draft) {
     if (!schema || !draft) return [];
     const issues = [];
-    const docNoun = schema.docNoun ?? "phiếu";
-    if (!draft.name?.trim()) issues.push("Tên mẫu in không được để trống");
+    const docNoun = t(schema.docNoun ?? "phiếu", { context: "mau_in" });
+    if (!draft.name?.trim()) issues.push(t("Tên mẫu in không được để trống"));
     if (getTitleDraft(draft).length > TITLE_MAX_LENGTH) {
-        issues.push(`Tiêu đề ${docNoun} không được quá ${TITLE_MAX_LENGTH} ký tự`);
+        issues.push(t("Tiêu đề {{docNoun}} không được quá {{toiDa}} ký tự", { docNoun, toiDa: TITLE_MAX_LENGTH }));
     }
     if (getFooterNoteDraft(schema, draft).length > FOOTER_NOTE_MAX_LENGTH) {
-        issues.push(`Lời chân ${docNoun} không được quá ${FOOTER_NOTE_MAX_LENGTH} ký tự`);
+        issues.push(t("Lời chân {{docNoun}} không được quá {{toiDa}} ký tự", { docNoun, toiDa: FOOTER_NOTE_MAX_LENGTH }));
     }
     const labels = getCustomOptions(draft).nhan;
     if (labels && typeof labels === "object" && Object.values(labels).some((label) => String(label ?? "").trim().length > LABEL_MAX_LENGTH)) {
-        issues.push(`Mỗi nhãn không được quá ${LABEL_MAX_LENGTH} ký tự`);
+        issues.push(t("Mỗi nhãn không được quá {{toiDa}} ký tự", { toiDa: LABEL_MAX_LENGTH }));
     }
-    if (!HEX_COLOR.test(draft.accentColor ?? "")) issues.push("Màu tên chứng từ không hợp lệ (cần mã màu #RRGGBB)");
+    if (!HEX_COLOR.test(draft.accentColor ?? "")) issues.push(t("Màu tên chứng từ không hợp lệ (cần mã màu #RRGGBB)"));
     return issues;
 }
 
-const roleLabel = (value) => ROLES.find((role) => role.value === value)?.label ?? null;
+const roleLabel = (value) => t(ROLES.find((role) => role.value === value)?.label ?? null);
 
 /**
  * Nút mở lớp nổi (menu, ô nổi, ngăn kéo của Radix) chứa `element` — tìm theo aria-controls trỏ tới
@@ -169,20 +170,20 @@ function UnsavedDialog({ open, saving, onClose, onSaveAndGo, onDiscardAndGo, onC
         >
             <DialogContent className="rounded-xl bg-white shadow-lg sm:max-w-[440px]" onCloseAutoFocus={onCloseAutoFocus}>
                 <DialogHeader>
-                    <DialogTitle className="text-lg font-semibold text-bo-foreground">Lưu thay đổi trước khi rời?</DialogTitle>
+                    <DialogTitle className="text-lg font-semibold text-bo-foreground">{t("Lưu thay đổi trước khi rời?")}</DialogTitle>
                     <DialogDescription className="pt-1 text-sm leading-6 text-bo-muted">
-                        Mẫu in đang có thay đổi chưa lưu. Rời trang mà không lưu thì các thay đổi này sẽ mất.
+                        {t("Mẫu in đang có thay đổi chưa lưu. Rời trang mà không lưu thì các thay đổi này sẽ mất.")}
                     </DialogDescription>
                 </DialogHeader>
                 <DialogFooter className="gap-2 sm:gap-2">
                     <Button type="button" variant="outline" className={OUTLINE_BUTTON} onClick={onClose} disabled={saving}>
-                        Ở lại
+                        {t("Ở lại")}
                     </Button>
                     <Button type="button" variant="outline" className={OUTLINE_BUTTON} onClick={onDiscardAndGo} disabled={saving}>
-                        Rời không lưu
+                        {t("Rời không lưu")}
                     </Button>
                     <Button type="button" className={PRIMARY_BUTTON} onClick={onSaveAndGo} disabled={saving}>
-                        {saving ? "Đang lưu…" : "Lưu và rời"}
+                        {saving ? t("Đang lưu…") : t("Lưu và rời")}
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -218,7 +219,7 @@ function AccentPicker({ value, onChange, disabled, docNoun }) {
                         disabled={disabled}
                         onClick={() => onChange(preset.value)}
                         aria-pressed={active}
-                        aria-label={`Màu tên ${docNoun}: ${preset.label}`}
+                        aria-label={t("Màu tên {{docNoun}}: {{mau}}", { docNoun, mau: preset.label })}
                         title={preset.label}
                         className={cn(
                             "inline-flex size-8 items-center justify-center rounded-full border-2 bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bo-primary",
@@ -251,10 +252,10 @@ function AccentPicker({ value, onChange, disabled, docNoun }) {
                     value={HEX_COLOR.test(value ?? "") ? value.toLowerCase() : "#0f2a43"}
                     disabled={disabled}
                     onChange={(event) => onChange(event.target.value.toUpperCase())}
-                    aria-label={`Chọn màu khác cho tên ${docNoun}`}
+                    aria-label={t("Chọn màu khác cho tên {{docNoun}}", { docNoun })}
                     className="absolute inset-0 size-full cursor-pointer opacity-0"
                 />
-                Màu khác
+                {t("Màu khác")}
             </label>
         </div>
     );
@@ -277,7 +278,7 @@ export default function PrintTemplateEditorPage() {
     const { key: locationKey } = useLocation();
     const { documentType: slugParam } = useParams();
     const schema = getPrintSchema(slugParam);
-    const docNoun = schema?.docNoun ?? "phiếu";
+    const docNoun = t(schema?.docNoun ?? "phiếu", { context: "mau_in" });
 
     const [draft, setDraft] = useState(null);
     const [saved, setSaved] = useState(null);
@@ -536,22 +537,22 @@ export default function PrintTemplateEditorPage() {
         if (!schema) return [];
         return history.items.map((item, index) => {
             const who = [item.actorName, roleLabel(item.actorRole)].filter(Boolean).join(" · ");
-            const when = formatDateTime(item.at) ?? "Không rõ thời gian";
+            const when = formatDateTime(item.at) ?? t("Không rõ thời gian");
             if (!item.config) {
-                return { id: item.id, when, who, summary: "Phiên bản này dùng khổ giấy không còn hỗ trợ", isCurrent: false, restorable: false, config: null };
+                return { id: item.id, when, who, summary: t("Phiên bản này dùng khổ giấy không còn hỗ trợ"), isCurrent: false, restorable: false, config: null };
             }
             let summary;
             if (item.previous) {
                 summary = summarizeChanges(schema, item.previous, item.config);
             } else if (item.hasPrevious) {
                 // Có bản trước nhưng không đọc được (khổ giấy không còn hỗ trợ…) — không phải lần lưu đầu
-                summary = "Không đọc được phiên bản trước để so sánh";
+                summary = t("Không đọc được phiên bản trước để so sánh");
             } else {
                 // Trước lần lưu đầu, in thật dùng mẫu mặc định của registry (khổ mặc định của loại chứng từ)
                 const def = schema.templates.find((template) => template.isDefault) ?? schema.templates[0];
                 const base = def ? applyEssentials(schema, buildDefaultTemplateConfig(schema, def)) : null;
                 const diff = base ? summarizeChanges(schema, base, item.config) : "";
-                summary = !diff || diff === "Lưu lại, không đổi nội dung" ? "Lưu lần đầu, giữ như mẫu mặc định" : `Lưu lần đầu: ${lowerFirst(diff)}`;
+                summary = !diff || diff === upperFirst(t("lưu lại, không đổi nội dung")) ? t("Lưu lần đầu, giữ như mẫu mặc định") : t("Lưu lần đầu: {{diff}}", { diff: lowerFirst(diff) });
             }
             const isCurrent = index === 0 && Boolean(saved) && sameConfig(schema, item.config, saved);
             return { id: item.id, when, who, summary, isCurrent, restorable: true, config: item.config };
@@ -572,7 +573,7 @@ export default function PrintTemplateEditorPage() {
         toast.info(message, {
             id,
             action: {
-                label: "Hoàn tác",
+                label: t("Hoàn tác"),
                 onClick: (event) => {
                     if (savingRef.current) {
                         event?.preventDefault?.();
@@ -591,7 +592,7 @@ export default function PrintTemplateEditorPage() {
         const previous = draft;
         setDraft(structuredClone(entry.config));
         setHistoryOpen(false);
-        showUndoToast(`Đã đưa phiên bản ${entry.when} vào bản đang sửa — bấm Lưu để áp dụng`, previous);
+        showUndoToast(t("Đã đưa phiên bản {{when}} vào bản đang sửa — bấm Lưu để áp dụng", { when: entry.when }), previous);
     };
 
     // ── Sửa bản nháp ──
@@ -603,7 +604,7 @@ export default function PrintTemplateEditorPage() {
         if (!draft || paper === draft.paperSize) return;
         const next = buildVariantFromDraft(schema, draft, paper);
         if (!next) {
-            toast.error(`${schema.label} không có khổ giấy ${paper}`);
+            toast.error(t("{{loai}} không có khổ giấy {{paper}}", { loai: t(schema.label), paper }));
             return;
         }
         setDraft(next);
@@ -635,11 +636,11 @@ export default function PrintTemplateEditorPage() {
         const previous = draft;
         const next = applyEssentials(schema, buildDefaultTemplateConfig(schema, def));
         if (sameConfig(schema, previous, next)) {
-            toast.info("Mẫu đang là mẫu mặc định");
+            toast.info(t("Mẫu đang là mẫu mặc định"));
             return;
         }
         setDraft(next);
-        showUndoToast(`Đã đưa mẫu về mặc định (giữ khổ ${def.paperSize}) — bấm Lưu để áp dụng`, previous);
+        showUndoToast(t("Đã đưa mẫu về mặc định (giữ khổ {{paperSize}}) — bấm Lưu để áp dụng", { paperSize: def.paperSize }), previous);
     };
 
     // Hủy cũng là thao tác hàng loạt: hoàn tác được như Khôi phục mặc định / Khôi phục phiên bản
@@ -647,7 +648,7 @@ export default function PrintTemplateEditorPage() {
         if (!saved) return;
         const previous = draft;
         setDraft(structuredClone(saved));
-        showUndoToast("Đã hủy các thay đổi chưa lưu", previous);
+        showUndoToast(t("Đã hủy các thay đổi chưa lưu"), previous);
     };
 
     /** Lưu bản đang sửa. Trả true khi lưu xong. */
@@ -666,7 +667,7 @@ export default function PrintTemplateEditorPage() {
             const dto = await printTemplateConfigService.saveTemplate(draft);
             if (loadSeq !== loadSeqRef.current) {
                 // Trang đã sang loại chứng từ khác trong lúc lưu: chỉ báo đã lưu, giữ nguyên trang mới
-                toast.success(`Đã lưu mẫu in ${schema.label.toLocaleLowerCase("vi")}`);
+                toast.success(t("Đã lưu mẫu in {{loai}}", { loai: t(schema.label).toLocaleLowerCase("vi") }));
                 return true;
             }
             // Đọc lại từ chính phản hồi lưu (không gọi thêm máy chủ — lỗi mạng lúc này không được biến
@@ -675,7 +676,7 @@ export default function PrintTemplateEditorPage() {
             setDraft(fresh);
             setSaved(fresh);
             dismissUndoToasts(undoToastsRef);
-            toast.success(`Đã lưu mẫu in — từ giờ ${docNoun} in ra sẽ dùng mẫu này`);
+            toast.success(t("Đã lưu mẫu in — từ giờ {{docNoun}} in ra sẽ dùng mẫu này", { docNoun }));
             // Lịch sử: đang mở thì tải lại; đang đóng thì lần mở sau tải mới (bỏ kết quả đang tải dở)
             historyRequestRef.current += 1;
             if (historyOpenRef.current) loadHistory({ silent: true });
@@ -683,7 +684,7 @@ export default function PrintTemplateEditorPage() {
             return true;
         } catch (error) {
             console.error("Không lưu được mẫu in:", error);
-            toast.error(getApiErrorMessage(error, "Không lưu được mẫu in"));
+            toast.error(getApiErrorMessage(error, t("Không lưu được mẫu in")));
             return false;
         } finally {
             savingRef.current = false;
@@ -755,11 +756,11 @@ export default function PrintTemplateEditorPage() {
             <PageContainer>
                 <EmptyState
                     icon={FileX}
-                    title="Không tìm thấy loại chứng từ"
-                    description="Loại chứng từ trong đường dẫn không tồn tại."
+                    title={t("Không tìm thấy loại chứng từ")}
+                    description={t("Loại chứng từ trong đường dẫn không tồn tại.")}
                     action={
                         <Button className={PRIMARY_BUTTON} onClick={() => navigate(LIST_HREF)}>
-                            Về danh sách mẫu in
+                            {t("Về danh sách mẫu in")}
                         </Button>
                     }
                 />
@@ -771,7 +772,7 @@ export default function PrintTemplateEditorPage() {
     if (status === "loading" || (status === "ready" && draft && draft.documentType !== schemaKey)) {
         return (
             <PageContainer>
-                <LoadingState label="Đang tải mẫu in" />
+                <LoadingState label={t("Đang tải mẫu in")} />
             </PageContainer>
         );
     }
@@ -782,13 +783,13 @@ export default function PrintTemplateEditorPage() {
                 {errorStatus === 401 || errorStatus === 403 ? (
                     <EmptyState
                         icon={Lock}
-                        title="Bạn không có quyền sửa mẫu in"
-                        description="Liên hệ quản trị viên nếu bạn cần quyền này."
+                        title={t("Bạn không có quyền sửa mẫu in")}
+                        description={t("Liên hệ quản trị viên nếu bạn cần quyền này.")}
                     />
                 ) : (
                     <ErrorState
-                        title="Không thể tải mẫu in"
-                        description="Không đọc được cấu hình mẫu in hoặc thông tin cửa hàng từ máy chủ. Vui lòng thử lại."
+                        title={t("Không thể tải mẫu in")}
+                        description={t("Không đọc được cấu hình mẫu in hoặc thông tin cửa hàng từ máy chủ. Vui lòng thử lại.")}
                         onRetry={() => setReloadKey((key) => key + 1)}
                     />
                 )}
@@ -801,11 +802,11 @@ export default function PrintTemplateEditorPage() {
             <PageContainer>
                 <EmptyState
                     icon={FileX}
-                    title="Không tìm thấy mẫu in"
-                    description="Mẫu in của loại chứng từ này không còn tồn tại."
+                    title={t("Không tìm thấy mẫu in")}
+                    description={t("Mẫu in của loại chứng từ này không còn tồn tại.")}
                     action={
                         <Button className={PRIMARY_BUTTON} onClick={() => navigate(LIST_HREF)}>
-                            Về danh sách mẫu in
+                            {t("Về danh sách mẫu in")}
                         </Button>
                     }
                 />
@@ -843,18 +844,18 @@ export default function PrintTemplateEditorPage() {
                 <div className="divide-y divide-[#eef1f5]">
                     {!thermal ? (
                         <>
-                            <OptionLine label="Hướng giấy">
+                            <OptionLine label={t("Hướng giấy")}>
                                 <ChonMot
-                                    label="Hướng giấy"
+                                    label={t("Hướng giấy")}
                                     options={ORIENTATION_OPTIONS}
                                     value={draft.orientation}
                                     onChange={(value) => update(setPath(draft, "orientation", value))}
                                     disabled={disabled}
                                 />
                             </OptionLine>
-                            <OptionLine label="Lề giấy">
+                            <OptionLine label={t("Lề giấy")}>
                                 <ChonMot
-                                    label="Lề giấy"
+                                    label={t("Lề giấy")}
                                     options={MARGIN_OPTIONS}
                                     value={draft.margin}
                                     onChange={(value) => update(setPath(draft, "margin", value))}
@@ -863,10 +864,10 @@ export default function PrintTemplateEditorPage() {
                             </OptionLine>
                         </>
                     ) : null}
-                    <OptionLine label="Cỡ chữ">
+                    <OptionLine label={t("Cỡ chữ")}>
                         <ChonMot
-                            label="Cỡ chữ"
-                            options={FONT_SIZE_OPTIONS}
+                            label={t("Cỡ chữ")}
+                            options={FONT_SIZE_OPTIONS.map((option) => ({ ...option, label: t(option.label) }))}
                             value={getFontSize(draft)}
                             onChange={(value) => update(setCustomOption(draft, "coChu", value))}
                             disabled={disabled}
@@ -874,8 +875,8 @@ export default function PrintTemplateEditorPage() {
                     </OptionLine>
                     <OptionLine
                         stacked
-                        label={`Màu tên ${docNoun}`}
-                        hint="In trắng đen sẽ ra xám đậm — nên chọn màu tối."
+                        label={t("Màu tên {{docNoun}}", { docNoun })}
+                        hint={t("In trắng đen sẽ ra xám đậm — nên chọn màu tối.")}
                     >
                         <AccentPicker
                             value={draft.accentColor}
@@ -892,7 +893,7 @@ export default function PrintTemplateEditorPage() {
             return (
                 <div className="space-y-1.5 pt-1">
                     <label htmlFor="loi-chan-mau-in" className="block text-[13px] leading-5 font-medium text-bo-foreground">
-                        Lời chân {docNoun}
+                        {t("Lời chân {{docNoun}}", { docNoun })}
                     </label>
                     <Textarea
                         id="loi-chan-mau-in"
@@ -900,14 +901,14 @@ export default function PrintTemplateEditorPage() {
                         maxLength={FOOTER_NOTE_MAX_LENGTH}
                         rows={3}
                         disabled={disabled}
-                        placeholder={schema.footerExample ?? `Ví dụ: ${upperFirst(docNoun)} lập thành 2 bản, mỗi bên giữ 1 bản.`}
+                        placeholder={t(schema.footerExample) ?? t("Ví dụ: {{docNoun}} lập thành 2 bản, mỗi bên giữ 1 bản.", { docNoun: upperFirst(docNoun) })}
                         onChange={(event) =>
                             update(setCustomOption(draft, "loiChanPhieu", event.target.value.slice(0, FOOTER_NOTE_MAX_LENGTH)))
                         }
                         className={settingsInputClass({ className: "h-auto min-h-20 resize-y py-2 leading-5" })}
                     />
                     <div className="flex flex-wrap items-center justify-between gap-2 text-xs leading-4 text-bo-muted">
-                        <span>In căn giữa ở cuối {docNoun}. Để trống nếu không cần.</span>
+                        <span>{t("In căn giữa ở cuối {{docNoun}}. Để trống nếu không cần.", { docNoun })}</span>
                         <span aria-live="polite">
                             {footerDraft.length}/{FOOTER_NOTE_MAX_LENGTH}
                         </span>
@@ -919,7 +920,7 @@ export default function PrintTemplateEditorPage() {
                             onClick={() => update(setCustomOption(draft, "loiChanPhieu", schema.footerNote))}
                             className="text-xs font-medium text-bo-primary hover:text-bo-primary-hover focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bo-primary"
                         >
-                            Dùng lời chân mặc định
+                            {t("Dùng lời chân mặc định")}
                         </button>
                     ) : null}
                 </div>
@@ -941,7 +942,7 @@ export default function PrintTemplateEditorPage() {
                 <div className="space-y-3 pt-1">
                     <div className="space-y-1.5">
                         <label htmlFor="tieu-de-mau-in" className="block text-[13px] leading-5 font-medium text-bo-foreground">
-                            Tiêu đề {docNoun}
+                            {t("Tiêu đề {{docNoun}}", { docNoun })}
                         </label>
                         <Input
                             id="tieu-de-mau-in"
@@ -962,10 +963,10 @@ export default function PrintTemplateEditorPage() {
                                     onClick={() => update(setCustomOption(draft, "tieuDe", ""))}
                                     className="font-medium text-bo-primary hover:text-bo-primary-hover focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bo-primary"
                                 >
-                                    Trả về tên gốc
+                                    {t("Trả về tên gốc")}
                                 </button>
                             ) : (
-                                <span>Để trống sẽ dùng tên gốc. Tiêu đề luôn in chữ hoa.</span>
+                                <span>{t("Để trống sẽ dùng tên gốc. Tiêu đề luôn in chữ hoa.")}</span>
                             )}
                             <span aria-live="polite">
                                 {titleDraft.length}/{TITLE_MAX_LENGTH}
@@ -975,12 +976,14 @@ export default function PrintTemplateEditorPage() {
                     <div>{rows}</div>
                     <OptionLine
                         stacked
-                        label={`Mã số ${docNoun}`}
-                        hint={`${thermal ? `In ở cuối ${docNoun}` : `In ở góc phải đầu ${docNoun}`}. Máy quét đọc ra đúng số ${docNoun}, dùng để tìm nhanh ${docNoun} khi kiểm đếm, đối chiếu.`}
+                        label={t("Mã số {{docNoun}}", { docNoun })}
+                        hint={thermal
+                            ? t("In ở cuối {{docNoun}}. Máy quét đọc ra đúng số {{docNoun}}, dùng để tìm nhanh {{docNoun}} khi kiểm đếm, đối chiếu.", { docNoun })
+                            : t("In ở góc phải đầu {{docNoun}}. Máy quét đọc ra đúng số {{docNoun}}, dùng để tìm nhanh {{docNoun}} khi kiểm đếm, đối chiếu.", { docNoun })}
                     >
                         <ChonMot
-                            label={`Mã số ${docNoun}`}
-                            options={DOC_CODE_OPTIONS}
+                            label={t("Mã số {{docNoun}}", { docNoun })}
+                            options={DOC_CODE_OPTIONS.map((option) => ({ ...option, label: t(option.label, { context: "mau_in" }) }))}
                             value={getDocCodeMode(draft)}
                             onChange={(value) => update(setCustomOption(draft, "maSoPhieu", value))}
                             disabled={disabled}
@@ -989,14 +992,14 @@ export default function PrintTemplateEditorPage() {
                     <div className="flex items-start gap-2.5 rounded-md bg-bo-surface-subtle px-3 py-2.5">
                         <Store className="mt-0.5 size-4 shrink-0 text-bo-muted" aria-hidden="true" />
                         <div className="min-w-0 text-xs leading-5 text-bo-muted">
-                            Đầu phiếu lấy từ Thông tin cửa hàng, dùng chung cho mọi mẫu in và email.{" "}
+                            {t("Đầu phiếu lấy từ Thông tin cửa hàng, dùng chung cho mọi mẫu in và email.")}{" "}
                             <button
                                 type="button"
                                 disabled={disabled}
                                 onClick={() => setCompanyDialogOpen(true)}
                                 className="font-medium text-bo-primary hover:text-bo-primary-hover focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bo-primary"
                             >
-                                Sửa thông tin cửa hàng
+                                {t("Sửa thông tin cửa hàng")}
                             </button>
                         </div>
                     </div>
@@ -1007,8 +1010,8 @@ export default function PrintTemplateEditorPage() {
         const columnHint =
             group.kind === "items"
                 ? thermal
-                    ? `Khổ ${draft.paperSize} dùng bảng gọn riêng cho máy in nhiệt. Bật/tắt cột và dòng tổng của bảng. Bấm bút chì để đổi tên.`
-                    : "Bật/tắt cột và dòng tổng của bảng. Bấm bút chì để đổi tên."
+                    ? t("Khổ {{paperSize}} dùng bảng gọn riêng cho máy in nhiệt. Bật/tắt cột và dòng tổng của bảng. Bấm bút chì để đổi tên.", { paperSize: draft.paperSize })
+                    : t("Bật/tắt cột và dòng tổng của bảng. Bấm bút chì để đổi tên.")
                 : null;
         return (
             <div>
@@ -1034,28 +1037,28 @@ export default function PrintTemplateEditorPage() {
                         variant="outline"
                         size="icon"
                         onClick={goBack}
-                        aria-label="Quay lại danh sách mẫu in"
-                        title="Quay lại"
+                        aria-label={t("Quay lại danh sách mẫu in")}
+                        title={t("Quay lại")}
                         className={`shrink-0 ${OUTLINE_BUTTON}`}
                     >
                         <ArrowLeft className="size-4" aria-hidden="true" />
                     </Button>
-                    <PageHeading>{schema.label}</PageHeading>
+                    <PageHeading>{t(schema.label)}</PageHeading>
                     {dirty ? (
                         <span className="inline-flex items-center gap-1.5 text-[13px] leading-5 text-bo-warning" role="status">
                             <span className="size-[7px] rounded-full bg-bo-warning" aria-hidden="true" />
-                            Có thay đổi chưa lưu
+                            {t("Có thay đổi chưa lưu")}
                         </span>
                     ) : null}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                     <Button type="button" variant="outline" className={OUTLINE_BUTTON} onClick={openHistory}>
                         <History className="size-4" aria-hidden="true" />
-                        Lịch sử chỉnh sửa
+                        {t("Lịch sử chỉnh sửa")}
                     </Button>
                     <Button type="button" variant="outline" className={OUTLINE_BUTTON} onClick={() => window.print()}>
                         <Printer className="size-4" aria-hidden="true" />
-                        In thử
+                        {t("In thử")}
                     </Button>
                 </div>
             </div>
@@ -1063,15 +1066,15 @@ export default function PrintTemplateEditorPage() {
             <div className="no-print flex min-h-0 flex-1 flex-col gap-4 xl:flex-row">
                 {/* ── Tờ giấy xem trước ── */}
                 <section
-                    aria-label="Xem trước tờ giấy"
+                    aria-label={t("Xem trước tờ giấy")}
                     className="flex h-[72vh] min-h-[420px] min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm xl:h-auto xl:min-h-0"
                 >
                     <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-bo-border px-4 py-2.5">
                         <div className="flex min-w-0 flex-wrap items-center gap-2.5">
-                            <StatusBadge label="Dữ liệu mẫu" />
-                            <span className="text-[13px] leading-5 text-bo-muted">Bấm vào phần cần sửa trên giấy</span>
+                            <StatusBadge /* i18n-giu-nguyen: StatusBadge tự dịch nhãn lúc vẽ */ label="Dữ liệu mẫu" />
+                            <span className="text-[13px] leading-5 text-bo-muted">{t("Bấm vào phần cần sửa trên giấy")}</span>
                         </div>
-                        <PreviewZoomControl value={zoom} onChange={setZoom} ariaLabel="Thu phóng bản xem trước" />
+                        <PreviewZoomControl value={zoom} onChange={setZoom} ariaLabel={t("Thu phóng bản xem trước")} />
                     </div>
                     <div ref={previewViewport.ref} className="min-h-0 flex-1 overflow-auto bg-bo-canvas p-6">
                         <div
@@ -1100,13 +1103,13 @@ export default function PrintTemplateEditorPage() {
 
                 {/* ── Cột chỉnh sửa ── */}
                 <aside
-                    aria-label="Chỉnh sửa mẫu in"
+                    aria-label={t("Chỉnh sửa mẫu in")}
                     className="flex min-w-0 flex-col rounded-lg border border-bo-border bg-white shadow-sm xl:w-[380px] xl:shrink-0 xl:overflow-hidden 2xl:w-[400px]"
                 >
                     <div className="grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-3 border-b border-bo-border px-4 py-3.5">
                         <div className="min-w-0 space-y-1.5">
                             <span id="loai-chung-tu-label" className="block text-[13px] leading-5 font-medium text-bo-foreground">
-                                Loại chứng từ
+                                {t("Loại chứng từ")}
                             </span>
                             <Select value={schema.key} onValueChange={switchDocumentType} disabled={disabled}>
                                 <SelectTrigger
@@ -1123,14 +1126,14 @@ export default function PrintTemplateEditorPage() {
                                 >
                                     {PRINT_DOCUMENT_GROUPS.map((documentGroup) => (
                                         <SelectGroup key={documentGroup.key}>
-                                            <SelectLabel className="text-xs font-semibold text-bo-muted">{documentGroup.label}</SelectLabel>
+                                            <SelectLabel className="text-xs font-semibold text-bo-muted">{t(documentGroup.label)}</SelectLabel>
                                             {documentGroup.schemas.map((item) => (
                                                 <SelectItem
                                                     key={item.key}
                                                     value={item.key}
                                                     className="rounded-md focus:bg-bo-primary-soft"
                                                 >
-                                                    {item.label}
+                                                    {t(item.label)}
                                                 </SelectItem>
                                             ))}
                                         </SelectGroup>
@@ -1139,9 +1142,9 @@ export default function PrintTemplateEditorPage() {
                             </Select>
                         </div>
                         <div className="space-y-1.5">
-                            <span className="block text-[13px] leading-5 font-medium text-bo-foreground">Khổ giấy</span>
+                            <span className="block text-[13px] leading-5 font-medium text-bo-foreground">{t("Khổ giấy")}</span>
                             <ChonMot
-                                label="Khổ giấy"
+                                label={t("Khổ giấy")}
                                 options={schema.paperProfiles.map((size) => ({ value: size, label: size }))}
                                 value={draft.paperSize}
                                 onChange={handlePaperChange}
@@ -1184,7 +1187,7 @@ export default function PrintTemplateEditorPage() {
                             disabled={disabled}
                         >
                             <RotateCcw className="size-4" aria-hidden="true" />
-                            Khôi phục mặc định
+                            {t("Khôi phục mặc định")}
                         </Button>
                         <div className="flex items-center gap-2">
                             <Button
@@ -1194,7 +1197,7 @@ export default function PrintTemplateEditorPage() {
                                 onClick={discardChanges}
                                 disabled={disabled || !dirty}
                             >
-                                Hủy
+                                {t("Hủy")}
                             </Button>
                             <Button
                                 type="button"
@@ -1203,7 +1206,7 @@ export default function PrintTemplateEditorPage() {
                                 disabled={disabled || !dirty || issues.length > 0}
                                 title={issues[0]}
                             >
-                                {saving ? "Đang lưu…" : "Lưu"}
+                                {saving ? t("Đang lưu…") : t("Lưu")}
                             </Button>
                         </div>
                     </div>

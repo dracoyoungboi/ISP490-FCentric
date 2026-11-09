@@ -7,6 +7,7 @@ import { NSX_SOM_NHAT, conTrongKe, keDungDuoc } from "@/pages/receipt/kiemDem";
 import { TIEN_TO_THE_LENH } from "@/utils/maVach";
 import { taoBoNhanQuetNhanh } from "@/utils/quetNhanh";
 import { formatNumber } from "@/utils/formatters";
+import { t } from "@/i18n";
 
 const O_NHAP =
   "h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-bo-foreground placeholder:text-slate-400 focus:border-bo-primary focus:outline-none focus:ring-[3px] focus:ring-bo-primary/20 disabled:bg-bo-surface-subtle";
@@ -34,7 +35,7 @@ export default function HopKhoaLo({ open, onHuy, ...props }) {
 }
 
 function NoiDung({
-  t,
+  t: tg,
   dk,
   viTris,
   khuVucs,
@@ -143,9 +144,9 @@ function NoiDung({
     if (ma.trim()) onQuet(ma);
   };
 
-  const canKe = t.datLo > 0 && coKe;
+  const canKe = tg.datLo > 0 && coKe;
   const tenKhu = new Map(khuVucs.map((k) => [k.id, k.tenKhuVuc]));
-  const loiChu = nhomLoi.map((l) => `${l.lyDo} ${l.soLuong}`).join(", ");
+  const loiChu = nhomLoi.map((l) => `${t(l.lyDo)} ${l.soLuong}`).join(", ");
 
   return (
     <DialogContent
@@ -167,37 +168,37 @@ function NoiDung({
       className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden rounded-xl border-bo-border p-0 sm:max-w-[560px]"
     >
       <div className="border-b border-bo-border px-6 py-4">
-        <DialogTitle className="text-base font-semibold text-bo-foreground">Khóa lô</DialogTitle>
+        <DialogTitle className="text-base font-semibold text-bo-foreground">{t("Khóa lô")}</DialogTitle>
         <DialogDescription className="mt-0.5 text-[13px] leading-5 text-bo-muted">
-          Lô đang có {formatNumber(t.datLo)} đạt{t.choLo ? ` · ${formatNumber(t.choLo)} chờ chọn` : ""}. Khóa xong, bộ đếm về 0 cho thùng tiếp theo.
+          {t("Lô đang có {{datLo}} đạt", { datLo: formatNumber(tg.datLo) })}{tg.choLo ? t(" · {{choLo}} chờ chọn", { choLo: formatNumber(tg.choLo) }) : ""}{t(". Khóa xong, bộ đếm về 0 cho thùng tiếp theo.")}
         </DialogDescription>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-5 *:shrink-0">
         <div className="flex flex-col gap-2">
           <span className="text-sm font-medium text-bo-foreground">
-            {canKe ? "Quét mã kệ cho hàng đạt, rồi quét thẻ KHÓA LÔ" : "Quét thẻ KHÓA LÔ"}
+            {canKe ? t("Quét mã kệ cho hàng đạt, rồi quét thẻ KHÓA LÔ") : t("Quét thẻ KHÓA LÔ")}
           </span>
           <form onSubmit={guiMa} className="flex gap-2">
             <label className="relative min-w-0 flex-1">
-              <span className="sr-only">Mã kệ hoặc thẻ lệnh</span>
+              <span className="sr-only">{t("Mã kệ hoặc thẻ lệnh")}</span>
               <ScanLine className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-bo-muted" aria-hidden="true" />
               <input
                 ref={oQuetRef}
                 value={maQuet}
                 onChange={(e) => setMaQuet(e.target.value)}
-                placeholder="Đang chờ quét…"
+                placeholder={t("Đang chờ quét…")}
                 autoComplete="off"
                 spellCheck={false}
                 disabled={dangKhoa}
                 className={cn(O_NHAP, "pl-10 font-mono")}
               />
             </label>
-            <Button type="submit" variant="outline" disabled={dangKhoa} className="h-10 border-bo-border bg-bo-surface">Nhận</Button>
+            <Button type="submit" variant="outline" disabled={dangKhoa} className="h-10 border-bo-border bg-bo-surface">{t("Nhận")}</Button>
           </form>
           {canKe ? (
             <select
-              aria-label="Chọn tay kệ"
+              aria-label={t("Chọn tay kệ")}
               value={keId ?? ""}
               disabled={dangKhoa}
               onKeyDown={(e) => {
@@ -222,18 +223,18 @@ function NoiDung({
               }}
               className={O_NHAP}
             >
-              <option value="">Hoặc chọn tay kệ chưa dán mã</option>
+              <option value="">{t("Hoặc chọn tay kệ chưa dán mã")}</option>
               {khuVucs.map((k) => {
                 const ds = viTris.filter((v) => v.khuVucId === k.id);
                 if (!ds.length) return null;
                 return (
                   <optgroup key={k.id} label={k.tenKhuVuc}>
                     {ds.map((v) => {
-                      const kt = keDungDuoc(v, t.datLo);
+                      const kt = keDungDuoc(v, tg.datLo);
                       const con = conTrongKe(v);
                       return (
                         <option key={v.id} value={v.id} disabled={!kt.duoc && v.id !== keId}>
-                          {v.maViTri} · {kt.duoc ? (con === null ? "không giới hạn" : `còn trống ${formatNumber(con)}`) : kt.lyDo}
+                          {v.maViTri} · {kt.duoc ? (con === null ? t("không giới hạn") : t("còn trống {{con}}", { con: formatNumber(con) })) : kt.lyDo}
                         </option>
                       );
                     })}
@@ -245,10 +246,10 @@ function NoiDung({
           {canKe && dk.ke ? (
             <p className="text-xs text-bo-muted">
               {/* Mã kệ đã hiện ở ô chọn kệ: dòng này chỉ thêm khu và sức chứa */}
-              {tenKhu.get(dk.ke.khuVucId) ?? "Chưa gắn khu"}
+              {tenKhu.get(dk.ke.khuVucId) ?? t("Chưa gắn khu")}
               {conTrongKe(dk.ke) !== null
-                ? ` · sức chứa ${formatNumber(dk.ke.sucChua)}, đang chứa ${formatNumber(Number(dk.ke.dangChua) || 0)}${Number(dk.ke.choNhap) > 0 ? `, chờ nhập ${formatNumber(dk.ke.choNhap)}` : ""}`
-                : " · không giới hạn sức chứa"}
+                ? t(" · sức chứa {{sucChua}}, đang chứa {{dangChua}}{{phanChoNhap}}", { sucChua: formatNumber(dk.ke.sucChua), dangChua: formatNumber(Number(dk.ke.dangChua) || 0), phanChoNhap: Number(dk.ke.choNhap) > 0 ? t(", chờ nhập {{choNhap}}", { choNhap: formatNumber(dk.ke.choNhap) }) : "" })
+                : t(" · không giới hạn sức chứa")}
             </p>
           ) : null}
           {loiQuet ? (
@@ -258,21 +259,21 @@ function NoiDung({
           ) : null}
         </div>
 
-        {t.datLo === 0 && t.trongLo > 0 ? <p className="text-[13px] text-bo-muted">Lô không có hàng đạt nên không cần kệ.</p> : null}
-        {t.datLo > 0 && !coKe && !keDangTai ? (
+        {tg.datLo === 0 && tg.trongLo > 0 ? <p className="text-[13px] text-bo-muted">{t("Lô không có hàng đạt nên không cần kệ.")}</p> : null}
+        {tg.datLo > 0 && !coKe && !keDangTai ? (
           <p className="text-[13px] text-bo-muted">
-            {viTris.length ? "Kho không có kệ đang hoạt động" : "Kho chưa có vị trí kệ"}: hàng đạt được nhập kho chưa gắn kệ.
+            {viTris.length ? t("Kho không có kệ đang hoạt động") : t("Kho chưa có vị trí kệ")}{t(": hàng đạt được nhập kho chưa gắn kệ.")}
           </p>
         ) : null}
-        {t.loiLo > 0 ? (
+        {tg.loiLo > 0 ? (
           <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] leading-5 text-amber-900">
-            {formatNumber(t.loiLo)} sản phẩm không đạt{loiChu ? ` (${loiChu})` : ""} để ở khu chờ trả nhà cung cấp, không đưa lên kệ.
+            {t("{{loiLo}} sản phẩm không đạt", { count: tg.loiLo, loiLo: formatNumber(tg.loiLo) })}{loiChu ? ` (${loiChu})` : ""} {t("để ở khu chờ trả nhà cung cấp, không đưa lên kệ.")}
           </p>
         ) : null}
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium text-bo-foreground">Mã lô</span>
+            <span className="text-sm font-medium text-bo-foreground">{t("Mã lô")}</span>
             <input
               value={maLoSua ?? maLo}
               maxLength={50}
@@ -304,7 +305,7 @@ function NoiDung({
             />
           </label>
           <label className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium text-bo-foreground">Ngày sản xuất</span>
+            <span className="text-sm font-medium text-bo-foreground">{t("Ngày sản xuất")}</span>
             <input
               key={lamMoiNgay}
               type="date"
@@ -347,13 +348,13 @@ function NoiDung({
       <div className="flex flex-wrap items-center gap-2 border-t border-bo-border bg-bo-surface-subtle px-6 py-3">
         {dk.thieu.length ? (
           <span className={cn("w-full text-xs sm:mr-auto sm:w-auto", nhacThieu ? "font-semibold text-bo-danger-strong" : "text-bo-muted")}>
-            Còn thiếu: {dk.thieu.join(", ")}
+            {t("Còn thiếu: {{dsThieu}}", { dsThieu: dk.thieu.join(", ") })}
           </span>
         ) : (
           <span className="hidden sm:mr-auto sm:block" />
         )}
         <div className="flex w-full gap-2 sm:w-auto">
-          <Button type="button" variant="outline" disabled={dangKhoa} onClick={onHuy} className="min-w-24 flex-1 border-bo-border bg-bo-surface sm:flex-none">Hủy</Button>
+          <Button type="button" variant="outline" disabled={dangKhoa} onClick={onHuy} className="min-w-24 flex-1 border-bo-border bg-bo-surface sm:flex-none">{t("Hủy")}</Button>
           <Button
             type="button"
             disabled={!dk.ok || dangKhoa}
@@ -364,7 +365,7 @@ function NoiDung({
             }}
             className="min-w-28 flex-1 gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover sm:flex-none"
           >
-            {dangKhoa ? <Loader2 className="size-4 animate-spin" /> : <Lock className="size-4" />} Khóa lô
+            {dangKhoa ? <Loader2 className="size-4 animate-spin" /> : <Lock className="size-4" />} {t("Khóa lô")}
           </Button>
         </div>
       </div>

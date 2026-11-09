@@ -11,6 +11,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { cn } from "@/lib/utils";
 import { KY_OPTIONS, gioPhut } from "../tong-quan/tongQuanFormat";
 import { FOCUS, KHUNG, MENU, NHAN_KY, dsKhoDayDu, khoangKy } from "./boLoc";
+import { t } from "@/i18n";
 
 /* Thanh lọc Tổng quan: menu chọn kho (tách Kho tổng / Kho bán hàng), menu chọn kỳ (kèm khoảng ngày thật), nút cập nhật. */
 
@@ -40,18 +41,18 @@ export function KhoMenu({ data, dsKho, khoId, onChange, disabled, children, alig
         {children}
       </DropdownMenuTrigger>
       <DropdownMenuContent align={align} sideOffset={6} className={cn(MENU, "w-72")}>
-        <MucKho id={null} ten="Tất cả kho" phu={`${ds.length} kho, không tính kho trung chuyển`} {...chung} />
+        <MucKho id={null} ten={t("Tất cả kho")} phu={t("{{count}} kho, không tính kho trung chuyển", { count: ds.length })} {...chung} />
         {khoTong.length ? (
           <>
             <DropdownMenuSeparator className="my-1 bg-bo-border" />
-            <DropdownMenuLabel className={NHOM}>Kho tổng</DropdownMenuLabel>
+            <DropdownMenuLabel className={NHOM}>{t("Kho tổng")}</DropdownMenuLabel>
             {khoTong.map((k) => <MucKho key={k.id} id={k.id} ten={k.tenKho} {...chung} />)}
           </>
         ) : null}
         {cuaHang.length ? (
           <>
             <DropdownMenuSeparator className="my-1 bg-bo-border" />
-            <DropdownMenuLabel className={NHOM}>Kho bán hàng</DropdownMenuLabel>
+            <DropdownMenuLabel className={NHOM}>{t("Kho bán hàng")}</DropdownMenuLabel>
             {cuaHang.map((k) => <MucKho key={k.id} id={k.id} ten={k.tenKho} {...chung} />)}
           </>
         ) : null}
@@ -78,7 +79,7 @@ export function KyMenu({ ky, onChange, thoiDiem, children, align = "start" }) {
           );
         })}
         <DropdownMenuSeparator className="my-1 bg-bo-border" />
-        <p className="px-2.5 py-1.5 text-xs leading-5 text-bo-muted">Số liệu tính đến hết hôm qua. 7 và 30 ngày so với số ngày liền trước; 12 tháng so với cùng kỳ năm trước.</p>
+        <p className="px-2.5 py-1.5 text-xs leading-5 text-bo-muted">{t("Số liệu tính đến hết hôm qua. 7 và 30 ngày so với số ngày liền trước; 12 tháng so với cùng kỳ năm trước.")}</p>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -94,14 +95,14 @@ export function NutCapNhat({ data, refreshing, onReload }) {
           type="button"
           onClick={onReload}
           disabled={refreshing}
-          aria-label={gio ? `Cập nhật số liệu (số liệu lúc ${gio})` : "Cập nhật số liệu"}
+          aria-label={gio ? t("Cập nhật số liệu (số liệu lúc {{gio}})", { gio }) : t("Cập nhật số liệu")}
           className={cn(KHUNG, FOCUS, "inline-flex size-9 shrink-0 items-center justify-center p-0 text-slate-500 hover:text-bo-foreground")}
         >
           <RefreshCcw className={cn("size-4", refreshing && "animate-spin")} aria-hidden="true" />
         </button>
       </TooltipTrigger>
       <TooltipContent side="bottom" sideOffset={6} className="bg-bo-sidebar text-white [&>span>svg]:bg-bo-sidebar [&>span>svg]:fill-bo-sidebar">
-        Cập nhật{gio ? ` · số liệu lúc ${gio}` : ""}
+        {gio ? t("Cập nhật · số liệu lúc {{gio}}", { gio }) : t("Cập nhật", { context: "lam_moi" })}
       </TooltipContent>
     </Tooltip>
   );

@@ -9,6 +9,7 @@ import {
   DrawerTrigger,
 } from "@/components/ui/drawer";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 /**
  * Sheet trượt từ đáy (điện thoại): tiêu đề + nút đóng 44px, thân tự cuộn, chân cố định có khoảng an toàn đáy máy.
@@ -43,7 +44,7 @@ export default function SheetDay({ kichHoat, mo, onDoiMo, tieuDe, moTa, children
           <DrawerClose asChild>
             <button
               type="button"
-              aria-label="Đóng"
+              aria-label={t("Đóng")}
               className="grid size-9 place-items-center rounded-lg text-slate-600 hover:bg-slate-100"
             >
               <X className="size-5" aria-hidden="true" />

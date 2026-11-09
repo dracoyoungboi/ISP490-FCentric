@@ -25,13 +25,14 @@ import HopDatLenMatBang from "./HopDatLenMatBang";
 import HopKichThuocLuoi from "./HopKichThuocLuoi";
 import HopSuaVat from "./HopSuaVat";
 import { NUT_CHINH, NUT_PHU, dinhDangSo } from "./kieuNhap";
+import { t } from "@/i18n";
 
 const SO_DONG_CAN_CHU_Y = 5;
 
 const tongMuc = (ds) => {
   const conHoatDong = ds.filter((v) => v.trangThai !== "BAO_TRI");
-  const dangChua = conHoatDong.reduce((t, v) => t + Number(v.dangChua || 0), 0);
-  const sucChua = conHoatDong.reduce((t, v) => t + Number(v.sucChua || 0), 0);
+  const dangChua = conHoatDong.reduce((tg, v) => tg + Number(v.dangChua || 0), 0);
+  const sucChua = conHoatDong.reduce((tg, v) => tg + Number(v.sucChua || 0), 0);
   return { dangChua, sucChua, phanTram: Math.round(mucDay(dangChua, sucChua) * 100) };
 };
 
@@ -66,7 +67,7 @@ export default function MatBangKho({ khuVucs, viTris, matBang, coTheSua, khuBanD
   const [hopLuoi, setHopLuoi] = useState(false);
   const [dangLuu, setDangLuu] = useState(false);
 
-  const tenKhu = (id) => khuVucs.find((k) => k.id === id)?.tenKhuVuc ?? "khu vực";
+  const tenKhu = (id) => khuVucs.find((k) => k.id === id)?.tenKhuVuc ?? t("khu vực");
   const tenVat = (vat) => (vat?.loai === "khuVuc" ? tenKhu(vat.id) : (matBang?.[vat?.loai] ?? [])[vat?.id]?.ten ?? "");
   const coMatBang = Boolean(matBang?.soCot && matBang?.soHang);
   const daDat = useMemo(() => new Set((matBang?.khuVuc ?? []).map((h) => h.khuVucId)), [matBang]);
@@ -79,7 +80,7 @@ export default function MatBangKho({ khuVucs, viTris, matBang, coTheSua, khuBanD
     try {
       await onLuuMatBang(moi);
       if (thanhCong) {
-        toast.success(thanhCong, hoanTac ? { action: { label: "Hoàn tác", onClick: () => luu(cu, { thanhCong: "Đã hoàn tác" }) } } : undefined);
+        toast.success(thanhCong, hoanTac ? { action: { label: t("Hoàn tác"), onClick: () => luu(cu, { thanhCong: t("Đã hoàn tác") }) } } : undefined);
       }
     } finally {
       setDangLuu(false);
@@ -102,16 +103,16 @@ export default function MatBangKho({ khuVucs, viTris, matBang, coTheSua, khuBanD
     if (veLai) {
       const vat = veLai;
       if (vat.loai === "khuVuc" && khuQuaNho(hinh)) {
-        setThongBao({ tone: "bad", chu: `${THONG_BAO_KHU_QUA_NHO} Hãy kéo hình lớn hơn.` });
+        setThongBao({ tone: "bad", chu: t("{{thongBao}} Hãy kéo hình lớn hơn.", { thongBao: THONG_BAO_KHU_QUA_NHO }) });
         return;
       }
       try {
-        await luu(doiHinhVat(matBang, vat, hinh), { thanhCong: `Đã vẽ lại ${tenVat(vat)}`, hoanTac: true });
+        await luu(doiHinhVat(matBang, vat, hinh), { thanhCong: t("Đã vẽ lại {{vat}}", { vat: tenVat(vat) }), hoanTac: true });
         setDangVe(false);
         setVeLai(null);
         setVatChon(vat);
       } catch (err) {
-        setThongBao({ tone: "bad", chu: getApiErrorMessage(err, "Không lưu được mặt bằng. Vui lòng thử lại.") });
+        setThongBao({ tone: "bad", chu: getApiErrorMessage(err, t("Không lưu được mặt bằng. Vui lòng thử lại.")) });
       }
       return;
     }
@@ -136,7 +137,7 @@ export default function MatBangKho({ khuVucs, viTris, matBang, coTheSua, khuBanD
       moi = { ...matBang, [luaChon.loai]: ds };
       chon = { loai: luaChon.loai, id: ds.length - 1 };
     }
-    await luu(moi, { thanhCong: `Đã đặt ${ten} lên mặt bằng` });
+    await luu(moi, { thanhCong: t("Đã đặt {{ten}} lên mặt bằng", { ten }) });
     setHinhMoi(null);
     setDangVe(false);
     setVatChon(chon);
@@ -151,10 +152,10 @@ export default function MatBangKho({ khuVucs, viTris, matBang, coTheSua, khuBanD
         ? { ...matBang, khuVuc: matBang.khuVuc.filter((h) => h.khuVucId !== id) }
         : { ...matBang, [loai]: matBang[loai].filter((_, i) => i !== id) };
     try {
-      await luu(moi, { thanhCong: `Đã gỡ ${ten} khỏi mặt bằng`, hoanTac: true });
+      await luu(moi, { thanhCong: t("Đã gỡ {{ten}} khỏi mặt bằng", { ten }), hoanTac: true });
       setVatChon(null);
     } catch (err) {
-      toast.error(getApiErrorMessage(err, "Không lưu được mặt bằng. Vui lòng thử lại."));
+      toast.error(getApiErrorMessage(err, t("Không lưu được mặt bằng. Vui lòng thử lại.")));
     }
   };
 
@@ -167,12 +168,12 @@ export default function MatBangKho({ khuVucs, viTris, matBang, coTheSua, khuBanD
     setThongBao(null);
     try {
       await luu(doiHinhVat(matBang, vat, hinh), {
-        thanhCong: `Đã dời ${tenVat(vat)} tới cột ${hinh.x}, hàng ${hinh.y}`,
+        thanhCong: t("Đã dời {{vat}} tới cột {{x}}, hàng {{y}}", { vat: tenVat(vat), x: hinh.x, y: hinh.y }),
         hoanTac: true,
       });
       setVatChon(vat);
     } catch (err) {
-      setThongBao({ tone: "bad", chu: getApiErrorMessage(err, "Không lưu được mặt bằng. Vui lòng thử lại.") });
+      setThongBao({ tone: "bad", chu: getApiErrorMessage(err, t("Không lưu được mặt bằng. Vui lòng thử lại.")) });
     }
   };
   const dich1O = (vat, dx, dy) => {
@@ -180,23 +181,23 @@ export default function MatBangKho({ khuVucs, viTris, matBang, coTheSua, khuBanD
     if (!goc) return;
     const hinh = { x: goc.x + dx, y: goc.y + dy, rong: goc.rong, cao: goc.cao };
     if (!trongLuoi(hinh, matBang)) {
-      setThongBao({ tone: "bad", chu: `“${tenVat(vat)}” đã sát mép lưới, không dời thêm được.` });
+      setThongBao({ tone: "bad", chu: t("“{{vat}}” đã sát mép lưới, không dời thêm được.", { vat: tenVat(vat) }) });
       return;
     }
     const chong = vatBiChong(hinh, matBang, tenKhu, vat);
-    doiCho(vat, hinh, chong ? `Không dời được “${tenVat(vat)}” vì chồng lên “${chong}”.` : "");
+    doiCho(vat, hinh, chong ? t("Không dời được “{{vat}}” vì chồng lên “{{chong}}”.", { vat: tenVat(vat), chong }) : "");
   };
   // Sửa tên / hướng cửa của lối đi, cửa, vật cố định
   const suaVat = async ({ ten, huong }) => {
     const vat = hopSuaVat;
     const ds = (matBang[vat.loai] ?? []).map((v, i) => (i === vat.id ? { ...v, ten, ...(huong ? { huong } : {}) } : v));
-    await luu({ ...matBang, [vat.loai]: ds }, { thanhCong: `Đã lưu ${ten}`, hoanTac: true });
+    await luu({ ...matBang, [vat.loai]: ds }, { thanhCong: t("Đã lưu {{ten}}", { ten }), hoanTac: true });
     setHopSuaVat(null);
   };
 
   const luuKichThuoc = async ({ soCot, soHang }) => {
     const moi = coMatBang ? { ...matBang, soCot, soHang } : matBangRong(soCot, soHang);
-    await luu(moi, { thanhCong: coMatBang ? "Đã đổi kích thước lưới" : "Đã tạo mặt bằng kho" });
+    await luu(moi, { thanhCong: coMatBang ? t("Đã đổi kích thước lưới") : t("Đã tạo mặt bằng kho") });
     setHopLuoi(false);
   };
 
@@ -208,13 +209,13 @@ export default function MatBangKho({ khuVucs, viTris, matBang, coTheSua, khuBanD
             coTheSua ? (
               <Button onClick={() => setHopLuoi(true)} className={cn("h-8 gap-1.5", NUT_CHINH)}>
                 <Grid3x3 className="size-4" />
-                Tạo mặt bằng
+                {t("Tạo mặt bằng")}
               </Button>
             ) : null
           }
         >
-          Kho này chưa có mặt bằng.{" "}
-          {coTheSua ? "Tạo lưới rồi kéo để vẽ các khu, lối đi và cửa." : "Quản lý kho tạo mặt bằng để nhân viên tra chỗ để hàng."}
+          {t("Kho này chưa có mặt bằng.")}{" "}
+          {coTheSua ? t("Tạo lưới rồi kéo để vẽ các khu, lối đi và cửa.") : t("Quản lý kho tạo mặt bằng để nhân viên tra chỗ để hàng.")}
         </DongThongBao>
         <HopKichThuocLuoi open={hopLuoi} onOpenChange={setHopLuoi} matBang={null} tenKhu={tenKhu} onXacNhan={luuKichThuoc} />
       </>
@@ -223,26 +224,26 @@ export default function MatBangKho({ khuVucs, viTris, matBang, coTheSua, khuBanD
 
   const soBaoTri = viTris.filter((v) => v.trangThai === "BAO_TRI").length;
   const ghiChuVe = veLai
-    ? `Vẽ lại ${tenVat(veLai)}: kéo hình mới ở chỗ trống, hình cũ được thay khi thả.`
-    : "Chế độ vẽ: nhấn giữ ở một góc trên lưới, kéo tới góc đối diện rồi thả. Không vẽ chồng lên khu khác, lối đi, cửa hay vật cố định.";
+    ? t("Vẽ lại {{veLai}}: kéo hình mới ở chỗ trống, hình cũ được thay khi thả.", { veLai: tenVat(veLai) })
+    : t("Chế độ vẽ: nhấn giữ ở một góc trên lưới, kéo tới góc đối diện rồi thả. Không vẽ chồng lên khu khác, lối đi, cửa hay vật cố định.");
 
   return (
     <div className="flex flex-col gap-4">
       <MetricStrip
-        label="Tổng quan mặt bằng"
+        label={t("Tổng quan mặt bằng")}
         items={[
           {
-            label: "Khu trên mặt bằng",
+            label: t("Khu trên mặt bằng"),
             value: `${daDat.size}/${khuVucs.length}`,
-            hint: khuChuaDat.length ? `${khuChuaDat.length} khu chưa đặt` : "Đã đặt đủ các khu",
+            hint: khuChuaDat.length ? t("{{soKhu}} khu chưa đặt", { count: khuChuaDat.length, soKhu: khuChuaDat.length }) : t("Đã đặt đủ các khu"),
           },
-          { label: "Vị trí kệ", value: dinhDangSo(viTris.length), hint: `${soBaoTri} đang bảo trì` },
+          { label: t("Vị trí kệ"), value: dinhDangSo(viTris.length), hint: t("{{soBaoTri}} đang bảo trì", { soBaoTri }) },
           {
-            label: "Đang chứa",
+            label: t("Đang chứa"),
             value: `${dinhDangSo(tong.dangChua)} / ${dinhDangSo(tong.sucChua)}`,
-            hint: "Sản phẩm, không tính kệ bảo trì",
+            hint: t("Sản phẩm, không tính kệ bảo trì"),
           },
-          { label: "Mức đầy chung", value: `${tong.phanTram}%`, hint: "Trên các kệ đang hoạt động", tone: toneSo(tong.phanTram) },
+          { label: t("Mức đầy chung"), value: `${tong.phanTram}%`, hint: t("Trên các kệ đang hoạt động"), tone: toneSo(tong.phanTram) },
         ]}
       />
 
@@ -250,9 +251,9 @@ export default function MatBangKho({ khuVucs, viTris, matBang, coTheSua, khuBanD
         <section className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-bo-border px-4 py-3">
             <div className="min-w-0">
-              <h2 className="text-sm font-semibold text-bo-heading">Mặt bằng kho</h2>
+              <h2 className="text-sm font-semibold text-bo-heading">{t("Mặt bằng kho")}</h2>
               <p className="text-xs text-bo-muted">
-                Nhìn từ trên xuống · lưới {matBang.soCot} × {matBang.soHang} ô
+                {t("Nhìn từ trên xuống · lưới {{soCot}} × {{soHang}} ô", { soCot: matBang.soCot, soHang: matBang.soHang })}
               </p>
             </div>
             {coTheSua ? (
@@ -260,17 +261,17 @@ export default function MatBangKho({ khuVucs, viTris, matBang, coTheSua, khuBanD
                 {dangVe ? (
                   <Button onClick={batTatVe} disabled={dangLuu} className={cn("h-9 gap-1.5", NUT_CHINH)}>
                     <Check className="size-4" />
-                    Xong
+                    {t("Xong")}
                   </Button>
                 ) : (
                   <>
                     <Button variant="outline" onClick={() => setHopLuoi(true)} disabled={dangLuu} className={cn("h-9 gap-1.5", NUT_PHU)}>
                       <Grid3x3 className="size-4" />
-                      Kích thước lưới
+                      {t("Kích thước lưới")}
                     </Button>
                     <Button variant="outline" onClick={batTatVe} disabled={dangLuu} className={cn("h-9 gap-1.5", NUT_PHU)}>
                       <Pencil className="size-4" />
-                      Vẽ
+                      {t("Vẽ")}
                     </Button>
                   </>
                 )}
@@ -304,7 +305,7 @@ export default function MatBangKho({ khuVucs, viTris, matBang, coTheSua, khuBanD
           <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-bo-border px-4 py-3">
             <ChuGiaiMucDay />
             <span className="text-xs text-bo-muted">
-              {daDat.size} khu · {(matBang.cua ?? []).length} cửa · {(matBang.loiDi ?? []).length} lối đi
+              {t("{{soKhu}} khu · {{soCua}} cửa · {{soLoiDi}} lối đi", { soKhu: daDat.size, soCua: (matBang.cua ?? []).length, soLoiDi: (matBang.loiDi ?? []).length })}
             </span>
           </div>
         </section>
@@ -365,17 +366,17 @@ const TieuDeNho = ({ children }) => <p className="text-xs font-semibold uppercas
 /** Bốn nút mũi tên dịch vật 1 ô (cho bàn phím / cảm ứng, thay cho kéo thả). Nút mờ khi đã sát mép lưới. */
 function BanDich({ hinh, matBang, dangLuu, onDich }) {
   const nut = [
-    ["Dời lên 1 ô", ArrowUp, 0, -1, "col-start-2"],
-    ["Dời sang trái 1 ô", ArrowLeft, -1, 0, "col-start-1 row-start-2"],
-    ["Dời xuống 1 ô", ArrowDown, 0, 1, "col-start-2 row-start-2"],
-    ["Dời sang phải 1 ô", ArrowRight, 1, 0, "col-start-3 row-start-2"],
+    [t("Dời lên 1 ô"), ArrowUp, 0, -1, "col-start-2"],
+    [t("Dời sang trái 1 ô"), ArrowLeft, -1, 0, "col-start-1 row-start-2"],
+    [t("Dời xuống 1 ô"), ArrowDown, 0, 1, "col-start-2 row-start-2"],
+    [t("Dời sang phải 1 ô"), ArrowRight, 1, 0, "col-start-3 row-start-2"],
   ];
   return (
     <div className="flex items-center justify-between gap-4">
       <p className="text-xs leading-5 text-bo-muted">
-        Kéo trên mặt bằng để dời, hoặc bấm mũi tên để dịch từng ô. Đang ở cột {hinh.x}, hàng {hinh.y}.
+        {t("Kéo trên mặt bằng để dời, hoặc bấm mũi tên để dịch từng ô. Đang ở cột {{x}}, hàng {{y}}.", { x: hinh.x, y: hinh.y })}
       </p>
-      <div role="group" aria-label="Dời vật" className="grid shrink-0 grid-cols-3 grid-rows-2 gap-1">
+      <div role="group" aria-label={t("Dời vật")} className="grid shrink-0 grid-cols-3 grid-rows-2 gap-1">
         {nut.map(([nhan, bieuTuong, dx, dy, viTri]) => {
           const toi = { ...hinh, x: hinh.x + dx, y: hinh.y + dy };
           return (
@@ -412,11 +413,11 @@ function BenPhai({ vatChon, dangVe, matBang, khuVucs, viTris, khuChuaDat, coTheS
     <div className="grid grid-cols-2 gap-2">
       <Button variant="outline" onClick={() => onSua(vat)} disabled={dangLuu} className={cn("h-9 gap-1.5", NUT_PHU)}>
         <PenLine className="size-4" />
-        Sửa thông tin
+        {t("Sửa thông tin")}
       </Button>
       <Button variant="outline" onClick={() => onVeLai(vat)} disabled={dangLuu} className={cn("h-9 gap-1.5", NUT_PHU)}>
         <Pencil className="size-4" />
-        Vẽ lại
+        {t("Vẽ lại")}
       </Button>
     </div>
   );
@@ -446,16 +447,16 @@ function BenPhai({ vatChon, dangVe, matBang, khuVucs, viTris, khuChuaDat, coTheS
           }
           phu={
             <>
-              <span className="font-mono">{khu.maKhuVuc}</span> · {hinh.rong} × {hinh.cao} ô · từ cột {hinh.x}, hàng {hinh.y}
+              <span className="font-mono">{khu.maKhuVuc}</span> {t("· {{rong}} × {{cao}} ô · từ cột {{x}}, hàng {{y}}", { count: hinh.rong * hinh.cao, rong: hinh.rong, cao: hinh.cao, x: hinh.x, y: hinh.y })}
             </>
           }
           chan={
             <div className="flex flex-col gap-2">
               <Button variant="outline" onClick={() => onMoSoDo(khu.id)} disabled={!ds.length} className={cn("h-9", NUT_PHU)}>
-                Xem sơ đồ kệ
+                {t("Xem sơ đồ kệ")}
               </Button>
               {coTheSua ? nutSuaVeLai(vatChon) : null}
-              {nutGo("Gỡ khỏi mặt bằng")}
+              {nutGo(t("Gỡ khỏi mặt bằng"))}
             </div>
           }
         >
@@ -466,19 +467,19 @@ function BenPhai({ vatChon, dangVe, matBang, khuVucs, viTris, khuChuaDat, coTheS
           ) : null}
           <DaiO soO={2} phang className="border-b border-bo-border">
             <div className="flex flex-col gap-1 bg-bo-surface px-4 py-3">
-              <span className="text-xs font-medium text-bo-muted">Vị trí kệ</span>
+              <span className="text-xs font-medium text-bo-muted">{t("Vị trí kệ")}</span>
               <span className="text-lg font-semibold tabular-nums text-bo-heading">{dinhDangSo(ds.length)}</span>
-              <span className="text-xs text-bo-muted">{ds.length ? `${conCho} còn chỗ` : "Chưa tạo vị trí"}</span>
+              <span className="text-xs text-bo-muted">{ds.length ? t("{{conCho}} còn chỗ", { conCho }) : t("Chưa tạo vị trí")}</span>
             </div>
             <div className="flex flex-col gap-1.5 bg-bo-surface px-4 py-3">
-              <span className="text-xs font-medium text-bo-muted">Mức đầy</span>
+              <span className="text-xs font-medium text-bo-muted">{t("Mức đầy")}</span>
               <span className="text-lg font-semibold tabular-nums text-bo-heading">{muc.phanTram}%</span>
               <ThanhMuc phanTram={muc.phanTram} tone={toneMucDay(muc.phanTram / 100)} />
             </div>
           </DaiO>
           <div className="flex flex-col gap-4 px-4 py-4">
             <div className="flex flex-col gap-2">
-              <TieuDeNho>Dãy kệ</TieuDeNho>
+              <TieuDeNho>{t("Dãy kệ")}</TieuDeNho>
               {ds.length ? (
                 <ul className="divide-y divide-bo-border">
                   {nhomTheoDay(ds).map(({ day, hangs, tangs }) => {
@@ -486,9 +487,9 @@ function BenPhai({ vatChon, dangVe, matBang, khuVucs, viTris, khuChuaDat, coTheS
                     return (
                       <li key={day} className="grid grid-cols-[minmax(0,1fr)_120px] items-center gap-3 py-2">
                         <span className="min-w-0">
-                          <b className="block text-[13px] text-bo-heading">Dãy {day}</b>
+                          <b className="block text-[13px] text-bo-heading">{t("Dãy {{day}}", { day })}</b>
                           <span className="text-xs text-bo-muted">
-                            {hangs.length} hàng × {tangs.length} tầng
+                            {t("{{soHang}} hàng × {{soTang}} tầng", { soHang: hangs.length, soTang: tangs.length })}
                           </span>
                         </span>
                         <span className="grid grid-cols-[minmax(0,1fr)_36px] items-center gap-2">
@@ -500,17 +501,17 @@ function BenPhai({ vatChon, dangVe, matBang, khuVucs, viTris, khuChuaDat, coTheS
                   })}
                 </ul>
               ) : (
-                <p className="text-[13px] text-bo-muted">Chưa có dãy kệ trong khu này.</p>
+                <p className="text-[13px] text-bo-muted">{t("Chưa có dãy kệ trong khu này.")}</p>
               )}
             </div>
             {ds.length ? (
               <div className="flex flex-col gap-2">
-                <TieuDeNho>Cần chú ý</TieuDeNho>
+                <TieuDeNho>{t("Cần chú ý")}</TieuDeNho>
                 {canChuY.length ? (
                   <ul className="divide-y divide-bo-border">
                     {canChuY.map((v) => {
                       const nhom = nhomTrangThaiKe(v);
-                      const nhan = nhom.ma === "CON_CHO" ? `Sắp đầy · ${dinhDangSo(v.dangChua)}/${dinhDangSo(v.sucChua)}` : nhom.label;
+                      const nhan = nhom.ma === "CON_CHO" ? t("Sắp đầy · {{dangChua}}/{{sucChua}}", { dangChua: dinhDangSo(v.dangChua), sucChua: dinhDangSo(v.sucChua) }) : t(nhom.label);
                       return (
                         <li key={v.id} className="flex items-center justify-between gap-3 py-2 text-[13px]">
                           <span className="font-mono font-semibold text-bo-heading">{v.maViTri}</span>
@@ -523,7 +524,7 @@ function BenPhai({ vatChon, dangVe, matBang, khuVucs, viTris, khuChuaDat, coTheS
                     })}
                   </ul>
                 ) : (
-                  <p className="text-[13px] text-bo-muted">Không có vị trí đầy, sắp đầy hay bảo trì.</p>
+                  <p className="text-[13px] text-bo-muted">{t("Không có vị trí đầy, sắp đầy hay bảo trì.")}</p>
                 )}
               </div>
             ) : null}
@@ -536,7 +537,8 @@ function BenPhai({ vatChon, dangVe, matBang, khuVucs, viTris, khuChuaDat, coTheS
   if (vatChon && vatChon.loai !== "khuVuc") {
     const vat = matBang[vatChon.loai]?.[vatChon.id];
     if (vat) {
-      const huong = vatChon.loai === "cua" ? HUONG_CUA.find((h) => h.ma === vat.huong)?.ten : null;
+      const tenHuong = vatChon.loai === "cua" ? HUONG_CUA.find((h) => h.ma === vat.huong)?.ten : null;
+      const huong = tenHuong ? t(tenHuong) : null;
       return (
         <KhungBen
           tieuDe={
@@ -545,12 +547,12 @@ function BenPhai({ vatChon, dangVe, matBang, khuVucs, viTris, khuChuaDat, coTheS
               <NhanLoai>{huong ?? tenLoaiVat(vatChon.loai)}</NhanLoai>
             </>
           }
-          phu={`${vat.rong} × ${vat.cao} ô · từ cột ${vat.x}, hàng ${vat.y}`}
+          phu={t("{{rong}} × {{cao}} ô · từ cột {{x}}, hàng {{y}}", { count: vat.rong * vat.cao, rong: vat.rong, cao: vat.cao, x: vat.x, y: vat.y })}
           chan={
             coTheSua ? (
               <div className="flex flex-col gap-2">
                 {nutSuaVeLai(vatChon)}
-                {nutGo("Xóa khỏi mặt bằng")}
+                {nutGo(t("Xóa khỏi mặt bằng"))}
               </div>
             ) : null
           }
@@ -562,10 +564,10 @@ function BenPhai({ vatChon, dangVe, matBang, khuVucs, viTris, khuChuaDat, coTheS
           ) : null}
           <p className="px-4 py-4 text-[13px] leading-5 text-slate-600">
             {vatChon.loai === "cua" && vat.huong === "VAO"
-              ? "Chỉ đường tới khu và vị trí kệ bắt đầu từ cửa nhận hàng này."
+              ? t("Chỉ đường tới khu và vị trí kệ bắt đầu từ cửa nhận hàng này.")
               : vatChon.loai === "loiDi"
-                ? "Lối đi chính được dùng để mô tả khu nằm phía trên hay phía dưới khi chỉ đường."
-                : "Chỉ để nhân viên định hướng, không chứa hàng."}
+                ? t("Lối đi chính được dùng để mô tả khu nằm phía trên hay phía dưới khi chỉ đường.")
+                : t("Chỉ để nhân viên định hướng, không chứa hàng.")}
           </p>
         </KhungBen>
       );
@@ -573,11 +575,11 @@ function BenPhai({ vatChon, dangVe, matBang, khuVucs, viTris, khuChuaDat, coTheS
   }
 
   return (
-    <KhungBen tieuDe={<h2 className="text-sm font-semibold text-bo-heading">{dangVe ? "Vẽ trên mặt bằng" : "Chọn trên mặt bằng"}</h2>}>
+    <KhungBen tieuDe={<h2 className="text-sm font-semibold text-bo-heading">{dangVe ? t("Vẽ trên mặt bằng") : t("Chọn trên mặt bằng")}</h2>}>
       <div className="flex flex-col gap-4 px-4 py-4">
         {dangVe ? (
           <ol className="flex flex-col gap-2.5 text-[13px] text-bo-foreground">
-            {["Nhấn giữ ở một góc trên lưới", "Kéo tới góc đối diện, khung xanh hiện kích thước", "Thả ra, chọn đó là khu vực, lối đi, cửa hay vật cố định"].map((buoc, i) => (
+            {[t("Nhấn giữ ở một góc trên lưới"), t("Kéo tới góc đối diện, khung xanh hiện kích thước"), t("Thả ra, chọn đó là khu vực, lối đi, cửa hay vật cố định")].map((buoc, i) => (
               <li key={buoc} className="flex items-start gap-2.5">
                 <span className="grid size-5 shrink-0 place-items-center rounded-full border border-bo-primary text-[11px] font-semibold text-bo-primary">{i + 1}</span>
                 {buoc}
@@ -586,12 +588,12 @@ function BenPhai({ vatChon, dangVe, matBang, khuVucs, viTris, khuChuaDat, coTheS
           </ol>
         ) : (
           <p className="text-[13px] leading-5 text-slate-600">
-            Bấm vào một khu, cửa hoặc lối đi để xem chi tiết
-            {coTheSua ? "; nhấn giữ rồi kéo để dời, hoặc chọn rồi sửa, vẽ lại, gỡ khỏi mặt bằng" : ""}.
+            {t("Bấm vào một khu, cửa hoặc lối đi để xem chi tiết")}
+            {coTheSua ? t("; nhấn giữ rồi kéo để dời, hoặc chọn rồi sửa, vẽ lại, gỡ khỏi mặt bằng") : ""}.
           </p>
         )}
         <div className="flex flex-col gap-2">
-          <TieuDeNho>Khu chưa đặt lên mặt bằng · {khuChuaDat.length}</TieuDeNho>
+          <TieuDeNho>{t("Khu chưa đặt lên mặt bằng · {{soKhu}}", { soKhu: khuChuaDat.length })}</TieuDeNho>
           {khuChuaDat.length ? (
             <ul className="divide-y divide-bo-border">
               {khuChuaDat.map((k) => (
@@ -602,7 +604,7 @@ function BenPhai({ vatChon, dangVe, matBang, khuVucs, viTris, khuChuaDat, coTheS
               ))}
             </ul>
           ) : (
-            <p className="text-[13px] text-bo-muted">Đã đặt đủ các khu.</p>
+            <p className="text-[13px] text-bo-muted">{t("Đã đặt đủ các khu.")}</p>
           )}
         </div>
       </div>

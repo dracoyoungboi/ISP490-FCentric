@@ -7,6 +7,7 @@ import { toast } from "@/lib/thongBaoNhanh";
 import { getApiErrorCode, getApiErrorMessage } from "@/utils/apiError";
 import { cuonToiLoi } from "./kieuForm";
 import { kiemTraTepAnh } from "./logicBienThe";
+import { t } from "@/i18n";
 
 let soAnhDaTao = 0;
 
@@ -20,7 +21,7 @@ export const MA_LOI_TEN_SAN_PHAM_TRUNG = "TEN_SAN_PHAM_TRUNG";
  */
 export function xuLyLoiTenTrung(error, { setError, henCuonToiLoi }) {
     if (getApiErrorCode(error) !== MA_LOI_TEN_SAN_PHAM_TRUNG) return false;
-    const thongBao = getApiErrorMessage(error, "Đã có sản phẩm cùng tên. Vui lòng đặt tên khác.");
+    const thongBao = getApiErrorMessage(error, t("Đã có sản phẩm cùng tên. Vui lòng đặt tên khác."));
     setError("tenSanPham", { type: "server", message: thongBao });
     henCuonToiLoi({ id: "khu-thong-tin", oFocus: "#tenSanPham" });
     toast.error(thongBao);
@@ -72,9 +73,9 @@ export function locTepAnhHopLe(files) {
         if (thongBao) loi.push(thongBao);
         else hopLe.push(tep);
     }
-    if (loi.length === 1) toast.error(`${loi[0]}. Vui lòng chọn ảnh khác.`);
+    if (loi.length === 1) toast.error(t("{{lyDo}}. Vui lòng chọn ảnh khác.", { lyDo: loi[0] }));
     if (loi.length > 1) {
-        toast.error(`${loi.length} tệp không hợp lệ (chỉ nhận ảnh, tối đa 10 MB mỗi ảnh). Vui lòng chọn ảnh khác.`);
+        toast.error(t("{{count}} tệp không hợp lệ (chỉ nhận ảnh, tối đa 10 MB mỗi ảnh). Vui lòng chọn ảnh khác.", { count: loi.length }));
     }
     return hopLe;
 }

@@ -1,3 +1,4 @@
+import { t } from "../i18n/t.js";
 /**
  * Quy tắc mã vạch dùng chung cho màn Kiểm đếm & khóa lô và trang Mã vạch nhà cung cấp.
  * Khớp MaVachUtils.java ở backend (ký tự hợp lệ, tiền tố FC-, số kiểm tra GS1).
@@ -26,7 +27,7 @@ export function tachSoLuong(raw) {
   const n = Number(khop[1]);
   const ma = khop[2].trim();
   if (!Number.isInteger(n) || n < 1 || n > SO_LUONG_TOI_DA_MOI_LUOT) {
-    return { soLuong: null, ma, loi: `Số lượng trước dấu * phải từ 1 đến ${SO_LUONG_TOI_DA_MOI_LUOT}.` };
+    return { soLuong: null, ma, loi: t("Số lượng trước dấu * phải từ 1 đến {{toiDa}}.", { toiDa: SO_LUONG_TOI_DA_MOI_LUOT }) };
   }
   return { soLuong: n, ma };
 }
@@ -54,11 +55,13 @@ export function gs1(ma) {
 export function moTaDangMa(ma) {
   const chuoi = String(ma ?? "");
   const g = gs1(chuoi);
-  const dem = `${chuoi.length} ${/^\d+$/.test(chuoi) ? "chữ số" : "ký tự, có chữ"}`;
+  const dem = /^\d+$/.test(chuoi)
+    ? t("{{count}} chữ số", { count: chuoi.length })
+    : t("{{count}} ký tự, có chữ", { count: chuoi.length });
   if (!g.kieu) return { chu: dem, tone: "neutral", gs1: g };
   return g.ok
-    ? { chu: `${dem} · dạng ${g.kieu} · đúng số kiểm tra`, tone: "ok", gs1: g }
-    : { chu: `${dem} · dạng ${g.kieu} · sai số kiểm tra, mã đã bị đọc lệch`, tone: "bad", gs1: g };
+    ? { chu: t("{{dem}} · dạng {{kieu}} · đúng số kiểm tra", { dem, kieu: g.kieu }), tone: "ok", gs1: g }
+    : { chu: t("{{dem}} · dạng {{kieu}} · sai số kiểm tra, mã đã bị đọc lệch", { dem, kieu: g.kieu }), tone: "bad", gs1: g };
 }
 
 /** Khoảng cách Levenshtein (số ký tự phải thêm / bớt / thay). */

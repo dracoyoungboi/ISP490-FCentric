@@ -7,6 +7,7 @@ import {
 
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button";
+import { t } from "@/i18n";
 
 function Pagination({
   className,
@@ -15,7 +16,7 @@ function Pagination({
   return (
     <nav
       role="navigation"
-      aria-label="Phân trang"
+      aria-label={t("Phân trang")}
       data-slot="pagination"
       className={cn("mx-auto flex w-full justify-center", className)}
       {...props} />
@@ -65,12 +66,12 @@ function PaginationPrevious({
 }) {
   return (
     <PaginationLink
-      aria-label="Về trang trước"
+      aria-label={t("Về trang trước")}
       size="default"
       className={cn("gap-1 px-2.5 sm:pl-2.5", className)}
       {...props}>
       <ChevronLeftIcon />
-      <span className="hidden sm:block">Trước</span>
+      <span className="hidden sm:block">{t("Trước", { context: "trang" })}</span>
     </PaginationLink>
   );
 }
@@ -81,11 +82,11 @@ function PaginationNext({
 }) {
   return (
     <PaginationLink
-      aria-label="Sang trang sau"
+      aria-label={t("Sang trang sau")}
       size="default"
       className={cn("gap-1 px-2.5 sm:pr-2.5", className)}
       {...props}>
-      <span className="hidden sm:block">Sau</span>
+      <span className="hidden sm:block">{t("Sau")}</span>
       <ChevronRightIcon />
     </PaginationLink>
   );
@@ -102,7 +103,7 @@ function PaginationEllipsis({
       className={cn("flex size-9 items-center justify-center", className)}
       {...props}>
       <MoreHorizontalIcon className="size-4" />
-      <span className="sr-only">Thêm trang</span>
+      <span className="sr-only">{t("Thêm trang")}</span>
     </span>
   );
 }

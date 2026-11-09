@@ -9,11 +9,13 @@
  */
 
 import { ROLES } from "../../constants/backend/role.js";
+import { t } from "../../i18n/t.js";
 
 // ───────────────────────────── Vai trò ─────────────────────────────
 
 /** Vai trò nhân sự theo thứ tự hiện trên màn hình (nguồn: constants/backend/role.js). */
-export const VAI_TRO = ROLES.map(({ value, label, moTa }) => ({ ma: value, ten: label, moTa }));
+// Tên, mô tả vai trò chỉ để hiện; so khớp luôn theo `ma`.
+export const VAI_TRO = ROLES.map(({ value, label, moTa }) => ({ ma: value, ten: t(label), moTa: t(moTa) }));
 
 export const QUAN_TRI_VIEN = "quan_tri_vien";
 
@@ -25,7 +27,7 @@ export function laVaiTroNoiBo(ma) {
 export function tenVaiTro(ma) {
   const vt = VAI_TRO.find((v) => v.ma === ma);
   if (vt) return vt.ten;
-  return ma ? String(ma).replaceAll("_", " ") : "Không xác định";
+  return ma ? String(ma).replaceAll("_", " ") : t("Không xác định");
 }
 
 export function moTaVaiTro(ma) {
@@ -50,37 +52,37 @@ export function canKho(vaiTro) {
 export const NHOM_QUYEN = [
   {
     ma: "nhap_kho",
-    ten: "Mua & nhập kho",
+    ten: t("Mua & nhập kho"),
     luong: true,
     thuTu: ["tao_don_mua_hang", "duyet_don_mua_hang", "tao_phieu_nhap", "duyet_phieu_nhap", "huy_phieu_nhap"],
   },
   {
     ma: "quan_ly_kho",
-    ten: "Tồn kho",
+    ten: t("Tồn kho"),
     luong: true,
     thuTu: ["xem_ton_kho", "xem_chi_tiet_lo", "chuyen_kho", "dieu_chinh_ton_kho"],
   },
   {
     ma: "xuat_kho",
-    ten: "Bán & xuất kho",
+    ten: t("Bán & xuất kho"),
     luong: true,
     thuTu: ["tao_don_ban_hang", "duyet_don_ban_hang", "tao_phieu_xuat", "duyet_phieu_xuat", "huy_phieu_xuat"],
   },
   {
     ma: "bao_cao",
-    ten: "Báo cáo",
+    ten: t("Báo cáo"),
     luong: false,
     thuTu: ["xem_bao_cao_ton_kho", "xem_bao_cao_nhap_xuat", "xem_bao_cao_doanh_thu", "xuat_bao_cao"],
   },
   {
     ma: "cai_dat",
-    ten: "Danh mục & nhân sự",
+    ten: t("Danh mục & nhân sự"),
     luong: false,
     thuTu: ["quan_ly_san_pham", "quan_ly_nha_cung_cap", "quan_ly_khach_hang", "quan_ly_nhan_vien_kho", "cap_quyen_nhan_vien"],
   },
 ];
 
-const NHOM_KHAC = { ma: "khac", ten: "Khác", luong: false, thuTu: [] };
+const NHOM_KHAC = { ma: "khac", ten: t("Khác"), luong: false, thuTu: [] };
 
 /** Danh sách quyền → các nhóm có ít nhất một quyền, đúng thứ tự NHOM_QUYEN; nhóm lạ gom vào "Khác". */
 export function nhomTheoLuong(dsQuyen) {
@@ -110,10 +112,10 @@ export function thuTuQuyen(dsQuyen) {
  * Trang Chi tiết người dùng vẽ thành ma trận chứng từ × Tạo / Duyệt / Hủy (Kiểu D, chốt 19/10/2026).
  */
 export const CHUNG_TU = [
-  { ten: "Đơn mua hàng", tao: "tao_don_mua_hang", duyet: "duyet_don_mua_hang", huy: null },
-  { ten: "Phiếu nhập kho", tao: "tao_phieu_nhap", duyet: "duyet_phieu_nhap", huy: "huy_phieu_nhap" },
-  { ten: "Đơn bán hàng", tao: "tao_don_ban_hang", duyet: "duyet_don_ban_hang", huy: null },
-  { ten: "Phiếu xuất kho", tao: "tao_phieu_xuat", duyet: "duyet_phieu_xuat", huy: "huy_phieu_xuat" },
+  { ten: t("Đơn mua hàng"), tao: "tao_don_mua_hang", duyet: "duyet_don_mua_hang", huy: null },
+  { ten: t("Phiếu nhập kho"), tao: "tao_phieu_nhap", duyet: "duyet_phieu_nhap", huy: "huy_phieu_nhap" },
+  { ten: t("Đơn bán hàng"), tao: "tao_don_ban_hang", duyet: "duyet_don_ban_hang", huy: null },
+  { ten: t("Phiếu xuất kho"), tao: "tao_phieu_xuat", duyet: "duyet_phieu_xuat", huy: "huy_phieu_xuat" },
 ];
 
 /**
@@ -243,8 +245,9 @@ export function danhGiaQuyen({ vaiTro, quyenIds, dsQuyen, mau = [], nhayCam = []
       return {
         id: q.id,
         ma: q.maQuyen,
-        ten: q.tenQuyen || q.maQuyen,
-        moTa: q.moTa || "",
+        // Tên, mô tả quyền là dữ liệu cố định của hệ thống (bảng quyen_han): dịch lúc hiện
+        ten: q.tenQuyen ? t(q.tenQuyen) : q.maQuyen,
+        moTa: q.moTa ? t(q.moTa) : "",
         cap,
         trongMau: trongMau.has(q.id),
         ngoaiMau: cap && coMauCauHinh && !trongMau.has(q.id),
@@ -283,13 +286,13 @@ const vietHoaDau = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 export function vanDeCanXemLai({ vaiTro, coKho, danhGia }) {
   if (!canKho(vaiTro) || !coKho || !danhGia) return [];
   if (!danhGia.soCap) {
-    return [{ ma: "chuaCap", chinh: "Chưa cấp quyền nào", phu: "người này chưa làm được việc gì ở kho", maQuyen: [] }];
+    return [{ ma: "chuaCap", chinh: t("Chưa cấp quyền nào"), phu: t("người này chưa làm được việc gì ở kho"), maQuyen: [] }];
   }
   const ds = [];
   if (danhGia.capTrung.length) {
     ds.push({
       ma: "taoDuyet",
-      chinh: `Tự tạo và tự duyệt được ${danhGia.capTrung.length} loại chứng từ`,
+      chinh: t("Tự tạo và tự duyệt được {{count}} loại chứng từ", { count: danhGia.capTrung.length }),
       phu: danhGia.capTrung.map((c) => c.ten).join(", "),
       maQuyen: danhGia.capTrung.flatMap((c) => [c.tao, c.duyet]),
     });
@@ -297,23 +300,23 @@ export function vanDeCanXemLai({ vaiTro, coKho, danhGia }) {
   if (danhGia.ngoaiMau.length) {
     ds.push({
       ma: "ngoaiMau",
-      chinh: `${danhGia.ngoaiMau.length} quyền ngoài mẫu của vai trò`,
-      phu: `mẫu có ${danhGia.soMau} quyền`,
+      chinh: t("{{count}} quyền ngoài mẫu của vai trò", { count: danhGia.ngoaiMau.length }),
+      phu: t("mẫu có {{count}} quyền", { count: danhGia.soMau }),
       maQuyen: danhGia.ngoaiMau.map((d) => d.ma),
     });
   }
   if (danhGia.voHieu.length) {
     ds.push({
       ma: "voHieu",
-      chinh: `${danhGia.voHieu.length} quyền không dùng được`,
-      phu: "vai trò này không mở màn hình dùng các quyền đó",
+      chinh: t("{{count}} quyền không dùng được", { count: danhGia.voHieu.length }),
+      phu: t("vai trò này không mở màn hình dùng các quyền đó"),
       maQuyen: danhGia.voHieu.map((d) => d.ma),
     });
   }
   if (danhGia.thieuMau.length) {
     ds.push({
       ma: "thieuMau",
-      chinh: `Thiếu ${danhGia.thieuMau.length} quyền so với mẫu`,
+      chinh: t("Thiếu {{count}} quyền so với mẫu", { count: danhGia.thieuMau.length }),
       phu: danhGia.thieuMau.map((d) => d.ten).join(", "),
       maQuyen: danhGia.thieuMau.map((d) => d.ma),
     });
@@ -386,8 +389,8 @@ export function moTaHieuLuc(pq) {
   if (!pq) return "";
   const tu = ngayNgan(pq.ngayBatDau || pq.ngayTao);
   const den = ngayNgan(pq.ngayKetThuc);
-  const dau = tu ? `từ ${tu}, ` : "";
-  return `${dau}${den ? `đến ${den}` : "không thời hạn"}`;
+  const dau = tu ? t("từ {{tu}}, ", { tu }) : "";
+  return `${dau}${den ? t("đến {{den}}", { den }) : t("không thời hạn")}`;
 }
 
 export { vietHoaDau };
@@ -441,10 +444,10 @@ export function noiDungLuu(nhap, pqGoc) {
  * Các thay đổi giữa bản đã lưu và bản nháp, để hiện trong hộp "Lưu phân quyền?".
  * Mỗi dòng: { loai: "doi" | "them" | "bo", chu }.
  */
-export function soSanhPhanQuyen(goc, nhap, { dsQuyen = [], tenKho = (id) => `kho ${id}` } = {}) {
+export function soSanhPhanQuyen(goc, nhap, { dsQuyen = [], tenKho = (id) => t("kho {{id}}", { id }) } = {}) {
   const a = giaTriHieuLuc(goc);
   const b = giaTriHieuLuc(nhap);
-  const ten = new Map((dsQuyen ?? []).map((q) => [q.id, q.tenQuyen || q.maQuyen]));
+  const ten = new Map((dsQuyen ?? []).map((q) => [q.id, q.tenQuyen ? t(q.tenQuyen) : q.maQuyen]));
   const thuTu = thuTuQuyen(dsQuyen).map((q) => q.id);
   const sapXep = (ids) =>
     [...ids].sort((x, y) => {
@@ -454,7 +457,7 @@ export function soSanhPhanQuyen(goc, nhap, { dsQuyen = [], tenKho = (id) => `kho
     });
 
   const ds = [];
-  if (a.vaiTro !== b.vaiTro) ds.push({ loai: "doi", chu: `Vai trò: ${tenVaiTro(a.vaiTro)} → ${tenVaiTro(b.vaiTro)}` });
+  if (a.vaiTro !== b.vaiTro) ds.push({ loai: "doi", chu: t("Vai trò: {{cu}} → {{moi}}", { cu: tenVaiTro(a.vaiTro), moi: tenVaiTro(b.vaiTro) }) });
 
   if (canKho(b.vaiTro)) {
     if (b.khoId != null && b.khoId !== a.khoId) {
@@ -462,22 +465,22 @@ export function soSanhPhanQuyen(goc, nhap, { dsQuyen = [], tenKho = (id) => `kho
         loai: "doi",
         chu:
           a.khoId != null
-            ? `Nơi làm việc: ${tenKho(a.khoId)} → ${tenKho(b.khoId)}`
-            : `Nơi làm việc: ${tenKho(b.khoId)}`,
+            ? t("Nơi làm việc: {{cu}} → {{moi}}", { cu: tenKho(a.khoId), moi: tenKho(b.khoId) })
+            : t("Nơi làm việc: {{kho}}", { kho: tenKho(b.khoId) }),
       });
     }
     if (b.khoId != null && b.ngayKetThuc !== a.ngayKetThuc) {
       ds.push({
         loai: "doi",
-        chu: b.ngayKetThuc ? `Hiệu lực: đến ${ngayNgan(cuoiNgay(b.ngayKetThuc))}` : "Hiệu lực: không thời hạn",
+        chu: b.ngayKetThuc ? t("Hiệu lực: đến {{ngay}}", { ngay: ngayNgan(cuoiNgay(b.ngayKetThuc)) }) : t("Hiệu lực: không thời hạn"),
       });
     }
     const coA = new Set(a.quyenIds);
     const coB = new Set(b.quyenIds);
-    sapXep(b.quyenIds.filter((id) => !coA.has(id))).forEach((id) => ds.push({ loai: "them", chu: ten.get(id) ?? `Quyền ${id}` }));
-    sapXep(a.quyenIds.filter((id) => !coB.has(id))).forEach((id) => ds.push({ loai: "bo", chu: ten.get(id) ?? `Quyền ${id}` }));
+    sapXep(b.quyenIds.filter((id) => !coA.has(id))).forEach((id) => ds.push({ loai: "them", chu: ten.get(id) ?? t("Quyền {{id}}", { id }) }));
+    sapXep(a.quyenIds.filter((id) => !coB.has(id))).forEach((id) => ds.push({ loai: "bo", chu: ten.get(id) ?? t("Quyền {{id}}", { id }) }));
   } else if (a.khoId != null) {
-    ds.push({ loai: "bo", chu: `Thu hồi phân quyền ${tenKho(a.khoId)} (${a.quyenIds.length} quyền)` });
+    ds.push({ loai: "bo", chu: t("Thu hồi phân quyền {{kho}} ({{count}} quyền)", { kho: tenKho(a.khoId), count: a.quyenIds.length }) });
   }
   return ds;
 }
@@ -500,14 +503,14 @@ export function quyenNhayCamCapThem(goc, nhap, { dsQuyen = [], nhayCam = [], men
     (id) => nhay.has(id) && (!coTruoc.has(id) || (!dungDuoc(id, a.vaiTro) && dungDuoc(id, b.vaiTro))),
   );
   const thuTu = thuTuQuyen(dsQuyen).map((q) => q.id);
-  const ten = new Map((dsQuyen ?? []).map((q) => [q.id, q.tenQuyen || q.maQuyen]));
+  const ten = new Map((dsQuyen ?? []).map((q) => [q.id, q.tenQuyen ? t(q.tenQuyen) : q.maQuyen]));
   return [...moi]
     .sort((x, y) => {
       const i = thuTu.indexOf(x);
       const j = thuTu.indexOf(y);
       return (i < 0 ? 1e9 : i) - (j < 0 ? 1e9 : j) || x - y;
     })
-    .map((id) => ten.get(id) ?? `Quyền ${id}`);
+    .map((id) => ten.get(id) ?? t("Quyền {{id}}", { id }));
 }
 
 /**
@@ -527,62 +530,62 @@ export function kiemTraBanNhap(
   const tenVt = tenVaiTro(vaiTro);
 
   if (vaiTro === QUAN_TRI_VIEN) {
-    them("on", "Không cần quyền theo kho", "Quản trị viên có toàn quyền ở mọi kho.");
+    them("on", t("Không cần quyền theo kho"), t("Quản trị viên có toàn quyền ở mọi kho."));
   } else if (!laVaiTroNoiBo(vaiTro)) {
     // Chỉ gặp khi tài khoản mang vai trò lạ (dữ liệu cũ): máy chủ không nhận, phải chọn lại trước khi lưu
     chanLuu = true;
-    them("canhBao", "Chưa chọn vai trò", "Chọn một vai trò cho người dùng trước khi lưu.");
+    them("canhBao", t("Chưa chọn vai trò"), t("Chọn một vai trò cho người dùng trước khi lưu."));
   } else if (nhap?.khoId == null) {
-    them("canhBao", "Chưa chọn nơi làm việc", "Mọi thao tác theo kho của người dùng bị chặn cho tới khi có nơi làm việc.");
+    them("canhBao", t("Chưa chọn nơi làm việc"), t("Mọi thao tác theo kho của người dùng bị chặn cho tới khi có nơi làm việc."));
   } else {
     if (nhap.hieuLuc === "den_ngay" && !nhap.ngayKetThuc) {
       chanLuu = true;
-      them("canhBao", "Chưa chọn ngày hết hiệu lực", "Chọn ngày, hoặc đổi sang Không thời hạn.");
+      them("canhBao", t("Chưa chọn ngày hết hiệu lực"), t("Chọn ngày, hoặc đổi sang Không thời hạn."));
     } else if (nhap.hieuLuc === "den_ngay" && homNay && nhap.ngayKetThuc < homNay) {
       // Ô ngày chỉ chặn ngày cũ trong bộ chọn; gõ tay vẫn nhập được
       chanLuu = true;
-      them("canhBao", "Ngày hết hiệu lực đã qua", "Chọn từ hôm nay trở đi, hoặc đổi sang Không thời hạn.");
+      them("canhBao", t("Ngày hết hiệu lực đã qua"), t("Chọn từ hôm nay trở đi, hoặc đổi sang Không thời hạn."));
     }
     const dg = danhGiaQuyen({ vaiTro, quyenIds: nhap.quyenIds, dsQuyen, mau, nhayCam, daApDung, menu });
     if (dg.capTrung.length) {
       them(
         "canhBao",
-        `Vừa tạo vừa duyệt ${dg.capTrung.length} loại chứng từ`,
-        `${dg.capTrung.map((c) => c.ten).join(", ")}. Nên để người khác duyệt.`,
+        t("Vừa tạo vừa duyệt {{count}} loại chứng từ", { count: dg.capTrung.length }),
+        t("{{dsChungTu}}. Nên để người khác duyệt.", { dsChungTu: dg.capTrung.map((c) => c.ten).join(", ") }),
       );
     }
-    if (!dg.soCap) them("canhBao", "Chưa chọn quyền nào", "Người dùng vào được kho nhưng không thao tác được.");
+    if (!dg.soCap) them("canhBao", t("Chưa chọn quyền nào"), t("Người dùng vào được kho nhưng không thao tác được."));
     if (dg.voHieu.length) {
       them(
         "luuY",
-        `${dg.voHieu.length} quyền không dùng được`,
-        `Vai trò ${tenVt} không mở màn hình dùng các quyền: ${dg.voHieu.map((d) => d.ten).join(", ")}.`,
+        t("{{count}} quyền không dùng được", { count: dg.voHieu.length }),
+        t("Vai trò {{tenVt}} không mở màn hình dùng các quyền: {{dsQuyen}}.", { tenVt, dsQuyen: dg.voHieu.map((d) => d.ten).join(", ") }),
       );
     }
     if (dg.ngoaiMau.length) {
       them(
         "luuY",
-        `${dg.ngoaiMau.length} quyền ngoài mẫu ${tenVt}`,
-        `Mẫu có ${dg.soMau} quyền. Bấm Áp dụng mẫu để về đúng mẫu.`,
+        t("{{count}} quyền ngoài mẫu {{tenVt}}", { count: dg.ngoaiMau.length, tenVt }),
+        t("Mẫu có {{count}} quyền. Bấm Áp dụng mẫu để về đúng mẫu.", { count: dg.soMau }),
       );
     }
     if (dg.thieuMau.length) {
-      them("luuY", `Thiếu ${dg.thieuMau.length} quyền so với mẫu`, `${dg.thieuMau.map((d) => d.ten).join(", ")}.`);
+      them("luuY", t("Thiếu {{count}} quyền so với mẫu", { count: dg.thieuMau.length }), `${dg.thieuMau.map((d) => d.ten).join(", ")}.`);
     }
     // Không đọc được cấu hình: không được báo "Không có điểm cần xem lại… không có quyền thừa" khi chưa so được
     if (dg.khongDocDuocMau) {
       them(
         "luuY",
-        "Chưa so được với mẫu",
-        "Không đọc được mẫu quyền và danh sách quyền nhạy cảm, nên chưa kiểm được quyền thừa hay quyền nhạy cảm.",
+        t("Chưa so được với mẫu"),
+        t("Không đọc được mẫu quyền và danh sách quyền nhạy cảm, nên chưa kiểm được quyền thừa hay quyền nhạy cảm."),
       );
     }
     if (dg.chuaApDung.length && Array.isArray(daApDung)) {
       const soKiem = dg.nhom.flatMap((n) => n.dong).filter((d) => daApDung.includes(d.ma)).length;
       them(
         "luuY",
-        `${dg.chuaApDung.length} quyền chưa áp dụng`,
-        `Hệ thống hiện kiểm ${soKiem}/${dg.tong} quyền. Các quyền này bật hay tắt đều chưa chặn thao tác.`,
+        t("{{count}} quyền chưa áp dụng", { count: dg.chuaApDung.length }),
+        t("Hệ thống hiện kiểm {{soKiem}}/{{tong}} quyền. Các quyền này bật hay tắt đều chưa chặn thao tác.", { soKiem, tong: dg.tong }),
       );
       // Việc của hệ thống, không phải của người đang phân quyền: chỉ liệt kê ở phần Xem, không tính vào dòng tóm tắt
       muc[muc.length - 1].phu = true;
@@ -591,14 +594,14 @@ export function kiemTraBanNhap(
     // đều nằm trong mẫu thì chỉ liệt kê (`phu`), không tính vào dòng tóm tắt — vai trò đúng mẫu vẫn thấy "Khớp mẫu"
     const nhay = dg.nhom.flatMap((n) => n.dong).filter((d) => d.cap && d.nhayCam);
     if (nhay.length) {
-      them("luuY", `${nhay.length} quyền nhạy cảm`, `${nhay.map((d) => d.ten).join(", ")}.`);
+      them("luuY", t("{{count}} quyền nhạy cảm", { count: nhay.length }), `${nhay.map((d) => d.ten).join(", ")}.`);
       if (dg.soMau && nhay.every((d) => d.trongMau)) muc[muc.length - 1].phu = true;
     }
     if (!muc.some((m) => !m.phu)) {
       muc.unshift({
         loai: "on",
-        tieuDe: dg.soMau ? `Khớp mẫu ${tenVt}` : "Không có điểm cần xem lại",
-        moTa: "Không có cặp tạo–duyệt, không có quyền thừa.",
+        tieuDe: dg.soMau ? t("Khớp mẫu {{tenVt}}", { tenVt }) : t("Không có điểm cần xem lại"),
+        moTa: t("Không có cặp tạo–duyệt, không có quyền thừa."),
       });
     }
   }
@@ -613,10 +616,10 @@ export function kiemTraBanNhap(
   let loai;
   if (soCanhBao) {
     const conLai = soCanhBao - 1 + soLuuY;
-    tomTat = `${canhBao[0].tieuDe}${conLai ? ` · thêm ${conLai} điểm` : ""}`;
+    tomTat = `${canhBao[0].tieuDe}${conLai ? t(" · thêm {{count}} điểm", { count: conLai }) : ""}`;
     loai = "canhBao";
   } else if (soLuuY) {
-    tomTat = soLuuY <= 2 ? luuY.map((m) => m.tieuDe).join(" · ") : `${soLuuY} lưu ý trước khi lưu`;
+    tomTat = soLuuY <= 2 ? luuY.map((m) => m.tieuDe).join(" · ") : t("{{count}} lưu ý trước khi lưu", { count: soLuuY });
     loai = "luuY";
   } else {
     tomTat = muc[0]?.tieuDe ?? "";
@@ -640,36 +643,45 @@ export function dienGiaiLichSu(ls) {
   const cungKho = kc && km && kc.id === km.id;
   const them = Array.isArray(ls?.quyenThem) ? ls.quyenThem : [];
   const bo = Array.isArray(ls?.quyenBo) ? ls.quyenBo : [];
-  const tenK = (k) => k?.tenKho || k?.maKho || "kho";
+  const tenK = (k) => k?.tenKho || k?.maKho || t("kho");
 
   if (ls?.vaiTroCu && ls?.vaiTroMoi && ls.vaiTroCu !== ls.vaiTroMoi) {
-    phan.push(`đổi vai trò ${tenVaiTro(ls.vaiTroCu)} → ${tenVaiTro(ls.vaiTroMoi)}`);
+    phan.push(t("đổi vai trò {{cu}} → {{moi}}", { cu: tenVaiTro(ls.vaiTroCu), moi: tenVaiTro(ls.vaiTroMoi) }));
   }
   const den = ngayNgan(ls?.ngayKetThucMoi);
   if (!kc && km) {
-    phan.push(`phân ${tenK(km)}${km.maKho && km.tenKho ? ` (${km.maKho})` : ""}, ${den ? `hiệu lực đến ${den}` : "không thời hạn"}`);
-    if (them.length) phan.push(`cấp ${them.length} quyền`);
+    phan.push(
+      t("phân {{kho}}, {{hieuLuc}}", {
+        kho: `${tenK(km)}${km.maKho && km.tenKho ? ` (${km.maKho})` : ""}`,
+        hieuLuc: den ? t("hiệu lực đến {{den}}", { den }) : t("không thời hạn"),
+      }),
+    );
+    if (them.length) phan.push(t("cấp {{count}} quyền", { count: them.length }));
   } else if (kc && km && !cungKho) {
-    phan.push(`chuyển ${tenK(kc)} → ${tenK(km)}`);
-    if (them.length) phan.push(`cấp ${them.length} quyền`);
+    phan.push(t("chuyển {{cu}} → {{moi}}", { cu: tenK(kc), moi: tenK(km) }));
+    if (them.length) phan.push(t("cấp {{count}} quyền", { count: them.length }));
   } else if (kc && !km) {
-    phan.push(`thu hồi phân quyền ${tenK(kc)}${bo.length ? ` (${bo.length} quyền)` : ""}`);
+    phan.push(
+      bo.length
+        ? t("thu hồi phân quyền {{kho}} ({{count}} quyền)", { kho: tenK(kc), count: bo.length })
+        : t("thu hồi phân quyền {{kho}}", { kho: tenK(kc) }),
+    );
   } else {
-    if (cungKho && ls?.doiHieuLuc) phan.push(den ? `đặt hiệu lực đến ${den}` : "bỏ thời hạn hiệu lực");
-    if (them.length) phan.push(`cấp thêm ${them.length} quyền`);
-    if (bo.length) phan.push(`thu hồi ${bo.length} quyền`);
+    if (cungKho && ls?.doiHieuLuc) phan.push(den ? t("đặt hiệu lực đến {{den}}", { den }) : t("bỏ thời hạn hiệu lực"));
+    if (them.length) phan.push(t("cấp thêm {{count}} quyền", { count: them.length }));
+    if (bo.length) phan.push(t("thu hồi {{count}} quyền", { count: bo.length }));
   }
 
   let viec = phan.join(", ");
-  if (cungKho && (them.length || bo.length)) viec += ` tại ${tenK(km)}`;
-  if (!viec) viec = "cập nhật phân quyền";
+  if (cungKho && (them.length || bo.length)) viec += t(" tại {{kho}}", { kho: tenK(km) });
+  if (!viec) viec = t("cập nhật phân quyền");
 
   const tatCa = [
-    ...(kc && !km ? [] : bo.map((t) => ({ chu: `− ${t}`, loai: "bo" }))),
-    ...them.map((t) => ({ chu: `+ ${t}`, loai: "them" })),
+    ...(kc && !km ? [] : bo.map((gt) => ({ chu: `− ${t(gt)}`, loai: "bo" }))),
+    ...them.map((gt) => ({ chu: `+ ${t(gt)}`, loai: "them" })),
   ];
   const the = tatCa.slice(0, SO_THE_TOI_DA);
-  if (tatCa.length > SO_THE_TOI_DA) the.push({ chu: `và ${tatCa.length - SO_THE_TOI_DA} thay đổi khác`, loai: "" });
+  if (tatCa.length > SO_THE_TOI_DA) the.push({ chu: t("và {{count}} thay đổi khác", { count: tatCa.length - SO_THE_TOI_DA }), loai: "" });
   return { viec, the };
 }
 
@@ -701,8 +713,8 @@ export function gopLichSuNguoiDung(phanQuyen, taiKhoan) {
       dong: d,
     }));
   const thoiGian = (x) => {
-    const t = new Date(x?.luc ?? 0).getTime();
-    return Number.isNaN(t) ? 0 : t;
+    const gt = new Date(x?.luc ?? 0).getTime();
+    return Number.isNaN(gt) ? 0 : gt;
   };
   // sort ổn định: cùng thời điểm giữ thứ tự máy chủ trả (phân quyền trước)
   return [...pq, ...tk].sort((a, b) => thoiGian(b) - thoiGian(a));
@@ -712,29 +724,29 @@ export function gopLichSuNguoiDung(phanQuyen, taiKhoan) {
 
 /** Mô tả quyền theo góc nhìn người được cấp (mục Quyền của tôi, hiện khi rê chuột). Quyền mới chưa có ở đây dùng mô tả trong CSDL. */
 export const MO_TA_CHO_NGUOI_DUNG = {
-  xem_ton_kho: "Xem số lượng còn của từng sản phẩm trong kho",
-  xem_chi_tiet_lo: "Xem lô, hạn dùng và vị trí kệ của hàng",
-  dieu_chinh_ton_kho: "Sửa số lượng tồn khi kiểm kê thấy lệch",
-  chuyen_kho: "Lập phiếu chuyển hàng sang kho khác",
-  tao_don_mua_hang: "Lập yêu cầu và đơn mua hàng",
-  duyet_don_mua_hang: "Duyệt hoặc từ chối đơn mua hàng",
-  tao_phieu_nhap: "Lập phiếu khi nhận hàng vào kho",
-  duyet_phieu_nhap: "Duyệt phiếu nhập do người khác lập",
-  huy_phieu_nhap: "Hủy phiếu nhập chưa hoàn tất",
-  tao_don_ban_hang: "Lập đơn bán cho khách",
-  duyet_don_ban_hang: "Duyệt đơn bán do người khác lập",
-  tao_phieu_xuat: "Lập phiếu khi xuất hàng khỏi kho",
-  duyet_phieu_xuat: "Duyệt phiếu xuất do người khác lập",
-  huy_phieu_xuat: "Hủy phiếu xuất chưa hoàn tất",
-  xem_bao_cao_ton_kho: "Xem báo cáo tồn theo sản phẩm, theo kệ",
-  xem_bao_cao_nhap_xuat: "Xem báo cáo hàng vào, hàng ra",
-  xem_bao_cao_doanh_thu: "Xem doanh thu bán hàng",
-  xuat_bao_cao: "Tải báo cáo về máy dạng Excel hoặc PDF",
-  quan_ly_nhan_vien_kho: "Thêm hoặc gỡ nhân viên khỏi kho",
-  cap_quyen_nhan_vien: "Cấp hoặc thu hồi quyền của nhân viên",
-  quan_ly_san_pham: "Thêm, sửa sản phẩm và biến thể",
-  quan_ly_nha_cung_cap: "Thêm, sửa nhà cung cấp",
-  quan_ly_khach_hang: "Thêm, sửa khách hàng",
+  xem_ton_kho: t("Xem số lượng còn của từng sản phẩm trong kho"),
+  xem_chi_tiet_lo: t("Xem lô, hạn dùng và vị trí kệ của hàng"),
+  dieu_chinh_ton_kho: t("Sửa số lượng tồn khi kiểm kê thấy lệch"),
+  chuyen_kho: t("Lập phiếu chuyển hàng sang kho khác"),
+  tao_don_mua_hang: t("Lập yêu cầu và đơn mua hàng"),
+  duyet_don_mua_hang: t("Duyệt hoặc từ chối đơn mua hàng"),
+  tao_phieu_nhap: t("Lập phiếu khi nhận hàng vào kho"),
+  duyet_phieu_nhap: t("Duyệt phiếu nhập do người khác lập"),
+  huy_phieu_nhap: t("Hủy phiếu nhập chưa hoàn tất"),
+  tao_don_ban_hang: t("Lập đơn bán cho khách"),
+  duyet_don_ban_hang: t("Duyệt đơn bán do người khác lập"),
+  tao_phieu_xuat: t("Lập phiếu khi xuất hàng khỏi kho"),
+  duyet_phieu_xuat: t("Duyệt phiếu xuất do người khác lập"),
+  huy_phieu_xuat: t("Hủy phiếu xuất chưa hoàn tất"),
+  xem_bao_cao_ton_kho: t("Xem báo cáo tồn theo sản phẩm, theo kệ"),
+  xem_bao_cao_nhap_xuat: t("Xem báo cáo hàng vào, hàng ra"),
+  xem_bao_cao_doanh_thu: t("Xem doanh thu bán hàng"),
+  xuat_bao_cao: t("Tải báo cáo về máy dạng Excel hoặc PDF"),
+  quan_ly_nhan_vien_kho: t("Thêm hoặc gỡ nhân viên khỏi kho"),
+  cap_quyen_nhan_vien: t("Cấp hoặc thu hồi quyền của nhân viên"),
+  quan_ly_san_pham: t("Thêm, sửa sản phẩm và biến thể"),
+  quan_ly_nha_cung_cap: t("Thêm, sửa nhà cung cấp"),
+  quan_ly_khach_hang: t("Thêm, sửa khách hàng"),
 };
 
 /**
@@ -746,38 +758,38 @@ export const MO_TA_CHO_NGUOI_DUNG = {
 export const NHOM_HO_SO = [
   {
     ma: "nhap",
-    ten: "Mua & nhập kho",
+    ten: t("Mua & nhập kho"),
     bieuTuong: "nhap",
     nhomGoc: "nhap_kho",
     thuTu: ["tao_don_mua_hang", "duyet_don_mua_hang", "tao_phieu_nhap", "duyet_phieu_nhap", "huy_phieu_nhap"],
   },
   {
     ma: "ton",
-    ten: "Tồn kho",
+    ten: t("Tồn kho"),
     bieuTuong: "ton",
     nhomGoc: "quan_ly_kho",
     thuTu: ["xem_ton_kho", "xem_chi_tiet_lo", "chuyen_kho", "dieu_chinh_ton_kho"],
   },
   {
     ma: "xuat",
-    ten: "Bán & xuất kho",
+    ten: t("Bán & xuất kho"),
     bieuTuong: "xuat",
     nhomGoc: "xuat_kho",
     thuTu: ["tao_don_ban_hang", "duyet_don_ban_hang", "tao_phieu_xuat", "duyet_phieu_xuat", "huy_phieu_xuat"],
   },
   {
     ma: "bao_cao",
-    ten: "Báo cáo",
+    ten: t("Báo cáo"),
     bieuTuong: "bao_cao",
     nhomGoc: "bao_cao",
     thuTu: ["xem_bao_cao_ton_kho", "xem_bao_cao_nhap_xuat", "xem_bao_cao_doanh_thu", "xuat_bao_cao"],
   },
-  { ma: "san_pham", ten: "Sản phẩm", bieuTuong: "san_pham", nhomGoc: null, thuTu: ["quan_ly_san_pham"] },
-  { ma: "doi_tac", ten: "Đối tác", bieuTuong: "doi_tac", nhomGoc: null, thuTu: ["quan_ly_nha_cung_cap", "quan_ly_khach_hang"] },
-  { ma: "nhan_su", ten: "Nhân sự kho", bieuTuong: "nhan_su", nhomGoc: null, thuTu: ["quan_ly_nhan_vien_kho", "cap_quyen_nhan_vien"] },
+  { ma: "san_pham", ten: t("Sản phẩm"), bieuTuong: "san_pham", nhomGoc: null, thuTu: ["quan_ly_san_pham"] },
+  { ma: "doi_tac", ten: t("Đối tác"), bieuTuong: "doi_tac", nhomGoc: null, thuTu: ["quan_ly_nha_cung_cap", "quan_ly_khach_hang"] },
+  { ma: "nhan_su", ten: t("Nhân sự kho"), bieuTuong: "nhan_su", nhomGoc: null, thuTu: ["quan_ly_nhan_vien_kho", "cap_quyen_nhan_vien"] },
 ];
 
-const NHOM_HO_SO_KHAC = { ma: "khac", ten: "Khác", bieuTuong: "khac", nhomGoc: null, thuTu: [] };
+const NHOM_HO_SO_KHAC = { ma: "khac", ten: t("Khác"), bieuTuong: "khac", nhomGoc: null, thuTu: [] };
 
 /** Danh sách quyền → các nhóm ở mục Quyền của tôi, đúng thứ tự NHOM_HO_SO; nhóm không có quyền thì bỏ. */
 export function nhomHoSo(dsQuyen) {
@@ -816,7 +828,7 @@ export function quyenCuaToiTheoNhom(quyenCuaToi, { menu = [] } = {}) {
   const ds = daCap.filter(dungDuoc);
   const khongDungDuoc = nhomHoSo(daCap.filter((q) => !dungDuoc(q)))
     .flatMap((n) => n.quyen)
-    .map((q) => q.tenQuyen || q.maQuyen);
+    .map((q) => (q.tenQuyen ? t(q.tenQuyen) : q.maQuyen));
   const moi = new Set(Array.isArray(quyenCuaToi?.quyenMoi) ? quyenCuaToi.quyenMoi : []);
   const nhom = nhomHoSo(ds).map((n) => ({
     ma: n.ma,
@@ -824,8 +836,8 @@ export function quyenCuaToiTheoNhom(quyenCuaToi, { menu = [] } = {}) {
     bieuTuong: n.bieuTuong,
     viec: n.quyen.map((q) => ({
       ma: q.maQuyen,
-      ten: q.tenQuyen || q.maQuyen,
-      moTa: MO_TA_CHO_NGUOI_DUNG[q.maQuyen] || q.moTa || "",
+      ten: q.tenQuyen ? t(q.tenQuyen) : q.maQuyen,
+      moTa: MO_TA_CHO_NGUOI_DUNG[q.maQuyen] || (q.moTa ? t(q.moTa) : ""),
       moi: moi.has(q.maQuyen),
     })),
   }));
@@ -853,12 +865,12 @@ const MOT_NGAY = 24 * 60 * 60 * 1000;
  */
 export function hieuLucCuaToi(ngayKetThuc, { now = new Date(), soNgayNhac = SO_NGAY_NHAC_HET_HIEU_LUC } = {}) {
   const den = docNgay(ngayKetThuc);
-  if (!den) return { moTa: "không thời hạn", denNgay: "", conNgay: null, sapHet: false };
+  if (!den) return { moTa: t("không thời hạn"), denNgay: "", conNgay: null, sapHet: false };
   const conMs = den.getTime() - (docNgay(now) ?? new Date()).getTime();
   const conNgay = Math.ceil(conMs / MOT_NGAY);
   const sapHet = conMs > 0 && conNgay <= soNgayNhac;
   const denNgay = ngayNgan(den);
-  return { moTa: sapHet ? `hết hiệu lực ${denNgay}` : `đến ${denNgay}`, denNgay, conNgay, sapHet };
+  return { moTa: sapHet ? t("hết hiệu lực {{denNgay}}", { denNgay }) : t("đến {{denNgay}}", { denNgay }), denNgay, conNgay, sapHet };
 }
 
 /**
@@ -882,9 +894,9 @@ export function goiYHoSo({ hoSo, quyen, now = new Date() } = {}) {
 export function khoCuaToiNgan({ vaiTro, quyen, khoTuHoSo } = {}) {
   if (vaiTro === QUAN_TRI_VIEN || quyen?.toanQuyen) return "";
   const kho = quyen ? quyen.kho : khoTuHoSo;
-  if (kho) return kho.tenKho || kho.maKho || "Chưa có kho";
+  if (kho) return kho.tenKho || kho.maKho || t("Chưa có kho");
   // Chưa tải xong quyền và hồ sơ cũng không có kho: chưa chắc là "chưa có kho" thì để trống
-  return quyen ? "Chưa có kho" : "";
+  return quyen ? t("Chưa có kho") : "";
 }
 
 /**

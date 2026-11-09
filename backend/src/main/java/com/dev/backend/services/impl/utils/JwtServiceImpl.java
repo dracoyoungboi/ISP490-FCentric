@@ -3,6 +3,8 @@ package com.dev.backend.services.impl.utils;
 import com.dev.backend.constant.variables.ConstantVariables;
 import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
 import com.dev.backend.dto.response.entities.PhanQuyenNguoiDungKhoDto;
+import com.dev.backend.i18n.LoiTrangThaiException;
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.services.JwtService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -145,7 +147,7 @@ public class JwtServiceImpl implements JwtService {
             // 128 bit đầu là đủ để phân biệt các lần đổi mật khẩu
             return Base64.getUrlEncoder().withoutPadding().encodeToString(Arrays.copyOf(digest, 16));
         } catch (GeneralSecurityException e) {
-            throw new IllegalStateException("Không tính được credentialVersion", e);
+            throw new LoiTrangThaiException(ThongDiep.of("heThong.khongTinhDuocCredentialVersion"), e);
         }
     }
 

@@ -3,6 +3,7 @@ import { ArrowDownToLine } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NGUONG_SAP_DAY, mucDay } from "@/constants/nhapKho";
 import { hinhTuHaiO, nhomTheoDay, vatBiChong, vungLuoi } from "@/components/mat-bang/matBang";
+import { t } from "@/i18n";
 
 // Nhích quá ngần này điểm ảnh mới tính là kéo (dưới mức này là bấm để chọn)
 const NGUONG_KEO_PX = 5;
@@ -69,7 +70,7 @@ export default function LuoiMatBang({
     goiLaiRef.current = { onVe, onDiChuyen };
   });
 
-  const tenKhu = (id) => khuVucs?.find((k) => k.id === id)?.tenKhuVuc ?? "khu khác";
+  const tenKhu = (id) => khuVucs?.find((k) => k.id === id)?.tenKhuVuc ?? t("khu khác");
 
   // Kéo để vẽ: theo dõi con trỏ trên cả trang (cảm ứng giữ con trỏ ở ô bắt đầu nên dò ô theo tọa độ)
   useEffect(() => {
@@ -88,7 +89,7 @@ export default function LuoiMatBang({
       if (!cu) return;
       const hinh = hinhTuHaiO(cu.x0, cu.y0, cu.x1, cu.y1);
       const chong = vatBiChong(hinh, matBang, tenKhu, boQua);
-      goiLaiRef.current.onVe?.({ hinh, loi: chong ? `Hình vừa vẽ chồng lên “${chong}”. Hãy vẽ ở chỗ trống.` : "" });
+      goiLaiRef.current.onVe?.({ hinh, loi: chong ? t("Hình vừa vẽ chồng lên “{{chong}}”. Hãy vẽ ở chỗ trống.", { chong }) : "" });
     };
     window.addEventListener("pointermove", diChuyen);
     window.addEventListener("pointerup", tha);
@@ -132,7 +133,7 @@ export default function LuoiMatBang({
         loai: cu.loai,
         id: cu.id,
         hinh,
-        loi: chong ? `Không dời được “${cu.ten}” tới đó vì chồng lên “${chong}”.` : "",
+        loi: chong ? t("Không dời được “{{ten}}” tới đó vì chồng lên “{{chong}}”.", { ten: cu.ten, chong }) : "",
       });
     };
     window.addEventListener("pointermove", diChuyen);
@@ -192,7 +193,7 @@ export default function LuoiMatBang({
           role: "button",
           tabIndex: 0,
           "aria-pressed": dangChon(loai, id),
-          "aria-label": `${vat.ten}, bấm để chọn${choDiChuyen ? ", kéo để dời" : ""}`,
+          "aria-label": t("{{ten}}, bấm để chọn{{keoDoi}}", { ten: vat.ten, keoDoi: choDiChuyen ? t(", kéo để dời") : "" }),
           onClick: () => chon({ loai, id }),
           onPointerDown: (e) => batDauDoi(e, loai, id, vat.ten, vat),
           onKeyDown: (e) => {
@@ -313,8 +314,8 @@ export default function LuoiMatBang({
           if (!khu) return null;
           const viTriKhu = (viTris ?? []).filter((v) => v.khuVucId === khu.id);
           const conHoatDong = viTriKhu.filter((v) => v.trangThai !== "BAO_TRI");
-          const dangChua = conHoatDong.reduce((t, v) => t + Number(v.dangChua || 0), 0);
-          const sucChua = conHoatDong.reduce((t, v) => t + Number(v.sucChua || 0), 0);
+          const dangChua = conHoatDong.reduce((tong, v) => tong + Number(v.dangChua || 0), 0);
+          const sucChua = conHoatDong.reduce((tong, v) => tong + Number(v.sucChua || 0), 0);
           const phanTram = Math.round(mucDay(dangChua, sucChua) * 100);
           const coNoiDung = hinh.cao >= 4;
           const coChan = hinh.cao >= 2;
@@ -332,7 +333,7 @@ export default function LuoiMatBang({
               onClick={sua ? () => chon({ loai: "khuVuc", id: khu.id }) : undefined}
               onPointerDown={sua ? (e) => batDauDoi(e, "khuVuc", khu.id, khu.tenKhuVuc, hinh) : undefined}
               aria-pressed={sua ? daChon : undefined}
-              aria-label={`${khu.tenKhuVuc}, ${viTriKhu.length} vị trí, đầy ${phanTram}%`}
+              aria-label={t("{{tenKhuVuc}}, {{count}} vị trí, đầy {{phanTram}}%", { tenKhuVuc: khu.tenKhuVuc, count: viTriKhu.length, phanTram })}
               title={khu.tenKhuVuc}
               className={cn(
                 "relative z-[1] flex min-w-0 flex-col gap-0.5 overflow-hidden rounded-md border bg-white px-2.5 py-2 text-left shadow-sm",
@@ -363,13 +364,13 @@ export default function LuoiMatBang({
                   {viTriKhu.length ? (
                     <DayKeThuNho viTris={viTriKhu} noiBat={noiBat ? viTriNoiBat : null} />
                   ) : hinh.rong >= 4 ? (
-                    <span className="text-xs text-bo-muted">Chưa có vị trí kệ</span>
+                    <span className="text-xs text-bo-muted">{t("Chưa có vị trí kệ")}</span>
                   ) : null}
                 </span>
               ) : null}
               {coDuoi && !noiBat ? (
                 <span className="mt-auto flex items-center justify-between gap-2 border-t border-bo-border pt-1.5 text-xs text-bo-muted">
-                  <span>{viTriKhu.length} vị trí</span>
+                  <span>{t("{{count}} vị trí", { count: viTriKhu.length })}</span>
                   {viTriKhu.length ? (
                     <span
                       className={cn(
@@ -400,7 +401,7 @@ export default function LuoiMatBang({
                 keoLoi ? "text-bo-danger" : "text-blue-700",
               )}
             >
-              {keoLoi ? "Chồng lên khu khác" : `${hinhKeo.rong} × ${hinhKeo.cao} ô`}
+              {keoLoi ? t("Chồng lên khu khác") : t("{{rong}} × {{cao}} ô", { count: hinhKeo.rong * hinhKeo.cao, rong: hinhKeo.rong, cao: hinhKeo.cao })}
             </em>
           </span>
         ) : null}
@@ -419,7 +420,7 @@ export default function LuoiMatBang({
                 doiLoi ? "text-bo-danger" : "text-blue-700",
               )}
             >
-              {doiLoi ? `Chồng lên “${doiLoi}”` : `Cột ${hinhDoi.x}, hàng ${hinhDoi.y}`}
+              {doiLoi ? t("Chồng lên “{{doiLoi}}”", { doiLoi }) : t("Cột {{x}}, hàng {{y}}", { x: hinhDoi.x, y: hinhDoi.y })}
             </em>
           </span>
         ) : null}
@@ -435,7 +436,7 @@ function DayKeThuNho({ viTris, noiBat }) {
     const kichThuoc = coNhan ? 22 : 16;
     return (
       <span key={day} className="flex items-center gap-2">
-        <span className="text-[11px] font-semibold text-bo-muted [writing-mode:vertical-rl] rotate-180">Dãy {day}</span>
+        <span className="text-[11px] font-semibold text-bo-muted [writing-mode:vertical-rl] rotate-180">{t("Dãy {{day}}", { day })}</span>
         <span
           className="grid items-center gap-1"
           style={{ gridTemplateColumns: `${coNhan ? "auto " : ""}repeat(${hangs.length}, ${kichThuoc}px)` }}
@@ -460,7 +461,7 @@ function OViTri({ viTri, kichThuoc, noiBat }) {
   const muc = mucDay(viTri.dangChua, viTri.sucChua);
   return (
     <span
-      title={`${viTri.maViTri} · ${baoTri ? "Bảo trì" : `${viTri.dangChua ?? 0}/${viTri.sucChua ?? 0}`}`}
+      title={`${viTri.maViTri} · ${baoTri ? t("Bảo trì") : `${viTri.dangChua ?? 0}/${viTri.sucChua ?? 0}`}`}
       className={cn(
         "relative inline-block overflow-hidden rounded-[3px] border bg-bo-surface",
         baoTri ? "border-dashed border-slate-300 bg-bo-surface-subtle" : "border-slate-300",

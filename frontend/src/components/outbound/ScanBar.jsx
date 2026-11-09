@@ -1,6 +1,7 @@
 import { forwardRef, useImperativeHandle, useRef, useState } from "react";
 import { CheckCircle2, Keyboard, KeyboardOff, Loader2, ScanBarcode, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 // Nhớ theo máy: tắt bàn phím ảo ở ô quét (máy cầm tay / súng quét Bluetooth)
 const TAT_BAN_PHIM_KEY = "fcentric.quet.tatBanPhim";
@@ -9,7 +10,7 @@ const inputClass =
   "h-11 w-full rounded-lg border border-bo-border bg-white pl-10 pr-3 font-mono text-base text-bo-foreground outline-none placeholder:font-sans placeholder:text-sm placeholder:text-bo-muted focus:border-bo-primary focus:ring-2 focus:ring-bo-primary/15 disabled:cursor-not-allowed disabled:bg-bo-surface-subtle";
 
 const GOI_Y_MAC_DINH =
-  "Dùng Barcode to PC (đặt hậu tố là phím Enter) hoặc súng quét USB. Có thể gõ SKU rồi nhấn Enter. Nghe tiếng “rè” là mã chưa được cộng.";
+  t("Dùng Barcode to PC (đặt hậu tố là phím Enter) hoặc súng quét USB. Có thể gõ SKU rồi nhấn Enter. Nghe tiếng “rè” là mã chưa được cộng.");
 
 /**
  * Ô quét mã vạch cho Barcode to PC / súng quét USB: thiết bị gõ mã như bàn phím rồi gửi Enter.
@@ -44,8 +45,8 @@ const ScanBar = forwardRef(function ScanBar(
       type="button"
       onClick={doiBanPhim}
       aria-pressed={tatBanPhim}
-      aria-label={tatBanPhim ? "Bật bàn phím ảo" : "Tắt bàn phím ảo khi dùng súng quét"}
-      title={tatBanPhim ? "Bật bàn phím ảo" : "Tắt bàn phím ảo khi dùng súng quét"}
+      aria-label={tatBanPhim ? t("Bật bàn phím ảo") : t("Tắt bàn phím ảo khi dùng súng quét")}
+      title={tatBanPhim ? t("Bật bàn phím ảo") : t("Tắt bàn phím ảo khi dùng súng quét")}
       className={cn(
         "hidden size-11 shrink-0 place-items-center rounded-lg border border-bo-border bg-bo-surface text-slate-600 cam-ung:grid",
         tatBanPhim && "border-bo-primary bg-bo-primary-soft text-bo-primary",
@@ -78,7 +79,7 @@ const ScanBar = forwardRef(function ScanBar(
 
   const nhanO = (
     <label htmlFor="pick-scan-input" className="text-sm font-medium text-bo-foreground">
-      Mã vạch / SKU
+      {t("Mã vạch / SKU")}
     </label>
   );
 
@@ -101,10 +102,10 @@ const ScanBar = forwardRef(function ScanBar(
       >
         <span className="size-1.5 rounded-full bg-current" />
         {disabled
-          ? ngan ? "Đang khóa" : "Không quét được"
+          ? ngan ? t("Đang khóa") : t("Không quét được")
           : focused
-            ? ngan ? "Sẵn sàng" : "Sẵn sàng quét"
-            : ngan ? "Chạm ô để quét" : "Bấm vào đây để quét tiếp"}
+            ? ngan ? t("Sẵn sàng") : t("Sẵn sàng quét")
+            : ngan ? t("Chạm ô để quét") : t("Bấm vào đây để quét tiếp")}
       </The>
     );
   };
@@ -127,7 +128,7 @@ const ScanBar = forwardRef(function ScanBar(
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         onKeyDown={guiKhiEnter}
-        placeholder={gon ? "Quét hoặc nhập SKU" : "Quét mã vạch hoặc nhập SKU rồi nhấn Enter"}
+        placeholder={gon ? t("Quét hoặc nhập SKU") : t("Quét mã vạch hoặc nhập SKU rồi nhấn Enter")}
         className={inputClass}
       />
     </div>
@@ -147,7 +148,7 @@ const ScanBar = forwardRef(function ScanBar(
   const dangGui = pending > 0 ? (
     <span className="inline-flex items-center gap-1.5 text-xs font-medium text-bo-muted">
       <Loader2 className="size-3.5 animate-spin" />
-      Đang gửi {pending} mã
+      {t("Đang gửi {{pending}} mã", { count: Number(pending), pending })}
     </span>
   ) : null;
 
@@ -178,8 +179,8 @@ const ScanBar = forwardRef(function ScanBar(
         <div className="flex items-end gap-2">
           <div className="min-w-0 flex-1">{oMa}</div>
           <label htmlFor="pick-scan-qty" className="grid gap-0.5 text-[11px] leading-[14px] text-bo-muted">
-            <span aria-hidden="true">SL</span>
-            <span className="sr-only">Số lượng mỗi lần quét</span>
+            <span aria-hidden="true">{t("SL")}</span>
+            <span className="sr-only">{t("Số lượng mỗi lần quét")}</span>
             <input
               {...propsSoLuong}
               className="h-11 w-14 rounded-lg border border-bo-border bg-bo-surface px-1.5 text-center text-sm font-medium text-slate-600 outline-none focus:border-bo-primary focus:ring-2 focus:ring-bo-primary/15 disabled:cursor-not-allowed disabled:bg-bo-surface-subtle"
@@ -197,7 +198,7 @@ const ScanBar = forwardRef(function ScanBar(
               <span className="inline-flex items-center gap-1 text-xs font-medium text-bo-muted">
                 <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
                 {pending}
-                <span className="sr-only">mã đang gửi</span>
+                <span className="sr-only">{t("mã đang gửi")}</span>
               </span>
             ) : null}
             {veDen(true)}
@@ -221,7 +222,7 @@ const ScanBar = forwardRef(function ScanBar(
         <div className="flex items-end gap-2">
           <div className="w-24">
             <label htmlFor="pick-scan-qty" className="mb-1.5 block text-sm font-medium text-bo-foreground">
-              Số lượng
+              {t("Số lượng")}
             </label>
             <input
               {...propsSoLuong}

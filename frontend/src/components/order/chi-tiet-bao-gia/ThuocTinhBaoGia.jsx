@@ -8,6 +8,7 @@ import CotThuocTinh, {
 import { NhomKhoNhan } from "@/components/order/chi-tiet-yeu-cau/ThuocTinhYeuCau";
 import { formatDate } from "@/utils/formatters";
 import { nguoiChotBaoGia } from "./tinhBaoGia";
+import { t } from "@/i18n";
 
 /**
  * Cột phải của Chi tiết báo giá: nhà cung cấp (mở Chi tiết nhà cung cấp; số điện thoại, email sao chép được),
@@ -20,8 +21,8 @@ export default function ThuocTinhBaoGia({ don, lienQuan }) {
   const nguoiChot = nguoiChotBaoGia(don);
 
   return (
-    <CotThuocTinh nhan="Thông tin báo giá">
-      <NhomThuocTinh nhan="Nhà cung cấp">
+    <CotThuocTinh nhan={t("Thông tin báo giá")}>
+      <NhomThuocTinh nhan={t("Nhà cung cấp")}>
         {ncc ? (
           <>
             {ncc.id != null ? (
@@ -37,14 +38,14 @@ export default function ThuocTinhBaoGia({ don, lienQuan }) {
             {ncc.maNhaCungCap ? <div className="mt-0.5 font-mono text-[13px] text-bo-muted">{ncc.maNhaCungCap}</div> : null}
             {ncc.nguoiLienHe ? <div className="mt-2.5 text-[13px] leading-5 text-bo-foreground">{ncc.nguoiLienHe}</div> : null}
             {ncc.soDienThoai ? (
-              <GiaTriSaoChep giaTri={ncc.soDienThoai} nhanSaoChep="Sao chép số điện thoại" className="text-[13px] tabular-nums text-bo-muted" />
+              <GiaTriSaoChep giaTri={ncc.soDienThoai} nhanSaoChep={t("Sao chép số điện thoại")} className="text-[13px] tabular-nums text-bo-muted" />
             ) : null}
             {ncc.email ? (
-              <GiaTriSaoChep giaTri={ncc.email} nhanSaoChep="Sao chép email" className="text-[13px] text-bo-muted" />
+              <GiaTriSaoChep giaTri={ncc.email} nhanSaoChep={t("Sao chép email")} className="text-[13px] text-bo-muted" />
             ) : null}
           </>
         ) : (
-          <div className="text-[13px] text-bo-muted">Báo giá chưa gắn nhà cung cấp.</div>
+          <div className="text-[13px] text-bo-muted">{t("Báo giá chưa gắn nhà cung cấp.")}</div>
         )}
       </NhomThuocTinh>
       <NhomKhoNhan kho={don?.khoNhap} coQuanLy={false} />
@@ -52,8 +53,8 @@ export default function ThuocTinhBaoGia({ don, lienQuan }) {
         <BangThuocTinh
           rongNhan={124}
           muc={[
-            { ma: "giao", nhan: "Giao dự kiến", giaTri: don?.ngayGiaoDuKien ? <span className="whitespace-nowrap tabular-nums">{formatDate(don.ngayGiaoDuKien)}</span> : null },
-            { ma: "nguoiTao", nhan: "Người gửi yêu cầu", giaTri: don?.nguoiTao?.hoTen },
+            { ma: "giao", nhan: t("Giao dự kiến"), giaTri: don?.ngayGiaoDuKien ? <span className="whitespace-nowrap tabular-nums">{formatDate(don.ngayGiaoDuKien)}</span> : null },
+            { ma: "nguoiTao", nhan: t("Người gửi yêu cầu"), giaTri: don?.nguoiTao?.hoTen },
             {
               ma: "nguoiChot",
               nhan: nguoiChot?.nhan,

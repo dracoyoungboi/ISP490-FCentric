@@ -9,6 +9,7 @@ import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.entities.ThuongHieuDto;
 import com.dev.backend.mapper.ThuongHieuMapper;
 import com.dev.backend.services.impl.entities.ThuongHieuService;
+import com.dev.backend.i18n.ThongDiep;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,7 +50,7 @@ public class ThuongHieuController {
                 ResponseData.<Page<ThuongHieuDto>>builder()
                         .status(HttpStatus.OK.value())
                         .data(thuongHieuMapper.toDtoPage(service.filter(filter)))
-                        .message("Lấy danh sách thương hiệu thành công")
+                        .message(ThongDiep.dich("sanPhamMuaHang.thuongHieuLayDanhSachThanhCong"))
                         .build());
     }
 
@@ -84,7 +85,7 @@ public class ThuongHieuController {
         return ResponseEntity.ok(ResponseData.<ThuongHieuDto>builder()
                 .status(200)
                 .data(service.create(creating))
-                .message("Thêm thương hiệu mới thành công")
+                .message(ThongDiep.dich("sanPhamMuaHang.thuongHieuThemThanhCong"))
                 .build());
     }
 
@@ -97,7 +98,7 @@ public class ThuongHieuController {
         return ResponseEntity.ok(ResponseData.<ThuongHieuDto>builder()
                 .status(200)
                 .data(service.update(id, updating))
-                .message("Cập nhật thương hiệu thành công")
+                .message(ThongDiep.dich("sanPhamMuaHang.thuongHieuCapNhatThanhCong"))
                 .build());
     }
 
@@ -110,7 +111,7 @@ public class ThuongHieuController {
         return ResponseEntity.ok(ResponseData.<ThuongHieuDto>builder()
                 .status(200)
                 .data(service.updateLogo(id, file))
-                .message("Cập nhật logo thành công")
+                .message(ThongDiep.dich("sanPhamMuaHang.thuongHieuCapNhatLogoThanhCong"))
                 .build());
     }
 }

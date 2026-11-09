@@ -4,6 +4,7 @@
  * (backend utils/BienSoXe.java); sửa một bên thì sửa cả bên kia và bộ ca thử ở hai phía. loiKhiDangGo chỉ có ở giao diện.
  * Chạy thử: node --test src/components/chuyen-kho/bienSoXe.test.js
  */
+import { t } from "../../i18n/t.js";
 
 /** Ký hiệu địa phương (2 số đầu) theo Phụ lục 02 Thông tư 51/2025/TT-BCA, gồm 80 của Cục CSGT. */
 export const MA_DIA_PHUONG_BIEN_SO = new Set(
@@ -17,7 +18,7 @@ const CHU = "[ABCDEFGHKLMNPSTUVXYZ]";
 // Chữ thứ hai sê ri xe máy: điểm d là 20 chữ trên, Phụ lục 04 mục 2.1.3 lại có R → nhận cả R
 const CHU_2 = "[ABCDEFGHKLMNPRSTUVXYZ]";
 // Sê ri 2 chữ của ô tô đang cấp (điểm e) và sê ri cũ còn lưu thông (Điều 39 khoản 1, 3)
-const SERI_O_TO_RIENG = ["KT", "RM", "CD", "HC", "LD", "DA", "TĐ", "MK", "CT", "LB", "R"];
+const SERI_O_TO_RIENG = ["KT", "RM", "CD", "HC", "LD", "DA", "TĐ", "MK", "CT", "LB", "R"]; // i18n-giu-nguyen: sê ri biển số (regex)
 // Dấu ngăn được bỏ, gõ thì phải đúng chỗ: ô tô "30A-123.45" không có gạch sau 2 số đầu (gạch ở đó là cách viết xe máy)
 const SO = String.raw`(\d{3})[. ]?(\d{2})|(\d{4})`;
 const RE_O_TO = new RegExp(String.raw`^(\d{2}) ?(${CHU}|${SERI_O_TO_RIENG.join("|")})[- ]?(?:${SO})$`, "u");
@@ -43,9 +44,9 @@ const RE_DANG_GO = [
 ];
 
 /** Chữ mờ trong ô Biển số (cùng kiểu "Ví dụ: xe tải 1,5 tấn" của ô Phương tiện bên cạnh). */
-export const VI_DU_BIEN_SO = "Ví dụ: 30A-123.45";
+export const VI_DU_BIEN_SO = t("Ví dụ: 30A-123.45");
 // Câu lỗi hiện dưới ô nửa hộp (~250px): giữ trong một dòng để hàng không giật khi lỗi hiện / mất
-const LOI_MAU = "Chưa đúng mẫu, ví dụ 30A-123.45";
+const LOI_MAU = t("Chưa đúng mẫu, ví dụ 30A-123.45");
 
 /**
  * Viết hoa; đổi các kiểu gạch thành "-", dấu phẩy thành dấu chấm; bỏ ký tự vô hình; mỗi cụm khoảng trắng thành một dấu
@@ -64,19 +65,19 @@ function chuanHoaTho(chuoi) {
         .replace(/ ?([-.]) ?/g, "$1");
 }
 
-const loiMa = (ma) => ({ hopLe: false, loi: `2 số đầu "${ma}" không phải mã tỉnh` });
+const loiMa = (ma) => ({ hopLe: false, loi: t("2 số đầu \"{{ma}}\" không phải mã tỉnh", { ma }) });
 
 function loiMau(s) {
     if (/^[0-9OI]{2}/.test(s) && /[OI]/.test(s.slice(0, 2))) {
-        return { hopLe: false, loi: "2 số đầu có chữ O/I, có thể là số 0/1" };
+        return { hopLe: false, loi: t("2 số đầu có chữ O/I, có thể là số 0/1") };
     }
-    if (/[IJOQW]/.test(s)) return { hopLe: false, loi: "Không dùng chữ I, J, O, Q, W" };
+    if (/[IJOQW]/.test(s)) return { hopLe: false, loi: t("Không dùng chữ I, J, O, Q, W") };
     return { hopLe: false, loi: LOI_MAU };
 }
 
 function ketQua(loai, ma, giaTri, so) {
     if (!MA_DIA_PHUONG_BIEN_SO.has(ma)) return loiMa(ma);
-    if (/^[0.]+$/.test(so)) return { hopLe: false, loi: "Số thứ tự không được toàn số 0" };
+    if (/^[0.]+$/.test(so)) return { hopLe: false, loi: t("Số thứ tự không được toàn số 0") };
     return { hopLe: true, loai, giaTri };
 }
 
@@ -100,7 +101,7 @@ function khop(s) {
 export function kiemTraBienSo(chuoi) {
     if (String(chuoi ?? "").length > DO_DAI_TOI_DA) return { hopLe: false, loi: LOI_MAU };
     const s = chuanHoaTho(chuoi);
-    if (!s) return { hopLe: false, loi: "Nhập biển số xe" };
+    if (!s) return { hopLe: false, loi: t("Nhập biển số xe") };
     const kq = khop(s);
     if (kq.hopLe) return kq;
     // Gõ "MD1" thay "MĐ1" (xe máy điện, biển cũ): "MD" cũng là sê ri xe máy 2 chữ nên chỉ thử khi chuỗi gõ vào không khớp

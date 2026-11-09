@@ -8,6 +8,7 @@ import com.dev.backend.dto.request.NguoiDungCreating;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.entities.NguoiDungDto;
 import com.dev.backend.dto.response.phanquyen.LichSuPhanQuyenDto;
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.mapper.NguoiDungMapper;
 import com.dev.backend.services.impl.entities.NguoiDungService;
 import com.dev.backend.services.multitable.PhanQuyenNguoiDungService;
@@ -71,7 +72,7 @@ public class AdminController {
                                         )
                                 )
                         )
-                        .message("Lấy danh sách người dùng thành công")
+                        .message(ThongDiep.dich("heThong.layDanhSachNguoiDungThanhCong"))
                         .build()
         );
     }
@@ -92,7 +93,7 @@ public class AdminController {
                                         nguoiDungService.getDetailByAdmin(id)
                                 )
                         )
-                        .message("Lấy chi tiết người dùng thành công")
+                        .message(ThongDiep.dich("heThong.layChiTietNguoiDungThanhCong"))
                         .build()
         );
     }
@@ -113,7 +114,7 @@ public class AdminController {
                                         nguoiDungService.createInternalUserByAdmin(request)
                                 )
                         )
-                        .message("Tạo tài khoản người dùng thành công")
+                        .message(ThongDiep.dich("heThong.taoTaiKhoanThanhCong"))
                         .build()
         );
     }
@@ -131,7 +132,7 @@ public class AdminController {
         return ResponseEntity.ok(
                 ResponseData.<Void>builder()
                         .status(HttpStatus.OK.value())
-                        .message("Đã gửi liên kết đặt lại mật khẩu cho người dùng")
+                        .message(ThongDiep.dich("heThong.daGuiLienKetDatLaiMatKhau"))
                         .error(null)
                         .build()
         );
@@ -151,7 +152,7 @@ public class AdminController {
                 ResponseData.<NguoiDungDto>builder()
                         .status(HttpStatus.OK.value())
                         .data(nguoiDungMapper.toDto(nguoiDungService.getDetailByAdmin(id)))
-                        .message("Đã lưu phân quyền")
+                        .message(ThongDiep.dich("heThong.daLuuPhanQuyen"))
                         .build()
         );
     }
@@ -184,7 +185,7 @@ public class AdminController {
                         .data(nguoiDungMapper.toDto(
                                 nguoiDungService.toggleStatusByAdmin(id)
                         ))
-                        .message("Cập nhật trạng thái tài khoản thành công")
+                        .message(ThongDiep.dich("heThong.capNhatTrangThaiTaiKhoanThanhCong"))
                         .build()
         );
     }

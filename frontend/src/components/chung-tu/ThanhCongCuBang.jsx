@@ -2,6 +2,7 @@ import { ChevronsDownUp, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import SearchInput from "@/components/shared/SearchInput";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 /**
  * Thanh công cụ của bảng hàng (chứng từ quá NGUONG_CONG_CU dòng): ô tìm (SearchInput), chữ "Tìm thấy …",
@@ -17,8 +18,8 @@ export default function ThanhCongCuBang({
   tuKhoa,
   onDoiTuKhoa,
   onXoaTuKhoa,
-  goiYTim = "Tìm theo tên, SKU, màu hoặc kích cỡ",
-  nhanTim = "Tìm trong chứng từ",
+  goiYTim = t("Tìm theo tên, SKU, màu hoặc kích cỡ"),
+  nhanTim = t("Tìm trong chứng từ"),
   ketQua,
   khongKetQua = false,
   boLoc,
@@ -67,7 +68,7 @@ export default function ThanhCongCuBang({
               ) : (
                 <ChevronsUpDown className="size-3.5" aria-hidden="true" />
               )}
-              {moHet ? "Thu gọn tất cả" : "Mở tất cả"}
+              {moHet ? t("Thu gọn tất cả") : t("Mở tất cả")}
             </Button>
           ) : null}
         </div>

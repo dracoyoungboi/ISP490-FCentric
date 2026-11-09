@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { danhMucQuanAoService } from "@/services/danhMucQuanAoService";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { demSeNgungTheo, kiemTraPhanHoi, taoBodyCapNhat } from "./cayDanhMuc";
+import { t } from "@/i18n";
 
 /**
  * Xác nhận Ngừng hoạt động một danh mục: nói rõ hệ quả trước khi đổi (cùng khung với hộp
@@ -55,7 +56,7 @@ function NoiDung({ cay, trangThai, nut: nutMoiNhat, onDong, onDaNgung }) {
       onDaNgung?.({ nut: nutMoiNhat, soTheo, body });
       onDong();
     } catch (err) {
-      setLoi(getApiErrorMessage(err, "Không đổi được trạng thái danh mục. Vui lòng thử lại."));
+      setLoi(getApiErrorMessage(err, t("Không đổi được trạng thái danh mục. Vui lòng thử lại.")));
       setDangLuu(false);
     }
   };
@@ -70,23 +71,22 @@ function NoiDung({ cay, trangThai, nut: nutMoiNhat, onDong, onDaNgung }) {
       <AlertDialogHeader className="text-left">
         <AlertDialogTitle className="flex items-center gap-2 text-base text-bo-foreground">
           <CirclePause className="size-5 shrink-0 text-bo-warning" aria-hidden="true" />
-          Ngừng hoạt động danh mục?
+          {t("Ngừng hoạt động danh mục?")}
         </AlertDialogTitle>
         <AlertDialogDescription asChild>
           <div className="space-y-2 text-sm leading-6 text-bo-muted">
             <p>
               {so(nut.ten)}
-              {nut.ma ? <span className="font-mono text-bo-muted"> ({nut.ma})</span> : null} sẽ không được chọn khi thêm sản phẩm mới
-              hoặc khi chuyển danh mục, và không thêm được danh mục con.
+              {nut.ma ? <span className="font-mono text-bo-muted"> ({nut.ma})</span> : null} {t("sẽ không được chọn khi thêm sản phẩm mới hoặc khi chuyển danh mục, và không thêm được danh mục con.")}
             </p>
             <ul className="list-disc space-y-1 pl-5">
               {soTheo > 0 ? (
                 <li>
-                  {so(`${soTheo} danh mục con`)} sẽ ngừng theo. Khi cho hoạt động lại, các danh mục con trở về như cũ.
+                  {so(t("{{count}} danh mục con", { count: soTheo }))} {t("sẽ ngừng theo. Khi cho hoạt động lại, các danh mục con trở về như cũ.")}
                 </li>
               ) : null}
-              <li>Sản phẩm đang gắn vẫn giữ danh mục này và vẫn bán bình thường.</li>
-              <li>Có thể cho hoạt động lại bất cứ lúc nào.</li>
+              <li>{t("Sản phẩm đang gắn vẫn giữ danh mục này và vẫn bán bình thường.")}</li>
+              <li>{t("Có thể cho hoạt động lại bất cứ lúc nào.")}</li>
             </ul>
           </div>
         </AlertDialogDescription>
@@ -104,7 +104,7 @@ function NoiDung({ cay, trangThai, nut: nutMoiNhat, onDong, onDaNgung }) {
           disabled={dangLuu}
           className="border-bo-border bg-bo-surface text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
         >
-          Hủy
+          {t("Hủy")}
         </AlertDialogCancel>
         <Button
           type="button"
@@ -115,9 +115,9 @@ function NoiDung({ cay, trangThai, nut: nutMoiNhat, onDong, onDaNgung }) {
           {dangLuu ? (
             <>
               <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-              Đang lưu...
+              {t("Đang lưu...")}
             </>
-          ) : "Ngừng hoạt động"}
+          ) : t("Ngừng hoạt động")}
         </Button>
       </AlertDialogFooter>
     </AlertDialogContent>

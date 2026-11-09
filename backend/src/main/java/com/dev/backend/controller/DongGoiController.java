@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import com.dev.backend.i18n.ThongDiep;
 
 /** Đóng gói đơn bán (Scan-to-Pack) — bước giữa hoàn tất nhặt hàng và xác nhận xuất kho. */
 @RestController
@@ -48,7 +49,7 @@ public class DongGoiController {
     public ResponseEntity<ResponseData<com.dev.backend.dto.response.customize.ThongTinBangChungDonDto>> layBangChung(
             @PathVariable Integer donBanHangId) {
         return ResponseEntity.ok(new ResponseData<>(HttpStatus.OK.value(),
-                bangChungDongGoiService.layThongTinBangChung(donBanHangId), null, "Lấy thông tin bằng chứng thành công"));
+                bangChungDongGoiService.layThongTinBangChung(donBanHangId), null, ThongDiep.dich("khoVanHanh.layThongTinBangChungThanhCong")));
     }
 
     @PostMapping(value = "/don/{donBanHangId}/bang-chung", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -65,7 +66,7 @@ public class DongGoiController {
             @RequestParam(value = "thoiLuongGiay", required = false) Integer thoiLuongGiay) {
         return ResponseEntity.ok(new ResponseData<>(HttpStatus.OK.value(),
                 bangChungDongGoiService.uploadBangChung(donBanHangId, file, loaiBangChung, thoiLuongGiay),
-                null, "Tải lên bằng chứng đóng gói thành công"));
+                null, ThongDiep.dich("khoVanHanh.taiLenBangChungThanhCong")));
     }
 
     @DeleteMapping("/bang-chung/{id}")
@@ -77,7 +78,7 @@ public class DongGoiController {
     @Operation(summary = "Xóa tệp bằng chứng đóng gói vừa tải lên")
     public ResponseEntity<ResponseData<Void>> xoaBangChung(@PathVariable Integer id) {
         bangChungDongGoiService.xoaBangChung(id);
-        return ResponseEntity.ok(new ResponseData<>(HttpStatus.OK.value(), null, null, "Xóa bằng chứng thành công"));
+        return ResponseEntity.ok(new ResponseData<>(HttpStatus.OK.value(), null, null, ThongDiep.dich("khoVanHanh.xoaBangChungThanhCong")));
     }
 
     @PostMapping("/phieu/{phieuXuatKhoId}/quet")
@@ -90,7 +91,7 @@ public class DongGoiController {
     public ResponseEntity<ResponseData<PhienDongGoiDto>> quet(@PathVariable Integer phieuXuatKhoId,
                                                               @Valid @RequestBody QuetBarcodeRequest request) {
         return ResponseEntity.ok(new ResponseData<>(HttpStatus.OK.value(),
-                dongGoiService.quet(phieuXuatKhoId, request), null, "Quét mã đóng gói thành công"));
+                dongGoiService.quet(phieuXuatKhoId, request), null, ThongDiep.dich("khoVanHanh.quetMaDongGoiThanhCong")));
     }
 
     @PostMapping("/phieu/{phieuXuatKhoId}/hoan-tat")
@@ -102,6 +103,6 @@ public class DongGoiController {
     @Operation(summary = "Hoàn tất đóng gói: phiếu xuất sang Chờ xuất (6), đơn sang Chờ xuất kho (8)")
     public ResponseEntity<ResponseData<PhienDongGoiDto>> hoanTat(@PathVariable Integer phieuXuatKhoId) {
         return ResponseEntity.ok(new ResponseData<>(HttpStatus.OK.value(),
-                dongGoiService.hoanTat(phieuXuatKhoId), null, "Hoàn tất đóng gói thành công"));
+                dongGoiService.hoanTat(phieuXuatKhoId), null, ThongDiep.dich("khoVanHanh.hoanTatDongGoiThanhCong")));
     }
 }

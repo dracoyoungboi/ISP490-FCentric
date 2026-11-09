@@ -14,12 +14,13 @@ import { PRINT_DOCUMENT_GROUPS, PRINT_DOCUMENT_TYPES } from "@/components/print/
 import { isThermalPaper } from "@/components/print/paperStyles";
 import { printTemplateConfigService } from "@/services/printTemplateConfigService";
 import DongMauTem from "@/components/settings/DongMauTem";
+import { t } from "@/i18n";
 
 /** "Khổ A4 · dọc", "Khổ K80 · máy in nhiệt". */
 function moTaKhoGiay(schema, config) {
   if (!config) return "";
-  if (isThermalPaper(config.paperSize)) return `Khổ ${config.paperSize} · máy in nhiệt`;
-  return `Khổ ${config.paperSize} · ${config.orientation === "landscape" ? "ngang" : "dọc"}`;
+  if (isThermalPaper(config.paperSize)) return t("Khổ {{paperSize}} · máy in nhiệt", { paperSize: config.paperSize });
+  return t("Khổ {{paperSize}} · {{huong}}", { paperSize: config.paperSize, huong: config.orientation === "landscape" ? t("ngang") : t("dọc") });
 }
 
 /**
@@ -69,7 +70,7 @@ export default function PrintTemplateListPage() {
     return (
       <>
         <SettingsCard>
-          <LoadingState className="min-h-48" label="Đang tải mẫu in" />
+          <LoadingState className="min-h-48" label={t("Đang tải mẫu in")} />
         </SettingsCard>
       </>
     );
@@ -82,14 +83,14 @@ export default function PrintTemplateListPage() {
           {errorStatus === 401 || errorStatus === 403 ? (
             <EmptyState
               icon={Lock}
-              title="Bạn không có quyền đọc cấu hình mẫu in"
-              description="Liên hệ quản trị viên nếu bạn cần quyền này."
+              title={t("Bạn không có quyền đọc cấu hình mẫu in")}
+              description={t("Liên hệ quản trị viên nếu bạn cần quyền này.")}
             />
           ) : (
             <ErrorState
               className="min-h-48"
-              title="Không thể tải mẫu in"
-              description="Không đọc được cấu hình mẫu in từ máy chủ. Vui lòng thử lại."
+              title={t("Không thể tải mẫu in")}
+              description={t("Không đọc được cấu hình mẫu in từ máy chủ. Vui lòng thử lại.")}
               onRetry={load}
             />
           )}
@@ -107,9 +108,9 @@ export default function PrintTemplateListPage() {
     <>
       <SettingsCard aria-labelledby="mau-in-tieu-de">
         <SettingsCardHeader
-          title="Mẫu chứng từ"
+          title={t("Mẫu chứng từ")}
           titleId="mau-in-tieu-de"
-          note={`${rows.length} loại chứng từ và tem sản phẩm, mỗi loại một mẫu đang dùng. Bấm tên để xem trước và sửa.`}
+          note={t("{{count}} loại chứng từ và tem sản phẩm, mỗi loại một mẫu đang dùng. Bấm tên để xem trước và sửa.", { count: rows.length })}
         />
 
         {groups.map((group, groupIndex) => (
@@ -118,7 +119,7 @@ export default function PrintTemplateListPage() {
               id={`mau-in-${group.key}`}
               className={groupIndex ? "mt-1 border-t border-[#eef1f5] pt-3.5" : undefined}
             >
-              {group.label}
+              {t(group.label)}
             </SettingsGroupLabel>
             <ul aria-labelledby={`mau-in-${group.key}`}>
               {group.rows.map(({ schema, paper }, index) => (
@@ -135,10 +136,10 @@ export default function PrintTemplateListPage() {
                       to={`/settings/print-templates/${schema.slug}`}
                       className="text-sm leading-5 font-medium text-bo-foreground hover:text-bo-primary focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bo-primary"
                     >
-                      {schema.label}
+                      {t(schema.label)}
                     </Link>
                     {schema.description ? (
-                      <p className="mt-0.5 text-[13px] leading-5 text-bo-muted">{schema.description}</p>
+                      <p className="mt-0.5 text-[13px] leading-5 text-bo-muted">{t(schema.description)}</p>
                     ) : null}
                     {/* Màn hẹp: khổ giấy xuống dòng dưới mô tả (màn rộng có cột riêng bên phải) */}
                     <p className="text-[13px] leading-5 text-[#5b6676] sm:hidden">{paper}</p>
@@ -146,10 +147,10 @@ export default function PrintTemplateListPage() {
                   <span className="hidden shrink-0 text-[13px] leading-5 whitespace-nowrap text-[#5b6676] sm:inline">{paper}</span>
                   <Link
                     to={`/settings/print-templates/${schema.slug}`}
-                    aria-label={`Sửa mẫu ${schema.label.toLowerCase()}`}
+                    aria-label={t("Sửa mẫu {{ten}}", { ten: t(schema.label).toLowerCase() })}
                     className="-mr-2.5 inline-flex h-8 shrink-0 items-center gap-1 rounded-md px-2.5 text-sm font-medium whitespace-nowrap text-bo-primary hover:bg-bo-primary-soft hover:text-bo-primary-hover focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bo-primary"
                   >
-                    Sửa mẫu
+                    {t("Sửa mẫu")}
                     <ChevronRight className="size-3.5" aria-hidden="true" />
                   </Link>
                 </li>
@@ -163,8 +164,8 @@ export default function PrintTemplateListPage() {
         <SettingsFooterLink
           to="/settings/store"
           icon={Store}
-          title="Thông tin cửa hàng"
-          description="Tên, mã số thuế, logo và liên hệ in ở đầu mọi phiếu và hóa đơn"
+          title={t("Thông tin cửa hàng")}
+          description={t("Tên, mã số thuế, logo và liên hệ in ở đầu mọi phiếu và hóa đơn")}
         />
       </SettingsCard>
     </>

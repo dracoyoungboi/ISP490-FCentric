@@ -1,5 +1,6 @@
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 /** Một bước thiết lập (sao chép từ PaymentSettingsPage.jsx, thêm trạng thái đang làm). */
 export default function SetupStep({ index, done, active = false, onClick, children }) {
@@ -28,7 +29,7 @@ export default function SetupStep({ index, done, active = false, onClick, childr
         )}
       >
         {children}
-        {done ? <span className="sr-only"> (đã xong)</span> : null}
+        {done ? <span className="sr-only"> {t("(đã xong)")}</span> : null}
       </span>
     </>
   );

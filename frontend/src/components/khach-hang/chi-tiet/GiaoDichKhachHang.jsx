@@ -22,6 +22,7 @@ import {
   dieuKienDon,
   luaChonKenh,
 } from "./tinhKhachHang";
+import { t } from "@/i18n";
 
 const TRE_TIM_KIEM_MS = 350;
 /** Từ số đơn này trở lên mới hiện ô tìm và bộ lọc (ít đơn thì nhìn là thấy, không cần lọc). */
@@ -62,7 +63,7 @@ async function taiTrang(goi, trang, kichThuoc) {
  * - `tongDon`: tổng số đơn (kể cả nháp) theo số tổng hợp — số trên tab và điều kiện hiện bộ lọc; `undefined` khi chưa có.
  * - `kenhMua`: kênh khách đã mua, làm lựa chọn lọc kênh (chỉ hiện khi khách mua qua từ 2 kênh).
  * - `xemBaoGia`: vai trò thấy báo giá (vai trò kho chỉ thấy chứng từ của kho mình, báo giá chưa có kho nên ẩn tab).
- * - `ghiChuPhamVi`: câu phạm vi dữ liệu theo vai trò, hiện ở chân bảng.
+ * - `ghiChuPhamVi` / `ghiChuPhamViBaoGia`: câu phạm vi dữ liệu theo vai trò (tab Đơn / tab Báo giá), hiện ở chân bảng.
  */
 export default function GiaoDichKhachHang({
   khachHangId,
@@ -75,6 +76,7 @@ export default function GiaoDichKhachHang({
   coTheTaoDon,
   onTaoBaoGia,
   ghiChuPhamVi,
+  ghiChuPhamViBaoGia,
 }) {
   // ── Bộ lọc đơn (ô tìm có trễ để không gọi máy chủ theo từng phím) ─────────
   const [oTim, setOTim] = useState("");
@@ -145,8 +147,8 @@ export default function GiaoDichKhachHang({
   const hienLocKenh = kenh !== "" || luaChonKenhDs.length > 2;
 
   const tabs = [
-    { value: "don-hang", label: "Đơn hàng", count: tongDonKhongLoc },
-    xemBaoGia ? { value: "bao-gia", label: "Báo giá", count: bgQ.data?.totalElements } : null,
+    { value: "don-hang", label: t("Đơn hàng"), count: tongDonKhongLoc },
+    xemBaoGia ? { value: "bao-gia", label: t("Báo giá"), count: bgQ.data?.totalElements } : null,
   ].filter(Boolean);
 
   let noiDung;
@@ -154,8 +156,8 @@ export default function GiaoDichKhachHang({
     noiDung = (
       <ErrorState
         className="kh-trong min-h-56"
-        title={laTabDon ? "Không tải được đơn hàng của khách" : "Không tải được báo giá của khách"}
-        description={getApiErrorMessage(q.error, "Kiểm tra kết nối rồi thử lại.")}
+        title={laTabDon ? t("Không tải được đơn hàng của khách") : t("Không tải được báo giá của khách")}
+        description={getApiErrorMessage(q.error, t("Kiểm tra kết nối rồi thử lại."))}
         onRetry={q.reload}
       />
     );
@@ -167,11 +169,11 @@ export default function GiaoDichKhachHang({
         <EmptyState
           className="kh-trong min-h-56"
           icon={SearchX}
-          title="Không có đơn phù hợp"
-          description="Thử bỏ bớt điều kiện lọc."
+          title={t("Không có đơn phù hợp")}
+          description={t("Thử bỏ bớt điều kiện lọc.")}
           action={
             <Button type="button" variant="outline" onClick={xoaLoc} className="border-bo-border bg-bo-surface shadow-none">
-              Xóa lọc
+              {t("Xóa lọc")}
             </Button>
           }
         />
@@ -180,23 +182,23 @@ export default function GiaoDichKhachHang({
       const nutTaoBaoGia = coTheTaoBaoGia ? (
         <Button type="button" onClick={onTaoBaoGia} className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover">
           <FilePlus2 className="size-4" aria-hidden="true" />
-          Tạo báo giá
+          {t("Tạo báo giá")}
         </Button>
       ) : null;
       noiDung = laTabDon ? (
         <EmptyState
           className="kh-trong min-h-56"
           icon={ShoppingBag}
-          title="Chưa có đơn hàng"
-          description="Đơn bán tạo từ báo giá khách đồng ý, đơn Shopify và đơn tại quầy của khách này sẽ hiện ở đây."
+          title={t("Chưa có đơn hàng")}
+          description={t("Đơn bán tạo từ báo giá khách đồng ý, đơn Shopify và đơn tại quầy của khách này sẽ hiện ở đây.")}
           action={nutTaoBaoGia}
         />
       ) : (
         <EmptyState
           className="kh-trong min-h-56"
           icon={FileText}
-          title="Chưa có báo giá"
-          description="Báo giá gửi cho khách hàng này sẽ hiện ở đây; khách đồng ý thì tạo đơn bán ngay từ báo giá."
+          title={t("Chưa có báo giá")}
+          description={t("Báo giá gửi cho khách hàng này sẽ hiện ở đây; khách đồng ý thì tạo đơn bán ngay từ báo giá.")}
           action={nutTaoBaoGia}
         />
       );
@@ -209,18 +211,15 @@ export default function GiaoDichKhachHang({
     );
   }
 
-  const ghiChu = ghiChuPhamVi
-    ? laTabDon
-      ? ghiChuPhamVi
-      : ghiChuPhamVi.replace("Chỉ tính đơn", "Chỉ hiện báo giá")
-    : "";
+  // Câu phạm vi đã dịch nên không ghép chữ: tab Báo giá dùng câu riêng
+  const ghiChu = (laTabDon ? ghiChuPhamVi : ghiChuPhamViBaoGia) || "";
 
   return (
-    <section aria-label="Giao dịch của khách hàng" className="kh-giao-dich flex min-w-0 flex-col">
+    <section aria-label={t("Giao dịch của khách hàng")} className="kh-giao-dich flex min-w-0 flex-col">
       <ListToolbar
         tabs={
           <StatusTabs
-            label="Loại giao dịch"
+            label={t("Loại giao dịch")}
             tabs={tabs}
             value={laTabDon ? "don-hang" : "bao-gia"}
             onChange={onDoiTab}
@@ -232,8 +231,8 @@ export default function GiaoDichKhachHang({
         {hienLoc ? (
           <>
             <SearchInput
-              label="Tìm theo mã đơn"
-              placeholder="Tìm theo mã đơn"
+              label={t("Tìm theo mã đơn")}
+              placeholder={t("Tìm theo mã đơn")}
               value={oTim}
               onChange={(e) => setOTim(e.target.value)}
               onClear={() => {
@@ -245,7 +244,7 @@ export default function GiaoDichKhachHang({
             />
             {hienLocKenh ? (
               <FilterSelect
-                label="Kênh bán"
+                label={t("Kênh bán")}
                 value={kenh}
                 options={luaChonKenhDs}
                 onChange={(v) => {
@@ -256,11 +255,11 @@ export default function GiaoDichKhachHang({
                   setKenh("");
                   setTrangDon(0);
                 }}
-                clearLabel="Bỏ lọc kênh bán"
+                clearLabel={t("Bỏ lọc kênh bán")}
               />
             ) : null}
             <FilterSelect
-              label="Thời gian đặt"
+              label={t("Thời gian đặt")}
               value={thoiGian}
               options={LUA_CHON_THOI_GIAN}
               onChange={(v) => {
@@ -271,7 +270,7 @@ export default function GiaoDichKhachHang({
                 setThoiGian("");
                 setTrangDon(0);
               }}
-              clearLabel="Bỏ lọc thời gian"
+              clearLabel={t("Bỏ lọc thời gian")}
               align="end"
             />
           </>
@@ -281,7 +280,7 @@ export default function GiaoDichKhachHang({
       <div
         id="vung-giao-dich-kh"
         role="tabpanel"
-        aria-label={laTabDon ? "Đơn hàng của khách hàng, mới nhất ở trên" : "Báo giá của khách hàng"}
+        aria-label={laTabDon ? t("Đơn hàng của khách hàng, mới nhất ở trên") : t("Báo giá của khách hàng")}
         aria-busy={q.loading || undefined}
         className={cn(
           "kh-bang min-w-0 flex-1 overflow-x-auto transition-opacity",
@@ -298,7 +297,7 @@ export default function GiaoDichKhachHang({
               page={q.data.number ?? (laTabDon ? trangDon : trangBg)}
               size={laTabDon ? soDongDon : soDongBg}
               total={tong}
-              totalLabel={laTabDon ? "đơn" : "báo giá"}
+              totalLabel={laTabDon ? t("đơn", { context: "don_vi" }) : t("báo giá", { context: "don_vi" })}
               onPageChange={laTabDon ? setTrangDon : setTrangBg}
               onSizeChange={(n) => {
                 if (laTabDon) {

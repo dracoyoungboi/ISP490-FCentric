@@ -5,6 +5,7 @@ import { AlertCircle, ArrowLeft, CheckCircle2, Eye, EyeOff, Loader2 } from 'luci
 import AuthShell from '../components/auth/AuthShell';
 import AuthProgress from '../components/auth/AuthProgress';
 import OtpInputs from '../components/auth/OtpInputs';
+import { t } from "@/i18n";
 
 /* ── Class patterns dùng chung (theo thiết kế modern white/gray) ── */
 const INPUT_BASE =
@@ -23,22 +24,22 @@ const EYE_BTN =
     'absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-900 transition-colors';
 
 const STEP_TITLES = {
-    1: 'Khôi phục mật khẩu',
-    2: 'Xác thực OTP',
-    3: 'Đặt mật khẩu mới',
-    4: 'Thành công',
+    1: t("Khôi phục mật khẩu"),
+    2: t("Xác thực OTP"),
+    3: t("Đặt mật khẩu mới"),
+    4: t("Thành công"),
 };
 const STEP_SUBS = {
-    1: 'Nhập email hoặc tên đăng nhập của bạn để nhận mã OTP.',
-    2: 'Nhập mã 6 số đã được gửi về email đăng ký của tài khoản',
-    3: 'Nhập mật khẩu mới và xác nhận để hoàn tất',
-    4: 'Mật khẩu đã được đặt lại thành công',
+    1: t("Nhập email hoặc tên đăng nhập của bạn để nhận mã OTP."),
+    2: t("Nhập mã 6 số đã được gửi về email đăng ký của tài khoản"),
+    3: t("Nhập mật khẩu mới và xác nhận để hoàn tất"),
+    4: t("Mật khẩu đã được đặt lại thành công"),
 };
 // data.code BE trả về khi OTP đặt lại mật khẩu không hợp lệ
 const OTP_ERROR_CODES = ['RESET_OTP_WRONG', 'RESET_OTP_EXPIRED'];
 // khớp PasswordResetRateLimiter.COOLDOWN phía BE (60 giây giữa 2 lần gửi mã)
 const RESEND_COOLDOWN_SECONDS = 60;
-const SENT_FALLBACK_MESSAGE = 'Nếu thông tin tài khoản hợp lệ, mã xác nhận đã được gửi tới email đã đăng ký.';
+const SENT_FALLBACK_MESSAGE = t("Nếu thông tin tài khoản hợp lệ, mã xác nhận đã được gửi tới email đã đăng ký.");
 
 export default function ForgotPasswordPage() {
     const navigate = useNavigate();
@@ -91,8 +92,8 @@ export default function ForgotPasswordPage() {
         e.preventDefault();
         clearErrors();
         const trimmed = username.trim();
-        if (!trimmed) return setFieldError('username', 'Vui lòng nhập email / tên đăng nhập');
-        if (trimmed.includes('@') && !isLikelyEmail(trimmed)) return setFieldError('username', 'Email không hợp lệ');
+        if (!trimmed) return setFieldError('username', t("Vui lòng nhập email / tên đăng nhập"));
+        if (trimmed.includes('@') && !isLikelyEmail(trimmed)) return setFieldError('username', t("Email không hợp lệ"));
         setIsLoading(true);
         try {
             const res = await nguoiDungService.sendForgotPasswordOTP(trimmed);
@@ -102,10 +103,10 @@ export default function ForgotPasswordPage() {
                 setSentNotice(res?.message || SENT_FALLBACK_MESSAGE);
                 setResendIn(RESEND_COOLDOWN_SECONDS);
                 setStep(2);
-            } else setFieldError('username', res?.message || 'Gửi OTP thất bại');
+            } else setFieldError('username', res?.message || t("Gửi OTP thất bại"));
         } catch (err) {
             applyRetryAfter(err);
-            setFieldError('username', err?.response?.data?.message || 'Có lỗi xảy ra khi gửi OTP');
+            setFieldError('username', err?.response?.data?.message || t("Có lỗi xảy ra khi gửi OTP"));
         } finally {
             setIsLoading(false);
         }
@@ -124,15 +125,15 @@ export default function ForgotPasswordPage() {
     const handleGoStep3 = async (e) => {
         e.preventDefault();
         clearErrors();
-        if (otpValue.length !== 6) return setFieldError('otp', 'Vui lòng nhập đủ 6 số OTP');
+        if (otpValue.length !== 6) return setFieldError('otp', t("Vui lòng nhập đủ 6 số OTP"));
         setIsLoading(true);
         try {
             const res = await nguoiDungService.verifyResetOtp({ username: username.trim(), otp: otpValue });
             if (res?.status === 200) setStep(3);
-            else setFieldError('otp', res?.message || 'Xác thực OTP thất bại');
+            else setFieldError('otp', res?.message || t("Xác thực OTP thất bại"));
         } catch (err) {
             setOtp(['', '', '', '', '', '']);
-            setFieldError('otp', err?.response?.data?.message || 'Có lỗi xảy ra khi xác thực OTP');
+            setFieldError('otp', err?.response?.data?.message || t("Có lỗi xảy ra khi xác thực OTP"));
         } finally {
             setIsLoading(false);
         }
@@ -142,24 +143,24 @@ export default function ForgotPasswordPage() {
         e.preventDefault();
         clearErrors();
         const trimmed = username.trim();
-        if (!trimmed) return setFieldError('general', 'Thiếu tên đăng nhập/email');
-        if (otpValue.length !== 6) return backToOtpStep('Vui lòng nhập mã OTP');
-        if (!newPassword.trim()) return setFieldError('newPassword', 'Vui lòng nhập mật khẩu mới');
-        if (newPassword.length < 6) return setFieldError('newPassword', 'Mật khẩu tối thiểu 6 ký tự');
+        if (!trimmed) return setFieldError('general', t("Thiếu tên đăng nhập/email"));
+        if (otpValue.length !== 6) return backToOtpStep(t("Vui lòng nhập mã OTP"));
+        if (!newPassword.trim()) return setFieldError('newPassword', t("Vui lòng nhập mật khẩu mới"));
+        if (newPassword.length < 6) return setFieldError('newPassword', t("Mật khẩu tối thiểu 6 ký tự"));
         // BCrypt giới hạn 72 byte; ký tự có dấu chiếm 2-3 byte
         if (new TextEncoder().encode(newPassword).length > 72) {
-            return setFieldError('newPassword', 'Mật khẩu quá dài (tối đa 72 ký tự không dấu, ít hơn nếu có dấu)');
+            return setFieldError('newPassword', t("Mật khẩu quá dài (tối đa 72 ký tự không dấu, ít hơn nếu có dấu)"));
         }
-        if (newPassword !== confirmPassword) return setFieldError('confirmPassword', 'Mật khẩu xác nhận không khớp');
+        if (newPassword !== confirmPassword) return setFieldError('confirmPassword', t("Mật khẩu xác nhận không khớp"));
         setIsLoading(true);
         try {
             const res = await nguoiDungService.resetPassword({ username: trimmed, otp: otpValue, password: newPassword });
             if (res?.status === 200) setStep(4);
-            else setFieldError('general', res?.message || 'Đặt lại mật khẩu thất bại');
+            else setFieldError('general', res?.message || t("Đặt lại mật khẩu thất bại"));
         } catch (err) {
             // mã hết hạn / bị huỷ trong lúc nhập mật khẩu -> quay lại bước OTP để gửi lại mã
             if (isOtpError(err)) backToOtpStep(err.response.data.message);
-            else setFieldError('general', err?.response?.data?.message || 'Có lỗi xảy ra khi đặt lại mật khẩu');
+            else setFieldError('general', err?.response?.data?.message || t("Có lỗi xảy ra khi đặt lại mật khẩu"));
         } finally {
             setIsLoading(false);
         }
@@ -169,14 +170,14 @@ export default function ForgotPasswordPage() {
         if (resendIn > 0) return;
         clearErrors();
         const trimmed = username.trim();
-        if (!trimmed) return setFieldError('general', 'Vui lòng nhập email/tên đăng nhập trước');
+        if (!trimmed) return setFieldError('general', t("Vui lòng nhập email/tên đăng nhập trước"));
         setIsLoading(true);
         try {
             const res = await nguoiDungService.sendForgotPasswordOTP(trimmed);
             if (res?.status === 200) {
                 setOtp(['', '', '', '', '', '']);
                 setResendIn(RESEND_COOLDOWN_SECONDS);
-                setFieldError('success', 'Đã gửi lại mã OTP. Vui lòng kiểm tra email.');
+                setFieldError('success', t("Đã gửi lại mã OTP. Vui lòng kiểm tra email."));
                 if (clearMsgTimeoutRef.current) clearTimeout(clearMsgTimeoutRef.current);
                 // chỉ ẩn thông báo "đã gửi lại" — không xoá lỗi mới phát sinh trong 2,5s (vd. nhập sai mã ngay sau đó)
                 clearMsgTimeoutRef.current = setTimeout(() => setErrors((prev) => {
@@ -185,10 +186,10 @@ export default function ForgotPasswordPage() {
                     delete rest.success;
                     return rest;
                 }), 2500);
-            } else setFieldError('general', res?.message || 'Gửi lại OTP thất bại');
+            } else setFieldError('general', res?.message || t("Gửi lại OTP thất bại"));
         } catch (err) {
             applyRetryAfter(err);
-            setFieldError('general', err?.response?.data?.message || 'Có lỗi xảy ra khi gửi lại OTP');
+            setFieldError('general', err?.response?.data?.message || t("Có lỗi xảy ra khi gửi lại OTP"));
         } finally {
             setIsLoading(false);
         }
@@ -207,7 +208,7 @@ export default function ForgotPasswordPage() {
                     className="flex items-center gap-2 text-sm text-gray-500 hover:text-black transition-colors mb-6 fade-in-up"
                     onClick={handleBack}
                 >
-                    <ArrowLeft size={16} /> Quay lại
+                    <ArrowLeft size={16} /> {t("Quay lại")}
                 </button>
             )}
 
@@ -230,11 +231,11 @@ export default function ForgotPasswordPage() {
                         </div>
                     )}
                     <div className="space-y-2">
-                        <label htmlFor="forgot-username" className={LABEL}>Email / Tên đăng nhập</label>
+                        <label htmlFor="forgot-username" className={LABEL}>{t("Email / Tên đăng nhập")}</label>
                         <input
                             id="forgot-username"
                             type="text"
-                            placeholder="example@gmail.com hoặc tên đăng nhập"
+                            placeholder={t("example@gmail.com hoặc tên đăng nhập")}
                             className={`${INPUT_BASE} ${errors.username ? INPUT_ERROR : INPUT_NORMAL}`}
                             value={username}
                             onChange={(e) => { setUsername(e.target.value); clearErrors(); }}
@@ -244,9 +245,9 @@ export default function ForgotPasswordPage() {
                     </div>
                     <button type="submit" className={`${PRIMARY_BTN} mt-4`} disabled={isLoading}>
                         {isLoading ? (
-                            <><Loader2 size={16} className="animate-spin" /> Đang gửi...</>
+                            <><Loader2 size={16} className="animate-spin" /> {t("Đang gửi...")}</>
                         ) : (
-                            'Gửi mã OTP'
+                            t("Gửi mã OTP")
                         )}
                     </button>
                 </form>
@@ -281,7 +282,7 @@ export default function ForgotPasswordPage() {
                     )}
 
                     <div className="space-y-2">
-                        <label htmlFor="forgot-otp-0" className={LABEL}>Mã OTP 6 số</label>
+                        <label htmlFor="forgot-otp-0" className={LABEL}>{t("Mã OTP 6 số")}</label>
                         <OtpInputs
                             value={otp}
                             onChange={setOtp}
@@ -290,14 +291,14 @@ export default function ForgotPasswordPage() {
                             idPrefix="forgot-otp"
                         />
                         <p className="text-sm text-gray-600 pt-1">
-                            Không nhận được mã?{' '}
+                            {t("Không nhận được mã?")}{' '}
                             <button
                                 type="button"
                                 className="font-medium text-black hover:underline disabled:text-gray-400 disabled:no-underline disabled:cursor-not-allowed"
                                 onClick={handleResendOTP}
                                 disabled={isLoading || resendIn > 0}
                             >
-                                {resendIn > 0 ? `Gửi lại OTP sau ${resendIn} giây` : 'Gửi lại OTP'}
+                                {resendIn > 0 ? t("Gửi lại OTP sau {{count}} giây", { count: resendIn }) : t("Gửi lại OTP")}
                             </button>
                         </p>
                     </div>
@@ -308,9 +309,9 @@ export default function ForgotPasswordPage() {
                         disabled={isLoading || otpValue.length !== 6}
                     >
                         {isLoading ? (
-                            <><Loader2 size={16} className="animate-spin" /> Đang xử lý...</>
+                            <><Loader2 size={16} className="animate-spin" /> {t("Đang xử lý...")}</>
                         ) : (
-                            'Tiếp tục'
+                            t("Tiếp tục")
                         )}
                     </button>
                 </form>
@@ -327,12 +328,12 @@ export default function ForgotPasswordPage() {
                     )}
 
                     <div className="space-y-2">
-                        <label htmlFor="forgot-new-password" className={LABEL}>Mật khẩu mới</label>
+                        <label htmlFor="forgot-new-password" className={LABEL}>{t("Mật khẩu mới")}</label>
                         <div className="relative">
                             <input
                                 id="forgot-new-password"
                                 type={showNewPassword ? 'text' : 'password'}
-                                placeholder="Tối thiểu 6 ký tự"
+                                placeholder={t("Tối thiểu 6 ký tự")}
                                 className={`${INPUT_BASE} ${errors.newPassword ? INPUT_ERROR : INPUT_NORMAL} pr-10`}
                                 value={newPassword}
                                 onChange={(e) => { setNewPassword(e.target.value); clearErrors(); }}
@@ -344,7 +345,7 @@ export default function ForgotPasswordPage() {
                                 type="button"
                                 className={EYE_BTN}
                                 onClick={() => setShowNewPassword(!showNewPassword)}
-                                aria-label={showNewPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                                aria-label={showNewPassword ? t("Ẩn mật khẩu") : t("Hiện mật khẩu")}
                             >
                                 {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                             </button>
@@ -357,12 +358,12 @@ export default function ForgotPasswordPage() {
                     </div>
 
                     <div className="space-y-2">
-                        <label htmlFor="forgot-confirm-password" className={LABEL}>Xác nhận mật khẩu</label>
+                        <label htmlFor="forgot-confirm-password" className={LABEL}>{t("Xác nhận mật khẩu")}</label>
                         <div className="relative">
                             <input
                                 id="forgot-confirm-password"
                                 type={showConfirmPassword ? 'text' : 'password'}
-                                placeholder="Nhập lại mật khẩu mới"
+                                placeholder={t("Nhập lại mật khẩu mới")}
                                 className={`${INPUT_BASE} ${errors.confirmPassword ? INPUT_ERROR : INPUT_NORMAL} pr-10`}
                                 value={confirmPassword}
                                 onChange={(e) => { setConfirmPassword(e.target.value); clearErrors(); }}
@@ -374,7 +375,7 @@ export default function ForgotPasswordPage() {
                                 type="button"
                                 className={EYE_BTN}
                                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                aria-label={showConfirmPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                                aria-label={showConfirmPassword ? t("Ẩn mật khẩu") : t("Hiện mật khẩu")}
                             >
                                 {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                             </button>
@@ -388,9 +389,9 @@ export default function ForgotPasswordPage() {
 
                     <button type="submit" className={`${PRIMARY_BTN} mt-4`} disabled={isLoading}>
                         {isLoading ? (
-                            <><Loader2 size={16} className="animate-spin" /> Đang xử lý...</>
+                            <><Loader2 size={16} className="animate-spin" /> {t("Đang xử lý...")}</>
                         ) : (
-                            'Đặt lại mật khẩu'
+                            t("Đặt lại mật khẩu")
                         )}
                     </button>
                 </form>
@@ -401,15 +402,15 @@ export default function ForgotPasswordPage() {
                 <div className="text-center space-y-6 fade-in-up delay-4">
                     <CheckCircle2 className="w-16 h-16 mx-auto text-green-600" />
                     <div>
-                        <p className="text-lg font-semibold text-gray-900">Mật khẩu đã được đặt lại thành công!</p>
-                        <p className="mt-2 text-gray-600">Bạn có thể đăng nhập với mật khẩu mới ngay bây giờ.</p>
+                        <p className="text-lg font-semibold text-gray-900">{t("Mật khẩu đã được đặt lại thành công!")}</p>
+                        <p className="mt-2 text-gray-600">{t("Bạn có thể đăng nhập với mật khẩu mới ngay bây giờ.")}</p>
                     </div>
                     <button
                         type="button"
                         className={PRIMARY_BTN}
                         onClick={() => navigate('/login')}
                     >
-                        Đăng nhập ngay
+                        {t("Đăng nhập ngay")}
                     </button>
                 </div>
             )}

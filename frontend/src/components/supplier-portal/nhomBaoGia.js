@@ -1,3 +1,4 @@
+import { t } from "../../i18n/t.js";
 /**
  * Gom dòng báo giá theo sản phẩm và công tắc "Một giá cho cả nhóm" (PA3, chốt 16/10/2026).
  *
@@ -24,11 +25,11 @@ export function nhomTheoSanPham(dong) {
     const TRUONG = ['mau', 'kichCo', 'chatLieu'];
     return [...theoKhoa.values()].map((n) => {
         const cacDong = n.viTri.map((i) => dong[i]);
-        const chung = TRUONG.filter((t) => cacDong.every((d) => (d[t] || '') === (cacDong[0][t] || '')));
-        const thuocTinhChung = chung.map((t) => cacDong[0][t]).filter(Boolean).join(' · ');
+        const chung = TRUONG.filter((truong) => cacDong.every((d) => (d[truong] || '') === (cacDong[0][truong] || '')));
+        const thuocTinhChung = chung.map((truong) => cacDong[0][truong]).filter(Boolean).join(' · ');
         const nhan = {};
         n.viTri.forEach((i) => {
-            const rieng = TRUONG.filter((t) => !chung.includes(t)).map((t) => dong[i][t]).filter(Boolean).join(' · ');
+            const rieng = TRUONG.filter((truong) => !chung.includes(truong)).map((truong) => dong[i][truong]).filter(Boolean).join(' · ');
             nhan[i] = rieng || dong[i].thuocTinh || dong[i].maSku || dong[i].tenSanPham;
         });
         return { ...n, thuocTinhChung, nhan };
@@ -127,7 +128,7 @@ export function docGiaDan(chuoi) {
 
 /** Câu báo khi nội dung dán có nhiều cột số (cheDo "nhieu-cot"), dùng chung cho ô bảng và hộp "Dán giá từ Excel". */
 export const LOI_NHIEU_COT =
-    'Nội dung vừa dán có nhiều cột số nên không biết cột nào là đơn giá. Chỉ chép một cột Đơn giá, hoặc hai cột Mã SKU và Đơn giá.';
+    t("Nội dung vừa dán có nhiều cột số nên không biết cột nào là đơn giá. Chỉ chép một cột Đơn giá, hoặc hai cột Mã SKU và Đơn giá.");
 
 /**
  * Tách một dòng dán thành các ô: Tab (chép từ Excel / Google Sheets); không có Tab thì thử dấu ";" hoặc "|"
@@ -221,7 +222,7 @@ export function phanTichNoiDungDan(van, dong) {
 
 /** Câu báo khi dán có mã hàng nhưng không trùng mã SKU nào của đơn. */
 export const LOI_KHONG_KHOP_MA =
-    'Không thấy mã SKU nào của đơn này trong nội dung vừa dán. Kiểm tra lại mã (xem cột Mã SKU trong bảng), hoặc chỉ chép cột Đơn giá.';
+    t("Không thấy mã SKU nào của đơn này trong nội dung vừa dán. Kiểm tra lại mã (xem cột Mã SKU trong bảng), hoặc chỉ chép cột Đơn giá.");
 
 /**
  * Áp nội dung đã phân tích vào `dong`.
@@ -279,13 +280,16 @@ export function nhomCanTatSauKhiDan(dong, nhom, motGia) {
  * Gọi tên phân loại của nhóm cho dễ hiểu: các dòng chỉ khác kích cỡ → "kích cỡ", chỉ khác màu → "màu",
  * còn lại (khác nhiều thuộc tính hoặc thiếu thuộc tính) → "phân loại".
  */
+/** Ngữ cảnh i18n của tên loại phân loại (tiếng Anh số ít, câu đếm tự thêm số nhiều): khóa "<từ>_nhom". */
+export const NGU_CANH_LOAI = { context: "nhom" };
+
 export function tenLoaiPhanLoai(dong, viTri) {
-    if (viTri.length < 2) return 'phân loại';
+    if (viTri.length < 2) return t("phân loại", NGU_CANH_LOAI);
     const dau = dong[viTri[0]];
-    const khac = ['mau', 'kichCo', 'chatLieu'].filter((t) => viTri.some((i) => (dong[i][t] || '') !== (dau[t] || '')));
-    if (khac.length === 1 && khac[0] === 'kichCo') return 'kích cỡ';
-    if (khac.length === 1 && khac[0] === 'mau') return 'màu';
-    return 'phân loại';
+    const khac = ['mau', 'kichCo', 'chatLieu'].filter((truong) => viTri.some((i) => (dong[i][truong] || '') !== (dau[truong] || '')));
+    if (khac.length === 1 && khac[0] === 'kichCo') return t("kích cỡ", NGU_CANH_LOAI);
+    if (khac.length === 1 && khac[0] === 'mau') return t("màu", NGU_CANH_LOAI);
+    return t("phân loại", NGU_CANH_LOAI);
 }
 
 /**
@@ -294,7 +298,7 @@ export function tenLoaiPhanLoai(dong, viTri) {
  */
 export function noiTenNhom(ten, toiDa = 2) {
     if (ten.length <= toiDa) return ten.join(', ');
-    return `${ten.slice(0, toiDa - 1).join(', ')} và ${ten.length - toiDa + 1} sản phẩm khác`;
+    return t("{{dsTen}} và {{count}} sản phẩm khác", { dsTen: ten.slice(0, toiDa - 1).join(', '), count: ten.length - toiDa + 1 });
 }
 
 /** Tên các nhóm (theo thứ tự hiển thị) có ít nhất một dòng nằm trong `viTriCanTim`. */

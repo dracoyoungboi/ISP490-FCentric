@@ -7,6 +7,7 @@ import { NUT_CHINH, NUT_PHU } from "@/components/channel/BottomActionBar";
 import { kiemTraGiaTriKetNoi, taoGiaTriKetNoi, taoPayloadKetNoi } from "@/components/channel/ketNoiKenh";
 import { kenhBanHangService } from "@/services/kenhBanHangService";
 import { getApiErrorCode, getApiErrorMessage } from "@/utils/apiError";
+import { t } from "@/i18n";
 
 /** Mã lỗi cho thấy kết nối vừa đổi ở nơi khác (tab khác vừa ngắt / kết nối cửa hàng khác): trang phải đọc lại. */
 const MA_DOI_KET_NOI = new Set(["KENH_CHUA_KET_NOI", "GIAN_HANG_KHAC"]);
@@ -50,7 +51,7 @@ export default function ShopifyConfigDialog({ open, onOpenChange, config, onSave
     } catch (error) {
       setValues((cu) => ({ ...cu, accessToken: "", apiSecret: "", refreshToken: "" }));
       if (MA_DOI_KET_NOI.has(getApiErrorCode(error)) && onDoiKetNoi) onDoiKetNoi(error, payload);
-      else setResult({ ok: false, title: "Chưa lưu được", message: getApiErrorMessage(error, "Không lưu được khóa truy cập") });
+      else setResult({ ok: false, title: t("Chưa lưu được"), message: getApiErrorMessage(error, t("Không lưu được khóa truy cập")) });
     } finally {
       dangLuuRef.current = false;
       setDangLuu(false);
@@ -61,9 +62,9 @@ export default function ShopifyConfigDialog({ open, onOpenChange, config, onSave
     <Dialog open={open} onOpenChange={dong}>
       <DialogContent className="max-h-[90dvh] overflow-y-auto rounded-xl border-bo-border sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle className="text-bo-foreground">Cập nhật khóa truy cập</DialogTitle>
+          <DialogTitle className="text-bo-foreground">{t("Cập nhật khóa truy cập")}</DialogTitle>
           <DialogDescription className="text-bo-muted">
-            Khóa được mã hóa trước khi lưu và chỉ hiển thị dạng che. Nên kiểm tra kết nối trước khi lưu.
+            {t("Khóa được mã hóa trước khi lưu và chỉ hiển thị dạng che. Nên kiểm tra kết nối trước khi lưu.")}
           </DialogDescription>
         </DialogHeader>
         <form id="shopify-khoa-form" onSubmit={luu} noValidate>
@@ -79,11 +80,11 @@ export default function ShopifyConfigDialog({ open, onOpenChange, config, onSave
         </form>
         <DialogFooter className="gap-2">
           <Button type="button" variant="outline" disabled={dangLuu} onClick={() => dong(false)} className={NUT_PHU}>
-            Hủy bỏ
+            {t("Hủy bỏ")}
           </Button>
           <Button type="submit" form="shopify-khoa-form" disabled={dangLuu} className={NUT_CHINH}>
             {dangLuu ? <Loader2 className="size-4 animate-spin" /> : null}
-            {dangLuu ? "Đang lưu…" : "Lưu khóa"}
+            {dangLuu ? t("Đang lưu…") : t("Lưu khóa")}
           </Button>
         </DialogFooter>
       </DialogContent>

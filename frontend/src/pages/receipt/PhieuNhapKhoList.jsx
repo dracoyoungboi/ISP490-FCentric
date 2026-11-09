@@ -34,6 +34,7 @@ import {
 } from "@/constants/goodsReceipt";
 import { ROLES, getCurrentUserId } from "@/utils/roles";
 import { formatDate } from "@/utils/formatters";
+import { t } from "@/i18n";
 
 // Tab trạng thái (bố cục A+G) — mã tab nằm trên URL ?trangThai=
 const TAB_MAS = GOODS_RECEIPT_TABS.map((tab) => tab.ma);
@@ -229,15 +230,15 @@ export default function PhieuNhapKhoList() {
   });
 
   // Số chỉ hiện khi đếm xong và danh sách không lỗi (R9); số 0 tự ẩn trong StatusTabs
-  const statusTabs = GOODS_RECEIPT_TABS.map((t) => ({
-    value: t.ma,
-    label: t.label,
-    tone: TONE_TAB[t.ma],
-    count: loadError ? null : tabCounts.counts[t.ma],
+  const statusTabs = GOODS_RECEIPT_TABS.map((tg) => ({
+    value: tg.ma,
+    label: t(tg.label),
+    tone: TONE_TAB[tg.ma],
+    count: loadError ? null : tabCounts.counts[tg.ma],
   }));
 
   const pendingCount = xuLyNhapKho && tab !== TAB_CHO_NHAP_KHO ? choNhapKho.counts[TAB_CHO_NHAP_KHO] : null;
-  const emptyTabLabel = GOODS_RECEIPT_TABS.find((t) => t.ma === tab)?.label;
+  const emptyTabLabel = t(GOODS_RECEIPT_TABS.find((tg) => tg.ma === tab)?.label);
 
   return (
     <PageContainer fill className="space-y-4">
@@ -245,7 +246,7 @@ export default function PhieuNhapKhoList() {
         actions={
           <Button asChild className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover">
             <Link to="/goods-receipts/create">
-              <Plus className="size-4" /> Tạo phiếu nhập kho
+              <Plus className="size-4" /> {t("Tạo phiếu nhập kho")}
             </Link>
           </Button>
         }
@@ -253,10 +254,10 @@ export default function PhieuNhapKhoList() {
 
       <AttentionBar
         count={pendingCount}
-        actionLabel="Xem phiếu chờ nhập kho"
+        actionLabel={t("Xem phiếu chờ nhập kho")}
         onAction={showPending}
       >
-        <strong className="font-semibold">{pendingCount?.toLocaleString("vi-VN")} phiếu</strong> đang chờ nhập kho.
+        <strong className="font-semibold">{pendingCount?.toLocaleString("vi-VN")} {t("phiếu", { count: Number(pendingCount) || 0 })}</strong> {t("đang chờ nhập kho.")}
       </AttentionBar>
 
       {/* ── TABLE ── */}
@@ -266,7 +267,7 @@ export default function PhieuNhapKhoList() {
           <ListToolbar
             tabs={
               <StatusTabs
-                label="Lọc phiếu nhập kho theo trạng thái"
+                label={t("Lọc phiếu nhập kho theo trạng thái")}
                 tabs={statusTabs}
                 value={tab}
                 onChange={changeTab}
@@ -276,8 +277,8 @@ export default function PhieuNhapKhoList() {
             onClear={clearFilters}
           >
             <SearchInput
-              label="Tìm phiếu nhập kho"
-              placeholder="Nhập số phiếu / mã đơn mua..."
+              label={t("Tìm phiếu nhập kho")}
+              placeholder={t("Nhập số phiếu / mã đơn mua...")}
               value={keywordInput}
               onChange={e => setKeywordInput(e.target.value)}
               onClear={() => setKeywordInput("")}
@@ -285,8 +286,8 @@ export default function PhieuNhapKhoList() {
             />
 
             <Input
-              aria-label="Lọc theo tên nhà cung cấp"
-              placeholder="Tên nhà cung cấp..."
+              aria-label={t("Lọc theo tên nhà cung cấp")}
+              placeholder={t("Tên nhà cung cấp...")}
               className="h-9 w-full border-bo-border bg-bo-surface text-sm text-bo-foreground placeholder:text-bo-muted focus-visible:border-bo-primary focus-visible:ring-bo-primary/15 sm:w-[200px]"
               value={nhaCungCapInput}
               onChange={e => setNhaCungCapInput(e.target.value)}
@@ -295,10 +296,10 @@ export default function PhieuNhapKhoList() {
             {/* Ngày nhập: nhãn nằm trong ô để hàng công cụ gọn một dòng */}
             <label className="flex h-9 w-full items-center gap-2 rounded-md border border-bo-border bg-bo-surface pl-3 pr-2 text-sm focus-within:border-bo-primary focus-within:ring-2 focus-within:ring-bo-primary/15 sm:w-auto">
               <Calendar className="size-4 shrink-0 text-bo-muted" />
-              <span className="shrink-0 text-xs text-bo-muted">Ngày nhập</span>
+              <span className="shrink-0 text-xs text-bo-muted">{t("Ngày nhập")}</span>
               <Input
                 type="date"
-                aria-label="Ngày nhập"
+                aria-label={t("Ngày nhập")}
                 className="h-8 min-w-0 flex-1 border-0 bg-transparent px-0 text-sm text-bo-foreground shadow-none focus-visible:ring-0"
                 value={filters.ngayNhap}
                 onChange={e => setFilters(p => ({ ...p, ngayNhap: e.target.value, page: 0 }))}
@@ -320,10 +321,10 @@ export default function PhieuNhapKhoList() {
         }
       >
         {loading ? (
-          <LoadingState rows={5} label="Đang tải danh sách phiếu nhập kho" />
+          <LoadingState rows={5} label={t("Đang tải danh sách phiếu nhập kho")} />
         ) : loadError ? (
           <ErrorState
-            description="Không thể tải danh sách phiếu nhập kho. Vui lòng thử lại."
+            description={t("Không thể tải danh sách phiếu nhập kho. Vui lòng thử lại.")}
             error={loadError}
             onRetry={handleRetry}
           />
@@ -331,38 +332,38 @@ export default function PhieuNhapKhoList() {
           hasActiveFilters ? (
             <EmptyState
               icon={SearchX}
-              title="Không tìm thấy phiếu nhập kho phù hợp"
-              description="Thử đổi từ khóa, nhà cung cấp hoặc ngày nhập."
+              title={t("Không tìm thấy phiếu nhập kho phù hợp")}
+              description={t("Thử đổi từ khóa, nhà cung cấp hoặc ngày nhập.")}
               action={
                 <Button
                   variant="outline"
                   onClick={clearFilters}
                   className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                 >
-                  Xóa lọc
+                  {t("Xóa lọc")}
                 </Button>
               }
             />
           ) : tab !== TAB_MAC_DINH ? (
             <EmptyState
               icon={ClipboardList}
-              title={`Không có phiếu nhập kho nào ở trạng thái "${emptyTabLabel}"`}
-              description="Chọn tab Tất cả để xem mọi phiếu nhập kho."
+              title={t("Không có phiếu nhập kho nào ở trạng thái \"{{emptyTabLabel}}\"", { emptyTabLabel })}
+              description={t("Chọn tab Tất cả để xem mọi phiếu nhập kho.")}
               action={
                 <Button
                   variant="outline"
                   onClick={() => changeTab(TAB_MAC_DINH)}
                   className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                 >
-                  Xem tất cả
+                  {t("Xem tất cả")}
                 </Button>
               }
             />
           ) : (
             <EmptyState
               icon={ClipboardList}
-              title="Chưa có phiếu nhập kho"
-              description="Phiếu nhập kho từ đơn mua hàng, chuyển kho nội bộ và hoàn trả sẽ hiện ở đây."
+              title={t("Chưa có phiếu nhập kho")}
+              description={t("Phiếu nhập kho từ đơn mua hàng, chuyển kho nội bộ và hoàn trả sẽ hiện ở đây.")}
             />
           )
         ) : (
@@ -385,7 +386,7 @@ export default function PhieuNhapKhoList() {
                       {formatDate(item.ngayTao)}
                       {item.tenKho || item.kho?.tenKho ? ` · ${item.tenKho || item.kho?.tenKho}` : ""}
                     </span>
-                    {item.ngayNhap ? <span className="shrink-0">Ngày nhập {formatDate(item.ngayNhap)}</span> : null}
+                    {item.ngayNhap ? <span className="shrink-0">{t("Ngày nhập {{ngayNhap}}", { ngayNhap: formatDate(item.ngayNhap) })}</span> : null}
                   </span>
                 </Link>
               </li>
@@ -396,13 +397,13 @@ export default function PhieuNhapKhoList() {
           <table className="w-full min-w-[900px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                <th className="h-10 w-14 whitespace-nowrap bg-bo-surface-subtle px-4 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">STT</th>
-                <th className="h-10 whitespace-nowrap bg-bo-surface-subtle px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Số phiếu nhập</th>
-                <th className="h-10 whitespace-nowrap bg-bo-surface-subtle px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Đơn mua / nhà cung cấp</th>
-                <th className="h-10 whitespace-nowrap bg-bo-surface-subtle px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Kho nhập</th>
-                <th className="h-10 whitespace-nowrap bg-bo-surface-subtle px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">Ngày tạo</th>
-                <th className="h-10 whitespace-nowrap bg-bo-surface-subtle px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày nhập</th>
-                <th className="h-10 whitespace-nowrap bg-bo-surface-subtle px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
+                <th className="h-10 w-14 whitespace-nowrap bg-bo-surface-subtle px-4 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">{t("STT")}</th>
+                <th className="h-10 whitespace-nowrap bg-bo-surface-subtle px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Số phiếu nhập")}</th>
+                <th className="h-10 whitespace-nowrap bg-bo-surface-subtle px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Đơn mua / nhà cung cấp")}</th>
+                <th className="h-10 whitespace-nowrap bg-bo-surface-subtle px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Kho nhập")}</th>
+                <th className="h-10 whitespace-nowrap bg-bo-surface-subtle px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">{t("Ngày tạo")}</th>
+                <th className="h-10 whitespace-nowrap bg-bo-surface-subtle px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Ngày nhập")}</th>
+                <th className="h-10 whitespace-nowrap bg-bo-surface-subtle px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Trạng thái")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-bo-border">
@@ -434,7 +435,7 @@ export default function PhieuNhapKhoList() {
                     {formatDate(item.ngayTao)}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 align-middle text-xs text-bo-muted">
-                    {item.ngayNhap ? formatDate(item.ngayNhap) : "Chưa nhập kho"}
+                    {item.ngayNhap ? formatDate(item.ngayNhap) : t("Chưa nhập kho")}
                   </td>
                   <td className="px-4 py-3 align-middle">
                     <StatusBadge quyTrinh="phieuNhap" label={getGoodsReceiptStatus(item.trangThai).label} />

@@ -42,22 +42,23 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { t } from "@/i18n";
 
 // Tab trạng thái (bố cục A+G): mã tab nằm trên URL ?trangThai=, `trangThai` là giá trị gửi API.
 // "Hết hàng" ở đây = hết trên mọi kho (backend tự tính lại 1/0 theo tồn kho các biến thể),
 // khác "Hết hàng" theo từng kho ở Báo cáo tồn kho → có chú thích khi rê chuột.
 const STATUS_TABS = [
-    { value: "tat-ca", label: "Tất cả", trangThai: "ALL" },
-    { value: "con-hang", label: "Còn hàng", trangThai: "1" },
-    { value: "het-hang", label: "Hết hàng", trangThai: "0", hint: "Hết hàng ở mọi kho" },
-    { value: "ngung-hoat-dong", label: "Ngừng hoạt động", trangThai: "2" },
+    { value: "tat-ca", label: t("Tất cả"), trangThai: "ALL" },
+    { value: "con-hang", label: t("Còn hàng"), trangThai: "1" },
+    { value: "het-hang", label: t("Hết hàng"), trangThai: "0", hint: t("Hết hàng ở mọi kho") },
+    { value: "ngung-hoat-dong", label: t("Ngừng hoạt động"), trangThai: "2" },
 ];
 const STATUS_TAB_VALUES = STATUS_TABS.map((tab) => tab.value);
 const TAB_MAC_DINH = "tat-ca";
 const trangThaiCuaTab = (ma) => STATUS_TABS.find((tab) => tab.value === ma)?.trangThai ?? "ALL";
 
 const SEARCH_DEBOUNCE_MS = 500;
-const LOAD_ERROR_MESSAGE = "Không thể tải danh sách sản phẩm. Vui lòng thử lại.";
+const LOAD_ERROR_MESSAGE = t("Không thể tải danh sách sản phẩm. Vui lòng thử lại.");
 
 // Thêm / sửa / ngừng kinh doanh sản phẩm: khớp @RequireAuth của POST /create, PUT /update, DELETE /soft-delete
 const VAI_TRO_SUA_SAN_PHAM = [ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO];
@@ -147,7 +148,7 @@ function buildProductFilterPayload(filters) {
 
 // Nhãn trạng thái sản phẩm: cùng nhãn với cột Trạng thái của bảng
 const nhanTrangThai = (trangThai) =>
-    trangThai === 1 ? "Còn hàng" : trangThai === 0 ? "Hết hàng" : "Ngừng hoạt động";
+    trangThai === 1 ? "Còn hàng" : trangThai === 0 ? "Hết hàng" : "Ngừng hoạt động"; // i18n-giu-nguyen: StatusBadge tự dịch, tra màu theo tên Việt
 
 // Ô khoảng giá trong sheet "Bộ lọc" (điện thoại): nhãn nằm trong khung như ô ngày của các màn danh sách khác
 const O_GIA_DIEN_THOAI =
@@ -266,7 +267,7 @@ export default function ProductList() {
                 return;
             }
             // 403 (không có quyền) đã có ô khóa riêng, không thông báo nhanh
-            if (error?.response?.status !== 403) toast.error("Không thể tải danh sách sản phẩm");
+            if (error?.response?.status !== 403) toast.error(t("Không thể tải danh sách sản phẩm"));
             // Không giữ dòng + tổng số của lần tải trước (R9). Giữ lỗi gốc để ô lỗi phân biệt 403
             setProducts([]);
             setTotal(0);
@@ -315,7 +316,7 @@ export default function ProductList() {
     useEffect(() => {
         if (!location.state?.success || toastShownRef.current) return;
         toastShownRef.current = true;
-        toast.success(location.state.message || "Thao tác thành công");
+        toast.success(location.state.message || t("Thao tác thành công"));
         // Xóa state nhưng giữ tham số URL (tab đang chọn)
         navigate({ pathname: location.pathname, search: location.search }, { replace: true });
     }, [location.state, navigate, location.pathname, location.search]);
@@ -353,7 +354,7 @@ export default function ProductList() {
             // Frontend -> productService.deleteProduct -> SanPhamQuanAoController.softDelete -> changeStatus(id, 2):
             // máy chủ kiểm tồn, đơn bán / đơn mua / phiếu chuyển dở dang và kiểm kê trước khi ngừng (409 kèm số liệu).
             await productService.deleteProduct(productToDelete.id);
-            toast.success("Đã ngừng kinh doanh sản phẩm");
+            toast.success(t("Đã ngừng kinh doanh sản phẩm"));
             closeConfirm();
             setProductToDelete(null);
             fetchProducts();
@@ -361,7 +362,7 @@ export default function ProductList() {
         } catch (error) {
             console.error("Lỗi khi ngừng kinh doanh sản phẩm:", error);
             // Không đóng hộp: hiện lý do ngay trong hộp; 409 thì khóa nút (thử lại vẫn bị chặn tới khi xử lý xong)
-            setLoiNgung(getApiErrorMessage(error, "Không ngừng kinh doanh được sản phẩm. Vui lòng thử lại."));
+            setLoiNgung(getApiErrorMessage(error, t("Không ngừng kinh doanh được sản phẩm. Vui lòng thử lại.")));
             setKhoaNgung(getApiErrorStatus(error) === 409);
         } finally {
             setIsDeleting(false);
@@ -391,20 +392,20 @@ export default function ProductList() {
         setMoThaoTac(true);
     };
     const luaChonThuongHieu = [
-        { value: "ALL", label: "Tất cả thương hiệu" },
+        { value: "ALL", label: t("Tất cả thương hiệu") },
         ...brands.map((brand) => ({
             value: String(brand.id),
-            label: Number(brand.trangThai) !== 1 ? `${brand.tenThuongHieu} (Ngừng)` : brand.tenThuongHieu,
+            label: Number(brand.trangThai) !== 1 ? t("{{tenThuongHieu}} (Ngừng)", { tenThuongHieu: brand.tenThuongHieu }) : brand.tenThuongHieu,
         })),
     ];
 
     // Số chỉ hiện khi đã đếm xong và danh sách không lỗi (R9); số 0 tự ẩn trong StatusTabs.
-    const statusTabs = STATUS_TABS.map((t) => ({
-        value: t.value,
-        label: <TabLabel label={t.label} hint={t.hint} />,
-        count: loadError ? null : soTheoTab[t.value],
+    const statusTabs = STATUS_TABS.map((tab0) => ({
+        value: tab0.value,
+        label: <TabLabel label={tab0.label} hint={tab0.hint} />,
+        count: loadError ? null : soTheoTab[tab0.value],
     }));
-    const emptyTabLabel = STATUS_TABS.find((t) => t.value === tab)?.label;
+    const emptyTabLabel = STATUS_TABS.find((tab0) => tab0.value === tab)?.label;
 
     return (
         <PageContainer fill className="space-y-4">
@@ -416,7 +417,7 @@ export default function ProductList() {
                             className="bg-bo-primary text-white hover:bg-bo-primary-hover"
                         >
                             <Plus className="h-4 w-4" />
-                            Thêm sản phẩm
+                            {t("Thêm sản phẩm")}
                         </Button>
                     ) : null
                 }
@@ -429,7 +430,7 @@ export default function ProductList() {
                     <ListToolbar
                         tabs={
                             <StatusTabs
-                                label="Lọc sản phẩm theo trạng thái"
+                                label={t("Lọc sản phẩm theo trạng thái")}
                                 tabs={statusTabs}
                                 value={tab}
                                 onChange={changeTab}
@@ -439,8 +440,8 @@ export default function ProductList() {
                         onClear={clearFilters}
                     >
                         <SearchInput
-                            label="Tìm sản phẩm"
-                            placeholder="Tìm theo tên, mô tả sản phẩm..."
+                            label={t("Tìm sản phẩm")}
+                            placeholder={t("Tìm theo tên, mô tả sản phẩm...")}
                             value={draft.keyword}
                             onChange={updateDraft("keyword")}
                             onClear={() => {
@@ -454,12 +455,12 @@ export default function ProductList() {
                             <>
                                 {/* Điện thoại: khoảng giá + thương hiệu thành ô của sheet "Bộ lọc" (có chip bỏ lọc) */}
                                 <label className={O_GIA_DIEN_THOAI}>
-                                    <span className="w-14 shrink-0 text-xs text-bo-muted">Giá từ</span>
+                                    <span className="w-14 shrink-0 text-xs text-bo-muted">{t("Giá từ")}</span>
                                     <Input
                                         type="number"
                                         inputMode="numeric"
                                         min="0"
-                                        aria-label="Giá từ"
+                                        aria-label={t("Giá từ")}
                                         value={draft.giaTu}
                                         onChange={updateDraft("giaTu")}
                                         className="h-8 min-w-0 flex-1 border-0 bg-transparent px-0 text-bo-foreground shadow-none focus-visible:ring-0"
@@ -467,12 +468,12 @@ export default function ProductList() {
                                     <span className="shrink-0 text-xs text-bo-muted">₫</span>
                                 </label>
                                 <label className={O_GIA_DIEN_THOAI}>
-                                    <span className="w-14 shrink-0 text-xs text-bo-muted">Giá đến</span>
+                                    <span className="w-14 shrink-0 text-xs text-bo-muted">{t("Giá đến")}</span>
                                     <Input
                                         type="number"
                                         inputMode="numeric"
                                         min="0"
-                                        aria-label="Giá đến"
+                                        aria-label={t("Giá đến")}
                                         value={draft.giaDen}
                                         onChange={updateDraft("giaDen")}
                                         className="h-8 min-w-0 flex-1 border-0 bg-transparent px-0 text-bo-foreground shadow-none focus-visible:ring-0"
@@ -480,7 +481,7 @@ export default function ProductList() {
                                     <span className="shrink-0 text-xs text-bo-muted">₫</span>
                                 </label>
                                 <FilterSelect
-                                    label="Thương hiệu"
+                                    label={t("Thương hiệu")}
                                     value={filters.thuongHieu}
                                     options={luaChonThuongHieu}
                                     onChange={(value) => updateFilter("thuongHieu", value)}
@@ -493,13 +494,13 @@ export default function ProductList() {
                             <DropdownMenuTrigger asChild>
                                 <Button
                                     variant="outline"
-                                    aria-label="Lọc theo thương hiệu"
+                                    aria-label={t("Lọc theo thương hiệu")}
                                     className="h-9 w-full justify-between gap-2 border-bo-border bg-bo-surface px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle sm:w-[190px]"
                                 >
                                     <span className="truncate">
                                         {filters.thuongHieu === "ALL"
-                                            ? "Tất cả thương hiệu"
-                                            : brands.find((b) => b.id === Number(filters.thuongHieu))?.tenThuongHieu ?? "Thương hiệu"}
+                                            ? t("Tất cả thương hiệu")
+                                            : brands.find((b) => b.id === Number(filters.thuongHieu))?.tenThuongHieu ?? t("Thương hiệu")}
                                     </span>
                                     <ChevronDown className="size-4 shrink-0 opacity-60" />
                                 </Button>
@@ -512,7 +513,7 @@ export default function ProductList() {
                                     onClick={() => updateFilter("thuongHieu", "ALL")}
                                     className="flex cursor-pointer items-center justify-between rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
                                 >
-                                    Tất cả thương hiệu
+                                    {t("Tất cả thương hiệu")}
                                     {filters.thuongHieu === "ALL" && <Check className="h-4 w-4" />}
                                 </DropdownMenuItem>
                                 {brands.map((brand) => (
@@ -524,7 +525,7 @@ export default function ProductList() {
                                         <span className="min-w-0 truncate">
                                             {brand.tenThuongHieu}
                                             {Number(brand.trangThai) !== 1 && (
-                                                <span className="ml-2 text-xs text-bo-muted">(Ngừng)</span>
+                                                <span className="ml-2 text-xs text-bo-muted">{t("(Ngừng)")}</span>
                                             )}
                                         </span>
                                         {filters.thuongHieu === String(brand.id) && <Check className="h-4 w-4 shrink-0" />}
@@ -539,8 +540,8 @@ export default function ProductList() {
                                 type="number"
                                 value={draft.giaTu}
                                 onChange={updateDraft("giaTu")}
-                                placeholder="Giá từ"
-                                aria-label="Giá từ"
+                                placeholder={t("Giá từ")}
+                                aria-label={t("Giá từ")}
                                 min="0"
                                 className="h-9 min-w-0 flex-1 border-bo-border bg-bo-surface text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20 sm:w-28 sm:flex-none"
                             />
@@ -548,8 +549,8 @@ export default function ProductList() {
                                 type="number"
                                 value={draft.giaDen}
                                 onChange={updateDraft("giaDen")}
-                                placeholder="Giá đến"
-                                aria-label="Giá đến"
+                                placeholder={t("Giá đến")}
+                                aria-label={t("Giá đến")}
                                 min="0"
                                 className="h-9 min-w-0 flex-1 border-bo-border bg-bo-surface text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20 sm:w-28 sm:flex-none"
                             />
@@ -571,7 +572,7 @@ export default function ProductList() {
                 }
             >
                 {isLoading ? (
-                    <LoadingState label="Đang tải danh sách sản phẩm" />
+                    <LoadingState label={t("Đang tải danh sách sản phẩm")} />
                 ) : loadError ? (
                     <ErrorState
                         description={loadError?.response?.data?.message || LOAD_ERROR_MESSAGE}
@@ -585,40 +586,40 @@ export default function ProductList() {
                     hasActiveFilters ? (
                         <EmptyState
                             icon={SearchX}
-                            title="Không tìm thấy sản phẩm phù hợp"
-                            description="Thử đổi từ khóa, thương hiệu hoặc khoảng giá."
+                            title={t("Không tìm thấy sản phẩm phù hợp")}
+                            description={t("Thử đổi từ khóa, thương hiệu hoặc khoảng giá.")}
                             action={
                                 <Button
                                     variant="outline"
                                     onClick={clearFilters}
                                     className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
-                                    Xóa lọc
+                                    {t("Xóa lọc")}
                                 </Button>
                             }
                         />
                     ) : tab !== TAB_MAC_DINH ? (
                         <EmptyState
                             icon={Package}
-                            title={`Không có sản phẩm nào ở trạng thái "${emptyTabLabel}"`}
-                            description="Chọn tab Tất cả để xem mọi sản phẩm."
+                            title={t("Không có sản phẩm nào ở trạng thái \"{{trangThai}}\"", { trangThai: emptyTabLabel })}
+                            description={t("Chọn tab Tất cả để xem mọi sản phẩm.")}
                             action={
                                 <Button
                                     variant="outline"
                                     onClick={() => changeTab(TAB_MAC_DINH)}
                                     className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
-                                    Xem tất cả
+                                    {t("Xem tất cả")}
                                 </Button>
                             }
                         />
                     ) : (
                         <EmptyState
                             icon={Package}
-                            title="Chưa có sản phẩm"
+                            title={t("Chưa có sản phẩm")}
                             description={coTheSua
-                                ? "Thêm sản phẩm để quản lý biến thể, giá bán và tồn kho."
-                                : "Sản phẩm sẽ hiện tại đây khi được thêm."}
+                                ? t("Thêm sản phẩm để quản lý biến thể, giá bán và tồn kho.")
+                                : t("Sản phẩm sẽ hiện tại đây khi được thêm.")}
                         />
                     )
                 ) : (
@@ -649,7 +650,7 @@ export default function ProductList() {
                                                 <StatusBadge label={nhanTrangThai(product.trangThai)} />
                                             </span>
                                             <span className="truncate text-[13px] text-bo-muted">
-                                                {product.thuongHieu?.tenThuongHieu || "Chưa có thương hiệu"} · {soPhanLoai} phân loại
+                                                {product.thuongHieu?.tenThuongHieu || t("Chưa có thương hiệu")} · {t("{{count}} phân loại", { count: soPhanLoai })}
                                             </span>
                                             <span className="flex items-baseline justify-between gap-3 text-[13px] text-bo-muted">
                                                 <span className="shrink-0 tabular-nums">{formatDate(product.ngayTao)}</span>
@@ -671,28 +672,28 @@ export default function ProductList() {
                         <thead className="sticky top-0 z-10">
                         <tr className="border-b border-bo-border bg-bo-surface-subtle">
                             <th className="h-10 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">
-                                STT
+                                {t("STT")}
                             </th>
                             <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                Hình ảnh
+                                {t("Hình ảnh")}
                             </th>
                             <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                Tên sản phẩm
+                                {t("Tên sản phẩm")}
                             </th>
                             <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">
-                                Thương hiệu
+                                {t("Thương hiệu")}
                             </th>
                             <th className="h-10 px-3 text-right whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                Giá bán
+                                {t("Giá bán")}
                             </th>
                             <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                Trạng thái
+                                {t("Trạng thái")}
                             </th>
                             <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">
-                                Ngày tạo
+                                {t("Ngày tạo")}
                             </th>
                             <th className="h-10 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                Thao tác
+                                {t("Thao tác")}
                             </th>
                         </tr>
                         </thead>
@@ -741,7 +742,7 @@ export default function ProductList() {
                                     )}
                                     {/* Máy tính bảng dọc: thương hiệu · ngày tạo thay cho hai cột đã ẩn */}
                                     <p className="mt-0.5 hidden truncate text-xs text-bo-muted cam-ung:max-lg:block">
-                                        {product.thuongHieu?.tenThuongHieu || "Chưa có thương hiệu"} · {formatDate(product.ngayTao)}
+                                        {product.thuongHieu?.tenThuongHieu || t("Chưa có thương hiệu")} · {formatDate(product.ngayTao)}
                                     </p>
                                 </td>
 
@@ -752,7 +753,7 @@ export default function ProductList() {
                                             {product.thuongHieu.tenThuongHieu}
                                         </span>
                                     ) : (
-                                        <span className="text-xs italic text-bo-muted">Chưa xác định</span>
+                                        <span className="text-xs italic text-bo-muted">{t("Chưa xác định")}</span>
                                     )}
                                 </td>
 
@@ -768,11 +769,11 @@ export default function ProductList() {
                                 {/* Trạng thái */}
                                 <td className="px-3 py-3">
                                     {product.trangThai === 1 ? (
-                                        <StatusBadge label="Còn hàng" />
+                                        <StatusBadge /* i18n-giu-nguyen: StatusBadge tự dịch */ label="Còn hàng" />
                                     ) : product.trangThai === 0 ? (
-                                        <StatusBadge label="Hết hàng" />
+                                        <StatusBadge /* i18n-giu-nguyen: StatusBadge tự dịch */ label="Hết hàng" />
                                     ) : (
-                                        <StatusBadge label="Ngừng hoạt động" />
+                                        <StatusBadge /* i18n-giu-nguyen: StatusBadge tự dịch */ label="Ngừng hoạt động" />
                                     )}
                                 </td>
 
@@ -786,19 +787,19 @@ export default function ProductList() {
                                     <RowActions className="cam-ung:max-lg:hidden">
                                         <RowActionButton
                                             icon={Eye}
-                                            label="Xem chi tiết"
+                                            label={t("Xem chi tiết")}
                                             onClick={() => navigate(`/products/${product.id}`)}
                                         />
                                         {coTheSua ? (
                                             <>
                                                 <RowActionButton
                                                     icon={Edit}
-                                                    label="Chỉnh sửa"
+                                                    label={t("Chỉnh sửa")}
                                                     onClick={() => { setSelectedProductId(product.id); openEditModal(); }}
                                                 />
                                                 <RowActionButton
                                                     icon={Ban}
-                                                    label="Ngừng kinh doanh"
+                                                    label={t("Ngừng kinh doanh")}
                                                     tone="danger"
                                                     onClick={() => handleDeleteClick(product)}
                                                 />
@@ -827,13 +828,13 @@ export default function ProductList() {
                 mo={moThaoTac}
                 onDoiMo={setMoThaoTac}
                 tieuDe={spThaoTac?.tenSanPham}
-                moTa="Thao tác với sản phẩm"
+                moTa={t("Thao tác với sản phẩm")}
                 thaoTac={[
-                    { khoa: "xem", icon: Eye, nhan: "Xem chi tiết", onChon: () => navigate(`/products/${spThaoTac?.id}`) },
+                    { khoa: "xem", icon: Eye, nhan: t("Xem chi tiết"), onChon: () => navigate(`/products/${spThaoTac?.id}`) },
                     ...(coTheSua
                         ? [
-                            { khoa: "sua", icon: Edit, nhan: "Chỉnh sửa", onChon: () => { setSelectedProductId(spThaoTac?.id); openEditModal(); } },
-                            { khoa: "ngung", icon: Ban, nhan: "Ngừng kinh doanh", nguyHiem: true, onChon: () => handleDeleteClick(spThaoTac) },
+                            { khoa: "sua", icon: Edit, nhan: t("Chỉnh sửa"), onChon: () => { setSelectedProductId(spThaoTac?.id); openEditModal(); } },
+                            { khoa: "ngung", icon: Ban, nhan: t("Ngừng kinh doanh"), nguyHiem: true, onChon: () => handleDeleteClick(spThaoTac) },
                         ]
                         : []),
                 ]}
@@ -857,9 +858,9 @@ export default function ProductList() {
             <HopXacNhanChungTu
                 mo={isConfirmOpen}
                 onDoiMo={(mo) => { if (!mo) handleCancelDelete(); }}
-                tieuDe="Ngừng kinh doanh sản phẩm"
-                moTa={`${productToDelete ? `"${productToDelete.tenSanPham}"` : "Sản phẩm"} sẽ chuyển sang Ngừng hoạt động, không bị xóa: thông tin và lịch sử chứng từ vẫn giữ nguyên. Chỉ ngừng được khi đã hết tồn kho và không còn đơn bán, đơn mua, phiếu chuyển kho đang xử lý.`}
-                nhanXacNhan="Ngừng kinh doanh"
+                tieuDe={t("Ngừng kinh doanh sản phẩm")}
+                moTa={t("{{sanPham}} sẽ chuyển sang Ngừng hoạt động, không bị xóa: thông tin và lịch sử chứng từ vẫn giữ nguyên. Chỉ ngừng được khi đã hết tồn kho và không còn đơn bán, đơn mua, phiếu chuyển kho đang xử lý.", { sanPham: productToDelete ? `"${productToDelete.tenSanPham}"` : t("Sản phẩm") })}
+                nhanXacNhan={t("Ngừng kinh doanh")}
                 iconXacNhan={Ban}
                 kieu="nguyHiem"
                 dangChay={isDeleting}

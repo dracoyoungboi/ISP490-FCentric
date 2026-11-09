@@ -7,6 +7,7 @@ import { NUT_CHINH, NUT_PHU } from "@/components/channel/BottomActionBar";
 import { kiemTraGiaTriKetNoiLazada, taoGiaTriKetNoiLazada, taoPayloadKetNoiLazada } from "@/components/channel/ketNoiLazada";
 import { kenhBanHangService } from "@/services/kenhBanHangService";
 import { getApiErrorMessage } from "@/utils/apiError";
+import { t } from "@/i18n";
 
 export default function LazadaConfigDialog({ maKenh = "LAZADA", open, onOpenChange, config, onSaved }) {
   const isSandbox = String(maKenh).toUpperCase() === "LAZADA_SANDBOX";
@@ -40,7 +41,7 @@ export default function LazadaConfigDialog({ maKenh = "LAZADA", open, onOpenChan
       onSaved?.(dto);
     } catch (error) {
       setValues((cu) => ({ ...cu, appSecret: "", accessToken: "", refreshToken: "" }));
-      setResult({ ok: false, title: "Chưa lưu được", message: getApiErrorMessage(error, "Không lưu được thông tin kết nối Lazada") });
+      setResult({ ok: false, title: t("Chưa lưu được"), message: getApiErrorMessage(error, t("Không lưu được thông tin kết nối Lazada")) });
     } finally {
       dangLuuRef.current = false;
       setDangLuu(false);
@@ -51,9 +52,9 @@ export default function LazadaConfigDialog({ maKenh = "LAZADA", open, onOpenChan
     <Dialog open={open} onOpenChange={dong}>
       <DialogContent className="max-h-[90dvh] overflow-y-auto rounded-xl border-bo-border sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle className="text-bo-foreground">{isSandbox ? "Cấu hình kết nối Lazada Sandbox" : "Cấu hình kết nối Lazada"}</DialogTitle>
+          <DialogTitle className="text-bo-foreground">{isSandbox ? t("Cấu hình kết nối Lazada Sandbox") : t("Cấu hình kết nối Lazada")}</DialogTitle>
           <DialogDescription className="text-bo-muted">
-            Thông tin App Secret và Access Token được mã hóa AES-256-GCM trước khi lưu và chỉ hiển thị dạng che.
+            {t("Thông tin App Secret và Access Token được mã hóa AES-256-GCM trước khi lưu và chỉ hiển thị dạng che.")}
           </DialogDescription>
         </DialogHeader>
 
@@ -78,11 +79,11 @@ export default function LazadaConfigDialog({ maKenh = "LAZADA", open, onOpenChan
               onClick={() => dong(false)}
               className={NUT_PHU}
             >
-              Hủy
+              {t("Hủy")}
             </Button>
             <Button type="submit" disabled={dangLuu} className={NUT_CHINH}>
               {dangLuu ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Lưu thay đổi
+              {t("Lưu thay đổi")}
             </Button>
           </DialogFooter>
         </form>

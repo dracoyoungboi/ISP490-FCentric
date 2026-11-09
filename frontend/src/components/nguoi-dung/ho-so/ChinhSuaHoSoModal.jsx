@@ -16,6 +16,7 @@ import { PHONE_ERROR_MESSAGE, getPhoneError, isPhoneValid, sanitizePhoneInput } 
 import { LOI_HO_TEN_DAI, LOI_HO_TEN_KY_TU, chuanHoaHoTen, loiHoTen } from "@/validations/hoTen";
 import { toast } from "@/lib/thongBaoNhanh";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 const O_NHAP =
   "h-9 w-full border-bo-input-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20";
@@ -76,12 +77,12 @@ export default function ChinhSuaHoSoModal({ open, onOpenChange, hoSo, oDauTien =
         hoTen: hoTenMoi,
         soDienThoai: chuan(nhap.soDienThoai) || null,
       });
-      if (!res?.data) throw new Error("Không đọc được dữ liệu trả về");
+      if (!res?.data) throw new Error(t("Không đọc được dữ liệu trả về"));
       onSaved?.(res.data);
-      toast.success("Đã cập nhật hồ sơ.");
+      toast.success(t("Đã cập nhật hồ sơ."));
       onOpenChange(false);
     } catch (err) {
-      toast.error(getApiErrorMessage(err, "Không cập nhật được hồ sơ. Vui lòng thử lại."));
+      toast.error(getApiErrorMessage(err, t("Không cập nhật được hồ sơ. Vui lòng thử lại.")));
     } finally {
       setDangLuu(false);
     }
@@ -100,14 +101,14 @@ export default function ChinhSuaHoSoModal({ open, onOpenChange, hoSo, oDauTien =
         }}
       >
         <DialogHeader>
-          <DialogTitle>Chỉnh sửa hồ sơ</DialogTitle>
-          <DialogDescription className="text-bo-muted">Email và tên đăng nhập không đổi được.</DialogDescription>
+          <DialogTitle>{t("Chỉnh sửa hồ sơ")}</DialogTitle>
+          <DialogDescription className="text-bo-muted">{t("Email và tên đăng nhập không đổi được.")}</DialogDescription>
         </DialogHeader>
 
         <form id="form-chinh-sua-ho-so" onSubmit={luu} noValidate className="flex flex-col gap-4">
           <div>
             <label htmlFor="ho-ten" className={NHAN}>
-              Họ và tên
+              {t("Họ và tên")}
             </label>
             <Input
               id="ho-ten"
@@ -133,14 +134,14 @@ export default function ChinhSuaHoSoModal({ open, onOpenChange, hoSo, oDauTien =
           </div>
           <div>
             <label htmlFor="so-dien-thoai" className={NHAN}>
-              Số điện thoại
+              {t("Số điện thoại")}
             </label>
             <Input
               id="so-dien-thoai"
               value={nhap.soDienThoai}
               inputMode="numeric"
               autoComplete="tel"
-              placeholder="VD: 0901234567"
+              placeholder={t("VD: {{viDu}}", { viDu: "0901234567" })}
               disabled={dangLuu}
               aria-invalid={Boolean(loiSdtHien)}
               aria-describedby="so-dien-thoai-goi-y"
@@ -153,7 +154,7 @@ export default function ChinhSuaHoSoModal({ open, onOpenChange, hoSo, oDauTien =
               className={cn(O_NHAP, "tabular-nums", loiSdtHien && "border-bo-danger")}
             />
             <p id="so-dien-thoai-goi-y" className={cn("mt-1 text-xs", loiSdtHien ? "text-bo-danger" : "text-bo-muted")}>
-              {loiSdtHien || "Cũng dùng để đăng nhập. Để trống nếu không muốn lưu."}
+              {loiSdtHien || t("Cũng dùng để đăng nhập. Để trống nếu không muốn lưu.")}
             </p>
           </div>
         </form>
@@ -166,7 +167,7 @@ export default function ChinhSuaHoSoModal({ open, onOpenChange, hoSo, oDauTien =
             onClick={() => onOpenChange(false)}
             className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
           >
-            Hủy
+            {t("Hủy")}
           </Button>
           <Button
             type="submit"
@@ -174,7 +175,7 @@ export default function ChinhSuaHoSoModal({ open, onOpenChange, hoSo, oDauTien =
             disabled={dangLuu || !coThayDoi || !hopLe}
             className="bg-bo-primary text-white hover:bg-bo-primary-hover"
           >
-            {dangLuu ? "Đang lưu..." : "Lưu thông tin"}
+            {dangLuu ? t("Đang lưu...") : t("Lưu thông tin")}
           </Button>
         </DialogFooter>
       </DialogContent>

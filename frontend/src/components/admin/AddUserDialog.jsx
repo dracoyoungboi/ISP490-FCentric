@@ -39,6 +39,8 @@ import { laKhoGiaoDich } from "@/utils/kho";
 import { HAN_LIEN_KET_MAT_KHAU } from "@/utils/matKhau";
 import { PHONE_ERROR_MESSAGE, PHONE_REGEX, sanitizePhoneInput } from "@/utils/phoneValidation";
 import { chuanHoaHoTen, loiHoTen } from "@/validations/hoTen";
+import { t } from "@/i18n";
+import { cauGocMayChu } from "@/i18n/cauGoc";
 
 // Trùng regex của backend (NguoiDungService.EMAIL_PATTERN) để hai phía báo lỗi giống nhau.
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
@@ -63,24 +65,24 @@ const FIELD_ORDER = ["hoTen", "tenDangNhap", "khoId", "email", "soDienThoai"];
  * Nơi làm việc bắt buộc với vai trò làm theo kho (mọi vai trò trừ Quản trị viên, như ngăn kéo Phân quyền); máy chủ
  * gán kho kèm mẫu quyền của vai trò ngay khi tạo, tài khoản không còn ở trạng thái "Chưa có kho".
  */
-const loiNoiLamViec = (form) => (canKho(form.vaiTro) && !form.khoId ? "Vui lòng chọn nơi làm việc" : "");
+const loiNoiLamViec = (form) => (canKho(form.vaiTro) && !form.khoId ? t("Vui lòng chọn nơi làm việc") : "");
 
 const VALIDATORS = {
     // Cùng luật với Hồ sơ của tôi và máy chủ (validations/hoTen.js ↔ HoTen.java)
     hoTen: loiHoTen,
     tenDangNhap: (value) => {
         const username = value.trim();
-        if (!username) return "Vui lòng nhập tên đăng nhập";
-        if (!USERNAME_REGEX.test(username)) return "Chỉ dùng chữ không dấu, số và các ký tự . _ -";
+        if (!username) return t("Vui lòng nhập tên đăng nhập");
+        if (!USERNAME_REGEX.test(username)) return t("Chỉ dùng chữ không dấu, số và các ký tự . _ -");
         if (username.length < USERNAME_MIN_LENGTH) {
-            return `Tên đăng nhập cần ít nhất ${USERNAME_MIN_LENGTH} ký tự`;
+            return t("Tên đăng nhập cần ít nhất {{count}} ký tự", { count: USERNAME_MIN_LENGTH });
         }
         return "";
     },
     email: (value) => {
         const email = value.trim();
-        if (!email) return "Vui lòng nhập email";
-        if (!EMAIL_REGEX.test(email)) return "Vui lòng nhập đúng định dạng email";
+        if (!email) return t("Vui lòng nhập email");
+        if (!EMAIL_REGEX.test(email)) return t("Vui lòng nhập đúng định dạng email");
         return "";
     },
     // SĐT không bắt buộc; có nhập thì phải đúng định dạng di động Việt Nam.
@@ -100,7 +102,8 @@ function suggestUsername(fullName) {
 
 /** Lỗi trùng/sai định dạng từ backend gắn vào đúng ô; lỗi khác hiện ở đầu form. */
 function fieldOfServerMessage(message) {
-    const text = message.toLowerCase();
+    // Dò trên câu gốc tiếng Việt (giao diện tiếng Anh nhận câu đã dịch)
+    const text = cauGocMayChu(message).toLowerCase();
     if (text.includes("tên đăng nhập")) return "tenDangNhap";
     if (text.includes("email")) return "email";
     if (text.includes("số điện thoại")) return "soDienThoai";
@@ -112,9 +115,9 @@ function fieldOfServerMessage(message) {
 
 function getSubmitErrorMessage(error) {
     if (!error?.response) {
-        return "Không kết nối được máy chủ. Vui lòng kiểm tra mạng rồi thử lại.";
+        return t("Không kết nối được máy chủ. Vui lòng kiểm tra mạng rồi thử lại.");
     }
-    return getApiErrorMessage(error, "Không thể tạo tài khoản. Vui lòng thử lại.");
+    return getApiErrorMessage(error, t("Không thể tạo tài khoản. Vui lòng thử lại."));
 }
 
 const CONTROL_CLASS =
@@ -373,17 +376,17 @@ function AddUserForm({ onClose, onCreated }) {
                     </span>
                     <DialogHeader className="min-w-0 flex-1 gap-1 text-left">
                         <DialogTitle className="text-base font-semibold leading-6 text-bo-foreground">
-                            Thêm người dùng
+                            {t("Thêm người dùng")}
                         </DialogTitle>
                         <DialogDescription className="text-sm text-bo-muted">
-                            Tạo tài khoản đăng nhập cho nhân viên.
+                            {t("Tạo tài khoản đăng nhập cho nhân viên.")}
                         </DialogDescription>
                     </DialogHeader>
                     <button
                         type="button"
                         onClick={requestClose}
                         disabled={submitting}
-                        aria-label="Đóng"
+                        aria-label={t("Đóng")}
                         className="-mr-1.5 -mt-0.5 rounded-md p-1.5 text-bo-muted transition-colors hover:bg-bo-surface-subtle hover:text-bo-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 disabled:pointer-events-none disabled:opacity-50"
                     >
                         <X className="size-4" />
@@ -410,7 +413,7 @@ function AddUserForm({ onClose, onCreated }) {
                     <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
                         <Field
                             id={fieldId("hoTen")}
-                            label="Họ và tên"
+                            label={t("Họ và tên")}
                             required
                             error={errors.hoTen}
                             className="sm:col-span-2"
@@ -418,23 +421,23 @@ function AddUserForm({ onClose, onCreated }) {
                             <Input
                                 {...textInputProps("hoTen")}
                                 aria-required="true"
-                                placeholder="VD: Nguyễn Văn An"
+                                placeholder={t("VD: Nguyễn Văn An")}
                                 onChange={(event) => changeField("hoTen", event.target.value)}
                             />
                         </Field>
 
                         <Field
                             id={fieldId("tenDangNhap")}
-                            label="Tên đăng nhập"
+                            label={t("Tên đăng nhập")}
                             required
                             error={errors.tenDangNhap}
-                            hint="Chữ không dấu, số và . _ -"
+                            hint={t("Chữ không dấu, số và . _ -")}
                         >
                             <Input
                                 {...textInputProps("tenDangNhap")}
                                 aria-required="true"
                                 maxLength={MAX_LENGTH.tenDangNhap}
-                                placeholder="VD: nguyenvanan"
+                                placeholder={t("VD: {{viDu}}", { viDu: "nguyenvanan" })}
                                 spellCheck={false}
                                 autoCapitalize="none"
                                 onChange={(event) => {
@@ -447,16 +450,16 @@ function AddUserForm({ onClose, onCreated }) {
 
                         <Field
                             id={fieldId("vaiTro")}
-                            label="Vai trò"
+                            label={t("Vai trò")}
                             required
                             hint={
                                 isAdminRole ? (
                                     <span className="flex items-start gap-1.5 text-bo-warning">
                                         <ShieldAlert className="mt-[3px] size-3.5 shrink-0" />
-                                        <span>Có toàn quyền trên hệ thống.</span>
+                                        <span>{t("Có toàn quyền trên hệ thống.")}</span>
                                     </span>
                                 ) : (
-                                    "Có thể đổi sau ở trang Chỉnh sửa quyền."
+                                    t("Có thể đổi sau ở trang Chỉnh sửa quyền.")
                                 )
                             }
                         >
@@ -484,7 +487,7 @@ function AddUserForm({ onClose, onCreated }) {
                                             value={role.value}
                                             className="rounded-md py-2 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
                                         >
-                                            {role.label}
+                                            {t(role.label)}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
@@ -495,25 +498,25 @@ function AddUserForm({ onClose, onCreated }) {
                         {needsWarehouse ? (
                             <Field
                                 id={fieldId("khoId")}
-                                label="Nơi làm việc"
+                                label={t("Nơi làm việc")}
                                 required
                                 error={
                                     loiTaiKho ? (
                                         <>
-                                            Không tải được danh sách kho.{" "}
+                                            {t("Không tải được danh sách kho.")}{" "}
                                             <button
                                                 type="button"
                                                 onClick={khoQ.reload}
                                                 className="font-medium text-bo-primary hover:underline focus-visible:underline focus-visible:outline-none"
                                             >
-                                                Thử lại
+                                                {t("Thử lại")}
                                             </button>
                                         </>
                                     ) : (
                                         errors.khoId
                                     )
                                 }
-                                hint="Mỗi người 1 kho, quyền theo mẫu của vai trò."
+                                hint={t("Mỗi người 1 kho, quyền theo mẫu của vai trò.")}
                                 className="sm:col-span-2"
                             >
                                 <Select
@@ -538,10 +541,10 @@ function AddUserForm({ onClose, onCreated }) {
                                         <SelectValue
                                             placeholder={
                                                 khoQ.loading && !dsKho.length
-                                                    ? "Đang tải danh sách kho..."
+                                                    ? t("Đang tải danh sách kho...")
                                                     : loiTaiKho || dsKho.length
-                                                      ? "Chọn kho"
-                                                      : "Chưa có kho đang hoạt động"
+                                                      ? t("Chọn kho")
+                                                      : t("Chưa có kho đang hoạt động")
                                             }
                                         />
                                     </SelectTrigger>
@@ -574,20 +577,20 @@ function AddUserForm({ onClose, onCreated }) {
                                 type="text"
                                 inputMode="email"
                                 maxLength={MAX_LENGTH.email}
-                                placeholder="Ví dụ: an.nguyen@tencuahang.vn"
+                                placeholder={t("Ví dụ: an.nguyen@tencuahang.vn")}
                                 spellCheck={false}
                                 autoCapitalize="none"
                                 onChange={(event) => changeField("email", event.target.value)}
                             />
                         </Field>
 
-                        <Field id={fieldId("soDienThoai")} label="Số điện thoại" error={errors.soDienThoai}>
+                        <Field id={fieldId("soDienThoai")} label={t("Số điện thoại")} error={errors.soDienThoai}>
                             <Input
                                 {...textInputProps("soDienThoai")}
                                 type="tel"
                                 inputMode="numeric"
                                 maxLength={10}
-                                placeholder="VD: 0912345678"
+                                placeholder={t("VD: {{viDu}}", { viDu: "0912345678" })}
                                 onChange={(event) => changeField("soDienThoai", sanitizePhoneInput(event.target.value))}
                             />
                         </Field>
@@ -596,8 +599,7 @@ function AddUserForm({ onClose, onCreated }) {
                     <p className="mt-5 flex items-start gap-2.5 rounded-lg bg-bo-surface-subtle px-3.5 py-3 text-xs leading-5 text-bo-muted">
                         <Mail className="mt-0.5 size-4 shrink-0 text-bo-primary" />
                         <span>
-                            Hệ thống gửi tới email trên một liên kết để người dùng tự đặt mật khẩu (dùng một lần,
-                            hết hạn sau {HAN_LIEN_KET_MAT_KHAU}).
+                            {t("Hệ thống gửi tới email trên một liên kết để người dùng tự đặt mật khẩu (dùng một lần, hết hạn sau {{han}}).", { han: HAN_LIEN_KET_MAT_KHAU })}
                         </span>
                     </p>
                 </form>
@@ -610,7 +612,7 @@ function AddUserForm({ onClose, onCreated }) {
                         disabled={submitting}
                         className="border-bo-border bg-bo-surface text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
                     >
-                        Hủy
+                        {t("Hủy")}
                     </Button>
                     <Button
                         type="submit"
@@ -621,12 +623,12 @@ function AddUserForm({ onClose, onCreated }) {
                         {submitting ? (
                             <>
                                 <Loader2 className="size-4 animate-spin" />
-                                Đang tạo...
+                                {t("Đang tạo...")}
                             </>
                         ) : (
                             <>
                                 <UserPlus className="size-4" />
-                                Tạo tài khoản
+                                {t("Tạo tài khoản")}
                             </>
                         )}
                     </Button>
@@ -647,15 +649,15 @@ function AddUserForm({ onClose, onCreated }) {
                 >
                     <AlertDialogHeader>
                         <AlertDialogTitle className="text-base text-bo-foreground">
-                            Bỏ thông tin đang nhập?
+                            {t("Bỏ thông tin đang nhập?")}
                         </AlertDialogTitle>
                         <AlertDialogDescription className="text-sm text-bo-muted">
-                            Thông tin bạn đã nhập sẽ không được lưu.
+                            {t("Thông tin bạn đã nhập sẽ không được lưu.")}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter className="gap-2">
                         <AlertDialogCancel className="border-bo-border bg-bo-surface text-bo-foreground shadow-none hover:bg-bo-surface-subtle">
-                            Tiếp tục nhập
+                            {t("Tiếp tục nhập")}
                         </AlertDialogCancel>
                         <AlertDialogAction
                             onClick={() => {
@@ -665,7 +667,7 @@ function AddUserForm({ onClose, onCreated }) {
                             }}
                             className="bg-bo-danger text-white hover:bg-bo-danger/90"
                         >
-                            Bỏ thông tin
+                            {t("Bỏ thông tin")}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

@@ -45,6 +45,7 @@ import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import { formatDateTime } from "@/utils/formatters";
 import { getKhoLamViecId } from "@/utils/khoLamViec";
 import { ROLES, hasAnyRole } from "@/utils/roles";
+import { t } from "@/i18n";
 
 // Ai được tạo phiếu nhập kho từ đơn mua (giữ như trước): quản trị viên, quản lý kho, nhân viên kho.
 // Cũng là các vai trò backend cho xem phiếu nhập kho (PhieuNhapKhoController: filter, detail).
@@ -166,11 +167,11 @@ export default function PurchaseOrderDetail() {
         hien: Boolean(don) && hasAnyRole(VAI_TRO_TAO_PHIEU_NHAP) && TRANG_THAI_TAO_PHIEU_NHAP.includes(Number(don?.trangThai)),
         khoa: tienDo.daDu || saiKho,
         lyDo: tienDo.daDu
-            ? "Đã nhập đủ số lượng"
+            ? t("Đã nhập đủ số lượng")
             : saiKho
-                ? `Đơn nhập vào ${don?.khoNhap?.tenKho || "kho khác"}, không phải nơi làm việc hiện tại của bạn`
+                ? t("Đơn nhập vào {{tenKho}}, không phải nơi làm việc hiện tại của bạn", { tenKho: don?.khoNhap?.tenKho || t("kho khác") })
                 : "",
-        nhan: phieuNhapCanMo ? `Mở phiếu nháp ${phieuNhapCanMo.soPhieuNhap}` : undefined,
+        nhan: phieuNhapCanMo ? t("Mở phiếu nháp {{soPhieuNhap}}", { soPhieuNhap: phieuNhapCanMo.soPhieuNhap }) : undefined,
         moPhieu: Boolean(phieuNhapCanMo),
     };
 
@@ -211,7 +212,7 @@ export default function PurchaseOrderDetail() {
             await chayCoThoiHan(() => (loai === "dong"
                 ? purchaseOrderService.dongDon(don.id, lyDoGui)
                 : purchaseOrderService.huyDon(don.id, lyDoGui)));
-            toast.success(loai === "dong" ? `Đã đóng đơn ${ma}.` : `Đã hủy đơn ${ma}.`);
+            toast.success(loai === "dong" ? t("Đã đóng đơn {{ma}}.", { ma }) : t("Đã hủy đơn {{ma}}.", { ma }));
             setHop("");
             setLyDo("");
             // Ở lại trang: đổi trạng thái tại chỗ (mục menu, nút tạo phiếu ẩn ngay) rồi tải lại ngầm lấy người, lúc thao tác
@@ -234,7 +235,7 @@ export default function PurchaseOrderDetail() {
                 return;
             }
             // Câu dự phòng không có dấu chấm: mất mạng thì getApiErrorMessage nối thêm ": không nhận được phản hồi…"
-            const cau = getApiErrorMessage(error, "Không thực hiện được thao tác");
+            const cau = getApiErrorMessage(error, t("Không thực hiện được thao tác"));
             if (LOI_DA_DOI_NOI_KHAC.includes(getApiErrorStatus(error))) {
                 setHop("");
                 setLyDo("");
@@ -257,7 +258,7 @@ export default function PurchaseOrderDetail() {
         return (
             <PageContainer>
                 <SurfaceCard>
-                    <LoadingState label="Đang tải dữ liệu đơn hàng" />
+                    <LoadingState label={t("Đang tải dữ liệu đơn hàng")} />
                 </SurfaceCard>
             </PageContainer>
         );
@@ -270,7 +271,7 @@ export default function PurchaseOrderDetail() {
             <PageContainer className="flex min-h-full flex-col">
                 <KhungLoiChungTu
                     loi={donQ.error}
-                    tenChungTu="đơn mua hàng"
+                    tenChungTu={t("đơn mua hàng")}
                     locCauMayChu={locCauMayChuMuaHang}
                     onVeDanhSach={() => navigate("/purchase-orders")}
                     onThuLai={donQ.reload}
@@ -286,7 +287,7 @@ export default function PurchaseOrderDetail() {
     const oLyDo = (idO, viDu) => (
         <div className="grid gap-1.5">
             <label htmlFor={idO} className={NHAN_O}>
-                Lý do <span className="text-bo-danger">*</span>
+                {t("Lý do")} <span className="text-bo-danger">*</span>
             </label>
             <textarea
                 id={idO}
@@ -304,7 +305,7 @@ export default function PurchaseOrderDetail() {
                 className={O_NHAP_NHIEU_DONG}
             />
             <p id={`${idO}-goi-y`} className={GOI_Y_O}>
-                <span>Bắt buộc</span>
+                <span>{t("Bắt buộc")}</span>
                 <span>{lyDo.length}/{LY_DO_KET_THUC_TOI_DA}</span>
             </p>
         </div>
@@ -327,10 +328,10 @@ export default function PurchaseOrderDetail() {
                 {ketThucSom ? (
                     <div className="border-t border-bo-border px-4 py-3 sm:px-6 sm:py-4">
                         <DongThongBao>
-                            <b className="font-semibold">{laDaDong ? "Lý do đóng đơn:" : "Lý do hủy đơn:"}</b>{" "}
+                            <b className="font-semibold">{laDaDong ? t("Lý do đóng đơn:") : t("Lý do hủy đơn:")}</b>{" "}
                             <span className="whitespace-pre-wrap break-words">{don.lyDoKetThuc || "—"}</span>
                             <span className="block text-bo-muted">
-                                {[phuKetThuc, laDaDong ? "Phần còn thiếu không còn tính là hàng đang về" : "Hàng của đơn không còn tính là hàng đang về"]
+                                {[phuKetThuc, laDaDong ? t("Phần còn thiếu không còn tính là hàng đang về") : t("Hàng của đơn không còn tính là hàng đang về")]
                                     .filter(Boolean)
                                     .join(" · ")}
                             </span>
@@ -358,34 +359,34 @@ export default function PurchaseOrderDetail() {
             <HopXacNhanChungTu
                 mo={hop === "dong"}
                 onDoiMo={doiMoHop}
-                tieuDe="Đóng đơn (nhận thiếu)"
-                moTa={`${ma} đã nhận ${tienDo.daNhan}/${tienDo.dat}. Đóng đơn thì ${tienDo.conThieu} còn thiếu không còn tính là hàng đang về và không tạo phiếu nhập được nữa. Không hoàn tác được.`}
-                nhanXacNhan="Đóng đơn"
+                tieuDe={t("Đóng đơn (nhận thiếu)")}
+                moTa={t("{{ma}} đã nhận {{daNhan}}/{{dat}}. Đóng đơn thì {{conThieu}} còn thiếu không còn tính là hàng đang về và không tạo phiếu nhập được nữa. Không hoàn tác được.", { ma, daNhan: tienDo.daNhan, dat: tienDo.dat, conThieu: tienDo.conThieu })}
+                nhanXacNhan={t("Đóng đơn")}
                 kieu="nguyHiem"
                 dangChay={dangChay}
                 khoaXacNhan={!lyDo.trim()}
-                lyDoKhoa="Nhập lý do đóng đơn"
+                lyDoKhoa={t("Nhập lý do đóng đơn")}
                 loi={loiHop}
                 onXacNhan={() => ketThucDon("dong")}
             >
-                {oLyDo("ly-do-dong-don", "Ví dụ: Nhà cung cấp hết hàng, không giao phần còn lại")}
-                <p className={GHI_CHU_HOP}>Hệ thống không gửi email cho nhà cung cấp. Báo nhà cung cấp theo cách thường dùng.</p>
+                {oLyDo("ly-do-dong-don", t("Ví dụ: Nhà cung cấp hết hàng, không giao phần còn lại"))}
+                <p className={GHI_CHU_HOP}>{t("Hệ thống không gửi email cho nhà cung cấp. Báo nhà cung cấp theo cách thường dùng.")}</p>
             </HopXacNhanChungTu>
             <HopXacNhanChungTu
                 mo={hop === "huy"}
                 onDoiMo={doiMoHop}
-                tieuDe="Hủy đơn mua hàng"
-                moTa={`${ma} chưa nhận đợt hàng nào. Hủy đơn thì hàng của đơn không còn tính là hàng đang về và không tạo phiếu nhập được nữa. Không hoàn tác được.`}
-                nhanXacNhan="Hủy đơn"
+                tieuDe={t("Hủy đơn mua hàng")}
+                moTa={t("{{ma}} chưa nhận đợt hàng nào. Hủy đơn thì hàng của đơn không còn tính là hàng đang về và không tạo phiếu nhập được nữa. Không hoàn tác được.", { ma })}
+                nhanXacNhan={t("Hủy đơn", { context: "hanh_dong" })}
                 kieu="nguyHiem"
                 dangChay={dangChay}
                 khoaXacNhan={!lyDo.trim()}
-                lyDoKhoa="Nhập lý do hủy đơn"
+                lyDoKhoa={t("Nhập lý do hủy đơn")}
                 loi={loiHop}
                 onXacNhan={() => ketThucDon("huy")}
             >
-                {oLyDo("ly-do-huy-don", "Ví dụ: Nhà cung cấp báo ngừng sản xuất mẫu này")}
-                <p className={GHI_CHU_HOP}>Hệ thống không gửi email cho nhà cung cấp. Báo nhà cung cấp theo cách thường dùng.</p>
+                {oLyDo("ly-do-huy-don", t("Ví dụ: Nhà cung cấp báo ngừng sản xuất mẫu này"))}
+                <p className={GHI_CHU_HOP}>{t("Hệ thống không gửi email cho nhà cung cấp. Báo nhà cung cấp theo cách thường dùng.")}</p>
             </HopXacNhanChungTu>
         </PageContainer>
     );

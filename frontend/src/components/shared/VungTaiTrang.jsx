@@ -3,10 +3,11 @@ import { useLocation } from "react-router-dom";
 import ErrorBoundary from "@/components/shared/ErrorBoundary";
 import LoadingState from "@/components/shared/LoadingState";
 import { ghiNhanChoHien, useDangChuyenTrang } from "@/lib/taiTrang";
+import { t } from "@/i18n";
 
 function ChoTaiTrang({ className }) {
   useEffect(() => ghiNhanChoHien(), []);
-  return <LoadingState label="Đang tải trang" className={className} />;
+  return <LoadingState label={t("Đang tải trang")} className={className} />;
 }
 
 /**
@@ -27,5 +28,5 @@ export default function VungTaiTrang({ children, className }) {
 export function ThanhTaiTrang() {
   const dangChuyenTrang = useDangChuyenTrang();
   if (!dangChuyenTrang) return null;
-  return <div className="bo-thanh-tai-trang" role="progressbar" aria-label="Đang mở trang" />;
+  return <div className="bo-thanh-tai-trang" role="progressbar" aria-label={t("Đang mở trang")} />;
 }

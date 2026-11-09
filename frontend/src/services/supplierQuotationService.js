@@ -1,5 +1,7 @@
 import axios from 'axios';
 import { API_BASE_URL } from '../config/apiBase';
+import { ngonNguHienTai } from '../i18n/t';
+import { ghiCauGoc } from "../i18n/cauGoc.js";
 
 /** Header mang phiên báo giá do máy chủ cấp ở bước xác nhận mã (HOP-DONG 2.2). */
 export const HEADER_PHIEN_BAO_GIA = 'X-Phien-Bao-Gia';
@@ -12,6 +14,14 @@ export const HEADER_PHIEN_BAO_GIA = 'X-Phien-Bao-Gia';
 const apiCong = axios.create({
     baseURL: API_BASE_URL,
     headers: { 'Content-Type': 'application/json' },
+});
+apiCong.interceptors.response.use(undefined, (error) => {
+    ghiCauGoc(error?.response?.data);
+    return Promise.reject(error);
+});
+apiCong.interceptors.request.use((config) => {
+    config.headers['Accept-Language'] = ngonNguHienTai();
+    return config;
 });
 
 const DUONG_DAN = '/api/v1/nghiep-vu/don-mua-hang';

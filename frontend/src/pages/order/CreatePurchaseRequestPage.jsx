@@ -54,30 +54,31 @@ import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import { khoService } from "@/services/khoService";
 import purchaseRequestService from "@/services/purchaseRequestService";
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
+import { t } from "@/i18n";
 
 const TONG_THEO = Object.freeze({ soLuong: "soLuong", khaDung: "khaDung", dangVe: "dangVe", deXuat: "deXuat" });
 
 // Cùng 5 bước với Chi tiết yêu cầu nhập hàng (tinhYeuCau.tinhBuocYeuCau), thêm dòng "ai làm"
 const BUOC = [
-  { ma: "tao", nhan: "Tạo yêu cầu", ai: "Bạn", trangThai: "dangLam", phu: "Đang lập" },
-  { ma: "duyet", nhan: "Quản lý kho duyệt", ai: "Quản lý Kho tổng", trangThai: "chua" },
-  { ma: "gui", nhan: "Gửi yêu cầu báo giá", ai: "Nhân viên mua hàng", trangThai: "chua" },
-  { ma: "nhan", nhan: "Nhận báo giá", ai: "Nhà cung cấp", trangThai: "chua" },
-  { ma: "chot", nhan: "Chốt đơn mua hàng", ai: "Nhân viên mua hàng", trangThai: "chua" },
+  { ma: "tao", nhan: t("Tạo yêu cầu"), ai: t("Bạn"), trangThai: "dangLam", phu: t("Đang lập") },
+  { ma: "duyet", nhan: t("Quản lý kho duyệt"), ai: t("Quản lý Kho tổng"), trangThai: "chua" },
+  { ma: "gui", nhan: t("Gửi yêu cầu báo giá"), ai: t("Nhân viên mua hàng"), trangThai: "chua" },
+  { ma: "nhan", nhan: t("Nhận báo giá"), ai: t("Nhà cung cấp"), trangThai: "chua" },
+  { ma: "chot", nhan: t("Chốt đơn mua hàng"), ai: t("Nhân viên mua hàng"), trangThai: "chua" },
 ];
 
 const CACH_XEM = [
-  { value: "danhSach", label: "Danh sách" },
-  { value: "luoi", label: "Lưới màu × kích cỡ" },
+  { value: "danhSach", label: t("Danh sách") },
+  { value: "luoi", label: t("Lưới màu × kích cỡ") },
 ];
 
 /** Câu lỗi tải danh mục: 403 → thiếu quyền (Thử lại vô ích); mất kết nối; còn lại câu của máy chủ, bỏ dấu chấm cuối. */
 function moTaLoiTai(e) {
   if (getApiErrorStatus(e) === 403) {
-    return { chu: "tài khoản chưa có quyền lập yêu cầu nhập hàng ở kho đang làm việc (quyền “Lập yêu cầu và đơn mua hàng”)", khongQuyen: true };
+    return { chu: t("tài khoản chưa có quyền lập yêu cầu nhập hàng ở kho đang làm việc (quyền “Lập yêu cầu và đơn mua hàng”)"), khongQuyen: true };
   }
-  if (!e?.response) return { chu: "không nhận được phản hồi từ máy chủ", khongQuyen: false };
-  return { chu: getApiErrorMessage(e, "máy chủ báo lỗi").trim().replace(/[.。]+$/, ""), khongQuyen: false };
+  if (!e?.response) return { chu: t("không nhận được phản hồi từ máy chủ"), khongQuyen: false };
+  return { chu: getApiErrorMessage(e, t("máy chủ báo lỗi")).trim().replace(/[.。]+$/, ""), khongQuyen: false };
 }
 
 /**
@@ -247,7 +248,7 @@ export default function CreatePurchaseRequestPage() {
     const co = new Set(dong.map((d) => String(d.bienTheId)));
     const ds = caSp.filter((bt) => !co.has(String(bt.bienTheId)));
     if (!ds.length) {
-      if (caSp[0]) toast.info(`Đã có đủ ${soVN(caSp.length)} biến thể của ${caSp[0].tenSanPham} trong yêu cầu`);
+      if (caSp[0]) toast.info(t("Đã có đủ {{soBienThe}} biến thể của {{tenSanPham}} trong yêu cầu", { count: caSp.length, soBienThe: soVN(caSp.length), tenSanPham: caSp[0].tenSanPham }));
       return;
     }
     // Mã sắp hết lấy theo số đề xuất, mã còn hàng để 1 cho người lập sửa (số đề xuất đang là của kho cũ thì để 1 cả)
@@ -255,9 +256,9 @@ export default function CreatePurchaseRequestPage() {
     setDong((cu) => themNhieu(cu, ds.map((bt) => ({ bienTheId: bt.bienTheId, soLuong: theoDeXuat(bt) ? bt.soLuongDeXuat : 1 })), "giu").dong);
     toSang(ds[0].bienTheId);
     if (cheDo === "luoi") denTrangLuoi(ds[0].bienTheId);
-    toast.success(`Đã thêm ${soVN(ds.length)} biến thể của ${ds[0].tenSanPham}`, {
-      description: duLieuCu ? "Mỗi mã 1 (đang tải số liệu của kho vừa chọn)." : "Mã sắp hết lấy theo số đề xuất, còn lại mỗi mã 1.",
-      ...(cheDo === "luoi" ? {} : { action: { label: "Nhập theo lưới", onClick: () => doiCheDo("luoi") } }),
+    toast.success(t("Đã thêm {{soBienThe}} biến thể của {{tenSanPham}}", { count: ds.length, soBienThe: soVN(ds.length), tenSanPham: ds[0].tenSanPham }), {
+      description: duLieuCu ? t("Mỗi mã 1 (đang tải số liệu của kho vừa chọn).") : t("Mã sắp hết lấy theo số đề xuất, còn lại mỗi mã 1."),
+      ...(cheDo === "luoi" ? {} : { action: { label: t("Nhập theo lưới"), onClick: () => doiCheDo("luoi") } }),
     });
   };
 
@@ -268,8 +269,8 @@ export default function CreatePurchaseRequestPage() {
     setHop("");
     if (cheDo !== "danhSach") doiCheDo("danhSach");
     if (ds[0]) toSang(ds[0].bienTheId);
-    toast.success(`Đã thêm ${soVN(kq.moi)} mã theo số đề xuất`, {
-      description: `Tổng ${soVN(ds.reduce((s, bt) => s + Number(bt.soLuongDeXuat || 0), 0))}. Sửa từng dòng, hoặc chọn nhiều dòng để đặt số lượng một lần.`,
+    toast.success(t("Đã thêm {{moi}} mã theo số đề xuất", { count: kq.moi, moi: soVN(kq.moi) }), {
+      description: t("Tổng {{tong}}. Sửa từng dòng, hoặc chọn nhiều dòng để đặt số lượng một lần.", { tong: soVN(ds.reduce((s, bt) => s + Number(bt.soLuongDeXuat || 0), 0)) }),
     });
   };
 
@@ -279,11 +280,15 @@ export default function CreatePurchaseRequestPage() {
     setHop("");
     if (dsDan[0]) toSang(dsDan[0].bienTheId);
     const chu = [
-      kq.moi ? `${soVN(kq.moi)} mã mới` : "",
-      kq.capNhat ? `${cach === "thay" ? "thay số lượng" : "cộng thêm"} ${soVN(kq.capNhat)} mã đã có` : "",
+      kq.moi ? t("{{moi}} mã mới", { count: kq.moi, moi: soVN(kq.moi) }) : "",
+      kq.capNhat
+        ? cach === "thay"
+          ? t("thay số lượng {{capNhat}} mã đã có", { count: kq.capNhat, capNhat: soVN(kq.capNhat) })
+          : t("cộng thêm {{capNhat}} mã đã có", { count: kq.capNhat, capNhat: soVN(kq.capNhat) })
+        : "",
     ].filter(Boolean).join(", ");
-    const cau = `Đã thêm từ danh sách dán: ${chu || "không có mã mới"}`;
-    if (soLoi) toast.warning(cau, { description: `Bỏ qua ${soVN(soLoi)} dòng lỗi.` });
+    const cau = t("Đã thêm từ danh sách dán: {{chiTiet}}", { chiTiet: chu || t("không có mã mới") });
+    if (soLoi) toast.warning(cau, { description: t("Bỏ qua {{soLoi}} dòng lỗi.", { count: soLoi, soLoi: soVN(soLoi) }) });
     else toast.success(cau);
   };
 
@@ -313,10 +318,10 @@ export default function CreatePurchaseRequestPage() {
     const lan = hoanTacRef.current.lan + 1;
     const id = `hoan-tac-bo-${lan}`;
     hoanTacRef.current = { lan, id };
-    toast.success(`Đã bỏ ${soVN(daBo.length)} biến thể khỏi yêu cầu`, {
+    toast.success(t("Đã bỏ {{soBienThe}} biến thể khỏi yêu cầu", { count: daBo.length, soBienThe: soVN(daBo.length) }), {
       id,
       action: {
-        label: "Hoàn tác",
+        label: t("Hoàn tác"),
         onClick: () => {
           const coSan = new Set(dongRef.current.map((d) => String(d.bienTheId)));
           const chenLai = new Set(daBo.map((d) => String(d.bienTheId)).filter((id) => !coSan.has(id)));
@@ -336,14 +341,14 @@ export default function CreatePurchaseRequestPage() {
 
   const datSoLuongChon = (ids, sl) => {
     setDong((cu) => datSoLuong(cu, ids, sl));
-    toast.success(`Đã đặt số lượng ${soVN(sl)} cho ${soVN(ids.length)} dòng`);
+    toast.success(t("Đã đặt số lượng {{sl}} cho {{soDong}} dòng", { sl: soVN(sl), count: ids.length, soDong: soVN(ids.length) }));
   };
 
   const theoDeXuatChon = (ids) => {
     const kq = theoSoDeXuat(dong, ids, chiMuc.theoId);
     setDong(kq.dong);
-    toast.success(`Đã đưa ${soVN(kq.dat)} dòng về số đề xuất`, {
-      description: kq.khong ? `Giữ nguyên ${soVN(kq.khong)} dòng chưa có số đề xuất (Kho tổng chưa dưới ngưỡng).` : undefined,
+    toast.success(t("Đã đưa {{dat}} dòng về số đề xuất", { count: kq.dat, dat: soVN(kq.dat) }), {
+      description: kq.khong ? t("Giữ nguyên {{khong}} dòng chưa có số đề xuất (Kho tổng chưa dưới ngưỡng).", { count: kq.khong, khong: soVN(kq.khong) }) : undefined,
     });
   };
 
@@ -381,7 +386,7 @@ export default function CreatePurchaseRequestPage() {
   const lyDo = daGui
     ? ""
     : loiTai
-      ? "Chưa tải được danh sách hàng"
+      ? t("Chưa tải được danh sách hàng")
       : lyDoKhoaGui({ dangTai: q.initialLoading || dangTaiKho, coKho: Boolean(kho), dong, chiMuc, ngayGiao, homNay });
   const soGoiYMoi = useMemo(() => {
     const co = new Set(dong.map((d) => String(d.bienTheId)));
@@ -428,13 +433,13 @@ export default function CreatePurchaseRequestPage() {
       const id = idYeuCauMoi(res?.data);
       setDaGui(true);
       setHop("");
-      toast.success("Đã gửi yêu cầu nhập hàng chờ duyệt", { description: res?.data?.data?.soYeuCauMuaHang || undefined });
+      toast.success(t("Đã gửi yêu cầu nhập hàng chờ duyệt"), { description: res?.data?.data?.soYeuCauMuaHang || undefined });
       // Thay mục lịch sử: Quay lại ở chi tiết về danh sách, không về biểu mẫu đã gửi
       navigate(id != null ? `/purchase-requests/${id}` : "/purchase-requests", { replace: true });
     } catch (e) {
       setLoiGui(e?.response
-        ? getApiErrorMessage(e, "Máy chủ không xử lý được yêu cầu, vui lòng thử lại")
-        : "Không nhận được phản hồi từ máy chủ. Kiểm tra kết nối rồi thử lại.");
+        ? getApiErrorMessage(e, t("Máy chủ không xử lý được yêu cầu, vui lòng thử lại"))
+        : t("Không nhận được phản hồi từ máy chủ. Kiểm tra kết nối rồi thử lại."));
     } finally {
       dangGuiRef.current = false;
       setDangGui(false);
@@ -444,39 +449,37 @@ export default function CreatePurchaseRequestPage() {
   // ── Dòng thông báo ──
   const thongBao = [
     loiTai ? (
-      <DongThongBao key="loi-tai" tone="bad" actions={loiTai.khongQuyen ? undefined : <NutChu onClick={q.reload}>Thử lại</NutChu>}>
-        Không tải được danh sách hàng: {loiTai.chu}.
+      <DongThongBao key="loi-tai" tone="bad" actions={loiTai.khongQuyen ? undefined : <NutChu onClick={q.reload}>{t("Thử lại")}</NutChu>}>
+        {t("Không tải được danh sách hàng: {{chu}}.", { chu: loiTai.chu })}
       </DongThongBao>
     ) : null,
     duLieu && !kho ? (
       <DongThongBao key="khong-kho" tone="bad">
-        Chưa có Kho tổng đang hoạt động để nhận hàng từ nhà cung cấp. Vào Quản lý kho để đặt một kho làm Kho tổng.
+        {t("Chưa có Kho tổng đang hoạt động để nhận hàng từ nhà cung cấp. Vào Quản lý kho để đặt một kho làm Kho tổng.")}
       </DongThongBao>
     ) : null,
     dienSan?.soMa ? (
       <DongThongBao key="dien-san" tone="info">
-        Đã điền sẵn <b className="font-semibold">1 mã</b>{dienSan.ten ? <> của <b className="font-semibold">{dienSan.ten}</b></> : null}
+        {t("Đã điền sẵn")} <b className="font-semibold">{t("1 mã")}</b>{dienSan.ten ? <> {t("của")} <b className="font-semibold">{dienSan.ten}</b></> : null}
         {dienSan.coSoLuong
-          ? <> theo đề xuất <b className="font-semibold">Cần bổ sung</b> ở Tổng quan, kèm số lượng đề xuất.</>
-          : ", số lượng tạm để 1."}{" "}
-        Kiểm tra lại, chọn ngày giao dự kiến rồi gửi duyệt.
-        {soGoiYMoi ? <> Còn {soVN(soGoiYMoi)} mã sắp hết khác ở <NutChu onClick={() => setHop("goiY")}>Gợi ý cần nhập</NutChu>.</> : null}
+          ? <> {t("theo đề xuất")} <b className="font-semibold">{t("Cần bổ sung")}</b> {t("ở Tổng quan, kèm số lượng đề xuất.")}</>
+          : t(", số lượng tạm để 1.")}{" "}
+        {t("Kiểm tra lại, chọn ngày giao dự kiến rồi gửi duyệt.")}
+        {soGoiYMoi ? <> {t("Còn {{soMa}} mã sắp hết khác ở", { count: soGoiYMoi, soMa: soVN(soGoiYMoi) })} <NutChu onClick={() => setHop("goiY")}>{t("Gợi ý cần nhập")}</NutChu>.</> : null}
       </DongThongBao>
     ) : null,
     dienSan?.khongThay ? (
       <DongThongBao key="khong-thay" tone="warn">
-        Không tìm thấy {dienSan.ten ? <b className="font-semibold">{dienSan.ten}</b> : "sản phẩm trong đề xuất"} trong danh sách
-        hàng nhập được (có thể đã ngừng kinh doanh). Tìm và thêm sản phẩm ở ô phía dưới.
+        {t("Không tìm thấy")} {dienSan.ten ? <b className="font-semibold">{dienSan.ten}</b> : t("sản phẩm trong đề xuất")} {t("trong danh sách hàng nhập được (có thể đã ngừng kinh doanh). Tìm và thêm sản phẩm ở ô phía dưới.")}
       </DongThongBao>
     ) : null,
     maNgung.length && !daGui ? (
       <DongThongBao
         key="ma-ngung"
         tone="bad"
-        actions={<NutChu onClick={() => boNhieu(maNgung)}>Bỏ {soVN(maNgung.length)} mã</NutChu>}
+        actions={<NutChu onClick={() => boNhieu(maNgung)}>{t("Bỏ {{soMa}} mã", { count: maNgung.length, soMa: soVN(maNgung.length) })}</NutChu>}
       >
-        {soVN(maNgung.length)} mã không còn trong danh sách hàng nhập được (vừa ngừng kinh doanh). Bỏ các mã này rồi mới gửi
-        duyệt được.
+        {t("{{soMa}} mã không còn trong danh sách hàng nhập được (vừa ngừng kinh doanh). Bỏ các mã này rồi mới gửi duyệt được.", { count: maNgung.length, soMa: soVN(maNgung.length) })}
       </DongThongBao>
     ) : null,
     cb.soChuY && !daGui ? (
@@ -486,9 +489,9 @@ export default function CreatePurchaseRequestPage() {
         actions={(
           <>
             {bang.coCongCu ? (
-              <NutChu onClick={() => { doiCheDo("danhSach"); bang.datLoc("chuY"); }}>Xem {soVN(cb.soChuY)} mã</NutChu>
+              <NutChu onClick={() => { doiCheDo("danhSach"); bang.datLoc("chuY"); }}>{t("Xem {{soMa}} mã", { count: cb.soChuY, soMa: soVN(cb.soChuY) })}</NutChu>
             ) : null}
-            {cb.trung.length ? <NutChu onClick={() => boNhieu(cb.trung)}>Bỏ {soVN(cb.trung.length)} mã trùng</NutChu> : null}
+            {cb.trung.length ? <NutChu onClick={() => boNhieu(cb.trung)}>{t("Bỏ {{soMa}} mã trùng", { count: cb.trung.length, soMa: soVN(cb.trung.length) })}</NutChu> : null}
           </>
         )}
       >
@@ -499,7 +502,7 @@ export default function CreatePurchaseRequestPage() {
 
   // ── Thân ──
   const nutXem = (
-    <NutPhanDoan nhan="Cách nhập số lượng" value={cheDo} luaChon={CACH_XEM} onChange={doiCheDo} />
+    <NutPhanDoan nhan={t("Cách nhập số lượng")} value={cheDo} luaChon={CACH_XEM} onChange={doiCheDo} />
   );
   // Lưới vẫn hiện (kèm nút đổi cách xem) khi còn dòng mà mọi dòng đều là mã vừa ngừng, để người dùng quay về Danh sách
   const coBang = dong.length > 0 || (cheDo === "luoi" && spLuoi.length > 0);
@@ -515,7 +518,7 @@ export default function CreatePurchaseRequestPage() {
           onThem={themMot}
           onThemCa={themCaSanPham}
           oRef={oTimRef}
-          chuTrong={q.initialLoading ? "Đang tải danh sách hàng…" : loiTai ? "Chưa tải được danh sách hàng." : undefined}
+          chuTrong={q.initialLoading ? t("Đang tải danh sách hàng…") : loiTai ? t("Chưa tải được danh sách hàng.") : undefined}
           className="basis-80"
         />
         <Button
@@ -526,7 +529,7 @@ export default function CreatePurchaseRequestPage() {
           className="gap-1.5 border-bo-border bg-bo-surface text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
         >
           <Sparkles className="size-4 text-bo-primary" aria-hidden="true" />
-          Gợi ý cần nhập
+          {t("Gợi ý cần nhập")}
           {soGoiYMoi ? (
             <span className="min-w-5 rounded-full bg-bo-primary px-1.5 text-[11px] font-semibold leading-5 text-white tabular-nums">
               {soVN(soGoiYMoi)}
@@ -541,21 +544,21 @@ export default function CreatePurchaseRequestPage() {
           className="gap-1.5 border-bo-border bg-bo-surface text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
         >
           <ClipboardList className="size-4" aria-hidden="true" />
-          Dán từ Excel
+          {t("Dán từ Excel")}
         </Button>
       </div>
 
       {!coBang ? (
         <EmptyState
           icon={PackagePlus}
-          title="Chưa có sản phẩm nào"
+          title={t("Chưa có sản phẩm nào")}
           description={soGoiYMoi
-            ? `${kho?.tenKho || "Kho tổng"} đang có ${soVN(soGoiYMoi)} mã hết hoặc sắp hết. Lấy cả loạt theo số đề xuất, dán danh sách từ Excel, hoặc tìm / quét từng mã ở ô phía trên.`
-            : "Tìm hoặc quét từng mã ở ô phía trên (quét lại cùng mã cộng thêm 1), hoặc dán danh sách SKU – số lượng từ Excel."}
+            ? t("{{tenKho}} đang có {{soGoiYMoi}} mã hết hoặc sắp hết. Lấy cả loạt theo số đề xuất, dán danh sách từ Excel, hoặc tìm / quét từng mã ở ô phía trên.", { tenKho: kho?.tenKho || t("Kho tổng"), count: soGoiYMoi, soGoiYMoi: soVN(soGoiYMoi) })
+            : t("Tìm hoặc quét từng mã ở ô phía trên (quét lại cùng mã cộng thêm 1), hoặc dán danh sách SKU – số lượng từ Excel.")}
           action={soGoiYMoi && !khoa && !duLieuCu ? (
             <Button type="button" onClick={() => setHop("goiY")} className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover">
               <Sparkles className="size-4" aria-hidden="true" />
-              Xem {soVN(soGoiYMoi)} mã cần nhập
+              {t("Xem {{soMa}} mã cần nhập", { count: soGoiYMoi, soMa: soVN(soGoiYMoi) })}
             </Button>
           ) : null}
           className="min-h-[300px] flex-1"
@@ -581,7 +584,7 @@ export default function CreatePurchaseRequestPage() {
         <>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 pb-3 sm:px-6">
             {nutXem}
-            <span className="text-xs leading-4 text-bo-muted">Nhập nhanh cả dải màu, cỡ của từng sản phẩm</span>
+            <span className="text-xs leading-4 text-bo-muted">{t("Nhập nhanh cả dải màu, cỡ của từng sản phẩm")}</span>
           </div>
           <LuoiNhapSoLuong
             sanPham={sanPhamLuoi}
@@ -596,8 +599,8 @@ export default function CreatePurchaseRequestPage() {
               onPageChange: setTrangLuoi,
               onSizeChange: (n) => { setCoTrangLuoi(n); setTrangLuoi(0); },
               sizeOptions: CO_TRANG_NHOM,
-              sizeLabel: "sản phẩm",
-              totalLabel: "sản phẩm",
+              sizeLabel: t("sản phẩm"),
+              totalLabel: t("sản phẩm"),
             } : null}
           />
         </>
@@ -613,23 +616,24 @@ export default function CreatePurchaseRequestPage() {
         className="overflow-visible"
         dau={
           <DauChungTu
-            ma="Tạo yêu cầu nhập hàng"
+            ma={t("Tạo yêu cầu nhập hàng")}
             // Dính khi cuộn từ 768px (điện thoại: đầu khối cao gần nửa màn, dính sẽ che bảng)
             className="rounded-t-lg bg-white shadow-[0_1px_0_var(--color-bo-border)] md:sticky md:top-0 md:z-20"
             dongPhu={dong.length
               ? [
                 <b key="sp" className="font-semibold text-bo-foreground">
-                  {soVN(bang.tong.soSanPham)} sản phẩm · {soVN(bang.tong.soDong)} biến thể
+                  {t("{{soSanPham}} sản phẩm", { count: bang.tong.soSanPham, soSanPham: soVN(bang.tong.soSanPham) })} ·{" "}
+                  {t("{{soBienThe}} biến thể", { count: bang.tong.soDong, soBienThe: soVN(bang.tong.soDong) })}
                 </b>,
-                <span key="sl">tổng số lượng <b className="font-semibold text-bo-foreground">{soVN(bang.tong.soLuong)}</b></span>,
+                <span key="sl">{t("tổng số lượng")} <b className="font-semibold text-bo-foreground">{soVN(bang.tong.soLuong)}</b></span>,
               ]
-              : "Chọn hàng cần nhập về Kho tổng và ngày giao dự kiến, rồi gửi quản lý kho duyệt"}
+              : t("Chọn hàng cần nhập về Kho tổng và ngày giao dự kiến, rồi gửi quản lý kho duyệt")}
             onQuayLai={veDanhSach}
-            nhanQuayLai="Quay lại danh sách yêu cầu nhập hàng"
+            nhanQuayLai={t("Quay lại danh sách yêu cầu nhập hàng")}
             menu={[{
               ma: "bo-het",
-              nhan: "Bỏ tất cả hàng trong yêu cầu",
-              moTa: dong.length ? `Bỏ ${soVN(dong.length)} biến thể, hoàn tác được ngay sau đó` : "Chưa có hàng nào",
+              nhan: t("Bỏ tất cả hàng trong yêu cầu"),
+              moTa: dong.length ? t("Bỏ {{soBienThe}} biến thể, hoàn tác được ngay sau đó", { count: dong.length, soBienThe: soVN(dong.length) }) : t("Chưa có hàng nào"),
               icon: Trash2,
               nguyHiem: true,
               khoa: !dong.length || khoa,
@@ -637,7 +641,7 @@ export default function CreatePurchaseRequestPage() {
             }]}
             nutChinh={{
               ma: "gui",
-              nhan: "Gửi duyệt",
+              nhan: t("Gửi duyệt"),
               icon: Send,
               onClick: moGui,
               khoa: Boolean(lyDo) || khoa,
@@ -647,7 +651,7 @@ export default function CreatePurchaseRequestPage() {
             }}
           />
         }
-        tienTrinh={<TienTrinhChungTu buoc={BUOC} nhan="Các bước của yêu cầu nhập hàng" className="border-t-0" />}
+        tienTrinh={<TienTrinhChungTu buoc={BUOC} nhan={t("Các bước của yêu cầu nhập hàng")} className="border-t-0" />}
         thongBao={thongBao.length ? thongBao : null}
         chinh={chinh}
         cotPhai={(
@@ -658,7 +662,7 @@ export default function CreatePurchaseRequestPage() {
             trangThaiKho={trangThaiKho}
             dsKhoTong={duLieu?.dsKhoTong ?? []}
             onDoiKho={doiKho}
-            khoDeXuatTen={dienSan?.khoDeXuat ? (dienSan.khoDeXuatTen || "kho bán hàng đã chọn") : null}
+            khoDeXuatTen={dienSan?.khoDeXuat ? (dienSan.khoDeXuatTen || t("kho bán hàng đã chọn")) : null}
             ngayGiao={ngayGiao}
             onDoiNgay={setNgayGiao}
             ghiChu={ghiChu}
@@ -691,9 +695,15 @@ export default function CreatePurchaseRequestPage() {
       <HopXacNhanChungTu
         mo={hop === "gui"}
         onDoiMo={(mo) => { if (!mo && !dangGui) { setHop(""); setLoiGui(null); } }}
-        tieuDe="Gửi yêu cầu nhập hàng"
-        moTa={`${soVN(bang.tong.soSanPham)} sản phẩm, ${soVN(bang.tong.soDong)} biến thể, tổng số lượng ${soVN(bang.tong.soLuong)} nhập về ${kho?.tenKho || "Kho tổng"}, giao dự kiến ${moTaNgay.trai}.`}
-        nhanXacNhan="Gửi duyệt"
+        tieuDe={t("Gửi yêu cầu nhập hàng")}
+        moTa={t("{{sanPham}}, {{bienThe}}, tổng số lượng {{soLuong}} nhập về {{tenKho}}, giao dự kiến {{ngayGiao}}.", {
+          sanPham: t("{{soSanPham}} sản phẩm", { count: bang.tong.soSanPham, soSanPham: soVN(bang.tong.soSanPham) }),
+          bienThe: t("{{soBienThe}} biến thể", { count: bang.tong.soDong, soBienThe: soVN(bang.tong.soDong) }),
+          soLuong: soVN(bang.tong.soLuong),
+          tenKho: kho?.tenKho || t("Kho tổng"),
+          ngayGiao: moTaNgay.trai,
+        })}
+        nhanXacNhan={t("Gửi duyệt")}
         iconXacNhan={Send}
         dangChay={dangGui}
         khoaXacNhan={Boolean(lyDo)}
@@ -706,23 +716,23 @@ export default function CreatePurchaseRequestPage() {
         onXacNhan={gui}
       >
         <div className={GHI_CHU_HOP}>
-          Yêu cầu chuyển sang <b className="font-semibold">Chờ duyệt</b>. Quản lý Kho tổng duyệt xong thì nhân viên mua hàng
-          mới gửi được yêu cầu báo giá cho nhà cung cấp.
+          {t("Yêu cầu chuyển sang")} <b className="font-semibold">{t("Chờ duyệt")}</b>.{" "}
+          {t("Quản lý Kho tổng duyệt xong thì nhân viên mua hàng mới gửi được yêu cầu báo giá cho nhà cung cấp.")}
         </div>
         {cb.soChuY ? (
           <div className="rounded-lg border border-orange-200 bg-bo-warning-soft px-3 py-2.5 text-[13px] leading-5 text-orange-900">
-            Lưu ý: {cauCanhBao(cb)}
+            {t("Lưu ý: {{canhBao}}", { canhBao: cauCanhBao(cb) })}
           </div>
         ) : null}
       </HopXacNhanChungTu>
       <HopXacNhanChungTu
         mo={Boolean(hoiRoi)}
         onDoiMo={(mo) => { if (!mo) setHoiRoi(null); }}
-        tieuDe="Rời trang tạo yêu cầu?"
+        tieuDe={t("Rời trang tạo yêu cầu?")}
         moTa={dong.length
-          ? `${soVN(dong.length)} biến thể đã chọn, ngày giao và ghi chú đang nhập chưa được gửi sẽ mất.`
-          : "Ngày giao và ghi chú đang nhập chưa được gửi sẽ mất."}
-        nhanXacNhan="Rời trang"
+          ? t("{{soBienThe}} biến thể đã chọn, ngày giao và ghi chú đang nhập chưa được gửi sẽ mất.", { count: dong.length, soBienThe: soVN(dong.length) })
+          : t("Ngày giao và ghi chú đang nhập chưa được gửi sẽ mất.")}
+        nhanXacNhan={t("Rời trang")}
         kieu="nguyHiem"
         onXacNhan={() => {
           const tiepTuc = hoiRoi;

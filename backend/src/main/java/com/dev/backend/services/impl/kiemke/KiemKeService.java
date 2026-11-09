@@ -27,6 +27,8 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
+import com.dev.backend.i18n.NgonNgu;
+import com.dev.backend.i18n.ThongDiep;
 
 /**
  * Vòng đời đợt kiểm kê khoanh vùng (đặc tả BA 5, UC-STK-01..05, 07). Phê duyệt và mở khóa ở {@link KiemKeDuyetService}.
@@ -106,7 +108,7 @@ public class KiemKeService {
 
     // ───────────────────────────── Lỗi có mã ─────────────────────────────
 
-    static LoiCoMaException saiTrangThai(String cau, DotKiemKe dot) {
+    static LoiCoMaException saiTrangThai(ThongDiep cau, DotKiemKe dot) {
         return new LoiCoMaException(HttpStatus.CONFLICT, MaLoi.STK_INVALID_STATE, cau,
                 Map.of("trangThai", dot.getTrangThai() == null ? 0 : dot.getTrangThai(), "phienBan", dot.getPhienBan()));
     }
@@ -114,11 +116,11 @@ public class KiemKeService {
     static void kiemTraPhienBan(DotKiemKe dot, Long phienBan) {
         if (phienBan == null) {
             throw new LoiCoMaException(HttpStatus.BAD_REQUEST, MaLoi.STK_VERSION_CONFLICT,
-                    "Thiếu phiên bản của đợt. Tải lại trang rồi thử lại.");
+                    ThongDiep.of("khoVanHanh.thieuPhienBanDot"));
         }
         if (!phienBan.equals(dot.getPhienBan())) {
             throw new LoiCoMaException(HttpStatus.CONFLICT, MaLoi.STK_VERSION_CONFLICT,
-                    "Đợt " + dot.getMaDotKiemKe() + " vừa được người khác cập nhật. Tải lại để xem dữ liệu mới nhất.",
+                    ThongDiep.of("khoVanHanh.dotVuaDuocCapNhat", dot.getMaDotKiemKe()),
                     Map.of("phienBan", dot.getPhienBan()));
         }
     }
@@ -127,19 +129,20 @@ public class KiemKeService {
         return "Đợt kiểm kê " + dot.getMaDotKiemKe();
     }
 
-    private static String chuoi(String s, int toiDa, String tenTruong) {
+    /** {@code khoaLoi}: khóa câu "… tối đa {0} ký tự" của trường (tham số là {@code toiDa}). */
+    private static String chuoi(String s, int toiDa, String khoaLoi) {
         if (s == null) return null;
         String t = s.trim();
         if (t.isEmpty()) return null;
         if (t.length() > toiDa) throw new LoiCoMaException(HttpStatus.BAD_REQUEST, MaLoi.STK_INVALID_SCOPE,
-                tenTruong + " tối đa " + toiDa + " ký tự");
+                ThongDiep.of(khoaLoi, toiDa));
         return t;
     }
 
     private DotKiemKe khoaDot(Integer id) {
         DotKiemKe dot = dotRepo.khoaTheoId(id)
                 .orElseThrow(() -> new LoiCoMaException(HttpStatus.NOT_FOUND, MaLoi.STK_INVALID_STATE,
-                        "Không tìm thấy đợt kiểm kê id " + id));
+                        ThongDiep.of("khoVanHanh.dotKiemKeKhongTimThayId", id)));
         em.refresh(dot, LockModeType.PESSIMISTIC_WRITE);
         return dot;
     }
@@ -148,7 +151,7 @@ public class KiemKeService {
     private DotKiemKe khoaDotVaKho(Integer id) {
         DotKiemKe xem = dotRepo.findById(id)
                 .orElseThrow(() -> new LoiCoMaException(HttpStatus.NOT_FOUND, MaLoi.STK_INVALID_STATE,
-                        "Không tìm thấy đợt kiểm kê id " + id));
+                        ThongDiep.of("khoVanHanh.dotKiemKeKhongTimThayId", id)));
         guard.giuKhoGhi(xem.getKho().getId());
         return khoaDot(id);
     }
@@ -177,20 +180,20 @@ public class KiemKeService {
 
     /** Kiểm và ghi các trường chung của đợt (BR-STK-01). */
     private void ganThongTin(DotKiemKe dot, KiemKeYeuCau.Dot yc, Kho kho, NguoiDung nguoiTao) {
-        String tenDot = chuoi(yc.tenDotKiemKe(), IKiemKe.TEN_DOT_TOI_DA, "Tên đợt");
-        if (tenDot == null) throw KiemKePhamViService.phamViSai("Nhập tên đợt kiểm kê");
-        String lyDo = chuoi(yc.lyDo(), IKiemKe.LY_DO_TOI_DA, "Lý do");
-        if (lyDo == null) throw KiemKePhamViService.phamViSai("Nhập lý do kiểm kê");
+        String tenDot = chuoi(yc.tenDotKiemKe(), IKiemKe.TEN_DOT_TOI_DA, "khoVanHanh.tenDotToiDaKyTu");
+        if (tenDot == null) throw KiemKePhamViService.phamViSai(ThongDiep.of("khoVanHanh.nhapTenDot"));
+        String lyDo = chuoi(yc.lyDo(), IKiemKe.LY_DO_TOI_DA, "khoVanHanh.lyDoToiDaKyTu");
+        if (lyDo == null) throw KiemKePhamViService.phamViSai(ThongDiep.of("khoVanHanh.nhapLyDoKiemKe"));
         dot.setTenDotKiemKe(tenDot);
         dot.setLyDo(lyDo);
-        dot.setGhiChu(chuoi(yc.ghiChu(), IKiemKe.LY_DO_TOI_DA, "Ghi chú"));
+        dot.setGhiChu(chuoi(yc.ghiChu(), IKiemKe.LY_DO_TOI_DA, "khoVanHanh.ghiChuToiDaKyTu"));
         dot.setNgayDuKienBatDau(yc.ngayDuKienBatDau());
         dot.setNguoiChuTri(nguoiChuTri(kho, yc.nguoiChuTriId(), nguoiTao));
         DotKiemKe.LoaiKiemKe loai;
         try {
             loai = DotKiemKe.LoaiKiemKe.valueOf(yc.loaiKiemKe());
         } catch (RuntimeException e) {
-            throw KiemKePhamViService.phamViSai("Chọn phạm vi kiểm kê");
+            throw KiemKePhamViService.phamViSai(ThongDiep.of("khoVanHanh.chonPhamViKiemKe"));
         }
         dot.setLoaiKiemKe(loai);
         dot.setDanhMuc(IKiemKe.THEO_DANH_MUC.equals(yc.loaiKiemKe()) && yc.danhMucId() != null
@@ -200,13 +203,12 @@ public class KiemKeService {
     /** Người chủ trì (Đ11): quản lý kho đang được phân quyền ở kho, hoặc quản trị viên; mặc định người tạo. */
     private NguoiDung nguoiChuTri(Kho kho, Integer id, NguoiDung nguoiTao) {
         NguoiDung nd = id == null ? nguoiTao : nguoiDungRepo.findById(id)
-                .orElseThrow(() -> KiemKePhamViService.phamViSai("Không tìm thấy người chủ trì đã chọn"));
+                .orElseThrow(() -> KiemKePhamViService.phamViSai(ThongDiep.of("khoVanHanh.nguoiChuTriKhongTimThay")));
         if (IRoleType.quan_tri_vien.equals(nd.getVaiTro())) return nd;
         boolean laQuanLy = phanQuyenRepo.nguoiDungTheoKhoVaVaiTroTai(kho.getId(), List.of(IRoleType.quan_ly_kho), Instant.now())
                 .stream().anyMatch(n -> n.getId().equals(nd.getId()));
         if (!laQuanLy) {
-            throw KiemKePhamViService.phamViSai("Người chủ trì phải là quản lý kho của " + kho.getTenKho()
-                    + " hoặc quản trị viên");
+            throw KiemKePhamViService.phamViSai(ThongDiep.of("khoVanHanh.nguoiChuTriPhaiLaQuanLy", kho.getTenKho()));
         }
         return nd;
     }
@@ -284,10 +286,10 @@ public class KiemKeService {
         NguoiDung nguoi = quyen.nguoiHienTai();
         DotKiemKe dot = khoaDot(id);
         KhoDangChon.kiemTra(dot.getKho(), ten(dot));
-        if (dot.getTrangThai() != IKiemKe.NHAP) throw saiTrangThai("Chỉ sửa được đợt đang là Nháp", dot);
+        if (dot.getTrangThai() != IKiemKe.NHAP) throw saiTrangThai(ThongDiep.of("khoVanHanh.chiSuaDotNhap"), dot);
         kiemTraPhienBan(dot, yc.phienBan());
         if (yc.khoId() != null && !yc.khoId().equals(dot.getKho().getId())) {
-            throw KiemKePhamViService.phamViSai("Không đổi kho của đợt đã tạo. Hủy nháp này và tạo đợt mới cho kho khác");
+            throw KiemKePhamViService.phamViSai(ThongDiep.of("khoVanHanh.khongDoiKhoCuaDot"));
         }
         KiemKePhamViService.LuaChon lc = new KiemKePhamViService.LuaChon(dot.getKho().getId(), yc.loaiKiemKe(),
                 yc.khuVucIds(), yc.viTriIds(), yc.danhMucId());
@@ -307,7 +309,8 @@ public class KiemKeService {
         Kho kho = phamVi.khoHopLe(yc.khoId());
         KhoDangChon.kiemTraXem(kho, "Kho " + kho.getTenKho());
         KiemKePhamViService.PhamVi pv = phamVi.xacDinh(luaChon(yc), dotId, false);
-        List<KiemKeDto.VanDe> vanDe = pv.vanDe().stream().map(v -> new KiemKeDto.VanDe(v.ma(), v.noiDung())).toList();
+        List<KiemKeDto.VanDe> vanDe = pv.vanDe().stream()
+                .map(v -> new KiemKeDto.VanDe(v.ma(), v.cau().theoNgonNgu(NgonNgu.hienTai()), v.cau().tiengViet())).toList();
         return new KiemKeDto.XemTruoc(pv.keIds().size(), pv.dong().size(), pv.soLo(), pv.tongSoLuong(),
                 pv.danhMuc().size(), vanDe, vanDe.isEmpty());
     }
@@ -344,7 +347,7 @@ public class KiemKeService {
         String hash = lenh.bam(IKiemKe.LENH_BAT_DAU, Map.of("id", id, "phienBan", phienBan == null ? -1 : phienBan));
         Optional<KiemKeDto.KetQuaLenh> cu = lenh.daXuLy(dot.getKho().getId(), khoa, IKiemKe.LENH_BAT_DAU, hash);
         if (cu.isPresent()) return cu.get();
-        if (dot.getTrangThai() != IKiemKe.NHAP) throw saiTrangThai("Chỉ bắt đầu được đợt đang là Nháp", dot);
+        if (dot.getTrangThai() != IKiemKe.NHAP) throw saiTrangThai(ThongDiep.of("khoVanHanh.chiBatDauDotNhap"), dot);
         kiemTraPhienBan(dot, phienBan);
         phamVi.khoHopLe(dot.getKho().getId());
         batDauTrongGiaoDich(dot, nguoi);
@@ -433,9 +436,13 @@ public class KiemKeService {
         String ma = uuTien.stream().filter(m -> vanDe.stream().anyMatch(v -> m.equals(v.ma()))).findFirst()
                 .orElse(MaLoi.STK_INVALID_SCOPE);
         HttpStatus status = MaLoi.STK_INVALID_SCOPE.equals(ma) ? HttpStatus.BAD_REQUEST : HttpStatus.CONFLICT;
-        String cau = "Chưa bắt đầu được: " + vanDe.stream().map(KiemKePhamViService.VanDe::noiDung)
-                .collect(Collectors.joining(" · "));
-        List<Map<String, String>> ds = vanDe.stream().map(v -> Map.of("ma", v.ma(), "noiDung", v.noiDung())).toList();
+        Object noi = "";
+        for (int i = 0; i < vanDe.size(); i++) {
+            noi = i == 0 ? vanDe.get(i).cau() : ThongDiep.of("khoVanHanh.ghepCham", noi, vanDe.get(i).cau());
+        }
+        ThongDiep cau = ThongDiep.of("khoVanHanh.chuaBatDauDuoc", noi);
+        List<Map<String, String>> ds = vanDe.stream()
+                .map(v -> Map.of("ma", v.ma(), "noiDung", v.cau().theoNgonNgu(NgonNgu.hienTai()), "noiDungGoc", v.cau().tiengViet())).toList();
         return new LoiCoMaException(status, ma, cau, Map.of("vanDe", ds));
     }
 
@@ -447,35 +454,35 @@ public class KiemKeService {
         sanSang.batBuoc();
         NguoiDung nguoi = quyen.nguoiHienTai();
         DotKiemKe dot = dotRepo.khoaDocTheoId(dotId)
-                .orElseThrow(() -> new LoiCoMaException(HttpStatus.NOT_FOUND, MaLoi.STK_INVALID_STATE, "Không tìm thấy đợt kiểm kê"));
+                .orElseThrow(() -> new LoiCoMaException(HttpStatus.NOT_FOUND, MaLoi.STK_INVALID_STATE, ThongDiep.of("khoVanHanh.dotKiemKeKhongTimThay")));
         em.refresh(dot, LockModeType.PESSIMISTIC_READ);
         KhoDangChon.kiemTra(dot.getKho(), ten(dot));
         if (dot.getTrangThai() != IKiemKe.DANG_KIEM_KE) {
             throw saiTrangThai(dot.getTrangThai() == IKiemKe.CHO_DUYET
-                    ? "Đợt đã trình duyệt nên số đếm chỉ xem" : "Đợt không ở trạng thái Đang kiểm kê", dot);
+                    ? ThongDiep.of("khoVanHanh.dotDaTrinhSoDemChiXem") : ThongDiep.of("khoVanHanh.dotKhongDangKiemKe"), dot);
         }
         ChiTietKiemKe dong = dongRepo.khoaTheoId(dongId)
                 .filter(d -> dotId.equals(d.getDotKiemKeId()))
                 .orElseThrow(() -> new LoiCoMaException(HttpStatus.NOT_FOUND, MaLoi.STK_INVALID_STATE,
-                        "Dòng kiểm kê không thuộc đợt này"));
+                        ThongDiep.of("khoVanHanh.dongKiemKeKhongThuocDot")));
         em.refresh(dong, LockModeType.PESSIMISTIC_WRITE);
         if (dong.getTrangThai() != null && dong.getTrangThai() == IKiemKe.DONG_DA_XAC_NHAN) {
             throw new LoiCoMaException(HttpStatus.CONFLICT, MaLoi.STK_INVALID_STATE,
-                    "Dòng này đã được quản lý xác nhận, không sửa được", Map.of("trangThai", (int) dong.getTrangThai()));
+                    ThongDiep.of("khoVanHanh.dongDaQuanLyXacNhan"), Map.of("trangThai", (int) dong.getTrangThai()));
         }
         if (yc.phienBan() == null || !yc.phienBan().equals(dong.getPhienBan())) {
             throw new LoiCoMaException(HttpStatus.CONFLICT, MaLoi.STK_VERSION_CONFLICT,
-                    "Dòng này vừa được lưu từ máy khác. Tải lại để xem số mới nhất trước khi sửa.",
+                    ThongDiep.of("khoVanHanh.dongVuaLuuMayKhac"),
                     Map.of("phienBan", dong.getPhienBan(), "dongId", dong.getId()));
         }
         Integer t = yc.soLuongThucTe();
         if (t != null && (t < 0 || t > IKiemKe.SO_LUONG_TOI_DA)) {
             throw new LoiCoMaException(HttpStatus.BAD_REQUEST, MaLoi.STK_INVALID_SCOPE,
-                    "Số đếm là số nguyên từ 0 đến " + String.format("%,d", IKiemKe.SO_LUONG_TOI_DA).replace(',', '.') + " sản phẩm");
+                    ThongDiep.of("khoVanHanh.soDemKhongHopLe", String.format("%,d", IKiemKe.SO_LUONG_TOI_DA).replace(',', '.')));
         }
         dong.setSoLuongThucTe(t == null ? null : BigDecimal.valueOf(t));
-        dong.setLyDoChenhLech(chuoi(yc.lyDoChenhLech(), IKiemKe.LY_DO_TOI_DA, "Lý do chênh lệch"));
-        dong.setBienPhapXuLy(chuoi(yc.bienPhapXuLy(), IKiemKe.LY_DO_TOI_DA, "Biện pháp xử lý"));
+        dong.setLyDoChenhLech(chuoi(yc.lyDoChenhLech(), IKiemKe.LY_DO_TOI_DA, "khoVanHanh.lyDoChenhLechToiDaKyTu"));
+        dong.setBienPhapXuLy(chuoi(yc.bienPhapXuLy(), IKiemKe.LY_DO_TOI_DA, "khoVanHanh.bienPhapXuLyToiDaKyTu"));
         KiemKeTinhToan.apDung(dong);
         if (t == null) {
             dong.setTrangThai(dong.getLanKiemDem() != null && dong.getLanKiemDem() > 1
@@ -499,26 +506,26 @@ public class KiemKeService {
         NguoiDung nguoi = quyen.nguoiHienTai();
         DotKiemKe dot = khoaDotVaKho(dotId);
         KhoDangChon.kiemTra(dot.getKho(), ten(dot));
-        if (dot.getTrangThai() != IKiemKe.DANG_KIEM_KE) throw saiTrangThai("Chỉ thêm lô phát sinh khi đợt đang kiểm kê", dot);
+        if (dot.getTrangThai() != IKiemKe.DANG_KIEM_KE) throw saiTrangThai(ThongDiep.of("khoVanHanh.chiThemLoPhatSinhKhiDangKiem"), dot);
         Integer t = yc.soLuongThucTe();
         if (t == null || t < 1 || t > IKiemKe.SO_LUONG_TOI_DA) {
-            throw KiemKePhamViService.phamViSai("Số lượng phát sinh là số nguyên dương, tối đa 1.000.000 sản phẩm");
+            throw KiemKePhamViService.phamViSai(ThongDiep.of("khoVanHanh.soLuongPhatSinhKhongHopLe"));
         }
-        String lyDo = chuoi(yc.lyDoChenhLech(), IKiemKe.LY_DO_TOI_DA, "Giải trình");
-        if (lyDo == null) throw KiemKePhamViService.phamViSai("Nhập giải trình cho lô phát sinh");
+        String lyDo = chuoi(yc.lyDoChenhLech(), IKiemKe.LY_DO_TOI_DA, "khoVanHanh.giaiTrinhToiDaKyTu");
+        if (lyDo == null) throw KiemKePhamViService.phamViSai(ThongDiep.of("khoVanHanh.nhapGiaiTrinhLoPhatSinh"));
         LoHang lo = yc.loHangId() == null ? null : loHangRepo.findById(yc.loHangId()).orElse(null);
-        if (lo == null) throw KiemKePhamViService.phamViSai("Chọn lô đã có trong danh mục hàng hóa");
+        if (lo == null) throw KiemKePhamViService.phamViSai(ThongDiep.of("khoVanHanh.chonLoCoTrongDanhMuc"));
         ViTriKho ke = yc.viTriKhoId() == null ? null : viTriRepo.findById(yc.viTriKhoId()).orElse(null);
         if (ke == null || ke.getKho() == null || !ke.getKho().getId().equals(dot.getKho().getId())) {
-            throw KiemKePhamViService.phamViSai("Chọn kệ thuộc kho của đợt");
+            throw KiemKePhamViService.phamViSai(ThongDiep.of("khoVanHanh.chonKeThuocKhoCuaDot"));
         }
-        if (IKiemKe.KE_BAO_TRI.equals(ke.getTrangThai())) throw KiemKePhamViService.phamViSai("Kệ " + ke.getMaViTri() + " đang bảo trì");
+        if (IKiemKe.KE_BAO_TRI.equals(ke.getTrangThai())) throw KiemKePhamViService.phamViSai(ThongDiep.of("khoVanHanh.keDangBaoTri", ke.getMaViTri()));
         String loai = dot.getLoaiKiemKe().name();
         DotKiemKeViTri keCuaDot = dotViTriRepo.findByDotKiemKeIdAndViTriKho_Id(dotId, ke.getId()).orElse(null);
         KhoaKiemKeGuard.TrangThaiKhoa tt = guard.trangThai(dot.getKho().getId());
         if (IKiemKe.laKhoaToanKe(loai)) {
             if (keCuaDot == null || keCuaDot.getTrangThaiKhoa() != 1) {
-                throw KiemKePhamViService.phamViSai("Kệ " + ke.getMaViTri() + " ngoài phạm vi đã chốt của đợt");
+                throw KiemKePhamViService.phamViSai(ThongDiep.of("khoVanHanh.keNgoaiPhamVi", ke.getMaViTri()));
             }
         } else {
             Set<Integer> tap = new HashSet<>(dotDanhMucRepo.idCuaDot(dotId));
@@ -526,23 +533,21 @@ public class KiemKeService {
                     && lo.getBienTheSanPham().getSanPham().getDanhMuc() != null
                     ? lo.getBienTheSanPham().getSanPham().getDanhMuc().getId() : null;
             if (dmLo == null || !tap.contains(dmLo)) {
-                throw KiemKePhamViService.phamViSai("Lô " + lo.getMaLo() + " không thuộc danh mục của đợt");
+                throw KiemKePhamViService.phamViSai(ThongDiep.of("khoVanHanh.loKhongThuocDanhMucDot", lo.getMaLo()));
             }
             Integer dotKhac = tt.keToanKe.get(ke.getId());
             if (dotKhac == null) dotKhac = tt.capKhoaMin.get(KhoaKiemKeGuard.khoa(ke.getId(), lo.getId()));
             if (dotKhac != null && !dotKhac.equals(dotId)) {
-                throw new LoiCoMaException(HttpStatus.CONFLICT, MaLoi.STK_SCOPE_CONFLICT, "Kệ " + ke.getMaViTri()
-                        + " đang do đợt " + tt.maDot.get(dotKhac) + " giữ khóa");
+                throw new LoiCoMaException(HttpStatus.CONFLICT, MaLoi.STK_SCOPE_CONFLICT, ThongDiep.of("khoVanHanh.keDangDoDotKhacGiuKhoa",
+                        ke.getMaViTri(), tt.maDot.get(dotKhac)));
             }
         }
         if (dongRepo.existsByDotKiemKeIdAndViTriKe_IdAndLoHang_Id(dotId, ke.getId(), lo.getId())) {
-            throw KiemKePhamViService.phamViSai("Lô " + lo.getMaLo() + " ở kệ " + ke.getMaViTri()
-                    + " đã có dòng trong đợt; nhập số trên dòng đó");
+            throw KiemKePhamViService.phamViSai(ThongDiep.of("khoVanHanh.loOKeDaCoDong", lo.getMaLo(), ke.getMaViTri()));
         }
         TonKhoViTri tonKe = tonKeRepo.findByViTriKho_IdAndLoHang_Id(ke.getId(), lo.getId()).orElse(null);
         if (tonKe != null && tonKe.getSoLuong() != null && tonKe.getSoLuong() != 0) {
-            throw KiemKePhamViService.phamViSai("Sổ kệ đang ghi " + tonKe.getSoLuong() + " sp lô " + lo.getMaLo()
-                    + " ở kệ " + ke.getMaViTri() + ": không phải lô phát sinh");
+            throw KiemKePhamViService.phamViSai(ThongDiep.of("khoVanHanh.soKeDangGhiKhongPhaiPhatSinh", tonKe.getSoLuong(), lo.getMaLo(), ke.getMaViTri()));
         }
         Instant bayGio = Instant.now();
         if (IKiemKe.THEO_DANH_MUC.equals(loai)) {
@@ -598,7 +603,7 @@ public class KiemKeService {
         String hash = lenh.bam(IKiemKe.LENH_TRINH_DUYET, Map.of("id", id, "phienBan", phienBan == null ? -1 : phienBan));
         Optional<KiemKeDto.KetQuaLenh> cu = lenh.daXuLy(dot.getKho().getId(), khoa, IKiemKe.LENH_TRINH_DUYET, hash);
         if (cu.isPresent()) return cu.get();
-        if (dot.getTrangThai() != IKiemKe.DANG_KIEM_KE) throw saiTrangThai("Chỉ trình duyệt được đợt đang kiểm kê", dot);
+        if (dot.getTrangThai() != IKiemKe.DANG_KIEM_KE) throw saiTrangThai(ThongDiep.of("khoVanHanh.chiTrinhDuyetKhiDangKiem"), dot);
         kiemTraPhienBan(dot, phienBan);
         List<ChiTietKiemKe> dong = dongRepo.khoaTheoDot(id);
         kiemTraDuSoDem(dong);
@@ -632,12 +637,12 @@ public class KiemKeService {
             }
         }
         if (chuaKiem + canKiemLai + thieuLyDo == 0) return;
-        List<String> phan = new ArrayList<>();
-        if (chuaKiem > 0) phan.add(chuaKiem + " dòng chưa kiểm");
-        if (canKiemLai > 0) phan.add(canKiemLai + " dòng cần kiểm lại");
-        if (thieuLyDo > 0) phan.add(thieuLyDo + " dòng lệch chưa có lý do");
+        List<ThongDiep> phan = new ArrayList<>();
+        if (chuaKiem > 0) phan.add(ThongDiep.of("khoVanHanh.mucDongChuaKiem", chuaKiem));
+        if (canKiemLai > 0) phan.add(ThongDiep.of("khoVanHanh.mucDongCanKiemLai", canKiemLai));
+        if (thieuLyDo > 0) phan.add(ThongDiep.of("khoVanHanh.mucDongLechChuaLyDo", thieuLyDo));
         throw new LoiCoMaException(HttpStatus.CONFLICT, MaLoi.STK_COUNT_INCOMPLETE,
-                "Còn " + String.join(", ", phan) + ". Nhập 0 nếu đã đếm và không có hàng.",
+                ThongDiep.of("khoVanHanh.conDongChuaXong", KiemKePhamViService.ghep(phan)),
                 Map.of("chuaKiem", chuaKiem, "canKiemLai", canKiemLai, "thieuLyDo", thieuLyDo));
     }
 
@@ -651,20 +656,20 @@ public class KiemKeService {
         KhoDangChon.kiemTra(dot.getKho(), ten(dot));
         if (!quyen.duocDuyet(quyen.nguoiXem(), dot)) {
             throw new LoiCoMaException(HttpStatus.FORBIDDEN, MaLoi.STK_INVALID_STATE,
-                    "Chỉ quản lý kho có quyền điều chỉnh tồn kho mới yêu cầu đếm lại");
+                    ThongDiep.of("khoVanHanh.chiQuanLyKhoYeuCauDemLai"));
         }
         String hash = lenh.bam(IKiemKe.LENH_DEM_LAI, yc);
         Optional<KiemKeDto.KetQuaLenh> cu = lenh.daXuLy(dot.getKho().getId(), khoa, IKiemKe.LENH_DEM_LAI, hash);
         if (cu.isPresent()) return cu.get();
-        if (dot.getTrangThai() != IKiemKe.CHO_DUYET) throw saiTrangThai("Chỉ yêu cầu đếm lại khi đợt đang chờ duyệt", dot);
+        if (dot.getTrangThai() != IKiemKe.CHO_DUYET) throw saiTrangThai(ThongDiep.of("khoVanHanh.chiYeuCauDemLaiKhiChoDuyet"), dot);
         kiemTraPhienBan(dot, yc.phienBan());
-        String lyDo = chuoi(yc.lyDo(), IKiemKe.LY_DO_TOI_DA, "Lý do đếm lại");
-        if (lyDo == null) throw KiemKePhamViService.phamViSai("Nhập lý do yêu cầu đếm lại");
+        String lyDo = chuoi(yc.lyDo(), IKiemKe.LY_DO_TOI_DA, "khoVanHanh.lyDoDemLaiToiDaKyTu");
+        if (lyDo == null) throw KiemKePhamViService.phamViSai(ThongDiep.of("khoVanHanh.nhapLyDoDemLai"));
         Set<Integer> chon = yc.dongIds() == null ? Set.of() : yc.dongIds().stream().filter(Objects::nonNull).collect(Collectors.toSet());
-        if (chon.isEmpty()) throw KiemKePhamViService.phamViSai("Chọn ít nhất một dòng cần đếm lại");
+        if (chon.isEmpty()) throw KiemKePhamViService.phamViSai(ThongDiep.of("khoVanHanh.chonItNhatMotDongDemLai"));
         List<ChiTietKiemKe> dong = dongRepo.khoaTheoDot(id);
         Set<Integer> coTrongDot = dong.stream().map(ChiTietKiemKe::getId).collect(Collectors.toSet());
-        if (!coTrongDot.containsAll(chon)) throw KiemKePhamViService.phamViSai("Có dòng được chọn không thuộc đợt này");
+        if (!coTrongDot.containsAll(chon)) throw KiemKePhamViService.phamViSai(ThongDiep.of("khoVanHanh.coDongKhongThuocDot"));
 
         Map<Integer, Set<Integer>> anhDaLuu = new HashMap<>();
         for (KiemKeLanDem l : lanDemRepo.theoDong(chon)) {
@@ -745,7 +750,7 @@ public class KiemKeService {
         String khoa = lenh.chuanHoa(khoaLenh);
         NguoiDung nguoi = quyen.nguoiHienTai();
         DotKiemKe xem = dotRepo.findById(id)
-                .orElseThrow(() -> new LoiCoMaException(HttpStatus.NOT_FOUND, MaLoi.STK_INVALID_STATE, "Không tìm thấy đợt kiểm kê"));
+                .orElseThrow(() -> new LoiCoMaException(HttpStatus.NOT_FOUND, MaLoi.STK_INVALID_STATE, ThongDiep.of("khoVanHanh.dotKiemKeKhongTimThay")));
         // Ghi lại trạng thái lúc đọc: `xem` và `dot` là cùng một entity, khóa xong entity được nạp lại
         byte lucDoc = xem.getTrangThai() == null ? IKiemKe.NHAP : xem.getTrangThai();
         DotKiemKe dot = IKiemKe.dangGiuKhoa(lucDoc) ? khoaDotVaKho(id) : khoaDot(id);
@@ -755,15 +760,15 @@ public class KiemKeService {
         if (cu.isPresent()) return cu.get();
         byte truoc = dot.getTrangThai();
         if (truoc != IKiemKe.NHAP && truoc != IKiemKe.DANG_KIEM_KE && truoc != IKiemKe.CHO_DUYET) {
-            throw saiTrangThai("Đợt đã kết thúc, không hủy được", dot);
+            throw saiTrangThai(ThongDiep.of("khoVanHanh.dotDaKetThucKhongHuy"), dot);
         }
         if (IKiemKe.dangGiuKhoa(truoc) && !IKiemKe.dangGiuKhoa(lucDoc)) {
             // Vừa được bắt đầu giữa lúc đọc và lúc khóa: làm lại theo đúng thứ tự khóa
-            throw saiTrangThai("Đợt vừa được bắt đầu. Tải lại trang rồi hủy lại", dot);
+            throw saiTrangThai(ThongDiep.of("khoVanHanh.dotVuaBatDauHuyLai"), dot);
         }
         kiemTraPhienBan(dot, yc.phienBan());
-        String lyDo = chuoi(yc.lyDo(), IKiemKe.LY_DO_TOI_DA, "Lý do hủy");
-        if (lyDo == null) throw KiemKePhamViService.phamViSai("Nhập lý do hủy đợt");
+        String lyDo = chuoi(yc.lyDo(), IKiemKe.LY_DO_TOI_DA, "khoVanHanh.lyDoHuyToiDaKyTu");
+        if (lyDo == null) throw KiemKePhamViService.phamViSai(ThongDiep.of("khoVanHanh.nhapLyDoHuyDot"));
         Instant bayGio = Instant.now();
         dot.setTrangThai(IKiemKe.DA_HUY);
         dot.setNguoiHuy(nguoi);

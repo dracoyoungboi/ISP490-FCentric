@@ -1,5 +1,7 @@
 package com.dev.backend.services.impl.utils;
 
+import com.dev.backend.i18n.LoiTrangThaiException;
+import com.dev.backend.i18n.ThongDiep;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -278,7 +280,7 @@ public class LoginRateLimiter {
             byte[] bam = MessageDigest.getInstance("SHA-256").digest(chuan.getBytes(StandardCharsets.UTF_8));
             return Base64.getEncoder().encodeToString(Arrays.copyOf(bam, 16));
         } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("JVM thiếu SHA-256", e);
+            throw new LoiTrangThaiException(ThongDiep.of("heThong.jvmThieuSha256"), e);
         }
     }
 }

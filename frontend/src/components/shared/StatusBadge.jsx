@@ -2,7 +2,8 @@ import {
   Archive, BadgeCheck, Ban, Banknote, CalendarCheck, CalendarClock, CalendarOff, Camera, CheckCheck, ChevronsUp, CircleCheckBig, CircleHelp, CircleOff, CirclePause, ClipboardCheck, ClipboardList, Clock, Database, Flag, Grid2x2, Hand, Hourglass, KeyRound, Link, Lock, Mail, MessageSquareX, OctagonAlert, Package, PackageCheck, PackageMinus, PackageOpen, PackageX, PencilLine, Pin, PinOff, Radio, Receipt, RefreshCw, RotateCcw, ScanBarcode, Search, Send, SkipForward, Trash2, TrendingDown, TrendingUp, TriangleAlert, Truck, Undo2, Unlink, UserCheck, Video, Warehouse, Wrench,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { NHOM_TRANG_THAI, layCachVe, nhomCuaNhan } from "@/constants/trangThai";
+import { NHOM_TRANG_THAI, dichNhanTrangThai, layCachVe, nhomCuaNhan } from "@/constants/trangThai";
+import { t } from "@/i18n";
 
 /**
  * Thẻ trạng thái (chốt 21/10/2026: "chỉ bọc khi cần", vẽ đúng bản demo "Bộ thẻ trạng thái · bản chốt").
@@ -96,9 +97,11 @@ const DA_CANH_BAO = new Set();
 function chuBuoc(viTri) {
   if (!viTri || viTri.kieu !== "vong" || viTri.buoc == null) return null;
   // Bước 0 ("Chờ nhặt", "Chờ nhập kho", "Chờ kiểm đếm"): đọc "chưa bắt đầu", không đọc "bước 0 trên 2"
-  if (viTri.buoc === 0) return <span className="sr-only">{", chưa bắt đầu"}</span>;
-  const buoc = Number.isInteger(viTri.buoc) ? `bước ${viTri.buoc}` : `giữa bước ${Math.floor(viTri.buoc)} và ${Math.ceil(viTri.buoc)}`;
-  return <span className="sr-only">{`, ${buoc} trên ${viTri.tong}`}</span>;
+  if (viTri.buoc === 0) return <span className="sr-only">{t(", chưa bắt đầu")}</span>;
+  const buoc = Number.isInteger(viTri.buoc)
+    ? t(", bước {{buoc}} trên {{tong}}", { buoc: viTri.buoc, tong: viTri.tong })
+    : t(", giữa bước {{truoc}} và {{sau}} trên {{tong}}", { truoc: Math.floor(viTri.buoc), sau: Math.ceil(viTri.buoc), tong: viTri.tong });
+  return <span className="sr-only">{buoc}</span>;
 }
 
 export default function StatusBadge({ label, quyTrinh, doiTuong, nhom, tone, size = "md", className }) {
@@ -121,7 +124,7 @@ export default function StatusBadge({ label, quyTrinh, doiTuong, nhom, tone, siz
         className={cn("inline-flex shrink-0 items-center whitespace-nowrap rounded-md font-semibold", co.khung, mau.khung, className)}
       >
         {Icon ? <Icon className={cn("shrink-0", co.icon)} strokeWidth={2.1} aria-hidden="true" /> : <Cham kichThuoc={co.cham} />}
-        {label}
+        {dichNhanTrangThai(label)}
       </span>
     );
   }
@@ -142,7 +145,7 @@ export default function StatusBadge({ label, quyTrinh, doiTuong, nhom, tone, siz
       className={cn("inline-flex shrink-0 items-center whitespace-nowrap font-semibold", co.tron, mau.chu, className)}
     >
       {hinh}
-      {label}
+      {dichNhanTrangThai(label)}
       {cachVe.kieu === "vong" ? chuBuoc(cachVe.quyTrinh) : null}
     </span>
   );

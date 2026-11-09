@@ -6,6 +6,7 @@ import { LUOI_MAT_BANG } from "@/constants/nhapKho";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { KhungHop, Truong } from "./KhungHop";
 import { O_NHAP } from "./kieuNhap";
+import { t } from "@/i18n";
 
 /**
  * Tạo lưới mặt bằng (kho chưa có) hoặc đổi kích thước lưới. Thu nhỏ không được cắt mất khu hay cửa đã vẽ.
@@ -30,10 +31,10 @@ function NoiDung({ matBang, tenKhu, onDong, onXacNhan }) {
   const h = Number(hang);
   const loi = {};
   if (!Number.isInteger(c) || c < LUOI_MAT_BANG.toiThieu || c > LUOI_MAT_BANG.cotToiDa) {
-    loi.cot = `Từ ${LUOI_MAT_BANG.toiThieu} đến ${LUOI_MAT_BANG.cotToiDa} cột.`;
+    loi.cot = t("Từ {{toiThieu}} đến {{cotToiDa}} cột.", { toiThieu: LUOI_MAT_BANG.toiThieu, cotToiDa: LUOI_MAT_BANG.cotToiDa });
   }
   if (!Number.isInteger(h) || h < LUOI_MAT_BANG.toiThieu || h > LUOI_MAT_BANG.hangToiDa) {
-    loi.hang = `Từ ${LUOI_MAT_BANG.toiThieu} đến ${LUOI_MAT_BANG.hangToiDa} hàng.`;
+    loi.hang = t("Từ {{toiThieu}} đến {{hangToiDa}} hàng.", { toiThieu: LUOI_MAT_BANG.toiThieu, hangToiDa: LUOI_MAT_BANG.hangToiDa });
   }
   const biCat = !loi.cot && !loi.hang && !taoMoi ? vatNgoaiLuoi(matBang, c, h, tenKhu) : "";
   const hopLe = !loi.cot && !loi.hang && !biCat;
@@ -45,23 +46,23 @@ function NoiDung({ matBang, tenKhu, onDong, onXacNhan }) {
     try {
       await onXacNhan({ soCot: c, soHang: h });
     } catch (err) {
-      setLoiMayChu(getApiErrorMessage(err, "Không lưu được mặt bằng. Vui lòng thử lại."));
+      setLoiMayChu(getApiErrorMessage(err, t("Không lưu được mặt bằng. Vui lòng thử lại.")));
       setDangLuu(false);
     }
   };
 
   return (
     <KhungHop
-      tieuDe={taoMoi ? "Tạo mặt bằng kho" : "Kích thước lưới"}
-      moTa="Mặt bằng nhìn từ trên xuống, chia thành lưới ô vuông. Nên để một ô ứng với một khoảng cố định ngoài kho (VD 1 m)."
+      tieuDe={taoMoi ? t("Tạo mặt bằng kho") : t("Kích thước lưới")}
+      moTa={t("Mặt bằng nhìn từ trên xuống, chia thành lưới ô vuông. Nên để một ô ứng với một khoảng cố định ngoài kho (VD 1 m).")}
       onHuy={onDong}
       onGui={luu}
       khoaGui={!hopLe}
-      nhanGui={taoMoi ? "Tạo mặt bằng" : "Lưu kích thước"}
+      nhanGui={taoMoi ? t("Tạo mặt bằng") : t("Lưu kích thước")}
       dangGui={dangLuu}
     >
       <div className="grid grid-cols-2 gap-4">
-        <Truong nhan="Số cột (chiều ngang)" htmlFor="luoi-cot" loi={loi.cot}>
+        <Truong nhan={t("Số cột (chiều ngang)")} htmlFor="luoi-cot" loi={loi.cot}>
           <input
             id="luoi-cot"
             autoFocus
@@ -72,7 +73,7 @@ function NoiDung({ matBang, tenKhu, onDong, onXacNhan }) {
             className={`${O_NHAP} tabular-nums`}
           />
         </Truong>
-        <Truong nhan="Số hàng (chiều dọc)" htmlFor="luoi-hang" loi={loi.hang}>
+        <Truong nhan={t("Số hàng (chiều dọc)")} htmlFor="luoi-hang" loi={loi.hang}>
           <input
             id="luoi-hang"
             inputMode="numeric"
@@ -84,11 +85,11 @@ function NoiDung({ matBang, tenKhu, onDong, onXacNhan }) {
         </Truong>
       </div>
       {biCat ? (
-        <DongThongBao tone="warn">Lưới mới cắt mất “{biCat}”. Vẽ lại hoặc gỡ vật đó trước khi thu nhỏ.</DongThongBao>
+        <DongThongBao tone="warn">{t("Lưới mới cắt mất “{{biCat}}”. Vẽ lại hoặc gỡ vật đó trước khi thu nhỏ.", { biCat })}</DongThongBao>
       ) : loiMayChu ? (
         <DongThongBao tone="bad">{loiMayChu}</DongThongBao>
       ) : taoMoi ? (
-        <DongThongBao>Sau khi tạo, bấm Vẽ để đặt khu vực, lối đi, cửa và vật cố định lên lưới.</DongThongBao>
+        <DongThongBao>{t("Sau khi tạo, bấm Vẽ để đặt khu vực, lối đi, cửa và vật cố định lên lưới.")}</DongThongBao>
       ) : null}
     </KhungHop>
   );

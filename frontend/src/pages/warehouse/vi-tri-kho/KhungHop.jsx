@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { NUT_CHINH, NUT_PHU } from "./kieuNhap";
+import { t } from "@/i18n";
 
 const RONG = { vua: "sm:max-w-[560px]", rong: "sm:max-w-[720px]" };
 
@@ -36,7 +37,7 @@ export function KhungHop({ tieuDe, moTa, rong = "vua", onHuy, onGui, nhanGui, da
           <div className="min-w-0 text-[13px] text-bo-muted">{chanTrai}</div>
           <div className="flex flex-col-reverse gap-2 sm:flex-row">
             <Button type="button" variant="outline" onClick={onHuy} disabled={dangGui} className={NUT_PHU}>
-              Hủy
+              {t("Hủy")}
             </Button>
             {onGui ? (
               <Button type="submit" disabled={dangGui || khoaGui} className={cn("min-w-28 gap-1.5", NUT_CHINH)}>

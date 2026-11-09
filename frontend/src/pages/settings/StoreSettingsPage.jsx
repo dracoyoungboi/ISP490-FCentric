@@ -45,6 +45,7 @@ import {
   xemPhapLyLienHe,
   xemTenCuaHang,
 } from "./thongTinCuaHang";
+import { t } from "@/i18n";
 
 const THE = {
   A: { keys: KHOA_TEN_VA_LOGO, validate: validateTenVaLogo, payload: payloadTenVaLogo },
@@ -273,7 +274,7 @@ export default function StoreSettingsPage() {
   if (status === "loading") {
     return (
       <SettingsCard>
-        <LoadingState label="Đang tải thông tin cửa hàng" className="min-h-48" />
+        <LoadingState label={t("Đang tải thông tin cửa hàng")} className="min-h-48" />
       </SettingsCard>
     );
   }
@@ -282,8 +283,8 @@ export default function StoreSettingsPage() {
     return (
       <SettingsCard>
         <ErrorState
-          title="Không thể tải thông tin cửa hàng"
-          description="Không đọc được thông tin cửa hàng từ máy chủ. Vui lòng thử lại."
+          title={t("Không thể tải thông tin cửa hàng")}
+          description={t("Không đọc được thông tin cửa hàng từ máy chủ. Vui lòng thử lại.")}
           onRetry={load}
           className="min-h-48"
         />
@@ -371,11 +372,11 @@ export default function StoreSettingsPage() {
 
   return (
     <>
-      <SettingsCard as="form" editing={dangSua === "A"} onSubmit={save} noValidate aria-label="Tên và logo">
+      <SettingsCard as="form" editing={dangSua === "A"} onSubmit={save} noValidate aria-label={t("Tên và logo")}>
         <SettingsCardHeader
-          title="Tên và logo"
+          title={t("Tên và logo")}
           note={CHU_THICH_THE_TEN_VA_LOGO}
-          action={nutSua("A", "Sửa tên và logo")}
+          action={nutSua("A", t("Sửa tên và logo"))}
         />
         {dangSua === "A" ? (
           <>
@@ -414,9 +415,9 @@ export default function StoreSettingsPage() {
         ) : (
           <div className="px-5 pt-2.5 pb-[18px]">
             <div className="flex items-center gap-4">
-              <LogoBox src={logoXem} emptyText="Chưa có logo" />
+              <LogoBox src={logoXem} emptyText={t("Chưa có logo")} />
               <dl className="min-w-0">
-                <dt className="text-[13px] leading-5 text-bo-muted">Tên cửa hàng</dt>
+                <dt className="text-[13px] leading-5 text-bo-muted">{t("Tên cửa hàng")}</dt>
                 <dd
                   className={cn(
                     "mt-0.5 break-words",
@@ -438,13 +439,13 @@ export default function StoreSettingsPage() {
         editing={dangSua === "B"}
         onSubmit={save}
         noValidate
-        aria-label="Pháp lý và liên hệ"
+        aria-label={t("Pháp lý và liên hệ")}
         className="lg:flex lg:flex-1 lg:flex-col"
       >
         <SettingsCardHeader
-          title="Pháp lý và liên hệ"
+          title={t("Pháp lý và liên hệ")}
           note={CHU_THICH_THE_PHAP_LY}
-          action={nutSua("B", "Sửa pháp lý và liên hệ")}
+          action={nutSua("B", t("Sửa pháp lý và liên hệ"))}
         />
         {dangSua === "B" ? (
           <>
@@ -499,7 +500,7 @@ function LogoBox({ src, emptyText = "", onPick, onDropFile, onRemove, coAnhMoi =
   const hienAnh = src && anhLoi !== src;
   const chonDuoc = Boolean(onPick) && !disabled;
   const noiDung = hienAnh ? (
-    <img src={src} alt="Logo cửa hàng" className="max-h-full max-w-full object-contain" onError={() => setAnhLoi(src)} />
+    <img src={src} alt={t("Logo cửa hàng")} className="max-h-full max-w-full object-contain" onError={() => setAnhLoi(src)} />
   ) : !src && emptyText ? (
     <span className="text-center text-[11px] leading-[14px] text-[#94a3b8]">{emptyText}</span>
   ) : onPick && !src ? (
@@ -518,9 +519,9 @@ function LogoBox({ src, emptyText = "", onPick, onDropFile, onRemove, coAnhMoi =
         // Có ảnh: hai nút góc lo bàn phím, khung chỉ để bấm chuột / thả ảnh
         tabIndex={src ? -1 : undefined}
         aria-hidden={src ? "true" : undefined}
-        aria-label={src ? undefined : "Chọn ảnh logo"}
+        aria-label={src ? undefined : t("Chọn ảnh logo")}
         aria-describedby={src ? undefined : describedBy}
-        title="Bấm hoặc kéo ảnh thả vào để chọn logo"
+        title={t("Bấm hoặc kéo ảnh thả vào để chọn logo")}
         disabled={disabled}
         onClick={onPick}
         onDragOver={(event) => {
@@ -550,8 +551,8 @@ function LogoBox({ src, emptyText = "", onPick, onDropFile, onRemove, coAnhMoi =
             type="button"
             onClick={onRemove}
             disabled={disabled}
-            aria-label={coAnhMoi ? "Bỏ ảnh vừa chọn" : "Xóa logo"}
-            title={coAnhMoi ? "Bỏ ảnh vừa chọn" : "Xóa logo"}
+            aria-label={coAnhMoi ? t("Bỏ ảnh vừa chọn") : t("Xóa logo")}
+            title={coAnhMoi ? t("Bỏ ảnh vừa chọn") : t("Xóa logo")}
             className={cn(NUT_GOC, "-top-2 -right-2", !coAnhMoi && "enabled:hover:border-[#f3c4c4] enabled:hover:text-bo-danger")}
           >
             {coAnhMoi ? <RotateCcw aria-hidden="true" /> : <Trash2 aria-hidden="true" />}
@@ -560,9 +561,9 @@ function LogoBox({ src, emptyText = "", onPick, onDropFile, onRemove, coAnhMoi =
             type="button"
             onClick={onPick}
             disabled={disabled}
-            aria-label="Đổi logo"
+            aria-label={t("Đổi logo")}
             aria-describedby={describedBy}
-            title="Đổi logo"
+            title={t("Đổi logo")}
             className={cn(NUT_GOC, "-right-2 -bottom-2")}
           >
             <Pencil aria-hidden="true" />

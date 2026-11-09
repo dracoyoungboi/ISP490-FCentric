@@ -3,6 +3,6 @@ import { CONNECTION_STATUS } from "@/constants/channel";
 
 /** Trạng thái gian hàng: Chưa kết nối / Đang hoạt động / Tạm dừng / Hết hạn khóa. */
 export default function ConnectionStatusBadge({ trangThai, className }) {
-  const meta = CONNECTION_STATUS[trangThai] ?? { label: trangThai ? `Không xác định (mã ${trangThai})` : "Chưa có trạng thái" };
+  const meta = CONNECTION_STATUS[trangThai] ?? { label: trangThai ? `Không xác định (mã ${trangThai})` : "Chưa có trạng thái" }; // i18n-giu-nguyen: nhãn đưa vào StatusBadge, thẻ tự dịch
   return <StatusBadge label={meta.label} className={className} />;
 }

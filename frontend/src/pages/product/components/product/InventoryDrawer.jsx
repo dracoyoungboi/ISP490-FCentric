@@ -4,12 +4,13 @@ import { X, ChevronRight, ChevronDown, Warehouse, Package, Layers, AlertCircle, 
 import { Button } from "@/components/ui/button";
 import { thongKeHeThongService } from "@/services/thongKeHeThongService";
 import { formatCurrency } from "@/utils/formatters";
+import { t } from "@/i18n";
 
 // ─── Badge tồn kho ────────────────────────────────────────────────────────────
 function StockBadge({ value }) {
     const num = Number(value ?? 0);
     if (num <= 0)
-        return <span className="inline-flex min-w-[78px] items-center justify-center px-2.5 py-1 text-[11px] rounded-full bg-bo-danger-soft text-red-600 border border-red-200 font-semibold">Hết hàng</span>;
+        return <span className="inline-flex min-w-[78px] items-center justify-center px-2.5 py-1 text-[11px] rounded-full bg-bo-danger-soft text-red-600 border border-red-200 font-semibold">{t("Hết hàng")}</span>;
     if (num < 10)
         return <span className="inline-flex min-w-[78px] items-center justify-center px-2.5 py-1 text-[11px] rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-semibold">{num}</span>;
     return <span className="inline-flex min-w-[78px] items-center justify-center px-2.5 py-1 text-[11px] rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold">{num}</span>;
@@ -33,14 +34,14 @@ function KhoTonKhoPanel({ khoData }) {
                 <div className="flex items-center gap-4">
                     <div className="text-xs text-[#7a6e5f] hidden sm:flex gap-3">
                         <span>
-                            Tồn: <b className="text-[#2f2a23]">{Number(khoData.tongSoLuongTon ?? 0).toLocaleString("vi-VN")}</b>
+                            {t("Tồn:")} <b className="text-[#2f2a23]">{Number(khoData.tongSoLuongTon ?? 0).toLocaleString("vi-VN")}</b>
                         </span>
                         <span>
-                            Khả dụng:{" "}
+                            {t("Khả dụng:")}{" "}
                             <b className="text-emerald-700">{Number(khoData.tongSoLuongKhaDung ?? 0).toLocaleString("vi-VN")}</b>
                         </span>
                         <span>
-                            Giá trị: <b className="text-[#b8860b]">{formatCurrency(khoData.giaTriTonKho ?? 0)}</b>
+                            {t("Giá trị:")} <b className="text-[#b8860b]">{formatCurrency(khoData.giaTriTonKho ?? 0)}</b>
                         </span>
                     </div>
                     {open ? (
@@ -56,18 +57,18 @@ function KhoTonKhoPanel({ khoData }) {
                     {!khoData.danhSachLoHang || khoData.danhSachLoHang.length === 0 ? (
                         <div className="flex items-center justify-center gap-2 py-6 text-[#9a8c79] text-sm">
                             <AlertCircle className="h-4 w-4" />
-                            Không có lô hàng nào tại kho này
+                            {t("Không có lô hàng nào tại kho này")}
                         </div>
                     ) : (
                         <table className="w-full text-xs">
                             <thead>
                                 <tr className="bg-[#f8f3e8] text-[#7a6e5f] uppercase tracking-wide text-[11px]">
-                                    <th className="px-4 py-2 text-left font-semibold">Mã lô</th>
-                                    <th className="px-4 py-2 text-right font-semibold">Tồn kho</th>
-                                    <th className="px-4 py-2 text-right font-semibold">Đã đặt</th>
-                                    <th className="px-4 py-2 text-right font-semibold">Khả dụng</th>
-                                    <th className="px-4 py-2 text-right font-semibold">Giá vốn</th>
-                                    <th className="px-4 py-2 text-right font-semibold">Giá trị</th>
+                                    <th className="px-4 py-2 text-left font-semibold">{t("Mã lô")}</th>
+                                    <th className="px-4 py-2 text-right font-semibold">{t("Tồn kho")}</th>
+                                    <th className="px-4 py-2 text-right font-semibold">{t("Đã đặt")}</th>
+                                    <th className="px-4 py-2 text-right font-semibold">{t("Khả dụng")}</th>
+                                    <th className="px-4 py-2 text-right font-semibold">{t("Giá vốn")}</th>
+                                    <th className="px-4 py-2 text-right font-semibold">{t("Giá trị")}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[#f0e7d8]">
@@ -187,18 +188,18 @@ function BienThePanel({ bienThe, initialTongTon = null }) {
                     </div>
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                         <span className="text-xs text-[#938675]">
-                            Giá bán:{" "}
+                            {t("Giá bán:")}{" "}
                             <b className="text-[#b8860b]">{bienThe.giaBan ? formatCurrency(bienThe.giaBan) : "—"}</b>
                         </span>
                         <span className="text-[#cabda8] text-xs">|</span>
                         <span className="text-xs text-[#938675]">
-                            Giá vốn:{" "}
+                            {t("Giá vốn:")}{" "}
                             <b className="text-[#5f5446]">{bienThe.giaVon ? formatCurrency(bienThe.giaVon) : "—"}</b>
                         </span>
                         {bienThe.trangThai === 1 ? (
-                            <span className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded">Đang bán</span>
+                            <span className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded">{t("Đang bán")}</span>
                         ) : (
-                            <span className="text-xs bg-bo-danger-soft text-red-600 border border-red-200 px-1.5 py-0.5 rounded">Ngừng bán</span>
+                            <span className="text-xs bg-bo-danger-soft text-red-600 border border-red-200 px-1.5 py-0.5 rounded">{t("Ngừng bán")}</span>
                         )}
                     </div>
                 </div>
@@ -207,7 +208,7 @@ function BienThePanel({ bienThe, initialTongTon = null }) {
                 <div className="flex items-center gap-2 flex-shrink-0">
                     {(loaded || initialTongTon !== null) && (
                         <span className="text-xs text-[#7a6e5f]">
-                            Tổng tồn:{" "}
+                            {t("Tổng tồn:")}{" "}
                             <b className={tongTon > 0 ? "text-emerald-700" : "text-red-600"}>
                                 {tongTon.toLocaleString("vi-VN")}
                             </b>
@@ -227,12 +228,12 @@ function BienThePanel({ bienThe, initialTongTon = null }) {
                     {isLoading ? (
                         <div className="flex items-center justify-center gap-2 py-6 text-[#b8860b] text-sm">
                             <Loader2 className="h-4 w-4 animate-spin" />
-                            Đang tải tồn kho...
+                            {t("Đang tải tồn kho...")}
                         </div>
                     ) : tonKhoList.length === 0 ? (
                         <div className="flex items-center justify-center gap-2 py-6 text-[#9a8c79] text-sm">
                             <AlertCircle className="h-4 w-4" />
-                            Không có dữ liệu tồn kho cho biến thể này
+                            {t("Không có dữ liệu tồn kho cho biến thể này")}
                         </div>
                     ) : (
                         tonKhoList.map((kho, idx) => (
@@ -343,7 +344,7 @@ export default function InventoryDrawer({ isOpen, onClose, product }) {
                             <Layers className="h-5 w-5" />
                         </span>
                         <div>
-                            <div className="text-[#2f2a23] font-semibold text-base">Tồn kho chi tiết biến thể</div>
+                            <div className="text-[#2f2a23] font-semibold text-base">{t("Tồn kho chi tiết biến thể")}</div>
                             <div className="text-[#8b7355] text-xs truncate max-w-sm">{product?.tenSanPham}</div>
                         </div>
                     </div>
@@ -361,24 +362,24 @@ export default function InventoryDrawer({ isOpen, onClose, product }) {
                         <div className="rounded-lg border border-[#eadfce] bg-bo-surface px-3 py-2 flex items-center gap-2">
                             <Package className="h-3.5 w-3.5 text-[#b8860b]" />
                             <span className="text-[#7a6e5f]">
-                                Mã SP: <b className="text-[#5f5446]">{product.maSanPham}</b>
+                                {t("Mã SP:")} <b className="text-[#5f5446]">{product.maSanPham}</b>
                             </span>
                         </div>
                         <div className="rounded-lg border border-[#eadfce] bg-bo-surface px-3 py-2">
                             <span className="text-[#7a6e5f]">
-                                Tồn kho hiện tại:{" "}
+                                {t("Tồn kho hiện tại:")}{" "}
                                 <b className="text-emerald-700">{Number(tonKhoHienTaiDisplay ?? 0).toLocaleString("vi-VN")}</b>
                             </span>
                         </div>
                         <div className="rounded-lg border border-[#eadfce] bg-bo-surface px-3 py-2">
                             <span className="text-[#7a6e5f]">
-                                Số biến thể: <b className="text-[#5f5446]">{bienTheList.length}</b>
+                                {t("Số biến thể:")} <b className="text-[#5f5446]">{bienTheList.length}</b>
                             </span>
                         </div>
                         {isLoadingTongTon && (
                             <span className="sm:col-span-3 text-[#b8860b] inline-flex items-center gap-1 px-1">
                                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                Đang đồng bộ tồn kho...
+                                {t("Đang đồng bộ tồn kho...")}
                             </span>
                         )}
                     </div>
@@ -389,12 +390,12 @@ export default function InventoryDrawer({ isOpen, onClose, product }) {
                     {bienTheList.length === 0 ? (
                         <div className="flex flex-col items-center justify-center gap-3 h-52 text-[#9a8c79] rounded-xl border border-dashed border-[#e6dcc9] bg-bo-surface">
                             <Package className="h-12 w-12 text-[#d5c6ad]" />
-                            <div className="text-sm">Sản phẩm này chưa có biến thể nào</div>
+                            <div className="text-sm">{t("Sản phẩm này chưa có biến thể nào")}</div>
                         </div>
                     ) : (
                         <>
                             <p className="text-xs text-[#8b7355] px-1">
-                                Nhấn vào biến thể để xem tồn kho theo từng kho → nhấn vào kho để xem chi tiết theo lô hàng
+                                {t("Nhấn vào biến thể để xem tồn kho theo từng kho → nhấn vào kho để xem chi tiết theo lô hàng")}
                             </p>
                             {bienTheList.map((bt, idx) => (
                                 <BienThePanel
@@ -415,7 +416,7 @@ export default function InventoryDrawer({ isOpen, onClose, product }) {
                         onClick={onClose}
                         className="text-sm border-[#d9c8ad] text-[#6f5f49] hover:bg-[#fff2dc]"
                     >
-                        Đóng
+                        {t("Đóng")}
                     </Button>
                 </div>
                 </div>

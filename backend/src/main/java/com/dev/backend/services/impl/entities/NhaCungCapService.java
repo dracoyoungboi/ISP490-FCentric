@@ -18,6 +18,7 @@ import com.dev.backend.config.SecurityContextHolder;
 import com.dev.backend.constant.variables.IHanhDong;
 import com.dev.backend.constant.variables.ITable;
 import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
+import com.dev.backend.i18n.ThongDiep;
 import jakarta.persistence.EntityManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
@@ -136,7 +137,7 @@ public class NhaCungCapService extends BaseServiceImpl<NhaCungCap, Integer> {
         // Kiểm tra mã nhà cung cấp đã tồn tại chưa (cột UNIQUE, so khớp theo collation không phân biệt hoa thường)
         if (repository.existsByMaNhaCungCap(ma)) {
             throw new CommonException(
-                    "Mã nhà cung cấp '" + ma + "' đã tồn tại. Vui lòng chọn mã khác.",
+                    ThongDiep.of("sanPhamMuaHang.nccMaDaTonTai", ma),
                     HttpStatus.CONFLICT, null
             );
         }
@@ -201,7 +202,7 @@ public class NhaCungCapService extends BaseServiceImpl<NhaCungCap, Integer> {
     public NhaCungCapDto capNhatTrangThai(Integer id, Integer trangThai) {
         if (trangThai == null
                 || (trangThai != TRANG_THAI_HOAT_DONG && trangThai != TRANG_THAI_NGUNG_HOAT_DONG)) {
-            throw new CommonException("Trạng thái không hợp lệ.");
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.trangThaiKhongHopLeCham"));
         }
 
         NhaCungCap entity = timTheoId(id);
@@ -307,7 +308,7 @@ public class NhaCungCapService extends BaseServiceImpl<NhaCungCap, Integer> {
     }
 
     private static CommonException khongTimThay(Integer id) {
-        return new CommonException("Không tìm thấy nhà cung cấp (mã số " + id + ").", HttpStatus.NOT_FOUND, null);
+        return new CommonException(ThongDiep.of("sanPhamMuaHang.nccKhongTimThay", id), HttpStatus.NOT_FOUND, null);
     }
 
     /** Bỏ khoảng trắng hai đầu; chuỗi rỗng lưu thành NULL. */
@@ -317,12 +318,17 @@ public class NhaCungCapService extends BaseServiceImpl<NhaCungCap, Integer> {
         return trimmed.isEmpty() ? null : trimmed;
     }
 
-    private static String lyDoKhongTheXoa(NhaCungCapKiemTraXoaDto kiemTra) {
-        List<String> phan = new ArrayList<>();
-        if (kiemTra.getSoDonMuaHang() > 0) phan.add(kiemTra.getSoDonMuaHang() + " đơn mua hàng");
-        if (kiemTra.getSoPhieuNhapKho() > 0) phan.add(kiemTra.getSoPhieuNhapKho() + " phiếu nhập kho");
-        if (kiemTra.getSoLoHang() > 0) phan.add(kiemTra.getSoLoHang() + " lô hàng");
-        return "Nhà cung cấp đã có " + String.join(", ", phan)
-                + " nên không thể xóa. Hãy chuyển sang Ngừng hoạt động để giữ lịch sử giao dịch.";
+    private static ThongDiep lyDoKhongTheXoa(NhaCungCapKiemTraXoaDto kiemTra) {
+        List<ThongDiep> phan = new ArrayList<>();
+        if (kiemTra.getSoDonMuaHang() > 0) phan.add(ThongDiep.of("sanPhamMuaHang.nccSoDonMua", kiemTra.getSoDonMuaHang()));
+        if (kiemTra.getSoPhieuNhapKho() > 0) phan.add(ThongDiep.of("sanPhamMuaHang.nccSoPhieuNhap", kiemTra.getSoPhieuNhapKho()));
+        if (kiemTra.getSoLoHang() > 0) phan.add(ThongDiep.of("sanPhamMuaHang.nccSoLoHang", kiemTra.getSoLoHang()));
+        // Nối bằng ", " như câu cũ; mỗi số phần một câu (không dùng khóa chỉ có dấu nối: mẫu quá chung)
+        return switch (phan.size()) {
+            case 0 -> ThongDiep.of("sanPhamMuaHang.nccKhongTheXoa", "");
+            case 1 -> ThongDiep.of("sanPhamMuaHang.nccKhongTheXoa", phan.get(0));
+            case 2 -> ThongDiep.of("sanPhamMuaHang.nccKhongTheXoaHai", phan.get(0), phan.get(1));
+            default -> ThongDiep.of("sanPhamMuaHang.nccKhongTheXoaBa", phan.get(0), phan.get(1), phan.get(2));
+        };
     }
 }

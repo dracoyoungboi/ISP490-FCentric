@@ -9,6 +9,7 @@ import { kenhBanHangService } from "@/services/kenhBanHangService";
 import { getApiErrorCode, getApiErrorMessage } from "@/utils/apiError";
 import { ngayIso } from "./ngay";
 import { formatNumber } from "@/utils/formatters";
+import { t } from "@/i18n";
 
 // Mã lỗi máy chủ (KH mục C.4) cho biết gian hàng không còn gọi được: trang cần đọc lại kết nối
 // (LAM_MOI_KHOA_LOI: Shopify từ chối khóa làm mới, thẻ chuyển sang "Hết hạn khóa")
@@ -31,9 +32,9 @@ export default function LayDonDialog({ maKenh, tenSan, onClose, onXong, onMatKet
   const layDon = async (event) => {
     event.preventDefault();
     if (dangLayRef.current) return;
-    if (!tu || !den) return setLoi("Chọn đủ hai ngày.");
-    if (tu > den) return setLoi("Từ ngày phải trước hoặc bằng đến ngày.");
-    if (den > homNay) return setLoi("Đến ngày không được sau hôm nay.");
+    if (!tu || !den) return setLoi(t("Chọn đủ hai ngày."));
+    if (tu > den) return setLoi(t("Từ ngày phải trước hoặc bằng đến ngày."));
+    if (den > homNay) return setLoi(t("Đến ngày không được sau hôm nay."));
     setLoi("");
     dangLayRef.current = true;
     setDangLay(true);
@@ -43,10 +44,10 @@ export default function LayDonDialog({ maKenh, tenSan, onClose, onXong, onMatKet
         tu: new Date(`${tu}T00:00:00`).toISOString(),
         den: denLuc.toISOString(),
       });
-      if (baoToast) toast.success(`Đã lấy ${formatNumber(res?.soDonMoi)} đơn mới từ ${tenSan}`);
+      if (baoToast) toast.success(t("Đã lấy {{soDonMoi}} đơn mới từ {{tenSan}}", { soDonMoi: formatNumber(res?.soDonMoi), tenSan, count: Number(res?.soDonMoi) || 0 }));
       onXong(res);
     } catch (error) {
-      const cau = getApiErrorMessage(error, "Không lấy được đơn hàng");
+      const cau = getApiErrorMessage(error, t("Không lấy được đơn hàng"));
       const ma = getApiErrorCode(error);
       if (MA_MAT_KET_NOI.includes(ma)) onMatKetNoi?.(error);
       // Kênh chưa kết nối: trang đọc lại kết nối rồi chuyển sang Thiết lập, nên đóng hộp thoại và báo bằng toast (một
@@ -67,19 +68,18 @@ export default function LayDonDialog({ maKenh, tenSan, onClose, onXong, onMatKet
     <Dialog open onOpenChange={(mo) => !mo && !dangLayRef.current && onClose()}>
       <DialogContent className="rounded-xl border-bo-border sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-bo-foreground">Lấy đơn từ {tenSan}</DialogTitle>
+          <DialogTitle className="text-bo-foreground">{t("Lấy đơn từ {{tenSan}}", { tenSan })}</DialogTitle>
           <DialogDescription className="text-bo-muted">
-            Lấy các đơn tạo mới hoặc cập nhật trong khoảng ngày đã chọn, tối đa 50 đơn mỗi lần. Đơn đã có trong FCentric
-            không bị tạo lại.
+            {t("Lấy các đơn tạo mới hoặc cập nhật trong khoảng ngày đã chọn, tối đa 50 đơn mỗi lần. Đơn đã có trong FCentric không bị tạo lại.")}
           </DialogDescription>
         </DialogHeader>
         <form id="lay-don-form" onSubmit={layDon} className="grid gap-4 sm:grid-cols-2" noValidate>
           <label className="block">
-            <span className="mb-1.5 block text-sm font-medium text-bo-foreground">Từ ngày</span>
+            <span className="mb-1.5 block text-sm font-medium text-bo-foreground">{t("Từ ngày")}</span>
             <input type="date" value={tu} max={homNay} onChange={(e) => setTu(e.target.value)} disabled={dangLay} className={INPUT_CLASS} />
           </label>
           <label className="block">
-            <span className="mb-1.5 block text-sm font-medium text-bo-foreground">Đến ngày</span>
+            <span className="mb-1.5 block text-sm font-medium text-bo-foreground">{t("Đến ngày")}</span>
             <input type="date" value={den} max={homNay} onChange={(e) => setDen(e.target.value)} disabled={dangLay} className={INPUT_CLASS} />
           </label>
           {loi ? (
@@ -90,11 +90,11 @@ export default function LayDonDialog({ maKenh, tenSan, onClose, onXong, onMatKet
         </form>
         <DialogFooter className="gap-2">
           <Button type="button" variant="outline" disabled={dangLay} onClick={onClose} className={NUT_PHU}>
-            Hủy bỏ
+            {t("Hủy bỏ")}
           </Button>
           <Button type="submit" form="lay-don-form" disabled={dangLay} className={NUT_CHINH}>
             {dangLay ? <Loader2 className="size-4 animate-spin" /> : null}
-            {dangLay ? "Đang lấy…" : "Lấy đơn"}
+            {dangLay ? t("Đang lấy…") : t("Lấy đơn")}
           </Button>
         </DialogFooter>
       </DialogContent>

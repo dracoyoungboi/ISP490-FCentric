@@ -35,7 +35,8 @@ import { parseRoles } from "@/components/settings/settings.config";
 import { laKhoAo } from "@/pages/warehouse/loaiKho";
 import { formatCurrency } from "@/utils/formatters";
 import { cn } from "@/lib/utils";
-import { loiKhoangNgay, ngayMay } from "./tinhBaoCaoDoanhThu";
+import { ngonNguHienTai, t } from "@/i18n";
+import { dichNhanKy, loiKhoangNgay, ngayMay } from "./tinhBaoCaoDoanhThu";
 import {
   cacNam,
   cacThang,
@@ -95,23 +96,23 @@ const O_CHON_KHO = "w-auto min-w-0 flex-1 sm:w-[200px] sm:flex-none";
 
 // Kỳ báo cáo
 const TAB_KY = [
-  { value: "ngay", label: "Ngày" },
-  { value: "tuan", label: "Tuần" },
-  { value: "thang", label: "Tháng" },
-  { value: "nam", label: "Năm" },
-  { value: "so_sanh", label: "So sánh" },
+  { value: "ngay", label: t("Ngày") },
+  { value: "tuan", label: t("Tuần") },
+  { value: "thang", label: t("Tháng") },
+  { value: "nam", label: t("Năm") },
+  { value: "so_sanh", label: t("So sánh") },
 ];
 
 // Nhóm khách trong danh sách "Khách mua trong kỳ"
 const NHOM_KHACH = [
-  { value: "tat_ca", label: "Tất cả", dem: "tatCa" },
-  { value: "mot_lan", label: "Mua 1 lần", dem: "motLan" },
-  { value: "mua_lai", label: "Mua lại", dem: "muaLai" },
+  { value: "tat_ca", label: t("Tất cả"), dem: "tatCa" },
+  { value: "mot_lan", label: t("Mua 1 lần"), dem: "motLan" },
+  { value: "mua_lai", label: t("Mua lại"), dem: "muaLai" },
 ];
 
 const SO_DONG_KHACH = 10;
 
-const NAM_OPTIONS = cacNam(today).map((y) => ({ value: String(y), label: `Năm ${y}` }));
+const NAM_OPTIONS = cacNam(today).map((y) => ({ value: String(y), label: t("Năm {{y}}", { y }) }));
 
 
 // build query
@@ -157,7 +158,7 @@ function buildParams({
 
 async function taiJson(url, signal) {
   const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${getToken()}` },
+    headers: { Authorization: `Bearer ${getToken()}`, "Accept-Language": ngonNguHienTai() },
     signal,
   });
   const json = await res.json().catch(() => null);
@@ -193,7 +194,7 @@ function NhanTrucX({ x, y, payload, ky }) {
       fill={CHART_COLORS.axis}
       opacity={chuaToi ? 0.45 : 1}
     >
-      {payload?.value}
+      {dichNhanKy(payload?.value)}
     </text>
   );
 }
@@ -205,20 +206,20 @@ function KhungSo({ active, payload, loai }) {
   if (!active || !k) return null;
   const tyLe = tyLeQuayLai(k.soKhachQuayLai, k.tongKhachMua);
   const tieuDe = loai === "tuan"
-    ? `${k.nhanThoiGian} (${khoangNgayNgan(k.tuNgay, k.denNgay)})`
-    : k.nhanThoiGian;
+    ? `${dichNhanKy(k.nhanThoiGian)} (${khoangNgayNgan(k.tuNgay, k.denNgay)})`
+    : dichNhanKy(k.nhanThoiGian);
   return (
     <div className="min-w-[180px] rounded-lg border border-bo-border bg-bo-surface px-3 py-2.5 text-xs shadow-lg">
       <p className="mb-1.5 text-[13px] font-semibold text-bo-foreground">{tieuDe}</p>
       {k.chuaToi ? (
-        <p className="text-bo-muted">Chưa tới kỳ này</p>
+        <p className="text-bo-muted">{t("Chưa tới kỳ này")}</p>
       ) : (
         <>
-          <DongSo mau={CHART_COLORS.khachMoi} nhan="Khách mới" so={k.soKhachMoi} />
-          <DongSo mau={CHART_COLORS.quayLai} nhan="Khách quay lại" so={k.soKhachQuayLai} />
+          <DongSo mau={CHART_COLORS.khachMoi} nhan={t("Khách mới")} so={k.soKhachMoi} />
+          <DongSo mau={CHART_COLORS.quayLai} nhan={t("Khách quay lại")} so={k.soKhachQuayLai} />
           <div className="mt-1.5 flex justify-between gap-4 border-t border-bo-border pt-1.5 font-semibold tabular-nums text-bo-foreground">
-            <span>Khách mua</span>
-            <span>{fmt(k.tongKhachMua)}{tyLe != null ? ` · ${tyLe}% quay lại` : ""}</span>
+            <span>{t("Khách mua")}</span>
+            <span>{fmt(k.tongKhachMua)}{tyLe != null ? t(" · {{tyLe}}% quay lại", { tyLe }) : ""}</span>
           </div>
         </>
       )}
@@ -244,8 +245,8 @@ function ChuThich() {
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-bo-muted">
       {[
-        [CHART_COLORS.khachMoi, "Khách mới"],
-        [CHART_COLORS.quayLai, "Khách quay lại"],
+        [CHART_COLORS.khachMoi, t("Khách mới")],
+        [CHART_COLORS.quayLai, t("Khách quay lại")],
       ].map(([mau, nhan]) => (
         <span key={nhan} className="inline-flex items-center gap-1.5">
           <i className="inline-block size-2.5 rounded-[3px]" style={{ background: mau }} aria-hidden="true" />
@@ -281,7 +282,7 @@ function SoKyTruoc({ giaTri }) {
 function NhanKy({ row, loai }) {
   return (
     <>
-      <span>{row.nhanThoiGian}</span>
+      <span>{dichNhanKy(row.nhanThoiGian)}</span>
       {loai === "tuan" ? (
         <span className="block text-xs font-normal text-bo-muted">{khoangNgayNgan(row.tuNgay, row.denNgay)}</span>
       ) : null}
@@ -298,7 +299,7 @@ function NhanNhom({ muaLai }) {
         muaLai ? "bg-bo-success-soft text-bo-success" : "bg-bo-primary-soft text-bo-primary-strong",
       )}
     >
-      {muaLai ? "Mua lại" : "Mua 1 lần"}
+      {muaLai ? t("Mua lại") : t("Mua 1 lần")}
     </span>
   );
 }
@@ -365,7 +366,7 @@ export default function KhachHangReport() {
 
   // "" = tất cả kho (quản lý kho: mọi nơi làm việc của mình)
   const khoOptions = [
-    { value: "", label: laQtv ? "Tất cả kho" : "Tất cả nơi làm việc" },
+    { value: "", label: laQtv ? t("Tất cả kho") : t("Tất cả nơi làm việc") },
     ...khoList.map((k) => ({ value: String(k.id), label: k.tenKho })),
   ];
 
@@ -480,24 +481,24 @@ export default function KhachHangReport() {
 
   const tyLeMuaLai = tyLeQuayLai(tong?.khachMuaLai, tong?.khachMua);
   const chiTieuTb = chiTieuTrungBinh(tong);
-  const tienToKy = loaiDaXem === "so_sanh" && tong?.tuNgay ? `Tháng ${Number(tong.tuNgay.slice(5, 7))}/${tong.tuNgay.slice(0, 4)} · ` : "";
+  const tienToKy = loaiDaXem === "so_sanh" && tong?.tuNgay ? t("Tháng {{thang}}/{{nam}} · ", { thang: Number(tong.tuNgay.slice(5, 7)), nam: tong.tuNgay.slice(0, 4) }) : "";
 
   // Dải chỉ số: mỗi khách đếm một lần trên cả kỳ (máy chủ tính, không cộng các dòng)
   const chiSo = [
     {
-      label: "Khách mua",
+      label: t("Khách mua"),
       value: loi || !tong ? "—" : fmt(tong.khachMua),
       hint: tong
-        ? `${tienToKy}Mỗi khách đếm một lần${tong.donKhachLe > 0 ? ` · chưa tính ${fmt(tong.donKhachLe)} đơn khách lẻ` : ""}`
+        ? t("{{tienToKy}}Mỗi khách đếm một lần{{khachLe}}", { tienToKy, khachLe: tong.donKhachLe > 0 ? t(" · chưa tính {{donKhachLe}} đơn khách lẻ", { donKhachLe: fmt(tong.donKhachLe), count: tong.donKhachLe }) : "" })
         : undefined,
     },
     {
-      label: "Khách mới",
+      label: t("Khách mới"),
       value: loi || !tong ? "—" : fmt(tong.khachMoi),
-      hint: tong ? "Lần đầu mua rơi vào kỳ đang xem" : undefined,
+      hint: tong ? t("Lần đầu mua rơi vào kỳ đang xem") : undefined,
     },
     {
-      label: "Khách mua lại",
+      label: t("Khách mua lại"),
       value: loi || !tong ? "—" : (
         <>
           {fmt(tong.khachMuaLai)}
@@ -506,15 +507,15 @@ export default function KhachHangReport() {
           ) : null}
         </>
       ),
-      hint: tong ? "Có từ 2 đơn trở lên tính tới cuối kỳ" : undefined,
+      hint: tong ? t("Có từ 2 đơn trở lên tính tới cuối kỳ") : undefined,
     },
     {
-      label: "Chi tiêu TB mỗi khách",
+      label: t("Chi tiêu TB mỗi khách"),
       // Điện thoại 2 cột: số tiền dài thu nhỏ chữ để không bị cắt
       value: loi || !tong ? "—" : chiTieuTb == null ? "—" : (
         <span className="max-md:text-lg">{formatCurrency(chiTieuTb)}</span>
       ),
-      hint: tong ? "Doanh thu đơn đã giao ÷ khách mua" : undefined,
+      hint: tong ? t("Doanh thu đơn đã giao ÷ khách mua") : undefined,
     },
   ];
 
@@ -544,7 +545,7 @@ export default function KhachHangReport() {
             tabs={TAB_KY}
             value={loai}
             onChange={setLoai}
-            label="Kỳ báo cáo"
+            label={t("Kỳ báo cáo")}
           />
         </div>
 
@@ -553,12 +554,12 @@ export default function KhachHangReport() {
           {loai === "ngay" && (
             <>
               <ONhan
-                label="Từ ngày"
+                label={t("Từ ngày")}
                 icon={<Calendar className="size-4 shrink-0 text-bo-muted" />}
               >
                 <Input
                   type="date"
-                  aria-label="Từ ngày"
+                  aria-label={t("Từ ngày")}
                   value={tuNgay}
                   max={denNgay || defaultDenNgay}
                   min="2000-01-01"
@@ -569,12 +570,12 @@ export default function KhachHangReport() {
               </ONhan>
 
               <ONhan
-                label="Đến ngày"
+                label={t("Đến ngày")}
                 icon={<Calendar className="size-4 shrink-0 text-bo-muted" />}
               >
                 <Input
                   type="date"
-                  aria-label="Đến ngày"
+                  aria-label={t("Đến ngày")}
                   value={denNgay}
                   max={defaultDenNgay}
                   min={tuNgay || "2000-01-01"}
@@ -589,7 +590,7 @@ export default function KhachHangReport() {
 
           {(loai === "thang" || loai === "tuan" || loai === "so_sanh") && (
             <FilterSelect
-              label="Chọn năm"
+              label={t("Chọn năm")}
               value={String(nam)}
               options={NAM_OPTIONS}
               onChange={(v) => {
@@ -606,9 +607,9 @@ export default function KhachHangReport() {
 
           {loai === "so_sanh" && (
             <FilterSelect
-              label="Chọn tháng"
+              label={t("Chọn tháng")}
               value={String(thang)}
-              options={cacThang(nam, today).map((m) => ({ value: String(m), label: `Tháng ${m}` }))}
+              options={cacThang(nam, today).map((m) => ({ value: String(m), label: t("Tháng {{m}}", { m }) }))}
               onChange={(v) => setThang(Number(v))}
               align="end"
               className={O_CHON_NHO}
@@ -619,9 +620,9 @@ export default function KhachHangReport() {
           {loai === "nam" && (
             <>
               <FilterSelect
-                label="Từ năm"
+                label={t("Từ năm")}
                 value={String(tuNam)}
-                options={NAM_OPTIONS.map((o) => ({ ...o, label: `Từ ${o.value}` }))}
+                options={NAM_OPTIONS.map((o) => ({ ...o, label: t("Từ {{value}}", { value: o.value }) }))}
                 onChange={(v) => {
                   const y = Number(v);
                   setTuNam(y);
@@ -631,9 +632,9 @@ export default function KhachHangReport() {
                 className={O_CHON_NHO}
               />
               <FilterSelect
-                label="Đến năm"
+                label={t("Đến năm")}
                 value={String(denNam)}
-                options={NAM_OPTIONS.filter((o) => Number(o.value) >= tuNam).map((o) => ({ ...o, label: `Đến ${o.value}` }))}
+                options={NAM_OPTIONS.filter((o) => Number(o.value) >= tuNam).map((o) => ({ ...o, label: t("Đến {{value}}", { value: o.value }) }))}
                 onChange={(v) => setDenNam(Number(v))}
                 align="end"
                 className={O_CHON_NHO}
@@ -643,7 +644,7 @@ export default function KhachHangReport() {
 
 
           <FilterSelect
-            label="Lọc theo kho"
+            label={t("Lọc theo kho")}
             value={khoId}
             options={khoOptions}
             onChange={setKhoId}
@@ -659,7 +660,7 @@ export default function KhachHangReport() {
 
       {/* ── DẢI CHỈ SỐ ── Điện thoại: 2 cột × 2 hàng */}
       <MetricStrip
-        label="Chỉ số khách hàng"
+        label={t("Chỉ số khách hàng")}
         items={chiSo}
         loading={dangTaiLanDau}
         className={cn("max-md:grid-cols-2 max-md:[&>div]:px-3", mo)}
@@ -670,14 +671,14 @@ export default function KhachHangReport() {
       {/* ── BIỂU ĐỒ (lỗi tải thì ẩn, báo lỗi ở khung bảng) ── */}
       {!loi && (
         <SurfaceCard
-          title="Khách mua theo kỳ"
-          description="Cột chồng: khách mới + khách quay lại = khách mua trong kỳ"
+          title={t("Khách mua theo kỳ")}
+          description={t("Cột chồng: khách mới + khách quay lại = khách mua trong kỳ")}
           action={<ChuThich />}
           className={mo}
           contentClassName="h-[320px] max-md:h-[260px]"
         >
           {dangTaiLanDau ? (
-            <LoadingState rows={4} label="Đang tải biểu đồ khách hàng" />
+            <LoadingState rows={4} label={t("Đang tải biểu đồ khách hàng")} />
           ) : (
             <KhungBieuDo>
               <BarChart data={ky} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
@@ -712,7 +713,7 @@ export default function KhachHangReport() {
                   dataKey="soKhachMoi"
                   stackId="khach"
                   fill={CHART_COLORS.khachMoi}
-                  name="Khách mới"
+                  name={t("Khách mới")}
                   maxBarSize={36}
                   isAnimationActive={false}
                 />
@@ -721,7 +722,7 @@ export default function KhachHangReport() {
                   dataKey="soKhachQuayLai"
                   stackId="khach"
                   fill={CHART_COLORS.quayLai}
-                  name="Khách quay lại"
+                  name={t("Khách quay lại")}
                   radius={[4, 4, 0, 0]}
                   maxBarSize={36}
                   isAnimationActive={false}
@@ -736,12 +737,12 @@ export default function KhachHangReport() {
 
       {/* ── BẢNG CHI TIẾT THEO KỲ (chỉ các kỳ có đơn) ── */}
       <TableShell
-        title="Chi tiết theo kỳ"
+        title={t("Chi tiết theo kỳ")}
         description={!loi && data ? moTaBangKy(ky, loaiDaXem) || undefined : undefined}
         className={mo}
       >
         {dangTaiLanDau ? (
-          <LoadingState rows={5} label="Đang tải chi tiết khách hàng" />
+          <LoadingState rows={5} label={t("Đang tải chi tiết khách hàng")} />
         ) : loi ? (
           <ErrorState
             description={loi.moTa || undefined}
@@ -751,8 +752,8 @@ export default function KhachHangReport() {
         ) : dongBang.length === 0 ? (
           <EmptyState
             icon={Users}
-            title="Không có khách mua trong kỳ"
-            description="Hãy chọn kỳ khác hoặc kho khác."
+            title={t("Không có khách mua trong kỳ")}
+            description={t("Hãy chọn kỳ khác hoặc kho khác.")}
           />
         ) : (
           <>
@@ -765,15 +766,15 @@ export default function KhachHangReport() {
                   <div className="flex items-baseline justify-between gap-3">
                     <span className="min-w-0 truncate font-semibold text-bo-foreground"><NhanKy row={row} loai={loaiDaXem} /></span>
                     <span className="shrink-0 text-[13px] text-bo-muted">
-                      Khách mới so kỳ trước <SoKyTruoc giaTri={row.tyLeTangTruong} />
+                      {t("Khách mới so kỳ trước")} <SoKyTruoc giaTri={row.tyLeTangTruong} />
                     </span>
                   </div>
                   <dl className="mt-2 grid grid-cols-4 gap-2 rounded-lg bg-bo-surface-subtle px-2 py-2 text-center">
                     {[
-                      ["Khách mua", fmt(row.tongKhachMua), "font-semibold text-bo-foreground"],
-                      ["Khách mới", fmt(row.soKhachMoi), "font-semibold text-bo-primary"],
-                      ["Quay lại", fmt(row.soKhachQuayLai), "text-bo-foreground"],
-                      ["Tỷ lệ QL", tyLe != null ? `${tyLe}%` : "—", "text-bo-muted"],
+                      [t("Khách mua"), fmt(row.tongKhachMua), "font-semibold text-bo-foreground"],
+                      [t("Khách mới"), fmt(row.soKhachMoi), "font-semibold text-bo-primary"],
+                      [t("Quay lại"), fmt(row.soKhachQuayLai), "text-bo-foreground"],
+                      [t("Tỷ lệ QL"), tyLe != null ? `${tyLe}%` : "—", "text-bo-muted"],
                     ].map(([nhan, so, kieu]) => (
                       <div key={nhan} className="min-w-0">
                         <dt className="truncate text-[11px] leading-4 text-bo-muted">{nhan}</dt>
@@ -789,12 +790,12 @@ export default function KhachHangReport() {
           <table className="w-full min-w-[760px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
             <thead>
               <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                <th className={`${TH_CLASS} text-left`}>Kỳ</th>
-                <th className={`${TH_CLASS} text-right`}>Khách mua</th>
-                <th className={`${TH_CLASS} text-right`}>Khách mới</th>
-                <th className={`${TH_CLASS} text-right`}>Quay lại</th>
-                <th className={`${TH_CLASS} text-right`}>Tỷ lệ quay lại</th>
-                <th className={`${TH_CLASS} text-right`}>Khách mới so kỳ trước</th>
+                <th className={`${TH_CLASS} text-left`}>{t("Kỳ")}</th>
+                <th className={`${TH_CLASS} text-right`}>{t("Khách mua")}</th>
+                <th className={`${TH_CLASS} text-right`}>{t("Khách mới")}</th>
+                <th className={`${TH_CLASS} text-right`}>{t("Quay lại")}</th>
+                <th className={`${TH_CLASS} text-right`}>{t("Tỷ lệ quay lại")}</th>
+                <th className={`${TH_CLASS} text-right`}>{t("Khách mới so kỳ trước")}</th>
               </tr>
             </thead>
 
@@ -843,13 +844,13 @@ export default function KhachHangReport() {
       {/* ── KHÁCH MUA TRONG KỲ (cùng kỳ, kho với số liệu đang hiện; So sánh: tháng đang chọn) ── */}
       {!loi && thamSoDaXem ? (
         <TableShell
-          title="Khách mua trong kỳ"
-          description="Xếp theo doanh thu · bấm một dòng để mở hồ sơ khách"
+          title={t("Khách mua trong kỳ")}
+          description={t("Xếp theo doanh thu · bấm một dòng để mở hồ sơ khách")}
           toolbar={
             <ListToolbar
               tabs={
                 <StatusTabs
-                  label="Lọc khách theo nhóm"
+                  label={t("Lọc khách theo nhóm")}
                   tabs={nhomTabs}
                   value={nhom}
                   onChange={doiNhom}
@@ -862,8 +863,8 @@ export default function KhachHangReport() {
                 value={tim}
                 onChange={(e) => setTim(e.target.value)}
                 onClear={() => setTim("")}
-                placeholder="Tìm tên, mã, số điện thoại"
-                label="Tìm khách mua"
+                placeholder={t("Tìm tên, mã, số điện thoại")}
+                label={t("Tìm khách mua")}
               />
             </ListToolbar>
           }
@@ -874,12 +875,12 @@ export default function KhachHangReport() {
               total={khach.totalElements}
               onPageChange={setTrang}
               onSizeChange={doiSoDong}
-              totalLabel="khách"
+              totalLabel={t("khách")}
             />
           ) : null}
         >
           {taiKhach && !khach ? (
-            <LoadingState rows={5} label="Đang tải danh sách khách mua" />
+            <LoadingState rows={5} label={t("Đang tải danh sách khách mua")} />
           ) : loiKhach ? (
             <ErrorState
               description={loiKhach.moTa || undefined}
@@ -889,8 +890,8 @@ export default function KhachHangReport() {
           ) : dsKhach.length === 0 ? (
             <EmptyState
               icon={Users}
-              title={timGui || nhom !== "tat_ca" ? "Không có khách khớp bộ lọc" : "Không có khách mua trong kỳ"}
-              description={timGui || nhom !== "tat_ca" ? "Hãy đổi nhóm hoặc từ khóa tìm kiếm." : "Đơn khách lẻ không có trong danh sách này."}
+              title={timGui || nhom !== "tat_ca" ? t("Không có khách khớp bộ lọc") : t("Không có khách mua trong kỳ")}
+              description={timGui || nhom !== "tat_ca" ? t("Hãy đổi nhóm hoặc từ khóa tìm kiếm.") : t("Đơn khách lẻ không có trong danh sách này.")}
             />
           ) : (
             <div className={cn(taiKhach && "opacity-60 transition-opacity")}>
@@ -911,7 +912,7 @@ export default function KhachHangReport() {
                         <NhanNhom muaLai={k.muaLai} />
                       </span>
                       <span className="flex items-baseline justify-between gap-3 text-[13px]">
-                        <span className="text-bo-muted">{fmt(k.soDon)} đơn · gần nhất {ngayVN(k.muaGanNhat)}</span>
+                        <span className="text-bo-muted">{t("{{soDon}} đơn · gần nhất {{muaGanNhat}}", { soDon: fmt(k.soDon), muaGanNhat: ngayVN(k.muaGanNhat), count: k.soDon })}</span>
                         <span className="font-semibold tabular-nums text-bo-foreground">{formatCurrency(k.doanhThu)}</span>
                       </span>
                     </button>
@@ -921,12 +922,12 @@ export default function KhachHangReport() {
               <table className="w-full min-w-[760px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
                 <thead>
                   <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                    <th className={`${TH_CLASS} text-left`}>Khách hàng</th>
-                    <th className={`${TH_CLASS} text-left`}>Nhóm</th>
-                    <th className={`${TH_CLASS} text-right`}>Số đơn</th>
-                    <th className={`${TH_CLASS} text-right`}>Doanh thu</th>
-                    <th className={`${TH_CLASS} text-left`}>Lần đầu mua</th>
-                    <th className={`${TH_CLASS} text-left`}>Mua gần nhất</th>
+                    <th className={`${TH_CLASS} text-left`}>{t("Khách hàng")}</th>
+                    <th className={`${TH_CLASS} text-left`}>{t("Nhóm")}</th>
+                    <th className={`${TH_CLASS} text-right`}>{t("Số đơn")}</th>
+                    <th className={`${TH_CLASS} text-right`}>{t("Doanh thu")}</th>
+                    <th className={`${TH_CLASS} text-left`}>{t("Lần đầu mua")}</th>
+                    <th className={`${TH_CLASS} text-left`}>{t("Mua gần nhất")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-bo-border">
@@ -941,7 +942,7 @@ export default function KhachHangReport() {
                           moKhach(k.id);
                         }
                       }}
-                      title="Mở hồ sơ khách"
+                      title={t("Mở hồ sơ khách")}
                       className="cursor-pointer transition-colors hover:bg-bo-surface-subtle focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-bo-primary"
                     >
                       <td className="px-3 py-3">

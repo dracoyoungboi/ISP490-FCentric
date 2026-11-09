@@ -1,6 +1,7 @@
 // src/main/java/com/dev/backend/services/impl/entities/KhachHangService.java
 package com.dev.backend.services.impl.entities;
 
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.constant.variables.IHanhDong;
 import com.dev.backend.constant.variables.ITable;
 import com.dev.backend.services.impl.utils.NhatKyNghiepVu;
@@ -56,10 +57,10 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
     private static final Pattern SO_DIEN_THOAI_PATTERN = Pattern.compile("^(0[35789][0-9]{8}|02[0-9]{9}|1[89]00[0-9]{4,6})$");
     /** Mã số thuế: doanh nghiệp 10 số, đơn vị phụ thuộc 10 số + "-3 số"; hộ/cá nhân kinh doanh dùng số định danh 12 số. */
     static final Pattern MA_SO_THUE_PATTERN = Pattern.compile("^(\\d{10}(-\\d{3})?|\\d{12})$");
-    static final String MA_SO_THUE_MESSAGE = "Mã số thuế gồm 10 số (đơn vị phụ thuộc thêm -3 số) hoặc 12 số";
+    static final String MA_SO_THUE_MESSAGE = ThongDiep.vi("banHang.maSoThueKhachHangSai");
     private static final int MA_KHACH_HANG_TOI_DA = 50;
     private static final int DIA_CHI_TOI_DA = 500;
-    static final String CAN_LIEN_HE = "Cần số điện thoại hoặc email để liên hệ khách hàng";
+    static final String CAN_LIEN_HE = ThongDiep.vi("banHang.canLienHeKhachHang");
 
     private final KhachHangRepository repository;
     private final KhachHangMapper mapper;
@@ -94,7 +95,7 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
     @Transactional(readOnly = true)
     public KhachHangDetailDto getKhachHangDetail(Integer id) {
         KhachHang entity = repository.findById(id)
-                .orElseThrow(() -> new CommonException("Không tìm thấy khách hàng với ID: " + id));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("banHang.khachHangKhongTimThayVoiId", id)));
 
         // Lịch sử mua hàng: chỉ chứng từ đơn bán — báo giá dùng chung bảng don_ban_hang nhưng chưa phải đơn mua
         List<DonBanHang> donBanHangs = donBanHangRepository.findByKhachHangIdOrderByNgayDatHangDesc(id).stream()
@@ -144,10 +145,10 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
 
         if (ma != null) {
             if (ma.length() > MA_KHACH_HANG_TOI_DA) {
-                throw new CommonException("Mã khách hàng tối đa 50 ký tự");
+                throw new CommonException(ThongDiep.of("banHang.maKhachHangQuaDai"));
             }
             if (!MA_KHACH_HANG_PATTERN.matcher(ma).matches()) {
-                throw new CommonException("Mã khách hàng chỉ gồm chữ không dấu, số và . _ -");
+                throw new CommonException(ThongDiep.of("banHang.maKhachHangSaiKyTu"));
             }
         }
         kiemTraThongTinChung(ten, nguoiLienHe);
@@ -155,12 +156,12 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
         kiemTraDiaChi(diaChi);
         kiemTraLienHe(sdt, email);
         if (sdt == null && email == null) {
-            throw new CommonException(CAN_LIEN_HE);
+            throw new CommonException(ThongDiep.of("banHang.canLienHeKhachHang"));
         }
         String loai = chuanHoaLoaiKhachHang(creating.getLoaiKhachHang());
 
         if (ma != null && repository.existsByMaKhachHang(ma)) {
-            throw new CommonException("Mã khách hàng " + ma + " đã được dùng", HttpStatus.CONFLICT, null);
+            throw new CommonException(ThongDiep.of("banHang.maKhachHangDaDung", ma), HttpStatus.CONFLICT, null);
         }
         kiemTraTrungLienHe(sdt, email, null);
 
@@ -220,19 +221,19 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
         String sdt = request == null || request.getSoDienThoai() == null ? "" : request.getSoDienThoai().replaceAll("[\\s.\\-]", "");
 
         if (ten.isEmpty()) {
-            throw new CommonException("Vui lòng nhập tên khách hàng");
+            throw new CommonException(ThongDiep.of("banHang.nhapTenKhachHang"));
         }
         if (ten.length() > 200) {
-            throw new CommonException("Tên khách hàng tối đa 200 ký tự");
+            throw new CommonException(ThongDiep.of("banHang.tenKhachHangQuaDai"));
         }
         if (!sdt.matches("^0\\d{9}$")) {
-            throw new CommonException("Số điện thoại phải gồm 10 chữ số và bắt đầu bằng 0");
+            throw new CommonException(ThongDiep.of("banHang.soDienThoaiPosSai"));
         }
 
         KhachHang existing = repository.findFirstBySoDienThoai(sdt).orElse(null);
         if (existing != null) {
             throw new CommonException(
-                    "Số điện thoại đã thuộc khách hàng " + existing.getTenKhachHang(),
+                    ThongDiep.of("banHang.soDienThoaiDaThuocKhach", existing.getTenKhachHang()),
                     HttpStatus.CONFLICT,
                     mapper.toDto(existing));
         }
@@ -261,7 +262,7 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
     @Transactional
     public KhachHangDto update(Integer id, KhachHangUpdating updating) {
         KhachHang entity = repository.findById(id)
-                .orElseThrow(() -> new CommonException("Không tìm thấy khách hàng với ID: " + id));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("banHang.khachHangKhongTimThayVoiId", id)));
         chanSuaKhachLe(entity);
         Map<String, Object> truoc = anhKhachHang(entity);
 
@@ -293,7 +294,7 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
         // Không cho xóa cả số điện thoại lẫn email; khách cũ vốn không có cả hai thì vẫn sửa được các ô khác.
         boolean truocCoLienHe = boTrong(entity.getSoDienThoai()) != null || boTrong(entity.getEmail()) != null;
         if (sdt == null && email == null && truocCoLienHe) {
-            throw new CommonException(CAN_LIEN_HE);
+            throw new CommonException(ThongDiep.of("banHang.canLienHeKhachHang"));
         }
         kiemTraTrungLienHe(sdtMoi, emailMoi, id);
 
@@ -303,7 +304,7 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
         // Trạng thái: null = giữ nguyên; ngoài 0/1 thì báo lỗi thay vì lưu giá trị lạ
         // (các màn khác chỉ coi 1 là đang hoạt động, giá trị lạ sẽ âm thầm thành "ngừng hoạt động").
         if (updating.getTrangThai() != null && !TRANG_THAI_HOP_LE.contains(updating.getTrangThai())) {
-            throw new CommonException("Trạng thái khách hàng không hợp lệ");
+            throw new CommonException(ThongDiep.of("banHang.trangThaiKhachHangSai"));
         }
         mapper.partialUpdate(updating, entity);
         entity.setTenKhachHang(ten);
@@ -327,7 +328,7 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
     @Transactional
     public void xoaMem(Integer id) {
         KhachHang entity = repository.findById(id)
-                .orElseThrow(() -> new CommonException("Không tìm thấy khách hàng id: " + id));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("banHang.khachHangKhongTimThayId", id)));
         chanSuaKhachLe(entity);
         Integer trangThaiCu = entity.getTrangThai();
         entity.setTrangThai(0);
@@ -347,7 +348,7 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
     static void chanSuaKhachLe(KhachHang khachHang) {
         if (KhachHang.MA_KHACH_LE.equals(khachHang.getMaKhachHang())) {
             throw new CommonException(
-                    "Khách lẻ là khách mặc định của hệ thống cho bán tại quầy, không sửa hay ngừng hoạt động được",
+                    ThongDiep.of("banHang.khachLeKhongSua"),
                     HttpStatus.CONFLICT, null);
         }
     }
@@ -401,13 +402,13 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
 
     private static void kiemTraThongTinChung(String ten, String nguoiLienHe) {
         if (ten == null) {
-            throw new CommonException("Tên khách hàng là bắt buộc");
+            throw new CommonException(ThongDiep.of("banHang.tenKhachHangBatBuoc"));
         }
         if (ten.length() > 200) {
-            throw new CommonException("Tên khách hàng tối đa 200 ký tự");
+            throw new CommonException(ThongDiep.of("banHang.tenKhachHangQuaDai"));
         }
         if (nguoiLienHe != null && nguoiLienHe.length() > 100) {
-            throw new CommonException("Người liên hệ tối đa 100 ký tự");
+            throw new CommonException(ThongDiep.of("banHang.nguoiLienHeQuaDai"));
         }
     }
 
@@ -425,23 +426,23 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
 
     private static void kiemTraMaSoThue(String maSoThue) {
         if (maSoThue != null && !MA_SO_THUE_PATTERN.matcher(maSoThue).matches()) {
-            throw new CommonException(MA_SO_THUE_MESSAGE);
+            throw new CommonException(ThongDiep.of("banHang.maSoThueKhachHangSai"));
         }
     }
 
     private static void kiemTraDiaChi(String diaChi) {
         if (diaChi != null && diaChi.length() > DIA_CHI_TOI_DA) {
-            throw new CommonException("Địa chỉ tối đa 500 ký tự");
+            throw new CommonException(ThongDiep.of("banHang.diaChiQuaDai"));
         }
     }
 
     /** Chỉ gọi với giá trị mới (tạo mới hoặc vừa đổi): dữ liệu cũ không bị chặn khi sửa ô khác. */
     private static void kiemTraLienHe(String sdt, String email) {
         if (sdt != null && !SO_DIEN_THOAI_PATTERN.matcher(sdt).matches()) {
-            throw new CommonException("Số điện thoại không hợp lệ: di động 10 số, máy bàn 11 số (02…) hoặc tổng đài 1800/1900");
+            throw new CommonException(ThongDiep.of("banHang.soDienThoaiKhongHopLe"));
         }
         if (email != null && (email.length() > 100 || !EMAIL_PATTERN.matcher(email).matches())) {
-            throw new CommonException("Email không hợp lệ");
+            throw new CommonException(ThongDiep.of("banHang.emailKhongHopLe"));
         }
     }
 
@@ -458,7 +459,7 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
                     : repository.findFirstBySoDienThoaiAndIdNot(sdt, excludeId))
                     .ifPresent(kh -> {
                         throw new CommonException(
-                                "Số điện thoại đã thuộc khách hàng " + kh.getTenKhachHang() + " (" + kh.getMaKhachHang() + ")",
+                                ThongDiep.of("banHang.soDienThoaiDaThuocKhachMa", kh.getTenKhachHang(), kh.getMaKhachHang()),
                                 HttpStatus.CONFLICT, null);
                     });
         }
@@ -468,7 +469,7 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
                     : repository.findFirstByEmailAndIdNot(email, excludeId))
                     .ifPresent(kh -> {
                         throw new CommonException(
-                                "Email đã thuộc khách hàng " + kh.getTenKhachHang() + " (" + kh.getMaKhachHang() + ")",
+                                ThongDiep.of("banHang.emailDaThuocKhachMa", kh.getTenKhachHang(), kh.getMaKhachHang()),
                                 HttpStatus.CONFLICT, null);
                     });
         }
@@ -484,7 +485,7 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
         }
         String value = loai.trim();
         if (!LOAI_KHACH_HANG_HOP_LE.contains(value)) {
-            throw new CommonException("Loại khách hàng không hợp lệ");
+            throw new CommonException(ThongDiep.of("banHang.loaiKhachHangSai"));
         }
         return value;
     }

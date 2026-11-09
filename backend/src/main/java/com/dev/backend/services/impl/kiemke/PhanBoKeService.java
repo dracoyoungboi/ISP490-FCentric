@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.*;
+import com.dev.backend.i18n.ThongDiep;
 
 /**
  * Phân bổ nhặt theo kệ (đặc tả kiểm kê khoanh vùng mục 8.2, đề xuất "Nhặt hàng theo kệ" 04/11/2026).
@@ -379,34 +380,33 @@ public class PhanBoKeService {
         for (KeChon c : chon) {
             if (c == null || c.soLuong() == null || c.soLuong().signum() <= 0) continue;
             if (c.soLuong().stripTrailingZeros().scale() > 0) {
-                throw new CommonException("Số lấy ở kệ phải là số nguyên", HttpStatus.BAD_REQUEST, null);
+                throw new CommonException(ThongDiep.of("khoVanHanh.soLayOKePhaiNguyen"), HttpStatus.BAD_REQUEST, null);
             }
             tong = tong.add(c.soLuong());
             if (c.viTriId() == null) continue;
             KeLay k = co.get(c.viTriId());
             if (k == null) {
-                throw new CommonException("Lô " + lo.getMaLo() + " không có trên kệ đã chọn ở kho này", HttpStatus.BAD_REQUEST, null);
+                throw new CommonException(ThongDiep.of("khoVanHanh.loKhongCoTrenKeDaChon", lo.getMaLo()), HttpStatus.BAD_REQUEST, null);
             }
             if (k.dangKiemKe()) {
-                throw new CommonException("Kệ " + k.maViTri() + " đang được kiểm kê, chọn kệ khác", HttpStatus.CONFLICT, null);
+                throw new CommonException(ThongDiep.of("khoVanHanh.keDangKiemKeChonKeKhac", k.maViTri()), HttpStatus.CONFLICT, null);
             }
             int sl = moi.merge(c.viTriId(), c.soLuong().intValue(), Integer::sum);
             if (sl > k.soLuong().intValue()) {
-                throw new CommonException("Kệ " + k.maViTri() + " chỉ còn " + k.soLuong().intValue() + " của lô " + lo.getMaLo()
-                        + " có thể lấy (phần còn lại phiếu nhặt khác đang giữ)", HttpStatus.CONFLICT, null);
+                throw new CommonException(ThongDiep.of("khoVanHanh.keChiConCuaLoCoTheLay",
+                        k.maViTri(), k.soLuong().intValue(), lo.getMaLo()), HttpStatus.CONFLICT, null);
             }
         }
         if (tong.compareTo(pb.getSoLuong()) != 0) {
-            throw new CommonException("Số chia theo kệ của lô " + lo.getMaLo() + " phải bằng số lấy từ lô ("
-                    + pb.getSoLuong().stripTrailingZeros().toPlainString() + ")", HttpStatus.BAD_REQUEST, null);
+            throw new CommonException(ThongDiep.of("khoVanHanh.soChiaTheoKePhaiBang",
+                    lo.getMaLo(), pb.getSoLuong().stripTrailingZeros().toPlainString()), HttpStatus.BAD_REQUEST, null);
         }
         int phanChuaCoKe = soNguyen(tong) - moi.values().stream().mapToInt(Integer::intValue).sum();
         if (phanChuaCoKe > 0) {
             // Trừ phần hàng chưa có kệ phiếu nhặt khác đã giữ, không thì hai phiếu cùng được hứa một chỗ hàng
             int coChuaCoKe = soChuaCoKeTuDo(khoId, lo.getId(), phieuNhatId);
             if (phanChuaCoKe > coChuaCoKe) {
-                throw new CommonException("Lô " + lo.getMaLo() + " chỉ còn " + coChuaCoKe + " ở hàng chưa có kệ (phần còn lại phiếu "
-                        + "nhặt khác đang giữ), không đủ " + phanChuaCoKe + ". Chọn thêm kệ cho phần còn lại.", HttpStatus.CONFLICT, null);
+                throw new CommonException(ThongDiep.of("khoVanHanh.loChiConOHangChuaCoKe", lo.getMaLo(), coChuaCoKe, phanChuaCoKe), HttpStatus.CONFLICT, null);
             }
         }
         luu(pb.getId(), moi);
@@ -525,7 +525,8 @@ public class PhanBoKeService {
             if (tt.capDangKhoa(ke, lo)) {
                 LoiCoMaException e = guard.loi(tt, tt.dotCuaCap(ke, lo), ke, lo, "nhặt ở kệ này");
                 throw new LoiCoMaException(e.getStatus(), e.getMa(),
-                        e.getMessage() + " Mở Phân bổ lô để lấy ở kệ khác hoặc ở hàng chưa có kệ.", e.getDuLieu());
+                        ThongDiep.of("khoVanHanh.keDangKiemKeMoPhanBo",
+                                e.getThongDiep() != null ? e.getThongDiep() : e.getMessage()), e.getDuLieu());
             }
         }
     }

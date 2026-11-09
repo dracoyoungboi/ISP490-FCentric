@@ -1,3 +1,4 @@
+import { t } from "../../../../i18n/t.js";
 // Khối Cần bổ sung của màn Tổng quan (gom theo sản phẩm): thuần dữ liệu để kiểm thử bằng node --test.
 
 /** Đơn vị của cỡ dạng số + đơn vị ("21 Inch" → "Inch", "28,5 cm" → "cm"); cỡ dạng khác ("Free Size", "M") thì null. */
@@ -39,7 +40,7 @@ export function khaDungNhom(dong) {
 export function demMaNhom(n) {
   const het = n?.soHet ?? 0;
   const sapHet = n?.soSapHet ?? 0;
-  return het && sapHet ? `${het} hết · ${sapHet} sắp hết` : `${het + sapHet} mã`;
+  return het && sapHet ? t("{{het}} hết · {{sapHet}} sắp hết", { het, sapHet }) : t("{{count}} mã", { count: het + sapHet });
 }
 
 /**

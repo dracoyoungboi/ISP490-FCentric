@@ -19,6 +19,7 @@ import LoadingState from "@/components/shared/LoadingState";
 import SearchInput from "@/components/shared/SearchInput";
 import { mauSacService, sizeService } from "@/services/attributeService";
 import { toast } from "@/lib/thongBaoNhanh";
+import { t } from "@/i18n";
 
 const PaginationBar = ({ page, totalPages, total, pageSize, onPageChange }) => (
     <div className="flex flex-col gap-3 rounded-lg border border-bo-border bg-bo-surface px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
@@ -81,7 +82,7 @@ const ColorSizeManagement = () => {
                 setColors(res.data.content);
                 setTotalColors(res.data.totalElements);
             }
-        } catch { toast.error("Không thể tải danh sách màu"); }
+        } catch { toast.error(t("Không thể tải danh sách màu")); }
         finally { setLoadingColor(false); }
     }, [colorPage, colorLimit]);
 
@@ -93,7 +94,7 @@ const ColorSizeManagement = () => {
                 setSizes(res.data.content);
                 setTotalSizes(res.data.totalElements);
             }
-        } catch { toast.error("Không thể tải danh sách size"); }
+        } catch { toast.error(t("Không thể tải danh sách size")); }
         finally { setLoadingSize(false); }
     }, [sizePage, sizeLimit]);
 
@@ -128,11 +129,11 @@ const ColorSizeManagement = () => {
                 res = modalMode === 'add' ? await sizeService.create(formData) : await sizeService.update({ id: selectedItem.id, ...formData });
             }
             if (res.status === 200) {
-                toast.success(modalMode === 'add' ? "Thêm mới thành công" : "Cập nhật thành công");
+                toast.success(modalMode === 'add' ? t("Thêm mới thành công") : t("Cập nhật thành công"));
                 activeTab === 'color' ? fetchColors() : fetchSizes();
                 setShowModal(false);
             }
-        } catch { toast.error("Có lỗi xảy ra"); }
+        } catch { toast.error(t("Có lỗi xảy ra")); }
     };
 
     const handleConfirmDelete = async () => {
@@ -141,10 +142,10 @@ const ColorSizeManagement = () => {
         try {
             const res = activeTab === 'color' ? await mauSacService.delete(deleteTarget.id) : await sizeService.delete(deleteTarget.id);
             if (res.status === 200) {
-                toast.success("Xóa thành công");
+                toast.success(t("Xóa thành công"));
                 activeTab === 'color' ? fetchColors() : fetchSizes();
             }
-        } catch { toast.error("Có lỗi xảy ra khi xóa"); }
+        } catch { toast.error(t("Có lỗi xảy ra khi xóa")); }
         finally { setIsDeleting(false); setDeleteTarget(null); }
     };
 
@@ -154,14 +155,14 @@ const ColorSizeManagement = () => {
     return (
         <PageContainer className="space-y-5">
             <PageHeader
-                title="Danh mục thuộc tính"
-                description="Quản lý màu sắc và kích cỡ dùng trong hệ thống"
+                title={t("Danh mục thuộc tính")}
+                description={t("Quản lý màu sắc và kích cỡ dùng trong hệ thống")}
                 actions={
                     <Button
                         onClick={() => handleOpenModal('add')}
                         className="h-9 gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
                     >
-                        <Plus size={18} /> Thêm {activeTab === 'color' ? 'màu' : 'size'} mới
+                        <Plus size={18} /> {activeTab === 'color' ? t("Thêm màu mới") : t("Thêm size mới")}
                     </Button>
                 }
             />
@@ -172,13 +173,13 @@ const ColorSizeManagement = () => {
                         value="color"
                         className="rounded-md px-3 py-1.5 text-sm font-medium text-bo-muted data-[state=active]:bg-bo-surface data-[state=active]:text-bo-primary data-[state=active]:shadow-sm"
                     >
-                        <Palette size={14} className="mr-2" />Màu sắc
+                        <Palette size={14} className="mr-2" />{t("Màu sắc")}
                     </TabsTrigger>
                     <TabsTrigger
                         value="size"
                         className="rounded-md px-3 py-1.5 text-sm font-medium text-bo-muted data-[state=active]:bg-bo-surface data-[state=active]:text-bo-primary data-[state=active]:shadow-sm"
                     >
-                        <Ruler size={14} className="mr-2" />Kích cỡ
+                        <Ruler size={14} className="mr-2" />{t("Kích cỡ")}
                     </TabsTrigger>
                 </TabsList>
 
@@ -191,7 +192,7 @@ const ColorSizeManagement = () => {
                                     value={colorSearch}
                                     onChange={e => setColorSearch(e.target.value)}
                                     onClear={() => setColorSearch('')}
-                                    placeholder="Mã hoặc tên màu..."
+                                    placeholder={t("Mã hoặc tên màu...")}
                                 />
                             </div>
                             <Button
@@ -213,11 +214,11 @@ const ColorSizeManagement = () => {
                             <table className="w-full min-w-[720px] text-sm">
                                 <thead>
                                     <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                                        <th className="h-11 w-16 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">STT</th>
-                                        <th className="h-11 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Mã màu</th>
-                                        <th className="h-11 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Tên màu</th>
+                                        <th className="h-11 w-16 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("STT")}</th>
+                                        <th className="h-11 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Mã màu")}</th>
+                                        <th className="h-11 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Tên màu")}</th>
                                         <th className="h-11 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">HEX Code</th>
-                                        <th className="h-11 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Thao tác</th>
+                                        <th className="h-11 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Thao tác")}</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-bo-border">
@@ -226,8 +227,8 @@ const ColorSizeManagement = () => {
                                             <td colSpan={5} className="px-4 py-6">
                                                 <EmptyState
                                                     icon={Palette}
-                                                    title="Không có màu sắc nào"
-                                                    description="Chưa có dữ liệu phù hợp để hiển thị."
+                                                    title={t("Không có màu sắc nào")}
+                                                    description={t("Chưa có dữ liệu phù hợp để hiển thị.")}
                                                     className="min-h-0 py-8"
                                                 />
                                             </td>
@@ -246,7 +247,7 @@ const ColorSizeManagement = () => {
                                                 <div className="flex justify-center gap-1">
                                                     <button
                                                         type="button"
-                                                        title="Xem chi tiết"
+                                                        title={t("Xem chi tiết")}
                                                         className="inline-flex size-8 items-center justify-center rounded-md border border-bo-border text-bo-muted transition-colors hover:border-bo-primary hover:text-bo-primary"
                                                         onClick={() => handleOpenModal('view', c)}
                                                     >
@@ -254,7 +255,7 @@ const ColorSizeManagement = () => {
                                                     </button>
                                                     <button
                                                         type="button"
-                                                        title="Chỉnh sửa"
+                                                        title={t("Chỉnh sửa")}
                                                         className="inline-flex size-8 items-center justify-center rounded-md border border-bo-border text-bo-muted transition-colors hover:border-bo-primary hover:text-bo-primary"
                                                         onClick={() => handleOpenModal('edit', c)}
                                                     >
@@ -262,7 +263,7 @@ const ColorSizeManagement = () => {
                                                     </button>
                                                     <button
                                                         type="button"
-                                                        title="Xóa"
+                                                        title={t("Xóa")}
                                                         className="inline-flex size-8 items-center justify-center rounded-md border border-bo-border text-bo-muted transition-colors hover:border-bo-danger hover:text-bo-danger"
                                                         onClick={() => setDeleteTarget(c)}
                                                     >
@@ -288,7 +289,7 @@ const ColorSizeManagement = () => {
                                     value={sizeSearch}
                                     onChange={e => setSizeSearch(e.target.value)}
                                     onClear={() => setSizeSearch('')}
-                                    placeholder="Mã hoặc tên size..."
+                                    placeholder={t("Mã hoặc tên size...")}
                                 />
                             </div>
                             <Button
@@ -310,11 +311,11 @@ const ColorSizeManagement = () => {
                             <table className="w-full min-w-[720px] text-sm">
                                 <thead>
                                     <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                                        <th className="h-11 w-16 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">STT</th>
-                                        <th className="h-11 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Mã size</th>
-                                        <th className="h-11 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Tên size</th>
-                                        <th className="h-11 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Phân loại</th>
-                                        <th className="h-11 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Thao tác</th>
+                                        <th className="h-11 w-16 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("STT")}</th>
+                                        <th className="h-11 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Mã size")}</th>
+                                        <th className="h-11 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Tên size")}</th>
+                                        <th className="h-11 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Phân loại")}</th>
+                                        <th className="h-11 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Thao tác")}</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-bo-border">
@@ -323,8 +324,8 @@ const ColorSizeManagement = () => {
                                             <td colSpan={5} className="px-4 py-6">
                                                 <EmptyState
                                                     icon={Ruler}
-                                                    title="Không có kích cỡ nào"
-                                                    description="Chưa có dữ liệu phù hợp để hiển thị."
+                                                    title={t("Không có kích cỡ nào")}
+                                                    description={t("Chưa có dữ liệu phù hợp để hiển thị.")}
                                                     className="min-h-0 py-8"
                                                 />
                                             </td>
@@ -339,7 +340,7 @@ const ColorSizeManagement = () => {
                                                 <div className="flex justify-center gap-1">
                                                     <button
                                                         type="button"
-                                                        title="Xem chi tiết"
+                                                        title={t("Xem chi tiết")}
                                                         className="inline-flex size-8 items-center justify-center rounded-md border border-bo-border text-bo-muted transition-colors hover:border-bo-primary hover:text-bo-primary"
                                                         onClick={() => handleOpenModal('view', s)}
                                                     >
@@ -347,7 +348,7 @@ const ColorSizeManagement = () => {
                                                     </button>
                                                     <button
                                                         type="button"
-                                                        title="Chỉnh sửa"
+                                                        title={t("Chỉnh sửa")}
                                                         className="inline-flex size-8 items-center justify-center rounded-md border border-bo-border text-bo-muted transition-colors hover:border-bo-primary hover:text-bo-primary"
                                                         onClick={() => handleOpenModal('edit', s)}
                                                     >
@@ -355,7 +356,7 @@ const ColorSizeManagement = () => {
                                                     </button>
                                                     <button
                                                         type="button"
-                                                        title="Xóa"
+                                                        title={t("Xóa")}
                                                         className="inline-flex size-8 items-center justify-center rounded-md border border-bo-border text-bo-muted transition-colors hover:border-bo-danger hover:text-bo-danger"
                                                         onClick={() => setDeleteTarget(s)}
                                                     >
@@ -377,10 +378,10 @@ const ColorSizeManagement = () => {
                 <DialogContent className="rounded-lg border border-bo-border bg-bo-surface text-bo-foreground shadow-lg sm:max-w-md">
                     <DialogHeader>
                         <DialogTitle className="text-base font-semibold text-bo-foreground">
-                            {modalMode === 'add' ? 'Thêm mới' : modalMode === 'edit' ? 'Cập nhật' : 'Chi tiết'}{' '}
-                            <span className="text-bo-primary">{activeTab === 'color' ? 'màu' : 'size'}</span>
+                            {modalMode === 'add' ? t("Thêm mới") : modalMode === 'edit' ? t("Cập nhật") : t("Chi tiết")}{' '}
+                            <span className="text-bo-primary">{activeTab === 'color' ? t("màu") : 'size'}</span>
                         </DialogTitle>
-                        <DialogDescription className="sr-only">Biểu mẫu thông tin thuộc tính</DialogDescription>
+                        <DialogDescription className="sr-only">{t("Biểu mẫu thông tin thuộc tính")}</DialogDescription>
                     </DialogHeader>
 
                     <div className="space-y-4">
@@ -393,7 +394,7 @@ const ColorSizeManagement = () => {
                                         value={formData.tenMau}
                                         onChange={e => setFormData({...formData, tenMau: e.target.value})}
                                         className="h-9 border-bo-border bg-bo-surface text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
-                                        placeholder="Tên màu"
+                                        placeholder={t("Tên màu")}
                                     />
                                 </div>
                                 <div className="space-y-1.5">
@@ -403,7 +404,7 @@ const ColorSizeManagement = () => {
                                         value={formData.maMau}
                                         onChange={e => setFormData({...formData, maMau: e.target.value})}
                                         className="h-9 border-bo-border bg-bo-surface font-mono text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
-                                        placeholder="Mã màu"
+                                        placeholder={t("Mã màu")}
                                     />
                                 </div>
                                 <div className="space-y-1.5">
@@ -478,14 +479,14 @@ const ColorSizeManagement = () => {
                             onClick={() => setShowModal(false)}
                             className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                         >
-                            {modalMode === 'view' ? 'Đóng' : 'Hủy'}
+                            {modalMode === 'view' ? t("Đóng") : t("Hủy")}
                         </Button>
                         {modalMode !== 'view' && (
                             <Button
                                 onClick={handleSubmit}
                                 className="bg-bo-primary text-white hover:bg-bo-primary-hover"
                             >
-                                Lưu thông tin
+                                {t("Lưu thông tin")}
                             </Button>
                         )}
                     </DialogFooter>

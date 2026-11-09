@@ -1,5 +1,6 @@
 package com.dev.backend.services.impl.entities;
 
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.config.SecurityContextHolder;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.dto.PosCatalogBienTheDto;
@@ -137,7 +138,7 @@ public class PosCatalogService {
             return Map.of();
         }
         if (distinctIds.size() > MAX_STOCK_IDS) {
-            throw new CommonException("Chỉ tra cứu tồn kho tối đa " + MAX_STOCK_IDS + " mặt hàng mỗi lần");
+            throw new CommonException(ThongDiep.of("banHang.traCuuTonToiDa", MAX_STOCK_IDS));
         }
         Map<Integer, BigDecimal> result = new LinkedHashMap<>();
         for (Object[] row : bienTheSanPhamRepository.findPosAvailableStock(authorizedKhoId, distinctIds)) {
@@ -159,7 +160,7 @@ public class PosCatalogService {
         String value = trangThaiTon.trim().toLowerCase(Locale.ROOT);
         if (!BO_LOC_TON_HOP_LE.contains(value)) {
             // Giá trị hợp lệ: con_hang | het_hang | tat_ca (client POS luôn gửi đúng các giá trị này).
-            throw new CommonException("Bộ lọc tồn kho không hợp lệ");
+            throw new CommonException(ThongDiep.of("banHang.boLocTonKhongHopLe"));
         }
         return value;
     }
@@ -181,7 +182,7 @@ public class PosCatalogService {
             attachImages(page.getContent());
             return page.getContent();
         }
-        throw new CommonException("Cần cung cấp skuPrefix hoặc barcode để tra cứu");
+        throw new CommonException(ThongDiep.of("banHang.canSkuHoacBarcode"));
     }
 
     /**
@@ -228,11 +229,11 @@ public class PosCatalogService {
      */
     public Integer authorizeWarehouse(Integer khoId) {
         if (khoId == null) {
-            throw new CommonException("Vui lòng chọn kho bán hàng");
+            throw new CommonException(ThongDiep.of("banHang.chonKhoBanHang"));
         }
         Kho kho = entityManager.find(Kho.class, khoId);
         if (kho == null) {
-            throw new CommonException("Kho đã chọn không tồn tại");
+            throw new CommonException(ThongDiep.of("banHang.khoDaChonKhongTonTai"));
         }
         KhoService.kiemTraKhoBanTaiQuay(kho);
 
@@ -244,13 +245,12 @@ public class PosCatalogService {
 
         PhanQuyenNguoiDungKho phanQuyen = phanQuyenNguoiDungKhoRepository
                 .findByNguoiDungIdAndKhoId(currentUser.getId(), khoId)
-                .orElseThrow(() -> new CommonException("Bạn không phụ trách kho [" + kho.getTenKho() +
-                        "]. Không thể xem catalog bán hàng của kho này."));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("banHang.khongPhuTrachKhoCatalog", kho.getTenKho())));
 
         if (phanQuyen.getTrangThai() != 1 ||
                 (phanQuyen.getNgayKetThuc() != null && phanQuyen.getNgayKetThuc().isBefore(Instant.now()))) {
             // Không viết "bị khóa": giao diện coi câu có cụm đó là tài khoản bị khóa và đăng xuất
-            throw new CommonException("Quyền truy cập kho [" + kho.getTenKho() + "] của bạn đã hết hạn hoặc đã bị thu hồi.");
+            throw new CommonException(ThongDiep.of("banHang.quyenKhoHetHan", kho.getTenKho()));
         }
         return khoId;
     }

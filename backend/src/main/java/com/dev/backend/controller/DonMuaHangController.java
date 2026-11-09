@@ -9,6 +9,7 @@ import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.entities.DonMuaHangDto;
 import com.dev.backend.mapper.DonMuaHangMapper;
 import com.dev.backend.services.impl.entities.DonMuaHangService;
+import com.dev.backend.i18n.ThongDiep;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
@@ -84,7 +85,7 @@ public class DonMuaHangController {
                 ResponseData.<String>builder()
                         .status(HttpStatus.OK.value())
                         .data("Success")
-                        .message("Đã đóng đơn mua.")
+                        .message(ThongDiep.dich("sanPhamMuaHang.donMuaDaDong"))
                         .build()
         );
     }
@@ -106,7 +107,7 @@ public class DonMuaHangController {
                 ResponseData.<String>builder()
                         .status(HttpStatus.OK.value())
                         .data("Success")
-                        .message("Đã hủy đơn mua.")
+                        .message(ThongDiep.dich("sanPhamMuaHang.donMuaDaHuy"))
                         .build()
         );
     }

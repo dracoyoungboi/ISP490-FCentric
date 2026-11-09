@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.*;
+import com.dev.backend.i18n.ThongDiep;
 
 /**
  * Chốt chặn kiểm kê dùng chung cho mọi luồng đổi tồn, đổi chỗ hàng hoặc đổi dữ liệu chủ (BR-STK-13, đặc tả BA 8.1–8.2).
@@ -404,8 +405,7 @@ public class KhoaKiemKeGuard {
         if (r.isEmpty()) return;
         String ma = (String) r.get(0)[1];
         throw new LoiCoMaException(HttpStatus.CONFLICT, MaLoi.STK_LOCKED,
-                "Danh mục này đang được kiểm kê (đợt " + ma + "). Tạm dừng " + thaoTac
-                        + " tới khi đợt được duyệt hoặc hủy.",
+                ThongDiep.of("khoVanHanh.danhMucDangKiemKe", ma, thaoTacTheoNgonNgu(thaoTac)),
                 Map.of("dotKiemKeId", ((Number) r.get(0)[0]).intValue(), "maDotKiemKe", ma));
     }
 
@@ -435,19 +435,56 @@ public class KhoaKiemKeGuard {
                     .setParameter("id", loId).getResultList();
             if (!r.isEmpty()) maLo = (String) r.get(0);
         }
-        StringBuilder cau = new StringBuilder();
-        if (maLo != null && maKe != null) cau.append("Lô ").append(maLo).append(" ở kệ ").append(maKe);
-        else if (maKe != null) cau.append("Kệ ").append(maKe);
-        else if (maLo != null) cau.append("Lô ").append(maLo);
-        else cau.append("Kho này");
-        cau.append(" đang được kiểm kê");
-        if (ma != null) cau.append(" (đợt ").append(ma).append(")");
-        cau.append(". Tạm dừng ").append(thaoTac).append(" tới khi đợt được duyệt hoặc hủy.");
+        // Câu: "<Lô X ở kệ Y | Kệ Y | Lô X | Kho này> đang được kiểm kê[ (đợt M)]. Tạm dừng <thao tác> tới khi …"
+        Object thaoTacDich = thaoTacTheoNgonNgu(thaoTac);
+        ThongDiep cau;
+        if (maLo != null && maKe != null) {
+            cau = ma != null ? ThongDiep.of("khoVanHanh.loOKeDangKiemKeCoDot", maLo, maKe, ma, thaoTacDich)
+                    : ThongDiep.of("khoVanHanh.loOKeDangKiemKe", maLo, maKe, thaoTacDich);
+        } else if (maKe != null) {
+            cau = ma != null ? ThongDiep.of("khoVanHanh.keDangKiemKeCoDot", maKe, ma, thaoTacDich)
+                    : ThongDiep.of("khoVanHanh.keDangKiemKeTamDung", maKe, thaoTacDich);
+        } else if (maLo != null) {
+            cau = ma != null ? ThongDiep.of("khoVanHanh.loDangKiemKeCoDot", maLo, ma, thaoTacDich)
+                    : ThongDiep.of("khoVanHanh.loDangKiemKe", maLo, thaoTacDich);
+        } else {
+            cau = ma != null ? ThongDiep.of("khoVanHanh.khoDangKiemKeCoDot", ma, thaoTacDich)
+                    : ThongDiep.of("khoVanHanh.khoDangKiemKe", thaoTacDich);
+        }
         Map<String, Object> duLieu = new LinkedHashMap<>();
         if (dotId != null) duLieu.put("dotKiemKeId", dotId);
         if (ma != null) duLieu.put("maDotKiemKe", ma);
         if (maKe != null) duLieu.put("viTri", maKe);
         if (maLo != null) duLieu.put("maLo", maLo);
-        return new LoiCoMaException(HttpStatus.CONFLICT, MaLoi.STK_LOCKED, cau.toString(), duLieu);
+        return new LoiCoMaException(HttpStatus.CONFLICT, MaLoi.STK_LOCKED, cau, duLieu);
+    }
+
+    /**
+     * Thao tác bị tạm dừng: nơi gọi truyền cụm tiếng Việt ("sửa kệ", "xuất kho"…). Cụm đã biết đổi sang câu theo khóa để
+     * câu lỗi dịch được trọn; cụm lạ giữ nguyên chữ (câu tiếng Việt không đổi).
+     */
+    private static final Map<String, String> KHOA_THAO_TAC = Map.ofEntries(
+            Map.entry("đổi danh mục cha", "khoVanHanh.thaoTacDoiDanhMucCha"),
+            Map.entry("đổi danh mục sản phẩm", "khoVanHanh.thaoTacDoiDanhMucSanPham"),
+            Map.entry("việc ngừng kinh doanh sản phẩm", "khoVanHanh.thaoTacNgungKinhDoanhSanPham"),
+            Map.entry("ngừng hoạt động kho", "khoVanHanh.thaoTacNgungHoatDongKho"),
+            Map.entry("nhận hàng chuyển kho (hàng vẫn ở kho trung chuyển)", "khoVanHanh.thaoTacNhanHangChuyenKho"),
+            Map.entry("nhập hàng lên kệ", "khoVanHanh.thaoTacNhapHangLenKe"),
+            Map.entry("nhập hàng vào kho", "khoVanHanh.thaoTacNhapHangVaoKho"),
+            Map.entry("xuất kho", "khoVanHanh.thaoTacXuatKho"),
+            Map.entry("bán tại quầy", "khoVanHanh.thaoTacBanTaiQuay"),
+            Map.entry("thêm kệ vào khu vực", "khoVanHanh.thaoTacThemKeVaoKhuVuc"),
+            Map.entry("chuyển kệ vào khu vực", "khoVanHanh.thaoTacChuyenKeVaoKhuVuc"),
+            Map.entry("sửa kệ", "khoVanHanh.thaoTacSuaKe"),
+            Map.entry("xóa kệ", "khoVanHanh.thaoTacXoaKe"),
+            Map.entry("xếp hàng lên kệ", "khoVanHanh.thaoTacXepHangLenKe"),
+            Map.entry("chuyển hàng khỏi kệ", "khoVanHanh.thaoTacChuyenHangKhoiKe"),
+            Map.entry("chuyển hàng lên kệ", "khoVanHanh.thaoTacChuyenHangLenKe"),
+            Map.entry("hoàn kệ", "khoVanHanh.thaoTacHoanKe"),
+            Map.entry("nhặt ở kệ này", "khoVanHanh.thaoTacNhatOKeNay"));
+
+    static Object thaoTacTheoNgonNgu(String thaoTac) {
+        String khoa = thaoTac == null ? null : KHOA_THAO_TAC.get(thaoTac);
+        return khoa == null ? thaoTac : ThongDiep.of(khoa);
     }
 }

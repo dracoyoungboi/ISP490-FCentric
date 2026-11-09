@@ -3,24 +3,31 @@
 // Hàm thuần, chạy được với node --test.
 import { NHAN_THONG_TIN_CUA_HANG, oThieuDeGuiNhaCungCap } from "../../validations/companyProfileSchema.js";
 import { getApiErrorCode } from "../../utils/apiError.js";
+import { t } from "../../i18n/t.js";
 
 /** Mã lỗi máy chủ (LoiCoMaException): thiếu thông tin cửa hàng — 409, data.thieu = nhãn các ô thiếu. */
 export const MA_THIEU_THONG_TIN_CUA_HANG = "THIEU_THONG_TIN_CUA_HANG";
 /** Mã lỗi máy chủ: yêu cầu không còn ở trạng thái chờ gửi (bấm 2 lần, hoặc người khác vừa gửi) — 409. */
 export const MA_YEU_CAU_DA_GUI = "YEU_CAU_DA_GUI";
 
-export const TIEU_DE_KHUNG_CHAN = "Chưa gửi được yêu cầu báo giá";
-export const CAU_LY_DO_KHUNG_CHAN = "Email gửi nhà cung cấp phải có tên đăng ký kinh doanh và địa chỉ đăng ký của cửa hàng.";
-export const LIEN_KET_NHAP_THONG_TIN = "Nhập ở Cấu hình › Thông tin cửa hàng ›";
-export const CAU_BAO_NGUOI_CO_QUYEN = "Hãy báo quản trị viên hoặc quản lý kho nhập thông tin này.";
+export const TIEU_DE_KHUNG_CHAN = t("Chưa gửi được yêu cầu báo giá");
+export const CAU_LY_DO_KHUNG_CHAN = t("Email gửi nhà cung cấp phải có tên đăng ký kinh doanh và địa chỉ đăng ký của cửa hàng.");
+export const LIEN_KET_NHAP_THONG_TIN = t("Nhập ở Cấu hình › Thông tin cửa hàng ›");
+export const CAU_BAO_NGUOI_CO_QUYEN = t("Hãy báo quản trị viên hoặc quản lý kho nhập thông tin này.");
 
-const NHAN_BAT_BUOC = [NHAN_THONG_TIN_CUA_HANG.legalName, NHAN_THONG_TIN_CUA_HANG.address];
+// Máy chủ gửi nhãn ô thiếu bằng tiếng Việt (ThongTinCuaHangBatBuoc): so với nhãn gốc, hiện nhãn đã dịch
+const NHAN_BAT_BUOC = [
+  // i18n-giu-nguyen: so khớp nhãn máy chủ gửi
+  { goc: "Tên đăng ký kinh doanh", nhan: NHAN_THONG_TIN_CUA_HANG.legalName },
+  // i18n-giu-nguyen: so khớp nhãn máy chủ gửi
+  { goc: "Địa chỉ đăng ký", nhan: NHAN_THONG_TIN_CUA_HANG.address },
+];
 
-/** Nhãn ô thiếu máy chủ gửi kèm 409 (chỉ giữ nhãn đã biết, đúng thứ tự); không đọc được thì null. */
+/** Nhãn ô thiếu máy chủ gửi kèm 409 (chỉ giữ nhãn đã biết, đúng thứ tự, theo ngôn ngữ giao diện); không đọc được thì null. */
 export function thieuTuLoi(error) {
   const thieu = error?.response?.data?.data?.thieu;
   if (!Array.isArray(thieu)) return null;
-  const biet = NHAN_BAT_BUOC.filter((nhan) => thieu.includes(nhan));
+  const biet = NHAN_BAT_BUOC.filter(({ goc, nhan }) => thieu.includes(goc) || thieu.includes(nhan)).map(({ nhan }) => nhan);
   return biet.length ? biet : null;
 }
 
@@ -35,7 +42,7 @@ export function oThieuHienTai({ hoSo, thieuTuMayChu = null }) {
 
 /** Tách nhãn thiếu thành các đoạn để in đậm từng nhãn: ["A"] hoặc ["A", " và ", "B"]. */
 export function doanNhanThieu(thieu) {
-  return (thieu ?? []).flatMap((nhan, i) => (i === 0 ? [nhan] : [" và ", nhan]));
+  return (thieu ?? []).flatMap((nhan, i) => (i === 0 ? [nhan] : [t(" và "), nhan]));
 }
 
 /**
@@ -45,14 +52,14 @@ export function doanNhanThieu(thieu) {
  * - { loai: "daGui", message }: báo câu máy chủ rồi về chi tiết yêu cầu;
  * - { loai: "khac", message }.
  */
-export function xuLyLoiGui(error, cauDuPhong = "Gửi yêu cầu thất bại. Vui lòng thử lại.") {
+export function xuLyLoiGui(error, cauDuPhong = t("Gửi yêu cầu thất bại. Vui lòng thử lại.")) {
   const ma = getApiErrorCode(error);
   const message = error?.response?.data?.message;
   const cau = typeof message === "string" && message.trim() ? message.trim() : cauDuPhong;
   if (ma === MA_THIEU_THONG_TIN_CUA_HANG) return { loai: "thieu", thieu: thieuTuLoi(error) };
   if (ma === MA_YEU_CAU_DA_GUI) return { loai: "daGui", message: cau };
   if (!error?.response && error?.request) {
-    return { loai: "khac", message: "Không nhận được phản hồi từ máy chủ. Vui lòng thử lại." };
+    return { loai: "khac", message: t("Không nhận được phản hồi từ máy chủ. Vui lòng thử lại.") };
   }
   return { loai: "khac", message: cau };
 }
@@ -63,7 +70,7 @@ export function xuLyLoiGui(error, cauDuPhong = "Gửi yêu cầu thất bại. V
  * nhận email.
  */
 export const CAU_LOI_MAY_CHU_KHI_GUI =
-  "Máy chủ gặp lỗi nên chưa ghi nhận yêu cầu báo giá; chưa nhà cung cấp nào nhận email. Vui lòng thử lại.";
+  t("Máy chủ gặp lỗi nên chưa ghi nhận yêu cầu báo giá; chưa nhà cung cấp nào nhận email. Vui lòng thử lại.");
 
 /**
  * Chỉnh kết quả gui-bao-gia/tinhGuiBaoGia.phanLoaiLoiGui theo máy chủ mới: loại "email" (500 JSON) viết cho máy chủ cũ
@@ -80,10 +87,13 @@ export function khoaNutGui({ soDaChon, dangTaiYeuCau, coYeuCau, thieu, dangGui =
 
 /** Toast sau khi gửi (HOP-DONG 6.11): email gửi sau khi lưu đơn nên không khẳng định email đã đi. */
 export function cauDaGui(soNhaCungCap) {
-  return `Đã tạo báo giá cho ${soNhaCungCap} nhà cung cấp. Email yêu cầu đang được gửi.`;
+  // `soNhaCungCap` có thể là chuỗi đã định dạng ("1.234"): đếm số nhiều theo số đọc lại
+  const soDem = Number(String(soNhaCungCap).replace(/\D/g, "")) || 0;
+  return t("Đã tạo báo giá cho {{soNhaCungCap}} nhà cung cấp. Email yêu cầu đang được gửi.", { count: soDem, soNhaCungCap });
 }
 
 /** Đầu cột "Danh sách sẽ gửi": "{n} nhà cung cấp". */
 export function nhanSoNhaCungCap(n) {
-  return `${n} nhà cung cấp`;
+  const soDem = Number(String(n).replace(/\D/g, "")) || 0;
+  return t("{{n}} nhà cung cấp", { count: soDem, n });
 }

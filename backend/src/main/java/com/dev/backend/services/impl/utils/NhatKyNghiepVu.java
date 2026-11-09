@@ -6,6 +6,8 @@ import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
 import com.dev.backend.entities.Kho;
 import com.dev.backend.entities.LichSuThayDoi;
 import com.dev.backend.entities.NguoiDung;
+import com.dev.backend.i18n.LoiThamSoException;
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.repository.LichSuThayDoiRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -258,7 +260,7 @@ public class NhatKyNghiepVu {
 
     /** Ảnh chụp có thứ tự, chấp nhận giá trị null (Map.of không nhận null). */
     public static Map<String, Object> anh(Object... capKhoaGiaTri) {
-        if (capKhoaGiaTri.length % 2 != 0) throw new IllegalArgumentException("Cặp khóa - giá trị không đủ");
+        if (capKhoaGiaTri.length % 2 != 0) throw new LoiThamSoException(ThongDiep.of("heThong.capKhoaGiaTriKhongDu"));
         Map<String, Object> m = new LinkedHashMap<>();
         for (int i = 0; i < capKhoaGiaTri.length; i += 2) m.put((String) capKhoaGiaTri[i], capKhoaGiaTri[i + 1]);
         return m;

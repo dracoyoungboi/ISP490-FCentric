@@ -48,6 +48,7 @@ import NganKeoLichSu from "@/components/nhat-ky/NganKeoLichSu";
 import { layLichSuDanhMuc } from "@/services/nhatKyService";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { ROLES, hasAnyRole } from "@/utils/roles";
+import { t } from "@/i18n";
 
 /**
  * Màn Danh mục (PA1 · cây dạng bảng, chốt 17/10/2026).
@@ -59,7 +60,7 @@ import { ROLES, hasAnyRole } from "@/utils/roles";
  */
 
 const GIA_TRI_LOC = Object.values(LOC_TRANG_THAI);
-const KHONG_TAI_DUOC = "Không tải được danh mục";
+const KHONG_TAI_DUOC = t("Không tải được danh mục");
 
 /** Theo dõi một media query (an toàn khi môi trường không có matchMedia). */
 function useMediaQuery(query) {
@@ -257,14 +258,14 @@ export default function DanhMucQuanAoTree() {
     taiLai();
   }, [setData, taiLai]);
 
-  const loiThaoTac = (tieuDe, err) => toast.error(tieuDe, { description: getApiErrorMessage(err, "Vui lòng thử lại.") });
+  const loiThaoTac = (tieuDe, err) => toast.error(tieuDe, { description: getApiErrorMessage(err, t("Vui lòng thử lại.")) });
 
   /** Hoàn tác: kiểm lại trên cây mới nhất rồi mới gửi (cây có thể đã đổi sau khi thông báo hiện ra). */
   const hoanTac = async (body, thongBaoLoi) => {
     try {
       await guiCapNhat(body);
       apDung(body);
-      toast.success("Đã hoàn tác");
+      toast.success(t("Đã hoàn tác"));
     } catch (err) {
       loiThaoTac(thongBaoLoi, err);
       taiLai();
@@ -277,14 +278,14 @@ export default function DanhMucQuanAoTree() {
     if (!nut) return;
     const kq = kiemTraChuyen(cayMoi, id, tuChaId, tinhTrangThai(cayMoi));
     if (kq.dangOday) {
-      toast.info(`“${nut.ten}” đã ở chỗ cũ`);
+      toast.info(t("“{{ten}}” đã ở chỗ cũ", { ten: nut.ten }));
       return;
     }
     if (!kq.duoc) {
-      toast.error("Không hoàn tác được việc chuyển danh mục", { description: `Chỗ cũ: ${kq.lyDo}.` });
+      toast.error(t("Không hoàn tác được việc chuyển danh mục"), { description: t("Chỗ cũ: {{lyDo}}.", { lyDo: kq.lyDo }) });
       return;
     }
-    hoanTac(taoBodyCapNhat(nut, { chaId: tuChaId }), "Không hoàn tác được việc chuyển danh mục");
+    hoanTac(taoBodyCapNhat(nut, { chaId: tuChaId }), t("Không hoàn tác được việc chuyển danh mục"));
   };
 
   const hoanTacTrangThai = (id, trangThaiCu, thongBaoLoi) => {
@@ -308,10 +309,10 @@ export default function DanhMucQuanAoTree() {
           danhSach: [...cu.danhSach, { ...body, id: duLieu.id, ngayTao: duLieu.ngayTao ?? null }],
         } : cu));
       }
-      toast.success(`Đã thêm danh mục “${ten}”`);
+      toast.success(t("Đã thêm danh mục “{{ten}}”", { ten }));
       taiLai();
     } else {
-      toast.success(`Đã lưu “${ten}”`);
+      toast.success(t("Đã lưu “{{ten}}”", { ten }));
       apDung(body);
     }
   };
@@ -319,11 +320,11 @@ export default function DanhMucQuanAoTree() {
   const daChuyen = ({ nut, tuChaId, denChaId, body }) => {
     const cayLucChuyen = cayRef.current;
     if (denChaId != null) setMoRong((cu) => ({ ...cu, [denChaId]: true }));
-    const noiDen = denChaId != null ? `vào “${cayLucChuyen.theoId.get(denChaId)?.ten ?? ""}”` : "thành danh mục gốc";
+    const noiDen = denChaId != null ? t("vào “{{ten}}”", { ten: cayLucChuyen.theoId.get(denChaId)?.ten ?? "" }) : t("thành danh mục gốc");
     // Máy chủ từ chối cập nhật khi danh mục cha trực tiếp đang tắt, nên không hoàn tác về chỗ đó được
     const veDuoc = tuChaId == null || cayLucChuyen.theoId.get(tuChaId)?.trangThai !== 0;
-    toast.success(`Đã chuyển “${nut.ten}” ${noiDen}`, {
-      action: veDuoc ? { label: "Hoàn tác", onClick: () => hoanTacChuyen(nut.id, tuChaId) } : undefined,
+    toast.success(t("Đã chuyển “{{ten}}” {{noiDen}}", { ten: nut.ten, noiDen }), {
+      action: veDuoc ? { label: t("Hoàn tác"), onClick: () => hoanTacChuyen(nut.id, tuChaId) } : undefined,
     });
     apDung(body);
   };
@@ -340,7 +341,7 @@ export default function DanhMucQuanAoTree() {
       await guiCapNhat(body);
       daChuyen({ nut, tuChaId: nut.chaId ?? null, denChaId: idDich, body });
     } catch (err) {
-      loiThaoTac("Không chuyển được danh mục", err);
+      loiThaoTac(t("Không chuyển được danh mục"), err);
       taiLai();
     } finally {
       dangTha.current = false;
@@ -349,15 +350,15 @@ export default function DanhMucQuanAoTree() {
 
   const daNgung = ({ nut, soTheo, body }) => {
     const ghiChu = [
-      soTheo > 0 ? `${soTheo} danh mục con ngừng theo.` : "",
+      soTheo > 0 ? t("{{count}} danh mục con ngừng theo.", { count: soTheo }) : "",
       // Đang lọc Đang hoạt động: dòng vừa ngừng biến mất khỏi bảng, nói rõ để người dùng không tưởng là bị xóa
-      loc === LOC_TRANG_THAI.HOAT_DONG ? `Đang lọc “Đang hoạt động” nên ${soTheo > 0 ? "cả nhánh" : "danh mục này"} được ẩn.` : "",
+      loc === LOC_TRANG_THAI.HOAT_DONG ? t("Đang lọc “Đang hoạt động” nên {{phamVi}} được ẩn.", { phamVi: soTheo > 0 ? t("cả nhánh") : t("danh mục này") }) : "",
     ].filter(Boolean).join(" ");
-    toast.success(`Đã ngừng hoạt động “${nut.ten}”`, {
+    toast.success(t("Đã ngừng hoạt động “{{ten}}”", { ten: nut.ten }), {
       description: ghiChu || undefined,
       action: {
-        label: "Hoàn tác",
-        onClick: () => hoanTacTrangThai(nut.id, 1, "Không hoàn tác được việc ngừng hoạt động"),
+        label: t("Hoàn tác"),
+        onClick: () => hoanTacTrangThai(nut.id, 1, t("Không hoàn tác được việc ngừng hoạt động")),
       },
     });
     apDung(body);
@@ -371,16 +372,16 @@ export default function DanhMucQuanAoTree() {
     try {
       const body = taoBodyCapNhat(nut, { trangThai: 1 });
       await guiCapNhat(body);
-      toast.success(`Đã cho “${nut.ten}” hoạt động lại`, {
-        description: soTheo > 0 ? `${soTheo} danh mục con hoạt động lại theo.` : undefined,
+      toast.success(t("Đã cho “{{ten}}” hoạt động lại", { ten: nut.ten }), {
+        description: soTheo > 0 ? t("{{count}} danh mục con hoạt động lại theo.", { count: soTheo }) : undefined,
         action: {
-          label: "Hoàn tác",
-          onClick: () => hoanTacTrangThai(id, 0, "Không hoàn tác được việc cho hoạt động lại"),
+          label: t("Hoàn tác"),
+          onClick: () => hoanTacTrangThai(id, 0, t("Không hoàn tác được việc cho hoạt động lại")),
         },
       });
       apDung(body);
     } catch (err) {
-      loiThaoTac(`Không cho “${nut.ten}” hoạt động lại được`, err);
+      loiThaoTac(t("Không cho “{{ten}}” hoạt động lại được", { ten: nut.ten }), err);
       taiLai();
     } finally {
       setDangBatLai(false);
@@ -406,13 +407,13 @@ export default function DanhMucQuanAoTree() {
 
   // ── Nút trên hàng tiêu đề ────────────────────────────────────────────────
   const themVaoNhanhKhoa = nutGoc ? trangThai.get(goc)?.ngung : false;
-  const nhanThem = nutGoc ? `Thêm vào “${nutGoc.ten}”` : "Thêm danh mục";
+  const nhanThem = nutGoc ? t("Thêm vào “{{ten}}”", { ten: nutGoc.ten }) : t("Thêm danh mục");
 
   const hanhDong = coTheSua ? (
     <Button
       onClick={() => setHop({ loai: "them", chaId: goc })}
       disabled={!danhSach || themVaoNhanhKhoa}
-      title={themVaoNhanhKhoa ? `“${nutGoc.ten}” đang ngừng hoạt động, không thêm được danh mục con` : undefined}
+      title={themVaoNhanhKhoa ? t("“{{ten}}” đang ngừng hoạt động, không thêm được danh mục con", { ten: nutGoc.ten }) : undefined}
       className="max-w-[calc(100vw-8rem)] gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover sm:max-w-[320px]"
     >
       <Plus className="size-4 shrink-0" aria-hidden="true" />
@@ -423,7 +424,7 @@ export default function DanhMucQuanAoTree() {
   // ── Thân bảng ────────────────────────────────────────────────────────────
   const nutXoaLoc = (
     <Button variant="outline" onClick={xoaLoc} className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">
-      Xóa lọc
+      {t("Xóa lọc")}
     </Button>
   );
 
@@ -447,20 +448,20 @@ export default function DanhMucQuanAoTree() {
     const soBiAn = demBiAn();
     if (soBiAn > 0) {
       const laHoatDong = loc === LOC_TRANG_THAI.HOAT_DONG;
-      const tenLoc = laHoatDong ? "đang hoạt động" : "ngừng hoạt động";
+      const tenLoc = laHoatDong ? t("đang hoạt động") : t("ngừng hoạt động");
       const tieuDe = coTuKhoa
-        ? `Không có danh mục ${tenLoc} nào khớp`
+        ? t("Không có danh mục {{tenLoc}} nào khớp", { tenLoc })
         : nutGoc
-          ? `“${nutGoc.ten}” không có danh mục con ${tenLoc}`
-          : `Không có danh mục nào ${tenLoc}`;
+          ? t("“{{ten}}” không có danh mục con {{tenLoc}}", { ten: nutGoc.ten, tenLoc })
+          : t("Không có danh mục nào {{tenLoc}}", { tenLoc });
       return (
         <EmptyState
           icon={SearchX}
           title={tieuDe}
-          description={`Có ${soBiAn} danh mục ${laHoatDong ? "ngừng hoạt động" : "đang hoạt động"}${coTuKhoa ? " khớp" : ""} đang được ẩn.`}
+          description={t("Có {{count}} danh mục {{trangThai}}{{khop}} đang được ẩn.", { count: soBiAn, trangThai: laHoatDong ? t("ngừng hoạt động") : t("đang hoạt động"), khop: coTuKhoa ? t(" khớp") : "" })}
           action={
             <Button variant="outline" onClick={() => doiLoc(LOC_TRANG_THAI.TAT_CA)} className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">
-              Xem tất cả trạng thái
+              {t("Xem tất cả trạng thái")}
             </Button>
           }
         />
@@ -470,11 +471,11 @@ export default function DanhMucQuanAoTree() {
     return (
       <EmptyState
         icon={SearchX}
-        title="Không có danh mục nào khớp"
+        title={t("Không có danh mục nào khớp")}
         description={
           coTuKhoa
-            ? `Không tìm thấy “${tuKhoa.trim()}”${nutGoc && !laDienThoai ? ` trong nhánh “${nutGoc.ten}”` : ""}. Thử bỏ dấu hoặc tìm theo mã.`
-            : "Không có danh mục nào ở trạng thái này."
+            ? t("Không tìm thấy “{{tuKhoa}}”{{trongNhanh}}. Thử bỏ dấu hoặc tìm theo mã.", { tuKhoa: tuKhoa.trim(), trongNhanh: nutGoc && !laDienThoai ? t(" trong nhánh “{{ten}}”", { ten: nutGoc.ten }) : "" })
+            : t("Không có danh mục nào ở trạng thái này.")
         }
         action={nutXoaLoc}
       />
@@ -484,13 +485,13 @@ export default function DanhMucQuanAoTree() {
   const trongNhanh = nutGoc ? (
     <EmptyState
       icon={FolderTree}
-      title={`“${nutGoc.ten}” chưa có danh mục con`}
-      description={coTheSua ? "Thêm danh mục con để chia nhỏ nhóm sản phẩm." : "Danh mục con sẽ hiện tại đây khi được thêm."}
+      title={t("“{{ten}}” chưa có danh mục con", { ten: nutGoc.ten })}
+      description={coTheSua ? t("Thêm danh mục con để chia nhỏ nhóm sản phẩm.") : t("Danh mục con sẽ hiện tại đây khi được thêm.")}
       action={
         coTheSua && !themVaoNhanhKhoa ? (
           <Button onClick={() => setHop({ loai: "them", chaId: goc })} className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover">
             <Plus className="size-4" aria-hidden="true" />
-            Thêm danh mục con
+            {t("Thêm danh mục con")}
           </Button>
         ) : null
       }
@@ -499,12 +500,12 @@ export default function DanhMucQuanAoTree() {
 
   let than;
   if (taiDuLieu.initialLoading) {
-    than = <LoadingState label="Đang tải danh mục" className="min-h-64" />;
+    than = <LoadingState label={t("Đang tải danh mục")} className="min-h-64" />;
   } else if (taiDuLieu.error && !danhSach) {
     than = (
       <ErrorState
         title={KHONG_TAI_DUOC}
-        description={getApiErrorMessage(taiDuLieu.error, "Vui lòng thử lại.")}
+        description={getApiErrorMessage(taiDuLieu.error, t("Vui lòng thử lại."))}
         onRetry={taiLai}
       />
     );
@@ -512,13 +513,13 @@ export default function DanhMucQuanAoTree() {
     than = (
       <EmptyState
         icon={FolderTree}
-        title="Chưa có danh mục nào"
-        description="Danh mục dùng để nhóm sản phẩm, ví dụ Áo › Áo thun › Áo thun cổ tròn."
+        title={t("Chưa có danh mục nào")}
+        description={t("Danh mục dùng để nhóm sản phẩm, ví dụ Áo › Áo thun › Áo thun cổ tròn.")}
         action={
           coTheSua ? (
             <Button onClick={() => setHop({ loai: "them", chaId: null })} className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover">
               <Plus className="size-4" aria-hidden="true" />
-              Thêm danh mục
+              {t("Thêm danh mục")}
             </Button>
           ) : null
         }
@@ -568,10 +569,10 @@ export default function DanhMucQuanAoTree() {
   const duongDanGoc = nutGoc ? layDuongDan(cay, goc) : [];
 
   const thanhNhanh = nutGoc && !laDienThoai ? (
-    <nav aria-label="Nhánh đang xem" className="flex flex-wrap items-center gap-x-1.5 gap-y-1 border-b border-bo-border bg-bo-surface-subtle px-4 py-2 text-[13px] text-bo-muted">
-      <span>Đang xem riêng nhánh:</span>
+    <nav aria-label={t("Nhánh đang xem")} className="flex flex-wrap items-center gap-x-1.5 gap-y-1 border-b border-bo-border bg-bo-surface-subtle px-4 py-2 text-[13px] text-bo-muted">
+      <span>{t("Đang xem riêng nhánh:")}</span>
       <button type="button" onClick={() => xemNhanh(null)} className="rounded px-1 py-0.5 font-medium text-bo-primary hover:bg-bo-primary-soft">
-        Tất cả danh mục
+        {t("Tất cả danh mục")}
       </button>
       {duongDanGoc.map((n, i) => (
         <span key={n.id} className="flex items-center gap-1.5">
@@ -591,7 +592,7 @@ export default function DanhMucQuanAoTree() {
         className="ml-auto h-8 gap-1.5 px-2.5 text-[13px] font-medium text-slate-600 hover:bg-slate-100 hover:text-bo-foreground"
       >
         <ArrowLeft className="size-4" aria-hidden="true" />
-        Xem toàn bộ cây
+        {t("Xem toàn bộ cây")}
       </Button>
     </nav>
   ) : null;
@@ -609,23 +610,23 @@ export default function DanhMucQuanAoTree() {
         ) : (
           <ChevronsUpDown className="size-4" aria-hidden="true" />
         )}
-        {hienThi.tatCaDangMo ? "Thu gọn tất cả" : "Mở tất cả"}
+        {hienThi.tatCaDangMo ? t("Thu gọn tất cả") : t("Mở tất cả")}
       </Button>
     </div>
   ) : null;
 
   const goiYKeo = keo
     ? keo.idDich === undefined
-      ? "Thả vào một danh mục để chuyển vào trong đó"
+      ? t("Thả vào một danh mục để chuyển vào trong đó")
       : keo.duoc
-        ? `Thả để chuyển vào ${keo.idDich == null ? "danh mục gốc" : `“${cay.theoId.get(keo.idDich)?.ten ?? ""}”`}`
-        : `Không thả vào đây được: ${keo.lyDo}`
-    : "Kéo một dòng thả vào danh mục khác để chuyển nhánh";
+        ? t("Thả để chuyển vào {{noiDen}}", { noiDen: keo.idDich == null ? t("danh mục gốc") : `“${cay.theoId.get(keo.idDich)?.ten ?? ""}”` })
+        : t("Không thả vào đây được: {{lyDo}}", { lyDo: keo.lyDo })
+    : t("Kéo một dòng thả vào danh mục khác để chuyển nhánh");
 
   const chanBang = coDuLieu ? (
     <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1 text-xs text-bo-muted">
       <span className="tabular-nums">
-        {thongKe.tong} danh mục · {thongKe.goc} danh mục gốc · {thongKe.ngung} ngừng hoạt động · sâu nhất {thongKe.sauNhat} cấp
+        {t("{{tong}} danh mục · {{goc}} danh mục gốc · {{ngung}} ngừng hoạt động · sâu nhất {{sauNhat}} cấp", { tong: thongKe.tong, goc: thongKe.goc, ngung: thongKe.ngung, sauNhat: thongKe.sauNhat })}
       </span>
       {coTheSua && !laDienThoai ? (
         // Màn cảm ứng không kéo thả được (đã có "Chuyển đến…" trong menu ⋯): máy tính bảng dọc ẩn gợi ý kéo thả
@@ -646,8 +647,8 @@ export default function DanhMucQuanAoTree() {
           <>
             <ListToolbar tabs={nutMoTatCa} hasFilter={dangLoc} onClear={xoaLoc}>
               <SearchInput
-                label="Tìm danh mục"
-                placeholder="Tìm theo tên hoặc mã danh mục"
+                label={t("Tìm danh mục")}
+                placeholder={t("Tìm theo tên hoặc mã danh mục")}
                 value={tuKhoa}
                 onChange={(event) => doiTuKhoa(event.target.value)}
                 onClear={() => doiTuKhoa("")}
@@ -659,17 +660,17 @@ export default function DanhMucQuanAoTree() {
             {taiDuLieu.error && danhSach ? (
               <div role="alert" className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-bo-border bg-bo-danger-soft px-4 py-2 text-[13px] text-bo-danger">
                 <span className="min-w-0 flex-1">
-                  Không tải lại được danh mục ({getApiErrorMessage(taiDuLieu.error, "lỗi kết nối")}). Bảng đang hiện dữ liệu lần tải trước.
+                  {t("Không tải lại được danh mục ({{error}}). Bảng đang hiện dữ liệu lần tải trước.", { error: getApiErrorMessage(taiDuLieu.error, t("lỗi kết nối")) })}
                 </span>
                 <button type="button" onClick={taiLai} className="shrink-0 rounded px-1.5 py-0.5 font-semibold hover:bg-bo-surface/60">
-                  Thử lại
+                  {t("Thử lại")}
                 </button>
               </div>
             ) : null}
             {taiDuLieu.data?.chiHoatDong ? (
               <div role="status" className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-bo-border bg-bo-warning-soft px-4 py-2 text-[13px] text-bo-warning">
                 <span className="min-w-0 flex-1">
-                  Chỉ tải được danh mục đang hoạt động, chưa có các danh mục ngừng hoạt động.
+                  {t("Chỉ tải được danh mục đang hoạt động, chưa có các danh mục ngừng hoạt động.")}
                 </span>
                 <button
                   type="button"
@@ -677,7 +678,7 @@ export default function DanhMucQuanAoTree() {
                   disabled={taiDuLieu.loading}
                   className="shrink-0 rounded px-1.5 py-0.5 font-semibold hover:bg-bo-surface/60 disabled:opacity-60"
                 >
-                  {taiDuLieu.loading ? "Đang tải…" : "Thử lại"}
+                  {taiDuLieu.loading ? t("Đang tải…") : t("Thử lại")}
                 </button>
               </div>
             ) : null}
@@ -719,8 +720,8 @@ export default function DanhMucQuanAoTree() {
           <NganKeoLichSu
             open={Boolean(lichSu)}
             onOpenChange={(mo) => !mo && setLichSu(null)}
-            tieuDe={lichSu ? `Lịch sử danh mục ${lichSu.ten}` : "Lịch sử danh mục"}
-            moTa="Thêm, sửa, chuyển, ngừng / bật lại danh mục. Mới nhất ở trên."
+            tieuDe={lichSu ? t("Lịch sử danh mục {{ten}}", { ten: lichSu.ten }) : t("Lịch sử danh mục")}
+            moTa={t("Thêm, sửa, chuyển, ngừng / bật lại danh mục. Mới nhất ở trên.")}
             tai={() => (lichSu ? layLichSuDanhMuc("danh_muc_quan_ao", lichSu.id) : Promise.resolve([]))}
           />
         </>

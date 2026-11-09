@@ -5,6 +5,7 @@ import { groupTitle, matchesCode, priceLabelOf } from '../pos-group';
 import { priceSummary } from '../pos-size-layout';
 import PosProductImage from './PosProductImage';
 import { SizeChip } from './PosSizeChip';
+import { t } from "@/i18n";
 
 const PHONE_QUERY = '(max-width: 639px)';
 
@@ -89,14 +90,14 @@ export default function PosSizeTray({ id, group, cartQuantities, justAddedId, ma
 
   const summary = priceSummary(group.variants);
   const priceLabel = priceLabelOf(summary);
-  const details = [group.colorName ? `Màu: ${group.colorName}` : null, group.materialName, `${group.variants.length} cỡ`, priceLabel].filter(Boolean).join(' · ');
+  const details = [group.colorName ? t("Màu: {{colorName}}", { colorName: group.colorName }) : null, group.materialName, t("{{count}} cỡ", { count: group.variants.length }), priceLabel].filter(Boolean).join(' · ');
   const inCart = group.variants
     .filter((variant) => (cartQuantities?.get(variant.id) ?? 0) > 0)
     .map((variant) => `${variant.tenSize} ×${cartQuantities.get(variant.id)}`);
 
   const panel = (
     <div
-      aria-label={`Chọn cỡ ${groupTitle(group)}`}
+      aria-label={t("Chọn cỡ {{ten}}", { ten: groupTitle(group) })}
       className={phone
         ? 'w-full rounded-t-2xl border border-bo-border bg-bo-surface p-3 pb-[max(12px,env(safe-area-inset-bottom))] shadow-xl outline-none animate-in slide-in-from-bottom duration-200 motion-reduce:animate-none'
         : `absolute top-full z-30 mt-1 w-[min(440px,calc(100vw-32px))] rounded-xl border border-bo-border bg-bo-surface p-3 text-left shadow-[0_16px_40px_rgba(15,23,42,0.18)] outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 ${placement === 'list' ? 'right-2' : 'left-0'}`}
@@ -113,12 +114,12 @@ export default function PosSizeTray({ id, group, cartQuantities, justAddedId, ma
           <p className="line-clamp-2 text-[13px] font-semibold leading-[18px] text-bo-foreground">{group.name}</p>
           <p className="mt-0.5 text-[11px] leading-4 text-bo-muted">{details}</p>
         </div>
-        <button aria-label="Đóng khay chọn cỡ" className="grid size-8 shrink-0 place-items-center rounded-md border border-bo-border text-bo-muted transition hover:bg-bo-surface-subtle hover:text-bo-foreground focus-visible:outline-2 focus-visible:outline-bo-primary" onClick={() => onClose(true)} type="button">
+        <button aria-label={t("Đóng khay chọn cỡ")} className="grid size-8 shrink-0 place-items-center rounded-md border border-bo-border text-bo-muted transition hover:bg-bo-surface-subtle hover:text-bo-foreground focus-visible:outline-2 focus-visible:outline-bo-primary" onClick={() => onClose(true)} type="button">
           <X aria-hidden="true" size={16} />
         </button>
       </div>
       {/* pt/pr chừa chỗ cho số "trong hóa đơn" ở góc ô. */}
-      <div aria-label="Các kích cỡ" className="mt-2 grid max-h-64 grid-cols-[repeat(auto-fill,minmax(68px,1fr))] gap-1.5 overflow-y-auto pb-0.5 pr-1.5 pt-1.5" role="group">
+      <div aria-label={t("Các kích cỡ")} className="mt-2 grid max-h-64 grid-cols-[repeat(auto-fill,minmax(68px,1fr))] gap-1.5 overflow-y-auto pb-0.5 pr-1.5 pt-1.5" role="group">
         {group.variants.map((variant) => (
           <SizeChip
             group={group}
@@ -134,8 +135,8 @@ export default function PosSizeTray({ id, group, cartQuantities, justAddedId, ma
         ))}
       </div>
       <div className="mt-2 flex flex-wrap justify-between gap-x-3 gap-y-1 text-[11px] leading-4 text-bo-muted">
-        <span className="min-w-0">{inCart.length ? `Trong hóa đơn: ${inCart.join(', ')}` : 'Bấm một cỡ để thêm 1 cái vào hóa đơn'}</span>
-        <span className="shrink-0">Esc để đóng</span>
+        <span className="min-w-0">{inCart.length ? t("Trong hóa đơn: {{dsCo}}", { dsCo: inCart.join(', ') }) : t("Bấm một cỡ để thêm 1 cái vào hóa đơn")}</span>
+        <span className="shrink-0">{t("Esc để đóng")}</span>
       </div>
     </div>
   );

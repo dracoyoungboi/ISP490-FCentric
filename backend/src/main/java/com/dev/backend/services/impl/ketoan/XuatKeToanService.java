@@ -8,6 +8,8 @@ import com.dev.backend.dto.response.ketoan.LoXuatKeToanDto;
 import com.dev.backend.dto.response.ketoan.XemTruocXuatKeToanDto;
 import com.dev.backend.entities.*;
 import com.dev.backend.exception.customize.CommonException;
+import com.dev.backend.i18n.NgonNgu;
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.repository.CauHinhKeToanRepository;
 import com.dev.backend.repository.ChungTuXuatKeToanRepository;
 import com.dev.backend.repository.KeToanNguonRepository;
@@ -96,7 +98,7 @@ public class XuatKeToanService {
     /** Kết quả dựng một lô (dùng chung cho xem trước và tạo lô). */
     record Lo(CauHinhKeToan cauHinh, LocalDate denNgay, DungChungTuAmis.KetQua ketQua, boolean coTonDauKy,
               List<NguonKeToan.SauXuat> sauXuat, List<DungChungTuAmis.VanDe> bienDongKho,
-              XemTruocXuatKeToanDto.DoiChieu doiChieu, String lyDoKhongTheTao) {
+              XemTruocXuatKeToanDto.DoiChieu doiChieu, ThongDiep lyDoKhongTheTao) {
     }
 
     static final String LOAI_BIEN_DONG_KHO = "bien_dong_kho";
@@ -113,22 +115,21 @@ public class XuatKeToanService {
     @Transactional
     public LoXuatKeToanDto taoLo(TaoLoXuatKeToanRequest req) {
         if (req == null || req.getDenNgay() == null) {
-            throw new CommonException("Chọn ngày ở ô Xuất đến hết ngày");
+            throw new CommonException(ThongDiep.of("keToanDuLieuVao.chonNgayXuatDen"));
         }
         String ghiChu = req.getGhiChu() == null ? null : req.getGhiChu().trim();
         if (ghiChu != null && ghiChu.length() > LY_DO_TOI_DA) {
-            throw new CommonException("Ghi chú tối đa 500 ký tự");
+            throw new CommonException(ThongDiep.of("keToanDuLieuVao.ghiChuToiDa500"));
         }
         // Khóa dòng cấu hình: hai người tạo lô cùng lúc thì chạy lần lượt, người sau thấy chứng từ đã vào lô trước
         CauHinhKeToan ch = cauHinhKeToanRepository.findByIdForUpdate(CauHinhKeToan.ID)
-                .orElseThrow(() -> new CommonException("Chưa có cấu hình xuất kế toán. Báo quản trị hệ thống."));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("keToanDuLieuVao.chuaCoCauHinhXuat")));
         Lo lo = dung(ch, req.getDenNgay());
         if (lo.lyDoKhongTheTao() != null) {
             throw new CommonException(HttpStatus.CONFLICT, lo.lyDoKhongTheTao());
         }
         if (req.getDauVet() != null && !req.getDauVet().equals(dauVet(lo.ketQua()))) {
-            throw new CommonException(HttpStatus.CONFLICT,
-                    "Dữ liệu đã thay đổi sau lần kiểm tra (có chứng từ mới, vừa sửa hoặc vừa mở khóa). Kiểm tra lại rồi tạo lô.");
+            throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("keToanDuLieuVao.duLieuDaThayDoi"));
         }
         NguoiDung nguoi = cauHinhKeToanService.nguoiDangThucHien();
         LocalDateTime bayGio = LocalDateTime.now(dongHo);
@@ -173,8 +174,7 @@ public class XuatKeToanService {
         try {
             chungTuRepository.saveAllAndFlush(khoa);
         } catch (DataIntegrityViolationException e) {
-            throw new CommonException(HttpStatus.CONFLICT,
-                    "Có chứng từ vừa được xuất ở một lô khác. Bấm Kiểm tra lại rồi tạo lô.");
+            throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("keToanDuLieuVao.chungTuVuaXuatLoKhac"));
         }
 
         lichSuThayDoiService.create(LichSuThayDoi.builder()
@@ -200,7 +200,7 @@ public class XuatKeToanService {
     @Transactional(readOnly = true)
     public List<ChungTuXuatKeToanDto> chungTuCuaLo(Integer loId) {
         if (!loXuatRepository.existsById(loId)) {
-            throw new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy lô xuất");
+            throw new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("keToanDuLieuVao.loXuatKhongTimThay"));
         }
         return chungTuRepository.findByLoXuatId(loId).stream().map(c -> ChungTuXuatKeToanDto.builder()
                 .id(c.getId())
@@ -223,9 +223,9 @@ public class XuatKeToanService {
     @Transactional(readOnly = true)
     public TepTai taiTep(Integer loId) {
         LoXuatKeToan lo = loXuatRepository.findById(loId)
-                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy lô xuất"));
+                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("keToanDuLieuVao.loXuatKhongTimThay")));
         if (!sha256(lo.getTep()).equals(lo.getMaBam())) {
-            throw new CommonException(HttpStatus.CONFLICT, "Tệp của lô " + lo.getSoLo() + " không khớp mã băm đã lưu. Báo quản trị hệ thống.");
+            throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("keToanDuLieuVao.tepLoSaiMaBam", lo.getSoLo()));
         }
         return new TepTai(lo.getTenTep(), lo.getTep(), lo.getMaBam());
     }
@@ -240,15 +240,15 @@ public class XuatKeToanService {
     public ChungTuXuatKeToanDto moKhoa(Integer chungTuId, String lyDo) {
         String gon = lyDo == null ? "" : lyDo.trim();
         if (gon.isEmpty()) {
-            throw new CommonException("Nhập lý do mở khóa");
+            throw new CommonException(ThongDiep.of("keToanDuLieuVao.nhapLyDoMoKhoa"));
         }
         if (gon.length() > LY_DO_TOI_DA) {
-            throw new CommonException("Lý do tối đa 500 ký tự");
+            throw new CommonException(ThongDiep.of("keToanDuLieuVao.lyDoToiDa500"));
         }
         ChungTuXuatKeToan ct = chungTuRepository.findByIdForUpdate(chungTuId)
-                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy chứng từ trong lô"));
+                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("keToanDuLieuVao.chungTuKhongTimThayTrongLo")));
         if (!ChungTuXuatKeToan.TRANG_THAI_DA_XUAT.equals(ct.getTrangThai())) {
-            throw new CommonException(HttpStatus.CONFLICT, "Chứng từ " + ct.getSoChungTu() + " đã được mở khóa trước đó.");
+            throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("keToanDuLieuVao.chungTuDaMoKhoa", ct.getSoChungTu()));
         }
         NguoiDung nguoi = cauHinhKeToanService.nguoiDangThucHien();
         String soLo = chungTuRepository.soLoCua(ct.getId()).orElse("");
@@ -280,16 +280,16 @@ public class XuatKeToanService {
     Lo dung(CauHinhKeToan ch, LocalDate denNgay) {
         LocalDate homNay = LocalDate.now(dongHo);
         if (ch.getNgayMoc() == null) {
-            return rong(ch, denNgay, "Chưa đặt ngày mốc ở Cấu hình › Xuất kế toán (trùng \"Ngày bắt đầu dữ liệu\" trên AMIS).");
+            return rong(ch, denNgay, ThongDiep.of("keToanDuLieuVao.chuaDatNgayMoc"));
         }
         if (denNgay == null) {
-            return rong(ch, null, "Chọn ngày ở ô Xuất đến hết ngày.");
+            return rong(ch, null, ThongDiep.of("keToanDuLieuVao.chonNgayXuatDenCoCham"));
         }
         if (denNgay.isBefore(ch.getNgayMoc())) {
-            return rong(ch, denNgay, "Xuất đến hết ngày phải từ ngày mốc " + ch.getNgayMoc().format(GhiTepAmis.NGAY) + " trở đi.");
+            return rong(ch, denNgay, ThongDiep.of("keToanDuLieuVao.xuatDenTruocNgayMoc", ch.getNgayMoc().format(GhiTepAmis.NGAY)));
         }
         if (denNgay.isAfter(homNay)) {
-            return rong(ch, denNgay, "Xuất đến hết ngày không được sau hôm nay.");
+            return rong(ch, denNgay, ThongDiep.of("keToanDuLieuVao.xuatDenSauHomNay"));
         }
         Instant tu = ch.getNgayMoc().atStartOfDay(MUI_GIO).toInstant();
         Instant den = denNgay.plusDays(1).atStartOfDay(MUI_GIO).toInstant();
@@ -355,12 +355,12 @@ public class XuatKeToanService {
                 .chenhLech(baoCao.subtract(loTruoc).subtract(trongLo).subtract(biChan))
                 .build();
 
-        String lyDo = null;
+        ThongDiep lyDo = null;
         boolean tonBiChan = kq.chan().stream().anyMatch(v -> ChungTuXuatKeToan.LOAI_TON_DAU_KY.equals(v.loai()));
         if (canTonDauKy && tonBiChan) {
-            lyDo = "Tồn đầu kỳ bị chặn nên chưa tạo được lô đầu tiên (AMIS sẽ báo tồn âm cho mọi phiếu xuất). Xem lỗi chặn.";
+            lyDo = ThongDiep.of("keToanDuLieuVao.tonDauKyBiChan");
         } else if (kq.chungTu().isEmpty()) {
-            lyDo = "Không có chứng từ mới nào đến hết ngày " + denNgay.format(GhiTepAmis.NGAY) + ".";
+            lyDo = ThongDiep.of("keToanDuLieuVao.khongCoChungTuMoi", denNgay.format(GhiTepAmis.NGAY));
         }
         // Biến động kho chưa có chứng từ: chỉ phần phát sinh sau lô trước (mỗi biến động hiện ở đúng một lô)
         LocalDate denLoTruoc = loXuatRepository.denNgayMuonNhat();
@@ -380,7 +380,7 @@ public class XuatKeToanService {
         return new Lo(ch, denNgay, kq, canTonDauKy, nguon.donDaXuatBiHoanTra(), bienDong, doiChieu, lyDo);
     }
 
-    private Lo rong(CauHinhKeToan ch, LocalDate denNgay, String lyDo) {
+    private Lo rong(CauHinhKeToan ch, LocalDate denNgay, ThongDiep lyDo) {
         return new Lo(ch, denNgay, new DungChungTuAmis.KetQua(), false, List.of(), List.of(), null, lyDo);
     }
 
@@ -441,7 +441,7 @@ public class XuatKeToanService {
             zip.finish();
             return ra.toByteArray();
         } catch (IOException e) {
-            throw new UncheckedIOException("Không đóng gói được tệp nén", e);
+            throw new UncheckedIOException(ThongDiep.vi("keToanDuLieuVao.khongDongGoiDuocTepNen"), e);
         }
     }
 
@@ -554,12 +554,12 @@ public class XuatKeToanService {
                 .canhBao(kq.canhBao().stream().map(XuatKeToanService::vanDe).toList())
                 .phatSinhSauXuat(lo.sauXuat().stream().map(s -> XemTruocXuatKeToanDto.VanDe.builder()
                         .loai(ChungTuXuatKeToan.LOAI_BAN_HANG).idNguon(s.donId()).soChungTu(s.soDon())
-                        .noiDung("Đã giao kế toán ở lô " + s.soLo() + ", sau đó bị hoàn trả. Lập Hàng bán trả lại trên AMIS.")
+                        .noiDung(ThongDiep.dich("keToanDuLieuVao.phatSinhSauXuat", s.soLo()))
                         .build()).toList())
                 .bienDongKho(lo.bienDongKho().stream().map(XuatKeToanService::vanDe).toList())
                 .doiChieu(lo.doiChieu())
                 .coTheTaoLo(lo.lyDoKhongTheTao() == null)
-                .lyDoKhongTheTao(lo.lyDoKhongTheTao())
+                .lyDoKhongTheTao(lo.lyDoKhongTheTao() == null ? null : lo.lyDoKhongTheTao().theoNgonNgu(NgonNgu.hienTai()))
                 .dauVet(lo.lyDoKhongTheTao() == null ? dauVet(kq) : null)
                 .build();
     }

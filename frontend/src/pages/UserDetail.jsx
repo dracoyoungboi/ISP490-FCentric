@@ -22,6 +22,7 @@ import useSaoChep from "@/hooks/useSaoChep";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import { toast } from "@/lib/thongBaoNhanh";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 const NUT_VIEN = "border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle";
 const NHAN = "flex items-center gap-1 text-[12.5px] leading-[18px] text-bo-muted";
@@ -36,9 +37,9 @@ const KIEU_GOI_Y = {
 
 function KhoaNho() {
   return (
-    <span title="Không đổi được" className="inline-flex">
+    <span title={t("Không đổi được")} className="inline-flex">
       <Lock className="size-3" aria-hidden="true" />
-      <span className="sr-only">(không đổi được)</span>
+      <span className="sr-only">{t("(không đổi được)")}</span>
     </span>
   );
 }
@@ -71,8 +72,8 @@ function ThuocTinh({ nhan, khoa, className, children }) {
 /** Điện thoại: hai ngày gộp thành một dòng phụ dưới mục Tài khoản thay cho hai dòng thuộc tính. */
 function DongNgay({ hoSo, className }) {
   const ngay = [
-    hoSo.ngayTao ? `Tạo tài khoản ${ngayNgan(hoSo.ngayTao)}` : null,
-    hoSo.ngayCapNhat ? `Cập nhật hồ sơ ${ngayNgan(hoSo.ngayCapNhat)}` : null,
+    hoSo.ngayTao ? t("Tạo tài khoản {{ngay}}", { ngay: ngayNgan(hoSo.ngayTao) }) : null,
+    hoSo.ngayCapNhat ? t("Cập nhật hồ sơ {{ngay}}", { ngay: ngayNgan(hoSo.ngayCapNhat) }) : null,
   ].filter(Boolean);
   if (!ngay.length) return null;
   return (
@@ -89,7 +90,7 @@ function NutChep({ nhan, onClick }) {
       type="button"
       onClick={onClick}
       aria-label={nhan}
-      title="Sao chép"
+      title={t("Sao chép")}
       className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-bo-muted opacity-0 outline-none transition-opacity hover:bg-slate-100 hover:text-bo-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-bo-primary/40 group-hover:opacity-100 max-sm:-mr-1.5 max-sm:ml-auto max-sm:opacity-100 [@media(hover:none)]:opacity-100"
     >
       <Copy className="size-3.5" aria-hidden="true" />
@@ -126,7 +127,7 @@ export default function UserDetail() {
 
   const hoSoQ = useTaiDuLieu(async () => {
     const res = await nguoiDungService.getMe();
-    if (!res?.data) throw new Error("Không đọc được dữ liệu người dùng");
+    if (!res?.data) throw new Error(t("Không đọc được dữ liệu người dùng"));
     return res.data;
   }, "");
   const quyenQ = useTaiDuLieu(() => nguoiDungService.getMyPermissions(), "");
@@ -148,8 +149,8 @@ export default function UserDetail() {
       <PageContainer>
         <div className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
           <ErrorState
-            title="Không tải được hồ sơ"
-            description={getApiErrorMessage(hoSoQ.error, "Kiểm tra kết nối rồi thử lại.")}
+            title={t("Không tải được hồ sơ")}
+            description={getApiErrorMessage(hoSoQ.error, t("Kiểm tra kết nối rồi thử lại."))}
             onRetry={hoSoQ.reload}
           />
         </div>
@@ -159,7 +160,7 @@ export default function UserDetail() {
   if (!hoSo) {
     return (
       <PageContainer>
-        <LoadingState label="Đang tải hồ sơ" />
+        <LoadingState label={t("Đang tải hồ sơ")} />
       </PageContainer>
     );
   }
@@ -177,11 +178,11 @@ export default function UserDetail() {
   // Các dòng của mục Tài khoản: quản trị viên hiện thành một mục trải ngang, vai trò khác ở cột phải
   const truongTaiKhoan = (
     <>
-      <ThuocTinh nhan="Tên đăng nhập" khoa>
+      <ThuocTinh nhan={t("Tên đăng nhập")} khoa>
         <span className="truncate font-mono text-[13.5px]" title={hoSo.tenDangNhap}>
           {hoSo.tenDangNhap}
         </span>
-        <NutChep nhan="Sao chép tên đăng nhập" onClick={() => saoChep(hoSo.tenDangNhap, { nhan: "Sao chép tên đăng nhập" })} />
+        <NutChep nhan={t("Sao chép tên đăng nhập")} onClick={() => saoChep(hoSo.tenDangNhap, { nhan: t("Sao chép tên đăng nhập") })} />
       </ThuocTinh>
       <ThuocTinh nhan="Email" khoa>
         {hoSo.email ? (
@@ -189,42 +190,42 @@ export default function UserDetail() {
             <span className="truncate" title={hoSo.email}>
               {hoSo.email}
             </span>
-            <NutChep nhan="Sao chép email" onClick={() => saoChep(hoSo.email, { nhan: "Sao chép email" })} />
+            <NutChep nhan={t("Sao chép email")} onClick={() => saoChep(hoSo.email, { nhan: t("Sao chép email") })} />
         </>
       ) : (
-        <span className="text-bo-muted">Chưa có</span>
+        <span className="text-bo-muted">{t("Chưa có")}</span>
       )}
     </ThuocTinh>
-    <ThuocTinh nhan="Số điện thoại">
+    <ThuocTinh nhan={t("Số điện thoại")}>
       {hoSo.soDienThoai ? (
         <span className="truncate tabular-nums">{sdtDeDoc(hoSo.soDienThoai)}</span>
       ) : (
         <button type="button" onClick={() => moChinhSua("so-dien-thoai")} className={NUT_CHU}>
-          + Thêm số điện thoại
+          {t("+ Thêm số điện thoại")}
         </button>
       )}
     </ThuocTinh>
-    <ThuocTinh nhan="Mật khẩu" className="max-sm:border-b-0">
+    <ThuocTinh nhan={t("Mật khẩu")} className="max-sm:border-b-0">
       {hoSo.mustChangePassword ? (
         <span className="inline-flex h-5 items-center rounded-[5px] bg-bo-tt-chu-y px-1.5 text-xs font-semibold text-bo-tt-chu-y-chu">
           {/* Điện thoại: cột giá trị hẹp, chỉ ghi "Tạm thời" cho vừa cạnh nút Đổi mật khẩu (thanh gợi ý đầu trang đã nhắc đổi) */}
-          Tạm thời<span className="max-sm:hidden">&nbsp;· cần đổi</span>
+          {t("Tạm thời")}<span className="max-sm:hidden">&nbsp;{t("· cần đổi")}</span>
         </span>
       ) : (
-        <span aria-label="Đã đặt mật khẩu" className="tracking-[0.12em] text-bo-foreground">
+        <span aria-label={t("Đã đặt mật khẩu")} className="tracking-[0.12em] text-bo-foreground">
           ••••••••
         </span>
       )}
       <button type="button" onClick={() => setMoMatKhau(true)} className={cn(NUT_CHU, "shrink-0", laQuanTri ? "ml-3 max-sm:ml-auto" : "ml-auto")}>
-        Đổi mật khẩu
+        {t("Đổi mật khẩu")}
       </button>
     </ThuocTinh>
     </>
   );
   const truongNgay = (
     <>
-      {hoSo.ngayTao ? <ThuocTinh nhan="Tạo tài khoản" className="max-sm:hidden">{ngayNgan(hoSo.ngayTao)}</ThuocTinh> : null}
-      {hoSo.ngayCapNhat ? <ThuocTinh nhan="Cập nhật hồ sơ" className="max-sm:hidden">{ngayNgan(hoSo.ngayCapNhat)}</ThuocTinh> : null}
+      {hoSo.ngayTao ? <ThuocTinh nhan={t("Tạo tài khoản")} className="max-sm:hidden">{ngayNgan(hoSo.ngayTao)}</ThuocTinh> : null}
+      {hoSo.ngayCapNhat ? <ThuocTinh nhan={t("Cập nhật hồ sơ")} className="max-sm:hidden">{ngayNgan(hoSo.ngayCapNhat)}</ThuocTinh> : null}
     </>
   );
 
@@ -242,22 +243,24 @@ export default function UserDetail() {
   if (loaiGoiY === "mat_khau_tam") {
     goiY = {
       kieu: "cam",
-      tieuDe: "Bạn đang dùng mật khẩu tạm thời.",
-      noiDung: "Đổi sang mật khẩu riêng để bảo vệ tài khoản.",
+      tieuDe: t("Bạn đang dùng mật khẩu tạm thời."),
+      noiDung: t("Đổi sang mật khẩu riêng để bảo vệ tài khoản."),
       nut: (
         <Button type="button" variant="outline" size="sm" onClick={() => setMoMatKhau(true)} className={NUT_VIEN}>
-          Đổi mật khẩu
+          {t("Đổi mật khẩu")}
         </Button>
       ),
     };
   } else if (loaiGoiY === "quyen_vua_doi") {
     goiY = {
       kieu: "xanh",
-      tieuDe: `Quyền của bạn vừa được cập nhật${quyen?.capNhatLuc ? ` lúc ${ngayGio(quyen.capNhatLuc)}` : ""}.`,
-      noiDung: "Đăng nhập lại để dùng quyền mới.",
+      tieuDe: quyen?.capNhatLuc
+        ? t("Quyền của bạn vừa được cập nhật lúc {{luc}}.", { luc: ngayGio(quyen.capNhatLuc) })
+        : t("Quyền của bạn vừa được cập nhật."),
+      noiDung: t("Đăng nhập lại để dùng quyền mới."),
       nut: (
         <Button type="button" variant="outline" size="sm" onClick={dangNhapLai} className={NUT_VIEN}>
-          Đăng nhập lại
+          {t("Đăng nhập lại")}
         </Button>
       ),
     };
@@ -271,8 +274,8 @@ export default function UserDetail() {
           <button
             type="button"
             onClick={() => setMoAnh(true)}
-            aria-label="Đổi ảnh đại diện"
-            title="Đổi ảnh đại diện"
+            aria-label={t("Đổi ảnh đại diện")}
+            title={t("Đổi ảnh đại diện")}
             className="group/anh relative shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-bo-primary focus-visible:ring-offset-2"
           >
             <UserAvatar userId={hoSo.id} name={hoSo.hoTen || hoSo.tenDangNhap} avatarUrl={hoSo.avatarUrl} size="md" />
@@ -314,7 +317,7 @@ export default function UserDetail() {
             className={cn("max-sm:size-8 max-sm:p-0!", NUT_VIEN)}
           >
             <Pencil className="size-3.5" aria-hidden="true" />
-            <span className="max-sm:sr-only">Chỉnh sửa</span>
+            <span className="max-sm:sr-only">{t("Chỉnh sửa")}</span>
           </Button>
         </header>
 
@@ -325,7 +328,7 @@ export default function UserDetail() {
           <div className="divide-y divide-slate-100 border-t border-bo-border">
             <section aria-labelledby="ho-so-tai-khoan" className="px-4 py-5 max-sm:pb-4 max-sm:pt-[18px] sm:px-6 sm:py-[22px]">
               <h2 id="ho-so-tai-khoan" className="text-[15px] font-semibold leading-[22px] text-bo-foreground">
-                Tài khoản
+                {t("Tài khoản")}
               </h2>
               <dl className="m-0 -mx-5 mt-2 grid max-sm:mx-0 max-sm:mt-1.5 max-sm:grid-cols-1! @xl:grid-cols-2 @4xl:grid-cols-3">
                 {truongTaiKhoan}
@@ -358,7 +361,7 @@ export default function UserDetail() {
                 id="ho-so-tai-khoan"
                 className="px-5 pb-1.5 pt-[18px] text-xs font-semibold uppercase tracking-[0.04em] text-bo-muted max-sm:px-0 max-sm:pb-0 max-sm:text-[15px] max-sm:leading-[22px] max-sm:normal-case max-sm:tracking-normal max-sm:text-bo-foreground"
               >
-                Tài khoản
+                {t("Tài khoản")}
               </h2>
               <dl className="m-0 grid max-sm:mt-1.5 max-sm:grid-cols-1! @xl:@max-5xl:grid-cols-2">{truongTaiKhoan}</dl>
               <div className="mx-5 my-2 border-t border-slate-200/80 max-sm:hidden" />
@@ -390,7 +393,7 @@ export default function UserDetail() {
         tenDangNhap={hoSo.tenDangNhap}
         email={hoSo.email || ""}
         onSuccess={() => {
-          toast.success("Đã đổi mật khẩu.");
+          toast.success(t("Đã đổi mật khẩu."));
           hoSoQ.reload();
           setLanDoiMatKhau((n) => n + 1);
         }}

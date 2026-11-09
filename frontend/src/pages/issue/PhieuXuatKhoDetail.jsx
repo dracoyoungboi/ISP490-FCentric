@@ -44,13 +44,15 @@ import {
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { hasAnyRole, ROLES } from "@/utils/roles";
+import { t } from "@/i18n";
+import { cauGocMayChu } from "@/i18n/cauGoc";
 
 const DANH_SACH = "/goods-issues";
 const KHONG_CO_DONG = [];
 // Backend ném RuntimeException "Không tìm thấy phiếu xuất kho" (500) khi không có phiếu
 const TUY_CHON_LOI = Object.freeze({ coi500LaKhongThay: true });
 // Câu máy chủ "Không tìm thấy …" trùng ý tiêu đề "Không tìm thấy phiếu xuất kho" → không hiện thêm
-const locCauMayChu = (cau) => (/^\s*không tìm thấy/i.test(cau) ? null : cau);
+const locCauMayChu = (cau) => (/^\s*không tìm thấy/i.test(cauGocMayChu(cau)) ? null : cau);
 
 /**
  * Chi tiết phiếu xuất kho (`/goods-issues/:id`) · bản "một khối" (21/10/2026): đầu khối (mã, trạng thái, In, ⋯, một nút
@@ -168,21 +170,21 @@ function ManPhieuXuatKho({ id }) {
       }),
     [chiTiet, lo.theoDong],
   );
-  const bang = useBangChungTu(dong, { theo: "dong", donVi: "dòng", boLoc: BO_LOC_DONG_XUAT });
+  const bang = useBangChungTu(dong, { theo: "dong", donVi: t("dòng"), boLoc: BO_LOC_DONG_XUAT });
 
   // ── Đang tải / không thấy / lỗi ─────────────────────────────────────────
   if (dangTai || !phieu) {
     return (
       <PageContainer className="flex min-h-full flex-col">
         {dangTai || !loiTai ? (
-          <KhungDangTai nhan="Đang tải phiếu xuất kho" />
+          <KhungDangTai nhan={t("Đang tải phiếu xuất kho")} />
         ) : (
           <KhungLoiChungTu
             loi={loiTai.loi}
-            tenChungTu="phiếu xuất kho"
+            tenChungTu={t("phiếu xuất kho")}
             tuyChonLoi={TUY_CHON_LOI}
             locCauMayChu={locCauMayChu}
-            moTaKhongThay="Phiếu xuất kho không tồn tại, đã bị xóa hoặc thuộc kho khác với nơi làm việc đang chọn."
+            moTaKhongThay={t("Phiếu xuất kho không tồn tại, đã bị xóa hoặc thuộc kho khác với nơi làm việc đang chọn.")}
             onVeDanhSach={() => navigate(DANH_SACH)}
             onThuLai={() => taiPhieu()}
           />
@@ -210,9 +212,9 @@ function ManPhieuXuatKho({ id }) {
   const buoc = tinhBuocPhieuXuat({ phieu, laPos, soDong, soDongDuLo: soDong - soThieu });
   const lyDoKhoa = lyDoKhoaXuat({ laCk, soDong, soThieu });
   const statusInfo = getPhieuXuatKhoStatus(phieu.trangThai);
-  const loaiNhan = laCk ? "Chuyển kho nội bộ" : laPos ? "Xuất bán tại quầy" : "Xuất bán hàng";
+  const loaiNhan = laCk ? t("Chuyển kho nội bộ") : laPos ? t("Xuất bán tại quầy") : t("Xuất bán hàng");
   // PX-CK có phiếu nhặt: lô do phiếu nhặt ghi (không chọn tay); PX-CK cũ không có phiếu nhặt: chọn lô ở từng dòng
-  const moTaBang = laCk && !quyen.phieuNhat ? "Lô chọn ở từng dòng" : laPos ? "Lô theo nhập trước lấy trước" : "Lô lấy từ phiếu nhặt hàng";
+  const moTaBang = laCk && !quyen.phieuNhat ? t("Lô chọn ở từng dòng") : laPos ? t("Lô theo nhập trước lấy trước") : t("Lô lấy từ phiếu nhặt hàng");
 
   // ── Thao tác ────────────────────────────────────────────────────────────
   const dongHop = (mo) => {
@@ -239,7 +241,7 @@ function ManPhieuXuatKho({ id }) {
     setDangXuLy(true);
     try {
       const res = await chayCoThoiHan(() => phieuXuatKhoService.xacNhanXuatKho(phieu.id, payload));
-      toast.success(res?.message || "Xác nhận xuất kho thành công");
+      toast.success(res?.message || t("Xác nhận xuất kho thành công"));
       setHop(null);
       await taiPhieu({ ngam: true });
     } catch (e) {
@@ -252,7 +254,7 @@ function ManPhieuXuatKho({ id }) {
         taiPhieu({ ngam: true });
         return;
       }
-      toast.error(getApiErrorMessage(e, "Không thể xác nhận xuất kho"));
+      toast.error(getApiErrorMessage(e, t("Không thể xác nhận xuất kho")));
     } finally {
       setDangXuLy(false);
     }
@@ -264,7 +266,7 @@ function ManPhieuXuatKho({ id }) {
     setLoiHuy(null);
     try {
       await chayCoThoiHan(() => phieuXuatKhoService.cancel(phieu.id, lyDoHuy.trim()));
-      toast.success(`Đã hủy phiếu xuất ${phieu.soPhieuXuat}`, { description: "Số lượng đang giữ đã trả lại tồn kho" });
+      toast.success(t("Đã hủy phiếu xuất {{soPhieuXuat}}", { soPhieuXuat: phieu.soPhieuXuat }), { description: t("Số lượng đang giữ đã trả lại tồn kho") });
       setHop(null);
     } catch (e) {
       if (laLoiHetThoiHan(e)) {
@@ -272,7 +274,7 @@ function ManPhieuXuatKho({ id }) {
         baoHetThoiHan(e);
         setHop(null);
       } else {
-        setLoiHuy(getApiErrorMessage(e, "Không thể hủy phiếu"));
+        setLoiHuy(getApiErrorMessage(e, t("Không thể hủy phiếu")));
       }
     } finally {
       setDangXuLy(false);
@@ -294,7 +296,7 @@ function ManPhieuXuatKho({ id }) {
   if (quyen.nutChinh === "dongGoi") {
     nutChinhGoc = {
       ma: "dongGoi",
-      nhan: "Đóng gói",
+      nhan: t("Đóng gói"),
       icon: PackageCheck,
       dieuHuong: true,
       onClick: () => navigate(`/goods-issues/packing/${phieu.donBanHang.id}`),
@@ -304,7 +306,7 @@ function ManPhieuXuatKho({ id }) {
     nutChinhGoc = idPhieuChuyen != null
       ? {
         ma: "phieuChuyen",
-        nhan: "Mở phiếu chuyển để xuất",
+        nhan: t("Mở phiếu chuyển để xuất"),
         icon: Truck,
         dieuHuong: true,
         kieu: lyDoKhoa ? "vien" : "chinh",
@@ -314,7 +316,7 @@ function ManPhieuXuatKho({ id }) {
   } else if (quyen.nutChinh) {
     nutChinhGoc = {
       ma: quyen.nutChinh,
-      nhan: "Xác nhận xuất kho",
+      nhan: t("Xác nhận xuất kho"),
       icon: Truck,
       onClick: () => setHop("xuat"),
       khoa: Boolean(lyDoKhoa),
@@ -343,9 +345,7 @@ function ManPhieuXuatKho({ id }) {
   const laDonSan = laLazada || laShopee || Boolean(phieu?.donBanHang?.maDonHangKenh);
 
   const soDon = phieu.donBanHang?.soDonHang;
-  const moTaHuy = `Hủy phiếu ${phieu.soPhieuXuat}? Số lượng đang giữ được trả lại tồn kho${
-    soDon ? `; đơn ${soDon} quay về Chờ nhặt hàng (Đã xuất một phần nếu đơn đã xuất một phần trước đó)` : ""
-  }. Không hoàn tác được.`;
+  const moTaHuy = t("Hủy phiếu {{soPhieuXuat}}? Số lượng đang giữ được trả lại tồn kho{{phanDon}}. Không hoàn tác được.", { soPhieuXuat: phieu.soPhieuXuat, phanDon: soDon ? t("; đơn {{soDon}} quay về Chờ nhặt hàng (Đã xuất một phần nếu đơn đã xuất một phần trước đó)", { soDon }) : "" });
 
   const thongBao = [];
   if (chuaXuat && !laPos && soThieu > 0) {
@@ -353,10 +353,10 @@ function ManPhieuXuatKho({ id }) {
     if (quyen.phieuNhat) {
       // PX-CK có phiếu nhặt: lô do phiếu nhặt ghi khi hoàn tất nhặt → mở phiếu nhặt thay vì lọc dòng thiếu lô
       hanhDongThieu = (
-        <NutChu onClick={() => navigate(`/goods-issues/pick-lists/${quyen.phieuNhat.id}`)}>Mở phiếu nhặt</NutChu>
+        <NutChu onClick={() => navigate(`/goods-issues/pick-lists/${quyen.phieuNhat.id}`)}>{t("Mở phiếu nhặt")}</NutChu>
       );
     } else if (bang.coCongCu && bang.locNhanh !== "thieuLo") {
-      hanhDongThieu = <NutChu onClick={xemDongThieu}>Xem các dòng thiếu lô</NutChu>;
+      hanhDongThieu = <NutChu onClick={xemDongThieu}>{t("Xem các dòng thiếu lô")}</NutChu>;
     }
     thongBao.push(
       <DongThongBao key="thieu" tone="warn" actions={hanhDongThieu}>
@@ -366,15 +366,15 @@ function ManPhieuXuatKho({ id }) {
   }
   if (lo.soLoi > 0) {
     thongBao.push(
-      <DongThongBao key="loiLo" tone="warn" actions={<NutChu onClick={lo.taiLai}>Thử lại</NutChu>}>
-        Không tải được lô của {soVN(lo.soLoi)} dòng.
+      <DongThongBao key="loiLo" tone="warn" actions={<NutChu onClick={lo.taiLai}>{t("Thử lại")}</NutChu>}>
+        {t("Không tải được lô của {{so}} dòng.", { count: lo.soLoi, so: soVN(lo.soLoi) })}
       </DongThongBao>,
     );
   }
   if (daHuy) {
     thongBao.push(
       <DongThongBao key="huy" tone="neutral">
-        Phiếu đã hủy. Số lượng đang giữ đã trả lại tồn kho.
+        {t("Phiếu đã hủy. Số lượng đang giữ đã trả lại tồn kho.")}
       </DongThongBao>,
     );
   }
@@ -382,36 +382,36 @@ function ManPhieuXuatKho({ id }) {
   return (
     <PageContainer className="flex min-h-full flex-col">
       <KhungChungTu
-        aria-label={`Phiếu xuất kho ${phieu.soPhieuXuat || ""}`.trim()}
+        aria-label={t("Phiếu xuất kho {{so}}", { so: phieu.soPhieuXuat || "" }).trim()}
         dau={
           <DauChungTu
             ma={phieu.soPhieuXuat}
             trangThai={{ label: statusInfo.label, quyTrinh: "phieuXuat" }}
             dongPhu={[
               loaiNhan,
-              <b key="dong" className="font-semibold text-bo-foreground">{soVN(soDong)} biến thể</b>,
+              <b key="dong" className="font-semibold text-bo-foreground">{t("{{so}} biến thể", { count: soDong, so: soVN(soDong) })}</b>,
               <span key="sl">
-                tổng số lượng <b className="font-semibold text-bo-foreground">{soVN(tongSl)}</b>
+                {t("tổng số lượng")} <b className="font-semibold text-bo-foreground">{soVN(tongSl)}</b>
               </span>,
             ]}
             onQuayLai={() => navigate(DANH_SACH)}
-            nhanQuayLai="Về danh sách phiếu xuất kho"
-            nutPhu={quyen.coIn ? { ma: "in", nhan: "In phiếu", icon: Printer, onClick: () => navigate(`/goods-issues/${phieu.id}/print`) } : null}
-            saoChepMa={{ giaTri: phieu.soPhieuXuat, nhan: "Sao chép mã phiếu" }}
+            nhanQuayLai={t("Về danh sách phiếu xuất kho")}
+            nutPhu={quyen.coIn ? { ma: "in", nhan: t("In phiếu"), icon: Printer, onClick: () => navigate(`/goods-issues/${phieu.id}/print`) } : null}
+            saoChepMa={{ giaTri: phieu.soPhieuXuat, nhan: t("Sao chép mã phiếu") }}
                         menu={[
               laDonSan
-                ? { ma: "inPackingSlip", nhan: "In vận đơn / phiếu đóng gói sàn (A6)", icon: Printer, onSelect: () => navigate(`/goods-issues/${phieu.id}/print-packing-slip`) }
+                ? { ma: "inPackingSlip", nhan: t("In vận đơn / phiếu đóng gói sàn (A6)"), icon: Printer, onSelect: () => navigate(`/goods-issues/${phieu.id}/print-packing-slip`) }
                 : null,
               coXemBangChung
-                ? { ma: "bangChung", nhan: "Xem bằng chứng đóng gói", icon: ShieldCheck, onSelect: () => setHop("bangChung") }
+                ? { ma: "bangChung", nhan: t("Xem bằng chứng đóng gói"), icon: ShieldCheck, onSelect: () => setHop("bangChung") }
                 : null,
               quyen.coHuy
                 ? {
                   ma: "huy",
-                  nhan: "Hủy phiếu",
+                  nhan: t("Hủy phiếu"),
                   icon: Ban,
                   nguyHiem: true,
-                  moTa: choGoc ? LY_DO_CHO_GOC : "Trả lại số lượng đang giữ cho tồn kho",
+                  moTa: choGoc ? LY_DO_CHO_GOC : t("Trả lại số lượng đang giữ cho tồn kho"),
                   khoa: dangXuLy || choGoc,
                   onSelect: () => {
                     setLyDoHuy("");
@@ -424,7 +424,7 @@ function ManPhieuXuatKho({ id }) {
             nutChinh={nutChinh}
           />
         }
-        tienTrinh={buoc.length ? <TienTrinhChungTu nhan="Tiến trình phiếu xuất kho" buoc={buoc} /> : null}
+        tienTrinh={buoc.length ? <TienTrinhChungTu nhan={t("Tiến trình phiếu xuất kho")} buoc={buoc} /> : null}
         thongBao={thongBao.length ? thongBao : null}
         chinh={
           <BangSanPhamXuat
@@ -479,24 +479,24 @@ function ManPhieuXuatKho({ id }) {
         donId={phieu.donBanHang?.id}
         soDonHang={phieu.donBanHang?.soDonHang}
         readOnly
-        lyDoKhoaXoa="Phiếu đã đóng gói xong, không thể xóa bằng chứng"
+        lyDoKhoaXoa={t("Phiếu đã đóng gói xong, không thể xóa bằng chứng")}
       />
 
       <HopXacNhanChungTu
         mo={hop === "huy"}
         onDoiMo={dongHop}
-        tieuDe="Hủy phiếu xuất kho"
+        tieuDe={t("Hủy phiếu xuất kho")}
         moTa={moTaHuy}
-        nhanXacNhan="Hủy phiếu"
+        nhanXacNhan={t("Hủy phiếu")}
         iconXacNhan={Ban}
         kieu="nguyHiem"
         dangChay={dangXuLy}
         khoaXacNhan={!lyDoHuy.trim()}
-        lyDoKhoa="Nhập lý do hủy"
+        lyDoKhoa={t("Nhập lý do hủy")}
         loi={loiHuy}
         onXacNhan={huyPhieu}
       >
-        <OLyDo giaTri={lyDoHuy} onDoi={(v) => { setLyDoHuy(v); setLoiHuy(null); }} goiY="Ví dụ: Đơn đổi kho xuất, lập lại phiếu khác" disabled={dangXuLy} />
+        <OLyDo giaTri={lyDoHuy} onDoi={(v) => { setLyDoHuy(v); setLoiHuy(null); }} goiY={t("Ví dụ: Đơn đổi kho xuất, lập lại phiếu khác")} disabled={dangXuLy} />
       </HopXacNhanChungTu>
     </PageContainer>
   );

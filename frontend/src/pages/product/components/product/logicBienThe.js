@@ -1,3 +1,4 @@
+import { t } from "../../../../i18n/t.js";
 /**
  * Logic thuần của Trình tạo biến thể (form Thêm sản phẩm).
  *
@@ -97,8 +98,8 @@ export const DUNG_LUONG_ANH_TOI_DA = 10 * 1024 * 1024;
 
 /** @returns {string|null} lý do không nhận tệp, null nếu hợp lệ. */
 export function kiemTraTepAnh(tep) {
-    if (!tep?.type?.startsWith("image/")) return `"${tep?.name ?? ""}" không phải tệp ảnh`;
-    if (tep.size > DUNG_LUONG_ANH_TOI_DA) return `"${tep.name}" lớn hơn 10 MB`;
+    if (!tep?.type?.startsWith("image/")) return t("\"{{tenTep}}\" không phải tệp ảnh", { tenTep: tep?.name ?? "" });
+    if (tep.size > DUNG_LUONG_ANH_TOI_DA) return t("\"{{tenTep}}\" lớn hơn 10 MB", { tenTep: tep.name });
     return null;
 }
 
@@ -310,7 +311,7 @@ export function taoDuLieuGuiBienThe(nhom, anhMau, chatLieuId) {
 /** Mã SKU xem trước theo công thức backend: [Mã SP]-[Mã chất liệu]-[Mã kích cỡ]-[Mã màu]. */
 export function xemTruocSku({ tienToMaSanPham, maChatLieu, maSize, maMau }) {
     return {
-        maSanPham: tienToMaSanPham || "[Mã SP]",
-        phanSau: `-${maChatLieu || "[Chất liệu]"}-${maSize}-${maMau}`,
+        maSanPham: tienToMaSanPham || t("[Mã SP]"),
+        phanSau: `-${maChatLieu || t("[Chất liệu]")}-${maSize}-${maMau}`,
     };
 }

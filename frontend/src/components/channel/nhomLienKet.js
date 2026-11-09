@@ -1,3 +1,4 @@
+import { t } from "../../i18n/t.js";
 /**
  * Danh sách liên kết của trang "Sản phẩm theo sàn" phân trang theo SẢN PHẨM (API /lien-ket/theo-san-pham):
  * mỗi phần tử là một sản phẩm kèm đủ các SKU khớp bộ lọc, nên một sản phẩm không bị cắt sang hai trang.
@@ -54,8 +55,8 @@ export function laMotPhanLoai(nhom) {
 export function nhanSoPhanLoai(nhom, dinhDangSo = (n) => String(n)) {
   const soHien = nhom.dong.length;
   return soHien < nhom.tongPhanLoai
-    ? `${dinhDangSo(soHien)}/${dinhDangSo(nhom.tongPhanLoai)} phân loại`
-    : `${dinhDangSo(soHien)} phân loại`;
+    ? t("{{soHien}}/{{tongPhanLoai}} phân loại", { soHien: dinhDangSo(soHien), tongPhanLoai: dinhDangSo(nhom.tongPhanLoai), count: nhom.tongPhanLoai })
+    : t("{{soHien}} phân loại", { soHien: dinhDangSo(soHien), count: soHien });
 }
 
 /**

@@ -1,5 +1,6 @@
 import { Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 const pad2 = (n) => String(n).padStart(2, "0");
 
@@ -32,7 +33,7 @@ const KIEU_NHAN = {
  */
 export default function TienTrinhDonMua({ buoc }) {
   return (
-    <nav aria-label="Tiến trình đơn mua hàng" className="border-t border-bo-border bg-bo-surface-subtle px-4 py-4 sm:px-6 sm:py-5">
+    <nav aria-label={t("Tiến trình đơn mua hàng")} className="border-t border-bo-border bg-bo-surface-subtle px-4 py-4 sm:px-6 sm:py-5">
       <ol className="flex flex-col gap-3 md:grid md:grid-cols-6 md:gap-0">
         {buoc.map((b, i) => {
           const cuoi = i === buoc.length - 1;
@@ -70,7 +71,7 @@ export default function TienTrinhDonMua({ buoc }) {
                 <div className={cn("text-[13px] leading-[18px]", KIEU_NHAN[b.trangThai] ?? KIEU_NHAN.chua)}>
                   {b.nhan}
                   <span className="sr-only">
-                    {b.trangThai === "xong" ? " (đã xong)" : b.trangThai === "dangLam" ? " (đang làm)" : b.trangThai === "dung" ? " (đã dừng)" : " (chưa tới)"}
+                    {b.trangThai === "xong" ? t(" (đã xong)") : b.trangThai === "dangLam" ? t(" (đang làm)") : b.trangThai === "dung" ? t(" (đã dừng)") : t(" (chưa tới)")}
                   </span>
                 </div>
                 {phu || b.canhBao ? (

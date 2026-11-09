@@ -34,6 +34,7 @@ import {
     oCuaThongBaoMayChu,
     payloadTuForm,
 } from "./quyTacNhaCungCap";
+import { t } from "@/i18n";
 
 // Thứ tự trên màn hình: lỗi đầu tiên theo thứ tự này được focus khi bấm Lưu.
 // Không có ô Ngân hàng / Số tài khoản: không quản lý thanh toán nhà cung cấp (chốt 16/10, gỡ ô 22/10/2026). Khi sửa,
@@ -47,11 +48,11 @@ const CONTROL_ERROR_CLASS =
 
 function getSubmitErrorMessage(error, laSua) {
     if (!error?.response) {
-        return "Không kết nối được máy chủ. Vui lòng kiểm tra mạng rồi thử lại.";
+        return t("Không kết nối được máy chủ. Vui lòng kiểm tra mạng rồi thử lại.");
     }
     return getApiErrorMessage(
         error,
-        laSua ? "Không thể lưu thay đổi. Vui lòng thử lại." : "Không thể thêm nhà cung cấp. Vui lòng thử lại.",
+        laSua ? t("Không thể lưu thay đổi. Vui lòng thử lại.") : t("Không thể thêm nhà cung cấp. Vui lòng thử lại."),
     );
 }
 
@@ -292,19 +293,19 @@ function SupplierForm({ supplier, onClose, onSaved, oDauTien }) {
                     </span>
                     <DialogHeader className="min-w-0 flex-1 gap-1 text-left">
                         <DialogTitle className="text-base font-semibold leading-6 text-bo-foreground">
-                            {laSua ? "Sửa nhà cung cấp" : "Thêm nhà cung cấp"}
+                            {laSua ? t("Sửa nhà cung cấp") : t("Thêm nhà cung cấp")}
                         </DialogTitle>
                         <DialogDescription className="text-sm text-bo-muted">
                             {laSua
-                                ? `Mã ${supplier.maNhaCungCap} cố định sau khi tạo, các thông tin khác sửa được.`
-                                : "Nhà cung cấp mới ở trạng thái Hoạt động, nhận được yêu cầu báo giá ngay."}
+                                ? t("Mã {{ma}} cố định sau khi tạo, các thông tin khác sửa được.", { ma: supplier.maNhaCungCap })
+                                : t("Nhà cung cấp mới ở trạng thái Hoạt động, nhận được yêu cầu báo giá ngay.")}
                         </DialogDescription>
                     </DialogHeader>
                     <button
                         type="button"
                         onClick={requestClose}
                         disabled={submitting}
-                        aria-label="Đóng"
+                        aria-label={t("Đóng")}
                         className="-mr-1.5 -mt-0.5 rounded-md p-1.5 text-bo-muted transition-colors hover:bg-bo-surface-subtle hover:text-bo-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 disabled:pointer-events-none disabled:opacity-50"
                     >
                         <X className="size-4" />
@@ -331,17 +332,17 @@ function SupplierForm({ supplier, onClose, onSaved, oDauTien }) {
                     <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
                         <Field
                             id={fieldId("maNhaCungCap")}
-                            label="Mã nhà cung cấp"
+                            label={t("Mã nhà cung cấp")}
                             required={!laSua}
                             error={errors.maNhaCungCap}
-                            hint={laSua ? null : "Chữ không dấu, số và . _ -"}
+                            hint={laSua ? null : t("Chữ không dấu, số và . _ -")}
                         >
                             <Input
                                 {...textInputProps("maNhaCungCap", !laSua)}
                                 aria-required={laSua ? undefined : "true"}
                                 disabled={laSua}
                                 maxLength={MAX_LENGTH.maNhaCungCap}
-                                placeholder="VD: NCC001"
+                                placeholder={t("VD: {{viDu}}", { viDu: "NCC001" })}
                                 spellCheck={false}
                                 autoCapitalize="characters"
                                 className={cn(
@@ -356,7 +357,7 @@ function SupplierForm({ supplier, onClose, onSaved, oDauTien }) {
 
                         <Field
                             id={fieldId("tenNhaCungCap")}
-                            label="Tên nhà cung cấp"
+                            label={t("Tên nhà cung cấp")}
                             required
                             error={errors.tenNhaCungCap}
                         >
@@ -364,16 +365,16 @@ function SupplierForm({ supplier, onClose, onSaved, oDauTien }) {
                                 {...textInputProps("tenNhaCungCap")}
                                 aria-required="true"
                                 maxLength={MAX_LENGTH.tenNhaCungCap}
-                                placeholder="VD: Công ty TNHH May mặc Hà Nội"
+                                placeholder={t("VD: Công ty TNHH May mặc Hà Nội")}
                                 onChange={(event) => changeField("tenNhaCungCap", event.target.value)}
                             />
                         </Field>
 
                         <Field
                             id={fieldId("maSoThue")}
-                            label="Mã số thuế"
+                            label={t("Mã số thuế")}
                             error={errors.maSoThue}
-                            hint="Ghi trên hóa đơn của nhà cung cấp; gửi sang phần mềm kế toán."
+                            hint={t("Ghi trên hóa đơn của nhà cung cấp; gửi sang phần mềm kế toán.")}
                         >
                             <Input
                                 {...textInputProps("maSoThue", true)}
@@ -383,16 +384,16 @@ function SupplierForm({ supplier, onClose, onSaved, oDauTien }) {
                             />
                         </Field>
 
-                        <Field id={fieldId("nguoiLienHe")} label="Người liên hệ" error={errors.nguoiLienHe}>
+                        <Field id={fieldId("nguoiLienHe")} label={t("Người liên hệ")} error={errors.nguoiLienHe}>
                             <Input
                                 {...textInputProps("nguoiLienHe")}
                                 maxLength={MAX_LENGTH.nguoiLienHe}
-                                placeholder="VD: Nguyễn Văn An"
+                                placeholder={t("VD: Nguyễn Văn An")}
                                 onChange={(event) => changeField("nguoiLienHe", event.target.value)}
                             />
                         </Field>
 
-                        <Field id={fieldId("soDienThoai")} label="Số điện thoại" required error={errors.soDienThoai}>
+                        <Field id={fieldId("soDienThoai")} label={t("Số điện thoại")} required error={errors.soDienThoai}>
                             <Input
                                 {...textInputProps("soDienThoai")}
                                 aria-required="true"
@@ -410,7 +411,7 @@ function SupplierForm({ supplier, onClose, onSaved, oDauTien }) {
                             label="Email"
                             required
                             error={errors.email}
-                            hint="Yêu cầu báo giá được gửi tới email này; nhà cung cấp cũng dùng email này để vào trang báo giá."
+                            hint={t("Yêu cầu báo giá được gửi tới email này; nhà cung cấp cũng dùng email này để vào trang báo giá.")}
                         >
                             <Input
                                 {...textInputProps("email", true)}
@@ -418,19 +419,19 @@ function SupplierForm({ supplier, onClose, onSaved, oDauTien }) {
                                 type="text"
                                 inputMode="email"
                                 maxLength={MAX_LENGTH.email}
-                                placeholder="VD: lienhe@congty.vn"
+                                placeholder={t("VD: {{viDu}}", { viDu: "lienhe@congty.vn" })}
                                 spellCheck={false}
                                 autoCapitalize="none"
                                 onChange={(event) => changeField("email", event.target.value)}
                             />
                         </Field>
 
-                        <Field id={fieldId("diaChi")} label="Địa chỉ" error={errors.diaChi} className="sm:col-span-2">
+                        <Field id={fieldId("diaChi")} label={t("Địa chỉ")} error={errors.diaChi} className="sm:col-span-2">
                             <Textarea
                                 {...textInputProps("diaChi")}
                                 rows={2}
                                 maxLength={MAX_LENGTH.diaChi}
-                                placeholder="VD: Số 8 Tôn Thất Thuyết, Cầu Giấy, Hà Nội"
+                                placeholder={t("VD: Số 8 Tôn Thất Thuyết, Cầu Giấy, Hà Nội")}
                                 className={cn(
                                     "min-h-[64px] resize-y border-bo-border bg-bo-surface text-bo-foreground shadow-none placeholder:text-slate-400 focus-visible:border-bo-primary focus-visible:ring-[3px] focus-visible:ring-bo-primary/15",
                                     errors.diaChi && CONTROL_ERROR_CLASS,
@@ -449,7 +450,7 @@ function SupplierForm({ supplier, onClose, onSaved, oDauTien }) {
                         disabled={submitting}
                         className="border-bo-border bg-bo-surface text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
                     >
-                        Hủy
+                        {t("Hủy")}
                     </Button>
                     <Button
                         type="submit"
@@ -460,14 +461,14 @@ function SupplierForm({ supplier, onClose, onSaved, oDauTien }) {
                         {submitting ? (
                             <>
                                 <Loader2 className="size-4 animate-spin" />
-                                Đang lưu...
+                                {t("Đang lưu...")}
                             </>
                         ) : laSua ? (
-                            "Lưu thay đổi"
+                            t("Lưu thay đổi")
                         ) : (
                             <>
                                 <Plus className="size-4" />
-                                Thêm nhà cung cấp
+                                {t("Thêm nhà cung cấp")}
                             </>
                         )}
                     </Button>
@@ -488,17 +489,17 @@ function SupplierForm({ supplier, onClose, onSaved, oDauTien }) {
                 >
                     <AlertDialogHeader>
                         <AlertDialogTitle className="text-base text-bo-foreground">
-                            {laSua ? "Bỏ các thay đổi?" : "Bỏ thông tin đang nhập?"}
+                            {laSua ? t("Bỏ các thay đổi?") : t("Bỏ thông tin đang nhập?")}
                         </AlertDialogTitle>
                         <AlertDialogDescription className="text-sm text-bo-muted">
                             {laSua
-                                ? "Những gì bạn vừa sửa sẽ không được lưu."
-                                : "Thông tin bạn đã nhập sẽ không được lưu."}
+                                ? t("Những gì bạn vừa sửa sẽ không được lưu.")
+                                : t("Thông tin bạn đã nhập sẽ không được lưu.")}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter className="gap-2">
                         <AlertDialogCancel className="border-bo-border bg-bo-surface text-bo-foreground shadow-none hover:bg-bo-surface-subtle">
-                            {laSua ? "Tiếp tục sửa" : "Tiếp tục nhập"}
+                            {laSua ? t("Tiếp tục sửa") : t("Tiếp tục nhập")}
                         </AlertDialogCancel>
                         <AlertDialogAction
                             onClick={() => {
@@ -508,7 +509,7 @@ function SupplierForm({ supplier, onClose, onSaved, oDauTien }) {
                             }}
                             className="bg-bo-danger text-white hover:bg-bo-danger/90"
                         >
-                            {laSua ? "Bỏ thay đổi" : "Bỏ thông tin"}
+                            {laSua ? t("Bỏ thay đổi") : t("Bỏ thông tin")}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

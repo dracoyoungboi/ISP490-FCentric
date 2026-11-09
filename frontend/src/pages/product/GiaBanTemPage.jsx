@@ -55,8 +55,9 @@ import { productService } from "@/services/productService";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { ROLES, hasAnyRole } from "@/utils/roles";
 import { formatNumberOrDash } from "@/utils/formatters";
+import { t } from "@/i18n";
 
-const TAB_MAS = TAB_GIA_BAN.map((t) => t.value);
+const TAB_MAS = TAB_GIA_BAN.map((tab) => tab.value);
 const TAB_MAC_DINH = "tat-ca";
 const SEARCH_DEBOUNCE_MS = 350;
 const TH = "h-10 whitespace-nowrap px-3 text-[11px] font-semibold uppercase tracking-wide text-bo-muted";
@@ -68,8 +69,8 @@ const nhanBienThe = (d) => [d.tenMau, d.kichCo].filter(Boolean).join(" - ") || "
 
 /** Chữ giá ở ô Giá bán của một SKU. */
 function hienThiGiaDong(d) {
-  if (!(Number(d.giaBan) > 0)) return { chu: "Chưa có giá", mau: "chua" };
-  return duoiGiaVon(d) ? { chu: formatNumberOrDash(d.giaBan), mau: "duoiVon", title: "Thấp hơn giá vốn" } : { chu: formatNumberOrDash(d.giaBan), mau: "thuong" };
+  if (!(Number(d.giaBan) > 0)) return { chu: t("Chưa có giá"), mau: "chua" };
+  return duoiGiaVon(d) ? { chu: formatNumberOrDash(d.giaBan), mau: "duoiVon", title: t("Thấp hơn giá vốn") } : { chu: formatNumberOrDash(d.giaBan), mau: "thuong" };
 }
 
 /**
@@ -77,9 +78,9 @@ function hienThiGiaDong(d) {
  * phân loại còn lại cùng một giá thì ghi một số màu xám kèm chú thích (không ghi "450.000 – 450.000").
  */
 function hienThiGiaNhom(giaBan) {
-  if (giaBan.loai === "chua") return { chu: "Chưa có giá", mau: "chua" };
+  if (giaBan.loai === "chua") return { chu: t("Chưa có giá"), mau: "chua" };
   if (giaBan.loai === "khoang") {
-    const title = giaBan.thieuGia ? "Có phân loại chưa có giá" : undefined;
+    const title = giaBan.thieuGia ? t("Có phân loại chưa có giá") : undefined;
     if (giaBan.thapNhat === giaBan.caoNhat) return { chu: formatNumberOrDash(giaBan.thapNhat), mau: "khoang", title };
     return { chu: `${formatNumberOrDash(giaBan.thapNhat)} – ${formatNumberOrDash(giaBan.caoNhat)}`, mau: "khoang", title };
   }
@@ -197,7 +198,7 @@ export default function GiaBanTemPage() {
       setChoQuet(null);
       if (!trung) {
         // Đến từ "Đặt giá": báo rõ thay vì im lặng (Enter tìm theo tên thì danh sách đã lọc là đủ)
-        if (choQuet.moGia) toast.info(`Không thấy SKU ${choQuet.ma} trong kết quả tìm`);
+        if (choQuet.moGia) toast.info(t("Không thấy SKU {{ma}} trong kết quả tìm", { ma: choQuet.ma }));
         return;
       }
       setNoiBat(trung.dong.id);
@@ -304,12 +305,12 @@ export default function GiaBanTemPage() {
       const daDoi = kq?.daDoi ?? [];
       const boQua = kq?.boQua ?? [];
       const inLai = dongInLaiSauDoiGia(daDoi, rows);
-      const soTem = inLai.reduce((t, d) => t + d.tonKho, 0);
+      const soTem = inLai.reduce((tong, d) => tong + d.tonKho, 0);
       // "Bỏ qua 2 SKU ngừng hoạt động, 1 SKU giá bán không đổi." — đúng các lý do máy chủ trả
       const theoLyDo = new Map();
       boQua.forEach((b) => theoLyDo.set(b.lyDo, (theoLyDo.get(b.lyDo) ?? 0) + 1));
       const ghiChu = boQua.length
-        ? `Bỏ qua ${[...theoLyDo].map(([lyDo, so]) => `${formatNumberOrDash(so)} SKU ${String(lyDo).toLocaleLowerCase("vi")}`).join(", ")}.`
+        ? t("Bỏ qua {{dsLyDo}}.", { dsLyDo: [...theoLyDo].map(([lyDo, so]) => `${formatNumberOrDash(so)} SKU ${String(lyDo).toLocaleLowerCase("vi")}`).join(", ") })
         : undefined;
       // Hiện giá mới ngay (lần tải lại sau đó có lỗi thì bảng vẫn đúng giá vừa lưu)
       const giaMoi = new Map(daDoi.map((x) => [x.id, x.giaBanMoi]));
@@ -326,18 +327,18 @@ export default function GiaBanTemPage() {
           : cu,
       );
       if (daDoi.length) {
-        toast.success(`Đã đổi giá bán ${formatNumberOrDash(daDoi.length)} SKU`, {
+        toast.success(t("Đã đổi giá bán {{so}} SKU", { count: daDoi.length, so: formatNumberOrDash(daDoi.length) }), {
           // Mỗi lần lưu một thông báo riêng (không gộp "×2"), để nút "In lại" của lần trước không bị thay mất
           id: `doi-gia-${Date.now()}`,
           description: ghiChu,
-          action: soTem > 0 ? { label: `In lại ${formatNumberOrDash(soTem)} tem`, onClick: () => moInTem("doi-gia", inLai) } : undefined,
+          action: soTem > 0 ? { label: t("In lại {{so}} tem", { count: soTem, so: formatNumberOrDash(soTem) }), onClick: () => moInTem("doi-gia", inLai) } : undefined,
         });
       } else {
-        toast.info("Không có SKU nào đổi giá", { description: ghiChu });
+        toast.info(t("Không có SKU nào đổi giá"), { description: ghiChu });
       }
       ds.reload();
     } catch (error) {
-      toast.error(getApiErrorMessage(error, "Không đổi được giá bán"));
+      toast.error(getApiErrorMessage(error, t("Không đổi được giá bán")));
     } finally {
       setDangLuuGia(false);
     }
@@ -369,14 +370,14 @@ export default function GiaBanTemPage() {
     setChoQuet({ ma, moGia: true });
   };
 
-  const statusTabs = TAB_GIA_BAN.map((t) => ({
-    value: t.value,
-    label: t.label,
+  const statusTabs = TAB_GIA_BAN.map((tab) => ({
+    value: tab.value,
+    label: tab.label,
     count: (ds.loading && !ds.dungKhoa) || !duLieu.demTheoTab
       ? null
-      : t.value === "tat-ca"
+      : tab.value === "tat-ca"
         ? duLieu.demTheoTab.tatCa
-        : t.value === "hoat-dong"
+        : tab.value === "hoat-dong"
           ? duLieu.demTheoTab.hoatDong
           : duLieu.demTheoTab.ngungHoatDong,
   }));
@@ -393,9 +394,9 @@ export default function GiaBanTemPage() {
       <OGiaBan
         dsDong={[d]}
         hienThi={hienThi}
-        tieuDe={`Giá bán · ${nhanBienThe(d)}`}
+        tieuDe={t("Giá bán · {{bienThe}}", { bienThe: nhanBienThe(d) })}
         phu={d.maSku}
-        ariaLabel={`Đổi giá bán ${d.maSku}`}
+        ariaLabel={t("Đổi giá bán {{maSku}}", { maSku: d.maSku })}
         open={popGia === khoa}
         onOpenChange={(mo) => setPopGia(mo ? khoa : null)}
         lyDoMacDinh={lyDoTruoc}
@@ -430,7 +431,7 @@ export default function GiaBanTemPage() {
           <Checkbox
             checked={chon.has(d.id)}
             onCheckedChange={(v) => doiChon([d.id], v === true)}
-            aria-label={`Chọn ${d.maSku}`}
+            aria-label={t("Chọn {{maSku}}", { maSku: d.maSku })}
             className={CHECKBOX_CLASS}
           />
         </td>
@@ -439,7 +440,7 @@ export default function GiaBanTemPage() {
             <>
               <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 pl-[42px]">
                 <NhanBienThe dong={d} className="text-sm text-bo-foreground" />
-                {ngung ? <StatusBadge label="Ngừng hoạt động" className="text-[12.5px] font-normal text-bo-muted" /> : null}
+                {ngung ? <StatusBadge /* i18n-giu-nguyen: StatusBadge tự dịch */ label="Ngừng hoạt động" className="text-[12.5px] font-normal text-bo-muted" /> : null}
               </div>
               {/* Máy tính bảng dọc: SKU · mã vạch thay cho cột đã ẩn */}
               <p className="hidden truncate pl-[42px] text-[12.5px] text-bo-muted cam-ung:max-lg:block">
@@ -455,7 +456,7 @@ export default function GiaBanTemPage() {
                 </p>
                 <div className="flex min-w-0 flex-wrap items-center gap-x-1.5">
                   <NhanBienThe dong={d} className="text-[13px] text-bo-muted" />
-                  {ngung ? <StatusBadge label="Ngừng hoạt động" className="text-[12.5px] font-normal text-bo-muted" /> : null}
+                  {ngung ? <StatusBadge /* i18n-giu-nguyen: StatusBadge tự dịch */ label="Ngừng hoạt động" className="text-[12.5px] font-normal text-bo-muted" /> : null}
                 </div>
                 <p className="hidden truncate text-[12.5px] text-bo-muted cam-ung:max-lg:block">
                   <ToKhop text={d.maSku || "—"} tu={tuKhoa} /> · {d.maVachSku ? <ToKhop text={d.maVachSku} tu={tuKhoa} /> : "—"}
@@ -469,7 +470,7 @@ export default function GiaBanTemPage() {
             <ToKhop text={d.maSku || "—"} tu={tuKhoa} />
           </p>
           <p className="truncate text-[12.5px] tabular-nums text-bo-muted">
-            Mã vạch {d.maVachSku ? <ToKhop text={d.maVachSku} tu={tuKhoa} /> : "—"}
+            {t("Mã vạch")} {d.maVachSku ? <ToKhop text={d.maVachSku} tu={tuKhoa} /> : "—"}
           </p>
         </td>
         <td className={cn("whitespace-nowrap px-3 py-2.5 text-right tabular-nums", Number(d.tonKho) === 0 ? "text-slate-400" : "text-bo-foreground")}>
@@ -478,14 +479,14 @@ export default function GiaBanTemPage() {
         <td className="whitespace-nowrap px-3 py-2.5 text-right tabular-nums text-bo-muted cam-ung:max-lg:hidden">{formatNumberOrDash(d.giaVon)}</td>
         <td className="whitespace-nowrap px-3 py-2.5 text-right">
           {oGiaDong(d)}
-          <p className="hidden text-xs tabular-nums text-bo-muted cam-ung:max-lg:block">Vốn {formatNumberOrDash(d.giaVon)}</p>
+          <p className="hidden text-xs tabular-nums text-bo-muted cam-ung:max-lg:block">{t("Vốn {{giaVon}}", { giaVon: formatNumberOrDash(d.giaVon) })}</p>
         </td>
         <td className="w-24 px-2 py-2.5">
           <RowActions>
-            <RowActionButton icon={History} label={`Lịch sử giá ${d.maSku}`} onClick={() => setLichSuGia(d)} />
+            <RowActionButton icon={History} label={t("Lịch sử giá {{maSku}}", { maSku: d.maSku })} onClick={() => setLichSuGia(d)} />
             <RowActionButton
               icon={Printer}
-              label={ngung ? "SKU ngừng hoạt động" : `In tem ${d.maSku}`}
+              label={ngung ? t("SKU ngừng hoạt động") : t("In tem {{maSku}}", { maSku: d.maSku })}
               disabled={ngung}
               onClick={() => moInTem("chon", [d])}
             />
@@ -512,7 +513,7 @@ export default function GiaBanTemPage() {
     return (
       <tr key={g.khoa} onClick={() => doiGon(g.khoa)} className="group/nhom cursor-pointer">
         <td className={cn("w-10 px-3 py-2.5", o)} onClick={(event) => event.stopPropagation()}>
-          <Checkbox checked={trangThaiChon(ids, chon)} onCheckedChange={(v) => doiChon(ids, v === true)} aria-label={`Chọn cả ${g.ten}`} className={CHECKBOX_CLASS} />
+          <Checkbox checked={trangThaiChon(ids, chon)} onCheckedChange={(v) => doiChon(ids, v === true)} aria-label={t("Chọn cả {{ten}}", { ten: g.ten })} className={CHECKBOX_CLASS} />
         </td>
         <td className={cn("max-w-[420px] px-3 py-2.5", o)}>
           <div className="flex min-w-0 items-center gap-2">
@@ -523,7 +524,7 @@ export default function GiaBanTemPage() {
                 doiGon(g.khoa);
               }}
               aria-expanded={mo}
-              aria-label={mo ? `Thu gọn các phân loại của ${g.ten}` : `Mở các phân loại của ${g.ten}`}
+              aria-label={mo ? t("Thu gọn các phân loại của {{ten}}", { ten: g.ten }) : t("Mở các phân loại của {{ten}}", { ten: g.ten })}
               className="grid size-[22px] shrink-0 place-items-center rounded text-bo-muted hover:bg-slate-200/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
             >
               <ChevronRight className={cn("size-3.5 transition-transform duration-150 motion-reduce:transition-none", mo && "rotate-90")} />
@@ -547,9 +548,9 @@ export default function GiaBanTemPage() {
             <OGiaBan
               dsDong={g.dong}
               hienThi={hienThi}
-              tieuDe={motPhan ? "Giá bán các phân loại đang hiện" : "Giá bán cả sản phẩm"}
-              phu={`Áp dụng cho ${formatNumberOrDash(soHoatDong)} phân loại đang hoạt động`}
-              ariaLabel={`Đổi giá bán cả sản phẩm ${g.ten}`}
+              tieuDe={motPhan ? t("Giá bán các phân loại đang hiện") : t("Giá bán cả sản phẩm")}
+              phu={t("Áp dụng cho {{so}} phân loại đang hoạt động", { count: soHoatDong, so: formatNumberOrDash(soHoatDong) })}
+              ariaLabel={t("Đổi giá bán cả sản phẩm {{ten}}", { ten: g.ten })}
               open={popGia === khoa}
               onOpenChange={(moPop) => setPopGia(moPop ? khoa : null)}
               lyDoMacDinh={lyDoTruoc}
@@ -560,12 +561,12 @@ export default function GiaBanTemPage() {
             <ChuGia hienThi={hienThi} />
           )}
           {tt.giaVonChung !== null ? (
-            <p className="hidden text-xs tabular-nums text-bo-muted cam-ung:max-lg:block">Vốn {formatNumberOrDash(tt.giaVonChung)}</p>
+            <p className="hidden text-xs tabular-nums text-bo-muted cam-ung:max-lg:block">{t("Vốn {{giaVon}}", { giaVon: formatNumberOrDash(tt.giaVonChung) })}</p>
           ) : null}
         </td>
         <td className={cn("w-24 px-2 py-2.5", o)}>
           <RowActions>
-            <RowActionButton icon={Printer} label={`In tem cả sản phẩm ${g.ten}`} onClick={() => moInTem("chon", g.dong)} />
+            <RowActionButton icon={Printer} label={t("In tem cả sản phẩm {{ten}}", { ten: g.ten })} onClick={() => moInTem("chon", g.dong)} />
           </RowActions>
         </td>
       </tr>
@@ -611,7 +612,7 @@ export default function GiaBanTemPage() {
           noiBat === d.id && "bg-bo-primary-soft shadow-[inset_3px_0_0_var(--color-bo-primary)]",
         )}
       >
-        {oChon(chon.has(d.id), (v) => doiChon([d.id], v === true), `Chọn ${d.maSku}`)}
+        {oChon(chon.has(d.id), (v) => doiChon([d.id], v === true), t("Chọn {{maSku}}", { maSku: d.maSku }))}
         {trongNhom ? null : <AnhSanPham src={g.anh} size={44} />}
         <div className={cn("min-w-0 flex-1 pb-1.5", !trongNhom && "pl-2 pt-1.5")}>
           {trongNhom ? null : (
@@ -622,15 +623,15 @@ export default function GiaBanTemPage() {
           <div className="flex min-h-9 items-center justify-between gap-2">
             <div className="flex min-w-0 flex-wrap items-center gap-x-1.5">
               <NhanBienThe dong={d} className={trongNhom ? "text-sm text-bo-foreground" : "text-[13px] text-bo-muted"} />
-              {ngung ? <StatusBadge label="Ngừng hoạt động" className="text-[12.5px] font-normal text-bo-muted" /> : null}
+              {ngung ? <StatusBadge /* i18n-giu-nguyen: StatusBadge tự dịch */ label="Ngừng hoạt động" className="text-[12.5px] font-normal text-bo-muted" /> : null}
             </div>
             <div className="flex shrink-0 items-center text-sm">
               {oGiaDong(d)}
-              {nutIn(ngung ? "SKU ngừng hoạt động" : `In tem ${d.maSku}`, () => moInTem("chon", [d]), ngung)}
+              {nutIn(ngung ? t("SKU ngừng hoạt động") : t("In tem {{maSku}}", { maSku: d.maSku }), () => moInTem("chon", [d]), ngung)}
               <button
                 type="button"
-                aria-label={`Lịch sử giá ${d.maSku}`}
-                title={`Lịch sử giá ${d.maSku}`}
+                aria-label={t("Lịch sử giá {{maSku}}", { maSku: d.maSku })}
+                title={t("Lịch sử giá {{maSku}}", { maSku: d.maSku })}
                 onClick={() => setLichSuGia(d)}
                 className="grid size-9 shrink-0 place-items-center rounded-md text-bo-muted hover:bg-slate-100 hover:text-bo-primary"
               >
@@ -642,8 +643,8 @@ export default function GiaBanTemPage() {
             <ToKhop text={d.maSku || "—"} tu={tuKhoa} /> · {d.maVachSku ? <ToKhop text={d.maVachSku} tu={tuKhoa} /> : "—"}
           </p>
           <p className="text-[12.5px] tabular-nums text-bo-muted">
-            Tồn <span className={Number(d.tonKho) === 0 ? "text-slate-400" : "font-medium text-bo-foreground"}>{formatNumberOrDash(d.tonKho)}</span>
-            {" · "}Vốn {formatNumberOrDash(d.giaVon)}
+            {t("Tồn")} <span className={Number(d.tonKho) === 0 ? "text-slate-400" : "font-medium text-bo-foreground"}>{formatNumberOrDash(d.tonKho)}</span>
+            {" · "}{t("Vốn {{giaVon}}", { giaVon: formatNumberOrDash(d.giaVon) })}
           </p>
         </div>
       </li>
@@ -665,7 +666,7 @@ export default function GiaBanTemPage() {
       <li key={g.khoa}>
         <div className="bg-bo-row-group pb-1 pl-1 pr-1 pt-1">
           <div className="flex items-start gap-1">
-            {oChon(trangThaiChon(ids, chon), (v) => doiChon(ids, v === true), `Chọn cả ${g.ten}`)}
+            {oChon(trangThaiChon(ids, chon), (v) => doiChon(ids, v === true), t("Chọn cả {{ten}}", { ten: g.ten }))}
             <button
               type="button"
               onClick={() => doiGon(g.khoa)}
@@ -678,7 +679,7 @@ export default function GiaBanTemPage() {
                   <ToKhop text={g.ten} tu={tuKhoa} />
                 </span>
                 <span className="block text-[13px] tabular-nums text-bo-muted">
-                  {nhanPhanLoai(g, motPhan, formatNumberOrDash)} · Tồn {formatNumberOrDash(tt.tongTon)}
+                  {t("{{phanLoai}} · Tồn {{tongTon}}", { phanLoai: nhanPhanLoai(g, motPhan, formatNumberOrDash), tongTon: formatNumberOrDash(tt.tongTon) })}
                 </span>
               </span>
               <span className="grid size-11 shrink-0 place-items-center text-bo-muted">
@@ -688,16 +689,16 @@ export default function GiaBanTemPage() {
           </div>
           <div className="flex items-center justify-between gap-2 pl-[52px]">
             <span className="min-w-0 truncate text-[12.5px] tabular-nums text-bo-muted">
-              {tt.giaVonChung !== null ? `Vốn ${formatNumberOrDash(tt.giaVonChung)}` : null}
+              {tt.giaVonChung !== null ? t("Vốn {{giaVon}}", { giaVon: formatNumberOrDash(tt.giaVonChung) }) : null}
             </span>
             <span className="flex shrink-0 items-center text-sm">
               {laQuanTriVien && soHoatDong > 0 ? (
                 <OGiaBan
                   dsDong={g.dong}
                   hienThi={hienThi}
-                  tieuDe={motPhan ? "Giá bán các phân loại đang hiện" : "Giá bán cả sản phẩm"}
-                  phu={`Áp dụng cho ${formatNumberOrDash(soHoatDong)} phân loại đang hoạt động`}
-                  ariaLabel={`Đổi giá bán cả sản phẩm ${g.ten}`}
+                  tieuDe={motPhan ? t("Giá bán các phân loại đang hiện") : t("Giá bán cả sản phẩm")}
+                  phu={t("Áp dụng cho {{so}} phân loại đang hoạt động", { count: soHoatDong, so: formatNumberOrDash(soHoatDong) })}
+                  ariaLabel={t("Đổi giá bán cả sản phẩm {{ten}}", { ten: g.ten })}
                   open={popGia === khoa}
                   onOpenChange={(moPop) => setPopGia(moPop ? khoa : null)}
                   lyDoMacDinh={lyDoTruoc}
@@ -709,7 +710,7 @@ export default function GiaBanTemPage() {
                   <ChuGia hienThi={hienThi} />
                 </span>
               )}
-              {nutIn(`In tem cả sản phẩm ${g.ten}`, () => moInTem("chon", g.dong))}
+              {nutIn(t("In tem cả sản phẩm {{ten}}", { ten: g.ten }), () => moInTem("chon", g.dong))}
             </span>
           </div>
         </div>
@@ -726,7 +727,7 @@ export default function GiaBanTemPage() {
         actions={
           <Button type="button" variant="outline" onClick={() => setHopChonPhieu(true)} className={NUT_DAU_TRANG}>
             <FileText className="size-4" aria-hidden="true" />
-            In tem theo phiếu nhập
+            {t("In tem theo phiếu nhập")}
           </Button>
         }
       />
@@ -735,7 +736,7 @@ export default function GiaBanTemPage() {
         <AttentionBar
           count={soCanXuLy}
           tone="warning"
-          actionLabel="Xem các SKU này"
+          actionLabel={t("Xem các SKU này")}
           onAction={() => {
             // Số đếm là của cả hệ thống: bỏ từ khóa đang tìm để thấy đủ các SKU này
             setSearchText("");
@@ -746,17 +747,17 @@ export default function GiaBanTemPage() {
           {[
             Number(duLieu.canXuLy?.chuaCoGia) > 0 ? (
               <Fragment key="chua">
-                <strong className="font-semibold">{formatNumberOrDash(duLieu.canXuLy.chuaCoGia)} SKU</strong> chưa có giá bán
+                <strong className="font-semibold">{formatNumberOrDash(duLieu.canXuLy.chuaCoGia)} SKU</strong> {t("chưa có giá bán")}
               </Fragment>
             ) : null,
             Number(duLieu.canXuLy?.duoiGiaVon) > 0 ? (
               <Fragment key="duoi">
-                <strong className="font-semibold">{formatNumberOrDash(duLieu.canXuLy.duoiGiaVon)} SKU</strong> đang bán thấp hơn giá vốn
+                <strong className="font-semibold">{formatNumberOrDash(duLieu.canXuLy.duoiGiaVon)} SKU</strong> {t("đang bán thấp hơn giá vốn")}
               </Fragment>
             ) : null,
           ]
             .filter(Boolean)
-            .flatMap((phan, i) => (i ? [<Fragment key={`va-${i}`}> và </Fragment>, phan] : [phan]))}
+            .flatMap((phan, i) => (i ? [<Fragment key={`va-${i}`}> {t("và")} </Fragment>, phan] : [phan]))}
           .
         </AttentionBar>
       ) : null}
@@ -766,16 +767,16 @@ export default function GiaBanTemPage() {
         toolbar={
           <>
             <ListToolbar
-              tabs={<StatusTabs label="Lọc SKU theo trạng thái" tabs={statusTabs} value={tab} onChange={doiTab} />}
+              tabs={<StatusTabs label={t("Lọc SKU theo trạng thái")} tabs={statusTabs} value={tab} onChange={doiTab} />}
               hasFilter={dangLoc}
               onClear={xoaLoc}
             >
               {canXuLy ? (
                 <span className="inline-flex h-[30px] items-center gap-1 rounded-full bg-bo-primary-soft pr-1 pl-2.5 text-[13px] font-medium text-bo-primary-strong">
-                  Cần xử lý giá
+                  {t("Cần xử lý giá")}
                   <button
                     type="button"
-                    aria-label="Bỏ lọc Cần xử lý giá"
+                    aria-label={t("Bỏ lọc Cần xử lý giá")}
                     onClick={() => batCanXuLy(false)}
                     className="grid size-[22px] place-items-center rounded-full hover:bg-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
                   >
@@ -788,15 +789,15 @@ export default function GiaBanTemPage() {
                 variant="ghost"
                 onClick={doiMoTatCa}
                 disabled={nhomNhieu.length === 0}
-                title={nhomNhieu.length === 0 && rows.length > 0 ? "Trang này không có sản phẩm nhiều phân loại" : undefined}
+                title={nhomNhieu.length === 0 && rows.length > 0 ? t("Trang này không có sản phẩm nhiều phân loại") : undefined}
                 className="h-9 gap-1.5 px-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-bo-foreground max-sm:h-11"
               >
                 {tatCaDangMo ? <ChevronsDownUp className="size-4" aria-hidden="true" /> : <ChevronsUpDown className="size-4" aria-hidden="true" />}
-                {tatCaDangMo ? "Thu gọn tất cả" : "Mở tất cả"}
+                {tatCaDangMo ? t("Thu gọn tất cả") : t("Mở tất cả")}
               </Button>
               <SearchInput
-                label="Tìm SKU"
-                placeholder="Tìm tên sản phẩm, SKU hoặc quét mã vạch"
+                label={t("Tìm SKU")}
+                placeholder={t("Tìm tên sản phẩm, SKU hoặc quét mã vạch")}
                 value={searchText}
                 onChange={(event) => setSearchText(event.target.value)}
                 onKeyDown={timNgay}
@@ -812,16 +813,16 @@ export default function GiaBanTemPage() {
             {daChon.length ? (
               <div className="flex flex-wrap items-center gap-2 border-b border-bo-border bg-bo-primary-soft px-3 py-2 text-sm text-bo-primary-strong sm:px-4">
                 <span className="mr-1">
-                  <strong className="font-semibold tabular-nums">{formatNumberOrDash(daChon.length)}</strong> SKU đã chọn trên trang này
+                  <strong className="font-semibold tabular-nums">{formatNumberOrDash(daChon.length)}</strong> {t("SKU đã chọn trên trang này", { count: daChon.length })}
                 </span>
                 <Button type="button" variant="outline" onClick={() => moInTem("chon", daChon)} className={nutPhu}>
                   <Printer className="size-3.5" aria-hidden="true" />
-                  In tem
+                  {t("In tem")}
                 </Button>
                 {laQuanTriVien ? (
                   <Button type="button" variant="outline" onClick={() => { setPopGia(null); setHopDoiGia(true); }} className={nutPhu}>
                     <Pencil className="size-3.5" aria-hidden="true" />
-                    Đổi giá bán
+                    {t("Đổi giá bán")}
                   </Button>
                 ) : null}
                 <Button
@@ -830,7 +831,7 @@ export default function GiaBanTemPage() {
                   onClick={() => setChon(new Set())}
                   className="ml-auto h-8 rounded-lg px-3 text-[13px] text-bo-primary-strong hover:bg-white/70 max-sm:h-11"
                 >
-                  Bỏ chọn
+                  {t("Bỏ chọn")}
                 </Button>
               </div>
             ) : null}
@@ -842,11 +843,11 @@ export default function GiaBanTemPage() {
               page={trang.page}
               size={trang.size}
               total={duLieu.tongSanPham}
-              sizeLabel="sản phẩm"
-              totalLabel="sản phẩm"
+              sizeLabel={t("sản phẩm")}
+              totalLabel={t("sản phẩm")}
               sizeOptions={SO_SAN_PHAM_MOI_TRANG}
-              sizeMenuTitle="Số sản phẩm mỗi trang"
-              sizeMenuNote="Đếm theo sản phẩm; mỗi sản phẩm luôn kèm đủ phân loại nên không bị cắt sang trang sau."
+              sizeMenuTitle={t("Số sản phẩm mỗi trang")}
+              sizeMenuNote={t("Đếm theo sản phẩm; mỗi sản phẩm luôn kèm đủ phân loại nên không bị cắt sang trang sau.")}
               totalNote={`${formatNumberOrDash(duLieu.tongSku)} SKU`}
               onPageChange={(page) => {
                 if (page < 0 || page === trang.page) return;
@@ -862,7 +863,7 @@ export default function GiaBanTemPage() {
                 nhoSoDong(size);
                 setTrang({ page: 0, size });
                 setChon(new Set());
-                if (boChon) toast.info(`Đã bỏ chọn ${formatNumberOrDash(boChon)} SKU khi đổi số sản phẩm mỗi trang`);
+                if (boChon) toast.info(t("Đã bỏ chọn {{so}} SKU khi đổi số sản phẩm mỗi trang", { count: boChon, so: formatNumberOrDash(boChon) }));
                 setPopGia(null);
                 cuonLenDau();
               }}
@@ -871,67 +872,67 @@ export default function GiaBanTemPage() {
         }
       >
         {ds.initialLoading || (ds.loading && rows.length === 0 && !ds.dungKhoa) ? (
-          <LoadingState label="Đang tải danh sách SKU" />
+          <LoadingState label={t("Đang tải danh sách SKU")} />
         ) : ds.error && !ds.loiTaiLai ? (
-          <ErrorState description="Không tải được danh sách SKU. Vui lòng thử lại." onRetry={ds.reload} />
+          <ErrorState description={t("Không tải được danh sách SKU. Vui lòng thử lại.")} onRetry={ds.reload} />
         ) : rows.length === 0 ? (
           tuKhoa ? (
             <EmptyState
               icon={SearchX}
-              title={`Không có SKU khớp “${tuKhoa}”`}
-              description="Kiểm tra lại mã vừa quét hoặc từ khóa."
-              action={<Button variant="outline" onClick={xoaLoc} className={NUT_PHU}>Xóa lọc</Button>}
+              title={t("Không có SKU khớp “{{tuKhoa}}”", { tuKhoa })}
+              description={t("Kiểm tra lại mã vừa quét hoặc từ khóa.")}
+              action={<Button variant="outline" onClick={xoaLoc} className={NUT_PHU}>{t("Xóa lọc")}</Button>}
             />
           ) : canXuLy && tab === "ngung-hoat-dong" ? (
             <EmptyState
               icon={Layers}
-              title="Không có SKU cần xử lý giá ở mục này"
-              description="Bộ lọc Cần xử lý giá chỉ xét SKU đang hoạt động."
-              action={<Button variant="outline" onClick={() => batCanXuLy(false)} className={NUT_PHU}>Bỏ lọc Cần xử lý giá</Button>}
+              title={t("Không có SKU cần xử lý giá ở mục này")}
+              description={t("Bộ lọc Cần xử lý giá chỉ xét SKU đang hoạt động.")}
+              action={<Button variant="outline" onClick={() => batCanXuLy(false)} className={NUT_PHU}>{t("Bỏ lọc Cần xử lý giá")}</Button>}
             />
           ) : canXuLy ? (
             <EmptyState
               icon={CircleCheck}
-              title="Không còn SKU cần xử lý giá"
-              description="Mọi SKU đang hoạt động đã có giá bán và không thấp hơn giá vốn."
-              action={<Button variant="outline" onClick={xoaLoc} className={NUT_PHU}>Xóa lọc</Button>}
+              title={t("Không còn SKU cần xử lý giá")}
+              description={t("Mọi SKU đang hoạt động đã có giá bán và không thấp hơn giá vốn.")}
+              action={<Button variant="outline" onClick={xoaLoc} className={NUT_PHU}>{t("Xóa lọc")}</Button>}
             />
           ) : tab !== TAB_MAC_DINH ? (
             <EmptyState
               icon={Layers}
-              title="Không có SKU nào ở mục này"
-              description="Chọn tab Tất cả để xem mọi SKU."
-              action={<Button variant="outline" onClick={() => doiTab(TAB_MAC_DINH)} className={NUT_PHU}>Xem tất cả</Button>}
+              title={t("Không có SKU nào ở mục này")}
+              description={t("Chọn tab Tất cả để xem mọi SKU.")}
+              action={<Button variant="outline" onClick={() => doiTab(TAB_MAC_DINH)} className={NUT_PHU}>{t("Xem tất cả")}</Button>}
             />
           ) : (
-            <EmptyState icon={Layers} title="Chưa có SKU" description="SKU được tạo khi thêm sản phẩm ở trang Sản phẩm." />
+            <EmptyState icon={Layers} title={t("Chưa có SKU")} description={t("SKU được tạo khi thêm sản phẩm ở trang Sản phẩm.")} />
           )
         ) : isMobile ? (
           // Điện thoại: mỗi sản phẩm một thẻ (nhiều phân loại thì mở / thu gọn như bảng), không vuốt ngang
-          <ul ref={bangRef} aria-label="SKU và giá bán" className="divide-y divide-bo-border md:hidden">
+          <ul ref={bangRef} aria-label={t("SKU và giá bán")} className="divide-y divide-bo-border md:hidden">
             {nhom.map((g) => (laMotPhanLoai(g) ? theSku(g.dong[0], g, false) : theNhom(g, laMo(g))))}
           </ul>
         ) : (
           // Máy tính bảng dọc (cảm ứng): bỏ cột SKU · Mã vạch và Giá vốn (SKU xuống dưới tên, giá vốn dưới giá bán),
           // nút In tem 44px — để bảng vừa khung, không vuốt ngang
-          <table ref={bangRef} aria-label="SKU và giá bán" className="w-full min-w-[1040px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
+          <table ref={bangRef} aria-label={t("SKU và giá bán")} className="w-full min-w-[1040px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-bo-border bg-bo-surface-subtle">
                 <th className={`${TH} w-10 text-left`}>
                   <Checkbox
                     checked={trangThaiChon(tatCaIds, chon)}
                     onCheckedChange={(v) => doiChon(tatCaIds, v === true)}
-                    aria-label="Chọn mọi SKU trên trang này"
+                    aria-label={t("Chọn mọi SKU trên trang này")}
                     className={CHECKBOX_CLASS}
                   />
                 </th>
-                <th className={`${TH} text-left`}>Sản phẩm</th>
-                <th className={`${TH} w-[250px] text-left cam-ung:max-lg:hidden`}>SKU · Mã vạch</th>
-                <th className={`${TH} w-24 text-right`}>Tồn kho</th>
-                <th className={`${TH} w-[120px] text-right cam-ung:max-lg:hidden`}>Giá vốn</th>
-                <th className={`${TH} w-40 text-right`}>Giá bán</th>
+                <th className={`${TH} text-left`}>{t("Sản phẩm")}</th>
+                <th className={`${TH} w-[250px] text-left cam-ung:max-lg:hidden`}>{t("SKU · Mã vạch")}</th>
+                <th className={`${TH} w-24 text-right`}>{t("Tồn kho")}</th>
+                <th className={`${TH} w-[120px] text-right cam-ung:max-lg:hidden`}>{t("Giá vốn")}</th>
+                <th className={`${TH} w-40 text-right`}>{t("Giá bán")}</th>
                 <th className={`${TH} w-24`}>
-                  <span className="sr-only">Thao tác</span>
+                  <span className="sr-only">{t("Thao tác")}</span>
                 </th>
               </tr>
             </thead>
@@ -982,8 +983,8 @@ export default function GiaBanTemPage() {
       <NganKeoLichSu
         open={Boolean(lichSuGia)}
         onOpenChange={(mo) => !mo && setLichSuGia(null)}
-        tieuDe={lichSuGia ? `Lịch sử giá ${lichSuGia.maSku || nhanBienThe(lichSuGia)}` : "Lịch sử giá"}
-        moTa="Ai đổi giá bán, lúc nào, từ bao nhiêu sang bao nhiêu và vì sao. Mới nhất ở trên."
+        tieuDe={lichSuGia ? t("Lịch sử giá {{maSku}}", { maSku: lichSuGia.maSku || nhanBienThe(lichSuGia) }) : t("Lịch sử giá")}
+        moTa={t("Ai đổi giá bán, lúc nào, từ bao nhiêu sang bao nhiêu và vì sao. Mới nhất ở trên.")}
         tai={() => (lichSuGia ? layLichSuGiaBienThe(lichSuGia.id) : Promise.resolve([]))}
       />
     </PageContainer>

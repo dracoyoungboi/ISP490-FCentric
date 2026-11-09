@@ -1,11 +1,12 @@
 import apiClient from "./apiClient";
+import { t } from "@/i18n";
 
 const BASE_URL = "/api/v1/dieu-hanh-he-thong/cau-hinh";
 
 function readConfigList(response) {
   const body = response.data;
   if (body?.status !== 200 || !Array.isArray(body.data)) {
-    const error = new Error(body?.message || "Dữ liệu cấu hình trả về không hợp lệ.");
+    const error = new Error(body?.message || t("Dữ liệu cấu hình trả về không hợp lệ."));
     error.response = response;
     throw error;
   }

@@ -14,10 +14,11 @@ import { viTriKhoService } from "@/services/viTriKhoService";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { KhungHop, NhomChon, Truong } from "./KhungHop";
 import { O_NHAP, dinhDangSo } from "./kieuNhap";
+import { t } from "@/i18n";
 
 const CACH_TAO = [
-  { ma: "mot", ten: "Một vị trí" },
-  { ma: "nhieu", ten: "Tạo hàng loạt" },
+  { ma: "mot", ten: t("Một vị trí") },
+  { ma: "nhieu", ten: t("Tạo hàng loạt") },
 ];
 
 /**
@@ -74,7 +75,7 @@ function NoiDung({ khoId, khuVucs, viTris, viTriSua, khuMacDinh, onDong, onDaLuu
   // Danh sách mã sẽ tạo (một mã hoặc khoảng hàng × tầng)
   const hangs = mot ? khoangSo(hangTu, hangTu) : khoangSo(hangTu, hangDen);
   const tangs = mot ? khoangSo(tangTu, tangTu) : khoangSo(tangTu, tangDen);
-  const maSeTao = dayChuan ? hangs.flatMap((h) => tangs.map((t) => maViTriKe(dayChuan, h, t))) : [];
+  const maSeTao = dayChuan ? hangs.flatMap((h) => tangs.map((tg) => maViTriKe(dayChuan, h, tg))) : [];
   const maMoi = maSeTao.filter((ma) => !maDaCo.has(ma));
   const soTrung = maSeTao.length - maMoi.length;
 
@@ -83,20 +84,20 @@ function NoiDung({ khoId, khuVucs, viTris, viTriSua, khuMacDinh, onDong, onDaLuu
   const choNhap = Number(viTriSua?.choNhap || 0);
   const soLoChoNhap = Number(viTriSua?.soLoChoNhap || 0);
   const loi = {};
-  if (!khuVucId) loi.khu = "Chọn khu vực.";
+  if (!khuVucId) loi.khu = t("Chọn khu vực.");
   if (!sua) {
-    if (!dayChuan) loi.day = "Nhập dãy.";
-    else if (!/^[A-Z0-9]{1,4}$/.test(dayChuan)) loi.day = "Dãy chỉ gồm chữ không dấu hoặc số, tối đa 4 ký tự.";
-    if (!hangs.length) loi.hang = mot ? "Hàng là số từ 1." : "Khoảng hàng chưa hợp lệ.";
-    if (!tangs.length) loi.tang = mot ? "Tầng là số từ 1." : "Khoảng tầng chưa hợp lệ.";
+    if (!dayChuan) loi.day = t("Nhập dãy.");
+    else if (!/^[A-Z0-9]{1,4}$/.test(dayChuan)) loi.day = t("Dãy chỉ gồm chữ không dấu hoặc số, tối đa 4 ký tự.");
+    if (!hangs.length) loi.hang = mot ? t("Hàng là số từ 1.") : t("Khoảng hàng chưa hợp lệ.");
+    if (!tangs.length) loi.tang = mot ? t("Tầng là số từ 1.") : t("Khoảng tầng chưa hợp lệ.");
     if (!loi.day && !loi.hang && !loi.tang) {
-      if (mot && soTrung) loi.ma = `Mã ${maSeTao[0]} đã có trong kho.`;
-      else if (!mot && maSeTao.length > SO_VI_TRI_TOI_DA_MOI_LAN) loi.ma = `Mỗi lần tạo tối đa ${SO_VI_TRI_TOI_DA_MOI_LAN} vị trí.`;
-      else if (!mot && !maMoi.length) loi.ma = "Tất cả mã trong khoảng này đã có.";
+      if (mot && soTrung) loi.ma = t("Mã {{maViTri}} đã có trong kho.", { maViTri: maSeTao[0] });
+      else if (!mot && maSeTao.length > SO_VI_TRI_TOI_DA_MOI_LAN) loi.ma = t("Mỗi lần tạo tối đa {{toiDa}} vị trí.", { toiDa: SO_VI_TRI_TOI_DA_MOI_LAN });
+      else if (!mot && !maMoi.length) loi.ma = t("Tất cả mã trong khoảng này đã có.");
     }
   }
-  if (!Number.isInteger(sc) || sc < 1) loi.sucChua = "Sức chứa là số nguyên từ 1.";
-  else if (sua && sc < dangChua) loi.sucChua = `Kệ đang chứa ${dinhDangSo(dangChua)} sản phẩm, sức chứa không được nhỏ hơn.`;
+  if (!Number.isInteger(sc) || sc < 1) loi.sucChua = t("Sức chứa là số nguyên từ 1.");
+  else if (sua && sc < dangChua) loi.sucChua = t("Kệ đang chứa {{dangChua}} sản phẩm, sức chứa không được nhỏ hơn.", { count: Number(dangChua) || 0, dangChua: dinhDangSo(dangChua) });
   const hopLe = Object.keys(loi).length === 0;
 
   const luu = async () => {
@@ -133,28 +134,28 @@ function NoiDung({ khoId, khuVucs, viTris, viTriSua, khuMacDinh, onDong, onDaLuu
       const ds = Array.isArray(ketQua) ? ketQua : ketQua ? [ketQua] : [];
       onDaLuu({ ds, laSua: sua });
     } catch (err) {
-      setLoiMayChu(getApiErrorMessage(err, "Không lưu được vị trí kệ. Vui lòng thử lại."));
+      setLoiMayChu(getApiErrorMessage(err, t("Không lưu được vị trí kệ. Vui lòng thử lại.")));
       setDangLuu(false);
     }
   };
 
   const loiHien = daGui ? loi : {};
   const xemTruoc = (() => {
-    if (!dayChuan || !hangs.length || !tangs.length) return { nhan: "Mã vị trí", gt: "—" };
-    if (mot) return { nhan: "Mã vị trí", gt: maSeTao[0] };
+    if (!dayChuan || !hangs.length || !tangs.length) return { nhan: t("Mã vị trí"), gt: "—" };
+    if (mot) return { nhan: t("Mã vị trí"), gt: maSeTao[0] };
     return {
-      nhan: `Sẽ tạo ${dinhDangSo(maMoi.length)} vị trí`,
+      nhan: t("Sẽ tạo {{soViTri}} vị trí", { count: maMoi.length, soViTri: dinhDangSo(maMoi.length) }),
       gt: `${maSeTao[0]} → ${maSeTao[maSeTao.length - 1]}`,
     };
   })();
 
   return (
     <KhungHop
-      tieuDe={sua ? `Sửa vị trí ${viTriSua.maViTri}` : "Thêm vị trí kệ"}
-      moTa={sua ? "Dãy, hàng, tầng không đổi được vì mã đã dán trên kệ." : "Mỗi vị trí là một ô trên kệ: dãy → hàng (cột kệ) → tầng."}
+      tieuDe={sua ? t("Sửa vị trí {{maViTri}}", { maViTri: viTriSua.maViTri }) : t("Thêm vị trí kệ")}
+      moTa={sua ? t("Dãy, hàng, tầng không đổi được vì mã đã dán trên kệ.") : t("Mỗi vị trí là một ô trên kệ: dãy → hàng (cột kệ) → tầng.")}
       onHuy={onDong}
       onGui={luu}
-      nhanGui={sua ? "Lưu thay đổi" : mot ? "Lưu vị trí" : "Tạo các vị trí"}
+      nhanGui={sua ? t("Lưu thay đổi") : mot ? t("Lưu vị trí") : t("Tạo các vị trí")}
       dangGui={dangLuu}
       chanTrai={
         sua && onXoa ? (
@@ -165,24 +166,24 @@ function NoiDung({ khoId, khuVucs, viTris, viTriSua, khuMacDinh, onDong, onDaLuu
             disabled={dangLuu || dangChua > 0 || choNhap > 0 || soLoChoNhap > 0}
             title={
               dangChua > 0
-                ? `Kệ còn ${dinhDangSo(dangChua)} sản phẩm, chuyển hàng đi trước khi xóa`
+                ? t("Kệ còn {{dangChua}} sản phẩm, chuyển hàng đi trước khi xóa", { count: Number(dangChua) || 0, dangChua: dinhDangSo(dangChua) })
                 : choNhap > 0
-                  ? `Kệ đang chờ nhập ${dinhDangSo(choNhap)} sản phẩm của phiếu nhập chưa nhập kho`
+                  ? t("Kệ đang chờ nhập {{choNhap}} sản phẩm của phiếu nhập chưa nhập kho", { count: Number(choNhap) || 0, choNhap: dinhDangSo(choNhap) })
                   : soLoChoNhap > 0
-                    ? `Kệ đang gắn ${dinhDangSo(soLoChoNhap)} lô đã khóa của phiếu nhập chưa nhập kho`
+                    ? t("Kệ đang gắn {{soLoChoNhap}} lô đã khóa của phiếu nhập chưa nhập kho", { count: Number(soLoChoNhap) || 0, soLoChoNhap: dinhDangSo(soLoChoNhap) })
                     : undefined
             }
             className="h-9 gap-1.5 px-2 text-bo-danger hover:bg-bo-danger-soft hover:text-bo-danger"
           >
             <Trash2 className="size-4" />
-            Xóa vị trí
+            {t("Xóa vị trí")}
           </Button>
         ) : null
       }
     >
-      {sua ? null : <NhomChon nhan="Cách tạo" value={cach} onChange={setCach} luaChon={CACH_TAO} day />}
+      {sua ? null : <NhomChon nhan={t("Cách tạo")} value={cach} onChange={setCach} luaChon={CACH_TAO} day />}
 
-      <Truong nhan="Khu vực" htmlFor="vt-khu" loi={loiHien.khu}>
+      <Truong nhan={t("Khu vực")} htmlFor="vt-khu" loi={loiHien.khu}>
         <select id="vt-khu" value={khuVucId} onChange={(e) => setKhuVucId(e.target.value)} className={O_NHAP}>
           {khuVucs.map((k) => (
             <option key={k.id} value={k.id}>
@@ -193,23 +194,23 @@ function NoiDung({ khoId, khuVucs, viTris, viTriSua, khuMacDinh, onDong, onDaLuu
       </Truong>
 
       <div className="grid gap-4 sm:grid-cols-[1fr_2fr]">
-        <Truong nhan="Dãy" htmlFor="vt-day" loi={loiHien.day}>
+        <Truong nhan={t("Dãy")} htmlFor="vt-day" loi={loiHien.day}>
           <input
             id="vt-day"
             value={day}
             disabled={sua}
             onChange={(e) => setDay(e.target.value.toUpperCase())}
-            placeholder="VD: A"
+            placeholder={t("VD: {{viDu}}", { viDu: "A" })}
             aria-invalid={Boolean(loiHien.day)}
             className={`${O_NHAP} font-mono`}
           />
         </Truong>
         <div className="grid grid-cols-2 gap-4">
-          <Truong nhan={mot ? "Hàng" : "Hàng (từ – đến)"} htmlFor="vt-hang" loi={loiHien.hang}>
-            <KhoangNhap id="vt-hang" mot={mot} tu={hangTu} den={hangDen} onTu={setHangTu} onDen={setHangDen} disabled={sua} nhan="Hàng" />
+          <Truong nhan={mot ? t("Hàng") : t("Hàng (từ – đến)")} htmlFor="vt-hang" loi={loiHien.hang}>
+            <KhoangNhap id="vt-hang" mot={mot} tu={hangTu} den={hangDen} onTu={setHangTu} onDen={setHangDen} disabled={sua} nhan={t("Hàng")} />
           </Truong>
-          <Truong nhan={mot ? "Tầng" : "Tầng (từ – đến)"} htmlFor="vt-tang" loi={loiHien.tang}>
-            <KhoangNhap id="vt-tang" mot={mot} tu={tangTu} den={tangDen} onTu={setTangTu} onDen={setTangDen} disabled={sua} nhan="Tầng" />
+          <Truong nhan={mot ? t("Tầng") : t("Tầng (từ – đến)")} htmlFor="vt-tang" loi={loiHien.tang}>
+            <KhoangNhap id="vt-tang" mot={mot} tu={tangTu} den={tangDen} onTu={setTangTu} onDen={setTangDen} disabled={sua} nhan={t("Tầng")} />
           </Truong>
         </div>
       </div>
@@ -220,33 +221,33 @@ function NoiDung({ khoId, khuVucs, viTris, viTriSua, khuMacDinh, onDong, onDaLuu
           <p className="truncate font-mono text-base font-semibold text-bo-heading">{xemTruoc.gt}</p>
         </div>
         <p className="text-xs text-bo-muted">
-          {mot ? "Tự ghép từ Dãy - Hàng - Tầng · tầng 01 sát sàn" : soTrung ? `Bỏ qua ${dinhDangSo(soTrung)} mã đã có` : "Bỏ qua mã đã có"}
+          {mot ? t("Tự ghép từ Dãy - Hàng - Tầng · tầng 01 sát sàn") : soTrung ? t("Bỏ qua {{soTrung}} mã đã có", { count: soTrung, soTrung: dinhDangSo(soTrung) }) : t("Bỏ qua mã đã có")}
         </p>
       </div>
       {loiHien.ma ? <p className="-mt-2 text-xs text-bo-danger">{loiHien.ma}</p> : null}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Truong
-          nhan="Sức chứa tối đa"
+          nhan={t("Sức chứa tối đa")}
           htmlFor="vt-suc-chua"
           loi={loiHien.sucChua}
-          goiY={sua ? `Đang chứa ${dinhDangSo(dangChua)} sản phẩm` : "Số sản phẩm tối đa trên một vị trí"}
+          goiY={sua ? t("Đang chứa {{dangChua}} sản phẩm", { count: Number(dangChua) || 0, dangChua: dinhDangSo(dangChua) }) : t("Số sản phẩm tối đa trên một vị trí")}
         >
           <input
             id="vt-suc-chua"
             inputMode="numeric"
             value={sucChua}
             onChange={(e) => setSucChua(e.target.value.replace(/\D/g, "").slice(0, 6))}
-            placeholder="VD: 40"
+            placeholder={t("VD: {{viDu}}", { viDu: "40" })}
             aria-invalid={Boolean(loiHien.sucChua)}
             className={`${O_NHAP} tabular-nums`}
           />
         </Truong>
-        <Truong nhan="Trạng thái" htmlFor="vt-trang-thai" goiY="“Đầy” do hệ thống tự gắn khi đang chứa bằng sức chứa">
+        <Truong nhan={t("Trạng thái")} htmlFor="vt-trang-thai" goiY={t("“Đầy” do hệ thống tự gắn khi đang chứa bằng sức chứa")}>
           <select id="vt-trang-thai" value={trangThai} onChange={(e) => setTrangThai(e.target.value)} className={O_NHAP}>
-            {TRANG_THAI_KE_CHON.map((t) => (
-              <option key={t.ma} value={t.ma}>
-                {t.ten}
+            {TRANG_THAI_KE_CHON.map((tg) => (
+              <option key={tg.ma} value={tg.ma}>
+                {t(tg.ten)}
               </option>
             ))}
           </select>
@@ -265,8 +266,8 @@ function KhoangNhap({ id, mot, tu, den, onTu, onDen, disabled, nhan }) {
   }
   return (
     <div className="grid grid-cols-2 gap-2">
-      <input id={id} aria-label={`${nhan} từ`} inputMode="numeric" value={tu} onChange={(e) => onTu(chiSo(e.target.value))} className={o} />
-      <input aria-label={`${nhan} đến`} inputMode="numeric" value={den} onChange={(e) => onDen(chiSo(e.target.value))} className={o} />
+      <input id={id} aria-label={t("{{nhan}} từ", { nhan })} inputMode="numeric" value={tu} onChange={(e) => onTu(chiSo(e.target.value))} className={o} />
+      <input aria-label={t("{{nhan}} đến", { nhan })} inputMode="numeric" value={den} onChange={(e) => onDen(chiSo(e.target.value))} className={o} />
     </div>
   );
 }

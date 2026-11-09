@@ -9,6 +9,7 @@ import ChiTietNhapChuyenKho from "@/components/nhap-kho/phieu-nhap-chuyen-kho/Ch
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { getApiErrorMessage } from "@/utils/apiError";
 import ChiTietNhapTuDonMua from "./ChiTietNhapTuDonMua";
+import { t } from "@/i18n";
 
 /**
  * Chi tiết phiếu nhập kho (/goods-receipts/:id): tải phiếu một lần rồi chọn màn theo loại —
@@ -50,7 +51,7 @@ function ManPhieuNhapKho({ id }) {
             if (requestId !== requestIdRef.current) return;
             console.error(e);
             if (silent) {
-                if (!quiet) toast.error(getApiErrorMessage(e, "Không tải lại được phiếu nhập"));
+                if (!quiet) toast.error(getApiErrorMessage(e, t("Không tải lại được phiếu nhập")));
                 return;
             }
             setData(null);
@@ -74,7 +75,7 @@ function ManPhieuNhapKho({ id }) {
     if (loading) {
         return (
             <PageContainer className="flex min-h-full flex-col">
-                <KhungDangTai nhan="Đang tải phiếu nhập kho" coTienTrinh={false} />
+                <KhungDangTai nhan={t("Đang tải phiếu nhập kho")} coTienTrinh={false} />
             </PageContainer>
         );
     }
@@ -84,7 +85,7 @@ function ManPhieuNhapKho({ id }) {
             <PageContainer className="flex min-h-full flex-col">
                 <KhungLoiChungTu
                     loi={loi}
-                    tenChungTu="phiếu nhập kho"
+                    tenChungTu={t("phiếu nhập kho")}
                     onVeDanhSach={() => navigate("/goods-receipts")}
                     onThuLai={() => fetchDetail()}
                 />

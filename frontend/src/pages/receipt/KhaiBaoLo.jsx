@@ -27,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import ConfirmModal from "@/components/ui/confirm-modal";
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import { formatDate } from "@/utils/formatters";
+import { t } from "@/i18n";
 
 // dangSua: đang sửa lô đã khai báo (máy chủ cập nhật lô theo mã lô) — mã lô bị khóa để không sinh lô thứ hai
 const DEFAULT_FORM = { maLo: "", nsx: "", soLuongNhap: "", ghiChu: "", dangSua: false };
@@ -61,6 +62,7 @@ export default function KhaiBaoLo() {
     };
 
     const isEditable = checkIsEditable();
+    // i18n-giu-nguyen: so khớp loại nhập do máy chủ trả
     const isAutoLotMode = detail?.phieu?.loaiNhap?.includes("Chuyển kho") || detail?.phieu?.loaiNhap?.includes("hoàn trả");
 
     // silent: tải lại sau khi lưu / xóa lô — lỗi chỉ báo toast, giữ dữ liệu đang hiện
@@ -81,14 +83,14 @@ export default function KhaiBaoLo() {
             setLotList(Array.isArray(resLots?.data) ? resLots.data : []);
         } catch (error) {
             if (silent) {
-                toast.error(getApiErrorMessage(error, "Không tải lại được dữ liệu lô hàng"));
+                toast.error(getApiErrorMessage(error, t("Không tải lại được dữ liệu lô hàng")));
                 return;
             }
             // Máy chủ trả 400 "Không tìm thấy phiếu nhập id: …" khi mã không tồn tại
             const status = getApiErrorStatus(error);
             setLoadError(status === 404 || status === 400
                 ? "notfound-phieu"
-                : { message: getApiErrorMessage(error, "Không thể tải dữ liệu lô hàng") });
+                : { message: getApiErrorMessage(error, t("Không thể tải dữ liệu lô hàng")) });
         }
     }, [phieuNhapKhoId, bienTheSanPhamId]);
 
@@ -118,10 +120,10 @@ export default function KhaiBaoLo() {
         : null;
 
     async function handleSaveLot() {
-        if (!isEditable) return toast.error("Phiếu đã khóa hoặc lô tự động");
+        if (!isEditable) return toast.error(t("Phiếu đã khóa hoặc lô tự động"));
         if (savingRef.current) return;
         const { maLo, soLuongNhap, nsx, ghiChu } = form;
-        if (!maLo || !soLuongNhap || !nsx) return toast.error("Nhập đầy đủ thông tin bắt buộc");
+        if (!maLo || !soLuongNhap || !nsx) return toast.error(t("Nhập đầy đủ thông tin bắt buộc"));
         savingRef.current = true;
         setLoading(true);
         try {
@@ -130,10 +132,10 @@ export default function KhaiBaoLo() {
                 maLo, ngaySanXuat: nsx ? `${nsx}T00:00:00.000Z` : null,
                 soLuongNhap: Number(soLuongNhap), ghiChu,
             });
-            toast.success(form.dangSua || maLoTrung ? `Đã cập nhật lô ${maLo}` : "Khai báo lô thành công");
+            toast.success(form.dangSua || maLoTrung ? t("Đã cập nhật lô {{maLo}}", { maLo }) : t("Khai báo lô thành công"));
             resetForm();
             await fetchDetail({ silent: true });
-        } catch (error) { toast.error(getApiErrorMessage(error, "Không thể khai báo lô")); }
+        } catch (error) { toast.error(getApiErrorMessage(error, t("Không thể khai báo lô"))); }
         finally {
             savingRef.current = false;
             setLoading(false);
@@ -157,12 +159,12 @@ export default function KhaiBaoLo() {
         setDeleting(true);
         try {
             await phieuNhapKhoService.deleteLo(phieuNhapKhoId, selectedLot.chiTietPhieuNhapKhoId);
-            toast.success("Xóa lô thành công");
+            toast.success(t("Xóa lô thành công"));
             setShowDeleteConfirm(false);
             // Lô đang sửa vừa bị xóa thì trả biểu mẫu về khai báo mới
             if (form.dangSua && form.maLo === selectedLot.maLo) resetForm();
             await fetchDetail({ silent: true });
-        } catch (error) { toast.error(getApiErrorMessage(error, "Không thể xóa lô")); }
+        } catch (error) { toast.error(getApiErrorMessage(error, t("Không thể xóa lô"))); }
         finally {
             deletingRef.current = false;
             setDeleting(false);
@@ -173,7 +175,7 @@ export default function KhaiBaoLo() {
         if (!loadError) {
             return (
                 <PageContainer>
-                    <LoadingState rows={3} label="Đang tải dữ liệu lô hàng" />
+                    <LoadingState rows={3} label={t("Đang tải dữ liệu lô hàng")} />
                 </PageContainer>
             );
         }
@@ -185,22 +187,22 @@ export default function KhaiBaoLo() {
                     {notFoundPhieu || notFoundItem ? (
                         <EmptyState
                             icon={SearchX}
-                            title={notFoundPhieu ? "Không tìm thấy phiếu nhập kho" : "Không tìm thấy biến thể trong phiếu nhập"}
+                            title={notFoundPhieu ? t("Không tìm thấy phiếu nhập kho") : t("Không tìm thấy biến thể trong phiếu nhập")}
                             description={notFoundPhieu
-                                ? "Phiếu nhập kho không tồn tại hoặc đã bị xóa khỏi hệ thống."
-                                : "Biến thể này không có trong phiếu nhập kho."}
+                                ? t("Phiếu nhập kho không tồn tại hoặc đã bị xóa khỏi hệ thống.")
+                                : t("Biến thể này không có trong phiếu nhập kho.")}
                             action={
                                 <Button
                                     onClick={() => navigate(notFoundPhieu ? "/goods-receipts" : `/goods-receipts/${phieuNhapKhoId}`)}
                                     className="bg-bo-primary font-semibold text-white hover:bg-bo-primary-hover"
                                 >
-                                    {notFoundPhieu ? "Quay lại danh sách" : "Quay lại chi tiết phiếu nhập"}
+                                    {notFoundPhieu ? t("Quay lại danh sách") : t("Quay lại chi tiết phiếu nhập")}
                                 </Button>
                             }
                         />
                     ) : (
                         <ErrorState
-                            title="Không thể tải dữ liệu lô hàng"
+                            title={t("Không thể tải dữ liệu lô hàng")}
                             description={loadError.message}
                             onRetry={() => fetchDetail()}
                         />
@@ -228,25 +230,25 @@ export default function KhaiBaoLo() {
                 className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-bo-muted transition-colors hover:text-bo-primary"
             >
                 <ArrowLeft className="size-4" />
-                Quay lại chi tiết phiếu nhập
+                {t("Quay lại chi tiết phiếu nhập")}
             </button>
 
             <PageHeader
-                title="Khai báo lô hàng"
-                description="Khai báo thông tin lô cho biến thể sản phẩm trong phiếu nhập kho."
+                title={t("Khai báo lô hàng")}
+                description={t("Khai báo thông tin lô cho biến thể sản phẩm trong phiếu nhập kho.")}
             />
 
             {/* ── Info Component ── */}
             <SurfaceCard
-                title="Thông tin biến thể"
+                title={t("Thông tin biến thể")}
                 action={<span className="font-mono text-xs font-semibold text-slate-600">SKU: {item.sku}</span>}
             >
                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
-                    <InfoItem label="Sản phẩm" value={item.tenBienThe} />
-                    <InfoItem label="Mã SKU" value={item.sku} isBadge />
-                    <InfoItem label="Cần nhập" value={item.soLuongCanNhap} />
+                    <InfoItem label={t("Sản phẩm")} value={item.tenBienThe} />
+                    <InfoItem label={t("Mã SKU")} value={item.sku} isBadge />
+                    <InfoItem label={t("Cần nhập")} value={item.soLuongCanNhap} />
                     <InfoItem
-                        label="Đã khai báo"
+                        label={t("Đã khai báo")}
                         value={`${isAutoLotMode ? item.soLuongCanNhap : (item.soLuongDaKhaiBao ?? 0)} / ${item.soLuongCanNhap}`}
                         highlight={isEnough || isAutoLotMode}
                     />
@@ -257,13 +259,13 @@ export default function KhaiBaoLo() {
                 {/* ── Lot List ── */}
                 <div className="lg:col-span-2">
                     <TableShell
-                        title="Danh sách lô"
-                        description={isEditable ? "Bấm vào một lô để sửa. Muốn đổi mã lô thì xóa lô đó rồi khai báo lại." : undefined}
+                        title={t("Danh sách lô")}
+                        description={isEditable ? t("Bấm vào một lô để sửa. Muốn đổi mã lô thì xóa lô đó rồi khai báo lại.") : undefined}
                         toolbar={
                             !isEditable ? (
                                 <div className="flex items-center justify-end border-b border-bo-border px-4 py-2.5 sm:px-5">
                                     <StatusBadge
-                                        label={isAutoLotMode ? "Lô tự động" : "Chỉ xem"}
+                                        label={isAutoLotMode ? t("Lô tự động") : t("Chỉ xem")}
                                         tone="neutral"
                                     />
                                 </div>
@@ -273,17 +275,17 @@ export default function KhaiBaoLo() {
                         {lotList.length === 0 ? (
                             <EmptyState
                                 icon={Database}
-                                title="Chưa có dữ liệu lô hàng"
-                                description="Khai báo lô hàng cho biến thể này bằng biểu mẫu bên cạnh."
+                                title={t("Chưa có dữ liệu lô hàng")}
+                                description={t("Khai báo lô hàng cho biến thể này bằng biểu mẫu bên cạnh.")}
                             />
                         ) : (
                             <table className="w-full min-w-[560px] text-sm">
                                 <thead>
                                     <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                                        <th className="h-10 px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Mã lô</th>
-                                        <th className="h-10 px-4 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày SX</th>
-                                        <th className="h-10 px-4 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Số lượng</th>
-                                        <th className="h-10 px-4 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Thao tác</th>
+                                        <th className="h-10 px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Mã lô")}</th>
+                                        <th className="h-10 px-4 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Ngày SX")}</th>
+                                        <th className="h-10 px-4 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Số lượng")}</th>
+                                        <th className="h-10 px-4 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Thao tác")}</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-bo-border">
@@ -310,7 +312,7 @@ export default function KhaiBaoLo() {
                                                         <RowActionButton
                                                             icon={Trash2}
                                                             tone="danger"
-                                                            label={`Xóa lô ${lo.maLo}`}
+                                                            label={t("Xóa lô {{maLo}}", { maLo: lo.maLo })}
                                                             disabled={deleting}
                                                             onClick={() => openDeleteConfirm(lo)}
                                                         />
@@ -328,29 +330,29 @@ export default function KhaiBaoLo() {
                 {/* ── Form / Status ── */}
                 <div className="lg:col-span-1">
                     {isEditable ? (
-                        <SurfaceCard title={form.dangSua ? `Sửa lô ${form.maLo}` : "Khai báo lô mới"}>
+                        <SurfaceCard title={form.dangSua ? t("Sửa lô {{maLo}}", { maLo: form.maLo }) : t("Khai báo lô mới")}>
                             <div className="flex flex-col gap-4">
                                 <div className="flex flex-col gap-2">
-                                    <label className="text-xs font-medium text-bo-foreground">Mã lô</label>
+                                    <label className="text-xs font-medium text-bo-foreground">{t("Mã lô")}</label>
                                     <input
                                         className={form.dangSua ? `${FIELD_CLASS} cursor-default bg-bo-surface-subtle text-bo-muted` : FIELD_CLASS}
                                         name="maLo"
-                                        placeholder="Ví dụ: LO-001"
+                                        placeholder={t("Ví dụ: LO-001")}
                                         value={form.maLo}
                                         readOnly={form.dangSua}
                                         aria-describedby={maLoTrung ? "canh-bao-ma-lo" : undefined}
                                         onChange={e => setForm(p => ({ ...p, maLo: e.target.value }))}
                                     />
                                     {form.dangSua ? (
-                                        <p className="text-xs text-bo-muted">Mã lô không đổi được khi sửa.</p>
+                                        <p className="text-xs text-bo-muted">{t("Mã lô không đổi được khi sửa.")}</p>
                                     ) : maLoTrung ? (
                                         <p id="canh-bao-ma-lo" className="text-xs text-bo-warning">
-                                            Mã lô đã có trong phiếu (số lượng {maLoTrung.soLuongNhap}). Lưu sẽ thay số lượng của lô này, không cộng thêm.
+                                            {t("Mã lô đã có trong phiếu (số lượng {{soLuong}}). Lưu sẽ thay số lượng của lô này, không cộng thêm.", { soLuong: maLoTrung.soLuongNhap })}
                                         </p>
                                     ) : null}
                                 </div>
                                 <div className="flex flex-col gap-2">
-                                    <label className="text-xs font-medium text-bo-foreground">Ngày sản xuất</label>
+                                    <label className="text-xs font-medium text-bo-foreground">{t("Ngày sản xuất")}</label>
                                     <input
                                         className={FIELD_CLASS}
                                         type="date"
@@ -359,7 +361,7 @@ export default function KhaiBaoLo() {
                                     />
                                 </div>
                                 <div className="flex flex-col gap-2">
-                                    <label className="text-xs font-medium text-bo-foreground">Số lượng</label>
+                                    <label className="text-xs font-medium text-bo-foreground">{t("Số lượng")}</label>
                                     <input
                                         className={`${FIELD_CLASS} font-semibold`}
                                         type="number"
@@ -369,7 +371,7 @@ export default function KhaiBaoLo() {
                                     />
                                 </div>
                                 <div className="flex flex-col gap-2">
-                                    <label className="text-xs font-medium text-bo-foreground">Ghi chú</label>
+                                    <label className="text-xs font-medium text-bo-foreground">{t("Ghi chú")}</label>
                                     <input
                                         className={FIELD_CLASS}
                                         placeholder="..."
@@ -384,19 +386,19 @@ export default function KhaiBaoLo() {
                                         className="w-full gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover disabled:opacity-50"
                                     >
                                         {loading ? <Loader2 className="size-4 animate-spin" /> : null}
-                                        {form.dangSua ? "Lưu thay đổi" : "Lưu lô hàng"}
+                                        {form.dangSua ? t("Lưu thay đổi") : t("Lưu lô hàng")}
                                     </Button>
                                     <Button
                                         variant="outline"
                                         onClick={resetForm}
                                         className="w-full gap-2 border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                                     >
-                                        <RotateCcw className="size-4" /> {form.dangSua ? "Hủy sửa" : "Nhập lại"}
+                                        <RotateCcw className="size-4" /> {form.dangSua ? t("Hủy sửa") : t("Nhập lại")}
                                     </Button>
                                 </div>
                                 {isEnough && (
                                     <div className="flex items-center gap-2 rounded-lg border border-bo-success/20 bg-bo-success-soft p-3 text-xs font-semibold text-bo-success">
-                                        <CheckCircle2 className="size-4 shrink-0" /> Đã khai báo đủ số lượng
+                                        <CheckCircle2 className="size-4 shrink-0" /> {t("Đã khai báo đủ số lượng")}
                                     </div>
                                 )}
                             </div>
@@ -408,8 +410,8 @@ export default function KhaiBaoLo() {
                             </span>
                             <p className="text-sm font-medium leading-6 text-bo-muted">
                                 {isAutoLotMode
-                                    ? "Hệ thống đã tự động kế thừa lô hàng từ nguồn. Bạn không cần khai báo thủ công."
-                                    : "Phiếu đã khóa hoặc bị hủy, không thể chỉnh sửa dữ liệu lô."}
+                                    ? t("Hệ thống đã tự động kế thừa lô hàng từ nguồn. Bạn không cần khai báo thủ công.")
+                                    : t("Phiếu đã khóa hoặc bị hủy, không thể chỉnh sửa dữ liệu lô.")}
                             </p>
                         </div>
                     )}
@@ -421,11 +423,11 @@ export default function KhaiBaoLo() {
                 isOpen={showDeleteConfirm}
                 onClose={closeDeleteConfirm}
                 onConfirm={handleDelete}
-                title="Xóa lô hàng"
+                title={t("Xóa lô hàng")}
                 description={
-                    <>Chắc chắn muốn xóa lô <span className="font-semibold text-bo-danger">{selectedLot?.maLo}</span>?</>
+                    <>{t("Chắc chắn muốn xóa lô")} <span className="font-semibold text-bo-danger">{selectedLot?.maLo}</span>?</>
                 }
-                confirmText="Xóa lô"
+                confirmText={t("Xóa lô")}
                 isLoading={deleting}
             />
         </PageContainer>

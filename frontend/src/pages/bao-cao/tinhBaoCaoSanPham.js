@@ -1,25 +1,27 @@
 // Phần tính của màn Báo cáo sản phẩm (không gọi API): nhóm tab, xếp cột, ma trận màu × size, lỗi khoảng ngày.
 import { khoangMoc, ngayMay } from "./tinhBaoCaoDoanhThu";
+import { t } from "../../i18n/t.js";
 
 export const N = (v) => Number(v) || 0;
 
 /** Tab nhóm sản phẩm (tham số "nhom" trên URL). */
 export const NHOM = [
-  { value: "tat-ca", label: "Tất cả" },
-  { value: "co-ban", label: "Có bán" },
+  { value: "tat-ca", label: t("Tất cả") },
+  { value: "co-ban", label: t("Có bán") },
   // Sắp hết hàng gồm cả mã đang bán mà đã hết sạch (cần nhập gấp nhất)
-  { value: "sap-het", label: "Sắp hết hàng", tone: "danger", loc: (p) => p.tinhTrang === "BAN_CHAY_SAP_HET" || (p.tinhTrang === "HET_HANG" && N(p.soLuong) > 0) },
-  { value: "du-hang", label: "Dư hàng", tone: "warning", tinhTrang: "DU_HANG" },
-  { value: "khong-ban", label: "Không bán", tinhTrang: "KHONG_BAN" },
+  { value: "sap-het", label: t("Sắp hết hàng"), tone: "danger", loc: (p) => p.tinhTrang === "BAN_CHAY_SAP_HET" || (p.tinhTrang === "HET_HANG" && N(p.soLuong) > 0) },
+  { value: "du-hang", label: t("Dư hàng"), tone: "warning", tinhTrang: "DU_HANG" },
+  { value: "khong-ban", label: t("Không bán"), tinhTrang: "KHONG_BAN" },
 ];
 
 /** Nhãn tình trạng (StatusBadge) theo mã máy chủ. */
+// i18n-giu-nguyen: nhãn đưa vào StatusBadge (badge tự dịch lúc vẽ, tra màu theo tên Việt)
 export const TINH_TRANG = {
-  BAN_CHAY_SAP_HET: { label: "Sắp hết hàng" },
-  DU_HANG: { label: "Dư hàng" },
-  KHONG_BAN: { label: "Không bán", nhom: "canChuY" },
-  HET_HANG: { label: "Hết hàng" },
-  BINH_THUONG: { label: "Bình thường" },
+  BAN_CHAY_SAP_HET: { label: "Sắp hết hàng" }, // i18n-giu-nguyen: nhãn StatusBadge
+  DU_HANG: { label: "Dư hàng" }, // i18n-giu-nguyen: nhãn StatusBadge
+  KHONG_BAN: { label: "Không bán", nhom: "canChuY" }, // i18n-giu-nguyen: nhãn StatusBadge
+  HET_HANG: { label: "Hết hàng" }, // i18n-giu-nguyen: nhãn StatusBadge
+  BINH_THUONG: { label: "Bình thường" }, // i18n-giu-nguyen: nhãn StatusBadge
 };
 
 export function locNhom(ds, nhom) {
@@ -76,15 +78,15 @@ export function maTran(bienThe = []) {
 
 /** Lỗi khoảng ngày tùy chọn (chuỗi rỗng = hợp lệ): đủ hai ngày, từ năm 2000, không sau hôm nay, tối đa 1 năm. */
 export function loiKhoang(tuNgay, denNgay, homNay = new Date()) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(tuNgay ?? "") || !/^\d{4}-\d{2}-\d{2}$/.test(denNgay ?? "")) return "Chọn đủ từ ngày và đến ngày.";
-  if (Number(tuNgay.slice(0, 4)) < 2000 || Number(denNgay.slice(0, 4)) < 2000) return "Ngày phải từ năm 2000 trở đi.";
-  if (tuNgay > denNgay) return "Từ ngày phải trước hoặc bằng đến ngày.";
-  if (denNgay > ngayMay(homNay)) return "Đến ngày không được sau hôm nay.";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(tuNgay ?? "") || !/^\d{4}-\d{2}-\d{2}$/.test(denNgay ?? "")) return t("Chọn đủ từ ngày và đến ngày.");
+  if (Number(tuNgay.slice(0, 4)) < 2000 || Number(denNgay.slice(0, 4)) < 2000) return t("Ngày phải từ năm 2000 trở đi.");
+  if (tuNgay > denNgay) return t("Từ ngày phải trước hoặc bằng đến ngày.");
+  if (denNgay > ngayMay(homNay)) return t("Đến ngày không được sau hôm nay.");
   // Mốc 1 năm như LocalDate.plusYears của máy chủ: 29/02 sang năm không nhuận thành 28/02
   const [y, m, d] = tuNgay.split("-").map(Number);
   const motNam = new Date(y + 1, m - 1, d);
   if (motNam.getMonth() !== m - 1) motNam.setDate(0);
-  if (denNgay >= ngayMay(motNam)) return "Mỗi lần xem tối đa 1 năm.";
+  if (denNgay >= ngayMay(motNam)) return t("Mỗi lần xem tối đa 1 năm.");
   return "";
 }
 

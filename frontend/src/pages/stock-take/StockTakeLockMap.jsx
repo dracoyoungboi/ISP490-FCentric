@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { laySoDo } from "@/services/stockTakeService";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { ROLES, hasAnyRole } from "@/utils/roles";
+import { t } from "@/i18n";
 
 /** Kiểu ô kệ theo khóa / trạng thái vận hành. */
 function kieuKe(k) {
@@ -36,11 +37,11 @@ const MAU = {
   trong: "border-bo-border bg-bo-surface-subtle text-slate-500",
 };
 const CHU = {
-  toan: "Khóa toàn kệ",
-  min: "Khóa mịn (theo lô)",
-  baoTri: "Bảo trì",
-  coHang: "Đang vận hành",
-  trong: "Kệ trống",
+  toan: t("Khóa toàn kệ"),
+  min: t("Khóa mịn (theo lô)"),
+  baoTri: t("Bảo trì"),
+  coHang: t("Đang vận hành"),
+  trong: t("Kệ trống"),
 };
 /** Mẫu màu đặc trên chip lọc (cùng sắc với ô kệ, đậm hơn để nhìn ra ở cỡ nhỏ). */
 const MAU_CHAM = {
@@ -52,17 +53,17 @@ const MAU_CHAM = {
 };
 const KIEU = ["toan", "min", "baoTri", "coHang", "trong"];
 const TRONG_THEO_LOC = {
-  toan: { title: "Không có kệ nào khóa toàn kệ", description: "Không đợt kiểm kê nào đang khóa trọn một kệ của kho." },
-  min: { title: "Không có kệ nào khóa mịn", description: "Không đợt kiểm kê nào đang giữ lô trên kệ của kho." },
-  baoTri: { title: "Không có kệ nào đang bảo trì", description: "Mọi kệ của kho đang vận hành." },
-  coHang: { title: "Không có kệ nào đang vận hành có hàng", description: "Các kệ còn lại đang khóa, bảo trì hoặc trống." },
-  trong: { title: "Không có kệ trống", description: "Kệ nào chưa khóa, chưa bảo trì cũng đang có hàng." },
+  toan: { title: t("Không có kệ nào khóa toàn kệ"), description: t("Không đợt kiểm kê nào đang khóa trọn một kệ của kho.") },
+  min: { title: t("Không có kệ nào khóa mịn"), description: t("Không đợt kiểm kê nào đang giữ lô trên kệ của kho.") },
+  baoTri: { title: t("Không có kệ nào đang bảo trì"), description: t("Mọi kệ của kho đang vận hành.") },
+  coHang: { title: t("Không có kệ nào đang vận hành có hàng"), description: t("Các kệ còn lại đang khóa, bảo trì hoặc trống.") },
+  trong: { title: t("Không có kệ trống"), description: t("Kệ nào chưa khóa, chưa bảo trì cũng đang có hàng.") },
 };
 
 /** Lọc theo đúng nhóm tô màu trên sơ đồ: mỗi kệ thuộc một nhóm, nên số trên các chip cộng lại bằng tổng kệ. */
 const hopLoc = (k, loc) => loc === "tatCa" || kieuKe(k) === loc;
 /** Đuôi mã đợt ghi trên ô kệ: một đợt "…002", nhiều đợt "2 đợt". */
-const nhanDot = (dot) => (!dot?.length ? null : dot.length > 1 ? `${dot.length} đợt` : `…${String(dot[0].ma ?? "").slice(-3)}`);
+const nhanDot = (dot) => (!dot?.length ? null : dot.length > 1 ? t("{{soDot}} đợt", { count: dot.length, soDot: dot.length }) : `…${String(dot[0].ma ?? "").slice(-3)}`);
 
 /** Chip lọc kiêm chú giải: mẫu màu đặc + tên nhóm + số kệ. Bấm chip đang chọn thì về Tất cả. */
 function ChipLoc({ chon, onClick, cham, so, children }) {
@@ -149,23 +150,23 @@ export default function StockTakeLockMap() {
 
   // Lưới trống: nói đúng lý do theo bộ lọc / ô tìm
   const trong = (() => {
-    if (!tatCaKe.length) return { title: "Kho chưa có kệ", description: "Thêm khu vực và kệ ở Vị trí kệ để xem sơ đồ khóa." };
+    if (!tatCaKe.length) return { title: t("Kho chưa có kệ"), description: t("Thêm khu vực và kệ ở Vị trí kệ để xem sơ đồ khóa.") };
     if (loc !== "tatCa" && !tatCaKe.some((k) => hopLoc(k, loc))) {
       return {
         ...TRONG_THEO_LOC[loc],
         action: (
           <Button variant="outline" onClick={() => setLoc("tatCa")} className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">
-            Xem tất cả kệ
+            {t("Xem tất cả kệ")}
           </Button>
         ),
       };
     }
     return {
-      title: `Không có kệ nào khớp “${tim.trim()}”`,
-      description: loc === "tatCa" ? "Thử mã kệ khác." : `Đang lọc “${CHU[loc]}”. Thử mã kệ khác hoặc chọn Tất cả.`,
+      title: t("Không có kệ nào khớp “{{tuKhoa}}”", { tuKhoa: tim.trim() }),
+      description: loc === "tatCa" ? t("Thử mã kệ khác.") : t("Đang lọc “{{loc}}”. Thử mã kệ khác hoặc chọn Tất cả.", { loc: CHU[loc] }),
       action: (
         <Button variant="outline" onClick={() => setTim("")} className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">
-          Xóa tìm kiếm
+          {t("Xóa tìm kiếm")}
         </Button>
       ),
     };
@@ -177,7 +178,7 @@ export default function StockTakeLockMap() {
   return (
     <PageContainer fill className="space-y-4">
       <ListPageHeader
-        title="Sơ đồ khóa kiểm kê"
+        title={t("Sơ đồ khóa kiểm kê")}
         actions={
           <Button
             variant="outline"
@@ -185,7 +186,7 @@ export default function StockTakeLockMap() {
             className="h-9 gap-2 border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
           >
             <ArrowLeft className="size-4" />
-            Đợt kiểm kê
+            {t("Đợt kiểm kê")}
           </Button>
         }
       />
@@ -193,8 +194,8 @@ export default function StockTakeLockMap() {
       {kho.loi ? (
         <div className="rounded-lg border border-bo-border bg-bo-surface">
           <ErrorState
-            title="Không tải được danh sách kho"
-            description={`${getApiErrorMessage(kho.loi, "Lỗi kết nối")}. Thử lại sau giây lát.`}
+            title={t("Không tải được danh sách kho")}
+            description={t("{{loi}}. Thử lại sau giây lát.", { loi: getApiErrorMessage(kho.loi, t("Lỗi kết nối")) })}
             onRetry={kho.taiLai}
           />
         </div>
@@ -202,8 +203,8 @@ export default function StockTakeLockMap() {
         <div className="rounded-lg border border-bo-border bg-bo-surface">
           <EmptyState
             icon={Warehouse}
-            title={laQtv ? "Chưa có kho giao dịch nào" : "Bạn chưa được phân kho nào"}
-            description={laQtv ? "Tạo kho trước rồi quay lại để xem sơ đồ khóa." : "Nhờ quản trị viên phân kho để xem sơ đồ khóa kiểm kê."}
+            title={laQtv ? t("Chưa có kho giao dịch nào") : t("Bạn chưa được phân kho nào")}
+            description={laQtv ? t("Tạo kho trước rồi quay lại để xem sơ đồ khóa.") : t("Nhờ quản trị viên phân kho để xem sơ đồ khóa kiểm kê.")}
           />
         </div>
       ) : (
@@ -214,16 +215,16 @@ export default function StockTakeLockMap() {
                 <ChonKhoKiemKe dsKho={kho.dsKho} value={kho.khoId} onChange={kho.doiKho} className="w-full sm:w-[240px]" />
               ) : null}
               <label className="relative flex min-w-[180px] max-w-xs flex-1 items-center">
-                <span className="sr-only">Tìm kệ</span>
+                <span className="sr-only">{t("Tìm kệ")}</span>
                 <Search className="pointer-events-none absolute left-2.5 size-4 text-bo-muted" aria-hidden="true" />
-                <input value={tim} onChange={(e) => setTim(e.target.value)} placeholder="Tìm mã kệ" className={cn(O_NHAP, "pl-8")} />
+                <input value={tim} onChange={(e) => setTim(e.target.value)} placeholder={t("Tìm mã kệ")} className={cn(O_NHAP, "pl-8")} />
               </label>
             </div>
             {/* Chip lọc kiêm chú giải màu ô kệ; số đếm chỉ hiện khi đã có sơ đồ của kho đang chọn */}
-            <div role="group" aria-label="Lọc kệ theo tình trạng" className="flex flex-wrap items-center gap-2">
+            <div role="group" aria-label={t("Lọc kệ theo tình trạng")} className="flex flex-wrap items-center gap-2">
               <ChipLoc chon={loc === "tatCa"} onClick={() => setLoc("tatCa")}>
-                Tất cả
-                {soDo ? <span className="font-semibold tabular-nums text-bo-foreground">{soVN(tatCaKe.length)} kệ</span> : null}
+                {t("Tất cả")}
+                {soDo ? <span className="font-semibold tabular-nums text-bo-foreground">{t("{{soKe}} kệ", { count: tatCaKe.length, soKe: soVN(tatCaKe.length) })}</span> : null}
               </ChipLoc>
               {KIEU.map((x) => (
                 <ChipLoc key={x} chon={loc === x} onClick={() => doiLoc(x)} cham={MAU_CHAM[x]} so={soDo ? soTheoKieu[x] : null}>
@@ -237,12 +238,12 @@ export default function StockTakeLockMap() {
           {soDo && tatCaKe.length ? (
             soKhoa || dsDot.length ? (
               <section
-                aria-label="Kệ đang khóa"
+                aria-label={t("Kệ đang khóa")}
                 className="grid items-center gap-x-6 gap-y-3 rounded-lg border border-bo-border bg-bo-surface px-4 py-3 sm:grid-cols-[auto_minmax(0,1fr)]"
               >
                 <div>
                   <span className="text-[28px] font-semibold leading-8 tabular-nums text-bo-heading">{soVN(soKhoa)}</span>
-                  <span className="text-sm tabular-nums text-bo-muted">/{soVN(tatCaKe.length)} kệ đang khóa</span>
+                  <span className="text-sm tabular-nums text-bo-muted">{t("/{{soKe}} kệ đang khóa", { count: tatCaKe.length, soKe: soVN(tatCaKe.length) })}</span>
                   <span className="mt-1.5 block h-1.5 w-48 max-w-full overflow-hidden rounded-full bg-slate-200" aria-hidden="true">
                     <span
                       className="block h-full rounded-full bg-amber-400"
@@ -265,7 +266,7 @@ export default function StockTakeLockMap() {
                         <button
                           type="button"
                           aria-pressed={dangChon}
-                          title={dangChon ? "Bỏ làm nổi kệ của đợt này" : "Chỉ làm nổi kệ của đợt này"}
+                          title={dangChon ? t("Bỏ làm nổi kệ của đợt này") : t("Chỉ làm nổi kệ của đợt này")}
                           onClick={() => setDotChon(dangChon ? null : d.id)}
                           className={cn(
                             "flex min-w-0 items-center gap-2.5 px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-bo-primary/40",
@@ -275,13 +276,13 @@ export default function StockTakeLockMap() {
                           {d.ten ? <StatusBadge quyTrinh="kiemKe" label={d.ten} /> : null}
                           <span className={cn("min-w-0", d.ten && "border-l border-bo-border pl-2.5")}>
                             <span className="block truncate font-mono text-[13px] font-semibold text-bo-primary">{d.ma}</span>
-                            <span className="block text-xs tabular-nums text-bo-muted">{soVN(d.soKe)} kệ</span>
+                            <span className="block text-xs tabular-nums text-bo-muted">{t("{{soKe}} kệ", { count: Number(d.soKe) || 0, soKe: soVN(d.soKe) })}</span>
                           </span>
                         </button>
                         <Link
                           to={`/stock-take/${d.id}`}
-                          aria-label={`Mở đợt ${d.ma}`}
-                          title={`Mở đợt ${d.ma}`}
+                          aria-label={t("Mở đợt {{ma}}", { ma: d.ma })}
+                          title={t("Mở đợt {{ma}}", { ma: d.ma })}
                           className="grid w-9 shrink-0 place-items-center border-l border-bo-border text-bo-muted hover:bg-bo-surface-subtle hover:text-bo-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-bo-primary/40"
                         >
                           <ArrowUpRight className="size-4" aria-hidden="true" />
@@ -291,7 +292,7 @@ export default function StockTakeLockMap() {
                   })}
                   {dotNoi != null ? (
                     <NutChu onClick={() => setDotChon(null)} className="ml-1">
-                      Bỏ lọc
+                      {t("Bỏ lọc")}
                     </NutChu>
                   ) : null}
                 </div>
@@ -300,7 +301,7 @@ export default function StockTakeLockMap() {
               <p className="flex items-center gap-2 rounded-lg border border-bo-border bg-bo-surface px-4 py-3 text-[13px] text-bo-muted">
                 <LockOpen className="size-4 shrink-0 text-bo-success" aria-hidden="true" />
                 <span>
-                  <b className="font-semibold text-bo-foreground">Không có kệ nào đang khóa.</b> {soVN(tatCaKe.length)} kệ nhập xuất bình thường.
+                  <b className="font-semibold text-bo-foreground">{t("Không có kệ nào đang khóa.")}</b> {t("{{soKe}} kệ nhập xuất bình thường.", { count: tatCaKe.length, soKe: soVN(tatCaKe.length) })}
                 </span>
               </p>
             )
@@ -310,11 +311,11 @@ export default function StockTakeLockMap() {
             <div className="grid min-w-0 content-start gap-4">
               {dangTaiSoDo ? (
                 <div className="rounded-lg border border-bo-border bg-bo-surface">
-                  <LoadingState rows={5} label="Đang tải sơ đồ kệ" />
+                  <LoadingState rows={5} label={t("Đang tải sơ đồ kệ")} />
                 </div>
               ) : q.error && !soDo ? (
                 <div className="rounded-lg border border-bo-border bg-bo-surface">
-                  <ErrorState description={`Không tải được sơ đồ kệ: ${getApiErrorMessage(q.error, "lỗi kết nối")}.`} onRetry={q.reload} />
+                  <ErrorState description={t("Không tải được sơ đồ kệ: {{loi}}.", { loi: getApiErrorMessage(q.error, t("lỗi kết nối")) })} onRetry={q.reload} />
                 </div>
               ) : !khuVuc.length ? (
                 <div className="rounded-lg border border-bo-border bg-bo-surface">
@@ -324,11 +325,11 @@ export default function StockTakeLockMap() {
                 khuVuc.map((kv) => {
                   const khoaTrongKhu = kv.ke.filter((k) => k.khoa).length;
                   return (
-                    <section key={kv.id ?? "khac"} className="rounded-lg border border-bo-border bg-bo-surface p-4" aria-label={`Khu ${kv.ten || kv.ma}`}>
+                    <section key={kv.id ?? "khac"} className="rounded-lg border border-bo-border bg-bo-surface p-4" aria-label={t("Khu {{ten}}", { ten: kv.ten || kv.ma })}>
                       <h2 className="mb-3 flex items-baseline gap-2 text-sm font-semibold text-bo-heading">
-                        {kv.ten || kv.ma || "Chưa có khu vực"}
+                        {kv.ten || kv.ma || t("Chưa có khu vực")}
                         <span className="text-xs font-normal text-bo-muted tabular-nums">
-                          {soVN(kv.ke.length)} kệ{khoaTrongKhu && loc === "tatCa" ? ` · ${soVN(khoaTrongKhu)} đang khóa` : ""}
+                          {t("{{soKe}} kệ", { count: kv.ke.length, soKe: soVN(kv.ke.length) })}{khoaTrongKhu && loc === "tatCa" ? t(" · {{khoaTrongKhu}} đang khóa", { khoaTrongKhu: soVN(khoaTrongKhu) }) : ""}
                         </span>
                       </h2>
                       <ul className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(112px,1fr))] gap-2 p-0">
@@ -353,17 +354,17 @@ export default function StockTakeLockMap() {
                                 <span className="flex items-center gap-1">
                                   <span className="min-w-0 truncate font-mono text-[13px] font-semibold">{k.ma}</span>
                                   {kieu === "toan" || kieu === "min" ? <Lock className="ml-auto size-3.5 shrink-0" aria-label={CHU[kieu]} /> : null}
-                                  {kieu === "baoTri" ? <Wrench className="ml-auto size-3.5 shrink-0" aria-label="Bảo trì" /> : null}
+                                  {kieu === "baoTri" ? <Wrench className="ml-auto size-3.5 shrink-0" aria-label={t("Bảo trì")} /> : null}
                                 </span>
                                 <span
                                   className="truncate text-[11px] leading-4 tabular-nums opacity-80"
                                   title={
                                     k.sucChua
-                                      ? `${soVN(k.dangChua)} sp · sức chứa ${soVN(k.sucChua)}`
-                                      : `${soVN(k.dangChua)} sp`
+                                      ? t("{{dangChua}} sp · sức chứa {{sucChua}}", { dangChua: soVN(k.dangChua), sucChua: soVN(k.sucChua) })
+                                      : t("{{soSp}} sp", { soSp: soVN(k.dangChua) })
                                   }
                                 >
-                                  {k.dangChua > 0 ? `${soVN(k.dangChua)} sp` : "Trống"}
+                                  {k.dangChua > 0 ? t("{{soSp}} sp", { soSp: soVN(k.dangChua) }) : t("Trống")}
                                   {duoiDot ? (
                                     <span title={(k.dot ?? []).map((d) => d.ma).join(", ")}>
                                       {" · "}
@@ -391,17 +392,17 @@ export default function StockTakeLockMap() {
               )}
             </div>
 
-            <aside ref={chiTietRef} aria-label="Chi tiết kệ" className="min-w-0 rounded-lg border border-bo-border bg-bo-surface lg:sticky lg:top-4 lg:self-start">
+            <aside ref={chiTietRef} aria-label={t("Chi tiết kệ")} className="min-w-0 rounded-lg border border-bo-border bg-bo-surface lg:sticky lg:top-4 lg:self-start">
               {ke ? (
                 <div className="grid gap-3 p-4">
                   <div className="flex items-start gap-2">
                     <span className="min-w-0">
-                      <span className="block font-mono text-lg font-semibold text-bo-heading">Kệ {ke.ma}</span>
+                      <span className="block font-mono text-lg font-semibold text-bo-heading">{t("Kệ {{ma}}", { ma: ke.ma })}</span>
                       <span className="text-[13px] text-bo-muted">{CHU[kieuKe(ke)]}</span>
                     </span>
                     <button
                       type="button"
-                      aria-label="Đóng chi tiết kệ"
+                      aria-label={t("Đóng chi tiết kệ")}
                       onClick={() => setKeChon(null)}
                       className="ml-auto grid size-8 place-items-center rounded-md text-bo-muted hover:bg-bo-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
                     >
@@ -410,7 +411,7 @@ export default function StockTakeLockMap() {
                   </div>
                   {ke.dot?.length ? (
                     <div className="grid gap-1.5">
-                      <span className="text-xs font-medium text-bo-muted">Đợt đang giữ khóa</span>
+                      <span className="text-xs font-medium text-bo-muted">{t("Đợt đang giữ khóa")}</span>
                       {ke.dot.map((d) => (
                         <Link
                           key={d.id}
@@ -424,7 +425,7 @@ export default function StockTakeLockMap() {
                     </div>
                   ) : null}
                   <div className="grid gap-1.5">
-                    <span className="text-xs font-medium text-bo-muted">Lô trên kệ ({soVN(ke.lo?.length ?? 0)})</span>
+                    <span className="text-xs font-medium text-bo-muted">{t("Lô trên kệ ({{soLo}})", { soLo: soVN(ke.lo?.length ?? 0) })}</span>
                     {ke.lo?.length ? (
                       <ul className="m-0 grid max-h-[420px] list-none gap-1.5 overflow-y-auto p-0">
                         {ke.lo.map((l) => (
@@ -438,21 +439,21 @@ export default function StockTakeLockMap() {
                             {l.dangKiemKe ? (
                               <span className="mt-1 inline-flex h-5 items-center gap-1 rounded bg-bo-warning-soft px-1.5 text-[11px] font-semibold text-bo-warning">
                                 <Lock className="size-3" aria-hidden="true" />
-                                Đang kiểm kê, chưa xuất được
+                                {t("Đang kiểm kê, chưa xuất được")}
                               </span>
                             ) : null}
                           </li>
                         ))}
                       </ul>
                     ) : (
-                      <p className="text-[13px] text-bo-muted">Kệ trống.</p>
+                      <p className="text-[13px] text-bo-muted">{t("Kệ trống.")}</p>
                     )}
                   </div>
                 </div>
               ) : (
                 <div className="grid justify-items-center gap-2 px-4 py-10 text-center">
                   <PackageSearch className="size-8 text-slate-300" aria-hidden="true" />
-                  <p className="text-[13px] text-bo-muted">Chọn một kệ để xem đợt đang giữ khóa và các lô trên kệ.</p>
+                  <p className="text-[13px] text-bo-muted">{t("Chọn một kệ để xem đợt đang giữ khóa và các lô trên kệ.")}</p>
                 </div>
               )}
             </aside>

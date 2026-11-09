@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import { getChannelBadgeClass, getChannelName } from "@/constants/channel";
+import { t } from "@/i18n";
 
 /** Badge kênh bán (màu theo SRS 8.1.1). Đơn không có kênh hiện "Bán thường". */
 export default function ChannelBadge({ maKenh, label, className }) {
@@ -11,7 +12,7 @@ export default function ChannelBadge({ maKenh, label, className }) {
         className,
       )}
     >
-      {label ?? getChannelName(maKenh)}
+      {label ?? t(getChannelName(maKenh))}
     </span>
   );
 }

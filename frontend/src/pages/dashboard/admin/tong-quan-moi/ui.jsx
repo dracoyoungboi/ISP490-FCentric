@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { AlertTriangle, ChevronRight, RefreshCcw } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 /*
  * Khung giao diện của màn Tổng quan (bản Kiểu 3).
@@ -49,7 +50,7 @@ function CardSkeleton() {
   );
 }
 
-export function CardError({ onRetry, text = "Không tải được số liệu" }) {
+export function CardError({ onRetry, text = t("Không tải được số liệu") }) {
   return (
     <div role="alert" className="flex flex-1 flex-col items-center justify-center gap-2 py-6 text-center">
       <AlertTriangle className="size-5 text-bo-warning" aria-hidden="true" />
@@ -61,7 +62,7 @@ export function CardError({ onRetry, text = "Không tải được số liệu" 
           className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-bo-border px-3 text-[13px] font-medium text-bo-foreground hover:bg-bo-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
         >
           <RefreshCcw className="size-3.5" aria-hidden="true" />
-          Thử lại
+          {t("Thử lại")}
         </button>
       ) : null}
     </div>
@@ -100,7 +101,7 @@ export function Delta({ bd, className }) {
   if (!bd) return null;
   return (
     <span className={cn("whitespace-nowrap font-semibold tabular-nums", bd.tang == null ? "text-bo-muted" : bd.tang ? "text-[#15803d]" : "text-[#b42318]", className)}>
-      <span className="sr-only">{bd.tang == null ? "Không đổi " : bd.tang ? "Tăng " : "Giảm "}</span>
+      <span className="sr-only">{bd.tang == null ? t("Không đổi") : bd.tang ? t("Tăng") : t("Giảm")}{" "}</span>
       {bd.chu}
     </span>
   );

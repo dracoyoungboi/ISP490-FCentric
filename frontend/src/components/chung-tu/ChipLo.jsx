@@ -2,6 +2,7 @@ import { useState } from "react";
 import { SO_LO_HIEN } from "@/config/bangChungTu";
 import { cn } from "@/lib/utils";
 import { soVN } from "./bangChungTu.js";
+import { t } from "@/i18n";
 
 const NUT_THEM =
   "inline-flex h-[22px] items-center whitespace-nowrap rounded border border-dashed border-slate-300 bg-white px-1.5 text-xs text-slate-600 transition-colors hover:border-bo-primary hover:text-bo-primary focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bo-primary";
@@ -41,11 +42,11 @@ export default function ChipLo({ lo, soHien = SO_LO_HIEN, cuaDong, khiTrong = "�
         <button
           type="button"
           aria-expanded={mo}
-          aria-label={mo ? "Thu gọn danh sách lô" : `Xem thêm ${an} lô${cuaDong ? ` của ${cuaDong}` : ""}`}
+          aria-label={mo ? t("Thu gọn danh sách lô") : cuaDong ? t("Xem thêm {{count}} lô của {{dong}}", { count: an, dong: cuaDong }) : t("Xem thêm {{count}} lô", { count: an })}
           onClick={() => setMo((x) => !x)}
           className={NUT_THEM}
         >
-          {mo ? "Thu gọn" : `+${an} lô`}
+          {mo ? t("Thu gọn") : t("+{{count}} lô", { count: an })}
         </button>
       ) : null}
     </div>

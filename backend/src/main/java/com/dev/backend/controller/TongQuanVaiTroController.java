@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import com.dev.backend.i18n.ThongDiep;
 
 /**
  * Màn Tổng quan của quản lý kho, nhân viên kho, nhân viên mua hàng và nhân viên bán hàng.
@@ -53,7 +54,7 @@ public class TongQuanVaiTroController {
                 ResponseData.<TongQuanVaiTroResponse>builder()
                         .status(HttpStatus.OK.value())
                         .data(tongQuanVaiTroService.layTongQuanCuaToi(vaiTro, lamMoi))
-                        .message("Lấy tổng quan thành công")
+                        .message(ThongDiep.dich("khoVanHanh.layTongQuanThanhCong"))
                         .error(null)
                         .build()
         );
@@ -77,7 +78,7 @@ public class TongQuanVaiTroController {
                 ResponseData.<List<TraTonSanPham>>builder()
                         .status(HttpStatus.OK.value())
                         .data(tongQuanVaiTroService.traTon(q))
-                        .message("Tra tồn thành công")
+                        .message(ThongDiep.dich("khoVanHanh.traTonThanhCong"))
                         .error(null)
                         .build()
         );

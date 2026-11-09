@@ -20,6 +20,7 @@ import { Card, LE } from "./ui";
 import { formatSo } from "../tong-quan/tongQuanFormat";
 import { danhSachViec } from "../tong-quan/viecCanXuLy";
 import { setKhoLamViecId } from "@/utils/khoLamViec";
+import { t } from "@/i18n";
 
 const SO_DONG_GON = 7;
 
@@ -59,7 +60,7 @@ export default function ActionPanel({ data, khoId, loading, error, onRetry, clas
   return (
     <Card
       className={className}
-      title="Cần xử lý"
+      title={t("Cần xử lý")}
       right={
         viec.length > SO_DONG_GON ? (
           <button
@@ -68,7 +69,7 @@ export default function ActionPanel({ data, khoId, loading, error, onRetry, clas
             aria-expanded={moRong}
             className="inline-flex cursor-pointer items-center gap-0.5 whitespace-nowrap rounded text-sm font-medium text-bo-primary hover:text-bo-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
           >
-            {moRong ? "Thu gọn" : `Xem cả ${formatSo(viec.length)} việc`}
+            {moRong ? t("Thu gọn") : t("Xem cả {{soViec}} việc", { soViec: formatSo(viec.length) })}
             <ChevronRight className={cn("size-4 transition-transform", moRong && "-rotate-90")} aria-hidden="true" />
           </button>
         ) : null
@@ -81,8 +82,8 @@ export default function ActionPanel({ data, khoId, loading, error, onRetry, clas
         <div className={cn(LE, "flex items-center gap-3 py-4")}>
           <DauTichDong key={data?.thoiDiem} className="size-9" />
           <div>
-            <p className="text-sm font-medium text-bo-foreground">Không có việc nào đang chờ</p>
-            <p className="text-xs text-bo-muted">Đơn chờ xuất, phiếu chờ duyệt, lỗi đồng bộ sẽ hiện ở đây.</p>
+            <p className="text-sm font-medium text-bo-foreground">{t("Không có việc nào đang chờ")}</p>
+            <p className="text-xs text-bo-muted">{t("Đơn chờ xuất, phiếu chờ duyệt, lỗi đồng bộ sẽ hiện ở đây.")}</p>
           </div>
         </div>
       ) : (

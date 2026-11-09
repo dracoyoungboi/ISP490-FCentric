@@ -1,5 +1,7 @@
 package com.dev.backend.services.email;
 
+import com.dev.backend.i18n.LoiThamSoException;
+import com.dev.backend.i18n.ThongDiep;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -72,7 +74,7 @@ public final class DinhDangEmail {
     /** "1.500.000". Có phần lẻ (dữ liệu sai) thì ghi WARN và hiện đúng giá trị: "1.500.000,5". */
     public static String tien(BigDecimal soTien) {
         if (soTien == null) {
-            throw new IllegalArgumentException("Số tiền không được null");
+            throw new LoiThamSoException(ThongDiep.of("heThong.soTienNull"));
         }
         if (coPhanLe(soTien)) {
             log.warn("Số tiền có phần lẻ khi dựng email: {}", soTien.toPlainString());
@@ -91,7 +93,7 @@ public final class DinhDangEmail {
      */
     public static String soLuong(BigDecimal soLuong, String donViTinh) {
         if (soLuong == null) {
-            throw new IllegalArgumentException("Số lượng không được null");
+            throw new LoiThamSoException(ThongDiep.of("heThong.soLuongNull"));
         }
         if (coPhanLe(soLuong)) {
             log.warn("Số lượng có phần lẻ khi dựng email: {}", soLuong.toPlainString());
@@ -132,7 +134,7 @@ public final class DinhDangEmail {
      */
     public static String bangChu(long soTien) {
         if (soTien < 0) {
-            throw new IllegalArgumentException("Không đọc được số tiền âm");
+            throw new LoiThamSoException(ThongDiep.of("heThong.soTienAm"));
         }
         if (soTien == 0) {
             return "Không đồng";
@@ -144,13 +146,13 @@ public final class DinhDangEmail {
     /** Như {@link #bangChu(long)}; null, âm hoặc có phần lẻ thì báo lỗi. */
     public static String bangChu(BigDecimal soTien) {
         if (soTien == null) {
-            throw new IllegalArgumentException("Số tiền không được null");
+            throw new LoiThamSoException(ThongDiep.of("heThong.soTienNull"));
         }
         if (soTien.signum() < 0) {
-            throw new IllegalArgumentException("Không đọc được số tiền âm");
+            throw new LoiThamSoException(ThongDiep.of("heThong.soTienAm"));
         }
         if (coPhanLe(soTien)) {
-            throw new IllegalArgumentException("Không đọc bằng chữ số tiền có phần lẻ: " + soTien.toPlainString());
+            throw new LoiThamSoException(ThongDiep.of("heThong.soTienCoPhanLe", soTien.toPlainString()));
         }
         return bangChu(soTien.longValueExact());
     }

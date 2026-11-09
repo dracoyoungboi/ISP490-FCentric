@@ -1,5 +1,8 @@
 package com.dev.backend.services.lazada;
 
+import com.dev.backend.i18n.LoiTrangThaiException;
+import com.dev.backend.i18n.LoiThamSoException;
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.dto.response.customize.LazadaTestConnectionResponse;
 import com.dev.backend.utils.LazadaSignatureHelper;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -82,7 +85,7 @@ public class LazadaClient {
      */
     public String generateAuthUrl(String appKey, String redirectUri, String state, boolean forceAuth) {
         if (appKey == null || appKey.isBlank()) {
-            throw new IllegalArgumentException("App Key không được để trống");
+            throw new LoiThamSoException(ThongDiep.of("kenhBan.appKeyTrong"));
         }
         String targetUri = (redirectUri != null && !redirectUri.isBlank() && !redirectUri.contains("localhost"))
                 ? redirectUri.trim()
@@ -137,13 +140,13 @@ public class LazadaClient {
         if (appKey == null || appKey.isBlank() || appSecret == null || appSecret.isBlank()) {
             return LazadaTestConnectionResponse.builder()
                     .connected(false)
-                    .message("Vui lòng cấu hình App Key và App Secret của Lazada")
+                    .message(ThongDiep.dich("kenhBan.cauHinhAppKeyLazada"))
                     .build();
         }
         if (accessToken == null || accessToken.isBlank()) {
             return LazadaTestConnectionResponse.builder()
                     .connected(false)
-                    .message("Chưa có Access Token, vui lòng thực hiện ủy quyền gian hàng Lazada")
+                    .message(ThongDiep.dich("kenhBan.chuaCoAccessTokenLazada"))
                     .build();
         }
 
@@ -168,20 +171,21 @@ public class LazadaClient {
                         .shopName(data.path("name").asText("Gian hàng Lazada"))
                         .shortCode(data.path("short_code").asText(""))
                         .country(data.path("location").asText("VN"))
-                        .message("Kết nối thành công tới gian hàng Lazada")
+                        .message(ThongDiep.dich("kenhBan.ketNoiGianHangLazadaThanhCong"))
                         .build();
             } else {
-                String errorMsg = res.path("message").asText(res.path("sub_message").asText("Lỗi kết nối từ Lazada"));
+                String errorMsg = res.path("message").asText(res.path("sub_message").asText(null));
                 return LazadaTestConnectionResponse.builder()
                         .connected(false)
-                        .message("Lazada báo lỗi: " + errorMsg)
+                        .message(errorMsg != null ? ThongDiep.dich("kenhBan.lazadaBaoLoi", errorMsg)
+                                : ThongDiep.dich("kenhBan.lazadaBaoLoiMacDinh"))
                         .build();
             }
         } catch (Exception e) {
             log.warn("Lỗi kiểm tra kết nối Lazada: {}", e.getMessage());
             return LazadaTestConnectionResponse.builder()
                     .connected(false)
-                    .message("Không thể kết nối tới máy chủ Lazada: " + e.getMessage())
+                    .message(ThongDiep.dich("kenhBan.khongTheKetNoiMayChuLazada", e.getMessage()))
                     .build();
         }
     }
@@ -481,7 +485,7 @@ public class LazadaClient {
                 return executePostForm(API_GATEWAY_VN + legacyPath, params);
             } catch (Exception fallbackEx) {
                 log.error("Lỗi khi hủy đơn Lazada: {}", ex.getMessage());
-                throw new IllegalStateException("Không thể gửi yêu cầu hủy đơn sang Lazada: " + ex.getMessage(), ex);
+                throw new LoiTrangThaiException(ThongDiep.of("kenhBan.khongTheGuiHuyDonLazada", ex.getMessage()), ex);
             }
         }
     }
@@ -546,7 +550,7 @@ public class LazadaClient {
         }
 
         if (itemIds.isEmpty()) {
-            throw new IllegalArgumentException("Không tìm thấy sản phẩm nào trong đơn hàng Lazada " + orderId);
+            throw new LoiThamSoException(ThongDiep.of("kenhBan.khongTimThaySanPhamDonLazada", orderId));
         }
 
         if (needPack || packageId == null || packageId.isBlank()) {
@@ -802,11 +806,11 @@ public class LazadaClient {
             try {
                 return objectMapper.readTree(e.getResponseBodyAsString());
             } catch (Exception parseEx) {
-                throw new IllegalStateException("Lỗi gọi Lazada uploadImage: " + e.getStatusCode(), e);
+                throw new LoiTrangThaiException(ThongDiep.of("kenhBan.loiGoiLazadaUploadImage", e.getStatusCode()), e);
             }
         } catch (Exception e) {
             log.error("Lỗi khi upload ảnh sang Lazada: {}", e.getMessage());
-            throw new IllegalStateException("Không thể upload ảnh sang Lazada: " + e.getMessage(), e);
+            throw new LoiTrangThaiException(ThongDiep.of("kenhBan.khongTheUploadAnhLazada", e.getMessage()), e);
         }
     }
 
@@ -835,11 +839,11 @@ public class LazadaClient {
             try {
                 return objectMapper.readTree(e.getResponseBodyAsString());
             } catch (Exception parseEx) {
-                throw new IllegalStateException("Lỗi gọi Lazada API: " + e.getStatusCode(), e);
+                throw new LoiTrangThaiException(ThongDiep.of("kenhBan.loiGoiLazadaApi", e.getStatusCode()), e);
             }
         } catch (Exception e) {
             log.error("Lỗi khi gửi yêu cầu tới Lazada API: {}", e.getMessage());
-            throw new IllegalStateException("Không thể kết nối tới Lazada: " + e.getMessage(), e);
+            throw new LoiTrangThaiException(ThongDiep.of("kenhBan.khongTheKetNoiLazada", e.getMessage()), e);
         }
     }
 
@@ -863,11 +867,11 @@ public class LazadaClient {
             try {
                 return objectMapper.readTree(e.getResponseBodyAsString());
             } catch (Exception parseEx) {
-                throw new IllegalStateException("Lỗi gọi Lazada API POST: " + e.getStatusCode(), e);
+                throw new LoiTrangThaiException(ThongDiep.of("kenhBan.loiGoiLazadaApiPost", e.getStatusCode()), e);
             }
         } catch (Exception e) {
             log.error("Lỗi khi gửi yêu cầu POST tới Lazada: {}", e.getMessage());
-            throw new IllegalStateException("Không thể gửi dữ liệu tới Lazada: " + e.getMessage(), e);
+            throw new LoiTrangThaiException(ThongDiep.of("kenhBan.khongTheGuiDuLieuLazada", e.getMessage()), e);
         }
     }
 }

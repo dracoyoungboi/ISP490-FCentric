@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { OUTLINE_BUTTON, PRIMARY_BUTTON } from "./settingsStyles";
+import { t } from "@/i18n";
 
 /**
  * Khối giao diện dùng chung của trung tâm Cấu hình (kiểu trang Cấu hình của Sapo):
@@ -56,7 +57,7 @@ export function SettingsTextButton({ className, children, ...props }) {
   );
 }
 
-export function SettingsEditButton({ label = "Sửa", ...props }) {
+export function SettingsEditButton({ label = t("Sửa"), ...props }) {
   return (
     <SettingsTextButton {...props}>
       <Pencil className="size-[15px]" aria-hidden="true" />
@@ -66,14 +67,14 @@ export function SettingsEditButton({ label = "Sửa", ...props }) {
 }
 
 /** Hàng Hủy / Lưu ở chân thẻ đang sửa. */
-export function SettingsFormActions({ onCancel, saving = false, disabled = false, saveLabel = "Lưu", className }) {
+export function SettingsFormActions({ onCancel, saving = false, disabled = false, saveLabel = t("Lưu"), className }) {
   return (
     <div className={cn("mt-1 flex justify-end gap-2 border-t border-[#eef1f5] px-5 py-3", className)}>
       <Button type="button" variant="outline" className={OUTLINE_BUTTON} onClick={onCancel} disabled={saving}>
-        Hủy
+        {t("Hủy")}
       </Button>
       <Button type="submit" className={PRIMARY_BUTTON} disabled={disabled || saving}>
-        {saving ? "Đang lưu…" : saveLabel}
+        {saving ? t("Đang lưu…") : saveLabel}
       </Button>
     </div>
   );

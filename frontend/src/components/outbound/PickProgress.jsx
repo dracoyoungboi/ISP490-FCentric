@@ -1,9 +1,10 @@
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { formatQuantity, toNumber } from "@/constants/outbound";
+import { t } from "@/i18n";
 
 /** Tiến độ quét (nhặt hàng / đóng gói): thanh + "đã quét / cần (x%)". */
-export default function PickProgress({ daQuet, canNhat, percent, compact = false, className, label = "Tiến độ nhặt hàng" }) {
+export default function PickProgress({ daQuet, canNhat, percent, compact = false, className, label = t("Tiến độ nhặt hàng") }) {
   const total = toNumber(canNhat);
   const done = toNumber(daQuet);
   const pct = percent !== undefined && percent !== null
@@ -26,7 +27,7 @@ export default function PickProgress({ daQuet, canNhat, percent, compact = false
         <span className={cn("font-semibold", complete ? "text-bo-success" : "text-bo-foreground")}>
           {formatQuantity(done)}
         </span>
-        /{formatQuantity(total)} sản phẩm · {Math.round(pct)}%
+        {t("/{{total}} sản phẩm · {{pct}}%", { count: total, total: formatQuantity(total), pct: Math.round(pct) })}
       </p>
     </div>
   );

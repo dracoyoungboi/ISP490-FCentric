@@ -11,6 +11,7 @@
 import { docSo, khopTuKhoa, tachTuKhoa } from "../../chung-tu/bangChungTu.js";
 import { docOSoLuong, SO_LUONG_TOI_DA } from "../../ban-hang/tao-bao-gia/tinhTaoBaoGia.js";
 import { SO_GOI_Y_SAN_PHAM } from "../../../config/bangChungTu.js";
+import { t } from "../../../i18n/t.js";
 
 export { docOSoLuong, SO_LUONG_TOI_DA };
 
@@ -24,7 +25,7 @@ export const SO_LOI_DAN_HIEN = 6;
 /** Tóm tắt theo nhóm hàng: số nhóm hiện, còn lại gom "Nhóm khác". */
 export const SO_NHOM_HANG_HIEN = 5;
 
-const THU = ["Chủ nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
+const THU = [t("Chủ nhật"), t("Thứ Hai"), t("Thứ Ba"), t("Thứ Tư"), t("Thứ Năm"), t("Thứ Sáu"), t("Thứ Bảy")];
 const CO_CHU = ["XXS", "XS", "S", "M", "L", "XL", "XXL", "2XL", "XXXL", "3XL", "4XL", "5XL"];
 const giongId = (a, b) => a != null && b != null && String(a) === String(b);
 
@@ -264,7 +265,7 @@ export function dongBang(dong, chiMuc, thuTuSp = []) {
       return {
         id: d.bienTheId,
         khoaNhom: bt?.sanPhamId ?? `id-${d.bienTheId}`,
-        tenSanPham: bt?.tenSanPham || `Mã id ${d.bienTheId}`,
+        tenSanPham: bt?.tenSanPham || t("Mã id {{bienTheId}}", { bienTheId: d.bienTheId }),
         sku: bt?.maSku || "",
         maVach: bt?.maVach || "",
         tenMau: bt?.tenMau || "",
@@ -387,20 +388,20 @@ export function docDanhSachDan(chu, chiMuc) {
     const { bt, cacO, coTab } = tachDongDan(goc, chiMuc);
     if (!bt) {
       if (laDongDau && docOSoDan(cacO[cacO.length - 1]) == null) return; // dòng tiêu đề
-      loi.push({ dongSo: i + 1, chu: hienThi, lyDo: "không tìm thấy mã" });
+      loi.push({ dongSo: i + 1, chu: hienThi, lyDo: t("không tìm thấy mã") });
       return;
     }
     if (!cacO.length) {
-      loi.push({ dongSo: i + 1, chu: hienThi, lyDo: "thiếu số lượng" });
+      loi.push({ dongSo: i + 1, chu: hienThi, lyDo: t("thiếu số lượng") });
       return;
     }
     if (!coTab && cacO.length > 1) {
-      loi.push({ dongSo: i + 1, chu: hienThi, lyDo: "dòng có hơn 2 phần, mỗi dòng chỉ ghi mã và số lượng" });
+      loi.push({ dongSo: i + 1, chu: hienThi, lyDo: t("dòng có hơn 2 phần, mỗi dòng chỉ ghi mã và số lượng") });
       return;
     }
     const so = docOSoDan(cacO[cacO.length - 1]);
     if (so == null) {
-      loi.push({ dongSo: i + 1, chu: hienThi, lyDo: "số lượng không hợp lệ" });
+      loi.push({ dongSo: i + 1, chu: hienThi, lyDo: t("số lượng không hợp lệ") });
       return;
     }
     soDong += 1;
@@ -455,12 +456,12 @@ export function soNgayToi(iso, homNay = homNayVN()) {
 /** Dòng dưới ô ngày giao: `{ trai, phai, loi }` — "Thứ Hai, 03/11/2026" · "còn 9 ngày"; trống: "Bắt buộc". */
 export function moTaNgayGiao(iso, homNay = homNayVN()) {
   const d = docNgay(iso);
-  if (!d) return { trai: "Bắt buộc", phai: "", loi: false };
+  if (!d) return { trai: t("Bắt buộc"), phai: "", loi: false };
   const con = soNgayToi(iso, homNay);
-  if (con < 0) return { trai: "Ngày đã qua, chọn từ hôm nay", phai: "", loi: true };
+  if (con < 0) return { trai: t("Ngày đã qua, chọn từ hôm nay"), phai: "", loi: true };
   return {
     trai: `${THU[d.getDay()]}, ${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`,
-    phai: con === 0 ? "hôm nay" : `còn ${con} ngày`,
+    phai: con === 0 ? t("hôm nay") : t("còn {{count}} ngày", { count: con }),
     loi: false,
   };
 }
@@ -490,19 +491,19 @@ export function canhBao(dong, chiMuc) {
 
 /** Câu cảnh báo đầu khối / trong hộp xác nhận; không có gì thì "". */
 export function cauCanhBao({ trung = [], du = [], maYeuCau = [] } = {}) {
-  const ma = maYeuCau.length > 3 ? `${maYeuCau.slice(0, 3).join(", ")} và ${maYeuCau.length - 3} yêu cầu khác` : maYeuCau.join(", ");
+  const ma = maYeuCau.length > 3 ? t("{{dsMa}} và {{count}} yêu cầu khác", { dsMa: maYeuCau.slice(0, 3).join(", "), count: maYeuCau.length - 3 }) : maYeuCau.join(", ");
   const phan = [
-    trung.length ? `${trung.length.toLocaleString("vi-VN")} mã đang nằm trong yêu cầu nhập khác chưa xong${ma ? ` (${ma})` : ""}` : "",
-    du.length ? `${du.length.toLocaleString("vi-VN")} mã Kho tổng còn dư hàng` : "",
+    trung.length ? t("{{soMa}} mã đang nằm trong yêu cầu nhập khác chưa xong{{dsMa}}", { count: trung.length, soMa: trung.length.toLocaleString("vi-VN"), dsMa: ma ? ` (${ma})` : "" }) : "",
+    du.length ? t("{{soMa}} mã Kho tổng còn dư hàng", { count: du.length, soMa: du.length.toLocaleString("vi-VN") }) : "",
   ].filter(Boolean);
-  return phan.length ? `${phan.join("; ")}. Gửi thêm có thể mua trùng hoặc mua thừa.` : "";
+  return phan.length ? t("{{canhBao}}. Gửi thêm có thể mua trùng hoặc mua thừa.", { canhBao: phan.join("; ") }) : "";
 }
 
 /** Số lượng theo nhóm hàng, nhiều trước; quá SO_NHOM_HANG_HIEN nhóm thì gom phần còn lại vào "Nhóm khác (n)". */
 export function theoNhomHang(dong, chiMuc) {
   const tong = new Map();
   (dong ?? []).forEach((d) => {
-    const ten = chiMuc?.theoId?.get(String(d.bienTheId))?.nhomHang || "Chưa phân nhóm";
+    const ten = chiMuc?.theoId?.get(String(d.bienTheId))?.nhomHang || t("Chưa phân nhóm");
     tong.set(ten, (tong.get(ten) ?? 0) + docSo(d.soLuong));
   });
   const ds = [...tong.entries()].map(([ten, soLuong]) => ({ ten, soLuong })).sort((a, b) => b.soLuong - a.soLuong);
@@ -510,7 +511,7 @@ export function theoNhomHang(dong, chiMuc) {
   const con = ds.slice(SO_NHOM_HANG_HIEN);
   return [
     ...ds.slice(0, SO_NHOM_HANG_HIEN),
-    { ten: `Nhóm khác (${con.length})`, soLuong: con.reduce((s, x) => s + x.soLuong, 0) },
+    { ten: t("Nhóm khác ({{soNhom}})", { soNhom: con.length }), soLuong: con.reduce((s, x) => s + x.soLuong, 0) },
   ];
 }
 
@@ -527,14 +528,14 @@ export function demTheoDeXuat(dong, chiMuc) {
  * bấm Gửi duyệt làm ô rời tiêu điểm và màn điền 1 trước khi mở hộp xác nhận; thân yêu cầu cũng tính ô trống là 1.
  */
 export function lyDoKhoaGui({ dangTai = false, coKho = true, dong = [], chiMuc = null, ngayGiao = "", homNay = homNayVN() } = {}) {
-  if (dangTai) return "Đang tải dữ liệu";
-  if (!coKho) return "Chưa có Kho tổng nhận hàng";
-  if (!dong.length) return "Thêm ít nhất một sản phẩm";
-  if (dong.length > SO_DONG_TOI_DA) return `Tối đa ${SO_DONG_TOI_DA.toLocaleString("vi-VN")} dòng mỗi yêu cầu`;
-  if (chiMuc && dong.some((d) => !chiMuc.theoId.has(String(d.bienTheId)))) return "Có mã đã ngừng kinh doanh, bỏ trước khi gửi";
+  if (dangTai) return t("Đang tải dữ liệu");
+  if (!coKho) return t("Chưa có Kho tổng nhận hàng");
+  if (!dong.length) return t("Thêm ít nhất một sản phẩm");
+  if (dong.length > SO_DONG_TOI_DA) return t("Tối đa {{toiDa}} dòng mỗi yêu cầu", { toiDa: SO_DONG_TOI_DA.toLocaleString("vi-VN") });
+  if (chiMuc && dong.some((d) => !chiMuc.theoId.has(String(d.bienTheId)))) return t("Có mã đã ngừng kinh doanh, bỏ trước khi gửi");
   const con = soNgayToi(ngayGiao, homNay);
-  if (con == null) return "Chọn ngày giao dự kiến";
-  if (con < 0) return "Ngày giao không được trước hôm nay";
+  if (con == null) return t("Chọn ngày giao dự kiến");
+  if (con < 0) return t("Ngày giao không được trước hôm nay");
   return "";
 }
 

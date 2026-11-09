@@ -3,6 +3,7 @@ import { Slot } from "@radix-ui/react-slot"
 import { ChevronRight, MoreHorizontal } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { t } from "@/i18n";
 
 function Breadcrumb({
   ...props
@@ -96,7 +97,7 @@ function BreadcrumbEllipsis({
       className={cn("flex size-9 items-center justify-center", className)}
       {...props}>
       <MoreHorizontal className="size-4" />
-      <span className="sr-only">Thêm</span>
+      <span className="sr-only">{t("Thêm", { context: "con_nua" })}</span>
     </span>
   );
 }

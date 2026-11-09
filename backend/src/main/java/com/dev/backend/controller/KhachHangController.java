@@ -1,5 +1,6 @@
 package com.dev.backend.controller;
 
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.customizeanotation.RequireAuth;
 import com.dev.backend.dto.request.BaseFilterRequest;
@@ -70,7 +71,7 @@ public class KhachHangController {
     )
     public ResponseEntity<ResponseData<KhachHangDto>>getById(@PathVariable Integer id){
         KhachHang khachHang = khachHangService.getOne(id).orElseThrow(
-                () -> new CommonException("Không tìm thấy khách hàng id: " + id, HttpStatus.NOT_FOUND, null)
+                () -> new CommonException(ThongDiep.of("banHang.khachHangKhongTimThayId", id), HttpStatus.NOT_FOUND, null)
         );
 
         return ResponseEntity.ok(
@@ -98,7 +99,7 @@ public class KhachHangController {
         KhachHangDto dto = khachHangService.create(creating);
         return ResponseEntity.ok(ResponseData.<KhachHangDto>builder()
                 .status(HttpStatus.OK.value())
-                .message("Đã thêm khách hàng")
+                .message(ThongDiep.dich("banHang.daThemKhachHang"))
                 .data(dto)
                 .build());
     }
@@ -163,7 +164,7 @@ public class KhachHangController {
     )
     public ResponseEntity<ResponseData<TongQuanMuaHangKhachDto>> getTongQuanMuaHang(@PathVariable Integer id) {
         if (!khachHangService.exists(id)) {
-            throw new CommonException("Không tìm thấy khách hàng id: " + id, HttpStatus.NOT_FOUND, null);
+            throw new CommonException(ThongDiep.of("banHang.khachHangKhongTimThayId", id), HttpStatus.NOT_FOUND, null);
         }
         return ResponseEntity.ok(
                 ResponseData.<TongQuanMuaHangKhachDto>builder()
@@ -189,7 +190,7 @@ public class KhachHangController {
         return ResponseEntity.ok(ResponseData.builder()
                 .status(200)
                 .data(dto)
-                .message("Cập nhật khách hàng thành công")
+                .message(ThongDiep.dich("banHang.capNhatKhachHangThanhCong"))
                 .build());
     }
     @GetMapping("/for-sales-order")

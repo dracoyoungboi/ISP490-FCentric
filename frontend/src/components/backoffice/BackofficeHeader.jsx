@@ -32,17 +32,19 @@ import {
 import { useSidebar } from "@/components/ui/sidebar";
 import ConfirmModal from "@/components/ui/confirm-modal";
 import { demLuotChuaKhoa } from "@/utils/hangLoiTam";
+import { NutChonNgonNguThanhTren } from "@/components/shared/ChonNgonNgu";
+import { t } from "@/i18n";
 
 // Phím tắt mở ô tìm kiếm: ⌘ + K trên máy Mac, Ctrl + K trên Windows/Linux
 const PHIM_TAT =
   typeof navigator !== "undefined" && /Mac|iPhone|iPad/i.test(navigator.platform || "") ? "⌘ + K" : "Ctrl + K";
 
 const ROLE_LABELS = {
-  quan_tri_vien: "Quản trị viên",
-  quan_ly_kho: "Quản lý kho",
-  nhan_vien_kho: "Nhân viên kho",
-  nhan_vien_mua_hang: "Nhân viên mua hàng",
-  nhan_vien_ban_hang: "Nhân viên bán hàng",
+  quan_tri_vien: t("Quản trị viên"),
+  quan_ly_kho: t("Quản lý kho"),
+  nhan_vien_kho: t("Nhân viên kho"),
+  nhan_vien_mua_hang: t("Nhân viên mua hàng"),
+  nhan_vien_ban_hang: t("Nhân viên bán hàng"),
 };
 
 export default function BackofficeHeader() {
@@ -73,7 +75,7 @@ export default function BackofficeHeader() {
   // ngay khi đổi ảnh hay sửa họ tên mà không cần đăng nhập lại
   const profile = useCurrentUserProfile(userId);
   const avatarUrl = profile?.avatarUrl ?? null;
-  const username = profile?.hoTen || tenTrongToken || "Quản trị viên";
+  const username = profile?.hoTen || tenTrongToken || t("Quản trị viên");
 
   // Số lượt quét chưa khóa lô khi bấm Đăng xuất (> 0 thì hỏi lại trước khi xóa phiên). Đóng hộp chỉ tắt `hoiLuot`,
   // giữ số: hộp còn hiện trong lúc chạy hiệu ứng đóng, không nháy "Có 0 lượt quét…"
@@ -105,7 +107,7 @@ export default function BackofficeHeader() {
   };
 
   const sidebarOpen = isMobile ? openMobile : open;
-  const roleLabel = ROLE_LABELS[role] || "Thành viên hệ thống";
+  const roleLabel = ROLE_LABELS[role] || t("Thành viên hệ thống");
 
   // Điện thoại, trang cấp đầu: nút Menu nằm ở thanh điều hướng đáy, chỗ nút ☰ hiện nơi làm việc (bấm mở menu để đổi)
   const { pathname } = useLocation();
@@ -130,7 +132,7 @@ export default function BackofficeHeader() {
             <button
               type="button"
               onClick={toggleSidebar}
-              aria-label={`Nơi làm việc: ${khoLamViec.tenKho}. Mở menu để đổi`}
+              aria-label={t("Nơi làm việc: {{tenKho}}. Mở menu để đổi", { tenKho: khoLamViec.tenKho })}
               className="flex h-9 min-w-0 max-w-[62%] shrink-0 items-center gap-1.5 rounded-lg px-1.5 text-left text-slate-700 hover:bg-slate-100"
             >
               {laKhoTong(khoLamViec) ? (
@@ -147,7 +149,7 @@ export default function BackofficeHeader() {
               size="icon"
               type="button"
               onClick={toggleSidebar}
-              aria-label={sidebarOpen ? "Thu gọn menu" : "Mở menu"}
+              aria-label={sidebarOpen ? t("Thu gọn menu") : t("Mở menu")}
               aria-expanded={sidebarOpen}
               aria-controls="backoffice-navigation"
               className="size-10 shrink-0 text-slate-700 hover:bg-slate-100 hover:text-slate-900"
@@ -161,11 +163,14 @@ export default function BackofficeHeader() {
             userId={userId}
             role={role}
             isPhone={isMobile}
-            placeholder={isMobile ? (khoLamViec ? "Tìm" : "Tìm kiếm") : `Tìm kiếm (${PHIM_TAT})`}
+            placeholder={isMobile ? (khoLamViec ? t("Tìm") : t("Tìm kiếm")) : t("Tìm kiếm ({{phimTat}})", { phimTat: PHIM_TAT })}
           />
         </div>
 
         <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+          {/* Cùng cỡ và màu với chuông bên cạnh; màn hẹp chỉ còn biểu tượng */}
+          <NutChonNgonNguThanhTren className="h-10 min-w-10 rounded-md px-2.5 text-slate-500 hover:bg-slate-100 hover:text-slate-900" />
+
           {/* Chuông thông báo của người đang đăng nhập (API /api/v1/thong-bao, xem thongBaoService.js) */}
           <NotificationBell />
 
@@ -175,7 +180,7 @@ export default function BackofficeHeader() {
                 variant="ghost"
                 type="button"
                 className="group h-10 max-w-[220px] shrink-0 gap-2 px-2 text-bo-foreground hover:bg-slate-100 data-[state=open]:bg-slate-100"
-                aria-label="Mở menu tài khoản"
+                aria-label={t("Mở menu tài khoản")}
               >
                 <UserAvatar userId={userId} name={username} avatarUrl={avatarUrl} size="xs" />
 
@@ -211,7 +216,7 @@ export default function BackofficeHeader() {
               >
                 <Link to="/profile">
                   <UserRound className="size-4 text-slate-500" />
-                  Hồ sơ
+                  {t("Hồ sơ")}
                 </Link>
               </DropdownMenuItem>
 
@@ -222,7 +227,7 @@ export default function BackofficeHeader() {
                 className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-bo-danger focus:bg-bo-danger-soft focus:text-bo-danger"
               >
                 <LogOut className="size-4" />
-                Đăng xuất
+                {t("Đăng xuất")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -235,10 +240,10 @@ export default function BackofficeHeader() {
           setHoiLuot(false);
           dangXuat();
         }}
-        title="Còn lượt quét chưa khóa lô"
-        description={`Có ${luotChuaKhoa} lượt quét ở màn Kiểm đếm chưa khóa lô. Đăng xuất bây giờ sẽ mất các lượt này, phải đếm lại thùng đó. Quay lại màn Kiểm đếm để khóa lô trước khi đăng xuất.`}
-        confirmText="Vẫn đăng xuất"
-        cancelText="Quay lại"
+        title={t("Còn lượt quét chưa khóa lô")}
+        description={t("Có {{count}} lượt quét ở màn Kiểm đếm chưa khóa lô. Đăng xuất bây giờ sẽ mất các lượt này, phải đếm lại thùng đó. Quay lại màn Kiểm đếm để khóa lô trước khi đăng xuất.", { count: luotChuaKhoa })}
+        confirmText={t("Vẫn đăng xuất")}
+        cancelText={t("Quay lại")}
       />
     </header>
   );

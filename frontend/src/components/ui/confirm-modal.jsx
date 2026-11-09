@@ -8,31 +8,32 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, Info, CheckCircle2 } from "lucide-react";
+import { t } from "@/i18n";
 
 const VARIANT_CONFIG = {
     danger: {
         icon: AlertTriangle,
         iconColor: "text-red-500",
         confirmButtonClass: "bg-red-600 hover:bg-red-700 text-white",
-        title: "Xác nhận xóa"
+        title: t("Xác nhận xóa")
     },
     warning: {
         icon: AlertTriangle,
         iconColor: "text-yellow-500",
         confirmButtonClass: "bg-yellow-600 hover:bg-yellow-700 text-white",
-        title: "Cảnh báo"
+        title: t("Cảnh báo")
     },
     info: {
         icon: Info,
         iconColor: "text-blue-500",
         confirmButtonClass: "bg-blue-600 hover:bg-blue-700 text-white",
-        title: "Thông tin"
+        title: t("Thông tin")
     },
     success: {
         icon: CheckCircle2,
         iconColor: "text-green-500",
         confirmButtonClass: "bg-green-600 hover:bg-green-700 text-white",
-        title: "Xác nhận"
+        title: t("Xác nhận")
     }
 };
 
@@ -43,8 +44,8 @@ export default function ConfirmModal({
     onConfirm,
     title,
     description,
-    confirmText = "Xác nhận",
-    cancelText = "Hủy",
+    confirmText = t("Xác nhận"),
+    cancelText = t("Hủy"),
     variant = "danger",
     isLoading = false,
 }) {
@@ -100,7 +101,7 @@ export default function ConfirmModal({
                         {isLoading ? (
                             <>
                                 <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                                Đang xử lý...
+                                {t("Đang xử lý...")}
                             </>
                         ) : (
                             confirmText

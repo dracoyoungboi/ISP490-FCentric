@@ -7,13 +7,14 @@ import { cn } from "@/lib/utils";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { KhungHop, NhomChon, Truong } from "./KhungHop";
 import { O_NHAP, kiemTraKhuMoi } from "./kieuNhap";
+import { t } from "@/i18n";
 
 const NGUON_KHU = [
-  { ma: "co", ten: "Khu có sẵn" },
-  { ma: "moi", ten: "Khu mới" },
+  { ma: "co", ten: t("Khu có sẵn") },
+  { ma: "moi", ten: t("Khu mới") },
 ];
 
-const GOI_Y_TEN = { loiDi: "VD: Lối đi chính", cua: "VD: Cửa nhận hàng", vatCoDinh: "VD: Bàn kiểm đếm" };
+const GOI_Y_TEN = { loiDi: t("VD: Lối đi chính"), cua: t("VD: Cửa nhận hàng"), vatCoDinh: t("VD: Bàn kiểm đếm") };
 
 /**
  * Sau khi vẽ một hình trên mặt bằng: chọn hình đó là gì (khu vực có sẵn / khu mới / lối đi / cửa / vật cố định).
@@ -51,10 +52,10 @@ function NoiDung({ hinh, khuChuaDat, khuVucs, onDong, onXacNhan }) {
   const kiemTra = kiemTraKhuMoi({ ma, ten: tenKhu }, khuVucs);
   const quaNho = loai === "khuVuc" && khuQuaNho(hinh);
   const loi = {};
-  if (quaNho) loi.kichThuoc = `${THONG_BAO_KHU_QUA_NHO} Chọn Lối đi, Cửa hoặc Vật cố định, hoặc vẽ lại hình lớn hơn.`;
-  if (loai === "khuVuc" && nguon === "co" && !khuVucId) loi.khu = "Chọn khu vực.";
+  if (quaNho) loi.kichThuoc = t("{{thongBao}} Chọn Lối đi, Cửa hoặc Vật cố định, hoặc vẽ lại hình lớn hơn.", { thongBao: THONG_BAO_KHU_QUA_NHO });
+  if (loai === "khuVuc" && nguon === "co" && !khuVucId) loi.khu = t("Chọn khu vực.");
   if (khuMoi) Object.assign(loi, kiemTra.loi);
-  if (loai !== "khuVuc" && !ten.trim()) loi.tenVat = "Nhập tên để nhân viên nhận ra trên mặt bằng.";
+  if (loai !== "khuVuc" && !ten.trim()) loi.tenVat = t("Nhập tên để nhân viên nhận ra trên mặt bằng.");
   const hopLe = Object.keys(loi).length === 0;
   const loiHien = daGui ? loi : {};
 
@@ -74,31 +75,31 @@ function NoiDung({ hinh, khuChuaDat, khuVucs, onDong, onXacNhan }) {
     try {
       await onXacNhan(luaChon);
     } catch (err) {
-      setLoiMayChu(getApiErrorMessage(err, "Không lưu được mặt bằng. Vui lòng thử lại."));
+      setLoiMayChu(getApiErrorMessage(err, t("Không lưu được mặt bằng. Vui lòng thử lại.")));
       setDangLuu(false);
     }
   };
 
   return (
     <KhungHop
-      tieuDe="Đặt lên mặt bằng"
-      moTa={`Hình ${hinh.rong} × ${hinh.cao} ô · bắt đầu từ cột ${hinh.x}, hàng ${hinh.y}`}
+      tieuDe={t("Đặt lên mặt bằng")}
+      moTa={t("Hình {{rong}} × {{cao}} ô · bắt đầu từ cột {{x}}, hàng {{y}}", { count: hinh.rong * hinh.cao, rong: hinh.rong, cao: hinh.cao, x: hinh.x, y: hinh.y })}
       onHuy={onDong}
       onGui={xacNhan}
-      nhanGui="Đặt lên mặt bằng"
+      nhanGui={t("Đặt lên mặt bằng")}
       dangGui={dangLuu}
     >
-      <Truong nhan="Hình này là">
-        <NhomChon nhan="Loại" value={loai} onChange={setLoai} luaChon={LOAI_VAT_MAT_BANG} day />
+      <Truong nhan={t("Hình này là")}>
+        <NhomChon nhan={t("Loại")} value={loai} onChange={setLoai} luaChon={LOAI_VAT_MAT_BANG} day />
       </Truong>
 
       {quaNho ? <DongThongBao tone="warn">{loi.kichThuoc}</DongThongBao> : null}
 
       {loai === "khuVuc" ? (
         <>
-          {khuChuaDat.length ? <NhomChon nhan="Khu vực" value={nguon} onChange={setNguon} luaChon={NGUON_KHU} day /> : null}
+          {khuChuaDat.length ? <NhomChon nhan={t("Khu vực")} value={nguon} onChange={setNguon} luaChon={NGUON_KHU} day /> : null}
           {nguon === "co" && khuChuaDat.length ? (
-            <Truong nhan="Khu vực" htmlFor="mb-khu" loi={loiHien.khu} goiY="Chỉ hiện các khu chưa đặt lên mặt bằng">
+            <Truong nhan={t("Khu vực")} htmlFor="mb-khu" loi={loiHien.khu} goiY={t("Chỉ hiện các khu chưa đặt lên mặt bằng")}>
               <select id="mb-khu" value={khuVucId} onChange={(e) => setKhuVucId(e.target.value)} className={O_NHAP}>
                 {khuChuaDat.map((k) => (
                   <option key={k.id} value={k.id}>
@@ -110,31 +111,31 @@ function NoiDung({ hinh, khuChuaDat, khuVucs, onDong, onXacNhan }) {
           ) : (
             <>
               <div className="grid gap-4 sm:grid-cols-2">
-                <Truong nhan="Mã khu vực" htmlFor="mb-ma" loi={loiHien.ma}>
+                <Truong nhan={t("Mã khu vực")} htmlFor="mb-ma" loi={loiHien.ma}>
                   <input
                     id="mb-ma"
                     value={ma}
                     onChange={(e) => setMa(e.target.value.toUpperCase())}
-                    placeholder="VD: KHU-C"
+                    placeholder={t("VD: {{viDu}}", { viDu: "KHU-C" })}
                     aria-invalid={Boolean(loiHien.ma)}
                     className={cn(O_NHAP, "font-mono")}
                   />
                 </Truong>
-                <Truong nhan="Tên khu vực" htmlFor="mb-ten-khu" loi={loiHien.ten}>
+                <Truong nhan={t("Tên khu vực")} htmlFor="mb-ten-khu" loi={loiHien.ten}>
                   <input
                     id="mb-ten-khu"
                     value={tenKhu}
                     onChange={(e) => setTenKhu(e.target.value)}
-                    placeholder="VD: Khu C – Phụ kiện"
+                    placeholder={t("VD: Khu C – Phụ kiện")}
                     aria-invalid={Boolean(loiHien.ten)}
                     className={O_NHAP}
                   />
                 </Truong>
               </div>
-              <Truong nhan="Loại khu" htmlFor="mb-loai-khu">
+              <Truong nhan={t("Loại khu")} htmlFor="mb-loai-khu">
                 <select id="mb-loai-khu" value={loaiKhu} onChange={(e) => setLoaiKhu(e.target.value)} className={O_NHAP}>
                   {LOAI_KHU.map((l) => (
-                    <option key={l}>{l}</option>
+                    <option key={l} value={l}>{t(l)}</option>
                   ))}
                 </select>
               </Truong>
@@ -143,7 +144,7 @@ function NoiDung({ hinh, khuChuaDat, khuVucs, onDong, onXacNhan }) {
         </>
       ) : (
         <>
-          <Truong nhan="Tên" htmlFor="mb-ten" loi={loiHien.tenVat}>
+          <Truong nhan={t("Tên")} htmlFor="mb-ten" loi={loiHien.tenVat}>
             <input
               id="mb-ten"
               value={ten}
@@ -154,8 +155,8 @@ function NoiDung({ hinh, khuChuaDat, khuVucs, onDong, onXacNhan }) {
             />
           </Truong>
           {loai === "cua" ? (
-            <Truong nhan="Hướng cửa" goiY="Chỉ đường trong kho bắt đầu từ cửa nhận hàng">
-              <NhomChon nhan="Hướng cửa" value={huong} onChange={setHuong} luaChon={HUONG_CUA} day />
+            <Truong nhan={t("Hướng cửa")} goiY={t("Chỉ đường trong kho bắt đầu từ cửa nhận hàng")}>
+              <NhomChon nhan={t("Hướng cửa")} value={huong} onChange={setHuong} luaChon={HUONG_CUA.map((h) => ({ ...h, ten: t(h.ten) }))} day />
             </Truong>
           ) : null}
         </>
@@ -164,7 +165,7 @@ function NoiDung({ hinh, khuChuaDat, khuVucs, onDong, onXacNhan }) {
       {loiMayChu ? (
         <DongThongBao tone="bad">{loiMayChu}</DongThongBao>
       ) : (
-        <DongThongBao>Có thể vẽ lại bất cứ lúc nào. Mặt bằng chỉ để chỉ đường, không ảnh hưởng tồn kho.</DongThongBao>
+        <DongThongBao>{t("Có thể vẽ lại bất cứ lúc nào. Mặt bằng chỉ để chỉ đường, không ảnh hưởng tồn kho.")}</DongThongBao>
       )}
     </KhungHop>
   );

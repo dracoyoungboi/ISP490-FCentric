@@ -11,6 +11,7 @@ import { coThayDoiKhoaUngDung, kiemTraKhoaUngDung, taoGiaTriKhoaUngDung, taoPayl
 import { kenhBanHangService } from "@/services/kenhBanHangService";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 /**
  * Hộp thoại "Cập nhật khóa ứng dụng" của sàn ủy quyền ở trang Cấu hình (PUT /{maKenh}/ket-noi/khoa, KH mục C.1).
@@ -90,7 +91,7 @@ export default function KhoaUngDungDialog({ open, onOpenChange, san, ketNoi, onS
       onSaved?.(dto);
     } catch (error) {
       setValues((cu) => ({ ...cu, appSecret: "" }));
-      setLoi(getApiErrorMessage(error, "Không lưu được khóa ứng dụng"));
+      setLoi(getApiErrorMessage(error, t("Không lưu được khóa ứng dụng")));
     } finally {
       dangLuuRef.current = false;
       setDangLuu(false);
@@ -102,12 +103,12 @@ export default function KhoaUngDungDialog({ open, onOpenChange, san, ketNoi, onS
       <DialogContent className="max-h-[90dvh] overflow-y-auto rounded-xl border-bo-border sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="text-bo-foreground">
-            {isThirdParty ? "Cập nhật Shop ID gian hàng Shopee" : "Cập nhật khóa ứng dụng"}
+            {isThirdParty ? t("Cập nhật Shop ID gian hàng Shopee") : t("Cập nhật khóa ứng dụng")}
           </DialogTitle>
           <DialogDescription className="text-bo-muted">
             {isThirdParty
-              ? "Kết nối Shopee Production qua Cổng Ký Bên Thứ Ba (MinMinTool Gateway). Chỉ cần nhập Shop ID để liên kết."
-              : `Khóa được mã hóa trước khi lưu và không hiển thị lại. Đổi App Key thì cần ủy quyền lại với ${san.ten}.`}
+              ? t("Kết nối Shopee Production qua Cổng Ký Bên Thứ Ba (MinMinTool Gateway). Chỉ cần nhập Shop ID để liên kết.")
+              : t("Khóa được mã hóa trước khi lưu và không hiển thị lại. Đổi App Key thì cần ủy quyền lại với {{ten}}.", { ten: san.ten })}
           </DialogDescription>
         </DialogHeader>
         <form id="khoa-ung-dung-form" onSubmit={luu} noValidate className="space-y-3">
@@ -146,17 +147,17 @@ export default function KhoaUngDungDialog({ open, onOpenChange, san, ketNoi, onS
           )}
           {loi ? (
             <p role="alert">
-              <TrangThaiCham label={`Chưa lưu được. ${loi}`} tone="danger" className="whitespace-normal" />
+              <TrangThaiCham label={t("Chưa lưu được. {{loi}}", { loi })} tone="danger" className="whitespace-normal" />
             </p>
           ) : null}
         </form>
         <DialogFooter className="gap-2">
           <Button type="button" variant="outline" disabled={dangLuu} onClick={() => dong(false)} className={NUT_PHU}>
-            Hủy bỏ
+            {t("Hủy bỏ")}
           </Button>
           <Button type="submit" form="khoa-ung-dung-form" disabled={dangLuu || !coThayDoi} className={NUT_CHINH}>
             {dangLuu ? <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : null}
-            {dangLuu ? "Đang lưu…" : isThirdParty ? "Lưu Shop ID" : "Lưu khóa"}
+            {dangLuu ? t("Đang lưu…") : isThirdParty ? t("Lưu Shop ID") : t("Lưu khóa")}
           </Button>
         </DialogFooter>
       </DialogContent>

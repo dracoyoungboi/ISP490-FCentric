@@ -6,6 +6,7 @@ import com.dev.backend.dto.response.ThongTinCongTyDto;
 import com.dev.backend.entities.TepTin;
 import com.dev.backend.entities.ThongTinCongTy;
 import com.dev.backend.exception.customize.CommonException;
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.repository.ThongTinCongTyRepository;
 import com.dev.backend.services.MinioService;
 import com.dev.backend.utils.PublicAssetUrl;
@@ -54,19 +55,19 @@ public class ThongTinCongTyService {
     static final long LOGO_TOI_DA_BYTE = 2L * 1024 * 1024;
 
     // Câu lỗi hiện nguyên văn ở giao diện: chép đúng chữ demo (demo-cua-hang/Main.dc.html, hàm validate)
-    static final String LOI_THIEU_TEN = "Nhập tên cửa hàng.";
-    static final String LOI_TEN_QUA_DAI = "Tên cửa hàng tối đa " + TEN_TOI_DA + " ký tự.";
-    static final String LOI_THIEU_TEN_DANG_KY = "Nhập tên đăng ký kinh doanh.";
-    static final String LOI_TEN_DANG_KY_QUA_DAI = "Tên đăng ký kinh doanh tối đa " + TEN_TOI_DA + " ký tự.";
-    static final String LOI_MA_SO_THUE = "Mã số thuế gồm 10 số (đơn vị phụ thuộc thêm -3 số) hoặc 12 số.";
-    static final String LOI_EMAIL = "Email không hợp lệ.";
-    static final String LOI_DIEN_THOAI = "Số điện thoại không hợp lệ.";
-    static final String LOI_CHUA_CO_TEN = "Lưu tên cửa hàng trước.";
-    static final String LOI_LOGO_CHUA_CO_HO_SO = "Lưu tên cửa hàng trước khi tải logo.";
-    static final String LOI_LOGO_TRONG = "Chưa chọn ảnh logo.";
-    static final String LOI_LOGO_SAI_LOAI = "Chỉ nhận ảnh PNG hoặc JPG.";
-    static final String LOI_LOGO_QUA_LON = "Ảnh lớn hơn 2 MB.";
-    static final String LOI_LOGO_TAI_LEN = "Chưa tải được logo lên. Vui lòng thử lại.";
+    static final String LOI_THIEU_TEN = ThongDiep.vi("heThong.thieuTenCuaHang");
+    static final String LOI_TEN_QUA_DAI = ThongDiep.vi("heThong.tenCuaHangQuaDai", TEN_TOI_DA);
+    static final String LOI_THIEU_TEN_DANG_KY = ThongDiep.vi("heThong.thieuTenDangKy");
+    static final String LOI_TEN_DANG_KY_QUA_DAI = ThongDiep.vi("heThong.tenDangKyQuaDai", TEN_TOI_DA);
+    static final String LOI_MA_SO_THUE = ThongDiep.vi("heThong.maSoThueKhongHopLe");
+    static final String LOI_EMAIL = ThongDiep.vi("heThong.emailCuaHangKhongHopLe");
+    static final String LOI_DIEN_THOAI = ThongDiep.vi("heThong.dienThoaiCuaHangKhongHopLe");
+    static final String LOI_CHUA_CO_TEN = ThongDiep.vi("heThong.luuTenCuaHangTruoc");
+    static final String LOI_LOGO_CHUA_CO_HO_SO = ThongDiep.vi("heThong.luuTenTruocKhiTaiLogo");
+    static final String LOI_LOGO_TRONG = ThongDiep.vi("heThong.chuaChonLogo");
+    static final String LOI_LOGO_SAI_LOAI = ThongDiep.vi("heThong.logoSaiLoai");
+    static final String LOI_LOGO_QUA_LON = ThongDiep.vi("heThong.logoQuaLon");
+    static final String LOI_LOGO_TAI_LEN = ThongDiep.vi("heThong.logoTaiLenLoi");
 
     private static final Pattern EMAIL = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
     private static final Pattern PHONE = Pattern.compile("^[0-9+\\-\\s()]{6,20}$");
@@ -94,40 +95,40 @@ public class ThongTinCongTyService {
     @Transactional
     public ThongTinCongTyDto updateProfile(ThongTinCongTyRequest req) {
         if (req == null) {
-            throw new CommonException("Dữ liệu gửi lên không hợp lệ.");
+            throw new CommonException(ThongDiep.of("heThong.duLieuCuaHangKhongHopLe"));
         }
         ThongTinCongTy entity = thongTinCongTyRepository.findById(PROFILE_ID)
                 .orElseGet(() -> ThongTinCongTy.builder().id(PROFILE_ID).build());
 
         String ten = req.getName() == null ? null : req.getName().trim();
         if (ten != null) {
-            if (ten.isEmpty()) throw new CommonException(LOI_THIEU_TEN);
-            if (ten.length() > TEN_TOI_DA) throw new CommonException(LOI_TEN_QUA_DAI);
+            if (ten.isEmpty()) throw new CommonException(ThongDiep.of("heThong.thieuTenCuaHang"));
+            if (ten.length() > TEN_TOI_DA) throw new CommonException(ThongDiep.of("heThong.tenCuaHangQuaDai", TEN_TOI_DA));
         } else if (isBlank(entity.getTenCongTy())) {
             // Thẻ Pháp lý và liên hệ khóa khi chưa có tên; chặn cả ở máy chủ vì cột tên không được trống
-            throw new CommonException(LOI_CHUA_CO_TEN);
+            throw new CommonException(ThongDiep.of("heThong.luuTenCuaHangTruoc"));
         }
 
         String tenDangKy = req.getLegalName() == null ? null : req.getLegalName().trim();
         if (tenDangKy != null) {
-            if (tenDangKy.isEmpty()) throw new CommonException(LOI_THIEU_TEN_DANG_KY);
-            if (tenDangKy.length() > TEN_TOI_DA) throw new CommonException(LOI_TEN_DANG_KY_QUA_DAI);
+            if (tenDangKy.isEmpty()) throw new CommonException(ThongDiep.of("heThong.thieuTenDangKy"));
+            if (tenDangKy.length() > TEN_TOI_DA) throw new CommonException(ThongDiep.of("heThong.tenDangKyQuaDai", TEN_TOI_DA));
         }
 
         String maSoThue = req.getTaxCode() == null ? null : chuanHoaMaSoThue(req.getTaxCode());
         if (maSoThue != null && !maSoThue.isEmpty() && !TAX_CODE.matcher(maSoThue).matches()) {
-            throw new CommonException(LOI_MA_SO_THUE);
+            throw new CommonException(ThongDiep.of("heThong.maSoThueKhongHopLe"));
         }
 
         String email = req.getEmail() == null ? null : req.getEmail().trim();
         if (email != null && !email.isEmpty()
                 && (email.length() > EMAIL_TOI_DA || !EMAIL.matcher(email).matches())) {
-            throw new CommonException(LOI_EMAIL);
+            throw new CommonException(ThongDiep.of("heThong.emailCuaHangKhongHopLe"));
         }
 
         String dienThoai = req.getPhone() == null ? null : req.getPhone().trim();
         if (dienThoai != null && !dienThoai.isEmpty() && !PHONE.matcher(dienThoai).matches()) {
-            throw new CommonException(LOI_DIEN_THOAI);
+            throw new CommonException(ThongDiep.of("heThong.dienThoaiCuaHangKhongHopLe"));
         }
 
         String diaChi = req.getAddress() == null ? null : req.getAddress().trim();
@@ -154,7 +155,7 @@ public class ThongTinCongTyService {
         kiemTepLogo(file);
         ThongTinCongTy entity = thongTinCongTyRepository.findById(PROFILE_ID)
                 .filter(hoSo -> !isBlank(hoSo.getTenCongTy()))
-                .orElseThrow(() -> new CommonException(LOI_LOGO_CHUA_CO_HO_SO));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("heThong.luuTenTruocKhiTaiLogo")));
         try {
             TepTin tepTinCu = entity.getTepTin();
 
@@ -187,7 +188,7 @@ public class ThongTinCongTyService {
             throw e;
         } catch (Exception e) {
             log.error("Lỗi upload logo lên MinIO", e);
-            throw new CommonException(LOI_LOGO_TAI_LEN);
+            throw new CommonException(ThongDiep.of("heThong.logoTaiLenLoi"));
         }
     }
 
@@ -227,10 +228,10 @@ public class ThongTinCongTyService {
 
     private void kiemTepLogo(MultipartFile file) {
         if (file == null || file.isEmpty()) {
-            throw new CommonException(LOI_LOGO_TRONG);
+            throw new CommonException(ThongDiep.of("heThong.chuaChonLogo"));
         }
         if (file.getSize() > LOGO_TOI_DA_BYTE) {
-            throw new CommonException(LOI_LOGO_QUA_LON);
+            throw new CommonException(ThongDiep.of("heThong.logoQuaLon"));
         }
         String loai = file.getContentType() == null ? "" : file.getContentType().trim().toLowerCase();
         byte[] dau;
@@ -238,13 +239,13 @@ public class ThongTinCongTyService {
             dau = in.readNBytes(DAU_PNG.length);
         } catch (IOException e) {
             log.warn("Không đọc được tệp logo", e);
-            throw new CommonException(LOI_LOGO_SAI_LOAI);
+            throw new CommonException(ThongDiep.of("heThong.logoSaiLoai"));
         }
         // Loại khai báo phải khớp nội dung: object MinIO lưu theo loại khai báo, email đọc theo loại này
         boolean laPng = LOAI_PNG.equals(loai) && batDauBang(dau, DAU_PNG);
         boolean laJpeg = LOAI_JPEG.equals(loai) && batDauBang(dau, DAU_JPEG);
         if (!laPng && !laJpeg) {
-            throw new CommonException(LOI_LOGO_SAI_LOAI);
+            throw new CommonException(ThongDiep.of("heThong.logoSaiLoai"));
         }
     }
 

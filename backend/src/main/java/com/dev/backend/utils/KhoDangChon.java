@@ -6,6 +6,8 @@ import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
 import com.dev.backend.dto.response.entities.PhanQuyenNguoiDungKhoDto;
 import com.dev.backend.entities.Kho;
 import com.dev.backend.exception.customize.CommonException;
+import com.dev.backend.i18n.NhanChungTu;
+import com.dev.backend.i18n.ThongDiep;
 import org.springframework.http.HttpStatus;
 
 /**
@@ -34,7 +36,7 @@ public final class KhoDangChon {
         Integer khoDangChon = SecurityContextHolder.getKhoId();
         if (khoCuaChungTu == null || khoDangChon == null || !khoDangChon.equals(khoCuaChungTu.getId())) {
             throw new CommonException(HttpStatus.FORBIDDEN,
-                    tenChungTu + " thuộc kho khác kho đang chọn. Chọn đúng kho rồi thử lại.");
+                    ThongDiep.of("heThong.chungTuKhacKhoDangChon", NhanChungTu.theoKhoa(tenChungTu, false)));
         }
     }
 
@@ -51,7 +53,7 @@ public final class KhoDangChon {
         Integer khoDangChon = SecurityContextHolder.getKhoId();
         if (khoDangChon == null || !(laKho(kho1, khoDangChon) || laKho(kho2, khoDangChon))) {
             throw new CommonException(HttpStatus.FORBIDDEN,
-                    tenChungTu + " thuộc kho khác kho đang chọn. Chọn kho gửi hoặc kho nhận rồi thử lại.");
+                    ThongDiep.of("heThong.chungTuKhacKhoGuiNhan", NhanChungTu.theoKhoa(tenChungTu, false)));
         }
     }
 
@@ -79,7 +81,7 @@ public final class KhoDangChon {
     }
 
     private static CommonException loiKhongThuocKho(String tenChungTu) {
-        return new CommonException(HttpStatus.FORBIDDEN, "Bạn không thuộc kho của "
-                + Character.toLowerCase(tenChungTu.charAt(0)) + tenChungTu.substring(1) + ".");
+        return new CommonException(HttpStatus.FORBIDDEN, ThongDiep.of("heThong.khongThuocKhoCuaChungTu",
+                NhanChungTu.theoKhoa(tenChungTu, true)));
     }
 }

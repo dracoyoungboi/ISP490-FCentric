@@ -7,6 +7,7 @@ import LoadingState from "@/components/shared/LoadingState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { t } from "@/i18n";
 
 const moneyFormatter = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" });
 const dateFormatter = new Intl.DateTimeFormat("vi-VN", {
@@ -43,14 +44,14 @@ function formatMoney(value) {
 function getPurchaseHistoryError(failure) {
   const status = failure.response?.status ?? failure.status;
   switch (status) {
-    case 404: return "Không tìm thấy lịch sử mua hàng của khách hàng này.";
-    case 401: return "Bạn cần đăng nhập lại để xem lịch sử mua hàng.";
-    case 403: return "Bạn không có quyền xem lịch sử mua hàng.";
-    case 500: return "Máy chủ gặp lỗi khi tải lịch sử mua hàng. Vui lòng thử lại sau.";
+    case 404: return t("Không tìm thấy lịch sử mua hàng của khách hàng này.");
+    case 401: return t("Bạn cần đăng nhập lại để xem lịch sử mua hàng.");
+    case 403: return t("Bạn không có quyền xem lịch sử mua hàng.");
+    case 500: return t("Máy chủ gặp lỗi khi tải lịch sử mua hàng. Vui lòng thử lại sau.");
     default:
-      if (status) return "Không tải được lịch sử mua hàng. Vui lòng thử lại sau.";
-      if (failure.request) return "Không kết nối được máy chủ. Vui lòng kiểm tra kết nối và thử lại.";
-      return "Không tải được lịch sử mua hàng. Vui lòng thử lại sau.";
+      if (status) return t("Không tải được lịch sử mua hàng. Vui lòng thử lại sau.");
+      if (failure.request) return t("Không kết nối được máy chủ. Vui lòng kiểm tra kết nối và thử lại.");
+      return t("Không tải được lịch sử mua hàng. Vui lòng thử lại sau.");
   }
 }
 
@@ -119,38 +120,38 @@ export default function CustomerPurchaseHistory({ customerId }) {
   return (
     <TableShell
       className="min-w-0"
-      title="Lịch sử mua hàng"
+      title={t("Lịch sử mua hàng")}
       description={noOrders ? null : status === "loaded"
-        ? `Tổng số đơn: ${totalOrders.toLocaleString("vi-VN")} đơn hàng`
-        : "Tra cứu lịch sử mua hàng của khách hàng."}
+        ? t("Tổng số đơn: {{so}} đơn hàng", { count: totalOrders, so: totalOrders.toLocaleString("vi-VN") })
+        : t("Tra cứu lịch sử mua hàng của khách hàng.")}
       toolbar={
         <div className="grid grid-cols-1 gap-3 border-b border-bo-border bg-bo-surface px-4 py-4 sm:grid-cols-2 sm:px-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] xl:items-end">
           <div className="flex min-w-0 flex-col gap-2">
-            <Label htmlFor="customer-history-search" className="static text-xs font-semibold leading-5 text-bo-foreground">Mã đơn hàng</Label>
+            <Label htmlFor="customer-history-search" className="static text-xs font-semibold leading-5 text-bo-foreground">{t("Mã đơn hàng")}</Label>
             <div className="relative">
               <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-bo-muted" />
-              <Input id="customer-history-search" type="search" placeholder="Tìm theo mã đơn hàng…" value={query}
+              <Input id="customer-history-search" type="search" placeholder={t("Tìm theo mã đơn hàng…")} value={query}
                 disabled={status !== "loaded"} onChange={(event) => setQuery(event.target.value)}
                 className={`h-10 pl-9 ${controlClass}`} />
             </div>
           </div>
           <div className="flex min-w-0 flex-col gap-2">
-            <Label htmlFor="customer-history-channel" className="static text-xs font-semibold leading-5 text-bo-foreground">Kênh bán</Label>
+            <Label htmlFor="customer-history-channel" className="static text-xs font-semibold leading-5 text-bo-foreground">{t("Kênh bán")}</Label>
             <select id="customer-history-channel" value={channel} onChange={(event) => setChannel(event.target.value)}
               disabled={status !== "loaded"}
               className={`h-10 w-full min-w-0 rounded-md border px-3 text-sm outline-none focus-visible:ring-[3px] disabled:opacity-50 ${controlClass}`}>
-              <option value="">Tất cả kênh</option>
+              <option value="">{t("Tất cả kênh")}</option>
               {channels.map((value) => <option key={value} value={value}>{value}</option>)}
             </select>
           </div>
           <div className="flex min-w-0 flex-col gap-2">
-            <Label htmlFor="customer-history-from" className="static text-xs font-semibold leading-5 text-bo-foreground">Từ ngày mua</Label>
+            <Label htmlFor="customer-history-from" className="static text-xs font-semibold leading-5 text-bo-foreground">{t("Từ ngày mua")}</Label>
             <Input id="customer-history-from" type="date" value={fromDate} max={toDate || undefined}
               disabled={status !== "loaded"}
               onChange={(event) => setFromDate(event.target.value)} className={`h-10 min-w-0 ${controlClass}`} />
           </div>
           <div className="flex min-w-0 flex-col gap-2">
-            <Label htmlFor="customer-history-to" className="static text-xs font-semibold leading-5 text-bo-foreground">Đến ngày mua</Label>
+            <Label htmlFor="customer-history-to" className="static text-xs font-semibold leading-5 text-bo-foreground">{t("Đến ngày mua")}</Label>
             <Input id="customer-history-to" type="date" value={toDate} min={fromDate || undefined}
               disabled={status !== "loaded"}
               onChange={(event) => setToDate(event.target.value)} className={`h-10 min-w-0 ${controlClass}`} />
@@ -158,22 +159,22 @@ export default function CustomerPurchaseHistory({ customerId }) {
           <div className="sm:col-span-2 xl:col-span-1">
             <Button type="button" variant="outline" onClick={clearFilters} disabled={!filtered}
               className={`h-10 w-full hover:bg-bo-surface-subtle sm:w-auto ${controlClass}`}>
-              <X className="size-4" />Xóa bộ lọc
+              <X className="size-4" />{t("Xóa bộ lọc")}
             </Button>
           </div>
         </div>
       }
       footer={status === "loaded" && history.length > 0 ? (
-        <p role="status" aria-live="polite" className="text-xs text-bo-muted">Hiển thị <span className="font-semibold text-bo-foreground">{results.length.toLocaleString("vi-VN")}</span> / {totalOrders.toLocaleString("vi-VN")} đơn hàng</p>
+        <p role="status" aria-live="polite" className="text-xs text-bo-muted">{t("Hiển thị")} <span className="font-semibold text-bo-foreground">{results.length.toLocaleString("vi-VN")}</span> / {totalOrders.toLocaleString("vi-VN")} {t("đơn hàng")}</p>
       ) : null}
     >
       {status === "loading" ? (
-        <LoadingState className="min-h-48" label="Đang tải lịch sử mua hàng" />
+        <LoadingState className="min-h-48" label={t("Đang tải lịch sử mua hàng")} />
       ) : status === "unavailable" ? (
         <div role="status" className="flex min-h-48 flex-col items-center justify-center gap-3 px-5 py-8 text-center">
           <ShoppingBag aria-hidden="true" className="size-6 text-bo-muted" />
           <div>
-            <h3 className="text-sm font-semibold text-bo-foreground">Chưa có dữ liệu lịch sử từ API</h3>
+            <h3 className="text-sm font-semibold text-bo-foreground">{t("Chưa có dữ liệu lịch sử từ API")}</h3>
             <p className="mt-1 text-sm text-bo-muted">{error}</p>
           </div>
         </div>
@@ -181,24 +182,24 @@ export default function CustomerPurchaseHistory({ customerId }) {
         <div role="alert" className="flex min-h-48 flex-col items-center justify-center gap-3 px-5 py-8 text-center">
           <AlertCircle aria-hidden="true" className="size-6 text-bo-danger" />
           <div>
-            <h3 className="text-sm font-semibold text-bo-foreground">Không thể tải lịch sử mua hàng</h3>
+            <h3 className="text-sm font-semibold text-bo-foreground">{t("Không thể tải lịch sử mua hàng")}</h3>
             <p className="mt-1 text-sm text-bo-muted">{error}</p>
           </div>
-          <Button type="button" variant="outline" onClick={loadHistory} className={`hover:bg-bo-surface-subtle ${controlClass}`}><RefreshCcw className="size-4" />Thử lại</Button>
+          <Button type="button" variant="outline" onClick={loadHistory} className={`hover:bg-bo-surface-subtle ${controlClass}`}><RefreshCcw className="size-4" />{t("Thử lại")}</Button>
         </div>
       ) : noOrders ? (
-        <EmptyState icon={ShoppingBag} className="min-h-48" title="Chưa có lịch sử mua hàng" description={null} />
+        <EmptyState icon={ShoppingBag} className="min-h-48" title={t("Chưa có lịch sử mua hàng")} description={null} />
       ) : results.length === 0 ? (
-        <EmptyState icon={Search} className="min-h-48" title="Không tìm thấy đơn hàng phù hợp" description={null} />
+        <EmptyState icon={Search} className="min-h-48" title={t("Không tìm thấy đơn hàng phù hợp")} description={null} />
       ) : (
         <table className="w-full min-w-[620px] text-sm">
-          <caption className="sr-only">Lịch sử mua hàng của khách hàng, mới nhất trước</caption>
+          <caption className="sr-only">{t("Lịch sử mua hàng của khách hàng, mới nhất trước")}</caption>
           <thead>
             <tr className="border-b border-bo-border bg-bo-surface-subtle">
-              <th scope="col" className="h-10 px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted sm:px-5">Mã đơn</th>
-              <th scope="col" className="h-10 px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày mua</th>
-              <th scope="col" className="h-10 px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Kênh bán</th>
-              <th scope="col" className="h-10 px-4 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted sm:px-5">Giá trị</th>
+              <th scope="col" className="h-10 px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted sm:px-5">{t("Mã đơn")}</th>
+              <th scope="col" className="h-10 px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Ngày mua")}</th>
+              <th scope="col" className="h-10 px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Kênh bán")}</th>
+              <th scope="col" className="h-10 px-4 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted sm:px-5">{t("Giá trị")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-bo-border">

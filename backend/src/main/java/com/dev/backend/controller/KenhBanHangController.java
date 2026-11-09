@@ -1,5 +1,7 @@
 package com.dev.backend.controller;
 
+import com.dev.backend.i18n.DichCauDaLuu;
+import com.dev.backend.i18n.ThongDiep;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.dev.backend.entities.KenhBanHang;
 
@@ -76,7 +78,7 @@ public class KenhBanHangController {
                 ResponseData.<ShopifyConfigResponse>builder()
                         .status(HttpStatus.OK.value())
                         .data(kenhBanHangService.getShopifyConfig())
-                        .message("Lấy cấu hình kênh bán Shopify thành công")
+                        .message(ThongDiep.dich("kenhBan.layCauHinhShopifyThanhCong"))
                         .build()
         );
     }
@@ -90,7 +92,7 @@ public class KenhBanHangController {
                 ResponseData.<ShopifyConfigResponse>builder()
                         .status(HttpStatus.OK.value())
                         .data(kenhBanHangService.updateShopifyConfig(request))
-                        .message("Cập nhật cấu hình Shopify thành công")
+                        .message(ThongDiep.dich("kenhBan.capNhatCauHinhShopifyThanhCong"))
                         .build()
         );
     }
@@ -105,7 +107,7 @@ public class KenhBanHangController {
                 ResponseData.<ShopifyTestConnectionResponse>builder()
                         .status(HttpStatus.OK.value())
                         .data(res)
-                        .message(res.isConnected() ? "Kết nối Shopify thành công" : "Kiểm tra kết nối thất bại")
+                        .message(res.isConnected() ? ThongDiep.dich("kenhBan.ketNoiSanThanhCong", "Shopify") : ThongDiep.dich("kenhBan.kiemTraKetNoiThatBai"))
                         .build()
         );
     }
@@ -118,7 +120,7 @@ public class KenhBanHangController {
                 ResponseData.<ShopifyConfigResponse>builder()
                         .status(HttpStatus.OK.value())
                         .data(kenhBanHangService.lamMoiKhoaShopify())
-                        .message("Làm mới Access Token OAuth 2.0 thành công")
+                        .message(ThongDiep.dich("kenhBan.lamMoiAccessTokenOAuthThanhCong"))
                         .build()
         );
     }
@@ -131,7 +133,7 @@ public class KenhBanHangController {
                 ResponseData.<ShopifyConfigResponse>builder()
                         .status(HttpStatus.OK.value())
                         .data(kenhBanHangService.getKetNoi(maKenh))
-                        .message("Lấy kết nối kênh bán hàng thành công")
+                        .message(ThongDiep.dich("kenhBan.layKetNoiKenhThanhCong"))
                         .build()
         );
     }
@@ -149,7 +151,7 @@ public class KenhBanHangController {
                     ResponseData.<ShopifyConfigResponse>builder()
                             .status(HttpStatus.OK.value())
                             .data(kenhBanHangService.updateShopifyConfig(request))
-                            .message("Cập nhật cấu hình Shopify thành công")
+                            .message(ThongDiep.dich("kenhBan.capNhatCauHinhShopifyThanhCong"))
                             .build()
             );
         }
@@ -164,7 +166,7 @@ public class KenhBanHangController {
                     ResponseData.<ShopifyConfigResponse>builder()
                             .status(HttpStatus.OK.value())
                             .data(kenhBanHangService.getKetNoi(ma))
-                            .message("Cập nhật cấu hình " + (ma.contains("SANDBOX") ? "Lazada Sandbox" : "Lazada") + " thành công")
+                            .message(ThongDiep.dich("kenhBan.capNhatCauHinhSanThanhCong", (ma.contains("SANDBOX") ? "Lazada Sandbox" : "Lazada")))
                             .build()
             );
         }
@@ -180,7 +182,7 @@ public class KenhBanHangController {
                     ResponseData.<ShopifyConfigResponse>builder()
                             .status(HttpStatus.OK.value())
                             .data(kenhBanHangService.getKetNoi("TIKTOK"))
-                            .message("Cập nhật cấu hình TikTok Shop thành công")
+                            .message(ThongDiep.dich("kenhBan.capNhatCauHinhSanThanhCong", "TikTok Shop"))
                             .build()
             );
         }
@@ -218,7 +220,7 @@ public class KenhBanHangController {
                     ResponseData.<ShopifyConfigResponse>builder()
                             .status(HttpStatus.OK.value())
                             .data(kenhBanHangService.getKetNoi(ma))
-                            .message("Cập nhật cấu hình " + (ma.contains("SANDBOX") ? "Shopee Sandbox" : "Shopee") + " thành công")
+                            .message(ThongDiep.dich("kenhBan.capNhatCauHinhSanThanhCong", (ma.contains("SANDBOX") ? "Shopee Sandbox" : "Shopee")))
                             .build()
             );
         }
@@ -240,7 +242,7 @@ public class KenhBanHangController {
                     ResponseData.<Map<String, String>>builder()
                             .status(HttpStatus.OK.value())
                             .data(Map.of("authUrl", authUrl))
-                            .message("Sinh URL ủy quyền " + (ma.contains("SANDBOX") ? "Lazada Sandbox" : "Lazada") + " thành công")
+                            .message(ThongDiep.dich("kenhBan.sinhUrlUyQuyenThanhCong", (ma.contains("SANDBOX") ? "Lazada Sandbox" : "Lazada")))
                             .build()
             );
         }
@@ -250,7 +252,7 @@ public class KenhBanHangController {
                     ResponseData.<Map<String, String>>builder()
                             .status(HttpStatus.OK.value())
                             .data(Map.of("authUrl", authUrl))
-                            .message("Sinh URL ủy quyền TikTok Shop thành công")
+                            .message(ThongDiep.dich("kenhBan.sinhUrlUyQuyenThanhCong", "TikTok Shop"))
                             .build()
             );
         }
@@ -264,11 +266,11 @@ public class KenhBanHangController {
                     ResponseData.<Map<String, String>>builder()
                             .status(HttpStatus.OK.value())
                             .data(Map.of("authUrl", authUrl))
-                            .message("Sinh URL ủy quyền " + (ma.contains("SANDBOX") ? "Shopee Sandbox" : "Shopee") + " thành công")
+                            .message(ThongDiep.dich("kenhBan.sinhUrlUyQuyenThanhCong", (ma.contains("SANDBOX") ? "Shopee Sandbox" : "Shopee")))
                             .build()
             );
         }
-        throw new LoiCoMaException(HttpStatus.BAD_REQUEST, MaLoi.SAN_KHONG_HO_TRO, "Máy chủ chưa hỗ trợ sàn " + maKenh);
+        throw new LoiCoMaException(HttpStatus.BAD_REQUEST, MaLoi.SAN_KHONG_HO_TRO, ThongDiep.of("kenhBan.sanKhongHoTro", maKenh));
     }
 
     @PostMapping("/{maKenh}/uy-quyen/hoan-tat")
@@ -284,7 +286,7 @@ public class KenhBanHangController {
                     ResponseData.<ShopifyConfigResponse>builder()
                             .status(HttpStatus.OK.value())
                             .data(kenhBanHangService.getKetNoi(ma))
-                            .message("Ủy quyền gian hàng " + (ma.contains("SANDBOX") ? "Lazada Sandbox" : "Lazada") + " thành công")
+                            .message(ThongDiep.dich("kenhBan.uyQuyenGianHangThanhCong", (ma.contains("SANDBOX") ? "Lazada Sandbox" : "Lazada")))
                             .build()
             );
         }
@@ -297,7 +299,7 @@ public class KenhBanHangController {
                     ResponseData.<ShopifyConfigResponse>builder()
                             .status(HttpStatus.OK.value())
                             .data(kenhBanHangService.getKetNoi("TIKTOK"))
-                            .message("Ủy quyền gian hàng TikTok Shop thành công")
+                            .message(ThongDiep.dich("kenhBan.uyQuyenGianHangThanhCong", "TikTok Shop"))
                             .build()
             );
         }
@@ -320,11 +322,11 @@ public class KenhBanHangController {
                     ResponseData.<ShopifyConfigResponse>builder()
                             .status(HttpStatus.OK.value())
                             .data(kenhBanHangService.getKetNoi(ma))
-                            .message("Ủy quyền gian hàng " + (ma.contains("SANDBOX") ? "Shopee Sandbox" : "Shopee") + " thành công")
+                            .message(ThongDiep.dich("kenhBan.uyQuyenGianHangThanhCong", (ma.contains("SANDBOX") ? "Shopee Sandbox" : "Shopee")))
                             .build()
             );
         }
-        throw new LoiCoMaException(HttpStatus.BAD_REQUEST, MaLoi.SAN_KHONG_HO_TRO, "Máy chủ chưa hỗ trợ sàn " + maKenh);
+        throw new LoiCoMaException(HttpStatus.BAD_REQUEST, MaLoi.SAN_KHONG_HO_TRO, ThongDiep.of("kenhBan.sanKhongHoTro", maKenh));
     }
 
 
@@ -337,7 +339,7 @@ public class KenhBanHangController {
                 ResponseData.<TikTokConfigResponse>builder()
                         .status(HttpStatus.OK.value())
                         .data(kenhBanHangService.getTikTokConfig())
-                        .message("Lấy cấu hình TikTok Shop thành công")
+                        .message(ThongDiep.dich("kenhBan.layCauHinhTikTokThanhCong"))
                         .build()
         );
     }
@@ -351,7 +353,7 @@ public class KenhBanHangController {
                 ResponseData.<TikTokConfigResponse>builder()
                         .status(HttpStatus.OK.value())
                         .data(response)
-                        .message("Ủy quyền TikTok Shop thành công")
+                        .message(ThongDiep.dich("kenhBan.uyQuyenTikTokThanhCong"))
                         .build()
         );
     }
@@ -366,7 +368,7 @@ public class KenhBanHangController {
                     ResponseData.<LazadaTestConnectionResponse>builder()
                             .status(HttpStatus.OK.value())
                             .data(res)
-                            .message(res.isConnected() ? ("Kết nối " + (ma.contains("SANDBOX") ? "Lazada Sandbox" : "Lazada") + " thành công") : ("Kiểm tra kết nối " + (ma.contains("SANDBOX") ? "Lazada Sandbox" : "Lazada") + " thất bại"))
+                            .message(res.isConnected() ? ThongDiep.dich("kenhBan.ketNoiSanThanhCong", (ma.contains("SANDBOX") ? "Lazada Sandbox" : "Lazada")) : ThongDiep.dich("kenhBan.kiemTraKetNoiSanThatBai", (ma.contains("SANDBOX") ? "Lazada Sandbox" : "Lazada")))
                             .build()
             );
         }
@@ -376,7 +378,7 @@ public class KenhBanHangController {
                     ResponseData.<com.dev.backend.dto.response.customize.TikTokTestConnectionResponse>builder()
                             .status(HttpStatus.OK.value())
                             .data(res)
-                            .message(res.isConnected() ? "Kết nối TikTok Shop thành công" : "Kiểm tra kết nối TikTok Shop thất bại: " + res.getMessage())
+                            .message(res.isConnected() ? ThongDiep.dich("kenhBan.ketNoiSanThanhCong", "TikTok Shop") : ThongDiep.dich("kenhBan.kiemTraKetNoiTikTokThatBai", res.getMessage()))
                             .build()
             );
         }
@@ -389,7 +391,7 @@ public class KenhBanHangController {
                                     .shopName("Gian hàng Shopee Sandbox FCentric")
                                     .country("VN")
                                     .build())
-                            .message("Kết nối " + (ma.contains("SANDBOX") ? "Shopee Sandbox" : "Shopee") + " thành công")
+                            .message(ThongDiep.dich("kenhBan.ketNoiSanThanhCong", (ma.contains("SANDBOX") ? "Shopee Sandbox" : "Shopee")))
                             .build()
             );
         }
@@ -399,11 +401,11 @@ public class KenhBanHangController {
                     ResponseData.<ShopifyConfigResponse>builder()
                             .status(HttpStatus.OK.value())
                             .data(kenhBanHangService.getKetNoi("SHOPIFY"))
-                            .message("Kết nối Shopify đang hoạt động")
+                            .message(ThongDiep.dich("kenhBan.ketNoiShopifyDangHoatDong"))
                             .build()
             );
         }
-        throw new LoiCoMaException(HttpStatus.BAD_REQUEST, MaLoi.SAN_KHONG_HO_TRO, "Máy chủ chưa hỗ trợ sàn " + maKenh);
+        throw new LoiCoMaException(HttpStatus.BAD_REQUEST, MaLoi.SAN_KHONG_HO_TRO, ThongDiep.of("kenhBan.sanKhongHoTro", maKenh));
     }
 
     @PostMapping("/{maKenh}/lam-moi-token")
@@ -416,20 +418,20 @@ public class KenhBanHangController {
                     ResponseData.<ShopifyConfigResponse>builder()
                             .status(HttpStatus.OK.value())
                             .data(kenhBanHangService.lamMoiKhoaShopify())
-                            .message("Làm mới Access Token OAuth 2.0 thành công")
+                            .message(ThongDiep.dich("kenhBan.lamMoiAccessTokenOAuthThanhCong"))
                             .build()
             );
         }
         if ("LAZADA".equals(ma) || "LAZADA_SANDBOX".equals(ma)) {
             boolean success = kenhBanHangService.refreshLazadaAccessToken(ma);
             if (!success) {
-                throw new LoiCoMaException(HttpStatus.FAILED_DEPENDENCY, MaLoi.LAM_MOI_KHOA_LOI, "Không thể làm mới token " + (ma.contains("SANDBOX") ? "Lazada Sandbox" : "Lazada"));
+                throw new LoiCoMaException(HttpStatus.FAILED_DEPENDENCY, MaLoi.LAM_MOI_KHOA_LOI, ThongDiep.of("kenhBan.khongTheLamMoiTokenSan", (ma.contains("SANDBOX") ? "Lazada Sandbox" : "Lazada")));
             }
             return ResponseEntity.ok(
                     ResponseData.<ShopifyConfigResponse>builder()
                             .status(HttpStatus.OK.value())
                             .data(kenhBanHangService.getKetNoi(ma))
-                            .message("Làm mới Access Token " + (ma.contains("SANDBOX") ? "Lazada Sandbox" : "Lazada") + " thành công")
+                            .message(ThongDiep.dich("kenhBan.lamMoiAccessTokenSanThanhCong", (ma.contains("SANDBOX") ? "Lazada Sandbox" : "Lazada")))
                             .build()
             );
         }
@@ -438,7 +440,7 @@ public class KenhBanHangController {
                     ResponseData.<ShopifyConfigResponse>builder()
                             .status(HttpStatus.OK.value())
                             .data(kenhBanHangService.getKetNoi(ma))
-                            .message("Làm mới Access Token " + (ma.contains("SANDBOX") ? "Shopee Sandbox" : "Shopee") + " thành công")
+                            .message(ThongDiep.dich("kenhBan.lamMoiAccessTokenSanThanhCong", (ma.contains("SANDBOX") ? "Shopee Sandbox" : "Shopee")))
                             .build()
             );
         }
@@ -457,7 +459,17 @@ public class KenhBanHangController {
                     ResponseData.<ShopifyConfigResponse>builder()
                             .status(HttpStatus.OK.value())
                             .data(kenhBanHangService.getKetNoi(ma))
-                            .message("Đã ngắt kết nối kênh " + (ma.contains("SANDBOX") ? "Lazada Sandbox" : "Lazada"))
+                            .message(ThongDiep.dich("kenhBan.daNgatKetNoiKenhSan", (ma.contains("SANDBOX") ? "Lazada Sandbox" : "Lazada")))
+                            .build()
+            );
+        }
+        if ("TIKTOK".equals(ma)) {
+            kenhBanHangService.xoaKhoaTikTok();
+            return ResponseEntity.ok(
+                    ResponseData.<ShopifyConfigResponse>builder()
+                            .status(HttpStatus.OK.value())
+                            .data(kenhBanHangService.getKetNoi("TIKTOK"))
+                            .message(ThongDiep.dich("kenhBan.daNgatKetNoiTikTok"))
                             .build()
             );
         }
@@ -484,7 +496,7 @@ public class KenhBanHangController {
                 ResponseData.<ShopifyConfigResponse>builder()
                         .status(HttpStatus.OK.value())
                         .data(ngatKetNoiKenhService.ngatKetNoi(maKenh))
-                        .message("Đã ngắt kết nối kênh bán hàng")
+                        .message(ThongDiep.dich("kenhBan.daNgatKetNoiKenh"))
                         .build()
         );
     }
@@ -499,7 +511,7 @@ public class KenhBanHangController {
                 ResponseData.<LazadaConfigResponse>builder()
                         .status(HttpStatus.OK.value())
                         .data(kenhBanHangService.getLazadaConfig())
-                        .message("Lấy cấu hình kênh bán Lazada thành công")
+                        .message(ThongDiep.dich("kenhBan.layCauHinhLazadaThanhCong"))
                         .build()
         );
     }
@@ -513,7 +525,7 @@ public class KenhBanHangController {
                 ResponseData.<LazadaConfigResponse>builder()
                         .status(HttpStatus.OK.value())
                         .data(kenhBanHangService.updateLazadaConfig(request))
-                        .message("Cập nhật cấu hình Lazada thành công")
+                        .message(ThongDiep.dich("kenhBan.capNhatCauHinhSanThanhCong", "Lazada"))
                         .build()
         );
     }
@@ -528,7 +540,7 @@ public class KenhBanHangController {
                 ResponseData.<LazadaTestConnectionResponse>builder()
                         .status(HttpStatus.OK.value())
                         .data(res)
-                        .message(res.isConnected() ? "Kết nối Lazada thành công" : "Kiểm tra kết nối thất bại")
+                        .message(res.isConnected() ? ThongDiep.dich("kenhBan.ketNoiSanThanhCong", "Lazada") : ThongDiep.dich("kenhBan.kiemTraKetNoiThatBai"))
                         .build()
         );
     }
@@ -543,7 +555,7 @@ public class KenhBanHangController {
                 ResponseData.<String>builder()
                         .status(HttpStatus.OK.value())
                         .data(kenhBanHangService.getLazadaAuthUrl(maKenh, redirectUri, null))
-                        .message("Sinh URL ủy quyền " + (maKenh.toUpperCase().contains("SANDBOX") ? "Lazada Sandbox" : "Lazada") + " thành công")
+                        .message(ThongDiep.dich("kenhBan.sinhUrlUyQuyenThanhCong", (maKenh.toUpperCase().contains("SANDBOX") ? "Lazada Sandbox" : "Lazada")))
                         .build()
         );
     }
@@ -557,7 +569,7 @@ public class KenhBanHangController {
                 ResponseData.<LazadaConfigResponse>builder()
                         .status(HttpStatus.OK.value())
                         .data(kenhBanHangService.exchangeLazadaToken(request))
-                        .message("Ủy quyền gian hàng Lazada thành công")
+                        .message(ThongDiep.dich("kenhBan.uyQuyenGianHangThanhCong", "Lazada"))
                         .build()
         );
     }
@@ -571,7 +583,7 @@ public class KenhBanHangController {
                 ResponseData.<LazadaConfigResponse>builder()
                         .status(HttpStatus.OK.value())
                         .data(kenhBanHangService.getLazadaConfig())
-                        .message(success ? "Làm mới Access Token Lazada thành công" : "Không thể làm mới token")
+                        .message(success ? ThongDiep.dich("kenhBan.lamMoiAccessTokenSanThanhCong", "Lazada") : ThongDiep.dich("kenhBan.khongTheLamMoiToken"))
                         .build()
         );
     }
@@ -584,7 +596,7 @@ public class KenhBanHangController {
                 ResponseData.<TaiSanPhamResultDto>builder()
                         .status(HttpStatus.OK.value())
                         .data(kenhBanHangDongBoService.taiSanPhamTuKenh(maKenh))
-                        .message("Tải sản phẩm từ kênh thành công")
+                        .message(ThongDiep.dich("kenhBan.taiSanPhamTuKenhThanhCong"))
                         .build()
         );
     }
@@ -597,7 +609,7 @@ public class KenhBanHangController {
                 ResponseData.<TuDongLienKetResultDto>builder()
                         .status(HttpStatus.OK.value())
                         .data(kenhBanHangDongBoService.tuDongLienKet(maKenh))
-                        .message("Tự động liên kết SKU thành công")
+                        .message(ThongDiep.dich("kenhBan.tuDongLienKetSkuThanhCong"))
                         .build()
         );
     }
@@ -614,7 +626,7 @@ public class KenhBanHangController {
                 ResponseData.<Page<LienKetSanPhamDto>>builder()
                         .status(HttpStatus.OK.value())
                         .data(kenhBanHangDongBoService.filterLienKet(maKenh, search, trangThai, pageable))
-                        .message("Lấy danh sách liên kết thành công")
+                        .message(ThongDiep.dich("kenhBan.layDanhSachLienKetThanhCong"))
                         .build()
         );
     }
@@ -631,7 +643,7 @@ public class KenhBanHangController {
                 ResponseData.<Page<NhomLienKetDto>>builder()
                         .status(HttpStatus.OK.value())
                         .data(kenhBanHangDongBoService.filterLienKetTheoSanPham(maKenh, search, trangThai, pageable))
-                        .message("Lấy danh sách liên kết thành công")
+                        .message(ThongDiep.dich("kenhBan.layDanhSachLienKetThanhCong"))
                         .build()
         );
     }
@@ -646,7 +658,7 @@ public class KenhBanHangController {
                 ResponseData.<LienKetSanPhamDto>builder()
                         .status(HttpStatus.OK.value())
                         .data(kenhBanHangDongBoService.capNhatLienKet(id, request))
-                        .message("Cập nhật liên kết thành công")
+                        .message(ThongDiep.dich("kenhBan.capNhatLienKetThanhCong"))
                         .build()
         );
     }
@@ -665,8 +677,8 @@ public class KenhBanHangController {
         return ResponseEntity.ok(
                 ResponseData.<DayTonResultDto>builder()
                         .status(HttpStatus.OK.value())
-                        .data(kenhBanHangDongBoService.dayTonKhoLenKenh(maKenh, request))
-                        .message("Đẩy tồn kho lên kênh bán thành công")
+                        .data(dichLoiKenh(kenhBanHangDongBoService.dayTonKhoLenKenh(maKenh, request)))
+                        .message(ThongDiep.dich("kenhBan.dayTonLenKenhThanhCong"))
                         .build()
         );
     }
@@ -679,7 +691,7 @@ public class KenhBanHangController {
                 ResponseData.<DongBoTongQuanDto>builder()
                         .status(HttpStatus.OK.value())
                         .data(kenhBanHangDongBoService.getTongQuan(maKenh))
-                        .message("Lấy thông tin tổng quan đồng bộ thành công")
+                        .message(ThongDiep.dich("kenhBan.layTongQuanDongBoThanhCong"))
                         .build()
         );
     }
@@ -692,7 +704,7 @@ public class KenhBanHangController {
                 ResponseData.<DongBoTongQuanDto>builder()
                         .status(HttpStatus.OK.value())
                         .data(kenhBanHangDongBoService.getTongQuan("SHOPIFY"))
-                        .message("Lấy thông tin tổng quan hệ thống thành công")
+                        .message(ThongDiep.dich("kenhBan.layTongQuanHeThongThanhCong"))
                         .build()
         );
     }
@@ -707,7 +719,7 @@ public class KenhBanHangController {
                 ResponseData.<java.util.List<BienTheOptionDto>>builder()
                         .status(HttpStatus.OK.value())
                         .data(kenhBanHangDongBoService.timBienThe(q, limit))
-                        .message("Tìm kiếm biến thể thành công")
+                        .message(ThongDiep.dich("kenhBan.timBienTheThanhCong"))
                         .build()
         );
     }
@@ -720,7 +732,7 @@ public class KenhBanHangController {
                 ResponseData.<List<ShopifyLocationDto>>builder()
                         .status(HttpStatus.OK.value())
                         .data(kenhBanHangDongBoService.getLocations("TIKTOK"))
-                        .message("Lấy danh sách kho TikTok Shop thành công")
+                        .message(ThongDiep.dich("kenhBan.layKhoTikTokThanhCong"))
                         .build()
         );
     }
@@ -733,7 +745,7 @@ public class KenhBanHangController {
                 ResponseData.<List<ShopifyLocationDto>>builder()
                         .status(HttpStatus.OK.value())
                         .data(kenhBanHangDongBoService.getLocations(maKenh))
-                        .message("Lấy danh sách kho sàn thành công")
+                        .message(ThongDiep.dich("kenhBan.layKhoSanThanhCong"))
                         .build()
         );
     }
@@ -746,7 +758,7 @@ public class KenhBanHangController {
                 ResponseData.<List<ShopifyLocationDto>>builder()
                         .status(HttpStatus.OK.value())
                         .data(kenhBanHangDongBoService.getLocations(maKenh))
-                        .message("Lấy danh sách vị trí kho thành công")
+                        .message(ThongDiep.dich("kenhBan.layViTriKhoThanhCong"))
                         .build()
         );
     }
@@ -761,7 +773,7 @@ public class KenhBanHangController {
                 ResponseData.<DongBoTongQuanDto>builder()
                         .status(HttpStatus.OK.value())
                         .data(kenhBanHangDongBoService.luuCaiDat(maKenh, request))
-                        .message("Lưu cấu hình kênh bán hàng thành công")
+                        .message(ThongDiep.dich("kenhBan.luuCauHinhKenhThanhCong"))
                         .build()
         );
     }
@@ -774,7 +786,7 @@ public class KenhBanHangController {
                 ResponseData.<KenhCauHinhDongBoDto>builder()
                         .status(HttpStatus.OK.value())
                         .data(kenhCauHinhDongBoService.layCauHinh(maKenh))
-                        .message("Lấy cấu hình đồng bộ thành công")
+                        .message(ThongDiep.dich("kenhBan.layCauHinhDongBoThanhCong"))
                         .build()
         );
     }
@@ -790,7 +802,7 @@ public class KenhBanHangController {
                 ResponseData.<KenhThongKeDonDto>builder()
                         .status(HttpStatus.OK.value())
                         .data(kenhThongKeDonService.thongKe(maKenh, tu, den))
-                        .message("Lấy số liệu đơn hàng của kênh thành công")
+                        .message(ThongDiep.dich("kenhBan.laySoLieuDonKenhThanhCong"))
                         .build()
         );
     }
@@ -805,7 +817,7 @@ public class KenhBanHangController {
                 ResponseData.<KenhCauHinhDongBoDto>builder()
                         .status(HttpStatus.OK.value())
                         .data(kenhCauHinhDongBoService.luuCauHinh(maKenh, request))
-                        .message("Lưu cấu hình đồng bộ thành công")
+                        .message(ThongDiep.dich("kenhBan.luuCauHinhDongBoThanhCong"))
                         .build()
         );
     }
@@ -823,7 +835,7 @@ public class KenhBanHangController {
                 ResponseData.<Page<NhatKyDongBoDto>>builder()
                         .status(HttpStatus.OK.value())
                         .data(kenhBanHangDongBoService.filterNhatKy(maKenh, loai, trangThai, search, pageable))
-                        .message("Lấy nhật ký đồng bộ thành công")
+                        .message(ThongDiep.dich("kenhBan.layNhatKyDongBoThanhCong"))
                         .build()
         );
     }
@@ -836,7 +848,7 @@ public class KenhBanHangController {
                 ResponseData.<NhatKyDongBoDto>builder()
                         .status(HttpStatus.OK.value())
                         .data(kenhBanHangDongBoService.getNhatKyDetail(id))
-                        .message("Lấy chi tiết sự kiện nhật ký thành công")
+                        .message(ThongDiep.dich("kenhBan.layChiTietNhatKyThanhCong"))
                         .build()
         );
     }
@@ -851,7 +863,7 @@ public class KenhBanHangController {
                 ResponseData.<LayDonResultDto>builder()
                         .status(HttpStatus.OK.value())
                         .data(kenhBanHangDongBoService.layDonHang(maKenh, request))
-                        .message("Lấy đơn hàng từ sàn thành công")
+                        .message(ThongDiep.dich("kenhBan.layDonTuSanThanhCong"))
                         .build()
         );
     }
@@ -864,7 +876,7 @@ public class KenhBanHangController {
                 ResponseData.<DongBoNgayDto>builder()
                         .status(HttpStatus.OK.value())
                         .data(dongBoNgayService.batDau(maKenh))
-                        .message("Đã bắt đầu đồng bộ")
+                        .message(ThongDiep.dich("kenhBan.daBatDauDongBo"))
                         .build()
         );
     }
@@ -877,7 +889,7 @@ public class KenhBanHangController {
                 ResponseData.<DongBoNgayDto>builder()
                         .status(HttpStatus.OK.value())
                         .data(dongBoNgayService.hienTai(maKenh))
-                        .message("Lấy tiến độ đồng bộ thành công")
+                        .message(ThongDiep.dich("kenhBan.layTienDoDongBoThanhCong"))
                         .build()
         );
     }
@@ -890,7 +902,7 @@ public class KenhBanHangController {
                 ResponseData.<DongBoNgayDto>builder()
                         .status(HttpStatus.OK.value())
                         .data(dongBoNgayService.dung(maKenh))
-                        .message("Đã yêu cầu dừng đồng bộ")
+                        .message(ThongDiep.dich("kenhBan.daYeuCauDungDongBo"))
                         .build()
         );
     }
@@ -902,8 +914,8 @@ public class KenhBanHangController {
         return ResponseEntity.ok(
                 ResponseData.<DayTonResultDto>builder()
                         .status(HttpStatus.OK.value())
-                        .data(kenhBanHangDongBoService.dongBoTatCa())
-                        .message("Chạy đợt đồng bộ toàn bộ gian hàng thành công")
+                        .data(dichLoiKenh(kenhBanHangDongBoService.dongBoTatCa()))
+                        .message(ThongDiep.dich("kenhBan.chayDongBoToanBoThanhCong"))
                         .build()
         );
     }
@@ -916,7 +928,7 @@ public class KenhBanHangController {
                 ResponseData.<LienKetSanPhamDto>builder()
                         .status(HttpStatus.OK.value())
                         .data(kenhBanHangDongBoService.thuLai(id))
-                        .message("Thử lại đồng bộ SKU thành công")
+                        .message(ThongDiep.dich("kenhBan.thuLaiDongBoSkuThanhCong"))
                         .build()
         );
     }
@@ -957,7 +969,7 @@ public class KenhBanHangController {
                                 "danhSachDonHang", orderNumbers,
                                 "trangThaiGiaLap", status
                         ))
-                        .message("Sinh thành công " + synced + " đơn hàng Shopee Sandbox mẫu")
+                        .message(ThongDiep.dich("kenhBan.sinhDonShopeeMauThanhCong", synced))
                         .build()
         );
     }
@@ -978,7 +990,7 @@ public class KenhBanHangController {
                 ResponseData.<JsonNode>builder()
                         .status(HttpStatus.OK.value())
                         .data(res)
-                        .message("Đã gửi yêu cầu hủy đơn hàng sang Shopee thành công")
+                        .message(ThongDiep.dich("kenhBan.guiHuyDonShopeeThanhCong"))
                         .build()
         );
     }
@@ -997,7 +1009,7 @@ public class KenhBanHangController {
                 ResponseData.<JsonNode>builder()
                         .status(HttpStatus.OK.value())
                         .data(res)
-                        .message("Đã xử lý yêu cầu hủy từ người mua thành công (" + operation + ")")
+                        .message(ThongDiep.dich("kenhBan.xuLyYeuCauHuyThanhCong", operation))
                         .build()
         );
     }
@@ -1016,7 +1028,7 @@ public class KenhBanHangController {
                 ResponseData.<JsonNode>builder()
                         .status(HttpStatus.OK.value())
                         .data(res)
-                        .message("Đã cập nhật ghi chú đơn hàng Shopee thành công")
+                        .message(ThongDiep.dich("kenhBan.capNhatGhiChuShopeeThanhCong"))
                         .build()
         );
     }
@@ -1034,7 +1046,7 @@ public class KenhBanHangController {
                 ResponseData.<JsonNode>builder()
                         .status(HttpStatus.OK.value())
                         .data(res)
-                        .message("Lấy tham số vận chuyển đơn hàng Shopee thành công")
+                        .message(ThongDiep.dich("kenhBan.layThamSoVanChuyenShopeeThanhCong"))
                         .build()
         );
     }
@@ -1053,7 +1065,7 @@ public class KenhBanHangController {
                 ResponseData.<JsonNode>builder()
                         .status(HttpStatus.OK.value())
                         .data(res)
-                        .message("Phát lệnh giao hàng Shopee thành công")
+                        .message(ThongDiep.dich("kenhBan.phatLenhGiaoShopeeThanhCong"))
                         .build()
         );
     }
@@ -1071,7 +1083,7 @@ public class KenhBanHangController {
                 ResponseData.<JsonNode>builder()
                         .status(HttpStatus.OK.value())
                         .data(res)
-                        .message("Tra cứu mã vận đơn Shopee thành công")
+                        .message(ThongDiep.dich("kenhBan.traMaVanDonShopeeThanhCong"))
                         .build()
         );
     }
@@ -1089,7 +1101,7 @@ public class KenhBanHangController {
                 ResponseData.<JsonNode>builder()
                         .status(HttpStatus.OK.value())
                         .data(res)
-                        .message("Tra cứu lộ trình vận chuyển Shopee thành công")
+                        .message(ThongDiep.dich("kenhBan.traLoTrinhShopeeThanhCong"))
                         .build()
         );
     }
@@ -1112,7 +1124,7 @@ public class KenhBanHangController {
                                 "documentHtml", docHtml,
                                 "mimeType", "text/html"
                         ))
-                        .message("Tải tem vận đơn Shopee A6 thành công")
+                        .message(ThongDiep.dich("kenhBan.taiTemVanDonShopeeThanhCong"))
                         .build()
         );
     }
@@ -1130,7 +1142,7 @@ public class KenhBanHangController {
                 ResponseData.<JsonNode>builder()
                         .status(HttpStatus.OK.value())
                         .data(res)
-                        .message("Đối soát tài chính đơn hàng Shopee thành công")
+                        .message(ThongDiep.dich("kenhBan.doiSoatShopeeThanhCong"))
                         .build()
         );
     }
@@ -1157,7 +1169,7 @@ public class KenhBanHangController {
                                 "trangThaiMoi", "CANCELLED",
                                 "nguyenNhan", "Người mua đổi ý trên Shopee Sandbox"
                         ))
-                        .message("Giả lập hủy đơn hàng Shopee thành công")
+                        .message(ThongDiep.dich("kenhBan.giaLapHuyDonShopeeThanhCong"))
                         .build()
         );
     }
@@ -1176,6 +1188,17 @@ public class KenhBanHangController {
                 accessToken != null ? accessToken : "",
                 isSandbox
         );
+    }
+
+    /**
+     * Lỗi cả gian hàng (loiKenh) là câu tiếng Việt dùng chung với job, thông báo hệ thống và lý do lưu từng SKU:
+     * chỉ dịch ở response trả giao diện, theo ngôn ngữ người bấm.
+     */
+    private static DayTonResultDto dichLoiKenh(DayTonResultDto ketQua) {
+        if (ketQua != null && ketQua.getLoiKenh() != null) {
+            ketQua.setLoiKenh(DichCauDaLuu.dich(ketQua.getLoiKenh()));
+        }
+        return ketQua;
     }
 
 }

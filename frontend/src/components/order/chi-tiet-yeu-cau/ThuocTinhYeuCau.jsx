@@ -7,6 +7,7 @@ import CotThuocTinh, {
 import { trangThaiGiao } from "@/components/order/chi-tiet-don-mua/tinhNhanHang";
 import { formatCurrency, formatDate, formatDateTime } from "@/utils/formatters";
 import { chuDsNcc, daKhongChapNhanHet } from "./tinhYeuCau";
+import { t } from "@/i18n";
 
 /**
  * Hạn giao: ngày (không bẻ giữa chừng) và dòng dưới "Quá hạn n ngày" / "Hôm nay" / "Còn n ngày" như Chi tiết đơn mua hàng.
@@ -18,11 +19,11 @@ export function HanGiao({ ngay, conHieuLuc = true }) {
     <>
       <span className="block whitespace-nowrap tabular-nums">{formatDate(ngay)}</span>
       {giao.loai === "quaHan" ? (
-        <span className="block font-medium text-bo-danger">Quá hạn {giao.soNgay} ngày</span>
+        <span className="block font-medium text-bo-danger">{t("Quá hạn {{count}} ngày", { count: giao.soNgay })}</span>
       ) : giao.loai === "homNay" ? (
-        <span className="block font-medium text-bo-warning">Hôm nay</span>
+        <span className="block font-medium text-bo-warning">{t("Hôm nay")}</span>
       ) : giao.loai === "conLai" ? (
-        <span className="block text-bo-muted">Còn {giao.soNgay} ngày</span>
+        <span className="block text-bo-muted">{t("Còn {{count}} ngày", { count: giao.soNgay })}</span>
       ) : null}
     </>
   );
@@ -31,7 +32,7 @@ export function HanGiao({ ngay, conHieuLuc = true }) {
 /** Nhóm "Kho nhận": tên + mã kho, địa chỉ và (tùy chọn) quản lý kho. Dùng chung cho yêu cầu và báo giá. */
 export function NhomKhoNhan({ kho, coQuanLy = true }) {
   return (
-    <NhomThuocTinh nhan="Kho nhận">
+    <NhomThuocTinh nhan={t("Kho nhận")}>
       <div className="text-sm font-semibold text-bo-foreground">
         {kho?.tenKho || "—"}
         {kho?.maKho ? <span className="ml-1.5 font-mono font-normal text-bo-muted">{kho.maKho}</span> : null}
@@ -39,7 +40,7 @@ export function NhomKhoNhan({ kho, coQuanLy = true }) {
       {kho?.diaChi ? <div className="mt-0.5 text-[13px] leading-5 text-bo-muted">{kho.diaChi}</div> : null}
       {coQuanLy && kho?.quanLy?.hoTen ? (
         <div className="mt-0.5 text-[13px] leading-5 text-bo-muted">
-          Quản lý: <span className="text-bo-foreground">{kho.quanLy.hoTen}</span>
+          {t("Quản lý:")} <span className="text-bo-foreground">{kho.quanLy.hoTen}</span>
         </div>
       ) : null}
     </NhomThuocTinh>
@@ -55,25 +56,25 @@ export function NhomKhoNhan({ kho, coQuanLy = true }) {
 function NhomBaoGia({ tomTat }) {
   if (!tomTat?.daGui) return null;
   return (
-    <NhomThuocTinh nhan="Báo giá">
+    <NhomThuocTinh nhan={t("Báo giá")}>
       <BangThuocTinh
         rongNhan={116}
         muc={[
           {
             ma: "daChot",
-            nhan: "Giá trị đã chốt",
+            nhan: t("Giá trị đã chốt"),
             giaTri: tomTat.daChot ? (
               <>
                 <div className="font-semibold tabular-nums">{formatCurrency(tomTat.tongDaChot)}</div>
                 {tomTat.nccChot.length ? <div className="text-bo-muted">{chuDsNcc(tomTat.nccChot)}</div> : null}
               </>
             ) : (
-              <span className="text-bo-muted">{daKhongChapNhanHet(tomTat) ? "Không chấp nhận báo giá nào" : "Chưa chốt"}</span>
+              <span className="text-bo-muted">{daKhongChapNhanHet(tomTat) ? t("Không chấp nhận báo giá nào") : t("Chưa chốt")}</span>
             ),
           },
           {
             ma: "daGui",
-            nhan: "Đã gửi yêu cầu",
+            nhan: t("Đã gửi yêu cầu"),
             an: !tomTat.ngayGui,
             giaTri: <span className="whitespace-nowrap tabular-nums">{formatDateTime(tomTat.ngayGui)}</span>,
           },
@@ -108,22 +109,22 @@ export default function ThuocTinhYeuCau({ yc, nhan, conHieuLuc, coNguoiDuyet = f
           muc={[
             {
               ma: "giao",
-              nhan: "Giao dự kiến",
+              nhan: t("Giao dự kiến"),
               giaTri: yc?.ngayGiaoDuKien ? <HanGiao ngay={yc.ngayGiaoDuKien} conHieuLuc={conHieuLuc} /> : null,
             },
             {
               ma: "nguoiTao",
-              nhan: "Người tạo",
+              nhan: t("Người tạo"),
               giaTri: coNguoiDuyet && nguoiTao?.email ? (
                 <>
                   <div>{nguoiTao?.hoTen || "—"}</div>
-                  <GiaTriSaoChep giaTri={nguoiTao.email} nhanSaoChep="Sao chép email" className="text-bo-muted" />
+                  <GiaTriSaoChep giaTri={nguoiTao.email} nhanSaoChep={t("Sao chép email")} className="text-bo-muted" />
                 </>
               ) : nguoiTao?.hoTen,
             },
             {
               ma: "nguoiDuyet",
-              nhan: tuChoi ? "Người từ chối" : "Người duyệt",
+              nhan: tuChoi ? t("Người từ chối") : t("Người duyệt"),
               an: !coNguoiDuyet || !nguoiDuyet,
               giaTri: (
                 <>
@@ -134,7 +135,7 @@ export default function ThuocTinhYeuCau({ yc, nhan, conHieuLuc, coNguoiDuyet = f
             },
             {
               ma: "ghiChu",
-              nhan: "Ghi chú",
+              nhan: t("Ghi chú"),
               giaTri: yc?.ghiChu ? <span className="whitespace-pre-wrap">{yc.ghiChu}</span> : null,
             },
           ]}

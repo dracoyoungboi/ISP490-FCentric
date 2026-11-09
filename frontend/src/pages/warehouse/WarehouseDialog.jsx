@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { LOAI_KHO_OPTIONS, laKhoAo } from './loaiKho';
+import { t } from "@/i18n";
 
 const FIELD_LABEL_CLASS =
     "text-xs font-semibold uppercase tracking-wide text-bo-muted";
@@ -66,7 +67,7 @@ export default function WarehouseDialog({
 }) {
     const managerLabel = formData.quanLyId
         ? managers.find(m => m.id.toString() === formData.quanLyId)?.name
-        : 'Chọn người quản lý';
+        : t("Chọn người quản lý");
 
     return (
         <Dialog
@@ -84,7 +85,7 @@ export default function WarehouseDialog({
                             <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-bo-primary-soft">
                                 <Warehouse className="size-4 text-bo-primary" />
                             </span>
-                            {dialogMode === 'create' ? 'Thêm kho mới' : 'Chỉnh sửa thông tin kho'}
+                            {dialogMode === 'create' ? t("Thêm kho mới") : t("Chỉnh sửa thông tin kho")}
                         </DialogTitle>
                     </DialogHeader>
                 </div>
@@ -96,11 +97,11 @@ export default function WarehouseDialog({
                             {/* Mã kho */}
                             <div className="space-y-1.5">
                                 <Label htmlFor="maKho" className={FIELD_LABEL_CLASS}>
-                                    Mã kho *
+                                    {t("Mã kho *")}
                                 </Label>
                                 <Input
                                     id="maKho"
-                                    placeholder="VD: KHO-D"
+                                    placeholder={t("VD: {{viDu}}", { viDu: "KHO-D" })}
                                     value={formData.maKho}
                                     onChange={(e) =>
                                         setFormData({ ...formData, maKho: e.target.value.toUpperCase() })
@@ -114,11 +115,11 @@ export default function WarehouseDialog({
                             {/* Tên kho */}
                             <div className="space-y-1.5">
                                 <Label htmlFor="tenKho" className={FIELD_LABEL_CLASS}>
-                                    Tên kho *
+                                    {t("Tên kho *")}
                                 </Label>
                                 <Input
                                     id="tenKho"
-                                    placeholder="VD: Kho D - Cần Thơ"
+                                    placeholder={t("VD: Kho D - Cần Thơ")}
                                     value={formData.tenKho}
                                     onChange={(e) => setFormData({ ...formData, tenKho: e.target.value })}
                                     className={INPUT_CLASS}
@@ -129,10 +130,10 @@ export default function WarehouseDialog({
 
                         {/* Loại kho */}
                         <div className="space-y-1.5">
-                            <Label id="loaiKho-label" className={FIELD_LABEL_CLASS}>Loại kho *</Label>
+                            <Label id="loaiKho-label" className={FIELD_LABEL_CLASS}>{t("Loại kho *")}</Label>
                             {laKhoAo(formData) ? (
                                 <p className="rounded-md border border-bo-border bg-bo-surface-subtle px-3 py-2.5 text-sm text-bo-muted">
-                                    Kho ảo chứa hàng đang chuyển giữa các kho, không đổi loại được.
+                                    {t("Kho ảo chứa hàng đang chuyển giữa các kho, không đổi loại được.")}
                                 </p>
                             ) : (
                                 <div role="radiogroup" aria-labelledby="loaiKho-label" className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -176,11 +177,11 @@ export default function WarehouseDialog({
                         {/* Địa chỉ */}
                         <div className="space-y-1.5">
                             <Label htmlFor="diaChi" className={FIELD_LABEL_CLASS}>
-                                Địa chỉ *
+                                {t("Địa chỉ *")}
                             </Label>
                             <Textarea
                                 id="diaChi"
-                                placeholder="Nhập địa chỉ đầy đủ của kho"
+                                placeholder={t("Nhập địa chỉ đầy đủ của kho")}
                                 rows={3}
                                 value={formData.diaChi}
                                 onChange={(e) => setFormData({ ...formData, diaChi: e.target.value })}
@@ -191,7 +192,7 @@ export default function WarehouseDialog({
 
                         {/* Người quản lý */}
                         <div className="space-y-1.5">
-                            <Label className={FIELD_LABEL_CLASS}>Người quản lý *</Label>
+                            <Label className={FIELD_LABEL_CLASS}>{t("Người quản lý *")}</Label>
                             <DropdownMenu modal={false}>
                                 <DropdownMenuTrigger asChild>
                                     <button
@@ -201,7 +202,7 @@ export default function WarehouseDialog({
                                             formData.quanLyId ? "text-bo-foreground" : "text-bo-muted"
                                         }`}
                                     >
-                                        <span>{isLoadingManagers ? "Đang tải..." : managerLabel}</span>
+                                        <span>{isLoadingManagers ? t("Đang tải...") : managerLabel}</span>
                                         <ChevronDown className="size-4 shrink-0 text-bo-muted" />
                                     </button>
                                 </DropdownMenuTrigger>
@@ -211,7 +212,7 @@ export default function WarehouseDialog({
                                 >
                                     {managers.length === 0 ? (
                                         <div className="p-3 text-center text-sm text-bo-muted">
-                                            Không có người quản lý
+                                            {t("Không có người quản lý")}
                                         </div>
                                     ) : (
                                         managers.map((m) => (
@@ -242,14 +243,14 @@ export default function WarehouseDialog({
                         className="h-9 border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                         onClick={onClose}
                     >
-                        Hủy
+                        {t("Hủy")}
                     </Button>
                     <Button
                         type="button"
                         className="h-9 bg-bo-primary px-5 text-white hover:bg-bo-primary-hover"
                         onClick={onSubmit}
                     >
-                        {dialogMode === 'create' ? 'Thêm kho' : 'Cập nhật'}
+                        {dialogMode === 'create' ? t("Thêm kho") : t("Cập nhật")}
                     </Button>
                 </DialogFooter>
             </DialogContent>

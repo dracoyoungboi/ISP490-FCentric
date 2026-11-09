@@ -14,11 +14,12 @@
  */
 import { LY_DO_LOI } from "../../constants/nhapKho.js";
 import { docSoLuong, khoaLo, tinhNhanHang } from "./hienThiChuyenKho.js";
+import { t } from "../../i18n/t.js";
 
 /** Khóa của cái hỏng chưa chọn lý do (lượt quét vừa đổi thành Hỏng). */
 export const LY_DO_CHUA_CHON = "?";
 /** Lý do "Khác" của danh mục: phải ghi rõ ở ô ghi chú. */
-export const LY_DO_KHAC = "Khác";
+export const LY_DO_KHAC = "Khác"; // i18n-giu-nguyen: giá trị danh mục LY_DO_LOI, so khớp và gửi máy chủ
 /** Ô ghi chú lý do tối đa: chữ ghép (hỏng theo lý do + thiếu) vẫn dưới 255 ký tự của máy chủ. */
 export const GHI_CHU_TOI_DA = 150;
 const LY_DO_TOI_DA = 255;
@@ -51,9 +52,10 @@ export function timBienTheTheoMa(dsLo, ma) {
     if (!hoa) return null;
     const ds = Array.isArray(dsLo) ? dsLo : [];
     const theoSku = ds.find((l) => chuoi(l.sku).toUpperCase() === hoa);
-    if (theoSku) return { bienTheId: theoSku.bienTheId, nguon: "quét SKU" };
+    // `nguon` dùng để so khớp (NhanHangChuyenKho) và lưu tạm trong thẻ: giữ tiếng Việt, dịch lúc vẽ
+    if (theoSku) return { bienTheId: theoSku.bienTheId, nguon: "quét SKU" }; // i18n-giu-nguyen: khóa so khớp
     const theoMaVach = ds.find((l) => chuoi(l.maVach) && chuoi(l.maVach).toUpperCase() === hoa);
-    return theoMaVach ? { bienTheId: theoMaVach.bienTheId, nguon: "mã vạch FCentric" } : null;
+    return theoMaVach ? { bienTheId: theoMaVach.bienTheId, nguon: "mã vạch FCentric" } : null; // i18n-giu-nguyen: như trên
 }
 
 /** Chia `n` cái vào các lô (cùng biến thể) còn đếm được, theo thứ tự lô: { phan: [{ khoa, sl }], tinh }. */
@@ -231,8 +233,9 @@ export function ghepLyDo({ hong, thieu, lyDos, ghiChu }) {
         const phan = [];
         if (hong > 0) {
             const theoLyDo = lyDos.length === 1 ? lyDos[0][0] : lyDos.map(([k, v]) => `${k} ${v}`).join(", ");
-            phan.push(`Hỏng ${hong}: ${theoLyDo}${gc && thieu <= 0 ? ` (${gc})` : ""}`);
+            phan.push(`Hỏng ${hong}: ${theoLyDo}${gc && thieu <= 0 ? ` (${gc})` : ""}`); // i18n-giu-nguyen: lý do gửi máy chủ, in biên bản
         }
+        // i18n-giu-nguyen: như trên
         if (thieu > 0) phan.push(gc && coKhac ? `Thiếu ${thieu}. Ghi chú: ${gc}` : `Thiếu ${thieu}${gc ? `: ${gc}` : ""}`);
         return phan.join(". ");
     };
@@ -267,16 +270,20 @@ export function tinhNhan(dsLo, dem) {
     }
     const kq = tinhNhanHang(ds, demCu);
     const dong = kq.dong.map((d) => {
-        const t = them[d.khoa];
-        return { ...d, ...t, thieuLyDo: d.lech && (t.chuaLyDo > 0 || t.thieuGhiChu) };
+        const tm = them[d.khoa];
+        return { ...d, ...tm, thieuLyDo: d.lech && (tm.chuaLyDo > 0 || tm.thieuGhiChu) };
     });
     return { ...kq, dong };
 }
 
 /** Câu một lượt ở thẻ "Lượt quét". */
 export function nhanLuotNhan(e) {
-    if (e.kq === "hong") return `Hỏng ${e.hong} · ${e.lyDo || "chưa chọn lý do"}${e.sl > e.hong ? ` · Đạt ${e.sl - e.hong}` : ""}`;
-    return `Đạt ${e.sl}`;
+    if (e.kq === "hong") {
+        const lyDo = e.lyDo ? t(e.lyDo) : t("chưa chọn lý do");
+        const hong = t("Hỏng {{so}} · {{lyDo}}", { so: e.hong, lyDo });
+        return e.sl > e.hong ? `${hong} · ${t("Đạt {{so}}", { so: e.sl - e.hong })}` : hong;
+    }
+    return t("Đạt {{so}}", { so: e.sl });
 }
 
 // ── Lưu tạm trong thẻ trình duyệt (Đ6, như màn nhập NCC): tải lại trang không mất số; đóng thẻ là mất ──

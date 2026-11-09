@@ -1,5 +1,6 @@
 import { useId } from "react";
 import { GOI_Y_O, NHAN_O, O_NHAP_NHIEU_DONG } from "./kieuHopThoai.js";
+import { t } from "@/i18n";
 
 /** Lý do hủy chứng từ: bắt buộc, tối đa 500 ký tự; máy chủ nối "Lý do hủy: …" vào ghi chú của chính phiếu / đơn. */
 export const LY_DO_HUY_TOI_DA = 500;
@@ -11,8 +12,8 @@ export const LY_DO_HUY_TOI_DA = 500;
 export default function OLyDo({
   giaTri,
   onDoi,
-  nhan = "Lý do hủy",
-  goiY = "Ví dụ: Khách đổi ý, không lấy hàng nữa",
+  nhan = t("Lý do hủy"),
+  goiY = t("Ví dụ: Khách đổi ý, không lấy hàng nữa"),
   toiDa = LY_DO_HUY_TOI_DA,
   disabled = false,
 }) {
@@ -35,7 +36,7 @@ export default function OLyDo({
         className={O_NHAP_NHIEU_DONG}
       />
       <p id={`${id}-goi-y`} className={GOI_Y_O}>
-        <span>Bắt buộc · lưu vào ghi chú của phiếu</span>
+        <span>{t("Bắt buộc · lưu vào ghi chú của phiếu")}</span>
         <span>
           {giaTri.length}/{toiDa}
         </span>

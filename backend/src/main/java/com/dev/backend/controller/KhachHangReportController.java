@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import com.dev.backend.i18n.ThongDiep;
 
 @RestController
 @RequestMapping("/api/v1/admin/dashboard/bao-cao/khach-hang")
@@ -55,7 +56,7 @@ public class KhachHangReportController {
         return ResponseEntity.ok(
                 ResponseData.<BaoCaoKhachHangDTO>builder()
                         .status(HttpStatus.OK.value())
-                        .message("Lấy báo cáo khách hàng thành công")
+                        .message(ThongDiep.dich("khoVanHanh.layBaoCaoKhachHangThanhCong"))
                         .data(data)
                         .build()
         );
@@ -86,7 +87,7 @@ public class KhachHangReportController {
         return ResponseEntity.ok(
                 ResponseData.<BaoCaoKhachHangService.DanhSachKhachMua>builder()
                         .status(HttpStatus.OK.value())
-                        .message("Lấy danh sách khách mua thành công")
+                        .message(ThongDiep.dich("khoVanHanh.layDanhSachKhachMuaThanhCong"))
                         .data(data)
                         .build()
         );
@@ -118,7 +119,7 @@ public class KhachHangReportController {
         try {
             return LocalDate.parse(s);
         } catch (DateTimeParseException e) {
-            throw new CommonException(HttpStatus.BAD_REQUEST, "Ngày không hợp lệ: " + s);
+            throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("khoVanHanh.ngayKhongHopLe", s));
         }
     }
 }

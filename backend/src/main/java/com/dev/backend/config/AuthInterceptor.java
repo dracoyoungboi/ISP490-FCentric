@@ -11,6 +11,7 @@ import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.exception.customize.LoiCoMaException;
 import com.dev.backend.exception.customize.MaLoi;
 import com.dev.backend.exception.customize.SessionRevokedException;
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.repository.NguoiDungRepository;
 import com.dev.backend.repository.PhanQuyenNguoiDungKhoRepository;
 import com.dev.backend.repository.PhienDangNhapRepository;
@@ -54,9 +55,9 @@ public class AuthInterceptor implements HandlerInterceptor {
     // Cập nhật "hoạt động cuối" của phiên có tiết chế: chỉ ghi khi lần trước đã cũ hơn mốc này (không ghi DB mỗi request)
     private static final java.time.Duration NGUONG_CHAM_TRUY_CAP = java.time.Duration.ofMinutes(2);
 
-    static final String LOI_PHIEN_KHONG_HOP_LE = "Phiên đăng nhập không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại.";
-    static final String LOI_QUYEN_DA_DOI = "Quyền của bạn vừa được quản trị viên thay đổi. Vui lòng đăng nhập lại.";
-    static final String LOI_PHAI_DOI_MAT_KHAU = "Bạn cần đổi mật khẩu tạm thời trước khi tiếp tục.";
+    static final String LOI_PHIEN_KHONG_HOP_LE = ThongDiep.vi("heThong.phienKhongHopLe");
+    static final String LOI_QUYEN_DA_DOI = ThongDiep.vi("heThong.quyenVuaDoi");
+    static final String LOI_PHAI_DOI_MAT_KHAU = ThongDiep.vi("heThong.phaiDoiMatKhauTam");
 
     // Các API người còn mật khẩu tạm vẫn gọi được: thông tin của mình (giao diện đọc cờ từ đây), đổi mật khẩu, đăng xuất,
     // và danh sách kho của mình (trang đăng nhập gọi ngay sau khi đăng nhập để chọn kho làm việc; chỉ đọc).
@@ -88,7 +89,7 @@ public class AuthInterceptor implements HandlerInterceptor {
             // Header không theo dạng "Bearer <token>": phiên không hợp lệ (401), không để lỗi null thành 500
             if (token == null || token.isBlank()) {
                 SecurityContextHolder.clear();
-                throw new CommonException(HttpStatus.UNAUTHORIZED, LOI_PHIEN_KHONG_HOP_LE);
+                throw new CommonException(HttpStatus.UNAUTHORIZED, ThongDiep.of("heThong.phienKhongHopLe"));
             }
             NguoiDungAuthInfo nguoiDungAuthInfo = jwtService.getNguoiDungAuthInfoFromToken(token);
             SecurityContextHolder.setUser(nguoiDungAuthInfo);
@@ -116,7 +117,7 @@ public class AuthInterceptor implements HandlerInterceptor {
                         : phanQuyenNguoiDungKhoRepository.layKhoVaQuyenHieuLuc(nguoiDung.getId(), Instant.now());
                 if (tokenVuotQuyenHienTai(nguoiDungAuthInfo, nguoiDung.getVaiTro(), khoVaQuyen)) {
                     SecurityContextHolder.clear();
-                    throw new SessionRevokedException(LOI_QUYEN_DA_DOI);
+                    throw new SessionRevokedException(ThongDiep.of("heThong.quyenVuaDoi"));
                 }
 
                 // Kiểm phiên đăng nhập: token phát hành sau khi có bảng phien_dang_nhap mang claim "sid". Phiên đã
@@ -130,7 +131,7 @@ public class AuthInterceptor implements HandlerInterceptor {
                         if (phien == null || phien.getThuHoiLuc() != null
                                 || (phien.getHetHanLuc() != null && phien.getHetHanLuc().isBefore(bayGio))) {
                             SecurityContextHolder.clear();
-                            throw new SessionRevokedException("Phiên đăng nhập đã kết thúc. Vui lòng đăng nhập lại.");
+                            throw new SessionRevokedException(ThongDiep.of("heThong.phienDaKetThuc"));
                         }
                         // Cập nhật "hoạt động cuối" có tiết chế: chỉ ghi khi đã cũ hơn NGUONG_CHAM_TRUY_CAP
                         if (phien.getTruyCapCuoi() == null
@@ -151,7 +152,8 @@ public class AuthInterceptor implements HandlerInterceptor {
                 if (Boolean.TRUE.equals(nguoiDung.getMustChangePassword())
                         && !duocGoiKhiPhaiDoiMatKhau(request.getMethod(), request.getRequestURI())) {
                     SecurityContextHolder.clear();
-                    throw new LoiCoMaException(HttpStatus.FORBIDDEN, MaLoi.PASSWORD_CHANGE_REQUIRED, LOI_PHAI_DOI_MAT_KHAU);
+                    throw new LoiCoMaException(HttpStatus.FORBIDDEN, MaLoi.PASSWORD_CHANGE_REQUIRED,
+                            ThongDiep.of("heThong.phaiDoiMatKhauTam"));
                 }
             }
         }
@@ -160,7 +162,7 @@ public class AuthInterceptor implements HandlerInterceptor {
                 SecurityContextHolder.setKhoId(Integer.parseInt(khoId.trim()));
             } catch (NumberFormatException e) {
                 SecurityContextHolder.clear();
-                throw new CommonException(HttpStatus.BAD_REQUEST, "Kho đang chọn không hợp lệ. Chọn lại kho rồi thử lại.");
+                throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("heThong.khoDangChonKhongHopLe"));
             }
         }
         return true;

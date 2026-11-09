@@ -5,6 +5,11 @@ import com.dev.backend.exception.customize.AccountDisabledException;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.exception.customize.InvalidFieldException;
 import com.dev.backend.exception.customize.LoiCoMaException;
+import com.dev.backend.i18n.BoThongDiep;
+import com.dev.backend.i18n.CoThongDiep;
+import com.dev.backend.i18n.DichCauDaLuu;
+import com.dev.backend.i18n.NgonNgu;
+import com.dev.backend.i18n.ThongDiep;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
@@ -40,16 +45,16 @@ public class RestControllerGlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(RestControllerGlobalExceptionHandler.class);
 
-    // Câu thông báo trả về màn hình phải là tiếng Việt, không lộ chi tiết kỹ thuật.
+    // Câu thông báo trả về màn hình (chọn bằng tiếng Việt, theoNgonNgu dịch ở bước cuối), không lộ chi tiết kỹ thuật.
     // Câu gốc của exception vẫn được ghi vào log để lập trình viên tra cứu.
-    private static final String MSG_INVALID_DATA = "Dữ liệu gửi lên không hợp lệ.";
-    private static final String MSG_BAD_FORMAT = "Dữ liệu gửi lên sai định dạng.";
-    private static final String MSG_METHOD_NOT_SUPPORTED = "Thao tác này không được hỗ trợ.";
-    private static final String MSG_FORBIDDEN = "Bạn không có quyền thực hiện thao tác này.";
-    private static final String MSG_UNAUTHORIZED = "Phiên đăng nhập không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại.";
-    private static final String MSG_NOT_FOUND = "Không tìm thấy dữ liệu.";
-    private static final String MSG_CONFLICT = "Dữ liệu bị trùng hoặc đang được dùng ở nơi khác.";
-    private static final String MSG_SERVER_ERROR = "Có lỗi xảy ra, vui lòng thử lại sau.";
+    private static final String MSG_INVALID_DATA = ThongDiep.vi("chung.duLieuKhongHopLe");
+    private static final String MSG_BAD_FORMAT = ThongDiep.vi("chung.duLieuSaiDinhDang");
+    private static final String MSG_METHOD_NOT_SUPPORTED = ThongDiep.vi("chung.thaoTacKhongHoTro");
+    private static final String MSG_FORBIDDEN = ThongDiep.vi("chung.khongCoQuyen");
+    private static final String MSG_UNAUTHORIZED = ThongDiep.vi("chung.phienKhongHopLe");
+    private static final String MSG_NOT_FOUND = ThongDiep.vi("chung.khongTimThayDuLieu");
+    private static final String MSG_CONFLICT = ThongDiep.vi("chung.duLieuTrung");
+    private static final String MSG_SERVER_ERROR = ThongDiep.vi("chung.loiMayChu");
 
     private static final Pattern VIETNAMESE_CHAR = Pattern.compile("[\\u00C0-\\u024F\\u1E00-\\u1EFF]");
     private static final Pattern TECHNICAL_TEXT = Pattern.compile(
@@ -58,25 +63,25 @@ public class RestControllerGlobalExceptionHandler {
     @ExceptionHandler({CommonException.class})
     public ResponseEntity<ResponseData<?>> handleCommonException(CommonException e, WebRequest request) {
         return ResponseEntity.status(e.getHttpStatus())
-                .body(ResponseData.builder()
+                .body(theoNgonNgu(ResponseData.builder()
                         .status(e.getHttpStatus().value())
                         .message(e.getMessage())
                         .data(e.getData())
                         .path(getPath(request))
                         .error(e.getHttpStatus().getReasonPhrase())
-                        .build());
+                        .build(), e));
     }
 
     @ExceptionHandler(AccountDisabledException.class)
     public ResponseEntity<ResponseData<?>> handleAccountDisabled(AccountDisabledException e, WebRequest request) {
         return ResponseEntity.status(e.getHttpStatus())
-                .body(ResponseData.builder()
+                .body(theoNgonNgu(ResponseData.builder()
                         .status(e.getHttpStatus().value())
                         .message(e.getMessage())
                         .data(e.getData())
                         .path(getPath(request))
                         .error("ACCOUNT_DISABLED")
-                        .build());
+                        .build(), e));
     }
 
     /** Lỗi nghiệp vụ có mã: error = mã, data = {code: mã, ...dữ liệu thêm}; message hiện nguyên văn ở giao diện. */
@@ -84,13 +89,13 @@ public class RestControllerGlobalExceptionHandler {
     public ResponseEntity<ResponseData<?>> handleLoiCoMa(LoiCoMaException e, WebRequest request) {
         log.debug("Lỗi nghiệp vụ {} ({}) tại {}", e.getMa(), e.getStatus().value(), getPath(request));
         return ResponseEntity.status(e.getStatus())
-                .body(ResponseData.builder()
+                .body(theoNgonNgu(ResponseData.builder()
                         .status(e.getStatus().value())
                         .message(e.getMessage())
                         .data(e.getData())
                         .path(getPath(request))
                         .error(e.getMa())
-                        .build());
+                        .build(), e));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -112,7 +117,7 @@ public class RestControllerGlobalExceptionHandler {
                 .error("Bad Request")
                 .path(getPath(request))
                 .build();
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(theoNgonNgu(body, ex));
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
@@ -135,7 +140,7 @@ public class RestControllerGlobalExceptionHandler {
                 .error("Bad Request")
                 .path(getPath(request))
                 .build();
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(theoNgonNgu(body, ex));
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
@@ -147,7 +152,7 @@ public class RestControllerGlobalExceptionHandler {
                 .error("Bad Request")
                 .path(getPath(request))
                 .build();
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(theoNgonNgu(body, ex));
     }
 
     /**
@@ -159,11 +164,11 @@ public class RestControllerGlobalExceptionHandler {
         log.warn("Thao tác đồng thời trên cùng dữ liệu: {}", ex.getMessage());
         ResponseData<Void> body = ResponseData.<Void>builder()
                 .status(HttpStatus.CONFLICT.value())
-                .message("Dữ liệu này đang được thao tác ở máy khác. Tải lại trang rồi thử lại.")
+                .message(ThongDiep.vi("chung.thaoTacDongThoi"))
                 .error("Conflict")
                 .path(getPath(request))
                 .build();
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(theoNgonNgu(body, ex));
     }
 
     /** Thiếu tham số, tham số sai kiểu (vd. ?nhaCungCapId=abc) hoặc sắp xếp theo trường không có: lỗi của request, không phải lỗi máy chủ. */
@@ -173,11 +178,11 @@ public class RestControllerGlobalExceptionHandler {
         log.debug("Tham số không hợp lệ: {}", ex.getMessage());
         ResponseData<Void> body = ResponseData.<Void>builder()
                 .status(HttpStatus.BAD_REQUEST.value())
-                .message("Tham số gửi lên thiếu hoặc không hợp lệ. Tải lại trang rồi thử lại.")
+                .message(ThongDiep.vi("chung.thamSoKhongHopLe"))
                 .error("Bad Request")
                 .path(getPath(request))
                 .build();
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(theoNgonNgu(body, ex));
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
@@ -189,7 +194,7 @@ public class RestControllerGlobalExceptionHandler {
                 .error("Method Not Allowed")
                 .path(getPath(request))
                 .build();
-        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).body(body);
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).body(theoNgonNgu(body, ex));
     }
 
     @ExceptionHandler(AccessDeniedException.class)
@@ -201,7 +206,7 @@ public class RestControllerGlobalExceptionHandler {
                 .error("Forbidden")
                 .path(getPath(request))
                 .build();
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(theoNgonNgu(body, ex));
     }
 
     @ExceptionHandler(AuthenticationException.class)
@@ -213,7 +218,7 @@ public class RestControllerGlobalExceptionHandler {
                 .error("Unauthorized")
                 .path(getPath(request))
                 .build();
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(body);
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(theoNgonNgu(body, ex));
     }
 
     @ExceptionHandler({EntityNotFoundException.class, NoSuchElementException.class})
@@ -225,7 +230,7 @@ public class RestControllerGlobalExceptionHandler {
                 .error("Not Found")
                 .path(getPath(request))
                 .build();
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(theoNgonNgu(body, ex));
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
@@ -237,7 +242,7 @@ public class RestControllerGlobalExceptionHandler {
                 .error("Conflict")
                 .path(getPath(request))
                 .build();
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(theoNgonNgu(body, ex));
     }
 
     @ExceptionHandler(InvalidFieldException.class)
@@ -248,7 +253,7 @@ public class RestControllerGlobalExceptionHandler {
                 .error("Bad Request")
                 .path(getPath(request))
                 .build();
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(theoNgonNgu(body, ex));
     }
 
     // URL không khớp API nào (thường do FE gọi sai đường dẫn): Spring ném NoResourceFoundException
@@ -257,11 +262,11 @@ public class RestControllerGlobalExceptionHandler {
     public ResponseEntity<ResponseData<?>> handleNoResourceFound(NoResourceFoundException ex, WebRequest request) {
         ResponseData<Void> body = ResponseData.<Void>builder()
                 .status(HttpStatus.NOT_FOUND.value())
-                .message("Không tìm thấy API: " + ex.getHttpMethod() + " " + getPath(request))
+                .message(ThongDiep.vi("chung.khongTimThayApi", ex.getHttpMethod(), getPath(request)))
                 .error("Not Found")
                 .path(getPath(request))
                 .build();
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(theoNgonNgu(body, ex));
     }
 
     @ExceptionHandler(Exception.class)
@@ -277,7 +282,59 @@ public class RestControllerGlobalExceptionHandler {
                 .error("Internal Server Error")
                 .path(getPath(request))
                 .build();
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(theoNgonNgu(body, ex));
+    }
+
+    /**
+     * Đa ngôn ngữ: mọi bước ở trên chọn câu TIẾNG VIỆT như cũ; tới đây mới đổi sang ngôn ngữ của request
+     * (header Accept-Language, xem {@link NgonNgu}). Câu theo khóa ({@link CoThongDiep}) dịch theo khóa; câu chữ thường
+     * (annotation kiểm dữ liệu, câu dự phòng ở trên, câu chưa chuyển khóa) dịch nếu có trong kho câu. Đã dịch thì
+     * giữ câu Việt ở {@code messageGoc}. Request tiếng Việt: không đổi gì.
+     */
+    static <T> ResponseData<T> theoNgonNgu(ResponseData<T> body, Throwable loi) {
+        if (body == null || !NgonNgu.laTiengAnh()) return body;
+        String cauViet = body.getMessage();
+        String cauAnh = null;
+        if (loi instanceof CoThongDiep coThongDiep && coThongDiep.getThongDiep() != null
+                && cauViet != null && loi.getMessage() != null && cauViet.trim().equals(loi.getMessage().trim())) {
+            cauAnh = coThongDiep.getThongDiep().theoNgonNgu(NgonNgu.EN);
+        } else if (cauViet != null) {
+            // DichCauDaLuu: như dichCauViet, thêm tách câu "bọc" câu khác (vd. "Đã nhận tiền nhưng chưa tạo được đơn: <câu>"
+            // của payOS PAID_ERROR). Không nhận ra thì trả nguyên câu → điều kiện dưới bỏ qua, như null trước đây.
+            cauAnh = DichCauDaLuu.dich(cauViet, NgonNgu.EN);
+        }
+        if (cauAnh != null && !cauAnh.equals(cauViet)) {
+            body.setMessage(cauAnh);
+            body.setMessageGoc(cauViet);
+        }
+        if (loi instanceof MethodArgumentNotValidException && body.getData() instanceof Map<?, ?> theoO) {
+            Map<Object, Object> daDich = new java.util.LinkedHashMap<>();
+            theoO.forEach((o, cau) -> {
+                String anh = cau instanceof String s ? BoThongDiep.dichCauViet(s, NgonNgu.EN) : null;
+                daDich.put(o, anh != null ? anh : cau);
+            });
+            @SuppressWarnings("unchecked")
+            T moi = (T) daDich;
+            body.setData(moi);
+        }
+        // ConstraintViolation: data.violations = ["truong: câu"] → dịch phần câu
+        if (loi instanceof ConstraintViolationException && body.getData() instanceof Map<?, ?> duLieu
+                && duLieu.get("violations") instanceof List<?> ds) {
+            List<Object> daDich = ds.stream().map(x -> {
+                if (!(x instanceof String s)) return x;
+                int hai = s.indexOf(": ");
+                String truong = hai >= 0 ? s.substring(0, hai + 2) : "";
+                String cau = hai >= 0 ? s.substring(hai + 2) : s;
+                String anh = BoThongDiep.dichCauViet(cau, NgonNgu.EN);
+                return anh != null ? truong + anh : s;
+            }).collect(Collectors.<Object>toList());
+            Map<Object, Object> moiMap = new java.util.LinkedHashMap<>(duLieu);
+            moiMap.put("violations", daDich);
+            @SuppressWarnings("unchecked")
+            T moi = (T) moiMap;
+            body.setData(moi);
+        }
+        return body;
     }
 
     /**

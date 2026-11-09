@@ -21,7 +21,7 @@ export const formatPriceShort = (value) => {
   // 999.950 làm tròn thành "1000k" -> ghi theo triệu.
   if (amount >= 1e6 || Math.round(amount / 100) >= 10000) return `${trim(amount / 1e6, 3)}tr`;
   if (amount >= 1e3) return `${trim(amount / 1e3, 1)}k`;
-  return `${Math.round(amount)}đ`;
+  return `${Math.round(amount)}đ`; // i18n-giu-nguyen: định dạng tiền kiểu Việt Nam
 };
 
 /** Khoảng giá gọn cho chỗ hẹp, cùng cách ghi với ô kích cỡ ("133,2k – 2,6tr"); một giá thì như formatPriceShort. */

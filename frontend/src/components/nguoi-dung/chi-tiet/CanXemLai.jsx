@@ -2,6 +2,7 @@ import { useId, useRef } from "react";
 import { AlertTriangle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 const NUT_VIEN = "border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle";
 
@@ -29,7 +30,7 @@ export default function CanXemLai({ vanDe, danhDau, onChonDiem, onBoDanhDau, idV
         <AlertTriangle className="mt-0.5 size-4 shrink-0 text-orange-700" aria-hidden="true" />
         <div className="min-w-0">
           <h2 id={idTieuDe} className="text-[13.5px] font-semibold leading-5 text-orange-900">
-            Cần xem lại
+            {t("Cần xem lại")}
           </h2>
           <ul className="mt-1 space-y-1">
             {vanDe.map((v) => {
@@ -44,7 +45,7 @@ export default function CanXemLai({ vanDe, danhDau, onChonDiem, onBoDanhDau, idV
                       type="button"
                       aria-pressed={chon}
                       aria-controls={idVung}
-                      title={chon ? "Bỏ đánh dấu" : "Đánh dấu các quyền này ở tab Quyền truy cập"}
+                      title={chon ? t("Bỏ đánh dấu") : t("Đánh dấu các quyền này ở tab Quyền truy cập")}
                       onClick={() => onChonDiem(v.ma)}
                       className={cn(
                         "-mx-1 rounded-sm px-1 text-left font-medium text-orange-900 underline decoration-orange-300 underline-offset-[3px] outline-none hover:decoration-orange-700 focus-visible:ring-2 focus-visible:ring-orange-500/50",
@@ -78,7 +79,7 @@ export default function CanXemLai({ vanDe, danhDau, onChonDiem, onBoDanhDau, idV
               className="h-9 gap-1.5 text-orange-900 hover:bg-orange-100 hover:text-orange-900"
             >
               <X className="size-3.5" aria-hidden="true" />
-              Bỏ đánh dấu
+              {t("Bỏ đánh dấu")}
             </Button>
           ) : null}
           {onNut ? (

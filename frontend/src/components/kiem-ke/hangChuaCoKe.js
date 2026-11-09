@@ -3,21 +3,22 @@
  * chia kệ, tóm tắt kết quả. Dữ liệu một lô là phần tử của GET /api/v1/kiem-ke/hang-chua-co-ke (KiemKeDto.HangChuaCoKe).
  */
 import { boDau } from "../chung-tu/bangChungTu.js";
+import { t } from "../../i18n/t.js";
 
 /** Lý do của kệ gợi ý / kệ liên quan (ChonKeGoiY ở máy chủ). */
 export const LY_DO_KE = {
-  KE_CUA_LO: "Kệ của lô",
-  DANG_CHUA_LO: "Lô đang ở kệ này",
-  CUNG_SKU: "Kệ đang có cùng SKU",
-  CUNG_MAU: "Kệ đang có cùng mẫu",
+  KE_CUA_LO: t("Kệ của lô"),
+  DANG_CHUA_LO: t("Lô đang ở kệ này"),
+  CUNG_SKU: t("Kệ đang có cùng SKU"),
+  CUNG_MAU: t("Kệ đang có cùng mẫu"),
 };
 
 /** Vì sao một kệ liên quan không chọn được. */
 export const CHAN_KE = {
-  BAO_TRI: "đang bảo trì",
-  KIEM_KE: "đang kiểm kê",
-  DAY: "đã đầy",
-  DA_GOI_Y: "đã gợi ý cho các lô phía trên",
+  BAO_TRI: t("đang bảo trì"),
+  KIEM_KE: t("đang kiểm kê"),
+  DAY: t("đã đầy"),
+  DA_GOI_Y: t("đã gợi ý cho các lô phía trên"),
 };
 
 /** Khóa nhóm của hàng không rõ chứng từ (luôn ở cuối). */
@@ -48,11 +49,11 @@ export function xepNgayDuoc(h) {
 
 /** Câu thay cho kệ gợi ý khi lô chưa xếp được, hoặc không có kệ nào chọn được. */
 export function cauKhongGoiY(h) {
-  if (h?.dangKiemKe) return "Lô đang trong đợt kiểm kê, xếp sau khi đợt kết thúc";
-  if (h && soXepDuoc(h) === 0) return "Phiếu nhặt đang giữ cả phần này, người nhặt sẽ lấy ở đây";
+  if (h?.dangKiemKe) return t("Lô đang trong đợt kiểm kê, xếp sau khi đợt kết thúc");
+  if (h && soXepDuoc(h) === 0) return t("Phiếu nhặt đang giữ cả phần này, người nhặt sẽ lấy ở đây");
   const chan = (h?.keLienQuan ?? []).find((k) => k.chan);
-  if (chan) return `Kệ ${chan.ma} ${CHAN_KE[chan.chan] ?? "không chọn được"}`;
-  return "Chưa kệ nào trong kho có sản phẩm này";
+  if (chan) return t("Kệ {{ma}} {{lyDo}}", { ma: chan.ma, lyDo: CHAN_KE[chan.chan] ?? t("không chọn được") });
+  return t("Chưa kệ nào trong kho có sản phẩm này");
 }
 
 /** Khóa nhóm của một lô: phiếu nhập gần nhất, không có thì nhóm "không rõ chứng từ". */
@@ -77,18 +78,18 @@ export function nhomTheoNguon(ds) {
 
 /** Tên nhóm theo loại chứng từ. */
 export function tieuDeNguon(nguon) {
-  if (!nguon) return "Không rõ chứng từ";
+  if (!nguon) return t("Không rõ chứng từ");
   switch (nguon.loai) {
     case "CHUYEN_KHO":
-      return nguon.tuDau ? `Nhận chuyển kho từ ${nguon.tuDau}` : "Nhận chuyển kho";
+      return nguon.tuDau ? t("Nhận chuyển kho từ {{tuDau}}", { tuDau: nguon.tuDau }) : t("Nhận chuyển kho");
     case "HUY_CHUYEN_KHO":
-      return "Về lại do hủy chuyển kho";
+      return t("Về lại do hủy chuyển kho");
     case "KHACH_TRA":
-      return "Khách trả hàng";
+      return t("Khách trả hàng");
     case "NHA_CUNG_CAP":
-      return nguon.tuDau ? `Nhập từ ${nguon.tuDau}` : "Nhập từ nhà cung cấp";
+      return nguon.tuDau ? t("Nhập từ {{tuDau}}", { tuDau: nguon.tuDau }) : t("Nhập từ nhà cung cấp");
     default:
-      return "Phiếu nhập kho";
+      return t("Phiếu nhập kho");
   }
 }
 
@@ -161,13 +162,13 @@ export function conChoKe(ke) {
  * theo cặp kệ–lô máy chủ đã tính ở `keLienQuan` của lô.
  */
 export function lyDoKhongChonKe(ke, dsLo = []) {
-  if (!ke) return "Không tìm thấy kệ";
-  if (ke.trangThai === "KHOA_KIEM_KE" || ke.khoa === "toan_ke") return "Đang kiểm kê";
-  if (ke.trangThai === "BAO_TRI") return "Bảo trì";
+  if (!ke) return t("Không tìm thấy kệ");
+  if (ke.trangThai === "KHOA_KIEM_KE" || ke.khoa === "toan_ke") return t("Đang kiểm kê");
+  if (ke.trangThai === "BAO_TRI") return t("Bảo trì");
   for (const h of dsLo) {
-    if ((h.keLienQuan ?? []).some((k) => k.id === ke.id && k.chan === "KIEM_KE")) return "Đang kiểm kê với lô này";
+    if ((h.keLienQuan ?? []).some((k) => k.id === ke.id && k.chan === "KIEM_KE")) return t("Đang kiểm kê với lô này");
   }
-  return conChoKe(ke) === 0 ? "Đầy" : null;
+  return conChoKe(ke) === 0 ? t("Đầy") : null;
 }
 
 /**
@@ -177,18 +178,18 @@ export function lyDoKhongChonKe(ke, dsLo = []) {
 export function kiemChiaKe(dong, toiDa, keTheoId) {
   const daChon = new Set();
   const loiDong = (dong ?? []).map((d) => {
-    if (d.keId == null) return "Chọn kệ";
-    if (daChon.has(d.keId)) return "Kệ đã chọn ở dòng khác";
+    if (d.keId == null) return t("Chọn kệ");
+    if (daChon.has(d.keId)) return t("Kệ đã chọn ở dòng khác");
     daChon.add(d.keId);
     const sl = so(d.soLuong);
-    if (!Number.isInteger(sl) || sl <= 0) return "Nhập số lượng";
+    if (!Number.isInteger(sl) || sl <= 0) return t("Nhập số lượng");
     const con = conChoKe(keTheoId?.get(d.keId));
-    if (con != null && sl > con) return `Kệ chỉ còn chỗ ${soVi(con)}`;
+    if (con != null && sl > con) return t("Kệ chỉ còn chỗ {{con}}", { con: soVi(con) });
     return null;
   });
   const tong = (dong ?? []).reduce((s, d) => s + Math.max(0, so(d.soLuong)), 0);
   const conLai = so(toiDa) - tong;
-  const loi = loiDong.find(Boolean) ?? (conLai < 0 ? `Tối đa ${soVi(toiDa)} sản phẩm` : null);
+  const loi = loiDong.find(Boolean) ?? (conLai < 0 ? t("Tối đa {{toiDa}} sản phẩm", { count: so(toiDa), toiDa: soVi(toiDa) }) : null);
   return { tong, conLai, loiDong, loi };
 }
 

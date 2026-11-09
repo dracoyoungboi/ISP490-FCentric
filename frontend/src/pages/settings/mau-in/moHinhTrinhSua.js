@@ -20,6 +20,7 @@ import {
     labelKey,
 } from "../../../components/print/schemas/printSchemas.js";
 import { normalizeConfig } from "../../../components/print/cauHinhMauIn.js";
+import { t } from "../../../i18n/t.js";
 
 export const GROUP_LAYOUT = "trinhBay";
 export const GROUP_HEADER = "dau";
@@ -28,28 +29,28 @@ export const GROUP_FOOTER = "chan";
 /** Thương hiệu ở đầu phiếu — thứ tự như trên giấy. */
 const BRANDING_ROWS = [
     { key: "showLogo", label: "Logo" },
-    { key: "showCompanyName", label: "Tên cửa hàng" },
+    { key: "showCompanyName", label: t("Tên cửa hàng") },
     // Cùng một dòng trên đầu phiếu "{tên đăng ký kinh doanh} · MST: …" (PrintHeader); giữ khóa showTaxCode cho mẫu đã lưu
     {
         key: "showTaxCode",
         // Không dùng dấu phẩy: câu tóm tắt lịch sử ghép các mục bằng ", … và …"
-        label: "Tên đăng ký kinh doanh · Mã số thuế",
-        hint: "In khi Thông tin cửa hàng có tên đăng ký kinh doanh hoặc mã số thuế",
+        label: t("Tên đăng ký kinh doanh · Mã số thuế"),
+        hint: t("In khi Thông tin cửa hàng có tên đăng ký kinh doanh hoặc mã số thuế"),
     },
-    { key: "showAddress", label: "Địa chỉ" },
-    { key: "showPhone", label: "Điện thoại" },
+    { key: "showAddress", label: t("Địa chỉ") },
+    { key: "showPhone", label: t("Điện thoại") },
     { key: "showEmail", label: "Email" },
 ];
 
 export const MARGIN_OPTIONS = [
-    { value: "narrow", label: "Hẹp" },
-    { value: "default", label: "Vừa" },
-    { value: "wide", label: "Rộng" },
+    { value: "narrow", label: t("Hẹp") },
+    { value: "default", label: t("Vừa") },
+    { value: "wide", label: t("Rộng") },
 ];
 
 export const ORIENTATION_OPTIONS = [
-    { value: "portrait", label: "Dọc" },
-    { value: "landscape", label: "Ngang" },
+    { value: "portrait", label: t("Dọc") },
+    { value: "landscape", label: t("Ngang") },
 ];
 
 /**
@@ -57,10 +58,10 @@ export const ORIENTATION_OPTIONS = [
  * vẫn giữ nguyên (ô "Màu khác").
  */
 export const ACCENT_PRESETS = [
-    { value: "#0F2A43", label: "Xanh than" },
-    { value: "#111827", label: "Đen" },
-    { value: "#1D4ED8", label: "Xanh dương" },
-    { value: "#7C2D12", label: "Nâu đỏ" },
+    { value: "#0F2A43", label: t("Xanh than") },
+    { value: "#111827", label: t("Đen") },
+    { value: "#1D4ED8", label: t("Xanh dương") },
+    { value: "#7C2D12", label: t("Nâu đỏ") },
 ];
 
 export { DOC_CODE_OPTIONS, FONT_SIZE_OPTIONS };
@@ -123,7 +124,7 @@ function infoRows(section, config, compact, docNoun) {
                 // Mã vạch không in nhãn nên không có ô đổi tên
                 labelKeyValue: field.labelModelPath || field.kind === "barcode" ? null : labelKey(section.key, field.key),
                 locked: Boolean(field.essential),
-                hint: field.labelModelPath ? field.hint ?? `Nhãn tự đổi theo dữ liệu của ${docNoun}` : field.hint,
+                hint: field.labelModelPath ? field.hint ?? t("Nhãn tự đổi theo dữ liệu của {{docNoun}}", { docNoun }) : field.hint,
                 on: sectionConfig[field.key] !== false,
             })
         );
@@ -134,16 +135,16 @@ function itemsRows(section, config, compact, docNoun) {
     const rows = [];
     // Bảng đang tắt: cột và dòng tổng của bảng không in (khóa lại, không tính vào số mục)
     const tableOn = Boolean(section.essentialShow) || sectionConfig.show !== false;
-    const tableOffHint = "Chỉ in khi bật “In bảng này”";
+    const tableOffHint = t("Chỉ in khi bật “In bảng này”");
     if (!section.essentialShow) {
         rows.push(
             makeRow(config, {
                 id: labelKey(section.key, "$show"),
                 path: `sections.${section.key}.show`,
-                defaultLabel: "In bảng này",
+                defaultLabel: t("In bảng này"),
                 hint: section.hint,
                 on: sectionConfig.show !== false,
-                summaryName: () => `bảng ${section.title}`,
+                summaryName: () => t("bảng {{title}}", { title: t(section.title) }),
             })
         );
     }
@@ -163,16 +164,16 @@ function itemsRows(section, config, compact, docNoun) {
                 labelKeyValue: renameable ? labelKey(section.key, column.key) : null,
                 locked: Boolean(column.essential),
                 hint: column.inline
-                    ? "In ở dòng phụ dưới tên hàng"
+                    ? t("In ở dòng phụ dưới tên hàng")
                     : column.inlineIn
                       ? null
                       : column.hideWhenAllEmpty
-                        ? `Tự ẩn khi cả ${docNoun} không có số liệu ở cột này`
+                        ? t("Tự ẩn khi cả {{docNoun}} không có số liệu ở cột này", { docNoun })
                         : null,
                 on: config.columns?.[column.key] !== false,
                 inactive: !tableOn || !hostOn,
-                inactiveHint: !tableOn ? tableOffHint : `Chỉ in khi bật cột ${hostLabel}`,
-                summaryName: (label) => (renameable ? `cột ${label}` : label),
+                inactiveHint: !tableOn ? tableOffHint : t("Chỉ in khi bật cột {{hostLabel}}", { hostLabel }),
+                summaryName: (label) => (renameable ? t("cột {{label}}", { label }) : label),
             })
         );
     }
@@ -181,11 +182,11 @@ function itemsRows(section, config, compact, docNoun) {
             makeRow(config, {
                 id: labelKey(section.key, "$total"),
                 path: `sections.${section.key}.showTotal`,
-                defaultLabel: "Dòng tổng cuối bảng",
+                defaultLabel: t("Dòng tổng cuối bảng"),
                 on: sectionConfig.showTotal !== false,
                 inactive: !tableOn,
                 inactiveHint: tableOffHint,
-                summaryName: () => "dòng tổng cuối bảng",
+                summaryName: () => t("dòng tổng cuối bảng"),
             })
         );
     }
@@ -212,14 +213,14 @@ function summaryRows(section, config) {
             labelKeyValue: host ? null : labelKey(section.key, row.key),
             locked: Boolean(row.essential),
             hint: host
-                ? `In trong ngoặc sau nhãn ${labelOf(host)}`
+                ? t("In trong ngoặc sau nhãn {{host}}", { host: labelOf(host) })
                 : row.hint ??
-                  (sameAs ? `Tự ẩn khi bằng ${sameAs.label.toLocaleLowerCase("vi")}` : row.hideWhenZero ? "Tự ẩn khi bằng 0" : null),
+                  (sameAs ? t("Tự ẩn khi bằng {{nhan}}", { nhan: sameAs.label.toLocaleLowerCase("vi") }) : row.hideWhenZero ? t("Tự ẩn khi bằng 0") : null),
             on: sectionConfig[row.key] !== false,
             inactive,
-            inactiveHint: `Chỉ in khi bật ${needed.map(labelOf).join(" hoặc ")}`,
+            inactiveHint: t("Chỉ in khi bật {{danhSach}}", { danhSach: needed.map(labelOf).join(t(" hoặc ")) }),
             // Nhãn chú thích có dấu phẩy, dấu hai chấm — tên ngắn để câu tóm tắt lịch sử không rối
-            summaryName: row.note ? () => "dòng chú thích thuế GTGT" : undefined,
+            summaryName: row.note ? () => t("dòng chú thích thuế GTGT") : undefined,
         });
     });
     if (section.words) {
@@ -229,9 +230,9 @@ function summaryRows(section, config) {
                 path: `sections.${section.key}.${section.words.key}`,
                 defaultLabel: section.words.label,
                 labelKeyValue: labelKey(section.key, section.words.key),
-                hint: "Số tiền tổng viết bằng chữ",
+                hint: t("Số tiền tổng viết bằng chữ"),
                 on: sectionConfig[section.words.key] !== false,
-                summaryName: () => "số tiền bằng chữ",
+                summaryName: () => t("số tiền bằng chữ"),
             })
         );
     }
@@ -246,9 +247,9 @@ function notesRows(section, config, docNoun) {
             path: `sections.${section.key}.show`,
             defaultLabel: section.title,
             labelKeyValue: labelKey(section.key, NOTES_LABEL_ITEM),
-            hint: `${docNoun.charAt(0).toLocaleUpperCase("vi")}${docNoun.slice(1)} không có ghi chú thì không in dòng này`,
+            hint: t("{{docNoun}} không có ghi chú thì không in dòng này", { docNoun: `${docNoun.charAt(0).toLocaleUpperCase("vi")}${docNoun.slice(1)}` }),
             on: sectionConfig.show !== false,
-            summaryName: (label) => `dòng ${label.toLocaleLowerCase("vi")}`,
+            summaryName: (label) => t("dòng {{nhan}}", { nhan: label.toLocaleLowerCase("vi") }),
         }),
     ];
 }
@@ -263,7 +264,7 @@ function signatureRows(section, config) {
             labelKeyValue: labelKey(section.key, block.key),
             hint: block.hint,
             on: sectionConfig[block.key] !== false,
-            summaryName: (label) => `ô ký ${label}`,
+            summaryName: (label) => t("ô ký {{label}}", { label }),
         })
     );
 }
@@ -306,10 +307,10 @@ function withCounts(group) {
 export function buildEditorGroups(schema, config) {
     if (!schema || !config) return [];
     const compact = isThermalPaper(config.paperSize);
-    const docNoun = schema.docNoun ?? "phiếu";
+    const docNoun = t(schema.docNoun ?? "phiếu", { context: "mau_in" });
     const groups = [
-        { key: GROUP_LAYOUT, title: "Khổ giấy và trình bày", kind: "layout", rows: [] },
-        { key: GROUP_HEADER, title: `Đầu ${docNoun}`, kind: "header", rows: brandingRows(config) },
+        { key: GROUP_LAYOUT, title: t("Khổ giấy và trình bày"), kind: "layout", rows: [] },
+        { key: GROUP_HEADER, title: t("Đầu {{docNoun}}", { docNoun }), kind: "header", rows: brandingRows(config) },
     ];
     for (const section of schema.sections) {
         if (compact && section.compactHidden) continue;
@@ -319,9 +320,9 @@ export function buildEditorGroups(schema, config) {
         else if (section.type === "summary") rows = summaryRows(section, config);
         else if (section.type === "notes") rows = notesRows(section, config, docNoun);
         else if (section.type === "signatures") rows = signatureRows(section, config);
-        groups.push({ key: section.key, title: section.title, kind: section.type, rows });
+        groups.push({ key: section.key, title: t(section.title), kind: section.type, rows });
     }
-    groups.push({ key: GROUP_FOOTER, title: `Chân ${docNoun}`, kind: "footer", rows: [] });
+    groups.push({ key: GROUP_FOOTER, title: t("Chân {{docNoun}}", { docNoun }), kind: "footer", rows: [] });
     return groups.map(withCounts);
 }
 
@@ -367,14 +368,14 @@ export function setLabel(config, key, value, defaultLabel) {
 // ── Tóm tắt thay đổi (lịch sử chỉnh sửa) ─────────────────────────────────────
 
 const optionLabel = (options, value) =>
-    (options.find((option) => option.value === value)?.label ?? String(value ?? "")).toLocaleLowerCase("vi");
+    t(options.find((option) => option.value === value)?.label ?? String(value ?? "")).toLocaleLowerCase("vi");
 
 /** "A, B và C"; quá `max` mục thì "A, B và 3 mục khác". */
 function listNames(names, max = 3) {
     if (names.length <= max) {
-        return names.length <= 1 ? names.join("") : `${names.slice(0, -1).join(", ")} và ${names[names.length - 1]}`;
+        return names.length <= 1 ? names.join("") : t("{{dauDanhSach}} và {{cuoi}}", { dauDanhSach: names.slice(0, -1).join(", "), cuoi: names[names.length - 1] });
     }
-    return `${names.slice(0, max - 1).join(", ")} và ${names.length - (max - 1)} mục khác`;
+    return t("{{dauDanhSach}} và {{count}} mục khác", { dauDanhSach: names.slice(0, max - 1).join(", "), count: names.length - (max - 1) });
 }
 
 /**
@@ -384,31 +385,31 @@ function listNames(names, max = 3) {
  */
 export function summarizeChanges(schema, before, after) {
     if (!schema || !after) return "";
-    if (!before) return "Lưu lần đầu";
+    if (!before) return t("Lưu lần đầu");
     const a = normalizeConfig(schema, before);
     const b = normalizeConfig(schema, after);
-    const docNoun = schema.docNoun ?? "phiếu";
+    const docNoun = t(schema.docNoun ?? "phiếu", { context: "mau_in" });
     const parts = [];
 
-    if (a.paperSize !== b.paperSize) parts.push(`chuyển sang khổ ${b.paperSize}`);
+    if (a.paperSize !== b.paperSize) parts.push(t("chuyển sang khổ {{paperSize}}", { paperSize: b.paperSize }));
     if (!isThermalPaper(b.paperSize) && !isThermalPaper(a.paperSize)) {
-        if (a.orientation !== b.orientation) parts.push(`đổi hướng giấy sang ${optionLabel(ORIENTATION_OPTIONS, b.orientation)}`);
-        if (a.margin !== b.margin) parts.push(`đổi lề giấy sang ${optionLabel(MARGIN_OPTIONS, b.margin)}`);
+        if (a.orientation !== b.orientation) parts.push(t("đổi hướng giấy sang {{huong}}", { huong: optionLabel(ORIENTATION_OPTIONS, b.orientation) }));
+        if (a.margin !== b.margin) parts.push(t("đổi lề giấy sang {{le}}", { le: optionLabel(MARGIN_OPTIONS, b.margin) }));
     }
-    if (getFontSize(a) !== getFontSize(b)) parts.push(`đổi cỡ chữ sang ${optionLabel(FONT_SIZE_OPTIONS, getFontSize(b))}`);
-    if ((a.accentColor ?? "").toLowerCase() !== (b.accentColor ?? "").toLowerCase()) parts.push(`đổi màu tên ${docNoun}`);
+    if (getFontSize(a) !== getFontSize(b)) parts.push(t("đổi cỡ chữ sang {{coChu}}", { coChu: optionLabel(FONT_SIZE_OPTIONS, getFontSize(b)) }));
+    if ((a.accentColor ?? "").toLowerCase() !== (b.accentColor ?? "").toLowerCase()) parts.push(t("đổi màu tên {{docNoun}}", { docNoun }));
 
     const titleA = getDocTitle(schema, a);
     const titleB = getDocTitle(schema, b);
     if (titleA.toLocaleUpperCase("vi") !== titleB.toLocaleUpperCase("vi")) {
-        parts.push(titleB === schema.docTitle ? "trả tiêu đề về tên gốc" : `đổi tiêu đề thành “${titleB}”`);
+        parts.push(titleB === schema.docTitle ? t("trả tiêu đề về tên gốc") : t("đổi tiêu đề thành “{{tieuDe}}”", { tieuDe: titleB }));
     }
 
     const codeA = getDocCodeMode(a);
     const codeB = getDocCodeMode(b);
     if (codeA !== codeB) {
         parts.push(
-            codeB === "ma_vach" ? `in mã vạch số ${docNoun}` : codeB === "ma_qr" ? `in mã QR số ${docNoun}` : `bỏ mã số ${docNoun}`
+            codeB === "ma_vach" ? t("in mã vạch số {{docNoun}}", { docNoun }) : codeB === "ma_qr" ? t("in mã QR số {{docNoun}}", { docNoun }) : t("bỏ mã số {{docNoun}}", { docNoun })
         );
     }
 
@@ -423,18 +424,18 @@ export function summarizeChanges(schema, before, after) {
         if (!row.locked && old.on !== row.on) (row.on ? turnedOn : turnedOff).push(row.summaryName);
         if (row.labelKey && old.label !== row.label) renamed.push({ from: old.label, to: row.label });
     }
-    if (turnedOn.length) parts.push(`bật ${listNames(turnedOn)}`);
-    if (turnedOff.length) parts.push(`tắt ${listNames(turnedOff)}`);
-    if (renamed.length === 1) parts.push(`đổi tên “${renamed[0].from}” thành “${renamed[0].to}”`);
-    else if (renamed.length > 1) parts.push(`đổi tên ${renamed.length} nhãn`);
+    if (turnedOn.length) parts.push(t("bật {{danhSach}}", { danhSach: listNames(turnedOn) }));
+    if (turnedOff.length) parts.push(t("tắt {{danhSach}}", { danhSach: listNames(turnedOff) }));
+    if (renamed.length === 1) parts.push(t("đổi tên “{{from}}” thành “{{to}}”", { from: renamed[0].from, to: renamed[0].to }));
+    else if (renamed.length > 1) parts.push(t("đổi tên {{count}} nhãn", { count: renamed.length }));
 
     const footerA = getFooterNoteDraft(schema, a).trim();
     const footerB = getFooterNoteDraft(schema, b).trim();
     if (footerA !== footerB) {
-        parts.push(!footerB ? `bỏ lời chân ${docNoun}` : !footerA ? `thêm lời chân ${docNoun}` : `sửa lời chân ${docNoun}`);
+        parts.push(!footerB ? t("bỏ lời chân {{docNoun}}", { docNoun }) : !footerA ? t("thêm lời chân {{docNoun}}", { docNoun }) : t("sửa lời chân {{docNoun}}", { docNoun }));
     }
 
-    const text = parts.length ? parts.join(", ") : "lưu lại, không đổi nội dung";
+    const text = parts.length ? parts.join(", ") : t("lưu lại, không đổi nội dung");
     return text.charAt(0).toLocaleUpperCase("vi") + text.slice(1);
 }
 

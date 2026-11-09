@@ -21,6 +21,7 @@ import {
   quyenCuaToiTheoNhom,
 } from "@/components/nguoi-dung/phanQuyen";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 const ID_TIEU_DE = "ho-so-quyen";
 const KHUNG = "px-4 py-5 sm:px-6 sm:py-[22px]";
@@ -43,12 +44,12 @@ const BIEU_TUONG = {
 /** "Cần hỗ trợ? Liên hệ quản trị viên." — có email liên hệ của công ty thì là liên kết mở thư soạn sẵn. */
 function LienHe({ email, chuDe }) {
   const href = mailtoLienHe(email, chuDe);
-  if (!href) return <>Liên hệ quản trị viên nếu cần hỗ trợ.</>;
+  if (!href) return <>{t("Liên hệ quản trị viên nếu cần hỗ trợ.")}</>;
   return (
     <>
-      Cần hỗ trợ?{" "}
+      {t("Cần hỗ trợ?")}{" "}
       <a href={href} className="font-medium text-bo-primary hover:underline">
-        Liên hệ quản trị viên
+        {t("Liên hệ quản trị viên")}
       </a>
       .
     </>
@@ -76,7 +77,7 @@ function KhungQuyen({ nhom, hienMoTa }) {
           {nhom.map((n) => (
             <section
               key={n.ma}
-              aria-label={`${n.ten}: ${n.viec.length} việc`}
+              aria-label={t("{{ten}}: {{count}} việc", { ten: n.ten, count: n.viec.length })}
               className="min-w-0 border-b border-r border-slate-100"
             >
               <h3 className="flex h-10 items-center gap-2 whitespace-nowrap border-b border-slate-100 bg-bo-surface-subtle px-4 text-[12.5px] font-semibold text-slate-600">
@@ -100,7 +101,7 @@ function KhungQuyen({ nhom, hienMoTa }) {
                       {v.moTa && !hienMoTa ? <span className="sr-only">: {v.moTa}</span> : null}
                       {v.moi ? (
                         <span className="ml-1.5 inline-flex align-middle">
-                          <StatusBadge label="Mới" nhom="dang" />
+                          <StatusBadge /* i18n-giu-nguyen: StatusBadge tự dịch */ label="Mới" nhom="dang" />
                         </span>
                       ) : null}
                       {hienMoTa && v.moTa ? (
@@ -134,7 +135,7 @@ export default function QuyenCuaToi({ vaiTro, quyen, dangTai, loi, onThuLai, ema
 
   const tieuDe = (
     <h2 id={ID_TIEU_DE} className={TIEU_DE}>
-      Quyền của tôi
+      {t("Quyền của tôi")}
     </h2>
   );
 
@@ -145,12 +146,12 @@ export default function QuyenCuaToi({ vaiTro, quyen, dangTai, loi, onThuLai, ema
         {loi && !dangTai ? (
           <ErrorState
             className="mt-3.5 min-h-40 rounded-lg border border-bo-border py-6"
-            title="Không tải được quyền của bạn"
-            description="Kiểm tra kết nối rồi thử lại."
+            title={t("Không tải được quyền của bạn")}
+            description={t("Kiểm tra kết nối rồi thử lại.")}
             onRetry={onThuLai}
           />
         ) : (
-          <div role="status" aria-label="Đang tải quyền của bạn" className="mt-3.5 h-28 animate-pulse rounded-[10px] bg-slate-100" />
+          <div role="status" aria-label={t("Đang tải quyền của bạn")} className="mt-3.5 h-28 animate-pulse rounded-[10px] bg-slate-100" />
         )}
       </section>
     );
@@ -161,9 +162,10 @@ export default function QuyenCuaToi({ vaiTro, quyen, dangTai, loi, onThuLai, ema
       <section aria-labelledby={ID_TIEU_DE} className={KHUNG}>
         {tieuDe}
         <div className="mt-3.5 rounded-lg border border-dashed border-slate-300 px-4 py-3.5">
-          <div className="text-sm font-medium leading-5 text-bo-foreground">Bạn chưa được phân kho</div>
+          <div className="text-sm font-medium leading-5 text-bo-foreground">{t("Bạn chưa được phân kho")}</div>
           <p className={PHU}>
-            Khi được phân kho, việc bạn làm được sẽ hiện ở đây. <LienHe email={emailLienHe} chuDe="Đề nghị phân kho" />
+            {t("Khi được phân kho, việc bạn làm được sẽ hiện ở đây.")} {/* i18n-giu-nguyen: tiêu đề thư gửi quản trị viên */}
+            <LienHe email={emailLienHe} chuDe="Đề nghị phân kho" />
           </p>
         </div>
       </section>
@@ -177,10 +179,10 @@ export default function QuyenCuaToi({ vaiTro, quyen, dangTai, loi, onThuLai, ema
     <section aria-labelledby={ID_TIEU_DE} className={KHUNG}>
       {tieuDe}
       <p className={cn(PHU, "tabular-nums")}>
-        {soViec} việc ·{" "}
+        {t("{{count}} việc ·", { count: soViec })}{" "}
         <span className={hieuLuc.sapHet ? "font-semibold text-orange-800" : undefined}>
           {hieuLuc.moTa}
-          {hieuLuc.sapHet && hieuLuc.conNgay != null ? ` (còn ${hieuLuc.conNgay} ngày)` : ""}
+          {hieuLuc.sapHet && hieuLuc.conNgay != null ? t(" (còn {{count}} ngày)", { count: hieuLuc.conNgay }) : ""}
         </span>
       </p>
 
@@ -189,16 +191,17 @@ export default function QuyenCuaToi({ vaiTro, quyen, dangTai, loi, onThuLai, ema
       ) : (
         <div className="mt-3.5 rounded-lg border border-dashed border-slate-300 px-4 py-3.5 text-[13px] leading-[19px] text-bo-muted">
           {soDaCap
-            ? "Các quyền bạn được cấp chưa dùng được với vai trò hiện tại. "
-            : "Bạn đã được phân kho nhưng chưa được cấp việc nào. "}
+            ? t("Các quyền bạn được cấp chưa dùng được với vai trò hiện tại.")
+            : t("Bạn đã được phân kho nhưng chưa được cấp việc nào.")}{" "}
+          {/* i18n-giu-nguyen: tiêu đề thư gửi quản trị viên */}
           <LienHe email={emailLienHe} chuDe="Đề nghị cấp quyền" />
         </div>
       )}
 
       {daThuHoi.length ? (
         <p className="mt-2.5 text-[12.5px] leading-[18px] text-bo-muted">
-          Đã thu hồi: {daThuHoi.join(", ")}
-          {quyen.capNhatLuc ? `, lúc ${ngayGio(quyen.capNhatLuc)}` : ""}.
+          {t("Đã thu hồi: {{dsQuyen}}", { dsQuyen: daThuHoi.map((ten) => t(ten)).join(", ") })}
+          {quyen.capNhatLuc ? t(", lúc {{luc}}", { luc: ngayGio(quyen.capNhatLuc) }) : ""}.
         </p>
       ) : null}
     </section>

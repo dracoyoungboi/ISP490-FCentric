@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import ChipLyDo from "./ChipLyDo";
 import { GIA_BAN_TOI_DA, dinhDangPhanTram, mucDoiGia, tinhLaiGop } from "./nhomGiaBan";
 import { formatNumber } from "@/utils/formatters";
+import { t } from "@/i18n";
 
 const COT = "grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_96px] items-center";
 
@@ -41,35 +42,35 @@ function NoiDung({ dsDong, lyDoMacDinh, dangLuu, onHuy, onLuu }) {
       className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden rounded-xl border-bo-border p-0 sm:max-w-[min(720px,calc(100%-2rem))]"
     >
       <DialogHeader className="shrink-0 border-b border-bo-border px-5 py-4 pr-12 text-left">
-        <DialogTitle className="text-[17px] text-bo-foreground">Đổi giá bán</DialogTitle>
+        <DialogTitle className="text-[17px] text-bo-foreground">{t("Đổi giá bán")}</DialogTitle>
         <DialogDescription className="text-[13px] text-bo-muted">
-          {formatNumber(muc.muc.length)} SKU đang hoạt động
-          {muc.boQua ? ` · bỏ qua ${formatNumber(muc.boQua)} SKU ngừng hoạt động` : ""}
+          {t("{{so}} SKU đang hoạt động", { count: muc.muc.length, so: formatNumber(muc.muc.length) })}
+          {muc.boQua ? t(" · bỏ qua {{boQua}} SKU ngừng hoạt động", { count: Number(muc.boQua), boQua: formatNumber(muc.boQua) }) : ""}
         </DialogDescription>
       </DialogHeader>
 
       <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto px-5 py-[18px] *:shrink-0">
         <label className="flex w-full flex-col gap-1.5 text-[13px] font-medium text-slate-700 sm:w-[260px]">
-          Giá bán mới cho các SKU (₫)
+          {t("Giá bán mới cho các SKU (₫)")}
           <MoneyInput
             autoFocus
             value={gia}
             onChange={setGia}
             disabled={dangLuu}
-            placeholder="Nhập giá bán"
+            placeholder={t("Nhập giá bán")}
             className="h-10 px-3 text-[15px] font-semibold"
           />
-          {khongDoi ? <span className="text-xs font-normal text-bo-muted">Các SKU đã có giá này.</span> : null}
+          {khongDoi ? <span className="text-xs font-normal text-bo-muted">{t("Các SKU đã có giá này.")}</span> : null}
         </label>
 
         <div className="overflow-x-auto rounded-lg border border-bo-border">
           <div className="min-w-[560px]">
             <div className={cn(COT, "border-b border-[#eef1f5] bg-bo-surface-subtle text-[11px] font-semibold uppercase tracking-wide text-bo-muted *:px-2.5 *:py-2")}>
               <div>SKU</div>
-              <div className="text-right">Giá vốn</div>
-              <div className="text-right">Giá hiện tại</div>
-              <div className="text-right">Giá mới</div>
-              <div className="text-right">Lãi gộp</div>
+              <div className="text-right">{t("Giá vốn")}</div>
+              <div className="text-right">{t("Giá hiện tại")}</div>
+              <div className="text-right">{t("Giá mới")}</div>
+              <div className="text-right">{t("Lãi gộp")}</div>
             </div>
             <div className="max-h-[320px] overflow-y-auto">
               {muc.muc.map((d) => {
@@ -81,7 +82,7 @@ function NoiDung({ dsDong, lyDoMacDinh, dangLuu, onHuy, onLuu }) {
                       <p className="mt-0.5 truncate text-xs text-bo-muted">{d.maSku}</p>
                     </div>
                     <div className="text-right tabular-nums text-bo-muted">{d.giaVon == null ? "—" : formatNumber(d.giaVon)}</div>
-                    <div className="text-right tabular-nums text-bo-muted">{Number(d.giaBan) > 0 ? formatNumber(d.giaBan) : "Chưa có giá"}</div>
+                    <div className="text-right tabular-nums text-bo-muted">{Number(d.giaBan) > 0 ? formatNumber(d.giaBan) : t("Chưa có giá")}</div>
                     <div className="text-right font-semibold tabular-nums">{soGia > 0 ? formatNumber(soGia) : "—"}</div>
                     <div className={cn("text-right tabular-nums", !lai ? "text-slate-400" : lai.lo ? "font-semibold text-bo-danger-strong" : "text-bo-success")}>
                       {lai ? dinhDangPhanTram(lai.phanTram) : "—"}
@@ -94,12 +95,12 @@ function NoiDung({ dsDong, lyDoMacDinh, dangLuu, onHuy, onLuu }) {
         </div>
 
         {quaLon ? (
-          <p role="alert" className="rounded-lg bg-bo-danger-soft px-3 py-2.5 text-[13px] font-medium text-red-800">Giá bán vượt giới hạn cho phép.</p>
+          <p role="alert" className="rounded-lg bg-bo-danger-soft px-3 py-2.5 text-[13px] font-medium text-red-800">{t("Giá bán vượt giới hạn cho phép.")}</p>
         ) : null}
         {soDuoiVon ? (
           <div role="alert" className="flex items-center gap-2 rounded-lg border border-red-200 bg-bo-danger-soft px-3 py-2.5 text-[13px] text-red-800">
             <TriangleAlert className="size-4 shrink-0" aria-hidden="true" />
-            {formatNumber(soDuoiVon)} SKU sẽ bán thấp hơn giá vốn.
+            {formatNumber(soDuoiVon)} {t("SKU sẽ bán thấp hơn giá vốn.")}
           </div>
         ) : null}
 
@@ -107,9 +108,9 @@ function NoiDung({ dsDong, lyDoMacDinh, dangLuu, onHuy, onLuu }) {
       </div>
 
       <DialogFooter className="shrink-0 flex-row flex-wrap items-center gap-2 border-t border-bo-border bg-[#fafbfc] px-5 py-3 sm:justify-end">
-        <span className="mr-auto text-[12.5px] text-bo-muted">Giá mới áp dụng ngay khi bán tại quầy.</span>
+        <span className="mr-auto text-[12.5px] text-bo-muted">{t("Giá mới áp dụng ngay khi bán tại quầy.")}</span>
         <Button type="button" variant="outline" onClick={onHuy} disabled={dangLuu} className={NUT_PHU}>
-          Hủy
+          {t("Hủy")}
         </Button>
         <Button
           type="button"
@@ -118,7 +119,7 @@ function NoiDung({ dsDong, lyDoMacDinh, dangLuu, onHuy, onLuu }) {
           className={NUT_CHINH}
         >
           {dangLuu ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
-          {dangLuu ? "Đang lưu…" : "Lưu giá bán"}
+          {dangLuu ? t("Đang lưu…") : t("Lưu giá bán")}
         </Button>
       </DialogFooter>
     </DialogContent>

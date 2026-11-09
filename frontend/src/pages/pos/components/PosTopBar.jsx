@@ -25,13 +25,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { NutChonNgonNguThanhTren } from '@/components/shared/ChonNgonNgu';
+import { laTiengAnh, localeHienThi, t } from "@/i18n";
 
 const ROLE_LABELS = {
-  quan_tri_vien: 'Quản trị viên',
-  quan_ly_kho: 'Quản lý kho',
-  nhan_vien_kho: 'Nhân viên kho',
-  nhan_vien_mua_hang: 'Nhân viên mua hàng',
-  nhan_vien_ban_hang: 'Nhân viên bán hàng',
+  quan_tri_vien: t("Quản trị viên"),
+  quan_ly_kho: t("Quản lý kho"),
+  nhan_vien_kho: t("Nhân viên kho"),
+  nhan_vien_mua_hang: t("Nhân viên mua hàng"),
+  nhan_vien_ban_hang: t("Nhân viên bán hàng"),
 };
 
 const iconButton = 'grid size-9 shrink-0 place-items-center rounded-lg border border-bo-border text-bo-muted transition hover:bg-slate-50 hover:text-bo-foreground focus-visible:outline-2 focus-visible:outline-bo-primary';
@@ -40,7 +42,7 @@ function readCurrentUser() {
   const token = localStorage.getItem('access_token');
   const role = localStorage.getItem('role');
   let userId = null;
-  let username = 'Người dùng';
+  let username = t("Người dùng");
   if (token) {
     try {
       const payload = jwtDecode(token);
@@ -50,10 +52,10 @@ function readCurrentUser() {
       /* token hỏng: ProtectedRoute/apiClient sẽ xử lý phiên */
     }
   }
-  return { userId, username, roleLabel: ROLE_LABELS[role] || 'Thành viên hệ thống' };
+  return { userId, username, roleLabel: ROLE_LABELS[role] || t("Thành viên hệ thống") };
 }
 
-const showReconnectedToast = () => toast.success('Đã kết nối lại mạng.', { id: 'pos-network' });
+const showReconnectedToast = () => toast.success(t("Đã kết nối lại mạng."), { id: 'pos-network' });
 
 function useClock() {
   const [now, setNow] = useState(() => new Date());
@@ -134,20 +136,23 @@ export default function PosTopBar({ children, tabs = null, onHelp, pendingPaymen
   }, [confirmLogout]);
 
   const timeLabel = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-  const dateLabel = now.toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit' });
+  // Tên thứ theo ngôn ngữ giao diện; ngày/tháng dạng số giữ kiểu dd/MM
+  const dateLabel = laTiengAnh()
+    ? `${now.toLocaleDateString(localeHienThi(), { weekday: 'short' })}, ${now.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}`
+    : now.toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit' });
 
   return (
     <>
       <header className="flex h-14 shrink-0 items-center gap-3 border-b border-bo-border bg-bo-surface px-3 sm:px-4">
         <Link
-          aria-label="Về trang quản trị"
+          aria-label={t("Về trang quản trị")}
           className={iconButton}
-          title="Về trang quản trị (bản nháp hóa đơn vẫn được giữ)"
+          title={t("Về trang quản trị (bản nháp hóa đơn vẫn được giữ)")}
           to="/dashboard"
         >
           <ArrowLeft aria-hidden="true" size={16} />
         </Link>
-        <h1 className="sr-only">Bán hàng tại quầy</h1>
+        <h1 className="sr-only">{t("Bán hàng tại quầy")}</h1>
         <img alt="FCentric" className="size-8 shrink-0 object-contain" draggable={false} src="/branding/f-centric-icon.svg" />
 
         <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -169,10 +174,10 @@ export default function PosTopBar({ children, tabs = null, onHelp, pendingPaymen
           {coManHinhKhach && onMoManHinhKhach ? (
             // Cùng dáng hai nút bên cạnh; biểu tượng xanh dương + chấm ở góc báo màn khách đang mở
             <button
-              aria-label="Màn hình khách đang mở — đưa cửa sổ lên trước"
+              aria-label={t("Màn hình khách đang mở — đưa cửa sổ lên trước")}
               className="relative hidden size-9 shrink-0 place-items-center rounded-lg border border-bo-border text-bo-primary transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-bo-primary sm:grid"
               onClick={onMoManHinhKhach}
-              title="Màn hình khách đang mở"
+              title={t("Màn hình khách đang mở")}
               type="button"
             >
               <ScreenShare aria-hidden="true" size={16} />
@@ -182,18 +187,24 @@ export default function PosTopBar({ children, tabs = null, onHelp, pendingPaymen
 
           {fullscreenSupported ? (
             <button
-              aria-label={isFullscreen ? 'Thoát toàn màn hình' : 'Toàn màn hình'}
+              aria-label={isFullscreen ? t("Thoát toàn màn hình") : t("Toàn màn hình")}
               className={`${iconButton} hidden sm:grid`}
               onClick={toggleFullscreen}
-              title={isFullscreen ? 'Thoát toàn màn hình' : 'Toàn màn hình'}
+              title={isFullscreen ? t("Thoát toàn màn hình") : t("Toàn màn hình")}
               type="button"
             >
               {isFullscreen ? <Minimize2 aria-hidden="true" size={16} /> : <Maximize2 aria-hidden="true" size={16} />}
             </button>
           ) : null}
 
+          {/* Cùng khung viền với các nút biểu tượng bên cạnh; menu nổi trên lớp POS (z-[90]) */}
+          <NutChonNgonNguThanhTren
+            className="h-9 min-w-9 rounded-lg border border-bo-border px-2 text-bo-muted hover:bg-slate-50 hover:text-bo-foreground [&>svg]:size-4"
+            lopMenu="z-[90]"
+          />
+
           {onHelp ? (
-            <button aria-label="Hướng dẫn phím tắt" className={iconButton} onClick={onHelp} title="Phím tắt (F1)" type="button">
+            <button aria-label={t("Hướng dẫn phím tắt")} className={iconButton} onClick={onHelp} title={t("Phím tắt (F1)")} type="button">
               <CircleHelp aria-hidden="true" size={16} />
             </button>
           ) : null}
@@ -201,7 +212,7 @@ export default function PosTopBar({ children, tabs = null, onHelp, pendingPaymen
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
-                aria-label="Mở menu tài khoản"
+                aria-label={t("Mở menu tài khoản")}
                 className="group flex h-10 max-w-[200px] items-center gap-2 rounded-lg px-1.5 text-bo-foreground transition hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-bo-primary data-[state=open]:bg-slate-100"
                 type="button"
               >
@@ -222,38 +233,38 @@ export default function PosTopBar({ children, tabs = null, onHelp, pendingPaymen
               <DropdownMenuItem asChild className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-950">
                 <Link to="/dashboard">
                   <LayoutDashboard className="size-4 text-slate-500" />
-                  Về trang quản trị
+                  {t("Về trang quản trị")}
                 </Link>
               </DropdownMenuItem>
               {onMoManHinhKhach ? (
                 <DropdownMenuItem className="cursor-pointer items-start rounded-md px-2.5 py-2 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-950" onClick={onMoManHinhKhach}>
                   <ScreenShare className="mt-0.5 size-4 text-slate-500" />
                   <span>
-                    <span className="block">Mở màn hình khách</span>
-                    <span className="block text-xs text-bo-muted">Cho màn thứ hai quay về phía khách</span>
+                    <span className="block">{t("Mở màn hình khách")}</span>
+                    <span className="block text-xs text-bo-muted">{t("Cho màn thứ hai quay về phía khách")}</span>
                   </span>
                 </DropdownMenuItem>
               ) : null}
               <DropdownMenuSeparator className="bg-bo-border" />
               <DropdownMenuItem className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-bo-danger focus:bg-bo-danger-soft focus:text-bo-danger" onClick={handleLogout}>
                 <LogOut className="size-4" />
-                Đăng xuất
+                {t("Đăng xuất")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
 
         {confirmLogout ? (
-          <PosModal description="Hóa đơn đang chờ thanh toán vẫn được giữ trên máy này cho tài khoản của bạn." onClose={() => setConfirmLogout(false)} size="sm" title="Đăng xuất?">
+          <PosModal description={t("Hóa đơn đang chờ thanh toán vẫn được giữ trên máy này cho tài khoản của bạn.")} onClose={() => setConfirmLogout(false)} size="sm" title={t("Đăng xuất?")}>
             <p className="text-sm leading-6 text-bo-foreground">
-              Còn <strong>{pendingPaymentCount}</strong> hóa đơn đang chờ thanh toán (mã QR chưa nhận tiền hoặc giao dịch chưa rõ kết quả).
+              {t("Còn", { count: pendingPaymentCount })} <strong>{pendingPaymentCount}</strong> {t("hóa đơn đang chờ thanh toán (mã QR chưa nhận tiền hoặc giao dịch chưa rõ kết quả).", { count: pendingPaymentCount })}
             </p>
             <p className="mt-2 text-sm leading-6 text-bo-muted">
-              Đăng nhập lại bằng tài khoản này trong vòng 12 giờ để tiếp tục và kiểm tra kết quả. Tiền khách chuyển trong lúc bạn đăng xuất vẫn được hệ thống ghi nhận.
+              {t("Đăng nhập lại bằng tài khoản này trong vòng 12 giờ để tiếp tục và kiểm tra kết quả. Tiền khách chuyển trong lúc bạn đăng xuất vẫn được hệ thống ghi nhận.")}
             </p>
             <div className="mt-5 flex flex-col-reverse justify-end gap-2 sm:flex-row">
-              <button className="inline-flex min-h-10 items-center justify-center rounded-lg border border-bo-border bg-bo-surface px-4 py-2 text-sm font-medium text-bo-foreground transition hover:bg-bo-surface-subtle" onClick={() => setConfirmLogout(false)} type="button">Ở lại</button>
-              <button className="inline-flex min-h-10 items-center justify-center rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700" onClick={logout} type="button">Vẫn đăng xuất</button>
+              <button className="inline-flex min-h-10 items-center justify-center rounded-lg border border-bo-border bg-bo-surface px-4 py-2 text-sm font-medium text-bo-foreground transition hover:bg-bo-surface-subtle" onClick={() => setConfirmLogout(false)} type="button">{t("Ở lại")}</button>
+              <button className="inline-flex min-h-10 items-center justify-center rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700" onClick={logout} type="button">{t("Vẫn đăng xuất")}</button>
             </div>
           </PosModal>
         ) : null}
@@ -262,8 +273,8 @@ export default function PosTopBar({ children, tabs = null, onHelp, pendingPaymen
         <div className="flex shrink-0 items-center gap-2.5 border-b border-red-200 bg-bo-danger-soft px-3 py-2 text-xs text-bo-danger sm:px-4 sm:text-sm" role="alert">
           <WifiOff aria-hidden="true" className="shrink-0" size={16} />
           <p className="min-w-0">
-            <strong className="font-semibold">Mất kết nối mạng — chưa thể thanh toán.</strong>{' '}
-            <span className="text-bo-danger-strong">Hóa đơn đang làm vẫn được giữ trên máy. Kiểm tra Wi-Fi/dây mạng; hệ thống tự kết nối lại khi có mạng.</span>
+            <strong className="font-semibold">{t("Mất kết nối mạng — chưa thể thanh toán.")}</strong>{' '}
+            <span className="text-bo-danger-strong">{t("Hóa đơn đang làm vẫn được giữ trên máy. Kiểm tra Wi-Fi/dây mạng; hệ thống tự kết nối lại khi có mạng.")}</span>
           </p>
         </div>
       ) : null}

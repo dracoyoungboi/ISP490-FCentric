@@ -11,6 +11,7 @@ import com.dev.backend.entities.LichSuThayDoi;
 import com.dev.backend.entities.NguoiDung;
 import com.dev.backend.entities.ThueSuatGtgt;
 import com.dev.backend.exception.customize.CommonException;
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.repository.DanhMucQuanAoRepository;
 import com.dev.backend.repository.ThueSuatGtgtRepository;
 import com.dev.backend.services.impl.entities.LichSuThayDoiService;
@@ -91,14 +92,14 @@ public class ThueSuatService {
     public List<ThueSuatGtgtDto> luuCaBang(ThueSuatCaBangRequest req) {
         List<ThueSuatGtgtRequest> dong = req == null || req.getDong() == null ? List.of() : req.getDong();
         if (dong.size() > TOI_DA_DONG) {
-            throw new CommonException("Bảng thuế suất tối đa " + TOI_DA_DONG + " dòng");
+            throw new CommonException(ThongDiep.of("keToanDuLieuVao.bangThueSuatToiDa", TOI_DA_DONG));
         }
         // Khóa các dòng đang có tới hết giao dịch: hai người lưu cùng lúc thì người sau chờ, rồi đọc bảng mới
         Map<Integer, ThueSuatGtgt> cu = new HashMap<>();
         for (ThueSuatGtgt t : repository.khoaTatCa()) cu.put(t.getId(), t);
         // Có dòng người khác vừa thêm mà trang này chưa thấy: lưu đè sẽ xóa mất dòng đó, nên bắt tải lại
         if (req != null && req.getIdDaXem() != null && !req.getIdDaXem().containsAll(cu.keySet())) {
-            throw new CommonException(HttpStatus.CONFLICT, "Bảng thuế suất vừa được người khác sửa. Tải lại bảng rồi sửa lại.");
+            throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("keToanDuLieuVao.bangThueSuatVuaBiSua"));
         }
 
         // Kiểm từng dòng trước, chưa ghi gì
@@ -106,13 +107,13 @@ public class ThueSuatService {
         Set<Integer> idGui = new HashSet<>();
         for (int i = 0; i < dong.size(); i++) {
             ThueSuatGtgtRequest r = dong.get(i);
-            if (r == null) throw new CommonException("Thiếu dữ liệu thuế suất ở dòng " + (i + 1));
+            if (r == null) throw new CommonException(ThongDiep.of("keToanDuLieuVao.thieuDuLieuThueSuatDong", (i + 1)));
             if (r.getId() != null) {
                 if (!cu.containsKey(r.getId())) {
                     throw new CommonException(HttpStatus.CONFLICT,
-                            "Bảng thuế suất vừa được người khác sửa. Tải lại bảng rồi sửa lại.");
+                            ThongDiep.of("keToanDuLieuVao.bangThueSuatVuaBiSua"));
                 }
-                if (!idGui.add(r.getId())) throw new CommonException("Dòng thuế suất bị gửi trùng");
+                if (!idGui.add(r.getId())) throw new CommonException(ThongDiep.of("keToanDuLieuVao.dongThueSuatGuiTrung"));
             }
             hopLe.add(kiemTraDong(r, i + 1));
         }
@@ -120,10 +121,9 @@ public class ThueSuatService {
             for (int j = 0; j < i; j++) {
                 DongHopLe a = hopLe.get(j), b = hopLe.get(i);
                 if (Objects.equals(a.danhMucId(), b.danhMucId()) && chongNhau(a.tu(), a.den(), b.tu(), b.den())) {
-                    throw new CommonException(HttpStatus.CONFLICT, "Dòng " + b.thuTu() + " trùng khoảng ngày với dòng "
-                            + a.tyLe().stripTrailingZeros().toPlainString() + "% từ " + a.tu().format(NGAY_VN)
-                            + (a.danhMucId() == null ? " (mức chung)" : " của cùng danh mục")
-                            + ". Đặt ngày kết thúc cho dòng trước.");
+                    throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of(a.danhMucId() == null
+                                    ? "keToanDuLieuVao.trungKhoangNgayMucChung" : "keToanDuLieuVao.trungKhoangNgayCungDanhMuc",
+                            b.thuTu(), a.tyLe().stripTrailingZeros().toPlainString(), a.tu().format(NGAY_VN)));
                 }
             }
         }
@@ -174,25 +174,25 @@ public class ThueSuatService {
     }
 
     private DongHopLe kiemTraDong(ThueSuatGtgtRequest req, int thuTu) {
-        String o = " (dòng " + thuTu + ")";
+        // Mỗi câu lỗi kết thúc bằng " (dòng {0})" = thuTu
         BigDecimal tyLe = req.getTyLe();
         if (tyLe == null || THUE_SUAT_HOP_LE.stream().noneMatch(h -> h.compareTo(tyLe) == 0)) {
-            throw new CommonException("Thuế suất chỉ nhận 0%, 5%, 8% hoặc 10%" + o);
+            throw new CommonException(ThongDiep.of("keToanDuLieuVao.thueSuatSaiDong", thuTu));
         }
         if (req.getHieuLucTu() == null) {
-            throw new CommonException("Chọn ngày bắt đầu áp dụng" + o);
+            throw new CommonException(ThongDiep.of("keToanDuLieuVao.chonNgayBatDauDong", thuTu));
         }
         if (req.getHieuLucDen() != null && req.getHieuLucDen().isBefore(req.getHieuLucTu())) {
-            throw new CommonException("Ngày kết thúc phải từ ngày bắt đầu trở đi" + o);
+            throw new CommonException(ThongDiep.of("keToanDuLieuVao.ngayKetThucSaiDong", thuTu));
         }
         DanhMucQuanAo danhMuc = null;
         if (req.getDanhMucId() != null) {
             danhMuc = danhMucRepository.findById(req.getDanhMucId())
-                    .orElseThrow(() -> new CommonException("Danh mục không tồn tại" + o));
+                    .orElseThrow(() -> new CommonException(ThongDiep.of("keToanDuLieuVao.danhMucKhongTonTaiDong", thuTu)));
         }
         String ghiChu = req.getGhiChu() == null ? null : req.getGhiChu().trim();
         if (ghiChu != null && ghiChu.length() > 255) {
-            throw new CommonException("Ghi chú tối đa 255 ký tự" + o);
+            throw new CommonException(ThongDiep.of("keToanDuLieuVao.ghiChuToiDa255Dong", thuTu));
         }
         return new DongHopLe(thuTu, tyLe, req.getHieuLucTu(), req.getHieuLucDen(), danhMuc,
                 danhMuc == null ? null : danhMuc.getId(), ghiChu == null || ghiChu.isEmpty() ? null : ghiChu);

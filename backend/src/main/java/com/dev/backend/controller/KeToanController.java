@@ -6,6 +6,7 @@ import com.dev.backend.dto.request.*;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.ketoan.*;
 import com.dev.backend.exception.customize.CommonException;
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.services.impl.ketoan.CauHinhKeToanService;
 import com.dev.backend.services.impl.ketoan.HoaDonDauVaoService;
 import com.dev.backend.services.impl.ketoan.ThueSuatService;
@@ -151,7 +152,7 @@ public class KeToanController {
         try {
             return LocalDate.parse(chu);
         } catch (DateTimeParseException | NullPointerException e) {
-            throw new CommonException("Ngày không hợp lệ (định dạng yyyy-MM-dd)");
+            throw new CommonException(ThongDiep.of("keToanDuLieuVao.ngayKhongHopLe"));
         }
     }
 

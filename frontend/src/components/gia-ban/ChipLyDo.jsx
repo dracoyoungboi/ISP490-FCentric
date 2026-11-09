@@ -1,11 +1,12 @@
 import { cn } from "@/lib/utils";
 import { LY_DO_DOI_GIA } from "./nhomGiaBan";
+import { t } from "@/i18n";
 
 /** Chọn lý do đổi giá bằng chip (bắt buộc một lý do; ghi vào lịch sử đổi giá). */
 export default function ChipLyDo({ value, onChange, disabled = false, className, nhanId }) {
   return (
     <div className={className}>
-      <p id={nhanId} className="mb-1.5 text-xs font-medium text-slate-700">Lý do</p>
+      <p id={nhanId} className="mb-1.5 text-xs font-medium text-slate-700">{t("Lý do")}</p>
       <div role="group" aria-labelledby={nhanId} className="flex flex-wrap gap-1.5">
         {LY_DO_DOI_GIA.map((lyDo) => {
           const chon = value === lyDo;
@@ -26,7 +27,7 @@ export default function ChipLyDo({ value, onChange, disabled = false, className,
                 chon ? "border-bo-primary bg-bo-primary-soft text-bo-primary-strong" : "border-bo-border bg-bo-surface text-slate-700 hover:border-slate-400",
               )}
             >
-              {lyDo}
+              {t(lyDo)}
             </button>
           );
         })}

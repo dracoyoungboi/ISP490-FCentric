@@ -10,6 +10,7 @@ import { kenhBanHangService } from "@/services/kenhBanHangService";
 import { normalizeShopDomain } from "@/constants/channel";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 /**
  * Form khóa kết nối Shopify (điều khiển từ trang cha): tên miền, khóa truy cập và khóa OAuth (không bắt buộc, gập sẵn).
@@ -28,11 +29,11 @@ export default function KetNoiShopifyForm({ values, errors = {}, onChange, confi
     if (dangKiemTraRef.current) return;
     const domain = normalizeShopDomain(values.shopDomain);
     if (!domain) {
-      onResult?.({ ok: false, title: "Chưa có tên miền", message: "Nhập tên miền cửa hàng trước khi kiểm tra." });
+      onResult?.({ ok: false, title: t("Chưa có tên miền"), message: t("Nhập tên miền cửa hàng trước khi kiểm tra.") });
       return;
     }
     if (!daCoKhoa && !values.accessToken.trim()) {
-      onResult?.({ ok: false, title: "Chưa có khóa truy cập", message: "Nhập khóa truy cập trước khi kiểm tra." });
+      onResult?.({ ok: false, title: t("Chưa có khóa truy cập"), message: t("Nhập khóa truy cập trước khi kiểm tra.") });
       return;
     }
     dangKiemTraRef.current = true;
@@ -45,18 +46,18 @@ export default function KetNoiShopifyForm({ values, errors = {}, onChange, confi
       });
       onResult?.(
         res?.connected
-          ? { ok: true, title: "Kết nối tốt", message: res.shopName || res.myshopifyDomain || domain }
-          : { ok: false, title: "Kết nối thất bại", message: res?.message || "Shopify không chấp nhận khóa này." },
+          ? { ok: true, title: t("Kết nối tốt"), message: res.shopName || res.myshopifyDomain || domain }
+          : { ok: false, title: t("Kết nối thất bại"), message: res?.message || t("Shopify không chấp nhận khóa này.") },
       );
     } catch (error) {
-      onResult?.({ ok: false, title: "Không kiểm tra được", message: getApiErrorMessage(error, "Không kiểm tra được kết nối Shopify") });
+      onResult?.({ ok: false, title: t("Không kiểm tra được"), message: getApiErrorMessage(error, t("Không kiểm tra được kết nối Shopify")) });
     } finally {
       dangKiemTraRef.current = false;
       setDangKiemTra(false);
     }
   };
 
-  const giuKhoa = (co, che) => (co ? `Đang dùng khóa đã lưu${che ? ` ${che}` : ""}. Để trống nếu không đổi.` : undefined);
+  const giuKhoa = (co, che) => (co ? t("Đang dùng khóa đã lưu{{khoaChe}}. Để trống nếu không đổi.", { khoaChe: che ? ` ${che}` : "" }) : undefined);
   const khoa = disabled || dangKiemTra;
 
   return (
@@ -65,7 +66,7 @@ export default function KetNoiShopifyForm({ values, errors = {}, onChange, confi
       <div className="grid gap-4 @xl:grid-cols-2">
         <div>
           <label htmlFor={`${id}-domain`} className="mb-1.5 block text-sm font-medium text-bo-heading">
-            Tên miền cửa hàng
+            {t("Tên miền cửa hàng")}
           </label>
           <input
             id={`${id}-domain`}
@@ -92,35 +93,35 @@ export default function KetNoiShopifyForm({ values, errors = {}, onChange, confi
           ) : (
             <p id={`${id}-domain-goi-y`} className="mt-1 text-xs text-bo-muted">
               {giuTenMien
-                ? "Muốn đổi sang cửa hàng khác, hãy ngắt kết nối ở trang Cấu hình rồi kết nối lại."
-                : "Nhập phần tên cũng được, hệ thống tự thêm .myshopify.com."}
+                ? t("Muốn đổi sang cửa hàng khác, hãy ngắt kết nối ở trang Cấu hình rồi kết nối lại.")
+                : t("Nhập phần tên cũng được, hệ thống tự thêm .myshopify.com.")}
             </p>
           )}
         </div>
 
         <SecretInput
           id={`${id}-token`}
-          label="Khóa truy cập"
+          label={t("Khóa truy cập")}
           value={values.accessToken}
           onChange={(value) => onChange("accessToken", value)}
           error={errors.accessToken}
-          hint={giuKhoa(daCoKhoa, config?.accessTokenMasked) ?? "Lấy trong ứng dụng đã cài vào cửa hàng, thường bắt đầu bằng shpat_."}
-          placeholder={daCoKhoa ? "Giữ khóa đã lưu" : "shpat_..."}
+          hint={giuKhoa(daCoKhoa, config?.accessTokenMasked) ?? t("Lấy trong ứng dụng đã cài vào cửa hàng, thường bắt đầu bằng shpat_.")}
+          placeholder={daCoKhoa ? t("Giữ khóa đã lưu") : "shpat_..."}
           disabled={khoa}
         />
       </div>
 
       <Collapsible>
         <CollapsibleTrigger className="group inline-flex items-center gap-1 rounded-md text-sm font-medium text-bo-primary outline-none hover:text-bo-primary-hover focus-visible:ring-2 focus-visible:ring-bo-primary/30">
-          Khóa OAuth (không bắt buộc)
+          {t("Khóa OAuth (không bắt buộc)")}
           <ChevronDown className="size-4 transition-transform group-data-[state=open]:rotate-180" />
         </CollapsibleTrigger>
         <CollapsibleContent className="mt-3 space-y-4">
-          <p className="text-xs leading-5 text-bo-muted">Chỉ cần khi ứng dụng dùng khóa có hạn và tự làm mới.</p>
+          <p className="text-xs leading-5 text-bo-muted">{t("Chỉ cần khi ứng dụng dùng khóa có hạn và tự làm mới.")}</p>
           <div className="grid gap-4 @xl:grid-cols-3">
             <div>
               <label htmlFor={`${id}-client`} className="mb-1.5 block text-sm font-medium text-bo-heading">
-                Mã ứng dụng
+                {t("Mã ứng dụng")}
               </label>
               <input
                 id={`${id}-client`}
@@ -134,7 +135,7 @@ export default function KetNoiShopifyForm({ values, errors = {}, onChange, confi
             </div>
             <SecretInput
               id={`${id}-secret`}
-              label="Khóa bí mật của ứng dụng"
+              label={t("Khóa bí mật của ứng dụng")}
               value={values.apiSecret}
               onChange={(value) => onChange("apiSecret", value)}
               hint={giuKhoa(config?.hasApiSecret)}
@@ -142,13 +143,13 @@ export default function KetNoiShopifyForm({ values, errors = {}, onChange, confi
             />
             <SecretInput
               id={`${id}-refresh`}
-              label="Khóa làm mới"
+              label={t("Khóa làm mới")}
               value={values.refreshToken}
               onChange={(value) => onChange("refreshToken", value)}
               // Khóa làm mới đã bị từ chối / khóa truy cập quá hạn: máy chủ bỏ khóa làm mới khi chỉ dán khóa truy cập
               hint={
                 seBoKhoaLamMoi(config)
-                  ? "Lưu khóa truy cập mới mà để trống ô này thì hệ thống bỏ khóa làm mới đang lưu và dùng khóa truy cập mới như khóa tĩnh."
+                  ? t("Lưu khóa truy cập mới mà để trống ô này thì hệ thống bỏ khóa làm mới đang lưu và dùng khóa truy cập mới như khóa tĩnh.")
                   : giuKhoa(config?.hasRefreshToken, config?.refreshTokenMasked)
               }
               disabled={khoa}
@@ -166,7 +167,7 @@ export default function KetNoiShopifyForm({ values, errors = {}, onChange, confi
           className="h-9 gap-2 rounded-lg border-bo-border bg-bo-surface px-3.5 text-bo-foreground hover:bg-bo-surface-subtle"
         >
           {dangKiemTra ? <Loader2 className="size-4 animate-spin" /> : null}
-          Kiểm tra kết nối
+          {t("Kiểm tra kết nối")}
         </Button>
         {result ? (
           <span role="status" className="min-w-0">

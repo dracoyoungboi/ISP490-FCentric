@@ -1,4 +1,5 @@
 import { ArrowLeftRight, Barcode, Boxes, Calculator, CreditCard, FileText, IdCard, PackageCheck, Percent, Printer, RefreshCcw, Store } from "lucide-react";
+import { t } from "@/i18n";
 
 /**
  * Trung tâm Cấu hình (/settings/*): menu trái của SettingsLayout, mục "Cấu hình" ghim ở đáy sidebar
@@ -14,33 +15,33 @@ const QTV = "quan_tri_vien";
 const QLK = "quan_ly_kho";
 
 export const SETTINGS_GROUPS = [
-  { key: "cua-hang", label: "Cửa hàng" },
-  { key: "kho", label: "Kho" },
-  { key: "ban-hang", label: "Bán hàng" },
-  { key: "ke-toan", label: "Kế toán" },
+  { key: "cua-hang", label: t("Cửa hàng") },
+  { key: "kho", label: t("Kho") },
+  { key: "ban-hang", label: t("Bán hàng") },
+  { key: "ke-toan", label: t("Kế toán") },
 ];
 
 export const SETTINGS_PAGES = [
   // ThongTinCongTyController: GET/PUT/logo cho QTV và QLK
-  { key: "store", label: "Thông tin cửa hàng", to: "/settings/store", group: "cua-hang", icon: Store, roles: [QTV, QLK], editRoles: [QTV, QLK] },
+  { key: "store", label: t("Thông tin cửa hàng"), to: "/settings/store", group: "cua-hang", icon: Store, roles: [QTV, QLK], editRoles: [QTV, QLK] },
   // CauHinhMauInController: QTV và QLK
-  { key: "print", label: "Mẫu in", to: "/settings/print-templates", group: "cua-hang", icon: Printer, roles: [QTV, QLK], editRoles: [QTV, QLK] },
+  { key: "print", label: t("Mẫu in"), to: "/settings/print-templates", group: "cua-hang", icon: Printer, roles: [QTV, QLK], editRoles: [QTV, QLK] },
   // Sản phẩm, Nhập kho, Tồn kho, Khách hàng, Đồng bộ kênh bán: GET /dieu-hanh-he-thong/cau-hinh cho QTV và QLK; PUT chỉ QTV
-  { key: "product", label: "Sản phẩm", to: "/settings/product", group: "kho", icon: Barcode, roles: [QTV, QLK], editRoles: [QTV] },
-  { key: "inbound", label: "Nhập kho", to: "/settings/inbound", group: "kho", icon: PackageCheck, roles: [QTV, QLK], editRoles: [QTV] },
-  { key: "stock", label: "Tồn kho", to: "/settings/stock", group: "kho", icon: Boxes, roles: [QTV, QLK], editRoles: [QTV] },
+  { key: "product", label: t("Sản phẩm"), to: "/settings/product", group: "kho", icon: Barcode, roles: [QTV, QLK], editRoles: [QTV] },
+  { key: "inbound", label: t("Nhập kho"), to: "/settings/inbound", group: "kho", icon: PackageCheck, roles: [QTV, QLK], editRoles: [QTV] },
+  { key: "stock", label: t("Tồn kho"), to: "/settings/stock", group: "kho", icon: Boxes, roles: [QTV, QLK], editRoles: [QTV] },
   // Ai được xử lý chênh lệch khi nhận hàng chuyển kho (CHUYEN_KHO_QUYEN_XU_LY_LECH) qua /dieu-hanh-he-thong/cau-hinh
-  { key: "transfer", label: "Chuyển kho", to: "/settings/transfer", group: "kho", icon: ArrowLeftRight, roles: [QTV, QLK], editRoles: [QTV] },
+  { key: "transfer", label: t("Chuyển kho"), to: "/settings/transfer", group: "kho", icon: ArrowLeftRight, roles: [QTV, QLK], editRoles: [QTV] },
   // Giấy đi đường XKNB của phiếu chuyển kho (XKNB_KY_HIEU_MAC_DINH, XKNB_CHE_DO) qua /dieu-hanh-he-thong/cau-hinh
-  { key: "documents", label: "Chứng từ và hóa đơn", to: "/settings/documents", group: "kho", icon: FileText, roles: [QTV, QLK], editRoles: [QTV] },
-  { key: "customer", label: "Khách hàng", to: "/settings/customer", group: "ban-hang", icon: IdCard, roles: [QTV, QLK], editRoles: [QTV] },
+  { key: "documents", label: t("Chứng từ và hóa đơn"), to: "/settings/documents", group: "kho", icon: FileText, roles: [QTV, QLK], editRoles: [QTV] },
+  { key: "customer", label: t("Khách hàng"), to: "/settings/customer", group: "ban-hang", icon: IdCard, roles: [QTV, QLK], editRoles: [QTV] },
   // CauHinhThanhToanController: chỉ QTV
-  { key: "payment", label: "Thanh toán", to: "/settings/payment", group: "ban-hang", icon: CreditCard, roles: [QTV], editRoles: [QTV] },
+  { key: "payment", label: t("Thanh toán"), to: "/settings/payment", group: "ban-hang", icon: CreditCard, roles: [QTV], editRoles: [QTV] },
   // VAT_BAT qua /dieu-hanh-he-thong/cau-hinh, bảng thuế suất qua /ke-toan/thue-suat: GET cho QTV và QLK; ghi chỉ QTV
-  { key: "vat", label: "Thuế GTGT", to: "/settings/vat", group: "ban-hang", icon: Percent, roles: [QTV, QLK], editRoles: [QTV] },
-  { key: "sync", label: "Đồng bộ kênh bán", to: "/settings/sync", group: "ban-hang", icon: RefreshCcw, roles: [QTV, QLK], editRoles: [QTV] },
+  { key: "vat", label: t("Thuế GTGT"), to: "/settings/vat", group: "ban-hang", icon: Percent, roles: [QTV, QLK], editRoles: [QTV] },
+  { key: "sync", label: t("Đồng bộ kênh bán"), to: "/settings/sync", group: "ban-hang", icon: RefreshCcw, roles: [QTV, QLK], editRoles: [QTV] },
   // KeToanController: chỉ QTV (chưa có vai trò kế toán)
-  { key: "accounting", label: "Xuất kế toán", to: "/settings/accounting", group: "ke-toan", icon: Calculator, roles: [QTV], editRoles: [QTV] },
+  { key: "accounting", label: t("Xuất kế toán"), to: "/settings/accounting", group: "ke-toan", icon: Calculator, roles: [QTV], editRoles: [QTV] },
 ];
 
 /** Vai trò được mở ít nhất một trang cấu hình. */

@@ -6,6 +6,8 @@ import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.constant.variables.TenVaiTro;
 import com.dev.backend.dto.email.*;
 import com.dev.backend.entities.*;
+import com.dev.backend.i18n.LoiThamSoException;
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.repository.NguoiDungRepository;
 import com.dev.backend.repository.email.DonMuaHangEmailRepository;
 import lombok.extern.slf4j.Slf4j;
@@ -179,7 +181,7 @@ public class EmailNghiepVuServiceImpl implements EmailNghiepVuService {
 
     static String nhan(CachDoiMatKhau cach) {
         if (cach == null) {
-            throw new IllegalArgumentException("Thiếu cách thay đổi mật khẩu");
+            throw new LoiThamSoException(ThongDiep.of("heThong.thieuCachDoiMatKhau"));
         }
         return switch (cach) {
             case DAT_LAI_BANG_MA -> "Đặt lại bằng mã gửi qua email";
@@ -254,6 +256,7 @@ public class EmailNghiepVuServiceImpl implements EmailNghiepVuService {
                     .build();
         } catch (Exception e) {
             loiDung(LoaiEmail.E5, maDon, e);
+            // i18n-giu-nguyen: lỗi nội bộ, nơi gọi bắt EmailKhongGuiDuocException và trả câu/mã lỗi riêng
             throw new EmailKhongGuiDuocException("Không dựng được email mã xác nhận báo giá", e);
         }
         dispatcher.guiNgay(g);

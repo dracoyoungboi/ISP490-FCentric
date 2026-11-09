@@ -14,13 +14,14 @@ import { Button } from "@/components/ui/button";
 import { checkSupplierDelete, deleteSupplier, updateSupplierStatus } from "@/services/supplierService";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { TRANG_THAI_NCC, laHoatDong } from "./quyTacNhaCungCap";
+import { t } from "@/i18n";
 
 /** "3 đơn mua hàng, 1 phiếu nhập kho" — chỉ kể loại chứng từ có phát sinh. */
 function moTaGiaoDich(kiemTra) {
     const phan = [];
-    if (kiemTra?.soDonMuaHang > 0) phan.push(`${kiemTra.soDonMuaHang} đơn mua hàng`);
-    if (kiemTra?.soPhieuNhapKho > 0) phan.push(`${kiemTra.soPhieuNhapKho} phiếu nhập kho`);
-    if (kiemTra?.soLoHang > 0) phan.push(`${kiemTra.soLoHang} lô hàng`);
+    if (kiemTra?.soDonMuaHang > 0) phan.push(t("{{count}} đơn mua hàng", { count: kiemTra.soDonMuaHang }));
+    if (kiemTra?.soPhieuNhapKho > 0) phan.push(t("{{count}} phiếu nhập kho", { count: kiemTra.soPhieuNhapKho }));
+    if (kiemTra?.soLoHang > 0) phan.push(t("{{count}} lô hàng", { count: kiemTra.soLoHang }));
     return phan.join(", ");
 }
 
@@ -72,7 +73,7 @@ function DeleteContent({ supplier, onClose, onDeleted, onStatusChanged, onChecke
             setCheck({ kiemTra });
             onCheckedRef.current?.(kiemTra);
         } catch (error) {
-            setCheck({ loadError: getApiErrorMessage(error, "Không kiểm tra được giao dịch của nhà cung cấp") });
+            setCheck({ loadError: getApiErrorMessage(error, t("Không kiểm tra được giao dịch của nhà cung cấp")) });
         }
     }, [supplier.id]);
 
@@ -95,7 +96,7 @@ function DeleteContent({ supplier, onClose, onDeleted, onStatusChanged, onChecke
                 setCheck({ kiemTra });
                 onCheckedRef.current?.(kiemTra);
             } else {
-                setActionError(getApiErrorMessage(error, "Xóa thất bại, vui lòng thử lại."));
+                setActionError(getApiErrorMessage(error, t("Xóa thất bại, vui lòng thử lại.")));
             }
             setWorking(false);
         }
@@ -109,7 +110,7 @@ function DeleteContent({ supplier, onClose, onDeleted, onStatusChanged, onChecke
             onStatusChanged?.(updated ?? { ...supplier, trangThai: TRANG_THAI_NCC.NGUNG_HOAT_DONG });
             onClose();
         } catch (error) {
-            setActionError(getApiErrorMessage(error, "Không thể ngừng hoạt động nhà cung cấp. Vui lòng thử lại."));
+            setActionError(getApiErrorMessage(error, t("Không thể ngừng hoạt động nhà cung cấp. Vui lòng thử lại.")));
             setWorking(false);
         }
     };
@@ -125,39 +126,38 @@ function DeleteContent({ supplier, onClose, onDeleted, onStatusChanged, onChecke
     const khongXoaDuoc = kiemTra && !kiemTra.coTheXoa;
     const coTheNgung = khongXoaDuoc && laHoatDong(supplier);
 
-    let title = "Xóa nhà cung cấp";
+    let title = t("Xóa nhà cung cấp");
     let body;
     if (check.loading) {
         body = (
             <p className="flex items-center gap-2">
                 <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                Đang kiểm tra giao dịch của nhà cung cấp...
+                {t("Đang kiểm tra giao dịch của nhà cung cấp...")}
             </p>
         );
     } else if (check.loadError) {
         body = <p>{check.loadError}</p>;
     } else if (khongXoaDuoc) {
-        title = "Không thể xóa nhà cung cấp";
+        title = t("Không thể xóa nhà cung cấp");
         body = (
             <>
                 <p>
-                    {ten} đã có {moTaGiaoDich(kiemTra)}. Xóa sẽ làm mất lịch sử giao dịch nên hệ thống không cho xóa.
+                    {t("{{ten}} đã có {{giaoDich}}. Xóa sẽ làm mất lịch sử giao dịch nên hệ thống không cho xóa.", { ten, giaoDich: moTaGiaoDich(kiemTra) })}
                 </p>
                 {coTheNgung ? (
                     <p>
-                        Bạn có thể <span className="font-medium text-bo-foreground">Ngừng hoạt động</span> nhà cung cấp:
-                        không gửi yêu cầu báo giá mới nữa, còn đơn đang xử lý và lịch sử vẫn giữ nguyên.
+                        {t("Bạn có thể")} <span className="font-medium text-bo-foreground">{t("Ngừng hoạt động")}</span> {t("nhà cung cấp: không gửi yêu cầu báo giá mới nữa, còn đơn đang xử lý và lịch sử vẫn giữ nguyên.")}
                     </p>
                 ) : (
-                    <p>Nhà cung cấp này đã ngừng hoạt động.</p>
+                    <p>{t("Nhà cung cấp này đã ngừng hoạt động.")}</p>
                 )}
             </>
         );
     } else {
-        title = "Xóa nhà cung cấp?";
+        title = t("Xóa nhà cung cấp?");
         body = (
             <p>
-                {ten} chưa có giao dịch nào. Xóa xong sẽ không khôi phục được.
+                {t("{{ten}} chưa có giao dịch nào. Xóa xong sẽ không khôi phục được.", { ten })}
             </p>
         );
     }
@@ -198,7 +198,7 @@ function DeleteContent({ supplier, onClose, onDeleted, onStatusChanged, onChecke
                     disabled={working}
                     className="border-bo-border bg-bo-surface text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
                 >
-                    {khongXoaDuoc || check.loadError ? "Đóng" : "Hủy"}
+                    {khongXoaDuoc || check.loadError ? t("Đóng") : t("Hủy")}
                 </AlertDialogCancel>
                 {check.loadError ? (
                     <Button
@@ -207,7 +207,7 @@ function DeleteContent({ supplier, onClose, onDeleted, onStatusChanged, onChecke
                         onClick={runCheck}
                         className="border-bo-border bg-bo-surface text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
                     >
-                        Thử lại
+                        {t("Thử lại")}
                     </Button>
                 ) : null}
                 {coTheNgung ? (
@@ -218,7 +218,7 @@ function DeleteContent({ supplier, onClose, onDeleted, onStatusChanged, onChecke
                         className="min-w-[150px] bg-bo-warning text-white hover:bg-bo-warning/90"
                     >
                         {working ? <Loader2 className="size-4 animate-spin" /> : null}
-                        Ngừng hoạt động
+                        {t("Ngừng hoạt động")}
                     </Button>
                 ) : null}
                 {kiemTra?.coTheXoa ? (
@@ -229,7 +229,7 @@ function DeleteContent({ supplier, onClose, onDeleted, onStatusChanged, onChecke
                         className="min-w-[100px] bg-bo-danger text-white hover:bg-bo-danger/90"
                     >
                         {working ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
-                        Xóa
+                        {t("Xóa")}
                     </Button>
                 ) : null}
             </AlertDialogFooter>

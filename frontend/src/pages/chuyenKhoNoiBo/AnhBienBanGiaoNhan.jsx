@@ -11,9 +11,10 @@ import { lamViecTaiKho } from "@/components/chuyen-kho/lamViecTaiKho";
 import useAnhChon from "@/components/chuyen-kho/useAnhChon";
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import ChonAnhBienBan from "./ChonAnhBienBan";
+import { t } from "@/i18n";
 
 const NUT_DUNG = "inline-flex h-8 items-center gap-1.5 rounded-md border border-bo-border bg-bo-surface px-2.5 text-[13px] font-medium text-bo-foreground hover:bg-bo-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30";
-const tenAnh = (a, i) => a.moTa || `Ảnh ${i + 1}`;
+const tenAnh = (a, i) => a.moTa || t("Ảnh {{so}}", { so: i + 1 });
 /** Ảnh biên bản theo dạng bằng chứng đóng gói để dùng lại khung xem của màn Đóng gói. */
 const bangChungCua = (a) => ({ urlPublic: a.url, tenNguoiTao: a.nguoiChup, ngayTao: a.ngayChup });
 
@@ -88,19 +89,19 @@ export default function AnhBienBanGiaoNhan({ ct, onDaDoi }) {
         // Dừng giữa chừng: ảnh đang gửi có thể đã tới máy chủ, tải lại để hiện đúng ảnh đã có
         if (daTai.length || daDung) onDaDoi?.();
         if (!dsLoi.length) {
-            toast.success(`Đã thêm ${daTai.length} ảnh vào biên bản ${bb.soBienBan}`);
+            toast.success(t("Đã thêm {{count}} ảnh vào biên bản {{soBienBan}}", { count: daTai.length, soBienBan: bb.soBienBan }));
             dongThem();
             return;
         }
         // Giữ ảnh chưa tải được trong hộp để thử lại, kèm câu của máy chủ (vd. đã đủ ảnh, biên bản vừa được xử lý)
         chon.boNhieu(daTai.map((a) => a.khoa));
-        const daThem = daTai.length ? `Đã thêm ${daTai.length} ảnh. ` : "";
+        const daThem = daTai.length ? `${t("Đã thêm {{count}} ảnh.", { count: daTai.length })} ` : "";
         if (daDung) {
-            setLoi(`${daThem}Đã dừng tải, ${dsLoi.length} ảnh chưa tải được vẫn ở trong hộp để thử lại.`);
+            setLoi(`${daThem}${t("Đã dừng tải, {{count}} ảnh chưa tải được vẫn ở trong hộp để thử lại.", { count: dsLoi.length })}`);
             return;
         }
-        const cau = getApiErrorMessage(dsLoi[0].loi, "Không tải được ảnh lên");
-        setLoi(`${daThem}${dsLoi.length} ảnh chưa tải được: ${cau}`);
+        const cau = getApiErrorMessage(dsLoi[0].loi, t("Không tải được ảnh lên"));
+        setLoi(`${daThem}${t("{{count}} ảnh chưa tải được: {{cau}}", { count: dsLoi.length, cau })}`);
     }
 
     async function xoaAnh() {
@@ -110,18 +111,18 @@ export default function AnhBienBanGiaoNhan({ ct, onDaDoi }) {
         try {
             await chayCoThoiHan(() => phieuChuyenKhoService.xoaAnhBienBan(ct.id, hoiXoa.anh.id));
             if (daGoRef.current) return;
-            toast.success("Đã xóa ảnh khỏi biên bản");
+            toast.success(t("Đã xóa ảnh khỏi biên bản"));
             setHoiXoa(null);
             onDaDoi?.();
         } catch (e) {
             if (daGoRef.current) return;
             if (laLoiHetThoiHan(e)) {
                 setHoiXoa(null);
-                toast.error(CAU_HET_THOI_HAN, { description: "Ảnh có thể đã được xóa. Màn tự tải lại để hiện đúng ảnh còn lại." });
+                toast.error(CAU_HET_THOI_HAN, { description: t("Ảnh có thể đã được xóa. Màn tự tải lại để hiện đúng ảnh còn lại.") });
                 onDaDoi?.();
                 return;
             }
-            setLoi(getApiErrorMessage(e, "Không xóa được ảnh"));
+            setLoi(getApiErrorMessage(e, t("Không xóa được ảnh")));
             // Biên bản vừa được xử lý hoặc ảnh đã bị xóa ở nơi khác: tải lại để màn hiện đúng
             const trangThai = getApiErrorStatus(e);
             if (trangThai === 409 || trangThai === 404) onDaDoi?.();
@@ -133,7 +134,7 @@ export default function AnhBienBanGiaoNhan({ ct, onDaDoi }) {
     return (
         <div className="mt-3 grid gap-2">
             <div className="flex items-center justify-between gap-2 text-[13px] leading-5">
-                <span className="text-bo-muted">Ảnh chụp</span>
+                <span className="text-bo-muted">{t("Ảnh chụp")}</span>
                 {ds.length ? <span className="text-xs tabular-nums text-bo-muted">{ds.length}/{SO_ANH_TOI_DA}</span> : null}
             </div>
             {ds.length ? (
@@ -156,8 +157,8 @@ export default function AnhBienBanGiaoNhan({ ct, onDaDoi }) {
                                         setLoi(null);
                                         setHoiXoa({ anh: a, ten: tenAnh(a, i) });
                                     }}
-                                    aria-label={`Xóa ${tenAnh(a, i)}`}
-                                    title="Xóa ảnh"
+                                    aria-label={t("Xóa {{ten}}", { ten: tenAnh(a, i) })}
+                                    title={t("Xóa ảnh")}
                                     // Nút hiện 24 px nhưng vùng bấm 36 px (lớp ::after nới ra mỗi bên 6 px)
                                     className="absolute right-1 top-1 grid size-6 place-items-center rounded-full bg-black/60 text-white after:absolute after:-inset-1.5 hover:bg-bo-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
                                 >
@@ -168,7 +169,7 @@ export default function AnhBienBanGiaoNhan({ ct, onDaDoi }) {
                     ))}
                 </ul>
             ) : (
-                <p className="m-0 text-[13px] leading-5 text-bo-muted">{duocThem ? "Chưa có ảnh." : "Không có ảnh."}</p>
+                <p className="m-0 text-[13px] leading-5 text-bo-muted">{duocThem ? t("Chưa có ảnh.") : t("Không có ảnh.")}</p>
             )}
             {duocThem && ds.length < SO_ANH_TOI_DA ? (
                 <div>
@@ -179,7 +180,7 @@ export default function AnhBienBanGiaoNhan({ ct, onDaDoi }) {
                         className="inline-flex h-8 items-center gap-1.5 rounded-md border border-bo-border bg-bo-surface px-2.5 text-[13px] font-medium text-bo-foreground hover:bg-bo-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                         {chon.dangXuLy ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <ImagePlus className="size-4" aria-hidden="true" />}
-                        {chon.dangXuLy ? "Đang xử lý ảnh…" : "Thêm ảnh"}
+                        {chon.dangXuLy ? t("Đang xử lý ảnh…") : t("Thêm ảnh")}
                     </button>
                     <input ref={oTepRef} type="file" accept="image/*" multiple onChange={chonTep} tabIndex={-1} aria-hidden="true" className="sr-only" />
                 </div>
@@ -191,28 +192,28 @@ export default function AnhBienBanGiaoNhan({ ct, onDaDoi }) {
                 <HopXacNhanChungTu
                     mo
                     onDoiMo={(m) => !m && dongThem()}
-                    tieuDe="Thêm ảnh vào biên bản"
-                    moTa={`Ảnh lưu kèm biên bản ${bb.soBienBan}; ai xem được phiếu chuyển đều xem được ảnh.`}
-                    nhanXacNhan={chon.ds.length ? `Tải ${chon.ds.length} ảnh lên` : "Tải ảnh lên"}
+                    tieuDe={t("Thêm ảnh vào biên bản")}
+                    moTa={t("Ảnh lưu kèm biên bản {{soBienBan}}; ai xem được phiếu chuyển đều xem được ảnh.", { soBienBan: bb.soBienBan })}
+                    nhanXacNhan={chon.ds.length ? t("Tải {{count}} ảnh lên", { count: chon.ds.length }) : t("Tải ảnh lên")}
                     iconXacNhan={Upload}
                     rong
                     // Đang xử lý ảnh vừa chọn cũng khóa đóng hộp (Quay lại, Esc), để ảnh xử lý xong không rơi vào hộp đã đóng
                     dangChay={dangChay || chon.dangXuLy}
                     khoaXacNhan={!chon.ds.length || vuot > 0}
-                    lyDoKhoa={vuot > 0 ? `Quá ${SO_ANH_TOI_DA} ảnh, bỏ bớt ${vuot} ảnh` : "Chọn ít nhất một ảnh"}
+                    lyDoKhoa={vuot > 0 ? t("Quá {{toiDa}} ảnh, bỏ bớt {{count}} ảnh", { toiDa: SO_ANH_TOI_DA, count: vuot }) : t("Chọn ít nhất một ảnh")}
                     loi={loi}
                     onXacNhan={taiLen}
                 >
-                    <ChonAnhBienBan anh={chon} daCo={ds.length} khoa={dangChay} nhanNut="Chọn thêm ảnh" />
+                    <ChonAnhBienBan anh={chon} daCo={ds.length} khoa={dangChay} nhanNut={t("Chọn thêm ảnh")} />
                     {/* Vùng đọc tiến độ luôn có sẵn (chỉ thay chữ) để trình đọc màn hình đọc được ngay lần đầu */}
                     <div className={tienDo ? "flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5" : "sr-only"}>
                         <p aria-live="polite" className="m-0 text-[13px] tabular-nums text-bo-muted">
-                            {tienDo ? `Đang tải ảnh ${tienDo.xong}/${tienDo.tong}…` : ""}
+                            {tienDo ? t("Đang tải ảnh {{xong}}/{{tong}}…", { xong: tienDo.xong, tong: tienDo.tong }) : ""}
                         </p>
                         {tienDo ? (
                             <button type="button" onClick={() => dungTaiRef.current?.abort()} className={NUT_DUNG}>
                                 <Square className="size-3.5" aria-hidden="true" />
-                                Dừng tải
+                                {t("Dừng tải")}
                             </button>
                         ) : null}
                     </div>
@@ -228,9 +229,9 @@ export default function AnhBienBanGiaoNhan({ ct, onDaDoi }) {
                             setLoi(null);
                         }
                     }}
-                    tieuDe="Xóa ảnh khỏi biên bản"
-                    moTa={`Xóa "${hoiXoa.ten}" khỏi biên bản ${bb.soBienBan}. Ảnh đã xóa không khôi phục được.`}
-                    nhanXacNhan="Xóa ảnh"
+                    tieuDe={t("Xóa ảnh khỏi biên bản")}
+                    moTa={t("Xóa \"{{ten}}\" khỏi biên bản {{soBienBan}}. Ảnh đã xóa không khôi phục được.", { ten: hoiXoa.ten, soBienBan: bb.soBienBan })}
+                    nhanXacNhan={t("Xóa ảnh")}
                     iconXacNhan={Trash2}
                     kieu="nguyHiem"
                     dangChay={dangChay}

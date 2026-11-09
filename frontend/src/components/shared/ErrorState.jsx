@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cauMayChuCua, la403TuGoDuoc, moTaLoiKhongQuyen } from "@/components/chung-tu/loiTai";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 /**
  * Ô báo không tải được dữ liệu, kèm nút "Thử lại" khi có `onRetry`.
@@ -13,8 +14,8 @@ import { cn } from "@/lib/utils";
  *   `title` / `description` của trang chỉ dùng cho lỗi khác 403.
  */
 export default function ErrorState({
-  title = "Không thể tải dữ liệu",
-  description = "Đã xảy ra lỗi. Vui lòng thử lại.",
+  title = t("Không thể tải dữ liệu"),
+  description = t("Đã xảy ra lỗi. Vui lòng thử lại."),
   onRetry,
   status,
   error,
@@ -36,7 +37,7 @@ export default function ErrorState({
         <span className="mb-3 flex size-11 items-center justify-center rounded-full bg-bo-primary-soft text-bo-primary">
           <Lock className="size-5" aria-hidden="true" />
         </span>
-        <h3 className="text-sm font-semibold text-bo-foreground">Bạn không có quyền xem mục này</h3>
+        <h3 className="text-sm font-semibold text-bo-foreground">{t("Bạn không có quyền xem mục này")}</h3>
         <p className="mt-1 max-w-md text-sm leading-6 text-bo-muted">
           {moTaLoiKhongQuyen(cauMayChu)}
         </p>
@@ -48,11 +49,11 @@ export default function ErrorState({
               onClick={onRetry}
             >
               <RefreshCcw />
-              Thử lại
+              {t("Thử lại")}
             </Button>
           ) : null}
           <Button asChild className="bg-bo-primary text-white hover:bg-bo-primary-hover">
-            <Link to="/dashboard">Về trang tổng quan</Link>
+            <Link to="/dashboard">{t("Về trang tổng quan")}</Link>
           </Button>
         </div>
       </div>
@@ -81,7 +82,7 @@ export default function ErrorState({
           onClick={onRetry}
         >
           <RefreshCcw />
-          Thử lại
+          {t("Thử lại")}
         </Button>
       ) : null}
     </div>

@@ -7,6 +7,7 @@
  * - `phieus`: PhieuNhapKhoDto (chưa hủy) của nhà cung cấp, hoặc `null` khi vai trò không xem được phiếu nhập.
  */
 import { docSo, tinhTienDoNhan, trangThaiGiao } from "../../order/chi-tiet-don-mua/tinhNhanHang.js";
+import { t } from "../../../i18n/t.js";
 
 /** Trạng thái đơn mua (DON_MUA_HANG_STATUS) theo luồng đang chạy. */
 export const TRANG_THAI_DON = {
@@ -242,7 +243,7 @@ export function tinhLichSuGia(chot) {
     const bt = dong.bienThe;
     ketQua.push({
       bienTheId: dong.bienTheId,
-      ten: bt.tenSanPham || bt.tenBienThe || `Biến thể #${dong.bienTheId}`,
+      ten: bt.tenSanPham || bt.tenBienThe || t("Biến thể #{{bienTheId}}", { bienTheId: dong.bienTheId }),
       moTa: moTaBienThe(bt),
       sku: bt.maSku || "",
       giaGanNhat: ganNhat.gia,
@@ -308,10 +309,10 @@ export const SO_DONG_HIEN_LOC = 10;
 export const SO_HOAT_DONG_MOI_LAN = 20;
 
 export const LUA_CHON_THOI_GIAN = [
-  { value: "", label: "Mọi thời gian" },
-  { value: "30", label: "30 ngày qua" },
-  { value: "90", label: "90 ngày qua" },
-  { value: "365", label: "12 tháng qua" },
+  { value: "", label: t("Mọi thời gian") },
+  { value: "30", label: t("30 ngày qua") },
+  { value: "90", label: t("90 ngày qua") },
+  { value: "365", label: t("12 tháng qua") },
 ];
 
 /** Chữ thường, bỏ dấu tiếng Việt: gõ "ao so mi" vẫn tìm ra "Áo sơ mi". */
@@ -340,13 +341,13 @@ function trongKhoang(ngay, thoiGian, homNay) {
 
 /** Nhóm của bộ lọc "Giao hàng" → các loại của `tinhGiaoHang`. */
 const NHOM_GIAO = {
-  cho: { nhan: "Đang chờ giao", loai: ["conLai", "homNay", "khongCo"] },
-  quaHan: { nhan: "Quá hạn", loai: ["quaHan"] },
-  dungHan: { nhan: "Đúng hạn", loai: ["dungHan"] },
-  tre: { nhan: "Trễ hạn", loai: ["tre"] },
-  daDu: { nhan: "Đã nhận đủ", loai: ["daDu"] },
+  cho: { nhan: t("Đang chờ giao"), loai: ["conLai", "homNay", "khongCo"] },
+  quaHan: { nhan: t("Quá hạn"), loai: ["quaHan"] },
+  dungHan: { nhan: t("Đúng hạn"), loai: ["dungHan"] },
+  tre: { nhan: t("Trễ hạn"), loai: ["tre"] },
+  daDu: { nhan: t("Đã nhận đủ"), loai: ["daDu"] },
   // Cùng tên tab "Đã đóng / Đã hủy" của trang Đơn mua hàng (constants/donMuaHang.js)
-  ketThuc: { nhan: "Đã đóng / Đã hủy", loai: ["daDong", "daHuy"] },
+  ketThuc: { nhan: t("Đã đóng / Đã hủy"), loai: ["daDong", "daHuy"] },
 };
 
 export function nhomGiao(loai) {
@@ -424,6 +425,6 @@ export function locHoatDong(suKien, { loai = "", thoiGian = "" } = {}, homNay = 
 export function catTrang(ds, trang, kichThuoc) {
   const tong = Array.isArray(ds) ? ds.length : 0;
   const soTrang = Math.max(1, Math.ceil(tong / kichThuoc));
-  const t = Math.min(Math.max(0, Number(trang) || 0), soTrang - 1);
-  return { dong: tong ? ds.slice(t * kichThuoc, (t + 1) * kichThuoc) : [], trang: t, soTrang, tong };
+  const chiSo = Math.min(Math.max(0, Number(trang) || 0), soTrang - 1);
+  return { dong: tong ? ds.slice(chiSo * kichThuoc, (chiSo + 1) * kichThuoc) : [], trang: chiSo, soTrang, tong };
 }

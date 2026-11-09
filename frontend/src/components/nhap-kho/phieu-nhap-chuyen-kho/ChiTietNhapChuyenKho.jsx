@@ -27,6 +27,7 @@ import { getApiErrorMessage } from "@/utils/apiError";
 import { formatDateTime } from "@/utils/dateTime";
 import BangHangNhan from "./BangHangNhan";
 import { LOAI_PHIEU_NHAP, cauChoNhap, demLo, dongPhieuNhap, moTaXacNhan, quyTacPhieuNhap } from "./tinhPhieuNhapChuyenKho";
+import { t } from "@/i18n";
 
 const B = ({ children }) => <b className="font-semibold text-bo-foreground">{children}</b>;
 
@@ -117,7 +118,7 @@ export default function ChiTietNhapChuyenKho({ data, onReload }) {
     }
   }
 
-  const xacNhanNhap = () => chay(phieuNhapKhoService.complete, quyTac.cauThanhCong, "Xác nhận nhập kho thất bại");
+  const xacNhanNhap = () => chay(phieuNhapKhoService.complete, quyTac.cauThanhCong, t("Xác nhận nhập kho thất bại"));
 
   const khachTra = quyTac.loai === LOAI_PHIEU_NHAP.KHACH_TRA;
   let nutChinh = null;
@@ -128,13 +129,13 @@ export default function ChiTietNhapChuyenKho({ data, onReload }) {
       icon: Check,
       onClick: () => setHop("nhap"),
       khoa: bang.rong,
-      lyDo: bang.rong ? cauChungTuRong("phiếu nhập kho", { dauCham: false }) : "",
+      lyDo: bang.rong ? cauChungTuRong(t("phiếu nhập kho"), { dauCham: false }) : "",
       hienLyDo: true,
     };
   } else if (quyTac.moPhieuChuyen) {
     nutChinh = {
       ma: "phieuChuyen",
-      nhan: "Mở phiếu chuyển kho",
+      nhan: t("Mở phiếu chuyển kho"),
       icon: Truck,
       dieuHuong: true,
       onClick: () => navigate(`/transfer-tickets/${data.phieuXuatGocId}`),
@@ -143,12 +144,12 @@ export default function ChiTietNhapChuyenKho({ data, onReload }) {
   const thongBao = quyTac.choNhap && !bang.rong
     ? <DongThongBao tone="info">{cauChoNhap(data)}</DongThongBao>
     : quyTac.daHuy
-      ? <DongThongBao tone="neutral">Phiếu nhập đã hủy.</DongThongBao>
+      ? <DongThongBao tone="neutral">{t("Phiếu nhập đã hủy.")}</DongThongBao>
       : chuaKe.soLo > 0
         ? (
-          <DongThongBao tone="warn" actions={<NutChu onClick={() => navigate(chuaKe.duongDan)}>Xếp kệ</NutChu>}>
-            <B>{soVN(chuaKe.soLuong)} sản phẩm</B> ({soVN(chuaKe.soLo)} lô) của phiếu chưa có kệ ở {data.tenKho ?? "kho nhận"}: người
-            nhặt hàng chưa thấy chỗ lấy cho tới khi xếp.
+          <DongThongBao tone="warn" actions={<NutChu onClick={() => navigate(chuaKe.duongDan)}>{t("Xếp kệ")}</NutChu>}>
+            <B>{t("{{soLuong}} sản phẩm", { count: Number(chuaKe.soLuong) || 0, soLuong: soVN(chuaKe.soLuong) })}</B>{" "}
+            {t("({{soLo}} lô) của phiếu chưa có kệ ở {{tenKho}}: người nhặt hàng chưa thấy chỗ lấy cho tới khi xếp.", { count: Number(chuaKe.soLo) || 0, soLo: soVN(chuaKe.soLo), tenKho: data.tenKho ?? t("kho nhận") })}
           </DongThongBao>
         )
         : null;
@@ -161,38 +162,38 @@ export default function ChiTietNhapChuyenKho({ data, onReload }) {
             ma={data.soPhieuNhap}
             trangThai={{ label: trangThai.label, quyTrinh: "phieuNhap" }}
             dongPhu={[
-              getGoodsReceiptTypeLabel(data),
-              <B key="sp">{soVN(bang.tong.soSanPham)} sản phẩm, {soVN(bang.tong.soDong)} biến thể</B>,
-              <span key="sl">tổng số lượng <B>{soVN(bang.tong.soLuong)}</B></span>,
-              soLo ? <B key="lo">{soVN(soLo)} lô</B> : null,
+              t(getGoodsReceiptTypeLabel(data)),
+              <B key="sp">{t("{{soSanPham}} sản phẩm", { count: Number(bang.tong.soSanPham) || 0, soSanPham: soVN(bang.tong.soSanPham) })}, {t("{{soBienThe}} biến thể", { count: Number(bang.tong.soDong) || 0, soBienThe: soVN(bang.tong.soDong) })}</B>,
+              <span key="sl">{t("tổng số lượng")} <B>{soVN(bang.tong.soLuong)}</B></span>,
+              soLo ? <B key="lo">{t("{{soLo}} lô", { count: soLo, soLo: soVN(soLo) })}</B> : null,
             ]}
             onQuayLai={quayLai}
-            nhanQuayLai="Về danh sách phiếu nhập kho"
-            nutPhu={quyTac.inDuoc ? { ma: "in", nhan: "In phiếu", icon: Printer, onClick: () => navigate(`/goods-receipts/${id}/print`) } : null}
-            saoChepMa={{ giaTri: data.soPhieuNhap, nhan: "Sao chép mã phiếu" }}
+            nhanQuayLai={t("Về danh sách phiếu nhập kho")}
+            nutPhu={quyTac.inDuoc ? { ma: "in", nhan: t("In phiếu"), icon: Printer, onClick: () => navigate(`/goods-receipts/${id}/print`) } : null}
+            saoChepMa={{ giaTri: data.soPhieuNhap, nhan: t("Sao chép mã phiếu") }}
             nutChinh={khoaKhiChoGoc(nutChinh, choGoc)}
           />
         }
         thongBao={thongBao}
         chinh={<BangHangNhan bang={bang} />}
         cotPhai={
-          <CotThuocTinh nhan="Thông tin phiếu nhập kho">
+          <CotThuocTinh nhan={t("Thông tin phiếu nhập kho")}>
             <NhomThuocTinh>
               <BangThuocTinh
                 muc={[
-                  { ma: "kho", nhan: "Kho nhận", giaTri: data.tenKho ? <span className="font-semibold">{data.tenKho}</span> : null },
-                  { ma: "tu", nhan: "Chuyển từ", giaTri: data.tenKhoChuyenTu, an: khachTra },
-                  { ma: "nguon", nhan: "Nguồn hàng", giaTri: "Khách trả hàng", an: !khachTra },
-                  { ma: "ngay", nhan: "Ngày nhập", giaTri: formatDateTime(data.ngayNhap), an: !quyTac.daNhap },
-                  { ma: "nguoi", nhan: "Người nhập", giaTri: data.tenNguoiNhap, an: !quyTac.daNhap },
+                  { ma: "kho", nhan: t("Kho nhận"), giaTri: data.tenKho ? <span className="font-semibold">{data.tenKho}</span> : null },
+                  { ma: "tu", nhan: t("Chuyển từ", { context: "kho_nguon" }), giaTri: data.tenKhoChuyenTu, an: khachTra },
+                  { ma: "nguon", nhan: t("Nguồn hàng"), giaTri: t("Khách trả hàng"), an: !khachTra },
+                  { ma: "ngay", nhan: t("Ngày nhập"), giaTri: formatDateTime(data.ngayNhap), an: !quyTac.daNhap },
+                  { ma: "nguoi", nhan: t("Người nhập"), giaTri: data.tenNguoiNhap, an: !quyTac.daNhap },
                 ]}
               />
             </NhomThuocTinh>
             <ChungTuLienQuan
               ds={data.phieuXuatGocId ? [{
                 khoa: "phieu-chuyen",
-                loai: "Phiếu chuyển kho nội bộ",
-                ma: data.soPhieuChuyenKhoGoc || "Mở phiếu chuyển kho",
+                loai: t("Phiếu chuyển kho nội bộ"),
+                ma: data.soPhieuChuyenKhoGoc || t("Mở phiếu chuyển kho"),
                 to: `/transfer-tickets/${data.phieuXuatGocId}`,
               }] : []}
             />

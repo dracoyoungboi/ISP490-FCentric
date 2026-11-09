@@ -26,6 +26,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import useThongBao from "@/hooks/useThongBao";
 import { cn } from "@/lib/utils";
 import { THONG_BAO_DA_SAN_SANG } from "@/services/thongBaoService";
+import { t } from "@/i18n";
 
 /*
  * Chuông thông báo trên thanh trên cùng (kiểu nút B + bảng 1 đã chốt 14/10/2026).
@@ -64,8 +65,8 @@ const MAU_O_BIEU_TUONG = {
 };
 
 const TAB = [
-  { value: "tat_ca", label: "Tất cả" },
-  { value: "chua_doc", label: "Chưa đọc" },
+  { value: "tat_ca", label: t("Tất cả") },
+  { value: "chua_doc", label: t("Chưa đọc") },
 ];
 
 const pad = (n) => String(n).padStart(2, "0");
@@ -76,12 +77,12 @@ function thoiGianTuongDoi(chuoi, bayGio) {
   const d = new Date(chuoi);
   if (Number.isNaN(d.getTime())) return "";
   const phut = Math.floor((bayGio.getTime() - d.getTime()) / 60_000);
-  if (phut < 1) return "Vừa xong";
-  if (phut < 60) return `${phut} phút trước`;
-  if (cungNgay(d, bayGio)) return `${Math.floor(phut / 60)} giờ trước`;
+  if (phut < 1) return t("Vừa xong");
+  if (phut < 60) return t("{{count}} phút trước", { count: phut });
+  if (cungNgay(d, bayGio)) return t("{{count}} giờ trước", { count: Math.floor(phut / 60) });
   const homQua = new Date(bayGio);
   homQua.setDate(homQua.getDate() - 1);
-  if (cungNgay(d, homQua)) return `Hôm qua, ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  if (cungNgay(d, homQua)) return t("Hôm qua, {{gio}}:{{phut}}", { gio: pad(d.getHours()), phut: pad(d.getMinutes()) });
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
 }
 
@@ -94,8 +95,8 @@ function chiaNhom(ds, bayGio) {
     (!Number.isNaN(d.getTime()) && cungNgay(d, bayGio) ? homNay : truocDo).push(n);
   });
   return [
-    { ten: "Hôm nay", ds: homNay },
-    { ten: "Trước đó", ds: truocDo },
+    { ten: t("Hôm nay"), ds: homNay },
+    { ten: t("Trước đó"), ds: truocDo },
   ].filter((g) => g.ds.length > 0);
 }
 
@@ -116,10 +117,10 @@ function DangPhatTrien() {
   return (
     <>
       <div className="flex items-center justify-between gap-3 px-4 pb-3 pt-3.5">
-        <h2 className="text-base font-semibold leading-6">Thông báo</h2>
+        <h2 className="text-base font-semibold leading-6">{t("Thông báo")}</h2>
         <span className="inline-flex items-center gap-1.5 rounded-md bg-bo-primary-soft px-2 py-0.5 text-xs font-medium leading-5 text-bo-primary-hover">
           <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
-          Đang phát triển
+          {t("Đang phát triển")}
         </span>
       </div>
 
@@ -127,9 +128,9 @@ function DangPhatTrien() {
         <span className="flex size-12 items-center justify-center rounded-full bg-bo-primary-soft text-bo-primary">
           <BellRing className="size-5" aria-hidden="true" />
         </span>
-        <p className="mt-3 text-sm font-semibold text-bo-foreground">Tính năng thông báo đang được phát triển</p>
+        <p className="mt-3 text-sm font-semibold text-bo-foreground">{t("Tính năng thông báo đang được phát triển")}</p>
         <p className="mt-1 max-w-[300px] text-balance text-[13px] leading-5 text-bo-muted">
-          Sắp tới, hệ thống sẽ báo cho bạn ngay khi có việc cần làm.
+          {t("Sắp tới, hệ thống sẽ báo cho bạn ngay khi có việc cần làm.")}
         </p>
       </div>
     </>
@@ -160,14 +161,14 @@ function DongThongBao({ n, bayGio, onChon }) {
           <span className="mt-0.5 line-clamp-2 block text-[13px] leading-[18px] text-bo-muted">{n.moTa}</span>
         ) : null}
         <span className="mt-1 block text-xs leading-4 text-bo-muted">
-          {n.nhom ? `${n.nhom} · ` : ""}
+          {n.nhom ? `${t(n.nhom)} · ` : ""}
           <time dateTime={n.thoiGian}>{thoiGianTuongDoi(n.thoiGian, bayGio)}</time>
         </span>
       </span>
       {chuaDoc ? (
         <>
           <span className="mt-1.5 size-2 shrink-0 rounded-full bg-bo-primary" aria-hidden="true" />
-          <span className="sr-only">Chưa đọc</span>
+          <span className="sr-only">{t("Chưa đọc")}</span>
         </>
       ) : null}
     </>
@@ -242,10 +243,10 @@ export default function NotificationBell({ duongDanXemTatCa }) {
   };
 
   const nhanNut = !THONG_BAO_DA_SAN_SANG
-    ? "Thông báo, tính năng đang phát triển"
+    ? t("Thông báo, tính năng đang phát triển")
     : soChuaDoc > 0
-      ? `Thông báo, ${soChuaDoc} chưa đọc`
-      : "Thông báo";
+      ? t("Thông báo, {{count}} chưa đọc", { count: soChuaDoc })
+      : t("Thông báo");
 
   let noiDungBang;
   if (!THONG_BAO_DA_SAN_SANG) {
@@ -263,8 +264,8 @@ export default function NotificationBell({ duongDanXemTatCa }) {
           role="alert"
           icon={AlertCircle}
           mau="bg-bo-danger-soft text-bo-danger"
-          tieuDe="Không thể tải thông báo"
-          moTa="Đã xảy ra lỗi. Vui lòng thử lại."
+          tieuDe={t("Không thể tải thông báo")}
+          moTa={t("Đã xảy ra lỗi. Vui lòng thử lại.")}
         >
           <Button
             type="button"
@@ -273,7 +274,7 @@ export default function NotificationBell({ duongDanXemTatCa }) {
             className="mt-2 border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
           >
             <RefreshCcw />
-            Thử lại
+            {t("Thử lại")}
           </Button>
         </TrangThaiGiua>
       );
@@ -284,22 +285,22 @@ export default function NotificationBell({ duongDanXemTatCa }) {
           <TrangThaiGiua
             icon={CheckCheck}
             mau="bg-bo-primary-soft text-bo-primary"
-            tieuDe={`Còn ${soChuaDoc} thông báo cũ chưa đọc`}
-            moTa="Bấm Đánh dấu đã đọc để đánh dấu tất cả."
+            tieuDe={t("Còn {{count}} thông báo cũ chưa đọc", { count: soChuaDoc })}
+            moTa={t("Bấm Đánh dấu đã đọc để đánh dấu tất cả.")}
           />
         ) : tab === "chua_doc" && items.length > 0 ? (
           <TrangThaiGiua
             icon={CheckCheck}
             mau="bg-bo-success-soft text-bo-success"
-            tieuDe="Bạn đã đọc hết thông báo"
-            moTa="Các thông báo cũ vẫn xem được ở tab Tất cả."
+            tieuDe={t("Bạn đã đọc hết thông báo")}
+            moTa={t("Các thông báo cũ vẫn xem được ở tab Tất cả.")}
           />
         ) : (
           <TrangThaiGiua
             icon={Bell}
             mau="bg-bo-primary-soft text-bo-primary"
-            tieuDe="Chưa có thông báo nào"
-            moTa="Khi có việc cần bạn xử lý, thông báo sẽ hiện ở đây."
+            tieuDe={t("Chưa có thông báo nào")}
+            moTa={t("Khi có việc cần bạn xử lý, thông báo sẽ hiện ở đây.")}
           />
         );
     } else {
@@ -322,7 +323,7 @@ export default function NotificationBell({ duongDanXemTatCa }) {
     noiDungBang = (
       <>
         <div className="flex items-center justify-between gap-3 pb-2 pl-4 pr-3 pt-3">
-          <h2 className="text-base font-semibold leading-6">Thông báo</h2>
+          <h2 className="text-base font-semibold leading-6">{t("Thông báo")}</h2>
           <button
             type="button"
             onClick={danhDauTatCaDaDoc}
@@ -330,26 +331,26 @@ export default function NotificationBell({ duongDanXemTatCa }) {
             className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-[13px] font-medium text-bo-primary transition-colors hover:bg-bo-primary-soft hover:text-bo-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 disabled:pointer-events-none disabled:text-slate-400"
           >
             <CheckCheck className="size-4" aria-hidden="true" />
-            Đánh dấu đã đọc
+            {t("Đánh dấu đã đọc")}
           </button>
         </div>
 
         <div className="px-4 pb-3">
-          <div role="tablist" aria-label="Lọc thông báo" className="inline-flex items-center rounded-lg bg-slate-100 p-0.5">
-            {TAB.map((t) => (
+          <div role="tablist" aria-label={t("Lọc thông báo")} className="inline-flex items-center rounded-lg bg-slate-100 p-0.5">
+            {TAB.map((muc) => (
               <button
-                key={t.value}
+                key={muc.value}
                 role="tab"
                 type="button"
-                aria-selected={tab === t.value}
-                onClick={() => setTab(t.value)}
+                aria-selected={tab === muc.value}
+                onClick={() => setTab(muc.value)}
                 className={cn(
                   "inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-[13px] font-medium text-bo-muted transition-colors hover:text-bo-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30",
-                  tab === t.value && "bg-bo-surface text-bo-foreground shadow-[0_1px_2px_rgba(16,24,40,0.08)]",
+                  tab === muc.value && "bg-bo-surface text-bo-foreground shadow-[0_1px_2px_rgba(16,24,40,0.08)]",
                 )}
               >
-                {t.label}
-                {t.value === "chua_doc" && soChuaDoc > 0 ? (
+                {muc.label}
+                {muc.value === "chua_doc" && soChuaDoc > 0 ? (
                   <span className="rounded bg-bo-danger-soft px-1 text-[11px] font-semibold tabular-nums text-red-600">
                     {soChuaDoc}
                   </span>
@@ -373,7 +374,7 @@ export default function NotificationBell({ duongDanXemTatCa }) {
               onClick={() => setMo(false)}
               className="flex h-10 items-center justify-center rounded-md text-sm font-medium text-bo-primary hover:bg-bo-primary-soft hover:text-bo-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
             >
-              Xem tất cả thông báo
+              {t("Xem tất cả thông báo")}
             </Link>
           </div>
         ) : null}
@@ -402,7 +403,7 @@ export default function NotificationBell({ duongDanXemTatCa }) {
         align="end"
         sideOffset={6}
         collisionPadding={8}
-        aria-label="Thông báo"
+        aria-label={t("Thông báo")}
         className="flex w-[400px] max-w-[calc(100vw-16px)] flex-col overflow-hidden rounded-lg border-bo-border bg-bo-surface p-0 font-backoffice text-bo-foreground shadow-lg"
       >
         {noiDungBang}

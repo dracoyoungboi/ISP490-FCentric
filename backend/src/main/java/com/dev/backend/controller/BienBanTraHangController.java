@@ -15,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import com.dev.backend.i18n.ThongDiep;
 
 @RestController
 @RequiredArgsConstructor
@@ -33,7 +34,7 @@ public class BienBanTraHangController {
         BienBanTraHangDto dto = bienBanTraHangService.layTheoPhieuNhap(phieuNhapKhoId);
         return ResponseEntity.ok(ResponseData.<BienBanTraHangDto>builder()
                 .status(HttpStatus.OK.value())
-                .message("Thành công")
+                .message(ThongDiep.dich("chungTuKho.thanhCong"))
                 .data(dto)
                 .build());
     }
@@ -53,8 +54,8 @@ public class BienBanTraHangController {
         return ResponseEntity.ok(ResponseData.<BienBanTraHangDto>builder()
                 .status(HttpStatus.OK.value())
                 // Lập lại khi phiếu không còn hàng lỗi thì biên bản bị hủy (data null): câu báo nói đúng việc đã làm
-                .message(dto != null ? "Phát hành biên bản trả hàng NCC thành công"
-                        : "Đã hủy biên bản trả hàng vì phiếu không còn hàng không đạt")
+                .message(dto != null ? ThongDiep.dich("chungTuKho.phatHanhBienBanTraHangThanhCong")
+                        : ThongDiep.dich("chungTuKho.daHuyBienBanTraHangHetHangLoi"))
                 .data(dto)
                 .build());
     }
@@ -69,7 +70,7 @@ public class BienBanTraHangController {
         List<BienBanTraHangDto> list = bienBanTraHangService.dsTheoNhaCungCap(nhaCungCapId);
         return ResponseEntity.ok(ResponseData.<List<BienBanTraHangDto>>builder()
                 .status(HttpStatus.OK.value())
-                .message("Thành công")
+                .message(ThongDiep.dich("chungTuKho.thanhCong"))
                 .data(list)
                 .build());
     }
@@ -84,7 +85,7 @@ public class BienBanTraHangController {
         BienBanTraHangDto dto = bienBanTraHangService.chiTiet(id);
         return ResponseEntity.ok(ResponseData.<BienBanTraHangDto>builder()
                 .status(HttpStatus.OK.value())
-                .message("Thành công")
+                .message(ThongDiep.dich("chungTuKho.thanhCong"))
                 .data(dto)
                 .build());
     }

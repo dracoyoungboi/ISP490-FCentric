@@ -15,6 +15,7 @@ import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { cn } from "@/lib/utils";
 import { formatDateTime } from "@/utils/dateTime";
 import { formatNumberOrDash } from "@/utils/formatters";
+import { t } from "@/i18n";
 
 const TH = "h-10 whitespace-nowrap px-3 text-[11px] font-semibold uppercase tracking-wide text-bo-muted";
 /** Ô của bảng; dưới sm mỗi dòng là một thẻ có lề riêng nên ô bỏ lề. */
@@ -52,7 +53,7 @@ function DauCach() {
 export default function ChannelsPage() {
   return (
     <PageContainer>
-      <ListPageHeader title="Kênh bán hàng" />
+      <ListPageHeader title={t("Kênh bán hàng")} />
       <div className="mt-4 space-y-4">
         <MockModeNotice show={isChannelMock} note={GHI_CHU_DU_LIEU_MAU_KENH} />
         <section className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
@@ -68,13 +69,13 @@ export default function ChannelsPage() {
               </colgroup>
               <thead className="max-sm:hidden">
                 <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                  <th className={`${TH} text-left`}>Gian hàng</th>
-                  <th className={`${TH} text-left`}>Trạng thái</th>
-                  <th className={`${TH} text-left ${AN_BANG}`}>Đồng bộ tự động</th>
-                  <th className={`${TH} text-right`}>SKU đang đồng bộ</th>
-                  <th className={`${TH} text-left ${AN_BANG}`}>Lần chạy gần nhất</th>
+                  <th className={`${TH} text-left`}>{t("Gian hàng")}</th>
+                  <th className={`${TH} text-left`}>{t("Trạng thái")}</th>
+                  <th className={`${TH} text-left ${AN_BANG}`}>{t("Đồng bộ tự động")}</th>
+                  <th className={`${TH} text-right`}>{t("SKU đang đồng bộ")}</th>
+                  <th className={`${TH} text-left ${AN_BANG}`}>{t("Lần chạy gần nhất")}</th>
                   <th className={TH}>
-                    <span className="sr-only">Thao tác</span>
+                    <span className="sr-only">{t("Thao tác")}</span>
                   </th>
                 </tr>
               </thead>
@@ -135,11 +136,11 @@ function DongSan({ san }) {
     dongPhu = (
       <>
         <Skeleton className={cn("mt-1 h-3.5 w-32", XUONG)} />
-        <span className="sr-only">Đang tải…</span>
+        <span className="sr-only">{t("Đang tải…")}</span>
       </>
     );
   } else if (loiTai) {
-    dongPhu = <p className="text-[13px] text-bo-danger">Không tải được gian hàng</p>;
+    dongPhu = <p className="text-[13px] text-bo-danger">{t("Không tải được gian hàng")}</p>;
   } else if (ketNoi && san.kieuKetNoi === "khoa") {
     dongPhu = (
       <p className="truncate text-[13px] text-bo-muted" title={kn.data?.shopDomain || undefined}>
@@ -168,7 +169,7 @@ function DongSan({ san }) {
               <span className="flex min-w-0 max-w-full">
                 <DauCach />
                 <span className="tabular-nums">
-                  ủy quyền đến <span className="whitespace-nowrap">{ngayThang(han.han, { coNam: true })}</span>
+                  {t("ủy quyền đến")} <span className="whitespace-nowrap">{ngayThang(han.han, { coNam: true })}</span>
                   {han.sapHet ? (
                     <>
                       {" "}
@@ -187,23 +188,23 @@ function DongSan({ san }) {
 
   // Hết hạn: tự động không chạy được dù cấu hình đang bật. Tạm dừng: thẻ trạng thái "Tạm dừng" đã nói, ô này để trống
   let tuDong = "—";
-  if (ketNoi && trangThai === "het_han") tuDong = "Đang dừng";
+  if (ketNoi && trangThai === "het_han") tuDong = t("Đang dừng");
   else if (ketNoi && trangThai === "tam_dung") tuDong = "—";
   else if (loiCauHinh) tuDong = <LoiTai onThuLai={ch.reload} />;
   else if (ketNoi && cauHinh) {
-    const viec = [cauHinh.tuDongDayTon ? "tồn kho" : null, cauHinh.tuDongLayDon ? "đơn hàng" : null].filter(Boolean);
+    const viec = [cauHinh.tuDongDayTon ? t("tồn kho") : null, cauHinh.tuDongLayDon ? t("đơn hàng") : null].filter(Boolean);
     tuDong = viec.length ? (
       <span>
         {viec.join(", ").replace(/^./, (c) => c.toUpperCase())}
         {cauHinh.chuKyPhut ? (
           <>
             {/* Dấu "·" đi cùng cụm sau: xuống dòng thì không treo ở cuối dòng trên */}{" "}
-            <span className="whitespace-nowrap">· mỗi {cauHinh.chuKyPhut} phút</span>
+            <span className="whitespace-nowrap">{t("· mỗi {{chuKyPhut}} phút", { chuKyPhut: cauHinh.chuKyPhut })}</span>
           </>
         ) : null}
       </span>
     ) : (
-      "Đang tắt"
+      t("Đang tắt")
     );
   }
 
@@ -214,7 +215,7 @@ function DongSan({ san }) {
       <span>
         {formatNumberOrDash(tongQuan?.daLienKet)}
         {Number(tongQuan?.loiDongBo) > 0 ? (
-          <span className="ml-1.5 whitespace-nowrap text-[13px] text-bo-danger">· {formatNumberOrDash(tongQuan.loiDongBo)} lỗi</span>
+          <span className="ml-1.5 whitespace-nowrap text-[13px] text-bo-danger">{t("· {{loiDongBo}} lỗi", { count: Number(tongQuan.loiDongBo), loiDongBo: formatNumberOrDash(tongQuan.loiDongBo) })}</span>
         ) : null}
       </span>
     );
@@ -236,7 +237,7 @@ function DongSan({ san }) {
         </div>
       </td>
       <td className={cn(TD, DONG_THE, "max-sm:items-center max-sm:border-t max-sm:border-[#eef1f5] max-sm:pt-3", loiTai && "max-sm:hidden")}>
-        <span className={NHAN_THE}>Trạng thái</span>
+        <span className={NHAN_THE}>{t("Trạng thái")}</span>
         {dangTai ? (
           <Skeleton className={cn("h-6 w-28 rounded-md", XUONG)} />
         ) : loiTai ? (
@@ -247,23 +248,23 @@ function DongSan({ san }) {
         {/* Máy tính bảng dọc: cột Đồng bộ tự động đã ẩn, ghi dưới thẻ trạng thái */}
         {ketNoi && !dangTai ? (
           <div className={DONG_PHU_BANG}>
-            <span className="text-bo-muted">Tự động: </span>
+            <span className="text-bo-muted">{t("Tự động:")} </span>
             <span className="text-bo-foreground">{tuDong}</span>
           </div>
         ) : null}
       </td>
       <td className={cn(TD, DONG_THE, "text-bo-foreground", AN_BANG, anSoLieuTrenThe && "max-sm:hidden")}>
-        <span className={NHAN_THE}>Đồng bộ tự động</span>
+        <span className={NHAN_THE}>{t("Đồng bộ tự động")}</span>
         {dangTai ? <Skeleton className={cn("h-4 w-40 max-sm:w-28", XUONG)} /> : tuDong}
       </td>
       <td className={cn(TD, DONG_THE, "text-right tabular-nums text-bo-foreground", anSoLieuTrenThe && "max-sm:hidden")}>
-        <span className={NHAN_THE}>SKU đang đồng bộ</span>
+        <span className={NHAN_THE}>{t("SKU đang đồng bộ")}</span>
         {dangTai ? <Skeleton className={cn("ml-auto h-4 w-14", XUONG)} /> : soSku}
         {/* Máy tính bảng dọc: cột Lần chạy gần nhất đã ẩn, ghi dưới số SKU */}
-        {ketNoi && !dangTai && lanCuoi ? <div className={cn(DONG_PHU_BANG, "whitespace-nowrap text-bo-muted")}>Lần chạy {lanCuoi}</div> : null}
+        {ketNoi && !dangTai && lanCuoi ? <div className={cn(DONG_PHU_BANG, "whitespace-nowrap text-bo-muted")}>{t("Lần chạy {{lanCuoi}}", { lanCuoi })}</div> : null}
       </td>
       <td className={cn(TD, DONG_THE, "tabular-nums text-bo-muted max-sm:text-bo-foreground", AN_BANG, anSoLieuTrenThe && "max-sm:hidden")}>
-        <span className={NHAN_THE}>Lần chạy gần nhất</span>
+        <span className={NHAN_THE}>{t("Lần chạy gần nhất")}</span>
         {dangTai ? <Skeleton className={cn("h-4 w-24", XUONG)} /> : lanCuoi || "—"}
       </td>
       <td className={cn(TD, "whitespace-nowrap text-right max-sm:pt-1")}>
@@ -279,12 +280,12 @@ function DongSan({ san }) {
             }}
             className={NUT_PHU}
           >
-            Thử lại
+            {t("Thử lại")}
           </Button>
         ) : (
           <Button asChild variant={ketNoi ? "outline" : "default"} className={ketNoi ? NUT_PHU : NUT_CHINH}>
             <Link to={duongDan} onClick={(event) => event.stopPropagation()}>
-              {ketNoi ? "Mở" : "Kết nối"}
+              {ketNoi ? t("Mở") : t("Kết nối", { context: "nut" })}
             </Link>
           </Button>
         )}
@@ -308,14 +309,14 @@ function DongTaiQuay() {
         <div className="flex items-center gap-3">
           <BieuTuongTaiQuay size={28} />
           <div className="min-w-0 flex-1">
-            <p className="font-medium text-bo-heading">Bán hàng tại quầy</p>
-            <p className="truncate text-[13px] text-bo-muted">Bán trực tiếp tại kho bán hàng</p>
+            <p className="font-medium text-bo-heading">{t("Bán hàng tại quầy")}</p>
+            <p className="truncate text-[13px] text-bo-muted">{t("Bán trực tiếp tại kho bán hàng")}</p>
           </div>
         </div>
       </td>
       <td className={cn(TD, DONG_THE, "max-sm:items-center max-sm:border-t max-sm:border-[#eef1f5] max-sm:pt-3")}>
-        <span className={NHAN_THE}>Trạng thái</span>
-        <StatusBadge label="Đang hoạt động" />
+        <span className={NHAN_THE}>{t("Trạng thái")}</span>
+        <StatusBadge label="Đang hoạt động" /* i18n-giu-nguyen: StatusBadge tự dịch */ />
       </td>
       <td className={cn(TD, DONG_THE, "text-bo-foreground max-sm:hidden", AN_BANG)}>—</td>
       <td className={cn(TD, DONG_THE, "text-right tabular-nums text-bo-foreground max-sm:hidden")}>—</td>
@@ -323,7 +324,7 @@ function DongTaiQuay() {
       <td className={cn(TD, "whitespace-nowrap text-right max-sm:pt-1")}>
         <Button asChild variant="outline" className={NUT_PHU}>
           <Link to="/pos" onClick={(event) => event.stopPropagation()}>
-            Mở
+            {t("Mở")}
           </Link>
         </Button>
       </td>
@@ -348,13 +349,13 @@ function DongSanChoCapApi({ san }) {
           <div className="min-w-0 flex-1">
             <p className="font-medium text-bo-heading">{san.ten}</p>
             {/* Tên sàn ở dòng trên: không lặp lại để vừa cột Gian hàng khi menu trái đang mở */}
-            <p className="truncate text-[13px] text-bo-muted">Đang xin cấp quyền API</p>
+            <p className="truncate text-[13px] text-bo-muted">{t("Đang xin cấp quyền API")}</p>
           </div>
         </div>
       </td>
       <td className={cn(TD, DONG_THE, "max-sm:items-center max-sm:border-t max-sm:border-[#eef1f5] max-sm:pt-3")}>
-        <span className={NHAN_THE}>Trạng thái</span>
-        <StatusBadge label="Chờ cấp API" />
+        <span className={NHAN_THE}>{t("Trạng thái")}</span>
+        <StatusBadge label="Chờ cấp API" /* i18n-giu-nguyen: StatusBadge tự dịch */ />
       </td>
       <td className={cn(TD, DONG_THE, "text-bo-foreground max-sm:hidden")}>—</td>
       <td className={cn(TD, DONG_THE, "text-right tabular-nums text-bo-foreground max-sm:hidden")}>—</td>
@@ -362,7 +363,7 @@ function DongSanChoCapApi({ san }) {
       <td className={cn(TD, "whitespace-nowrap text-right max-sm:pt-1")}>
         <Button asChild variant="outline" className={NUT_PHU}>
           <Link to={san.duongDan} onClick={(event) => event.stopPropagation()}>
-            Xem
+            {t("Xem")}
           </Link>
         </Button>
       </td>
@@ -374,7 +375,7 @@ function DongSanChoCapApi({ san }) {
 function LoiTai({ onThuLai }) {
   return (
     <span className="inline-flex flex-wrap items-baseline gap-x-1.5 text-[13px]">
-      <span className="text-bo-danger">Không tải được</span>
+      <span className="text-bo-danger">{t("Không tải được")}</span>
       <button
         type="button"
         onClick={(event) => {
@@ -383,7 +384,7 @@ function LoiTai({ onThuLai }) {
         }}
         className="rounded-sm font-medium text-bo-primary hover:text-bo-primary-hover hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 max-sm:-my-3 max-sm:py-3"
       >
-        Thử lại
+        {t("Thử lại")}
       </button>
     </span>
   );

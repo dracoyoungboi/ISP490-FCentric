@@ -1,5 +1,8 @@
 package com.dev.backend.utils;
 
+import com.dev.backend.i18n.LoiTrangThaiException;
+import com.dev.backend.i18n.LoiThamSoException;
+import com.dev.backend.i18n.ThongDiep;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
@@ -53,7 +56,7 @@ public final class TikTokShopSigner {
      */
     public static String buildBaseStringToSign(String apiPath, Map<String, String> parameters, String body, String appSecret) {
         if (appSecret == null || appSecret.isBlank()) {
-            throw new IllegalArgumentException("App Secret của TikTok Shop không được để trống khi tạo chuỗi ký");
+            throw new LoiThamSoException(ThongDiep.of("kenhBan.appSecretTikTokTrong"));
         }
         String path = (apiPath != null) ? apiPath : "";
 
@@ -107,7 +110,7 @@ public final class TikTokShopSigner {
             }
             return hexString.toString();
         } catch (Exception e) {
-            throw new IllegalStateException("Lỗi khi tạo chữ ký số HMAC-SHA256 cho TikTok Shop API", e);
+            throw new LoiTrangThaiException(ThongDiep.of("kenhBan.loiTaoChuKyTikTok"), e);
         }
     }
 }

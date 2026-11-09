@@ -1,3 +1,4 @@
+import { t } from "../i18n/t.js";
 // Thông tin cửa hàng (bảng thong_tin_cong_ty) — dùng chung cho trang Cấu hình › Thông tin cửa hàng,
 // hộp thoại sửa nhanh trong trình sửa mẫu in và khung chặn gửi yêu cầu báo giá. Hàm thuần, chạy được với node --test.
 // Quy tắc khớp ThongTinCongTyService ở máy chủ (chuẩn hóa mã số thuế, độ dài, logo PNG/JPEG ≤ 2 MB).
@@ -20,8 +21,8 @@ export const LOAI_LOGO_NHAN = ["image/png", "image/jpeg"];
 /** Giá trị `accept` của ô chọn tệp logo. */
 export const LOGO_ACCEPT = LOAI_LOGO_NHAN.join(",");
 
-export const LOI_LOGO_SAI_LOAI = "Chỉ nhận ảnh PNG hoặc JPG.";
-export const LOI_LOGO_QUA_LON = `Ảnh lớn hơn ${LOGO_TOI_DA_CHU}.`;
+export const LOI_LOGO_SAI_LOAI = t("Chỉ nhận ảnh PNG hoặc JPG.");
+export const LOI_LOGO_QUA_LON = t("Ảnh lớn hơn {{dungLuong}}.", { dungLuong: LOGO_TOI_DA_CHU });
 
 /** Thứ tự ô của cả hồ sơ (hộp sửa nhanh lưu đủ 6 ô). */
 export const COMPANY_PROFILE_FIELDS = ["name", "legalName", "taxCode", "address", "phone", "email"];
@@ -32,11 +33,11 @@ export const KHOA_PHAP_LY_LIEN_HE = ["legalName", "taxCode", "address", "phone",
 
 /** Nhãn từng ô — một nguồn cho trang, hộp sửa nhanh và khung chặn gửi yêu cầu báo giá. */
 export const NHAN_THONG_TIN_CUA_HANG = {
-  name: "Tên cửa hàng",
-  legalName: "Tên đăng ký kinh doanh",
-  taxCode: "Mã số thuế",
-  address: "Địa chỉ đăng ký",
-  phone: "Điện thoại",
+  name: t("Tên cửa hàng"),
+  legalName: t("Tên đăng ký kinh doanh"),
+  taxCode: t("Mã số thuế"),
+  address: t("Địa chỉ đăng ký"),
+  phone: t("Điện thoại"),
   email: "Email",
 };
 
@@ -44,9 +45,9 @@ export const NHAN_THONG_TIN_CUA_HANG = {
 export const KHOA_BAT_BUOC_GUI_NHA_CUNG_CAP = ["legalName", "address"];
 
 export const LOAI_MA_SO_THUE = {
-  DOANH_NGHIEP: "Doanh nghiệp",
-  CHI_NHANH: "Chi nhánh, đơn vị phụ thuộc",
-  HO_KINH_DOANH: "Hộ, cá nhân kinh doanh",
+  DOANH_NGHIEP: t("Doanh nghiệp", { context: "loai_mst" }),
+  CHI_NHANH: t("Chi nhánh, đơn vị phụ thuộc"),
+  HO_KINH_DOANH: t("Hộ, cá nhân kinh doanh"),
 };
 
 const catKhoangTrang = (value) => (value ?? "").trim();
@@ -80,13 +81,13 @@ export function lechLoaiMaSoThue(tenDangKy, maSoThue) {
   if (!ten || !loai) return "";
   const laCongTy = /^(công ty|cty|doanh nghiệp tư nhân|dntn)/.test(ten);
   if (loai === LOAI_MA_SO_THUE.HO_KINH_DOANH && laCongTy) {
-    return "Mã 12 số là của hộ, cá nhân kinh doanh; công ty, doanh nghiệp tư nhân dùng mã 10 số.";
+    return t("Mã 12 số là của hộ, cá nhân kinh doanh; công ty, doanh nghiệp tư nhân dùng mã 10 số.");
   }
   if (loai === LOAI_MA_SO_THUE.DOANH_NGHIEP && ten.startsWith("hộ kinh doanh")) {
-    return "Mã 10 số là của doanh nghiệp; hộ kinh doanh dùng mã 12 số.";
+    return t("Mã 10 số là của doanh nghiệp; hộ kinh doanh dùng mã 12 số.");
   }
   if (loai === LOAI_MA_SO_THUE.CHI_NHANH && !/chi nhánh|địa điểm kinh doanh|văn phòng đại diện/.test(ten)) {
-    return 'Mã có -3 số là của đơn vị phụ thuộc: tên phải gồm tên công ty và cụm từ "Chi nhánh" hoặc "Địa điểm kinh doanh".';
+    return t("Mã có -3 số là của đơn vị phụ thuộc: tên phải gồm tên công ty và cụm từ \"Chi nhánh\" hoặc \"Địa điểm kinh doanh\".");
   }
   return "";
 }
@@ -99,8 +100,8 @@ export function cauNhanDangMaSoThue(giaTriGo, { kemMaSeLuu = false } = {}) {
   const ma = chuanHoaMaSoThue(giaTriGo);
   const loai = loaiMaSoThue(ma);
   if (!loai) return "";
-  if (kemMaSeLuu && ma !== catKhoangTrang(giaTriGo)) return `Nhận dạng: ${loai}. Sẽ lưu thành ${ma}.`;
-  return `Nhận dạng: ${loai}.`;
+  if (kemMaSeLuu && ma !== catKhoangTrang(giaTriGo)) return t("Nhận dạng: {{loai}}. Sẽ lưu thành {{ma}}.", { loai, ma });
+  return t("Nhận dạng: {{loai}}.", { loai });
 }
 
 /**
@@ -127,8 +128,8 @@ export function companyProfileForm(profile) {
 export function validateTenVaLogo(form) {
   const errors = {};
   const ten = catKhoangTrang(form?.name);
-  if (!ten) errors.name = "Nhập tên cửa hàng.";
-  else if (ten.length > TEN_TOI_DA) errors.name = `Tên cửa hàng tối đa ${TEN_TOI_DA} ký tự.`;
+  if (!ten) errors.name = t("Nhập tên cửa hàng.");
+  else if (ten.length > TEN_TOI_DA) errors.name = t("Tên cửa hàng tối đa {{toiDa}} ký tự.", { toiDa: TEN_TOI_DA });
   return errors;
 }
 
@@ -136,22 +137,22 @@ export function validateTenVaLogo(form) {
 export function validatePhapLyLienHe(form) {
   const errors = {};
   const tenDangKy = catKhoangTrang(form?.legalName);
-  if (!tenDangKy) errors.legalName = "Nhập tên đăng ký kinh doanh.";
-  else if (tenDangKy.length > TEN_TOI_DA) errors.legalName = `Tên đăng ký kinh doanh tối đa ${TEN_TOI_DA} ký tự.`;
+  if (!tenDangKy) errors.legalName = t("Nhập tên đăng ký kinh doanh.");
+  else if (tenDangKy.length > TEN_TOI_DA) errors.legalName = t("Tên đăng ký kinh doanh tối đa {{toiDa}} ký tự.", { toiDa: TEN_TOI_DA });
 
   const maSoThue = chuanHoaMaSoThue(form?.taxCode);
   if (maSoThue && !TAX_CODE_RE.test(maSoThue)) {
-    errors.taxCode = "Mã số thuế gồm 10 số (đơn vị phụ thuộc thêm -3 số) hoặc 12 số.";
+    errors.taxCode = t("Mã số thuế gồm 10 số (đơn vị phụ thuộc thêm -3 số) hoặc 12 số.");
   }
 
-  if (!catKhoangTrang(form?.address)) errors.address = "Nhập địa chỉ đăng ký.";
+  if (!catKhoangTrang(form?.address)) errors.address = t("Nhập địa chỉ đăng ký.");
 
   const dienThoai = catKhoangTrang(form?.phone);
-  if (dienThoai && !PHONE_RE.test(dienThoai)) errors.phone = "Số điện thoại không hợp lệ.";
+  if (dienThoai && !PHONE_RE.test(dienThoai)) errors.phone = t("Số điện thoại không hợp lệ.");
 
   const email = catKhoangTrang(form?.email);
-  if (email && !EMAIL_RE.test(email)) errors.email = "Email không hợp lệ.";
-  else if (email.length > EMAIL_TOI_DA) errors.email = `Email tối đa ${EMAIL_TOI_DA} ký tự.`;
+  if (email && !EMAIL_RE.test(email)) errors.email = t("Email không hợp lệ.");
+  else if (email.length > EMAIL_TOI_DA) errors.email = t("Email tối đa {{toiDa}} ký tự.", { toiDa: EMAIL_TOI_DA });
   return errors;
 }
 

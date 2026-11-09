@@ -10,6 +10,7 @@ import {
     Wallet,
     BoxSelect,
 } from "lucide-react";
+import { t } from "@/i18n";
 
 // ── helpers ────────────────────────────────────────────────────────────────
 const formatCurrency = (value) =>
@@ -23,12 +24,12 @@ function StatusBadge({ status }) {
     return status === 1 ? (
         <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            Hoạt động
+            {t("Hoạt động")}
         </span>
     ) : (
         <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-500">
             <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
-            Đóng
+            {t("Đóng", { context: "trang_thai" })}
         </span>
     );
 }
@@ -59,10 +60,9 @@ export function WarehouseEmptyState() {
                 <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-slate-100">
                     <Warehouse className="h-10 w-10 text-slate-400" />
                 </div>
-                <h3 className="text-lg font-semibold text-slate-800">Không tìm thấy kho</h3>
+                <h3 className="text-lg font-semibold text-slate-800">{t("Không tìm thấy kho")}</h3>
                 <p className="mt-2 max-w-sm text-sm leading-6 text-slate-500">
-                    Hiện tại chưa có dữ liệu kho phù hợp. Hãy thử thay đổi bộ lọc hoặc từ
-                    khóa tìm kiếm để xem kết quả khác.
+                    {t("Hiện tại chưa có dữ liệu kho phù hợp. Hãy thử thay đổi bộ lọc hoặc từ khóa tìm kiếm để xem kết quả khác.")}
                 </p>
             </div>
         </div>
@@ -86,25 +86,25 @@ export default function WarehouseList({
                     <thead>
                         <tr className="border-b border-slate-200 bg-bo-surface-subtle">
                             <th className="h-12 px-4 text-left font-semibold text-slate-600 tracking-wide text-xs uppercase">
-                                Mã kho
+                                {t("Mã kho")}
                             </th>
                             <th className="h-12 px-4 text-left font-semibold text-slate-600 tracking-wide text-xs uppercase">
-                                Tên kho &amp; Địa chỉ
+                                {t("Tên kho & Địa chỉ")}
                             </th>
                             <th className="h-12 px-4 text-center font-semibold text-slate-600 tracking-wide text-xs uppercase">
-                                Tồn kho
+                                {t("Tồn kho")}
                             </th>
                             <th className="h-12 px-4 text-center font-semibold text-slate-600 tracking-wide text-xs uppercase">
-                                Giá trị
+                                {t("Giá trị")}
                             </th>
                             <th className="h-12 px-4 text-left font-semibold text-slate-600 tracking-wide text-xs uppercase">
-                                Quản lý
+                                {t("Quản lý")}
                             </th>
                             <th className="h-12 px-4 text-center font-semibold text-slate-600 tracking-wide text-xs uppercase">
-                                Trạng thái
+                                {t("Trạng thái")}
                             </th>
                             <th className="h-12 px-4 text-center font-semibold text-slate-600 tracking-wide text-xs uppercase">
-                                Thao tác
+                                {t("Thao tác")}
                             </th>
                         </tr>
                     </thead>
@@ -141,7 +141,7 @@ export default function WarehouseList({
                                     <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1">
                                         <Package2 className="h-3.5 w-3.5 text-slate-500" />
                                         <span className="font-semibold text-slate-800 text-xs">
-                                            {formatNumber(wh.soLuongTon)} SP
+                                            {t("{{soLuongTon}} SP", { count: Number(wh.soLuongTon) || 0, soLuongTon: formatNumber(wh.soLuongTon) })}
                                         </span>
                                     </span>
                                 </td>
@@ -161,7 +161,7 @@ export default function WarehouseList({
                                     <div className="flex items-center gap-1.5">
                                         <User2 className="h-3.5 w-3.5 text-slate-400 shrink-0" />
                                         <span className="font-medium text-slate-700 text-sm">
-                                            {wh.quanLy?.hoTen ?? "Chưa có quản lý"}
+                                            {wh.quanLy?.hoTen ?? t("Chưa có quản lý")}
                                         </span>
                                     </div>
                                 </td>
@@ -174,13 +174,13 @@ export default function WarehouseList({
                                 {/* Thao tác */}
                                 <td className="px-4 py-3.5 align-middle">
                                     <div className="flex items-center justify-center gap-1">
-                                        <ActionBtn title="Xem chi tiết" onClick={() => onView?.(wh)} color="purple">
+                                        <ActionBtn title={t("Xem chi tiết")} onClick={() => onView?.(wh)} color="purple">
                                             <Eye className="h-4 w-4" />
                                         </ActionBtn>
-                                        <ActionBtn title="Chỉnh sửa" onClick={() => onEdit?.(wh)} color="blue">
+                                        <ActionBtn title={t("Chỉnh sửa")} onClick={() => onEdit?.(wh)} color="blue">
                                             <Edit className="h-4 w-4" />
                                         </ActionBtn>
-                                        <ActionBtn title="Xóa" onClick={() => onDelete?.(wh)} color="red">
+                                        <ActionBtn title={t("Xóa")} onClick={() => onDelete?.(wh)} color="red">
                                             <Trash2 className="h-4 w-4" />
                                         </ActionBtn>
                                     </div>

@@ -40,6 +40,7 @@ import { getMineKhoList } from '@/services/khoService';
 import { VAI_TRO_TAO_YEU_CAU_NHAP } from '@/constants/vaiTroTaoYeuCauNhap';
 import { KHO_LAM_VIEC_EVENT, coQuyenTaiKhoLamViec } from '@/utils/khoLamViec';
 import { hasAnyRole } from '@/utils/roles';
+import { t } from "@/i18n";
 
 // Nút "Tạo yêu cầu nhập hàng": đúng điều kiện máy chủ (POST /nghiep-vu/yeu-cau-mua-hang/create) — vai trò lập yêu cầu
 // kèm quyền tao_don_mua_hang ở nơi làm việc (quản trị viên luôn có)
@@ -101,7 +102,7 @@ export default function PurchaseRequestList() {
     // Filters: tab trạng thái + kho đọc từ URL (F5 / link từ Tổng quan mở đúng tab); ngày giữ trong state
     const tabParam = searchParams.get('trangThai');
     const tab = TAB_MAS.includes(tabParam) ? tabParam : TAB_MAC_DINH;
-    const tabTrangThai = YEU_CAU_NHAP_HANG_TABS.find((t) => t.ma === tab)?.trangThai ?? null;
+    const tabTrangThai = YEU_CAU_NHAP_HANG_TABS.find((tb) => tb.ma === tab)?.trangThai ?? null;
     const khoParam = searchParams.get('kho') ?? '';
     const khoId = warehouses.some((w) => String(w.id) === khoParam) ? khoParam : '';
     const [dateRange, setDateRange] = useState({ from: '', to: '' });
@@ -227,7 +228,7 @@ export default function PurchaseRequestList() {
             setLoadError(error);
             setRequests([]);
             setPagination(prev => ({ ...prev, totalElements: 0, totalPages: 0 }));
-            if (error?.response?.status !== 403) toast.error('Không thể tải danh sách yêu cầu mua hàng');
+            if (error?.response?.status !== 403) toast.error(t("Không thể tải danh sách yêu cầu mua hàng"));
         } finally {
             if (requestId === requestIdRef.current) setLoading(false);
         }
@@ -246,7 +247,7 @@ export default function PurchaseRequestList() {
     const tabCounts = useDemTheoTrangThai(
         TAB_MAS,
         (ma) => countRequests(buildFilterArray({
-            trangThai: YEU_CAU_NHAP_HANG_TABS.find((t) => t.ma === ma)?.trangThai,
+            trangThai: YEU_CAU_NHAP_HANG_TABS.find((tb) => tb.ma === ma)?.trangThai,
             kho: khoId,
             ngay: dateRange,
         })),
@@ -282,12 +283,12 @@ export default function PurchaseRequestList() {
         setSubmitting(true);
         try {
             await purchaseRequestService.approve(id, trangThai);
-            toast.success(trangThai === 2 ? 'Đã duyệt yêu cầu.' : 'Đã từ chối yêu cầu.');
+            toast.success(trangThai === 2 ? t("Đã duyệt yêu cầu.") : t("Đã từ chối yêu cầu."));
             setApprovingId(null);
             fetchRequests(pagination.pageNumber, pagination.pageSize);
             reloadCounts();
         } catch (err) {
-            toast.error(err.response?.data?.message || 'Thao tác thất bại');
+            toast.error(err.response?.data?.message || t("Thao tác thất bại"));
         } finally {
             setSubmitting(false);
         }
@@ -328,23 +329,23 @@ export default function PurchaseRequestList() {
     };
 
     const getSelectedWarehouseName = () => {
-        if (!khoId) return 'Tất cả kho';
-        return warehouses.find(w => String(w.id) === khoId)?.tenKho || 'Đang tải...';
+        if (!khoId) return t("Tất cả kho");
+        return warehouses.find(w => String(w.id) === khoId)?.tenKho || t("Đang tải...");
     };
 
     // Số chỉ hiện khi đếm xong và danh sách không lỗi (R9); số 0 tự ẩn trong StatusTabs
-    const statusTabs = YEU_CAU_NHAP_HANG_TABS.map((t) => ({
-        value: t.ma,
-        label: t.label,
-        tone: TONE_TAB[t.ma],
-        count: loadError ? null : tabCounts.counts[t.ma],
+    const statusTabs = YEU_CAU_NHAP_HANG_TABS.map((tb) => ({
+        value: tb.ma,
+        label: t(tb.label),
+        tone: TONE_TAB[tb.ma],
+        count: loadError ? null : tabCounts.counts[tb.ma],
     }));
 
     // Phạm vi cho người chỉ xem kho của mình (R3): nhãn "Nơi làm việc" chung (ListPageHeader)
     const noiLamViec = !isRestrictedWarehouse || loadingInitial ? null : warehouses;
 
     const pendingCount = canApprove && tab !== 'cho-duyet' ? choDuyet.counts['cho-duyet'] : null;
-    const emptyTabLabel = YEU_CAU_NHAP_HANG_TABS.find((t) => t.ma === tab)?.label;
+    const emptyTabLabel = t(YEU_CAU_NHAP_HANG_TABS.find((tb) => tb.ma === tab)?.label);
 
     return (
         <PageContainer fill className="space-y-4">
@@ -357,7 +358,7 @@ export default function PurchaseRequestList() {
                             className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover"
                             onClick={() => navigate('/purchase-requests/create')}
                         >
-                            <Plus className="size-4" />Tạo yêu cầu nhập hàng
+                            <Plus className="size-4" />{t("Tạo yêu cầu nhập hàng")}
                         </Button>
                     ) : null
                 }
@@ -365,10 +366,10 @@ export default function PurchaseRequestList() {
 
             <AttentionBar
                 count={pendingCount}
-                actionLabel="Xem yêu cầu chờ duyệt"
+                actionLabel={t("Xem yêu cầu chờ duyệt")}
                 onAction={showPending}
             >
-                <strong className="font-semibold">{pendingCount?.toLocaleString('vi-VN')} yêu cầu</strong> đang chờ duyệt.
+                <strong className="font-semibold">{t("{{soYeuCau}} yêu cầu", { count: pendingCount ?? 0, soYeuCau: pendingCount?.toLocaleString('vi-VN') })}</strong> {t("đang chờ duyệt.")}
             </AttentionBar>
 
             {/* ── Table ── */}
@@ -378,7 +379,7 @@ export default function PurchaseRequestList() {
                     <ListToolbar
                         tabs={
                             <StatusTabs
-                                label="Lọc yêu cầu nhập hàng theo trạng thái"
+                                label={t("Lọc yêu cầu nhập hàng theo trạng thái")}
                                 tabs={statusTabs}
                                 value={tab}
                                 onChange={changeTab}
@@ -392,7 +393,7 @@ export default function PurchaseRequestList() {
                             <DropdownMenuTrigger asChild>
                                 <Button
                                     variant="outline"
-                                    aria-label="Lọc theo kho nhập"
+                                    aria-label={t("Lọc theo kho nhập")}
                                     className="h-9 w-full justify-between border-bo-border bg-bo-surface px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle sm:w-[200px]"
                                     disabled={loadingInitial}
                                 >
@@ -411,7 +412,7 @@ export default function PurchaseRequestList() {
                                     onClick={() => updateUrl({ kho: '' })}
                                     className="cursor-pointer rounded-md px-2.5 py-1.5 text-sm font-medium text-slate-700 focus:bg-slate-100 focus:text-slate-900"
                                 >
-                                    Tất cả kho
+                                    {t("Tất cả kho")}
                                 </DropdownMenuItem>
                                 {warehouses.map(w => (
                                     <DropdownMenuItem
@@ -421,7 +422,7 @@ export default function PurchaseRequestList() {
                                     >
                                         <div className="flex flex-col">
                                             <span className="font-medium text-slate-900">{w.tenKho}</span>
-                                            {w.maKho && <span className="text-xs text-bo-muted">Mã: {w.maKho}</span>}
+                                            {w.maKho && <span className="text-xs text-bo-muted">{t("Mã: {{maKho}}", { maKho: w.maKho })}</span>}
                                         </div>
                                     </DropdownMenuItem>
                                 ))}
@@ -430,8 +431,8 @@ export default function PurchaseRequestList() {
 
                         {/* Từ ngày / Đến ngày: nhãn nằm trong ô để hàng công cụ gọn một dòng */}
                         {[
-                            { key: 'from', label: 'Từ ngày' },
-                            { key: 'to', label: 'Đến ngày' },
+                            { key: 'from', label: t("Từ ngày") },
+                            { key: 'to', label: t("Đến ngày") },
                         ].map(({ key, label }) => (
                             <label
                                 key={key}
@@ -464,10 +465,10 @@ export default function PurchaseRequestList() {
                 }
             >
                 {loading || loadingInitial ? (
-                    <LoadingState rows={5} label="Đang tải danh sách yêu cầu nhập hàng" />
+                    <LoadingState rows={5} label={t("Đang tải danh sách yêu cầu nhập hàng")} />
                 ) : loadError ? (
                     <ErrorState
-                        description="Không thể tải danh sách yêu cầu nhập hàng. Vui lòng thử lại."
+                        description={t("Không thể tải danh sách yêu cầu nhập hàng. Vui lòng thử lại.")}
                         error={loadError}
                         onRetry={handleRefresh}
                     />
@@ -475,38 +476,38 @@ export default function PurchaseRequestList() {
                     hasActiveFilters ? (
                         <EmptyState
                             icon={SearchX}
-                            title="Không tìm thấy yêu cầu nhập hàng phù hợp"
-                            description="Thử đổi kho hoặc khoảng ngày."
+                            title={t("Không tìm thấy yêu cầu nhập hàng phù hợp")}
+                            description={t("Thử đổi kho hoặc khoảng ngày.")}
                             action={
                                 <Button
                                     variant="outline"
                                     onClick={clearFilters}
                                     className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
-                                    Xóa lọc
+                                    {t("Xóa lọc")}
                                 </Button>
                             }
                         />
                     ) : tab !== TAB_MAC_DINH ? (
                         <EmptyState
                             icon={Package}
-                            title={`Không có yêu cầu nào ở trạng thái "${emptyTabLabel}"`}
-                            description="Chọn tab Tất cả để xem mọi yêu cầu nhập hàng."
+                            title={t("Không có yêu cầu nào ở trạng thái \"{{emptyTabLabel}}\"", { emptyTabLabel })}
+                            description={t("Chọn tab Tất cả để xem mọi yêu cầu nhập hàng.")}
                             action={
                                 <Button
                                     variant="outline"
                                     onClick={() => changeTab(TAB_MAC_DINH)}
                                     className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
-                                    Xem tất cả
+                                    {t("Xem tất cả")}
                                 </Button>
                             }
                         />
                     ) : (
                         <EmptyState
                             icon={Package}
-                            title="Chưa có yêu cầu nhập hàng"
-                            description="Tạo yêu cầu nhập hàng khi kho cần nhập thêm hàng."
+                            title={t("Chưa có yêu cầu nhập hàng")}
+                            description={t("Tạo yêu cầu nhập hàng khi kho cần nhập thêm hàng.")}
                         />
                     )
                 ) : (
@@ -531,7 +532,7 @@ export default function PurchaseRequestList() {
                                                 {formatDate(req.ngayTao)}{req.nguoiTao?.hoTen ? ` · ${req.nguoiTao.hoTen}` : ''}
                                             </span>
                                             {req.ngayGiaoDuKien ? (
-                                                <span className="shrink-0">Ngày giao DK {formatDate(req.ngayGiaoDuKien)}</span>
+                                                <span className="shrink-0">{t("Ngày giao DK")} {formatDate(req.ngayGiaoDuKien)}</span>
                                             ) : null}
                                         </span>
                                     </Link>
@@ -544,12 +545,12 @@ export default function PurchaseRequestList() {
                     <table className="w-full min-w-[900px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
                         <thead className="sticky top-0 z-10">
                             <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                                <th className="h-10 w-14 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">STT</th>
-                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Kho nhập</th>
-                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Người tạo</th>
-                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">Ngày tạo</th>
-                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày giao DK</th>
-                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
+                                <th className="h-10 w-14 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">{t("STT")}</th>
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Kho nhập")}</th>
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Người tạo")}</th>
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">{t("Ngày tạo")}</th>
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Ngày giao DK")}</th>
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Trạng thái")}</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-bo-border">
@@ -600,14 +601,14 @@ export default function PurchaseRequestList() {
                     <AlertDialogHeader>
                         <AlertDialogTitle className={`flex items-center gap-2 ${approvingId?.action === 'approve' ? 'text-bo-success' : 'text-bo-danger'}`}>
                             {approvingId?.action === 'approve' ? <CheckCircle className="size-5" /> : <XCircle className="size-5" />}
-                            {approvingId?.action === 'approve' ? 'Xác nhận duyệt yêu cầu' : 'Xác nhận từ chối yêu cầu'}
+                            {approvingId?.action === 'approve' ? t("Xác nhận duyệt yêu cầu") : t("Xác nhận từ chối yêu cầu")}
                         </AlertDialogTitle>
                         <AlertDialogDescription className="text-bo-muted">
-                            Bạn có chắc chắn muốn <strong>{approvingId?.action === 'approve' ? 'duyệt' : 'từ chối'}</strong> yêu cầu nhập hàng <strong>#{approvingId?.id}</strong>?
+                            {t("Bạn có chắc chắn muốn")} <strong>{approvingId?.action === 'approve' ? t("duyệt") : t("từ chối")}</strong> {t("yêu cầu nhập hàng")} <strong>#{approvingId?.id}</strong>?
                             <br /><br />
                             {approvingId?.action === 'approve'
-                                ? 'Sau khi duyệt, có thể gửi báo giá đến nhà cung cấp để tạo đơn báo giá tương ứng.'
-                                : 'Hành động từ chối yêu cầu này không thể hoàn tác.'
+                                ? t("Sau khi duyệt, có thể gửi báo giá đến nhà cung cấp để tạo đơn báo giá tương ứng.")
+                                : t("Hành động từ chối yêu cầu này không thể hoàn tác.")
                             }
                         </AlertDialogDescription>
                     </AlertDialogHeader>
@@ -617,7 +618,7 @@ export default function PurchaseRequestList() {
                             onClick={() => setApprovingId(null)}
                             className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                         >
-                            Hủy
+                            {t("Hủy")}
                         </AlertDialogCancel>
                         <AlertDialogAction
                             onClick={() => handleApprove(approvingId.id, approvingId?.action === 'approve' ? 2 : 4)}
@@ -625,7 +626,7 @@ export default function PurchaseRequestList() {
                             className={approvingId?.action === 'approve' ? 'bg-bo-success text-white hover:bg-bo-success/90' : 'bg-bo-danger text-white hover:bg-bo-danger/90'}
                         >
                             {submitting ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                            {approvingId?.action === 'approve' ? 'Duyệt yêu cầu' : 'Từ chối yêu cầu'}
+                            {approvingId?.action === 'approve' ? t("Duyệt yêu cầu") : t("Từ chối yêu cầu")}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

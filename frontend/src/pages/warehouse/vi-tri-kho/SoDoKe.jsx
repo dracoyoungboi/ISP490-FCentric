@@ -14,6 +14,7 @@ import { viTriKhoService } from "@/services/viTriKhoService";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { NhomChon } from "./KhungHop";
 import { NUT_CHINH, NUT_PHU, dinhDangSo } from "./kieuNhap";
+import { t } from "@/i18n";
 
 /**
  * Sơ đồ kệ của một khu: mỗi dãy là một khung, mỗi cột là một hàng kệ, tầng cao nhất ở trên.
@@ -44,7 +45,7 @@ export default function SoDoKe({
     <div className="flex flex-col gap-4">
       <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface px-3 py-2.5 shadow-sm sm:px-4">
         <NhomChon
-          nhan="Khu vực"
+          nhan={t("Khu vực")}
           value={khu.id}
           onChange={(id) => onChon({ khuId: id, viTriId: null })}
           luaChon={khuVucs.map((k) => ({ ma: k.id, ten: k.tenKhuVuc }))}
@@ -55,13 +56,13 @@ export default function SoDoKe({
       {!viTriKhu.length ? (
         <section className="rounded-lg border border-bo-border bg-bo-surface shadow-sm">
           <EmptyState
-            title={`${khu.tenKhuVuc} chưa có vị trí kệ`}
-            description="Thêm vị trí để thấy sơ đồ dãy, hàng và tầng của khu."
+            title={t("{{tenKhuVuc}} chưa có vị trí kệ", { tenKhuVuc: khu.tenKhuVuc })}
+            description={t("Thêm vị trí để thấy sơ đồ dãy, hàng và tầng của khu.")}
             action={
               coTheSua ? (
                 <Button onClick={() => onThemViTri(khu.id)} className={cn("gap-1.5", NUT_CHINH)}>
                   <Plus className="size-4" />
-                  Thêm vị trí kệ
+                  {t("Thêm vị trí kệ")}
                 </Button>
               ) : null
             }
@@ -74,17 +75,17 @@ export default function SoDoKe({
               <section key={day} className="rounded-lg border border-bo-border bg-bo-surface shadow-sm">
                 <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-bo-border px-4 py-3">
                   <h2 className="text-sm font-semibold text-bo-heading">
-                    Dãy {day} · {khu.tenKhuVuc}
+                    {t("Dãy {{day}} · {{tenKhuVuc}}", { day, tenKhuVuc: khu.tenKhuVuc })}
                   </h2>
                   <span className="text-xs text-bo-muted">
-                    {hangs.length} hàng × {tangs.length} tầng · tầng cao nhất ở trên
+                    {t("{{soHang}} hàng × {{soTang}} tầng · tầng cao nhất ở trên", { soHang: hangs.length, soTang: tangs.length })}
                   </span>
                 </div>
                 <div className="overflow-x-auto p-4">
                   <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${hangs.length}, minmax(116px, 1fr))` }}>
                     {hangs.map((hang) => (
                       <div key={hang} className="flex min-w-0 flex-col gap-1.5">
-                        <span className="text-center text-xs font-semibold text-bo-muted">Hàng {hang}</span>
+                        <span className="text-center text-xs font-semibold text-bo-muted">{t("Hàng {{hang}}", { hang })}</span>
                         {tangs.map((tang) => (
                           <OKe key={tang} viTri={tim(hang, tang)} chon={chon} onChon={(v) => onChon({ khuId: khu.id, viTriId: v.id })} />
                         ))}
@@ -126,7 +127,7 @@ function OKe({ viTri, chon, onChon }) {
       type="button"
       aria-pressed={dangChon}
       onClick={() => onChon(viTri)}
-      aria-label={`Vị trí ${viTri.maViTri}, ${baoTri ? "bảo trì" : `${viTri.dangChua ?? 0} trên ${viTri.sucChua ?? 0}`}`}
+      aria-label={t("Vị trí {{maViTri}}, {{tinhTrang}}", { maViTri: viTri.maViTri, tinhTrang: baoTri ? t("bảo trì") : t("{{dangChua}} trên {{sucChua}}", { dangChua: viTri.dangChua ?? 0, sucChua: viTri.sucChua ?? 0 }) })}
       className={cn(
         "flex h-[60px] min-w-0 flex-col justify-between gap-1.5 rounded-md border bg-bo-surface px-2.5 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30",
         baoTri ? "border-dashed border-slate-300 bg-bo-surface-subtle" : "border-bo-border hover:border-slate-400",
@@ -136,11 +137,11 @@ function OKe({ viTri, chon, onChon }) {
       <span className="flex min-w-0 items-baseline justify-between gap-2">
         <span className="truncate font-mono text-xs font-semibold text-bo-heading">{viTri.maViTri}</span>
         <span className="shrink-0 text-[11px] tabular-nums text-bo-muted">
-          {baoTri ? "Bảo trì" : `${dinhDangSo(viTri.dangChua)}/${dinhDangSo(viTri.sucChua)}`}
+          {baoTri ? t("Bảo trì") : `${dinhDangSo(viTri.dangChua)}/${dinhDangSo(viTri.sucChua)}`}
         </span>
       </span>
       {baoTri ? (
-        <span className="text-[11px] text-bo-muted">Không nhận hàng</span>
+        <span className="text-[11px] text-bo-muted">{t("Không nhận hàng")}</span>
       ) : (
         <ThanhMuc phanTram={muc * 100} tone={toneMucDay(muc)} />
       )}
@@ -162,11 +163,11 @@ function ChiTietViTri({ khoId, khu, viTri, coTheSua, onCapNhatViTri, onSuaViTri,
     setDangDoi(true);
     try {
       await onCapNhatViTri(viTri, { trangThai });
-      toast.success(baoTri ? `Đã mở lại ${viTri.maViTri}` : `Đã chuyển ${viTri.maViTri} sang bảo trì`, {
-        description: !baoTri && Number(viTri.dangChua) > 0 ? "Kệ ngừng nhận hàng mới; hàng đang có vẫn giữ nguyên." : undefined,
+      toast.success(baoTri ? t("Đã mở lại {{maViTri}}", { maViTri: viTri.maViTri }) : t("Đã chuyển {{maViTri}} sang bảo trì", { maViTri: viTri.maViTri }), {
+        description: !baoTri && Number(viTri.dangChua) > 0 ? t("Kệ ngừng nhận hàng mới; hàng đang có vẫn giữ nguyên.") : undefined,
       });
     } catch (err) {
-      toast.error(getApiErrorMessage(err, "Không đổi được trạng thái vị trí."));
+      toast.error(getApiErrorMessage(err, t("Không đổi được trạng thái vị trí.")));
     } finally {
       setDangDoi(false);
     }
@@ -180,12 +181,12 @@ function ChiTietViTri({ khoId, khu, viTri, coTheSua, onCapNhatViTri, onSuaViTri,
           <StatusBadge label={nhom.label} />
         </div>
         <p className="mt-0.5 text-xs text-bo-muted">
-          {khu.tenKhuVuc} · Dãy {viTri.day} · Hàng {viTri.hang} · Tầng {viTri.tang}
+          {t("{{tenKhuVuc}} · Dãy {{day}} · Hàng {{hang}} · Tầng {{tang}}", { tenKhuVuc: khu.tenKhuVuc, day: viTri.day, hang: viTri.hang, tang: viTri.tang })}
         </p>
       </div>
       <DaiO soO={2} phang className="border-b border-bo-border sm:grid-cols-2">
         <div className="flex flex-col gap-1.5 bg-bo-surface px-4 py-3">
-          <span className="text-xs font-medium text-bo-muted">Đang chứa</span>
+          <span className="text-xs font-medium text-bo-muted">{t("Đang chứa")}</span>
           <span className="text-lg font-semibold tabular-nums text-bo-heading">
             {dinhDangSo(viTri.dangChua)}
             <span className="text-sm font-normal text-bo-muted"> / {dinhDangSo(viTri.sucChua)}</span>
@@ -193,19 +194,19 @@ function ChiTietViTri({ khoId, khu, viTri, coTheSua, onCapNhatViTri, onSuaViTri,
           <ThanhMuc phanTram={muc * 100} tone={toneMucDay(muc)} />
         </div>
         <div className="flex flex-col gap-1.5 bg-bo-surface px-4 py-3">
-          <span className="text-xs font-medium text-bo-muted">Còn trống</span>
+          <span className="text-xs font-medium text-bo-muted">{t("Còn trống")}</span>
           <span className="text-lg font-semibold tabular-nums text-bo-heading">{baoTri ? "—" : dinhDangSo(conTrong)}</span>
-          <span className="text-xs text-bo-muted">{baoTri ? "Đang bảo trì" : "sản phẩm"}</span>
+          <span className="text-xs text-bo-muted">{baoTri ? t("Đang bảo trì") : t("sản phẩm")}</span>
         </div>
       </DaiO>
       <div className="flex min-h-[160px] flex-col gap-2 px-4 py-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-bo-muted">Lô trên kệ{lo.loading ? "" : ` · ${dsLo.length}`}</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-bo-muted">{t("Lô trên kệ")}{lo.loading ? "" : ` · ${dsLo.length}`}</p>
         {lo.initialLoading ? (
           <div className="flex flex-1 items-center justify-center text-bo-muted">
-            <Loader2 className="size-4 animate-spin" aria-label="Đang tải lô trên kệ" />
+            <Loader2 className="size-4 animate-spin" aria-label={t("Đang tải lô trên kệ")} />
           </div>
         ) : lo.error ? (
-          <p className="text-[13px] text-bo-danger">Không tải được lô trên kệ.</p>
+          <p className="text-[13px] text-bo-danger">{t("Không tải được lô trên kệ.")}</p>
         ) : dsLo.length ? (
           <ul className="divide-y divide-bo-border">
             {dsLo.map((l) => (
@@ -219,25 +220,25 @@ function ChiTietViTri({ khoId, khu, viTri, coTheSua, onCapNhatViTri, onSuaViTri,
             ))}
           </ul>
         ) : (
-          <p className="text-[13px] text-bo-muted">Kệ đang trống.</p>
+          <p className="text-[13px] text-bo-muted">{t("Kệ đang trống.")}</p>
         )}
       </div>
       <div className={cn("mt-auto grid gap-2 border-t border-bo-border bg-bo-surface-subtle p-3", coTheSua && "grid-cols-2")}>
         <Button variant="outline" onClick={() => onXemTrenMatBang({ viTriId: viTri.id })} className={cn("h-9 gap-1.5", NUT_PHU)}>
           <MapPin className="size-4" />
-          Trên mặt bằng
+          {t("Trên mặt bằng")}
         </Button>
         {coTheSua ? (
           <Button variant="outline" onClick={doiTrangThai} disabled={dangDoi} className={cn("h-9 gap-1.5", NUT_PHU)}>
             {dangDoi ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
-            {baoTri ? "Mở lại hoạt động" : "Chuyển sang bảo trì"}
+            {baoTri ? t("Mở lại hoạt động") : t("Chuyển sang bảo trì")}
           </Button>
         ) : null}
         {coTheSua ? (
           <>
             <Button variant="outline" onClick={() => onSuaViTri(viTri)} className={cn("h-9 gap-1.5", NUT_PHU)}>
               <Pencil className="size-4" />
-              Sửa vị trí
+              {t("Sửa vị trí")}
             </Button>
             <Button
               variant="outline"
@@ -245,15 +246,15 @@ function ChiTietViTri({ khoId, khu, viTri, coTheSua, onCapNhatViTri, onSuaViTri,
               disabled={Number(viTri.dangChua) > 0 || Number(viTri.choNhap) > 0 || Number(viTri.soLoChoNhap) > 0}
               title={
                 Number(viTri.dangChua) > 0
-                  ? "Kệ còn hàng, chuyển hàng đi trước khi xóa"
+                  ? t("Kệ còn hàng, chuyển hàng đi trước khi xóa")
                   : Number(viTri.choNhap) > 0 || Number(viTri.soLoChoNhap) > 0
-                    ? "Kệ đang gắn lô đã khóa của phiếu nhập chưa nhập kho"
+                    ? t("Kệ đang gắn lô đã khóa của phiếu nhập chưa nhập kho")
                     : undefined
               }
               className="h-9 gap-1.5 border-bo-border bg-bo-surface text-bo-danger hover:bg-bo-danger-soft hover:text-bo-danger"
             >
               <Trash2 className="size-4" />
-              Xóa vị trí
+              {t("Xóa vị trí")}
             </Button>
           </>
         ) : null}

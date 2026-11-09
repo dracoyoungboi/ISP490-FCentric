@@ -7,6 +7,7 @@
  * Kiểu đã chốt ngày 16/10/2026: "Đề xuất cho FCentric" trong bản demo các kiểu thông báo.
  */
 export const CAU_HINH_THONG_BAO_NHANH = Object.freeze({
+  // i18n-giu-nguyen: tên kiểu đã chốt, chỉ để ghi nhớ trong mã, không hiện ra màn hình
   kieu: "Đề xuất cho FCentric",
 
   /** Góc mặc định: dưới phải, không đè thanh tìm kiếm và các nút chính ở đầu trang. */

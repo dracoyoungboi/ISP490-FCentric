@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { dashboardService } from "@/services/dashboardService";
+import { t } from "@/i18n";
 
 /** Tự tải lại sau mỗi khoảng này khi trang đang hiện (backend giữ kết quả cùng 60 giây). */
 const CHU_KY_MS = 60_000;
@@ -31,7 +32,7 @@ export function useTongQuanVaiTro(vaiTro) {
         const res = await dashboardService.getCuaToi({ vaiTro, lamMoi }, { signal: ctrl.signal });
         if (ctrl.signal.aborted) return;
         const data = res.data?.data ?? null;
-        if (!data) throw new Error("Máy chủ không trả về số liệu tổng quan");
+        if (!data) throw new Error(t("Máy chủ không trả về số liệu tổng quan"));
         setState({ data, status: "ready", refreshing: false, loiCapNhat: false, error: null });
       } catch (error) {
         if (ctrl.signal.aborted) return;

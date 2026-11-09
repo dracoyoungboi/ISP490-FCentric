@@ -29,6 +29,7 @@ import { getMineKhoList } from "@/services/khoService";
 import { phieuXuatKhoService } from "@/services/phieuXuatKhoService";
 import { formatDate } from "@/utils/formatters";
 import { getCurrentUserId } from "@/utils/roles";
+import { t } from "@/i18n";
 
 const SEARCH_DEBOUNCE_MS = 350;
 
@@ -46,9 +47,9 @@ const trangThaiCuaTab = (ma) => PHIEU_XUAT_KHO_TABS.find((tab) => tab.ma === ma)
 // Loại phiếu trên URL ?loai= (đọc như ?trangThai=): "Việc cần xử lý" ở Tổng quan mở phiếu bán hàng Nháp / Chờ xuất
 // (?loai=ban-hang) để số dòng khớp số máy chủ đếm (chỉ phiếu loai_xuat = ban_hang). `loaiXuat` là giá trị gửi API.
 const LOAI_PHIEU = [
-    { value: "tat-ca", label: "Tất cả loại phiếu", loaiXuat: null },
-    { value: "ban-hang", label: "Xuất bán hàng", loaiXuat: "ban_hang" },
-    { value: "chuyen-kho", label: "Xuất chuyển kho", loaiXuat: "chuyen_kho" },
+    { value: "tat-ca", label: t("Tất cả loại phiếu"), loaiXuat: null },
+    { value: "ban-hang", label: t("Xuất bán hàng"), loaiXuat: "ban_hang" },
+    { value: "chuyen-kho", label: t("Xuất chuyển kho"), loaiXuat: "chuyen_kho" },
 ];
 const LOAI_MAS = LOAI_PHIEU.map((loai) => loai.value);
 const LOAI_MAC_DINH = "tat-ca";
@@ -279,18 +280,18 @@ export default function PhieuXuatKhoList() {
 
     // Số chỉ hiện khi đếm xong và danh sách không lỗi (R9); số 0 tự ẩn trong StatusTabs.
     // Lọc ngày chỉ áp dụng trong trang đang xem (API chưa nhận ngày) nên khi đang lọc ngày tab không hiện số.
-    const statusTabs = PHIEU_XUAT_KHO_TABS.map((t) => ({
-        value: t.ma,
-        label: t.label,
-        tone: TONE_TAB[t.ma],
-        count: loadError || filters.ngayXuat ? null : tabCounts.counts[t.ma],
+    const statusTabs = PHIEU_XUAT_KHO_TABS.map((muc) => ({
+        value: muc.ma,
+        label: t(muc.label),
+        tone: TONE_TAB[muc.ma],
+        count: loadError || filters.ngayXuat ? null : tabCounts.counts[muc.ma],
     }));
 
     // Phạm vi cho người chỉ xem kho của mình (R3): nhãn "Nơi làm việc" chung (ListPageHeader)
     const noiLamViec = !roles || roles.includes("quan_tri_vien") ? null : khoPhuTrach;
 
     const pendingCount = coQuyenXuatKho && tab !== TAB_CHO_XUAT ? choXuat.counts[TAB_CHO_XUAT] : null;
-    const emptyTabLabel = PHIEU_XUAT_KHO_TABS.find((t) => t.ma === tab)?.label;
+    const emptyTabLabel = t(PHIEU_XUAT_KHO_TABS.find((muc) => muc.ma === tab)?.label);
 
     return (
         <PageContainer fill className="space-y-4">
@@ -299,10 +300,10 @@ export default function PhieuXuatKhoList() {
 
             <AttentionBar
                 count={pendingCount}
-                actionLabel="Xem phiếu chờ xuất kho"
+                actionLabel={t("Xem phiếu chờ xuất kho")}
                 onAction={showPending}
             >
-                <strong className="font-semibold">{pendingCount?.toLocaleString("vi-VN")} phiếu</strong> đã đóng gói, đang chờ xuất kho.
+                <strong className="font-semibold">{t("{{so}} phiếu", { count: pendingCount, so: pendingCount?.toLocaleString("vi-VN") })}</strong> {t("đã đóng gói, đang chờ xuất kho.")}
             </AttentionBar>
 
             {/* ══ BẢNG: tab trạng thái + tìm kiếm + bộ lọc cùng một hàng ══ */}
@@ -312,7 +313,7 @@ export default function PhieuXuatKhoList() {
                     <ListToolbar
                         tabs={
                             <StatusTabs
-                                label="Lọc phiếu xuất kho theo trạng thái"
+                                label={t("Lọc phiếu xuất kho theo trạng thái")}
                                 tabs={statusTabs}
                                 value={tab}
                                 onChange={changeTab}
@@ -322,8 +323,8 @@ export default function PhieuXuatKhoList() {
                         onClear={clearFilters}
                     >
                         <SearchInput
-                            label="Tìm theo số phiếu hoặc mã tham chiếu"
-                            placeholder="Số phiếu xuất hoặc số đơn bán..."
+                            label={t("Tìm theo số phiếu hoặc mã tham chiếu")}
+                            placeholder={t("Số phiếu xuất hoặc số đơn bán...")}
                             value={keywordInput}
                             onChange={(e) => setKeywordInput(e.target.value)}
                             onClear={() => {
@@ -334,23 +335,23 @@ export default function PhieuXuatKhoList() {
                         />
 
                         <FilterSelect
-                            label="Loại phiếu xuất"
+                            label={t("Loại phiếu xuất")}
                             value={loai}
                             options={LOAI_PHIEU}
                             onChange={changeLoai}
                             onClear={() => changeLoai(LOAI_MAC_DINH)}
-                            clearLabel="Bỏ lọc loại phiếu"
+                            clearLabel={t("Bỏ lọc loại phiếu")}
                             className="sm:w-[180px]"
                         />
 
                         {isMobile ? (
                             <label className="flex h-9 w-full items-center gap-2 rounded-md border border-bo-border bg-bo-surface pl-3 pr-2 text-sm focus-within:border-bo-primary focus-within:ring-2 focus-within:ring-bo-primary/15">
                                 <Warehouse className="size-4 shrink-0 text-bo-muted" aria-hidden="true" />
-                                <span className="shrink-0 text-xs text-bo-muted">Kho xuất</span>
+                                <span className="shrink-0 text-xs text-bo-muted">{t("Kho xuất")}</span>
                                 <input
                                     type="text"
-                                    placeholder="Tên kho"
-                                    aria-label="Kho xuất"
+                                    placeholder={t("Tên kho")}
+                                    aria-label={t("Kho xuất")}
                                     value={tenKhoInput}
                                     onChange={(e) => setTenKhoInput(e.target.value)}
                                     className="h-8 min-w-0 flex-1 border-0 bg-transparent px-0 text-bo-foreground placeholder:text-bo-muted focus:outline-none"
@@ -359,8 +360,8 @@ export default function PhieuXuatKhoList() {
                         ) : (
                             <input
                                 type="text"
-                                placeholder="Nhập tên kho"
-                                aria-label="Kho xuất"
+                                placeholder={t("Nhập tên kho")}
+                                aria-label={t("Kho xuất")}
                                 value={tenKhoInput}
                                 onChange={(e) => setTenKhoInput(e.target.value)}
                                 className="h-9 w-full rounded-md border border-bo-border bg-bo-surface px-3 text-sm text-bo-foreground placeholder:text-bo-muted focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15 sm:w-[190px]"
@@ -370,10 +371,10 @@ export default function PhieuXuatKhoList() {
                         {/* Ngày xuất: nhãn nằm trong ô để hàng công cụ gọn một dòng */}
                         <label className="flex h-9 w-full items-center gap-2 rounded-md border border-bo-border bg-bo-surface pl-3 pr-2 text-sm focus-within:border-bo-primary focus-within:ring-2 focus-within:ring-bo-primary/15 sm:w-auto">
                             <Calendar className="size-4 shrink-0 text-bo-muted" />
-                            <span className="shrink-0 text-xs text-bo-muted">Ngày xuất</span>
+                            <span className="shrink-0 text-xs text-bo-muted">{t("Ngày xuất")}</span>
                             <Input
                                 type="date"
-                                aria-label="Ngày xuất"
+                                aria-label={t("Ngày xuất")}
                                 className="h-8 min-w-0 flex-1 border-0 bg-transparent px-0 text-sm text-bo-foreground shadow-none focus-visible:ring-0"
                                 value={filters.ngayXuat}
                                 onChange={(e) => setFilters((p) => ({ ...p, ngayXuat: e.target.value, page: 0 }))}
@@ -395,7 +396,7 @@ export default function PhieuXuatKhoList() {
                             extra={
                                 filters.ngayXuat ? (
                                     <span className="text-xs text-bo-muted">
-                                        Lọc ngày chỉ áp dụng cho trang đang xem
+                                        {t("Lọc ngày chỉ áp dụng cho trang đang xem")}
                                     </span>
                                 ) : null
                             }
@@ -404,10 +405,10 @@ export default function PhieuXuatKhoList() {
                 }
             >
                 {loading ? (
-                    <LoadingState rows={6} label="Đang tải danh sách phiếu xuất kho" />
+                    <LoadingState rows={6} label={t("Đang tải danh sách phiếu xuất kho")} />
                 ) : loadError ? (
                     <ErrorState
-                        description="Không thể tải danh sách phiếu xuất kho. Vui lòng thử lại."
+                        description={t("Không thể tải danh sách phiếu xuất kho. Vui lòng thử lại.")}
                         error={loadError}
                         onRetry={handleRetry}
                     />
@@ -415,11 +416,11 @@ export default function PhieuXuatKhoList() {
                     hasActiveFilters ? (
                         <EmptyState
                             icon={SearchX}
-                            title="Không tìm thấy phiếu xuất kho phù hợp"
+                            title={t("Không tìm thấy phiếu xuất kho phù hợp")}
                             description={
                                 filters.ngayXuat && total > 0
-                                    ? "Trang này không có phiếu của ngày đã chọn. Chuyển trang ở dưới để xem tiếp, hoặc đổi điều kiện lọc."
-                                    : "Thử đổi từ khóa, loại phiếu, tên kho hoặc ngày xuất."
+                                    ? t("Trang này không có phiếu của ngày đã chọn. Chuyển trang ở dưới để xem tiếp, hoặc đổi điều kiện lọc.")
+                                    : t("Thử đổi từ khóa, loại phiếu, tên kho hoặc ngày xuất.")
                             }
                             action={
                                 <Button
@@ -427,30 +428,30 @@ export default function PhieuXuatKhoList() {
                                     onClick={clearFilters}
                                     className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
-                                    Xóa lọc
+                                    {t("Xóa lọc")}
                                 </Button>
                             }
                         />
                     ) : tab !== TAB_MAC_DINH ? (
                         <EmptyState
                             icon={ClipboardList}
-                            title={`Không có phiếu xuất kho nào ở trạng thái "${emptyTabLabel}"`}
-                            description="Chọn tab Tất cả để xem mọi phiếu xuất kho."
+                            title={t("Không có phiếu xuất kho nào ở trạng thái \"{{emptyTabLabel}}\"", { emptyTabLabel })}
+                            description={t("Chọn tab Tất cả để xem mọi phiếu xuất kho.")}
                             action={
                                 <Button
                                     variant="outline"
                                     onClick={() => changeTab(TAB_MAC_DINH)}
                                     className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
-                                    Xem tất cả
+                                    {t("Xem tất cả")}
                                 </Button>
                             }
                         />
                     ) : (
                         <EmptyState
                             icon={ClipboardList}
-                            title="Chưa có phiếu xuất kho"
-                            description="Phiếu xuất bán hàng và phiếu xuất chuyển kho sẽ hiện ở đây khi được tạo."
+                            title={t("Chưa có phiếu xuất kho")}
+                            description={t("Phiếu xuất bán hàng và phiếu xuất chuyển kho sẽ hiện ở đây khi được tạo.")}
                         />
                     )
                 ) : (
@@ -469,13 +470,13 @@ export default function PhieuXuatKhoList() {
                                             {status ? <StatusBadge quyTrinh="phieuXuat" label={status.label} /> : null}
                                         </span>
                                         <span className="flex min-w-0 items-baseline gap-1.5 text-sm">
-                                            <span className="shrink-0 text-bo-muted">{isChuyenKho ? "Phiếu chuyển" : "Đơn bán"}</span>
+                                            <span className="shrink-0 text-bo-muted">{isChuyenKho ? t("Phiếu chuyển") : t("Đơn bán", { context: "loai" })}</span>
                                             <span className="min-w-0 truncate font-medium text-slate-700">{maThamChieu}</span>
                                         </span>
                                         <span className="flex items-baseline justify-between gap-3 text-[13px] text-bo-muted">
                                             <span className="min-w-0 truncate">{item.kho?.tenKho || "-"}</span>
                                             <span className="shrink-0 tabular-nums">
-                                                {item.ngayXuat ? `Xuất ${formatDate(item.ngayXuat)}` : `Tạo ${formatDate(item.ngayTao)}`}
+                                                {item.ngayXuat ? t("Xuất {{ngayXuat}}", { ngayXuat: formatDate(item.ngayXuat) }) : t("Tạo {{ngayTao}}", { ngayTao: formatDate(item.ngayTao) })}
                                             </span>
                                         </span>
                                     </Link>
@@ -488,25 +489,25 @@ export default function PhieuXuatKhoList() {
                         <thead className="sticky top-0 z-10">
                             <tr className="border-b border-bo-border bg-bo-surface-subtle">
                                 <th className="h-10 w-14 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">
-                                    STT
+                                    {t("STT")}
                                 </th>
                                 <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                    Số phiếu xuất
+                                    {t("Số phiếu xuất")}
                                 </th>
                                 <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                    Tham chiếu gốc
+                                    {t("Tham chiếu gốc")}
                                 </th>
                                 <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                    Kho xuất
+                                    {t("Kho xuất")}
                                 </th>
                                 <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">
-                                    Ngày tạo
+                                    {t("Ngày tạo")}
                                 </th>
                                 <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                    Ngày xuất
+                                    {t("Ngày xuất")}
                                 </th>
                                 <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                    Trạng thái
+                                    {t("Trạng thái")}
                                 </th>
                             </tr>
                         </thead>
@@ -528,7 +529,7 @@ export default function PhieuXuatKhoList() {
                                         </td>
                                         <td className="px-3 py-3 font-semibold text-bo-primary">
                                             {item.soPhieuXuat}
-                                            <div className="mt-0.5 hidden text-xs font-normal text-bo-muted cam-ung:max-lg:block">Tạo {formatDate(item.ngayTao)}</div>
+                                            <div className="mt-0.5 hidden text-xs font-normal text-bo-muted cam-ung:max-lg:block">{t("Tạo {{ngayTao}}", { ngayTao: formatDate(item.ngayTao) })}</div>
                                         </td>
                                         {/* Mã tham chiếu là chữ thường: không bấm được nên không tô màu liên kết */}
                                         <td className="whitespace-nowrap px-3 py-3 text-slate-700">
@@ -541,7 +542,7 @@ export default function PhieuXuatKhoList() {
                                             {formatDate(item.ngayTao)}
                                         </td>
                                         <td className="whitespace-nowrap px-3 py-3 text-xs text-bo-muted">
-                                            {item.ngayXuat ? formatDate(item.ngayXuat) : "Chưa xuất kho"}
+                                            {item.ngayXuat ? formatDate(item.ngayXuat) : t("Chưa xuất kho")}
                                         </td>
                                         <td className="px-3 py-3">
                                             {status ? (

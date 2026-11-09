@@ -5,6 +5,7 @@ import PhanTrangBang from "@/components/chung-tu/PhanTrangBang";
 import { soVN } from "@/components/chung-tu/bangChungTu";
 import { O_NHAP } from "@/components/chung-tu/kieuHopThoai";
 import { luoiNhap } from "./tinhTaoYeuCau";
+import { t } from "@/i18n";
 
 const MA_HEX = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
 
@@ -18,7 +19,7 @@ const MA_HEX = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
  */
 export default function LuoiNhapSoLuong({ sanPham, dong, onDoiO, onBoSanPham, phanTrang, khoa = false }) {
   return (
-    <section aria-label="Nhập số lượng theo lưới màu và kích cỡ" className="flex min-w-0 flex-1 flex-col border-t border-slate-100">
+    <section aria-label={t("Nhập số lượng theo lưới màu và kích cỡ")} className="flex min-w-0 flex-1 flex-col border-t border-slate-100">
       {sanPham.map(({ khoa: khoaSp, bienThe }) => {
         const dau = bienThe[0];
         const luoi = luoiNhap(bienThe, dong);
@@ -30,18 +31,18 @@ export default function LuoiNhapSoLuong({ sanPham, dong, onDoiO, onBoSanPham, ph
               <span className="min-w-0 flex-1">
                 <span className="line-clamp-2 font-medium leading-5 text-bo-foreground" title={dau?.tenSanPham}>{dau?.tenSanPham}</span>
                 <span className="block text-xs leading-4 text-bo-muted">
-                  {[dau?.maSanPham, `${soVN(soCo)}/${soVN(bienThe.length)} biến thể có số lượng`].filter(Boolean).join(" · ")}
+                  {[dau?.maSanPham, t("{{soCo}}/{{tong}} biến thể có số lượng", { count: bienThe.length, soCo: soVN(soCo), tong: soVN(bienThe.length) })].filter(Boolean).join(" · ")}
                 </span>
               </span>
               <span className="whitespace-nowrap text-[13px] text-bo-muted">
-                Cộng <b className="font-semibold tabular-nums text-bo-foreground">{soVN(luoi.cong)}</b>
+                {t("Cộng")} <b className="font-semibold tabular-nums text-bo-foreground">{soVN(luoi.cong)}</b>
               </span>
               {khoa ? null : (
                 <button
                   type="button"
                   onClick={() => onBoSanPham?.(khoaSp)}
-                  aria-label={`Bỏ ${dau?.tenSanPham} khỏi yêu cầu`}
-                  title="Bỏ cả sản phẩm"
+                  aria-label={t("Bỏ {{tenSanPham}} khỏi yêu cầu", { tenSanPham: dau?.tenSanPham })}
+                  title={t("Bỏ cả sản phẩm")}
                   className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-bo-danger-soft hover:text-bo-danger"
                 >
                   <Trash2 className="size-4" aria-hidden="true" />
@@ -50,12 +51,12 @@ export default function LuoiNhapSoLuong({ sanPham, dong, onDoiO, onBoSanPham, ph
             </div>
             <div className="mx-4 mt-3 overflow-x-auto rounded-md border border-slate-200 bg-bo-surface sm:ml-[72px] sm:mr-6">
               <table className="w-full min-w-max border-collapse text-[13px] tabular-nums">
-                <caption className="sr-only">Lưới màu và kích cỡ của {dau?.tenSanPham}</caption>
+                <caption className="sr-only">{t("Lưới màu và kích cỡ của {{tenSanPham}}", { tenSanPham: dau?.tenSanPham })}</caption>
                 <thead>
                   <tr className="border-b border-slate-200 bg-bo-surface-subtle text-xs text-bo-muted">
-                    <th scope="col" className="px-3 py-2 text-left font-medium">Màu \ Kích cỡ</th>
+                    <th scope="col" className="px-3 py-2 text-left font-medium">{t("Màu \\ Kích cỡ")}</th>
                     {luoi.cotKichCo.map((k) => <th key={k} scope="col" className="min-w-[84px] px-2.5 py-2 text-right font-medium">{k}</th>)}
-                    <th scope="col" className="px-3 py-2 text-right font-medium">Cộng</th>
+                    <th scope="col" className="px-3 py-2 text-right font-medium">{t("Cộng")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -84,16 +85,16 @@ export default function LuoiNhapSoLuong({ sanPham, dong, onDoiO, onBoSanPham, ph
                                 value={o.soLuong}
                                 disabled={khoa}
                                 onChange={(e) => onDoiO?.(o.bienThe.bienTheId, e.target.value)}
-                                aria-label={`Số lượng nhập ${dau?.tenSanPham}, màu ${h.tenMau}, cỡ ${o.kichCo}`}
-                                title={[o.bienThe.maSku, o.bienThe.soLuongDeXuat > 0 ? `đề xuất ${soVN(o.bienThe.soLuongDeXuat)}` : ""].filter(Boolean).join(" · ")}
+                                aria-label={t("Số lượng nhập {{tenSanPham}}, màu {{tenMau}}, cỡ {{kichCo}}", { tenSanPham: dau?.tenSanPham, tenMau: h.tenMau, kichCo: o.kichCo })}
+                                title={[o.bienThe.maSku, o.bienThe.soLuongDeXuat > 0 ? t("đề xuất {{soLuongDeXuat}}", { soLuongDeXuat: soVN(o.bienThe.soLuongDeXuat) }) : ""].filter(Boolean).join(" · ")}
                                 className={cn(O_NHAP, "ml-auto block h-8 w-16 px-2 text-right tabular-nums", o.soLuong === "" ? "bg-bo-surface-subtle/60" : "font-semibold")}
                               />
                               <span className={cn("mt-0.5 block text-[11px] leading-[14px]", o.bienThe.soLuongDeXuat > 0 ? "font-medium text-bo-warning" : "text-bo-muted")}>
-                                khả dụng {soVN(o.bienThe.khaDung)}
+                                {t("khả dụng {{khaDung}}", { khaDung: soVN(o.bienThe.khaDung) })}
                               </span>
                             </>
                           ) : (
-                            <span className="block py-1.5 text-slate-400" title="Sản phẩm không có màu, cỡ này">—</span>
+                            <span className="block py-1.5 text-slate-400" title={t("Sản phẩm không có màu, cỡ này")}>—</span>
                           )}
                         </td>
                       ))}
@@ -101,7 +102,7 @@ export default function LuoiNhapSoLuong({ sanPham, dong, onDoiO, onBoSanPham, ph
                     </tr>
                   ))}
                   <tr className="bg-bo-surface-subtle font-semibold">
-                    <th scope="row" className="px-3 py-2 text-left">Cộng</th>
+                    <th scope="row" className="px-3 py-2 text-left">{t("Cộng")}</th>
                     {luoi.congCot.map((c, i) => <td key={luoi.cotKichCo[i]} className="px-2.5 py-2 text-right">{c ? soVN(c) : "—"}</td>)}
                     <td className="px-3 py-2 text-right">{soVN(luoi.cong)}</td>
                   </tr>
@@ -112,8 +113,7 @@ export default function LuoiNhapSoLuong({ sanPham, dong, onDoiO, onBoSanPham, ph
         );
       })}
       <p className="px-4 py-3 text-xs leading-4 text-bo-muted sm:px-6">
-        Gõ số lượng vào ô, để trống hoặc 0 là không nhập biến thể đó. Chữ cam dưới ô: Kho tổng đang dưới ngưỡng. Ô “—”: sản
-        phẩm không có màu, cỡ này.
+        {t("Gõ số lượng vào ô, để trống hoặc 0 là không nhập biến thể đó. Chữ cam dưới ô: Kho tổng đang dưới ngưỡng. Ô “—”: sản phẩm không có màu, cỡ này.")}
       </p>
       {phanTrang ? <PhanTrangBang {...phanTrang} /> : null}
     </section>

@@ -51,6 +51,8 @@ import { KHO_LAM_VIEC_EVENT, getKhoLamViecId, laKhoLamViecHopLe, setKhoLamViecId
 import { ROLES, hasAnyRole } from "@/utils/roles";
 import { playScanBeep } from "@/utils/scanBeep";
 import { tinhCoMan } from "@/hooks/useCoMan";
+import { t } from "@/i18n";
+import { cauGocCuaLoi } from "@/i18n/cauGoc";
 
 // Phiếu xuất thuộc kho khác kho đang làm việc (DongGoiServiceImpl.kiemTraKho)
 const MAU_KHO_KHAC = /thuộc kho khác/i;
@@ -91,7 +93,7 @@ function ManDongGoi({ donId }) {
       const kho = ct?.data?.donBanHang?.khoXuat ?? null;
       if (kho?.id && kho.id !== getKhoLamViecId() && laKhoLamViecHopLe(kho)) {
         setKhoLamViecId(kho.id);
-        return { phien: await dongGoiService.layPhien(donId), doiKho: kho.tenKho || "kho của đơn" };
+        return { phien: await dongGoiService.layPhien(donId), doiKho: kho.tenKho || t("kho của đơn") };
       }
       error.khoCuaDon = kho;
       throw error;
@@ -165,12 +167,12 @@ function ManDongGoi({ donId }) {
       const duDong = dongVua && Number(dongVua.soLuongDaQuet) >= Number(dongVua.soLuongCan);
       setDongSang(res?.chiTietVuaQuetId ?? null);
       setLanQuet((n) => n + 1);
-      setPhanHoi({ ok: true, chu: res?.thongBao || cauDaQuet(soLuong, dongVua, ma), phu: duDong ? "Đủ dòng này" : "" });
+      setPhanHoi({ ok: true, chu: res?.thongBao || cauDaQuet(soLuong, dongVua, ma), phu: duDong ? t("Đủ dòng này") : "" });
     } catch (error) {
       if (daGoRef.current) return;
       const phienHuy = phienTuLoi(error);
       if (phienHuy) datPhien((cu) => (cu ? { ...cu, phien: phienHuy } : cu));
-      const cau = getApiErrorMessage(error, `Không ghi nhận được mã ${ma}`);
+      const cau = getApiErrorMessage(error, t("Không ghi nhận được mã {{ma}}", { ma }));
       setPhanHoi({ ok: false, chu: cau, phu: cauPhuPhanHoi(cau) });
       // Chỉ kêu khi KHÔNG cộng được: máy quét đã tự kêu khi đọc được mã
       playScanBeep(false);
@@ -198,27 +200,27 @@ function ManDongGoi({ donId }) {
     if (q.loading || (!q.error && q.data === undefined)) {
       return (
         <PageContainer className="flex min-h-full flex-col">
-          <KhungDangTai nhan="Đang tải phiên đóng gói" />
+          <KhungDangTai nhan={t("Đang tải phiên đóng gói")} />
         </PageContainer>
       );
     }
     const loi = q.error;
     const trangThaiLoi = getApiErrorStatus(loi);
     // Kho của đơn không có trong nơi làm việc được phân (đã thử tự chuyển mà không được)
-    const khoKhac = trangThaiLoi === 403 && (MAU_KHO_KHAC.test(getApiErrorMessage(loi, "")) || Boolean(loi?.khoCuaDon));
+    const khoKhac = trangThaiLoi === 403 && (MAU_KHO_KHAC.test(cauGocCuaLoi(loi)) || Boolean(loi?.khoCuaDon));
     if (khoKhac) {
       const tenKho = loi?.khoCuaDon?.tenKho;
       return (
         <PageContainer className="flex min-h-full flex-col">
           <KhungKhongThay
             icon={Warehouse}
-            tieuDe="Đơn thuộc kho khác"
+            tieuDe={t("Đơn thuộc kho khác")}
             moTa={
               tenKho
-                ? `Phiếu xuất của đơn này thuộc ${tenKho}, bạn không làm việc ở kho đó. Nhờ nhân viên ${tenKho.replace(/^Kho\s/, "kho ")} đóng gói, hoặc nhờ quản lý thêm kho này vào nơi làm việc của bạn.`
-                : "Phiếu xuất của đơn này thuộc kho bạn không làm việc. Nhờ nhân viên kho đó đóng gói, hoặc nhờ quản lý thêm kho này vào nơi làm việc của bạn."
+                ? t("Phiếu xuất của đơn này thuộc {{tenKho}}, bạn không làm việc ở kho đó. Nhờ nhân viên {{khoThuong}} đóng gói, hoặc nhờ quản lý thêm kho này vào nơi làm việc của bạn.", { tenKho, khoThuong: tenKho.replace(/^Kho\s/, "kho ") })
+                : t("Phiếu xuất của đơn này thuộc kho bạn không làm việc. Nhờ nhân viên kho đó đóng gói, hoặc nhờ quản lý thêm kho này vào nơi làm việc của bạn.")
             }
-            nhanNut="Về đơn bán hàng"
+            nhanNut={t("Về đơn bán hàng")}
             onNut={veDon}
           />
         </PageContainer>
@@ -230,9 +232,9 @@ function ManDongGoi({ donId }) {
         <PageContainer className="flex min-h-full flex-col">
           <KhungKhongThay
             icon={PackageX}
-            tieuDe="Chưa đóng gói được đơn này"
-            moTa={getApiErrorMessage(loi, "Đơn chưa có phiếu xuất kho để đóng gói.")}
-            nhanNut="Về đơn bán hàng"
+            tieuDe={t("Chưa đóng gói được đơn này")}
+            moTa={getApiErrorMessage(loi, t("Đơn chưa có phiếu xuất kho để đóng gói."))}
+            nhanNut={t("Về đơn bán hàng")}
             onNut={veDon}
           />
         </PageContainer>
@@ -242,7 +244,7 @@ function ManDongGoi({ donId }) {
       <PageContainer className="flex min-h-full flex-col">
         <KhungLoiChungTu
           loi={loi}
-          tenChungTu="đơn bán hàng"
+          tenChungTu={t("đơn bán hàng")}
           onVeDanhSach={() => navigate("/sales-orders")}
           onThuLai={q.reload}
         />
@@ -273,7 +275,7 @@ function ManDongGoi({ donId }) {
   // ── Thao tác ────────────────────────────────────────────────────────────
   const quet = (ma, soLuong) => {
     if (!ma) {
-      setPhanHoi({ ok: false, chu: "Chưa có mã để ghi nhận", phu: "Quét mã vạch trên tem sản phẩm hoặc gõ SKU." });
+      setPhanHoi({ ok: false, chu: t("Chưa có mã để ghi nhận"), phu: t("Quét mã vạch trên tem sản phẩm hoặc gõ SKU.") });
       return;
     }
     enqueue({ ma, soLuong });
@@ -298,7 +300,7 @@ function ManDongGoi({ donId }) {
       setHop(false);
       datPhien((cu) => (cu ? { ...cu, phien: res } : cu));
       setPhanHoi(null);
-      toast.success(`Đã đóng gói xong đơn ${so}`, { description: `Phiếu xuất ${px} chờ xác nhận xuất kho` });
+      toast.success(t("Đã đóng gói xong đơn {{so}}", { so }), { description: t("Phiếu xuất {{px}} chờ xác nhận xuất kho", { px }) });
       qPl.reload();
     } catch (error) {
       if (laLoiHetThoiHan(error)) {
@@ -310,7 +312,7 @@ function ManDongGoi({ donId }) {
         return;
       }
       const phienHuy = phienTuLoi(error);
-      const cau = getApiErrorMessage(error, "Không hoàn tất được đóng gói");
+      const cau = getApiErrorMessage(error, t("Không hoàn tất được đóng gói"));
       if (phienHuy || getApiErrorStatus(error) === 409) {
         // Đơn / phiếu xuất vừa bị hủy hoặc đổi ở nơi khác: đóng hộp, hiện tình huống mới
         if (phienHuy) datPhien((cu) => (cu ? { ...cu, phien: phienHuy } : cu));
@@ -344,10 +346,10 @@ function ManDongGoi({ donId }) {
       th.suaDuoc
         ? {
           ma: "hoanTat",
-          nhan: "Hoàn tất đóng gói",
+          nhan: t("Hoàn tất đóng gói"),
           icon: PackageCheck,
           khoa: Boolean(lyDoKhoa) || dangChay,
-          lyDo: lyDoKhoa ? `Chưa hoàn tất được: ${lyDoKhoa}` : undefined,
+          lyDo: lyDoKhoa ? t("Chưa hoàn tất được: {{lyDoKhoa}}", { lyDoKhoa }) : undefined,
           onClick: () => {
             setLoiHop(null);
             setHop(true);
@@ -357,7 +359,7 @@ function ManDongGoi({ donId }) {
       th.xong && cung.tiep
         ? {
           ma: "tiep",
-          nhan: "Đơn tiếp theo",
+          nhan: t("Đơn tiếp theo"),
           kieu: "vien",
           icon: ArrowRight,
           dieuHuong: true,
@@ -365,7 +367,7 @@ function ManDongGoi({ donId }) {
         }
         : null,
       th.xong && !th.daXuat
-        ? { ma: "xuat", nhan: "Mở phiếu xuất để xuất kho", icon: Truck, dieuHuong: true, onClick: moPx }
+        ? { ma: "xuat", nhan: t("Mở phiếu xuất để xuất kho"), icon: Truck, dieuHuong: true, onClick: moPx }
         : null,
     ].filter(Boolean),
     choGoc,
@@ -376,26 +378,26 @@ function ManDongGoi({ donId }) {
       tinhHuong: th,
       hetHan,
       doiKho,
-      nhanTrangThaiDon: getDonBanHangStatus(phien.trangThaiDon).label,
+      nhanTrangThaiDon: t(getDonBanHangStatus(phien.trangThaiDon).label),
     }).map((n) => (
-      <DongThongBao key={n.ma} tone={n.tone} actions={n.moDon ? <NutChu onClick={veDon}>Mở đơn bán hàng</NutChu> : null}>
+      <DongThongBao key={n.ma} tone={n.tone} actions={n.moDon ? <NutChu onClick={veDon}>{t("Mở đơn bán hàng")}</NutChu> : null}>
         {n.chu}
       </DongThongBao>
     )),
     q.loiTaiLai ? (
-      <DongThongBao key="loi-tai-lai" tone="bad" actions={<NutChu onClick={taiLaiTatCa}>Thử lại</NutChu>}>
-        Không tải lại được phiên đóng gói: {getApiErrorMessage(q.error, "lỗi kết nối")}. Thông tin đang hiện có thể đã cũ.
+      <DongThongBao key="loi-tai-lai" tone="bad" actions={<NutChu onClick={taiLaiTatCa}>{t("Thử lại")}</NutChu>}>
+        {t("Không tải lại được phiên đóng gói: {{error}}. Thông tin đang hiện có thể đã cũ.", { error: getApiErrorMessage(q.error, t("lỗi kết nối")) })}
       </DongThongBao>
     ) : null,
   ].filter(Boolean);
 
   const buoc = buocDongGoi({ tinhHuong: th, tienDo, duBangChung, chuBangChung: chuBc, hetHan });
   const lyDoKhoaXoa = th.xong
-    ? "Phiếu xuất đã hoàn tất đóng gói, không thể xóa bằng chứng"
+    ? t("Phiếu xuất đã hoàn tất đóng gói, không thể xóa bằng chứng")
     : th.donHuy
-      ? "Đơn đã hủy, không thể xóa bằng chứng"
+      ? t("Đơn đã hủy, không thể xóa bằng chứng")
       : th.pxHuy
-        ? "Phiếu xuất đã hủy, không thể xóa bằng chứng"
+        ? t("Phiếu xuất đã hủy, không thể xóa bằng chứng")
         : "";
 
   return (
@@ -406,24 +408,24 @@ function ManDongGoi({ donId }) {
             ma={so}
             trangThai={{ label: getDonBanHangStatus(phien.trangThaiDon).label, quyTrinh: "donBan" }}
             dongPhu={[
-              "Đóng gói",
-              px ? <span key="px">phiếu xuất <span className="tabular-nums">{px}</span></span> : null,
-              <b key="dong" className="font-semibold text-bo-foreground">{soVN(dong.length)} dòng</b>,
-              <b key="sl" className="font-semibold text-bo-foreground">tổng số lượng {soVN(tienDo.can)}</b>,
+              t("Đóng gói"),
+              px ? <span key="px">{t("phiếu xuất")} <span className="tabular-nums">{px}</span></span> : null,
+              <b key="dong" className="font-semibold text-bo-foreground">{t("{{so}} dòng", { count: dong.length, so: soVN(dong.length) })}</b>,
+              <b key="sl" className="font-semibold text-bo-foreground">{t("tổng số lượng {{so}}", { so: soVN(tienDo.can) })}</b>,
             ]}
             onQuayLai={veDon}
-            nhanQuayLai="Về đơn bán hàng"
+            nhanQuayLai={t("Về đơn bán hàng")}
             menu={[
-              pxId ? { ma: "moPx", nhan: `Mở phiếu xuất ${px}`, icon: FileText, onSelect: moPx } : null,
-              pxId ? { ma: "inPx", nhan: "In phiếu xuất", icon: Printer, onSelect: () => xinRoiTrang(() => navigate(`/goods-issues/${pxId}/print`)) } : null,
+              pxId ? { ma: "moPx", nhan: t("Mở phiếu xuất {{px}}", { px }), icon: FileText, onSelect: moPx } : null,
+              pxId ? { ma: "inPx", nhan: t("In phiếu xuất"), icon: Printer, onSelect: () => xinRoiTrang(() => navigate(`/goods-issues/${pxId}/print`)) } : null,
               laDonSan && pxId
-                ? { ma: "inPackingSlip", nhan: "In vận đơn / phiếu đóng gói sàn (A6)", icon: Printer, onSelect: () => xinRoiTrang(() => navigate(`/goods-issues/${pxId}/print-packing-slip`)) }
+                ? { ma: "inPackingSlip", nhan: t("In vận đơn / phiếu đóng gói sàn (A6)"), icon: Printer, onSelect: () => xinRoiTrang(() => navigate(`/goods-issues/${pxId}/print-packing-slip`)) }
                 : null,
             ].filter(Boolean)}
             nutChinh={nutChinh}
           />
         }
-        tienTrinh={<TienTrinhChungTu buoc={buoc} nhan="Các bước đóng gói" />}
+        tienTrinh={<TienTrinhChungTu buoc={buoc} nhan={t("Các bước đóng gói")} />}
         thongBao={thongBao.length ? thongBao : null}
         chinh={
           <>
@@ -450,7 +452,7 @@ function ManDongGoi({ donId }) {
               lyDoKhoaXoa={lyDoKhoaXoa}
               hetHan={hetHan}
               onRefresh={taiLaiTatCa}
-              loiYeuCau={qBc.error && !qBc.loading ? getApiErrorMessage(qBc.error, "lỗi kết nối") : null}
+              loiYeuCau={qBc.error && !qBc.loading ? getApiErrorMessage(qBc.error, t("lỗi kết nối")) : null}
               onThuLaiYeuCau={qBc.reload}
               // Điện thoại không trả tiêu điểm về ô quét: tránh cuộn về đầu trang và bật bàn phím ảo giữa lúc chụp ảnh. Máy tính
               // bảng (bàn đóng gói, thường có súng quét) vẫn trả về như máy tính để lần quét sau vào đúng ô
@@ -473,9 +475,9 @@ function ManDongGoi({ donId }) {
       <HopXacNhanChungTu
         mo={hop}
         onDoiMo={(mo) => !mo && setHop(false)}
-        tieuDe={`Hoàn tất đóng gói ${so}?`}
-        moTa={`Phiếu xuất ${px} chuyển sang Chờ xuất. Sau bước này không quét thêm và không xóa bằng chứng được nữa.`}
-        nhanXacNhan="Hoàn tất đóng gói"
+        tieuDe={t("Hoàn tất đóng gói {{so}}?", { so })}
+        moTa={t("Phiếu xuất {{px}} chuyển sang Chờ xuất. Sau bước này không quét thêm và không xóa bằng chứng được nữa.", { px })}
+        nhanXacNhan={t("Hoàn tất đóng gói")}
         iconXacNhan={PackageCheck}
         dangChay={dangChay}
         // Máy quét gửi Enter sau mỗi mã: tiêu điểm ở "Quay lại" để không bấm nhầm Hoàn tất; đóng hộp thì về ô quét
@@ -485,7 +487,7 @@ function ManDongGoi({ donId }) {
         onXacNhan={hoanTat}
       >
         <div className={GHI_CHU_HOP}>
-          Đã quét {soVN(tienDo.da)}/{soVN(tienDo.can)} sản phẩm · {chuBc}
+          {t("Đã quét {{da}}/{{can}} sản phẩm · {{chuBc}}", { count: Number(tienDo.can), da: soVN(tienDo.da), can: soVN(tienDo.can), chuBc })}
         </div>
       </HopXacNhanChungTu>
     </PageContainer>

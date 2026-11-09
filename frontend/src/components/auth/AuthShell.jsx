@@ -1,6 +1,7 @@
 import AuthImagePanel from './AuthImagePanel';
 import ChanTrangVanHanh from './ChanTrangVanHanh';
 import BrandLogo from '@/components/brand/BrandLogo';
+import { NutChonNgonNgu } from '@/components/shared/ChonNgonNgu';
 
 /**
  * Khung layout chung cho các màn hình xác thực:
@@ -19,6 +20,7 @@ export default function AuthShell({ children, slides }) {
 
             {/* grow: dưới lg cột cao hết màn hình để chân trang nằm ở đáy (lg hai cột đã đủ 50/50 nên không đổi) */}
             <div className="relative z-30 w-full grow lg:w-1/2 lg:h-full overflow-y-auto bg-bo-surface flex flex-col shadow-[-20px_0_40px_-15px_rgba(0,0,0,0.1)]">
+                <NutChonNgonNgu className="absolute right-4 top-4 sm:right-6 sm:top-6" />
                 {/* my-auto thay cho justify-center: không cắt phần đầu form khi nội dung dài hơn màn hình; dưới lg form
                     vẫn sát trên như cũ (mb-auto). lg:py-16: màn cao form vẫn ở chỗ cũ, màn thấp ~650px thì form Đăng nhập
                     + chân trang vừa một màn; form dài hơn (bước OTP, có lỗi) thì cuộn, chân trang nằm sau form */}

@@ -1,5 +1,8 @@
 package com.dev.backend.services.impl.ketoan;
 
+import com.dev.backend.i18n.LoiThamSoException;
+import com.dev.backend.i18n.ThongDiep;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
@@ -45,12 +48,12 @@ public final class TachThue {
      */
     public static Dong tach(BigDecimal soLuong, BigDecimal tienGomThue, BigDecimal giamGiaGomThue, BigDecimal thueSuat) {
         if (soLuong == null || soLuong.signum() <= 0) {
-            throw new IllegalArgumentException("Số lượng phải lớn hơn 0");
+            throw new LoiThamSoException(ThongDiep.of("keToanDuLieuVao.soLuongPhaiLonHon0"));
         }
         BigDecimal gop = dong(tienGomThue);
         BigDecimal giam = giamGiaGomThue == null ? BigDecimal.ZERO : dong(giamGiaGomThue);
         if (gop.signum() < 0 || giam.signum() < 0 || giam.compareTo(gop) > 0) {
-            throw new IllegalArgumentException("Tiền hoặc giảm giá không hợp lệ");
+            throw new LoiThamSoException(ThongDiep.of("keToanDuLieuVao.tienHoacGiamGiaSai"));
         }
         BigDecimal heSo = BigDecimal.ONE.add(thueSuat.divide(TRAM, 6, RoundingMode.HALF_UP));
         BigDecimal thanhTien = gop.divide(heSo, 0, RoundingMode.HALF_UP);

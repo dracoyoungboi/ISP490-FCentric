@@ -1,5 +1,6 @@
 package com.dev.backend.controller;
 
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.customizeanotation.RequireAuth;
 import com.dev.backend.dto.PosCatalogNhomDto;
@@ -166,7 +167,7 @@ public class PosController {
     ) {
         if (!checkoutEnabled) {
             throw new CommonException(
-                    "Chức năng thanh toán POS chưa được kích hoạt trên hệ thống",
+                    ThongDiep.of("banHang.posChuaKichHoat"),
                     HttpStatus.SERVICE_UNAVAILABLE,
                     null);
         }
@@ -180,7 +181,7 @@ public class PosController {
                 ResponseData.<PosCheckoutResponse>builder()
                         .status(200)
                         .data(posCheckoutService.checkout(request))
-                        .message("Thanh toán thành công")
+                        .message(ThongDiep.dich("banHang.thanhToanThanhCong"))
                         .error(null)
                         .build()
         );
@@ -216,7 +217,7 @@ public class PosController {
     )
     public ResponseEntity<ResponseData<PayosPaymentLinkDto>> createPayosLink(@RequestBody PosCheckoutCreating request) {
         if (!checkoutEnabled) {
-            throw new CommonException("Chức năng thanh toán POS chưa được kích hoạt trên hệ thống",
+            throw new CommonException(ThongDiep.of("banHang.posChuaKichHoat"),
                     HttpStatus.SERVICE_UNAVAILABLE, null);
         }
         if (request != null && request.getKhoId() == null) {
@@ -226,7 +227,7 @@ public class PosController {
             }
         }
         return ResponseEntity.ok(ResponseData.<PayosPaymentLinkDto>builder()
-                .status(200).data(posPayosService.createLink(request)).message("Đã tạo mã QR").error(null).build());
+                .status(200).data(posPayosService.createLink(request)).message(ThongDiep.dich("banHang.daTaoMaQr")).error(null).build());
     }
 
     /** Trạng thái giao dịch chuyển khoản (màn POS hỏi mỗi vài giây). PAID -> kèm kết quả đơn. */
@@ -255,7 +256,7 @@ public class PosController {
     )
     public ResponseEntity<ResponseData<PayosPaymentLinkDto>> cancelPayosLink(@PathVariable Long orderCode) {
         return ResponseEntity.ok(ResponseData.<PayosPaymentLinkDto>builder()
-                .status(200).data(posPayosService.cancel(orderCode)).message("Đã hủy mã QR").error(null).build());
+                .status(200).data(posPayosService.cancel(orderCode)).message(ThongDiep.dich("banHang.daHuyMaQr")).error(null).build());
     }
 
     /** Quầy xác nhận đã trả lại khách phần tiền mặt trả trước của mã QR không thành (hủy / hết hạn). */
@@ -269,7 +270,7 @@ public class PosController {
     )
     public ResponseEntity<ResponseData<PayosPaymentLinkDto>> traLaiTienMat(@PathVariable Long orderCode) {
         return ResponseEntity.ok(ResponseData.<PayosPaymentLinkDto>builder()
-                .status(200).data(posPayosService.traLaiTienMat(orderCode)).message("Đã ghi nhận trả lại tiền mặt")
+                .status(200).data(posPayosService.traLaiTienMat(orderCode)).message(ThongDiep.dich("banHang.daGhiNhanTraLaiTienMat"))
                 .error(null).build());
     }
 
@@ -309,7 +310,7 @@ public class PosController {
         String ghiChu = body == null ? null : body.get("ghiChu");
         return ResponseEntity.ok(ResponseData.<PosPayosGiaoDichDto>builder()
                 .status(200).data(posPayosService.createOrderFromPaidError(orderCode, ghiChu))
-                .message("Đã tạo đơn bán").error(null).build());
+                .message(ThongDiep.dich("banHang.daTaoDonBan")).error(null).build());
     }
 
     /** Giao dịch lỗi -> đã hoàn tiền cho khách (trả hàng giữ chỗ). Body: {"ghiChu": "..."} (bắt buộc). */
@@ -320,7 +321,7 @@ public class PosController {
         String ghiChu = body == null ? null : body.get("ghiChu");
         return ResponseEntity.ok(ResponseData.<PosPayosGiaoDichDto>builder()
                 .status(200).data(posPayosService.markRefunded(orderCode, ghiChu))
-                .message("Đã ghi nhận hoàn tiền").error(null).build());
+                .message(ThongDiep.dich("banHang.daGhiNhanHoanTien")).error(null).build());
     }
 
     /**
@@ -369,7 +370,7 @@ public class PosController {
                 ResponseData.<KhachHangDto>builder()
                         .status(200)
                         .data(khachHangService.quickCreateForPos(request))
-                        .message("Đã thêm khách hàng")
+                        .message(ThongDiep.dich("banHang.daThemKhachHang"))
                         .error(null)
                         .build()
         );

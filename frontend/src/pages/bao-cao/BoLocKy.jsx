@@ -9,6 +9,7 @@ import {
 import { FOCUS, MENU } from "@/pages/dashboard/admin/tong-quan-moi/boLoc";
 import { cn } from "@/lib/utils";
 import { loiKhoangNgay, ngayMay } from "./tinhBaoCaoDoanhThu";
+import { t } from "@/i18n";
 
 // Ô chọn kho, cách xem, kỳ dùng chung cho các báo cáo theo kỳ (Báo cáo doanh thu, Báo cáo nhập xuất).
 export const MUC = "flex cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2 text-[13px] text-slate-700 focus:bg-bo-surface-subtle focus:text-bo-foreground";
@@ -58,10 +59,10 @@ export function KhoangTuyChon({ khoang, onDoi }) {
   return (
     <div className="flex flex-col gap-1">
       <div className="flex flex-wrap items-center gap-1.5 text-sm">
-        <label className="sr-only" htmlFor="bc-tu-ngay">Từ ngày</label>
+        <label className="sr-only" htmlFor="bc-tu-ngay">{t("Từ ngày")}</label>
         <input aria-describedby={loi ? "bc-loi-ngay" : undefined} aria-invalid={loi ? true : undefined} className={O_NGAY} id="bc-tu-ngay" max={nhap.denNgay || homNay} min="2000-01-01" onChange={(e) => doi({ tuNgay: e.target.value })} type="date" value={nhap.tuNgay} />
         <span className="text-bo-muted" aria-hidden="true">–</span>
-        <label className="sr-only" htmlFor="bc-den-ngay">Đến ngày</label>
+        <label className="sr-only" htmlFor="bc-den-ngay">{t("Đến ngày")}</label>
         <input aria-describedby={loi ? "bc-loi-ngay" : undefined} aria-invalid={loi ? true : undefined} className={O_NGAY} id="bc-den-ngay" max={homNay} min={nhap.tuNgay || "2000-01-01"} onChange={(e) => doi({ denNgay: e.target.value })} type="date" value={nhap.denNgay} />
       </div>
       {loi ? <p className="text-xs text-bo-danger" id="bc-loi-ngay" role="alert">{loi}</p> : null}

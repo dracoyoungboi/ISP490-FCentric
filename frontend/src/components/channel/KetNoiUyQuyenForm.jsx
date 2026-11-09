@@ -20,6 +20,7 @@ import {
 } from "@/components/channel/ketNoiKenh";
 import { kenhBanHangService } from "@/services/kenhBanHangService";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 /** Sau khi gọi chuyển sang trang của sàn, giữ khóa nút chừng này rồi nhả (xem `chay`). */
 const THOI_GIAN_CHO_CHUYEN_TRANG_MS = 4000;
@@ -40,22 +41,22 @@ export function CacOKhoaUngDung({ maKenh, values, errors = {}, onChange, ketNoi,
   const khoa = disabled || chiDoc;
   const goiYSecret = chiDoc ? (
     <>
-      Đã lưu và mã hóa.{" "}
+      {t("Đã lưu và mã hóa.")}{" "}
       {duongDanCauHinh ? (
         <Link
           to={duongDanCauHinh}
           className="rounded-sm font-medium text-bo-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 max-sm:-my-3 max-sm:inline-block max-sm:py-3"
         >
-          Đổi khóa ở trang Cấu hình
+          {t("Đổi khóa ở trang Cấu hình")}
         </Link>
       ) : (
-        "Đổi khóa ở trang Cấu hình."
+        t("Đổi khóa ở trang Cấu hình.")
       )}
     </>
   ) : ketNoi?.hasAppSecret ? (
-    "Đang dùng khóa đã lưu. Để trống nếu không đổi."
+    t("Đang dùng khóa đã lưu. Để trống nếu không đổi.")
   ) : (
-    "Chỉ cần nhập lần đầu, hệ thống mã hóa khi lưu."
+    t("Chỉ cần nhập lần đầu, hệ thống mã hóa khi lưu.")
   );
   return (
     // Khung đủ rộng (thẻ ở trang Thiết lập) thì các ô một hàng; trong hộp thoại hẹp thì xếp dọc
@@ -109,7 +110,7 @@ export function CacOKhoaUngDung({ maKenh, values, errors = {}, onChange, ketNoi,
               className={cn(INPUT_CLASS, "font-mono", chiDoc && O_CHI_DOC, errors.serviceId && O_LOI)}
             />
             <p id={`${id}-service-id-goi-y`} className={cn("mt-1 text-xs", errors.serviceId ? "text-bo-danger" : "text-bo-muted")}>
-              {errors.serviceId || "Dùng để tạo đường dẫn ủy quyền."}
+              {errors.serviceId || t("Dùng để tạo đường dẫn ủy quyền.")}
             </p>
           </div>
         ) : null}
@@ -124,12 +125,12 @@ function NhapMaThuCong({ maThuCong, onDoiMa, loiMa, khoa, dangChay, onKetNoi }) 
   return (
     <Collapsible>
       <CollapsibleTrigger className="group inline-flex items-center gap-1 rounded-md text-left text-[13px] font-medium text-bo-primary outline-none hover:text-bo-primary-hover focus-visible:ring-2 focus-visible:ring-bo-primary/30 max-sm:min-h-11">
-        Nhập mã ủy quyền thủ công (tài khoản thử của Sandbox)
+        {t("Nhập mã ủy quyền thủ công (tài khoản thử của Sandbox)")}
         <ChevronDown className="size-4 transition-transform group-data-[state=open]:rotate-180" />
       </CollapsibleTrigger>
       <CollapsibleContent className="mt-3 space-y-1.5">
         <label htmlFor={idMa} className="block text-sm font-medium text-bo-foreground">
-          Mã ủy quyền
+          {t("Mã ủy quyền")}
         </label>
         <div className="flex flex-wrap items-start gap-2">
           <input
@@ -137,7 +138,7 @@ function NhapMaThuCong({ maThuCong, onDoiMa, loiMa, khoa, dangChay, onKetNoi }) 
             value={maThuCong}
             disabled={khoa}
             onChange={(event) => onDoiMa(event.target.value)}
-            placeholder="Dán mã ủy quyền"
+            placeholder={t("Dán mã ủy quyền")}
             spellCheck={false}
             autoComplete="off"
             aria-invalid={Boolean(loiMa)}
@@ -152,7 +153,7 @@ function NhapMaThuCong({ maThuCong, onDoiMa, loiMa, khoa, dangChay, onKetNoi }) 
             className="h-10 gap-2 rounded-lg border-bo-border bg-bo-surface px-3.5 text-bo-foreground hover:bg-bo-surface-subtle max-sm:h-11"
           >
             {dangChay ? <Loader2 className="size-4 animate-spin" /> : null}
-            Kết nối bằng mã
+            {t("Kết nối bằng mã")}
           </Button>
           <Button
             type="button"
@@ -161,12 +162,12 @@ function NhapMaThuCong({ maThuCong, onDoiMa, loiMa, khoa, dangChay, onKetNoi }) 
             onClick={() => onDoiMa("SANDBOX_TTS_TOKEN")}
             className="h-10 text-xs text-bo-primary hover:bg-bo-surface-subtle"
           >
-            Điền mã Sandbox mẫu
+            {t("Điền mã Sandbox mẫu")}
           </Button>
         </div>
         <p id={`${idMa}-goi-y`} className={cn("text-xs", loiMa ? "text-bo-danger" : "text-bo-muted")}>
           {/* Nguồn mã để ở gợi ý (ô nhập hẹp trên điện thoại cắt mất placeholder dài) */}
-          {loiMa || "Lấy ở Partner Center › Sandbox hoặc dùng mã thử nghiệm SANDBOX_TTS_TOKEN để kích hoạt kết nối ngay lập tức."}
+          {loiMa || t("Lấy ở Partner Center › Sandbox hoặc dùng mã thử nghiệm SANDBOX_TTS_TOKEN để kích hoạt kết nối ngay lập tức.")}
         </p>
       </CollapsibleContent>
     </Collapsible>
@@ -278,7 +279,7 @@ export default function KetNoiUyQuyenForm({ san, ketNoi, quayVeThietLap = false,
         await moTrangUyQuyen(san, { uyQuyenLai: daUyQuyen && !quayVeThietLap });
         return true;
       } catch (error) {
-        setKetQua({ title: "Chưa mở được trang ủy quyền", message: cauLoiUyQuyen(error, `Không mở được trang ủy quyền của ${san.ten}`) });
+        setKetQua({ title: t("Chưa mở được trang ủy quyền"), message: cauLoiUyQuyen(error, t("Không mở được trang ủy quyền của {{ten}}", { ten: san.ten })) });
         return false;
       }
     });
@@ -287,7 +288,7 @@ export default function KetNoiUyQuyenForm({ san, ketNoi, quayVeThietLap = false,
   const ketNoiBangMa = () => {
     if (dangChayRef.current) return;
     if (!maThuCong.trim()) {
-      setLoiMa("Dán mã ủy quyền trước khi kết nối.");
+      setLoiMa(t("Dán mã ủy quyền trước khi kết nối."));
       return;
     }
     if (!khoaHopLe({ canServiceId: false })) return;
@@ -296,11 +297,11 @@ export default function KetNoiUyQuyenForm({ san, ketNoi, quayVeThietLap = false,
       try {
         await luuKhoaNeuCan();
         const dto = await kenhBanHangService.hoanTatUyQuyen(san.maKenh, { code: maThuCong.trim(), state: null });
-        toast.success(`Đã kết nối gian hàng ${dto?.tenGianHang || san.ten}`);
+        toast.success(t("Đã kết nối gian hàng {{tenGianHang}}", { tenGianHang: dto?.tenGianHang || san.ten }));
         setMaThuCong("");
         onKetNoi(dto);
       } catch (error) {
-        setKetQua({ title: "Chưa kết nối được", message: cauLoiUyQuyen(error, `Không kết nối được ${san.ten} bằng mã này`) });
+        setKetQua({ title: t("Chưa kết nối được"), message: cauLoiUyQuyen(error, t("Không kết nối được {{ten}} bằng mã này", { ten: san.ten })) });
       }
       return false;
     });
@@ -329,10 +330,10 @@ export default function KetNoiUyQuyenForm({ san, ketNoi, quayVeThietLap = false,
         <div className="rounded-lg border border-amber-200 bg-amber-50/80 p-3.5 text-xs text-amber-900">
           <div className="flex items-center gap-1.5 font-semibold text-amber-950">
             <span className="size-2 rounded-full bg-amber-500" />
-            Lưu ý môi trường Lazada Sandbox
+            {t("Lưu ý môi trường Lazada Sandbox")}
           </div>
           <p className="mt-1 leading-relaxed text-amber-800">
-            Nhập App Key và App Secret từ <b>Lazada Open Platform › App Console (Sandbox)</b>. Khi bấm nút ủy quyền, hệ thống sẽ mở cổng SSO riêng của Lazada Sandbox để đăng nhập tài khoản người bán test.
+            {t("Nhập App Key và App Secret từ")} <b>Lazada Open Platform › App Console (Sandbox)</b>{t(". Khi bấm nút ủy quyền, hệ thống sẽ mở cổng SSO riêng của Lazada Sandbox để đăng nhập tài khoản người bán test.")}
           </p>
         </div>
       ) : null}
@@ -357,12 +358,12 @@ export default function KetNoiUyQuyenForm({ san, ketNoi, quayVeThietLap = false,
             )}
             {/* basis: màn hẹp thì nút xuống hàng dưới, chữ không bị ép thành cột hẹp */}
             <div className="min-w-0 flex-1 basis-56">
-              <p className="text-sm font-semibold text-bo-heading">{hetHan ? "Ủy quyền đã hết hạn" : "Đã ủy quyền"}</p>
+              <p className="text-sm font-semibold text-bo-heading">{hetHan ? t("Ủy quyền đã hết hạn") : t("Đã ủy quyền")}</p>
               <p className="text-[13px] text-bo-muted">
                 {[
                   ketNoi?.tenGianHang,
-                  ketNoi?.shopIdSan ? `${noiDung?.nhanIdSan ?? "Mã gian hàng"} ${ketNoi.shopIdSan}` : null,
-                  hetHan ? "bấm Ủy quyền lại để đồng bộ tiếp" : hanDen ? `ủy quyền đến ${hanDen}` : null,
+                  ketNoi?.shopIdSan ? `${noiDung?.nhanIdSan ?? t("Mã gian hàng")} ${ketNoi.shopIdSan}` : null,
+                  hetHan ? t("bấm Ủy quyền lại để đồng bộ tiếp") : hanDen ? t("ủy quyền đến {{hanDen}}", { hanDen }) : null,
                 ]
                   .filter(Boolean)
                   .join(" · ")}
@@ -379,7 +380,7 @@ export default function KetNoiUyQuyenForm({ san, ketNoi, quayVeThietLap = false,
               )}
             >
               {dangChay === "uy-quyen" ? <Loader2 className="size-4 animate-spin" /> : null}
-              {dangChay === "uy-quyen" ? `Đang mở trang ${san.ten}…` : "Ủy quyền lại"}
+              {dangChay === "uy-quyen" ? t("Đang mở trang {{ten}}…", { ten: san.ten }) : t("Ủy quyền lại")}
             </Button>
           </div>
           {/* Tài khoản thử hết hạn: dán mã mới ngay tại đây, không phải ngắt kết nối trước */}
@@ -388,10 +389,10 @@ export default function KetNoiUyQuyenForm({ san, ketNoi, quayVeThietLap = false,
       ) : (
         <div className="space-y-3 rounded-lg border border-dashed border-slate-300 bg-bo-surface-subtle p-4">
           {/* Cách ủy quyền đã nói ở mô tả thẻ; ở đây chỉ nhắc thứ tự */}
-          <p className="text-[13px] text-bo-foreground">Chưa ủy quyền. Nhập khóa ứng dụng ở trên trước khi bấm nút.</p>
+          <p className="text-[13px] text-bo-foreground">{t("Chưa ủy quyền. Nhập khóa ứng dụng ở trên trước khi bấm nút.")}</p>
           <Button type="button" disabled={khoa} onClick={uyQuyen} className="h-9 gap-2 rounded-lg bg-bo-primary px-4 text-white hover:bg-bo-primary-hover max-sm:h-11">
             {dangChay === "uy-quyen" ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />}
-            {dangChay === "uy-quyen" ? `Đang mở trang ${san.ten}…` : `Ủy quyền với ${san.ten}`}
+            {dangChay === "uy-quyen" ? t("Đang mở trang {{ten}}…", { ten: san.ten }) : t("Ủy quyền với {{ten}}", { ten: san.ten })}
           </Button>
           {oMaThuCong}
         </div>

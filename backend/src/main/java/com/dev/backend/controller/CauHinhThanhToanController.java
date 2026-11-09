@@ -1,5 +1,6 @@
 package com.dev.backend.controller;
 
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.customizeanotation.RequireAuth;
 import com.dev.backend.dto.request.PayosConfigUpdating;
@@ -32,7 +33,7 @@ public class CauHinhThanhToanController {
     @PutMapping
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
     public ResponseEntity<ResponseData<PayosConfigDto>> update(@RequestBody PayosConfigUpdating request) {
-        return ok(service.updatePayos(request), "Đã lưu cấu hình payOS");
+        return ok(service.updatePayos(request), ThongDiep.dich("banHang.daLuuCauHinhPayos"));
     }
 
     @PostMapping("/kiem-tra-ket-noi")
@@ -45,7 +46,7 @@ public class CauHinhThanhToanController {
     @PostMapping("/dang-ky-webhook")
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
     public ResponseEntity<ResponseData<PayosConfigDto>> confirmWebhook(@RequestBody(required = false) Map<String, String> body) {
-        return ok(service.confirmWebhook(body == null ? null : body.get("webhookUrl")), "payOS đã xác nhận webhook");
+        return ok(service.confirmWebhook(body == null ? null : body.get("webhookUrl")), ThongDiep.dich("banHang.payosDaXacNhanWebhook"));
     }
 
     private static <T> ResponseEntity<ResponseData<T>> ok(T data, String message) {

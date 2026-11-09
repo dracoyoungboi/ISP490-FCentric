@@ -3,6 +3,7 @@ import { AlertCircle, Info, Loader2 } from "lucide-react";
 import MauKichCo from "@/components/chung-tu/MauKichCo";
 import { cn } from "@/lib/utils";
 import { formatCurrency, formatNumber } from "@/utils/formatters";
+import { t } from "@/i18n";
 
 const pad2 = (n) => String(n).padStart(2, "0");
 
@@ -16,12 +17,12 @@ function ngayNgan(value) {
 /** Ô "Còn thiếu": còn thiếu (cam), đủ (xanh lá), hoặc nhận vượt số đặt (đỏ, dữ liệu bất thường). */
 function ConThieu({ conThieu, vuot }) {
   if (vuot > 0) {
-    return <span className="font-semibold text-bo-danger">Vượt {formatNumber(vuot)}</span>;
+    return <span className="font-semibold text-bo-danger">{t("Vượt {{vuot}}", { vuot: formatNumber(vuot) })}</span>;
   }
   if (conThieu > 0) {
     return <span className="font-semibold text-bo-warning">{formatNumber(conThieu)}</span>;
   }
-  return <span className="font-medium text-bo-success">Đủ</span>;
+  return <span className="font-medium text-bo-success">{t("Đủ")}</span>;
 }
 
 const O_DOT = "border-x border-slate-100 bg-bo-surface-subtle";
@@ -44,20 +45,20 @@ export default function BangDotNhan({ bang, tongTien, xemDot = true, dangTaiDot,
     <section aria-labelledby="bang-dot-nhan-title" className="flex min-w-0 flex-col">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-4 pb-3 pt-4 sm:px-6">
         <h2 id="bang-dot-nhan-title" className="text-base font-semibold leading-6 text-bo-foreground">
-          Sản phẩm và các đợt nhận
+          {t("Sản phẩm và các đợt nhận")}
         </h2>
         <span className="text-[13px] text-bo-muted">
           {!xemDot ? (
-            "Từng đợt nhận chỉ hiện với vai trò kho"
+            t("Từng đợt nhận chỉ hiện với vai trò kho")
           ) : dangTaiDot ? (
             <span className="inline-flex items-center gap-1.5">
               <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
-              Đang tải các đợt nhận
+              {t("Đang tải các đợt nhận")}
             </span>
           ) : coCot ? (
-            "Mỗi cột phiếu nhập là một đợt hàng về"
+            t("Mỗi cột phiếu nhập là một đợt hàng về")
           ) : loiDot != null ? null : (
-            "Chưa có đợt nhận nào"
+            t("Chưa có đợt nhận nào")
           )}
         </span>
       </div>
@@ -69,10 +70,10 @@ export default function BangDotNhan({ bang, tongTien, xemDot = true, dangTaiDot,
         >
           <span className="inline-flex items-center gap-2">
             <AlertCircle className="size-4 shrink-0" aria-hidden="true" />
-            Không tải được các đợt nhận{loiDot ? `: ${loiDot.replace(/\.$/, "")}` : ""}. Số đặt và còn thiếu bên dưới vẫn đúng.
+            {t("Không tải được các đợt nhận{{chiTiet}}. Số đặt và còn thiếu bên dưới vẫn đúng.", { chiTiet: loiDot ? `: ${loiDot.replace(/\.$/, "")}` : "" })}
           </span>
           <button type="button" onClick={onThuLai} className="font-medium underline underline-offset-2 hover:no-underline">
-            Thử lại
+            {t("Thử lại")}
           </button>
         </div>
       ) : null}
@@ -82,27 +83,27 @@ export default function BangDotNhan({ bang, tongTien, xemDot = true, dangTaiDot,
           <thead>
             <tr className="whitespace-nowrap border-b border-bo-border bg-bo-surface-subtle text-xs font-medium leading-4 text-bo-muted">
               <th scope="col" className={cn(COT_DINH, "bg-bo-surface-subtle py-2.5 pl-4 pr-3 text-left font-medium sm:pl-6")}>
-                Sản phẩm
+                {t("Sản phẩm")}
               </th>
-              <th scope="col" className="px-3 py-2.5 text-right font-medium">Đơn giá</th>
-              <th scope="col" className="px-3 py-2.5 text-right font-medium">Đặt</th>
+              <th scope="col" className="px-3 py-2.5 text-right font-medium">{t("Đơn giá")}</th>
+              <th scope="col" className="px-3 py-2.5 text-right font-medium">{t("Đặt")}</th>
               {cot.map((c) => (
                 <th
                   key={c.id}
                   scope="col"
                   className={cn("min-w-[104px] px-3 py-1.5 text-right font-medium", "border-x border-bo-border bg-slate-100")}
-                  title={c.choNhap ? "Phiếu đang chờ nhập kho: số dự kiến, chưa cộng vào số đã nhận" : c.nguoiNhap ? `Người nhập: ${c.nguoiNhap}` : undefined}
+                  title={c.choNhap ? t("Phiếu đang chờ nhập kho: số dự kiến, chưa cộng vào số đã nhận") : c.nguoiNhap ? t("Người nhập: {{nguoiNhap}}", { nguoiNhap: c.nguoiNhap }) : undefined}
                 >
                   <Link to={`/goods-receipts/${c.id}`} className="block font-semibold text-bo-primary hover:text-bo-primary-hover hover:underline">
                     {c.soPhieu}
                   </Link>
                   <span className={cn("tabular-nums", c.choNhap ? "italic" : "")}>
-                    {c.choNhap ? "chờ nhập" : ngayNgan(c.ngay) || "—"}
+                    {c.choNhap ? t("chờ nhập") : ngayNgan(c.ngay) || "—"}
                   </span>
                 </th>
               ))}
-              <th scope="col" className="px-3 py-2.5 text-right font-medium">Còn thiếu</th>
-              <th scope="col" className="py-2.5 pl-3 pr-4 text-right font-medium sm:pr-6">Thành tiền</th>
+              <th scope="col" className="px-3 py-2.5 text-right font-medium">{t("Còn thiếu")}</th>
+              <th scope="col" className="py-2.5 pl-3 pr-4 text-right font-medium sm:pr-6">{t("Thành tiền")}</th>
             </tr>
           </thead>
           <tbody>
@@ -138,7 +139,7 @@ export default function BangDotNhan({ bang, tongTien, xemDot = true, dangTaiDot,
             {dong.length === 0 ? (
               <tr>
                 <td colSpan={5 + cot.length} className="px-6 py-10 text-center text-sm text-bo-muted">
-                  Đơn mua hàng chưa có sản phẩm nào.
+                  {t("Đơn mua hàng chưa có sản phẩm nào.")}
                 </td>
               </tr>
             ) : null}
@@ -147,7 +148,7 @@ export default function BangDotNhan({ bang, tongTien, xemDot = true, dangTaiDot,
             <tfoot>
               <tr className="tabular-nums">
                 <th scope="row" className={cn(COT_DINH, "bg-bo-surface py-3.5 pl-4 pr-3 text-left font-semibold text-bo-foreground sm:pl-6")}>
-                  Tổng
+                  {t("Tổng")}
                 </th>
                 <td className="px-3 py-3.5" />
                 <td className="px-3 py-3.5 text-right font-semibold text-bo-foreground">{formatNumber(tong.dat)}</td>
@@ -170,7 +171,7 @@ export default function BangDotNhan({ bang, tongTien, xemDot = true, dangTaiDot,
 
       <p className="mt-auto flex items-center gap-2 border-t border-slate-100 px-4 py-3 text-[13px] leading-5 text-bo-muted sm:px-6">
         <Info className="size-3.5 shrink-0" aria-hidden="true" />
-        Kế toán thanh toán cho nhà cung cấp ngoài FCentric.
+        {t("Kế toán thanh toán cho nhà cung cấp ngoài FCentric.")}
       </p>
     </section>
   );

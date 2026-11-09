@@ -7,6 +7,7 @@ import com.dev.backend.exception.customize.MaLoi;
 import com.dev.backend.repository.ThongTinCongTyRepository;
 import com.dev.backend.utils.PublicAssetUrl;
 import com.dev.backend.utils.ThongTinCuaHangBatBuoc;
+import com.dev.backend.i18n.ThongDiep;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
@@ -46,10 +47,23 @@ public class ThongTinCuaHangMuaHang {
         List<String> thieu = oThieuDeGuiNhaCungCap();
         if (!thieu.isEmpty()) {
             throw new LoiCoMaException(HttpStatus.CONFLICT, MaLoi.THIEU_THONG_TIN_CUA_HANG,
-                    "Thông tin cửa hàng còn thiếu " + String.join(" và ", thieu)
-                            + ". Email gửi nhà cung cấp phải có tên đăng ký kinh doanh và địa chỉ đăng ký của cửa hàng.",
+                    cauThieu(thieu),
                     Map.of("thieu", List.copyOf(thieu)));
         }
+    }
+
+    /** "Thông tin cửa hàng còn thiếu A và B. ..." — tên ô dịch được; nối bằng " và " như câu cũ. */
+    private static ThongDiep cauThieu(List<String> thieu) {
+        List<Object> ten = thieu.stream().map(ThongTinCuaHangMuaHang::tenO).toList();
+        if (ten.size() == 1) return ThongDiep.of("sanPhamMuaHang.cuaHangThieuMotO", ten.get(0));
+        if (ten.size() == 2) return ThongDiep.of("sanPhamMuaHang.cuaHangThieuHaiO", ten.get(0), ten.get(1));
+        return ThongDiep.of("sanPhamMuaHang.cuaHangThieuMotO", String.join(" và ", thieu));
+    }
+
+    private static Object tenO(String o) {
+        if (ThongTinCuaHangBatBuoc.TEN_DANG_KY.equals(o)) return ThongDiep.of("sanPhamMuaHang.oTenDangKyKinhDoanh");
+        if (ThongTinCuaHangBatBuoc.DIA_CHI_DANG_KY.equals(o)) return ThongDiep.of("sanPhamMuaHang.oDiaChiDangKy");
+        return o;
     }
 
     /** Tên cửa hàng và logo (https) cho cổng nhà cung cấp. Chưa có hồ sơ: cả hai null, không dùng tên phần mềm. */

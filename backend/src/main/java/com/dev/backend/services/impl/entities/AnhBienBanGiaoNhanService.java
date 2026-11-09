@@ -27,6 +27,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import com.dev.backend.i18n.ThongDiep;
 
 /**
  * Ảnh chụp đính kèm biên bản giao nhận (BBGN) của phiếu chuyển kho — mockup B.4: ô "Ảnh chụp", "Thêm ảnh (không bắt
@@ -115,7 +116,7 @@ public class AnhBienBanGiaoNhanService {
                 "Ảnh biên bản", "ảnh JPEG, PNG hoặc WebP");
         String moTaGon = chuoiHoacNull(moTa);
         if (moTaGon != null && moTaGon.length() > MO_TA_TOI_DA) {
-            throw new CommonException("Mô tả ảnh tối đa " + MO_TA_TOI_DA + " ký tự");
+            throw new CommonException(ThongDiep.of("chungTuKho.moTaAnhToiDa", MO_TA_TOI_DA));
         }
 
         // 1. Chặn trước khi tải lên MinIO (không để tệp mồ côi khi chắc chắn bị từ chối); lúc lưu kiểm lại sau khi khóa.
@@ -136,7 +137,7 @@ public class AnhBienBanGiaoNhanService {
             url = minioService.getPublicUrl(objectName);
         } catch (Exception e) {
             log.error("Lỗi tải ảnh biên bản {} lên MinIO: {}", bienBanId, e.getMessage(), e);
-            throw new CommonException(HttpStatus.INTERNAL_SERVER_ERROR, "Không lưu được ảnh lên kho tệp, thử lại sau");
+            throw new CommonException(HttpStatus.INTERNAL_SERVER_ERROR, ThongDiep.of("chungTuKho.khongLuuDuocAnh"));
         }
 
         // 3. Lưu CSDL trong giao dịch thật. Bị chặn lúc lưu (vừa xử lý chênh lệch, đủ ảnh) hoặc lỗi CSDL: xóa tệp vừa tải
@@ -154,7 +155,7 @@ public class AnhBienBanGiaoNhanService {
         PhieuChuyenKho phieu = phieuCuaId(phieuId);
         kiemTraDuocThem(user, phieu);
         BienBanGiaoNhan bb = bienBanGiaoNhanRepository.khoaTheoId(bienBanId)
-                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy biên bản giao nhận id: " + bienBanId));
+                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("chungTuKho.bienBanGiaoNhanKhongTimThay", bienBanId)));
         // Đã giữ khóa dòng biên bản: đọc lại phương án, lần xác nhận của kho gửi và đếm ảnh theo dữ liệu mới nhất
         String phuongAn = bienBanGiaoNhanRepository.docPhuongAnXuLy(bienBanId);
         Instant daXacNhan = bienBanGiaoNhanRepository.docNgayXacNhanGui(bienBanId);
@@ -193,14 +194,14 @@ public class AnhBienBanGiaoNhanService {
         String tenLuuTru = giaoDich.execute(s -> {
             // Người kho khác dừng ở đây: chưa tìm biên bản / ảnh, chưa khóa dòng; câu 403 không nêu tên kho, số biên bản
             PhieuChuyenKho phieu = phieuCuaId(phieuId);
-            kiemTraThuocKhoNhan(user, phieu, "Chỉ người tải ảnh lên, quản lý kho nhận hoặc quản trị viên xóa được ảnh này");
+            kiemTraThuocKhoNhan(user, phieu, ThongDiep.of("chungTuKho.chiNguoiTaiQuanLyKhoNhanXoaAnh"));
             Integer bienBanId = bienBanCuaPhieu(phieuId).getId();
             BienBanGiaoNhan bb = bienBanGiaoNhanRepository.khoaTheoId(bienBanId)
-                    .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy biên bản giao nhận id: " + bienBanId));
+                    .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("chungTuKho.bienBanGiaoNhanKhongTimThay", bienBanId)));
             BienBanGiaoNhanAnh anh = anhRepository.findById(anhId)
                     .filter(a -> a.getBienBan() != null && bienBanId.equals(a.getBienBan().getId()))
                     .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND,
-                            "Không tìm thấy ảnh này trong biên bản " + bb.getSoBienBan() + ". Tải lại trang để xem ảnh hiện có."));
+                            ThongDiep.of("chungTuKho.khongTimThayAnhTrongBienBan", bb.getSoBienBan())));
             kiemTraDuocXoa(user, phieu, anh);
             kiemTraConSuaAnh(bb, bienBanGiaoNhanRepository.docPhuongAnXuLy(bienBanId),
                     bienBanGiaoNhanRepository.docNgayXacNhanGui(bienBanId));
@@ -283,19 +284,19 @@ public class AnhBienBanGiaoNhanService {
 
     private PhieuChuyenKho phieuCuaId(Integer phieuId) {
         return phieuChuyenKhoRepository.findById(phieuId)
-                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy phiếu chuyển kho id: " + phieuId));
+                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("chungTuKho.phieuChuyenKhongTimThay", phieuId)));
     }
 
     private BienBanGiaoNhan bienBanCuaPhieu(Integer phieuId) {
         return bienBanGiaoNhanRepository.findFirstByPhieuChuyenKho_IdOrderByIdDesc(phieuId)
-                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Phiếu chuyển chưa có biên bản giao nhận"));
+                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("chungTuKho.phieuChuyenChuaCoBienBan")));
     }
 
     /**
      * Người thuộc kho nhận (quản trị viên luôn được), đang chọn đúng kho nhận. Gọi TRƯỚC khi tìm biên bản / ảnh và trước
      * khi khóa dòng; {@code cauTuChoi} không nêu tên kho hay số biên bản (người kho khác có thể không xem được phiếu).
      */
-    private void kiemTraThuocKhoNhan(NguoiDungAuthInfo user, PhieuChuyenKho phieu, String cauTuChoi) {
+    private void kiemTraThuocKhoNhan(NguoiDungAuthInfo user, PhieuChuyenKho phieu, ThongDiep cauTuChoi) {
         if (!thuocKho(user, phieu.getKhoNhap())) {
             throw new CommonException(HttpStatus.FORBIDDEN, cauTuChoi);
         }
@@ -303,33 +304,35 @@ public class AnhBienBanGiaoNhanService {
     }
 
     private void kiemTraDuocThem(NguoiDungAuthInfo user, PhieuChuyenKho phieu) {
-        kiemTraThuocKhoNhan(user, phieu, "Chỉ người thuộc kho nhận của phiếu chuyển thêm được ảnh vào biên bản giao nhận");
+        kiemTraThuocKhoNhan(user, phieu, ThongDiep.of("chungTuKho.chiNguoiKhoNhanThemAnh"));
     }
 
     /** Sau {@link #kiemTraThuocKhoNhan}: người này thuộc kho nhận nên câu được nêu tên kho. */
     private void kiemTraDuocXoa(NguoiDungAuthInfo user, PhieuChuyenKho phieu, BienBanGiaoNhanAnh anh) {
         if (!coQuyenXoa(user, phieu, anh)) {
-            throw new CommonException(HttpStatus.FORBIDDEN,
-                    "Chỉ người tải ảnh lên, quản lý " + tenKho(phieu.getKhoNhap()) + " hoặc quản trị viên xóa được ảnh này");
+            Kho khoNhan = phieu.getKhoNhap();
+            throw new CommonException(HttpStatus.FORBIDDEN, khoNhan != null && khoNhan.getTenKho() != null
+                    ? ThongDiep.of("chungTuKho.chiNguoiTaiQuanLyKhoXoaAnh", khoNhan.getTenKho())
+                    : ThongDiep.of("chungTuKho.chiNguoiTaiQuanLyKhoNhanXoaAnh"));
         }
     }
 
     /** Ảnh còn thêm / xóa được: biên bản chưa xử lý chênh lệch và kho gửi chưa xác nhận ({@code ngayXacNhan} null). */
     private static void kiemTraConSuaAnh(BienBanGiaoNhan bb, String phuongAn, Instant ngayXacNhan) {
         if (!IChuyenKho.CHUA_XU_LY.equals(phuongAn)) {
-            throw new CommonException(HttpStatus.CONFLICT, "Biên bản " + bb.getSoBienBan()
-                    + " đã xử lý chênh lệch, ảnh chỉ xem được, không thêm hay xóa");
+            throw new CommonException(HttpStatus.CONFLICT,
+                    ThongDiep.of("chungTuKho.bienBanDaXuLyChenhLechAnhChiXem", bb.getSoBienBan()));
         }
         if (ngayXacNhan != null) {
-            throw new CommonException(HttpStatus.CONFLICT, "Kho gửi đã xác nhận biên bản " + bb.getSoBienBan()
-                    + ", ảnh chỉ xem được, không thêm hay xóa");
+            throw new CommonException(HttpStatus.CONFLICT,
+                    ThongDiep.of("chungTuKho.khoGuiDaXacNhanAnhChiXem", bb.getSoBienBan()));
         }
     }
 
     private void kiemTraConCho(BienBanGiaoNhan bb) {
         if (anhRepository.countByBienBan_Id(bb.getId()) >= SO_ANH_TOI_DA) {
-            throw new CommonException(HttpStatus.CONFLICT, "Biên bản " + bb.getSoBienBan() + " đã đủ " + SO_ANH_TOI_DA
-                    + " ảnh. Xóa bớt ảnh nếu cần thêm ảnh khác.");
+            throw new CommonException(HttpStatus.CONFLICT,
+                    ThongDiep.of("chungTuKho.bienBanDaDuAnh", bb.getSoBienBan(), SO_ANH_TOI_DA));
         }
     }
 
@@ -379,10 +382,6 @@ public class AnhBienBanGiaoNhanService {
         if (laQuanTri(user)) return true;
         return phanQuyenNguoiDungKhoRepository.findByNguoiDungIdAndActive(user.getId()).stream()
                 .anyMatch(pq -> pq.getKho() != null && kho.getId().equals(pq.getKho().getId()));
-    }
-
-    private static String tenKho(Kho kho) {
-        return kho != null && kho.getTenKho() != null ? kho.getTenKho() : "kho nhận";
     }
 
     private static String chuoiHoacNull(String s) {

@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import com.dev.backend.i18n.ThongDiep;
 
 @RestController
 @RequestMapping("/api/v1/kho/{khoId}")
@@ -46,7 +47,7 @@ public class ViTriKhoController {
                                                                 @RequestParam(required = false) Integer id) {
         return ResponseEntity.ok(ResponseData.<List<NhatKyDto>>builder()
                 .status(HttpStatus.OK.value())
-                .message("Thành công")
+                .message(ThongDiep.dich("chungTuKho.thanhCong"))
                 .data(nhatKyDocService.theoViTriKho(khoId, loai, id))
                 .build());
     }
@@ -63,7 +64,7 @@ public class ViTriKhoController {
         List<KhuVucKhoDto> list = viTriKhoService.dsKhuVuc(khoId);
         return ResponseEntity.ok(ResponseData.<List<KhuVucKhoDto>>builder()
                 .status(HttpStatus.OK.value())
-                .message("Thành công")
+                .message(ThongDiep.dich("chungTuKho.thanhCong"))
                 .data(list)
                 .build());
     }
@@ -79,7 +80,7 @@ public class ViTriKhoController {
         KhuVucKhoDto dto = viTriKhoService.taoKhuVuc(khoId, request);
         return ResponseEntity.ok(ResponseData.<KhuVucKhoDto>builder()
                 .status(HttpStatus.OK.value())
-                .message("Tạo khu vực thành công")
+                .message(ThongDiep.dich("chungTuKho.taoKhuVucThanhCong"))
                 .data(dto)
                 .build());
     }
@@ -96,7 +97,7 @@ public class ViTriKhoController {
         KhuVucKhoDto dto = viTriKhoService.suaKhuVuc(khoId, khuVucId, request);
         return ResponseEntity.ok(ResponseData.<KhuVucKhoDto>builder()
                 .status(HttpStatus.OK.value())
-                .message("Cập nhật khu vực thành công")
+                .message(ThongDiep.dich("chungTuKho.capNhatKhuVucThanhCong"))
                 .data(dto)
                 .build());
     }
@@ -112,7 +113,7 @@ public class ViTriKhoController {
         viTriKhoService.xoaKhuVuc(khoId, khuVucId);
         return ResponseEntity.ok(ResponseData.<String>builder()
                 .status(HttpStatus.OK.value())
-                .message("Xóa khu vực thành công")
+                .message(ThongDiep.dich("chungTuKho.xoaKhuVucThanhCong"))
                 .data("SUCCESS")
                 .build());
     }
@@ -135,7 +136,7 @@ public class ViTriKhoController {
 
         return ResponseEntity.ok(ResponseData.<List<ViTriKhoDto>>builder()
                 .status(HttpStatus.OK.value())
-                .message("Thành công")
+                .message(ThongDiep.dich("chungTuKho.thanhCong"))
                 .data(list)
                 .build());
     }
@@ -151,7 +152,7 @@ public class ViTriKhoController {
         List<ViTriKhoDto> list = viTriKhoService.taoViTri(khoId, request);
         return ResponseEntity.ok(ResponseData.<List<ViTriKhoDto>>builder()
                 .status(HttpStatus.OK.value())
-                .message("Tạo vị trí kệ thành công")
+                .message(ThongDiep.dich("chungTuKho.taoViTriKeThanhCong"))
                 .data(list)
                 .build());
     }
@@ -168,7 +169,7 @@ public class ViTriKhoController {
         ViTriKhoDto dto = viTriKhoService.suaViTri(khoId, viTriId, request);
         return ResponseEntity.ok(ResponseData.<ViTriKhoDto>builder()
                 .status(HttpStatus.OK.value())
-                .message("Cập nhật vị trí kệ thành công")
+                .message(ThongDiep.dich("chungTuKho.capNhatViTriKeThanhCong"))
                 .data(dto)
                 .build());
     }
@@ -184,7 +185,7 @@ public class ViTriKhoController {
         viTriKhoService.xoaViTri(khoId, viTriId);
         return ResponseEntity.ok(ResponseData.<String>builder()
                 .status(HttpStatus.OK.value())
-                .message("Xóa vị trí kệ thành công")
+                .message(ThongDiep.dich("chungTuKho.xoaViTriKeThanhCong"))
                 .data("SUCCESS")
                 .build());
     }
@@ -200,7 +201,7 @@ public class ViTriKhoController {
         List<LoTrenKeDto> list = viTriKhoService.loTrenKe(khoId, viTriId);
         return ResponseEntity.ok(ResponseData.<List<LoTrenKeDto>>builder()
                 .status(HttpStatus.OK.value())
-                .message("Thành công")
+                .message(ThongDiep.dich("chungTuKho.thanhCong"))
                 .data(list)
                 .build());
     }
@@ -217,7 +218,7 @@ public class ViTriKhoController {
         Map<String, Object> mb = viTriKhoService.layMatBang(khoId);
         return ResponseEntity.ok(ResponseData.<Map<String, Object>>builder()
                 .status(HttpStatus.OK.value())
-                .message("Thành công")
+                .message(ThongDiep.dich("chungTuKho.thanhCong"))
                 .data(mb)
                 .build());
     }
@@ -233,7 +234,7 @@ public class ViTriKhoController {
         Map<String, Object> saved = viTriKhoService.luuMatBang(khoId, matBang);
         return ResponseEntity.ok(ResponseData.<Map<String, Object>>builder()
                 .status(HttpStatus.OK.value())
-                .message("Lưu mặt bằng kho thành công")
+                .message(ThongDiep.dich("chungTuKho.luuMatBangKhoThanhCong"))
                 .data(saved)
                 .build());
     }

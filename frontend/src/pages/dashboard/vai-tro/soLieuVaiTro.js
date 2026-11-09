@@ -6,32 +6,33 @@
 // kho làm việc; trang có tham số kho (Yêu cầu nhập hàng, Đơn mua hàng, Báo cáo tồn kho) được truyền ?kho=.
 import { bienDong, docNgay, formatSo, formatTienNgan, gioPhut, tachTien } from "../admin/tong-quan/tongQuanFormat.js";
 import { duongDanKemThamSo } from "../../../utils/thamSoDuongDan.js";
+import { t } from "../../../i18n/t.js";
 
 const hai = (n) => String(n).padStart(2, "0");
-const THU_NGAN = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
-const TEN_THU = ["Chủ nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
+const THU_NGAN = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"].map((thu) => t(thu, { context: "thu" }));
+const TEN_THU = [t("Chủ nhật"), t("Thứ Hai"), t("Thứ Ba"), t("Thứ Tư"), t("Thứ Năm"), t("Thứ Sáu"), t("Thứ Bảy")];
 const MOT_NGAY = 864e5;
 
 /** Tên khối (khoiLoi của API) để báo "Chưa tải được: …". */
 export const TEN_KHOI = {
-  chiSo: "Số liệu chính",
-  tonKho: "Tồn kho",
-  nghiepVu: "Công việc trong kho",
-  viec: "Cần bạn xử lý",
-  nhapXuat: "Nhập và xuất kho",
-  boSung: "Cần bổ sung",
-  cuaBan: "Việc của bạn",
-  homNay: "Hôm nay của bạn",
-  viecChung: "Việc chung của kho",
-  sapVe: "Hàng sắp về",
-  quyTrinh: "Quy trình mua hàng",
-  lich: "Lịch hàng về",
-  nhaCungCap: "Nhà cung cấp",
-  canMua: "Cần mua thêm",
-  theoGio: "Doanh thu trong ngày",
-  don: "Đơn của bạn",
-  baoGia: "Báo giá",
-  banChay: "Bán chạy",
+  chiSo: t("Số liệu chính"),
+  tonKho: t("Tồn kho"),
+  nghiepVu: t("Công việc trong kho"),
+  viec: t("Cần bạn xử lý"),
+  nhapXuat: t("Nhập và xuất kho"),
+  boSung: t("Cần bổ sung"),
+  cuaBan: t("Việc của bạn"),
+  homNay: t("Hôm nay của bạn"),
+  viecChung: t("Việc chung của kho"),
+  sapVe: t("Hàng sắp về"),
+  quyTrinh: t("Quy trình mua hàng"),
+  lich: t("Lịch hàng về"),
+  nhaCungCap: t("Nhà cung cấp"),
+  canMua: t("Cần mua thêm"),
+  theoGio: t("Doanh thu trong ngày"),
+  don: t("Đơn của bạn"),
+  baoGia: t("Báo giá"),
+  banChay: t("Bán chạy"),
 };
 
 /* ============================== Ngày giờ ============================== */
@@ -54,7 +55,7 @@ export function ngayThangNgan(chuoi) {
 
 /** Nhãn một ngày trên dải 7 ngày: "Hôm nay" hoặc "T7 11/10". */
 export function nhanNgay(ngay, homNay) {
-  if (soNgayGiua(ngay, homNay) === 0) return "Hôm nay";
+  if (soNgayGiua(ngay, homNay) === 0) return t("Hôm nay");
   const d = docNgay(ngay);
   return d ? `${THU_NGAN[d.getDay()]} ${ngayThangNgan(ngay)}` : "";
 }
@@ -62,8 +63,8 @@ export function nhanNgay(ngay, homNay) {
 /** "Hôm nay", "Ngày mai", "Thứ Hai 19/10". */
 export function tenNgay(ngay, homNay) {
   const n = soNgayGiua(homNay, ngay);
-  if (n === 0) return "Hôm nay";
-  if (n === 1) return "Ngày mai";
+  if (n === 0) return t("Hôm nay");
+  if (n === 1) return t("Ngày mai");
   const d = docNgay(ngay);
   return d ? `${TEN_THU[d.getDay()]} ${ngayThangNgan(ngay)}` : "";
 }
@@ -73,7 +74,7 @@ export function thoiDiemNgan(chuoi, bayGio) {
   if (!chuoi) return "";
   const n = soNgayGiua(chuoi, bayGio);
   if (n <= 0) return gioPhutNgan(chuoi);
-  if (n === 1) return `hôm qua ${gioPhutNgan(chuoi)}`;
+  if (n === 1) return t("hôm qua {{chuoi}}", { chuoi: gioPhutNgan(chuoi) });
   return ngayThangNgan(chuoi);
 }
 
@@ -89,13 +90,13 @@ export function khoangCho(tu, bayGio) {
   const b = docNgay(bayGio);
   if (!a || !b) return "";
   const phut = Math.max(0, Math.floor((b - a) / 60000));
-  if (phut < 60) return `${phut} phút`;
+  if (phut < 60) return t("{{phut}} phút", { phut });
   if (phut < 24 * 60) {
     const gio = Math.floor(phut / 60);
     const du = phut % 60;
-    return du ? `${gio} giờ ${du} phút` : `${gio} giờ`;
+    return du ? t("{{gio}} giờ {{du}} phút", { gio, du }) : t("{{gio}} giờ", { gio });
   }
-  return `${Math.floor(phut / (24 * 60))} ngày`;
+  return t("{{count}} ngày", { count: Math.floor(phut / (24 * 60)) });
 }
 
 /* ============================== Số ============================== */
@@ -129,8 +130,8 @@ export const phanTram = (tu, mau) => (mau > 0 ? Math.round((tu / mau) * 100) : n
 export function bienDongDiem(pt, ptTruoc) {
   if (pt == null || ptTruoc == null) return null;
   const d = pt - ptTruoc;
-  if (d === 0) return { chu: "0 điểm", len: null, tot: null };
-  return { chu: `${Math.abs(d)} điểm`, len: d > 0, tot: d > 0 };
+  if (d === 0) return { chu: t("0 điểm"), len: null, tot: null };
+  return { chu: t("{{d}} điểm", { d: Math.abs(d), count: Math.abs(d) }), len: d > 0, tot: d > 0 };
 }
 
 /** "Trắng / M" từ màu và cỡ (bỏ phần trống). */
@@ -149,50 +150,50 @@ export function theSoQuanLyKho(d, kho, cauHinh, thoiDiem) {
   const the = [];
   if (cs) {
     if (!kho.laKhoTong && cs.doanhThu) {
-      const t = soTien(cs.doanhThu.homNay);
+      const tt = soTien(cs.doanhThu.homNay);
       the.push({
         key: "doanhThu",
-        ten: "Doanh thu hôm nay",
-        so: t.so,
-        donVi: t.donVi,
-        bd: bdSoVoi(cs.doanhThu.homNay, cs.doanhThu.cungGioTruoc, "so với cùng giờ tuần trước"),
-        phu: `${formatSo(cs.doanhThu.soChungTu)} đơn đã giao`,
+        ten: t("Doanh thu hôm nay"),
+        so: tt.so,
+        donVi: tt.donVi,
+        bd: bdSoVoi(cs.doanhThu.homNay, cs.doanhThu.cungGioTruoc, t("so với cùng giờ tuần trước")),
+        phu: t("{{soChungTu}} đơn đã giao", { soChungTu: formatSo(cs.doanhThu.soChungTu), count: cs.doanhThu.soChungTu }),
         xuHuong: duongXuHuong(cs.doanhThu.bayNgay, homNay, formatTienNgan),
         to: "/reports/revenue",
       });
     } else {
       the.push({
         key: "nhap",
-        ten: "Nhập kho hôm nay",
+        ten: t("Nhập kho hôm nay"),
         so: formatSo(cs.nhap.homNay),
-        donVi: "sản phẩm",
-        bd: bdSoVoi(cs.nhap.homNay, cs.nhap.cungGioTruoc, "so với cùng giờ hôm qua"),
-        phu: `${formatSo(cs.nhap.soChungTu)} phiếu đã nhập kho`,
-        xuHuong: duongXuHuong(cs.nhap.bayNgay, homNay, (v) => `${formatSo(v)} sản phẩm`),
+        donVi: t("sản phẩm"),
+        bd: bdSoVoi(cs.nhap.homNay, cs.nhap.cungGioTruoc, t("so với cùng giờ hôm qua")),
+        phu: t("{{soChungTu}} phiếu đã nhập kho", { soChungTu: formatSo(cs.nhap.soChungTu), count: cs.nhap.soChungTu }),
+        xuHuong: duongXuHuong(cs.nhap.bayNgay, homNay, (v) => t("{{soLuong}} sản phẩm", { soLuong: formatSo(v), count: v })),
         to: "/goods-receipts?trangThai=da-nhap-kho",
       });
     }
     the.push({
       key: "xuat",
-      ten: "Xuất kho hôm nay",
+      ten: t("Xuất kho hôm nay"),
       so: formatSo(cs.xuat.homNay),
-      donVi: "sản phẩm",
-      bd: bdSoVoi(cs.xuat.homNay, cs.xuat.cungGioTruoc, "so với cùng giờ hôm qua"),
-      phu: `${formatSo(cs.xuat.soChungTu)} phiếu đã xuất`,
-      xuHuong: duongXuHuong(cs.xuat.bayNgay, homNay, (v) => `${formatSo(v)} sản phẩm`),
+      donVi: t("sản phẩm"),
+      bd: bdSoVoi(cs.xuat.homNay, cs.xuat.cungGioTruoc, t("so với cùng giờ hôm qua")),
+      phu: t("{{soChungTu}} phiếu đã xuất", { soChungTu: formatSo(cs.xuat.soChungTu), count: cs.xuat.soChungTu }),
+      xuHuong: duongXuHuong(cs.xuat.bayNgay, homNay, (v) => t("{{soLuong}} sản phẩm", { soLuong: formatSo(v), count: v })),
       to: "/goods-issues?trangThai=da-xuat",
     });
     const dcx = cs.donChoXuat;
     the.push({
       key: "donChoXuat",
-      ten: "Đơn chưa xuất xong",
+      ten: t("Đơn chưa xuất xong"),
       so: formatSo(dcx.tong),
-      donVi: "đơn",
-      phu: dcx.tong ? null : "Không có đơn nào đang chờ",
+      donVi: t("đơn"),
+      phu: dcx.tong ? null : t("Không có đơn nào đang chờ"),
       chia: dcx.tong
         ? [
-            { nhan: `chờ quá ${cauHinh.gioChoLau} giờ`, so: dcx.choLau, vanDe: true },
-            { nhan: "trong hạn", so: dcx.tong - dcx.choLau },
+            { nhan: t("chờ quá {{gioChoLau}} giờ", { gioChoLau: cauHinh.gioChoLau }), so: dcx.choLau, vanDe: true },
+            { nhan: t("trong hạn"), so: dcx.tong - dcx.choLau },
           ]
         : null,
       to: "/sales-orders",
@@ -201,10 +202,10 @@ export function theSoQuanLyKho(d, kho, cauHinh, thoiDiem) {
   if (ton) {
     the.push({
       key: "tonKho",
-      ten: "Tồn khả dụng",
+      ten: t("Tồn khả dụng"),
       so: formatSo(ton.khaDung),
-      donVi: "sản phẩm",
-      phu: `Giá trị ${formatTienNgan(ton.giaTri)}`,
+      donVi: t("sản phẩm"),
+      phu: t("Giá trị {{tien}}", { tien: formatTienNgan(ton.giaTri) }),
       to: `/reports/inventory?kho=${kho.id}`,
     });
   }
@@ -235,39 +236,39 @@ export function oNghiepVu(nv, kho, cauHinh) {
   return [
     {
       key: "nhanHang",
-      ten: "Nhận hàng",
+      ten: t("Nhận hàng"),
       icon: "nhan",
       so: nv.nhanHang.phieuChoNhap,
-      nhanSo: "phiếu chờ nhập kho",
+      nhanSo: t("phiếu chờ nhập kho"),
       to: "/goods-receipts?trangThai=cho-nhap-kho",
       chip: [
-        ...chip(nv.nhanHang.dangVe > 0, { nhan: "Đơn mua đang về", so: nv.nhanHang.dangVe, to: `/purchase-orders?trangThai=dang-van-chuyen&kho=${kho.id}` }),
-        ...chip(nv.nhanHang.treHan > 0, { nhan: "Trễ hẹn", so: nv.nhanHang.treHan, kieu: "tre", to: `/purchase-orders?trangThai=dang-van-chuyen&kho=${kho.id}` }),
-        ...chip(nv.nhanHang.dangChuyenDen > 0, { nhan: "Đang chuyển đến", so: nv.nhanHang.dangChuyenDen, to: "/transfer-tickets?trangThai=dang-van-chuyen" }),
+        ...chip(nv.nhanHang.dangVe > 0, { nhan: t("Đơn mua đang về"), so: nv.nhanHang.dangVe, to: `/purchase-orders?trangThai=dang-van-chuyen&kho=${kho.id}` }),
+        ...chip(nv.nhanHang.treHan > 0, { nhan: t("Trễ hẹn"), so: nv.nhanHang.treHan, kieu: "tre", to: `/purchase-orders?trangThai=dang-van-chuyen&kho=${kho.id}` }),
+        ...chip(nv.nhanHang.dangChuyenDen > 0, { nhan: t("Đang chuyển đến"), so: nv.nhanHang.dangChuyenDen, to: "/transfer-tickets?trangThai=dang-van-chuyen" }),
       ],
-      tao: { to: "/goods-receipts/create", nhan: "Tạo phiếu nhập kho" },
+      tao: { to: "/goods-receipts/create", nhan: t("Tạo phiếu nhập kho") },
     },
     {
       key: "nhatHang",
-      ten: "Nhặt hàng",
+      ten: t("Nhặt hàng"),
       icon: "nhat",
       so: nv.nhatHang.choGomPhieu,
-      nhanSo: "đơn chờ tạo phiếu nhặt",
+      nhanSo: t("đơn chờ tạo phiếu nhặt"),
       to: "/goods-issues/pending-orders",
       chip: [
-        ...chip(nv.nhatHang.dangNhat > 0, { nhan: "Đang nhặt", so: nv.nhatHang.dangNhat, to: "/goods-issues/pick-lists?trangThai=dang-nhat" }),
-        ...chip(nv.nhatHang.chuaPhanCong > 0, { nhan: "Chưa phân công", so: nv.nhatHang.chuaPhanCong, kieu: "chuY", to: "/goods-issues/pick-lists?trangThai=cho-nhat" }),
+        ...chip(nv.nhatHang.dangNhat > 0, { nhan: t("Đang nhặt"), so: nv.nhatHang.dangNhat, to: "/goods-issues/pick-lists?trangThai=dang-nhat" }),
+        ...chip(nv.nhatHang.chuaPhanCong > 0, { nhan: t("Chưa phân công"), so: nv.nhatHang.chuaPhanCong, kieu: "chuY", to: "/goods-issues/pick-lists?trangThai=cho-nhat" }),
       ],
     },
     {
       key: "dongGoi",
-      ten: "Đóng gói",
+      ten: t("Đóng gói"),
       icon: "dongGoi",
       so: nv.dongGoi.choDongGoi,
-      nhanSo: "đơn chờ đóng gói",
+      nhanSo: t("đơn chờ đóng gói"),
       to: "/sales-orders?trangThai=cho-dong-goi",
       chip: chip(nv.dongGoi.choLau > 0, {
-        nhan: `Chờ quá ${cauHinh.gioChoLau} giờ`,
+        nhan: t("Chờ quá {{gioChoLau}} giờ", { gioChoLau: cauHinh.gioChoLau }),
         so: nv.dongGoi.choLau,
         kieu: "chuY",
         to: "/sales-orders?trangThai=cho-dong-goi",
@@ -275,54 +276,54 @@ export function oNghiepVu(nv, kho, cauHinh) {
     },
     {
       key: "xuatKho",
-      ten: "Xuất kho",
+      ten: t("Xuất kho"),
       icon: "xuat",
       so: nv.xuatKho.phieuChoXuat,
-      nhanSo: "phiếu bán chờ xuất",
+      nhanSo: t("phiếu bán chờ xuất"),
       to: "/goods-issues?trangThai=cho-xuat-kho",
       chip: chip(nv.xuatKho.chuyenChoXuat > 0, {
-        nhan: "Phiếu chuyển chờ xuất",
+        nhan: t("Phiếu chuyển chờ xuất"),
         so: nv.xuatKho.chuyenChoXuat,
         to: "/transfer-tickets?trangThai=cho-xuat-hang",
       }),
     },
     {
       key: "chuyenKho",
-      ten: "Chuyển kho",
+      ten: t("Chuyển kho"),
       icon: "chuyen",
       so: nv.chuyenKho.choDuyet + nv.chuyenKho.choXuatHang + nv.chuyenKho.dangVanChuyen,
-      nhanSo: "phiếu đang mở",
+      nhanSo: t("phiếu đang mở"),
       to: "/transfer-tickets",
       chip: [
-        ...chip(nv.chuyenKho.choDuyet > 0, { nhan: "Chờ duyệt", so: nv.chuyenKho.choDuyet, to: "/transfer-tickets?trangThai=cho-duyet" }),
-        ...chip(nv.chuyenKho.choXuatHang > 0, { nhan: "Đã duyệt, chờ xuất", so: nv.chuyenKho.choXuatHang, to: "/transfer-tickets?trangThai=cho-xuat-hang" }),
-        ...chip(nv.chuyenKho.dangVanChuyen > 0, { nhan: "Đang vận chuyển", so: nv.chuyenKho.dangVanChuyen, to: "/transfer-tickets?trangThai=dang-van-chuyen" }),
+        ...chip(nv.chuyenKho.choDuyet > 0, { nhan: t("Chờ duyệt"), so: nv.chuyenKho.choDuyet, to: "/transfer-tickets?trangThai=cho-duyet" }),
+        ...chip(nv.chuyenKho.choXuatHang > 0, { nhan: t("Đã duyệt, chờ xuất"), so: nv.chuyenKho.choXuatHang, to: "/transfer-tickets?trangThai=cho-xuat-hang" }),
+        ...chip(nv.chuyenKho.dangVanChuyen > 0, { nhan: t("Đang vận chuyển"), so: nv.chuyenKho.dangVanChuyen, to: "/transfer-tickets?trangThai=dang-van-chuyen" }),
       ],
-      tao: { to: "/transfer-tickets/create", nhan: "Tạo phiếu chuyển kho" },
+      tao: { to: "/transfer-tickets/create", nhan: t("Tạo phiếu chuyển kho") },
     },
     {
       key: "kiemKe",
-      ten: "Kiểm kê",
+      ten: t("Kiểm kê"),
       icon: "kiemKe",
       so: nv.kiemKeDangMo,
-      nhanSo: "đợt đang kiểm kê",
+      nhanSo: t("đợt đang kiểm kê"),
       to: "/stock-take?trangThai=dang-kiem-ke",
       chip: [],
-      tao: { to: "/stock-take/new", nhan: "Tạo đợt kiểm kê" },
+      tao: { to: "/stock-take/new", nhan: t("Tạo đợt kiểm kê") },
     },
   ];
 }
 
 const VIEC_QLK = {
-  duyet_yeu_cau_nhap: { ten: "Duyệt yêu cầu nhập hàng", phu: "Yêu cầu nhập về kho này", icon: "duyet", tuoi: "Chờ từ" },
-  duyet_phieu_chuyen: { ten: "Duyệt phiếu chuyển kho", phu: "Phiếu chuyển chờ Kho tổng duyệt", icon: "chuyen", tuoi: "Chờ từ" },
+  duyet_yeu_cau_nhap: { ten: t("Duyệt yêu cầu nhập hàng"), phu: t("Yêu cầu nhập về kho này"), icon: "duyet", tuoi: t("Chờ từ") },
+  duyet_phieu_chuyen: { ten: t("Duyệt phiếu chuyển kho"), phu: t("Phiếu chuyển chờ Kho tổng duyệt"), icon: "chuyen", tuoi: t("Chờ từ") },
   // Kho gửi (kho xuất của phiếu) xác nhận biên bản giao nhận kho nhận lập; cũ nhất theo lúc nhận lệch
-  xac_nhan_bien_ban_chuyen: { ten: "Xác nhận biên bản giao nhận", phu: "Kho nhận báo thiếu, hỏng hàng kho bạn gửi", icon: "chuyen", tuoi: "Chờ từ" },
+  xac_nhan_bien_ban_chuyen: { ten: t("Xác nhận biên bản giao nhận"), phu: t("Kho nhận báo thiếu, hỏng hàng kho bạn gửi"), icon: "chuyen", tuoi: t("Chờ từ") },
   // Máy chủ chỉ trả cho người được xử lý chênh lệch theo Cấu hình › Chuyển kho, sau khi kho gửi đã xác nhận biên bản
-  xu_ly_chenh_lech_chuyen: { ten: "Xử lý chênh lệch chuyển kho", phu: "Kho gửi đã xác nhận biên bản, chờ xử lý", icon: "chuyen", tuoi: "Chờ từ" },
-  gom_phieu_nhat: { ten: "Tạo phiếu nhặt cho đơn chờ xuất", phu: "Đơn chưa có phiếu nhặt", icon: "nhat", tuoi: "Cũ nhất" },
-  phan_cong_nhat: { ten: "Phân công phiếu nhặt", phu: "Phiếu nhặt chưa giao người nhặt", icon: "nhat", tuoi: "Cũ nhất" },
-  hoan_tat_kiem_ke: { ten: "Hoàn tất đợt kiểm kê", phu: "Đợt kiểm kê đang mở", icon: "kiemKe", tuoi: "Mở từ" },
+  xu_ly_chenh_lech_chuyen: { ten: t("Xử lý chênh lệch chuyển kho"), phu: t("Kho gửi đã xác nhận biên bản, chờ xử lý"), icon: "chuyen", tuoi: t("Chờ từ") },
+  gom_phieu_nhat: { ten: t("Tạo phiếu nhặt cho đơn chờ xuất"), phu: t("Đơn chưa có phiếu nhặt"), icon: "nhat", tuoi: t("Cũ nhất") },
+  phan_cong_nhat: { ten: t("Phân công phiếu nhặt"), phu: t("Phiếu nhặt chưa giao người nhặt"), icon: "nhat", tuoi: t("Cũ nhất") },
+  hoan_tat_kiem_ke: { ten: t("Hoàn tất đợt kiểm kê"), phu: t("Đợt kiểm kê đang mở"), icon: "kiemKe", tuoi: t("Mở từ") },
 };
 
 /** Dòng "Cần bạn xử lý" của quản lý kho (API đã lọc dòng có số và xếp gấp trước). */
@@ -372,7 +373,7 @@ export function hanhDongBoSung(d, kho) {
   if (d.deXuat === "chuyen_kho" && kho.khoTongId != null) {
     return {
       kieu: "nut",
-      chu: `Chuyển về ${formatSo(d.soLuongDeXuat)}`,
+      chu: t("Chuyển về {{soLuongDeXuat}}", { soLuongDeXuat: formatSo(d.soLuongDeXuat) }),
       to: duongDanKemThamSo("/transfer-tickets/create", {
         khoXuatId: kho.khoTongId,
         khoNhapId: kho.id,
@@ -382,58 +383,58 @@ export function hanhDongBoSung(d, kho) {
     };
   }
   if (d.yeuCauMoId != null) {
-    return { kieu: "lienKet", chu: d.yeuCauMoMa ? `Đã có ${d.yeuCauMoMa}` : "Đã có yêu cầu nhập", to: `/purchase-requests/${d.yeuCauMoId}` };
+    return { kieu: "lienKet", chu: d.yeuCauMoMa ? t("Đã có {{yeuCauMoMa}}", { yeuCauMoMa: d.yeuCauMoMa }) : t("Đã có yêu cầu nhập"), to: `/purchase-requests/${d.yeuCauMoId}` };
   }
-  return { kieu: "chu", chu: kho.laKhoTong ? `Cần mua thêm ${formatSo(d.soLuongDeXuat)}` : "Kho tổng không đủ hàng" };
+  return { kieu: "chu", chu: kho.laKhoTong ? t("Cần mua thêm {{soLuongDeXuat}}", { soLuongDeXuat: formatSo(d.soLuongDeXuat) }) : t("Kho tổng không đủ hàng") };
 }
 
 /** Dòng phụ của một mã cần bổ sung. */
 export function moTaBoSung(d, kho) {
-  const con = d.khaDung > 0 ? `Còn ${formatSo(d.khaDung)}` : "Hết hàng";
-  if (kho.laKhoTong || d.khaDungKhoTong == null) return `${con} · ngưỡng ${formatSo(d.nguong)}`;
-  return `${con} · Kho tổng còn ${formatSo(d.khaDungKhoTong)}`;
+  const con = d.khaDung > 0 ? t("Còn {{khaDung}}", { khaDung: formatSo(d.khaDung) }) : t("Hết hàng");
+  if (kho.laKhoTong || d.khaDungKhoTong == null) return t("{{con}} · ngưỡng {{nguong}}", { con, nguong: formatSo(d.nguong) });
+  return t("{{con}} · Kho tổng còn {{khaDungKhoTong}}", { con, khaDungKhoTong: formatSo(d.khaDungKhoTong) });
 }
 
 /* ============================== Nhân viên kho ============================== */
 
 /** Đường dẫn và chữ nút của một việc chung trong kho. */
 export function viecChungDong(v) {
-  const sl = v.soLuong > 0 ? ` · ${formatSo(v.soLuong)} sản phẩm` : "";
+  const sl = v.soLuong > 0 ? t(" · {{soLuong}} sản phẩm", { soLuong: formatSo(v.soLuong), count: v.soLuong }) : "";
   switch (v.loai) {
     // Phiếu chuyển đang trên đường đến kho (id là id phiếu chuyển, mốc là giờ xuất): nhận hàng ở màn phiếu chuyển
     case "phieu_nhap_chuyen_kho":
-      return { moTa: `Từ ${v.doiTac ?? "kho khác"}${sl}`, nut: "Nhận hàng", to: `/transfer-tickets/${v.id}/receive`, moc: "Xuất lúc" };
+      return { moTa: t("Từ {{noiGui}}{{sl}}", { noiGui: v.doiTac ?? t("kho khác"), sl }), nut: t("Nhận hàng"), to: `/transfer-tickets/${v.id}/receive`, moc: t("Xuất lúc") };
     case "phieu_nhap":
-      return { moTa: `${v.doiTac ?? "Nhập kho"}${sl}`, nut: "Kiểm đếm", to: `/goods-receipts/${v.id}`, moc: "Tạo lúc" };
+      return { moTa: `${v.doiTac ?? t("Nhập kho")}${sl}`, nut: t("Kiểm đếm"), to: `/goods-receipts/${v.id}`, moc: t("Tạo lúc") };
     // Phiếu nhặt của phiếu chuyển kho không có đơn: máy chủ gửi số phiếu chuyển ở doiTac (không ghi "0 đơn")
     case "phieu_nhat":
       return {
-        moTa: `${v.doiTac ? `Chuyển kho ${v.doiTac}` : `${formatSo(v.soDon)} đơn`}${sl}`,
-        nut: "Mở phiếu",
+        moTa: `${v.doiTac ? t("Chuyển kho {{doiTac}}", { doiTac: v.doiTac }) : t("{{soDon}} đơn", { soDon: formatSo(v.soDon), count: v.soDon })}${sl}`,
+        nut: t("Mở phiếu"),
         to: `/goods-issues/pick-lists/${v.id}`,
-        moc: "Tạo lúc",
+        moc: t("Tạo lúc"),
       };
     case "don_ban":
-      return { moTa: `${v.doiTac ?? "Khách lẻ"}${sl}`, nut: "Đóng gói", to: `/goods-issues/packing/${v.id}`, moc: "Nhặt xong" };
+      return { moTa: `${v.doiTac ?? t("Khách lẻ")}${sl}`, nut: t("Đóng gói"), to: `/goods-issues/packing/${v.id}`, moc: t("Nhặt xong") };
     case "phieu_xuat":
       // Phiếu xuất bán được tạo khi nhặt xong (ngay_tao), sang Chờ xuất khi đóng gói xong (không lưu giờ đóng gói)
-      return { moTa: `Xuất bán${v.doiTac ? ` · ${v.doiTac}` : ""}${sl}`, nut: "Xuất kho", to: `/goods-issues/${v.id}`, moc: "Nhặt xong" };
+      return { moTa: t("Xuất bán{{khach}}{{sl}}", { khach: v.doiTac ? ` · ${v.doiTac}` : "", sl }), nut: t("Xuất kho"), to: `/goods-issues/${v.id}`, moc: t("Nhặt xong") };
     case "phieu_chuyen":
-      return { moTa: `Chuyển đến ${v.doiTac ?? "kho khác"}${sl}`, nut: "Xuất hàng", to: `/transfer-tickets/${v.id}`, moc: "Tạo lúc" };
+      return { moTa: t("Chuyển đến {{noiNhan}}{{sl}}", { noiNhan: v.doiTac ?? t("kho khác"), sl }), nut: t("Xuất hàng"), to: `/transfer-tickets/${v.id}`, moc: t("Tạo lúc") };
     case "kiem_ke":
-      return { moTa: `${v.doiTac ?? "Đợt kiểm kê"} · ${formatSo(v.soLuong)} dòng kiểm kê`, nut: "Đếm", to: `/stock-take/${v.id}`, moc: "Mở từ" };
+      return { moTa: t("{{dot}} · {{soLuong}} dòng kiểm kê", { dot: v.doiTac ?? t("Đợt kiểm kê"), soLuong: formatSo(v.soLuong), count: v.soLuong }), nut: t("Đếm"), to: `/stock-take/${v.id}`, moc: t("Mở từ") };
     default:
-      return { moTa: v.doiTac ?? "", nut: "Mở", to: "/dashboard", moc: "" };
+      return { moTa: v.doiTac ?? "", nut: t("Mở"), to: "/dashboard", moc: "" };
   }
 }
 
 /** Năm nhóm việc chung: tên tab, câu khi trống, danh sách đầy đủ của hệ thống. */
 export const NHOM_VIEC_CHUNG = [
-  { key: "nhanHang", ten: "Nhận hàng", trong: "Không có phiếu nhập chờ kiểm đếm.", to: "/goods-receipts?trangThai=cho-nhap-kho" },
-  { key: "nhatHang", ten: "Nhặt hàng", trong: "Không có phiếu nhặt nào chưa phân công.", to: "/goods-issues/pick-lists?trangThai=cho-nhat" },
-  { key: "dongGoi", ten: "Đóng gói", trong: "Không có đơn chờ đóng gói.", to: "/sales-orders?trangThai=cho-dong-goi" },
-  { key: "xuatKho", ten: "Xuất kho", trong: "Không có phiếu chờ xuất.", to: "/goods-issues?trangThai=cho-xuat-kho" },
-  { key: "kiemKe", ten: "Kiểm kê", trong: "Không có đợt kiểm kê nào đang mở.", to: "/stock-take?trangThai=dang-kiem-ke" },
+  { key: "nhanHang", ten: t("Nhận hàng"), trong: t("Không có phiếu nhập chờ kiểm đếm."), to: "/goods-receipts?trangThai=cho-nhap-kho" },
+  { key: "nhatHang", ten: t("Nhặt hàng"), trong: t("Không có phiếu nhặt nào chưa phân công."), to: "/goods-issues/pick-lists?trangThai=cho-nhat" },
+  { key: "dongGoi", ten: t("Đóng gói"), trong: t("Không có đơn chờ đóng gói."), to: "/sales-orders?trangThai=cho-dong-goi" },
+  { key: "xuatKho", ten: t("Xuất kho"), trong: t("Không có phiếu chờ xuất."), to: "/goods-issues?trangThai=cho-xuat-kho" },
+  { key: "kiemKe", ten: t("Kiểm kê"), trong: t("Không có đợt kiểm kê nào đang mở."), to: "/stock-take?trangThai=dang-kiem-ke" },
 ];
 
 /**
@@ -443,13 +444,13 @@ export const NHOM_VIEC_CHUNG = [
 export function nhomHangSapVe(ds, thoiDiem) {
   const nhom = [];
   for (const h of ds ?? []) {
-    const tenNhom = h.tre ? "Quá hạn giao" : h.loai === "phieu_chuyen" ? "Đang trên đường" : tenNgay(h.ngay, thoiDiem);
+    const tenNhom = h.tre ? t("Quá hạn giao") : h.loai === "phieu_chuyen" ? t("Đang trên đường") : tenNgay(h.ngay, thoiDiem);
     const muc = {
       key: `${h.loai}-${h.id}`,
-      doiTac: h.loai === "phieu_chuyen" ? `Từ ${h.doiTac ?? "kho khác"}` : h.doiTac ?? "Nhà cung cấp",
+      doiTac: h.loai === "phieu_chuyen" ? t("Từ {{noiGui}}", { noiGui: h.doiTac ?? t("kho khác") }) : h.doiTac ?? t("Nhà cung cấp"),
       ma: h.ma,
-      sl: `${formatSo(h.soLuong)} sản phẩm`,
-      ben: h.tre ? `Trễ ${soNgayGiua(h.ngay, thoiDiem)} ngày` : h.loai === "phieu_chuyen" && h.ngay ? `Xuất ${ngayThangNgan(h.ngay)}` : "",
+      sl: t("{{soLuong}} sản phẩm", { soLuong: formatSo(h.soLuong), count: h.soLuong }),
+      ben: h.tre ? t("Trễ {{count}} ngày", { count: soNgayGiua(h.ngay, thoiDiem) }) : h.loai === "phieu_chuyen" && h.ngay ? t("Xuất {{ngay}}", { ngay: ngayThangNgan(h.ngay) }) : "",
       tre: h.tre,
       to: h.loai === "phieu_chuyen" ? `/transfer-tickets/${h.id}` : `/purchase-orders/${h.id}`,
     };
@@ -471,48 +472,48 @@ export function theSoMuaHang(cs, cauHinh, thoiDiem) {
   return [
     {
       key: "datMua",
-      ten: "Đã đặt mua",
+      ten: t("Đã đặt mua"),
       so: dat.so,
       donVi: dat.donVi,
-      bd: bdSoVoi(cs.datMua.tong, cs.datMua.kyTruoc, "so với 30 ngày trước"),
-      phu: "Đơn mua đã chốt, 30 ngày qua",
+      bd: bdSoVoi(cs.datMua.tong, cs.datMua.kyTruoc, t("so với 30 ngày trước")),
+      phu: t("Đơn mua đã chốt, 30 ngày qua"),
       xuHuong: {
         gt: cs.datMua.tamTuan.map((p) => p.giaTri),
-        nhan: cs.datMua.tamTuan.map((p) => (soNgayGiua(p.ngay, thoiDiem) <= 6 ? "7 ngày gần nhất" : `Tuần từ ${ngayThangNgan(p.ngay)}`)),
+        nhan: cs.datMua.tamTuan.map((p) => (soNgayGiua(p.ngay, thoiDiem) <= 6 ? t("7 ngày gần nhất") : t("Tuần từ {{ngay}}", { ngay: ngayThangNgan(p.ngay) }))),
         dinhDang: formatTienNgan,
       },
       to: "/purchase-orders",
     },
     {
       key: "dangVe",
-      ten: "Hàng đang về",
+      ten: t("Hàng đang về"),
       so: formatSo(cs.dangVe.soLuong),
-      donVi: "sản phẩm",
-      phu: `${formatSo(cs.dangVe.soDon)} đơn mua còn hàng chưa nhận`,
+      donVi: t("sản phẩm"),
+      phu: t("{{soDon}} đơn mua còn hàng chưa nhận", { soDon: formatSo(cs.dangVe.soDon), count: cs.dangVe.soDon }),
       to: "/purchase-orders",
     },
     {
       key: "giaoDungHan",
-      ten: "Giao đúng hạn",
+      ten: t("Giao đúng hạn"),
       so: pt == null ? "—" : formatSo(pt),
       donVi: pt == null ? "" : "%",
-      bd: bienDongDiem(pt, ptTruoc) ? { ...bienDongDiem(pt, ptTruoc), soVoi: "so với 30 ngày trước" } : null,
+      bd: bienDongDiem(pt, ptTruoc) ? { ...bienDongDiem(pt, ptTruoc), soVoi: t("so với 30 ngày trước") } : null,
       phu: cs.giaoDungHan.denHan
-        ? `${formatSo(cs.giaoDungHan.dungHan)}/${formatSo(cs.giaoDungHan.denHan)} đơn đến hạn trong 30 ngày qua`
-        : "Chưa có đơn đến hạn trong 30 ngày qua",
+        ? t("{{dungHan}}/{{denHan}} đơn đến hạn trong 30 ngày qua", { dungHan: formatSo(cs.giaoDungHan.dungHan), denHan: formatSo(cs.giaoDungHan.denHan), count: cs.giaoDungHan.denHan })
+        : t("Chưa có đơn đến hạn trong 30 ngày qua"),
       thanh: pt,
       to: null,
     },
     {
       key: "choBaoGia",
-      ten: "Chờ nhà cung cấp báo giá",
+      ten: t("Chờ nhà cung cấp báo giá"),
       so: formatSo(bg.tong),
-      donVi: "lượt hỏi giá",
-      phu: bg.tong ? `Đã gửi cho ${formatSo(bg.soNhaCungCap)} nhà cung cấp` : "Không có lượt hỏi giá nào đang chờ",
+      donVi: t("lượt hỏi giá"),
+      phu: bg.tong ? t("Đã gửi cho {{soNhaCungCap}} nhà cung cấp", { soNhaCungCap: formatSo(bg.soNhaCungCap), count: bg.soNhaCungCap }) : t("Không có lượt hỏi giá nào đang chờ"),
       chia: bg.tong
         ? [
-            { nhan: `chờ quá ${cauHinh.ngayChoBaoGia} ngày`, so: bg.quaHan, vanDe: true },
-            { nhan: "trong hạn", so: bg.tong - bg.quaHan },
+            { nhan: t("chờ quá {{ngayChoBaoGia}} ngày", { ngayChoBaoGia: cauHinh.ngayChoBaoGia, count: cauHinh.ngayChoBaoGia }), so: bg.quaHan, vanDe: true },
+            { nhan: t("trong hạn"), so: bg.tong - bg.quaHan },
           ]
         : null,
       to: "/quotation-requests?trangThai=da-gui-yeu-cau-bao-gia",
@@ -525,43 +526,43 @@ export function buocQuyTrinh(q, cauHinh) {
   return [
     {
       key: "daDuyet",
-      ten: "Yêu cầu nhập đã duyệt",
+      ten: t("Yêu cầu nhập đã duyệt"),
       so: q.daDuyet,
-      donVi: "yêu cầu",
-      phu: "Chưa gửi hỏi giá",
-      viec: "Gửi yêu cầu báo giá",
+      donVi: t("yêu cầu"),
+      phu: t("Chưa gửi hỏi giá"),
+      viec: t("Gửi yêu cầu báo giá"),
       to: "/purchase-requests?trangThai=da-duyet",
       gap: q.daDuyet > 0,
     },
     {
       key: "choBaoGia",
-      ten: "Đang hỏi giá",
+      ten: t("Đang hỏi giá"),
       so: q.choBaoGia,
-      donVi: "yêu cầu",
-      chuY: q.choBaoGiaQuaHan > 0 ? `${formatSo(q.choBaoGiaQuaHan)} chờ quá ${cauHinh.ngayChoBaoGia} ngày` : null,
-      phu: "Chờ nhà cung cấp báo giá",
-      viec: "Xem yêu cầu báo giá",
+      donVi: t("yêu cầu"),
+      chuY: q.choBaoGiaQuaHan > 0 ? t("{{choBaoGiaQuaHan}} chờ quá {{ngayChoBaoGia}} ngày", { choBaoGiaQuaHan: formatSo(q.choBaoGiaQuaHan), ngayChoBaoGia: cauHinh.ngayChoBaoGia, count: cauHinh.ngayChoBaoGia }) : null,
+      phu: t("Chờ nhà cung cấp báo giá"),
+      viec: t("Xem yêu cầu báo giá"),
       to: "/quotation-requests?trangThai=da-gui-yeu-cau-bao-gia",
       gap: false,
     },
     {
       key: "choChotDon",
-      ten: "Chờ chốt đơn",
+      ten: t("Chờ chốt đơn"),
       so: q.choChotDon,
-      donVi: "yêu cầu",
-      phu: "Đã có báo giá",
-      viec: "Chọn nhà cung cấp",
+      donVi: t("yêu cầu"),
+      phu: t("Đã có báo giá"),
+      viec: t("Chọn nhà cung cấp"),
       to: "/quotation-requests?trangThai=da-gui-yeu-cau-bao-gia",
       gap: q.choChotDon > 0,
     },
     {
       key: "dangGiao",
-      ten: "Đang giao",
+      ten: t("Đang giao"),
       so: q.dangGiao,
-      donVi: "đơn mua",
-      tre: q.dangGiaoTre > 0 ? `${formatSo(q.dangGiaoTre)} trễ hạn` : null,
-      phu: "Theo dõi ngày giao",
-      viec: "Xem đơn đang giao",
+      donVi: t("đơn mua"),
+      tre: q.dangGiaoTre > 0 ? t("{{dangGiaoTre}} trễ hạn", { dangGiaoTre: formatSo(q.dangGiaoTre) }) : null,
+      phu: t("Theo dõi ngày giao"),
+      viec: t("Xem đơn đang giao"),
       to: "/purchase-orders?trangThai=dang-van-chuyen",
       gap: false,
     },
@@ -584,9 +585,9 @@ export function lichTheoNgay(lich, thoiDiem) {
     const muc = {
       key: d.id,
       ma: d.ma,
-      doiTac: d.nhaCungCap ?? "Nhà cung cấp",
-      sl: `${formatSo(d.conLai)} sản phẩm còn lại`,
-      tt: d.tre ? `Trễ ${soNgayGiua(d.ngayGiao, thoiDiem)} ngày` : null,
+      doiTac: d.nhaCungCap ?? t("Nhà cung cấp"),
+      sl: t("{{conLai}} sản phẩm còn lại", { conLai: formatSo(d.conLai), count: d.conLai }),
+      tt: d.tre ? t("Trễ {{count}} ngày", { count: soNgayGiua(d.ngayGiao, thoiDiem) }) : null,
       to: `/purchase-orders/${d.id}`,
     };
     if (d.tre) tre.ds.push(muc);
@@ -616,45 +617,45 @@ export function theSoBanHang(cs, thoiDiem) {
   return [
     {
       key: "doanhThu",
-      ten: "Doanh thu hôm nay",
+      ten: t("Doanh thu hôm nay"),
       so: dt.so,
       donVi: dt.donVi,
-      bd: bdSoVoi(cs.doanhThu.homNay, cs.doanhThu.cungGioTruoc, "so với cùng giờ tuần trước"),
-      phu: `${formatSo(cs.doanhThu.soChungTu)} đơn đã giao`,
+      bd: bdSoVoi(cs.doanhThu.homNay, cs.doanhThu.cungGioTruoc, t("so với cùng giờ tuần trước")),
+      phu: t("{{soChungTu}} đơn đã giao", { soChungTu: formatSo(cs.doanhThu.soChungTu), count: cs.doanhThu.soChungTu }),
       xuHuong: duongXuHuong(cs.doanhThu.bayNgay, thoiDiem, formatTienNgan),
       to: null,
     },
     {
       key: "donHomNay",
-      ten: "Đơn hôm nay",
+      ten: t("Đơn hôm nay"),
       so: formatSo(cs.donHomNay.soDon),
-      donVi: "đơn",
-      bd: bdSoVoi(cs.donHomNay.soDon, cs.donHomNay.cungGioTruoc, "so với cùng giờ tuần trước"),
-      phu: `Tại quầy ${formatSo(cs.donHomNay.taiQuay)} · đơn khác ${formatSo(cs.donHomNay.soDon - cs.donHomNay.taiQuay)}`,
-      xuHuong: duongXuHuong(cs.donHomNay.bayNgay, thoiDiem, (v) => `${formatSo(v)} đơn`),
+      donVi: t("đơn"),
+      bd: bdSoVoi(cs.donHomNay.soDon, cs.donHomNay.cungGioTruoc, t("so với cùng giờ tuần trước")),
+      phu: t("Tại quầy {{taiQuay}} · đơn khác {{donKhac}}", { taiQuay: formatSo(cs.donHomNay.taiQuay), donKhac: formatSo(cs.donHomNay.soDon - cs.donHomNay.taiQuay) }),
+      xuHuong: duongXuHuong(cs.donHomNay.bayNgay, thoiDiem, (v) => t("{{soDon}} đơn", { soDon: formatSo(v), count: v })),
       // Danh sách đơn của nhân viên bán hàng chỉ gồm đơn do mình tạo, không chứa đủ số đơn của kho
       to: null,
     },
     {
       key: "trungBinhDon",
-      ten: "Trung bình mỗi đơn",
+      ten: t("Trung bình mỗi đơn"),
       so: tbTien ? tbTien.so : "—",
       donVi: tbTien ? tbTien.donVi : "",
-      bd: tb.homNay == null ? null : bdSoVoi(tb.homNay, tb.bayNgayTruoc, "so với 7 ngày trước"),
-      phu: tb.homNay == null ? "Chưa có đơn giao hôm nay" : null,
+      bd: tb.homNay == null ? null : bdSoVoi(tb.homNay, tb.bayNgayTruoc, t("so với 7 ngày trước")),
+      phu: tb.homNay == null ? t("Chưa có đơn giao hôm nay") : null,
       xuHuong: duongXuHuong(tb.bayNgay, thoiDiem, formatTienNgan),
       to: null,
     },
     {
       key: "donCuaToi",
-      ten: "Đơn của bạn chưa xong",
+      ten: t("Đơn của bạn chưa xong"),
       so: formatSo(don.tong),
-      donVi: "đơn",
-      phu: don.tong ? `Giá trị ${formatTienNgan(don.giaTri)}` : "Không có đơn nào đang chờ",
+      donVi: t("đơn"),
+      phu: don.tong ? t("Giá trị {{tien}}", { tien: formatTienNgan(don.giaTri) }) : t("Không có đơn nào đang chờ"),
       chia: don.tong
         ? [
-            { nhan: "cần chú ý", so: don.canChuY, vanDe: true },
-            { nhan: "đang xử lý", so: don.tong - don.canChuY },
+            { nhan: t("cần chú ý"), so: don.canChuY, vanDe: true },
+            { nhan: t("đang xử lý"), so: don.tong - don.canChuY },
           ]
         : null,
       to: null,
@@ -734,17 +735,17 @@ export function nhanGio(g) {
 
 /** Ghi chú của một đơn của bạn. */
 export function chuYDon(o, thoiDiem) {
-  if (o.chuY === "nhap") return "Chưa gửi kho";
-  if (o.chuY === "cho_lau") return `Chờ ${khoangCho(o.ngayDat, thoiDiem)}`;
+  if (o.chuY === "nhap") return t("Chưa gửi kho");
+  if (o.chuY === "cho_lau") return t("Chờ {{ngayDat}}", { ngayDat: khoangCho(o.ngayDat, thoiDiem) });
   return null;
 }
 
 /** "Gửi sáng nay" / "Gửi hôm qua" / "Gửi 4 ngày trước". */
 export function guiLuc(ngayTao, thoiDiem) {
   const n = soNgayGiua(ngayTao, thoiDiem);
-  if (n <= 0) return `Gửi lúc ${gioPhutNgan(ngayTao)}`;
-  if (n === 1) return "Gửi hôm qua";
-  return `Gửi ${n} ngày trước`;
+  if (n <= 0) return t("Gửi lúc {{ngayTao}}", { ngayTao: gioPhutNgan(ngayTao) });
+  if (n === 1) return t("Gửi hôm qua");
+  return t("Gửi {{count}} ngày trước", { count: n });
 }
 
 /** Bỏ dấu để so khớp gợi ý (gõ không dấu cũng được). */

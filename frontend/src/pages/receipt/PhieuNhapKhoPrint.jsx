@@ -1,6 +1,7 @@
 import PrintRoutePage from "@/components/print/PrintRoutePage";
 import { toGoodsReceiptPrintModel } from "@/components/print/adapters/goodsReceiptPrintAdapter";
 import { phieuNhapKhoService } from '@/services/phieuNhapKhoService';
+import { t } from "@/i18n";
 
 /**
  * Trang in thật của phiếu nhập kho — dữ liệu API thật
@@ -44,18 +45,18 @@ export default function PhieuNhapKhoPrint() {
             getDataError={(payload) =>
                 payload?.lotFetchFailures?.length
                     ? {
-                          title: "Không thể tải dữ liệu lô",
+                          title: t("Không thể tải dữ liệu lô"),
                           description:
-                              "Không thể tải lô đã khai báo của một số dòng hàng. Bản in có thể thiếu dữ liệu — vui lòng thử lại.",
+                              t("Không thể tải lô đã khai báo của một số dòng hàng. Bản in có thể thiếu dữ liệu — vui lòng thử lại."),
                       }
                     : null
             }
             adapter={toGoodsReceiptPrintModel}
             backPath="/goods-receipts/:id"
-            loadingLabel="Đang tải dữ liệu phiếu nhập kho"
-            titleFallback="In phiếu nhập kho"
-            notFoundTitle="Không tìm thấy phiếu nhập kho"
-            notFoundDescription="Phiếu có thể đã bị xóa hoặc bạn không có quyền truy cập."
+            loadingLabel={t("Đang tải dữ liệu phiếu nhập kho")}
+            titleFallback={t("In phiếu nhập kho")}
+            notFoundTitle={t("Không tìm thấy phiếu nhập kho")}
+            notFoundDescription={t("Phiếu có thể đã bị xóa hoặc bạn không có quyền truy cập.")}
         />
     );
 }

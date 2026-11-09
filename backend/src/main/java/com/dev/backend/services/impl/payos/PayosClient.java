@@ -1,5 +1,6 @@
 package com.dev.backend.services.impl.payos;
 
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.utils.PayosSignature;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -136,7 +137,7 @@ public class PayosClient {
 
     private CommonException unreachable(String path, Exception e) {
         log.warn("Không kết nối được payOS ({}): {}", path, e.toString());
-        return new CommonException("Không kết nối được tới payOS. Kiểm tra mạng của máy chủ rồi thử lại.",
+        return new CommonException(ThongDiep.of("banHang.payosKhongKetNoi"),
                 HttpStatus.BAD_GATEWAY, null);
     }
 }

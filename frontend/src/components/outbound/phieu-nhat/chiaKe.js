@@ -1,4 +1,5 @@
 import { toNumber } from "../../../constants/outbound.js";
+import { t } from "@/i18n";
 
 /**
  * Chia số lấy từ một lô ra kệ trong hộp Phân bổ lô (phân bổ nhặt theo kệ, kiểm kê khoanh vùng 8.2).
@@ -58,17 +59,17 @@ export function kiemChiaTay({ maLo, soLuong, ke, tay, chuaCoKeCo }) {
     tongKe += n;
     if (k.dangKiemKe) {
       keVuot.add(k.viTriKhoId);
-      loi = loi || `Kệ ${k.maViTri} đang được kiểm kê, chọn kệ khác`;
+      loi = loi || t("Kệ {{maViTri}} đang được kiểm kê, chọn kệ khác", { maViTri: k.maViTri });
     } else if (n > soNguyen(k.soLuong)) {
       keVuot.add(k.viTriKhoId);
-      loi = loi || `Kệ ${k.maViTri} chỉ còn ${soNguyen(k.soLuong)} của lô ${maLo} có thể lấy`;
+      loi = loi || t("Kệ {{maViTri}} chỉ còn {{soLuong}} của lô {{maLo}} có thể lấy", { maViTri: k.maViTri, soLuong: soNguyen(k.soLuong), maLo });
     }
   });
   const lay = soNguyen(soLuong);
   const chuaCoKe = lay - tongKe;
-  if (!loi && chuaCoKe < 0) loi = `Lô ${maLo}: tổng các kệ (${tongKe}) nhiều hơn số lấy từ lô (${lay})`;
+  if (!loi && chuaCoKe < 0) loi = t("Lô {{maLo}}: tổng các kệ ({{tongKe}}) nhiều hơn số lấy từ lô ({{lay}})", { maLo, tongKe, lay });
   if (!loi && chuaCoKe > 0 && chuaCoKeCo != null && chuaCoKe > soNguyen(chuaCoKeCo)) {
-    loi = `Lô ${maLo} chỉ có ${soNguyen(chuaCoKeCo)} ở hàng chưa có kệ, chọn thêm kệ cho phần còn lại`;
+    loi = t("Lô {{maLo}} chỉ có {{chuaCoKeCo}} ở hàng chưa có kệ, chọn thêm kệ cho phần còn lại", { maLo, chuaCoKeCo: soNguyen(chuaCoKeCo) });
   }
   return { tongKe, chuaCoKe: Math.max(0, chuaCoKe), loi, keVuot };
 }
@@ -81,7 +82,8 @@ export function kiemTuChia({ maLo, soLuong, ke, chuaCoKeCo }) {
   if (chuaCoKeCo == null) return null;
   const { chuaCoKe } = tuChiaKe(ke, soLuong);
   if (chuaCoKe > soNguyen(chuaCoKeCo)) {
-    return `Lô ${maLo} thiếu ${chuaCoKe - soNguyen(chuaCoKeCo)} chỗ lấy (kệ đang kiểm kê hoặc phiếu khác đã giữ). Giảm số của lô hoặc lấy lô khác`;
+    const soThieu = chuaCoKe - soNguyen(chuaCoKeCo);
+    return t("Lô {{maLo}} thiếu {{soThieu}} chỗ lấy (kệ đang kiểm kê hoặc phiếu khác đã giữ). Giảm số của lô hoặc lấy lô khác", { count: soThieu, maLo, soThieu });
   }
   return null;
 }

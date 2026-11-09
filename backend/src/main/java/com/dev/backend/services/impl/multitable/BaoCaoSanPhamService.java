@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import com.dev.backend.i18n.ThongDiep;
 
 /**
  * Báo cáo sản phẩm (màn /reports/products và tệp Excel). Quyền xem như Báo cáo doanh thu: quản trị viên mọi kho, quản lý
@@ -51,10 +52,10 @@ public class BaoCaoSanPhamService {
     static Ky ky(LocalDate tuNgay, LocalDate denNgay, LocalDate homNay) {
         // Báo cáo này không có chế độ xem theo tháng: báo riêng giới hạn 1 năm (câu của Báo cáo doanh thu nhắc "xem theo tháng")
         if (tuNgay != null && denNgay != null && !tuNgay.isAfter(denNgay) && !denNgay.isBefore(tuNgay.plusYears(1))) {
-            throw new CommonException("Mỗi lần xem tối đa 1 năm");
+            throw new CommonException(ThongDiep.of("khoVanHanh.moiLanXemToiDaMotNam"));
         }
         DoanhThuReportService.kiemKhoangNgay(tuNgay, denNgay);
-        if (tuNgay.isAfter(homNay)) throw new CommonException("Kỳ báo cáo chưa bắt đầu");
+        if (tuNgay.isAfter(homNay)) throw new CommonException(ThongDiep.of("khoVanHanh.kyBaoCaoChuaBatDau"));
         LocalDate den = denNgay.isAfter(homNay) ? homNay : denNgay;
         int soNgay = (int) ChronoUnit.DAYS.between(tuNgay, den) + 1;
         LocalDate denTruoc = tuNgay.minusDays(1);
@@ -67,7 +68,7 @@ public class BaoCaoSanPhamService {
         if (k.equals("POS") || k.equals("TRUC_TIEP")) return k;
         // Id kênh bán: chỉ chữ số, nằm trong khoảng int (số quá dài báo lỗi rõ thay vì lỗi 500)
         if (!k.isEmpty() && k.length() <= 9 && k.chars().allMatch(Character::isDigit)) return k;
-        throw new CommonException("Kênh bán không hợp lệ");
+        throw new CommonException(ThongDiep.of("khoVanHanh.kenhBanKhongHopLe"));
     }
 
     public BaoCaoSanPhamDTO layBaoCao(LocalDate tuNgay, LocalDate denNgay, Integer khoId, String kenh) {

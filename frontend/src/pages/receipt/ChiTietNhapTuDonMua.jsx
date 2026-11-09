@@ -37,6 +37,7 @@ import { formatDate, formatNumber } from "@/utils/formatters";
 import { ROLES, hasAnyRole } from "@/utils/roles";
 import { chuanHoaDongInTem } from "@/components/print/tinhTem";
 import HopInTem from "@/pages/product/components/product/HopInTem";
+import { t } from "@/i18n";
 
 const TH = "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
 const KENH_SHOPIFY = "SHOPIFY";
@@ -55,12 +56,13 @@ function dongLoiCuaLo(lots, dongBienBan = []) {
     if (!tongLoi) return [];
     if (!l.chiTietLoi?.length && maLoSo(l.maLo)) {
       const cu = dongBienBan.filter((d) => maLoSo(d.maLo) === maLoSo(l.maLo));
-      if (cu.length && cu.reduce((t, d) => t + Number(d.soLuong || 0), 0) === tongLoi) {
+      if (cu.length && cu.reduce((tg, d) => tg + Number(d.soLuong || 0), 0) === tongLoi) {
         return cu.map((d) => ({ maLo: l.maLo, lyDo: d.lyDo, soLuong: Number(d.soLuong || 0), ghiChu: d.ghiChu }));
       }
     }
     const ds = (l.chiTietLoi ?? []).map((c) => ({ maLo: l.maLo, lyDo: c.lyDo, soLuong: Number(c.soLuong || 0), ghiChu: c.ghiChu }));
-    const thieu = tongLoi - ds.reduce((t, d) => t + d.soLuong, 0);
+    const thieu = tongLoi - ds.reduce((tg, d) => tg + d.soLuong, 0);
+    // i18n-giu-nguyen: cùng câu máy chủ ghi vào biên bản; dịch lúc hiện (HopBienBanTraHang)
     return thieu > 0 ? [...ds, { maLo: l.maLo, lyDo: "Chưa ghi lý do", soLuong: thieu }] : ds;
   });
 }
@@ -132,13 +134,13 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
   );
 
   const tong = dong.reduce(
-    (t, d) => ({ can: t.can + d.canNhap, dat: t.dat + d.dat, loi: t.loi + d.loi, kiem: t.kiem + d.kiem, xong: t.xong + (d.kiem >= d.canNhap && d.canNhap > 0 ? 1 : 0) }),
+    (tg, d) => ({ can: tg.can + d.canNhap, dat: tg.dat + d.dat, loi: tg.loi + d.loi, kiem: tg.kiem + d.kiem, xong: tg.xong + (d.kiem >= d.canNhap && d.canNhap > 0 ? 1 : 0) }),
     { can: 0, dat: 0, loi: 0, kiem: 0, xong: 0 },
   );
   const kiemXong = dong.length > 0 && tong.xong === dong.length;
   // Hàng lỗi theo lô của biến thể chưa khớp số lỗi của biến thể: lô chưa đọc được (đang tải lần đầu / lỗi), hoặc đang
   // tải lại mà còn giữ danh sách cũ (máy khác vừa khóa / xóa lô lỗi). Bảng hàng lỗi của hộp biên bản thiếu / thừa dòng
-  const thieuLoLoi = dong.some((d) => d.dongLoi.reduce((t, x) => t + x.soLuong, 0) !== d.loi);
+  const thieuLoLoi = dong.some((d) => d.dongLoi.reduce((tg, x) => tg + x.soLuong, 0) !== d.loi);
   const coBienBan = Boolean(data.coBienBanRtv);
   // Biên bản đã lập nhưng số lỗi đã đổi (xóa / khóa thêm lô lỗi): máy chủ khóa nhập kho tới khi lập lại
   const bienBanLech = Boolean(data.bienBanLech);
@@ -156,7 +158,7 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
       const ds = await phieuNhapKhoService.soLuongInTem(id);
       setDongInTem(ds.map(chuanHoaDongInTem));
     } catch (error) {
-      toast.error(getApiErrorMessage(error, "Không lấy được số lượng in tem của phiếu"));
+      toast.error(getApiErrorMessage(error, t("Không lấy được số lượng in tem của phiếu")));
     } finally {
       setDangLayTem(false);
     }
@@ -172,7 +174,7 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
       setDangXuLy(true);
       try {
         await phieuNhapKhoService.complete(id);
-        toast.success(`Đã nhập kho ${formatNumber(tong.dat)} sản phẩm`);
+        toast.success(t("Đã nhập kho {{dat}} sản phẩm", { count: tong.dat, dat: formatNumber(tong.dat) }));
         setMoXacNhan(false);
         if (dayTon) {
           try {
@@ -181,14 +183,14 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
             const kq = ketQuaDayTon(res, "Shopify");
             (kq.tone === "error" ? toast.error : kq.ok ? toast.success : toast.warning)(kq.title, { description: kq.message });
           } catch (error) {
-            toast.warning("Đã nhập kho nhưng chưa đẩy được tồn lên Shopify", {
-              description: getApiErrorMessage(error, "Hệ thống sẽ tự đẩy ở chu kỳ đồng bộ tiếp theo."),
+            toast.warning(t("Đã nhập kho nhưng chưa đẩy được tồn lên Shopify"), {
+              description: getApiErrorMessage(error, t("Hệ thống sẽ tự đẩy ở chu kỳ đồng bộ tiếp theo.")),
             });
           }
         }
         onReload();
       } catch (error) {
-        toast.error(getApiErrorMessage(error, "Xác nhận nhập kho thất bại"));
+        toast.error(getApiErrorMessage(error, t("Xác nhận nhập kho thất bại")));
       } finally {
         dangXuLyRef.current = false;
         setDangXuLy(false);
@@ -203,11 +205,11 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
     setDangXuLy(true);
     try {
       await phieuNhapKhoService.cancel(id, lyDoHuy.trim());
-      toast.success("Đã hủy phiếu nhập kho");
+      toast.success(t("Đã hủy phiếu nhập kho"));
       setMoHuy(false);
       navigate("/goods-receipts");
     } catch (error) {
-      toast.error(getApiErrorMessage(error, "Hủy phiếu thất bại"));
+      toast.error(getApiErrorMessage(error, t("Hủy phiếu thất bại")));
     } finally {
       dangXuLyRef.current = false;
       setDangXuLy(false);
@@ -225,11 +227,11 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
       const ketQua = await bienBanTraHangService.phatHanh(id, { phuongAn, ghiChu });
       if (huy && ketQua) {
         // Trang đã cũ: máy khác vừa khóa thêm lô lỗi nên máy chủ lập lại biên bản thay vì hủy
-        toast.warning(`Biên bản ${ketQua.soBienBan || data.maBienBanRtv || ""} được lập lại, không hủy`, {
-          description: "Phiếu vừa có thêm hàng lỗi nên biên bản được lập lại theo hàng lỗi mới. Mở biên bản để kiểm tra phương án và ghi chú.",
+        toast.warning(t("Biên bản {{soBienBan}} được lập lại, không hủy", { soBienBan: ketQua.soBienBan || data.maBienBanRtv || "" }), {
+          description: t("Phiếu vừa có thêm hàng lỗi nên biên bản được lập lại theo hàng lỗi mới. Mở biên bản để kiểm tra phương án và ghi chú."),
         });
       } else {
-        toast.success(ketQua ? (bienBanLech ? "Đã lập lại biên bản trả hàng" : "Đã phát hành biên bản trả hàng") : "Đã hủy biên bản vì không còn hàng lỗi");
+        toast.success(ketQua ? (bienBanLech ? t("Đã lập lại biên bản trả hàng") : t("Đã phát hành biên bản trả hàng")) : t("Đã hủy biên bản vì không còn hàng lỗi"));
       }
       setMoBienBan(false);
       onReload();
@@ -237,7 +239,7 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
       bienBan.reload();
       return true;
     } catch (error) {
-      toast.error(getApiErrorMessage(error, huy ? "Không hủy được biên bản" : "Không phát hành được biên bản"));
+      toast.error(getApiErrorMessage(error, huy ? t("Không hủy được biên bản") : t("Không phát hành được biên bản")));
       return false;
     } finally {
       dangXuLyRef.current = false;
@@ -257,51 +259,51 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
   let nut2 = null;
   if (bienBanLech && nhap) {
     moTa2 = !tong.loi
-      ? `Biên bản ${data.maBienBanRtv} ghi ${formatNumber(data.tongLoiBienBan)} sản phẩm lỗi nhưng không còn lô nào có hàng lỗi. Hủy biên bản trước khi nhập kho.`
+      ? t("Biên bản {{maBienBanRtv}} ghi {{tongLoiBienBan}} sản phẩm lỗi nhưng không còn lô nào có hàng lỗi. Hủy biên bản trước khi nhập kho.", { maBienBanRtv: data.maBienBanRtv, count: Number(data.tongLoiBienBan) || 0, tongLoiBienBan: formatNumber(data.tongLoiBienBan) })
       : Number(data.tongLoiBienBan) !== tong.loi
-        ? `Biên bản ${data.maBienBanRtv} ghi ${formatNumber(data.tongLoiBienBan)} sản phẩm lỗi nhưng kiểm đếm hiện có ${formatNumber(tong.loi)}. Lập lại biên bản trước khi nhập kho.`
-        : `Biên bản ${data.maBienBanRtv} không còn khớp các lô có hàng lỗi (có lô đã xóa hoặc khóa lại). Lập lại biên bản trước khi nhập kho.`;
+        ? t("Biên bản {{maBienBanRtv}} ghi {{tongLoiBienBan}} sản phẩm lỗi nhưng kiểm đếm hiện có {{loi}}. Lập lại biên bản trước khi nhập kho.", { maBienBanRtv: data.maBienBanRtv, count: Number(data.tongLoiBienBan) || 0, tongLoiBienBan: formatNumber(data.tongLoiBienBan), loi: formatNumber(tong.loi) })
+        : t("Biên bản {{maBienBanRtv}} không còn khớp các lô có hàng lỗi (có lô đã xóa hoặc khóa lại). Lập lại biên bản trước khi nhập kho.", { maBienBanRtv: data.maBienBanRtv });
     nut2 = tong.loi ? (
       <Button onClick={() => setMoBienBan(true)} className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover">
-        <FileCheck2 className="size-4" /> Lập lại biên bản
+        <FileCheck2 className="size-4" /> {t("Lập lại biên bản")}
       </Button>
     ) : (
       <Button variant="outline" disabled={dangXuLy} onClick={() => setMoHuyBienBan(true)} className="border-bo-border bg-bo-surface text-bo-danger hover:bg-bo-danger-soft">
-        Hủy biên bản
+        {t("Hủy biên bản")}
       </Button>
     );
-  } else if (!kiemXong && !daNhap) moTa2 = tong.loi ? `Mở sau khi kiểm xong. Đã ghi nhận ${formatNumber(tong.loi)} sản phẩm lỗi.` : "Mở sau khi kiểm xong.";
-  else if (tong.loi === 0) moTa2 = "Không có hàng lỗi, bỏ qua bước này.";
+  } else if (!kiemXong && !daNhap) moTa2 = tong.loi ? t("Mở sau khi kiểm xong. Đã ghi nhận {{loi}} sản phẩm lỗi.", { count: tong.loi, loi: formatNumber(tong.loi) }) : t("Mở sau khi kiểm xong.");
+  else if (tong.loi === 0) moTa2 = t("Không có hàng lỗi, bỏ qua bước này.");
   else if (coBienBan) {
-    moTa2 = `Biên bản ${data.maBienBanRtv} · ${formatNumber(tong.loi)} sản phẩm${tenPhuongAn ? ` · ${tenPhuongAn}` : ""}.${bienBanTraHangService.mau ? " (Dữ liệu mẫu, chưa lưu máy chủ.)" : ""}`;
-    nut2 = <Button variant="outline" onClick={() => setMoBienBan(true)} className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">Xem biên bản</Button>;
+    moTa2 = t("Biên bản {{maBienBanRtv}} · {{loi}} sản phẩm{{phanPhuongAn}}.{{phanMau}}", { maBienBanRtv: data.maBienBanRtv, count: tong.loi, loi: formatNumber(tong.loi), phanPhuongAn: tenPhuongAn ? ` · ${t(tenPhuongAn)}` : "", phanMau: bienBanTraHangService.mau ? t(" (Dữ liệu mẫu, chưa lưu máy chủ.)") : "" });
+    nut2 = <Button variant="outline" onClick={() => setMoBienBan(true)} className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">{t("Xem biên bản")}</Button>;
   } else if (bienBanTraHangService.hoTro) {
-    moTa2 = `${formatNumber(tong.loi)} sản phẩm lỗi phải lập biên bản trả nhà cung cấp trước khi nhập kho.${bienBanTraHangService.mau ? " (Biên bản là dữ liệu mẫu, chưa lưu máy chủ.)" : ""}`;
+    moTa2 = t("{{loi}} sản phẩm lỗi phải lập biên bản trả nhà cung cấp trước khi nhập kho.{{phanMau}}", { count: tong.loi, loi: formatNumber(tong.loi), phanMau: bienBanTraHangService.mau ? t(" (Biên bản là dữ liệu mẫu, chưa lưu máy chủ.)") : "" });
     nut2 = (
       <Button onClick={() => setMoBienBan(true)} className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover">
-        <FileCheck2 className="size-4" /> Lập biên bản trả hàng
+        <FileCheck2 className="size-4" /> {t("Lập biên bản trả hàng")}
       </Button>
     );
   } else {
-    moTa2 = `${formatNumber(tong.loi)} sản phẩm lỗi. ${THONG_BAO_CHUA_HO_TRO_BIEN_BAN}`;
+    moTa2 = t("{{loi}} sản phẩm lỗi. {{thongBao}}", { count: tong.loi, loi: formatNumber(tong.loi), thongBao: THONG_BAO_CHUA_HO_TRO_BIEN_BAN });
   }
 
   const soLoKe = new Set(Object.values(lo.data ?? {}).flat().filter(Boolean).map((l) => l.maLo)).size;
   const moTa3 = daNhap
-    ? `Đã nhập ${formatNumber(tong.dat)} sản phẩm vào kho ${data.tenKho || ""}.`
-    : `${formatNumber(tong.dat)} sản phẩm đạt${soLoKe ? ` trong ${soLoKe} lô` : ""}. Tồn kho được cộng ngay khi xác nhận.`;
+    ? t("Đã nhập {{dat}} sản phẩm vào kho {{tenKho}}.", { count: tong.dat, dat: formatNumber(tong.dat), tenKho: data.tenKho || "" })
+    : t("{{dat}} sản phẩm đạt{{phanLo}}. Tồn kho được cộng ngay khi xác nhận.", { count: tong.dat, dat: formatNumber(tong.dat), phanLo: soLoKe ? t(" trong {{soLoKe}} lô", { count: soLoKe, soLoKe }) : "" });
 
   const oThongTin = [
-    ["Nhà cung cấp", data.tenNhaCungCap || "—", null],
-    ["Kho nhận", data.tenKho || "—", null],
+    [t("Nhà cung cấp"), data.tenNhaCungCap || "—", null],
+    [t("Kho nhận"), data.tenKho || "—", null],
     [
-      "Đơn mua hàng",
+      t("Đơn mua hàng"),
       data.donMuaHangId ? (
         <Link to={`/purchase-orders/${data.donMuaHangId}`} className="text-bo-primary hover:text-bo-primary-hover">{data.soDonMua}</Link>
       ) : (data.soDonMua || "—"),
       null,
     ],
-    ["Ngày nhập", formatDate(data.ngayNhap), data.tenNguoiNhap || null],
+    [t("Ngày nhập"), formatDate(data.ngayNhap), data.tenNguoiNhap || null],
   ];
 
   return (
@@ -311,7 +313,7 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
         onClick={() => navigate("/goods-receipts")}
         className="inline-flex w-fit items-center gap-2 text-sm font-medium text-bo-muted transition-colors hover:text-bo-primary"
       >
-        <ArrowLeft className="size-4" /> Phiếu nhập kho
+        <ArrowLeft className="size-4" /> {t("Phiếu nhập kho")}
       </button>
 
       <div className="flex min-h-9 flex-wrap items-center justify-between gap-3">
@@ -322,18 +324,18 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
         <div className="flex flex-wrap items-center gap-2">
           {coTheInTem ? (
             <Button variant="outline" disabled={dangLayTem} onClick={moInTem} className="gap-2 border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">
-              {dangLayTem ? <Loader2 className="size-4 animate-spin" /> : <Printer className="size-4" />} In tem
+              {dangLayTem ? <Loader2 className="size-4 animate-spin" /> : <Printer className="size-4" />} {t("In tem")}
             </Button>
           ) : null}
           {!daHuy ? (
             <Button variant="outline" onClick={() => navigate(`/goods-receipts/${id}/print`)} className="gap-2 border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">
-              <Printer className="size-4" /> In phiếu
+              <Printer className="size-4" /> {t("In phiếu")}
             </Button>
           ) : null}
           {nhap ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" aria-label="Thao tác khác" className="text-bo-muted hover:bg-slate-100 hover:text-bo-foreground">
+                <Button variant="ghost" size="icon" aria-label={t("Thao tác khác")} className="text-bo-muted hover:bg-slate-100 hover:text-bo-foreground">
                   <MoreHorizontal className="size-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -345,7 +347,7 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
                   }}
                   className="cursor-pointer gap-2 rounded-md text-bo-danger focus:bg-bo-danger-soft focus:text-bo-danger"
                 >
-                  <X className="size-4" /> Hủy phiếu
+                  <X className="size-4" /> {t("Hủy phiếu")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -364,37 +366,37 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
       </DaiO>
 
       {daHuy ? (
-        <DongThongBao>Phiếu nhập đã hủy, không kiểm đếm hay nhập kho được nữa.</DongThongBao>
+        <DongThongBao>{t("Phiếu nhập đã hủy, không kiểm đếm hay nhập kho được nữa.")}</DongThongBao>
       ) : (
         // Màn vừa (768 có thanh menu) vùng nội dung chỉ ~490px: 3 bước xếp dọc tới màn rộng
         <DaiO soO={3} className="md:grid-cols-1 lg:grid-cols-3">
           <OBuoc
             trangThai={b1}
             so={1}
-            nhan="Bước 1"
-            tieuDe="Kiểm đếm hàng"
-            moTa={`${formatNumber(tong.xong)}/${formatNumber(dong.length)} biến thể · ${formatNumber(tong.kiem)}/${formatNumber(tong.can)} sản phẩm`}
-            phu={<ThanhMuc className="mt-1" phanTram={tong.can ? (tong.kiem / tong.can) * 100 : 0} tone={kiemXong ? "ok" : ""} label="Tiến độ kiểm đếm" />}
+            nhan={t("Bước 1")}
+            tieuDe={t("Kiểm đếm hàng")}
+            moTa={t("{{xong}}/{{tongBienThe}} biến thể · {{kiem}}/{{can}} sản phẩm", { count: dong.length, xong: formatNumber(tong.xong), tongBienThe: formatNumber(dong.length), kiem: formatNumber(tong.kiem), can: formatNumber(tong.can) })}
+            phu={<ThanhMuc className="mt-1" phanTram={tong.can ? (tong.kiem / tong.can) * 100 : 0} tone={kiemXong ? "ok" : ""} label={t("Tiến độ kiểm đếm")} />}
             hanhDong={
               kiemXong || daNhap ? (
-                <span className="text-xs text-bo-muted">Đã kiểm hết hàng theo đơn mua</span>
+                <span className="text-xs text-bo-muted">{t("Đã kiểm hết hàng theo đơn mua")}</span>
               ) : bienTheTiepTheo ? (
                 <Button onClick={() => moKiemDem(bienTheTiepTheo.bienTheSanPhamId)} className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover">
-                  <ScanLine className="size-4" /> Kiểm biến thể tiếp theo
+                  <ScanLine className="size-4" /> {t("Kiểm biến thể tiếp theo")}
                 </Button>
               ) : null
             }
           />
-          <OBuoc trangThai={b2} so={2} nhan="Bước 2" tieuDe="Xử lý hàng lỗi" moTa={moTa2} hanhDong={nut2} />
+          <OBuoc trangThai={b2} so={2} nhan={t("Bước 2")} tieuDe={t("Xử lý hàng lỗi")} moTa={moTa2} hanhDong={nut2} />
           <OBuoc
             trangThai={b3}
             so={3}
-            nhan="Bước 3"
-            tieuDe="Xác nhận nhập kho"
+            nhan={t("Bước 3")}
+            tieuDe={t("Xác nhận nhập kho")}
             moTa={moTa3}
             hanhDong={
               daNhap ? (
-                <span className="text-xs text-bo-muted">Hoàn tất</span>
+                <span className="text-xs text-bo-muted">{t("Hoàn tất")}</span>
               ) : (
                 <Button
                   disabled={!coTheXacNhan || dangXuLy}
@@ -406,7 +408,7 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
                       : "border border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface",
                   )}
                 >
-                  <Check className="size-4" /> Xác nhận nhập kho
+                  <Check className="size-4" /> {t("Xác nhận nhập kho")}
                 </Button>
               )
             }
@@ -424,7 +426,7 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
       <TableShell
         toolbar={
           <div className="flex min-h-14 flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-bo-border px-4 py-2">
-            <h2 className="text-base font-semibold text-bo-foreground">Hàng theo đơn mua</h2>
+            <h2 className="text-base font-semibold text-bo-foreground">{t("Hàng theo đơn mua")}</h2>
           </div>
         }
       >
@@ -433,8 +435,8 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
         <ul className="divide-y divide-bo-border md:hidden cam-ung:max-lg:block">
           {dong.map((d) => {
             const chuaKiem = d.kiem === 0;
-            const nhanNut = !nhap || d.kiem >= d.canNhap ? "Xem lô" : chuaKiem ? "Kiểm đếm" : "Tiếp tục kiểm";
-            const soLo = d.lots == null ? (lo.loading ? "đang tải lô…" : null) : d.lots.length ? `${d.lots.length} lô` : "chưa có lô";
+            const nhanNut = !nhap || d.kiem >= d.canNhap ? t("Xem lô") : chuaKiem ? t("Kiểm đếm") : t("Tiếp tục kiểm");
+            const soLo = d.lots == null ? (lo.loading ? t("đang tải lô…") : null) : d.lots.length ? t("{{soLo}} lô", { count: d.lots.length, soLo: d.lots.length }) : t("chưa có lô");
             return (
               <li key={d.bienTheSanPhamId} className="flex flex-col gap-2 px-4 py-3">
                 <div className="flex items-start justify-between gap-3">
@@ -455,9 +457,9 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
                 <TienDoSo da={d.kiem} tong={d.canNhap} />
                 <div className="flex items-center justify-between gap-3">
                   <span className="min-w-0 truncate text-[13px] tabular-nums text-bo-muted">
-                    {chuaKiem ? "Chưa kiểm" : (
+                    {chuaKiem ? t("Chưa kiểm") : (
                       <>
-                        Đạt <b className="font-semibold text-bo-foreground">{formatNumber(d.dat)}</b> · Lỗi{" "}
+                        {t("Đạt")} <b className="font-semibold text-bo-foreground">{formatNumber(d.dat)}</b> {t("· Lỗi")}{" "}
                         <b className={cn("font-semibold", d.loi ? "text-bo-danger" : "text-bo-foreground")}>{formatNumber(d.loi)}</b>
                       </>
                     )}
@@ -474,24 +476,24 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
               </li>
             );
           })}
-          {dong.length === 0 ? <li className="px-4 py-10 text-center text-sm text-bo-muted">Phiếu nhập chưa có hàng hóa.</li> : null}
+          {dong.length === 0 ? <li className="px-4 py-10 text-center text-sm text-bo-muted">{t("Phiếu nhập chưa có hàng hóa.")}</li> : null}
         </ul>
         <table className="w-full min-w-[1000px] text-sm max-md:hidden cam-ung:max-lg:hidden">
           <thead>
             <tr className="border-b border-bo-border bg-bo-surface-subtle">
-              <th className={cn(TH, "text-left")}>Biến thể</th>
-              <th className={cn(TH, "w-[184px] text-left")}>Đã kiểm</th>
-              <th className={cn(TH, "w-20 text-right")}>Đạt</th>
-              <th className={cn(TH, "w-20 text-right")}>Lỗi</th>
-              <th className={cn(TH, "w-[180px] text-left")}>Lô đã khóa</th>
-              <th className={cn(TH, "w-[150px] text-left")}>Trạng thái</th>
-              <th className={cn(TH, "w-[152px]")}><span className="sr-only">Thao tác</span></th>
+              <th className={cn(TH, "text-left")}>{t("Biến thể")}</th>
+              <th className={cn(TH, "w-[184px] text-left")}>{t("Đã kiểm")}</th>
+              <th className={cn(TH, "w-20 text-right")}>{t("Đạt")}</th>
+              <th className={cn(TH, "w-20 text-right")}>{t("Lỗi")}</th>
+              <th className={cn(TH, "w-[180px] text-left")}>{t("Lô đã khóa")}</th>
+              <th className={cn(TH, "w-[150px] text-left")}>{t("Trạng thái")}</th>
+              <th className={cn(TH, "w-[152px]")}><span className="sr-only">{t("Thao tác")}</span></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-bo-border">
             {dong.map((d) => {
               const chuaKiem = d.kiem === 0;
-              const nhanNut = !nhap || d.kiem >= d.canNhap ? "Xem lô" : chuaKiem ? "Kiểm đếm" : "Tiếp tục kiểm";
+              const nhanNut = !nhap || d.kiem >= d.canNhap ? t("Xem lô") : chuaKiem ? t("Kiểm đếm") : t("Tiếp tục kiểm");
               return (
                 <tr key={d.bienTheSanPhamId} className="transition-colors hover:bg-bo-surface-subtle">
                   <td className="h-14 px-4 py-2">
@@ -514,16 +516,16 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
                   {/* Mã lô dài (tiền tố + số phiếu): xuống dòng dưới số lô và cắt gọn, không đẩy cột Biến thể hẹp lại */}
                   <td className="max-w-[180px] px-4 py-2">
                     {d.lots == null ? (
-                      <span className="text-bo-muted">{lo.loading ? "Đang tải…" : "—"}</span>
+                      <span className="text-bo-muted">{lo.loading ? t("Đang tải…") : "—"}</span>
                     ) : d.lots.length ? (
                       <div className="min-w-0">
-                        <div>{d.lots.length} lô</div>
+                        <div>{t("{{soLo}} lô", { count: d.lots.length, soLo: d.lots.length })}</div>
                         <div className="truncate font-mono text-xs text-bo-muted" title={d.lots.map((l) => l.maLo).join(", ")}>
                           {d.lots.map((l) => l.maLo).join(", ")}
                         </div>
                       </div>
                     ) : (
-                      <span className="text-bo-muted">Chưa có lô</span>
+                      <span className="text-bo-muted">{t("Chưa có lô")}</span>
                     )}
                   </td>
                   <td className="px-4 py-2"><StatusBadge quyTrinh="kiemDem" label={d.trangThai.label} /></td>
@@ -542,7 +544,7 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
             })}
             {dong.length === 0 ? (
               <tr>
-                <td colSpan={7} className="h-24 px-4 text-center text-sm text-bo-muted">Phiếu nhập chưa có hàng hóa.</td>
+                <td colSpan={7} className="h-24 px-4 text-center text-sm text-bo-muted">{t("Phiếu nhập chưa có hàng hóa.")}</td>
               </tr>
             ) : null}
           </tbody>
@@ -580,25 +582,25 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
           // Gửi lại ghi chú đang có: máy chủ lỡ lập lại (trang cũ) thì không xóa ghi chú. Lỗi thì giữ hộp mở
           if (await phatHanhBienBan({ phuongAn: maPhuongAnHienTai, ghiChu: bienBan.data?.ghiChu ?? "", huy: true })) setMoHuyBienBan(false);
         }}
-        title="Hủy biên bản trả hàng"
-        description={`Biên bản ${data.maBienBanRtv || ""} không còn hàng lỗi để trả nhà cung cấp. Hủy biên bản để nhập kho được.`}
-        confirmText="Hủy biên bản"
-        cancelText="Quay lại"
+        title={t("Hủy biên bản trả hàng")}
+        description={t("Biên bản {{maBienBanRtv}} không còn hàng lỗi để trả nhà cung cấp. Hủy biên bản để nhập kho được.", { maBienBanRtv: data.maBienBanRtv || "" })}
+        confirmText={t("Hủy biên bản")}
+        cancelText={t("Quay lại")}
         isLoading={dangXuLy}
       />
       <HopXacNhanChungTu
         mo={moHuy}
         onDoiMo={setMoHuy}
-        tieuDe="Hủy phiếu nhập kho"
-        moTa="Các lô đã khóa của phiếu bị bỏ (chưa vào tồn kho) và biên bản trả hàng nếu có cũng bị hủy. Thao tác không hoàn tác được."
-        nhanXacNhan="Hủy phiếu"
+        tieuDe={t("Hủy phiếu nhập kho")}
+        moTa={t("Các lô đã khóa của phiếu bị bỏ (chưa vào tồn kho) và biên bản trả hàng nếu có cũng bị hủy. Thao tác không hoàn tác được.")}
+        nhanXacNhan={t("Hủy phiếu")}
         kieu="nguyHiem"
         dangChay={dangXuLy}
         khoaXacNhan={!lyDoHuy.trim()}
-        lyDoKhoa="Nhập lý do hủy"
+        lyDoKhoa={t("Nhập lý do hủy")}
         onXacNhan={huyPhieu}
       >
-        <OLyDo giaTri={lyDoHuy} onDoi={setLyDoHuy} goiY="Ví dụ: Nhà cung cấp giao nhầm đơn, lập lại phiếu khác" disabled={dangXuLy} />
+        <OLyDo giaTri={lyDoHuy} onDoi={setLyDoHuy} goiY={t("Ví dụ: Nhà cung cấp giao nhầm đơn, lập lại phiếu khác")} disabled={dangXuLy} />
       </HopXacNhanChungTu>
       <HopInTem
         open={Boolean(dongInTem)}

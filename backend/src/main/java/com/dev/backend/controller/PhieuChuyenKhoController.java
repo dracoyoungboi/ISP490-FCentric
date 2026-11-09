@@ -22,6 +22,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import com.dev.backend.i18n.ThongDiep;
 
 /**
  * Chuyển kho nội bộ theo đặc tả BA (UC-7.1). Quyền chi tiết theo vai trò và kho kiểm ở PhieuChuyenKhoService;
@@ -46,7 +47,7 @@ public class PhieuChuyenKhoController {
             @RequestParam(required = false) String trangThai,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        return ok(phieuChuyenKhoService.danhSach(tab, q, khoXuatId, khoNhapId, trangThai, page, size), "Lấy danh sách phiếu chuyển kho thành công");
+        return ok(phieuChuyenKhoService.danhSach(tab, q, khoXuatId, khoNhapId, trangThai, page, size), ThongDiep.dich("chungTuKho.layDsPhieuChuyenThanhCong"));
     }
 
     /** Số phiếu XKNB tiếp theo của ký hiệu (điền sẵn ở hộp Xác nhận xuất / Ghi số XKNB). */
@@ -56,19 +57,19 @@ public class PhieuChuyenKhoController {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("kyHieuXknb", kyHieu.trim().toUpperCase(java.util.Locale.ROOT));
         data.put("soPhieuXknb", phieuChuyenKhoService.soXknbTiepTheo(kyHieu));
-        return ok(data, "Số phiếu XKNB tiếp theo");
+        return ok(data, ThongDiep.dich("chungTuKho.soXknbTiepTheo"));
     }
 
     @GetMapping("/{id}")
     @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho}, inWarehouse = true)
     public ResponseEntity<ResponseData<PhieuChuyenKhoDto.ChiTiet>> chiTiet(@PathVariable Integer id) {
-        return ok(phieuChuyenKhoService.chiTiet(id), "Lấy chi tiết phiếu chuyển thành công");
+        return ok(phieuChuyenKhoService.chiTiet(id), ThongDiep.dich("chungTuKho.layChiTietPhieuChuyenThanhCong"));
     }
 
     @PostMapping("/create")
     @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho}, inWarehouse = true)
     public ResponseEntity<ResponseData<Map<String, Object>>> tao(@RequestBody PhieuChuyenKhoCreating yeuCau) {
-        return ok(tomTat(ThuLaiKhiTrungSo.chay(() -> phieuChuyenKhoService.tao(yeuCau))), "Đã tạo yêu cầu chuyển kho, đang chờ duyệt");
+        return ok(tomTat(ThuLaiKhiTrungSo.chay(() -> phieuChuyenKhoService.tao(yeuCau))), ThongDiep.dich("chungTuKho.daTaoYeuCauChuyenKho"));
     }
 
     @PutMapping("/{id}/duyet")
@@ -77,20 +78,20 @@ public class PhieuChuyenKhoController {
         PhieuChuyenKho p = ThuLaiKhiTrungSo.chay(() -> phieuChuyenKhoService.duyet(id, yeuCau));
         Map<String, Object> data = tomTat(p);
         data.put("soLenhDieuDong", p.getSoLenhDieuDong());
-        return ok(data, "Đã duyệt và lập lệnh điều động " + p.getSoLenhDieuDong());
+        return ok(data, ThongDiep.dich("chungTuKho.daDuyetLapLenhDieuDong", p.getSoLenhDieuDong()));
     }
 
     /** Từ chối yêu cầu Chờ duyệt { lyDo } (bắt buộc): phiếu sang Đã hủy, nhả giữ chỗ. */
     @PutMapping("/{id}/tu-choi")
     @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho}, inWarehouse = true)
     public ResponseEntity<ResponseData<Map<String, Object>>> tuChoi(@PathVariable Integer id, @RequestBody(required = false) PhieuChuyenKhoYeuCau.Huy yeuCau) {
-        return ok(tomTat(phieuChuyenKhoService.tuChoi(id, yeuCau)), "Đã từ chối yêu cầu chuyển kho");
+        return ok(tomTat(phieuChuyenKhoService.tuChoi(id, yeuCau)), ThongDiep.dich("chungTuKho.daTuChoiYeuCauChuyenKho"));
     }
 
     @PutMapping("/{id}/huy")
     @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho}, inWarehouse = true)
     public ResponseEntity<ResponseData<Map<String, Object>>> huy(@PathVariable Integer id, @RequestBody(required = false) PhieuChuyenKhoYeuCau.Huy yeuCau) {
-        return ok(tomTat(phieuChuyenKhoService.huy(id, yeuCau)), "Đã hủy phiếu chuyển kho");
+        return ok(tomTat(phieuChuyenKhoService.huy(id, yeuCau)), ThongDiep.dich("chungTuKho.daHuyPhieuChuyenKho"));
     }
 
     /**
@@ -107,19 +108,21 @@ public class PhieuChuyenKhoController {
         data.put("soPhieuXuat", px.getSoPhieuXuat());
         data.put("phieuNhatId", kq.phieuNhat() == null ? null : kq.phieuNhat().getId());
         data.put("maPickList", kq.phieuNhat() == null ? null : kq.phieuNhat().getMaPickList());
-        return ok(data, kq.phieuNhat() != null ? "Phiếu nhặt " + kq.phieuNhat().getMaPickList() : "Phiếu xuất " + px.getSoPhieuXuat());
+        return ok(data, kq.phieuNhat() != null
+                ? ThongDiep.dich("chungTuKho.phieuNhatSo", kq.phieuNhat().getMaPickList())
+                : ThongDiep.dich("chungTuKho.phieuXuatSo", px.getSoPhieuXuat()));
     }
 
     @PutMapping("/{id}/xac-nhan-xuat")
     @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho}, inWarehouse = true)
     public ResponseEntity<ResponseData<Map<String, Object>>> xacNhanXuat(@PathVariable Integer id, @RequestBody PhieuChuyenKhoYeuCau.XacNhanXuat yeuCau) {
-        return ok(tomTat(phieuChuyenKhoService.xacNhanXuat(id, yeuCau)), "Đã xác nhận xuất, hàng đang trên đường");
+        return ok(tomTat(phieuChuyenKhoService.xacNhanXuat(id, yeuCau)), ThongDiep.dich("chungTuKho.daXacNhanXuatDangTrenDuong"));
     }
 
     @PutMapping("/{id}/ghi-so-xknb")
     @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho}, inWarehouse = true)
     public ResponseEntity<ResponseData<Map<String, Object>>> ghiSoXknb(@PathVariable Integer id, @RequestBody PhieuChuyenKhoYeuCau.GhiSoXknb yeuCau) {
-        return ok(tomTat(phieuChuyenKhoService.ghiSoXknb(id, yeuCau)), "Đã ghi số phiếu XKNB");
+        return ok(tomTat(phieuChuyenKhoService.ghiSoXknb(id, yeuCau)), ThongDiep.dich("chungTuKho.daGhiSoXknb"));
     }
 
     @PutMapping("/{id}/nhan-du")
@@ -129,7 +132,7 @@ public class PhieuChuyenKhoController {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("phieuNhapId", pn.getId());
         data.put("soPhieuNhap", pn.getSoPhieuNhap());
-        return ok(data, "Đã nhận đủ hàng, phiếu nhập " + pn.getSoPhieuNhap());
+        return ok(data, ThongDiep.dich("chungTuKho.daNhanDuHang", pn.getSoPhieuNhap()));
     }
 
     @PutMapping("/{id}/nhan-lech")
@@ -139,7 +142,7 @@ public class PhieuChuyenKhoController {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("bienBanId", bb.getId());
         data.put("soBienBan", bb.getSoBienBan());
-        return ok(data, "Đã nhận phần đạt và lập biên bản " + bb.getSoBienBan());
+        return ok(data, ThongDiep.dich("chungTuKho.daNhanPhanDatLapBienBan", bb.getSoBienBan()));
     }
 
     /**
@@ -153,7 +156,7 @@ public class PhieuChuyenKhoController {
             @PathVariable Integer id,
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "moTa", required = false) String moTa) {
-        return ok(anhBienBanGiaoNhanService.them(id, file, moTa), "Đã thêm ảnh vào biên bản giao nhận");
+        return ok(anhBienBanGiaoNhanService.them(id, file, moTa), ThongDiep.dich("chungTuKho.daThemAnhBienBan"));
     }
 
     /**
@@ -164,7 +167,7 @@ public class PhieuChuyenKhoController {
     @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho}, inWarehouse = true)
     public ResponseEntity<ResponseData<Void>> xoaAnhBienBan(@PathVariable Integer id, @PathVariable Integer anhId) {
         anhBienBanGiaoNhanService.xoa(id, anhId);
-        return ok(null, "Đã xóa ảnh khỏi biên bản giao nhận");
+        return ok(null, ThongDiep.dich("chungTuKho.daXoaAnhBienBan"));
     }
 
     /** Đại diện kho gửi xác nhận biên bản giao nhận { ghiChu } (ý kiến, không bắt buộc): mở bước xử lý chênh lệch. */
@@ -176,7 +179,7 @@ public class PhieuChuyenKhoController {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("bienBanId", bb.getId());
         data.put("soBienBan", bb.getSoBienBan());
-        return ok(data, "Đã xác nhận biên bản " + bb.getSoBienBan());
+        return ok(data, ThongDiep.dich("chungTuKho.daXacNhanBienBan", bb.getSoBienBan()));
     }
 
     @PutMapping("/{id}/xu-ly-chenh-lech")
@@ -186,7 +189,7 @@ public class PhieuChuyenKhoController {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("phieuDieuChinhId", dck.getId());
         data.put("soPhieuDieuChinh", dck.getSoPhieu());
-        return ok(data, "Đã xử lý chênh lệch, phiếu điều chỉnh " + dck.getSoPhieu());
+        return ok(data, ThongDiep.dich("chungTuKho.daXuLyChenhLech", dck.getSoPhieu()));
     }
 
     @PutMapping("/{id}/nhap-hoan-tra")
@@ -196,14 +199,14 @@ public class PhieuChuyenKhoController {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("phieuNhapId", pn.getId());
         data.put("soPhieuNhap", pn.getSoPhieuNhap());
-        return ok(data, "Đã nhập hoàn trả, phiếu nhập " + pn.getSoPhieuNhap());
+        return ok(data, ThongDiep.dich("chungTuKho.daNhapHoanTra", pn.getSoPhieuNhap()));
     }
 
     /** Phiếu điều chỉnh kho ghi giảm chênh lệch của phiếu chuyển. */
     @GetMapping("/dieu-chinh/{id}")
     @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho}, inWarehouse = true)
     public ResponseEntity<ResponseData<PhieuChuyenKhoDto.PhieuDieuChinh>> phieuDieuChinh(@PathVariable Integer id) {
-        return ok(phieuChuyenKhoService.phieuDieuChinh(id), "Lấy phiếu điều chỉnh kho thành công");
+        return ok(phieuChuyenKhoService.phieuDieuChinh(id), ThongDiep.dich("chungTuKho.layPhieuDieuChinhThanhCong"));
     }
 
     private static Map<String, Object> tomTat(PhieuChuyenKho p) {

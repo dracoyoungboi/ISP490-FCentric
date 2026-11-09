@@ -19,12 +19,13 @@ import ChonMauSac, { ChamMau } from "./ChonMauSac";
 import DoiThuocTinhBienThe from "./DoiThuocTinhBienThe";
 import { VIEN_FOCUS } from "./kieuForm";
 import { SO_BIEN_THE_TOI_DA, demDongApGiaChung, hienTien, viTriSauChuSo, xemTruocSku, xuLyNhapTien } from "./logicBienThe";
+import { t } from "@/i18n";
 
-const NHAN_NHOM_KICH_CO = { chu: "Chữ", so: "Số", khac: "Khác" };
+const NHAN_NHOM_KICH_CO = { chu: t("Chữ"), so: t("Số"), khac: t("Khác") };
 const KHONG_KHOA = [];
 const KHONG_CO_ANH_CU = {};
-const GIA_KHOA = "Tính theo lô nhập";
-const GIA_BAN_KHOA = "Đổi ở màn Giá bán & tem mã vạch";
+const GIA_KHOA = t("Tính theo lô nhập");
+const GIA_BAN_KHOA = t("Đổi ở màn Giá bán & tem mã vạch");
 
 // Vòng focus theo màu chung (Button/Checkbox dựng sẵn mặc định lấy màu chữ làm vòng focus, trông đậm và lệch tông).
 const CHECKBOX_CLASS =
@@ -59,7 +60,7 @@ function NutKichCo({ dangChon, khoa, onClick, disabled, children }) {
             type="button"
             aria-pressed={dangChon}
             aria-disabled={khoa || undefined}
-            title={khoa ? "Kích cỡ đang có biến thể nên không bỏ chọn được" : undefined}
+            title={khoa ? t("Kích cỡ đang có biến thể nên không bỏ chọn được") : undefined}
             onClick={khoa ? undefined : onClick}
             disabled={disabled}
             className={cn(
@@ -147,8 +148,8 @@ function NutTrangThai({ dangBan, ten, disabled, onClick }) {
             type="button"
             role="switch"
             aria-checked={dangBan}
-            aria-label={`Đang bán ${ten}`}
-            title={dangBan ? "Bấm để tạm ngừng bán biến thể này" : "Bấm để bán lại biến thể này"}
+            aria-label={t("Đang bán {{ten}}", { ten })}
+            title={dangBan ? t("Bấm để tạm ngừng bán biến thể này") : t("Bấm để bán lại biến thể này")}
             disabled={disabled}
             onClick={onClick}
             className={cn(
@@ -159,7 +160,7 @@ function NutTrangThai({ dangBan, ten, disabled, onClick }) {
             )}
         >
             <span className={cn("size-1.5 rounded-full", dangBan ? "bg-bo-success" : "bg-bo-muted")} aria-hidden="true" />
-            {dangBan ? "Đang bán" : "Tạm ngừng"}
+            {dangBan ? t("Đang bán") : t("Tạm ngừng")}
         </button>
     );
 }
@@ -179,8 +180,8 @@ function OAnhMau({ mau, anh, anhCu, thieuAnh, anhSanPhams, disabled, onChonTep, 
                     type="button"
                     data-o-anh-mau=""
                     disabled={disabled}
-                    aria-label={urlHienThi ? `Đổi ảnh màu ${mau.tenMau}` : `Thêm ảnh màu ${mau.tenMau}`}
-                    title={urlHienThi ? "Đổi ảnh cho cả màu" : "Thêm ảnh cho cả màu"}
+                    aria-label={urlHienThi ? t("Đổi ảnh màu {{tenMau}}", { tenMau: mau.tenMau }) : t("Thêm ảnh màu {{tenMau}}", { tenMau: mau.tenMau })}
+                    title={urlHienThi ? t("Đổi ảnh cho cả màu") : t("Thêm ảnh cho cả màu")}
                     className={cn(
                         "flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-bo-surface text-bo-muted transition-colors hover:border-bo-primary hover:text-bo-primary focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bo-primary",
                         urlHienThi ? "border-bo-border" : "border-dashed border-bo-muted/60",
@@ -196,7 +197,7 @@ function OAnhMau({ mau, anh, anhCu, thieuAnh, anhSanPhams, disabled, onChonTep, 
                 </button>
             </PopoverTrigger>
             <PopoverContent align="start" className="w-80 space-y-3 border-bo-border bg-bo-surface p-3">
-                <p className="text-sm font-medium text-bo-foreground">Ảnh màu {mau.tenMau}</p>
+                <p className="text-sm font-medium text-bo-foreground">{t("Ảnh màu {{tenMau}}", { tenMau: mau.tenMau })}</p>
                 <input
                     ref={inputRef}
                     type="file"
@@ -217,19 +218,19 @@ function OAnhMau({ mau, anh, anhCu, thieuAnh, anhSanPhams, disabled, onChonTep, 
                     onClick={() => inputRef.current?.click()}
                 >
                     <Upload className="size-4" aria-hidden="true" />
-                    {urlHienThi ? "Tải ảnh khác" : "Tải ảnh lên"}
+                    {urlHienThi ? t("Tải ảnh khác") : t("Tải ảnh lên")}
                 </Button>
                 {anhSanPhams.length > 0 && (
                     <div className="space-y-1.5">
                         <p className="text-xs text-bo-muted">
-                            {anhCu ? "Hoặc chọn từ ảnh sản phẩm vừa thêm" : "Hoặc chọn từ ảnh sản phẩm chính"}
+                            {anhCu ? t("Hoặc chọn từ ảnh sản phẩm vừa thêm") : t("Hoặc chọn từ ảnh sản phẩm chính")}
                         </p>
                         <div className="flex flex-wrap gap-2">
                             {anhSanPhams.map((anhSp, i) => (
                                 <button
                                     key={anhSp.id}
                                     type="button"
-                                    aria-label={`Dùng ảnh sản phẩm ${i + 1}`}
+                                    aria-label={t("Dùng ảnh sản phẩm {{so}}", { so: i + 1 })}
                                     onClick={() => {
                                         onDungAnhSanPham(anhSp);
                                         setMo(false);
@@ -243,7 +244,7 @@ function OAnhMau({ mau, anh, anhCu, thieuAnh, anhSanPhams, disabled, onChonTep, 
                     </div>
                 )}
                 <div className="flex items-center justify-between gap-2 border-t border-bo-border pt-2">
-                    <p className="text-xs text-bo-muted">Dùng cho mọi kích cỡ của màu này. Ảnh tối đa 10 MB.</p>
+                    <p className="text-xs text-bo-muted">{t("Dùng cho mọi kích cỡ của màu này. Ảnh tối đa 10 MB.")}</p>
                     {anh && (
                         <Button
                             type="button"
@@ -255,7 +256,7 @@ function OAnhMau({ mau, anh, anhCu, thieuAnh, anhSanPhams, disabled, onChonTep, 
                                 setMo(false);
                             }}
                         >
-                            {anhCu ? "Dùng lại ảnh cũ" : "Gỡ ảnh"}
+                            {anhCu ? t("Dùng lại ảnh cũ") : t("Gỡ ảnh")}
                         </Button>
                     )}
                 </div>
@@ -332,20 +333,20 @@ export default function TrinhTaoBienThe({
 
     const apDungGiaChung = () => {
         if (giaVonChung === "" && giaBanChung === "") {
-            setThongBaoApDung({ loi: true, noiDung: "Nhập giá vốn hoặc giá bán trước khi áp dụng." });
+            setThongBaoApDung({ loi: true, noiDung: t("Nhập giá vốn hoặc giá bán trước khi áp dụng.") });
             return;
         }
         dispatch({ type: "apDungGiaChung", giaVon: giaVonChung, giaBan: giaBanChung });
         const { soApDung, soKhoaGia } = demDongApGiaChung(nhom);
         const ketQua =
             soApDung > 0
-                ? `Đã áp dụng cho ${soApDung} dòng.`
+                ? t("Đã áp dụng cho {{count}} dòng.", { count: soApDung })
                 : soKhoaGia > 0
-                  ? "Không có dòng nào đổi giá."
-                  : "Chưa có dòng nào đang chọn. Giá sẽ dùng khi bạn tích lại.";
+                  ? t("Không có dòng nào đổi giá.")
+                  : t("Chưa có dòng nào đang chọn. Giá sẽ dùng khi bạn tích lại.");
         setThongBaoApDung({
             loi: false,
-            noiDung: ketQua + (soKhoaGia > 0 ? ` Giữ nguyên giá ${soKhoaGia} biến thể còn tồn kho.` : ""),
+            noiDung: ketQua + (soKhoaGia > 0 ? t(" Giữ nguyên giá {{count}} biến thể còn tồn kho.", { count: soKhoaGia }) : ""),
         });
     };
 
@@ -353,7 +354,7 @@ export default function TrinhTaoBienThe({
     if (loiTai) {
         return (
             <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-bo-border bg-bo-surface-subtle px-4 py-8 text-center">
-                <p className="text-sm text-bo-foreground">Không tải được danh sách màu sắc và kích cỡ.</p>
+                <p className="text-sm text-bo-foreground">{t("Không tải được danh sách màu sắc và kích cỡ.")}</p>
                 <Button
                     type="button"
                     variant="outline"
@@ -361,7 +362,7 @@ export default function TrinhTaoBienThe({
                     className={NUT_VIEN_CLASS}
                 >
                     <RefreshCcw className="size-4" aria-hidden="true" />
-                    Thử lại
+                    {t("Thử lại")}
                 </Button>
             </div>
         );
@@ -373,14 +374,14 @@ export default function TrinhTaoBienThe({
         <div className="space-y-4">
             <div className="space-y-4">
                 <DongThuocTinh
-                    nhan="Màu sắc"
-                    loi={hienLoi && state.mauDaChon.length === 0 ? "Vui lòng chọn ít nhất 1 màu sắc" : null}
+                    nhan={t("Màu sắc")}
+                    loi={hienLoi && state.mauDaChon.length === 0 ? t("Vui lòng chọn ít nhất 1 màu sắc") : null}
                     chuThich={
                         state.mauDaChon.length > 0 && (
                             <div className="flex items-center justify-between gap-3 text-xs text-bo-muted">
                                 <span>
-                                    Đã chọn {state.mauDaChon.length}/{mauSacs.length} màu
-                                    {mauKhoa.length > 0 && ` · ${mauKhoa.length} màu đang có biến thể, không bỏ được`}
+                                    {t("Đã chọn {{daChon}}/{{tong}} màu", { count: mauSacs.length, daChon: state.mauDaChon.length, tong: mauSacs.length })}
+                                    {mauKhoa.length > 0 && t(" · {{count}} màu đang có biến thể, không bỏ được", { count: mauKhoa.length })}
                                 </span>
                                 {soMauBoDuoc > 0 && (
                                     <button
@@ -389,7 +390,7 @@ export default function TrinhTaoBienThe({
                                         onClick={() => dispatch({ type: "boChonTatCaMau" })}
                                         className={cn(NUT_CHU_CLASS, "shrink-0 text-xs text-bo-muted hover:text-bo-foreground")}
                                     >
-                                        {laSua ? "Bỏ các màu mới" : "Bỏ chọn tất cả"}
+                                        {laSua ? t("Bỏ các màu mới") : t("Bỏ chọn tất cả")}
                                     </button>
                                 )}
                             </div>
@@ -409,11 +410,11 @@ export default function TrinhTaoBienThe({
                 </DongThuocTinh>
 
                 <DongThuocTinh
-                    nhan="Kích cỡ"
-                    loi={hienLoi && state.kichCoDaChon.length === 0 ? "Vui lòng chọn ít nhất 1 kích cỡ" : null}
+                    nhan={t("Kích cỡ")}
+                    loi={hienLoi && state.kichCoDaChon.length === 0 ? t("Vui lòng chọn ít nhất 1 kích cỡ") : null}
                     chuThich={
                         kichCoKhoa.length > 0 && (
-                            <p className="text-xs text-bo-muted">Kích cỡ đang có biến thể luôn được giữ. Chọn thêm kích cỡ để tạo biến thể mới.</p>
+                            <p className="text-xs text-bo-muted">{t("Kích cỡ đang có biến thể luôn được giữ. Chọn thêm kích cỡ để tạo biến thể mới.")}</p>
                         )
                     }
                 >
@@ -424,7 +425,7 @@ export default function TrinhTaoBienThe({
                             ))}
                         </div>
                     ) : kichCos.length === 0 ? (
-                        <p className="pt-2 text-sm text-bo-muted">Chưa có kích cỡ nào. Vui lòng thêm ở trang Thuộc tính.</p>
+                        <p className="pt-2 text-sm text-bo-muted">{t("Chưa có kích cỡ nào. Vui lòng thêm ở trang Thuộc tính.")}</p>
                     ) : (
                         <div className="space-y-2">
                             {nhomKichCo.map(({ loai, ds }, i) => {
@@ -435,7 +436,7 @@ export default function TrinhTaoBienThe({
                                     <div
                                         key={loai}
                                         role="group"
-                                        aria-label={nhieuNhomKichCo ? `Kích cỡ ${NHAN_NHOM_KICH_CO[loai] ?? loai}` : "Kích cỡ"}
+                                        aria-label={nhieuNhomKichCo ? t("Kích cỡ {{nhom}}", { nhom: NHAN_NHOM_KICH_CO[loai] ?? loai }) : t("Kích cỡ")}
                                         className="flex flex-wrap items-center gap-1.5"
                                     >
                                         {nhieuNhomKichCo && (
@@ -470,7 +471,7 @@ export default function TrinhTaoBienThe({
                                                     daChonCaNhom ? "text-bo-muted hover:text-bo-foreground" : "text-bo-primary",
                                                 )}
                                             >
-                                                {daChonCaNhom ? "Bỏ cả nhóm" : "Chọn cả nhóm"}
+                                                {daChonCaNhom ? t("Bỏ cả nhóm") : t("Chọn cả nhóm")}
                                             </button>
                                         )}
                                         {i === 0 && (
@@ -482,7 +483,7 @@ export default function TrinhTaoBienThe({
                                                     onClick={() => dispatch({ type: "chonKichCo", sizeIds: kichCos.map((s) => s.id) })}
                                                     className={cn(NUT_CHU_CLASS, "text-bo-primary")}
                                                 >
-                                                    Chọn tất cả
+                                                    {t("Chọn tất cả")}
                                                 </button>
                                                 <button
                                                     type="button"
@@ -490,7 +491,7 @@ export default function TrinhTaoBienThe({
                                                     onClick={() => dispatch({ type: "chonKichCo", sizeIds: [] })}
                                                     className={cn(NUT_CHU_CLASS, "text-bo-muted hover:text-bo-foreground")}
                                                 >
-                                                    Bỏ chọn
+                                                    {t("Bỏ chọn")}
                                                 </button>
                                             </span>
                                         )}
@@ -511,45 +512,45 @@ export default function TrinhTaoBienThe({
             >
                 <div className="flex flex-wrap items-center gap-2" aria-live="polite">
                     {thongKe.soToHop === 0 ? (
-                        <span className="text-bo-muted">Chọn ít nhất 1 màu sắc và 1 kích cỡ để sinh bảng biến thể.</span>
+                        <span className="text-bo-muted">{t("Chọn ít nhất 1 màu sắc và 1 kích cỡ để sinh bảng biến thể.")}</span>
                     ) : (
                         <>
                             {laSua ? (
                                 <>
                                     <span className="text-bo-foreground">
-                                        <b>{thongKe.soCu}</b> biến thể đang có
+                                        <b>{thongKe.soCu}</b> {t("biến thể đang có")}
                                     </span>
                                     {thongKe.soTao > 0 ? (
                                         <span className="rounded-full bg-bo-primary-soft px-2.5 py-0.5 text-xs font-semibold text-bo-primary">
-                                            Thêm mới {thongKe.soTao} biến thể
+                                            {t("Thêm mới {{count}} biến thể", { count: thongKe.soTao })}
                                         </span>
                                     ) : (
-                                        <span className="text-xs text-bo-muted">Chọn thêm màu sắc hoặc kích cỡ để tạo biến thể mới.</span>
+                                        <span className="text-xs text-bo-muted">{t("Chọn thêm màu sắc hoặc kích cỡ để tạo biến thể mới.")}</span>
                                     )}
                                     {thongKe.mauThieuAnh.length > 0 && (
                                         <span className="rounded-full bg-bo-danger-soft px-2.5 py-0.5 text-xs font-semibold text-bo-danger">
-                                            {thongKe.mauThieuAnh.length} màu mới chưa có ảnh
+                                            {t("{{count}} màu mới chưa có ảnh", { count: thongKe.mauThieuAnh.length })}
                                         </span>
                                     )}
                                 </>
                             ) : (
                                 <>
                                     <span className="text-bo-foreground">
-                                        <b>{state.mauDaChon.length}</b> màu × <b>{state.kichCoDaChon.length}</b> kích cỡ ={" "}
-                                        <b>{thongKe.soToHop}</b> tổ hợp
-                                        {thongKe.soBoQua > 0 && `, bỏ ${thongKe.soBoQua}`}
+                                        <b>{state.mauDaChon.length}</b> {t("màu ×")} <b>{state.kichCoDaChon.length}</b> {t("kích cỡ =")}{" "}
+                                        <b>{thongKe.soToHop}</b> {t("tổ hợp")}
+                                        {thongKe.soBoQua > 0 && t(", bỏ {{soBoQua}}", { soBoQua: thongKe.soBoQua })}
                                     </span>
                                     <span className="rounded-full bg-bo-primary-soft px-2.5 py-0.5 text-xs font-semibold text-bo-primary">
-                                        Sẽ tạo {thongKe.soTao} biến thể
+                                        {t("Sẽ tạo {{count}} biến thể", { count: thongKe.soTao })}
                                     </span>
                                     {thongKe.mauThieuAnh.length > 0 ? (
                                         <span className="rounded-full bg-bo-danger-soft px-2.5 py-0.5 text-xs font-semibold text-bo-danger">
-                                            {thongKe.mauThieuAnh.length}/{thongKe.soMauCoBienThe} màu chưa có ảnh
+                                            {t("{{thieu}}/{{tong}} màu chưa có ảnh", { count: thongKe.soMauCoBienThe, thieu: thongKe.mauThieuAnh.length, tong: thongKe.soMauCoBienThe })}
                                         </span>
                                     ) : (
                                         thongKe.soMauCoBienThe > 0 && (
                                             <span className="rounded-full bg-bo-success-soft px-2.5 py-0.5 text-xs font-semibold text-bo-success">
-                                                Đủ ảnh {thongKe.soMauCoBienThe} màu
+                                                {t("Đủ ảnh {{count}} màu", { count: thongKe.soMauCoBienThe })}
                                             </span>
                                         )
                                     )}
@@ -557,12 +558,12 @@ export default function TrinhTaoBienThe({
                             )}
                             {thongKe.soGiaBanThapHon > 0 && (
                                 <span className="rounded-full bg-bo-warning-soft px-2.5 py-0.5 text-xs font-semibold text-bo-warning">
-                                    {thongKe.soGiaBanThapHon} dòng giá bán thấp hơn giá vốn
+                                    {t("{{count}} dòng giá bán thấp hơn giá vốn", { count: thongKe.soGiaBanThapHon })}
                                 </span>
                             )}
                             {vuotGioiHan && (
                                 <span className="font-medium text-bo-danger">
-                                    Tối đa {SO_BIEN_THE_TOI_DA} biến thể mỗi sản phẩm{laSua && `, sau khi lưu sẽ có ${soBienTheSauLuu}`}.
+                                    {t("Tối đa {{toiDa}} biến thể mỗi sản phẩm", { toiDa: SO_BIEN_THE_TOI_DA })}{laSua && t(", sau khi lưu sẽ có {{soBienTheSauLuu}}", { soBienTheSauLuu })}.
                                 </span>
                             )}
                         </>
@@ -581,7 +582,7 @@ export default function TrinhTaoBienThe({
                         ) : (
                             <ChevronsDownUp className="size-4" aria-hidden="true" />
                         )}
-                        {daThuGonHet ? "Mở tất cả" : "Thu gọn tất cả"}
+                        {daThuGonHet ? t("Mở tất cả") : t("Thu gọn tất cả")}
                     </Button>
                 )}
             </div>
@@ -589,11 +590,11 @@ export default function TrinhTaoBienThe({
             {/* Giá chung */}
             <div className="grid grid-cols-2 items-end gap-3 rounded-lg border border-bo-border bg-bo-surface-subtle p-3 md:grid-cols-[180px_180px_auto_1fr]">
                 <label className="space-y-1.5">
-                    <span className="text-xs font-medium text-bo-foreground">Giá vốn chung (₫)</span>
+                    <span className="text-xs font-medium text-bo-foreground">{t("Giá vốn chung (₫)")}</span>
                     <OTien value={giaVonChung} onChange={doiGiaChung(setGiaVonChung)} onEnter={apDungGiaChung} placeholder="280.000" disabled={disabled} />
                 </label>
                 <label className="space-y-1.5">
-                    <span className="text-xs font-medium text-bo-foreground">Giá bán chung (₫)</span>
+                    <span className="text-xs font-medium text-bo-foreground">{t("Giá bán chung (₫)")}</span>
                     <OTien value={giaBanChung} onChange={doiGiaChung(setGiaBanChung)} onEnter={apDungGiaChung} placeholder="459.000" disabled={disabled} />
                 </label>
                 <Button
@@ -603,7 +604,7 @@ export default function TrinhTaoBienThe({
                     onClick={apDungGiaChung}
                     className={cn("col-span-2 h-8 md:col-span-1", NUT_VIEN_CLASS)}
                 >
-                    Áp dụng cho tất cả
+                    {t("Áp dụng cho tất cả")}
                 </Button>
                 <p
                     role="status"
@@ -614,17 +615,17 @@ export default function TrinhTaoBienThe({
                 >
                     {thongBaoApDung?.noiDung ??
                         (laSua
-                            ? "Biến thể còn tồn kho có giá tính theo lô nhập (ô có khóa) nên không sửa được."
-                            : "Giá không bắt buộc. Theo quy tắc hiện tại, giá được tính lại theo lô thực tế khi nhập kho.")}
+                            ? t("Biến thể còn tồn kho có giá tính theo lô nhập (ô có khóa) nên không sửa được.")
+                            : t("Giá không bắt buộc. Theo quy tắc hiện tại, giá được tính lại theo lô thực tế khi nhập kho."))}
                 </p>
             </div>
 
             {/* Bảng biến thể */}
-            {nhom.length > 0 && <p className="-mb-2 text-xs text-bo-muted md:hidden">Vuốt ngang bảng để xem và nhập giá.</p>}
+            {nhom.length > 0 && <p className="-mb-2 text-xs text-bo-muted md:hidden">{t("Vuốt ngang bảng để xem và nhập giá.")}</p>}
             {/* Điện thoại: bảng trống chỉ có tiêu đề cột, câu hướng dẫn bị cắt vì phải vuốt ngang → thay bằng một khung chữ */}
             {nhom.length === 0 && (
                 <p className="rounded-lg border border-dashed border-bo-border bg-bo-surface px-3 py-8 text-center text-sm text-bo-muted md:hidden">
-                    Bảng biến thể hiện ở đây sau khi chọn màu sắc và kích cỡ.
+                    {t("Bảng biến thể hiện ở đây sau khi chọn màu sắc và kích cỡ.")}
                 </p>
             )}
             {/* relative: giữ cả phần tử absolute (sr-only) bên trong vùng cuộn, không làm tràn hộp thoại */}
@@ -632,13 +633,13 @@ export default function TrinhTaoBienThe({
                 <table className={cn("w-full border-collapse text-sm", laSua ? "min-w-[800px]" : "min-w-[720px]")}>
                     <thead>
                         <tr className="border-b border-bo-border bg-bo-surface-subtle text-left text-xs font-medium text-bo-muted">
-                            <th className="w-10 px-3 py-2"><span className="sr-only">Tạo biến thể</span></th>
-                            <th className="w-28 px-3 py-2 font-medium">Kích cỡ</th>
-                            <th className="px-3 py-2 font-medium">{laSua ? "Mã SKU" : "Mã SKU (xem trước)"}</th>
-                            <th className="w-36 px-3 py-2 text-right font-medium">Giá vốn (₫)</th>
-                            <th className="w-36 px-3 py-2 text-right font-medium">Giá bán (₫)</th>
+                            <th className="w-10 px-3 py-2"><span className="sr-only">{t("Tạo biến thể")}</span></th>
+                            <th className="w-28 px-3 py-2 font-medium">{t("Kích cỡ")}</th>
+                            <th className="px-3 py-2 font-medium">{laSua ? t("Mã SKU") : t("Mã SKU (xem trước)")}</th>
+                            <th className="w-36 px-3 py-2 text-right font-medium">{t("Giá vốn (₫)")}</th>
+                            <th className="w-36 px-3 py-2 text-right font-medium">{t("Giá bán (₫)")}</th>
                             <th className={cn("px-3 py-2 font-medium", laSua ? "w-48" : "w-40")}>
-                                {laSua ? "Trạng thái" : <span className="sr-only">Ghi chú</span>}
+                                {laSua ? t("Trạng thái") : <span className="sr-only">{t("Ghi chú")}</span>}
                             </th>
                         </tr>
                     </thead>
@@ -646,7 +647,7 @@ export default function TrinhTaoBienThe({
                         {nhom.length === 0 && (
                             <tr>
                                 <td colSpan={6} className="px-3 py-8 text-center text-sm text-bo-muted">
-                                    Bảng biến thể hiện ở đây sau khi chọn màu sắc và kích cỡ.
+                                    {t("Bảng biến thể hiện ở đây sau khi chọn màu sắc và kích cỡ.")}
                                 </td>
                             </tr>
                         )}
@@ -683,11 +684,10 @@ export default function TrinhTaoBienThe({
             </div>
             <p className="text-xs text-bo-muted">
                 {laSua ? (
-                    "Nhấn Enter trong ô giá để xuống dòng dưới. Biến thể đã lưu không xóa được, chỉ chuyển sang Tạm ngừng."
+                    t("Nhấn Enter trong ô giá để xuống dòng dưới. Biến thể đã lưu không xóa được, chỉ chuyển sang Tạm ngừng.")
                 ) : (
                     <>
-                        Nhấn Enter trong ô giá để xuống dòng dưới. Dấu <span className="font-semibold text-bo-primary">?</span> trong
-                        mã là số thứ tự trong ngày, hệ thống cấp khi lưu.
+                        {t("Nhấn Enter trong ô giá để xuống dòng dưới. Dấu")} <span className="font-semibold text-bo-primary">?</span> {t("trong mã là số thứ tự trong ngày, hệ thống cấp khi lưu.")}
                     </>
                 )}
             </p>
@@ -758,13 +758,13 @@ const NhomMau = memo(function NhomMau({
     const coGiaSuaDuoc = !laSua || dong.some((d) => !d.khoaGia);
     const nhanSoLuong = !laSua
         ? chuaCoKichCo
-            ? "Chưa chọn kích cỡ"
-            : `${soTao}/${dong.length} kích cỡ`
+            ? t("Chưa chọn kích cỡ")
+            : t("{{soTao}}/{{tong}} kích cỡ", { count: dong.length, soTao, tong: dong.length })
         : soCu + soTao === 0
           ? chuaCoKichCo
-              ? "Chưa chọn kích cỡ"
-              : "Chưa tạo biến thể"
-          : `${soCu + soTao} biến thể${soTao > 0 ? ` · ${soTao} mới` : ""}`;
+              ? t("Chưa chọn kích cỡ")
+              : t("Chưa tạo biến thể")
+          : t("{{count}} biến thể", { count: soCu + soTao }) + (soTao > 0 ? t(" · {{soTao}} mới", { soTao }) : "");
     const coAnh = Boolean(anh || anhCu);
     return (
         <>
@@ -775,7 +775,7 @@ const NhomMau = memo(function NhomMau({
                             checked={trangThaiChon}
                             disabled={disabled || chuaCoKichCo}
                             onCheckedChange={(giaTri) => dispatch({ type: "batTatCaMau", mauSacId, tao: giaTri === true })}
-                            aria-label={laSua ? `Tạo mọi kích cỡ mới của màu ${mau.tenMau}` : `Tạo mọi kích cỡ của màu ${mau.tenMau}`}
+                            aria-label={laSua ? t("Tạo mọi kích cỡ mới của màu {{tenMau}}", { tenMau: mau.tenMau }) : t("Tạo mọi kích cỡ của màu {{tenMau}}", { tenMau: mau.tenMau })}
                             className={CHECKBOX_CLASS}
                         />
                     )}
@@ -786,7 +786,7 @@ const NhomMau = memo(function NhomMau({
                             type="button"
                             onClick={() => dispatch({ type: "batTatThuGon", mauSacId })}
                             aria-expanded={!thuGon}
-                            aria-label={`${thuGon ? "Mở" : "Thu gọn"} màu ${mau.tenMau}`}
+                            aria-label={thuGon ? t("Mở màu {{tenMau}}", { tenMau: mau.tenMau }) : t("Thu gọn màu {{tenMau}}", { tenMau: mau.tenMau })}
                             className="flex size-6 items-center justify-center rounded text-bo-muted hover:bg-bo-border focus-visible:outline-2 focus-visible:outline-bo-primary"
                         >
                             {thuGon ? <ChevronRight className="size-4" /> : <ChevronDown className="size-4" />}
@@ -810,13 +810,13 @@ const NhomMau = memo(function NhomMau({
                         />
                         {coAnh ? (
                             <span className={cn("text-xs", anh && anhCu ? "font-medium text-bo-primary" : "text-bo-muted")}>
-                                {anh && anhCu ? `Ảnh mới cho cả ${soCu + soTao} biến thể` : `${soCu + soTao} biến thể dùng chung ảnh`}
+                                {anh && anhCu ? t("Ảnh mới cho cả {{count}} biến thể", { count: soCu + soTao }) : t("{{count}} biến thể dùng chung ảnh", { count: soCu + soTao })}
                             </span>
                         ) : (
                             soTao > 0 && (
                                 <span className={cn("inline-flex items-center gap-1 text-xs", thieuAnh ? "font-medium text-bo-danger" : "text-bo-muted")}>
                                     {thieuAnh && <AlertTriangle className="size-3.5" aria-hidden="true" />}
-                                    {thieuAnh ? "Thiếu ảnh màu" : "Cần 1 ảnh cho màu này"}
+                                    {thieuAnh ? t("Thiếu ảnh màu") : t("Cần 1 ảnh cho màu này")}
                                 </span>
                             )
                         )}
@@ -827,9 +827,9 @@ const NhomMau = memo(function NhomMau({
                         value={giaMau.giaVon}
                         onChange={(giaTri) => dispatch({ type: "suaGiaMau", mauSacId, truong: "giaVon", giaTri })}
                         onEnter={() => dispatch({ type: "apDungGiaMau", mauSacId })}
-                        placeholder="Giá nhóm"
+                        placeholder={t("Giá nhóm")}
                         disabled={disabled || !coGiaSuaDuoc}
-                        aria-label={`Giá vốn nhóm màu ${mau.tenMau}`}
+                        aria-label={t("Giá vốn nhóm màu {{tenMau}}", { tenMau: mau.tenMau })}
                     />
                 </td>
                 <td className="px-3 py-2">
@@ -837,9 +837,9 @@ const NhomMau = memo(function NhomMau({
                         value={giaMau.giaBan}
                         onChange={(giaTri) => dispatch({ type: "suaGiaMau", mauSacId, truong: "giaBan", giaTri })}
                         onEnter={() => dispatch({ type: "apDungGiaMau", mauSacId })}
-                        placeholder="Giá nhóm"
+                        placeholder={t("Giá nhóm")}
                         disabled={disabled || !coGiaSuaDuoc}
-                        aria-label={`Giá bán nhóm màu ${mau.tenMau}`}
+                        aria-label={t("Giá bán nhóm màu {{tenMau}}", { tenMau: mau.tenMau })}
                     />
                 </td>
                 <td className="px-3 py-2">
@@ -851,7 +851,7 @@ const NhomMau = memo(function NhomMau({
                         onClick={() => dispatch({ type: "apDungGiaMau", mauSacId })}
                         className={cn("h-8 w-full text-xs", NUT_VIEN_CLASS)}
                     >
-                        Áp cho màu
+                        {t("Áp cho màu")}
                     </Button>
                 </td>
             </tr>
@@ -872,7 +872,7 @@ const NhomMau = memo(function NhomMau({
                                         checked={d.tao}
                                         disabled={disabled}
                                         onCheckedChange={() => dispatch({ type: "batTatToHop", khoa: d.khoa })}
-                                        aria-label={`Tạo biến thể ${ten}`}
+                                        aria-label={t("Tạo biến thể {{ten}}", { ten })}
                                         className={CHECKBOX_CLASS}
                                     />
                                 )}
@@ -881,7 +881,7 @@ const NhomMau = memo(function NhomMau({
                                 <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                                     {size?.tenSize || size?.maSize}
                                     {d.daDoi && (
-                                        <span className="rounded bg-bo-primary-soft px-1.5 py-px text-[10px] font-semibold text-bo-primary">Đã đổi</span>
+                                        <span className="rounded bg-bo-primary-soft px-1.5 py-px text-[10px] font-semibold text-bo-primary">{t("Đã đổi")}</span>
                                     )}
                                 </span>
                             </td>
@@ -897,7 +897,7 @@ const NhomMau = memo(function NhomMau({
                             </td>
                             <td className="px-3 py-1.5">
                                 {d.khoaGia ? (
-                                    <GiaKhoa value={d.giaVon} nhan={`Giá vốn ${ten}`} />
+                                    <GiaKhoa value={d.giaVon} nhan={t("Giá vốn {{ten}}", { ten })} />
                                 ) : (
                                     <OTien
                                         cot="giaVon"
@@ -905,7 +905,7 @@ const NhomMau = memo(function NhomMau({
                                         onChange={(giaTri) => dispatch({ type: "suaGia", khoa: d.khoa, truong: "giaVon", giaTri })}
                                         placeholder="0"
                                         disabled={disabled || !d.tao}
-                                        aria-label={`Giá vốn ${ten}`}
+                                        aria-label={t("Giá vốn {{ten}}", { ten })}
                                         data-thieu-gia={coTheThieuGia && d.giaVon === "" ? "" : undefined}
                                         aria-invalid={thieuGia && d.giaVon === "" ? true : undefined}
                                         className={thieuGia && d.giaVon === "" ? "border-bo-danger" : undefined}
@@ -914,7 +914,7 @@ const NhomMau = memo(function NhomMau({
                             </td>
                             <td className="px-3 py-1.5">
                                 {d.khoaGiaBan ?? d.khoaGia ? (
-                                    <GiaKhoa value={d.giaBan} nhan={`Giá bán ${ten}`} ghiChu={GIA_BAN_KHOA} />
+                                    <GiaKhoa value={d.giaBan} nhan={t("Giá bán {{ten}}", { ten })} ghiChu={GIA_BAN_KHOA} />
                                 ) : (
                                     <OTien
                                         cot="giaBan"
@@ -922,7 +922,7 @@ const NhomMau = memo(function NhomMau({
                                         onChange={(giaTri) => dispatch({ type: "suaGia", khoa: d.khoa, truong: "giaBan", giaTri })}
                                         placeholder="0"
                                         disabled={disabled || !d.tao}
-                                        aria-label={`Giá bán ${ten}`}
+                                        aria-label={t("Giá bán {{ten}}", { ten })}
                                         data-thieu-gia={coTheThieuGia && d.giaBan === "" ? "" : undefined}
                                         aria-invalid={thieuGia && d.giaBan === "" ? true : undefined}
                                         className={cn(
@@ -947,30 +947,30 @@ const NhomMau = memo(function NhomMau({
                                                 data-doi-bien-the={d.id}
                                                 disabled={disabled}
                                                 onClick={() => onMoDoi(d.id)}
-                                                aria-label={`Đổi màu sắc, kích cỡ của ${ten}`}
-                                                title="Đổi màu sắc, kích cỡ (biến thể chưa phát sinh giao dịch)"
+                                                aria-label={t("Đổi màu sắc, kích cỡ của {{ten}}", { ten })}
+                                                title={t("Đổi màu sắc, kích cỡ (biến thể chưa phát sinh giao dịch)")}
                                                 className="flex size-7 items-center justify-center rounded-md text-bo-muted transition-colors hover:bg-bo-primary-soft hover:text-bo-primary focus-visible:outline-2 focus-visible:outline-bo-primary disabled:opacity-50"
                                             >
                                                 <ArrowLeftRight className="size-3.5" aria-hidden="true" />
                                             </button>
                                         )}
                                         {giaBanThap && (
-                                            <span title="Giá bán thấp hơn giá vốn" className="text-bo-warning">
+                                            <span title={t("Giá bán thấp hơn giá vốn")} className="text-bo-warning">
                                                 <AlertTriangle className="size-3.5" aria-hidden="true" />
-                                                <span className="sr-only">Giá bán thấp hơn giá vốn</span>
+                                                <span className="sr-only">{t("Giá bán thấp hơn giá vốn")}</span>
                                             </span>
                                         )}
                                     </div>
                                 ) : giaBanThap ? (
                                     <span className="inline-flex items-center gap-1 whitespace-nowrap font-medium text-bo-warning">
                                         <AlertTriangle className="size-3.5" aria-hidden="true" />
-                                        Bán thấp hơn vốn
+                                        {t("Bán thấp hơn vốn")}
                                     </span>
                                 ) : !d.tao ? (
-                                    <span className="text-bo-muted">Không tạo</span>
+                                    <span className="text-bo-muted">{t("Không tạo")}</span>
                                 ) : (
                                     laSua && (
-                                        <span className="rounded-full bg-bo-primary-soft px-2 py-0.5 font-semibold text-bo-primary">Mới</span>
+                                        <span className="rounded-full bg-bo-primary-soft px-2 py-0.5 font-semibold text-bo-primary">{t("Mới")}</span>
                                     )
                                 )}
                             </td>
@@ -985,8 +985,8 @@ const NhomMau = memo(function NhomMau({
 function MaSku({ laSua, dong, mau, size, tienToMaSanPham, maChatLieu }) {
     if (dong.loai === "cu") {
         return dong.daDoi ? (
-            <span className="text-xs italic text-bo-muted" title={`Mã hiện tại: ${dong.maSku}`}>
-                Tạo lại khi lưu
+            <span className="text-xs italic text-bo-muted" title={t("Mã hiện tại: {{maSku}}", { maSku: dong.maSku })}>
+                {t("Tạo lại khi lưu")}
             </span>
         ) : (
             <span className="whitespace-nowrap font-mono text-xs text-bo-foreground">{dong.maSku}</span>

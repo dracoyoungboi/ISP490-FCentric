@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { t } from "@/i18n";
 
 function Command({
   className,
@@ -29,8 +30,8 @@ function Command({
 }
 
 function CommandDialog({
-  title = "Bảng lệnh",
-  description = "Tìm lệnh cần chạy...",
+  title = t("Bảng lệnh"),
+  description = t("Tìm lệnh cần chạy..."),
   children,
   className,
   showCloseButton = true,

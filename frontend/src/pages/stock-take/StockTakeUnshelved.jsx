@@ -36,6 +36,7 @@ import { layHangChuaCoKe, laySoDo, xepKeNhieu } from "@/services/stockTakeServic
 import { getApiErrorMessage } from "@/utils/apiError";
 import { getKhoLamViecId, setKhoLamViecId } from "@/utils/khoLamViec";
 import { ROLES, hasAnyRole } from "@/utils/roles";
+import { t } from "@/i18n";
 
 const NUT_VIEN = "h-9 gap-2 border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle";
 const NUT_VIEN_NHO = "h-8 gap-1.5 border-bo-border bg-bo-surface text-[13px] text-bo-foreground hover:bg-bo-surface-subtle";
@@ -53,7 +54,7 @@ const soTuUrl = (params, ten) => {
 function cauTheoLo(phan, maLo, maKe) {
   const lo = gomTheoLo(phan);
   const cau = lo.slice(0, SO_LO_NEU_TEN).map((l) => `${maLo(l.loHangId)} → ${l.ke.map(maKe).join(", ")}`);
-  return cau.join(" · ") + (lo.length > SO_LO_NEU_TEN ? ` · và ${soVN(lo.length - SO_LO_NEU_TEN)} lô khác` : "");
+  return cau.join(" · ") + (lo.length > SO_LO_NEU_TEN ? t(" · và {{soLo}} lô khác", { count: lo.length - SO_LO_NEU_TEN, soLo: soVN(lo.length - SO_LO_NEU_TEN) }) : "");
 }
 
 /**
@@ -152,20 +153,20 @@ export default function StockTakeUnshelved() {
   const sauKhiXep = (kq, dsLo, maKeTheoId) => {
     const maLo = (id) => dsLo.find((h) => h.loHangId === id)?.maLo ?? "";
     const maKe = (id) =>
-      maKeTheoId?.get(id) ?? dsLo.flatMap((h) => [h.keGoiY, ...(h.keLienQuan ?? [])]).find((k) => k?.id === id)?.ma ?? "kệ đã chọn";
+      maKeTheoId?.get(id) ?? dsLo.flatMap((h) => [h.keGoiY, ...(h.keLienQuan ?? [])]).find((k) => k?.id === id)?.ma ?? t("kệ đã chọn");
     const daXepTheoLo = new Map();
     kq.daXep.forEach((p) => daXepTheoLo.set(p.loHangId, (daXepTheoLo.get(p.loHangId) ?? 0) + p.soLuong));
     const xepHet = new Set(dsLo.filter((h) => (daXepTheoLo.get(h.loHangId) ?? 0) >= h.chuaCoKe).map((h) => h.loHangId));
     if (xepHet.size) q.setData((cu) => (Array.isArray(cu) ? cu.filter((h) => !xepHet.has(h.loHangId)) : cu));
     if (daXepTheoLo.size) doiChon([...daXepTheoLo.keys()], false);
     if (kq.daXep.length) {
-      toast.success(kq.soLoDaXep === 1 ? `Đã xếp lô ${maLo(kq.daXep[0].loHangId)} lên kệ` : `Đã xếp ${soVN(kq.soLoDaXep)} lô lên kệ`, {
-        description: `${soVN(kq.soSanPham)} sản phẩm · ${cauTheoLo(kq.daXep, maLo, maKe)}`,
+      toast.success(kq.soLoDaXep === 1 ? t("Đã xếp lô {{maLo}} lên kệ", { maLo: maLo(kq.daXep[0].loHangId) }) : t("Đã xếp {{soLo}} lô lên kệ", { count: kq.soLoDaXep, soLo: soVN(kq.soLoDaXep) }), {
+        description: t("{{soSanPham}} sản phẩm · {{chiTiet}}", { count: Number(kq.soSanPham) || 0, soSanPham: soVN(kq.soSanPham), chiTiet: cauTheoLo(kq.daXep, maLo, maKe) }),
       });
     }
     if (kq.loi.length) {
       const loLoi = gomTheoLo(kq.loi);
-      toast.error(loLoi.length === 1 ? `Chưa xếp được lô ${maLo(loLoi[0].loHangId)}` : `${soVN(loLoi.length)} lô chưa xếp được`, {
+      toast.error(loLoi.length === 1 ? t("Chưa xếp được lô {{maLo}}", { maLo: maLo(loLoi[0].loHangId) }) : t("{{soLo}} lô chưa xếp được", { count: loLoi.length, soLo: soVN(loLoi.length) }), {
         description: loLoi.slice(0, 2).map((l) => `${maLo(l.loHangId)}: ${l.loi.join(" ")}`).join(" · "),
       });
     }
@@ -183,7 +184,7 @@ export default function StockTakeUnshelved() {
       const kq = await ghi(ngay.map((h) => ({ loHangId: h.loHangId, viTriKhoId: h.keGoiY.id, soLuong: soXepDuoc(h) })));
       sauKhiXep(kq, ngay);
     } catch (error) {
-      toast.error("Chưa xếp được lên kệ", { description: getApiErrorMessage(error, "Lỗi kết nối. Thử lại sau giây lát.") });
+      toast.error(t("Chưa xếp được lên kệ"), { description: getApiErrorMessage(error, t("Lỗi kết nối. Thử lại sau giây lát.")) });
       q.reload();
     } finally {
       setDangXep(new Set());
@@ -210,7 +211,7 @@ export default function StockTakeUnshelved() {
       const kq = await ghi(phan);
       if (!kq.daXep.length) {
         // Không phần nào ghi được: giữ hộp để người dùng đổi kệ / số; tải lại bảng và sơ đồ kệ (sức chứa có thể đã đổi)
-        setLoiHop(gomTheoLo(kq.loi).flatMap((l) => l.loi).join(" ") || "Chưa xếp được lên kệ");
+        setLoiHop(gomTheoLo(kq.loi).flatMap((l) => l.loi).join(" ") || t("Chưa xếp được lên kệ"));
         setLanTaiKe((n) => n + 1);
         q.reload();
         return;
@@ -218,7 +219,7 @@ export default function StockTakeUnshelved() {
       dongHop();
       sauKhiXep(kq, hop.ds, maKeTheoId);
     } catch (error) {
-      setLoiHop(getApiErrorMessage(error, "Chưa xếp được lên kệ. Thử lại sau giây lát."));
+      setLoiHop(getApiErrorMessage(error, t("Chưa xếp được lên kệ. Thử lại sau giây lát.")));
     } finally {
       setDangChayHop(false);
     }
@@ -240,41 +241,41 @@ export default function StockTakeUnshelved() {
   const dangTai = kho.dangTai || (q.loading && !q.dungKhoa);
 
   const thanBang = dangTai ? (
-    <LoadingState rows={5} label="Đang tải hàng chưa có kệ" />
+    <LoadingState rows={5} label={t("Đang tải hàng chưa có kệ")} />
   ) : q.error && !duLieu ? (
-    <ErrorState description={`Không tải được: ${getApiErrorMessage(q.error, "lỗi kết nối")}.`} onRetry={q.reload} />
+    <ErrorState description={t("Không tải được: {{error}}.", { error: getApiErrorMessage(q.error, t("lỗi kết nối")) })} onRetry={q.reload} />
   ) : !theoChungTu.length && khoChuaCoKe ? (
     <EmptyState
       icon={MapIcon}
-      title="Kho chưa khai báo kệ nào"
-      description="Kho này chưa quản lý vị trí kệ nên không có hàng nào cần xếp. Muốn quản lý kệ, thêm kệ ở Vị trí kệ; tồn hiện có sẽ hiện ở đây để xếp."
+      title={t("Kho chưa khai báo kệ nào")}
+      description={t("Kho này chưa quản lý vị trí kệ nên không có hàng nào cần xếp. Muốn quản lý kệ, thêm kệ ở Vị trí kệ; tồn hiện có sẽ hiện ở đây để xếp.")}
       action={
         <Button variant="outline" onClick={() => navigate("/warehouse/locations")} className={NUT_VIEN}>
           <MapIcon className="size-4" />
-          Vị trí kệ
+          {t("Vị trí kệ")}
         </Button>
       }
     />
   ) : !theoChungTu.length ? (
     <EmptyState
       icon={CircleCheck}
-      title={locChungTu ? "Hàng của chứng từ này đã lên kệ hết" : "Mọi hàng trong kho đã có kệ"}
+      title={locChungTu ? t("Hàng của chứng từ này đã lên kệ hết") : t("Mọi hàng trong kho đã có kệ")}
       description={
         locChungTu
-          ? "Xem cả kho để xếp hàng của các chứng từ khác."
+          ? t("Xem cả kho để xếp hàng của các chứng từ khác.")
           : veDot
-            ? "Sổ kệ khớp tồn lô. Quay lại đợt kiểm kê để bắt đầu."
-            : "Người nhặt hàng thấy đủ chỗ lấy; kiểm kê toàn kho, theo danh mục bắt đầu được."
+            ? t("Sổ kệ khớp tồn lô. Quay lại đợt kiểm kê để bắt đầu.")
+            : t("Người nhặt hàng thấy đủ chỗ lấy; kiểm kê toàn kho, theo danh mục bắt đầu được.")
       }
       action={
         locChungTu ? (
           <Button variant="outline" onClick={boLocChungTu} className={NUT_VIEN}>
-            Xem cả kho
+            {t("Xem cả kho")}
           </Button>
         ) : veDot ? (
           <Button onClick={veDot} className="gap-2">
             <ArrowLeft className="size-4" />
-            Về đợt kiểm kê
+            {t("Về đợt kiểm kê")}
           </Button>
         ) : undefined
       }
@@ -282,8 +283,8 @@ export default function StockTakeUnshelved() {
   ) : !ds.length ? (
     <EmptyState
       icon={Search}
-      title={tim.trim() ? `Không có lô nào khớp “${tim.trim()}”` : "Không có lô nào trong mục này"}
-      description={tim.trim() ? "Thử mã lô, SKU hoặc tên sản phẩm khác." : "Chọn Tất cả để xem mọi lô chưa có kệ."}
+      title={tim.trim() ? t("Không có lô nào khớp “{{tuKhoa}}”", { tuKhoa: tim.trim() }) : t("Không có lô nào trong mục này")}
+      description={tim.trim() ? t("Thử mã lô, SKU hoặc tên sản phẩm khác.") : t("Chọn Tất cả để xem mọi lô chưa có kệ.")}
       action={
         <Button
           variant="outline"
@@ -293,12 +294,12 @@ export default function StockTakeUnshelved() {
           }}
           className={NUT_VIEN}
         >
-          Xóa bộ lọc
+          {t("Xóa bộ lọc")}
         </Button>
       }
     />
   ) : (
-    <div ref={bangRef} tabIndex={-1} aria-label="Danh sách hàng chưa có kệ" className="outline-none">
+    <div ref={bangRef} tabIndex={-1} aria-label={t("Danh sách hàng chưa có kệ")} className="outline-none">
       <BangHangChuaCoKe
         ds={ds}
         nhom={nhom}
@@ -315,22 +316,22 @@ export default function StockTakeUnshelved() {
   const thanhChon = daChon.length ? (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
       <span className="text-[13px] tabular-nums text-bo-foreground">
-        <b className="font-semibold">Đã chọn {soVN(daChon.length)} lô</b>
-        <span className="text-bo-muted"> · {soVN(daChon.reduce((s, h) => s + soXepDuoc(h), 0))} sản phẩm xếp được</span>
+        <b className="font-semibold">{t("Đã chọn {{soLo}} lô", { count: daChon.length, soLo: soVN(daChon.length) })}</b>
+        <span className="text-bo-muted"> · {t("{{soSp}} sản phẩm xếp được", { count: daChon.reduce((s, h) => s + soXepDuoc(h), 0), soSp: soVN(daChon.reduce((s, h) => s + soXepDuoc(h), 0)) })}</span>
       </span>
-      <NutChu onClick={boChon}>Bỏ chọn</NutChu>
+      <NutChu onClick={boChon}>{t("Bỏ chọn")}</NutChu>
       <span className="ml-auto flex flex-wrap items-center gap-2">
         {daChonXepNgay.length && daChonXepNgay.length < daChon.length ? (
-          <span className="text-xs text-bo-muted">{soVN(daChon.length - daChonXepNgay.length)} lô cần chọn kệ sẽ để lại</span>
+          <span className="text-xs text-bo-muted">{t("{{soLo}} lô cần chọn kệ sẽ để lại", { count: daChon.length - daChonXepNgay.length, soLo: soVN(daChon.length - daChonXepNgay.length) })}</span>
         ) : null}
         <Button variant="outline" size="sm" onClick={() => moHop(daChon)} disabled={khoa} className={NUT_VIEN_NHO}>
           <PackageOpen className="size-3.5" />
-          Chọn một kệ cho {soVN(daChon.length)} lô
+          {t("Chọn một kệ cho {{soLo}} lô", { count: daChon.length, soLo: soVN(daChon.length) })}
         </Button>
         {daChonXepNgay.length ? (
           <Button size="sm" onClick={() => xepNgay(daChonXepNgay)} disabled={khoa} className="h-8 gap-1.5 text-[13px]">
             <MapPinCheck className="size-3.5" />
-            Xếp {soVN(daChonXepNgay.length)} lô theo gợi ý
+            {t("Xếp {{soLo}} lô theo gợi ý", { count: daChonXepNgay.length, soLo: soVN(daChonXepNgay.length) })}
           </Button>
         ) : null}
       </span>
@@ -340,18 +341,18 @@ export default function StockTakeUnshelved() {
   return (
     <PageContainer fill className="space-y-4">
       <ListPageHeader
-        title="Hàng chưa có kệ"
+        title={t("Hàng chưa có kệ")}
         actions={
           <>
             {veChungTu ? (
               <Button variant="outline" onClick={veChungTu} className={NUT_VIEN}>
                 <ArrowLeft className="size-4" />
-                {phieuChuyen ? "Về phiếu chuyển" : "Về phiếu nhập"}
+                {phieuChuyen ? t("Về phiếu chuyển") : t("Về phiếu nhập")}
               </Button>
             ) : null}
             <Button variant="outline" onClick={() => navigate("/warehouse/locations")} className={NUT_VIEN}>
               <MapIcon className="size-4" />
-              Vị trí kệ
+              {t("Vị trí kệ")}
             </Button>
           </>
         }
@@ -360,8 +361,8 @@ export default function StockTakeUnshelved() {
       {kho.loi ? (
         <div className="rounded-lg border border-bo-border bg-bo-surface">
           <ErrorState
-            title="Không tải được danh sách kho"
-            description={`${getApiErrorMessage(kho.loi, "Lỗi kết nối")}. Thử lại sau giây lát.`}
+            title={t("Không tải được danh sách kho")}
+            description={t("{{loi}}. Thử lại sau giây lát.", { loi: getApiErrorMessage(kho.loi, t("Lỗi kết nối")) })}
             onRetry={kho.taiLai}
           />
         </div>
@@ -369,22 +370,22 @@ export default function StockTakeUnshelved() {
         <div className="rounded-lg border border-bo-border bg-bo-surface">
           <EmptyState
             icon={Warehouse}
-            title={laQtv ? "Chưa có kho giao dịch nào" : "Bạn chưa được phân kho nào"}
-            description={laQtv ? "Tạo kho trước rồi quay lại để xếp hàng lên kệ." : "Nhờ quản trị viên phân kho để xem hàng chưa có kệ."}
+            title={laQtv ? t("Chưa có kho giao dịch nào") : t("Bạn chưa được phân kho nào")}
+            description={laQtv ? t("Tạo kho trước rồi quay lại để xếp hàng lên kệ.") : t("Nhờ quản trị viên phân kho để xem hàng chưa có kệ.")}
           />
         </div>
       ) : (
         <>
           {theoChungTu.length ? (
             veDot ? (
-              <DongThongBao tone="warn" actions={<NutChu onClick={veDot}>Về đợt kiểm kê</NutChu>}>
-                Đợt kiểm kê chưa bắt đầu được vì còn hàng chưa có kệ. Xếp hết các lô dưới đây rồi quay lại đợt.{" "}
-                <span className="text-bo-muted">Chỉ ghi sổ kệ, tồn kho không đổi.</span>
+              <DongThongBao tone="warn" actions={<NutChu onClick={veDot}>{t("Về đợt kiểm kê")}</NutChu>}>
+                {t("Đợt kiểm kê chưa bắt đầu được vì còn hàng chưa có kệ. Xếp hết các lô dưới đây rồi quay lại đợt.")}{" "}
+                <span className="text-bo-muted">{t("Chỉ ghi sổ kệ, tồn kho không đổi.")}</span>
               </DongThongBao>
             ) : (
               <DongThongBao tone="info">
-                Hàng đã vào kho nhưng chưa ghi ở kệ nào: người nhặt hàng không thấy chỗ lấy, kiểm kê toàn kho chưa bắt đầu được.{" "}
-                <span className="text-bo-muted">Xếp kệ chỉ ghi sổ kệ, tồn kho không đổi.</span>
+                {t("Hàng đã vào kho nhưng chưa ghi ở kệ nào: người nhặt hàng không thấy chỗ lấy, kiểm kê toàn kho chưa bắt đầu được.")}{" "}
+                <span className="text-bo-muted">{t("Xếp kệ chỉ ghi sổ kệ, tồn kho không đổi.")}</span>
               </DongThongBao>
             )
           ) : null}
@@ -399,17 +400,17 @@ export default function StockTakeUnshelved() {
                     <ChonKhoKiemKe dsKho={kho.dsKho} value={kho.khoId} onChange={doiKho} className="w-full sm:w-[240px]" />
                   ) : null}
                   <label className="relative flex min-w-[220px] max-w-sm flex-1 items-center">
-                    <span className="sr-only">Tìm lô</span>
+                    <span className="sr-only">{t("Tìm lô")}</span>
                     <Search className="pointer-events-none absolute left-2.5 size-4 text-bo-muted" aria-hidden="true" />
-                    <input value={tim} onChange={(e) => setTim(e.target.value)} placeholder="Tìm mã lô, SKU, tên sản phẩm" className={cn(O_NHAP, "pl-8")} />
+                    <input value={tim} onChange={(e) => setTim(e.target.value)} placeholder={t("Tìm mã lô, SKU, tên sản phẩm")} className={cn(O_NHAP, "pl-8")} />
                   </label>
                   {locChungTu ? (
                     <span className="inline-flex h-8 items-center gap-1.5 rounded-full border border-blue-200 bg-bo-primary-soft pl-3 pr-1 text-[13px] font-medium text-bo-primary-strong">
-                      {phieuChuyen ? "Phiếu chuyển" : "Phiếu nhập"} <span className="font-mono">{maChungTu ?? `#${phieuChuyen ?? phieuNhap}`}</span>
+                      {phieuChuyen ? t("Phiếu chuyển") : t("Phiếu nhập")} <span className="font-mono">{maChungTu ?? `#${phieuChuyen ?? phieuNhap}`}</span>
                       <button
                         type="button"
                         onClick={boLocChungTu}
-                        aria-label="Bỏ lọc chứng từ, xem cả kho"
+                        aria-label={t("Bỏ lọc chứng từ, xem cả kho")}
                         className="grid size-6 place-items-center rounded-full hover:bg-white/70"
                       >
                         <X className="size-3.5" />
@@ -417,14 +418,14 @@ export default function StockTakeUnshelved() {
                     </span>
                   ) : null}
                   <span className="flex items-center gap-2 lg:ml-auto">
-                    <span className="text-xs text-bo-muted">Xem</span>
+                    <span className="text-xs text-bo-muted">{t("Xem")}</span>
                     <NutPhanDoan
-                      nhan="Cách xem"
+                      nhan={t("Cách xem")}
                       value={nhom}
                       onChange={setNhom}
                       luaChon={[
-                        { value: "phieu", label: "Theo chứng từ" },
-                        { value: "lo", label: "Từng lô" },
+                        { value: "phieu", label: t("Theo chứng từ") },
+                        { value: "lo", label: t("Từng lô") },
                       ]}
                     />
                   </span>
@@ -432,17 +433,17 @@ export default function StockTakeUnshelved() {
                 {theoChungTu.length ? (
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <NutPhanDoan
-                      nhan="Lọc lô"
+                      nhan={t("Lọc lô")}
                       value={loc}
                       onChange={setLoc}
                       luaChon={[
-                        { value: "tat-ca", label: "Tất cả", count: tong.soLo },
-                        { value: "ngay", label: "Xếp ngay được", count: soXepNgay },
-                        { value: "chon", label: "Cần chọn kệ", count: tong.soLo - soXepNgay },
+                        { value: "tat-ca", label: t("Tất cả"), count: tong.soLo },
+                        { value: "ngay", label: t("Xếp ngay được"), count: soXepNgay },
+                        { value: "chon", label: t("Cần chọn kệ"), count: tong.soLo - soXepNgay },
                       ]}
                     />
                     <span className="text-[13px] tabular-nums text-bo-muted">
-                      {soVN(tong.soLo)} lô · <b className="font-semibold text-bo-foreground">{soVN(tong.soLuong)}</b> sản phẩm chưa có kệ
+                      {t("{{soLo}} lô ·", { count: tong.soLo, soLo: soVN(tong.soLo) })} <b className="font-semibold text-bo-foreground">{soVN(tong.soLuong)}</b> {t("sản phẩm chưa có kệ")}
                     </span>
                   </div>
                 ) : null}

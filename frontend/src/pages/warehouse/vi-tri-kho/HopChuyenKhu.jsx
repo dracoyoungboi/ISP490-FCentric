@@ -3,6 +3,7 @@ import { Dialog } from "@/components/ui/dialog";
 import DongThongBao from "@/components/nhap-kho/DongThongBao";
 import { KhungHop, Truong } from "./KhungHop";
 import { O_NHAP, dinhDangSo } from "./kieuNhap";
+import { t } from "@/i18n";
 
 /**
  * Chuyển nhiều vị trí kệ sang khu khác (vd trước khi xóa một khu). Mã vị trí và hàng trên kệ giữ nguyên.
@@ -36,15 +37,15 @@ function NoiDung({ khuVucs, dsViTri, onDong, onXacNhan }) {
 
   return (
     <KhungHop
-      tieuDe="Chuyển vị trí sang khu khác"
-      moTa={`${dinhDangSo(dsViTri.length)} vị trí đã chọn · mã vị trí và hàng trên kệ giữ nguyên`}
+      tieuDe={t("Chuyển vị trí sang khu khác")}
+      moTa={t("{{soViTri}} vị trí đã chọn · mã vị trí và hàng trên kệ giữ nguyên", { count: dsViTri.length, soViTri: dinhDangSo(dsViTri.length) })}
       onHuy={onDong}
       onGui={luu}
       khoaGui={!canChuyen}
-      nhanGui={canChuyen ? `Chuyển ${dinhDangSo(canChuyen)} vị trí` : "Chuyển"}
+      nhanGui={canChuyen ? t("Chuyển {{canChuyen}} vị trí", { count: canChuyen, canChuyen: dinhDangSo(canChuyen) }) : t("Chuyển")}
       dangGui={dangLuu}
     >
-      <Truong nhan="Chuyển sang khu" htmlFor="ck-khu">
+      <Truong nhan={t("Chuyển sang khu")} htmlFor="ck-khu">
         <select id="ck-khu" value={khuVucId} onChange={(e) => setKhuVucId(e.target.value)} className={O_NHAP}>
           {khuVucs.map((k) => (
             <option key={k.id} value={k.id}>
@@ -56,8 +57,8 @@ function NoiDung({ khuVucs, dsViTri, onDong, onXacNhan }) {
       {daOKhu ? (
         <DongThongBao tone={canChuyen ? "neutral" : "warn"}>
           {canChuyen
-            ? `${dinhDangSo(daOKhu)} vị trí đã ở khu này, sẽ bỏ qua.`
-            : "Các vị trí đã chọn đều đang ở khu này."}
+            ? t("{{daOKhu}} vị trí đã ở khu này, sẽ bỏ qua.", { count: daOKhu, daOKhu: dinhDangSo(daOKhu) })
+            : t("Các vị trí đã chọn đều đang ở khu này.")}
         </DongThongBao>
       ) : null}
     </KhungHop>

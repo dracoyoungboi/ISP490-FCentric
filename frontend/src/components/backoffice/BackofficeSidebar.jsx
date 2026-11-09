@@ -31,6 +31,7 @@ import { useSoChuyenKhoanCanXuLy } from "@/components/pos/payosCanXuLy";
 import { useSoHangChuaCoKe } from "@/components/kiem-ke/soHangChuaCoKe";
 import { useTaiTruocLienKet } from "@/lib/taiTrang";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 // Một đích điều hướng (mục thẳng hoặc mục con) khớp đường dẫn: theo `match(pathname)` nếu mục khai báo
 // (vd. /goods-issues/pick-lists không tính là "Phiếu xuất kho"), không thì khớp từ đầu theo từng đoạn;
@@ -160,7 +161,7 @@ function SoDemMenu({ so, anChuDoc = false }) {
   return (
     <span className="ml-auto shrink-0 text-xs font-semibold leading-5 text-red-400 tabular-nums">
       <span aria-hidden="true">{so > 99 ? "99+" : so}</span>
-      {anChuDoc ? null : <span className="sr-only">({so} cần xử lý)</span>}
+      {anChuDoc ? null : <span className="sr-only">{t("({{count}} cần xử lý)", { count: so })}</span>}
     </span>
   );
 }
@@ -708,7 +709,7 @@ export default function BackofficeSidebar() {
   // ---- Nút thu gọn ở đầu sidebar ----
   // Chỉ máy tính; trên điện thoại menu là ngăn kéo, mở bằng nút ở thanh trên.
   const showToggleButton = !isMobile;
-  const toggleLabel = isExpanded ? "Thu gọn menu" : "Mở rộng menu";
+  const toggleLabel = isExpanded ? t("Thu gọn menu") : t("Mở rộng menu");
 
   const showToggleTooltip = (element) =>
     showRailTooltipAt(element, toggleLabel, undefined, {
@@ -844,7 +845,7 @@ export default function BackofficeSidebar() {
     // để không bị giấu khi không thấy mục con. Nhóm mở thì số chỉ nằm ở mục con, không đếm hai lần.
     const tongSoDem = visibleChildren.reduce((tong, child) => tong + soDem(child), 0);
     const hienSoNhom = isExpanded && !isOpen && tongSoDem > 0;
-    const nhanNhom = tongSoDem > 0 ? `${item.label}, ${tongSoDem} việc cần xử lý` : item.label;
+    const nhanNhom = tongSoDem > 0 ? t("{{nhom}}, {{count}} việc cần xử lý", { nhom: item.label, count: tongSoDem }) : item.label;
 
     // Mục cha chứa trang đang mở: khi nhóm đang bung (thấy mục con được tô) thì cha
     // chỉ đổi chữ trắng + icon xanh; khi nhóm đóng hoặc sidebar thu gọn (không thấy
@@ -972,7 +973,7 @@ export default function BackofficeSidebar() {
           <Link
             to="/dashboard"
             onClick={handleNavigate}
-            aria-label="FCentric — Trang tổng quan"
+            aria-label={t("FCentric — Trang tổng quan")}
             tabIndex={isExpanded ? undefined : -1}
             aria-hidden={isExpanded ? undefined : true}
             className={cn(

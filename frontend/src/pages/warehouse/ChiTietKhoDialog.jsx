@@ -23,6 +23,7 @@ import { laKhoAo, laKhoHoatDong } from "@/utils/kho";
 import { laKhoLamViecHopLe, setKhoLamViecId } from "@/utils/khoLamViec";
 import { gopKhuVuc, nhanPhanQuyen, taoOSo, tomTatKe } from "./chiTietKho";
 import { nhanLoaiKho } from "./loaiKho";
+import { t } from "@/i18n";
 
 const NUT_VIEN = "border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle";
 const NUT_ICON =
@@ -47,7 +48,7 @@ function DongBao({ children, onThuLai }) {
             </span>
             {onThuLai ? (
                 <Button type="button" variant="outline" size="sm" onClick={onThuLai} className={NUT_VIEN}>
-                    Thử lại
+                    {t("Thử lại")}
                 </Button>
             ) : null}
         </div>
@@ -96,7 +97,7 @@ function OSo({ o, dangTai, onMo }) {
         <button
             type="button"
             onClick={onMo}
-            title={o.goiY ? `${o.goiY}. Bấm để mở ${o.nhanDen}` : `Mở ${o.nhanDen}`}
+            title={o.goiY ? t("{{goiY}}. Bấm để mở {{nhanDen}}", { goiY: o.goiY, nhanDen: o.nhanDen }) : t("Mở {{nhanDen}}", { nhanDen: o.nhanDen })}
             className={cn(
                 lop,
                 "group w-full transition-colors hover:bg-bo-surface-subtle focus-visible:relative focus-visible:z-10 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-bo-primary",
@@ -241,6 +242,7 @@ export default function ChiTietKhoDialog({ kho, open, onOpenChange, coTheQuanLy 
                             >
                                 {kho.tenKho || kho.maKho || "—"}
                             </DialogTitle>
+                            {/* i18n-giu-nguyen: nhãn StatusBadge tự dịch */}
                             <StatusBadge doiTuong="kho" size="lg" label={hoatDong ? "Hoạt động" : "Ngừng hoạt động"} />
                         </div>
                         <DialogDescription asChild>
@@ -248,13 +250,13 @@ export default function ChiTietKhoDialog({ kho, open, onOpenChange, coTheQuanLy 
                                 {kho.maKho ? (
                                     <>
                                         <span className="font-mono font-semibold text-slate-700">{kho.maKho}</span>
-                                        <NutSaoChep giaTri={kho.maKho} nhan="Sao chép mã kho" className="size-6" />
+                                        <NutSaoChep giaTri={kho.maKho} nhan={t("Sao chép mã kho")} className="size-6" />
                                     </>
                                 ) : null}
                                 <span>
                                     {kho.maKho ? "· " : ""}
                                     {loai.label}
-                                    {kho.ngayTao ? ` · tạo ${formatDate(kho.ngayTao)}` : ""}
+                                    {kho.ngayTao ? t(" · tạo {{ngayTao}}", { ngayTao: formatDate(kho.ngayTao) }) : ""}
                                 </span>
                             </div>
                         </DialogDescription>
@@ -268,8 +270,8 @@ export default function ChiTietKhoDialog({ kho, open, onOpenChange, coTheQuanLy 
                                         type="button"
                                         variant="outline"
                                         size="icon"
-                                        aria-label="Thao tác khác"
-                                        title="Thao tác khác"
+                                        aria-label={t("Thao tác khác")}
+                                        title={t("Thao tác khác")}
                                         className={cn(NUT_VIEN, "max-sm:size-11 max-sm:border-transparent")}
                                     >
                                         <Ellipsis className="size-4" aria-hidden="true" />
@@ -280,9 +282,9 @@ export default function ChiTietKhoDialog({ kho, open, onOpenChange, coTheQuanLy 
                                         <DropdownMenuItem onSelect={() => onDoiTrangThai?.(kho)} className={MUC_MENU}>
                                             <CirclePause className="mt-0.5 size-4 text-slate-400" aria-hidden="true" />
                                             <span>
-                                                Ngừng hoạt động
+                                                {t("Ngừng hoạt động")}
                                                 <span className="mt-0.5 block text-xs leading-4 text-bo-muted">
-                                                    Không chọn được khi tạo chứng từ mới. Tồn kho và lịch sử giữ nguyên.
+                                                    {t("Không chọn được khi tạo chứng từ mới. Tồn kho và lịch sử giữ nguyên.")}
                                                 </span>
                                             </span>
                                         </DropdownMenuItem>
@@ -290,8 +292,8 @@ export default function ChiTietKhoDialog({ kho, open, onOpenChange, coTheQuanLy 
                                         <DropdownMenuItem onSelect={() => onDoiTrangThai?.(kho)} className={MUC_MENU}>
                                             <CircleCheck className="mt-0.5 size-4 text-slate-400" aria-hidden="true" />
                                             <span>
-                                                Cho phép hoạt động
-                                                <span className="mt-0.5 block text-xs leading-4 text-bo-muted">Dùng lại được cho chứng từ mới.</span>
+                                                {t("Cho phép hoạt động")}
+                                                <span className="mt-0.5 block text-xs leading-4 text-bo-muted">{t("Dùng lại được cho chứng từ mới.")}</span>
                                             </span>
                                         </DropdownMenuItem>
                                     )}
@@ -299,8 +301,8 @@ export default function ChiTietKhoDialog({ kho, open, onOpenChange, coTheQuanLy 
                                         <DropdownMenuItem onSelect={() => onLichSu(kho)} className={MUC_MENU}>
                                             <History className="mt-0.5 size-4 text-slate-400" aria-hidden="true" />
                                             <span>
-                                                Lịch sử thay đổi
-                                                <span className="mt-0.5 block text-xs leading-4 text-bo-muted">Tạo, sửa, đổi trạng thái kho.</span>
+                                                {t("Lịch sử thay đổi")}
+                                                <span className="mt-0.5 block text-xs leading-4 text-bo-muted">{t("Tạo, sửa, đổi trạng thái kho.")}</span>
                                             </span>
                                         </DropdownMenuItem>
                                     ) : null}
@@ -314,7 +316,7 @@ export default function ChiTietKhoDialog({ kho, open, onOpenChange, coTheQuanLy 
                                 className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover max-sm:hidden"
                             >
                                 <Pencil className="size-4" aria-hidden="true" />
-                                Chỉnh sửa
+                                {t("Chỉnh sửa")}
                             </Button>
                         ) : null}
                         <Button
@@ -322,8 +324,8 @@ export default function ChiTietKhoDialog({ kho, open, onOpenChange, coTheQuanLy 
                             variant="ghost"
                             size="icon"
                             onClick={dong}
-                            aria-label="Đóng"
-                            title="Đóng"
+                            aria-label={t("Đóng")}
+                            title={t("Đóng")}
                             className="text-bo-muted hover:bg-slate-100 hover:text-bo-foreground max-sm:size-11"
                         >
                             <X className="size-4 max-sm:size-5" aria-hidden="true" />
@@ -333,10 +335,10 @@ export default function ChiTietKhoDialog({ kho, open, onOpenChange, coTheQuanLy 
 
                 {!hoatDong ? (
                     <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-bo-border bg-bo-surface-subtle px-5 py-2.5 text-[13px] leading-5 text-slate-600 max-sm:px-4">
-                        <span>Kho đang ngừng hoạt động: không chọn được khi tạo chứng từ mới.</span>
+                        <span>{t("Kho đang ngừng hoạt động: không chọn được khi tạo chứng từ mới.")}</span>
                         {coTheQuanLy ? (
                             <Button type="button" variant="outline" size="sm" onClick={() => onDoiTrangThai?.(kho)} className={NUT_VIEN}>
-                                Cho phép hoạt động
+                                {t("Cho phép hoạt động")}
                             </Button>
                         ) : null}
                     </div>
@@ -346,8 +348,8 @@ export default function ChiTietKhoDialog({ kho, open, onOpenChange, coTheQuanLy 
                     {loiTomTat ? (
                         <DongBao onThuLai={khongQuyenTomTat ? null : tomTatQ.reload}>
                             {khongQuyenTomTat
-                                ? "Kho này không phải nơi làm việc của bạn nên không xem được số liệu tồn kho."
-                                : getApiErrorMessage(loiTomTat, "Không tải được số liệu tồn kho")}
+                                ? t("Kho này không phải nơi làm việc của bạn nên không xem được số liệu tồn kho.")
+                                : getApiErrorMessage(loiTomTat, t("Không tải được số liệu tồn kho"))}
                         </DongBao>
                     ) : (
                         <div
@@ -371,14 +373,14 @@ export default function ChiTietKhoDialog({ kho, open, onOpenChange, coTheQuanLy 
                         {ao ? (
                             <section aria-labelledby="ctk-dang-chuyen">
                                 <TieuDeKhoi id="ctk-dang-chuyen">
-                                    Hàng đang chuyển
+                                    {t("Hàng đang chuyển")}
                                 </TieuDeKhoi>
                                 <p className="border-t border-slate-100 pt-3 text-[13px] leading-5 text-bo-muted">
                                     {tomTatQ.loading
-                                        ? "Đang tải..."
+                                        ? t("Đang tải...")
                                         : Number(tomTat?.soLuongTon) > 0
-                                          ? `${oSo[0].giaTri} sản phẩm đang trên đường giữa các kho. Kho ảo không có khu vực kệ.`
-                                          : "Không có hàng đang chuyển giữa các kho. Kho ảo không có khu vực kệ."}
+                                          ? t("{{soLuong}} sản phẩm đang trên đường giữa các kho. Kho ảo không có khu vực kệ.", { soLuong: oSo[0].giaTri })
+                                          : t("Không có hàng đang chuyển giữa các kho. Kho ảo không có khu vực kệ.")}
                                 </p>
                             </section>
                         ) : (
@@ -386,12 +388,12 @@ export default function ChiTietKhoDialog({ kho, open, onOpenChange, coTheQuanLy 
                                 <TieuDeKhoi
                                     id="ctk-khu"
                                     phu={ke?.tong.coKe ? tomTatKe(ke.tong) : null}
-                                    ben={moVitriKe && ke?.tong.coKe ? <LienKet onClick={() => moDen({ loai: "vi-tri-ke" })}>Mở vị trí kệ</LienKet> : null}
+                                    ben={moVitriKe && ke?.tong.coKe ? <LienKet onClick={() => moDen({ loai: "vi-tri-ke" })}>{t("Mở vị trí kệ")}</LienKet> : null}
                                 >
-                                    Khu vực kệ
+                                    {t("Khu vực kệ")}
                                 </TieuDeKhoi>
                                 {keQ.loading ? (
-                                    <ul aria-label="Đang tải khu vực kệ">
+                                    <ul aria-label={t("Đang tải khu vực kệ")}>
                                         {[0, 1, 2].map((i) => (
                                             <li key={i} className="grid grid-cols-[minmax(0,1fr)_132px] items-center gap-4 border-t border-slate-100 py-3">
                                                 <span>
@@ -404,7 +406,7 @@ export default function ChiTietKhoDialog({ kho, open, onOpenChange, coTheQuanLy 
                                     </ul>
                                 ) : keQ.error ? (
                                     <DongBao onThuLai={khongQuyenKe ? null : keQ.reload}>
-                                        {khongQuyenKe ? "Chỉ xem được khu vực kệ của nơi làm việc của bạn." : "Không tải được khu vực kệ."}
+                                        {khongQuyenKe ? t("Chỉ xem được khu vực kệ của nơi làm việc của bạn.") : t("Không tải được khu vực kệ.")}
                                     </DongBao>
                                 ) : ke && ke.khu.length > 0 ? (
                                     <ul>
@@ -418,7 +420,7 @@ export default function ChiTietKhoDialog({ kho, open, onOpenChange, coTheQuanLy 
                                                         {z.ten}
                                                     </span>
                                                     <span className="text-xs leading-4 text-bo-muted">
-                                                        {[z.loai, `${z.soViTri} vị trí`, z.soBaoTri ? `${z.soBaoTri} bảo trì` : ""].filter(Boolean).join(" · ")}
+                                                        {[t(z.loai), t("{{soViTri}} vị trí", { count: Number(z.soViTri) || 0, soViTri: z.soViTri }), z.soBaoTri ? t("{{soBaoTri}} bảo trì", { soBaoTri: z.soBaoTri }) : ""].filter(Boolean).join(" · ")}
                                                     </span>
                                                 </div>
                                                 <div>
@@ -432,10 +434,10 @@ export default function ChiTietKhoDialog({ kho, open, onOpenChange, coTheQuanLy 
                                     </ul>
                                 ) : (
                                     <div className="flex flex-col items-start gap-2 border-t border-slate-100 pt-3 text-[13px] leading-5 text-bo-muted">
-                                        <span>Kho chưa có khu vực và vị trí kệ.</span>
+                                        <span>{t("Kho chưa có khu vực và vị trí kệ.")}</span>
                                         {moVitriKe ? (
                                             <Button type="button" variant="outline" size="sm" onClick={() => moDen({ loai: "vi-tri-ke" })} className={NUT_VIEN}>
-                                                Thiết lập vị trí kệ
+                                                {t("Thiết lập vị trí kệ")}
                                             </Button>
                                         ) : null}
                                     </div>
@@ -444,24 +446,24 @@ export default function ChiTietKhoDialog({ kho, open, onOpenChange, coTheQuanLy 
                         )}
 
                         <section aria-labelledby="ctk-thong-tin">
-                            <TieuDeKhoi id="ctk-thong-tin">Thông tin</TieuDeKhoi>
+                            <TieuDeKhoi id="ctk-thong-tin">{t("Thông tin")}</TieuDeKhoi>
                             <dl className="space-y-3.5 border-t border-slate-100 pt-3">
                                 <div>
-                                    <dt className="text-[13px] leading-5 text-bo-muted">Loại kho</dt>
+                                    <dt className="text-[13px] leading-5 text-bo-muted">{t("Loại kho")}</dt>
                                     <dd className="mt-0.5 text-sm leading-5">
                                         {loai.label}
                                         <span className="mt-0.5 block text-[13px] leading-5 text-bo-muted">{loai.moTa}</span>
                                     </dd>
                                 </div>
                                 <div>
-                                    <dt className="text-[13px] leading-5 text-bo-muted">Địa chỉ</dt>
+                                    <dt className="text-[13px] leading-5 text-bo-muted">{t("Địa chỉ")}</dt>
                                     <dd className="mt-0.5 flex min-w-0 items-start gap-0.5 text-sm leading-5">
                                         <span className="min-w-0 flex-1 break-words">{kho.diaChi?.trim() || "—"}</span>
-                                        <NutSaoChep giaTri={kho.diaChi?.trim()} nhan="Sao chép địa chỉ" className="-mt-1" />
+                                        <NutSaoChep giaTri={kho.diaChi?.trim()} nhan={t("Sao chép địa chỉ")} className="-mt-1" />
                                     </dd>
                                 </div>
                                 <div>
-                                    <dt className="text-[13px] leading-5 text-bo-muted">Người quản lý</dt>
+                                    <dt className="text-[13px] leading-5 text-bo-muted">{t("Người quản lý")}</dt>
                                     <dd className="mt-1">
                                         {quanLy ? (
                                             <div className="flex min-w-0 items-start gap-2.5">
@@ -473,18 +475,18 @@ export default function ChiTietKhoDialog({ kho, open, onOpenChange, coTheQuanLy 
                                                             <span className="text-bo-muted"> · {quanLy.tenDangNhap}</span>
                                                         ) : null}
                                                     </div>
-                                                    <DongLienHe giaTri={sdt} href={`tel:${sdt.replace(/\s+/g, "")}`} nhanMo={`Gọi ${sdt}`} icon={Phone} nhanSaoChep="Sao chép số điện thoại" />
-                                                    <DongLienHe giaTri={email} href={`mailto:${email}`} nhanMo={`Gửi email tới ${email}`} icon={Mail} nhanSaoChep="Sao chép email" />
+                                                    <DongLienHe giaTri={sdt} href={`tel:${sdt.replace(/\s+/g, "")}`} nhanMo={t("Gọi {{sdt}}", { sdt })} icon={Phone} nhanSaoChep={t("Sao chép số điện thoại")} />
+                                                    <DongLienHe giaTri={email} href={`mailto:${email}`} nhanMo={t("Gửi email tới {{email}}", { email })} icon={Mail} nhanSaoChep={t("Sao chép email")} />
                                                 </div>
                                             </div>
                                         ) : (
-                                            <span className="text-sm text-bo-muted">Chưa có người quản lý</span>
+                                            <span className="text-sm text-bo-muted">{t("Chưa có người quản lý")}</span>
                                         )}
                                     </dd>
                                 </div>
                                 {!ao && !khongQuyenTomTat ? (
                                     <div>
-                                        <dt className="text-[13px] leading-5 text-bo-muted">Người được phân quyền</dt>
+                                        <dt className="text-[13px] leading-5 text-bo-muted">{t("Người được phân quyền")}</dt>
                                         <dd className="mt-0.5 text-sm leading-5">
                                             {tomTatQ.loading ? (
                                                 <span className={cn(KHUNG_XAM, "mt-1 h-3.5 w-32")} />
@@ -503,10 +505,10 @@ export default function ChiTietKhoDialog({ kho, open, onOpenChange, coTheQuanLy 
 
                 <footer className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-bo-border px-5 py-3 max-sm:px-4 max-sm:pb-[max(1rem,env(safe-area-inset-bottom))]">
                     <span className="text-xs leading-4 text-bo-muted max-sm:hidden">
-                        {tomTatQ.loading ? "Đang tải số liệu..." : tomTat?.luc ? `Số liệu lúc ${gioPhut(tomTat.luc)}` : ""}
+                        {tomTatQ.loading ? t("Đang tải số liệu...") : tomTat?.luc ? t("Số liệu lúc {{luc}}", { luc: gioPhut(tomTat.luc) }) : ""}
                     </span>
                     <Button type="button" variant="outline" onClick={dong} className={cn(NUT_VIEN, coTheQuanLy && "max-sm:hidden", "max-sm:h-11 max-sm:w-full")}>
-                        Đóng
+                        {t("Đóng")}
                     </Button>
                     {coTheQuanLy ? (
                         <Button
@@ -515,7 +517,7 @@ export default function ChiTietKhoDialog({ kho, open, onOpenChange, coTheQuanLy 
                             className="h-11 w-full gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover sm:hidden"
                         >
                             <Pencil className="size-4" aria-hidden="true" />
-                            Chỉnh sửa
+                            {t("Chỉnh sửa")}
                         </Button>
                     ) : null}
                 </footer>

@@ -35,6 +35,7 @@ import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import com.dev.backend.i18n.ThongDiep;
 
 /**
  * Báo cáo nhập xuất (màn /reports/stock-movements) và tệp Excel của màn: Tồn đầu kỳ + Nhập − Xuất = Tồn cuối kỳ, nhập từ
@@ -167,10 +168,10 @@ public class BaoCaoNhapXuatService {
                 }
             }
             case "nam" -> {
-                if (t.tuNam() == null || t.denNam() == null) throw new CommonException("Vui lòng chọn từ năm và đến năm");
-                if (t.tuNam() > t.denNam()) throw new CommonException("Từ năm phải trước hoặc bằng đến năm");
+                if (t.tuNam() == null || t.denNam() == null) throw new CommonException(ThongDiep.of("khoVanHanh.chonTuNamDenNam"));
+                if (t.tuNam() > t.denNam()) throw new CommonException(ThongDiep.of("khoVanHanh.tuNamTruocDenNam"));
                 canNam(t.tuNam());
-                if (t.denNam() - t.tuNam() >= TOI_DA_SO_NAM) throw new CommonException("Xem theo năm tối đa " + TOI_DA_SO_NAM + " năm");
+                if (t.denNam() - t.tuNam() >= TOI_DA_SO_NAM) throw new CommonException(ThongDiep.of("khoVanHanh.xemTheoNamToiDa", TOI_DA_SO_NAM));
                 tu = LocalDate.of(t.tuNam(), 1, 1);
                 denDayDu = LocalDate.of(t.denNam(), 12, 31);
                 ten = "Từ năm " + t.tuNam() + " đến năm " + t.denNam();
@@ -178,24 +179,24 @@ public class BaoCaoNhapXuatService {
                     moc.add(new Moc(String.valueOf(y), "Năm " + y, LocalDate.of(y, 1, 1), LocalDate.of(y, 12, 31)));
                 }
             }
-            default -> throw new CommonException("Cách xem không hợp lệ");
+            default -> throw new CommonException(ThongDiep.of("khoVanHanh.cachXemKhongHopLe"));
         }
-        if (tu.isAfter(homNay)) throw new CommonException("Kỳ này chưa bắt đầu");
+        if (tu.isAfter(homNay)) throw new CommonException(ThongDiep.of("khoVanHanh.kyChuaBatDau"));
         LocalDate den = denDayDu.isAfter(homNay) ? homNay : denDayDu;
         return new KyXem(loai, ten, tu, denDayDu, den, moc);
     }
 
     private static int canNam(Integer nam) {
-        if (nam == null) throw new CommonException("Vui lòng chọn năm");
+        if (nam == null) throw new CommonException(ThongDiep.of("khoVanHanh.chonNam"));
         if (nam < DoanhThuReportService.NAM_NHO_NHAT || nam > 9999) {
-            throw new CommonException("Năm phải từ " + DoanhThuReportService.NAM_NHO_NHAT + " đến 9999");
+            throw new CommonException(ThongDiep.of("khoVanHanh.namTuDen9999", DoanhThuReportService.NAM_NHO_NHAT));
         }
         return nam;
     }
 
     static String chuanNhom(String nhom) {
         if (nhom == null || nhom.isBlank()) return null;
-        if (!THEO_MA.containsKey(nhom)) throw new CommonException("Loại nhập xuất không hợp lệ");
+        if (!THEO_MA.containsKey(nhom)) throw new CommonException(ThongDiep.of("khoVanHanh.loaiNhapXuatKhongHopLe"));
         return nhom;
     }
 

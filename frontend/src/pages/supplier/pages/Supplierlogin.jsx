@@ -13,6 +13,7 @@ import {
     xuLyLoiNhanMa,
     xuLyLoiXacNhan,
 } from '@/components/supplier-portal/loiCong';
+import { t } from "@/i18n";
 
 /* ── Class dùng chung với Đăng nhập / Quên mật khẩu (khung AuthShell) ── */
 const INPUT_BASE =
@@ -36,21 +37,21 @@ const ANH_NEN_NCC = [
     {
         src: '/images/auth/supplier-1.jpg',
         fallbackSrc: 'https://images.pexels.com/photos/4484073/pexels-photo-4484073.jpeg?auto=compress&cs=tinysrgb&w=2000',
-        alt: 'Ba nhân viên kho đứng giữa lối đi giữa các kệ hàng',
+        alt: t("Ba nhân viên kho đứng giữa lối đi giữa các kệ hàng"),
     },
     {
         src: '/images/auth/supplier-2.jpg',
         fallbackSrc: 'https://images.pexels.com/photos/6169641/pexels-photo-6169641.jpeg?auto=compress&cs=tinysrgb&w=2000',
-        alt: 'Nhân viên sắp xếp thùng hàng lên kệ và ghi phiếu gửi hàng',
+        alt: t("Nhân viên sắp xếp thùng hàng lên kệ và ghi phiếu gửi hàng"),
     },
     {
         src: '/images/auth/supplier-3.jpg',
         fallbackSrc: 'https://images.pexels.com/photos/4483775/pexels-photo-4483775.jpeg?auto=compress&cs=tinysrgb&w=2000',
-        alt: 'Nhân viên đi kiểm hàng giữa các dãy kệ pallet trong nhà kho',
+        alt: t("Nhân viên đi kiểm hàng giữa các dãy kệ pallet trong nhà kho"),
     },
 ];
 
-const CAC_BUOC = ['Thông tin đơn', 'Mã xác nhận'];
+const CAC_BUOC = [t("Thông tin đơn"), t("Mã xác nhận")];
 const OTP_TRONG = ['', '', '', '', '', ''];
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Thời hạn mã và thời gian chờ gửi lại lấy từ máy chủ (hetHanGiay, guiLaiSauGiay), không viết cứng ở trang
@@ -105,9 +106,9 @@ export default function SupplierLoginPage() {
     useEffect(() => {
         if (guiLaiLuc <= Date.now()) return undefined;
         const timer = setInterval(() => {
-            const t = Date.now();
-            setBayGio(t);
-            if (t >= guiLaiLuc) clearInterval(timer);
+            const luc = Date.now();
+            setBayGio(luc);
+            if (luc >= guiLaiLuc) clearInterval(timer);
         }, 1000);
         return () => clearInterval(timer);
     }, [guiLaiLuc]);
@@ -134,9 +135,9 @@ export default function SupplierLoginPage() {
 
     /** Đếm ngược nút "Gửi lại mã" theo số giây máy chủ trả (guiLaiSauGiay); 0 hoặc không có thì gửi lại được ngay. */
     const datDemNguoc = (giay) => {
-        const t = Date.now();
-        setBayGio(t);
-        setGuiLaiLuc(giay > 0 ? t + giay * 1000 : 0);
+        const luc = Date.now();
+        setBayGio(luc);
+        setGuiLaiLuc(giay > 0 ? luc + giay * 1000 : 0);
     };
 
     // Chặn gọi trùng khi bấm / Enter liên tiếp trước khi nút kịp khóa
@@ -166,10 +167,10 @@ export default function SupplierLoginPage() {
         e?.preventDefault?.();
         const loiMoi = {};
         const emailGon = email.trim();
-        if (!emailGon) loiMoi.email = 'Vui lòng nhập email';
-        else if (!EMAIL_REGEX.test(emailGon)) loiMoi.email = 'Email không hợp lệ';
+        if (!emailGon) loiMoi.email = t("Vui lòng nhập email");
+        else if (!EMAIL_REGEX.test(emailGon)) loiMoi.email = t("Email không hợp lệ");
         const don = thamChieuDon();
-        if (!don) loiMoi.maDon = 'Vui lòng nhập mã đơn mua hàng';
+        if (!don) loiMoi.maDon = t("Vui lòng nhập mã đơn mua hàng");
         if (loiMoi.email || loiMoi.maDon) {
             setLoi(loiMoi);
             (loiMoi.email ? emailRef : maDonRef).current?.focus();
@@ -240,12 +241,12 @@ export default function SupplierLoginPage() {
         e?.preventDefault?.();
         const maOtp = otp.join('');
         if (maOtp.length !== OTP_TRONG.length) {
-            setLoi({ otp: 'Vui lòng nhập đủ 6 số của mã xác nhận' });
+            setLoi({ otp: t("Vui lòng nhập đủ 6 số của mã xác nhận") });
             return;
         }
         const don = thamChieuDon();
         if (!don) {
-            setLoi({ chung: 'Không tìm thấy thông tin đơn hàng.' });
+            setLoi({ chung: t("Không tìm thấy thông tin đơn hàng.") });
             return;
         }
 
@@ -270,7 +271,7 @@ export default function SupplierLoginPage() {
                     });
                     return;
                 }
-                setLoi({ chung: 'Không lấy được thông tin đơn mua hàng. Vui lòng thử lại.' });
+                setLoi({ chung: t("Không lấy được thông tin đơn mua hàng. Vui lòng thử lại.") });
             } catch (err) {
                 const kq = xuLyLoiXacNhan(err);
                 if (kq.loai === 'khong-con-nhan') {
@@ -307,24 +308,24 @@ export default function SupplierLoginPage() {
                     onClick={handleBack}
                     disabled={Boolean(dangXuLy)}
                 >
-                    <ArrowLeft size={16} aria-hidden="true" /> Quay lại
+                    <ArrowLeft size={16} aria-hidden="true" /> {t("Quay lại")}
                 </button>
             )}
 
             <div className="mb-8 text-center lg:text-left">
                 <h1 className="mb-3 text-3xl font-bold tracking-tight text-gray-900 fade-in-up delay-1">
-                    {buoc === 'otp' ? 'Nhập mã xác nhận' : 'Cổng nhà cung cấp'}
+                    {buoc === 'otp' ? t("Nhập mã xác nhận") : t("Cổng nhà cung cấp")}
                 </h1>
                 <p className="text-base text-gray-500 fade-in-up delay-2">
                     {buoc === 'otp' ? (
                         <>
-                            Mã 6 chữ số đã được gửi tới{' '}
+                            {t("Mã 6 chữ số đã được gửi tới")}{' '}
                             <strong className="font-semibold break-words text-gray-900">{email}</strong>.
                         </>
                     ) : orderId ? (
-                        'Nhập email nhận yêu cầu báo giá để nhận mã xác nhận.'
+                        t("Nhập email nhận yêu cầu báo giá để nhận mã xác nhận.")
                     ) : (
-                        'Nhập email và mã đơn mua hàng để nhận mã xác nhận.'
+                        t("Nhập email và mã đơn mua hàng để nhận mã xác nhận.")
                     )}
                 </p>
             </div>
@@ -365,18 +366,18 @@ export default function SupplierLoginPage() {
                         {orderId ? (
                             <div className="flex items-center gap-2.5 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
                                 <Link2 size={16} className="shrink-0 text-gray-500" aria-hidden="true" />
-                                <span>Đơn mua hàng đã lấy từ liên kết trong email</span>
+                                <span>{t("Đơn mua hàng đã lấy từ liên kết trong email")}</span>
                             </div>
                         ) : (
                             <div className="space-y-2">
-                                <label htmlFor="ncc-ma-don" className={LABEL}>Mã đơn mua hàng</label>
+                                <label htmlFor="ncc-ma-don" className={LABEL}>{t("Mã đơn mua hàng")}</label>
                                 <input
                                     ref={maDonRef}
                                     id="ncc-ma-don"
                                     type="text"
                                     autoComplete="off"
                                     spellCheck={false}
-                                    placeholder="VD: PO202610115101"
+                                    placeholder={t("VD: {{viDu}}", { viDu: "PO202610115101" })}
                                     className={`${INPUT_BASE} ${loi.maDon ? INPUT_ERROR : INPUT_NORMAL}`}
                                     value={manualSoDonMua}
                                     onChange={(e) => {
@@ -391,7 +392,7 @@ export default function SupplierLoginPage() {
                                     <LoiO id="ncc-ma-don-loi">{loi.maDon}</LoiO>
                                 ) : (
                                     <p id="ncc-ma-don-goi-y" className="text-sm text-gray-500">
-                                        Mã đơn có trong email yêu cầu báo giá.
+                                        {t("Mã đơn có trong email yêu cầu báo giá.")}
                                     </p>
                                 )}
                             </div>
@@ -399,15 +400,15 @@ export default function SupplierLoginPage() {
 
                         <button type="submit" className={`${PRIMARY_BTN} mt-4`} disabled={Boolean(dangXuLy)}>
                             {dangXuLy === 'gui-ma' ? (
-                                <><Loader2 size={16} className="animate-spin" aria-hidden="true" /> Đang gửi mã...</>
+                                <><Loader2 size={16} className="animate-spin" aria-hidden="true" /> {t("Đang gửi mã...")}</>
                             ) : (
-                                'Nhận mã xác nhận'
+                                t("Nhận mã xác nhận")
                             )}
                         </button>
                     </form>
 
                     <p className="mt-8 text-sm text-gray-500 fade-in-up delay-5">
-                        Chưa nhận được email yêu cầu báo giá? Hãy liên hệ nhân viên mua hàng đã mời Quý công ty báo giá.
+                        {t("Chưa nhận được email yêu cầu báo giá? Hãy liên hệ nhân viên mua hàng đã mời Quý công ty báo giá.")}
                     </p>
                 </>
             )}
@@ -425,7 +426,7 @@ export default function SupplierLoginPage() {
                         ) : null}
 
                         <div className="space-y-2">
-                            <label htmlFor="ncc-otp-0" className={LABEL}>Mã xác nhận 6 số</label>
+                            <label htmlFor="ncc-otp-0" className={LABEL}>{t("Mã xác nhận 6 số")}</label>
                             <OtpInputs
                                 value={otp}
                                 onChange={(next) => {
@@ -437,13 +438,13 @@ export default function SupplierLoginPage() {
                                 idPrefix="ncc-otp"
                             />
                             <p className="pt-1 text-sm text-gray-600">
-                                {loi.otp && 'Các ô đã được xóa để nhập lại. '}
-                                Không nhận được mã?{' '}
+                                {loi.otp && `${t("Các ô đã được xóa để nhập lại.")} `}
+                                {t("Không nhận được mã?")}{' '}
                                 {dangXuLy === 'gui-lai' ? (
-                                    <span className="font-medium text-gray-400">Đang gửi lại...</span>
+                                    <span className="font-medium text-gray-400">{t("Đang gửi lại...")}</span>
                                 ) : conLaiGiay > 0 ? (
                                     <span className="font-medium whitespace-nowrap text-gray-400">
-                                        Gửi lại mã sau <span className="tabular-nums">{dinhDangDemNguoc(conLaiGiay)}</span>
+                                        {t("Gửi lại mã sau")} <span className="tabular-nums">{dinhDangDemNguoc(conLaiGiay)}</span>
                                     </span>
                                 ) : (
                                     <button
@@ -452,7 +453,7 @@ export default function SupplierLoginPage() {
                                         onClick={handleResendOtp}
                                         disabled={Boolean(dangXuLy)}
                                     >
-                                        Gửi lại mã
+                                        {t("Gửi lại mã")}
                                     </button>
                                 )}
                             </p>
@@ -464,16 +465,16 @@ export default function SupplierLoginPage() {
                             disabled={Boolean(dangXuLy) || otp.join('').length !== OTP_TRONG.length}
                         >
                             {dangXuLy === 'xac-thuc' ? (
-                                <><Loader2 size={16} className="animate-spin" aria-hidden="true" /> Đang xác thực...</>
+                                <><Loader2 size={16} className="animate-spin" aria-hidden="true" /> {t("Đang xác thực...")}</>
                             ) : (
-                                'Xác nhận'
+                                t("Xác nhận")
                             )}
                         </button>
                     </form>
 
                     {maDonHienThi && (
                         <div className="mt-8 flex justify-between gap-3 border-t border-gray-200 pt-4 text-sm fade-in-up delay-5">
-                            <span className="text-gray-500">Đơn mua hàng</span>
+                            <span className="text-gray-500">{t("Đơn mua hàng")}</span>
                             <span className="min-w-0 text-right font-semibold break-words tabular-nums text-gray-900">{maDonHienThi}</span>
                         </div>
                     )}

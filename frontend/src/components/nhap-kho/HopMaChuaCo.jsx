@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { THE_LENH, tenDayDu } from "@/pages/receipt/kiemDem";
 import { TIEN_TO_THE_LENH, ganGiong, moTaDangMa, phanDauCua } from "@/utils/maVach";
 import StatusBadge from "@/components/shared/StatusBadge";
+import { t } from "@/i18n";
 
 const O_NHAP =
   "h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-bo-foreground placeholder:text-slate-400 focus:border-bo-primary focus:outline-none focus:ring-[3px] focus:ring-bo-primary/20";
@@ -29,7 +30,7 @@ const O_NHAP =
  */
 export default function HopMaChuaCo({ quet, ref, ...props }) {
   return (
-    <Dialog open={Boolean(quet)} onOpenChange={(mo) => !mo && props.onBoQua("Đã bỏ qua")}>
+    <Dialog open={Boolean(quet)} onOpenChange={(mo) => !mo && props.onBoQua(t("Đã bỏ qua"))}>
       {quet ? <NoiDung key={`${quet.ma}-${quet.lan}`} quet={quet} dieuKhienRef={ref} {...props} /> : null}
     </Dialog>
   );
@@ -65,17 +66,17 @@ function NoiDung({ quet, dieuKhienRef, phieu, items, bienTheDangKiemId, ungVienG
   const xuLyQuetLai = async (lan2) => {
     const hoa2 = lan2.toUpperCase();
     if (hoa2 === THE_LENH.HOAN_TAC) {
-      onBoQua("Đã bỏ qua");
+      onBoQua(t("Đã bỏ qua"));
       return;
     }
     if (hoa2.startsWith(TIEN_TO_THE_LENH)) {
-      setKetQua("Ở bước này chỉ dùng được thẻ HOÀN TÁC. Quét lại tem sản phẩm để xác nhận.");
+      setKetQua(t("Ở bước này chỉ dùng được thẻ HOÀN TÁC. Quét lại tem sản phẩm để xác nhận."));
       onBip("sai");
       return;
     }
     if (hoa2 === ma.toUpperCase()) {
       if (dang.gs1.ok === false) {
-        setKetQua("Quét lại vẫn ra mã sai số kiểm tra: tem có thể bị in hỏng. Nhập SKU in trên tem FCentric, hoặc bấm Bỏ qua và để riêng sản phẩm.");
+        setKetQua(t("Quét lại vẫn ra mã sai số kiểm tra: tem có thể bị in hỏng. Nhập SKU in trên tem FCentric, hoặc bấm Bỏ qua và để riêng sản phẩm."));
         onBip("sai");
         return;
       }
@@ -86,11 +87,11 @@ function NoiDung({ quet, dieuKhienRef, phieu, items, bienTheDangKiemId, ungVienG
     }
     const loai = nhanBiet(lan2);
     if (loai === "san-pham") {
-      onDungMa(lan2, `lần quét lại (lần đầu đọc lệch ${ma})`);
+      onDungMa(lan2, t("lần quét lại (lần đầu đọc lệch {{ma}})", { ma }));
       return;
     }
     if (loai === "ke") {
-      setKetQua(`${lan2} là mã kệ. Quét lại tem trên sản phẩm để xác nhận.`);
+      setKetQua(t("{{lan2}} là mã kệ. Quét lại tem trên sản phẩm để xác nhận.", { lan2 }));
       onBip("sai");
       return;
     }
@@ -102,10 +103,10 @@ function NoiDung({ quet, dieuKhienRef, phieu, items, bienTheDangKiemId, ungVienG
       coThat = false;
     }
     if (coThat) {
-      onDungMa(lan2, `lần quét lại (lần đầu đọc lệch ${ma})`);
+      onDungMa(lan2, t("lần quét lại (lần đầu đọc lệch {{ma}})", { ma }));
       return;
     }
-    setKetQua(`Lần quét lại ra ${lan2}, khác lần đầu. Máy đang đọc lệch: lau tem, quét chậm lại rồi quét lại.`);
+    setKetQua(t("Lần quét lại ra {{lan2}}, khác lần đầu. Máy đang đọc lệch: lau tem, quét chậm lại rồi quét lại.", { lan2 }));
     onBip("sai");
   };
 
@@ -127,7 +128,7 @@ function NoiDung({ quet, dieuKhienRef, phieu, items, bienTheDangKiemId, ungVienG
         xuLyQuetLai(lan2);
         return;
       }
-      setLoiLuu(`Mã ${lan2} chưa được tính: đang liên kết mã ${ma}. Liên kết hoặc Bỏ qua xong rồi quét lại.`);
+      setLoiLuu(t("Mã {{lan2}} chưa được tính: đang liên kết mã {{ma}}. Liên kết hoặc Bỏ qua xong rồi quét lại.", { lan2, ma }));
       onBip("sai");
     },
   }));
@@ -146,7 +147,7 @@ function NoiDung({ quet, dieuKhienRef, phieu, items, bienTheDangKiemId, ungVienG
     try {
       await onLienKet({ bienTheSanPhamId: chon, maHangNcc: maHang.trim() });
     } catch (error) {
-      setLoiLuu(error?.message || "Không liên kết được mã vạch. Vui lòng thử lại.");
+      setLoiLuu(error?.message || t("Không liên kết được mã vạch. Vui lòng thử lại."));
       setDangLuu(false);
     }
   };
@@ -167,7 +168,7 @@ function NoiDung({ quet, dieuKhienRef, phieu, items, bienTheDangKiemId, ungVienG
       }}
       onEscapeKeyDown={(e) => {
         e.preventDefault();
-        if (!dangLuu) onBoQua("Đã bỏ qua");
+        if (!dangLuu) onBoQua(t("Đã bỏ qua"));
       }}
       onInteractOutside={(e) => e.preventDefault()}
       className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden rounded-xl border-bo-border p-0 sm:max-w-[600px]"
@@ -179,9 +180,9 @@ function NoiDung({ quet, dieuKhienRef, phieu, items, bienTheDangKiemId, ungVienG
               <ScanSearch className="size-[18px]" />
             </span>
             <div className="min-w-0">
-              <DialogTitle className="text-base font-semibold text-bo-foreground">Mã chưa có trong hệ thống</DialogTitle>
+              <DialogTitle className="text-base font-semibold text-bo-foreground">{t("Mã chưa có trong hệ thống")}</DialogTitle>
               <DialogDescription className="mt-0.5 text-[13px] leading-5 text-bo-muted">
-                Không khớp SKU, mã kệ hay mã vạch nào đã liên kết với nhà cung cấp của phiếu này.
+                {t("Không khớp SKU, mã kệ hay mã vạch nào đã liên kết với nhà cung cấp của phiếu này.")}
               </DialogDescription>
             </div>
           </div>
@@ -191,14 +192,14 @@ function NoiDung({ quet, dieuKhienRef, phieu, items, bienTheDangKiemId, ungVienG
               <span className={cn("flex items-center gap-1.5 text-[12.5px] leading-[18px]", dang.tone === "ok" ? "text-green-700" : dang.tone === "bad" ? "text-bo-danger-strong" : "text-bo-muted")}>
                 {dang.tone === "ok" ? <Check className="size-3.5" /> : dang.tone === "bad" ? <AlertCircle className="size-3.5" /> : null}
                 {dang.chu}
-                {quet.sl > 1 ? ` · lượt ${quet.sl} cái` : ""}
+                {quet.sl > 1 ? t(" · lượt {{sl}} cái", { sl: quet.sl }) : ""}
               </span>
             </div>
 
             {goiY.length ? (
               <div className="shrink-0 overflow-hidden rounded-lg border border-orange-200 bg-bo-warning-soft/40">
                 <p className="border-b border-orange-200 px-3 py-2 text-[13px] font-semibold text-orange-900">
-                  {ganDung.length ? "Gần giống mã đã có, có thể máy quét đọc lệch" : "Là phần đầu của mã đã có, có thể máy quét đọc thiếu"}
+                  {ganDung.length ? t("Gần giống mã đã có, có thể máy quét đọc lệch") : t("Là phần đầu của mã đã có, có thể máy quét đọc thiếu")}
                 </p>
                 {goiY.map((g) => (
                   <div key={g.ma} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-orange-100 px-3 py-2.5 first:border-t-0">
@@ -210,9 +211,9 @@ function NoiDung({ quet, dieuKhienRef, phieu, items, bienTheDangKiemId, ungVienG
                       </span>
                       <span className="text-xs text-bo-muted">{g.nhan}</span>
                     </div>
-                    <span className="whitespace-nowrap text-xs font-medium text-orange-800">{g.lech ? `lệch ${g.lech} ký tự` : `thiếu ${g.thieu} ký tự cuối`}</span>
-                    <Button type="button" variant="outline" size="sm" onClick={() => onDungMa(g.ma, `sửa từ mã quét lệch ${ma}`)} className="border-bo-border bg-bo-surface text-xs">
-                      Dùng mã này
+                    <span className="whitespace-nowrap text-xs font-medium text-orange-800">{g.lech ? t("lệch {{lech}} ký tự", { count: Number(g.lech) || 0, lech: g.lech }) : t("thiếu {{thieu}} ký tự cuối", { count: Number(g.thieu) || 0, thieu: g.thieu })}</span>
+                    <Button type="button" variant="outline" size="sm" onClick={() => onDungMa(g.ma, t("sửa từ mã quét lệch {{ma}}", { ma }))} className="border-bo-border bg-bo-surface text-xs">
+                      {t("Dùng mã này")}
                     </Button>
                   </div>
                 ))}
@@ -220,36 +221,36 @@ function NoiDung({ quet, dieuKhienRef, phieu, items, bienTheDangKiemId, ungVienG
             ) : null}
 
             <div className="flex flex-col gap-3 rounded-lg border border-bo-border p-4">
-              <p className="text-sm font-semibold text-bo-heading">Đây có phải mã vạch in trên tem của nhà cung cấp?</p>
+              <p className="text-sm font-semibold text-bo-heading">{t("Đây có phải mã vạch in trên tem của nhà cung cấp?")}</p>
               <div className={cn("flex items-start gap-2.5 text-[13px] leading-5", dang.gs1.ok === false && "opacity-60")}>
                 <span className="grid size-7 shrink-0 place-items-center rounded-full bg-blue-50 text-bo-primary"><ScanLine className="size-4" /></span>
                 <span>
                   {dang.gs1.ok === false ? (
-                    "Không thể là mã in trên tem vì sai số kiểm tra. Quét lại sản phẩm, hoặc dùng mã gần giống ở trên."
+                    t("Không thể là mã in trên tem vì sai số kiểm tra. Quét lại sản phẩm, hoặc dùng mã gần giống ở trên.")
                   ) : (
-                    <><b>Đúng:</b> quét lại tem này một lần nữa. Hai lần trùng nhau thì chuyển sang chọn sản phẩm.</>
+                    <><b>{t("Đúng:")}</b> {t("quét lại tem này một lần nữa. Hai lần trùng nhau thì chuyển sang chọn sản phẩm.")}</>
                   )}
                 </span>
               </div>
               <div className="flex items-start gap-2.5 text-[13px] leading-5">
                 <span className="grid size-7 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-600"><RotateCcw className="size-4" /></span>
-                <span><b>Không, quét lỗi:</b> quét thẻ HOÀN TÁC hoặc bấm Bỏ qua, rồi quét lại sản phẩm. Lượt này không được tính.</span>
+                <span><b>{t("Không, quét lỗi:")}</b> {t("quét thẻ HOÀN TÁC hoặc bấm Bỏ qua, rồi quét lại sản phẩm. Lượt này không được tính.")}</span>
               </div>
               <form onSubmit={traLoiBangMayQuet} className="flex gap-2">
                 <label className="relative min-w-0 flex-1">
-                  <span className="sr-only">Quét lại mã</span>
+                  <span className="sr-only">{t("Quét lại mã")}</span>
                   <ScanLine className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-bo-muted" aria-hidden="true" />
                   <input
                     ref={oQuetLaiRef}
                     value={quetLai}
                     onChange={(e) => setQuetLai(e.target.value)}
-                    placeholder="Đang chờ quét…"
+                    placeholder={t("Đang chờ quét…")}
                     autoComplete="off"
                     spellCheck={false}
                     className={cn(O_NHAP, "pl-10 font-mono")}
                   />
                 </label>
-                <Button type="submit" variant="outline" className="h-10 border-bo-border bg-bo-surface">Nhận</Button>
+                <Button type="submit" variant="outline" className="h-10 border-bo-border bg-bo-surface">{t("Nhận")}</Button>
               </form>
               {ketQua ? (
                 <p role="alert" className="flex items-start gap-1.5 text-[13px] leading-5 text-bo-danger-strong">
@@ -259,50 +260,50 @@ function NoiDung({ quet, dieuKhienRef, phieu, items, bienTheDangKiemId, ungVienG
             </div>
           </div>
           <div className="flex items-center gap-2 border-t border-bo-border bg-bo-surface-subtle px-6 py-3">
-            <span className="mr-auto text-xs text-bo-muted">Bước 1/2</span>
-            <Button type="button" variant="outline" onClick={() => onBoQua("Đã bỏ qua")} className="min-w-24 border-bo-border bg-bo-surface">Bỏ qua</Button>
+            <span className="mr-auto text-xs text-bo-muted">{t("Bước 1/2")}</span>
+            <Button type="button" variant="outline" onClick={() => onBoQua(t("Đã bỏ qua"))} className="min-w-24 border-bo-border bg-bo-surface">{t("Bỏ qua")}</Button>
           </div>
         </>
       ) : (
         <>
           <div className="border-b border-bo-border px-6 py-4">
-            <DialogTitle className="text-base font-semibold text-bo-foreground">Liên kết mã vạch nhà cung cấp</DialogTitle>
+            <DialogTitle className="text-base font-semibold text-bo-foreground">{t("Liên kết mã vạch nhà cung cấp")}</DialogTitle>
             <DialogDescription className="mt-0.5 text-[13px] leading-5 text-bo-muted">
-              Chọn đúng biến thể mang tem này. Liên kết hiện ngay ở trang Mã vạch nhà cung cấp; lần sau quét mã sẽ tự nhận.
+              {t("Chọn đúng biến thể mang tem này. Liên kết hiện ngay ở trang Mã vạch nhà cung cấp; lần sau quét mã sẽ tự nhận.")}
             </DialogDescription>
           </div>
           <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-5 *:shrink-0">
             <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-[repeat(3,auto)]">
               <div className="min-w-0">
-                <dt className="text-xs font-medium text-bo-muted">Mã vạch NCC</dt>
+                <dt className="text-xs font-medium text-bo-muted">{t("Mã vạch NCC", { context: "mot" })}</dt>
                 <dd className="break-all font-mono font-semibold text-bo-heading">{ma}</dd>
-                <dd className="mt-0.5 flex items-center gap-1 text-xs text-green-700"><Check className="size-3.5" /> Quét 2 lần trùng</dd>
+                <dd className="mt-0.5 flex items-center gap-1 text-xs text-green-700"><Check className="size-3.5" /> {t("Quét 2 lần trùng")}</dd>
               </div>
               <div className="min-w-0">
-                <dt className="text-xs font-medium text-bo-muted">Nhà cung cấp</dt>
+                <dt className="text-xs font-medium text-bo-muted">{t("Nhà cung cấp")}</dt>
                 <dd className="font-medium text-bo-heading">{phieu?.tenNhaCungCap || "—"}</dd>
               </div>
               <div className="min-w-0">
-                <dt className="text-xs font-medium text-bo-muted">Từ phiếu nhập</dt>
+                <dt className="text-xs font-medium text-bo-muted">{t("Từ phiếu nhập")}</dt>
                 <dd className="font-mono font-medium text-bo-heading">{phieu?.soPhieuNhap}</dd>
               </div>
             </dl>
 
             <div className="flex flex-col gap-2">
-              <span className="text-sm font-medium text-bo-foreground">Biến thể FCentric</span>
+              <span className="text-sm font-medium text-bo-foreground">{t("Biến thể FCentric")}</span>
               <label className="relative">
-                <span className="sr-only">Tìm biến thể</span>
+                <span className="sr-only">{t("Tìm biến thể")}</span>
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-bo-muted" aria-hidden="true" />
                 <input
                   ref={oTimRef}
                   value={tim}
                   onChange={(e) => setTim(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && e.preventDefault()}
-                  placeholder="Tìm theo tên, màu, kích cỡ hoặc SKU"
+                  placeholder={t("Tìm theo tên, màu, kích cỡ hoặc SKU")}
                   className={cn(O_NHAP, "pl-10")}
                 />
               </label>
-              <div role="radiogroup" aria-label="Biến thể FCentric trong phiếu nhập" className="flex max-h-64 flex-col gap-1.5 overflow-y-auto">
+              <div role="radiogroup" aria-label={t("Biến thể FCentric trong phiếu nhập")} className="flex max-h-64 flex-col gap-1.5 overflow-y-auto">
                 {dsBienThe.map((it) => {
                   const dangChon = chon === it.bienTheSanPhamId;
                   return (
@@ -323,33 +324,32 @@ function NoiDung({ quet, dieuKhienRef, phieu, items, bienTheDangKiemId, ungVienG
                       <span className="flex min-w-0 flex-1 flex-col">
                         <span className="truncate font-medium text-bo-heading">{it.tenBienThe}</span>
                         <span className="truncate text-xs text-bo-muted">
-                          {[it.mauSac, it.kichCo ? `Kích cỡ ${it.kichCo}` : null, it.sku].filter(Boolean).join(" · ")}
+                          {[it.mauSac, it.kichCo ? t("Kích cỡ {{kichCo}}", { kichCo: it.kichCo }) : null, it.sku].filter(Boolean).join(" · ")}
                         </span>
                       </span>
-                      {it.bienTheSanPhamId === bienTheDangKiemId ? (
+                      {it.bienTheSanPhamId === bienTheDangKiemId ? ( // i18n-giu-nguyen: nhãn StatusBadge tự dịch
                         <StatusBadge label="Đang kiểm đếm" />
                       ) : null}
                     </button>
                   );
                 })}
-                {dsBienThe.length === 0 ? <p className="py-6 text-center text-sm text-bo-muted">Không có biến thể nào khớp.</p> : null}
+                {dsBienThe.length === 0 ? <p className="py-6 text-center text-sm text-bo-muted">{t("Không có biến thể nào khớp.")}</p> : null}
               </div>
               <p className="text-xs leading-5 text-bo-muted">
-                Chỉ hiện biến thể có trong phiếu nhập này. Sản phẩm không có trong phiếu: bấm Bỏ qua, để riêng và báo quản lý kho.
+                {t("Chỉ hiện biến thể có trong phiếu nhập này. Sản phẩm không có trong phiếu: bấm Bỏ qua, để riêng và báo quản lý kho.")}
               </p>
             </div>
 
             <label className="flex flex-col gap-1.5">
               <span className="text-sm font-medium text-bo-foreground">
-                Mã hàng NCC <span className="font-normal text-bo-muted">(không bắt buộc)</span>
+                {t("Mã hàng NCC")} <span className="font-normal text-bo-muted">{t("(không bắt buộc)")}</span>
               </span>
-              <input value={maHang} maxLength={100} onChange={(e) => setMaHang(e.target.value)} placeholder="Mã sản phẩm in trên tem, VD: PN-JB-030" className={cn(O_NHAP, "font-mono")} />
+              <input value={maHang} maxLength={100} onChange={(e) => setMaHang(e.target.value)} placeholder={t("Mã sản phẩm in trên tem, VD: PN-JB-030")} className={cn(O_NHAP, "font-mono")} />
             </label>
 
             {chonKhac ? (
               <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] leading-5 text-amber-900">
-                Biến thể đã chọn ({tenDayDu(items.find((it) => it.bienTheSanPhamId === chon))}) không phải biến thể đang kiểm. Mã vẫn được liên kết,
-                nhưng sản phẩm này không được đếm ở đây: để riêng và kiểm ở biến thể đó.
+                {t("Biến thể đã chọn ({{tenBienThe}}) không phải biến thể đang kiểm. Mã vẫn được liên kết, nhưng sản phẩm này không được đếm ở đây: để riêng và kiểm ở biến thể đó.", { tenBienThe: tenDayDu(items.find((it) => it.bienTheSanPhamId === chon)) })}
               </p>
             ) : null}
             {loiLuu ? (
@@ -359,12 +359,12 @@ function NoiDung({ quet, dieuKhienRef, phieu, items, bienTheDangKiemId, ungVienG
             ) : null}
           </div>
           <div className="flex flex-wrap items-center gap-2 border-t border-bo-border bg-bo-surface-subtle px-6 py-3">
-            <span className="w-full text-xs text-bo-muted sm:mr-auto sm:w-auto">Bước 2/2</span>
+            <span className="w-full text-xs text-bo-muted sm:mr-auto sm:w-auto">{t("Bước 2/2")}</span>
             <div className="flex w-full gap-2 sm:w-auto">
-              <Button type="button" variant="outline" disabled={dangLuu} onClick={() => onBoQua("Chưa liên kết")} className="min-w-24 border-bo-border bg-bo-surface">Bỏ qua</Button>
+              <Button type="button" variant="outline" disabled={dangLuu} onClick={() => onBoQua(t("Chưa liên kết"))} className="min-w-24 border-bo-border bg-bo-surface">{t("Bỏ qua")}</Button>
               <Button type="button" disabled={chon == null || dangLuu} onClick={lienKet} className="min-w-28 flex-1 gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover sm:flex-none">
                 {dangLuu ? <Loader2 className="size-4 animate-spin" /> : null}
-                {chonKhac ? "Liên kết" : "Liên kết và tính lượt quét"}
+                {chonKhac ? t("Liên kết") : t("Liên kết và tính lượt quét")}
               </Button>
             </div>
           </div>

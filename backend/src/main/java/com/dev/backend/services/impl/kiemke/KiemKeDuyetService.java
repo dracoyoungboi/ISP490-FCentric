@@ -30,6 +30,8 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
+import com.dev.backend.i18n.NgonNgu;
+import com.dev.backend.i18n.ThongDiep;
 
 /**
  * UC-STK-06 Phê duyệt, cân bằng tồn và mở khóa; {@link #moKhoa} dùng chung với Hủy. Cả lần duyệt chạy trong một giao
@@ -105,14 +107,14 @@ public class KiemKeDuyetService {
         String khoa = lenh.chuanHoa(khoaLenh);
         NguoiDung nguoi = quyen.nguoiHienTai();
         DotKiemKe xem = dotRepo.findById(id)
-                .orElseThrow(() -> new LoiCoMaException(HttpStatus.NOT_FOUND, MaLoi.STK_INVALID_STATE, "Không tìm thấy đợt kiểm kê"));
+                .orElseThrow(() -> new LoiCoMaException(HttpStatus.NOT_FOUND, MaLoi.STK_INVALID_STATE, ThongDiep.of("khoVanHanh.dotKiemKeKhongTimThay")));
         guard.giuKhoGhi(xem.getKho().getId());
         DotKiemKe dot = dotRepo.khoaTheoId(id).orElseThrow();
         em.refresh(dot, LockModeType.PESSIMISTIC_WRITE);
         KhoDangChon.kiemTra(dot.getKho(), KiemKeService.ten(dot));
         if (!quyen.duocDuyet(quyen.nguoiXem(), dot)) {
             throw new LoiCoMaException(HttpStatus.FORBIDDEN, MaLoi.STK_INVALID_STATE,
-                    "Chỉ quản lý kho có quyền điều chỉnh tồn kho mới phê duyệt kiểm kê");
+                    ThongDiep.of("khoVanHanh.chiQuanLyKhoPheDuyet"));
         }
         Integer khoId = dot.getKho().getId();
         String hash = lenh.bam(IKiemKe.LENH_PHE_DUYET, Map.of("id", id, "phienBan", phienBan == null ? -1 : phienBan));
@@ -120,7 +122,7 @@ public class KiemKeDuyetService {
         if (cu.isPresent()) return cu.get();
         if (dot.getTrangThai() != IKiemKe.CHO_DUYET) {
             throw KiemKeService.saiTrangThai(dot.getTrangThai() == IKiemKe.DANG_KIEM_KE
-                    ? "Phải Hoàn thành và trình duyệt trước khi phê duyệt" : "Chỉ phê duyệt được đợt đang chờ duyệt", dot);
+                    ? ThongDiep.of("khoVanHanh.phaiTrinhDuyetTruocKhiDuyet") : ThongDiep.of("khoVanHanh.chiDuyetDotChoDuyet"), dot);
         }
         KiemKeService.kiemTraPhienBan(dot, phienBan);
 
@@ -129,7 +131,7 @@ public class KiemKeDuyetService {
             byte tt = d.getTrangThai() == null ? IKiemKe.DONG_CHUA_KIEM : d.getTrangThai();
             if (d.getSoLuongThucTe() == null || (tt != IKiemKe.DONG_DA_KIEM && tt != IKiemKe.DONG_DA_XAC_NHAN)) {
                 throw new LoiCoMaException(HttpStatus.CONFLICT, MaLoi.STK_COUNT_INCOMPLETE,
-                        "Kết quả chưa đủ điều kiện duyệt: còn dòng chưa có số đếm hợp lệ");
+                        ThongDiep.of("khoVanHanh.chuaDuDieuKienDuyet"));
             }
         }
         KiemKeService.kiemTraDuSoDem(dong);
@@ -146,8 +148,7 @@ public class KiemKeDuyetService {
             boolean conKhoa = ke != null && (toanKe ? keKhoaToan.contains(ke) : capCuaDot.contains(khoaCap(ke, d.getLoHang().getId())));
             if (!conKhoa) {
                 throw new LoiCoMaException(HttpStatus.CONFLICT, MaLoi.STK_INVALID_STATE,
-                        "Khóa kiểm kê của dòng " + d.getViTriKho() + " / " + d.getLoHang().getMaLo()
-                                + " không còn thuộc đợt. Không phê duyệt được, hãy báo quản trị viên");
+                        ThongDiep.of("khoVanHanh.khoaDongKhongConThuocDot", d.getViTriKho(), d.getLoHang().getMaLo()));
             }
         }
 
@@ -182,18 +183,17 @@ public class KiemKeDuyetService {
         }
 
         // Tồn ở kệ hiện tại phải bằng số chốt (AC-20)
-        List<String> doi = new ArrayList<>();
+        List<ThongDiep> doi = new ArrayList<>();
         for (ChiTietKiemKe d : dong) {
             TonKhoViTri t = tonKe.get(khoaCap(d.getViTriKe().getId(), d.getLoHang().getId()));
             int hienTai = t == null || t.getSoLuong() == null ? 0 : t.getSoLuong();
             int chot = SoTonKeService.soNguyen(d.getSoLuongHeThong());
-            if (hienTai != chot) doi.add(d.getViTriKho() + " / " + d.getLoHang().getMaLo() + ": chốt " + chot + ", hiện " + hienTai);
+            if (hienTai != chot) doi.add(ThongDiep.of("khoVanHanh.mucTonKeDaDoi", d.getViTriKho(), d.getLoHang().getMaLo(), chot, hienTai));
         }
         if (!doi.isEmpty()) {
             throw new LoiCoMaException(HttpStatus.CONFLICT, MaLoi.STK_STOCK_CHANGED,
-                    "Tồn ở kệ đã đổi so với số chốt lúc bắt đầu: " + KiemKePhamViService.gon(doi)
-                            + ". Dừng duyệt để kiểm tra biến động; đợt vẫn chờ duyệt và giữ khóa.",
-                    Map.of("vanDe", doi));
+                    ThongDiep.of("khoVanHanh.tonKeDaDoi", KiemKePhamViService.gonTheoKhoa(doi)),
+                    Map.of("vanDe", theoNgonNgu(doi)));
         }
 
         // Tồn lô sau điều chỉnh ≥ 0 và ≥ phần đang giữ cho đơn (AC-19)
@@ -201,7 +201,7 @@ public class KiemKeDuyetService {
         for (ChiTietKiemKe d : dong) {
             if (KiemKeTinhToan.lech(d)) tongQ.merge(d.getLoHang().getId(), d.getChenhLechSoLuong(), BigDecimal::add);
         }
-        List<String> thieuGiu = new ArrayList<>();
+        List<ThongDiep> thieuGiu = new ArrayList<>();
         Map<Integer, String> maLo = dong.stream().collect(Collectors.toMap(d -> d.getLoHang().getId(), d -> d.getLoHang().getMaLo(), (a, b) -> a));
         for (Map.Entry<Integer, BigDecimal> e : tongQ.entrySet()) {
             TonKhoTheoLo t = tonLo.get(e.getKey());
@@ -209,15 +209,14 @@ public class KiemKeDuyetService {
             BigDecimal giu = t == null || t.getSoLuongDaDat() == null ? BigDecimal.ZERO : t.getSoLuongDaDat();
             BigDecimal moi = ton.add(e.getValue());
             if (moi.signum() < 0 || moi.compareTo(giu) < 0) {
-                thieuGiu.add("lô " + maLo.get(e.getKey()) + ": tồn sau duyệt " + KiemKePhamViService.so(moi)
-                        + ", đang giữ cho đơn " + KiemKePhamViService.so(giu));
+                thieuGiu.add(ThongDiep.of("khoVanHanh.mucThieuGiu", maLo.get(e.getKey()), KiemKePhamViService.so(moi),
+                        KiemKePhamViService.so(giu)));
             }
         }
         if (!thieuGiu.isEmpty()) {
             throw new LoiCoMaException(HttpStatus.CONFLICT, MaLoi.STK_RESERVED_EXCEEDS_STOCK,
-                    "Tồn sau điều chỉnh thấp hơn phần đang giữ cho đơn: " + KiemKePhamViService.gon(thieuGiu)
-                            + ". Xử lý đơn đang giữ hàng trước rồi duyệt lại; đợt vẫn giữ khóa.",
-                    Map.of("vanDe", thieuGiu));
+                    ThongDiep.of("khoVanHanh.tonSauDieuChinhThapHonGiu", KiemKePhamViService.gonTheoKhoa(thieuGiu)),
+                    Map.of("vanDe", theoNgonNgu(thieuGiu)));
         }
 
         Instant bayGio = Instant.now();
@@ -443,5 +442,10 @@ public class KiemKeDuyetService {
                     .build());
         }
         return coUuTien;
+    }
+
+    /** Danh sách vướng mắc trong data lỗi: câu theo ngôn ngữ của request (giao diện hiện thẳng). */
+    private static List<String> theoNgonNgu(List<ThongDiep> ds) {
+        return ds.stream().map(x -> x.theoNgonNgu(NgonNgu.hienTai())).toList();
     }
 }

@@ -25,6 +25,7 @@ import com.dev.backend.exception.customize.AccountDisabledException;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.exception.customize.LoiCoMaException;
 import com.dev.backend.exception.customize.MaLoi;
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.mapper.NguoiDungMapper;
 import com.dev.backend.mapper.PhanQuyenNguoiDungKhoMapper;
 import com.dev.backend.repository.NguoiDungRepository;
@@ -32,7 +33,6 @@ import com.dev.backend.services.CalcService;
 import com.dev.backend.services.JwtService;
 import com.dev.backend.services.MinioService;
 import com.dev.backend.services.email.CachDoiMatKhau;
-import com.dev.backend.services.email.DinhDangEmail;
 import com.dev.backend.services.email.EmailNghiepVuService;
 import com.dev.backend.services.impl.BaseServiceImpl;
 import com.dev.backend.services.impl.utils.LoginRateLimiter;
@@ -152,13 +152,13 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         if (phone != null
                 && !phone.isBlank()
                 && !VIETNAM_PHONE_PATTERN.matcher(phone.trim()).matches()) {
-            throw new CommonException("Số điện thoại không hợp lệ (10 số, bắt đầu bằng 03/05/07/08/09)");
+            throw new CommonException(ThongDiep.of("heThong.soDienThoaiKhongHopLe"));
         }
     }
 
     private static void validateEmail(String email) {
         if (email == null || email.isBlank() || !EMAIL_PATTERN.matcher(email.trim()).matches()) {
-            throw new CommonException("Vui lòng nhập đúng định dạng email");
+            throw new CommonException(ThongDiep.of("heThong.emailSaiDinhDang"));
         }
     }
 
@@ -177,21 +177,21 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         // Kiểm khoá + ghi nhận lần thử TRƯỚC BCrypt, đếm theo tài khoản (tên đăng nhập / email / SĐT và mọi biến
         // thể dấu, hoa thường chung một bộ đếm) và theo cặp (tài khoản, IP): người khác dò từ một IP không khoá được
         // chủ tài khoản. Đang khoá thì từ chối, không chạy BCrypt.
-        throwIfPasswordLocked(loginRateLimiter.tryAcquire(username, accountId, clientIp), LOGIN_LOCKED_MESSAGE);
+        throwIfPasswordLocked(loginRateLimiter.tryAcquire(username, accountId, clientIp), false);
 
         if (findingNguoiDung.isEmpty()) {
             // vẫn chạy BCrypt để thời gian phản hồi giống trường hợp sai mật khẩu (không lộ
             // tài khoản có tồn tại)
             passwordEncoder.matches(rawPassword, dummyPasswordHash());
             loginRateLimiter.recordFailureFromIp(clientIp);
-            throw new CommonException(LOGIN_FAILED_MESSAGE);
+            throw new CommonException(ThongDiep.of("heThong.dangNhapSai"));
         }
         NguoiDung nguoiDung = findingNguoiDung.get();
         if (!passwordEncoder.matches(rawPassword, nguoiDung.getMatKhauHash())) {
             loginRateLimiter.recordFailureFromIp(clientIp);
             // Ghi ngay (không theo giao dịch): ngay sau đây ném lỗi, giao dịch đăng nhập rollback
             ghiNhatKyDangNhap(IHanhDong.dang_nhap_that_bai, nguoiDung.getId(), "Sai mật khẩu", clientIp);
-            throw new CommonException(LOGIN_FAILED_MESSAGE);
+            throw new CommonException(ThongDiep.of("heThong.dangNhapSai"));
         }
         // Đúng mật khẩu: xoá bộ đếm sai của tài khoản
         loginRateLimiter.recordSuccess(username, accountId);
@@ -231,24 +231,32 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
                 ip == null ? moTa : moTa + ", " + ip);
     }
 
-    static final String LOGIN_LOCKED_MESSAGE = "Bạn đã đăng nhập sai quá nhiều lần";
-    static final String CHANGE_PASSWORD_LOCKED_MESSAGE = "Bạn đã nhập sai mật khẩu hiện tại quá nhiều lần";
+    static final String LOGIN_LOCKED_MESSAGE = ThongDiep.vi("heThong.dangNhapSaiQuaNhieu");
+    static final String CHANGE_PASSWORD_LOCKED_MESSAGE = ThongDiep.vi("heThong.nhapSaiMatKhauHienTaiQuaNhieu");
 
     // 429 khi tài khoản (hoặc chuỗi nhập) đang bị khoá do sai mật khẩu nhiều lần; cùng một thông báo dù tài khoản
     // có tồn tại hay không
-    private static void throwIfPasswordLocked(LoginRateLimiter.Decision decision, String loi) {
+    // doiMatKhau: câu của LOGIN_LOCKED_MESSAGE (false) hay CHANGE_PASSWORD_LOCKED_MESSAGE (true), kèm thời gian chờ
+    private static void throwIfPasswordLocked(LoginRateLimiter.Decision decision, boolean doiMatKhau) {
         if (decision.allowed())
             return;
         long seconds = decision.retryAfterSeconds();
-        String thoiGian = seconds < 60 ? seconds + " giây" : ((seconds + 59) / 60) + " phút";
-        throw new CommonException(loi + ". Vui lòng thử lại sau " + thoiGian,
+        ThongDiep loi;
+        if (seconds < 60) {
+            loi = doiMatKhau ? ThongDiep.of("heThong.doiMatKhauSaiChoGiay", seconds)
+                    : ThongDiep.of("heThong.dangNhapSaiChoGiay", seconds);
+        } else {
+            loi = doiMatKhau ? ThongDiep.of("heThong.doiMatKhauSaiChoPhut", (seconds + 59) / 60)
+                    : ThongDiep.of("heThong.dangNhapSaiChoPhut", (seconds + 59) / 60);
+        }
+        throw new CommonException(loi,
                 HttpStatus.TOO_MANY_REQUESTS,
                 Map.of("code", "LOGIN_RATE_LIMITED", "retryAfterSeconds", seconds));
     }
 
     // Sai tên đăng nhập hay sai mật khẩu đều trả cùng thông báo (không lộ tài khoản
     // có tồn tại)
-    static final String LOGIN_FAILED_MESSAGE = "Tên đăng nhập hoặc mật khẩu không chính xác";
+    static final String LOGIN_FAILED_MESSAGE = ThongDiep.vi("heThong.dangNhapSai");
 
     private volatile String dummyPasswordHash;
 
@@ -318,7 +326,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
     private Integer currentUserId() {
         NguoiDungAuthInfo info = com.dev.backend.config.SecurityContextHolder.getUser();
         if (info == null || info.getId() == null) {
-            throw new CommonException("Phiên đăng nhập không hợp lệ");
+            throw new CommonException(ThongDiep.of("heThong.phienDangNhapKhongHopLe"));
         }
         return info.getId();
     }
@@ -362,7 +370,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
                 ResponseData.<String>builder()
                         .status(HttpStatus.OK.value())
                         .data("Success")
-                        .message("Đã đăng xuất")
+                        .message(ThongDiep.dich("heThong.daDangXuat"))
                         .error(null)
                         .build());
     }
@@ -392,10 +400,10 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
     public ResponseEntity<ResponseData<String>> dangXuatPhien(Integer phienId) {
         int soDong = phienDangNhapService.thuHoiTheoId(phienId, currentUserId());
         if (soDong == 0) {
-            throw new CommonException("Không tìm thấy phiên để đăng xuất (có thể đã kết thúc trước đó)");
+            throw new CommonException(ThongDiep.of("heThong.khongTimThayPhienDangXuat"));
         }
         return ResponseEntity.ok(ResponseData.<String>builder()
-                .status(HttpStatus.OK.value()).data("Success").message("Đã đăng xuất thiết bị").error(null).build());
+                .status(HttpStatus.OK.value()).data("Success").message(ThongDiep.dich("heThong.daDangXuatThietBi")).error(null).build());
     }
 
     /** Đăng xuất tất cả thiết bị KHÁC (giữ thiết bị hiện tại). */
@@ -403,41 +411,41 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         Integer userId = currentUserId();
         String sid = currentSid();
         if (sid == null || sid.isBlank()) {
-            throw new CommonException("Không xác định được thiết bị hiện tại. Vui lòng đăng nhập lại rồi thử.");
+            throw new CommonException(ThongDiep.of("heThong.khongXacDinhThietBi"));
         }
         phienDangNhapService.thuHoiCacPhienKhac(userId, sid);
         return ResponseEntity.ok(ResponseData.<String>builder()
-                .status(HttpStatus.OK.value()).data("Success").message("Đã đăng xuất các thiết bị khác").error(null).build());
+                .status(HttpStatus.OK.value()).data("Success").message(ThongDiep.dich("heThong.daDangXuatThietBiKhac")).error(null).build());
     }
 
     @Transactional
     public ResponseEntity<ResponseData<NguoiDungDto>> update(UpdateNguoiDungRequest request) {
         if (request == null || request.getId() == null) {
-            throw new CommonException("Mã người dùng không được để trống");
+            throw new CommonException(ThongDiep.of("heThong.maNguoiDungTrong"));
         }
 
         NguoiDungAuthInfo contextUser = com.dev.backend.config.SecurityContextHolder.getUser();
         if (contextUser == null || contextUser.getId() == null) {
-            throw new CommonException("Người dùng chưa được xác thực");
+            throw new CommonException(ThongDiep.of("heThong.nguoiDungChuaXacThuc"));
         }
 
         boolean isAdmin = contextUser.getVaiTro() != null && contextUser.getVaiTro().contains(IRoleType.quan_tri_vien);
         if (!isAdmin && !contextUser.getId().equals(request.getId())) {
-            throw new CommonException("Bạn không có quyền chỉnh sửa thông tin của người dùng khác!");
+            throw new CommonException(ThongDiep.of("heThong.khongDuocSuaNguoiKhac"));
         }
 
         NguoiDung nguoiDung = nguoiDungRepository.findById(request.getId())
-                .orElseThrow(() -> new CommonException("Không tìm thấy người dùng id: " + request.getId()));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("heThong.nguoiDungKhongTimThayId", request.getId())));
         Map<String, Object> truocSua = anhTaiKhoan(nguoiDung);
         if (request.getTenDangNhap() != null && !request.getTenDangNhap().isBlank()) {
             String newUsername = request.getTenDangNhap().trim();
             if (!newUsername.equalsIgnoreCase(nguoiDung.getTenDangNhap())) {
                 // Hồ sơ cá nhân ghi "Tên đăng nhập không đổi được": chỉ quản trị viên được đổi
                 if (!isAdmin) {
-                    throw new CommonException("Tên đăng nhập không đổi được. Liên hệ quản trị viên nếu cần đổi.");
+                    throw new CommonException(ThongDiep.of("heThong.khongDoiDuocTenDangNhap"));
                 }
                 if (nguoiDungRepository.existsByTenDangNhap(newUsername)) {
-                    throw new CommonException("Tên đăng nhập đã tồn tại trong hệ thống");
+                    throw new CommonException(ThongDiep.of("heThong.tenDangNhapDaTonTaiHeThong"));
                 }
                 nguoiDung.setTenDangNhap(newUsername);
             }
@@ -453,11 +461,11 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
             String emailHienTai = nguoiDung.getEmail() == null ? "" : nguoiDung.getEmail().trim();
             if (!newEmail.equalsIgnoreCase(emailHienTai)) {
                 if (!emailHienTai.isEmpty()) {
-                    throw new CommonException("Email không đổi được. Email dùng để đăng nhập và nhận mã đặt lại mật khẩu.");
+                    throw new CommonException(ThongDiep.of("heThong.khongDoiDuocEmail"));
                 }
                 validateEmail(newEmail);
                 if (nguoiDungRepository.existsByEmail(newEmail)) {
-                    throw new CommonException("Email đã tồn tại trong hệ thống");
+                    throw new CommonException(ThongDiep.of("heThong.emailDaTonTaiHeThong"));
                 }
                 nguoiDung.setEmail(newEmail);
             }
@@ -475,7 +483,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
                 ResponseData.<NguoiDungDto>builder()
                         .status(HttpStatus.OK.value())
                         .data(nguoiDungMapper.toDto(nguoiDung))
-                        .message("Cập nhật thông tin người dùng thành công")
+                        .message(ThongDiep.dich("heThong.capNhatNguoiDungThanhCong"))
                         .error(null)
                         .build());
     }
@@ -525,10 +533,10 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
     private NguoiDung getCurrentUserFromContext() {
         NguoiDungAuthInfo info = com.dev.backend.config.SecurityContextHolder.getUser();
         if (info == null || info.getId() == null) {
-            throw new CommonException("Phiên đăng nhập không hợp lệ");
+            throw new CommonException(ThongDiep.of("heThong.phienDangNhapKhongHopLe"));
         }
         return nguoiDungRepository.findById(info.getId())
-                .orElseThrow(() -> new CommonException("Không tìm thấy người dùng"));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("heThong.nguoiDungKhongTimThay")));
     }
 
     // Vai trò được hiển thị mục "Kho phụ trách" trên hồ sơ cá nhân.
@@ -611,7 +619,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
             boolean trung = nguoiDungRepository.findAllBySoDienThoai(soDienThoai).stream()
                     .anyMatch(khac -> !khac.getId().equals(toiId));
             if (trung) {
-                throw new CommonException("Số điện thoại đã được tài khoản khác sử dụng");
+                throw new CommonException(ThongDiep.of("heThong.soDienThoaiDaDuocDung"));
             }
         }
         nguoiDung.setSoDienThoai(soDienThoai);
@@ -627,7 +635,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
                 ResponseData.<NguoiDungDto>builder()
                         .status(HttpStatus.OK.value())
                         .data(dto)
-                        .message("Cập nhật hồ sơ thành công")
+                        .message(ThongDiep.dich("heThong.capNhatHoSoThanhCong"))
                         .error(null)
                         .build());
     }
@@ -660,7 +668,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
             objectName = minioService.upload(file, "avatars/" + UUID.randomUUID() + "." + format);
         } catch (Exception e) {
             logger.error("Upload ảnh đại diện (user {}) lên MinIO thất bại: {}", nguoiDung.getId(), e.getMessage());
-            throw new CommonException("Không thể tải ảnh lên máy chủ. Vui lòng thử lại sau");
+            throw new CommonException(ThongDiep.of("heThong.khongTaiDuocAnhLenMayChu"));
         }
 
         try {
@@ -685,7 +693,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
             // xóa thủ công
             minioService.delete(objectName);
             logger.error("Lưu ảnh đại diện (user {}) vào DB thất bại: {}", nguoiDung.getId(), e.getMessage());
-            throw new CommonException("Lưu ảnh đại diện thất bại. Vui lòng thử lại");
+            throw new CommonException(ThongDiep.of("heThong.luuAnhDaiDienThatBai"));
         }
 
         // Xóa ảnh cũ sau commit, có kiểm tra còn ai tham chiếu không (concurrent-safe)
@@ -698,7 +706,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
                 ResponseData.<NguoiDungDto>builder()
                         .status(HttpStatus.OK.value())
                         .data(dto)
-                        .message("Cập nhật ảnh đại diện thành công")
+                        .message(ThongDiep.dich("heThong.capNhatAnhDaiDienThanhCong"))
                         .error(null)
                         .build());
     }
@@ -724,7 +732,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
                 ResponseData.<NguoiDungDto>builder()
                         .status(HttpStatus.OK.value())
                         .data(dto)
-                        .message("Xóa ảnh đại diện thành công")
+                        .message(ThongDiep.dich("heThong.xoaAnhDaiDienThanhCong"))
                         .error(null)
                         .build());
     }
@@ -771,7 +779,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
     // Độ dài tối thiểu của mật khẩu đặt qua liên kết (cùng mức với đổi mật khẩu và giao diện utils/matKhau.js)
     static final int MAT_KHAU_TOI_THIEU = 6;
     static final int RESET_OTP_MAX_FAILED_ATTEMPTS = 5;
-    private static final String RESET_OTP_INVALID_MESSAGE = "Mã xác nhận không tồn tại hoặc đã hết hạn";
+    private static final String KHOA_RESET_OTP_INVALID = "heThong.maXacNhanKhongTonTai";
     private static final int BCRYPT_MAX_PASSWORD_BYTES = 72;
     // mã lỗi trong data.code để FE phân biệt: sai mã (nhập lại) / hết hạn-huỷ (phải
     // gửi lại mã)
@@ -786,13 +794,14 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
     // Phản hồi chung cho mọi yêu cầu hợp lệ: không cho biết tài khoản có tồn tại /
     // bị khoá / có email hay không
     // Thời hạn trong câu dựng từ RESET_OTP_TTL_SECONDS (không viết cứng "5 phút"); "mã xác nhận" thay cho "OTP".
-    static final String FORGOT_PASSWORD_GENERIC_MESSAGE = "Nếu thông tin tài khoản hợp lệ, mã xác nhận đã được gửi tới "
-            + "email đã đăng ký. Mã có hiệu lực " + DinhDangEmail.phut(java.time.Duration.ofSeconds(RESET_OTP_TTL_SECONDS)) + ".";
+    // Số phút hiệu lực làm tròn lên như DinhDangEmail.phut (câu tiếng Việt giữ nguyên "Mã có hiệu lực 5 phút.")
+    static final long RESET_OTP_TTL_PHUT = Math.max(1, (RESET_OTP_TTL_SECONDS + 59) / 60);
+    static final String FORGOT_PASSWORD_GENERIC_MESSAGE = ThongDiep.vi("heThong.quenMatKhauDaGuiMa", RESET_OTP_TTL_PHUT);
 
     public ResponseEntity<ResponseData<String>> forgotPassword(ForgotPasswordRequest fpRequest, String clientIp) {
         String identifier = fpRequest.getUsername() == null ? "" : fpRequest.getUsername().trim();
         if (identifier.isEmpty()) {
-            throw new CommonException("Vui lòng nhập email / tên đăng nhập");
+            throw new CommonException(ThongDiep.of("heThong.nhapEmailHoacTenDangNhap"));
         }
 
         // tài khoản sẽ nhận email (null: không tồn tại / bị khoá / chưa có email ->
@@ -819,7 +828,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
                 ResponseData.<String>builder()
                         .status(HttpStatus.OK.value())
                         .data("Success")
-                        .message(FORGOT_PASSWORD_GENERIC_MESSAGE)
+                        .message(ThongDiep.dich("heThong.quenMatKhauDaGuiMa", RESET_OTP_TTL_PHUT))
                         .build());
     }
 
@@ -871,13 +880,13 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         long seconds = decision.retryAfterSeconds();
         if (decision.reason() == PasswordResetRateLimiter.Reason.GLOBAL_LIMIT) {
             throw new CommonException(
-                    "Hệ thống tạm ngưng gửi mã xác nhận do có quá nhiều yêu cầu. Vui lòng thử lại sau hoặc liên hệ quản trị viên.",
+                    ThongDiep.of("heThong.tamNgungGuiMa"),
                     HttpStatus.SERVICE_UNAVAILABLE,
                     Map.of("code", "OTP_SERVICE_BUSY", "retryAfterSeconds", seconds));
         }
-        String message = decision.reason() == PasswordResetRateLimiter.Reason.COOLDOWN
-                ? "Vui lòng đợi " + seconds + " giây trước khi yêu cầu mã mới"
-                : "Bạn đã yêu cầu mã quá nhiều lần, vui lòng thử lại sau " + ((seconds + 59) / 60) + " phút";
+        ThongDiep message = decision.reason() == PasswordResetRateLimiter.Reason.COOLDOWN
+                ? ThongDiep.of("heThong.doiTruocKhiYeuCauMa", seconds)
+                : ThongDiep.of("heThong.yeuCauMaQuaNhieu", (seconds + 59) / 60);
         throw new CommonException(message, HttpStatus.TOO_MANY_REQUESTS,
                 Map.of("code", "OTP_RATE_LIMITED", "retryAfterSeconds", seconds));
     }
@@ -911,7 +920,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
     // theo byte UTF-8 vì ký tự có dấu chiếm 2-3 byte.
     private static void assertPasswordFitsBcrypt(String password) {
         if (password != null && password.getBytes(StandardCharsets.UTF_8).length > BCRYPT_MAX_PASSWORD_BYTES) {
-            throw new CommonException("Mật khẩu quá dài (tối đa 72 ký tự không dấu, ít hơn nếu có dấu tiếng Việt)");
+            throw new CommonException(ThongDiep.of("heThong.matKhauQuaDai"));
         }
     }
 
@@ -944,7 +953,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         // request đồng thời dùng cùng mã (hoặc mã vừa bị huỷ do nhập sai quá số lần) sẽ
         // bị từ chối
         if (!GlobalCache.OTP_SCHEDULE_OBJS.remove(findingResetOtp)) {
-            throw resetOtpExpired(RESET_OTP_INVALID_MESSAGE);
+            throw resetOtpExpired(ThongDiep.of(KHOA_RESET_OTP_INVALID));
         }
 
         // sau khi thoả mãn các dk trên thì cho phép đặt lại MK. Mật khẩu do chính chủ đặt (đã chứng minh qua email) nên
@@ -979,7 +988,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
     private NguoiDung findUserForPasswordReset(String username) {
         return resolveAccount(username)
                 .filter(NguoiDung::duocDangNhap)
-                .orElseThrow(() -> resetOtpExpired(RESET_OTP_INVALID_MESSAGE));
+                .orElseThrow(() -> resetOtpExpired(ThongDiep.of(KHOA_RESET_OTP_INVALID)));
     }
 
     /**
@@ -993,12 +1002,12 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         OtpScheduleObj findingResetOtp = GlobalCache.OTP_SCHEDULE_OBJS.stream()
                 .filter(otpScheduleObj -> isResetOtpOf(otpScheduleObj, nguoiDung.getEmail()))
                 .findFirst()
-                .orElseThrow(() -> resetOtpExpired(RESET_OTP_INVALID_MESSAGE));
+                .orElseThrow(() -> resetOtpExpired(ThongDiep.of(KHOA_RESET_OTP_INVALID)));
 
         // kiểm tra otp còn hạn hay không(trong vòng 5p)
         if (Instant.now().isAfter(findingResetOtp.getCreatedAt().plusSeconds(RESET_OTP_TTL_SECONDS))) {
             GlobalCache.OTP_SCHEDULE_OBJS.remove(findingResetOtp);
-            throw resetOtpExpired(RESET_OTP_INVALID_MESSAGE);
+            throw resetOtpExpired(ThongDiep.of(KHOA_RESET_OTP_INVALID));
         }
 
         if (!findingResetOtp.getOtp().equals(otp)) {
@@ -1007,18 +1016,17 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
             int failed = findingResetOtp.getFailedAttempts().incrementAndGet();
             if (failed >= RESET_OTP_MAX_FAILED_ATTEMPTS) {
                 GlobalCache.OTP_SCHEDULE_OBJS.remove(findingResetOtp);
-                throw resetOtpExpired("Bạn đã nhập sai mã xác nhận quá " + RESET_OTP_MAX_FAILED_ATTEMPTS
-                        + " lần, vui lòng yêu cầu mã mới");
+                throw resetOtpExpired(ThongDiep.of("heThong.nhapSaiMaXacNhanQuaNhieu", RESET_OTP_MAX_FAILED_ATTEMPTS));
             }
             int remaining = RESET_OTP_MAX_FAILED_ATTEMPTS - failed;
-            throw new CommonException("Mã xác nhận không đúng, bạn còn " + remaining + " lần thử",
+            throw new CommonException(ThongDiep.of("heThong.maXacNhanSaiConLan", remaining),
                     HttpStatus.BAD_REQUEST,
                     Map.of("code", RESET_OTP_WRONG_CODE, "remainingAttempts", remaining));
         }
         return findingResetOtp;
     }
 
-    private static CommonException resetOtpExpired(String message) {
+    private static CommonException resetOtpExpired(ThongDiep message) {
         return new CommonException(message, HttpStatus.BAD_REQUEST, Map.of("code", RESET_OTP_EXPIRED_CODE));
     }
 
@@ -1028,7 +1036,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
 
     public NguoiDung getDetailByAdmin(Integer id) {
         if (id == null) {
-            throw new CommonException("Mã người dùng không được để trống");
+            throw new CommonException(ThongDiep.of("heThong.maNguoiDungTrong"));
         }
 
         NguoiDungAuthInfo currentUser = com.dev.backend.config.SecurityContextHolder.getUser();
@@ -1036,12 +1044,12 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
             boolean isAdmin = currentUser.getVaiTro() != null
                     && currentUser.getVaiTro().contains(IRoleType.quan_tri_vien);
             if (!isAdmin && !currentUser.getId().equals(id)) {
-                throw new CommonException("Bạn không có quyền xem thông tin chi tiết của người dùng khác!");
+                throw new CommonException(ThongDiep.of("heThong.khongDuocXemNguoiKhac"));
             }
         }
 
         NguoiDung nguoiDung = nguoiDungRepository.findById(id)
-                .orElseThrow(() -> new CommonException("Không tìm thấy người dùng"));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("heThong.nguoiDungKhongTimThay")));
 
         // Lấy danh sách phân quyền kho
         List<PhanQuyenNguoiDungKho> dsPhanQuyen = phanQuyenNguoiDungKhoService.findByNguoiDungIdAndActive(id);
@@ -1078,11 +1086,11 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
 
         // lay id bi thao tac
         NguoiDung nguoiDung = nguoiDungRepository.findById(userId)
-                .orElseThrow(() -> new CommonException("Không tìm thấy người dùng"));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("heThong.nguoiDungKhongTimThay")));
 
         // chan tu khoa
         if (nguoiDung.getId().equals(currentUserId)) {
-            throw new CommonException("Không thể tự khóa tài khoản của chính mình");
+            throw new CommonException(ThongDiep.of("heThong.khongTuKhoaChinhMinh"));
         }
 
         // toggle trang thai
@@ -1105,11 +1113,11 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
     public NguoiDung createInternalUserByAdmin(NguoiDungCreating request) {
         String vaiTro = vaiTroTaiKhoanMoi(request.getVaiTro());
         if (request.getTenDangNhap() == null || request.getTenDangNhap().isBlank()) {
-            throw new CommonException("Tên đăng nhập không được để trống");
+            throw new CommonException(ThongDiep.of("heThong.tenDangNhapTrong"));
         }
         String tenDangNhap = request.getTenDangNhap().trim();
         if (nguoiDungRepository.existsByTenDangNhap(tenDangNhap)) {
-            throw new CommonException("Tên đăng nhập đã tồn tại");
+            throw new CommonException(ThongDiep.of("heThong.tenDangNhapDaTonTai"));
         }
         // Họ tên không bắt buộc ở API (trống thì dùng tên đăng nhập); có nhập thì phải đúng luật
         String hoTen = HoTen.chuanHoa(request.getHoTen());
@@ -1119,26 +1127,26 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         }
 
         if (request.getEmail() == null || request.getEmail().isBlank()) {
-            throw new CommonException("Email không được để trống khi tạo tài khoản");
+            throw new CommonException(ThongDiep.of("heThong.emailTrongKhiTaoTaiKhoan"));
         }
         String email = request.getEmail().trim();
         validateEmail(email);
         if (nguoiDungRepository.existsByEmail(email)) {
-            throw new CommonException("Email đã tồn tại");
+            throw new CommonException(ThongDiep.of("heThong.emailDaTonTai"));
         }
 
         // SĐT tùy chọn: blank -> null; có giá trị thì phải đúng định dạng rồi mới kiểm tra trùng
         String soDienThoai = normalizePhone(request.getSoDienThoai());
         validatePhone(soDienThoai);
         if (soDienThoai != null && nguoiDungRepository.existsBySoDienThoai(soDienThoai)) {
-            throw new CommonException("Số điện thoại đã tồn tại");
+            throw new CommonException(ThongDiep.of("heThong.soDienThoaiDaTonTai"));
         }
 
         // Vai trò làm theo kho (mọi vai trò nhân sự trừ Quản trị viên, như PhanQuyenNguoiDungServiceImpl.lamViecTheoKho)
         // phải có nơi làm việc ngay khi tạo: không có kho thì đăng nhập vào không làm được gì
         boolean lamTheoKho = !IRoleType.quan_tri_vien.equals(vaiTro);
         if (lamTheoKho && request.getKhoId() == null) {
-            throw new CommonException("Vui lòng chọn nơi làm việc");
+            throw new CommonException(ThongDiep.of("heThong.chonNoiLamViec"));
         }
 
         NguoiDung nguoiDung = new NguoiDung();
@@ -1181,7 +1189,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         }
         String ma = vaiTro.trim();
         if (!IRoleType.laNoiBo(ma)) {
-            throw new CommonException("Vai trò không hợp lệ");
+            throw new CommonException(ThongDiep.of("heThong.vaiTroKhongHopLe"));
         }
         return ma;
     }
@@ -1191,11 +1199,11 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         // validate trước khi chạm tới passwordEncoder (tránh encode/matches null ->
         // 500)
         if (changePass.getCurrentPassword() == null || changePass.getCurrentPassword().isBlank()) {
-            throw new CommonException("Mật khẩu hiện tại không được để trống");
+            throw new CommonException(ThongDiep.of("heThong.matKhauHienTaiTrong"));
         }
         if (changePass.getNewPassword() == null || changePass.getNewPassword().isBlank()
                 || changePass.getNewPassword().trim().length() < 6) {
-            throw new CommonException("Mật khẩu mới phải có ít nhất 6 ký tự");
+            throw new CommonException(ThongDiep.of("heThong.matKhauMoiToiThieu", 6));
         }
         // kiểm mật khẩu mới TRƯỚC khi so mật khẩu hiện tại: không để lỗi này xác nhận ngầm mật khẩu hiện tại đúng
         assertPasswordFitsBcrypt(changePass.getNewPassword().trim());
@@ -1205,10 +1213,10 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         NguoiDung nguoiDung = getCurrentUserFromContext();
 
         // Dùng chung bộ đếm sai với đăng nhập (cùng một mật khẩu bị dò): token bị lộ cũng không đoán mãi được
-        throwIfPasswordLocked(loginRateLimiter.tryAcquire(null, nguoiDung.getId()), CHANGE_PASSWORD_LOCKED_MESSAGE);
+        throwIfPasswordLocked(loginRateLimiter.tryAcquire(null, nguoiDung.getId()), true);
         // so khớp mật khẩu hiện tại với hash trong DB (so sánh chính xác, không trim)
         if (!passwordEncoder.matches(changePass.getCurrentPassword(), nguoiDung.getMatKhauHash())) {
-            throw new CommonException("Mật khẩu hiện tại không đúng");
+            throw new CommonException(ThongDiep.of("heThong.matKhauHienTaiSai"));
         }
         loginRateLimiter.recordSuccess(null, nguoiDung.getId());
 
@@ -1249,7 +1257,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
                 ResponseData.<String>builder()
                         .status(HttpStatus.OK.value())
                         .data(issueTokenGiuPhien(nguoiDung, sid))
-                        .message("Thay đổi mật khẩu thành công!")
+                        .message(ThongDiep.dich("heThong.doiMatKhauThanhCong"))
                         .build());
     }
 
@@ -1267,20 +1275,19 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
     @Transactional
     public void resetPasswordRandomByAdmin(Integer userId) {
         NguoiDung nguoiDung = nguoiDungRepository.findById(userId)
-                .orElseThrow(() -> new CommonException("Không tìm thấy người dùng"));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("heThong.nguoiDungKhongTimThay")));
 
         NguoiDungAuthInfo quanTri = com.dev.backend.config.SecurityContextHolder.getUser();
         Integer quanTriId = quanTri == null ? null : quanTri.getId();
         if (quanTriId != null && quanTriId.equals(nguoiDung.getId())) {
-            throw new CommonException("Không gửi liên kết đặt lại mật khẩu cho chính tài khoản của bạn. "
-                    + "Đổi mật khẩu ở Hồ sơ của tôi.");
+            throw new CommonException(ThongDiep.of("heThong.khongGuiLienKetChoChinhMinh"));
         }
         // tài khoản không mang vai trò nhân sự không dùng được hệ thống (trang đặt mật khẩu cũng từ chối liên kết)
         if (!IRoleType.laNoiBo(nguoiDung.getVaiTro())) {
-            throw new CommonException("Tài khoản này không phải tài khoản nhân sự");
+            throw new CommonException(ThongDiep.of("heThong.khongPhaiTaiKhoanNhanSu"));
         }
         if (nguoiDung.getEmail() == null || nguoiDung.getEmail().isBlank()) {
-            throw new CommonException("Người dùng chưa có email để nhận liên kết đặt lại mật khẩu");
+            throw new CommonException(ThongDiep.of("heThong.nguoiDungChuaCoEmail"));
         }
 
         Instant luc = Instant.now();
@@ -1333,10 +1340,10 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         String matKhau = request == null ? null : request.getMatKhauMoi();
         // kiểm mật khẩu trước khi đụng tới liên kết: nhập sai thì liên kết vẫn còn nguyên
         if (matKhau == null || matKhau.isBlank()) {
-            throw new CommonException("Nhập mật khẩu mới");
+            throw new CommonException(ThongDiep.of("heThong.nhapMatKhauMoi"));
         }
         if (matKhau.codePointCount(0, matKhau.length()) < MAT_KHAU_TOI_THIEU) {
-            throw new CommonException("Mật khẩu mới phải có ít nhất " + MAT_KHAU_TOI_THIEU + " ký tự");
+            throw new CommonException(ThongDiep.of("heThong.matKhauMoiToiThieu", MAT_KHAU_TOI_THIEU));
         }
         assertPasswordFitsBcrypt(matKhau);
 
@@ -1365,7 +1372,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         return ResponseEntity.ok(ResponseData.<String>builder()
                 .status(HttpStatus.OK.value())
                 .data(nguoiDung.getTenDangNhap())
-                .message("Đã đặt mật khẩu")
+                .message(ThongDiep.dich("heThong.daDatMatKhau"))
                 .build());
     }
 
@@ -1374,6 +1381,6 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         return nguoiDungRepository.findById(lienKet.getNguoiDungId())
                 .filter(nd -> IRoleType.laNoiBo(nd.getVaiTro()))
                 .orElseThrow(() -> new LoiCoMaException(HttpStatus.BAD_REQUEST, MaLoi.LIEN_KET_KHONG_HOP_LE,
-                        LienKetDatMatKhauService.LOI_KHONG_HOP_LE));
+                        ThongDiep.of("heThong.lienKetKhongHopLe")));
     }
 }

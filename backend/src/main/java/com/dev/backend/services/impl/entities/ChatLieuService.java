@@ -10,6 +10,8 @@ import com.dev.backend.entities.ChatLieu;
 import com.dev.backend.mapper.ChatLieuMapper;
 import com.dev.backend.repository.ChatLieuRepository;
 import com.dev.backend.services.impl.BaseServiceImpl;
+import com.dev.backend.i18n.ThongDiep;
+import com.dev.backend.i18n.LoiChungException;
 import jakarta.persistence.EntityManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -64,7 +66,7 @@ public class ChatLieuService extends BaseServiceImpl<ChatLieu, Integer> {
     // Lấy chi tiết chất liệu theo ID
     public ChatLieuDto findByIdDto(Integer id) {
         ChatLieu entity = repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy chất liệu với ID: " + id));
+                .orElseThrow(() -> new LoiChungException(ThongDiep.of("sanPhamMuaHang.chatLieuKhongTimThay", id)));
         return mapper.toDto(entity);
     }
 
@@ -90,7 +92,7 @@ public class ChatLieuService extends BaseServiceImpl<ChatLieu, Integer> {
 
         // 1. Tìm entity theo ID
         ChatLieu entity = repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy chất liệu với ID: " + id));
+                .orElseThrow(() -> new LoiChungException(ThongDiep.of("sanPhamMuaHang.chatLieuKhongTimThay", id)));
 
         Map<String, Object> truoc = anhChatLieu(entity);
         // 2. Nếu có sửa mã thì kiểm tra trùng
@@ -101,7 +103,7 @@ public class ChatLieuService extends BaseServiceImpl<ChatLieu, Integer> {
             // Trả về lỗi nghiệp vụ: trùng mã khi edit
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "Chất liệu đã tồn tại"
+                    ThongDiep.vi("sanPhamMuaHang.chatLieuDaTonTai")
             );
         }
 
@@ -121,7 +123,7 @@ public class ChatLieuService extends BaseServiceImpl<ChatLieu, Integer> {
     @Transactional
     public void delete(Integer id) {
         ChatLieu entity = repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy chất liệu với ID: " + id));
+                .orElseThrow(() -> new LoiChungException(ThongDiep.of("sanPhamMuaHang.chatLieuKhongTimThay", id)));
         ghiNhatKy(NhatKyNghiepVu.dong(ITable.chat_lieu, entity.getId(), IHanhDong.xoa_danh_muc_chung)
                 .ma(entity.getTenChatLieu())
                 .cu(anhChatLieu(entity)));

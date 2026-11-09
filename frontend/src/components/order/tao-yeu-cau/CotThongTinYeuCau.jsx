@@ -5,13 +5,14 @@ import CotThuocTinh, { BangThuocTinh, NhomThuocTinh } from "@/components/chung-t
 import { soVN } from "@/components/chung-tu/bangChungTu";
 import { GOI_Y_O, NHAN_O, O_NHAP, O_NHAP_NHIEU_DONG } from "@/components/chung-tu/kieuHopThoai";
 import { GHI_CHU_TOI_DA, MOC_NGAY_GIAO, isoNgay, moTaNgayGiao, sauNgay } from "./tinhTaoYeuCau";
+import { t } from "@/i18n";
 
 const O_CHON_KHO = cn(O_NHAP, "cursor-pointer appearance-none pr-9 font-medium");
 // Ô Kho nhận khi chưa có kho để hiện, theo lý do (không ghi "Chưa có Kho tổng" khi chỉ là đang tải / không có quyền)
 const CHU_KHO_TRONG = {
-  dangTai: "Đang tải Kho tổng…",
-  khongQuyen: "Tài khoản không có quyền tạo yêu cầu nhập",
-  loi: "Chưa tải được Kho tổng",
+  dangTai: t("Đang tải Kho tổng…"),
+  khongQuyen: t("Tài khoản không có quyền tạo yêu cầu nhập"),
+  loi: t("Chưa tải được Kho tổng"),
 };
 
 /**
@@ -44,21 +45,21 @@ export default function CotThongTinYeuCau({
   const kho = dsKhoTong.find((k) => String(k.id) === String(khoChon ?? khoTai?.id)) ?? khoTai;
   const moTa = moTaNgayGiao(ngayGiao, homNay);
   const khongQuyen = !kho && trangThaiKho === "khongQuyen";
-  const chuKhoTrong = (!kho && CHU_KHO_TRONG[trangThaiKho]) || "Chưa có Kho tổng";
+  const chuKhoTrong = (!kho && CHU_KHO_TRONG[trangThaiKho]) || t("Chưa có Kho tổng");
   const lonNhat = Math.max(1, ...(tomTat?.theoNhom ?? []).map((x) => x.soLuong));
 
   return (
     <CotThuocTinh
-      nhan="Thông tin yêu cầu nhập hàng"
+      nhan={t("Thông tin yêu cầu nhập hàng")}
       // Khung chứng từ của màn này không cắt tràn (để đầu khối dính khi cuộn): tự bo góc dưới cho nền xám của cột.
       // Điện thoại: cột lên trước bảng hàng (kho nhập, ngày giao là bước đầu), khi đó không bo góc dưới
       className="rounded-b-lg xl:rounded-bl-none xl:[&>div]:sticky xl:[&>div]:top-[92px] max-md:order-first max-md:rounded-b-none max-md:border-t-0 max-md:border-b"
     >
       <div className="contents xl:block">
-        <NhomThuocTinh nhan="Kho nhận">
+        <NhomThuocTinh nhan={t("Kho nhận")}>
           {dsKhoTong.length > 1 && !khoa ? (
             <label className="relative block">
-              <span className="sr-only">Chọn Kho tổng nhận hàng</span>
+              <span className="sr-only">{t("Chọn Kho tổng nhận hàng")}</span>
               <select value={kho?.id ?? ""} aria-busy={dangTaiKho || undefined} onChange={(e) => onDoiKho?.(e.target.value)} className={O_CHON_KHO}>
                 {dsKhoTong.map((k) => <option key={k.id} value={k.id}>{k.tenKho}{k.maKho ? ` (${k.maKho})` : ""}</option>)}
               </select>
@@ -74,22 +75,22 @@ export default function CotThongTinYeuCau({
                   {kho?.tenKho || chuKhoTrong}
                   {kho?.maKho ? <span className="ml-1.5 font-mono text-xs font-normal text-bo-muted">{kho.maKho}</span> : null}
                 </span>
-                {khongQuyen ? null : <span className="block text-xs leading-4 text-bo-muted">Nhận hàng từ nhà cung cấp</span>}
+                {khongQuyen ? null : <span className="block text-xs leading-4 text-bo-muted">{t("Nhận hàng từ nhà cung cấp")}</span>}
               </span>
             </div>
           )}
           <p className="mt-2 text-xs leading-[18px] text-bo-muted" aria-live="polite">
             {dangTaiKho ? (
-              <>Đang tải hàng của {kho?.tenKho || "Kho tổng"}…</>
+              <>{t("Đang tải hàng của {{tenKho}}…", { tenKho: kho?.tenKho || t("Kho tổng") })}</>
             ) : khoDeXuatTen ? (
               <>
-                Hàng bổ sung cho <b className="font-semibold text-bo-foreground">{khoDeXuatTen}</b> (kho bán hàng). Hàng nhập
-                về {kho?.tenKho || "Kho tổng"}, sau đó chuyển sang {khoDeXuatTen} bằng phiếu chuyển kho.
+                {t("Hàng bổ sung cho")} <b className="font-semibold text-bo-foreground">{khoDeXuatTen}</b>{" "}
+                {t("(kho bán hàng). Hàng nhập về {{tenKho}}, sau đó chuyển sang {{khoDeXuat}} bằng phiếu chuyển kho.", { tenKho: kho?.tenKho || t("Kho tổng"), khoDeXuat: khoDeXuatTen })}
               </>
             ) : (
               <>
-                Chỉ Kho tổng nhận hàng từ nhà cung cấp.
-                {kho?.quanLy ? <> Quản lý kho <span className="text-bo-foreground">{kho.quanLy}</span> duyệt yêu cầu này.</> : " Quản lý Kho tổng duyệt yêu cầu này."}
+                {t("Chỉ Kho tổng nhận hàng từ nhà cung cấp.")}
+                {kho?.quanLy ? <> {t("Quản lý kho")} <span className="text-bo-foreground">{kho.quanLy}</span> {t("duyệt yêu cầu này.")}</> : t(" Quản lý Kho tổng duyệt yêu cầu này.")}
               </>
             )}
           </p>
@@ -98,7 +99,7 @@ export default function CotThongTinYeuCau({
         <NhomThuocTinh>
           <div className="grid gap-1.5">
             <label htmlFor={`${id}-ngay`} className={NHAN_O}>
-              Giao dự kiến <span className="text-bo-danger" aria-hidden="true">*</span>
+              {t("Giao dự kiến")} <span className="text-bo-danger" aria-hidden="true">*</span>
             </label>
             <input
               id={`${id}-ngay`}
@@ -112,7 +113,7 @@ export default function CotThongTinYeuCau({
               aria-invalid={moTa.loi ? true : undefined}
               className={cn(O_NHAP, moTa.loi && "border-bo-danger")}
             />
-            <div className="flex flex-wrap gap-1.5" role="group" aria-label="Chọn nhanh ngày giao">
+            <div className="flex flex-wrap gap-1.5" role="group" aria-label={t("Chọn nhanh ngày giao")}>
               {MOC_NGAY_GIAO.map((n) => {
                 const iso = sauNgay(n, homNay);
                 const dangChon = ngayGiao === iso;
@@ -130,7 +131,7 @@ export default function CotThongTinYeuCau({
                         : "border-bo-border bg-bo-surface text-slate-600 hover:border-slate-300 hover:text-bo-foreground",
                     )}
                   >
-                    Sau {n} ngày
+                    {t("Sau {{count}} ngày", { count: n })}
                   </button>
                 );
               })}
@@ -144,7 +145,7 @@ export default function CotThongTinYeuCau({
 
         <NhomThuocTinh>
           <div className="grid gap-1.5">
-            <label htmlFor={`${id}-ghi-chu`} className={NHAN_O}>Ghi chú</label>
+            <label htmlFor={`${id}-ghi-chu`} className={NHAN_O}>{t("Ghi chú")}</label>
             <textarea
               id={`${id}-ghi-chu`}
               aria-describedby={`${id}-ghi-chu-goi-y`}
@@ -152,35 +153,35 @@ export default function CotThongTinYeuCau({
               maxLength={GHI_CHU_TOI_DA}
               disabled={khoa}
               onChange={(e) => onDoiGhiChu?.(e.target.value.slice(0, GHI_CHU_TOI_DA))}
-              placeholder="Lý do cần nhập, vd. bổ sung size M, L trước đợt khuyến mãi"
+              placeholder={t("Lý do cần nhập, vd. bổ sung size M, L trước đợt khuyến mãi")}
               className={O_NHAP_NHIEU_DONG}
             />
             <p id={`${id}-ghi-chu-goi-y`} className={GOI_Y_O}>
-              <span>Không bắt buộc</span>
-              <span>{ghiChu.length}/{GHI_CHU_TOI_DA} ký tự</span>
+              <span>{t("Không bắt buộc")}</span>
+              <span>{t("{{daGo}}/{{toiDa}} ký tự", { daGo: ghiChu.length, toiDa: GHI_CHU_TOI_DA })}</span>
             </p>
           </div>
         </NhomThuocTinh>
 
         {tomTat?.soDong ? (
-          <NhomThuocTinh nhan="Tóm tắt cho người duyệt">
+          <NhomThuocTinh nhan={t("Tóm tắt cho người duyệt")}>
             <BangThuocTinh
               rongNhan={128}
               muc={[
-                { ma: "sp", nhan: "Sản phẩm", giaTri: <span className="tabular-nums">{soVN(tomTat.soSp)}</span> },
-                { ma: "bt", nhan: "Biến thể", giaTri: <span className="tabular-nums">{soVN(tomTat.soDong)}</span> },
-                { ma: "tong", nhan: "Tổng số lượng", giaTri: <b className="font-semibold tabular-nums">{soVN(tomTat.tongSl)}</b> },
-                { ma: "dx", nhan: "Theo số đề xuất", giaTri: <span className="tabular-nums">{soVN(tomTat.theoDeXuat)}/{soVN(tomTat.soDong)} dòng</span> },
+                { ma: "sp", nhan: t("Sản phẩm"), giaTri: <span className="tabular-nums">{soVN(tomTat.soSp)}</span> },
+                { ma: "bt", nhan: t("Biến thể"), giaTri: <span className="tabular-nums">{soVN(tomTat.soDong)}</span> },
+                { ma: "tong", nhan: t("Tổng số lượng"), giaTri: <b className="font-semibold tabular-nums">{soVN(tomTat.tongSl)}</b> },
+                { ma: "dx", nhan: t("Theo số đề xuất"), giaTri: <span className="tabular-nums">{t("{{theoDeXuat}}/{{soDong}} dòng", { count: Number(tomTat.soDong) || 0, theoDeXuat: soVN(tomTat.theoDeXuat), soDong: soVN(tomTat.soDong) })}</span> },
                 {
                   ma: "cy",
-                  nhan: "Cần chú ý",
+                  nhan: t("Cần chú ý"),
                   an: !tomTat.soChuY,
-                  giaTri: <span className="font-medium tabular-nums text-bo-warning">{soVN(tomTat.soChuY)} mã</span>,
+                  giaTri: <span className="font-medium tabular-nums text-bo-warning">{t("{{soChuY}} mã", { count: tomTat.soChuY, soChuY: soVN(tomTat.soChuY) })}</span>,
                 },
               ]}
             />
             {tomTat.theoNhom?.length ? (
-              <ul className="m-0 mt-3.5 grid list-none gap-2 p-0" aria-label="Số lượng theo nhóm hàng">
+              <ul className="m-0 mt-3.5 grid list-none gap-2 p-0" aria-label={t("Số lượng theo nhóm hàng")}>
                 {tomTat.theoNhom.map((x) => (
                   <li key={x.ten} className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-1 text-xs leading-4">
                     <span className="truncate text-slate-700" title={x.ten}>{x.ten}</span>

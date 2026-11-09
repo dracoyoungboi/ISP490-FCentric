@@ -1,5 +1,8 @@
 package com.dev.backend.services.impl.payos;
 
+import com.dev.backend.i18n.DichCauDaLuu;
+import com.dev.backend.i18n.NgonNgu;
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.config.SecurityContextHolder;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.dto.request.PosCheckoutCreating;
@@ -51,8 +54,6 @@ public class PosPayosService {
     /** Hủy mã trong khoảng này trước giờ hết hạn (đồng hồ máy quầy chạy nhanh) vẫn ghi là hết hạn. */
     static final long LECH_DONG_HO_HET_HAN_GIAY = 5;
     private static final ZoneId VN = ZoneId.of("Asia/Ho_Chi_Minh");
-    static final String CANCEL_UNCONFIRMED_MESSAGE = "Chưa hủy được mã QR vì payOS chưa xác nhận — khách vẫn có thể "
-            + "đang chuyển khoản. Hóa đơn vẫn khóa: thử hủy lại sau ít phút hoặc chờ mã hết hạn.";
 
     private final PaymentConfigService configService;
     private final PayosClient payosClient;
@@ -89,7 +90,7 @@ public class PosPayosService {
         PaymentConfigService.ActivePayos active = configService.activePayos();
         NguoiDungAuthInfo user = SecurityContextHolder.getUser();
         if (request == null || request.getRequestId() == null || request.getRequestId().isBlank()) {
-            throw new CommonException("Thiếu requestId cho giao dịch thanh toán");
+            throw new CommonException(ThongDiep.of("banHang.thieuRequestId"));
         }
         PosPayosPayment existing = repository
                 .findFirstByRequestIdAndTrangThaiOrderByIdDesc(request.getRequestId().trim(), PosPayosPayment.PENDING)
@@ -97,8 +98,7 @@ public class PosPayosService {
         if (existing != null && existing.getQrCode() != null && existing.getHetHanLuc().isAfter(Instant.now())) {
             authorize(existing);
             if (!cungTienMat(existing.getTienMatTruoc(), request.getTienMatTruoc())) {
-                throw new CommonException("Mã QR đang chờ của hóa đơn này mang tiền mặt trả trước "
-                        + tien(existing.getTienMatTruoc()) + " — hủy mã QR rồi tạo lại để đổi số tiền mặt.",
+                throw new CommonException(ThongDiep.of("banHang.qrDangChoTienMatKhac", tien(existing.getTienMatTruoc())),
                         HttpStatus.CONFLICT, Map.of("code", "QR_TIEN_MAT_KHAC"));
             }
             return toDto(existing);
@@ -106,8 +106,7 @@ public class PosPayosService {
         // Mã trước của hóa đơn còn chờ mà chưa có QR (đang tạo) hoặc quá hạn chưa đóng: có tiền mặt thì không tạo mã thứ
         // hai (tiền mặt nằm ở hai mã, mã cũ hiện mãi chưa trả lại). Không tiền mặt: như trước.
         if (existing != null && (coTienMat(existing.getTienMatTruoc()) || coTienMat(request.getTienMatTruoc()))) {
-            throw new CommonException("Mã QR trước của hóa đơn này đang được tạo hoặc vừa hết hạn — đợi ít phút rồi thử lại, "
-                    + "hoặc thu bằng tiền mặt.", HttpStatus.CONFLICT, Map.of("code", "QR_DANG_TAO"));
+            throw new CommonException(ThongDiep.of("banHang.qrTruocDangTao"), HttpStatus.CONFLICT, Map.of("code", "QR_DANG_TAO"));
         }
 
         PosPayosPayment row = PosConcurrencyRetry.call(() -> tx.createPending(request, user.getId(), active.expiryMinutes()));
@@ -130,9 +129,9 @@ public class PosPayosService {
                     frontendUrl + "/pos?payos=success", frontendUrl + "/pos?payos=cancel",
                     row.getHetHanLuc().getEpochSecond(), items);
             if (!r.ok() || r.data() == null) {
-                String msg = "payOS không tạo được mã QR: " + (r.desc() == null ? "HTTP " + r.httpStatus() : r.desc());
-                tx.closeUnpaid(row.getOrderCode(), PosPayosPayment.FAILED, msg);
-                throw new CommonException(msg, HttpStatus.BAD_GATEWAY, null);
+                ThongDiep loi = ThongDiep.of("banHang.payosKhongTaoDuocQr", r.desc() == null ? "HTTP " + r.httpStatus() : r.desc());
+                tx.closeUnpaid(row.getOrderCode(), PosPayosPayment.FAILED, loi.tiengViet());
+                throw new CommonException(loi, HttpStatus.BAD_GATEWAY, null);
             }
             return toDto(tx.markLinkCreated(row.getOrderCode(), r.data()));
         } catch (CommonException e) {
@@ -141,7 +140,7 @@ public class PosPayosService {
         } catch (RuntimeException e) {
             log.error("Lỗi tạo QR payOS cho đơn {}", row.getOrderCode(), e);
             tx.closeUnpaid(row.getOrderCode(), PosPayosPayment.FAILED, "Lỗi hệ thống khi tạo mã QR");
-            throw new CommonException("Không tạo được mã QR. Vui lòng thử lại.", HttpStatus.BAD_GATEWAY, null);
+            throw new CommonException(ThongDiep.of("banHang.khongTaoDuocQr"), HttpStatus.BAD_GATEWAY, null);
         }
     }
 
@@ -180,7 +179,7 @@ public class PosPayosService {
             return toDto(find(orderCode));
         }
         if (status == null) {
-            throw new CommonException(CANCEL_UNCONFIRMED_MESSAGE, HttpStatus.CONFLICT, null);
+            throw new CommonException(ThongDiep.of("banHang.chuaHuyDuocQr"), HttpStatus.CONFLICT, null);
         }
         PayosClient.PayosResult r = payosClient.cancelPaymentLink(cred, orderCode, "Thu ngan huy tai quay");
         if (!r.ok()) {
@@ -190,7 +189,7 @@ public class PosPayosService {
             if (!PosPayosPayment.PENDING.equals(find(orderCode).getTrangThai())) {
                 return toDto(find(orderCode));
             }
-            throw new CommonException(CANCEL_UNCONFIRMED_MESSAGE, HttpStatus.CONFLICT, null);
+            throw new CommonException(ThongDiep.of("banHang.chuaHuyDuocQr"), HttpStatus.CONFLICT, null);
         }
         // Màn POS tự hủy mã lúc về 00:00 (không đợi job): mã đã quá giờ thì ghi là hết hạn, không phải thu ngân hủy
         if (daQuaHan(row.getHetHanLuc(), luc)) {
@@ -210,16 +209,16 @@ public class PosPayosService {
      */
     public void handleWebhook(JsonNode body) {
         if (body == null || body.get("data") == null) {
-            throw new CommonException("Webhook thiếu dữ liệu");
+            throw new CommonException(ThongDiep.of("banHang.webhookThieuDuLieu"));
         }
         String checksumKey = configService.checksumKeyOrNull();
         if (checksumKey == null) {
-            throw new CommonException("Chưa cấu hình Checksum Key payOS", HttpStatus.SERVICE_UNAVAILABLE, null);
+            throw new CommonException(ThongDiep.of("banHang.chuaCauHinhChecksumKey"), HttpStatus.SERVICE_UNAVAILABLE, null);
         }
         JsonNode data = body.get("data");
         if (!com.dev.backend.utils.PayosSignature.verifyData(data, body.path("signature").asText(null), checksumKey)) {
             log.warn("Từ chối webhook payOS: chữ ký không hợp lệ (orderCode={})", data.path("orderCode").asText());
-            throw new CommonException("Chữ ký webhook không hợp lệ", HttpStatus.BAD_REQUEST, null);
+            throw new CommonException(ThongDiep.of("banHang.chuKyWebhookSai"), HttpStatus.BAD_REQUEST, null);
         }
         if (!"00".equals(body.path("code").asText()) || !"00".equals(data.path("code").asText("00"))) {
             log.info("Webhook payOS không phải giao dịch thành công: {}", body.path("desc").asText());
@@ -254,8 +253,9 @@ public class PosPayosService {
         return x.compareTo(y) == 0;
     }
 
+    /** Số tiền dạng "50000" (đơn vị đ nằm trong câu của khóa). */
     private static String tien(BigDecimal v) {
-        return (v == null ? "0" : v.stripTrailingZeros().toPlainString()) + "đ";
+        return v == null ? "0" : v.stripTrailingZeros().toPlainString();
     }
 
     // ================= Quản lý xử lý giao dịch lỗi (PAID_ERROR) =================
@@ -298,7 +298,7 @@ public class PosPayosService {
 
     public PosPayosGiaoDichDto markRefunded(Long orderCode, String note) {
         if (note == null || note.isBlank()) {
-            throw new CommonException("Nhập ghi chú hoàn tiền (mã giao dịch hoàn hoặc lý do).");
+            throw new CommonException(ThongDiep.of("banHang.nhapGhiChuHoanTien"));
         }
         Integer managerId = SecurityContextHolder.getUser().getId();
         PosConcurrencyRetry.call(() -> tx.markRefunded(orderCode, managerId, note));
@@ -373,7 +373,8 @@ public class PosPayosService {
                 .tenNguoiTraLaiTienMat(row.getNguoiTraLaiTienMatId() == null ? null : tenNguoi.get(row.getNguoiTraLaiTienMatId()))
                 .noiDungCk(row.getNoiDungCk())
                 .maGiaoDichNganHang(row.getMaGiaoDichNganHang())
-                .errorMessage(row.getErrorMessage())
+                // Câu lưu tiếng Việt: dịch lúc đọc theo ngôn ngữ người xem, không đổi dữ liệu lưu
+                .errorMessage(DichCauDaLuu.dich(row.getErrorMessage()))
                 .lyDo(lyDo(row))
                 .tienVeSauHuy(row.isTienVeSauHuy())
                 .tenNguoiChuyen(row.getTenNguoiChuyen())
@@ -513,7 +514,9 @@ public class PosPayosService {
         try {
             PosPayosPayment row = tx.reload(orderCode).orElse(null);
             if (row != null && posWebSocketHandler != null) {
-                posWebSocketHandler.broadcastPayment(row.getOrderCode(), row.getKhoId(), toDto(row));
+                // Câu lỗi để nguyên tiếng Việt: lượt đẩy có thể chạy trong request của người khác (ngôn ngữ khác),
+                // PosWebSocketHandler dịch theo ngôn ngữ từng màn đang nghe
+                posWebSocketHandler.broadcastPayment(row.getOrderCode(), row.getKhoId(), toDto(row, NgonNgu.VI));
             }
         } catch (Exception e) {
             log.warn("WebSocket POS: Lỗi khi push notification cho đơn {}: {}", orderCode, e.getMessage());
@@ -523,14 +526,14 @@ public class PosPayosService {
     /** Luôn đọc trạng thái mới nhất (xem PosPayosTransaction.reload). */
     private PosPayosPayment find(Long orderCode) {
         return tx.reload(orderCode)
-                .orElseThrow(() -> new CommonException("Không tìm thấy giao dịch chuyển khoản " + orderCode, HttpStatus.NOT_FOUND, null));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("banHang.giaoDichChuyenKhoanKhongTimThay", orderCode), HttpStatus.NOT_FOUND, null));
     }
 
     /** Thu ngân tạo giao dịch, admin, hoặc người có quyền kho của giao dịch. */
     private void authorize(PosPayosPayment row) {
         NguoiDungAuthInfo user = SecurityContextHolder.getUser();
         if (user == null) {
-            throw new CommonException("Chưa đăng nhập", HttpStatus.UNAUTHORIZED, null);
+            throw new CommonException(ThongDiep.of("banHang.chuaDangNhap"), HttpStatus.UNAUTHORIZED, null);
         }
         if (user.getVaiTro() != null && user.getVaiTro().contains(IRoleType.quan_tri_vien)) return;
         if (row.getNguoiThuNganId() != null && row.getNguoiThuNganId().equals(user.getId())) return;
@@ -538,6 +541,11 @@ public class PosPayosService {
     }
 
     private PayosPaymentLinkDto toDto(PosPayosPayment row) {
+        return toDto(row, NgonNgu.hienTai());
+    }
+
+    /** {@code ngonNgu}: ngôn ngữ của câu lỗi (câu lưu tiếng Việt, dịch lúc đọc). */
+    private PayosPaymentLinkDto toDto(PosPayosPayment row, java.util.Locale ngonNgu) {
         return PayosPaymentLinkDto.builder()
                 .orderCode(row.getOrderCode())
                 .requestId(row.getRequestId())
@@ -554,7 +562,7 @@ public class PosPayosService {
                 .noiDungCk(row.getNoiDungCk())
                 .hetHanLuc(row.getHetHanLuc())
                 .gioMayChu(Instant.now())
-                .errorMessage(row.getErrorMessage())
+                .errorMessage(DichCauDaLuu.dich(row.getErrorMessage(), ngonNgu))
                 .result(PosPayosPayment.PAID.equals(row.getTrangThai())
                         ? tx.read(row.getResultJson(), PosCheckoutResponse.class) : null)
                 .build();

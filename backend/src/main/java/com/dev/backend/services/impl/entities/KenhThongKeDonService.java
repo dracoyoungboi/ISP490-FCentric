@@ -1,5 +1,6 @@
 package com.dev.backend.services.impl.entities;
 
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.constant.variables.ITrangThaiDonBanHang;
 import com.dev.backend.dto.response.customize.KenhThongKeDonDto;
 import com.dev.backend.entities.KenhBanHang;
@@ -55,20 +56,20 @@ public class KenhThongKeDonService {
     @Transactional(readOnly = true)
     public KenhThongKeDonDto thongKe(String maKenh, String tuNgay, String denNgay) {
         if (maKenh == null || maKenh.isBlank() || maKenh.trim().length() > 50 || !maKenh.trim().matches("[A-Za-z0-9_-]+")) {
-            throw new CommonException("Mã kênh không hợp lệ", HttpStatus.BAD_REQUEST, null);
+            throw new CommonException(ThongDiep.of("kenhBan.maKenhKhongHopLe"), HttpStatus.BAD_REQUEST, null);
         }
         String ma = KenhCauHinhDongBo.chuanHoaMaKenh(maKenh);
         KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma)
                 .or(() -> kenhBanHangRepository.findByMaKenh(ma.toLowerCase()))
-                .orElseThrow(() -> new CommonException("Không tìm thấy kênh bán " + ma, HttpStatus.NOT_FOUND, null));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("kenhBan.khongTimThayKenhBan", ma), HttpStatus.NOT_FOUND, null));
 
         LocalDate den = docNgay(denNgay, LocalDate.now(clock.withZone(MUI_GIO)));
         LocalDate tu = docNgay(tuNgay, den.minusDays(SO_NGAY_MAC_DINH - 1L));
         if (tu.isAfter(den)) {
-            throw new CommonException("Ngày bắt đầu phải trước hoặc bằng ngày kết thúc", HttpStatus.BAD_REQUEST, null);
+            throw new CommonException(ThongDiep.of("kenhBan.ngayBatDauSauNgayKetThuc"), HttpStatus.BAD_REQUEST, null);
         }
         if (ChronoUnit.DAYS.between(tu, den) + 1 > SO_NGAY_TOI_DA) {
-            throw new CommonException("Chỉ xem được tối đa " + SO_NGAY_TOI_DA + " ngày một lần", HttpStatus.BAD_REQUEST, null);
+            throw new CommonException(ThongDiep.of("kenhBan.vuotSoNgayToiDa", SO_NGAY_TOI_DA), HttpStatus.BAD_REQUEST, null);
         }
 
         Instant batDau = tu.atStartOfDay(MUI_GIO).toInstant();
@@ -139,7 +140,7 @@ public class KenhThongKeDonService {
         try {
             return LocalDate.parse(giaTri.trim());
         } catch (DateTimeParseException e) {
-            throw new CommonException("Ngày không hợp lệ: " + giaTri + " (định dạng yyyy-MM-dd)", HttpStatus.BAD_REQUEST, null);
+            throw new CommonException(ThongDiep.of("kenhBan.ngayKhongHopLe", giaTri), HttpStatus.BAD_REQUEST, null);
         }
     }
 }

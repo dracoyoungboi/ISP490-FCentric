@@ -2,6 +2,7 @@ import { useId } from "react";
 import { ChevronDown } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 /**
  * Một nhóm tùy chọn (khớp một khối trên tờ giấy) ở cột phải của trình sửa mẫu in:
@@ -41,7 +42,7 @@ export default function NhomTuyChon({
                         checked={checkState}
                         disabled={disabled}
                         onCheckedChange={() => onToggleAll(group.state !== "all")}
-                        aria-label={group.state === "all" ? `Tắt cả nhóm ${group.title}` : `Bật cả nhóm ${group.title}`}
+                        aria-label={group.state === "all" ? t("Tắt cả nhóm {{title}}", { title: group.title }) : t("Bật cả nhóm {{title}}", { title: group.title })}
                         className="size-[18px] rounded-[4px] border-[#94a3b8] data-[state=checked]:border-bo-primary data-[state=checked]:bg-bo-primary data-[state=indeterminate]:border-bo-primary data-[state=indeterminate]:bg-bo-primary data-[state=indeterminate]:text-white"
                     />
                 ) : (
@@ -57,7 +58,7 @@ export default function NhomTuyChon({
                     <span className="min-w-0 truncate text-sm font-semibold text-bo-foreground">{group.title}</span>
                     <span className="inline-flex shrink-0 items-center gap-2 text-xs text-bo-muted">
                         {hasRows ? (
-                            <span aria-label={`Đang in ${group.onCount} trên ${group.total} mục`}>
+                            <span aria-label={t("Đang in {{onCount}} trên {{total}} mục", { count: group.total, onCount: group.onCount, total: group.total })}>
                                 {group.onCount}/{group.total}
                             </span>
                         ) : null}

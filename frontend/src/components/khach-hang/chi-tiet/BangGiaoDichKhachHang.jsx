@@ -10,6 +10,7 @@ import {
 } from "@/constants/donBanHang";
 import { formatCurrency, formatDate } from "@/utils/formatters";
 import { ghiChuBaoGia } from "./tinhKhachHang";
+import { t } from "@/i18n";
 
 const LIEN_KET = "font-mono text-[13px] font-semibold text-bo-primary hover:text-bo-primary-hover hover:underline";
 const NUT_VIEN =
@@ -66,7 +67,7 @@ function DongDienThoai({ to, ma, trangThai, quyTrinh, tien, phu, sau }) {
   );
 }
 
-const tenKenh = (d) => (d.kenhBanHang ? d.kenhBanHang.tenKenh || getChannelName(d.kenhBanHang.maKenh) : "Bán thường");
+const tenKenh = (d) => (d.kenhBanHang ? d.kenhBanHang.tenKenh || t(getChannelName(d.kenhBanHang.maKenh)) : t("Bán thường"));
 
 /**
  * Tab "Đơn hàng": một trang đơn bán của khách, mới nhất ở trên. Giờ đặt xuống dòng dưới ngày để bảng vừa khối ở 1366px.
@@ -102,12 +103,12 @@ function BangDonDayDu({ dons }) {
     <table className="w-full min-w-[720px] border-collapse text-sm max-sm:hidden">
       <DauBang
         cot={[
-          { nhan: "Mã đơn" },
-          { nhan: "Ngày đặt" },
-          { nhan: "Kênh bán" },
-          { nhan: "Trạng thái" },
-          { nhan: "Thanh toán" },
-          { nhan: "Tổng tiền", phai: true },
+          { nhan: t("Mã đơn") },
+          { nhan: t("Ngày đặt") },
+          { nhan: t("Kênh bán") },
+          { nhan: t("Trạng thái") },
+          { nhan: t("Thanh toán") },
+          { nhan: t("Tổng tiền"), phai: true },
         ]}
       />
       <tbody>
@@ -171,7 +172,7 @@ export function BangBaoGiaKhachHang({ baoGias, coTheTaoDon }) {
             sau={
               coTheTaoDon && Number(b.trangThai) === 0 ? (
                 <Link to={`/sales-orders/create?quoteId=${b.id}`} className={cn(NUT_VIEN, "h-10")}>
-                  Tạo đơn bán
+                  {t("Tạo đơn bán")}
                 </Link>
               ) : null
             }
@@ -188,12 +189,12 @@ function BangBaoGiaDayDu({ baoGias, coTheTaoDon }) {
     <table className="w-full min-w-[720px] border-collapse text-sm max-sm:hidden">
       <DauBang
         cot={[
-          { nhan: "Mã báo giá" },
-          { nhan: "Ngày tạo" },
-          { nhan: "Trạng thái" },
-          { nhan: "Ghi chú" },
-          { nhan: "Tổng tiền", phai: true },
-          ...(coTheTaoDon ? [{ nhan: "", nhanDoc: "Thao tác", phai: true }] : []),
+          { nhan: t("Mã báo giá") },
+          { nhan: t("Ngày tạo") },
+          { nhan: t("Trạng thái") },
+          { nhan: t("Ghi chú") },
+          { nhan: t("Tổng tiền"), phai: true },
+          ...(coTheTaoDon ? [{ nhan: "", nhanDoc: t("Thao tác"), phai: true }] : []),
         ]}
       />
       <tbody>
@@ -233,7 +234,7 @@ function BangBaoGiaDayDu({ baoGias, coTheTaoDon }) {
                 <td className={cn(O_CUOI, "w-px")}>
                   {choPhanHoi ? (
                     <Link to={`/sales-orders/create?quoteId=${b.id}`} className={NUT_VIEN}>
-                      Tạo đơn bán
+                      {t("Tạo đơn bán")}
                     </Link>
                   ) : null}
                 </td>

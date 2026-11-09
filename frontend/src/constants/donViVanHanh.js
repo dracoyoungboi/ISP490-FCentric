@@ -4,7 +4,7 @@
  */
 export const DON_VI_VAN_HANH = {
   banQuyen: "© 2026 FCentric",
-  ten: "Hộ kinh doanh KAIZ",
+  ten: "Hộ kinh doanh KAIZ", // i18n-giu-nguyen: dòng chân trang nộp Shopee, giữ nguyên văn
   maSoHkd: "040204000465",
   hotline: "02466872222",
   email: "iam@kaiz.vn",

@@ -28,6 +28,7 @@ import { formatQuantity, toNumber } from "@/constants/outbound";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { formatDate } from "@/utils/formatters";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 /**
  * Phân bổ lô cho một dòng phiếu nhặt (Log 2). Hệ thống gợi ý theo nhập trước lấy trước (lô nhập kho sớm lấy trước);
@@ -93,7 +94,7 @@ export default function LotAllocationDialog({ open, onOpenChange, pickListId, li
         setKeTay(tayInit);
       })
       .catch((error) => {
-        if (!cancelled) setLoadError(cauMayChuPhieuNhat(getApiErrorMessage(error, "Không tải được danh sách lô")));
+        if (!cancelled) setLoadError(cauMayChuPhieuNhat(getApiErrorMessage(error, t("Không tải được danh sách lô"))));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -107,8 +108,8 @@ export default function LotAllocationDialog({ open, onOpenChange, pickListId, li
   // số của lô về 0 rồi nhập lại) cũng giật focus khỏi ô đang gõ
   useEffect(() => {
     if (!focusKe) return undefined;
-    const t = setTimeout(() => setFocusKe(null), 0);
-    return () => clearTimeout(t);
+    const hen = setTimeout(() => setFocusKe(null), 0);
+    return () => clearTimeout(hen);
   }, [focusKe]);
 
   const tong = useMemo(
@@ -192,11 +193,11 @@ export default function LotAllocationDialog({ open, onOpenChange, pickListId, li
           return item;
         });
       const dto = await nhatHangService.luuPhanBoLo(pickListId, line.id, { phanBo });
-      toast.success(`Đã lưu phân bổ lô cho ${line.maSku}`);
+      toast.success(t("Đã lưu phân bổ lô cho {{maSku}}", { maSku: line.maSku }));
       onSaved?.(dto);
       onOpenChange(false);
     } catch (error) {
-      toast.error(cauMayChuPhieuNhat(getApiErrorMessage(error, "Không lưu được phân bổ lô")));
+      toast.error(cauMayChuPhieuNhat(getApiErrorMessage(error, t("Không lưu được phân bổ lô"))));
     } finally {
       savingRef.current = false;
       setSaving(false);
@@ -205,15 +206,15 @@ export default function LotAllocationDialog({ open, onOpenChange, pickListId, li
 
   let trangThai;
   if (loVuot) {
-    trangThai = { tone: "danger", text: `Lô ${loVuot.maLo} chỉ còn ${formatQuantity(loVuot.conLai)} có thể lấy` };
+    trangThai = { tone: "danger", text: t("Lô {{maLo}} chỉ còn {{conLai}} có thể lấy", { maLo: loVuot.maLo, conLai: formatQuantity(loVuot.conLai) }) };
   } else if (loiKe) {
     trangThai = { tone: "danger", text: loiKe };
   } else if (tong === canNhat) {
-    trangThai = { tone: "success", text: "Khớp số cần nhặt" };
+    trangThai = { tone: "success", text: t("Khớp số cần nhặt") };
   } else if (tong < canNhat) {
-    trangThai = { tone: "warning", text: `Còn thiếu ${formatQuantity(canNhat - tong)}` };
+    trangThai = { tone: "warning", text: t("Còn thiếu {{so}}", { so: formatQuantity(canNhat - tong) }) };
   } else {
-    trangThai = { tone: "danger", text: `Vượt ${formatQuantity(tong - canNhat)} so với số cần nhặt` };
+    trangThai = { tone: "danger", text: t("Vượt {{so}} so với số cần nhặt", { so: formatQuantity(tong - canNhat) }) };
   }
 
   const variantName = [line?.tenMau, line?.tenSize].filter(Boolean).join(" / ");
@@ -222,17 +223,16 @@ export default function LotAllocationDialog({ open, onOpenChange, pickListId, li
     <Dialog open={open} onOpenChange={(next) => !saving && onOpenChange(next)}>
       <DialogContent showCloseButton={false} className={cn(HOP, HOP_RONG)}>
         <DialogHeader className={DAU_HOP}>
-          <DialogTitle className={TIEU_DE_HOP}>Phân bổ lô</DialogTitle>
+          <DialogTitle className={TIEU_DE_HOP}>{t("Phân bổ lô")}</DialogTitle>
           <DialogDescription className={MO_TA_HOP}>
-            {line ? `${line.tenSanPham}${variantName ? ` · ${variantName}` : ""} (${line.maSku}) · cần nhặt ${formatQuantity(canNhat)}` : ""}
+            {line ? t("{{tenSanPham}}{{bienThe}} ({{maSku}}) · cần nhặt {{canNhat}}", { tenSanPham: line.tenSanPham, bienThe: variantName ? ` · ${variantName}` : "", maSku: line.maSku, canNhat: formatQuantity(canNhat) }) : ""}
           </DialogDescription>
         </DialogHeader>
 
         <div className={THAN_HOP}>
           <div className={cn("flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between", GHI_CHU_HOP)}>
             <p>
-              Hệ thống gợi ý theo nhập trước lấy trước (lô nhập kho sớm lấy trước). Lấy ở lô khác thì nhập lại số lượng từng lô.
-              Mỗi lô được tự chia theo kệ; muốn lấy ở kệ khác thì bấm Chọn kệ.
+              {t("Hệ thống gợi ý theo nhập trước lấy trước (lô nhập kho sớm lấy trước). Lấy ở lô khác thì nhập lại số lượng từng lô. Mỗi lô được tự chia theo kệ; muốn lấy ở kệ khác thì bấm Chọn kệ.")}
             </p>
             <Button
               type="button"
@@ -243,21 +243,21 @@ export default function LotAllocationDialog({ open, onOpenChange, pickListId, li
               className="shrink-0 gap-1.5 border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface"
             >
               <RotateCcw className="size-3.5" />
-              Đặt lại theo nhập trước lấy trước
+              {t("Đặt lại theo nhập trước lấy trước")}
             </Button>
           </div>
 
           <div className="max-h-80 overflow-y-auto rounded-lg border border-bo-border max-sm:max-h-none">
             {loading ? (
               <div className="flex items-center justify-center gap-2 px-3 py-8 text-sm text-bo-muted">
-                <Loader2 className="size-4 animate-spin" /> Đang tải danh sách lô
+                <Loader2 className="size-4 animate-spin" /> {t("Đang tải danh sách lô")}
               </div>
             ) : loadError ? (
               <p className="px-3 py-6 text-center text-sm text-bo-danger">{loadError}</p>
             ) : lots.length === 0 ? (
               <div className="flex flex-col items-center gap-2 px-3 py-8 text-center text-sm text-bo-muted">
                 <PackageX className="size-5" />
-                Sản phẩm không còn lô nào có tồn tại kho này. Báo quản lý kho kiểm kê.
+                {t("Sản phẩm không còn lô nào có tồn tại kho này. Báo quản lý kho kiểm kê.")}
               </div>
             ) : (
               <ul className="divide-y divide-bo-border">
@@ -272,19 +272,19 @@ export default function LotAllocationDialog({ open, onOpenChange, pickListId, li
                             <span className="font-mono text-sm font-semibold text-bo-foreground">{lot.maLo}</span>
                             {index === 0 ? (
                               <span className="rounded bg-bo-success-soft px-1.5 py-0.5 text-[10px] font-semibold text-bo-success">
-                                Nhập sớm nhất
+                                {t("Nhập sớm nhất")}
                               </span>
                             ) : null}
                           </div>
                           <p className="mt-0.5 text-xs text-bo-muted">
-                            Nhập {lot.ngayNhapGanNhat ? formatDate(lot.ngayNhapGanNhat) : "—"} · Còn lấy được{" "}
+                            {t("Nhập {{ngay}} · Còn lấy được", { ngay: lot.ngayNhapGanNhat ? formatDate(lot.ngayNhapGanNhat) : "—" })}{" "}
                             <span className="font-semibold text-slate-700">{formatQuantity(lot.conLai)}</span>
                           </p>
                         </div>
                         <input
                           type="text"
                           inputMode="numeric"
-                          aria-label={`Số lượng lấy từ lô ${lot.maLo}`}
+                          aria-label={t("Số lượng lấy từ lô {{maLo}}", { maLo: lot.maLo })}
                           value={value}
                           placeholder="0"
                           disabled={saving}
@@ -326,7 +326,7 @@ export default function LotAllocationDialog({ open, onOpenChange, pickListId, li
             )}
           >
             <span className="text-slate-700">
-              Đã phân bổ <span className="font-semibold">{formatQuantity(tong)}</span> / {formatQuantity(canNhat)}
+              {t("Đã phân bổ")} <span className="font-semibold">{formatQuantity(tong)}</span> / {formatQuantity(canNhat)}
             </span>
             <span className="flex items-center gap-1.5 font-semibold">
               {trangThai.tone === "success" ? (
@@ -347,7 +347,7 @@ export default function LotAllocationDialog({ open, onOpenChange, pickListId, li
             onClick={() => onOpenChange(false)}
             className={NUT_QUAY_LAI}
           >
-            Quay lại
+            {t("Quay lại")}
           </Button>
           <Button
             type="button"
@@ -356,7 +356,7 @@ export default function LotAllocationDialog({ open, onOpenChange, pickListId, li
             className={NUT_CHINH}
           >
             {saving ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
-            Lưu phân bổ
+            {t("Lưu phân bổ")}
           </Button>
         </div>
       </DialogContent>
@@ -381,7 +381,7 @@ function KeCuaLo({ lot, soLuong, tay, disabled, focus, onChonKe, onTuChia, onDoi
     return (
       <p className="mt-1.5 flex items-center gap-1 text-xs text-bo-muted">
         <MapPin className="size-3 shrink-0" aria-hidden="true" />
-        Lấy ở hàng chưa có kệ
+        {t("Lấy ở hàng chưa có kệ")}
       </p>
     );
   }
@@ -406,11 +406,11 @@ function KeCuaLo({ lot, soLuong, tay, disabled, focus, onChonKe, onTuChia, onDoi
   return (
     <div className="mt-1.5">
       <div className="flex flex-wrap items-center gap-1">
-        <span className="mr-0.5 text-xs text-bo-muted">Lấy ở</span>
+        <span className="mr-0.5 text-xs text-bo-muted">{t("Lấy ở")}</span>
         {chia.map((k) => (
           <span
             key={k.viTriKhoId}
-            title={`Kệ ${k.maViTri}`}
+            title={t("Kệ {{maViTri}}", { maViTri: k.maViTri })}
             className={cn(THE_KE, "border-bo-primary/25 bg-white font-mono text-bo-primary-strong")}
           >
             <MapPin className="size-3 shrink-0" aria-hidden="true" />
@@ -420,17 +420,17 @@ function KeCuaLo({ lot, soLuong, tay, disabled, focus, onChonKe, onTuChia, onDoi
         ))}
         {chuaCoKe > 0 ? (
           <span className={cn(THE_KE, "border-slate-200 bg-white text-slate-600")}>
-            Chưa có kệ <span className="tabular-nums">× {formatQuantity(chuaCoKe)}</span>
+            {t("Chưa có kệ")} <span className="tabular-nums">× {formatQuantity(chuaCoKe)}</span>
           </span>
         ) : null}
         {dangKiem.map((k) => (
           <span
             key={`kk-${k.viTriKhoId}`}
-            title={`Kệ ${k.maViTri} đang được kiểm kê, không lấy ở đây`}
+            title={t("Kệ {{maViTri}} đang được kiểm kê, không lấy ở đây", { maViTri: k.maViTri })}
             className={cn(THE_KE, "border-bo-warning/40 bg-bo-warning-soft font-mono text-bo-warning")}
           >
             <span className="truncate">{k.maViTri}</span>
-            <span className="font-sans">đang kiểm kê</span>
+            <span className="font-sans">{t("đang kiểm kê")}</span>
           </span>
         ))}
         <button
@@ -438,11 +438,11 @@ function KeCuaLo({ lot, soLuong, tay, disabled, focus, onChonKe, onTuChia, onDoi
           disabled={disabled}
           onClick={onChonKe}
           autoFocus={focus === "nut"}
-          aria-label={`Chọn kệ cho lô ${lot.maLo}`}
+          aria-label={t("Chọn kệ cho lô {{maLo}}", { maLo: lot.maLo })}
           className={cn(NUT_CHU, "ml-auto")}
         >
           <SlidersHorizontal className="size-3.5" aria-hidden="true" />
-          Chọn kệ
+          {t("Chọn kệ")}
         </button>
       </div>
       {loi ? <p className="mt-1 text-xs font-medium text-bo-danger">{loi}</p> : null}
@@ -461,16 +461,16 @@ function ChiaKeTay({ lot, ke, soLuong, tay, disabled, focusO, onTuChia, onDoiSo 
   return (
     <div className="mt-2 rounded-md border border-bo-border bg-bo-surface-subtle px-2.5 py-2">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-medium text-slate-700">Chia theo kệ</span>
+        <span className="text-xs font-medium text-slate-700">{t("Chia theo kệ")}</span>
         <button
           type="button"
           disabled={disabled}
           onClick={onTuChia}
-          aria-label={`Tự chia lại lô ${lot.maLo} theo kệ`}
+          aria-label={t("Tự chia lại lô {{maLo}} theo kệ", { maLo: lot.maLo })}
           className={NUT_CHU}
         >
           <RotateCcw className="size-3.5" aria-hidden="true" />
-          Tự chia
+          {t("Tự chia")}
         </button>
       </div>
       <ul className="mt-1 space-y-1">
@@ -486,18 +486,18 @@ function ChiaKeTay({ lot, ke, soLuong, tay, disabled, focusO, onTuChia, onDoiSo 
                 </span>
                 {k.dangKiemKe ? (
                   <span className="rounded bg-bo-warning-soft px-1.5 py-0.5 text-[10px] font-semibold text-bo-warning">
-                    Đang kiểm kê
+                    {t("Đang kiểm kê")}
                   </span>
                 ) : (
                   <span className="text-bo-muted">
-                    còn <span className="font-semibold tabular-nums text-slate-700">{formatQuantity(k.soLuong)}</span>
+                    {t("còn")} <span className="font-semibold tabular-nums text-slate-700">{formatQuantity(k.soLuong)}</span>
                   </span>
                 )}
               </div>
               <input
                 type="text"
                 inputMode="numeric"
-                aria-label={`Số lấy ở kệ ${k.maViTri} của lô ${lot.maLo}`}
+                aria-label={t("Số lấy ở kệ {{maViTri}} của lô {{maLo}}", { maViTri: k.maViTri, maLo: lot.maLo })}
                 aria-invalid={vuot || undefined}
                 value={tay[k.viTriKhoId] ?? ""}
                 placeholder="0"
@@ -516,8 +516,8 @@ function ChiaKeTay({ lot, ke, soLuong, tay, disabled, focusO, onTuChia, onDoiSo 
         })}
         <li className="flex items-center justify-between gap-3 border-t border-dashed border-bo-border pt-1 text-xs">
           <span className="text-slate-700">
-            Chưa có kệ
-            {lot.chuaCoKe != null ? <span className="text-bo-muted"> · còn {formatQuantity(lot.chuaCoKe)}</span> : null}
+            {t("Chưa có kệ")}
+            {lot.chuaCoKe != null ? <span className="text-bo-muted"> {t("· còn")} {formatQuantity(lot.chuaCoKe)}</span> : null}
           </span>
           <span className="w-16 text-center text-sm font-semibold tabular-nums text-bo-foreground">
             {formatQuantity(kq.chuaCoKe)}

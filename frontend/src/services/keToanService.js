@@ -1,4 +1,5 @@
 import apiClient from "./apiClient";
+import { t } from "@/i18n";
 
 const BASE = "/api/v1/ke-toan";
 
@@ -7,7 +8,7 @@ const duLieu = (res) => res.data?.data;
 // Bảng thuế suất phải là mảng: thiếu dữ liệu mà coi là bảng rỗng thì lần lưu sau sẽ xóa sạch bảng
 const bangThueSuat = (res) => {
     const ds = duLieu(res);
-    if (!Array.isArray(ds)) throw new Error("Máy chủ không trả bảng thuế suất");
+    if (!Array.isArray(ds)) throw new Error(t("Máy chủ không trả bảng thuế suất"));
     return ds;
 };
 

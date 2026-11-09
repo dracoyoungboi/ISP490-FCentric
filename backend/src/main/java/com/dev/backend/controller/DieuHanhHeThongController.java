@@ -26,6 +26,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import com.dev.backend.i18n.ThongDiep;
 
 @RestController
 @RequestMapping("/api/v1/dieu-hanh-he-thong")
@@ -104,7 +105,7 @@ class DieuHanhHeThongController {
     public ResponseEntity<ResponseData<String>> ganVaiTro(
             @RequestBody GanVaiTro ganVaiTro) {
         if (ganVaiTro == null || ganVaiTro.getId() == null || ganVaiTro.getVaiTro() == null || ganVaiTro.getVaiTro().isBlank()) {
-            throw new CommonException("Thông tin gán vai trò không hợp lệ");
+            throw new CommonException(ThongDiep.of("khoVanHanh.thongTinGanVaiTroKhongHopLe"));
         }
         // Cùng luồng với ngăn kéo Phân quyền: chặn tự đổi, vai trò không dùng kho thì thu hồi kho, ghi lịch sử
         phanQuyenNguoiDungService.doiVaiTro(ganVaiTro.getId(), ganVaiTro.getVaiTro());
@@ -140,7 +141,7 @@ class DieuHanhHeThongController {
                 ResponseData.<CauHinhPhanQuyenDto>builder()
                         .status(HttpStatus.OK.value())
                         .data(phanQuyenNguoiDungService.layCauHinhPhanQuyen())
-                        .message("Đã lưu mẫu quyền")
+                        .message(ThongDiep.dich("khoVanHanh.daLuuMauQuyen"))
                         .build()
         );
     }
@@ -154,7 +155,7 @@ class DieuHanhHeThongController {
                 ResponseData.<List<CauHinhHeThongDto>>builder()
                         .status(HttpStatus.OK.value())
                         .data(result)
-                        .message("Lấy danh sách cấu hình thành công")
+                        .message(ThongDiep.dich("khoVanHanh.layDanhSachCauHinhThanhCong"))
                         .build()
         );
     }
@@ -174,7 +175,7 @@ class DieuHanhHeThongController {
                 ResponseData.<CauHinhHeThongDto>builder()
                         .status(HttpStatus.OK.value())
                         .data(result)
-                        .message("Cập nhật cấu hình thành công")
+                        .message(ThongDiep.dich("khoVanHanh.capNhatCauHinhThanhCong"))
                         .build()
         );
     }
@@ -193,7 +194,7 @@ class DieuHanhHeThongController {
                 ResponseData.<List<CauHinhHeThongDto>>builder()
                         .status(HttpStatus.OK.value())
                         .data(result)
-                        .message("Cập nhật hàng loạt cấu hình thành công")
+                        .message(ThongDiep.dich("khoVanHanh.capNhatHangLoatCauHinhThanhCong"))
                         .build()
         );
     }

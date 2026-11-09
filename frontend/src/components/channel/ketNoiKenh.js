@@ -1,4 +1,5 @@
 import { CONNECTION_STATUS, normalizeShopDomain } from "../../constants/channel.js";
+import { t } from "../../i18n/t.js";
 
 /**
  * Trạng thái kết nối gian hàng dùng chung cho mọi sàn và các hàm của form khóa Shopify (đổi tên từ ketNoiShopify.js).
@@ -41,7 +42,7 @@ export function trangThaiKetNoi(dto, bayGio = Date.now()) {
 
 /** Nhãn thẻ trạng thái: sàn ủy quyền hết hạn ghi "Hết hạn ủy quyền", Shopify giữ "Hết hạn khóa". */
 export function nhanTrangThaiKetNoi(trangThai, kieuKetNoi) {
-  if (trangThai === "het_han" && kieuKetNoi === "uy_quyen") return "Hết hạn ủy quyền";
+  if (trangThai === "het_han" && kieuKetNoi === "uy_quyen") return "Hết hạn ủy quyền"; // i18n-giu-nguyen: nhãn đưa vào StatusBadge, thẻ tự dịch và tra màu theo tên Việt
   return (CONNECTION_STATUS[trangThai] ?? CONNECTION_STATUS.chua_ket_noi).label;
 }
 
@@ -68,7 +69,7 @@ export function hanUyQuyen(dto, bayGio = Date.now()) {
 
 /** "còn N ngày" / "hết hạn hôm nay" của hạn ủy quyền (kết quả `hanUyQuyen`) chưa hết. */
 export function conLaiUyQuyen(han) {
-  return han?.soNgay > 0 ? `còn ${han.soNgay} ngày` : "hết hạn hôm nay";
+  return han?.soNgay > 0 ? t("còn {{count}} ngày", { count: han.soNgay }) : t("hết hạn hôm nay");
 }
 
 // ── Form khóa Shopify ──
@@ -94,13 +95,13 @@ export function khoaTenMien(config) {
 export function kiemTraGiaTriKetNoi(values, config) {
   const errors = {};
   const domain = normalizeShopDomain(values.shopDomain);
-  if (!domain) errors.shopDomain = "Nhập tên miền cửa hàng.";
+  if (!domain) errors.shopDomain = t("Nhập tên miền cửa hàng.");
   // Tên miền máy chủ đang giữ (ô khóa khi đã kết nối, hoặc điền sẵn sau khi ngắt) thì không bắt dạng *.myshopify.com:
   // gian hàng cũ dùng tên miền riêng vẫn lưu được khóa mới, kết nối lại cùng cửa hàng không phải ghép lại từ đầu
   else if (!khoaTenMien(config) && domain !== normalizeShopDomain(config?.shopDomain) && !DOMAIN_PATTERN.test(domain)) {
-    errors.shopDomain = "Tên miền phải có dạng ten-cua-hang.myshopify.com.";
+    errors.shopDomain = t("Tên miền phải có dạng ten-cua-hang.myshopify.com.");
   }
-  if (!config?.hasAccessToken && !values.accessToken.trim()) errors.accessToken = "Nhập khóa truy cập.";
+  if (!config?.hasAccessToken && !values.accessToken.trim()) errors.accessToken = t("Nhập khóa truy cập.");
   return errors;
 }
 
@@ -155,9 +156,9 @@ export function taoGiaTriKhoaUngDung(dto) {
 /** App Key, App Secret bắt buộc khi chưa lưu; Service ID chỉ TikTok Shop (`coServiceId`). */
 export function kiemTraKhoaUngDung(values, dto, { coServiceId = false } = {}) {
   const errors = {};
-  if (!values.appKey.trim()) errors.appKey = "Nhập App Key.";
-  if (!dto?.hasAppSecret && !values.appSecret.trim()) errors.appSecret = "Nhập App Secret.";
-  if (coServiceId && !values.serviceId.trim()) errors.serviceId = "Nhập Service ID.";
+  if (!values.appKey.trim()) errors.appKey = t("Nhập App Key.");
+  if (!dto?.hasAppSecret && !values.appSecret.trim()) errors.appSecret = t("Nhập App Secret.");
+  if (coServiceId && !values.serviceId.trim()) errors.serviceId = t("Nhập Service ID.");
   return errors;
 }
 
@@ -193,19 +194,19 @@ export function hoTroNgatKetNoi(dto) {
  * `san` là phần tử SAN_BAN_HANG, `ketNoi` là kết nối đang mở (tên gian hàng hoặc tên miền).
  */
 export function moTaNgatKetNoi(san, ketNoi) {
-  const tenSan = san?.ten ?? "sàn";
-  const tonVaDon = `Số tồn trên ${tenSan} giữ nguyên như lần đẩy cuối, đơn mới sẽ không về FCentric.`;
-  const giuLai = "Toàn bộ đơn hàng đã nhận vẫn được bảo toàn trong hệ thống kho; các sản phẩm sẽ được làm sạch mã sàn cũ để sẵn sàng kết nối lại.";
+  const tenSan = san?.ten ?? t("sàn");
+  const tonVaDon = t("Số tồn trên {{tenSan}} giữ nguyên như lần đẩy cuối, đơn mới sẽ không về FCentric.", { tenSan });
+  const giuLai = t("Toàn bộ đơn hàng đã nhận vẫn được bảo toàn trong hệ thống kho; các sản phẩm sẽ được làm sạch mã sàn cũ để sẵn sàng kết nối lại.");
   if (san?.kieuKetNoi === "khoa") {
     return [
-      `Hệ thống sẽ xóa mọi khóa đã lưu và dừng đồng bộ với ${ketNoi?.shopDomain || `cửa hàng ${tenSan}`}.`,
+      t("Hệ thống sẽ xóa mọi khóa đã lưu và dừng đồng bộ với {{doiTuong}}.", { doiTuong: ketNoi?.shopDomain || t("cửa hàng {{tenSan}}", { tenSan }) }),
       tonVaDon,
       giuLai,
-      `Ứng dụng vẫn còn trong cửa hàng; muốn thu hồi hẳn khóa, hãy gỡ ứng dụng trong trang quản trị ${tenSan}.`,
+      t("Ứng dụng vẫn còn trong cửa hàng; muốn thu hồi hẳn khóa, hãy gỡ ứng dụng trong trang quản trị {{tenSan}}.", { tenSan }),
     ].join(" ");
   }
   return [
-    `Hệ thống sẽ xóa ủy quyền đã lưu và dừng đồng bộ với ${ketNoi?.tenGianHang || `gian hàng ${tenSan}`}.`,
+    t("Hệ thống sẽ xóa ủy quyền đã lưu và dừng đồng bộ với {{doiTuong}}.", { doiTuong: ketNoi?.tenGianHang || t("gian hàng {{tenSan}}", { tenSan }) }),
     tonVaDon,
     giuLai,
   ].join(" ");

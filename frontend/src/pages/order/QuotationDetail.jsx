@@ -50,6 +50,7 @@ import purchaseOrderService from "@/services/purchaseOrderService";
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import { formatCurrency } from "@/utils/formatters";
 import { ROLES, hasAnyRole } from "@/utils/roles";
+import { t } from "@/i18n";
 
 // Chỉ quản trị viên và nhân viên mua hàng chốt báo giá (giữ như màn cũ; backend còn cho quản lý kho)
 const VAI_TRO_CHOT_BAO_GIA = [ROLES.QUAN_TRI_VIEN, ROLES.NHAN_VIEN_MUA_HANG];
@@ -130,7 +131,7 @@ function ChiTietBaoGia({ id }) {
     if (!don && (q.loading || (!q.error && q.data === undefined))) {
         return (
             <PageContainer className="flex min-h-full flex-col">
-                <KhungDangTai nhan="Đang tải báo giá" />
+                <KhungDangTai nhan={t("Đang tải báo giá")} />
             </PageContainer>
         );
     }
@@ -143,10 +144,10 @@ function ChiTietBaoGia({ id }) {
             <PageContainer className="flex min-h-full flex-col">
                 <KhungLoiChungTu
                     loi={q.error}
-                    tenChungTu="báo giá"
+                    tenChungTu={t("báo giá")}
                     locCauMayChu={locCauMayChuMuaHang}
                     onVeDanhSach={() => navigate("/quotation-requests")}
-                    nhanVeDanhSach="Về danh sách yêu cầu báo giá"
+                    nhanVeDanhSach={t("Về danh sách yêu cầu báo giá")}
                     onThuLai={q.reload}
                 />
             </PageContainer>
@@ -156,10 +157,10 @@ function ChiTietBaoGia({ id }) {
     const tt = Number(don.trangThai);
     const ma = don.soDonMua || `#${don.id}`;
     const daChot = laDaChot(tt);
-    const tenNcc = don.nhaCungCap?.tenNhaCungCap || don.nhaCungCap?.maNhaCungCap || "nhà cung cấp";
+    const tenNcc = don.nhaCungCap?.tenNhaCungCap || don.nhaCungCap?.maNhaCungCap || t("nhà cung cấp");
     const yeuCau = don.yeuCauMuaHang;
     const tongChu = formatCurrency(tomTat.tongTien);
-    const buoc = tinhBuocBaoGia(don, tomTat, { nhanDonMua: daChot ? getDonMuaHangStatus(tt).label : "" });
+    const buoc = tinhBuocBaoGia(don, tomTat, { nhanDonMua: daChot ? t(getDonMuaHangStatus(tt).label) : "" });
     const ghiChuNcc = ghiChuNhaCungCap(don);
     // Số báo giá khác cùng yêu cầu còn chờ: chấp nhận báo giá này thì chúng tự đóng và nhận email kết quả (K1)
     const soBaoGiaDangCho = docSo(yeuCau?.soBaoGiaDangCho);
@@ -181,11 +182,11 @@ function ChiTietBaoGia({ id }) {
     };
     const nutChinh = khoaKhiChoGoc(hienChot
         ? [
-            { ma: "tuChoi", nhan: "Không chấp nhận", kieu: "vien", onClick: () => moHop("tuChoi") },
-            { ma: "chapNhan", nhan: "Chấp nhận báo giá", icon: Check, onClick: () => moHop("chapNhan"), khoa: Boolean(lyDoKhoa), lyDo: lyDoKhoa },
+            { ma: "tuChoi", nhan: t("Không chấp nhận"), kieu: "vien", onClick: () => moHop("tuChoi") },
+            { ma: "chapNhan", nhan: t("Chấp nhận báo giá"), icon: Check, onClick: () => moHop("chapNhan"), khoa: Boolean(lyDoKhoa), lyDo: lyDoKhoa },
         ]
         : daChot
-            ? { ma: "donMua", nhan: "Mở đơn mua hàng", icon: FileText, kieu: "vien", dieuHuong: true, onClick: () => navigate(`/purchase-orders/${don.id}`) }
+            ? { ma: "donMua", nhan: t("Mở đơn mua hàng"), icon: FileText, kieu: "vien", dieuHuong: true, onClick: () => navigate(`/purchase-orders/${don.id}`) }
             : null, choGoc);
 
     // Khóa nút thao tác tới khi lời gọi gốc kết thúc (tối đa THOI_HAN_CHO_GOC_MS) rồi tải lại; màn gỡ thì hủy chờ
@@ -208,8 +209,8 @@ function ChiTietBaoGia({ id }) {
         setDangChay(true);
         try {
             await chayCoThoiHan(() => purchaseOrderService.duyetDon(id, trangThai, body));
-            if (khongChapNhan) toast.success(`Đã không chấp nhận báo giá ${ma}`, { description: `Email kết quả sẽ gửi tới ${tenNcc}.` });
-            else toast.success(`Đã chấp nhận báo giá ${ma}`);
+            if (khongChapNhan) toast.success(t("Đã không chấp nhận báo giá {{ma}}", { ma }), { description: t("Email kết quả sẽ gửi tới {{tenNcc}}.", { tenNcc }) });
+            else toast.success(t("Đã chấp nhận báo giá {{ma}}", { ma }));
             setHop("");
             setLyDo("");
             // Ở lại trang: đổi trạng thái tại chỗ (nút chốt ẩn ngay) rồi tải lại ngầm lấy người chốt, đơn tự đóng (K1)
@@ -228,7 +229,7 @@ function ChiTietBaoGia({ id }) {
                 return;
             }
             // Câu dự phòng không có dấu chấm: mất mạng thì getApiErrorMessage nối thêm ": không nhận được phản hồi…"
-            const cau = getApiErrorMessage(error, "Không thực hiện được thao tác");
+            const cau = getApiErrorMessage(error, t("Không thực hiện được thao tác"));
             if (cachXuLyLoiXetBaoGia(getApiErrorStatus(error)) === "dongVaTaiLai") {
                 // 409, 404: báo giá đã đổi ở nơi khác (đã có kết quả, nhà cung cấp vừa gửi lại giá, yêu cầu không còn mở,
                 // đang có thao tác khác, đơn không còn) -> hiện câu máy chủ rồi tải lại đơn (đặc tả 6.3)
@@ -256,11 +257,11 @@ function ChiTietBaoGia({ id }) {
             await purchaseOrderService.guiLaiYeuCau(don.id);
             if (daGoRef.current) return;
             setDaGuiLai(true);
-            toast.success("Email yêu cầu báo giá đang được gửi.", { description: tenNcc });
+            toast.success(t("Email yêu cầu báo giá đang được gửi."), { description: tenNcc });
             q.reload();
         } catch (error) {
             if (daGoRef.current) return;
-            toast.error(getApiErrorMessage(error, "Chưa gửi lại được email yêu cầu báo giá"));
+            toast.error(getApiErrorMessage(error, t("Chưa gửi lại được email yêu cầu báo giá")));
             if (getApiErrorStatus(error) === 409) q.reload();
         } finally {
             dangGuiLaiRef.current = false;
@@ -277,11 +278,11 @@ function ChiTietBaoGia({ id }) {
                 tone="warn"
                 actions={guiLai.coNut ? (
                     <NutChu onClick={guiLaiYeuCau} disabled={dangGuiLai} aria-busy={dangGuiLai || undefined}>
-                        {dangGuiLai ? "Đang gửi lại…" : "Gửi lại email yêu cầu báo giá"}
+                        {dangGuiLai ? t("Đang gửi lại…") : t("Gửi lại email yêu cầu báo giá")}
                     </NutChu>
                 ) : null}
             >
-                Chưa gửi được email yêu cầu báo giá cho nhà cung cấp này.
+                {t("Chưa gửi được email yêu cầu báo giá cho nhà cung cấp này.")}
             </DongThongBao>,
         );
     }
@@ -289,7 +290,7 @@ function ChiTietBaoGia({ id }) {
     if (ghiChuNcc) {
         thongBao.push(
             <DongThongBao key="ghi-chu">
-                <b className="font-semibold">Ghi chú của nhà cung cấp:</b>{" "}
+                <b className="font-semibold">{t("Ghi chú của nhà cung cấp:")}</b>{" "}
                 <span className="whitespace-pre-line break-words">{ghiChuNcc}</span>
             </DongThongBao>,
         );
@@ -298,43 +299,44 @@ function ChiTietBaoGia({ id }) {
         // Đơn mua của báo giá đã kết thúc sớm: lý do xem ở đơn mua hàng
         thongBao.push(
             <DongThongBao key="ket-qua">
-                Báo giá đã chấp nhận và trở thành đơn mua hàng cùng mã; đơn mua hàng đó{" "}
-                {tt === TRANG_THAI_BAO_GIA.DA_DONG ? "đã đóng (nhận thiếu)" : "đã hủy"}. Xem lý do ở đơn mua hàng.
+                {tt === TRANG_THAI_BAO_GIA.DA_DONG
+                    ? t("Báo giá đã chấp nhận và trở thành đơn mua hàng cùng mã; đơn mua hàng đó đã đóng (nhận thiếu). Xem lý do ở đơn mua hàng.")
+                    : t("Báo giá đã chấp nhận và trở thành đơn mua hàng cùng mã; đơn mua hàng đó đã hủy. Xem lý do ở đơn mua hàng.")}
             </DongThongBao>,
         );
     } else if (daChot) {
         thongBao.push(
             <DongThongBao key="ket-qua" tone="ok">
-                Báo giá đã chấp nhận và trở thành đơn mua hàng cùng mã. Theo dõi nhận hàng ở đơn mua hàng.
+                {t("Báo giá đã chấp nhận và trở thành đơn mua hàng cùng mã. Theo dõi nhận hàng ở đơn mua hàng.")}
             </DongThongBao>,
         );
     } else if (tt === TRANG_THAI_BAO_GIA.TU_CHOI && String(don.lyDoTuChoi ?? "").trim()) {
         thongBao.push(
             <DongThongBao key="ket-qua">
-                <b className="font-semibold">Lý do không chấp nhận:</b>{" "}
+                <b className="font-semibold">{t("Lý do không chấp nhận:")}</b>{" "}
                 <span className="whitespace-pre-line break-words">{String(don.lyDoTuChoi).trim()}</span>
             </DongThongBao>,
         );
     } else if (tt === TRANG_THAI_BAO_GIA.DA_XOA) {
-        thongBao.push(<DongThongBao key="ket-qua">Báo giá này đã bị xóa khỏi hệ thống.</DongThongBao>);
+        thongBao.push(<DongThongBao key="ket-qua">{t("Báo giá này đã bị xóa khỏi hệ thống.")}</DongThongBao>);
     }
 
     const lienQuan = ycId != null
         ? [
-            { khoa: "yeu-cau-nhap", loai: "Yêu cầu nhập hàng", ma: yeuCau.soYeuCauMuaHang || `#${ycId}`, to: `/purchase-requests/${ycId}` },
-            { khoa: "so-sanh", loai: "So sánh báo giá", ma: "Các nhà cung cấp cùng yêu cầu", to: `/quotation-requests/${ycId}` },
+            { khoa: "yeu-cau-nhap", loai: t("Yêu cầu nhập hàng"), ma: yeuCau.soYeuCauMuaHang || `#${ycId}`, to: `/purchase-requests/${ycId}` },
+            { khoa: "so-sanh", loai: t("So sánh báo giá"), ma: t("Các nhà cung cấp cùng yêu cầu"), to: `/quotation-requests/${ycId}` },
         ]
         : [];
 
     const tongPhu = tomTat.coGia
         ? <b key="tong" className="font-semibold text-bo-foreground">{tongChu}</b>
         : tomTat.coMotPhan
-            ? <span key="tong"><b className="font-semibold text-bo-foreground">{tongChu}</b> (thiếu giá {soVN(tomTat.thieu)} dòng)</span>
-            : "chưa có giá";
+            ? <span key="tong"><b className="font-semibold text-bo-foreground">{tongChu}</b> {t("(thiếu giá {{thieu}} dòng)", { count: tomTat.thieu, thieu: soVN(tomTat.thieu) })}</span>
+            : t("chưa có giá");
 
     const moTaChapNhan = [
-        `Chốt giá ${tongChu}. Email Xác nhận đặt hàng sẽ gửi tới ${tenNcc}.`,
-        soBaoGiaDangCho > 0 ? "Các nhà cung cấp còn lại nhận email kết quả." : "",
+        t("Chốt giá {{tongChu}}. Email Xác nhận đặt hàng sẽ gửi tới {{tenNcc}}.", { tongChu, tenNcc }),
+        soBaoGiaDangCho > 0 ? t("Các nhà cung cấp còn lại nhận email kết quả.") : "",
     ].filter(Boolean).join(" ");
 
     return (
@@ -345,20 +347,20 @@ function ChiTietBaoGia({ id }) {
                         ma={ma}
                         trangThai={{ label: nhanTrangThaiBaoGia(don, getBaoGiaNccStatus(tt).label), quyTrinh: "yeuCauBaoGia" }}
                         dongPhu={[
-                            "Báo giá",
+                            t("Báo giá"),
                             tongPhu,
-                            bang.rong ? null : <b key="sp" className="font-semibold text-bo-foreground">{`${soVN(bang.tong.soSanPham)} sản phẩm, ${soVN(bang.tong.soDong)} biến thể`}</b>,
-                            bang.rong ? null : <span key="sl">tổng số lượng <b className="font-semibold text-bo-foreground">{soVN(bang.tong.soLuong)}</b></span>,
+                            bang.rong ? null : <b key="sp" className="font-semibold text-bo-foreground">{`${t("{{soSanPham}} sản phẩm", { count: bang.tong.soSanPham, soSanPham: soVN(bang.tong.soSanPham) })}, ${t("{{soBienThe}} biến thể", { count: bang.tong.soDong, soBienThe: soVN(bang.tong.soDong) })}`}</b>,
+                            bang.rong ? null : <span key="sl">{t("tổng số lượng")} <b className="font-semibold text-bo-foreground">{soVN(bang.tong.soLuong)}</b></span>,
                         ]}
                         onQuayLai={quayLai}
-                        nhanQuayLai="Về so sánh báo giá"
-                        saoChepMa={{ giaTri: don.soDonMua, nhan: "Sao chép mã báo giá" }}
+                        nhanQuayLai={t("Về so sánh báo giá")}
+                        saoChepMa={{ giaTri: don.soDonMua, nhan: t("Sao chép mã báo giá") }}
                         menu={
                             ycId != null
                                 ? [{
                                     ma: "so-sanh",
-                                    nhan: "Mở so sánh báo giá",
-                                    moTa: "Giá của các nhà cung cấp cùng yêu cầu",
+                                    nhan: t("Mở so sánh báo giá"),
+                                    moTa: t("Giá của các nhà cung cấp cùng yêu cầu"),
                                     icon: BarChart3,
                                     onSelect: () => navigate(`/quotation-requests/${ycId}`),
                                 }]
@@ -367,7 +369,7 @@ function ChiTietBaoGia({ id }) {
                         nutChinh={nutChinh}
                     />
                 }
-                tienTrinh={<TienTrinhChungTu buoc={buoc} nhan="Tiến trình báo giá" />}
+                tienTrinh={<TienTrinhChungTu buoc={buoc} nhan={t("Tiến trình báo giá")} />}
                 thongBao={thongBao.length ? thongBao : null}
                 chinh={<BangBaoGia bang={bang} choGia={laConChoGia(tt)} />}
                 cotPhai={<ThuocTinhBaoGia don={don} lienQuan={lienQuan} />}
@@ -376,24 +378,26 @@ function ChiTietBaoGia({ id }) {
             <HopXacNhanChungTu
                 mo={hop === "chapNhan"}
                 onDoiMo={doiMoHop}
-                tieuDe="Chấp nhận báo giá"
+                tieuDe={t("Chấp nhận báo giá")}
                 moTa={moTaChapNhan}
-                nhanXacNhan="Chấp nhận báo giá"
+                nhanXacNhan={t("Chấp nhận báo giá")}
                 iconXacNhan={Check}
                 dangChay={dangChay}
                 loi={loiHop}
                 onXacNhan={() => thucHien(TRANG_THAI_BAO_GIA.DA_CHOT)}
             >
                 <p className={GHI_CHU_HOP}>
-                    Báo giá trở thành đơn mua hàng, yêu cầu {yeuCau?.soYeuCauMuaHang || "gốc"} chuyển sang {YEU_CAU_NHAP_HANG_STATUS[5].label}.
+                    {yeuCau?.soYeuCauMuaHang
+                        ? t("Báo giá trở thành đơn mua hàng, yêu cầu {{maYeuCau}} chuyển sang {{trangThai}}.", { maYeuCau: yeuCau.soYeuCauMuaHang, trangThai: t(YEU_CAU_NHAP_HANG_STATUS[5].label) })
+                        : t("Báo giá trở thành đơn mua hàng, yêu cầu gốc chuyển sang {{trangThai}}.", { trangThai: t(YEU_CAU_NHAP_HANG_STATUS[5].label) })}
                 </p>
             </HopXacNhanChungTu>
             <HopXacNhanChungTu
                 mo={hop === "tuChoi"}
                 onDoiMo={doiMoHop}
-                tieuDe="Không chấp nhận báo giá"
-                moTa={`Hệ thống gửi email kết quả cho ${tenNcc}. Không hoàn tác được.`}
-                nhanXacNhan="Không chấp nhận"
+                tieuDe={t("Không chấp nhận báo giá")}
+                moTa={t("Hệ thống gửi email kết quả cho {{tenNcc}}. Không hoàn tác được.", { tenNcc })}
+                nhanXacNhan={t("Không chấp nhận")}
                 kieu="nguyHiem"
                 dangChay={dangChay}
                 loi={loiHop}
@@ -401,13 +405,13 @@ function ChiTietBaoGia({ id }) {
             >
                 <div className="grid gap-1.5">
                     <label htmlFor={ID_LY_DO} className={NHAN_O}>
-                        Lý do
+                        {t("Lý do")}
                     </label>
                     <textarea
                         id={ID_LY_DO}
                         value={lyDo}
                         onChange={(suKien) => setLyDo(suKien.target.value.slice(0, LY_DO_KHONG_CHAP_NHAN_TOI_DA))}
-                        placeholder="Ví dụ: Đơn giá cao hơn báo giá khác"
+                        placeholder={t("Ví dụ: Đơn giá cao hơn báo giá khác")}
                         rows={3}
                         maxLength={LY_DO_KHONG_CHAP_NHAN_TOI_DA}
                         aria-describedby={`${ID_LY_DO}-goi-y`}
@@ -415,7 +419,7 @@ function ChiTietBaoGia({ id }) {
                         className={O_NHAP_NHIEU_DONG}
                     />
                     <p id={`${ID_LY_DO}-goi-y`} className={GOI_Y_O}>
-                        <span>Không bắt buộc. Nhà cung cấp thấy lý do này trong email.</span>
+                        <span>{t("Không bắt buộc. Nhà cung cấp thấy lý do này trong email.")}</span>
                         <span>{lyDo.length}/{LY_DO_KHONG_CHAP_NHAN_TOI_DA}</span>
                     </p>
                 </div>

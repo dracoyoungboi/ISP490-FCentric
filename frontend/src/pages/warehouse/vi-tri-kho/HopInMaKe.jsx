@@ -15,6 +15,7 @@ import {
 import DongThongBao from "@/components/nhap-kho/DongThongBao";
 import { Truong } from "./KhungHop";
 import { NUT_CHINH, NUT_PHU, O_NHAP, dinhDangSo, soSanhViTri } from "./kieuNhap";
+import { t } from "@/i18n";
 
 // Tem kệ khổ A4, ba cột 60 mm; chỉ áp cho tài liệu in tem, không đổi CSS in phiếu của hệ thống.
 const KIEU_TRANG_IN = `
@@ -65,12 +66,12 @@ function NoiDung({ khuVucs, viTris, khuMacDinh, dsChon, onDong }) {
   };
   const inTem = useReactToPrint({
     contentRef: toRef,
-    documentTitle: "FCentric - Tem vị trí kệ",
+    documentTitle: "FCentric - Tem vị trí kệ", // i18n-giu-nguyen: tên tài liệu in (chứng từ in)
     pageStyle: KIEU_TRANG_IN,
     onAfterPrint: xong,
     onPrintError: () => {
       xong();
-      toast.error("Không mở được bản in. Vui lòng thử lại.");
+      toast.error(t("Không mở được bản in. Vui lòng thử lại."));
     },
   });
   const batDauIn = () => {
@@ -81,27 +82,27 @@ function NoiDung({ khuVucs, viTris, khuMacDinh, dsChon, onDong }) {
       inTem();
     } catch {
       xong();
-      toast.error("Không mở được bản in. Vui lòng thử lại.");
+      toast.error(t("Không mở được bản in. Vui lòng thử lại."));
     }
   };
 
   return (
     <DialogContent showCloseButton={!dangIn} className="flex max-h-[90dvh] flex-col gap-0 overflow-hidden rounded-xl border-bo-border p-0 sm:max-w-[900px]">
       <DialogHeader className="shrink-0 border-b border-bo-border px-6 py-4 text-left">
-        <DialogTitle className="text-base text-bo-foreground">In tem vị trí kệ</DialogTitle>
+        <DialogTitle className="text-base text-bo-foreground">{t("In tem vị trí kệ")}</DialogTitle>
         <DialogDescription className="text-[13px] text-bo-muted">
-          Dán tem lên đúng ô kệ. Khi khóa lô, nhân viên quét tem để chọn vị trí.
+          {t("Dán tem lên đúng ô kệ. Khi khóa lô, nhân viên quét tem để chọn vị trí.")}
         </DialogDescription>
       </DialogHeader>
 
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-5">
         <div className="flex flex-wrap items-end justify-between gap-3">
           {dsChon?.length ? (
-            <p className="text-sm font-medium text-bo-foreground">In tem cho {dinhDangSo(dsChon.length)} vị trí đã chọn</p>
+            <p className="text-sm font-medium text-bo-foreground">{t("In tem cho {{soViTri}} vị trí đã chọn", { count: dsChon.length, soViTri: dinhDangSo(dsChon.length) })}</p>
           ) : (
-            <Truong nhan="In cho" htmlFor="in-pham-vi" className="w-full sm:w-80">
+            <Truong nhan={t("In cho")} htmlFor="in-pham-vi" className="w-full sm:w-80">
               <select id="in-pham-vi" value={pham} onChange={(e) => setPham(e.target.value)} className={O_NHAP}>
-                <option value="tat-ca">Tất cả khu vực</option>
+                <option value="tat-ca">{t("Tất cả khu vực")}</option>
                 {khuVucs.map((k) => (
                   <option key={k.id} value={k.id}>
                     {k.tenKhuVuc} · {k.maKhuVuc}
@@ -110,11 +111,11 @@ function NoiDung({ khuVucs, viTris, khuMacDinh, dsChon, onDong }) {
               </select>
             </Truong>
           )}
-          <span className="pb-2 text-[13px] text-bo-muted">{dinhDangSo(ds.length)} tem · khổ A4, 3 tem mỗi hàng</span>
+          <span className="pb-2 text-[13px] text-bo-muted">{t("{{soTem}} tem · khổ A4, 3 tem mỗi hàng", { count: ds.length, soTem: dinhDangSo(ds.length) })}</span>
         </div>
 
         {soLoi ? (
-          <DongThongBao tone="warn">{soLoi} vị trí có mã chứa ký tự không in được thành mã vạch. Sửa mã trước khi in.</DongThongBao>
+          <DongThongBao tone="warn">{t("{{soLoi}} vị trí có mã chứa ký tự không in được thành mã vạch. Sửa mã trước khi in.", { count: soLoi, soLoi })}</DongThongBao>
         ) : null}
 
         <div className="rounded-lg bg-bo-surface-subtle p-3 sm:p-4">
@@ -124,7 +125,7 @@ function NoiDung({ khuVucs, viTris, khuMacDinh, dsChon, onDong }) {
                 <article key={v.id} className="tem-ke rounded-md border border-bo-border bg-white p-3 text-black">
                   <p className="text-center font-mono text-lg font-bold leading-6">{v.maViTri}</p>
                   {maInDuoc(v.maViTri) ? (
-                    <div className="mt-1.5 flex justify-center" role="img" aria-label={`Mã vạch ${v.maViTri}`}>
+                    <div className="mt-1.5 flex justify-center" role="img" aria-label={t("Mã vạch {{maViTri}}", { maViTri: v.maViTri })}>
                       <Barcode
                         value={String(v.maViTri)}
                         format="CODE128"
@@ -139,27 +140,28 @@ function NoiDung({ khuVucs, viTris, khuMacDinh, dsChon, onDong }) {
                       />
                     </div>
                   ) : (
-                    <p className="my-3 text-center text-sm text-bo-danger">Không in được mã vạch</p>
+                    <p className="my-3 text-center text-sm text-bo-danger">{t("Không in được mã vạch")}</p>
                   )}
                   <p className="mt-1.5 truncate text-center text-[11px] leading-4 text-slate-600">
+                    {/* i18n-giu-nguyen: chữ in trên tem dán kệ */}
                     {tenKhu.get(v.khuVucId) ?? "—"} · Dãy {v.day} · Hàng {v.hang} · Tầng {v.tang}
                   </p>
                 </article>
               ))}
             </div>
           ) : (
-            <p className="py-10 text-center text-sm text-bo-muted">Khu này chưa có vị trí kệ để in.</p>
+            <p className="py-10 text-center text-sm text-bo-muted">{t("Khu này chưa có vị trí kệ để in.")}</p>
           )}
         </div>
       </div>
 
       <DialogFooter className="shrink-0 border-t border-bo-border bg-bo-surface-subtle px-6 py-3">
         <Button type="button" variant="outline" onClick={onDong} disabled={dangIn} className={NUT_PHU}>
-          Đóng
+          {t("Đóng")}
         </Button>
         <Button type="button" onClick={batDauIn} disabled={!ds.length || Boolean(soLoi) || dangIn} className={`gap-1.5 ${NUT_CHINH}`}>
           {dangIn ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Printer className="size-4" aria-hidden="true" />}
-          {dangIn ? "Đang mở bản in…" : `In ${dinhDangSo(ds.length)} tem`}
+          {dangIn ? t("Đang mở bản in…") : t("In {{soTem}} tem", { count: ds.length, soTem: dinhDangSo(ds.length) })}
         </Button>
       </DialogFooter>
     </DialogContent>

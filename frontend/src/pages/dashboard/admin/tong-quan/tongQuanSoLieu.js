@@ -1,11 +1,12 @@
+import { t } from "../../../../i18n/t.js";
 // Số liệu dùng chung cho dải chỉ số đầu trang và biểu đồ theo ngày của màn Tổng quan (bản Kiểu 3).
 
 /** 4 chỉ số của kỳ xem; ô đang chọn quyết định biểu đồ bên dưới vẽ chỉ số nào. */
 export const CHI_SO = [
-  { key: "doanhThu", ten: "Doanh thu", tien: true, theoNgay: "Doanh thu theo ngày", theoThang: "Doanh thu theo tháng" },
-  { key: "loiNhuan", ten: "Lợi nhuận gộp", tien: true, theoNgay: "Lợi nhuận gộp theo ngày", theoThang: "Lợi nhuận gộp theo tháng" },
-  { key: "soDon", ten: "Đơn đã giao", tien: false, theoNgay: "Đơn đã giao theo ngày", theoThang: "Đơn đã giao theo tháng" },
-  { key: "tbDon", ten: "Giá trị đơn trung bình", tien: true, theoNgay: "Giá trị đơn trung bình theo ngày", theoThang: "Giá trị đơn trung bình theo tháng" },
+  { key: "doanhThu", ten: t("Doanh thu"), tien: true, theoNgay: t("Doanh thu theo ngày"), theoThang: t("Doanh thu theo tháng") },
+  { key: "loiNhuan", ten: t("Lợi nhuận gộp"), tien: true, theoNgay: t("Lợi nhuận gộp theo ngày"), theoThang: t("Lợi nhuận gộp theo tháng") },
+  { key: "soDon", ten: t("Đơn đã giao"), tien: false, theoNgay: t("Đơn đã giao theo ngày"), theoThang: t("Đơn đã giao theo tháng") },
+  { key: "tbDon", ten: t("Giá trị đơn trung bình"), tien: true, theoNgay: t("Giá trị đơn trung bình theo ngày"), theoThang: t("Giá trị đơn trung bình theo tháng") },
 ];
 
 export const CHI_SO_MAC_DINH = "doanhThu";
@@ -66,6 +67,6 @@ export function vachTruc(min, max, laSoNguyen) {
   const day = Math.floor(thap / buoc) * buoc;
   const dinh = Math.max(buoc, Math.ceil(cao / buoc) * buoc);
   const ticks = [];
-  for (let t = day; t <= dinh + buoc / 1e6; t += buoc) ticks.push(Number(t.toPrecision(12)));
+  for (let tt = day; tt <= dinh + buoc / 1e6; tt += buoc) ticks.push(Number(tt.toPrecision(12)));
   return { ticks, day, dinh };
 }

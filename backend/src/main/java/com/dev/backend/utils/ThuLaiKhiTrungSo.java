@@ -1,6 +1,7 @@
 package com.dev.backend.utils;
 
 import com.dev.backend.exception.customize.CommonException;
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.services.impl.multitable.NhatHangServiceImpl;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -34,7 +35,7 @@ public final class ThuLaiKhiTrungSo {
         }
     };
 
-    static final String LOI_HET_LAN = "Nhiều người vừa thao tác cùng lúc nên số chứng từ bị trùng. Vui lòng bấm lại.";
+    static final String LOI_HET_LAN = ThongDiep.vi("heThong.soChungTuTrung");
 
     /** Khóa duy nhất của cột số chứng từ (tên khóa trong câu lỗi MySQL "Duplicate entry … for key 'bảng.khóa'"). */
     static final Set<String> KHOA_SO_CHUNG_TU = Set.of(
@@ -58,7 +59,7 @@ public final class ThuLaiKhiTrungSo {
                 if (!laTrungSoChungTu(ex)) throw ex;
                 if (lan >= SO_LAN) {
                     log.warn("Số chứng từ vẫn trùng sau {} lần thử: {}", lan, ex.getMessage());
-                    throw new CommonException(HttpStatus.CONFLICT, LOI_HET_LAN);
+                    throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("heThong.soChungTuTrung"));
                 }
                 log.info("Số chứng từ bị trùng do chạy đồng thời, thử lại lần {}", lan + 1);
                 cho.accept(ThreadLocalRandom.current().nextLong(20, 80) * lan);

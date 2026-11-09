@@ -2,6 +2,7 @@ import { createElement, useRef } from "react";
 import { Ellipsis } from "lucide-react";
 import SheetDay from "@/components/shared/SheetDay";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 /**
  * Nút ⋯ 44px của thẻ (điện thoại) / dòng bảng (máy tính bảng dọc, cảm ứng): thay cho các nút thao tác 32px chỉ có icon.
@@ -11,7 +12,7 @@ export function NutThaoTac({ nhan, onClick, vien = false, className }) {
   return (
     <button
       type="button"
-      aria-label={`Thao tác cho ${nhan}`}
+      aria-label={t("Thao tác cho {{nhan}}", { nhan })}
       onClick={(event) => {
         // Dòng bảng có onClick riêng (mở sửa): bấm ⋯ không bấm theo cả dòng
         event.stopPropagation();
@@ -56,15 +57,15 @@ export default function SheetThaoTac({ mo, onDoiMo, tieuDe, moTa, thaoTac }) {
       onCloseAutoFocus={(event) => { if (daChon.current) event.preventDefault(); }}
     >
       <div className="-mx-1 flex flex-col">
-        {thaoTac.map((t) => (
+        {thaoTac.map((tt) => (
           <button
-            key={t.khoa}
+            key={tt.khoa}
             type="button"
-            onClick={chon(t.onChon)}
+            onClick={chon(tt.onChon)}
             className="flex min-h-[52px] w-full items-center gap-3 rounded-md px-1 text-left text-[15px] font-medium hover:bg-bo-surface-subtle focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-bo-primary"
           >
-            {createElement(t.icon, { className: cn("size-[18px] shrink-0", t.nguyHiem ? "text-bo-danger" : "text-slate-500"), "aria-hidden": true })}
-            <span className={t.nguyHiem ? "text-bo-danger" : "text-bo-foreground"}>{t.nhan}</span>
+            {createElement(tt.icon, { className: cn("size-[18px] shrink-0", tt.nguyHiem ? "text-bo-danger" : "text-slate-500"), "aria-hidden": true })}
+            <span className={tt.nguyHiem ? "text-bo-danger" : "text-bo-foreground"}>{tt.nhan}</span>
           </button>
         ))}
       </div>

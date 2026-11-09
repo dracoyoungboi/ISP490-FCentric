@@ -1,5 +1,8 @@
 package com.dev.backend.services.impl.ketoan;
 
+import com.dev.backend.i18n.LoiThamSoException;
+import com.dev.backend.i18n.LoiTrangThaiException;
+import com.dev.backend.i18n.ThongDiep;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -42,7 +45,7 @@ public final class HoSoAmis {
         public int viTri(String ten) {
             Integer v = viTriTheoTenGon.get(tenGon(ten));
             if (v == null) {
-                throw new IllegalArgumentException("Mẫu " + khoa + " không có cột \"" + ten + "\"");
+                throw new LoiThamSoException(ThongDiep.of("keToanDuLieuVao.mauKhongCoCot", khoa, ten));
             }
             return v;
         }
@@ -55,7 +58,7 @@ public final class HoSoAmis {
     public static Mau mau(String khoa) {
         Mau m = MAU.get(khoa);
         if (m == null) {
-            throw new IllegalArgumentException("Không có mẫu " + khoa);
+            throw new LoiThamSoException(ThongDiep.of("keToanDuLieuVao.khongCoMau", khoa));
         }
         return m;
     }
@@ -73,7 +76,7 @@ public final class HoSoAmis {
     private static Map<String, Mau> docTaiNguyen() {
         try (InputStream in = HoSoAmis.class.getResourceAsStream(TAI_NGUYEN)) {
             if (in == null) {
-                throw new IllegalStateException("Thiếu tài nguyên " + TAI_NGUYEN);
+                throw new LoiTrangThaiException(ThongDiep.of("keToanDuLieuVao.thieuTaiNguyen", TAI_NGUYEN));
             }
             JsonNode goc = new ObjectMapper().readTree(in).path("mau");
             Map<String, Mau> kq = new LinkedHashMap<>();
@@ -99,7 +102,7 @@ public final class HoSoAmis {
             }
             return Collections.unmodifiableMap(kq);
         } catch (IOException e) {
-            throw new UncheckedIOException("Không đọc được " + TAI_NGUYEN, e);
+            throw new UncheckedIOException(ThongDiep.vi("keToanDuLieuVao.khongDocDuoc", TAI_NGUYEN), e);
         }
     }
 }

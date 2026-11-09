@@ -4,6 +4,7 @@ import { Card } from "@/pages/dashboard/admin/tong-quan-moi/ui";
 import { cn } from "@/lib/utils";
 import { formatCurrency, formatCurrencyCompact, formatNumber, formatPercent } from "@/utils/formatters";
 import { dongKenh, dongNhanVien } from "./tinhBaoCaoDoanhThu";
+import { t } from "@/i18n";
 
 /*
  * Hai thẻ dưới biểu đồ của Báo cáo doanh thu (FO-090, phương án A chốt 05/11/2026): Theo kênh bán, Theo nhân viên.
@@ -26,12 +27,12 @@ function Thanh({ tyLe, xam = false, tyTrong }) {
 }
 
 function TangGiam({ tyLe }) {
-  if (tyLe == null) return <span className="text-xs text-bo-muted">Chưa có cùng kỳ</span>;
+  if (tyLe == null) return <span className="text-xs text-bo-muted">{t("Chưa có cùng kỳ")}</span>;
   const tang = tyLe >= 0;
   return (
     <span className={cn("text-xs font-medium tabular-nums", tang ? "text-bo-success" : "text-bo-danger")}>
       <span aria-hidden="true">{tang ? "▲" : "▼"}</span>
-      <span className="sr-only">{tang ? "Tăng" : "Giảm"}</span> {formatPercent(Math.abs(tyLe))}
+      <span className="sr-only">{tang ? t("Tăng") : t("Giảm")}</span> {formatPercent(Math.abs(tyLe))}
     </span>
   );
 }
@@ -40,7 +41,7 @@ function TangGiam({ tyLe }) {
 function ChanThe({ nhan, soDon, doanhThu }) {
   return (
     <div className={cn("mt-auto flex items-center justify-between gap-3 rounded-b-lg border-t border-[#eef1f5] bg-bo-surface-subtle py-3 text-[13px]", LE)}>
-      <span className="text-bo-muted">{nhan} · {formatNumber(soDon)} đơn</span>
+      <span className="text-bo-muted">{nhan} · {formatNumber(soDon)} {t("đơn")}</span>
       <b className="font-semibold tabular-nums text-bo-foreground">{formatCurrency(doanhThu)}</b>
     </div>
   );
@@ -55,21 +56,21 @@ export function TheTheoKenh({ data, loading, loi, onTaiLai, className }) {
       className={className}
       empty={!loading && !loi && Boolean(data) && dong.length === 0}
       emptyIcon={Waypoints}
-      emptyText="Chưa có đơn đã giao trong kỳ này."
+      emptyText={t("Chưa có đơn đã giao trong kỳ này.")}
       error={Boolean(loi)}
       loading={loading && !data}
       onRetry={onTaiLai}
-      right={dong.length ? <span className="text-[13px] text-bo-muted">{coDon.length} kênh có đơn</span> : null}
-      title="Theo kênh bán"
+      right={dong.length ? <span className="text-[13px] text-bo-muted">{coDon.length} {t("kênh có đơn")}</span> : null}
+      title={t("Theo kênh bán")}
     >
       <ul className={cn("m-0 list-none py-1", LE)}>
         {dong.map((d) => {
           const Icon = BIEU_TUONG[d.loai];
           const phu = [
-            `${formatNumber(d.soDon)} đơn`,
-            d.soDonHoan ? `${formatNumber(d.soDonHoan)} bị hoàn` : null,
+            t("{{soDon}} đơn", { soDon: formatNumber(d.soDon), count: d.soDon }),
+            d.soDonHoan ? t("{{soDonHoan}} bị hoàn", { soDonHoan: formatNumber(d.soDonHoan) }) : null,
             d.tb != null ? `TB ${formatCurrency(d.tb)}` : null,
-            d.loiNhuan != null ? `lãi gộp ${formatCurrencyCompact(d.loiNhuan)}` : null,
+            d.loiNhuan != null ? t("lãi gộp {{loiNhuan}}", { loiNhuan: formatCurrencyCompact(d.loiNhuan) }) : null,
           ].filter(Boolean).join(" · ");
           return (
             <li key={d.ma} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5 border-b border-[#eef1f5] py-3 last:border-b-0">
@@ -89,7 +90,7 @@ export function TheTheoKenh({ data, loading, loi, onTaiLai, className }) {
           );
         })}
       </ul>
-      <ChanThe doanhThu={tong.doanhThu} nhan="Cả kỳ" soDon={tong.soDon} />
+      <ChanThe doanhThu={tong.doanhThu} nhan={t("Cả kỳ")} soDon={tong.soDon} />
     </Card>
   );
 }
@@ -103,12 +104,12 @@ export function TheTheoNhanVien({ data, loading, loi, onTaiLai, className }) {
       className={className}
       empty={!loading && !loi && Boolean(data) && dong.length === 0}
       emptyIcon={UsersRound}
-      emptyText="Chưa có đơn đã giao trong kỳ này."
+      emptyText={t("Chưa có đơn đã giao trong kỳ này.")}
       error={Boolean(loi)}
       loading={loading && !data}
       onRetry={onTaiLai}
-      right={dong.length ? <span className="text-[13px] text-bo-muted">Người lập đơn</span> : null}
-      title="Theo nhân viên"
+      right={dong.length ? <span className="text-[13px] text-bo-muted">{t("Người lập đơn")}</span> : null}
+      title={t("Theo nhân viên")}
     >
       <ul className={cn("m-0 list-none py-1", LE)}>
         {dong.map((d, i) => {
@@ -116,11 +117,11 @@ export function TheTheoNhanVien({ data, loading, loi, onTaiLai, className }) {
           // Dòng nhân viên cuối (ngay trên đơn không rõ người lập / đơn sàn): vạch dưới đứt nét để tách nhóm
           const cuoiNhom = laNguoi && i < dong.length - 1 && dong[i + 1].loai !== "NHAN_VIEN";
           const phu = d.loai === "DON_SAN"
-            ? `${formatNumber(d.soDon)} đơn · không gắn nhân viên`
+            ? t("{{soDon}} đơn · không gắn nhân viên", { soDon: formatNumber(d.soDon), count: d.soDon })
             : [
-              `${formatNumber(d.soDon)} đơn`,
+              t("{{soDon}} đơn", { soDon: formatNumber(d.soDon), count: d.soDon }),
               d.tb != null ? `TB ${formatCurrency(d.tb)}` : null,
-              d.loiNhuan != null ? `lãi gộp ${formatCurrencyCompact(d.loiNhuan)}` : null,
+              d.loiNhuan != null ? t("lãi gộp {{loiNhuan}}", { loiNhuan: formatCurrencyCompact(d.loiNhuan) }) : null,
             ].filter(Boolean).join(" · ");
           return (
             <li
@@ -141,7 +142,7 @@ export function TheTheoNhanVien({ data, loading, loi, onTaiLai, className }) {
               <span className="flex min-w-0 flex-col">
                 <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-bo-foreground">
                   <span className="truncate">{d.ten}</span>
-                  {d.laToi ? <span className="shrink-0 text-[11px] font-semibold text-bo-primary">Bạn</span> : null}
+                  {d.laToi ? <span className="shrink-0 text-[11px] font-semibold text-bo-primary">{t("Bạn")}</span> : null}
                 </span>
                 <span className="truncate text-xs text-bo-muted" title={phu}>{phu}</span>
               </span>
@@ -154,8 +155,8 @@ export function TheTheoNhanVien({ data, loading, loi, onTaiLai, className }) {
           );
         })}
       </ul>
-      {coSan ? <p className={cn("m-0 -mt-1 pb-3 text-xs text-bo-muted", LE)}>Đơn sàn tự đồng bộ về hệ thống nên không có người lập.</p> : null}
-      <ChanThe doanhThu={tong.doanhThu} nhan="Cả kỳ" soDon={tong.soDon} />
+      {coSan ? <p className={cn("m-0 -mt-1 pb-3 text-xs text-bo-muted", LE)}>{t("Đơn sàn tự đồng bộ về hệ thống nên không có người lập.")}</p> : null}
+      <ChanThe doanhThu={tong.doanhThu} nhan={t("Cả kỳ")} soDon={tong.soDon} />
     </Card>
   );
 }

@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import com.dev.backend.i18n.ThongDiep;
 
 /**
  * Báo cáo nhập xuất (màn /reports/stock-movements). Tham số chung:
@@ -49,7 +50,7 @@ public class NhatKyNhapXuatController {
         return ResponseEntity.ok(
                 ResponseData.<NhapXuatTongHopDTO>builder()
                         .status(HttpStatus.OK.value())
-                        .message("Lấy báo cáo nhập xuất thành công")
+                        .message(ThongDiep.dich("chungTuKho.layBaoCaoNhapXuatThanhCong"))
                         .data(data)
                         .build()
         );
@@ -81,7 +82,7 @@ public class NhatKyNhapXuatController {
         try {
             return LocalDate.parse(s);
         } catch (DateTimeParseException e) {
-            throw new CommonException("Ngày không hợp lệ: " + s);
+            throw new CommonException(ThongDiep.of("chungTuKho.ngayKhongHopLe", s));
         }
     }
 }

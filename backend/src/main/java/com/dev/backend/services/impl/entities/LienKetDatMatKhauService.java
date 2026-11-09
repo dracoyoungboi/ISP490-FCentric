@@ -3,6 +3,8 @@ package com.dev.backend.services.impl.entities;
 import com.dev.backend.entities.LienKetDatMatKhau;
 import com.dev.backend.exception.customize.LoiCoMaException;
 import com.dev.backend.exception.customize.MaLoi;
+import com.dev.backend.i18n.LoiTrangThaiException;
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.repository.LienKetDatMatKhauRepository;
 import com.dev.backend.services.email.DinhDangEmail;
 import org.springframework.http.HttpStatus;
@@ -16,6 +18,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.regex.Pattern;
@@ -40,13 +43,13 @@ public class LienKetDatMatKhauService {
     static final int SO_BYTE_MA = 32;
     // base64url không đệm; giới hạn độ dài để không băm chuỗi dài bất thường
     private static final Pattern DANG_MA = Pattern.compile("^[A-Za-z0-9_-]{20,100}$");
+    private static final DateTimeFormatter GIO = DateTimeFormatter.ofPattern("HH:mm").withZone(DinhDangEmail.MUI_GIO);
+    private static final DateTimeFormatter NGAY =
+            DateTimeFormatter.ofPattern("dd/MM/yyyy").withZone(DinhDangEmail.MUI_GIO);
 
-    static final String LOI_KHONG_HOP_LE = "Liên kết đặt mật khẩu không đúng. Mở lại liên kết trong email mới nhất, "
-            + "hoặc dùng Quên mật khẩu ở trang đăng nhập.";
-    static final String LOI_DA_DUNG = "Liên kết này đã được dùng để đặt mật khẩu. Đăng nhập bằng mật khẩu bạn đã đặt, "
-            + "hoặc dùng Quên mật khẩu ở trang đăng nhập.";
-    static final String LOI_DA_THAY = "Liên kết này đã hết hiệu lực vì có liên kết mới hơn hoặc mật khẩu vừa được đổi. "
-            + "Mở email đặt mật khẩu mới nhất, hoặc dùng Quên mật khẩu ở trang đăng nhập.";
+    static final String LOI_KHONG_HOP_LE = ThongDiep.vi("heThong.lienKetKhongHopLe");
+    static final String LOI_DA_DUNG = ThongDiep.vi("heThong.lienKetDaDung");
+    static final String LOI_DA_THAY = ThongDiep.vi("heThong.lienKetDaThay");
 
     private final LienKetDatMatKhauRepository repository;
     private final SecureRandom random = new SecureRandom();
@@ -88,7 +91,7 @@ public class LienKetDatMatKhauService {
      */
     public LienKetDatMatKhau timConHieuLuc(String ma, Instant luc) {
         LienKetDatMatKhau lk = repository.findByMaBam(bamNeuDungDang(ma))
-                .orElseThrow(() -> loi(MaLoi.LIEN_KET_KHONG_HOP_LE, LOI_KHONG_HOP_LE));
+                .orElseThrow(() -> loi(MaLoi.LIEN_KET_KHONG_HOP_LE, ThongDiep.of("heThong.lienKetKhongHopLe")));
         kiemConHieuLuc(lk, luc);
         return lk;
     }
@@ -100,28 +103,29 @@ public class LienKetDatMatKhauService {
     @Transactional(propagation = Propagation.MANDATORY)
     public LienKetDatMatKhau khoaDeDung(String ma, Instant luc) {
         LienKetDatMatKhau lk = repository.khoaTheoMaBam(bamNeuDungDang(ma))
-                .orElseThrow(() -> loi(MaLoi.LIEN_KET_KHONG_HOP_LE, LOI_KHONG_HOP_LE));
+                .orElseThrow(() -> loi(MaLoi.LIEN_KET_KHONG_HOP_LE, ThongDiep.of("heThong.lienKetKhongHopLe")));
         kiemConHieuLuc(lk, luc);
         return lk;
     }
 
     private static String bamNeuDungDang(String ma) {
         if (ma == null || !DANG_MA.matcher(ma).matches()) {
-            throw loi(MaLoi.LIEN_KET_KHONG_HOP_LE, LOI_KHONG_HOP_LE);
+            throw loi(MaLoi.LIEN_KET_KHONG_HOP_LE, ThongDiep.of("heThong.lienKetKhongHopLe"));
         }
         return bam(ma);
     }
 
     static void kiemConHieuLuc(LienKetDatMatKhau lk, Instant luc) {
         if (lk.getDaDungLuc() != null) {
-            throw loi(MaLoi.LIEN_KET_DA_DUNG, LOI_DA_DUNG);
+            throw loi(MaLoi.LIEN_KET_DA_DUNG, ThongDiep.of("heThong.lienKetDaDung"));
         }
         if (lk.getHuyLuc() != null) {
-            throw loi(MaLoi.LIEN_KET_DA_THAY, LOI_DA_THAY);
+            throw loi(MaLoi.LIEN_KET_DA_THAY, ThongDiep.of("heThong.lienKetDaThay"));
         }
         if (!lk.getHetHanLuc().isAfter(luc)) {
-            throw loi(MaLoi.LIEN_KET_HET_HAN, "Liên kết đã hết hạn lúc " + DinhDangEmail.gioNgay(lk.getHetHanLuc())
-                    + ". Dùng Quên mật khẩu ở trang đăng nhập, hoặc nhờ quản trị viên gửi lại liên kết.");
+            // Giờ và ngày tách hai tham số (bản tiếng Anh không có chữ "ngày"); tiếng Việt vẫn như DinhDangEmail.gioNgay
+            throw loi(MaLoi.LIEN_KET_HET_HAN, ThongDiep.of("heThong.lienKetHetHan",
+                    GIO.format(lk.getHetHanLuc()), NGAY.format(lk.getHetHanLuc())));
         }
     }
 
@@ -136,11 +140,11 @@ public class LienKetDatMatKhauService {
             byte[] d = MessageDigest.getInstance("SHA-256").digest(ma.getBytes(StandardCharsets.US_ASCII));
             return HexFormat.of().formatHex(d);
         } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("JVM thiếu SHA-256", e);
+            throw new LoiTrangThaiException(ThongDiep.of("heThong.jvmThieuSha256"), e);
         }
     }
 
-    private static LoiCoMaException loi(String ma, String thongDiep) {
+    private static LoiCoMaException loi(String ma, ThongDiep thongDiep) {
         return new LoiCoMaException(HttpStatus.BAD_REQUEST, ma, thongDiep);
     }
 }

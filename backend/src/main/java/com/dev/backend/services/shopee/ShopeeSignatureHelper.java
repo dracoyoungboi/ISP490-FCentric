@@ -1,5 +1,8 @@
 package com.dev.backend.services.shopee;
 
+import com.dev.backend.i18n.LoiChungException;
+import com.dev.backend.i18n.LoiThamSoException;
+import com.dev.backend.i18n.ThongDiep;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.crypto.Mac;
@@ -25,7 +28,7 @@ public class ShopeeSignatureHelper {
      */
     public static String sign(String partnerKey, String baseString) {
         if (partnerKey == null || partnerKey.isBlank() || baseString == null) {
-            throw new IllegalArgumentException("Partner Key và Base String không được để trống khi ký chữ ký Shopee");
+            throw new LoiThamSoException(ThongDiep.of("kenhBan.partnerKeyBaseStringTrong"));
         }
         try {
             Mac mac = Mac.getInstance(HMAC_SHA256);
@@ -39,7 +42,7 @@ public class ShopeeSignatureHelper {
             return sb.toString();
         } catch (NoSuchAlgorithmException | InvalidKeyException e) {
             log.error("[SHOPEE-SIGN] Lỗi khi tạo chữ ký HMAC-SHA256: {}", e.getMessage());
-            throw new RuntimeException("Không thể tạo chữ ký số Shopee: " + e.getMessage(), e);
+            throw new LoiChungException(ThongDiep.of("kenhBan.khongTheTaoChuKyShopee", e.getMessage()), e);
         }
     }
 

@@ -1,6 +1,7 @@
 package com.dev.backend.dto.request;
 
 import com.dev.backend.exception.customize.CommonException;
+import com.dev.backend.i18n.ThongDiep;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -28,10 +29,10 @@ public class LyDoHuyRequest {
     public static String batBuoc(String lyDo) {
         String t = lyDo == null ? "" : lyDo.trim();
         if (t.isEmpty()) {
-            throw new CommonException("Vui lòng nhập lý do hủy.");
+            throw new CommonException(ThongDiep.of("keToanDuLieuVao.lyDoHuyBatBuoc"));
         }
         if (t.length() > TOI_DA) {
-            throw new CommonException("Lý do hủy tối đa " + TOI_DA + " ký tự.");
+            throw new CommonException(ThongDiep.of("keToanDuLieuVao.lyDoHuyToiDa", TOI_DA));
         }
         return t;
     }

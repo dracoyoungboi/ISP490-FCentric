@@ -1,5 +1,6 @@
 package com.dev.backend.services.impl.multitable;
 
+import com.dev.backend.i18n.CoThongDiep;
 import com.dev.backend.dto.response.BaoCaoKhachHangDTO;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.repository.BaoCaoKhachHangRepository;
@@ -18,6 +19,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.function.Predicate;
+import com.dev.backend.i18n.ThongDiep;
 
 /**
  * Báo cáo khách hàng (màn /reports/customers): khách mới, khách quay lại theo kỳ, phần tổng cả kỳ, danh sách khách mua
@@ -82,7 +84,7 @@ public class BaoCaoKhachHangService {
             case "tat_ca" -> k -> true;
             case "mot_lan" -> k -> !k.muaLai();
             case "mua_lai" -> KhachMua::muaLai;
-            default -> throw new CommonException(HttpStatus.BAD_REQUEST, "Nhóm khách không hợp lệ");
+            default -> throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("khoVanHanh.nhomKhachKhongHopLe"));
         };
         String tim = boDau(q);
         Predicate<KhachMua> theoTim = tim.isEmpty() ? k -> true
@@ -147,6 +149,10 @@ public class BaoCaoKhachHangService {
         try {
             return TinhBaoCaoKhachHang.cacKy(t.loai(), t.tuNgay(), t.denNgay(), t.nam(), t.thang(), t.tuNam(), t.denNam());
         } catch (IllegalArgumentException e) {
+            // Giữ khóa câu (đa ngôn ngữ) nếu lỗi gốc có
+            if (e instanceof CoThongDiep coThongDiep && coThongDiep.getThongDiep() != null) {
+                throw new CommonException(HttpStatus.BAD_REQUEST, coThongDiep.getThongDiep());
+            }
             throw new CommonException(HttpStatus.BAD_REQUEST, e.getMessage());
         }
     }

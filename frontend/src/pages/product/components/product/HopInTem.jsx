@@ -30,6 +30,7 @@ import { temSanPhamService } from "@/services/temSanPhamService";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { ROLES, hasAnyRole } from "@/utils/roles";
 import { formatNumber } from "@/utils/formatters";
+import { t } from "@/i18n";
 
 const NGUONG_MAC_DINH = 200;
 // Máy tính bảng cảm ứng: cột số tem rộng hơn vì nút −/+ 44px và ô số 48px (44 + 48 + 44 + đệm 20 = 156px).
@@ -130,16 +131,16 @@ function NoiDung({ nguon, dongBanDau, maPhieu, onDatGia, onDaMoIn, onDong }) {
   const khungXemTruoc = usePreviewViewportSize();
   const rongXemTruoc = khungXemTruoc.width ? Math.min(280, khungXemTruoc.width - 24) : 280;
   const cacCheDo = [
-    ...(nguon === "phieu" ? [[CHE_DO_SO_TEM.nhap, "Theo SL nhập"]] : []),
-    [CHE_DO_SO_TEM.ton, "Theo tồn"],
-    [CHE_DO_SO_TEM.mot, "1 tem mỗi SKU"],
+    ...(nguon === "phieu" ? [[CHE_DO_SO_TEM.nhap, t("Theo SL nhập")]] : []),
+    [CHE_DO_SO_TEM.ton, t("Theo tồn")],
+    [CHE_DO_SO_TEM.mot, t("1 tem mỗi SKU")],
   ];
   const nguonTxt =
     nguon === "phieu"
-      ? `Từ phiếu nhập ${maPhieu ?? ""} · số tem bằng số lượng thực nhận`
+      ? t("Từ phiếu nhập {{maPhieu}} · số tem bằng số lượng thực nhận", { maPhieu: maPhieu ?? "" })
       : nguon === "doi-gia"
-        ? "Sau khi đổi giá · thay tem giá cũ cho hàng đang tồn"
-        : `${formatNumber(dsDong.length)} SKU đã chọn`;
+        ? t("Sau khi đổi giá · thay tem giá cũ cho hàng đang tồn")
+        : t("{{so}} SKU đã chọn", { count: dsDong.length, so: formatNumber(dsDong.length) });
 
   const doiCheDo = (giaTri) => {
     if (giaTri === cheDo) return;
@@ -158,14 +159,14 @@ function NoiDung({ nguon, dongBanDau, maPhieu, onDatGia, onDaMoIn, onDong }) {
     const nhan = `${d.tenSanPham} · ${nhanBienThe(d)}`;
     const lyDo = lyDoBoQua(d, khoRef.current ?? kho);
     if (lyDo) {
-      setQuetMsg({ ok: false, chu: `${nhan} · ${lyDo}, không in được` });
+      setQuetMsg({ ok: false, chu: t("{{nhan}} · {{lyDo}}, không in được", { nhan, lyDo }) });
       return;
     }
     setXacNhan(false);
     const soMoi = gioiHanSoTem(laDongMoi ? 1 : soTemCuaDong(d, cheDoRef.current, soTemRef.current) + 1);
     soTemRef.current = { ...soTemRef.current, [d.id]: soMoi };
     setSoTemDaSua(soTemRef.current);
-    setQuetMsg({ ok: true, chu: `+1 tem · ${nhan} · nay ${formatNumber(soMoi)} tem` });
+    setQuetMsg({ ok: true, chu: t("+1 tem · {{nhan}} · nay {{so}} tem", { nhan, count: soMoi, so: formatNumber(soMoi) }) });
   };
 
   const xuLyMa = async (ma) => {
@@ -178,7 +179,7 @@ function NoiDung({ nguon, dongBanDau, maPhieu, onDatGia, onDaMoIn, onDong }) {
     try {
       const timThay = await temSanPhamService.traMa(ma);
       if (!timThay) {
-        setQuetMsg({ ok: false, chu: `Không có SKU mang mã ${ma}` });
+        setQuetMsg({ ok: false, chu: t("Không có SKU mang mã {{ma}}", { ma }) });
         return;
       }
       const moi = chuanHoaDongInTem(timThay);
@@ -191,7 +192,7 @@ function NoiDung({ nguon, dongBanDau, maPhieu, onDatGia, onDaMoIn, onDong }) {
       setDsDong((cu) => (cu.some((d) => d.id === moi.id) ? cu : [...cu, moi]));
       themMotTem(moi, true);
     } catch (error) {
-      setQuetMsg({ ok: false, chu: getApiErrorMessage(error, `Không tra được mã ${ma}`) });
+      setQuetMsg({ ok: false, chu: getApiErrorMessage(error, t("Không tra được mã {{ma}}", { ma })) });
     } finally {
       setDangTra(false);
     }
@@ -217,6 +218,7 @@ function NoiDung({ nguon, dongBanDau, maPhieu, onDatGia, onDaMoIn, onDong }) {
   };
   const inTem = useReactToPrint({
     contentRef: toRef,
+    // i18n-giu-nguyen: tiêu đề bản in = tên tệp PDF tải xuống
     documentTitle: nguon === "phieu" && maPhieu ? `Tem sản phẩm - ${maPhieu}` : "Tem sản phẩm",
     pageStyle: getLabelPageCss(kho),
     // Gọi cả khi người dùng bấm Hủy trong hộp thoại in: chỉ ghi nhận, giữ hộp mở để in lại / đóng khi xong
@@ -231,7 +233,7 @@ function NoiDung({ nguon, dongBanDau, maPhieu, onDatGia, onDaMoIn, onDong }) {
     onPrintError: () => {
       xongIn();
       setXacNhan(false);
-      toast.error("Không mở được bản in. Vui lòng thử lại.");
+      toast.error(t("Không mở được bản in. Vui lòng thử lại."));
     },
   });
   // Tờ in vừa dựng xong thì mở hộp thoại in
@@ -239,14 +241,14 @@ function NoiDung({ nguon, dongBanDau, maPhieu, onDatGia, onDaMoIn, onDong }) {
     if (!dangIn) return;
     if (!toRef.current) {
       xongIn();
-      toast.error("Không mở được bản in. Vui lòng thử lại.");
+      toast.error(t("Không mở được bản in. Vui lòng thử lại."));
       return;
     }
     try {
       inTem();
     } catch {
       xongIn();
-      toast.error("Không mở được bản in. Vui lòng thử lại.");
+      toast.error(t("Không mở được bản in. Vui lòng thử lại."));
       return;
     }
     // Thư viện có lúc không gọi lại (khung in không dựng được, stylesheet treo): sau 20 giây thì mở khóa hộp. Lúc hộp
@@ -254,7 +256,7 @@ function NoiDung({ nguon, dongBanDau, maPhieu, onDatGia, onDaMoIn, onDong }) {
     const henGio = window.setTimeout(() => {
       if (!dangInRef.current) return;
       xongIn();
-      toast.error("Không mở được bản in. Vui lòng thử lại.");
+      toast.error(t("Không mở được bản in. Vui lòng thử lại."));
     }, 20000);
     return () => window.clearTimeout(henGio);
     // Chỉ chạy khi bắt đầu một lần in
@@ -267,7 +269,7 @@ function NoiDung({ nguon, dongBanDau, maPhieu, onDatGia, onDaMoIn, onDong }) {
       setXacNhan(true);
       return;
     }
-    if (kieu === "pdf") toast.info("Đang mở hộp thoại in · chọn “Lưu thành PDF”");
+    if (kieu === "pdf") toast.info(t("Đang mở hộp thoại in · chọn “Lưu thành PDF”"));
     dangInRef.current = true;
     setDangIn(kieu);
   };
@@ -293,7 +295,7 @@ function NoiDung({ nguon, dongBanDau, maPhieu, onDatGia, onDaMoIn, onDong }) {
       className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden rounded-xl border-bo-border p-0 sm:max-w-[min(1040px,calc(100%-2rem))]"
     >
       <DialogHeader className="shrink-0 border-b border-bo-border px-5 py-4 pr-12 text-left">
-        <DialogTitle className="text-[17px] text-bo-foreground">In tem sản phẩm</DialogTitle>
+        <DialogTitle className="text-[17px] text-bo-foreground">{t("In tem sản phẩm")}</DialogTitle>
         <DialogDescription className="text-[13px] text-bo-muted">{nguonTxt}</DialogDescription>
       </DialogHeader>
 
@@ -301,7 +303,7 @@ function NoiDung({ nguon, dongBanDau, maPhieu, onDatGia, onDaMoIn, onDong }) {
         {/* Trái: danh sách SKU */}
         <div className="flex min-w-0 flex-[999_1_540px] flex-col gap-2.5">
           <div className="flex flex-wrap items-center gap-2.5">
-            <span id={`${id}-che-do`} className="text-[13px] text-slate-600">Số tem</span>
+            <span id={`${id}-che-do`} className="text-[13px] text-slate-600">{t("Số tem")}</span>
             <div
               role="radiogroup"
               aria-labelledby={`${id}-che-do`}
@@ -337,7 +339,7 @@ function NoiDung({ nguon, dongBanDau, maPhieu, onDatGia, onDaMoIn, onDong }) {
               })}
             </div>
             <label className="relative ml-auto flex w-full items-center sm:w-[230px]">
-              <span className="sr-only">Quét mã để thêm 1 tem</span>
+              <span className="sr-only">{t("Quét mã để thêm 1 tem")}</span>
               <ScanBarcode className="pointer-events-none absolute left-2.5 size-[15px] text-bo-muted" aria-hidden="true" />
               <input
                 ref={quetRef}
@@ -349,7 +351,7 @@ function NoiDung({ nguon, dongBanDau, maPhieu, onDatGia, onDaMoIn, onDong }) {
                     quetMa();
                   }
                 }}
-                placeholder="Quét mã để thêm 1 tem"
+                placeholder={t("Quét mã để thêm 1 tem")}
                 autoComplete="off"
                 className="h-[34px] w-full rounded-md border border-bo-border bg-white pr-2.5 pl-8 text-[13px] text-bo-foreground placeholder:text-bo-muted focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15"
               />
@@ -365,9 +367,9 @@ function NoiDung({ nguon, dongBanDau, maPhieu, onDatGia, onDaMoIn, onDong }) {
             <div className="min-w-[460px] max-md:min-w-0 cam-ung:md:min-w-[528px]">
               <div className={cn(COT, "border-b border-[#eef1f5] bg-bo-surface-subtle text-[11px] font-semibold uppercase tracking-wide text-bo-muted *:px-2.5 *:py-2")}>
                 <div>SKU</div>
-                <div className="text-right max-md:hidden">Giá trên tem</div>
-                <div className="text-right max-md:hidden">{nguon === "phieu" ? "SL nhập" : "Tồn"}</div>
-                <div className="text-right">Số tem</div>
+                <div className="text-right max-md:hidden">{t("Giá trên tem")}</div>
+                <div className="text-right max-md:hidden">{nguon === "phieu" ? t("SL nhập") : t("Tồn")}</div>
+                <div className="text-right">{t("Số tem")}</div>
               </div>
               <div className="max-h-[340px] overflow-y-auto">
                 {dsDong.length ? (
@@ -383,7 +385,7 @@ function NoiDung({ nguon, dongBanDau, maPhieu, onDatGia, onDaMoIn, onDong }) {
                             {[nhanBienThe(d), d.maVachSku].filter(Boolean).join(" · ") || "—"}
                           </p>
                           <p className="mt-px truncate text-xs tabular-nums text-bo-muted md:hidden">
-                            Giá {Number(d.giaBan) > 0 ? formatNumber(d.giaBan) : "—"} · {nguon === "phieu" ? "SL nhập" : "Tồn"} {formatNumber(nguon === "phieu" ? d.soLuong : d.tonKho)}
+                            {t("Giá")} {Number(d.giaBan) > 0 ? formatNumber(d.giaBan) : "—"} · {nguon === "phieu" ? t("SL nhập") : t("Tồn")} {formatNumber(nguon === "phieu" ? d.soLuong : d.tonKho)}
                           </p>
                           {lyDo ? (
                             <p className="mt-[3px] flex flex-wrap items-center gap-1.5 text-xs text-red-700">
@@ -396,7 +398,7 @@ function NoiDung({ nguon, dongBanDau, maPhieu, onDatGia, onDaMoIn, onDong }) {
                                   onClick={() => onDatGia(d)}
                                   className="font-semibold text-bo-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
                                 >
-                                  Đặt giá
+                                  {t("Đặt giá")}
                                 </button>
                               ) : null}
                             </p>
@@ -406,12 +408,12 @@ function NoiDung({ nguon, dongBanDau, maPhieu, onDatGia, onDaMoIn, onDong }) {
                         <div className="text-right tabular-nums text-bo-muted max-md:hidden">{formatNumber(nguon === "phieu" ? d.soLuong : d.tonKho)}</div>
                         <div className="flex justify-end">
                           {lyDo ? (
-                            <span className="text-[12.5px] text-slate-400">Bỏ qua</span>
+                            <span className="text-[12.5px] text-slate-400">{t("Bỏ qua")}</span>
                           ) : (
                             <span className="inline-flex">
                               <button
                                 type="button"
-                                aria-label={`Bớt 1 tem ${nhanSo}`}
+                                aria-label={t("Bớt 1 tem {{nhanSo}}", { nhanSo })}
                                 disabled={!(soTem > 0)}
                                 onClick={() => datSoTem(d, soTem - 1)}
                                 className="inline-flex h-[30px] w-7 items-center justify-center rounded-l-md border border-bo-border bg-white text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
@@ -419,7 +421,7 @@ function NoiDung({ nguon, dongBanDau, maPhieu, onDatGia, onDaMoIn, onDong }) {
                                 <Minus className="size-3" aria-hidden="true" />
                               </button>
                               <label>
-                                <span className="sr-only">Số tem cho {nhanSo}</span>
+                                <span className="sr-only">{t("Số tem cho {{nhanSo}}", { nhanSo })}</span>
                                 <input
                                   inputMode="numeric"
                                   autoComplete="off"
@@ -433,7 +435,7 @@ function NoiDung({ nguon, dongBanDau, maPhieu, onDatGia, onDaMoIn, onDong }) {
                               </label>
                               <button
                                 type="button"
-                                aria-label={`Thêm 1 tem ${nhanSo}`}
+                                aria-label={t("Thêm 1 tem {{nhanSo}}", { nhanSo })}
                                 disabled={soTem >= 9999}
                                 onClick={() => datSoTem(d, soTem + 1)}
                                 className="inline-flex h-[30px] w-7 items-center justify-center rounded-r-md border border-bo-border bg-white text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
@@ -447,7 +449,7 @@ function NoiDung({ nguon, dongBanDau, maPhieu, onDatGia, onDaMoIn, onDong }) {
                     );
                   })
                 ) : (
-                  <p className="px-3 py-8 text-center text-[13px] text-bo-muted">Chưa có SKU nào. Quét mã để thêm tem.</p>
+                  <p className="px-3 py-8 text-center text-[13px] text-bo-muted">{t("Chưa có SKU nào. Quét mã để thêm tem.")}</p>
                 )}
               </div>
             </div>
@@ -457,7 +459,7 @@ function NoiDung({ nguon, dongBanDau, maPhieu, onDatGia, onDaMoIn, onDong }) {
         {/* Phải: mẫu tem + xem trước */}
         <div className="flex min-w-0 flex-[1_1_330px] flex-col gap-2.5">
           <label className="flex flex-col gap-1.5 text-[13px] font-medium text-slate-700">
-            Mẫu tem
+            {t("Mẫu tem")}
             <select
               value={maKho}
               onChange={(event) => {
@@ -468,22 +470,22 @@ function NoiDung({ nguon, dongBanDau, maPhieu, onDatGia, onDaMoIn, onDong }) {
             >
               {Object.values(KHO_TEM).map((k) => (
                 <option key={k.ma} value={k.ma}>
-                  {k.rongTem} × {k.caoTem} mm · {k.soCot} tem/hàng{k.ma === khoCauHinh ? " (đang dùng)" : ""}
+                  {k.rongTem} × {k.caoTem} mm · {k.soCot} {t("tem/hàng")}{k.ma === khoCauHinh ? t(" (đang dùng)") : ""}
                 </option>
               ))}
             </select>
           </label>
           <div className="-mt-0.5 flex justify-between gap-2 text-xs text-bo-muted">
-            <span>Cuộn {kho.rongCuon} mm · CODE128 · giá đã gồm thuế</span>
+            <span>{t("Cuộn {{rongCuon}} mm · CODE128 · giá đã gồm thuế", { rongCuon: kho.rongCuon })}</span>
             {xemCauHinh ? (
               // Màn cảm ứng: liên kết cao 44px (hộp thoại nằm ngoài vùng nội dung chính nên lớp đệm liên kết chung không áp)
               <Link to="/settings/print-templates" className="shrink-0 font-medium text-bo-primary hover:text-bo-primary-hover cam-ung:inline-flex cam-ung:min-h-11 cam-ung:items-center">
-                {suaCauHinh ? "Sửa trong Cấu hình" : "Xem trong Cấu hình"}
+                {suaCauHinh ? t("Sửa trong Cấu hình") : t("Xem trong Cấu hình")}
               </Link>
             ) : null}
           </div>
           {cauHinh.error ? (
-            <p className="text-xs text-amber-700">Không tải được cấu hình tem, đang dùng tem 35 × 22 mm và chưa in tên cửa hàng, SKU.</p>
+            <p className="text-xs text-amber-700">{t("Không tải được cấu hình tem, đang dùng tem 35 × 22 mm và chưa in tên cửa hàng, SKU.")}</p>
           ) : null}
           <div ref={khungXemTruoc.ref} className="flex flex-col items-center gap-2.5 overflow-x-auto rounded-lg bg-bo-canvas px-3 py-[18px]">
             {temDau ? (
@@ -499,14 +501,14 @@ function NoiDung({ nguon, dongBanDau, maPhieu, onDatGia, onDaMoIn, onDong }) {
                 />
               </div>
             ) : (
-              <p className="py-[30px] text-[13px] text-bo-muted">Chưa có tem hợp lệ để xem trước</p>
+              <p className="py-[30px] text-[13px] text-bo-muted">{t("Chưa có tem hợp lệ để xem trước")}</p>
             )}
-            <span className="text-xs text-bo-muted">Xem trước tem đầu tiên (phóng to)</span>
+            <span className="text-xs text-bo-muted">{t("Xem trước tem đầu tiên (phóng to)")}</span>
           </div>
           <div className="flex items-start gap-2 rounded-lg border border-bo-border bg-white px-3 py-2.5 text-[12.5px] text-slate-600">
             <Info className="mt-px size-[15px] shrink-0 text-bo-muted" aria-hidden="true" />
             <span>
-              Trong hộp thoại in, chọn máy in tem, <b>Lề: Không</b> và <b>Tỷ lệ: 100%</b>.
+              {t("Trong hộp thoại in, chọn máy in tem,")} <b>{t("Lề: Không")}</b> {t("và")} <b>{t("Tỷ lệ: 100%")}</b>.
             </span>
           </div>
         </div>
@@ -515,32 +517,32 @@ function NoiDung({ nguon, dongBanDau, maPhieu, onDatGia, onDaMoIn, onDong }) {
       {xacNhan ? (
         <div role="alert" className="flex shrink-0 items-center gap-2 border-t border-orange-200 bg-orange-50 px-5 py-2.5 text-[13px] text-orange-800">
           <TriangleAlert className="size-[15px] shrink-0" aria-hidden="true" />
-          Lần in này có {formatNumber(lan.tong)} tem, vượt ngưỡng {formatNumber(nguong)} tem đặt trong Cấu hình. Bấm lần nữa để xác nhận.
+          {t("Lần in này có {{tong}} tem, vượt ngưỡng {{nguong}} tem đặt trong Cấu hình. Bấm lần nữa để xác nhận.", { count: Number(lan.tong) || 0, tong: formatNumber(lan.tong), nguong: formatNumber(nguong) })}
         </div>
       ) : null}
 
       <DialogFooter className="shrink-0 flex-row flex-wrap items-center gap-2 border-t border-bo-border bg-[#fafbfc] px-5 py-3 sm:justify-end">
         <span className="mr-auto text-sm text-slate-700">
-          Tổng <b className="font-semibold">{formatNumber(lan.tong)} tem</b> · {formatNumber(lan.hang.length)} hàng · {formatNumber(lan.soSku)} SKU
-          {lan.boQua.length ? <span className="text-red-700"> · {formatNumber(lan.boQua.length)} bỏ qua</span> : null}
-          {daIn !== null ? <span className="block text-[12.5px] text-bo-muted">Đã mở hộp thoại in {formatNumber(daIn)} tem · in xong bấm Đóng</span> : null}
+          {t("Tổng")} <b className="font-semibold">{t("{{so}} tem", { count: lan.tong, so: formatNumber(lan.tong) })}</b> · {t("{{so}} hàng", { count: lan.hang.length, so: formatNumber(lan.hang.length) })} · {formatNumber(lan.soSku)} SKU
+          {lan.boQua.length ? <span className="text-red-700"> · {t("{{so}} bỏ qua", { so: formatNumber(lan.boQua.length) })}</span> : null}
+          {daIn !== null ? <span className="block text-[12.5px] text-bo-muted">{t("Đã mở hộp thoại in {{so}} tem · in xong bấm Đóng", { count: daIn, so: formatNumber(daIn) })}</span> : null}
         </span>
         <Button type="button" variant="outline" onClick={onDong} disabled={Boolean(dangIn)} className={NUT_PHU}>
-          {daIn !== null ? "Đóng" : "Hủy"}
+          {daIn !== null ? t("Đóng") : t("Hủy")}
         </Button>
         <Button type="button" variant="outline" onClick={() => batDauIn("pdf")} disabled={!lan.tong || Boolean(dangIn) || !daCoCauHinh} className={NUT_PHU}>
           <Download className="size-4" aria-hidden="true" />
-          Tải PDF
+          {t("Tải PDF")}
         </Button>
         <Button type="button" onClick={() => batDauIn("in")} disabled={!lan.tong || Boolean(dangIn) || !daCoCauHinh} className={NUT_CHINH}>
           {dangIn || !daCoCauHinh ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Printer className="size-4" aria-hidden="true" />}
           {dangIn
-            ? "Đang mở bản in…"
+            ? t("Đang mở bản in…")
             : !daCoCauHinh
-              ? "Đang tải cấu hình tem…"
+              ? t("Đang tải cấu hình tem…")
               : xacNhan
-                ? `Xác nhận in ${formatNumber(lan.tong)} tem`
-                : `In ${formatNumber(lan.tong)} tem`}
+                ? t("Xác nhận in {{so}} tem", { count: lan.tong, so: formatNumber(lan.tong) })
+                : t("In {{so}} tem", { count: lan.tong, so: formatNumber(lan.tong) })}
         </Button>
       </DialogFooter>
 

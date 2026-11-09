@@ -50,13 +50,14 @@ import {
   soSanhPhanQuyen,
   tenVaiTro,
 } from "@/components/nguoi-dung/phanQuyen";
+import { t } from "@/i18n";
 
 const NUT_VIEN = "border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle";
 
 /** Kho không phân người được: kho ảo (hàng đang chuyển) và kho ngừng hoạt động. */
 function lyDoKhongChon(kho) {
-  if (laKhoAo(kho)) return "Kho ảo chỉ chứa hàng đang chuyển giữa các kho, không phân người";
-  if (!laKhoHoatDong(kho)) return "Kho đang ngừng hoạt động";
+  if (laKhoAo(kho)) return t("Kho ảo chỉ chứa hàng đang chuyển giữa các kho, không phân người");
+  if (!laKhoHoatDong(kho)) return t("Kho đang ngừng hoạt động");
   return "";
 }
 
@@ -129,23 +130,23 @@ function DongQuyen({ d, doi, coMau, onDoi }) {
         <span className="flex flex-wrap items-center gap-1.5 text-[13px] font-medium leading-5">
           {d.ten}
           {d.nhayCam ? (
-            <span className="inline-flex text-slate-400" title="Quyền nhạy cảm">
-              <Shield className="size-3.5" aria-label="Quyền nhạy cảm" />
+            <span className="inline-flex text-slate-400" title={t("Quyền nhạy cảm")}>
+              <Shield className="size-3.5" aria-label={t("Quyền nhạy cảm")} />
             </span>
           ) : null}
           {coMau && d.trongMau ? (
             <span
               className="inline-flex h-[18px] items-center rounded-[3px] border border-slate-200 px-1 text-[11.5px] font-normal leading-none text-bo-muted"
-              title="Có trong mẫu quyền của vai trò"
+              title={t("Có trong mẫu quyền của vai trò")}
             >
-              mẫu
+              {t("mẫu")}
             </span>
           ) : null}
         </span>
         {d.moTa ? <span className="block text-xs leading-4 text-bo-muted">{d.moTa}</span> : null}
       </span>
       {doi ? (
-        <span className="whitespace-nowrap text-xs font-medium leading-5 text-bo-primary">{d.cap ? "vừa thêm" : "vừa bỏ"}</span>
+        <span className="whitespace-nowrap text-xs font-medium leading-5 text-bo-primary">{d.cap ? t("vừa thêm") : t("vừa bỏ")}</span>
       ) : null}
     </label>
   );
@@ -311,7 +312,7 @@ export default function NganKeoPhanQuyen({
       datLaiKhiDong.current = "luu";
       onDaLuu(moi, { catQuyen });
     } catch (err) {
-      toast.error(getApiErrorMessage(err, "Không lưu được phân quyền. Vui lòng thử lại."));
+      toast.error(getApiErrorMessage(err, t("Không lưu được phân quyền. Vui lòng thử lại.")));
       setHop(null);
     } finally {
       setDangLuu(false);
@@ -349,7 +350,7 @@ export default function NganKeoPhanQuyen({
               className="size-10 shrink-0"
             />
             <div className="min-w-0 flex-1">
-              <SheetTitle className="text-lg font-bold leading-[26px] text-bo-heading">Phân quyền</SheetTitle>
+              <SheetTitle className="text-lg font-bold leading-[26px] text-bo-heading">{t("Phân quyền")}</SheetTitle>
               {/* Họ tên trống thì chỉ tên đăng nhập, không để dấu "·" đứng đầu */}
               <SheetDescription className="truncate text-[13px] text-bo-muted">
                 {[nguoiDung.hoTen?.trim(), nguoiDung.tenDangNhap ? `@${nguoiDung.tenDangNhap}` : null]
@@ -357,15 +358,15 @@ export default function NganKeoPhanQuyen({
                   .join(" · ")}
               </SheetDescription>
             </div>
-            <Button type="button" variant="ghost" size="icon" aria-label="Đóng" onClick={yeuCauDong} className="text-slate-600">
+            <Button type="button" variant="ghost" size="icon" aria-label={t("Đóng")} onClick={yeuCauDong} className="text-slate-600">
               <X className="size-4" aria-hidden="true" />
             </Button>
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto">
             {/* Vai trò */}
-            <Muc tieuDe="Vai trò" moTa="Quyết định menu người dùng thấy">
-              <div role="radiogroup" aria-label="Vai trò" className="grid gap-2 sm:grid-cols-2">
+            <Muc tieuDe={t("Vai trò")} moTa={t("Quyết định menu người dùng thấy")}>
+              <div role="radiogroup" aria-label={t("Vai trò")} className="grid gap-2 sm:grid-cols-2">
                 {VAI_TRO.map((vt) => {
                   const tat = laChinhMinh && vt.ma !== goc.vaiTro;
                   return (
@@ -373,7 +374,7 @@ export default function NganKeoPhanQuyen({
                       key={vt.ma}
                       chon={nhap.vaiTro === vt.ma}
                       tat={tat}
-                      title={tat ? "Bạn không tự đổi vai trò của mình được" : undefined}
+                      title={tat ? t("Bạn không tự đổi vai trò của mình được") : undefined}
                       onChon={() => sua({ vaiTro: vt.ma })}
                     >
                       {({ onChange, disabled, checked }) => (
@@ -387,7 +388,7 @@ export default function NganKeoPhanQuyen({
                             className="size-4 shrink-0 accent-bo-primary"
                           />
                           <span className="min-w-0 flex-1 font-medium">{vt.ten}</span>
-                          <span className="whitespace-nowrap text-xs text-bo-muted">{soMan(vt.ma)} màn hình</span>
+                          <span className="whitespace-nowrap text-xs text-bo-muted">{t("{{count}} màn hình", { count: soMan(vt.ma) })}</span>
                         </>
                       )}
                     </MucChon>
@@ -397,7 +398,7 @@ export default function NganKeoPhanQuyen({
               <p className="mt-2 text-[12.5px] leading-[18px] text-bo-muted">{moTaVaiTro(nhap.vaiTro)}</p>
               {nhap.vaiTro !== goc.vaiTro ? (
                 <p className="mt-1 text-[12.5px] leading-[18px] text-bo-primary">
-                  Menu đổi từ {soMan(goc.vaiTro)} thành {soMan(nhap.vaiTro)} màn hình sau khi lưu.
+                  {t("Menu đổi từ {{tu}} thành {{count}} màn hình sau khi lưu.", { tu: soMan(goc.vaiTro), count: soMan(nhap.vaiTro) })}
                 </p>
               ) : null}
             </Muc>
@@ -405,11 +406,11 @@ export default function NganKeoPhanQuyen({
             {nhap.vaiTro === QUAN_TRI_VIEN ? (
               <section className="border-b border-slate-100 px-5 py-[18px]">
                 <OThongTin>
-                  <div className="font-semibold text-bo-foreground">Quản trị viên có toàn quyền ở mọi kho</div>
+                  <div className="font-semibold text-bo-foreground">{t("Quản trị viên có toàn quyền ở mọi kho")}</div>
                   <div className="text-bo-muted">
                     {goc.khoId != null && canKho(goc.vaiTro)
-                      ? `Không cần nơi làm việc hay quyền tại kho. Khi lưu, phân quyền ${tenKho(goc.khoId)} hiện có (${goc.quyenIds.length} quyền) sẽ được thu hồi.`
-                      : "Không cần nơi làm việc hay quyền tại kho."}
+                      ? t("Không cần nơi làm việc hay quyền tại kho. Khi lưu, phân quyền {{kho}} hiện có ({{count}} quyền) sẽ được thu hồi.", { kho: tenKho(goc.khoId), count: goc.quyenIds.length })
+                      : t("Không cần nơi làm việc hay quyền tại kho.")}
                   </div>
                 </OThongTin>
               </section>
@@ -418,37 +419,37 @@ export default function NganKeoPhanQuyen({
             {dungKho ? (
               <>
                 {/* Nơi làm việc (trước đây "Kho phụ trách"; đổi tên toàn hệ thống 19/10/2026) */}
-                <Muc tieuDe="Nơi làm việc" moTa="Mỗi người tối đa 1 kho">
+                <Muc tieuDe={t("Nơi làm việc")} moTa={t("Mỗi người tối đa 1 kho")}>
                   {khoQ.initialLoading ? (
-                    <div className="grid gap-2 sm:grid-cols-2" role="status" aria-label="Đang tải danh sách kho">
+                    <div className="grid gap-2 sm:grid-cols-2" role="status" aria-label={t("Đang tải danh sách kho")}>
                       {[0, 1, 2, 3].map((i) => (
                         <div key={i} className="h-14 animate-pulse rounded-md bg-slate-100" />
                       ))}
                     </div>
                   ) : khoQ.error && !dsKho.length ? (
                     <div className="flex flex-wrap items-center gap-3 text-[13px] text-bo-muted">
-                      Không tải được danh sách kho.
+                      {t("Không tải được danh sách kho.")}
                       <Button type="button" variant="outline" size="sm" onClick={khoQ.reload} className={NUT_VIEN}>
                         <RefreshCcw className="size-3.5" aria-hidden="true" />
-                        Thử lại
+                        {t("Thử lại")}
                       </Button>
                     </div>
                   ) : !dsKho.length ? (
                     <OThongTin netDut>
-                      <span className="text-bo-muted">Chưa có kho nào. Tạo kho ở màn Kho trước khi phân người.</span>
+                      <span className="text-bo-muted">{t("Chưa có kho nào. Tạo kho ở màn Kho trước khi phân người.")}</span>
                     </OThongTin>
                   ) : (
                     <>
                     {khoQ.error ? (
                       <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-orange-800">
-                        Không tải được danh sách kho, đang hiện nơi làm việc hiện tại.
+                        {t("Không tải được danh sách kho, đang hiện nơi làm việc hiện tại.")}
                         <Button type="button" variant="outline" size="sm" onClick={khoQ.reload} className={NUT_VIEN}>
                           <RefreshCcw className="size-3.5" aria-hidden="true" />
-                          Thử lại
+                          {t("Thử lại")}
                         </Button>
                       </div>
                     ) : null}
-                    <div role="radiogroup" aria-label="Nơi làm việc" className="grid gap-2 sm:grid-cols-2">
+                    <div role="radiogroup" aria-label={t("Nơi làm việc")} className="grid gap-2 sm:grid-cols-2">
                       {dsKho.map((k) => {
                         const lyDo = k.id === goc.khoId ? "" : lyDoKhongChon(k);
                         const loai = nhanLoaiKho(k).label;
@@ -481,7 +482,7 @@ export default function NganKeoPhanQuyen({
                                   </span>
                                 </span>
                                 {k.id === goc.khoId && canKho(goc.vaiTro) ? (
-                                  <span className="whitespace-nowrap text-xs text-bo-muted">Hiện tại</span>
+                                  <span className="whitespace-nowrap text-xs text-bo-muted">{t("Hiện tại")}</span>
                                 ) : null}
                               </>
                             )}
@@ -494,11 +495,11 @@ export default function NganKeoPhanQuyen({
 
                   {coKho ? (
                     <div className="mt-3 flex flex-wrap items-center gap-3">
-                      <span className="text-[13px] font-medium">Hiệu lực</span>
-                      <div role="group" aria-label="Hiệu lực" className="inline-flex rounded-md border border-bo-border bg-bo-surface-subtle p-0.5">
+                      <span className="text-[13px] font-medium">{t("Hiệu lực")}</span>
+                      <div role="group" aria-label={t("Hiệu lực")} className="inline-flex rounded-md border border-bo-border bg-bo-surface-subtle p-0.5">
                         {[
-                          ["vo_han", "Không thời hạn"],
-                          ["den_ngay", "Đến ngày"],
+                          ["vo_han", t("Không thời hạn")],
+                          ["den_ngay", t("Đến ngày")],
                         ].map(([ma, nhan]) => (
                           <button
                             key={ma}
@@ -516,13 +517,13 @@ export default function NganKeoPhanQuyen({
                       </div>
                       {nhap.hieuLuc === "den_ngay" ? (
                         <label className="inline-flex items-center gap-2 text-[13px] text-bo-muted">
-                          hết hạn sau ngày
+                          {t("hết hạn sau ngày")}
                           <input
                             type="date"
                             value={nhap.ngayKetThuc}
                             min={homNay}
                             onChange={(e) => sua({ ngayKetThuc: e.target.value })}
-                            aria-label="Ngày hết hiệu lực"
+                            aria-label={t("Ngày hết hiệu lực")}
                             className="h-8 rounded-md border border-slate-300 bg-bo-surface px-2.5 text-[13px] text-bo-foreground"
                           />
                         </label>
@@ -534,7 +535,7 @@ export default function NganKeoPhanQuyen({
                 {/* Quyền tại kho */}
                 <Muc
                   cuoi
-                  tieuDe={`Quyền tại ${coKho ? tenKho(nhap.khoId) : "kho"}`}
+                  tieuDe={coKho ? t("Quyền tại {{kho}}", { kho: tenKho(nhap.khoId) }) : t("Quyền tại kho")}
                   moTa={
                     <span className="flex items-center gap-1">
                       <Button
@@ -548,7 +549,7 @@ export default function NganKeoPhanQuyen({
                         }}
                         className="h-8 text-slate-600"
                       >
-                        Bỏ chọn
+                        {t("Bỏ chọn")}
                       </Button>
                       <span
                         className="inline-flex"
@@ -556,8 +557,8 @@ export default function NganKeoPhanQuyen({
                           !coKho || mau.length
                             ? undefined
                             : cauHinh
-                              ? `Vai trò ${tenVaiTro(nhap.vaiTro)} chưa có mẫu quyền`
-                              : "Không đọc được mẫu quyền"
+                              ? t("Vai trò {{vaiTro}} chưa có mẫu quyền", { vaiTro: tenVaiTro(nhap.vaiTro) })
+                              : t("Không đọc được mẫu quyền")
                         }
                       >
                         <Button
@@ -568,7 +569,7 @@ export default function NganKeoPhanQuyen({
                           onClick={() => datQuyen(mau)}
                           className={`h-8 ${NUT_VIEN}`}
                         >
-                          Áp dụng mẫu
+                          {t("Áp dụng mẫu")}
                         </Button>
                       </span>
                     </span>
@@ -576,16 +577,15 @@ export default function NganKeoPhanQuyen({
                 >
                   <p className="-mt-1 mb-3 text-[12.5px] leading-[18px] text-bo-muted">
                     {coKho
-                      ? `Đang chọn ${nhap.quyenIds.length}/${danhGia.tong}${mau.length ? ` · mẫu ${tenVaiTro(nhap.vaiTro)} có ${mau.length} quyền` : ""}`
-                      : "Chưa có kho"}
+                      ? `${t("Đang chọn {{so}}/{{tong}}", { so: nhap.quyenIds.length, tong: danhGia.tong })}${mau.length ? t(" · mẫu {{vaiTro}} có {{count}} quyền", { vaiTro: tenVaiTro(nhap.vaiTro), count: mau.length }) : ""}`
+                      : t("Chưa có kho")}
                   </p>
 
                   {coKho && !cauHinh ? (
                     <div className="mb-3 flex items-start gap-2 rounded-md border border-orange-200 bg-bo-warning-soft px-2.5 py-2 text-[13px] leading-[19px] text-orange-900">
                       <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                       <span className="min-w-0 flex-1">
-                        Không đọc được mẫu quyền và danh sách quyền nhạy cảm: chưa so được với mẫu, khi lưu cũng không nhắc
-                        quyền nhạy cảm.
+                        {t("Không đọc được mẫu quyền và danh sách quyền nhạy cảm: chưa so được với mẫu, khi lưu cũng không nhắc quyền nhạy cảm.")}
                       </span>
                       {onTaiLaiCauHinh ? (
                         // Tải lại ngay trong ngăn kéo: tải lại cả trang sẽ mất bản nháp đang sửa
@@ -598,7 +598,7 @@ export default function NganKeoPhanQuyen({
                           className={`h-7 shrink-0 ${NUT_VIEN}`}
                         >
                           <RefreshCcw className="size-3.5" aria-hidden="true" />
-                          Thử lại
+                          {t("Thử lại")}
                         </Button>
                       ) : null}
                     </div>
@@ -608,14 +608,14 @@ export default function NganKeoPhanQuyen({
                   {daDienMau && coKho && daDienMau.vaiTro === nhap.vaiTro && nhap.quyenIds.length ? (
                     <div className="mb-3">
                       <OThongTin>
-                        Đã điền sẵn {daDienMau.so} quyền theo mẫu {tenVaiTro(daDienMau.vaiTro)}. Bỏ bớt hoặc thêm nếu cần.
+                        {t("Đã điền sẵn {{count}} quyền theo mẫu {{vaiTro}}. Bỏ bớt hoặc thêm nếu cần.", { count: daDienMau.so, vaiTro: tenVaiTro(daDienMau.vaiTro) })}
                       </OThongTin>
                     </div>
                   ) : null}
 
                   {!coKho ? (
                     <OThongTin netDut>
-                      <span className="text-bo-muted">Chọn nơi làm việc để cấp quyền. Quyền chỉ có hiệu lực tại kho đó.</span>
+                      <span className="text-bo-muted">{t("Chọn nơi làm việc để cấp quyền. Quyền chỉ có hiệu lực tại kho đó.")}</span>
                     </OThongTin>
                   ) : (
                     <div className="space-y-2">
@@ -636,7 +636,7 @@ export default function NganKeoPhanQuyen({
                                 type="button"
                                 role="checkbox"
                                 aria-checked={tatCa ? "true" : motPhan ? "mixed" : "false"}
-                                aria-label={`Chọn cả nhóm ${n.ten}`}
+                                aria-label={t("Chọn cả nhóm {{ten}}", { ten: n.ten })}
                                 onClick={() =>
                                   datQuyen(tatCa ? nhap.quyenIds.filter((id) => !ids.includes(id)) : [...nhap.quyenIds, ...ids])
                                 }
@@ -659,7 +659,7 @@ export default function NganKeoPhanQuyen({
                                 className="flex h-11 min-w-0 flex-1 items-center gap-2 text-left text-[13.5px] font-semibold text-bo-foreground"
                               >
                                 <span className="min-w-0 flex-1">{n.ten}</span>
-                                {coDoi ? <span className="size-[7px] shrink-0 rounded-full bg-bo-primary" title="Có thay đổi chưa lưu" /> : null}
+                                {coDoi ? <span className="size-[7px] shrink-0 rounded-full bg-bo-primary" title={t("Có thay đổi chưa lưu")} /> : null}
                                 <span className="min-w-7 text-right text-xs font-semibold tabular-nums text-bo-muted">
                                   {soCap}/{dong.length}
                                 </span>
@@ -691,17 +691,17 @@ export default function NganKeoPhanQuyen({
                             <div className="min-w-0 flex-1 basis-56 text-[13px] leading-[19px]">
                               <div className="font-medium text-bo-foreground">
                                 {soVoHieuCap
-                                  ? `${soVoHieuCap} quyền đang cấp nhưng không dùng được với ${tenVaiTro(nhap.vaiTro)}`
-                                  : `${dongVoHieu.length} quyền khác không dùng được với ${tenVaiTro(nhap.vaiTro)}`}
+                                  ? t("{{count}} quyền đang cấp nhưng không dùng được với {{vaiTro}}", { count: soVoHieuCap, vaiTro: tenVaiTro(nhap.vaiTro) })
+                                  : t("{{count}} quyền khác không dùng được với {{vaiTro}}", { count: dongVoHieu.length, vaiTro: tenVaiTro(nhap.vaiTro) })}
                               </div>
-                              <div className="text-xs leading-4 text-bo-muted">Vai trò này không mở màn hình dùng các quyền đó.</div>
+                              <div className="text-xs leading-4 text-bo-muted">{t("Vai trò này không mở màn hình dùng các quyền đó.")}</div>
                             </div>
                             {soVoHieuCap ? (
                               <Button
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                aria-label={`Bỏ cả ${soVoHieuCap} quyền không dùng được`}
+                                aria-label={t("Bỏ cả {{count}} quyền không dùng được", { count: soVoHieuCap })}
                                 onClick={() => {
                                   datQuyen(nhap.quyenIds.filter((id) => !dongVoHieu.some((d) => d.id === id)));
                                   // Nút này biến mất sau khi bấm: chuyển tiêu điểm sang nút Xem bên cạnh, không rơi về đầu trang
@@ -709,7 +709,7 @@ export default function NganKeoPhanQuyen({
                                 }}
                                 className={`h-8 ${NUT_VIEN}`}
                               >
-                                Bỏ cả {soVoHieuCap}
+                                {t("Bỏ cả {{count}}", { count: soVoHieuCap })}
                               </Button>
                             ) : null}
                             <button
@@ -717,11 +717,15 @@ export default function NganKeoPhanQuyen({
                               type="button"
                               aria-expanded={moVoHieu}
                               aria-controls="quyen-khong-dung-duoc"
-                              aria-label={`${moVoHieu ? "Ẩn" : "Xem"} ${dongVoHieu.length} quyền không dùng được`}
+                              aria-label={
+                                moVoHieu
+                                  ? t("Ẩn {{count}} quyền không dùng được", { count: dongVoHieu.length })
+                                  : t("Xem {{count}} quyền không dùng được", { count: dongVoHieu.length })
+                              }
                               onClick={() => setMoVoHieu((m) => !m)}
                               className="inline-flex h-8 items-center gap-1 px-1 text-[13px] font-medium text-bo-primary"
                             >
-                              {moVoHieu ? "Ẩn" : "Xem"}
+                              {moVoHieu ? t("Ẩn") : t("Xem")}
                               <ChevronDown className={cn("size-3.5 transition-transform", moVoHieu && "rotate-180")} aria-hidden="true" />
                             </button>
                           </div>
@@ -771,10 +775,10 @@ export default function NganKeoPhanQuyen({
               onClick={() => setMoKiemTra((m) => !m)}
               aria-expanded={moKiemTra}
               aria-controls="kiem-tra-phan-quyen"
-              aria-label={moKiemTra ? "Ẩn chi tiết kiểm tra" : "Xem chi tiết kiểm tra"}
+              aria-label={moKiemTra ? t("Ẩn chi tiết kiểm tra") : t("Xem chi tiết kiểm tra")}
               className="inline-flex items-center gap-1 py-1 text-[13px] font-medium text-bo-primary"
             >
-              {moKiemTra ? "Ẩn" : "Xem"}
+              {moKiemTra ? t("Ẩn") : t("Xem")}
               {moKiemTra ? <ChevronDown className="size-3.5" aria-hidden="true" /> : <ChevronUp className="size-3.5" aria-hidden="true" />}
             </button>
           </div>
@@ -782,10 +786,10 @@ export default function NganKeoPhanQuyen({
           <div className="flex shrink-0 items-center gap-2 border-t border-bo-border bg-bo-surface px-5 py-3">
             {coThayDoi ? <span className="size-2 shrink-0 rounded-full bg-bo-primary" aria-hidden="true" /> : null}
             <span className="flex-1 text-[13.5px] font-medium">
-              {coThayDoi ? `${thayDoi.length} thay đổi chưa lưu` : "Chưa có thay đổi"}
+              {coThayDoi ? t("{{count}} thay đổi chưa lưu", { count: thayDoi.length }) : t("Chưa có thay đổi")}
             </span>
             <Button type="button" variant="outline" onClick={yeuCauDong} disabled={dangLuu} className={NUT_VIEN}>
-              Hủy
+              {t("Hủy")}
             </Button>
             <span
               className="inline-flex"
@@ -797,7 +801,7 @@ export default function NganKeoPhanQuyen({
                 disabled={!coThayDoi || kiemTra.chanLuu || dangLuu}
                 className="bg-bo-primary text-white hover:bg-bo-primary-hover"
               >
-                Lưu phân quyền
+                {t("Lưu phân quyền")}
               </Button>
             </span>
           </div>
@@ -808,7 +812,7 @@ export default function NganKeoPhanQuyen({
       <AlertDialog open={hop === "luu"} onOpenChange={(m) => (!m && !dangLuu ? setHop(null) : null)}>
         <AlertDialogContent className="bg-bo-surface sm:max-w-[520px]">
           <AlertDialogHeader>
-            <AlertDialogTitle>Lưu phân quyền cho {nguoiDung.hoTen || nguoiDung.tenDangNhap}?</AlertDialogTitle>
+            <AlertDialogTitle>{t("Lưu phân quyền cho {{ten}}?", { ten: nguoiDung.hoTen || nguoiDung.tenDangNhap })}</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3 text-sm text-slate-600">
                 <div className="max-h-60 overflow-y-auto rounded-lg border border-bo-border px-3 py-2">
@@ -818,7 +822,7 @@ export default function NganKeoPhanQuyen({
                         {KY_HIEU[d.loai].k}
                       </span>
                       <span>
-                        <span className="sr-only">{d.loai === "them" ? "Thêm: " : d.loai === "bo" ? "Bỏ: " : ""}</span>
+                        <span className="sr-only">{d.loai === "them" ? t("Thêm: ") : d.loai === "bo" ? t("Bỏ: ") : ""}</span>
                         {d.chu}
                       </span>
                     </div>
@@ -828,8 +832,8 @@ export default function NganKeoPhanQuyen({
                   <div className="flex gap-2 rounded-md border border-orange-200 bg-bo-warning-soft px-2.5 py-2 text-[13px] leading-[19px] text-orange-900">
                     <ShieldAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                     <span>
-                      <span className="font-semibold">Cấp thêm {nhayCamCapThem.length} quyền nhạy cảm:</span>{" "}
-                      {nhayCamCapThem.join(", ")}. Kiểm tra lại đúng người, đúng kho trước khi lưu.
+                      <span className="font-semibold">{t("Cấp thêm {{count}} quyền nhạy cảm:", { count: nhayCamCapThem.length })}</span>{" "}
+                      {t("{{dsQuyen}}. Kiểm tra lại đúng người, đúng kho trước khi lưu.", { dsQuyen: nhayCamCapThem.join(", ") })}
                     </span>
                   </div>
                 ) : null}
@@ -837,21 +841,21 @@ export default function NganKeoPhanQuyen({
                   <div className="flex gap-2 rounded-md border border-orange-200 bg-bo-warning-soft px-2.5 py-2 text-[13px] leading-[19px] text-orange-900">
                     <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                     <span>
-                      Vẫn còn {kiemTra.soCanhBao} cảnh báo ở mục Kiểm tra. Bạn vẫn lưu được nếu đây là chủ ý.
+                      {t("Vẫn còn {{count}} cảnh báo ở mục Kiểm tra. Bạn vẫn lưu được nếu đây là chủ ý.", { count: kiemTra.soCanhBao })}
                     </span>
                   </div>
                 ) : null}
                 <p className="text-[13px] leading-5">
                   {catQuyen
-                    ? "Có hiệu lực ngay: nếu người dùng đang đăng nhập, hệ thống buộc đăng nhập lại ở thao tác kế tiếp."
-                    : "Quyền mới dùng được sau khi người dùng đăng nhập lại."}{" "}
-                  Thay đổi được ghi vào Lịch sử thay đổi.
+                    ? t("Có hiệu lực ngay: nếu người dùng đang đăng nhập, hệ thống buộc đăng nhập lại ở thao tác kế tiếp.")
+                    : t("Quyền mới dùng được sau khi người dùng đăng nhập lại.")}{" "}
+                  {t("Thay đổi được ghi vào Lịch sử thay đổi.")}
                 </p>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2 sm:justify-end">
-            <AlertDialogCancel disabled={dangLuu}>Quay lại sửa</AlertDialogCancel>
+            <AlertDialogCancel disabled={dangLuu}>{t("Quay lại sửa")}</AlertDialogCancel>
             <AlertDialogAction
               disabled={dangLuu}
               onClick={(e) => {
@@ -860,7 +864,7 @@ export default function NganKeoPhanQuyen({
               }}
               className="bg-bo-primary text-white hover:bg-bo-primary-hover"
             >
-              {dangLuu ? "Đang lưu..." : "Lưu phân quyền"}
+              {dangLuu ? t("Đang lưu...") : t("Lưu phân quyền")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -870,18 +874,18 @@ export default function NganKeoPhanQuyen({
       <AlertDialog open={hop === "bo"} onOpenChange={(m) => (!m ? setHop(null) : null)}>
         <AlertDialogContent className="bg-bo-surface">
           <AlertDialogHeader>
-            <AlertDialogTitle>Bỏ {thayDoi.length} thay đổi chưa lưu?</AlertDialogTitle>
+            <AlertDialogTitle>{t("Bỏ {{count}} thay đổi chưa lưu?", { count: thayDoi.length })}</AlertDialogTitle>
             <AlertDialogDescription>
-              Vai trò, nơi làm việc và quyền của {nguoiDung.hoTen || nguoiDung.tenDangNhap} giữ như trước khi mở ngăn kéo.
+              {t("Vai trò, nơi làm việc và quyền của {{ten}} giữ như trước khi mở ngăn kéo.", { ten: nguoiDung.hoTen || nguoiDung.tenDangNhap })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2 sm:justify-end">
-            <AlertDialogCancel>Tiếp tục sửa</AlertDialogCancel>
+            <AlertDialogCancel>{t("Tiếp tục sửa")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={boThayDoi}
               className="bg-bo-danger text-white hover:bg-bo-danger/90"
             >
-              Bỏ thay đổi
+              {t("Bỏ thay đổi")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

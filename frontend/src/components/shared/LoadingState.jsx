@@ -1,8 +1,9 @@
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 export default function LoadingState({
   className,
-  label = "Đang tải dữ liệu",
+  label = t("Đang tải dữ liệu"),
 }) {
   return (
     <div

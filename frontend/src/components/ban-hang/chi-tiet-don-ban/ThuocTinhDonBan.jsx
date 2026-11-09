@@ -15,6 +15,7 @@ import { WALKIN_CUSTOMER_CODE } from "@/services/posService";
 import { dsPhieuXuat, ghiChuKhiXuat, laDonSan, laDonTaiQuay, laGhiChuTuSinh, phieuDaXuatCuoi, tenKenhCua } from "./tinhDonBan";
 import { coKhoiBangChung } from "./bangChungDon";
 import KhoiBangChungDongGoi from "./KhoiBangChungDongGoi";
+import { t } from "@/i18n";
 
 const MO = "text-bo-muted";
 
@@ -40,7 +41,7 @@ export default function ThuocTinhDonBan({ ct, laBan = false, laKho = false, baoG
   // ── Khách hàng ──
   const khachLe = !khach?.id || khach?.maKhachHang === WALKIN_CUSTOMER_CODE;
   // Đơn không có khách (máy chủ gán khách lẻ) mới ghi "Khách lẻ"; có khách mà thiếu tên thì "—"
-  const tenKhach = khach?.tenKhachHang || (khachLe ? "Khách lẻ" : null);
+  const tenKhach = khach?.tenKhachHang || (khachLe ? t("Khách lẻ") : null);
   const tenKhachHien = !tenKhach ? (
     <span className={MO}>—</span>
   ) : laBan && !khachLe ? (
@@ -65,7 +66,7 @@ export default function ThuocTinhDonBan({ ct, laBan = false, laKho = false, baoG
     baoGia?.ma
       ? {
         khoa: "bao-gia",
-        loai: "Báo giá",
+        loai: t("Báo giá"),
         ma: baoGia.ma,
         to: laBan && baoGia.id ? `/sales-quotations/${baoGia.id}` : undefined,
         trangThai: laBan ? baoGia.trangThai : undefined,
@@ -75,7 +76,7 @@ export default function ThuocTinhDonBan({ ct, laBan = false, laKho = false, baoG
     ct.maPickList
       ? {
         khoa: "phieu-nhat",
-        loai: "Phiếu nhặt hàng",
+        loai: t("Phiếu nhặt hàng"),
         ma: ct.maPickList,
         to: laKho && ct.phieuNhatHangId ? `/goods-issues/pick-lists/${ct.phieuNhatHangId}` : undefined,
         trangThai: PICK_LIST_STATUS[ct.trangThaiPhieuNhat]?.label,
@@ -84,7 +85,7 @@ export default function ThuocTinhDonBan({ ct, laBan = false, laKho = false, baoG
       : null,
     ...pxHien.map((p) => ({
       khoa: `px-${p.id}`,
-      loai: "Phiếu xuất kho",
+      loai: t("Phiếu xuất kho"),
       ma: p.soPhieuXuat,
       to: laKho ? `/goods-issues/${p.id}` : `/goods-issues/${p.id}/view`,
       trangThai: getPhieuXuatKhoStatus(p.trangThai).label,
@@ -99,33 +100,33 @@ export default function ThuocTinhDonBan({ ct, laBan = false, laKho = false, baoG
         onClick={() => setXemHetPx((cu) => !cu)}
         className="rounded text-[13px] font-semibold text-bo-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
       >
-        {xemHetPx ? "Thu gọn" : `Xem thêm ${soVN(px.length - SO_PHIEU_XUAT_HIEN)} phiếu xuất`}
+        {xemHetPx ? t("Thu gọn") : t("Xem thêm {{so}} phiếu xuất", { count: px.length - SO_PHIEU_XUAT_HIEN, so: soVN(px.length - SO_PHIEU_XUAT_HIEN) })}
       </button>
     ) : null;
 
   return (
-    <CotThuocTinh nhan="Thông tin đơn bán hàng">
-      <NhomThuocTinh nhan="Khách hàng">
+    <CotThuocTinh nhan={t("Thông tin đơn bán hàng")}>
+      <NhomThuocTinh nhan={t("Khách hàng")}>
         <div className="text-sm leading-5">{tenKhachHien}</div>
         <BangThuocTinh
           rongNhan={112}
           className="mt-2.5"
           muc={[
-            { ma: "ma", nhan: "Mã khách hàng", giaTri: khach?.maKhachHang ? <span className="font-mono">{khach.maKhachHang}</span> : null },
-            { ma: "sdt", nhan: "Điện thoại", giaTri: khach?.soDienThoai ? <GiaTriSaoChep giaTri={khach.soDienThoai} nhanSaoChep="Sao chép số điện thoại" className="tabular-nums" /> : null },
+            { ma: "ma", nhan: t("Mã khách hàng"), giaTri: khach?.maKhachHang ? <span className="font-mono">{khach.maKhachHang}</span> : null },
+            { ma: "sdt", nhan: t("Điện thoại"), giaTri: khach?.soDienThoai ? <GiaTriSaoChep giaTri={khach.soDienThoai} nhanSaoChep={t("Sao chép số điện thoại")} className="tabular-nums" /> : null },
             { ma: "email", nhan: "Email", giaTri: khach?.email },
           ]}
         />
       </NhomThuocTinh>
 
-      <NhomThuocTinh nhan="Giao hàng">
+      <NhomThuocTinh nhan={t("Giao hàng")}>
         <BangThuocTinh
           rongNhan={112}
           muc={[
-            { ma: "dc", nhan: "Địa chỉ", giaTri: don.diaChiGiaoHang },
+            { ma: "dc", nhan: t("Địa chỉ"), giaTri: don.diaChiGiaoHang },
             {
               ma: "kho",
-              nhan: "Kho xuất",
+              nhan: t("Kho xuất"),
               giaTri: don.khoXuat?.tenKho ? (
                 <>
                   {don.khoXuat.tenKho}
@@ -133,16 +134,16 @@ export default function ThuocTinhDonBan({ ct, laBan = false, laKho = false, baoG
                 </>
               ) : null,
             },
-            { ma: "dv", nhan: "Vận chuyển", an: !giaoVan, giaTri: giaoVan?.donViVanChuyen },
+            { ma: "dv", nhan: t("Vận chuyển"), an: !giaoVan, giaTri: giaoVan?.donViVanChuyen },
             {
               ma: "vd",
-              nhan: "Mã vận đơn",
+              nhan: t("Mã vận đơn"),
               an: !giaoVan,
               giaTri: giaoVan?.maVanDon ? (
-                <GiaTriSaoChep giaTri={giaoVan.maVanDon} nhanSaoChep="Sao chép mã vận đơn" className="font-mono" />
+                <GiaTriSaoChep giaTri={giaoVan.maVanDon} nhanSaoChep={t("Sao chép mã vận đơn")} className="font-mono" />
               ) : null,
             },
-            { ma: "gcx", nhan: "Ghi chú khi xuất", an: !ghiChuXuat, giaTri: <span className="whitespace-pre-line">{ghiChuXuat}</span> },
+            { ma: "gcx", nhan: t("Ghi chú khi xuất"), an: !ghiChuXuat, giaTri: <span className="whitespace-pre-line">{ghiChuXuat}</span> },
           ]}
         />
       </NhomThuocTinh>
@@ -158,10 +159,10 @@ export default function ThuocTinhDonBan({ ct, laBan = false, laKho = false, baoG
             muc={[
               {
                 ma: "san",
-                nhan: `ID đơn trên ${tenKenh}`,
+                nhan: t("ID đơn trên {{tenKenh}}", { tenKenh }),
                 // maDonHangKenh là id nội bộ của sàn (khác số đơn "#1021" hiện trên sàn)
                 giaTri: don.maDonHangKenh ? (
-                  <GiaTriSaoChep giaTri={don.maDonHangKenh} nhanSaoChep={`Sao chép ID đơn trên ${tenKenh}`} className="font-mono" />
+                  <GiaTriSaoChep giaTri={don.maDonHangKenh} nhanSaoChep={t("Sao chép ID đơn trên {{tenKenh}}", { tenKenh })} className="font-mono" />
                 ) : null,
               },
             ]}
@@ -175,10 +176,10 @@ export default function ThuocTinhDonBan({ ct, laBan = false, laKho = false, baoG
           muc={[
             {
               ma: "nguoiTao",
-              nhan: "Người tạo",
-              giaTri: don.nguoiTao?.hoTen || (laSan ? <span className={MO}>— (đồng bộ từ {tenKenh}, không có người tạo)</span> : null),
+              nhan: t("Người tạo"),
+              giaTri: don.nguoiTao?.hoTen || (laSan ? <span className={MO}>{t("— (đồng bộ từ {{tenKenh}}, không có người tạo)", { tenKenh })}</span> : null),
             },
-            { ma: "ghiChu", nhan: "Ghi chú", giaTri: ghiChuDon ? <span className="whitespace-pre-line">{ghiChuDon}</span> : null },
+            { ma: "ghiChu", nhan: t("Ghi chú"), giaTri: ghiChuDon ? <span className="whitespace-pre-line">{ghiChuDon}</span> : null },
           ]}
         />
       </NhomThuocTinh>

@@ -19,6 +19,8 @@ import {
   TRANG_THAI_BAO_GIA,
 } from "../chi-tiet-bao-gia/tinhBaoGia.js";
 import { ROLES } from "../../../utils/roles.js";
+import { t } from "../../../i18n/t.js";
+import { cauGocMayChu } from "../../../i18n/cauGoc.js";
 
 export const TRANG_THAI_YEU_CAU = Object.freeze({
   NHAP: 0,
@@ -74,7 +76,7 @@ export function dongYeuCau(yc) {
 export function chuSoBienThe(nhom, dangTim = false) {
   const so = docSo(nhom?.soBienThe);
   const caNhom = docSo(nhom?.soBienTheCaNhom) || so;
-  return dangTim && so < caNhom ? `${soVN(so)}/${soVN(caNhom)} biến thể` : `${soVN(so)} biến thể`;
+  return dangTim && so < caNhom ? t("{{so}}/{{caNhom}} biến thể", { count: caNhom, so: soVN(so), caNhom: soVN(caNhom) }) : t("{{so}} biến thể", { count: so, so: soVN(so) });
 }
 
 /**
@@ -92,7 +94,7 @@ export function chuChatLieu(dongs) {
  */
 export function locCauMayChuMuaHang(cau) {
   const chu = String(cau ?? "").trim();
-  if (!chu || /^không tìm thấy\b/i.test(chu)) return null;
+  if (!chu || /^không tìm thấy\b/i.test(cauGocMayChu(chu))) return null;
   return chu;
 }
 
@@ -173,16 +175,20 @@ export function daKhongChapNhanHet(tomTat) {
  */
 export function chuDemBaoGia(tomTat) {
   const daGui = docSo(tomTat?.daGui);
-  if (!daGui) return ["chưa gửi nhà cung cấp nào"];
+  if (!daGui) return [t("chưa gửi nhà cung cấp nào")];
   const daBaoGia = docSo(tomTat?.daBaoGia);
   const daChot = docSo(tomTat?.daChot);
   const khongChapNhan = docSo(tomTat?.khongChapNhan);
   const het = daKhongChapNhanHet(tomTat);
   return [
-    `đã gửi ${soVN(daGui)} nhà cung cấp`,
-    daBaoGia ? `${soVN(daBaoGia)} đã báo giá` : het ? null : "chưa có báo giá",
-    daChot ? `${soVN(daChot)} đã chốt` : null,
-    khongChapNhan ? `không chấp nhận ${het && khongChapNhan > 1 ? "cả " : ""}${soVN(khongChapNhan)}` : null,
+    t("đã gửi {{daGui}} nhà cung cấp", { count: daGui, daGui: soVN(daGui) }),
+    daBaoGia ? t("{{daBaoGia}} đã báo giá", { daBaoGia: soVN(daBaoGia) }) : het ? null : t("chưa có báo giá"),
+    daChot ? t("{{daChot}} đã chốt", { daChot: soVN(daChot) }) : null,
+    khongChapNhan
+      ? het && khongChapNhan > 1
+        ? t("không chấp nhận cả {{khongChapNhan}}", { khongChapNhan: soVN(khongChapNhan) })
+        : t("không chấp nhận {{khongChapNhan}}", { khongChapNhan: soVN(khongChapNhan) })
+      : null,
   ].filter(Boolean);
 }
 
@@ -190,7 +196,8 @@ export function chuDemBaoGia(tomTat) {
 export function chuDsNcc(ten, toiDa = 2) {
   const ds = (Array.isArray(ten) ? ten : []).filter(Boolean);
   if (ds.length <= toiDa) return ds.join(", ");
-  return `${ds.slice(0, toiDa).join(", ")} và ${soVN(ds.length - toiDa)} nhà cung cấp khác`;
+  const soKhac = ds.length - toiDa;
+  return t("{{dsTen}} và {{soKhac}} nhà cung cấp khác", { dsTen: ds.slice(0, toiDa).join(", "), count: soKhac, soKhac: soVN(soKhac) });
 }
 
 /**
@@ -209,43 +216,43 @@ export function tinhBuocYeuCau(yc) {
   const nccChot = baoGiaDaChot(yc).map(tenNccCua).filter(Boolean);
 
   const tao = coTrangThai && tt === TRANG_THAI_YEU_CAU.NHAP
-    ? { trangThai: "dangLam", phu: "Nháp" }
+    ? { trangThai: "dangLam", phu: t("Nháp") }
     : { trangThai: "xong", phu: "" };
 
   let duyet;
   if (tt === TRANG_THAI_YEU_CAU.CHO_DUYET) {
     const quanLy = yc?.khoNhap?.quanLy?.hoTen;
-    duyet = { nhan: "Quản lý kho duyệt", trangThai: "dangLam", phu: quanLy ? `Chờ ${quanLy}` : "Chờ quản lý kho" };
+    duyet = { nhan: t("Quản lý kho duyệt"), trangThai: "dangLam", phu: quanLy ? t("Chờ {{quanLy}}", { quanLy }) : t("Chờ quản lý kho") };
   } else if (daDuyet) {
-    duyet = { nhan: "Quản lý kho duyệt", trangThai: "xong", ngay: yc?.ngayDuyet ?? null, coGio: true };
+    duyet = { nhan: t("Quản lý kho duyệt"), trangThai: "xong", ngay: yc?.ngayDuyet ?? null, coGio: true };
   } else if (tt === TRANG_THAI_YEU_CAU.TU_CHOI) {
-    duyet = { nhan: "Đã từ chối", trangThai: "dung", ngay: yc?.ngayDuyet ?? null, coGio: true };
+    duyet = { nhan: t("Đã từ chối"), trangThai: "dung", ngay: yc?.ngayDuyet ?? null, coGio: true };
   } else {
-    duyet = { nhan: "Quản lý kho duyệt", trangThai: "chua" };
+    duyet = { nhan: t("Quản lý kho duyệt"), trangThai: "chua" };
   }
 
   let gui;
-  if (tt === TRANG_THAI_YEU_CAU.DA_DUYET) gui = { trangThai: "dangLam", phu: "Chờ nhân viên mua hàng gửi" };
+  if (tt === TRANG_THAI_YEU_CAU.DA_DUYET) gui = { trangThai: "dangLam", phu: t("Chờ nhân viên mua hàng gửi") };
   else if (daGui) {
-    gui = { trangThai: "xong", phu: soNcc ? `${soVN(soNcc)} nhà cung cấp` : "", ngay: ngayGuiBaoGia(yc), coGio: true };
+    gui = { trangThai: "xong", phu: soNcc ? t("{{soNcc}} nhà cung cấp", { count: soNcc, soNcc: soVN(soNcc) }) : "", ngay: ngayGuiBaoGia(yc), coGio: true };
   } else gui = { trangThai: "chua" };
 
-  const chuNhan = soNcc ? `${soVN(soDaGuiGia)}/${soVN(soNcc)} nhà cung cấp đã gửi giá` : "";
+  const chuNhan = soNcc ? t("{{soDaGuiGia}}/{{soNcc}} nhà cung cấp đã gửi giá", { count: soNcc, soDaGuiGia: soVN(soDaGuiGia), soNcc: soVN(soNcc) }) : "";
   // Mọi báo giá đã không chấp nhận: không còn chờ nhận giá nữa nên bước dừng, không "đang làm" mãi
   const khongChapNhanHet = daKhongChapNhanHet(tomTatBaoGia(yc));
   let nhanGia;
   if (daChuyen) nhanGia = { trangThai: "xong", phu: chuNhan };
   else if (tt === TRANG_THAI_YEU_CAU.DA_GUI_BAO_GIA && khongChapNhanHet) {
-    nhanGia = { trangThai: "dung", phu: soNcc > 1 ? `Không chấp nhận cả ${soVN(soNcc)} báo giá` : "Không chấp nhận báo giá" };
+    nhanGia = { trangThai: "dung", phu: soNcc > 1 ? t("Không chấp nhận cả {{soNcc}} báo giá", { soNcc: soVN(soNcc) }) : t("Không chấp nhận báo giá") };
   } else if (tt === TRANG_THAI_YEU_CAU.DA_GUI_BAO_GIA) nhanGia = { trangThai: "dangLam", phu: chuNhan };
   else nhanGia = { trangThai: "chua" };
 
   return [
-    { ma: "tao", nhan: "Tạo yêu cầu", ngay: yc?.ngayTao ?? null, coGio: true, ...tao },
+    { ma: "tao", nhan: t("Tạo yêu cầu"), ngay: yc?.ngayTao ?? null, coGio: true, ...tao },
     { ma: "duyet", ...duyet },
-    { ma: "gui", nhan: "Gửi yêu cầu báo giá", ...gui },
-    { ma: "nhan", nhan: "Nhận báo giá", ...nhanGia },
-    { ma: "chot", nhan: "Chốt đơn mua hàng", trangThai: daChuyen ? "xong" : "chua", phu: daChuyen ? nccChot.join(", ") : "" },
+    { ma: "gui", nhan: t("Gửi yêu cầu báo giá"), ...gui },
+    { ma: "nhan", nhan: t("Nhận báo giá"), ...nhanGia },
+    { ma: "chot", nhan: t("Chốt đơn mua hàng"), trangThai: daChuyen ? "xong" : "chua", phu: daChuyen ? nccChot.join(", ") : "" },
   ];
 }
 

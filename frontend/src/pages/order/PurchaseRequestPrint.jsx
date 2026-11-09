@@ -1,6 +1,7 @@
 import PrintRoutePage from "@/components/print/PrintRoutePage";
 import { toPurchaseRequestPrintModel } from "@/components/print/adapters/purchaseRequestPrintAdapter";
 import purchaseRequestService from '@/services/purchaseRequestService';
+import { t } from "@/i18n";
 
 /**
  * Trang in thật của yêu cầu nhập hàng — dữ liệu API thật
@@ -17,10 +18,10 @@ export default function PurchaseRequestPrint() {
             }}
             adapter={toPurchaseRequestPrintModel}
             backPath="/purchase-requests/:id"
-            loadingLabel="Đang tải dữ liệu phiếu in"
-            titleFallback="In phiếu yêu cầu nhập hàng"
-            notFoundTitle="Không tìm thấy yêu cầu nhập hàng"
-            notFoundDescription="Yêu cầu có thể đã bị xóa hoặc bạn không có quyền truy cập."
+            loadingLabel={t("Đang tải dữ liệu phiếu in")}
+            titleFallback={t("In phiếu yêu cầu nhập hàng")}
+            notFoundTitle={t("Không tìm thấy yêu cầu nhập hàng")}
+            notFoundDescription={t("Yêu cầu có thể đã bị xóa hoặc bạn không có quyền truy cập.")}
         />
     );
 }

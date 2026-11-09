@@ -19,6 +19,7 @@ import { Loader2, Upload, X, Plus } from "lucide-react";
 import { toast } from "@/lib/thongBaoNhanh";
 import { productService } from "@/services/productService.js";
 import { productSchema } from "@/validations/productSchema";
+import { t } from "@/i18n";
 
 export default function ProductModal({ isOpen, onClose, onSuccess, productId = null }) {
     const isEditMode = !!productId;
@@ -113,7 +114,7 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
             }
         } catch (error) {
             console.error("Lỗi khi tải chi tiết sản phẩm:", error);
-            toast.error(error.response?.data?.message || "Không thể tải thông tin sản phẩm");
+            toast.error(error.response?.data?.message || t("Không thể tải thông tin sản phẩm"));
             onClose();
         } finally {
             setIsLoadingProduct(false);
@@ -196,11 +197,11 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
                     sizesResult.status === "rejected" ||
                     materialsResult.status === "rejected"
                 ) {
-                    toast.error("Không thể tải dữ liệu màu sắc, kích cỡ, chất liệu");
+                    toast.error(t("Không thể tải dữ liệu màu sắc, kích cỡ, chất liệu"));
                 }
             } catch (error) {
                 console.error("Lỗi khi tải dữ liệu màu sắc, kích cỡ, chất liệu:", error);
-                toast.error("Không thể tải dữ liệu màu sắc, kích cỡ, chất liệu");
+                toast.error(t("Không thể tải dữ liệu màu sắc, kích cỡ, chất liệu"));
             }
         };
 
@@ -255,12 +256,12 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
             }
 
             if (res?.data?.status >= 400) {
-                toast.error(res.data.message || 'Có lỗi xảy ra');
+                toast.error(res.data.message || t("Có lỗi xảy ra"));
                 return;
             }
 
             // Success
-            toast.success(isEditMode ? "Cập nhật sản phẩm thành công." : "Tạo sản phẩm thành công.");
+            toast.success(isEditMode ? t("Cập nhật sản phẩm thành công.") : t("Tạo sản phẩm thành công."));
             handleResetForm();
             onSuccess();
             onClose();
@@ -269,7 +270,7 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
             console.error('Error response:', error.response);
             console.error('Error response data:', error.response?.data);
 
-            const errorMessage = getApiErrorMessage(error, `Có lỗi xảy ra khi ${isEditMode ? 'cập nhật' : 'tạo'} sản phẩm`);
+            const errorMessage = getApiErrorMessage(error, isEditMode ? t("Có lỗi xảy ra khi cập nhật sản phẩm") : t("Có lỗi xảy ra khi tạo sản phẩm"));
             toast.error(errorMessage);
         }
     };
@@ -314,7 +315,7 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
                 <DialogContent className="sm:max-w-[900px] bg-bo-surface border border-gray-200 rounded-xl shadow-sm">
                     <div className="flex items-center justify-center py-12">
                         <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
-                        <span className="ml-3 text-gray-600">Đang tải thông tin sản phẩm...</span>
+                        <span className="ml-3 text-gray-600">{t("Đang tải thông tin sản phẩm...")}</span>
                     </div>
                 </DialogContent>
             </Dialog>
@@ -331,12 +332,12 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
     dark:bg-bo-surface dark:text-gray-900">
                 <DialogHeader>
                     <DialogTitle className="text-xl font-semibold text-purple-700">
-                        {isEditMode ? "Chỉnh sửa sản phẩm" : "Thêm sản phẩm mới"}
+                        {isEditMode ? t("Chỉnh sửa sản phẩm") : t("Thêm sản phẩm mới")}
                     </DialogTitle>
                     <DialogDescription>
                         {isEditMode
-                            ? "Cập nhật thông tin sản phẩm và biến thể. Nhấn lưu khi hoàn tất."
-                            : "Nhập đầy đủ thông tin sản phẩm và biến thể. Nhấn lưu khi hoàn tất."
+                            ? t("Cập nhật thông tin sản phẩm và biến thể. Nhấn lưu khi hoàn tất.")
+                            : t("Nhập đầy đủ thông tin sản phẩm và biến thể. Nhấn lưu khi hoàn tất.")
                         }
                     </DialogDescription>
                 </DialogHeader>
@@ -344,19 +345,19 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
                 <div className="max-h-[calc(90vh-12rem)] overflow-y-auto overflow-x-visible px-1">
                     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
                         <div className="space-y-4">
-                            <h3 className="font-semibold text-sm text-gray-700 border-b pb-2">Thông tin cơ bản</h3>
+                            <h3 className="font-semibold text-sm text-gray-700 border-b pb-2">{t("Thông tin cơ bản")}</h3>
 
                             <div className="grid grid-cols-2 gap-4">
                                 {/* Tên sản phẩm */}
                                 <div className="col-span-2 space-y-2">
                                     <Label htmlFor="tenSanPham">
-                                        Tên sản phẩm <span className="text-red-500">*</span>
+                                        {t("Tên sản phẩm")} <span className="text-red-500">*</span>
                                     </Label>
                                     <Controller
                                         name="tenSanPham"
                                         control={control}
                                         render={({ field }) => (
-                                            <Input {...field} placeholder="VD: Áo sơ mi nam cổ tròn" disabled={isSubmitting} />
+                                            <Input {...field} placeholder={t("VD: Áo sơ mi nam cổ tròn")} disabled={isSubmitting} />
                                         )}
                                     />
                                     {errors.tenSanPham && (
@@ -366,23 +367,23 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
 
                                 {/* Mã sản phẩm & Mã vạch */}
                                 <div className="space-y-2">
-                                    <Label htmlFor="maSanPham">Mã sản phẩm</Label>
+                                    <Label htmlFor="maSanPham">{t("Mã sản phẩm")}</Label>
                                     <Controller
                                         name="maSanPham"
                                         control={control}
                                         render={({ field }) => (
-                                            <Input {...field} placeholder="Mã sản phẩm" disabled={isSubmitting} />
+                                            <Input {...field} placeholder={t("Mã sản phẩm")} disabled={isSubmitting} />
                                         )}
                                     />
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label htmlFor="maVach">Mã vạch</Label>
+                                    <Label htmlFor="maVach">{t("Mã vạch")}</Label>
                                     <Controller
                                         name="maVach"
                                         control={control}
                                         render={({ field }) => (
-                                            <Input {...field} placeholder="Mã vạch" disabled={isSubmitting} />
+                                            <Input {...field} placeholder={t("Mã vạch")} disabled={isSubmitting} />
                                         )}
                                     />
                                 </div>
@@ -397,7 +398,7 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
                                 />
 
                                 <div className="space-y-2">
-                                    <Label htmlFor="trangThai">Trạng thái</Label>
+                                    <Label htmlFor="trangThai">{t("Trạng thái")}</Label>
                                     <Controller
                                         name="trangThai"
                                         control={control}
@@ -411,8 +412,8 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
                                                     <SelectValue />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem value="1">Còn hàng</SelectItem>
-                                                    <SelectItem value="0">Hết hàng</SelectItem>
+                                                    <SelectItem value="1">{t("Còn hàng")}</SelectItem>
+                                                    <SelectItem value="0">{t("Hết hàng")}</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                         )}
@@ -421,7 +422,7 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
 
                                 {/* Giá mặc định */}
                                 <div className="space-y-2">
-                                    <Label htmlFor="giaVonMacDinh">Giá vốn mặc định</Label>
+                                    <Label htmlFor="giaVonMacDinh">{t("Giá vốn mặc định")}</Label>
                                     <Controller
                                         name="giaVonMacDinh"
                                         control={control}
@@ -439,7 +440,7 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
 
                                 <div className="space-y-2">
                                     <Label htmlFor="giaBanMacDinh">
-                                        Giá bán mặc định <span className="text-red-500">*</span>
+                                        {t("Giá bán mặc định")} <span className="text-red-500">*</span>
                                     </Label>
                                     <Controller
                                         name="giaBanMacDinh"
@@ -461,7 +462,7 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
 
                                 {/* Mức tồn tối thiểu */}
                                 <div className="col-span-2 space-y-2">
-                                    <Label htmlFor="mucTonToiThieu">Mức tồn tối thiểu</Label>
+                                    <Label htmlFor="mucTonToiThieu">{t("Mức tồn tối thiểu")}</Label>
                                     <Controller
                                         name="mucTonToiThieu"
                                         control={control}
@@ -479,14 +480,14 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
 
                                 {/* Mô tả */}
                                 <div className="col-span-2 space-y-2">
-                                    <Label htmlFor="moTa">Mô tả</Label>
+                                    <Label htmlFor="moTa">{t("Mô tả")}</Label>
                                     <Controller
                                         name="moTa"
                                         control={control}
                                         render={({ field }) => (
                                             <Textarea
                                                 {...field}
-                                                placeholder="Nhập mô tả chi tiết về sản phẩm..."
+                                                placeholder={t("Nhập mô tả chi tiết về sản phẩm...")}
                                                 rows={3}
                                                 disabled={isSubmitting}
                                             />
@@ -500,7 +501,7 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
                         <div className="space-y-4 overflow-visible">
                             <div className="flex items-center justify-between border-b pb-2">
                                 <h3 className="font-semibold text-sm text-gray-700">
-                                    Biến thể sản phẩm <span className="text-red-500">*</span>
+                                    {t("Biến thể sản phẩm")} <span className="text-red-500">*</span>
                                 </h3>
                                 <Button
                                     type="button"
@@ -520,14 +521,14 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
                                     className="flex items-center gap-1"
                                 >
                                     <Plus className="h-4 w-4" />
-                                    Thêm biến thể
+                                    {t("Thêm biến thể")}
                                 </Button>
                             </div>
 
                             {fields.map((field, index) => (
                                 <div key={field.id} className="p-4 border rounded-lg space-y-3 bg-gray-50 relative overflow-visible">
                                     <div className="flex items-center justify-between">
-                                        <span className="text-sm font-medium">Biến thể #{index + 1}</span>
+                                        <span className="text-sm font-medium">{t("Biến thể #{{so}}", { so: index + 1 })}</span>
                                         {fields.length > 1 && (
                                             <Button
                                                 type="button"
@@ -544,7 +545,7 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
                                     <div className="grid grid-cols-3 gap-3 overflow-visible">
                                         {/* Màu sắc */}
                                         <div className="space-y-2">
-                                            <Label>Màu sắc <span className="text-red-500">*</span></Label>
+                                            <Label>{t("Màu sắc")} <span className="text-red-500">*</span></Label>
                                             <Controller
                                                 name={`bienTheSanPhams.${index}.mauSacId`}
                                                 control={control}
@@ -558,7 +559,7 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
                                                             disabled={isSubmitting}
                                                         >
                                                             <SelectTrigger className="w-full">
-                                                                <SelectValue placeholder="Chọn màu" />
+                                                                <SelectValue placeholder={t("Chọn màu")} />
                                                             </SelectTrigger>
                                                             <SelectContent
                                                                 position="popper"
@@ -568,7 +569,7 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
                                                                 className="z-110 bg-bo-surface"
                                                             >
                                                                 {colors.length === 0 ? (
-                                                                    <div className="p-2 text-sm text-gray-500">Không có màu sắc</div>
+                                                                    <div className="p-2 text-sm text-gray-500">{t("Không có màu sắc")}</div>
                                                                 ) : (
                                                                     colors.map((color) => (
                                                                         <SelectItem
@@ -588,7 +589,7 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
 
                                         {/* Size */}
                                         <div className="space-y-2">
-                                            <Label>Kích cỡ <span className="text-red-500">*</span></Label>
+                                            <Label>{t("Kích cỡ")} <span className="text-red-500">*</span></Label>
                                             <Controller
                                                 name={`bienTheSanPhams.${index}.sizeId`}
                                                 control={control}
@@ -602,7 +603,7 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
                                                             disabled={isSubmitting}
                                                         >
                                                             <SelectTrigger className="w-full">
-                                                                <SelectValue placeholder="Chọn kích cỡ" />
+                                                                <SelectValue placeholder={t("Chọn kích cỡ")} />
                                                             </SelectTrigger>
                                                             <SelectContent
                                                                 position="popper"
@@ -612,7 +613,7 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
                                                                 className="z-110 bg-bo-surface"
                                                             >
                                                                 {sizes.length === 0 ? (
-                                                                    <div className="p-2 text-sm text-gray-500">Không có kích cỡ</div>
+                                                                    <div className="p-2 text-sm text-gray-500">{t("Không có kích cỡ")}</div>
                                                                 ) : (
                                                                     sizes.map((size) => (
                                                                         <SelectItem
@@ -632,7 +633,7 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
 
                                         {/* Chất liệu */}
                                         <div className="space-y-2">
-                                            <Label>Chất liệu <span className="text-red-500">*</span></Label>
+                                            <Label>{t("Chất liệu")} <span className="text-red-500">*</span></Label>
                                             <Controller
                                                 name={`bienTheSanPhams.${index}.chatLieuId`}
                                                 control={control}
@@ -646,7 +647,7 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
                                                             disabled={isSubmitting}
                                                         >
                                                             <SelectTrigger className="w-full">
-                                                                <SelectValue placeholder="Chọn chất liệu" />
+                                                                <SelectValue placeholder={t("Chọn chất liệu")} />
                                                             </SelectTrigger>
                                                             <SelectContent
                                                                 position="popper"
@@ -656,7 +657,7 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
                                                                 className="z-110 bg-bo-surface"
                                                             >
                                                                 {materials.length === 0 ? (
-                                                                    <div className="p-2 text-sm text-gray-500">Không có chất liệu</div>
+                                                                    <div className="p-2 text-sm text-gray-500">{t("Không có chất liệu")}</div>
                                                                 ) : (
                                                                     materials.map((material) => (
                                                                         <SelectItem
@@ -676,31 +677,31 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
 
                                         {/* Mã SKU */}
                                         <div className="col-span-2 space-y-2">
-                                            <Label>Mã SKU <span className="text-red-500">*</span></Label>
+                                            <Label>{t("Mã SKU")} <span className="text-red-500">*</span></Label>
                                             <Controller
                                                 name={`bienTheSanPhams.${index}.maSku`}
                                                 control={control}
                                                 render={({ field }) => (
-                                                    <Input {...field} placeholder="Mã SKU" disabled={isSubmitting} />
+                                                    <Input {...field} placeholder={t("Mã SKU")} disabled={isSubmitting} />
                                                 )}
                                             />
                                         </div>
 
                                         {/* Mã vạch SKU */}
                                         <div className="space-y-2">
-                                            <Label>Mã vạch SKU</Label>
+                                            <Label>{t("Mã vạch SKU")}</Label>
                                             <Controller
                                                 name={`bienTheSanPhams.${index}.maVachSku`}
                                                 control={control}
                                                 render={({ field }) => (
-                                                    <Input {...field} placeholder="Mã vạch SKU" disabled={isSubmitting} />
+                                                    <Input {...field} placeholder={t("Mã vạch SKU")} disabled={isSubmitting} />
                                                 )}
                                             />
                                         </div>
 
                                         {/* Giá vốn */}
                                         <div className="space-y-2">
-                                            <Label>Giá vốn <span className="text-red-500">*</span></Label>
+                                            <Label>{t("Giá vốn")} <span className="text-red-500">*</span></Label>
                                             <Controller
                                                 name={`bienTheSanPhams.${index}.giaVon`}
                                                 control={control}
@@ -718,7 +719,7 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
 
                                         {/* Giá bán */}
                                         <div className="space-y-2">
-                                            <Label>Giá bán <span className="text-red-500">*</span></Label>
+                                            <Label>{t("Giá bán")} <span className="text-red-500">*</span></Label>
                                             <Controller
                                                 name={`bienTheSanPhams.${index}.giaBan`}
                                                 control={control}
@@ -736,7 +737,7 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
 
                                         {/* Trạng thái */}
                                         <div className="space-y-2">
-                                            <Label>Trạng thái</Label>
+                                            <Label>{t("Trạng thái")}</Label>
                                             <Controller
                                                 name={`bienTheSanPhams.${index}.trangThai`}
                                                 control={control}
@@ -750,8 +751,8 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
                                                             <SelectValue />
                                                         </SelectTrigger>
                                                         <SelectContent>
-                                                            <SelectItem value="1">Hoạt động</SelectItem>
-                                                            <SelectItem value="0">Tạm ngừng</SelectItem>
+                                                            <SelectItem value="1">{t("Hoạt động")}</SelectItem>
+                                                            <SelectItem value="0">{t("Tạm ngừng")}</SelectItem>
                                                         </SelectContent>
                                                     </Select>
                                                 )}
@@ -772,18 +773,18 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
                         <div className="grid grid-cols-2 gap-4">
                             {/* Ảnh sản phẩm */}
                             <div className="space-y-2">
-                                <Label>Ảnh sản phẩm</Label>
+                                <Label>{t("Ảnh sản phẩm")}</Label>
                                 <div className="border-2 border-dashed rounded-lg p-4 space-y-2">
                                     {/* Existing images - only show in edit mode */}
                                     {isEditMode && existingProductImages.length > 0 && (
                                         <div className="mb-2">
-                                            <p className="text-xs text-gray-500 mb-2">Ảnh hiện tại:</p>
+                                            <p className="text-xs text-gray-500 mb-2">{t("Ảnh hiện tại:")}</p>
                                             <div className="grid grid-cols-3 gap-2">
                                                 {existingProductImages.map((img, index) => (
                                                     <div key={`existing-${index}`} className="relative">
                                                         <img
                                                             src={img?.tepTin?.duongDan}
-                                                            alt="Ảnh sản phẩm"
+                                                            alt={t("Ảnh sản phẩm")}
                                                             className="w-full h-20 object-cover rounded"
                                                         />
                                                         <button
@@ -813,14 +814,14 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
                                         className="flex items-center justify-center gap-2 p-2 border rounded cursor-pointer hover:bg-gray-50"
                                     >
                                         <Upload className="h-4 w-4" />
-                                        <span className="text-sm">{isEditMode ? "Thêm ảnh mới" : "Chọn ảnh"}</span>
+                                        <span className="text-sm">{isEditMode ? t("Thêm ảnh mới") : t("Chọn ảnh")}</span>
                                     </label>
                                     <div className="grid grid-cols-3 gap-2">
                                         {productImages.map((file, index) => (
                                             <div key={index} className="relative">
                                                 <img
                                                     src={URL.createObjectURL(file)}
-                                                    alt="Xem trước ảnh"
+                                                    alt={t("Xem trước ảnh")}
                                                     className="w-full h-20 object-cover rounded"
                                                 />
                                                 <button
@@ -838,18 +839,18 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
 
                             {/* Ảnh biến thể */}
                             <div className="space-y-2">
-                                <Label>Ảnh biến thể</Label>
+                                <Label>{t("Ảnh biến thể")}</Label>
                                 <div className="border-2 border-dashed rounded-lg p-4 space-y-2">
                                     {/* Existing images - only show in edit mode */}
                                     {isEditMode && existingVariantImages.length > 0 && (
                                         <div className="mb-2">
-                                            <p className="text-xs text-gray-500 mb-2">Ảnh hiện tại:</p>
+                                            <p className="text-xs text-gray-500 mb-2">{t("Ảnh hiện tại:")}</p>
                                             <div className="grid grid-cols-3 gap-2">
                                                 {existingVariantImages.map((img, index) => (
                                                     <div key={`existing-${index}`} className="relative">
                                                         <img
                                                             src={img?.tepTin?.duongDan}
-                                                            alt="Ảnh biến thể"
+                                                            alt={t("Ảnh biến thể")}
                                                             className="w-full h-20 object-cover rounded"
                                                         />
                                                         <button
@@ -879,14 +880,14 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
                                         className="flex items-center justify-center gap-2 p-2 border rounded cursor-pointer hover:bg-gray-50"
                                     >
                                         <Upload className="h-4 w-4" />
-                                        <span className="text-sm">{isEditMode ? "Thêm ảnh mới" : "Chọn ảnh"}</span>
+                                        <span className="text-sm">{isEditMode ? t("Thêm ảnh mới") : t("Chọn ảnh")}</span>
                                     </label>
                                     <div className="grid grid-cols-3 gap-2">
                                         {variantImages.map((file, index) => (
                                             <div key={index} className="relative">
                                                 <img
                                                     src={URL.createObjectURL(file)}
-                                                    alt="Xem trước ảnh"
+                                                    alt={t("Xem trước ảnh")}
                                                     className="w-full h-20 object-cover rounded"
                                                 />
                                                 <button
@@ -913,7 +914,7 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
                         onClick={handleCancel}
                         disabled={isSubmitting}
                     >
-                        Hủy
+                        {t("Hủy")}
                     </Button>
                     <Button
                         type="submit"
@@ -924,10 +925,10 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
                         {isSubmitting ? (
                             <>
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                {isEditMode ? "Đang cập nhật..." : "Đang lưu..."}
+                                {isEditMode ? t("Đang cập nhật...") : t("Đang lưu...")}
                             </>
                         ) : (
-                            isEditMode ? "Cập nhật sản phẩm" : "Lưu sản phẩm"
+                            isEditMode ? t("Cập nhật sản phẩm") : t("Lưu sản phẩm")
                         )}
                     </Button>
                 </DialogFooter>

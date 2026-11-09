@@ -1,5 +1,6 @@
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 /**
  * Thanh bước của màn Thiết lập gian hàng: (1) — (2) — (3) — (4), không khung.
@@ -11,7 +12,7 @@ export default function SetupStepper({ buoc, hienTai, daXong, onChon, className 
   const xongLienTiep = (so) => buoc.filter((b) => b.so <= so).every((b) => daXong(b.so));
   const buocHienTai = buoc.find((b) => b.so === hienTai);
   return (
-    <nav aria-label="Các bước thiết lập" className={className}>
+    <nav aria-label={t("Các bước thiết lập")} className={className}>
       <ol className="flex items-center">
         {buoc.map((b, index) => {
           const dangLam = b.so === hienTai;
@@ -36,9 +37,9 @@ export default function SetupStepper({ buoc, hienTai, daXong, onChon, className 
                   dangLam ? "font-semibold text-bo-heading" : xong ? "text-bo-foreground" : "text-bo-muted",
                 )}
               >
-                {b.ten}
+                {t(b.ten)}
               </span>
-              <span className="sr-only">{`Bước ${b.so}: ${b.ten}${xong ? " (đã xong)" : dangLam ? " (đang làm)" : ""}`}</span>
+              <span className="sr-only">{t("Bước {{so}}: {{ten}}{{tinhTrang}}", { so: b.so, ten: t(b.ten), tinhTrang: xong ? t(" (đã xong)") : dangLam ? t(" (đang làm)") : "" })}</span>
             </>
           );
           return (
@@ -66,7 +67,7 @@ export default function SetupStepper({ buoc, hienTai, daXong, onChon, className 
       </ol>
       {buocHienTai ? (
         <p className="mt-2.5 text-sm font-semibold text-bo-heading md:hidden">
-          Bước {buocHienTai.so}/{buoc.length}: {buocHienTai.ten}
+          {t("Bước {{so}}/{{tong}}: {{ten}}", { so: buocHienTai.so, tong: buoc.length, ten: t(buocHienTai.ten) })}
         </p>
       ) : null}
     </nav>

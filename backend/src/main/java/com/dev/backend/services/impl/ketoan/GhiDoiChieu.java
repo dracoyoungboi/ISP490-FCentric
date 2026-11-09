@@ -1,5 +1,6 @@
 package com.dev.backend.services.impl.ketoan;
 
+import com.dev.backend.i18n.ThongDiep;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
@@ -94,7 +95,7 @@ final class GhiDoiChieu {
             wb.write(ra);
             return ra.toByteArray();
         } catch (IOException e) {
-            throw new UncheckedIOException("Không ghi được tệp đối chiếu", e);
+            throw new UncheckedIOException(ThongDiep.vi("keToanDuLieuVao.khongGhiDuocTepDoiChieu"), e);
         }
     }
 

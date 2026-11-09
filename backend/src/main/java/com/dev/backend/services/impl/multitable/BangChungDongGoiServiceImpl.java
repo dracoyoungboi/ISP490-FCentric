@@ -33,6 +33,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
+import com.dev.backend.i18n.ThongDiep;
 
 @Service
 @Slf4j
@@ -85,10 +86,10 @@ public class BangChungDongGoiServiceImpl implements BangChungDongGoiService {
     @Transactional(readOnly = true)
     public ThongTinBangChungDonDto layThongTinBangChung(Integer donBanHangId) {
         DonBanHang don = donBanHangRepository.findById(donBanHangId)
-                .orElseThrow(() -> new CommonException("Không tìm thấy đơn bán hàng id: " + donBanHangId, HttpStatus.NOT_FOUND, null));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("khoVanHanh.donBanKhongTimThayId", donBanHangId), HttpStatus.NOT_FOUND, null));
         // Chỉ đọc: cùng phạm vi với chi tiết đơn bán (kho được phân công / đơn mình tạo), không theo kho đang chọn
         if (!DonBanHangService.trongPhamVi(don, SecurityContextHolder.getUser())) {
-            throw new CommonException("Đơn " + don.getSoDonHang() + " không thuộc phạm vi của bạn.", HttpStatus.FORBIDDEN, null);
+            throw new CommonException(ThongDiep.of("khoVanHanh.donKhongThuocPhamVi", don.getSoDonHang()), HttpStatus.FORBIDDEN, null);
         }
 
         List<BangChungDongGoi> list = bangChungDongGoiRepository.findByDonBanHangIdAndTrangThaiOrderByNgayTaoAsc(donBanHangId, 1);
@@ -99,8 +100,8 @@ public class BangChungDongGoiServiceImpl implements BangChungDongGoiService {
         List<BangChungDongGoiDto> dtoList = list.stream().map(this::toDto).collect(Collectors.toList());
 
         String huongDan = yeuCauVideo
-                ? "Đơn hàng giá trị từ 1.000.000đ trở lên: Bắt buộc quay 1 video dài " + khoangVideoNgan() + ", từ lúc cho đồ vào đến khi niêm phong."
-                : "Đơn hàng giá trị dưới 1.000.000đ: Bắt buộc tải lên 2 ảnh (Ảnh 1: Hàng đã cho vào hộp/túi; Ảnh 2: Hộp đã dán băng keo niêm phong kèm tem ĐVVC).";
+                ? ThongDiep.dich("khoVanHanh.huongDanVideoDongGoi", chuThoiLuongTheoKhoa(THOI_LUONG_VIDEO_TOI_THIEU), chuThoiLuongTheoKhoa(THOI_LUONG_VIDEO_TOI_DA))
+                : ThongDiep.dich("khoVanHanh.huongDanAnhDongGoi");
 
         return ThongTinBangChungDonDto.builder()
                 .donBanHangId(don.getId())
@@ -161,44 +162,45 @@ public class BangChungDongGoiServiceImpl implements BangChungDongGoiService {
                 || (Integer.valueOf(ITrangThaiDonBanHang.DANG_XUAT_KHO).equals(tt)
                 && trangThaiPhieu.get().contains(ITrangThaiPhieuXuat.NHAP));
         if (!dangDongGoi) {
-            String lyDo = Integer.valueOf(ITrangThaiDonBanHang.DA_HUY).equals(tt) ? " đã bị hủy" : " không còn ở bước đóng gói";
-            throw new CommonException("Đơn hàng " + soDon + lyDo
-                    + ", bằng chứng chỉ được xem, không thêm, thay hay xóa được!", HttpStatus.CONFLICT, null);
+            ThongDiep cau = Integer.valueOf(ITrangThaiDonBanHang.DA_HUY).equals(tt)
+                    ? ThongDiep.of("khoVanHanh.bangChungChiXemDonDaHuy", soDon)
+                    : ThongDiep.of("khoVanHanh.bangChungChiXemQuaBuocDongGoi", soDon);
+            throw new CommonException(cau, HttpStatus.CONFLICT, null);
         }
     }
 
     /** Tệp cũ cùng loại đã dùng để hoàn tất một phiếu xuất (Chờ xuất / Đã xuất, `ttPhieu`): không cho thay bằng tệp mới. */
     private static void kiemTraThayDuoc(BangChungDongGoi cu, Integer ttPhieu) {
         if (cu != null && phieuDaDongGoiXong(ttPhieu)) {
-            String so = cu.getPhieuXuatKho() != null && cu.getPhieuXuatKho().getSoPhieuXuat() != null
-                    ? " " + cu.getPhieuXuatKho().getSoPhieuXuat() : "";
-            throw new CommonException("Bằng chứng này đã dùng để hoàn tất đóng gói phiếu xuất" + so + ", không thay được!",
-                    HttpStatus.CONFLICT, null);
+            ThongDiep cau = cu.getPhieuXuatKho() != null && cu.getPhieuXuatKho().getSoPhieuXuat() != null
+                    ? ThongDiep.of("khoVanHanh.bangChungDaDungHoanTatPhieu", cu.getPhieuXuatKho().getSoPhieuXuat())
+                    : ThongDiep.of("khoVanHanh.bangChungDaDungHoanTat");
+            throw new CommonException(cau, HttpStatus.CONFLICT, null);
         }
     }
 
     @Override
     public BangChungDongGoiDto uploadBangChung(Integer donBanHangId, MultipartFile file, String loaiBangChung, Integer thoiLuongGiay) {
         if (file == null || file.isEmpty()) {
-            throw new CommonException("Tệp tải lên không được để trống!", HttpStatus.BAD_REQUEST, null);
+            throw new CommonException(ThongDiep.of("khoVanHanh.tepTaiLenTrong"), HttpStatus.BAD_REQUEST, null);
         }
         if (loaiBangChung == null || loaiBangChung.trim().isEmpty()) {
-            throw new CommonException("Loại bằng chứng không được để trống!", HttpStatus.BAD_REQUEST, null);
+            throw new CommonException(ThongDiep.of("khoVanHanh.loaiBangChungTrong"), HttpStatus.BAD_REQUEST, null);
         }
 
         loaiBangChung = loaiBangChung.trim().toUpperCase();
         try {
             LoaiBangChungDongGoi.valueOf(loaiBangChung);
         } catch (IllegalArgumentException e) {
-            throw new CommonException("Loại bằng chứng [" + loaiBangChung + "] không hợp lệ!", HttpStatus.BAD_REQUEST, null);
+            throw new CommonException(ThongDiep.of("khoVanHanh.loaiBangChungKhongHopLe", loaiBangChung), HttpStatus.BAD_REQUEST, null);
         }
 
         DonBanHang don = donBanHangRepository.findById(donBanHangId)
-                .orElseThrow(() -> new CommonException("Không tìm thấy đơn bán hàng id: " + donBanHangId, HttpStatus.NOT_FOUND, null));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("khoVanHanh.donBanKhongTimThayId", donBanHangId), HttpStatus.NOT_FOUND, null));
         kiemTraKho(don.getKhoXuat());
 
         if (Integer.valueOf(ITrangThaiDonBanHang.DA_HUY).equals(don.getTrangThai())) {
-            throw new CommonException("Đơn hàng " + don.getSoDonHang() + " đã bị hủy, không thể tải bằng chứng!", HttpStatus.CONFLICT, null);
+            throw new CommonException(ThongDiep.of("khoVanHanh.donDaHuyKhongTaiBangChung", don.getSoDonHang()), HttpStatus.CONFLICT, null);
         }
         kiemTraConSuaBangChung(don);
         // Chặn trước khi tải lên MinIO (không để tệp mồ côi); lúc lưu kiểm lại vì tải video có thể mất cả phút
@@ -215,28 +217,33 @@ public class BangChungDongGoiServiceImpl implements BangChungDongGoiService {
 
         if (donYeuCauVideo) {
             if (!LoaiBangChungDongGoi.VIDEO_DONG_GOI.name().equals(loaiBangChung)) {
-                throw new CommonException("Đơn hàng từ 1.000.000đ trở lên bắt buộc phải quay video đóng gói (" + moTaKhoangVideo() + ")!", HttpStatus.BAD_REQUEST, null);
+                throw new CommonException(ThongDiep.of("khoVanHanh.batBuocVideoDongGoi",
+                        chuThoiLuongTheoKhoa(THOI_LUONG_VIDEO_TOI_THIEU), chuThoiLuongTheoKhoa(THOI_LUONG_VIDEO_TOI_DA)), HttpStatus.BAD_REQUEST, null);
             }
             if (loaiNoiDung.filter(KiemTraTepTai.VIDEO::contains).isEmpty()) {
-                throw new CommonException("Định dạng tệp không phải video hợp lệ (MP4, WebM, MOV)!", HttpStatus.BAD_REQUEST, null);
+                throw new CommonException(ThongDiep.of("khoVanHanh.videoSaiDinhDang"), HttpStatus.BAD_REQUEST, null);
             }
             if (file.getSize() > MAX_VIDEO_SIZE) {
-                throw new CommonException("Dung lượng video vượt quá 100MB cho phép!", HttpStatus.BAD_REQUEST, null);
+                throw new CommonException(ThongDiep.of("khoVanHanh.videoQuaDungLuong"), HttpStatus.BAD_REQUEST, null);
             }
             if (!thoiLuongVideoHopLe(thoiLuongGiay)) {
-                throw new CommonException("Thời lượng video đóng gói phải " + moTaKhoangVideo() + " (Nhận được: "
-                        + (thoiLuongGiay != null ? thoiLuongGiay + " giây" : "chưa xác định") + ")!", HttpStatus.BAD_REQUEST, null);
+                throw new CommonException(thoiLuongGiay != null
+                        ? ThongDiep.of("khoVanHanh.thoiLuongVideoSai", chuThoiLuongTheoKhoa(THOI_LUONG_VIDEO_TOI_THIEU),
+                                chuThoiLuongTheoKhoa(THOI_LUONG_VIDEO_TOI_DA), thoiLuongGiay)
+                        : ThongDiep.of("khoVanHanh.thoiLuongVideoChuaXacDinh", chuThoiLuongTheoKhoa(THOI_LUONG_VIDEO_TOI_THIEU),
+                                chuThoiLuongTheoKhoa(THOI_LUONG_VIDEO_TOI_DA)),
+                        HttpStatus.BAD_REQUEST, null);
             }
             loaiTep = FileType.VIDEO.toString();
         } else {
             if (LoaiBangChungDongGoi.VIDEO_DONG_GOI.name().equals(loaiBangChung)) {
-                throw new CommonException("Đơn hàng dưới 1.000.000đ chỉ yêu cầu tải 2 ảnh đóng gói!", HttpStatus.BAD_REQUEST, null);
+                throw new CommonException(ThongDiep.of("khoVanHanh.donDuoiChiCanHaiAnh"), HttpStatus.BAD_REQUEST, null);
             }
             if (loaiNoiDung.filter(KiemTraTepTai.ANH_CHUP::contains).isEmpty()) {
-                throw new CommonException("Định dạng tệp không phải hình ảnh hợp lệ (JPEG, PNG, WebP)!", HttpStatus.BAD_REQUEST, null);
+                throw new CommonException(ThongDiep.of("khoVanHanh.anhSaiDinhDang"), HttpStatus.BAD_REQUEST, null);
             }
             if (file.getSize() > MAX_IMAGE_SIZE) {
-                throw new CommonException("Dung lượng ảnh vượt quá 10MB cho phép!", HttpStatus.BAD_REQUEST, null);
+                throw new CommonException(ThongDiep.of("khoVanHanh.anhQuaDungLuong"), HttpStatus.BAD_REQUEST, null);
             }
             loaiTep = FileType.IMAGE.toString();
         }
@@ -251,7 +258,7 @@ public class BangChungDongGoiServiceImpl implements BangChungDongGoiService {
             minioUrl = minioService.getPublicUrl(objectName);
         } catch (Exception e) {
             log.error("Lỗi khi tải tệp lên MinIO: {}", e.getMessage(), e);
-            throw new CommonException("Không thể lưu trữ tệp lên hệ thống MinIO: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR, null);
+            throw new CommonException(ThongDiep.of("khoVanHanh.khongLuuDuocTepMinio", e.getMessage()), HttpStatus.INTERNAL_SERVER_ERROR, null);
         }
 
         // 2. Mở Transaction lưu DB. Bị chặn lúc lưu (đơn vừa đóng gói xong trong lúc tải) hoặc lỗi CSDL thì xóa tệp vừa tải
@@ -343,7 +350,7 @@ public class BangChungDongGoiServiceImpl implements BangChungDongGoiService {
     @Transactional(rollbackFor = Exception.class)
     public void xoaBangChung(Integer bangChungId) {
         BangChungDongGoi bc = bangChungDongGoiRepository.findById(bangChungId)
-                .orElseThrow(() -> new CommonException("Không tìm thấy bằng chứng đóng gói id: " + bangChungId, HttpStatus.NOT_FOUND, null));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("khoVanHanh.bangChungKhongTimThayId", bangChungId), HttpStatus.NOT_FOUND, null));
 
         if (bc.getDonBanHang() != null) {
             kiemTraKho(bc.getDonBanHang().getKhoXuat());
@@ -352,7 +359,7 @@ public class BangChungDongGoiServiceImpl implements BangChungDongGoiService {
 
         // Nếu phiếu xuất đã xuất kho hoặc đã đóng gói xong thì không cho xóa
         if (bc.getPhieuXuatKho() != null && phieuDaDongGoiXong(bc.getPhieuXuatKho())) {
-            throw new CommonException("Phiếu xuất đã hoàn tất đóng gói, không thể xóa bằng chứng!", HttpStatus.CONFLICT, null);
+            throw new CommonException(ThongDiep.of("khoVanHanh.phieuDaDongGoiKhongXoaBangChung"), HttpStatus.CONFLICT, null);
         }
 
         try {
@@ -448,6 +455,21 @@ public class BangChungDongGoiServiceImpl implements BangChungDongGoiService {
         return chuThoiLuong(THOI_LUONG_VIDEO_TOI_THIEU) + " – " + chuThoiLuong(THOI_LUONG_VIDEO_TOI_DA);
     }
 
+    /**
+     * Như {@link #chuThoiLuong(int)} nhưng theo khóa, để câu lỗi / hướng dẫn trả về giao diện dịch được. Ghép số và đơn vị
+     * bằng mẫu chỉ gồm tham số ("{0} {1}"), đơn vị là khóa riêng: tránh mẫu ngắn kiểu "{0} giây" khớp nhầm câu khác.
+     */
+    static ThongDiep chuThoiLuongTheoKhoa(int giay) {
+        int phut = giay / 60;
+        int du = giay % 60;
+        ThongDiep donViGiay = ThongDiep.of("khoVanHanh.donViGiay");
+        ThongDiep donViPhut = ThongDiep.of("khoVanHanh.donViPhut");
+        if (phut == 0) return ThongDiep.of("khoVanHanh.ghepSoDonVi", giay, donViGiay);
+        return du == 0 ? ThongDiep.of("khoVanHanh.ghepSoDonVi", phut, donViPhut)
+                : ThongDiep.of("khoVanHanh.ghepSoDonVi", ThongDiep.of("khoVanHanh.ghepSoDonVi", phut, donViPhut),
+                ThongDiep.of("khoVanHanh.ghepSoDonVi", du, donViGiay));
+    }
+
     /** 15 → "15 giây", 180 → "3 phút", 150 → "2 phút 30 giây". */
     static String chuThoiLuong(int giay) {
         int phut = giay / 60;
@@ -459,12 +481,12 @@ public class BangChungDongGoiServiceImpl implements BangChungDongGoiService {
     private void kiemTraKho(Kho kho) {
         NguoiDungAuthInfo user = SecurityContextHolder.getUser();
         if (user == null) {
-            throw new CommonException("Người dùng chưa được xác thực trong hệ thống");
+            throw new CommonException(ThongDiep.of("khoVanHanh.nguoiDungChuaXacThucHeThong"));
         }
         boolean isAdmin = user.getVaiTro() != null && user.getVaiTro().contains(IRoleType.quan_tri_vien);
         Integer khoLamViec = SecurityContextHolder.getKhoId();
         if (!isAdmin && (kho == null || khoLamViec == null || !khoLamViec.equals(kho.getId()))) {
-            throw new CommonException("Đơn hàng thuộc kho khác với kho đang làm việc", HttpStatus.FORBIDDEN, null);
+            throw new CommonException(ThongDiep.of("khoVanHanh.donThuocKhoKhac"), HttpStatus.FORBIDDEN, null);
         }
     }
 

@@ -21,6 +21,7 @@ import {
     DropdownMenuContent,
     DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import { t } from "@/i18n";
 
 
 export default function DashboardByAdmin() {
@@ -97,25 +98,25 @@ export default function DashboardByAdmin() {
 
                 <Stat
                     icon={<Users className="w-5 h-5 text-blue-600" />}
-                    label="User mới hôm nay"
+                    label={t("User mới hôm nay")}
                     value={data.newUsersToday}
                 />
 
                 <Stat
                     icon={<Users className="w-5 h-5 text-purple-600" />}
-                    label="Tổng user"
+                    label={t("Tổng user")}
                     value={data.totalUsers}
                 />
 
                 <Stat
                     icon={<DollarSign className="w-5 h-5 text-emerald-600" />}
-                    label="Doanh thu ngày"
+                    label={t("Doanh thu ngày")}
                     value={`${data.revenueToday.toLocaleString("vi-VN")} ₫`}
                 />
 
                 <Stat
                     icon={<ShoppingCart className="w-5 h-5 text-orange-600" />}
-                    label="Đơn bán hôm nay"
+                    label={t("Đơn bán hôm nay")}
                     value={data.totalOrdersToday}
                 />
 
@@ -134,7 +135,7 @@ export default function DashboardByAdmin() {
 
                         <div>
                             <div className="text-sm font-semibold text-gray-900">
-                                Doanh thu 7 ngày
+                                {t("Doanh thu 7 ngày")}
                             </div>
 
                             <div className="text-xs text-gray-500">
@@ -143,7 +144,7 @@ export default function DashboardByAdmin() {
                         </div>
 
                         <div className="text-xs px-2 py-1 rounded-md bg-gray-100 text-gray-600">
-                            7 ngày gần nhất
+                            {t("7 ngày gần nhất")}
                         </div>
 
                     </div>
@@ -196,30 +197,30 @@ export default function DashboardByAdmin() {
                 <div className="bg-bo-surface border-0 shadow-md rounded-xl p-5">
 
                     <div className="text-sm font-semibold text-gray-900">
-                        Cảnh báo nhanh
+                        {t("Cảnh báo nhanh")}
                     </div>
 
                     <div className="text-xs text-gray-500 mt-1">
-                        Tổng hợp từ hệ thống
+                        {t("Tổng hợp từ hệ thống")}
                     </div>
 
                     <div className="mt-4 space-y-3">
 
                         <AlertBox
-                            title="Tồn kho thấp"
-                            subtitle={`${data.lowStockCount} cảnh báo`}
+                            title={t("Tồn kho thấp")}
+                            subtitle={t("{{count}} cảnh báo", { count: data.lowStockCount })}
                             color="red"
                         />
 
                         <AlertBox
-                            title="Đơn chờ duyệt"
-                            subtitle={`${data.pendingPurchaseOrders} mua / ${data.pendingSaleOrders} bán`}
+                            title={t("Đơn chờ duyệt")}
+                            subtitle={t("{{mua}} mua / {{ban}} bán", { mua: data.pendingPurchaseOrders, ban: data.pendingSaleOrders })}
                             color="yellow"
                         />
 
                         <AlertBox
-                            title="User bị khóa"
-                            subtitle={`${data.bannedUsers} tài khoản`}
+                            title={t("User bị khóa")}
+                            subtitle={t("{{count}} tài khoản", { count: data.bannedUsers })}
                             color="gray"
                         />
 
@@ -239,7 +240,7 @@ export default function DashboardByAdmin() {
                     <div>
 
                         <div className="text-sm font-semibold text-gray-900">
-                            User mới tạo gần đây
+                            {t("User mới tạo gần đây")}
                         </div>
 
                         <div className="text-xs text-gray-500 mt-1">
@@ -252,7 +253,7 @@ export default function DashboardByAdmin() {
                         to="/users"
                         className="text-sm border-b font-medium"
                     >
-                        Xem tất cả
+                        {t("Xem tất cả")}
                     </Link>
 
                 </div>
@@ -267,10 +268,10 @@ export default function DashboardByAdmin() {
                             <tr className="border-b text-xs text-gray-500">
 
                                 <th className="py-2 text-left">Username</th>
-                                <th className="py-2 text-left">Họ tên</th>
-                                <th className="py-2 text-left">Vai trò</th>
-                                <th className="py-2 text-left">Trạng thái</th>
-                                <th className="py-2 text-left">Ngày tạo</th>
+                                <th className="py-2 text-left">{t("Họ tên")}</th>
+                                <th className="py-2 text-left">{t("Vai trò")}</th>
+                                <th className="py-2 text-left">{t("Trạng thái")}</th>
+                                <th className="py-2 text-left">{t("Ngày tạo")}</th>
 
                             </tr>
 
@@ -327,11 +328,11 @@ export default function DashboardByAdmin() {
                             {/* Page size */}
 
                             <div className="flex items-center gap-2">
-                                <Label className="text-sm text-gray-600 whitespace-nowrap">Hiển thị:</Label>
+                                <Label className="text-sm text-gray-600 whitespace-nowrap">{t("Hiển thị:")}</Label>
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
                                         <Button variant="outline" className="w-[120px] justify-between font-normal bg-bo-surface border-gray-200">
-                                            {pagination.pageSize} dòng
+                                            {t("{{count}} dòng", { count: pagination.pageSize })}
                                             <ChevronDown className="h-4 w-4 opacity-50" />
                                         </Button>
                                     </DropdownMenuTrigger>
@@ -342,7 +343,7 @@ export default function DashboardByAdmin() {
                                                 onClick={() => handlePageSizeChange(size)}
                                                 className="cursor-pointer"
                                             >
-                                                {size} dòng
+                                                {t("{{count}} dòng", { count: size })}
                                             </DropdownMenuItem>
                                         ))}
                                     </DropdownMenuContent>
@@ -354,7 +355,7 @@ export default function DashboardByAdmin() {
 
                             <div className="text-sm text-gray-600">
 
-                                Hiển thị{" "}
+                                {t("Hiển thị")}{" "}
 
                                 <span className="font-semibold text-gray-900">
                                     {pagination.pageNumber * pagination.pageSize + 1}
@@ -369,13 +370,13 @@ export default function DashboardByAdmin() {
                                     )}
                                 </span>
 
-                                {" trong tổng số "}
+                                {" "}{t("trong tổng số")}{" "}
 
                                 <span className="font-semibold text-purple-600">
                                     {pagination.totalElements}
                                 </span>
 
-                                {" kết quả"}
+                                {" "}{t("kết quả")}
 
                             </div>
 
@@ -391,7 +392,7 @@ export default function DashboardByAdmin() {
                                     disabled={pagination.pageNumber === 0}
                                 >
                                     <ChevronLeft className="h-4 w-4" />
-                                    Trước
+                                    {t("Trước")}
                                 </Button>
 
 
@@ -434,7 +435,7 @@ export default function DashboardByAdmin() {
                                     onClick={() => handlePageChange(pagination.pageNumber + 1)}
                                     disabled={pagination.pageNumber >= pagination.totalPages - 1}
                                 >
-                                    Sau
+                                    {t("Sau")}
                                     <ChevronRight className="h-4 w-4" />
                                 </Button>
 
@@ -509,7 +510,7 @@ export default function DashboardByAdmin() {
 
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
 
-                Hoạt động
+                {t("Hoạt động")}
 
             </span>
 
@@ -519,7 +520,7 @@ export default function DashboardByAdmin() {
 
                 <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
 
-                Bị khóa
+                {t("Bị khóa")}
 
             </span>
 

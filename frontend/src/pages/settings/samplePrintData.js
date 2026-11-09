@@ -1,3 +1,4 @@
+/* i18n-giu-nguyen-ca-tep: nội dung chứng từ in (dữ liệu mẫu cho bản xem trước mẫu in) */
 import { toPurchaseRequestPrintModel } from "@/components/print/adapters/purchaseRequestPrintAdapter";
 import { toQuotationRequestPrintModel } from "@/components/print/adapters/quotationRequestPrintAdapter";
 import { toPurchaseOrderPrintModel } from "@/components/print/adapters/purchaseOrderPrintAdapter";

@@ -3,6 +3,7 @@ import { Loader2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { kenhBanHangService } from "@/services/kenhBanHangService";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 /**
  * Ô tìm và chọn biến thể FCentric để ghép với một dòng của sàn, mở ngay tại dòng (đặt trong PopoverContent).
@@ -36,7 +37,7 @@ export default function GhepBienThe({ dong, tenSan, dangGhep = false, onHuy, onG
   return (
     <div className="w-[380px] max-w-[92vw]">
       <p className="px-3.5 pb-1 pt-3 text-[13px] text-bo-muted">
-        Ghép <span className="font-semibold tabular-nums text-bo-heading">{dong.skuSan || "—"}</span> trên {tenSan} với
+        {t("Ghép")} <span className="font-semibold tabular-nums text-bo-heading">{dong.skuSan || "—"}</span> {t("trên {{tenSan}} với", { tenSan })}
       </p>
       <label className="mx-3 my-2 flex h-9 items-center gap-2 rounded-lg border border-bo-border px-2.5 focus-within:border-bo-primary focus-within:ring-2 focus-within:ring-bo-primary/15 max-sm:h-11">
         <Search className="size-4 shrink-0 text-slate-400" aria-hidden="true" />
@@ -44,16 +45,16 @@ export default function GhepBienThe({ dong, tenSan, dangGhep = false, onHuy, onG
           autoFocus
           value={q}
           onChange={(event) => setQ(event.target.value)}
-          placeholder="Tìm SKU hoặc tên biến thể FCentric"
-          aria-label="Tìm biến thể FCentric"
+          placeholder={t("Tìm SKU hoặc tên biến thể FCentric")}
+          aria-label={t("Tìm biến thể FCentric")}
           aria-controls={`${id}-ds`}
           className="min-w-0 flex-1 bg-transparent text-sm text-bo-foreground outline-none placeholder:text-slate-400"
         />
         {dangTim ? <Loader2 className="size-4 shrink-0 animate-spin text-slate-400" aria-hidden="true" /> : null}
       </label>
-      <ul id={`${id}-ds`} role="listbox" aria-label="Biến thể FCentric" className="max-h-60 overflow-y-auto px-1.5 pb-1.5">
+      <ul id={`${id}-ds`} role="listbox" aria-label={t("Biến thể FCentric")} className="max-h-60 overflow-y-auto px-1.5 pb-1.5">
         {!dangTim && ketQua.list.length === 0 ? (
-          <li className="px-2.5 py-3 text-sm text-bo-muted">Không có biến thể phù hợp.</li>
+          <li className="px-2.5 py-3 text-sm text-bo-muted">{t("Không có biến thể phù hợp.")}</li>
         ) : (
           ketQua.list.map((bt) => {
             const daChon = chon?.id === bt.id;
@@ -72,7 +73,7 @@ export default function GhepBienThe({ dong, tenSan, dangGhep = false, onHuy, onG
                 >
                   <span className="text-[13.5px] text-bo-heading">
                     {bt.maSku}
-                    {dangGhepVoi ? <span className="text-bo-muted"> · đang ghép</span> : null}
+                    {dangGhepVoi ? <span className="text-bo-muted"> {t("· đang ghép")}</span> : null}
                   </span>
                   <span className="truncate text-[12.5px] text-bo-muted">{[bt.tenSanPham, bt.tenBienThe].filter(Boolean).join(" · ") || "—"}</span>
                 </button>
@@ -89,7 +90,7 @@ export default function GhepBienThe({ dong, tenSan, dangGhep = false, onHuy, onG
           onClick={onHuy}
           className="h-8 rounded-lg border-bo-border bg-bo-surface px-3 text-[13px] text-bo-foreground hover:bg-bo-surface-subtle max-sm:h-11"
         >
-          Hủy bỏ
+          {t("Hủy bỏ")}
         </Button>
         <Button
           type="button"
@@ -98,7 +99,7 @@ export default function GhepBienThe({ dong, tenSan, dangGhep = false, onHuy, onG
           className="h-8 gap-2 rounded-lg bg-bo-primary px-3 text-[13px] text-white hover:bg-bo-primary-hover max-sm:h-11"
         >
           {dangGhep ? <Loader2 className="size-4 animate-spin" /> : null}
-          Ghép
+          {t("Ghép")}
         </Button>
       </div>
     </div>

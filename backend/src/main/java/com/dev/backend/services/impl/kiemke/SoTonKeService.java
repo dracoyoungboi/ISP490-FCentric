@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.*;
+import com.dev.backend.i18n.ThongDiep;
 
 /**
  * Sổ tồn theo kệ (ton_kho_vi_tri), chốt Đ2 PA 1: số trên từng cặp kệ–lô luôn đi cùng tồn của lô ở kho
@@ -157,8 +158,7 @@ public class SoTonKeService {
             boolean conOKeKiem = thuTu.stream().anyMatch(t -> dangKiem.contains(t.getViTriKho().getId())
                     && t.getSoLuong() != null && t.getSoLuong() > 0);
             if (conOKeKiem) {
-                throw new CommonException(HttpStatus.CONFLICT, "Lô " + lo.getMaLo()
-                        + " chỉ còn ở kệ đang kiểm kê. Tạm dừng xuất lô này tới khi đợt kiểm kê được duyệt hoặc hủy.");
+                throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("khoVanHanh.loChiConOKeDangKiemKe", lo.getMaLo()));
             }
             log.warn("[SO-KE] Lô {} ở kho {}: sổ kệ thiếu {} so với tồn lô khi trừ", lo.getId(), khoId, can);
         }
@@ -260,7 +260,7 @@ public class SoTonKeService {
      */
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public void xepKe(Integer khoId, Integer loId, Integer viTriId, int soLuong) {
-        if (soLuong <= 0) throw new CommonException("Số lượng xếp kệ phải lớn hơn 0");
+        if (soLuong <= 0) throw new CommonException(ThongDiep.of("khoVanHanh.soLuongXepKePhaiDuong"));
         guard.giuKho(khoId);
         TonKhoTheoLo ton = khoaTonLo(khoId, loId);
         ViTriKho viTri = keCuaKho(khoId, viTriId);
@@ -269,14 +269,12 @@ public class SoTonKeService {
         int tongKe = dong.stream().mapToInt(t -> Math.max(0, t.getSoLuong() == null ? 0 : t.getSoLuong())).sum();
         int chuaCoKe = soNguyen(ton.getSoLuongTon()) - tongKe;
         if (soLuong > chuaCoKe) {
-            throw new CommonException(HttpStatus.CONFLICT, "Lô " + ton.getLoHang().getMaLo() + " chỉ còn "
-                    + Math.max(0, chuaCoKe) + " sản phẩm chưa có kệ ở kho này");
+            throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("khoVanHanh.loChiConChuaCoKe", ton.getLoHang().getMaLo(), Math.max(0, chuaCoKe)));
         }
         int giuChua = phanBoKeService == null ? 0 : phanBoKeService.giuChuaCoKe(khoId, loId, null);
         if (giuChua > 0 && soLuong > chuaCoKe - giuChua) {
-            throw new CommonException(HttpStatus.CONFLICT, "Lô " + ton.getLoHang().getMaLo() + " có " + giuChua
-                    + " sản phẩm chưa có kệ đang phân bổ cho phiếu nhặt (người nhặt sẽ lấy ở đó). Lúc này chỉ xếp được "
-                    + Math.max(0, chuaCoKe - giuChua) + " lên kệ.");
+            throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("khoVanHanh.loChuaCoKeDangPhanBoNhat",
+                    ton.getLoHang().getMaLo(), giuChua, Math.max(0, chuaCoKe - giuChua)));
         }
         kiemTraSucChua(viTri, soLuong);
         cong(khoId, viTri, ton.getLoHang(), ton.getLoHang().getBienTheSanPham(), BigDecimal.valueOf(soLuong));
@@ -290,29 +288,27 @@ public class SoTonKeService {
     /** Chuyển {@code soLuong} của lô từ kệ này sang kệ khác cùng kho; cả hai kệ không được đang kiểm kê. */
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public void chuyenKe(Integer khoId, Integer loId, Integer tuViTriId, Integer denViTriId, int soLuong) {
-        if (soLuong <= 0) throw new CommonException("Số lượng chuyển kệ phải lớn hơn 0");
-        if (Objects.equals(tuViTriId, denViTriId)) throw new CommonException("Chọn kệ đến khác kệ đang chứa");
+        if (soLuong <= 0) throw new CommonException(ThongDiep.of("khoVanHanh.soLuongChuyenKePhaiDuong"));
+        if (Objects.equals(tuViTriId, denViTriId)) throw new CommonException(ThongDiep.of("khoVanHanh.chonKeDenKhacKeDangChua"));
         guard.giuKho(khoId);
         TonKhoTheoLo ton = khoaTonLo(khoId, loId);
         ViTriKho tu = keCuaKho(khoId, tuViTriId);
         ViTriKho den = keCuaKho(khoId, denViTriId);
         guard.kiemTraXuat(khoId, Map.of(loId, BigDecimal.valueOf(soLuong)), Map.of(loId, ton.getSoLuongTon()), "chuyển hàng khỏi kệ");
         if (guard.keDangKiemCuaLo(khoId, loId).contains(tuViTriId)) {
-            throw new CommonException(HttpStatus.CONFLICT, "Kệ " + tu.getMaViTri() + " đang kiểm kê, chưa chuyển hàng đi được");
+            throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("khoVanHanh.keDangKiemKeChuaChuyen", tu.getMaViTri()));
         }
         guard.kiemTraNhapKe(khoId, denViTriId, List.of(loId), "chuyển hàng lên kệ");
         khoaDong(khoId, loId);
         TonKhoViTri nguon = tonKhoViTriRepository.khoaTheoKeVaLo(tuViTriId, loId)
-                .orElseThrow(() -> new CommonException(HttpStatus.CONFLICT, "Kệ " + tu.getMaViTri() + " không có lô này"));
+                .orElseThrow(() -> new CommonException(HttpStatus.CONFLICT, ThongDiep.of("khoVanHanh.keKhongCoLoNay", tu.getMaViTri())));
         int co = nguon.getSoLuong() == null ? 0 : nguon.getSoLuong();
         if (co < soLuong) {
-            throw new CommonException(HttpStatus.CONFLICT, "Kệ " + tu.getMaViTri() + " chỉ còn " + Math.max(0, co) + " sản phẩm của lô này");
+            throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("khoVanHanh.keChiConSanPhamCuaLo", tu.getMaViTri(), Math.max(0, co)));
         }
         int giuO = phanBoKeService == null ? 0 : phanBoKeService.giuTrenKeCuaLo(khoId, loId).getOrDefault(tuViTriId, 0);
         if (giuO > 0 && soLuong > co - giuO) {
-            throw new CommonException(HttpStatus.CONFLICT, "Kệ " + tu.getMaViTri() + " có " + giuO
-                    + " sản phẩm của lô này đang phân bổ cho phiếu nhặt. Lúc này chỉ chuyển được " + Math.max(0, co - giuO)
-                    + "; đổi kệ ở Phân bổ lô của phiếu nhặt hoặc đợi phiếu xuất xong.");
+            throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("khoVanHanh.keCoSanPhamDangPhanBoNhat", tu.getMaViTri(), giuO, Math.max(0, co - giuO)));
         }
         kiemTraSucChua(den, soLuong);
         nguon.setSoLuong(co - soLuong);
@@ -327,7 +323,7 @@ public class SoTonKeService {
 
     private TonKhoTheoLo khoaTonLo(Integer khoId, Integer loId) {
         List<Integer> ids = tonKhoTheoLoRepository.findIdsByKhoAndLots(khoId, List.of(loId));
-        if (ids.isEmpty()) throw new CommonException(HttpStatus.NOT_FOUND, "Kho này không có lô hàng đã chọn");
+        if (ids.isEmpty()) throw new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("khoVanHanh.khoKhongCoLoDaChon"));
         TonKhoTheoLo ton = tonKhoTheoLoRepository.lockLotsForUpdateByIds(ids).get(0);
         em.refresh(ton, LockModeType.PESSIMISTIC_WRITE);
         return ton;
@@ -335,14 +331,15 @@ public class SoTonKeService {
 
     private ViTriKho keCuaKho(Integer khoId, Integer viTriId) {
         ViTriKho viTri = viTriKhoRepository.khoaTheoId(viTriId)
-                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy kệ đã chọn"));
+                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("khoVanHanh.keDaChonKhongTimThay")));
         if (viTri.getKho() == null || !khoId.equals(viTri.getKho().getId())) {
-            throw new CommonException(HttpStatus.FORBIDDEN, "Kệ " + viTri.getMaViTri() + " không thuộc kho này");
+            throw new CommonException(HttpStatus.FORBIDDEN, ThongDiep.of("khoVanHanh.keKhongThuocKho", viTri.getMaViTri()));
         }
         String tt = viTri.getTrangThai();
         if (tt != null && !IKiemKe.KE_HOAT_DONG.equals(tt) && !IKiemKe.KE_DAY_HANG.equals(tt)) {
             throw new CommonException(HttpStatus.CONFLICT, IKiemKe.KE_KHOA_KIEM_KE.equals(tt)
-                    ? "Kệ " + viTri.getMaViTri() + " đang kiểm kê" : "Kệ " + viTri.getMaViTri() + " đang bảo trì");
+                    ? ThongDiep.of("khoVanHanh.keDangKiemKe", viTri.getMaViTri())
+                    : ThongDiep.of("khoVanHanh.keDangBaoTri", viTri.getMaViTri()));
         }
         return viTri;
     }
@@ -353,8 +350,7 @@ public class SoTonKeService {
         Integer dang = tonKhoViTriRepository.sumDangChuaByViTriId(viTri.getId());
         int dangChua = dang == null ? 0 : dang;
         if (dangChua + them > sucChua) {
-            throw new CommonException(HttpStatus.CONFLICT, "Kệ " + viTri.getMaViTri() + " còn chỗ cho "
-                    + Math.max(0, sucChua - dangChua) + " sản phẩm");
+            throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("khoVanHanh.keConChoCho", viTri.getMaViTri(), Math.max(0, sucChua - dangChua)));
         }
     }
 }

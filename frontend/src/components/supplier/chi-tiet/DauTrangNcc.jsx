@@ -12,6 +12,7 @@ import { useClaimPageTitle } from "@/components/backoffice/pageTitle";
 import NutSaoChep from "@/components/shared/NutSaoChep";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { laHoatDong } from "@/components/supplier/quyTacNhaCungCap";
+import { t } from "@/i18n";
 
 const NUT_VIEN = "border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle";
 const MUC_MENU = "cursor-pointer items-start gap-2 rounded-md px-2.5 py-2 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900";
@@ -45,8 +46,8 @@ export default function DauTrangNcc({ ncc, coTheQuanLy, trangThaiXoa, onQuayLai,
           variant="outline"
           size="icon"
           onClick={onQuayLai}
-          aria-label="Quay lại"
-          title="Quay lại"
+          aria-label={t("Quay lại")}
+          title={t("Quay lại")}
           className={`shrink-0 ${NUT_VIEN}`}
         >
           <ArrowLeft className="size-4" aria-hidden="true" />
@@ -57,12 +58,12 @@ export default function DauTrangNcc({ ncc, coTheQuanLy, trangThaiXoa, onQuayLai,
             <PageHeading className="max-sm:line-clamp-2 max-sm:whitespace-normal">
               <span title={ncc.tenNhaCungCap || undefined}>{ncc.tenNhaCungCap || ncc.maNhaCungCap || "—"}</span>
             </PageHeading>
-            <StatusBadge doiTuong="nguoi" size="lg" label={dangHoatDong ? "Hoạt động" : "Ngừng hoạt động"} />
+            <StatusBadge /* i18n-giu-nguyen: StatusBadge tự dịch */ doiTuong="nguoi" size="lg" label={dangHoatDong ? "Hoạt động" : "Ngừng hoạt động"} />
           </div>
           {ncc.maNhaCungCap ? (
             <p className="mt-0.5 flex items-center gap-0.5 text-[13px] leading-5 text-bo-muted">
               <span className="font-mono font-semibold text-slate-700">{ncc.maNhaCungCap}</span>
-              <NutSaoChep giaTri={ncc.maNhaCungCap} nhan="Sao chép mã nhà cung cấp" className="size-6" />
+              <NutSaoChep giaTri={ncc.maNhaCungCap} nhan={t("Sao chép mã nhà cung cấp")} className="size-6" />
             </p>
           ) : null}
         </div>
@@ -74,7 +75,7 @@ export default function DauTrangNcc({ ncc, coTheQuanLy, trangThaiXoa, onQuayLai,
           <Button asChild variant="outline" className={`h-11 flex-1 gap-1.5 sm:hidden ${NUT_VIEN}`}>
             <a href={`tel:${soDienThoai}`}>
               <Phone className="size-4" aria-hidden="true" />
-              Gọi
+              {t("Gọi")}
             </a>
           </Button>
         ) : null}
@@ -82,7 +83,7 @@ export default function DauTrangNcc({ ncc, coTheQuanLy, trangThaiXoa, onQuayLai,
           <Button asChild variant="outline" className={`h-11 flex-1 gap-1.5 sm:hidden ${NUT_VIEN}`}>
             <a href={`mailto:${email}`}>
               <Mail className="size-4" aria-hidden="true" />
-              Gửi email
+              {t("Gửi email")}
             </a>
           </Button>
         ) : null}
@@ -95,8 +96,8 @@ export default function DauTrangNcc({ ncc, coTheQuanLy, trangThaiXoa, onQuayLai,
                   type="button"
                   variant="outline"
                   size="icon"
-                  aria-label="Thao tác khác"
-                  title="Thao tác khác"
+                  aria-label={t("Thao tác khác")}
+                  title={t("Thao tác khác")}
                   className={`max-sm:size-11 ${NUT_VIEN}`}
                 >
                   <Ellipsis className="size-4" aria-hidden="true" />
@@ -108,7 +109,7 @@ export default function DauTrangNcc({ ncc, coTheQuanLy, trangThaiXoa, onQuayLai,
               >
                 <DropdownMenuItem onClick={onChinhSua} className={`${MUC_MENU} sm:hidden`}>
                   <Pencil className="mt-0.5 size-4 text-slate-400" aria-hidden="true" />
-                  Chỉnh sửa
+                  {t("Chỉnh sửa")}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={onDoiTrangThai} className={MUC_MENU}>
                   {dangHoatDong ? (
@@ -118,12 +119,12 @@ export default function DauTrangNcc({ ncc, coTheQuanLy, trangThaiXoa, onQuayLai,
                   )}
                   <span className="flex min-w-0 flex-col gap-0.5">
                     <span className="font-medium text-bo-foreground">
-                      {dangHoatDong ? "Ngừng hoạt động" : "Cho phép hoạt động"}
+                      {dangHoatDong ? t("Ngừng hoạt động") : t("Cho phép hoạt động")}
                     </span>
                     <span className="text-xs leading-4 text-bo-muted">
                       {dangHoatDong
-                        ? "Không được chọn khi gửi yêu cầu báo giá mới"
-                        : "Được chọn lại khi gửi yêu cầu báo giá"}
+                        ? t("Không được chọn khi gửi yêu cầu báo giá mới")
+                        : t("Được chọn lại khi gửi yêu cầu báo giá")}
                     </span>
                   </span>
                 </DropdownMenuItem>
@@ -131,7 +132,7 @@ export default function DauTrangNcc({ ncc, coTheQuanLy, trangThaiXoa, onQuayLai,
                 {onLichSu ? (
                   <DropdownMenuItem onClick={onLichSu} className={MUC_MENU}>
                     <History className="mt-0.5 size-4 text-slate-400" aria-hidden="true" />
-                    Lịch sử thay đổi
+                    {t("Lịch sử thay đổi")}
                   </DropdownMenuItem>
                 ) : null}
                 {hienXoa ? (
@@ -140,11 +141,11 @@ export default function DauTrangNcc({ ncc, coTheQuanLy, trangThaiXoa, onQuayLai,
                     <DropdownMenuItem onClick={onXoa} className={`${MUC_MENU} focus:bg-bo-danger-soft`}>
                       <Trash2 className="mt-0.5 size-4 text-bo-danger" aria-hidden="true" />
                       <span className="flex min-w-0 flex-col gap-0.5">
-                        <span className="font-medium text-bo-danger">Xóa nhà cung cấp</span>
+                        <span className="font-medium text-bo-danger">{t("Xóa nhà cung cấp")}</span>
                         <span className="text-xs leading-4 text-bo-muted">
                           {trangThaiXoa === "duoc"
-                            ? "Chưa có giao dịch · xóa xong không khôi phục được"
-                            : "Chỉ xóa được khi chưa có giao dịch"}
+                            ? t("Chưa có giao dịch · xóa xong không khôi phục được")
+                            : t("Chỉ xóa được khi chưa có giao dịch")}
                         </span>
                       </span>
                     </DropdownMenuItem>
@@ -159,7 +160,7 @@ export default function DauTrangNcc({ ncc, coTheQuanLy, trangThaiXoa, onQuayLai,
               className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover max-sm:hidden"
             >
               <Pencil className="size-4" aria-hidden="true" />
-              Chỉnh sửa
+              {t("Chỉnh sửa")}
             </Button>
           </>
         ) : null}

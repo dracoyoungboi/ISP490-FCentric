@@ -37,25 +37,26 @@ import {
   timBienThe,
 } from "@/components/ban-hang/tao-bao-gia/tinhTaoBaoGia";
 import { DIA_CHI_GIAO_TOI_DA, GHI_CHU_BAO_GIA_TOI_DA, NGUONG_CONG_CU } from "@/config/bangChungTu";
+import { t } from "@/i18n";
 
 const TONG_THEO = Object.freeze({ soLuong: "soLuong", thanhTien: "thanhTien" });
 
 const BUOC = [
-  { ma: "lap", nhan: "Lập báo giá", trangThai: "dangLam", phu: "Đang lập" },
-  { ma: "phanHoi", nhan: "Khách phản hồi", trangThai: "chua", phu: "Chờ phản hồi sau khi lưu" },
-  { ma: "chot", nhan: "Chốt thành đơn", trangThai: "chua", phu: "Giữ nguyên đơn giá từng dòng" },
+  { ma: "lap", nhan: t("Lập báo giá"), trangThai: "dangLam", phu: t("Đang lập") },
+  { ma: "phanHoi", nhan: t("Khách phản hồi"), trangThai: "chua", phu: t("Chờ phản hồi sau khi lưu") },
+  { ma: "chot", nhan: t("Chốt thành đơn"), trangThai: "chua", phu: t("Giữ nguyên đơn giá từng dòng") },
 ];
 
 const DANH_SACH_GOI_Y =
   "absolute z-30 max-h-[320px] overflow-y-auto rounded-lg border border-bo-border bg-white p-1 shadow-lg";
 const MUC_GOI_Y = "flex w-full items-center justify-between gap-3 rounded-md px-2.5 py-2 text-left hover:bg-slate-100";
-const CAU_MAT_KET_NOI = "không nhận được phản hồi từ máy chủ";
+const CAU_MAT_KET_NOI = t("không nhận được phản hồi từ máy chủ");
 
 /** Câu lỗi tải danh sách: 403 → thiếu quyền (Thử lại vô ích); mất kết nối; còn lại câu của máy chủ, bỏ dấu chấm cuối. */
 function moTaLoiTai(e, chuThieuQuyen) {
   if (getApiErrorStatus(e) === 403) return { chu: chuThieuQuyen, khongQuyen: true };
   if (!e?.response) return { chu: CAU_MAT_KET_NOI, khongQuyen: false };
-  return { chu: getApiErrorMessage(e, "máy chủ báo lỗi").trim().replace(/[.。]+$/, ""), khongQuyen: false };
+  return { chu: getApiErrorMessage(e, t("máy chủ báo lỗi")).trim().replace(/[.。]+$/, ""), khongQuyen: false };
 }
 
 /** "0912345678" → "0912 345 678"; số khác 10 chữ số giữ nguyên. */
@@ -178,7 +179,7 @@ export default function BaoGiaCreate() {
       setLoiBienThe(null);
     } catch (e) {
       if (luot !== luotBienTheRef.current) return;
-      setLoiBienThe(moTaLoiTai(e, "tài khoản chưa có quyền xem danh sách sản phẩm"));
+      setLoiBienThe(moTaLoiTai(e, t("tài khoản chưa có quyền xem danh sách sản phẩm")));
     }
   }, []);
 
@@ -200,14 +201,14 @@ export default function BaoGiaCreate() {
           setKhachId(khach.id);
           setForm((cu) => ({ ...cu, diaChiGiaoHang: khach.diaChi || "" }));
         } else if (tatCa.some((k) => String(k.id) === khachHangIdBanDau)) {
-          toast.warning("Khách lẻ chỉ dùng cho bán tại quầy. Vui lòng chọn hoặc thêm khách hàng cụ thể cho báo giá.");
+          toast.warning(t("Khách lẻ chỉ dùng cho bán tại quầy. Vui lòng chọn hoặc thêm khách hàng cụ thể cho báo giá."));
         } else {
-          toast.warning("Khách hàng này đang ngừng hoạt động hoặc không còn trong hệ thống. Vui lòng chọn khách khác.");
+          toast.warning(t("Khách hàng này đang ngừng hoạt động hoặc không còn trong hệ thống. Vui lòng chọn khách khác."));
         }
       }
     } catch (e) {
       if (luot !== luotKhachRef.current) return;
-      setLoiKhach(moTaLoiTai(e, "tài khoản chưa có quyền xem danh sách khách hàng"));
+      setLoiKhach(moTaLoiTai(e, t("tài khoản chưa có quyền xem danh sách khách hàng")));
     }
   }, [khachHangIdBanDau]);
 
@@ -294,10 +295,10 @@ export default function BaoGiaCreate() {
     if (kq.bienThe) return themBienThe(kq.bienThe);
     const tho = timSP.trim();
     setMoSP(true);
-    if (kq.loi === "nhieu") setGoiYTim(`Nhiều sản phẩm khớp “${tho}”, chọn trong danh sách (phím ↑ ↓ rồi Enter).`);
-    else if (dangTai) setGoiYTim("Đang tải danh sách sản phẩm, thử lại sau giây lát.");
-    else if (loiBienThe) setGoiYTim("Chưa tải được danh sách sản phẩm, xem dòng báo lỗi phía trên.");
-    else setGoiYTim(`Không tìm thấy sản phẩm “${tho}”.`);
+    if (kq.loi === "nhieu") setGoiYTim(t("Nhiều sản phẩm khớp “{{tho}}”, chọn trong danh sách (phím ↑ ↓ rồi Enter).", { tho }));
+    else if (dangTai) setGoiYTim(t("Đang tải danh sách sản phẩm, thử lại sau giây lát."));
+    else if (loiBienThe) setGoiYTim(t("Chưa tải được danh sách sản phẩm, xem dòng báo lỗi phía trên."));
+    else setGoiYTim(t("Không tìm thấy sản phẩm “{{tho}}”.", { tho }));
   };
 
   const boDong = (bienTheId) => {
@@ -332,7 +333,7 @@ export default function BaoGiaCreate() {
 
   // Dòng như khi gửi (ô số lượng / đơn giá đang trống tính như lúc rời ô): bấm Lưu ngay lúc ô còn trống vẫn lưu được
   const dongGui = useMemo(() => dong.map(chuanHoaDong), [dong]);
-  const tienHang = dongBang.reduce((t, d) => t + d.thanhTien, 0);
+  const tienHang = dongBang.reduce((tong, d) => tong + d.thanhTien, 0);
   const phi = docSo(form.phiVanChuyen);
   const lyDo = lyDoKhoaLuu({ dangTai, coKhach: Boolean(khach), dong: dongGui });
 
@@ -353,14 +354,14 @@ export default function BaoGiaCreate() {
       const res = await donBanHangService.create(taoBodyBaoGia({ khachHangId: khach.id, ...form }, dongGui));
       const id = idBaoGiaMoi(res);
       setDaLuu(true);
-      toast.success("Đã tạo báo giá", { description: res?.data?.soDonHang || undefined });
+      toast.success(t("Đã tạo báo giá"), { description: res?.data?.soDonHang || undefined });
       // Thay mục lịch sử: Quay lại ở chi tiết về danh sách, không về biểu mẫu đã gửi
       navigate(id != null ? `/sales-quotations/${id}` : "/sales-quotations", { replace: true });
     } catch (e) {
-      toast.error("Không tạo được báo giá", {
+      toast.error(t("Không tạo được báo giá"), {
         description: e?.response
-          ? getApiErrorMessage(e, "Máy chủ không xử lý được yêu cầu, vui lòng thử lại.")
-          : "Không nhận được phản hồi từ máy chủ. Kiểm tra kết nối rồi thử lại.",
+          ? getApiErrorMessage(e, t("Máy chủ không xử lý được yêu cầu, vui lòng thử lại."))
+          : t("Không nhận được phản hồi từ máy chủ. Kiểm tra kết nối rồi thử lại."),
       });
     } finally {
       dangLuuRef.current = false;
@@ -370,17 +371,16 @@ export default function BaoGiaCreate() {
 
   const thongBao = [
     <DongThongBao key="gia" tone="info">
-      Đơn giá sửa được trong khoảng <b className="font-semibold">90%–110% giá niêm yết</b>. Báo giá lưu ở trạng thái Chờ phản
-      hồi; khách đồng ý thì bấm Chốt thành đơn ở chi tiết báo giá.
+      {t("Đơn giá sửa được trong khoảng")} <b className="font-semibold">{t("90%–110% giá niêm yết")}</b>{t(". Báo giá lưu ở trạng thái Chờ phản hồi; khách đồng ý thì bấm Chốt thành đơn ở chi tiết báo giá.")}
     </DongThongBao>,
     loiKhach ? (
-      <DongThongBao key="loi-khach" tone="bad" actions={loiKhach.khongQuyen ? undefined : <NutChu onClick={taiKhach}>Thử lại</NutChu>}>
-        Không tải được danh sách khách hàng: {loiKhach.chu}.
+      <DongThongBao key="loi-khach" tone="bad" actions={loiKhach.khongQuyen ? undefined : <NutChu onClick={taiKhach}>{t("Thử lại")}</NutChu>}>
+        {t("Không tải được danh sách khách hàng: {{chu}}.", { chu: loiKhach.chu })}
       </DongThongBao>
     ) : null,
     loiBienThe ? (
-      <DongThongBao key="loi-bt" tone="bad" actions={loiBienThe.khongQuyen ? undefined : <NutChu onClick={taiBienThe}>Thử lại</NutChu>}>
-        Không tải được danh sách sản phẩm: {loiBienThe.chu}.
+      <DongThongBao key="loi-bt" tone="bad" actions={loiBienThe.khongQuyen ? undefined : <NutChu onClick={taiBienThe}>{t("Thử lại")}</NutChu>}>
+        {t("Không tải được danh sách sản phẩm: {{chu}}.", { chu: loiBienThe.chu })}
       </DongThongBao>
     ) : null,
   ].filter(Boolean);
@@ -389,7 +389,7 @@ export default function BaoGiaCreate() {
   const idDsSP = `${idMan}-ds-sp`;
   const timSanPham = (
     <div className="relative px-4 pb-3 pt-3 sm:px-6">
-      <label htmlFor={`${idMan}-tim-sp`} className="sr-only">Tìm hoặc quét sản phẩm</label>
+      <label htmlFor={`${idMan}-tim-sp`} className="sr-only">{t("Tìm hoặc quét sản phẩm")}</label>
       <ScanBarcode className="pointer-events-none absolute left-7 top-[22px] size-4 text-bo-muted sm:left-9" aria-hidden="true" />
       <input
         id={`${idMan}-tim-sp`}
@@ -403,7 +403,7 @@ export default function BaoGiaCreate() {
         aria-activedescendant={moDsSP && chiSoSP >= 0 ? `${idMan}-sp-${chiSoSP}` : undefined}
         aria-describedby={goiYTim ? `${idMan}-goi-y-tim` : undefined}
         disabled={dangLuu}
-        placeholder="Tìm tên, mã SKU hoặc quét mã vạch rồi Enter"
+        placeholder={t("Tìm tên, mã SKU hoặc quét mã vạch rồi Enter")}
         onChange={(e) => { setTimSP(e.target.value); setGoiYTim(""); setChiSoSP(-1); setMoSP(true); }}
         onFocus={() => { clearTimeout(henDongSPRef.current); setMoSP(true); }}
         onBlur={() => { henDongSPRef.current = setTimeout(() => { setMoSP(false); setChiSoSP(-1); }, 150); }}
@@ -420,7 +420,7 @@ export default function BaoGiaCreate() {
         <p id={`${idMan}-goi-y-tim`} className="mt-1.5 text-xs leading-4 text-bo-warning">{goiYTim}</p>
       ) : null}
       {moDsSP ? (
-        <div id={idDsSP} role="listbox" aria-label="Sản phẩm khớp" className={cn(DANH_SACH_GOI_Y, "inset-x-4 top-[calc(100%-6px)] sm:inset-x-6")}>
+        <div id={idDsSP} role="listbox" aria-label={t("Sản phẩm khớp")} className={cn(DANH_SACH_GOI_Y, "inset-x-4 top-[calc(100%-6px)] sm:inset-x-6")}>
           {goiYSP.ds.length ? goiYSP.ds.map((v, i) => {
             const daCo = dong.find((d) => d.bienTheId === v.id);
             return (
@@ -444,20 +444,20 @@ export default function BaoGiaCreate() {
                 </span>
                 <span className="shrink-0 text-right text-xs leading-4 text-bo-muted">
                   <span className="block text-[13px] font-semibold tabular-nums text-bo-foreground">
-                    {docSo(v.giaBan) > 0 ? formatCurrency(v.giaBan) : "Chưa có giá"}
+                    {docSo(v.giaBan) > 0 ? formatCurrency(v.giaBan) : t("Chưa có giá")}
                   </span>
-                  <span className="block">{daCo ? `Đang có ${soVN(daCo.soLuong)} · +1` : "Thêm"}</span>
+                  <span className="block">{daCo ? t("Đang có {{soLuong}} · +1", { soLuong: soVN(daCo.soLuong) }) : t("Thêm")}</span>
                 </span>
               </button>
             );
           }) : (
             <p className="px-2.5 py-2 text-sm text-bo-muted">
-              {dangTai ? "Đang tải danh sách sản phẩm…" : loiBienThe ? "Chưa tải được danh sách sản phẩm." : bienThe.length ? "Không tìm thấy sản phẩm, thử tên hoặc mã khác." : "Chưa có sản phẩm đang kinh doanh nào."}
+              {dangTai ? t("Đang tải danh sách sản phẩm…") : loiBienThe ? t("Chưa tải được danh sách sản phẩm.") : bienThe.length ? t("Không tìm thấy sản phẩm, thử tên hoặc mã khác.") : t("Chưa có sản phẩm đang kinh doanh nào.")}
             </p>
           )}
           {goiYSP.tong > goiYSP.ds.length ? (
             <p className="border-t border-slate-100 px-2.5 pb-1 pt-1.5 text-xs text-bo-muted">
-              Hiện {soVN(goiYSP.ds.length)}/{soVN(goiYSP.tong)} kết quả, gõ thêm để lọc
+              {t("Hiện {{soHien}}/{{tong}} kết quả, gõ thêm để lọc", { soHien: soVN(goiYSP.ds.length), tong: soVN(goiYSP.tong), count: Number(goiYSP.tong) })}
             </p>
           ) : null}
         </div>
@@ -470,10 +470,10 @@ export default function BaoGiaCreate() {
   const nhanDong = (d) => `${d.tenSanPham} ${d.tenMau || ""} ${d.kichCo || ""}`.replace(/\s+/g, " ").trim();
   const cotBang = [
     {
-      ma: "gia", nhan: "Đơn giá", lop: "w-40 text-right max-md:w-[120px]",
+      ma: "gia", nhan: t("Đơn giá"), lop: "w-40 text-right max-md:w-[120px]",
       nhom: (n) => {
         const soSai = soSaiTheoNhom.get(n.dong[0]?.khoaNhom ?? n.dong[0]?.tenSanPham) ?? 0;
-        if (soSai) return <span className="text-bo-danger">{soVN(soSai)} dòng sai giá</span>;
+        if (soSai) return <span className="text-bo-danger">{t("{{so}} dòng sai giá", { count: soSai, so: soVN(soSai) })}</span>;
         const gia = [...new Set(n.dong.map((d) => d.donGia))];
         return gia.length === 1 && gia[0] !== "" ? <span className="font-normal text-bo-muted">{formatCurrency(gia[0])}</span> : null;
       },
@@ -481,18 +481,18 @@ export default function BaoGiaCreate() {
         const kt = kiemTraDonGia(d.donGia, d.giaNiemYet);
         const idPhu = `${idMan}-gia-${d.id}`;
         const maO = `gia-${d.id}`;
-        const phu = kt.loi === "chuaCoGia" ? "Chưa có giá niêm yết, cập nhật giá bán trước"
-          : kt.loi === "thap" ? `Tối thiểu ${formatCurrency(kt.toiThieu)}`
-            : kt.loi === "cao" ? `Tối đa ${formatCurrency(kt.toiDa)}`
-              : kt.loi === "trong" ? `Để trống sẽ lấy giá niêm yết ${formatCurrency(d.giaNiemYet)}`
-                : `Niêm yết ${formatCurrency(d.giaNiemYet)}${kt.lech ? ` · ${kt.lech < 0 ? "giảm" : "tăng"} ${soVN(Math.abs(kt.lech))}%` : ""}`;
+        const phu = kt.loi === "chuaCoGia" ? t("Chưa có giá niêm yết, cập nhật giá bán trước")
+          : kt.loi === "thap" ? t("Tối thiểu {{toiThieu}}", { toiThieu: formatCurrency(kt.toiThieu) })
+            : kt.loi === "cao" ? t("Tối đa {{toiDa}}", { toiDa: formatCurrency(kt.toiDa) })
+              : kt.loi === "trong" ? t("Để trống sẽ lấy giá niêm yết {{giaNiemYet}}", { giaNiemYet: formatCurrency(d.giaNiemYet) })
+                : t("Niêm yết {{giaNiemYet}}{{lech}}", { giaNiemYet: formatCurrency(d.giaNiemYet), lech: kt.lech ? ` · ${kt.lech < 0 ? t("giảm") : t("tăng")} ${soVN(Math.abs(kt.lech))}%` : "" });
         const saiGia = kt.loi && kt.loi !== "trong";
         return (
           <span className="flex flex-col items-end gap-1">
             <input
               inputMode="numeric"
               autoComplete="off"
-              aria-label={`Đơn giá ${nhanDong(d)}`}
+              aria-label={t("Đơn giá {{dong}}", { dong: nhanDong(d) })}
               aria-invalid={saiGia ? true : undefined}
               aria-describedby={idPhu}
               value={d.donGia === "" ? "" : oDangGo === maO ? String(d.donGia) : soVN(d.donGia)}
@@ -530,7 +530,7 @@ export default function BaoGiaCreate() {
         <input
           inputMode="numeric"
           autoComplete="off"
-          aria-label={`Số lượng ${nhanDong(d)}`}
+          aria-label={t("Số lượng {{dong}}", { dong: nhanDong(d) })}
           value={d.oSoLuong}
           disabled={dangLuu}
           onChange={(e) => {
@@ -545,28 +545,28 @@ export default function BaoGiaCreate() {
           type="button"
           onClick={() => boDong(d.id)}
           disabled={dangLuu}
-          aria-label={`Bỏ ${nhanDong(d)}`}
+          aria-label={t("Bỏ {{dong}}", { dong: nhanDong(d) })}
           className="mt-0.5 text-xs font-medium text-bo-danger disabled:opacity-50 md:hidden"
         >
-          Bỏ dòng
+          {t("Bỏ dòng")}
         </button>
         </>
       ),
     },
     {
-      ma: "tien", nhan: "Thành tiền", lop: "w-36 whitespace-nowrap text-right max-md:hidden",
+      ma: "tien", nhan: t("Thành tiền"), lop: "w-36 whitespace-nowrap text-right max-md:hidden",
       nhom: (n) => formatCurrency(n.tong.thanhTien),
       dong: (d) => formatCurrency(d.thanhTien),
     },
     {
-      ma: "bo", nhan: <span className="sr-only">Bỏ dòng</span>, lop: "w-14 text-right max-md:hidden",
+      ma: "bo", nhan: <span className="sr-only">{t("Bỏ dòng")}</span>, lop: "w-14 text-right max-md:hidden",
       dong: (d) => (
         <button
           type="button"
           onClick={() => boDong(d.id)}
           disabled={dangLuu}
-          aria-label={`Bỏ ${nhanDong(d)}`}
-          title="Bỏ dòng"
+          aria-label={t("Bỏ {{dong}}", { dong: nhanDong(d) })}
+          title={t("Bỏ dòng")}
           className="inline-flex size-8 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-bo-danger-soft hover:text-bo-danger disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Trash2 className="size-4" aria-hidden="true" />
@@ -578,8 +578,8 @@ export default function BaoGiaCreate() {
   const bang = dong.length === 0 ? (
     <EmptyState
       icon={Package}
-      title="Chưa có sản phẩm nào"
-      description="Gõ tên hoặc quét mã vạch ở ô phía trên. Quét lại cùng mã sẽ cộng thêm 1."
+      title={t("Chưa có sản phẩm nào")}
+      description={t("Gõ tên hoặc quét mã vạch ở ô phía trên. Quét lại cùng mã sẽ cộng thêm 1.")}
       className="min-h-[260px] flex-1"
     />
   ) : (
@@ -587,9 +587,9 @@ export default function BaoGiaCreate() {
       bang={bangHang}
       cot={cotBang}
       dongSang={dongSang}
-      tenChungTu="Báo giá"
-      nhan="Hàng trong báo giá"
-      nhanTim="Tìm trong báo giá"
+      tenChungTu={t("Báo giá")}
+      nhan={t("Hàng trong báo giá")}
+      nhanTim={t("Tìm trong báo giá")}
       rongToiThieu="@2xl/khoi:min-w-[640px]"
     />
   );
@@ -598,12 +598,12 @@ export default function BaoGiaCreate() {
   const tongTien = (
     <TongTienBan
       className="mt-auto"
-      trai="Khi chốt thành đơn, đơn bán giữ nguyên đơn giá từng dòng; chỉ phí vận chuyển, địa chỉ và ghi chú sửa được."
+      trai={t("Khi chốt thành đơn, đơn bán giữ nguyên đơn giá từng dòng; chỉ phí vận chuyển, địa chỉ và ghi chú sửa được.")}
       muc={[
-        { ma: "hang", nhan: "Tiền hàng", giaTri: formatCurrency(tienHang) },
+        { ma: "hang", nhan: t("Tiền hàng"), giaTri: formatCurrency(tienHang) },
         {
           ma: "phi",
-          nhan: <label htmlFor={idPhi}>Phí vận chuyển</label>,
+          nhan: <label htmlFor={idPhi}>{t("Phí vận chuyển")}</label>,
           giaTri: (
             <input
               id={idPhi}
@@ -621,7 +621,7 @@ export default function BaoGiaCreate() {
             />
           ),
         },
-        { ma: "tong", nhan: "Tổng cộng", giaTri: formatCurrency(tienHang + phi), tong: true },
+        { ma: "tong", nhan: t("Tổng cộng"), giaTri: formatCurrency(tienHang + phi), tong: true },
       ]}
     />
   );
@@ -638,22 +638,22 @@ export default function BaoGiaCreate() {
           disabled={dangLuu}
           className="inline-flex h-7 shrink-0 items-center rounded-md border border-bo-border bg-bo-surface px-2.5 text-[13px] font-medium text-bo-foreground hover:bg-bo-surface-subtle disabled:cursor-not-allowed disabled:opacity-50"
         >
-          Đổi
+          {t("Đổi")}
         </button>
       </div>
       <BangThuocTinh
         className="mt-2"
         rongNhan={80}
         muc={[
-          { ma: "ma", nhan: "Mã khách", giaTri: khach.maKhachHang, an: !khach.maKhachHang },
-          { ma: "sdt", nhan: "SĐT", giaTri: sdtHien(khach.soDienThoai) },
-          { ma: "dc", nhan: "Địa chỉ gốc", giaTri: khach.diaChi },
+          { ma: "ma", nhan: t("Mã khách"), giaTri: khach.maKhachHang, an: !khach.maKhachHang },
+          { ma: "sdt", nhan: t("SĐT"), giaTri: sdtHien(khach.soDienThoai) },
+          { ma: "dc", nhan: t("Địa chỉ gốc"), giaTri: khach.diaChi },
         ]}
       />
     </div>
   ) : (
     <div className="relative">
-      <label htmlFor={`${idMan}-khach`} className="sr-only">Tìm khách hàng</label>
+      <label htmlFor={`${idMan}-khach`} className="sr-only">{t("Tìm khách hàng")}</label>
       <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-bo-muted" aria-hidden="true" />
       <input
         id={`${idMan}-khach`}
@@ -667,7 +667,7 @@ export default function BaoGiaCreate() {
         aria-controls={moDsKhach ? idDsKhach : undefined}
         aria-activedescendant={moDsKhach && chiSoKhach >= 0 ? `${idMan}-kh-${chiSoKhach}` : undefined}
         disabled={dangLuu}
-        placeholder="Tên hoặc SĐT khách hàng"
+        placeholder={t("Tên hoặc SĐT khách hàng")}
         onChange={(e) => { setTimKhach(e.target.value); setChiSoKhach(-1); setMoKhach(true); }}
         onFocus={() => { clearTimeout(henDongKhachRef.current); setMoKhach(true); }}
         onBlur={() => { henDongKhachRef.current = setTimeout(() => { setMoKhach(false); setChiSoKhach(-1); }, 150); }}
@@ -681,7 +681,7 @@ export default function BaoGiaCreate() {
         className={cn(O_NHAP, "pl-9")}
       />
       {moDsKhach ? (
-        <div id={idDsKhach} role="listbox" aria-label="Khách hàng khớp" className={cn(DANH_SACH_GOI_Y, "inset-x-0 top-10 max-h-[240px]")}>
+        <div id={idDsKhach} role="listbox" aria-label={t("Khách hàng khớp")} className={cn(DANH_SACH_GOI_Y, "inset-x-0 top-10 max-h-[240px]")}>
           {goiYKhach.length ? goiYKhach.map((k, i) => (
             <button
               key={k.id}
@@ -697,18 +697,18 @@ export default function BaoGiaCreate() {
               <span className="min-w-0">
                 <span className="block text-sm font-medium text-bo-foreground">{k.tenKhachHang}</span>
                 <span className="mt-0.5 block truncate text-xs text-bo-muted">
-                  {[sdtHien(k.soDienThoai), k.diaChi || "Chưa có địa chỉ"].filter(Boolean).join(" · ")}
+                  {[sdtHien(k.soDienThoai), k.diaChi || t("Chưa có địa chỉ")].filter(Boolean).join(" · ")}
                 </span>
               </span>
             </button>
           )) : (
             <p className="px-2.5 py-2 text-sm text-bo-muted">
-              {dangTai ? "Đang tải danh sách khách hàng…" : loiKhach ? "Chưa tải được danh sách khách hàng." : "Không có khách đang hoạt động khớp. Thử tên hoặc SĐT khác."}
+              {dangTai ? t("Đang tải danh sách khách hàng…") : loiKhach ? t("Chưa tải được danh sách khách hàng.") : t("Không có khách đang hoạt động khớp. Thử tên hoặc SĐT khác.")}
             </p>
           )}
         </div>
       ) : null}
-      <p className="mt-1.5 text-xs leading-4 text-bo-muted">Chỉ hiện khách đang hoạt động.</p>
+      <p className="mt-1.5 text-xs leading-4 text-bo-muted">{t("Chỉ hiện khách đang hoạt động.")}</p>
     </div>
   );
 
@@ -716,47 +716,47 @@ export default function BaoGiaCreate() {
   const dungDiaChiGoc = Boolean(khach?.diaChi) && form.diaChiGiaoHang === khach.diaChi;
   // Điện thoại: ô Khách hàng (bắt buộc, bước đầu) lên trước danh sách sản phẩm thay vì nằm cuối trang
   const cotPhai = (
-    <CotThuocTinh nhan="Thông tin báo giá" className="max-md:order-first max-md:border-t-0 max-md:border-b">
-      <NhomThuocTinh nhan={<>Khách hàng <span className="text-bo-danger">*</span></>}>{oKhach}</NhomThuocTinh>
-      <NhomThuocTinh nhan="Giao hàng">
+    <CotThuocTinh nhan={t("Thông tin báo giá")} className="max-md:order-first max-md:border-t-0 max-md:border-b">
+      <NhomThuocTinh nhan={<>{t("Khách hàng")} <span className="text-bo-danger">*</span></>}>{oKhach}</NhomThuocTinh>
+      <NhomThuocTinh nhan={t("Giao hàng")}>
         <label className="grid gap-1.5">
-          <span className={NHAN_O}>Địa chỉ nhận hàng</span>
+          <span className={NHAN_O}>{t("Địa chỉ nhận hàng")}</span>
           <textarea
             value={form.diaChiGiaoHang}
             maxLength={DIA_CHI_GIAO_TOI_DA}
             rows={2}
             disabled={dangLuu}
             onChange={(e) => setForm((cu) => ({ ...cu, diaChiGiaoHang: e.target.value.slice(0, DIA_CHI_GIAO_TOI_DA) }))}
-            placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành"
+            placeholder={t("Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành")}
             className={cn(O_NHAP_NHIEU_DONG, "min-h-16")}
           />
         </label>
         {dungDiaChiGoc ? (
-          <p className="mt-1.5 text-xs leading-4 text-bo-muted">Lấy từ địa chỉ gốc của khách, sửa nếu giao nơi khác.</p>
+          <p className="mt-1.5 text-xs leading-4 text-bo-muted">{t("Lấy từ địa chỉ gốc của khách, sửa nếu giao nơi khác.")}</p>
         ) : khach?.diaChi ? (
           <NutChu
             className="mt-1.5 block text-xs"
             disabled={dangLuu}
             onClick={() => setForm((cu) => ({ ...cu, diaChiGiaoHang: khach.diaChi }))}
           >
-            Dùng địa chỉ gốc của khách
+            {t("Dùng địa chỉ gốc của khách")}
           </NutChu>
         ) : null}
       </NhomThuocTinh>
       <NhomThuocTinh>
         <label className="grid gap-1.5">
-          <span className={NHAN_O}>Ghi chú báo giá</span>
+          <span className={NHAN_O}>{t("Ghi chú báo giá")}</span>
           <textarea
             value={form.ghiChu}
             maxLength={GHI_CHU_BAO_GIA_TOI_DA}
             disabled={dangLuu}
             aria-describedby={idDemGhiChu}
             onChange={(e) => setForm((cu) => ({ ...cu, ghiChu: e.target.value.slice(0, GHI_CHU_BAO_GIA_TOI_DA) }))}
-            placeholder="Ví dụ: Giá áp dụng cho đơn từ 20 sản phẩm, hiệu lực 7 ngày"
+            placeholder={t("Ví dụ: Giá áp dụng cho đơn từ 20 sản phẩm, hiệu lực 7 ngày")}
             className={O_NHAP_NHIEU_DONG}
           />
           <span id={idDemGhiChu} className={GOI_Y_O}>
-            <span>Không bắt buộc · in trên báo giá</span>
+            <span>{t("Không bắt buộc · in trên báo giá")}</span>
             <span>{form.ghiChu.length}/{GHI_CHU_BAO_GIA_TOI_DA}</span>
           </span>
         </label>
@@ -769,15 +769,15 @@ export default function BaoGiaCreate() {
       <KhungChungTu
         dau={
           <DauChungTu
-            ma="Tạo báo giá"
+            ma={t("Tạo báo giá")}
             dongPhu={dong.length
-              ? ["Báo giá bán hàng", `${soVN(bangHang.tong.soSanPham)} sản phẩm · ${soVN(bangHang.tong.soDong)} biến thể`, `Tổng SL ${soVN(bangHang.tong.soLuong)}`]
-              : ["Báo giá bán hàng", khach ? "Thêm sản phẩm vào báo giá" : "Chọn khách hàng và thêm sản phẩm"]}
+              ? [t("Báo giá bán hàng"), t("{{so}} sản phẩm", { count: bangHang.tong.soSanPham, so: soVN(bangHang.tong.soSanPham) }) + " · " + t("{{so}} biến thể", { count: bangHang.tong.soDong, so: soVN(bangHang.tong.soDong) }), t("Tổng SL {{soLuong}}", { soLuong: soVN(bangHang.tong.soLuong) })]
+              : [t("Báo giá bán hàng"), khach ? t("Thêm sản phẩm vào báo giá") : t("Chọn khách hàng và thêm sản phẩm")]}
             onQuayLai={veDanhSach}
-            nhanQuayLai="Quay lại danh sách báo giá"
+            nhanQuayLai={t("Quay lại danh sách báo giá")}
             nutChinh={{
               ma: "luu",
-              nhan: "Lưu báo giá",
+              nhan: t("Lưu báo giá"),
               icon: Save,
               onClick: luu,
               khoa: Boolean(lyDo) || dangLuu,
@@ -787,14 +787,14 @@ export default function BaoGiaCreate() {
             }}
           />
         }
-        tienTrinh={<TienTrinhChungTu buoc={BUOC} nhan="Tiến trình báo giá" />}
+        tienTrinh={<TienTrinhChungTu buoc={BUOC} nhan={t("Tiến trình báo giá")} />}
         thongBao={thongBao}
         chinh={(
           <>
             <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-4 pt-4 sm:px-6">
-              <h2 className="text-base font-semibold leading-6 text-bo-foreground">Sản phẩm</h2>
+              <h2 className="text-base font-semibold leading-6 text-bo-foreground">{t("Sản phẩm")}</h2>
               {dong.length ? (
-                <p className="text-[13px] leading-5 text-bo-muted tabular-nums">{soVN(bangHang.tong.soSanPham)} sản phẩm</p>
+                <p className="text-[13px] leading-5 text-bo-muted tabular-nums">{t("{{so}} sản phẩm", { count: bangHang.tong.soSanPham, so: soVN(bangHang.tong.soSanPham) })}</p>
               ) : null}
             </div>
             {timSanPham}
@@ -808,9 +808,9 @@ export default function BaoGiaCreate() {
       <HopXacNhanChungTu
         mo={Boolean(hoiRoi)}
         onDoiMo={(mo) => { if (!mo) setHoiRoi(null); }}
-        tieuDe="Rời trang khi báo giá chưa lưu?"
-        moTa="Các sản phẩm, đơn giá và ghi chú đang nhập sẽ mất."
-        nhanXacNhan="Rời trang"
+        tieuDe={t("Rời trang khi báo giá chưa lưu?")}
+        moTa={t("Các sản phẩm, đơn giá và ghi chú đang nhập sẽ mất.")}
+        nhanXacNhan={t("Rời trang")}
         iconXacNhan={LogOut}
         kieu="nguyHiem"
         onXacNhan={() => {

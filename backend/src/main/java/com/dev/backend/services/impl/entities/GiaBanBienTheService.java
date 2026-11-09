@@ -23,6 +23,7 @@ import com.dev.backend.utils.GioiHanSoThapPhan;
 import com.dev.backend.utils.HienThiBienThe;
 import com.dev.backend.utils.PublicAssetUrl;
 import com.dev.backend.utils.XemGiaVon;
+import com.dev.backend.i18n.ThongDiep;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -58,8 +59,9 @@ public class GiaBanBienTheService {
     private static final Set<String> CAC_TAB = Set.of(TAB_TAT_CA, TAB_HOAT_DONG, TAB_NGUNG_HOAT_DONG);
 
     public static final String LY_DO_SUA_SAN_PHAM = "Sửa sản phẩm";
-    public static final String BO_QUA_NGUNG_HOAT_DONG = "Ngừng hoạt động";
-    public static final String BO_QUA_GIA_KHONG_DOI = "Giá bán không đổi";
+    // Lý do bỏ qua trả trong kết quả đổi giá (không lưu DB): dịch theo ngôn ngữ request lúc dựng kết quả
+    public static final String BO_QUA_NGUNG_HOAT_DONG = ThongDiep.vi("sanPhamMuaHang.boQuaNgungHoatDong");
+    public static final String BO_QUA_GIA_KHONG_DOI = ThongDiep.vi("sanPhamMuaHang.boQuaGiaKhongDoi");
 
     @Autowired
     private GiaBanBienTheRepository giaBanRepository;
@@ -210,7 +212,7 @@ public class GiaBanBienTheService {
         if (tab == null || tab.isBlank()) return TAB_TAT_CA;
         String gon = tab.trim();
         if (!CAC_TAB.contains(gon)) {
-            throw new CommonException("Trạng thái lọc không hợp lệ: " + gon);
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.giaBanTrangThaiLocKhongHopLe", gon));
         }
         return gon;
     }
@@ -232,20 +234,20 @@ public class GiaBanBienTheService {
     @Transactional(rollbackFor = Exception.class)
     public KetQuaDoiGiaBanDto doiGia(DoiGiaBanRequest yeuCau) {
         if (yeuCau == null || yeuCau.getItems() == null || yeuCau.getItems().isEmpty()) {
-            throw new CommonException("Chọn ít nhất một SKU để đổi giá bán");
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.giaBanChonItNhatMotSku"));
         }
         if (yeuCau.getItems().size() > SO_SKU_TOI_DA_MOI_LAN) {
-            throw new CommonException("Mỗi lần đổi giá tối đa " + SO_SKU_TOI_DA_MOI_LAN + " SKU");
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.giaBanToiDaSku", SO_SKU_TOI_DA_MOI_LAN));
         }
         String lyDo = kiemTraLyDo(yeuCau.getLyDo());
         Map<Integer, BigDecimal> giaMoiTheoId = new LinkedHashMap<>();
         for (DoiGiaBanRequest.Dong dong : yeuCau.getItems()) {
             if (dong == null || dong.getBienTheId() == null) {
-                throw new CommonException("Thiếu SKU cần đổi giá bán");
+                throw new CommonException(ThongDiep.of("sanPhamMuaHang.giaBanThieuSku"));
             }
             BigDecimal gia = kiemTraGiaBan(dong.getGiaBan());
             if (giaMoiTheoId.putIfAbsent(dong.getBienTheId(), gia) != null) {
-                throw new CommonException("SKU id " + dong.getBienTheId() + " bị gửi trùng trong cùng một lần đổi giá");
+                throw new CommonException(ThongDiep.of("sanPhamMuaHang.giaBanSkuGuiTrung", dong.getBienTheId()));
             }
         }
 
@@ -255,7 +257,7 @@ public class GiaBanBienTheService {
         }
         List<Integer> thieu = giaMoiTheoId.keySet().stream().filter(id -> !theoId.containsKey(id)).toList();
         if (!thieu.isEmpty()) {
-            throw new CommonException("Không tìm thấy SKU id: " + thieu.stream().map(String::valueOf).reduce((a, b) -> a + ", " + b).orElse(""));
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.giaBanKhongTimThaySku", thieu.stream().map(String::valueOf).reduce((a, b) -> a + ", " + b).orElse("")));
         }
 
         NguoiDung nguoiThucHien = nguoiDangThucHien();
@@ -265,12 +267,12 @@ public class GiaBanBienTheService {
         for (Map.Entry<Integer, BigDecimal> muc : giaMoiTheoId.entrySet()) {
             BienTheSanPham bt = theoId.get(muc.getKey());
             if (!Integer.valueOf(1).equals(bt.getTrangThai())) {
-                boQua.add(KetQuaDoiGiaBanDto.BoQua.builder().id(bt.getId()).lyDo(BO_QUA_NGUNG_HOAT_DONG).build());
+                boQua.add(KetQuaDoiGiaBanDto.BoQua.builder().id(bt.getId()).lyDo(ThongDiep.dich("sanPhamMuaHang.boQuaNgungHoatDong")).build());
                 continue;
             }
             BigDecimal giaCu = bt.getGiaBan();
             if (!laGiaDoi(giaCu, muc.getValue())) {
-                boQua.add(KetQuaDoiGiaBanDto.BoQua.builder().id(bt.getId()).lyDo(BO_QUA_GIA_KHONG_DOI).build());
+                boQua.add(KetQuaDoiGiaBanDto.BoQua.builder().id(bt.getId()).lyDo(ThongDiep.dich("sanPhamMuaHang.boQuaGiaKhongDoi")).build());
                 continue;
             }
             bt.setGiaBan(muc.getValue());
@@ -338,15 +340,15 @@ public class GiaBanBienTheService {
      */
     public static BigDecimal kiemTraGiaBan(BigDecimal gia) {
         if (gia == null) {
-            throw new CommonException("Nhập giá bán");
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.giaBanNhapGia"));
         }
-        GioiHanSoThapPhan.kiemTra(gia, "Giá bán");
+        GioiHanSoThapPhan.kiemTra(gia, ThongDiep.of("sanPhamMuaHang.truongGiaBan"));
         BigDecimal lamTron = gia.setScale(2, RoundingMode.HALF_UP);
         if (lamTron.signum() <= 0) {
-            throw new CommonException("Giá bán phải lớn hơn 0");
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.giaBanLonHon0"));
         }
         if (lamTron.compareTo(GIA_BAN_TOI_DA) > 0) {
-            throw new CommonException("Giá bán vượt giới hạn cho phép");
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.giaBanVuotGioiHan"));
         }
         return lamTron;
     }
@@ -359,10 +361,10 @@ public class GiaBanBienTheService {
     static String kiemTraLyDo(String lyDo) {
         String gon = lyDo == null ? "" : lyDo.trim();
         if (gon.isEmpty()) {
-            throw new CommonException("Chọn lý do đổi giá bán");
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.giaBanChonLyDo"));
         }
         if (gon.length() > LY_DO_TOI_DA) {
-            throw new CommonException("Lý do đổi giá tối đa " + LY_DO_TOI_DA + " ký tự");
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.giaBanLyDoToiDa", LY_DO_TOI_DA));
         }
         return gon;
     }
@@ -399,9 +401,9 @@ public class GiaBanBienTheService {
     public NguoiDung nguoiDangThucHien() {
         NguoiDungAuthInfo auth = SecurityContextHolder.getUser();
         if (auth == null || auth.getId() == null) {
-            throw new CommonException(HttpStatus.UNAUTHORIZED, "Không xác định được người đổi giá. Đăng nhập lại rồi thử lại.");
+            throw new CommonException(HttpStatus.UNAUTHORIZED, ThongDiep.of("sanPhamMuaHang.giaBanKhongXacDinhNguoiDoi"));
         }
         return nguoiDungRepository.findById(auth.getId()).orElseThrow(
-                () -> new CommonException(HttpStatus.UNAUTHORIZED, "Không xác định được người đổi giá. Đăng nhập lại rồi thử lại."));
+                () -> new CommonException(HttpStatus.UNAUTHORIZED, ThongDiep.of("sanPhamMuaHang.giaBanKhongXacDinhNguoiDoi")));
     }
 }

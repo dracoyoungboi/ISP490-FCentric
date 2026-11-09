@@ -1,0 +1,15 @@
+{
+  "Vui lòng điền đầy đủ thông tin đăng nhập": "Please fill in all sign-in details",
+  "Đăng nhập thất bại": "Sign-in failed",
+  "Không nhận được phiên đăng nhập, vui lòng thử lại": "No sign-in session was received. Please try again",
+  "Phiên đăng nhập không hợp lệ, vui lòng đăng nhập lại": "Invalid sign-in session. Please sign in again",
+  "Có lỗi xảy ra khi đăng nhập": "Something went wrong while signing in",
+  "Chào mừng trở lại hệ thống FCentric.": "Welcome back to FCentric.",
+  "Tên đăng nhập / Email / SĐT": "Username / Email / Phone",
+  "Nhập tài khoản của bạn": "Enter your username, email or phone",
+  "Mật khẩu": "Password",
+  "Ẩn mật khẩu": "Hide password",
+  "Hiện mật khẩu": "Show password",
+  "Quên mật khẩu?": "Forgot password?",
+  "Đang xử lý...": "Processing..."
+}

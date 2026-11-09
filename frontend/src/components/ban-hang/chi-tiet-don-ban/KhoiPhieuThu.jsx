@@ -15,6 +15,7 @@ import { formatCurrency, formatDate, formatDateTime } from "@/utils/formatters";
 import { toast } from "@/lib/thongBaoNhanh";
 import { PHUONG_THUC_TAI_QUAY } from "./tinhDonBan";
 import { CHUA_RO, KHUNG_HOP, loiCua, maLoi, oNhap, taoKhoa } from "./hopChung";
+import { t } from "@/i18n";
 
 const oTien = "mt-1.5 h-9 px-3";
 /** Ngày yyyy-mm-dd theo giờ máy (ô chọn ngày; không lệch ngày như toISOString lúc gần nửa đêm). */
@@ -52,11 +53,11 @@ function HopThuTien({ donId, conLai, laQtv, chuaTheoDoi, onClose, onXong }) {
   const so = soTien === "" ? 0 : Number(soTien);
   const thieuMa = !tienMat && !maGd.trim();
   const loiNgay = tienMat ? ""
-    : !ngayThu ? "Chọn ngày khách chuyển."
-      : ngayThu > homNay ? "Chọn ngày không sau hôm nay."
-        : ngayThu < toiThieu ? `Chỉ ghi lùi tối đa ${luiToiDa} ngày${laQtv ? "" : " — khoản chuyển cũ hơn nhờ quản trị viên ghi"}.` : "";
+    : !ngayThu ? t("Chọn ngày khách chuyển.")
+      : ngayThu > homNay ? t("Chọn ngày không sau hôm nay.")
+        : ngayThu < toiThieu ? t("Chỉ ghi lùi tối đa {{count}} ngày{{nhoQtv}}.", { count: luiToiDa, nhoQtv: laQtv ? "" : t(" — khoản chuyển cũ hơn nhờ quản trị viên ghi") }) : "";
   const chuaDu = dang || khoaHong || so <= 0 || thieuMa || Boolean(loiNgay);
-  const vi = dang || khoaHong ? "" : so <= 0 ? "Nhập số tiền." : thieuMa ? "Nhập mã giao dịch trên sao kê." : "";
+  const vi = dang || khoaHong ? "" : so <= 0 ? t("Nhập số tiền.") : thieuMa ? t("Nhập mã giao dịch trên sao kê.") : "";
   const dong = () => onClose(chuaRo || khoaHong);
   const gui = async (xacNhanThem = {}) => {
     if (chuaDu) return;
@@ -69,7 +70,7 @@ function HopThuTien({ donId, conLai, laQtv, chuaTheoDoi, onClose, onXong }) {
         maThamChieu: tienMat ? undefined : maGd.trim(), ghiChu: ghiChu.trim() || undefined,
         choThuThua: Boolean(xacNhan.THU_THUA), choMaDaDung: Boolean(xacNhan.MA_GD_DA_DUNG), khoaChongTrung: khoa,
       });
-      onXong(`Đã ghi nhận thu ${formatCurrency(so)}.`);
+      onXong(t("Đã ghi nhận thu {{so}}.", { so: formatCurrency(so) }));
     } catch (error) {
       const code = maLoi(error);
       setDaXacNhan(xacNhan);
@@ -79,18 +80,18 @@ function HopThuTien({ donId, conLai, laQtv, chuaTheoDoi, onClose, onXong }) {
         const con = Number.isFinite(du) ? Math.max(so - du, 0) : Math.max(conLai, 0);
         setHoi({
           code,
-          cau: `Đơn còn phải thu ${formatCurrency(con)}; ghi ${formatCurrency(so)} thì thu dư ${formatCurrency(Number.isFinite(du) ? du : so - con)} và đơn thành Cần hoàn tiền. Khách thật sự trả dư thì bấm Vẫn ghi, sau đó ${laQtv ? "trả lại khách và ghi nhận hoàn tiền" : "nhờ quản trị viên trả lại khách và ghi hoàn tiền"}.`,
+          cau: t("Đơn còn phải thu {{con}}; ghi {{so}} thì thu dư {{du}} và đơn thành Cần hoàn tiền. Khách thật sự trả dư thì bấm Vẫn ghi, sau đó {{buocTiep}}.", { con: formatCurrency(con), so: formatCurrency(so), du: formatCurrency(Number.isFinite(du) ? du : so - con), buocTiep: laQtv ? t("trả lại khách và ghi nhận hoàn tiền") : t("nhờ quản trị viên trả lại khách và ghi hoàn tiền") }),
         });
       } else if (code === "MA_GD_DA_DUNG") {
-        setHoi({ code, cau: loiCua(error, "Mã giao dịch đã ghi cho đơn khác.") });
+        setHoi({ code, cau: loiCua(error, t("Mã giao dịch đã ghi cho đơn khác.")) });
       } else if (code === "KHOA_DA_DUNG") {
         setKhoaHong(true);
-        setLoi(`${loiCua(error, "Lần gửi trước đã ghi phiếu với nội dung khác.")} Đóng hộp để xem danh sách phiếu của đơn.`);
+        setLoi(t("{{error}} Đóng hộp để xem danh sách phiếu của đơn.", { error: loiCua(error, t("Lần gửi trước đã ghi phiếu với nội dung khác.")) }));
       } else if (loiChuaRo(error)) {
         setChuaRo(true);
         setLoi(CHUA_RO);
       } else {
-        setLoi(loiCua(error, "Không ghi nhận được. Thử lại."));
+        setLoi(loiCua(error, t("Không ghi nhận được. Thử lại.")));
       }
       setDang(false);
     }
@@ -102,49 +103,49 @@ function HopThuTien({ donId, conLai, laQtv, chuaTheoDoi, onClose, onXong }) {
     <Dialog open onOpenChange={(open) => { if (!open && !dang) dong(); }}>
       <DialogContent className={KHUNG_HOP}>
         <DialogHeader>
-          <DialogTitle>Ghi nhận thanh toán</DialogTitle>
+          <DialogTitle>{t("Ghi nhận thanh toán")}</DialogTitle>
           <DialogDescription>
             {chuaTheoDoi
-              ? <>Đơn tạo trước khi có ghi nhận thanh toán (tổng đơn <strong>{formatCurrency(conLai)}</strong>). Ghi đúng các khoản khách đã trả để bắt đầu theo dõi. </>
-              : conLai > 0 ? <>Đơn còn phải thu <strong>{formatCurrency(conLai)}</strong>. </> : "Đơn không còn phải thu. "}
-            Chỉ ghi khi tiền đã tới: tiền mặt đã cầm, chuyển khoản đã thấy trên sao kê.
+              ? <>{t("Đơn tạo trước khi có ghi nhận thanh toán (tổng đơn")} <strong>{formatCurrency(conLai)}</strong>{t("). Ghi đúng các khoản khách đã trả để bắt đầu theo dõi.")} </>
+              : conLai > 0 ? <>{t("Đơn còn phải thu")} <strong>{formatCurrency(conLai)}</strong>. </> : t("Đơn không còn phải thu. ")}
+            {t("Chỉ ghi khi tiền đã tới: tiền mặt đã cầm, chuyển khoản đã thấy trên sao kê.")}
           </DialogDescription>
         </DialogHeader>
         {/* Sau lỗi chưa rõ kết quả: khóa nội dung, chỉ gửi lại đúng như lần trước. Đang gửi cũng khóa: sửa giữa chừng thì
             câu hỏi lại của máy chủ (theo nội dung cũ) không bị áp sang nội dung mới */}
         <fieldset className="m-0 min-w-0 space-y-3 border-0 p-0 text-sm" disabled={dang || chuaRo || khoaHong}>
           <fieldset className="flex gap-4">
-            <legend className="sr-only">Cách trả</legend>
-            {[["CHUYEN_KHOAN", "Chuyển khoản"], ["TIEN_MAT", "Tiền mặt"]].map(([ma, ten]) => (
+            <legend className="sr-only">{t("Cách trả")}</legend>
+            {[["CHUYEN_KHOAN", t("Chuyển khoản")], ["TIEN_MAT", t("Tiền mặt")]].map(([ma, ten]) => (
               <label className="flex items-center gap-2" key={ma}>
                 <input checked={phuongThuc === ma} className="size-4 accent-bo-primary" name="cach-thu" onChange={() => { setPhuongThuc(ma); datLai(); }} type="radio" />{ten}
               </label>
             ))}
           </fieldset>
           <label className="block font-medium text-bo-foreground" htmlFor="so-tien-thu">
-            Số tiền
+            {t("Số tiền")}
             <MoneyInput className={oTien} id="so-tien-thu" onChange={(v) => { setSoTien(v); datLai(); }} value={soTien} />
           </label>
-          {so > conLai && so > 0 ? <p className="text-xs text-amber-700">Nhiều hơn số còn phải thu {formatCurrency(Math.max(conLai, 0))}: sẽ hỏi lại trước khi ghi.</p> : null}
+          {so > conLai && so > 0 ? <p className="text-xs text-amber-700">{t("Nhiều hơn số còn phải thu {{conLai}}: sẽ hỏi lại trước khi ghi.", { conLai: formatCurrency(Math.max(conLai, 0)) })}</p> : null}
           {tienMat ? (
-            <p className="text-xs text-bo-muted">Tiền mặt ghi ngày hôm nay, người thu là bạn.</p>
+            <p className="text-xs text-bo-muted">{t("Tiền mặt ghi ngày hôm nay, người thu là bạn.")}</p>
           ) : (
             <>
               <label className="block font-medium text-bo-foreground" htmlFor="ngay-thu">
-                Ngày khách chuyển
+                {t("Ngày khách chuyển")}
                 <input aria-describedby={loiNgay ? "ngay-thu-loi" : undefined} aria-invalid={Boolean(loiNgay)} className={oNhap} id="ngay-thu" max={homNay} min={toiThieu} onChange={doi(setNgayThu)} required type="date" value={ngayThu} />
               </label>
               {loiNgay ? <p className="text-xs text-red-600" id="ngay-thu-loi">{loiNgay}</p> : null}
               <label className="block font-medium text-bo-foreground" htmlFor="ma-gd-thu">
-                Mã giao dịch trên sao kê <span aria-hidden="true" className="text-red-600">*</span>
+                {t("Mã giao dịch trên sao kê")} <span aria-hidden="true" className="text-red-600">*</span>
                 <input aria-describedby="ma-gd-thu-goi-y" className={oNhap} id="ma-gd-thu" maxLength={100} onChange={doi(setMaGd)} required value={maGd} />
               </label>
-              <p className="-mt-2 text-xs text-bo-muted" id="ma-gd-thu-goi-y">Tiền thu hộ (COD) đơn vị vận chuyển chuyển về: ghi mã bảng kê.</p>
+              <p className="-mt-2 text-xs text-bo-muted" id="ma-gd-thu-goi-y">{t("Tiền thu hộ (COD) đơn vị vận chuyển chuyển về: ghi mã bảng kê.")}</p>
             </>
           )}
           <label className="block font-medium text-bo-foreground" htmlFor="ghi-chu-thu">
-            Ghi chú <span className="font-normal text-bo-muted">(không bắt buộc)</span>
-            <input className={oNhap} id="ghi-chu-thu" maxLength={500} onChange={(e) => setGhiChu(e.target.value)} placeholder="VD: khách đặt cọc" value={ghiChu} />
+            {t("Ghi chú")} <span className="font-normal text-bo-muted">{t("(không bắt buộc)")}</span>
+            <input className={oNhap} id="ghi-chu-thu" maxLength={500} onChange={(e) => setGhiChu(e.target.value)} placeholder={t("VD: khách đặt cọc")} value={ghiChu} />
           </label>
         </fieldset>
         {hoi ? (
@@ -153,14 +154,14 @@ function HopThuTien({ donId, conLai, laQtv, chuaTheoDoi, onClose, onXong }) {
         {loi ? <p className="text-xs text-red-600" role="alert">{loi}</p> : null}
         {vi ? <p className="text-xs text-bo-muted" id="ly-do-khoa-thu">{vi}</p> : null}
         <DialogFooter>
-          <Button className="border-bo-border bg-bo-surface" disabled={dang} onClick={dong} variant="outline">Quay lại</Button>
+          <Button className="border-bo-border bg-bo-surface" disabled={dang} onClick={dong} variant="outline">{t("Quay lại")}</Button>
           {hoi ? (
             <Button aria-describedby={vi ? "ly-do-khoa-thu" : undefined} className="bg-amber-600 text-white hover:bg-amber-700" disabled={chuaDu} onClick={() => gui({ [hoi.code]: true })}>
-              {dang ? "Đang ghi…" : hoi.code === "THU_THUA" ? "Vẫn ghi (khách trả dư)" : "Vẫn ghi (bảng kê nhiều đơn)"}
+              {dang ? t("Đang ghi…") : hoi.code === "THU_THUA" ? t("Vẫn ghi (khách trả dư)") : t("Vẫn ghi (bảng kê nhiều đơn)")}
             </Button>
           ) : (
             <Button aria-describedby={vi ? "ly-do-khoa-thu" : undefined} className="bg-bo-primary text-white hover:bg-bo-primary-hover" disabled={chuaDu} onClick={() => gui()}>
-              {dang ? "Đang ghi…" : chuaRo ? "Ghi nhận lại" : "Ghi nhận"}
+              {dang ? t("Đang ghi…") : chuaRo ? t("Ghi nhận lại") : t("Ghi nhận")}
             </Button>
           )}
         </DialogFooter>
@@ -184,7 +185,7 @@ function HopHoanTien({ donId, thuThua, onClose, onXong }) {
   const so = soTien === "" ? 0 : Number(soTien);
   const thieuMa = !tienMat && !maGd.trim();
   const chuaDu = dang || khoaHong || so <= 0 || so > thuThua || thieuMa;
-  const vi = dang || khoaHong || so > thuThua ? "" : so <= 0 ? "Nhập số tiền." : thieuMa ? "Nhập mã giao dịch trên sao kê." : "";
+  const vi = dang || khoaHong || so > thuThua ? "" : so <= 0 ? t("Nhập số tiền.") : thieuMa ? t("Nhập mã giao dịch trên sao kê.") : "";
   const dong = () => onClose(chuaRo || khoaHong);
   const gui = async () => {
     if (chuaDu) return;
@@ -195,16 +196,16 @@ function HopHoanTien({ donId, thuThua, onClose, onXong }) {
         phuongThuc, soTien: so, maThamChieu: tienMat ? undefined : maGd.trim(), ghiChu: ghiChu.trim() || undefined,
         khoaChongTrung: khoa,
       });
-      onXong(`Đã ghi nhận hoàn ${formatCurrency(so)} cho khách.`);
+      onXong(t("Đã ghi nhận hoàn {{so}} cho khách.", { so: formatCurrency(so) }));
     } catch (error) {
       if (maLoi(error) === "KHOA_DA_DUNG") {
         setKhoaHong(true);
-        setLoi(`${loiCua(error, "Lần gửi trước đã ghi phiếu với nội dung khác.")} Đóng hộp để xem danh sách phiếu của đơn.`);
+        setLoi(t("{{error}} Đóng hộp để xem danh sách phiếu của đơn.", { error: loiCua(error, t("Lần gửi trước đã ghi phiếu với nội dung khác.")) }));
       } else if (loiChuaRo(error)) {
         setChuaRo(true);
         setLoi(CHUA_RO);
       } else {
-        setLoi(loiCua(error, "Không ghi nhận được hoàn tiền. Thử lại."));
+        setLoi(loiCua(error, t("Không ghi nhận được hoàn tiền. Thử lại.")));
       }
       setDang(false);
     }
@@ -213,40 +214,40 @@ function HopHoanTien({ donId, thuThua, onClose, onXong }) {
     <Dialog open onOpenChange={(open) => { if (!open && !dang) dong(); }}>
       <DialogContent className={KHUNG_HOP}>
         <DialogHeader>
-          <DialogTitle>Ghi nhận hoàn tiền cho khách</DialogTitle>
-          <DialogDescription>Đơn đã thu dư {formatCurrency(thuThua)}. Trả lại khách trước, rồi ghi nhận ở đây.</DialogDescription>
+          <DialogTitle>{t("Ghi nhận hoàn tiền cho khách")}</DialogTitle>
+          <DialogDescription>{t("Đơn đã thu dư {{thuThua}}. Trả lại khách trước, rồi ghi nhận ở đây.", { thuThua: formatCurrency(thuThua) })}</DialogDescription>
         </DialogHeader>
         <fieldset className="m-0 min-w-0 space-y-3 border-0 p-0 text-sm" disabled={dang || chuaRo || khoaHong}>
           <fieldset className="flex gap-4">
-            <legend className="sr-only">Cách hoàn</legend>
-            {[["CHUYEN_KHOAN", "Chuyển khoản"], ["TIEN_MAT", "Tiền mặt"]].map(([ma, ten]) => (
+            <legend className="sr-only">{t("Cách hoàn")}</legend>
+            {[["CHUYEN_KHOAN", t("Chuyển khoản")], ["TIEN_MAT", t("Tiền mặt")]].map(([ma, ten]) => (
               <label className="flex items-center gap-2" key={ma}>
                 <input checked={phuongThuc === ma} className="size-4 accent-bo-primary" name="cach-hoan" onChange={() => { setPhuongThuc(ma); setLoi(""); }} type="radio" />{ten}
               </label>
             ))}
           </fieldset>
           <label className="block font-medium text-bo-foreground" htmlFor="so-tien-hoan">
-            Số tiền hoàn
+            {t("Số tiền hoàn")}
             <MoneyInput className={oTien} id="so-tien-hoan" onChange={setSoTien} value={soTien} />
           </label>
-          {so > thuThua ? <p className="text-xs text-red-600">Chỉ hoàn tối đa {formatCurrency(thuThua)}.</p> : null}
+          {so > thuThua ? <p className="text-xs text-red-600">{t("Chỉ hoàn tối đa {{thuThua}}.", { thuThua: formatCurrency(thuThua) })}</p> : null}
           {tienMat ? null : (
             <label className="block font-medium text-bo-foreground" htmlFor="ma-gd-hoan">
-              Mã giao dịch hoàn trên sao kê <span aria-hidden="true" className="text-red-600">*</span>
+              {t("Mã giao dịch hoàn trên sao kê")} <span aria-hidden="true" className="text-red-600">*</span>
               <input className={oNhap} id="ma-gd-hoan" maxLength={100} onChange={(e) => setMaGd(e.target.value)} required value={maGd} />
             </label>
           )}
           <label className="block font-medium text-bo-foreground" htmlFor="ghi-chu-hoan">
-            Ghi chú <span className="font-normal text-bo-muted">(không bắt buộc)</span>
+            {t("Ghi chú")} <span className="font-normal text-bo-muted">{t("(không bắt buộc)")}</span>
             <input className={oNhap} id="ghi-chu-hoan" maxLength={500} onChange={(e) => setGhiChu(e.target.value)} value={ghiChu} />
           </label>
         </fieldset>
         {loi ? <p className="text-xs text-red-600" role="alert">{loi}</p> : null}
         {vi ? <p className="text-xs text-bo-muted" id="ly-do-khoa-hoan">{vi}</p> : null}
         <DialogFooter>
-          <Button className="border-bo-border bg-bo-surface" disabled={dang} onClick={dong} variant="outline">Quay lại</Button>
+          <Button className="border-bo-border bg-bo-surface" disabled={dang} onClick={dong} variant="outline">{t("Quay lại")}</Button>
           <Button aria-describedby={vi ? "ly-do-khoa-hoan" : undefined} className="bg-bo-primary text-white hover:bg-bo-primary-hover" disabled={chuaDu} onClick={gui}>
-            {dang ? "Đang ghi…" : chuaRo ? "Ghi nhận lại" : "Ghi nhận hoàn tiền"}
+            {dang ? t("Đang ghi…") : chuaRo ? t("Ghi nhận lại") : t("Ghi nhận hoàn tiền")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -265,9 +266,9 @@ function HopHuyPhieu({ phieu, onClose, onXong }) {
     setLoi("");
     try {
       await thanhToanService.huyPhieu(phieu.id, lyDo.trim());
-      onXong(`Đã hủy phiếu ${phieu.maPhieu}.`);
+      onXong(t("Đã hủy phiếu {{maPhieu}}.", { maPhieu: phieu.maPhieu }));
     } catch (error) {
-      setLoi(loiCua(error, "Không hủy được phiếu. Thử lại."));
+      setLoi(loiCua(error, t("Không hủy được phiếu. Thử lại.")));
       // Đã có người hủy: đóng hộp thì tải lại đơn để thấy đúng trạng thái phiếu
       if (error?.response?.status === 409) setXungDot(true);
       setDang(false);
@@ -277,20 +278,19 @@ function HopHuyPhieu({ phieu, onClose, onXong }) {
     <Dialog open onOpenChange={(open) => { if (!open && !dang) onClose(xungDot); }}>
       <DialogContent className={KHUNG_HOP}>
         <DialogHeader>
-          <DialogTitle>Hủy phiếu {phieu.maPhieu}?</DialogTitle>
+          <DialogTitle>{t("Hủy phiếu {{maPhieu}}?", { maPhieu: phieu.maPhieu })}</DialogTitle>
           <DialogDescription>
-            {PHUONG_THUC_TAI_QUAY[phieu.phuongThuc] || phieu.phuongThuc} {formatCurrency(phieu.soTien)}. Phiếu không bị xóa: vẫn hiện, gạch đi, kèm lý do và người hủy.
-            Trạng thái thanh toán của đơn tính lại sau khi hủy.
+            {PHUONG_THUC_TAI_QUAY[phieu.phuongThuc] || phieu.phuongThuc} {formatCurrency(phieu.soTien)}{t(". Phiếu không bị xóa: vẫn hiện, gạch đi, kèm lý do và người hủy. Trạng thái thanh toán của đơn tính lại sau khi hủy.")}
           </DialogDescription>
         </DialogHeader>
         <label className="block text-sm font-medium text-bo-foreground" htmlFor="ly-do-huy-phieu">
-          Lý do hủy <span className="text-red-600">*</span>
-          <input autoFocus className={oNhap} id="ly-do-huy-phieu" maxLength={500} onChange={(e) => setLyDo(e.target.value)} placeholder="VD: ghi nhầm số tiền" value={lyDo} />
+          {t("Lý do hủy", { context: "phieu_thu" })} <span className="text-red-600">*</span>
+          <input autoFocus className={oNhap} id="ly-do-huy-phieu" maxLength={500} onChange={(e) => setLyDo(e.target.value)} placeholder={t("VD: ghi nhầm số tiền")} value={lyDo} />
         </label>
         {loi ? <p className="text-xs text-red-600" role="alert">{loi}</p> : null}
         <DialogFooter>
-          <Button className="border-bo-border bg-bo-surface" disabled={dang} onClick={() => onClose(xungDot)} variant="outline">Quay lại</Button>
-          <Button className="bg-red-600 text-white hover:bg-red-700" disabled={dang || !lyDo.trim()} onClick={gui}>{dang ? "Đang hủy…" : "Hủy phiếu"}</Button>
+          <Button className="border-bo-border bg-bo-surface" disabled={dang} onClick={() => onClose(xungDot)} variant="outline">{t("Quay lại")}</Button>
+          <Button className="bg-red-600 text-white hover:bg-red-700" disabled={dang || !lyDo.trim()} onClick={gui}>{dang ? t("Đang hủy…") : t("Hủy phiếu", { context: "phieu_thu" })}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -300,9 +300,9 @@ function HopHuyPhieu({ phieu, onClose, onXong }) {
 /** Phải thu / đã thu / còn lại của đơn bán thường. */
 function SoThanhToan({ thanhToan }) {
   const o = [
-    ["Phải thu", thanhToan.phaiThu],
-    ["Đã thu", thanhToan.daThu],
-    ["Còn lại", thanhToan.conLai],
+    [t("Phải thu"), thanhToan.phaiThu],
+    [t("Đã thu"), thanhToan.daThu],
+    [t("Còn lại"), thanhToan.conLai],
   ];
   return (
     <dl className="grid grid-cols-3 gap-2 text-xs">
@@ -346,7 +346,7 @@ export default function KhoiPhieuThu({ donId, thanhToan, laQtv, coTheHoan, coThe
       {chuaTheoDoi ? null : <SoThanhToan thanhToan={thanhToan} />}
       {choThu ? (
         <Button className="h-8 w-full gap-1.5 bg-bo-primary text-xs text-white hover:bg-bo-primary-hover" onClick={() => setHop({ loai: "thu" })}>
-          <HandCoins className="size-3.5" />Ghi nhận thanh toán
+          <HandCoins className="size-3.5" />{t("Ghi nhận thanh toán")}
         </Button>
       ) : null}
       {phieu.length ? (
@@ -355,21 +355,21 @@ export default function KhoiPhieuThu({ donId, thanhToan, laQtv, coTheHoan, coThe
             const huy = p.trangThai === "DA_HUY";
             const huyDuoc = laQtv && !huy;
             return (
-              <li className={`flex flex-wrap items-baseline gap-x-2 ${huy ? "text-bo-muted" : "text-bo-foreground"}`} key={p.id} title={huy ? `Đã hủy: ${p.lyDoHuy || ""}${p.tenNguoiHuy ? ` · ${p.tenNguoiHuy}` : ""}` : formatDateTime(p.thoiDiemThu)}>
+              <li className={`flex flex-wrap items-baseline gap-x-2 ${huy ? "text-bo-muted" : "text-bo-foreground"}`} key={p.id} title={huy ? t("Đã hủy: {{lyDo}}{{nguoiHuy}}", { lyDo: p.lyDoHuy || "", nguoiHuy: p.tenNguoiHuy ? ` · ${p.tenNguoiHuy}` : "" }) : formatDateTime(p.thoiDiemThu)}>
                 <span className="font-mono text-bo-muted">{p.maPhieu}</span>
-                <span>{p.loai === "HOAN" ? "Hoàn · " : ""}{PHUONG_THUC_TAI_QUAY[p.phuongThuc] || p.phuongThuc}</span>
+                <span>{p.loai === "HOAN" ? t("Hoàn · ") : ""}{PHUONG_THUC_TAI_QUAY[p.phuongThuc] || p.phuongThuc}</span>
                 {/* Ngày thu, người thu và mã giao dịch để đối chiếu sao kê */}
                 <span className="break-all text-bo-muted">
                   {formatDate(p.thoiDiemThu)}{p.tenNguoiThu ? ` · ${p.tenNguoiThu}` : ""}{p.maThamChieu ? ` · ${p.maThamChieu}` : ""}
                 </span>
                 {/* Chuyển khoản chưa được quản trị viên đối chiếu sao kê */}
-                {!huy && p.phuongThuc === "CHUYEN_KHOAN" && !p.doiChieuLuc ? <span className="text-amber-700">chưa đối chiếu</span> : null}
+                {!huy && p.phuongThuc === "CHUYEN_KHOAN" && !p.doiChieuLuc ? <span className="text-amber-700">{t("chưa đối chiếu")}</span> : null}
                 <span className={`ml-auto font-semibold tabular-nums ${huy ? "line-through" : ""}`}>{p.loai === "HOAN" ? "−" : ""}{formatCurrency(p.soTien)}</span>
                 {huy ? (
-                  <span className="basis-full">Đã hủy{p.lyDoHuy ? `: ${p.lyDoHuy}` : ""}{p.tenNguoiHuy ? ` · ${p.tenNguoiHuy}` : ""}</span>
+                  <span className="basis-full">{t("Đã hủy")}{p.lyDoHuy ? `: ${p.lyDoHuy}` : ""}{p.tenNguoiHuy ? ` · ${p.tenNguoiHuy}` : ""}</span>
                 ) : null}
                 {huyDuoc ? (
-                  <button aria-label={`Hủy phiếu ${p.maPhieu}`} className="text-bo-primary hover:underline" onClick={() => setHop({ loai: "huy", phieu: p })} type="button">Hủy</button>
+                  <button aria-label={t("Hủy phiếu {{maPhieu}}", { maPhieu: p.maPhieu })} className="text-bo-primary hover:underline" onClick={() => setHop({ loai: "huy", phieu: p })} type="button">{t("Hủy")}</button>
                 ) : null}
               </li>
             );
@@ -378,10 +378,10 @@ export default function KhoiPhieuThu({ donId, thanhToan, laQtv, coTheHoan, coThe
       ) : null}
       {thuThua > 0 ? (
         <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-          Đã thu dư <strong>{formatCurrency(thuThua)}</strong>: {coTheHoan ? "trả lại khách rồi ghi nhận." : "nhờ quản trị viên trả lại khách và ghi hoàn tiền."}
+          {t("Đã thu dư")} <strong>{formatCurrency(thuThua)}</strong>: {coTheHoan ? t("trả lại khách rồi ghi nhận.") : t("nhờ quản trị viên trả lại khách và ghi hoàn tiền.")}
           {coTheHoan ? (
             <Button className="mt-2 h-8 w-full gap-1.5 bg-bo-surface text-xs text-bo-foreground hover:bg-bo-surface-subtle" onClick={() => setHop({ loai: "hoan" })} variant="outline">
-              <Undo2 className="size-3.5" />Ghi nhận hoàn tiền
+              <Undo2 className="size-3.5" />{t("Ghi nhận hoàn tiền")}
             </Button>
           ) : null}
         </div>

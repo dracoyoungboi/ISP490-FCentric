@@ -1,5 +1,6 @@
 package com.dev.backend.services.impl.entities;
 
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.config.SecurityContextHolder;
 import com.dev.backend.constant.enums.KieuDuLieuCauHinh;
 import com.dev.backend.constant.variables.IHanhDong;
@@ -82,14 +83,14 @@ public class KenhCauHinhDongBoService {
     public KenhCauHinhDongBoDto luuCauHinh(String maKenh, KenhCauHinhDongBoRequest request) {
         String ma = kiemTraMaKenh(maKenh);
         if (request == null) {
-            throw new CommonException("Thiếu nội dung cấu hình", HttpStatus.BAD_REQUEST, null);
+            throw new CommonException(ThongDiep.of("kenhBan.thieuNoiDungCauHinh"), HttpStatus.BAD_REQUEST, null);
         }
         if (timKenh(ma).isEmpty()) {
-            throw new CommonException("Không tìm thấy kênh bán " + ma, HttpStatus.NOT_FOUND, null);
+            throw new CommonException(ThongDiep.of("kenhBan.khongTimThayKenhBan", ma), HttpStatus.NOT_FOUND, null);
         }
-        kiemTraKhoang(request.getTyLeDayTon(), 1, 100, "Tỷ lệ đẩy tồn phải từ 1 đến 100%");
-        kiemTraKhoang(request.getTonDem(), 0, KenhCauHinhDongBo.GIOI_HAN_SO_LUONG, "Tồn đệm phải từ 0 đến 100.000");
-        kiemTraKhoang(request.getNguongVe0(), 0, KenhCauHinhDongBo.GIOI_HAN_SO_LUONG, "Ngưỡng về 0 phải từ 0 đến 100.000");
+        kiemTraKhoang(request.getTyLeDayTon(), 1, 100, ThongDiep.of("kenhBan.tyLeDayTonKhongHopLe"));
+        kiemTraKhoang(request.getTonDem(), 0, KenhCauHinhDongBo.GIOI_HAN_SO_LUONG, ThongDiep.of("kenhBan.tonDemKhongHopLe"));
+        kiemTraKhoang(request.getNguongVe0(), 0, KenhCauHinhDongBo.GIOI_HAN_SO_LUONG, ThongDiep.of("kenhBan.nguongVe0KhongHopLe"));
 
         NguoiDung nguoiCapNhat = layNguoiDungHienTai();
         List<String> thayDoi = new ArrayList<>();
@@ -141,7 +142,7 @@ public class KenhCauHinhDongBoService {
         thayDoi.add(ten + "=" + giaTri);
     }
 
-    private static void kiemTraKhoang(Integer giaTri, int min, int max, String thongBao) {
+    private static void kiemTraKhoang(Integer giaTri, int min, int max, ThongDiep thongBao) {
         if (giaTri != null && (giaTri < min || giaTri > max)) {
             throw new CommonException(thongBao, HttpStatus.BAD_REQUEST, null);
         }
@@ -149,7 +150,7 @@ public class KenhCauHinhDongBoService {
 
     private static String kiemTraMaKenh(String maKenh) {
         if (maKenh == null || maKenh.isBlank() || maKenh.trim().length() > 50 || !maKenh.trim().matches("[A-Za-z0-9_-]+")) {
-            throw new CommonException("Mã kênh không hợp lệ", HttpStatus.BAD_REQUEST, null);
+            throw new CommonException(ThongDiep.of("kenhBan.maKenhKhongHopLe"), HttpStatus.BAD_REQUEST, null);
         }
         return KenhCauHinhDongBo.chuanHoaMaKenh(maKenh);
     }

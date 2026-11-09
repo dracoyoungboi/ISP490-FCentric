@@ -16,6 +16,7 @@ import {
 import { O_NHAP } from "@/components/chung-tu/kieuHopThoai";
 import { NHAN_CANH_BAO, NHAN_DU, NHAN_TRUNG, O_CHON } from "./kieuTaoYeuCau";
 import { BO_LOC_BANG, canChuY, SO_LUONG_TOI_DA } from "./tinhTaoYeuCau";
+import { t } from "@/i18n";
 
 // Khối hẹp (điện thoại, 768px có thanh bên): cột chọn / số lượng / bỏ và độ thụt dòng biến thể nhỏ lại để bảng vừa khung
 const O_CHON_TD = "w-10 py-0 pl-3 pr-0 align-middle @2xl/khoi:w-14 @2xl/khoi:pl-6";
@@ -27,16 +28,16 @@ const trangThai = (ids, chon) => {
   return so === 0 ? false : so === ids.length ? true : "indeterminate";
 };
 const chuBienThe = (n) => (n.soBienThe !== n.soBienTheCaNhom
-  ? `${soVN(n.soBienThe)}/${soVN(n.soBienTheCaNhom)} biến thể`
-  : `${soVN(n.soBienThe)} biến thể`);
+  ? t("{{soBienThe}}/{{soBienTheCaNhom}} biến thể", { count: Number(n.soBienTheCaNhom) || 0, soBienThe: soVN(n.soBienThe), soBienTheCaNhom: soVN(n.soBienTheCaNhom) })
+  : t("{{soBienThe}} biến thể", { count: n.soBienThe, soBienThe: soVN(n.soBienThe) }));
 
 /** Ô "Đề xuất" của một dòng: số đề xuất, "—" khi chưa cần nhập, "Chưa nhập" khi chưa từng nhập về Kho tổng. */
 function ODeXuat({ d }) {
   if (d.khongConBan) return <span className="text-bo-muted">—</span>;
   if (!d.daTungNhap) {
-    return <span className="text-xs text-bo-muted" title="Mã chưa nhập về Kho tổng lần nào nên chưa có số đề xuất">Chưa nhập</span>;
+    return <span className="text-xs text-bo-muted" title={t("Mã chưa nhập về Kho tổng lần nào nên chưa có số đề xuất")}>{t("Chưa nhập", { context: "nhap_hang" })}</span>;
   }
-  return d.deXuat > 0 ? soVN(d.deXuat) : <span className="text-bo-muted" title="Kho tổng chưa dưới ngưỡng">—</span>;
+  return d.deXuat > 0 ? soVN(d.deXuat) : <span className="text-bo-muted" title={t("Kho tổng chưa dưới ngưỡng")}>—</span>;
 }
 
 /**
@@ -87,55 +88,55 @@ export default function BangHangYeuCauTao({
 
   const boLoc = soChuY > 0 && bang.coCongCu ? (
     <NutPhanDoan
-      nhan="Lọc dòng"
+      nhan={t("Lọc dòng")}
       value={bang.locNhanh}
       onChange={bang.datLoc}
       luaChon={[
-        { value: "tatCa", label: `Tất cả (${soVN(bang.tong.soDong)})` },
-        { value: "chuY", label: `Cần chú ý (${soVN(soChuY)})` },
+        { value: "tatCa", label: t("Tất cả ({{soDong}})", { soDong: soVN(bang.tong.soDong) }) },
+        { value: "chuY", label: t("Cần chú ý ({{soChuY}})", { soChuY: soVN(soChuY) }) },
       ]}
     />
   ) : null;
 
   return (
-    <section aria-label="Hàng cần nhập" className="flex min-w-0 flex-1 flex-col">
+    <section aria-label={t("Hàng cần nhập")} className="flex min-w-0 flex-1 flex-col">
       {soChon > 0 && !khoa ? (
         <div
           role="region"
-          aria-label="Thao tác với các dòng đã chọn"
+          aria-label={t("Thao tác với các dòng đã chọn")}
           className="mx-4 mb-3 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-blue-200 bg-bo-primary-soft py-1.5 pl-3 pr-2 text-[13px] sm:mx-6"
         >
-          <span className="tabular-nums"><b className="font-semibold">{soVN(soChon)}</b> biến thể đã chọn</span>
+          <span className="tabular-nums"><b className="font-semibold">{soVN(soChon)}</b> {t("biến thể đã chọn")}</span>
           <button type="button" onClick={() => onDoiChon(idsChon, false)} className="font-semibold text-bo-primary hover:underline">
-            Bỏ chọn
+            {t("Bỏ chọn")}
           </button>
           <span className="hidden h-5 w-px bg-blue-200 sm:block" aria-hidden="true" />
           <label className="inline-flex items-center gap-1.5 text-slate-700">
-            Số lượng
+            {t("Số lượng")}
             <input
               type="text"
               inputMode="numeric"
               value={slChung}
               onChange={(e) => setSlChung(e.target.value.replace(/\D/g, "").slice(0, 5))}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); datSlChung(); } }}
-              aria-label="Số lượng đặt cho các dòng đã chọn"
+              aria-label={t("Số lượng đặt cho các dòng đã chọn")}
               className={cn(O_NHAP, "h-8 w-20 text-right font-semibold tabular-nums")}
             />
           </label>
           <Button type="button" variant="outline" size="sm" disabled={!(slChungSo >= 1)} onClick={datSlChung}
             className="h-8 border-bo-border bg-bo-surface text-[13px] shadow-none hover:bg-bo-surface-subtle">
-            Đặt cho {soVN(soChon)} dòng
+            {t("Đặt cho {{soChon}} dòng", { count: soChon, soChon: soVN(soChon) })}
           </Button>
           <span className="flex flex-wrap gap-2 sm:ml-auto">
             <Button type="button" variant="outline" size="sm" disabled={!coDeXuat || soLieuCu} onClick={() => onTheoDeXuat?.(idsChon)}
-              title={soLieuCu ? "Đang tải số liệu của kho vừa chọn" : coDeXuat ? undefined : "Các dòng đã chọn chưa có số đề xuất"}
+              title={soLieuCu ? t("Đang tải số liệu của kho vừa chọn") : coDeXuat ? undefined : t("Các dòng đã chọn chưa có số đề xuất")}
               className="h-8 border-bo-border bg-bo-surface text-[13px] shadow-none hover:bg-bo-surface-subtle">
-              Theo số đề xuất
+              {t("Theo số đề xuất")}
             </Button>
             <Button type="button" variant="outline" size="sm" onClick={() => onBoNhieu?.(idsChon)}
               className="h-8 border-bo-border bg-bo-surface text-[13px] text-bo-danger shadow-none hover:bg-bo-danger-soft">
               <Trash2 className="size-3.5" aria-hidden="true" />
-              Bỏ khỏi yêu cầu
+              {t("Bỏ khỏi yêu cầu")}
             </Button>
           </span>
         </div>
@@ -144,8 +145,8 @@ export default function BangHangYeuCauTao({
           tuKhoa={bang.tuKhoa}
           onDoiTuKhoa={bang.datTuKhoa}
           onXoaTuKhoa={bang.xoaTuKhoa}
-          goiYTim="Tìm trong yêu cầu: tên, SKU, màu, cỡ"
-          nhanTim="Tìm trong yêu cầu"
+          goiYTim={t("Tìm trong yêu cầu: tên, SKU, màu, cỡ")}
+          nhanTim={t("Tìm trong yêu cầu")}
           ketQua={bang.chuKetQua}
           khongKetQua={bang.khongKetQua}
           boLoc={boLoc}
@@ -156,7 +157,7 @@ export default function BangHangYeuCauTao({
       ) : (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 pb-3 sm:px-6">
           {nutXem}
-          <span className="text-xs leading-4 text-bo-muted">Sửa số lượng ngay trong bảng</span>
+          <span className="text-xs leading-4 text-bo-muted">{t("Sửa số lượng ngay trong bảng")}</span>
         </div>
       )}
       {bang.chuGoiYThuGon ? (
@@ -174,17 +175,17 @@ export default function BangHangYeuCauTao({
                     disabled={khoa || !idsLoc.length}
                     onCheckedChange={() => onDoiChon(idsLoc, ttTatCa !== true)}
                     aria-label={bang.dangTim || bang.dangLoc
-                      ? `Chọn tất cả ${soVN(idsLoc.length)} biến thể đang lọc`
-                      : `Chọn tất cả ${soVN(idsLoc.length)} biến thể`}
+                      ? t("Chọn tất cả {{soDong}} biến thể đang lọc", { count: idsLoc.length, soDong: soVN(idsLoc.length) })
+                      : t("Chọn tất cả {{soDong}} biến thể", { count: idsLoc.length, soDong: soVN(idsLoc.length) })}
                     className={O_CHON}
                   />
                 </th>
-                <th scope="col" className={O_TIEU_DE}>Sản phẩm</th>
-                <th scope="col" className={cn(O_TIEU_DE, "w-24 text-right", AN_DIEN_THOAI)} title="Khả dụng ở Kho tổng">Khả dụng</th>
-                <th scope="col" className={cn(O_TIEU_DE, "w-20 text-right", AN_DIEN_THOAI)} title="Phần chưa nhận của đơn mua đã chốt về Kho tổng">Đang về</th>
-                <th scope="col" className={cn(O_TIEU_DE, "w-24 text-right", AN_DIEN_THOAI)} title="Đưa khả dụng + đang về lên gấp đôi ngưỡng">Đề xuất</th>
-                <th scope="col" className={cn(O_TIEU_DE, O_SO_LUONG, "text-right")}>Số lượng nhập</th>
-                <th scope="col" className={cn(O_TIEU_DE, O_BO, O_CUOI)}><span className="sr-only">Bỏ dòng</span></th>
+                <th scope="col" className={O_TIEU_DE}>{t("Sản phẩm")}</th>
+                <th scope="col" className={cn(O_TIEU_DE, "w-24 text-right", AN_DIEN_THOAI)} title={t("Khả dụng ở Kho tổng")}>{t("Khả dụng")}</th>
+                <th scope="col" className={cn(O_TIEU_DE, "w-20 text-right", AN_DIEN_THOAI)} title={t("Phần chưa nhận của đơn mua đã chốt về Kho tổng")}>{t("Đang về")}</th>
+                <th scope="col" className={cn(O_TIEU_DE, "w-24 text-right", AN_DIEN_THOAI)} title={t("Đưa khả dụng + đang về lên gấp đôi ngưỡng")}>{t("Đề xuất")}</th>
+                <th scope="col" className={cn(O_TIEU_DE, O_SO_LUONG, "text-right")}>{t("Số lượng nhập")}</th>
+                <th scope="col" className={cn(O_TIEU_DE, O_BO, O_CUOI)}><span className="sr-only">{t("Bỏ dòng")}</span></th>
               </tr>
             </thead>
             {bang.nhom.map((n, iNhom) => {
@@ -203,7 +204,7 @@ export default function BangHangYeuCauTao({
                     idVung={idVung}
                     dongPhu={[
                       chuBienThe(n),
-                      soChuYNhom ? <span key="cy" className="font-medium text-bo-warning">{soVN(soChuYNhom)} cần chú ý</span> : null,
+                      soChuYNhom ? <span key="cy" className="font-medium text-bo-warning">{soVN(soChuYNhom)} {t("cần chú ý")}</span> : null,
                     ]}
                     tomTat={n.tomTat}
                     oDau={(
@@ -212,7 +213,7 @@ export default function BangHangYeuCauTao({
                           checked={tt}
                           disabled={khoa}
                           onCheckedChange={() => onDoiChon(ids, tt !== true)}
-                          aria-label={`Chọn các biến thể của ${n.tenSanPham}`}
+                          aria-label={t("Chọn các biến thể của {{tenSanPham}}", { tenSanPham: n.tenSanPham })}
                           className={O_CHON}
                         />
                       </td>
@@ -227,8 +228,8 @@ export default function BangHangYeuCauTao({
                         <button
                           type="button"
                           onClick={() => onBoNhieu?.(ids)}
-                          aria-label={`Bỏ ${n.tenSanPham} (${chuBienThe(n)})`}
-                          title="Bỏ các biến thể này"
+                          aria-label={t("Bỏ {{tenSanPham}} ({{bienThe}})", { tenSanPham: n.tenSanPham, bienThe: chuBienThe(n) })}
+                          title={t("Bỏ các biến thể này")}
                           className="inline-flex size-8 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-bo-danger-soft hover:text-bo-danger"
                         >
                           <Trash2 className="size-4" aria-hidden="true" />
@@ -249,7 +250,7 @@ export default function BangHangYeuCauTao({
                             checked={daChon}
                             disabled={khoa}
                             onCheckedChange={() => onDoiChon([String(d.id)], !daChon)}
-                            aria-label={`Chọn ${nhanDong}`}
+                            aria-label={t("Chọn {{nhanDong}}", { nhanDong })}
                             className={O_CHON}
                           />
                         </td>
@@ -257,25 +258,27 @@ export default function BangHangYeuCauTao({
                           <MauKichCo dong={d} className="max-w-full" />
                           <div className="mt-0.5 break-all font-mono text-xs text-bo-muted">{d.sku || "—"}</div>
                           {d.khongConBan ? (
-                            <div className="mt-1 text-xs font-medium text-bo-danger">Mã đã ngừng kinh doanh, bỏ dòng này trước khi gửi</div>
+                            <div className="mt-1 text-xs font-medium text-bo-danger">{t("Mã đã ngừng kinh doanh, bỏ dòng này trước khi gửi")}</div>
                           ) : null}
                           {d.yeuCauMo ? (
                             <span
                               className={cn(NHAN_CANH_BAO, NHAN_TRUNG, "max-w-full")}
-                              title={`Mã này đang nằm trong yêu cầu nhập hàng ${d.yeuCauMo.ma} chưa xong`}
+                              title={t("Mã này đang nằm trong yêu cầu nhập hàng {{ma}} chưa xong", { ma: d.yeuCauMo.ma })}
                             >
                               <AlertTriangle className="size-3 shrink-0" aria-hidden="true" />
                               <span className="truncate">
-                                Đang trong {d.yeuCauMo.ma}{d.yeuCauMo.soYeuCau > 1 ? ` và ${soVN(d.yeuCauMo.soYeuCau - 1)} yêu cầu khác` : ""}
+                                {d.yeuCauMo.soYeuCau > 1
+                                  ? t("Đang trong {{ma}} và {{soKhac}} yêu cầu khác", { ma: d.yeuCauMo.ma, count: d.yeuCauMo.soYeuCau - 1, soKhac: soVN(d.yeuCauMo.soYeuCau - 1) })
+                                  : t("Đang trong {{ma}}", { ma: d.yeuCauMo.ma })}
                               </span>
                             </span>
                           ) : d.du ? (
-                            <span className={cn(NHAN_CANH_BAO, NHAN_DU)} title="Khả dụng + đang về đã vượt ngưỡng × hệ số dư">
-                              Kho tổng còn dư hàng
+                            <span className={cn(NHAN_CANH_BAO, NHAN_DU)} title={t("Khả dụng + đang về đã vượt ngưỡng × hệ số dư")}>
+                              {t("Kho tổng còn dư hàng")}
                             </span>
                           ) : null}
                           <div className={cn("mt-0.5 text-xs text-bo-muted", CHI_DIEN_THOAI)}>
-                            Khả dụng {soVN(d.khaDung)} · Đang về {soVN(d.dangVe)} · Đề xuất {d.deXuat > 0 ? soVN(d.deXuat) : "—"}
+                            {t("Khả dụng {{khaDung}} · Đang về {{dangVe}} · Đề xuất {{deXuat}}", { khaDung: soVN(d.khaDung), dangVe: soVN(d.dangVe), deXuat: d.deXuat > 0 ? soVN(d.deXuat) : "—" })}
                           </div>
                         </td>
                         <td className={cn(O, "text-right", AN_DIEN_THOAI)}>{soVN(d.khaDung)}</td>
@@ -289,7 +292,7 @@ export default function BangHangYeuCauTao({
                             disabled={khoa}
                             onChange={(e) => onDoiSoLuong?.(d.id, e.target.value)}
                             onBlur={() => onRoiSoLuong?.(d.id)}
-                            aria-label={`Số lượng nhập: ${nhanDong}`}
+                            aria-label={t("Số lượng nhập: {{nhanDong}}", { nhanDong })}
                             aria-invalid={d.oNhap === "" ? true : undefined}
                             className={cn(O_NHAP, "ml-auto h-8 w-20 text-right font-semibold tabular-nums @2xl/khoi:w-24", d.oNhap === "" && "border-bo-danger")}
                           />
@@ -299,8 +302,8 @@ export default function BangHangYeuCauTao({
                             <button
                               type="button"
                               onClick={() => onBo?.(d.id)}
-                              aria-label={`Bỏ ${nhanDong}`}
-                              title="Bỏ dòng"
+                              aria-label={t("Bỏ {{nhanDong}}", { nhanDong })}
+                              title={t("Bỏ dòng")}
                               className="inline-flex size-8 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-bo-danger-soft hover:text-bo-danger"
                             >
                               <Trash2 className="size-4" aria-hidden="true" />
@@ -317,7 +320,7 @@ export default function BangHangYeuCauTao({
         </div>
       ) : null}
 
-      <KhongKetQua bang={bang} tenChungTu="yêu cầu nhập hàng" donVi="biến thể" />
+      <KhongKetQua bang={bang} tenChungTu={t("yêu cầu nhập hàng")} donVi={t("biến thể")} />
       {bang.phanTrang ? <PhanTrangBang {...bang.phanTrang} /> : null}
     </section>
   );

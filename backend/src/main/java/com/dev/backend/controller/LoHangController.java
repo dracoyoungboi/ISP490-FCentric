@@ -15,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import com.dev.backend.i18n.ThongDiep;
 
 @RestController
 @RequestMapping("/lo-hang")
@@ -46,7 +47,7 @@ public class LoHangController {
                 ResponseData.<LoHangDto>builder()
                         .status(HttpStatus.OK.value())
                         .data(loHangMapper.toDto(loHangService.getOne(id).orElseThrow(
-                                () -> new CommonException("Không tìm thấy lô hàng id: " + id)
+                                () -> new CommonException(ThongDiep.of("chungTuKho.loHangKhongTimThay", id))
                         )))
                         .build()
         );

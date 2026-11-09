@@ -18,6 +18,7 @@ import { thuongHieuService } from "@/services/thuongHieuService.js";
 import { Check, ChevronsUpDown, Loader2, Plus, Tag } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/thongBaoNhanh";
+import { t } from "@/i18n";
 
 const parseRoles = (value) => {
     if (typeof value !== "string") return [];
@@ -41,7 +42,7 @@ export default function BrandSelector({
     value,
     onChange,
     disabled = false,
-    placeholder = "Chọn thương hiệu (không bắt buộc)",
+    placeholder = t("Chọn thương hiệu (không bắt buộc)"),
     fallbackBrand = null,
 }) {
     const [open, setOpen] = useState(false);
@@ -59,7 +60,7 @@ export default function BrandSelector({
                 if (!cancelled) setBrands(res?.data ?? []);
             })
             .catch(() => {
-                if (!cancelled) toast.error("Không thể tải danh sách thương hiệu");
+                if (!cancelled) toast.error(t("Không thể tải danh sách thương hiệu"));
             })
             .finally(() => {
                 if (!cancelled) setIsLoaded(true);
@@ -110,7 +111,7 @@ export default function BrandSelector({
                                     {selected
                                         ? selected.tenThuongHieu
                                         : isResolving
-                                            ? "Đang tải thương hiệu..."
+                                            ? t("Đang tải thương hiệu...")
                                             : placeholder}
                                 </span>
                             </span>
@@ -121,13 +122,13 @@ export default function BrandSelector({
                         align="start"
                         className="w-[var(--radix-popover-trigger-width)] border-bo-border bg-bo-surface p-0"
                     >
-                        <Command label="Tìm thương hiệu" className="rounded-lg [&_[data-slot=command-input-wrapper]]:border-bo-border">
-                            <CommandInput placeholder="Tìm kiếm thương hiệu..." className="text-bo-foreground" />
+                        <Command label={t("Tìm thương hiệu")} className="rounded-lg [&_[data-slot=command-input-wrapper]]:border-bo-border">
+                            <CommandInput placeholder={t("Tìm kiếm thương hiệu...")} className="text-bo-foreground" />
                             <CommandList className="max-h-[240px]">
-                                <CommandEmpty className="text-bo-muted">Không tìm thấy thương hiệu</CommandEmpty>
+                                <CommandEmpty className="text-bo-muted">{t("Không tìm thấy thương hiệu")}</CommandEmpty>
                                 <CommandItem
                                     value="__khong-co-thuong-hieu__"
-                                    keywords={["Không có thương hiệu", "Bỏ chọn thương hiệu"]}
+                                    keywords={[t("Không có thương hiệu"), t("Bỏ chọn thương hiệu")]}
                                     disabled={disabled}
                                     onSelect={() => {
                                         if (disabled) return;
@@ -137,7 +138,7 @@ export default function BrandSelector({
                                     className="data-[selected=true]:bg-bo-primary-soft data-[selected=true]:text-bo-foreground"
                                 >
                                     <Tag className="size-4 shrink-0 text-bo-muted" />
-                                    <span className="min-w-0 flex-1 truncate">Không có thương hiệu</span>
+                                    <span className="min-w-0 flex-1 truncate">{t("Không có thương hiệu")}</span>
                                     {value == null ? <Check className="size-4 shrink-0 text-bo-primary" /> : null}
                                 </CommandItem>
                                 {brands.map((brand) => {
@@ -167,7 +168,7 @@ export default function BrandSelector({
                                             <span className="min-w-0 flex-1 truncate">{brand.tenThuongHieu}</span>
                                             <span className="shrink-0 font-mono text-xs text-bo-muted">{brand.maThuongHieu}</span>
                                             {isInactive ? (
-                                                <StatusBadge label="Ngừng hoạt động" className="shrink-0" />
+                                                <StatusBadge /* i18n-giu-nguyen: StatusBadge tự dịch */ label="Ngừng hoạt động" className="shrink-0" />
                                             ) : null}
                                             {isCurrent ? <Check className="size-4 shrink-0 text-bo-primary" /> : null}
                                         </CommandItem>
@@ -184,7 +185,7 @@ export default function BrandSelector({
                                         className="border-t border-bo-border data-[selected=true]:bg-bo-primary-soft data-[selected=true]:text-bo-foreground"
                                     >
                                         <Plus className="size-4 text-bo-primary" />
-                                        <span className="font-medium text-bo-primary">Tạo thương hiệu mới</span>
+                                        <span className="font-medium text-bo-primary">{t("Tạo thương hiệu mới")}</span>
                                     </CommandItem>
                                 ) : null}
                             </CommandList>

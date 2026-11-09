@@ -36,6 +36,7 @@ import {
   thamSo,
   tyLeTang,
 } from "./tinhBaoCaoDoanhThu";
+import { t } from "@/i18n";
 
 /*
  * Báo cáo doanh thu (bố cục Kiểu 3 như màn Tổng quan, phương án A chốt 27/10/2026):
@@ -47,15 +48,15 @@ import {
  */
 
 /** "▲ 12,8%" xanh / "▼ 3,1%" đỏ. tyLe null: không có số cùng kỳ. */
-function SoVoi({ tyLe, sau = "so với cùng kỳ" }) {
-  if (tyLe == null) return <span className="text-bo-muted">Chưa có số cùng kỳ</span>;
+function SoVoi({ tyLe, sau = t("so với cùng kỳ") }) {
+  if (tyLe == null) return <span className="text-bo-muted">{t("Chưa có số cùng kỳ")}</span>;
   const tang = tyLe >= 0;
   // Điện thoại: cho xuống dòng trong ô chỉ số hẹp thay vì cắt "…"
   return (
     <span className="whitespace-nowrap max-md:whitespace-normal">
       <span className={cn("font-medium", tang ? "text-bo-success" : "text-bo-danger")}>
         <span aria-hidden="true">{tang ? "▲" : "▼"}</span>
-        <span className="sr-only">{tang ? "Tăng" : "Giảm"}</span> {formatPercent(Math.abs(tyLe))}
+        <span className="sr-only">{tang ? t("Tăng") : t("Giảm")}</span> {formatPercent(Math.abs(tyLe))}
       </span>
       {sau ? <span className="text-bo-muted"> {sau}</span> : null}
     </span>
@@ -69,11 +70,11 @@ function BienLai({ a, b }) {
   // Điện thoại: cho xuống dòng trong ô chỉ số hẹp thay vì cắt mất chữ "điểm"
   return (
     <span className="whitespace-nowrap max-md:whitespace-normal">
-      <span className="text-bo-muted">Biên lãi {nay == null ? "—" : formatPercent(nay)}</span>
+      <span className="text-bo-muted">{t("Biên lãi")} {nay == null ? "—" : formatPercent(nay)}</span>
       {diem == null ? null : (
         <span className={cn("font-medium", diem >= 0 ? "text-bo-success" : "text-bo-danger")}>
           {" · "}<span aria-hidden="true">{diem >= 0 ? "▲" : "▼"}</span>
-          <span className="sr-only">{diem >= 0 ? "tăng" : "giảm"}</span> {Math.abs(diem).toLocaleString("vi-VN", { maximumFractionDigits: 1 })} điểm
+          <span className="sr-only">{diem >= 0 ? t("tăng") : t("giảm")}</span> {Math.abs(diem).toLocaleString("vi-VN", { maximumFractionDigits: 1 })} {t("điểm")}
         </span>
       )}
     </span>
@@ -87,50 +88,50 @@ function BienLai({ a, b }) {
  */
 function DauTrang({ boLoc, setBoLoc, dsKho, data, loading, gio, onTaiLai, chiSo, setChiSo, coGiaVon, khoaKho, tenKhoKhoa }) {
   const tenKho = khoaKho ? tenKhoKhoa
-    : boLoc.khoId ? dsKho.find((k) => String(k.id) === String(boLoc.khoId))?.tenKho ?? "Kho đã chọn" : "Tất cả kho";
+    : boLoc.khoId ? dsKho.find((k) => String(k.id) === String(boLoc.khoId))?.tenKho ?? t("Kho đã chọn") : t("Tất cả kho");
   const homNay = new Date();
   const namHienTai = homNay.getFullYear();
   const nhanLoai = LOAI_KY.find((x) => x.value === boLoc.loai)?.label;
   const nhanMoc = boLoc.loai === "ngay"
     ? MOC_NGAY.find((x) => x.value === boLoc.moc)?.label
-    : boLoc.loai === "nam" ? `${boLoc.soNam} năm gần nhất` : `Năm ${boLoc.nam}`;
+    : boLoc.loai === "nam" ? t("{{soNam}} năm gần nhất", { soNam: boLoc.soNam }) : t("Năm {{nam}}", { nam: boLoc.nam });
   const a = data?.kyNay;
   const b = data?.cungKy;
   const toi = cuaToi(data);
   const o = coGiaVon ? [
     { ...CHI_SO[0], gt: a?.doanhThu, phu: <SoVoi tyLe={tyLeTang(a?.doanhThu, b?.doanhThu)} /> },
     { ...CHI_SO[1], gt: a?.loiNhuan, phu: <BienLai a={a} b={b} /> },
-    { ...CHI_SO[2], gt: a?.giaVon, phu: <span className="text-bo-muted">{a && Number(a.doanhThu) ? `${formatPercent(Number(a.giaVon) / Number(a.doanhThu))} doanh thu` : "—"}</span> },
-    { ...CHI_SO[3], gt: a?.soDon, phu: <span className="text-bo-muted">{a && Number(a.soDon) ? `TB ${formatCurrency(Number(a.doanhThu) / Number(a.soDon))} / đơn` : "—"}</span> },
+    { ...CHI_SO[2], gt: a?.giaVon, phu: <span className="text-bo-muted">{a && Number(a.doanhThu) ? t("{{tyLe}} doanh thu", { tyLe: formatPercent(Number(a.giaVon) / Number(a.doanhThu)) }) : "—"}</span> },
+    { ...CHI_SO[3], gt: a?.soDon, phu: <span className="text-bo-muted">{a && Number(a.soDon) ? t("TB {{tb}} / đơn", { tb: formatCurrency(Number(a.doanhThu) / Number(a.soDon)) }) : "—"}</span> },
   ] : [
     { ...CHI_SO[0], gt: a?.doanhThu, phu: <SoVoi tyLe={tyLeTang(a?.doanhThu, b?.doanhThu)} /> },
-    { ...CHI_SO[3], gt: a?.soDon, phu: <span className="text-bo-muted">{a && Number(a.soDon) ? `TB ${formatCurrency(Number(a.doanhThu) / Number(a.soDon))} / đơn` : "—"}</span> },
+    { ...CHI_SO[3], gt: a?.soDon, phu: <span className="text-bo-muted">{a && Number(a.soDon) ? t("TB {{tb}} / đơn", { tb: formatCurrency(Number(a.doanhThu) / Number(a.soDon)) }) : "—"}</span> },
     {
-      ma: "cuaToi", ten: "Đơn của bạn", tien: false, chiXem: true, gt: toi.soDon,
-      phu: <span className="text-bo-muted">{toi.soDon ? `${formatCurrencyCompact(toi.doanhThu)} · ${formatPercent(toi.tyTrong, 0)} doanh thu` : "Chưa có đơn đã giao"}</span>,
+      ma: "cuaToi", ten: t("Đơn của bạn"), tien: false, chiXem: true, gt: toi.soDon,
+      phu: <span className="text-bo-muted">{toi.soDon ? t("{{doanhThu}} · {{tyLe}} doanh thu", { doanhThu: formatCurrencyCompact(toi.doanhThu), tyLe: formatPercent(toi.tyTrong, 0) }) : t("Chưa có đơn đã giao")}</span>,
     },
   ];
   return (
     <div className="@container/dau">
-      <section aria-label="Phạm vi và kết quả của kỳ" className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-[0_1px_2px_rgba(16,24,40,0.04)] @min-[980px]/dau:flex-row">
+      <section aria-label={t("Phạm vi và kết quả của kỳ")} className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-[0_1px_2px_rgba(16,24,40,0.04)] @min-[980px]/dau:flex-row">
         <div className="flex min-w-0 flex-col gap-2 border-b border-bo-border bg-bo-surface-subtle px-4 py-3 @min-[980px]/dau:w-[300px] @min-[980px]/dau:shrink-0 @min-[980px]/dau:justify-center @min-[980px]/dau:border-b-0 @min-[980px]/dau:border-r @min-[980px]/dau:px-5">
           {khoaKho ? (
             // Một tên cho kho đang xem ở báo cáo: "Kho: <tên>" (PQ-17, thay nhãn "Cửa hàng bạn làm")
             <span className="flex min-w-0 items-center gap-x-1.5 text-base font-semibold leading-6 text-bo-foreground">
-              {dsKho.length === 1 ? <span className="shrink-0 font-normal text-bo-muted">Kho:</span> : null}
+              {dsKho.length === 1 ? <span className="shrink-0 font-normal text-bo-muted">{t("Kho:")}</span> : null}
               <span className="min-w-0 truncate">{tenKho}</span>
             </span>
           ) : (
-            <Menu ariaLabel={`Chọn kho, đang xem: ${tenKho}`} className={cn(FOCUS, "inline-flex max-w-full cursor-pointer items-center gap-1.5 self-start rounded text-base font-semibold leading-6 text-bo-foreground hover:text-bo-primary-hover")} nhan={tenKho} rong="w-72">
-              <Muc chon={!boLoc.khoId} onChon={() => setBoLoc({ khoId: "" })} phu={dsKho.length ? `${dsKho.length} kho` : null} ten="Tất cả kho" />
+            <Menu ariaLabel={t("Chọn kho, đang xem: {{tenKho}}", { tenKho })} className={cn(FOCUS, "inline-flex max-w-full cursor-pointer items-center gap-1.5 self-start rounded text-base font-semibold leading-6 text-bo-foreground hover:text-bo-primary-hover")} nhan={tenKho} rong="w-72">
+              <Muc chon={!boLoc.khoId} onChon={() => setBoLoc({ khoId: "" })} phu={dsKho.length ? t("{{count}} kho", { count: dsKho.length }) : null} ten={t("Tất cả kho")} />
               {dsKho.map((k) => <Muc key={k.id} chon={String(boLoc.khoId) === String(k.id)} onChon={() => setBoLoc({ khoId: String(k.id) })} ten={k.tenKho} />)}
             </Menu>
           )}
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-            <Menu ariaLabel={`Chọn cách xem, đang xem: ${nhanLoai}`} icon nhan={nhanLoai}>
+            <Menu ariaLabel={t("Chọn cách xem, đang xem: {{nhanLoai}}", { nhanLoai })} icon nhan={nhanLoai}>
               {LOAI_KY.map((x) => <Muc key={x.value} chon={boLoc.loai === x.value} onChon={() => setBoLoc({ loai: x.value })} ten={x.label} />)}
             </Menu>
-            <Menu ariaLabel={`Chọn kỳ, đang xem: ${nhanMoc}`} nhan={nhanMoc}>
+            <Menu ariaLabel={t("Chọn kỳ, đang xem: {{nhanMoc}}", { nhanMoc })} nhan={nhanMoc}>
               {boLoc.loai === "ngay" ? MOC_NGAY.map((x) => {
                 const k = x.value === "tuy-chon" ? null : khoangMoc(x.value, homNay);
                 return (
@@ -138,9 +139,9 @@ function DauTrang({ boLoc, setBoLoc, dsKho, data, loading, gio, onTaiLai, chiSo,
                     phu={k ? `${ngayVN(k.tuNgay)} – ${ngayVN(k.denNgay)}` : null} ten={x.label} />
                 );
               }) : boLoc.loai === "nam" ? SO_NAM.map((n) => (
-                <Muc key={n} chon={boLoc.soNam === n} onChon={() => setBoLoc({ soNam: n })} phu={`${namHienTai - n + 1} – ${namHienTai}`} ten={`${n} năm gần nhất`} />
+                <Muc key={n} chon={boLoc.soNam === n} onChon={() => setBoLoc({ soNam: n })} phu={`${namHienTai - n + 1} – ${namHienTai}`} ten={t("{{n}} năm gần nhất", { n })} />
               )) : Array.from({ length: 6 }, (_, i) => namHienTai - i).map((y) => (
-                <Muc key={y} chon={boLoc.nam === y} onChon={() => setBoLoc({ nam: y })} ten={`Năm ${y}`} />
+                <Muc key={y} chon={boLoc.nam === y} onChon={() => setBoLoc({ nam: y })} ten={t("Năm {{y}}", { y })} />
               ))}
             </Menu>
           </div>
@@ -149,18 +150,18 @@ function DauTrang({ boLoc, setBoLoc, dsKho, data, loading, gio, onTaiLai, chiSo,
           ) : null}
           <span className="text-xs text-bo-muted">
             {data ? `${ngayVN(data.tuNgay)} – ${ngayVN(data.denNgay)}` : " "}
-            {gio ? ` · lúc ${gio} · ` : " · "}
+            {gio ? t(" · lúc {{gio}} · ", { gio }) : " · "}
             <button className={cn(FOCUS, "inline-flex cursor-pointer items-center gap-1 rounded font-medium text-bo-primary hover:underline")} onClick={onTaiLai} type="button">
-              <RefreshCcw className={cn("size-3", loading && "animate-spin")} aria-hidden="true" />Cập nhật
+              <RefreshCcw className={cn("size-3", loading && "animate-spin")} aria-hidden="true" />{t("Cập nhật", { context: "lam_moi" })}
             </button>
           </span>
         </div>
         <div className={cn("grid min-w-0 flex-1 grid-cols-2", o.length === 3 ? "@min-[640px]/dau:grid-cols-3" : "@min-[640px]/dau:grid-cols-4")}>
           {/* Thẻ chọn nằm trong tablist (display: contents để vẫn xếp theo lưới); ô "Đơn của bạn" chỉ xem nên ở ngoài */}
-          <div role="tablist" aria-label="Chỉ số của kỳ, chọn để xem trên biểu đồ" className="contents">
+          <div role="tablist" aria-label={t("Chỉ số của kỳ, chọn để xem trên biểu đồ")} className="contents">
           {o.filter((c) => !c.chiXem).map((c, i) => {
             const on = !c.chiXem && chiSo === c.ma;
-            const so = c.tien ? soGon(c.gt) : { so: formatNumber(Number(c.gt) || 0), donVi: "đơn" };
+            const so = c.tien ? soGon(c.gt) : { so: formatNumber(Number(c.gt) || 0), donVi: t("đơn") };
             const lop = cn(
               // Điện thoại: lề ngang hẹp hơn để dòng so sánh dưới số không bị cắt
               "flex min-w-0 flex-col gap-0.5 border-b-2 px-4 py-3 text-left transition-colors @min-[640px]/dau:px-5 max-md:px-3",
@@ -205,7 +206,7 @@ function DauTrang({ boLoc, setBoLoc, dsKho, data, loading, gio, onTaiLai, chiSo,
           </div>
           {o.filter((c) => c.chiXem).map((c) => {
             const i = o.indexOf(c);
-            const so = { so: formatNumber(Number(c.gt) || 0), donVi: "đơn" };
+            const so = { so: formatNumber(Number(c.gt) || 0), donVi: t("đơn") };
             return (
               <div
                 key={c.ma}
@@ -246,7 +247,7 @@ function TipBieuDo({ active, payload, fmt, coTruoc }) {
     return (
       <div className="min-w-[180px] rounded-lg border border-bo-border bg-bo-surface p-3 text-xs shadow-sm">
         <p className="font-semibold text-bo-foreground">{d.nhanDay}</p>
-        <p className="mt-1 text-bo-muted">Chưa tới kỳ này</p>
+        <p className="mt-1 text-bo-muted">{t("Chưa tới kỳ này")}</p>
       </div>
     );
   }
@@ -254,16 +255,16 @@ function TipBieuDo({ active, payload, fmt, coTruoc }) {
   return (
     <div className="min-w-[180px] rounded-lg border border-bo-border bg-bo-surface p-3 text-xs shadow-sm">
       <p className="mb-2 font-semibold text-bo-foreground">{d.nhanDay}</p>
-      <p className="flex justify-between gap-4"><span className="text-bo-muted">Kỳ này</span><b className="tabular-nums text-bo-foreground">{fmt(d.nay)}</b></p>
-      {coTruoc ? <p className="mt-1 flex justify-between gap-4"><span className="text-bo-muted">Cùng kỳ năm trước</span><span className="tabular-nums">{fmt(d.truoc)}</span></p> : null}
+      <p className="flex justify-between gap-4"><span className="text-bo-muted">{t("Kỳ này")}</span><b className="tabular-nums text-bo-foreground">{fmt(d.nay)}</b></p>
+      {coTruoc ? <p className="mt-1 flex justify-between gap-4"><span className="text-bo-muted">{t("Cùng kỳ năm trước")}</span><span className="tabular-nums">{fmt(d.truoc)}</span></p> : null}
       {tang != null ? <p className="mt-1.5"><SoVoi sau="" tyLe={tang} /></p> : null}
     </div>
   );
 }
 
 const KIEU = [
-  { value: "cot", ten: "Biểu đồ cột", icon: BarChart3 },
-  { value: "duong", ten: "Biểu đồ đường", icon: LineChartIcon },
+  { value: "cot", ten: t("Biểu đồ cột"), icon: BarChart3 },
+  { value: "duong", ten: t("Biểu đồ đường"), icon: LineChartIcon },
 ];
 
 function TheBieuDo({ data, chiSo, loading, loi, onTaiLai, className }) {
@@ -272,8 +273,8 @@ function TheBieuDo({ data, chiSo, loading, loi, onTaiLai, className }) {
   const rows = useMemo(() => duLieuBieuDo(data, chiSo), [data, chiSo]);
   const coTruoc = data?.loai !== "nam";
   const trong = !rows.some((r) => r.nay || r.truoc);
-  const fmt = cs.tien ? formatCurrency : (v) => `${formatNumber(v)} đơn`;
-  const moiKy = data?.loai === "ngay" ? "ngày" : data?.loai === "nam" ? "năm" : "tháng";
+  const fmt = cs.tien ? formatCurrency : (v) => t("{{soDon}} đơn", { soDon: formatNumber(v), count: v });
+  const moiKy = data?.loai === "ngay" ? t("ngày") : data?.loai === "nam" ? t("năm") : t("tháng");
   // Nhiều ngày: thưa nhãn trục để không chồng chữ; luôn có nhãn kỳ cuối, bỏ nhãn liền trước nếu quá sát
   const buoc = rows.length > 12 ? Math.ceil(rows.length / 6) : 1;
   const viTri = rows.map((_, i) => i).filter((i) => i % buoc === 0);
@@ -292,7 +293,7 @@ function TheBieuDo({ data, chiSo, loading, loi, onTaiLai, className }) {
       loading={loading && !data}
       onRetry={onTaiLai}
       right={trong ? null : (
-        <div role="group" aria-label="Cách xem" className="inline-flex rounded-md bg-slate-100 p-0.5">
+        <div role="group" aria-label={t("Cách xem")} className="inline-flex rounded-md bg-slate-100 p-0.5">
           {KIEU.map((x) => {
             const Icon = x.icon;
             const on = kieu === x.value;
@@ -305,30 +306,30 @@ function TheBieuDo({ data, chiSo, loading, loi, onTaiLai, className }) {
           })}
         </div>
       )}
-      scope={cs.tien ? "đồng" : "đơn"}
-      title={`${cs.ten} theo ${moiKy}`}
+      scope={cs.tien ? t("đồng") : t("đơn")}
+      title={t("{{ten}} theo {{moiKy}}", { ten: cs.ten, moiKy })}
     >
       {trong ? (
         <div className="flex h-[260px] flex-col items-center justify-center gap-2 text-center text-[13px] text-bo-muted">
           <TrendingUp className="size-5 text-slate-400" aria-hidden="true" />
-          Chưa có đơn đã giao trong kỳ này và cùng kỳ năm trước.
+          {t("Chưa có đơn đã giao trong kỳ này và cùng kỳ năm trước.")}
         </div>
       ) : (
         <>
           <div className="mb-3.5 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs leading-4 text-bo-muted">
             <span className="inline-flex items-center gap-2 whitespace-nowrap">
               {kieu === "cot" ? <i className="inline-block size-2.5 rounded-[2px] bg-bo-primary" aria-hidden="true" /> : <i className="inline-block w-4 border-t-2 border-bo-primary" aria-hidden="true" />}
-              <b className="font-medium text-bo-foreground">Kỳ này</b>
+              <b className="font-medium text-bo-foreground">{t("Kỳ này")}</b>
             </span>
             {coTruoc ? (
               <span className="inline-flex flex-wrap items-center gap-x-2">
                 <i className="inline-block w-4 border-t-2 border-dashed" style={{ borderColor: MAU2.kyTruoc }} aria-hidden="true" />
-                <b className="font-medium text-bo-foreground">Cùng kỳ năm trước</b>
+                <b className="font-medium text-bo-foreground">{t("Cùng kỳ năm trước")}</b>
                 {data ? <span className="whitespace-nowrap">{`${ngayVN(data.tuNgayCungKy)} – ${ngayVN(data.denNgayCungKy)}`}</span> : null}
               </span>
             ) : null}
           </div>
-          <div className="h-[260px] @max-[520px]:h-[200px]" role="figure" aria-label={`${cs.ten} theo ${moiKy}${coTruoc ? ", so với cùng kỳ năm trước" : ""}. Số từng ${moiKy} có ở bảng Chi tiết bên dưới.`}>
+          <div className="h-[260px] @max-[520px]:h-[200px]" role="figure" aria-label={t("{{ten}} theo {{moiKy}}{{soSanh}}. Số từng {{moiKy}} có ở bảng Chi tiết bên dưới.", { ten: cs.ten, moiKy, soSanh: coTruoc ? t(", so với cùng kỳ năm trước") : "" })}>
             <KhungBieuDo>
               <ComposedChart accessibilityLayer barCategoryGap="30%" data={rows} margin={{ top: 8, right: 18, bottom: 0, left: 0 }}>
                 <CartesianGrid stroke={MAU2.luoi} vertical={false} />
@@ -369,19 +370,19 @@ function BangChiTiet({ data, tienThu, loading, loi, onTaiLai, coGiaVon }) {
   const coThu = Boolean(tienThu);
   const a = data?.kyNay;
   const b = data?.cungKy;
-  const tenKy = data?.loai === "ngay" ? "Ngày" : data?.loai === "nam" ? "Năm" : "Tháng";
+  const tenKy = data?.loai === "ngay" ? t("Ngày") : data?.loai === "nam" ? t("Năm") : t("Tháng");
   const bienCaKy = bienLai(a?.loiNhuan, a?.doanhThu);
   return (
     <Card
       empty={!loading && !loi && Boolean(data) && rows.length === 0}
       emptyIcon={TrendingUp}
-      emptyText="Kỳ này chưa có đơn đã giao hay khoản thu nào."
+      emptyText={t("Kỳ này chưa có đơn đã giao hay khoản thu nào.")}
       error={Boolean(loi)}
       loading={loading && !data}
       onRetry={onTaiLai}
-      right={<span className="hidden text-xs text-bo-muted @min-[720px]:inline">Doanh thu theo ngày giao hàng · tiền thu theo ngày thu</span>}
-      scope={data ? `${rows.length} ${tenKy.toLowerCase()} có số liệu` : null}
-      title={`Chi tiết theo ${tenKy.toLowerCase()}`}
+      right={<span className="hidden text-xs text-bo-muted @min-[720px]:inline">{t("Doanh thu theo ngày giao hàng · tiền thu theo ngày thu")}</span>}
+      scope={data ? t("{{count}} {{donVi}} có số liệu", { count: rows.length, donVi: tenKy.toLowerCase() }) : null}
+      title={t("Chi tiết theo {{donVi}}", { donVi: tenKy.toLowerCase() })}
     >
       {/* Máy tính, máy tính bảng: bảng cuộn ngang trong khung.
           Máy tính bảng dọc (cảm ứng): bỏ cột Cùng kỳ năm trước, Giá vốn, Biên lãi, Đơn, Hoàn — số đơn, cùng kỳ, biên lãi,
@@ -391,20 +392,20 @@ function BangChiTiet({ data, tienThu, loading, loi, onTaiLai, coGiaVon }) {
           <thead>
             <tr className="border-b border-bo-border bg-bo-surface-subtle">
               <th scope="col" className={cn(TH, "pl-5 text-left cam-ung:max-lg:pl-5")}>{tenKy}</th>
-              <th scope="col" className={TH}>Doanh thu</th>
-              <th scope="col" className={cn(TH, "cam-ung:max-lg:hidden")}>Cùng kỳ năm trước</th>
-              <th scope="col" className={TH}>Tăng / giảm</th>
+              <th scope="col" className={TH}>{t("Doanh thu")}</th>
+              <th scope="col" className={cn(TH, "cam-ung:max-lg:hidden")}>{t("Cùng kỳ năm trước")}</th>
+              <th scope="col" className={TH}>{t("Tăng / giảm")}</th>
               {coGiaVon ? (
                 <>
-                  <th scope="col" className={cn(TH, "cam-ung:max-lg:hidden")}>Giá vốn</th>
-                  <th scope="col" className={TH}>Lợi nhuận gộp</th>
-                  <th scope="col" className={cn(TH, "cam-ung:max-lg:hidden")}>Biên lãi</th>
+                  <th scope="col" className={cn(TH, "cam-ung:max-lg:hidden")}>{t("Giá vốn")}</th>
+                  <th scope="col" className={TH}>{t("Lợi nhuận gộp")}</th>
+                  <th scope="col" className={cn(TH, "cam-ung:max-lg:hidden")}>{t("Biên lãi")}</th>
                 </>
               ) : null}
-              <th scope="col" className={cn(TH, "cam-ung:max-lg:hidden")}>Đơn</th>
-              {coThu ? <th scope="col" className={cn(TH, "border-l border-bo-border")}>Tiền mặt</th> : null}
-              {coThu ? <th scope="col" className={cn(TH, "cam-ung:max-lg:pr-5")}>Chuyển khoản</th> : null}
-              {coThu ? <th scope="col" className={cn(TH, "pr-5 cam-ung:max-lg:hidden")}>Hoàn</th> : null}
+              <th scope="col" className={cn(TH, "cam-ung:max-lg:hidden")}>{t("Đơn")}</th>
+              {coThu ? <th scope="col" className={cn(TH, "border-l border-bo-border")}>{t("Tiền mặt")}</th> : null}
+              {coThu ? <th scope="col" className={cn(TH, "cam-ung:max-lg:pr-5")}>{t("Chuyển khoản")}</th> : null}
+              {coThu ? <th scope="col" className={cn(TH, "pr-5 cam-ung:max-lg:hidden")}>{t("Hoàn")}</th> : null}
             </tr>
           </thead>
           <tbody>
@@ -412,11 +413,11 @@ function BangChiTiet({ data, tienThu, loading, loi, onTaiLai, coGiaVon }) {
               <tr key={r.khoa} className="border-b border-[#eef1f5] hover:bg-bo-surface-subtle">
                 <th scope="row" className="whitespace-nowrap py-2.5 pl-5 pr-3 text-left font-medium text-bo-foreground">
                   {r.ten}
-                  <span className="hidden text-xs font-normal text-bo-muted cam-ung:max-lg:block">{formatNumber(r.soDon)} đơn</span>
+                  <span className="hidden text-xs font-normal text-bo-muted cam-ung:max-lg:block">{formatNumber(r.soDon)} {t("đơn")}</span>
                 </th>
                 <td className={cn(TD, "font-semibold text-bo-foreground")}>
                   {formatCurrency(r.doanhThu)}
-                  <span className="hidden text-xs font-normal text-slate-600 cam-ung:max-lg:block">cùng kỳ {formatCurrency(r.doanhThuCungKy)}</span>
+                  <span className="hidden text-xs font-normal text-slate-600 cam-ung:max-lg:block">{t("cùng kỳ {{doanhThuCungKy}}", { doanhThuCungKy: formatCurrency(r.doanhThuCungKy) })}</span>
                 </td>
                 <td className={cn(TD, "text-slate-600 cam-ung:max-lg:hidden")}>{formatCurrency(r.doanhThuCungKy)}</td>
                 <td className={TD}><TangGiam tyLe={r.tang} /></td>
@@ -425,7 +426,7 @@ function BangChiTiet({ data, tienThu, loading, loi, onTaiLai, coGiaVon }) {
                     <td className={cn(TD, "text-slate-600 cam-ung:max-lg:hidden")}>{formatCurrency(r.giaVon)}</td>
                     <td className={TD}>
                       {formatCurrency(r.loiNhuan)}
-                      <span className="hidden text-xs text-bo-muted cam-ung:max-lg:block">biên lãi {r.bien == null ? "—" : formatPercent(r.bien)}</span>
+                      <span className="hidden text-xs text-bo-muted cam-ung:max-lg:block">{t("biên lãi")} {r.bien == null ? "—" : formatPercent(r.bien)}</span>
                     </td>
                     <td className={cn(TD, "cam-ung:max-lg:hidden")}>{r.bien == null ? <span className="text-bo-muted">—</span> : formatPercent(r.bien)}</td>
                   </>
@@ -435,7 +436,7 @@ function BangChiTiet({ data, tienThu, loading, loi, onTaiLai, coGiaVon }) {
                 {coThu ? (
                   <td className={cn(TD, "cam-ung:max-lg:pr-5")}>
                     {formatCurrency(r.chuyenKhoan)}
-                    {r.hoan ? <span className="hidden text-xs text-slate-600 cam-ung:max-lg:block">hoàn −{formatCurrency(r.hoan)}</span> : null}
+                    {r.hoan ? <span className="hidden text-xs text-slate-600 cam-ung:max-lg:block">{t("hoàn −{{hoan}}", { hoan: formatCurrency(r.hoan) })}</span> : null}
                   </td>
                 ) : null}
                 {coThu ? <td className={cn(TD, "pr-5 text-slate-600 cam-ung:max-lg:hidden")}>{r.hoan ? `−${formatCurrency(r.hoan)}` : formatCurrency(0)}</td> : null}
@@ -446,12 +447,12 @@ function BangChiTiet({ data, tienThu, loading, loi, onTaiLai, coGiaVon }) {
             <tfoot>
               <tr className="bg-bo-surface-subtle font-bold text-bo-foreground">
                 <th scope="row" className="py-3 pl-5 pr-3 text-left">
-                  Cả kỳ
-                  <span className="hidden whitespace-nowrap text-xs font-normal text-bo-muted cam-ung:max-lg:block">{formatNumber(a.soDon)} đơn</span>
+                  {t("Cả kỳ")}
+                  <span className="hidden whitespace-nowrap text-xs font-normal text-bo-muted cam-ung:max-lg:block">{formatNumber(a.soDon)} {t("đơn")}</span>
                 </th>
                 <td className={TD}>
                   {formatCurrency(a.doanhThu)}
-                  <span className="hidden text-xs font-normal text-slate-600 cam-ung:max-lg:block">cùng kỳ {formatCurrency(b?.doanhThu)}</span>
+                  <span className="hidden text-xs font-normal text-slate-600 cam-ung:max-lg:block">{t("cùng kỳ {{doanhThu}}", { doanhThu: formatCurrency(b?.doanhThu) })}</span>
                 </td>
                 <td className={cn(TD, "cam-ung:max-lg:hidden")}>{formatCurrency(b?.doanhThu)}</td>
                 <td className={TD}><TangGiam tyLe={tyLeTang(a.doanhThu, b?.doanhThu)} /></td>
@@ -460,7 +461,7 @@ function BangChiTiet({ data, tienThu, loading, loi, onTaiLai, coGiaVon }) {
                     <td className={cn(TD, "cam-ung:max-lg:hidden")}>{formatCurrency(a.giaVon)}</td>
                     <td className={TD}>
                       {formatCurrency(a.loiNhuan)}
-                      <span className="hidden text-xs font-normal text-bo-muted cam-ung:max-lg:block">biên lãi {bienCaKy == null ? "—" : formatPercent(bienCaKy)}</span>
+                      <span className="hidden text-xs font-normal text-bo-muted cam-ung:max-lg:block">{t("biên lãi")} {bienCaKy == null ? "—" : formatPercent(bienCaKy)}</span>
                     </td>
                     <td className={cn(TD, "cam-ung:max-lg:hidden")}>{bienCaKy == null ? "—" : formatPercent(bienCaKy)}</td>
                   </>
@@ -470,7 +471,7 @@ function BangChiTiet({ data, tienThu, loading, loi, onTaiLai, coGiaVon }) {
                 {coThu ? (
                   <td className={cn(TD, "cam-ung:max-lg:pr-5")}>
                     {formatCurrency(tienThu.chuyenKhoan)}
-                    {Number(tienThu.hoan) ? <span className="hidden text-xs font-normal text-slate-600 cam-ung:max-lg:block">hoàn −{formatCurrency(tienThu.hoan)}</span> : null}
+                    {Number(tienThu.hoan) ? <span className="hidden text-xs font-normal text-slate-600 cam-ung:max-lg:block">{t("hoàn −{{hoan}}", { hoan: formatCurrency(tienThu.hoan) })}</span> : null}
                   </td>
                 ) : null}
                 {coThu ? <td className={cn(TD, "pr-5 cam-ung:max-lg:hidden")}>{Number(tienThu.hoan) ? `−${formatCurrency(tienThu.hoan)}` : formatCurrency(0)}</td> : null}
@@ -485,9 +486,9 @@ function BangChiTiet({ data, tienThu, loading, loi, onTaiLai, coGiaVon }) {
           <li key={r.khoa} className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-0.5 border-b border-[#eef1f5] px-4 py-3 text-sm">
             <b className="font-semibold">{r.ten}</b>
             <b className="text-right font-semibold tabular-nums">{formatCurrency(r.doanhThu)}</b>
-            <span className="text-xs text-bo-muted">{formatNumber(r.soDon)} đơn{coGiaVon ? ` · biên lãi ${r.bien == null ? "—" : formatPercent(r.bien)}` : ""}</span>
+            <span className="text-xs text-bo-muted">{formatNumber(r.soDon)} {t("đơn")}{coGiaVon ? t(" · biên lãi {{bien}}", { bien: r.bien == null ? "—" : formatPercent(r.bien) }) : ""}</span>
             <span className="text-right text-xs"><TangGiam tyLe={r.tang} /></span>
-            {coThu ? <span className="col-span-2 text-xs text-slate-600">Thu: tiền mặt {formatCurrency(r.tienMat)} · CK {formatCurrency(r.chuyenKhoan)}{r.hoan ? ` · hoàn −${formatCurrency(r.hoan)}` : ""}</span> : null}
+            {coThu ? <span className="col-span-2 text-xs text-slate-600">{t("Thu: tiền mặt {{tienMat}} · CK {{chuyenKhoan}}", { tienMat: formatCurrency(r.tienMat), chuyenKhoan: formatCurrency(r.chuyenKhoan) })}{r.hoan ? t(" · hoàn −{{hoan}}", { hoan: formatCurrency(r.hoan) }) : ""}</span> : null}
           </li>
         ))}
       </ul>
@@ -536,7 +537,7 @@ export default function BaoCaoDoanhThu() {
   const chiSoXem = coGiaVon || !CHI_SO.find((c) => c.ma === chiSo)?.giaVon ? chiSo : "doanhThu";
   // Nhân viên bán hàng làm ở một cửa hàng: ô kho chỉ ghi tên cửa hàng ("Tất cả kho" của họ chính là cửa hàng đó)
   const khoaKho = !quanLy && dsKho.length <= 1;
-  const tenKhoKhoa = dsKho[0]?.tenKho ?? (khoDaTai ? "Chưa có nơi làm việc" : "Cửa hàng của bạn");
+  const tenKhoKhoa = dsKho[0]?.tenKho ?? (khoDaTai ? t("Chưa có nơi làm việc") : t("Cửa hàng của bạn"));
 
   const ts = useMemo(() => thamSo(boLoc), [boLoc]);
 
@@ -554,10 +555,10 @@ export default function BaoCaoDoanhThu() {
         setTongHop({ data: d, loading: false, loi: null, gio: new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) });
       })
       // Giữ lỗi gốc (loiGoc) để phân biệt 403: không có quyền thì không "Thử lại" ở từng thẻ
-      .catch((e) => { if (!ctrl.signal.aborted) setTongHop({ data: null, loading: false, loi: loiCua(e) || "Không tải được", loiGoc: e, gio: null }); });
+      .catch((e) => { if (!ctrl.signal.aborted) setTongHop({ data: null, loading: false, loi: loiCua(e) || t("Không tải được"), loiGoc: e, gio: null }); });
     baoCaoDoanhThuService.tienThu(ts, { signal: ctrl.signal })
       .then((d) => { if (!ctrl.signal.aborted) setTienThu({ data: d, loading: false, loi: null }); })
-      .catch((e) => { if (!ctrl.signal.aborted) setTienThu({ data: null, loading: false, loi: loiCua(e) || "Không tải được" }); });
+      .catch((e) => { if (!ctrl.signal.aborted) setTienThu({ data: null, loading: false, loi: loiCua(e) || t("Không tải được") }); });
     return () => ctrl.abort();
   }, [ts, lan]);
 
@@ -571,7 +572,7 @@ export default function BaoCaoDoanhThu() {
     <PageContainer className="flex flex-col gap-4">
       <PageHeader
         className="mb-0"
-        title="Báo cáo doanh thu"
+        title={t("Báo cáo doanh thu")}
         actions={coQuyenXuat && quanLy ? (
           <NutXuatExcel
             taiTep={() => baoCaoDoanhThuService.xuatExcel(ts)}
@@ -603,10 +604,10 @@ export default function BaoCaoDoanhThu() {
         <>
           {tongHop.loi ? (
             <p role="alert" className="m-0 rounded-lg border border-red-200 bg-bo-danger-soft px-4 py-2.5 text-sm text-red-800">
-              Không tải được doanh thu: {tongHop.loi}
+              {t("Không tải được doanh thu: {{loi}}", { loi: tongHop.loi })}
             </p>
           ) : null}
-          {tongHop.data?.theoKhoPhuTrach && !khoaKho ? <p className="-mt-2 mb-0 text-xs text-bo-muted">Chỉ tính nơi làm việc của bạn.</p> : null}
+          {tongHop.data?.theoKhoPhuTrach && !khoaKho ? <p className="-mt-2 mb-0 text-xs text-bo-muted">{t("Chỉ tính nơi làm việc của bạn.")}</p> : null}
 
           <div className="flex flex-wrap items-stretch gap-4">
             <TheBieuDo chiSo={chiSoXem} className="min-w-0 flex-[999_1_560px]" data={tongHop.data} loading={tongHop.loading} loi={tongHop.loi} onTaiLai={taiLai} />

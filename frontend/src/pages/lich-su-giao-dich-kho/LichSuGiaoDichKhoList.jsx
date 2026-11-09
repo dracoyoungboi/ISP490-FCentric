@@ -28,30 +28,31 @@ import { getLichSuGiaoDichKho, getChiTietLichSu } from "@/services/lichSuGiaoDic
 import { getMineKhoList } from "@/services/khoService";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { formatDateTime, formatNumber } from "@/utils/formatters";
+import { t } from "@/i18n";
 
 // ── Constants ─────────────────────────────────────────────────────────────
 // "chuyen_kho" giữ để hiện nhãn cho dữ liệu cũ (nếu có); backend hiện chỉ ghi 3 loại còn lại.
 // Loại giao dịch là phân loại, không phải trạng thái: hiện chữ thường kèm icon xám; chiều nhập / xuất đọc ở dấu +/− của cột Số lượng.
 const LOAI_GIAO_DICH_CONFIG = {
-    nhap_kho:   { label: "Nhập kho",   icon: ArrowDownToLine },
-    xuat_kho:   { label: "Xuất kho",   icon: ArrowUpFromLine },
-    chuyen_kho: { label: "Chuyển kho", icon: ArrowLeftRight },
-    dieu_chinh: { label: "Điều chỉnh", icon: SlidersHorizontal },
+    nhap_kho:   { label: t("Nhập kho"),   icon: ArrowDownToLine },
+    xuat_kho:   { label: t("Xuất kho"),   icon: ArrowUpFromLine },
+    chuyen_kho: { label: t("Chuyển kho"), icon: ArrowLeftRight },
+    dieu_chinh: { label: t("Điều chỉnh"), icon: SlidersHorizontal },
 };
 
 // Tab theo LOẠI giao dịch (bố cục A+G) — mã tab trên URL ?loai=; `loai` là giá trị loaiGiaoDich
 const LOAI_TABS = [
-    { value: "tat-ca",     label: "Tất cả",                             loai: null         },
+    { value: "tat-ca",     label: t("Tất cả"),                             loai: null         },
     { value: "nhap-kho",   label: LOAI_GIAO_DICH_CONFIG.nhap_kho.label,   loai: "nhap_kho"   },
     { value: "xuat-kho",   label: LOAI_GIAO_DICH_CONFIG.xuat_kho.label,   loai: "xuat_kho"   },
     { value: "dieu-chinh", label: LOAI_GIAO_DICH_CONFIG.dieu_chinh.label, loai: "dieu_chinh" },
 ];
-const LOAI_TAB_VALUES = LOAI_TABS.map((t) => t.value);
+const LOAI_TAB_VALUES = LOAI_TABS.map((tab) => tab.value);
 const TAB_MAC_DINH = "tat-ca";
 
 // Dòng thuộc tab nào: dùng chung cho bảng và số trên tab (R1)
 const matchLoai = (item, tab) => {
-    const loai = LOAI_TABS.find((t) => t.value === tab)?.loai;
+    const loai = LOAI_TABS.find((x) => x.value === tab)?.loai;
     return !loai || item.loaiGiaoDich === loai;
 };
 
@@ -77,16 +78,16 @@ const TH_CLASS =
 // Tiêu đề cột của bảng (căn lề theo kiểu dữ liệu: số căn phải, thao tác căn giữa).
 // Máy tính bảng dọc (cảm ứng): ẩn STT, Loại, SKU, Lô hàng, Người thực hiện — đưa thành dòng phụ trong ô Ngày / Sản phẩm / Kho
 const TABLE_COLUMNS = [
-    { label: "STT",             className: "w-14 text-left cam-ung:max-lg:hidden" },
-    { label: "Ngày giao dịch",  className: "text-left" },
-    { label: "Loại",            className: "text-left cam-ung:max-lg:hidden" },
-    { label: "Sản phẩm",        className: "text-left" },
+    { label: t("STT"),             className: "w-14 text-left cam-ung:max-lg:hidden" },
+    { label: t("Ngày giao dịch"),  className: "text-left" },
+    { label: t("Loại"),            className: "text-left cam-ung:max-lg:hidden" },
+    { label: t("Sản phẩm"),        className: "text-left" },
     { label: "SKU",             className: "text-left cam-ung:max-lg:hidden" },
-    { label: "Lô hàng",         className: "text-left cam-ung:max-lg:hidden" },
-    { label: "Kho",             className: "text-left" },
-    { label: "Số lượng",        className: "text-right tabular-nums" },
-    { label: "Người thực hiện", className: "text-left cam-ung:max-lg:hidden" },
-    { label: "Thao tác",        className: "text-center" },
+    { label: t("Lô hàng"),         className: "text-left cam-ung:max-lg:hidden" },
+    { label: t("Kho"),             className: "text-left" },
+    { label: t("Số lượng"),        className: "text-right tabular-nums" },
+    { label: t("Người thực hiện"), className: "text-left cam-ung:max-lg:hidden" },
+    { label: t("Thao tác"),        className: "text-center" },
 ];
 
 /** Số lượng hiển thị có dấu: xuất kho luôn âm; màu xanh khi tăng, đỏ khi giảm (dùng chung bảng và thẻ điện thoại). */
@@ -148,7 +149,7 @@ function DetailModal({ open, onClose, item, loading }) {
                         <span className="flex size-8 items-center justify-center rounded-lg bg-bo-primary-soft">
                             <History className="size-4 text-bo-primary" />
                         </span>
-                        Chi tiết giao dịch {item ? (
+                        {t("Chi tiết giao dịch")} {item ? (
                             <span className="font-mono text-bo-primary">#{item.id}</span>
                         ) : ""}
                     </DialogTitle>
@@ -156,7 +157,7 @@ function DetailModal({ open, onClose, item, loading }) {
                 </div>
 
                 {loading ? (
-                    <LoadingState className="min-h-48 bg-bo-surface" label="Đang tải chi tiết giao dịch" />
+                    <LoadingState className="min-h-48 bg-bo-surface" label={t("Đang tải chi tiết giao dịch")} />
                 ) : item ? (
                     <div className="space-y-4 bg-bo-surface px-5 py-4">
 
@@ -168,26 +169,26 @@ function DetailModal({ open, onClose, item, loading }) {
 
                         {/* Grid fields */}
                         <div className="grid grid-cols-2 gap-x-6 gap-y-4 rounded-lg border border-bo-border bg-bo-surface-subtle px-4 py-4">
-                            <LightField icon={Package}      label="Sản phẩm"        value={item.tenSanPham} />
+                            <LightField icon={Package}      label={t("Sản phẩm")}        value={item.tenSanPham} />
                             <LightField icon={Hash}         label="SKU"             value={item.maSku} mono />
-                            <LightField icon={FileText}     label="Lô hàng"         value={item.maLo} mono />
-                            <LightField icon={Warehouse}    label="Kho"             value={item.tenKho} />
-                            <LightField icon={User2}        label="Người thực hiện" value={item.nguoiDungTen} />
-                            <LightField icon={FileText}     label="Loại tham chiếu" value={item.loaiThamChieu} />
+                            <LightField icon={FileText}     label={t("Lô hàng")}         value={item.maLo} mono />
+                            <LightField icon={Warehouse}    label={t("Kho")}             value={item.tenKho} />
+                            <LightField icon={User2}        label={t("Người thực hiện")} value={item.nguoiDungTen} />
+                            <LightField icon={FileText}     label={t("Loại tham chiếu")} value={item.loaiThamChieu} />
                             {item.idThamChieu && (
-                                <LightField icon={Hash}     label="ID tham chiếu"   value={`#${item.idThamChieu}`} mono />
+                                <LightField icon={Hash}     label={t("ID tham chiếu")}   value={`#${item.idThamChieu}`} mono />
                             )}
                             {item.tenKhoChuyenDen && (
-                                <LightField icon={ArrowLeftRight} label="Kho chuyển đến" value={item.tenKhoChuyenDen} />
+                                <LightField icon={ArrowLeftRight} label={t("Kho chuyển đến")} value={item.tenKhoChuyenDen} />
                             )}
                         </div>
 
                         {/* Số lượng 3 ô */}
                         <div className="grid grid-cols-3 divide-x divide-bo-border overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
                             {[
-                                { label: "TRƯỚC",    value: item.soLuongTruoc ?? 0, color: "text-slate-700", bg: "bg-white",    prefix: "" },
-                                { label: "THAY ĐỔI", value: Math.abs(displaySoLuong), color: soLuongColor,     bg: soLuongBg,     prefix: soLuongPrefix },
-                                { label: "SAU",      value: item.soLuongSau ?? 0,   color: "text-slate-700", bg: "bg-white",    prefix: "" },
+                                { label: t("TRƯỚC"),    value: item.soLuongTruoc ?? 0, color: "text-slate-700", bg: "bg-white",    prefix: "" },
+                                { label: t("THAY ĐỔI"), value: Math.abs(displaySoLuong), color: soLuongColor,     bg: soLuongBg,     prefix: soLuongPrefix },
+                                { label: t("SAU"),      value: item.soLuongSau ?? 0,   color: "text-slate-700", bg: "bg-white",    prefix: "" },
                             ].map(({ label, value, color, bg, prefix }) => (
                                 <div key={label} className={`flex flex-col items-center py-4 ${bg}`}>
                                     <span className="mb-1 text-[10px] font-bold uppercase tracking-widest text-bo-muted">{label}</span>
@@ -199,7 +200,7 @@ function DetailModal({ open, onClose, item, loading }) {
                         {/* Ghi chú */}
                         {item.ghiChu && (
                             <div className="rounded-lg border border-bo-warning/20 bg-bo-warning-soft px-4 py-3">
-                                <p className="mb-1 text-xs font-bold uppercase tracking-widest text-bo-warning">Ghi chú</p>
+                                <p className="mb-1 text-xs font-bold uppercase tracking-widest text-bo-warning">{t("Ghi chú")}</p>
                                 <p className="text-sm text-slate-700">{item.ghiChu}</p>
                             </div>
                         )}
@@ -278,7 +279,7 @@ export default function LichSuGiaoDichKhoList() {
             // "Thử lại", không thông báo nhanh)
             setData([]);
             setLoadError(error);
-            if (error?.response?.status !== 403) toast.error("Không thể tải lịch sử giao dịch kho");
+            if (error?.response?.status !== 403) toast.error(t("Không thể tải lịch sử giao dịch kho"));
         } finally {
             if (requestId === requestIdRef.current) setLoading(false);
         }
@@ -348,7 +349,7 @@ export default function LichSuGiaoDichKhoList() {
         // Phân quyền: admin luôn xem được; còn lại phải thuộc kho đó
         const hasPermission = isAdmin || myWarehouseIds.includes(item.khoId);
         if (!hasPermission) {
-            toast.error("Bạn không có quyền xem chi tiết giao dịch này");
+            toast.error(t("Bạn không có quyền xem chi tiết giao dịch này"));
             return;
         }
         setSelectedId(item.id);
@@ -358,7 +359,7 @@ export default function LichSuGiaoDichKhoList() {
             const detail = await getChiTietLichSu(item.id);
             setChiTiet(detail);
         } catch {
-            toast.error("Không thể tải chi tiết");
+            toast.error(t("Không thể tải chi tiết"));
         } finally {
             setLoadingDetail(false);
         }
@@ -366,7 +367,7 @@ export default function LichSuGiaoDichKhoList() {
 
     const handleCloseModal = () => { setSelectedId(null); setChiTiet(null); };
 
-    const currentLoaiLabel = LOAI_TABS.find((t) => t.value === filterLoai)?.label;
+    const currentLoaiLabel = LOAI_TABS.find((x) => x.value === filterLoai)?.label;
 
     return (
         <PageContainer fill className="space-y-4">
@@ -380,11 +381,11 @@ export default function LichSuGiaoDichKhoList() {
                 <p className="-mt-2 flex flex-wrap items-center gap-2 text-sm text-bo-muted">
                     <span className="inline-flex items-center gap-1 rounded-full bg-bo-primary-soft py-0.5 pl-3 pr-1 font-medium text-bo-primary">
                         {[locTu || locDen ? `${locTu ? ngayVN(locTu) : "…"} – ${locDen ? ngayVN(locDen) : "…"}` : null, tenKhoLoc].filter(Boolean).join(" · ")}
-                        <button type="button" onClick={boLocBaoCao} aria-label="Bỏ lọc kỳ, kho" className="grid size-6 cursor-pointer place-items-center rounded-full hover:bg-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30">
+                        <button type="button" onClick={boLocBaoCao} aria-label={t("Bỏ lọc kỳ, kho")} className="grid size-6 cursor-pointer place-items-center rounded-full hover:bg-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30">
                             <X className="size-3.5" aria-hidden="true" />
                         </button>
                     </span>
-                    Đang lọc theo kỳ, kho của Báo cáo nhập xuất
+                    {t("Đang lọc theo kỳ, kho của Báo cáo nhập xuất")}
                 </p>
             ) : null}
 
@@ -395,7 +396,7 @@ export default function LichSuGiaoDichKhoList() {
                     <ListToolbar
                         tabs={
                             <StatusTabs
-                                label="Lọc giao dịch theo loại"
+                                label={t("Lọc giao dịch theo loại")}
                                 tabs={loaiTabs}
                                 value={filterLoai}
                                 onChange={changeTab}
@@ -405,8 +406,8 @@ export default function LichSuGiaoDichKhoList() {
                         onClear={handleClearSearch}
                     >
                         <SearchInput
-                            label="Tìm kiếm"
-                            placeholder="Tìm theo sản phẩm, SKU, lô, kho, người thực hiện..."
+                            label={t("Tìm kiếm")}
+                            placeholder={t("Tìm theo sản phẩm, SKU, lô, kho, người thực hiện...")}
                             value={search}
                             onChange={(e) => changeSearch(e.target.value)}
                             onClear={handleClearSearch}
@@ -426,10 +427,10 @@ export default function LichSuGiaoDichKhoList() {
                 ) : null}
             >
                 {loading ? (
-                    <LoadingState rows={6} label="Đang tải lịch sử giao dịch kho" />
+                    <LoadingState rows={6} label={t("Đang tải lịch sử giao dịch kho")} />
                 ) : loadError ? (
                     <ErrorState
-                        description="Không thể tải lịch sử giao dịch kho. Vui lòng thử lại."
+                        description={t("Không thể tải lịch sử giao dịch kho. Vui lòng thử lại.")}
                         error={loadError}
                         onRetry={() => fetchData()}
                     />
@@ -437,53 +438,53 @@ export default function LichSuGiaoDichKhoList() {
                     search.trim() ? (
                         <EmptyState
                             icon={SearchX}
-                            title="Không tìm thấy giao dịch phù hợp"
-                            description="Thử đổi từ khóa tìm kiếm."
+                            title={t("Không tìm thấy giao dịch phù hợp")}
+                            description={t("Thử đổi từ khóa tìm kiếm.")}
                             action={
                                 <Button
                                     variant="outline"
                                     onClick={handleClearSearch}
                                     className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
-                                    Xóa lọc
+                                    {t("Xóa lọc")}
                                 </Button>
                             }
                         />
                     ) : filterLoai !== TAB_MAC_DINH ? (
                         <EmptyState
                             icon={History}
-                            title={`Không có giao dịch loại "${currentLoaiLabel}"`}
-                            description="Chọn tab Tất cả để xem mọi giao dịch kho."
+                            title={t("Không có giao dịch loại \"{{loai}}\"", { loai: currentLoaiLabel })}
+                            description={t("Chọn tab Tất cả để xem mọi giao dịch kho.")}
                             action={
                                 <Button
                                     variant="outline"
                                     onClick={() => changeTab(TAB_MAC_DINH)}
                                     className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
-                                    Xem tất cả
+                                    {t("Xem tất cả")}
                                 </Button>
                             }
                         />
                     ) : coLocBaoCao ? (
                         <EmptyState
                             icon={History}
-                            title="Không có giao dịch trong kỳ, kho đã chọn"
-                            description="Bỏ lọc kỳ, kho để xem mọi giao dịch kho."
+                            title={t("Không có giao dịch trong kỳ, kho đã chọn")}
+                            description={t("Bỏ lọc kỳ, kho để xem mọi giao dịch kho.")}
                             action={
                                 <Button
                                     variant="outline"
                                     onClick={boLocBaoCao}
                                     className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
-                                    Bỏ lọc
+                                    {t("Bỏ lọc")}
                                 </Button>
                             }
                         />
                     ) : (
                         <EmptyState
                             icon={History}
-                            title="Chưa có giao dịch kho"
-                            description="Các lần nhập kho, xuất kho và điều chỉnh tồn sẽ được ghi lại tại đây."
+                            title={t("Chưa có giao dịch kho")}
+                            description={t("Các lần nhập kho, xuất kho và điều chỉnh tồn sẽ được ghi lại tại đây.")}
                         />
                     )
                 ) : (
@@ -596,7 +597,7 @@ export default function LichSuGiaoDichKhoList() {
                                             <RowActions>
                                                 <RowActionButton
                                                     icon={Eye}
-                                                    label="Xem chi tiết"
+                                                    label={t("Xem chi tiết")}
                                                     onClick={() => handleViewDetail(item)}
                                                 />
                                             </RowActions>

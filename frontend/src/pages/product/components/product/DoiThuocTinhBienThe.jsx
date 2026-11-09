@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ChamMau } from "./ChonMauSac";
 import { kiemTraDoiThuocTinh } from "./logicSuaBienThe";
 import { NUT_VIEN_CLASS, SELECT_CONTENT_CLASS, SELECT_ITEM_CLASS, SELECT_TRIGGER_CLASS } from "./kieuForm";
+import { t } from "@/i18n";
 
 /**
  * Đổi màu sắc / kích cỡ của một biến thể đã lưu nhưng chưa phát sinh giao dịch.
@@ -38,19 +39,18 @@ export default function DoiThuocTinhBienThe({ open, state, id, mauSacs, kichCos,
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent onCloseAutoFocus={traFocus} className="border-bo-border bg-bo-surface text-bo-foreground sm:max-w-md">
                 <DialogHeader className="text-left">
-                    <DialogTitle className="text-base text-bo-foreground">Đổi màu sắc, kích cỡ</DialogTitle>
+                    <DialogTitle className="text-base text-bo-foreground">{t("Đổi màu sắc, kích cỡ")}</DialogTitle>
                     <DialogDescription className="text-sm text-bo-muted">
-                        Biến thể <span className="font-mono text-bo-foreground">{bienThe.maSku}</span> chưa phát sinh giao dịch.
-                        Mã SKU sẽ được tạo lại theo màu sắc và kích cỡ mới khi lưu.
+                        {t("Biến thể")} <span className="font-mono text-bo-foreground">{bienThe.maSku}</span> {t("chưa phát sinh giao dịch. Mã SKU sẽ được tạo lại theo màu sắc và kích cỡ mới khi lưu.")}
                     </DialogDescription>
                 </DialogHeader>
 
                 <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
-                        <Label htmlFor="doi-mau-sac">Màu sắc</Label>
+                        <Label htmlFor="doi-mau-sac">{t("Màu sắc")}</Label>
                         <Select value={mauSacId == null ? "" : String(mauSacId)} onValueChange={(v) => v !== "" && setMauSacId(Number(v))}>
                             <SelectTrigger id="doi-mau-sac" aria-invalid={loi ? true : undefined} className={SELECT_TRIGGER_CLASS}>
-                                <SelectValue placeholder="Chọn màu sắc" />
+                                <SelectValue placeholder={t("Chọn màu sắc")} />
                             </SelectTrigger>
                             <SelectContent position="popper" className={`${SELECT_CONTENT_CLASS} max-h-[260px]`}>
                                 {mauSacs.map((mau) => (
@@ -63,10 +63,10 @@ export default function DoiThuocTinhBienThe({ open, state, id, mauSacs, kichCos,
                         </Select>
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="doi-kich-co">Kích cỡ</Label>
+                        <Label htmlFor="doi-kich-co">{t("Kích cỡ")}</Label>
                         <Select value={sizeId == null ? "" : String(sizeId)} onValueChange={(v) => v !== "" && setSizeId(Number(v))}>
                             <SelectTrigger id="doi-kich-co" aria-invalid={loi ? true : undefined} className={SELECT_TRIGGER_CLASS}>
-                                <SelectValue placeholder="Chọn kích cỡ" />
+                                <SelectValue placeholder={t("Chọn kích cỡ")} />
                             </SelectTrigger>
                             <SelectContent position="popper" className={`${SELECT_CONTENT_CLASS} max-h-[260px]`}>
                                 {kichCos.map((size) => (
@@ -79,12 +79,12 @@ export default function DoiThuocTinhBienThe({ open, state, id, mauSacs, kichCos,
                     </div>
                 </div>
                 <p role="status" className={loi ? "text-sm text-bo-danger" : "text-sm text-bo-muted"}>
-                    {loi ?? (daDoi ? "Bấm Đổi để áp dụng, thay đổi chỉ được lưu khi bấm Lưu thay đổi." : "Chọn màu sắc hoặc kích cỡ mới.")}
+                    {loi ?? (daDoi ? t("Bấm Đổi để áp dụng, thay đổi chỉ được lưu khi bấm Lưu thay đổi.") : t("Chọn màu sắc hoặc kích cỡ mới."))}
                 </p>
 
                 <DialogFooter className="gap-2">
                     <Button type="button" variant="outline" className={NUT_VIEN_CLASS} onClick={() => onOpenChange(false)}>
-                        Hủy
+                        {t("Hủy")}
                     </Button>
                     <Button
                         type="button"
@@ -92,7 +92,7 @@ export default function DoiThuocTinhBienThe({ open, state, id, mauSacs, kichCos,
                         className="bg-bo-primary text-white hover:bg-bo-primary-hover focus-visible:ring-[3px] focus-visible:ring-bo-primary/30"
                         onClick={() => onDoi(id, mauSacId, sizeId)}
                     >
-                        Đổi
+                        {t("Đổi")}
                     </Button>
                 </DialogFooter>
             </DialogContent>

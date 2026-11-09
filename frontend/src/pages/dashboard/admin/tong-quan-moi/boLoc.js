@@ -1,4 +1,5 @@
 import { docNgay } from "../tong-quan/tongQuanFormat";
+import { t } from "../../../../i18n/t.js";
 
 /* Hằng số và hàm dùng chung cho thanh lọc đầu trang Tổng quan: kiểu nút theo token hệ thống (bo-*),
    nhãn kỳ, khoảng ngày của kỳ và kỳ so sánh, danh sách kho. */
@@ -16,10 +17,10 @@ export const MENU = "z-50 rounded-xl border border-bo-border bg-white p-1.5 shad
 const hai = (n) => String(n).padStart(2, "0");
 const dm = (d) => `${hai(d.getDate())}/${hai(d.getMonth() + 1)}`;
 const dmy = (d) => `${dm(d)}/${d.getFullYear()}`;
-const thangNam = (d) => `T${d.getMonth() + 1}/${d.getFullYear()}`;
-const thangNamGon = (d) => `T${d.getMonth() + 1}/${String(d.getFullYear()).slice(2)}`;
+const thangNam = (d) => t("T{{thang}}/{{nam}}", { thang: d.getMonth() + 1, nam: d.getFullYear() });
+const thangNamGon = (d) => t("T{{thang}}/{{nam}}", { thang: d.getMonth() + 1, nam: String(d.getFullYear()).slice(2) });
 
-export const NHAN_KY = { "7_ngay": "7 ngày qua", "30_ngay": "30 ngày qua", "12_thang": "12 tháng qua" };
+export const NHAN_KY = { "7_ngay": t("7 ngày qua"), "30_ngay": t("30 ngày qua"), "12_thang": t("12 tháng qua") };
 
 /**
  * Khoảng ngày của kỳ xem và kỳ so sánh, tính từ thời điểm số liệu (giống quy tắc backend):
@@ -27,18 +28,18 @@ export const NHAN_KY = { "7_ngay": "7 ngày qua", "30_ngay": "30 ngày qua", "12
  * so với cùng 12 tháng năm trước.
  */
 export function khoangKy(ky, thoiDiem) {
-  const t = docNgay(thoiDiem) ?? new Date();
-  const homNay = new Date(t.getFullYear(), t.getMonth(), t.getDate());
+  const tt = docNgay(thoiDiem) ?? new Date();
+  const homNay = new Date(tt.getFullYear(), tt.getMonth(), tt.getDate());
   if (ky === "12_thang") {
-    const tu = new Date(t.getFullYear(), t.getMonth() - 12, 1);
-    const den = new Date(t.getFullYear(), t.getMonth() - 1, 1);
+    const tu = new Date(tt.getFullYear(), tt.getMonth() - 12, 1);
+    const den = new Date(tt.getFullYear(), tt.getMonth() - 1, 1);
     const tuTruoc = new Date(tu.getFullYear() - 1, tu.getMonth(), 1);
     const denTruoc = new Date(den.getFullYear() - 1, den.getMonth(), 1);
     return {
       ngan: `${thangNam(tu)} – ${thangNam(den)}`,
       day: `${thangNam(tu)} – ${thangNam(den)}`,
       soSanh: `${thangNam(tuTruoc)} – ${thangNam(denTruoc)}`,
-      tenSoSanh: "Cùng kỳ năm trước",
+      tenSoSanh: t("Cùng kỳ năm trước"),
       // Bản không có năm đầy đủ, cho ô phạm vi và chú thích biểu đồ (chỗ hẹp)
       gon: `${thangNamGon(tu)} – ${thangNamGon(den)}`,
       soSanhGon: `${thangNamGon(tuTruoc)} – ${thangNamGon(denTruoc)}`,
@@ -57,7 +58,7 @@ export function khoangKy(ky, thoiDiem) {
     ngan: `${dm(tu)} – ${dmy(den)}`,
     day: `${dmy(tu)} – ${dmy(den)}`,
     soSanh: `${dm(tuTruoc)} – ${dmy(denTruoc)}`,
-    tenSoSanh: `${n} ngày liền trước`,
+    tenSoSanh: t("{{n}} ngày liền trước", { n }),
     // Bản không có năm, cho ô phạm vi và chú thích biểu đồ (chỗ hẹp)
     gon: `${dm(tu)} – ${dm(den)}`,
     soSanhGon: `${dm(tuTruoc)} – ${dm(denTruoc)}`,
@@ -71,17 +72,17 @@ const ngayMay = (d) => `${d.getFullYear()}-${hai(d.getMonth() + 1)}-${hai(d.getD
  * 12 tháng là 12 tháng trọn trước tháng này. Dùng để mở báo cáo đúng khoảng ngày đang xem ở Tổng quan.
  */
 export function ngayCuaKy(ky, thoiDiem) {
-  const t = docNgay(thoiDiem) ?? new Date();
+  const tt = docNgay(thoiDiem) ?? new Date();
   if (ky === "12_thang") {
     return {
-      tuNgay: ngayMay(new Date(t.getFullYear(), t.getMonth() - 12, 1)),
-      denNgay: ngayMay(new Date(t.getFullYear(), t.getMonth(), 0)),
+      tuNgay: ngayMay(new Date(tt.getFullYear(), tt.getMonth() - 12, 1)),
+      denNgay: ngayMay(new Date(tt.getFullYear(), tt.getMonth(), 0)),
     };
   }
   const n = ky === "7_ngay" ? 7 : 30;
   return {
-    tuNgay: ngayMay(new Date(t.getFullYear(), t.getMonth(), t.getDate() - n)),
-    denNgay: ngayMay(new Date(t.getFullYear(), t.getMonth(), t.getDate() - 1)),
+    tuNgay: ngayMay(new Date(tt.getFullYear(), tt.getMonth(), tt.getDate() - n)),
+    denNgay: ngayMay(new Date(tt.getFullYear(), tt.getMonth(), tt.getDate() - 1)),
   };
 }
 
@@ -94,6 +95,6 @@ export function dsKhoDayDu(data, dsKho) {
 }
 
 export function tenKhoDangXem(khoId, dsKho) {
-  return khoId == null ? "Tất cả kho" : dsKho.find((k) => k.id === khoId)?.tenKho ?? "Kho đã chọn";
+  return khoId == null ? t("Tất cả kho") : dsKho.find((k) => k.id === khoId)?.tenKho ?? t("Kho đã chọn");
 }
 

@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { formatDate } from "@/utils/formatters";
 import { kiemTraChuyen, laConChau, tachChuKhop } from "./cayDanhMuc";
 import MenuDanhMuc from "./MenuDanhMuc";
+import { t } from "@/i18n";
 
 /** Thụt lề mỗi cấp 24px (không cộng dồn); mỗi cấp cha có một đường gióng đi qua giữa nút mở/đóng của nó. */
 const LE_TRAI = 12;
@@ -147,11 +148,11 @@ export default function BangCayDanhMuc({
         </colgroup>
         <thead className="sticky top-0 z-10">
           <tr className="border-b border-bo-border bg-bo-surface-subtle">
-            <th scope="col" className={TIEU_DE} style={{ paddingLeft: LE_TRAI + MOI_CAP + 8 }}>Danh mục</th>
-            <th scope="col" className={TIEU_DE}>Mã</th>
-            <th scope="col" className={cn(TIEU_DE, "pr-5 text-right", O_CON)}>Danh mục con</th>
-            <th scope="col" className={cn(TIEU_DE, O_NGAY)}>Ngày tạo</th>
-            <th scope="col" className={cn(TIEU_DE, "text-center")}>Thao tác</th>
+            <th scope="col" className={TIEU_DE} style={{ paddingLeft: LE_TRAI + MOI_CAP + 8 }}>{t("Danh mục")}</th>
+            <th scope="col" className={TIEU_DE}>{t("Mã")}</th>
+            <th scope="col" className={cn(TIEU_DE, "pr-5 text-right", O_CON)}>{t("Danh mục con")}</th>
+            <th scope="col" className={cn(TIEU_DE, O_NGAY)}>{t("Ngày tạo")}</th>
+            <th scope="col" className={cn(TIEU_DE, "text-center")}>{t("Thao tác")}</th>
           </tr>
         </thead>
         <tbody>
@@ -216,11 +217,11 @@ export default function BangCayDanhMuc({
             <CornerLeftUp className="size-4" aria-hidden="true" />
             {kiemTraChuyen(cay, keo, dichGoc, trangThai).dangOday
               ? nutGoc
-                ? `Đang nằm ngay trong “${nutGoc.ten}”`
-                : "Đang là danh mục gốc"
+                ? t("Đang nằm ngay trong “{{ten}}”", { ten: nutGoc.ten })
+                : t("Đang là danh mục gốc")
               : nutGoc
-                ? `Thả vào đây để chuyển thẳng vào “${nutGoc.ten}”`
-                : "Thả vào đây để chuyển thành danh mục gốc"}
+                ? t("Thả vào đây để chuyển thẳng vào “{{ten}}”", { ten: nutGoc.ten })
+                : t("Thả vào đây để chuyển thành danh mục gốc")}
           </div>
         </div>
       ) : null}
@@ -249,7 +250,7 @@ function DongDanhMuc({
   const phan = tachChuKhop(nut.ten, tuKhoaChuan);
   const nhat = laNguCanh || tt.ngung;
   const dongPhu = tt.ngung && !tt.tuNgung && tt.doCha
-    ? `Ngừng theo “${tt.doCha.ten}”`
+    ? t("Ngừng theo “{{ten}}”", { ten: tt.doCha.ten })
     : nut.moTa?.trim() || "";
   const doiMo = () => onMoDong(d.id, !dangMo);
 
@@ -280,7 +281,7 @@ function DongDanhMuc({
             <button
               type="button"
               aria-expanded={dangMo}
-              aria-label={`${dangMo ? "Thu gọn" : "Mở"} ${nut.ten}`}
+              aria-label={dangMo ? t("Thu gọn {{ten}}", { ten: nut.ten }) : t("Mở rộng {{ten}}", { ten: nut.ten })}
               onClick={(event) => {
                 event.stopPropagation();
                 doiMo();
@@ -308,7 +309,7 @@ function DongDanhMuc({
                 {phan.khop ? <mark className="rounded-[2px] bg-yellow-200 text-inherit">{phan.khop}</mark> : null}
                 {phan.sau}
               </span>
-              {tt.tuNgung ? <StatusBadge label="Ngừng hoạt động" /> : null}
+              {tt.tuNgung ? <StatusBadge /* i18n-giu-nguyen: StatusBadge tự dịch nhãn lúc vẽ */ label="Ngừng hoạt động" /> : null}
             </div>
             {dongPhu ? (
               <span title={dongPhu} className="truncate text-xs leading-4 text-bo-muted">{dongPhu}</span>
@@ -331,13 +332,13 @@ function DongDanhMuc({
           <RowActions>
             <RowActionButton
               icon={Plus}
-              label={thaoTac.themCon.khoa ? `Không thêm được danh mục con: ${thaoTac.themCon.lyDo}` : `Thêm danh mục con vào ${nut.ten}`}
+              label={thaoTac.themCon.khoa ? t("Không thêm được danh mục con: {{lyDo}}", { lyDo: thaoTac.themCon.lyDo }) : t("Thêm danh mục con vào {{ten}}", { ten: nut.ten })}
               disabled={thaoTac.themCon.khoa}
               onClick={() => onThemCon(nut)}
             />
             <RowActionButton
               icon={Pencil}
-              label={thaoTac.sua.khoa ? `Không sửa được: ${thaoTac.sua.lyDo}` : `Sửa ${nut.ten}`}
+              label={thaoTac.sua.khoa ? t("Không sửa được: {{lyDo}}", { lyDo: thaoTac.sua.lyDo }) : t("Sửa {{ten}}", { ten: nut.ten })}
               disabled={thaoTac.sua.khoa}
               onClick={() => onSua(nut)}
             />
@@ -352,7 +353,7 @@ function DongDanhMuc({
         ) : coCon ? (
           // Người chỉ có quyền xem: không có thao tác sửa, chỉ còn lối xem riêng một nhánh
           <RowActions>
-            <RowActionButton icon={ScanSearch} label={`Xem riêng nhánh ${nut.ten}`} onClick={() => onXemNhanh(nut.id)} />
+            <RowActionButton icon={ScanSearch} label={t("Xem riêng nhánh {{ten}}", { ten: nut.ten })} onClick={() => onXemNhanh(nut.id)} />
           </RowActions>
         ) : null}
       </td>

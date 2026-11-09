@@ -5,6 +5,7 @@ import { boDau, soVN } from "@/components/chung-tu/bangChungTu";
 import { O_NHAP } from "@/components/chung-tu/kieuHopThoai";
 import { cn } from "@/lib/utils";
 import { ngayNgan } from "./phamViKiemKe";
+import { t } from "@/i18n";
 
 const chuan = (s) => boDau(String(s ?? "")).toLowerCase();
 // Cây nhỏ thì mở hết sẵn; lớn hơn thì chỉ mở nhánh đang chọn
@@ -27,7 +28,7 @@ function dungCay(ds) {
     return n;
   });
   const conChau = new Map(nut.map((n) => [n.id, []]));
-  nut.forEach((n) => n.toTien.forEach((t) => conChau.get(t)?.push(n.id)));
+  nut.forEach((n) => n.toTien.forEach((tt) => conChau.get(tt)?.push(n.id)));
   // Duyệt ngược một lượt: nút cuối trong nhóm anh em = chưa gặp anh em cùng cha phía sau
   const daGapCha = new Set();
   for (let i = nut.length - 1; i >= 0; i -= 1) {
@@ -38,18 +39,18 @@ function dungCay(ds) {
   const theoId = new Map(nut.map((n) => [n.id, n]));
   // Cột tổ tiên i còn kéo vạch xuống dòng này khi tổ tiên kế dưới (toTien[i+1]) chưa phải nút cuối trong nhóm của nó
   nut.forEach((n) => {
-    n.vach = n.toTien.slice(1).map((t) => !theoId.get(t).cuoi);
+    n.vach = n.toTien.slice(1).map((tt) => !theoId.get(tt).cuoi);
   });
   return { nut, conChau };
 }
 
 /** Các cột đường dóng của một dòng (vạch cao hết dòng, kể cả khi số liệu xuống dòng thứ hai trên khối hẹp). */
 function DuongDong({ n }) {
-  return n.toTien.map((t, i) => {
+  return n.toTien.map((tt, i) => {
     const sat = i === n.toTien.length - 1;
     const keoXuong = sat ? !n.cuoi : n.vach[i] ?? false;
     return (
-      <span key={t} aria-hidden="true" className="relative shrink-0 self-stretch" style={{ width: CAP }}>
+      <span key={tt} aria-hidden="true" className="relative shrink-0 self-stretch" style={{ width: CAP }}>
         {sat || keoXuong ? (
           <span className={cn("absolute left-[11px] w-px bg-slate-300", sat && !keoXuong ? "top-0 h-5" : "inset-y-0")} />
         ) : null}
@@ -102,13 +103,13 @@ export default function ChonDanhMucKiemKe({
 
   const tu = chuan(tuKhoa.trim());
   const hien = useMemo(() => {
-    if (!tu) return nut.filter((n) => n.toTien.every((t) => moRong.has(t)));
+    if (!tu) return nut.filter((n) => n.toTien.every((tt) => moRong.has(tt)));
     // Tìm: dòng khớp + mọi cấp cha của nó (để biết nằm ở đâu)
     const khop = new Set();
     nut.forEach((n) => {
       if (chuan(`${n.ten} ${n.ma ?? ""}`).includes(tu)) {
         khop.add(n.id);
-        n.toTien.forEach((t) => khop.add(t));
+        n.toTien.forEach((tt) => khop.add(tt));
       }
     });
     return nut.filter((n) => khop.has(n.id));
@@ -124,23 +125,23 @@ export default function ChonDanhMucKiemKe({
   const oKiem = (n) => {
     if (!lanKiem) return <span className="text-bo-muted">—</span>;
     const luc = lanKiem.get(n.id);
-    if (luc) return <span className="text-slate-600">Kiểm {ngayNgan(luc)}</span>;
+    if (luc) return <span className="text-slate-600">{t("Kiểm {{luc}}", { luc: ngayNgan(luc) })}</span>;
     // Danh mục không có hàng trên kệ: "Chưa kiểm" chữ xám (không cần nhắc), có hàng thì chữ cam
     const trong = trangThaiSoLieu === "xong" && soLieu && !soLieu.get(n.id)?.soKe;
-    return <span className={trong ? "text-bo-muted" : "font-medium text-bo-warning"}>Chưa kiểm</span>;
+    return <span className={trong ? "text-bo-muted" : "font-medium text-bo-warning"}>{t("Chưa kiểm")}</span>;
   };
 
   return (
     <div className="grid gap-3">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <label className="relative flex w-full max-w-xs items-center">
-          <span className="sr-only">Tìm danh mục</span>
+          <span className="sr-only">{t("Tìm danh mục")}</span>
           <Search className="pointer-events-none absolute left-2.5 size-4 text-bo-muted" aria-hidden="true" />
-          <input value={tuKhoa} onChange={(e) => onDoiTuKhoa(e.target.value)} placeholder="Tìm danh mục" className={cn(O_NHAP, "pl-8 pr-8")} />
+          <input value={tuKhoa} onChange={(e) => onDoiTuKhoa(e.target.value)} placeholder={t("Tìm danh mục")} className={cn(O_NHAP, "pl-8 pr-8")} />
           {tuKhoa ? (
             <button
               type="button"
-              aria-label="Xóa tìm kiếm"
+              aria-label={t("Xóa tìm kiếm")}
               onClick={() => onDoiTuKhoa("")}
               className="absolute right-1.5 grid size-6 place-items-center rounded text-bo-muted hover:bg-slate-100 hover:text-bo-foreground"
             >
@@ -150,29 +151,29 @@ export default function ChonDanhMucKiemKe({
         </label>
         {chon != null ? (
           <p className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2 text-[13px] leading-5 text-bo-foreground">
-            <span className="text-bo-muted">Đã chọn</span>
+            <span className="text-bo-muted">{t("Đã chọn")}</span>
             <b className="font-semibold">{nutChon ? [...nutChon.duongDan, nutChon.ten].join(" › ") : tenChonNgoaiCay || `#${chon}`}</b>
             <span className={nutChon ? "text-bo-muted" : "font-medium text-bo-warning"}>
               {!nutChon
-                ? "· không còn trong danh mục hàng hóa, chọn lại"
+                ? t("· không còn trong danh mục hàng hóa, chọn lại")
                 : conChau.get(nutChon.id)?.length
-                  ? `· gồm ${soVN(conChau.get(nutChon.id).length)} danh mục con`
-                  : "· không có danh mục con"}
+                  ? t("· gồm {{soCon}} danh mục con", { count: conChau.get(nutChon.id).length, soCon: soVN(conChau.get(nutChon.id).length) })
+                  : t("· không có danh mục con")}
             </span>
           </p>
         ) : (
-          <p className="min-w-0 flex-1 text-[13px] text-bo-muted">Chọn một danh mục; mọi danh mục con của nó cũng được kiểm.</p>
+          <p className="min-w-0 flex-1 text-[13px] text-bo-muted">{t("Chọn một danh mục; mọi danh mục con của nó cũng được kiểm.")}</p>
         )}
         {!tu && coCon.length ? (
           // Một nút bật / tắt: đang mở hết thì thu gọn tất cả, còn lại thì mở tất cả
           <button
             type="button"
             onClick={() => setMoRong(daMoHet ? new Set() : new Set(coCon))}
-            title={`Cây ${soVN(sauNhat)} cấp`}
+            title={t("Cây {{sauNhat}} cấp", { count: sauNhat, sauNhat: soVN(sauNhat) })}
             className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2 text-[13px] font-semibold text-bo-primary hover:bg-bo-primary-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
           >
             {daMoHet ? <ChevronsDownUp className="size-4" aria-hidden="true" /> : <ChevronsUpDown className="size-4" aria-hidden="true" />}
-            {daMoHet ? "Thu gọn tất cả" : "Mở tất cả"}
+            {daMoHet ? t("Thu gọn tất cả") : t("Mở tất cả")}
           </button>
         ) : null}
       </div>
@@ -182,15 +183,15 @@ export default function ChonDanhMucKiemKe({
           aria-hidden="true"
           className={cn("hidden border-b border-bo-border bg-bo-surface-subtle px-4 py-2.5 text-xs font-medium leading-4 text-bo-muted @xl/bangdm:grid @xl/bangdm:gap-3", COT)}
         >
-          <span>Danh mục</span>
-          <span className="text-right">Kệ có hàng</span>
-          <span className="text-right">Trên sổ kệ</span>
-          <span>Kiểm gần nhất</span>
+          <span>{t("Danh mục")}</span>
+          <span className="text-right">{t("Kệ có hàng")}</span>
+          <span className="text-right">{t("Trên sổ kệ")}</span>
+          <span>{t("Kiểm gần nhất")}</span>
         </div>
         {khongKhop ? (
-          <p className="px-4 py-4 text-[13px] text-bo-muted">Không có danh mục nào khớp “{tuKhoa.trim()}”.</p>
+          <p className="px-4 py-4 text-[13px] text-bo-muted">{t("Không có danh mục nào khớp “{{tuKhoa}}”.", { tuKhoa: tuKhoa.trim() })}</p>
         ) : (
-          <div role="radiogroup" aria-label="Danh mục kiểm kê" className="divide-y divide-slate-100">
+          <div role="radiogroup" aria-label={t("Danh mục kiểm kê")} className="divide-y divide-slate-100">
             {hien.map((n) => {
               const chonNay = chon === n.id;
               const daGom = !chonNay && chon != null && n.toTien.includes(chon);
@@ -221,7 +222,7 @@ export default function ChonDanhMucKiemKe({
                             type="button"
                             onClick={() => doiMo(n.id)}
                             aria-expanded={mo}
-                            aria-label={`${mo ? "Thu" : "Mở"} ${n.ten}`}
+                            aria-label={mo ? t("Thu {{ten}}", { ten: n.ten }) : t("Mở {{ten}}", { ten: n.ten })}
                             className="grid size-6 shrink-0 place-items-center rounded text-slate-500 hover:bg-slate-100 hover:text-bo-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
                           >
                             {mo ? <ChevronDown className="size-4" aria-hidden="true" /> : <ChevronRight className="size-4" aria-hidden="true" />}
@@ -235,7 +236,7 @@ export default function ChonDanhMucKiemKe({
                           aria-checked={chonNay}
                           disabled={khoa}
                           onClick={() => onChon(n.id)}
-                          title={daGom ? "Đã gồm trong danh mục đang chọn" : undefined}
+                          title={daGom ? t("Đã gồm trong danh mục đang chọn") : undefined}
                           className="flex min-h-10 min-w-0 flex-1 items-center gap-2 rounded pl-1 text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 disabled:cursor-not-allowed"
                         >
                           <span
@@ -260,13 +261,13 @@ export default function ChonDanhMucKiemKe({
                           >
                             {n.ten}
                           </span>
-                          {laCha ? <span className="shrink-0 text-xs text-bo-muted tabular-nums">{soVN(conChau.get(n.id).length)} con</span> : null}
+                          {laCha ? <span className="shrink-0 text-xs text-bo-muted tabular-nums">{t("{{soCon}} con", { count: conChau.get(n.id).length, soCon: soVN(conChau.get(n.id).length) })}</span> : null}
                         </button>
                       </div>
                       {/* Khối hẹp: số liệu là dòng thứ hai trong cùng ô (đường dóng vẫn liền), thẳng lề tên */}
                       <span className="flex flex-wrap gap-x-3 pb-2 pl-[54px] text-xs leading-4 tabular-nums text-bo-muted @xl/bangdm:hidden">
-                        <span>{so("soKe", "kệ")}</span>
-                        <span>{so("soLuong", "sp")}</span>
+                        <span>{so("soKe", t("kệ"))}</span>
+                        <span>{so("soLuong", t("sp"))}</span>
                         <span>{oKiem(n)}</span>
                       </span>
                     </div>
@@ -276,7 +277,7 @@ export default function ChonDanhMucKiemKe({
                   </span>
                   <span className={cn("hidden self-center text-right text-sm tabular-nums text-bo-foreground @xl/bangdm:block", laCha && "font-semibold")}>
                     {oSo(n, "soLuong")}
-                    {laCha ? <span className="ml-1 text-[11px] font-normal text-bo-muted">tổng</span> : null}
+                    {laCha ? <span className="ml-1 text-[11px] font-normal text-bo-muted">{t("tổng")}</span> : null}
                   </span>
                   <span className="hidden self-center text-[13px] @xl/bangdm:block">{oKiem(n)}</span>
                 </div>
@@ -287,10 +288,10 @@ export default function ChonDanhMucKiemKe({
       </div>
       {trangThaiSoLieu === "loi" ? (
         <p className="flex flex-wrap items-center gap-x-3 text-xs text-bo-muted">
-          Chưa tải được số kệ và sản phẩm theo danh mục; vẫn chọn được, phần Xem trước vẫn tính đúng.
+          {t("Chưa tải được số kệ và sản phẩm theo danh mục; vẫn chọn được, phần Xem trước vẫn tính đúng.")}
           {onThuLaiSoLieu ? (
             <NutChu onClick={onThuLaiSoLieu} className="text-xs">
-              Thử lại
+              {t("Thử lại")}
             </NutChu>
           ) : null}
         </p>

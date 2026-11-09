@@ -8,16 +8,17 @@
  */
 
 import { TRANG_THAI_DON } from "../../../constants/trangThaiXuatBan.js";
+import { t } from "../../../i18n/t.js";
 
 export const TT_BAO_GIA = Object.freeze({ CHO_PHAN_HOI: 0, DA_CHOT: 2, TU_CHOI: 4 });
 
 /** Gợi ý chữ cho ô lý do khách từ chối (chỉ là chữ gợi ý, người dùng sửa được). */
 export const LY_DO_TU_CHOI_GOI_Y = Object.freeze([
-  "Giá cao hơn nơi khác",
-  "Khách đổi ý",
-  "Hết nhu cầu",
-  "Thời gian giao không phù hợp",
-  "Không liên lạc được khách",
+  "Giá cao hơn nơi khác", // i18n-giu-nguyen: lý do gửi máy chủ (nút gợi ý dịch lúc hiện)
+  "Khách đổi ý", // i18n-giu-nguyen: lý do gửi máy chủ
+  "Hết nhu cầu", // i18n-giu-nguyen: lý do gửi máy chủ
+  "Thời gian giao không phù hợp", // i18n-giu-nguyen: lý do gửi máy chủ
+  "Không liên lạc được khách", // i18n-giu-nguyen: lý do gửi máy chủ
 ]);
 
 const MS_NGAY = 24 * 60 * 60 * 1000;
@@ -41,8 +42,8 @@ export function soNgayCho(ngayTao, bayGio = new Date()) {
 /** "Đang chờ · hôm nay" / "Đang chờ · 3 ngày" (thiếu ngày lập: "Đang chờ"). */
 export function chuDangCho(ngayTao, bayGio = new Date()) {
   const n = soNgayCho(ngayTao, bayGio);
-  if (n == null) return "Đang chờ";
-  return `Đang chờ · ${n === 0 ? "hôm nay" : `${n.toLocaleString("vi-VN")} ngày`}`;
+  if (n == null) return t("Đang chờ");
+  return n === 0 ? t("Đang chờ · hôm nay") : t("Đang chờ · {{so}} ngày", { count: n, so: n.toLocaleString("vi-VN") });
 }
 
 /**
@@ -53,26 +54,26 @@ export function chuDangCho(ngayTao, bayGio = new Date()) {
 export function buocBaoGia(don, bayGio = new Date()) {
   if (!don) return [];
   const tt = Number(don.trangThai);
-  const lap = { ma: "lap", nhan: "Lập báo giá", trangThai: "xong", ngay: don.ngayTao ?? don.ngayDatHang ?? null, coGio: true };
+  const lap = { ma: "lap", nhan: t("Lập báo giá"), trangThai: "xong", ngay: don.ngayTao ?? don.ngayDatHang ?? null, coGio: true };
   if (tt === TT_BAO_GIA.CHO_PHAN_HOI) {
     return [
       lap,
-      { ma: "phanHoi", nhan: "Khách phản hồi", trangThai: "dangLam", phu: chuDangCho(don.ngayTao ?? don.ngayDatHang, bayGio) },
-      { ma: "chot", nhan: "Chốt thành đơn", trangThai: "chua" },
+      { ma: "phanHoi", nhan: t("Khách phản hồi"), trangThai: "dangLam", phu: chuDangCho(don.ngayTao ?? don.ngayDatHang, bayGio) },
+      { ma: "chot", nhan: t("Chốt thành đơn"), trangThai: "chua" },
     ];
   }
   if (tt === TT_BAO_GIA.DA_CHOT) {
     return [
       lap,
-      { ma: "phanHoi", nhan: "Khách phản hồi", trangThai: "xong", phu: "Đồng ý" },
-      { ma: "chot", nhan: "Chốt thành đơn", trangThai: "xong" },
+      { ma: "phanHoi", nhan: t("Khách phản hồi"), trangThai: "xong", phu: t("Đồng ý") },
+      { ma: "chot", nhan: t("Chốt thành đơn"), trangThai: "xong" },
     ];
   }
   if (tt === TT_BAO_GIA.TU_CHOI) {
     return [
       lap,
-      { ma: "phanHoi", nhan: "Khách từ chối", trangThai: "dung" },
-      { ma: "chot", nhan: "Chốt thành đơn", trangThai: "chua" },
+      { ma: "phanHoi", nhan: t("Khách từ chối"), trangThai: "dung" },
+      { ma: "chot", nhan: t("Chốt thành đơn"), trangThai: "chua" },
     ];
   }
   return [];
@@ -124,7 +125,7 @@ export function thongBaoBaoGia(don, donLienQuan = []) {
   const ds = [];
   if (tt === TT_BAO_GIA.TU_CHOI) {
     const lyDo = String(don.lyDoTuChoi ?? "").trim();
-    ds.push({ ma: "tuChoi", tone: "neutral", chu: lyDo ? `Khách từ chối: ${lyDo}` : "Khách từ chối báo giá." });
+    ds.push({ ma: "tuChoi", tone: "neutral", chu: lyDo ? t("Khách từ chối: {{lyDo}}", { lyDo }) : t("Khách từ chối báo giá.") });
   }
   if (tt === TT_BAO_GIA.CHO_PHAN_HOI) {
     const daHuy = (Array.isArray(donLienQuan) ? donLienQuan : []).find((d) => Number(d.trangThai) === TRANG_THAI_DON.DA_HUY);
@@ -132,7 +133,7 @@ export function thongBaoBaoGia(don, donLienQuan = []) {
       ds.push({
         ma: "chotLai",
         tone: "info",
-        chu: `Đơn ${daHuy.soDonHang} chốt từ báo giá này đã bị hủy nên báo giá trở lại Chờ phản hồi. Chốt lại sẽ tạo đơn mới (mã thêm hậu tố).`,
+        chu: t("Đơn {{soDonHang}} chốt từ báo giá này đã bị hủy nên báo giá trở lại Chờ phản hồi. Chốt lại sẽ tạo đơn mới (mã thêm hậu tố).", { soDonHang: daHuy.soDonHang }),
       });
     }
   }
@@ -141,4 +142,4 @@ export function thongBaoBaoGia(don, donLienQuan = []) {
 
 /** Câu khi báo giá đã chốt mà không tìm thấy đơn trong phạm vi người đang xem (danh sách lọc theo người tạo). */
 export const cauKhongThayDon = (nguoiLap) =>
-  `Báo giá đã chốt thành đơn nhưng không tìm thấy đơn trong danh sách bạn được xem${nguoiLap ? ` (đơn thuộc ${nguoiLap})` : ""}.`;
+  t("Báo giá đã chốt thành đơn nhưng không tìm thấy đơn trong danh sách bạn được xem{{nguoiLap}}.", { nguoiLap: nguoiLap ? t(" (đơn thuộc {{nguoiLap}})", { nguoiLap }) : "" });
