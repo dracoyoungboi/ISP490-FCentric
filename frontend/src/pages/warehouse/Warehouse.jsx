@@ -32,18 +32,19 @@ import NganKeoLichSu from '@/components/nhat-ky/NganKeoLichSu';
 import { layLichSuDanhMuc } from '@/services/nhatKyService';
 import HopTrangThaiKho from './HopTrangThaiKho';
 import { laKhoAo, nhanLoaiKho } from './loaiKho';
+import { t } from "@/i18n";
 
 /* ── Tab trạng thái (bố cục A+G) — giữ trên URL ?trangThai= ── */
 const STATUS_TABS = [
-    { value: 'tat-ca', label: 'Tất cả' },
-    { value: 'hoat-dong', label: 'Hoạt động' },
-    { value: 'ngung-hoat-dong', label: 'Ngừng hoạt động' },
+    { value: 'tat-ca', label: t("Tất cả") },
+    { value: 'hoat-dong', label: t("Hoạt động") },
+    { value: 'ngung-hoat-dong', label: t("Ngừng hoạt động") },
 ];
 const STATUS_TAB_VALUES = STATUS_TABS.map((tab) => tab.value);
 const TAB_MAC_DINH = 'tat-ca';
 const EMPTY_TAB_TITLE = {
-    'hoat-dong': 'Không có kho nào đang hoạt động',
-    'ngung-hoat-dong': 'Không có kho nào ngừng hoạt động',
+    'hoat-dong': t("Không có kho nào đang hoạt động"),
+    'ngung-hoat-dong': t("Không có kho nào ngừng hoạt động"),
 };
 
 /* ── Filter payload builder ── */
@@ -152,7 +153,7 @@ export default function WarehouseManagement() {
             if (requestId !== requestIdRef.current) return;
             console.error("Lỗi khi tải danh sách kho:", err);
             if (silent) return;
-            if (err?.response?.status !== 403) toast.error("Không thể tải danh sách kho");
+            if (err?.response?.status !== 403) toast.error(t("Không thể tải danh sách kho"));
             // Không giữ dòng + tổng số của lần tải trước (R9). Giữ lỗi để ô lỗi phân biệt 403 (không có quyền: không
             // "Thử lại", không thông báo nhanh)
             setWarehouses([]);
@@ -173,7 +174,7 @@ export default function WarehouseManagement() {
             }
         } catch (err) {
             console.error("Lỗi khi tải danh sách quản lý:", err);
-            toast.error("Không thể tải danh sách người quản lý");
+            toast.error(t("Không thể tải danh sách người quản lý"));
         } finally {
             setIsLoadingManagers(false);
         }
@@ -235,14 +236,14 @@ export default function WarehouseManagement() {
     /* ── Validation ── */
     const validateForm = () => {
         const e = {};
-        if (!formData.maKho) e.maKho = 'Vui lòng nhập mã kho';
-        if (!formData.tenKho) e.tenKho = 'Vui lòng nhập tên kho';
-        else if (formData.tenKho.length < 5) e.tenKho = 'Tên kho phải có ít nhất 5 ký tự';
-        if (!formData.diaChi) e.diaChi = 'Vui lòng nhập địa chỉ';
-        if (!formData.quanLyId) e.quanLyId = 'Vui lòng chọn người quản lý';
+        if (!formData.maKho) e.maKho = t("Vui lòng nhập mã kho");
+        if (!formData.tenKho) e.tenKho = t("Vui lòng nhập tên kho");
+        else if (formData.tenKho.length < 5) e.tenKho = t("Tên kho phải có ít nhất 5 ký tự");
+        if (!formData.diaChi) e.diaChi = t("Vui lòng nhập địa chỉ");
+        if (!formData.quanLyId) e.quanLyId = t("Vui lòng chọn người quản lý");
         if (formData.loaiKho === 'kho_tong' && Number(formData.trangThai) === 1) {
             const khoTongKhac = warehouses.find(w => w.loaiKho === 'kho_tong' && w.trangThai === 1 && !laKhoAo(w) && w.id !== selectedWarehouse?.id);
-            if (khoTongKhac) e.loaiKho = `Đã có Kho tổng đang hoạt động: ${khoTongKhac.tenKho}. Hãy đổi kho đó thành Kho bán hàng trước.`;
+            if (khoTongKhac) e.loaiKho = t("Đã có Kho tổng đang hoạt động: {{tenKho}}. Hãy đổi kho đó thành Kho bán hàng trước.", { tenKho: khoTongKhac.tenKho });
         }
         setErrors(e);
         return Object.keys(e).length === 0;
@@ -271,21 +272,21 @@ export default function WarehouseManagement() {
             let res;
             if (dialogMode === 'create') res = await khoService.create(data);
             else if (dialogMode === 'edit') res = await khoService.update({ id: selectedWarehouse.id, ...data });
-            if (res?.data?.status >= 400) { toast.error(res.data.message || 'Có lỗi xảy ra'); return; }
-            toast.success(dialogMode === 'create' ? 'Thêm kho mới thành công.' : 'Cập nhật thông tin kho thành công.');
+            if (res?.data?.status >= 400) { toast.error(res.data.message || t("Có lỗi xảy ra")); return; }
+            toast.success(dialogMode === 'create' ? t("Thêm kho mới thành công.") : t("Cập nhật thông tin kho thành công."));
             setShowDialog(false); setErrors({}); fetchWarehouses(); reloadCounts();
         } catch (err) {
             console.error('Chi tiết lỗi:', err);
             console.error('Error response:', err.response);
             console.error('Error response data:', err.response?.data);
-            toast.error(getApiErrorMessage(err, 'Có lỗi xảy ra khi xử lý kho'));
+            toast.error(getApiErrorMessage(err, t("Có lỗi xảy ra khi xử lý kho")));
         }
     };
 
     // Sau khi đổi trạng thái: cập nhật ngay dòng và popup đang mở, rồi tải lại danh sách + số trên tab
     const handleTrangThaiDaDoi = (khoMoi) => {
         const hoatDong = Number(khoMoi?.trangThai) === 1;
-        toast.success(hoatDong ? `Đã cho phép ${khoMoi.tenKho} hoạt động lại.` : `Đã ngừng hoạt động ${khoMoi.tenKho}.`);
+        toast.success(hoatDong ? t("Đã cho phép {{tenKho}} hoạt động lại.", { tenKho: khoMoi.tenKho }) : t("Đã ngừng hoạt động {{tenKho}}.", { tenKho: khoMoi.tenKho }));
         setWarehouses(prev => prev.map(w => (w.id === khoMoi.id ? { ...w, ...khoMoi } : w)));
         setChiTiet(prev => (prev.kho?.id === khoMoi.id ? { ...prev, kho: { ...prev.kho, ...khoMoi } } : prev));
         fetchWarehouses();
@@ -293,9 +294,9 @@ export default function WarehouseManagement() {
     };
 
     // Số chỉ hiện khi đã đếm xong và danh sách không lỗi (R9); số 0 tự ẩn trong StatusTabs
-    const statusTabs = STATUS_TABS.map((t) => ({
-        ...t,
-        count: loadError ? null : tabCounts[t.value],
+    const statusTabs = STATUS_TABS.map((tg) => ({
+        ...tg,
+        count: loadError ? null : tabCounts[tg.value],
     }));
 
     /* ══════════════
@@ -311,7 +312,7 @@ export default function WarehouseManagement() {
                             className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover"
                         >
                             <Plus className="size-4" />
-                            Thêm kho
+                            {t("Thêm kho")}
                         </Button>
                     ) : null
                 }
@@ -324,7 +325,7 @@ export default function WarehouseManagement() {
                     <ListToolbar
                         tabs={
                             <StatusTabs
-                                label="Lọc kho theo trạng thái"
+                                label={t("Lọc kho theo trạng thái")}
                                 tabs={statusTabs}
                                 value={tab}
                                 onChange={changeTab}
@@ -334,8 +335,8 @@ export default function WarehouseManagement() {
                         onClear={clearFilters}
                     >
                         <SearchInput
-                            label="Tìm kho"
-                            placeholder="Tìm theo tên kho, mã kho, địa chỉ..."
+                            label={t("Tìm kho")}
+                            placeholder={t("Tìm theo tên kho, mã kho, địa chỉ...")}
                             value={searchInput}
                             onChange={(e) => setSearchInput(e.target.value)}
                             onClear={() => setSearchInput('')}
@@ -356,10 +357,10 @@ export default function WarehouseManagement() {
                 }
             >
                 {isLoading ? (
-                    <LoadingState rows={5} label="Đang tải danh sách kho" />
+                    <LoadingState rows={5} label={t("Đang tải danh sách kho")} />
                 ) : loadError ? (
                     <ErrorState
-                        description="Không thể tải danh sách kho. Vui lòng thử lại."
+                        description={t("Không thể tải danh sách kho. Vui lòng thử lại.")}
                         error={loadError}
                         onRetry={handleRetry}
                     />
@@ -367,15 +368,15 @@ export default function WarehouseManagement() {
                     hasActiveFilters ? (
                         <EmptyState
                             icon={SearchX}
-                            title="Không tìm thấy kho phù hợp"
-                            description="Thử đổi từ khóa tìm kiếm."
+                            title={t("Không tìm thấy kho phù hợp")}
+                            description={t("Thử đổi từ khóa tìm kiếm.")}
                             action={
                                 <Button
                                     variant="outline"
                                     onClick={clearFilters}
                                     className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
-                                    Xóa lọc
+                                    {t("Xóa lọc")}
                                 </Button>
                             }
                         />
@@ -383,22 +384,22 @@ export default function WarehouseManagement() {
                         <EmptyState
                             icon={Package}
                             title={EMPTY_TAB_TITLE[tab]}
-                            description="Chọn tab Tất cả để xem mọi kho."
+                            description={t("Chọn tab Tất cả để xem mọi kho.")}
                             action={
                                 <Button
                                     variant="outline"
                                     onClick={() => changeTab(TAB_MAC_DINH)}
                                     className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
-                                    Xem tất cả
+                                    {t("Xem tất cả")}
                                 </Button>
                             }
                         />
                     ) : (
                         <EmptyState
                             icon={Package}
-                            title="Chưa có kho"
-                            description="Thêm kho để quản lý tồn kho và người phụ trách từng kho."
+                            title={t("Chưa có kho")}
+                            description={t("Thêm kho để quản lý tồn kho và người phụ trách từng kho.")}
                             action={
                                 laQuanTriVien ? (
                                     <Button
@@ -406,7 +407,7 @@ export default function WarehouseManagement() {
                                         className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover"
                                     >
                                         <Plus className="size-4" />
-                                        Thêm kho
+                                        {t("Thêm kho")}
                                     </Button>
                                 ) : null
                             }
@@ -426,7 +427,8 @@ export default function WarehouseManagement() {
                                 >
                                     <span className="flex items-center justify-between gap-3">
                                         <span className="min-w-0 truncate text-[15px] font-semibold text-bo-foreground">{wh.tenKho}</span>
-                                        <StatusBadge doiTuong="kho" label={wh.trangThai === 1 ? 'Hoạt động' : 'Ngừng hoạt động'} />
+                                        {/* i18n-giu-nguyen: nhãn StatusBadge tự dịch */}
+                                        <StatusBadge doiTuong="kho" label={wh.trangThai === 1 ? "Hoạt động" : "Ngừng hoạt động"} />
                                     </span>
                                     <span className="flex min-w-0 items-center gap-2 text-[13px]">
                                         <span className="shrink-0 font-mono font-semibold text-bo-primary">{wh.maKho || '—'}</span>
@@ -435,10 +437,10 @@ export default function WarehouseManagement() {
                                     {wh.diaChi ? <span className="truncate text-[13px] text-bo-muted">{wh.diaChi}</span> : null}
                                     <span className="mt-1 flex items-baseline justify-between gap-3 text-[13px] text-bo-muted">
                                         <span className="min-w-0 truncate">
-                                            Quản lý: <span className="text-bo-foreground">{wh.quanLy?.hoTen || '—'}</span>
+                                            {t("Quản lý:")} <span className="text-bo-foreground">{wh.quanLy?.hoTen || '—'}</span>
                                         </span>
                                         <span className="shrink-0 tabular-nums">
-                                            Tồn{' '}
+                                            {t("Tồn")}{' '}
                                             <span className="font-semibold text-bo-foreground">
                                                 {wh.soLuongTon == null ? '—' : formatNumber(wh.soLuongTon)}
                                             </span>
@@ -454,28 +456,28 @@ export default function WarehouseManagement() {
                         <thead className="sticky top-0 z-10">
                             <tr className="border-b border-bo-border bg-bo-surface-subtle">
                                 <th className="h-10 w-14 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">
-                                    STT
+                                    {t("STT")}
                                 </th>
                                 <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                    Mã kho
+                                    {t("Mã kho")}
                                 </th>
                                 <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                    Tên kho
+                                    {t("Tên kho")}
                                 </th>
                                 <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">
-                                    Loại kho
+                                    {t("Loại kho")}
                                 </th>
                                 <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">
-                                    Người quản lý
+                                    {t("Người quản lý")}
                                 </th>
                                 <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                    Trạng thái
+                                    {t("Trạng thái")}
                                 </th>
                                 <th className="h-10 px-3 text-right tabular-nums whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                    Tồn kho
+                                    {t("Tồn kho")}
                                 </th>
                                 <th className="h-10 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">
-                                    Thao tác
+                                    {t("Thao tác")}
                                 </th>
                             </tr>
                         </thead>
@@ -500,7 +502,7 @@ export default function WarehouseManagement() {
                                             </p>
                                         )}
                                         <p className="mt-0.5 hidden max-w-[260px] truncate text-xs text-slate-600 cam-ung:max-lg:block">
-                                            {nhanLoaiKho(wh).label} · Quản lý: {wh.quanLy?.hoTen || '—'}
+                                            {t("{{loaiKho}} · Quản lý:", { loaiKho: nhanLoaiKho(wh).label })} {wh.quanLy?.hoTen || '—'}
                                         </p>
                                     </td>
                                     <td className="px-3 py-3 cam-ung:max-lg:hidden">
@@ -512,7 +514,8 @@ export default function WarehouseManagement() {
                                         {wh.quanLy?.hoTen || '—'}
                                     </td>
                                     <td className="px-3 py-3">
-                                        <StatusBadge doiTuong="kho" label={wh.trangThai === 1 ? 'Hoạt động' : 'Ngừng hoạt động'} />
+                                        {/* i18n-giu-nguyen: nhãn StatusBadge tự dịch */}
+                                        <StatusBadge doiTuong="kho" label={wh.trangThai === 1 ? "Hoạt động" : "Ngừng hoạt động"} />
                                     </td>
                                     <td className="px-3 py-3 text-right tabular-nums">
                                         {wh.soLuongTon == null ? (
@@ -525,13 +528,13 @@ export default function WarehouseManagement() {
                                         <RowActions>
                                             <RowActionButton
                                                 icon={Eye}
-                                                label="Xem chi tiết"
+                                                label={t("Xem chi tiết")}
                                                 onClick={() => moChiTiet(wh)}
                                             />
                                             {laQuanTriVien ? (
                                                 <RowActionButton
                                                     icon={Edit}
-                                                    label="Chỉnh sửa"
+                                                    label={t("Chỉnh sửa")}
                                                     onClick={() => handleOpenDialog('edit', wh)}
                                                 />
                                             ) : null}
@@ -580,8 +583,8 @@ export default function WarehouseManagement() {
                 <NganKeoLichSu
                     open={lichSuKho.open}
                     onOpenChange={(open) => setLichSuKho(prev => ({ ...prev, open }))}
-                    tieuDe={`Lịch sử ${lichSuKho.kho?.tenKho || "kho"}`}
-                    moTa="Tạo, sửa, đổi trạng thái kho: ai làm, lúc nào, đổi gì."
+                    tieuDe={t("Lịch sử {{tenKho}}", { tenKho: lichSuKho.kho?.tenKho || t("kho") })}
+                    moTa={t("Tạo, sửa, đổi trạng thái kho: ai làm, lúc nào, đổi gì.")}
                     tai={() => layLichSuDanhMuc("kho", lichSuKho.kho?.id)}
                 />
             ) : null}

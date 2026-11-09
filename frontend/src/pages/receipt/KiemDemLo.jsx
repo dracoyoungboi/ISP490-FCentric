@@ -67,6 +67,7 @@ import {
   THE_LENH,
   tinh,
 } from "./kiemDem";
+import { t } from "@/i18n";
 
 const gio = () => new Date().toLocaleTimeString("vi-VN", { hour12: false });
 const TH = "h-10 px-5 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
@@ -92,8 +93,8 @@ export default function KiemDemLo() {
 /** Câu báo khi quản lý vừa đổi cách xác nhận chất lượng (Cấu hình › Nhập kho) trong lúc đang kiểm. */
 const cauDoiCheDo = (cheDo) =>
   cheDo === CHE_DO_XAC_NHAN.QUET_THE_TUNG_CAI
-    ? "Cách xác nhận vừa đổi: từ giờ mỗi lượt phải quét thẻ ĐẠT hoặc KHÔNG ĐẠT mới quét tiếp được."
-    : "Cách xác nhận vừa đổi: từ giờ quét sản phẩm kế tiếp là lượt trước giữ Đạt; sản phẩm lỗi quét thẻ KHÔNG ĐẠT.";
+    ? t("Cách xác nhận vừa đổi: từ giờ mỗi lượt phải quét thẻ ĐẠT hoặc KHÔNG ĐẠT mới quét tiếp được.")
+    : t("Cách xác nhận vừa đổi: từ giờ quét sản phẩm kế tiếp là lượt trước giữ Đạt; sản phẩm lỗi quét thẻ KHÔNG ĐẠT.");
 
 /** Thời gian dùng lại kết quả kiểm mã vạch NCC với máy chủ (mã bị gỡ / liên kết lại ở máy khác vẫn được phát hiện). */
 const KIEM_LAI_MA_NCC_MS = 60_000;
@@ -227,11 +228,11 @@ function KiemDemLoNoiDung() {
         loiTaiRef.current = error;
         if (silent) {
           // `baoLoi` false: nơi gọi tự báo lỗi trong câu của mình (một thông báo cho một lỗi)
-          if (baoLoi) toast.error(getApiErrorMessage(error, "Không tải lại được dữ liệu lô hàng"));
+          if (baoLoi) toast.error(getApiErrorMessage(error, t("Không tải lại được dữ liệu lô hàng")));
           return null;
         }
         const status = getApiErrorStatus(error);
-        setLoiTai(status === 400 || status === 404 ? "khong-thay" : getApiErrorMessage(error, "Không tải được dữ liệu kiểm đếm"));
+        setLoiTai(status === 400 || status === 404 ? "khong-thay" : getApiErrorMessage(error, t("Không tải được dữ liệu kiểm đếm")));
         return null;
       }
     },
@@ -294,19 +295,19 @@ function KiemDemLoNoiDung() {
   const canNhap = Number(item?.soLuongCanNhap || 0);
   const datKhoa = lots.reduce((s, l) => s + Number(l.soLuongNhap || 0), 0);
   const loiKhoa = lots.reduce((s, l) => s + Number(l.soLuongLoi || 0), 0);
-  const t = tinh(p, { canNhap, datKhoa, loiKhoa });
+  const tg = tinh(p, { canNhap, datKhoa, loiKhoa });
   const maLoDaCo = useMemo(() => lots.map((l) => l.maLo), [lots]);
   const maLoGoiY = phieu ? goiYMaLo(phieu.soPhieuNhap, maLoDaCo, phieu.tienToMaLo) : "";
   const coKe = keTai === "loi" || coKeHoatDong(viTris);
   const homNay = ngayHomNay();
-  const dk = dieuKienKhoaLo(p, { t, viTris, coKe, keDangTai: keTai === "dang", maLoGoiY, maLoDaCo, homNay });
+  const dk = dieuKienKhoaLo(p, { t: tg, viTris, coKe, keDangTai: keTai === "dang", maLoGoiY, maLoDaCo, homNay });
   const cur = luotHienTai(p);
   const cheDo = phieu?.cheDoXacNhanChatLuong === CHE_DO_XAC_NHAN.QUET_THE_TUNG_CAI ? CHE_DO_XAC_NHAN.QUET_THE_TUNG_CAI : CHE_DO_XAC_NHAN.QUET_TIEP_LA_DAT;
 
   // Dữ liệu mới nhất cho hàng đợi quét (đọc trong xử lý sự kiện, không đọc lúc vẽ). Gán sau khi vẽ xong, trước khi
   // trình duyệt nhận sự kiện kế tiếp; các lần tải (taiLai / taiKe) tự cập nhật ngay phần của mình.
   useLayoutEffect(() => {
-    ctxRef.current = { phieu, item, lots, viTris, keTai, t, dk, cheDo, choSua };
+    ctxRef.current = { phieu, item, lots, viTris, keTai, t: tg, dk, cheDo, choSua };
   });
 
   // ── Báo ──
@@ -349,7 +350,7 @@ function KiemDemLoNoiDung() {
       tt = tinhHienTai();
     }
     if (tt.conLai <= 0) {
-      bao("warn", `Đã đủ ${formatNumber(tt.can)} sản phẩm theo đơn mua. Sản phẩm thừa để riêng và báo quản lý kho.`);
+      bao("warn", t("Đã đủ {{can}} sản phẩm theo đơn mua. Sản phẩm thừa để riêng và báo quản lý kho.", { can: formatNumber(tt.can) }));
       return;
     }
     const kq = themLuot(phienRef.current, { ma, nguon, soLuong, conLai: tt.conLai, cheDo: ctxRef.current.cheDo, gio: gio() });
@@ -374,7 +375,7 @@ function KiemDemLoNoiDung() {
     const kq = hoanTacLuot(phienRef.current, id);
     if (!kq.luot) return;
     setPhien(kq.phien);
-    setThongBao({ tone: "neutral", chu: `Đã hoàn tác lượt quét ${kq.luot.ma} (${formatNumber(kq.luot.sl)} cái).` });
+    setThongBao({ tone: "neutral", chu: t("Đã hoàn tác lượt quét {{ma}} ({{sl}} cái).", { ma: kq.luot.ma, sl: formatNumber(kq.luot.sl) }) });
     bipKiemDem("loi");
     focusQuet();
   };
@@ -450,12 +451,12 @@ function KiemDemLoNoiDung() {
       setThongBao({
         tone: biXoa.length ? "warn" : "ok",
         chu:
-          `Đã khóa lô ${lan.maLo}: ${formatNumber(lan.dat)} đạt${ke ? ` tại kệ ${ke.maViTri}` : ""}` +
-          `${lan.loi ? `, ${formatNumber(lan.loi)} không đạt để ở khu chờ trả NCC` : ""}.` +
+          t("Đã khóa lô {{maLo}}: {{dat}} đạt{{phanKe}}", { maLo: lan.maLo, dat: formatNumber(lan.dat), phanKe: ke ? t(" tại kệ {{maViTri}}", { maViTri: ke.maViTri }) : "" }) +
+          `${lan.loi ? t(", {{loi}} không đạt để ở khu chờ trả NCC", { loi: formatNumber(lan.loi) }) : ""}.` +
           ghiChuThem +
-          (biXoa.length ? ` Lô ${biXoa.join(", ")} vừa bị xóa ở máy khác, còn thiếu ${formatNumber(ttSau.conLai)}.` : "") +
+          (biXoa.length ? t(" Lô {{dsLo}} vừa bị xóa ở máy khác, còn thiếu {{conLai}}.", { dsLo: biXoa.join(", "), conLai: formatNumber(ttSau.conLai) }) : "") +
           // Kiểm đủ thì nhãn trạng thái và tiến độ đã nói; chưa đủ thì nhắc bước tiếp theo
-          (ttSau.conLai > 0 && !biXoa.length ? " Bộ đếm về 0 cho thùng tiếp theo." : ""),
+          (ttSau.conLai > 0 && !biXoa.length ? t(" Bộ đếm về 0 cho thùng tiếp theo.") : ""),
       });
       bipKiemDem(biXoa.length ? "sai" : "ok");
     };
@@ -465,8 +466,8 @@ function KiemDemLoNoiDung() {
     const doiChieu = (ds) => doiChieuKhoaChuaRo(ph, ds, lanNay);
     const daLuuTruoc = (ds) => doiChieu(ds) === "da-luu";
     const cauLanTruoc = (lan) =>
-      `Lô ${lan.maLo} đã được lưu ở lần khóa trước (lúc mất phản hồi) với ${formatNumber(lan.dat)} đạt, ${formatNumber(lan.loi)} không đạt. ` +
-      "Xem tab Lô đã khóa, hoàn tác các lượt đã nằm trong lô đó rồi khóa phần còn lại.";
+      t("Lô {{maLo}} đã được lưu ở lần khóa trước (lúc mất phản hồi) với {{dat}} đạt, {{loi}} không đạt. ", { maLo: lan.maLo, dat: formatNumber(lan.dat), loi: formatNumber(lan.loi) }) +
+      t("Xem tab Lô đã khóa, hoàn tác các lượt đã nằm trong lô đó rồi khóa phần còn lại.");
     const kqTruoc = doiChieu(dsDoiChieu);
     if (kqTruoc === "chua-kiem") {
       // Máy chủ trả lỗi (403 đổi nơi làm việc, 404 phiếu bị hủy…) thì kèm câu của máy chủ; mất mạng thì không có
@@ -481,7 +482,7 @@ function KiemDemLoNoiDung() {
     if (kqTruoc === "da-luu") {
       // Lô đã lưu là lô của lần trước (mã lô gợi ý lúc này có thể đã nhảy sang số kế tiếp): báo và chốt theo lần đó
       chotLo(ph.khoaChuaRo);
-      baoDaKhoa(ctxRef.current.lots, " (máy chủ đã lưu lô ở lần khóa trước)", ph.khoaChuaRo);
+      baoDaKhoa(ctxRef.current.lots, t(" (máy chủ đã lưu lô ở lần khóa trước)"), ph.khoaChuaRo);
       return;
     }
     if (kqTruoc === "chan") {
@@ -525,7 +526,7 @@ function KiemDemLoNoiDung() {
       const lanDaLuu = daLuuLanNay ? lanNay : daLuuTruoc(dsMoi) ? ph.khoaChuaRo : null;
       if (lanDaLuu) {
         chotLo(lanDaLuu);
-        baoDaKhoa(dsMoi, " (máy chủ đã lưu lô trước khi mất phản hồi)", lanDaLuu);
+        baoDaKhoa(dsMoi, t(" (máy chủ đã lưu lô trước khi mất phản hồi)"), lanDaLuu);
       } else {
         // Không rõ kết quả mà chưa thấy lô (tải lại cũng lỗi): ghi nhớ lần khóa này trong bản tạm để lần sau đối chiếu.
         // Ghi đè lần trước không làm mất dấu: lần này chỉ được gửi sau khi lần trước đã đối chiếu với danh sách vừa tải
@@ -544,13 +545,13 @@ function KiemDemLoNoiDung() {
           ? ""
           : cuaLanTruoc
             ? cauLanTruoc({ ...ph.khoaChuaRo, maLo: lanNay.maLo })
-            : `Máy khác vừa khóa lô ${lanNay.maLo}, lô đang kiểm chưa được lưu và vẫn giữ các lượt quét.` +
-              (dkMoi.ok ? ` Mã lô đổi sang ${dkMoi.maLo}: quét KHÓA LÔ để khóa.` : "");
+            : t("Máy khác vừa khóa lô {{maLo}}, lô đang kiểm chưa được lưu và vẫn giữ các lượt quét.", { maLo: lanNay.maLo }) +
+              (dkMoi.ok ? t(" Mã lô đổi sang {{maLo}}: quét KHÓA LÔ để khóa.", { maLo: dkMoi.maLo }) : "");
         const chu = mayKhacDaKhoaMa
           ? `${cauMayKhac}${!dkMoi.ok && dkMoi.loi.length ? ` ${dkMoi.loi[0]}` : ""}`
           : dkMoi.loi.length
             ? dkMoi.loi[0]
-            : getApiErrorMessage(error, "Không khóa được lô");
+            : getApiErrorMessage(error, t("Không khóa được lô"));
         // Trong hộp: câu điều kiện khóa (dk.loi) đã hiện ở dòng riêng, dòng lỗi quét không lặp lại câu đó
         if (hopKhoaLoRef.current) setLoiQuetKhoa(mayKhacDaKhoaMa ? cauMayKhac : dkMoi.loi.length ? "" : chu);
         setThongBao({ tone: "bad", chu });
@@ -580,9 +581,9 @@ function KiemDemLoNoiDung() {
     setPhien({ ...phienRef.current, keId: ke.id });
     // Mã kệ, khu, chỗ trống đã hiện ở "Kệ cho hàng đạt": câu báo chỉ nói bước tiếp theo
     if (con !== null && tt.datLo > con) {
-      setThongBao({ tone: "warn", chu: "Đã chọn kệ nhưng kệ không đủ chỗ cho hàng đạt của lô này. Quét kệ khác." });
+      setThongBao({ tone: "warn", chu: t("Đã chọn kệ nhưng kệ không đủ chỗ cho hàng đạt của lô này. Quét kệ khác.") });
     } else {
-      setThongBao({ tone: "info", chu: "Đã chọn kệ cho hàng đạt. Quét thẻ KHÓA LÔ để khóa." });
+      setThongBao({ tone: "info", chu: t("Đã chọn kệ cho hàng đạt. Quét thẻ KHÓA LÔ để khóa.") });
     }
     bipKiemDem("ok");
     if (tt.trongLo > 0) moHopKhoaLo();
@@ -608,7 +609,7 @@ function KiemDemLoNoiDung() {
     }
     const ke = ctxRef.current.viTris.find((v) => String(v.maViTri).toUpperCase() === hoa);
     if (!ke) {
-      setLoiQuetKhoa("Đang khóa lô: chỉ nhận mã kệ hoặc thẻ KHÓA LÔ. Muốn quét tiếp sản phẩm thì bấm Hủy.");
+      setLoiQuetKhoa(t("Đang khóa lô: chỉ nhận mã kệ hoặc thẻ KHÓA LÔ. Muốn quét tiếp sản phẩm thì bấm Hủy."));
       bipKiemDem("sai");
       return;
     }
@@ -629,17 +630,17 @@ function KiemDemLoNoiDung() {
     const c = luotHienTai(ph);
     switch (lenh.loai) {
       case "KHONG_DAT":
-        if (!c) return bao("bad", "Quét sản phẩm trước rồi mới quét thẻ KHÔNG ĐẠT.");
+        if (!c) return bao("bad", t("Quét sản phẩm trước rồi mới quét thẻ KHÔNG ĐẠT."));
         return suaLuot(thanhKhongDat, "loi");
       case "DAT":
-        if (!c) return bao("info", "Chưa có lượt quét nào để xác nhận.");
+        if (!c) return bao("info", t("Chưa có lượt quét nào để xác nhận."));
         return suaLuot(thanhDat, "ok");
       case "LY_DO":
-        if (!c || c.kq !== "loi") return bao("bad", "Thẻ lý do chỉ dùng sau thẻ KHÔNG ĐẠT.");
+        if (!c || c.kq !== "loi") return bao("bad", t("Thẻ lý do chỉ dùng sau thẻ KHÔNG ĐẠT."));
         return suaLuot((x) => chonLyDo(x, LY_DO_LOI[lenh.soLyDo - 1]), "ok");
       case "HOAN_TAC": {
         const dich = luotDeHoanTac(ph);
-        if (!dich) return bao("info", "Không còn lượt quét nào trong lô đang kiểm để hoàn tác.");
+        if (!dich) return bao("info", t("Không còn lượt quét nào trong lô đang kiểm để hoàn tác."));
         return hoanTac(dich.id);
       }
       case "KHOA_LO": {
@@ -653,10 +654,10 @@ function KiemDemLoNoiDung() {
         if ((await khoaLo()) !== "chua-du") return;
         if (tt.trongLo > 0) return moHopKhoaLo();
         // Quét KHÓA LÔ lần nữa sau khi vừa khóa: không biến câu "Đã khóa lô" thành lỗi
-        return bao("info", "Lô đang kiểm chưa có sản phẩm nào. Quét sản phẩm của thùng tiếp theo.", null);
+        return bao("info", t("Lô đang kiểm chưa có sản phẩm nào. Quét sản phẩm của thùng tiếp theo."), null);
       }
       default:
-        return bao("bad", `Thẻ lệnh ${hoa} không có trong hệ thống.`);
+        return bao("bad", t("Thẻ lệnh {{hoa}} không có trong hệ thống.", { hoa }));
     }
   };
 
@@ -674,13 +675,13 @@ function KiemDemLoNoiDung() {
     const ma = tach.ma;
     if (tach.loi) return bao("bad", tach.loi);
     const sl = soLuong ?? tach.soLuong;
-    if (!ma) return bao("bad", "Chưa có mã. Quét hoặc nhập mã rồi nhấn Enter.");
+    if (!ma) return bao("bad", t("Chưa có mã. Quét hoặc nhập mã rồi nhấn Enter."));
     const hoa = ma.toUpperCase();
 
     const lenh = docTheLenh(hoa, LY_DO_LOI.length);
     if (lenh) return xuLyLenh(lenh, hoa);
     if (!kyTuHopLe(ma)) {
-      return bao("bad", `Mã “${ma}” có ký tự không có trên tem mã vạch (chữ có dấu hoặc khoảng trắng). Nếu gõ tay, hãy kiểm tra lại mã.`);
+      return bao("bad", t("Mã “{{ma}}” có ký tự không có trên tem mã vạch (chữ có dấu hoặc khoảng trắng). Nếu gõ tay, hãy kiểm tra lại mã.", { ma }));
     }
     const cho = luotDangCho(phienRef.current);
     if (cho) {
@@ -698,12 +699,12 @@ function KiemDemLoNoiDung() {
       await taiLai({ silent: true });
       tt = tinhHienTai();
     }
-    if (tt.xong) return bao("info", `Biến thể này đã kiểm đủ ${formatNumber(tt.can)}. Chuyển sang biến thể tiếp theo.`, "sai");
+    if (tt.xong) return bao("info", t("Biến thể này đã kiểm đủ {{can}}. Chuyển sang biến thể tiếp theo.", { can: formatNumber(tt.can) }), "sai");
 
     const nguonTheoMa = () => {
-      if (hoa === String(ctx.item.sku).toUpperCase()) return "quét SKU";
-      if (ctx.item.maVachSku && hoa === String(ctx.item.maVachSku).toUpperCase()) return "quét mã vạch FCentric";
-      return "quét mã vạch NCC";
+      if (hoa === String(ctx.item.sku).toUpperCase()) return t("quét SKU");
+      if (ctx.item.maVachSku && hoa === String(ctx.item.maVachSku).toUpperCase()) return t("quét mã vạch FCentric");
+      return t("quét mã vạch NCC");
     };
     const laMaFcentric = hoa === String(ctx.item.sku).toUpperCase() || (ctx.item.maVachSku && hoa === String(ctx.item.maVachSku).toUpperCase());
     if (maCuaBienThe(ctx.item).includes(hoa)) {
@@ -718,7 +719,7 @@ function KiemDemLoNoiDung() {
         kqNcc = await maVachNhaCungCapService.tra(ma, ctx.phieu.nhaCungCapId);
       } catch {
         // Mất kết nối: vẫn tính theo danh sách đã có để không dừng việc kiểm đếm
-        return themVaoLo(ma, `${nguonTheoMa()} (chưa kiểm lại được với máy chủ)`, sl);
+        return themVaoLo(ma, t("{{nguon}} (chưa kiểm lại được với máy chủ)", { nguon: nguonTheoMa() }), sl);
       }
       if (kqNcc?.timThay && kqNcc.bienTheSanPhamId === btId) {
         xacMinhNccRef.current.set(hoa, { bienTheSanPhamId: btId, luc: Date.now() });
@@ -731,18 +732,18 @@ function KiemDemLoNoiDung() {
     }
 
     const khac = ctx.phieu.items.find((i) => i.bienTheSanPhamId !== btId && maCuaBienThe(i).includes(hoa));
-    if (khac) return bao("bad", `Mã ${ma} là của ${tenDayDu(khac)} (cùng phiếu), không phải biến thể đang kiểm. Để riêng sản phẩm này.`);
+    if (khac) return bao("bad", t("Mã {{ma}} là của {{khac}} (cùng phiếu), không phải biến thể đang kiểm. Để riêng sản phẩm này.", { ma, khac: tenDayDu(khac) }));
 
     // Không khớp gì trong phiếu: hỏi máy chủ (SKU / mã vạch FCentric ngoài phiếu, mã NCC liên kết với biến thể ngoài phiếu)
     let kq;
     try {
       kq = await maVachNhaCungCapService.tra(ma, ctx.phieu.nhaCungCapId);
     } catch (error) {
-      return bao("bad", getApiErrorMessage(error, `Không tra được mã ${ma}. Kiểm tra kết nối rồi quét lại`));
+      return bao("bad", getApiErrorMessage(error, t("Không tra được mã {{ma}}. Kiểm tra kết nối rồi quét lại", { ma })));
     }
     // Danh sách kệ chưa tải xong: mã kệ trông như mã lạ, đừng mở hộp liên kết mã vạch sản phẩm
     if (!kq?.timThay && ctxRef.current.keTai === "dang") {
-      return bao("warn", `Đang tải danh sách kệ. Nếu ${ma} là mã kệ, quét lại sau giây lát.`);
+      return bao("warn", t("Đang tải danh sách kệ. Nếu {{ma}} là mã kệ, quét lại sau giây lát.", { ma }));
     }
     return xuLyKetQuaTra(ma, kq, sl, nguonGhi);
   };
@@ -760,15 +761,15 @@ function KiemDemLoNoiDung() {
   const xuLyKetQuaTra = (ma, kq, sl, nguonGhi) => {
     const ctx = ctxRef.current;
     if (kq?.timThay) {
-      if (kq.bienTheSanPhamId === btId) return themVaoLo(ma, nguonGhi ?? (kq.loaiMa === "NCC" ? "quét mã vạch NCC" : "quét mã FCentric"), sl);
+      if (kq.bienTheSanPhamId === btId) return themVaoLo(ma, nguonGhi ?? (kq.loaiMa === "NCC" ? t("quét mã vạch NCC") : t("quét mã FCentric")), sl);
       const trongPhieu = ctx.phieu.items.find((i) => i.bienTheSanPhamId === kq.bienTheSanPhamId);
-      if (trongPhieu) return bao("bad", `Mã ${ma} là của ${tenDayDu(trongPhieu)} (cùng phiếu), không phải biến thể đang kiểm. Để riêng sản phẩm này.`);
+      if (trongPhieu) return bao("bad", t("Mã {{ma}} là của {{trongPhieu}} (cùng phiếu), không phải biến thể đang kiểm. Để riêng sản phẩm này.", { ma, trongPhieu: tenDayDu(trongPhieu) }));
       const ten = [kq.tenBienThe, kq.mauSac, kq.kichCo].filter(Boolean).join(" · ");
       return bao(
         "bad",
         kq.loaiMa === "NCC"
-          ? `Mã ${ma} đã liên kết với ${ten} (${kq.sku}), không có trong phiếu nhập này. Để riêng và báo quản lý kho.`
-          : `Mã ${ma} là SKU của ${ten}, không có trong phiếu nhập này. Để riêng và báo quản lý kho.`,
+          ? t("Mã {{ma}} đã liên kết với {{ten}} ({{sku}}), không có trong phiếu nhập này. Để riêng và báo quản lý kho.", { ma, ten, sku: kq.sku })
+          : t("Mã {{ma}} là SKU của {{ten}}, không có trong phiếu nhập này. Để riêng và báo quản lý kho.", { ma, ten }),
       );
     }
     bipKiemDem("sai");
@@ -879,11 +880,11 @@ function KiemDemLoNoiDung() {
   const ungVienGanGiong = useMemo(
     () =>
       (phieu?.items ?? []).flatMap((i) => {
-        const nhan = `${[i.mauSac, i.kichCo].filter(Boolean).join(" · ")}${i.bienTheSanPhamId === btId ? " · đang kiểm" : ""}`;
+        const nhan = `${[i.mauSac, i.kichCo].filter(Boolean).join(" · ")}${i.bienTheSanPhamId === btId ? t(" · đang kiểm") : ""}`;
         return [
           { ma: i.sku, nhan: `SKU · ${nhan}` },
-          ...(i.maVachSku ? [{ ma: i.maVachSku, nhan: `Mã vạch FCentric · ${nhan}` }] : []),
-          ...(i.maVachNcc ?? []).map((m) => ({ ma: m, nhan: `Mã vạch NCC · ${nhan}` })),
+          ...(i.maVachSku ? [{ ma: i.maVachSku, nhan: t("Mã vạch FCentric · {{nhan}}", { nhan }) }] : []),
+          ...(i.maVachNcc ?? []).map((m) => ({ ma: m, nhan: t("Mã vạch NCC · {{nhan}}", { nhan }) })),
         ];
       }),
     [phieu, btId],
@@ -894,7 +895,7 @@ function KiemDemLoNoiDung() {
     // Phím lọt vào ô chính trước khi hộp kịp lấy con trỏ thuộc về lần quét đã xử lý trong hộp: bỏ, không ghép vào lần sau
     setMaQuet("");
     if (lyDo && q) {
-      setThongBao({ tone: "neutral", chu: `${lyDo} mã ${q.ma}, lượt này không được tính. Quét lại sản phẩm hoặc nhập SKU in trên tem FCentric.` });
+      setThongBao({ tone: "neutral", chu: t("{{lyDo}} mã {{ma}}, lượt này không được tính. Quét lại sản phẩm hoặc nhập SKU in trên tem FCentric.", { lyDo, ma: q.ma }) });
     }
     focusQuet();
   };
@@ -917,7 +918,7 @@ function KiemDemLoNoiDung() {
         phieuNhapKhoId: Number(phieuNhapKhoId),
       });
     } catch (error) {
-      throw new Error(getApiErrorMessage(error, "Không liên kết được mã vạch. Vui lòng thử lại."));
+      throw new Error(getApiErrorMessage(error, t("Không liên kết được mã vạch. Vui lòng thử lại.")));
     }
     // Cập nhật ngay danh sách mã của biến thể để lần quét sau nhận luôn, rồi tải lại phiếu ngầm
     const capNhat = {
@@ -928,10 +929,10 @@ function KiemDemLoNoiDung() {
     ctxRef.current = { ...ctxRef.current, phieu: capNhat, item: capNhat.items.find((i) => i.bienTheSanPhamId === btId) };
     setQuetLa(null);
     if (bienTheSanPhamId === btId) {
-      enqueue({ loai: "them", ma: q.ma, nguon: "mã vạch NCC vừa liên kết", soLuong: q.sl });
+      enqueue({ loai: "them", ma: q.ma, nguon: t("mã vạch NCC vừa liên kết"), soLuong: q.sl });
     } else {
       const bt = phieu.items.find((i) => i.bienTheSanPhamId === bienTheSanPhamId);
-      bao("info", `Đã liên kết mã ${q.ma} với ${tenDayDu(bt)}. Sản phẩm này không thuộc biến thể đang kiểm, để riêng.`);
+      bao("info", t("Đã liên kết mã {{ma}} với {{bt}}. Sản phẩm này không thuộc biến thể đang kiểm, để riêng.", { ma: q.ma, bt: tenDayDu(bt) }));
     }
     focusQuet();
     taiLai({ silent: true });
@@ -943,11 +944,11 @@ function KiemDemLoNoiDung() {
     setDangXoa(true);
     try {
       await phieuNhapKhoService.deleteLo(phieuNhapKhoId, loXoa.chiTietPhieuNhapKhoId);
-      toast.success(`Đã xóa lô ${loXoa.maLo}`);
+      toast.success(t("Đã xóa lô {{maLo}}", { maLo: loXoa.maLo }));
       setLoXoa(null);
       await Promise.all([taiLai({ silent: true }), taiKe()]);
     } catch (error) {
-      toast.error(getApiErrorMessage(error, "Không xóa được lô"));
+      toast.error(getApiErrorMessage(error, t("Không xóa được lô")));
     } finally {
       setDangXoa(false);
       focusQuet();
@@ -962,12 +963,12 @@ function KiemDemLoNoiDung() {
           {loiTai === "khong-thay" ? (
             <EmptyState
               icon={SearchX}
-              title="Không tìm thấy phiếu nhập kho"
-              description="Phiếu nhập kho không tồn tại hoặc đã bị xóa khỏi hệ thống."
-              action={<Button onClick={() => navigate("/goods-receipts")} className="bg-bo-primary text-white hover:bg-bo-primary-hover">Quay lại danh sách</Button>}
+              title={t("Không tìm thấy phiếu nhập kho")}
+              description={t("Phiếu nhập kho không tồn tại hoặc đã bị xóa khỏi hệ thống.")}
+              action={<Button onClick={() => navigate("/goods-receipts")} className="bg-bo-primary text-white hover:bg-bo-primary-hover">{t("Quay lại danh sách")}</Button>}
             />
           ) : (
-            <ErrorState title="Không tải được dữ liệu kiểm đếm" description={loiTai} onRetry={() => taiLai()} />
+            <ErrorState title={t("Không tải được dữ liệu kiểm đếm")} description={loiTai} onRetry={() => taiLai()} />
           )}
         </div>
       </PageContainer>
@@ -976,7 +977,7 @@ function KiemDemLoNoiDung() {
   if (!phieu || !phien) {
     return (
       <PageContainer>
-        <LoadingState label="Đang tải dữ liệu kiểm đếm" />
+        <LoadingState label={t("Đang tải dữ liệu kiểm đếm")} />
       </PageContainer>
     );
   }
@@ -988,9 +989,9 @@ function KiemDemLoNoiDung() {
         <div className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
           <EmptyState
             icon={SearchX}
-            title="Không tìm thấy biến thể trong phiếu nhập"
-            description="Biến thể này không có trong phiếu nhập kho."
-            action={<Button onClick={() => navigate(`/goods-receipts/${phieuNhapKhoId}`)} className="bg-bo-primary text-white hover:bg-bo-primary-hover">Quay lại phiếu nhập</Button>}
+            title={t("Không tìm thấy biến thể trong phiếu nhập")}
+            description={t("Biến thể này không có trong phiếu nhập kho.")}
+            action={<Button onClick={() => navigate(`/goods-receipts/${phieuNhapKhoId}`)} className="bg-bo-primary text-white hover:bg-bo-primary-hover">{t("Quay lại phiếu nhập")}</Button>}
           />
         </div>
       </PageContainer>
@@ -999,13 +1000,14 @@ function KiemDemLoNoiDung() {
 
   // ── Hiển thị ──
   // Chỉ xem: nhãn theo trạng thái phiếu (phiếu đã hủy / đã nhập kho không còn "Đang kiểm đếm")
-  const trangThai = choSua ? nhanTrangThai(t) : phieu.trangThai === 3 ? "Đã nhập kho" : phieu.trangThai === 4 ? "Đã hủy" : nhanTrangThai(t);
-  const pct = t.can ? Math.min(100, Math.round((t.daKiem / t.can) * 100)) : 0;
+  // i18n-giu-nguyen: nhãn StatusBadge tự dịch
+  const trangThai = choSua ? nhanTrangThai(tg) : phieu.trangThai === 3 ? "Đã nhập kho" : phieu.trangThai === 4 ? "Đã hủy" : nhanTrangThai(tg);
+  const pct = tg.can ? Math.min(100, Math.round((tg.daKiem / tg.can) * 100)) : 0;
   const theHien = choSua && Boolean(cur) && !anThe && !hopKhoaLo && !quetLa;
   const macDinhChu =
     cheDo === CHE_DO_XAC_NHAN.QUET_THE_TUNG_CAI
-      ? "Quét từng sản phẩm, rồi quét thẻ ĐẠT hoặc KHÔNG ĐẠT. Gõ 12* trước khi quét để tính cả thùng 12 cái."
-      : "Quét từng sản phẩm: mỗi lượt tự tính Đạt. Sản phẩm lỗi thì quét tiếp thẻ KHÔNG ĐẠT. Gõ 12* trước khi quét để tính cả thùng 12 cái.";
+      ? t("Quét từng sản phẩm, rồi quét thẻ ĐẠT hoặc KHÔNG ĐẠT. Gõ 12* trước khi quét để tính cả thùng 12 cái.")
+      : t("Quét từng sản phẩm: mỗi lượt tự tính Đạt. Sản phẩm lỗi thì quét tiếp thẻ KHÔNG ĐẠT. Gõ 12* trước khi quét để tính cả thùng 12 cái.");
   // Lỗi / cảnh báo khi thẻ kết quả đang hiện thì nằm trên thẻ (mắt người kiểm đang ở đó), không lặp dưới ô quét
   const baoTrenThe = theHien && thongBao && (thongBao.tone === "bad" || thongBao.tone === "warn") ? thongBao : null;
   const tb = baoTrenThe ? null : (thongBao ?? (theHien ? null : { tone: "neutral", chu: macDinhChu }));
@@ -1013,18 +1015,18 @@ function KiemDemLoNoiDung() {
   const conKe = keChon ? conTrongKe(keChon) : null;
   const tenKhuChon = keChon ? khuVucs.find((k) => k.id === keChon.khuVucId)?.tenKhuVuc : null;
   const keTxt = keChon
-    ? [keChon.maViTri, tenKhuChon, conKe !== null ? `còn trống ${formatNumber(conKe)}` : null].filter(Boolean).join(" · ")
-    : t.datLo > 0
+    ? [keChon.maViTri, tenKhuChon, conKe !== null ? t("còn trống {{conKe}}", { conKe: formatNumber(conKe) }) : null].filter(Boolean).join(" · ")
+    : tg.datLo > 0
       ? keTai === "dang"
-        ? "Đang tải danh sách kệ…"
+        ? t("Đang tải danh sách kệ…")
         : coKe
-          ? "Chưa chọn"
+          ? t("Chưa chọn")
           : viTris.length
-            ? "Không có kệ đang hoạt động"
-            : "Kho chưa có kệ"
+            ? t("Không có kệ đang hoạt động")
+            : t("Kho chưa có kệ")
       : "—";
   const soLuot = p.log.filter((e) => !e.huy).length;
-  const dsTab = choSua ? [["luot", "Lượt quét lô này", soLuot], ["lo", "Lô đã khóa", lots.length]] : [["lo", "Lô đã khóa", lots.length]];
+  const dsTab = choSua ? [["luot", t("Lượt quét lô này"), soLuot], ["lo", t("Lô đã khóa"), lots.length]] : [["lo", t("Lô đã khóa"), lots.length]];
   const tabMo = choSua ? tab : "lo";
   const chonTab = (ma) => {
     setTab(ma);
@@ -1043,11 +1045,11 @@ function KiemDemLoNoiDung() {
   // (Kiểm xong thì nhãn trạng thái đã nói, chân khối chỉ còn nút đi tiếp)
   const ftChu = !choSua
     ? ""
-    : !t.xong && t.conLai === 0 && t.trongLo > 0 && t.vuot === 0
-      ? "Đủ số theo đơn mua. Khóa lô đang kiểm để hoàn tất biến thể."
+    : !tg.xong && tg.conLai === 0 && tg.trongLo > 0 && tg.vuot === 0
+      ? t("Đủ số theo đơn mua. Khóa lô đang kiểm để hoàn tất biến thể.")
       : "";
   // Lượt đang chờ lý do / kết quả đã được báo trên thẻ kết quả: không lặp lại dưới nút Khóa lô
-  const goiYNut = !dk.ok && t.trongLo > 0 && !(theHien && luotDangCho(p)) ? (dk.loi[0] ?? `Còn thiếu: ${dk.thieu.join(", ")}.`) : "";
+  const goiYNut = !dk.ok && tg.trongLo > 0 && !(theHien && luotDangCho(p)) ? (dk.loi[0] ?? t("Còn thiếu: {{dsThieu}}.", { dsThieu: dk.thieu.join(", ") })) : "";
 
   return (
     // Cao hết vùng nội dung: thẻ kết quả (mt-auto) nằm sát đáy màn ngay cả khi trang còn ngắn
@@ -1058,16 +1060,16 @@ function KiemDemLoNoiDung() {
           onClick={() => navigate(`/goods-receipts/${phieuNhapKhoId}`)}
           className="inline-flex w-fit items-center gap-2 text-sm font-medium text-bo-muted transition-colors hover:text-bo-primary"
         >
-          <ArrowLeft className="size-4" /> Phiếu nhập {phieu.soPhieuNhap}
+          <ArrowLeft className="size-4" /> {t("Phiếu nhập")} {phieu.soPhieuNhap}
         </button>
         {choSua ? (
           <button type="button" onClick={() => setMoInThe(true)} className="inline-flex items-center gap-2 text-sm font-medium text-bo-primary hover:text-bo-primary-hover">
-            <Printer className="size-4" /> In thẻ lệnh
+            <Printer className="size-4" /> {t("In thẻ lệnh")}
           </button>
         ) : null}
       </div>
 
-      <section aria-label="Kiểm đếm biến thể" className="min-w-0 rounded-lg border border-bo-border bg-bo-surface shadow-sm">
+      <section aria-label={t("Kiểm đếm biến thể")} className="min-w-0 rounded-lg border border-bo-border bg-bo-surface shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4 p-5">
           <div className="min-w-0 flex-[1_1_420px]">
             <div className="flex flex-wrap items-center gap-3">
@@ -1089,20 +1091,20 @@ function KiemDemLoNoiDung() {
           </div>
           <div className="flex min-w-[220px] flex-[0_1_320px] flex-col gap-1.5">
             <div className="flex items-baseline justify-between gap-3">
-              <span className="text-xs font-medium text-bo-muted">Đã kiểm theo đơn mua</span>
+              <span className="text-xs font-medium text-bo-muted">{t("Đã kiểm theo đơn mua")}</span>
               <span>
-                <span className="text-xl font-semibold tabular-nums text-bo-heading">{formatNumber(t.daKiem)}</span>
-                <span className="tabular-nums text-bo-muted"> / {formatNumber(t.can)}</span>
+                <span className="text-xl font-semibold tabular-nums text-bo-heading">{formatNumber(tg.daKiem)}</span>
+                <span className="tabular-nums text-bo-muted"> / {formatNumber(tg.can)}</span>
               </span>
             </div>
-            <div className="h-1.5 overflow-hidden rounded-full bg-[#e8edf3]" role="progressbar" aria-label="Tiến độ kiểm đếm" aria-valuemin={0} aria-valuemax={t.can} aria-valuenow={t.daKiem}>
-              <span className={cn("block h-full rounded-full", t.xong ? "bg-green-700" : "bg-bo-primary")} style={{ width: `${pct}%` }} />
+            <div className="h-1.5 overflow-hidden rounded-full bg-[#e8edf3]" role="progressbar" aria-label={t("Tiến độ kiểm đếm")} aria-valuemin={0} aria-valuemax={tg.can} aria-valuenow={tg.daKiem}>
+              <span className={cn("block h-full rounded-full", tg.xong ? "bg-green-700" : "bg-bo-primary")} style={{ width: `${pct}%` }} />
             </div>
             <span className="text-xs tabular-nums text-bo-muted">
               {/* Chưa khóa lô nào thì Đạt / Không đạt trùng "Trong lô": chỉ hiện phần còn thiếu. Chỉ xem thì không có "Còn". */}
               {[
-                lots.length ? `Đạt ${formatNumber(t.datKhoa + t.datLo)} · Không đạt ${formatNumber(t.loiKhoa + t.loiLo)}` : null,
-                choSua ? `Còn ${formatNumber(t.conLai)}` : null,
+                lots.length ? t("Đạt {{soDat}} · Không đạt {{soLoi}}", { soDat: formatNumber(tg.datKhoa + tg.datLo), soLoi: formatNumber(tg.loiKhoa + tg.loiLo) }) : null,
+                choSua ? t("Còn {{conLai}}", { conLai: formatNumber(tg.conLai) }) : null,
               ]
                 .filter(Boolean)
                 .join(" · ")}
@@ -1115,7 +1117,7 @@ function KiemDemLoNoiDung() {
             <div className="border-t border-bo-border px-5 py-4">
               <form onSubmit={nhanMa} className="flex gap-2">
                 <label className="relative min-w-0 flex-1">
-                  <span className="sr-only">Mã vạch</span>
+                  <span className="sr-only">{t("Mã vạch")}</span>
                   <ScanLine className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-bo-muted" aria-hidden="true" />
                   <input
                     ref={oQuetRef}
@@ -1125,12 +1127,12 @@ function KiemDemLoNoiDung() {
                     spellCheck={false}
                     value={maQuet}
                     onChange={(e) => setMaQuet(e.target.value)}
-                    placeholder="Quét sản phẩm, mã kệ hoặc thẻ lệnh"
-                    aria-label="Ô quét mã"
+                    placeholder={t("Quét sản phẩm, mã kệ hoặc thẻ lệnh")}
+                    aria-label={t("Ô quét mã")}
                     className="h-11 w-full scroll-mt-3 rounded-md border border-slate-300 bg-bo-surface pl-10 pr-3 font-mono text-[15px] text-bo-heading placeholder:font-sans placeholder:text-sm placeholder:text-slate-400 focus:border-bo-primary focus:outline-none focus:ring-[3px] focus:ring-bo-primary/20"
                   />
                 </label>
-                <Button type="submit" className="h-11 min-w-28 bg-bo-primary text-white hover:bg-bo-primary-hover">Nhận mã</Button>
+                <Button type="submit" className="h-11 min-w-28 bg-bo-primary text-white hover:bg-bo-primary-hover">{t("Nhận mã")}</Button>
               </form>
               {tb ? (
                 <DongThongBao className="mt-2.5" tone={tb.tone}>{tb.chu}</DongThongBao>
@@ -1142,35 +1144,35 @@ function KiemDemLoNoiDung() {
                 <Package className="size-[18px]" />
               </span>
               <div className="flex min-w-0 flex-col gap-0.5">
-                <span className="text-xs font-medium text-bo-muted">Lô đang kiểm</span>
+                <span className="text-xs font-medium text-bo-muted">{t("Lô đang kiểm")}</span>
                 <span className="break-all font-mono text-sm font-semibold text-bo-heading">{dk.maLo || "—"}</span>
               </div>
               <div className="flex min-w-0 flex-col gap-0.5">
-                <span className="text-xs font-medium text-bo-muted">Trong lô</span>
+                <span className="text-xs font-medium text-bo-muted">{t("Trong lô")}</span>
                 <span className="text-sm font-semibold tabular-nums text-bo-heading">
-                  {formatNumber(t.datLo)} đạt · {formatNumber(t.loiLo)} không đạt{t.choLo ? ` · ${formatNumber(t.choLo)} chờ chọn` : ""}
+                  {t("{{datLo}} đạt · {{loiLo}} không đạt", { datLo: formatNumber(tg.datLo), loiLo: formatNumber(tg.loiLo) })}{tg.choLo ? t(" · {{choLo}} chờ chọn", { choLo: formatNumber(tg.choLo) }) : ""}
                 </span>
               </div>
               <div className="flex min-w-0 flex-col gap-0.5">
-                <span className="text-xs font-medium text-bo-muted">Kệ cho hàng đạt</span>
+                <span className="text-xs font-medium text-bo-muted">{t("Kệ cho hàng đạt")}</span>
                 <span className="text-sm font-semibold text-bo-heading">{keTxt}</span>
               </div>
               <div className="ml-auto flex flex-col items-end gap-1">
                 <Button
                   type="button"
-                  disabled={t.trongLo === 0 || dangKhoa}
+                  disabled={tg.trongLo === 0 || dangKhoa}
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={moHopKhoaLo}
-                  variant={t.trongLo > 0 ? "default" : "outline"}
-                  className={cn("gap-2", t.trongLo > 0 ? "bg-bo-primary text-white hover:bg-bo-primary-hover" : "border-bo-border bg-bo-surface text-bo-foreground")}
+                  variant={tg.trongLo > 0 ? "default" : "outline"}
+                  className={cn("gap-2", tg.trongLo > 0 ? "bg-bo-primary text-white hover:bg-bo-primary-hover" : "border-bo-border bg-bo-surface text-bo-foreground")}
                 >
-                  <Lock className="size-4" /> Khóa lô…
+                  <Lock className="size-4" /> {t("Khóa lô…")}
                 </Button>
               </div>
               {goiYNut ? <p className="basis-full text-xs text-bo-muted">{goiYNut}</p> : null}
               {keTai === "loi" ? (
                 <p className="basis-full text-xs text-bo-danger">
-                  Không tải được danh sách kệ của kho. <NutChu onClick={taiKe}>Thử lại</NutChu>
+                  {t("Không tải được danh sách kệ của kho.")} <NutChu onClick={taiKe}>{t("Thử lại")}</NutChu>
                 </p>
               ) : null}
             </div>
@@ -1179,15 +1181,15 @@ function KiemDemLoNoiDung() {
           <div className="border-t border-bo-border px-5 py-4">
             <DongThongBao tone={saiKho ? "warn" : "neutral"}>
               {saiKho
-                ? `Phiếu nhập thuộc ${phieu.tenKho || "kho khác"}, không phải nơi làm việc đang chọn. Đổi nơi làm việc sang ${phieu.tenKho || "kho của phiếu"} để kiểm đếm.`
+                ? t("Phiếu nhập thuộc {{khoPhieu}}, không phải nơi làm việc đang chọn. Đổi nơi làm việc sang {{khoDoiSang}} để kiểm đếm.", { khoPhieu: phieu.tenKho || t("kho khác"), khoDoiSang: phieu.tenKho || t("kho của phiếu") })
                 : phieu.trangThai === 3
-                  ? "Phiếu đã nhập kho, chỉ xem lô đã khóa."
-                  : "Phiếu không còn ở trạng thái kiểm đếm, chỉ xem lô đã khóa."}
+                  ? t("Phiếu đã nhập kho, chỉ xem lô đã khóa.")
+                  : t("Phiếu không còn ở trạng thái kiểm đếm, chỉ xem lô đã khóa.")}
             </DongThongBao>
           </div>
         )}
 
-        <div role="tablist" aria-label="Lịch sử kiểm đếm" className="flex gap-1 border-t border-bo-border px-3">
+        <div role="tablist" aria-label={t("Lịch sử kiểm đếm")} className="flex gap-1 border-t border-bo-border px-3">
           {dsTab.map(([ma, nhan, dem], i) => {
             const dangMo = tabMo === ma;
             return (
@@ -1247,7 +1249,7 @@ function KiemDemLoNoiDung() {
                   </span>
                   <span className="col-start-3 row-start-1 text-right lg:col-start-auto lg:row-start-auto">
                     {e.huy ? (
-                      <span className="text-xs text-bo-muted">Đã hoàn tác</span>
+                      <span className="text-xs text-bo-muted">{t("Đã hoàn tác")}</span>
                     ) : (
                       <button
                         type="button"
@@ -1256,7 +1258,7 @@ function KiemDemLoNoiDung() {
                         onClick={() => hoanTac(e.id)}
                         className="text-[13px] font-semibold text-bo-primary hover:underline disabled:opacity-50"
                       >
-                        Hoàn tác
+                        {t("Hoàn tác")}
                       </button>
                     )}
                   </span>
@@ -1264,19 +1266,19 @@ function KiemDemLoNoiDung() {
               ))}
             </ul>
           ) : (
-            <p className="border-t border-bo-border px-5 py-10 text-center text-sm text-bo-muted">Chưa có lượt quét nào trong lô đang kiểm.</p>
+            <p className="border-t border-bo-border px-5 py-10 text-center text-sm text-bo-muted">{t("Chưa có lượt quét nào trong lô đang kiểm.")}</p>
           )
         ) : (
           <div className="overflow-x-auto border-t border-bo-border">
             <table className="w-full min-w-[720px] text-sm">
               <thead>
                 <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                  <th className={cn(TH, "text-left")}>Mã lô</th>
-                  <th className={cn(TH, "text-left")}>Kệ</th>
-                  <th className={cn(TH, "text-left")}>Ngày sản xuất</th>
-                  <th className={cn(TH, "w-24 text-right")}>Đạt</th>
-                  <th className={cn(TH, "w-48 text-right")}>Không đạt</th>
-                  {choSua ? <th className={cn(TH, "w-16")}><span className="sr-only">Thao tác</span></th> : null}
+                  <th className={cn(TH, "text-left")}>{t("Mã lô")}</th>
+                  <th className={cn(TH, "text-left")}>{t("Kệ")}</th>
+                  <th className={cn(TH, "text-left")}>{t("Ngày sản xuất")}</th>
+                  <th className={cn(TH, "w-24 text-right")}>{t("Đạt")}</th>
+                  <th className={cn(TH, "w-48 text-right")}>{t("Không đạt")}</th>
+                  {choSua ? <th className={cn(TH, "w-16")}><span className="sr-only">{t("Thao tác")}</span></th> : null}
                 </tr>
               </thead>
               <tbody className="divide-y divide-bo-border">
@@ -1289,14 +1291,14 @@ function KiemDemLoNoiDung() {
                     <td className="px-5 py-2 text-right">
                       <span className={cn("tabular-nums", Number(l.soLuongLoi) ? "font-semibold text-bo-danger" : "text-bo-muted")}>{formatNumber(l.soLuongLoi)}</span>
                       {l.chiTietLoi?.length ? (
-                        <span className="block text-xs text-bo-muted">{l.chiTietLoi.map((c) => `${c.lyDo} ${formatNumber(c.soLuong)}`).join(", ")}</span>
+                        <span className="block text-xs text-bo-muted">{l.chiTietLoi.map((c) => `${t(c.lyDo)} ${formatNumber(c.soLuong)}`).join(", ")}</span>
                       ) : null}
                     </td>
                     {choSua ? (
                       <td className="px-5 text-right">
                         {/* Lô vừa khóa chưa tải lại được từ máy chủ (chưa có id dòng): chưa xóa được */}
                         {l.chiTietPhieuNhapKhoId ? (
-                          <Button variant="ghost" size="icon-sm" aria-label={`Xóa lô ${l.maLo}`} onClick={() => setLoXoa(l)} className="text-bo-muted hover:bg-bo-danger-soft hover:text-bo-danger">
+                          <Button variant="ghost" size="icon-sm" aria-label={t("Xóa lô {{maLo}}", { maLo: l.maLo })} onClick={() => setLoXoa(l)} className="text-bo-muted hover:bg-bo-danger-soft hover:text-bo-danger">
                             <Trash2 className="size-4" />
                           </Button>
                         ) : null}
@@ -1306,7 +1308,7 @@ function KiemDemLoNoiDung() {
                 ))}
                 {lots.length === 0 ? (
                   <tr>
-                    <td colSpan={choSua ? 6 : 5} className="h-24 px-5 text-center text-sm text-bo-muted">Chưa có lô nào được khóa.</td>
+                    <td colSpan={choSua ? 6 : 5} className="h-24 px-5 text-center text-sm text-bo-muted">{t("Chưa có lô nào được khóa.")}</td>
                   </tr>
                 ) : null}
               </tbody>
@@ -1314,9 +1316,9 @@ function KiemDemLoNoiDung() {
               {lots.length > 1 ? (
                 <tfoot>
                   <tr className="border-t border-bo-border bg-bo-surface-subtle font-semibold">
-                    <td className="h-12 px-5" colSpan={3}>Tổng đã khóa</td>
-                    <td className="px-5 text-right tabular-nums">{formatNumber(t.datKhoa)}</td>
-                    <td className={cn("px-5 text-right tabular-nums", t.loiKhoa ? "text-bo-danger" : "")}>{formatNumber(t.loiKhoa)}</td>
+                    <td className="h-12 px-5" colSpan={3}>{t("Tổng đã khóa")}</td>
+                    <td className="px-5 text-right tabular-nums">{formatNumber(tg.datKhoa)}</td>
+                    <td className={cn("px-5 text-right tabular-nums", tg.loiKhoa ? "text-bo-danger" : "")}>{formatNumber(tg.loiKhoa)}</td>
                     {choSua ? <td /> : null}
                   </tr>
                 </tfoot>
@@ -1326,21 +1328,21 @@ function KiemDemLoNoiDung() {
         )}
         </div>
 
-        {ftChu || (choSua && t.xong) ? (
+        {ftChu || (choSua && tg.xong) ? (
         <div className="flex min-h-16 flex-wrap items-center justify-between gap-x-4 gap-y-3 rounded-b-lg border-t border-bo-border bg-bo-surface-subtle px-5 py-3">
           {ftChu ? <span className="min-w-0 text-sm text-bo-foreground">{ftChu}</span> : <span className="hidden sm:block" />}
-          {t.xong ? (
+          {tg.xong ? (
             <div className="flex flex-wrap gap-2">
               <Button
                 variant={bienTheSau ? "outline" : "default"}
                 onClick={() => navigate(`/goods-receipts/${phieuNhapKhoId}`)}
                 className={bienTheSau ? "border-bo-border bg-white text-bo-foreground" : "bg-bo-primary text-white hover:bg-bo-primary-hover"}
               >
-                Về phiếu nhập
+                {t("Về phiếu nhập")}
               </Button>
               {bienTheSau ? (
                 <Button onClick={() => navigate(`/goods-receipts/${phieuNhapKhoId}/receive/${bienTheSau.bienTheSanPhamId}`)} className="bg-bo-primary text-white hover:bg-bo-primary-hover">
-                  Kiểm tiếp {nhanBienTheSau}
+                  {t("Kiểm tiếp {{nhanBienTheSau}}", { nhanBienTheSau })}
                 </Button>
               ) : null}
             </div>
@@ -1355,7 +1357,7 @@ function KiemDemLoNoiDung() {
           luot={cur}
           thongBao={baoTrenThe}
           cheDo={cheDo}
-          conLai={t.conLai}
+          conLai={tg.conLai}
           lyDoDs={LY_DO_LOI}
           khoa={dangKhoa}
           onDat={() => suaLuot(thanhDat, "ok")}
@@ -1373,7 +1375,7 @@ function KiemDemLoNoiDung() {
 
       <HopKhoaLo
         open={hopKhoaLo}
-        t={t}
+        t={tg}
         dk={dk}
         viTris={viTris}
         khuVucs={khuVucs}
@@ -1437,15 +1439,14 @@ function KiemDemLoNoiDung() {
           focusQuet();
         }}
         onConfirm={xoaLo}
-        title="Xóa lô hàng"
+        title={t("Xóa lô hàng")}
         description={
           <>
-            Xóa lô <span className="font-semibold text-bo-danger">{loXoa?.maLo}</span> ({formatNumber(loXoa?.soLuongNhap)} đạt, {formatNumber(loXoa?.soLuongLoi)} không đạt)?
-            Số lượng của lô bị trừ khỏi tiến độ, cần kiểm lại số này.
-            {phieu.coBienBanRtv && Number(loXoa?.soLuongLoi) ? " Biên bản trả hàng đã lập sẽ phải lập lại." : ""}
+            {t("Xóa lô")} <span className="font-semibold text-bo-danger">{loXoa?.maLo}</span> {t("({{dat}} đạt, {{loi}} không đạt)? Số lượng của lô bị trừ khỏi tiến độ, cần kiểm lại số này.", { dat: formatNumber(loXoa?.soLuongNhap), loi: formatNumber(loXoa?.soLuongLoi) })}
+            {phieu.coBienBanRtv && Number(loXoa?.soLuongLoi) ? t(" Biên bản trả hàng đã lập sẽ phải lập lại.") : ""}
           </>
         }
-        confirmText="Xóa lô"
+        confirmText={t("Xóa lô")}
         isLoading={dangXoa}
       />
     </PageContainer>

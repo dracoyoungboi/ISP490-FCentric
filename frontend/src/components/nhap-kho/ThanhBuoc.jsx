@@ -1,5 +1,6 @@
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 const COT = {
   2: "grid-cols-1 sm:grid-cols-2",
@@ -23,7 +24,7 @@ export function DaiO({ soO = 3, phang = false, className, children }) {
   );
 }
 
-const NHAN_TRANG_THAI = { xong: "Xong", dang: "Đang ở bước này", cho: "Chưa tới" };
+const NHAN_TRANG_THAI = { xong: t("Xong"), dang: t("Đang ở bước này"), cho: t("Chưa tới") };
 
 /**
  * Một ô bước / điều kiện. Ô bằng nhau nhờ lưới; nút hành động luôn nằm ở đáy ô.
@@ -97,7 +98,7 @@ export function TienDoSo({ da, tong, className }) {
   const xong = tong > 0 && da >= tong;
   return (
     <div className={cn("grid grid-cols-[minmax(0,1fr)_64px] items-center gap-3", className)}>
-      <ThanhMuc phanTram={tong > 0 ? (da / tong) * 100 : 0} tone={xong ? "ok" : ""} label={`${da} trên ${tong}`} />
+      <ThanhMuc phanTram={tong > 0 ? (da / tong) * 100 : 0} tone={xong ? "ok" : ""} label={t("{{da}} trên {{tong}}", { da, tong })} />
       <span className="text-right text-[13px] tabular-nums text-slate-600">
         {da.toLocaleString("vi-VN")}/{tong.toLocaleString("vi-VN")}
       </span>

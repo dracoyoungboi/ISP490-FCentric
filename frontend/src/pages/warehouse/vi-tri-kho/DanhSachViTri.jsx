@@ -36,17 +36,18 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { mucDay, nhomTrangThaiKe, toneMucDay } from "@/constants/nhapKho";
 import { cn } from "@/lib/utils";
 import { NUT_CHINH, NUT_PHU, TAB_TRANG_THAI_KE, dinhDangSo, soSanhViTri } from "./kieuNhap";
+import { t } from "@/i18n";
 
 const khopTab = (viTri, tab) => {
-  const t = TAB_TRANG_THAI_KE.find((x) => x.value === tab);
-  return !t?.ma || nhomTrangThaiKe(viTri).ma === t.ma;
+  const tg = TAB_TRANG_THAI_KE.find((x) => x.value === tab);
+  return !tg?.ma || nhomTrangThaiKe(viTri).ma === tg.ma;
 };
 
 /** Kệ còn hàng / đang chờ nhập thì không xóa được: câu lý do (chú thích nút xóa); xóa được thì null. */
 function lyDoKhongXoa(v) {
-  if (Number(v.dangChua) > 0) return `Kệ còn ${v.dangChua} sản phẩm, không xóa được`;
-  if (Number(v.choNhap) > 0) return `Kệ đang chờ nhập ${v.choNhap} sản phẩm, không xóa được`;
-  if (Number(v.soLoChoNhap) > 0) return `Kệ đang gắn ${v.soLoChoNhap} lô đã khóa của phiếu nhập, không xóa được`;
+  if (Number(v.dangChua) > 0) return t("Kệ còn {{dangChua}} sản phẩm, không xóa được", { count: Number(v.dangChua), dangChua: v.dangChua });
+  if (Number(v.choNhap) > 0) return t("Kệ đang chờ nhập {{choNhap}} sản phẩm, không xóa được", { count: Number(v.choNhap), choNhap: v.choNhap });
+  if (Number(v.soLoChoNhap) > 0) return t("Kệ đang gắn {{soLoChoNhap}} lô đã khóa của phiếu nhập, không xóa được", { count: Number(v.soLoChoNhap), soLoChoNhap: v.soLoChoNhap });
   return null;
 }
 
@@ -108,7 +109,7 @@ export default function DanhSachViTri({
       );
   }, [viTris, khuId, tuKhoa, tenKhu]);
   const hienThi = useMemo(() => daLoc.filter((v) => khopTab(v, tab)), [daLoc, tab]);
-  const tabs = TAB_TRANG_THAI_KE.map((t) => ({ ...t, count: daLoc.filter((v) => khopTab(v, t.value)).length }));
+  const tabs = TAB_TRANG_THAI_KE.map((tg) => ({ ...tg, count: daLoc.filter((v) => khopTab(v, tg.value)).length }));
 
   const tongTrang = Math.max(1, Math.ceil(hienThi.length / soDong));
   const trangAnToan = Math.min(trang, tongTrang - 1);
@@ -137,8 +138,8 @@ export default function DanhSachViTri({
     });
   const soTrongChon = dsChon.filter((v) => !Number(v.dangChua) && !Number(v.choNhap) && !Number(v.soLoChoNhap)).length;
 
-  const doiTab = (t) => {
-    onDoiTab(t);
+  const doiTab = (tg) => {
+    onDoiTab(tg);
     setTrang(0);
   };
   const doiKhu = (id) => {
@@ -160,13 +161,13 @@ export default function DanhSachViTri({
       <section className="rounded-lg border border-bo-border bg-bo-surface shadow-sm">
         <EmptyState
           icon={Layers}
-          title="Kho này chưa có khu vực"
-          description="Tạo khu vực trước (VD Khu A – Áo), sau đó thêm vị trí kệ trong khu."
+          title={t("Kho này chưa có khu vực")}
+          description={t("Tạo khu vực trước (VD Khu A – Áo), sau đó thêm vị trí kệ trong khu.")}
           action={
             coTheSua ? (
               <Button onClick={onThemKhu} className={cn("gap-1.5", NUT_CHINH)}>
                 <Plus className="size-4" />
-                Thêm khu vực
+                {t("Thêm khu vực")}
               </Button>
             ) : null
           }
@@ -180,13 +181,13 @@ export default function DanhSachViTri({
     <div className="bo-fill-grid grid items-start gap-4 lg:grid-cols-[264px_minmax(0,1fr)]">
       {/* Khu vực: cao theo số khu; nhiều khu quá chiều cao màn thì danh sách khu tự cuộn.
           Điện thoại: ẩn (chọn khu ở ô lọc Khu vực). Máy tính bảng dọc (cảm ứng): khu xếp 3 cột, dòng cao 44px */}
-      <section aria-label="Khu vực" className="flex flex-col overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm lg:max-h-full max-md:hidden">
+      <section aria-label={t("Khu vực")} className="flex flex-col overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm lg:max-h-full max-md:hidden">
         <div className="flex shrink-0 items-center justify-between gap-2 border-b border-bo-border px-4 py-3">
-          <h2 className="text-sm font-semibold text-bo-heading">Khu vực</h2>
-          <span className="text-xs text-bo-muted">{khuVucs.length} khu</span>
+          <h2 className="text-sm font-semibold text-bo-heading">{t("Khu vực")}</h2>
+          <span className="text-xs text-bo-muted">{t("{{length}} khu", { length: khuVucs.length })}</span>
         </div>
         <nav className="flex min-h-0 flex-col gap-0.5 overflow-y-auto p-2 cam-ung:max-lg:grid cam-ung:max-lg:grid-cols-3 cam-ung:max-lg:gap-x-2">
-          {[{ id: null, tenKhuVuc: "Tất cả khu vực", so: viTris.length }, ...khuVucs.map((k) => ({ ...k, so: soTheoKhu.get(k.id) ?? 0 }))].map((k) => {
+          {[{ id: null, tenKhuVuc: t("Tất cả khu vực"), so: viTris.length }, ...khuVucs.map((k) => ({ ...k, so: soTheoKhu.get(k.id) ?? 0 }))].map((k) => {
             const chon = (khuId ?? null) === k.id;
             return (
               <div
@@ -213,7 +214,7 @@ export default function DanhSachViTri({
                     <DropdownMenuTrigger asChild>
                       <button
                         type="button"
-                        aria-label={`Thao tác với ${k.tenKhuVuc}`}
+                        aria-label={t("Thao tác với {{tenKhuVuc}}", { tenKhuVuc: k.tenKhuVuc })}
                         className="mr-1 grid size-7 shrink-0 place-items-center rounded-md text-bo-muted hover:bg-bo-surface hover:text-bo-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 data-[state=open]:bg-bo-surface"
                       >
                         <MoreHorizontal className="size-4" />
@@ -222,21 +223,21 @@ export default function DanhSachViTri({
                     <DropdownMenuContent align="end" className={MENU}>
                       <DropdownMenuItem onClick={() => onSuaKhu(k)} className={MUC_MENU}>
                         <Pencil className="size-4 text-bo-muted" />
-                        Sửa khu vực
+                        {t("Sửa khu vực")}
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => onXemTrenMatBang({ khuVucId: k.id })} className={MUC_MENU}>
                         <MapIcon className="size-4 text-bo-muted" />
-                        Xem trên mặt bằng
+                        {t("Xem trên mặt bằng")}
                       </DropdownMenuItem>
                       {onLichSuKhu ? (
                         <DropdownMenuItem onClick={() => onLichSuKhu(k)} className={MUC_MENU}>
                           <History className="size-4 text-bo-muted" />
-                          Lịch sử thay đổi
+                          {t("Lịch sử thay đổi")}
                         </DropdownMenuItem>
                       ) : null}
                       <DropdownMenuItem onClick={() => onXoaKhu(k)} className={cn(MUC_MENU, "text-bo-danger focus:bg-bo-danger-soft focus:text-bo-danger")}>
                         <Trash2 className="size-4" />
-                        Xóa khu vực
+                        {t("Xóa khu vực")}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -248,7 +249,7 @@ export default function DanhSachViTri({
         <div className="shrink-0 border-t border-bo-border p-3">
           <Button variant="outline" onClick={() => onXemTrenMatBang({ khuVucId: khuId ?? null })} className={cn("h-9 w-full gap-1.5", NUT_PHU)}>
             <MapIcon className="size-4" />
-            {khuId ? "Xem khu trên mặt bằng" : "Xem mặt bằng kho"}
+            {khuId ? t("Xem khu trên mặt bằng") : t("Xem mặt bằng kho")}
           </Button>
         </div>
       </section>
@@ -258,14 +259,14 @@ export default function DanhSachViTri({
         toolbar={
           <>
             <ListToolbar
-              tabs={<StatusTabs label="Lọc vị trí theo trạng thái" tabs={tabs} value={tab} onChange={doiTab} />}
+              tabs={<StatusTabs label={t("Lọc vị trí theo trạng thái")} tabs={tabs} value={tab} onChange={doiTab} />}
               hasFilter={Boolean(tuKhoa.trim()) || (laDienThoai && Boolean(khuId))}
               // Điện thoại: khu là một ô lọc nên "Xóa lọc" bỏ cả khu đang chọn
               onClear={laDienThoai ? () => { xoaLoc(); doiKhu(null); } : xoaLoc}
             >
               <SearchInput
-                label="Tìm mã vị trí"
-                placeholder="Tìm mã vị trí, VD: A-01"
+                label={t("Tìm mã vị trí")}
+                placeholder={t("Tìm mã vị trí, VD: A-01")}
                 value={tuKhoa}
                 onChange={(e) => {
                   setTuKhoa(e.target.value);
@@ -276,10 +277,10 @@ export default function DanhSachViTri({
               />
               {laDienThoai ? (
                 <FilterSelect
-                  label="Khu vực"
+                  label={t("Khu vực")}
                   value={khuId ? String(khuId) : ""}
                   options={[
-                    { value: "", label: `Tất cả khu vực · ${dinhDangSo(viTris.length)}` },
+                    { value: "", label: t("Tất cả khu vực · {{soViTri}}", { soViTri: dinhDangSo(viTris.length) }) },
                     ...khuVucs.map((k) => ({ value: String(k.id), label: `${k.tenKhuVuc} · ${dinhDangSo(soTheoKhu.get(k.id) ?? 0)}` })),
                   ]}
                   onChange={(v) => doiKhu(v ? Number(v) : null)}
@@ -292,7 +293,7 @@ export default function DanhSachViTri({
               <div className={cn("grid gap-2 border-b border-bo-border px-3 py-2.5", coTheSua && (onLichSuKhu ? "grid-cols-[1fr_1fr_auto]" : "grid-cols-2"))}>
                 <Button variant="outline" onClick={() => onXemTrenMatBang({ khuVucId: khuId })} className={cn("h-9 gap-1.5 px-3", NUT_PHU)}>
                   <MapIcon className="size-4" />
-                  Mặt bằng khu
+                  {t("Mặt bằng khu")}
                 </Button>
                 {coTheSua ? (
                   <Button
@@ -304,7 +305,7 @@ export default function DanhSachViTri({
                     className={cn("h-9 gap-1.5 px-3", NUT_PHU)}
                   >
                     <Pencil className="size-4" />
-                    Sửa khu vực
+                    {t("Sửa khu vực")}
                   </Button>
                 ) : null}
                 {coTheSua && onLichSuKhu ? (
@@ -315,8 +316,8 @@ export default function DanhSachViTri({
                       if (khu) onLichSuKhu(khu);
                     }}
                     // 375px: hai nút chữ đã chiếm gần hết hàng, nút Lịch sử chỉ còn biểu tượng (có nhãn đọc màn hình)
-                    aria-label="Lịch sử khu vực"
-                    title="Lịch sử khu vực"
+                    aria-label={t("Lịch sử khu vực")}
+                    title={t("Lịch sử khu vực")}
                     className={cn("size-9 px-0", NUT_PHU)}
                   >
                     <History className="size-4" />
@@ -328,8 +329,8 @@ export default function DanhSachViTri({
             {dsChon.length ? (
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-bo-border bg-bo-primary-soft px-4 py-2.5">
                 <p className="text-sm text-blue-800">
-                  Đã chọn <b className="font-semibold">{dsChon.length}</b> vị trí
-                  {coTheSua && soTrongChon < dsChon.length ? ` · ${dsChon.length - soTrongChon} kệ còn hàng hoặc đang chờ nhập` : ""}
+                  {t("Đã chọn")} <b className="font-semibold">{dsChon.length}</b> {t("vị trí", { count: dsChon.length })}
+                  {coTheSua && soTrongChon < dsChon.length ? t(" · {{soKe}} kệ còn hàng hoặc đang chờ nhập", { count: dsChon.length - soTrongChon, soKe: dsChon.length - soTrongChon }) : ""}
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
                   <button
@@ -338,27 +339,27 @@ export default function DanhSachViTri({
                     className="inline-flex items-center gap-1 px-1 text-sm font-medium text-bo-primary hover:text-bo-primary-hover"
                   >
                     <X className="size-4" />
-                    Bỏ chọn
+                    {t("Bỏ chọn")}
                   </button>
                   <Button variant="outline" onClick={() => onInTem(dsChon)} className={cn("h-8 gap-1.5", NUT_PHU)}>
                     <Printer className="size-4" />
-                    In tem
+                    {t("In tem")}
                   </Button>
                   {coTheSua ? (
                     <>
                       <Button variant="outline" onClick={() => chayHangLoat(onChuyenKhu)} className={cn("h-8 gap-1.5", NUT_PHU)}>
                         <ArrowRightLeft className="size-4" />
-                        Chuyển khu
+                        {t("Chuyển khu")}
                       </Button>
                       <Button
                         variant="outline"
                         onClick={() => chayHangLoat(onXoaNhieu)}
                         disabled={!soTrongChon}
-                        title={soTrongChon ? undefined : "Các kệ đã chọn đều còn hàng hoặc đang chờ nhập"}
+                        title={soTrongChon ? undefined : t("Các kệ đã chọn đều còn hàng hoặc đang chờ nhập")}
                         className="h-8 gap-1.5 border-bo-border bg-bo-surface text-bo-danger hover:bg-bo-danger-soft hover:text-bo-danger"
                       >
                         <Trash2 className="size-4" />
-                        Xóa {soTrongChon ? `${soTrongChon} kệ trống` : ""}
+                        {t("Xóa")} {soTrongChon ? t("{{soTrongChon}} kệ trống", { count: soTrongChon, soTrongChon }) : ""}
                       </Button>
                     </>
                   ) : null}
@@ -395,7 +396,7 @@ export default function DanhSachViTri({
               return (
                 <li key={v.id} className={cn("flex items-stretch", dangChon && "bg-bo-primary-soft/60")}>
                   <label className="grid w-12 shrink-0 cursor-pointer place-items-center">
-                    <Checkbox aria-label={`Chọn vị trí ${v.maViTri}`} checked={dangChon} onCheckedChange={() => doiChon(v.id)} className={cn("size-5", O_CHON)} />
+                    <Checkbox aria-label={t("Chọn vị trí {{maViTri}}", { maViTri: v.maViTri })} checked={dangChon} onCheckedChange={() => doiChon(v.id)} className={cn("size-5", O_CHON)} />
                   </label>
                   <button type="button" onClick={() => onMoSoDo(v)} className="grid min-w-0 flex-1 gap-1 py-3 text-left active:bg-bo-surface-subtle">
                     <span className="flex items-center justify-between gap-3">
@@ -403,13 +404,13 @@ export default function DanhSachViTri({
                       <StatusBadge label={nhom.label} />
                     </span>
                     <span className="truncate text-[13px] text-bo-muted">
-                      Dãy {v.day} · Hàng {v.hang} · Tầng {v.tang} · {tenKhu.get(v.khuVucId) ?? "—"}
+                      {t("Dãy {{day}} · Hàng {{hang}} · Tầng {{tang}} · {{tenKhu}}", { day: v.day, hang: v.hang, tang: v.tang, tenKhu: tenKhu.get(v.khuVucId) ?? "—" })}
                     </span>
                     {nhom.ma === "BAO_TRI" ? (
-                      <span className="text-[13px] text-bo-muted">Không nhận hàng · sức chứa {dinhDangSo(v.sucChua)}</span>
+                      <span className="text-[13px] text-bo-muted">{t("Không nhận hàng · sức chứa {{sucChua}}", { sucChua: dinhDangSo(v.sucChua) })}</span>
                     ) : (
                       <span className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
-                        <ThanhMuc phanTram={muc * 100} tone={toneMucDay(muc)} label={`Đang chứa ${v.dangChua ?? 0} trên ${v.sucChua ?? 0}`} />
+                        <ThanhMuc phanTram={muc * 100} tone={toneMucDay(muc)} label={t("Đang chứa {{dangChua}} trên {{sucChua}}", { dangChua: v.dangChua ?? 0, sucChua: v.sucChua ?? 0 })} />
                         <span className="text-right text-[13px] tabular-nums text-slate-600">
                           {dinhDangSo(v.dangChua)}/{dinhDangSo(v.sucChua)}
                         </span>
@@ -421,7 +422,7 @@ export default function DanhSachViTri({
                       <DropdownMenuTrigger asChild>
                         <button
                           type="button"
-                          aria-label={`Thao tác với ${v.maViTri}`}
+                          aria-label={t("Thao tác với {{maViTri}}", { maViTri: v.maViTri })}
                           className="grid size-9 place-items-center rounded-md text-bo-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 data-[state=open]:bg-bo-surface-subtle"
                         >
                           <MoreHorizontal className="size-5" />
@@ -430,18 +431,18 @@ export default function DanhSachViTri({
                       <DropdownMenuContent align="end" className={MENU}>
                         <DropdownMenuItem onClick={() => onXemTrenMatBang({ viTriId: v.id })} className={cn(MUC_MENU, "py-2.5")}>
                           <MapPin className="size-4 text-bo-muted" />
-                          Xem trên mặt bằng
+                          {t("Xem trên mặt bằng")}
                         </DropdownMenuItem>
                         {coTheSua ? (
                           <>
                             <DropdownMenuItem onClick={() => onSuaViTri(v)} className={cn(MUC_MENU, "py-2.5")}>
                               <Pencil className="size-4 text-bo-muted" />
-                              Sửa vị trí
+                              {t("Sửa vị trí")}
                             </DropdownMenuItem>
                             {onLichSuViTri ? (
                               <DropdownMenuItem onClick={() => onLichSuViTri(v)} className={cn(MUC_MENU, "py-2.5")}>
                                 <History className="size-4 text-bo-muted" />
-                                Lịch sử thay đổi
+                                {t("Lịch sử thay đổi")}
                               </DropdownMenuItem>
                             ) : null}
                             <DropdownMenuItem
@@ -451,7 +452,7 @@ export default function DanhSachViTri({
                             >
                               <Trash2 className="mt-0.5 size-4" />
                               <span className="flex min-w-0 flex-col gap-0.5">
-                                Xóa vị trí
+                                {t("Xóa vị trí")}
                                 {lyDo ? <span className="max-w-[220px] text-xs leading-4 text-bo-muted">{lyDo}</span> : null}
                               </span>
                             </DropdownMenuItem>
@@ -471,19 +472,19 @@ export default function DanhSachViTri({
               <tr className="border-b border-bo-border bg-bo-surface-subtle">
                 <th className="h-10 w-11 px-3 text-center">
                   <Checkbox
-                    aria-label="Chọn tất cả vị trí trong trang"
+                    aria-label={t("Chọn tất cả vị trí trong trang")}
                     checked={chonCaTrang ? true : soChonTrang ? "indeterminate" : false}
                     onCheckedChange={doiChonTrang}
                     className={O_CHON}
                   />
                 </th>
                 {[
-                  ["Mã vị trí", ""],
-                  ["Khu vực", "cam-ung:max-lg:hidden"],
-                  ["Dãy · Hàng · Tầng", "cam-ung:max-lg:hidden"],
-                  ["Đang chứa / sức chứa", "w-[220px] cam-ung:max-lg:w-[168px]"],
-                  ["Trạng thái", "w-[132px] cam-ung:max-lg:w-[112px]"],
-                  ["Thao tác", coTheSua ? "w-[164px] text-center cam-ung:max-lg:w-[184px]" : "w-[72px] text-center"],
+                  [t("Mã vị trí"), ""],
+                  [t("Khu vực"), "cam-ung:max-lg:hidden"],
+                  [t("Dãy · Hàng · Tầng"), "cam-ung:max-lg:hidden"],
+                  [t("Đang chứa / sức chứa"), "w-[220px] cam-ung:max-lg:w-[168px]"],
+                  [t("Trạng thái"), "w-[132px] cam-ung:max-lg:w-[112px]"],
+                  [t("Thao tác"), coTheSua ? "w-[164px] text-center cam-ung:max-lg:w-[184px]" : "w-[72px] text-center"],
                 ].map(([h, c]) => (
                   <th key={h} className={cn("h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted", c)}>
                     {h}
@@ -505,7 +506,7 @@ export default function DanhSachViTri({
                     className={cn("cursor-pointer transition-colors", dangChon ? "bg-bo-primary-soft/60" : "hover:bg-bo-surface-subtle")}
                   >
                     <td className="px-3 py-3 text-center" onClick={(e) => e.stopPropagation()}>
-                      <Checkbox aria-label={`Chọn vị trí ${v.maViTri}`} checked={dangChon} onCheckedChange={() => doiChon(v.id)} className={O_CHON} />
+                      <Checkbox aria-label={t("Chọn vị trí {{maViTri}}", { maViTri: v.maViTri })} checked={dangChon} onCheckedChange={() => doiChon(v.id)} className={O_CHON} />
                     </td>
                     <td className="whitespace-nowrap px-3 py-3 font-mono text-[13px] font-semibold leading-5 text-bo-heading">
                       {v.maViTri}
@@ -519,10 +520,10 @@ export default function DanhSachViTri({
                     </td>
                     <td className="px-3 py-3">
                       {nhom.ma === "BAO_TRI" ? (
-                        <span className="text-[13px] text-bo-muted">Không nhận hàng · sức chứa {dinhDangSo(v.sucChua)}</span>
+                        <span className="text-[13px] text-bo-muted">{t("Không nhận hàng · sức chứa {{sucChua}}", { sucChua: dinhDangSo(v.sucChua) })}</span>
                       ) : (
                         <div className="grid grid-cols-[minmax(0,1fr)_72px] items-center gap-3">
-                          <ThanhMuc phanTram={muc * 100} tone={toneMucDay(muc)} label={`Đang chứa ${v.dangChua ?? 0} trên ${v.sucChua ?? 0}`} />
+                          <ThanhMuc phanTram={muc * 100} tone={toneMucDay(muc)} label={t("Đang chứa {{dangChua}} trên {{sucChua}}", { dangChua: v.dangChua ?? 0, sucChua: v.sucChua ?? 0 })} />
                           <span className="text-right text-[13px] tabular-nums text-slate-600">
                             {dinhDangSo(v.dangChua)}/{dinhDangSo(v.sucChua)}
                           </span>
@@ -534,17 +535,17 @@ export default function DanhSachViTri({
                     </td>
                     <td className="px-3 py-3">
                       <RowActions>
-                        <RowActionButton icon={MapPin} label="Xem trên mặt bằng" onClick={() => onXemTrenMatBang({ viTriId: v.id })} />
+                        <RowActionButton icon={MapPin} label={t("Xem trên mặt bằng")} onClick={() => onXemTrenMatBang({ viTriId: v.id })} />
                         {coTheSua ? (
                           <>
-                            <RowActionButton icon={Pencil} label="Sửa vị trí" onClick={() => onSuaViTri(v)} />
+                            <RowActionButton icon={Pencil} label={t("Sửa vị trí")} onClick={() => onSuaViTri(v)} />
                             {onLichSuViTri ? (
-                              <RowActionButton icon={History} label={`Lịch sử vị trí ${v.maViTri}`} onClick={() => onLichSuViTri(v)} />
+                              <RowActionButton icon={History} label={t("Lịch sử vị trí {{maViTri}}", { maViTri: v.maViTri })} onClick={() => onLichSuViTri(v)} />
                             ) : null}
                             <RowActionButton
                               icon={Trash2}
                               tone="danger"
-                              label={lyDoKhongXoa(v) ?? "Xóa vị trí"}
+                              label={lyDoKhongXoa(v) ?? t("Xóa vị trí")}
                               disabled={conHang || choNhap}
                               onClick={() => onXoaViTri(v)}
                             />
@@ -561,13 +562,13 @@ export default function DanhSachViTri({
         ) : !viTris.length || (khuId && !soTheoKhu.get(khuId)) ? (
           <EmptyState
             icon={Layers}
-            title={khuId ? "Khu này chưa có vị trí kệ" : "Kho này chưa có vị trí kệ"}
-            description="Thêm từng vị trí hoặc tạo hàng loạt theo khoảng hàng × tầng."
+            title={khuId ? t("Khu này chưa có vị trí kệ") : t("Kho này chưa có vị trí kệ")}
+            description={t("Thêm từng vị trí hoặc tạo hàng loạt theo khoảng hàng × tầng.")}
             action={
               coTheSua ? (
                 <Button onClick={() => onThemViTri(khuId)} className={cn("gap-1.5", NUT_CHINH)}>
                   <Plus className="size-4" />
-                  Thêm vị trí kệ
+                  {t("Thêm vị trí kệ")}
                 </Button>
               ) : null
             }
@@ -575,8 +576,8 @@ export default function DanhSachViTri({
         ) : (
           <EmptyState
             icon={SearchX}
-            title="Không có vị trí kệ nào khớp bộ lọc"
-            description={tuKhoa.trim() ? "Thử đổi từ khóa tìm kiếm." : "Chọn tab Tất cả để xem mọi vị trí trong khu."}
+            title={t("Không có vị trí kệ nào khớp bộ lọc")}
+            description={tuKhoa.trim() ? t("Thử đổi từ khóa tìm kiếm.") : t("Chọn tab Tất cả để xem mọi vị trí trong khu.")}
             action={
               <Button
                 variant="outline"
@@ -586,7 +587,7 @@ export default function DanhSachViTri({
                 }}
                 className={NUT_PHU}
               >
-                Xóa lọc
+                {t("Xóa lọc")}
               </Button>
             }
           />

@@ -1,6 +1,7 @@
 import { AlertCircle, Check, HelpCircle, Minus, Plus, ScanLine, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CHE_DO_XAC_NHAN } from "@/pages/receipt/kiemDem";
+import { t } from "@/i18n";
 
 // Bấm nút trên thẻ không lấy con trỏ khỏi ô quét: lần quét sau vẫn rơi đúng vào ô quét.
 const giuConTro = (e) => e.preventDefault();
@@ -10,12 +11,12 @@ const NUT = "inline-flex h-8 items-center justify-center gap-1.5 rounded-md bord
 function BuocSo({ nhan, giaTri, onGiam, onTang, khoaGiam, khoaTang, disabled }) {
   return (
     <span className="inline-grid h-[34px] shrink-0 grid-cols-[34px_48px_34px] overflow-hidden rounded-md border border-slate-300">
-      <button type="button" aria-label={`Bớt 1 ${nhan}`} onMouseDown={giuConTro} onClick={onGiam} disabled={disabled || khoaGiam}
+      <button type="button" aria-label={t("Bớt 1 {{nhan}}", { nhan })} onMouseDown={giuConTro} onClick={onGiam} disabled={disabled || khoaGiam}
         className="grid place-items-center bg-bo-surface-subtle text-slate-600 hover:bg-slate-100 disabled:opacity-40">
         <Minus className="size-4" />
       </button>
       <output className="grid place-items-center border-x border-slate-300 text-[15px] font-semibold tabular-nums" aria-label={nhan}>{giaTri}</output>
-      <button type="button" aria-label={`Thêm 1 ${nhan}`} onMouseDown={giuConTro} onClick={onTang} disabled={disabled || khoaTang}
+      <button type="button" aria-label={t("Thêm 1 {{nhan}}", { nhan })} onMouseDown={giuConTro} onClick={onTang} disabled={disabled || khoaTang}
         className="grid place-items-center bg-bo-surface-subtle text-slate-600 hover:bg-slate-100 disabled:opacity-40">
         <Plus className="size-4" />
       </button>
@@ -50,7 +51,7 @@ export default function TheKetQuaQuet({
   onSoLoi,
   onHoanTac,
   onAn,
-  nhanLoi = "Không đạt",
+  nhanLoi = t("Không đạt"),
   dongPhu,
 }) {
   if (!luot) return null;
@@ -58,19 +59,19 @@ export default function TheKetQuaQuet({
   const laCho = luot.kq === "cho";
   const nhanLoiThuong = nhanLoi.toLowerCase();
   const tieuDe = laCho
-    ? `Chọn kết quả · ${luot.sl} cái`
+    ? t("Chọn kết quả · {{sl}} cái", { sl: luot.sl })
     : laLoi
-      ? `${nhanLoi} ${luot.loi}${luot.lyDo ? ` · ${luot.lyDo}` : ""}${luot.sl > luot.loi ? ` · Đạt ${luot.sl - luot.loi}` : ""}`
-      : `Đạt +${luot.sl}`;
+      ? `${nhanLoi} ${luot.loi}${luot.lyDo ? ` · ${t(luot.lyDo)}` : ""}${luot.sl > luot.loi ? t(" · Đạt {{soDat}}", { soDat: luot.sl - luot.loi }) : ""}`
+      : t("Đạt +{{sl}}", { sl: luot.sl });
   const huongDan = laCho
-    ? "Quét thẻ ĐẠT hoặc KHÔNG ĐẠT trên bàn kiểm. Chọn xong mới quét tiếp được."
+    ? t("Quét thẻ ĐẠT hoặc KHÔNG ĐẠT trên bàn kiểm. Chọn xong mới quét tiếp được.")
     : laLoi
       ? luot.lyDo
-        ? "Quét sản phẩm tiếp theo để tiếp tục."
-        : `Quét mã lý do (1–${lyDoDs.length}) trên thẻ lệnh hoặc bấm chọn. Chọn xong mới quét tiếp được.`
+        ? t("Quét sản phẩm tiếp theo để tiếp tục.")
+        : t("Quét mã lý do (1–{{soLyDo}}) trên thẻ lệnh hoặc bấm chọn. Chọn xong mới quét tiếp được.", { soLyDo: lyDoDs.length })
       : cheDo === CHE_DO_XAC_NHAN.QUET_THE_TUNG_CAI
-        ? "Quét sản phẩm tiếp theo."
-        : "Quét sản phẩm tiếp theo: lượt này giữ Đạt. Sản phẩm lỗi thì quét thẻ KHÔNG ĐẠT.";
+        ? t("Quét sản phẩm tiếp theo.")
+        : t("Quét sản phẩm tiếp theo: lượt này giữ Đạt. Sản phẩm lỗi thì quét thẻ KHÔNG ĐẠT.");
   const mau = laLoi ? "loi" : laCho ? "cho" : "dat";
 
   const laThongBaoLoi = thongBao?.tone === "bad";
@@ -78,7 +79,7 @@ export default function TheKetQuaQuet({
   return (
     <section
       ref={ref}
-      aria-label="Kết quả lượt quét"
+      aria-label={t("Kết quả lượt quét")}
       onMouseDown={giuConTro}
       className={cn(
         "sticky bottom-3 z-30 mx-auto mt-auto max-h-[calc(100dvh-9rem)] w-full max-w-[600px] overflow-y-auto rounded-[10px] border border-t-4 border-bo-border bg-bo-surface shadow-[0_18px_40px_-12px_rgba(15,23,42,0.35),0_2px_6px_rgba(15,23,42,0.08)] sm:bottom-5",
@@ -108,7 +109,7 @@ export default function TheKetQuaQuet({
             <span className="font-mono">{luot.ma}</span> · {luot.nguon} · {luot.gio}
           </p>
         </div>
-        <button type="button" aria-label="Ẩn thẻ kết quả" onMouseDown={giuConTro} onClick={onAn} className="grid size-8 shrink-0 place-items-center rounded-md text-bo-muted hover:bg-slate-100">
+        <button type="button" aria-label={t("Ẩn thẻ kết quả")} onMouseDown={giuConTro} onClick={onAn} className="grid size-8 shrink-0 place-items-center rounded-md text-bo-muted hover:bg-slate-100">
           <X className="size-4" />
         </button>
       </div>
@@ -118,7 +119,7 @@ export default function TheKetQuaQuet({
           <div className="grid grid-cols-2 gap-2.5">
             <button type="button" onMouseDown={giuConTro} onClick={onDat} disabled={khoa}
               className="flex h-14 items-center justify-center gap-2 rounded-lg border-[1.5px] border-green-700 bg-green-700 text-base font-semibold text-white hover:bg-green-800 disabled:opacity-50">
-              <Check className="size-5" /> Đạt
+              <Check className="size-5" /> {t("Đạt")}
             </button>
             <button type="button" onMouseDown={giuConTro} onClick={onKhongDat} disabled={khoa}
               className="flex h-14 items-center justify-center gap-2 rounded-lg border-[1.5px] border-red-300 bg-bo-surface text-base font-semibold text-bo-danger-strong hover:bg-bo-danger-soft disabled:opacity-50">
@@ -128,7 +129,7 @@ export default function TheKetQuaQuet({
         ) : null}
 
         {laLoi ? (
-          <div role="radiogroup" aria-label={`Lý do ${nhanLoiThuong}`} className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+          <div role="radiogroup" aria-label={t("Lý do {{nhanLoiThuong}}", { nhanLoiThuong })} className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
             {lyDoDs.map((ten, i) => {
               const chon = luot.lyDo === ten;
               return (
@@ -138,7 +139,7 @@ export default function TheKetQuaQuet({
                     chon ? "border-bo-primary bg-[#f5f9ff] shadow-[inset_0_0_0_1px_var(--color-bo-primary)]" : "border-bo-border hover:border-slate-300",
                   )}>
                   <span className={cn("grid size-5 shrink-0 place-items-center rounded text-xs font-semibold", chon ? "bg-bo-primary text-white" : "bg-slate-100 text-slate-600")}>{i + 1}</span>
-                  {ten}
+                  {t(ten)}
                 </button>
               );
             })}
@@ -147,25 +148,25 @@ export default function TheKetQuaQuet({
 
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <span className="inline-flex items-center gap-2">
-            <span className="text-xs font-medium text-bo-muted">Số lượng</span>
-            <BuocSo nhan="số lượng" giaTri={luot.sl} disabled={khoa} khoaGiam={luot.sl <= 1} khoaTang={conLai <= 0}
+            <span className="text-xs font-medium text-bo-muted">{t("Số lượng")}</span>
+            <BuocSo nhan={t("số lượng")} giaTri={luot.sl} disabled={khoa} khoaGiam={luot.sl <= 1} khoaTang={conLai <= 0}
               onGiam={() => onSoLuong(-1)} onTang={() => onSoLuong(+1)} />
           </span>
           {laLoi && luot.sl > 1 ? (
             <span className="inline-flex items-center gap-2">
-              <span className="text-xs font-medium text-bo-muted">Trong đó {nhanLoiThuong}</span>
+              <span className="text-xs font-medium text-bo-muted">{t("Trong đó {{nhanLoiThuong}}", { nhanLoiThuong })}</span>
               <BuocSo nhan={nhanLoiThuong} giaTri={luot.loi} disabled={khoa} khoaGiam={luot.loi <= 1} khoaTang={luot.loi >= luot.sl}
                 onGiam={() => onSoLoi(-1)} onTang={() => onSoLoi(+1)} />
             </span>
           ) : null}
           <div className="ml-auto flex flex-wrap gap-1.5">
             {luot.kq === "dat" ? (
-              <button type="button" className={NUT} onMouseDown={giuConTro} onClick={onKhongDat} disabled={khoa}>Đổi thành {nhanLoi}</button>
+              <button type="button" className={NUT} onMouseDown={giuConTro} onClick={onKhongDat} disabled={khoa}>{t("Đổi thành {{nhanLoi}}", { nhanLoi })}</button>
             ) : null}
             {laLoi ? (
-              <button type="button" className={NUT} onMouseDown={giuConTro} onClick={onDat} disabled={khoa}>Đổi lại Đạt</button>
+              <button type="button" className={NUT} onMouseDown={giuConTro} onClick={onDat} disabled={khoa}>{t("Đổi lại Đạt")}</button>
             ) : null}
-            <button type="button" className={NUT} onMouseDown={giuConTro} onClick={onHoanTac} disabled={khoa}>Hoàn tác</button>
+            <button type="button" className={NUT} onMouseDown={giuConTro} onClick={onHoanTac} disabled={khoa}>{t("Hoàn tác")}</button>
           </div>
         </div>
       </div>

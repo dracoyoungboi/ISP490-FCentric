@@ -10,6 +10,7 @@
  */
 
 import { TIEN_TO_THE_LENH } from "../../utils/maVach.js";
+import { t } from "../../i18n/t.js";
 
 /** Cấu hình KIEM_DEM_XAC_NHAN (Cấu hình › Nhập kho). */
 export const CHE_DO_XAC_NHAN = {
@@ -148,9 +149,9 @@ export async function ketQuaLanTaiMoiNhat(layLan, layTai) {
 export function cauChuaKiemKhoaChuaRo(maLo, cauMayChu = "") {
   const lyDo = String(cauMayChu ?? "").trim().replace(/[.\s]+$/, "");
   return (
-    `Chưa tải được danh sách lô để kiểm lần khóa lô ${maLo} lúc mất phản hồi đã được lưu hay chưa` +
+    t("Chưa tải được danh sách lô để kiểm lần khóa lô {{maLo}} lúc mất phản hồi đã được lưu hay chưa", { maLo }) +
     (lyDo ? ` (${lyDo}).` : ".") +
-    " Lô đang kiểm vẫn giữ nguyên các lượt quét, khóa lại sau khi tải được."
+    t(" Lô đang kiểm vẫn giữ nguyên các lượt quét, khóa lại sau khi tải được.")
   );
 }
 
@@ -177,8 +178,8 @@ export function luotDangCho(phien) {
 export function cauChanLuot(cho) {
   if (!cho) return "";
   return cho.loai === "cho"
-    ? `Chọn Đạt hoặc Không đạt cho ${cho.luot.ma} trước: quét thẻ ĐẠT / KHÔNG ĐẠT hoặc bấm trên thẻ kết quả.`
-    : `Chọn lý do không đạt cho ${cho.luot.ma} trước: quét mã lý do trên thẻ lệnh hoặc bấm chọn trên thẻ kết quả.`;
+    ? t("Chọn Đạt hoặc Không đạt cho {{ma}} trước: quét thẻ ĐẠT / KHÔNG ĐẠT hoặc bấm trên thẻ kết quả.", { ma: cho.luot.ma })
+    : t("Chọn lý do không đạt cho {{ma}} trước: quét mã lý do trên thẻ lệnh hoặc bấm chọn trên thẻ kết quả.", { ma: cho.luot.ma });
 }
 
 /**
@@ -187,9 +188,9 @@ export function cauChanLuot(cho) {
  */
 export function tinh(phien, { canNhap, datKhoa, loiKhoa }) {
   const can = Math.max(0, Number(canNhap) || 0);
-  const datLo = phien.log.reduce((t, e) => t + datCua(e), 0);
-  const loiLo = phien.log.reduce((t, e) => t + loiCua(e), 0);
-  const choLo = phien.log.reduce((t, e) => t + (!e.huy && e.kq === "cho" ? e.sl : 0), 0);
+  const datLo = phien.log.reduce((tg, e) => tg + datCua(e), 0);
+  const loiLo = phien.log.reduce((tg, e) => tg + loiCua(e), 0);
+  const choLo = phien.log.reduce((tg, e) => tg + (!e.huy && e.kq === "cho" ? e.sl : 0), 0);
   const trongLo = datLo + loiLo + choLo;
   const daKhoa = (Number(datKhoa) || 0) + (Number(loiKhoa) || 0);
   const daKiem = daKhoa + trongLo;
@@ -211,11 +212,16 @@ export function tinh(phien, { canNhap, datKhoa, loiKhoa }) {
 }
 
 /** Nhãn trạng thái của biến thể (thẻ R8): Chờ kiểm đếm · Đang kiểm đếm · Chờ khóa lô · Đã kiểm xong. */
-export function nhanTrangThai(t) {
-  if (t.vuot > 0 && t.trongLo > 0) return "Vượt số đặt";
-  if (t.xong) return "Đã kiểm xong";
-  if (t.conLai === 0 && t.trongLo > 0) return "Chờ khóa lô";
-  if (t.daKiem > 0) return "Đang kiểm đếm";
+export function nhanTrangThai(tg) {
+  // i18n-giu-nguyen: nhãn StatusBadge tự dịch
+  if (tg.vuot > 0 && tg.trongLo > 0) return "Vượt số đặt";
+  // i18n-giu-nguyen: nhãn StatusBadge tự dịch
+  if (tg.xong) return "Đã kiểm xong";
+  // i18n-giu-nguyen: nhãn StatusBadge tự dịch
+  if (tg.conLai === 0 && tg.trongLo > 0) return "Chờ khóa lô";
+  // i18n-giu-nguyen: nhãn StatusBadge tự dịch
+  if (tg.daKiem > 0) return "Đang kiểm đếm";
+  // i18n-giu-nguyen: nhãn StatusBadge tự dịch
   return "Chờ kiểm đếm";
 }
 
@@ -230,7 +236,7 @@ export function themLuot(phien, { ma, nguon, soLuong, conLai, cheDo, gio }) {
     id: phien.dem,
     gio,
     ma,
-    nguon: nguon + (soTinh < soLuong ? ` · chỉ tính ${soTinh} vì đủ số đặt` : ""),
+    nguon: nguon + (soTinh < soLuong ? t(" · chỉ tính {{soTinh}} vì đủ số đặt", { soTinh }) : ""),
     sl: soTinh,
     kq: cheDo === CHE_DO_XAC_NHAN.QUET_THE_TUNG_CAI ? "cho" : "dat",
     loi: 0,
@@ -290,9 +296,9 @@ export function nhomLoiTheoLyDo(log) {
 
 /** Câu mô tả một lượt trong tab "Lượt quét lô này". */
 export function nhanLuot(e) {
-  if (e.kq === "cho") return `Chờ chọn Đạt / Không đạt · ${e.sl}`;
-  if (e.kq === "loi") return `Không đạt ${e.loi} · ${e.lyDo || "chưa chọn lý do"}${e.sl - e.loi ? ` · Đạt ${e.sl - e.loi}` : ""}`;
-  return `Đạt ${e.sl}`;
+  if (e.kq === "cho") return t("Chờ chọn Đạt / Không đạt · {{sl}}", { sl: e.sl });
+  if (e.kq === "loi") return t("Không đạt {{loi}} · {{lyDo}}{{phanDat}}", { loi: e.loi, lyDo: e.lyDo ? t(e.lyDo) : t("chưa chọn lý do"), phanDat: e.sl - e.loi ? t(" · Đạt {{soDat}}", { soDat: e.sl - e.loi }) : "" });
+  return t("Đạt {{sl}}", { sl: e.sl });
 }
 
 /** Còn trống của kệ: sức chứa − đang chứa − hàng đạt của lô đã khóa chưa nhập kho. null nếu kệ không giới hạn. */
@@ -307,12 +313,12 @@ export const KE_KHONG_DUOC = { KHONG_CO: "KHONG_CO", BAO_TRI: "BAO_TRI", DAY: "D
 
 /** Kệ có chọn được cho `datLo` cái đạt không. { duoc, ma, lyDo } — lyDo dùng để ghi cạnh tên kệ bị khóa. */
 export function keDungDuoc(viTri, datLo = 0) {
-  if (!viTri) return { duoc: false, ma: KE_KHONG_DUOC.KHONG_CO, lyDo: "Không có kệ" };
-  if (viTri.trangThai && viTri.trangThai !== "HOAT_DONG") return { duoc: false, ma: KE_KHONG_DUOC.BAO_TRI, lyDo: "Bảo trì" };
+  if (!viTri) return { duoc: false, ma: KE_KHONG_DUOC.KHONG_CO, lyDo: t("Không có kệ") };
+  if (viTri.trangThai && viTri.trangThai !== "HOAT_DONG") return { duoc: false, ma: KE_KHONG_DUOC.BAO_TRI, lyDo: t("Bảo trì") };
   const con = conTrongKe(viTri);
   if (con === null) return { duoc: true, ma: "", lyDo: "" };
-  if (con <= 0) return { duoc: false, ma: KE_KHONG_DUOC.DAY, lyDo: "Đầy" };
-  if (datLo > con) return { duoc: false, ma: KE_KHONG_DUOC.CHI_CON, lyDo: `Chỉ còn trống ${con}` };
+  if (con <= 0) return { duoc: false, ma: KE_KHONG_DUOC.DAY, lyDo: t("Đầy") };
+  if (datLo > con) return { duoc: false, ma: KE_KHONG_DUOC.CHI_CON, lyDo: t("Chỉ còn trống {{con}}", { con }) };
   return { duoc: true, ma: "", lyDo: "" };
 }
 
@@ -324,7 +330,7 @@ export const coKeHoatDong = (viTris) => (viTris ?? []).some((v) => v.trangThai =
 
 /** Câu báo khi quét / chọn phải kệ không dùng được. */
 export function cauKeKhongDuoc(ke, kt) {
-  return kt.ma === KE_KHONG_DUOC.BAO_TRI ? `Kệ ${ke.maViTri} đang bảo trì, hãy chọn kệ khác.` : `Kệ ${ke.maViTri} đã đầy, hãy chọn kệ khác.`;
+  return kt.ma === KE_KHONG_DUOC.BAO_TRI ? t("Kệ {{maViTri}} đang bảo trì, hãy chọn kệ khác.", { maViTri: ke.maViTri }) : t("Kệ {{maViTri}} đã đầy, hãy chọn kệ khác.", { maViTri: ke.maViTri });
 }
 
 /**
@@ -348,7 +354,7 @@ export function goiYMaLo(soPhieu, maLoDaCo = [], tienTo = TIEN_TO_MA_LO_MAC_DINH
  * `keDangTai`: danh sách kệ chưa tải xong — chưa biết kho có kệ hay không nên chưa cho khóa lô có hàng đạt.
  * Trả { maLo, ke, thieu: [...], loi: [...], ok }.
  */
-export function dieuKienKhoaLo(phien, { t, viTris = [], coKe, keDangTai = false, maLoGoiY, maLoDaCo = [], homNay }) {
+export function dieuKienKhoaLo(phien, { t: tg, viTris = [], coKe, keDangTai = false, maLoGoiY, maLoDaCo = [], homNay }) {
   const maLo = String(phien.maLo ?? maLoGoiY ?? "").trim();
   // Kho không còn kệ đang hoạt động: kệ chọn từ trước (nay bảo trì) không gửi được và không chọn kệ khác được → bỏ qua
   const keChon = viTris.find((v) => v.id === phien.keId) ?? null;
@@ -357,47 +363,47 @@ export function dieuKienKhoaLo(phien, { t, viTris = [], coKe, keDangTai = false,
   const loi = [];
   // Mọi lượt trong lô (không chỉ lượt hiện tại) phải có quyết định: phiên đọc lại có thể còn lượt chờ cũ
   const cho = phien.log.find(thieuQuyetDinh);
-  if (t.trongLo === 0) thieu.push("sản phẩm");
-  if (t.datLo > 0 && keDangTai) loi.push("Đang tải danh sách kệ, chờ một chút rồi khóa.");
-  if (t.datLo > 0 && coKe && !keDangTai && !ke) thieu.push("kệ cho hàng đạt");
-  if (!maLo) thieu.push("mã lô");
-  if (!phien.nsx) thieu.push("ngày sản xuất");
+  if (tg.trongLo === 0) thieu.push(t("sản phẩm"));
+  if (tg.datLo > 0 && keDangTai) loi.push(t("Đang tải danh sách kệ, chờ một chút rồi khóa."));
+  if (tg.datLo > 0 && coKe && !keDangTai && !ke) thieu.push(t("kệ cho hàng đạt"));
+  if (!maLo) thieu.push(t("mã lô"));
+  if (!phien.nsx) thieu.push(t("ngày sản xuất"));
   if (cho) {
-    const thieuGi = cho.kq === "cho" ? "chưa chọn Đạt hay Không đạt" : "chưa chọn lý do không đạt";
+    const thieuGi = cho.kq === "cho" ? t("chưa chọn Đạt hay Không đạt") : t("chưa chọn lý do không đạt");
     // Lượt hiện tại chọn được trên thẻ kết quả; lượt cũ hơn (phiên đọc lại từ trình duyệt) thì hoàn tác ở danh sách lượt
     loi.push(
       cho.id === phien.cur
-        ? `Lượt quét ${cho.ma} ${thieuGi}. Chọn trên thẻ kết quả.`
-        : `Lượt quét ${cho.ma}${cho.gio ? ` lúc ${cho.gio}` : ""} ${thieuGi}. Hoàn tác lượt đó ở danh sách "Lượt quét lô này" rồi quét lại sản phẩm.`,
+        ? t("Lượt quét {{ma}} {{thieuGi}}. Chọn trên thẻ kết quả.", { ma: cho.ma, thieuGi })
+        : t("Lượt quét {{ma}}{{phanGio}} {{thieuGi}}. Hoàn tác lượt đó ở danh sách \"Lượt quét lô này\" rồi quét lại sản phẩm.", { ma: cho.ma, phanGio: cho.gio ? t(" lúc {{gio}}", { gio: cho.gio }) : "", thieuGi }),
     );
   }
-  if (t.trongLo > 0 && t.daKhoa + t.trongLo > t.can) {
-    const conThieu = Math.max(0, t.can - t.daKhoa);
+  if (tg.trongLo > 0 && tg.daKhoa + tg.trongLo > tg.can) {
+    const conThieu = Math.max(0, tg.can - tg.daKhoa);
     loi.push(
-      `Lô đang kiểm có ${t.trongLo} nhưng biến thể chỉ còn thiếu ${conThieu} (đã có lô khác được khóa thêm). ` +
-        `Hoàn tác bớt ${t.daKhoa + t.trongLo - t.can} rồi khóa, sản phẩm thừa để riêng.`,
+      t("Lô đang kiểm có {{trongLo}} nhưng biến thể chỉ còn thiếu {{conThieu}} (đã có lô khác được khóa thêm). ", { trongLo: tg.trongLo, conThieu }) +
+        t("Hoàn tác bớt {{soThua}} rồi khóa, sản phẩm thừa để riêng.", { soThua: tg.daKhoa + tg.trongLo - tg.can }),
     );
   }
-  if (ke && t.datLo > 0) {
-    const kt = keDungDuoc(ke, t.datLo);
+  if (ke && tg.datLo > 0) {
+    const kt = keDungDuoc(ke, tg.datLo);
     if (!kt.duoc) {
       const con = conTrongKe(ke);
       loi.push(
         kt.ma === KE_KHONG_DUOC.BAO_TRI
-          ? `Kệ ${ke.maViTri} đang bảo trì, hãy chọn kệ khác.`
-          : `Kệ ${ke.maViTri} chỉ còn trống ${con ?? 0}, lô đang có ${t.datLo} đạt. Chọn kệ khác.`,
+          ? t("Kệ {{maViTri}} đang bảo trì, hãy chọn kệ khác.", { maViTri: ke.maViTri })
+          : t("Kệ {{maViTri}} chỉ còn trống {{con}}, lô đang có {{datLo}} đạt. Chọn kệ khác.", { maViTri: ke.maViTri, con: con ?? 0, datLo: tg.datLo }),
       );
     }
   }
-  if (maLo && maLo.length > 50) loi.push("Mã lô tối đa 50 ký tự.");
+  if (maLo && maLo.length > 50) loi.push(t("Mã lô tối đa 50 ký tự."));
   if (maLoChuaTheLenh(maLo)) {
-    loi.push(`Mã lô có chứa mã thẻ lệnh (${TIEN_TO_THE_LENH}…), có thể máy quét đã gõ nhầm vào ô Mã lô. Sửa lại mã lô.`);
+    loi.push(t("Mã lô có chứa mã thẻ lệnh ({{TIEN_TO_THE_LENH}}…), có thể máy quét đã gõ nhầm vào ô Mã lô. Sửa lại mã lô.", { TIEN_TO_THE_LENH }));
   }
   if (maLo && maLoDaCo.some((m) => String(m).trim().toUpperCase() === maLo.toUpperCase())) {
-    loi.push(`Mã lô ${maLo} đã có trong phiếu, hãy đổi mã khác.`);
+    loi.push(t("Mã lô {{maLo}} đã có trong phiếu, hãy đổi mã khác.", { maLo }));
   }
-  if (phien.nsx && homNay && phien.nsx > homNay) loi.push("Ngày sản xuất không được sau hôm nay.");
-  if (phien.nsx && phien.nsx < NSX_SOM_NHAT) loi.push("Ngày sản xuất không hợp lệ, kiểm tra lại năm.");
+  if (phien.nsx && homNay && phien.nsx > homNay) loi.push(t("Ngày sản xuất không được sau hôm nay."));
+  if (phien.nsx && phien.nsx < NSX_SOM_NHAT) loi.push(t("Ngày sản xuất không hợp lệ, kiểm tra lại năm."));
   return { maLo, ke, thieu, loi, ok: thieu.length === 0 && loi.length === 0 };
 }
 

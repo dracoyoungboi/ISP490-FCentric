@@ -13,6 +13,7 @@ import DongThongBao from "@/components/nhap-kho/DongThongBao";
 import { PHUONG_AN_MAC_DINH, PHUONG_AN_TRA_HANG, chuanHoaPhuongAn } from "@/constants/nhapKho";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/utils/formatters";
+import { t } from "@/i18n";
 
 /**
  * Lập / xem / lập lại biên bản trả hàng nhà cung cấp (FO-099).
@@ -73,23 +74,23 @@ function DangTai({ loi, onDong }) {
   return (
     <DialogContent className={KHUNG_HOP}>
       <DialogHeader className="shrink-0 border-b border-bo-border px-6 py-4 pr-12 text-left">
-        <DialogTitle className="text-base text-bo-foreground">Biên bản trả hàng</DialogTitle>
-        <DialogDescription className="sr-only">Đang đọc biên bản trả hàng của phiếu nhập</DialogDescription>
+        <DialogTitle className="text-base text-bo-foreground">{t("Biên bản trả hàng")}</DialogTitle>
+        <DialogDescription className="sr-only">{t("Đang đọc biên bản trả hàng của phiếu nhập")}</DialogDescription>
       </DialogHeader>
       <div className="flex items-center gap-2 px-6 py-8 text-sm text-bo-muted">
         {loi ? (
           <>
-            <AlertCircle className="size-4 shrink-0 text-bo-danger" /> Không đọc được biên bản. Đóng hộp, tải lại trang rồi mở lại.
+            <AlertCircle className="size-4 shrink-0 text-bo-danger" /> {t("Không đọc được biên bản. Đóng hộp, tải lại trang rồi mở lại.")}
           </>
         ) : (
           <>
-            <Loader2 className="size-4 shrink-0 animate-spin" /> Đang tải biên bản…
+            <Loader2 className="size-4 shrink-0 animate-spin" /> {t("Đang tải biên bản…")}
           </>
         )}
       </div>
       <DialogFooter className="shrink-0 border-t border-bo-border bg-bo-surface-subtle px-6 py-3">
         <Button variant="outline" onClick={onDong} className="min-w-28 border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">
-          Đóng
+          {t("Đóng")}
         </Button>
       </DialogFooter>
     </DialogContent>
@@ -101,7 +102,7 @@ function NoiDung({ phieu, dongLoi, bienBan, dangTaiLo, loiTaiLo, lapLai, dangXuL
   const [ghiChu, setGhiChu] = useState(bienBan?.ghiChu ?? "");
   const daPhatHanh = Boolean(bienBan) && !lapLai;
   const dong = daPhatHanh ? bienBan.items ?? [] : dongLoi ?? [];
-  const tong = dong.reduce((t, d) => t + Number(d.soLuong || 0), 0);
+  const tong = dong.reduce((tg, d) => tg + Number(d.soLuong || 0), 0);
   // Lập / lập lại mà hàng lỗi theo lô chưa đọc đủ: bảng thiếu dòng, không so số và không phát hành theo bảng đó
   const thieuDong = !daPhatHanh && (dangTaiLo || loiTaiLo);
 
@@ -112,13 +113,13 @@ function NoiDung({ phieu, dongLoi, bienBan, dangTaiLo, loiTaiLo, lapLai, dangXuL
       <DialogHeader className="shrink-0 border-b border-bo-border px-6 py-4 pr-12 text-left">
         <DialogTitle className="text-base text-bo-foreground">
           {daPhatHanh
-            ? `Biên bản trả hàng ${bienBan.soBienBan}`
+            ? t("Biên bản trả hàng {{soBienBan}}", { soBienBan: bienBan.soBienBan })
             : lapLai && bienBan
-              ? `Lập lại biên bản trả hàng ${bienBan.soBienBan}`
-              : "Lập biên bản trả hàng nhà cung cấp"}
+              ? t("Lập lại biên bản trả hàng {{soBienBan}}", { soBienBan: bienBan.soBienBan })
+              : t("Lập biên bản trả hàng nhà cung cấp")}
         </DialogTitle>
         <DialogDescription className="text-[13px] text-bo-muted">
-          Phiếu nhập {phieu?.soPhieuNhap} · {phieu?.tenNhaCungCap || "—"} · {phieu?.soDonMua || "—"}
+          {t("Phiếu nhập")} {phieu?.soPhieuNhap} · {phieu?.tenNhaCungCap || "—"} · {phieu?.soDonMua || "—"}
         </DialogDescription>
       </DialogHeader>
 
@@ -127,10 +128,10 @@ function NoiDung({ phieu, dongLoi, bienBan, dangTaiLo, loiTaiLo, lapLai, dangXuL
           <table className="w-full min-w-[560px] text-sm">
             <thead>
               <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                {["Sản phẩm", "Lô phát hiện", "Lý do lỗi"].map((t) => (
-                  <th key={t} className="h-10 px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t}</th>
+                {[t("Sản phẩm"), t("Lô phát hiện"), t("Lý do lỗi")].map((tg) => (
+                  <th key={tg} className="h-10 px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{tg}</th>
                 ))}
-                <th className="h-10 w-24 px-4 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted">SL lỗi</th>
+                <th className="h-10 w-24 px-4 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("SL lỗi")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-bo-border">
@@ -145,14 +146,14 @@ function NoiDung({ phieu, dongLoi, bienBan, dangTaiLo, loiTaiLo, lapLai, dangXuL
                     </div>
                   </td>
                   <td className="px-4 py-2 font-mono text-xs text-slate-600">{d.maLo || "—"}</td>
-                  <td className="px-4 py-2">{d.lyDo}</td>
+                  <td className="px-4 py-2">{t(d.lyDo)}</td>
                   <td className="px-4 py-2 text-right font-semibold tabular-nums text-bo-danger">{d.soLuong}</td>
                 </tr>
               ))}
             </tbody>
             <tfoot>
               <tr className="border-t border-bo-border bg-bo-surface-subtle font-semibold">
-                <td className="h-12 px-4" colSpan={3}>Tổng cộng</td>
+                <td className="h-12 px-4" colSpan={3}>{t("Tổng cộng")}</td>
                 <td className="px-4 text-right tabular-nums text-bo-danger">{tong}</td>
               </tr>
             </tfoot>
@@ -160,7 +161,7 @@ function NoiDung({ phieu, dongLoi, bienBan, dangTaiLo, loiTaiLo, lapLai, dangXuL
         </div>
 
         <div className="flex flex-col gap-2">
-          <p className="text-sm font-semibold text-bo-foreground">Phương án xử lý</p>
+          <p className="text-sm font-semibold text-bo-foreground">{t("Phương án xử lý")}</p>
           <div role="radiogroup" className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             {PHUONG_AN_TRA_HANG.map((pa) => {
               const chon = phuongAn === pa.ma;
@@ -180,8 +181,8 @@ function NoiDung({ phieu, dongLoi, bienBan, dangTaiLo, loiTaiLo, lapLai, dangXuL
                   <span className={cn("mt-0.5 grid size-4 place-items-center rounded-full border-[1.5px]", chon ? "border-bo-primary" : "border-slate-300")}>
                     {chon ? <span className="size-2 rounded-full bg-bo-primary" /> : null}
                   </span>
-                  <span className="text-sm font-medium text-bo-foreground">{pa.ten}</span>
-                  <span className="col-start-2 text-xs text-bo-muted">{pa.moTa}</span>
+                  <span className="text-sm font-medium text-bo-foreground">{t(pa.ten)}</span>
+                  <span className="col-start-2 text-xs text-bo-muted">{t(pa.moTa)}</span>
                 </button>
               );
             })}
@@ -189,14 +190,14 @@ function NoiDung({ phieu, dongLoi, bienBan, dangTaiLo, loiTaiLo, lapLai, dangXuL
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="bien-ban-ghi-chu" className="text-sm font-medium text-bo-foreground">Ghi chú gửi nhà cung cấp</label>
+          <label htmlFor="bien-ban-ghi-chu" className="text-sm font-medium text-bo-foreground">{t("Ghi chú gửi nhà cung cấp")}</label>
           <textarea
             id="bien-ban-ghi-chu"
             rows={2}
             disabled={daPhatHanh}
             value={ghiChu}
             onChange={(e) => setGhiChu(e.target.value)}
-            placeholder="VD: Đề nghị giao bù trong đợt hàng tới"
+            placeholder={t("VD: Đề nghị giao bù trong đợt hàng tới")}
             className="w-full resize-y rounded-md border border-bo-border bg-bo-surface px-3 py-2 text-sm text-bo-foreground placeholder:text-bo-muted focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15 disabled:bg-bo-surface-subtle"
           />
         </div>
@@ -204,30 +205,30 @@ function NoiDung({ phieu, dongLoi, bienBan, dangTaiLo, loiTaiLo, lapLai, dangXuL
         {thieuDong ? (
           <DongThongBao tone={loiTaiLo ? "bad" : "neutral"}>
             {loiTaiLo
-              ? "Hàng lỗi theo lô của một số biến thể chưa đọc được hoặc vừa đổi ở máy khác nên bảng trên chưa khớp số kiểm đếm. Đóng hộp, tải lại trang rồi mở lại."
-              : "Đang tải hàng lỗi theo lô…"}
+              ? t("Hàng lỗi theo lô của một số biến thể chưa đọc được hoặc vừa đổi ở máy khác nên bảng trên chưa khớp số kiểm đếm. Đóng hộp, tải lại trang rồi mở lại.")
+              : t("Đang tải hàng lỗi theo lô…")}
           </DongThongBao>
         ) : lapLai && bienBan ? (
           <DongThongBao tone="warn">
             {Number(bienBan.tongSoLuongLoi) !== tong
-              ? `Biên bản đang ghi ${bienBan.tongSoLuongLoi} sản phẩm lỗi, kiểm đếm hiện có ${tong}.`
-              : "Biên bản không còn khớp các lô có hàng lỗi (có lô đã xóa hoặc khóa lại)."}{" "}
-            Lập lại sẽ thay toàn bộ dòng của biên bản bằng các dòng ở trên, giữ số biên bản {bienBan.soBienBan}.
+              ? t("Biên bản đang ghi {{tongSoLuongLoi}} sản phẩm lỗi, kiểm đếm hiện có {{tong}}.", { count: Number(bienBan.tongSoLuongLoi) || 0, tongSoLuongLoi: bienBan.tongSoLuongLoi, tong })
+              : t("Biên bản không còn khớp các lô có hàng lỗi (có lô đã xóa hoặc khóa lại).")}{" "}
+            {t("Lập lại sẽ thay toàn bộ dòng của biên bản bằng các dòng ở trên, giữ số biên bản {{soBienBan}}.", { soBienBan: bienBan.soBienBan })}
           </DongThongBao>
         ) : daPhatHanh ? (
           <DongThongBao>
-            Đã phát hành{bienBan.ngayLap ? ` ngày ${formatDate(bienBan.ngayLap)}` : ""}. Hàng lỗi để ở khu cách ly chờ xử lý theo phương án trên, không cộng vào tồn kho.
+            {t("Đã phát hành{{phanNgay}}. Hàng lỗi để ở khu cách ly chờ xử lý theo phương án trên, không cộng vào tồn kho.", { phanNgay: bienBan.ngayLap ? t(" ngày {{ngayLap}}", { ngayLap: formatDate(bienBan.ngayLap) }) : "" })}
           </DongThongBao>
         ) : (
           <DongThongBao>
-            Phát hành xong, hàng lỗi chuyển sang khu cách ly, không cộng vào tồn kho và nút “Xác nhận nhập kho” được mở.
+            {t("Phát hành xong, hàng lỗi chuyển sang khu cách ly, không cộng vào tồn kho và nút “Xác nhận nhập kho” được mở.")}
           </DongThongBao>
         )}
       </div>
 
       <DialogFooter className="shrink-0 border-t border-bo-border bg-bo-surface-subtle px-6 py-3">
         <Button variant="outline" disabled={dangXuLy} onClick={onDong} className="min-w-28 border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">
-          {daPhatHanh ? "Đóng" : "Hủy"}
+          {daPhatHanh ? t("Đóng") : t("Hủy")}
         </Button>
         {daPhatHanh ? null : (
           <Button
@@ -236,7 +237,7 @@ function NoiDung({ phieu, dongLoi, bienBan, dangTaiLo, loiTaiLo, lapLai, dangXuL
             className="min-w-28 gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover"
           >
             {dangXuLy ? <Loader2 className="size-4 animate-spin" /> : <FileCheck2 className="size-4" />}
-            {lapLai && bienBan ? "Lập lại biên bản" : "Phát hành biên bản"}
+            {lapLai && bienBan ? t("Lập lại biên bản") : t("Phát hành biên bản")}
           </Button>
         )}
       </DialogFooter>

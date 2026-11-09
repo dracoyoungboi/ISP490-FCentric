@@ -24,6 +24,7 @@ import { dongDonKemPhanGiu, donMuaCoPhieuNhap, noiSoPhieu, tinhPhanGiu } from "@
 import { GOI_Y_O, NHAN_O, O_NHAP, O_NHAP_NHIEU_DONG } from "@/components/chung-tu/kieuHopThoai";
 import { getKhoLamViecId, laKhoLamViecHopLe, setKhoLamViecId } from "@/utils/khoLamViec";
 import { ROLES, hasAnyRole } from "@/utils/roles";
+import { t } from "@/i18n";
 
 /**
  * Tạo phiếu nhập kho (/goods-receipts/create): khối chứng từ "một khối" như các màn chi tiết.
@@ -38,8 +39,8 @@ import { ROLES, hasAnyRole } from "@/utils/roles";
  */
 
 const SOURCE_TABS = [
-    { value: "PO", label: "Nhập từ đối tác", icon: FileText },
-    { value: "RETURN", label: "Nhập hàng trả lại", icon: Undo2 },
+    { value: "PO", label: t("Nhập từ đối tác"), icon: FileText },
+    { value: "RETURN", label: t("Nhập hàng trả lại"), icon: Undo2 },
 ];
 const GHI_CHU_TOI_DA = 500;
 const so = (x) => Number(x) || 0;
@@ -49,7 +50,9 @@ const TONG_BANG = Object.freeze({ soLuong: "soLuong", dat: "dat", daNhan: "daNha
 
 /** Câu căn cứ ghi vào ghi chú phiếu (giữ đúng câu cũ). */
 function cauCanCu(nguon, { po, px }) {
+    // i18n-giu-nguyen: ghi chú gửi máy chủ
     if (nguon === "PO" && po) return `Tạo phiếu nhập kho từ đơn mua ${po.soDonMua}`;
+    // i18n-giu-nguyen: ghi chú gửi máy chủ
     if (nguon === "RETURN" && px) return `Nhập hoàn trả từ phiếu xuất: ${px.soPhieuXuat} (Đơn: ${px.donBanHang?.soDonHang || "Không rõ"})`;
     return "";
 }
@@ -129,7 +132,7 @@ export default function PhieuNhapKhoCreate() {
                 khoId: data.khoNhap?.id || prev.khoId,
             }));
         } catch {
-            toast.error("Không thể tải chi tiết đơn mua hàng");
+            toast.error(t("Không thể tải chi tiết đơn mua hàng"));
         } finally { setActionLoading(false); }
     }, []);
 
@@ -230,12 +233,12 @@ export default function PhieuNhapKhoCreate() {
                     // Gọi hàm handleSelectPO để load chi tiết và set selectedPO
                     await handleSelectPO(urlPoId);
                 } else {
-                    toast.warning("Đơn mua này không đủ điều kiện để nhập kho hoặc bạn không có quyền");
+                    toast.warning(t("Đơn mua này không đủ điều kiện để nhập kho hoặc bạn không có quyền"));
                 }
             }
 
         } catch {
-            toast.error("Không thể tải dữ liệu khởi tạo");
+            toast.error(t("Không thể tải dữ liệu khởi tạo"));
         } finally {
             setLoading(false);
         }
@@ -290,7 +293,7 @@ export default function PhieuNhapKhoCreate() {
                 khoId: selectedItem?.kho?.id || selectedItem?.khoXuatId || prev.khoId,
             }));
         } catch {
-            toast.error("Không thể tải chi tiết phiếu xuất");
+            toast.error(t("Không thể tải chi tiết phiếu xuất"));
         } finally { setActionLoading(false); }
     }, [returnList]);
 
@@ -323,12 +326,12 @@ export default function PhieuNhapKhoCreate() {
     async function taoPhieuMoi() {
         lamViecTaiKho(khoNhanId);
         if (importSource === "PO") {
-            if (!selectedPO) return toast.error("Vui lòng chọn đơn mua hàng"), null;
+            if (!selectedPO) return toast.error(t("Vui lòng chọn đơn mua hàng")), null;
             const chiTiet = selectedPO.chiTietDonMuaHangs.map(ct => ({
                 bienTheSanPhamId: ct.bienTheSanPham.id,
                 soLuongDuKienNhap: Number(ct.soLuongNhapTay) || 0
             })).filter(ct => ct.soLuongDuKienNhap > 0);
-            if (!chiTiet.length) return toast.error("Nhập số lượng cho ít nhất một mặt hàng"), null;
+            if (!chiTiet.length) return toast.error(t("Nhập số lượng cho ít nhất một mặt hàng")), null;
 
             try {
                 setActionLoading(true);
@@ -337,22 +340,22 @@ export default function PhieuNhapKhoCreate() {
                     ghiChu: ghiChuGui,
                     chiTietPhieuNhapKhos: chiTiet
                 });
-                toast.success("Tạo phiếu nhập thành công");
+                toast.success(t("Tạo phiếu nhập thành công"));
                 return res.id;
             } catch (e) {
-                toast.error(e?.response?.data?.message || "Lỗi khi tạo phiếu nhập");
+                toast.error(e?.response?.data?.message || t("Lỗi khi tạo phiếu nhập"));
                 return null;
             } finally { setActionLoading(false); }
         } else if (importSource === "RETURN") {
-            if (!form.phieuXuatId) return toast.error("Vui lòng chọn phiếu xuất của đơn hàng cần hoàn trả"), null;
+            if (!form.phieuXuatId) return toast.error(t("Vui lòng chọn phiếu xuất của đơn hàng cần hoàn trả")), null;
             try {
                 setActionLoading(true);
                 const res = await phieuNhapKhoService.createFromSalesReturn(form.phieuXuatId, { ghiChu: ghiChuGui });
                 const newId = res.data?.data?.id ?? res.data?.id ?? res.id;
-                toast.success("Khởi tạo phiếu nhập trả hàng thành công");
+                toast.success(t("Khởi tạo phiếu nhập trả hàng thành công"));
                 return newId;
             } catch (e) {
-                toast.error(e?.response?.data?.message || "Không thể tạo phiếu nhập hoàn trả");
+                toast.error(e?.response?.data?.message || t("Không thể tạo phiếu nhập hoàn trả"));
                 return null;
             } finally { setActionLoading(false); }
         }
@@ -410,7 +413,7 @@ export default function PhieuNhapKhoCreate() {
     if (loading) {
         return (
             <PageContainer>
-                <LoadingState rows={4} label="Đang tải dữ liệu khởi tạo" />
+                <LoadingState rows={4} label={t("Đang tải dữ liệu khởi tạo")} />
             </PageContainer>
         );
     }
@@ -428,25 +431,25 @@ export default function PhieuNhapKhoCreate() {
     const lyDoKhoa = actionLoading
         ? ""
         : noSourceSelected
-            ? (importSource === "PO" ? "Chọn đơn mua hàng" : "Chọn phiếu xuất cần nhập trả")
+            ? (importSource === "PO" ? t("Chọn đơn mua hàng") : t("Chọn phiếu xuất cần nhập trả"))
             : !khoNhanId
-                ? "Chưa xác định được kho nhận"
+                ? t("Chưa xác định được kho nhận")
                 : importSource === "PO" && tongConPO === 0 && coPhieuGiu
-                    ? `Phần còn lại đã nằm ở phiếu nháp ${noiSoPhieu(dsPhieuGiu)}`
+                    ? t("Phần còn lại đã nằm ở phiếu nháp {{dsPhieuGiu}}", { dsPhieuGiu: noiSoPhieu(dsPhieuGiu) })
                     : importSource === "PO" && tongNhapPO === 0
-                        ? "Nhập số lượng cho ít nhất một mặt hàng"
+                        ? t("Nhập số lượng cho ít nhất một mặt hàng")
                         : "";
     const khoaTao = Boolean(lyDoKhoa) || actionLoading;
 
-    const nhanNutChinh = importSource === "PO" ? "Tiếp tục khai lô" : "Xác nhận nhập kho";
+    const nhanNutChinh = importSource === "PO" ? t("Tiếp tục khai lô") : t("Xác nhận nhập kho");
     const iconNutChinh = importSource === "PO" ? ArrowRight : Undo2;
 
-    const dauDongPhu = tenKhoNhan ? `Nhập vào ${tenKhoNhan}` : "Chọn chứng từ nguồn để bắt đầu";
+    const dauDongPhu = tenKhoNhan ? t("Nhập vào {{tenKhoNhan}}", { tenKhoNhan }) : t("Chọn chứng từ nguồn để bắt đầu");
     // Tổng của cả phiếu nằm ở dòng phụ đầu khối (như các màn chi tiết), không lặp ở chân bảng
     const dongPhu = noSourceSelected ? dauDongPhu : [
         dauDongPhu,
-        `${soVN(bangHang.tong.soSanPham)} sản phẩm · ${soVN(bangHang.tong.soDong)} biến thể`,
-        importSource === "PO" ? `Nhập lần này ${soVN(tongNhapPO)}/${soVN(tongConPO)}` : `Tổng ${soVN(bangHang.tong.soLuong)}`,
+        t("{{soSanPham}} sản phẩm · {{soDong}} biến thể", { soSanPham: soVN(bangHang.tong.soSanPham), soDong: soVN(bangHang.tong.soDong) }),
+        importSource === "PO" ? t("Nhập lần này {{tongNhapPO}}/{{tongConPO}}", { tongNhapPO: soVN(tongNhapPO), tongConPO: soVN(tongConPO) }) : t("Tổng {{soLuong}}", { soLuong: soVN(bangHang.tong.soLuong) }),
     ];
 
     // ── Thông báo ──
@@ -454,7 +457,7 @@ export default function PhieuNhapKhoCreate() {
     if (importSource === "PO" && selectedPO && loiPhanGiu) {
         thongBao.push(
             <DongThongBao key="loi-phieu-giu" tone="warn">
-                Chưa tải được đủ phiếu nhập nháp của đơn này nên "Còn lại" có thể chưa trừ phần các phiếu đó đang giữ. Máy chủ vẫn kiểm lại khi tạo phiếu.
+                {t("Chưa tải được đủ phiếu nhập nháp của đơn này nên \"Còn lại\" có thể chưa trừ phần các phiếu đó đang giữ. Máy chủ vẫn kiểm lại khi tạo phiếu.")}
             </DongThongBao>
         );
     }
@@ -465,7 +468,7 @@ export default function PhieuNhapKhoCreate() {
         const dongGiuThua = dongBang.filter(d => d.giu > d.thieu);
         const giuThua = dongGiuThua.length > 0;
         const viDuGiuThua = dongGiuThua.slice(0, 2).map(d => d.sku).filter(Boolean).join(", ")
-            + (dongGiuThua.length > 2 ? ` và ${soVN(dongGiuThua.length - 2)} biến thể khác` : "");
+            + (dongGiuThua.length > 2 ? t(" và {{soKhac}} biến thể khác", { count: dongGiuThua.length - 2, soKhac: soVN(dongGiuThua.length - 2) }) : "");
         // Chỉ ra đúng các phiếu đang giữ biến thể bị giữ thừa (phiếu khác có thể đang giữ hợp lệ)
         const idGiuThua = new Set(dongGiuThua.map(d => Number(d.bienTheId)));
         const phieuGiuThua = dsPhieuGiu.filter(p => (p.bienThe ?? []).some(id => idGiuThua.has(id)));
@@ -482,32 +485,32 @@ export default function PhieuNhapKhoCreate() {
                             navigate(`/goods-receipts/${p.id}`);
                         }}
                     >
-                        Mở {p.soPhieuNhap}
+                        {t("Mở")} {p.soPhieuNhap}
                     </NutChu>
                 ))}
             >
-                Đơn này đang có phiếu nhập nháp <b className="font-semibold">{noiSoPhieu(dsPhieuGiu)}</b> giữ số lượng {soVN(bangHang.tong.giu)}.
+                {t("Đơn này đang có phiếu nhập nháp")} <b className="font-semibold">{noiSoPhieu(dsPhieuGiu)}</b> {t("giữ số lượng {{soLuong}}.", { soLuong: soVN(bangHang.tong.giu) })}
                 {giuThua
                     ? phieuGiuThua.length > 1
-                        ? ` Phiếu ${noiSoPhieu(phieuGiuThua)} cùng giữ nhiều hơn số đơn còn thiếu ở ${soVN(dongGiuThua.length)} biến thể (${viDuGiuThua}): kiểm đếm trên một phiếu, hủy phiếu thừa.`
-                        : ` Phiếu ${noiSoPhieu(phieuGiuThua)} giữ nhiều hơn số đơn còn thiếu ở ${soVN(dongGiuThua.length)} biến thể (${viDuGiuThua}) nên sẽ bị chặn khi nhập kho: hủy phiếu đó rồi tạo lại theo số còn thiếu.`
+                        ? t(" Phiếu {{phieuGiuThua}} cùng giữ nhiều hơn số đơn còn thiếu ở {{soBienThe}} biến thể ({{viDuGiuThua}}): kiểm đếm trên một phiếu, hủy phiếu thừa.", { phieuGiuThua: noiSoPhieu(phieuGiuThua), count: dongGiuThua.length, soBienThe: soVN(dongGiuThua.length), viDuGiuThua })
+                        : t(" Phiếu {{phieuGiuThua}} giữ nhiều hơn số đơn còn thiếu ở {{soBienThe}} biến thể ({{viDuGiuThua}}) nên sẽ bị chặn khi nhập kho: hủy phiếu đó rồi tạo lại theo số còn thiếu.", { phieuGiuThua: noiSoPhieu(phieuGiuThua), count: dongGiuThua.length, soBienThe: soVN(dongGiuThua.length), viDuGiuThua })
                     : tongConPO > 0
-                        ? ` Kiểm đếm tiếp trên ${nhieuPhieu ? "các phiếu" : "phiếu"} đó. Phiếu mới chỉ nhận phần chưa có phiếu nào giữ.`
-                        : ` Kiểm đếm tiếp trên ${nhieuPhieu ? "các phiếu" : "phiếu"} đó, không cần tạo phiếu mới.`}
+                        ? (nhieuPhieu ? t(" Kiểm đếm tiếp trên các phiếu đó. Phiếu mới chỉ nhận phần chưa có phiếu nào giữ.") : t(" Kiểm đếm tiếp trên phiếu đó. Phiếu mới chỉ nhận phần chưa có phiếu nào giữ."))
+                        : (nhieuPhieu ? t(" Kiểm đếm tiếp trên các phiếu đó, không cần tạo phiếu mới.") : t(" Kiểm đếm tiếp trên phiếu đó, không cần tạo phiếu mới."))}
             </DongThongBao>
         );
     }
     if (importSource === "PO" && selectedPO && tongNhapPO > 0 && tongNhapPO < tongConPO) {
         thongBao.push(
             <DongThongBao key="mot-phan" tone="info">
-                Đang nhập một phần đơn mua. Phần còn lại vẫn chờ ở đơn mua, nhập ở phiếu sau.
+                {t("Đang nhập một phần đơn mua. Phần còn lại vẫn chờ ở đơn mua, nhập ở phiếu sau.")}
             </DongThongBao>
         );
     }
     if (importSource === "RETURN" && selectedReturn) {
         thongBao.push(
             <DongThongBao key="tra" tone="info">
-                Hàng trả được nhập lại đúng các lô đã xuất, đủ số lượng trên phiếu xuất. Phiếu tạo ở trạng thái nháp để kiểm lại trước khi nhập.
+                {t("Hàng trả được nhập lại đúng các lô đã xuất, đủ số lượng trên phiếu xuất. Phiếu tạo ở trạng thái nháp để kiểm lại trước khi nhập.")}
             </DongThongBao>
         );
     }
@@ -516,39 +519,39 @@ export default function PhieuNhapKhoCreate() {
     const chonNguon = (
         <div className="flex flex-wrap items-end gap-x-6 gap-y-3 border-t border-bo-border px-4 py-4 sm:px-6">
             <div className="grid gap-1.5">
-                <span className={NHAN_O}>Nguồn nhập</span>
+                <span className={NHAN_O}>{t("Nguồn nhập")}</span>
                 <NutPhanDoan
-                    nhan="Nguồn nhập"
+                    nhan={t("Nguồn nhập")}
                     value={importSource}
                     onChange={(v) => { setImportSource(v); bangHang.xoaTuKhoa(); }}
-                    luaChon={SOURCE_TABS.map(t => ({
-                        value: t.value,
-                        label: t.label,
-                        count: t.value === "PO" ? poList.length : returnList.length,
+                    luaChon={SOURCE_TABS.map(tg => ({
+                        value: tg.value,
+                        label: tg.label,
+                        count: tg.value === "PO" ? poList.length : returnList.length,
                     }))}
                 />
             </div>
             <label className="relative grid w-full min-w-0 gap-1.5 sm:w-[440px]">
                 <span className={NHAN_O}>
-                    {importSource === "PO" ? "Đơn mua hàng" : "Phiếu xuất của đơn bị hoàn trả"}
+                    {importSource === "PO" ? t("Đơn mua hàng") : t("Phiếu xuất của đơn bị hoàn trả")}
                     {" "}<span className="text-bo-danger">*</span>
                 </span>
                 {importSource === "PO" && (
                     <select className={O_CHON} value={form.donMuaHangId} disabled={actionLoading} onChange={(e) => { bangHang.xoaTuKhoa(); handleSelectPO(e.target.value); }}>
-                        <option value="">{poList.length ? "Chọn đơn mua đang chờ nhận hàng" : "Không có đơn mua nào chờ nhận hàng"}</option>
+                        <option value="">{poList.length ? t("Chọn đơn mua đang chờ nhận hàng") : t("Không có đơn mua nào chờ nhận hàng")}</option>
                         {poList.map(po => (
                             <option key={po.id} value={po.id}>
-                                {po.soDonMua} · {po.nhaCungCap?.tenNhaCungCap}{poCoPhieuNhap.has(Number(po.id)) ? " · có phiếu nháp" : ""}
+                                {po.soDonMua} · {po.nhaCungCap?.tenNhaCungCap}{poCoPhieuNhap.has(Number(po.id)) ? t(" · có phiếu nháp") : ""}
                             </option>
                         ))}
                     </select>
                 )}
                 {importSource === "RETURN" && (
                     <select className={O_CHON} value={form.phieuXuatId} disabled={actionLoading} onChange={(e) => { bangHang.xoaTuKhoa(); handleSelectReturn(e.target.value); }}>
-                        <option value="">{returnList.length ? "Chọn phiếu xuất" : "Không có phiếu xuất nào chờ nhập trả"}</option>
+                        <option value="">{returnList.length ? t("Chọn phiếu xuất") : t("Không có phiếu xuất nào chờ nhập trả")}</option>
                         {returnList.map(px => (
                             <option key={px.id} value={px.id}>
-                                {px.soPhieuXuat} · đơn {px.donBanHang?.soDonHang}
+                                {px.soPhieuXuat} {t("· đơn")} {px.donBanHang?.soDonHang}
                             </option>
                         ))}
                     </select>
@@ -562,27 +565,27 @@ export default function PhieuNhapKhoCreate() {
     const cotBang = importSource === "PO"
         ? [
             {
-                ma: "dat", nhan: "Đặt", lop: "w-20 text-right", anHep: true, nhom: (n) => soVN(n.tong.dat), dong: (d) => soVN(d.dat),
+                ma: "dat", nhan: t("Đặt", { context: "so_luong" }), lop: "w-20 text-right", anHep: true, nhom: (n) => soVN(n.tong.dat), dong: (d) => soVN(d.dat),
                 // Khối hẹp: các cột Đặt / Đã nhận / Phiếu nháp giữ ẩn → ghi dưới tên biến thể
-                phuHep: (d) => `Đặt ${soVN(d.dat)} · đã nhận ${soVN(d.daNhan)}${d.giu > 0 ? ` · phiếu nháp giữ ${soVN(d.giu)}` : ""}`,
+                phuHep: (d) => t("Đặt {{dat}} · đã nhận {{daNhan}}{{phanGiu}}", { dat: soVN(d.dat), daNhan: soVN(d.daNhan), phanGiu: d.giu > 0 ? t(" · phiếu nháp giữ {{giu}}", { giu: soVN(d.giu) }) : "" }),
             },
-            { ma: "daNhan", nhan: "Đã nhận", lop: "w-20 text-right", anHep: true, nhom: (n) => soVN(n.tong.daNhan), dong: (d) => soVN(d.daNhan) },
+            { ma: "daNhan", nhan: t("Đã nhận"), lop: "w-20 text-right", anHep: true, nhom: (n) => soVN(n.tong.daNhan), dong: (d) => soVN(d.daNhan) },
             // Chỉ khi đơn có phiếu nhập Nháp giữ hàng
             ...(coPhieuGiu ? [{
-                ma: "giu", nhan: "Phiếu nháp giữ", lop: "w-28 text-right", anHep: true,
+                ma: "giu", nhan: t("Phiếu nháp giữ"), lop: "w-28 text-right", anHep: true,
                 nhom: (n) => soVN(n.tong.giu),
                 dong: (d) => (d.giu > 0 ? soVN(d.giu) : <span className="text-bo-muted">0</span>),
             }] : []),
             {
-                ma: "con", nhan: "Còn lại", lop: "w-20 text-right",
+                ma: "con", nhan: t("Còn lại"), lop: "w-20 text-right",
                 nhom: (n) => soVN(n.tong.con),
                 // Hết phần còn lại vì phiếu nháp đang giữ: ghi 0, không ghi "Đủ" (đơn chưa nhận đủ)
                 dong: (d) => (d.con > 0
                     ? soVN(d.con)
-                    : d.thieu > 0 ? <span className="text-bo-muted">0</span> : <span className="text-bo-success">Đủ</span>),
+                    : d.thieu > 0 ? <span className="text-bo-muted">0</span> : <span className="text-bo-success">{t("Đủ")}</span>),
             },
             {
-                ma: "nhap", nhan: "Nhập lần này", lop: "w-32 text-right",
+                ma: "nhap", nhan: t("Nhập lần này"), lop: "w-32 text-right",
                 nhom: (n) => soVN(n.tong.nhap),
                 dong: (d) => (d.con > 0 ? (
                     <input
@@ -590,7 +593,7 @@ export default function PhieuNhapKhoCreate() {
                         min="0"
                         max={d.con}
                         inputMode="numeric"
-                        aria-label={`Nhập lần này: ${d.tenSanPham} ${d.tenMau || ""} ${d.kichCo || ""}`.trim()}
+                        aria-label={t("Nhập lần này: {{tenSanPham}} {{mau}} {{kichCo}}", { tenSanPham: d.tenSanPham, mau: d.tenMau || "", kichCo: d.kichCo || "" }).trim()}
                         className={cn(O_NHAP, "ml-auto h-8 w-24 text-right font-semibold tabular-nums")}
                         value={d.oNhap}
                         onChange={(e) => handleQuantityChange(d.id, e.target.value)}
@@ -598,16 +601,16 @@ export default function PhieuNhapKhoCreate() {
                 ) : <span className="text-bo-muted">—</span>),
             },
         ]
-        : [{ ma: "sl", nhan: "Số lượng trả", lop: "w-36 text-right", nhom: (n) => soVN(n.tong.soLuong), dong: (d) => soVN(d.soLuong) }];
+        : [{ ma: "sl", nhan: t("Số lượng trả"), lop: "w-36 text-right", nhom: (n) => soVN(n.tong.soLuong), dong: (d) => soVN(d.soLuong) }];
 
     const bang = noSourceSelected ? (
         <EmptyState
             icon={importSource === "PO" ? FileText : Undo2}
-            title={importSource === "PO" ? "Chưa chọn đơn mua hàng" : "Chưa chọn phiếu xuất"}
+            title={importSource === "PO" ? t("Chưa chọn đơn mua hàng") : t("Chưa chọn phiếu xuất")}
             description={
                 importSource === "PO"
-                    ? "Chỉ hiện đơn mua về kho của bạn và còn hàng chưa nhận. Hàng chuyển kho nội bộ nhận ở màn phiếu chuyển kho."
-                    : "Chỉ hiện phiếu xuất đã giao của đơn bán bị hoàn trả và chưa nhập trả."
+                    ? t("Chỉ hiện đơn mua về kho của bạn và còn hàng chưa nhận. Hàng chuyển kho nội bộ nhận ở màn phiếu chuyển kho.")
+                    : t("Chỉ hiện phiếu xuất đã giao của đơn bán bị hoàn trả và chưa nhập trả.")
             }
             className="min-h-[280px] flex-1"
         />
@@ -615,8 +618,8 @@ export default function PhieuNhapKhoCreate() {
         <BangHangTaoPhieu
             bang={bangHang}
             cot={cotBang}
-            tenChungTu={importSource === "PO" ? "Đơn mua hàng" : "Phiếu xuất"}
-            nhan={importSource === "PO" ? "Hàng trong đơn mua" : "Hàng khách trả"}
+            tenChungTu={importSource === "PO" ? t("Đơn mua hàng") : t("Phiếu xuất")}
+            nhan={importSource === "PO" ? t("Hàng trong đơn mua") : t("Hàng khách trả")}
             rongToiThieu={importSource === "PO" ? (coPhieuGiu ? "@2xl/khoi:min-w-[730px]" : "@2xl/khoi:min-w-[620px]") : "@2xl/khoi:min-w-[460px]"}
         />
     );
@@ -625,16 +628,16 @@ export default function PhieuNhapKhoCreate() {
     const oGhiChu = (
         <NhomThuocTinh>
             <label className="grid gap-1.5">
-                <span className={NHAN_O}>Ghi chú</span>
+                <span className={NHAN_O}>{t("Ghi chú")}</span>
                 <textarea
                     value={ghiChuThem}
                     maxLength={GHI_CHU_TOI_DA}
                     onChange={(e) => setGhiChuThem(e.target.value.slice(0, GHI_CHU_TOI_DA))}
-                    placeholder={importSource === "PO" ? "Ví dụ: Giao thiếu 1 thùng, nhà cung cấp hẹn bù" : "Ví dụ: Khách đổi ý, hàng còn nguyên tem"}
+                    placeholder={importSource === "PO" ? t("Ví dụ: Giao thiếu 1 thùng, nhà cung cấp hẹn bù") : t("Ví dụ: Khách đổi ý, hàng còn nguyên tem")}
                     className={O_NHAP_NHIEU_DONG}
                 />
                 <span className={GOI_Y_O}>
-                    <span>Số chứng từ nguồn được ghi kèm tự động</span>
+                    <span>{t("Số chứng từ nguồn được ghi kèm tự động")}</span>
                     <span>{ghiChuThem.length}/{GHI_CHU_TOI_DA}</span>
                 </span>
             </label>
@@ -644,9 +647,9 @@ export default function PhieuNhapKhoCreate() {
     let cotPhai = null;
     if (!noSourceSelected) {
         cotPhai = (
-            <CotThuocTinh nhan="Thông tin phiếu nhập">
+            <CotThuocTinh nhan={t("Thông tin phiếu nhập")}>
                 {importSource === "PO" && (
-                    <NhomThuocTinh nhan="Nhà cung cấp">
+                    <NhomThuocTinh nhan={t("Nhà cung cấp")}>
                         <div className="text-sm font-semibold text-bo-foreground">{selectedPO.nhaCungCap?.tenNhaCungCap || "—"}</div>
                         {selectedPO.nhaCungCap?.maNhaCungCap ? (
                             <div className="mt-0.5 font-mono text-xs text-bo-muted">{selectedPO.nhaCungCap.maNhaCungCap}</div>
@@ -654,11 +657,11 @@ export default function PhieuNhapKhoCreate() {
                     </NhomThuocTinh>
                 )}
                 {importSource === "RETURN" && (
-                    <NhomThuocTinh nhan="Đơn bị hoàn trả">
+                    <NhomThuocTinh nhan={t("Đơn bị hoàn trả")}>
                         <BangThuocTinh
                             muc={[
-                                { nhan: "Đơn bán hàng", giaTri: pxTraDangChon?.donBanHang?.soDonHang },
-                                { nhan: "Khách hàng", giaTri: pxTraDangChon?.donBanHang?.khachHang?.tenKhachHang, an: !pxTraDangChon?.donBanHang?.khachHang?.tenKhachHang },
+                                { nhan: t("Đơn bán hàng"), giaTri: pxTraDangChon?.donBanHang?.soDonHang },
+                                { nhan: t("Khách hàng"), giaTri: pxTraDangChon?.donBanHang?.khachHang?.tenKhachHang, an: !pxTraDangChon?.donBanHang?.khachHang?.tenKhachHang },
                             ]}
                         />
                     </NhomThuocTinh>
@@ -673,13 +676,13 @@ export default function PhieuNhapKhoCreate() {
             <KhungChungTu
                 dau={
                     <DauChungTu
-                        ma="Tạo phiếu nhập kho"
+                        ma={t("Tạo phiếu nhập kho")}
                         dongPhu={dongPhu}
                         onQuayLai={() => navigate("/goods-receipts")}
-                        nhanQuayLai="Quay lại danh sách"
+                        nhanQuayLai={t("Quay lại danh sách")}
                         nutPhu={{
                             ma: "nhap",
-                            nhan: "Lưu nháp",
+                            nhan: t("Lưu nháp"),
                             onClick: handleContinue,
                             khoa: khoaTao || Boolean(createdId),
                         }}

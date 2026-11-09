@@ -16,11 +16,17 @@ import { LY_DO_LOI } from "@/constants/nhapKho";
 import { THE_LENH, maTheLyDo } from "@/pages/receipt/kiemDem";
 import { TIEN_TO_THE_LENH } from "@/utils/maVach";
 import { taoBoNhanQuetNhanh } from "@/utils/quetNhanh";
+import { t } from "@/i18n";
 
+// Nội dung in trên thẻ lệnh (vùng toRef) giữ tiếng Việt như mọi chứng từ in; khung hộp thoại vẫn dịch.
 const THE_CHINH = [
+  // i18n-giu-nguyen: chữ in trên thẻ lệnh
   { ma: THE_LENH.KHONG_DAT, ten: "KHÔNG ĐẠT", moTa: "Đổi lượt vừa quét thành không đạt", do: true },
+  // i18n-giu-nguyen: chữ in trên thẻ lệnh
   { ma: THE_LENH.HOAN_TAC, ten: "HOÀN TÁC", moTa: "Hủy lượt vừa quét (quét nhiều lần thì lùi dần), hoặc bỏ qua mã chưa có" },
+  // i18n-giu-nguyen: chữ in trên thẻ lệnh
   { ma: THE_LENH.KHOA_LO, ten: "KHÓA LÔ", moTa: "Khóa lô đang kiểm khi đủ điều kiện, thiếu thì mở hộp Khóa lô" },
+  // i18n-giu-nguyen: chữ in trên thẻ lệnh
   { ma: THE_LENH.DAT, ten: "ĐẠT", moTa: "Đổi lại thành đạt, hoặc xác nhận khi phải chọn từng cái" },
 ];
 
@@ -51,7 +57,7 @@ export default function HopInTheLenh({ open, onOpenChange, onQuet, boKhoaLo = fa
     <Dialog open={open} onOpenChange={onOpenChange}>
       {open ? (
         <NoiDung
-          dsThe={boKhoaLo ? THE_CHINH.filter((t) => t.ma !== THE_LENH.KHOA_LO) : THE_CHINH}
+          dsThe={boKhoaLo ? THE_CHINH.filter((tg) => tg.ma !== THE_LENH.KHOA_LO) : THE_CHINH}
           onDong={() => onOpenChange(false)}
           onQuet={(ma) => {
             onOpenChange(false);
@@ -68,7 +74,7 @@ function TheMa({ ma, ten, moTa, lon, doDam }) {
     <article className={`the-lenh flex flex-col items-center gap-1.5 rounded-lg border bg-white px-4 py-3 text-center ${doDam ? "border-red-200" : "border-bo-border"}`}>
       <p className={`font-bold tracking-wide ${lon ? "text-lg" : "text-[15px]"} ${doDam ? "text-bo-danger" : "text-bo-heading"}`}>{ten}</p>
       {moTa ? <p className="text-xs leading-4 text-bo-muted">{moTa}</p> : null}
-      <div role="img" aria-label={`Mã vạch ${ma}`} className="mt-1 max-w-full [&_svg]:h-auto [&_svg]:max-w-full">
+      <div role="img" aria-label={t("Mã vạch {{ma}}", { ma })} className="mt-1 max-w-full [&_svg]:h-auto [&_svg]:max-w-full">
         <Barcode value={ma} format="CODE128" renderer="svg" width={lon ? 2 : 1.6} height={lon ? 64 : 48} displayValue={false} margin={0} background="#ffffff" lineColor="#000000" />
       </div>
       <p className="font-mono text-xs text-slate-600">{ma}</p>
@@ -92,12 +98,12 @@ function NoiDung({ dsThe, onDong, onQuet }) {
   };
   const inThe = useReactToPrint({
     contentRef: toRef,
-    documentTitle: "FCentric - Thẻ lệnh kiểm đếm",
+    documentTitle: "FCentric - Thẻ lệnh kiểm đếm", // i18n-giu-nguyen: tên tài liệu in
     pageStyle: KIEU_TRANG_IN,
     onAfterPrint: xong,
     onPrintError: () => {
       xong();
-      toast.error("Không mở được bản in. Vui lòng thử lại.");
+      toast.error(t("Không mở được bản in. Vui lòng thử lại."));
     },
   });
   const batDauIn = () => {
@@ -108,7 +114,7 @@ function NoiDung({ dsThe, onDong, onQuet }) {
       inThe();
     } catch {
       xong();
-      toast.error("Không mở được bản in. Vui lòng thử lại.");
+      toast.error(t("Không mở được bản in. Vui lòng thử lại."));
     }
   };
 
@@ -126,19 +132,20 @@ function NoiDung({ dsThe, onDong, onQuet }) {
       className="flex max-h-[90dvh] flex-col gap-0 overflow-hidden rounded-xl border-bo-border p-0 outline-none sm:max-w-[min(860px,calc(100%-2rem))]"
     >
       <DialogHeader className="shrink-0 border-b border-bo-border px-6 py-4 text-left">
-        <DialogTitle className="text-base text-bo-foreground">Thẻ lệnh kiểm đếm</DialogTitle>
+        <DialogTitle className="text-base text-bo-foreground">{t("Thẻ lệnh kiểm đếm")}</DialogTitle>
         <DialogDescription className="text-[13px] text-bo-muted">
-          Đặt ở bàn kiểm, cạnh máy tính. Quét thẻ bằng chính máy quét như quét sản phẩm, không cần chạm bàn phím hay chuột.
+          {t("Đặt ở bàn kiểm, cạnh máy tính. Quét thẻ bằng chính máy quét như quét sản phẩm, không cần chạm bàn phím hay chuột.")}
         </DialogDescription>
       </DialogHeader>
       <div className="min-h-0 flex-1 overflow-y-auto bg-bo-surface-subtle px-6 py-5">
         <div ref={toRef} className="the-lenh-to flex flex-col gap-4">
           <div className="the-lenh-luoi grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {dsThe.map((t) => (
-              <TheMa key={t.ma} ma={t.ma} ten={t.ten} moTa={t.moTa} lon doDam={t.do} />
+            {dsThe.map((tg) => (
+              <TheMa key={tg.ma} ma={tg.ma} ten={tg.ten} moTa={tg.moTa} lon doDam={tg.do} />
             ))}
           </div>
           <p className="text-sm font-semibold text-bo-foreground">
+            {/* i18n-giu-nguyen: chữ in cùng trang thẻ lệnh */}
             Lý do không đạt <span className="font-normal text-bo-muted">· quét sau thẻ KHÔNG ĐẠT</span>
           </p>
           <div className="the-lenh-luoi the-lenh-luoi-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -149,12 +156,12 @@ function NoiDung({ dsThe, onDong, onQuet }) {
         </div>
       </div>
       <DialogFooter className="shrink-0 border-t border-bo-border bg-white px-6 py-3">
-        <p className="mr-auto self-center text-xs text-bo-muted">Mã thẻ lệnh bắt đầu bằng {TIEN_TO_THE_LENH}; mã vạch nhà cung cấp bắt đầu như vậy không liên kết được.</p>
+        <p className="mr-auto self-center text-xs text-bo-muted">{t("Mã thẻ lệnh bắt đầu bằng {{TIEN_TO_THE_LENH}}; mã vạch nhà cung cấp bắt đầu như vậy không liên kết được.", { TIEN_TO_THE_LENH })}</p>
         <Button variant="outline" disabled={dangIn} onClick={onDong} className="min-w-24 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle">
-          Đóng
+          {t("Đóng")}
         </Button>
         <Button disabled={dangIn} onClick={batDauIn} className="min-w-28 gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover">
-          {dangIn ? <Loader2 className="size-4 animate-spin" /> : <Printer className="size-4" />} In thẻ lệnh
+          {dangIn ? <Loader2 className="size-4 animate-spin" /> : <Printer className="size-4" />} {t("In thẻ lệnh")}
         </Button>
       </DialogFooter>
     </DialogContent>

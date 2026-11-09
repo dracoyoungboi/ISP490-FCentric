@@ -14,6 +14,7 @@ import {
   ngayIso,
   payloadHoaDon,
 } from "@/components/ke-toan/tinhKeToan";
+import { t } from "@/i18n";
 
 const O_NHAP =
   "h-9 border-bo-border bg-white text-sm text-bo-foreground shadow-none focus-visible:border-bo-primary focus-visible:ring-[3px] focus-visible:ring-bo-primary/15";
@@ -21,12 +22,12 @@ const O_LOI = "border-bo-danger focus-visible:border-bo-danger focus-visible:rin
 
 function NhanTrangThai({ data }) {
   if (!data?.daNhap) {
-    return <span className="rounded-[3px] bg-bo-warning-soft px-1.5 py-0.5 text-xs font-semibold text-bo-warning">Chưa nhập</span>;
+    return <span className="rounded-[3px] bg-bo-warning-soft px-1.5 py-0.5 text-xs font-semibold text-bo-warning">{t("Chưa nhập")}</span>;
   }
   return data.coHoaDon ? (
-    <span className="rounded-[3px] bg-bo-success-soft px-1.5 py-0.5 text-xs font-semibold text-bo-success">Có hóa đơn GTGT</span>
+    <span className="rounded-[3px] bg-bo-success-soft px-1.5 py-0.5 text-xs font-semibold text-bo-success">{t("Có hóa đơn GTGT")}</span>
   ) : (
-    <span className="rounded-[3px] bg-slate-100 px-1.5 py-0.5 text-xs font-semibold text-slate-600">Không có hóa đơn</span>
+    <span className="rounded-[3px] bg-slate-100 px-1.5 py-0.5 text-xs font-semibold text-slate-600">{t("Không có hóa đơn")}</span>
   );
 }
 
@@ -64,7 +65,7 @@ export default function TheHoaDonNhaCungCap({ phieuNhapKhoId, coTheSua }) {
         setLoiTai(null);
       })
       .catch((e) => {
-        if (!ctrl.signal.aborted) setLoiTai(getApiErrorMessage(e, "Không tải được hóa đơn nhà cung cấp"));
+        if (!ctrl.signal.aborted) setLoiTai(getApiErrorMessage(e, t("Không tải được hóa đơn nhà cung cấp")));
       })
       .finally(() => !ctrl.signal.aborted && setDangTai(false));
     return () => ctrl.abort();
@@ -92,9 +93,9 @@ export default function TheHoaDonNhaCungCap({ phieuNhapKhoId, coTheSua }) {
       const moi = await keToanService.luuHoaDonDauVao(phieuNhapKhoId, payloadHoaDon(form));
       setData(moi);
       setDangSua(false);
-      toast.success("Đã lưu hóa đơn nhà cung cấp.");
+      toast.success(t("Đã lưu hóa đơn nhà cung cấp."));
     } catch (e) {
-      toast.error(getApiErrorMessage(e, "Không lưu được hóa đơn nhà cung cấp"));
+      toast.error(getApiErrorMessage(e, t("Không lưu được hóa đơn nhà cung cấp")));
       // Phiếu vừa được xuất sang kế toán (đã khóa): đóng form, tải lại để thấy trạng thái khóa
       if (e?.response?.status === 409) {
         setDangSua(false);
@@ -117,79 +118,79 @@ export default function TheHoaDonNhaCungCap({ phieuNhapKhoId, coTheSua }) {
         <div className="min-w-0">
           <h2 id={fid("tieu-de")} className="flex flex-wrap items-center gap-2 text-sm font-semibold text-bo-heading">
             <FileText className="size-4 text-bo-muted" aria-hidden="true" />
-            Hóa đơn nhà cung cấp
+            {t("Hóa đơn nhà cung cấp")}
             {!dangTai && !loiTai ? <NhanTrangThai data={data} /> : null}
           </h2>
           <p className="mt-0.5 text-xs text-bo-muted">
-            Đơn giá đơn mua đã gồm thuế. Khi xuất sang kế toán, thuế tách theo thuế suất trên hóa đơn này.
+            {t("Đơn giá đơn mua đã gồm thuế. Khi xuất sang kế toán, thuế tách theo thuế suất trên hóa đơn này.")}
           </p>
         </div>
         {!dangTai && !loiTai && !dangSua && coTheSua && !data?.daKhoa ? (
           <Button type="button" variant="outline" size="sm" onClick={batDauSua} className="gap-1.5 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle">
             <Pencil className="size-3.5" aria-hidden="true" />
-            {data?.daNhap ? "Sửa" : "Nhập hóa đơn"}
+            {data?.daNhap ? t("Sửa") : t("Nhập hóa đơn")}
           </Button>
         ) : null}
       </div>
 
       {dangTai ? (
         <p className="flex items-center gap-2 px-4 pb-4 text-sm text-bo-muted">
-          <Loader2 className="size-4 animate-spin" aria-hidden="true" /> Đang tải hóa đơn
+          <Loader2 className="size-4 animate-spin" aria-hidden="true" /> {t("Đang tải hóa đơn")}
         </p>
       ) : loiTai ? (
         <p className="px-4 pb-4 text-sm text-bo-danger">{loiTai}</p>
       ) : dangSua ? (
         <form onSubmit={luu} noValidate className="flex flex-col gap-3 px-4 pb-4">
           <fieldset className="flex flex-wrap gap-x-5 gap-y-2">
-            <legend className="sr-only">Nhà cung cấp có xuất hóa đơn GTGT không</legend>
+            <legend className="sr-only">{t("Nhà cung cấp có xuất hóa đơn GTGT không")}</legend>
             <label className="inline-flex items-center gap-2 text-sm text-bo-foreground">
               <input type="radio" name={fid("co")} value="co" checked={coHoaDon} onChange={() => doi("coHoaDon", "co")} className="accent-bo-primary" />
-              Có hóa đơn GTGT
+              {t("Có hóa đơn GTGT")}
             </label>
             <label className="inline-flex items-center gap-2 text-sm text-bo-foreground">
               <input type="radio" name={fid("co")} value="khong" checked={!coHoaDon} onChange={() => doi("coHoaDon", "khong")} className="accent-bo-primary" />
-              Nhà cung cấp không xuất hóa đơn
+              {t("Nhà cung cấp không xuất hóa đơn")}
             </label>
           </fieldset>
           {coHoaDon ? (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-              <O id={fid("mau-so")} nhan="Ký hiệu mẫu số" loi={loi.mauSo}>
+              <O id={fid("mau-so")} nhan={t("Ký hiệu mẫu số")} loi={loi.mauSo}>
                 <Input id={fid("mau-so")} value={form.mauSo} maxLength={20} onChange={(e) => doi("mauSo", e.target.value)}
                   className={cn(O_NHAP, loi.mauSo && O_LOI)} {...moTaLoi("mau-so", loi.mauSo)} />
               </O>
-              <O id={fid("ky-hieu")} nhan="Ký hiệu hóa đơn" loi={loi.kyHieu}>
-                <Input id={fid("ky-hieu")} value={form.kyHieu} maxLength={20} placeholder="VD: C26TAA" spellCheck={false}
+              <O id={fid("ky-hieu")} nhan={t("Ký hiệu hóa đơn")} loi={loi.kyHieu}>
+                <Input id={fid("ky-hieu")} value={form.kyHieu} maxLength={20} placeholder={t("VD: {{viDu}}", { viDu: "C26TAA" })} spellCheck={false}
                   onChange={(e) => doi("kyHieu", e.target.value)} className={cn(O_NHAP, "uppercase", loi.kyHieu && O_LOI)}
                   {...moTaLoi("ky-hieu", loi.kyHieu)} />
               </O>
-              <O id={fid("so")} nhan="Số hóa đơn" loi={loi.soHoaDon}>
+              <O id={fid("so")} nhan={t("Số hóa đơn")} loi={loi.soHoaDon}>
                 <Input id={fid("so")} value={form.soHoaDon} maxLength={20} inputMode="numeric"
                   onChange={(e) => doi("soHoaDon", e.target.value.replace(/\D/g, ""))} className={cn(O_NHAP, "tabular-nums", loi.soHoaDon && O_LOI)}
                   {...moTaLoi("so", loi.soHoaDon)} />
               </O>
-              <O id={fid("ngay")} nhan="Ngày hóa đơn" loi={loi.ngayHoaDon}>
+              <O id={fid("ngay")} nhan={t("Ngày hóa đơn")} loi={loi.ngayHoaDon}>
                 <Input id={fid("ngay")} type="date" value={form.ngayHoaDon} max={ngayIso(new Date())}
                   onChange={(e) => doi("ngayHoaDon", e.target.value)} className={cn(O_NHAP, loi.ngayHoaDon && O_LOI)}
                   {...moTaLoi("ngay", loi.ngayHoaDon)} />
               </O>
-              <O id={fid("thue")} nhan="Thuế suất" loi={loi.thueSuat}>
+              <O id={fid("thue")} nhan={t("Thuế suất")} loi={loi.thueSuat}>
                 <select id={fid("thue")} value={form.thueSuat} onChange={(e) => doi("thueSuat", e.target.value)}
                   className={cn(O_NHAP, "rounded-md border px-2", loi.thueSuat && O_LOI)}>
-                  {THUE_SUAT.map((t) => <option key={t} value={String(t)}>{t}%</option>)}
+                  {THUE_SUAT.map((tg) => <option key={tg} value={String(tg)}>{tg}%</option>)}
                 </select>
               </O>
             </div>
           ) : (
-            <p className="text-xs text-bo-muted">Toàn bộ đơn giá là giá nhập, không có thuế đầu vào được khấu trừ.</p>
+            <p className="text-xs text-bo-muted">{t("Toàn bộ đơn giá là giá nhập, không có thuế đầu vào được khấu trừ.")}</p>
           )}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => setDangSua(false)} disabled={dangLuu}
               className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle">
-              Hủy
+              {t("Hủy")}
             </Button>
             <Button type="submit" disabled={dangLuu} className="bg-bo-primary text-white hover:bg-bo-primary-hover">
               {dangLuu ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
-              Lưu hóa đơn
+              {t("Lưu hóa đơn")}
             </Button>
           </div>
         </form>
@@ -197,27 +198,27 @@ export default function TheHoaDonNhaCungCap({ phieuNhapKhoId, coTheSua }) {
         <div className="px-4 pb-4">
           {data?.daNhap && data.coHoaDon ? (
             <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-[13px] sm:grid-cols-5">
-              <div><dt className="text-xs text-bo-muted">Ký hiệu mẫu số</dt><dd className="m-0 font-medium">{data.mauSo || "—"}</dd></div>
-              <div><dt className="text-xs text-bo-muted">Ký hiệu</dt><dd className="m-0 font-medium">{data.kyHieu}</dd></div>
-              <div><dt className="text-xs text-bo-muted">Số hóa đơn</dt><dd className="m-0 font-medium tabular-nums">{data.soHoaDon}</dd></div>
-              <div><dt className="text-xs text-bo-muted">Ngày hóa đơn</dt><dd className="m-0 font-medium tabular-nums">{hienNgay(data.ngayHoaDon)}</dd></div>
-              <div><dt className="text-xs text-bo-muted">Thuế suất</dt><dd className="m-0 font-medium">{Number(data.thueSuat)}%</dd></div>
+              <div><dt className="text-xs text-bo-muted">{t("Ký hiệu mẫu số")}</dt><dd className="m-0 font-medium">{data.mauSo || "—"}</dd></div>
+              <div><dt className="text-xs text-bo-muted">{t("Ký hiệu")}</dt><dd className="m-0 font-medium">{data.kyHieu}</dd></div>
+              <div><dt className="text-xs text-bo-muted">{t("Số hóa đơn")}</dt><dd className="m-0 font-medium tabular-nums">{data.soHoaDon}</dd></div>
+              <div><dt className="text-xs text-bo-muted">{t("Ngày hóa đơn")}</dt><dd className="m-0 font-medium tabular-nums">{hienNgay(data.ngayHoaDon)}</dd></div>
+              <div><dt className="text-xs text-bo-muted">{t("Thuế suất")}</dt><dd className="m-0 font-medium">{Number(data.thueSuat)}%</dd></div>
             </dl>
           ) : data?.daNhap ? (
-            <p className="text-sm text-bo-foreground">Nhà cung cấp không xuất hóa đơn GTGT cho phiếu này.</p>
+            <p className="text-sm text-bo-foreground">{t("Nhà cung cấp không xuất hóa đơn GTGT cho phiếu này.")}</p>
           ) : data?.daKhoa ? (
             <p className="text-sm text-bo-muted">
-              Chưa nhập hóa đơn. Phiếu đã sang kế toán ở dạng "Không kèm hóa đơn", giá nhập tách thuế theo mức chung.
+              {t("Chưa nhập hóa đơn. Phiếu đã sang kế toán ở dạng \"Không kèm hóa đơn\", giá nhập tách thuế theo mức chung.")}
             </p>
           ) : (
             <p className="text-sm text-bo-muted">
-              Chưa nhập hóa đơn. Nếu xuất sang kế toán lúc này, phiếu đi ở dạng "Không kèm hóa đơn" và giá nhập tách thuế theo mức chung.
+              {t("Chưa nhập hóa đơn. Nếu xuất sang kế toán lúc này, phiếu đi ở dạng \"Không kèm hóa đơn\" và giá nhập tách thuế theo mức chung.")}
             </p>
           )}
           {data?.daKhoa ? (
             <p className="mt-3 flex items-center gap-2 text-xs text-bo-muted">
               <Lock className="size-3.5" aria-hidden="true" />
-              Đã xuất sang kế toán ở lô {data.soLoXuat}, không sửa được. Quản trị viên mở khóa chứng từ ở màn Xuất dữ liệu kế toán nếu cần.
+              {t("Đã xuất sang kế toán ở lô {{soLoXuat}}, không sửa được. Quản trị viên mở khóa chứng từ ở màn Xuất dữ liệu kế toán nếu cần.", { soLoXuat: data.soLoXuat })}
             </p>
           ) : null}
         </div>

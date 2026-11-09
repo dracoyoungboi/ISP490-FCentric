@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Warehouse, Edit, Trash2, Eye, MapPin, User, Package, TrendingUp } from 'lucide-react';
 import { formatCurrency, formatNumber } from '@/utils/formatters';
+import { t } from "@/i18n";
 
 export default function WarehouseCard({ warehouse, onView, onEdit, onDelete }) {
     return (
@@ -21,11 +22,11 @@ export default function WarehouseCard({ warehouse, onView, onEdit, onDelete }) {
                     </div>
                     {warehouse.trangThai === 1 ? (
                         <Badge className="bg-gray-900 hover:bg-gray-800 text-white border-0">
-                            Hoạt động
+                            {t("Hoạt động")}
                         </Badge>
                     ) : (
                         <Badge variant="secondary">
-                            Đóng
+                            {t("Đóng", { context: "trang_thai" })}
                         </Badge>
                     )}
                 </div>
@@ -39,7 +40,7 @@ export default function WarehouseCard({ warehouse, onView, onEdit, onDelete }) {
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <User className="w-4 h-4 text-gray-400" />
-                        <span className="text-sm text-gray-600">Quản lý:</span>
+                        <span className="text-sm text-gray-600">{t("Quản lý:")}</span>
                     </div>
                     <span className="text-sm font-medium">{warehouse.quanLy?.hoTen || '—'}</span>
                 </div>
@@ -47,7 +48,7 @@ export default function WarehouseCard({ warehouse, onView, onEdit, onDelete }) {
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <Package className="w-4 h-4 text-gray-400" />
-                        <span className="text-sm text-gray-600">Tồn kho:</span>
+                        <span className="text-sm text-gray-600">{t("Tồn kho:")}</span>
                     </div>
                     <span className="text-sm font-bold text-purple-600">{formatNumber(warehouse.soLuongTon)}</span>
                 </div>
@@ -55,7 +56,7 @@ export default function WarehouseCard({ warehouse, onView, onEdit, onDelete }) {
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <TrendingUp className="w-4 h-4 text-gray-400" />
-                        <span className="text-sm text-gray-600">Giá trị:</span>
+                        <span className="text-sm text-gray-600">{t("Giá trị:")}</span>
                     </div>
                     <span className="text-sm font-bold text-green-600">
                         {formatCurrency(warehouse.giaTriTon)}
@@ -70,7 +71,7 @@ export default function WarehouseCard({ warehouse, onView, onEdit, onDelete }) {
                         onClick={() => onView(warehouse)}
                     >
                         <Eye className="w-4 h-4 mr-1" />
-                        Chi tiết
+                        {t("Chi tiết")}
                     </Button>
                     <Button
                         variant="outline"
@@ -79,7 +80,7 @@ export default function WarehouseCard({ warehouse, onView, onEdit, onDelete }) {
                         onClick={() => onEdit(warehouse)}
                     >
                         <Edit className="w-4 h-4 mr-1" />
-                        Sửa
+                        {t("Sửa")}
                     </Button>
                     <Button
                         variant="outline"

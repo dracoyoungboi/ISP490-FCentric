@@ -1,6 +1,7 @@
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Warehouse, CheckCircle2, X, Package } from 'lucide-react';
+import { t } from "@/i18n";
 
 export default function WarehouseStats({ stats }) {
     return (
@@ -9,7 +10,7 @@ export default function WarehouseStats({ stats }) {
                 <CardContent className="p-6">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm font-medium text-gray-600">Tổng số kho</p>
+                            <p className="text-sm font-medium text-gray-600">{t("Tổng số kho")}</p>
                             <p className="text-2xl font-bold text-gray-900 mt-1">{stats.total}</p>
                         </div>
                         <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
@@ -23,7 +24,7 @@ export default function WarehouseStats({ stats }) {
                 <CardContent className="p-6">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm font-medium text-gray-600">Đang hoạt động</p>
+                            <p className="text-sm font-medium text-gray-600">{t("Đang hoạt động")}</p>
                             <p className="text-2xl font-bold text-gray-900 mt-1">{stats.active}</p>
                         </div>
                         <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
@@ -37,7 +38,7 @@ export default function WarehouseStats({ stats }) {
                 <CardContent className="p-6">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm font-medium text-gray-600">Không hoạt động</p>
+                            <p className="text-sm font-medium text-gray-600">{t("Không hoạt động")}</p>
                             <p className="text-2xl font-bold text-gray-900 mt-1">{stats.inactive}</p>
                         </div>
                         <div className="h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center">
@@ -51,7 +52,7 @@ export default function WarehouseStats({ stats }) {
                 <CardContent className="p-6">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm font-medium text-gray-600">Tổng tồn kho</p>
+                            <p className="text-sm font-medium text-gray-600">{t("Tổng tồn kho")}</p>
                             <p className="text-2xl font-bold text-gray-900 mt-1">{stats.totalStock}</p>
                         </div>
                         <div className="h-12 w-12 rounded-full bg-purple-100 flex items-center justify-center">

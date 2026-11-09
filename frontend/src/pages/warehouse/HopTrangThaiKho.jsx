@@ -15,6 +15,7 @@ import { khoService } from "@/services/khoService";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { laKhoHoatDong } from "@/utils/kho";
 import { cauNgungHoatDong } from "./chiTietKho";
+import { t } from "@/i18n";
 
 /**
  * Xác nhận Ngừng hoạt động / Cho phép hoạt động lại một kho (thay cho nút "Xóa kho" cũ:
@@ -54,7 +55,7 @@ function NoiDung({ kho: khoLucMo, onClose, onChanged }) {
             onChanged?.(sauKhiDoi ?? { ...kho, trangThai: trangThaiMoi });
             onClose();
         } catch (err) {
-            setLoi(getApiErrorMessage(err, "Không thể đổi trạng thái kho. Vui lòng thử lại."));
+            setLoi(getApiErrorMessage(err, t("Không thể đổi trạng thái kho. Vui lòng thử lại.")));
             setDangLuu(false);
         }
     };
@@ -81,31 +82,31 @@ function NoiDung({ kho: khoLucMo, onClose, onChanged }) {
                     ) : (
                         <CircleCheck className="size-5 shrink-0 text-bo-success" aria-hidden="true" />
                     )}
-                    {dangHoatDong ? "Ngừng hoạt động kho?" : "Cho phép kho hoạt động lại?"}
+                    {dangHoatDong ? t("Ngừng hoạt động kho?") : t("Cho phép kho hoạt động lại?")}
                 </AlertDialogTitle>
                 <AlertDialogDescription asChild>
                     <div className="space-y-2 text-sm leading-6 text-bo-muted">
                         {dangHoatDong ? (
                             <>
-                                <p>{ten} sẽ không chọn được khi tạo chứng từ mới: nhập kho, xuất kho, chuyển kho, bán tại quầy.</p>
+                                <p>{t("{{ten}} sẽ không chọn được khi tạo chứng từ mới: nhập kho, xuất kho, chuyển kho, bán tại quầy.", { ten })}</p>
                                 <ul className="list-disc space-y-1 pl-5">
                                     {cauNgungHoatDong(kho).map((cau) => {
                                         if (cau.loai === "ton") {
                                             return (
                                                 <li key="ton">
-                                                    Kho đang còn {dam(`${cau.soLuong} sản phẩm`)} tồn: tồn kho giữ nguyên, nhưng không bán hay chuyển đi được cho tới khi kho hoạt động lại.
+                                                    {t("Kho đang còn")} {dam(t("{{soLuong}} sản phẩm", { count: cau.soNguyen, soLuong: cau.soLuong }))} {t("tồn: tồn kho giữ nguyên, nhưng không bán hay chuyển đi được cho tới khi kho hoạt động lại.")}
                                                 </li>
                                             );
                                         }
                                         if (cau.loai === "kho-tong") {
-                                            return <li key="kho-tong">Đây là Kho tổng: trong lúc ngừng, không nhập được hàng từ nhà cung cấp.</li>;
+                                            return <li key="kho-tong">{t("Đây là Kho tổng: trong lúc ngừng, không nhập được hàng từ nhà cung cấp.")}</li>;
                                         }
-                                        return <li key="giu">Lịch sử và chứng từ cũ được giữ nguyên; có thể cho phép hoạt động lại bất cứ lúc nào.</li>;
+                                        return <li key="giu">{t("Lịch sử và chứng từ cũ được giữ nguyên; có thể cho phép hoạt động lại bất cứ lúc nào.")}</li>;
                                     })}
                                 </ul>
                             </>
                         ) : (
-                            <p>{ten} sẽ lại chọn được khi tạo chứng từ mới.</p>
+                            <p>{t("{{ten}} sẽ lại chọn được khi tạo chứng từ mới.", { ten })}</p>
                         )}
                     </div>
                 </AlertDialogDescription>
@@ -126,7 +127,7 @@ function NoiDung({ kho: khoLucMo, onClose, onChanged }) {
                     disabled={dangLuu}
                     className="border-bo-border bg-bo-surface text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
                 >
-                    Hủy
+                    {t("Hủy")}
                 </AlertDialogCancel>
                 <Button
                     type="button"
@@ -141,12 +142,12 @@ function NoiDung({ kho: khoLucMo, onClose, onChanged }) {
                     {dangLuu ? (
                         <>
                             <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                            Đang lưu...
+                            {t("Đang lưu...")}
                         </>
                     ) : dangHoatDong ? (
-                        "Ngừng hoạt động"
+                        t("Ngừng hoạt động")
                     ) : (
-                        "Cho phép hoạt động"
+                        t("Cho phép hoạt động")
                     )}
                 </Button>
             </AlertDialogFooter>

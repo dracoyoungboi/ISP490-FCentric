@@ -20,10 +20,11 @@ import {
   O_TIEU_DE,
 } from "@/components/chung-tu/kieuBang";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 const CHU_LO = {
-  dangTai: "Đang tải lô…",
-  loi: "Không tải được lô",
+  dangTai: t("Đang tải lô…"),
+  loi: t("Không tải được lô"),
   co: "—",
 };
 
@@ -31,12 +32,12 @@ const CHU_LO = {
 function soLoCuaNhom(dong) {
   if (dong.some((d) => d.trangThaiLo !== "co")) return "";
   const so = new Set(dong.flatMap((d) => d.lo.map((l) => l.maLo))).size;
-  return so ? `${soVN(so)} lô` : "";
+  return so ? t("{{soLo}} lô", { count: Number(so) || 0, soLo: soVN(so) }) : "";
 }
 
 /** "10 biến thể"; đang tìm mà nhóm chỉ còn một phần: "3/10 biến thể". */
 const chuBienThe = (n) =>
-  n.soBienThe !== n.soBienTheCaNhom ? `${soVN(n.soBienThe)}/${soVN(n.soBienTheCaNhom)} biến thể` : `${soVN(n.soBienThe)} biến thể`;
+  n.soBienThe !== n.soBienTheCaNhom ? t("{{soBienThe}}/{{soBienTheCaNhom}} biến thể", { soBienThe: soVN(n.soBienThe), soBienTheCaNhom: soVN(n.soBienTheCaNhom) }) : t("{{soBienThe}} biến thể", { count: Number(n.soBienThe) || 0, soBienThe: soVN(n.soBienThe) });
 
 function LoCuaDong({ dong }) {
   return (
@@ -60,7 +61,7 @@ export default function BangHangNhan({ bang }) {
   return (
     <section aria-labelledby={`${idBang}-tieu-de`} className="flex min-w-0 flex-1 flex-col">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-4 pb-3 pt-4 sm:px-6">
-        <h2 id={`${idBang}-tieu-de`} className="text-base font-semibold leading-6 text-bo-foreground">Hàng nhận</h2>
+        <h2 id={`${idBang}-tieu-de`} className="text-base font-semibold leading-6 text-bo-foreground">{t("Hàng nhận")}</h2>
         {bang.chuGoiYThuGon ? <span className="text-[13px] leading-5 text-bo-muted">{bang.chuGoiYThuGon}</span> : null}
       </div>
 
@@ -69,8 +70,8 @@ export default function BangHangNhan({ bang }) {
           tuKhoa={bang.tuKhoa}
           onDoiTuKhoa={bang.datTuKhoa}
           onXoaTuKhoa={bang.xoaTuKhoa}
-          goiYTim="Tìm theo tên, SKU, màu, kích cỡ hoặc mã lô"
-          nhanTim="Tìm trong phiếu nhập kho"
+          goiYTim={t("Tìm theo tên, SKU, màu, kích cỡ hoặc mã lô")}
+          nhanTim={t("Tìm trong phiếu nhập kho")}
           ketQua={bang.chuKetQua}
           khongKetQua={bang.khongKetQua}
           moHet={bang.moHet}
@@ -83,9 +84,9 @@ export default function BangHangNhan({ bang }) {
           <table className={cn(BANG, "@2xl/khoi:min-w-[600px]")}>
             <thead>
               <tr className={DONG_TIEU_DE}>
-                <th scope="col" className={cn(O_TIEU_DE, O_DAU)}>Sản phẩm</th>
-                <th scope="col" className={cn(O_TIEU_DE, "w-[38%]", AN_DIEN_THOAI)}>Lô kế thừa</th>
-                <th scope="col" className={cn(O_TIEU_DE, O_CUOI, "w-24 text-right")}>Số lượng</th>
+                <th scope="col" className={cn(O_TIEU_DE, O_DAU)}>{t("Sản phẩm")}</th>
+                <th scope="col" className={cn(O_TIEU_DE, "w-[38%]", AN_DIEN_THOAI)}>{t("Lô kế thừa")}</th>
+                <th scope="col" className={cn(O_TIEU_DE, O_CUOI, "w-24 text-right")}>{t("Số lượng")}</th>
               </tr>
             </thead>
             {bang.nhom.map((n, i) => {
@@ -129,7 +130,7 @@ export default function BangHangNhan({ bang }) {
         </div>
       ) : null}
 
-      <KhongKetQua bang={bang} tenChungTu="phiếu nhập kho" donVi="biến thể" />
+      <KhongKetQua bang={bang} tenChungTu={t("phiếu nhập kho")} donVi={t("biến thể")} />
       <PhanTrangBang {...bang.phanTrang} />
     </section>
   );

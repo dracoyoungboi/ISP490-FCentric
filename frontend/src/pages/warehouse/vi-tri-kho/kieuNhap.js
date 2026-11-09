@@ -1,4 +1,5 @@
 import { NHOM_TRANG_THAI_KE } from "@/constants/nhapKho";
+import { t } from "@/i18n";
 
 /** Kiểu ô nhập dùng chung cho các hộp của trang Vị trí kệ (cao 36px, viền xám, focus xanh). */
 export const O_NHAP =
@@ -14,10 +15,10 @@ export const NUT_CHINH = "bg-bo-primary text-white hover:bg-bo-primary-hover";
 export function kiemTraKhuMoi({ ma, ten }, khuVucs) {
   const maChuan = String(ma ?? "").trim().toUpperCase();
   const loi = {};
-  if (!maChuan) loi.ma = "Nhập mã khu vực.";
-  else if (/\s/.test(maChuan)) loi.ma = "Mã khu vực không có khoảng trắng.";
-  else if ((khuVucs ?? []).some((k) => String(k.maKhuVuc ?? "").toUpperCase() === maChuan)) loi.ma = "Mã này đã có trong kho.";
-  if (!String(ten ?? "").trim()) loi.ten = "Nhập tên khu vực.";
+  if (!maChuan) loi.ma = t("Nhập mã khu vực.");
+  else if (/\s/.test(maChuan)) loi.ma = t("Mã khu vực không có khoảng trắng.");
+  else if ((khuVucs ?? []).some((k) => String(k.maKhuVuc ?? "").toUpperCase() === maChuan)) loi.ma = t("Mã này đã có trong kho.");
+  if (!String(ten ?? "").trim()) loi.ten = t("Nhập tên khu vực.");
   return { maChuan, loi, hopLe: !loi.ma && !loi.ten };
 }
 
@@ -29,8 +30,8 @@ export const dinhDangSo = (n) => Number(n || 0).toLocaleString("vi-VN");
 
 /** Tab trạng thái của danh sách vị trí (giữ trên URL ?trangThai=). "Đầy" là trạng thái tính, không chọn tay. */
 export const TAB_TRANG_THAI_KE = [
-  { value: "tat-ca", label: "Tất cả" },
-  { value: "con-cho", label: NHOM_TRANG_THAI_KE.CON_CHO.label, ma: "CON_CHO" },
-  { value: "day", label: NHOM_TRANG_THAI_KE.DAY.label, ma: "DAY", tone: "warning" },
-  { value: "bao-tri", label: NHOM_TRANG_THAI_KE.BAO_TRI.label, ma: "BAO_TRI" },
+  { value: "tat-ca", label: t("Tất cả") },
+  { value: "con-cho", label: t(NHOM_TRANG_THAI_KE.CON_CHO.label), ma: "CON_CHO" },
+  { value: "day", label: t(NHOM_TRANG_THAI_KE.DAY.label), ma: "DAY", tone: "warning" },
+  { value: "bao-tri", label: t(NHOM_TRANG_THAI_KE.BAO_TRI.label), ma: "BAO_TRI" },
 ];
