@@ -49,9 +49,17 @@ public final class PhieuChuyenKhoDto {
         boolean thieuXknb;
         Integer phieuGocId;
         String soPhieuGoc;
+        /**
+         * Hàng của phiếu đã vào kho mà chưa có kệ (nhận chuyển kho ở kho nhận, hàng hoàn trả về kho xuất), chỉ tính ở kho
+         * đang chọn (Quản lý Kho tổng: mọi kho đã khai báo kệ); 0 khi không có.
+         */
+        int chuaXepKe;
     }
 
-    /** Danh sách một trang và số phiếu ở từng tab (TAT_CA, CHO_DUYET, DANG_VAN_CHUYEN, TRE_HEN, CHO_XU_LY_LECH, THIEU_XKNB). */
+    /**
+     * Danh sách một trang và số phiếu ở từng tab (TAT_CA, CHO_DUYET, DANG_VAN_CHUYEN, TRE_HEN, CHO_XU_LY_LECH, THIEU_XKNB,
+     * CHO_XEP_KE).
+     */
     @Getter
     @Setter
     @NoArgsConstructor

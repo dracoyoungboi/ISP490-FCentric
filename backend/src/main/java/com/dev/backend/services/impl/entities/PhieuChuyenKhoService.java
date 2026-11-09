@@ -15,6 +15,7 @@ import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
 import com.dev.backend.entities.*;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.repository.*;
+import com.dev.backend.services.impl.kiemke.HangChuaCoKeService;
 import com.dev.backend.services.impl.kiemke.KhoaKiemKeGuard;
 import com.dev.backend.services.impl.multitable.DieuHanhHeThongServiceImpl;
 import com.dev.backend.services.impl.multitable.KhaDungChuyenKhoService;
@@ -31,6 +32,7 @@ import jakarta.persistence.criteria.Root;
 import jakarta.persistence.criteria.Subquery;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
@@ -91,6 +93,10 @@ public class PhieuChuyenKhoService {
     /** Chốt chặn kiểm kê khoanh vùng ở kho nhận; null khi unit test dựng tay. */
     @Autowired(required = false)
     private KhoaKiemKeGuard khoaKiemKeGuard;
+    /** Hàng đã nhận chưa có kệ (tab Chờ xếp kệ); @Lazy tránh vòng phụ thuộc bean; null khi unit test dựng tay. */
+    @Autowired(required = false)
+    @Lazy
+    private HangChuaCoKeService hangChuaCoKeService;
     private final ChiTietPhieuDieuChinhRepository chiTietPhieuDieuChinhRepository;
     private final PhieuXuatKhoRepository phieuXuatKhoRepository;
     private final ChiTietPhieuXuatKhoRepository chiTietPhieuXuatKhoRepository;
@@ -1007,7 +1013,8 @@ public class PhieuChuyenKhoService {
     // ĐỌC: DANH SÁCH (B.6), CHI TIẾT (B.1), PHIẾU ĐIỀU CHỈNH
     // ─────────────────────────────────────────────────────────────
 
-    public static final List<String> TAB = List.of("TAT_CA", "CHO_DUYET", "DANG_VAN_CHUYEN", "TRE_HEN", "CHO_XU_LY_LECH", "THIEU_XKNB");
+    public static final List<String> TAB = List.of("TAT_CA", "CHO_DUYET", "DANG_VAN_CHUYEN", "TRE_HEN", "CHO_XU_LY_LECH", "THIEU_XKNB",
+            "CHO_XEP_KE");
 
     @Transactional(readOnly = true)
     public PhieuChuyenKhoDto.DanhSach danhSach(String tab, String tuKhoa, Integer khoXuatId, Integer khoNhapId,
@@ -1019,6 +1026,10 @@ public class PhieuChuyenKhoService {
             throw new CommonException("Chọn kho làm việc để xem phiếu chuyển kho");
         }
         Instant bayGio = Instant.now();
+        // Hàng đã vào kho chưa có kệ theo phiếu, chỉ ở kho đang chọn (Quản lý Kho tổng: mọi kho đã khai báo kệ): tab Chờ
+        // xếp kệ và số trên dòng. Tính một lần cho cả lượt tải
+        Map<Integer, Integer> chuaXepKe = hangChuaCoKeService == null ? Map.of()
+                : hangChuaCoKeService.chuaXepTheoPhieuChuyen(khoDangChon);
         Function<String, Specification<PhieuChuyenKho>> loc = t -> (root, query, cb) -> {
             List<Predicate> p = new ArrayList<>();
             if (khoDangChon != null) {
@@ -1061,6 +1072,7 @@ public class PhieuChuyenKhoService {
                             cb.and(root.get("trangThai").in(IChuyenKho.HOAN_TAT, IChuyenKho.DA_HUY),
                                     cb.isNotNull(root.get("nguoiVanChuyen")))));
                 }
+                case "CHO_XEP_KE" -> p.add(chuaXepKe.isEmpty() ? cb.disjunction() : root.get("id").in(chuaXepKe.keySet()));
                 default -> { }
             }
             return cb.and(p.toArray(new Predicate[0]));
@@ -1111,6 +1123,7 @@ public class PhieuChuyenKhoService {
                 .thieuXknb(thieuXknb(p))
                 .phieuGocId(p.getPhieuGoc() != null ? p.getPhieuGoc().getId() : null)
                 .soPhieuGoc(p.getPhieuGoc() != null ? p.getPhieuGoc().getSoPhieuChuyen() : null)
+                .chuaXepKe(chuaXepKe.getOrDefault(p.getId(), 0))
                 .build()).toList();
         return PhieuChuyenKhoDto.DanhSach.builder()
                 .content(dong)
