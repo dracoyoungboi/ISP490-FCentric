@@ -64,6 +64,7 @@ import { henXepKe } from "@/components/kiem-ke/henXepKe";
 import useQuayLai from "@/hooks/useQuayLai";
 import { cn } from "@/lib/utils";
 import ChonAnhBienBan from "./ChonAnhBienBan";
+import { t } from "@/i18n";
 
 /** Phiếu như ngay sau khi lập biên bản (Chờ xử lý chênh lệch, kho gửi chưa xác nhận): để câu nói đúng bước tiếp theo. */
 const lapBienBan = (ct) => ({ ...ct, trangThai: TT_CHUYEN.CHO_XU_LY_LECH, bienBan: { phuongAn: "CHUA_XU_LY" } });
@@ -78,7 +79,10 @@ const gio = () => new Date().toLocaleTimeString("vi-VN", { hour12: false });
  */
 const coHopDangMo = () => Boolean(document.querySelector('[role="dialog"]:not([data-slot="popover-content"]), [role="alertdialog"]'));
 /** "thiếu 3, hỏng 1" — bỏ phần bằng 0 ("hỏng 1", không ghi "thiếu 0, hỏng 1"). */
-const cauLech = ({ thieu, hong }) => [thieu > 0 ? `thiếu ${soVN(thieu)}` : null, hong > 0 ? `hỏng ${soVN(hong)}` : null].filter(Boolean).join(", ");
+const cauLech = ({ thieu, hong }) => [thieu > 0 ? t("thiếu {{so}}", { so: soVN(thieu) }) : null, hong > 0 ? t("hỏng {{so}}", { so: soVN(hong) }) : null].filter(Boolean).join(", ");
+/** Như cauLech nhưng luôn tiếng Việt: điền sẵn kết luận biên bản (gửi máy chủ, in trên biên bản). */
+// i18n-giu-nguyen: nội dung biên bản gửi máy chủ
+const cauLechVi = ({ thieu, hong }) => [thieu > 0 ? `thiếu ${soVN(thieu)}` : null, hong > 0 ? `hỏng ${soVN(hong)}` : null].filter(Boolean).join(", ");
 /** Thời gian dùng lại kết quả tra mã vạch NCC với máy chủ (mã bị gỡ / liên kết lại ở máy khác vẫn được phát hiện). */
 const KIEM_LAI_MA_NCC_MS = 60_000;
 /**
@@ -231,7 +235,7 @@ function ManNhanHang({ id }) {
                 const p = chuanHoaPhienNhan(docPhienNhan(id), co.hangTheoLo);
                 phienRef.current = p;
                 setPhienState(p);
-                if (phienCoSo(p)) setBaoQuet({ tone: "info", chu: "Đã mở lại số đếm dở của phiếu này (giữ trong thẻ trình duyệt). Quét tiếp để đếm nốt." });
+                if (phienCoSo(p)) setBaoQuet({ tone: "info", chu: t("Đã mở lại số đếm dở của phiếu này (giữ trong thẻ trình duyệt). Quét tiếp để đếm nốt.") });
             }
         } catch (e) {
             ctRef.current = null;
@@ -286,7 +290,7 @@ function ManNhanHang({ id }) {
         const ketQua = hoanTacLuot(phienRef.current, luotId);
         if (!ketQua.luot) return;
         setPhien(ketQua.phien);
-        setBaoQuet({ tone: "neutral", chu: `Đã hoàn tác lượt quét ${ketQua.luot.ma} (${soVN(ketQua.luot.sl)} cái).` });
+        setBaoQuet({ tone: "neutral", chu: t("Đã hoàn tác lượt quét {{ma}} ({{sl}} cái).", { ma: ketQua.luot.ma, sl: soVN(ketQua.luot.sl) }) });
         bipKiemDem("loi");
         focusQuet();
     };
@@ -295,23 +299,23 @@ function ManNhanHang({ id }) {
         const c = luotHienTai(phienRef.current);
         switch (lenh.loai) {
             case "KHONG_DAT":
-                if (!c) return bao("bad", "Quét sản phẩm trước rồi mới quét thẻ KHÔNG ĐẠT.");
+                if (!c) return bao("bad", t("Quét sản phẩm trước rồi mới quét thẻ KHÔNG ĐẠT."));
                 return suaLuotNay(thanhHong, "loi");
             case "DAT":
-                if (!c) return bao("info", "Chưa có lượt quét nào để xác nhận.");
+                if (!c) return bao("info", t("Chưa có lượt quét nào để xác nhận."));
                 return suaLuotNay(thanhDat, "ok");
             case "LY_DO":
-                if (!c || c.kq !== "hong") return bao("bad", "Thẻ lý do chỉ dùng sau thẻ KHÔNG ĐẠT.");
+                if (!c || c.kq !== "hong") return bao("bad", t("Thẻ lý do chỉ dùng sau thẻ KHÔNG ĐẠT."));
                 return suaLuotNay((ph, ds) => chonLyDo(ph, ds, LY_DO_LOI[lenh.soLyDo - 1]), "ok");
             case "HOAN_TAC": {
                 const dich = luotDeHoanTac(phienRef.current);
-                if (!dich) return bao("info", "Không còn lượt quét nào để hoàn tác.");
+                if (!dich) return bao("info", t("Không còn lượt quét nào để hoàn tác."));
                 return hoanTac(dich.id);
             }
             case "KHOA_LO":
-                return bao("info", "Nhận hàng chuyển kho không khóa lô: lô có sẵn từ kho xuất. Đếm xong bấm Xác nhận nhận đủ hoặc Xử lý chênh lệch.", null);
+                return bao("info", t("Nhận hàng chuyển kho không khóa lô: lô có sẵn từ kho xuất. Đếm xong bấm Xác nhận nhận đủ hoặc Xử lý chênh lệch."), null);
             default:
-                return bao("bad", `Thẻ lệnh ${hoa} không có trong hệ thống.`);
+                return bao("bad", t("Thẻ lệnh {{hoa}} không có trong hệ thống.", { hoa }));
         }
     };
 
@@ -319,29 +323,31 @@ function ManNhanHang({ id }) {
     const xuLyMa = async ({ raw }) => {
         const c = ctRef.current;
         if (!c || daGuiRef.current || c.trangThai !== TT_CHUYEN.DANG_VAN_CHUYEN || !c.quyen?.nhan) return;
-        const cauDangMoHop = () => `Đang mở hộp xác nhận: mã ${String(raw).trim()} chưa được tính. Đóng hộp rồi quét lại.`;
+        const cauDangMoHop = () => t("Đang mở hộp xác nhận: mã {{ma}} chưa được tính. Đóng hộp rồi quét lại.", { ma: String(raw).trim() });
         if (hopRef.current) return bao("warn", cauDangMoHop());
         const ds = c.hangTheoLo ?? [];
         const tach = tachSoLuong(raw);
         if (tach.loi) return bao("bad", tach.loi);
         const ma = tach.ma;
-        if (!ma) return bao("bad", "Chưa có mã. Quét hoặc nhập mã rồi nhấn Enter.");
+        if (!ma) return bao("bad", t("Chưa có mã. Quét hoặc nhập mã rồi nhấn Enter."));
         const hoa = ma.toUpperCase();
         const lenh = docTheLenh(hoa, LY_DO_LOI.length);
         if (lenh) return xuLyLenh(lenh, hoa);
         if (!kyTuHopLe(ma)) {
-            return bao("bad", `Mã “${ma}” có ký tự không có trên tem mã vạch (chữ có dấu hoặc khoảng trắng). Nếu gõ tay, hãy kiểm tra lại mã.`);
+            return bao("bad", t("Mã “{{ma}}” có ký tự không có trên tem mã vạch (chữ có dấu hoặc khoảng trắng). Nếu gõ tay, hãy kiểm tra lại mã.", { ma }));
         }
         const cho = luotChoLyDo(phienRef.current);
         if (cho) {
             setAnThe(false);
-            return bao("bad", `Chọn lý do hỏng cho ${cho.sku} trước: quét thẻ lý do hoặc bấm chọn trên thẻ kết quả.`);
+            return bao("bad", t("Chọn lý do hỏng cho {{sku}} trước: quét thẻ lý do hoặc bấm chọn trên thẻ kết quả.", { sku: cho.sku }));
         }
         const cauNgoaiPhieu = (ten) =>
-            `Mã ${ma}${ten ? ` là của ${ten}` : ""} không có trong phiếu chuyển này. Để riêng sản phẩm; hàng giao nhầm thì ghi vào kết luận biên bản.`;
+            (ten
+                ? t("Mã {{ma}} là của {{ten}} không có trong phiếu chuyển này. Để riêng sản phẩm; hàng giao nhầm thì ghi vào kết luận biên bản.", { ma, ten })
+                : t("Mã {{ma}} không có trong phiếu chuyển này. Để riêng sản phẩm; hàng giao nhầm thì ghi vào kết luận biên bản.", { ma }));
         let tim = timBienTheTheoMa(ds, ma);
         const daNho = maNccRef.current.get(hoa);
-        if (!tim && daNho && Date.now() - daNho.luc < KIEM_LAI_MA_NCC_MS) tim = { bienTheId: daNho.bienTheId, nguon: "mã vạch NCC" };
+        if (!tim && daNho && Date.now() - daNho.luc < KIEM_LAI_MA_NCC_MS) tim = { bienTheId: daNho.bienTheId, nguon: "mã vạch NCC" }; // i18n-giu-nguyen: nguồn lượt quét (lưu tạm, dịch lúc vẽ)
         if (!tim) {
             // Mã vạch nhà cung cấp đã liên kết với một biến thể của phiếu (tem NCC còn trên hàng)
             let tra = null;
@@ -358,9 +364,10 @@ function ManNhanHang({ id }) {
             // Mất kết nối, hết giờ chờ, lỗi máy chủ: chưa biết mã có thuộc phiếu không, không báo nhầm là hàng ngoài phiếu
             const trangThaiLoi = loiTra ? getApiErrorStatus(loiTra) : null;
             if (loiTra && (trangThaiLoi == null || trangThaiLoi >= 500)) {
-                return bao("bad", `Không tra được mã ${ma} với máy chủ, hàng chưa được tính. Kiểm tra kết nối rồi quét lại.`);
+                return bao("bad", t("Không tra được mã {{ma}} với máy chủ, hàng chưa được tính. Kiểm tra kết nối rồi quét lại.", { ma }));
             }
             if (tra?.timThay && ds.some((l) => l.bienTheId === tra.bienTheSanPhamId)) {
+                // i18n-giu-nguyen: nguồn lượt quét (lưu tạm, dịch lúc vẽ)
                 tim = { bienTheId: tra.bienTheSanPhamId, nguon: tra.loaiMa === "NCC" ? "mã vạch NCC" : "mã FCentric" };
                 maNccRef.current.set(hoa, { bienTheId: tra.bienTheSanPhamId, luc: Date.now() });
             } else if (tra?.timThay) {
@@ -373,18 +380,18 @@ function ManNhanHang({ id }) {
         // Chờ tra máy chủ xong mà lượt hiện tại vẫn chờ lý do: chặn như trên
         if (them.choLyDo) {
             setAnThe(false);
-            return bao("bad", `Chọn lý do hỏng cho ${them.choLyDo.sku} trước: quét thẻ lý do hoặc bấm chọn trên thẻ kết quả.`);
+            return bao("bad", t("Chọn lý do hỏng cho {{sku}} trước: quét thẻ lý do hoặc bấm chọn trên thẻ kết quả.", { sku: them.choLyDo.sku }));
         }
         if (!them.luot) {
             const gui = guiCuaBienThe(ds, tim.bienTheId);
             const sku = loCuaBienThe(ds, tim.bienTheId)[0]?.sku ?? ma;
-            return bao("warn", `${sku} đã đếm đủ ${soVN(gui)}/${soVN(gui)}. Hàng thừa để riêng, không nhập theo phiếu này.`);
+            return bao("warn", t("{{sku}} đã đếm đủ {{gui}}/{{gui}}. Hàng thừa để riêng, không nhập theo phiếu này.", { sku, gui: soVN(gui) }));
         }
         setPhien(them.phien);
         setAnThe(false);
         setBaoQuet(
             them.tinh < tach.soLuong
-                ? { tone: "warn", chu: `Chỉ tính ${soVN(them.tinh)}/${soVN(tach.soLuong)} vì ${them.luot.sku} chỉ còn thiếu ${soVN(them.tinh)}. Phần thừa để riêng.` }
+                ? { tone: "warn", chu: t("Chỉ tính {{tinh}}/{{soLuong}} vì {{sku}} chỉ còn thiếu {{tinh}}. Phần thừa để riêng.", { tinh: soVN(them.tinh), soLuong: soVN(tach.soLuong), sku: them.luot.sku }) }
                 : null,
         );
         bipKiemDem("ok");
@@ -405,7 +412,7 @@ function ManNhanHang({ id }) {
     const chanKhiChoLyDo = (d) => {
         if (!loDangChoLyDo(phienRef.current, d.khoa)) return false;
         setAnThe(false);
-        bao("bad", `Chọn lý do hỏng cho ${luotChoLyDo(phienRef.current).sku} trước, rồi mới sửa số của lô ${d.maLo}.`);
+        bao("bad", t("Chọn lý do hỏng cho {{sku}} trước, rồi mới sửa số của lô {{maLo}}.", { sku: luotChoLyDo(phienRef.current).sku, maLo: d.maLo }));
         return true;
     };
     const vaoODat = (d) => {
@@ -433,7 +440,7 @@ function ManNhanHang({ id }) {
         const quaDai = String(nay).length > String(d.gui).length + 1;
         if (!o.coChu && !quaDai) return;
         setPhien(datTay(phienRef.current, d.khoa, o.truoc));
-        bao("warn", `Ô Đạt của ${d.sku} lô ${d.maLo} vừa nhận ${o.coChu ? "chữ" : "một số quá dài"}, giống máy quét bắn nhầm vào ô: đã trả về ${soVN(o.truoc)}. Quét lại ở ô quét.`);
+        bao("warn", t("Ô Đạt của {{sku}} lô {{maLo}} vừa nhận {{kieu}}, giống máy quét bắn nhầm vào ô: đã trả về {{truoc}}. Quét lại ở ô quét.", { sku: d.sku, maLo: d.maLo, kieu: o.coChu ? t("chữ") : t("một số quá dài"), truoc: soVN(o.truoc) }));
     };
     /**
      * Phím trong bảng (bắt trước ô): máy quét bắn vào ô Đạt / ô ghi chú (nhịp phím nhanh + Enter) thì trả đúng ô đó về
@@ -534,14 +541,14 @@ function ManNhanHang({ id }) {
         setDaKiemLyDo(true);
         if (kq.dong.some((d) => d.chuaLyDo > 0)) {
             setAnThe(false);
-            bao("bad", "Còn cái hỏng chưa chọn lý do: chọn trên thẻ kết quả, hoặc hoàn tác lượt đó.");
+            bao("bad", t("Còn cái hỏng chưa chọn lý do: chọn trên thẻ kết quả, hoặc hoàn tác lượt đó."));
             return;
         }
         const dongThieu = kq.dong.find((d) => d.thieuLyDo);
         if (dongThieu) {
             // Cất thẻ kết quả: thẻ che các dòng cần ghi chú, câu báo hiện dưới ô quét thay vì trên thẻ
             setAnThe(true);
-            setBaoQuet({ tone: "bad", chu: "Ghi chú phần thiếu (hoặc lý do Khác) cho các dòng lệch." });
+            setBaoQuet({ tone: "bad", chu: t("Ghi chú phần thiếu (hoặc lý do Khác) cho các dòng lệch.") });
             bipKiemDem("sai");
             // Con trỏ vào ô ghi chú đầu tiên còn trống (ô vừa hiện ra sau lần bấm này), không về ô quét
             setTimeout(() => document.querySelector(`input[data-loai-o="ghiChu"][data-khoa-o="${dongThieu.khoa}"]`)?.focus(), 30);
@@ -570,8 +577,8 @@ function ManNhanHang({ id }) {
                 toast.error(CAU_HET_THOI_HAN, { description: MO_TA_HET_THOI_HAN });
                 // Chưa biết biên bản đã lập chưa: ảnh đã chọn không gửi; chỉ thêm ảnh được khi biên bản đã có
                 if (hop === "bienBan" && anhChon.ds.length) {
-                    toast.warning(`${anhChon.ds.length} ảnh chưa tải lên`, {
-                        description: "Chưa rõ biên bản đã lập chưa. Mở lại phiếu để kiểm tra; nếu đã lập thì thêm ảnh ở chi tiết phiếu.",
+                    toast.warning(t("{{count}} ảnh chưa tải lên", { count: anhChon.ds.length }), {
+                        description: t("Chưa rõ biên bản đã lập chưa. Mở lại phiếu để kiểm tra; nếu đã lập thì thêm ảnh ở chi tiết phiếu."),
                     });
                 }
                 // Người dùng đã rời màn trong lúc chờ: không kéo họ khỏi trang đang xem
@@ -579,7 +586,7 @@ function ManNhanHang({ id }) {
                 veChiTiet();
                 return;
             }
-            setLoiHop(getApiErrorMessage(e, "Không ghi nhận được nhận hàng"));
+            setLoiHop(getApiErrorMessage(e, t("Không ghi nhận được nhận hàng")));
             // Phiếu vừa đổi ở nơi khác (hủy, đã có người nhận): tải lại để màn hiện đúng trạng thái
             if (getApiErrorStatus(e) === 409) tai();
             return;
@@ -622,42 +629,42 @@ function ManNhanHang({ id }) {
         return (
             <PageContainer className="flex min-h-full flex-col">
                 {loading || !loadError ? (
-                    <KhungDangTai nhan="Đang tải phiếu chuyển kho" />
+                    <KhungDangTai nhan={t("Đang tải phiếu chuyển kho")} />
                 ) : (
-                    <KhungLoiChungTu loi={loadError.loi} tenChungTu="phiếu chuyển kho" onVeDanhSach={() => navigate("/transfer-tickets")} onThuLai={tai} />
+                    <KhungLoiChungTu loi={loadError.loi} tenChungTu={t("phiếu chuyển kho")} onVeDanhSach={() => navigate("/transfer-tickets")} onThuLai={tai} />
                 )}
             </PageContainer>
         );
     }
 
-    const khoXuat = ct.khoXuat?.ten ?? "kho xuất";
-    const khoNhap = ct.khoNhap?.ten ?? "kho nhận";
+    const khoXuat = ct.khoXuat?.ten ?? t("kho xuất");
+    const khoNhap = ct.khoNhap?.ten ?? t("kho nhận");
     const dau = (
         <DauChungTu
-            ma={`Nhận hàng · ${ct.soPhieuChuyen}`}
+            ma={t("Nhận hàng · {{so}}", { so: ct.soPhieuChuyen })}
             dongPhu={[
-                `Từ ${khoXuat}`,
-                ct.nguoiVanChuyen ? `người giao ${ct.nguoiVanChuyen}` : null,
-                <span key="xknb">giấy đi đường <span className="font-mono">{ct.soPhieuXknb ? `${ct.kyHieuXknb} · ${ct.soPhieuXknb}` : "chưa có số"}</span></span>,
+                t("Từ {{khoXuat}}", { khoXuat }),
+                ct.nguoiVanChuyen ? t("người giao {{ten}}", { ten: ct.nguoiVanChuyen }) : null,
+                <span key="xknb">{t("giấy đi đường")} <span className="font-mono">{ct.soPhieuXknb ? `${ct.kyHieuXknb} · ${ct.soPhieuXknb}` : t("chưa có số")}</span></span>,
             ].filter(Boolean)}
             onQuayLai={veChiTiet}
-            nhanQuayLai="Về phiếu chuyển"
+            nhanQuayLai={t("Về phiếu chuyển")}
             nutChinh={duocNhan ? [
                 {
-                    nhan: "Xử lý chênh lệch",
+                    nhan: t("Xử lý chênh lệch"),
                     icon: FileWarning,
                     kieu: kq.khop || chuaDem || dangDem ? "vien" : "chinh",
                     onClick: moBienBan,
                     khoa: kq.khop || kq.vuot || kq.dong.length === 0,
-                    lyDo: kq.vuot ? "Có dòng vượt số gửi, đếm lại trước" : kq.khop ? "Hàng khớp đủ, dùng Xác nhận nhận đủ" : undefined,
+                    lyDo: kq.vuot ? t("Có dòng vượt số gửi, đếm lại trước") : kq.khop ? t("Hàng khớp đủ, dùng Xác nhận nhận đủ") : undefined,
                 },
                 {
-                    nhan: "Xác nhận nhận đủ",
+                    nhan: t("Xác nhận nhận đủ"),
                     icon: ClipboardCheck,
                     kieu: kq.khop ? "chinh" : "vien",
                     onClick: () => setHop("du"),
                     khoa: !kq.khop,
-                    lyDo: !kq.khop ? "Số đếm chưa khớp số gửi" : undefined,
+                    lyDo: !kq.khop ? t("Số đếm chưa khớp số gửi") : undefined,
                 },
             ] : []}
         />
@@ -671,9 +678,9 @@ function ManNhanHang({ id }) {
                     thongBao={[
                         <DongThongBao key="khong" tone="warn">
                             {ct.trangThai !== TT_CHUYEN.DANG_VAN_CHUYEN
-                                ? "Phiếu không còn ở bước nhận hàng."
-                                : `Chỉ ${khoNhap} (quản lý, nhân viên kho được phân công) nhận hàng của phiếu này.`}{" "}
-                            Mở lại phiếu chuyển để xem trạng thái hiện tại.
+                                ? t("Phiếu không còn ở bước nhận hàng.")
+                                : t("Chỉ {{khoNhap}} (quản lý, nhân viên kho được phân công) nhận hàng của phiếu này.", { khoNhap })}{" "}
+                            {t("Mở lại phiếu chuyển để xem trạng thái hiện tại.")}
                         </DongThongBao>,
                     ]}
                     chinh={<div className="p-6" />}
@@ -683,26 +690,22 @@ function ManNhanHang({ id }) {
     }
 
     const thongBao = kq.vuot ? (
-        <DongThongBao tone="bad">Có dòng Đạt + Hỏng vượt số gửi. Đếm lại dòng đó; hàng dư ngoài phiếu không nhập theo phiếu này.</DongThongBao>
+        <DongThongBao tone="bad">{t("Có dòng Đạt + Hỏng vượt số gửi. Đếm lại dòng đó; hàng dư ngoài phiếu không nhập theo phiếu này.")}</DongThongBao>
     ) : chuaDem ? (
         <DongThongBao tone="info">
-            Quét sản phẩm: mỗi lượt tự tính Đạt; cái hỏng thì quét tiếp thẻ <B>KHÔNG ĐẠT</B> rồi mã lý do (hoặc bấm trên thẻ kết quả). Gõ
-            12* trước mã để tính cả thùng. Khớp đủ thì bấm <B>Xác nhận nhận đủ</B>; có thiếu hoặc hỏng thì bấm <B>Xử lý chênh lệch</B> để
-            lập biên bản giao nhận.
+            {t("Quét sản phẩm: mỗi lượt tự tính Đạt; cái hỏng thì quét tiếp thẻ")} <B>{t("KHÔNG ĐẠT")}</B> {t("rồi mã lý do (hoặc bấm trên thẻ kết quả). Gõ 12* trước mã để tính cả thùng. Khớp đủ thì bấm")} <B>{t("Xác nhận nhận đủ")}</B>{t("; có thiếu hoặc hỏng thì bấm")} <B>{t("Xử lý chênh lệch")}</B> {t("để lập biên bản giao nhận.")}
         </DongThongBao>
     ) : dangDem ? (
         <DongThongBao tone="info">
-            Đang đếm {soVN(kq.tong.dat + kq.tong.hong)}/{soVN(kq.tong.gui)}, còn {soVN(soDongChuaDem)} dòng chưa đếm cái nào. Quét tiếp; đếm xong mà
-            còn thiếu hoặc có hỏng thì bấm <B>Xử lý chênh lệch</B> để lập biên bản giao nhận.
+            {t("Đang đếm {{dem}}/{{gui}}, còn {{soDong}} dòng chưa đếm cái nào. Quét tiếp; đếm xong mà còn thiếu hoặc có hỏng thì bấm", { dem: soVN(kq.tong.dat + kq.tong.hong), gui: soVN(kq.tong.gui), count: soDongChuaDem, soDong: soVN(soDongChuaDem) })} <B>{t("Xử lý chênh lệch")}</B> {t("để lập biên bản giao nhận.")}
         </DongThongBao>
     ) : kq.khop ? (
         <DongThongBao tone="ok">
-            Khớp đủ {soVN(kq.tong.dat)}/{soVN(kq.tong.gui)} sản phẩm, hàng nguyên vẹn. Bấm <B>Xác nhận nhận đủ</B> để phát hành phiếu nhập và hoàn tất phiếu.
+            {t("Khớp đủ {{dat}}/{{gui}} sản phẩm, hàng nguyên vẹn. Bấm", { dat: soVN(kq.tong.dat), gui: soVN(kq.tong.gui) })} <B>{t("Xác nhận nhận đủ")}</B> {t("để phát hành phiếu nhập và hoàn tất phiếu.")}
         </DongThongBao>
     ) : (
         <DongThongBao tone="warn">
-            Có <B>{kq.soDongLech} dòng</B> không khớp số gửi ({cauLech(kq.tong)}). Bấm <B>Xử lý chênh lệch</B> để nhập ngay phần đạt
-            và lập <B>biên bản giao nhận</B> để kho nhận và người vận chuyển ký. Phần thiếu và hỏng chưa vào kho, chờ {cauChoXuLyLech(lapBienBan(ct))}.
+            {t("Có", { context: "co_dong", count: kq.soDongLech })} <B>{t("{{so}} dòng", { count: kq.soDongLech, so: soVN(kq.soDongLech) })}</B> {t("không khớp số gửi ({{lech}}). Bấm", { lech: cauLech(kq.tong) })} <B>{t("Xử lý chênh lệch")}</B> {t("để nhập ngay phần đạt và lập")} <B>{t("biên bản giao nhận")}</B> {t("để kho nhận và người vận chuyển ký. Phần thiếu và hỏng chưa vào kho, chờ")} {cauChoXuLyLech(lapBienBan(ct))}.
         </DongThongBao>
     );
 
@@ -713,7 +716,7 @@ function ManNhanHang({ id }) {
     const conThemCur = loCur.reduce((s, l) => s + conDemDuoc(l, p.dem), 0);
     const maLoTheoKhoa = Object.fromEntries(dsLo.map((l) => [khoaLo(l), l.maLo]));
     const soLuot = p.log.filter((e) => !e.huy).length;
-    const dsTab = [["bang", "Bảng đếm", null], ["luot", "Lượt quét", soLuot]];
+    const dsTab = [["bang", t("Bảng đếm"), null], ["luot", t("Lượt quét"), soLuot]];
     // Thuộc tính một lô, dùng chung cho dòng bảng và thẻ (khung hẹp)
     const propsDong = (d) => ({
         d,
@@ -740,7 +743,7 @@ function ManNhanHang({ id }) {
             <form onSubmit={nhanMa} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 pb-3 pt-4 sm:px-6">
                 {/* Ô quét rộng ít nhất 16rem: màn hẹp (máy quét cầm tay) thì bộ đếm và In thẻ lệnh xuống dòng thay vì bóp ô */}
                 <label className="relative min-w-0 flex-[1_1_16rem]">
-                    <span className="sr-only">Quét mã vạch hoặc gõ SKU</span>
+                    <span className="sr-only">{t("Quét mã vạch hoặc gõ SKU")}</span>
                     <ScanLine className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-bo-muted" aria-hidden="true" />
                     <input
                         ref={oQuetRef}
@@ -750,19 +753,19 @@ function ManNhanHang({ id }) {
                         autoComplete="off"
                         spellCheck={false}
                         enterKeyHint="done"
-                        placeholder="Quét sản phẩm hoặc thẻ lệnh · gõ 12* trước mã để tính cả thùng (gõ SKU rồi Enter)"
+                        placeholder={t("Quét sản phẩm hoặc thẻ lệnh · gõ 12* trước mã để tính cả thùng (gõ SKU rồi Enter)")}
                         className={cn(O_NHAP, "pl-8")}
                     />
                 </label>
                 <span className="text-[13px] tabular-nums text-bo-muted">
-                    Đã đếm {soVN(kq.tong.dat + kq.tong.hong)}/{soVN(kq.tong.gui)}
+                    {t("Đã đếm")} {soVN(kq.tong.dat + kq.tong.hong)}/{soVN(kq.tong.gui)}
                 </span>
                 <button
                     type="button"
                     onClick={() => setMoInThe(true)}
                     className="inline-flex items-center gap-1.5 text-[13px] font-medium text-bo-primary hover:text-bo-primary-hover"
                 >
-                    <Printer className="size-4" aria-hidden="true" /> In thẻ lệnh
+                    <Printer className="size-4" aria-hidden="true" /> {t("In thẻ lệnh")}
                 </button>
             </form>
             {baoDuoiO ? (
@@ -771,9 +774,9 @@ function ManNhanHang({ id }) {
                 </div>
             ) : null}
             <p className="px-4 pb-2 text-xs leading-4 text-bo-muted sm:px-6">
-                <B>Gửi</B>: số {khoXuat} xuất · <B>Đạt</B>: số đếm được, bán được · <B>Hỏng</B>: tới nơi nhưng không bán được · <B>Thiếu</B> = Gửi − Đạt − Hỏng
+                <B>{t("Gửi", { context: "so_luong" })}</B>: {t("số {{khoXuat}} xuất", { khoXuat })} · <B>{t("Đạt")}</B>: {t("số đếm được, bán được")} · <B>{t("Hỏng")}</B>: {t("tới nơi nhưng không bán được")} · <B>{t("Thiếu")}</B> = {t("Gửi", { context: "so_luong" })} − {t("Đạt")} − {t("Hỏng")}
             </p>
-            <div role="tablist" aria-label="Bảng đếm và lượt quét" className="flex gap-1 border-t border-bo-border px-3">
+            <div role="tablist" aria-label={t("Bảng đếm và lượt quét")} className="flex gap-1 border-t border-bo-border px-3">
                 {dsTab.map(([ma, nhan, dem], i) => {
                     const dangMo = tab === ma;
                     return (
@@ -812,13 +815,13 @@ function ManNhanHang({ id }) {
                     <div className={KHUNG_CUON} onKeyDownCapture={nhanPhimTrongBang}>
                         {khungHep ? (
                             <>
-                                <ul aria-label="Bảng đếm theo lô">
+                                <ul aria-label={t("Bảng đếm theo lô")}>
                                     {kq.dong.map((d) => (
                                         <TheDem key={d.khoa} {...propsDong(d)} />
                                     ))}
                                 </ul>
-                                <dl aria-label="Tổng" className="grid grid-cols-4 gap-2 bg-bo-surface-subtle px-4 py-3 tabular-nums sm:px-6">
-                                    {[["Gửi", kq.tong.gui], ["Đạt", kq.tong.dat], ["Hỏng", kq.tong.hong], ["Thiếu", kq.tong.thieu]].map(([nhan, n]) => (
+                                <dl aria-label={t("Tổng")} className="grid grid-cols-4 gap-2 bg-bo-surface-subtle px-4 py-3 tabular-nums sm:px-6">
+                                    {[[t("Gửi", { context: "so_luong" }), kq.tong.gui], [t("Đạt"), kq.tong.dat], [t("Hỏng"), kq.tong.hong], [t("Thiếu"), kq.tong.thieu]].map(([nhan, n]) => (
                                         <div key={nhan}>
                                             <dt className="text-xs text-bo-muted">{nhan}</dt>
                                             <dd className="text-sm font-semibold text-bo-foreground">{soVN(n)}</dd>
@@ -831,12 +834,12 @@ function ManNhanHang({ id }) {
                             <table className={cn(BANG, "table-fixed")} style={{ minWidth: BANG_TOI_THIEU }}>
                                 <thead>
                                     <tr className={DONG_TIEU_DE}>
-                                        <th scope="col" className={cn(O_TIEU_DE, O_DAU)}>Sản phẩm</th>
-                                        <th scope="col" className={cn(O_TIEU_DE, "w-36")}>Lô</th>
-                                        <th scope="col" className={cn(O_TIEU_DE, "w-16 text-right")}>Gửi</th>
-                                        <th scope="col" className={cn(O_TIEU_DE, "w-24 text-right")}>Đạt</th>
-                                        <th scope="col" className={cn(O_TIEU_DE, "w-24 text-right")}>Hỏng</th>
-                                        <th scope="col" className={cn(O_TIEU_DE, O_CUOI, "w-32 text-right")}>Thiếu</th>
+                                        <th scope="col" className={cn(O_TIEU_DE, O_DAU)}>{t("Sản phẩm")}</th>
+                                        <th scope="col" className={cn(O_TIEU_DE, "w-36")}>{t("Lô")}</th>
+                                        <th scope="col" className={cn(O_TIEU_DE, "w-16 text-right")}>{t("Gửi", { context: "so_luong" })}</th>
+                                        <th scope="col" className={cn(O_TIEU_DE, "w-24 text-right")}>{t("Đạt")}</th>
+                                        <th scope="col" className={cn(O_TIEU_DE, "w-24 text-right")}>{t("Hỏng")}</th>
+                                        <th scope="col" className={cn(O_TIEU_DE, O_CUOI, "w-32 text-right")}>{t("Thiếu")}</th>
                                     </tr>
                                 </thead>
                                 {kq.dong.map((d) => (
@@ -844,7 +847,7 @@ function ManNhanHang({ id }) {
                                 ))}
                                 <tfoot>
                                     <tr className="border-t border-bo-border font-semibold tabular-nums text-bo-foreground">
-                                        <td className={cn(O, O_DAU)}>Tổng</td>
+                                        <td className={cn(O, O_DAU)}>{t("Tổng")}</td>
                                         <td className={O} />
                                         <td className={cn(O, "text-right")}>{soVN(kq.tong.gui)}</td>
                                         <td className={cn(O, "text-right")}>{soVN(kq.tong.dat)}</td>
@@ -871,12 +874,12 @@ function ManNhanHang({ id }) {
                                     <span className={cn("size-2 shrink-0 rounded-full", e.huy ? "bg-slate-300" : e.kq === "hong" ? (e.sl > e.hong ? "bg-amber-700" : "bg-red-600") : "bg-green-700")} />
                                     <span className="truncate">{nhanLuotNhan(e)}</span>
                                     <span className="hidden truncate text-xs text-bo-muted lg:inline">
-                                        · {e.sku} · lô {e.phan.map((x) => `${maLoTheoKhoa[x.khoa] ?? "?"}${e.phan.length > 1 ? ` ×${x.sl}` : ""}`).join(", ")} · {e.nguon}
+                                        · {e.sku} · {t("lô", { context: "mot" })} {e.phan.map((x) => `${maLoTheoKhoa[x.khoa] ?? "?"}${e.phan.length > 1 ? ` ×${x.sl}` : ""}`).join(", ")} · {t(e.nguon)}
                                     </span>
                                 </span>
                                 <span className="col-start-3 row-start-1 text-right lg:col-start-auto lg:row-start-auto">
                                     {e.huy ? (
-                                        <span className="text-xs text-bo-muted">Đã hoàn tác</span>
+                                        <span className="text-xs text-bo-muted">{t("Đã hoàn tác")}</span>
                                     ) : (
                                         <button
                                             type="button"
@@ -885,7 +888,7 @@ function ManNhanHang({ id }) {
                                             onClick={() => hoanTac(e.id)}
                                             className="text-[13px] font-semibold text-bo-primary hover:underline disabled:opacity-50"
                                         >
-                                            Hoàn tác
+                                            {t("Hoàn tác")}
                                         </button>
                                     )}
                                 </span>
@@ -893,7 +896,7 @@ function ManNhanHang({ id }) {
                         ))}
                     </ul>
                 ) : (
-                    <p className="border-t border-slate-100 px-6 py-10 text-center text-sm text-bo-muted">Chưa có lượt quét nào. Số gõ tay ở bảng đếm không hiện ở đây.</p>
+                    <p className="border-t border-slate-100 px-6 py-10 text-center text-sm text-bo-muted">{t("Chưa có lượt quét nào. Số gõ tay ở bảng đếm không hiện ở đây.")}</p>
                 )}
             </div>
             {/* Chỗ trống cuối khối: cuộn hết trang thì dòng cuối nằm trên thẻ kết quả (thẻ nổi, không chiếm chỗ) */}
@@ -919,8 +922,8 @@ function ManNhanHang({ id }) {
                             conLai={conThemCur}
                             lyDoDs={LY_DO_LOI}
                             khoa={dangChay}
-                            nhanLoi="Hỏng"
-                            dongPhu={l0 ? [l0.tenSanPham, l0.tenMau, l0.kichCo, `lô ${cur.phan.map((x) => maLoTheoKhoa[x.khoa]).join(", ")}`].filter(Boolean).join(" · ") : null}
+                            nhanLoi={t("Hỏng")}
+                            dongPhu={l0 ? [l0.tenSanPham, l0.tenMau, l0.kichCo, t("lô {{maLo}}", { maLo: cur.phan.map((x) => maLoTheoKhoa[x.khoa]).join(", ") })].filter(Boolean).join(" · ") : null}
                             onDat={() => suaLuotNay(thanhDat, "ok")}
                             onKhongDat={() => suaLuotNay(thanhHong, "loi")}
                             onLyDo={(ten) => suaLuotNay((ph, ds) => chonLyDo(ph, ds, ten), "ok")}
@@ -950,15 +953,15 @@ function ManNhanHang({ id }) {
                 <HopXacNhanChungTu
                     mo
                     onDoiMo={(m) => !m && (setHop(null), setLoiHop(null))}
-                    tieuDe="Xác nhận nhận đủ"
-                    moTa={`${khoNhap} nhận đủ ${soVN(kq.tong.gui)}/${soVN(kq.tong.gui)} sản phẩm, hàng nguyên vẹn. Hệ thống phát hành phiếu nhập, ghi tăng tồn ${khoNhap}, đưa hàng đang chuyển của phiếu về 0 và hoàn tất phiếu.`}
-                    nhanXacNhan="Xác nhận nhận đủ"
+                    tieuDe={t("Xác nhận nhận đủ")}
+                    moTa={t("{{khoNhap}} nhận đủ {{gui}}/{{gui}} sản phẩm, hàng nguyên vẹn. Hệ thống phát hành phiếu nhập, ghi tăng tồn {{khoNhap}}, đưa hàng đang chuyển của phiếu về 0 và hoàn tất phiếu.", { khoNhap, gui: soVN(kq.tong.gui) })}
+                    nhanXacNhan={t("Xác nhận nhận đủ")}
                     iconXacNhan={ClipboardCheck}
                     dangChay={dangChay}
                     loi={loiHop}
                     tieuDiemQuayLai
                     traTieuDiemVe={oQuetRef}
-                    onXacNhan={() => chay(() => phieuChuyenKhoService.nhanDu(id), (res) => `Đã nhận đủ. Phiếu nhập ${res?.soPhieuNhap ?? ""} đã ghi tăng tồn ${khoNhap}; phiếu hoàn tất.`)}
+                    onXacNhan={() => chay(() => phieuChuyenKhoService.nhanDu(id), (res) => t("Đã nhận đủ. Phiếu nhập {{so}} đã ghi tăng tồn {{khoNhap}}; phiếu hoàn tất.", { so: res?.soPhieuNhap ?? "", khoNhap }))}
                 />
             ) : null}
             {hop === "bienBan" ? (
@@ -978,7 +981,7 @@ function ManNhanHang({ id }) {
                     }}
                     onXacNhan={(thongTin) => chay(
                         () => phieuChuyenKhoService.nhanLech(id, yeuCauNhanLech(kq, thongTin)),
-                        (res) => `Đã nhận phần đạt và lập biên bản ${res?.soBienBan ?? ""}. Phần lệch chờ ${cauChoXuLyLech(lapBienBan(ct))}.`,
+                        (res) => t("Đã nhận phần đạt và lập biên bản {{so}}. Phần lệch chờ {{cho}}.", { so: res?.soBienBan ?? "", cho: cauChoXuLyLech(lapBienBan(ct)) }),
                         taiAnhBienBan,
                     )}
                 />
@@ -1012,7 +1015,7 @@ function ODat({ d, lon, onVaoODat, onGoODat, onRoiODat, onEnterODat }) {
             autoComplete="off"
             data-khoa-o={d.khoa}
             data-loai-o="dat"
-            aria-label={`Đạt ${d.sku} lô ${d.maLo}`}
+            aria-label={t("Đạt {{sku}} lô {{maLo}}", { sku: d.sku, maLo: d.maLo })}
             onFocus={(e) => {
                 onVaoODat();
                 e.target.select();
@@ -1036,11 +1039,11 @@ function ChipLyDo({ d }) {
         <>
             {d.lyDos.map(([ten, n]) => (
                 <span key={ten} className="rounded-full border border-bo-border bg-bo-surface-subtle px-2 py-px text-xs text-bo-foreground">
-                    {ten} {soVN(n)}
+                    {t(ten)} {soVN(n)}
                 </span>
             ))}
             {d.chuaLyDo ? (
-                <span className="rounded-full bg-bo-danger-soft px-2 py-px text-xs font-medium text-bo-danger-strong">{soVN(d.chuaLyDo)} chưa chọn lý do</span>
+                <span className="rounded-full bg-bo-danger-soft px-2 py-px text-xs font-medium text-bo-danger-strong">{t("{{so}} chưa chọn lý do", { so: soVN(d.chuaLyDo) })}</span>
             ) : null}
         </>
     );
@@ -1056,15 +1059,15 @@ function OGhiChu({ d, coKhac, loi, hienLoi, lon, onDoiGhiChu }) {
                 maxLength={GHI_CHU_TOI_DA}
                 data-khoa-o={d.khoa}
                 data-loai-o="ghiChu"
-                aria-label={`Ghi chú lý do lệch ${d.sku} lô ${d.maLo}`}
+                aria-label={t("Ghi chú lý do lệch {{sku}} lô {{maLo}}", { sku: d.sku, maLo: d.maLo })}
                 aria-invalid={loi || undefined}
                 aria-describedby={loi ? idLoi : undefined}
                 placeholder={
                     d.thieu > 0 && coKhac
-                        ? `Ghi chú phần thiếu ${soVN(d.thieu)} cái và lý do Khác`
+                        ? t("Ghi chú phần thiếu {{thieu}} cái và lý do Khác", { count: d.thieu, thieu: soVN(d.thieu) })
                         : d.thieu > 0
-                          ? `Ghi chú phần thiếu ${soVN(d.thieu)} cái`
-                          : "Ghi rõ lý do Khác"
+                          ? t("Ghi chú phần thiếu {{thieu}} cái", { count: d.thieu, thieu: soVN(d.thieu) })
+                          : t("Ghi rõ lý do Khác")
                 }
                 onChange={(e) => onDoiGhiChu(e.target.value)}
                 className={cn(O_NHAP, lon ? "h-10 text-base" : "h-8", loi && O_SO_LOI)}
@@ -1073,7 +1076,7 @@ function OGhiChu({ d, coKhac, loi, hienLoi, lon, onDoiGhiChu }) {
                 dưới không trượt lên dưới con trỏ */}
             {hienLoi ? (
                 <span id={idLoi} aria-hidden={!loi || undefined} className={cn("block text-xs", loi ? "text-bo-danger" : "invisible")}>
-                    {d.thieu > 0 && coKhac ? "Ghi chú phần thiếu và lý do Khác" : d.thieu > 0 ? "Ghi chú phần thiếu" : "Ghi rõ lý do Khác"}
+                    {d.thieu > 0 && coKhac ? t("Ghi chú phần thiếu và lý do Khác") : d.thieu > 0 ? t("Ghi chú phần thiếu") : t("Ghi rõ lý do Khác")}
                 </span>
             ) : null}
         </>
@@ -1082,14 +1085,14 @@ function OGhiChu({ d, coKhac, loi, hienLoi, lon, onDoiGhiChu }) {
 
 /** Cột Thiếu của bảng: vượt số gửi, chưa đếm, khớp, chỉ hỏng, đang đếm dở (số xám) hoặc số thiếu. */
 function OThieu({ d, chuaDemDong, dangDemDo }) {
-    if (d.vuot) return <span className="rounded-md bg-bo-danger-soft px-2 py-0.5 text-xs font-medium text-bo-danger-strong">Vượt số gửi</span>;
-    if (chuaDemDong) return <span className="text-xs text-bo-muted">Chưa đếm</span>;
-    if (!d.lech) return <span className="rounded-md bg-bo-tt-xong px-2 py-0.5 text-xs font-medium text-bo-tt-xong-chu">Khớp</span>;
-    if (d.thieu === 0) return <span className="rounded-md bg-bo-tt-chu-y px-2 py-0.5 text-xs font-medium text-bo-tt-chu-y-chu">Hỏng {soVN(d.hong)}</span>;
+    if (d.vuot) return <span className="rounded-md bg-bo-danger-soft px-2 py-0.5 text-xs font-medium text-bo-danger-strong">{t("Vượt số gửi")}</span>;
+    if (chuaDemDong) return <span className="text-xs text-bo-muted">{t("Chưa đếm")}</span>;
+    if (!d.lech) return <span className="rounded-md bg-bo-tt-xong px-2 py-0.5 text-xs font-medium text-bo-tt-xong-chu">{t("Khớp")}</span>;
+    if (d.thieu === 0) return <span className="rounded-md bg-bo-tt-chu-y px-2 py-0.5 text-xs font-medium text-bo-tt-chu-y-chu">{t("Hỏng {{so}}", { so: soVN(d.hong) })}</span>;
     if (dangDemDo) {
         return (
             <span className="px-2 tabular-nums text-bo-muted">
-                {soVN(d.thieu)} <span className="text-xs">· đang đếm</span>
+                {soVN(d.thieu)} <span className="text-xs">· {t("đang đếm")}</span>
             </span>
         );
     }
@@ -1141,7 +1144,7 @@ function DongDem(props) {
                     <td className="pb-3 pl-14 pr-3 pt-0 align-top sm:pl-16">
                         {coLyDo ? (
                             <div className="flex min-h-8 flex-wrap items-center gap-1.5">
-                                <span className="text-xs text-bo-muted">Lý do lệch</span>
+                                <span className="text-xs text-bo-muted">{t("Lý do lệch")}</span>
                                 <ChipLyDo d={d} />
                             </div>
                         ) : null}
@@ -1161,13 +1164,13 @@ function DongDem(props) {
 
 /** Nhãn trạng thái ở góc thẻ: vượt số gửi, chưa đếm, khớp, đang đếm dở, hoặc phần thiếu / hỏng. */
 function nhanThe(d, chuaDemDong, dangDemDo) {
-    if (d.vuot) return ["bg-bo-danger-soft text-bo-danger-strong", "Vượt số gửi"];
-    if (chuaDemDong) return ["bg-slate-100 text-slate-600", "Chưa đếm"];
-    if (!d.lech) return ["bg-bo-tt-xong text-bo-tt-xong-chu", "Khớp"];
+    if (d.vuot) return ["bg-bo-danger-soft text-bo-danger-strong", t("Vượt số gửi")];
+    if (chuaDemDong) return ["bg-slate-100 text-slate-600", t("Chưa đếm")];
+    if (!d.lech) return ["bg-bo-tt-xong text-bo-tt-xong-chu", t("Khớp")];
     // Đếm dở: phần thiếu có thể chỉ là chưa đếm tới, chỉ nêu phần hỏng (nếu có)
-    const thieu = d.thieu > 0 && !dangDemDo ? `Thiếu ${soVN(d.thieu)}` : null;
-    const hong = d.hong > 0 ? `Hỏng ${soVN(d.hong)}` : null;
-    if (!thieu && !hong) return ["bg-slate-100 text-slate-600", "Đang đếm"];
+    const thieu = d.thieu > 0 && !dangDemDo ? t("Thiếu {{so}}", { so: soVN(d.thieu) }) : null;
+    const hong = d.hong > 0 ? t("Hỏng {{so}}", { so: soVN(d.hong) }) : null;
+    if (!thieu && !hong) return ["bg-slate-100 text-slate-600", t("Đang đếm")];
     return ["bg-bo-tt-chu-y text-bo-tt-chu-y-chu", [thieu, hong].filter(Boolean).join(" · ")];
 }
 
@@ -1191,22 +1194,22 @@ function TheDem(props) {
                         <span className="font-mono [overflow-wrap:anywhere]">{d.sku}</span>
                     </div>
                     <div className="text-xs text-bo-muted">
-                        Lô <span className="font-mono [overflow-wrap:anywhere]">{d.maLo}</span> · Gửi {soVN(d.gui)}
+                        {t("Lô")} <span className="font-mono [overflow-wrap:anywhere]">{d.maLo}</span> · {t("Gửi", { context: "so_luong" })} {soVN(d.gui)}
                     </div>
                 </div>
                 <span className={cn("shrink-0 rounded-md px-2 py-0.5 text-xs font-medium", lopNhan)}>{chuNhan}</span>
             </div>
             <div className="grid grid-cols-3 gap-2">
                 <label className="grid min-w-0 gap-1">
-                    <span className="text-xs text-bo-muted">Đạt</span>
+                    <span className="text-xs text-bo-muted">{t("Đạt")}</span>
                     <ODat {...props} lon />
                 </label>
                 <div className="grid min-w-0 gap-1">
-                    <span className="text-xs text-bo-muted" aria-hidden="true">Hỏng</span>
+                    <span className="text-xs text-bo-muted" aria-hidden="true">{t("Hỏng")}</span>
                     <OHong d={d} conHong={conHong} onDoiHong={onDoiHong} lon />
                 </div>
                 <div className="grid min-w-0 gap-1">
-                    <span className="text-xs text-bo-muted">Thiếu</span>
+                    <span className="text-xs text-bo-muted">{t("Thiếu")}</span>
                     <span
                         className={cn(
                             "flex h-10 items-center justify-end rounded-md px-2.5 text-base font-semibold",
@@ -1221,7 +1224,7 @@ function TheDem(props) {
                                       : "bg-bo-surface-subtle text-bo-foreground",
                         )}
                     >
-                        {d.vuot ? `Vượt ${soVN(-d.thieu)}` : soVN(d.thieu)}
+                        {d.vuot ? t("Vượt {{so}}", { so: soVN(-d.thieu) }) : soVN(d.thieu)}
                     </span>
                 </div>
             </div>
@@ -1250,7 +1253,7 @@ function OHong({ d, conHong, onDoiHong, lon }) {
             <PopoverTrigger asChild>
                 <button
                     type="button"
-                    aria-label={`Hỏng ${d.sku} lô ${d.maLo}: ${d.hong}. Chỉnh theo lý do`}
+                    aria-label={t("Hỏng {{sku}} lô {{maLo}}: {{hong}}. Chỉnh theo lý do", { sku: d.sku, maLo: d.maLo, hong: d.hong })}
                     className={cn(
                         "inline-flex h-8 min-w-[72px] items-center justify-end gap-1.5 rounded-md border border-bo-input-border bg-bo-surface px-2 text-sm tabular-nums hover:border-bo-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30",
                         lon && "h-10 w-full text-base",
@@ -1262,23 +1265,23 @@ function OHong({ d, conHong, onDoiHong, lon }) {
                 </button>
             </PopoverTrigger>
             <PopoverContent align="end" className="w-72 border-bo-border bg-bo-surface p-3 text-bo-foreground">
-                <p className="text-sm font-semibold text-bo-heading">Hỏng theo lý do</p>
+                <p className="text-sm font-semibold text-bo-heading">{t("Hỏng theo lý do")}</p>
                 <p className="mt-0.5 text-xs text-bo-muted">
-                    {d.sku} · lô {d.maLo} · gửi {soVN(d.gui)}, đạt {soVN(d.dat)}.{" "}
-                    {conHong > 0 ? `Còn thêm được ${soVN(conHong)} cái hỏng.` : "Đã đủ số gửi: bớt ô Đạt trước rồi mới thêm hỏng."}
+                    {t("{{sku}} · lô {{maLo}} · gửi {{gui}}, đạt {{dat}}.", { sku: d.sku, maLo: d.maLo, gui: soVN(d.gui), dat: soVN(d.dat) })}{" "}
+                    {conHong > 0 ? t("Còn thêm được {{so}} cái hỏng.", { count: conHong, so: soVN(conHong) }) : t("Đã đủ số gửi: bớt ô Đạt trước rồi mới thêm hỏng.")}
                 </p>
                 <ul className="mt-2 divide-y divide-bo-border">
                     {LY_DO_LOI.map((ten) => {
                         const n = theoLyDo[ten] ?? 0;
                         return (
                             <li key={ten} className="flex items-center justify-between gap-3 py-1.5 text-[13px]">
-                                <span>{ten}</span>
+                                <span>{t(ten)}</span>
                                 <span className="inline-grid h-8 grid-cols-[30px_40px_30px] overflow-hidden rounded-md border border-bo-input-border">
-                                    <button type="button" aria-label={`Bớt 1 ${ten}`} disabled={n <= 0} onClick={() => onDoiHong(ten, -1)} className="grid place-items-center bg-bo-surface-subtle text-slate-600 hover:bg-slate-100 disabled:opacity-40">
+                                    <button type="button" aria-label={t("Bớt 1 {{ten}}", { ten: t(ten) })} disabled={n <= 0} onClick={() => onDoiHong(ten, -1)} className="grid place-items-center bg-bo-surface-subtle text-slate-600 hover:bg-slate-100 disabled:opacity-40">
                                         <Minus className="size-3.5" />
                                     </button>
-                                    <output className="grid place-items-center border-x border-bo-input-border font-semibold tabular-nums" aria-label={`Hỏng ${ten}`}>{n}</output>
-                                    <button type="button" aria-label={`Thêm 1 ${ten}`} disabled={conHong <= 0} onClick={() => onDoiHong(ten, 1)} className="grid place-items-center bg-bo-surface-subtle text-slate-600 hover:bg-slate-100 disabled:opacity-40">
+                                    <output className="grid place-items-center border-x border-bo-input-border font-semibold tabular-nums" aria-label={t("Hỏng {{ten}}", { ten: t(ten) })}>{n}</output>
+                                    <button type="button" aria-label={t("Thêm 1 {{ten}}", { ten: t(ten) })} disabled={conHong <= 0} onClick={() => onDoiHong(ten, 1)} className="grid place-items-center bg-bo-surface-subtle text-slate-600 hover:bg-slate-100 disabled:opacity-40">
                                         <Plus className="size-3.5" />
                                     </button>
                                 </span>
@@ -1287,7 +1290,7 @@ function OHong({ d, conHong, onDoiHong, lon }) {
                     })}
                 </ul>
                 {d.chuaLyDo ? (
-                    <p className="mt-2 text-xs text-bo-danger">{soVN(d.chuaLyDo)} cái từ lượt quét đang chờ chọn lý do: chọn trên thẻ kết quả.</p>
+                    <p className="mt-2 text-xs text-bo-danger">{t("{{so}} cái từ lượt quét đang chờ chọn lý do: chọn trên thẻ kết quả.", { count: d.chuaLyDo, so: soVN(d.chuaLyDo) })}</p>
                 ) : null}
             </PopoverContent>
         </Popover>
@@ -1302,7 +1305,8 @@ function HopBienBan({ ct, khoNhap, kq, anhChon, tienDoAnh, dangChay, loi, onDong
     const [nguoi, setNguoi] = useState(ct.nguoiVanChuyen ?? "");
     const [thoiDiem, setThoiDiem] = useState(() => giaTriONgayGio(new Date()));
     // Kết luận in lên giấy mãi: chỉ ghi số lệch, việc tiếp theo trên F Centric nằm ở chân giấy (đổi theo bước)
-    const [ketLuan, setKetLuan] = useState(`Hai bên xác nhận ${cauLech(kq.tong)} như bảng trên.`);
+    // i18n-giu-nguyen: kết luận điền sẵn gửi máy chủ, in trên biên bản
+    const [ketLuan, setKetLuan] = useState(`Hai bên xác nhận ${cauLechVi(kq.tong)} như bảng trên.`);
     const [daBam, setDaBam] = useState(false);
     // Thời điểm sau hiện tại: máy chủ từ chối (nhanLech cho lệch tối đa 5 phút), báo ngay ở ô
     const [tuongLai, setTuongLai] = useState(false);
@@ -1316,14 +1320,14 @@ function HopBienBan({ ct, khoNhap, kq, anhChon, tienDoAnh, dangChay, loi, onDong
         <HopXacNhanChungTu
             mo
             onDoiMo={(m) => !m && onDong()}
-            tieuDe="Lập biên bản giao nhận"
-            moTa={`${khoNhap} nhận ${soVN(kq.tong.dat)}/${soVN(kq.tong.gui)} sản phẩm đạt. Hệ thống phát hành phiếu nhập cho phần đạt và biên bản cho phần lệch; số biên bản do hệ thống cấp.`}
-            nhanXacNhan="Lập biên bản và nhận hàng"
+            tieuDe={t("Lập biên bản giao nhận")}
+            moTa={t("{{khoNhap}} nhận {{dat}}/{{gui}} sản phẩm đạt. Hệ thống phát hành phiếu nhập cho phần đạt và biên bản cho phần lệch; số biên bản do hệ thống cấp.", { khoNhap, dat: soVN(kq.tong.dat), gui: soVN(kq.tong.gui) })}
+            nhanXacNhan={t("Lập biên bản và nhận hàng")}
             iconXacNhan={FileWarning}
             rong
             dangChay={dangChay}
             khoaXacNhan={anhChon.dangXuLy}
-            lyDoKhoa="Đang xử lý ảnh"
+            lyDoKhoa={t("Đang xử lý ảnh")}
             traTieuDiemVe={traTieuDiemVe}
             loi={loi}
             onXacNhan={() => {
@@ -1336,17 +1340,17 @@ function HopBienBan({ ct, khoNhap, kq, anhChon, tienDoAnh, dangChay, loi, onDong
         >
             <div className="grid gap-3 sm:grid-cols-2">
                 <div className="grid gap-1.5">
-                    <label htmlFor={idNguoi} className={NHAN_O}>Người giao <span className="text-bo-danger">*</span></label>
+                    <label htmlFor={idNguoi} className={NHAN_O}>{t("Người giao")} <span className="text-bo-danger">*</span></label>
                     <input id={idNguoi} value={nguoi} maxLength={100} onChange={(e) => setNguoi(e.target.value)} aria-invalid={loiNguoi || undefined} aria-describedby={loiNguoi ? `${idNguoi}-loi` : undefined} className={cn(O_NHAP, loiNguoi && O_SO_LOI)} />
-                    {loiNguoi ? <span id={`${idNguoi}-loi`} className="text-xs text-bo-danger">Nhập tên người giao</span> : null}
+                    {loiNguoi ? <span id={`${idNguoi}-loi`} className="text-xs text-bo-danger">{t("Nhập tên người giao")}</span> : null}
                 </div>
                 <div className="grid gap-1.5">
-                    <label htmlFor={idThoiDiem} className={NHAN_O}>Thời điểm <span className="text-bo-danger">*</span></label>
+                    <label htmlFor={idThoiDiem} className={NHAN_O}>{t("Thời điểm")} <span className="text-bo-danger">*</span></label>
                     <input id={idThoiDiem} type="datetime-local" value={thoiDiem} onChange={(e) => {
                         setThoiDiem(e.target.value);
                         setTuongLai(false);
                     }} aria-invalid={loiThoiDiem || undefined} aria-describedby={loiThoiDiem ? `${idThoiDiem}-loi` : undefined} className={cn(O_NHAP, loiThoiDiem && O_SO_LOI)} />
-                    {loiThoiDiem ? <span id={`${idThoiDiem}-loi`} className="text-xs text-bo-danger">{thoiDiem ? "Thời điểm giao nhận không được sau hiện tại" : "Chọn thời điểm giao nhận"}</span> : null}
+                    {loiThoiDiem ? <span id={`${idThoiDiem}-loi`} className="text-xs text-bo-danger">{thoiDiem ? t("Thời điểm giao nhận không được sau hiện tại") : t("Chọn thời điểm giao nhận")}</span> : null}
                 </div>
             </div>
             {/* Hộp rộng 560px: lý do (có thể dài) nằm dòng riêng dưới số lượng, tên sản phẩm một dòng kèm màu / cỡ và lô, không
@@ -1356,11 +1360,11 @@ function HopBienBan({ ct, khoNhap, kq, anhChon, tienDoAnh, dangChay, loi, onDong
                 <table className="w-full table-fixed text-[13px]">
                     <thead className="text-left text-xs text-bo-muted">
                         <tr>
-                            <th className="rounded-tl-lg bg-bo-surface-subtle px-3 py-2 font-medium">Sản phẩm</th>
-                            <th className="w-14 bg-bo-surface-subtle px-2 py-2 text-right font-medium">Gửi</th>
-                            <th className="w-14 bg-bo-surface-subtle px-2 py-2 text-right font-medium">Đạt</th>
-                            <th className="w-14 bg-bo-surface-subtle px-2 py-2 text-right font-medium">Hỏng</th>
-                            <th className="w-14 rounded-tr-lg bg-bo-surface-subtle px-3 py-2 text-right font-medium">Thiếu</th>
+                            <th className="rounded-tl-lg bg-bo-surface-subtle px-3 py-2 font-medium">{t("Sản phẩm")}</th>
+                            <th className="w-14 bg-bo-surface-subtle px-2 py-2 text-right font-medium">{t("Gửi", { context: "so_luong" })}</th>
+                            <th className="w-14 bg-bo-surface-subtle px-2 py-2 text-right font-medium">{t("Đạt")}</th>
+                            <th className="w-14 bg-bo-surface-subtle px-2 py-2 text-right font-medium">{t("Hỏng")}</th>
+                            <th className="w-14 rounded-tr-lg bg-bo-surface-subtle px-3 py-2 text-right font-medium">{t("Thiếu")}</th>
                         </tr>
                     </thead>
                     {dongLech.map((d) => (
@@ -1369,7 +1373,7 @@ function HopBienBan({ ct, khoNhap, kq, anhChon, tienDoAnh, dangChay, loi, onDong
                                 <td className="px-3 pb-1 pt-2">
                                     <div className="truncate font-medium text-bo-foreground" title={d.tenSanPham}>{d.tenSanPham}</div>
                                     <div className="truncate text-xs text-bo-muted" title={d.sku}>
-                                        {[d.tenMau, d.kichCo].filter(Boolean).join(" / ")} · lô <span className="font-mono">{d.maLo}</span> · {d.sku}
+                                        {[d.tenMau, d.kichCo].filter(Boolean).join(" / ")} · {t("lô", { context: "mot" })} <span className="font-mono">{d.maLo}</span> · {d.sku}
                                     </div>
                                 </td>
                                 <td className="px-2 pb-1 pt-2 text-right align-top">{soVN(d.gui)}</td>
@@ -1379,7 +1383,7 @@ function HopBienBan({ ct, khoNhap, kq, anhChon, tienDoAnh, dangChay, loi, onDong
                             </tr>
                             <tr>
                                 <td colSpan={5} className="px-3 pb-2 text-xs leading-5 text-bo-foreground">
-                                    <span className="text-bo-muted">Lý do: </span>
+                                    <span className="text-bo-muted">{t("Lý do:")} </span>
                                     {d.lyDo}
                                 </td>
                             </tr>
@@ -1388,14 +1392,14 @@ function HopBienBan({ ct, khoNhap, kq, anhChon, tienDoAnh, dangChay, loi, onDong
                 </table>
             </div>
             <div className="grid gap-1.5">
-                <label htmlFor={idKetLuan} className={NHAN_O}>Kết luận</label>
+                <label htmlFor={idKetLuan} className={NHAN_O}>{t("Kết luận")}</label>
                 <textarea id={idKetLuan} value={ketLuan} maxLength={500} onChange={(e) => setKetLuan(e.target.value)} className={O_NHAP_NHIEU_DONG} />
             </div>
             <ChonAnhBienBan anh={anhChon} khoa={dangChay} />
             {/* Vùng đọc tiến độ luôn có sẵn (chỉ thay chữ) để trình đọc màn hình đọc được ngay lần đầu */}
             <div className={tienDoAnh ? "flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5" : "sr-only"}>
                 <p aria-live="polite" className="m-0 text-[13px] tabular-nums text-bo-muted">
-                    {tienDoAnh ? `Đã lập biên bản, đang tải ảnh ${tienDoAnh.xong}/${tienDoAnh.tong}…` : ""}
+                    {tienDoAnh ? t("Đã lập biên bản, đang tải ảnh {{xong}}/{{tong}}…", { xong: tienDoAnh.xong, tong: tienDoAnh.tong }) : ""}
                 </p>
                 {tienDoAnh ? (
                     <button
@@ -1403,11 +1407,11 @@ function HopBienBan({ ct, khoNhap, kq, anhChon, tienDoAnh, dangChay, loi, onDong
                         onClick={onBoQuaAnh}
                         className="inline-flex h-8 items-center rounded-md border border-bo-border bg-bo-surface px-2.5 text-[13px] font-medium text-bo-foreground hover:bg-bo-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
                     >
-                        Bỏ qua, tải ảnh sau
+                        {t("Bỏ qua, tải ảnh sau")}
                     </button>
                 ) : null}
             </div>
-            <p className={GHI_CHU_HOP}>In biên bản để <B>kho nhận và người vận chuyển</B> ký tại chỗ; <B>{ct.khoXuat?.ten ?? "kho gửi"}</B> xác nhận biên bản trên F Centric.</p>
+            <p className={GHI_CHU_HOP}>{t("In biên bản để")} <B>{t("kho nhận và người vận chuyển")}</B> {t("ký tại chỗ;")} <B>{ct.khoXuat?.ten ?? t("kho gửi")}</B> {t("xác nhận biên bản trên F Centric.")}</p>
         </HopXacNhanChungTu>
     );
 }

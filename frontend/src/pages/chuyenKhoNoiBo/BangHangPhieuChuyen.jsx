@@ -6,6 +6,7 @@ import { BANG, DONG, DONG_TIEU_DE, KHUNG_CUON, O, O_CUOI, O_DAU, O_TIEU_DE } fro
 import { TT_CHUYEN } from "@/constants/phieuChuyenKho";
 import { tongCot } from "@/components/chuyen-kho/hienThiChuyenKho";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 const NHAN_O = "text-bo-tt-chu-y-chu font-semibold";
 
@@ -27,23 +28,23 @@ export default function BangHangPhieuChuyen({ ct }) {
     return (
         <section aria-labelledby={`${idBang}-tieu-de`} className="flex min-w-0 flex-1 flex-col">
             <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-4 pb-3 pt-4 sm:px-6">
-                <h2 id={`${idBang}-tieu-de`} className="text-base font-semibold leading-6 text-bo-foreground">Hàng chuyển</h2>
+                <h2 id={`${idBang}-tieu-de`} className="text-base font-semibold leading-6 text-bo-foreground">{t("Hàng chuyển")}</h2>
                 <span className="text-[13px] leading-5 text-bo-muted">
-                    {soVN(hang.length)} biến thể · {soVN(tong)} sản phẩm
+                    {t("{{so}} biến thể", { count: hang.length, so: soVN(hang.length) })} · {t("{{so}} sản phẩm", { count: tong, so: soVN(tong) })}
                 </span>
             </div>
             <div className={KHUNG_CUON}>
                 <table className={cn(BANG, coNhan ? "min-w-[640px]" : "min-w-[440px]")}>
                     <thead>
                         <tr className={DONG_TIEU_DE}>
-                            <th scope="col" className={cn(O_TIEU_DE, O_DAU)}>Sản phẩm</th>
-                            {coNhat ? <th scope="col" className={cn(O_TIEU_DE, "w-24 text-right")}>Đã nhặt</th> : null}
-                            <th scope="col" className={cn(O_TIEU_DE, "w-24 text-right", !coNhan && O_CUOI)}>Gửi</th>
+                            <th scope="col" className={cn(O_TIEU_DE, O_DAU)}>{t("Sản phẩm")}</th>
+                            {coNhat ? <th scope="col" className={cn(O_TIEU_DE, "w-24 text-right")}>{t("Đã nhặt")}</th> : null}
+                            <th scope="col" className={cn(O_TIEU_DE, "w-24 text-right", !coNhan && O_CUOI)}>{t("Gửi", { context: "so_luong" })}</th>
                             {coNhan ? (
                                 <>
-                                    <th scope="col" className={cn(O_TIEU_DE, "w-24 text-right")}>Nhận</th>
-                                    <th scope="col" className={cn(O_TIEU_DE, "w-24 text-right")}>Hỏng</th>
-                                    <th scope="col" className={cn(O_TIEU_DE, O_CUOI, "w-32 text-right")}>Còn trên đường</th>
+                                    <th scope="col" className={cn(O_TIEU_DE, "w-24 text-right")}>{t("Nhận", { context: "so_luong" })}</th>
+                                    <th scope="col" className={cn(O_TIEU_DE, "w-24 text-right")}>{t("Hỏng")}</th>
+                                    <th scope="col" className={cn(O_TIEU_DE, O_CUOI, "w-32 text-right")}>{t("Còn trên đường")}</th>
                                 </>
                             ) : null}
                         </tr>
@@ -82,7 +83,7 @@ export default function BangHangPhieuChuyen({ ct }) {
                     </tbody>
                     <tfoot>
                         <tr className="border-t border-bo-border font-semibold tabular-nums text-bo-foreground">
-                            <td className={cn(O, O_DAU)}>Tổng</td>
+                            <td className={cn(O, O_DAU)}>{t("Tổng")}</td>
                             {coNhat ? <td className={cn(O, "text-right")}>{soVN(tongCot(hang, "daNhat"))}</td> : null}
                             <td className={cn(O, "text-right", !coNhan && O_CUOI)}>{soVN(tong)}</td>
                             {coNhan ? (
@@ -97,7 +98,7 @@ export default function BangHangPhieuChuyen({ ct }) {
                 </table>
             </div>
             {[TT_CHUYEN.CHO_DUYET, TT_CHUYEN.DA_DUYET].includes(tt) ? (
-                <p className="px-4 pb-4 pt-2 text-xs leading-4 text-bo-muted sm:px-6">* Việc chọn lô hàng cụ thể được thực hiện khi nhặt hàng tại kho xuất.</p>
+                <p className="px-4 pb-4 pt-2 text-xs leading-4 text-bo-muted sm:px-6">{t("* Việc chọn lô hàng cụ thể được thực hiện khi nhặt hàng tại kho xuất.")}</p>
             ) : null}
         </section>
     );

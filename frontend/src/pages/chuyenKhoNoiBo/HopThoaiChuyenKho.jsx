@@ -16,20 +16,21 @@ import {
     XKNB_CHE_DO,
 } from "@/constants/phieuChuyenKho";
 import {
-    aiXuLyChenhLech,
+    aiXuLyChenhLechHienThi,
     kiemTraGhiSoXknb,
     kiemTraXacNhanXuat,
     tongCot,
 } from "@/components/chuyen-kho/hienThiChuyenKho";
 import { VI_DU_BIEN_SO, kiemTraBienSo, loiKhiDangGo } from "@/components/chuyen-kho/bienSoXe";
+import { t } from "@/i18n";
 
 const B = ({ children }) => <b className="font-semibold text-bo-foreground">{children}</b>;
 
 /** Hàng đã xuất của phiếu đang ở đâu (hộp Ghi số XKNB mở được cả sau khi đã nhận hoặc đã hủy). */
 const tinhTrangHangDaXuat = (trangThai) =>
-    trangThai === TT_CHUYEN.DANG_VAN_CHUYEN ? "đang trên đường"
-        : trangThai === TT_CHUYEN.DA_HUY ? "đã xuất rồi phiếu bị hủy"
-            : "đã giao tới kho nhận";
+    trangThai === TT_CHUYEN.DANG_VAN_CHUYEN ? t("đang trên đường")
+        : trangThai === TT_CHUYEN.DA_HUY ? t("đã xuất rồi phiếu bị hủy")
+            : t("đã giao tới kho nhận");
 const Sao = () => <span className="text-bo-danger">*</span>;
 /** Khung cảnh báo trong hộp: cùng dáng LOI_HOP, tông cảnh báo (chữ bo-warning trên nền bo-warning-soft ≥ 4,5:1). */
 const CANH_BAO_HOP = "rounded-lg border border-bo-warning/30 bg-bo-warning-soft px-3 py-2.5 text-[13px] leading-5 text-bo-warning";
@@ -106,9 +107,9 @@ export function HopDuyet({ mo, onDong, ct, dangChay, loi, onXacNhan }) {
         <HopXacNhanChungTu
             mo={mo}
             onDoiMo={(m) => !m && onDong()}
-            tieuDe="Duyệt và lập lệnh điều động"
-            moTa={`Hàng ${soVN(tong)} sản phẩm được xuất khỏi ${ct.khoXuat?.ten} sang ${ct.khoNhap?.ten} theo lệnh này. Số lệnh do hệ thống cấp sau khi lưu.`}
-            nhanXacNhan="Duyệt và lập lệnh"
+            tieuDe={t("Duyệt và lập lệnh điều động")}
+            moTa={t("Hàng {{so}} sản phẩm được xuất khỏi {{khoXuat}} sang {{khoNhap}} theo lệnh này. Số lệnh do hệ thống cấp sau khi lưu.", { count: tong, so: soVN(tong), khoXuat: ct.khoXuat?.ten, khoNhap: ct.khoNhap?.ten })}
+            nhanXacNhan={t("Duyệt và lập lệnh")}
             iconXacNhan={Check}
             rong
             dangChay={dangChay}
@@ -123,20 +124,20 @@ export function HopDuyet({ mo, onDong, ct, dangChay, loi, onXacNhan }) {
         >
             {laGiaoBu ? (
                 <p className="m-0 text-[13px] leading-5 text-bo-foreground">
-                    <span className="text-bo-muted">Lý do điều động: </span>
-                    <B>{LY_DO_GIAO_BU.nhan} cho phiếu {ct.phieuGoc.so}</B> (hệ thống ghi kèm số biên bản của phiếu gốc).
+                    <span className="text-bo-muted">{t("Lý do điều động:")} </span>
+                    <B>{t("{{lyDo}} cho phiếu {{so}}", { lyDo: t(LY_DO_GIAO_BU.nhan), so: ct.phieuGoc.so })}</B> {t("(hệ thống ghi kèm số biên bản của phiếu gốc).")}
                 </p>
             ) : (
                 <>
-                    <ChonThe nhan="Lý do điều động" luaChon={LY_DO_DIEU_DONG} value={lyDo} onChange={setLyDo} />
-                    <O nhan={lyDo === "KHAC" ? "Ghi rõ lý do" : "Ghi chú"} batBuoc={lyDo === "KHAC"} loi={daBam && thieuGhiChu ? "Ghi rõ lý do điều động" : null}>
+                    <ChonThe nhan={t("Lý do điều động")} luaChon={LY_DO_DIEU_DONG.map((x) => ({ ...x, nhan: t(x.nhan) }))} value={lyDo} onChange={setLyDo} />
+                    <O nhan={lyDo === "KHAC" ? t("Ghi rõ lý do") : t("Ghi chú")} batBuoc={lyDo === "KHAC"} loi={daBam && thieuGhiChu ? t("Ghi rõ lý do điều động") : null}>
                         {(p) => (
                             <textarea
                                 {...p}
                                 value={ghiChu}
                                 maxLength={500}
                                 onChange={(e) => setGhiChu(e.target.value)}
-                                placeholder="Ví dụ: chuẩn bị hàng cho đợt khuyến mãi cuối tuần"
+                                placeholder={t("Ví dụ: chuẩn bị hàng cho đợt khuyến mãi cuối tuần")}
                                 className={cn(O_NHAP_NHIEU_DONG, daBam && thieuGhiChu && "border-bo-danger")}
                             />
                         )}
@@ -206,9 +207,9 @@ function KhungXknb({ form, doi, loi, chiGhiSo, cheDo, onTaiDuLieu, laySo, dangLa
         <div className="grid gap-3 rounded-lg border border-bo-border bg-bo-surface-subtle px-3.5 py-3">
             <div>
                 <div className="text-sm font-semibold text-bo-foreground">
-                    Giấy đi đường (phiếu XKNB) {cheDo === XKNB_CHE_DO.CHAN || chiGhiSo ? <Sao /> : null}
+                    {t("Giấy đi đường (phiếu XKNB)")} {cheDo === XKNB_CHE_DO.CHAN || chiGhiSo ? <Sao /> : null}
                 </div>
-                <p className="mt-0.5 text-[13px] leading-5 text-bo-muted">Xe chở hàng phải mang theo bản in phiếu này.</p>
+                <p className="mt-0.5 text-[13px] leading-5 text-bo-muted">{t("Xe chở hàng phải mang theo bản in phiếu này.")}</p>
             </div>
             {onTaiDuLieu ? (
                 <ol className="grid gap-1 text-[13px] leading-5 text-bo-foreground">
@@ -216,25 +217,25 @@ function KhungXknb({ form, doi, loi, chiGhiSo, cheDo, onTaiDuLieu, laySo, dangLa
                         1.{" "}
                         <button type="button" onClick={onTaiDuLieu} className="inline-flex items-center gap-1 font-medium text-bo-primary hover:underline">
                             <Download className="size-3.5" aria-hidden="true" />
-                            Tải dữ liệu chuyến hàng
+                            {t("Tải dữ liệu chuyến hàng")}
                         </button>{" "}
-                        — tệp có sẵn danh sách hàng, kho đi, kho đến, người chở.
+                        {t("— tệp có sẵn danh sách hàng, kho đi, kho đến, người chở.")}
                     </li>
-                    <li>2. Nạp tệp vào phần mềm hóa đơn điện tử của công ty (MISA, VNPT, Viettel…) và phát hành phiếu.</li>
-                    <li>3. Ghi ký hiệu và số của phiếu vừa phát hành vào hai ô dưới đây.</li>
+                    <li>{t("2. Nạp tệp vào phần mềm hóa đơn điện tử của công ty (MISA, VNPT, Viettel…) và phát hành phiếu.")}</li>
+                    <li>{t("3. Ghi ký hiệu và số của phiếu vừa phát hành vào hai ô dưới đây.")}</li>
                 </ol>
             ) : null}
             <div className="grid gap-3 sm:grid-cols-2">
-                <O nhan="Ký hiệu" batBuoc={chiGhiSo || cheDo === XKNB_CHE_DO.CHAN} loi={loi.kyHieu} goiY="Ví dụ 6K26NAB">
+                <O nhan={t("Ký hiệu")} batBuoc={chiGhiSo || cheDo === XKNB_CHE_DO.CHAN} loi={loi.kyHieu} goiY={t("Ví dụ 6K26NAB")}>
                     {(p) => (
                         <input {...p} value={form.kyHieu} maxLength={7} autoComplete="off" onChange={(e) => doi("kyHieu", e.target.value.toUpperCase())} className={lopO(loi.kyHieu, "font-mono uppercase")} />
                     )}
                 </O>
                 <O
-                    nhan="Số phiếu"
+                    nhan={t("Số phiếu")}
                     batBuoc={chiGhiSo || cheDo === XKNB_CHE_DO.CHAN}
                     loi={loi.soXknb}
-                    goiY={dangLaySo ? "Đang lấy số tiếp theo…" : kyHieuHopLe && form.soXknb ? "Sửa nếu khác số trên phiếu" : "7 chữ số, ví dụ 0000125"}
+                    goiY={dangLaySo ? t("Đang lấy số tiếp theo…") : kyHieuHopLe && form.soXknb ? t("Sửa nếu khác số trên phiếu") : t("7 chữ số, ví dụ 0000125")}
                 >
                     {(p) => (
                         <input {...p} value={form.soXknb} maxLength={7} inputMode="numeric" autoComplete="off" onChange={(e) => doi("soXknb", e.target.value.replace(/\D/g, ""))} className={lopO(loi.soXknb, "font-mono")} />
@@ -249,18 +250,18 @@ function KhungXknb({ form, doi, loi, chiGhiSo, cheDo, onTaiDuLieu, laySo, dangLa
                     className="inline-flex items-center gap-1 justify-self-start text-[13px] font-medium text-bo-primary hover:underline disabled:cursor-wait disabled:opacity-60"
                 >
                     <RotateCw className={cn("size-3.5", dangLaySo && "animate-spin")} aria-hidden="true" />
-                    Lấy số tiếp theo của {String(form.kyHieu).trim().toUpperCase()}
+                    {t("Lấy số tiếp theo của {{kyHieu}}", { kyHieu: String(form.kyHieu).trim().toUpperCase() })}
                 </button>
             ) : null}
             <button type="button" aria-expanded={them} onClick={() => setThem((x) => !x)} className="justify-self-start text-[13px] font-medium text-bo-primary hover:underline">
-                {them ? "Ẩn thông tin thêm" : "Thông tin thêm: ngày lập, mã tra cứu"}
+                {them ? t("Ẩn thông tin thêm") : t("Thông tin thêm: ngày lập, mã tra cứu")}
             </button>
             {them ? (
                 <div className="grid gap-3 sm:grid-cols-2">
-                    <O nhan="Ngày lập">
+                    <O nhan={t("Ngày lập")}>
                         {(p) => <input {...p} type="date" value={form.ngayLap} onChange={(e) => doi("ngayLap", e.target.value)} className={O_NHAP} />}
                     </O>
-                    <O nhan="Mã tra cứu">
+                    <O nhan={t("Mã tra cứu")}>
                         {(p) => <input {...p} value={form.maTraCuu} maxLength={100} autoComplete="off" onChange={(e) => doi("maTraCuu", e.target.value)} className={cn(O_NHAP, "font-mono")} />}
                     </O>
                 </div>
@@ -268,8 +269,8 @@ function KhungXknb({ form, doi, loi, chiGhiSo, cheDo, onTaiDuLieu, laySo, dangLa
             {!chiGhiSo ? (
                 <p className="text-[13px] leading-5 text-bo-muted">
                     {cheDo === XKNB_CHE_DO.CHI_CANH_BAO
-                        ? "Đang bật Chỉ cảnh báo trong Cấu hình › Chứng từ và hóa đơn: được xuất trước, ghi số sau."
-                        : "Công ty chưa dùng phần mềm hóa đơn điện tử? Quản trị viên đổi sang \"Chỉ cảnh báo\" ở Cấu hình › Chứng từ và hóa đơn để xuất trước, ghi số sau."}
+                        ? t("Đang bật Chỉ cảnh báo trong Cấu hình › Chứng từ và hóa đơn: được xuất trước, ghi số sau.")
+                        : t("Công ty chưa dùng phần mềm hóa đơn điện tử? Quản trị viên đổi sang \"Chỉ cảnh báo\" ở Cấu hình › Chứng từ và hóa đơn để xuất trước, ghi số sau.")}
                 </p>
             ) : null}
         </div>
@@ -340,9 +341,9 @@ export function HopXacNhanXuat({ mo, onDong, ct, dangChay, loi, onXacNhan, onTai
         <HopXacNhanChungTu
             mo={mo}
             onDoiMo={(m) => !m && onDong()}
-            tieuDe="Xác nhận xuất"
-            moTa={`Trừ ${soVN(tong)} sản phẩm khỏi ${ct.khoXuat?.ten}. Hàng chuyển sang đang vận chuyển và do người vận chuyển chịu trách nhiệm.`}
-            nhanXacNhan={hoiThieu ? "Vẫn xuất khi chưa có số" : "Xác nhận xuất"}
+            tieuDe={t("Xác nhận xuất")}
+            moTa={t("Trừ {{so}} sản phẩm khỏi {{khoXuat}}. Hàng chuyển sang đang vận chuyển và do người vận chuyển chịu trách nhiệm.", { count: tong, so: soVN(tong), khoXuat: ct.khoXuat?.ten })}
+            nhanXacNhan={hoiThieu ? t("Vẫn xuất khi chưa có số") : t("Xác nhận xuất")}
             iconXacNhan={Truck}
             rong
             dangChay={dangChay}
@@ -352,48 +353,48 @@ export function HopXacNhanXuat({ mo, onDong, ct, dangChay, loi, onXacNhan, onTai
             {chan ? <p role="alert" className="rounded-lg border border-bo-danger/25 bg-bo-danger-soft px-3 py-2.5 text-[13px] leading-5 text-bo-danger-strong">{chan}</p> : null}
             {hoiThieu ? (
                 <p role="alert" className={CANH_BAO_HOP}>
-                    Chưa có ký hiệu và số phiếu XKNB. Đang bật Chỉ cảnh báo nên hàng vẫn xuất được; phiếu sẽ nằm ở mục <B>Thiếu giấy đi đường</B> cho tới khi ghi số.
+                    {t("Chưa có ký hiệu và số phiếu XKNB. Đang bật Chỉ cảnh báo nên hàng vẫn xuất được; phiếu sẽ nằm ở mục")} <B>{t("Thiếu giấy đi đường")}</B> {t("cho tới khi ghi số.")}
                 </p>
             ) : null}
             <div className="grid gap-1.5">
                 <span className={NHAN_O}>
-                    Hình thức vận chuyển <Sao />
+                    {t("Hình thức vận chuyển")} <Sao />
                 </span>
                 {/* Ba lựa chọn chia đều hết chiều ngang, thẳng mép với hai cột ô nhập bên dưới (không để thừa nền xám);
                     điện thoại quá hẹp thì mỗi ô giữ đủ chữ và thanh cuộn ngang như cũ, không đè chữ */}
                 <NutPhanDoan
-                    nhan="Hình thức vận chuyển"
+                    nhan={t("Hình thức vận chuyển")}
                     className="grid w-full grid-cols-[repeat(3,minmax(max-content,1fr))]"
                     value={ht}
                     onChange={(v) => doi("hinhThuc", v)}
-                    luaChon={HINH_THUC_VAN_CHUYEN.map((h) => ({ value: h.ma, label: h.nhan }))}
+                    luaChon={HINH_THUC_VAN_CHUYEN.map((h) => ({ value: h.ma, label: t(h.nhan) }))}
                 />
             </div>
             {canDonVi ? (
                 <div className="grid gap-3 sm:grid-cols-2">
-                    <O nhan={ht === "CHUYEN_PHAT" ? "Đơn vị chuyển phát" : "Đơn vị vận chuyển"} batBuoc loi={loiO.donVi}>
+                    <O nhan={ht === "CHUYEN_PHAT" ? t("Đơn vị chuyển phát") : t("Đơn vị vận chuyển")} batBuoc loi={loiO.donVi}>
                         {(p) => <input {...p} value={form.donVi} maxLength={150} onChange={(e) => doi("donVi", e.target.value)} className={lopO(loiO.donVi)} />}
                     </O>
-                    <O nhan={ht === "CHUYEN_PHAT" ? "Mã vận đơn" : "Số hợp đồng vận chuyển"} batBuoc={ht === "CHUYEN_PHAT"} loi={loiO.maVanDon}>
+                    <O nhan={ht === "CHUYEN_PHAT" ? t("Mã vận đơn") : t("Số hợp đồng vận chuyển")} batBuoc={ht === "CHUYEN_PHAT"} loi={loiO.maVanDon}>
                         {(p) => <input {...p} value={form.maVanDon} maxLength={50} onChange={(e) => doi("maVanDon", e.target.value)} className={lopO(loiO.maVanDon)} />}
                     </O>
                 </div>
             ) : null}
             <div className="grid gap-3 sm:grid-cols-2">
-                <O nhan="Người vận chuyển" batBuoc loi={loiO.nguoi}>
+                <O nhan={t("Người vận chuyển")} batBuoc loi={loiO.nguoi}>
                     {(p) => <input {...p} value={form.nguoi} maxLength={100} autoComplete="off" onChange={(e) => doi("nguoi", e.target.value)} className={lopO(loiO.nguoi)} />}
                 </O>
-                <O nhan="Điện thoại" batBuoc loi={loiO.sdt}>
+                <O nhan={t("Điện thoại")} batBuoc loi={loiO.sdt}>
                     {(p) => <input {...p} value={form.sdt} maxLength={12} inputMode="tel" autoComplete="off" onChange={(e) => doi("sdt", e.target.value)} className={lopO(loiO.sdt, "tabular-nums")} />}
                 </O>
             </div>
             {canPhuongTien ? (
                 <div className="grid gap-3 sm:grid-cols-2">
-                    <O nhan="Phương tiện" batBuoc loi={loiO.loaiPhuongTien}>
-                        {(p) => <input {...p} value={form.loaiPhuongTien} maxLength={50} placeholder="Ví dụ: xe tải 1,5 tấn" onChange={(e) => doi("loaiPhuongTien", e.target.value)} className={lopO(loiO.loaiPhuongTien)} />}
+                    <O nhan={t("Phương tiện")} batBuoc loi={loiO.loaiPhuongTien}>
+                        {(p) => <input {...p} value={form.loaiPhuongTien} maxLength={50} placeholder={t("Ví dụ: xe tải 1,5 tấn")} onChange={(e) => doi("loaiPhuongTien", e.target.value)} className={lopO(loiO.loaiPhuongTien)} />}
                     </O>
                     {/* Ví dụ để ở chữ mờ như ô Phương tiện: hàng hai cột không có dòng gợi ý lệch nhau */}
-                    <O nhan="Biển số" batBuoc loi={loiO.bienSo}>
+                    <O nhan={t("Biển số")} batBuoc loi={loiO.bienSo}>
                         {(p) => (
                             <input
                                 {...p}
@@ -412,7 +413,7 @@ export function HopXacNhanXuat({ mo, onDong, ct, dangChay, loi, onXacNhan, onTai
             ) : null}
             {/* Gợi ý nằm ở nửa phải còn trống, ngang ô ngày giờ: hàng không cao thêm, các hàng cách đều nhau */}
             <div className="grid gap-x-3 gap-y-1.5 sm:grid-cols-2">
-                <O nhan="Dự kiến đến" loi={loiO.duKienDen}>
+                <O nhan={t("Dự kiến đến")} loi={loiO.duKienDen}>
                     {(p) => (
                         <input
                             {...p}
@@ -425,7 +426,7 @@ export function HopXacNhanXuat({ mo, onDong, ct, dangChay, loi, onXacNhan, onTai
                     )}
                 </O>
                 <p id={idGoiYDuKien} className={cn(GOI_Y_O, "items-center sm:mt-[26px] sm:h-9")}>
-                    Quá giờ này mà kho nhận chưa nhận, phiếu hiện ở mục Trễ hẹn
+                    {t("Quá giờ này mà kho nhận chưa nhận, phiếu hiện ở mục Trễ hẹn")}
                 </p>
             </div>
             <KhungXknb
@@ -457,9 +458,9 @@ export function HopGhiSoXknb({ mo, onDong, ct, dangChay, loi, onXacNhan, onTaiDu
         <HopXacNhanChungTu
             mo={mo}
             onDoiMo={(m) => !m && onDong()}
-            tieuDe="Ghi số phiếu XKNB"
-            moTa={`Hàng của ${ct.soPhieuChuyen} ${tinhTrangHangDaXuat(ct.trangThai)} mà chưa có số phiếu XKNB. Ghi số ngay khi phần mềm hóa đơn điện tử phát hành.`}
-            nhanXacNhan="Lưu số XKNB"
+            tieuDe={t("Ghi số phiếu XKNB")}
+            moTa={t("Hàng của {{phieu}} {{tinhTrang}} mà chưa có số phiếu XKNB. Ghi số ngay khi phần mềm hóa đơn điện tử phát hành.", { phieu: ct.soPhieuChuyen, tinhTrang: tinhTrangHangDaXuat(ct.trangThai) })}
+            nhanXacNhan={t("Lưu số XKNB")}
             rong
             dangChay={dangChay}
             loi={loi}
@@ -485,17 +486,17 @@ export function HopTuChoi({ mo, onDong, ct, dangChay, loi, onXacNhan }) {
         <HopXacNhanChungTu
             mo={mo}
             onDoiMo={(m) => !m && onDong()}
-            tieuDe="Từ chối yêu cầu chuyển kho"
-            moTa={`Phiếu chuyển sang Đã hủy, ${soVN(tong)} sản phẩm đang giữ chỗ được trả về tồn ${ct.khoXuat?.ten ?? "kho xuất"}. Người lập phiếu và quản lý hai kho nhận thông báo kèm lý do.`}
-            nhanXacNhan="Từ chối"
+            tieuDe={t("Từ chối yêu cầu chuyển kho")}
+            moTa={t("Phiếu chuyển sang Đã hủy, {{so}} sản phẩm đang giữ chỗ được trả về tồn {{khoXuat}}. Người lập phiếu và quản lý hai kho nhận thông báo kèm lý do.", { count: tong, so: soVN(tong), khoXuat: ct.khoXuat?.ten ?? t("kho xuất") })}
+            nhanXacNhan={t("Từ chối")}
             kieu="nguyHiem"
             dangChay={dangChay}
             khoaXacNhan={!lyDo.trim()}
-            lyDoKhoa="Nhập lý do từ chối"
+            lyDoKhoa={t("Nhập lý do từ chối")}
             loi={loi}
             onXacNhan={() => onXacNhan({ lyDo: lyDo.trim() })}
         >
-            <O nhan="Lý do từ chối" batBuoc goiY={`Bắt buộc · ${lyDo.length}/255`}>
+            <O nhan={t("Lý do từ chối")} batBuoc goiY={t("Bắt buộc · {{dem}}/255", { dem: lyDo.length })}>
                 {(p) => (
                     <textarea
                         {...p}
@@ -504,7 +505,7 @@ export function HopTuChoi({ mo, onDong, ct, dangChay, loi, onXacNhan }) {
                         maxLength={255}
                         disabled={dangChay}
                         onChange={(e) => setLyDo(e.target.value)}
-                        placeholder="Ví dụ: Kho tổng đang kiểm kê, gửi lại yêu cầu vào tuần sau"
+                        placeholder={t("Ví dụ: Kho tổng đang kiểm kê, gửi lại yêu cầu vào tuần sau")}
                         className={O_NHAP_NHIEU_DONG}
                     />
                 )}
@@ -521,18 +522,18 @@ export function HopHuy({ mo, onDong, ct, dangChay, loi, onXacNhan }) {
         <HopXacNhanChungTu
             mo={mo}
             onDoiMo={(m) => !m && onDong()}
-            tieuDe="Hủy phiếu chuyển kho"
+            tieuDe={t("Hủy phiếu chuyển kho")}
             moTa={dangDi
-                ? `Hàng đang trên đường. Sau khi hủy, ${ct.khoXuat?.ten} nhập hàng hoàn trả để đưa hàng về kho.`
-                : `Phiếu xuất chờ nhặt (nếu có) bị hủy theo và hàng đang giữ chỗ được trả về tồn ${ct.khoXuat?.ten}.`}
-            nhanXacNhan="Hủy phiếu"
+                ? t("Hàng đang trên đường. Sau khi hủy, {{khoXuat}} nhập hàng hoàn trả để đưa hàng về kho.", { khoXuat: ct.khoXuat?.ten })
+                : t("Phiếu xuất chờ nhặt (nếu có) bị hủy theo và hàng đang giữ chỗ được trả về tồn {{khoXuat}}.", { khoXuat: ct.khoXuat?.ten })}
+            nhanXacNhan={t("Hủy phiếu")}
             iconXacNhan={Ban}
             kieu="nguyHiem"
             dangChay={dangChay}
             loi={loi}
             onXacNhan={() => onXacNhan({ lyDo: lyDo.trim() || null })}
         >
-            <O nhan="Lý do hủy" goiY={`Không bắt buộc · ${lyDo.length}/255`}>
+            <O nhan={t("Lý do hủy")} goiY={t("Không bắt buộc · {{dem}}/255", { dem: lyDo.length })}>
                 {(p) => <textarea {...p} value={lyDo} maxLength={255} onChange={(e) => setLyDo(e.target.value)} className={O_NHAP_NHIEU_DONG} />}
             </O>
         </HopXacNhanChungTu>
@@ -546,9 +547,9 @@ export function HopNhapHoanTra({ mo, onDong, ct, dangChay, loi, onXacNhan }) {
         <HopXacNhanChungTu
             mo={mo}
             onDoiMo={(m) => !m && onDong()}
-            tieuDe="Nhập hàng hoàn trả"
-            moTa={`Lập và hoàn tất phiếu nhập hoàn trả: đưa ${soVN(con)} sản phẩm của ${ct.soPhieuChuyen} từ kho trung chuyển về lại ${ct.khoXuat?.ten}, đúng lô đã xuất.`}
-            nhanXacNhan="Nhập hàng hoàn trả"
+            tieuDe={t("Nhập hàng hoàn trả")}
+            moTa={t("Lập và hoàn tất phiếu nhập hoàn trả: đưa {{so}} sản phẩm của {{phieu}} từ kho trung chuyển về lại {{khoXuat}}, đúng lô đã xuất.", { count: con, so: soVN(con), phieu: ct.soPhieuChuyen, khoXuat: ct.khoXuat?.ten })}
+            nhanXacNhan={t("Nhập hàng hoàn trả")}
             iconXacNhan={RotateCcw}
             dangChay={dangChay}
             loi={loi}
@@ -569,11 +570,11 @@ function BangDongLech({ dong }) {
             <table className="w-full table-fixed text-[13px]">
                 <thead className="text-left text-xs text-bo-muted">
                     <tr>
-                        <th className="rounded-tl-lg bg-bo-surface-subtle px-3 py-2 font-medium">Sản phẩm</th>
-                        <th className="w-11 bg-bo-surface-subtle px-1.5 py-2 text-right font-medium sm:w-14 sm:px-2">Gửi</th>
-                        <th className="w-11 bg-bo-surface-subtle px-1.5 py-2 text-right font-medium sm:w-14 sm:px-2">Đạt</th>
-                        <th className="w-11 bg-bo-surface-subtle px-1.5 py-2 text-right font-medium sm:w-14 sm:px-2">Hỏng</th>
-                        <th className="w-12 rounded-tr-lg bg-bo-surface-subtle py-2 pl-1.5 pr-3 text-right font-medium sm:w-14">Thiếu</th>
+                        <th className="rounded-tl-lg bg-bo-surface-subtle px-3 py-2 font-medium">{t("Sản phẩm")}</th>
+                        <th className="w-11 bg-bo-surface-subtle px-1.5 py-2 text-right font-medium sm:w-14 sm:px-2">{t("Gửi", { context: "so_luong" })}</th>
+                        <th className="w-11 bg-bo-surface-subtle px-1.5 py-2 text-right font-medium sm:w-14 sm:px-2">{t("Đạt")}</th>
+                        <th className="w-11 bg-bo-surface-subtle px-1.5 py-2 text-right font-medium sm:w-14 sm:px-2">{t("Hỏng")}</th>
+                        <th className="w-12 rounded-tr-lg bg-bo-surface-subtle py-2 pl-1.5 pr-3 text-right font-medium sm:w-14">{t("Thiếu")}</th>
                     </tr>
                 </thead>
                 {dong.map((d) => {
@@ -585,7 +586,7 @@ function BangDongLech({ dong }) {
                                 <td className="px-3 pb-1 pt-2">
                                     <div className="line-clamp-2 font-medium text-bo-foreground [overflow-wrap:anywhere]" title={d.tenSanPham}>{d.tenSanPham}</div>
                                     <div className="text-xs text-bo-muted [overflow-wrap:anywhere]">
-                                        {bienThe ? `${bienThe} · ` : ""}lô <span className="font-mono">{d.maLo}</span> · {d.sku}
+                                        {bienThe ? `${bienThe} · ` : ""}{t("lô", { context: "mot" })} <span className="font-mono">{d.maLo}</span> · {d.sku}
                                     </div>
                                 </td>
                                 <td className="px-1.5 pb-1 pt-2 text-right align-top sm:px-2">{soVN(d.gui)}</td>
@@ -595,7 +596,7 @@ function BangDongLech({ dong }) {
                             </tr>
                             <tr>
                                 <td colSpan={5} className="px-3 pb-2 text-xs leading-5 text-bo-foreground [overflow-wrap:anywhere]">
-                                    <span className="text-bo-muted">Lý do: </span>
+                                    <span className="text-bo-muted">{t("Lý do:")} </span>
                                     {d.lyDo || "—"}
                                 </td>
                             </tr>
@@ -622,9 +623,9 @@ export function HopXacNhanBienBan({ mo, onDong, ct, dangChay, loi, onXacNhan }) 
         <HopXacNhanChungTu
             mo={mo}
             onDoiMo={(m) => !m && onDong()}
-            tieuDe={`Xác nhận biên bản · ${bb?.soBienBan ?? ""}`}
-            moTa={`${ct.khoNhap?.ten} nhận ${soVN(bb?.tongNhan)}/${soVN(bb?.tongGui)} sản phẩm ${ct.khoXuat?.ten} gửi, ghi thiếu ${soVN(bb?.tongThieu)}, hỏng ${soVN(bb?.tongHong)}. Xác nhận thay chữ ký ở ô Đại diện kho gửi; sau đó ${aiXuLyChenhLech(ct)} chọn cách xử lý phần lệch.`}
-            nhanXacNhan="Xác nhận biên bản"
+            tieuDe={t("Xác nhận biên bản · {{so}}", { so: bb?.soBienBan ?? "" })}
+            moTa={t("{{khoNhap}} nhận {{tongNhan}}/{{tongGui}} sản phẩm {{khoXuat}} gửi, ghi thiếu {{tongThieu}}, hỏng {{tongHong}}. Xác nhận thay chữ ký ở ô Đại diện kho gửi; sau đó {{ai}} chọn cách xử lý phần lệch.", { khoNhap: ct.khoNhap?.ten, tongNhan: soVN(bb?.tongNhan), tongGui: soVN(bb?.tongGui), khoXuat: ct.khoXuat?.ten, tongThieu: soVN(bb?.tongThieu), tongHong: soVN(bb?.tongHong), ai: aiXuLyChenhLechHienThi(ct) })}
+            nhanXacNhan={t("Xác nhận biên bản")}
             iconXacNhan={Check}
             rong
             // Đọc bảng lệch trước: không nhảy con trỏ xuống ô ý kiến ở cuối hộp (thân hộp cuộn, bàn phím điện thoại bật)
@@ -638,13 +639,13 @@ export function HopXacNhanBienBan({ mo, onDong, ct, dangChay, loi, onXacNhan }) 
             <BangDongLech dong={dongLechCua(bb)} />
             {bb?.ketLuan ? (
                 <p className="m-0 text-[13px] leading-5 text-bo-foreground [overflow-wrap:anywhere]">
-                    <span className="text-bo-muted">Kết luận của kho nhận: </span>
+                    <span className="text-bo-muted">{t("Kết luận của kho nhận:")} </span>
                     {bb.ketLuan}
                 </p>
             ) : null}
             {anh.length ? (
                 <div className="grid gap-1.5">
-                    <span className={NHAN_O}>Ảnh chụp ({soVN(anh.length)})</span>
+                    <span className={NHAN_O}>{t("Ảnh chụp ({{so}})", { so: soVN(anh.length) })}</span>
                     <div className="flex flex-wrap gap-2">
                         {anh.map((a) => (
                             <a
@@ -652,18 +653,18 @@ export function HopXacNhanBienBan({ mo, onDong, ct, dangChay, loi, onXacNhan }) 
                                 href={a.url}
                                 target="_blank"
                                 rel="noreferrer"
-                                title={a.moTa || "Mở ảnh ở thẻ mới"}
+                                title={a.moTa || t("Mở ảnh ở thẻ mới")}
                                 className="block size-14 overflow-hidden rounded-md border border-bo-border bg-bo-canvas focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/40"
                             >
-                                <img src={a.url} alt={a.moTa || "Ảnh biên bản"} loading="lazy" className="size-full object-cover" />
+                                <img src={a.url} alt={a.moTa || t("Ảnh biên bản")} loading="lazy" className="size-full object-cover" />
                             </a>
                         ))}
                     </div>
                 </div>
             ) : (
-                <p className="m-0 text-[13px] leading-5 text-bo-muted">Kho nhận chưa đính kèm ảnh nào cho biên bản này.</p>
+                <p className="m-0 text-[13px] leading-5 text-bo-muted">{t("Kho nhận chưa đính kèm ảnh nào cho biên bản này.")}</p>
             )}
-            <O nhan="Ý kiến của kho gửi" goiY={`Không bắt buộc · ${ghiChu.length}/255`}>
+            <O nhan={t("Ý kiến của kho gửi")} goiY={t("Không bắt buộc · {{dem}}/255", { dem: ghiChu.length })}>
                 {(p) => (
                     <textarea
                         {...p}
@@ -671,12 +672,12 @@ export function HopXacNhanBienBan({ mo, onDong, ct, dangChay, loi, onXacNhan }) 
                         maxLength={255}
                         disabled={dangChay}
                         onChange={(e) => setGhiChu(e.target.value)}
-                        placeholder="Ví dụ: hàng đóng nguyên thùng, niêm phong còn nguyên khi xuất"
+                        placeholder={t("Ví dụ: hàng đóng nguyên thùng, niêm phong còn nguyên khi xuất")}
                         className={O_NHAP_NHIEU_DONG}
                     />
                 )}
             </O>
-            <p className={GHI_CHU_HOP}>Xác nhận xong, kho nhận không thêm hay xóa ảnh biên bản được nữa.</p>
+            <p className={GHI_CHU_HOP}>{t("Xác nhận xong, kho nhận không thêm hay xóa ảnh biên bản được nữa.")}</p>
         </HopXacNhanChungTu>
     );
 }
@@ -693,19 +694,19 @@ export function HopXuLyChenhLech({ mo, onDong, ct, dangChay, loi, onXacNhan }) {
     const [daBam, setDaBam] = useState(false);
     const bb = ct.bienBan;
     const nLech = (bb?.tongThieu ?? 0) + (bb?.tongHong ?? 0);
-    const loiPa = daBam && !phuongAn ? "Chọn phương án xử lý" : null;
-    const loiLy = daBam && !lyDo.trim() ? "Nhập lý do" : null;
-    const khoXuat = ct.khoXuat?.ten ?? "kho xuất";
+    const loiPa = daBam && !phuongAn ? t("Chọn phương án xử lý") : null;
+    const loiLy = daBam && !lyDo.trim() ? t("Nhập lý do") : null;
+    const khoXuat = ct.khoXuat?.ten ?? t("kho xuất");
     const sauGiaoBu = ct.quyen?.giaoBuTuDuyet
-        ? `phiếu đã duyệt, có lệnh điều động để ${khoXuat} nhặt hàng ngay`
-        : "phiếu chờ Quản lý Kho tổng duyệt";
+        ? t("phiếu đã duyệt, có lệnh điều động để {{khoXuat}} nhặt hàng ngay", { khoXuat })
+        : t("phiếu chờ Quản lý Kho tổng duyệt");
     return (
         <HopXacNhanChungTu
             mo={mo}
             onDoiMo={(m) => !m && onDong()}
-            tieuDe={`Xử lý chênh lệch · ${bb?.soBienBan ?? ""}`}
-            moTa={`${ct.khoNhap?.ten} đã nhận ${soVN(bb?.tongNhan)}/${soVN(bb?.tongGui)}. ${soVN(nLech)} sản phẩm lệch đang giữ ở kho trung chuyển. Chọn một phương án cho biên bản; xử lý xong phiếu sang Hoàn tất.`}
-            nhanXacNhan="Duyệt xử lý lệch"
+            tieuDe={t("Xử lý chênh lệch · {{so}}", { so: bb?.soBienBan ?? "" })}
+            moTa={t("{{khoNhap}} đã nhận {{tongNhan}}/{{tongGui}}. {{soLech}} sản phẩm lệch đang giữ ở kho trung chuyển. Chọn một phương án cho biên bản; xử lý xong phiếu sang Hoàn tất.", { khoNhap: ct.khoNhap?.ten, tongNhan: soVN(bb?.tongNhan), tongGui: soVN(bb?.tongGui), count: nLech, soLech: soVN(nLech) })}
+            nhanXacNhan={t("Duyệt xử lý lệch")}
             rong
             dangChay={dangChay}
             loi={loi}
@@ -718,36 +719,37 @@ export function HopXuLyChenhLech({ mo, onDong, ct, dangChay, loi, onXacNhan }) {
             <BangDongLech dong={dongLechCua(bb)} />
             {bb?.ngayXacNhanGui ? (
                 <p className="m-0 text-[13px] leading-5 text-bo-foreground [overflow-wrap:anywhere]">
-                    <span className="text-bo-muted">{khoXuat} (kho gửi) đã xác nhận: </span>
+                    <span className="text-bo-muted">{t("{{khoXuat}} (kho gửi) đã xác nhận:", { khoXuat })} </span>
                     {bb.nguoiXacNhanGui ? <B>{bb.nguoiXacNhanGui}</B> : null}
-                    {bb.ghiChuKhoGui ? <> · Ý kiến: {bb.ghiChuKhoGui}</> : null}
+                    {bb.ghiChuKhoGui ? <> · {t("Ý kiến:")} {bb.ghiChuKhoGui}</> : null}
                 </p>
             ) : null}
             <ChonThe
-                nhan="Phương án xử lý"
+                nhan={t("Phương án xử lý")}
                 luaChon={PHUONG_AN_CHENH_LECH.map((pa) => ({
                     ...pa,
+                    nhan: t(pa.nhan),
                     moTa: pa.ma === "GIAO_BU_HANG"
-                        ? `Ghi giảm ${soVN(nLech)} sản phẩm lệch bằng phiếu điều chỉnh kho, đóng phiếu này với số đã nhận, rồi tự lập phiếu chuyển giao bù ${soVN(nLech)} sản phẩm từ ${khoXuat} (${sauGiaoBu}).`
-                        : `Lập phiếu điều chỉnh kho trừ ${soVN(nLech)} sản phẩm khỏi kho trung chuyển. Phiếu sang Hoàn tất (có chênh lệch).`,
+                        ? t("Ghi giảm {{so}} sản phẩm lệch bằng phiếu điều chỉnh kho, đóng phiếu này với số đã nhận, rồi tự lập phiếu chuyển giao bù {{so}} sản phẩm từ {{khoXuat}} ({{sauGiaoBu}}).", { count: nLech, so: soVN(nLech), khoXuat, sauGiaoBu })
+                        : t("Lập phiếu điều chỉnh kho trừ {{so}} sản phẩm khỏi kho trung chuyển. Phiếu sang Hoàn tất (có chênh lệch).", { count: nLech, so: soVN(nLech) }),
                 }))}
                 value={phuongAn}
                 onChange={setPhuongAn}
                 loi={loiPa}
             />
-            <O nhan="Lý do" batBuoc loi={loiLy}>
+            <O nhan={t("Lý do")} batBuoc loi={loiLy}>
                 {(p) => (
                     <textarea
                         {...p}
                         value={lyDo}
                         maxLength={500}
                         onChange={(e) => setLyDo(e.target.value)}
-                        placeholder="Ví dụ: rách đường may khi vận chuyển, quy trách nhiệm người vận chuyển"
+                        placeholder={t("Ví dụ: rách đường may khi vận chuyển, quy trách nhiệm người vận chuyển")}
                         className={cn(O_NHAP_NHIEU_DONG, loiLy && "border-bo-danger")}
                     />
                 )}
             </O>
-            <p className={GHI_CHU_HOP}>Chỉ {aiXuLyChenhLech(ct)} thực hiện được (đổi trong Cấu hình › Chuyển kho).</p>
+            <p className={GHI_CHU_HOP}>{t("Chỉ {{ai}} thực hiện được (đổi trong Cấu hình › Chuyển kho).", { ai: aiXuLyChenhLechHienThi(ct) })}</p>
         </HopXacNhanChungTu>
     );
 }

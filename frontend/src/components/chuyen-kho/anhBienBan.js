@@ -5,6 +5,7 @@
  * thông tin EXIF (vị trí GPS) của ảnh. Phần tính kích thước, lọc tệp, tải lần lượt là hàm thuần chạy `node --test`
  * (anhBienBan.test.js); thuNhoAnh dùng canvas nên chỉ chạy trên trình duyệt.
  */
+import { t } from "../../i18n/t.js";
 
 /** Tối đa ảnh mỗi biên bản (máy chủ kiểm: AnhBienBanGiaoNhanService.SO_ANH_TOI_DA). */
 export const SO_ANH_TOI_DA = 6;
@@ -67,14 +68,14 @@ export function locAnhChon(tep, daCo, toiDa = SO_ANH_TOI_DA) {
     };
 }
 
-const CAU_HEIC = "Không đọc được định dạng HEIC, hãy chụp hoặc chọn ảnh JPEG.";
+const CAU_HEIC = t("Không đọc được định dạng HEIC, hãy chụp hoặc chọn ảnh JPEG.");
 
 /** Câu báo khi bỏ bớt tệp vừa chọn (kết quả locAnhChon); không bỏ gì thì null. */
 export function cauBoQua({ boQuaKhongPhaiAnh = 0, boQuaHeic = 0, boQuaVuot = 0 } = {}, toiDa = SO_ANH_TOI_DA) {
     const phan = [];
-    if (boQuaVuot > 0) phan.push(`Mỗi biên bản tối đa ${toiDa} ảnh, đã bỏ ${boQuaVuot} ảnh chọn thừa.`);
-    if (boQuaHeic > 0) phan.push(`Đã bỏ ${boQuaHeic} ảnh HEIC. ${CAU_HEIC}`);
-    if (boQuaKhongPhaiAnh > 0) phan.push(`Đã bỏ ${boQuaKhongPhaiAnh} tệp không phải ảnh.`);
+    if (boQuaVuot > 0) phan.push(t("Mỗi biên bản tối đa {{toiDa}} ảnh, đã bỏ {{count}} ảnh chọn thừa.", { toiDa, count: boQuaVuot }));
+    if (boQuaHeic > 0) phan.push(`${t("Đã bỏ {{count}} ảnh HEIC.", { count: boQuaHeic })} ${CAU_HEIC}`);
+    if (boQuaKhongPhaiAnh > 0) phan.push(t("Đã bỏ {{count}} tệp không phải ảnh.", { count: boQuaKhongPhaiAnh }));
     return phan.length ? phan.join(" ") : null;
 }
 
@@ -88,9 +89,11 @@ export function cauAnhKhongDoc(dsTep) {
     const ten = ds.map((f) => String(f.name ?? "").trim()).filter(Boolean);
     const dsTen = `${ten.slice(0, 3).join(", ")}${ten.length > 3 ? ` +${ten.length - 3}` : ""}`;
     const tieuDe = ds.length === 1
-        ? `Không đọc được ảnh${ten[0] ? ` ${ten[0]}` : ""}`
-        : `Không đọc được ${ds.length} ảnh${dsTen ? `: ${dsTen}` : ""}`;
-    return { tieuDe, moTa: ds.some(laTepHeic) ? CAU_HEIC : "Chọn ảnh JPEG, PNG hoặc WebP, hoặc chụp lại." };
+        ? (ten[0] ? t("Không đọc được ảnh {{ten}}", { ten: ten[0] }) : t("Không đọc được ảnh"))
+        : dsTen
+            ? t("Không đọc được {{count}} ảnh: {{dsTen}}", { count: ds.length, dsTen })
+            : t("Không đọc được {{count}} ảnh", { count: ds.length });
+    return { tieuDe, moTa: ds.some(laTepHeic) ? CAU_HEIC : t("Chọn ảnh JPEG, PNG hoặc WebP, hoặc chụp lại.") };
 }
 
 /**
@@ -105,7 +108,7 @@ export async function taiLanLuot(ds, guiMot, khiTienDo, signal) {
     const loi = [];
     for (let i = 0; i < danhSach.length; i += 1) {
         if (signal?.aborted) {
-            danhSach.slice(i).forEach((anh) => loi.push({ anh, loi: signal.reason ?? new Error("Đã dừng tải") }));
+            danhSach.slice(i).forEach((anh) => loi.push({ anh, loi: signal.reason ?? new Error(t("Đã dừng tải")) }));
             break;
         }
         try {
@@ -120,7 +123,7 @@ export async function taiLanLuot(ds, guiMot, khiTienDo, signal) {
 }
 
 /** Câu báo sau khi lập biên bản mà còn ảnh tải lỗi hoặc bị bỏ qua (biên bản vẫn thành công). */
-export const cauAnhChuaTai = (soLoi) => `${soLoi} ảnh chưa tải được, thêm lại ở chi tiết phiếu trước khi kho gửi xác nhận biên bản`;
+export const cauAnhChuaTai = (soLoi) => t("{{count}} ảnh chưa tải được, thêm lại ở chi tiết phiếu trước khi kho gửi xác nhận biên bản", { count: soLoi });
 
 // ─────────────────────────────── Trình duyệt (canvas) ───────────────────────────────
 
@@ -153,10 +156,10 @@ async function docAnh(file) {
 export async function thuNhoAnh(file) {
     const nguon = await docAnh(file);
     try {
-        if (!(nguon.rong > 0) || !(nguon.cao > 0)) throw new Error("Ảnh không có kích thước");
+        if (!(nguon.rong > 0) || !(nguon.cao > 0)) throw new Error(t("Ảnh không có kích thước"));
         const canvas = document.createElement("canvas");
         const ctx = canvas.getContext("2d");
-        if (!ctx) throw new Error("Trình duyệt không vẽ được ảnh");
+        if (!ctx) throw new Error(t("Trình duyệt không vẽ được ảnh"));
         let blob = null;
         let coDangVe = null;
         for (const lan of cacLanThu(nguon.rong, nguon.cao)) {
@@ -170,7 +173,7 @@ export async function thuNhoAnh(file) {
                 ctx.drawImage(nguon.anh, 0, 0, lan.rong, lan.cao);
             }
             blob = await new Promise((xong) => canvas.toBlob(xong, "image/jpeg", lan.chatLuong));
-            if (!blob) throw new Error("Trình duyệt không nén được ảnh");
+            if (!blob) throw new Error(t("Trình duyệt không nén được ảnh"));
             if (blob.size <= DUNG_LUONG_DICH) break;
         }
         return new File([blob], tenTepJpeg(file?.name), { type: "image/jpeg", lastModified: Date.now() });

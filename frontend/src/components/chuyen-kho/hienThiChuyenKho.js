@@ -12,6 +12,7 @@ import {
     XKNB_CHE_DO,
 } from "../../constants/phieuChuyenKho.js";
 import { kiemTraBienSo, loiKhiDangGo } from "./bienSoXe.js";
+import { t } from "../../i18n/t.js";
 
 const p2 = (n) => String(n).padStart(2, "0");
 const thanhNgay = (v) => {
@@ -37,10 +38,10 @@ export function ngayGioDu(v) {
 /** "trễ 3 giờ", từ 48 giờ: "trễ 2 ngày"; dưới 1 giờ: "trễ". */
 export function treBaoLau(v, bayGio = Date.now()) {
     const d = thanhNgay(v);
-    if (!d) return "trễ";
+    if (!d) return t("trễ");
     const gio = Math.floor((bayGio - d.getTime()) / 3600000);
-    if (gio >= 48) return `trễ ${Math.floor(gio / 24)} ngày`;
-    return gio >= 1 ? `trễ ${gio} giờ` : "trễ";
+    if (gio >= 48) return t("trễ {{count}} ngày", { count: Math.floor(gio / 24) });
+    return gio >= 1 ? t("trễ {{count}} giờ", { count: gio }) : t("trễ");
 }
 
 /** Giá trị ô datetime-local ("2026-10-23T14:30") của một mốc; trống thì "". */
@@ -88,17 +89,19 @@ const oCsv = (v) => {
  */
 export function noiDungDuLieuChuyenHang(ct, form = {}) {
     const hinhThuc = HINH_THUC_VAN_CHUYEN.find((h) => h.ma === form.hinhThuc)?.nhan ?? "";
+    // Tệp dữ liệu nạp vào phần mềm hóa đơn điện tử (lập phiếu XKNB tiếng Việt): giữ tiếng Việt ở cả hai ngôn ngữ
     const dong = [
-        ["Phiếu chuyển", ct.soPhieuChuyen],
-        ["Lệnh điều động", ct.soLenhDieuDong ?? ""],
-        ["Ngày lệnh", ct.ngayLenhDieuDong ? ngayGioDu(ct.ngayLenhDieuDong) : ""],
-        ["Xuất tại kho", ct.khoXuat?.ten ?? "", ct.khoXuat?.diaChi ?? ""],
-        ["Nhập tại kho", ct.khoNhap?.ten ?? "", ct.khoNhap?.diaChi ?? ""],
-        ["Người vận chuyển", chuoi(form.nguoi)],
-        ["Hình thức vận chuyển", hinhThuc],
+        ["Phiếu chuyển", ct.soPhieuChuyen], // i18n-giu-nguyen: nội dung tệp dữ liệu
+        ["Lệnh điều động", ct.soLenhDieuDong ?? ""], // i18n-giu-nguyen: như trên
+        ["Ngày lệnh", ct.ngayLenhDieuDong ? ngayGioDu(ct.ngayLenhDieuDong) : ""], // i18n-giu-nguyen: như trên
+        ["Xuất tại kho", ct.khoXuat?.ten ?? "", ct.khoXuat?.diaChi ?? ""], // i18n-giu-nguyen: như trên
+        ["Nhập tại kho", ct.khoNhap?.ten ?? "", ct.khoNhap?.diaChi ?? ""], // i18n-giu-nguyen: như trên
+        ["Người vận chuyển", chuoi(form.nguoi)], // i18n-giu-nguyen: như trên
+        ["Hình thức vận chuyển", hinhThuc], // i18n-giu-nguyen: như trên
+        // i18n-giu-nguyen: như trên
         ["Phương tiện", [chuoi(form.loaiPhuongTien), chuoi(form.bienSo)].filter(Boolean).join(" · ") || chuoi(form.donVi)],
         [],
-        ["STT", "Mã hàng (SKU)", "Tên hàng", "Màu", "Kích cỡ", "Đơn vị tính", "Số lượng"],
+        ["STT", "Mã hàng (SKU)", "Tên hàng", "Màu", "Kích cỡ", "Đơn vị tính", "Số lượng"], // i18n-giu-nguyen: như trên
         ...(ct.hang ?? []).map((d, i) => [i + 1, d.sku, d.tenSanPham, d.tenMau ?? "", d.kichCo ?? "", d.donViTinh ?? "", docSoLuong(d.soLuongChuyen)]),
     ];
     return `${DAU_BOM}${dong.map((r) => r.map(oCsv).join(",")).join("\r\n")}\r\n`;
@@ -111,7 +114,20 @@ export const phieuXuatDaXuat = (ct) => String(ct?.phieuXuat?.trangThai ?? "") ==
  * Ai được xử lý chênh lệch của phiếu, VD "Quản trị viên hoặc Quản lý Kho tổng": máy chủ tính theo Cấu hình › Chuyển kho
  * (PhieuChuyenKhoService.moTaNguoiXuLyChenhLech); máy chủ bản cũ chưa gửi thì dùng câu của cấu hình mặc định.
  */
-export const aiXuLyChenhLech = (ct) => String(ct?.aiXuLyChenhLech ?? "").trim() || "Quản trị viên hoặc Quản lý Kho tổng";
+// i18n-giu-nguyen: câu tiếng Việt cho giấy in (màn hình dùng aiXuLyChenhLechHienThi)
+// Ưu tiên câu gốc tiếng Việt (máy chủ dịch aiXuLyChenhLech theo ngôn ngữ, kèm aiXuLyChenhLechGoc) — i18n-giu-nguyen
+export const aiXuLyChenhLech = (ct) => String(ct?.aiXuLyChenhLechGoc ?? ct?.aiXuLyChenhLech ?? "").trim() || "Quản trị viên hoặc Quản lý Kho tổng";
+
+/** Câu "Hoặc quản lý <kho>" máy chủ ghép (moTaNguoiXuLyChenhLech) khi cho quản lý kho xuất xử lý. */
+const AI_XU_LY_CO_KHO = /^Quản trị viên, Quản lý Kho tổng hoặc quản lý (.+)$/;
+
+/** {@link aiXuLyChenhLech} theo ngôn ngữ giao diện (màn hình); máy chủ gửi một trong ba câu tiếng Việt cố định. */
+export function aiXuLyChenhLechHienThi(ct) {
+    const cau = aiXuLyChenhLech(ct);
+    const coKho = AI_XU_LY_CO_KHO.exec(cau);
+    if (coKho) return t("Quản trị viên, Quản lý Kho tổng hoặc quản lý {{kho}}", { kho: coKho[1] });
+    return t(cau);
+}
 
 /**
  * Phiếu Chờ xử lý chênh lệch mà kho gửi chưa xác nhận biên bản giao nhận (BA 03/11): bước này xong người được xử lý
@@ -124,13 +140,21 @@ export const choKhoGuiXacNhan = (ct) => ct?.trangThai === TT_CHUYEN.CHO_XU_LY_LE
  * Ai làm tiếp với phần lệch, chèn sau "chờ": "Kho tổng xác nhận biên bản, sau đó Quản trị viên hoặc Quản lý Kho tổng
  * xử lý" khi kho gửi chưa xác nhận; "Quản trị viên hoặc Quản lý Kho tổng xử lý" khi đã xác nhận.
  */
-export function cauChoXuLyLech(ct) {
-    const ai = aiXuLyChenhLech(ct);
-    return choKhoGuiXacNhan(ct) ? `${ct.khoXuat?.ten ?? "kho gửi"} xác nhận biên bản, sau đó ${ai} xử lý` : `${ai} xử lý`;
+export function cauChoXuLyLech(ct, banIn = false) {
+    if (banIn) {
+        // Giấy biên bản: giữ tiếng Việt (chứng từ in)
+        const ai = aiXuLyChenhLech(ct);
+        // i18n-giu-nguyen: chữ in trên biên bản
+        return choKhoGuiXacNhan(ct) ? `${ct.khoXuat?.ten ?? "kho gửi"} xác nhận biên bản, sau đó ${ai} xử lý` : `${ai} xử lý`;
+    }
+    const ai = aiXuLyChenhLechHienThi(ct);
+    return choKhoGuiXacNhan(ct)
+        ? t("{{kho}} xác nhận biên bản, sau đó {{ai}} xử lý", { kho: ct.khoXuat?.ten ?? t("kho gửi"), ai })
+        : t("{{ai}} xử lý", { ai });
 }
 
 /** Tên trạng thái phiếu nhặt (cùng chữ constants/outbound.js PICK_LIST_STATUS). */
-const TEN_PHIEU_NHAT = { cho_nhat: "Chờ nhặt", dang_nhat: "Đang nhặt", da_nhat: "Đã nhặt", da_huy: "Đã hủy" };
+const TEN_PHIEU_NHAT = { cho_nhat: t("Chờ nhặt"), dang_nhat: t("Đang nhặt"), da_nhat: t("Đã nhặt"), da_huy: t("Đã hủy") };
 
 /**
  * Bước nhặt hàng của phiếu chuyển Đã duyệt (đặc tả bước 8–9): duyệt thì PX-CK vào danh sách chờ nhặt, thủ kho nhặt theo
@@ -151,20 +175,20 @@ export function tinhNhatChuyenKho(ct) {
     const tenTrangThai = pn ? TEN_PHIEU_NHAT[pn.trangThai] ?? pn.trangThai : null;
     const so = (n) => n.toLocaleString("vi-VN");
 
-    let nhanNut = "Mở phiếu nhặt";
-    if (pn?.trangThai === "da_nhat") nhanNut = "Xem phiếu nhặt";
-    else if (chonLoTay) nhanNut = duocXuat ? "Xem phiếu xuất" : "Chọn lô";
+    let nhanNut = t("Mở phiếu nhặt");
+    if (pn?.trangThai === "da_nhat") nhanNut = t("Xem phiếu nhặt");
+    else if (chonLoTay) nhanNut = duocXuat ? t("Xem phiếu xuất") : t("Chọn lô");
 
     let lyDoKhoaXuat;
     if (!duocXuat) {
-        if (pn) lyDoKhoaXuat = `Hoàn tất phiếu nhặt ${pn.so} trước khi xác nhận xuất`;
-        else if (chonLoTay) lyDoKhoaXuat = `Chọn đủ lô cho ${so(tong)} sản phẩm trước khi xác nhận xuất`;
-        else lyDoKhoaXuat = "Mở phiếu nhặt, nhặt đủ hàng trước khi xác nhận xuất";
+        if (pn) lyDoKhoaXuat = t("Hoàn tất phiếu nhặt {{so}} trước khi xác nhận xuất", { so: pn.so });
+        else if (chonLoTay) lyDoKhoaXuat = t("Chọn đủ lô cho {{so}} sản phẩm trước khi xác nhận xuất", { count: tong, so: so(tong) });
+        else lyDoKhoaXuat = t("Mở phiếu nhặt, nhặt đủ hàng trước khi xác nhận xuất");
     }
 
-    let tienDo = `Đã nhặt ${so(daNhat)}/${so(tong)}`;
-    if (pn?.trangThai === "da_nhat") tienDo = "Đã nhặt xong, chờ xác nhận xuất";
-    else if (pn?.trangThai === "cho_nhat" && !pn.nguoi) tienDo = `Chờ nhặt · chưa phân công`;
+    let tienDo = t("Đã nhặt {{daNhat}}/{{tong}}", { daNhat: so(daNhat), tong: so(tong) });
+    if (pn?.trangThai === "da_nhat") tienDo = t("Đã nhặt xong, chờ xác nhận xuất");
+    else if (pn?.trangThai === "cho_nhat" && !pn.nguoi) tienDo = t("Chờ nhặt · chưa phân công");
     else if (pn) tienDo = `${tenTrangThai} ${so(daNhat)}/${so(tong)}`;
 
     return { phieuNhat: pn, tenTrangThai, chonLoTay, nhanNut, duocXuat, lyDoKhoaXuat, tienDo };
@@ -177,10 +201,10 @@ export function tinhNhatChuyenKho(ct) {
 export function nhanPhieuXuatLienQuan(ct) {
     const tt = String(ct?.phieuXuat?.trangThai ?? "");
     // 3: Đã xuất, 4: Đã hủy (constants/phieuXuatKho.js)
-    if (tt === "3" || tt === "4") return "Phiếu xuất kho";
+    if (tt === "3" || tt === "4") return t("Phiếu xuất kho");
     const pn = ct?.phieuNhat && ct.phieuNhat.trangThai !== "da_huy" ? ct.phieuNhat : null;
     const ten = pn ? TEN_PHIEU_NHAT[pn.trangThai] : null;
-    return ten ? `Phiếu xuất kho · ${ten.toLowerCase()}` : "Phiếu xuất kho";
+    return ten ? `${t("Phiếu xuất kho")} · ${ten.toLowerCase()}` : t("Phiếu xuất kho");
 }
 
 /**
@@ -191,22 +215,22 @@ export function nhanPhieuXuatLienQuan(ct) {
 export function buocChuyenKho(ct, bayGio = Date.now()) {
     if (!ct) return [];
     const tt = ct.trangThai;
-    const khoXuat = ct.khoXuat?.ten ?? "Kho xuất";
-    const khoNhap = ct.khoNhap?.ten ?? "Kho nhận";
+    const khoXuat = ct.khoXuat?.ten ?? t("Kho xuất");
+    const khoNhap = ct.khoNhap?.ten ?? t("Kho nhận");
     const phieuNhapDich = (ct.phieuNhap ?? []).find((pn) => !pn.laHoanTra && String(pn.trangThai) === "3");
     const ds = [
-        { ma: "yeuCau", nhan: "Yêu cầu", ai: khoNhap, ngay: ct.ngayTao, coGio: true },
+        { ma: "yeuCau", nhan: t("Yêu cầu", { context: "buoc" }), ai: khoNhap, ngay: ct.ngayTao, coGio: true },
         {
             ma: "lenh",
-            nhan: "Lệnh điều động",
-            ai: "Quản lý Kho tổng",
+            nhan: t("Lệnh điều động"),
+            ai: t("Quản lý Kho tổng", { context: "mot_nguoi" }),
             ngay: ct.ngayLenhDieuDong ?? null,
             coGio: true,
-            phu: ct.soLenhDieuDong ? undefined : tt === TT_CHUYEN.DA_HUY ? undefined : "Chờ duyệt",
+            phu: ct.soLenhDieuDong ? undefined : tt === TT_CHUYEN.DA_HUY ? undefined : t("Chờ duyệt"),
         },
         {
             ma: "xuat",
-            nhan: "Xuất kho",
+            nhan: t("Xuất kho"),
             ai: khoXuat,
             ngay: phieuXuatDaXuat(ct) ? ct.phieuXuat?.ngay : null,
             coGio: true,
@@ -214,11 +238,11 @@ export function buocChuyenKho(ct, bayGio = Date.now()) {
         },
         {
             ma: "vanChuyen",
-            nhan: "Đang vận chuyển",
-            ai: ct.nguoiVanChuyen || "Người vận chuyển",
-            phu: ct.ngayDuKienDen && phieuXuatDaXuat(ct) ? `Dự kiến ${gioNgayNgan(ct.ngayDuKienDen)}` : undefined,
+            nhan: t("Đang vận chuyển"),
+            ai: ct.nguoiVanChuyen || t("Người vận chuyển"),
+            phu: ct.ngayDuKienDen && phieuXuatDaXuat(ct) ? t("Dự kiến {{gio}}", { gio: gioNgayNgan(ct.ngayDuKienDen) }) : undefined,
         },
-        { ma: "nhan", nhan: "Nhận hàng", ai: khoNhap, ngay: ct.ngayThucTeDen ?? phieuNhapDich?.ngay ?? null, coGio: true },
+        { ma: "nhan", nhan: t("Nhận hàng"), ai: khoNhap, ngay: ct.ngayThucTeDen ?? phieuNhapDich?.ngay ?? null, coGio: true },
     ];
 
     const datTrangThai = (tuBuoc, kieu) => ds.forEach((b, i) => {
@@ -230,8 +254,8 @@ export function buocChuyenKho(ct, bayGio = Date.now()) {
         const den = ct.huyKhiDangChuyen ? 4 : ct.soLenhDieuDong ? 3 : 2;
         datTrangThai(den, "dung");
         ds[den - 1].canhBao = ct.huyKhiDangChuyen
-            ? (ct.daNhapHoanTra ? "Đã hủy · đã nhập hoàn trả" : "Đã hủy · chờ nhập hoàn trả")
-            : ct.tuChoi ? "Bị từ chối" : "Đã hủy";
+            ? (ct.daNhapHoanTra ? t("Đã hủy · đã nhập hoàn trả") : t("Đã hủy · chờ nhập hoàn trả"))
+            : ct.tuChoi ? t("Bị từ chối") : t("Đã hủy");
         // Từ chối là quyết định của bước Lệnh điều động: ghi người và giờ từ chối ở bước đó
         if (ct.tuChoi) {
             ds[1].ai = ct.nguoiHuy || ds[1].ai;
@@ -245,12 +269,12 @@ export function buocChuyenKho(ct, bayGio = Date.now()) {
         datTrangThai(4, "dangLam");
     } else if (tt === TT_CHUYEN.CHO_XU_LY_LECH) {
         datTrangThai(5, "dangLam");
-        ds[4].canhBao = "Có chênh lệch";
+        ds[4].canhBao = t("Có chênh lệch");
         // Biên bản qua hai bước: kho gửi xác nhận, rồi người được xử lý chênh lệch chọn ghi giảm / giao bù
-        if (ct.bienBan) ds[4].phu = choKhoGuiXacNhan(ct) ? "Chờ kho gửi xác nhận" : "Chờ xử lý";
+        if (ct.bienBan) ds[4].phu = choKhoGuiXacNhan(ct) ? t("Chờ kho gửi xác nhận") : t("Chờ xử lý");
     } else {
         datTrangThai(6, "dangLam");
-        if (ct.bienBan) ds[4].canhBao = "Có chênh lệch · đã xử lý";
+        if (ct.bienBan) ds[4].canhBao = t("Có chênh lệch · đã xử lý");
     }
     if (ct.tre && tt === TT_CHUYEN.DANG_VAN_CHUYEN && ct.ngayDuKienDen) ds[3].canhBao = treBaoLau(ct.ngayDuKienDen, bayGio);
     return ds;
@@ -268,34 +292,34 @@ export function kiemTraXacNhanXuat(form, cheDo, daDongYThieu = false) {
     const f = form ?? {};
     const loi = {};
     const hinhThuc = HINH_THUC_VAN_CHUYEN.some((h) => h.ma === f.hinhThuc) ? f.hinhThuc : "";
-    if (!hinhThuc) loi.hinhThuc = "Chọn hình thức vận chuyển";
+    if (!hinhThuc) loi.hinhThuc = t("Chọn hình thức vận chuyển");
     const canPhuongTien = hinhThuc === "XE_CONG_TY" || hinhThuc === "THUE_NGOAI";
     const canDonVi = hinhThuc === "THUE_NGOAI" || hinhThuc === "CHUYEN_PHAT";
     const sdt = chuoi(f.sdt).replace(/\s/g, "");
-    if (!chuoi(f.nguoi)) loi.nguoi = "Nhập tên người vận chuyển";
+    if (!chuoi(f.nguoi)) loi.nguoi = t("Nhập tên người vận chuyển");
     // Câu lỗi dưới ô nửa hộp: gọn một dòng (máy chủ báo câu đầy đủ ở chân hộp)
-    if (!SDT_RE.test(sdt)) loi.sdt = sdt ? "Gồm 10 số, bắt đầu bằng 03/05/07/08/09" : "Nhập số điện thoại";
-    if (canPhuongTien && !chuoi(f.loaiPhuongTien)) loi.loaiPhuongTien = "Nhập loại phương tiện";
+    if (!SDT_RE.test(sdt)) loi.sdt = sdt ? t("Gồm 10 số, bắt đầu bằng 03/05/07/08/09") : t("Nhập số điện thoại");
+    if (canPhuongTien && !chuoi(f.loaiPhuongTien)) loi.loaiPhuongTien = t("Nhập loại phương tiện");
     // Biển số theo mẫu biển Việt Nam (bienSoXe.js), gửi cách viết chuẩn; sai thì ưu tiên câu cụ thể (vd. mã tỉnh sai)
     const bienSo = canPhuongTien ? kiemTraBienSo(f.bienSo) : null;
     if (bienSo && !bienSo.hopLe) loi.bienSo = loiKhiDangGo(f.bienSo) ?? bienSo.loi;
-    if (canDonVi && !chuoi(f.donVi)) loi.donVi = "Nhập tên đơn vị";
-    if (hinhThuc === "CHUYEN_PHAT" && !chuoi(f.maVanDon)) loi.maVanDon = "Nhập mã vận đơn";
+    if (canDonVi && !chuoi(f.donVi)) loi.donVi = t("Nhập tên đơn vị");
+    if (hinhThuc === "CHUYEN_PHAT" && !chuoi(f.maVanDon)) loi.maVanDon = t("Nhập mã vận đơn");
     const duKienDen = tuONgayGio(f.duKienDen);
-    if (duKienDen === undefined) loi.duKienDen = "Thời gian không hợp lệ";
+    if (duKienDen === undefined) loi.duKienDen = t("Thời gian không hợp lệ");
 
     const kyHieu = chuoi(f.kyHieu).toUpperCase();
     const so = chuoi(f.soXknb);
-    if (kyHieu && !KY_HIEU_XKNB_RE.test(kyHieu)) loi.kyHieu = "Ký hiệu gồm 7 ký tự, ví dụ 6K26NAB";
-    if (so && !SO_XKNB_RE.test(so)) loi.soXknb = "Số phiếu gồm 7 chữ số, ví dụ 0000125";
+    if (kyHieu && !KY_HIEU_XKNB_RE.test(kyHieu)) loi.kyHieu = t("Ký hiệu gồm 7 ký tự, ví dụ 6K26NAB");
+    if (so && !SO_XKNB_RE.test(so)) loi.soXknb = t("Số phiếu gồm 7 chữ số, ví dụ 0000125");
     const thieu = !kyHieu || !so;
     let chan = null;
     let canhBaoThieu = false;
     if (thieu) {
         if (cheDo !== XKNB_CHE_DO.CHI_CANH_BAO) {
-            chan = "Cần ký hiệu và số của giấy đi đường (phiếu XKNB) trước khi hàng rời kho";
-            if (!kyHieu) loi.kyHieu = loi.kyHieu ?? "Bắt buộc";
-            if (!so) loi.soXknb = loi.soXknb ?? "Bắt buộc";
+            chan = t("Cần ký hiệu và số của giấy đi đường (phiếu XKNB) trước khi hàng rời kho");
+            if (!kyHieu) loi.kyHieu = loi.kyHieu ?? t("Bắt buộc");
+            if (!so) loi.soXknb = loi.soXknb ?? t("Bắt buộc");
         } else if (!daDongYThieu) {
             canhBaoThieu = true;
         }
@@ -326,8 +350,8 @@ export function kiemTraGhiSoXknb(form) {
     const loi = {};
     const kyHieu = chuoi(f.kyHieu).toUpperCase();
     const so = chuoi(f.soXknb);
-    if (!KY_HIEU_XKNB_RE.test(kyHieu)) loi.kyHieu = "Ký hiệu gồm 7 ký tự, ví dụ 6K26NAB";
-    if (!SO_XKNB_RE.test(so)) loi.soXknb = "Số phiếu gồm 7 chữ số, ví dụ 0000125";
+    if (!KY_HIEU_XKNB_RE.test(kyHieu)) loi.kyHieu = t("Ký hiệu gồm 7 ký tự, ví dụ 6K26NAB");
+    if (!SO_XKNB_RE.test(so)) loi.soXknb = t("Số phiếu gồm 7 chữ số, ví dụ 0000125");
     if (Object.keys(loi).length) return { loi, yeuCau: null };
     return {
         loi,

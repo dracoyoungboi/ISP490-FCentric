@@ -32,18 +32,19 @@ import { trangCuoiNeuVuot } from "@/lib/tinhTaiLai";
 import { formatDate, formatNumber } from "@/utils/formatters";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { gioNgayNgan, treBaoLau } from "@/components/chuyen-kho/hienThiChuyenKho";
+import { t } from "@/i18n";
 
-const TAB_MAS = PHIEU_CHUYEN_KHO_TABS.map((t) => t.ma);
+const TAB_MAS = PHIEU_CHUYEN_KHO_TABS.map((tab) => tab.ma);
 const TAB_MAC_DINH = "tat-ca";
-const tabMayChu = (ma) => PHIEU_CHUYEN_KHO_TABS.find((t) => t.ma === ma)?.tab ?? "TAT_CA";
+const tabMayChu = (ma) => PHIEU_CHUYEN_KHO_TABS.find((tab) => tab.ma === ma)?.tab ?? "TAT_CA";
 
 const SEARCH_DEBOUNCE_MS = 350;
 const TH = "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
 const TD = "px-4 py-3 align-top";
 
 const LOC_TRANG_THAI = [
-    { value: "", label: "Tất cả trạng thái" },
-    ...Object.values(TT_CHUYEN).map((ma) => ({ value: ma, label: PHIEU_CHUYEN_KHO_STATUS[ma].label })),
+    { value: "", label: t("Tất cả trạng thái") },
+    ...Object.values(TT_CHUYEN).map((ma) => ({ value: ma, label: t(PHIEU_CHUYEN_KHO_STATUS[ma].label) })),
     // Đã hủy chỉ còn phiếu hủy; phiếu bị từ chối lọc riêng (máy chủ tách theo nhật ký từ chối)
     { value: LOC_TU_CHOI, label: PHIEU_CHUYEN_KHO_STATUS.DA_TU_CHOI.label },
 ];
@@ -165,13 +166,13 @@ export default function PhieuChuyenKhoList() {
 
     const luaChonKho = useMemo(() => dsKho.map((k) => ({ value: String(k.id), label: k.tenKho })), [dsKho]);
 
-    const statusTabs = PHIEU_CHUYEN_KHO_TABS.map((t) => ({
-        value: t.ma,
-        label: t.label,
-        count: loadError || !soTheoTab ? null : soTheoTab[t.tab] ?? 0,
-        tone: t.canhBao ? "warning" : undefined,
+    const statusTabs = PHIEU_CHUYEN_KHO_TABS.map((tab) => ({
+        value: tab.ma,
+        label: t(tab.label),
+        count: loadError || !soTheoTab ? null : soTheoTab[tab.tab] ?? 0,
+        tone: tab.canhBao ? "warning" : undefined,
     }));
-    const tenTab = PHIEU_CHUYEN_KHO_TABS.find((t) => t.ma === tab)?.label;
+    const tenTab = t(PHIEU_CHUYEN_KHO_TABS.find((x) => x.ma === tab)?.label);
 
     return (
         <PageContainer fill className="space-y-4">
@@ -180,7 +181,7 @@ export default function PhieuChuyenKhoList() {
                     <Link to="/transfer-tickets/create">
                         <Button className="h-9 gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover">
                             <Plus className="size-4" />
-                            Tạo yêu cầu chuyển
+                            {t("Tạo yêu cầu chuyển")}
                         </Button>
                     </Link>
                 }
@@ -190,44 +191,44 @@ export default function PhieuChuyenKhoList() {
                 fill
                 toolbar={
                     <ListToolbar
-                        tabs={<StatusTabs label="Lọc phiếu chuyển kho" tabs={statusTabs} value={tab} onChange={changeTab} />}
+                        tabs={<StatusTabs label={t("Lọc phiếu chuyển kho")} tabs={statusTabs} value={tab} onChange={changeTab} />}
                         hasFilter={coLoc}
                         onClear={xoaLoc}
                     >
                         <KhoLamViecSelect onChange={(id) => setKhoLamViec(String(id))} />
                         <SearchInput
-                            placeholder="Số phiếu, số lệnh..."
-                            label="Số phiếu hoặc số lệnh điều động"
+                            placeholder={t("Số phiếu, số lệnh...")}
+                            label={t("Số phiếu hoặc số lệnh điều động")}
                             value={tuKhoaInput}
                             onChange={(e) => setTuKhoaInput(e.target.value)}
                             onClear={() => setTuKhoaInput("")}
                             className="sm:w-[240px]"
                         />
                         <FilterSelect
-                            label="Kho xuất"
+                            label={t("Kho xuất")}
                             value={filters.khoXuatId}
-                            options={[{ value: "", label: "Kho xuất: Tất cả" }, ...luaChonKho]}
+                            options={[{ value: "", label: t("Kho xuất: Tất cả") }, ...luaChonKho]}
                             onChange={(v) => doiLoc("khoXuatId", v)}
                             onClear={() => doiLoc("khoXuatId", "")}
-                            clearLabel="Bỏ lọc kho xuất"
+                            clearLabel={t("Bỏ lọc kho xuất")}
                             className="sm:w-[190px]"
                         />
                         <FilterSelect
-                            label="Kho nhận"
+                            label={t("Kho nhận")}
                             value={filters.khoNhapId}
-                            options={[{ value: "", label: "Kho nhận: Tất cả" }, ...luaChonKho]}
+                            options={[{ value: "", label: t("Kho nhận: Tất cả") }, ...luaChonKho]}
                             onChange={(v) => doiLoc("khoNhapId", v)}
                             onClear={() => doiLoc("khoNhapId", "")}
-                            clearLabel="Bỏ lọc kho nhận"
+                            clearLabel={t("Bỏ lọc kho nhận")}
                             className="sm:w-[190px]"
                         />
                         <FilterSelect
-                            label="Trạng thái"
+                            label={t("Trạng thái")}
                             value={filters.trangThai}
                             options={LOC_TRANG_THAI}
                             onChange={(v) => doiLoc("trangThai", v)}
                             onClear={() => doiLoc("trangThai", "")}
-                            clearLabel="Bỏ lọc trạng thái"
+                            clearLabel={t("Bỏ lọc trạng thái")}
                             className="sm:w-[190px]"
                         />
                     </ListToolbar>
@@ -246,10 +247,10 @@ export default function PhieuChuyenKhoList() {
                 }
             >
                 {loading ? (
-                    <LoadingState rows={6} label="Đang tải danh sách phiếu chuyển kho" />
+                    <LoadingState rows={6} label={t("Đang tải danh sách phiếu chuyển kho")} />
                 ) : loadError ? (
                     <ErrorState
-                        description={getApiErrorMessage(loadError, "Không thể tải danh sách phiếu chuyển kho. Vui lòng thử lại.")}
+                        description={getApiErrorMessage(loadError, t("Không thể tải danh sách phiếu chuyển kho. Vui lòng thử lại."))}
                         error={loadError}
                         onRetry={() => fetchData()}
                     />
@@ -257,27 +258,27 @@ export default function PhieuChuyenKhoList() {
                     coLoc ? (
                         <EmptyState
                             icon={SearchX}
-                            title="Không tìm thấy phiếu chuyển kho phù hợp"
-                            description="Thử đổi số phiếu, kho hoặc trạng thái đang lọc."
+                            title={t("Không tìm thấy phiếu chuyển kho phù hợp")}
+                            description={t("Thử đổi số phiếu, kho hoặc trạng thái đang lọc.")}
                             action={
                                 <Button variant="outline" onClick={xoaLoc} className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">
-                                    Xóa lọc
+                                    {t("Xóa lọc")}
                                 </Button>
                             }
                         />
                     ) : tab !== TAB_MAC_DINH ? (
                         <EmptyState
                             icon={ClipboardList}
-                            title={`Không có phiếu chuyển nào ở mục "${tenTab}"`}
-                            description="Chọn tab Tất cả để xem mọi phiếu chuyển đi và chuyển đến."
+                            title={t("Không có phiếu chuyển nào ở mục \"{{tenTab}}\"", { tenTab })}
+                            description={t("Chọn tab Tất cả để xem mọi phiếu chuyển đi và chuyển đến.")}
                             action={
                                 <Button variant="outline" onClick={() => changeTab(TAB_MAC_DINH)} className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">
-                                    Xem tất cả
+                                    {t("Xem tất cả")}
                                 </Button>
                             }
                         />
                     ) : (
-                        <EmptyState icon={ClipboardList} title="Chưa có phiếu chuyển kho" description="Kho đang chọn chưa có phiếu chuyển đi hoặc chuyển đến." />
+                        <EmptyState icon={ClipboardList} title={t("Chưa có phiếu chuyển kho")} description={t("Kho đang chọn chưa có phiếu chuyển đi hoặc chuyển đến.")} />
                     )
                 ) : (
                     <>
@@ -291,13 +292,13 @@ export default function PhieuChuyenKhoList() {
                     <table className="w-full min-w-[960px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
                         <thead className="sticky top-0 z-10">
                             <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                                <th className={`${TH} text-left`}>Số phiếu</th>
-                                <th className={`${TH} text-left`}>Tuyến</th>
-                                <th className={`${TH} text-left cam-ung:max-lg:hidden`}>Lệnh điều động</th>
-                                <th className={`${TH} text-left`}>Trạng thái</th>
-                                <th className={`${TH} text-left cam-ung:max-lg:hidden`}>Giấy đi đường</th>
-                                <th className={`${TH} text-left cam-ung:max-lg:hidden`}>Dự kiến đến</th>
-                                <th className={`${TH} text-right`}>Số lượng</th>
+                                <th className={`${TH} text-left`}>{t("Số phiếu")}</th>
+                                <th className={`${TH} text-left`}>{t("Tuyến")}</th>
+                                <th className={`${TH} text-left cam-ung:max-lg:hidden`}>{t("Lệnh điều động")}</th>
+                                <th className={`${TH} text-left`}>{t("Trạng thái")}</th>
+                                <th className={`${TH} text-left cam-ung:max-lg:hidden`}>{t("Giấy đi đường")}</th>
+                                <th className={`${TH} text-left cam-ung:max-lg:hidden`}>{t("Dự kiến đến")}</th>
+                                <th className={`${TH} text-right`}>{t("Số lượng")}</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-bo-border">
@@ -325,13 +326,13 @@ function CanhBaoPhieu({ p, className = "" }) {
         <span className={`flex-wrap items-center gap-x-2 gap-y-1 ${className}`}>
             {treHen ? (
                 <span className="whitespace-nowrap font-semibold tabular-nums text-bo-tt-chu-y-chu">
-                    Dự kiến đến {gioNgayNgan(p.ngayDuKienDen)} · {treBaoLau(p.ngayDuKienDen)}
+                    {t("Dự kiến đến {{gio}}", { gio: gioNgayNgan(p.ngayDuKienDen) })} · {treBaoLau(p.ngayDuKienDen)}
                 </span>
             ) : null}
             {thieuGiay ? (
                 <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-bo-tt-chu-y px-2 py-0.5 text-xs font-medium text-bo-tt-chu-y-chu">
                     <TriangleAlert className="size-3.5" aria-hidden="true" />
-                    Giấy đi đường: Chưa có số
+                    {t("Giấy đi đường: Chưa có số")}
                 </span>
             ) : null}
         </span>
@@ -365,7 +366,7 @@ function ThePhieu({ p }) {
                 <ChipChuaXepKe p={p} />
                 <span className="flex items-baseline justify-between gap-3 text-[13px] text-bo-muted">
                     <span className="min-w-0 truncate tabular-nums">
-                        {formatDate(p.ngayTao)}{p.soPhieuGoc ? ` · giao bù cho ${p.soPhieuGoc}` : ""}
+                        {formatDate(p.ngayTao)}{p.soPhieuGoc ? ` · ${t("giao bù cho {{so}}", { so: p.soPhieuGoc })}` : ""}
                     </span>
                     <span className="shrink-0 text-[15px] font-semibold tabular-nums text-bo-foreground">{formatNumber(p.tongSoLuong)}</span>
                 </span>
@@ -385,7 +386,7 @@ function DongPhieu({ p, onMo }) {
             <td className={TD}>
                 <div className="whitespace-nowrap font-semibold text-bo-primary">{p.soPhieuChuyen}</div>
                 <div className="text-xs tabular-nums text-bo-muted">{formatDate(p.ngayTao)}</div>
-                {p.soPhieuGoc ? <div className="text-xs text-bo-muted">giao bù cho {p.soPhieuGoc}</div> : null}
+                {p.soPhieuGoc ? <div className="text-xs text-bo-muted">{t("giao bù cho {{so}}", { so: p.soPhieuGoc })}</div> : null}
             </td>
             <td className={`${TD} text-bo-foreground`}>
                 {p.khoXuatTen} <span className="text-bo-muted">→</span> {p.khoNhapTen}
@@ -407,7 +408,7 @@ function DongPhieu({ p, onMo }) {
                 ) : p.thieuXknb ? (
                     <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-bo-tt-chu-y px-2 py-0.5 text-xs font-medium text-bo-tt-chu-y-chu">
                         <TriangleAlert className="size-3.5" aria-hidden="true" />
-                        Chưa có số
+                        {t("Chưa có số")}
                     </span>
                 ) : (
                     <span className="text-bo-muted">—</span>
