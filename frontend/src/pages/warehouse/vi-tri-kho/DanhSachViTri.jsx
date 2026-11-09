@@ -184,7 +184,7 @@ export default function DanhSachViTri({
       <section aria-label={t("Khu vực")} className="flex flex-col overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm lg:max-h-full max-md:hidden">
         <div className="flex shrink-0 items-center justify-between gap-2 border-b border-bo-border px-4 py-3">
           <h2 className="text-sm font-semibold text-bo-heading">{t("Khu vực")}</h2>
-          <span className="text-xs text-bo-muted">{t("{{length}} khu", { length: khuVucs.length })}</span>
+          <span className="text-xs text-bo-muted">{t("{{length}} khu", { count: khuVucs.length, length: khuVucs.length })}</span>
         </div>
         <nav className="flex min-h-0 flex-col gap-0.5 overflow-y-auto p-2 cam-ung:max-lg:grid cam-ung:max-lg:grid-cols-3 cam-ung:max-lg:gap-x-2">
           {[{ id: null, tenKhuVuc: t("Tất cả khu vực"), so: viTris.length }, ...khuVucs.map((k) => ({ ...k, so: soTheoKhu.get(k.id) ?? 0 }))].map((k) => {

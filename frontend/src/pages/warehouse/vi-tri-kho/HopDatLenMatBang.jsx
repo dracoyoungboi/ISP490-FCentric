@@ -83,7 +83,7 @@ function NoiDung({ hinh, khuChuaDat, khuVucs, onDong, onXacNhan }) {
   return (
     <KhungHop
       tieuDe={t("Đặt lên mặt bằng")}
-      moTa={t("Hình {{rong}} × {{cao}} ô · bắt đầu từ cột {{x}}, hàng {{y}}", { rong: hinh.rong, cao: hinh.cao, x: hinh.x, y: hinh.y })}
+      moTa={t("Hình {{rong}} × {{cao}} ô · bắt đầu từ cột {{x}}, hàng {{y}}", { count: hinh.rong * hinh.cao, rong: hinh.rong, cao: hinh.cao, x: hinh.x, y: hinh.y })}
       onHuy={onDong}
       onGui={xacNhan}
       nhanGui={t("Đặt lên mặt bằng")}

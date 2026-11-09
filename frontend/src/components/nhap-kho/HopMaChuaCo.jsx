@@ -211,7 +211,7 @@ function NoiDung({ quet, dieuKhienRef, phieu, items, bienTheDangKiemId, ungVienG
                       </span>
                       <span className="text-xs text-bo-muted">{g.nhan}</span>
                     </div>
-                    <span className="whitespace-nowrap text-xs font-medium text-orange-800">{g.lech ? t("lệch {{lech}} ký tự", { lech: g.lech }) : t("thiếu {{thieu}} ký tự cuối", { thieu: g.thieu })}</span>
+                    <span className="whitespace-nowrap text-xs font-medium text-orange-800">{g.lech ? t("lệch {{lech}} ký tự", { count: Number(g.lech) || 0, lech: g.lech }) : t("thiếu {{thieu}} ký tự cuối", { count: Number(g.thieu) || 0, thieu: g.thieu })}</span>
                     <Button type="button" variant="outline" size="sm" onClick={() => onDungMa(g.ma, t("sửa từ mã quét lệch {{ma}}", { ma }))} className="border-bo-border bg-bo-surface text-xs">
                       {t("Dùng mã này")}
                     </Button>

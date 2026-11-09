@@ -24,7 +24,7 @@ import { t } from "@/i18n";
 
 /** "10 biến thể"; đang tìm mà nhóm chỉ còn một phần: "3/10 biến thể". */
 const chuBienThe = (n) =>
-  n.soBienThe !== n.soBienTheCaNhom ? t("{{so}}/{{tong}} biến thể", { so: soVN(n.soBienThe), tong: soVN(n.soBienTheCaNhom) })
+  n.soBienThe !== n.soBienTheCaNhom ? t("{{so}}/{{tong}} biến thể", { count: Number(n.soBienTheCaNhom) || 0, so: soVN(n.soBienThe), tong: soVN(n.soBienTheCaNhom) })
     : t("{{so}} biến thể", { count: n.soBienThe, so: soVN(n.soBienThe) });
 
 /**

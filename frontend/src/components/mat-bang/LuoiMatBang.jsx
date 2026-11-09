@@ -401,7 +401,7 @@ export default function LuoiMatBang({
                 keoLoi ? "text-bo-danger" : "text-blue-700",
               )}
             >
-              {keoLoi ? t("Chồng lên khu khác") : t("{{rong}} × {{cao}} ô", { rong: hinhKeo.rong, cao: hinhKeo.cao })}
+              {keoLoi ? t("Chồng lên khu khác") : t("{{rong}} × {{cao}} ô", { count: hinhKeo.rong * hinhKeo.cao, rong: hinhKeo.rong, cao: hinhKeo.cao })}
             </em>
           </span>
         ) : null}

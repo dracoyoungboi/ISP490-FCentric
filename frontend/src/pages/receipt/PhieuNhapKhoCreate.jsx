@@ -489,7 +489,7 @@ export default function PhieuNhapKhoCreate() {
                     </NutChu>
                 ))}
             >
-                {t("Đơn này đang có phiếu nhập nháp")} <b className="font-semibold">{noiSoPhieu(dsPhieuGiu)}</b> {t("giữ số lượng {{soLuong}}.", { soLuong: soVN(bangHang.tong.giu) })}
+                {t("Đơn này đang có phiếu nhập nháp", { count: dsPhieuGiu.length })} <b className="font-semibold">{noiSoPhieu(dsPhieuGiu)}</b> {t("giữ số lượng {{soLuong}}.", { soLuong: soVN(bangHang.tong.giu) })}
                 {giuThua
                     ? phieuGiuThua.length > 1
                         ? t(" Phiếu {{phieuGiuThua}} cùng giữ nhiều hơn số đơn còn thiếu ở {{soBienThe}} biến thể ({{viDuGiuThua}}): kiểm đếm trên một phiếu, hủy phiếu thừa.", { phieuGiuThua: noiSoPhieu(phieuGiuThua), count: dongGiuThua.length, soBienThe: soVN(dongGiuThua.length), viDuGiuThua })

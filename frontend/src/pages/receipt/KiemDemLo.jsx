@@ -350,7 +350,7 @@ function KiemDemLoNoiDung() {
       tt = tinhHienTai();
     }
     if (tt.conLai <= 0) {
-      bao("warn", t("Đã đủ {{can}} sản phẩm theo đơn mua. Sản phẩm thừa để riêng và báo quản lý kho.", { can: formatNumber(tt.can) }));
+      bao("warn", t("Đã đủ {{can}} sản phẩm theo đơn mua. Sản phẩm thừa để riêng và báo quản lý kho.", { count: Number(tt.can) || 0, can: formatNumber(tt.can) }));
       return;
     }
     const kq = themLuot(phienRef.current, { ma, nguon, soLuong, conLai: tt.conLai, cheDo: ctxRef.current.cheDo, gio: gio() });

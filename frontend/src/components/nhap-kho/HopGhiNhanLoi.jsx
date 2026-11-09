@@ -72,7 +72,7 @@ function NoiDung({ moTa, soLuongBanDau, toiDa, onHuy, onXacNhan }) {
           </div>
         </div>
         {toiDa != null && so > toiDa ? (
-          <p className="-mt-2 text-right text-xs text-bo-danger">{t("Tối đa {{toiDa}} sản phẩm còn lại theo đơn mua.", { toiDa })}</p>
+          <p className="-mt-2 text-right text-xs text-bo-danger">{t("Tối đa {{toiDa}} sản phẩm còn lại theo đơn mua.", { count: Number(toiDa) || 0, toiDa })}</p>
         ) : null}
 
         <fieldset className="flex flex-col gap-2">

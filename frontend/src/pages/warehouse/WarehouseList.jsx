@@ -141,7 +141,7 @@ export default function WarehouseList({
                                     <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1">
                                         <Package2 className="h-3.5 w-3.5 text-slate-500" />
                                         <span className="font-semibold text-slate-800 text-xs">
-                                            {t("{{soLuongTon}} SP", { soLuongTon: formatNumber(wh.soLuongTon) })}
+                                            {t("{{soLuongTon}} SP", { count: Number(wh.soLuongTon) || 0, soLuongTon: formatNumber(wh.soLuongTon) })}
                                         </span>
                                     </span>
                                 </td>

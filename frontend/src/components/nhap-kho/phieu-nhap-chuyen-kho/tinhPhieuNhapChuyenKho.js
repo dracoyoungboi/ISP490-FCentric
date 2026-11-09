@@ -63,7 +63,7 @@ export function cauChoNhap(data) {
  */
 export function moTaXacNhan(data, tong, soLo = null) {
   const tg = tong ?? {};
-  const tomTat = t("{{soSanPham}} sản phẩm, {{soDong}} biến thể (tổng số lượng {{soLuong}}{{phanLo}})", { soSanPham: soVN(tg.soSanPham), soDong: soVN(tg.soDong), soLuong: soVN(tg.soLuong), phanLo: soLo != null ? t(", {{soLo}} lô", { count: Number(soLo) || 0, soLo: soVN(soLo) }) : "" });
+  const tomTat = t("{{soSanPham}} sản phẩm, {{soDong}} biến thể (tổng số lượng {{soLuong}}{{phanLo}})", { count: Number(tg.soSanPham) || 0, soSanPham: soVN(tg.soSanPham), soDong: soVN(tg.soDong), soLuong: soVN(tg.soLuong), phanLo: soLo != null ? t(", {{soLo}} lô", { count: Number(soLo) || 0, soLo: soVN(soLo) }) : "" });
   return t("Cộng lại {{tomTat}} vào tồn {{tenKho}} theo đúng lô đã bán.", { tomTat, tenKho: data?.tenKho || t("kho nhận") });
 }
 

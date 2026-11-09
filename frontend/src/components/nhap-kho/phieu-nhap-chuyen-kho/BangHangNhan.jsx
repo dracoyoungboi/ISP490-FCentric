@@ -37,7 +37,7 @@ function soLoCuaNhom(dong) {
 
 /** "10 biến thể"; đang tìm mà nhóm chỉ còn một phần: "3/10 biến thể". */
 const chuBienThe = (n) =>
-  n.soBienThe !== n.soBienTheCaNhom ? t("{{soBienThe}}/{{soBienTheCaNhom}} biến thể", { soBienThe: soVN(n.soBienThe), soBienTheCaNhom: soVN(n.soBienTheCaNhom) }) : t("{{soBienThe}} biến thể", { count: Number(n.soBienThe) || 0, soBienThe: soVN(n.soBienThe) });
+  n.soBienThe !== n.soBienTheCaNhom ? t("{{soBienThe}}/{{soBienTheCaNhom}} biến thể", { count: Number(n.soBienTheCaNhom) || 0, soBienThe: soVN(n.soBienThe), soBienTheCaNhom: soVN(n.soBienTheCaNhom) }) : t("{{soBienThe}} biến thể", { count: Number(n.soBienThe) || 0, soBienThe: soVN(n.soBienThe) });
 
 function LoCuaDong({ dong }) {
   return (

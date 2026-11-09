@@ -447,7 +447,7 @@ function BenPhai({ vatChon, dangVe, matBang, khuVucs, viTris, khuChuaDat, coTheS
           }
           phu={
             <>
-              <span className="font-mono">{khu.maKhuVuc}</span> {t("· {{rong}} × {{cao}} ô · từ cột {{x}}, hàng {{y}}", { rong: hinh.rong, cao: hinh.cao, x: hinh.x, y: hinh.y })}
+              <span className="font-mono">{khu.maKhuVuc}</span> {t("· {{rong}} × {{cao}} ô · từ cột {{x}}, hàng {{y}}", { count: hinh.rong * hinh.cao, rong: hinh.rong, cao: hinh.cao, x: hinh.x, y: hinh.y })}
             </>
           }
           chan={
@@ -547,7 +547,7 @@ function BenPhai({ vatChon, dangVe, matBang, khuVucs, viTris, khuChuaDat, coTheS
               <NhanLoai>{huong ?? tenLoaiVat(vatChon.loai)}</NhanLoai>
             </>
           }
-          phu={t("{{rong}} × {{cao}} ô · từ cột {{x}}, hàng {{y}}", { rong: vat.rong, cao: vat.cao, x: vat.x, y: vat.y })}
+          phu={t("{{rong}} × {{cao}} ô · từ cột {{x}}, hàng {{y}}", { count: vat.rong * vat.cao, rong: vat.rong, cao: vat.cao, x: vat.x, y: vat.y })}
           chan={
             coTheSua ? (
               <div className="flex flex-col gap-2">

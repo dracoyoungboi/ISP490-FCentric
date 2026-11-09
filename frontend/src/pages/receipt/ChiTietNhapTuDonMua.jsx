@@ -375,7 +375,7 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
             so={1}
             nhan={t("Bước 1")}
             tieuDe={t("Kiểm đếm hàng")}
-            moTa={t("{{xong}}/{{tongBienThe}} biến thể · {{kiem}}/{{can}} sản phẩm", { xong: formatNumber(tong.xong), tongBienThe: formatNumber(dong.length), kiem: formatNumber(tong.kiem), can: formatNumber(tong.can) })}
+            moTa={t("{{xong}}/{{tongBienThe}} biến thể · {{kiem}}/{{can}} sản phẩm", { count: dong.length, xong: formatNumber(tong.xong), tongBienThe: formatNumber(dong.length), kiem: formatNumber(tong.kiem), can: formatNumber(tong.can) })}
             phu={<ThanhMuc className="mt-1" phanTram={tong.can ? (tong.kiem / tong.can) * 100 : 0} tone={kiemXong ? "ok" : ""} label={t("Tiến độ kiểm đếm")} />}
             hanhDong={
               kiemXong || daNhap ? (
