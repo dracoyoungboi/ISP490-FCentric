@@ -7,7 +7,9 @@ public interface IPermissionType {
             xem_ton_kho = "xem_ton_kho",
             xem_chi_tiet_lo = "xem_chi_tiet_lo",
             dieu_chinh_ton_kho = "dieu_chinh_ton_kho",
-            chuyen_kho = "chuyen_kho";
+            chuyen_kho = "chuyen_kho",
+            /** Nhân viên kho lập đợt kiểm kê nháp (BA kiểm kê mục 3); quản trị viên, quản lý kho không cần. */
+            tao_dot_kiem_ke = "tao_dot_kiem_ke";
 
     /* ================= NHẬP KHO ================= */
     String

@@ -62,6 +62,14 @@ public class ThongBaoKiemKeService {
         }
     }
 
+    /** K0: người khác (vd. nhân viên kho có quyền lập đợt) lưu nháp và giao cho người chủ trì bắt đầu. */
+    public void choBatDau(DotKiemKe dot, NguoiDung nguoiLap) {
+        String ten = nguoiLap == null || nguoiLap.getHoTen() == null || nguoiLap.getHoTen().isBlank()
+                ? "Người lập" : nguoiLap.getHoTen().trim();
+        guiChuTri(dot, nguoiLap, ThongBaoService.TONE_INFO, "Đợt kiểm kê " + ma(dot) + " chờ bạn bắt đầu",
+                ten + " đã lập đợt nháp và chọn bạn chủ trì. Xem lại phạm vi rồi bấm Bắt đầu kiểm kê.", "CHO_BAT_DAU");
+    }
+
     /** K2: quản lý mở lại {@code soDong} dòng để đếm lại. */
     public void demLai(DotKiemKe dot, int soDong, String lyDo, NguoiDung nguoiYeuCau) {
         guiChuTri(dot, nguoiYeuCau, ThongBaoService.TONE_WARNING, "Đợt kiểm kê " + ma(dot) + " cần đếm lại " + soDong + " dòng",

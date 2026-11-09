@@ -19,7 +19,8 @@ import com.dev.backend.i18n.ThongDiep;
 /**
  * Kiểm kê khoanh vùng (đặc tả BA 03/11). Thay /api/phieu-kiem-ke của luồng cũ (kiểm toàn kho, ghi đè tồn khi hoàn thành).
  * Lệnh đổi trạng thái nhận header Idempotency-Key và phiên bản đợt (expectedVersion) trong thân yêu cầu.
- * Quyền (chốt Đ7): xem — quản trị viên, quản lý kho, nhân viên kho; tạo / sửa nháp / bắt đầu / hủy — quản lý kho;
+ * Quyền (chốt Đ7, sửa 10/11 theo BA mục 3): xem — quản trị viên, quản lý kho, nhân viên kho; tạo / sửa nháp / xem trước —
+ * quản lý kho, hoặc nhân viên kho có quyền tao_dot_kiem_ke tại kho (KiemKeQuyen kiểm); bắt đầu / hủy — quản lý kho;
  * đếm / lô phát sinh / ảnh / trình duyệt — quản lý kho, nhân viên kho; đếm lại / phê duyệt — quản lý kho có quyền
  * dieu_chinh_ton_kho. Quản trị viên làm được mọi bước.
  */
@@ -96,14 +97,14 @@ public class KiemKeController {
     }
 
     @GetMapping("/nguoi-chu-tri")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho})
     public ResponseEntity<ResponseData<List<KiemKeDto.Nguoi>>> nguoiChuTri(@RequestParam Integer khoId) {
         return ok(doc.nguoiChuTri(khoId), ThongDiep.dich("khoVanHanh.layNguoiChuTriThanhCong"));
     }
 
     /** Số kệ và sản phẩm trên sổ kệ theo danh mục (gộp cây con) — bảng chọn danh mục ở Tạo đợt kiểm kê. */
     @GetMapping("/danh-muc-tren-ke")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho})
     public ResponseEntity<ResponseData<List<KiemKeDto.DanhMucTrenKe>>> danhMucTrenKe(@RequestParam Integer khoId) {
         return ok(doc.danhMucTrenKe(khoId), ThongDiep.dich("khoVanHanh.layHangTrenKeTheoDanhMucThanhCong"));
     }
@@ -127,7 +128,7 @@ public class KiemKeController {
     }
 
     @PostMapping("/xem-truoc")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho})
     public ResponseEntity<ResponseData<KiemKeDto.XemTruoc>> xemTruoc(@RequestBody KiemKeYeuCau.Dot yc,
                                                                      @RequestParam(required = false) Integer dotId) {
         return ok(kiemKe.xemTruoc(yc, dotId), ThongDiep.dich("khoVanHanh.xemTruocPhamViThanhCong"));
@@ -136,7 +137,7 @@ public class KiemKeController {
     // ───────────────────────────── Nháp, bắt đầu ─────────────────────────────
 
     @PostMapping
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho}, inWarehouse = true)
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho}, inWarehouse = true)
     public ResponseEntity<ResponseData<KiemKeDto.KetQuaLenh>> taoNhap(@RequestBody KiemKeYeuCau.Dot yc) {
         return ok(kiemKe.taoNhap(yc), ThongDiep.dich("khoVanHanh.daLuuNhapKhoVanHanh"));
     }
@@ -149,7 +150,7 @@ public class KiemKeController {
     }
 
     @PutMapping("/{id}")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho}, inWarehouse = true)
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho}, inWarehouse = true)
     public ResponseEntity<ResponseData<KiemKeDto.KetQuaLenh>> suaNhap(@PathVariable Integer id, @RequestBody KiemKeYeuCau.Dot yc) {
         return ok(kiemKe.suaNhap(id, yc), ThongDiep.dich("khoVanHanh.daLuuNhap"));
     }

@@ -13,4 +13,8 @@ public interface LichSuKiemKeRepository extends JpaRepository<LichSuKiemKe, Inte
 
     @Query("SELECT l FROM LichSuKiemKe l LEFT JOIN FETCH l.nguoiThucHien WHERE l.dotKiemKe.id = :dotId ORDER BY l.ngayThucHien DESC, l.id DESC")
     List<LichSuKiemKe> theoDot(@Param("dotId") Integer dotId);
+
+    /** Người làm một hành động của đợt, cũ nhất trước (vd. "Tạo đợt" → người lập đợt). */
+    @Query("SELECT l.nguoiThucHien.id FROM LichSuKiemKe l WHERE l.dotKiemKe.id = :dotId AND l.hanhDong = :hanhDong ORDER BY l.id ASC")
+    List<Integer> nguoiThucHienTheoHanhDong(@Param("dotId") Integer dotId, @Param("hanhDong") String hanhDong);
 }
