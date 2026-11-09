@@ -47,6 +47,7 @@ export default function ChonKhoKiemKe({
   thongTin,
   nhan = "Kho",
   disabled = false,
+  align = "start",
   className,
 }) {
   const [mo, setMo] = useState(false);
@@ -92,6 +93,21 @@ export default function ChonKhoKiemKe({
         { ten: "Cửa hàng", ds: dsKhop.filter((k) => !laKhoTong(k)) },
       ]
     : [{ ten: null, ds: dsKhop }];
+
+  const dongMoiKho = hienMoiKho ? (
+    <CommandItem
+      key={MA_MOI_KHO}
+      value={MA_MOI_KHO}
+      onSelect={() => chon(null)}
+      className="items-start gap-2 py-2 data-[selected=true]:bg-bo-primary-soft data-[selected=true]:text-bo-foreground"
+    >
+      <Warehouse className={cn("mt-0.5 size-4 shrink-0", value == null ? "text-bo-primary" : "text-bo-muted")} aria-hidden="true" />
+      <span className={cn("min-w-0 flex-1 truncate text-sm", value == null ? "font-medium text-bo-foreground" : "text-slate-700")}>
+        {nhanMoiKho}
+      </span>
+      {value == null ? <Check className="mt-0.5 size-4 shrink-0 text-bo-primary" aria-hidden="true" /> : null}
+    </CommandItem>
+  ) : null;
 
   const dongKho = (k) => {
     const ten = tenCuaKho(k);
@@ -141,7 +157,17 @@ export default function ChonKhoKiemKe({
           <ChevronDown className="size-4 shrink-0 opacity-60" aria-hidden="true" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-[min(380px,calc(100vw-32px))] border-bo-border bg-bo-surface p-0">
+      {/* Không có dòng phụ / nhãn: danh sách rộng đúng bằng ô chọn (tối thiểu 200px) cho thẳng mép.
+          Có dòng phụ (Tạo đợt): cần rộng hơn để đủ chỗ. */}
+      <PopoverContent
+        align={align}
+        className={cn(
+          "border-bo-border bg-bo-surface p-0",
+          thongTin
+            ? "w-[min(380px,calc(100vw-32px))]"
+            : "w-[max(var(--radix-popover-trigger-width),200px)] max-w-[calc(100vw-32px)]",
+        )}
+      >
         <Command
           label={`Tìm ${nhan.toLowerCase()}`}
           shouldFilter={false}
@@ -152,22 +178,13 @@ export default function ChonKhoKiemKe({
           <CommandInput value={tim} onValueChange={setTim} placeholder="Tìm kho…" className="text-bo-foreground" />
           <CommandList className="max-h-[300px]">
             <CommandEmpty className="py-5 text-center text-sm text-bo-muted">Không có kho nào khớp “{tim.trim()}”</CommandEmpty>
-            {hienMoiKho ? (
-              <CommandGroup>
-                <CommandItem
-                  value={MA_MOI_KHO}
-                  onSelect={() => chon(null)}
-                  className="gap-2 data-[selected=true]:bg-bo-primary-soft data-[selected=true]:text-bo-foreground"
-                >
-                  <Warehouse className="size-4 shrink-0 text-bo-muted" aria-hidden="true" />
-                  <span className={cn("flex-1 text-sm", value == null ? "font-medium" : "text-slate-700")}>{nhanMoiKho}</span>
-                  {value == null ? <Check className="size-4 shrink-0 text-bo-primary" aria-hidden="true" /> : null}
-                </CommandItem>
-              </CommandGroup>
-            ) : null}
+            {/* Chia nhóm: "Mọi kho" đứng riêng trên các tiêu đề nhóm. Không chia nhóm: chung một nhóm với các kho
+                để khoảng cách giữa các dòng đều nhau (hai nhóm liền nhau bị cộng dồn đệm). */}
+            {chiaNhom && dongMoiKho ? <CommandGroup>{dongMoiKho}</CommandGroup> : null}
             {nhom.map((g) =>
-              g.ds.length ? (
+              g.ds.length || (!chiaNhom && dongMoiKho) ? (
                 <CommandGroup key={g.ten ?? "tat-ca"} heading={g.ten ? `${g.ten} · ${g.ds.length}` : undefined}>
+                  {!chiaNhom ? dongMoiKho : null}
                   {g.ds.map(dongKho)}
                 </CommandGroup>
               ) : null,

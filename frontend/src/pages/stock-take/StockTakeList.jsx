@@ -330,6 +330,7 @@ export default function StockTakeList() {
                 onChange={(id) => doiKho(id == null ? MOI_KHO : String(id))}
                 nhanMoiKho="Mọi kho"
                 nhan="Lọc theo kho"
+                align="end"
                 className="w-full sm:w-[220px]"
               />
             ) : null}
