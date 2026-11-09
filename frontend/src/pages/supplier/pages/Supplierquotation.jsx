@@ -23,16 +23,19 @@ import {
     tinhTong,
 } from '@/components/supplier-portal/baoGiaUtils';
 import { CAU_PHIEN_HET_HAN, diaChiDangNhapLai, xuLyLoiGuiBaoGia } from '@/components/supplier-portal/loiCong';
-import { noiTenNhom, nhomTheoSanPham, tenNhomChua } from '@/components/supplier-portal/nhomBaoGia';
+import { NGU_CANH_LOAI, noiTenNhom, nhomTheoSanPham, tenNhomChua } from '@/components/supplier-portal/nhomBaoGia';
 import { getDonMuaHangStatus } from '@/constants/donMuaHang';
 import { formatCurrency } from '@/utils/formatters';
 import supplierQuotationService from '@/services/supplierQuotationService';
+import { t } from "@/i18n";
 
-const TB_CAN_DANG_NHAP = 'Vui lòng nhận mã xác nhận để xem và gửi báo giá.';
+const TB_CAN_DANG_NHAP = t("Vui lòng nhận mã xác nhận để xem và gửi báo giá.");
 // Trang cũ không cho gửi khi đơn chưa có ngày giao dự kiến (ô ngày chỉ đọc) — giữ nguyên điều kiện này
-const LOI_THIEU_NGAY_GIAO = 'Đơn mua hàng chưa có ngày cần giao nên chưa gửi được báo giá. Vui lòng liên hệ người phụ trách đơn.';
+const LOI_THIEU_NGAY_GIAO = t("Đơn mua hàng chưa có ngày cần giao nên chưa gửi được báo giá. Vui lòng liên hệ người phụ trách đơn.");
 // Tên trạng thái hiển thị cho nhà cung cấp (phía nhà cung cấp, khác tên trạng thái đơn ở phần quản trị)
+// i18n-giu-nguyen: nhãn đưa vào StatusBadge (badge tự dịch và tra màu theo tên Việt)
 const NHAN_CHO_BAO_GIA = { label: 'Chờ báo giá' };
+// i18n-giu-nguyen: nhãn đưa vào StatusBadge (badge tự dịch và tra màu theo tên Việt)
 const NHAN_DA_GUI = { label: 'Đã gửi báo giá' };
 
 // Phiên báo giá hết hạn khi bấm Gửi: đơn giá + ghi chú chưa gửi lưu tạm trong thẻ trình duyệt này (sessionStorage, không
@@ -140,7 +143,7 @@ function TrangBaoGia({ orderData, daGuiLuc, phienBaoGia, cuaHang }) {
     const tenCuaHang = String(cuaHang?.ten ?? '').trim();
 
     const coBienThe = nhom.length < dong.length;
-    const donVi = coBienThe ? 'phân loại' : 'sản phẩm';
+    const donVi = coBienThe ? t("phân loại", NGU_CANH_LOAI) : t("sản phẩm", NGU_CANH_LOAI);
     const viTriThieu = timDongThieuGia(dong);
     // Chỉ nêu tên khi đã nhập được ít nhất một giá (đơn mới thì mọi sản phẩm đều thiếu, nêu tên không giúp gì)
     const conThieu = tong.daNhapGia > 0 && viTriThieu.length ? noiTenNhom(tenNhomChua(nhom, viTriThieu)) : '';
@@ -254,7 +257,7 @@ function TrangBaoGia({ orderData, daGuiLuc, phienBaoGia, cuaHang }) {
               : loaiNhan === 'theo-don'
                 ? getDonMuaHangStatus(orderData.trangThai)
                 : null;
-    const tieuDeGhiChu = tenCuaHang ? `Ghi chú cho ${tenCuaHang}` : 'Ghi chú';
+    const tieuDeGhiChu = tenCuaHang ? t("Ghi chú cho {{tenCuaHang}}", { tenCuaHang }) : t("Ghi chú");
 
     return (
         <KhungCongNhaCungCap tenNhaCungCap={tenNhaCungCap} email={email} onThoat={bamThoat}>
@@ -262,7 +265,7 @@ function TrangBaoGia({ orderData, daGuiLuc, phienBaoGia, cuaHang }) {
                 <div className="flex flex-col gap-1.5">
                     <div className="flex flex-col gap-1.5 md:flex-row md:flex-wrap md:items-center md:gap-3">
                         <h1 className="text-xl leading-7 font-bold tracking-tight break-words text-bo-heading md:text-2xl md:leading-8">
-                            Báo giá đơn {orderData.soDonMua}
+                            {t("Báo giá đơn {{soDon}}", { soDon: orderData.soDonMua })}
                         </h1>
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                             {nhan && <StatusBadge quyTrinh={chiXem && !daGui ? 'donMua' : 'yeuCauBaoGia'} label={nhan.label} />}
@@ -284,28 +287,26 @@ function TrangBaoGia({ orderData, daGuiLuc, phienBaoGia, cuaHang }) {
                         <CheckCircle2 className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                         {/* Chữ theo email Đã nhận báo giá (M3) */}
                         <span>
-                            Đã gửi báo giá lúc <strong className="font-semibold">{gioVaNgay(daGui)}</strong>. Cần sửa đơn giá: gửi lại trên Cổng nhà
-                            cung cấp trước khi có kết quả. Báo giá gửi sau sẽ thay báo giá này.
+                            {t("Đã gửi báo giá lúc")} <strong className="font-semibold">{gioVaNgay(daGui)}</strong>{t(". Cần sửa đơn giá: gửi lại trên Cổng nhà cung cấp trước khi có kết quả. Báo giá gửi sau sẽ thay báo giá này.")}
                         </span>
                     </div>
                 ) : chiXem ? (
                     <div role="status" className="flex items-start gap-2 rounded-lg border border-bo-border bg-bo-surface px-3.5 py-3 text-sm leading-5 text-slate-700">
                         <Info className="mt-0.5 size-4 shrink-0 text-bo-muted" aria-hidden="true" />
-                        <span>Đơn này không còn nhận báo giá. Nếu cần trao đổi, vui lòng liên hệ người phụ trách đơn.</span>
+                        <span>{t("Đơn này không còn nhận báo giá. Nếu cần trao đổi, vui lòng liên hệ người phụ trách đơn.")}</span>
                     </div>
                 ) : nhapChuaGui ? (
                     // Bảng đang hiện số nhập trước khi phiên hết hạn, không phải đơn giá đã gửi: nói rõ là chưa gửi
                     <div role="status" className="flex items-start gap-2 rounded-lg border border-blue-200 bg-bo-primary-soft px-3 py-2.5 text-sm leading-5 text-blue-700">
                         <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                         <span>
-                            Đã điền lại đơn giá và ghi chú bạn nhập trước khi phiên hết hạn. Các số này <strong className="font-semibold">chưa được gửi</strong>:
-                            bấm Gửi báo giá để gửi{daBaoGiaTruoc ? ', báo giá gửi lần này sẽ thay báo giá đã gửi trước đó' : ''}.
+                            {t("Đã điền lại đơn giá và ghi chú bạn nhập trước khi phiên hết hạn. Các số này")} <strong className="font-semibold">{t("chưa được gửi")}</strong>{t(": bấm Gửi báo giá để gửi")}{daBaoGiaTruoc ? t(", báo giá gửi lần này sẽ thay báo giá đã gửi trước đó") : ''}.
                         </span>
                     </div>
                 ) : daBaoGiaTruoc ? (
                     <div role="status" className="flex items-start gap-2 rounded-lg border border-blue-200 bg-bo-primary-soft px-3 py-2.5 text-sm leading-5 text-blue-700">
                         <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                        <span>Bạn đã gửi báo giá cho đơn này trước đó. Đơn giá đã gửi đang hiện sẵn bên dưới; gửi lại sẽ thay đơn giá cũ.</span>
+                        <span>{t("Bạn đã gửi báo giá cho đơn này trước đó. Đơn giá đã gửi đang hiện sẵn bên dưới; gửi lại sẽ thay đơn giá cũ.")}</span>
                     </div>
                 ) : null}
 
@@ -329,13 +330,13 @@ function TrangBaoGia({ orderData, daGuiLuc, phienBaoGia, cuaHang }) {
                         className="flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-dashed border-slate-300 bg-bo-surface px-3.5 text-sm font-medium text-bo-primary hover:border-bo-primary hover:bg-bo-primary-soft/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 md:h-10 md:w-auto md:self-start"
                     >
                         <Plus className="size-4" aria-hidden="true" />
-                        {tenCuaHang ? `Thêm ghi chú cho ${tenCuaHang}` : 'Thêm ghi chú'}
-                        <span className="font-normal text-bo-muted">(không bắt buộc)</span>
+                        {tenCuaHang ? t("Thêm ghi chú cho {{tenCuaHang}}", { tenCuaHang }) : t("Thêm ghi chú")}
+                        <span className="font-normal text-bo-muted">{t("(không bắt buộc)")}</span>
                     </button>
                 ) : (
                     <SurfaceCard
                         title={tieuDeGhiChu}
-                        description={chiXem ? undefined : 'Không bắt buộc. Điều kiện giao hàng, thanh toán hoặc lưu ý khác.'}
+                        description={chiXem ? undefined : t("Không bắt buộc. Điều kiện giao hàng, thanh toán hoặc lưu ý khác.")}
                         action={
                             !chiXem && (
                                 <button
@@ -344,14 +345,14 @@ function TrangBaoGia({ orderData, daGuiLuc, phienBaoGia, cuaHang }) {
                                     className="-my-1 -mr-2 flex h-11 items-center gap-1.5 rounded-md px-2.5 text-sm font-medium text-bo-muted hover:bg-bo-surface-subtle hover:text-bo-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 sm:h-9"
                                 >
                                     <X className="size-4" aria-hidden="true" />
-                                    Bỏ ghi chú
+                                    {t("Bỏ ghi chú")}
                                 </button>
                             )
                         }
                     >
                         {chiXem ? (
                             <p className={`m-0 text-sm leading-[22px] whitespace-pre-line ${ghiChu ? 'text-slate-700' : 'text-bo-muted'}`}>
-                                {ghiChu || 'Không có ghi chú.'}
+                                {ghiChu || t("Không có ghi chú.")}
                             </p>
                         ) : (
                             <>
@@ -361,7 +362,7 @@ function TrangBaoGia({ orderData, daGuiLuc, phienBaoGia, cuaHang }) {
                                     rows={3}
                                     autoFocus={vuaMoGhiChuChung}
                                     maxLength={GHI_CHU_TOI_DA}
-                                    placeholder="VD: Giá đã gồm vận chuyển đến kho; thanh toán 50% khi xác nhận đơn."
+                                    placeholder={t("VD: Giá đã gồm vận chuyển đến kho; thanh toán 50% khi xác nhận đơn.")}
                                     value={ghiChu}
                                     onChange={(e) => setGhiChu(e.target.value.slice(0, GHI_CHU_TOI_DA))}
                                     onBlur={(e) => {
@@ -390,9 +391,9 @@ function TrangBaoGia({ orderData, daGuiLuc, phienBaoGia, cuaHang }) {
                         <div className="flex min-w-0 flex-col gap-2.5 md:flex-row md:flex-wrap md:items-center md:gap-x-6 md:gap-y-1">
                             <div className="flex items-baseline justify-between gap-2 md:justify-start md:gap-3">
                                 <span className="text-[13px] leading-5 text-bo-muted md:hidden">
-                                    Tổng tiền · đã có giá {tong.daNhapGia}/{tong.soSanPham}
+                                    {t("Tổng tiền · đã có giá {{daNhapGia}}/{{tong}}", { daNhapGia: tong.daNhapGia, tong: tong.soSanPham })}
                                 </span>
-                                <span className="hidden text-sm leading-5 text-bo-muted md:inline">Tổng tiền báo giá</span>
+                                <span className="hidden text-sm leading-5 text-bo-muted md:inline">{t("Tổng tiền báo giá")}</span>
                                 <span className="text-lg leading-[26px] font-bold tracking-tight text-bo-heading tabular-nums md:text-xl md:leading-7">
                                     {formatCurrency(tong.tongTien)}
                                 </span>
@@ -402,8 +403,8 @@ function TrangBaoGia({ orderData, daGuiLuc, phienBaoGia, cuaHang }) {
                                     <div className="h-full rounded-full bg-bo-primary transition-[width]" style={{ width: `${phanTram}%` }} />
                                 </div>
                                 <span className="min-w-0 truncate text-sm leading-5 text-bo-muted">
-                                    Đã có giá {tong.daNhapGia}/{tong.soSanPham} {donVi}
-                                    {conThieu && ` · còn thiếu ${conThieu}`}
+                                    {t("Đã có giá {{daNhapGia}}/{{tong}} {{donVi}}", { daNhapGia: tong.daNhapGia, tong: tong.soSanPham, donVi })}
+                                    {conThieu && t(" · còn thiếu {{conThieu}}", { conThieu })}
                                 </span>
                             </div>
                         </div>
@@ -413,7 +414,7 @@ function TrangBaoGia({ orderData, daGuiLuc, phienBaoGia, cuaHang }) {
                             className="h-11 w-full gap-2 bg-bo-primary px-5 text-[15px] text-white hover:bg-bo-primary-hover md:h-10 md:w-auto md:text-sm"
                         >
                             <Send aria-hidden="true" />
-                            Gửi báo giá
+                            {t("Gửi báo giá")}
                         </Button>
                     </div>
                 </div>

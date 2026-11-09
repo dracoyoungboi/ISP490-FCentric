@@ -8,8 +8,12 @@ import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { cn } from "@/lib/utils";
 import { dienGiaiLichSu, ngayGio } from "@/components/nguoi-dung/phanQuyen";
 import { dongThayDoi, nhanHanhDong } from "@/constants/nhatKy";
+import { t } from "@/i18n";
 
 /** Vùng nội dung của tab; màn rộng thì tự cuộn (index.css › .nd-cuon), phân trang đứng yên ở đáy khối. */
+/** Ngữ cảnh i18n cho danh từ đơn vị đếm sau con số (tiếng Anh số nhiều): khóa "<từ>_don_vi". */
+const DON_VI_DEM = { context: "don_vi" };
+
 const VUNG_CUON = "nd-cuon flex flex-1 flex-col px-4 pb-3 pt-2 sm:px-6";
 
 /**
@@ -18,12 +22,12 @@ const VUNG_CUON = "nd-cuon flex flex-1 flex-col px-4 pb-3 pt-2 sm:px-6";
  */
 function dienGiaiTaiKhoan(ls) {
   const d = ls.dong ?? {};
-  const nhan = nhanHanhDong(d.hanhDong);
-  const viec = nhan ? nhan.charAt(0).toLocaleLowerCase("vi-VN") + nhan.slice(1) : "cập nhật tài khoản";
+  const nhan = t(nhanHanhDong(d.hanhDong));
+  const viec = nhan ? nhan.charAt(0).toLocaleLowerCase("vi-VN") + nhan.slice(1) : t("cập nhật tài khoản");
   // Chỉ có giá trị mới (tạo tài khoản, thêm email lần đầu) thì không hiện "— →"
   const doi = dongThayDoi(d).map((x) => {
     const giaTri = x.coCu && x.coMoi ? `${x.cu || "—"} → ${x.moi || "—"}` : x.coMoi ? x.moi || "—" : `${x.cu || "—"} → —`;
-    return { chu: x.nhan ? `${x.nhan}: ${giaTri}` : giaTri };
+    return { chu: x.nhan ? `${t(x.nhan, { context: "nhat_ky" })}: ${giaTri}` : giaTri };
   });
   const the = doi.length ? doi : d.ghiChu ? [{ chu: d.ghiChu }] : [];
   return { viec, the };
@@ -46,8 +50,8 @@ export default function LichSuPhanQuyen({ lichSu, loiMotPhan, dangTai, loi, onTh
       <div className={VUNG_CUON}>
         <ErrorState
           className="nd-trong min-h-48"
-          title="Không tải được lịch sử thay đổi"
-          description="Kiểm tra kết nối rồi thử lại."
+          title={t("Không tải được lịch sử thay đổi")}
+          description={t("Kiểm tra kết nối rồi thử lại.")}
           onRetry={onThuLai}
         />
       </div>
@@ -56,7 +60,7 @@ export default function LichSuPhanQuyen({ lichSu, loiMotPhan, dangTai, loi, onTh
   if (dangTai && !lichSu) {
     return (
       <div className={VUNG_CUON}>
-        <div className="space-y-3 py-3" aria-label="Đang tải lịch sử thay đổi" role="status">
+        <div className="space-y-3 py-3" aria-label={t("Đang tải lịch sử thay đổi")} role="status">
           {[0, 1, 2].map((i) => (
             <div key={i} className="flex gap-3.5">
               <div className="h-4 w-28 animate-pulse rounded bg-slate-100" />
@@ -74,8 +78,8 @@ export default function LichSuPhanQuyen({ lichSu, loiMotPhan, dangTai, loi, onTh
         <EmptyState
           className="nd-trong min-h-48"
           icon={History}
-          title="Chưa có thay đổi"
-          description="Mỗi lần lưu phân quyền, sửa thông tin, khóa / mở khóa hay đặt lại mật khẩu sẽ được ghi lại ở đây."
+          title={t("Chưa có thay đổi")}
+          description={t("Mỗi lần lưu phân quyền, sửa thông tin, khóa / mở khóa hay đặt lại mật khẩu sẽ được ghi lại ở đây.")}
         />
       </div>
     );
@@ -107,16 +111,16 @@ export default function LichSuPhanQuyen({ lichSu, loiMotPhan, dangTai, loi, onTh
                 <div className={cn("w-[118px] shrink-0 text-xs leading-[18px] tabular-nums text-bo-muted max-sm:w-20", vuaLuu && "font-semibold text-bo-primary")}>
                   {ngayGio(ls.luc) || "—"}
                   {/* Giữ giờ thật; nhãn "Vừa lưu" chỉ đánh dấu dòng của lần lưu vừa rồi */}
-                  {vuaLuu ? <span className="block">Vừa lưu</span> : null}
+                  {vuaLuu ? <span className="block">{t("Vừa lưu")}</span> : null}
                 </div>
                 <UserAvatar userId={ls.nguoiThucHienId} name={ls.nguoiThucHien} size="xs" className="size-7 shrink-0" />
                 <div className="min-w-0 flex-1 text-[13px] leading-5">
                   <div>
-                    <b className="font-semibold">{ls.nguoiThucHien || "Hệ thống"}</b> {viec}
+                    <b className="font-semibold">{ls.nguoiThucHien || t("Hệ thống")}</b> {viec}
                   </div>
                   {the.length ? (
                     <div className="mt-0.5 text-[12.5px] leading-[18px] text-bo-muted">
-                      {the.map((t) => t.chu).join(" · ")}
+                      {the.map((muc) => muc.chu).join(" · ")}
                     </div>
                   ) : null}
                 </div>
@@ -130,7 +134,7 @@ export default function LichSuPhanQuyen({ lichSu, loiMotPhan, dangTai, loi, onTh
           page={trangXem}
           size={soDong}
           total={tong}
-          totalLabel="thay đổi"
+          totalLabel={t("thay đổi", DON_VI_DEM)}
           onPageChange={doiTrang}
           onSizeChange={(n) => {
             setSoDong(n);

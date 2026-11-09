@@ -1,22 +1,23 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import BrandLogo from '@/components/brand/BrandLogo';
+import { t } from "@/i18n";
 
 // Bộ ảnh mặc định (Đăng nhập, Quên mật khẩu); trang khác truyền `slides` riêng qua AuthShell
 const DEFAULT_SLIDES = [
     {
         src: '/images/auth/slide-1.jpg',
         fallbackSrc: 'https://images.unsplash.com/photo-1558769132-cb1aea458c5e?q=80&w=2000&auto=format&fit=crop',
-        alt: 'Xưởng thiết kế thời trang với máy may và vải vóc',
+        alt: t("Xưởng thiết kế thời trang với máy may và vải vóc"),
     },
     {
         src: '/images/auth/slide-2.jpg',
         fallbackSrc: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?q=80&w=2000&auto=format&fit=crop',
-        alt: 'Cửa hàng thời trang với những kệ quần áo được trưng bày',
+        alt: t("Cửa hàng thời trang với những kệ quần áo được trưng bày"),
     },
     {
         src: '/images/auth/slide-3.jpg',
         fallbackSrc: 'https://images.unsplash.com/photo-1578575437130-527eed3abbec?q=80&w=2000&auto=format&fit=crop',
-        alt: 'Nhân viên kho đang quản lý hàng hóa trong nhà kho',
+        alt: t("Nhân viên kho đang quản lý hàng hóa trong nhà kho"),
     },
 ];
 
@@ -156,7 +157,7 @@ export default function AuthImagePanel({ slides = DEFAULT_SLIDES }) {
                     <button
                         key={index}
                         type="button"
-                        aria-label={`Chuyển đến ảnh ${index + 1}: ${slide.alt}`}
+                        aria-label={t("Chuyển đến ảnh {{so}}: {{alt}}", { so: index + 1, alt: slide.alt })}
                         className={`h-2.5 rounded-full transition-all ${
                             index === current
                                 ? 'w-8 bg-bo-surface duration-500'

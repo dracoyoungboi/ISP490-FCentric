@@ -6,6 +6,7 @@ import { nguoiDungService } from '../services/nguoiDungService';
 import { getApiErrorCode, getApiErrorMessage } from '../utils/apiError';
 import { GOI_Y_MAT_KHAU, kiemTraMatKhauMoi } from '../utils/matKhau';
 import { formatDateTime } from '../utils/dateTime';
+import { t } from "@/i18n";
 
 /* ── Class patterns dùng chung với Đăng nhập / Quên mật khẩu ── */
 const INPUT_BASE =
@@ -46,10 +47,10 @@ function quenMa() {
 }
 
 const TIEU_DE_LOI = {
-    LIEN_KET_HET_HAN: 'Liên kết đã hết hạn',
-    LIEN_KET_DA_DUNG: 'Liên kết đã được dùng',
-    LIEN_KET_DA_THAY: 'Liên kết đã hết hiệu lực',
-    LIEN_KET_KHONG_HOP_LE: 'Liên kết không đúng',
+    LIEN_KET_HET_HAN: t("Liên kết đã hết hạn"),
+    LIEN_KET_DA_DUNG: t("Liên kết đã được dùng"),
+    LIEN_KET_DA_THAY: t("Liên kết đã hết hiệu lực"),
+    LIEN_KET_KHONG_HOP_LE: t("Liên kết không đúng"),
 };
 const MA_LOI_LIEN_KET = Object.keys(TIEU_DE_LOI);
 
@@ -92,7 +93,7 @@ export default function SetPasswordPage() {
 
     const kiemTra = useCallback(async () => {
         if (!maRef.current) {
-            setLoi({ ma: 'LIEN_KET_KHONG_HOP_LE', thongDiep: 'Trang này cần mở từ nút Đặt mật khẩu trong email.' });
+            setLoi({ ma: 'LIEN_KET_KHONG_HOP_LE', thongDiep: t("Trang này cần mở từ nút Đặt mật khẩu trong email.") });
             setBuoc('loiLienKet');
             return;
         }
@@ -103,7 +104,7 @@ export default function SetPasswordPage() {
             setBuoc('nhap');
         } catch (err) {
             const l = loiLienKet(err);
-            setLoi(l ?? { ma: null, thongDiep: getApiErrorMessage(err, 'Chưa kiểm tra được liên kết') });
+            setLoi(l ?? { ma: null, thongDiep: getApiErrorMessage(err, t("Chưa kiểm tra được liên kết")) });
             setBuoc(l ? 'loiLienKet' : 'loiMang');
         }
     }, []);
@@ -143,8 +144,8 @@ export default function SetPasswordPage() {
         if (k === 'moi') {
             return kiemTraMatKhauMoi(mk, { tenDangNhap: lienKet?.tenDangNhap, email: lienKet?.email });
         }
-        if (!nl) return 'Nhập lại mật khẩu mới.';
-        return nl === mk ? '' : 'Chưa khớp với mật khẩu mới.';
+        if (!nl) return t("Nhập lại mật khẩu mới.");
+        return nl === mk ? '' : t("Chưa khớp với mật khẩu mới.");
     };
 
     const datMatKhau = async (e) => {
@@ -166,7 +167,7 @@ export default function SetPasswordPage() {
             setNhapLai('');
             setBuoc('xong');
         } catch (err) {
-            if (!baoLoiLienKet(err)) setLoiChung(getApiErrorMessage(err, 'Không đặt được mật khẩu. Vui lòng thử lại.'));
+            if (!baoLoiLienKet(err)) setLoiChung(getApiErrorMessage(err, t("Không đặt được mật khẩu. Vui lòng thử lại.")));
         } finally {
             setDangGui(false);
         }
@@ -207,7 +208,7 @@ export default function SetPasswordPage() {
                     type="button"
                     className={EYE_BTN}
                     onClick={() => setHien((cu) => ({ ...cu, [k]: !cu[k] }))}
-                    aria-label={hien[k] ? `Ẩn ${nhan.toLowerCase()}` : `Hiện ${nhan.toLowerCase()}`}
+                    aria-label={hien[k] ? t("Ẩn {{nhan}}", { nhan: nhan.toLowerCase() }) : t("Hiện {{nhan}}", { nhan: nhan.toLowerCase() })}
                     aria-pressed={hien[k]}
                 >
                     {hien[k] ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -221,7 +222,7 @@ export default function SetPasswordPage() {
                 <>
                     {GOI_Y_MAT_KHAU ? <p className={`${DONG_PHU} text-gray-500`}>{GOI_Y_MAT_KHAU}</p> : null}
                     {giaTri && giaTri !== giaTri.trim() ? (
-                        <p className={`${DONG_PHU} text-orange-800`}>Mật khẩu có dấu cách ở đầu hoặc cuối — sẽ được giữ nguyên.</p>
+                        <p className={`${DONG_PHU} text-orange-800`}>{t("Mật khẩu có dấu cách ở đầu hoặc cuối — sẽ được giữ nguyên.")}</p>
                     ) : null}
                 </>
             ) : null}
@@ -234,7 +235,7 @@ export default function SetPasswordPage() {
         <AuthShell>
             {buoc === 'dangKiem' && (
                 <div role="status" className="flex items-center gap-3 text-sm text-gray-600 fade-in-up">
-                    <Loader2 size={18} className="animate-spin" /> Đang kiểm tra liên kết…
+                    <Loader2 size={18} className="animate-spin" /> {t("Đang kiểm tra liên kết…")}
                 </div>
             )}
 
@@ -242,20 +243,20 @@ export default function SetPasswordPage() {
                 <div className="space-y-6 fade-in-up">
                     <div>
                         <h1 ref={tieuDeRef} tabIndex={-1} className="text-3xl font-bold tracking-tight mb-3 text-gray-900 outline-none">
-                            {buoc === 'loiMang' ? 'Chưa kiểm tra được liên kết' : TIEU_DE_LOI[loi.ma]}
+                            {buoc === 'loiMang' ? t("Chưa kiểm tra được liên kết") : TIEU_DE_LOI[loi.ma]}
                         </h1>
                         <p className="text-gray-600 text-base">
-                            {loi.thongDiep || 'Mở lại liên kết trong email mới nhất, hoặc dùng Quên mật khẩu.'}
+                            {loi.thongDiep || t("Mở lại liên kết trong email mới nhất, hoặc dùng Quên mật khẩu.")}
                         </p>
                     </div>
                     <div className="space-y-3">
                         {buoc === 'loiMang' ? (
-                            <button type="button" className={PRIMARY_BTN} onClick={kiemTra}>Thử lại</button>
+                            <button type="button" className={PRIMARY_BTN} onClick={kiemTra}>{t("Thử lại")}</button>
                         ) : loi.ma === 'LIEN_KET_DA_DUNG' ? (
-                            <button type="button" className={PRIMARY_BTN} onClick={() => navigate('/login')}>Đăng nhập</button>
+                            <button type="button" className={PRIMARY_BTN} onClick={() => navigate('/login')}>{t("Đăng nhập")}</button>
                         ) : (
                             <button type="button" className={PRIMARY_BTN} onClick={() => navigate('/forgot-password')}>
-                                Quên mật khẩu
+                                {t("Quên mật khẩu")}
                             </button>
                         )}
                         <button
@@ -263,7 +264,7 @@ export default function SetPasswordPage() {
                             className={SECONDARY_BTN}
                             onClick={() => navigate(loi.ma === 'LIEN_KET_DA_DUNG' ? '/forgot-password' : '/login')}
                         >
-                            {loi.ma === 'LIEN_KET_DA_DUNG' ? 'Quên mật khẩu' : 'Về trang đăng nhập'}
+                            {loi.ma === 'LIEN_KET_DA_DUNG' ? t("Quên mật khẩu") : t("Về trang đăng nhập")}
                         </button>
                     </div>
                 </div>
@@ -273,12 +274,12 @@ export default function SetPasswordPage() {
                 <>
                     <div className="mb-8">
                         <h1 className="text-3xl font-bold tracking-tight mb-3 text-gray-900 fade-in-up delay-1">
-                            {taoTaiKhoan ? 'Đặt mật khẩu' : 'Đặt lại mật khẩu'}
+                            {taoTaiKhoan ? t("Đặt mật khẩu") : t("Đặt lại mật khẩu")}
                         </h1>
                         <p className="text-gray-500 text-base fade-in-up delay-2">
                             {taoTaiKhoan
-                                ? 'Đặt mật khẩu để bắt đầu dùng tài khoản FCentric của bạn.'
-                                : 'Đặt mật khẩu mới để đăng nhập lại.'}
+                                ? t("Đặt mật khẩu để bắt đầu dùng tài khoản FCentric của bạn.")
+                                : t("Đặt mật khẩu mới để đăng nhập lại.")}
                         </p>
                     </div>
 
@@ -287,11 +288,11 @@ export default function SetPasswordPage() {
                         <input type="text" name="username" autoComplete="username" value={lienKet?.tenDangNhap || ''} readOnly hidden />
 
                         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm">
-                            <dt className="text-gray-500">Tên đăng nhập</dt>
+                            <dt className="text-gray-500">{t("Tên đăng nhập")}</dt>
                             <dd className="min-w-0 break-words font-medium text-gray-900">{lienKet?.tenDangNhap}</dd>
                             {lienKet?.hetHanLuc ? (
                                 <>
-                                    <dt className="text-gray-500">Liên kết dùng đến</dt>
+                                    <dt className="text-gray-500">{t("Liên kết dùng đến")}</dt>
                                     <dd className="text-gray-900 tabular-nums">{formatDateTime(lienKet.hetHanLuc)}</dd>
                                 </>
                             ) : null}
@@ -300,12 +301,12 @@ export default function SetPasswordPage() {
                         {lienKet?.dangKhoa && (
                             <div className={INFO_BANNER} role="note">
                                 <Info size={16} className="shrink-0 mt-0.5" />
-                                <span>Tài khoản đang tạm khóa: bạn vẫn đặt được mật khẩu, nhưng chỉ đăng nhập được sau khi quản trị viên mở khóa.</span>
+                                <span>{t("Tài khoản đang tạm khóa: bạn vẫn đặt được mật khẩu, nhưng chỉ đăng nhập được sau khi quản trị viên mở khóa.")}</span>
                             </div>
                         )}
 
-                        {oMatKhau('moi', 'dat-mk-moi', 'Mật khẩu mới', matKhau, setMatKhau)}
-                        {oMatKhau('nhapLai', 'dat-mk-nhap-lai', 'Nhập lại mật khẩu mới', nhapLai, setNhapLai)}
+                        {oMatKhau('moi', 'dat-mk-moi', t("Mật khẩu mới"), matKhau, setMatKhau)}
+                        {oMatKhau('nhapLai', 'dat-mk-nhap-lai', t("Nhập lại mật khẩu mới"), nhapLai, setNhapLai)}
 
                         {loiChung && (
                             <div className={ERROR_BANNER} role="alert">
@@ -316,9 +317,9 @@ export default function SetPasswordPage() {
 
                         <button type="submit" className={`${PRIMARY_BTN} mt-4`} disabled={dangGui}>
                             {dangGui ? (
-                                <><Loader2 size={16} className="animate-spin" /> Đang đặt mật khẩu...</>
+                                <><Loader2 size={16} className="animate-spin" /> {t("Đang đặt mật khẩu...")}</>
                             ) : (
-                                'Đặt mật khẩu'
+                                t("Đặt mật khẩu")
                             )}
                         </button>
                     </form>
@@ -329,14 +330,14 @@ export default function SetPasswordPage() {
                 <div className="text-center space-y-6 fade-in-up">
                     <CheckCircle2 className="w-16 h-16 mx-auto text-green-600" />
                     <div>
-                        <h1 ref={tieuDeRef} tabIndex={-1} className="text-lg font-semibold text-gray-900 outline-none">Đã đặt mật khẩu</h1>
+                        <h1 ref={tieuDeRef} tabIndex={-1} className="text-lg font-semibold text-gray-900 outline-none">{t("Đã đặt mật khẩu")}</h1>
                         <p className="mt-2 text-gray-600">
                             {lienKet?.dangKhoa
-                                ? 'Bạn đăng nhập được sau khi quản trị viên mở khóa tài khoản.'
-                                : `Đăng nhập bằng tên đăng nhập ${lienKet?.tenDangNhap ?? ''} và mật khẩu vừa đặt.`}
+                                ? t("Bạn đăng nhập được sau khi quản trị viên mở khóa tài khoản.")
+                                : t("Đăng nhập bằng tên đăng nhập {{tenDangNhap}} và mật khẩu vừa đặt.", { tenDangNhap: lienKet?.tenDangNhap ?? '' })}
                         </p>
                     </div>
-                    <button type="button" className={PRIMARY_BTN} onClick={veDangNhap}>Đăng nhập</button>
+                    <button type="button" className={PRIMARY_BTN} onClick={veDangNhap}>{t("Đăng nhập")}</button>
                 </div>
             )}
         </AuthShell>

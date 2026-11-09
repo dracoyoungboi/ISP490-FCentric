@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { updateSupplierStatus } from "@/services/supplierService";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { TRANG_THAI_NCC, laHoatDong } from "./quyTacNhaCungCap";
+import { t } from "@/i18n";
 
 /**
  * Câu về việc đang dở trong hộp Ngừng hoạt động (bản chốt 17/10/2026).
@@ -23,19 +24,34 @@ import { TRANG_THAI_NCC, laHoatDong } from "./quyTacNhaCungCap";
 function CauViecDangDo({ viecDangDo }) {
     const so = (n) => <span className="font-semibold text-bo-foreground">{n}</span>;
     if (!viecDangDo) {
-        return <li>Đơn mua và báo giá đang xử lý vẫn tiếp tục bình thường: nhận hàng, nhập kho, duyệt báo giá.</li>;
+        return <li>{t("Đơn mua và báo giá đang xử lý vẫn tiếp tục bình thường: nhận hàng, nhập kho, duyệt báo giá.")}</li>;
     }
     const don = Number(viecDangDo.donChoGiao) || 0;
     const baoGia = Number(viecDangDo.baoGiaChoDuyet) || 0;
     if (don > 0 && baoGia > 0) {
         return (
             <li>
-                Đang có {so(`${don} đơn chờ giao`)} và {so(`${baoGia} báo giá chờ duyệt`)}: vẫn xử lý bình thường (nhận hàng, nhập kho, duyệt báo giá).
+                {t("Đang có")} {so(t("{{count}} đơn chờ giao", { count: don }))} {t("và")} {so(t("{{count}} báo giá chờ duyệt", { count: baoGia }))}
+                {t(": vẫn xử lý bình thường (nhận hàng, nhập kho, duyệt báo giá).")}
             </li>
         );
     }
-    if (don > 0) return <li>Đang có {so(`${don} đơn chờ giao`)}: vẫn xử lý bình thường (nhận hàng, nhập kho).</li>;
-    if (baoGia > 0) return <li>Đang có {so(`${baoGia} báo giá chờ duyệt`)}: vẫn duyệt được bình thường.</li>;
+    if (don > 0) {
+        return (
+            <li>
+                {t("Đang có")} {so(t("{{count}} đơn chờ giao", { count: don }))}
+                {t(": vẫn xử lý bình thường (nhận hàng, nhập kho).")}
+            </li>
+        );
+    }
+    if (baoGia > 0) {
+        return (
+            <li>
+                {t("Đang có")} {so(t("{{count}} báo giá chờ duyệt", { count: baoGia }))}
+                {t(": vẫn duyệt được bình thường.")}
+            </li>
+        );
+    }
     return null;
 }
 
@@ -89,7 +105,7 @@ function StatusContent({ supplier: supplierLucMo, onClose, onChanged, viecDangDo
             });
             onClose();
         } catch (err) {
-            setError(getApiErrorMessage(err, "Không thể đổi trạng thái nhà cung cấp. Vui lòng thử lại."));
+            setError(getApiErrorMessage(err, t("Không thể đổi trạng thái nhà cung cấp. Vui lòng thử lại.")));
             setSaving(false);
         }
     };
@@ -115,20 +131,20 @@ function StatusContent({ supplier: supplierLucMo, onClose, onChanged, viecDangDo
                     ) : (
                         <CircleCheck className="size-5 shrink-0 text-bo-success" aria-hidden="true" />
                     )}
-                    {dangHoatDong ? "Ngừng hoạt động nhà cung cấp?" : "Cho phép nhà cung cấp hoạt động lại?"}
+                    {dangHoatDong ? t("Ngừng hoạt động nhà cung cấp?") : t("Cho phép nhà cung cấp hoạt động lại?")}
                 </AlertDialogTitle>
                 <AlertDialogDescription asChild>
                     <div className="space-y-2 text-sm leading-6 text-bo-muted">
                         {dangHoatDong ? (
                             <>
-                                <p>{ten} sẽ không được chọn khi gửi yêu cầu báo giá mới.</p>
+                                <p>{t("{{ten}} sẽ không được chọn khi gửi yêu cầu báo giá mới.", { ten })}</p>
                                 <ul className="list-disc space-y-1 pl-5">
                                     <CauViecDangDo viecDangDo={viecDangDo} />
-                                    <li>Thông tin và lịch sử giao dịch được giữ nguyên; có thể cho phép hoạt động lại bất cứ lúc nào.</li>
+                                    <li>{t("Thông tin và lịch sử giao dịch được giữ nguyên; có thể cho phép hoạt động lại bất cứ lúc nào.")}</li>
                                 </ul>
                             </>
                         ) : (
-                            <p>{ten} sẽ lại được chọn khi gửi yêu cầu báo giá.</p>
+                            <p>{t("{{ten}} sẽ lại được chọn khi gửi yêu cầu báo giá.", { ten })}</p>
                         )}
                     </div>
                 </AlertDialogDescription>
@@ -149,7 +165,7 @@ function StatusContent({ supplier: supplierLucMo, onClose, onChanged, viecDangDo
                     disabled={saving}
                     className="border-bo-border bg-bo-surface text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
                 >
-                    Hủy
+                    {t("Hủy")}
                 </AlertDialogCancel>
                 <Button
                     type="button"
@@ -164,12 +180,12 @@ function StatusContent({ supplier: supplierLucMo, onClose, onChanged, viecDangDo
                     {saving ? (
                         <>
                             <Loader2 className="size-4 animate-spin" />
-                            Đang lưu...
+                            {t("Đang lưu...")}
                         </>
                     ) : dangHoatDong ? (
-                        "Ngừng hoạt động"
+                        t("Ngừng hoạt động")
                     ) : (
-                        "Cho phép hoạt động"
+                        t("Cho phép hoạt động")
                     )}
                 </Button>
             </AlertDialogFooter>

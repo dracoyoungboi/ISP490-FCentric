@@ -11,6 +11,7 @@
  */
 import { moTaThietBi, thoiGianTuongDoi } from "../../../utils/thietBi.js";
 import { ngayGio } from "../phanQuyen.js";
+import { t } from "../../../i18n/t.js";
 
 const PHUT_MS = 60 * 1000;
 /** Hạn một lần đăng nhập, khớp PHIEN_TTL (NguoiDungService) và hạn token (JwtServiceImpl) ở máy chủ. */
@@ -55,8 +56,8 @@ export function timPhien(ds, tuKhoa = "") {
 /** Gom cho ngăn kéo: "Thiết bị này" rồi "Thiết bị khác"; bỏ nhóm rỗng, giữ thứ tự trong nhóm. */
 export function nhomPhien(ds) {
   const NHOM = [
-    { ma: "nay", ten: "Thiết bị này", thuoc: (p) => p.thietBiNay },
-    { ma: "khac", ten: "Thiết bị khác", thuoc: (p) => !p.thietBiNay },
+    { ma: "nay", ten: t("Thiết bị này"), thuoc: (p) => p.thietBiNay },
+    { ma: "khac", ten: t("Thiết bị khác"), thuoc: (p) => !p.thietBiNay },
   ];
   return NHOM.map(({ ma, ten, thuoc }) => ({ ma, ten, ds: ds.filter(thuoc) })).filter((n) => n.ds.length > 0);
 }
@@ -65,10 +66,10 @@ export function nhomPhien(ds) {
 export function dongPhuPhien(p, { coLucDangNhap = false } = {}) {
   const tuongDoi = thoiGianTuongDoi(p.truyCapCuoi);
   return [
-    p.thietBiNay ? "Đang hoạt động" : tuongDoi ? `Hoạt động ${tuongDoi}` : null,
+    p.thietBiNay ? t("Đang hoạt động") : tuongDoi ? t("Hoạt động {{tuongDoi}}", { tuongDoi }) : null,
     p.diaChiIp,
     p.viTri,
-    coLucDangNhap && p.taoLuc ? `Đăng nhập ${ngayGio(p.taoLuc)}` : null,
+    coLucDangNhap && p.taoLuc ? t("Đăng nhập {{luc}}", { luc: ngayGio(p.taoLuc) }) : null,
   ]
     .filter(Boolean)
     .join(" · ");

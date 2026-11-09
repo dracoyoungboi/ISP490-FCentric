@@ -40,6 +40,7 @@ import { checkSupplierDelete, getSupplierById } from "@/services/supplierService
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import { getKhoLamViecId } from "@/utils/khoLamViec";
 import { ROLES, hasAnyRole } from "@/utils/roles";
+import { t } from "@/i18n";
 
 // Khớp quyền ở backend (NhaCungCapController): sửa, đổi trạng thái, xóa. Quản lý kho chỉ xem.
 const QUYEN_QUAN_LY_NCC = [ROLES.QUAN_TRI_VIEN, ROLES.NHAN_VIEN_MUA_HANG];
@@ -154,9 +155,9 @@ export default function SupplierDetailView() {
   const suKien = useMemo(() => dungHoatDong({ ncc, dons, phieus }), [ncc, dons, phieus]);
 
   const loiDon = khoQ.error
-    ? getApiErrorMessage(khoQ.error, "Không tải được danh sách nơi làm việc của bạn")
+    ? getApiErrorMessage(khoQ.error, t("Không tải được danh sách nơi làm việc của bạn"))
     : donQ.error
-      ? getApiErrorMessage(donQ.error, "Không tải được đơn mua của nhà cung cấp")
+      ? getApiErrorMessage(donQ.error, t("Không tải được đơn mua của nhà cung cấp"))
       : null;
   const loiPhieu = xemPhieu && phieuQ.error ? getApiErrorMessage(phieuQ.error, "") || true : null;
   // Chưa có dữ liệu lần nào và chưa lỗi = đang tải (kể cả lúc chờ danh sách kho phụ trách)
@@ -172,13 +173,13 @@ export default function SupplierDetailView() {
   );
   const tabs = [
     coViec || dangTaiDon
-      ? { ma: "dang-mo", nhan: "Đang mở", so: tinh.viec.length, gap: tinh.viec.some((v) => v.giao?.loai === "quaHan") }
+      ? { ma: "dang-mo", nhan: t("Đang mở"), so: tinh.viec.length, gap: tinh.viec.some((v) => v.giao?.loai === "quaHan") }
       : null,
-    { ma: "don-mua", nhan: "Đơn mua hàng", so: tinh.chot.length },
-    { ma: "bao-gia", nhan: "Báo giá", so: tinh.baoGia.length },
-    xemPhieu ? { ma: "phieu-nhap", nhan: "Phiếu nhập kho", so: phieus?.length ?? 0 } : null,
-    { ma: "san-pham", nhan: "Sản phẩm & giá", so: tinh.lichSuGia.length },
-    { ma: "hoat-dong", nhan: "Hoạt động", so: 0 },
+    { ma: "don-mua", nhan: t("Đơn mua hàng"), so: tinh.chot.length },
+    { ma: "bao-gia", nhan: t("Báo giá"), so: tinh.baoGia.length },
+    xemPhieu ? { ma: "phieu-nhap", nhan: t("Phiếu nhập kho"), so: phieus?.length ?? 0 } : null,
+    { ma: "san-pham", nhan: t("Sản phẩm & giá"), so: tinh.lichSuGia.length },
+    { ma: "hoat-dong", nhan: t("Hoạt động"), so: 0 },
   ].filter(Boolean);
 
   // Đơn được nhập hàng tại đây: đúng vai trò kho và (quản trị viên hoặc đang chọn đúng kho nhận của đơn)
@@ -189,25 +190,25 @@ export default function SupplierDetailView() {
       TRANG_THAI_NHAN_HANG.includes(Number(don.trangThai)) &&
       (laQuanTriVien || (don.khoNhap?.id != null && khoLamViecId === don.khoNhap.id));
     return duocNhap
-      ? { nhan: "Tạo phiếu nhập", href: `/goods-receipts/create?poId=${don.id}` }
-      : { nhan: "Xem đơn", href: `/purchase-orders/${don.id}` };
+      ? { nhan: t("Tạo phiếu nhập"), href: `/goods-receipts/create?poId=${don.id}` }
+      : { nhan: t("Xem đơn"), href: `/purchase-orders/${don.id}` };
   };
 
   const ghiChu = [
     gioiHanKho && Array.isArray(khoIds)
       ? khoIds.length
-        ? `Chỉ tính đơn và phiếu nhập của nơi làm việc: ${(khoQ.data ?? []).map((k) => k.tenKho).filter(Boolean).join(", ")}.`
-        : "Bạn chưa có nơi làm việc nên chưa thấy giao dịch."
+        ? t("Chỉ tính đơn và phiếu nhập của nơi làm việc: {{dsKho}}.", { dsKho: (khoQ.data ?? []).map((k) => k.tenKho).filter(Boolean).join(", ") })
+        : t("Bạn chưa có nơi làm việc nên chưa thấy giao dịch.")
       : null,
     donData && donData.tong > donData.dons.length
-      ? `Đang tính trên ${donData.dons.length} đơn gần nhất trong tổng số ${donData.tong} đơn.`
+      ? t("Đang tính trên {{so}} đơn gần nhất trong tổng số {{tong}} đơn.", { so: donData.dons.length, tong: donData.tong })
       : null,
   ].filter(Boolean).join(" ");
 
   const lyDoKhongTinhGiao = !xemPhieu
-    ? "Cần quyền xem phiếu nhập kho để tính"
+    ? t("Cần quyền xem phiếu nhập kho để tính")
     : phieuQ.error
-      ? "Chưa tải được phiếu nhập kho"
+      ? t("Chưa tải được phiếu nhập kho")
       : "";
 
   // Có trang trước trong ứng dụng thì lùi lại; mở thẳng bằng đường dẫn thì về danh sách nhà cung cấp
@@ -218,7 +219,7 @@ export default function SupplierDetailView() {
     return (
       <PageContainer>
         <SurfaceCard>
-          <LoadingState label="Đang tải thông tin nhà cung cấp" />
+          <LoadingState label={t("Đang tải thông tin nhà cung cấp")} />
         </SurfaceCard>
       </PageContainer>
     );
@@ -233,21 +234,21 @@ export default function SupplierDetailView() {
           {khongThay ? (
             <EmptyState
               icon={SearchX}
-              title="Không tìm thấy nhà cung cấp"
-              description="Nhà cung cấp có thể đã bị xóa hoặc đường dẫn không đúng."
+              title={t("Không tìm thấy nhà cung cấp")}
+              description={t("Nhà cung cấp có thể đã bị xóa hoặc đường dẫn không đúng.")}
               action={
                 <Button
                   onClick={() => navigate("/supplier")}
                   className="bg-bo-primary font-semibold text-white hover:bg-bo-primary-hover"
                 >
-                  Quay lại danh sách
+                  {t("Quay lại danh sách")}
                 </Button>
               }
             />
           ) : (
             <ErrorState
-              title="Không thể tải thông tin nhà cung cấp"
-              description={getApiErrorMessage(nccQ.error, "Không thể tải thông tin nhà cung cấp")}
+              title={t("Không thể tải thông tin nhà cung cấp")}
+              description={getApiErrorMessage(nccQ.error, t("Không thể tải thông tin nhà cung cấp"))}
               error={nccQ.error}
               onRetry={nccQ.reload}
             />
@@ -263,16 +264,16 @@ export default function SupplierDetailView() {
   const capNhatNcc = (moi) => nccQ.setData((cu) => ({ ...cu, ...moi }));
   const handleSaved = (saved) => {
     capNhatNcc(saved);
-    toast.success("Đã lưu thay đổi nhà cung cấp");
+    toast.success(t("Đã lưu thay đổi nhà cung cấp"));
   };
   const handleStatusChanged = (updated) => {
     capNhatNcc(updated);
     toast.success(laHoatDong(updated)
-      ? "Đã cho phép nhà cung cấp hoạt động lại"
-      : "Đã ngừng hoạt động nhà cung cấp");
+      ? t("Đã cho phép nhà cung cấp hoạt động lại")
+      : t("Đã ngừng hoạt động nhà cung cấp"));
   };
   const handleDeleted = (deleted) => {
-    toast.success(`Đã xóa nhà cung cấp "${deleted.tenNhaCungCap}"`);
+    toast.success(t("Đã xóa nhà cung cấp \"{{tenNhaCungCap}}\"", { tenNhaCungCap: deleted.tenNhaCungCap }));
     navigate("/supplier", { replace: true });
   };
 
@@ -293,20 +294,20 @@ export default function SupplierDetailView() {
         {!dangHoatDong ? (
           <DaiBao
             icon={CirclePause}
-            nutNhan={coTheQuanLy ? "Cho phép hoạt động" : null}
+            nutNhan={coTheQuanLy ? t("Cho phép hoạt động") : null}
             onNut={() => setStatusOpen(true)}
           >
-            <span className="font-semibold text-bo-foreground">Nhà cung cấp đang ngừng hoạt động.</span>{" "}
-            Không được chọn khi gửi yêu cầu báo giá mới. Đơn đang chờ giao vẫn nhận hàng, nhập kho bình thường.
+            <span className="font-semibold text-bo-foreground">{t("Nhà cung cấp đang ngừng hoạt động.")}</span>{" "}
+            {t("Không được chọn khi gửi yêu cầu báo giá mới. Đơn đang chờ giao vẫn nhận hàng, nhập kho bình thường.")}
           </DaiBao>
         ) : thieuEmail ? (
           <DaiBao
             tone="warning"
             icon={AlertTriangle}
-            nutNhan={coTheQuanLy ? "Thêm email" : null}
+            nutNhan={coTheQuanLy ? t("Thêm email") : null}
             onNut={() => setEditOpen(true)}
           >
-            <span className="font-semibold">Chưa có email.</span> Chưa gửi được yêu cầu báo giá cho nhà cung cấp này.
+            <span className="font-semibold">{t("Chưa có email.")}</span> {t("Chưa gửi được yêu cầu báo giá cho nhà cung cấp này.")}
           </DaiBao>
         ) : null}
 
@@ -332,8 +333,8 @@ export default function SupplierDetailView() {
           ) : (
             <EmptyState
               className="min-h-72"
-              title="Giao dịch chỉ hiện với vai trò mua hàng và kho"
-              description="Bạn vẫn xem được thông tin liên hệ của nhà cung cấp ở cột bên cạnh."
+              title={t("Giao dịch chỉ hiện với vai trò mua hàng và kho")}
+              description={t("Bạn vẫn xem được thông tin liên hệ của nhà cung cấp ở cột bên cạnh.")}
             />
           )}
           <ThuocTinhNcc ncc={ncc} />
@@ -369,8 +370,8 @@ export default function SupplierDetailView() {
         <NganKeoLichSu
           open={moLichSu}
           onOpenChange={setMoLichSu}
-          tieuDe={`Lịch sử ${ncc.tenNhaCungCap || ncc.maNhaCungCap || "nhà cung cấp"}`}
-          moTa="Thêm, sửa, đổi trạng thái nhà cung cấp, thêm / gỡ mã vạch nhà cung cấp. Đổi mã số thuế được đánh dấu Nhạy cảm."
+          tieuDe={t("Lịch sử {{ten}}", { ten: ncc.tenNhaCungCap || ncc.maNhaCungCap || t("nhà cung cấp") })}
+          moTa={t("Thêm, sửa, đổi trạng thái nhà cung cấp, thêm / gỡ mã vạch nhà cung cấp. Đổi mã số thuế được đánh dấu Nhạy cảm.")}
           tai={() => layLichSuDanhMuc("nha_cung_cap", ncc.id)}
         />
       ) : null}

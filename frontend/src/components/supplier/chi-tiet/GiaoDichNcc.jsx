@@ -34,79 +34,83 @@ import { getBaoGiaNccStatus } from "@/constants/donMuaHang";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { getGoodsReceiptStatus } from "@/constants/goodsReceipt";
 import { formatNumber } from "@/utils/formatters";
+import { t } from "@/i18n";
 
 const TRONG = {
   "don-mua": {
     icon: Inbox,
-    title: "Chưa có đơn mua hàng",
-    description: "Khi duyệt báo giá của nhà cung cấp này, đơn mua hàng sẽ hiện ở đây kèm tiến độ nhận hàng.",
+    title: t("Chưa có đơn mua hàng"),
+    description: t("Khi duyệt báo giá của nhà cung cấp này, đơn mua hàng sẽ hiện ở đây kèm tiến độ nhận hàng."),
   },
   "bao-gia": {
     icon: FileText,
-    title: "Chưa có báo giá nào",
-    description: "Chọn nhà cung cấp này khi gửi yêu cầu báo giá từ một yêu cầu nhập hàng.",
+    title: t("Chưa có báo giá nào"),
+    description: t("Chọn nhà cung cấp này khi gửi yêu cầu báo giá từ một yêu cầu nhập hàng."),
   },
   "phieu-nhap": {
     icon: PackageCheck,
-    title: "Chưa nhập kho lần nào",
-    description: "Phiếu nhập kho của các đơn mua từ nhà cung cấp này sẽ hiện ở đây.",
+    title: t("Chưa nhập kho lần nào"),
+    description: t("Phiếu nhập kho của các đơn mua từ nhà cung cấp này sẽ hiện ở đây."),
   },
   "san-pham": {
     icon: Tags,
-    title: "Chưa có giá nhập",
-    description: "Giá theo từng biến thể sẽ có sau đơn mua đầu tiên, để so khi duyệt báo giá mới.",
+    title: t("Chưa có giá nhập"),
+    description: t("Giá theo từng biến thể sẽ có sau đơn mua đầu tiên, để so khi duyệt báo giá mới."),
   },
   "hoat-dong": {
     icon: History,
-    title: "Chưa có hoạt động",
-    description: "Việc gửi yêu cầu báo giá và nhập kho với nhà cung cấp này sẽ hiện ở đây.",
+    title: t("Chưa có hoạt động"),
+    description: t("Việc gửi yêu cầu báo giá và nhập kho với nhà cung cấp này sẽ hiện ở đây."),
   },
 };
 
 const KHONG_KHOP = {
-  "don-mua": "Không có đơn phù hợp",
-  "bao-gia": "Không có báo giá phù hợp",
-  "phieu-nhap": "Không có phiếu nhập phù hợp",
-  "san-pham": "Không có sản phẩm phù hợp",
-  "hoat-dong": "Không có hoạt động phù hợp",
+  "don-mua": t("Không có đơn phù hợp"),
+  "bao-gia": t("Không có báo giá phù hợp"),
+  "phieu-nhap": t("Không có phiếu nhập phù hợp"),
+  "san-pham": t("Không có sản phẩm phù hợp"),
+  "hoat-dong": t("Không có hoạt động phù hợp"),
 };
 
 /** Đơn vị đếm ở dòng "Hiển thị x – y trong tổng số N …". */
+/** Ngữ cảnh i18n cho danh từ đơn vị đếm sau con số (tiếng Anh số nhiều): khóa "<từ>_don_vi". */
+const DON_VI_DEM = { context: "don_vi" };
+
 const DON_VI = {
-  "dang-mo": "việc",
-  "don-mua": "đơn",
-  "bao-gia": "báo giá",
-  "phieu-nhap": "phiếu",
-  "san-pham": "sản phẩm",
-  "hoat-dong": "hoạt động",
+  "dang-mo": t("việc", DON_VI_DEM),
+  "don-mua": t("đơn", DON_VI_DEM),
+  "bao-gia": t("báo giá", DON_VI_DEM),
+  "phieu-nhap": t("phiếu", DON_VI_DEM),
+  "san-pham": t("sản phẩm", DON_VI_DEM),
+  "hoat-dong": t("hoạt động", DON_VI_DEM),
 };
 
 /** Ghi chú ngắn ở chân bảng (nhường chỗ cho câu phạm vi dữ liệu theo vai trò khi có). */
 const GHI_CHU_TAB = {
-  "dang-mo": "Việc gấp xếp lên trước",
-  "bao-gia": "Báo giá đã chốt nằm ở tab Đơn mua hàng",
-  "phieu-nhap": "Không tính phiếu đã hủy",
-  "san-pham": "Giá lấy từ các đơn mua đã chốt",
-  "hoat-dong": "Mới nhất ở trên",
+  "dang-mo": t("Việc gấp xếp lên trước"),
+  "bao-gia": t("Báo giá đã chốt nằm ở tab Đơn mua hàng"),
+  "phieu-nhap": t("Không tính phiếu đã hủy"),
+  "san-pham": t("Giá lấy từ các đơn mua đã chốt"),
+  "hoat-dong": t("Mới nhất ở trên"),
 };
 
 // Tên trạng thái lấy từ bảng báo giá nhà cung cấp, cùng tên với thẻ trên bảng (BangGiaoDichNcc → TrangThaiBaoGia)
 const TRANG_THAI_BAO_GIA = [
-  { value: "1", label: `${getBaoGiaNccStatus(1).label} · chờ nhà cung cấp` },
-  { value: "2", label: `${getBaoGiaNccStatus(2).label} · chờ duyệt` },
-  { value: "4", label: getBaoGiaNccStatus(4).label },
+  { value: "1", label: t("{{trangThai}} · chờ nhà cung cấp", { trangThai: t(getBaoGiaNccStatus(1).label) }) },
+  { value: "2", label: t("{{trangThai}} · chờ duyệt", { trangThai: t(getBaoGiaNccStatus(2).label) }) },
+  { value: "4", label: t(getBaoGiaNccStatus(4).label) },
 ];
 
 const BIEN_DONG_GIA = [
-  { value: "tang", label: "Tăng giá" },
-  { value: "giam", label: "Giảm giá" },
-  { value: "khongDoi", label: "Không đổi" },
-  { value: "lanDau", label: "Lần đầu mua" },
+  { value: "tang", label: t("Tăng giá") },
+  { value: "giam", label: t("Giảm giá") },
+  { value: "khongDoi", label: t("Không đổi") },
+  { value: "lanDau", label: t("Lần đầu mua") },
 ];
 
 const LOAI_HOAT_DONG = [
-  { value: "guiYeuCau", label: "Gửi yêu cầu báo giá" },
-  { value: "nhapKho", label: "Nhập kho" },
+  { value: "guiYeuCau", label: t("Gửi yêu cầu báo giá") },
+  { value: "nhapKho", label: t("Nhập kho") },
 ];
 
 const MAC_DINH = { trang: 0, soDong: SO_DONG_MAC_DINH, oTim: "", loc: {}, soHien: SO_HOAT_DONG_MOI_LAN };
@@ -119,52 +123,52 @@ function boLocCuaTab(tab, d) {
   switch (tab) {
     case "don-mua":
       return {
-        tim: "Tìm theo mã đơn",
+        tim: t("Tìm theo mã đơn"),
         chon: [
-          { khoa: "giao", nhan: "Giao hàng", tatCa: "Mọi tình trạng giao", luaChon: luaChonGiaoHang(d.giaoTheoDon) },
+          { khoa: "giao", nhan: t("Giao hàng"), tatCa: t("Mọi tình trạng giao"), luaChon: luaChonGiaoHang(d.giaoTheoDon) },
           {
             khoa: "kho",
-            nhan: "Kho nhận",
-            tatCa: "Mọi kho nhận",
-            luaChon: luaChonTuDuLieu(d.chot, (x) => x?.khoNhap?.id, (x) => x?.khoNhap?.tenKho || `Kho #${x?.khoNhap?.id}`),
+            nhan: t("Kho nhận"),
+            tatCa: t("Mọi kho nhận"),
+            luaChon: luaChonTuDuLieu(d.chot, (x) => x?.khoNhap?.id, (x) => x?.khoNhap?.tenKho || t("Kho #{{id}}", { id: x?.khoNhap?.id })),
           },
-          { khoa: "thoiGian", nhan: "Thời gian đặt", tatCa: LUA_CHON_THOI_GIAN[0].label, luaChon: LUA_CHON_THOI_GIAN.slice(1) },
+          { khoa: "thoiGian", nhan: t("Thời gian đặt"), tatCa: LUA_CHON_THOI_GIAN[0].label, luaChon: LUA_CHON_THOI_GIAN.slice(1) },
         ],
       };
     case "bao-gia":
       return {
-        tim: "Tìm theo mã báo giá",
+        tim: t("Tìm theo mã báo giá"),
         chon: [
           {
             khoa: "trangThai",
-            nhan: "Trạng thái",
-            tatCa: "Mọi trạng thái",
+            nhan: t("Trạng thái"),
+            tatCa: t("Mọi trạng thái"),
             luaChon: TRANG_THAI_BAO_GIA.filter((o) => d.baoGia.some((x) => String(Number(x?.trangThai)) === o.value)),
           },
-          { khoa: "thoiGian", nhan: "Thời gian gửi", tatCa: LUA_CHON_THOI_GIAN[0].label, luaChon: LUA_CHON_THOI_GIAN.slice(1) },
+          { khoa: "thoiGian", nhan: t("Thời gian gửi"), tatCa: LUA_CHON_THOI_GIAN[0].label, luaChon: LUA_CHON_THOI_GIAN.slice(1) },
         ],
       };
     case "phieu-nhap":
       return {
-        tim: "Tìm theo mã phiếu, mã đơn",
+        tim: t("Tìm theo mã phiếu, mã đơn"),
         chon: [
-          { khoa: "kho", nhan: "Kho", tatCa: "Mọi kho", luaChon: luaChonTuDuLieu(d.phieus, (x) => x?.tenKho) },
+          { khoa: "kho", nhan: t("Kho"), tatCa: t("Mọi kho"), luaChon: luaChonTuDuLieu(d.phieus, (x) => x?.tenKho) },
           {
             khoa: "trangThai",
-            nhan: "Trạng thái",
-            tatCa: "Mọi trạng thái",
-            luaChon: luaChonTuDuLieu(d.phieus, (x) => x?.trangThai, (x) => getGoodsReceiptStatus(x?.trangThai).label),
+            nhan: t("Trạng thái"),
+            tatCa: t("Mọi trạng thái"),
+            luaChon: luaChonTuDuLieu(d.phieus, (x) => x?.trangThai, (x) => t(getGoodsReceiptStatus(x?.trangThai).label)),
           },
         ],
       };
     case "san-pham":
       return {
-        tim: "Tìm theo tên, SKU",
+        tim: t("Tìm theo tên, SKU"),
         chon: [
           {
             khoa: "bienDong",
-            nhan: "Biến động giá",
-            tatCa: "Mọi biến động giá",
+            nhan: t("Biến động giá"),
+            tatCa: t("Mọi biến động giá"),
             luaChon: BIEN_DONG_GIA.filter((o) => d.lichSuGia.some((r) => r?.soVoiTruoc?.loai === o.value)),
           },
         ],
@@ -175,11 +179,11 @@ function boLocCuaTab(tab, d) {
         chon: [
           {
             khoa: "loai",
-            nhan: "Loại hoạt động",
-            tatCa: "Mọi hoạt động",
+            nhan: t("Loại hoạt động"),
+            tatCa: t("Mọi hoạt động"),
             luaChon: LOAI_HOAT_DONG.filter((o) => d.suKien.some((s) => s?.loai === o.value)),
           },
-          { khoa: "thoiGian", nhan: "Thời gian", tatCa: LUA_CHON_THOI_GIAN[0].label, luaChon: LUA_CHON_THOI_GIAN.slice(1) },
+          { khoa: "thoiGian", nhan: t("Thời gian"), tatCa: LUA_CHON_THOI_GIAN[0].label, luaChon: LUA_CHON_THOI_GIAN.slice(1) },
         ],
       };
     default:
@@ -271,24 +275,24 @@ export default function GiaoDichNcc({ tabs, tab, onDoiTab, dangTai, loiDon, onTh
     noiDung = (
       <ErrorState
         className="ncc-trong min-h-56"
-        title="Không tải được giao dịch với nhà cung cấp"
+        title={t("Không tải được giao dịch với nhà cung cấp")}
         description={loiDon}
         onRetry={onThuLaiDon}
       />
     );
   } else if (dangTai) {
-    noiDung = <LoadingState className="ncc-trong min-h-56" label="Đang tải giao dịch với nhà cung cấp" />;
+    noiDung = <LoadingState className="ncc-trong min-h-56" label={t("Đang tải giao dịch với nhà cung cấp")} />;
   } else if (tong === 0) {
     if (dangLoc) {
       noiDung = (
         <EmptyState
           className="ncc-trong min-h-56"
           icon={SearchX}
-          title={KHONG_KHOP[tab] ?? "Không có kết quả phù hợp"}
-          description="Thử bỏ bớt điều kiện lọc."
+          title={KHONG_KHOP[tab] ?? t("Không có kết quả phù hợp")}
+          description={t("Thử bỏ bớt điều kiện lọc.")}
           action={
             <Button type="button" variant="outline" onClick={xoaLoc} className="border-bo-border bg-bo-surface shadow-none">
-              Xóa lọc
+              {t("Xóa lọc")}
             </Button>
           }
         />
@@ -318,7 +322,7 @@ export default function GiaoDichNcc({ tabs, tab, onDoiTab, dangTai, loiDon, onTh
               className="gap-1.5 border-bo-border bg-bo-surface text-bo-foreground shadow-none hover:bg-bo-surface-subtle max-sm:h-11 max-sm:w-full"
             >
               <ChevronDown className="size-4" aria-hidden="true" />
-              Xem thêm {formatNumber(Math.min(SO_HOAT_DONG_MOI_LAN, conLai))} hoạt động
+              {t("Xem thêm {{count}} hoạt động", { count: Math.min(SO_HOAT_DONG_MOI_LAN, conLai) })}
             </Button>
           </div>
         ) : null}
@@ -328,19 +332,19 @@ export default function GiaoDichNcc({ tabs, tab, onDoiTab, dangTai, loiDon, onTh
 
   const ghiChuChan = ghiChu || GHI_CHU_TAB[tab] || "";
   const hienChan = !loiDon && !dangTai && (tong > 0 || ghiChu);
-  const ghiChuTong = dangLoc ? `lọc từ ${formatNumber(soDongGoc(tab, d))}` : undefined;
+  const ghiChuTong = dangLoc ? t("lọc từ {{so}}", { so: formatNumber(soDongGoc(tab, d)) }) : undefined;
 
   return (
-    <section aria-label="Giao dịch với nhà cung cấp" className="ncc-giao-dich flex min-w-0 flex-col">
+    <section aria-label={t("Giao dịch với nhà cung cấp")} className="ncc-giao-dich flex min-w-0 flex-col">
       <ListToolbar
         tabs={
           <StatusTabs
-            label="Loại giao dịch"
-            tabs={tabs.map((t) => ({
-              value: t.ma,
-              label: t.nhan,
-              count: t.so > 0 ? t.so : undefined,
-              tone: t.gap ? "danger" : undefined,
+            label={t("Loại giao dịch")}
+            tabs={tabs.map((muc) => ({
+              value: muc.ma,
+              label: muc.nhan,
+              count: muc.so > 0 ? muc.so : undefined,
+              tone: muc.gap ? "danger" : undefined,
             }))}
             value={tab}
             onChange={onDoiTab}
@@ -369,7 +373,7 @@ export default function GiaoDichNcc({ tabs, tab, onDoiTab, dangTai, loiDon, onTh
                 options={[{ value: "", label: c.tatCa }, ...c.luaChon]}
                 onChange={(v) => doiDieuKien({ loc: { ...st.loc, [c.khoa]: v } })}
                 onClear={() => doiDieuKien({ loc: { ...st.loc, [c.khoa]: "" } })}
-                clearLabel={`Bỏ lọc ${c.nhan.toLocaleLowerCase("vi-VN")}`}
+                clearLabel={t("Bỏ lọc {{nhan}}", { nhan: c.nhan.toLocaleLowerCase("vi-VN") })}
                 align={i === cacBoLoc.length - 1 ? "end" : "start"}
               />
             ))}
@@ -384,10 +388,10 @@ export default function GiaoDichNcc({ tabs, tab, onDoiTab, dangTai, loiDon, onTh
         >
           <span className="inline-flex items-center gap-2">
             <AlertCircle className="size-4 shrink-0" aria-hidden="true" />
-            Không tải được phiếu nhập kho{loiPhieu === true ? "" : `: ${loiPhieu}`}. Giao đúng hạn tạm chưa tính.
+            {t("Không tải được phiếu nhập kho")}{loiPhieu === true ? "" : `: ${loiPhieu}`}{t(". Giao đúng hạn tạm chưa tính.")}
           </span>
           <button type="button" onClick={onThuLaiPhieu} className="font-medium underline underline-offset-2 hover:no-underline">
-            Thử lại
+            {t("Thử lại")}
           </button>
         </div>
       ) : null}
@@ -396,7 +400,7 @@ export default function GiaoDichNcc({ tabs, tab, onDoiTab, dangTai, loiDon, onTh
         ref={vungBang}
         id="vung-tab-ncc"
         role="tabpanel"
-        aria-label={tabs.find((t) => t.ma === tab)?.nhan}
+        aria-label={tabs.find((muc) => muc.ma === tab)?.nhan}
         className="ncc-bang min-w-0 flex-1 overflow-x-auto"
       >
         {noiDung}
@@ -410,11 +414,11 @@ export default function GiaoDichNcc({ tabs, tab, onDoiTab, dangTai, loiDon, onTh
             <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
               {ghiChuChan ? <span className="text-xs text-bo-muted">{ghiChuChan}</span> : <span />}
               <p className="text-xs text-bo-muted tabular-nums">
-                Hiển thị <span className="font-semibold text-bo-foreground">1</span>
+                {t("Hiển thị")} <span className="font-semibold text-bo-foreground">1</span>
                 {" – "}
                 <span className="font-semibold text-bo-foreground">{formatNumber(dong.length)}</span>
-                {" trong tổng số "}
-                <span className="font-semibold text-bo-primary">{formatNumber(tong)}</span> hoạt động
+                {" "}{t("trong tổng số")}{" "}
+                <span className="font-semibold text-bo-primary">{formatNumber(tong)}</span> {t("hoạt động", DON_VI_DEM)}
                 {ghiChuTong ? <> · {ghiChuTong}</> : null}
               </p>
             </div>

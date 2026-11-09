@@ -1,3 +1,5 @@
+import { t } from "../../i18n/t.js";
+import { cauGocMayChu } from "../../i18n/cauGoc.js";
 /**
  * Quy tắc nhập liệu nhà cung cấp — trùng với ràng buộc ở backend (NhaCungCapCreating/Updating)
  * để hai phía báo cùng một câu.
@@ -31,14 +33,14 @@ const SO_DIEN_THOAI_REGEX = /^(0[35789][0-9]{8}|02[0-9]{9}|1[89]00[0-9]{4,6})$/;
 
 // Trùng MA_SO_THUE_PATTERN của backend (như khách hàng, công ty): 10 số, đơn vị phụ thuộc thêm "-3 số", hộ / cá nhân 12 số.
 const MA_SO_THUE_REGEX = /^(\d{10}(-\d{3})?|\d{12})$/;
-export const MA_SO_THUE_MESSAGE = "Mã số thuế gồm 10 số (đơn vị phụ thuộc thêm -3 số) hoặc 12 số";
+export const MA_SO_THUE_MESSAGE = t("Mã số thuế gồm 10 số (đơn vị phụ thuộc thêm -3 số) hoặc 12 số");
 
 /** Gõ / dán mã số thuế: chỉ giữ chữ số và dấu gạch ("0312345678-001"). */
 export const chuanHoaMaSoThueKhiNhap = (value) =>
     String(value ?? "").replace(/[^\d-]/g, "").slice(0, MAX_LENGTH.maSoThue);
 
 export const SO_DIEN_THOAI_MESSAGE =
-    "Số điện thoại không hợp lệ (di động 10 số, số bàn 11 số bắt đầu bằng 02, hoặc tổng đài 1800/1900)";
+    t("Số điện thoại không hợp lệ (di động 10 số, số bàn 11 số bắt đầu bằng 02, hoặc tổng đài 1800/1900)");
 
 /** Chỉ giữ chữ số khi gõ / dán số điện thoại. */
 export const chiGiuChuSo = (value, max) => (value ?? "").replace(/\D/g, "").slice(0, max);
@@ -80,11 +82,11 @@ export const formTuNhaCungCap = (supplier) =>
 export const VALIDATORS = {
     maNhaCungCap: (value) => {
         const ma = value.trim();
-        if (!ma) return "Vui lòng nhập mã nhà cung cấp";
-        if (!MA_REGEX.test(ma)) return "Chỉ dùng chữ không dấu, số và các ký tự . _ -";
+        if (!ma) return t("Vui lòng nhập mã nhà cung cấp");
+        if (!MA_REGEX.test(ma)) return t("Chỉ dùng chữ không dấu, số và các ký tự . _ -");
         return "";
     },
-    tenNhaCungCap: (value) => (value.trim() ? "" : "Vui lòng nhập tên nhà cung cấp"),
+    tenNhaCungCap: (value) => (value.trim() ? "" : t("Vui lòng nhập tên nhà cung cấp")),
     // Không bắt buộc; có thì phải đúng định dạng (gửi sang kế toán ở danh mục và chứng từ mua hàng)
     maSoThue: (value) => {
         const mst = value.trim();
@@ -92,13 +94,13 @@ export const VALIDATORS = {
     },
     nguoiLienHe: () => "",
     soDienThoai: (value) => {
-        if (!value) return "Vui lòng nhập số điện thoại";
+        if (!value) return t("Vui lòng nhập số điện thoại");
         return SO_DIEN_THOAI_REGEX.test(value) ? "" : SO_DIEN_THOAI_MESSAGE;
     },
     email: (value) => {
         const email = value.trim();
-        if (!email) return "Vui lòng nhập email";
-        return EMAIL_REGEX.test(email) ? "" : "Vui lòng nhập đúng định dạng email";
+        if (!email) return t("Vui lòng nhập email");
+        return EMAIL_REGEX.test(email) ? "" : t("Vui lòng nhập đúng định dạng email");
     },
     diaChi: () => "",
 };
@@ -124,7 +126,8 @@ export function payloadTuForm(form, { laSua }) {
 
 /** Câu báo lỗi của máy chủ (không phải lỗi theo từng ô) → ô tương ứng, để hiện ngay dưới ô đó. */
 export function oCuaThongBaoMayChu(message) {
-    const text = (message ?? "").toLowerCase();
+    // Dò trên câu gốc tiếng Việt (giao diện tiếng Anh nhận câu đã dịch)
+    const text = (cauGocMayChu(message) ?? "").toLowerCase();
     if (text.includes("mã nhà cung cấp")) return "maNhaCungCap";
     if (text.includes("tên nhà cung cấp")) return "tenNhaCungCap";
     if (text.includes("mã số thuế")) return "maSoThue";

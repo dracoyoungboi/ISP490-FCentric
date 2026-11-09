@@ -5,6 +5,7 @@
  * Hàm thuần, chạy được bằng `node --test`.
  */
 import { getApiErrorCode } from "../../utils/apiError.js";
+import { t } from "../../i18n/t.js";
 
 export const MA_LOI_CONG = Object.freeze({
   DON_HOAC_EMAIL_SAI: "DON_HOAC_EMAIL_SAI",
@@ -19,20 +20,20 @@ export const MA_LOI_CONG = Object.freeze({
 
 // Câu chép đúng HOP-DONG 2.1 (máy chủ cũng trả đúng câu này trong `message`)
 export const CAU_DON_KHONG_CON_NHAN =
-  "Đơn mua hàng này không còn nhận báo giá. Vui lòng liên hệ nhân viên mua hàng đã gửi yêu cầu cho Quý công ty.";
-export const CAU_PHIEN_HET_HAN = "Phiên báo giá đã hết hạn. Vui lòng nhận mã mới.";
+  t("Đơn mua hàng này không còn nhận báo giá. Vui lòng liên hệ nhân viên mua hàng đã gửi yêu cầu cho Quý công ty.");
+export const CAU_PHIEN_HET_HAN = t("Phiên báo giá đã hết hạn. Vui lòng nhận mã mới.");
 
-export const LOI_MAT_KET_NOI = "Không kết nối được máy chủ. Vui lòng kiểm tra mạng và thử lại.";
-export const CAU_MA_CU_CON_HIEU_LUC = "Mã xác nhận gửi trước đó vẫn còn hiệu lực. Hãy dùng mã trong email gần nhất.";
-export const CAU_CHO_GUI_LAI = "Đã gửi nhiều mã xác nhận cho đơn này. Vui lòng chờ rồi nhận mã mới.";
-export const CAU_CHUA_GUI_DUOC_MA = "Chưa gửi được mã xác nhận. Vui lòng thử lại.";
-export const CAU_LOI_NHAN_MA = "Có lỗi khi gửi mã xác nhận. Vui lòng thử lại.";
-export const CAU_MA_SAI = "Mã xác nhận không đúng. Vui lòng nhập lại hoặc gửi lại mã.";
+export const LOI_MAT_KET_NOI = t("Không kết nối được máy chủ. Vui lòng kiểm tra mạng và thử lại.");
+export const CAU_MA_CU_CON_HIEU_LUC = t("Mã xác nhận gửi trước đó vẫn còn hiệu lực. Hãy dùng mã trong email gần nhất.");
+export const CAU_CHO_GUI_LAI = t("Đã gửi nhiều mã xác nhận cho đơn này. Vui lòng chờ rồi nhận mã mới.");
+export const CAU_CHUA_GUI_DUOC_MA = t("Chưa gửi được mã xác nhận. Vui lòng thử lại.");
+export const CAU_LOI_NHAN_MA = t("Có lỗi khi gửi mã xác nhận. Vui lòng thử lại.");
+export const CAU_MA_SAI = t("Mã xác nhận không đúng. Vui lòng nhập lại hoặc gửi lại mã.");
 export const CAU_MA_HET_HAN =
-  "Mã xác nhận đã hết hạn hoặc đã nhập sai quá số lần cho phép. Bấm Gửi lại mã để nhận mã mới.";
-export const CAU_LOI_XAC_NHAN = "Không xác nhận được mã. Vui lòng thử lại.";
+  t("Mã xác nhận đã hết hạn hoặc đã nhập sai quá số lần cho phép. Bấm Gửi lại mã để nhận mã mới.");
+export const CAU_LOI_XAC_NHAN = t("Không xác nhận được mã. Vui lòng thử lại.");
 export const LOI_GUI_MAC_DINH =
-  "Không gửi được báo giá. Đơn giá bạn đã nhập vẫn còn trên trang. Kiểm tra kết nối mạng rồi thử lại.";
+  t("Không gửi được báo giá. Đơn giá bạn đã nhập vẫn còn trên trang. Kiểm tra kết nối mạng rồi thử lại.");
 
 /** `data` kèm theo lỗi (vd. `guiLaiSauGiay`, `conLaiLanThu`, `dong`); không có thì {}. */
 export function duLieuLoi(err) {
@@ -59,7 +60,7 @@ export function docThoiHanMa(data) {
 }
 
 /** "5 phút" (làm tròn, ít nhất 1 phút). */
-const chuPhut = (giay) => `${Math.max(1, Math.round(giay / 60))} phút`;
+const chuPhut = (giay) => t("{{count}} phút", { count: Math.max(1, Math.round(giay / 60)) });
 
 /**
  * Câu báo ở bước nhập mã sau khi gửi mã. Có `hetHanGiay` thì nói thời hạn theo máy chủ; không có thì bỏ câu thời hạn
@@ -68,10 +69,10 @@ const chuPhut = (giay) => `${Math.max(1, Math.round(giay / 60))} phút`;
  */
 export function cauDaGuiMa(hetHanGiay, { guiLai = false } = {}) {
   const giay = soGiay(hetHanGiay);
-  const hieuLuc = giay ? `Mã có hiệu lực trong ${chuPhut(giay)}.` : "";
+  const hieuLuc = giay ? t("Mã có hiệu lực trong {{thoiGian}}.", { thoiGian: chuPhut(giay) }) : "";
   return guiLai
-    ? `Đã gửi lại mã xác nhận.${hieuLuc ? ` ${hieuLuc}` : ""} Vui lòng kiểm tra email.`
-    : `${hieuLuc ? `${hieuLuc} ` : ""}Nếu không thấy email, hãy kiểm tra thư mục Thư rác.`;
+    ? `${t("Đã gửi lại mã xác nhận.")}${hieuLuc ? ` ${hieuLuc}` : ""} ${t("Vui lòng kiểm tra email.")}`
+    : `${hieuLuc ? `${hieuLuc} ` : ""}${t("Nếu không thấy email, hãy kiểm tra thư mục Thư rác.")}`;
 }
 
 /** "4:05" — đếm ngược tới lúc được gửi lại mã. */
@@ -120,7 +121,7 @@ export function xuLyLoiXacNhan(err) {
   switch (getApiErrorCode(err)) {
     case MA_LOI_CONG.MA_SAI: {
       const conLai = soGiay(duLieuLoi(err).conLaiLanThu);
-      return { loai: "ma-sai", cau: conLai ? `Mã xác nhận không đúng. Còn ${conLai} lần nhập.` : CAU_MA_SAI };
+      return { loai: "ma-sai", cau: conLai ? t("Mã xác nhận không đúng. Còn {{count}} lần nhập.", { count: conLai }) : CAU_MA_SAI };
     }
     case MA_LOI_CONG.MA_HET_HAN:
       return { loai: "ma-het-han", cau: CAU_MA_HET_HAN };
@@ -141,7 +142,7 @@ export function xuLyLoiXacNhan(err) {
 export function xuLyLoiGuiBaoGia(err) {
   if (!err?.response) return { loai: "loi", cau: LOI_GUI_MAC_DINH };
   const msg = cauMayChu(err);
-  const cau = msg ? `Không gửi được báo giá. ${msg}` : LOI_GUI_MAC_DINH;
+  const cau = msg ? t("Không gửi được báo giá. {{cauMayChu}}", { cauMayChu: msg }) : LOI_GUI_MAC_DINH;
   switch (getApiErrorCode(err)) {
     case MA_LOI_CONG.PHIEN_HET_HAN:
       return { loai: "phien-het-han", cau: CAU_PHIEN_HET_HAN };

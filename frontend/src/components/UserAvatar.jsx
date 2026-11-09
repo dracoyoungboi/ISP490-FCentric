@@ -1,6 +1,7 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { getInitials, hashUserId } from "@/utils/avatar";
+import { t } from "@/i18n";
 
 const SIZE_MAP = {
   xs: { root: "size-8", fallback: "text-xs" },
@@ -40,7 +41,7 @@ export default function UserAvatar({ userId, name, avatarUrl, size = "sm", class
     <Avatar className={cn(sizeClasses.root, className)}>
       <AvatarImage
         src={avatarUrl || undefined}
-        alt={name ? `Ảnh đại diện của ${name}` : "Ảnh đại diện"}
+        alt={name ? t("Ảnh đại diện của {{name}}", { name }) : t("Ảnh đại diện")}
       />
       <AvatarFallback
         className={cn("font-bold", sizeClasses.fallback, fallbackStyle)}

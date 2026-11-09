@@ -28,6 +28,7 @@ import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { getAllSupplier } from "@/services/supplierService";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { ROLES, hasAnyRole } from "@/utils/roles";
+import { t } from "@/i18n";
 
 // Thêm / sửa / xóa / ngừng hoạt động: khớp quyền ở backend (NhaCungCapController).
 // Quản lý kho vẫn xem được danh sách và chi tiết nhưng không thấy các nút này.
@@ -37,14 +38,14 @@ const NEW_ROW_HIGHLIGHT_MS = 4000;
 
 // ── Tab trạng thái (bố cục A+G) — giữ trên URL ?trangThai= ───────────────
 const STATUS_TABS = [
-    { value: "tat-ca",          label: "Tất cả" },
-    { value: "hoat-dong",       label: "Hoạt động" },
-    { value: "ngung-hoat-dong", label: "Ngừng hoạt động" },
+    { value: "tat-ca",          label: t("Tất cả") },
+    { value: "hoat-dong",       label: t("Hoạt động") },
+    { value: "ngung-hoat-dong", label: t("Ngừng hoạt động") },
 ];
 const STATUS_TAB_VALUES = STATUS_TABS.map((tab) => tab.value);
 const EMPTY_TAB_TITLE = {
-    "hoat-dong":       "Không có nhà cung cấp nào đang hoạt động",
-    "ngung-hoat-dong": "Không có nhà cung cấp nào ngừng hoạt động",
+    "hoat-dong":       t("Không có nhà cung cấp nào đang hoạt động"),
+    "ngung-hoat-dong": t("Không có nhà cung cấp nào ngừng hoạt động"),
 };
 
 // Máy tính bảng dọc (cảm ứng): ẩn cột STT, Mã NCC, SĐT, Email (đưa thành dòng phụ dưới tên / người liên hệ)
@@ -113,7 +114,7 @@ export default function SupplierList() {
                 return;
             }
             // Giữ lỗi gốc để ô lỗi phân biệt 403 (không có quyền: ổ khóa, không "Thử lại")
-            setLoadError({ moTa: getApiErrorMessage(error, "Không thể tải danh sách nhà cung cấp"), goc: error });
+            setLoadError({ moTa: getApiErrorMessage(error, t("Không thể tải danh sách nhà cung cấp")), goc: error });
         } finally {
             if (requestId === requestIdRef.current) setLoading(false);
         }
@@ -191,30 +192,30 @@ export default function SupplierList() {
     const handleSaved = (saved, { laSua }) => {
         if (laSua) {
             setSuppliers((prev) => prev.map((item) => (item.id === saved.id ? { ...item, ...saved } : item)));
-            toast.success(`Đã lưu thay đổi của nhà cung cấp "${saved.tenNhaCungCap}"`);
+            toast.success(t("Đã lưu thay đổi của nhà cung cấp \"{{tenNhaCungCap}}\"", { tenNhaCungCap: saved.tenNhaCungCap }));
             return;
         }
         // Danh sách xếp mới nhất lên đầu: thêm vào đầu, về trang 1 và tô nền dòng mới.
         setSuppliers((prev) => [saved, ...prev.filter((item) => item.id !== saved.id)]);
         setHighlightId(saved.id);
         setPageNumber(0);
-        toast.success(`Đã thêm nhà cung cấp "${saved.tenNhaCungCap}"`, {
+        toast.success(t("Đã thêm nhà cung cấp \"{{tenNhaCungCap}}\"", { tenNhaCungCap: saved.tenNhaCungCap }), {
             description: filterStatus === "ngung-hoat-dong"
-                ? "Nhà cung cấp mới ở tab Hoạt động."
+                ? t("Nhà cung cấp mới ở tab Hoạt động.")
                 : undefined,
         });
     };
 
     const handleDeleted = (deleted) => {
         setSuppliers((prev) => prev.filter((item) => item.id !== deleted.id));
-        toast.success(`Đã xóa nhà cung cấp "${deleted.tenNhaCungCap}"`);
+        toast.success(t("Đã xóa nhà cung cấp \"{{tenNhaCungCap}}\"", { tenNhaCungCap: deleted.tenNhaCungCap }));
     };
 
     const handleStatusChanged = (updated) => {
         setSuppliers((prev) => prev.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)));
         toast.success(laHoatDong(updated)
-            ? `Đã cho phép "${updated.tenNhaCungCap}" hoạt động lại`
-            : `Đã ngừng hoạt động "${updated.tenNhaCungCap}"`);
+            ? t("Đã cho phép \"{{tenNhaCungCap}}\" hoạt động lại", { tenNhaCungCap: updated.tenNhaCungCap })
+            : t("Đã ngừng hoạt động \"{{tenNhaCungCap}}\"", { tenNhaCungCap: updated.tenNhaCungCap }));
     };
 
     return (
@@ -228,7 +229,7 @@ export default function SupplierList() {
                                 className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
                             >
                                 <Plus className="size-4" />
-                                Thêm nhà cung cấp
+                                {t("Thêm nhà cung cấp")}
                             </Button>
                         ) : null
                     }
@@ -241,7 +242,7 @@ export default function SupplierList() {
                         <ListToolbar
                             tabs={
                                 <StatusTabs
-                                    label="Lọc nhà cung cấp theo trạng thái"
+                                    label={t("Lọc nhà cung cấp theo trạng thái")}
                                     tabs={statusTabs}
                                     value={filterStatus}
                                     onChange={changeTab}
@@ -251,8 +252,8 @@ export default function SupplierList() {
                             onClear={handleClearSearch}
                         >
                             <SearchInput
-                                label="Tìm nhà cung cấp"
-                                placeholder="Tìm mã, tên, liên hệ, SĐT..."
+                                label={t("Tìm nhà cung cấp")}
+                                placeholder={t("Tìm mã, tên, liên hệ, SĐT...")}
                                 value={search}
                                 onChange={(e) => changeSearch(e.target.value)}
                                 onClear={handleClearSearch}
@@ -273,10 +274,10 @@ export default function SupplierList() {
                     }
                 >
                     {loading ? (
-                        <LoadingState rows={5} label="Đang tải danh sách nhà cung cấp" />
+                        <LoadingState rows={5} label={t("Đang tải danh sách nhà cung cấp")} />
                     ) : loadError ? (
                         <ErrorState
-                            title="Không thể tải danh sách nhà cung cấp"
+                            title={t("Không thể tải danh sách nhà cung cấp")}
                             description={loadError.moTa}
                             error={loadError.goc}
                             onRetry={() => fetchSuppliers()}
@@ -285,15 +286,15 @@ export default function SupplierList() {
                         search.trim() ? (
                             <EmptyState
                                 icon={SearchX}
-                                title="Không tìm thấy nhà cung cấp phù hợp"
-                                description="Thử đổi từ khóa tìm kiếm."
+                                title={t("Không tìm thấy nhà cung cấp phù hợp")}
+                                description={t("Thử đổi từ khóa tìm kiếm.")}
                                 action={
                                     <Button
                                         variant="outline"
                                         onClick={handleClearSearch}
                                         className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                                     >
-                                        Xóa lọc
+                                        {t("Xóa lọc")}
                                     </Button>
                                 }
                             />
@@ -301,22 +302,22 @@ export default function SupplierList() {
                             <EmptyState
                                 icon={Users}
                                 title={EMPTY_TAB_TITLE[filterStatus]}
-                                description="Chọn tab Tất cả để xem mọi nhà cung cấp."
+                                description={t("Chọn tab Tất cả để xem mọi nhà cung cấp.")}
                                 action={
                                     <Button
                                         variant="outline"
                                         onClick={() => changeTab("tat-ca")}
                                         className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                                     >
-                                        Xem tất cả
+                                        {t("Xem tất cả")}
                                     </Button>
                                 }
                             />
                         ) : (
                             <EmptyState
                                 icon={Users}
-                                title="Chưa có nhà cung cấp"
-                                description="Thêm nhà cung cấp để gửi yêu cầu báo giá và lập đơn mua hàng."
+                                title={t("Chưa có nhà cung cấp")}
+                                description={t("Thêm nhà cung cấp để gửi yêu cầu báo giá và lập đơn mua hàng.")}
                                 action={
                                     coTheQuanLy ? (
                                         <Button
@@ -324,7 +325,7 @@ export default function SupplierList() {
                                             className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
                                         >
                                             <Plus className="size-4" />
-                                            Thêm nhà cung cấp
+                                            {t("Thêm nhà cung cấp")}
                                         </Button>
                                     ) : null
                                 }
@@ -346,7 +347,7 @@ export default function SupplierList() {
                                             {/* Tên dài xuống dòng (không cắt), thẻ trạng thái luôn ở góc phải */}
                                             <span className="flex items-start justify-between gap-3">
                                                 <span className="min-w-0 text-[15px] font-semibold leading-snug text-bo-foreground">{item.tenNhaCungCap}</span>
-                                                <StatusBadge doiTuong="nguoi" label={laHoatDong(item) ? "Hoạt động" : "Ngừng hoạt động"} className="mt-0.5" />
+                                                <StatusBadge /* i18n-giu-nguyen: StatusBadge tự dịch */ doiTuong="nguoi" label={laHoatDong(item) ? "Hoạt động" : "Ngừng hoạt động"} className="mt-0.5" />
                                             </span>
                                             <span className="flex min-w-0 items-center gap-2 text-sm text-slate-600">
                                                 <span className="shrink-0 font-mono text-xs font-semibold text-bo-foreground">{item.maNhaCungCap || "—"}</span>
@@ -361,7 +362,7 @@ export default function SupplierList() {
                                                 {item.soDienThoai ? (
                                                     <a
                                                         href={`tel:${item.soDienThoai.replace(/\s/g, "")}`}
-                                                        aria-label={`Gọi ${item.tenNhaCungCap}: ${item.soDienThoai}`}
+                                                        aria-label={t("Gọi {{tenNhaCungCap}}: {{soDienThoai}}", { tenNhaCungCap: item.tenNhaCungCap, soDienThoai: item.soDienThoai })}
                                                         className="inline-flex h-9 min-w-0 items-center gap-1.5 text-sm font-medium text-bo-primary"
                                                     >
                                                         <Phone className="size-4 shrink-0" aria-hidden="true" />
@@ -377,7 +378,7 @@ export default function SupplierList() {
                                                             className="h-9 gap-1.5 border-bo-input-border bg-bo-surface px-3 text-sm font-medium text-bo-foreground"
                                                         >
                                                             <Edit className="size-4" aria-hidden="true" />
-                                                            Sửa
+                                                            {t("Sửa")}
                                                         </Button>
                                                         <Button
                                                             type="button"
@@ -386,7 +387,7 @@ export default function SupplierList() {
                                                             className="h-9 gap-1.5 border-bo-input-border bg-bo-surface px-3 text-sm font-medium text-bo-danger"
                                                         >
                                                             <Trash2 className="size-4" aria-hidden="true" />
-                                                            Xóa
+                                                            {t("Xóa")}
                                                         </Button>
                                                     </span>
                                                 ) : null}
@@ -402,7 +403,7 @@ export default function SupplierList() {
                         <table className="w-full min-w-[960px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
                             <thead className="sticky top-0 z-10">
                                 <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                                    {["STT", "Mã NCC", "Tên nhà cung cấp", "Người liên hệ", "SĐT", "Email", "Trạng thái", "Thao tác"].map((h, i) => (
+                                    {[t("STT"), t("Mã NCC"), t("Tên nhà cung cấp"), t("Người liên hệ"), t("SĐT"), "Email", t("Trạng thái"), t("Thao tác")].map((h, i) => (
                                         <th
                                             key={h}
                                             className={`h-10 whitespace-nowrap px-3 text-[11px] font-semibold uppercase tracking-wide text-bo-muted ${i === 7 ? "text-center" : "text-left"}${COT_AN_TREN_TABLET.has(i) || (i === 7 && !coTheQuanLy) ? " cam-ung:max-lg:hidden" : ""}`}
@@ -479,7 +480,7 @@ export default function SupplierList() {
 
                                         {/* Trạng thái */}
                                         <td className="whitespace-nowrap px-3 py-3">
-                                            <StatusBadge doiTuong="nguoi" label={laHoatDong(item) ? "Hoạt động" : "Ngừng hoạt động"} />
+                                            <StatusBadge /* i18n-giu-nguyen: StatusBadge tự dịch */ doiTuong="nguoi" label={laHoatDong(item) ? "Hoạt động" : "Ngừng hoạt động"} />
                                         </td>
 
                                         {/* Thao tác */}
@@ -487,7 +488,7 @@ export default function SupplierList() {
                                             <RowActions>
                                                 <RowActionButton
                                                     icon={Eye}
-                                                    label="Xem chi tiết"
+                                                    label={t("Xem chi tiết")}
                                                     onClick={() => navigate(`/supplier/${item.id}`)}
                                                     className="cam-ung:max-lg:hidden"
                                                 />
@@ -495,12 +496,12 @@ export default function SupplierList() {
                                                     <>
                                                         <RowActionButton
                                                             icon={Edit}
-                                                            label="Chỉnh sửa"
+                                                            label={t("Chỉnh sửa")}
                                                             onClick={() => openForm(item)}
                                                         />
                                                         <RowActionButton
                                                             icon={Trash2}
-                                                            label="Xóa"
+                                                            label={t("Xóa")}
                                                             tone="danger"
                                                             onClick={() => setDeleteDialog({ open: true, supplier: item })}
                                                         />

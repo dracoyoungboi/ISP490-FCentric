@@ -1,3 +1,4 @@
+import { t } from "../../i18n/t.js";
 /**
  * Hàm thuần cho trang báo giá của nhà cung cấp (/supplier/quotation).
  *
@@ -58,9 +59,9 @@ export const tinhTong = (dong) => ({
 
 /** Câu báo lỗi của ô đơn giá, null nếu hợp lệ. */
 export const loiDonGia = (donGia) => {
-    if (donGia === '' || donGia == null) return 'Nhập đơn giá';
-    if (!soDuong(donGia)) return 'Đơn giá phải lớn hơn 0';
-    if (Number(donGia) > DON_GIA_TOI_DA) return `Đơn giá tối đa ${DON_GIA_TOI_DA.toLocaleString('vi-VN')} ₫`;
+    if (donGia === '' || donGia == null) return t("Nhập đơn giá");
+    if (!soDuong(donGia)) return t("Đơn giá phải lớn hơn 0");
+    if (Number(donGia) > DON_GIA_TOI_DA) return t("Đơn giá tối đa {{toiDa}} ₫", { toiDa: DON_GIA_TOI_DA.toLocaleString('vi-VN') });
     return null;
 };
 

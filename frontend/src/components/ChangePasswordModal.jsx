@@ -17,6 +17,7 @@ import { nguoiDungService } from "@/services/nguoiDungService";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { GOI_Y_MAT_KHAU, kiemTraMatKhauMoi } from "@/utils/matKhau";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 
 const O_NHAP =
@@ -38,7 +39,7 @@ function NutXem({ hien, onClick, disabled, nhan }) {
       type="button"
       onClick={onClick}
       disabled={disabled}
-      aria-label={hien ? `Ẩn ${nhan}` : `Hiện ${nhan}`}
+      aria-label={hien ? t("Ẩn {{nhan}}", { nhan }) : t("Hiện {{nhan}}", { nhan })}
       aria-pressed={hien}
       className="absolute right-1 top-1/2 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-md text-bo-muted outline-none transition-colors hover:text-bo-foreground focus-visible:ring-2 focus-visible:ring-bo-primary/40 disabled:opacity-50"
     >
@@ -85,13 +86,13 @@ export default function ChangePasswordModal({ open, onOpenChange, onSuccess, for
     }
   }
 
-  const nhanHienTai = forceChange ? "Mật khẩu tạm thời (trong email)" : "Mật khẩu hiện tại";
+  const nhanHienTai = forceChange ? t("Mật khẩu tạm thời (trong email)") : t("Mật khẩu hiện tại");
 
   const kiemTra = (k, gt = mk) => {
-    if (k === "hienTai") return gt.hienTai ? "" : forceChange ? "Nhập mật khẩu tạm thời trong email." : "Nhập mật khẩu hiện tại.";
+    if (k === "hienTai") return gt.hienTai ? "" : forceChange ? t("Nhập mật khẩu tạm thời trong email.") : t("Nhập mật khẩu hiện tại.");
     if (k === "moi") return kiemTraMatKhauMoi(gt.moi, { tenDangNhap, email, matKhauHienTai: gt.hienTai });
-    if (!gt.xacNhan) return "Nhập lại mật khẩu mới.";
-    return gt.xacNhan === gt.moi ? "" : "Chưa khớp với mật khẩu mới.";
+    if (!gt.xacNhan) return t("Nhập lại mật khẩu mới.");
+    return gt.xacNhan === gt.moi ? "" : t("Chưa khớp với mật khẩu mới.");
   };
 
   const go = (k) => (e) => {
@@ -144,7 +145,7 @@ export default function ChangePasswordModal({ open, onOpenChange, onSuccess, for
       onOpenChange(false);
       onSuccess?.();
     } catch (err) {
-      const thongDiep = getApiErrorMessage(err, "Không đổi được mật khẩu. Vui lòng thử lại.");
+      const thongDiep = getApiErrorMessage(err, t("Không đổi được mật khẩu. Vui lòng thử lại."));
       if (err?.response?.status === 400 && laLoiMatKhauHienTai(thongDiep)) {
         setLoi((cu) => ({ ...cu, hienTai: thongDiep.replace(/\.?$/, ".") }));
         refs.hienTai.current?.focus();
@@ -208,7 +209,7 @@ export default function ChangePasswordModal({ open, onOpenChange, onSuccess, for
           ) : (
             phu
           )}
-          {capsLock && oDangGo === k ? <p className={cn(DONG_PHU, "font-medium text-orange-800")}>Caps Lock đang bật.</p> : null}
+          {capsLock && oDangGo === k ? <p className={cn(DONG_PHU, "font-medium text-orange-800")}>{t("Caps Lock đang bật.")}</p> : null}
         </div>
       </div>
     );
@@ -229,11 +230,11 @@ export default function ChangePasswordModal({ open, onOpenChange, onSuccess, for
         }}
       >
         <DialogHeader>
-          <DialogTitle>{forceChange ? "Đổi mật khẩu tạm thời" : "Đổi mật khẩu"}</DialogTitle>
+          <DialogTitle>{forceChange ? t("Đổi mật khẩu tạm thời") : t("Đổi mật khẩu")}</DialogTitle>
           <DialogDescription className="text-bo-muted">
             {forceChange
-              ? "Bạn đang dùng mật khẩu tạm thời. Đặt mật khẩu riêng để tiếp tục dùng FCentric."
-              : "Sau khi đổi, các thiết bị khác đang đăng nhập sẽ phải đăng nhập lại."}
+              ? t("Bạn đang dùng mật khẩu tạm thời. Đặt mật khẩu riêng để tiếp tục dùng FCentric.")
+              : t("Sau khi đổi, các thiết bị khác đang đăng nhập sẽ phải đăng nhập lại.")}
           </DialogDescription>
         </DialogHeader>
 
@@ -247,10 +248,10 @@ export default function ChangePasswordModal({ open, onOpenChange, onSuccess, for
             {o("hienTai", nhanHienTai, "current-password")}
             {hoiQuen ? (
               <p className="mt-1.5 flex flex-wrap items-baseline gap-x-1.5 text-xs leading-[17px] text-slate-600">
-                <span>Cần đăng xuất để lấy lại mật khẩu qua email.</span>
+                <span>{t("Cần đăng xuất để lấy lại mật khẩu qua email.")}</span>
                 <span className="inline-flex items-baseline gap-1.5 whitespace-nowrap">
-                  <button type="button" onClick={quenMatKhau} aria-label="Đăng xuất để lấy lại mật khẩu" className={NUT_CHU}>
-                    Đăng xuất
+                  <button type="button" onClick={quenMatKhau} aria-label={t("Đăng xuất để lấy lại mật khẩu")} className={NUT_CHU}>
+                    {t("Đăng xuất")}
                   </button>
                   <span aria-hidden="true" className="text-slate-300">
                     ·
@@ -258,33 +259,33 @@ export default function ChangePasswordModal({ open, onOpenChange, onSuccess, for
                   <button
                     type="button"
                     onClick={() => setHoiQuen(false)}
-                    aria-label="Không lấy lại mật khẩu"
+                    aria-label={t("Không lấy lại mật khẩu")}
                     className={cn(NUT_CHU, "text-slate-500")}
                   >
-                    Hủy
+                    {t("Hủy")}
                   </button>
                 </span>
               </p>
             ) : (
               <button type="button" onClick={() => setHoiQuen(true)} disabled={dangGui} className={cn(NUT_CHU, "mt-1.5")}>
-                {forceChange ? "Không tìm thấy mật khẩu tạm thời?" : "Quên mật khẩu hiện tại?"}
+                {forceChange ? t("Không tìm thấy mật khẩu tạm thời?") : t("Quên mật khẩu hiện tại?")}
               </button>
             )}
           </div>
 
           {o(
             "moi",
-            "Mật khẩu mới",
+            t("Mật khẩu mới"),
             "new-password",
             <>
               {GOI_Y_MAT_KHAU ? <p className={cn(DONG_PHU, "text-bo-muted")}>{GOI_Y_MAT_KHAU}</p> : null}
               {coDauCach ? (
-                <p className={cn(DONG_PHU, "text-orange-800")}>Mật khẩu có dấu cách ở đầu hoặc cuối — sẽ được giữ nguyên.</p>
+                <p className={cn(DONG_PHU, "text-orange-800")}>{t("Mật khẩu có dấu cách ở đầu hoặc cuối — sẽ được giữ nguyên.")}</p>
               ) : null}
             </>,
           )}
 
-          {o("xacNhan", "Nhập lại mật khẩu mới", "new-password")}
+          {o("xacNhan", t("Nhập lại mật khẩu mới"), "new-password")}
 
           {loiChung ? (
             <Alert className="border-bo-danger/30 bg-bo-danger-soft">
@@ -303,11 +304,11 @@ export default function ChangePasswordModal({ open, onOpenChange, onSuccess, for
               onClick={() => onOpenChange(false)}
               className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
             >
-              Hủy
+              {t("Hủy")}
             </Button>
           ) : null}
           <Button type="submit" form="form-doi-mat-khau" disabled={dangGui} className="bg-bo-primary text-white hover:bg-bo-primary-hover">
-            {dangGui ? "Đang đổi mật khẩu..." : "Đổi mật khẩu"}
+            {dangGui ? t("Đang đổi mật khẩu...") : t("Đổi mật khẩu")}
           </Button>
         </DialogFooter>
       </DialogContent>

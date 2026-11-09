@@ -11,12 +11,13 @@ const doc = (tep) => fs.readFileSync(path.join(path.dirname(fileURLToPath(import
 
 test("gửi liên kết / thêm người dùng: 'Liên kết … sẽ được gửi tới {email}', không 'Đã gửi', không còn mật khẩu tạm", () => {
   const chiTiet = doc("ViewUserDetailByAdmin.jsx");
-  assert.match(chiTiet, /`Liên kết đặt lại mật khẩu sẽ được gửi tới \$\{nguoiDung\.email\}\.`/);
+  // Câu đi qua t() (đa ngôn ngữ): khóa là câu tiếng Việt, email truyền qua tham số
+  assert.match(chiTiet, /t\("Liên kết đặt lại mật khẩu sẽ được gửi tới \{\{email\}\}\.", \{ email: nguoiDung\.email \}\)/);
   assert.doesNotMatch(chiTiet, /Đã gửi (mật khẩu|liên kết)/);
   assert.doesNotMatch(chiTiet, /mật khẩu tạm/i);
   const danhSach = doc("ViewUserListByAdmin.jsx");
-  assert.match(danhSach, /Liên kết đặt mật khẩu cho \$\{user\.tenDangNhap\} sẽ được gửi tới \$\{user\.email\}\./);
-  assert.match(danhSach, /`Liên kết đặt lại mật khẩu sẽ được gửi tới \$\{user\.email\}\.`/);
+  assert.match(danhSach, /t\("Liên kết đặt mật khẩu cho \{\{tenDangNhap\}\} sẽ được gửi tới \{\{email\}\}\.", \{ tenDangNhap: user\.tenDangNhap, email: user\.email \}\)/);
+  assert.match(danhSach, /t\("Liên kết đặt lại mật khẩu sẽ được gửi tới \{\{email\}\}\.", \{ email: user\.email \}\)/);
   assert.doesNotMatch(danhSach, /Đã gửi (mật khẩu|liên kết)/);
   assert.doesNotMatch(danhSach, /mật khẩu tạm/i);
 });

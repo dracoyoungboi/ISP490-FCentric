@@ -7,6 +7,7 @@ import { getMineKhoList } from '../services/khoService';
 import AuthShell from '../components/auth/AuthShell';
 import { ensureTokenUsable } from '../utils/authToken';
 import { taiTruocLucRanh } from '@/lib/taiTrang';
+import { t } from "@/i18n";
 
 /* ── Class patterns dùng chung (theo thiết kế modern white/gray) ── */
 const INPUT_BASE =
@@ -72,18 +73,18 @@ export default function AuthPage() {
         setErrors({});
         try {
             if (!loginData.username || !loginData.matKhau) {
-                setErrors({ general: 'Vui lòng điền đầy đủ thông tin đăng nhập' });
+                setErrors({ general: t("Vui lòng điền đầy đủ thông tin đăng nhập") });
                 return;
             }
             const response = await nguoiDungService.login({ username: loginData.username, password: loginData.matKhau });
             if (response?.status !== 200) {
-                setErrors({ general: response?.message || 'Đăng nhập thất bại' });
+                setErrors({ general: response?.message || t("Đăng nhập thất bại") });
                 return;
             }
 
             const token = localStorage.getItem('access_token');
             if (!token) {
-                setErrors({ general: 'Không nhận được phiên đăng nhập, vui lòng thử lại' });
+                setErrors({ general: t("Không nhận được phiên đăng nhập, vui lòng thử lại") });
                 return;
             }
 
@@ -114,7 +115,7 @@ export default function AuthPage() {
                 // Token không hợp lệ: xoá để tránh vòng lặp redirect với token hỏng, ở lại trang đăng nhập
                 console.error('Token đăng nhập không hợp lệ:', decodeError);
                 localStorage.removeItem('access_token');
-                setErrors({ general: 'Phiên đăng nhập không hợp lệ, vui lòng đăng nhập lại' });
+                setErrors({ general: t("Phiên đăng nhập không hợp lệ, vui lòng đăng nhập lại") });
                 return;
             }
 
@@ -130,7 +131,7 @@ export default function AuthPage() {
             const returnUrl = new URLSearchParams(window.location.search).get('returnUrl');
             navigate(returnUrl || '/dashboard');
         } catch (error) {
-            setErrors({ general: error.response?.data?.message || 'Có lỗi xảy ra khi đăng nhập' });
+            setErrors({ general: error.response?.data?.message || t("Có lỗi xảy ra khi đăng nhập") });
         } finally {
             setIsLoading(false);
         }
@@ -140,10 +141,10 @@ export default function AuthPage() {
         <AuthShell>
             <div className="text-center lg:text-left mb-8">
                 <h1 className="text-3xl font-bold tracking-tight mb-3 text-gray-900 fade-in-up delay-1">
-                    Đăng nhập
+                    {t("Đăng nhập")}
                 </h1>
                 <p className="text-gray-500 text-base fade-in-up delay-2">
-                    Chào mừng trở lại hệ thống FCentric.
+                    {t("Chào mừng trở lại hệ thống FCentric.")}
                 </p>
             </div>
 
@@ -157,11 +158,11 @@ export default function AuthPage() {
                 )}
 
                 <div className="space-y-2">
-                    <label htmlFor="login-username" className={LABEL}>Tên đăng nhập / Email / SĐT</label>
+                    <label htmlFor="login-username" className={LABEL}>{t("Tên đăng nhập / Email / SĐT")}</label>
                     <input
                         id="login-username"
                         type="text"
-                        placeholder="Nhập tài khoản của bạn"
+                        placeholder={t("Nhập tài khoản của bạn")}
                         className={`${INPUT_BASE} ${INPUT_NORMAL}`}
                         value={loginData.username}
                         onChange={(e) => setLoginData({ ...loginData, username: e.target.value })}
@@ -170,7 +171,7 @@ export default function AuthPage() {
                 </div>
 
                 <div className="space-y-2">
-                    <label htmlFor="login-password" className={LABEL}>Mật khẩu</label>
+                    <label htmlFor="login-password" className={LABEL}>{t("Mật khẩu")}</label>
                     <div className="relative">
                         <input
                             id="login-password"
@@ -185,7 +186,7 @@ export default function AuthPage() {
                             type="button"
                             className={EYE_BTN}
                             onClick={() => setShowPassword(!showPassword)}
-                            aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                            aria-label={showPassword ? t("Ẩn mật khẩu") : t("Hiện mật khẩu")}
                         >
                             {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                         </button>
@@ -198,16 +199,16 @@ export default function AuthPage() {
                             className={`${LINK_MUTED} cam-ung:-my-2`}
                             onClick={() => navigate('/forgot-password')}
                         >
-                            Quên mật khẩu?
+                            {t("Quên mật khẩu?")}
                         </button>
                     </div>
                 </div>
 
                 <button type="submit" className={`${PRIMARY_BTN} mt-1`} disabled={isLoading}>
                     {isLoading ? (
-                        <><Loader2 size={16} className="animate-spin" /> Đang xử lý...</>
+                        <><Loader2 size={16} className="animate-spin" /> {t("Đang xử lý...")}</>
                     ) : (
-                        'Đăng nhập'
+                        t("Đăng nhập")
                     )}
                 </button>
             </form>

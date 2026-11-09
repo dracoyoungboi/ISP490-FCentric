@@ -1,5 +1,6 @@
 import { Info } from 'lucide-react';
 import { formatDate } from '@/utils/formatters';
+import { t } from "@/i18n";
 
 const LINK = 'text-bo-primary hover:underline break-words';
 
@@ -21,7 +22,7 @@ function thongTin(orderData) {
 export function CanGiaoTruoc({ ngay, className }) {
     return (
         <span className={className}>
-            Cần giao trước <strong className="font-semibold text-bo-warning tabular-nums">{formatDate(ngay)}</strong>
+            {t("Cần giao trước")} <strong className="font-semibold text-bo-warning tabular-nums">{formatDate(ngay)}</strong>
         </span>
     );
 }
@@ -33,11 +34,11 @@ export function DongThongTinDon({ orderData }) {
         <p className="m-0 hidden flex-wrap gap-x-[18px] gap-y-1 text-sm leading-6 text-slate-600 md:flex">
             <CanGiaoTruoc ngay={orderData?.ngayGiaoDuKien} />
             <span>
-                Kho nhận <strong className="font-semibold text-bo-foreground">{tt.tenKho}</strong>
+                {t("Kho nhận")} <strong className="font-semibold text-bo-foreground">{tt.tenKho}</strong>
                 {tt.diaChiKho && ` · ${tt.diaChiKho}`}
             </span>
             <span>
-                Phụ trách <strong className="font-semibold text-bo-foreground">{tt.hoTen}</strong>
+                {t("Phụ trách")} <strong className="font-semibold text-bo-foreground">{tt.hoTen}</strong>
                 {tt.soDienThoai && (
                     <>
                         {' · '}
@@ -51,13 +52,13 @@ export function DongThongTinDon({ orderData }) {
                     </>
                 )}
             </span>
-            <span>Đặt ngày {formatDate(orderData?.ngayDatHang)}</span>
+            <span>{t("Đặt ngày {{ngay}}", { ngay: formatDate(orderData?.ngayDatHang) })}</span>
         </p>
     );
 }
 
 /** "Ghi chú từ {tên cửa hàng}:" — chưa biết tên cửa hàng thì "Ghi chú:". */
-const nhanGhiChu = (tenCuaHang) => (tenCuaHang ? `Ghi chú từ ${tenCuaHang}:` : 'Ghi chú:');
+const nhanGhiChu = (tenCuaHang) => (tenCuaHang ? t("Ghi chú từ {{tenCuaHang}}:", { tenCuaHang }) : t("Ghi chú:"));
 
 /**
  * Phần thông tin đơn dưới tiêu đề:
@@ -80,28 +81,28 @@ export default function ThongTinDonMua({ orderData, tenCuaHang }) {
                 </div>
             )}
 
-            <section aria-label="Thông tin đơn mua hàng" className="flex flex-col gap-1.5 rounded-lg border border-bo-border bg-bo-surface px-3.5 py-3 text-[13px] leading-5 text-slate-700 md:hidden">
+            <section aria-label={t("Thông tin đơn mua hàng")} className="flex flex-col gap-1.5 rounded-lg border border-bo-border bg-bo-surface px-3.5 py-3 text-[13px] leading-5 text-slate-700 md:hidden">
                 <div className="break-words">
-                    <span className="text-bo-muted">Kho nhận</span> <strong className="font-semibold text-bo-foreground">{tt.tenKho}</strong>
+                    <span className="text-bo-muted">{t("Kho nhận")}</span> <strong className="font-semibold text-bo-foreground">{tt.tenKho}</strong>
                     {tt.diaChiKho && ` · ${tt.diaChiKho}`}
                 </div>
                 <div className="break-words">
-                    <span className="text-bo-muted">Phụ trách</span> <strong className="font-semibold text-bo-foreground">{tt.hoTen}</strong>
+                    <span className="text-bo-muted">{t("Phụ trách")}</span> <strong className="font-semibold text-bo-foreground">{tt.hoTen}</strong>
                     {tt.soDienThoai && (
                         <>
                             {' · '}
-                            <a href={`tel:${soGoi(tt.soDienThoai)}`} aria-label={`Gọi ${tt.soDienThoai}`} className={LINK}>Gọi</a>
+                            <a href={`tel:${soGoi(tt.soDienThoai)}`} aria-label={t("Gọi {{soDienThoai}}", { soDienThoai: tt.soDienThoai })} className={LINK}>{t("Gọi")}</a>
                         </>
                     )}
                     {tt.email && (
                         <>
                             {' · '}
-                            <a href={`mailto:${tt.email}`} aria-label={`Gửi email tới ${tt.email}`} className={LINK}>Email</a>
+                            <a href={`mailto:${tt.email}`} aria-label={t("Gửi email tới {{email}}", { email: tt.email })} className={LINK}>Email</a>
                         </>
                     )}
                 </div>
                 <div>
-                    <span className="text-bo-muted">Đặt ngày</span> <span className="tabular-nums">{formatDate(orderData?.ngayDatHang)}</span>
+                    <span className="text-bo-muted">{t("Đặt ngày")}</span> <span className="tabular-nums">{formatDate(orderData?.ngayDatHang)}</span>
                 </div>
                 {ghiChu && (
                     <div className="mt-1 border-t border-bo-border pt-2 whitespace-pre-line break-words">

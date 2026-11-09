@@ -36,8 +36,9 @@ import { quyenHanService } from "@/services/quyenHan";
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import { HAN_LIEN_KET_MAT_KHAU } from "@/utils/matKhau";
 import { getCurrentUserId } from "@/utils/roles";
+import { t } from "@/i18n";
 
-const LOAD_ERROR_MESSAGE = "Không thể tải thông tin người dùng. Vui lòng thử lại.";
+const LOAD_ERROR_MESSAGE = t("Không thể tải thông tin người dùng. Vui lòng thử lại.");
 // Mã HTTP coi là "không có người dùng này": 404, và 400 vì backend báo
 // "Không tìm thấy người dùng" bằng CommonException (400). Thử lại cũng không ra kết quả khác.
 const NOT_FOUND_STATUSES = [400, 404];
@@ -70,24 +71,24 @@ function NganKeoCho({ mo, loi, onThuLai, onDong }) {
             <SheetContent side="right" className="w-full gap-0 bg-bo-surface p-0 sm:max-w-[640px] [&>button:last-child]:hidden">
                 <div className="flex shrink-0 items-center gap-3 border-b border-bo-border px-5 py-4">
                     <div className="min-w-0 flex-1">
-                        <SheetTitle className="text-lg font-bold leading-[26px] text-bo-heading">Phân quyền</SheetTitle>
+                        <SheetTitle className="text-lg font-bold leading-[26px] text-bo-heading">{t("Phân quyền")}</SheetTitle>
                         <SheetDescription className="text-[13px] text-bo-muted">
-                            {loi ? "Chưa tải được danh sách quyền" : "Đang tải danh sách quyền"}
+                            {loi ? t("Chưa tải được danh sách quyền") : t("Đang tải danh sách quyền")}
                         </SheetDescription>
                     </div>
-                    <Button type="button" variant="ghost" size="icon" aria-label="Đóng" onClick={onDong} className="text-slate-600">
+                    <Button type="button" variant="ghost" size="icon" aria-label={t("Đóng")} onClick={onDong} className="text-slate-600">
                         <X className="size-4" aria-hidden="true" />
                     </Button>
                 </div>
                 {loi ? (
                     <ErrorState
                         className="min-h-64"
-                        title="Không tải được danh sách quyền"
-                        description={getApiErrorMessage(loi, "Kiểm tra kết nối rồi thử lại.")}
+                        title={t("Không tải được danh sách quyền")}
+                        description={getApiErrorMessage(loi, t("Kiểm tra kết nối rồi thử lại."))}
                         onRetry={onThuLai}
                     />
                 ) : (
-                    <LoadingState className="min-h-64" label="Đang tải danh sách quyền" />
+                    <LoadingState className="min-h-64" label={t("Đang tải danh sách quyền")} />
                 )}
             </SheetContent>
         </Sheet>
@@ -141,9 +142,9 @@ function ChiTietNguoiDung({ id }) {
         ]);
         if (phanQuyen.status === "rejected" && taiKhoan.status === "rejected") throw phanQuyen.reason;
         const loiMotPhan = phanQuyen.status === "rejected"
-            ? "Không tải được phần phân quyền, đang hiện phần tài khoản."
+            ? t("Không tải được phần phân quyền, đang hiện phần tài khoản.")
             : taiKhoan.status === "rejected"
-                ? "Không tải được phần tài khoản (khóa, mật khẩu, sửa thông tin), đang hiện phần phân quyền."
+                ? t("Không tải được phần tài khoản (khóa, mật khẩu, sửa thông tin), đang hiện phần phân quyền.")
                 : null;
         return {
             ds: gopLichSuNguoiDung(phanQuyen.value ?? [], taiKhoan.value ?? []),
@@ -242,10 +243,12 @@ function ChiTietNguoiDung({ id }) {
         else nguoiDungQ.reload();
         lichSuQ.reload();
         datNganKeo(false);
-        toast.success(`Đã lưu phân quyền cho ${nguoiDung?.tenDangNhap ? `@${nguoiDung.tenDangNhap}` : "người dùng"}.`, {
+        toast.success(nguoiDung?.tenDangNhap
+                ? t("Đã lưu phân quyền cho {{ten}}.", { ten: `@${nguoiDung.tenDangNhap}` })
+                : t("Đã lưu phân quyền cho người dùng."), {
             description: catQuyen
-                ? "Nếu đang đăng nhập, người dùng phải đăng nhập lại ở thao tác kế tiếp."
-                : "Quyền mới dùng được sau khi người dùng đăng nhập lại.",
+                ? t("Nếu đang đăng nhập, người dùng phải đăng nhập lại ở thao tác kế tiếp.")
+                : t("Quyền mới dùng được sau khi người dùng đăng nhập lại."),
         });
     };
 
@@ -258,13 +261,13 @@ function ChiTietNguoiDung({ id }) {
             setHop(null);
             toast.success(
                 dangHoatDong
-                    ? `Đã khóa tài khoản ${nguoiDung.tenDangNhap}.`
-                    : `Đã mở khóa tài khoản ${nguoiDung.tenDangNhap}.`,
+                    ? t("Đã khóa tài khoản {{tenDangNhap}}.", { tenDangNhap: nguoiDung.tenDangNhap })
+                    : t("Đã mở khóa tài khoản {{tenDangNhap}}.", { tenDangNhap: nguoiDung.tenDangNhap }),
             );
             nguoiDungQ.reload();
             taiLaiLichSuSauThaoTac();
         } catch (err) {
-            toast.error(getApiErrorMessage(err, "Không thể cập nhật trạng thái tài khoản"));
+            toast.error(getApiErrorMessage(err, t("Không thể cập nhật trạng thái tài khoản")));
         } finally {
             setDangXuLy(false);
         }
@@ -277,11 +280,11 @@ function ChiTietNguoiDung({ id }) {
             await adminService.resetUserPasswordRandomByAdmin(id);
             setHop(null);
             // Email đi sau khi lưu, qua hàng đợi (có thể thử lại): "sẽ được gửi", như hộp Thêm người dùng
-            toast.success(`Liên kết đặt lại mật khẩu sẽ được gửi tới ${nguoiDung.email}.`);
+            toast.success(t("Liên kết đặt lại mật khẩu sẽ được gửi tới {{email}}.", { email: nguoiDung.email }));
             nguoiDungQ.reload();
             taiLaiLichSuSauThaoTac();
         } catch (err) {
-            toast.error(getApiErrorMessage(err, "Không gửi được liên kết đặt lại mật khẩu"));
+            toast.error(getApiErrorMessage(err, t("Không gửi được liên kết đặt lại mật khẩu")));
         } finally {
             setDangXuLy(false);
         }
@@ -296,24 +299,24 @@ function ChiTietNguoiDung({ id }) {
                     className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-bo-primary hover:text-bo-primary-hover"
                 >
                     <ArrowLeft className="h-4 w-4" />
-                    Quay lại danh sách
+                    {t("Quay lại danh sách")}
                 </Link>
                 <div className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
                     {notFound ? (
                         <EmptyState
                             icon={UserX}
-                            title="Không tìm thấy người dùng"
-                            description="Tài khoản có thể đã bị xóa hoặc đường dẫn không còn hợp lệ."
+                            title={t("Không tìm thấy người dùng")}
+                            description={t("Tài khoản có thể đã bị xóa hoặc đường dẫn không còn hợp lệ.")}
                             action={
                                 <Button variant="outline" onClick={() => navigate(backTo)} className={NUT_VIEN}>
                                     <ArrowLeft className="size-4" />
-                                    Quay lại danh sách
+                                    {t("Quay lại danh sách")}
                                 </Button>
                             }
                         />
                     ) : (
                         <ErrorState
-                            title="Không thể tải thông tin người dùng"
+                            title={t("Không thể tải thông tin người dùng")}
                             description={getApiErrorMessage(nguoiDungQ.error, LOAD_ERROR_MESSAGE)}
                             onRetry={nguoiDungQ.reload}
                         />
@@ -326,7 +329,7 @@ function ChiTietNguoiDung({ id }) {
     if (!nguoiDung) {
         return (
             <PageContainer>
-                <LoadingState label="Đang tải dữ liệu người dùng" />
+                <LoadingState label={t("Đang tải dữ liệu người dùng")} />
             </PageContainer>
         );
     }
@@ -356,8 +359,8 @@ function ChiTietNguoiDung({ id }) {
                 {!dangHoatDong ? (
                     // Thẻ "Bị khóa" ở đầu khối đã nói trạng thái: dải này chỉ ghi hệ quả và nút xử lý.
                     // Đặt trước khung Cần xem lại: không đăng nhập được là việc nặng hơn
-                    <DaiBao icon={Lock} nutNhan={laChinhMinh ? null : "Mở khóa tài khoản"} onNut={() => setHop("khoa")}>
-                        Người dùng không đăng nhập được cho tới khi mở khóa.
+                    <DaiBao icon={Lock} nutNhan={laChinhMinh ? null : t("Mở khóa tài khoản")} onNut={() => setHop("khoa")}>
+                        {t("Người dùng không đăng nhập được cho tới khi mở khóa.")}
                     </DaiBao>
                 ) : null}
 
@@ -376,28 +379,28 @@ function ChiTietNguoiDung({ id }) {
                         }
                     }}
                     onBoDanhDau={() => setDanhDau(null)}
-                    nhanNut={suaTheoMau ? "Sửa theo mẫu" : null}
+                    nhanNut={suaTheoMau ? t("Sửa theo mẫu") : null}
                     onNut={suaTheoMau ? () => moPhanQuyen(true) : null}
                 />
 
                 <div className="nd-than @container grid flex-1 border-t border-bo-border xl:grid-cols-[minmax(0,1fr)_340px]">
-                    <section aria-label="Quyền và lịch sử" className="nd-cot-trai flex min-w-0 flex-col">
+                    <section aria-label={t("Quyền và lịch sử")} className="nd-cot-trai flex min-w-0 flex-col">
                         <div className="border-b border-bo-border px-4 sm:px-6">
-                            <div role="tablist" aria-label="Nội dung" className="-mb-px flex gap-6 overflow-x-auto overflow-y-hidden [scrollbar-width:none]">
+                            <div role="tablist" aria-label={t("Nội dung")} className="-mb-px flex gap-6 overflow-x-auto overflow-y-hidden [scrollbar-width:none]">
                                 {[
-                                    { ma: "quyen", nhan: "Quyền truy cập" },
-                                    { ma: "lich-su", nhan: "Lịch sử thay đổi", so: lichSu?.length },
-                                ].map((t) => {
-                                    const chon = t.ma === tab;
+                                    { ma: "quyen", nhan: t("Quyền truy cập") },
+                                    { ma: "lich-su", nhan: t("Lịch sử thay đổi"), so: lichSu?.length },
+                                ].map((muc) => {
+                                    const chon = muc.ma === tab;
                                     return (
                                         <button
-                                            key={t.ma}
+                                            key={muc.ma}
                                             type="button"
                                             role="tab"
-                                            id={`tab-nguoi-dung-${t.ma}`}
+                                            id={`tab-nguoi-dung-${muc.ma}`}
                                             aria-selected={chon}
                                             aria-controls="vung-tab-nguoi-dung"
-                                            onClick={() => setTab(t.ma)}
+                                            onClick={() => setTab(muc.ma)}
                                             className={cn(
                                                 "inline-flex h-12 shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-0.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/40",
                                                 chon
@@ -405,15 +408,15 @@ function ChiTietNguoiDung({ id }) {
                                                     : "border-transparent font-medium text-bo-muted hover:text-bo-foreground",
                                             )}
                                         >
-                                            {t.nhan}
-                                            {t.so > 0 ? (
+                                            {muc.nhan}
+                                            {muc.so > 0 ? (
                                                 <span
                                                     className={cn(
                                                         "inline-flex h-5 min-w-[22px] items-center justify-center rounded-full px-1.5 text-xs font-semibold tabular-nums",
                                                         chon ? "bg-bo-primary-soft text-bo-primary" : "bg-slate-100 text-slate-600",
                                                     )}
                                                 >
-                                                    {t.so}
+                                                    {muc.so}
                                                 </span>
                                             ) : null}
                                         </button>
@@ -445,12 +448,12 @@ function ChiTietNguoiDung({ id }) {
                                     {thamChieuQ.error && !thamChieu ? (
                                         <ErrorState
                                             className="nd-trong min-h-48"
-                                            title="Không tải được danh sách quyền"
-                                            description={getApiErrorMessage(thamChieuQ.error, "Kiểm tra kết nối rồi thử lại.")}
+                                            title={t("Không tải được danh sách quyền")}
+                                            description={getApiErrorMessage(thamChieuQ.error, t("Kiểm tra kết nối rồi thử lại."))}
                                             onRetry={thamChieuQ.reload}
                                         />
                                     ) : !thamChieu ? (
-                                        <LoadingState className="nd-trong min-h-48" label="Đang tải quyền truy cập" />
+                                        <LoadingState className="nd-trong min-h-48" label={t("Đang tải quyền truy cập")} />
                                     ) : (
                                         <QuyenTruyCap
                                             vaiTro={nguoiDung.vaiTro}
@@ -503,16 +506,16 @@ function ChiTietNguoiDung({ id }) {
                 <AlertDialogContent className="bg-bo-surface">
                     <AlertDialogHeader>
                         <AlertDialogTitle>
-                            {dangHoatDong ? `Khóa tài khoản ${tenHienThi}?` : `Mở khóa tài khoản ${tenHienThi}?`}
+                            {dangHoatDong ? t("Khóa tài khoản {{tenHienThi}}?", { tenHienThi }) : t("Mở khóa tài khoản {{tenHienThi}}?", { tenHienThi })}
                         </AlertDialogTitle>
                         <AlertDialogDescription>
                             {dangHoatDong
-                                ? "Người dùng bị đăng xuất ở thao tác tiếp theo và không đăng nhập được cho tới khi mở khóa. Phiếu, đơn và lịch sử do người này tạo vẫn giữ nguyên."
-                                : "Người dùng đăng nhập lại được bằng mật khẩu hiện tại. Vai trò, nơi làm việc và quyền giữ như trước khi khóa."}
+                                ? t("Người dùng bị đăng xuất ở thao tác tiếp theo và không đăng nhập được cho tới khi mở khóa. Phiếu, đơn và lịch sử do người này tạo vẫn giữ nguyên.")
+                                : t("Người dùng đăng nhập lại được bằng mật khẩu hiện tại. Vai trò, nơi làm việc và quyền giữ như trước khi khóa.")}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter className="gap-2 sm:justify-end">
-                        <AlertDialogCancel disabled={dangXuLy}>Hủy</AlertDialogCancel>
+                        <AlertDialogCancel disabled={dangXuLy}>{t("Hủy")}</AlertDialogCancel>
                         <AlertDialogAction
                             disabled={dangXuLy}
                             onClick={(e) => {
@@ -525,7 +528,7 @@ function ChiTietNguoiDung({ id }) {
                                     : "bg-bo-primary text-white hover:bg-bo-primary-hover"
                             }
                         >
-                            {dangXuLy ? "Đang xử lý..." : dangHoatDong ? "Khóa tài khoản" : "Mở khóa tài khoản"}
+                            {dangXuLy ? t("Đang xử lý...") : dangHoatDong ? t("Khóa tài khoản") : t("Mở khóa tài khoản")}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
@@ -535,26 +538,24 @@ function ChiTietNguoiDung({ id }) {
             <AlertDialog open={hop === "mat-khau"} onOpenChange={(m) => (!m && !dangXuLy ? setHop(null) : null)}>
                 <AlertDialogContent className="bg-bo-surface">
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Gửi liên kết đặt lại mật khẩu cho {tenHienThi}?</AlertDialogTitle>
+                        <AlertDialogTitle>{t("Gửi liên kết đặt lại mật khẩu cho {{tenHienThi}}?", { tenHienThi })}</AlertDialogTitle>
                         <AlertDialogDescription asChild>
                             <div className="space-y-2 text-sm text-slate-600">
                                 <p>
-                                    Hệ thống gửi tới{" "}
-                                    <span className="font-medium text-slate-900">{nguoiDung.email}</span> một liên kết để
-                                    người dùng tự đặt mật khẩu mới (dùng một lần, hết hạn sau {HAN_LIEN_KET_MAT_KHAU}). Mật khẩu hiện tại hết
-                                    hiệu lực ngay và mọi thiết bị đang đăng nhập bị đăng xuất.
+                                    {t("Hệ thống gửi tới")}{" "}
+                                    <span className="font-medium text-slate-900">{nguoiDung.email}</span> {t("một liên kết để người dùng tự đặt mật khẩu mới (dùng một lần, hết hạn sau {{han}}). Mật khẩu hiện tại hết hiệu lực ngay và mọi thiết bị đang đăng nhập bị đăng xuất.", { han: HAN_LIEN_KET_MAT_KHAU })}
                                 </p>
                                 {!dangHoatDong ? (
                                     <p className="flex items-start gap-1.5 text-xs font-medium text-amber-700">
                                         <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-                                        Tài khoản đang bị khóa: người dùng vẫn đặt được mật khẩu, nhưng chỉ đăng nhập được sau khi được mở khóa.
+                                        {t("Tài khoản đang bị khóa: người dùng vẫn đặt được mật khẩu, nhưng chỉ đăng nhập được sau khi được mở khóa.")}
                                     </p>
                                 ) : null}
                             </div>
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter className="gap-2 sm:justify-end">
-                        <AlertDialogCancel disabled={dangXuLy}>Hủy</AlertDialogCancel>
+                        <AlertDialogCancel disabled={dangXuLy}>{t("Hủy")}</AlertDialogCancel>
                         <AlertDialogAction
                             disabled={dangXuLy || !nguoiDung.email}
                             onClick={(e) => {
@@ -563,7 +564,7 @@ function ChiTietNguoiDung({ id }) {
                             }}
                             className="bg-bo-primary text-white hover:bg-bo-primary-hover"
                         >
-                            {dangXuLy ? "Đang gửi..." : "Gửi liên kết"}
+                            {dangXuLy ? t("Đang gửi...") : t("Gửi liên kết")}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

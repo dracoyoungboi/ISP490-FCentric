@@ -2,6 +2,7 @@ import { Outlet, useNavigate } from "react-router-dom";
 import { Lock } from "lucide-react";
 import EmptyState from "@/components/shared/EmptyState";
 import { Button } from "@/components/ui/button";
+import { t } from "@/i18n";
 
 /**
  * Chặn theo vai trò ở FRONTEND (chỉ là UX — backend @RequireAuth mới là
@@ -28,14 +29,14 @@ export default function RequireRole({ roles = [] }) {
             <div className="p-6">
                 <EmptyState
                     icon={Lock}
-                    title="Bạn không có quyền truy cập"
-                    description="Tài khoản của bạn không được phép truy cập trang này."
+                    title={t("Bạn không có quyền truy cập")}
+                    description={t("Tài khoản của bạn không được phép truy cập trang này.")}
                     action={
                         <Button
                             className="bg-bo-primary text-white hover:bg-bo-primary-hover"
                             onClick={() => navigate("/dashboard")}
                         >
-                            Về trang tổng quan
+                            {t("Về trang tổng quan")}
                         </Button>
                     }
                 />

@@ -15,6 +15,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import UserAvatar from "@/components/UserAvatar";
 import { nguoiDungService } from "@/services/nguoiDungService";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 // Tệp gốc được chọn tới 15 MB (ảnh chụp điện thoại thường 3–8 MB): ảnh được cắt và thu về 512×512 JPEG trước khi
@@ -55,7 +56,7 @@ function xuatAnhCat(anh, zoom, viTri) {
   ctx.drawImage(anh.img, -left / k.scale, -top / k.scale, CROP_BOX / k.scale, CROP_BOX / k.scale, 0, 0, OUTPUT_SIZE, OUTPUT_SIZE);
   return new Promise((resolve, reject) => {
     canvas.toBlob(
-      (blob) => (blob ? resolve(new File([blob], "anh-dai-dien.jpg", { type: "image/jpeg" })) : reject(new Error("Không xử lý được ảnh"))),
+      (blob) => (blob ? resolve(new File([blob], "anh-dai-dien.jpg", { type: "image/jpeg" })) : reject(new Error(t("Không xử lý được ảnh")))),
       "image/jpeg",
       0.9,
     );
@@ -131,11 +132,11 @@ export default function AvatarEditorModal({
     setKeoVao(false);
     if (!file) return;
     if (file.type && !ACCEPTED_TYPES.includes(file.type)) {
-      setErrorMsg("Chỉ chấp nhận ảnh JPEG, PNG hoặc WebP");
+      setErrorMsg(t("Chỉ chấp nhận ảnh JPEG, PNG hoặc WebP"));
       return;
     }
     if (file.size > MAX_SOURCE_BYTES) {
-      setErrorMsg("Ảnh lớn hơn 15 MB. Vui lòng chọn ảnh khác");
+      setErrorMsg(t("Ảnh lớn hơn 15 MB. Vui lòng chọn ảnh khác"));
       return;
     }
     const lan = ++lanChonRef.current;
@@ -155,7 +156,7 @@ export default function AvatarEditorModal({
     };
     img.onerror = () => {
       URL.revokeObjectURL(url);
-      if (lan === lanChonRef.current) setErrorMsg("Không đọc được ảnh này. Vui lòng chọn ảnh khác");
+      if (lan === lanChonRef.current) setErrorMsg(t("Không đọc được ảnh này. Vui lòng chọn ảnh khác"));
     };
     img.src = url;
   };
@@ -218,12 +219,12 @@ export default function AvatarEditorModal({
         res = await nguoiDungService.removeAvatar();
       }
       const dto = res?.data; // ResponseData.data
-      if (!dto) throw new Error("Không đọc được dữ liệu trả về");
+      if (!dto) throw new Error(t("Không đọc được dữ liệu trả về"));
       onSaved?.(dto);
       onOpenChange(false);
     } catch (err) {
       // Giữ hộp thoại + bản nháp để người dùng thử lại
-      setErrorMsg(getApiErrorMessage(err, anh ? "Không thể lưu ảnh đại diện" : "Không thể gỡ ảnh đại diện"));
+      setErrorMsg(getApiErrorMessage(err, anh ? t("Không thể lưu ảnh đại diện") : t("Không thể gỡ ảnh đại diện")));
     } finally {
       setSaving(false);
     }
@@ -250,15 +251,15 @@ export default function AvatarEditorModal({
         }}
       >
         <DialogHeader>
-          <DialogTitle>Ảnh đại diện</DialogTitle>
-          <DialogDescription className="text-bo-muted">Hiện ở thanh trên cùng, trên phiếu và lịch sử thao tác.</DialogDescription>
+          <DialogTitle>{t("Ảnh đại diện")}</DialogTitle>
+          <DialogDescription className="text-bo-muted">{t("Hiện ở thanh trên cùng, trên phiếu và lịch sử thao tác.")}</DialogDescription>
         </DialogHeader>
 
         {anh ? (
           <div className="flex flex-col items-center gap-3.5">
             <button
               type="button"
-              aria-label="Vùng cắt ảnh. Kéo hoặc dùng phím mũi tên để chỉnh vị trí, phím + và - để phóng to, thu nhỏ."
+              aria-label={t("Vùng cắt ảnh. Kéo hoặc dùng phím mũi tên để chỉnh vị trí, phím + và - để phóng to, thu nhỏ.")}
               onPointerDown={batDauKeo}
               onPointerMove={dangKeo}
               onPointerUp={thaKeo}
@@ -287,7 +288,7 @@ export default function AvatarEditorModal({
             <div className="flex w-[280px] items-center gap-2.5">
               <ZoomOut className="size-4 shrink-0 text-bo-muted" aria-hidden="true" />
               <label htmlFor="thu-phong-anh" className="sr-only">
-                Thu phóng
+                {t("Thu phóng")}
               </label>
               <input
                 id="thu-phong-anh"
@@ -304,14 +305,14 @@ export default function AvatarEditorModal({
             </div>
 
             <div className="flex w-full items-center justify-between gap-3 rounded-lg border border-slate-100 px-3 py-2.5">
-              <span className="text-[12.5px] text-bo-muted">Xem trước</span>
+              <span className="text-[12.5px] text-bo-muted">{t("Xem trước")}</span>
               <span className="flex items-center gap-3">
                 {PREVIEW_SIZES.map((s) => (
                   <AnhTheoKhung key={s} anh={anh} zoom={zoom} viTri={viTri} size={s} className="rounded-full bg-slate-200" />
                 ))}
               </span>
               <label className="cursor-pointer rounded text-[13px] font-medium text-bo-primary hover:underline focus-within:ring-2 focus-within:ring-bo-primary/40">
-                Chọn ảnh khác
+                {t("Chọn ảnh khác")}
                 <input type="file" accept={ACCEPTED_TYPES.join(",")} className="sr-only" onChange={handleFileChange} disabled={saving} />
               </label>
             </div>
@@ -336,9 +337,9 @@ export default function AvatarEditorModal({
             >
               <Upload className="size-5 text-bo-primary" aria-hidden="true" />
               <span>
-                <b className="font-semibold text-bo-primary">Chọn ảnh từ máy</b> hoặc kéo ảnh vào đây
+                <b className="font-semibold text-bo-primary">{t("Chọn ảnh từ máy")}</b> {t("hoặc kéo ảnh vào đây")}
               </span>
-              <span className="text-xs text-bo-muted">JPEG, PNG hoặc WebP. Ảnh lớn được tự thu nhỏ trước khi tải lên.</span>
+              <span className="text-xs text-bo-muted">{t("JPEG, PNG hoặc WebP. Ảnh lớn được tự thu nhỏ trước khi tải lên.")}</span>
               <input type="file" accept={ACCEPTED_TYPES.join(",")} className="sr-only" onChange={handleFileChange} disabled={saving} />
             </label>
             {avatarUrl && !draftRemove ? (
@@ -351,19 +352,19 @@ export default function AvatarEditorModal({
                 disabled={saving}
                 className="rounded text-[13px] font-medium text-bo-muted outline-none hover:text-bo-danger hover:underline focus-visible:ring-2 focus-visible:ring-bo-primary/40"
               >
-                Gỡ ảnh, dùng chữ viết tắt
+                {t("Gỡ ảnh, dùng chữ viết tắt")}
               </button>
             ) : null}
             {draftRemove ? (
               <p className="text-center text-xs text-bo-muted">
-                Sau khi lưu, ảnh đại diện sẽ được gỡ và thay bằng chữ viết tắt tên của bạn.{" "}
+                {t("Sau khi lưu, ảnh đại diện sẽ được gỡ và thay bằng chữ viết tắt tên của bạn.")}{" "}
                 <button
                   type="button"
                   onClick={() => setDraftRemove(false)}
                   disabled={saving}
                   className="rounded font-medium text-bo-primary outline-none hover:underline focus-visible:ring-2 focus-visible:ring-bo-primary/40"
                 >
-                  Hoàn tác
+                  {t("Hoàn tác")}
                 </button>
               </p>
             ) : null}
@@ -385,7 +386,7 @@ export default function AvatarEditorModal({
             onClick={() => onOpenChange(false)}
             disabled={saving}
           >
-            Hủy
+            {t("Hủy")}
           </Button>
           <Button
             type="button"
@@ -393,7 +394,7 @@ export default function AvatarEditorModal({
             onClick={handleSave}
             className="bg-bo-primary text-white hover:bg-bo-primary-hover disabled:opacity-50"
           >
-            {saving ? "Đang lưu..." : draftRemove ? "Gỡ ảnh" : "Lưu ảnh"}
+            {saving ? t("Đang lưu...") : draftRemove ? t("Gỡ ảnh") : t("Lưu ảnh")}
           </Button>
         </DialogFooter>
       </DialogContent>

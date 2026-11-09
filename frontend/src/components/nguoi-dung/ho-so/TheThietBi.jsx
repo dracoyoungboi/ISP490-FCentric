@@ -3,6 +3,7 @@ import { Monitor, Smartphone, Tablet } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { dongPhuPhien } from "@/components/nguoi-dung/ho-so/thietBiHoSo";
 import { ngayGio } from "@/components/nguoi-dung/phanQuyen";
+import { t } from "@/i18n";
 
 const ICON_LOAI = { "dien-thoai": Smartphone, "may-tinh-bang": Tablet, "may-tinh": Monitor };
 
@@ -13,7 +14,7 @@ const ICON_LOAI = { "dien-thoai": Smartphone, "may-tinh-bang": Tablet, "may-tinh
 function ChuThietBiNay() {
   return (
     <>
-      <span className="font-semibold text-blue-700">Thiết bị này</span>
+      <span className="font-semibold text-blue-700">{t("Thiết bị này")}</span>
       {" · "}
     </>
   );
@@ -26,9 +27,9 @@ function ChuThietBiNay() {
 export function TheThietBiDayDu({ phien }) {
   const Icon = ICON_LOAI[phien.loai] || Monitor;
   const ttin = [
-    ["Đăng nhập lúc", phien.taoLuc ? ngayGio(phien.taoLuc) : "—", "tabular-nums"],
-    ["Địa chỉ IP", phien.diaChiIp || "—", "font-mono text-[13px]"],
-    ...(phien.viTri ? [["Vị trí", phien.viTri, ""]] : []),
+    [t("Đăng nhập lúc"), phien.taoLuc ? ngayGio(phien.taoLuc) : "—", "tabular-nums"],
+    [t("Địa chỉ IP"), phien.diaChiIp || "—", "font-mono text-[13px]"],
+    ...(phien.viTri ? [[t("Vị trí"), phien.viTri, ""]] : []),
   ];
   return (
     <div className="@container">
@@ -41,7 +42,7 @@ export function TheThietBiDayDu({ phien }) {
             <div className="truncate text-sm font-medium leading-5 text-bo-foreground">{phien.ten}</div>
             <p className="mt-0.5 text-[12.5px] leading-[18px] text-bo-muted">
               <ChuThietBiNay />
-              Đang hoạt động · Không có thiết bị nào khác
+              {t("Đang hoạt động · Không có thiết bị nào khác")}
             </p>
           </div>
         </div>
@@ -89,21 +90,21 @@ export default function TheThietBi({ phien, kieu = "the", onDangXuat, className 
           {dongPhuPhien(phien) || "—"}
         </p>
         {!laThe && phien.taoLuc ? (
-          <p className="truncate text-[12px] leading-[17px] text-slate-400">Đăng nhập {ngayGio(phien.taoLuc)}</p>
+          <p className="truncate text-[12px] leading-[17px] text-slate-400">{t("Đăng nhập {{luc}}", { luc: ngayGio(phien.taoLuc) })}</p>
         ) : null}
       </div>
       {coNut ? (
         <button
           type="button"
           onClick={() => onDangXuat(phien)}
-          aria-label={`Đăng xuất ${phien.ten}, ${dongPhuPhien(phien)}`}
+          aria-label={t("Đăng xuất {{ten}}, {{chiTiet}}", { ten: phien.ten, chiTiet: dongPhuPhien(phien) })}
           className={cn(
             "inline-flex h-8 shrink-0 items-center rounded-md px-2.5 text-[13px] font-medium text-bo-muted outline-none transition-[opacity,background-color,color]",
             "hover:bg-bo-danger-soft hover:text-bo-danger focus-visible:ring-2 focus-visible:ring-bo-primary/40",
             "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 max-sm:opacity-100 [@media(hover:none)]:opacity-100",
           )}
         >
-          Đăng xuất
+          {t("Đăng xuất")}
         </button>
       ) : null}
     </>

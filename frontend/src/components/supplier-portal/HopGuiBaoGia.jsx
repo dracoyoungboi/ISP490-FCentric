@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { formatCurrency, formatDate } from '@/utils/formatters';
 import { gioVaNgay } from './baoGiaUtils';
+import { t } from "@/i18n";
 
 const NUT_CHINH = 'bg-bo-primary text-white hover:bg-bo-primary-hover';
 const NUT_PHU = 'border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle';
@@ -14,7 +15,7 @@ const NUT_DONG_X =
 
 /** "3 sản phẩm · 9 phân loại" (đơn có nhiều phân loại của cùng sản phẩm), không thì "3". */
 const moTaSoSanPham = ({ soNhom, soSanPham }) =>
-    soNhom && soNhom < soSanPham ? `${soNhom} sản phẩm · ${soSanPham} phân loại` : String(soSanPham);
+    soNhom && soNhom < soSanPham ? `${t("{{count}} sản phẩm", { count: soNhom })} · ${t("{{count}} phân loại", { count: soSanPham })}` : String(soSanPham);
 
 function Dong({ nhan, children, noiBat = false }) {
     return (
@@ -66,7 +67,7 @@ export default function HopGuiBaoGia({ trangThai, tomTat, guiLuc, loiGui, tenCua
     return (
         <Dialog open={Boolean(trangThai)} onOpenChange={(mo) => { if (!mo && !dangGui) onDong(); }}>
             <DialogContent showCloseButton={false} className={KHUNG_HOP}>
-                <button type="button" aria-label="Đóng" className={NUT_DONG_X} onClick={onDong} disabled={dangGui || dangDong}>
+                <button type="button" aria-label={t("Đóng")} className={NUT_DONG_X} onClick={onDong} disabled={dangGui || dangDong}>
                     <X className="size-4" aria-hidden="true" />
                 </button>
 
@@ -76,42 +77,42 @@ export default function HopGuiBaoGia({ trangThai, tomTat, guiLuc, loiGui, tenCua
                             <Check className="size-6" />
                         </div>
                         <div className="flex flex-col gap-1">
-                            <DialogTitle className="text-lg leading-7 font-semibold text-bo-heading">Đã gửi báo giá</DialogTitle>
+                            <DialogTitle className="text-lg leading-7 font-semibold text-bo-heading">{t("Đã gửi báo giá")}</DialogTitle>
                             <DialogDescription className="text-sm leading-[22px] text-slate-600">
-                                {tenCuaHang ? `${tenCuaHang} đã nhận báo giá cho đơn ` : 'Đã nhận báo giá cho đơn '}
+                                {tenCuaHang ? t("{{tenCuaHang}} đã nhận báo giá cho đơn", { tenCuaHang }) : t("Đã nhận báo giá cho đơn")}{' '}
                                 <strong className="font-semibold text-bo-foreground">{tomTat.soDonMua}</strong>.
                                 {emailXacNhan ? (
                                     <>
-                                        {' '}Email xác nhận đã gửi tới{' '}
+                                        {' '}{t("Email xác nhận đã gửi tới")}{' '}
                                         <strong className="font-semibold break-words text-bo-foreground">{emailXacNhan}</strong>.
                                     </>
                                 ) : null}
                             </DialogDescription>
                         </div>
                         <dl className="m-0 w-full overflow-hidden rounded-lg border border-bo-border text-left text-sm leading-5 [&>div:last-child]:border-b-0">
-                            <Dong nhan="Sản phẩm">{moTaSoSanPham(tomTat)}</Dong>
-                            <Dong nhan="Tổng tiền báo giá">{formatCurrency(tomTat.tongTien)}</Dong>
-                            <Dong nhan="Gửi lúc">{gioVaNgay(guiLuc)}</Dong>
+                            <Dong nhan={t("Sản phẩm")}>{moTaSoSanPham(tomTat)}</Dong>
+                            <Dong nhan={t("Tổng tiền báo giá")}>{formatCurrency(tomTat.tongTien)}</Dong>
+                            <Dong nhan={t("Gửi lúc")}>{gioVaNgay(guiLuc)}</Dong>
                         </dl>
                         <Button ref={nutChinhRef} type="button" onClick={onDong} disabled={dangDong} className={`h-11 w-full text-[15px] sm:h-10 sm:text-sm ${NUT_CHINH}`}>
-                            Đóng
+                            {t("Đóng")}
                         </Button>
                     </div>
                 ) : (
                     <>
                         <div className="flex flex-col gap-1 pr-8">
-                            <DialogTitle className="text-lg leading-7 font-semibold text-bo-heading">{tenCuaHang ? `Gửi báo giá cho ${tenCuaHang}?` : 'Gửi báo giá?'}</DialogTitle>
+                            <DialogTitle className="text-lg leading-7 font-semibold text-bo-heading">{tenCuaHang ? t("Gửi báo giá cho {{tenCuaHang}}?", { tenCuaHang }) : t("Gửi báo giá?")}</DialogTitle>
                             <DialogDescription className="text-sm leading-[22px] text-bo-muted">
-                                {dangGui ? 'Đang gửi, vui lòng không đóng trang.' : 'Kiểm tra lại các thông tin dưới đây trước khi gửi.'}
+                                {dangGui ? t("Đang gửi, vui lòng không đóng trang.") : t("Kiểm tra lại các thông tin dưới đây trước khi gửi.")}
                             </DialogDescription>
                         </div>
 
                         <dl className="m-0 overflow-hidden rounded-lg border border-bo-border text-sm leading-5">
-                            <Dong nhan="Mã đơn">{tomTat.soDonMua}</Dong>
-                            <Dong nhan="Sản phẩm">{moTaSoSanPham(tomTat)}</Dong>
-                            <Dong nhan="Tổng số lượng">{tomTat.tongSoLuong.toLocaleString('vi-VN')}</Dong>
-                            <Dong nhan="Ngày cần giao">{formatDate(tomTat.ngayCanGiao)}</Dong>
-                            <Dong nhan="Tổng tiền báo giá" noiBat>{formatCurrency(tomTat.tongTien)}</Dong>
+                            <Dong nhan={t("Mã đơn")}>{tomTat.soDonMua}</Dong>
+                            <Dong nhan={t("Sản phẩm")}>{moTaSoSanPham(tomTat)}</Dong>
+                            <Dong nhan={t("Tổng số lượng")}>{tomTat.tongSoLuong.toLocaleString('vi-VN')}</Dong>
+                            <Dong nhan={t("Ngày cần giao")}>{formatDate(tomTat.ngayCanGiao)}</Dong>
+                            <Dong nhan={t("Tổng tiền báo giá")} noiBat>{formatCurrency(tomTat.tongTien)}</Dong>
                         </dl>
 
                         {hienThi === 'loi' ? (
@@ -121,21 +122,21 @@ export default function HopGuiBaoGia({ trangThai, tomTat, guiLuc, loiGui, tenCua
                             </div>
                         ) : (
                             <p className="m-0 text-[13px] leading-5 text-slate-600">
-                                Cần sửa đơn giá: gửi lại trên Cổng nhà cung cấp trước khi có kết quả. Báo giá gửi sau sẽ thay báo giá này.
+                                {t("Cần sửa đơn giá: gửi lại trên Cổng nhà cung cấp trước khi có kết quả. Báo giá gửi sau sẽ thay báo giá này.")}
                             </p>
                         )}
 
                         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                             <Button type="button" variant="outline" onClick={onDong} disabled={dangGui || dangDong} className={`h-11 sm:h-9 ${NUT_PHU}`}>
-                                Kiểm tra lại
+                                {t("Kiểm tra lại")}
                             </Button>
                             <Button ref={nutChinhRef} type="button" onClick={onGui} disabled={dangGui || dangDong} className={`h-11 sm:h-9 ${NUT_CHINH}`}>
                                 {dangGui ? (
-                                    <><Loader2 className="animate-spin" aria-hidden="true" /> Đang gửi...</>
+                                    <><Loader2 className="animate-spin" aria-hidden="true" /> {t("Đang gửi...")}</>
                                 ) : hienThi === 'loi' ? (
-                                    'Gửi lại'
+                                    t("Gửi lại")
                                 ) : (
-                                    'Gửi báo giá'
+                                    t("Gửi báo giá")
                                 )}
                             </Button>
                         </div>
@@ -152,17 +153,17 @@ export function HopXacNhanThoat({ mo, onO, onThoat }) {
         <Dialog open={mo} onOpenChange={(m) => { if (!m) onO(); }}>
             <DialogContent showCloseButton={false} className={KHUNG_HOP}>
                 <div className="flex flex-col gap-1">
-                    <DialogTitle className="text-lg leading-7 font-semibold text-bo-heading">Thoát khỏi trang báo giá?</DialogTitle>
+                    <DialogTitle className="text-lg leading-7 font-semibold text-bo-heading">{t("Thoát khỏi trang báo giá?")}</DialogTitle>
                     <DialogDescription className="text-sm leading-[22px] text-bo-muted">
-                        Đơn giá bạn đã nhập chưa được gửi và sẽ mất khi thoát.
+                        {t("Đơn giá bạn đã nhập chưa được gửi và sẽ mất khi thoát.")}
                     </DialogDescription>
                 </div>
                 <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                     <Button type="button" variant="outline" onClick={onO} className={`h-11 sm:h-9 ${NUT_PHU}`}>
-                        Ở lại
+                        {t("Ở lại")}
                     </Button>
                     <Button type="button" onClick={onThoat} className="h-11 bg-bo-danger text-white hover:bg-red-700 sm:h-9">
-                        Thoát
+                        {t("Thoát")}
                     </Button>
                 </div>
             </DialogContent>

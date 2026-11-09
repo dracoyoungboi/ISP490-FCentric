@@ -1,7 +1,8 @@
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { TRANG_THAI_DA_CHOT } from "@/components/supplier/chi-tiet/tinhNhaCungCap";
-import { formatDateTime, formatNumber } from "@/utils/formatters";
+import { formatDateTime } from "@/utils/formatters";
+import { t } from "@/i18n";
 
 const LIEN_KET = "font-semibold text-bo-primary hover:text-bo-primary-hover hover:underline";
 
@@ -13,24 +14,24 @@ function NoiDung({ s }) {
   if (s.loai === "guiYeuCau") {
     return (
       <>
-        <span className="font-semibold text-bo-foreground">Gửi yêu cầu báo giá </span>
+        <span className="font-semibold text-bo-foreground">{t("Gửi yêu cầu báo giá")} </span>
         <Link to={duongDanDon(s)} className={LIEN_KET}>
           {s.ma}
         </Link>
-        {s.soSanPham > 0 ? <span className="text-slate-700"> · {formatNumber(s.soSanPham)} sản phẩm</span> : null}
+        {s.soSanPham > 0 ? <span className="text-slate-700"> · {t("{{count}} sản phẩm", { count: s.soSanPham })}</span> : null}
       </>
     );
   }
   if (s.loai === "nhapKho") {
     return (
       <>
-        <span className="font-semibold text-bo-foreground">Nhập kho </span>
+        <span className="font-semibold text-bo-foreground">{t("Nhập kho")} </span>
         <Link to={`/goods-receipts/${s.phieuId}`} className={LIEN_KET}>
           {s.ma}
         </Link>
         {s.soDonMua ? (
           <span className="text-slate-700">
-            {" · đơn "}
+            {" · "}{t("đơn", { context: "mot" })}{" "}
             {s.donId ? (
               <Link to={`/purchase-orders/${s.donId}`} className="text-bo-primary hover:text-bo-primary-hover hover:underline">
                 {s.soDonMua}
@@ -44,7 +45,7 @@ function NoiDung({ s }) {
       </>
     );
   }
-  return <span className="font-semibold text-bo-foreground">Tạo nhà cung cấp{s.ma ? ` ${s.ma}` : ""}</span>;
+  return <span className="font-semibold text-bo-foreground">{t("Tạo nhà cung cấp")}{s.ma ? ` ${s.ma}` : ""}</span>;
 }
 
 const MAU_CHAM = {

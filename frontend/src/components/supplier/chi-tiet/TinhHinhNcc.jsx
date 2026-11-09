@@ -1,18 +1,19 @@
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { formatCurrency, formatDate } from "@/utils/formatters";
+import { t } from "@/i18n";
 
 /** Màu và chữ của từng vạch trên ô "Giao đúng hạn" (6 đơn gần nhất, cũ bên trái). */
 const VACH = {
-  dungHan: { mau: "bg-bo-success", chu: "đúng hạn" },
-  tre: { mau: "bg-amber-600", chu: "giao trễ" },
-  quaHan: { mau: "bg-bo-danger", chu: "quá hạn, chưa nhận đủ" },
-  homNay: { mau: "bg-slate-300", chu: "đến hạn hôm nay" },
-  conLai: { mau: "bg-slate-300", chu: "chưa tới hạn" },
-  khongCo: { mau: "bg-slate-300", chu: "chưa có ngày giao dự kiến" },
-  daDu: { mau: "bg-slate-400", chu: "đã nhận đủ" },
-  daDong: { mau: "bg-slate-200", chu: "đã đóng (nhận thiếu)" },
-  daHuy: { mau: "bg-slate-200", chu: "đã hủy" },
+  dungHan: { mau: "bg-bo-success", chu: t("đúng hạn") },
+  tre: { mau: "bg-amber-600", chu: t("giao trễ") },
+  quaHan: { mau: "bg-bo-danger", chu: t("quá hạn, chưa nhận đủ") },
+  homNay: { mau: "bg-slate-300", chu: t("đến hạn hôm nay") },
+  conLai: { mau: "bg-slate-300", chu: t("chưa tới hạn") },
+  khongCo: { mau: "bg-slate-300", chu: t("chưa có ngày giao dự kiến") },
+  daDu: { mau: "bg-slate-400", chu: t("đã nhận đủ") },
+  daDong: { mau: "bg-slate-200", chu: t("đã đóng (nhận thiếu)") },
+  daHuy: { mau: "bg-slate-200", chu: t("đã hủy") },
 };
 
 function O({ nhan, giaTri, coGiaTri, children, phu }) {
@@ -59,26 +60,26 @@ export default function TinhHinhNcc({ chiSo, dangTai, lyDoKhongTinhGiao }) {
   const { giaTri, giaoDungHan, tiLeChot, lanDatGanNhat } = chiSo;
   const vach = giaoDungHan.vach;
   const moTaVach = vach.length
-    ? `${vach.length} đơn gần nhất: ` + vach.map((v) => `${v.soDonMua || "đơn"} ${VACH[v.loai]?.chu ?? ""}`).join("; ")
+    ? `${t("{{count}} đơn gần nhất:", { count: vach.length })} ` + vach.map((v) => `${v.soDonMua || t("đơn", { context: "mot" })} ${VACH[v.loai]?.chu ?? ""}`).join("; ")
     : "";
 
   let phuGiao;
-  if (!giaoDungHan.tinhDuoc) phuGiao = lyDoKhongTinhGiao || "Chưa tính được";
-  else if (giaoDungHan.daXet > 0) phuGiao = `${giaoDungHan.dungHan}/${giaoDungHan.daXet} đơn đã nhận đủ`;
-  else phuGiao = "Chưa có đơn nhận đủ";
+  if (!giaoDungHan.tinhDuoc) phuGiao = lyDoKhongTinhGiao || t("Chưa tính được");
+  else if (giaoDungHan.daXet > 0) phuGiao = t("{{dungHan}}/{{daXet}} đơn đã nhận đủ", { dungHan: giaoDungHan.dungHan, daXet: giaoDungHan.daXet });
+  else phuGiao = t("Chưa có đơn nhận đủ");
 
   return (
     // 4 ô một hàng khi khối đủ rộng (container query), không theo màn hình
-    <section aria-label="Tình hình hợp tác" className="@container border-t border-bo-border bg-bo-surface-subtle">
+    <section aria-label={t("Tình hình hợp tác")} className="@container border-t border-bo-border bg-bo-surface-subtle">
       <div className="grid grid-cols-2 @4xl:grid-cols-4">
       <O
-        nhan="Giá trị đơn mua"
+        nhan={t("Giá trị đơn mua")}
         coGiaTri={giaTri.soDon > 0}
         giaTri={giaTri.soDon > 0 ? formatCurrency(giaTri.tong) : "—"}
-        phu={giaTri.soDon > 0 ? `${giaTri.soDon} đơn đã chốt` : "Chưa có đơn mua đã chốt"}
+        phu={giaTri.soDon > 0 ? t("{{count}} đơn đã chốt", { count: giaTri.soDon }) : t("Chưa có đơn mua đã chốt")}
       />
       <O
-        nhan="Giao đúng hạn"
+        nhan={t("Giao đúng hạn")}
         coGiaTri={giaoDungHan.phanTram != null}
         giaTri={giaoDungHan.phanTram != null ? `${giaoDungHan.phanTram}%` : "—"}
         phu={phuGiao}
@@ -88,7 +89,7 @@ export default function TinhHinhNcc({ chiSo, dangTai, lyDoKhongTinhGiao }) {
             {vach.map((v) => (
               <span
                 key={v.id}
-                title={`${v.soDonMua || "Đơn"} · ${VACH[v.loai]?.chu ?? ""}`}
+                title={`${v.soDonMua || t("Đơn", { context: "mot" })} · ${VACH[v.loai]?.chu ?? ""}`}
                 className={cn("block h-1.5 w-4 rounded-[2px]", VACH[v.loai]?.mau ?? "bg-slate-300")}
               />
             ))}
@@ -96,19 +97,19 @@ export default function TinhHinhNcc({ chiSo, dangTai, lyDoKhongTinhGiao }) {
         ) : null}
       </O>
       <O
-        nhan="Tỉ lệ chốt báo giá"
+        nhan={t("Tỉ lệ chốt báo giá")}
         coGiaTri={tiLeChot.phanTram != null}
         giaTri={tiLeChot.phanTram != null ? `${tiLeChot.phanTram}%` : "—"}
-        phu={tiLeChot.daXet > 0 ? `${tiLeChot.daChot}/${tiLeChot.daXet} báo giá đã xét` : "Chưa có báo giá đã xét"}
+        phu={tiLeChot.daXet > 0 ? t("{{daChot}}/{{daXet}} báo giá đã xét", { daChot: tiLeChot.daChot, daXet: tiLeChot.daXet }) : t("Chưa có báo giá đã xét")}
       />
       <O
-        nhan="Lần đặt gần nhất"
+        nhan={t("Lần đặt gần nhất")}
         coGiaTri={Boolean(lanDatGanNhat)}
         giaTri={lanDatGanNhat ? formatDate(lanDatGanNhat.ngay) : "—"}
         phu={
           lanDatGanNhat ? (
             <>
-              Đơn{" "}
+              {t("Đơn", { context: "mot" })}{" "}
               <Link
                 to={`/purchase-orders/${lanDatGanNhat.don.id}`}
                 className="font-medium text-bo-primary hover:text-bo-primary-hover hover:underline"
@@ -117,7 +118,7 @@ export default function TinhHinhNcc({ chiSo, dangTai, lyDoKhongTinhGiao }) {
               </Link>
             </>
           ) : (
-            "Chưa đặt hàng"
+            t("Chưa đặt hàng")
           )
         }
       />

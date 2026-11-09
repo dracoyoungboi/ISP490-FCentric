@@ -1,6 +1,7 @@
 import { Check } from 'lucide-react';
+import { t } from "@/i18n";
 
-const STEPS = ['Email', 'OTP', 'Mật khẩu'];
+const STEPS = ['Email', 'OTP', t("Mật khẩu")];
 
 /**
  * Thanh tiến trình các bước xác thực. Mặc định là "Email → OTP → Mật khẩu" của luồng quên mật khẩu;

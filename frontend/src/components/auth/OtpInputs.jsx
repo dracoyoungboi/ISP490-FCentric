@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import { t } from "@/i18n";
 
 const OTP_LENGTH = 6;
 
@@ -62,7 +63,7 @@ export default function OtpInputs({
                     maxLength={1}
                     autoFocus={index === 0 && !disabled}
                     disabled={disabled}
-                    aria-label={`Ô nhập OTP thứ ${index + 1}`}
+                    aria-label={t("Ô nhập OTP thứ {{so}}", { so: index + 1 })}
                     aria-invalid={error}
                     value={digit}
                     onChange={(e) => handleChange(index, e)}

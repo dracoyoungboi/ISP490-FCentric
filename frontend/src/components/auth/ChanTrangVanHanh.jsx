@@ -1,3 +1,4 @@
+/* i18n-giu-nguyen-ca-tep: chân trang đơn vị vận hành phải đúng nguyên văn đã nộp cho Shopee duyệt, ở mọi ngôn ngữ */
 import { cn } from '@/lib/utils';
 import { DON_VI_VAN_HANH } from '@/constants/donViVanHanh';
 
