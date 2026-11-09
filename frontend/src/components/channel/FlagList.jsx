@@ -1,6 +1,7 @@
 import StatusBadge from "@/components/shared/StatusBadge";
 import OrderFlagBadges from "@/components/channel/OrderFlagBadges";
 import { FLAG_META, parseFlags } from "@/constants/channel";
+import { t } from "@/i18n";
 
 /** Danh sách cờ cần xử lý kèm giải thích và cách gỡ (TK 7.4). `compact` chỉ hiện badge. */
 export default function FlagList({ value, compact = false }) {
@@ -14,8 +15,8 @@ export default function FlagList({ value, compact = false }) {
         return (
           <li key={flag} className="rounded-md border border-bo-border bg-bo-surface-subtle p-3">
             <StatusBadge label={meta.label} tone="warning" />
-            {meta.description ? <p className="mt-1.5 text-sm text-slate-700">{meta.description}</p> : null}
-            {meta.resolve ? <p className="mt-0.5 text-xs text-bo-muted">Cách xử lý: {meta.resolve}</p> : null}
+            {meta.description ? <p className="mt-1.5 text-sm text-slate-700">{t(meta.description)}</p> : null}
+            {meta.resolve ? <p className="mt-0.5 text-xs text-bo-muted">{t("Cách xử lý: {{resolve}}", { resolve: t(meta.resolve) })}</p> : null}
           </li>
         );
       })}

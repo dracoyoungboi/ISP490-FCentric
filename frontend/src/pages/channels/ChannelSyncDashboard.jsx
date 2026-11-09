@@ -31,6 +31,7 @@ import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import { cn } from "@/lib/utils";
 import { formatNhanTien, formatPhanTram, formatSo, formatTien, formatTienGon, nhanDayDu, nhanTruc } from "@/pages/dashboard/admin/tong-quan/tongQuanFormat";
+import { t } from "@/i18n";
 
 /** Dấu "·" ngăn các mục trên dòng phụ dưới tên gian hàng. */
 function DauCach() {
@@ -47,9 +48,9 @@ const MAU_CHU = "#94a3b8";
 const THE = "rounded-lg border border-bo-border bg-white shadow-sm";
 
 const KY = [
-  { value: "7", soNgay: 7, label: "7 ngày" },
-  { value: "30", soNgay: 30, label: "30 ngày" },
-  { value: "90", soNgay: 90, label: "90 ngày" },
+  { value: "7", soNgay: 7, label: t("7 ngày") },
+  { value: "30", soNgay: 30, label: t("30 ngày") },
+  { value: "90", soNgay: 90, label: t("90 ngày") },
 ];
 const KY_MAC_DINH = "30";
 
@@ -66,7 +67,7 @@ function lanCuoiNgan(value) {
   const nay = new Date();
   if (d.toDateString() === nay.toDateString()) return gio;
   const nam = d.getFullYear() === nay.getFullYear() ? "" : `/${d.getFullYear()}`;
-  return `${gio} ngày ${pad(d.getDate())}/${pad(d.getMonth() + 1)}${nam}`;
+  return t("{{gio}} ngày {{ngay}}/{{thang}}{{nam}}", { gio, ngay: pad(d.getDate()), thang: pad(d.getMonth() + 1), nam });
 }
 
 function moiHon(a, b) {
@@ -89,7 +90,7 @@ export default function ChannelSyncDashboard() {
 function TongQuanGianHang() {
   const navigate = useNavigate();
   const SAN = useSanHienTai();
-  const TIEU_DE = `Tổng quan ${SAN.ten}`;
+  const TIEU_DE = t("Tổng quan {{ten}}", { ten: SAN.ten });
   const uyQuyen = SAN.kieuKetNoi === "uy_quyen";
   const cfg = useTaiDuLieu(() => kenhBanHangService.getKetNoi(SAN.maKenh), `ket-noi|${SAN.maKenh}`);
   const config = cfg.data;
@@ -140,7 +141,7 @@ function TongQuanGianHang() {
     return (
       <PageContainer>
         <h1 className="sr-only">{TIEU_DE}</h1>
-        <LoadingState label="Đang tải gian hàng" />
+        <LoadingState label={t("Đang tải gian hàng")} />
       </PageContainer>
     );
   }
@@ -148,7 +149,7 @@ function TongQuanGianHang() {
     return (
       <PageContainer>
         <h1 className="sr-only">{TIEU_DE}</h1>
-        <ErrorState description="Không tải được thông tin gian hàng. Vui lòng thử lại." onRetry={cfg.reload} />
+        <ErrorState description={t("Không tải được thông tin gian hàng. Vui lòng thử lại.")} onRetry={cfg.reload} />
       </PageContainer>
     );
   }
@@ -174,16 +175,16 @@ function TongQuanGianHang() {
   const tuDong =
     trangThai === "het_han"
       ? // Shopify: thanh nhắc ngay dưới đã ghi "Khóa truy cập đã hết hạn", dòng này chỉ nói tự động đang dừng
-        { tone: "danger", label: uyQuyen ? "Ủy quyền đã hết hạn" : "Tự động đang dừng" }
+        { tone: "danger", label: uyQuyen ? t("Ủy quyền đã hết hạn") : t("Tự động đang dừng") }
       : tamDung
-        ? { tone: "warning", label: "Đang tạm dừng đồng bộ" }
+        ? { tone: "warning", label: t("Đang tạm dừng đồng bộ") }
         : !cauHinh
           ? ch.error
-            ? { tone: "neutral", label: "Không tải được chế độ tự động", thuLai: true }
-            : { tone: "neutral", label: "Đang tải…" }
+            ? { tone: "neutral", label: t("Không tải được chế độ tự động"), thuLai: true }
+            : { tone: "neutral", label: t("Đang tải…") }
           : tuDongTat
-            ? { tone: "neutral", label: "Tự động đồng bộ đang tắt" }
-            : { tone: "success", label: cauHinh.chuKyPhut ? `Tự động mỗi ${cauHinh.chuKyPhut} phút` : "Tự động đồng bộ" };
+            ? { tone: "neutral", label: t("Tự động đồng bộ đang tắt") }
+            : { tone: "success", label: cauHinh.chuKyPhut ? t("Tự động mỗi {{chuKyPhut}} phút", { chuKyPhut: cauHinh.chuKyPhut }) : t("Tự động đồng bộ") };
 
   return (
     <PageContainer>
@@ -193,7 +194,7 @@ function TongQuanGianHang() {
           <ChannelLogo maKenh={SAN.maKenh} size={32} />
           {/* basis-56: màn hẹp không đủ chỗ cho tên đầy đủ cạnh nút thì nút xuống hàng dưới, tên không bị cắt */}
           <div className="min-w-0 flex-1 basis-56">
-            <p className="truncate text-base font-semibold leading-[22px] text-bo-heading">Gian hàng {SAN.ten}</p>
+            <p className="truncate text-base font-semibold leading-[22px] text-bo-heading">{t("Gian hàng {{ten}}", { ten: SAN.ten })}</p>
             {/* Mỗi mục có dấu "·" phía trước; dòng nào bị xuống hàng thì dấu đầu dòng nằm ngoài lề âm và bị cắt */}
             <div className="overflow-hidden">
               <p className="-ml-4 flex flex-wrap items-center text-[13px] leading-5 text-bo-muted">
@@ -213,21 +214,21 @@ function TongQuanGianHang() {
                       onClick={ch.reload}
                       className="ml-1.5 rounded-sm font-medium text-bo-primary hover:text-bo-primary-hover hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 max-sm:-my-3 max-sm:py-3"
                     >
-                      Thử lại
+                      {t("Thử lại")}
                     </button>
                   ) : null}
                 </span>
                 {lanCuoi ? (
                   <span className="flex items-center whitespace-nowrap tabular-nums">
                     <DauCach />
-                    lần gần nhất {lanCuoi}
+                    {t("lần gần nhất {{lanCuoi}}", { lanCuoi })}
                   </span>
                 ) : null}
                 {/* Sắp hết hoặc đã hết hạn thì thanh nhắc ngay dưới đã ghi ngày, không ghi lại ở đây */}
                 {han && !han.hetHan && !han.sapHet ? (
                   <span className="flex items-center whitespace-nowrap tabular-nums">
                     <DauCach />
-                    ủy quyền đến {ngayThang(han.han, { coNam: true })}
+                    {t("ủy quyền đến")} {ngayThang(han.han, { coNam: true })}
                   </span>
                 ) : null}
               </p>
@@ -241,9 +242,9 @@ function TongQuanGianHang() {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-[#EE4D2D] hover:bg-[#d73211] text-white shadow-sm transition-colors"
-                title="Mở Cổng giả lập Shopee Simulator trong tab mới"
+                title={t("Mở Cổng giả lập Shopee Simulator trong tab mới")}
               >
-                <span>Mở Shopee Simulator</span>
+                <span>{t("Mở Shopee Simulator")}</span>
                 <ExternalLink className="w-3.5 h-3.5" />
               </a>
             )}
@@ -251,7 +252,7 @@ function TongQuanGianHang() {
               tienDo={dongBo}
               tenSan={SAN.ten}
               onDen={moTrang}
-              lyDoKhoa={hetHanUyQuyen ? "Ủy quyền lại trước khi đồng bộ" : null}
+              lyDoKhoa={hetHanUyQuyen ? t("Ủy quyền lại trước khi đồng bộ") : null}
             />
           </div>
         </div>
@@ -260,19 +261,19 @@ function TongQuanGianHang() {
         {uyQuyen ? (
           <ThanhNhacUyQuyen san={SAN} ketNoi={config} />
         ) : (
-          <AttentionBar count={trangThai === "het_han" ? 1 : 0} tone="danger" actionLabel="Cập nhật khóa" onAction={() => moTrang("/settings")}>
-            Khóa truy cập đã hết hạn: hệ thống không gọi được {SAN.ten}.
+          <AttentionBar count={trangThai === "het_han" ? 1 : 0} tone="danger" actionLabel={t("Cập nhật khóa")} onAction={() => moTrang("/settings")}>
+            {t("Khóa truy cập đã hết hạn: hệ thống không gọi được {{ten}}.", { ten: SAN.ten })}
           </AttentionBar>
         )}
-        <AttentionBar count={tamDung ? 1 : 0} actionLabel="Mở cấu hình" onAction={() => moTrang("/settings")}>
-          Đồng bộ tự động với gian hàng đang tạm dừng.
+        <AttentionBar count={tamDung ? 1 : 0} actionLabel={t("Mở cấu hình")} onAction={() => moTrang("/settings")}>
+          {t("Đồng bộ tự động với gian hàng đang tạm dừng.")}
         </AttentionBar>
         <AttentionBar
           count={tongQuan && Number(tongQuan.tongSkuSan) === 0 ? 1 : 0}
-          actionLabel="Liên kết sản phẩm"
+          actionLabel={t("Liên kết sản phẩm")}
           onAction={() => moTrang("/setup?buoc=4")}
         >
-          Chưa có sản phẩm nào được liên kết, tồn kho và đơn hàng chưa đồng bộ được.
+          {t("Chưa có sản phẩm nào được liên kết, tồn kho và đơn hàng chưa đồng bộ được.")}
         </AttentionBar>
 
         {/* Hai cột cao bằng nhau: biểu đồ giãn theo cột phải, thẻ cuối cột phải giãn theo cột trái */}
@@ -280,34 +281,34 @@ function TongQuanGianHang() {
           <section aria-labelledby="ket-qua-ban-hang" className={cn(THE, "flex flex-col")}>
             <div className="flex flex-wrap items-center gap-3 border-b border-bo-border px-4 py-3 sm:px-5">
               <h2 id="ket-qua-ban-hang" className="text-[15px] font-semibold text-bo-heading">
-                Kết quả bán hàng
+                {t("Kết quả bán hàng")}
               </h2>
-              <ChonPhuongAn label="Khoảng thời gian" value={ky.value} options={KY} onChange={setKyMa} className="ml-auto" />
+              <ChonPhuongAn label={t("Khoảng thời gian")} value={ky.value} options={KY} onChange={setKyMa} className="ml-auto" />
             </div>
             <div className="grid grid-cols-2 border-b border-bo-border md:grid-cols-4 [&>*]:border-bo-border max-md:[&>*:nth-child(-n+2)]:border-b md:[&>*:not(:last-child)]:border-r max-md:[&>*:nth-child(odd)]:border-r">
               <ONhanSo
-                nhan="Đơn hàng"
+                nhan={t("Đơn hàng")}
                 giaTri={thongKe ? formatSo(thongKe.tongDon) : null}
-                phu={homNay ? `Hôm nay ${formatSo(homNay.soDon)}` : "Hôm nay 0"}
+                phu={homNay ? t("Hôm nay {{soDon}}", { soDon: formatSo(homNay.soDon) }) : t("Hôm nay 0")}
                 loi={tk.error && !thongKe}
                 onClick={() => moTrang("/orders")}
               />
-              <ONhanSo nhan="Doanh số" giaTri={thongKe ? formatTienGon(thongKe.doanhSo) : null} phu="Không tính đơn hủy" loi={tk.error && !thongKe} />
+              <ONhanSo nhan={t("Doanh số")} giaTri={thongKe ? formatTienGon(thongKe.doanhSo) : null} phu={t("Không tính đơn hủy")} loi={tk.error && !thongKe} />
               <ONhanSo
-                nhan="Đơn hủy"
+                nhan={t("Đơn hủy")}
                 giaTri={thongKe ? formatSo(thongKe.donHuy) : null}
-                phu={thongKe ? `${formatPhanTram(thongKe.tyLeHuy)} số đơn` : null}
+                phu={thongKe ? t("{{tyLeHuy}} số đơn", { tyLeHuy: formatPhanTram(thongKe.tyLeHuy) }) : null}
                 loi={tk.error && !thongKe}
                 onClick={() => moTrang("/orders?trangThai=da-huy-hoan-tra")}
               />
               <ONhanSo
-                nhan="Trung bình mỗi đơn"
+                nhan={t("Trung bình mỗi đơn")}
                 giaTri={thongKe ? (donKhongHuy > 0 ? formatTienGon(thongKe.doanhSo / donKhongHuy) : "—") : null}
-                phu={thongKe ? `${formatSo(donKhongHuy)} đơn không hủy` : null}
+                phu={thongKe ? t("{{donKhongHuy}} đơn không hủy", { donKhongHuy: formatSo(donKhongHuy), count: Number(donKhongHuy) || 0 }) : null}
                 loi={tk.error && !thongKe}
               />
             </div>
-            <BieuDoDon data={theoNgay} loading={tk.initialLoading} error={tk.error && !thongKe} onRetry={tk.reload} tenKy={`${ky.label} qua`} />
+            <BieuDoDon data={theoNgay} loading={tk.initialLoading} error={tk.error && !thongKe} onRetry={tk.reload} tenKy={t("{{ky}} qua", { ky: ky.label })} />
           </section>
 
           <div className="flex flex-col gap-4 [&>*:last-child]:flex-1">
@@ -326,9 +327,9 @@ function ONhanSo({ nhan, giaTri, phu, onClick, loi = false }) {
     <>
       <span className="block text-[13px] text-bo-muted">{nhan}</span>
       <span className="mt-0.5 block truncate text-[22px] font-semibold leading-8 tabular-nums tracking-tight text-bo-heading">
-        {loi ? "—" : giaTri === null ? <span className="mt-1 block h-6 w-16 animate-pulse rounded bg-slate-100" aria-label="Đang tải" /> : giaTri}
+        {loi ? "—" : giaTri === null ? <span className="mt-1 block h-6 w-16 animate-pulse rounded bg-slate-100" aria-label={t("Đang tải")} /> : giaTri}
       </span>
-      <span className="block min-h-[18px] truncate text-[12.5px] text-bo-muted">{loi ? "Không tải được" : phu}</span>
+      <span className="block min-h-[18px] truncate text-[12.5px] text-bo-muted">{loi ? t("Không tải được") : phu}</span>
     </>
   );
   const khung = "min-w-0 px-4 py-3.5 text-left sm:px-5";
@@ -362,24 +363,24 @@ function BieuDoDon({ data, loading, error, onRetry, tenKy }) {
         <Skeleton className="min-h-[240px] w-full flex-1 bg-slate-100" />
       ) : error ? (
         <div role="alert" className="flex min-h-[240px] flex-1 flex-col items-center justify-center gap-2 text-center text-sm text-bo-muted">
-          Không tải được số liệu đơn hàng.
+          {t("Không tải được số liệu đơn hàng.")}
           <button
             type="button"
             onClick={onRetry}
             className="rounded-sm font-medium text-bo-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 max-sm:min-h-11 max-sm:px-3"
           >
-            Thử lại
+            {t("Thử lại")}
           </button>
         </div>
       ) : trong ? (
         <div className="flex min-h-[240px] flex-1 flex-col items-center justify-center gap-2 text-center text-sm text-bo-muted">
           <BarChart3 className="size-5 text-slate-400" aria-hidden="true" />
-          Chưa có đơn nào từ {SAN.ten} trong {tenKy}.
+          {t("Chưa có đơn nào từ {{ten}} trong {{tenKy}}.", { ten: SAN.ten, tenKy })}
         </div>
       ) : (
         <>
           {/* Cao tối thiểu 240 px, giãn thêm khi cột phải cao hơn (khung tuyệt đối để không đẩy chiều cao hàng) */}
-          <div className="relative min-h-[240px] flex-1" role="figure" aria-label={`Biểu đồ cột số đơn theo ngày, ${tenKy}`}>
+          <div className="relative min-h-[240px] flex-1" role="figure" aria-label={t("Biểu đồ cột số đơn theo ngày, {{tenKy}}", { tenKy })}>
             <KhungBieuDo className="absolute inset-0">
               <BarChart data={diem} margin={{ top: 8, right: 4, bottom: 0, left: 0 }} barCategoryGap="30%" accessibilityLayer>
                 <CartesianGrid vertical={false} stroke={MAU_LUOI} />
@@ -394,11 +395,11 @@ function BieuDoDon({ data, loading, error, onRetry, tenKy }) {
           <div className="flex gap-4 px-2 pt-1 text-[12.5px] text-bo-muted">
             <span className="inline-flex items-center gap-1.5">
               <span className="size-2.5 rounded-sm bg-[#1677ff]" aria-hidden="true" />
-              Đơn không hủy
+              {t("Đơn không hủy")}
             </span>
             <span className="inline-flex items-center gap-1.5">
               <span className="size-2.5 rounded-sm bg-[#c7d7ee]" aria-hidden="true" />
-              Đơn hủy
+              {t("Đơn hủy")}
             </span>
           </div>
         </>
@@ -414,10 +415,10 @@ function GoiY({ active, payload }) {
   return (
     <div className="min-w-44 rounded-lg bg-[#182537] px-3 py-2.5 text-xs text-white shadow-lg">
       <p className="mb-1.5 font-semibold">{nhanDayDu(d.ngay, "ngay")}</p>
-      <DongGoiY nhan="Số đơn" giaTri={formatSo(d.soDon)} />
-      {d.soHuy ? <DongGoiY nhan="Đơn hủy" giaTri={formatSo(d.soHuy)} /> : null}
-      <DongGoiY nhan="Doanh số" giaTri={formatTien(d.doanhSo)} />
-      {khongHuy > 0 ? <DongGoiY nhan="Trung bình mỗi đơn" giaTri={formatNhanTien(d.doanhSo / khongHuy)} /> : null}
+      <DongGoiY nhan={t("Số đơn", { context: "dem" })} giaTri={formatSo(d.soDon)} />
+      {d.soHuy ? <DongGoiY nhan={t("Đơn hủy")} giaTri={formatSo(d.soHuy)} /> : null}
+      <DongGoiY nhan={t("Doanh số")} giaTri={formatTien(d.doanhSo)} />
+      {khongHuy > 0 ? <DongGoiY nhan={t("Trung bình mỗi đơn")} giaTri={formatNhanTien(d.doanhSo / khongHuy)} /> : null}
     </div>
   );
 }
@@ -436,19 +437,19 @@ function ViecCanXuLy({ theoTrangThai, tongQuan, dangTai, onDen }) {
   const SAN = useSanHienTai();
   const don = (trangThai) => (theoTrangThai ? Number(theoTrangThai[trangThai] ?? 0) : undefined);
   const viec = [
-    { ten: "Đơn nháp chờ gửi kho", so: don(0), den: "/orders?trangThai=nhap" },
-    { ten: "Chờ nhặt hàng", so: don(1), den: "/orders?trangThai=cho-nhat-hang" },
-    { ten: "Chờ đóng gói", so: don(7), den: "/orders?trangThai=cho-dong-goi" },
-    { ten: "Chờ xuất kho", so: don(8), den: "/orders?trangThai=cho-xuat-kho" },
+    { ten: t("Đơn nháp chờ gửi kho"), so: don(0), den: "/orders?trangThai=nhap" },
+    { ten: t("Chờ nhặt hàng"), so: don(1), den: "/orders?trangThai=cho-nhat-hang" },
+    { ten: t("Chờ đóng gói"), so: don(7), den: "/orders?trangThai=cho-dong-goi" },
+    { ten: t("Chờ xuất kho"), so: don(8), den: "/orders?trangThai=cho-xuat-kho" },
     // Chỉ TikTok Shop gửi yêu cầu hủy của khách (KH mục B.5); đơn được giữ lại chờ người bán duyệt trên sàn
-    ...(SAN.maKenh === "TIKTOK" ? [{ ten: "Khách yêu cầu hủy", so: tongQuan?.soYeuCauHuy, den: "/orders?yeuCauHuy=1", loi: true }] : []),
-    { ten: "SKU đồng bộ lỗi", so: tongQuan?.loiDongBo, den: "/products?trangThai=loi", loi: true },
-    { ten: "SKU ngừng đồng bộ", so: tongQuan?.chuaLienKet, den: "/products?trangThai=ngung-dong-bo" },
+    ...(SAN.maKenh === "TIKTOK" ? [{ ten: t("Khách yêu cầu hủy"), so: tongQuan?.soYeuCauHuy, den: "/orders?yeuCauHuy=1", loi: true }] : []),
+    { ten: t("SKU đồng bộ lỗi"), so: tongQuan?.loiDongBo, den: "/products?trangThai=loi", loi: true },
+    { ten: t("SKU ngừng đồng bộ"), so: tongQuan?.chuaLienKet, den: "/products?trangThai=ngung-dong-bo" },
   ];
   return (
     <section aria-labelledby="viec-can-xu-ly" className={THE}>
       <h2 id="viec-can-xu-ly" className="border-b border-bo-border px-4 py-3 text-[15px] font-semibold text-bo-heading sm:px-5">
-        Việc cần xử lý
+        {t("Việc cần xử lý")}
       </h2>
       <ul className="p-1.5">
         {viec.map((v) => {
@@ -489,33 +490,33 @@ function ViecCanXuLy({ theoTrangThai, tongQuan, dangTai, onDen }) {
 function TheSanPham({ tongQuan, loi, onThuLai, cauHinh }) {
   const SAN = useSanHienTai();
   const dong = [
-    { nhan: "Đang đồng bộ", so: tongQuan?.daLienKet, tone: "success" },
-    { nhan: "Ngừng đồng bộ", so: tongQuan?.chuaLienKet, tone: "warning" },
-    { nhan: "Lỗi", so: tongQuan?.loiDongBo, tone: "danger" },
+    { nhan: t("Đang đồng bộ"), so: tongQuan?.daLienKet, tone: "success" },
+    { nhan: t("Ngừng đồng bộ"), so: tongQuan?.chuaLienKet, tone: "warning" },
+    { nhan: t("Lỗi"), so: tongQuan?.loiDongBo, tone: "danger" },
   ];
   return (
     <section aria-labelledby="the-san-pham" className={THE}>
       <div className="flex items-center border-b border-bo-border px-4 py-3 sm:px-5">
         <h2 id="the-san-pham" className="text-[15px] font-semibold text-bo-heading">
-          Sản phẩm
+          {t("Sản phẩm")}
         </h2>
         {/* Điện thoại: vùng chạm 44 px bằng đệm + lề âm, chữ không xê dịch */}
         <Link
           to={`${SAN.duongDan}/products`}
           className="ml-auto text-sm font-medium text-bo-primary hover:text-bo-primary-hover hover:underline max-sm:-my-3 max-sm:inline-flex max-sm:min-h-11 max-sm:items-center"
         >
-          Xem tất cả
+          {t("Xem tất cả")}
         </Link>
       </div>
       {loi ? (
         <p role="alert" className="flex flex-wrap items-baseline gap-x-2 px-4 pt-3.5 text-sm text-bo-muted sm:px-5">
-          Không tải được số liệu sản phẩm.
+          {t("Không tải được số liệu sản phẩm.")}
           <button
             type="button"
             onClick={onThuLai}
             className="rounded-sm font-medium text-bo-primary hover:text-bo-primary-hover hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 max-sm:-my-3 max-sm:py-3"
           >
-            Thử lại
+            {t("Thử lại")}
           </button>
         </p>
       ) : null}
@@ -537,8 +538,8 @@ function TheSanPham({ tongQuan, loi, onThuLai, cauHinh }) {
             })}
         {cauHinh ? (
           <div className="flex items-center justify-between gap-3 border-t border-[#eef1f5] pt-2">
-            <dt className="text-[13px] text-bo-muted">Số hiện trên {SAN.ten}</dt>
-            <dd className="text-[13px] text-bo-foreground">{cheDoTheoGiaTri(cauHinh) === "bang" ? "Bằng số khả dụng" : "Tùy chỉnh"}</dd>
+            <dt className="text-[13px] text-bo-muted">{t("Số hiện trên {{ten}}", { ten: SAN.ten })}</dt>
+            <dd className="text-[13px] text-bo-foreground">{cheDoTheoGiaTri(cauHinh) === "bang" ? t("Bằng số khả dụng") : t("Tùy chỉnh")}</dd>
           </div>
         ) : null}
       </dl>
@@ -559,25 +560,25 @@ function ManGioiThieu() {
   const dsBuoc = uyQuyen ? buocGioiThieu(SAN.ten) : BUOC_THIET_LAP;
   return (
     <PageContainer>
-      <h1 className="sr-only">Tổng quan {SAN.ten}</h1>
+      <h1 className="sr-only">{t("Tổng quan {{ten}}", { ten: SAN.ten })}</h1>
       <CotCaiDat className="pt-2">
         <MockModeNotice show={isChannelMock && !choCapApi} note={GHI_CHU_DU_LIEU_MAU_KENH} />
         <section className={cn(THE, "p-5 sm:p-6")}>
           <div className="flex items-center gap-3.5">
             <ChannelLogo maKenh={SAN.maKenh} size={40} />
             <div className="min-w-0">
-              <h2 className="text-base font-semibold text-bo-heading">{uyQuyen ? `Kết nối ${SAN.ten} trong 4 bước` : `Kết nối gian hàng ${SAN.ten}`}</h2>
+              <h2 className="text-base font-semibold text-bo-heading">{uyQuyen ? t("Kết nối {{ten}} trong 4 bước", { ten: SAN.ten }) : t("Kết nối gian hàng {{ten}}", { ten: SAN.ten })}</h2>
               <p className="text-[13px] text-bo-muted">
                 {uyQuyen
-                  ? `Tồn kho FCentric sẽ tự cập nhật lên gian hàng, đơn đặt trên ${SAN.ten} sẽ về kho để nhặt hàng, đóng gói và xuất kho.`
-                  : `Đẩy tồn kho lên ${SAN.ten} và nhận đơn về để kho xử lý.`}
+                  ? t("Tồn kho FCentric sẽ tự cập nhật lên gian hàng, đơn đặt trên {{ten}} sẽ về kho để nhặt hàng, đóng gói và xuất kho.", { ten: SAN.ten })
+                  : t("Đẩy tồn kho lên {{ten}} và nhận đơn về để kho xử lý.", { ten: SAN.ten })}
               </p>
             </div>
           </div>
           {choCapApi ? (
             <div className="mt-5 flex items-start gap-2.5 rounded-lg border border-bo-border bg-bo-surface-subtle px-4 py-3 text-sm text-bo-foreground">
               <Info className="mt-0.5 size-4 shrink-0 text-bo-muted" aria-hidden="true" />
-              <p>FCentric đang xin cấp quyền API từ {SAN.ten}.</p>
+              <p>{t("FCentric đang xin cấp quyền API từ {{ten}}.", { ten: SAN.ten })}</p>
             </div>
           ) : null}
           {/* Màn rộng: 4 bước nằm một hàng cho cân ngang; màn hẹp: xếp dọc */}
@@ -588,8 +589,8 @@ function ManGioiThieu() {
                   {buoc.so}
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-sm font-medium text-bo-heading">{buoc.ten}</span>
-                  <span className="block text-[13px] text-bo-muted">{buoc.moTa}</span>
+                  <span className="block text-sm font-medium text-bo-heading">{t(buoc.ten)}</span>
+                  <span className="block text-[13px] text-bo-muted">{t(buoc.moTa)}</span>
                 </span>
               </li>
             ))}
@@ -598,22 +599,22 @@ function ManGioiThieu() {
             {choCapApi ? (
               <>
                 <Button type="button" disabled aria-describedby={idLyDoKhoa} className={NUT_CHINH}>
-                  Bắt đầu kết nối
+                  {t("Bắt đầu kết nối")}
                   <ArrowRight className="size-4" />
                 </Button>
                 <p id={idLyDoKhoa} className="text-[13px] text-bo-muted">
-                  Mở khi {SAN.ten} cấp quyền API.
+                  {t("Mở khi {{ten}} cấp quyền API.", { ten: SAN.ten })}
                 </p>
               </>
             ) : (
               <>
                 <Button asChild className={NUT_CHINH}>
                   <Link to={`${SAN.duongDan}/setup`}>
-                    {uyQuyen ? "Bắt đầu kết nối" : "Bắt đầu thiết lập"}
+                    {uyQuyen ? t("Bắt đầu kết nối") : t("Bắt đầu thiết lập")}
                     <ArrowRight className="size-4" />
                   </Link>
                 </Button>
-                <p className="text-[13px] text-bo-muted">Mỗi bước lưu ngay, dừng giữa chừng được.</p>
+                <p className="text-[13px] text-bo-muted">{t("Mỗi bước lưu ngay, dừng giữa chừng được.")}</p>
               </>
             )}
           </div>

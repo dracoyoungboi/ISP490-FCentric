@@ -5,6 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { SWITCH_CLASS } from "@/components/channel/SettingsCard";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 /**
  * Khuôn trang cài đặt của kênh bán (Cấu hình, Thiết lập), theo kiểu trang cài đặt của Shopify / Stripe:
@@ -202,13 +203,13 @@ export function OSoNho({ label, unit, value, onChange, error, disabled = false, 
  * Thanh "Có thay đổi chưa lưu" đè lên thanh trên cùng của trang (như Shopify), chỉ hiện khi có thay đổi.
  * Gắn vào #backoffice-header; không tìm thấy thì nằm dính ở đầu vùng nội dung.
  */
-export function ThanhLuuTrenCung({ hien, dangLuu = false, khoa = false, onHuy, onLuu, nhanLuu = "Lưu" }) {
+export function ThanhLuuTrenCung({ hien, dangLuu = false, khoa = false, onHuy, onLuu, nhanLuu = t("Lưu") }) {
   if (!hien) return null;
   const header = typeof document === "undefined" ? null : document.getElementById("backoffice-header");
   const thanh = (
     <div
       role="region"
-      aria-label="Thay đổi chưa lưu"
+      aria-label={t("Thay đổi chưa lưu")}
       className={cn(
         "z-50 flex items-center gap-3 bg-bo-sidebar px-3 text-white sm:px-4 lg:px-5",
         header ? "absolute inset-0" : "sticky top-0 -mx-4 -mt-4 mb-4 h-14 sm:-mx-5 sm:-mt-5 lg:-mx-6 lg:-mt-6",
@@ -216,7 +217,7 @@ export function ThanhLuuTrenCung({ hien, dangLuu = false, khoa = false, onHuy, o
     >
       <p className="flex min-w-0 items-center gap-2 text-sm font-medium">
         <AlertTriangle className="size-4 shrink-0 text-amber-400" aria-hidden="true" />
-        <span className="truncate">Có thay đổi chưa lưu</span>
+        <span className="truncate">{t("Có thay đổi chưa lưu")}</span>
       </p>
       <div className="ml-auto flex shrink-0 items-center gap-2">
         <Button
@@ -226,7 +227,7 @@ export function ThanhLuuTrenCung({ hien, dangLuu = false, khoa = false, onHuy, o
           onClick={onHuy}
           className="h-8 rounded-lg border-white/30 bg-transparent px-3 text-white hover:bg-bo-surface/10 hover:text-white max-sm:h-11"
         >
-          Hủy bỏ
+          {t("Hủy bỏ")}
         </Button>
         <Button
           type="button"
@@ -235,7 +236,7 @@ export function ThanhLuuTrenCung({ hien, dangLuu = false, khoa = false, onHuy, o
           className="h-8 gap-2 rounded-lg bg-bo-primary px-4 text-white hover:bg-bo-primary-hover max-sm:h-11"
         >
           {dangLuu ? <Loader2 className="size-4 animate-spin" /> : null}
-          {dangLuu ? "Đang lưu…" : nhanLuu}
+          {dangLuu ? t("Đang lưu…") : nhanLuu}
         </Button>
       </div>
     </div>

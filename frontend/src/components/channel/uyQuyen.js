@@ -1,5 +1,6 @@
 import { kenhBanHangService } from "@/services/kenhBanHangService";
 import { getApiErrorMessage } from "@/utils/apiError";
+import { t } from "@/i18n";
 
 /**
  * Mở trang đồng ý của sàn ủy quyền (POST /{maKenh}/uy-quyen → authUrl) và ghi nhớ đây là lần đầu hay ủy quyền lại:
@@ -10,7 +11,7 @@ const khoaUyQuyenLai = (maKenh) => `fc:uy-quyen-lai:${String(maKenh ?? "").toUpp
 
 export async function moTrangUyQuyen(san, { uyQuyenLai = false } = {}) {
   const { authUrl } = (await kenhBanHangService.batDauUyQuyen(san.maKenh)) ?? {};
-  if (!authUrl) throw new Error(`Máy chủ không trả đường dẫn ủy quyền của ${san.ten}.`);
+  if (!authUrl) throw new Error(t("Máy chủ không trả đường dẫn ủy quyền của {{ten}}.", { ten: san.ten }));
   try {
     if (uyQuyenLai) window.sessionStorage.setItem(khoaUyQuyenLai(san.maKenh), "1");
     else window.sessionStorage.removeItem(khoaUyQuyenLai(san.maKenh));

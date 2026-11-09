@@ -16,6 +16,7 @@ import { KhongTimThayTrongKhung } from "@/pages/page-error/NotFound404";
 import { GHI_CHU_DU_LIEU_MAU_KENH, isChannelMock, kenhBanHangService } from "@/services/kenhBanHangService";
 import { getApiErrorCode, getApiErrorMessage } from "@/utils/apiError";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 /**
  * Trang quay về sau khi người bán đồng ý (hoặc từ chối) trên trang của sàn: /channels/oauth/callback/:maKenh?code=&state=
@@ -27,7 +28,7 @@ import { cn } from "@/lib/utils";
  */
 /** 409 GIAN_HANG_KHAC (KH mục C.1): ủy quyền lại bằng tài khoản của gian hàng khác khi đang kết nối; không lưu gì. */
 const CAU_GIAN_HANG_KHAC =
-  "Bạn vừa kết nối một gian hàng khác. Muốn đổi gian hàng, hãy ngắt kết nối ở Cấu hình rồi kết nối lại.";
+  t("Bạn vừa kết nối một gian hàng khác. Muốn đổi gian hàng, hãy ngắt kết nối ở Cấu hình rồi kết nối lại.");
 
 export default function OAuthCallbackPage() {
   const san = useSanHienTai();
@@ -109,7 +110,7 @@ function TrangQuayVe({ san }) {
         choKetQuaRef.current(
           ma === "GIAN_HANG_KHAC"
             ? { loai: "khac", message: getApiErrorMessage(error, CAU_GIAN_HANG_KHAC) }
-            : { loai: "loi", message: getApiErrorMessage(error, `Không hoàn tất được ủy quyền với ${san.ten}`) },
+            : { loai: "loi", message: getApiErrorMessage(error, t("Không hoàn tất được ủy quyền với {{ten}}", { ten: san.ten })) },
         );
       },
     );
@@ -121,48 +122,48 @@ function TrangQuayVe({ san }) {
   const kq = ketQuaTruoc ?? ketQua ?? (tuChoi ? { loai: "tu_choi" } : thieuPhien ? { loai: "phien" } : null);
   const loai = kq?.loai ?? "dang";
   const dto = kq?.dto;
-  const nhanId = noiDungSan(san.maKenh)?.nhanIdSan ?? "Mã gian hàng";
+  const nhanId = noiDungSan(san.maKenh)?.nhanIdSan ?? t("Mã gian hàng");
   const hanDen = ngayThang(dto?.hanUyQuyen, { coNam: true });
-  const thongTinGianHang = [dto?.shopIdSan ? `${nhanId} ${dto.shopIdSan}` : null, hanDen ? `ủy quyền đến ${hanDen}` : null]
+  const thongTinGianHang = [dto?.shopIdSan ? `${nhanId} ${dto.shopIdSan}` : null, hanDen ? t("ủy quyền đến {{hanDen}}", { hanDen }) : null]
     .filter(Boolean)
     .join(" · ");
 
   const NOI_DUNG = {
     dang: {
-      tieuDe: `Đang hoàn tất ủy quyền với ${san.ten}…`,
-      moTa: "Hệ thống đang đổi mã ủy quyền lấy khóa truy cập và đọc thông tin gian hàng. Vui lòng không đóng trang.",
+      tieuDe: t("Đang hoàn tất ủy quyền với {{ten}}…", { ten: san.ten }),
+      moTa: t("Hệ thống đang đổi mã ủy quyền lấy khóa truy cập và đọc thông tin gian hàng. Vui lòng không đóng trang."),
     },
     xong: kq?.giaHan
       ? {
-          tieuDe: `Đã gia hạn ủy quyền ${san.ten}`,
-          moTa: `${thongTinGianHang ? `${thongTinGianHang}. ` : ""}Tồn kho và đơn hàng đồng bộ lại ở lượt chạy tới.`,
+          tieuDe: t("Đã gia hạn ủy quyền {{ten}}", { ten: san.ten }),
+          moTa: t("{{thongTin}}Tồn kho và đơn hàng đồng bộ lại ở lượt chạy tới.", { thongTin: thongTinGianHang ? `${thongTinGianHang}. ` : "" }),
         }
       : {
-          tieuDe: `Đã kết nối gian hàng ${dto?.tenGianHang || san.ten}`,
-          moTa: `${thongTinGianHang ? `${thongTinGianHang}. ` : ""}Tiếp tục thiết lập tồn kho và đơn hàng.`,
+          tieuDe: t("Đã kết nối gian hàng {{tenGianHang}}", { tenGianHang: dto?.tenGianHang || san.ten }),
+          moTa: t("{{thongTin}}Tiếp tục thiết lập tồn kho và đơn hàng.", { thongTin: thongTinGianHang ? `${thongTinGianHang}. ` : "" }),
         },
     phien: {
-      tieuDe: "Phiên ủy quyền đã hết hạn",
-      moTa: "Mỗi lần ủy quyền có hiệu lực 10 phút và chỉ dùng được một lần. Hãy bấm Ủy quyền lại từ trang Thiết lập.",
+      tieuDe: t("Phiên ủy quyền đã hết hạn"),
+      moTa: t("Mỗi lần ủy quyền có hiệu lực 10 phút và chỉ dùng được một lần. Hãy bấm Ủy quyền lại từ trang Thiết lập."),
     },
     tu_choi: {
-      tieuDe: `${san.ten} chưa được cấp quyền`,
-      moTa: `Bạn đã chọn từ chối trên trang của ${san.ten}. Chưa có gì thay đổi trong FCentric; ủy quyền lại khi sẵn sàng.`,
+      tieuDe: t("{{ten}} chưa được cấp quyền", { ten: san.ten }),
+      moTa: t("Bạn đã chọn từ chối trên trang của {{ten}}. Chưa có gì thay đổi trong FCentric; ủy quyền lại khi sẵn sàng.", { ten: san.ten }),
     },
     // Gian hàng đang kết nối vẫn giữ nguyên, chỉ lần ủy quyền này không được lưu
     khac: {
-      tieuDe: "Không đổi được sang gian hàng khác",
+      tieuDe: t("Không đổi được sang gian hàng khác"),
       moTa: kq?.message,
     },
     loi: {
-      tieuDe: `Chưa kết nối được ${san.ten}`,
+      tieuDe: t("Chưa kết nối được {{ten}}", { ten: san.ten }),
       moTa: kq?.message,
     },
   }[loai];
 
   return (
     <PageContainer>
-      <h1 className="sr-only">Ủy quyền {san.ten}</h1>
+      <h1 className="sr-only">{t("Ủy quyền {{ten}}", { ten: san.ten })}</h1>
       <div className="space-y-4">
         <MockModeNotice show={isChannelMock} note={GHI_CHU_DU_LIEU_MAU_KENH} />
         {/* Đang chờ / thành công: thông báo nhẹ; không thành công: cảnh báo */}
@@ -190,32 +191,32 @@ function TrangQuayVe({ san }) {
           {loai === "khac" ? (
             <div className="mt-1 flex flex-wrap justify-center gap-2">
               <Button asChild className={NUT_CHINH}>
-                <Link to={`${san.duongDan}/settings`}>Về Cấu hình</Link>
+                <Link to={`${san.duongDan}/settings`}>{t("Về Cấu hình")}</Link>
               </Button>
               <Button asChild variant="outline" className={NUT_PHU}>
-                <Link to={san.duongDan}>Về Tổng quan</Link>
+                <Link to={san.duongDan}>{t("Về Tổng quan")}</Link>
               </Button>
             </div>
           ) : loai === "xong" && kq?.giaHan ? (
             <div className="mt-1 flex flex-wrap justify-center gap-2">
               <Button asChild className={NUT_CHINH}>
-                <Link to={san.duongDan}>Về Tổng quan</Link>
+                <Link to={san.duongDan}>{t("Về Tổng quan")}</Link>
               </Button>
               <Button asChild variant="outline" className={NUT_PHU}>
-                <Link to={`${san.duongDan}/settings`}>Xem cấu hình</Link>
+                <Link to={`${san.duongDan}/settings`}>{t("Xem cấu hình")}</Link>
               </Button>
             </div>
           ) : loai === "xong" ? (
             <Button asChild className={cn(NUT_CHINH, "mt-1")}>
-              <Link to={`${san.duongDan}/setup?buoc=2`}>Tiếp tục thiết lập</Link>
+              <Link to={`${san.duongDan}/setup?buoc=2`}>{t("Tiếp tục thiết lập")}</Link>
             </Button>
           ) : loai !== "dang" ? (
             <div className="mt-1 flex flex-wrap justify-center gap-2">
               <Button asChild className={NUT_CHINH}>
-                <Link to={`${san.duongDan}/setup?buoc=1`}>Ủy quyền lại</Link>
+                <Link to={`${san.duongDan}/setup?buoc=1`}>{t("Ủy quyền lại")}</Link>
               </Button>
               <Button asChild variant="outline" className={NUT_PHU}>
-                <Link to="/channels">Về Kênh bán hàng</Link>
+                <Link to="/channels">{t("Về Kênh bán hàng")}</Link>
               </Button>
             </div>
           ) : null}

@@ -1,4 +1,5 @@
 import apiClient from "./apiClient";
+import { cauGocCuaLoi } from "../i18n/cauGoc.js";
 import { CHANNEL_MOCK, mockDelay, mockError } from "@/mocks/mockHelpers";
 import { kenhBanHangMock, loiCoMa } from "@/mocks/kenhBanHangMock";
 import { kenhSanMock } from "@/mocks/kenhSanMock";
@@ -6,6 +7,7 @@ import { demYeuCauHuy } from "@/mocks/donBanHangKenhMock";
 import { chuanHoaNhom, phanTrangTheoSanPham } from "@/components/channel/nhomLienKet";
 import { daKetNoi } from "@/components/channel/ketNoiKenh";
 import { CHANNELS, SAN_BAN_HANG, timSan } from "@/constants/channel";
+import { t } from "@/i18n";
 
 /**
  * Kênh bán hàng — gọi KenhBanHangController (/api/v1/kenh-ban-hang).
@@ -24,15 +26,15 @@ const laShopify = (maKenh) => String(maKenh || "SHOPIFY").toUpperCase() === "SHO
 function laApiChuaCo(error) {
   const status = error?.response?.status;
   if (status === 405) return true;
-  return status === 404 && /^Không tìm thấy API/.test(String(error?.response?.data?.message ?? ""));
+  return status === 404 && /^Không tìm thấy API/.test(cauGocCuaLoi(error));
 }
 
 /** Đổi lỗi "API chưa có" thành câu dùng được trên giao diện; lỗi khác giữ nguyên. `viec`: việc máy chủ chưa làm được. */
-function baoApiChuaCo(maKenh, viec = "kết nối") {
+function baoApiChuaCo(maKenh, viec = t("kết nối")) {
   return (error) => {
     if (!laApiChuaCo(error)) throw error;
-    const tenSan = timSan(maKenh)?.ten ?? "sàn này";
-    const loi = new Error(`Máy chủ chưa hỗ trợ ${viec} ${tenSan}. Cập nhật máy chủ rồi thử lại.`);
+    const tenSan = timSan(maKenh)?.ten ?? t("sàn này");
+    const loi = new Error(t("Máy chủ chưa hỗ trợ {{viec}} {{tenSan}}. Cập nhật máy chủ rồi thử lại.", { viec, tenSan }));
     loi.response = { status: error.response.status, data: { message: loi.message, data: null } };
     throw loi;
   };
@@ -168,7 +170,7 @@ const realApi = {
   giaLapNguoiMuaHuyShopee: (orderSn) =>
     apiClient.post(`${BASE}/shopee/mock-cancel`, null, { params: { orderSn } }).then(data),
   /** Mọi sàn, kể cả Shopify: xóa khóa đã lưu, dừng đồng bộ; giữ liên kết sản phẩm và đơn đã nhận (KH mục C.1). */
-  ngatKetNoi: (maKenh) => apiClient.delete(`${BASE}/${ma(maKenh)}/ket-noi`).then(data).catch(baoApiChuaCo(maKenh, "ngắt kết nối")),
+  ngatKetNoi: (maKenh) => apiClient.delete(`${BASE}/${ma(maKenh)}/ket-noi`).then(data).catch(baoApiChuaCo(maKenh, t("ngắt kết nối"))),
   /** Kho trên sàn nhận số tồn: { maKhoSan, tenKhoSan } (KenhBanHangCaiDatRequest). */
   luuCaiDatKenh: (maKenh, payload) => apiClient.put(`${BASE}/${ma(maKenh)}/cai-dat`, payload).then(data).catch(baoApiChuaCo(maKenh)),
 
@@ -340,7 +342,7 @@ function mockChupDongBo(maKenh) {
     soDonMoi: xong ? 2 : null,
     loi: null,
     yeuCauDung: Boolean(p.dungLuc),
-    nguoiBam: "Dữ liệu mẫu",
+    nguoiBam: t("Dữ liệu mẫu"),
     batDau: new Date(p.batDauLuc).toISOString(),
     ketThuc: trangThai === "dang_chay" ? null : new Date(p.batDauLuc + daChayMs).toISOString(),
     daChayMs,
@@ -371,7 +373,7 @@ function ketNoiShopifyMau(cfg) {
 async function mockKiemTraDaKetNoi(maKenh) {
   const dto = await mockApi.getKetNoi(maKenh);
   if (dto?.trangThaiKetNoi === "chua_ket_noi") {
-    throw loiCoMa(409, "KENH_CHUA_KET_NOI", `${timSan(maKenh)?.ten ?? "Sàn này"} chưa kết nối. Kết nối lại ở trình thiết lập rồi thử lại.`);
+    throw loiCoMa(409, "KENH_CHUA_KET_NOI", t("{{tenSan}} chưa kết nối. Kết nối lại ở trình thiết lập rồi thử lại.", { tenSan: timSan(maKenh)?.ten ?? t("Sàn này") }));
   }
   // Shopify: đọc khóa như máy chủ (tự làm mới; khóa làm mới đã bị từ chối và khóa truy cập quá hạn thì 424)
   if (laShopify(maKenh)) kenhBanHangMock.docKhoaShopify();
@@ -403,7 +405,7 @@ const mockApi = {
     // không đụng công tắc tự động đẩy tồn, lấy đơn của người dùng
     if (mockChupDongBo(maKenh)?.trangThai === "dang_chay") {
       await mockDelay(150, 300);
-      throw loiCoMa(409, "DANG_DONG_BO", `Đang đồng bộ với ${timSan(maKenh)?.ten ?? "sàn này"}. Đợi lượt này xong rồi ngắt kết nối.`);
+      throw loiCoMa(409, "DANG_DONG_BO", t("Đang đồng bộ với {{tenSan}}. Đợi lượt này xong rồi ngắt kết nối.", { tenSan: timSan(maKenh)?.ten ?? t("sàn này") }));
     }
     return laShopify(maKenh) ? ketNoiShopifyMau(await kenhBanHangMock.ngatKetNoiShopify()) : kenhSanMock.ngatKetNoi(maKenh);
   },
@@ -416,7 +418,7 @@ const mockApi = {
   async luuCauHinhDongBo(maKenh, payload = {}) {
     await mockDelay(300, 500);
     const tyLe = payload.tyLeDayTon;
-    if (tyLe != null && (tyLe < 1 || tyLe > 100)) throw mockError(400, "Tỷ lệ đẩy tồn phải từ 1 đến 100%");
+    if (tyLe != null && (tyLe < 1 || tyLe > 100)) throw mockError(400, t("Tỷ lệ đẩy tồn phải từ 1 đến 100%"));
     const cauHinh = cauHinhCua(maKenh);
     Object.entries(payload).forEach(([key, value]) => {
       if (value !== null && value !== undefined && key in cauHinh) cauHinh[key] = value;
@@ -462,7 +464,7 @@ const mockApi = {
   async dayVaLienKetSanPham(maKenh) {
     if (!laShopify(maKenh) && String(maKenh ?? "").toUpperCase() !== "LAZADA" && String(maKenh ?? "").toUpperCase() !== "LAZADA_SANDBOX") {
       await mockDelay();
-      throw mockError(400, "Sàn không hỗ trợ đưa sản phẩm lên từ FCentric");
+      throw mockError(400, t("Sàn không hỗ trợ đưa sản phẩm lên từ FCentric"));
     }
     await mockKiemTraDaKetNoi(maKenh);
     const res = await kenhBanHangMock.tuDongLienKet(idKetNoi(maKenh));
@@ -503,7 +505,7 @@ const mockApi = {
   async layDon(maKenh, range) {
     await mockKiemTraDaKetNoi(maKenh);
     const res = await kenhBanHangMock.layDon(idKetNoi(maKenh), range);
-    return { soDonMoi: res.soSuKien ?? 0, soDonCapNhat: 0, thongDiep: `Nhận ${res.soSuKien ?? 0} đơn hàng mới` };
+    return { soDonMoi: res.soSuKien ?? 0, soDonCapNhat: 0, thongDiep: t("Nhận {{count}} đơn hàng mới", { count: res.soSuKien ?? 0 }) };
   },
 
   async batDauDongBoNgay(maKenh) {
@@ -533,4 +535,4 @@ export const kenhBanHangService = CHANNEL_MOCK ? mockApi : realApi;
 export const isChannelMock = CHANNEL_MOCK;
 /** Câu của MockModeNotice ở các trang kênh: kết nối Lazada, TikTok Shop mẫu lưu sessionStorage nên tải lại vẫn còn. */
 export const GHI_CHU_DU_LIEU_MAU_KENH =
-  "Thao tác chỉ thay đổi dữ liệu trong trình duyệt; kết nối và cấu hình Lazada, TikTok Shop giữ tới khi đóng thẻ, phần còn lại về ban đầu khi tải lại trang.";
+  t("Thao tác chỉ thay đổi dữ liệu trong trình duyệt; kết nối và cấu hình Lazada, TikTok Shop giữ tới khi đóng thẻ, phần còn lại về ban đầu khi tải lại trang.");

@@ -1,3 +1,4 @@
+import { t } from "@/i18n";
 /**
  * Chữ riêng của từng sàn kết nối bằng ủy quyền (Lazada, TikTok Shop) trên các màn kênh bán hàng, đúng câu trong
  * KH mục B (docs/omnichannel/KE-HOACH-LAZADA-TIKTOK.md) và bản demo đã chốt. Shopify (dán khóa) giữ chữ sẵn có
@@ -6,82 +7,82 @@
 const NOI_DUNG = {
   LAZADA: {
     nhanIdSan: "Seller ID",
-    khachMacDinh: "Khách Lazada",
-    goiYAppKey: "Lấy ở Lazada Open Platform › App Console.",
+    khachMacDinh: "Khách Lazada", // i18n-giu-nguyen: tên khách hàng mặc định đã lưu trong DB
+    goiYAppKey: t("Lấy ở Lazada Open Platform › App Console."),
     coServiceId: false,
     moTaUyQuyen:
-      "Bấm Ủy quyền, Lazada mở trang đăng nhập Seller Center và hỏi bạn có cho FCentric đọc sản phẩm, đơn hàng và cập nhật tồn không. Đồng ý xong Lazada đưa bạn quay lại đây.",
-    hanUyQuyen: "Ủy quyền có hạn 50 ngày và không tự gia hạn được. Hệ thống nhắc trước 7 ngày; bạn chỉ cần bấm Ủy quyền lại.",
+      t("Bấm Ủy quyền, Lazada mở trang đăng nhập Seller Center và hỏi bạn có cho FCentric đọc sản phẩm, đơn hàng và cập nhật tồn không. Đồng ý xong Lazada đưa bạn quay lại đây."),
+    hanUyQuyen: t("Ủy quyền có hạn 50 ngày và không tự gia hạn được. Hệ thống nhắc trước 7 ngày; bạn chỉ cần bấm Ủy quyền lại."),
     // Gian hàng một kho: Lazada nhận số vào kho mặc định nên chỉ hiện tên, không cho chọn
     khoSan: {
-      nhan: "Kho trên Lazada",
-      moTa: "Gian hàng một kho: Lazada nhận số vào kho mặc định, không cần chọn.",
-      chiDoc: "Kho mặc định",
+      nhan: t("Kho trên Lazada"),
+      moTa: t("Gian hàng một kho: Lazada nhận số vào kho mặc định, không cần chọn."),
+      chiDoc: t("Kho mặc định"),
     },
-    ghiChuTon: "Trong giờ sale lớn Lazada khóa cập nhật tồn; hệ thống chuyển sang cộng/trừ và đẩy lại ở lượt sau.",
+    ghiChuTon: t("Trong giờ sale lớn Lazada khóa cập nhật tồn; hệ thống chuyển sang cộng/trừ và đẩy lại ở lượt sau."),
     // Không lặp số phút: thẻ Đơn hàng đã ghi chu kỳ ở công tắc và dòng "Chu kỳ chạy"
-    ghiChuDon: "Lazada không gửi thông báo tới máy chủ này nên đơn mới chỉ về theo chu kỳ quét.",
+    ghiChuDon: t("Lazada không gửi thông báo tới máy chủ này nên đơn mới chỉ về theo chu kỳ quét."),
   },
   LAZADA_SANDBOX: {
     nhanIdSan: "Seller ID (Test)",
-    khachMacDinh: "Khách Lazada Sandbox",
-    goiYAppKey: "Lấy ở Lazada Open Platform › App Console (Ứng dụng Sandbox).",
+    khachMacDinh: "Khách Lazada Sandbox", // i18n-giu-nguyen: tên khách hàng mặc định đã lưu trong DB
+    goiYAppKey: t("Lấy ở Lazada Open Platform › App Console (Ứng dụng Sandbox)."),
     coServiceId: false,
     moTaUyQuyen:
-      "Bấm Ủy quyền, Lazada mở cổng đăng nhập tài khoản Sandbox Seller Center và yêu cầu cấp quyền đọc sản phẩm, đơn hàng và tồn kho. Vui lòng sử dụng tài khoản test từ Lazada Console.",
-    hanUyQuyen: "Ủy quyền môi trường Sandbox có hiệu lực tương tự Production (50 ngày). Bạn có thể bấm Ủy quyền lại bất cứ lúc nào để làm mới token thử nghiệm.",
+      t("Bấm Ủy quyền, Lazada mở cổng đăng nhập tài khoản Sandbox Seller Center và yêu cầu cấp quyền đọc sản phẩm, đơn hàng và tồn kho. Vui lòng sử dụng tài khoản test từ Lazada Console."),
+    hanUyQuyen: t("Ủy quyền môi trường Sandbox có hiệu lực tương tự Production (50 ngày). Bạn có thể bấm Ủy quyền lại bất cứ lúc nào để làm mới token thử nghiệm."),
     khoSan: {
-      nhan: "Kho trên Lazada Sandbox",
-      moTa: "Gian hàng thử nghiệm một kho: Lazada Sandbox nhận số vào kho mặc định, không cần chọn.",
-      chiDoc: "Kho mặc định (Sandbox)",
+      nhan: t("Kho trên Lazada Sandbox"),
+      moTa: t("Gian hàng thử nghiệm một kho: Lazada Sandbox nhận số vào kho mặc định, không cần chọn."),
+      chiDoc: t("Kho mặc định (Sandbox)"),
     },
-    ghiChuTon: "Môi trường Sandbox phục vụ mô phỏng kiểm thử cập nhật tồn kho an toàn, không ảnh hưởng gian hàng thật.",
-    ghiChuDon: "Đơn hàng Sandbox đồng bộ độc lập với tiền tố LZD-SBX- và tự động gắn nhãn đơn test thử nghiệm.",
+    ghiChuTon: t("Môi trường Sandbox phục vụ mô phỏng kiểm thử cập nhật tồn kho an toàn, không ảnh hưởng gian hàng thật."),
+    ghiChuDon: t("Đơn hàng Sandbox đồng bộ độc lập với tiền tố LZD-SBX- và tự động gắn nhãn đơn test thử nghiệm."),
   },
   SHOPEE: {
     nhanIdSan: "Shop ID",
-    khachMacDinh: "Khách Shopee",
-    goiYAppKey: "Lấy ở Shopee Open Platform › Console (Partner ID & Partner Key).",
+    khachMacDinh: "Khách Shopee", // i18n-giu-nguyen: tên khách hàng mặc định đã lưu trong DB
+    goiYAppKey: t("Lấy ở Shopee Open Platform › Console (Partner ID & Partner Key)."),
     coServiceId: false,
     moTaUyQuyen:
-      "Bấm Ủy quyền, Shopee mở trang đăng nhập Seller Center và hỏi bạn có cho FCentric đọc sản phẩm, đơn hàng và cập nhật tồn không. Đồng ý xong Shopee đưa bạn quay lại đây.",
-    hanUyQuyen: "Ủy quyền Shopee có hạn 365 ngày; hệ thống tự động làm mới access token mỗi 4 giờ qua refresh token.",
+      t("Bấm Ủy quyền, Shopee mở trang đăng nhập Seller Center và hỏi bạn có cho FCentric đọc sản phẩm, đơn hàng và cập nhật tồn không. Đồng ý xong Shopee đưa bạn quay lại đây."),
+    hanUyQuyen: t("Ủy quyền Shopee có hạn 365 ngày; hệ thống tự động làm mới access token mỗi 4 giờ qua refresh token."),
     khoSan: {
-      nhan: "Kho trên Shopee",
-      moTa: "Gian hàng một kho: Shopee nhận số vào kho mặc định, không cần chọn.",
-      chiDoc: "Kho mặc định",
+      nhan: t("Kho trên Shopee"),
+      moTa: t("Gian hàng một kho: Shopee nhận số vào kho mặc định, không cần chọn."),
+      chiDoc: t("Kho mặc định"),
     },
-    ghiChuTon: "Hệ thống tự động đồng bộ tồn kho sang Shopee theo quy tắc tồn khả dụng đã cấu hình.",
-    ghiChuDon: "Đơn mới từ Shopee đồng bộ tự động theo chu kỳ quét định kỳ với tiền tố SHP-.",
+    ghiChuTon: t("Hệ thống tự động đồng bộ tồn kho sang Shopee theo quy tắc tồn khả dụng đã cấu hình."),
+    ghiChuDon: t("Đơn mới từ Shopee đồng bộ tự động theo chu kỳ quét định kỳ với tiền tố SHP-."),
   },
   SHOPEE_SANDBOX: {
     nhanIdSan: "Shop ID (Sandbox)",
-    khachMacDinh: "Khách Shopee Sandbox",
-    goiYAppKey: "Môi trường giả lập Sandbox nội bộ: Không cần tài khoản Shopee thật.",
+    khachMacDinh: "Khách Shopee Sandbox", // i18n-giu-nguyen: tên khách hàng mặc định đã lưu trong DB
+    goiYAppKey: t("Môi trường giả lập Sandbox nội bộ: Không cần tài khoản Shopee thật."),
     coServiceId: false,
     moTaUyQuyen:
-      "Môi trường Sandbox nội bộ cho phép kích hoạt và thử nghiệm 1-chạm mà không cần tài khoản đối tác Shopee đã phê duyệt. Bấm Kết nối để sẵn sàng sinh đơn và đồng bộ.",
-    hanUyQuyen: "Môi trường thử nghiệm Sandbox nội bộ có hiệu lực vĩnh viễn (365 ngày tự gia hạn).",
+      t("Môi trường Sandbox nội bộ cho phép kích hoạt và thử nghiệm 1-chạm mà không cần tài khoản đối tác Shopee đã phê duyệt. Bấm Kết nối để sẵn sàng sinh đơn và đồng bộ."),
+    hanUyQuyen: t("Môi trường thử nghiệm Sandbox nội bộ có hiệu lực vĩnh viễn (365 ngày tự gia hạn)."),
     khoSan: {
-      nhan: "Kho trên Shopee Sandbox",
-      moTa: "Môi trường thử nghiệm: Đơn Shopee Sandbox mặc định xuất từ Kho Tổng FCentric.",
-      chiDoc: "Kho Tổng (Sandbox)",
+      nhan: t("Kho trên Shopee Sandbox"),
+      moTa: t("Môi trường thử nghiệm: Đơn Shopee Sandbox mặc định xuất từ Kho Tổng FCentric."),
+      chiDoc: t("Kho Tổng (Sandbox)"),
     },
-    ghiChuTon: "Đẩy tồn giả lập an toàn 100%, bảo toàn dữ liệu thực tế của hệ thống.",
-    ghiChuDon: "Hỗ trợ sinh đơn mẫu tức thì với SKU có thật trong kho để kiểm thử toàn diện quy trình nhặt, đóng gói, xuất kho và in vận đơn SPX nhiệt A6.",
+    ghiChuTon: t("Đẩy tồn giả lập an toàn 100%, bảo toàn dữ liệu thực tế của hệ thống."),
+    ghiChuDon: t("Hỗ trợ sinh đơn mẫu tức thì với SKU có thật trong kho để kiểm thử toàn diện quy trình nhặt, đóng gói, xuất kho và in vận đơn SPX nhiệt A6."),
   },
   TIKTOK: {
     nhanIdSan: "Shop ID",
-    khachMacDinh: "Khách TikTok Shop",
-    goiYAppKey: "Lấy ở Partner Center › App & Service.",
+    khachMacDinh: "Khách TikTok Shop", // i18n-giu-nguyen: tên khách hàng mặc định đã lưu trong DB
+    goiYAppKey: t("Lấy ở Partner Center › App & Service."),
     coServiceId: true,
     moTaUyQuyen:
-      "Bấm Ủy quyền, TikTok Shop mở trang đăng nhập Seller Center và hỏi bạn có cho FCentric đọc sản phẩm, đơn hàng và cập nhật tồn không. Đồng ý xong TikTok Shop đưa bạn quay lại đây.",
+      t("Bấm Ủy quyền, TikTok Shop mở trang đăng nhập Seller Center và hỏi bạn có cho FCentric đọc sản phẩm, đơn hàng và cập nhật tồn không. Đồng ý xong TikTok Shop đưa bạn quay lại đây."),
     hanUyQuyen:
-      "Thời hạn ủy quyền do bạn chọn khi đồng ý trên TikTok Shop. Hệ thống tự làm mới khóa 7 ngày một lần và nhắc trước 7 ngày khi sắp hết hạn.",
+      t("Thời hạn ủy quyền do bạn chọn khi đồng ý trên TikTok Shop. Hệ thống tự làm mới khóa 7 ngày một lần và nhắc trước 7 ngày khi sắp hết hạn."),
     khoSan: {
-      nhan: "Kho bán hàng trên TikTok Shop",
-      moTa: "Số tồn chỉ được ghi vào kho này. Kho khác trên TikTok Shop giữ nguyên.",
+      nhan: t("Kho bán hàng trên TikTok Shop"),
+      moTa: t("Số tồn chỉ được ghi vào kho này. Kho khác trên TikTok Shop giữ nguyên."),
       chiDoc: null,
     },
     ghiChuTon: null,
@@ -113,9 +114,9 @@ export function khoDaLuuKhongCon(maKhoSan, dsKho) {
 /** Bốn bước ở màn giới thiệu của sàn ủy quyền (chưa kết nối). */
 export function buocGioiThieu(tenSan) {
   return [
-    { so: 1, ten: "Ủy quyền gian hàng", moTa: "Đăng nhập Seller Center và cho FCentric kết nối." },
-    { so: 2, ten: "Tồn kho", moTa: `Chọn cách cập nhật số tồn lên ${tenSan}.` },
-    { so: 3, ten: "Đơn hàng", moTa: `Bật nhận đơn mới từ ${tenSan} về FCentric.` },
-    { so: 4, ten: "Liên kết sản phẩm", moTa: `Ghép sản phẩm trên ${tenSan} với biến thể FCentric.` },
+    { so: 1, ten: t("Ủy quyền gian hàng"), moTa: t("Đăng nhập Seller Center và cho FCentric kết nối.") },
+    { so: 2, ten: t("Tồn kho"), moTa: t("Chọn cách cập nhật số tồn lên {{tenSan}}.", { tenSan }) },
+    { so: 3, ten: t("Đơn hàng"), moTa: t("Bật nhận đơn mới từ {{tenSan}} về FCentric.", { tenSan }) },
+    { so: 4, ten: t("Liên kết sản phẩm"), moTa: t("Ghép sản phẩm trên {{tenSan}} với biến thể FCentric.", { tenSan }) },
   ];
 }

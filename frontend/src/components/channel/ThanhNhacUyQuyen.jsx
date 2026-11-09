@@ -6,6 +6,7 @@ import AttentionBar from "@/components/shared/AttentionBar";
 import { ngayThang } from "@/components/channel/ngay";
 import { hanUyQuyen, trangThaiKetNoi } from "@/components/channel/ketNoiKenh";
 import { cauLoiUyQuyen, moTrangUyQuyen } from "@/components/channel/uyQuyen";
+import { t } from "@/i18n";
 
 /**
  * Thanh nhắc ủy quyền của sàn ủy quyền (KH mục B.5): hết hạn → đỏ (kể cả khi máy chủ không trả ngày hết hạn);
@@ -41,25 +42,25 @@ export default function ThanhNhacUyQuyen({ san, ketNoi }) {
         setDangMo(false);
       }, 4000);
     } catch (error) {
-      toast.error(cauLoiUyQuyen(error, `Không mở được trang ủy quyền của ${san.ten}`));
+      toast.error(cauLoiUyQuyen(error, t("Không mở được trang ủy quyền của {{ten}}", { ten: san.ten })));
       dangMoRef.current = false;
       setDangMo(false);
     }
   };
-  const nhanNut = dangMo ? `Đang mở trang ${san.ten}…` : "Ủy quyền lại";
+  const nhanNut = dangMo ? t("Đang mở trang {{ten}}…", { ten: san.ten }) : t("Ủy quyền lại");
 
   if (hetHan) {
     return (
       <AttentionBar count={1} tone="danger" actionLabel={nhanNut} onAction={uyQuyenLai}>
-        Ủy quyền {san.ten} đã hết hạn: hệ thống không gọi được {san.ten}, tồn kho và đơn hàng đang dừng đồng bộ.
+        {t("Ủy quyền {{ten}} đã hết hạn: hệ thống không gọi được {{ten}}, tồn kho và đơn hàng đang dừng đồng bộ.", { ten: san.ten })}
       </AttentionBar>
     );
   }
   return (
     <AttentionBar count={1} actionLabel={nhanNut} onAction={uyQuyenLai}>
       {han.soNgay > 0
-        ? `Ủy quyền ${san.ten} hết hạn sau ${han.soNgay} ngày (${ngayThang(han.han, { coNam: true })}). Ủy quyền lại trước ngày đó để đồng bộ không bị gián đoạn.`
-        : `Ủy quyền ${san.ten} hết hạn trong hôm nay (${ngayThang(han.han, { coNam: true })}). Ủy quyền lại ngay để đồng bộ không bị gián đoạn.`}
+        ? t("Ủy quyền {{ten}} hết hạn sau {{count}} ngày ({{han}}). Ủy quyền lại trước ngày đó để đồng bộ không bị gián đoạn.", { ten: san.ten, count: han.soNgay, han: ngayThang(han.han, { coNam: true }) })
+        : t("Ủy quyền {{ten}} hết hạn trong hôm nay ({{han}}). Ủy quyền lại ngay để đồng bộ không bị gián đoạn.", { ten: san.ten, han: ngayThang(han.han, { coNam: true }) })}
     </AttentionBar>
   );
 }

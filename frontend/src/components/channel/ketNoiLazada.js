@@ -1,3 +1,4 @@
+import { t } from "@/i18n";
 /**
  * Tiện ích quản lý và kiểm tra dữ liệu kết nối Lazada Open Platform.
  * Lưu giữ App Key, App Secret (AES-256-GCM), Access Token, Refresh Token.
@@ -25,10 +26,10 @@ export function kiemTraGiaTriKetNoiLazada(values, config, maKenh) {
   const isSandbox = laLazadaSandbox(maKenh);
   // Sandbox có thể tự động kế thừa App Key và Secret từ Production nếu để trống
   if (!isSandbox && !values.appKey?.trim() && !config?.appKey) {
-    errors.appKey = "Nhập App Key của ứng dụng Lazada Open Platform.";
+    errors.appKey = t("Nhập App Key của ứng dụng Lazada Open Platform.");
   }
   if (!isSandbox && !config?.hasAppSecret && !values.appSecret?.trim()) {
-    errors.appSecret = "Nhập App Secret.";
+    errors.appSecret = t("Nhập App Secret.");
   }
   return errors;
 }

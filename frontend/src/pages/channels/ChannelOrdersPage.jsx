@@ -40,23 +40,24 @@ import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { cn } from "@/lib/utils";
 import { formatCurrency, formatDate, formatNumber } from "@/utils/formatters";
+import { localeHienThi, t } from "@/i18n";
 
 const TAB_MAS = DON_BAN_HANG_TABS.map((tab) => tab.ma);
 const TAB_MAC_DINH = "tat-ca";
 const SEARCH_DEBOUNCE_MS = 350;
 const TH = "h-10 whitespace-nowrap px-3 text-[11px] font-semibold uppercase tracking-wide text-bo-muted";
 const NGAY_OPTIONS = [
-  { value: "", label: "Ngày nhận: tất cả" },
-  { value: "1", label: "Hôm nay" },
-  { value: "7", label: "7 ngày qua" },
-  { value: "30", label: "30 ngày qua" },
+  { value: "", label: t("Ngày nhận: tất cả") },
+  { value: "1", label: t("Hôm nay") },
+  { value: "7", label: t("7 ngày qua") },
+  { value: "30", label: t("30 ngày qua") },
 ];
 /**
  * "Khách yêu cầu hủy" (TikTok Shop) chỉ tính đơn chưa xuất kho, chưa hủy: Nháp, Chờ nhặt hàng, Chờ đóng gói, Chờ xuất kho.
  * Thanh nhắc, bộ lọc ?yeuCauHuy=1 và số ở Tổng quan dùng chung định nghĩa này (dữ liệu mẫu: demYeuCauHuy ở donBanHangKenhMock.js).
  */
 const TRANG_THAI_CHUA_XUAT_KHO = [0, 1, 7, 8];
-const NHAN_LOC_YEU_CAU_HUY = "Khách yêu cầu hủy, chưa xuất kho";
+const NHAN_LOC_YEU_CAU_HUY = t("Khách yêu cầu hủy, chưa xuất kho");
 // Đơn đặt mới nhất trước, theo cột Ngày nhận; trùng giờ thì đơn về sau đứng trước
 const THU_TU = [
   { fieldName: "ngayDatHang", direction: "DESC" },
@@ -113,9 +114,9 @@ function cuonToiTabDangChon(hang) {
   const nut = hang?.querySelector('[role="tab"][aria-selected="true"]');
   if (!nut) return;
   const h = hang.getBoundingClientRect();
-  const t = nut.getBoundingClientRect();
-  if (t.left < h.left + LE_MO_TAB) hang.scrollLeft -= h.left + LE_MO_TAB - t.left;
-  else if (t.right > h.right - LE_MO_TAB) hang.scrollLeft += t.right - (h.right - LE_MO_TAB);
+  const r = nut.getBoundingClientRect();
+  if (r.left < h.left + LE_MO_TAB) hang.scrollLeft -= h.left + LE_MO_TAB - r.left;
+  else if (r.right > h.right - LE_MO_TAB) hang.scrollLeft += r.right - (h.right - LE_MO_TAB);
 }
 
 /**
@@ -193,7 +194,7 @@ export default function ChannelOrdersPage() {
   const SAN = useSanHienTai();
   const uyQuyen = SAN.kieuKetNoi === "uy_quyen";
   const [tab, setTab] = useTabTrenUrl(TAB_MAS, TAB_MAC_DINH);
-  const tabTrangThai = DON_BAN_HANG_TABS.find((t) => t.ma === tab)?.trangThai ?? null;
+  const tabTrangThai = DON_BAN_HANG_TABS.find((tb) => tb.ma === tab)?.trangThai ?? null;
   const [searchParams] = useSearchParams();
   // TikTok Shop: lọc "Khách yêu cầu hủy" nằm trên đường dẫn (?yeuCauHuy=1) để Tổng quan dẫn thẳng tới đúng các đơn
   const coYeuCauHuy = SAN.maKenh === "TIKTOK";
@@ -231,7 +232,7 @@ export default function ChannelOrdersPage() {
     TAB_MAS,
     (ma) =>
       donBanHangKenhService
-        .filterDonBan({ filters: boLoc(loc, DON_BAN_HANG_TABS.find((t) => t.ma === ma)?.trangThai), sorts: [], page: 0, size: 1 })
+        .filterDonBan({ filters: boLoc(loc, DON_BAN_HANG_TABS.find((tb) => tb.ma === ma)?.trangThai), sorts: [], page: 0, size: 1 })
         .then((res) => res?.totalElements ?? 0),
     khoaLoc,
     { enabled: ketNoi },
@@ -295,12 +296,12 @@ export default function ChannelOrdersPage() {
   const rows = ds.data?.content ?? [];
   const tong = ds.data?.totalElements ?? 0;
   const dangLoc = Boolean(tuKhoa || khoId || soNgay || locYeuCauHuy);
-  const khoOptions = [{ value: "", label: "Tất cả kho xuất" }, ...locKhoDongBo(dsKho.data).map((k) => ({ value: String(k.id), label: k.tenKho }))];
-  const statusTabs = DON_BAN_HANG_TABS.map((t) => ({
-    value: t.ma,
-    label: t.label,
-    count: counts[t.ma],
-    tone: t.ma === "nhap" ? "warning" : undefined,
+  const khoOptions = [{ value: "", label: t("Tất cả kho xuất") }, ...locKhoDongBo(dsKho.data).map((k) => ({ value: String(k.id), label: k.tenKho }))];
+  const statusTabs = DON_BAN_HANG_TABS.map((tb) => ({
+    value: tb.ma,
+    label: t(tb.label),
+    count: counts[tb.ma],
+    tone: tb.ma === "nhap" ? "warning" : undefined,
   }));
   const veTrangDau = () => setTrang((cu) => ({ ...cu, page: 0 }));
   const doiTab = (moi) => {
@@ -352,21 +353,21 @@ export default function ChannelOrdersPage() {
   return (
     <PageContainer fill className="space-y-4">
       <ListPageHeader
-        title={`Đơn hàng ${SAN.ten}`}
+        title={t("Đơn hàng {{ten}}", { ten: SAN.ten })}
         actions={
           <ThaoTacDongBo
             tienDo={dongBo}
             tenSan={SAN.ten}
             onDen={den}
             khoaThaoTac={
-              !ketNoi ? "Chưa tải xong thông tin gian hàng." : hetHanUyQuyen ? `Ủy quyền ${SAN.ten} đã hết hạn, ủy quyền lại trước khi chạy.` : false
+              !ketNoi ? t("Chưa tải xong thông tin gian hàng.") : hetHanUyQuyen ? t("Ủy quyền {{ten}} đã hết hạn, ủy quyền lại trước khi chạy.", { ten: SAN.ten }) : false
             }
-            lyDoKhoaDongBo={hetHanUyQuyen ? "Ủy quyền lại trước khi đồng bộ" : null}
+            lyDoKhoaDongBo={hetHanUyQuyen ? t("Ủy quyền lại trước khi đồng bộ") : null}
             thaoTac={[
               {
                 ma: "lay-don-theo-ngay",
-                nhan: "Lấy đơn theo khoảng ngày…",
-                moTa: "Đơn đã có trong FCentric không bị tạo lại.",
+                nhan: t("Lấy đơn theo khoảng ngày…"),
+                moTa: t("Đơn đã có trong FCentric không bị tạo lại."),
                 Icon: CalendarRange,
                 onChon: () => setMoLayDon(true),
               },
@@ -374,18 +375,18 @@ export default function ChannelOrdersPage() {
                 ? [
                     {
                       ma: "sinh-don-shopee-mau",
-                      nhan: "Sinh đơn Shopee mẫu…",
-                      moTa: "Tạo đơn hàng Shopee Sandbox mẫu với SKU thực tế trong kho.",
+                      nhan: t("Sinh đơn Shopee mẫu…"),
+                      moTa: t("Tạo đơn hàng Shopee Sandbox mẫu với SKU thực tế trong kho."),
                       Icon: ShoppingCart,
                       onChon: async () => {
                         try {
                           const res = await kenhBanHangService.sinhDonShopeeMau(1, "READY_TO_SHIP");
-                          toast.success(`Đã sinh đơn Shopee Sandbox mẫu (${res?.danhSachDonHang?.[0] || "SHP"})`, {
-                            description: "Đơn đã được đồng bộ tự động vào FCentric ở trạng thái Chờ nhặt hàng.",
+                          toast.success(t("Đã sinh đơn Shopee Sandbox mẫu ({{maDon}})", { maDon: res?.danhSachDonHang?.[0] || "SHP" }), {
+                            description: t("Đơn đã được đồng bộ tự động vào FCentric ở trạng thái Chờ nhặt hàng."),
                           });
                           taiLai();
                         } catch (err) {
-                          toast.error("Không sinh được đơn Shopee mẫu: " + (err.message || "Lỗi hệ thống"));
+                          toast.error(t("Không sinh được đơn Shopee mẫu: {{loi}}", { loi: err.message || t("Lỗi hệ thống") }));
                         }
                       },
                     },
@@ -399,9 +400,8 @@ export default function ChannelOrdersPage() {
       <ThanhNhacUyQuyen san={SAN} ketNoi={cfg.data} />
       {/* Đang lọc đúng các đơn này (chip lọc ở thanh công cụ) thì không nhắc lại */}
       {coYeuCauHuy && !locYeuCauHuy ? (
-        <AttentionBar count={soYeuCauHuy.data} actionLabel="Xem đơn" onAction={xemYeuCauHuy}>
-          <strong className="font-semibold">{formatNumber(soYeuCauHuy.data)} đơn chưa xuất kho</strong> đang có yêu cầu hủy từ khách trên {SAN.ten}.
-          Duyệt hoặc từ chối trên Seller Center trước hạn; chỉ xuất kho đơn đã từ chối hủy.
+        <AttentionBar count={soYeuCauHuy.data} actionLabel={t("Xem đơn")} onAction={xemYeuCauHuy}>
+          <strong className="font-semibold">{t("{{so}} đơn chưa xuất kho", { so: formatNumber(soYeuCauHuy.data), count: Number(soYeuCauHuy.data) || 0 })}</strong> {t("đang có yêu cầu hủy từ khách trên {{ten}}. Duyệt hoặc từ chối trên Seller Center trước hạn; chỉ xuất kho đơn đã từ chối hủy.", { ten: SAN.ten })}
         </AttentionBar>
       ) : null}
 
@@ -411,15 +411,15 @@ export default function ChannelOrdersPage() {
           <ListToolbar
             tabs={
               <TabCuonNgang value={tab}>
-                <StatusTabs label="Lọc đơn theo trạng thái" tabs={statusTabs} value={tab} onChange={doiTab} />
+                <StatusTabs label={t("Lọc đơn theo trạng thái")} tabs={statusTabs} value={tab} onChange={doiTab} />
               </TabCuonNgang>
             }
             hasFilter={dangLoc}
             onClear={xoaLoc}
           >
             <SearchInput
-              label="Tìm đơn"
-              placeholder="Nhập số đơn hàng…"
+              label={t("Tìm đơn")}
+              placeholder={t("Nhập số đơn hàng…")}
               value={searchText}
               onChange={(event) => setSearchText(event.target.value)}
               onClear={() => {
@@ -431,7 +431,7 @@ export default function ChannelOrdersPage() {
             />
             {khoOptions.length > 1 ? (
               <FilterSelect
-                label="Kho xuất"
+                label={t("Kho xuất")}
                 value={khoId}
                 options={khoOptions}
                 onChange={(value) => {
@@ -443,7 +443,7 @@ export default function ChannelOrdersPage() {
               />
             ) : null}
             <FilterSelect
-              label="Ngày nhận"
+              label={t("Ngày nhận")}
               value={soNgay}
               options={NGAY_OPTIONS}
               onChange={(value) => {
@@ -458,8 +458,8 @@ export default function ChannelOrdersPage() {
               <button
                 type="button"
                 onClick={boLocYeuCauHuy}
-                aria-label={`Bỏ lọc ${NHAN_LOC_YEU_CAU_HUY.toLocaleLowerCase("vi-VN")}`}
-                title="Bỏ lọc này"
+                aria-label={t("Bỏ lọc {{nhan}}", { nhan: NHAN_LOC_YEU_CAU_HUY.toLocaleLowerCase(localeHienThi()) })}
+                title={t("Bỏ lọc này")}
                 className={cn(
                   "inline-flex h-9 min-w-0 max-w-full items-center justify-between gap-2 rounded-md border border-bo-border bg-bo-surface pl-3 pr-2 text-sm text-bo-foreground max-sm:h-11",
                   "transition-colors hover:bg-bo-surface-subtle focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bo-primary max-sm:w-full",
@@ -479,9 +479,9 @@ export default function ChannelOrdersPage() {
                     ? "border-red-200 bg-red-50 text-bo-danger hover:bg-red-100"
                     : "text-bo-muted hover:bg-bo-surface-subtle hover:text-bo-foreground",
                 )}
-                title="Lọc nhanh đơn khách yêu cầu hủy chưa xuất kho"
+                title={t("Lọc nhanh đơn khách yêu cầu hủy chưa xuất kho")}
               >
-                <span>Khách yêu cầu hủy</span>
+                <span>{t("Khách yêu cầu hủy")}</span>
                 {soYeuCauHuy.data > 0 ? (
                   <span className="rounded-full bg-red-600 px-1.5 py-0.5 text-[11px] font-semibold text-white">
                     {formatNumber(soYeuCauHuy.data)}
@@ -506,37 +506,37 @@ export default function ChannelOrdersPage() {
       >
         {/* Đang lùi về trang cuối (trang vừa tải rỗng vì vượt số trang) thì hiện đang tải, không hiện ô trống */}
         {cfg.initialLoading || ds.initialLoading || (ds.loading && rows.length === 0 && trang.page > 0) ? (
-          <LoadingState label="Đang tải đơn hàng" />
+          <LoadingState label={t("Đang tải đơn hàng")} />
         ) : (ds.error && !ds.loiTaiLai) || (cfg.error && !cfg.data) ? (
-          <ErrorState description="Không tải được danh sách đơn. Vui lòng thử lại." onRetry={() => (cfg.data ? ds.reload() : cfg.reload())} />
+          <ErrorState description={t("Không tải được danh sách đơn. Vui lòng thử lại.")} onRetry={() => (cfg.data ? ds.reload() : cfg.reload())} />
         ) : rows.length === 0 ? (
           dangLoc ? (
             <EmptyState
               icon={SearchX}
-              title="Không tìm thấy đơn phù hợp"
-              description="Thử số đơn, kho hoặc ngày khác, hoặc xóa lọc."
+              title={t("Không tìm thấy đơn phù hợp")}
+              description={t("Thử số đơn, kho hoặc ngày khác, hoặc xóa lọc.")}
               action={
                 <Button variant="outline" onClick={xoaLoc} className={NUT_PHU}>
-                  Xóa lọc
+                  {t("Xóa lọc")}
                 </Button>
               }
             />
           ) : tab !== TAB_MAC_DINH ? (
             <EmptyState
               icon={ShoppingCart}
-              title={`Không có đơn nào ở trạng thái "${DON_BAN_HANG_TABS.find((t) => t.ma === tab)?.label}"`}
-              description="Chọn tab Tất cả để xem mọi đơn từ gian hàng."
+              title={t("Không có đơn nào ở trạng thái \"{{label}}\"", { label: t(DON_BAN_HANG_TABS.find((tb) => tb.ma === tab)?.label) })}
+              description={t("Chọn tab Tất cả để xem mọi đơn từ gian hàng.")}
               action={
                 <Button variant="outline" onClick={() => doiTab(TAB_MAC_DINH)} className={NUT_PHU}>
-                  Xem tất cả
+                  {t("Xem tất cả")}
                 </Button>
               }
             />
           ) : (
             <EmptyState
               icon={ShoppingCart}
-              title={`Chưa có đơn từ ${SAN.ten}`}
-              description={`Đơn mới được lấy tự động theo Cấu hình, hoặc bấm "Đồng bộ ngay".`}
+              title={t("Chưa có đơn từ {{ten}}", { ten: SAN.ten })}
+              description={t("Đơn mới được lấy tự động theo Cấu hình, hoặc bấm \"Đồng bộ ngay\".")}
             />
           )
         ) : (
@@ -554,17 +554,17 @@ export default function ChannelOrdersPage() {
                       <span className="flex min-w-0 items-center gap-2">
                         <span className="min-w-0 truncate text-[15px] font-semibold uppercase tracking-wide text-bo-primary">{don.soDonHang}</span>
                         {SAN.maKenh === "LAZADA_SANDBOX" || don.soDonHang?.startsWith("LZD-SBX-") ? (
-                          <span title="Đơn thử nghiệm Sandbox" className="rounded border border-amber-200 bg-amber-50 px-1 py-0.5 text-[10px] font-semibold text-amber-800">Sandbox</span>
+                          <span title={t("Đơn thử nghiệm Sandbox")} className="rounded border border-amber-200 bg-amber-50 px-1 py-0.5 text-[10px] font-semibold text-amber-800">Sandbox</span>
                         ) : null}
                       </span>
                       <span className="flex items-center gap-1.5">
                         {laDonGiuChoLau(don) ? (
                           <span
-                            title="Đơn hàng sàn đang giữ tồn kho trên 24 giờ chưa xuất"
+                            title={t("Đơn hàng sàn đang giữ tồn kho trên 24 giờ chưa xuất")}
                             className="inline-flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-800 border border-amber-200"
                           >
                             <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
-                            Giữ chỗ &gt; 24h
+                            {t("Giữ chỗ > 24h")}
                           </span>
                         ) : null}
                         <StatusBadge quyTrinh="donBan" label={st.label} />
@@ -572,10 +572,10 @@ export default function ChannelOrdersPage() {
                     </span>
                     {/* Mã đơn trên sàn, như dòng của bảng: số đơn LZD-/TTS- đã ghép đúng mã đơn sàn thì không ghi lại */}
                     {don.maDonHangKenh && !(uyQuyen && String(don.soDonHang ?? "").includes(don.maDonHangKenh)) ? (
-                      <span className="min-w-0 truncate text-xs tabular-nums text-bo-muted">#{don.maDonHangKenh} trên {SAN.ten}</span>
+                      <span className="min-w-0 truncate text-xs tabular-nums text-bo-muted">{t("#{{maDonHangKenh}} trên {{ten}}", { maDonHangKenh: don.maDonHangKenh, ten: SAN.ten })}</span>
                     ) : null}
-                    <span className="min-w-0 truncate text-sm font-semibold text-bo-foreground">{don.khachHang?.tenKhachHang || "Khách lẻ"}</span>
-                    {nguoiNhan ? <span className="min-w-0 truncate text-[13px] tabular-nums text-bo-muted">Người nhận {nguoiNhan}</span> : null}
+                    <span className="min-w-0 truncate text-sm font-semibold text-bo-foreground">{don.khachHang?.tenKhachHang || t("Khách lẻ")}</span>
+                    {nguoiNhan ? <span className="min-w-0 truncate text-[13px] tabular-nums text-bo-muted">{t("Người nhận {{nguoiNhan}}", { nguoiNhan })}</span> : null}
                     <span className="flex items-baseline justify-between gap-3 text-[13px] text-bo-muted">
                       <span className="min-w-0 truncate tabular-nums">
                         {formatDate(don.ngayDatHang)}
@@ -593,12 +593,12 @@ export default function ChannelOrdersPage() {
           <table className="w-full min-w-[900px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                <th className={`${TH} text-left`}>Số đơn</th>
-                <th className={`${TH} text-left`}>Khách hàng</th>
-                <th className={`${TH} text-left cam-ung:max-lg:hidden`}>Kho xuất</th>
-                <th className={`${TH} text-left cam-ung:max-lg:hidden`}>Ngày nhận</th>
-                <th className={`${TH} text-right`}>Tổng tiền</th>
-                <th className={`${TH} text-left`}>Trạng thái</th>
+                <th className={`${TH} text-left`}>{t("Số đơn")}</th>
+                <th className={`${TH} text-left`}>{t("Khách hàng")}</th>
+                <th className={`${TH} text-left cam-ung:max-lg:hidden`}>{t("Kho xuất")}</th>
+                <th className={`${TH} text-left cam-ung:max-lg:hidden`}>{t("Ngày nhận")}</th>
+                <th className={`${TH} text-right`}>{t("Tổng tiền")}</th>
+                <th className={`${TH} text-left`}>{t("Trạng thái")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-bo-border">
@@ -622,19 +622,19 @@ export default function ChannelOrdersPage() {
                       <div className="flex items-center gap-2 whitespace-nowrap font-semibold uppercase tracking-wide text-bo-primary">
                         <span>{don.soDonHang}</span>
                         {SAN.maKenh === "LAZADA_SANDBOX" || don.soDonHang?.startsWith("LZD-SBX-") ? (
-                          <span title="Đơn thử nghiệm Sandbox" className="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">Sandbox</span>
+                          <span title={t("Đơn thử nghiệm Sandbox")} className="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">Sandbox</span>
                         ) : null}
                       </div>
                       {/* Số đơn LZD-/TTS- đã ghép đúng mã đơn sàn thì không ghi lại lần nữa */}
                       {don.maDonHangKenh && !(uyQuyen && String(don.soDonHang ?? "").includes(don.maDonHangKenh)) ? (
-                        <div className="text-xs tabular-nums text-bo-muted">#{don.maDonHangKenh} trên {SAN.ten}</div>
+                        <div className="text-xs tabular-nums text-bo-muted">{t("#{{maDonHangKenh}} trên {{ten}}", { maDonHangKenh: don.maDonHangKenh, ten: SAN.ten })}</div>
                       ) : null}
                       <div className="hidden text-xs tabular-nums text-bo-muted cam-ung:max-lg:block">{formatDate(don.ngayDatHang)}</div>
                     </td>
                     <td className="px-3 py-3">
-                      <div className="font-medium text-bo-foreground">{don.khachHang?.tenKhachHang || "Khách lẻ"}</div>
+                      <div className="font-medium text-bo-foreground">{don.khachHang?.tenKhachHang || t("Khách lẻ")}</div>
                       {/* Sàn ủy quyền che tên và số điện thoại người nhận; hiện đúng như sàn trả, sàn không trả thì bỏ dòng */}
-                      {nguoiNhan ? <div className="text-xs tabular-nums text-bo-muted">Người nhận {nguoiNhan}</div> : null}
+                      {nguoiNhan ? <div className="text-xs tabular-nums text-bo-muted">{t("Người nhận {{nguoiNhan}}", { nguoiNhan })}</div> : null}
                       {don.khoXuat?.tenKho ? <div className="hidden text-xs text-bo-muted cam-ung:max-lg:block">{don.khoXuat.tenKho}</div> : null}
                     </td>
                     <td className="px-3 py-3 text-bo-muted cam-ung:max-lg:hidden">{don.khoXuat?.tenKho || "—"}</td>
@@ -645,11 +645,11 @@ export default function ChannelOrdersPage() {
                         <StatusBadge quyTrinh="donBan" label={st.label} />
                         {laDonGiuChoLau(don) ? (
                           <span
-                            title="Đơn hàng sàn đang giữ tồn kho trên 24 giờ chưa xuất"
+                            title={t("Đơn hàng sàn đang giữ tồn kho trên 24 giờ chưa xuất")}
                             className="inline-flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-800 border border-amber-200"
                           >
                             <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
-                            Giữ chỗ &gt; 24h
+                            {t("Giữ chỗ > 24h")}
                           </span>
                         ) : null}
                       </div>

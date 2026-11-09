@@ -4,10 +4,11 @@ import { ChonPhuongAn, DongCaiDat, DongCongTac, OSoNho, TheCaiDat } from "@/comp
 import { quyTacTonKho } from "@/components/channel/cauHinhDongBo";
 import { tinhSoTonDayLenSan } from "@/constants/channel";
 import { formatNumber } from "@/utils/formatters";
+import { t } from "@/i18n";
 
 const CHE_DO_TON = [
-  { value: "bang", label: "Bằng số khả dụng" },
-  { value: "tuy", label: "Tùy chỉnh" },
+  { value: "bang", label: t("Bằng số khả dụng") },
+  { value: "tuy", label: t("Tùy chỉnh") },
 ];
 
 /** Ghi chú cuối thẻ (nền nhạt, biểu tượng i), vd. giờ sale lớn của Lazada. */
@@ -35,24 +36,24 @@ export function TheTonKho({ moTa, values, errors = {}, onChange, cheDo, onDoiChe
   const viDu = (kd) => formatNumber(tinhSoTonDayLenSan(kd, quyTac));
 
   return (
-    <TheCaiDat title="Tồn kho" description={moTa}>
+    <TheCaiDat title={t("Tồn kho")} description={moTa}>
       <DongCongTac
-        title={`Tự động cập nhật tồn lên ${tenSan}`}
-        description={`Mỗi ${chuKy} phút, và ngay khi tồn dưới ${nguongNgay} cái.`}
+        title={t("Tự động cập nhật tồn lên {{tenSan}}", { tenSan })}
+        description={t("Mỗi {{chuKy}} phút, và ngay khi tồn dưới {{nguongNgay}} cái.", { chuKy, nguongNgay })}
         checked={values.tuDongDayTon}
         onCheckedChange={(checked) => onChange("tuDongDayTon", checked)}
         disabled={disabled}
       />
       <DongCaiDat
-        title={`Số lượng hiện trên ${tenSan}`}
+        title={t("Số lượng hiện trên {{tenSan}}", { tenSan })}
         control={
-          <ChonPhuongAn label={`Cách tính số lượng hiện trên ${tenSan}`} value={cheDo} options={CHE_DO_TON} onChange={onDoiCheDo} disabled={disabled} />
+          <ChonPhuongAn label={t("Cách tính số lượng hiện trên {{tenSan}}", { tenSan })} value={cheDo} options={CHE_DO_TON} onChange={onDoiCheDo} disabled={disabled} />
         }
       >
         {cheDo === "tuy" ? (
           <div className="flex flex-wrap items-start gap-x-6 gap-y-3 rounded-lg bg-bo-surface-subtle px-4 py-3.5">
             <OSoNho
-              label="Tỷ lệ"
+              label={t("Tỷ lệ")}
               unit="%"
               min={1}
               max={100}
@@ -62,8 +63,8 @@ export function TheTonKho({ moTa, values, errors = {}, onChange, cheDo, onDoiChe
               disabled={disabled}
             />
             <OSoNho
-              label="Giữ lại"
-              unit="cái"
+              label={t("Giữ lại")}
+              unit={t("cái")}
               min={0}
               value={values.tonDem}
               onChange={(value) => onChange("tonDem", value)}
@@ -71,8 +72,8 @@ export function TheTonKho({ moTa, values, errors = {}, onChange, cheDo, onDoiChe
               disabled={disabled}
             />
             <OSoNho
-              label="Hiện 0 khi còn ≤"
-              unit="cái"
+              label={t("Hiện 0 khi còn ≤")}
+              unit={t("cái")}
               min={0}
               value={values.nguongVe0}
               onChange={(value) => onChange("nguongVe0", value)}
@@ -80,7 +81,7 @@ export function TheTonKho({ moTa, values, errors = {}, onChange, cheDo, onDoiChe
               disabled={disabled}
             />
             <p className="basis-full text-[13px] text-bo-muted">
-              Còn 20 cái thì {tenSan} hiện <span className="font-semibold tabular-nums text-bo-heading">{viDu(20)}</span>; còn 3 cái thì hiện{" "}
+              {t("Còn 20 cái thì {{tenSan}} hiện", { tenSan })} <span className="font-semibold tabular-nums text-bo-heading">{viDu(20)}</span>{t("; còn 3 cái thì hiện")}{" "}
               <span className="font-semibold tabular-nums text-bo-heading">{viDu(3)}</span>.
             </p>
           </div>
@@ -88,11 +89,11 @@ export function TheTonKho({ moTa, values, errors = {}, onChange, cheDo, onDoiChe
       </DongCaiDat>
       {dongKho ?? (
         <DongCaiDat
-          title="Vị trí kho trên Shopify"
-          description="Số tồn được ghi vào địa điểm mặc định của cửa hàng Shopify (Settings › Locations)."
+          title={t("Vị trí kho trên Shopify")}
+          description={t("Số tồn được ghi vào địa điểm mặc định của cửa hàng Shopify (Settings › Locations).")}
           control={
             <span className={`max-w-[240px] truncate text-sm ${khoSan ? "text-bo-foreground" : "text-bo-muted"}`}>
-              {khoSan || "Không đọc được vị trí từ Shopify"}
+              {khoSan || t("Không đọc được vị trí từ Shopify")}
             </span>
           }
         />
@@ -118,39 +119,39 @@ export function TheDonHang({
   children,
   tenSan = "Shopify",
   tienToDon = "SHP",
-  nhanCongTac = "Tự động lấy đơn mới",
+  nhanCongTac = t("Tự động lấy đơn mới"),
   khachMacDinh,
   ghiChu,
 }) {
   const chuKy = cauHinh?.chuKyPhut ?? 10;
   return (
-    <TheCaiDat title="Đơn hàng" description={moTa}>
+    <TheCaiDat title={t("Đơn hàng")} description={moTa}>
       {/* Chu kỳ chỉ ghi ở dòng "Chu kỳ chạy"; câu dưới công tắc chỉ nói số đơn mang tiền tố gì */}
       <DongCongTac
         title={nhanCongTac}
-        description={`Đơn về FCentric mang số ${tienToDon}-… để dễ nhận ra.`}
+        description={t("Đơn về FCentric mang số {{tienToDon}}-… để dễ nhận ra.", { tienToDon })}
         checked={values.tuDongLayDon}
         onCheckedChange={(checked) => onChange("tuDongLayDon", checked)}
         disabled={disabled}
       />
       {children}
       {/* Job lấy đơn hủy đơn theo sàn; đơn đã xuất kho, hoàn thành hoặc hoàn trả được giữ nguyên. */}
-      <DongCaiDat giaTriChu title={`Đơn hủy trên ${tenSan}`} control={<span className="text-sm text-bo-foreground">Hủy theo nếu chưa xuất kho</span>} />
+      <DongCaiDat giaTriChu title={t("Đơn hủy trên {{tenSan}}", { tenSan })} control={<span className="text-sm text-bo-foreground">{t("Hủy theo nếu chưa xuất kho")}</span>} />
       {khachMacDinh ? (
         <DongCaiDat
           giaTriChu
-          title="Khách hàng"
-          description="Tên và số điện thoại người nhận do sàn che một phần."
-          control={<span className="text-sm text-bo-foreground">{`Gán khách "${khachMacDinh}"`}</span>}
+          title={t("Khách hàng")}
+          description={t("Tên và số điện thoại người nhận do sàn che một phần.")}
+          control={<span className="text-sm text-bo-foreground">{t("Gán khách \"{{khachMacDinh}}\"", { khachMacDinh })}</span>}
         />
       ) : null}
       <DongCaiDat
         giaTriChu
-        title="Chu kỳ chạy"
-        description="Dùng chung cho mọi kênh."
+        title={t("Chu kỳ chạy")}
+        description={t("Dùng chung cho mọi kênh.")}
         control={
           <span className="text-sm tabular-nums text-bo-foreground">
-            {chuKy} phút
+            {t("{{chuKy}} phút", { chuKy })}
             {duongDanDoiChuKy ? (
               <>
                 {" · "}
@@ -159,7 +160,7 @@ export function TheDonHang({
                   to={duongDanDoiChuKy}
                   className="rounded-sm font-medium text-bo-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 max-sm:-mx-3 max-sm:inline-flex max-sm:min-h-11 max-sm:items-center max-sm:px-3 cam-ung:-mx-3 cam-ung:inline-flex cam-ung:min-h-11 cam-ung:items-center cam-ung:px-3"
                 >
-                  Đổi
+                  {t("Đổi")}
                 </Link>
               </>
             ) : null}

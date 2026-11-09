@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { toast } from "@/lib/thongBaoNhanh";
 import { shopeeSimulatorService } from "@/services/shopeeSimulatorService";
+import { t } from "@/i18n";
 
 export default function ShopeeSimulatorPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -49,7 +50,7 @@ export default function ShopeeSimulatorPage() {
                 </span>
               </div>
               <p className="text-xs text-orange-100 hidden sm:block">
-                Cổng kiểm thử giả lập hai chiều: Buyer Storefront & Seller Center
+                {t("Cổng kiểm thử giả lập hai chiều: Buyer Storefront & Seller Center")}
               </p>
             </div>
           </div>
@@ -65,7 +66,7 @@ export default function ShopeeSimulatorPage() {
               }`}
             >
               <ShoppingBag className="w-4 h-4" />
-              <span>Người Mua (Buyer)</span>
+              <span>{t("Người Mua (Buyer)")}</span>
             </button>
             <button
               onClick={() => setTab("seller")}
@@ -76,7 +77,7 @@ export default function ShopeeSimulatorPage() {
               }`}
             >
               <Store className="w-4 h-4" />
-              <span>Kênh Người Bán (Seller)</span>
+              <span>{t("Kênh Người Bán (Seller)")}</span>
             </button>
             <button
               onClick={() => setTab("oauth")}
@@ -87,7 +88,7 @@ export default function ShopeeSimulatorPage() {
               }`}
             >
               <KeyRound className="w-4 h-4" />
-              <span>Ủy quyền OAuth2</span>
+              <span>{t("Ủy quyền OAuth2")}</span>
             </button>
           </div>
 
@@ -98,9 +99,9 @@ export default function ShopeeSimulatorPage() {
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1.5 text-xs bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-lg border border-white/20 transition-colors"
-              title="Mở FCentric Omnichannel Shopee trong tab mới"
+              title={t("Mở FCentric Omnichannel Shopee trong tab mới")}
             >
-              <span>Về FCentric</span>
+              <span>{t("Về FCentric")}</span>
               <ExternalLink className="w-3.5 h-3.5" />
             </Link>
           </div>
@@ -116,7 +117,7 @@ export default function ShopeeSimulatorPage() {
 
       {/* ── Footer ──────────────────────────────────────────────────────── */}
       <footer className="bg-white border-t border-slate-200 py-3 text-center text-xs text-slate-500">
-        Shopee Open Platform Simulator • Môi trường thử nghiệm tương tác FCentric Omnichannel • Tương thích chuẩn API v2
+        {t("Shopee Open Platform Simulator • Môi trường thử nghiệm tương tác FCentric Omnichannel • Tương thích chuẩn API v2")}
       </footer>
     </div>
   );
@@ -138,7 +139,7 @@ function BuyerStorefrontView() {
       const data = await shopeeSimulatorService.getStorefrontProducts();
       setProducts(data);
     } catch (err) {
-      toast.error("Không thể tải danh sách sản phẩm sàn Shopee");
+      toast.error(t("Không thể tải danh sách sản phẩm sàn Shopee"));
     } finally {
       setLoading(false);
     }
@@ -161,12 +162,11 @@ function BuyerStorefrontView() {
         <div className="space-y-2">
           <div className="inline-flex items-center gap-1.5 bg-black/20 text-xs px-2.5 py-1 rounded-full font-semibold">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            Shopee Mall • Gian Hàng FCentric Official
+            {t("Shopee Mall • Gian Hàng FCentric Official")}
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">Mua sắm Thời trang FCentric Trực tuyến</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{t("Mua sắm Thời trang FCentric Trực tuyến")}</h1>
           <p className="text-sm text-orange-100 max-w-xl">
-            Sản phẩm được đồng bộ tồn kho thời gian thực từ kho FCentric WMS. Đặt hàng để kiểm chứng luồng kéo đơn và
-            trừ tồn giữ chỗ tự động!
+            {t("Sản phẩm được đồng bộ tồn kho thời gian thực từ kho FCentric WMS. Đặt hàng để kiểm chứng luồng kéo đơn và trừ tồn giữ chỗ tự động!")}
           </p>
         </div>
         <div className="flex gap-2">
@@ -176,7 +176,7 @@ function BuyerStorefrontView() {
             className="flex items-center gap-1.5 bg-white text-[#EE4D2D] hover:bg-orange-50 px-4 py-2 rounded-xl text-sm font-semibold shadow-sm transition-colors"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-            <span>Làm mới tồn sàn</span>
+            <span>{t("Làm mới tồn sàn")}</span>
           </button>
         </div>
       </div>
@@ -188,7 +188,7 @@ function BuyerStorefrontView() {
           type="text"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Tìm sản phẩm trên Shopee (Áo polo, Sơ mi, Quần tây...)"
+          placeholder={t("Tìm sản phẩm trên Shopee (Áo polo, Sơ mi, Quần tây...)")}
           className="flex-1 bg-transparent text-sm text-slate-800 placeholder-slate-400 focus:outline-none"
         />
         {searchTerm && (
@@ -202,14 +202,14 @@ function BuyerStorefrontView() {
       {loading ? (
         <div className="py-20 text-center text-slate-400 flex flex-col items-center gap-3">
           <RefreshCw className="w-8 h-8 animate-spin text-[#EE4D2D]" />
-          <p className="text-sm">Đang tải sản phẩm trên sàn Shopee...</p>
+          <p className="text-sm">{t("Đang tải sản phẩm trên sàn Shopee...")}</p>
         </div>
       ) : filteredProducts.length === 0 ? (
         <div className="bg-white rounded-2xl p-12 text-center border border-dashed border-slate-300">
           <ShoppingBag className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-          <h3 className="text-base font-semibold text-slate-700">Chưa có sản phẩm nào trên sàn Shopee</h3>
+          <h3 className="text-base font-semibold text-slate-700">{t("Chưa có sản phẩm nào trên sàn Shopee")}</h3>
           <p className="text-sm text-slate-500 mt-1 max-w-md mx-auto">
-            Hãy quay lại FCentric và bấm "Đẩy tồn lên Shopee" hoặc bấm "Làm mới" để tự động khởi tạo dữ liệu mẫu.
+            {t("Hãy quay lại FCentric và bấm \"Đẩy tồn lên Shopee\" hoặc bấm \"Làm mới\" để tự động khởi tạo dữ liệu mẫu.")}
           </p>
         </div>
       ) : (
@@ -239,7 +239,7 @@ function BuyerStorefrontView() {
                   </span>
                   {totalStock === 0 && (
                     <div className="absolute inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center">
-                      <span className="bg-white text-slate-800 text-xs font-bold px-2 py-1 rounded">HẾT HÀNG</span>
+                      <span className="bg-white text-slate-800 text-xs font-bold px-2 py-1 rounded">{t("HẾT HÀNG")}</span>
                     </div>
                   )}
                 </div>
@@ -259,7 +259,7 @@ function BuyerStorefrontView() {
                         {Number(p.price || 0).toLocaleString("vi-VN")}
                       </span>
                     </div>
-                    <span className="text-[10px] text-slate-500 font-medium">Còn {totalStock}</span>
+                    <span className="text-[10px] text-slate-500 font-medium">{t("Còn {{so}}", { so: totalStock })}</span>
                   </div>
                 </div>
               </div>
@@ -292,9 +292,9 @@ function BuyerCheckoutModal({ product, onClose, onSuccess }) {
   const models = product.models || [];
   const [selectedModel, setSelectedModel] = useState(models[0] || null);
   const [quantity, setQuantity] = useState(1);
-  const [buyerName, setBuyerName] = useState("Nguyễn Thu Thảo");
+  const [buyerName, setBuyerName] = useState("Nguyễn Thu Thảo"); // i18n-giu-nguyen: dữ liệu mẫu gửi máy chủ giả lập
   const [buyerPhone, setBuyerPhone] = useState("0987654321");
-  const [address, setAddress] = useState("Số 18 Hoàng Diệu, P. Điện Biên, Q. Ba Đình, Hà Nội");
+  const [address, setAddress] = useState("Số 18 Hoàng Diệu, P. Điện Biên, Q. Ba Đình, Hà Nội"); // i18n-giu-nguyen: dữ liệu mẫu gửi máy chủ giả lập
   const [paymentMethod, setPaymentMethod] = useState("CASH_ON_DELIVERY");
   const [submitting, setSubmitting] = useState(false);
 
@@ -303,11 +303,11 @@ function BuyerCheckoutModal({ product, onClose, onSuccess }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!selectedModel) {
-      toast.error("Vui lòng chọn phân loại hàng");
+      toast.error(t("Vui lòng chọn phân loại hàng"));
       return;
     }
     if (quantity > stock) {
-      toast.error(`Số lượng tồn chỉ còn ${stock} sản phẩm`);
+      toast.error(t("Số lượng tồn chỉ còn {{count}} sản phẩm", { count: stock }));
       return;
     }
 
@@ -322,10 +322,10 @@ function BuyerCheckoutModal({ product, onClose, onSuccess }) {
         shippingAddress: address,
         paymentMethod,
       });
-      toast.success("Đặt hàng thành công trên Shopee Mall!");
+      toast.success(t("Đặt hàng thành công trên Shopee Mall!"));
       onSuccess(order);
     } catch (err) {
-      toast.error(err.response?.data?.message || err.message || "Đặt hàng thất bại");
+      toast.error(err.response?.data?.message || err.message || t("Đặt hàng thất bại"));
     } finally {
       setSubmitting(false);
     }
@@ -337,7 +337,7 @@ function BuyerCheckoutModal({ product, onClose, onSuccess }) {
         <div className="bg-[#EE4D2D] p-4 text-white flex items-center justify-between">
           <div className="flex items-center gap-2">
             <ShoppingCart className="w-5 h-5" />
-            <h3 className="font-bold text-base">Đặt Mua Trên Shopee Mall</h3>
+            <h3 className="font-bold text-base">{t("Đặt Mua Trên Shopee Mall")}</h3>
           </div>
           <button onClick={onClose} className="text-white/80 hover:text-white">
             <X className="w-5 h-5" />
@@ -356,7 +356,7 @@ function BuyerCheckoutModal({ product, onClose, onSuccess }) {
             </div>
             <div>
               <h4 className="text-sm font-semibold text-slate-800 line-clamp-1">{product.itemName}</h4>
-              <p className="text-xs text-slate-400 mt-0.5">SKU cha: {product.itemSku}</p>
+              <p className="text-xs text-slate-400 mt-0.5">{t("SKU cha: {{itemSku}}", { itemSku: product.itemSku })}</p>
               <div className="text-[#EE4D2D] font-extrabold text-base mt-1">
                 ₫{Number(selectedModel?.price || product.price || 0).toLocaleString("vi-VN")}
               </div>
@@ -365,7 +365,7 @@ function BuyerCheckoutModal({ product, onClose, onSuccess }) {
 
           {/* Chọn phân loại hàng */}
           <div>
-            <label className="text-xs font-bold text-slate-700 block mb-2">Chọn Phân loại hàng (Màu & Size):</label>
+            <label className="text-xs font-bold text-slate-700 block mb-2">{t("Chọn Phân loại hàng (Màu & Size):")}</label>
             <div className="grid grid-cols-2 gap-2">
               {models.map((m) => (
                 <button
@@ -385,7 +385,7 @@ function BuyerCheckoutModal({ product, onClose, onSuccess }) {
                   <div className="text-[11px] text-slate-500 mt-0.5 flex justify-between">
                     <span>SKU: {m.modelSku}</span>
                     <span className={m.stockQuantity > 0 ? "font-bold text-emerald-600" : "font-bold text-rose-500"}>
-                      {m.stockQuantity > 0 ? `Còn ${m.stockQuantity}` : "Hết hàng"}
+                      {m.stockQuantity > 0 ? t("Còn {{so}}", { so: m.stockQuantity }) : t("Hết hàng")}
                     </span>
                   </div>
                 </button>
@@ -395,7 +395,7 @@ function BuyerCheckoutModal({ product, onClose, onSuccess }) {
 
           {/* Số lượng */}
           <div className="flex items-center justify-between pt-2">
-            <span className="text-xs font-bold text-slate-700">Số lượng mua:</span>
+            <span className="text-xs font-bold text-slate-700">{t("Số lượng mua:")}</span>
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -418,13 +418,13 @@ function BuyerCheckoutModal({ product, onClose, onSuccess }) {
 
           {/* Thông tin giao hàng */}
           <div className="space-y-3 pt-3 border-t border-slate-100">
-            <label className="text-xs font-bold text-slate-700 block">Địa chỉ nhận hàng (Shopee Address):</label>
+            <label className="text-xs font-bold text-slate-700 block">{t("Địa chỉ nhận hàng (Shopee Address):")}</label>
             <div className="grid grid-cols-2 gap-2">
               <input
                 type="text"
                 value={buyerName}
                 onChange={(e) => setBuyerName(e.target.value)}
-                placeholder="Tên người nhận"
+                placeholder={t("Tên người nhận")}
                 required
                 className="p-2 border border-slate-200 rounded-lg text-xs"
               />
@@ -432,7 +432,7 @@ function BuyerCheckoutModal({ product, onClose, onSuccess }) {
                 type="text"
                 value={buyerPhone}
                 onChange={(e) => setBuyerPhone(e.target.value)}
-                placeholder="Số điện thoại"
+                placeholder={t("Số điện thoại")}
                 required
                 className="p-2 border border-slate-200 rounded-lg text-xs"
               />
@@ -440,7 +440,7 @@ function BuyerCheckoutModal({ product, onClose, onSuccess }) {
             <textarea
               value={address}
               onChange={(e) => setAddress(e.target.value)}
-              placeholder="Địa chỉ chi tiết (Số nhà, đường, phường, quận...)"
+              placeholder={t("Địa chỉ chi tiết (Số nhà, đường, phường, quận...)")}
               required
               rows={2}
               className="w-full p-2 border border-slate-200 rounded-lg text-xs"
@@ -449,7 +449,7 @@ function BuyerCheckoutModal({ product, onClose, onSuccess }) {
 
           {/* Phương thức thanh toán */}
           <div>
-            <label className="text-xs font-bold text-slate-700 block mb-1.5">Phương thức thanh toán:</label>
+            <label className="text-xs font-bold text-slate-700 block mb-1.5">{t("Phương thức thanh toán:")}</label>
             <div className="flex gap-2">
               <label className="flex-1 flex items-center gap-2 p-2.5 border rounded-xl text-xs font-medium cursor-pointer hover:bg-slate-50">
                 <input
@@ -458,7 +458,7 @@ function BuyerCheckoutModal({ product, onClose, onSuccess }) {
                   checked={paymentMethod === "CASH_ON_DELIVERY"}
                   onChange={() => setPaymentMethod("CASH_ON_DELIVERY")}
                 />
-                <span>Thanh toán khi nhận hàng (COD)</span>
+                <span>{t("Thanh toán khi nhận hàng (COD)")}</span>
               </label>
               <label className="flex-1 flex items-center gap-2 p-2.5 border rounded-xl text-xs font-medium cursor-pointer hover:bg-slate-50">
                 <input
@@ -467,7 +467,7 @@ function BuyerCheckoutModal({ product, onClose, onSuccess }) {
                   checked={paymentMethod === "SHOPEE_PAY"}
                   onChange={() => setPaymentMethod("SHOPEE_PAY")}
                 />
-                <span>Ví ShopeePay</span>
+                <span>{t("Ví ShopeePay")}</span>
               </label>
             </div>
           </div>
@@ -479,14 +479,14 @@ function BuyerCheckoutModal({ product, onClose, onSuccess }) {
               onClick={onClose}
               className="flex-1 py-2.5 border border-slate-300 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50"
             >
-              Hủy
+              {t("Hủy")}
             </button>
             <button
               type="submit"
               disabled={submitting || stock === 0}
               className="flex-1 py-2.5 bg-[#EE4D2D] hover:bg-[#d73211] text-white rounded-xl text-sm font-bold shadow-md shadow-orange-500/20 disabled:opacity-50 transition-colors"
             >
-              {submitting ? "Đang đặt hàng..." : stock === 0 ? "Hết hàng" : "Đặt Hàng Ngay"}
+              {submitting ? t("Đang đặt hàng...") : stock === 0 ? t("Hết hàng") : t("Đặt Hàng Ngay")}
             </button>
           </div>
         </form>
@@ -505,29 +505,29 @@ function OrderSuccessModal({ order, onClose }) {
         </div>
 
         <div>
-          <h3 className="text-lg font-bold text-slate-800">Đặt hàng Shopee thành công!</h3>
-          <p className="text-xs text-slate-500 mt-1">Đơn hàng đã được ghi nhận trên sàn Shopee Mall</p>
+          <h3 className="text-lg font-bold text-slate-800">{t("Đặt hàng Shopee thành công!")}</h3>
+          <p className="text-xs text-slate-500 mt-1">{t("Đơn hàng đã được ghi nhận trên sàn Shopee Mall")}</p>
         </div>
 
         <div className="bg-slate-50 rounded-xl p-4 text-left text-xs space-y-2 border border-slate-200">
           <div className="flex justify-between">
-            <span className="text-slate-500">Mã đơn Shopee:</span>
+            <span className="text-slate-500">{t("Mã đơn Shopee:")}</span>
             <span className="font-mono font-bold text-[#EE4D2D]">{order.orderSn}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-slate-500">Mã vận đơn SPX:</span>
+            <span className="text-slate-500">{t("Mã vận đơn SPX:")}</span>
             <span className="font-mono font-bold text-slate-800">{order.trackingNumber}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-slate-500">Trạng thái sàn:</span>
+            <span className="text-slate-500">{t("Trạng thái sàn:")}</span>
             <span className="font-semibold text-emerald-600">{order.orderStatus}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-slate-500">Người mua:</span>
+            <span className="text-slate-500">{t("Người mua:")}</span>
             <span className="font-medium text-slate-700">{order.buyerName}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-slate-500">Tổng thanh toán:</span>
+            <span className="text-slate-500">{t("Tổng thanh toán:")}</span>
             <span className="font-bold text-slate-800">
               ₫{Number(order.totalAmount || 0).toLocaleString("vi-VN")}
             </span>
@@ -537,9 +537,8 @@ function OrderSuccessModal({ order, onClose }) {
         <div className="bg-amber-50 rounded-xl p-3 text-left flex gap-2.5 border border-amber-200 text-amber-800 text-xs">
           <Clock className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
           <p>
-            <strong>Bước tiếp theo:</strong> Quay lại hệ thống FCentric, mở trang{" "}
-            <em>Kênh bán hàng › Shopee Sandbox</em> và bấm <strong>"Đồng bộ ngay"</strong> để kéo đơn này về kho và
-            sinh Phiếu xuất kho!
+            <strong>{t("Bước tiếp theo:")}</strong> {t("Quay lại hệ thống FCentric, mở trang")}{" "}
+            <em>{t("Kênh bán hàng › Shopee Sandbox")}</em> {t("và bấm")} <strong>{t("\"Đồng bộ ngay\"")}</strong> {t("để kéo đơn này về kho và sinh Phiếu xuất kho!")}
           </p>
         </div>
 
@@ -548,14 +547,14 @@ function OrderSuccessModal({ order, onClose }) {
             onClick={onClose}
             className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-semibold"
           >
-            Tiếp tục mua hàng
+            {t("Tiếp tục mua hàng")}
           </button>
           <Link
             to="/channels/shopee-sandbox/orders"
             target="_blank"
             className="flex-1 py-2.5 bg-[#EE4D2D] hover:bg-[#d73211] text-white rounded-xl text-sm font-bold flex items-center justify-center gap-1.5"
           >
-            <span>Xem ở FCentric</span>
+            <span>{t("Xem ở FCentric")}</span>
             <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
@@ -583,7 +582,7 @@ function SellerCenterView() {
       setProducts(prods);
       setOrders(ords);
     } catch (err) {
-      toast.error("Không thể tải dữ liệu Shopee Seller Center");
+      toast.error(t("Không thể tải dữ liệu Shopee Seller Center"));
     } finally {
       setLoading(false);
     }
@@ -600,21 +599,21 @@ function SellerCenterView() {
         cancelReason: reason,
         cancelUser: user,
       });
-      toast.success(`Đã cập nhật đơn ${orderSn} thành ${newStatus}`);
+      toast.success(t("Đã cập nhật đơn {{orderSn}} thành {{newStatus}}", { orderSn, newStatus }));
       taiDuLieu();
     } catch (err) {
-      toast.error("Không thể cập nhật trạng thái đơn hàng");
+      toast.error(t("Không thể cập nhật trạng thái đơn hàng"));
     }
   };
 
   const handleResetData = async () => {
-    if (!window.confirm("Bạn có chắc chắn muốn đặt lại toàn bộ dữ liệu sàn Shopee Sandbox về mặc định?")) return;
+    if (!window.confirm(t("Bạn có chắc chắn muốn đặt lại toàn bộ dữ liệu sàn Shopee Sandbox về mặc định?"))) return;
     try {
       await shopeeSimulatorService.resetData();
-      toast.success("Đã reset dữ liệu sàn Shopee Sandbox thành công!");
+      toast.success(t("Đã reset dữ liệu sàn Shopee Sandbox thành công!"));
       taiDuLieu();
     } catch (err) {
-      toast.error("Lỗi khi reset dữ liệu");
+      toast.error(t("Lỗi khi reset dữ liệu"));
     }
   };
 
@@ -627,8 +626,8 @@ function SellerCenterView() {
             <Store className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="font-bold text-base text-slate-800">Shopee Seller Center (Kênh Người Bán)</h2>
-            <p className="text-xs text-slate-500">Gian hàng: FCentric Official Store • Shop ID: 10892019</p>
+            <h2 className="font-bold text-base text-slate-800">{t("Shopee Seller Center (Kênh Người Bán)")}</h2>
+            <p className="text-xs text-slate-500">{t("Gian hàng: FCentric Official Store • Shop ID: 10892019")}</p>
           </div>
         </div>
 
@@ -639,14 +638,14 @@ function SellerCenterView() {
             className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-colors"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-            <span>Làm mới sàn</span>
+            <span>{t("Làm mới sàn")}</span>
           </button>
           <button
             onClick={handleResetData}
             className="flex items-center gap-1.5 px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-semibold transition-colors"
           >
             <Trash2 className="w-3.5 h-3.5" />
-            <span>Reset dữ liệu</span>
+            <span>{t("Reset dữ liệu")}</span>
           </button>
         </div>
       </div>
@@ -661,7 +660,7 @@ function SellerCenterView() {
               : "border-transparent text-slate-500 hover:text-slate-800"
           }`}
         >
-          Quản lý Tồn kho & Sản phẩm ({products.length} SKU)
+          {t("Quản lý Tồn kho & Sản phẩm ({{so}} SKU)", { so: products.length, count: products.length })}
         </button>
         <button
           onClick={() => setSubTab("orders")}
@@ -671,7 +670,7 @@ function SellerCenterView() {
               : "border-transparent text-slate-500 hover:text-slate-800"
           }`}
         >
-          Quản lý Đơn hàng sàn ({orders.length} đơn)
+          {t("Quản lý Đơn hàng sàn ({{count}} đơn)", { count: orders.length })}
         </button>
       </div>
 
@@ -681,8 +680,7 @@ function SellerCenterView() {
           <div className="p-4 bg-orange-50/50 border-b border-slate-100 text-xs text-orange-900 flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-[#EE4D2D] shrink-0" />
             <span>
-              <strong>Kiểm chứng Live Sync:</strong> Cột <em>"Tồn kho trên Shopee"</em> sẽ lập tức thay đổi khi bạn xuất
-              kho hoặc bấm "Đẩy tồn" từ FCentric WMS!
+              <strong>{t("Kiểm chứng Live Sync:")}</strong> {t("Cột")} <em>{t("\"Tồn kho trên Shopee\"")}</em> {t("sẽ lập tức thay đổi khi bạn xuất kho hoặc bấm \"Đẩy tồn\" từ FCentric WMS!")}
             </span>
           </div>
 
@@ -691,18 +689,18 @@ function SellerCenterView() {
               <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
                 <tr>
                   <th className="py-3 px-4">Item ID / Model ID</th>
-                  <th className="py-3 px-4">Mã SKU FCentric</th>
-                  <th className="py-3 px-4">Tên sản phẩm & Phân loại</th>
-                  <th className="py-3 px-4 text-right">Giá niêm yết</th>
-                  <th className="py-3 px-4 text-center">Tồn kho trên Shopee</th>
-                  <th className="py-3 px-4 text-center">Trạng thái sàn</th>
+                  <th className="py-3 px-4">{t("Mã SKU FCentric")}</th>
+                  <th className="py-3 px-4">{t("Tên sản phẩm & Phân loại")}</th>
+                  <th className="py-3 px-4 text-right">{t("Giá niêm yết")}</th>
+                  <th className="py-3 px-4 text-center">{t("Tồn kho trên Shopee")}</th>
+                  <th className="py-3 px-4 text-center">{t("Trạng thái sàn")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {products.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="py-8 text-center text-slate-400">
-                      Chưa có dữ liệu sản phẩm trên sàn Shopee
+                      {t("Chưa có dữ liệu sản phẩm trên sàn Shopee")}
                     </td>
                   </tr>
                 ) : (
@@ -727,7 +725,7 @@ function SellerCenterView() {
                               : "bg-rose-100 text-rose-800 border border-rose-300"
                           }`}
                         >
-                          {p.stockQuantity} cái
+                          {t("{{so}} cái", { so: p.stockQuantity })}
                         </span>
                       </td>
                       <td className="py-3 px-4 text-center">
@@ -750,8 +748,7 @@ function SellerCenterView() {
             <div className="flex items-center gap-2">
               <PackageCheck className="w-4 h-4 text-[#EE4D2D] shrink-0" />
               <span>
-                Thao tác đổi trạng thái đơn trên sàn để kiểm chứng phản ứng của FCentric (Đặc biệt là ca hủy đơn giữa
-                chừng).
+                {t("Thao tác đổi trạng thái đơn trên sàn để kiểm chứng phản ứng của FCentric (Đặc biệt là ca hủy đơn giữa chừng).")}
               </span>
             </div>
             <Link
@@ -759,7 +756,7 @@ function SellerCenterView() {
               target="_blank"
               className="text-xs text-[#EE4D2D] font-bold hover:underline flex items-center gap-1"
             >
-              <span>Xem đơn FCentric</span>
+              <span>{t("Xem đơn FCentric")}</span>
               <ExternalLink className="w-3.5 h-3.5" />
             </Link>
           </div>
@@ -768,19 +765,19 @@ function SellerCenterView() {
             <table className="w-full text-left text-xs text-slate-700">
               <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
                 <tr>
-                  <th className="py-3 px-4">Mã đơn Shopee</th>
-                  <th className="py-3 px-4">Mã vận đơn SPX</th>
-                  <th className="py-3 px-4">Người mua & Địa chỉ</th>
-                  <th className="py-3 px-4 text-right">Tổng tiền</th>
-                  <th className="py-3 px-4 text-center">Trạng thái sàn</th>
-                  <th className="py-3 px-4 text-center">Hành động kiểm thử</th>
+                  <th className="py-3 px-4">{t("Mã đơn Shopee")}</th>
+                  <th className="py-3 px-4">{t("Mã vận đơn SPX")}</th>
+                  <th className="py-3 px-4">{t("Người mua & Địa chỉ")}</th>
+                  <th className="py-3 px-4 text-right">{t("Tổng tiền")}</th>
+                  <th className="py-3 px-4 text-center">{t("Trạng thái sàn")}</th>
+                  <th className="py-3 px-4 text-center">{t("Hành động kiểm thử")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {orders.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="py-8 text-center text-slate-400">
-                      Chưa có đơn hàng nào phát sinh trên sàn Shopee
+                      {t("Chưa có đơn hàng nào phát sinh trên sàn Shopee")}
                     </td>
                   </tr>
                 ) : (
@@ -829,18 +826,19 @@ function SellerCenterView() {
                               <button
                                 onClick={() => handleUpdateStatus(o.orderSn, "SHIPPED")}
                                 className="px-2 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded text-[10px] font-semibold"
-                                title="Giả lập bưu tá SPX lấy hàng"
+                                title={t("Giả lập bưu tá SPX lấy hàng")}
                               >
-                                Đang giao
+                                {t("Đang giao")}
                               </button>
                               <button
                                 onClick={() =>
+                                  // i18n-giu-nguyen: lý do hủy gửi máy chủ
                                   handleUpdateStatus(o.orderSn, "CANCELLED", "Người mua đổi ý muốn hủy đơn", "BUYER")
                                 }
                                 className="px-2 py-1 bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 rounded text-[10px] font-semibold"
-                                title="Giả lập người mua hủy đơn (Kiểm tra Wave Picking Guard)"
+                                title={t("Giả lập người mua hủy đơn (Kiểm tra Wave Picking Guard)")}
                               >
-                                Hủy đơn
+                                {t("Hủy đơn", { context: "nut" })}
                               </button>
                             </>
                           )}
@@ -849,14 +847,14 @@ function SellerCenterView() {
                               onClick={() => handleUpdateStatus(o.orderSn, "COMPLETED")}
                               className="px-2 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded text-[10px] font-semibold"
                             >
-                              Giao xong
+                              {t("Giao xong")}
                             </button>
                           )}
                           {o.orderStatus === "CANCELLED" && (
-                            <span className="text-[10px] text-slate-400 italic">Đã hủy</span>
+                            <span className="text-[10px] text-slate-400 italic">{t("Đã hủy")}</span>
                           )}
                           {o.orderStatus === "COMPLETED" && (
-                            <span className="text-[10px] text-emerald-600 font-semibold">Hoàn tất</span>
+                            <span className="text-[10px] text-emerald-600 font-semibold">{t("Hoàn tất")}</span>
                           )}
                         </div>
                       </td>
@@ -902,48 +900,46 @@ function OAuthConsentView() {
             <ShoppingBag className="w-10 h-10 text-[#EE4D2D]" />
           </div>
           <h2 className="text-xl font-bold">Shopee Open Platform</h2>
-          <p className="text-xs text-orange-100 mt-1">Cổng Ủy Quyền Ứng Dụng Đối Tác (OAuth 2.0)</p>
+          <p className="text-xs text-orange-100 mt-1">{t("Cổng Ủy Quyền Ứng Dụng Đối Tác (OAuth 2.0)")}</p>
         </div>
 
         {/* Nội dung cấp quyền */}
         <div className="p-6 space-y-5">
           <div className="text-center space-y-1">
-            <h3 className="font-bold text-base text-slate-800">Cấp quyền cho Ứng dụng FCentric Omnichannel</h3>
+            <h3 className="font-bold text-base text-slate-800">{t("Cấp quyền cho Ứng dụng FCentric Omnichannel")}</h3>
             <p className="text-xs text-slate-500">
-              Gian hàng: <strong>FCentric Official Store</strong> (Shop ID: 10892019)
+              {t("Gian hàng:")} <strong>FCentric Official Store</strong> (Shop ID: 10892019)
             </p>
           </div>
 
           <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 space-y-3">
             <span className="text-xs font-bold text-slate-700 block">
-              Ứng dụng FCentric sẽ có các quyền hạn sau:
+              {t("Ứng dụng FCentric sẽ có các quyền hạn sau:")}
             </span>
             <div className="space-y-2 text-xs text-slate-600">
               <div className="flex items-start gap-2">
                 <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                 <span>
-                  <strong>Quản lý sản phẩm & tồn kho:</strong> Đọc thông tin và cập nhật số lượng tồn kho tự động theo
-                  thời gian thực.
+                  <strong>{t("Quản lý sản phẩm & tồn kho:")}</strong> {t("Đọc thông tin và cập nhật số lượng tồn kho tự động theo thời gian thực.")}
                 </span>
               </div>
               <div className="flex items-start gap-2">
                 <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                 <span>
-                  <strong>Quản lý đơn hàng:</strong> Đọc danh sách đơn hàng mới để tạo phiếu xuất kho và xử lý đóng gói.
+                  <strong>{t("Quản lý đơn hàng:")}</strong> {t("Đọc danh sách đơn hàng mới để tạo phiếu xuất kho và xử lý đóng gói.")}
                 </span>
               </div>
               <div className="flex items-start gap-2">
                 <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                 <span>
-                  <strong>Hậu cần & Vận đơn:</strong> Lấy mã vận đơn Shopee Express (SPX) và in tem nhãn nhiệt A6.
+                  <strong>{t("Hậu cần & Vận đơn:")}</strong> {t("Lấy mã vận đơn Shopee Express (SPX) và in tem nhãn nhiệt A6.")}
                 </span>
               </div>
             </div>
           </div>
 
           <div className="text-[11px] text-slate-400 text-center">
-            Bằng việc nhấn "Xác nhận ủy quyền", bạn đồng ý chia sẻ dữ liệu gian hàng với ứng dụng đối tác FCentric theo
-            chính sách bảo mật của Shopee.
+            {t("Bằng việc nhấn \"Xác nhận ủy quyền\", bạn đồng ý chia sẻ dữ liệu gian hàng với ứng dụng đối tác FCentric theo chính sách bảo mật của Shopee.")}
           </div>
 
           {/* Action Buttons */}
@@ -952,7 +948,7 @@ function OAuthConsentView() {
               onClick={handleDeny}
               className="flex-1 py-3 border border-slate-300 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 transition-colors"
             >
-              Từ chối
+              {t("Từ chối")}
             </button>
             <button
               onClick={handleAuthorize}
@@ -962,10 +958,10 @@ function OAuthConsentView() {
               {approving ? (
                 <>
                   <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>Đang ủy quyền...</span>
+                  <span>{t("Đang ủy quyền...")}</span>
                 </>
               ) : (
-                <span>Xác nhận ủy quyền</span>
+                <span>{t("Xác nhận ủy quyền")}</span>
               )}
             </button>
           </div>

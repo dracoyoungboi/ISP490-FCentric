@@ -20,6 +20,7 @@ import { getApiErrorMessage } from "@/utils/apiError";
 import { hasAnyRole, ROLES } from "@/utils/roles";
 import { cn } from "@/lib/utils";
 import { formatDateTime } from "@/utils/dateTime";
+import { t } from "@/i18n";
 
 const TH_CLASS = "h-10 whitespace-nowrap px-3 text-[11px] font-semibold uppercase tracking-wide text-bo-muted";
 const textareaClass =
@@ -85,7 +86,7 @@ export default function ChannelOrderPanel({ donBanHang, onChanged }) {
       onChanged?.();
       return true;
     } catch (error) {
-      const message = getApiErrorMessage(error, "Không thực hiện được thao tác");
+      const message = getApiErrorMessage(error, t("Không thực hiện được thao tác"));
       if (name === "huy" && error?.response?.status === 400) setLyDoError(message);
       else if (name === "co" && error?.response?.status === 400) setFlagError(message);
       else toast.error(message);
@@ -97,7 +98,7 @@ export default function ChannelOrderPanel({ donBanHang, onChanged }) {
   };
 
   const confirmCancel = async () => {
-    const ok = await run("huy", () => donBanHangKenhService.xacNhanHuy(id, { lyDo: lyDo.trim() || undefined }), "Đã hủy đơn theo sàn và nhả giữ chỗ");
+    const ok = await run("huy", () => donBanHangKenhService.xacNhanHuy(id, { lyDo: lyDo.trim() || undefined }), t("Đã hủy đơn theo sàn và nhả giữ chỗ"));
     if (ok) {
       setCancelOpen(false);
       setLyDo("");
@@ -105,23 +106,23 @@ export default function ChannelOrderPanel({ donBanHang, onChanged }) {
   };
 
   const confirmApply = async () => {
-    await run("ap-dung", () => donBanHangKenhService.apDungThayDoi(id), "Đã áp dụng thay đổi từ sàn");
+    await run("ap-dung", () => donBanHangKenhService.apDungThayDoi(id), t("Đã áp dụng thay đổi từ sàn"));
     setApplyOpen(false);
   };
 
   const confirmFlag = async () => {
     if (!flagForm.co) {
-      setFlagError("Chọn cờ đã xử lý.");
+      setFlagError(t("Chọn cờ đã xử lý."));
       return;
     }
     if (!flagForm.ghiChu.trim()) {
-      setFlagError("Nhập ghi chú cách đã xử lý.");
+      setFlagError(t("Nhập ghi chú cách đã xử lý."));
       return;
     }
     const ok = await run(
       "co",
       () => donBanHangKenhService.xuLyCo(id, { co: flagForm.co, ghiChu: flagForm.ghiChu.trim() }),
-      `Đã đánh dấu xử lý cờ ${FLAG_META[flagForm.co]?.label ?? flagForm.co}`,
+      t("Đã đánh dấu xử lý cờ {{co}}", { co: t(FLAG_META[flagForm.co]?.label ?? flagForm.co) }),
     );
     if (ok) setFlagOpen(false);
   };
@@ -136,30 +137,30 @@ export default function ChannelOrderPanel({ donBanHang, onChanged }) {
   // Tên sàn đã ở thẻ kênh bên phải: dòng phụ chỉ ghi tên gian hàng
   return (
     <SurfaceCard
-      title="Thông tin kênh bán"
-      description={info ? info.tenHienThi || null : "Đơn nhập về từ sàn thương mại điện tử"}
+      title={t("Thông tin kênh bán")}
+      description={info ? info.tenHienThi || null : t("Đơn nhập về từ sàn thương mại điện tử")}
       action={<ChannelBadge maKenh={maKenh} label={info?.tenKenh} />}
     >
       {loading && !info ? (
         <div className="flex items-center justify-center gap-2 py-8 text-sm text-bo-muted">
-          <Loader2 className="size-4 animate-spin" /> Đang tải thông tin kênh
+          <Loader2 className="size-4 animate-spin" /> {t("Đang tải thông tin kênh")}
         </div>
       ) : failed && !info ? (
-        <ErrorState className="min-h-40" description="Không tải được thông tin kênh của đơn." onRetry={fetchInfo} />
+        <ErrorState className="min-h-40" description={t("Không tải được thông tin kênh của đơn.")} onRetry={fetchInfo} />
       ) : info ? (
         <div className="space-y-5">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <InfoItem icon={Hash} label="Mã đơn trên sàn" value={info.maDonHangKenh ? <span className="font-mono">{info.maDonHangKenh}</span> : null} />
+            <InfoItem icon={Hash} label={t("Mã đơn trên sàn")} value={info.maDonHangKenh ? <span className="font-mono">{info.maDonHangKenh}</span> : null} />
             {/* Chữ tiếng Việt theo bảng KH mục F; mã lạ (vd. Shopify) giữ nguyên */}
-            <InfoItem icon={BadgeCheck} label="Trạng thái trên sàn" value={nhanTrangThaiSan(maKenh, info.trangThaiSan)} />
-            <InfoItem icon={Calendar} label="Cập nhật từ sàn" value={formatDateTime(info.ngayCapNhatSan)} />
+            <InfoItem icon={BadgeCheck} label={t("Trạng thái trên sàn")} value={t(nhanTrangThaiSan(maKenh, info.trangThaiSan))} />
+            <InfoItem icon={Calendar} label={t("Cập nhật từ sàn")} value={formatDateTime(info.ngayCapNhatSan)} />
             <InfoItem
               icon={User}
-              label="Khách hàng hệ thống"
+              label={t("Khách hàng hệ thống")}
               value={
                 <span>
                   {donBanHang?.khachHang?.tenKhachHang || "—"}
-                  <span className="mt-0.5 block text-xs font-normal text-bo-muted">Người mua trên sàn được ghi vào khách mặc định của gian hàng.</span>
+                  <span className="mt-0.5 block text-xs font-normal text-bo-muted">{t("Người mua trên sàn được ghi vào khách mặc định của gian hàng.")}</span>
                 </span>
               }
             />
@@ -167,12 +168,12 @@ export default function ChannelOrderPanel({ donBanHang, onChanged }) {
 
           {dsCo.length ? (
             <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-bo-muted">Cần xử lý</p>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-bo-muted">{t("Cần xử lý")}</p>
               <FlagList value={dsCo} />
             </div>
           ) : (
             <p className="flex items-center gap-2 text-sm text-bo-success">
-              <CheckCheck className="size-4" /> Đơn không có cờ cần xử lý.
+              <CheckCheck className="size-4" /> {t("Đơn không có cờ cần xử lý.")}
             </p>
           )}
 
@@ -189,7 +190,7 @@ export default function ChannelOrderPanel({ donBanHang, onChanged }) {
                   }}
                   className="gap-1.5 border-bo-danger/40 bg-bo-surface text-bo-danger hover:bg-bo-danger-soft hover:text-bo-danger"
                 >
-                  <XCircle className="size-4" /> Xác nhận hủy theo sàn
+                  <XCircle className="size-4" /> {t("Xác nhận hủy theo sàn")}
                 </Button>
               ) : null}
               {hanhDong.apDungThayDoi ? (
@@ -199,17 +200,17 @@ export default function ChannelOrderPanel({ donBanHang, onChanged }) {
                   onClick={() => setApplyOpen(true)}
                   className="gap-1.5 border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                 >
-                  <RefreshCcw className="size-4" /> Áp dụng thay đổi từ sàn
+                  <RefreshCcw className="size-4" /> {t("Áp dụng thay đổi từ sàn")}
                 </Button>
               ) : null}
               {hanhDong.giuBu ? (
                 <Button
                   disabled={Boolean(busy)}
-                  onClick={() => run("giu-bu", () => donBanHangKenhService.giuBu(id), "Đã giữ bù phần còn thiếu")}
+                  onClick={() => run("giu-bu", () => donBanHangKenhService.giuBu(id), t("Đã giữ bù phần còn thiếu"))}
                   className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover disabled:opacity-50"
                 >
                   {busy === "giu-bu" ? <Loader2 className="size-4 animate-spin" /> : <PackagePlus className="size-4" />}
-                  Giữ bù
+                  {t("Giữ bù")}
                 </Button>
               ) : null}
               {xuLyCo.length > 0 ? (
@@ -223,7 +224,7 @@ export default function ChannelOrderPanel({ donBanHang, onChanged }) {
                   }}
                   className="gap-1.5 border-bo-warning/40 bg-bo-surface text-bo-warning hover:bg-bo-warning-soft hover:text-bo-warning"
                 >
-                  <CheckCheck className="size-4" /> Đánh dấu đã xử lý
+                  <CheckCheck className="size-4" /> {t("Đánh dấu đã xử lý")}
                 </Button>
               ) : null}
             </div>
@@ -231,20 +232,20 @@ export default function ChannelOrderPanel({ donBanHang, onChanged }) {
 
           {giuCho.length > 0 ? (
             <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-bo-muted">Giữ chỗ theo lô</p>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-bo-muted">{t("Giữ chỗ theo lô")}</p>
               <div className="overflow-x-auto rounded-md border border-bo-border">
                 <table className="w-full min-w-[480px] text-sm">
                   <thead>
                     <tr className="border-b border-bo-border bg-bo-surface-subtle">
                       <th className={`${TH_CLASS} text-left`}>SKU</th>
-                      <th className={`${TH_CLASS} text-left`}>Lô</th>
-                      <th className={`${TH_CLASS} text-right`}>Số lượng</th>
-                      <th className={`${TH_CLASS} text-left`}>Trạng thái</th>
+                      <th className={`${TH_CLASS} text-left`}>{t("Lô")}</th>
+                      <th className={`${TH_CLASS} text-right`}>{t("Số lượng")}</th>
+                      <th className={`${TH_CLASS} text-left`}>{t("Trạng thái")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-bo-border">
                     {giuCho.map((row, index) => {
-                      const status = HOLD_STATUS[row.trangThai] ?? { label: row.trangThai ? `Không xác định (mã ${row.trangThai})` : "Chưa có trạng thái" };
+                      const status = HOLD_STATUS[row.trangThai] ?? { label: row.trangThai ? `Không xác định (mã ${row.trangThai})` : "Chưa có trạng thái" }; // i18n-giu-nguyen: nhãn đưa vào StatusBadge, thẻ tự dịch
                       return (
                         <tr key={`${row.chiTietId}-${row.maLo}-${index}`}>
                           <td className="px-3 py-2.5 font-mono text-xs font-semibold text-bo-foreground">{row.maSku}</td>
@@ -270,14 +271,13 @@ export default function ChannelOrderPanel({ donBanHang, onChanged }) {
       <Dialog open={cancelOpen} onOpenChange={(open) => !busy && setCancelOpen(open)}>
         <DialogContent className="rounded-xl border-bo-border sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-bo-foreground">Xác nhận hủy theo sàn</DialogTitle>
+            <DialogTitle className="text-bo-foreground">{t("Xác nhận hủy theo sàn")}</DialogTitle>
             <DialogDescription className="text-slate-600">
-              Sàn đã hủy đơn {donBanHang?.soDonHang}. Hệ thống sẽ gỡ đơn khỏi phiếu nhặt hàng (nếu có), hủy phiếu xuất nháp,
-              nhả giữ chỗ và chuyển đơn sang Đã hủy.
+              {t("Sàn đã hủy đơn {{soDonHang}}. Hệ thống sẽ gỡ đơn khỏi phiếu nhặt hàng (nếu có), hủy phiếu xuất nháp, nhả giữ chỗ và chuyển đơn sang Đã hủy.", { soDonHang: donBanHang?.soDonHang })}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-1.5">
-            <label htmlFor="ly-do-huy" className="text-xs font-semibold uppercase tracking-wide text-bo-muted">Lý do</label>
+            <label htmlFor="ly-do-huy" className="text-xs font-semibold uppercase tracking-wide text-bo-muted">{t("Lý do")}</label>
             <Textarea
               id="ly-do-huy"
               rows={3}
@@ -286,7 +286,7 @@ export default function ChannelOrderPanel({ donBanHang, onChanged }) {
                 setLyDo(event.target.value);
                 setLyDoError("");
               }}
-              placeholder="Bắt buộc khi kết nối sàn không còn hoạt động"
+              placeholder={t("Bắt buộc khi kết nối sàn không còn hoạt động")}
               className={cn(textareaClass, lyDoError && "border-bo-danger")}
             />
             {lyDoError ? <p className="text-xs text-bo-danger">{lyDoError}</p> : null}
@@ -299,7 +299,7 @@ export default function ChannelOrderPanel({ donBanHang, onChanged }) {
               onClick={() => setCancelOpen(false)}
               className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
             >
-              Quay lại
+              {t("Quay lại")}
             </Button>
             <Button
               type="button"
@@ -308,7 +308,7 @@ export default function ChannelOrderPanel({ donBanHang, onChanged }) {
               className="min-w-[150px] gap-2 bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
             >
               {busy === "huy" ? <Loader2 className="size-4 animate-spin" /> : <XCircle className="size-4" />}
-              Xác nhận hủy
+              {t("Xác nhận hủy")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -320,10 +320,10 @@ export default function ChannelOrderPanel({ donBanHang, onChanged }) {
         onClose={() => !busy && setApplyOpen(false)}
         onConfirm={confirmApply}
         variant="info"
-        title="Áp dụng thay đổi từ sàn"
-        description="Hệ thống lấy lại đơn trên sàn, cập nhật số lượng từng dòng, nhả hoặc giữ thêm hàng cho khớp. Đơn đang trong phiếu nhặt hàng cần gỡ khỏi phiếu đó trước."
-        confirmText="Áp dụng"
-        cancelText="Quay lại"
+        title={t("Áp dụng thay đổi từ sàn")}
+        description={t("Hệ thống lấy lại đơn trên sàn, cập nhật số lượng từng dòng, nhả hoặc giữ thêm hàng cho khớp. Đơn đang trong phiếu nhặt hàng cần gỡ khỏi phiếu đó trước.")}
+        confirmText={t("Áp dụng")}
+        cancelText={t("Quay lại")}
         isLoading={busy === "ap-dung"}
       />
 
@@ -331,8 +331,8 @@ export default function ChannelOrderPanel({ donBanHang, onChanged }) {
       <Dialog open={flagOpen} onOpenChange={(open) => !busy && setFlagOpen(open)}>
         <DialogContent className="rounded-xl border-bo-border sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-bo-foreground">Đánh dấu đã xử lý</DialogTitle>
-            <DialogDescription className="text-slate-600">Chọn cờ đã xử lý xong và ghi lại cách xử lý để đối soát sau này.</DialogDescription>
+            <DialogTitle className="text-bo-foreground">{t("Đánh dấu đã xử lý")}</DialogTitle>
+            <DialogDescription className="text-slate-600">{t("Chọn cờ đã xử lý xong và ghi lại cách xử lý để đối soát sau này.")}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -351,15 +351,15 @@ export default function ChannelOrderPanel({ donBanHang, onChanged }) {
                   >
                     <span className={cn("mt-1 size-3 shrink-0 rounded-full border", active ? "border-bo-primary bg-bo-primary" : "border-slate-300")} />
                     <span>
-                      <span className="block text-sm font-semibold text-bo-foreground">{meta.label}</span>
-                      <span className="block text-xs text-bo-muted">{meta.description}</span>
+                      <span className="block text-sm font-semibold text-bo-foreground">{t(meta.label)}</span>
+                      <span className="block text-xs text-bo-muted">{t(meta.description)}</span>
                     </span>
                   </button>
                 );
               })}
             </div>
             <div className="space-y-1.5">
-              <label htmlFor="ghi-chu-co" className="text-xs font-semibold uppercase tracking-wide text-bo-muted">Ghi chú xử lý</label>
+              <label htmlFor="ghi-chu-co" className="text-xs font-semibold uppercase tracking-wide text-bo-muted">{t("Ghi chú xử lý")}</label>
               <Textarea
                 id="ghi-chu-co"
                 rows={3}
@@ -368,7 +368,7 @@ export default function ChannelOrderPanel({ donBanHang, onChanged }) {
                   setFlagForm((prev) => ({ ...prev, ghiChu: event.target.value }));
                   setFlagError("");
                 }}
-                placeholder="Ví dụ: Đã nhận lại hàng hoàn, nhập kho lô LO-2026-05"
+                placeholder={t("Ví dụ: Đã nhận lại hàng hoàn, nhập kho lô LO-2026-05")}
                 className={cn(textareaClass, flagError && "border-bo-danger")}
               />
               {flagError ? <p className="text-xs text-bo-danger">{flagError}</p> : null}
@@ -382,7 +382,7 @@ export default function ChannelOrderPanel({ donBanHang, onChanged }) {
               onClick={() => setFlagOpen(false)}
               className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
             >
-              Quay lại
+              {t("Quay lại")}
             </Button>
             <Button
               type="button"
@@ -391,7 +391,7 @@ export default function ChannelOrderPanel({ donBanHang, onChanged }) {
               className="min-w-[140px] gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover disabled:opacity-50"
             >
               {busy === "co" ? <Loader2 className="size-4 animate-spin" /> : <CheckCheck className="size-4" />}
-              Lưu xử lý
+              {t("Lưu xử lý")}
             </Button>
           </DialogFooter>
         </DialogContent>

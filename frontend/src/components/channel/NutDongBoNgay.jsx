@@ -15,6 +15,7 @@ import {
   thoiLuong,
 } from "./tienDoDongBo";
 import { formatNumber } from "@/utils/formatters";
+import { t } from "@/i18n";
 
 /** Ảnh chụp tạm trong lúc chờ máy chủ nhận lệnh bắt đầu */
 const PHIEN_DANG_BAT_DAU = { trangThai: "dang_chay", giaiDoan: "doc_san_pham", daXuLy: 0, soThanhCong: 0, soLoi: 0, daChayMs: 0 };
@@ -26,7 +27,7 @@ const NUT_NHO =
   "inline-flex h-7 items-center gap-1.5 rounded-md border border-bo-border bg-white px-2.5 text-[12.5px] font-medium text-bo-foreground transition-colors hover:bg-bo-surface-subtle disabled:cursor-default disabled:text-bo-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 max-sm:h-11 max-sm:px-3.5";
 const LIEN_KET =
   "text-[13px] font-medium text-bo-primary hover:text-bo-primary-hover hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 rounded-sm max-sm:inline-flex max-sm:min-h-11 max-sm:items-center";
-const CHUA_SAN_SANG = "Chưa tải xong thông tin gian hàng, bấm lại sau giây lát.";
+const CHUA_SAN_SANG = t("Chưa tải xong thông tin gian hàng, bấm lại sau giây lát.");
 
 function gioPhut(value) {
   if (!value) return null;
@@ -115,7 +116,7 @@ export default function NutDongBoNgay({ tienDo, tenSan, onDen, viecPhu = null, l
     noiDungNut = (
       <>
         <Loader2 className="size-4 animate-spin" />
-        Đang bắt đầu…
+        {t("Đang bắt đầu…")}
       </>
     );
   } else if (dangChay) {
@@ -123,7 +124,7 @@ export default function NutDongBoNgay({ tienDo, tenSan, onDen, viecPhu = null, l
       <>
         <VongTienDo pct={pct} />
         <span>
-          Đang đồng bộ · <span className="inline-block min-w-[3.5ch] tabular-nums">{pct}%</span>
+          {t("Đang đồng bộ ·")} <span className="inline-block min-w-[3.5ch] tabular-nums">{pct}%</span>
         </span>
         {mo ? <ChevronUp className="size-3.5 text-bo-muted" /> : <ChevronDown className="size-3.5 text-bo-muted" />}
       </>
@@ -139,7 +140,7 @@ export default function NutDongBoNgay({ tienDo, tenSan, onDen, viecPhu = null, l
     noiDungNut = (
       <>
         <span className={cn("size-2 rounded-full", MAU_CHAM[ketQuaDongBo(phien).tone])} aria-hidden="true" />
-        Kết quả đồng bộ
+        {t("Kết quả đồng bộ")}
         {mo ? <ChevronUp className="size-3.5 text-bo-muted" /> : <ChevronDown className="size-3.5 text-bo-muted" />}
       </>
     );
@@ -147,7 +148,7 @@ export default function NutDongBoNgay({ tienDo, tenSan, onDen, viecPhu = null, l
     noiDungNut = (
       <>
         <RefreshCw className="size-4" />
-        Đồng bộ ngay
+        {t("Đồng bộ ngay")}
       </>
     );
   }
@@ -160,7 +161,7 @@ export default function NutDongBoNgay({ tienDo, tenSan, onDen, viecPhu = null, l
             type="button"
             variant="outline"
             aria-haspopup="dialog"
-            aria-label={dangChay ? `Đang đồng bộ ${pct}%, ${mo ? "ẩn" : "xem"} tiến độ` : undefined}
+            aria-label={dangChay ? (mo ? t("Đang đồng bộ {{pct}}%, ẩn tiến độ", { pct }) : t("Đang đồng bộ {{pct}}%, xem tiến độ", { pct })) : undefined}
             aria-busy={banViecKhac || dangGui || choTai || undefined}
             aria-disabled={khoaBatDau || undefined}
             aria-describedby={khoaBatDau ? idLyDo : undefined}
@@ -179,7 +180,7 @@ export default function NutDongBoNgay({ tienDo, tenSan, onDen, viecPhu = null, l
         <PopoverContent
           align="end"
           sideOffset={8}
-          aria-label="Tiến độ đồng bộ"
+          aria-label={t("Tiến độ đồng bộ")}
           onOpenAutoFocus={(e) => e.preventDefault()}
           className="w-[376px] max-w-[calc(100vw-32px)] rounded-[10px] border-bo-border bg-bo-surface p-0 text-bo-foreground shadow-[0_16px_40px_-12px_rgba(16,24,40,0.28),0_2px_6px_rgba(16,24,40,0.06)]"
         >
@@ -229,10 +230,10 @@ function BangTienDo({ phien: p, pct, conLaiMs, tenSan, onDong, onDung, onBatDauL
   const buoc = cacBuocDongBo(p, tenSan);
   const nguoi = p.nguoiBam ? ` · ${p.nguoiBam}` : "";
   const phu = !p.maPhien
-    ? "Đang gửi lệnh tới máy chủ…"
+    ? t("Đang gửi lệnh tới máy chủ…")
     : chay
-      ? `Bắt đầu ${gioPhut(p.batDau) ?? ""}${nguoi} · đã chạy ${dongHoDaChay(p.daChayMs)}`
-      : `Lúc ${gioPhut(p.ketThuc) ?? "—"} · mất ${thoiLuong(p.daChayMs)}${nguoi}`;
+      ? t("Bắt đầu {{gio}}{{nguoi}} · đã chạy {{thoiGian}}", { gio: gioPhut(p.batDau) ?? "", nguoi, thoiGian: dongHoDaChay(p.daChayMs) })
+      : t("Lúc {{gio}} · mất {{thoiGian}}{{nguoi}}", { gio: gioPhut(p.ketThuc) ?? "—", thoiGian: thoiLuong(p.daChayMs), nguoi });
   const chuaDay = soChuaDay(p);
 
   return (
@@ -240,7 +241,7 @@ function BangTienDo({ phien: p, pct, conLaiMs, tenSan, onDong, onDung, onBatDauL
       <div className="flex items-start gap-2.5 py-2.5 pl-3.5 pr-2">
         <BieuTuongTieuDe chay={chay} tone={kq?.tone} />
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold leading-5 text-bo-heading">{chay ? `Đồng bộ với ${tenSan}` : kq.tieuDe}</p>
+          <p className="text-sm font-semibold leading-5 text-bo-heading">{chay ? t("Đồng bộ với {{tenSan}}", { tenSan }) : kq.tieuDe}</p>
           <p className="truncate text-xs leading-[18px] text-bo-muted tabular-nums" title={phu}>
             {phu}
           </p>
@@ -248,8 +249,8 @@ function BangTienDo({ phien: p, pct, conLaiMs, tenSan, onDong, onDung, onBatDauL
         <button
           type="button"
           onClick={onDong}
-          aria-label={chay ? "Ẩn bảng, đồng bộ vẫn chạy" : "Đóng"}
-          title={chay ? "Ẩn, đồng bộ vẫn chạy tiếp" : "Đóng"}
+          aria-label={chay ? t("Ẩn bảng, đồng bộ vẫn chạy") : t("Đóng")}
+          title={chay ? t("Ẩn, đồng bộ vẫn chạy tiếp") : t("Đóng")}
           className="grid size-7 shrink-0 place-items-center rounded-md text-bo-muted transition-colors hover:bg-[#eef1f5] hover:text-bo-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 max-sm:size-11"
         >
           {chay ? <Minus className="size-4" /> : <X className="size-4" />}
@@ -260,7 +261,7 @@ function BangTienDo({ phien: p, pct, conLaiMs, tenSan, onDong, onDung, onBatDauL
         <div className="flex items-center gap-2.5 px-3.5 pb-2.5">
           <div
             role="progressbar"
-            aria-label="Tiến độ đồng bộ"
+            aria-label={t("Tiến độ đồng bộ")}
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={pct}
@@ -302,36 +303,36 @@ function BangTienDo({ phien: p, pct, conLaiMs, tenSan, onDong, onDung, onBatDauL
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-b-[10px] border-t border-[#eef1f5] bg-bo-surface-subtle px-3.5 py-2.5">
         {chay ? (
           <>
-            <span className="min-w-0 flex-1 text-[12.5px] text-bo-muted">{p.maPhien ? cauConLai(p, conLaiMs) : "Đang bắt đầu…"}</span>
+            <span className="min-w-0 flex-1 text-[12.5px] text-bo-muted">{p.maPhien ? cauConLai(p, conLaiMs) : t("Đang bắt đầu…")}</span>
             {p.maPhien && p.giaiDoan !== "lay_don" ? (
               <button type="button" onClick={onDung} disabled={p.yeuCauDung} className={cn(NUT_NHO, "enabled:hover:border-red-200 enabled:hover:bg-bo-danger-soft enabled:hover:text-bo-danger")}>
                 <Square className="size-2.5 fill-current" />
-                {p.yeuCauDung ? "Đang dừng…" : "Dừng"}
+                {p.yeuCauDung ? t("Đang dừng…") : t("Dừng")}
               </button>
             ) : null}
           </>
         ) : p.trangThai === "xong" ? (
           <>
             <span className="min-w-0 flex-1 text-[12.5px] text-bo-muted">
-              {p.soLoi || p.soDonMoi ? null : "Tồn kho đã khớp, không có đơn mới"}
+              {p.soLoi || p.soDonMoi ? null : t("Tồn kho đã khớp, không có đơn mới")}
             </span>
             {p.soLoi ? (
               <button type="button" className={cn(LIEN_KET, "text-bo-danger hover:text-bo-danger")} onClick={() => onDen("/products?trangThai=loi")}>
-                Xem SKU lỗi
+                {t("Xem SKU lỗi")}
               </button>
             ) : null}
             {p.soDonMoi ? (
               <button type="button" className={LIEN_KET} onClick={() => onDen("/orders?trangThai=nhap")}>
-                Xem đơn mới
+                {t("Xem đơn mới")}
               </button>
             ) : null}
           </>
         ) : (
           <>
-            <span className="min-w-0 flex-1 text-[12.5px] text-bo-muted">{chuaDay ? `Còn ${formatNumber(chuaDay)} SKU chưa đẩy` : null}</span>
+            <span className="min-w-0 flex-1 text-[12.5px] text-bo-muted">{chuaDay ? t("Còn {{chuaDay}} SKU chưa đẩy", { chuaDay: formatNumber(chuaDay) }) : null}</span>
             {p.trangThai === "loi" ? (
               <button type="button" className={LIEN_KET} onClick={() => onDen("/settings")}>
-                Mở cấu hình
+                {t("Mở cấu hình")}
               </button>
             ) : null}
             {/* Gian hàng đang bị khóa (vd. hết hạn ủy quyền): ghi lý do thay cho nút, không để nút bấm vào chỉ để báo lỗi */}
@@ -340,7 +341,7 @@ function BangTienDo({ phien: p, pct, conLaiMs, tenSan, onDong, onDung, onBatDauL
             ) : (
               <button type="button" onClick={onBatDauLai} disabled={dangGui} className={NUT_NHO}>
                 <RefreshCw className={cn("size-3", dangGui && "animate-spin")} />
-                Đồng bộ lại
+                {t("Đồng bộ lại")}
               </button>
             )}
           </>
@@ -356,7 +357,7 @@ function ChiTietBuoc({ ma, tt, phien: p }) {
   if (tt === "dang" && ma === "day-ton" && p.skuDangDay) {
     return (
       <p className={cn(dong, "text-bo-muted")}>
-        Đang đẩy <code className="font-mono text-[11.5px] text-bo-foreground">{p.skuDangDay}</code>
+        {t("Đang đẩy")} <code className="font-mono text-[11.5px] text-bo-foreground">{p.skuDangDay}</code>
       </p>
     );
   }
@@ -372,7 +373,7 @@ function ChiTietBuoc({ ma, tt, phien: p }) {
             <LyDoLoiSku loi={l} />
           </p>
         ))}
-        {conLai > 0 ? <p>và {formatNumber(conLai)} SKU lỗi khác</p> : null}
+        {conLai > 0 ? <p>{t("và {{conLai}} SKU lỗi khác", { conLai: formatNumber(conLai) })}</p> : null}
       </div>
     );
   }

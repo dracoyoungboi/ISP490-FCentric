@@ -1,4 +1,5 @@
 import { formatNumber } from "../../utils/formatters.js";
+import { t } from "@/i18n";
 
 /** Câu báo kết quả các thao tác bấm tay với sàn, dùng chung cho Thiết lập, Sản phẩm và Công cụ. */
 
@@ -13,14 +14,14 @@ export function ketQuaTaiSanPham(res, tenSan) {
     const ngung = Number(res.soNgung || 0);
     return {
       ok: true,
-      title: `Đã tải ${formatNumber(soSku)} SKU từ ${tenSan}: ${formatNumber(Math.max(0, soSku - khongKhop - ngung))} ghép tự động, ${formatNumber(khongKhop)} chưa có mã trùng${ngung ? `, ${formatNumber(ngung)} ngừng` : ""}`,
+      title: t("Đã tải {{soSku}} SKU từ {{tenSan}}: {{soGhep}} ghép tự động, {{khongKhop}} chưa có mã trùng{{phanNgung}}", { soSku: formatNumber(soSku), tenSan, soGhep: formatNumber(Math.max(0, soSku - khongKhop - ngung)), khongKhop: formatNumber(khongKhop), phanNgung: ngung ? t(", {{ngung}} ngừng", { ngung: formatNumber(ngung) }) : "" }),
       message: null,
     };
   }
   return {
     ok: true,
-    title: `Đã đọc ${formatNumber(res?.soSku)} SKU trên ${tenSan}`,
-    message: `Ghép mới ${formatNumber(res?.soMoi)}, cập nhật ${formatNumber(res?.soCapNhat)}. SKU không trùng với FCentric được bỏ qua; dòng đang ngừng đồng bộ giữ nguyên.`,
+    title: t("Đã đọc {{soSku}} SKU trên {{tenSan}}", { soSku: formatNumber(res?.soSku), tenSan }),
+    message: t("Ghép mới {{soMoi}}, cập nhật {{soCapNhat}}. SKU không trùng với FCentric được bỏ qua; dòng đang ngừng đồng bộ giữ nguyên.", { soMoi: formatNumber(res?.soMoi), soCapNhat: formatNumber(res?.soCapNhat) }),
   };
 }
 
@@ -29,13 +30,13 @@ export function ketQuaDayLenSan(res, tenSan) {
   const loi = Number(res?.soThatBai || 0);
   return {
     ok: loi === 0,
-    title: `Đã ghép ${formatNumber(res?.soDaGhep)} SKU`,
+    title: t("Đã ghép {{soDaGhep}} SKU", { soDaGhep: formatNumber(res?.soDaGhep), count: Number(res?.soDaGhep) || 0 }),
     message: [
-      `tạo mới trên ${tenSan} ${formatNumber(res?.soTaoMoiTrenShopify)} sản phẩm`,
-      `cập nhật ${formatNumber(res?.soCapNhatTrenShopify)} sản phẩm`,
-      `đẩy tồn ${formatNumber(res?.soTonKhoDaDay)} SKU`,
-      res?.soAnhDaDay ? `${formatNumber(res.soAnhDaDay)} ảnh` : null,
-      loi > 0 ? `lỗi ${formatNumber(loi)}` : null,
+      t("tạo mới trên {{tenSan}} {{soTaoMoiTrenShopify}} sản phẩm", { tenSan, soTaoMoiTrenShopify: formatNumber(res?.soTaoMoiTrenShopify) }),
+      t("cập nhật {{soCapNhatTrenShopify}} sản phẩm", { soCapNhatTrenShopify: formatNumber(res?.soCapNhatTrenShopify) }),
+      t("đẩy tồn {{soTonKhoDaDay}} SKU", { soTonKhoDaDay: formatNumber(res?.soTonKhoDaDay) }),
+      res?.soAnhDaDay ? t("{{soAnhDaDay}} ảnh", { soAnhDaDay: formatNumber(res.soAnhDaDay) }) : null,
+      loi > 0 ? t("lỗi {{loi}}", { loi: formatNumber(loi) }) : null,
     ]
       .filter(Boolean)
       .join(", ")
@@ -56,32 +57,32 @@ export function ketQuaDayTon(res, tenSan) {
   const loiKenh = res?.loiKenh || null;
 
   if (loiKenh && daDay === 0 && soLoi === 0) {
-    return { ok: false, tone: "error", title: `Không đẩy được tồn lên ${tenSan}`, message: loiKenh };
+    return { ok: false, tone: "error", title: t("Không đẩy được tồn lên {{tenSan}}", { tenSan }), message: loiKenh };
   }
   if (loiKenh) {
     return {
       ok: false,
       tone: "warning",
-      title: `Đã đẩy ${formatNumber(daDay)}/${formatNumber(tong)} SKU lên ${tenSan}${soLoi > 0 ? ` · ${formatNumber(soLoi)} lỗi` : ""}`,
-      message: `Dừng giữa chừng: ${loiKenh}. ${formatNumber(chuaDay)} SKU chưa đẩy sẽ được đẩy ở lần sau.`,
+      title: t("Đã đẩy {{daDay}}/{{tong}} SKU lên {{tenSan}}{{phanLoi}}", { daDay: formatNumber(daDay), tong: formatNumber(tong), tenSan, phanLoi: soLoi > 0 ? t(" · {{soLoi}} lỗi", { soLoi: formatNumber(soLoi) }) : "" }),
+      message: t("Dừng giữa chừng: {{loiKenh}}. {{chuaDay}} SKU chưa đẩy sẽ được đẩy ở lần sau.", { loiKenh, chuaDay: formatNumber(chuaDay) }),
     };
   }
   if (soLoi > 0) {
     return {
       ok: false,
       tone: "warning",
-      title: `Đã đẩy ${formatNumber(daDay)}/${formatNumber(tong)} SKU lên ${tenSan} · ${formatNumber(soLoi)} lỗi`,
-      message: "Xem lý do ở tab Lỗi. Lần đẩy sau sẽ tự thử lại các SKU này.",
+      title: t("Đã đẩy {{daDay}}/{{tong}} SKU lên {{tenSan}} · {{soLoi}} lỗi", { daDay: formatNumber(daDay), tong: formatNumber(tong), tenSan, soLoi: formatNumber(soLoi) }),
+      message: t("Xem lý do ở tab Lỗi. Lần đẩy sau sẽ tự thử lại các SKU này."),
     };
   }
   if (tong === 0) {
-    return { ok: true, tone: "success", title: "Không có SKU nào đang đồng bộ để đẩy tồn", message: null };
+    return { ok: true, tone: "success", title: t("Không có SKU nào đang đồng bộ để đẩy tồn"), message: null };
   }
   return {
     ok: true,
     tone: "success",
-    title: `Đã đẩy tồn ${formatNumber(daDay)} SKU lên ${tenSan}`,
-    message: "Dòng ngừng đồng bộ không được đẩy.",
+    title: t("Đã đẩy tồn {{daDay}} SKU lên {{tenSan}}", { daDay: formatNumber(daDay), tenSan, count: daDay }),
+    message: t("Dòng ngừng đồng bộ không được đẩy."),
   };
 }
 
@@ -89,7 +90,7 @@ export function ketQuaDayTon(res, tenSan) {
 export function ketQuaLayDon(res, tenSan) {
   return {
     ok: true,
-    title: `Đã lấy ${formatNumber(res?.soDonMoi)} đơn mới từ ${tenSan}`,
-    message: res?.soDonCapNhat ? `Cập nhật ${formatNumber(res.soDonCapNhat)} đơn đã có.` : null,
+    title: t("Đã lấy {{soDonMoi}} đơn mới từ {{tenSan}}", { soDonMoi: formatNumber(res?.soDonMoi), tenSan, count: Number(res?.soDonMoi) || 0 }),
+    message: res?.soDonCapNhat ? t("Cập nhật {{soDonCapNhat}} đơn đã có.", { soDonCapNhat: formatNumber(res.soDonCapNhat), count: Number(res.soDonCapNhat) || 0 }) : null,
   };
 }

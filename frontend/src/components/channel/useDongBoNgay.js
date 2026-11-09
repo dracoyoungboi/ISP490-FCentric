@@ -5,11 +5,12 @@ import { getApiErrorCode, getApiErrorMessage } from "@/utils/apiError";
 import { getCurrentUserId } from "@/utils/roles";
 import { DB_TRANG_THAI, dangChayDongBo, uocTinhConLaiMs } from "./tienDoDongBo";
 import { docBoNho, ghiBoNho, ngheBoNho, trangThaiDau } from "./boNhoDongBo";
+import { t } from "@/i18n";
 
 const CHU_KY_HOI_MS = 1000;
 const CHU_KY_HOI_LAI_KHI_LOI_MS = 3000;
 const LY_DO_MAT_THEO_DOI =
-  "Không còn theo dõi được đợt này vì máy chủ vừa khởi động lại. SKU đã đẩy vẫn được lưu, bấm Đồng bộ lại để chạy tiếp.";
+  t("Không còn theo dõi được đợt này vì máy chủ vừa khởi động lại. SKU đã đẩy vẫn được lưu, bấm Đồng bộ lại để chạy tiếp.");
 /** Mã lỗi (KH mục C.4) cho biết gian hàng không còn gọi được: trang cần đọc lại kết nối. */
 const MA_LOI_MAT_KET_NOI = new Set(["UY_QUYEN_HET_HAN", "KENH_CHUA_KET_NOI"]);
 
@@ -155,7 +156,7 @@ export default function useDongBoNgay(maKenh, { enabled = true, onXong, onMatKet
       nhan(p);
       return p;
     } catch (error) {
-      toast.error(getApiErrorMessage(error, "Không bắt đầu được đồng bộ"));
+      toast.error(getApiErrorMessage(error, t("Không bắt đầu được đồng bộ")));
       if (MA_LOI_MAT_KET_NOI.has(getApiErrorCode(error))) onMatKetNoiRef.current?.(error);
       return null;
     } finally {
@@ -169,7 +170,7 @@ export default function useDongBoNgay(maKenh, { enabled = true, onXong, onMatKet
       const p = await kenhBanHangService.dungDongBoNgay(maKenh);
       if (p) nhan(p);
     } catch (error) {
-      toast.error(getApiErrorMessage(error, "Không dừng được đồng bộ"));
+      toast.error(getApiErrorMessage(error, t("Không dừng được đồng bộ")));
     }
   }, [maKenh, nhan]);
 

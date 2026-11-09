@@ -1,3 +1,4 @@
+import { t } from "@/i18n";
 /** Chuyển cấu hình đồng bộ (API) ↔ giá trị form, kiểm tra hợp lệ trước khi lưu. */
 
 const GIOI_HAN_SO_LUONG = 100000;
@@ -17,9 +18,9 @@ const laSoNguyen = (value) => /^\d+$/.test(String(value ?? "").trim());
 export function kiemTraCauHinh(values) {
   const errors = {};
   const tyLe = Number(values.tyLeDayTon);
-  if (!laSoNguyen(values.tyLeDayTon) || tyLe < 1 || tyLe > 100) errors.tyLeDayTon = "Nhập số nguyên từ 1 đến 100.";
-  if (!laSoNguyen(values.tonDem) || Number(values.tonDem) > GIOI_HAN_SO_LUONG) errors.tonDem = "Nhập số nguyên từ 0 đến 100.000.";
-  if (!laSoNguyen(values.nguongVe0) || Number(values.nguongVe0) > GIOI_HAN_SO_LUONG) errors.nguongVe0 = "Nhập số nguyên từ 0 đến 100.000.";
+  if (!laSoNguyen(values.tyLeDayTon) || tyLe < 1 || tyLe > 100) errors.tyLeDayTon = t("Nhập số nguyên từ 1 đến 100.");
+  if (!laSoNguyen(values.tonDem) || Number(values.tonDem) > GIOI_HAN_SO_LUONG) errors.tonDem = t("Nhập số nguyên từ 0 đến 100.000.");
+  if (!laSoNguyen(values.nguongVe0) || Number(values.nguongVe0) > GIOI_HAN_SO_LUONG) errors.nguongVe0 = t("Nhập số nguyên từ 0 đến 100.000.");
   return errors;
 }
 
@@ -60,7 +61,7 @@ export function cheDoTheoGiaTri(values) {
  * Không lấy dòng đầu khi thiếu đánh dấu mặc định: Shopify không xếp địa điểm mặc định lên đầu.
  */
 export function tenDiaDiemNhanTon(kho) {
-  if (kho?.initialLoading) return "Đang đọc từ Shopify…";
+  if (kho?.initialLoading) return t("Đang đọc từ Shopify…");
   return (Array.isArray(kho?.data) ? kho.data.find((k) => k.macDinh)?.tenKhoSan : null) ?? null;
 }
 
