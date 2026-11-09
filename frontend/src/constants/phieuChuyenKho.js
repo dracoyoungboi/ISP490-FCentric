@@ -55,6 +55,8 @@ export const PHIEU_CHUYEN_KHO_TABS = [
     { ma: "tre-hen", tab: "TRE_HEN", label: "Trễ hẹn", canhBao: true },
     { ma: "cho-xu-ly-chenh-lech", tab: "CHO_XU_LY_LECH", label: "Chờ xử lý chênh lệch", canhBao: true },
     { ma: "thieu-giay-di-duong", tab: "THIEU_XKNB", label: "Thiếu giấy đi đường", canhBao: true },
+    // Hàng đã vào kho (nhận, hoặc về lại kho xuất khi hủy giữa đường) còn chưa có kệ ở kho đang chọn
+    { ma: "cho-xep-ke", tab: "CHO_XEP_KE", label: "Chờ xếp kệ", canhBao: true },
 ];
 
 /** Đường dẫn cũ `?trangThai=cho-xuat-hang` (Tổng quan) → lọc trạng thái Đã duyệt ở tab Tất cả. */
