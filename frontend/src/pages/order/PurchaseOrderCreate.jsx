@@ -354,7 +354,7 @@ export default function PurchaseOrderCreate() {
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent
-                                className="w-[340px] max-h-[320px] overflow-y-auto bg-bo-surface rounded-xl shadow-lg"
+                                className="w-(--radix-dropdown-menu-trigger-width) max-h-[320px] overflow-y-auto bg-bo-surface rounded-xl shadow-lg"
                                 align="start"
                             >
                                 {warehouses.map((warehouse) => (

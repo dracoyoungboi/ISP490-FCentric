@@ -402,7 +402,7 @@ export default function PurchaseOrderList() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent
                                 align="end"
-                                className="z-50 max-h-[300px] w-[240px] overflow-y-auto rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg"
+                                className="z-50 max-h-[300px] min-w-[var(--radix-dropdown-menu-trigger-width)] overflow-y-auto rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg"
                             >
                                 <DropdownMenuItem
                                     onClick={() => changeKho('')}
