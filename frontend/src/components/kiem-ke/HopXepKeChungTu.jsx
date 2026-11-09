@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { layHangChuaCoKe, xepKeNhieu } from "@/services/stockTakeService";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { LY_DO_KE, cauKhongGoiY, coTheXep, gomTheoLo, locHangChuaCoKe, soXepDuoc, tomTatKetQua, xepNgayDuoc } from "./hangChuaCoKe";
+import { t } from "@/i18n";
 
 /** Kệ dạng thẻ nhỏ (cùng kiểu thẻ kệ ở màn Hàng chưa có kệ). */
 function TheKe({ ma }) {
@@ -35,9 +36,9 @@ function DongLo({ h, xepGoiY, loi, khoa, onDeSau, onXepGoiY, onChonKe }) {
   const ngay = xepNgayDuoc(h);
   let cau;
   if (!xepDuoc) cau = cauKhongGoiY(h);
-  else if (ngay && xepGoiY) cau = LY_DO_KE[g.lyDo] ?? "Kệ gợi ý";
-  else if (ngay) cau = "Để sau: hàng ở lại phần chưa có kệ";
-  else if (g?.id) cau = `Kệ gợi ý ${g.ma} chỉ còn chỗ ${soVN(g.conCho)}: chọn kệ, chia nhiều kệ được`;
+  else if (ngay && xepGoiY) cau = LY_DO_KE[g.lyDo] ?? t("Kệ gợi ý");
+  else if (ngay) cau = t("Để sau: hàng ở lại phần chưa có kệ");
+  else if (g?.id) cau = t("Kệ gợi ý {{ma}} chỉ còn chỗ {{conCho}}: chọn kệ, chia nhiều kệ được", { ma: g.ma, conCho: soVN(g.conCho) });
   else cau = cauKhongGoiY(h);
   const giu = Math.max(0, Number(h.dangGiuNhat) || 0);
 
@@ -46,20 +47,20 @@ function DongLo({ h, xepGoiY, loi, khoa, onDeSau, onXepGoiY, onChonKe }) {
       <div className="flex min-w-0 items-start gap-3">
         <AnhBienThe src={h.sanPham?.anh} />
         <div className="grid min-w-0 gap-0.5">
-          <span className="truncate text-sm font-medium text-bo-foreground">{h.sanPham?.tenSanPham ?? "Sản phẩm"}</span>
+          <span className="truncate text-sm font-medium text-bo-foreground">{h.sanPham?.tenSanPham ?? t("Sản phẩm")}</span>
           <span className="text-xs text-bo-muted">
             <MauKichCo dong={h.sanPham} className="align-bottom" /> · <span className="font-mono">{h.sanPham?.maSku}</span>
           </span>
           <span className="text-xs text-bo-muted">
-            Lô <span className="font-mono">{h.maLo}</span> ·{" "}
-            <b className="font-semibold tabular-nums text-bo-foreground">{soVN(soXepDuoc(h))}</b> sản phẩm
-            {giu > 0 ? ` (${soVN(giu)} đang chờ nhặt ở đây)` : ""}
+            {t("Lô")} <span className="font-mono">{h.maLo}</span> ·{" "}
+            <b className="font-semibold tabular-nums text-bo-foreground">{soVN(soXepDuoc(h))}</b> {t("sản phẩm")}
+            {giu > 0 ? t(" ({{giu}} đang chờ nhặt ở đây)", { giu: soVN(giu) }) : ""}
           </span>
         </div>
       </div>
       <div className="grid min-w-0 gap-1 sm:justify-items-end sm:text-right">
         <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-          {xepDuoc && ngay && xepGoiY ? <TheKe ma={g.ma} /> : <span className="text-[13px] text-bo-muted">{!xepDuoc ? "Chưa xếp được" : ngay ? "Để sau" : "Cần chọn kệ"}</span>}
+          {xepDuoc && ngay && xepGoiY ? <TheKe ma={g.ma} /> : <span className="text-[13px] text-bo-muted">{!xepDuoc ? t("Chưa xếp được") : ngay ? t("Để sau") : t("Cần chọn kệ")}</span>}
         </div>
         <span className={cn("text-xs", xepDuoc ? "text-bo-muted" : "text-bo-warning")}>{cau}</span>
         {loi ? (
@@ -71,15 +72,15 @@ function DongLo({ h, xepGoiY, loi, khoa, onDeSau, onXepGoiY, onChonKe }) {
           <span className="flex flex-wrap gap-x-3 gap-y-1 text-xs sm:justify-end">
             {ngay && xepGoiY ? (
               <NutChu onClick={onDeSau} disabled={khoa}>
-                Để sau
+                {t("Để sau")}
               </NutChu>
             ) : ngay ? (
               <NutChu onClick={onXepGoiY} disabled={khoa}>
-                Xếp vào {g.ma}
+                {t("Xếp vào {{ma}}", { ma: g.ma })}
               </NutChu>
             ) : null}
             <NutChu onClick={onChonKe} disabled={khoa}>
-              {ngay ? "Kệ khác" : "Chọn kệ"}
+              {ngay ? t("Kệ khác") : t("Chọn kệ")}
             </NutChu>
           </span>
         ) : null}
@@ -128,15 +129,15 @@ export default function HopXepKeChungTu({ mo, kho, phieuChuyenId = null, phieuNh
   const conLai = ds.reduce((s, h) => s + (Number(h.chuaCoKe) || 0), 0);
   const coLoXepDuoc = ds.some(coTheXep);
   const lyDoKhoa = dangTai
-    ? "Đang tải hàng chưa có kệ"
+    ? t("Đang tải hàng chưa có kệ")
     : loiTai
-      ? "Chưa tải được hàng chưa có kệ"
+      ? t("Chưa tải được hàng chưa có kệ")
       : !xepGoiY.length
         ? !ds.length
-          ? "Hàng của phiếu đã có kệ hết"
+          ? t("Hàng của phiếu đã có kệ hết")
           : !coLoXepDuoc
-            ? "Các lô chưa xếp được lúc này"
-            : "Chưa chọn lô nào để xếp: bấm Xếp vào… hoặc Chọn kệ ở từng lô"
+            ? t("Các lô chưa xếp được lúc này")
+            : t("Chưa chọn lô nào để xếp: bấm Xếp vào… hoặc Chọn kệ ở từng lô")
         : null;
 
   // Tự mở sau khi nhận mà lần tải đầu không còn gì xếp được: đóng luôn (dòng nhắc trên phiếu vẫn còn nếu có hàng)
@@ -164,8 +165,8 @@ export default function HopXepKeChungTu({ mo, kho, phieuChuyenId = null, phieuNh
   /** Sau một lượt xếp: báo kết quả, tải lại danh sách và số đếm trên menu; trả số lô còn chưa xếp được. */
   const baoKetQua = (kq) => {
     if (kq.daXep.length) {
-      toast.success(kq.soLoDaXep === 1 ? `Đã xếp lô ${maLoTheoId(kq.daXep[0].loHangId)} lên kệ` : `Đã xếp ${soVN(kq.soLoDaXep)} lô lên kệ`, {
-        description: `${soVN(kq.soSanPham)} sản phẩm ở ${tenKho ?? "kho"}. Xếp kệ chỉ ghi sổ kệ, tồn kho không đổi.`,
+      toast.success(kq.soLoDaXep === 1 ? t("Đã xếp lô {{loHangId}} lên kệ", { loHangId: maLoTheoId(kq.daXep[0].loHangId) }) : t("Đã xếp {{soLo}} lô lên kệ", { count: kq.soLoDaXep, soLo: soVN(kq.soLoDaXep) }), {
+        description: t("{{soSanPham}} sản phẩm ở {{tenKho}}. Xếp kệ chỉ ghi sổ kệ, tồn kho không đổi.", { count: kq.soSanPham, soSanPham: soVN(kq.soSanPham), tenKho: tenKho ?? t("kho") }),
       });
     }
     taiLaiSoHangChuaCoKe();
@@ -182,7 +183,7 @@ export default function HopXepKeChungTu({ mo, kho, phieuChuyenId = null, phieuNh
       if (!loLoi.length) {
         const conDeSau = ds.filter((h) => !xepGoiY.includes(h)).length;
         if (conDeSau) {
-          toast.info(`${soVN(conDeSau)} lô để sau`, { description: "Hàng ở lại phần chưa có kệ; xếp tiếp ở dòng nhắc trên phiếu hoặc màn Hàng chưa có kệ." });
+          toast.info(t("{{soLo}} lô để sau", { count: conDeSau, soLo: soVN(conDeSau) }), { description: t("Hàng ở lại phần chưa có kệ; xếp tiếp ở dòng nhắc trên phiếu hoặc màn Hàng chưa có kệ.") });
         }
         onDong?.();
         return;
@@ -191,12 +192,12 @@ export default function HopXepKeChungTu({ mo, kho, phieuChuyenId = null, phieuNh
       setLoiLo(new Map(loLoi.map((l) => [l.loHangId, l.loi.join(" ")])));
       setLoi(
         loLoi.length === 1
-          ? `Lô ${maLoTheoId(loLoi[0].loHangId)} chưa xếp được. Gợi ý kệ đã được tính lại.`
-          : `${soVN(loLoi.length)} lô chưa xếp được. Gợi ý kệ đã được tính lại.`,
+          ? t("Lô {{loHangId}} chưa xếp được. Gợi ý kệ đã được tính lại.", { loHangId: maLoTheoId(loLoi[0].loHangId) })
+          : t("{{soLo}} lô chưa xếp được. Gợi ý kệ đã được tính lại.", { count: loLoi.length, soLo: soVN(loLoi.length) }),
       );
       setLanTai((n) => n + 1);
     } catch (error) {
-      setLoi(getApiErrorMessage(error, "Chưa xếp được lên kệ. Thử lại sau giây lát."));
+      setLoi(getApiErrorMessage(error, t("Chưa xếp được lên kệ. Thử lại sau giây lát.")));
     } finally {
       setDangChay(false);
     }
@@ -216,7 +217,7 @@ export default function HopXepKeChungTu({ mo, kho, phieuChuyenId = null, phieuNh
     try {
       const kq = await ghi(phan);
       if (!kq.daXep.length) {
-        setLoiMotLo(gomTheoLo(kq.loi).flatMap((l) => l.loi).join(" ") || "Chưa xếp được lên kệ");
+        setLoiMotLo(gomTheoLo(kq.loi).flatMap((l) => l.loi).join(" ") || t("Chưa xếp được lên kệ"));
         setLanTaiKe((n) => n + 1);
         setLanTai((n) => n + 1);
         return;
@@ -225,7 +226,7 @@ export default function HopXepKeChungTu({ mo, kho, phieuChuyenId = null, phieuNh
       // Chia nhiều kệ mà một phần bị từ chối (kệ vừa đầy, vừa khóa kiểm kê): báo phần đó, ghi lên dòng lô
       const loiConLai = gomTheoLo(kq.loi).flatMap((l) => l.loi).join(" ");
       if (loiConLai) {
-        toast.error(`Một phần lô ${maLoTheoId(phan[0]?.loHangId)} chưa xếp được`, { description: loiConLai });
+        toast.error(t("Một phần lô {{loHangId}} chưa xếp được", { loHangId: maLoTheoId(phan[0]?.loHangId) }), { description: loiConLai });
       }
       setLoiLo((cu) => {
         const moi = new Map(cu);
@@ -236,7 +237,7 @@ export default function HopXepKeChungTu({ mo, kho, phieuChuyenId = null, phieuNh
       dongMotLo();
       setLanTai((n) => n + 1);
     } catch (error) {
-      setLoiMotLo(getApiErrorMessage(error, "Chưa xếp được lên kệ. Thử lại sau giây lát."));
+      setLoiMotLo(getApiErrorMessage(error, t("Chưa xếp được lên kệ. Thử lại sau giây lát.")));
     } finally {
       setDangChayMotLo(false);
     }
@@ -258,11 +259,9 @@ export default function HopXepKeChungTu({ mo, kho, phieuChuyenId = null, phieuNh
         onDoiMo={(m) => !m && onDong?.()}
         ratRong
         tieuDe={tieuDe}
-        moTa={`${tenKho ?? "Kho"}${soChungTu ? ` · ${soChungTu}` : ""} · ${
-          daTai ? `${soVN(conLai)} sản phẩm, ${soVN(ds.length)} lô chưa có kệ` : "đang tải"
-        }.${ds.some(xepNgayDuoc) ? " Kệ gợi ý đã chọn sẵn cho từng lô, đổi được." : ""} Xếp kệ chỉ ghi sổ kệ, tồn kho không đổi.`}
-        nhanXacNhan={xepGoiY.length ? `Xếp ${soVN(xepGoiY.length)} lô lên kệ` : "Xếp lên kệ"}
-        nhanQuayLai={xongHet ? "Đóng" : "Để sau"}
+        moTa={`${tenKho ?? t("Kho")}${soChungTu ? ` · ${soChungTu}` : ""} · ${daTai ? t("{{conLai}} sản phẩm, {{soLo}} lô chưa có kệ", { conLai: soVN(conLai), soLo: soVN(ds.length), count: ds.length }) : t("đang tải")}.${ds.some(xepNgayDuoc) ? t(" Kệ gợi ý đã chọn sẵn cho từng lô, đổi được.") : ""}${t(" Xếp kệ chỉ ghi sổ kệ, tồn kho không đổi.")}`}
+        nhanXacNhan={xepGoiY.length ? t("Xếp {{soLo}} lô lên kệ", { count: xepGoiY.length, soLo: soVN(xepGoiY.length) }) : t("Xếp lên kệ")}
+        nhanQuayLai={xongHet ? t("Đóng") : t("Để sau")}
         iconXacNhan={PackageCheck}
         dangChay={dangChay}
         khoaXacNhan={Boolean(lyDoKhoa)}
@@ -272,13 +271,13 @@ export default function HopXepKeChungTu({ mo, kho, phieuChuyenId = null, phieuNh
         onXacNhan={xepCacLoGoiY}
       >
         {dangTai ? (
-          <p className="py-8 text-center text-[13px] text-bo-muted">Đang tải hàng chưa có kệ…</p>
+          <p className="py-8 text-center text-[13px] text-bo-muted">{t("Đang tải hàng chưa có kệ…")}</p>
         ) : loiTai ? (
           <p role="alert" className="py-8 text-center text-[13px] text-bo-danger">
-            Không tải được hàng chưa có kệ: {getApiErrorMessage(loiTai, "lỗi kết nối")}. <NutChu onClick={q.reload}>Thử lại</NutChu>
+            {t("Không tải được hàng chưa có kệ: {{loiTai}}.", { loiTai: getApiErrorMessage(loiTai, t("lỗi kết nối")) })} <NutChu onClick={q.reload}>{t("Thử lại")}</NutChu>
           </p>
         ) : xongHet ? (
-          <p className="py-8 text-center text-[13px] text-bo-muted">Hàng của phiếu đã có kệ hết ở {tenKho ?? "kho này"}.</p>
+          <p className="py-8 text-center text-[13px] text-bo-muted">{t("Hàng của phiếu đã có kệ hết ở {{noi}}.", { noi: tenKho ?? t("kho này") })}</p>
         ) : (
           <div className="grid gap-1">
             <ul className="divide-y divide-bo-border">
@@ -298,11 +297,11 @@ export default function HopXepKeChungTu({ mo, kho, phieuChuyenId = null, phieuNh
             <div className="flex flex-wrap items-center justify-between gap-2 border-t border-bo-border pb-1 pt-2.5 text-xs text-bo-muted">
               <span className="tabular-nums">
                 {xepGoiY.length
-                  ? `Bấm nút xếp: ${soVN(soSanPham)} sản phẩm của ${soVN(xepGoiY.length)} lô lên kệ gợi ý${xepGoiY.length < ds.length ? `; ${soVN(ds.length - xepGoiY.length)} lô để sau` : ""}.`
-                  : "Chưa có lô nào được chọn để xếp."}
+                  ? t("Bấm nút xếp: {{soSanPham}} sản phẩm của {{soLo}} lô lên kệ gợi ý{{phanDeSau}}.", { soSanPham: soVN(soSanPham), soLo: soVN(xepGoiY.length), phanDeSau: xepGoiY.length < ds.length ? t("; {{soLo}} lô để sau", { count: ds.length - xepGoiY.length, soLo: soVN(ds.length - xepGoiY.length) }) : "" })
+                  : t("Chưa có lô nào được chọn để xếp.")}
               </span>
               <NutChu onClick={moManChung} disabled={dangChay}>
-                Mở màn Hàng chưa có kệ
+                {t("Mở màn Hàng chưa có kệ")}
               </NutChu>
             </div>
           </div>

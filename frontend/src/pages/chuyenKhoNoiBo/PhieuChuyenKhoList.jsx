@@ -344,7 +344,7 @@ function ChipChuaXepKe({ p, className = "" }) {
     if (!(Number(p.chuaXepKe) > 0)) return null;
     return (
         <span className={`inline-flex w-fit items-center whitespace-nowrap rounded-md bg-bo-tt-chu-y px-2 py-0.5 text-xs font-medium tabular-nums text-bo-tt-chu-y-chu ${className}`}>
-            {formatNumber(p.chuaXepKe)} sp chưa xếp kệ
+            {t("{{chuaXepKe}} sp chưa xếp kệ", { chuaXepKe: formatNumber(p.chuaXepKe) })}
         </span>
     );
 }
@@ -362,7 +362,7 @@ function ThePhieu({ p }) {
                 <span className="min-w-0 truncate text-sm font-medium text-bo-foreground">
                     {p.khoXuatTen} <span className="text-bo-muted">→</span> {p.khoNhapTen}
                 </span>
-                {p.choKhoGuiXacNhan ? <span className="text-[13px] text-bo-muted">Chờ kho gửi xác nhận biên bản</span> : null}
+                {p.choKhoGuiXacNhan ? <span className="text-[13px] text-bo-muted">{t("Chờ kho gửi xác nhận biên bản")}</span> : null}
                 <ChipChuaXepKe p={p} />
                 <span className="flex items-baseline justify-between gap-3 text-[13px] text-bo-muted">
                     <span className="min-w-0 truncate tabular-nums">
@@ -396,7 +396,7 @@ function DongPhieu({ p, onMo }) {
             </td>
             <td className={TD}>
                 <StatusBadge quyTrinh="chuyenKho" label={st.label} />
-                {p.choKhoGuiXacNhan ? <div className="mt-1 whitespace-nowrap text-xs text-bo-muted">Chờ kho gửi xác nhận</div> : null}
+                {p.choKhoGuiXacNhan ? <div className="mt-1 whitespace-nowrap text-xs text-bo-muted">{t("Chờ kho gửi xác nhận")}</div> : null}
                 {Number(p.chuaXepKe) > 0 ? <div className="mt-1"><ChipChuaXepKe p={p} /></div> : null}
                 <CanhBaoPhieu p={p} className="mt-1 hidden text-xs cam-ung:max-lg:flex" />
             </td>

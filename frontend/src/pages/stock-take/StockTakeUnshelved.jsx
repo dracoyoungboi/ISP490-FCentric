@@ -243,16 +243,16 @@ export default function StockTakeUnshelved() {
   const thanBang = dangTai ? (
     <LoadingState rows={5} label={t("Đang tải hàng chưa có kệ")} />
   ) : q.error && !duLieu ? (
-    <ErrorState description={`Không tải được: ${getApiErrorMessage(q.error, "lỗi kết nối")}.`} onRetry={q.reload} />
+    <ErrorState description={t("Không tải được: {{error}}.", { error: getApiErrorMessage(q.error, t("lỗi kết nối")) })} onRetry={q.reload} />
   ) : !theoChungTu.length && khoChuaCoKe ? (
     <EmptyState
       icon={MapIcon}
-      title="Kho chưa khai báo kệ nào"
-      description="Kho này chưa quản lý vị trí kệ nên không có hàng nào cần xếp. Muốn quản lý kệ, thêm kệ ở Vị trí kệ; tồn hiện có sẽ hiện ở đây để xếp."
+      title={t("Kho chưa khai báo kệ nào")}
+      description={t("Kho này chưa quản lý vị trí kệ nên không có hàng nào cần xếp. Muốn quản lý kệ, thêm kệ ở Vị trí kệ; tồn hiện có sẽ hiện ở đây để xếp.")}
       action={
         <Button variant="outline" onClick={() => navigate("/warehouse/locations")} className={NUT_VIEN}>
           <MapIcon className="size-4" />
-          Vị trí kệ
+          {t("Vị trí kệ")}
         </Button>
       }
     />

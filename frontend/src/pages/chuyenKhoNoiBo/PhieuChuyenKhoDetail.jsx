@@ -176,8 +176,8 @@ function ManPhieuChuyenKho({ id }) {
     // không để hộp bật lên bất ngờ khi trang đếm lại lúc người dùng quay lại thẻ
     useEffect(() => {
         if (!henMo) return undefined;
-        const t = setTimeout(() => setHenMo(null), 30_000);
-        return () => clearTimeout(t);
+        const hen = setTimeout(() => setHenMo(null), 30_000);
+        return () => clearTimeout(hen);
     }, [henMo]);
     useEffect(() => {
         if (!henMo || !demHen.daTai) return;
@@ -530,17 +530,15 @@ function ManPhieuChuyenKho({ id }) {
     }
     if (chuaKe.soLo > 0) {
         thongBao.push(
-            <DongThongBao key="chuaKe" tone="warn" actions={<NutChu onClick={() => moXepKe("nhan")}>Xếp kệ</NutChu>}>
-                <B>{soVN(chuaKe.soLuong)} sản phẩm</B> ({soVN(chuaKe.soLo)} lô) đã nhận vào {khoNhap} chưa có kệ: người nhặt hàng chưa
-                thấy chỗ lấy cho tới khi xếp.
+            <DongThongBao key="chuaKe" tone="warn" actions={<NutChu onClick={() => moXepKe("nhan")}>{t("Xếp kệ")}</NutChu>}>
+                <B>{t("{{so}} sản phẩm", { count: chuaKe.soLuong, so: soVN(chuaKe.soLuong) })}</B> {t("({{soLo}} lô) đã nhận vào {{khoNhap}} chưa có kệ: người nhặt hàng chưa thấy chỗ lấy cho tới khi xếp.", { count: chuaKe.soLo, soLo: soVN(chuaKe.soLo), khoNhap })}
             </DongThongBao>,
         );
     }
     if (chuaKeHoanTra.soLo > 0) {
         thongBao.push(
-            <DongThongBao key="chuaKeHoanTra" tone="warn" actions={<NutChu onClick={() => moXepKe("hoanTra")}>Xếp kệ</NutChu>}>
-                <B>{soVN(chuaKeHoanTra.soLuong)} sản phẩm</B> ({soVN(chuaKeHoanTra.soLo)} lô) đã về lại {khoXuat} chưa có kệ: người nhặt
-                hàng chưa thấy chỗ lấy cho tới khi xếp.
+            <DongThongBao key="chuaKeHoanTra" tone="warn" actions={<NutChu onClick={() => moXepKe("hoanTra")}>{t("Xếp kệ")}</NutChu>}>
+                <B>{t("{{so}} sản phẩm", { count: chuaKeHoanTra.soLuong, so: soVN(chuaKeHoanTra.soLuong) })}</B> {t("({{soLo}} lô) đã về lại {{khoXuat}} chưa có kệ: người nhặt hàng chưa thấy chỗ lấy cho tới khi xếp.", { count: chuaKeHoanTra.soLo, soLo: soVN(chuaKeHoanTra.soLo), khoXuat })}
             </DongThongBao>,
         );
     }
@@ -800,7 +798,7 @@ function ManPhieuChuyenKho({ id }) {
                 <HopNhapHoanTra
                     {...props("hoanTra")}
                     onXacNhan={async () => {
-                        const kq = await chay(() => phieuChuyenKhoService.nhapHoanTra(id), (r) => `Đã nhập hàng hoàn trả, phiếu nhập ${r?.soPhieuNhap ?? ""}`.trim(), "Không nhập hoàn trả được", ct.khoXuat);
+                        const kq = await chay(() => phieuChuyenKhoService.nhapHoanTra(id), (r) => t("Đã nhập hàng hoàn trả, phiếu nhập {{so}}", { so: r?.soPhieuNhap ?? "" }).trim(), t("Không nhập hoàn trả được"), ct.khoXuat);
                         // Hàng vừa về kho xuất: mở hộp xếp kệ khi số đếm (tải lại theo số phiếu nhập) thấy còn hàng chưa có kệ
                         if (kq?.phieuNhapId != null && !daGoRef.current) setHenMo("hoanTra");
                     }}
@@ -812,7 +810,7 @@ function ManPhieuChuyenKho({ id }) {
                     mo={hopXepKe.mo}
                     kho={hopXepKe.loai === "hoanTra" ? ct.khoXuat : ct.khoNhap}
                     phieuChuyenId={ct.id}
-                    tieuDe={!hopXepKe.tuMo ? "Xếp kệ hàng của phiếu" : hopXepKe.loai === "hoanTra" ? "Xếp kệ hàng vừa về" : "Xếp kệ hàng vừa nhận"}
+                    tieuDe={!hopXepKe.tuMo ? t("Xếp kệ hàng của phiếu") : hopXepKe.loai === "hoanTra" ? t("Xếp kệ hàng vừa về") : t("Xếp kệ hàng vừa nhận")}
                     tuMo={hopXepKe.tuMo}
                     soChungTu={hopXepKe.loai === "hoanTra" ? (phieuNhapHoanTra[0]?.so ?? ct.soPhieuChuyen) : ct.soPhieuChuyen}
                     onDong={dongXepKe}
