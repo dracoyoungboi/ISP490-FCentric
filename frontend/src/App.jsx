@@ -77,6 +77,7 @@ const StockTakeCreate = taiTrang(() => import("./pages/stock-take/StockTakeCreat
 const StockTakeDetail = taiTrang(() => import("./pages/stock-take/StockTakeDetail"));
 const StockTakeLockMap = taiTrang(() => import("./pages/stock-take/StockTakeLockMap"));
 const StockTakeUnshelved = taiTrang(() => import("./pages/stock-take/StockTakeUnshelved"));
+const InKiemKe = taiTrang(() => import("./pages/stock-take/InKiemKe"));
 const BaoCaoDoanhThu = taiTrang(() => import("./pages/bao-cao/BaoCaoDoanhThu"));
 const XuatDuLieuKeToan = taiTrang(() => import("./pages/bao-cao/XuatDuLieuKeToan"));
 const KhachHangReport = taiTrang(() => import("./pages/bao-cao/KhachHangReport"));
@@ -491,6 +492,13 @@ const CAY_DUONG_DAN = (
         {/* Chuyển kho nội bộ: loai = yeu-cau | lenh-dieu-dong | xknb | bien-ban; phiếu điều chỉnh kho in riêng */}
         <Route path="/transfer-tickets/:id/print/:loai" element={<InChuyenKho />} />
         <Route path="/transfer-tickets/adjustments/:id/print" element={<InChuyenKho dieuChinh />} />
+      </Route>
+      {/* Kiểm kê: biên bản cùng vai trò với chi tiết đợt; phiếu điều chỉnh có giá vốn nên chỉ quản trị viên, quản lý kho */}
+      <Route element={<RequireRole roles={["quan_tri_vien", "quan_ly_kho", "nhan_vien_kho"]} />}>
+        <Route path="/stock-take/:id/print" element={<InKiemKe loai="bien-ban" />} />
+      </Route>
+      <Route element={<RequireRole roles={["quan_tri_vien", "quan_ly_kho"]} />}>
+        <Route path="/stock-take/:id/print-adjustment" element={<InKiemKe loai="dieu-chinh" />} />
       </Route>
       <Route element={<RequireRole roles={VAI_TRO_XEM_BAO_GIA_BAN} />}>
         <Route path="/sales-quotations/:id/print" element={<BaoGiaPrint />} />
