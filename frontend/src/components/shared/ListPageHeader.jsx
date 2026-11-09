@@ -3,13 +3,14 @@ import { cn } from "@/lib/utils";
 import PageHeading from "@/components/backoffice/PageHeading";
 import { hienKhoLamViecODaySidebar } from "@/components/backoffice/sidebar.config";
 import { useClaimPageTitle, usePageTitle } from "@/components/backoffice/pageTitle";
+import { t } from "@/i18n";
 
 /** Nhãn phạm vi theo nơi làm việc (xem `noiLamViec` bên dưới); null = không hiện. */
 function chuNoiLamViec(dsKho) {
   if (!Array.isArray(dsKho)) return null;
-  if (dsKho.length === 0) return "Chưa có nơi làm việc";
+  if (dsKho.length === 0) return t("Chưa có nơi làm việc");
   if (dsKho.length === 1 && hienKhoLamViecODaySidebar(localStorage.getItem("role"))) return null;
-  return `Nơi làm việc: ${dsKho.map((kho) => kho?.tenKho).filter(Boolean).join(", ")}`;
+  return t("Nơi làm việc: {{dsKho}}", { dsKho: dsKho.map((kho) => kho?.tenKho).filter(Boolean).join(", ") });
 }
 
 /**
@@ -36,7 +37,7 @@ export default function ListPageHeader({ title, scope: scopeTruyen, noiLamViec, 
         {scope ? (
           <span
             className="inline-flex h-6 min-w-0 max-w-full items-center gap-1.5 rounded-full bg-slate-100 px-2.5 text-xs font-medium text-slate-600"
-            title="Dữ liệu trong phạm vi của tài khoản"
+            title={t("Dữ liệu trong phạm vi của tài khoản")}
           >
             <Warehouse className="size-3.5 shrink-0 text-slate-400" aria-hidden="true" />
             <span className="truncate">{scope}</span>

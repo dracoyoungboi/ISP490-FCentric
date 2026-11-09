@@ -1,3 +1,4 @@
+import { t } from "../i18n/t.js";
 /**
  * Chính sách mật khẩu của FCentric (chốt 31/10/2026), dựa trên NIST SP 800-63B và OWASP Authentication Cheat Sheet,
  * điều chỉnh cho nhân viên kho / cửa hàng (gõ trên máy POS, điện thoại):
@@ -23,13 +24,13 @@ export const MAT_KHAU_TOI_DA = 64;
 const BCRYPT_TOI_DA_BYTE = 72;
 
 /** Dòng gợi ý hiện sẵn dưới ô Mật khẩu mới (để trống khi chưa bật chính sách đầy đủ). */
-export const GOI_Y_MAT_KHAU = AP_DUNG_CHINH_SACH_DAY_DU ? `Từ ${MAT_KHAU_TOI_THIEU} ký tự, có cả chữ và số.` : "";
+export const GOI_Y_MAT_KHAU = AP_DUNG_CHINH_SACH_DAY_DU ? t("Từ {{toiThieu}} ký tự, có cả chữ và số.", { toiThieu: MAT_KHAU_TOI_THIEU }) : "";
 
 /**
  * Hạn liên kết đặt mật khẩu gửi qua email (tạo tài khoản, quản trị viên cấp lại), hiện ở các hộp xác nhận.
  * Phải khớp LienKetDatMatKhauService.HIEU_LUC ở backend; giờ hết hạn ghi trong email thì backend tự tính.
  */
-export const HAN_LIEN_KET_MAT_KHAU = "24 giờ";
+export const HAN_LIEN_KET_MAT_KHAU = t("24 giờ");
 
 // Mật khẩu phổ biến (so sánh không phân biệt hoa thường). Danh sách ngắn các mật khẩu hay gặp ở Việt Nam và quốc tế;
 // backend nên dùng danh sách dài hơn (vd. 10.000 mật khẩu phổ biến nhất).
@@ -95,26 +96,26 @@ export function kiemTraMatKhauMoi(
   { tenDangNhap = "", email = "", matKhauHienTai = "", dayDu = AP_DUNG_CHINH_SACH_DAY_DU } = {},
 ) {
   const gt = mk ?? "";
-  if (!gt) return "Nhập mật khẩu mới.";
+  if (!gt) return t("Nhập mật khẩu mới.");
   const toiThieu = dayDu ? 8 : 6;
   const dai = [...gt].length;
-  if (dai < toiThieu) return `Cần ít nhất ${toiThieu} ký tự (đang có ${dai}).`;
-  if (dai > MAT_KHAU_TOI_DA) return `Tối đa ${MAT_KHAU_TOI_DA} ký tự (đang có ${dai}).`;
+  if (dai < toiThieu) return t("Cần ít nhất {{toiThieu}} ký tự (đang có {{dai}}).", { toiThieu, dai });
+  if (dai > MAT_KHAU_TOI_DA) return t("Tối đa {{toiDa}} ký tự (đang có {{dai}}).", { toiDa: MAT_KHAU_TOI_DA, dai });
   // Máy chủ băm bằng BCrypt (tối đa 72 byte UTF-8): chữ có dấu chiếm 2–3 byte nên 64 ký tự có dấu vẫn có thể quá
   if (new TextEncoder().encode(gt).length > BCRYPT_TOI_DA_BYTE) {
-    return "Mật khẩu quá dài: chữ có dấu tính như 2–3 ký tự, hãy rút ngắn.";
+    return t("Mật khẩu quá dài: chữ có dấu tính như 2–3 ký tự, hãy rút ngắn.");
   }
   // Luôn kiểm tra (kể cả khi tạm tắt chính sách đầy đủ): đổi sang đúng mật khẩu cũ là vô nghĩa
-  if (matKhauHienTai && gt === matKhauHienTai) return "Mật khẩu mới phải khác mật khẩu hiện tại.";
+  if (matKhauHienTai && gt === matKhauHienTai) return t("Mật khẩu mới phải khác mật khẩu hiện tại.");
   if (!dayDu) return "";
-  if (!CHU.test(gt) || !SO.test(gt)) return "Cần có cả chữ và số.";
+  if (!CHU.test(gt) || !SO.test(gt)) return t("Cần có cả chữ và số.");
 
   const thuong = boDau(gt).toLowerCase();
   const ten = boDau(tenDangNhap || "").trim().toLowerCase();
   const truocA = boDau((email || "").split("@")[0] || "").trim().toLowerCase();
   if ((ten.length >= 3 && thuong.includes(ten)) || (truocA.length >= 3 && thuong.includes(truocA))) {
-    return "Không dùng tên đăng nhập hoặc email trong mật khẩu.";
+    return t("Không dùng tên đăng nhập hoặc email trong mật khẩu.");
   }
-  if (PHO_BIEN.has(thuong.trim()) || laDayDonGian(gt)) return "Mật khẩu này quá phổ biến, dễ bị đoán. Hãy chọn mật khẩu khác.";
+  if (PHO_BIEN.has(thuong.trim()) || laDayDonGian(gt)) return t("Mật khẩu này quá phổ biến, dễ bị đoán. Hãy chọn mật khẩu khác.");
   return "";
 }

@@ -1,7 +1,8 @@
 import { Filter } from "lucide-react";
+import { t } from "@/i18n";
 
 /** Khung "Bộ lọc tìm kiếm" như các trang danh sách hiện có; con là FilterBar. */
-export default function FilterPanel({ title = "Bộ lọc tìm kiếm", children }) {
+export default function FilterPanel({ title = t("Bộ lọc tìm kiếm"), children }) {
   return (
     <div className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
       <div className="flex items-center gap-2 border-b border-bo-border px-4 py-3 sm:px-5">

@@ -1,6 +1,7 @@
 import apiClient from "./apiClient";
 import { NHAP_KHO_MOCK } from "@/mocks/mockHelpers";
 import { viTriKhoMock } from "@/mocks/viTriKhoMock";
+import { t } from "@/i18n";
 
 /**
  * Khu vực, vị trí kệ và mặt bằng kho (FO-094).
@@ -15,7 +16,7 @@ export const VI_TRI_KHO_DA_CO_MAY_CHU = true;
 /** Đang chạy dữ liệu mẫu: máy chủ chưa có API (mặc định bật, tắt bằng VITE_NHAP_KHO_MOCK=false). */
 export const VI_TRI_KHO_MAU = !VI_TRI_KHO_DA_CO_MAY_CHU && NHAP_KHO_MOCK;
 
-export const THONG_BAO_CHUA_HO_TRO_VI_TRI = "Máy chủ chưa hỗ trợ khu vực và vị trí kệ.";
+export const THONG_BAO_CHUA_HO_TRO_VI_TRI = t("Máy chủ chưa hỗ trợ khu vực và vị trí kệ.");
 
 const data = (res) => res.data?.data;
 

@@ -20,10 +20,12 @@ import {
   O_TIEU_DE,
 } from "@/components/chung-tu/kieuBang";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 /** "10 biến thể"; đang tìm mà nhóm chỉ còn một phần: "3/10 biến thể". */
 const chuBienThe = (n) =>
-  n.soBienThe !== n.soBienTheCaNhom ? `${soVN(n.soBienThe)}/${soVN(n.soBienTheCaNhom)} biến thể` : `${soVN(n.soBienThe)} biến thể`;
+  n.soBienThe !== n.soBienTheCaNhom ? t("{{so}}/{{tong}} biến thể", { so: soVN(n.soBienThe), tong: soVN(n.soBienTheCaNhom) })
+    : t("{{so}} biến thể", { count: n.soBienThe, so: soVN(n.soBienThe) });
 
 /**
  * Bảng hàng của các màn TẠO chứng từ (tạo phiếu nhập, tạo phiếu chuyển): cùng kiểu bảng chứng từ của các màn chi tiết
@@ -41,10 +43,10 @@ export default function BangHangTaoPhieu({
   bang,
   cot,
   dongSang,
-  tenChungTu = "phiếu",
-  nhan = "Hàng trong phiếu",
-  goiYTim = "Tìm theo tên, SKU, màu hoặc kích cỡ",
-  nhanTim = "Tìm trong phiếu",
+  tenChungTu = t("phiếu"),
+  nhan = t("Hàng trong phiếu"),
+  goiYTim = t("Tìm theo tên, SKU, màu hoặc kích cỡ"),
+  nhanTim = t("Tìm trong phiếu"),
   rongToiThieu = "@2xl/khoi:min-w-[560px]",
 }) {
   const idBang = useId();
@@ -79,7 +81,7 @@ export default function BangHangTaoPhieu({
           <table className={cn(BANG, rongToiThieu)}>
             <thead>
               <tr className={DONG_TIEU_DE}>
-                <th scope="col" className={cn(O_TIEU_DE, O_DAU)}>Sản phẩm</th>
+                <th scope="col" className={cn(O_TIEU_DE, O_DAU)}>{t("Sản phẩm")}</th>
                 {dsCot.map((c, i) => (
                   <th key={c.ma} scope="col" className={cn(O_TIEU_DE, lopCot(c, i))}>
                     {c.nhan}
@@ -134,7 +136,7 @@ export default function BangHangTaoPhieu({
         </div>
       ) : null}
 
-      <KhongKetQua bang={bang} tenChungTu={tenChungTu} donVi="biến thể" />
+      <KhongKetQua bang={bang} tenChungTu={tenChungTu} donVi={t("biến thể")} />
       {coChanTrang ? <PhanTrangBang {...bang.phanTrang} /> : null}
     </section>
   );

@@ -1,6 +1,7 @@
 import apiClient from "./apiClient";
 import { NHAP_KHO_MOCK } from "@/mocks/mockHelpers";
 import { bienBanTraHangMock } from "@/mocks/bienBanTraHangMock";
+import { t } from "@/i18n";
 
 /**
  * Biên bản trả hàng nhà cung cấp (FO-099) và lưu hàng lỗi khi kiểm đếm (FO-098).
@@ -15,7 +16,7 @@ export const BIEN_BAN_TRA_HANG_DA_CO_MAY_CHU = true;
 export const BIEN_BAN_TRA_HANG_MAU = !BIEN_BAN_TRA_HANG_DA_CO_MAY_CHU && NHAP_KHO_MOCK;
 
 export const THONG_BAO_CHUA_HO_TRO_BIEN_BAN =
-  "Chưa lập được biên bản trả hàng vì máy chủ chưa hỗ trợ.";
+  t("Chưa lập được biên bản trả hàng vì máy chủ chưa hỗ trợ.");
 
 const data = (res) => res.data?.data;
 

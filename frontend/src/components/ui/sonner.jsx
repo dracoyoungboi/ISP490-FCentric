@@ -11,6 +11,7 @@ import { CAU_HINH_THONG_BAO_NHANH } from "@/config/thongBaoNhanh";
 import useKhoangTranhDay from "@/hooks/useKhoangTranhDay";
 import { viTriTheoTrang } from "@/lib/tinhThongBaoNhanh";
 import "@/styles/thong-bao-nhanh.css";
+import { t } from "@/i18n";
 
 const {
   beRong,
@@ -53,8 +54,8 @@ const Toaster = ({
         left: cachMepDienThoai,
         bottom: cachMepDienThoai + tranhDay,
       }}
-      containerAriaLabel="Thông báo"
-      toastOptions={{ closeButtonAriaLabel: "Đóng thông báo" }}
+      containerAriaLabel={t("Thông báo")}
+      toastOptions={{ closeButtonAriaLabel: t("Đóng thông báo") }}
       icons={{
         success: <CircleCheckIcon className="size-4" />,
         info: <InfoIcon className="size-4" />,

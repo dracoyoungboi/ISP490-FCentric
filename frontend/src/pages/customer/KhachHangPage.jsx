@@ -28,6 +28,7 @@ import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { toast } from "@/lib/thongBaoNhanh";
 import { WALKIN_CUSTOMER_CODE } from "@/services/posService";
 import { ROLES, hasAnyRole } from "@/utils/roles";
+import { t } from "@/i18n";
 
 // Khớp quyền ở backend (KhachHangController): thêm, sửa, đổi trạng thái khách hàng.
 const QUYEN_SUA_KHACH = [ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO, ROLES.NHAN_VIEN_BAN_HANG];
@@ -39,18 +40,18 @@ const SEARCH_DEBOUNCE_MS = 300;
 
 // Tên loại khách hàng (giữ nguyên 3 giá trị nghiệp vụ). Loại là phân loại, hiện chữ thường, không tô màu.
 const LOAI_KHACH_HANG_MAP = {
-    le: { label: "Khách lẻ" },
-    doanh_nghiep: { label: "Doanh nghiệp" },
-    si: { label: "Khách sỉ" }
+    le: { label: t("Khách lẻ") },
+    doanh_nghiep: { label: t("Doanh nghiệp") },
+    si: { label: t("Khách sỉ") }
 };
 // Tên loại cho thẻ (điện thoại) và dòng phụ (máy tính bảng); khách chưa lưu loại -> "Chưa phân loại" như ô của bảng
-const tenLoaiKhachHang = (loai) => LOAI_KHACH_HANG_MAP[loai]?.label ?? (loai || "Chưa phân loại");
+const tenLoaiKhachHang = (loai) => LOAI_KHACH_HANG_MAP[loai]?.label ?? (loai || t("Chưa phân loại"));
 
 // Tab theo loại khách hàng (bố cục A+G), thứ tự giữ như bộ lọc loại cũ.
 // Giá trị tab là mã loại trong code, nằm trên URL ?loai= (tab "Tất cả" không ghi lên URL).
 const LOAI_TAB_MAC_DINH = "tat-ca";
 const LOAI_TABS = [
-    { value: LOAI_TAB_MAC_DINH, label: "Tất cả" },
+    { value: LOAI_TAB_MAC_DINH, label: t("Tất cả") },
     { value: "le", label: LOAI_KHACH_HANG_MAP.le.label },
     { value: "si", label: LOAI_KHACH_HANG_MAP.si.label },
     { value: "doanh_nghiep", label: LOAI_KHACH_HANG_MAP.doanh_nghiep.label }
@@ -59,9 +60,9 @@ const LOAI_TAB_VALUES = LOAI_TABS.map((tab) => tab.value);
 
 // Trạng thái vẫn là ô chọn (SRS 1.5.1); một tên "Ngừng hoạt động" cho cả bộ lọc, bảng và hộp thoại đổi trạng thái
 const TRANG_THAI_FILTER_OPTIONS = [
-    { value: "all", label: "Tất cả trạng thái" },
-    { value: "1", label: "Hoạt động" },
-    { value: "0", label: "Ngừng hoạt động" }
+    { value: "all", label: t("Tất cả trạng thái") },
+    { value: "1", label: t("Hoạt động") },
+    { value: "0", label: t("Ngừng hoạt động") }
 ];
 
 // Điều kiện lọc dùng chung cho danh sách và số trên tab (chỉ khác điều kiện loại)
@@ -285,14 +286,14 @@ export default function KhachHangPage() {
     const handleSaved = (saved, { laSua }) => {
         if (laSua) {
             setKhachHangs((prev) => prev.map((item) => (item.id === saved?.id ? { ...item, ...saved } : item)));
-            toast.success(`Đã lưu thông tin khách hàng "${saved?.tenKhachHang ?? ""}"`);
+            toast.success(t("Đã lưu thông tin khách hàng \"{{ten}}\"", { ten: saved?.tenKhachHang ?? "" }));
             tabCounts.reload();
             return;
         }
         tabCounts.reload();
         if (!saved?.id) {
             // Máy chủ cũ chưa trả khách vừa tạo: tải lại danh sách.
-            toast.success("Đã thêm khách hàng");
+            toast.success(t("Đã thêm khách hàng"));
             setCurrentPage(0);
             loadKhachHangs();
             return;
@@ -305,15 +306,15 @@ export default function KhachHangPage() {
         setCurrentPage(0);
         const tabLoai = LOAI_TABS.find((tab) => tab.value === saved.loaiKhachHang);
         const khacTab = loaiKhachHang !== LOAI_TAB_MAC_DINH && saved.loaiKhachHang !== loaiKhachHang;
-        toast.success(`Đã thêm khách hàng ${saved.maKhachHang}`, {
-            description: khacTab && tabLoai ? `Khách mới nằm ở tab ${tabLoai.label}.` : undefined,
+        toast.success(t("Đã thêm khách hàng {{maKhachHang}}", { maKhachHang: saved.maKhachHang }), {
+            description: khacTab && tabLoai ? t("Khách mới nằm ở tab {{tab}}.", { tab: tabLoai.label }) : undefined,
             action: { label: "Xem", onClick: () => navigate(`/customers/${saved.id}`) },
         });
     };
 
     const handleTrangThaiDoi = (moi) => {
         setKhachHangs((prev) => prev.map((item) => (item.id === moi.id ? { ...item, ...moi } : item)));
-        toast.success(laHoatDong(moi) ? "Đã cho phép khách hàng hoạt động lại" : "Đã ngừng hoạt động khách hàng");
+        toast.success(laHoatDong(moi) ? t("Đã cho phép khách hàng hoạt động lại") : t("Đã ngừng hoạt động khách hàng"));
         tabCounts.reload();
         // Đang lọc theo trạng thái thì dòng vừa đổi không còn thuộc bộ lọc: tải lại ngầm.
         if (trangThai !== "all") loadKhachHangs({ silent: true });
@@ -323,7 +324,7 @@ export default function KhachHangPage() {
     const getLoaiKhachHangBadge = (loai) => {
         // Khách tạo trước khi backend lưu loại có loaiKhachHang = null -> "Chưa phân loại" (chữ xám)
         const item = LOAI_KHACH_HANG_MAP[loai];
-        if (!item) return <span className="whitespace-nowrap text-bo-muted">{loai || "Chưa phân loại"}</span>;
+        if (!item) return <span className="whitespace-nowrap text-bo-muted">{loai || t("Chưa phân loại")}</span>;
         return <span className="whitespace-nowrap text-slate-700">{item.label}</span>;
     };
 
@@ -361,7 +362,7 @@ export default function KhachHangPage() {
                             className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
                         >
                             <Plus className="size-4" />
-                            Thêm khách hàng
+                            {t("Thêm khách hàng")}
                         </Button>
                     ) : null
                 }
@@ -374,7 +375,7 @@ export default function KhachHangPage() {
                     <ListToolbar
                         tabs={
                             <StatusTabs
-                                label="Lọc khách hàng theo loại"
+                                label={t("Lọc khách hàng theo loại")}
                                 tabs={loaiTabs}
                                 value={loaiKhachHang}
                                 onChange={handleLoaiKhachHangChange}
@@ -384,8 +385,8 @@ export default function KhachHangPage() {
                         onClear={handleResetFilters}
                     >
                         <SearchInput
-                            label="Tìm khách hàng"
-                            placeholder="Tìm theo tên, mã, SĐT, email..."
+                            label={t("Tìm khách hàng")}
+                            placeholder={t("Tìm theo tên, mã, SĐT, email...")}
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             onClear={handleClearSearch}
@@ -393,7 +394,7 @@ export default function KhachHangPage() {
                             className="sm:w-[300px]"
                         />
                         <FilterSelect
-                            label="Lọc theo trạng thái"
+                            label={t("Lọc theo trạng thái")}
                             value={trangThai}
                             options={TRANG_THAI_FILTER_OPTIONS}
                             onChange={handleTrangThaiChange}
@@ -415,10 +416,10 @@ export default function KhachHangPage() {
                 }
             >
                 {loading ? (
-                    <LoadingState rows={6} label="Đang tải danh sách khách hàng" />
+                    <LoadingState rows={6} label={t("Đang tải danh sách khách hàng")} />
                 ) : loadError ? (
                     <ErrorState
-                        description="Không tải được danh sách khách hàng. Vui lòng thử lại."
+                        description={t("Không tải được danh sách khách hàng. Vui lòng thử lại.")}
                         error={loadError}
                         onRetry={handleRetry}
                     />
@@ -426,38 +427,38 @@ export default function KhachHangPage() {
                     hasActiveFilters ? (
                         <EmptyState
                             icon={SearchX}
-                            title="Không tìm thấy khách hàng phù hợp"
-                            description="Thử đổi từ khóa hoặc trạng thái."
+                            title={t("Không tìm thấy khách hàng phù hợp")}
+                            description={t("Thử đổi từ khóa hoặc trạng thái.")}
                             action={
                                 <Button
                                     variant="outline"
                                     onClick={handleResetFilters}
                                     className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
-                                    Xóa lọc
+                                    {t("Xóa lọc")}
                                 </Button>
                             }
                         />
                     ) : loaiKhachHang !== LOAI_TAB_MAC_DINH ? (
                         <EmptyState
                             icon={Users}
-                            title={`Không có khách hàng nào thuộc loại "${loaiTabLabel}"`}
-                            description="Chọn tab Tất cả để xem mọi khách hàng."
+                            title={t("Không có khách hàng nào thuộc loại \"{{loai}}\"", { loai: loaiTabLabel })}
+                            description={t("Chọn tab Tất cả để xem mọi khách hàng.")}
                             action={
                                 <Button
                                     variant="outline"
                                     onClick={() => handleLoaiKhachHangChange(LOAI_TAB_MAC_DINH)}
                                     className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
-                                    Xem tất cả
+                                    {t("Xem tất cả")}
                                 </Button>
                             }
                         />
                     ) : (
                         <EmptyState
                             icon={Users}
-                            title="Chưa có khách hàng"
-                            description="Thêm khách hàng để lập đơn bán hàng và theo dõi lịch sử mua."
+                            title={t("Chưa có khách hàng")}
+                            description={t("Thêm khách hàng để lập đơn bán hàng và theo dõi lịch sử mua.")}
                             action={
                                 coTheSua ? (
                                     <Button
@@ -465,7 +466,7 @@ export default function KhachHangPage() {
                                         className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
                                     >
                                         <Plus className="size-4" />
-                                        Thêm khách hàng
+                                        {t("Thêm khách hàng")}
                                     </Button>
                                 ) : null
                             }
@@ -487,6 +488,7 @@ export default function KhachHangPage() {
                                     >
                                         <span className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
                                             <span className="min-w-0 truncate text-[15px] font-semibold text-bo-foreground">{khachHang.tenKhachHang}</span>
+                                            {/* i18n-giu-nguyen: StatusBadge tự dịch */}
                                             <StatusBadge doiTuong="nguoi" label={khachHang.trangThai === 1 ? "Hoạt động" : "Ngừng hoạt động"} />
                                         </span>
                                         <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[13px] text-bo-muted">
@@ -513,9 +515,9 @@ export default function KhachHangPage() {
                                                     variant="outline"
                                                     className="h-9 shrink-0 gap-1.5 border-bo-input-border bg-bo-surface px-3 text-sm font-medium text-bo-foreground"
                                                 >
-                                                    <a href={`tel:${khachHang.soDienThoai.replace(/\s/g, "")}`} aria-label={`Gọi ${khachHang.tenKhachHang}`}>
+                                                    <a href={`tel:${khachHang.soDienThoai.replace(/\s/g, "")}`} aria-label={t("Gọi {{ten}}", { ten: khachHang.tenKhachHang })}>
                                                         <Phone className="size-4" aria-hidden="true" />
-                                                        Gọi
+                                                        {t("Gọi")}
                                                     </a>
                                                 </Button>
                                             ) : null}
@@ -531,25 +533,25 @@ export default function KhachHangPage() {
                         <thead className="sticky top-0 z-10">
                             <tr className="border-b border-bo-border bg-bo-surface-subtle">
                                 <th className="h-10 w-14 whitespace-nowrap px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">
-                                    STT
+                                    {t("STT")}
                                 </th>
                                 <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                    Mã KH
+                                    {t("Mã KH")}
                                 </th>
                                 <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                    Khách hàng
+                                    {t("Khách hàng")}
                                 </th>
                                 <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">
-                                    Loại KH
+                                    {t("Loại KH")}
                                 </th>
                                 <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                    Liên hệ
+                                    {t("Liên hệ")}
                                 </th>
                                 <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                    Trạng thái
+                                    {t("Trạng thái")}
                                 </th>
                                 <th className="h-10 whitespace-nowrap px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">
-                                    Thao tác
+                                    {t("Thao tác")}
                                 </th>
                             </tr>
                         </thead>
@@ -595,25 +597,26 @@ export default function KhachHangPage() {
                                         </div>
                                     </td>
                                     <td className="px-3 py-3">
+                                        {/* i18n-giu-nguyen: StatusBadge tự dịch */}
                                         <StatusBadge doiTuong="nguoi" label={khachHang.trangThai === 1 ? "Hoạt động" : "Ngừng hoạt động"} />
                                     </td>
                                     <td className="px-3 py-3 cam-ung:max-lg:hidden">
                                         <RowActions>
                                             <RowActionButton
                                                 icon={Eye}
-                                                label="Xem chi tiết"
+                                                label={t("Xem chi tiết")}
                                                 onClick={() => navigate(`/customers/${khachHang.id}`)}
                                             />
                                             {coTheSua ? (
                                                 <>
                                                     <RowActionButton
                                                         icon={Pencil}
-                                                        label="Chỉnh sửa"
+                                                        label={t("Chỉnh sửa")}
                                                         onClick={() => moForm(khachHang)}
                                                     />
                                                     <RowActionButton
                                                         icon={laHoatDong(khachHang) ? CirclePause : CircleCheck}
-                                                        label={laHoatDong(khachHang) ? "Ngừng hoạt động" : "Cho phép hoạt động"}
+                                                        label={laHoatDong(khachHang) ? t("Ngừng hoạt động") : t("Cho phép hoạt động")}
                                                         onClick={() => setTrangThaiDialog({ open: true, khachHang })}
                                                     />
                                                 </>

@@ -5,8 +5,8 @@
 export const TONE_THONG_BAO = Object.freeze(["info", "warning", "danger", "success"]);
 
 const thoiDiem = (n) => {
-  const t = new Date(n.thoiGian).getTime();
-  return Number.isNaN(t) ? 0 : t;
+  const ms = new Date(n.thoiGian).getTime();
+  return Number.isNaN(ms) ? 0 : ms;
 };
 
 /** Mới nhất trước; cùng thời điểm thì id lớn (tạo sau) trước, như máy chủ xếp. */

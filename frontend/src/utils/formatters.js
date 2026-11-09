@@ -1,3 +1,4 @@
+import { t } from "../i18n/t.js";
 
 export const formatCurrency = (amount) => {
     return new Intl.NumberFormat('vi-VN', {
@@ -57,14 +58,14 @@ const chonDonVi = (n, bac) => {
 export const formatCurrencyCompact = (amount) => {
     const n = Number(amount || 0);
     if (Math.abs(n) < 999_950) return formatCurrency(n);
-    return `${chonDonVi(n, [[1e9, 'tỷ'], [1e6, 'triệu']])} ₫`;
+    return `${chonDonVi(n, [[1e9, t("tỷ")], [1e6, t("triệu")]])} ₫`;
 };
 
 /** Nhãn trục biểu đồ tiền: "14,3 tr", "1,5 tỷ", "500 N" (nghìn); 0 → "0". Dấu phẩy là phần thập phân. */
 export const formatAxisMoney = (amount) => {
     const n = Number(amount || 0);
     if (Math.abs(n) < 999.95) return SO_GON.format(n);
-    return chonDonVi(n, [[1e9, 'tỷ'], [1e6, 'tr'], [1e3, 'N']]);
+    return chonDonVi(n, [[1e9, t("tỷ")], [1e6, t("tr", { context: "don_vi" })], [1e3, t("N", { context: "don_vi" })]]);
 };
 
 /** Tỷ lệ phần trăm có dấu phẩy thập phân: 0.1667 → "16,7%". `value` là tỷ lệ (0–1). Không có mẫu số → "—". */

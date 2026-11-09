@@ -26,6 +26,7 @@ import { getKhachHangById, getTongQuanMuaHang } from "@/services/khachHangServic
 import { WALKIN_CUSTOMER_CODE } from "@/services/posService";
 import { getApiErrorStatus, getApiErrorMessage } from "@/utils/apiError";
 import { ROLES, hasAnyRole } from "@/utils/roles";
+import { t } from "@/i18n";
 
 // Khớp quyền ở backend (KhachHangController): sửa hồ sơ và đổi trạng thái.
 const QUYEN_SUA_KHACH = [ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO, ROLES.NHAN_VIEN_BAN_HANG];
@@ -48,6 +49,7 @@ export default function KhachHangDetails() {
   // Vai trò kho chỉ thấy chứng từ của kho mình (máy chủ lọc theo kho xuất); báo giá chưa gắn kho nên không có gì để xem
   const xemBaoGia = laQuanTriVien || (laBanHang && !laVaiTroKho);
   const phamVi = ghiChuPhamVi({ laQuanTriVien, laVaiTroKho, laBanHang });
+  const phamViBaoGia = ghiChuPhamVi({ laQuanTriVien, laVaiTroKho, laBanHang, laBaoGia: true });
 
   const [moTrangThai, setMoTrangThai] = useState(false);
   // Lịch sử thay đổi khách hàng: chỉ quản trị viên (máy chủ cũng chỉ cho quản trị viên)
@@ -90,7 +92,7 @@ export default function KhachHangDetails() {
     return (
       <PageContainer>
         <SurfaceCard>
-          <LoadingState label="Đang tải thông tin khách hàng" />
+          <LoadingState label={t("Đang tải thông tin khách hàng")} />
         </SurfaceCard>
       </PageContainer>
     );
@@ -105,21 +107,21 @@ export default function KhachHangDetails() {
           {khongThay ? (
             <EmptyState
               icon={SearchX}
-              title="Không tìm thấy khách hàng"
-              description="Khách hàng có thể đã bị xóa hoặc đường dẫn không đúng."
+              title={t("Không tìm thấy khách hàng")}
+              description={t("Khách hàng có thể đã bị xóa hoặc đường dẫn không đúng.")}
               action={
                 <Button
                   onClick={() => navigate("/customers")}
                   className="bg-bo-primary font-semibold text-white hover:bg-bo-primary-hover"
                 >
-                  Quay lại danh sách
+                  {t("Quay lại danh sách")}
                 </Button>
               }
             />
           ) : (
             <ErrorState
-              title="Không thể tải thông tin khách hàng"
-              description={getApiErrorMessage(khachQ.error, "Không thể tải thông tin khách hàng")}
+              title={t("Không thể tải thông tin khách hàng")}
+              description={getApiErrorMessage(khachQ.error, t("Không thể tải thông tin khách hàng"))}
               onRetry={khachQ.reload}
             />
           )}
@@ -139,12 +141,12 @@ export default function KhachHangDetails() {
   const handleDaSua = (moi) => {
     if (moi) khachQ.setData((cu) => ({ ...cu, ...moi }));
     else khachQ.reload();
-    toast.success("Đã lưu thông tin khách hàng");
+    toast.success(t("Đã lưu thông tin khách hàng"));
   };
 
   const handleTrangThaiDoi = (moi) => {
     khachQ.setData((cu) => ({ ...cu, ...moi }));
-    toast.success(laHoatDong(moi) ? "Đã cho phép khách hàng hoạt động lại" : "Đã ngừng hoạt động khách hàng");
+    toast.success(laHoatDong(moi) ? t("Đã cho phép khách hàng hoạt động lại") : t("Đã ngừng hoạt động khách hàng"));
   };
 
   return (
@@ -168,8 +170,8 @@ export default function KhachHangDetails() {
           >
             <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
             <span>
-              <span className="font-semibold text-bo-foreground">Khách mặc định của hệ thống.</span>{" "}
-              Dùng cho hóa đơn bán tại quầy không lưu thông tin người mua. Không sửa hay ngừng hoạt động được.
+              <span className="font-semibold text-bo-foreground">{t("Khách mặc định của hệ thống.")}</span>{" "}
+              {t("Dùng cho hóa đơn bán tại quầy không lưu thông tin người mua. Không sửa hay ngừng hoạt động được.")}
             </span>
           </div>
         ) : null}
@@ -182,8 +184,8 @@ export default function KhachHangDetails() {
             <span className="flex items-start gap-2.5">
               <CirclePause className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
               <span>
-                <span className="font-semibold text-bo-foreground">Khách hàng đang ngừng hoạt động.</span>{" "}
-                Không chọn được khi tạo báo giá và bán tại quầy. Lịch sử mua hàng giữ nguyên.
+                <span className="font-semibold text-bo-foreground">{t("Khách hàng đang ngừng hoạt động.")}</span>{" "}
+                {t("Không chọn được khi tạo báo giá và bán tại quầy. Lịch sử mua hàng giữ nguyên.")}
               </span>
             </span>
             {suaDuoc ? (
@@ -194,7 +196,7 @@ export default function KhachHangDetails() {
                 onClick={() => setMoTrangThai(true)}
                 className="shrink-0 border-bo-border bg-bo-surface text-bo-foreground shadow-none hover:bg-bo-surface-subtle max-sm:h-11"
               >
-                Cho phép hoạt động
+                {t("Cho phép hoạt động")}
               </Button>
             ) : null}
           </div>
@@ -223,6 +225,7 @@ export default function KhachHangDetails() {
             coTheTaoDon={coTheBanHang}
             onTaoBaoGia={taoBaoGia}
             ghiChuPhamVi={phamVi}
+            ghiChuPhamViBaoGia={phamViBaoGia}
           />
           <ThuocTinhKhachHang khachHang={khachHang} kenhMua={tongQuan?.kenhMua} onChinhSua={chinhSua} />
         </div>
@@ -252,8 +255,8 @@ export default function KhachHangDetails() {
         <NganKeoLichSu
           open={moLichSu}
           onOpenChange={setMoLichSu}
-          tieuDe={`Lịch sử ${khachHang.tenKhachHang || khachHang.maKhachHang || "khách hàng"}`}
-          moTa="Thêm, sửa, ngừng hoạt động khách hàng: ai làm, lúc nào, đổi gì."
+          tieuDe={t("Lịch sử {{ten}}", { ten: khachHang.tenKhachHang || khachHang.maKhachHang || t("khách hàng") })}
+          moTa={t("Thêm, sửa, ngừng hoạt động khách hàng: ai làm, lúc nào, đổi gì.")}
           tai={() => layLichSuDanhMuc("khach_hang", khachHang.id)}
         />
       ) : null}

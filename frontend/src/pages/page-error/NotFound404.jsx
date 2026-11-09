@@ -6,6 +6,7 @@ import BackofficeLayout from "@/components/backoffice/BackofficeLayout";
 import BrandLogo from "@/components/brand/BrandLogo";
 import { Button } from "@/components/ui/button";
 import MinhHoaKhongTimThay from "./MinhHoaKhongTimThay";
+import { t } from "@/i18n";
 
 /*
  * Trang 404 (đã chốt 15/10/2026):
@@ -16,7 +17,7 @@ import MinhHoaKhongTimThay from "./MinhHoaKhongTimThay";
  * khung quản trị: route đó sẽ thắng mọi đường dẫn lạ và đẩy người chưa đăng nhập về trang đăng nhập.
  */
 
-const TIEU_DE = "Không tìm thấy trang";
+const TIEU_DE = t("Không tìm thấy trang");
 
 /** Tiêu đề cố định cho BackofficeLayout (tên tab trình duyệt); trang tự vẽ h1 nên ownTitle = true. */
 const META_KHONG_TIM_THAY = { title: TIEU_DE, ownTitle: true };
@@ -63,20 +64,20 @@ export function KhongTimThayTrongKhung() {
                     {TIEU_DE}
                 </h1>
                 <p className="mt-1.5 text-sm leading-6 text-slate-600">
-                    Trang bạn mở không tồn tại hoặc đã được chuyển sang địa chỉ khác.
+                    {t("Trang bạn mở không tồn tại hoặc đã được chuyển sang địa chỉ khác.")}
                 </p>
                 {trongKenh ? (
                     <div className="mt-5 flex flex-wrap justify-center gap-2">
                         <Button asChild className={`max-sm:h-11 ${NUT_CHINH}`}>
-                            <Link to="/dashboard">Về Tổng quan</Link>
+                            <Link to="/dashboard">{t("Về Tổng quan")}</Link>
                         </Button>
                         <Button asChild variant="outline" className={`max-sm:h-11 ${NUT_PHU}`}>
-                            <Link to="/channels">Về Kênh bán hàng</Link>
+                            <Link to="/channels">{t("Về Kênh bán hàng")}</Link>
                         </Button>
                     </div>
                 ) : (
                     <Button asChild className={`mt-5 ${NUT_CHINH}`}>
-                        <Link to="/dashboard">Về Tổng quan</Link>
+                        <Link to="/dashboard">{t("Về Tổng quan")}</Link>
                     </Button>
                 )}
             </section>
@@ -101,7 +102,7 @@ function KhongTimThayNgoaiKhung() {
             <header className="flex h-14 shrink-0 items-center px-5 sm:h-[72px] sm:px-8">
                 <Link
                     to="/login"
-                    aria-label="FCentric, về trang đăng nhập"
+                    aria-label={t("FCentric, về trang đăng nhập")}
                     className="rounded-md outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/40"
                 >
                     <BrandLogo variant="light" className="h-[26px] sm:h-8" />
@@ -125,16 +126,16 @@ function KhongTimThayNgoaiKhung() {
                     </h1>
                     {/* Màn rộng: mỗi câu một dòng, không để "Vui lòng" bị ngắt giữa hai dòng */}
                     <p className="mt-2 max-w-[521px] text-sm leading-[22px] text-slate-600">
-                        Đường dẫn không tồn tại hoặc trang đã được chuyển sang địa chỉ khác.{" "}
+                        {t("Đường dẫn không tồn tại hoặc trang đã được chuyển sang địa chỉ khác.")}{" "}
                         <span className="sm:block">
-                            Vui lòng kiểm tra lại đường dẫn, hoặc đăng nhập để tiếp tục làm việc.
+                            {t("Vui lòng kiểm tra lại đường dẫn, hoặc đăng nhập để tiếp tục làm việc.")}
                         </span>
                     </p>
                     <Button
                         asChild
                         className={`mt-6 h-11 w-full px-5 text-[15px] sm:h-10 sm:w-auto sm:text-sm ${NUT_CHINH}`}
                     >
-                        <Link to="/login">Đến trang đăng nhập</Link>
+                        <Link to="/login">{t("Đến trang đăng nhập")}</Link>
                     </Button>
                 </section>
             </main>

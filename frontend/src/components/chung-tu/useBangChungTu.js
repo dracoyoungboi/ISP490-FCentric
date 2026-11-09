@@ -9,6 +9,7 @@ import {
   soVN,
   timTrangCuaDong,
 } from "./bangChungTu.js";
+import { t } from "../../i18n/t.js";
 
 /**
  * State của bảng hàng trong màn chi tiết chứng từ: từ khóa, trang, cỡ trang, nhóm mở / thu gọn, lọc nhanh, chế độ xem.
@@ -99,22 +100,22 @@ export default function useBangChungTu(dong, tuyChon = {}) {
     const muc = ds.find((d) => d?.id != null && String(d.id) === String(id));
     if (!muc) return false;
     const co = bang.coCongCu ? coTrang : Infinity;
-    let t = timTrangCuaDong(ds, id, { theo, coTrang: co, tuKhoa, loc });
-    const boLocCu = t < 0;
+    let tr = timTrangCuaDong(ds, id, { theo, coTrang: co, tuKhoa, loc });
+    const boLocCu = tr < 0;
     if (boLocCu) {
-      t = timTrangCuaDong(ds, id, { theo, coTrang: co, tuKhoa: "", loc: locCua(maLocDau) });
-      if (t < 0) return false;
+      tr = timTrangCuaDong(ds, id, { theo, coTrang: co, tuKhoa: "", loc: locCua(maLocDau) });
+      if (tr < 0) return false;
       setTuKhoa("");
       setLocNhanh(maLocDau);
     }
-    setTrang(t);
+    setTrang(tr);
     if (theo !== "dong") {
       setMoNhom((cu) => ({ ...(boLocCu ? {} : cu), [khoaNhomCua(muc)]: true }));
     }
     return true;
   };
 
-  const donViDong = donVi ?? (theo === "dong" ? "dòng" : "biến thể");
+  const donViDong = donVi ?? (theo === "dong" ? t("dòng") : t("biến thể"));
   const phanTrangProps = bang.coPhanTrang
     ? {
       page: bang.trang,
@@ -123,8 +124,8 @@ export default function useBangChungTu(dong, tuyChon = {}) {
       onPageChange: setTrang,
       onSizeChange: datCoTrang,
       sizeOptions: luaChonCoTrang,
-      sizeLabel: bang.theo === "nhom" ? "sản phẩm" : donViDong,
-      totalLabel: bang.theo === "nhom" ? "sản phẩm" : donViDong,
+      sizeLabel: bang.theo === "nhom" ? t("sản phẩm") : donViDong,
+      totalLabel: bang.theo === "nhom" ? t("sản phẩm") : donViDong,
       totalNote: bang.theo === "nhom" ? `${soVN(bang.ketQua.soDong)} ${donViDong}` : undefined,
     }
     : null;

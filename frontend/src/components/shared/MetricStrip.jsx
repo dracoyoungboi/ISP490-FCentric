@@ -1,5 +1,6 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 const MAU_GIA_TRI = {
   danger: "text-red-600",
@@ -24,7 +25,7 @@ const LUOI = {
  * - loading: hiện khung xương thay cho số (không hiện số 0 giả).
  * Trang danh sách thường KHÔNG dùng dải này: số theo trạng thái nằm trên tab.
  */
-export default function MetricStrip({ items, loading = false, label = "Chỉ số", className }) {
+export default function MetricStrip({ items, loading = false, label = t("Chỉ số"), className }) {
   return (
     <section
       aria-label={label}

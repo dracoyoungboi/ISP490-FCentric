@@ -13,6 +13,7 @@ import { donBanHangKenhService } from "@/services/donBanHangKenhService";
 import { LOAI_CHUNG_TU, timChungTu } from "@/services/timChungTuService";
 import { getDonBanHangStatus } from "@/constants/donBanHang";
 import { formatCurrency } from "@/utils/formatters";
+import { t } from "@/i18n";
 
 /*
  * Ô tìm kiếm toàn hệ thống trên thanh trên cùng (thay breadcrumb, phương án 14/10/2026).
@@ -31,27 +32,28 @@ const SO_DONG_XEM_TRUOC = 3;
 const SO_TIM_GAN_DAY = 5;
 
 const NHOM = [
-  { key: "manHinh", label: "Màn hình", trangDanhSach: null, icon: LayoutGrid },
-  { key: "sanPham", label: "Sản phẩm", trangDanhSach: "/products", icon: Package },
-  { key: "donHang", label: "Đơn hàng", trangDanhSach: "/sales-orders", icon: ShoppingCart },
-  { key: "khachHang", label: "Khách hàng", trangDanhSach: "/customers", icon: UserRound },
-  { key: "chungTu", label: "Chứng từ", trangDanhSach: null, icon: FileText },
+  { key: "manHinh", label: t("Màn hình"), trangDanhSach: null, icon: LayoutGrid },
+  { key: "sanPham", label: t("Sản phẩm"), trangDanhSach: "/products", icon: Package },
+  { key: "donHang", label: t("Đơn hàng"), trangDanhSach: "/sales-orders", icon: ShoppingCart },
+  { key: "khachHang", label: t("Khách hàng"), trangDanhSach: "/customers", icon: UserRound },
+  { key: "chungTu", label: t("Chứng từ"), trangDanhSach: null, icon: FileText },
 ];
 
 const GOI_Y_THEO_TAB = {
-  tatCa: "sản phẩm, đơn hàng, khách hàng, màn hình",
-  manHinh: "màn hình, chức năng",
-  sanPham: "sản phẩm theo tên",
-  donHang: "đơn hàng theo mã đơn",
-  khachHang: "khách hàng theo tên, mã hoặc số điện thoại",
-  chungTu: "phiếu nhập, phiếu xuất, chuyển kho, đơn mua, yêu cầu nhập theo mã",
-  tatCaCoChungTu: "sản phẩm, đơn hàng, mã phiếu, khách hàng, màn hình",
+  tatCa: t("sản phẩm, đơn hàng, khách hàng, màn hình"),
+  manHinh: t("màn hình, chức năng"),
+  sanPham: t("sản phẩm theo tên"),
+  donHang: t("đơn hàng theo mã đơn"),
+  khachHang: t("khách hàng theo tên, mã hoặc số điện thoại"),
+  chungTu: t("phiếu nhập, phiếu xuất, chuyển kho, đơn mua, yêu cầu nhập theo mã"),
+  tatCaCoChungTu: t("sản phẩm, đơn hàng, mã phiếu, khách hàng, màn hình"),
 };
 
+// i18n-giu-nguyen: nhãn tiếng Việt truyền cho StatusBadge (badge tự dịch lúc vẽ)
 const TRANG_THAI_SAN_PHAM = {
-  1: { label: "Còn hàng" },
-  0: { label: "Hết hàng" },
-  2: { label: "Ngừng hoạt động" },
+  1: { label: "Còn hàng" }, // i18n-giu-nguyen: StatusBadge tự dịch
+  0: { label: "Hết hàng" }, // i18n-giu-nguyen: StatusBadge tự dịch
+  2: { label: "Ngừng hoạt động" }, // i18n-giu-nguyen: StatusBadge tự dịch
 };
 
 /* ---------- Tiện ích ---------- */
@@ -101,7 +103,7 @@ const loaiChungTuDuocXem = (role) => LOAI_CHUNG_TU.filter((l) => vaiTroCuaTrang(
 function danhSachManHinh(role, kenhDaKetNoi) {
   const tenNhom = Object.fromEntries(SIDEBAR_SECTIONS.map((s) => [s.key, vietHoaChuDau(s.label)]));
   // Mục ghim ở đáy sidebar (Cấu hình) không thuộc nhóm có tiêu đề
-  tenNhom[SIDEBAR_FOOTER_SECTION] = "Hệ thống";
+  tenNhom[SIDEBAR_FOOTER_SECTION] = t("Hệ thống");
   const ketQua = [];
   for (const muc of SIDEBAR_MENU) {
     if (!muc.roles?.includes(role)) continue;
@@ -109,7 +111,7 @@ function danhSachManHinh(role, kenhDaKetNoi) {
     // Nhóm không có tiêu đề (Tổng quan, các nhóm nghiệp vụ Sản phẩm, Mua hàng…): mục con chỉ ghi tên nhóm cha,
     // không thêm chữ "Trang chính" phía trước
     const nhom = tenNhom[muc.section] || "";
-    if (muc.to) ketQua.push({ id: muc.to, label: muc.label, to: muc.to, viTri: nhom || "Trang chính" });
+    if (muc.to) ketQua.push({ id: muc.to, label: muc.label, to: muc.to, viTri: nhom || t("Trang chính") });
     for (const con of muc.children ?? []) {
       if ((con.roles ?? muc.roles).includes(role)) {
         ketQua.push({ id: con.to, label: con.label, to: con.to, viTri: nhom ? `${nhom} › ${muc.label}` : muc.label });
@@ -188,7 +190,7 @@ const HAM_TIM = {
 
 /* ---------- Thành phần ---------- */
 
-export default function GlobalSearch({ userId, role, isPhone = false, placeholder = "Tìm kiếm (Ctrl + K)" }) {
+export default function GlobalSearch({ userId, role, isPhone = false, placeholder = t("Tìm kiếm (Ctrl + K)") }) {
   const navigate = useNavigate();
   const listboxId = useId();
   const khungRef = useRef(null);
@@ -427,7 +429,7 @@ export default function GlobalSearch({ userId, role, isPhone = false, placeholde
       bieuTuong = <ShoppingCart className="size-4" />;
       chinh = (
         <>
-          <ToDam text={item.soDonHang} tuKhoa={tk} /> · {item.khachHang?.tenKhachHang || "Khách lẻ"}
+          <ToDam text={item.soDonHang} tuKhoa={tk} /> · {item.khachHang?.tenKhachHang || t("Khách lẻ")}
         </>
       );
       phu = [item.kenhBanHang?.tenKenh, item.ngayDatHang ? new Date(item.ngayDatHang).toLocaleDateString("vi-VN") : null]
@@ -495,38 +497,42 @@ export default function GlobalSearch({ userId, role, isPhone = false, placeholde
     than = timGanDay.length ? (
       <>
         <div className="flex items-center justify-between px-4 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-slate-400 sm:px-5">
-          Tìm gần đây
+          {t("Tìm gần đây")}
           <button
             type="button"
             onMouseDown={(e) => e.preventDefault()}
             onClick={xoaTimGanDay}
             className="text-xs font-medium normal-case tracking-normal text-bo-primary hover:underline"
           >
-            Xóa
+            {t("Xóa")}
           </button>
         </div>
-        <ul role="listbox" id={listboxId} aria-label="Tìm gần đây">
+        <ul role="listbox" id={listboxId} aria-label={t("Tìm gần đây")}>
           {dongs.map(veDong)}
         </ul>
       </>
     ) : (
       <TrangThaiRong>
         {tk.length > 0
-          ? `Gõ thêm ít nhất ${SO_KY_TU_TOI_THIEU - tk.length} ký tự nữa`
-          : `Nhập từ khóa để tìm ${GOI_Y_THEO_TAB[tabHienTai === "tatCa" && coChungTu ? "tatCaCoChungTu" : tabHienTai]}…`}
+          ? t("Gõ thêm ít nhất {{count}} ký tự nữa", { count: SO_KY_TU_TOI_THIEU - tk.length })
+          : t("Nhập từ khóa để tìm {{goiY}}…", { goiY: GOI_Y_THEO_TAB[tabHienTai === "tatCa" && coChungTu ? "tatCaCoChungTu" : tabHienTai] })}
       </TrangThaiRong>
     );
   } else if (!conDangTai && tongKetQua === 0 && nhomHienThi.every((n) => n.trangThai === "xong")) {
     than = (
       <TrangThaiRong
-        ghiChu={`Thử tìm theo mã đơn${coChungTu ? ", mã phiếu" : ""}, tên sản phẩm, tên hoặc số điện thoại khách hàng`}
+        ghiChu={
+          coChungTu
+            ? t("Thử tìm theo mã đơn, mã phiếu, tên sản phẩm, tên hoặc số điện thoại khách hàng")
+            : t("Thử tìm theo mã đơn, tên sản phẩm, tên hoặc số điện thoại khách hàng")
+        }
       >
-        Không tìm thấy kết quả cho “{tk}”
+        {t("Không tìm thấy kết quả cho “{{tk}}”", { tk })}
       </TrangThaiRong>
     );
   } else {
     than = (
-      <ul role="listbox" id={listboxId} aria-label="Kết quả tìm kiếm">
+      <ul role="listbox" id={listboxId} aria-label={t("Kết quả tìm kiếm")}>
         {nhomHienThi.map((n) => {
           if (n.trangThai === "xong" && n.totalElements === 0) return null;
           const gioiHan = tabHienTai === "tatCa" ? SO_DONG_XEM_TRUOC : SO_KET_QUA_MOI_NHOM;
@@ -545,7 +551,7 @@ export default function GlobalSearch({ userId, role, isPhone = false, placeholde
                     }}
                     className="text-xs font-medium normal-case tracking-normal text-bo-primary hover:underline"
                   >
-                    Xem {n.totalElements.toLocaleString("vi-VN")} kết quả
+                    {t("Xem {{so}} kết quả", { count: n.totalElements, so: n.totalElements.toLocaleString("vi-VN") })}
                   </button>
                 ) : null}
               </div>
@@ -555,7 +561,7 @@ export default function GlobalSearch({ userId, role, isPhone = false, placeholde
                   <div className="h-9 animate-pulse rounded-md bg-slate-100" />
                 </div>
               ) : n.trangThai === "loi" ? (
-                <p className="px-4 py-2 text-xs text-bo-danger sm:px-5">Không tải được {n.label.toLowerCase()}. Thử lại sau.</p>
+                <p className="px-4 py-2 text-xs text-bo-danger sm:px-5">{t("Không tải được {{nhom}}. Thử lại sau.", { nhom: n.label.toLowerCase() })}</p>
               ) : (
                 <ul role="group" aria-label={n.label}>
                   {dongs.filter((d) => d.loai === n.key).map(veDong)}
@@ -563,7 +569,10 @@ export default function GlobalSearch({ userId, role, isPhone = false, placeholde
               )}
               {tabHienTai !== "tatCa" && conNua ? (
                 <p className="px-4 pb-2 pt-1 text-xs text-bo-muted sm:px-5">
-                  Đang hiện {Math.min(gioiHan, n.content.length)} / {n.totalElements.toLocaleString("vi-VN")} kết quả, gõ cụ thể hơn để thu hẹp.
+                  {t("Đang hiện {{soHien}} / {{tong}} kết quả, gõ cụ thể hơn để thu hẹp.", {
+                    soHien: Math.min(gioiHan, n.content.length),
+                    tong: n.totalElements.toLocaleString("vi-VN"),
+                  })}
                 </p>
               ) : null}
             </li>
@@ -573,7 +582,7 @@ export default function GlobalSearch({ userId, role, isPhone = false, placeholde
     );
   }
 
-  const tabs = [{ key: "tatCa", label: "Tất cả" }, ...nhomDuocXem];
+  const tabs = [{ key: "tatCa", label: t("Tất cả") }, ...nhomDuocXem];
   const demTab = (key) => {
     if (!daGoDu || conDangTai) return null;
     if (key === "tatCa") return tongKetQuaTatCa(nhomDuocXem, ketQua, manHinhKhop.length);
@@ -602,7 +611,7 @@ export default function GlobalSearch({ userId, role, isPhone = false, placeholde
           autoComplete="off"
           spellCheck={false}
           role="combobox"
-          aria-label="Tìm kiếm trong hệ thống"
+          aria-label={t("Tìm kiếm trong hệ thống")}
           aria-expanded={mo}
           aria-controls={listboxId}
           aria-autocomplete="list"
@@ -619,7 +628,7 @@ export default function GlobalSearch({ userId, role, isPhone = false, placeholde
               doiTuKhoa("");
               oNhapRef.current?.focus();
             }}
-            aria-label="Xóa từ khóa"
+            aria-label={t("Xóa từ khóa")}
             className="grid size-6 shrink-0 place-items-center rounded text-slate-400 hover:bg-slate-100 hover:text-slate-600"
           >
             <X className="size-3.5" />
@@ -639,20 +648,20 @@ export default function GlobalSearch({ userId, role, isPhone = false, placeholde
             className="flex overflow-x-auto overflow-y-hidden border-b border-bo-border px-2 sm:px-3"
             style={{ scrollbarWidth: "none" }}
             role="tablist"
-            aria-label="Nhóm kết quả"
+            aria-label={t("Nhóm kết quả")}
           >
-            {tabs.map((t) => {
-              const so = demTab(t.key);
-              const dangChon = tabHienTai === t.key;
+            {tabs.map((mucTab) => {
+              const so = demTab(mucTab.key);
+              const dangChon = tabHienTai === mucTab.key;
               return (
                 <button
-                  key={t.key}
+                  key={mucTab.key}
                   type="button"
                   role="tab"
                   aria-selected={dangChon}
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => {
-                    setTab(t.key);
+                    setTab(mucTab.key);
                     setDongChon(0);
                   }}
                   className={cn(
@@ -660,7 +669,7 @@ export default function GlobalSearch({ userId, role, isPhone = false, placeholde
                     dangChon ? "border-bo-primary text-bo-primary" : "border-transparent text-bo-muted hover:text-bo-foreground",
                   )}
                 >
-                  {t.label}
+                  {mucTab.label}
                   {so != null ? (
                     <span
                       className={cn(

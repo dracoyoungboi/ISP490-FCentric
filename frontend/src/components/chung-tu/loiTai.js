@@ -1,13 +1,15 @@
+import { t } from "../../i18n/t.js";
+import { cauGocMayChu } from "../../i18n/cauGoc.js";
 /*
  * Nhận diện lỗi khi tải một chứng từ (rà soát 21/10/2026, N2): "không tìm thấy", "thuộc kho khác", "không có quyền" hay
  * "không tải được", và câu hiện cho người dùng. Thuần, không phụ thuộc React, chạy được bằng `node --test`. Dùng cùng
  * KhungLoiChungTu / KhungKhongThay / KhungLoiTai để 8 màn nói giống nhau.
  */
 
-export const CAU_MAT_KET_NOI = "Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.";
-export const CAU_LOI_MAY_CHU = "Máy chủ gặp lỗi khi tải. Vui lòng thử lại.";
+export const CAU_MAT_KET_NOI = t("Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.");
+export const CAU_LOI_MAY_CHU = t("Máy chủ gặp lỗi khi tải. Vui lòng thử lại.");
 // Câu chuẩn của mọi ô "không có quyền" (403): danh sách (ErrorState) và chứng từ (KhungLoiChungTu) nói giống nhau
-export const CAU_LIEN_HE_QUAN_TRI = "Liên hệ quản trị viên nếu bạn cần quyền này.";
+export const CAU_LIEN_HE_QUAN_TRI = t("Liên hệ quản trị viên nếu bạn cần quyền này.");
 // 403 mà quản trị viên không phải người gỡ được (AuthorizationAspect): "Bạn không thuộc kho đang chọn, vui lòng chọn lại
 // kho", "Bạn chưa chọn kho làm việc…", "Bạn chưa đăng nhập hoặc phiên đăng nhập đã hết hạn" — hiện đúng câu máy chủ
 const MAU_403_TU_GO_DUOC = /chọn (lại )?kho|phiên đăng nhập/i;
@@ -77,12 +79,12 @@ export function phanLoaiLoiTai(error, { mauKhongThay = MAU_KHONG_THAY, coi500LaK
   }
   const trangThai = Number(error?.response?.status) || null;
   const cauGoc = cauMayChuCua(error);
-  const saiApi = trangThai === 404 && Boolean(cauGoc) && MAU_SAI_API.test(cauGoc);
-  const maSai = trangThai === 400 && Boolean(cauGoc) && MAU_THAM_SO_SAI.test(cauGoc) && !coThamSoTruyVan(error?.config);
+  const saiApi = trangThai === 404 && Boolean(cauGoc) && MAU_SAI_API.test(cauGocMayChu(cauGoc));
+  const maSai = trangThai === 400 && Boolean(cauGoc) && MAU_THAM_SO_SAI.test(cauGocMayChu(cauGoc)) && !coThamSoTruyVan(error?.config);
   const cauMayChu = saiApi || maSai ? null : cauGoc;
   const loiNghiepVu = trangThai === 400 || (coi500LaKhongThay && trangThai === 500);
-  const khoKhac = (loiNghiepVu || trangThai === 403) && Boolean(cauMayChu) && MAU_KHO_KHAC.test(cauMayChu);
-  const khopCau = Boolean(cauMayChu) && mauKhongThay.test(cauMayChu);
+  const khoKhac = (loiNghiepVu || trangThai === 403) && Boolean(cauMayChu) && MAU_KHO_KHAC.test(cauGocMayChu(cauMayChu));
+  const khopCau = Boolean(cauMayChu) && mauKhongThay.test(cauGocMayChu(cauMayChu));
   const khongThay = (trangThai === 404 && !saiApi) || maSai || (loiNghiepVu && (khopCau || khoKhac));
   const khongQuyen = trangThai === 403 && !khoKhac;
   const moTaLoi = laLoiMang(error) ? CAU_MAT_KET_NOI : cauMayChu ?? CAU_LOI_MAY_CHU;
@@ -97,7 +99,7 @@ const chuanCauMayChu = (cauMayChu) => (typeof cauMayChu === "string" ? cauMayChu
  */
 export function la403TuGoDuoc(cauMayChu) {
   const cau = chuanCauMayChu(cauMayChu);
-  return Boolean(cau) && MAU_403_TU_GO_DUOC.test(cau);
+  return Boolean(cau) && MAU_403_TU_GO_DUOC.test(cauGocMayChu(cau));
 }
 
 /**
@@ -120,16 +122,16 @@ export const vietHoaDau = (chu) => {
  * moTaKhongQuyen, nhanVeDanhSach, tieuDeLoi }`.
  */
 export function chuLoiTai(tenChungTu) {
-  const ten = String(tenChungTu ?? "").trim() || "chứng từ";
+  const ten = String(tenChungTu ?? "").trim() || t("chứng từ");
   return {
-    tieuDeKhongThay: `Không tìm thấy ${ten}`,
-    moTaKhongThay: `${vietHoaDau(ten)} không tồn tại hoặc đã bị xóa khỏi hệ thống.`,
-    tieuDeKhoKhac: `${vietHoaDau(ten)} thuộc kho khác`,
+    tieuDeKhongThay: t("Không tìm thấy {{ten}}", { ten }),
+    moTaKhongThay: t("{{ten}} không tồn tại hoặc đã bị xóa khỏi hệ thống.", { ten: vietHoaDau(ten) }),
+    tieuDeKhoKhac: t("{{ten}} thuộc kho khác", { ten: vietHoaDau(ten) }),
     // "Nơi làm việc": đúng nhãn ô chọn kho ở sidebar / ở trang (SidebarKhoLamViec, KhoLamViecSelect)
-    moTaKhoKhac: `${vietHoaDau(ten)} thuộc kho khác với nơi làm việc đang chọn. Đổi “Nơi làm việc” sang kho đó để xem.`,
-    tieuDeKhongQuyen: `Bạn không có quyền xem ${ten}`,
+    moTaKhoKhac: t("{{ten}} thuộc kho khác với nơi làm việc đang chọn. Đổi “Nơi làm việc” sang kho đó để xem.", { ten: vietHoaDau(ten) }),
+    tieuDeKhongQuyen: t("Bạn không có quyền xem {{ten}}", { ten }),
     moTaKhongQuyen: CAU_LIEN_HE_QUAN_TRI,
-    nhanVeDanhSach: `Về danh sách ${ten}`,
-    tieuDeLoi: `Không tải được ${ten}`,
+    nhanVeDanhSach: t("Về danh sách {{ten}}", { ten }),
+    tieuDeLoi: t("Không tải được {{ten}}", { ten }),
   };
 }

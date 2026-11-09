@@ -19,9 +19,10 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { tinhCoMan } from "@/hooks/useCoMan";
 import { cn } from "@/lib/utils";
 import "@/styles/print.css";
+import { t } from "@/i18n";
 
 const DEFAULT_DOCUMENT_TITLE =
-    "FCentric · Quản lý kho & bán lẻ thời trang đa kênh";
+    t("FCentric · Quản lý kho & bán lẻ thời trang đa kênh");
 
 /**
  * - metaCoDinh: tiêu đề cố định cho trang không đi theo đường dẫn (trang 404 trong khung quản trị).
@@ -36,408 +37,408 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
             // Tổng quan không hiện tiêu đề nhìn thấy (hàng lọc kho/kỳ đứng đầu trang); h1 ẩn nằm trong TongQuanHeader
             ownTitle: true,
             match: (path) => path === "/dashboard",
-            title: "Tổng quan",
+            title: t("Tổng quan"),
         },
         {
             key: "EDIT_USER_ROLE",
             ownTitle: true,
             match: (path) => path.endsWith("/edit-role"),
-            title: "Chỉnh sửa quyền người dùng",
+            title: t("Chỉnh sửa quyền người dùng"),
         },
         {
             key: "USER_PROFILE",
             ownTitle: true,
             // giữ legacy regex để tránh flash meta khi /user/:id redirect sang /profile
             match: (path) => path === "/profile" || /^\/user\/\d+$/.test(path),
-            title: "Hồ sơ cá nhân",
+            title: t("Hồ sơ cá nhân"),
         },
         {
             key: "USER_DETAIL",
             match: (path) =>
                 /^\/admin\/users\/\d+$/.test(path),
-            title: "Chi tiết người dùng",
+            title: t("Chi tiết người dùng"),
         },
         {
             key: "USER_LIST",
             match: (path) => path === "/users",
-            title: "Người dùng",
+            title: t("Người dùng"),
         },
         {
             key: "ATTRIBUTES",
             match: (path) => path === "/attributes",
-            title: "Thuộc tính",
+            title: t("Thuộc tính"),
         },
         {
             key: "MATERIALS",
             match: (path) => path === "/material",
-            title: "Chất liệu",
+            title: t("Chất liệu"),
         },
         {
             key: "PRODUCTS",
             match: (path) => path === "/products",
-            title: "Sản phẩm",
+            title: t("Sản phẩm"),
         },
         {
             key: "GIA_BAN_TEM",
             match: (path) => path === "/products/gia-ban-tem",
-            title: "Giá bán & tem mã vạch",
+            title: t("Giá bán & tem mã vạch"),
         },
         {
             key: "SUPPLIERS",
             match: (path) => path === "/supplier",
-            title: "Nhà cung cấp",
+            title: t("Nhà cung cấp"),
         },
         {
             key: "WAREHOUSE",
             match: (path) => path === "/warehouse",
-            title: "Danh sách kho",
+            title: t("Danh sách kho"),
         },
         {
             key: "WAREHOUSE_LOCATIONS",
             match: (path) => path === "/warehouse/locations",
-            title: "Vị trí kệ",
+            title: t("Vị trí kệ"),
         },
         {
             key: "SUPPLIER_BARCODES",
             match: (path) => path === "/supplier-barcodes",
-            title: "Mã vạch nhà cung cấp",
+            title: t("Mã vạch nhà cung cấp"),
         },
         {
             key: "LICH_SU_GIAO_DICH_KHO",
             match: (path) => path === "/inventory-transactions",
-            title: "Lịch sử giao dịch kho",
+            title: t("Lịch sử giao dịch kho"),
         },
         {
             key: "GOODS_RECEIPTS",
             match: (path) => path === "/goods-receipts",
-            title: "Phiếu nhập kho",
+            title: t("Phiếu nhập kho"),
         },
         {
             key: "GOODS_RECEIPTS_CREATE",
             match: (path) => path === "/goods-receipts/create",
-            title: "Tạo phiếu nhập kho",
+            title: t("Tạo phiếu nhập kho"),
         },
         {
             key: "GOODS_RECEIPTS_DETAIL",
             match: (path) => /^\/goods-receipts\/\d+$/.test(path),
-            title: "Chi tiết phiếu nhập kho",
+            title: t("Chi tiết phiếu nhập kho"),
         },
         {
             key: "LOT_INPUT",
             match: (path) => /^\/goods-receipts\/\d+\/lot-input\/\d+$/.test(path),
-            title: "Khai báo lô",
+            title: t("Khai báo lô"),
         },
         {
             key: "RECEIVE_COUNT",
             match: (path) => /^\/goods-receipts\/\d+\/receive\/\d+$/.test(path),
-            title: "Kiểm đếm & khóa lô",
+            title: t("Kiểm đếm & khóa lô"),
         },
         {
             key: "GOODS_ISSUES",
             match: (path) => path === "/goods-issues",
-            title: "Phiếu xuất kho",
+            title: t("Phiếu xuất kho"),
         },
         {
             key: "GOODS_ISSUES_DETAIL",
             match: (path) => /^\/goods-issues\/\d+$/.test(path),
-            title: "Chi tiết phiếu xuất kho",
+            title: t("Chi tiết phiếu xuất kho"),
         },
         {
             key: "PURCHASE_REQUESTS",
             match: (path) => path === "/purchase-requests",
-            title: "Yêu cầu nhập hàng",
+            title: t("Yêu cầu nhập hàng"),
         },
         {
             key: "PURCHASE_ORDERS",
             match: (path) => path === "/purchase-orders",
-            title: "Đơn mua hàng",
+            title: t("Đơn mua hàng"),
         },
         {
             key: "TRANSFER_TICKETS",
             match: (path) => path === "/transfer-tickets",
-            title: "Chuyển kho nội bộ",
+            title: t("Chuyển kho nội bộ"),
         },
         {
             key: "PICK_LOT",
             match: (path) => /^\/goods-issues\/\d+\/pick-lot\/\d+$/.test(path),
-            title: "Chọn lô hàng",
+            title: t("Chọn lô hàng"),
         },
         {
             key: "STOCK_TAKE_LIST",
             match: (path) => path === "/stock-take",
-            title: "Kiểm kê",
+            title: t("Kiểm kê"),
         },
         {
             key: "STOCK_TAKE_CREATE",
             match: (path) => path === "/stock-take/new",
-            title: "Tạo đợt kiểm kê",
+            title: t("Tạo đợt kiểm kê"),
         },
         {
             key: "STOCK_TAKE_DETAIL",
             match: (path) => /^\/stock-take\/\d+$/.test(path),
-            title: "Chi tiết đợt kiểm kê",
+            title: t("Chi tiết đợt kiểm kê"),
         },
         {
             key: "STOCK_TAKE_EDIT",
             match: (path) => /^\/stock-take\/\d+\/edit$/.test(path),
-            title: "Sửa đợt kiểm kê",
+            title: t("Sửa đợt kiểm kê"),
         },
         {
             key: "STOCK_TAKE_LOCK_MAP",
             match: (path) => path === "/stock-take/lock-map",
-            title: "Sơ đồ khóa kiểm kê",
+            title: t("Sơ đồ khóa kiểm kê"),
         },
         {
             key: "WAREHOUSE_UNSHELVED",
             match: (path) => path === "/warehouse/unshelved",
-            title: "Hàng chưa có kệ",
+            title: t("Hàng chưa có kệ"),
         },
         {
             key: "DANH_MUC_QUAN_AO",
             match: (path) => path === "/categories",
-            title: "Danh mục",
+            title: t("Danh mục"),
         },
         {
             key: "CHI_TIET_SAN_PHAM",
             ownTitle: true,
             match: (path) => /^\/products\/\d+$/.test(path),
-            title: "Chi tiết sản phẩm",
+            title: t("Chi tiết sản phẩm"),
         },
         {
             key: "CREATE_TRANSFER_TICKET",
             match: (path) => path === "/transfer-tickets/create",
-            title: "Tạo phiếu chuyển kho nội bộ",
+            title: t("Tạo phiếu chuyển kho nội bộ"),
         },
         {
             key: "TRANSFER_TICKET_DETAIL",
             match: (path) => /^\/transfer-tickets\/\d+$/.test(path),
-            title: "Chi tiết phiếu chuyển kho nội bộ",
+            title: t("Chi tiết phiếu chuyển kho nội bộ"),
         },
         {
             key: "TRANSFER_TICKET_RECEIVE",
             match: (path) => /^\/transfer-tickets\/\d+\/receive$/.test(path),
-            title: "Nhận hàng chuyển kho",
+            title: t("Nhận hàng chuyển kho"),
         },
         {
             key: "TRANSFER_ADJUSTMENT_DETAIL",
             match: (path) => /^\/transfer-tickets\/adjustments\/\d+$/.test(path),
-            title: "Phiếu điều chỉnh kho",
+            title: t("Phiếu điều chỉnh kho"),
         },
         {
             key: "SALES_ORDERS",
             match: (path) => path === "/sales-orders",
-            title: "Đơn bán hàng",
+            title: t("Đơn bán hàng"),
         },
         {
             key: "POS_TRANSFERS",
             match: (path) => path === "/pos-transfers",
-            title: "Đối soát chuyển khoản",
+            title: t("Đối soát chuyển khoản"),
         },
         {
             key: "SALES_ORDER_DETAIL",
             match: (path) => /^\/sales-orders\/\d+$/.test(path),
-            title: "Chi tiết đơn bán hàng",
+            title: t("Chi tiết đơn bán hàng"),
         },
         {
             key: "CREATE_SALES_ORDER",
             match: (path) => path === "/sales-orders/create",
-            title: "Tạo đơn bán hàng",
+            title: t("Tạo đơn bán hàng"),
         },
         {
             key: "BAO_CAO_DOANH_THU",
             match: (path) => path === "/reports/revenue",
-            title: "Báo cáo doanh thu",
+            title: t("Báo cáo doanh thu"),
         },
         {
             key: "BAO_CAO_SAN_PHAM",
             match: (path) => path === "/reports/products",
-            title: "Báo cáo sản phẩm",
+            title: t("Báo cáo sản phẩm"),
         },
         {
             key: "BAO_CAO_KHACH_HANG",
             match: (path) => path === "/reports/customers",
-            title: "Báo cáo khách hàng",
+            title: t("Báo cáo khách hàng"),
         },
         {
             key: "BAO_CAO_NHAP_XUAT",
             match: (path) => path === "/reports/stock-movements",
-            title: "Báo cáo nhập xuất",
+            title: t("Báo cáo nhập xuất"),
         },
         {
             key: "XUAT_DU_LIEU_KE_TOAN",
             match: (path) => path === "/reports/accounting-export",
-            title: "Xuất dữ liệu kế toán",
+            title: t("Xuất dữ liệu kế toán"),
         },
         {
             key: "PHIEU_NHAP_KHO_PRINT",
             match: (path) => /^\/goods-receipts\/\d+\/print$/.test(path),
-            title: "In phiếu nhập kho",
+            title: t("In phiếu nhập kho"),
         },
         {
             key: "PHIEU_XUAT_KHO_PRINT",
             match: (path) => /^\/goods-issues\/\d+\/print$/.test(path),
-            title: "In phiếu xuất kho",
+            title: t("In phiếu xuất kho"),
         },
         {
             key: "CUSTOMERS",
             match: (path) => path === "/customers",
-            title: "Khách hàng",
+            title: t("Khách hàng"),
         },
         {
             key: "CUSTOMER_DETAIL",
             ownTitle: true,
             match: (path) => /^\/customers\/\d+$/.test(path),
-            title: "Chi tiết khách hàng",
+            title: t("Chi tiết khách hàng"),
         },
         {
             key: "CUSTOMER_EDIT",
             match: (path) => /^\/customers\/\d+\/edit$/.test(path),
-            title: "Chỉnh sửa khách hàng",
+            title: t("Chỉnh sửa khách hàng"),
         },
         {
             // Thêm / sửa nhà cung cấp là popup trên danh sách và trang chi tiết (không còn trang riêng).
             key: "SUPPLIER_DETAIL",
             match: (path) => /^\/supplier\/\d+$/.test(path),
-            title: "Chi tiết nhà cung cấp",
+            title: t("Chi tiết nhà cung cấp"),
         },
         {
             key: "INVENTORY_REPORT",
             match: (path) => path === "/reports/inventory",
-            title: "Báo cáo tồn kho",
+            title: t("Báo cáo tồn kho"),
         },
         {
             key: "SALES_INVOICE_PRINT",
             match: (path) => /^\/sales-orders\/\d+\/invoice$/.test(path),
-            title: "In hóa đơn bán hàng",
+            title: t("In hóa đơn bán hàng"),
         },
         {
             key: "USER_DETAIL",
             ownTitle: true,
             match: (path) => /^\/users\/\d+$/.test(path),
-            title: "Thông tin chi tiết người dùng",
+            title: t("Thông tin chi tiết người dùng"),
         },
         {
             key: "PURCHASE_REQUEST_QUOTATION",
             match: (path) => /^\/purchase-requests\/\d+\/send-quotation$/.test(path),
-            title: "Gửi yêu cầu báo giá",
+            title: t("Gửi yêu cầu báo giá"),
         },
         {
             key: "QUOTATION_REQUEST",
             match: (path) => path === "/quotation-requests",
-            title: "Yêu cầu báo giá",
+            title: t("Yêu cầu báo giá"),
         },
         {
             key: "QUOTATION_REQUEST_CREATE",
             match: (path) => path === "/quotation-requests/create",
-            title: "Tạo yêu cầu báo giá",
+            title: t("Tạo yêu cầu báo giá"),
         },
         {
             key: "PURCHASE_REQUEST_CREATE",
             match: (path) => path === "/purchase-requests/create",
-            title: "Tạo yêu cầu nhập hàng",
+            title: t("Tạo yêu cầu nhập hàng"),
         },
         {
             key: "PURCHASE_ORDER_CREATE",
             match: (path) => path === "/purchase-orders/create",
-            title: "Tạo đơn mua hàng",
+            title: t("Tạo đơn mua hàng"),
         },
         {
             key: "PURCHASE_REQUEST_DETAIL",
             match: (path) => /^\/purchase-requests\/\d+$/.test(path),
-            title: "Chi tiết yêu cầu nhập hàng",
+            title: t("Chi tiết yêu cầu nhập hàng"),
         },
         {
             key: "QUOTATION_REQUEST_DETAIL",
             match: (path) => /^\/quotation-requests\/\d+$/.test(path),
-            title: "Chi tiết yêu cầu báo giá",
+            title: t("Chi tiết yêu cầu báo giá"),
         },
         {
             key: "QUOTATION_DETAIL",
             match: (path) => /^\/quotation\/\d+$/.test(path),
-            title: "Chi tiết báo giá",
+            title: t("Chi tiết báo giá"),
         },
         {
             key: "PURCHASE_ORDER_DETAIL",
             match: (path) => /^\/purchase-orders\/\d+$/.test(path),
-            title: "Chi tiết đơn mua hàng",
+            title: t("Chi tiết đơn mua hàng"),
         },
         {
             key: "SALE_QUOTATION",
             match: (path) => path === "/sales-quotations",
-            title: "Báo giá",
+            title: t("Báo giá"),
         },
         {
             key: "SALE_QUOTATION_CREATE",
             match: (path) => path === "/sales-quotations/create",
-            title: "Tạo báo giá",
+            title: t("Tạo báo giá"),
         },
         {
             key: "SALE_QUOTATION_DETAIL",
             ownTitle: true,
             match: (path) => /^\/sales-quotations\/\d+$/.test(path),
-            title: "Chi tiết báo giá",
+            title: t("Chi tiết báo giá"),
         },
         // Trung tâm Cấu hình: SettingsLayout tự vẽ tiêu đề mục; đây chỉ đặt tên tab trình duyệt
         ...SETTINGS_PAGES.map((page) => ({
             key: `SETTINGS_${page.key.toUpperCase()}`,
             match: (path) => path === page.to,
-            title: `${page.label} · Cấu hình`,
+            title: t("{{trang}} · Cấu hình", { trang: page.label }),
         })),
         {
             // Trình sửa mẫu in một màn (đường dẫn cũ /…/edit, /…/:templateId chuyển về đây)
             key: "PRINT_TEMPLATE_EDITOR",
             ownTitle: true,
             match: (path) => /^\/settings\/print-templates\/[^/]+$/.test(path),
-            title: "Sửa mẫu in",
+            title: t("Sửa mẫu in"),
         },
         {
             key: "PENDING_ORDERS",
             match: (path) => path === "/goods-issues/pending-orders",
-            title: "Đơn chờ xuất",
+            title: t("Đơn chờ xuất"),
         },
         {
             key: "PICK_LISTS",
             match: (path) => path === "/goods-issues/pick-lists",
-            title: "Phiếu nhặt hàng",
+            title: t("Phiếu nhặt hàng"),
         },
         {
             key: "PICK_LIST_DETAIL",
             match: (path) => /^\/goods-issues\/pick-lists\/\d+$/.test(path),
-            title: "Thực hiện nhặt hàng",
+            title: t("Thực hiện nhặt hàng"),
         },
         {
             key: "PACKING",
             match: (path) => /^\/goods-issues\/packing\/\d+$/.test(path),
-            title: "Đóng gói đơn hàng",
+            title: t("Đóng gói đơn hàng"),
         },
         {
             key: "CHANNELS",
             match: (path) => path === "/channels",
-            title: "Kênh bán hàng",
+            title: t("Kênh bán hàng"),
         },
         // Trang của từng sàn (Shopify, Lazada, TikTok Shop) và trang quay về sau ủy quyền. Sàn chờ cấp API (Shopee) chỉ dùng
         // tiêu đề Tổng quan: trang con của sàn đó chuyển ngay về màn giới thiệu (KenhHopLe)
         ...SAN_BAN_HANG.flatMap((san) => [
-            { key: `CHANNEL_${san.maKenh}`, match: (path) => path === san.duongDan, title: `Tổng quan ${san.ten}` },
+            { key: `CHANNEL_${san.maKenh}`, match: (path) => path === san.duongDan, title: t("Tổng quan {{ten}}", { ten: san.ten }) },
             {
                 key: `CHANNEL_${san.maKenh}_SETUP`,
                 match: (path) => path === `${san.duongDan}/setup`,
-                title: `Thiết lập gian hàng ${san.ten}`,
+                title: t("Thiết lập gian hàng {{ten}}", { ten: san.ten }),
             },
             {
                 key: `CHANNEL_${san.maKenh}_PRODUCTS`,
                 match: (path) => path === `${san.duongDan}/products`,
-                title: `Sản phẩm ${san.ten}`,
+                title: t("Sản phẩm {{ten}}", { ten: san.ten }),
             },
             {
                 key: `CHANNEL_${san.maKenh}_ORDERS`,
                 match: (path) => path === `${san.duongDan}/orders`,
-                title: `Đơn hàng ${san.ten}`,
+                title: t("Đơn hàng {{ten}}", { ten: san.ten }),
             },
             {
                 key: `CHANNEL_${san.maKenh}_SETTINGS`,
                 match: (path) => path === `${san.duongDan}/settings`,
-                title: `Cấu hình ${san.ten}`,
+                title: t("Cấu hình {{ten}}", { ten: san.ten }),
             },
             {
                 key: `CHANNEL_${san.maKenh}_OAUTH`,
@@ -445,7 +446,7 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
                 ownTitle: true,
                 // Chỉ sàn ủy quyền có trang quay về; Shopify (dán khóa) rơi xuống "Không tìm thấy trang"
                 match: (path) => san.kieuKetNoi === "uy_quyen" && path === `/channels/oauth/callback/${san.duongDan.split("/").pop()}`,
-                title: `Ủy quyền ${san.ten}`,
+                title: t("Ủy quyền {{ten}}", { ten: san.ten }),
             },
         ]),
         {
@@ -453,7 +454,7 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
             key: "CHANNEL_KHONG_TIM_THAY",
             ownTitle: true,
             match: (path) => /^\/channels\/[^/]+(\/.*)?$/.test(path),
-            title: "Không tìm thấy trang",
+            title: t("Không tìm thấy trang"),
         },
         // Mã gõ tay không phải số (/quotation/abc): các mục chi tiết ở trên chỉ nhận mã số nên trang mất tiêu đề và tên tab,
         // trong khi màn chi tiết chứng từ vẫn vẽ khung "Không tìm thấy …". Đặt cùng tiêu đề như mã số. Để cuối danh sách:
@@ -461,43 +462,43 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
         {
             key: "GOODS_RECEIPTS_DETAIL_MA_SAI",
             match: (path) => /^\/goods-receipts\/[^/]+$/.test(path),
-            title: "Chi tiết phiếu nhập kho",
+            title: t("Chi tiết phiếu nhập kho"),
         },
         {
             key: "GOODS_ISSUES_DETAIL_MA_SAI",
             match: (path) => /^\/goods-issues\/[^/]+$/.test(path),
-            title: "Chi tiết phiếu xuất kho",
+            title: t("Chi tiết phiếu xuất kho"),
         },
         {
             key: "PICK_LOT_MA_SAI",
             match: (path) => /^\/goods-issues\/[^/]+\/pick-lot\/[^/]+$/.test(path),
-            title: "Chọn lô hàng",
+            title: t("Chọn lô hàng"),
         },
         {
             key: "PICK_LIST_DETAIL_MA_SAI",
             // Trừ "view": /goods-issues/pick-lists/view là route /goods-issues/:id/view (khai báo trước), không phải phiếu nhặt
             match: (path) => /^\/goods-issues\/pick-lists\/(?!view$)[^/]+$/.test(path),
-            title: "Thực hiện nhặt hàng",
+            title: t("Thực hiện nhặt hàng"),
         },
         {
             key: "TRANSFER_TICKET_DETAIL_MA_SAI",
             match: (path) => /^\/transfer-tickets\/[^/]+$/.test(path),
-            title: "Chi tiết phiếu chuyển kho nội bộ",
+            title: t("Chi tiết phiếu chuyển kho nội bộ"),
         },
         {
             key: "PURCHASE_REQUEST_DETAIL_MA_SAI",
             match: (path) => /^\/purchase-requests\/[^/]+$/.test(path),
-            title: "Chi tiết yêu cầu nhập hàng",
+            title: t("Chi tiết yêu cầu nhập hàng"),
         },
         {
             key: "QUOTATION_REQUEST_DETAIL_MA_SAI",
             match: (path) => /^\/quotation-requests\/[^/]+$/.test(path),
-            title: "Chi tiết yêu cầu báo giá",
+            title: t("Chi tiết yêu cầu báo giá"),
         },
         {
             key: "QUOTATION_DETAIL_MA_SAI",
             match: (path) => /^\/quotation\/[^/]+$/.test(path),
-            title: "Chi tiết báo giá",
+            title: t("Chi tiết báo giá"),
         },
     ];
 
@@ -577,7 +578,7 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
                     href="#backoffice-main-content"
                     className="no-print fixed left-3 top-3 z-[100] -translate-y-20 rounded-md bg-bo-primary px-3 py-2 text-sm font-semibold text-white transition-transform focus:translate-y-0 cam-ung:inline-flex cam-ung:min-h-11 cam-ung:items-center"
                 >
-                    Bỏ qua menu
+                    {t("Bỏ qua menu")}
                 </a>
                 {/* SIDEBAR */}
                 <BackofficeSidebar />

@@ -8,6 +8,7 @@ import SheetDay from "@/components/shared/SheetDay";
 import { LocTrongSheetContext } from "@/components/shared/locTrongSheet";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 /**
  * Điện thoại (< 768px): tab trạng thái giữ nguyên; ô tìm kiếm + nút "Bộ lọc" chung một hàng; các ô lọc còn lại vào
@@ -33,7 +34,7 @@ function chipLoc(c, i) {
     return [{
       khoa: c.key ?? i,
       nhan: chon?.label,
-      moTa: `Bỏ lọc ${label ?? ""}: ${chon?.label ?? ""}`,
+      moTa: t("Bỏ lọc {{ten}}: {{giaTri}}", { ten: label ?? "", giaTri: chon?.label ?? "" }),
       boLoc: () => (onClear ? onClear() : onChange(options[0].value)),
     }];
   }
@@ -49,7 +50,7 @@ function chipLoc(c, i) {
     return [{
       khoa: `${c.key ?? i}-${j}`,
       nhan: o.props.type === "date" ? `${ten} ${ngayVN(giaTri)}` : `${ten}: ${giaTri}`,
-      moTa: `Bỏ lọc ${ten}`,
+      moTa: t("Bỏ lọc {{ten}}", { ten }),
       boLoc: () => o.props.onChange?.({ target: { value: "" }, currentTarget: { value: "" } }),
     }];
   });
@@ -75,19 +76,19 @@ function ListToolbarDienThoai({ tabs, children, hasFilter, onClear, className })
         <div className="min-w-0 flex-1 [&>label]:max-w-none [&_input]:h-9">{oTim}</div>
         {oLoc.length ? (
           <SheetDay
-            tieuDe="Bộ lọc"
+            tieuDe={t("Bộ lọc")}
             kichHoat={
               <Button
                 type="button"
                 variant="outline"
-                aria-label={dangLoc.length ? `Bộ lọc, đang lọc ${dangLoc.length}` : "Bộ lọc"}
+                aria-label={dangLoc.length ? t("Bộ lọc, đang lọc {{count}}", { count: dangLoc.length }) : t("Bộ lọc")}
                 className={cn(
                   "h-9 shrink-0 gap-1.5 border-bo-input-border bg-bo-surface px-3 text-sm font-medium text-bo-foreground",
                   dangLoc.length > 0 && "border-bo-primary bg-bo-primary-soft text-bo-primary-strong",
                 )}
               >
                 <SlidersHorizontal className="size-4" aria-hidden="true" />
-                Bộ lọc
+                {t("Bộ lọc")}
                 {dangLoc.length ? (
                   <span className="grid h-5 min-w-5 place-items-center rounded-full bg-bo-primary px-1 text-xs font-semibold text-white">
                     {dangLoc.length}
@@ -99,7 +100,7 @@ function ListToolbarDienThoai({ tabs, children, hasFilter, onClear, className })
               <>
                 {hasFilter && onClear ? (
                   <Button type="button" variant="outline" onClick={onClear} className="h-10 flex-1 border-bo-input-border text-sm">
-                    Xóa lọc
+                    {t("Xóa lọc")}
                   </Button>
                 ) : null}
                 <Button
@@ -107,7 +108,7 @@ function ListToolbarDienThoai({ tabs, children, hasFilter, onClear, className })
                   onClick={dong}
                   className="h-10 flex-[2] bg-bo-primary text-sm font-semibold text-white hover:bg-bo-primary-hover"
                 >
-                  Xong
+                  {t("Xong")}
                 </Button>
               </>
             )}
@@ -134,7 +135,7 @@ function ListToolbarDienThoai({ tabs, children, hasFilter, onClear, className })
           ))}
           {onClear ? (
             <button type="button" onClick={onClear} className="h-9 shrink-0 px-1.5 text-sm font-medium text-bo-primary">
-              Xóa lọc
+              {t("Xóa lọc")}
             </button>
           ) : null}
         </div>
@@ -223,7 +224,7 @@ export default function ListToolbar({ tabs, children, hasFilter = false, onClear
             className="h-9 gap-1.5 px-2.5 text-sm font-normal text-bo-muted hover:bg-bo-surface-subtle hover:text-bo-foreground"
           >
             <X className="size-4" />
-            Xóa lọc
+            {t("Xóa lọc")}
           </Button>
         ) : null}
       </div>

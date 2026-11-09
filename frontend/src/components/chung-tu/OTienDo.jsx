@@ -1,6 +1,7 @@
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { docSo, soVN } from "./bangChungTu.js";
+import { t } from "@/i18n";
 
 /**
  * Ô tiến độ "thanh + x/y" dùng chung (rà soát N11: Đã nhặt của phiếu nhặt, Đã lấy của phiếu xuất và phiếu chuyển kho).
@@ -40,7 +41,7 @@ export default function OTienDo({ da, can, hienCan = true, canhBaoKhiThieu = fal
       </span>
       <span className="whitespace-nowrap text-right text-[13px] tabular-nums">
         {nhanDoc ? <span aria-hidden="true">{so}</span> : so}
-        {nhanDoc ? <span className="sr-only">{nhanDoc}</span> : du ? <span className="sr-only"> (đủ)</span> : null}
+        {nhanDoc ? <span className="sr-only">{nhanDoc}</span> : du ? <span className="sr-only"> {t("(đủ)")}</span> : null}
       </span>
     </div>
   );

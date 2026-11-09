@@ -1,11 +1,12 @@
 import { jwtDecode } from "jwt-decode";
 import { nguoiDungService } from "../services/nguoiDungService";
+import { t } from "../i18n/t.js";
 
 // Kiểm tra hạn của access token ngay ở client (chỉ decode, việc kiểm chữ ký là của backend).
 // Token hết hạn bị backend chặn ở tầng filter, nên phải xử lý trước khi gọi API.
 
-export const SESSION_EXPIRED_MESSAGE = "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
-export const SESSION_INVALID_MESSAGE = "Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại.";
+export const SESSION_EXPIRED_MESSAGE = t("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
+export const SESSION_INVALID_MESSAGE = t("Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại.");
 
 // Token hết hạn / exp không hợp lệ / không decode được: xóa phiên, để lại thông báo
 // cho trang Login (session_expired_message) và trả false. Token còn hạn: trả true.

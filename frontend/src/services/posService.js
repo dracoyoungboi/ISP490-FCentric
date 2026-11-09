@@ -1,4 +1,5 @@
 import apiClient from "./apiClient";
+import { t } from "@/i18n";
 
 /**
  * Mã khách hàng lẻ (walk-in) theo chính sách hợp đồng Phase 01 mục 6.1:
@@ -348,7 +349,7 @@ export const toPosCustomer = (customer) => ({
   name: customer.tenKhachHang,
   phone: customer.soDienThoai,
   tier:
-    { le: "Khách lẻ", si: "Khách sỉ", doanh_nghiep: "Doanh nghiệp" }[
+    { le: t("Khách lẻ"), si: t("Khách sỉ"), doanh_nghiep: t("Doanh nghiệp") }[
       customer.loaiKhachHang
     ] || customer.loaiKhachHang,
 });

@@ -42,6 +42,7 @@ import {
   payloadThem,
   thongBaoTrung,
 } from "./quyTacKhachHang";
+import { t } from "@/i18n";
 
 const CONTROL_CLASS =
   "h-10 border-bo-border bg-white text-bo-foreground shadow-none placeholder:text-slate-400 focus-visible:border-bo-primary focus-visible:ring-[3px] focus-visible:ring-bo-primary/15 max-sm:h-11 max-sm:text-base";
@@ -61,7 +62,7 @@ function Field({ id, label, required = false, optional = false, hint, error, kie
             *
           </span>
         ) : null}
-        {optional ? <span className="ml-1 font-normal text-bo-muted">(không bắt buộc)</span> : null}
+        {optional ? <span className="ml-1 font-normal text-bo-muted">{t("(không bắt buộc)")}</span> : null}
       </Label>
       {children}
       {error ? (
@@ -244,13 +245,13 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
   const showServerError = (error) => {
     if (!error?.response) {
       setSubmitError(
-        `Không kết nối được máy chủ. Thông tin bạn nhập vẫn còn, bấm ${laSua ? "Lưu thay đổi" : "Thêm khách hàng"} để thử lại.`,
+        t("Không kết nối được máy chủ. Thông tin bạn nhập vẫn còn, bấm {{nut}} để thử lại.", { nut: laSua ? t("Lưu thay đổi") : t("Thêm khách hàng") }),
       );
       return;
     }
     const message = getApiErrorMessage(
       error,
-      laSua ? "Không thể lưu thay đổi. Vui lòng thử lại." : "Không thể thêm khách hàng. Vui lòng thử lại.",
+      laSua ? t("Không thể lưu thay đổi. Vui lòng thử lại.") : t("Không thể thêm khách hàng. Vui lòng thử lại."),
     );
     const field = oCuaThongBaoMayChu(message);
     if (
@@ -326,7 +327,7 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
           rel="noopener noreferrer"
           className="font-medium text-bo-primary underline-offset-2 hover:underline"
         >
-          Mở khách hàng
+          {t("Mở khách hàng")}
         </a>
       </>
     ) : null;
@@ -368,16 +369,15 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
           </span>
           <DialogHeader className="min-w-0 flex-1 gap-1 text-left">
             <DialogTitle className="text-base font-semibold leading-6 text-bo-foreground">
-              {laSua ? "Sửa khách hàng" : "Thêm khách hàng"}
+              {laSua ? t("Sửa khách hàng") : t("Thêm khách hàng")}
             </DialogTitle>
             <DialogDescription className="text-sm text-bo-muted">
               {laSua ? (
                 <>
-                  Mã <span className="font-mono font-semibold text-slate-700">{khachHang.maKhachHang}</span> cố định sau khi
-                  tạo. Trạng thái đổi ở nút ⋯ trên trang khách hàng.
+                  {t("Mã")} <span className="font-mono font-semibold text-slate-700">{khachHang.maKhachHang}</span> {t("cố định sau khi tạo. Trạng thái đổi ở nút ⋯ trên trang khách hàng.")}
                 </>
               ) : (
-                "Khách mới ở trạng thái Hoạt động, chọn được ngay khi tạo báo giá, bán tại quầy."
+                t("Khách mới ở trạng thái Hoạt động, chọn được ngay khi tạo báo giá, bán tại quầy.")
               )}
             </DialogDescription>
           </DialogHeader>
@@ -385,8 +385,8 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
             type="button"
             onClick={requestClose}
             disabled={submitting}
-            aria-label="Đóng"
-            title="Đóng"
+            aria-label={t("Đóng")}
+            title={t("Đóng")}
             className="-mr-1.5 -mt-0.5 rounded-md p-1.5 text-bo-muted transition-colors hover:bg-bo-surface-subtle hover:text-bo-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 disabled:pointer-events-none disabled:opacity-50 max-sm:-mr-2.5 max-sm:-mt-1.5 max-sm:p-3"
           >
             <X className="size-4" aria-hidden="true" />
@@ -412,7 +412,7 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
 
           <div className="space-y-1.5">
             <span id={fieldId("loai-nhan")} className="text-sm font-medium text-bo-foreground">
-              Loại khách hàng
+              {t("Loại khách hàng")}
             </span>
             <RadioGroupPrimitive.Root
               ref={loaiRef}
@@ -452,8 +452,7 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
               <p className="flex items-start gap-2 rounded-md border border-slate-100 bg-bo-surface-subtle px-2.5 py-2 text-xs leading-[18px] text-slate-600">
                 <Info className="mt-px size-3.5 shrink-0 text-bo-muted" aria-hidden="true" />
                 <span>
-                  Khách này chưa được phân loại (thường do tạo tự động từ đơn Shopify). Chọn loại nếu đã biết; để trống vẫn
-                  lưu được.
+                  {t("Khách này chưa được phân loại (thường do tạo tự động từ đơn Shopify). Chọn loại nếu đã biết; để trống vẫn lưu được.")}
                 </span>
               </p>
             ) : null}
@@ -462,7 +461,7 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
           <div className="mt-4 grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
             <Field
               id={fieldId("tenKhachHang")}
-              label="Tên khách hàng"
+              label={t("Tên khách hàng")}
               required
               error={errors.tenKhachHang}
               className={laSua ? "sm:col-span-2" : undefined}
@@ -472,14 +471,14 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
             {!laSua ? (
               <Field
                 id={fieldId("maKhachHang")}
-                label="Mã khách hàng"
+                label={t("Mã khách hàng")}
                 optional
                 error={errors.maKhachHang}
-                hint="Để trống thì hệ thống tự tạo mã khi lưu. Chỉ nhập khi cần giữ mã từ sổ cũ."
+                hint={t("Để trống thì hệ thống tự tạo mã khi lưu. Chỉ nhập khi cần giữ mã từ sổ cũ.")}
               >
                 <Input
                   {...textInputProps("maKhachHang", true)}
-                  placeholder="Để trống để tự tạo"
+                  placeholder={t("Để trống để tự tạo")}
                   spellCheck={false}
                   autoCapitalize="characters"
                   className={cn(CONTROL_CLASS, "font-mono placeholder:font-sans", errors.maKhachHang && CONTROL_ERROR_CLASS)}
@@ -490,10 +489,10 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
             {coMaSoThue ? (
               <Field
                 id={fieldId("maSoThue")}
-                label="Mã số thuế"
+                label={t("Mã số thuế")}
                 optional
                 error={errors.maSoThue}
-                hint="In ở mục Người mua trên hóa đơn bán hàng"
+                hint={t("In ở mục Người mua trên hóa đơn bán hàng")}
               >
                 <Input
                   {...textInputProps("maSoThue", true)}
@@ -501,7 +500,7 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
                   // chấm; chuanHoaMaSoThueKhiNhap đã giới hạn độ dài. Không dùng inputMode="numeric": bàn phím số
                   // của iOS không có dấu "-" để gõ mã đơn vị phụ thuộc.
                   maxLength={undefined}
-                  placeholder="VD: 0312345678"
+                  placeholder={t("VD: {{viDu}}", { viDu: "0312345678" })}
                   spellCheck={false}
                   className={cn(CONTROL_CLASS, "tabular-nums", errors.maSoThue && CONTROL_ERROR_CLASS)}
                   onChange={(event) => changeField("maSoThue", chuanHoaMaSoThueKhiNhap(event.target.value))}
@@ -513,29 +512,29 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
           <section aria-labelledby={fieldId("lien-he")} className="mt-5 border-t border-bo-border pt-4">
             <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
               <h3 id={fieldId("lien-he")} className="text-sm font-semibold text-bo-foreground">
-                Liên hệ
+                {t("Liên hệ")}
               </h3>
-              <span className="text-xs text-bo-muted">Cần ít nhất số điện thoại hoặc email</span>
+              <span className="text-xs text-bo-muted">{t("Cần ít nhất số điện thoại hoặc email")}</span>
             </div>
             <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
               {coNguoiLienHe ? (
                 <Field
                   id={fieldId("nguoiLienHe")}
-                  label="Người liên hệ"
+                  label={t("Người liên hệ")}
                   error={errors.nguoiLienHe}
-                  hint="Người đặt hàng, nhận báo giá bên phía khách"
+                  hint={t("Người đặt hàng, nhận báo giá bên phía khách")}
                   className="sm:col-span-2"
                 >
-                  <Input {...textInputProps("nguoiLienHe", true)} placeholder="VD: Trần Thị Mai" />
+                  <Input {...textInputProps("nguoiLienHe", true)} placeholder={t("VD: Trần Thị Mai")} />
                 </Field>
               ) : null}
 
               <Field
                 id={fieldId("soDienThoai")}
-                label="Số điện thoại"
+                label={t("Số điện thoại")}
                 error={errors.soDienThoai}
-                kiemTra={dangKiem.soDienThoai ? "Đang kiểm tra trùng số..." : ""}
-                hint="Di động, máy bàn hoặc tổng đài 1800/1900"
+                kiemTra={dangKiem.soDienThoai ? t("Đang kiểm tra trùng số...") : ""}
+                hint={t("Di động, máy bàn hoặc tổng đài 1800/1900")}
                 extra={moKhachTrung("soDienThoai")}
               >
                 <Input
@@ -545,7 +544,7 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
                   // Không đặt maxLength: dán "+84 912 345 678" thì trình duyệt cắt trước khi bỏ dấu;
                   // chuanHoaSoDienThoaiKhiNhap đã giới hạn số chữ số.
                   maxLength={undefined}
-                  placeholder="VD: 0912345678"
+                  placeholder={t("VD: {{viDu}}", { viDu: "0912345678" })}
                   className={cn(CONTROL_CLASS, "tabular-nums", errors.soDienThoai && CONTROL_ERROR_CLASS)}
                   onChange={(event) => changeField("soDienThoai", chuanHoaSoDienThoaiKhiNhap(event.target.value))}
                 />
@@ -555,14 +554,14 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
                 id={fieldId("email")}
                 label="Email"
                 error={errors.email}
-                kiemTra={dangKiem.email ? "Đang kiểm tra trùng email..." : ""}
+                kiemTra={dangKiem.email ? t("Đang kiểm tra trùng email...") : ""}
                 extra={moKhachTrung("email")}
               >
                 <Input
                   {...textInputProps("email")}
                   type="text"
                   inputMode="email"
-                  placeholder="VD: lienhe@congty.vn"
+                  placeholder={t("VD: {{viDu}}", { viDu: "lienhe@congty.vn" })}
                   spellCheck={false}
                   autoCapitalize="none"
                 />
@@ -572,13 +571,13 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
                 id={fieldId("diaChi")}
                 label={nhanDiaChi(form.loaiKhachHang)}
                 error={errors.diaChi}
-                hint="Tự điền làm địa chỉ giao hàng khi tạo báo giá cho khách này; sửa được trên từng báo giá."
+                hint={t("Tự điền làm địa chỉ giao hàng khi tạo báo giá cho khách này; sửa được trên từng báo giá.")}
                 className="sm:col-span-2"
               >
                 <Textarea
                   {...textInputProps("diaChi", true)}
                   rows={2}
-                  placeholder="VD: 27 Trần Phú, Hải Châu, Đà Nẵng"
+                  placeholder={t("VD: 27 Trần Phú, Hải Châu, Đà Nẵng")}
                   className={cn(
                     "min-h-[64px] resize-y border-bo-border bg-bo-surface text-bo-foreground shadow-none placeholder:text-slate-400 focus-visible:border-bo-primary focus-visible:ring-[3px] focus-visible:ring-bo-primary/15 max-sm:text-base",
                     errors.diaChi && CONTROL_ERROR_CLASS,
@@ -591,7 +590,7 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
 
         <div className="flex items-center gap-2 border-t border-bo-border bg-bo-surface-subtle px-5 py-3 max-sm:px-4">
           <span role="status" className="min-w-0 flex-1 truncate text-xs leading-4 text-bo-muted max-sm:hidden">
-            {laSua ? (doiDs.length ? `Đã sửa: ${doiDs.map((name) => NHAN_O[name]).join(", ")}` : "Chưa có thay đổi") : ""}
+            {laSua ? (doiDs.length ? t("Đã sửa: {{dsO}}", { dsO: doiDs.map((name) => NHAN_O[name]).join(", ") }) : t("Chưa có thay đổi")) : ""}
           </span>
           <Button
             type="button"
@@ -600,26 +599,26 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
             disabled={submitting}
             className={cn(NUT_VIEN, "max-sm:h-11 max-sm:flex-1")}
           >
-            Hủy
+            {t("Hủy")}
           </Button>
           <Button
             type="submit"
             form={formId}
             disabled={submitting || (laSua && !isDirty)}
-            title={laSua && !isDirty ? "Chưa có thay đổi để lưu" : undefined}
+            title={laSua && !isDirty ? t("Chưa có thay đổi để lưu") : undefined}
             className="min-w-[168px] bg-bo-primary text-white hover:bg-bo-primary-hover max-sm:h-11 max-sm:min-w-0 max-sm:flex-[2]"
           >
             {submitting ? (
               <>
                 <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                Đang lưu...
+                {t("Đang lưu...")}
               </>
             ) : laSua ? (
-              "Lưu thay đổi"
+              t("Lưu thay đổi")
             ) : (
               <>
                 <Plus className="size-4" aria-hidden="true" />
-                Thêm khách hàng
+                {t("Thêm khách hàng")}
               </>
             )}
           </Button>
@@ -640,14 +639,14 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
         >
           <AlertDialogHeader>
             <AlertDialogTitle className="text-base text-bo-foreground">
-              {laSua ? "Bỏ các thay đổi?" : "Bỏ thông tin đang nhập?"}
+              {laSua ? t("Bỏ các thay đổi?") : t("Bỏ thông tin đang nhập?")}
             </AlertDialogTitle>
             <AlertDialogDescription className="text-sm text-bo-muted">
-              {laSua ? "Những gì bạn vừa sửa sẽ không được lưu." : "Thông tin bạn đã nhập sẽ không được lưu."}
+              {laSua ? t("Những gì bạn vừa sửa sẽ không được lưu.") : t("Thông tin bạn đã nhập sẽ không được lưu.")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2">
-            <AlertDialogCancel className={NUT_VIEN}>{laSua ? "Tiếp tục sửa" : "Tiếp tục nhập"}</AlertDialogCancel>
+            <AlertDialogCancel className={NUT_VIEN}>{laSua ? t("Tiếp tục sửa") : t("Tiếp tục nhập")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 discardingRef.current = true;
@@ -656,7 +655,7 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
               }}
               className="bg-bo-danger text-white hover:bg-bo-danger/90"
             >
-              {laSua ? "Bỏ thay đổi" : "Bỏ thông tin"}
+              {laSua ? t("Bỏ thay đổi") : t("Bỏ thông tin")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

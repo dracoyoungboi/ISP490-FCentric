@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { tinhCoMan } from "@/hooks/useCoMan";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 const MAU_SO = {
   danger: "bg-red-50 text-red-700",
@@ -14,14 +15,14 @@ const MAU_SO = {
  * - `tone` ("warning" | "danger") tô màu số khi > 0 và tab không đang chọn.
  * - Đi qua lại bằng phím mũi tên trái/phải, Home, End. Màn hẹp: cuộn ngang, không xuống dòng.
  */
-export default function StatusTabs({ tabs, value, onChange, label = "Lọc theo trạng thái", className }) {
+export default function StatusTabs({ tabs, value, onChange, label = t("Lọc theo trạng thái"), className }) {
   const refs = useRef([]);
   const khungRef = useRef(null);
 
   // Hàng tab đang cuộn ngang (điện thoại, máy tính bảng cảm ứng): tab đang chọn nằm ngoài phần thấy thì cuộn hàng tab cho
   // tab đó hiện ra (chỉ cuộn hàng tab, không cuộn trang). Máy tính dùng chuột giữ như cũ. Chỉ chạy khi đổi tab chọn — số trên
   // tab cập nhật (trang dựng lại mảng tabs) không kéo hàng tab về khi người dùng đang vuốt xem tab khác.
-  const viTriChon = tabs.findIndex((t) => t.value === value);
+  const viTriChon = tabs.findIndex((tab) => tab.value === value);
   useEffect(() => {
     const khung = khungRef.current;
     const tab = refs.current[viTriChon];

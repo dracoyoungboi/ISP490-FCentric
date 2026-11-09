@@ -16,6 +16,7 @@ import useSaoChep from "@/hooks/useSaoChep";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useBanPhimAoMo } from "@/hooks/useBanPhimAo";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 /**
  * Điện thoại (< 768px): nút chính của chứng từ nằm ở thanh thao tác dính đáy màn (ngón cái với tới), bên trái là ⋯
@@ -238,12 +239,12 @@ export default function DauChungTu({
   nhanPhu,
   dongPhu,
   onQuayLai,
-  nhanQuayLai = "Quay lại",
+  nhanQuayLai = t("Quay lại"),
   nutPhu,
   nutChinh,
   menu,
   saoChepMa,
-  nhanMenu = "Thao tác khác",
+  nhanMenu = t("Thao tác khác"),
   className,
 }) {
   useClaimPageTitle(true);
@@ -261,7 +262,7 @@ export default function DauChungTu({
   };
 
   const coSaoChep = coNoiDung(saoChepMa?.giaTri);
-  const nhanSaoChep = saoChepMa?.nhan || "Sao chép mã";
+  const nhanSaoChep = saoChepMa?.nhan || t("Sao chép mã");
   const chepMa = async (suKien) => {
     if (!taiCho) {
       // Menu đóng như mọi mục khác, thông báo nhanh báo đã chép
@@ -332,7 +333,7 @@ export default function DauChungTu({
             {daChep ? (
               <>
                 <Check className="mt-0.5 size-4 text-bo-success" strokeWidth={2.5} aria-hidden="true" />
-                <span className="text-bo-success">Đã sao chép</span>
+                <span className="text-bo-success">{t("Đã sao chép")}</span>
               </>
             ) : (
               <>
@@ -379,7 +380,7 @@ export default function DauChungTu({
           );
         })}
         <span className="sr-only" aria-live="polite">
-          {daChep ? "Đã sao chép" : ""}
+          {daChep ? t("Đã sao chép") : ""}
         </span>
       </DropdownMenuContent>
     </DropdownMenu>

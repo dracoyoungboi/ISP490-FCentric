@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 /**
  * Ô chọn trong thanh lọc, cùng kiểu DropdownMenu ở DonBanHangList / PhieuXuatKhoList.
@@ -107,7 +108,7 @@ export default function FilterSelect({
         <button
           type="button"
           onClick={onClear}
-          aria-label={clearLabel || `Bỏ lọc ${label?.toLocaleLowerCase("vi-VN") ?? ""}`.trim()}
+          aria-label={clearLabel || t("Bỏ lọc {{ten}}", { ten: label?.toLocaleLowerCase("vi-VN") ?? "" }).trim()}
           title={clearLabel || undefined}
           className="absolute right-1 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-md text-bo-muted hover:bg-slate-100 hover:text-bo-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bo-primary"
         >

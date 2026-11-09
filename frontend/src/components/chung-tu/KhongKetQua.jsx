@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import { cauChungTuRong, cauKhongKhop, cauLocRong } from "./bangChungTu.js";
+import { t } from "@/i18n";
 
 /**
  * Dòng báo dưới bảng khi không có dòng để hiện — một mẫu chữ cho cả 8 màn (rà soát 21/10/2026, N13):
@@ -15,7 +16,7 @@ import { cauChungTuRong, cauKhongKhop, cauLocRong } from "./bangChungTu.js";
 export default function KhongKetQua({
   bang,
   tuKhoa: tuKhoaTruyen,
-  donVi = "dòng",
+  donVi = t("dòng"),
   onXoaTuKhoa,
   onXemTatCa,
   tenChungTu,
@@ -38,10 +39,10 @@ export default function KhongKetQua({
     cau = cauChungTuRong(tenChungTu);
   } else if (tuKhoa) {
     cau = cauKhongKhop(donVi, tuKhoa);
-    if (xoaTuKhoa) nut = { nhan: "Xóa tìm kiếm", bam: xoaTuKhoa };
+    if (xoaTuKhoa) nut = { nhan: t("Xóa tìm kiếm"), bam: xoaTuKhoa };
   } else if (xemTatCa) {
     cau = cauLocRong(donVi);
-    nut = { nhan: "Xem tất cả", bam: xemTatCa };
+    nut = { nhan: t("Xem tất cả"), bam: xemTatCa };
   }
   if (!cau) return null;
 

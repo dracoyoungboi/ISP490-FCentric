@@ -16,6 +16,7 @@ import { CAU_HINH_THONG_BAO_NHANH } from "@/config/thongBaoNhanh";
 import useSaoChep from "@/hooks/useSaoChep";
 import { formatDate } from "@/utils/formatters";
 import { laHoatDong, nhanLoaiKhach } from "./tinhKhachHang";
+import { t } from "@/i18n";
 
 const NUT_VIEN = "border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle";
 const MUC_MENU = "cursor-pointer items-start gap-2 rounded-md px-2.5 py-2 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900";
@@ -60,7 +61,7 @@ export default function DauTrangKhachHang({
 
   const saoChepMa = async (suKien) => {
     if (!taiCho) {
-      await saoChep(khachHang.maKhachHang, { nhan: "Sao chép mã khách hàng" });
+      await saoChep(khachHang.maKhachHang, { nhan: t("Sao chép mã khách hàng") });
       return;
     }
     suKien.preventDefault(); // giữ menu mở để người dùng thấy "Đã sao chép"
@@ -82,8 +83,8 @@ export default function DauTrangKhachHang({
           variant="outline"
           size="icon"
           onClick={onQuayLai}
-          aria-label="Quay lại"
-          title="Quay lại"
+          aria-label={t("Quay lại")}
+          title={t("Quay lại")}
           className={`shrink-0 ${NUT_VIEN}`}
         >
           <ArrowLeft className="size-4" aria-hidden="true" />
@@ -94,20 +95,21 @@ export default function DauTrangKhachHang({
             <PageHeading className="max-sm:line-clamp-2 max-sm:whitespace-normal">
               <span title={khachHang.tenKhachHang || undefined}>{khachHang.tenKhachHang || khachHang.maKhachHang || "—"}</span>
             </PageHeading>
+            {/* i18n-giu-nguyen: StatusBadge tự dịch */}
             <StatusBadge doiTuong="nguoi" size="lg" label={dangHoatDong ? "Hoạt động" : "Ngừng hoạt động"} />
           </div>
           <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[13px] leading-6 text-bo-muted">
             {khachHang.maKhachHang ? (
               <span className="inline-flex items-center">
                 <span className="font-mono font-semibold text-slate-700">{khachHang.maKhachHang}</span>
-                <NutSaoChep giaTri={khachHang.maKhachHang} nhan="Sao chép mã khách hàng" className="ml-0.5 size-6" />
+                <NutSaoChep giaTri={khachHang.maKhachHang} nhan={t("Sao chép mã khách hàng")} className="ml-0.5 size-6" />
               </span>
             ) : null}
             {/* Điện thoại: loại khách xuống dòng riêng, không mở đầu dòng bằng dấu "·" */}
             <span className="max-sm:basis-full">
               {khachHang.maKhachHang ? <span className="max-sm:hidden">· </span> : null}
-              {loai ?? "Chưa phân loại"}
-              {khachHang.ngayTao ? ` · khách từ ${formatDate(khachHang.ngayTao)}` : ""}
+              {loai ?? t("Chưa phân loại")}
+              {khachHang.ngayTao ? ` · ${t("khách từ {{ngay}}", { ngay: formatDate(khachHang.ngayTao) })}` : ""}
             </span>
           </p>
         </div>
@@ -119,7 +121,7 @@ export default function DauTrangKhachHang({
           <Button asChild variant="outline" className={`h-11 flex-1 gap-1.5 sm:hidden ${NUT_VIEN}`}>
             <a href={`tel:${soDienThoai}`}>
               <Phone className="size-4" aria-hidden="true" />
-              Gọi
+              {t("Gọi")}
             </a>
           </Button>
         ) : null}
@@ -127,7 +129,7 @@ export default function DauTrangKhachHang({
           <Button asChild variant="outline" className={`h-11 flex-1 gap-1.5 sm:hidden ${NUT_VIEN}`}>
             <a href={`mailto:${email}`}>
               <Mail className="size-4" aria-hidden="true" />
-              Gửi email
+              {t("Gửi email")}
             </a>
           </Button>
         ) : null}
@@ -139,8 +141,8 @@ export default function DauTrangKhachHang({
                 type="button"
                 variant="outline"
                 size="icon"
-                aria-label="Thao tác khác"
-                title="Thao tác khác"
+                aria-label={t("Thao tác khác")}
+                title={t("Thao tác khác")}
                 className={`max-sm:size-11 ${NUT_VIEN}`}
               >
                 <Ellipsis className="size-4" aria-hidden="true" />
@@ -153,13 +155,13 @@ export default function DauTrangKhachHang({
               {hienTaoBaoGia ? (
                 <DropdownMenuItem onClick={onTaoBaoGia} className={`${MUC_MENU} sm:hidden`}>
                   <FilePlus2 className="mt-0.5 size-4 text-slate-400" aria-hidden="true" />
-                  Tạo báo giá
+                  {t("Tạo báo giá")}
                 </DropdownMenuItem>
               ) : null}
               {coTheSua ? (
                 <DropdownMenuItem onClick={onChinhSua} className={`${MUC_MENU} sm:hidden`}>
                   <Pencil className="mt-0.5 size-4 text-slate-400" aria-hidden="true" />
-                  Chỉnh sửa
+                  {t("Chỉnh sửa")}
                 </DropdownMenuItem>
               ) : null}
               {khachHang.maKhachHang ? (
@@ -167,12 +169,12 @@ export default function DauTrangKhachHang({
                   {daChep ? (
                     <>
                       <Check className="mt-0.5 size-4 text-bo-success" strokeWidth={2.5} aria-hidden="true" />
-                      <span className="text-bo-success">Đã sao chép</span>
+                      <span className="text-bo-success">{t("Đã sao chép")}</span>
                     </>
                   ) : (
                     <>
                       <Copy className="mt-0.5 size-4 text-slate-400" aria-hidden="true" />
-                      Sao chép mã khách hàng
+                      {t("Sao chép mã khách hàng")}
                     </>
                   )}
                 </DropdownMenuItem>
@@ -181,7 +183,7 @@ export default function DauTrangKhachHang({
               {onLichSu ? (
                 <DropdownMenuItem onClick={onLichSu} className={MUC_MENU}>
                   <History className="mt-0.5 size-4 text-slate-400" aria-hidden="true" />
-                  Lịch sử thay đổi
+                  {t("Lịch sử thay đổi")}
                 </DropdownMenuItem>
               ) : null}
               {coTheSua ? (
@@ -195,19 +197,19 @@ export default function DauTrangKhachHang({
                     )}
                     <span className="flex min-w-0 flex-col gap-0.5">
                       <span className="font-medium text-bo-foreground">
-                        {dangHoatDong ? "Ngừng hoạt động" : "Cho phép hoạt động"}
+                        {dangHoatDong ? t("Ngừng hoạt động") : t("Cho phép hoạt động")}
                       </span>
                       <span className="text-xs leading-4 text-bo-muted">
                         {dangHoatDong
-                          ? "Không chọn được khi tạo báo giá và bán tại quầy. Lịch sử giữ nguyên."
-                          : "Chọn lại được khi tạo báo giá và bán tại quầy."}
+                          ? t("Không chọn được khi tạo báo giá và bán tại quầy. Lịch sử giữ nguyên.")
+                          : t("Chọn lại được khi tạo báo giá và bán tại quầy.")}
                       </span>
                     </span>
                   </DropdownMenuItem>
                 </>
               ) : null}
               <span className="sr-only" aria-live="polite">
-                {daChep ? "Đã sao chép mã khách hàng" : ""}
+                {daChep ? t("Đã sao chép mã khách hàng") : ""}
               </span>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -216,7 +218,7 @@ export default function DauTrangKhachHang({
         {coTheSua ? (
           <Button type="button" variant="outline" onClick={onChinhSua} className={`gap-1.5 max-sm:hidden ${NUT_VIEN}`}>
             <Pencil className="size-4" aria-hidden="true" />
-            Chỉnh sửa
+            {t("Chỉnh sửa")}
           </Button>
         ) : null}
         {hienTaoBaoGia ? (
@@ -226,7 +228,7 @@ export default function DauTrangKhachHang({
             className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover max-sm:hidden"
           >
             <FilePlus2 className="size-4" aria-hidden="true" />
-            Tạo báo giá
+            {t("Tạo báo giá")}
           </Button>
         ) : null}
       </div>

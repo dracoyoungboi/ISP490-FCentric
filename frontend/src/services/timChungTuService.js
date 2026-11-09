@@ -10,6 +10,7 @@ import { getPhieuChuyenKhoStatus } from "@/constants/phieuChuyenKho";
 import { getPhieuXuatKhoStatus } from "@/constants/phieuXuatKho";
 import { getYeuCauNhapHangStatus } from "@/constants/yeuCauNhapHang";
 import { ROLES, hasAnyRole } from "@/utils/roles";
+import { t } from "@/i18n";
 
 /*
  * Tìm chứng từ theo mã cho ô Tìm kiếm toàn hệ thống: phiếu xuất (PX…, PXK…, PX-CK…), phiếu nhập (PN…, PN-TRF…),
@@ -28,7 +29,7 @@ const SO_DONG_MOI_LOAI = 10;
 const TIEN_TO_MA = /^(PXK?|PN|PO|PR|LDD|TRF|CK)(-|$)/i;
 
 /** Đơn mua chỉ có trạng thái của trang Đơn mua hàng (tab Tất cả); mã khác là bước báo giá, xem ở Yêu cầu báo giá. */
-const TRANG_THAI_DON_MUA = DON_MUA_HANG_TABS.find((t) => t.ma === "tat-ca")?.trangThai ?? [3, 5];
+const TRANG_THAI_DON_MUA = DON_MUA_HANG_TABS.find((tab) => tab.ma === "tat-ca")?.trangThai ?? [3, 5];
 
 /**
  * Từ khóa có dáng mã chứng từ: không có khoảng trắng và có cả chữ cái lẫn chữ số ("PX2026", "pn-trf-12"), hoặc là tiền
@@ -61,7 +62,7 @@ async function timPhieuXuat(tuKhoa, cauHinh) {
     content: trang.content.map((p) => ({
       id: `phieuXuat-${p.id}`,
       ma: p.soPhieuXuat,
-      tenLoai: "Phiếu xuất kho",
+      tenLoai: t("Phiếu xuất kho"),
       trangThai: getPhieuXuatKhoStatus(p.trangThai).label,
       quyTrinh: "phieuXuat",
       phu: p.kho?.tenKho,
@@ -84,7 +85,7 @@ async function timPhieuNhap(tuKhoa, cauHinh) {
     content: trang.content.map((p) => ({
       id: `phieuNhap-${p.id}`,
       ma: p.soPhieuNhap,
-      tenLoai: "Phiếu nhập kho",
+      tenLoai: t("Phiếu nhập kho"),
       trangThai: getGoodsReceiptStatus(p.trangThai).label,
       quyTrinh: "phieuNhap",
       phu: p.tenKho || p.kho?.tenKho,
@@ -101,7 +102,7 @@ async function timPhieuChuyen(tuKhoa, cauHinh) {
     content: trang.content.map((p) => ({
       id: `phieuChuyen-${p.id}`,
       ma: p.soPhieuChuyen,
-      tenLoai: "Phiếu chuyển kho",
+      tenLoai: t("Phiếu chuyển kho"),
       trangThai: getPhieuChuyenKhoStatus(p.trangThai, p.coChenhLech, p.tuChoi).label,
       quyTrinh: "chuyenKho",
       phu: p.khoXuatTen && p.khoNhapTen ? `${p.khoXuatTen} → ${p.khoNhapTen}` : p.khoXuatTen || p.khoNhapTen,
@@ -127,7 +128,7 @@ async function timDonMua(tuKhoa, cauHinh) {
     content: trang.content.map((d) => ({
       id: `donMua-${d.id}`,
       ma: d.soDonMua,
-      tenLoai: "Đơn mua hàng",
+      tenLoai: t("Đơn mua hàng"),
       trangThai: getDonMuaHangStatus(d.trangThai).label,
       quyTrinh: "donMua",
       phu: d.nhaCungCap?.tenNhaCungCap,
@@ -174,7 +175,7 @@ async function timYeuCauNhap(tuKhoa, cauHinh) {
     content: trang.content.map((y) => ({
       id: `yeuCauNhap-${y.id}`,
       ma: y.soYeuCauMuaHang,
-      tenLoai: "Yêu cầu nhập hàng",
+      tenLoai: t("Yêu cầu nhập hàng"),
       trangThai: getYeuCauNhapHangStatus(y.trangThai).label,
       quyTrinh: "yeuCauNhap",
       phu: y.khoNhap?.tenKho,
@@ -209,10 +210,10 @@ export async function timChungTu(tuKhoa, dsLoai, cauHinh) {
   const tkThuong = tk.toLowerCase();
   const dauKhop = (d) => (String(d.ma ?? "").toLowerCase().startsWith(tkThuong) ? 0 : 1);
   const content = xong
-    .flatMap((t) => t.content)
+    .flatMap((kq) => kq.content)
     .filter((d) => d.ma)
     .map((d, i) => ({ d, i }))
     .sort((a, b) => dauKhop(a.d) - dauKhop(b.d) || a.i - b.i)
     .map(({ d }) => d);
-  return { content, totalElements: xong.reduce((s, t) => s + t.totalElements, 0) };
+  return { content, totalElements: xong.reduce((s, kq) => s + kq.totalElements, 0) };
 }

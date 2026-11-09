@@ -17,6 +17,7 @@ import {
   THAN_HOP,
   TIEU_DE_HOP,
 } from "./kieuHopThoai.js";
+import { t } from "@/i18n";
 
 const O_DAU_TIEN = "textarea:not([disabled]), input:not([disabled]):not([type=hidden]), select:not([disabled])";
 
@@ -56,7 +57,7 @@ export default function HopXacNhanChungTu({
   lyDoKhoa,
   rong = false,
   ratRong = false,
-  nhanQuayLai = "Quay lại",
+  nhanQuayLai = t("Quay lại"),
   tieuDiemQuayLai = false,
   tieuDiemONhap = true,
   traTieuDiemVe,

@@ -1,6 +1,7 @@
 import { createElement } from "react";
 import { ArrowDown, Store, Warehouse } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 function NutKho({ icon, ten, vaiTro, mau }) {
   return (
@@ -26,11 +27,11 @@ function NutKho({ icon, ten, vaiTro, mau }) {
 export default function TuyenChuyen({ khoNguon, khoDich, ghiChu, className }) {
   return (
     <div className={cn("grid gap-0.5", className)}>
-      <NutKho icon={Warehouse} ten={khoNguon} vaiTro="Kho nguồn · xuất hàng" mau="bg-bo-primary-soft text-bo-primary" />
+      <NutKho icon={Warehouse} ten={khoNguon} vaiTro={t("Kho nguồn · xuất hàng")} mau="bg-bo-primary-soft text-bo-primary" />
       <div aria-hidden="true" className="flex h-[22px] items-center pl-4 text-slate-400">
         <ArrowDown className="size-4" />
       </div>
-      <NutKho icon={Store} ten={khoDich} vaiTro="Kho đích · nhận hàng" mau="bg-bo-success-soft text-bo-success" />
+      <NutKho icon={Store} ten={khoDich} vaiTro={t("Kho đích · nhận hàng")} mau="bg-bo-success-soft text-bo-success" />
       {ghiChu ? <p className="mt-2 text-xs leading-[18px] text-bo-muted">{ghiChu}</p> : null}
     </div>
   );

@@ -3,6 +3,7 @@
  * Chạy test: node --test src/lib/tinhThongBaoNhanh.test.js
  */
 import { CAU_HINH_THONG_BAO_NHANH } from "../config/thongBaoNhanh.js";
+import { t } from "../i18n/t.js";
 
 /** Loại thông báo của thư viện → khóa thời gian trong cấu hình. */
 const KHOA_THOI_GIAN = Object.freeze({
@@ -56,7 +57,9 @@ export function viTriTheoTrang(duongDan = "", cauHinh = CAU_HINH_THONG_BAO_NHANH
  */
 export function chuDaSaoChep(nhan) {
   const chu = typeof nhan === "string" ? nhan.trim() : "";
-  return /^sao chép/i.test(chu) ? `Đã sao chép${chu.slice("sao chép".length)}` : "Đã sao chép";
+  // i18n-giu-nguyen: nhận cả nhãn tiếng Việt ("Sao chép …") lẫn nhãn đã dịch ("Copy …")
+  const khop = /^(sao chép|copy)/i.exec(chu);
+  return khop ? `${t("Đã sao chép")}${chu.slice(khop[1].length)}` : t("Đã sao chép");
 }
 
 /** Khóa để gộp thông báo trùng: chỉ áp dụng cho nội dung là chữ. */

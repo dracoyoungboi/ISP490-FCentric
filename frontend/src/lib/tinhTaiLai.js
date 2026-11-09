@@ -1,3 +1,4 @@
+import { t } from "../i18n/t.js";
 /**
  * Logic thuần của việc tải lại danh sách (không phụ thuộc React hay DOM) để test được bằng node.
  * Chạy test: node --test src/lib/tinhTaiLai.test.js
@@ -43,7 +44,7 @@ export function trangCuoiNeuVuot({ trang, kichThuoc, soDong, tong }) {
 /** "Cập nhật lúc 14:16". Chưa có thời điểm thì trả chuỗi rỗng. */
 export function nhanCapNhat(thoiDiem) {
   if (!(thoiDiem instanceof Date) || Number.isNaN(thoiDiem.getTime())) return "";
-  return `Cập nhật lúc ${hai(thoiDiem.getHours())}:${hai(thoiDiem.getMinutes())}`;
+  return t("Cập nhật lúc {{gio}}:{{phut}}", { gio: hai(thoiDiem.getHours()), phut: hai(thoiDiem.getMinutes()) });
 }
 
 /** "14:16:05 18/10/2026" — hiện khi rê chuột vào chữ "Cập nhật lúc". */

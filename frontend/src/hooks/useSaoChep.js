@@ -2,8 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { CAU_HINH_THONG_BAO_NHANH } from "@/config/thongBaoNhanh";
 import { toast } from "@/lib/thongBaoNhanh";
 import { chuDaSaoChep } from "@/lib/tinhThongBaoNhanh";
+import { t } from "@/i18n";
 
-const THONG_BAO_LOI = "Không sao chép được. Hãy chọn chữ và sao chép thủ công.";
+const THONG_BAO_LOI = t("Không sao chép được. Hãy chọn chữ và sao chép thủ công.");
 
 /**
  * Ghi chữ vào bộ nhớ tạm. navigator.clipboard chỉ chạy trên https hoặc localhost;

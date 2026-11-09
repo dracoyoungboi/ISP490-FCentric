@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import NutSaoChep from "@/components/shared/NutSaoChep";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 const coGiaTri = (x) => x != null && x !== false && x !== "";
 const TRONG = <span className="text-bo-muted">—</span>;
@@ -89,7 +90,7 @@ const THE_BAM =
  * `chan`: nội dung dưới danh sách (vd. nút "Xem thêm n phiếu xuất", câu giải thích khi không tìm thấy chứng từ);
  * có `chan` thì nhóm vẫn vẽ dù danh sách rỗng.
  */
-export function ChungTuLienQuan({ ds, nhan = "Chứng từ liên quan", rong = false, chan }) {
+export function ChungTuLienQuan({ ds, nhan = t("Chứng từ liên quan"), rong = false, chan }) {
   const muc = (Array.isArray(ds) ? ds : []).filter(Boolean);
   if (!muc.length && !chan) return null;
   return (

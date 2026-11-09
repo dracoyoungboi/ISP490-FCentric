@@ -1,3 +1,4 @@
+import { t } from "../i18n/t.js";
 // Suy ra tên thân thiện + loại thiết bị từ chuỗi User-Agent (không cần thư viện ngoài) cho màn "Thiết bị đang đăng nhập".
 
 /**
@@ -8,7 +9,7 @@ export function moTaThietBi(userAgent) {
 
   // Trình duyệt — thứ tự quan trọng: Edge/Opera/Samsung/Firefox-iOS/Chrome-iOS phải nhận TRƯỚC Chrome và Safari
   // (các trình duyệt này đều nhúng chuỗi "Chrome"/"Safari" trong User-Agent)
-  let trinhDuyet = "Trình duyệt";
+  let trinhDuyet = t("Trình duyệt");
   if (/Edg\/|EdgA\/|EdgiOS\//i.test(ua)) trinhDuyet = "Edge"; // Edge trên máy tính / Android / iOS
   else if (/OPR\/|Opera/i.test(ua)) trinhDuyet = "Opera";
   else if (/SamsungBrowser/i.test(ua)) trinhDuyet = "Samsung Internet";
@@ -45,15 +46,15 @@ export function thoiGianTuongDoi(giaTri) {
   const ms = d.getTime();
   if (!Number.isFinite(ms)) return "";
   const giay = Math.round((Date.now() - ms) / 1000);
-  if (giay < 45) return "vừa xong";
-  if (giay < 90) return "1 phút trước";
+  if (giay < 45) return t("vừa xong");
+  if (giay < 90) return t("1 phút trước");
   // Dùng floor cho phút/giờ/ngày để không "vượt mốc" (vd. 1 giờ 31 phút vẫn là "1 giờ trước", không nhảy thành 2)
   const phut = Math.floor(giay / 60);
-  if (phut < 60) return `${phut} phút trước`;
+  if (phut < 60) return t("{{count}} phút trước", { count: phut });
   const gio = Math.floor(phut / 60);
-  if (gio < 24) return `${gio} giờ trước`;
+  if (gio < 24) return t("{{count}} giờ trước", { count: gio });
   const ngay = Math.floor(gio / 24);
-  if (ngay <= 7) return `${ngay} ngày trước`;
+  if (ngay <= 7) return t("{{count}} ngày trước", { count: ngay });
   return d.toLocaleString("vi-VN", {
     day: "2-digit",
     month: "2-digit",

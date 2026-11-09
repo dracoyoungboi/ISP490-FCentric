@@ -3,6 +3,7 @@ import { Check, Loader2 } from "lucide-react";
 import { toast } from "@/lib/thongBaoNhanh";
 import { cn } from "@/lib/utils";
 import useCoQuyenXuatBaoCao from "@/hooks/useCoQuyenXuatBaoCao";
+import { t } from "@/i18n";
 
 /** Lưu Blob về máy với tên tệp cho sẵn. */
 function taiTepVeMay(blob, tenTep) {
@@ -78,23 +79,23 @@ export default function NutXuatExcel({ taiTep, tenTep, disabled = false, classNa
       const ten = tenTuHeader(kq?.headers?.["content-disposition"]) || (typeof tenTep === "function" ? tenTep() : tenTep);
       taiTepVeMay(blob, ten);
       setTrangThai("xong");
-      toast.success(`Đã tải ${ten}`);
+      toast.success(t("Đã tải {{ten}}", { ten }));
       hen.current = setTimeout(() => setTrangThai("san"), GIU_DA_TAI_MS);
     } catch (e) {
       setTrangThai("san");
       const cau = await cauLoiTaiTep(e);
-      toast.error(cau || "Không xuất được tệp Excel. Thử lại.");
+      toast.error(cau || t("Không xuất được tệp Excel. Thử lại."));
     }
   };
 
-  const nhan = dangXuat ? "Đang xuất…" : trangThai === "xong" ? "Đã tải" : "Xuất Excel";
+  const nhan = dangXuat ? t("Đang xuất…") : trangThai === "xong" ? t("Đã tải") : t("Xuất Excel");
   return (
     <button
       type="button"
       onClick={xuat}
       disabled={disabled || dangXuat}
       aria-busy={dangXuat}
-      title="Tải báo cáo về máy dạng Excel"
+      title={t("Tải báo cáo về máy dạng Excel")}
       className={cn(
         // Cùng khung với nút đầu trang khác (Button mặc định: cao 36px, lề ngang 12px, bo 6px)
         "relative inline-flex h-9 cursor-pointer items-center gap-2 rounded-md border border-bo-input-border bg-bo-surface px-3 text-sm font-medium text-bo-foreground",

@@ -1,10 +1,11 @@
 import { createElement } from "react";
 import { Inbox } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 export default function EmptyState({
-  title = "Chưa có dữ liệu",
-  description = "Dữ liệu sẽ xuất hiện tại đây khi được tạo.",
+  title = t("Chưa có dữ liệu"),
+  description = t("Dữ liệu sẽ xuất hiện tại đây khi được tạo."),
   icon = Inbox,
   action,
   className,

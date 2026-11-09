@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { printTemplateConfigService } from "@/services/printTemplateConfigService";
 import { companyProfileService } from "@/services/companyProfileService";
 import { getPageFooterText } from "@/components/print/paperStyles";
+import { cauGocCuaLoi } from "@/i18n/cauGoc";
 
 /**
  * Khung chung cho các trang in thật của mọi loại chứng từ:
@@ -105,7 +106,8 @@ export default function PrintRoutePage({
         } catch (err) {
             console.error("Error fetching print data:", err);
             const httpStatus = err?.response?.status;
-            const envelopeMessage = err?.response?.data?.message ?? "";
+            // Câu gốc tiếng Việt (giao diện tiếng Anh nhận câu đã dịch kèm messageGoc)
+            const envelopeMessage = cauGocCuaLoi(err);
             // Backend báo "không tìm thấy" bằng HTTP 400 kèm envelope
             // {status: 400, message: "Không tìm thấy ..."} — phân loại là notfound,
             // KHÔNG phải lỗi chung.

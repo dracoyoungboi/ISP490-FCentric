@@ -12,20 +12,21 @@ import { getMineKhoList } from "@/services/khoService";
 import { laKhoGiaoDich, laKhoTong } from "@/utils/kho";
 import { KHO_LAM_VIEC_EVENT, getKhoLamViecId, setKhoLamViecId } from "@/utils/khoLamViec";
 import { ROLES, hasAnyRole } from "@/utils/roles";
+import { t } from "@/i18n";
 
 /**
  * Chữ trên ô theo vai trò: nhân viên và quản lý kho làm việc tại một kho nên gọi là "Nơi làm việc";
  * quản trị viên không thuộc kho nào, ô chỉ là chọn kho để xem.
  */
 const CHU_NOI_LAM_VIEC = {
-  nhan: "Nơi làm việc",
-  goiY: "Trang này chỉ hiện chứng từ của nơi bạn đang làm việc",
-  menu: "Đổi nơi làm việc. Các trang chỉ xem một kho sẽ hiện theo nơi này.",
+  nhan: t("Nơi làm việc"),
+  goiY: t("Trang này chỉ hiện chứng từ của nơi bạn đang làm việc"),
+  menu: t("Đổi nơi làm việc. Các trang chỉ xem một kho sẽ hiện theo nơi này."),
 };
 const CHU_DANG_XEM_KHO = {
-  nhan: "Đang xem kho",
-  goiY: "Trang này chỉ hiện chứng từ của kho đang chọn",
-  menu: "Chọn kho để xem. Các trang chỉ xem một kho sẽ hiện theo kho này.",
+  nhan: t("Đang xem kho"),
+  goiY: t("Trang này chỉ hiện chứng từ của kho đang chọn"),
+  menu: t("Chọn kho để xem. Các trang chỉ xem một kho sẽ hiện theo kho này."),
 };
 
 /**
@@ -74,7 +75,7 @@ export default function KhoLamViecSelect({ onChange }) {
   }, []);
 
   const khoHienTai = dsKho.find((kho) => kho.id === khoId);
-  const tenKho = khoHienTai?.tenKho ?? "Chưa chọn kho";
+  const tenKho = khoHienTai?.tenKho ?? t("Chưa chọn kho");
   const chu = hasAnyRole([ROLES.QUAN_TRI_VIEN]) ? CHU_DANG_XEM_KHO : CHU_NOI_LAM_VIEC;
 
   const chonKho = (id) => {
@@ -118,7 +119,7 @@ export default function KhoLamViecSelect({ onChange }) {
       <DropdownMenuTrigger asChild>
         <Button
           variant="outline"
-          aria-label={`${chu.nhan}: ${tenKho}. Bấm để đổi`}
+          aria-label={t("{{nhan}}: {{tenKho}}. Bấm để đổi", { nhan: chu.nhan, tenKho })}
           title={chu.goiY}
           className="h-9 w-full justify-between gap-2 border-bo-border bg-bo-surface px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle sm:w-auto sm:max-w-[320px]"
         >

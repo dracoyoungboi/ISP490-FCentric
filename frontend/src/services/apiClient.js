@@ -3,6 +3,8 @@ import { toast } from '@/lib/thongBaoNhanh';
 import { clearCurrentUserProfile } from '../utils/avatar';
 import { API_BASE_URL } from '../config/apiBase';
 import { getApiErrorCode } from '../utils/apiError';
+import { ngonNguHienTai, t } from '../i18n/t';
+import { ghiCauGoc } from "../i18n/cauGoc.js";
 
 // Chặn xử lý trùng lặp khi nhiều request đồng thời cùng trả về ACCOUNT_DISABLED
 let accountDisabledHandled = false;
@@ -29,6 +31,9 @@ const apiClient = axios.create({
 // Nếu needToken = false hoặc needKho = false thì không truyền thông tin đó
 apiClient.interceptors.request.use(
     (config) => {
+        // Máy chủ trả câu báo lỗi theo ngôn ngữ giao diện (không theo ngôn ngữ của trình duyệt)
+        config.headers = config.headers || {};
+        config.headers['Accept-Language'] = ngonNguHienTai();
         if (config.skipAuth) return config;
 
         // Mặc định cần truyền token và kho (trừ khi được set thành false)
@@ -58,6 +63,7 @@ apiClient.interceptors.response.use(
         return response;
     },
     (error) => {
+        ghiCauGoc(error?.response?.data);
         // Tài khoản bị khóa: xóa session và đưa về /login.
         // KHÔNG ảnh hưởng các lỗi 403 thông thường (thiếu quyền) — chỉ xử lý ACCOUNT_DISABLED.
         const data = error.response?.data;
@@ -72,7 +78,7 @@ apiClient.interceptors.response.use(
         ) {
             accountDisabledHandled = true;
             const message =
-                data?.message || "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.";
+                data?.message || t("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.");
             localStorage.removeItem("access_token");
             localStorage.removeItem("role");
             localStorage.removeItem("selected_kho_id");
@@ -101,7 +107,7 @@ apiClient.interceptors.response.use(
                 "session_expired_message",
                 revoked
                     ? data.message
-                    : "Phiên đăng nhập đã hết hạn hoặc không còn hợp lệ. Vui lòng đăng nhập lại."
+                    : t("Phiên đăng nhập đã hết hạn hoặc không còn hợp lệ. Vui lòng đăng nhập lại.")
             );
             window.location.replace("/login");
         }

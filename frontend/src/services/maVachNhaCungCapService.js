@@ -2,6 +2,7 @@ import apiClient from "./apiClient";
 import { NHAP_KHO_MOCK } from "@/mocks/mockHelpers";
 import { maVachNhaCungCapMock } from "@/mocks/maVachNhaCungCapMock";
 import { getAllSupplier } from "./supplierService";
+import { t } from "@/i18n";
 
 /**
  * Liên kết mã vạch trên tem nhà cung cấp ↔ biến thể FCentric (FO-095, dùng khi quét nhập hàng FO-097).
@@ -15,7 +16,7 @@ export const MA_VACH_NCC_DA_CO_MAY_CHU = true;
 /** Đang chạy dữ liệu mẫu: máy chủ chưa có API (mặc định bật, tắt bằng VITE_NHAP_KHO_MOCK=false). */
 export const MA_VACH_NCC_MAU = !MA_VACH_NCC_DA_CO_MAY_CHU && NHAP_KHO_MOCK;
 
-export const THONG_BAO_CHUA_HO_TRO_MA_VACH = "Máy chủ chưa hỗ trợ liên kết mã vạch nhà cung cấp.";
+export const THONG_BAO_CHUA_HO_TRO_MA_VACH = t("Máy chủ chưa hỗ trợ liên kết mã vạch nhà cung cấp.");
 
 const BASE = "/api/v1/ma-vach-nha-cung-cap";
 const data = (res) => res.data?.data;

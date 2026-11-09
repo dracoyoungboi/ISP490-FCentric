@@ -1,6 +1,7 @@
 import { Check, ChevronDown, X } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 const pad2 = (n) => String(n).padStart(2, "0");
 
@@ -28,10 +29,10 @@ const KIEU_NHAN = {
 };
 
 const CHU_DOC = {
-  xong: " (đã xong)",
-  dangLam: " (đang làm)",
-  chua: " (chưa tới)",
-  dung: " (đã dừng)",
+  xong: ` ${t("(đã xong)")}`,
+  dangLam: ` ${t("(đang làm)")}`,
+  chua: ` ${t("(chưa tới)")}`,
+  dung: ` ${t("(đã dừng)")}`,
 };
 
 /**
@@ -42,7 +43,7 @@ const CHU_DOC = {
  * thanh bên) thì danh sách dọc. Bước đang làm có aria-current="step" (mỗi thanh chỉ nên có một bước "dangLam").
  * `nhan`: tên vùng cho trình đọc màn hình, vd. "Tiến trình phiếu chuyển kho".
  */
-export default function TienTrinhChungTu({ buoc, nhan = "Tiến trình", className }) {
+export default function TienTrinhChungTu({ buoc, nhan = t("Tiến trình"), className }) {
   const isMobile = useIsMobile();
   const ds = Array.isArray(buoc) ? buoc.filter(Boolean) : [];
   if (!ds.length) return null;
@@ -70,7 +71,7 @@ export default function TienTrinhChungTu({ buoc, nhan = "Tiến trình", classNa
             ))}
           </span>
           <span className="min-w-0 flex-1 truncate text-[13px] leading-[18px] text-bo-muted">
-            <span className="sr-only">{`Bước ${iHienTai + 1}/${ds.length}: `}</span>
+            <span className="sr-only">{`${t("Bước {{buoc}}/{{tong}}:", { buoc: iHienTai + 1, tong: ds.length })} `}</span>
             <span className={cn("font-semibold", ttHienTai === "dung" ? "text-bo-danger" : "text-bo-foreground")}>{hienTai.nhan}</span>
             <span className="sr-only">{CHU_DOC[ttHienTai]}</span>
             {hienTai.phu ? ` · ${hienTai.phu}` : ""}
@@ -78,7 +79,7 @@ export default function TienTrinhChungTu({ buoc, nhan = "Tiến trình", classNa
             {canhBaoGon ? <span className="font-medium text-bo-danger">{` · ${canhBaoGon}`}</span> : null}
           </span>
           <ChevronDown className="size-4 shrink-0 text-bo-muted transition-transform group-open:rotate-180" aria-hidden="true" />
-          <span className="sr-only">Xem các bước</span>
+          <span className="sr-only">{t("Xem các bước")}</span>
         </summary>
         <ol className="flex flex-col gap-3 pb-2 pt-1">{ds.map((b, i) => veBuoc(b, i, ds.length))}</ol>
       </details>

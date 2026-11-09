@@ -7,6 +7,7 @@ import ErrorState from "@/components/shared/ErrorState";
 import { cn } from "@/lib/utils";
 import { KHO_LAM_VIEC_EVENT } from "@/utils/khoLamViec";
 import { CAU_LOI_MAY_CHU, CAU_MAT_KET_NOI, chuLoiTai, la403TuGoDuoc, moTaLoiKhongQuyen, phanLoaiLoiTai } from "./loiTai.js";
+import { t } from "@/i18n";
 
 const KHUNG = "flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm";
 const NUT_VIEN = "border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle";
@@ -20,7 +21,7 @@ function Xuong({ className }) {
  * `nhan`: câu cho trình đọc màn hình, vd. "Đang tải phiếu nhặt hàng". `coTienTrinh = false` khi màn không có tiến trình.
  * Không "nhận" tiêu đề trang: PageContainer vẫn vẽ tiêu đề của layout (đúng một h1).
  */
-export function KhungDangTai({ nhan = "Đang tải dữ liệu", coTienTrinh = true, className }) {
+export function KhungDangTai({ nhan = t("Đang tải dữ liệu"), coTienTrinh = true, className }) {
   return (
     <div role="status" aria-busy="true" className={cn(KHUNG, className)}>
       <span className="sr-only">{nhan}</span>
@@ -69,7 +70,7 @@ const chuanCau = (chu) => String(chu ?? "").toLowerCase().replace(/\s+/g, " ").r
  * `onTaiLai`: thêm nút viền "Tải lại" trước nút chính (vd. sau khi đổi nơi làm việc).
  */
 export function KhungKhongThay({ tieuDe, moTa, cauMayChu, nhanNut, onNut, onTaiLai, icon = SearchX, className }) {
-  const moTaHien = moTa ?? "Chứng từ không tồn tại hoặc đã bị xóa khỏi hệ thống.";
+  const moTaHien = moTa ?? t("Chứng từ không tồn tại hoặc đã bị xóa khỏi hệ thống.");
   const hienCauMayChu = Boolean(cauMayChu) && chuanCau(cauMayChu) !== chuanCau(moTaHien);
   const nutChinh = nhanNut && onNut ? (
     <Button
@@ -99,7 +100,7 @@ export function KhungKhongThay({ tieuDe, moTa, cauMayChu, nhanNut, onNut, onTaiL
             <div className="flex flex-wrap items-center justify-center gap-2">
               <Button type="button" variant="outline" className={NUT_VIEN} onClick={onTaiLai}>
                 <RefreshCcw aria-hidden="true" />
-                Tải lại
+                {t("Tải lại")}
               </Button>
               {nutChinh}
             </div>
@@ -139,11 +140,11 @@ export function KhungLoiTai({ tieuDe, moTa = CAU_MAT_KET_NOI, loi, onThuLai, nha
           {onThuLai ? (
             <Button type="button" variant="outline" className={NUT_VIEN} onClick={onThuLai}>
               <RefreshCcw aria-hidden="true" />
-              Thử lại
+              {t("Thử lại")}
             </Button>
           ) : null}
           <Button type="button" variant="outline" className={NUT_VIEN} onClick={onVeDanhSach}>
-            {nhanVeDanhSach || "Về danh sách"}
+            {nhanVeDanhSach || t("Về danh sách")}
           </Button>
         </div>
       </div>
@@ -228,7 +229,7 @@ export function KhungLoiChungTu({
         icon={Lock}
         tieuDe={chu.tieuDeKhongQuyen}
         moTa={moTaLoiKhongQuyen(loc(loai.cauMayChu))}
-        nhanNut={nhanVe ?? "Về trang tổng quan"}
+        nhanNut={nhanVe ?? t("Về trang tổng quan")}
         onNut={onVeDanhSach ?? (() => navigate("/dashboard"))}
         onTaiLai={khongQuyenTuGo ? onThuLai : undefined}
         className={className}

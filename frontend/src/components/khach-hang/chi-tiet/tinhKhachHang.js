@@ -2,14 +2,15 @@
 // nên import bằng đường dẫn tương đối (không dùng "@/").
 import { formatCurrency, formatDate } from "../../../utils/formatters.js";
 import { getChannelName } from "../../../constants/channel.js";
+import { t } from "../../../i18n/t.js";
 
 /** Trạng thái khách hàng (cột khach_hang.trang_thai). */
 export const TRANG_THAI_KHACH = { HOAT_DONG: 1, NGUNG_HOAT_DONG: 0 };
 
 export const LOAI_KHACH = {
-  le: "Khách lẻ",
-  si: "Khách sỉ",
-  doanh_nghiep: "Doanh nghiệp",
+  le: t("Khách lẻ"),
+  si: t("Khách sỉ"),
+  doanh_nghiep: t("Doanh nghiệp"),
 };
 
 /** Tên loại khách; chưa phân loại (hoặc giá trị lạ) thì null. */
@@ -23,17 +24,17 @@ export function laHoatDong(khachHang) {
 
 /** Doanh nghiệp ghi địa chỉ trụ sở, khách lẻ / sỉ ghi địa chỉ giao hàng. */
 export function nhanDiaChi(loai) {
-  return loai === "doanh_nghiep" ? "Địa chỉ trụ sở" : "Địa chỉ giao hàng";
+  return loai === "doanh_nghiep" ? t("Địa chỉ trụ sở") : t("Địa chỉ giao hàng");
 }
 
 /** Giá trị lọc kênh của đơn không gắn kênh (đơn bán thường tạo trên hệ thống). */
 export const KENH_BAN_THUONG = "ban-thuong";
 
 export const LUA_CHON_THOI_GIAN = [
-  { value: "", label: "Mọi thời gian" },
-  { value: "30", label: "30 ngày qua" },
-  { value: "90", label: "90 ngày qua" },
-  { value: "365", label: "12 tháng qua" },
+  { value: "", label: t("Mọi thời gian") },
+  { value: "30", label: t("30 ngày qua") },
+  { value: "90", label: t("90 ngày qua") },
+  { value: "365", label: t("12 tháng qua") },
 ];
 
 const hai = (n) => String(n).padStart(2, "0");
@@ -47,10 +48,10 @@ export function ngayBatDau(soNgay, homNay = new Date()) {
 /** Lựa chọn lọc kênh lấy từ các kênh khách đã mua qua (`tongQuan.kenhMua`), nhiều đơn nhất ở trước. */
 export function luaChonKenh(kenhMua) {
   return [
-    { value: "", label: "Tất cả kênh" },
+    { value: "", label: t("Tất cả kênh") },
     ...(kenhMua ?? []).map((k) =>
       k.id == null
-        ? { value: KENH_BAN_THUONG, label: "Bán thường" }
+        ? { value: KENH_BAN_THUONG, label: t("Bán thường") }
         : { value: String(k.id), label: k.tenKenh || getChannelName(k.maKenh) },
     ),
   ];
@@ -58,7 +59,7 @@ export function luaChonKenh(kenhMua) {
 
 /** Tên các kênh khách đã mua qua, nhiều đơn nhất ở trước; chưa mua thì "—". */
 export function moTaKenhMua(kenhMua) {
-  const ten = (kenhMua ?? []).map((k) => (k.id == null ? "Bán thường" : k.tenKenh || getChannelName(k.maKenh)));
+  const ten = (kenhMua ?? []).map((k) => (k.id == null ? t("Bán thường") : k.tenKenh || getChannelName(k.maKenh)));
   return ten.length ? ten.join(", ") : "—";
 }
 
@@ -106,9 +107,9 @@ export function cachDay(thoiDiem, homNay = new Date()) {
   if (!d || Number.isNaN(d.getTime())) return "";
   const dauNgay = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
   const soNgay = Math.round((dauNgay(homNay) - dauNgay(d)) / 86400000);
-  if (soNgay <= 0) return "hôm nay";
-  if (soNgay === 1) return "hôm qua";
-  return `${soNgay} ngày trước`;
+  if (soNgay <= 0) return t("hôm nay");
+  if (soNgay === 1) return t("hôm qua");
+  return t("{{count}} ngày trước", { count: soNgay });
 }
 
 /** Tổng số đơn bán của khách trong phạm vi người xem (kể cả nháp) — số trên tab Đơn hàng. */
@@ -129,13 +130,13 @@ export function tinhKpi(tongQuan, homNay = new Date()) {
   const soDonTinh = Number(tongQuan?.soDonTinhChiTieu) || 0;
   const soDonNhap = Number(tongQuan?.soDonNhap) || 0;
   const coDon = soDonDat > 0;
-  const trong = soDonNhap > 0 ? `${soDonNhap} đơn nháp chưa tính` : "Chưa có đơn hàng";
+  const trong = soDonNhap > 0 ? t("{{count}} đơn nháp chưa tính", { count: soDonNhap }) : t("Chưa có đơn hàng");
 
   const phuSoDon = [
-    tongQuan?.soDonHuy ? `${tongQuan.soDonHuy} đã hủy` : "",
-    tongQuan?.soDonHoanTra ? `${tongQuan.soDonHoanTra} bị hoàn trả` : "",
-    soDonNhap ? `${soDonNhap} nháp chưa tính` : "",
-  ].filter(Boolean).join(" · ") || "Không có đơn hủy hay hoàn trả";
+    tongQuan?.soDonHuy ? t("{{count}} đã hủy", { count: tongQuan.soDonHuy }) : "",
+    tongQuan?.soDonHoanTra ? t("{{count}} bị hoàn trả", { count: tongQuan.soDonHoanTra }) : "",
+    soDonNhap ? t("{{count}} nháp chưa tính", { count: soDonNhap }) : "",
+  ].filter(Boolean).join(" · ") || t("Không có đơn hủy hay hoàn trả");
 
   const gan = tongQuan?.donGanNhat ?? null;
   const coTrungBinh = coDon && soDonTinh > 0 && tongQuan?.trungBinhMoiDon != null;
@@ -143,35 +144,35 @@ export function tinhKpi(tongQuan, homNay = new Date()) {
   const soDonNo = Number(tongQuan?.soDonConPhaiThu) || 0;
   const canHoan = Number(tongQuan?.canHoan) || 0;
   const phuCongNo = [
-    soDonNo ? `${soDonNo} đơn chưa thu đủ` : "Không còn đơn chưa thu đủ",
-    canHoan > 0 ? `cần hoàn khách ${formatCurrency(canHoan)}` : "",
+    soDonNo ? t("{{count}} đơn chưa thu đủ", { count: soDonNo }) : t("Không còn đơn chưa thu đủ"),
+    canHoan > 0 ? t("cần hoàn khách {{canHoan}}", { canHoan: formatCurrency(canHoan) }) : "",
   ].filter(Boolean).join(" · ");
 
   return [
     {
       ma: "chi-tieu",
-      nhan: "Tổng chi tiêu",
+      nhan: t("Tổng chi tiêu"),
       coGiaTri: coDon,
       giaTri: coDon ? formatCurrency(tongQuan.tongChiTieu) : "—",
-      phu: coDon ? `Từ ${soDonTinh} đơn, không tính hủy và hoàn trả` : trong,
+      phu: coDon ? t("Từ {{count}} đơn, không tính hủy và hoàn trả", { count: soDonTinh }) : trong,
     },
     {
       ma: "so-don",
-      nhan: "Số đơn",
+      nhan: t("Số đơn", { context: "dem" }),
       coGiaTri: coDon,
       giaTri: coDon ? String(soDonDat) : "—",
       phu: coDon ? phuSoDon : trong,
     },
     {
       ma: "trung-binh",
-      nhan: "Trung bình mỗi đơn",
+      nhan: t("Trung bình mỗi đơn"),
       coGiaTri: coTrungBinh,
       giaTri: coTrungBinh ? formatCurrency(tongQuan.trungBinhMoiDon) : "—",
-      phu: coTrungBinh ? `Trên ${soDonTinh} đơn tính chi tiêu` : coDon ? "Chưa có đơn tính chi tiêu" : trong,
+      phu: coTrungBinh ? t("Trên {{count}} đơn tính chi tiêu", { count: soDonTinh }) : coDon ? t("Chưa có đơn tính chi tiêu") : trong,
     },
     {
       ma: "gan-nhat",
-      nhan: "Lần mua gần nhất",
+      nhan: t("Lần mua gần nhất"),
       coGiaTri: Boolean(gan),
       giaTri: gan ? formatDate(gan.ngayDatHang) : "—",
       phu: gan ? cachDay(gan.ngayDatHang, homNay) : trong,
@@ -179,7 +180,7 @@ export function tinhKpi(tongQuan, homNay = new Date()) {
     },
     {
       ma: "con-phai-thu",
-      nhan: "Còn phải thu",
+      nhan: t("Còn phải thu"),
       coGiaTri: coCongNo,
       giaTri: coCongNo ? formatCurrency(tongQuan.conPhaiThu) : "—",
       phu: coCongNo ? phuCongNo : trong,
@@ -189,14 +190,14 @@ export function tinhKpi(tongQuan, homNay = new Date()) {
 
 /** Ghi chú cột Ghi chú của báo giá: báo giá bị từ chối ghi lý do, còn lại ghi chú của báo giá. */
 export function ghiChuBaoGia(baoGia) {
-  if (Number(baoGia?.trangThai) === 4 && baoGia?.lyDoTuChoi?.trim()) return `Lý do: ${baoGia.lyDoTuChoi.trim()}`;
+  if (Number(baoGia?.trangThai) === 4 && baoGia?.lyDoTuChoi?.trim()) return t("Lý do: {{lyDo}}", { lyDo: baoGia.lyDoTuChoi.trim() });
   return baoGia?.ghiChu?.trim() || "";
 }
 
 /** Câu phạm vi dữ liệu theo vai trò (khớp DonBanHangService.dieuKienPhamViTheoVaiTro ở máy chủ). */
-export function ghiChuPhamVi({ laQuanTriVien, laVaiTroKho, laBanHang }) {
+export function ghiChuPhamVi({ laQuanTriVien, laVaiTroKho, laBanHang, laBaoGia = false }) {
   if (laQuanTriVien) return "";
-  if (laVaiTroKho) return "Chỉ tính đơn xuất từ nơi làm việc của bạn.";
-  if (laBanHang) return "Chỉ tính đơn do bạn tạo.";
+  if (laVaiTroKho) return laBaoGia ? t("Chỉ hiện báo giá xuất từ nơi làm việc của bạn.") : t("Chỉ tính đơn xuất từ nơi làm việc của bạn.");
+  if (laBanHang) return laBaoGia ? t("Chỉ hiện báo giá do bạn tạo.") : t("Chỉ tính đơn do bạn tạo.");
   return "";
 }

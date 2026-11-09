@@ -10,6 +10,7 @@
  * Thuần, chạy được bằng `node --test`.
  */
 import { THOI_HAN_CHO_GOC_MS, THOI_HAN_THAO_TAC_MS } from "../../config/bangChungTu.js";
+import { t } from "../../i18n/t.js";
 
 /** Mã của lỗi hết thời hạn (không trùng mã lỗi axios như ECONNABORTED, ERR_NETWORK). */
 export const MA_HET_THOI_HAN = "HET_THOI_HAN";
@@ -17,12 +18,12 @@ export const MA_HET_THOI_HAN = "HET_THOI_HAN";
 const soGiay = (ms) => Math.max(1, Math.round(Number(ms) / 1000) || 0);
 
 /** Thông báo nhanh khi hết thời hạn: `toast.error(CAU_HET_THOI_HAN, { description: MO_TA_HET_THOI_HAN })`. */
-export const CAU_HET_THOI_HAN = `Máy chủ chưa phản hồi sau ${soGiay(THOI_HAN_THAO_TAC_MS)} giây`;
+export const CAU_HET_THOI_HAN = t("Máy chủ chưa phản hồi sau {{count}} giây", { count: soGiay(THOI_HAN_THAO_TAC_MS) });
 export const MO_TA_HET_THOI_HAN =
-  "Thao tác có thể vẫn đang được xử lý. Các nút thao tác tạm khóa tới khi máy chủ trả lời, sau đó màn tự tải lại. Hãy xem trạng thái chứng từ trước khi thao tác lại.";
+  t("Thao tác có thể vẫn đang được xử lý. Các nút thao tác tạm khóa tới khi máy chủ trả lời, sau đó màn tự tải lại. Hãy xem trạng thái chứng từ trước khi thao tác lại.");
 
 /** Lý do khóa nút / mục menu trong lúc chờ lời gọi gốc. */
-export const LY_DO_CHO_GOC = "Máy chủ đang xử lý thao tác trước";
+export const LY_DO_CHO_GOC = t("Máy chủ đang xử lý thao tác trước");
 
 /**
  * Chạy `viec()` (trả Promise) nhưng chỉ chờ tối đa `ms` (mặc định THOI_HAN_THAO_TAC_MS). Xong trước thời hạn: trả đúng
@@ -40,7 +41,7 @@ export function chayCoThoiHan(viec, ms = THOI_HAN_THAO_TAC_MS) {
   let henGio;
   const hetGio = new Promise((_, tuChoi) => {
     henGio = setTimeout(() => {
-      const loi = new Error(`Máy chủ chưa phản hồi sau ${soGiay(ms)} giây.`);
+      const loi = new Error(t("Máy chủ chưa phản hồi sau {{count}} giây.", { count: soGiay(ms) }));
       loi.code = MA_HET_THOI_HAN;
       loi.ketThucGoc = ketThucGoc;
       tuChoi(loi);

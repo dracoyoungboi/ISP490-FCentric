@@ -25,8 +25,9 @@ import {
   SO_MUC_TOM_TAT,
 } from "../../config/bangChungTu.js";
 import { vietHoaDau } from "./loiTai.js";
+import { t } from "../../i18n/t.js";
 
-export const KHONG_MAU_KICH_CO = "Không có màu, kích cỡ";
+export const KHONG_MAU_KICH_CO = t("Không có màu, kích cỡ");
 const TONG_MAC_DINH = Object.freeze({ soLuong: "soLuong" });
 
 /** Đọc số từ BigDecimal của backend (số hoặc chuỗi "80.00"); sai hoặc trống thì 0. */
@@ -126,7 +127,7 @@ export function khopTuKhoa(dong, tuKhoa) {
   const tuTim = Array.isArray(tuKhoa) ? tuKhoa : tachTuKhoa(tuKhoa);
   if (!tuTim.length) return true;
   const { chu, tu } = boTimCua(dong);
-  return tuTim.every((t) => (t.length > DO_DAI_TU_NGAN ? chu.includes(t) : tu.has(t)));
+  return tuTim.every((tuMot) => (tuMot.length > DO_DAI_TU_NGAN ? chu.includes(tuMot) : tu.has(tuMot)));
 }
 
 /** Lọc theo từ khóa và (nếu có) bộ lọc nhanh `loc(dong) → boolean`. Giữ nguyên thứ tự dòng. */
@@ -212,9 +213,9 @@ export function phanTrang(ds, trang = 0, coTrang = Infinity) {
   const tong = mang.length;
   const co = Number(coTrang) >= 1 ? Math.floor(Number(coTrang)) : 1;
   const soTrang = Math.max(1, Math.ceil(tong / co));
-  const t = Math.min(Math.max(0, Math.floor(docSo(trang))), soTrang - 1);
-  const dau = t === 0 ? 0 : t * co; // co = Infinity: 0 × Infinity là NaN
-  return { muc: mang.slice(dau, dau + co), trang: t, soTrang, tong, tu: tong ? dau + 1 : 0, den: Math.min(dau + co, tong) };
+  const tr = Math.min(Math.max(0, Math.floor(docSo(trang))), soTrang - 1);
+  const dau = tr === 0 ? 0 : tr * co; // co = Infinity: 0 × Infinity là NaN
+  return { muc: mang.slice(dau, dau + co), trang: tr, soTrang, tong, tu: tong ? dau + 1 : 0, den: Math.min(dau + co, tong) };
 }
 
 /**
@@ -343,9 +344,14 @@ export function dungBangChungTu(dongs, tuyChon = {}) {
 export function chuTimThay(bang, { donVi } = {}) {
   if (!bang || (!bang.dangTim && !bang.dangLoc)) return "";
   const { soDong, soSanPham } = bang.ketQua ?? { soDong: 0, soSanPham: 0 };
-  if (!soDong) return "Không có kết quả";
-  if (bang.theo === "dong") return `Tìm thấy ${soVN(soDong)} ${donVi ?? "dòng"}`;
-  return `Tìm thấy ${soVN(soDong)} ${donVi ?? "biến thể"} trong ${soVN(soSanPham)} sản phẩm`;
+  if (!soDong) return t("Không có kết quả");
+  if (bang.theo === "dong") return t("Tìm thấy {{so}} {{donVi}}", { so: soVN(soDong), donVi: donVi ?? t("dòng") });
+  return t("Tìm thấy {{so}} {{donVi}} trong {{soSanPham}} sản phẩm", {
+    count: soSanPham,
+    so: soVN(soDong),
+    donVi: donVi ?? t("biến thể"),
+    soSanPham: soVN(soSanPham),
+  });
 }
 
 /**
@@ -354,7 +360,7 @@ export function chuTimThay(bang, { donVi } = {}) {
  */
 export function chuGoiYThuGon(bang, nguong = NGUONG_THU_GON) {
   if (!bang?.thuGonMacDinh || bang.dangTim || bang.dangLoc || bang.moHet) return "";
-  return `Hơn ${soVN(nguong)} biến thể nên đang thu gọn theo sản phẩm. Bấm một sản phẩm để xem từng biến thể.`;
+  return t("Hơn {{nguong}} biến thể nên đang thu gọn theo sản phẩm. Bấm một sản phẩm để xem từng biến thể.", { nguong: soVN(nguong) });
 }
 
 /**
@@ -362,15 +368,15 @@ export function chuGoiYThuGon(bang, nguong = NGUONG_THU_GON) {
  * `dauCham = false` cho lý do khóa nút ("Phiếu nhặt hàng chưa có sản phẩm nào").
  */
 export function cauChungTuRong(tenChungTu, { dauCham = true } = {}) {
-  const ten = vietHoaDau(tenChungTu) || "Chứng từ";
-  return `${ten} chưa có sản phẩm nào${dauCham ? "." : ""}`;
+  const ten = vietHoaDau(tenChungTu) || vietHoaDau(t("chứng từ"));
+  return dauCham ? t("{{ten}} chưa có sản phẩm nào.", { ten }) : t("{{ten}} chưa có sản phẩm nào", { ten });
 }
 
 /** Câu khi tìm không thấy: "Không có biến thể nào khớp “áo len”.". */
-export const cauKhongKhop = (donVi, tuKhoa) => `Không có ${donVi || "dòng"} nào khớp “${String(tuKhoa ?? "").trim()}”.`;
+export const cauKhongKhop = (donVi, tuKhoa) => t("Không có {{donVi}} nào khớp “{{tuKhoa}}”.", { donVi: donVi || t("dòng"), tuKhoa: String(tuKhoa ?? "").trim() });
 
 /** Câu khi lọc nhanh không còn dòng: "Không có SKU nào ở bộ lọc này.". */
-export const cauLocRong = (donVi) => `Không có ${donVi || "dòng"} nào ở bộ lọc này.`;
+export const cauLocRong = (donVi) => t("Không có {{donVi}} nào ở bộ lọc này.", { donVi: donVi || t("dòng") });
 
 /**
  * Lưới màu × kích cỡ của một nhóm (xem gọn biến thể thời trang): một hàng mỗi màu, một cột mỗi kích cỡ.
