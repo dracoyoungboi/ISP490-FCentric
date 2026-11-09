@@ -133,7 +133,7 @@ function ChonKho({ vaiTro, icon, mau, kho, dsKho, khoKhac, onChon, goiYTrong }) 
                     <ChevronDown className="size-4 shrink-0 text-bo-muted" aria-hidden="true" />
                 </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className={DROPDOWN_CONTENT_CLASS}>
+            <DropdownMenuContent align="start" className={cn(DROPDOWN_CONTENT_CLASS, "min-w-[var(--radix-dropdown-menu-trigger-width)]")}>
                 {dsKho.length ? dsKho.map((k) => {
                     const trung = String(k.id) === String(khoKhac);
                     return (

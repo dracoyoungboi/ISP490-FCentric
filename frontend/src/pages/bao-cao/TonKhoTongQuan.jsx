@@ -477,7 +477,7 @@ export default function TonKhoTongQuan() {
                                         <ChevronDown className="size-4 shrink-0 opacity-70" />
                                     </Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className={`${DROPDOWN_CONTENT_CLASS} w-56`}>
+                                <DropdownMenuContent align="end" className={`${DROPDOWN_CONTENT_CLASS} min-w-[var(--radix-dropdown-menu-trigger-width)]`}>
                                     {multiKho && canSeeAllKho(userRoles) && (
                                         <DropdownMenuItem
                                             onClick={() => handleSelectKho(null)}

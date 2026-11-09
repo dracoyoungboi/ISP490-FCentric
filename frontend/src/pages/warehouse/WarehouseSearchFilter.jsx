@@ -56,7 +56,7 @@ export default function WarehouseSearchFilter({ searchTerm, setSearchTerm, filte
                                 </Button>
                             </DropdownMenuTrigger>
 
-                            <DropdownMenuContent align="end" className="w-[200px] bg-bo-surface border border-gray-100 shadow-xl z-50">
+                            <DropdownMenuContent align="end" className="min-w-[var(--radix-dropdown-menu-trigger-width)] bg-bo-surface border border-gray-100 shadow-xl z-50">
                                 <DropdownMenuItem
                                     onClick={() => setFilterStatus("all")}
                                     className="flex items-center justify-between cursor-pointer hover:bg-purple-50"

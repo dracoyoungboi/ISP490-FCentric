@@ -207,7 +207,7 @@ export default function WarehouseDialog({
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent
                                     align="start"
-                                    className={`${DROPDOWN_CONTENT_CLASS} max-h-60 w-[--radix-dropdown-menu-trigger-width] overflow-auto`}
+                                    className={`${DROPDOWN_CONTENT_CLASS} max-h-60 w-(--radix-dropdown-menu-trigger-width) overflow-auto`}
                                 >
                                     {managers.length === 0 ? (
                                         <div className="p-3 text-center text-sm text-bo-muted">
