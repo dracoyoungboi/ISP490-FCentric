@@ -26,10 +26,31 @@ export default function ShopeeSimulatorPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialView = searchParams.get("view") || "buyer";
   const [activeTab, setActiveTab] = useState(initialView);
+  const [authStatus, setAuthStatus] = useState(null);
+  const [loadingAuth, setLoadingAuth] = useState(false);
+
+  const taiTrangThaiAuth = async () => {
+    setLoadingAuth(true);
+    try {
+      const data = await shopeeSimulatorService.getAppAuthStatus();
+      setAuthStatus(data);
+    } catch (e) {
+      console.warn("Lỗi kiểm tra trạng thái ủy quyền Shopee:", e);
+    } finally {
+      setLoadingAuth(false);
+    }
+  };
+
+  useEffect(() => {
+    taiTrangThaiAuth();
+  }, []);
 
   const setTab = (tab) => {
     setActiveTab(tab);
     setSearchParams({ view: tab });
+    if (tab === "oauth") {
+      taiTrangThaiAuth();
+    }
   };
 
   return (
@@ -86,8 +107,18 @@ export default function ShopeeSimulatorPage() {
                   : "text-white/90 hover:text-white hover:bg-white/10"
               }`}
             >
-              <KeyRound className="w-4 h-4" />
-              <span>Ủy quyền OAuth2</span>
+              {authStatus?.isAuthorized ? (
+                <>
+                  <ShieldCheck className="w-4 h-4 text-emerald-300" />
+                  <span>Ứng dụng đã liên kết</span>
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse ml-0.5" />
+                </>
+              ) : (
+                <>
+                  <KeyRound className="w-4 h-4" />
+                  <span>Ủy quyền OAuth2</span>
+                </>
+              )}
             </button>
           </div>
 
@@ -111,7 +142,13 @@ export default function ShopeeSimulatorPage() {
       <main className="flex-1 max-w-7xl mx-auto w-full p-4 sm:p-6">
         {activeTab === "buyer" && <BuyerStorefrontView />}
         {activeTab === "seller" && <SellerCenterView />}
-        {activeTab === "oauth" && <OAuthConsentView />}
+        {activeTab === "oauth" && (
+          <AppAuthManagementView
+            authStatus={authStatus}
+            loading={loadingAuth}
+            onRefresh={taiTrangThaiAuth}
+          />
+        )}
       </main>
 
       {/* ── Footer ──────────────────────────────────────────────────────── */}
@@ -873,11 +910,12 @@ function SellerCenterView() {
 }
 
 // =============================================================================
-// 3. MÀN HÌNH CẤP QUYỀN OAUTH2 (OAUTH CONSENT SCREEN)
+// 3. QUẢN LÝ ỦY QUYỀN ỨNG DỤNG ĐỐI TÁC (APP AUTHORIZATION MANAGEMENT)
 // =============================================================================
-function OAuthConsentView() {
+function AppAuthManagementView({ authStatus, loading, onRefresh }) {
   const navigate = useNavigate();
   const [approving, setApproving] = useState(false);
+  const [revoking, setRevoking] = useState(false);
 
   const handleAuthorize = () => {
     setApproving(true);
@@ -893,6 +931,174 @@ function OAuthConsentView() {
     navigate("/channels/oauth/callback/shopee-sandbox?error=access_denied&error_description=User_denied_authorization");
   };
 
+  const handleRevoke = async () => {
+    if (!window.confirm("Bạn có chắc chắn muốn hủy ủy quyền ứng dụng FCentric khỏi gian hàng Shopee không? Sau khi hủy, hệ thống FCentric sẽ không thể đọc đơn hàng và cập nhật tồn kho nữa.")) {
+      return;
+    }
+    setRevoking(true);
+    try {
+      await shopeeSimulatorService.revokeAppAuth();
+      toast.success("Đã hủy ủy quyền ứng dụng FCentric khỏi gian hàng Shopee thành công!");
+      if (onRefresh) onRefresh();
+    } catch (err) {
+      toast.error("Lỗi khi hủy ủy quyền ứng dụng");
+    } finally {
+      setRevoking(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="py-24 text-center text-slate-400 flex flex-col items-center gap-3">
+        <RefreshCw className="w-8 h-8 animate-spin text-[#EE4D2D]" />
+        <p className="text-sm font-medium">Đang kiểm tra trạng thái ủy quyền gian hàng Shopee...</p>
+      </div>
+    );
+  }
+
+  // ── TRƯỜNG HỢP 1: ĐÃ ỦY QUYỀN THÀNH CÔNG (HIỂN THỊ GIAO DIỆN SHOPEE SELLER CENTER) ──
+  if (authStatus?.isAuthorized) {
+    const scopes = authStatus.scopes || [
+      { code: "product", name: "Quản lý sản phẩm & tồn kho", desc: "Tự động đồng bộ tồn kho khả dụng thời gian thực" },
+      { code: "order", name: "Quản lý đơn hàng", desc: "Đọc đơn hàng mới và đồng bộ hủy đơn hai chiều" },
+      { code: "logistics", name: "Hậu cần & Vận chuyển SPX", desc: "Cấp mã vận đơn Shopee Xpress, in tem nhãn nhiệt A6" },
+      { code: "payment", name: "Quyết toán ví Shopee & Escrow", desc: "Bóc tách doanh thu và đối soát biểu phí sàn" },
+    ];
+
+    return (
+      <div className="max-w-3xl mx-auto py-4 space-y-6">
+        {/* Breadcrumb phong cách Shopee Seller */}
+        <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
+          <span>Shopee Seller Center</span>
+          <span>›</span>
+          <span>Thiết Lập Shop</span>
+          <span>›</span>
+          <span className="text-slate-800 font-bold">Nền tảng đối tác (Partner Platforms)</span>
+        </div>
+
+        {/* Khung quản lý ứng dụng đối tác */}
+        <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+          {/* Header Shopee Seller Center */}
+          <div className="p-6 bg-gradient-to-r from-orange-50/80 via-white to-amber-50/50 border-b border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 bg-[#EE4D2D] rounded-2xl flex items-center justify-center text-white shadow-md shadow-orange-500/20">
+                <Store className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-bold text-slate-800">Quản lý Ứng dụng & Đối tác đã liên kết</h2>
+                  <span className="bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-emerald-200">
+                    Đã liên kết 1 App
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Gian hàng: <strong>{authStatus.shopName || "FCentric Official Store"}</strong> • Shop ID: {authStatus.shopId || 10892019}
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={onRefresh}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 rounded-xl text-xs font-semibold shadow-xs transition-colors"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Làm mới</span>
+            </button>
+          </div>
+
+          {/* Thẻ chi tiết Ứng dụng FCentric */}
+          <div className="p-6 space-y-6">
+            <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-inner font-extrabold text-xl tracking-wider">
+                  FC
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-extrabold text-base text-slate-800">{authStatus.appName || "FCentric Omnichannel Hub & WMS"}</h3>
+                    <span className="bg-orange-100 text-[#EE4D2D] text-[10px] font-bold px-2 py-0.5 rounded border border-orange-200">
+                      Shopee Certified Partner
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 font-medium">
+                    <span>Mã đối tác (Partner ID): <strong className="font-mono text-slate-700">{authStatus.partnerId || 1000888}</strong></span>
+                    <span>•</span>
+                    <span>Nhà phát triển: <strong className="text-slate-700">{authStatus.developerName || "FCentric Technology JSC"}</strong></span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex sm:flex-col items-end gap-1.5 shrink-0">
+                <span className="inline-flex items-center gap-1.5 bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full text-xs font-bold border border-emerald-300">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  Đang hoạt động (Connected)
+                </span>
+                <span className="text-[11px] text-slate-400">Hiệu lực: Còn 364 ngày</span>
+              </div>
+            </div>
+
+            {/* Danh sách các quyền hạn được cấp (Scopes) */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                Phạm vi quyền hạn được cấp phép (Authorized Scopes):
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {scopes.map((sc) => (
+                  <div key={sc.code} className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5">
+                      <ShieldCheck className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h5 className="font-bold text-xs text-slate-800">{sc.name}</h5>
+                      <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">{sc.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Cảnh báo bảo mật & Thao tác */}
+            <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <p className="text-xs text-slate-400 text-center sm:text-left">
+                Bạn có thể ngắt kết nối bất kỳ lúc nào nếu không còn sử dụng dịch vụ quản lý kho của ứng dụng này.
+              </p>
+
+              <div className="flex items-center gap-2.5 w-full sm:w-auto">
+                <Link
+                  to="/channels/shopee-sandbox"
+                  target="_blank"
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors"
+                >
+                  <span>Mở FCentric</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </Link>
+
+                <button
+                  onClick={handleRevoke}
+                  disabled={revoking}
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold shadow-xs transition-colors disabled:opacity-50"
+                >
+                  {revoking ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Đang hủy ủy quyền...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Hủy ủy quyền (Ngắt kết nối)</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── TRƯỜNG HỢP 2: CHƯA ỦY QUYỀN (HIỂN THỊ MÀN HÌNH XIN CẤP QUYỀN OAUTH CONSENT SCREEN) ──
   return (
     <div className="max-w-md mx-auto py-8">
       <div className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
@@ -910,7 +1116,7 @@ function OAuthConsentView() {
           <div className="text-center space-y-1">
             <h3 className="font-bold text-base text-slate-800">Cấp quyền cho Ứng dụng FCentric Omnichannel</h3>
             <p className="text-xs text-slate-500">
-              Gian hàng: <strong>FCentric Official Store</strong> (Shop ID: 10892019)
+              Gian hàng: <strong>{authStatus?.shopName || "FCentric Official Store"}</strong> (Shop ID: {authStatus?.shopId || 10892019})
             </p>
           </div>
 
@@ -936,6 +1142,12 @@ function OAuthConsentView() {
                 <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                 <span>
                   <strong>Hậu cần & Vận đơn:</strong> Lấy mã vận đơn Shopee Express (SPX) và in tem nhãn nhiệt A6.
+                </span>
+              </div>
+              <div className="flex items-start gap-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <span>
+                  <strong>Quyết toán ví Shopee & Escrow:</strong> Bóc tách tiền thực nhận và đối soát chi tiết thanh toán.
                 </span>
               </div>
             </div>
