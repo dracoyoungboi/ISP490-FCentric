@@ -425,6 +425,7 @@ function BuocKetNoiShopeeThirdParty({ config, onHuy, onXong }) {
   const SAN = useSanHienTai();
   const daCo = daKetNoi(config);
   const [shopId, setShopId] = useState(() => config?.shopDomain || config?.clientId || "");
+  // i18n-giu-nguyen: tên mặc định được lưu vào DB như dữ liệu, không dịch
   const [tenGianHang, setTenGianHang] = useState(() => config?.tenGianHang || "Gian Hàng Shopee FCentric");
   const [dangChay, chay] = useDangChay();
   const [errors, setErrors] = useState({});
@@ -433,7 +434,7 @@ function BuocKetNoiShopeeThirdParty({ config, onHuy, onXong }) {
     chay("lien-ket", async () => {
       let rawId = shopId.trim();
       if (!rawId) {
-        setErrors({ shopId: "Vui lòng nhập Shop ID (hoặc đường dẫn link gian hàng Shopee)" });
+        setErrors({ shopId: t("Nhập Shop ID hoặc dán đường dẫn gian hàng Shopee.") });
         return;
       }
       const match = rawId.match(/shopid=(\d+)/i) || rawId.match(/(\d{6,15})/);
@@ -445,35 +446,31 @@ function BuocKetNoiShopeeThirdParty({ config, onHuy, onXong }) {
           appKey: cleanShopId,
           clientId: cleanShopId,
           shopDomain: cleanShopId,
-          tenGianHang: tenGianHang.trim() || `Gian Hàng Shopee (${cleanShopId})`,
+          tenGianHang: tenGianHang.trim() || `Gian Hàng Shopee (${cleanShopId})`, // i18n-giu-nguyen: dữ liệu lưu DB
           trangThai: 1,
         };
         const dto = await kenhBanHangService.luuKhoaUngDung("SHOPEE", payload);
-        toast.success(`Đã liên kết Shopee Production (Shop ID: ${cleanShopId}) qua Cổng ký bên thứ ba thành công!`);
+        toast.success(t("Đã liên kết gian hàng Shopee (Shop ID: {{id}}).", { id: cleanShopId }));
         onXong(dto);
       } catch (error) {
-        toast.error(getApiErrorMessage(error, "Không thể lưu thông tin liên kết Shopee"));
+        toast.error(getApiErrorMessage(error, t("Không lưu được thông tin liên kết Shopee")));
       }
     });
 
   return (
     <>
       <TheCaiDat
-        title="Liên kết Gian hàng Shopee Production"
-        description="Kết nối trung gian qua Cổng Ký Bên Thứ Ba (MinMinTool Gateway). Hệ thống tự động ký số di động cho mọi request đồng bộ, không cần tài khoản API hay ủy quyền OAuth2 phức tạp."
+        title={t("Liên kết gian hàng Shopee")}
+        description={t("Kết nối qua cổng ký bên thứ ba MinMinTool. Hệ thống tự ký từng yêu cầu đồng bộ, không cần tài khoản Shopee Open Platform hay bước ủy quyền.")}
       >
         <div className="space-y-6">
           <div className="rounded-lg border border-orange-200 bg-orange-50/70 p-4">
             <div className="flex items-start gap-3">
               <ChannelLogo maKenh="SHOPEE" size={28} />
               <div className="min-w-0 flex-1 text-sm">
-                <p className="font-semibold text-orange-950">
-                  Cổng ký Chữ Ký Số Độc Lập MinMinTool Gateway
-                </p>
+                <p className="font-semibold text-orange-950">{t("Cổng ký MinMinTool")}</p>
                 <p className="mt-1 text-orange-800 text-[13px] leading-relaxed">
-                  Để kết nối gian hàng Shopee thật, bạn chỉ cần nhập <strong>Shop ID</strong> của gian hàng.
-                  FCentric Omnichannel Hub sẽ chuyển tiếp mọi tác vụ đẩy tồn kho, quét đơn hàng và thông tin sản phẩm
-                  qua Cổng ký chữ ký di động bảo vệ chống bot an toàn.
+                  {t("Chỉ cần nhập Shop ID của gian hàng. FCentric gửi mọi thao tác đẩy tồn, lấy đơn và đọc sản phẩm qua cổng ký này.")}
                 </p>
               </div>
             </div>
@@ -482,7 +479,7 @@ function BuocKetNoiShopeeThirdParty({ config, onHuy, onXong }) {
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label htmlFor="shopee-shop-id" className="mb-1.5 block text-sm font-medium text-bo-foreground">
-                Shop ID (Mã gian hàng Shopee) <span className="text-bo-danger">*</span>
+                {t("Shop ID (mã gian hàng Shopee)")} <span className="text-bo-danger">*</span>
               </label>
               <input
                 id="shopee-shop-id"
@@ -491,30 +488,30 @@ function BuocKetNoiShopeeThirdParty({ config, onHuy, onXong }) {
                   setShopId(e.target.value);
                   setErrors((cu) => ({ ...cu, shopId: undefined }));
                 }}
-                placeholder="VD: 88201679 hoặc dán link shop"
+                placeholder={t("VD: 88201679 hoặc dán đường dẫn gian hàng")}
                 className={cn(
                   INPUT_CLASS,
                   errors.shopId && "border-bo-danger focus:border-bo-danger focus:ring-bo-danger/15"
                 )}
               />
               <p className={cn("mt-1 text-xs", errors.shopId ? "text-bo-danger" : "text-bo-muted")}>
-                {errors.shopId || "Mã số định danh gian hàng trên Shopee (tìm thấy trong URL hoặc hồ sơ shop)."}
+                {errors.shopId || t("Mã số gian hàng trên Shopee, có trong đường dẫn hoặc hồ sơ shop.")}
               </p>
             </div>
 
             <div>
               <label htmlFor="shopee-shop-name" className="mb-1.5 block text-sm font-medium text-bo-foreground">
-                Tên hiển thị gian hàng
+                {t("Tên hiển thị gian hàng")}
               </label>
               <input
                 id="shopee-shop-name"
                 value={tenGianHang}
                 onChange={(e) => setTenGianHang(e.target.value)}
-                placeholder="VD: FCentric Fashion Official Store"
+                placeholder={t("VD: FCentric Fashion Official Store")}
                 className={INPUT_CLASS}
               />
               <p className="mt-1 text-xs text-bo-muted">
-                Tên đại diện phân biệt trong danh sách kênh bán hàng FCentric.
+                {t("Tên để phân biệt gian hàng trong danh sách kênh bán của FCentric.")}
               </p>
             </div>
           </div>
@@ -522,12 +519,12 @@ function BuocKetNoiShopeeThirdParty({ config, onHuy, onXong }) {
           <div className="rounded-lg border border-bo-border bg-bo-surface-subtle p-3.5 text-xs text-bo-muted space-y-1.5">
             <div className="flex items-center gap-2 font-medium text-bo-foreground">
               <span className="size-2 rounded-full bg-emerald-500 inline-block" />
-              Chuẩn hóa tối ưu Gom Cụm Request (Batching Architecture):
+              {t("Gom yêu cầu để đồng bộ nhanh hơn")}
             </div>
             <ul className="list-disc pl-5 space-y-1">
-              <li><strong>Đẩy tồn kho theo lô:</strong> Tự động gom toàn bộ biến thể của sản phẩm cha gửi trong 1 request <code>update_stock_batch</code>.</li>
-              <li><strong>Kéo đơn hàng theo lô:</strong> Tự động gom danh sách mã đơn gửi trong 1 request <code>get_order_detail_batch</code>.</li>
-              <li><strong>Tự động phòng vệ:</strong> Chống sập hệ thống khi mạng ngoài hoặc dịch vụ bên thứ ba gián đoạn.</li>
+              <li><strong>{t("Đẩy tồn theo lô:")}</strong> {t("mọi biến thể của một sản phẩm gửi trong một lần.")}</li>
+              <li><strong>{t("Lấy đơn theo lô:")}</strong> {t("nhiều mã đơn gửi trong một lần.")}</li>
+              <li><strong>{t("Tự phòng vệ:")}</strong> {t("hệ thống không bị treo khi mạng hoặc cổng ký tạm gián đoạn.")}</li>
             </ul>
           </div>
         </div>
@@ -536,7 +533,7 @@ function BuocKetNoiShopeeThirdParty({ config, onHuy, onXong }) {
       <HangNut
         onHuy={onHuy}
         onTiep={xuLyLienKet}
-        nhanTiep={daCo ? "Cập nhật & Tiếp tục" : "Bắt đầu liên kết"}
+        nhanTiep={daCo ? t("Cập nhật và tiếp tục") : t("Bắt đầu liên kết")}
         dangLuu={dangChay === "lien-ket"}
         khoa={dangChay === "lien-ket"}
       />

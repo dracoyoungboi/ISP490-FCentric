@@ -52,7 +52,7 @@ export default function KhoaUngDungDialog({ open, onOpenChange, san, ketNoi, onS
     if (isThirdParty) {
       let rawId = values.appKey?.trim() || "";
       if (!rawId) {
-        setErrors({ appKey: "Nhập Shop ID gian hàng Shopee." });
+        setErrors({ appKey: t("Nhập Shop ID hoặc dán đường dẫn gian hàng Shopee.") });
         return;
       }
       const match = rawId.match(/shopid=(\d+)/i) || rawId.match(/(\d{6,15})/);
@@ -72,7 +72,7 @@ export default function KhoaUngDungDialog({ open, onOpenChange, san, ketNoi, onS
         const dto = await kenhBanHangService.luuKhoaUngDung(san.maKenh, payload);
         onSaved?.(dto);
       } catch (error) {
-        setLoi(getApiErrorMessage(error, "Không lưu được thông tin kết nối Shopee"));
+        setLoi(getApiErrorMessage(error, t("Không lưu được thông tin liên kết Shopee")));
       } finally {
         dangLuuRef.current = false;
         setDangLuu(false);
@@ -107,7 +107,7 @@ export default function KhoaUngDungDialog({ open, onOpenChange, san, ketNoi, onS
           </DialogTitle>
           <DialogDescription className="text-bo-muted">
             {isThirdParty
-              ? t("Kết nối Shopee Production qua Cổng Ký Bên Thứ Ba (MinMinTool Gateway). Chỉ cần nhập Shop ID để liên kết.")
+              ? t("Kết nối qua cổng ký MinMinTool. Chỉ cần nhập Shop ID để liên kết.")
               : t("Khóa được mã hóa trước khi lưu và không hiển thị lại. Đổi App Key thì cần ủy quyền lại với {{ten}}.", { ten: san.ten })}
           </DialogDescription>
         </DialogHeader>
@@ -116,28 +116,28 @@ export default function KhoaUngDungDialog({ open, onOpenChange, san, ketNoi, onS
             <div className="space-y-4">
               <div>
                 <label htmlFor="shopee-dialog-shop-id" className="mb-1.5 block text-sm font-medium text-bo-foreground">
-                  Shop ID (Mã gian hàng Shopee) <span className="text-bo-danger">*</span>
+                  {t("Shop ID (mã gian hàng Shopee)")} <span className="text-bo-danger">*</span>
                 </label>
                 <input
                   id="shopee-dialog-shop-id"
                   value={values.appKey}
                   onChange={(e) => doi("appKey", e.target.value)}
-                  placeholder="VD: 88201679 hoặc dán link shop"
+                  placeholder={t("VD: 88201679 hoặc dán đường dẫn gian hàng")}
                   className={cn(INPUT_CLASS, errors.appKey && "border-bo-danger focus:border-bo-danger focus:ring-bo-danger/15")}
                 />
                 <p className={cn("mt-1 text-xs", errors.appKey ? "text-bo-danger" : "text-bo-muted")}>
-                  {errors.appKey || "Mã số định danh gian hàng Shopee của bạn."}
+                  {errors.appKey || t("Mã số gian hàng trên Shopee, có trong đường dẫn hoặc hồ sơ shop.")}
                 </p>
               </div>
               <div>
                 <label htmlFor="shopee-dialog-shop-name" className="mb-1.5 block text-sm font-medium text-bo-foreground">
-                  Tên hiển thị gian hàng
+                  {t("Tên hiển thị gian hàng")}
                 </label>
                 <input
                   id="shopee-dialog-shop-name"
                   value={values.tenGianHang}
                   onChange={(e) => doi("tenGianHang", e.target.value)}
-                  placeholder="VD: FCentric Fashion Official Store"
+                  placeholder={t("VD: FCentric Fashion Official Store")}
                   className={INPUT_CLASS}
                 />
               </div>
