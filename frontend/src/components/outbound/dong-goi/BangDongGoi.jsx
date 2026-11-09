@@ -88,6 +88,7 @@ export default function BangDongGoi({ dong, tienDo, lyDoKhoa = "", idLyDo, dongS
         <h2 id={`${idBang}-tieu-de`} className="text-base font-semibold leading-6 text-bo-foreground">{t("Sản phẩm cần đóng gói")}</h2>
         <p className="m-0 text-[13px] leading-5 text-bo-muted tabular-nums">
           {t("Đã quét {{da}}/{{can}} sản phẩm · {{dongDu}}/{{soDong}} dòng đủ", {
+            count: Number(tienDo.can),
             da: soVN(tienDo.da),
             can: soVN(tienDo.can),
             dongDu: soVN(tienDo.dongDu),

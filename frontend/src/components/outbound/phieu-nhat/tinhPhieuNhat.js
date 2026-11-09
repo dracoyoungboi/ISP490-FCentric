@@ -404,7 +404,7 @@ export function tinhBuoc(phieu, { quyen, dsDon, tienDo }) {
   if (!phieu) return [];
   const tao = { ma: "tao", nhan: t("Tạo phiếu"), trangThai: "xong", ngay: phieu.ngayTao, coGio: true };
   const daGiao = quyen.daPhanCong ? t("Đã giao", { context: "phan_cong" }) : "";
-  const chuTienDo = t("{{da}}/{{can}} sản phẩm", { da: formatQuantity(tienDo.da), can: formatQuantity(tienDo.can) });
+  const chuTienDo = t("{{da}}/{{can}} sản phẩm", { count: Number(tienDo.can), da: formatQuantity(tienDo.da), can: formatQuantity(tienDo.can) });
   const chua = (ma, nhan) => ({ ma, nhan, trangThai: "chua" });
 
   if (laPhieuChuyenKho(phieu)) return buocNhatChuyenKho(phieu, { quyen, tao, daGiao, chuTienDo });
@@ -434,9 +434,9 @@ export function tinhBuoc(phieu, { quyen, dsDon, tienDo }) {
         ma: "dongGoi",
         nhan: t("Đóng gói"),
         trangThai: tong === 0 ? "chua" : dongGoiXong ? "xong" : "dangLam",
-        phu: tong ? t("{{soDongGoi}}/{{tong}} đơn", { soDongGoi, tong }) : "",
+        phu: tong ? t("{{soDongGoi}}/{{tong}} đơn", { count: tong, soDongGoi, tong }) : "",
       },
-      { ma: "xuat", nhan: t("Xuất kho"), trangThai: xuat, phu: tong ? t("{{soXuat}}/{{tong}} đơn", { soXuat, tong }) : "" },
+      { ma: "xuat", nhan: t("Xuất kho"), trangThai: xuat, phu: tong ? t("{{soXuat}}/{{tong}} đơn", { count: tong, soXuat, tong }) : "" },
     ];
   }
 

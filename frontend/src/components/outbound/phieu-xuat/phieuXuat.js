@@ -214,7 +214,7 @@ export function tinhBuocPhieuXuat({ phieu, laPos = false, soDong = 0, soDongDuLo
 
   if (phieu.loaiXuat === LOAI_XUAT.CHUYEN_KHO) {
     const tao = { ma: "tao", nhan: t("Tạo phiếu"), trangThai: "xong", ngay: phieu.ngayTao, coGio: true };
-    const phuLo = t("{{soDongDuLo}}/{{soDong}} dòng đủ lô", { soDongDuLo: soVN(soDongDuLo), soDong: soVN(soDong) });
+    const phuLo = t("{{soDongDuLo}}/{{soDong}} dòng đủ lô", { count: Number(soDong), soDongDuLo: soVN(soDongDuLo), soDong: soVN(soDong) });
     const duLo = soDong > 0 && soDongDuLo >= soDong;
     const chua = { ma: "xuat", nhan: t("Xác nhận xuất"), trangThai: "chua" };
     if (tt === TRANG_THAI_PHIEU_XUAT.NHAP) {

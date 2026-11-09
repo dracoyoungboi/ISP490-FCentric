@@ -27,7 +27,7 @@ export default function PickProgress({ daQuet, canNhat, percent, compact = false
         <span className={cn("font-semibold", complete ? "text-bo-success" : "text-bo-foreground")}>
           {formatQuantity(done)}
         </span>
-        {t("/{{total}} sản phẩm · {{pct}}%", { total: formatQuantity(total), pct: Math.round(pct) })}
+        {t("/{{total}} sản phẩm · {{pct}}%", { count: total, total: formatQuantity(total), pct: Math.round(pct) })}
       </p>
     </div>
   );

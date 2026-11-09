@@ -305,7 +305,7 @@ export default function DonChoXuatPage() {
                                 <p className="min-w-0 flex-1 text-[13px] leading-[18px] text-bo-muted">
                                     <span className="block truncate text-sm font-semibold text-bo-foreground">{t("Đã chọn {{count}} đơn", { count: selectedSummary.donHang })}</span>
                                     <span className="block truncate">
-                                        {t("{{sanPham}} SP", { sanPham: formatQuantity(selectedSummary.sanPham) })}
+                                        {t("{{sanPham}} SP", { count: Number(selectedSummary.sanPham) || 0, sanPham: formatQuantity(selectedSummary.sanPham) })}
                                         {selectedSummary.thieuHang > 0 ? (
                                             <span className="font-medium text-bo-danger"> {t("· {{thieuHang}} thiếu hàng", { thieuHang: selectedSummary.thieuHang })}</span>
                                         ) : null}
@@ -430,7 +430,7 @@ export default function DonChoXuatPage() {
                                         <span className="min-w-0 truncate text-sm font-semibold text-bo-foreground">{row.tenKhachHang || t("Khách lẻ")}</span>
                                         <span className="flex items-baseline justify-between gap-3 text-[13px] text-bo-muted">
                                             <span className="min-w-0 truncate">
-                                                {t("{{ngayTao}} · {{tongSoLuong}} SP", { ngayTao: formatDateTime(row.ngayTao), tongSoLuong: formatQuantity(row.tongSoLuong) })}
+                                                {t("{{ngayTao}} · {{tongSoLuong}} SP", { count: Number(row.tongSoLuong) || 0, ngayTao: formatDateTime(row.ngayTao), tongSoLuong: formatQuantity(row.tongSoLuong) })}
                                             </span>
                                             <span className="shrink-0 text-[15px] font-semibold tabular-nums text-bo-foreground">
                                                 {formatCurrency(toNumber(row.tongCong))}
@@ -571,7 +571,7 @@ export default function DonChoXuatPage() {
                             <div className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
                                 <AlertTriangle className="mt-0.5 size-4 shrink-0" />
                                 <p>
-                                    {t("Có {{thieuHang}} đơn đang báo thiếu hàng. Hệ thống sẽ kiểm tra lại khi tạo phiếu nhặt hàng.", { thieuHang: selectedSummary.thieuHang })}
+                                    {t("Có {{thieuHang}} đơn đang báo thiếu hàng. Hệ thống sẽ kiểm tra lại khi tạo phiếu nhặt hàng.", { count: selectedSummary.thieuHang, thieuHang: selectedSummary.thieuHang })}
                                 </p>
                             </div>
                         ) : null}

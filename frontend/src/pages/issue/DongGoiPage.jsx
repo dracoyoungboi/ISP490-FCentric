@@ -487,7 +487,7 @@ function ManDongGoi({ donId }) {
         onXacNhan={hoanTat}
       >
         <div className={GHI_CHU_HOP}>
-          {t("Đã quét {{da}}/{{can}} sản phẩm · {{chuBc}}", { da: soVN(tienDo.da), can: soVN(tienDo.can), chuBc })}
+          {t("Đã quét {{da}}/{{can}} sản phẩm · {{chuBc}}", { count: Number(tienDo.can), da: soVN(tienDo.da), can: soVN(tienDo.can), chuBc })}
         </div>
       </HopXacNhanChungTu>
     </PageContainer>

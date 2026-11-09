@@ -77,7 +77,7 @@ const TramQuet = forwardRef(function TramQuet({ onQuet, dangCho = 0, phanHoi = n
       {dangCho > 0 ? (
         <span role="status" className="inline-flex items-center gap-1.5 text-xs leading-4 text-bo-muted">
           <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
-          {t("Đang ghi nhận {{so}} mã…", { so: soVN(dangCho) })}
+          {t("Đang ghi nhận {{so}} mã…", { count: Number(dangCho), so: soVN(dangCho) })}
         </span>
       ) : null}
       {phanHoi ? (

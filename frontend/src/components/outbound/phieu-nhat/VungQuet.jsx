@@ -34,7 +34,7 @@ export default function VungQuet({ scanRef, onQuet, dangGui = 0, ketQua, tienDo,
       {/* Điện thoại: tiến độ một dòng ngay dưới ô quét (vùng quét dính đầu màn nên phải thấp) */}
       <div className="flex items-center gap-3 md:hidden">
         <span className="shrink-0 text-[13px] text-bo-muted tabular-nums">
-          <b className="text-base font-semibold text-bo-heading">{formatQuantity(tienDo.da)}</b>{t("/{{can}} sản phẩm · {{pct}}%", { can: formatQuantity(tienDo.can), pct: tienDo.pct })}
+          <b className="text-base font-semibold text-bo-heading">{formatQuantity(tienDo.da)}</b>{t("/{{can}} sản phẩm · {{pct}}%", { count: Number(tienDo.can), can: formatQuantity(tienDo.can), pct: tienDo.pct })}
         </span>
         <Progress
           value={tienDo.pct}
@@ -50,7 +50,7 @@ export default function VungQuet({ scanRef, onQuet, dangGui = 0, ketQua, tienDo,
         <div className="text-[22px] font-semibold leading-7 text-bo-heading tabular-nums">
           {formatQuantity(tienDo.da)}
           <span className="text-[13px] font-medium text-bo-muted">
-            {t("/{{can}} sản phẩm · {{pct}}%", { can: formatQuantity(tienDo.can), pct: tienDo.pct })}
+            {t("/{{can}} sản phẩm · {{pct}}%", { count: Number(tienDo.can), can: formatQuantity(tienDo.can), pct: tienDo.pct })}
           </span>
         </div>
         <Progress

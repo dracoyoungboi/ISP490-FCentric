@@ -148,7 +148,7 @@ const ScanBar = forwardRef(function ScanBar(
   const dangGui = pending > 0 ? (
     <span className="inline-flex items-center gap-1.5 text-xs font-medium text-bo-muted">
       <Loader2 className="size-3.5 animate-spin" />
-      {t("Đang gửi {{pending}} mã", { pending })}
+      {t("Đang gửi {{pending}} mã", { count: Number(pending), pending })}
     </span>
   ) : null;
 

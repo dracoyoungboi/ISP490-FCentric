@@ -195,9 +195,9 @@ export function phanTramTaiLen(suKien) {
  */
 export function lyDoKhoaHoanTat({ conLai = 0, duBangChung = false, yeuCauVideo = false, soThieu = 0, dangCho = 0 } = {}) {
   const ly = [];
-  if (conLai > 0) ly.push(t("còn {{conLai}} sản phẩm chưa quét", { conLai: soVN(conLai) }));
+  if (conLai > 0) ly.push(t("còn {{conLai}} sản phẩm chưa quét", { count: Number(conLai), conLai: soVN(conLai) }));
   if (!duBangChung) ly.push(yeuCauVideo ? t("thiếu video đóng gói") : t("thiếu {{so}} ảnh đóng gói", { count: Math.max(1, soThieu), so: soVN(Math.max(1, soThieu)) }));
-  if (dangCho > 0) ly.push(t("còn {{dangCho}} mã đang ghi nhận", { dangCho: soVN(dangCho) }));
+  if (dangCho > 0) ly.push(t("còn {{dangCho}} mã đang ghi nhận", { count: Number(dangCho), dangCho: soVN(dangCho) }));
   return ly.join(", ");
 }
 
@@ -238,8 +238,8 @@ export function thongBaoDongGoi(phien, { tinhHuong, hetHan = false, doiKho = nul
       ma: "donHuy",
       tone: "bad",
       chu: san
-        ? t("Đơn {{so}} đã bị hủy trên {{san}} nên hệ thống đã khóa đóng gói. Chuyển toàn bộ {{tong}} sản phẩm của đơn về khu hoàn kệ.", { so, san, tong: soVN(tong) })
-        : t("Đơn {{so}} đã bị hủy nên hệ thống đã khóa đóng gói. Chuyển toàn bộ {{tong}} sản phẩm của đơn về khu hoàn kệ.", { so, tong: soVN(tong) }),
+        ? t("Đơn {{so}} đã bị hủy trên {{san}} nên hệ thống đã khóa đóng gói. Chuyển toàn bộ {{tong}} sản phẩm của đơn về khu hoàn kệ.", { count: tong, so, san, tong: soVN(tong) })
+        : t("Đơn {{so}} đã bị hủy nên hệ thống đã khóa đóng gói. Chuyển toàn bộ {{tong}} sản phẩm của đơn về khu hoàn kệ.", { count: tong, so, tong: soVN(tong) }),
     });
   }
   if (th.pxHuy) {

@@ -82,7 +82,8 @@ export function kiemTuChia({ maLo, soLuong, ke, chuaCoKeCo }) {
   if (chuaCoKeCo == null) return null;
   const { chuaCoKe } = tuChiaKe(ke, soLuong);
   if (chuaCoKe > soNguyen(chuaCoKeCo)) {
-    return t("Lô {{maLo}} thiếu {{soThieu}} chỗ lấy (kệ đang kiểm kê hoặc phiếu khác đã giữ). Giảm số của lô hoặc lấy lô khác", { maLo, soThieu: chuaCoKe - soNguyen(chuaCoKeCo) });
+    const soThieu = chuaCoKe - soNguyen(chuaCoKeCo);
+    return t("Lô {{maLo}} thiếu {{soThieu}} chỗ lấy (kệ đang kiểm kê hoặc phiếu khác đã giữ). Giảm số của lô hoặc lấy lô khác", { count: soThieu, maLo, soThieu });
   }
   return null;
 }
