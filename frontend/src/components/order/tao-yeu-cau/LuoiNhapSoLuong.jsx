@@ -31,7 +31,7 @@ export default function LuoiNhapSoLuong({ sanPham, dong, onDoiO, onBoSanPham, ph
               <span className="min-w-0 flex-1">
                 <span className="line-clamp-2 font-medium leading-5 text-bo-foreground" title={dau?.tenSanPham}>{dau?.tenSanPham}</span>
                 <span className="block text-xs leading-4 text-bo-muted">
-                  {[dau?.maSanPham, t("{{soCo}}/{{tong}} biến thể có số lượng", { soCo: soVN(soCo), tong: soVN(bienThe.length) })].filter(Boolean).join(" · ")}
+                  {[dau?.maSanPham, t("{{soCo}}/{{tong}} biến thể có số lượng", { count: bienThe.length, soCo: soVN(soCo), tong: soVN(bienThe.length) })].filter(Boolean).join(" · ")}
                 </span>
               </span>
               <span className="whitespace-nowrap text-[13px] text-bo-muted">

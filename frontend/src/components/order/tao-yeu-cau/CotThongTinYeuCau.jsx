@@ -171,7 +171,7 @@ export default function CotThongTinYeuCau({
                 { ma: "sp", nhan: t("Sản phẩm"), giaTri: <span className="tabular-nums">{soVN(tomTat.soSp)}</span> },
                 { ma: "bt", nhan: t("Biến thể"), giaTri: <span className="tabular-nums">{soVN(tomTat.soDong)}</span> },
                 { ma: "tong", nhan: t("Tổng số lượng"), giaTri: <b className="font-semibold tabular-nums">{soVN(tomTat.tongSl)}</b> },
-                { ma: "dx", nhan: t("Theo số đề xuất"), giaTri: <span className="tabular-nums">{t("{{theoDeXuat}}/{{soDong}} dòng", { theoDeXuat: soVN(tomTat.theoDeXuat), soDong: soVN(tomTat.soDong) })}</span> },
+                { ma: "dx", nhan: t("Theo số đề xuất"), giaTri: <span className="tabular-nums">{t("{{theoDeXuat}}/{{soDong}} dòng", { count: Number(tomTat.soDong) || 0, theoDeXuat: soVN(tomTat.theoDeXuat), soDong: soVN(tomTat.soDong) })}</span> },
                 {
                   ma: "cy",
                   nhan: t("Cần chú ý"),

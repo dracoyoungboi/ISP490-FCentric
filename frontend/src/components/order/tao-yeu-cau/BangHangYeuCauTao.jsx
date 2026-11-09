@@ -28,7 +28,7 @@ const trangThai = (ids, chon) => {
   return so === 0 ? false : so === ids.length ? true : "indeterminate";
 };
 const chuBienThe = (n) => (n.soBienThe !== n.soBienTheCaNhom
-  ? t("{{soBienThe}}/{{soBienTheCaNhom}} biến thể", { soBienThe: soVN(n.soBienThe), soBienTheCaNhom: soVN(n.soBienTheCaNhom) })
+  ? t("{{soBienThe}}/{{soBienTheCaNhom}} biến thể", { count: Number(n.soBienTheCaNhom) || 0, soBienThe: soVN(n.soBienThe), soBienTheCaNhom: soVN(n.soBienTheCaNhom) })
   : t("{{soBienThe}} biến thể", { count: n.soBienThe, soBienThe: soVN(n.soBienThe) }));
 
 /** Ô "Đề xuất" của một dòng: số đề xuất, "—" khi chưa cần nhập, "Chưa nhập" khi chưa từng nhập về Kho tổng. */

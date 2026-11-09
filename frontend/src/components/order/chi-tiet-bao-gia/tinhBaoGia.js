@@ -255,7 +255,7 @@ export function tinhBuocBaoGia(don, tomTat = congGia(don?.chiTietDonMuaHangs), {
   const daChot = laDaChot(tt);
   const choGia = laConChoGia(tt);
   const daBaoGia = daCoBaoGia(don);
-  const dongCoGia = t("{{soCoGia}}/{{soDong}} dòng có giá", { soCoGia: soVN(tomTat.soCoGia), soDong: soVN(tomTat.soDong) });
+  const dongCoGia = t("{{soCoGia}}/{{soDong}} dòng có giá", { count: Number(tomTat.soDong) || 0, soCoGia: soVN(tomTat.soCoGia), soDong: soVN(tomTat.soDong) });
 
   const chuaGuiEmail = tt === TRANG_THAI_BAO_GIA.CHO_CHOT && !daBaoGia && !don?.ngayGuiYeuCau;
 

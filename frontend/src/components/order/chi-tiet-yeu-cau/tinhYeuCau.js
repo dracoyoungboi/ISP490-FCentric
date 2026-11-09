@@ -76,7 +76,7 @@ export function dongYeuCau(yc) {
 export function chuSoBienThe(nhom, dangTim = false) {
   const so = docSo(nhom?.soBienThe);
   const caNhom = docSo(nhom?.soBienTheCaNhom) || so;
-  return dangTim && so < caNhom ? t("{{so}}/{{caNhom}} biến thể", { so: soVN(so), caNhom: soVN(caNhom) }) : t("{{so}} biến thể", { count: so, so: soVN(so) });
+  return dangTim && so < caNhom ? t("{{so}}/{{caNhom}} biến thể", { count: caNhom, so: soVN(so), caNhom: soVN(caNhom) }) : t("{{so}} biến thể", { count: so, so: soVN(so) });
 }
 
 /**
@@ -237,7 +237,7 @@ export function tinhBuocYeuCau(yc) {
     gui = { trangThai: "xong", phu: soNcc ? t("{{soNcc}} nhà cung cấp", { count: soNcc, soNcc: soVN(soNcc) }) : "", ngay: ngayGuiBaoGia(yc), coGio: true };
   } else gui = { trangThai: "chua" };
 
-  const chuNhan = soNcc ? t("{{soDaGuiGia}}/{{soNcc}} nhà cung cấp đã gửi giá", { soDaGuiGia: soVN(soDaGuiGia), soNcc: soVN(soNcc) }) : "";
+  const chuNhan = soNcc ? t("{{soDaGuiGia}}/{{soNcc}} nhà cung cấp đã gửi giá", { count: soNcc, soDaGuiGia: soVN(soDaGuiGia), soNcc: soVN(soNcc) }) : "";
   // Mọi báo giá đã không chấp nhận: không còn chờ nhận giá nữa nên bước dừng, không "đang làm" mãi
   const khongChapNhanHet = daKhongChapNhanHet(tomTatBaoGia(yc));
   let nhanGia;

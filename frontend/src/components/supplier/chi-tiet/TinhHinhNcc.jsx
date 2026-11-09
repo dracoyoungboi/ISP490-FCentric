@@ -65,7 +65,7 @@ export default function TinhHinhNcc({ chiSo, dangTai, lyDoKhongTinhGiao }) {
 
   let phuGiao;
   if (!giaoDungHan.tinhDuoc) phuGiao = lyDoKhongTinhGiao || t("Chưa tính được");
-  else if (giaoDungHan.daXet > 0) phuGiao = t("{{dungHan}}/{{daXet}} đơn đã nhận đủ", { dungHan: giaoDungHan.dungHan, daXet: giaoDungHan.daXet });
+  else if (giaoDungHan.daXet > 0) phuGiao = t("{{dungHan}}/{{daXet}} đơn đã nhận đủ", { dungHan: giaoDungHan.dungHan, daXet: giaoDungHan.daXet, count: giaoDungHan.daXet });
   else phuGiao = t("Chưa có đơn nhận đủ");
 
   return (
@@ -100,7 +100,7 @@ export default function TinhHinhNcc({ chiSo, dangTai, lyDoKhongTinhGiao }) {
         nhan={t("Tỉ lệ chốt báo giá")}
         coGiaTri={tiLeChot.phanTram != null}
         giaTri={tiLeChot.phanTram != null ? `${tiLeChot.phanTram}%` : "—"}
-        phu={tiLeChot.daXet > 0 ? t("{{daChot}}/{{daXet}} báo giá đã xét", { daChot: tiLeChot.daChot, daXet: tiLeChot.daXet }) : t("Chưa có báo giá đã xét")}
+        phu={tiLeChot.daXet > 0 ? t("{{daChot}}/{{daXet}} báo giá đã xét", { daChot: tiLeChot.daChot, daXet: tiLeChot.daXet, count: tiLeChot.daXet }) : t("Chưa có báo giá đã xét")}
       />
       <O
         nhan={t("Lần đặt gần nhất")}

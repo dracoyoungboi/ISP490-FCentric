@@ -124,7 +124,7 @@ function NoiDung({ dsHang, dong, tenKho, nguong, onThem, onDong }) {
           </label>
         ) : null}
         <span className="text-[13px] tabular-nums text-bo-muted sm:ml-auto">
-          {t("{{soMa}} mã · {{soSp}} sản phẩm", { soMa: soVN(hien.length), soSp: soVN(nhom.length) })}
+          {t("{{soMa}} mã · {{soSp}} sản phẩm", { count: hien.length, soMa: soVN(hien.length), soSp: soVN(nhom.length) })}
         </span>
       </div>
 
@@ -239,7 +239,7 @@ function NoiDung({ dsHang, dong, tenKho, nguong, onThem, onDong }) {
       <div className={CHAN_HOP}>
         <span className="mr-auto text-[13px] tabular-nums text-bo-muted">
           {t("Đã chọn")} <b className="font-semibold text-bo-foreground">{soVN(daChon.length)}</b>{" "}
-          {t("mã · {{soSp}} sản phẩm · tổng", { soSp: soVN(soSp) })}{" "}
+          {t("mã · {{soSp}} sản phẩm · tổng", { count: daChon.length, soSp: soVN(soSp) })}{" "}
           <b className="font-semibold text-bo-foreground">{soVN(tong)}</b>
         </span>
         <Button type="button" variant="outline" className={NUT_QUAY_LAI} onClick={onDong}>{t("Quay lại")}</Button>
