@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -53,6 +54,15 @@ public final class BoThongDiep {
     private static final List<MauCau> MAU_CAU = new ArrayList<>();
     /** "ngôn ngữ:khóa" → mẫu câu gốc có {@code {n,choice,...}} (đọc thẳng từ tệp). */
     private static final Map<String, String> MAU_CO_SO_DEM = new HashMap<>();
+    /**
+     * Nhóm không nạp vào bảng dò ngược: {@code nhan} là nhãn ngắn ("Phiếu xuất {0}", "Đợt kiểm kê {0}") chỉ dùng qua
+     * {@link NhanChungTu} (theo khóa); làm mẫu dò ngược thì khớp nhầm câu khác ("Phiếu xuất kho" → "... kho").
+     * Khai báo trước khối static bên dưới (khối đó dùng tới).
+     */
+    private static final Set<String> NHOM_KHONG_DO_NGUOC = Set.of("nhan");
+    /** Khóa lẻ cùng loại nhãn "&lt;chứng từ&gt; {0}" ở nhóm khác, chỉ dùng chiều xuôi (ThongDiep.dich/of): không dò ngược. */
+    private static final Set<String> KHOA_KHONG_DO_NGUOC = Set.of(
+            "chungTuKho.phieuXuatSo", "chungTuKho.phieuNhatSo", "sanPhamMuaHang.donMuaSo");
 
     private record MauCau(String khoa, Pattern mau, List<Integer> thuTuThamSo) {
     }
@@ -236,6 +246,7 @@ public final class BoThongDiep {
 
     private static void napBangNguoc() {
         for (String nhom : timCacNhom()) {
+            if (NHOM_KHONG_DO_NGUOC.contains(nhom)) continue;
             Properties p = new Properties();
             try (var vao = BoThongDiep.class.getClassLoader().getResourceAsStream(THU_MUC + nhom + ".properties")) {
                 if (vao == null) continue;
@@ -247,6 +258,7 @@ public final class BoThongDiep {
                 continue;
             }
             for (String khoa : new TreeSet<>(p.stringPropertyNames())) {
+                if (KHOA_KHONG_DO_NGUOC.contains(khoa)) continue;
                 String mau = p.getProperty(khoa);
                 // Câu như người dùng thấy: bỏ nháy đôi của MessageFormat
                 String cau = mau.replace("''", "'").trim();

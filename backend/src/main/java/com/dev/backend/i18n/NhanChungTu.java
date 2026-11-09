@@ -18,10 +18,12 @@ public final class NhanChungTu {
     // Tiền tố dài thử trước ("Đợt kiểm kê kho " trước "Kho ")
     private static final List<TienTo> TIEN_TO = List.of(
             new TienTo("Đợt kiểm kê kho ", "dotKiemKeKho", ""),
+            new TienTo("Đợt kiểm kê ", "dotKiemKe", ""),
             new TienTo("Biên bản trả hàng ", "bienBanTraHang", ""),
             new TienTo("Phiếu điều chỉnh ", "phieuDieuChinh", ""),
             new TienTo("Phiếu chuyển ", "phieuChuyen", ""),
             new TienTo("Phiếu nhập ", "phieuNhap", ""),
+            new TienTo("Phiếu xuất ", "phieuXuat", ""),
             new TienTo("Sơ đồ kho ", "soDoKho", ""),
             new TienTo("Ảnh \"", "anhTen", "\""),
             new TienTo("Kho ", "kho", ""),

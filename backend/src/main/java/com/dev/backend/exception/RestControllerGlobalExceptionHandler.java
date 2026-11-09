@@ -7,6 +7,7 @@ import com.dev.backend.exception.customize.InvalidFieldException;
 import com.dev.backend.exception.customize.LoiCoMaException;
 import com.dev.backend.i18n.BoThongDiep;
 import com.dev.backend.i18n.CoThongDiep;
+import com.dev.backend.i18n.DichCauDaLuu;
 import com.dev.backend.i18n.NgonNgu;
 import com.dev.backend.i18n.ThongDiep;
 import jakarta.persistence.EntityNotFoundException;
@@ -298,7 +299,9 @@ public class RestControllerGlobalExceptionHandler {
                 && cauViet != null && loi.getMessage() != null && cauViet.trim().equals(loi.getMessage().trim())) {
             cauAnh = coThongDiep.getThongDiep().theoNgonNgu(NgonNgu.EN);
         } else if (cauViet != null) {
-            cauAnh = BoThongDiep.dichCauViet(cauViet, NgonNgu.EN);
+            // DichCauDaLuu: như dichCauViet, thêm tách câu "bọc" câu khác (vd. "Đã nhận tiền nhưng chưa tạo được đơn: <câu>"
+            // của payOS PAID_ERROR). Không nhận ra thì trả nguyên câu → điều kiện dưới bỏ qua, như null trước đây.
+            cauAnh = DichCauDaLuu.dich(cauViet, NgonNgu.EN);
         }
         if (cauAnh != null && !cauAnh.equals(cauViet)) {
             body.setMessage(cauAnh);

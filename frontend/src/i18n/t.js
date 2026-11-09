@@ -43,6 +43,18 @@ export function t(khoa, thamSo) {
   return i18next.t(String(khoa), thamSo);
 }
 
+/**
+ * Dịch một giá trị LẤY TỪ DỮ LIỆU (tên kênh, tên kho, tên khách... máy chủ trả về) — khác t(): chỉ dịch khi giá trị là
+ * chuỗi và có đúng khóa trong bản dịch (vd. "Trực tiếp", "Khách lẻ" máy chủ tự đặt); còn lại trả NGUYÊN VĂN.
+ * Không nội suy, không lồng `$t(...)`: tên người dùng tự đặt có "{{...}}" hay "$t(...)" vẫn giữ nguyên chữ.
+ * Giao diện tiếng Việt không có bản dịch nên luôn trả nguyên văn.
+ */
+export function tDuLieu(giaTri) {
+  if (typeof giaTri !== "string" || giaTri === "" || !i18next.isInitialized) return giaTri;
+  if (!i18next.exists(giaTri)) return giaTri;
+  return i18next.t(giaTri, { nest: false, skipInterpolation: true });
+}
+
 /** Dịch nếu là chuỗi, giữ nguyên nếu không (nhãn tùy chọn có thể là phần tử React). */
 export function tNeuChuoi(giaTri, thamSo) {
   return typeof giaTri === "string" ? t(giaTri, thamSo) : giaTri;
