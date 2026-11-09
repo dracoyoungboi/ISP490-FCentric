@@ -71,13 +71,14 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
+import com.dev.backend.i18n.ThongDiep;
 
 @Service
 @Slf4j
 public class NhatHangServiceImpl implements NhatHangService {
 
-    static final String LOI_NGUOI_NHAT_NGUNG_HOAT_DONG = "Tài khoản nhân viên nhặt hàng đang tạm khóa hoặc ngưng hoạt động";
-    static final String LOI_GIAO_QUAN_TRI_VIEN = "Không giao được phiếu nhặt cho quản trị viên. Quản trị viên muốn tự nhặt thì bấm Nhận việc cho tôi.";
+    static final String LOI_NGUOI_NHAT_NGUNG_HOAT_DONG = ThongDiep.vi("khoVanHanh.nguoiNhatNgungHoatDong");
+    static final String LOI_GIAO_QUAN_TRI_VIEN = ThongDiep.vi("khoVanHanh.khongGiaoChoQuanTriVien");
 
     /** Vai trò giao nhặt được (cùng kho với phiếu). Quản trị viên không thuộc kho nào: chỉ tự nhận việc cho mình. */
     static final Set<String> VAI_TRO_NHAT_HANG = Set.of(IRoleType.nhan_vien_kho, IRoleType.quan_ly_kho);
@@ -87,14 +88,14 @@ public class NhatHangServiceImpl implements NhatHangService {
     public static final String LOAI_CHUYEN_KHO = "CHUYEN_KHO";
 
     /** Lý do ở màn Hàng cần hoàn kệ, theo loại phiếu nhặt của lệnh trả kệ. */
-    static final String LY_DO_HOAN_KE_DON_HUY = "Đơn hàng bị hủy trong luồng xuất kho";
-    static final String LY_DO_HOAN_KE_CHUYEN_KHO_HUY = "Phiếu chuyển kho bị hủy";
+    static final String LY_DO_HOAN_KE_DON_HUY = ThongDiep.vi("khoVanHanh.lyDoHoanKeDonHuy");
+    static final String LY_DO_HOAN_KE_CHUYEN_KHO_HUY = ThongDiep.vi("khoVanHanh.lyDoHoanKeChuyenKhoHuy");
 
     /** Số lần thử số kế tiếp khi mã phiếu nhặt vừa sinh đã có. */
     private static final int SO_LAN_THU_MA = 5;
 
     /** Hai giao dịch cùng lấy một mã phiếu nhặt: khóa duy nhất uk_ma_pick_list chặn giao dịch sau. */
-    public static final String LOI_TRUNG_MA_PHIEU_NHAT = "Có người vừa tạo phiếu nhặt cùng lúc, vui lòng thử lại";
+    public static final String LOI_TRUNG_MA_PHIEU_NHAT = ThongDiep.vi("khoVanHanh.trungMaPhieuNhat");
 
     @Autowired
     private DonBanHangRepository donBanHangRepository;
@@ -188,7 +189,7 @@ public class NhatHangServiceImpl implements NhatHangService {
         NguoiDungAuthInfo authUser = SecurityContextHolder.getUser();
 
         if (authUser == null) {
-            throw new CommonException("Người dùng chưa được xác thực trong hệ thống");
+            throw new CommonException(ThongDiep.of("khoVanHanh.nguoiDungChuaXacThucHeThong"));
         }
 
         boolean isAdmin = authUser.getVaiTro() != null && authUser.getVaiTro().contains(IRoleType.quan_tri_vien);
@@ -197,7 +198,7 @@ public class NhatHangServiceImpl implements NhatHangService {
         }
 
         if (khoId == null) {
-            throw new CommonException("Vui lòng chọn ngữ cảnh kho làm việc");
+            throw new CommonException(ThongDiep.of("khoVanHanh.chonNguCanhKho"));
         }
 
         final Integer finalKhoId = khoId;
@@ -341,52 +342,52 @@ public class NhatHangServiceImpl implements NhatHangService {
     @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_COMMITTED)
     public DanhSachNhatHangDto taoPickList(TaoPickListRequest request) {
         if (request.getDonBanHangIds() == null || request.getDonBanHangIds().isEmpty()) {
-            throw new CommonException("Vui lòng chọn ít nhất một đơn hàng để tạo Pick List");
+            throw new CommonException(ThongDiep.of("khoVanHanh.chonItNhatMotDonTaoPickList"));
         }
 
         Integer khoId = SecurityContextHolder.getKhoId();
         NguoiDungAuthInfo authUser = SecurityContextHolder.getUser();
 
         if (authUser == null) {
-            throw new CommonException("Người dùng chưa được xác thực trong hệ thống");
+            throw new CommonException(ThongDiep.of("khoVanHanh.nguoiDungChuaXacThucHeThong"));
         }
 
         if (khoId == null) {
-            throw new CommonException("Vui lòng chọn ngữ cảnh kho làm việc để tạo Pick List");
+            throw new CommonException(ThongDiep.of("khoVanHanh.chonNguCanhKhoTaoPickList"));
         }
 
         Kho kho = khoRepository.findById(khoId)
-                .orElseThrow(() -> new CommonException("Không tìm thấy kho làm việc ID: " + khoId));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("khoVanHanh.khoLamViecKhongTimThayId", khoId)));
 
         NguoiDung currentUser = nguoiDungRepository.findById(authUser.getId())
-                .orElseThrow(() -> new CommonException("Không tìm thấy thông tin người dùng: " + authUser.getId()));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("khoVanHanh.thongTinNguoiDungKhongTimThay", authUser.getId())));
 
         // Tải danh sách đơn hàng đã chọn
         List<DonBanHang> donList = donBanHangRepository.findAllById(request.getDonBanHangIds());
         if (donList.size() != request.getDonBanHangIds().size()) {
-            throw new CommonException("Một số đơn hàng đã chọn không tồn tại trong hệ thống");
+            throw new CommonException(ThongDiep.of("khoVanHanh.motSoDonKhongTonTai"));
         }
 
         // Kiểm tra hợp lệ nghiệp vụ trên từng đơn hàng
         for (DonBanHang don : donList) {
             if (don.getKhoXuat() == null || !khoId.equals(don.getKhoXuat().getId())) {
-                throw new CommonException("Đơn hàng " + don.getSoDonHang() + " không thuộc kho " + kho.getTenKho());
+                throw new CommonException(ThongDiep.of("khoVanHanh.donKhongThuocKho", don.getSoDonHang(), kho.getTenKho()));
             }
             Integer tt = don.getTrangThai();
             if (tt == null || (tt != ITrangThaiDonBanHang.CHO_NHAT_HANG && tt != ITrangThaiDonBanHang.DANG_XUAT_KHO)) {
-                throw new CommonException("Đơn hàng " + don.getSoDonHang() + " không ở trạng thái Chờ nhặt (trạng thái hiện tại: " + don.getTrangThai() + ")");
+                throw new CommonException(ThongDiep.of("khoVanHanh.donKhongChoNhat", don.getSoDonHang(), don.getTrangThai()));
             }
             if (don.getGhiChu() != null && don.getGhiChu().contains("[KHÁCH YÊU CẦU HỦY]")) {
-                throw new CommonException("Đơn hàng " + don.getSoDonHang() + " đang có yêu cầu hủy từ sàn. Không được gom vào danh sách nhặt hàng.", org.springframework.http.HttpStatus.BAD_REQUEST, null);
+                throw new CommonException(ThongDiep.of("khoVanHanh.donCoYeuCauHuyTuSan", don.getSoDonHang()), org.springframework.http.HttpStatus.BAD_REQUEST, null);
             }
             if (don.getDanhSachNhatHang() != null) {
-                throw new CommonException("Đơn hàng " + don.getSoDonHang() + " đã được gom vào Pick List " + don.getDanhSachNhatHang().getMaPickList());
+                throw new CommonException(ThongDiep.of("khoVanHanh.donDaGomVaoPickList", don.getSoDonHang(), don.getDanhSachNhatHang().getMaPickList()));
             }
             if (don.getChiTietDonBanHangs() == null || don.getChiTietDonBanHangs().isEmpty()) {
-                throw new CommonException("Đơn hàng " + don.getSoDonHang() + " không có chi tiết sản phẩm");
+                throw new CommonException(ThongDiep.of("khoVanHanh.donKhongCoChiTiet", don.getSoDonHang()));
             }
             if (don.getChiTietDonBanHangs().stream().noneMatch(ctd -> soLuongConPhaiXuat(don, ctd).signum() > 0)) {
-                throw new CommonException("Đơn hàng " + don.getSoDonHang() + " đã xuất đủ toàn bộ sản phẩm");
+                throw new CommonException(ThongDiep.of("khoVanHanh.donDaXuatDu", don.getSoDonHang()));
             }
         }
 
@@ -397,16 +398,16 @@ public class NhatHangServiceImpl implements NhatHangService {
         NguoiDung nguoiNhat = null;
         if (request.getNguoiNhatId() != null) {
             nguoiNhat = nguoiDungRepository.findById(request.getNguoiNhatId())
-                    .orElseThrow(() -> new CommonException("Không tìm thấy nhân viên nhặt hàng ID: " + request.getNguoiNhatId()));
+                    .orElseThrow(() -> new CommonException(ThongDiep.of("khoVanHanh.nhanVienNhatKhongTimThayId", request.getNguoiNhatId())));
             // Cùng quy tắc với phanCongNguoiNhat: tài khoản còn hoạt động; nhân viên kho chỉ giao cho chính mình
             if (nguoiNhat.getTrangThai() == null || nguoiNhat.getTrangThai() != 1) {
                 // Không viết "bị khóa": giao diện coi câu có cụm đó là chính người đang thao tác bị khóa và đăng xuất
-                throw new CommonException(LOI_NGUOI_NHAT_NGUNG_HOAT_DONG);
+                throw new CommonException(ThongDiep.of("khoVanHanh.nguoiNhatNgungHoatDong"));
             }
             boolean laQuanLy = authUser.getVaiTro() != null && (authUser.getVaiTro().contains(IRoleType.quan_tri_vien)
                     || authUser.getVaiTro().contains(IRoleType.quan_ly_kho));
             if (!laQuanLy && !authUser.getId().equals(nguoiNhat.getId())) {
-                throw new CommonException("Nhân viên kho chỉ có quyền tự nhận việc (Self-assignment)");
+                throw new CommonException(ThongDiep.of("khoVanHanh.nhanVienChiTuNhanViec"));
             }
             kiemTraNguoiDuocGiao(nguoiNhat, kho, authUser);
         }
@@ -531,7 +532,7 @@ public class NhatHangServiceImpl implements NhatHangService {
             }
             log.warn("Mã phiếu nhặt {} đã có, thử số kế tiếp", ma);
         }
-        throw new CommonException("Không cấp được mã phiếu nhặt mới, vui lòng thử lại", HttpStatus.CONFLICT, null);
+        throw new CommonException(ThongDiep.of("khoVanHanh.khongCapDuocMaPhieuNhat"), HttpStatus.CONFLICT, null);
     }
 
     /**
@@ -550,7 +551,7 @@ public class NhatHangServiceImpl implements NhatHangService {
             }
             log.warn("Mã phiếu nhặt {} vừa bị giao dịch khác dùng: {}", pickList.getMaPickList(),
                     ex.getMostSpecificCause().getMessage());
-            throw new CommonException(LOI_TRUNG_MA_PHIEU_NHAT, HttpStatus.CONFLICT, null);
+            throw new CommonException(ThongDiep.of("khoVanHanh.trungMaPhieuNhat"), HttpStatus.CONFLICT, null);
         }
     }
 
@@ -631,7 +632,7 @@ public class NhatHangServiceImpl implements NhatHangService {
         NguoiDungAuthInfo authUser = SecurityContextHolder.getUser();
 
         if (authUser == null) {
-            throw new CommonException("Người dùng chưa được xác thực");
+            throw new CommonException(ThongDiep.of("khoVanHanh.nguoiDungChuaXacThuc"));
         }
 
         boolean isAdmin = authUser.getVaiTro() != null && authUser.getVaiTro().contains(IRoleType.quan_tri_vien);
@@ -640,7 +641,7 @@ public class NhatHangServiceImpl implements NhatHangService {
         }
 
         if (contextKhoId == null) {
-            throw new CommonException("Vui lòng chọn ngữ cảnh kho làm việc");
+            throw new CommonException(ThongDiep.of("khoVanHanh.chonNguCanhKho"));
         }
 
         final Integer finalKhoId = contextKhoId;
@@ -736,14 +737,14 @@ public class NhatHangServiceImpl implements NhatHangService {
     @Transactional(readOnly = true)
     public DanhSachNhatHangDto getChiTietPickList(Integer id) {
         DanhSachNhatHang pickList = danhSachNhatHangRepository.findById(id)
-                .orElseThrow(() -> new CommonException("Không tìm thấy đợt nhặt hàng Pick List ID: " + id));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("khoVanHanh.pickListKhongTimThayId", id)));
 
         Integer contextKhoId = SecurityContextHolder.getKhoId();
         NguoiDungAuthInfo authUser = SecurityContextHolder.getUser();
         boolean isAdmin = authUser != null && authUser.getVaiTro() != null && authUser.getVaiTro().contains(IRoleType.quan_tri_vien);
 
         if (!isAdmin && contextKhoId != null && !contextKhoId.equals(pickList.getKhoXuat().getId())) {
-            throw new CommonException("Bạn không có quyền truy cập Pick List thuộc kho khác");
+            throw new CommonException(ThongDiep.of("khoVanHanh.khongCoQuyenPickListKhoKhac"));
         }
 
         DanhSachNhatHangDto dto = danhSachNhatHangMapper.toDto(pickList);
@@ -795,8 +796,8 @@ public class NhatHangServiceImpl implements NhatHangService {
         // Người được giao đã đổi kho / bị thu hồi / ngưng tài khoản: báo để quản lý phân công lại (không tự gỡ người nhặt)
         if (pickList.getNguoiNhat() != null
                 && ("cho_nhat".equals(pickList.getTrangThai()) || "dang_nhat".equals(pickList.getTrangThai()))) {
-            String lyDo = lyDoKhongNhatDuoc(pickList.getNguoiNhat(), pickList.getKhoXuat());
-            dto.setCanhBaoNguoiNhat(lyDo == null ? null : lyDo + " nên không nhặt được phiếu này.");
+            ThongDiep lyDo = lyDoKhongNhatDuoc(pickList.getNguoiNhat(), pickList.getKhoXuat());
+            dto.setCanhBaoNguoiNhat(lyDo == null ? null : ThongDiep.dich("khoVanHanh.khongNhatDuocPhieuNay", lyDo));
         }
 
         if (pickList.getDonBanHangs() != null) {
@@ -882,7 +883,7 @@ public class NhatHangServiceImpl implements NhatHangService {
     @Transactional(readOnly = true)
     public List<LoKhaDungNhatHangDto> getLoKhaDungChoDong(Integer pickListId, Integer chiTietId) {
         DanhSachNhatHang pickList = danhSachNhatHangRepository.findById(pickListId)
-                .orElseThrow(() -> new CommonException("Không tìm thấy đợt nhặt hàng Pick List ID: " + pickListId));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("khoVanHanh.pickListKhongTimThayId", pickListId)));
         kiemTraKhoPhieuNhat(pickList);
         ChiTietNhatHang dong = layDongCuaPhieu(pickList, chiTietId);
         Integer khoId = pickList.getKhoXuat().getId();
@@ -951,13 +952,13 @@ public class NhatHangServiceImpl implements NhatHangService {
     @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_COMMITTED)
     public DanhSachNhatHangDto luuPhanBoLo(Integer pickListId, Integer chiTietId, PhanBoLoNhatHangRequest request) {
         DanhSachNhatHang pickList = danhSachNhatHangRepository.findById(pickListId)
-                .orElseThrow(() -> new CommonException("Không tìm thấy đợt nhặt hàng Pick List ID: " + pickListId));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("khoVanHanh.pickListKhongTimThayId", pickListId)));
         NguoiDungAuthInfo authUser = kiemTraKhoPhieuNhat(pickList);
         // Khóa dòng nhặt rồi phiếu nhặt và đọc lại bản mới nhất TRƯỚC khi kiểm trạng thái, người nhặt và số cần nhặt (như
         // quét mã): lưu chạy chồng với Hoàn tất / Hủy phiếu chuyển / phân công lại / đơn bị hủy thì chờ rồi bị chặn ở dưới
         List<ChiTietNhatHang> dongDaKhoa = khoaDongVaPhieuNhat(pickList);
         if (!"cho_nhat".equals(pickList.getTrangThai()) && !"dang_nhat".equals(pickList.getTrangThai())) {
-            throw new CommonException("Phiếu nhặt " + pickList.getMaPickList() + " đã kết thúc nhặt nên không sửa phân bổ lô được.",
+            throw new CommonException(ThongDiep.of("khoVanHanh.phieuNhatDaKetThucKhongSuaPhanBo", pickList.getMaPickList()),
                     HttpStatus.CONFLICT, null);
         }
         // Người được giao nhặt, hoặc quản lý kho / quản trị viên sửa thay
@@ -966,13 +967,13 @@ public class NhatHangServiceImpl implements NhatHangService {
         boolean laNguoiNhat = pickList.getNguoiNhat() != null && authUser.getId().equals(pickList.getNguoiNhat().getId());
         if (!laQuanLy && !laNguoiNhat) {
             throw new CommonException(pickList.getNguoiNhat() == null
-                    ? "Phiếu nhặt " + pickList.getMaPickList() + " chưa được phân công. Nhận việc trước khi phân bổ lô."
-                    : "Chỉ người được giao nhặt (" + pickList.getNguoiNhat().getHoTen() + ") hoặc quản lý kho mới sửa được phân bổ lô.",
+                    ? ThongDiep.of("khoVanHanh.phieuNhatChuaPhanCongPhanBo", pickList.getMaPickList())
+                    : ThongDiep.of("khoVanHanh.chiNguoiDuocGiaoSuaPhanBo", pickList.getNguoiNhat().getHoTen()),
                     HttpStatus.CONFLICT, null);
         }
 
         ChiTietNhatHang dong = dongDaKhoa.stream().filter(ct -> ct.getId().equals(chiTietId)).findFirst()
-                .orElseThrow(() -> new CommonException("Dòng sản phẩm không thuộc phiếu nhặt " + pickList.getMaPickList(),
+                .orElseThrow(() -> new CommonException(ThongDiep.of("khoVanHanh.dongKhongThuocPhieuNhat", pickList.getMaPickList()),
                         HttpStatus.NOT_FOUND, null));
         // Dòng có thể đã nạp trước đó trong request (open-in-view): đọc lại số cần nhặt mới nhất sau khi khóa
         entityManager.refresh(dong);
@@ -980,20 +981,20 @@ public class NhatHangServiceImpl implements NhatHangService {
         String sku = dong.getBienTheSanPham().getMaSku();
 
         if (request == null || request.getPhanBo() == null) {
-            throw new CommonException("Thiếu danh sách phân bổ lô");
+            throw new CommonException(ThongDiep.of("khoVanHanh.thieuDanhSachPhanBoLo"));
         }
         Map<Integer, BigDecimal> yeuCau = new LinkedHashMap<>();
         // Kệ người nhặt chọn cho từng lô (Đ5); lô không gửi kệ thì tự chia theo thứ tự kệ
         Map<Integer, List<PhanBoKeService.KeChon>> keChon = new HashMap<>();
         for (PhanBoLoNhatHangRequest.Item item : request.getPhanBo()) {
             if (item == null || item.getLoHangId() == null || item.getSoLuong() == null) {
-                throw new CommonException("Mỗi dòng phân bổ phải có lô và số lượng");
+                throw new CommonException(ThongDiep.of("khoVanHanh.dongPhanBoThieuLoSoLuong"));
             }
             if (item.getSoLuong().signum() < 0) {
-                throw new CommonException("Số lượng lấy từ lô không được âm");
+                throw new CommonException(ThongDiep.of("khoVanHanh.soLuongLayTuLoAm"));
             }
             if (yeuCau.containsKey(item.getLoHangId())) {
-                throw new CommonException("Một lô chỉ được khai một lần trong phân bổ");
+                throw new CommonException(ThongDiep.of("khoVanHanh.loKhaiMotLan"));
             }
             if (item.getSoLuong().signum() > 0) {
                 yeuCau.put(item.getLoHangId(), item.getSoLuong());
@@ -1006,8 +1007,7 @@ public class NhatHangServiceImpl implements NhatHangService {
         BigDecimal tongYeuCau = yeuCau.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal canNhat = dong.getSoLuongCanNhat() != null ? dong.getSoLuongCanNhat() : BigDecimal.ZERO;
         if (tongYeuCau.compareTo(canNhat) != 0) {
-            throw new CommonException("Tổng phân bổ của [" + sku + "] là " + hienThi(tongYeuCau)
-                    + ", phải bằng số cần nhặt " + hienThi(canNhat));
+            throw new CommonException(ThongDiep.of("khoVanHanh.tongPhanBoKhongBang", sku, hienThi(tongYeuCau), hienThi(canNhat)));
         }
 
         Integer khoId = pickList.getKhoXuat().getId();
@@ -1017,15 +1017,14 @@ public class NhatHangServiceImpl implements NhatHangService {
         List<PhanBoLoFifo.Lo> phanBoMoi = new ArrayList<>();
         for (Map.Entry<Integer, BigDecimal> e : yeuCau.entrySet()) {
             LoHang lo = loHangRepository.findById(e.getKey())
-                    .orElseThrow(() -> new CommonException("Không tìm thấy lô hàng ID: " + e.getKey()));
+                    .orElseThrow(() -> new CommonException(ThongDiep.of("khoVanHanh.loHangKhongTimThayId", e.getKey())));
             if (lo.getBienTheSanPham() == null || !bienTheId.equals(lo.getBienTheSanPham().getId())) {
-                throw new CommonException("Lô " + lo.getMaLo() + " không phải lô của sản phẩm [" + sku + "]");
+                throw new CommonException(ThongDiep.of("khoVanHanh.loKhongCuaSanPham", lo.getMaLo(), sku));
             }
             TonKhoTheoLo ton = tonTheoLo.get(lo.getId());
             BigDecimal conLai = ton != null ? LoDangGiuService.conLai(ton, dangGiu) : BigDecimal.ZERO;
             if (e.getValue().compareTo(conLai) > 0) {
-                throw new CommonException("Lô " + lo.getMaLo() + " chỉ còn " + hienThi(conLai.max(BigDecimal.ZERO))
-                        + " có thể lấy (phần còn lại đang được phiếu khác giữ), không đủ " + hienThi(e.getValue()),
+                throw new CommonException(ThongDiep.of("khoVanHanh.loChiConCoTheLay", lo.getMaLo(), hienThi(conLai.max(BigDecimal.ZERO)), hienThi(e.getValue())),
                         HttpStatus.CONFLICT, null);
             }
             phanBoMoi.add(new PhanBoLoFifo.Lo(lo.getId(), e.getValue()));
@@ -1039,9 +1038,8 @@ public class NhatHangServiceImpl implements NhatHangService {
                     .map(t -> LoDangGiuService.conLai(t, dangGiu).max(BigDecimal.ZERO))
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
             if (giuChoChuyen.signum() > 0 && tongYeuCau.compareTo(conLaiCuaMa.subtract(giuChoChuyen)) > 0) {
-                throw new CommonException("[" + sku + "] chỉ còn " + hienThi(conLaiCuaMa.subtract(giuChoChuyen).max(BigDecimal.ZERO))
-                        + " có thể lấy: phiếu chuyển kho đang giữ chỗ " + hienThi(giuChoChuyen) + ". Không đủ "
-                        + hienThi(tongYeuCau) + ".", HttpStatus.CONFLICT, null);
+                throw new CommonException(ThongDiep.of("khoVanHanh.skuChiConGiuChoChuyen",
+                        sku, hienThi(conLaiCuaMa.subtract(giuChoChuyen).max(BigDecimal.ZERO)), hienThi(giuChoChuyen), hienThi(tongYeuCau)), HttpStatus.CONFLICT, null);
             }
         }
 
@@ -1074,12 +1072,12 @@ public class NhatHangServiceImpl implements NhatHangService {
     private NguoiDungAuthInfo kiemTraKhoPhieuNhat(DanhSachNhatHang pickList) {
         NguoiDungAuthInfo authUser = SecurityContextHolder.getUser();
         if (authUser == null) {
-            throw new CommonException("Người dùng chưa được xác thực trong hệ thống");
+            throw new CommonException(ThongDiep.of("khoVanHanh.nguoiDungChuaXacThucHeThong"));
         }
         boolean isAdmin = authUser.getVaiTro() != null && authUser.getVaiTro().contains(IRoleType.quan_tri_vien);
         Integer contextKhoId = SecurityContextHolder.getKhoId();
         if (!isAdmin && contextKhoId != null && !contextKhoId.equals(pickList.getKhoXuat().getId())) {
-            throw new CommonException("Bạn không có quyền thao tác trên Pick List thuộc kho khác");
+            throw new CommonException(ThongDiep.of("khoVanHanh.khongCoQuyenThaoTacPickListKhoKhac"));
         }
         return authUser;
     }
@@ -1087,7 +1085,7 @@ public class NhatHangServiceImpl implements NhatHangService {
     private static ChiTietNhatHang layDongCuaPhieu(DanhSachNhatHang pickList, Integer chiTietId) {
         return (pickList.getChiTietNhatHangs() == null ? List.<ChiTietNhatHang>of() : pickList.getChiTietNhatHangs())
                 .stream().filter(ct -> ct.getId().equals(chiTietId)).findFirst()
-                .orElseThrow(() -> new CommonException("Dòng sản phẩm không thuộc phiếu nhặt " + pickList.getMaPickList(),
+                .orElseThrow(() -> new CommonException(ThongDiep.of("khoVanHanh.dongKhongThuocPhieuNhat", pickList.getMaPickList()),
                         HttpStatus.NOT_FOUND, null));
     }
 
@@ -1287,8 +1285,7 @@ public class NhatHangServiceImpl implements NhatHangService {
                 String maLo = t != null ? t.getLoHang().getMaLo() : daLuu.stream()
                         .filter(pb -> pb.getLoHang().getId().equals(e.getKey()))
                         .map(pb -> pb.getLoHang().getMaLo()).findFirst().orElse("#" + e.getKey());
-                throw new CommonException("Lô " + maLo + " của [" + sku + "] chỉ còn " + hienThi(conLai.max(BigDecimal.ZERO))
-                        + " nhưng đang phân bổ " + hienThi(e.getValue()) + ". Vui lòng phân bổ lại lô trước khi hoàn tất nhặt.",
+                throw new CommonException(ThongDiep.of("khoVanHanh.loChiConNhungDangPhanBo", maLo, sku, hienThi(conLai.max(BigDecimal.ZERO)), hienThi(e.getValue())),
                         HttpStatus.CONFLICT, null);
             }
         }
@@ -1310,10 +1307,9 @@ public class NhatHangServiceImpl implements NhatHangService {
                         phieu == null ? null : phieu.getMaPickList(),
                         phieu == null || phieu.getKhoXuat() == null ? null : phieu.getKhoXuat().getId(),
                         bienTheId, sku, can, tongSauBu, nguoi == null ? null : nguoi.getId());
-                throw new CommonException("Không đủ tồn theo lô cho [" + sku + "]: cần " + hienThi(can)
-                        + ", các lô chỉ còn " + hienThi(tongSauBu) + " có thể lấy"
-                        + (giuCho.signum() > 0 ? " (phiếu chuyển kho đang giữ chỗ " + hienThi(giuCho) + ")" : "")
-                        + ". Báo quản lý kho kiểm kê trước khi hoàn tất nhặt.",
+                throw new CommonException(giuCho.signum() > 0
+                        ? ThongDiep.of("khoVanHanh.khongDuTonTheoLoCoGiuCho", sku, hienThi(can), hienThi(tongSauBu), hienThi(giuCho))
+                        : ThongDiep.of("khoVanHanh.khongDuTonTheoLo", sku, hienThi(can), hienThi(tongSauBu)),
                         HttpStatus.CONFLICT, null);
             }
             for (PhanBoLoFifo.Lo lo : bu) {
@@ -1393,27 +1389,27 @@ public class NhatHangServiceImpl implements NhatHangService {
     @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_COMMITTED)
     public DanhSachNhatHangDto phanCongNguoiNhat(Integer id, PhanCongNguoiNhatRequest request) {
         if (id == null) {
-            throw new CommonException("ID đợt nhặt hàng không được để trống");
+            throw new CommonException(ThongDiep.of("khoVanHanh.idDotNhatTrong"));
         }
         if (request == null || request.getNguoiNhatId() == null) {
-            throw new CommonException("ID nhân viên nhặt hàng không được để trống");
+            throw new CommonException(ThongDiep.of("khoVanHanh.idNhanVienNhatTrong"));
         }
 
         Integer contextKhoId = SecurityContextHolder.getKhoId();
         NguoiDungAuthInfo authUser = SecurityContextHolder.getUser();
         if (authUser == null) {
-            throw new CommonException("Người dùng chưa được xác thực trong hệ thống");
+            throw new CommonException(ThongDiep.of("khoVanHanh.nguoiDungChuaXacThucHeThong"));
         }
         if (contextKhoId == null) {
-            throw new CommonException("Vui lòng chọn ngữ cảnh kho làm việc");
+            throw new CommonException(ThongDiep.of("khoVanHanh.chonNguCanhKho"));
         }
 
         DanhSachNhatHang pickList = danhSachNhatHangRepository.findById(id)
-                .orElseThrow(() -> new CommonException("Không tìm thấy đợt nhặt hàng Pick List ID: " + id));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("khoVanHanh.pickListKhongTimThayId", id)));
 
         boolean isAdmin = authUser.getVaiTro() != null && authUser.getVaiTro().contains(IRoleType.quan_tri_vien);
         if (!isAdmin && (pickList.getKhoXuat() == null || !contextKhoId.equals(pickList.getKhoXuat().getId()))) {
-            throw new CommonException("Bạn không có quyền thao tác trên đợt nhặt hàng của kho khác");
+            throw new CommonException(ThongDiep.of("khoVanHanh.khongCoQuyenDotNhatKhoKhac"));
         }
 
         // Khóa dòng nhặt rồi phiếu nhặt và đọc lại bản mới nhất trước khi kiểm: phân công chạy chồng với Hủy phiếu chuyển /
@@ -1423,27 +1419,26 @@ public class NhatHangServiceImpl implements NhatHangService {
         // Kiểm tra trạng thái hợp lệ của Pick List
         String trangThaiHienTai = pickList.getTrangThai();
         if ("da_nhat".equalsIgnoreCase(trangThaiHienTai) || "da_xuat".equalsIgnoreCase(trangThaiHienTai) || "da_huy".equalsIgnoreCase(trangThaiHienTai)) {
-            throw new CommonException("Không thể phân công lại cho đợt nhặt hàng đã ở trạng thái: " + trangThaiHienTai,
+            throw new CommonException(ThongDiep.of("khoVanHanh.khongPhanCongLaiTrangThai", trangThaiHienTai),
                     HttpStatus.CONFLICT, null);
         }
 
         // Kiểm tra nhân viên được gán
         NguoiDung assignee = nguoiDungRepository.findById(request.getNguoiNhatId())
-                .orElseThrow(() -> new CommonException("Không tìm thấy nhân viên nhặt hàng ID: " + request.getNguoiNhatId()));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("khoVanHanh.nhanVienNhatKhongTimThayId", request.getNguoiNhatId())));
 
         if (assignee.getTrangThai() == null || assignee.getTrangThai() != 1) {
-            throw new CommonException(LOI_NGUOI_NHAT_NGUNG_HOAT_DONG);
+            throw new CommonException(ThongDiep.of("khoVanHanh.nguoiNhatNgungHoatDong"));
         }
 
         // Kiểm tra quyền: nếu là nhân viên kho thì chỉ được tự nhận việc (self-assign)
         boolean isQuanLy = isAdmin || (authUser.getVaiTro() != null && authUser.getVaiTro().contains(IRoleType.quan_ly_kho));
         if (!isQuanLy && !authUser.getId().equals(request.getNguoiNhatId())) {
-            throw new CommonException("Nhân viên kho chỉ có quyền tự nhận việc (Self-assignment)");
+            throw new CommonException(ThongDiep.of("khoVanHanh.nhanVienChiTuNhanViec"));
         }
         // Nhân viên kho chỉ tự nhận phiếu CHƯA có người nhặt — không nhận lại phiếu đã giao cho người khác
         if (!isQuanLy && pickList.getNguoiNhat() != null && !authUser.getId().equals(pickList.getNguoiNhat().getId())) {
-            throw new CommonException("Phiếu nhặt " + pickList.getMaPickList() + " đã được giao cho "
-                    + pickList.getNguoiNhat().getHoTen() + ". Liên hệ quản lý kho nếu cần phân công lại.",
+            throw new CommonException(ThongDiep.of("khoVanHanh.phieuNhatDaGiaoCho", pickList.getMaPickList(), pickList.getNguoiNhat().getHoTen()),
                     HttpStatus.CONFLICT, null);
         }
         kiemTraNguoiDuocGiao(assignee, pickList.getKhoXuat(), authUser);
@@ -1485,7 +1480,7 @@ public class NhatHangServiceImpl implements NhatHangService {
     @Transactional(readOnly = true)
     public List<NguoiNhatHopLeDto> getNguoiNhatHopLe(Integer pickListId) {
         DanhSachNhatHang pickList = danhSachNhatHangRepository.findById(pickListId)
-                .orElseThrow(() -> new CommonException("Không tìm thấy đợt nhặt hàng Pick List ID: " + pickListId));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("khoVanHanh.pickListKhongTimThayId", pickListId)));
         kiemTraKhoPhieuNhat(pickList);
         return phanQuyenNguoiDungKhoRepository
                 .nguoiDungTheoKhoVaVaiTroTai(pickList.getKhoXuat().getId(), VAI_TRO_NHAT_HANG, Instant.now()).stream()
@@ -1503,24 +1498,24 @@ public class NhatHangServiceImpl implements NhatHangService {
     @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_COMMITTED)
     public KetQuaQuetBarcodeDto quetBarcode(Integer pickListId, QuetBarcodeRequest request) {
         if (pickListId == null) {
-            throw new CommonException("Mã đợt nhặt hàng (Pick List ID) không được để trống");
+            throw new CommonException(ThongDiep.of("khoVanHanh.maPickListTrong"));
         }
         if (request == null || !StringUtils.hasText(request.getBarcode())) {
-            throw new CommonException("Mã barcode hoặc SKU không được để trống");
+            throw new CommonException(ThongDiep.of("khoVanHanh.maVachSkuTrong"));
         }
 
         DanhSachNhatHang pickList = danhSachNhatHangRepository.findById(pickListId)
-                .orElseThrow(() -> new CommonException("Không tìm thấy đợt nhặt hàng Pick List ID: " + pickListId));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("khoVanHanh.pickListKhongTimThayId", pickListId)));
 
         Integer contextKhoId = SecurityContextHolder.getKhoId();
         NguoiDungAuthInfo authUser = SecurityContextHolder.getUser();
         if (authUser == null) {
-            throw new CommonException("Người dùng chưa được xác thực trong hệ thống");
+            throw new CommonException(ThongDiep.of("khoVanHanh.nguoiDungChuaXacThucHeThong"));
         }
 
         boolean isAdmin = authUser.getVaiTro() != null && authUser.getVaiTro().contains(IRoleType.quan_tri_vien);
         if (!isAdmin && contextKhoId != null && !contextKhoId.equals(pickList.getKhoXuat().getId())) {
-            throw new CommonException("Bạn không có quyền quét nhặt hàng cho Pick List thuộc kho khác");
+            throw new CommonException(ThongDiep.of("khoVanHanh.khongCoQuyenQuetPickListKhoKhac"));
         }
 
         // Khóa dòng nhặt rồi phiếu nhặt và đọc lại bản mới nhất TRƯỚC khi kiểm trạng thái: quét chạy chồng với Hủy phiếu
@@ -1531,13 +1526,13 @@ public class NhatHangServiceImpl implements NhatHangService {
         // Kiểm tra State Machine
         String trangThai = pickList.getTrangThai();
         if ("da_nhat".equals(trangThai)) {
-            throw new CommonException("Đợt nhặt hàng này đã hoàn tất quá trình nhặt hàng", HttpStatus.CONFLICT, null);
+            throw new CommonException(ThongDiep.of("khoVanHanh.dotNhatDaHoanTatQuaTrinh"), HttpStatus.CONFLICT, null);
         }
         if ("da_xuat".equals(trangThai)) {
-            throw new CommonException("Đợt nhặt hàng này đã được xuất kho", HttpStatus.CONFLICT, null);
+            throw new CommonException(ThongDiep.of("khoVanHanh.dotNhatDaXuatKho"), HttpStatus.CONFLICT, null);
         }
         if ("da_huy".equals(trangThai)) {
-            throw new CommonException("Đợt nhặt hàng này đã bị hủy", HttpStatus.CONFLICT, null);
+            throw new CommonException(ThongDiep.of("khoVanHanh.dotNhatDaHuy"), HttpStatus.CONFLICT, null);
         }
 
         // Bắt buộc phân công trước khi nhặt, với MỌI vai trò: chỉ người được giao mới quét nhặt được.
@@ -1556,7 +1551,7 @@ public class NhatHangServiceImpl implements NhatHangService {
                 : BigDecimal.ONE.setScale(3, java.math.RoundingMode.HALF_UP);
 
         if (chiTiets == null || chiTiets.isEmpty()) {
-            throw new CommonException("Đợt nhặt hàng không có mặt hàng nào cần nhặt");
+            throw new CommonException(ThongDiep.of("khoVanHanh.dotNhatKhongCoMatHangCanNhat"));
         }
 
         // Tìm dòng chi tiết khớp với mã vạch hoặc SKU
@@ -1574,7 +1569,7 @@ public class NhatHangServiceImpl implements NhatHangService {
         }
 
         if (matchedItem == null) {
-            throw new CommonException("Mã vạch / SKU [" + rawBarcode + "] không thuộc danh sách mặt hàng cần nhặt của đợt này!");
+            throw new CommonException(ThongDiep.of("khoVanHanh.maKhongThuocDanhSachNhat", rawBarcode));
         }
 
         // Dòng đã khóa ở trên (chống mất cập nhật khi quét chồng hoặc webhook hủy đơn giảm số cần nhặt); nạp lại số của
@@ -1586,7 +1581,8 @@ public class NhatHangServiceImpl implements NhatHangService {
         BigDecimal required = lockedItem.getSoLuongCanNhat() != null ? lockedItem.getSoLuongCanNhat() : BigDecimal.ZERO;
 
         if (currentScanned.compareTo(required) >= 0) {
-            throw new CommonException("Mặt hàng [" + (lockedItem.getBienTheSanPham() != null ? lockedItem.getBienTheSanPham().getMaSku() : rawBarcode) + "] đã nhặt đủ số lượng yêu cầu (" + currentScanned + "/" + required + ")!");
+            throw new CommonException(ThongDiep.of("khoVanHanh.matHangDaNhatDu",
+                    (lockedItem.getBienTheSanPham() != null ? lockedItem.getBienTheSanPham().getMaSku() : rawBarcode), currentScanned, required));
         }
 
         // Phần phân bổ của dòng nằm ở kệ vừa vào kiểm kê: dừng nhặt ở kệ đó (BA 8.2), quản lý đổi kệ trong Chọn lô
@@ -1596,7 +1592,7 @@ public class NhatHangServiceImpl implements NhatHangService {
 
         BigDecimal newScanned = currentScanned.add(qtyToAdd);
         if (newScanned.compareTo(required) > 0) {
-            throw new CommonException("Số lượng quét vượt quá yêu cầu (Đã quét: " + currentScanned + ", Quét thêm: " + qtyToAdd + ", Cần nhặt: " + required + ")");
+            throw new CommonException(ThongDiep.of("khoVanHanh.quetVuotYeuCauNhat", currentScanned, qtyToAdd, required));
         }
 
         lockedItem.setSoLuongDaQuet(newScanned);
@@ -1670,8 +1666,8 @@ public class NhatHangServiceImpl implements NhatHangService {
                 .tongSoLuongConLai(totalRequired.subtract(totalScanned))
                 .phanTramHoanThanh(percent)
                 .coTheHoanTat(allFinished)
-                .thongBao("Đã quét " + hienThi(qtyToAdd) + "x " + tenSp + " [" + (bt != null ? bt.getMaSku() : rawBarcode) + "] ("
-                        + hienThi(newScanned) + "/" + hienThi(required) + ")")
+                .thongBao(ThongDiep.dich("khoVanHanh.daQuetSanPham", hienThi(qtyToAdd), tenSp, bt != null ? bt.getMaSku() : rawBarcode,
+                        hienThi(newScanned), hienThi(required)))
                 .build();
     }
 
@@ -1693,12 +1689,10 @@ public class NhatHangServiceImpl implements NhatHangService {
     private void kiemTraNguoiNhat(DanhSachNhatHang pickList, NguoiDungAuthInfo authUser) {
         NguoiDung nguoiNhat = pickList.getNguoiNhat();
         if (nguoiNhat == null) {
-            throw new CommonException("Phiếu nhặt " + pickList.getMaPickList() + " chưa được phân công. "
-                    + "Cần phân công người nhặt (hoặc bấm Nhận việc) trước khi nhặt hàng.", HttpStatus.CONFLICT, null);
+            throw new CommonException(ThongDiep.of("khoVanHanh.phieuNhatChuaPhanCongCanPhanCong", pickList.getMaPickList()), HttpStatus.CONFLICT, null);
         }
         if (!authUser.getId().equals(nguoiNhat.getId())) {
-            throw new CommonException("Phiếu nhặt " + pickList.getMaPickList() + " đang giao cho " + nguoiNhat.getHoTen()
-                    + ". Chỉ người được phân công mới nhặt được — muốn tự nhặt thì phân công lại cho mình.",
+            throw new CommonException(ThongDiep.of("khoVanHanh.phieuNhatDangGiaoChoNguoiKhac", pickList.getMaPickList(), nguoiNhat.getHoTen()),
                     HttpStatus.CONFLICT, null);
         }
     }
@@ -1709,11 +1703,11 @@ public class NhatHangServiceImpl implements NhatHangService {
      */
     private void kiemTraNguoiDuocGiao(NguoiDung nguoiNhat, Kho kho, NguoiDungAuthInfo authUser) {
         if (IRoleType.quan_tri_vien.equals(nguoiNhat.getVaiTro()) && !nguoiNhat.getId().equals(authUser.getId())) {
-            throw new CommonException(LOI_GIAO_QUAN_TRI_VIEN);
+            throw new CommonException(ThongDiep.of("khoVanHanh.khongGiaoChoQuanTriVien"));
         }
-        String lyDo = lyDoKhongNhatDuoc(nguoiNhat, kho);
+        ThongDiep lyDo = lyDoKhongNhatDuoc(nguoiNhat, kho);
         if (lyDo != null) {
-            throw new CommonException(lyDo + " nên không giao được phiếu nhặt.");
+            throw new CommonException(ThongDiep.of("khoVanHanh.khongGiaoDuocPhieuNhat", lyDo));
         }
     }
 
@@ -1721,21 +1715,22 @@ public class NhatHangServiceImpl implements NhatHangService {
      * Lý do người nhặt không nhặt được phiếu của kho {@code kho} (null = nhặt được): tài khoản đang hoạt động, là nhân viên
      * kho / quản lý kho có phân quyền hiệu lực tại kho (cùng điều kiện với token đăng nhập). Quản trị viên nhặt được ở mọi kho.
      */
-    private String lyDoKhongNhatDuoc(NguoiDung nguoiNhat, Kho kho) {
-        String ten = StringUtils.hasText(nguoiNhat.getHoTen()) ? nguoiNhat.getHoTen().trim()
+    private ThongDiep lyDoKhongNhatDuoc(NguoiDung nguoiNhat, Kho kho) {
+        Object ten = StringUtils.hasText(nguoiNhat.getHoTen()) ? nguoiNhat.getHoTen().trim()
                 : StringUtils.hasText(nguoiNhat.getTenDangNhap()) ? nguoiNhat.getTenDangNhap().trim()
-                : "Người dùng #" + nguoiNhat.getId();
+                : ThongDiep.of("khoVanHanh.nguoiDungSo", nguoiNhat.getId());
         if (!Integer.valueOf(1).equals(nguoiNhat.getTrangThai())) {
-            return "Tài khoản của " + ten + " đang tạm khóa hoặc ngưng hoạt động";
+            return ThongDiep.of("khoVanHanh.taiKhoanNguoiNhatTamKhoa", ten);
         }
         if (IRoleType.quan_tri_vien.equals(nguoiNhat.getVaiTro())) {
             return null;
         }
         if (nguoiNhat.getVaiTro() == null || !VAI_TRO_NHAT_HANG.contains(nguoiNhat.getVaiTro())) {
-            return ten + " không phải nhân viên kho hay quản lý kho";
+            return ThongDiep.of("khoVanHanh.khongPhaiNhanVienKho", ten);
         }
         if (kho == null || !phanQuyenNguoiDungKhoRepository.coHieuLucTaiKho(nguoiNhat.getId(), kho.getId(), Instant.now())) {
-            return ten + " không làm việc ở " + (kho != null && StringUtils.hasText(kho.getTenKho()) ? kho.getTenKho().trim() : "kho của phiếu");
+            return ThongDiep.of("khoVanHanh.khongLamViecOKho", ten, kho != null && StringUtils.hasText(kho.getTenKho())
+                    ? kho.getTenKho().trim() : ThongDiep.of("khoVanHanh.khoCuaPhieu"));
         }
         return null;
     }
@@ -1748,21 +1743,21 @@ public class NhatHangServiceImpl implements NhatHangService {
     @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_COMMITTED)
     public DanhSachNhatHangDto hoanTatNhatHang(Integer pickListId) {
         if (pickListId == null) {
-            throw new CommonException("Mã đợt nhặt hàng (Pick List ID) không được để trống");
+            throw new CommonException(ThongDiep.of("khoVanHanh.maPickListTrong"));
         }
 
         DanhSachNhatHang pickList = danhSachNhatHangRepository.findById(pickListId)
-                .orElseThrow(() -> new CommonException("Không tìm thấy đợt nhặt hàng Pick List ID: " + pickListId));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("khoVanHanh.pickListKhongTimThayId", pickListId)));
 
         Integer contextKhoId = SecurityContextHolder.getKhoId();
         NguoiDungAuthInfo authUser = SecurityContextHolder.getUser();
         if (authUser == null) {
-            throw new CommonException("Người dùng chưa được xác thực trong hệ thống");
+            throw new CommonException(ThongDiep.of("khoVanHanh.nguoiDungChuaXacThucHeThong"));
         }
 
         boolean isAdmin = authUser.getVaiTro() != null && authUser.getVaiTro().contains(IRoleType.quan_tri_vien);
         if (!isAdmin && contextKhoId != null && !contextKhoId.equals(pickList.getKhoXuat().getId())) {
-            throw new CommonException("Bạn không có quyền thao tác trên Pick List thuộc kho khác");
+            throw new CommonException(ThongDiep.of("khoVanHanh.khongCoQuyenThaoTacPickListKhoKhac"));
         }
 
         // Phiếu nhặt của phiếu chuyển kho: không có đơn, không tạo phiếu xuất bán, không qua đóng gói — chỉ chốt lô vào
@@ -1778,7 +1773,7 @@ public class NhatHangServiceImpl implements NhatHangService {
         kiemTraDuocHoanTat(pickList, authUser, isAdmin);
 
         if (chiTiets == null || chiTiets.isEmpty()) {
-            throw new CommonException("Đợt nhặt hàng không có mặt hàng nào để hoàn tất");
+            throw new CommonException(ThongDiep.of("khoVanHanh.dotNhatKhongCoMatHangHoanTat"));
         }
         kiemTraNhatDu(chiTiets);
 
@@ -1948,22 +1943,22 @@ public class NhatHangServiceImpl implements NhatHangService {
      */
     private static void kiemTraDuocHoanTat(DanhSachNhatHang pickList, NguoiDungAuthInfo authUser, boolean isAdmin) {
         if ("da_nhat".equals(pickList.getTrangThai())) {
-            throw new CommonException("Đợt nhặt hàng này đã hoàn tất trước đó");
+            throw new CommonException(ThongDiep.of("khoVanHanh.dotNhatDaHoanTatTruoc"));
         }
         if ("da_xuat".equals(pickList.getTrangThai())) {
-            throw new CommonException("Đợt nhặt hàng này đã được xuất kho");
+            throw new CommonException(ThongDiep.of("khoVanHanh.dotNhatDaXuatKho"));
         }
         if ("da_huy".equals(pickList.getTrangThai())) {
-            throw new CommonException("Đợt nhặt hàng này đã bị hủy");
+            throw new CommonException(ThongDiep.of("khoVanHanh.dotNhatDaHuy"));
         }
         if (pickList.getNguoiNhat() == null) {
-            throw new CommonException("Phiếu nhặt " + pickList.getMaPickList() + " chưa được phân công người nhặt.",
+            throw new CommonException(ThongDiep.of("khoVanHanh.phieuNhatChuaPhanCongNguoiNhat", pickList.getMaPickList()),
                     HttpStatus.CONFLICT, null);
         }
         boolean isQuanLy = isAdmin || (authUser.getVaiTro() != null && authUser.getVaiTro().contains(IRoleType.quan_ly_kho));
         if (!isQuanLy && !authUser.getId().equals(pickList.getNguoiNhat().getId())) {
-            throw new CommonException("Phiếu nhặt " + pickList.getMaPickList() + " đang giao cho "
-                    + pickList.getNguoiNhat().getHoTen() + ", bạn không hoàn tất được.", HttpStatus.CONFLICT, null);
+            throw new CommonException(ThongDiep.of("khoVanHanh.phieuNhatDangGiaoKhongHoanTat",
+                    pickList.getMaPickList(), pickList.getNguoiNhat().getHoTen()), HttpStatus.CONFLICT, null);
         }
     }
 
@@ -1974,7 +1969,7 @@ public class NhatHangServiceImpl implements NhatHangService {
             BigDecimal da = ctn.getSoLuongDaQuet() != null ? ctn.getSoLuongDaQuet() : BigDecimal.ZERO;
             if (da.compareTo(can) < 0) {
                 String sku = ctn.getBienTheSanPham() != null ? ctn.getBienTheSanPham().getMaSku() : "SKU";
-                throw new CommonException("Chưa nhặt đủ hàng! Mặt hàng [" + sku + "] mới nhặt " + hienThi(da) + "/" + hienThi(can));
+                throw new CommonException(ThongDiep.of("khoVanHanh.chuaNhatDu", sku, hienThi(da), hienThi(can)));
             }
         }
     }
@@ -1997,15 +1992,14 @@ public class NhatHangServiceImpl implements NhatHangService {
 
         kiemTraDuocHoanTat(pickList, authUser, isAdmin);
         if (!IChuyenKho.DA_DUYET.equals(pck.getTrangThai())) {
-            throw new CommonException("Phiếu chuyển " + pck.getSoPhieuChuyen() + " không còn chờ xuất (đã hủy hoặc đã xuất), "
-                    + "không hoàn tất nhặt được.", HttpStatus.CONFLICT, null);
+            throw new CommonException(ThongDiep.of("khoVanHanh.phieuChuyenKhongChoXuat", pck.getSoPhieuChuyen()), HttpStatus.CONFLICT, null);
         }
         if (!Integer.valueOf(ITrangThaiPhieuXuat.NHAP).equals(px.getTrangThai())) {
-            throw new CommonException("Phiếu xuất " + px.getSoPhieuXuat() + " không còn ở trạng thái Nháp, không hoàn tất nhặt được.",
+            throw new CommonException(ThongDiep.of("khoVanHanh.phieuXuatKhongConNhap", px.getSoPhieuXuat()),
                     HttpStatus.CONFLICT, null);
         }
         if (chiTiets == null || chiTiets.isEmpty()) {
-            throw new CommonException("Đợt nhặt hàng không có mặt hàng nào để hoàn tất");
+            throw new CommonException(ThongDiep.of("khoVanHanh.dotNhatKhongCoMatHangHoanTat"));
         }
         kiemTraNhatDu(chiTiets);
 
@@ -2034,14 +2028,12 @@ public class NhatHangServiceImpl implements NhatHangService {
             BienTheSanPham bt = dong.getBienTheSanPham();
             BigDecimal soPhieuXuat = soTrenPhieuXuat.get(bt.getId());
             if (soPhieuXuat == null) {
-                throw new CommonException("Phiếu xuất " + px.getSoPhieuXuat() + " không có dòng sản phẩm [" + bt.getMaSku()
-                        + "] trong khi phiếu nhặt cần nhặt " + hienThi(can) + ". Báo quản lý kho kiểm tra phiếu chuyển "
-                        + pck.getSoPhieuChuyen() + ".", HttpStatus.CONFLICT, null);
+                throw new CommonException(ThongDiep.of("khoVanHanh.phieuXuatThieuDongSanPham",
+                        px.getSoPhieuXuat(), bt.getMaSku(), hienThi(can), pck.getSoPhieuChuyen()), HttpStatus.CONFLICT, null);
             }
             if (soPhieuXuat.compareTo(can) != 0) {
-                throw new CommonException("Số cần nhặt của [" + bt.getMaSku() + "] là " + hienThi(can) + " nhưng phiếu xuất "
-                        + px.getSoPhieuXuat() + " ghi " + hienThi(soPhieuXuat)
-                        + ". Báo quản lý kho kiểm tra phiếu chuyển " + pck.getSoPhieuChuyen() + ".", HttpStatus.CONFLICT, null);
+                throw new CommonException(ThongDiep.of("khoVanHanh.soCanNhatLechPhieuXuat",
+                        bt.getMaSku(), hienThi(can), px.getSoPhieuXuat(), hienThi(soPhieuXuat), pck.getSoPhieuChuyen()), HttpStatus.CONFLICT, null);
             }
 
             // Phân bổ có thể thừa (không xảy ra với phiếu chuyển, phòng dữ liệu lệch): chỉ lấy đủ phần cần theo FIFO
@@ -2191,9 +2183,13 @@ public class NhatHangServiceImpl implements NhatHangService {
         catKeTheoMa.merge(ma, soLuong, BigDecimal::add);
     }
 
-    /** Lý do trả kệ theo loại phiếu nhặt của lệnh: phiếu chuyển kho bị hủy, hoặc đơn bán bị hủy. */
+    /**
+     * Lý do trả kệ theo loại phiếu nhặt của lệnh: phiếu chuyển kho bị hủy, hoặc đơn bán bị hủy. Hiện thẳng ở màn Hàng cần
+     * hoàn kệ nên theo ngôn ngữ của request (tin WebSocket vẫn dùng hằng tiếng Việt).
+     */
     static String lyDoHoanKe(DanhSachNhatHang pickList) {
-        return pickList != null && pickList.laChuyenKho() ? LY_DO_HOAN_KE_CHUYEN_KHO_HUY : LY_DO_HOAN_KE_DON_HUY;
+        return ThongDiep.dich(pickList != null && pickList.laChuyenKho()
+                ? "khoVanHanh.lyDoHoanKeChuyenKhoHuy" : "khoVanHanh.lyDoHoanKeDonHuy");
     }
 
     @Override
@@ -2376,14 +2372,14 @@ public class NhatHangServiceImpl implements NhatHangService {
         Integer contextKhoId = SecurityContextHolder.getKhoId();
         NguoiDungAuthInfo authUser = SecurityContextHolder.getUser();
         if (authUser == null) {
-            throw new CommonException("Người dùng chưa được xác thực");
+            throw new CommonException(ThongDiep.of("khoVanHanh.nguoiDungChuaXacThuc"));
         }
         boolean isAdmin = authUser.getVaiTro() != null && authUser.getVaiTro().contains(IRoleType.quan_tri_vien);
         if (isAdmin && khoId != null) {
             contextKhoId = khoId;
         }
         if (contextKhoId == null) {
-            throw new CommonException("Vui lòng chọn ngữ cảnh kho làm việc");
+            throw new CommonException(ThongDiep.of("khoVanHanh.chonNguCanhKho"));
         }
 
         List<CanhBao> list = canhBaoRepository.findByKhoIdAndLoaiCanhBaoAndTrangThai(contextKhoId, "HOAN_KE_CHO_CAT", 0);
@@ -2423,13 +2419,13 @@ public class NhatHangServiceImpl implements NhatHangService {
     @Transactional(rollbackFor = Exception.class)
     public void xacNhanHoanKe(Integer canhBaoId) {
         if (canhBaoId == null) {
-            throw new CommonException("Mã nhiệm vụ hoàn kệ không được để trống");
+            throw new CommonException(ThongDiep.of("khoVanHanh.maNhiemVuHoanKeTrong"));
         }
         CanhBao cb = canhBaoRepository.findById(canhBaoId)
-                .orElseThrow(() -> new CommonException("Không tìm thấy nhiệm vụ hoàn kệ ID: " + canhBaoId));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("khoVanHanh.nhiemVuHoanKeKhongTimThayId", canhBaoId)));
 
         if (!"HOAN_KE_CHO_CAT".equals(cb.getLoaiCanhBao())) {
-            throw new CommonException("Nhiệm vụ này không phải loại hoàn kệ cất hàng");
+            throw new CommonException(ThongDiep.of("khoVanHanh.khongPhaiNhiemVuHoanKe"));
         }
         // Chỉ người đang làm việc ở kho của lệnh (quản trị viên mọi kho)
         KhoDangChon.kiemTra(cb.getKho(), "Nhiệm vụ hoàn kệ");
@@ -2448,7 +2444,7 @@ public class NhatHangServiceImpl implements NhatHangService {
         // nên sự kiện cộng tồn của kho chỉ phát một lần (save() không ghi được trang_thai, xem CanhBaoRepository)
         NguoiDungAuthInfo authUser = SecurityContextHolder.getUser();
         if (canhBaoRepository.danhDauDaCatKe(cb.getId(), Instant.now(), authUser != null ? authUser.getId() : null) == 0) {
-            throw new CommonException("Nhiệm vụ hoàn kệ này đã được xác nhận cất kệ", HttpStatus.CONFLICT, null);
+            throw new CommonException(ThongDiep.of("khoVanHanh.nhiemVuHoanKeDaXacNhan"), HttpStatus.CONFLICT, null);
         }
 
         if (cb.getBienTheSanPham() != null) {

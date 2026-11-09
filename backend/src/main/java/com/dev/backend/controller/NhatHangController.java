@@ -27,6 +27,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import com.dev.backend.i18n.ThongDiep;
 
 @RestController
 @RequestMapping("/api/v1/nhat-hang")
@@ -55,8 +56,7 @@ public class NhatHangController {
                 HttpStatus.OK.value(),
                 pageResult,
                 null,
-                "Lấy danh sách đơn chờ xuất thành công"
-        ));
+                ThongDiep.dich("khoVanHanh.layDonChoXuatThanhCong")));
     }
 
     @PostMapping("/tao-pick-list")
@@ -76,8 +76,7 @@ public class NhatHangController {
                 HttpStatus.CREATED.value(),
                 pickListDto,
                 null,
-                "Tạo phiếu nhặt hàng thành công"
-        ));
+                ThongDiep.dich("khoVanHanh.taoPhieuNhatThanhCong")));
     }
 
     @GetMapping("/pick-list")
@@ -102,8 +101,7 @@ public class NhatHangController {
                 HttpStatus.OK.value(),
                 pageResult,
                 null,
-                "Lấy danh sách phiếu nhặt hàng thành công"
-        ));
+                ThongDiep.dich("khoVanHanh.layDanhSachPhieuNhatThanhCong")));
     }
 
     @GetMapping("/pick-list/{id}")
@@ -122,8 +120,7 @@ public class NhatHangController {
                 HttpStatus.OK.value(),
                 dto,
                 null,
-                "Lấy chi tiết phiếu nhặt hàng thành công"
-        ));
+                ThongDiep.dich("khoVanHanh.layChiTietPhieuNhatThanhCong")));
     }
 
     @PutMapping("/pick-list/{id}/phan-cong")
@@ -144,8 +141,7 @@ public class NhatHangController {
                 HttpStatus.OK.value(),
                 dto,
                 null,
-                "Phân công nhân viên nhặt hàng thành công"
-        ));
+                ThongDiep.dich("khoVanHanh.phanCongNhatThanhCong")));
     }
 
     @GetMapping("/pick-list/{id}/nguoi-nhat")
@@ -163,8 +159,7 @@ public class NhatHangController {
                 HttpStatus.OK.value(),
                 nhatHangService.getNguoiNhatHopLe(id),
                 null,
-                "Lấy danh sách người nhặt thành công"
-        ));
+                ThongDiep.dich("khoVanHanh.layNguoiNhatThanhCong")));
     }
 
     @PostMapping("/pick-list/{id}/quet-barcode")
@@ -185,8 +180,7 @@ public class NhatHangController {
                 HttpStatus.OK.value(),
                 result,
                 null,
-                "Quét mã vạch thành công"
-        ));
+                ThongDiep.dich("khoVanHanh.quetMaVachThanhCong")));
     }
 
     @PostMapping("/pick-list/{id}/hoan-tat")
@@ -206,8 +200,7 @@ public class NhatHangController {
                 HttpStatus.OK.value(),
                 result,
                 null,
-                "Hoàn tất đợt nhặt hàng thành công"
-        ));
+                ThongDiep.dich("khoVanHanh.hoanTatNhatThanhCong")));
     }
 
     @GetMapping("/pick-list/{id}/chi-tiet/{chiTietId}/lo-kha-dung")
@@ -226,8 +219,7 @@ public class NhatHangController {
                 HttpStatus.OK.value(),
                 nhatHangService.getLoKhaDungChoDong(id, chiTietId),
                 null,
-                "Lấy danh sách lô thành công"
-        ));
+                ThongDiep.dich("khoVanHanh.layDanhSachLoThanhCong")));
     }
 
     @PutMapping("/pick-list/{id}/chi-tiet/{chiTietId}/phan-bo-lo")
@@ -247,8 +239,7 @@ public class NhatHangController {
                 HttpStatus.OK.value(),
                 nhatHangService.luuPhanBoLo(id, chiTietId, request),
                 null,
-                "Đã lưu phân bổ lô"
-        ));
+                ThongDiep.dich("khoVanHanh.daLuuPhanBoLo")));
     }
 
     @GetMapping("/hang-can-hoan-ke")
@@ -265,8 +256,7 @@ public class NhatHangController {
                 HttpStatus.OK.value(),
                 list,
                 null,
-                "Lấy danh sách hàng cần hoàn kệ thành công"
-        ));
+                ThongDiep.dich("khoVanHanh.layHangCanHoanKeThanhCong")));
     }
 
     @PostMapping("/xac-nhan-hoan-ke/{id}")
@@ -282,8 +272,7 @@ public class NhatHangController {
                 HttpStatus.OK.value(),
                 null,
                 null,
-                "Xác nhận hoàn kệ thành công"
-        ));
+                ThongDiep.dich("khoVanHanh.xacNhanHoanKeThanhCong")));
     }
 }
 

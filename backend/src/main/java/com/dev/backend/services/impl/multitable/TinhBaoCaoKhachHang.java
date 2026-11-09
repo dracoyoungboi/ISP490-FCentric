@@ -17,6 +17,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import com.dev.backend.i18n.ThongDiep;
+import com.dev.backend.i18n.LoiThamSoException;
 
 /**
  * Phần tính của Báo cáo khách hàng, không đọc cơ sở dữ liệu: chia kỳ, đếm khách mới / quay lại theo kỳ, tính phần tổng.
@@ -63,10 +65,10 @@ public final class TinhBaoCaoKhachHang {
         List<Ky> ds = new ArrayList<>();
         switch (loai == null ? "" : loai) {
             case "ngay" -> {
-                if (tuNgay == null || denNgay == null) throw new IllegalArgumentException("Vui lòng chọn từ ngày và đến ngày");
-                if (tuNgay.isAfter(denNgay)) throw new IllegalArgumentException("Từ ngày phải trước hoặc bằng đến ngày");
+                if (tuNgay == null || denNgay == null) throw new LoiThamSoException(ThongDiep.of("khoVanHanh.chonTuNgayDenNgay"));
+                if (tuNgay.isAfter(denNgay)) throw new LoiThamSoException(ThongDiep.of("khoVanHanh.tuNgayTruocDenNgay"));
                 if (ChronoUnit.DAYS.between(tuNgay, denNgay) + 1 > SO_NGAY_TOI_DA)
-                    throw new IllegalArgumentException("Khoảng ngày tối đa 1 năm, hãy chọn khoảng ngắn hơn hoặc xem theo tháng");
+                    throw new LoiThamSoException(ThongDiep.of("khoVanHanh.khoangNgayToiDaMotNam"));
                 DateTimeFormatter f = tuNgay.getYear() == denNgay.getYear() ? NGAY_THANG : NGAY_DAY_DU;
                 for (LocalDate d = tuNgay; !d.isAfter(denNgay); d = d.plusDays(1)) ds.add(new Ky(d.format(f), d, d));
             }
@@ -85,24 +87,24 @@ public final class TinhBaoCaoKhachHang {
                 for (int m = 1; m <= 12; m++) ds.add(thang(n, m));
             }
             case "nam" -> {
-                if (tuNam == null || denNam == null) throw new IllegalArgumentException("Vui lòng chọn từ năm và đến năm");
+                if (tuNam == null || denNam == null) throw new LoiThamSoException(ThongDiep.of("khoVanHanh.chonTuNamDenNam"));
                 canNam(tuNam);
                 canNam(denNam);
-                if (tuNam > denNam) throw new IllegalArgumentException("Từ năm phải trước hoặc bằng đến năm");
+                if (tuNam > denNam) throw new LoiThamSoException(ThongDiep.of("khoVanHanh.tuNamTruocDenNam"));
                 if (denNam - tuNam + 1 > SO_NAM_TOI_DA)
-                    throw new IllegalArgumentException("Chỉ xem được tối đa " + SO_NAM_TOI_DA + " năm");
+                    throw new LoiThamSoException(ThongDiep.of("khoVanHanh.chiXemToiDaNam", SO_NAM_TOI_DA));
                 for (int y = tuNam; y <= denNam; y++)
                     ds.add(new Ky(String.valueOf(y), LocalDate.of(y, 1, 1), LocalDate.of(y, 12, 31)));
             }
             case "so_sanh" -> {
                 int n = canNam(nam);
-                if (thang == null) throw new IllegalArgumentException("Vui lòng chọn năm và tháng cần so sánh");
-                if (thang < 1 || thang > 12) throw new IllegalArgumentException("Tháng phải từ 1 đến 12");
+                if (thang == null) throw new LoiThamSoException(ThongDiep.of("khoVanHanh.chonNamThangSoSanh"));
+                if (thang < 1 || thang > 12) throw new LoiThamSoException(ThongDiep.of("khoVanHanh.thangTu1Den12"));
                 Ky dangChon = thang(n, thang);
                 ds.add(kyTruoc("so_sanh", dangChon));
                 ds.add(dangChon);
             }
-            default -> throw new IllegalArgumentException("Kiểu báo cáo không hợp lệ");
+            default -> throw new LoiThamSoException(ThongDiep.of("khoVanHanh.kieuBaoCaoKhongHopLe"));
         }
         return ds;
     }
@@ -139,8 +141,8 @@ public final class TinhBaoCaoKhachHang {
     }
 
     private static int canNam(Integer nam) {
-        if (nam == null) throw new IllegalArgumentException("Vui lòng chọn năm");
-        if (nam < NAM_NHO_NHAT || nam > NAM_LON_NHAT) throw new IllegalArgumentException("Năm không hợp lệ");
+        if (nam == null) throw new LoiThamSoException(ThongDiep.of("khoVanHanh.chonNam"));
+        if (nam < NAM_NHO_NHAT || nam > NAM_LON_NHAT) throw new LoiThamSoException(ThongDiep.of("khoVanHanh.namKhongHopLe"));
         return nam;
     }
 

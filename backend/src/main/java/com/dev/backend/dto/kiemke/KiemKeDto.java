@@ -62,7 +62,11 @@ public final class KiemKeDto {
                        Instant ngayKiemDem, long phienBan, boolean phatSinh, List<Anh> anh, List<LanDem> lanTruoc) {
     }
 
-    public record VanDe(String ma, String noiDung) {
+    /** noiDung theo ngôn ngữ request; noiDungGoc là câu tiếng Việt (giao diện nhận diện vướng mắc theo câu gốc). */
+    public record VanDe(String ma, String noiDung, String noiDungGoc) {
+        public VanDe(String ma, String noiDung) {
+            this(ma, noiDung, null);
+        }
     }
 
     /** Xem trước phạm vi (UC-STK-01): ước tính lúc xem, Bắt đầu tính lại trong giao dịch. */

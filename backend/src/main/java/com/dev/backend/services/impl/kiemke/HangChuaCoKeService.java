@@ -24,6 +24,8 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
+import com.dev.backend.i18n.NgonNgu;
+import com.dev.backend.i18n.ThongDiep;
 
 /**
  * Màn Hàng chưa có kệ: danh sách lô còn hàng chưa có kệ ở kho kèm kệ gợi ý ({@link ChonKeGoiY}) và chứng từ đưa hàng vào
@@ -215,8 +217,8 @@ public class HangChuaCoKeService {
     }
 
     private void kiemTraXemKho(Integer khoId) {
-        if (khoId == null) throw new CommonException("Chọn kho");
-        Kho kho = khoRepo.findById(khoId).orElseThrow(() -> KiemKePhamViService.phamViSai("Không tìm thấy kho"));
+        if (khoId == null) throw new CommonException(ThongDiep.of("khoVanHanh.chonKho"));
+        Kho kho = khoRepo.findById(khoId).orElseThrow(() -> KiemKePhamViService.phamViSai(ThongDiep.of("khoVanHanh.khoKhongTimThay")));
         KhoDangChon.kiemTraXem(kho, "Kho " + kho.getTenKho());
     }
 
@@ -368,9 +370,9 @@ public class HangChuaCoKeService {
      */
     public List<KiemKeDto.KetQuaXepKe> xepNhieu(Integer khoId, KiemKeYeuCau.XepNhieu yc) {
         List<KiemKeYeuCau.XepKe> ds = yc == null || yc.ds() == null ? List.of() : yc.ds();
-        if (ds.isEmpty()) throw new CommonException("Chọn ít nhất một lô để xếp kệ");
+        if (ds.isEmpty()) throw new CommonException(ThongDiep.of("khoVanHanh.chonItNhatMotLoXepKe"));
         if (ds.size() > TOI_DA_MOT_LUOT) {
-            throw new CommonException("Mỗi lượt xếp tối đa " + TOI_DA_MOT_LUOT + " phần; chia làm nhiều lượt");
+            throw new CommonException(ThongDiep.of("khoVanHanh.xepKeToiDaMoiLuot", TOI_DA_MOT_LUOT));
         }
         List<KiemKeDto.KetQuaXepKe> kq = new ArrayList<>(ds.size());
         for (KiemKeYeuCau.XepKe p : ds) {
@@ -383,17 +385,21 @@ public class HangChuaCoKeService {
     }
 
     private KiemKeDto.KetQuaXepKe xepMotPhan(Integer khoId, Integer loId, Integer keId, int sl) {
-        if (loId == null || keId == null) return new KiemKeDto.KetQuaXepKe(loId, keId, sl, false, "Thiếu lô hoặc kệ");
+        if (loId == null || keId == null) {
+            return new KiemKeDto.KetQuaXepKe(loId, keId, sl, false, ThongDiep.dich("khoVanHanh.thieuLoHoacKe"));
+        }
         // Bộ nhớ phiên dùng chung cả yêu cầu (open-in-view): bỏ thực thể của phần trước để phần này đọc lại kệ, tồn lô mới nhất
         em.clear();
         try {
             soTonKe.xepKe(khoId, loId, keId, sl);
             return new KiemKeDto.KetQuaXepKe(loId, keId, sl, true, null);
         } catch (CommonException | LoiCoMaException e) {
-            return new KiemKeDto.KetQuaXepKe(loId, keId, sl, false, e.getMessage());
+            // Lý do của từng phần hiện thẳng trên màn: câu theo ngôn ngữ của request
+            String lyDo = e.getThongDiep() != null ? e.getThongDiep().theoNgonNgu(NgonNgu.hienTai()) : e.getMessage();
+            return new KiemKeDto.KetQuaXepKe(loId, keId, sl, false, lyDo);
         } catch (RuntimeException e) {
             log.error("[XEP-KE] Kho {} lô {} kệ {}: lỗi khi xếp", khoId, loId, keId, e);
-            return new KiemKeDto.KetQuaXepKe(loId, keId, sl, false, "Chưa xếp được do lỗi hệ thống. Thử lại sau giây lát.");
+            return new KiemKeDto.KetQuaXepKe(loId, keId, sl, false, ThongDiep.dich("khoVanHanh.chuaXepDuocLoiHeThong"));
         }
     }
 }

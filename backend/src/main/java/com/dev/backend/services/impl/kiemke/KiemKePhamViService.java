@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
+import com.dev.backend.i18n.ThongDiep;
 
 /**
  * Xác định phạm vi của một đợt kiểm kê và các vướng mắc trước khi bắt đầu (đặc tả BA 4.1–4.2, UC-STK-01/02):
@@ -71,8 +72,11 @@ public class KiemKePhamViService {
         }
     }
 
-    /** Một vướng mắc: mã lỗi STK_* và câu cho người dùng. */
-    public record VanDe(String ma, String noiDung) {
+    /** Một vướng mắc: mã lỗi STK_* và câu cho người dùng (theo khóa; {@link #noiDung()} là câu tiếng Việt). */
+    public record VanDe(String ma, ThongDiep cau) {
+        public String noiDung() {
+            return cau.tiengViet();
+        }
     }
 
     /** Kết quả xác định phạm vi. {@code dong}: dòng sổ kệ sẽ chốt (sắp theo kệ rồi lô). */
@@ -97,19 +101,19 @@ public class KiemKePhamViService {
 
     // ───────────────────────────── Kiểm lựa chọn ─────────────────────────────
 
-    static LoiCoMaException phamViSai(String cau) {
+    static LoiCoMaException phamViSai(ThongDiep cau) {
         return new LoiCoMaException(HttpStatus.BAD_REQUEST, MaLoi.STK_INVALID_SCOPE, cau);
     }
 
     /** Kho vật lý đang hoạt động (BR-STK-01, BR-STK-03: kho ảo không kiểm kê). */
     public Kho khoHopLe(Integer khoId) {
-        if (khoId == null) throw phamViSai("Chọn kho cần kiểm kê");
-        Kho kho = khoRepository.findById(khoId).orElseThrow(() -> phamViSai("Không tìm thấy kho đã chọn"));
+        if (khoId == null) throw phamViSai(ThongDiep.of("khoVanHanh.chonKhoCanKiemKe"));
+        Kho kho = khoRepository.findById(khoId).orElseThrow(() -> phamViSai(ThongDiep.of("khoVanHanh.khoDaChonKhongTimThay")));
         if (IKiemKe.MA_KHO_AO.equals(kho.getMaKho())) {
-            throw phamViSai("Kho Trung Chuyển là kho ảo chứa hàng đang chuyển, không kiểm kê được");
+            throw phamViSai(ThongDiep.of("khoVanHanh.khoTrungChuyenKhongKiemKe"));
         }
         if (!Integer.valueOf(1).equals(kho.getTrangThai())) {
-            throw phamViSai("Kho " + kho.getTenKho() + " đang ngừng hoạt động");
+            throw phamViSai(ThongDiep.of("khoVanHanh.khoDangNgungHoatDong", kho.getTenKho()));
         }
         return kho;
     }
@@ -118,27 +122,27 @@ public class KiemKePhamViService {
     public void kiemTraLuaChon(Kho kho, LuaChon lc) {
         String loai = lc.loai();
         if (!List.of(IKiemKe.TOAN_BO, IKiemKe.THEO_KHU_VUC, IKiemKe.THEO_KE, IKiemKe.THEO_DANH_MUC).contains(loai)) {
-            throw phamViSai("Chọn phạm vi kiểm kê: toàn bộ kho, theo khu vực, theo kệ hoặc theo danh mục");
+            throw phamViSai(ThongDiep.of("khoVanHanh.chonPhamViKiemKeDayDu"));
         }
         if (IKiemKe.THEO_KHU_VUC.equals(loai)) {
-            if (lc.khuVucIds().isEmpty()) throw phamViSai("Chọn ít nhất một khu vực");
+            if (lc.khuVucIds().isEmpty()) throw phamViSai(ThongDiep.of("khoVanHanh.chonItNhatMotKhuVuc"));
             List<KhuVucKho> kv = khuVucKhoRepository.findAllById(lc.khuVucIds());
             if (kv.size() != lc.khuVucIds().size() || kv.stream().anyMatch(k -> k.getKho() == null || !kho.getId().equals(k.getKho().getId()))) {
-                throw phamViSai("Có khu vực không thuộc kho " + kho.getTenKho());
+                throw phamViSai(ThongDiep.of("khoVanHanh.coKhuVucKhongThuocKho", kho.getTenKho()));
             }
         }
         if (IKiemKe.THEO_KE.equals(loai)) {
-            if (lc.viTriIds().isEmpty()) throw phamViSai("Chọn ít nhất một kệ");
+            if (lc.viTriIds().isEmpty()) throw phamViSai(ThongDiep.of("khoVanHanh.chonItNhatMotKe"));
             @SuppressWarnings("unchecked")
             List<Object> khoCuaKe = em.createNativeQuery("SELECT kho_id FROM vi_tri_kho WHERE id IN (:ids)")
                     .setParameter("ids", lc.viTriIds()).getResultList();
             if (khoCuaKe.size() != lc.viTriIds().size() || khoCuaKe.stream().anyMatch(k -> ((Number) k).intValue() != kho.getId())) {
-                throw phamViSai("Có kệ không thuộc kho " + kho.getTenKho());
+                throw phamViSai(ThongDiep.of("khoVanHanh.coKeKhongThuocKho", kho.getTenKho()));
             }
         }
         if (IKiemKe.THEO_DANH_MUC.equals(loai)) {
             if (lc.danhMucId() == null || !danhMucQuanAoRepository.existsById(lc.danhMucId())) {
-                throw phamViSai("Chọn danh mục cần kiểm kê");
+                throw phamViSai(ThongDiep.of("khoVanHanh.chonDanhMucCanKiemKe"));
             }
         }
     }
@@ -162,10 +166,10 @@ public class KiemKePhamViService {
         while (!cho.isEmpty()) {
             int[] x = cho.poll();
             if (!tap.add(x[0])) {
-                throw phamViSai("Cây danh mục có vòng lặp ở danh mục id " + x[0] + ". Sửa cây danh mục rồi thử lại");
+                throw phamViSai(ThongDiep.of("khoVanHanh.cayDanhMucVongLap", x[0]));
             }
             if (x[1] > IKiemKe.DO_SAU_DANH_MUC_TOI_DA) {
-                throw phamViSai("Cây danh mục sâu quá " + IKiemKe.DO_SAU_DANH_MUC_TOI_DA + " cấp, không chốt được phạm vi");
+                throw phamViSai(ThongDiep.of("khoVanHanh.cayDanhMucQuaSau", IKiemKe.DO_SAU_DANH_MUC_TOI_DA));
             }
             for (Integer c : con.getOrDefault(x[0], List.of())) cho.add(new int[]{c, x[1] + 1});
         }
@@ -188,8 +192,8 @@ public class KiemKePhamViService {
         List<VanDe> vanDe = new ArrayList<>();
         if (IKiemKe.laKhoaToanKe(loai) && ke.isEmpty()) {
             vanDe.add(new VanDe(MaLoi.STK_INVALID_SCOPE, IKiemKe.TOAN_BO.equals(loai)
-                    ? "Kho chưa có kệ nào để kiểm kê. Khai báo vị trí kệ ở màn Vị trí kho trước"
-                    : "Phạm vi đã chọn không có kệ nào"));
+                    ? ThongDiep.of("khoVanHanh.khoChuaCoKe")
+                    : ThongDiep.of("khoVanHanh.phamViKhongCoKe")));
         }
         vanDe.addAll(keKhongKiemDuoc(ke));
         vanDe.addAll(giaoThoa(kho, loai, ke, danhMuc, dong, boQuaDotId));
@@ -258,8 +262,7 @@ public class KiemKePhamViService {
                         && !IKiemKe.KE_KHOA_KIEM_KE.equals(v.getTrangThai()))
                 .map(ViTriKho::getMaViTri).toList();
         if (baoTri.isEmpty()) return List.of();
-        return List.of(new VanDe(MaLoi.STK_INVALID_SCOPE, "Kệ đang bảo trì, không kiểm đếm được: " + gon(baoTri)
-                + ". Đưa kệ về hoạt động hoặc bỏ khỏi phạm vi"));
+        return List.of(new VanDe(MaLoi.STK_INVALID_SCOPE, ThongDiep.of("khoVanHanh.keBaoTriKhongKiemDuoc", gonTheoKhoa(baoTri))));
     }
 
     /** Ma trận giao thoa mục 4.2 với các đợt đang kiểm kê / chờ duyệt của cùng kho. */
@@ -272,19 +275,22 @@ public class KiemKePhamViService {
         Map<Integer, String> tenKe = new HashMap<>();
         ke.forEach(v -> tenKe.put(v.getId(), v.getMaViTri()));
         dong.forEach(t -> tenKe.put(t.getViTriKho().getId(), t.getViTriKho().getMaViTri()));
-        Map<Integer, Set<String>> theoDot = new TreeMap<>();
+        // Mỗi đợt: các mục giao thoa, sắp và bỏ trùng theo câu tiếng Việt như trước; giữ câu theo khóa để dịch
+        Map<Integer, Map<String, ThongDiep>> theoDot = new TreeMap<>();
+        java.util.function.BiConsumer<Integer, ThongDiep> them = (d, muc) ->
+                theoDot.computeIfAbsent(d, k -> new TreeMap<>()).putIfAbsent(muc.tiengViet(), muc);
         if (IKiemKe.TOAN_BO.equals(loai)) {
-            maDot.keySet().forEach(d -> theoDot.computeIfAbsent(d, k -> new TreeSet<>()).add("toàn kho"));
+            maDot.keySet().forEach(d -> them.accept(d, ThongDiep.of("khoVanHanh.giaoThoaToanKho")));
         } else if (tt.dotToanKho != null && maDot.containsKey(tt.dotToanKho)) {
-            theoDot.computeIfAbsent(tt.dotToanKho, k -> new TreeSet<>()).add("đợt đó kiểm toàn kho");
+            them.accept(tt.dotToanKho, ThongDiep.of("khoVanHanh.giaoThoaDotKiemToanKho"));
         } else if (IKiemKe.laKhoaToanKe(loai)) {
             for (ViTriKho v : ke) {
                 Integer d = tt.keToanKe.get(v.getId());
-                if (d != null && maDot.containsKey(d)) theoDot.computeIfAbsent(d, k -> new TreeSet<>()).add("kệ " + v.getMaViTri());
+                if (d != null && maDot.containsKey(d)) them.accept(d, ThongDiep.of("khoVanHanh.giaoThoaKe", v.getMaViTri()));
                 if (tt.keKhoaMin.contains(v.getId())) {
                     tt.capKhoaMin.forEach((cap, dot) -> {
                         if ((int) (cap >> 32) == v.getId() && maDot.containsKey(dot)) {
-                            theoDot.computeIfAbsent(dot, k -> new TreeSet<>()).add("kệ " + v.getMaViTri() + " (khóa theo danh mục)");
+                            them.accept(dot, ThongDiep.of("khoVanHanh.giaoThoaKeTheoDanhMuc", v.getMaViTri()));
                         }
                     });
                 }
@@ -292,17 +298,17 @@ public class KiemKePhamViService {
         } else {
             tt.danhMuc.forEach((dm, dot) -> {
                 if (danhMuc.contains(dm) && maDot.containsKey(dot)) {
-                    theoDot.computeIfAbsent(dot, k -> new TreeSet<>()).add("danh mục giao nhau");
+                    them.accept(dot, ThongDiep.of("khoVanHanh.giaoThoaDanhMuc"));
                 }
             });
             for (TonKhoViTri t : dong) {
                 Integer d = tt.keToanKe.get(t.getViTriKho().getId());
-                if (d != null && maDot.containsKey(d)) theoDot.computeIfAbsent(d, k -> new TreeSet<>()).add("kệ " + t.getViTriKho().getMaViTri());
+                if (d != null && maDot.containsKey(d)) them.accept(d, ThongDiep.of("khoVanHanh.giaoThoaKe", t.getViTriKho().getMaViTri()));
             }
         }
         List<VanDe> kq = new ArrayList<>();
         theoDot.forEach((dot, chiTiet) -> kq.add(new VanDe(MaLoi.STK_SCOPE_CONFLICT,
-                "Giao thoa với đợt " + maDot.get(dot) + " đang giữ khóa: " + gon(new ArrayList<>(chiTiet)))));
+                ThongDiep.of("khoVanHanh.giaoThoaVoiDot", maDot.get(dot), gonTheoKhoa(new ArrayList<>(chiTiet.values()))))));
         return kq;
     }
 
@@ -331,7 +337,7 @@ public class KiemKePhamViService {
                  WHERE ds.kho_xuat_id = :kho AND ds.trang_thai IN ('cho_nhat', 'dang_nhat')
                  ORDER BY ds.id, pb.id
                 """).setParameter("kho", kho.getId()).getResultList();
-        List<String> vuongNhat = new ArrayList<>();
+        List<ThongDiep> vuongNhat = new ArrayList<>();
         for (Object[] r : nhat) {
             Integer lo = ((Number) r[3]).intValue();
             boolean vuong;
@@ -339,11 +345,10 @@ public class KiemKePhamViService {
             else if (theoDanhMuc) vuong = loDanhMuc.contains(lo);
             else if ((r[4] != null && !((String) r[4]).isBlank()) || daChia(r[5])) vuong = keTrongPhamVi((String) r[4], keIds);
             else vuong = loTrongPhamVi.contains(lo);
-            if (vuong) vuongNhat.add(r[0] + " (lô " + r[1] + ", " + so((BigDecimal) r[2]) + " sp)");
+            if (vuong) vuongNhat.add(ThongDiep.of("khoVanHanh.mucPhieuLoSp", r[0], r[1], so((BigDecimal) r[2])));
         }
         if (!vuongNhat.isEmpty()) {
-            kq.add(new VanDe(MaLoi.STK_PENDING_PICK, "Phiếu nhặt đang mở có hàng trong phạm vi: " + gon(vuongNhat)
-                    + ". Hoàn tất hoặc hủy phiếu nhặt trước"));
+            kq.add(new VanDe(MaLoi.STK_PENDING_PICK, ThongDiep.of("khoVanHanh.vuongPhieuNhat", gonTheoKhoa(vuongNhat))));
         }
 
         // Phiếu xuất chưa xuất: hàng đã rời kệ nhưng sổ kệ còn tính. Phiếu tạo từ phiếu nhặt đã chia kệ thì xét các kệ còn
@@ -383,7 +388,7 @@ public class KiemKePhamViService {
                         .put(((Number) r[1]).intValue(), r[2] == null ? "" : (String) r[2]);
             }
         }
-        List<String> vuongXuat = new ArrayList<>();
+        List<ThongDiep> vuongXuat = new ArrayList<>();
         for (Object[] r : xuat) {
             Integer lo = ((Number) r[3]).intValue();
             Map<Integer, String> cuaPhieu = r[4] == null ? null : keChoXuat.get(((Number) r[4]).intValue());
@@ -391,11 +396,10 @@ public class KiemKePhamViService {
             if (toanKho || theoDanhMuc) vuong = toanKho || loTrongPhamVi.contains(lo) || loDanhMuc.contains(lo);
             else if (cuaPhieu != null && cuaPhieu.containsKey(lo)) vuong = keTrongPhamVi(cuaPhieu.get(lo), keIds);
             else vuong = loTrongPhamVi.contains(lo);
-            if (vuong) vuongXuat.add(r[0] + " (lô " + r[1] + ", " + so((BigDecimal) r[2]) + " sp)");
+            if (vuong) vuongXuat.add(ThongDiep.of("khoVanHanh.mucPhieuLoSp", r[0], r[1], so((BigDecimal) r[2])));
         }
         if (!vuongXuat.isEmpty()) {
-            kq.add(new VanDe(MaLoi.STK_PENDING_PICK, "Phiếu xuất đã nhặt hàng nhưng chưa xuất kho: " + gon(vuongXuat)
-                    + ". Xuất kho hoặc hủy phiếu trước"));
+            kq.add(new VanDe(MaLoi.STK_PENDING_PICK, ThongDiep.of("khoVanHanh.vuongPhieuXuat", gonTheoKhoa(vuongXuat))));
         }
 
         // Hàng chờ hoàn kệ (đơn hủy sau khi đã nhặt): hàng đã rời kệ nhưng sổ kệ vẫn tính, đếm lúc này sẽ ra thiếu giả
@@ -404,16 +408,15 @@ public class KiemKePhamViService {
                 SELECT l.ma_lo, cb.so_luong_hien_tai, cb.lo_hang_id FROM canh_bao cb JOIN lo_hang l ON l.id = cb.lo_hang_id
                  WHERE cb.kho_id = :kho AND cb.loai_canh_bao = 'HOAN_KE_CHO_CAT' AND cb.trang_thai = 0
                 """).setParameter("kho", kho.getId()).getResultList();
-        List<String> vuongHoanKe = new ArrayList<>();
+        List<ThongDiep> vuongHoanKe = new ArrayList<>();
         for (Object[] r : hoanKe) {
             Integer lo = ((Number) r[2]).intValue();
             if (toanKho || loTrongPhamVi.contains(lo) || loDanhMuc.contains(lo)) {
-                vuongHoanKe.add("lô " + r[0] + " (" + so((BigDecimal) r[1]) + " sp)");
+                vuongHoanKe.add(ThongDiep.of("khoVanHanh.mucLoSp", r[0], so((BigDecimal) r[1])));
             }
         }
         if (!vuongHoanKe.isEmpty()) {
-            kq.add(new VanDe(MaLoi.STK_PENDING_PICK, "Còn hàng chờ hoàn kệ trong phạm vi: " + gon(vuongHoanKe)
-                    + ". Cất hàng về kệ và xác nhận hoàn kệ trước"));
+            kq.add(new VanDe(MaLoi.STK_PENDING_PICK, ThongDiep.of("khoVanHanh.vuongHoanKe", gonTheoKhoa(vuongHoanKe))));
         }
 
         // Chỉ giao dịch còn có thể giữ hàng: chờ khách trả (PENDING) hoặc tiền về lỗi chờ quản lý xử lý (PAID_ERROR).
@@ -453,8 +456,7 @@ public class KiemKePhamViService {
                 if (vuong) vuongQr.add("QR " + ma);
             });
             if (!vuongQr.isEmpty()) {
-                kq.add(new VanDe(MaLoi.STK_PENDING_PICK, "Đơn bán tại quầy đang chờ khách chuyển khoản giữ hàng trong phạm vi: "
-                        + gon(vuongQr) + ". Chờ khách trả xong hoặc hủy QR ở màn Bán hàng trước"));
+                kq.add(new VanDe(MaLoi.STK_PENDING_PICK, ThongDiep.of("khoVanHanh.vuongQrPos", gonTheoKhoa(vuongQr))));
             }
         }
         return kq;
@@ -477,17 +479,16 @@ public class KiemKePhamViService {
                      WHERE k.kho_id = :kho AND k.so_luong_ton >= 1
                      ORDER BY l.ma_lo
                     """).setParameter("kho", kho.getId()).getResultList();
-            List<String> chua = new ArrayList<>();
+            List<ThongDiep> chua = new ArrayList<>();
             for (Object[] r : rows) {
                 Integer lo = ((Number) r[0]).intValue();
                 if (loXet != null && !loXet.contains(lo)) continue;
                 long ton = ((Number) r[2]).longValue();
                 long trenKe = ((Number) r[3]).longValue();
-                if (ton > trenKe) chua.add(r[1] + " (" + (ton - trenKe) + " sp)");
+                if (ton > trenKe) chua.add(ThongDiep.of("khoVanHanh.mucMaSp", r[1], ton - trenKe));
             }
             if (!chua.isEmpty()) {
-                kq.add(new VanDe(MaLoi.STK_INVALID_SCOPE, "Còn hàng chưa có kệ trong phạm vi: " + gon(chua)
-                        + ". Xếp các lô này lên kệ (Kho hàng › Hàng chưa có kệ) rồi bắt đầu lại"));
+                kq.add(new VanDe(MaLoi.STK_INVALID_SCOPE, ThongDiep.of("khoVanHanh.conHangChuaCoKe", gonTheoKhoa(chua))));
             }
         }
         if (!loTrongPhamVi.isEmpty()) {
@@ -501,8 +502,7 @@ public class KiemKePhamViService {
                     """).setParameter("kho", kho.getId()).setParameter("lo", loTrongPhamVi).getResultList();
             if (!lech.isEmpty()) {
                 List<String> ma = lech.stream().map(String::valueOf).toList();
-                kq.add(new VanDe(MaLoi.STK_INVALID_SCOPE, "Số trên kệ của lô lớn hơn tồn lô: " + gon(ma)
-                        + ". Báo quản trị viên chạy đối soát sổ kệ trước khi kiểm kê"));
+                kq.add(new VanDe(MaLoi.STK_INVALID_SCOPE, ThongDiep.of("khoVanHanh.soTrenKeLonHonTonLo", gonTheoKhoa(ma))));
             }
         }
         return kq;
@@ -525,6 +525,23 @@ public class KiemKePhamViService {
     static String gon(List<String> ds) {
         if (ds.size() <= TOI_DA_CHI_TIET) return String.join(", ", ds);
         return String.join(", ", ds.subList(0, TOI_DA_CHI_TIET)) + " và " + (ds.size() - TOI_DA_CHI_TIET) + " mục khác";
+    }
+
+    /**
+     * Như {@link #gon} cho câu trả về giao diện: mục là chuỗi (mã kệ, mã lô) hoặc {@link ThongDiep}; kết quả dịch được
+     * theo ngôn ngữ request, câu tiếng Việt giống hệt {@link #gon}.
+     */
+    static Object gonTheoKhoa(List<?> ds) {
+        if (ds.size() <= TOI_DA_CHI_TIET) return ghep(ds);
+        return ThongDiep.of("khoVanHanh.vaMucKhac", ghep(ds.subList(0, TOI_DA_CHI_TIET)), ds.size() - TOI_DA_CHI_TIET);
+    }
+
+    /** Nối các mục bằng ", " như String.join, mục có thể là {@link ThongDiep}. Danh sách rỗng: chuỗi rỗng. */
+    static Object ghep(List<?> ds) {
+        if (ds.isEmpty()) return "";
+        Object kq = ds.get(0);
+        for (int i = 1; i < ds.size(); i++) kq = ThongDiep.of("khoVanHanh.ghepPhay", kq, ds.get(i));
+        return kq;
     }
 
     static String so(BigDecimal v) {

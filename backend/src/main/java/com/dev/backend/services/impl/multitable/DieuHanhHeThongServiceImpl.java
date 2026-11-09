@@ -42,6 +42,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
+import com.dev.backend.i18n.ThongDiep;
 
 @Service
 @Slf4j
@@ -89,13 +90,13 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
         Optional<NguoiDung> findingCurrentUser = nguoiDungService.getOne(contextUser.getId());
 
         if (findingCurrentUser.isEmpty()) {
-            throw new CommonException("Context không được khởi tạo hoặc đã bị xoá");
+            throw new CommonException(ThongDiep.of("khoVanHanh.contextChuaKhoiTao"));
         }
 
         // lấy ra id user cần gán quyền
         Optional<NguoiDung> findingNguoiDung = nguoiDungService.getOne(pqndkCreating.getNguoiDungId());
         if (findingNguoiDung.isEmpty()) {
-            throw new CommonException("Không tìm thấy người dùng id: " + pqndkCreating.getNguoiDungId());
+            throw new CommonException(ThongDiep.of("khoVanHanh.nguoiDungKhongTimThayId", pqndkCreating.getNguoiDungId()));
         }
 
         //lấy thông tin người dùng mà admin đang sửa(tk đang bị sửa)
@@ -116,7 +117,7 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
         // lấy id kho. Xem admin đang muốn gán kho nào
         Optional<Kho> findingKho = khoService.getOne(pqndkCreating.getKhoId());
         if (findingKho.isEmpty()) {
-            throw new CommonException("Không tìm thấy kho id: " + pqndkCreating.getKhoId());
+            throw new CommonException(ThongDiep.of("khoVanHanh.khoKhongTimThayId", pqndkCreating.getKhoId()));
         }
 
         // Quy định nghiệp vụ: mỗi người dùng chỉ được có TỐI ĐA 1 phân quyền kho đang hoạt động.
@@ -130,8 +131,7 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
                             && Objects.equals(pq.getKho().getId(), pqndkCreating.getKhoId()));
             if (!allSameKho) {
                 throw new CommonException(
-                        "Người dùng đang có phân quyền kho đang hoạt động tại kho khác. "
-                                + "Hãy xóa phân quyền kho hiện tại trước khi phân kho mới.");
+                        ThongDiep.of("khoVanHanh.nguoiDungDaCoPhanQuyenKhoKhac"));
             }
         }
 
@@ -425,7 +425,7 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
     @Transactional
     public CauHinhHeThongDto updateCauHinh(String maCauHinh, CauHinhHeThongUpdateRequest request, Integer userId) {
         CauHinhHeThong entity = cauHinhRepository.findById(maCauHinh)
-                .orElseThrow(() -> new CommonException("Không tìm thấy cấu hình với mã: " + maCauHinh));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("khoVanHanh.cauHinhKhongTimThayMa", maCauHinh)));
 
         // Validate kiểu dữ liệu trước khi lưu
         validateDataType(request.getGiaTri(), entity.getKieuDuLieu(), maCauHinh);
@@ -500,9 +500,9 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
         for (int i = 0; i < requests.size(); i++) {
             CauHinhHeThongBulkUpdateRequest req = requests.get(i);
             CauHinhHeThong entity = cauHinhRepository.findById(req.getMaCauHinh())
-                    .orElseThrow(() -> new CommonException("Không tìm thấy cấu hình: " + req.getMaCauHinh()));
+                    .orElseThrow(() -> new CommonException(ThongDiep.of("khoVanHanh.cauHinhKhongTimThay", req.getMaCauHinh())));
             if ((req.getGiaTri() == null || req.getGiaTri().isBlank()) && !CAU_HINH_DUOC_DE_TRONG.contains(req.getMaCauHinh())) {
-                throw new CommonException("Giá trị cấu hình không được để trống");
+                throw new CommonException(ThongDiep.of("khoVanHanh.giaTriCauHinhTrong"));
             }
 
             validateDataType(req.getGiaTri(), entity.getKieuDuLieu(), req.getMaCauHinh());
@@ -556,59 +556,59 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
         if (CAU_HINH_DEFAULT_MIN_STOCK_ALERT.equals(maCauHinh)) {
             int val = Integer.parseInt(giaTri);
             if (val < 0 || val > 100_000) {
-                throw new CommonException("Ngưỡng cảnh báo tồn kho tối thiểu phải từ 0 đến 100,000 đơn vị");
+                throw new CommonException(ThongDiep.of("khoVanHanh.nguongCanhBaoTonKhongHopLe"));
             }
         } else if (CAU_HINH_OMNI_SYNC_INTERVAL_MINS.equals(maCauHinh)) {
             int val = Integer.parseInt(giaTri);
             if (val < 1 || val > 1440) {
-                throw new CommonException("Chu kỳ đồng bộ đơn hàng đa kênh phải từ 1 đến 1440 phút (tối đa 24 giờ)");
+                throw new CommonException(ThongDiep.of("khoVanHanh.chuKyDongBoKhongHopLe"));
             }
         } else if (CAU_HINH_REALTIME_SYNC_THRESHOLD.equals(maCauHinh)) {
             int val = Integer.parseInt(giaTri);
             if (val < 0 || val > 100) {
-                throw new CommonException("Ngưỡng chuyển sang đồng bộ tức thời phải từ 0 đến 100 đơn vị");
+                throw new CommonException(ThongDiep.of("khoVanHanh.nguongDongBoTucThoiKhongHopLe"));
             }
         } else if (CAU_HINH_MA_KHACH_HANG_TIEN_TO.equals(maCauHinh)) {
             if (giaTri == null || !TIEN_TO_MA_PATTERN.matcher(giaTri).matches()) {
-                throw new CommonException("Tiền tố mã khách hàng gồm 1–10 ký tự: chữ in hoa không dấu, số hoặc . _ -");
+                throw new CommonException(ThongDiep.of("khoVanHanh.tienToMaKhachKhongHopLe"));
             }
         } else if (CAU_HINH_MA_LO_TIEN_TO.equals(maCauHinh)) {
             if (giaTri == null || !TIEN_TO_MA_PATTERN.matcher(giaTri).matches()) {
-                throw new CommonException("Tiền tố mã lô gồm 1–10 ký tự: chữ in hoa không dấu, số hoặc . _ -");
+                throw new CommonException(ThongDiep.of("khoVanHanh.tienToMaLoKhongHopLe"));
             }
             // Mã lô gợi ý = tiền tố + "-" + số phiếu; mã lô chứa FC- bị chặn (dạng thẻ lệnh kiểm đếm): tiền tố kết thúc
             // bằng FC hoặc có FC- sẽ làm mọi mã lô gợi ý bị từ chối
             if (laTienToMaLoTrungTheLenh(giaTri)) {
-                throw new CommonException("Tiền tố mã lô không được kết thúc bằng FC hoặc chứa FC- (dạng thẻ lệnh kiểm đếm FC-…)");
+                throw new CommonException(ThongDiep.of("khoVanHanh.tienToMaLoTrungFc"));
             }
         } else if (CAU_HINH_KIEM_DEM_XAC_NHAN.equals(maCauHinh)) {
             if (!KIEM_DEM_QUET_TIEP_LA_DAT.equals(giaTri) && !KIEM_DEM_QUET_THE_TUNG_CAI.equals(giaTri)) {
-                throw new CommonException("Cách xác nhận chất lượng khi kiểm đếm không hợp lệ. Chọn \"Quét tiếp là Đạt\" hoặc \"Quét thẻ cho từng cái\".");
+                throw new CommonException(ThongDiep.of("khoVanHanh.cachXacNhanKiemDemKhongHopLe"));
             }
         } else if (CAU_HINH_MA_VACH_TIEN_TO.equals(maCauHinh)) {
             if (!MaVachSku.laTienToHopLe(giaTri)) {
-                throw new CommonException("Tiền tố mã vạch gồm đúng 2 chữ số (nên dùng 20–29, vùng dành cho mã nội bộ)");
+                throw new CommonException(ThongDiep.of("khoVanHanh.tienToMaVachKhongHopLe"));
             }
         } else if (CAU_HINH_TEM_KHO_MAC_DINH.equals(maCauHinh)) {
             if (giaTri == null || !TEM_KHO_HOP_LE.contains(giaTri)) {
-                throw new CommonException("Khổ tem không hợp lệ. Chọn tem 35 × 22 mm hoặc 50 × 30 mm.");
+                throw new CommonException(ThongDiep.of("khoVanHanh.khoTemKhongHopLe"));
             }
         } else if (CAU_HINH_TEM_NGUONG_XAC_NHAN.equals(maCauHinh)) {
             int val = Integer.parseInt(giaTri);
             if (val < 1 || val > TEM_NGUONG_XAC_NHAN_TOI_DA) {
-                throw new CommonException("Ngưỡng hỏi xác nhận khi in tem phải từ 1 đến 9.999 tem");
+                throw new CommonException(ThongDiep.of("khoVanHanh.nguongXacNhanInTemKhongHopLe"));
             }
         } else if (CAU_HINH_XKNB_KY_HIEU.equals(maCauHinh)) {
             if (giaTri != null && !giaTri.isEmpty() && !XKNB_KY_HIEU_PATTERN.matcher(giaTri).matches()) {
-                throw new CommonException("Ký hiệu phiếu XKNB gồm 7 ký tự, ví dụ 6K26NAB: 6, C hoặc K, 2 số năm, N, 2 ký tự công ty tự đặt");
+                throw new CommonException(ThongDiep.of("khoVanHanh.kyHieuXknbKhongHopLe"));
             }
         } else if (CAU_HINH_XKNB_CHE_DO.equals(maCauHinh)) {
             if (!IChuyenKho.XKNB_CHAN.equals(giaTri) && !IChuyenKho.XKNB_CHI_CANH_BAO.equals(giaTri)) {
-                throw new CommonException("Chọn \"Chặn xuất\" hoặc \"Chỉ cảnh báo\" cho trường hợp chưa có số phiếu XKNB");
+                throw new CommonException(ThongDiep.of("khoVanHanh.cheDoXknbKhongHopLe"));
             }
         } else if (CAU_HINH_CHUYEN_KHO_QUYEN_XU_LY_LECH.equals(maCauHinh)) {
             if (giaTri == null || !IChuyenKho.QUYEN_XU_LY_LECH.contains(giaTri)) {
-                throw new CommonException("Người xử lý chênh lệch không hợp lệ. Chọn \"Quản lý Kho tổng\", \"Thêm quản lý kho xuất\" hoặc \"Chỉ Quản trị viên\".");
+                throw new CommonException(ThongDiep.of("khoVanHanh.nguoiXuLyChenhLechKhongHopLe"));
             }
         }
     }
@@ -633,7 +633,7 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
                     break; // Chuỗi thì luôn hợp lệ
             }
         } catch (Exception e) {
-            throw new CommonException("Giá trị '" + giaTri + "' không hợp lệ cho cấu hình " + maCauHinh + " (Yêu cầu định dạng: " + type.name() + ")");
+            throw new CommonException(ThongDiep.of("khoVanHanh.giaTriCauHinhSaiDinhDang", giaTri, maCauHinh, type.name()));
         }
     }
     @Override

@@ -21,6 +21,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.List;
+import com.dev.backend.i18n.ThongDiep;
+import com.dev.backend.i18n.LoiThamSoException;
 
 @RestController
 @RequestMapping("/api/v1/admin/dashboard")
@@ -55,7 +57,7 @@ public class AdminDashboardController {
                 ResponseData.<AdminDashboardResponse>builder()
                         .status(HttpStatus.OK.value())
                         .data(adminDashboardService.getDashboard())
-                        .message("Lấy dashboard admin thành công")
+                        .message(ThongDiep.dich("khoVanHanh.layDashboardAdminThanhCong"))
                         .error(null)
                         .build()
         );
@@ -81,7 +83,7 @@ public class AdminDashboardController {
                 ResponseData.<TongQuanAdminResponse>builder()
                         .status(HttpStatus.OK.value())
                         .data(tongQuanAdminService.layTongQuan(ky, khoId, lamMoi))
-                        .message("Lấy tổng quan thành công")
+                        .message(ThongDiep.dich("khoVanHanh.layTongQuanThanhCong"))
                         .error(null)
                         .build()
         );
@@ -103,37 +105,37 @@ public class AdminDashboardController {
 
             case "ngay" -> {
                 if (tuNgay == null || denNgay == null)
-                    throw new IllegalArgumentException("Vui lòng chọn từ ngày và đến ngày");
+                    throw new LoiThamSoException(ThongDiep.of("khoVanHanh.chonTuNgayDenNgay"));
                 yield doanhThuReportService.layBaoCaoTheoNgay(
                         LocalDate.parse(tuNgay), LocalDate.parse(denNgay), khoId);
             }
 
             case "tuan" -> {
                 if (nam == null)
-                    throw new IllegalArgumentException("Vui lòng chọn năm");
+                    throw new LoiThamSoException(ThongDiep.of("khoVanHanh.chonNam"));
                 yield doanhThuReportService.layBaoCaoTheoTuan(nam, khoId);
             }
 
             case "thang" -> {
                 if (nam == null)
-                    throw new IllegalArgumentException("Vui lòng chọn năm");
+                    throw new LoiThamSoException(ThongDiep.of("khoVanHanh.chonNam"));
                 yield doanhThuReportService.layBaoCaoTheoThang(nam, khoId);
             }
 
             case "nam" -> {
                 if (tuNam == null || denNam == null)
-                    throw new IllegalArgumentException("Vui lòng chọn từ năm và đến năm");
+                    throw new LoiThamSoException(ThongDiep.of("khoVanHanh.chonTuNamDenNam"));
                 yield doanhThuReportService.layBaoCaoTheoNam(tuNam, denNam, khoId);
             }
 
             case "so_sanh" -> {
                 if (nam == null || thang == null)
-                    throw new IllegalArgumentException("Vui lòng chọn năm và tháng cần so sánh");
+                    throw new LoiThamSoException(ThongDiep.of("khoVanHanh.chonNamThangSoSanh"));
                 yield doanhThuReportService.laySoSanhCungKy(nam, thang, khoId);
             }
 
-            default -> throw new IllegalArgumentException(
-                    "Kiểu báo cáo không hợp lệ");
+            default -> throw new LoiThamSoException(
+                    ThongDiep.of("khoVanHanh.kieuBaoCaoKhongHopLe"));
         };
 
         return ResponseEntity.ok(

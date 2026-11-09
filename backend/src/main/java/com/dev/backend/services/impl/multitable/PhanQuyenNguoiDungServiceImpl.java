@@ -67,6 +67,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import com.dev.backend.i18n.ThongDiep;
 
 /**
  * Phân quyền người dùng theo hai lớp của hệ thống:
@@ -156,7 +157,7 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
             return;
         }
         if (khoId == null) {
-            throw new CommonException("Vui lòng chọn nơi làm việc");
+            throw new CommonException(ThongDiep.of("khoVanHanh.chonNoiLamViec"));
         }
         // Như chọn kho lần đầu trong ngăn kéo: điền sẵn mẫu quyền của vai trò (vai trò chưa có mẫu thì chưa có quyền nào).
         // Không báo "quyền đã đổi" cho tài khoản chưa đăng nhập lần nào (câu "đăng nhập lại" sai ngữ cảnh).
@@ -167,19 +168,19 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
     /** {@code baoNguoiDung}: gửi thông báo "Quyền của bạn vừa thay đổi" cho người được phân quyền. */
     private void luuPhanQuyen(Integer nguoiDungId, LuuPhanQuyenRequest request, boolean baoNguoiDung) {
         if (nguoiDungId == null || request == null) {
-            throw new CommonException("Thông tin phân quyền không hợp lệ");
+            throw new CommonException(ThongDiep.of("khoVanHanh.thongTinPhanQuyenKhongHopLe"));
         }
         NguoiDung nguoiThucHien = nguoiDangDangNhap();
         NguoiDung nguoiDung = nguoiDungRepository.findById(nguoiDungId)
-                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy người dùng"));
+                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("khoVanHanh.nguoiDungKhongTimThay")));
 
         String vaiTroMoi = request.getVaiTro() == null ? "" : request.getVaiTro().trim();
         if (!IRoleType.laNoiBo(vaiTroMoi)) {
-            throw new CommonException("Vai trò không hợp lệ");
+            throw new CommonException(ThongDiep.of("khoVanHanh.vaiTroKhongHopLe"));
         }
         String vaiTroCu = nguoiDung.getVaiTro();
         if (nguoiDung.getId().equals(nguoiThucHien.getId()) && !vaiTroMoi.equals(vaiTroCu)) {
-            throw new CommonException("Bạn không thể tự đổi vai trò của chính mình");
+            throw new CommonException(ThongDiep.of("khoVanHanh.khongTuDoiVaiTro"));
         }
 
         Instant bayGio = clock.instant();
@@ -203,10 +204,10 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
             }
         } else if (request.getKhoId() == null) {
             if (!dangCo.isEmpty()) {
-                throw new CommonException("Hãy chọn kho phụ trách");
+                throw new CommonException(ThongDiep.of("khoVanHanh.chonKhoPhuTrach"));
             }
             if (!quyenMoi.isEmpty()) {
-                throw new CommonException("Hãy chọn kho phụ trách trước khi cấp quyền");
+                throw new CommonException(ThongDiep.of("khoVanHanh.chonKhoPhuTrachTruocKhiCapQuyen"));
             }
         } else {
             pqSau = datKhoVaQuyen(nguoiDung, request, quyenMoi, dangCo, nguoiThucHien, vaiTroMoi, bayGio);
@@ -235,21 +236,21 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
                                                Map<Integer, QuyenHan> quyenMoi, List<PhanQuyenNguoiDungKho> dangCo,
                                                NguoiDung nguoiThucHien, String vaiTroMoi, Instant bayGio) {
         Kho kho = khoRepository.findById(request.getKhoId())
-                .orElseThrow(() -> new CommonException("Không tìm thấy kho"));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("khoVanHanh.khoKhongTimThay")));
         PhanQuyenNguoiDungKho pq = dangCo.stream()
                 .filter(p -> p.getKho() != null && kho.getId().equals(p.getKho().getId()))
                 .findFirst().orElse(null);
         if (pq == null && !Integer.valueOf(1).equals(kho.getTrangThai())) {
-            throw new CommonException("Kho " + kho.getTenKho() + " đang ngừng hoạt động, không phân người được");
+            throw new CommonException(ThongDiep.of("khoVanHanh.khoNgungHoatDongKhongPhanNguoi", kho.getTenKho()));
         }
         if (pq == null && MA_KHO_AO.equals(kho.getMaKho())) {
-            throw new CommonException("Kho ảo chỉ chứa hàng đang chuyển giữa các kho, không phân người được");
+            throw new CommonException(ThongDiep.of("khoVanHanh.khoAoKhongPhanNguoi"));
         }
         // CSDL lưu tới giây: bỏ phần lẻ để lần lưu sau so sánh không bị lệch
         Instant ngayKetThuc = request.getNgayKetThuc() == null ? null
                 : request.getNgayKetThuc().truncatedTo(ChronoUnit.SECONDS);
         if (ngayKetThuc != null && !ngayKetThuc.isAfter(bayGio)) {
-            throw new CommonException("Ngày hết hiệu lực phải sau thời điểm hiện tại");
+            throw new CommonException(ThongDiep.of("khoVanHanh.ngayHetHieuLucPhaiSau"));
         }
 
         // Tối đa một kho đang hiệu lực: đổi kho thì thu hồi kho cũ trong cùng lần lưu
@@ -369,7 +370,7 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
         for (Integer id : duyNhat) {
             QuyenHan quyen = tonTai.get(id);
             if (quyen == null) {
-                throw new CommonException("Quyền không tồn tại: " + id);
+                throw new CommonException(ThongDiep.of("khoVanHanh.quyenKhongTonTai", id));
             }
             ketQua.put(id, quyen);
         }
@@ -458,10 +459,10 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
     @Transactional
     public void doiVaiTro(Integer nguoiDungId, String vaiTro) {
         if (nguoiDungId == null) {
-            throw new CommonException("Thông tin gán vai trò không hợp lệ");
+            throw new CommonException(ThongDiep.of("khoVanHanh.thongTinGanVaiTroKhongHopLe"));
         }
         nguoiDungRepository.findById(nguoiDungId)
-                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy người dùng"));
+                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("khoVanHanh.nguoiDungKhongTimThay")));
         String vaiTroMoi = vaiTro == null ? "" : vaiTro.trim();
         PhanQuyenNguoiDungKho pq = phanQuyenNguoiDungKhoRepository
                 .findGiuChoByNguoiDungId(nguoiDungId, clock.instant()).stream().findFirst().orElse(null);
@@ -486,44 +487,44 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
     @Transactional(readOnly = true)
     public void kiemTraGanQuyenCu(Integer khoIdDangChon, PhanQuyenNguoiDungKhoCreating request) {
         if (request == null || request.getNguoiDungId() == null || request.getKhoId() == null) {
-            throw new CommonException("Thông tin phân quyền không hợp lệ");
+            throw new CommonException(ThongDiep.of("khoVanHanh.thongTinPhanQuyenKhongHopLe"));
         }
         NguoiDung nguoiThucHien = nguoiDangDangNhap();
         NguoiDung nguoiDung = nguoiDungRepository.findById(request.getNguoiDungId())
-                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy người dùng"));
+                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("khoVanHanh.nguoiDungKhongTimThay")));
         Kho kho = khoRepository.findById(request.getKhoId())
-                .orElseThrow(() -> new CommonException("Không tìm thấy kho"));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("khoVanHanh.khoKhongTimThay")));
         Instant bayGio = clock.instant();
 
         if (!lamViecTheoKho(nguoiDung.getVaiTro())) {
-            throw new CommonException("Chỉ phân kho cho quản lý kho và nhân viên");
+            throw new CommonException(ThongDiep.of("khoVanHanh.chiPhanKhoChoQuanLyVaNhanVien"));
         }
         List<PhanQuyenNguoiDungKho> giuCho = phanQuyenNguoiDungKhoRepository.findGiuChoByNguoiDungId(nguoiDung.getId(), bayGio);
         boolean daOKhoNay = giuCho.stream().anyMatch(p -> p.getKho() != null && kho.getId().equals(p.getKho().getId()));
         if (!daOKhoNay && !Integer.valueOf(1).equals(kho.getTrangThai())) {
-            throw new CommonException("Kho " + kho.getTenKho() + " đang ngừng hoạt động, không phân người được");
+            throw new CommonException(ThongDiep.of("khoVanHanh.khoNgungHoatDongKhongPhanNguoi", kho.getTenKho()));
         }
         if (!daOKhoNay && MA_KHO_AO.equals(kho.getMaKho())) {
-            throw new CommonException("Kho ảo chỉ chứa hàng đang chuyển giữa các kho, không phân người được");
+            throw new CommonException(ThongDiep.of("khoVanHanh.khoAoKhongPhanNguoi"));
         }
         if (request.getNgayKetThuc() != null && !request.getNgayKetThuc().isAfter(bayGio)) {
-            throw new CommonException("Ngày hết hiệu lực phải sau thời điểm hiện tại");
+            throw new CommonException(ThongDiep.of("khoVanHanh.ngayHetHieuLucPhaiSau"));
         }
         if (IRoleType.quan_tri_vien.equals(nguoiThucHien.getVaiTro())) {
             return;
         }
 
         if (!kho.getId().equals(khoIdDangChon)) {
-            throw new CommonException("Bạn chỉ phân quyền được trong kho đang chọn");
+            throw new CommonException(ThongDiep.of("khoVanHanh.chiPhanQuyenTrongKhoDangChon"));
         }
         if (nguoiDung.getId().equals(nguoiThucHien.getId())) {
-            throw new CommonException("Bạn không thể tự cấp quyền cho chính mình");
+            throw new CommonException(ThongDiep.of("khoVanHanh.khongTuCapQuyen"));
         }
         if (!VAI_TRO_NHAN_VIEN.contains(nguoiDung.getVaiTro())) {
-            throw new CommonException("Quản lý kho chỉ phân quyền được cho nhân viên");
+            throw new CommonException(ThongDiep.of("khoVanHanh.quanLyKhoChiPhanQuyenNhanVien"));
         }
         if (Integer.valueOf(1).equals(request.getLaQuanLyKho())) {
-            throw new CommonException("Chỉ quản trị viên được đặt quản lý kho");
+            throw new CommonException(ThongDiep.of("khoVanHanh.chiQuanTriDatQuanLyKho"));
         }
         Set<String> quyenCuaToi = phanQuyenNguoiDungKhoRepository.findHieuLucTai(nguoiThucHien.getId(), bayGio).stream()
                 .filter(p -> p.getKho() != null && kho.getId().equals(p.getKho().getId()))
@@ -537,7 +538,7 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
                 .toList();
         for (QuyenHan quyen : layQuyenHopLe(idCap).values()) {
             if (!quyenCuaToi.contains(quyen.getMaQuyen())) {
-                throw new CommonException("Bạn không thể cấp quyền mà chính bạn không có: " + quyen.getTenQuyen());
+                throw new CommonException(ThongDiep.of("khoVanHanh.khongCapQuyenMinhKhongCo", quyen.getTenQuyen()));
             }
         }
     }
@@ -553,18 +554,18 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
         PhanQuyenNguoiDungKho pq = phanQuyenId == null ? null
                 : phanQuyenNguoiDungKhoRepository.findById(phanQuyenId).orElse(null);
         if (pq == null) {
-            throw new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy phân quyền kho id: " + phanQuyenId);
+            throw new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("khoVanHanh.phanQuyenKhoKhongTimThayId", phanQuyenId));
         }
         NguoiDung nguoiDung = pq.getNguoiDung();
         if (!IRoleType.quan_tri_vien.equals(nguoiThucHien.getVaiTro())) {
             if (pq.getKho() == null || !pq.getKho().getId().equals(khoIdDangChon)) {
-                throw new CommonException("Bạn chỉ thu hồi được phân quyền trong kho đang chọn");
+                throw new CommonException(ThongDiep.of("khoVanHanh.chiThuHoiTrongKhoDangChon"));
             }
             if (nguoiDung == null || nguoiDung.getId().equals(nguoiThucHien.getId())) {
-                throw new CommonException("Bạn không thể tự thu hồi phân quyền của chính mình");
+                throw new CommonException(ThongDiep.of("khoVanHanh.khongTuThuHoi"));
             }
             if (!VAI_TRO_NHAN_VIEN.contains(nguoiDung.getVaiTro())) {
-                throw new CommonException("Quản lý kho chỉ thu hồi được phân quyền của nhân viên");
+                throw new CommonException(ThongDiep.of("khoVanHanh.quanLyKhoChiThuHoiNhanVien"));
             }
         }
         if (!Integer.valueOf(1).equals(pq.getTrangThai())) {
@@ -586,7 +587,7 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
     @Transactional(readOnly = true)
     public List<LichSuPhanQuyenDto> layLichSuPhanQuyen(Integer nguoiDungId) {
         if (nguoiDungId == null || !nguoiDungRepository.existsById(nguoiDungId)) {
-            throw new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy người dùng");
+            throw new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("khoVanHanh.nguoiDungKhongTimThay"));
         }
         List<LichSuThayDoi> banGhi = lichSuThayDoiRepository
                 .findByLoaiThamChieuAndIdThamChieuAndHanhDongInOrderByNgayThucHienDescIdDesc(
@@ -787,7 +788,7 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
     @Transactional
     public void capNhatMauQuyen(String vaiTro, List<Integer> quyenHanIds) {
         if (vaiTro == null || !VAI_TRO_CO_MAU.contains(vaiTro)) {
-            throw new CommonException("Vai trò này không có mẫu quyền");
+            throw new CommonException(ThongDiep.of("khoVanHanh.vaiTroKhongCoMauQuyen"));
         }
         NguoiDung nguoiThucHien = nguoiDangDangNhap();
         Map<Integer, QuyenHan> quyen = layQuyenHopLe(quyenHanIds);
@@ -949,9 +950,9 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
     private NguoiDung nguoiDangDangNhap() {
         NguoiDungAuthInfo phien = SecurityContextHolder.getUser();
         if (phien == null || phien.getId() == null) {
-            throw new CommonException(HttpStatus.UNAUTHORIZED, "Bạn chưa đăng nhập hoặc phiên đăng nhập đã hết hạn");
+            throw new CommonException(HttpStatus.UNAUTHORIZED, ThongDiep.of("khoVanHanh.chuaDangNhapHoacHetHan"));
         }
         return nguoiDungRepository.findById(phien.getId())
-                .orElseThrow(() -> new CommonException(HttpStatus.UNAUTHORIZED, "Không tìm thấy tài khoản đang đăng nhập"));
+                .orElseThrow(() -> new CommonException(HttpStatus.UNAUTHORIZED, ThongDiep.of("khoVanHanh.taiKhoanDangNhapKhongTimThay")));
     }
 }

@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
+import com.dev.backend.i18n.ThongDiep;
 
 /**
  * CSDL đã chạy migration-2026-11-03-kiem-ke-khoanh-vung.sql chưa. Chưa chạy thì chốt chặn ở các luồng nhập / xuất / bán
@@ -58,8 +59,7 @@ public class KiemKeSanSang {
     public void batBuoc() {
         if (!sanSang()) {
             throw new LoiCoMaException(HttpStatus.SERVICE_UNAVAILABLE, MaLoi.STK_NOT_READY,
-                    "Máy chủ chưa nâng cấp cơ sở dữ liệu cho kiểm kê khoanh vùng. Báo quản trị viên chạy tệp "
-                            + "migration-2026-11-03-kiem-ke-khoanh-vung.sql rồi tải lại trang.");
+                    ThongDiep.of("khoVanHanh.mayChuChuaNangCapKiemKe"));
         }
     }
 }

@@ -13,6 +13,7 @@ import com.dev.backend.repository.NguoiDungRepository;
 import com.dev.backend.services.JwtService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
+import com.dev.backend.i18n.ThongDiep;
 
 /**
  * Ai được làm gì với đợt kiểm kê (chốt Đ7). Controller đã chặn theo vai trò / quyền tại kho đang chọn; ở đây tính cờ
@@ -43,10 +44,10 @@ public class KiemKeQuyen {
     public NguoiDung nguoiHienTai() {
         NguoiDungAuthInfo u = SecurityContextHolder.getUser();
         if (u == null || u.getId() == null) {
-            throw new CommonException(HttpStatus.UNAUTHORIZED, "Phiên đăng nhập không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại.");
+            throw new CommonException(HttpStatus.UNAUTHORIZED, ThongDiep.of("khoVanHanh.phienKhongHopLe"));
         }
         return nguoiDungRepository.findById(u.getId())
-                .orElseThrow(() -> new CommonException(HttpStatus.UNAUTHORIZED, "Không tìm thấy người dùng đang đăng nhập"));
+                .orElseThrow(() -> new CommonException(HttpStatus.UNAUTHORIZED, ThongDiep.of("khoVanHanh.khongTimThayNguoiDangNhap")));
     }
 
     public static boolean co(NguoiDungAuthInfo u, String vaiTro) {

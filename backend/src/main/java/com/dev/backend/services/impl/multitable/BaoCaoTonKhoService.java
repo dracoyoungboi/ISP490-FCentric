@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import com.dev.backend.i18n.ThongDiep;
 
 /**
  * Báo cáo tồn kho (màn /reports/inventory): tồn từng mã SKU ở từng kho tại thời điểm xem, và tệp Excel của màn này.
@@ -63,8 +64,8 @@ public class BaoCaoTonKhoService {
     public void kiemTraKhoXem(Integer khoId) {
         NguoiDungAuthInfo user = SecurityContextHolder.getUser();
         if (user != null && user.getVaiTro() != null && user.getVaiTro().contains(IRoleType.nhan_vien_kho)) {
-            if (khoId == null) throw new CommonException("Phải có trường khoId");
-            if (!jwtService.inWorkspace(khoId, user)) throw new CommonException("Bạn không quản lý kho này");
+            if (khoId == null) throw new CommonException(ThongDiep.of("khoVanHanh.thieuKhoId"));
+            if (!jwtService.inWorkspace(khoId, user)) throw new CommonException(ThongDiep.of("khoVanHanh.khongQuanLyKhoNay"));
         }
     }
 

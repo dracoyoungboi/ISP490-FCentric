@@ -104,6 +104,7 @@ import static com.dev.backend.dto.response.TongQuanVaiTroResponse.VAI_TRO_QUAN_L
 import static com.dev.backend.services.impl.multitable.TongQuanAdminServiceImpl.HE_SO_DU_MAC_DINH;
 import static com.dev.backend.services.impl.multitable.TongQuanAdminServiceImpl.NGUONG_TON_MAC_DINH;
 import static com.dev.backend.services.impl.multitable.TongQuanAdminServiceImpl.so;
+import com.dev.backend.i18n.ThongDiep;
 
 /**
  * Tổng quan theo vai trò. Mỗi khối tính riêng (lỗi một khối không làm hỏng cả màn), giữ kết quả 60 giây cho mỗi
@@ -200,7 +201,7 @@ public class TongQuanVaiTroServiceImpl implements TongQuanVaiTroService {
     private static NguoiDungAuthInfo nguoiDungHienTai() {
         NguoiDungAuthInfo nguoiDung = SecurityContextHolder.getUser();
         if (nguoiDung == null || nguoiDung.getId() == null) {
-            throw new CommonException("Bạn chưa đăng nhập hoặc phiên đăng nhập đã hết hạn", HttpStatus.UNAUTHORIZED, null);
+            throw new CommonException(ThongDiep.of("khoVanHanh.chuaDangNhapHoacHetHan"), HttpStatus.UNAUTHORIZED, null);
         }
         return nguoiDung;
     }
@@ -215,20 +216,20 @@ public class TongQuanVaiTroServiceImpl implements TongQuanVaiTroService {
             return yeuCau.trim();
         }
         return THU_TU_VAI_TRO.stream().filter(co::contains).findFirst().orElseThrow(() -> new CommonException(
-                "Màn này dành cho quản lý kho và nhân viên. Quản trị viên xem ở Tổng quan quản trị."));
+                ThongDiep.of("khoVanHanh.manDanhChoQuanLyKhoNhanVien")));
     }
 
     /** Kho làm việc (header kho_id): phải được phân quyền cho người dùng và đang hoạt động. */
     private KhoDong khoLamViec(NguoiDungAuthInfo nguoiDung) {
         Integer khoId = SecurityContextHolder.getKhoId();
         if (khoId == null) {
-            throw new CommonException("Bạn chưa chọn kho làm việc, vui lòng chọn kho");
+            throw new CommonException(ThongDiep.of("khoVanHanh.chuaChonKhoLamViec"));
         }
         if (nguoiDung.getPhanQuyenNguoiDungKhos() == null || !jwtService.inWorkspace(khoId, nguoiDung)) {
-            throw new CommonException("Bạn không thuộc kho đang chọn, vui lòng chọn lại kho", HttpStatus.FORBIDDEN, null);
+            throw new CommonException(ThongDiep.of("khoVanHanh.khongThuocKhoDangChon"), HttpStatus.FORBIDDEN, null);
         }
         return admin.danhSachKho().stream().filter(k -> k.id().equals(khoId)).findFirst()
-                .orElseThrow(() -> new CommonException("Kho làm việc không hợp lệ hoặc đã ngừng hoạt động, vui lòng chọn kho khác"));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("khoVanHanh.khoLamViecKhongHopLe")));
     }
 
     /* ======================================================================
@@ -277,7 +278,7 @@ public class TongQuanVaiTroServiceImpl implements TongQuanVaiTroService {
             case VAI_TRO_NHAN_VIEN_KHO -> nvk = tinhNhanVienKho(bc, kho.id(), nguoiDungId);
             case VAI_TRO_MUA_HANG -> mh = tinhMuaHang(bc, khoTong);
             case VAI_TRO_BAN_HANG -> bh = tinhBanHang(bc, kho.id(), nguoiDungId);
-            default -> throw new CommonException("Vai trò không hợp lệ");
+            default -> throw new CommonException(ThongDiep.of("khoVanHanh.vaiTroKhongHopLe"));
         }
         TongQuanVaiTroResponse.Kho khoTraVe = kho == null ? null : new TongQuanVaiTroResponse.Kho(kho.id(),
                 kho.tenKho(), kho.laKhoTong(), khoTong == null ? null : khoTong.id());

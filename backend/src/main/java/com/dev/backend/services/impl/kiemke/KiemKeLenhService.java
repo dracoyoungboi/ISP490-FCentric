@@ -17,6 +17,8 @@ import java.time.Instant;
 import java.util.HexFormat;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import com.dev.backend.i18n.ThongDiep;
+import com.dev.backend.i18n.LoiTrangThaiException;
 
 /**
  * Idempotency-Key của các lệnh kiểm kê (BR-STK-12, AC-16). Lệnh gọi {@link #daXuLy} SAU khi đã giữ mutex kho / khóa dòng
@@ -46,7 +48,7 @@ public class KiemKeLenhService {
         String k = khoa.trim();
         if (!KHOA_HOP_LE.matcher(k).matches()) {
             throw new LoiCoMaException(HttpStatus.BAD_REQUEST, MaLoi.STK_VERSION_CONFLICT,
-                    "Idempotency-Key phải dài 8–100 ký tự, chỉ gồm chữ, số và . _ : -");
+                    ThongDiep.of("khoVanHanh.idempotencyKeyKhongHopLe"));
         }
         return k;
     }
@@ -57,7 +59,7 @@ public class KiemKeLenhService {
             byte[] h = MessageDigest.getInstance("SHA-256").digest(json.getBytes(StandardCharsets.UTF_8));
             return HexFormat.of().formatHex(h);
         } catch (JsonProcessingException | NoSuchAlgorithmException e) {
-            throw new IllegalStateException("Không băm được nội dung lệnh kiểm kê", e);
+            throw new LoiTrangThaiException(ThongDiep.of("khoVanHanh.khongBamDuocLenh"), e);
         }
     }
 
@@ -68,12 +70,12 @@ public class KiemKeLenhService {
         KiemKeLenh l = co.get();
         if (!loaiLenh.equals(l.getLoaiLenh()) || !hash.equals(l.getPayloadHash())) {
             throw new LoiCoMaException(HttpStatus.CONFLICT, MaLoi.STK_VERSION_CONFLICT,
-                    "Mã yêu cầu này đã dùng cho một thao tác khác. Tải lại trang rồi thử lại.");
+                    ThongDiep.of("khoVanHanh.maYeuCauDaDung"));
         }
         try {
             return Optional.of(objectMapper.readValue(l.getKetQua(), KiemKeDto.KetQuaLenh.class));
         } catch (JsonProcessingException e) {
-            throw new IllegalStateException("Kết quả lệnh kiểm kê đã lưu không đọc được", e);
+            throw new LoiTrangThaiException(ThongDiep.of("khoVanHanh.ketQuaLenhKhongDocDuoc"), e);
         }
     }
 
@@ -90,7 +92,7 @@ public class KiemKeLenhService {
                     .ngayTao(Instant.now())
                     .build());
         } catch (JsonProcessingException e) {
-            throw new IllegalStateException("Không lưu được kết quả lệnh kiểm kê", e);
+            throw new LoiTrangThaiException(ThongDiep.of("khoVanHanh.khongLuuDuocKetQuaLenh"), e);
         }
     }
 }

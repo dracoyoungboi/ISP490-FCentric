@@ -54,6 +54,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
+import com.dev.backend.i18n.ThongDiep;
+import com.dev.backend.i18n.LoiTrangThaiException;
 
 /**
  * Màn Tổng quan của quản trị viên (UC 11.1): mỗi khối tính độc lập, khối lỗi không làm hỏng các khối khác.
@@ -123,7 +125,7 @@ public class TongQuanAdminServiceImpl implements TongQuanAdminService {
                         thangNay.minusMonths(24).atDay(1), thangNay.minusMonths(12).atDay(1));
             }
             default:
-                throw new CommonException("Kỳ xem không hợp lệ, chỉ nhận 7_ngay, 30_ngay hoặc 12_thang");
+                throw new CommonException(ThongDiep.of("khoVanHanh.kyXemKhongHopLe"));
         }
     }
 
@@ -153,7 +155,7 @@ public class TongQuanAdminServiceImpl implements TongQuanAdminService {
 
         List<KhoDong> dsKho = repo.danhSachKho();
         if (khoId != null && dsKho.stream().noneMatch(k -> k.id().equals(khoId))) {
-            throw new CommonException("Kho không tồn tại hoặc đã ngừng hoạt động");
+            throw new CommonException(ThongDiep.of("khoVanHanh.khoKhongTonTaiHoacNgung"));
         }
         Map<Integer, KhoDong> khoTheoId = new LinkedHashMap<>();
         dsKho.forEach(k -> khoTheoId.put(k.id(), k));
@@ -555,7 +557,7 @@ public class TongQuanAdminServiceImpl implements TongQuanAdminService {
     }
 
     private static <T> T batBuoc(T giaTri) {
-        if (giaTri == null) throw new IllegalStateException("Thiếu dữ liệu doanh thu theo ngày");
+        if (giaTri == null) throw new LoiTrangThaiException(ThongDiep.of("khoVanHanh.thieuDoanhThuTheoNgay"));
         return giaTri;
     }
 

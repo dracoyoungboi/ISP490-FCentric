@@ -19,6 +19,7 @@ import java.util.Map;
 
 import static com.dev.backend.services.impl.multitable.TongQuanAdminServiceImpl.HE_SO_DU_MAC_DINH;
 import static com.dev.backend.services.impl.multitable.TongQuanAdminServiceImpl.NGUONG_TON_MAC_DINH;
+import com.dev.backend.i18n.ThongDiep;
 
 /**
  * Hàng nhập về Kho tổng cho màn Tạo yêu cầu nhập hàng: mọi biến thể nhập được kèm khả dụng, đang về, số đề xuất,
@@ -55,13 +56,13 @@ public class HangNhapKhoTongService {
         int nguong = cauHinh("DEFAULT_MIN_STOCK_ALERT", NGUONG_TON_MAC_DINH);
         int heSoDu = cauHinh("SURPLUS_STOCK_RATIO", HE_SO_DU_MAC_DINH);
         if (dsKhoTong.isEmpty()) {
-            if (khoId != null) throw new CommonException("Chưa có Kho tổng đang hoạt động để nhận hàng từ nhà cung cấp");
+            if (khoId != null) throw new CommonException(ThongDiep.of("khoVanHanh.chuaCoKhoTongNhanHang"));
             return new HangNhapKhoTongResponse(null, List.of(), nguong, heSoDu, List.of());
         }
         KhoTong kho = khoId == null
                 ? dsKhoTong.get(0)
                 : dsKhoTong.stream().filter(k -> khoId.equals(k.id())).findFirst().orElseThrow(() -> new CommonException(
-                        "Kho nhận phải là Kho tổng đang hoạt động: chỉ Kho tổng nhận hàng từ nhà cung cấp"));
+                        ThongDiep.of("khoVanHanh.khoNhanPhaiLaKhoTong")));
 
         List<HangDong> hang = repo.hangKhoTong(kho.id(), nguong);
         List<Integer> ids = hang.stream().map(HangDong::bienTheId).toList();

@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import com.dev.backend.i18n.ThongDiep;
 
 /**
  * Đọc lịch sử thay đổi của MASTER DATA (lich_su_thay_doi) cho ngăn "Lịch sử thay đổi" ở trang chi tiết (BA 05/11: chỉ
@@ -77,7 +78,7 @@ public class NhatKyDocService {
     @Transactional(readOnly = true)
     public List<NhatKyDto> theoSanPham(Integer sanPhamId) {
         if (sanPhamId == null || entityManager.find(com.dev.backend.entities.SanPhamQuanAo.class, sanPhamId) == null) {
-            throw new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy sản phẩm.");
+            throw new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("khoVanHanh.sanPhamKhongTimThay"));
         }
         List<Integer> bienTheIds = entityManager.createQuery(
                         "SELECT b.id FROM BienTheSanPham b WHERE b.sanPham.id = :id", Integer.class)
@@ -93,7 +94,7 @@ public class NhatKyDocService {
     @Transactional(readOnly = true)
     public List<NhatKyDto> lichSuGiaBienThe(Integer bienTheId) {
         if (bienTheId == null || entityManager.find(com.dev.backend.entities.BienTheSanPham.class, bienTheId) == null) {
-            throw new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy biến thể.");
+            throw new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("khoVanHanh.bienTheKhongTimThay"));
         }
         return repository.findByLoaiThamChieuAndIdThamChieuAndHanhDongInOrderByNgayThucHienDescIdDesc(
                         ITable.bien_the_san_pham, bienTheId, List.of(IHanhDong.doi_gia_ban),
@@ -109,18 +110,18 @@ public class NhatKyDocService {
     @Transactional(readOnly = true)
     public List<NhatKyDto> theoViTriKho(Integer khoId, String loai, Integer id) {
         Kho kho = khoId == null ? null : entityManager.find(Kho.class, khoId);
-        if (kho == null) throw new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy kho.");
+        if (kho == null) throw new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("khoVanHanh.khoKhongTimThayCham"));
         KhoDangChon.kiemTraXem(kho, "Kho " + kho.getTenKho());
         Integer idDoiTuong = id;
         if (ITable.khu_vuc_kho.equals(loai)) {
             KhuVucKho kv = id == null ? null : entityManager.find(KhuVucKho.class, id);
             if (kv == null || kv.getKho() == null || !Objects.equals(kv.getKho().getId(), khoId)) {
-                throw new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy khu vực trong kho này.");
+                throw new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("khoVanHanh.khuVucKhongTimThayTrongKho"));
             }
         } else if (ITable.vi_tri_kho.equals(loai)) {
             ViTriKho vt = id == null ? null : entityManager.find(ViTriKho.class, id);
             if (vt == null || vt.getKho() == null || !Objects.equals(vt.getKho().getId(), khoId)) {
-                throw new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy kệ trong kho này.");
+                throw new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("khoVanHanh.keKhongTimThayTrongKho"));
             }
         } else if (ITable.mat_bang_kho.equals(loai)) {
             List<Integer> ids = entityManager.createQuery(
@@ -131,10 +132,10 @@ public class NhatKyDocService {
                 if (ids.isEmpty()) return List.of();
                 idDoiTuong = ids.get(0);
             } else if (!ids.contains(id)) {
-                throw new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy mặt bằng của kho này.");
+                throw new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("khoVanHanh.matBangKhongTimThay"));
             }
         } else {
-            throw new CommonException("Loại đối tượng không hợp lệ (khu_vuc_kho, vi_tri_kho, mat_bang_kho).");
+            throw new CommonException(ThongDiep.of("khoVanHanh.loaiDoiTuongKhongHopLe"));
         }
         return docTheoDoiTuong(loai, idDoiTuong, false);
     }
