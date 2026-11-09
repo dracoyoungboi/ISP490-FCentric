@@ -48,6 +48,9 @@ const O_NGAY = "h-9 min-w-0 rounded-md border border-bo-border bg-white px-2 tex
 const SAP_HET = 14;
 
 const loiCua = (e) => e?.response?.data?.message || e?.message || "";
+// Chữ thay thế máy chủ điền khi trống (BaoCaoSanPhamService, Excel dùng chung nên máy chủ giữ tiếng Việt) → dịch; tên thật giữ nguyên
+const tenDanhMuc = (p) => (p.danhMuc === "Chưa phân loại" ? t("Chưa phân loại") : p.danhMuc);
+const tenThuongHieu = (p) => (p.thuongHieu === "Chưa gắn" ? t("Chưa gắn", { context: "thuong_hieu" }) : p.thuongHieu);
 
 function SoVoi({ nay, truoc }) {
   const tt = tyLeTang(nay, truoc);
@@ -481,7 +484,7 @@ export default function BaoCaoSanPham() {
                           <Link to={`/products/${p.id}`} className="line-clamp-2 min-w-0 font-semibold leading-5 text-bo-foreground">{p.tenSanPham}</Link>
                           <TinhTrang ma={p.tinhTrang} />
                         </div>
-                        <p className="mt-0.5 truncate text-[13px] text-bo-muted"><Hang p={p} coBanKyTruoc={coBanKyTruoc} />{p.maSanPham} · {p.danhMuc}</p>
+                        <p className="mt-0.5 truncate text-[13px] text-bo-muted"><Hang p={p} coBanKyTruoc={coBanKyTruoc} />{p.maSanPham} · {tenDanhMuc(p)}</p>
                       </div>
                     </div>
                     <dl className="mt-2.5 grid grid-cols-4 gap-2 rounded-lg bg-bo-surface-subtle px-2 py-2 text-center">
@@ -536,7 +539,7 @@ export default function BaoCaoSanPham() {
                         <td className="px-3 py-3"><Anh p={p} /></td>
                         <td className="max-w-[300px] px-3 py-3">
                           <Link to={`/products/${p.id}`} className="block truncate font-medium text-bo-foreground hover:text-bo-primary" title={p.tenSanPham}>{p.tenSanPham}</Link>
-                          <span className="block truncate text-xs text-bo-muted"><Hang p={p} coBanKyTruoc={coBanKyTruoc} />{p.maSanPham} · {p.danhMuc} · {p.thuongHieu}</span>
+                          <span className="block truncate text-xs text-bo-muted"><Hang p={p} coBanKyTruoc={coBanKyTruoc} />{p.maSanPham} · {tenDanhMuc(p)} · {tenThuongHieu(p)}</span>
                         </td>
                         <td className="px-3 py-3 text-right tabular-nums">
                           <b className={cn("font-semibold", N(p.soLuong) ? "text-bo-foreground" : "font-normal text-bo-muted")}>{formatNumber(p.soLuong)}</b>

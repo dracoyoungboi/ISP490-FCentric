@@ -39,7 +39,10 @@ const DOC_HEP = "@max-[520px]:inline @min-[680px]:@max-[1100px]:inline";
  * Số đơn và giá trị trung bình mỗi đơn ở chú thích khi rê chuột.
  */
 export default function Breakdowns({ data, ky, khoId, loading, loiKho, loiKenh, onRetry, className }) {
-  const dsKho = [...(data?.doanhThuTheoKho ?? [])].sort((a, b) => b.doanhThu - a.doanhThu);
+  // Dòng gom đơn của kho đã ngừng hoạt động: tên cố định máy chủ dựng (TongQuanAdminServiceImpl) nên dịch; tên kho thật giữ nguyên
+  const dsKho = (data?.doanhThuTheoKho ?? [])
+    .map((r) => (r.tenKho === "Kho đã ngừng hoạt động" ? { ...r, tenKho: t("Kho đã ngừng hoạt động") } : r))
+    .sort((a, b) => b.doanhThu - a.doanhThu);
   const tongKho = dsKho.reduce((s, r) => s + r.doanhThu, 0);
   const namTruoc = ky === "12_thang";
   // Không kho nào có số kỳ trước thì cột Biến động chỉ toàn "Mới" / "—": bỏ cột (chỉ đổi cách hiện, không đổi số)

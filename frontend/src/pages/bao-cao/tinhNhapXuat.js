@@ -1,5 +1,5 @@
 // Phần tính của màn Báo cáo nhập xuất (không gọi API): kỳ xem, tham số gửi máy chủ, dữ liệu biểu đồ, bảng, thẻ loại.
-import { MOC_NGAY, SO_NAM, khoangMoc, ngayVN } from "./tinhBaoCaoDoanhThu";
+import { MOC_NGAY, SO_NAM, dichNhanKy, khoangMoc, ngayVN } from "./tinhBaoCaoDoanhThu";
 import { t } from "../../i18n/t.js";
 
 export { MOC_NGAY, SO_NAM, khoangMoc, ngayVN };
@@ -99,8 +99,8 @@ export function duLieuBieuDo(data, cheDo) {
   if (!data?.theoKy) return [];
   const gt = cheDo === "gt";
   return data.theoKy.map((k) => ({
-    nhan: k.nhan,
-    nhanDay: k.nhanDay,
+    nhan: dichNhanKy(k.nhan),
+    nhanDay: dichNhanKy(k.nhanDay),
     chuaToi: k.chuaToi,
     nhap: k.chuaToi ? null : N(gt ? k.nhapGt : k.nhapSl),
     xuat: k.chuaToi ? null : N(gt ? k.xuatGt : k.xuatSl),

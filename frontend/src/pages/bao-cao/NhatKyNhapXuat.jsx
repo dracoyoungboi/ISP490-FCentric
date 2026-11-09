@@ -22,7 +22,7 @@ import { LUA_CHON_SO_DONG, SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { cn } from "@/lib/utils";
 import { formatAxisMoney, formatCurrency, formatCurrencyCompact, formatNumber, formatPercent } from "@/utils/formatters";
 import { KhoangTuyChon, Menu, Muc } from "./BoLocKy";
-import { tyLeTang } from "./tinhBaoCaoDoanhThu";
+import { dichNhanKy, dichTenThayThe, tyLeTang } from "./tinhBaoCaoDoanhThu";
 import {
   LOAI_KY,
   MAU,
@@ -368,9 +368,9 @@ function BangNXT({ data, loading, loi, onTaiLai, tab, setTab, khoId, tenLoc }) {
   const coTon = !tenLoc;
   const rows = useMemo(() => {
     if (tab === "ky") {
-      return dongKy(data).map((k) => ({ khoa: k.tuNgay, ten: k.nhanDay, ...k }));
+      return dongKy(data).map((k) => ({ khoa: k.tuNgay, ten: dichNhanKy(k.nhanDay), ...k }));
     }
-    return (tab === "kho" ? data?.theoKho : data?.theoSanPham)?.map((d) => ({ khoa: d.id, ...d })) ?? [];
+    return (tab === "kho" ? data?.theoKho : data?.theoSanPham)?.map((d) => ({ khoa: d.id, ...d, ten: dichTenThayThe(d.ten) })) ?? [];
   }, [data, tab]);
   // Đổi tab, đổi dữ liệu thì về trang đầu (chỉ bảng sản phẩm phân trang)
   const [khoaTrang, setKhoaTrang] = useState({ tab, data });

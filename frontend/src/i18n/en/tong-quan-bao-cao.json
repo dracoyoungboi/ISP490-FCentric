@@ -960,5 +960,11 @@
   "Nhập số hóa đơn (chỉ chữ số)": "Enter the invoice number (digits only)",
   "Chọn ngày hóa đơn": "Choose the invoice date",
   "Ngày hóa đơn không hợp lệ": "Invalid invoice date",
-  "Chọn thuế suất": "Select a tax rate"
+  "Chọn thuế suất": "Select a tax rate",
+  "Tuần {{so}}": "Week {{so}}",
+  "Tuần {{so}} ({{tu}} – {{den}})": "Week {{so}} ({{tu}} – {{den}})",
+  "Sản phẩm #{{id}}": "Product #{{id}}",
+  "Chưa gắn_thuong_hieu": "No brand",
+  "Kho đã ngừng hoạt động": "Inactive warehouse",
+  "Kênh {{ma}}": "Channel {{ma}}"
 }

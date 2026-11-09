@@ -1,10 +1,49 @@
-import { t } from "../../i18n/t.js";
+import { laTiengAnh, t } from "../../i18n/t.js";
 // Phần tính của màn Báo cáo doanh thu (không gọi API): kỳ xem, chỉ số so với cùng kỳ năm trước, dữ liệu biểu đồ và bảng.
 
 const hai = (n) => String(n).padStart(2, "0");
 /** yyyy-MM-dd theo giờ máy (không lệch ngày như toISOString lúc gần nửa đêm). */
 export const ngayMay = (d) => `${d.getFullYear()}-${hai(d.getMonth() + 1)}-${hai(d.getDate())}`;
 export const ngayVN = (s) => (s ? String(s).slice(0, 10).split("-").reverse().join("/") : "");
+
+// Nhãn máy chủ dựng sẵn bằng tiếng Việt (field dùng chung với tệp Excel nên máy chủ giữ tiếng Việt). Tách hai bảng:
+// nhãn KỲ chỉ dùng cho cột/trục thời gian; tên THAY THẾ chỉ dùng cho cột tên kho/sản phẩm — tên thật như "T5" hay
+// "Năm 2025" không bị hiểu nhầm là nhãn kỳ.
+const NHAN_KY = [
+  [/^Tuần (\d+)$/, (m) => t("Tuần {{so}}", { so: m[1] })],
+  [/^Tuần (\d+) \((.+) – (.+)\)$/, (m) => t("Tuần {{so}} ({{tu}} – {{den}})", { so: m[1], tu: m[2], den: m[3] })],
+  [/^Tuần trước$/, () => t("Tuần trước")],
+  [/^T(\d{1,2})$/, (m) => t("T{{thang}}", { thang: m[1] })],
+  [/^T(\d{1,2})\/(\d{4})$/, (m) => t("T{{thang}}/{{nam}}", { thang: m[1], nam: m[2] })],
+  [/^Tháng (\d{1,2})\/(\d{4})$/, (m) => t("Tháng {{thang}}/{{nam}}", { thang: m[1], nam: m[2] })],
+  [/^Năm (\d{4})$/, (m) => t("Năm {{nam}}", { nam: m[1] })],
+];
+
+const TEN_THAY_THE = [
+  [/^Sản phẩm #(\d+)$/, (m) => t("Sản phẩm #{{id}}", { id: m[1] })],
+  [/^Kho #(\d+)$/, (m) => t("Kho #{{id}}", { id: m[1] })],
+];
+
+function dichTheoBang(bang, s) {
+  if (typeof s !== "string" || !laTiengAnh()) return s;
+  for (const [mau, dich] of bang) {
+    const m = mau.exec(s);
+    if (m) return dich(m);
+  }
+  return s;
+}
+
+/**
+ * Nhãn KỲ máy chủ trả bằng tiếng Việt ("Tuần 3", "Tháng 5/2026", "T5/2026", "Năm 2025"…) → ngôn ngữ đang dùng.
+ * Chỉ gọi cho field nhãn thời gian. Giao diện tiếng Việt hoặc chuỗi không nhận ra thì giữ nguyên.
+ */
+export const dichNhanKy = (s) => dichTheoBang(NHAN_KY, s);
+
+/**
+ * Tên thay thế máy chủ dựng khi kho / sản phẩm không còn tên ("Kho #3", "Sản phẩm #12") → ngôn ngữ đang dùng;
+ * tên thật (kể cả "T5", "Năm 2025") giữ nguyên. Giao diện tiếng Việt giữ nguyên.
+ */
+export const dichTenThayThe = (s) => dichTheoBang(TEN_THAY_THE, s);
 
 export const LOAI_KY = [
   { value: "ngay", label: t("Theo ngày") },
@@ -139,6 +178,12 @@ export function dongBang(tongHop, tienThu) {
 /** Số giá vốn / lợi nhuận: máy chủ gửi null khi người xem không được xem (nhân viên bán hàng) thì giữ null. */
 const soHoacNull = (v) => (v == null ? null : N(v));
 
+/** Tên máy chủ đặt cho kênh sàn chưa có tên ("Kênh " + mã bỏ ký tự đầu) → ngôn ngữ đang dùng; tên thật thì null. */
+function tenKenhThayThe(k) {
+  const ma = String(k.ma ?? "").slice(1);
+  return ma && k.ten === `Kênh ${ma}` ? t("Kênh {{ma}}", { ma }) : null;
+}
+
 /**
  * Dòng thẻ Theo kênh bán (máy chủ đã xếp doanh thu giảm dần): tỷ trọng trên tổng các kênh, tăng / giảm so với cùng kỳ
  * năm trước, trung bình một đơn, độ dài thanh so với kênh lớn nhất (0–1).
@@ -153,8 +198,9 @@ export function dongKenh(tongHop) {
     const loiNhuan = soHoacNull(k.loiNhuan);
     return {
       ma: k.ma,
-      // Kênh POS / trực tiếp: tên cố định máy chủ trả (DoanhThuReportService) nên dịch; tên kênh sàn là dữ liệu
-      ten: k.ma === "POS" || k.ma === "TRUC_TIEP" ? t(k.ten) : k.ten,
+      // Kênh POS / trực tiếp: tên cố định máy chủ trả (DoanhThuReportService) nên dịch; tên kênh sàn là dữ liệu, trừ tên
+      // thay thế "Kênh <mã>" khi kênh chưa có tên
+      ten: k.ma === "POS" || k.ma === "TRUC_TIEP" ? t(k.ten) : tenKenhThayThe(k) ?? k.ten,
       loai: k.ma === "POS" ? "quay" : k.ma === "TRUC_TIEP" ? "don" : "san",
       doanhThu,
       soDon,
@@ -191,12 +237,14 @@ export function dongNhanVien(tongHop) {
     const soDon = N(n.soDon);
     const laNguoi = n.loai === "NHAN_VIEN";
     const loiNhuan = soHoacNull(n.loiNhuan);
+    // Tên thay thế "Người dùng #id" khi người lập chưa có họ tên (máy chủ dựng) nên dịch; họ tên thật giữ nguyên
+    const tenNguoi = n.ten === `Người dùng #${n.nguoiDungId}` ? t("Người dùng #{{id}}", { id: n.nguoiDungId }) : n.ten;
     return {
       khoa: laNguoi ? `nv-${n.nguoiDungId}` : n.loai,
       loai: n.loai,
       // Dòng không phải người (Đơn sàn, Không rõ người lập): nhãn cố định máy chủ trả nên dịch; tên nhân viên giữ nguyên
-      ten: laNguoi ? n.ten : t(n.ten),
-      chuTat: laNguoi ? chuTat(n.ten) : null,
+      ten: laNguoi ? tenNguoi : t(n.ten),
+      chuTat: laNguoi ? chuTat(tenNguoi) : null,
       hang: laNguoi ? (hang += 1) : null,
       laToi: Boolean(n.laToi),
       doanhThu,

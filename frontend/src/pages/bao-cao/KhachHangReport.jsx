@@ -36,7 +36,7 @@ import { laKhoAo } from "@/pages/warehouse/loaiKho";
 import { formatCurrency } from "@/utils/formatters";
 import { cn } from "@/lib/utils";
 import { ngonNguHienTai, t } from "@/i18n";
-import { loiKhoangNgay, ngayMay } from "./tinhBaoCaoDoanhThu";
+import { dichNhanKy, loiKhoangNgay, ngayMay } from "./tinhBaoCaoDoanhThu";
 import {
   cacNam,
   cacThang,
@@ -194,7 +194,7 @@ function NhanTrucX({ x, y, payload, ky }) {
       fill={CHART_COLORS.axis}
       opacity={chuaToi ? 0.45 : 1}
     >
-      {payload?.value}
+      {dichNhanKy(payload?.value)}
     </text>
   );
 }
@@ -206,8 +206,8 @@ function KhungSo({ active, payload, loai }) {
   if (!active || !k) return null;
   const tyLe = tyLeQuayLai(k.soKhachQuayLai, k.tongKhachMua);
   const tieuDe = loai === "tuan"
-    ? `${k.nhanThoiGian} (${khoangNgayNgan(k.tuNgay, k.denNgay)})`
-    : k.nhanThoiGian;
+    ? `${dichNhanKy(k.nhanThoiGian)} (${khoangNgayNgan(k.tuNgay, k.denNgay)})`
+    : dichNhanKy(k.nhanThoiGian);
   return (
     <div className="min-w-[180px] rounded-lg border border-bo-border bg-bo-surface px-3 py-2.5 text-xs shadow-lg">
       <p className="mb-1.5 text-[13px] font-semibold text-bo-foreground">{tieuDe}</p>
@@ -282,7 +282,7 @@ function SoKyTruoc({ giaTri }) {
 function NhanKy({ row, loai }) {
   return (
     <>
-      <span>{row.nhanThoiGian}</span>
+      <span>{dichNhanKy(row.nhanThoiGian)}</span>
       {loai === "tuan" ? (
         <span className="block text-xs font-normal text-bo-muted">{khoangNgayNgan(row.tuNgay, row.denNgay)}</span>
       ) : null}

@@ -20,6 +20,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
+import com.dev.backend.i18n.NgonNgu;
 import com.dev.backend.i18n.ThongDiep;
 
 /** Phần đọc của kiểm kê khoanh vùng: danh sách, chi tiết, dòng, nhật ký, sơ đồ khóa (hàng chưa có kệ ở HangChuaCoKeService). */
@@ -427,7 +428,8 @@ public class KiemKeDocService {
             List<KiemKeDto.KeSoDo> keKhu = theoKhu.remove(k.getId());
             if (keKhu != null) ds.add(new KiemKeDto.KhuVucSoDo(k.getId(), k.getMaKhuVuc(), k.getTenKhuVuc(), keKhu));
         }
-        theoKhu.forEach((k, v) -> ds.add(new KiemKeDto.KhuVucSoDo(k, null, "Khác", v)));
+        String tenKhac = ThongDiep.of("hienThiBaoCao.khuKhac").theoNgonNgu(NgonNgu.hienTai());
+        theoKhu.forEach((k, v) -> ds.add(new KiemKeDto.KhuVucSoDo(k, null, tenKhac, v)));
         return new KiemKeDto.SoDo(ma(kho), ds, toan, min, baoTri);
     }
 
