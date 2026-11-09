@@ -32,7 +32,7 @@ import {
 import { useSidebar } from "@/components/ui/sidebar";
 import ConfirmModal from "@/components/ui/confirm-modal";
 import { demLuotChuaKhoa } from "@/utils/hangLoiTam";
-import { MucChonNgonNgu } from "@/components/shared/ChonNgonNgu";
+import { NutChonNgonNguThanhTren } from "@/components/shared/ChonNgonNgu";
 import { t } from "@/i18n";
 
 // Phím tắt mở ô tìm kiếm: ⌘ + K trên máy Mac, Ctrl + K trên Windows/Linux
@@ -168,6 +168,9 @@ export default function BackofficeHeader() {
         </div>
 
         <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+          {/* Cùng cỡ và màu với chuông bên cạnh; màn hẹp chỉ còn biểu tượng */}
+          <NutChonNgonNguThanhTren className="h-10 min-w-10 rounded-md px-2.5 text-slate-500 hover:bg-slate-100 hover:text-slate-900" />
+
           {/* Chuông thông báo của người đang đăng nhập (API /api/v1/thong-bao, xem thongBaoService.js) */}
           <NotificationBell />
 
@@ -217,8 +220,6 @@ export default function BackofficeHeader() {
                 </Link>
               </DropdownMenuItem>
 
-              <DropdownMenuSeparator className="bg-bo-border" />
-              <MucChonNgonNgu />
               <DropdownMenuSeparator className="bg-bo-border" />
 
               <DropdownMenuItem

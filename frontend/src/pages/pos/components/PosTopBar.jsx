@@ -25,7 +25,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MucChonNgonNgu } from '@/components/shared/ChonNgonNgu';
+import { NutChonNgonNguThanhTren } from '@/components/shared/ChonNgonNgu';
 import { laTiengAnh, localeHienThi, t } from "@/i18n";
 
 const ROLE_LABELS = {
@@ -197,6 +197,12 @@ export default function PosTopBar({ children, tabs = null, onHelp, pendingPaymen
             </button>
           ) : null}
 
+          {/* Cùng khung viền với các nút biểu tượng bên cạnh; menu nổi trên lớp POS (z-[90]) */}
+          <NutChonNgonNguThanhTren
+            className="h-9 min-w-9 rounded-lg border border-bo-border px-2 text-bo-muted hover:bg-slate-50 hover:text-bo-foreground [&>svg]:size-4"
+            lopMenu="z-[90]"
+          />
+
           {onHelp ? (
             <button aria-label={t("Hướng dẫn phím tắt")} className={iconButton} onClick={onHelp} title={t("Phím tắt (F1)")} type="button">
               <CircleHelp aria-hidden="true" size={16} />
@@ -239,8 +245,6 @@ export default function PosTopBar({ children, tabs = null, onHelp, pendingPaymen
                   </span>
                 </DropdownMenuItem>
               ) : null}
-              <DropdownMenuSeparator className="bg-bo-border" />
-              <MucChonNgonNgu />
               <DropdownMenuSeparator className="bg-bo-border" />
               <DropdownMenuItem className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-bo-danger focus:bg-bo-danger-soft focus:text-bo-danger" onClick={handleLogout}>
                 <LogOut className="size-4" />
