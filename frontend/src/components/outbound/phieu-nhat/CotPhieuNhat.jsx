@@ -11,7 +11,7 @@ import { formatCurrency } from "@/utils/formatters";
 import { cn } from "@/lib/utils";
 import { getPhieuChuyenKhoStatus } from "@/constants/phieuChuyenKho";
 import { laPhieuChuyenKho, nhanBangChung } from "./tinhPhieuNhat";
-import { t } from "@/i18n";
+import { t, tDuLieu } from "@/i18n";
 
 /**
  * Cột phải của màn Thực hiện nhặt hàng: Kho xuất, Người nhặt, Ghi chú và "Đơn trong phiếu" — hiện trước SO_DON_HIEN
@@ -165,8 +165,9 @@ function TheDon({ don, onMoBangChung, onDongGoi }) {
       </div>
       {info ? (
         <div className="text-xs leading-4 text-bo-muted">
-          {info.tenKenh || t("Trực tiếp")}
-          {info.tenKhachHang ? ` · ${info.tenKhachHang}` : ""}
+          {/* Máy chủ trả "Trực tiếp" / "Khách lẻ" khi đơn không gắn kênh / khách: dịch lúc vẽ, tên thật không có khóa nên giữ nguyên */}
+          {tDuLieu(info.tenKenh) || t("Trực tiếp")}
+          {info.tenKhachHang ? ` · ${tDuLieu(info.tenKhachHang)}` : ""}
         </div>
       ) : null}
       {info?.tomTatHang ? (

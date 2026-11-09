@@ -656,5 +656,7 @@
   "Tự giao": "Self-delivery",
   "Đang tải…_tai_xuong": "Downloading…",
   "Đã giao_phan_cong": "Assigned",
-  "Đơn bán_loai": "Sales order"
+  "Đơn bán_loai": "Sales order",
+  "ĐƯỢC ĐỒNG KIỂM": "Inspection on delivery allowed",
+  "ĐÃ THANH TOÁN (COD: 0 đ)": "Paid (COD: 0 ₫)"
 }

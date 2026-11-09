@@ -6,7 +6,7 @@
  */
 import { PHIEU_XUAT_CHUA_XUAT, TRANG_THAI_PHIEU_XUAT } from "../../../constants/trangThaiXuatBan.js";
 import { cauChungTuRong, docSo, soVN } from "../../chung-tu/bangChungTu.js";
-import { t } from "../../../i18n/t.js";
+import { laTiengAnh, t, tDuLieu } from "../../../i18n/t.js";
 
 export const LOAI_XUAT = Object.freeze({ BAN_HANG: "ban_hang", CHUYEN_KHO: "chuyen_kho" });
 
@@ -196,6 +196,18 @@ export function layThongTinGiaoVan(phieu, tachGhiChu) {
     chiDanDongKiem,
     cuocThucTe: cuoc,
   };
+}
+
+/**
+ * Nhãn thu hộ (COD) để HIỆN trên màn hình (Chi tiết phiếu xuất, hộp Xác nhận xuất kho) từ kết quả layThongTinGiaoVan.
+ * `nhanThanhToan` của máy chủ là chữ in trên tem sàn ("THU HỘ(COD): … VNĐ" / "ĐÃ THANH TOÁN (COD: 0 đ)") nên luôn tiếng
+ * Việt và giữ nguyên cho mẫu in; giao diện tiếng Anh dựng lại từ `tienThuHoCod`. Tiếng Việt hiện như cũ.
+ */
+export function nhanCodHienThi({ nhanThanhToan, tienThuHoCod } = {}) {
+  if (nhanThanhToan && (!laTiengAnh() || tienThuHoCod == null)) return tDuLieu(nhanThanhToan);
+  if (tienThuHoCod == null) return null;
+  const codNum = Number(tienThuHoCod);
+  return codNum > 0 ? t("Thu hộ (COD): {{codNum}} ₫", { codNum: soVN(codNum) }) : t("Đã thanh toán (COD: 0 đ)");
 }
 
 /**

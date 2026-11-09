@@ -12,7 +12,7 @@ import { CANH_BAO_TU_DUNG_VIDEO_GIAY, DUNG_LUONG_VIDEO_TOI_DA_MB, THOI_LUONG_VID
 import { TRANG_THAI_DON, TRANG_THAI_PHIEU_XUAT } from "../../../constants/trangThaiXuatBan.js";
 import { docSo, nhanMauKichCo, soVN } from "../../chung-tu/bangChungTu.js";
 import { laDaXuat } from "../phieu-xuat/phieuXuat.js";
-import { t } from "../../../i18n/t.js";
+import { t, tDuLieu } from "../../../i18n/t.js";
 
 /** Loại bằng chứng (LoaiBangChungDongGoi của máy chủ) và tên ô khi chưa có tệp (máy chủ trả `tenLoaiBangChung` khi có). */
 export const LOAI_BANG_CHUNG = Object.freeze({
@@ -98,7 +98,8 @@ export function oBangChung({ yeuCauVideo = false, danhSach = [] } = {}) {
   const ds = Array.isArray(danhSach) ? danhSach : [];
   return loai.map((l) => {
     const bc = ds.find((b) => b?.loaiBangChung === l) ?? null;
-    return { loai: l, ten: bc?.tenLoaiBangChung || TEN_LOAI[l], goiY: GOI_Y_LOAI[l], laVideo: l === LOAI_BANG_CHUNG.VIDEO_DONG_GOI, bangChung: bc };
+    // tenLoaiBangChung là mô tả enum tiếng Việt của máy chủ (cùng câu với TEN_LOAI) → dịch lúc dựng ô
+    return { loai: l, ten: tDuLieu(bc?.tenLoaiBangChung) || TEN_LOAI[l], goiY: GOI_Y_LOAI[l], laVideo: l === LOAI_BANG_CHUNG.VIDEO_DONG_GOI, bangChung: bc };
   });
 }
 

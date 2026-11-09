@@ -34,7 +34,7 @@ import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import useTaiLaiDanhSach from "@/hooks/useTaiLaiDanhSach";
 import { useBanPhimAoMo } from "@/hooks/useBanPhimAo";
 import { trangCuoiNeuVuot } from "@/lib/tinhTaiLai";
-import { t } from "@/i18n";
+import { t, tDuLieu } from "@/i18n";
 
 const TH_CLASS = "h-10 px-3 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
 // Màn cảm ứng: ô chọn giữ 16px, vùng chạm 44px quanh ô do lớp cảm ứng dùng chung (index.css, data-slot="checkbox") lo
@@ -427,7 +427,7 @@ export default function DonChoXuatPage() {
                                                 /* i18n-giu-nguyen: StatusBadge tự dịch lúc vẽ */ label={row.khaDung || (row.duHang ? "Đủ hàng" : "Thiếu hàng")}
                                             />
                                         </span>
-                                        <span className="min-w-0 truncate text-sm font-semibold text-bo-foreground">{row.tenKhachHang || t("Khách lẻ")}</span>
+                                        <span className="min-w-0 truncate text-sm font-semibold text-bo-foreground">{tDuLieu(row.tenKhachHang) || t("Khách lẻ")}</span>
                                         <span className="flex items-baseline justify-between gap-3 text-[13px] text-bo-muted">
                                             <span className="min-w-0 truncate">
                                                 {t("{{ngayTao}} · {{tongSoLuong}} SP", { count: Number(row.tongSoLuong) || 0, ngayTao: formatDateTime(row.ngayTao), tongSoLuong: formatQuantity(row.tongSoLuong) })}
@@ -498,7 +498,7 @@ export default function DonChoXuatPage() {
                                             </div>
                                         </td>
                                         <td className="px-3 py-3 font-semibold text-bo-foreground">
-                                            {row.tenKhachHang || t("Khách lẻ")}
+                                            {tDuLieu(row.tenKhachHang) || t("Khách lẻ")}
                                             <div className="mt-0.5 hidden text-xs font-normal text-bo-muted cam-ung:max-lg:block">{row.tenKhoXuat}</div>
                                         </td>
                                         <td className="px-3 py-3 text-bo-muted cam-ung:max-lg:hidden">{row.tenKhoXuat || "—"}</td>
@@ -559,7 +559,7 @@ export default function DonChoXuatPage() {
                                         <span className="min-w-0">
                                             <span className="block truncate text-sm font-semibold text-bo-foreground">{row.soDonHang}</span>
                                             <span className="block truncate text-xs text-bo-muted">
-                                                {row.tenKhachHang || t("Khách lẻ")} · {formatQuantity(row.tongSoLuong)} {t("sản phẩm")}
+                                                {tDuLieu(row.tenKhachHang) || t("Khách lẻ")} · {formatQuantity(row.tongSoLuong)} {t("sản phẩm")}
                                             </span>
                                         </span>
                                     </li>

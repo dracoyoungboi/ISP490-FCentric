@@ -7,8 +7,8 @@ import CotThuocTinh, {
 import TuyenChuyen from "@/components/chung-tu/TuyenChuyen";
 import { docSo, soVN } from "@/components/chung-tu/bangChungTu";
 import { formatDate } from "@/utils/formatters";
-import { laDaXuat, layThongTinGiaoVan } from "./phieuXuat.js";
-import { t } from "@/i18n";
+import { laDaXuat, layThongTinGiaoVan, nhanCodHienThi } from "./phieuXuat.js";
+import { t, tDuLieu } from "@/i18n";
 
 const ngay = (value) => (value ? formatDate(value) : null);
 const doanGhiChu = (chu) => (chu ? <span className="whitespace-pre-line">{chu}</span> : null);
@@ -61,11 +61,7 @@ export default function ThuocTinhPhieuXuat({ phieu, laCk, laPos, ghiChu }) {
   const thongTin = layThongTinGiaoVan(phieu, ghiChu);
   const cuoc = thongTin.cuocThucTe;
 
-  let nhanCod = thongTin.nhanThanhToan;
-  if (!nhanCod && thongTin.tienThuHoCod != null) {
-    const codNum = Number(thongTin.tienThuHoCod);
-    nhanCod = codNum > 0 ? t("Thu hộ (COD): {{codNum}} ₫", { codNum: soVN(codNum) }) : t("Đã thanh toán (COD: 0 đ)");
-  }
+  const nhanCod = nhanCodHienThi(thongTin);
 
   return (
     <CotThuocTinh nhan={t("Thông tin phiếu xuất")}>
@@ -135,7 +131,7 @@ export default function ThuocTinhPhieuXuat({ phieu, laCk, laPos, ghiChu }) {
                 nhan: t("Chỉ dẫn sàn"),
                 giaTri: thongTin.chiDanDongKiem ? (
                   <span className="inline-flex items-center rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-xs font-medium text-emerald-700">
-                    {thongTin.chiDanDongKiem}
+                    {tDuLieu(thongTin.chiDanDongKiem) /* "ĐƯỢC ĐỒNG KIỂM" của máy chủ là chữ in tem, chỉ dịch lúc hiện */}
                   </span>
                 ) : null,
                 an: !thongTin.chiDanDongKiem,

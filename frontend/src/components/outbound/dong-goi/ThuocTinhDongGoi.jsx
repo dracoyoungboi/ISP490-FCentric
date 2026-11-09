@@ -8,7 +8,7 @@ import { getPhieuXuatKhoStatus } from "@/constants/phieuXuatKho";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/utils/formatters";
 import { donCungPhieuNhat } from "./tinhDongGoi";
-import { t } from "@/i18n";
+import { t, tDuLieu } from "@/i18n";
 
 /**
  * Cột phải của màn Đóng gói: Khách hàng (không có thì "Khách lẻ"), điện thoại, địa chỉ, kênh bán + ID đơn trên sàn ·
@@ -28,7 +28,7 @@ export default function ThuocTinhDongGoi({ phien, phieuNhat }) {
   return (
     <CotThuocTinh nhan={t("Thông tin đơn đóng gói")}>
       <NhomThuocTinh nhan={t("Khách hàng")}>
-        <div className="text-sm font-semibold leading-5 text-bo-foreground">{phien.tenKhachHang || t("Khách lẻ")}</div>
+        <div className="text-sm font-semibold leading-5 text-bo-foreground">{tDuLieu(phien.tenKhachHang) || t("Khách lẻ")}</div>
         <BangThuocTinh
           rongNhan={112}
           className="mt-2.5"

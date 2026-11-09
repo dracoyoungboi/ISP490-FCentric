@@ -2,8 +2,8 @@ import { useRef, useState } from "react";
 import { Truck, Settings2, ShieldCheck, CheckCircle2 } from "lucide-react";
 import HopXacNhanChungTu from "@/components/chung-tu/HopXacNhanChungTu";
 import { GiaTriSaoChep } from "@/components/chung-tu/CotThuocTinh";
-import { soVN } from "@/components/chung-tu/bangChungTu";
-import { t } from "@/i18n";
+import { nhanCodHienThi } from "@/components/outbound/phieu-xuat/phieuXuat";
+import { t, tDuLieu } from "@/i18n";
 
 /**
  * Hộp thoại Xác nhận xuất kho tinh gọn cho đơn ĐÃ CÓ thông tin giao vận (đơn sàn Lazada, Shopee, TikTok Shop, Shopify...)
@@ -39,11 +39,7 @@ export default function DispatchConfirmDialog({
   };
 
   const tongSl = tongSoLuong != null ? t(" (tổng số lượng {{tongSoLuong}})", { tongSoLuong: Number(tongSoLuong).toLocaleString("vi-VN") }) : "";
-  let nhanCod = thongTinGiaoVan?.nhanThanhToan;
-  if (!nhanCod && thongTinGiaoVan?.tienThuHoCod != null) {
-    const codNum = Number(thongTinGiaoVan.tienThuHoCod);
-    nhanCod = codNum > 0 ? t("Thu hộ (COD): {{codNum}} ₫", { codNum: soVN(codNum) }) : t("Đã thanh toán (COD: 0 đ)");
-  }
+  const nhanCod = nhanCodHienThi(thongTinGiaoVan ?? undefined);
 
   return (
     <HopXacNhanChungTu
@@ -73,7 +69,7 @@ export default function DispatchConfirmDialog({
           {thongTinGiaoVan?.chiDanDongKiem ? (
             <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
               <ShieldCheck className="size-3.5" />
-              {thongTinGiaoVan.chiDanDongKiem}
+              {tDuLieu(thongTinGiaoVan.chiDanDongKiem) /* chữ in tem của máy chủ, chỉ dịch lúc hiện */}
             </span>
           ) : null}
         </div>

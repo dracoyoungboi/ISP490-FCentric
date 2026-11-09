@@ -1178,16 +1178,19 @@ public class NhatHangServiceImpl implements NhatHangService {
         return daXuat != null ? dat.subtract(daXuat).max(BigDecimal.ZERO) : dat;
     }
 
-    /** Tóm tắt hàng của đơn cho thẻ đơn ở màn nhặt: "3 × Áo khoác A, 2 × Quần B +1 sản phẩm". */
+    /**
+     * Tóm tắt hàng của đơn cho thẻ đơn ở màn nhặt: "3 × Áo khoác A, 2 × Quần B +1 sản phẩm".
+     * Chỉ để hiện (không lưu, không in) nên chữ cố định theo ngôn ngữ của request.
+     */
     private static String tomTatHang(DonBanHang don) {
         List<ChiTietDonBanHang> dongs = don.getChiTietDonBanHangs() != null ? don.getChiTietDonBanHangs() : List.of();
         String dau = dongs.stream().limit(2).map(ct -> {
             BienTheSanPham bt = ct.getBienTheSanPham();
             String ten = bt != null && bt.getSanPham() != null ? bt.getSanPham().getTenSanPham()
-                    : (bt != null ? bt.getMaSku() : "Sản phẩm");
+                    : (bt != null ? bt.getMaSku() : ThongDiep.dich("hienThiXuatKho.sanPham"));
             return hienThi(ct.getSoLuongDat()) + " × " + ten;
         }).collect(Collectors.joining(", "));
-        return dongs.size() > 2 ? dau + " +" + (dongs.size() - 2) + " sản phẩm" : dau;
+        return dongs.size() > 2 ? ThongDiep.dich("hienThiXuatKho.tomTatHangThem", dau, dongs.size() - 2) : dau;
     }
 
     /** Nhật ký ghi SAU commit bằng giao dịch riêng: lỗi ghi nhật ký không làm hỏng thao tác chính. */
