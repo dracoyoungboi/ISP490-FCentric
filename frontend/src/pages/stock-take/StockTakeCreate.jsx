@@ -279,6 +279,10 @@ function BieuMauDot({ dot }) {
   const [nguoiChuTriId, setNguoiChuTriId] = useState(dot?.nguoiChuTri?.id ?? null);
   const [lyDo, setLyDo] = useState(dot?.lyDo ?? "");
   const [ngayDuKien, setNgayDuKien] = useState(veONgay(dot?.ngayDuKienBatDau));
+  // Dự kiến bắt đầu không được ở quá khứ (như máy chủ, so theo phút). Sửa nháp giữ nguyên thời điểm cũ đã qua thì vẫn lưu được
+  const [ngayDuKienBanDau] = useState(ngayDuKien);
+  const bayGioPhut = veONgay(new Date());
+  const ngayDuKienDaQua = Boolean(ngayDuKien) && ngayDuKien !== ngayDuKienBanDau && ngayDuKien < bayGioPhut;
   const [ghiChu, setGhiChu] = useState(dot?.ghiChu ?? "");
   // Ghi chú cũ nhiều dòng: giữ ô nhiều dòng (ô một dòng sẽ nuốt dấu xuống dòng khi lưu lại)
   const [ghiChuNhieuDong] = useState(() => /\n/.test(dot?.ghiChu ?? ""));
@@ -405,7 +409,9 @@ function BieuMauDot({ dot }) {
             ? t("Nhập tên đợt")
             : !lyDo.trim()
               ? t("Nhập lý do kiểm kê")
-              : dangTaiNguoi
+              : ngayDuKienDaQua
+                ? t("Thời điểm dự kiến bắt đầu đã qua")
+                : dangTaiNguoi
                 ? t("Đang tải người chủ trì…")
                 : thieuChuTri
                   ? t("Chọn người chủ trì")
@@ -1021,8 +1027,20 @@ function BieuMauDot({ dot }) {
                 </div>
                 <label className="grid content-start gap-1.5">
                   <span className={NHAN_O}>{t("Dự kiến bắt đầu")}</span>
-                  <input type="datetime-local" value={ngayDuKien} disabled={!suaDuoc} onChange={(e) => setNgayDuKien(e.target.value)} className={O_NHAP} />
-                  <span className={GOI_Y_O}>{t("Không bắt buộc. Hiện ở danh sách đợt để mọi người biết lịch")}</span>
+                  <input
+                    type="datetime-local"
+                    value={ngayDuKien}
+                    min={bayGioPhut}
+                    disabled={!suaDuoc}
+                    aria-invalid={ngayDuKienDaQua || undefined}
+                    onChange={(e) => setNgayDuKien(e.target.value)}
+                    className={cn(O_NHAP, ngayDuKienDaQua && "border-bo-danger focus:border-bo-danger focus:ring-bo-danger/15")}
+                  />
+                  {ngayDuKienDaQua ? (
+                    <span className={cn(GOI_Y_O, "text-bo-danger-strong")}>{t("Đã qua. Chọn từ bây giờ trở đi hoặc để trống")}</span>
+                  ) : (
+                    <span className={GOI_Y_O}>{t("Không bắt buộc. Hiện ở danh sách đợt để mọi người biết lịch")}</span>
+                  )}
                 </label>
                 <label className="grid content-start gap-1.5">
                   <span className={NHAN_O}>{t("Ghi chú cho người đếm")}</span>

@@ -125,6 +125,8 @@
   "Bấm để gỡ khỏi lý do": "Click to remove from the reason",
   "Dự kiến bắt đầu": "Planned start",
   "Không bắt buộc. Hiện ở danh sách đợt để mọi người biết lịch": "Optional. Shown in the stock take list so everyone knows the schedule",
+  "Đã qua. Chọn từ bây giờ trở đi hoặc để trống": "This time has passed. Pick a time from now on, or leave it blank",
+  "Thời điểm dự kiến bắt đầu đã qua": "The planned start time has passed",
   "Ghi chú cho người đếm": "Note for counters",
   "Ví dụ: Hàng lỗi để riêng thùng đỏ": "E.g. Defective goods are kept in the red bin",
   "Hiện ở đầu màn đếm": "Shown at the top of the count screen",

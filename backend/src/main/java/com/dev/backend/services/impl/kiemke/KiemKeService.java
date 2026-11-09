@@ -25,6 +25,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
 import com.dev.backend.i18n.NgonNgu;
@@ -187,6 +188,7 @@ public class KiemKeService {
         dot.setTenDotKiemKe(tenDot);
         dot.setLyDo(lyDo);
         dot.setGhiChu(chuoi(yc.ghiChu(), IKiemKe.LY_DO_TOI_DA, "khoVanHanh.ghiChuToiDaKyTu"));
+        kiemTraNgayDuKien(yc.ngayDuKienBatDau(), dot.getNgayDuKienBatDau(), Instant.now());
         dot.setNgayDuKienBatDau(yc.ngayDuKienBatDau());
         dot.setNguoiChuTri(nguoiChuTri(kho, yc.nguoiChuTriId(), nguoiTao));
         DotKiemKe.LoaiKiemKe loai;
@@ -198,6 +200,19 @@ public class KiemKeService {
         dot.setLoaiKiemKe(loai);
         dot.setDanhMuc(IKiemKe.THEO_DANH_MUC.equals(yc.loaiKiemKe()) && yc.danhMucId() != null
                 ? danhMucRepo.findById(yc.danhMucId()).orElse(null) : null);
+    }
+
+    /**
+     * Thời điểm dự kiến bắt đầu không được ở quá khứ (so theo phút: ô chọn chỉ tới phút). Sửa nháp mà giữ nguyên thời điểm
+     * cũ đã trôi qua thì vẫn cho lưu, để không chặn việc sửa phần khác của đợt.
+     */
+    static void kiemTraNgayDuKien(Instant moi, Instant cu, Instant bayGio) {
+        if (moi == null) return;
+        Instant phutMoi = moi.truncatedTo(ChronoUnit.MINUTES);
+        if (cu != null && phutMoi.equals(cu.truncatedTo(ChronoUnit.MINUTES))) return;
+        if (phutMoi.isBefore(bayGio.truncatedTo(ChronoUnit.MINUTES))) {
+            throw KiemKePhamViService.phamViSai(ThongDiep.of("khoVanHanh.ngayDuKienDaQua"));
+        }
     }
 
     /** Người chủ trì (Đ11): quản lý kho đang được phân quyền ở kho, hoặc quản trị viên; mặc định người tạo. */
