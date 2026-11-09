@@ -114,6 +114,74 @@ public class ShopeeMockEngine {
     }
 
     /**
+     * Đưa sản phẩm từ FCentric lên sàn Shopee Mock và trả về map SKU -> modelId (Catalog Creation).
+     */
+    @Transactional
+    public synchronized Map<String, Long> addMockProductsFromVariants(List<BienTheSanPham> variants) {
+        if (variants == null || variants.isEmpty()) return Map.of();
+        List<ShopeeMockProduct> existing = productRepository.findAll();
+        Set<String> existingSkus = new HashSet<>();
+        Map<Integer, Long> spToItemId = new HashMap<>();
+        long baseItemId = 188200000L;
+        long baseModelId = 588300000L;
+
+        for (ShopeeMockProduct p : existing) {
+            if (p.getModelSku() != null) existingSkus.add(p.getModelSku().trim().toLowerCase(Locale.ROOT));
+        }
+
+        List<ShopeeMockProduct> toSave = new ArrayList<>();
+        Map<String, Long> resultMap = new HashMap<>();
+
+        for (BienTheSanPham bt : variants) {
+            if (bt.getMaSku() == null || bt.getMaSku().isBlank()) continue;
+            String norm = bt.getMaSku().trim().toLowerCase(Locale.ROOT);
+            int spId = (bt.getSanPham() != null && bt.getSanPham().getId() != null) ? bt.getSanPham().getId() : 1;
+            Long itemId = spToItemId.computeIfAbsent(spId, k -> baseItemId + k * 100L);
+            Long modelId = baseModelId + bt.getId();
+
+            resultMap.put(norm, modelId);
+
+            if (!existingSkus.contains(norm)) {
+                String spName = (bt.getSanPham() != null && bt.getSanPham().getTenSanPham() != null)
+                        ? bt.getSanPham().getTenSanPham()
+                        : "Sản phẩm Thời trang FCentric";
+                String itemSku = (bt.getSanPham() != null && bt.getSanPham().getMaSanPham() != null)
+                        ? bt.getSanPham().getMaSanPham()
+                        : "FC-SP-" + spId;
+
+                String mau = (bt.getMauSac() != null && bt.getMauSac().getTenMau() != null) ? bt.getMauSac().getTenMau() : "Đen";
+                String size = (bt.getSize() != null && bt.getSize().getTenSize() != null) ? bt.getSize().getTenSize() : "M";
+                String tierVar = "Màu " + mau + " - Size " + size;
+
+                BigDecimal price = bt.getGiaBan() != null ? bt.getGiaBan() : BigDecimal.valueOf(250000);
+                String img = com.dev.backend.utils.HienThiBienThe.anh(bt);
+
+                ShopeeMockProduct prod = ShopeeMockProduct.builder()
+                        .itemId(itemId)
+                        .modelId(modelId)
+                        .itemSku(itemSku)
+                        .modelSku(bt.getMaSku().trim())
+                        .itemName(spName)
+                        .tierVariation(tierVar)
+                        .price(price)
+                        .stockQuantity(0)
+                        .imageUrl(img)
+                        .trangThai("NORMAL")
+                        .build();
+
+                toSave.add(prod);
+                existingSkus.add(norm);
+            }
+        }
+
+        if (!toSave.isEmpty()) {
+            productRepository.saveAll(toSave);
+            log.info("[SHOPEE-MOCK] Đã đưa {} sản phẩm mới từ FCentric lên sàn Shopee Mock", toSave.size());
+        }
+        return resultMap;
+    }
+
+    /**
      * Cập nhật số lượng tồn kho trên sàn Shopee khi FCentric gọi API update_stock.
      */
     @Transactional
@@ -142,6 +210,62 @@ public class ShopeeMockEngine {
     }
 
     /**
+     * Cập nhật tồn kho hàng loạt theo danh sách biến thể của sản phẩm cha (Batch Update Stock).
+     */
+    @Transactional
+    public boolean updateStockBatchFromFCentric(Long itemId, List<Map<String, Object>> stockList) {
+        if (stockList == null || stockList.isEmpty()) return true;
+        initMockProductsIfEmpty();
+
+        List<ShopeeMockProduct> allProducts = productRepository.findAll();
+        List<ShopeeMockProduct> toUpdate = new ArrayList<>();
+
+        for (Map<String, Object> entry : stockList) {
+            Long modelId = null;
+            Object mVal = entry.get("model_id");
+            if (mVal instanceof Number n) {
+                modelId = n.longValue();
+            } else if (mVal != null) {
+                try { modelId = Long.parseLong(mVal.toString()); } catch (Exception ignored) {}
+            }
+
+            int stock = 0;
+            Object sVal = entry.get("normal_stock");
+            if (sVal instanceof Number n) {
+                stock = n.intValue();
+            } else if (sVal != null) {
+                try { stock = Integer.parseInt(sVal.toString()); } catch (Exception ignored) {}
+            }
+
+            final Long targetModelId = modelId;
+            final int finalStock = Math.max(0, stock);
+
+            Optional<ShopeeMockProduct> matched = allProducts.stream()
+                    .filter(p -> Objects.equals(p.getItemId(), itemId) && Objects.equals(p.getModelId(), targetModelId))
+                    .findFirst();
+
+            if (matched.isEmpty() && targetModelId != null) {
+                matched = allProducts.stream()
+                        .filter(p -> Objects.equals(p.getModelId(), targetModelId))
+                        .findFirst();
+            }
+
+            if (matched.isPresent()) {
+                ShopeeMockProduct p = matched.get();
+                p.setStockQuantity(finalStock);
+                toUpdate.add(p);
+            }
+        }
+
+        if (!toUpdate.isEmpty()) {
+            productRepository.saveAll(toUpdate);
+            log.info("[SHOPEE-MOCK-SYNC-BATCH] Đã cập nhật tồn Shopee theo lô cho item {}: {} biến thể", itemId, toUpdate.size());
+            return true;
+        }
+        return false;
+    }
+
+    /**
      * Cập nhật tồn kho theo modelSku (Mã SKU FCentric).
      */
     @Transactional
@@ -161,7 +285,7 @@ public class ShopeeMockEngine {
     /**
      * Lấy danh sách sản phẩm hiển thị trên sàn Shopee Buyer Storefront.
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public List<Map<String, Object>> getStorefrontProducts() {
         initMockProductsIfEmpty();
         List<ShopeeMockProduct> all = productRepository.findAllByTrangThai("NORMAL");
@@ -197,7 +321,7 @@ public class ShopeeMockEngine {
     /**
      * Lấy danh sách sản phẩm và tồn kho cho Shopee Seller Center.
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public List<ShopeeMockProduct> getSellerProducts() {
         initMockProductsIfEmpty();
         return productRepository.findAll();
@@ -324,7 +448,7 @@ public class ShopeeMockEngine {
     /**
      * Trả về danh sách ShopeeOrderDto cho ShopeeClient và OmnichannelOrderSyncJob kéo đơn về FCentric.
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public List<ShopeeOrderDto> getOrdersForSync(String status, Long timeFrom) {
         initMockProductsIfEmpty();
 

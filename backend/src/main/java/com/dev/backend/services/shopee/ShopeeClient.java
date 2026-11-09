@@ -458,6 +458,30 @@ public class ShopeeClient {
         return executePost(url, body);
     }
 
+    public JsonNode updateStockBatch(String partnerId, String partnerKey, String accessToken, String shopId,
+                                     Long itemId, List<Map<String, Object>> stockList, boolean isSandbox) {
+        if (isSandbox || isMockCredentials(partnerId, partnerKey)) {
+            log.info("[SHOPEE-MOCK-UPDATE-STOCK-BATCH] Giả lập cập nhật tồn kho Shopee theo lô: item={}, số SKU={}", itemId, stockList != null ? stockList.size() : 0);
+            if (mockEngine != null) {
+                mockEngine.updateStockBatchFromFCentric(itemId, stockList);
+            }
+            return objectMapper.createObjectNode().put("error", "").put("message", "success");
+        }
+
+        long timestamp = Instant.now().getEpochSecond();
+        String baseString = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_UPDATE_STOCK, timestamp, accessToken, shopId);
+        String sign = ShopeeSignatureHelper.sign(partnerKey, baseString);
+
+        String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s",
+                PRODUCTION_HOST, PATH_UPDATE_STOCK, partnerId.trim(), timestamp, accessToken.trim(), shopId.trim(), sign);
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("item_id", itemId);
+        body.put("stock_list", stockList != null ? stockList : List.of());
+
+        return executePost(url, body);
+    }
+
     public JsonNode updatePrice(String partnerId, String partnerKey, String accessToken, String shopId,
                                 Long itemId, Long modelId, BigDecimal price, boolean isSandbox) {
         if (isSandbox || isMockCredentials(partnerId, partnerKey)) {
@@ -796,6 +820,10 @@ public class ShopeeClient {
 
     public JsonNode updateStock(Long itemId, Long modelId, int stock) {
         return updateStock(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), itemId, modelId, stock, this.isSandbox);
+    }
+
+    public JsonNode updateStockBatch(Long itemId, List<Map<String, Object>> stockList) {
+        return updateStockBatch(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), itemId, stockList, this.isSandbox);
     }
 
     public JsonNode getAccessToken(String code, long shopId) {
