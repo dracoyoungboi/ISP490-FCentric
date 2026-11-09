@@ -1,5 +1,7 @@
 package com.dev.backend.services.tiktok;
 
+import com.dev.backend.i18n.LoiThamSoException;
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.constants.TikTokShopConstants;
 import com.dev.backend.dto.response.customize.TikTokAuthorizedShopsResponse;
 import com.dev.backend.dto.response.customize.TikTokShopDto;
@@ -78,7 +80,7 @@ public class TikTokShopClient {
 
     public String generateAuthUrl(String appKey, String redirectUri, String state) {
         if (appKey == null || appKey.isBlank()) {
-            throw new IllegalArgumentException("App Key không được để trống khi tạo URL ủy quyền TikTok Shop");
+            throw new LoiThamSoException(ThongDiep.of("kenhBan.appKeyTrongKhiTaoUrlTikTok"));
         }
         String cleanAppKey = appKey.trim();
         String cleanState = (state != null && !state.isBlank()) ? state.trim() : java.util.UUID.randomUUID().toString();
@@ -99,10 +101,10 @@ public class TikTokShopClient {
      */
     public JsonNode exchangeToken(String appKey, String appSecret, String authCode) {
         if (appKey == null || appKey.isBlank() || appSecret == null || appSecret.isBlank()) {
-            throw new IllegalArgumentException("App Key và App Secret không được để trống khi trao đổi token");
+            throw new LoiThamSoException(ThongDiep.of("kenhBan.appKeySecretTrongKhiDoiToken"));
         }
         if (authCode == null || authCode.isBlank()) {
-            throw new IllegalArgumentException("Authorization code không được để trống");
+            throw new LoiThamSoException(ThongDiep.of("kenhBan.authorizationCodeKhongDuocTrong"));
         }
 
         StringBuilder urlBuilder = new StringBuilder(TikTokShopConstants.TOKEN_GET_URL);
@@ -122,7 +124,7 @@ public class TikTokShopClient {
         } catch (Exception e) {
             log.error("Lỗi khi trao đổi authorization code TikTok Shop: {}", e.getMessage());
             throw new LoiCoMaException(HttpStatus.BAD_GATEWAY, MaLoi.TIKTOK_AUTH_FAILED,
-                    "Không thể trao đổi mã ủy quyền với máy chủ TikTok Shop: " + e.getMessage());
+                    ThongDiep.of("kenhBan.khongTheDoiMaUyQuyenTikTok", e.getMessage()));
         }
     }
 
@@ -133,10 +135,10 @@ public class TikTokShopClient {
      */
     public JsonNode refreshToken(String appKey, String appSecret, String refreshToken) {
         if (appKey == null || appKey.isBlank() || appSecret == null || appSecret.isBlank()) {
-            throw new IllegalArgumentException("App Key và App Secret không được để trống khi làm mới token");
+            throw new LoiThamSoException(ThongDiep.of("kenhBan.appKeySecretTrongKhiLamMoiToken"));
         }
         if (refreshToken == null || refreshToken.isBlank()) {
-            throw new IllegalArgumentException("Refresh Token không được để trống");
+            throw new LoiThamSoException(ThongDiep.of("kenhBan.refreshTokenTrong"));
         }
 
         StringBuilder urlBuilder = new StringBuilder(TikTokShopConstants.TOKEN_REFRESH_URL);
@@ -156,7 +158,7 @@ public class TikTokShopClient {
         } catch (Exception e) {
             log.error("Lỗi khi làm mới token TikTok Shop: {}", e.getMessage());
             throw new LoiCoMaException(HttpStatus.BAD_GATEWAY, MaLoi.TIKTOK_TOKEN_EXPIRED,
-                    "Không thể làm mới Access Token từ máy chủ TikTok Shop: " + e.getMessage());
+                    ThongDiep.of("kenhBan.khongTheLamMoiAccessTokenTikTok", e.getMessage()));
         }
     }
 
@@ -174,10 +176,10 @@ public class TikTokShopClient {
      */
     public TikTokWarehousesResponse getWarehouses(String appKey, String appSecret, String accessToken, String shopCipher) {
         if (accessToken == null || accessToken.isBlank()) {
-            throw new IllegalArgumentException("Access Token không được để trống khi lấy danh sách kho TikTok Shop");
+            throw new LoiThamSoException(ThongDiep.of("kenhBan.accessTokenTrongKhiLayKhoTikTok"));
         }
         if (shopCipher == null || shopCipher.isBlank()) {
-            throw new IllegalArgumentException("Shop Cipher không được để trống khi lấy danh sách kho TikTok Shop");
+            throw new LoiThamSoException(ThongDiep.of("kenhBan.shopCipherTrongKhiLayKhoTikTok"));
         }
         String apiPath = TikTokShopConstants.PATH_WAREHOUSES;
         String fullSignedUrl = buildUrlWithSign(TikTokShopConstants.BASE_URL, apiPath, Map.of(), null, appKey, appSecret, shopCipher);
@@ -216,10 +218,10 @@ public class TikTokShopClient {
     public TikTokProductSearchResponse searchProducts(String appKey, String appSecret, String accessToken,
                                                       String shopCipher, int pageSize, String pageToken) {
         if (accessToken == null || accessToken.isBlank()) {
-            throw new IllegalArgumentException("Access Token không được để trống khi tìm kiếm sản phẩm TikTok Shop");
+            throw new LoiThamSoException(ThongDiep.of("kenhBan.accessTokenTrongKhiTimSanPhamTikTok"));
         }
         if (shopCipher == null || shopCipher.isBlank()) {
-            throw new IllegalArgumentException("Shop Cipher không được để trống khi tìm kiếm sản phẩm TikTok Shop");
+            throw new LoiThamSoException(ThongDiep.of("kenhBan.shopCipherTrongKhiTimSanPhamTikTok"));
         }
 
         Map<String, String> queryParams = new HashMap<>();
@@ -295,13 +297,13 @@ public class TikTokShopClient {
                                                                 String shopCipher, String productId,
                                                                 TikTokInventoryUpdateRequest payload) {
         if (accessToken == null || accessToken.isBlank()) {
-            throw new IllegalArgumentException("Access Token không được để trống khi cập nhật tồn kho TikTok Shop");
+            throw new LoiThamSoException(ThongDiep.of("kenhBan.accessTokenTrongKhiCapNhatTonTikTok"));
         }
         if (shopCipher == null || shopCipher.isBlank()) {
-            throw new IllegalArgumentException("Shop Cipher không được để trống khi cập nhật tồn kho TikTok Shop");
+            throw new LoiThamSoException(ThongDiep.of("kenhBan.shopCipherTrongKhiCapNhatTonTikTok"));
         }
         if (productId == null || productId.isBlank()) {
-            throw new IllegalArgumentException("Product ID không được để trống khi cập nhật tồn kho TikTok Shop");
+            throw new LoiThamSoException(ThongDiep.of("kenhBan.productIdTrongKhiCapNhatTonTikTok"));
         }
 
         String apiPath = String.format(TikTokShopConstants.PATH_INVENTORY_UPDATE, productId.trim());
@@ -309,7 +311,7 @@ public class TikTokShopClient {
         try {
             body = objectMapper.writeValueAsString(payload);
         } catch (Exception e) {
-            throw new IllegalArgumentException("Lỗi serialize payload cập nhật tồn kho: " + e.getMessage(), e);
+            throw new LoiThamSoException(ThongDiep.of("kenhBan.loiSerializeCapNhatTon", e.getMessage()), e);
         }
 
         String fullSignedUrl = buildUrlWithSign(TikTokShopConstants.BASE_URL, apiPath, Map.of(), body, appKey, appSecret, shopCipher);
@@ -349,10 +351,10 @@ public class TikTokShopClient {
     public TikTokOrderSearchResponse searchOrders(String appKey, String appSecret, String accessToken,
                                                  String shopCipher, TikTokOrderSearchRequest request) {
         if (accessToken == null || accessToken.isBlank()) {
-            throw new IllegalArgumentException("Access Token không được để trống khi tìm kiếm đơn hàng TikTok Shop");
+            throw new LoiThamSoException(ThongDiep.of("kenhBan.accessTokenTrongKhiTimDonTikTok"));
         }
         if (shopCipher == null || shopCipher.isBlank()) {
-            throw new IllegalArgumentException("Shop Cipher không được để trống khi tìm kiếm đơn hàng TikTok Shop");
+            throw new LoiThamSoException(ThongDiep.of("kenhBan.shopCipherTrongKhiTimDonTikTok"));
         }
 
         String apiPath = TikTokShopConstants.PATH_ORDERS_SEARCH;
@@ -360,7 +362,7 @@ public class TikTokShopClient {
         try {
             body = objectMapper.writeValueAsString(request != null ? request : new TikTokOrderSearchRequest());
         } catch (Exception e) {
-            throw new IllegalArgumentException("Lỗi serialize payload tìm kiếm đơn hàng: " + e.getMessage(), e);
+            throw new LoiThamSoException(ThongDiep.of("kenhBan.loiSerializeTimDon", e.getMessage()), e);
         }
 
         String fullSignedUrl = buildUrlWithSign(TikTokShopConstants.BASE_URL, apiPath, Map.of(), body, appKey, appSecret, shopCipher);
@@ -371,13 +373,13 @@ public class TikTokShopClient {
         } catch (Exception e) {
             log.error("Lỗi parse phản hồi danh sách đơn hàng TikTok Shop: {}", e.getMessage());
             throw new LoiCoMaException(HttpStatus.INTERNAL_SERVER_ERROR, MaLoi.TIKTOK_API_ERROR,
-                    "Không thể phân tích dữ liệu đơn hàng trả về từ TikTok Shop: " + e.getMessage());
+                    ThongDiep.of("kenhBan.khongThePhanTichDonTikTok", e.getMessage()));
         }
     }
 
     public TikTokAuthorizedShopsResponse getAuthorizedShops(String appKey, String appSecret, String accessToken) {
         if (accessToken == null || accessToken.isBlank()) {
-            throw new IllegalArgumentException("Access Token không được để trống khi lấy danh sách gian hàng TikTok Shop");
+            throw new LoiThamSoException(ThongDiep.of("kenhBan.accessTokenTrongKhiLayGianHangTikTok"));
         }
         String apiPath = TikTokShopConstants.PATH_AUTHORIZED_SHOPS;
         String fullSignedUrl = buildUrlWithSign(TikTokShopConstants.BASE_URL, apiPath, Map.of(), null, appKey, appSecret, null);
@@ -413,10 +415,10 @@ public class TikTokShopClient {
     public String buildUrlWithSign(String baseUrl, String apiPath, Map<String, String> queryParams, String body,
                                    String appKey, String appSecret, String shopCipher) {
         if (appKey == null || appKey.isBlank()) {
-            throw new IllegalArgumentException("App Key không được để trống khi gọi TikTok Shop API");
+            throw new LoiThamSoException(ThongDiep.of("kenhBan.appKeyTrongKhiGoiTikTokApi"));
         }
         if (appSecret == null || appSecret.isBlank()) {
-            throw new IllegalArgumentException("App Secret không được để trống khi tính chữ ký TikTok Shop");
+            throw new LoiThamSoException(ThongDiep.of("kenhBan.appSecretTrongKhiTinhChuKyTikTok"));
         }
 
         Map<String, String> params = new HashMap<>();
@@ -475,7 +477,7 @@ public class TikTokShopClient {
         } catch (Exception e) {
             log.error("Lỗi kết nối tới TikTok Shop API GET [{}]: {}", fullSignedUrl, e.getMessage());
             throw new LoiCoMaException(HttpStatus.BAD_GATEWAY, MaLoi.TIKTOK_API_ERROR,
-                    "Không thể kết nối tới TikTok Shop Open API: " + e.getMessage());
+                    ThongDiep.of("kenhBan.khongTheKetNoiTikTokApi", e.getMessage()));
         }
     }
 
@@ -495,7 +497,7 @@ public class TikTokShopClient {
         } catch (Exception e) {
             log.error("Lỗi kết nối tới TikTok Shop API POST [{}]: {}", fullSignedUrl, e.getMessage());
             throw new LoiCoMaException(HttpStatus.BAD_GATEWAY, MaLoi.TIKTOK_API_ERROR,
-                    "Không thể gửi dữ liệu tới TikTok Shop Open API: " + e.getMessage());
+                    ThongDiep.of("kenhBan.khongTheGuiDuLieuTikTokApi", e.getMessage()));
         }
     }
 
@@ -506,16 +508,17 @@ public class TikTokShopClient {
     public JsonNode parseAndValidateResponse(String responseBody) {
         if (responseBody == null || responseBody.isBlank()) {
             throw new LoiCoMaException(HttpStatus.BAD_GATEWAY, MaLoi.TIKTOK_API_ERROR,
-                    "TikTok Shop API trả về phản hồi rỗng.");
+                    ThongDiep.of("kenhBan.tiktokPhanHoiRong"));
         }
         try {
             JsonNode root = objectMapper.readTree(responseBody);
             if (root.has("code") && root.get("code").asInt() != 0) {
                 int code = root.get("code").asInt();
-                String message = root.path("message").asText("Lỗi từ máy chủ TikTok Shop");
+                String message = root.path("message").asText(null);
                 log.warn("TikTok Shop API trả về mã lỗi nghiệp vụ: code={}, message={}", code, message);
-                throw new LoiCoMaException(HttpStatus.BAD_REQUEST, MaLoi.TIKTOK_API_ERROR,
-                        "Lỗi từ TikTok Shop (" + code + "): " + message);
+                throw new LoiCoMaException(HttpStatus.BAD_REQUEST, MaLoi.TIKTOK_API_ERROR, message != null
+                        ? ThongDiep.of("kenhBan.loiTuTikTok", code, message)
+                        : ThongDiep.of("kenhBan.loiTuTikTokMacDinh", code));
             }
             return root;
         } catch (LoiCoMaException e) {
@@ -523,7 +526,7 @@ public class TikTokShopClient {
         } catch (Exception e) {
             log.error("Không thể phân giải JSON từ TikTok Shop: {}, nội dung: {}", e.getMessage(), responseBody);
             throw new LoiCoMaException(HttpStatus.BAD_GATEWAY, MaLoi.TIKTOK_API_ERROR,
-                    "Định dạng phản hồi từ TikTok Shop không hợp lệ: " + e.getMessage());
+                    ThongDiep.of("kenhBan.dinhDangPhanHoiTikTokKhongHopLe", e.getMessage()));
         }
     }
 
@@ -534,19 +537,19 @@ public class TikTokShopClient {
         log.error("TikTok Shop API {} HTTP Error: url={}, status={}, body={}", method, url, e.getStatusCode(), e.getResponseBodyAsString());
         if (e.getStatusCode() == HttpStatus.TOO_MANY_REQUESTS) {
             throw new LoiCoMaException(HttpStatus.TOO_MANY_REQUESTS, MaLoi.TIKTOK_RATE_LIMIT,
-                    "Vượt giới hạn tần suất gọi API của TikTok Shop (HTTP 429). Hệ thống đang tạm hoãn để bảo vệ hạn mức.");
+                    ThongDiep.of("kenhBan.tiktokVuotGioiHanTanSuat"));
         }
         try {
             JsonNode errorNode = objectMapper.readTree(e.getResponseBodyAsString());
             String message = errorNode.path("message").asText(e.getStatusText());
             int code = errorNode.path("code").asInt(e.getStatusCode().value());
             throw new LoiCoMaException(HttpStatus.BAD_REQUEST, MaLoi.TIKTOK_API_ERROR,
-                    "Lỗi từ TikTok Shop (" + code + "): " + message);
+                    ThongDiep.of("kenhBan.loiTuTikTok", code, message));
         } catch (LoiCoMaException ex) {
             throw ex;
         } catch (Exception parseEx) {
             throw new LoiCoMaException(HttpStatus.BAD_REQUEST, MaLoi.TIKTOK_API_ERROR,
-                    "Lỗi gọi TikTok Shop API: HTTP " + e.getStatusCode().value() + " - " + e.getStatusText());
+                    ThongDiep.of("kenhBan.loiGoiTikTokApiHttp", e.getStatusCode().value(), e.getStatusText()));
         }
     }
 }

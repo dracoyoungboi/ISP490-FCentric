@@ -1,5 +1,7 @@
 package com.dev.backend.services.impl.entities;
 
+import com.dev.backend.i18n.LoiTrangThaiException;
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.config.SecurityContextHolder;
 import com.dev.backend.constant.variables.IHanhDong;
 import com.dev.backend.constant.variables.ITable;
@@ -219,7 +221,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
         String domain = extractDomainFromApiUrl(kenh.getApiUrl());
         if (domain.isBlank()) {
-            throw new CommonException("Chưa cấu hình shopDomain hoặc apiUrl cho kênh " + maKenh, HttpStatus.BAD_REQUEST, null);
+            throw new CommonException(ThongDiep.of("kenhBan.chuaCauHinhShopDomain", maKenh), HttpStatus.BAD_REQUEST, null);
         }
 
         int soSku = 0;
@@ -312,7 +314,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             }
         } catch (Exception e) {
             log.error("Lỗi khi tải sản phẩm từ Shopify [{}]: {}", maKenh, e.getMessage());
-            throw new CommonException("Không thể tải sản phẩm từ Shopify: " + e.getMessage(), HttpStatus.BAD_GATEWAY, null);
+            throw new CommonException(ThongDiep.of("kenhBan.khongTheTaiSanPhamTu", "Shopify", e.getMessage()), HttpStatus.BAD_GATEWAY, null);
         }
 
         ghiNhatKy(kenh.getId(), IHanhDong.dong_bo_san_pham, "Tải sản phẩm từ " + maKenh + ": " + soSku + " SKU (" + soMoi + " mới, " + soCapNhat + " cập nhật)");
@@ -353,7 +355,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         String cipher = kenhBanHangService.getTikTokShopCipher();
 
         if (appKey == null || appSecret == null || token == null || cipher == null || cipher.isBlank()) {
-            throw new CommonException("Chưa cấu hình đủ thông tin xác thực hoặc Shop Cipher cho kênh " + kenh.getMaKenh(), HttpStatus.BAD_REQUEST, null);
+            throw new CommonException(ThongDiep.of("kenhBan.chuaCauHinhXacThucShopCipher", kenh.getMaKenh()), HttpStatus.BAD_REQUEST, null);
         }
 
         int soSku = 0;
@@ -412,7 +414,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     .build();
         } catch (Exception e) {
             log.error("Lỗi khi tải sản phẩm từ TikTok Shop: {}", e.getMessage());
-            throw new CommonException("Không thể tải sản phẩm từ TikTok Shop: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR, null);
+            throw new CommonException(ThongDiep.of("kenhBan.khongTheTaiSanPhamTu", "TikTok Shop", e.getMessage()), HttpStatus.INTERNAL_SERVER_ERROR, null);
         }
     }
 
@@ -422,7 +424,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         String appSecret = kenhBanHangService.getDecryptedLazadaAppSecret(maKenh);
         String token = kenhBanHangService.getDecryptedLazadaAccessToken(maKenh);
         if (appKey == null || appSecret == null || token == null) {
-            throw new CommonException("Chưa có App Key, App Secret hoặc Access Token cho kênh " + kenh.getMaKenh(), HttpStatus.BAD_REQUEST, null);
+            throw new CommonException(ThongDiep.of("kenhBan.chuaCoAppKeySecretToken", kenh.getMaKenh()), HttpStatus.BAD_REQUEST, null);
         }
 
         int soSku = 0;
@@ -1052,7 +1054,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         String appSecret = kenhBanHangService.getDecryptedLazadaAppSecret(maKenh);
         String token = kenhBanHangService.getDecryptedLazadaAccessToken(maKenh);
         if (appKey == null || appSecret == null || token == null) {
-            throw new CommonException("Chưa có cấu hình hoặc Access Token cho kênh " + kenh.getMaKenh(), HttpStatus.BAD_REQUEST, null);
+            throw new CommonException(ThongDiep.of("kenhBan.chuaCoCauHinhAccessToken", kenh.getMaKenh()), HttpStatus.BAD_REQUEST, null);
         }
 
         List<BienTheSanPham> activeVariants = bienTheSanPhamRepository.findActiveVariantsWithDetails();
@@ -1642,15 +1644,15 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     @Transactional(rollbackFor = Exception.class)
     public LienKetSanPhamDto capNhatLienKet(Integer lienKetId, CapNhatLienKetRequest request) {
         TrangThaiDongBoSanPham record = trangThaiDongBoSanPhamRepository.findById(lienKetId)
-                .orElseThrow(() -> new CommonException("Không tìm thấy liên kết với ID " + lienKetId, HttpStatus.NOT_FOUND, null));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("kenhBan.khongTimThayLienKet", lienKetId), HttpStatus.NOT_FOUND, null));
 
         if (request.getBienTheSanPhamId() != null) {
             BienTheSanPham bt = bienTheSanPhamRepository.findById(request.getBienTheSanPhamId())
-                    .orElseThrow(() -> new CommonException("Không tìm thấy biến thể ID " + request.getBienTheSanPhamId(), HttpStatus.BAD_REQUEST, null));
+                    .orElseThrow(() -> new CommonException(ThongDiep.of("kenhBan.khongTimThayBienThe", request.getBienTheSanPhamId()), HttpStatus.BAD_REQUEST, null));
             Integer kenhId = record.getKenhBanHang() != null ? record.getKenhBanHang().getId() : null;
             if (kenhId != null && trangThaiDongBoSanPhamRepository
                     .existsByKenhBanHangIdAndBienTheSanPhamIdAndIdNot(kenhId, bt.getId(), record.getId())) {
-                throw new CommonException("Biến thể " + bt.getMaSku() + " đã được ghép với một sản phẩm khác của gian hàng này",
+                throw new CommonException(ThongDiep.of("kenhBan.bienTheDaGhep", bt.getMaSku()),
                         HttpStatus.BAD_REQUEST, null);
             }
             record.setBienTheSanPham(bt);
@@ -2469,7 +2471,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     public DongBoTongQuanDto luuCaiDat(String maKenh, KenhBanHangCaiDatRequest request) {
         KenhBanHang kenh = getKenhActive(maKenh);
         if (request.getKhoId() != null && !khoRepository.existsById(request.getKhoId())) {
-            throw new CommonException("Kho FCentric không tồn tại: " + request.getKhoId(), HttpStatus.BAD_REQUEST, null);
+            throw new CommonException(ThongDiep.of("kenhBan.khoKhongTonTai", request.getKhoId()), HttpStatus.BAD_REQUEST, null);
         }
 
         if (request.getMaKhoSan() != null && !request.getMaKhoSan().isBlank()) {
@@ -2516,7 +2518,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     @Transactional(readOnly = true)
     public NhatKyDongBoDto getNhatKyDetail(Integer id) {
         TrangThaiDongBoSanPham tt = trangThaiDongBoSanPhamRepository.findById(id)
-                .orElseThrow(() -> new CommonException("Không tìm thấy sự kiện nhật ký với ID " + id, HttpStatus.NOT_FOUND, null));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("kenhBan.khongTimThaySuKienNhatKy", id), HttpStatus.NOT_FOUND, null));
         return mapToNhatKyDto(tt);
     }
 
@@ -2555,7 +2557,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         return LayDonResultDto.builder()
                 .soDonMoi(synced)
                 .soDonCapNhat(0)
-                .thongDiep("Nhận " + synced + " đơn hàng mới từ sàn " + maKenh)
+                .thongDiep(ThongDiep.dich("kenhBan.nhanDonMoiTuSan", synced, maKenh))
                 .build();
     }
 
@@ -2594,7 +2596,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     @Transactional(rollbackFor = Exception.class)
     public LienKetSanPhamDto thuLai(Integer lienKetId) {
         TrangThaiDongBoSanPham tt = trangThaiDongBoSanPhamRepository.findById(lienKetId)
-                .orElseThrow(() -> new CommonException("Không tìm thấy liên kết với ID " + lienKetId, HttpStatus.NOT_FOUND, null));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("kenhBan.khongTimThayLienKet", lienKetId), HttpStatus.NOT_FOUND, null));
         kiemTraDaKetNoi(tt.getKenhBanHang());
 
         BienTheSanPham bt = tt.getBienTheSanPham();
@@ -2695,13 +2697,13 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             statusStr = "LOI";
             canRetry = true;
             errCode = "SYNC_FAILED";
-            errorMsg = tt.getChiTietLoi() != null ? tt.getChiTietLoi() : "Lỗi đồng bộ tồn kho sang sàn";
+            errorMsg = tt.getChiTietLoi() != null ? tt.getChiTietLoi() : ThongDiep.dich("kenhBan.loiDongBoTonKhoSangSan");
         }
 
         String skuRef = bt != null ? bt.getMaSku() : tt.getMaSanPhamKenh();
         String message = statusStr.equals("THANH_CONG")
-                ? ("Đồng bộ tồn kho SKU " + skuRef + " thành công")
-                : (errorMsg != null ? errorMsg : "Chờ đồng bộ tồn kho cho SKU " + skuRef);
+                ? ThongDiep.dich("kenhBan.dongBoTonKhoSkuThanhCong", skuRef)
+                : (errorMsg != null ? errorMsg : ThongDiep.dich("kenhBan.choDongBoTonKhoSku", skuRef));
 
         Map<String, Object> summary = new LinkedHashMap<>();
         summary.put("skuSan", tt.getMaSanPhamKenh());
@@ -2757,9 +2759,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     }
 
     private static LoiCoMaException kenhChuaKetNoi(String maKenh) {
-        String ten = KenhBanHangServiceImpl.tenSan(maKenh);
-        return new LoiCoMaException(HttpStatus.CONFLICT, MaLoi.KENH_CHUA_KET_NOI,
-                ten + " chưa kết nối. Kết nối lại ở trình thiết lập rồi thử lại.");
+        ThongDiep thongDiep = maKenh == null || maKenh.isBlank()
+                ? ThongDiep.of("kenhBan.sanNayChuaKetNoi")
+                : ThongDiep.of("kenhBan.sanChuaKetNoi", KenhBanHangServiceImpl.tenSan(maKenh));
+        return new LoiCoMaException(HttpStatus.CONFLICT, MaLoi.KENH_CHUA_KET_NOI, thongDiep);
     }
 
     @Override
@@ -2787,10 +2790,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
     private KenhBanHang getKenhActive(String maKenh) {
         if (maKenh == null || maKenh.isBlank()) {
-            throw new CommonException("Mã kênh không được để trống", HttpStatus.BAD_REQUEST, null);
+            throw new CommonException(ThongDiep.of("kenhBan.maKenhTrong"), HttpStatus.BAD_REQUEST, null);
         }
         return timKenh(maKenh.trim())
-                .orElseThrow(() -> new CommonException("Không tìm thấy kênh bán hàng: " + maKenh, HttpStatus.NOT_FOUND, null));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("kenhBan.khongTimThayKenhBanHang", maKenh), HttpStatus.NOT_FOUND, null));
     }
 
     /** Tìm kênh theo id (chuỗi số) hoặc mã kênh (nguyên văn, rồi in hoa). */
@@ -2872,7 +2875,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         ResponseEntity<String> response = createRestTemplate()
                 .exchange(url, HttpMethod.GET, new HttpEntity<Void>(createHeaders(token)), String.class);
         if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
-            throw new IllegalStateException("Shopify trả mã " + response.getStatusCode().value() + " khi đọc " + duongDan);
+            throw new LoiTrangThaiException(ThongDiep.of("kenhBan.shopifyTraMaKhiDoc", response.getStatusCode().value(), duongDan));
         }
         return objectMapper.readTree(response.getBody());
     }
@@ -2973,7 +2976,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             HttpEntity<Void> entity = new HttpEntity<>(headers);
             ResponseEntity<String> response = restTemplate.exchange(currentUrl, HttpMethod.GET, entity, String.class);
             if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
-                throw new IllegalStateException("Shopify trả mã " + response.getStatusCode().value() + " khi tải danh sách sản phẩm");
+                throw new LoiTrangThaiException(ThongDiep.of("kenhBan.shopifyTraMaKhiTaiSanPham", response.getStatusCode().value()));
             }
             kiemTraLeakyBucket(response.getHeaders().getFirst("X-Shopify-Shop-Api-Call-Limit"));
 
@@ -3116,7 +3119,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 if (sp != null && sp.getGiaBanMacDinh() != null && sp.getGiaBanMacDinh().compareTo(BigDecimal.ZERO) > 0) {
                     price = sp.getGiaBanMacDinh();
                 } else {
-                    throw new CommonException("Biến thể " + bt.getMaSku() + " chưa được thiết lập giá bán hợp lệ (> 0đ)", HttpStatus.BAD_REQUEST, null);
+                    throw new CommonException(ThongDiep.of("kenhBan.bienTheChuaCoGiaBan", bt.getMaSku()), HttpStatus.BAD_REQUEST, null);
                 }
             }
             varMap.put("price", price.setScale(2, RoundingMode.HALF_UP).toPlainString());
@@ -3186,7 +3189,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     if (sp != null && sp.getGiaBanMacDinh() != null && sp.getGiaBanMacDinh().compareTo(BigDecimal.ZERO) > 0) {
                         price = sp.getGiaBanMacDinh();
                     } else {
-                        throw new CommonException("Biến thể " + bt.getMaSku() + " chưa được thiết lập giá bán hợp lệ (> 0đ)", HttpStatus.BAD_REQUEST, null);
+                        throw new CommonException(ThongDiep.of("kenhBan.bienTheChuaCoGiaBan", bt.getMaSku()), HttpStatus.BAD_REQUEST, null);
                     }
                 }
                 varMap.put("price", price.setScale(2, RoundingMode.HALF_UP).toPlainString());
@@ -4279,7 +4282,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             }
         } catch (Exception e) {
             log.error("[SHOPEE-SYNC] Lỗi tải sản phẩm Shopee: {}", e.getMessage(), e);
-            throw new CommonException("Lỗi tải sản phẩm từ Shopee: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR, null);
+            throw new CommonException(ThongDiep.of("kenhBan.loiTaiSanPhamShopee", e.getMessage()), HttpStatus.INTERNAL_SERVER_ERROR, null);
         }
 
         return TaiSanPhamResultDto.builder().soSku(soSku).soMoi(soMoi).soCapNhat(soCapNhat).build();

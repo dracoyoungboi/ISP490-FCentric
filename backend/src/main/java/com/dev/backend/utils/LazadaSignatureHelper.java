@@ -1,5 +1,8 @@
 package com.dev.backend.utils;
 
+import com.dev.backend.i18n.LoiTrangThaiException;
+import com.dev.backend.i18n.LoiThamSoException;
+import com.dev.backend.i18n.ThongDiep;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
@@ -24,7 +27,7 @@ public final class LazadaSignatureHelper {
 
     public static String calculateSignature(String apiPath, Map<String, String> parameters, String appSecret) {
         if (appSecret == null || appSecret.isBlank()) {
-            throw new IllegalArgumentException("App Secret của Lazada không được để trống khi tính chữ ký số");
+            throw new LoiThamSoException(ThongDiep.of("kenhBan.appSecretLazadaTrong"));
         }
         if (apiPath == null) {
             apiPath = "";
@@ -61,7 +64,7 @@ public final class LazadaSignatureHelper {
 
             return hexString.toString();
         } catch (Exception e) {
-            throw new IllegalStateException("Lỗi khi tạo chữ ký HMAC-SHA256 cho Lazada API", e);
+            throw new LoiTrangThaiException(ThongDiep.of("kenhBan.loiTaoChuKyLazada"), e);
         }
     }
 }

@@ -1,5 +1,7 @@
 package com.dev.backend.services.shopee;
 
+import com.dev.backend.i18n.LoiChungException;
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.dto.response.customize.ShopeeOrderDto;
 import com.dev.backend.entities.BienTheSanPham;
 import com.dev.backend.entities.ShopeeMockOrder;
@@ -220,10 +222,10 @@ public class ShopeeMockEngine {
         initMockProductsIfEmpty();
 
         ShopeeMockProduct prod = productRepository.findByItemIdAndModelId(itemId, modelId)
-                .orElseThrow(() -> new RuntimeException("Sản phẩm hoặc phân loại hàng không tồn tại trên sàn"));
+                .orElseThrow(() -> new LoiChungException(ThongDiep.of("kenhBan.sanPhamKhongTonTaiTrenSan")));
 
         if (prod.getStockQuantity() < quantity) {
-            throw new RuntimeException("Số lượng tồn trên sàn chỉ còn " + prod.getStockQuantity() + " sản phẩm, không đủ để đặt " + quantity);
+            throw new LoiChungException(ThongDiep.of("kenhBan.tonTrenSanKhongDu", prod.getStockQuantity(), quantity));
         }
 
         // Trừ tồn trên sàn Shopee
@@ -291,7 +293,7 @@ public class ShopeeMockEngine {
     @Transactional
     public ShopeeMockOrder updateOrderStatus(String orderSn, String newStatus, String cancelReason, String cancelUser) {
         ShopeeMockOrder order = orderRepository.findByOrderSn(orderSn)
-                .orElseThrow(() -> new RuntimeException("Đơn hàng Shopee " + orderSn + " không tồn tại"));
+                .orElseThrow(() -> new LoiChungException(ThongDiep.of("kenhBan.donShopeeKhongTonTai", orderSn)));
 
         String oldStatus = order.getOrderStatus();
         order.setOrderStatus(newStatus);

@@ -1,5 +1,7 @@
 package com.dev.backend.controller;
 
+import com.dev.backend.i18n.LoiThamSoException;
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.entities.ShopeeMockOrder;
 import com.dev.backend.entities.ShopeeMockProduct;
@@ -39,7 +41,7 @@ public class ShopeeMockController {
     public ResponseData<List<Map<String, Object>>> getStorefrontProducts() {
         return ResponseData.<List<Map<String, Object>>>builder()
                 .status(HttpStatus.OK.value())
-                .message("Lấy danh sách sản phẩm Shopee Storefront thành công")
+                .message(ThongDiep.dich("kenhBan.layDsSanPhamStorefrontThanhCong"))
                 .data(mockEngine.getStorefrontProducts())
                 .build();
     }
@@ -50,7 +52,7 @@ public class ShopeeMockController {
     @PostMapping("/storefront/checkout")
     public ResponseData<ShopeeMockOrder> buyerCheckout(@RequestBody BuyerCheckoutRequest req) {
         if (req.getItemId() == null || req.getModelId() == null) {
-            throw new IllegalArgumentException("Thiếu itemId hoặc modelId");
+            throw new LoiThamSoException(ThongDiep.of("kenhBan.thieuItemIdModelId"));
         }
         int qty = req.getQuantity() != null && req.getQuantity() > 0 ? req.getQuantity() : 1;
 
@@ -66,7 +68,7 @@ public class ShopeeMockController {
 
         return ResponseData.<ShopeeMockOrder>builder()
                 .status(HttpStatus.CREATED.value())
-                .message("Đặt hàng thành công trên Shopee Mall! Đơn hàng: " + order.getOrderSn())
+                .message(ThongDiep.dich("kenhBan.datHangShopeeMallThanhCong", order.getOrderSn()))
                 .data(order)
                 .build();
     }
@@ -82,7 +84,7 @@ public class ShopeeMockController {
     public ResponseData<List<ShopeeMockProduct>> getSellerProducts() {
         return ResponseData.<List<ShopeeMockProduct>>builder()
                 .status(HttpStatus.OK.value())
-                .message("Lấy danh sách sản phẩm Shopee Seller Center thành công")
+                .message(ThongDiep.dich("kenhBan.layDsSanPhamSellerCenterThanhCong"))
                 .data(mockEngine.getSellerProducts())
                 .build();
     }
@@ -94,7 +96,7 @@ public class ShopeeMockController {
     public ResponseData<List<ShopeeMockOrder>> getSellerOrders() {
         return ResponseData.<List<ShopeeMockOrder>>builder()
                 .status(HttpStatus.OK.value())
-                .message("Lấy danh sách đơn hàng Shopee Seller Center thành công")
+                .message(ThongDiep.dich("kenhBan.layDsDonSellerCenterThanhCong"))
                 .data(mockEngine.getSellerOrders())
                 .build();
     }
@@ -114,7 +116,7 @@ public class ShopeeMockController {
         );
         return ResponseData.<ShopeeMockOrder>builder()
                 .status(HttpStatus.OK.value())
-                .message("Cập nhật trạng thái đơn " + orderSn + " thành " + req.getStatus())
+                .message(ThongDiep.dich("kenhBan.capNhatTrangThaiDonMock", orderSn, req.getStatus()))
                 .data(updated)
                 .build();
     }
@@ -127,7 +129,7 @@ public class ShopeeMockController {
         mockEngine.resetSandboxData();
         return ResponseData.<String>builder()
                 .status(HttpStatus.OK.value())
-                .message("Đã thiết lập lại toàn bộ dữ liệu sàn Shopee Sandbox thành công")
+                .message(ThongDiep.dich("kenhBan.datLaiDuLieuShopeeSandboxThanhCong"))
                 .data("OK")
                 .build();
     }

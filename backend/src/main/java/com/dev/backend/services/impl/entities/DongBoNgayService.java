@@ -1,5 +1,6 @@
 package com.dev.backend.services.impl.entities;
 
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.config.SecurityContextHolder;
 import com.dev.backend.dto.request.LayDonHangKenhRequest;
 import com.dev.backend.dto.response.customize.DayTonResultDto;
@@ -88,7 +89,7 @@ public class DongBoNgayService {
         String ma = chuanHoaMa(maKenh);
         // Kiểm tra trước khi lập phiếu theo dõi, để mã kênh không có thật không nằm lại trong bộ nhớ
         if (!dongBoService.coKenh(ma)) {
-            throw new CommonException("Không tìm thấy kênh bán hàng: " + ma, HttpStatus.NOT_FOUND, null);
+            throw new CommonException(ThongDiep.of("kenhBan.khongTimThayKenhBanHang", ma), HttpStatus.NOT_FOUND, null);
         }
         // Kênh chưa kết nối (hoặc vừa ngắt) thì báo ngay, không mở đợt chỉ để thất bại ở bước đầu
         dongBoService.kiemTraDaKetNoi(ma);
@@ -176,7 +177,7 @@ public class DongBoNgayService {
 
     private static String chuanHoaMa(String maKenh) {
         if (maKenh == null || maKenh.isBlank()) {
-            throw new CommonException("Mã kênh không được để trống", HttpStatus.BAD_REQUEST, null);
+            throw new CommonException(ThongDiep.of("kenhBan.maKenhTrong"), HttpStatus.BAD_REQUEST, null);
         }
         return maKenh.trim().toUpperCase(Locale.ROOT);
     }

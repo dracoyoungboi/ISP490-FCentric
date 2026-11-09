@@ -1,5 +1,6 @@
 package com.dev.backend.services.impl.entities;
 
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.config.SecurityContextHolder;
 import com.dev.backend.constant.variables.IHanhDong;
 import com.dev.backend.constant.variables.ITable;
@@ -96,7 +97,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
      * miền này, tên miền tùy ý là gửi khóa cho người khác hoặc dò mạng nội bộ. Tên miền đang lưu thì giữ nguyên.
      */
     static final java.util.regex.Pattern MIEN_SHOPIFY = java.util.regex.Pattern.compile("^[a-z0-9][a-z0-9-]*\\.myshopify\\.com$");
-    static final String LOI_MIEN_SHOPIFY = "Tên miền phải có dạng ten-cua-hang.myshopify.com.";
+    static final String LOI_MIEN_SHOPIFY = ThongDiep.vi("kenhBan.loiMienShopify");
 
     KenhBanHangRepository kenhBanHangRepository;
     PaymentSecretCipher paymentSecretCipher;
@@ -222,7 +223,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
     /** Câu chỉ cách sửa khi Shopify từ chối khóa làm mới; không có chữ "bị khóa" (giao diện coi là tài khoản bị khóa). */
     private static LoiCoMaException loiTuChoiLamMoi(int maHttp) {
         return new LoiCoMaException(HTTP_LAM_MOI_KHOA_LOI, MaLoi.LAM_MOI_KHOA_LOI,
-                "Shopify đã từ chối khóa làm mới (HTTP " + maHttp + "). Cập nhật khóa truy cập ở Cấu hình Shopify rồi thử lại.");
+                ThongDiep.of("kenhBan.shopifyTuChoiKhoaLamMoi", maHttp));
     }
 
     /** Tên sàn hiện trong câu báo lỗi. */
@@ -337,7 +338,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
 
     private ShopifyConfigResponse luuCauHinhShopify(ShopifyConfigUpdating request) {
         if (request.getShopDomain() == null || request.getShopDomain().isBlank()) {
-            throw new CommonException("Shopify Store Domain không được để trống", HttpStatus.BAD_REQUEST, null);
+            throw new CommonException(ThongDiep.of("kenhBan.shopifyDomainTrong"), HttpStatus.BAD_REQUEST, null);
         }
 
         String cleanDomain = sanitizeShopDomain(request.getShopDomain());
@@ -355,18 +356,18 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         boolean dangKetNoi = coGiaTri(kenh.getApiKey());
         String mienCu = extractDomainFromApiUrl(kenh.getApiUrl());
         if (!cleanDomain.equals(mienCu) && !MIEN_SHOPIFY.matcher(cleanDomain).matches()) {
-            throw new CommonException(LOI_MIEN_SHOPIFY, HttpStatus.BAD_REQUEST, null);
+            throw new CommonException(ThongDiep.of("kenhBan.loiMienShopify"), HttpStatus.BAD_REQUEST, null);
         }
         boolean doiCuaHang = !mienCu.isBlank() && !mienCu.equals(cleanDomain);
         if (dangKetNoi && doiCuaHang) {
             throw new LoiCoMaException(HttpStatus.CONFLICT, MaLoi.GIAN_HANG_KHAC,
-                    "FCentric đang kết nối với " + mienCu + ". Muốn đổi sang cửa hàng khác, hãy ngắt kết nối ở Cấu hình rồi kết nối lại.");
+                    ThongDiep.of("kenhBan.dangKetNoiCuaHangKhac", mienCu));
         }
         boolean coKhoaMoi = coGiaTri(request.getAccessToken());
         if (!dangKetNoi && !coKhoaMoi && kenh.getId() != null) {
             // Kênh đã ngắt (vd. tab cũ lưu công tắc đồng bộ): không lưu, kẻo bật lại trạng thái khi chưa có khóa
             throw new LoiCoMaException(HttpStatus.CONFLICT, MaLoi.KENH_CHUA_KET_NOI,
-                    "Shopify chưa kết nối. Nhập khóa truy cập ở trình thiết lập để kết nối lại.");
+                    ThongDiep.of("kenhBan.shopifyChuaKetNoiNhapKhoa"));
         }
 
         // Chỉ dán khóa truy cập mới khi Shopify đã từ chối khóa làm mới (thẻ "Hết hạn khóa") hoặc khóa truy cập đã quá
@@ -453,19 +454,19 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         if (domain == null || domain.isBlank()) {
             return ShopifyTestConnectionResponse.builder()
                     .connected(false)
-                    .message("Chưa có Shopify Store Domain để kiểm tra kết nối")
+                    .message(ThongDiep.dich("kenhBan.chuaCoShopifyDomainKiemTra"))
                     .build();
         }
         boolean mienMoi = !domain.equals(mienDaLuu);
         if (mienMoi && !MIEN_SHOPIFY.matcher(domain).matches()) {
-            return ShopifyTestConnectionResponse.builder().connected(false).message(LOI_MIEN_SHOPIFY).build();
+            return ShopifyTestConnectionResponse.builder().connected(false).message(ThongDiep.dich("kenhBan.loiMienShopify")).build();
         }
 
         boolean coKhoaMoi = request.getAccessToken() != null && !request.getAccessToken().isBlank();
         if (mienMoi && !coKhoaMoi && kenhDaLuu != null && coGiaTri(kenhDaLuu.getApiKey())) {
             return ShopifyTestConnectionResponse.builder()
                     .connected(false)
-                    .message("Nhập khóa truy cập của cửa hàng " + domain + " để kiểm tra kết nối")
+                    .message(ThongDiep.dich("kenhBan.nhapKhoaTruyCapCuaHang", domain))
                     .build();
         }
         // Khóa đã lưu chỉ dùng cho tên miền đã lưu: không bao giờ gửi sang tên miền khác
@@ -475,7 +476,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         if (tokenToTest == null || tokenToTest.isBlank()) {
             return ShopifyTestConnectionResponse.builder()
                     .connected(false)
-                    .message("Chưa có Admin Access Token để kiểm tra kết nối")
+                    .message(ThongDiep.dich("kenhBan.chuaCoAdminAccessToken"))
                     .build();
         }
 
@@ -513,26 +514,26 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                         .shopName(name)
                         .shopEmail(email)
                         .myshopifyDomain(myshopifyDomain)
-                        .message("Kết nối thành công tới cửa hàng Shopify: " + name)
+                        .message(ThongDiep.dich("kenhBan.ketNoiCuaHangShopifyThanhCong", name))
                         .build();
             } else {
                 return ShopifyTestConnectionResponse.builder()
                         .connected(false)
-                        .message("Shopify trả về mã trạng thái: " + response.getStatusCode())
+                        .message(ThongDiep.dich("kenhBan.shopifyTraMaTrangThai", response.getStatusCode()))
                         .build();
             }
         } catch (HttpClientErrorException.Unauthorized | HttpClientErrorException.Forbidden e) {
             log.warn("Shopify test connection failed (auth error): {}", e.getMessage());
             return ShopifyTestConnectionResponse.builder()
                     .connected(false)
-                    .message("Access Token không hợp lệ hoặc không có quyền truy cập Shopify Admin API")
+                    .message(ThongDiep.dich("kenhBan.accessTokenShopifyKhongHopLe"))
                     .build();
         } catch (Exception e) {
             log.error("Shopify test connection failed: {}", e.getMessage());
             // Câu cố định: chi tiết lỗi kết nối (từ chối, hết giờ, lỗi chứng chỉ…) để dò được cổng / máy trong mạng
             return ShopifyTestConnectionResponse.builder()
                     .connected(false)
-                    .message("Không thể kết nối tới Shopify. Kiểm tra tên miền và khóa truy cập rồi thử lại.")
+                    .message(ThongDiep.dich("kenhBan.khongTheKetNoiShopify"))
                     .build();
         }
     }
@@ -587,10 +588,10 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         try {
             KhoaKenh khoa = docKhoaMoiNhat();
             if (khoa == null) {
-                throw new CommonException("Chưa cấu hình kênh bán hàng Shopify", HttpStatus.BAD_REQUEST, null);
+                throw new CommonException(ThongDiep.of("kenhBan.chuaCauHinhKenhShopify"), HttpStatus.BAD_REQUEST, null);
             }
             if (!coGiaTri(khoa.getRefreshToken())) {
-                throw new CommonException("Kênh Shopify đang sử dụng Static Token hoặc chưa cấu hình Refresh Token OAuth 2.0", HttpStatus.BAD_REQUEST, null);
+                throw new CommonException(ThongDiep.of("kenhBan.shopifyDungStaticToken"), HttpStatus.BAD_REQUEST, null);
             }
             return doRefreshShopifyOAuthToken(khoa);
         } finally {
@@ -671,7 +672,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
             log.error("Shopify OAuth refresh error [{}]", e.getStatusCode());
             if (!MA_TU_CHOI_LAM_MOI.contains(maHttp)) {
                 throw new LoiCoMaException(HTTP_LAM_MOI_KHOA_LOI, MaLoi.LAM_MOI_KHOA_LOI,
-                        "Shopify chưa cấp lại khóa truy cập (HTTP " + maHttp + "). Thử lại sau ít phút.");
+                        ThongDiep.of("kenhBan.shopifyChuaCapLaiKhoa", maHttp));
             }
             // Đọc lại: máy khác dùng chung CSDL vừa làm mới, hoặc người dùng vừa lưu khóa, thì lỗi này là của khóa làm mới
             // cũ; không ghi dấu, nơi gọi dùng khóa đang lưu
@@ -915,14 +916,14 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                 throw shopifyChuaKetNoi();
             }
             throw new LoiCoMaException(HTTP_LAM_MOI_KHOA_LOI, MaLoi.LAM_MOI_KHOA_LOI,
-                    "Chưa cấp lại được khóa truy cập. Kiểm tra khóa làm mới ở trình thiết lập rồi thử lại.");
+                    ThongDiep.of("kenhBan.chuaCapLaiDuocKhoa"));
         }
         return getShopifyConfig();
     }
 
     private static LoiCoMaException shopifyChuaKetNoi() {
         return new LoiCoMaException(HttpStatus.CONFLICT, MaLoi.KENH_CHUA_KET_NOI,
-                "Shopify chưa kết nối. Kết nối lại ở trình thiết lập rồi thử lại.");
+                ThongDiep.of("kenhBan.shopifyChuaKetNoi"));
     }
 
     @Override
@@ -963,14 +964,14 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
 
     private static String chuanHoaMaKenh(String maKenh) {
         if (maKenh == null || maKenh.isBlank()) {
-            throw new CommonException("Mã kênh không được để trống", HttpStatus.BAD_REQUEST, null);
+            throw new CommonException(ThongDiep.of("kenhBan.maKenhTrong"), HttpStatus.BAD_REQUEST, null);
         }
         return maKenh.trim().toUpperCase(Locale.ROOT);
     }
 
     private static LoiCoMaException sanKhongHoTro(String ma) {
         return new LoiCoMaException(HttpStatus.BAD_REQUEST, MaLoi.SAN_KHONG_HO_TRO,
-                "Máy chủ chưa hỗ trợ kết nối " + tenSan(ma) + ".");
+                ThongDiep.of("kenhBan.sanKhongHoTroKetNoi", tenSan(ma)));
     }
 
     private static boolean coGiaTri(String s) {
@@ -1152,7 +1153,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
     @Transactional(rollbackFor = Exception.class)
     public LazadaConfigResponse updateLazadaConfig(String maKenh, LazadaConfigUpdating request) {
         if (request.getAppKey() == null || request.getAppKey().isBlank()) {
-            throw new CommonException("Lazada App Key không được để trống", HttpStatus.BAD_REQUEST, null);
+            throw new CommonException(ThongDiep.of("kenhBan.lazadaAppKeyTrong"), HttpStatus.BAD_REQUEST, null);
         }
 
         String ma = (maKenh != null && !maKenh.isBlank()) ? maKenh.trim().toUpperCase() : MA_KENH_LAZADA;
@@ -1245,7 +1246,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                 appKey = getLazadaAppKey(MA_KENH_LAZADA);
             }
             if (appKey == null || appKey.isBlank()) {
-                throw new CommonException("Chưa cấu hình App Key cho kênh " + (isSandbox ? "Lazada Sandbox" : "Lazada"), HttpStatus.BAD_REQUEST, null);
+                throw new CommonException(ThongDiep.of("kenhBan.chuaCauHinhAppKeyKenh", (isSandbox ? "Lazada Sandbox" : "Lazada")), HttpStatus.BAD_REQUEST, null);
             }
         }
         return getLazadaClient().generateAuthUrl(appKey, redirectUri, state, !isSandbox);
@@ -1261,7 +1262,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
     @Transactional(rollbackFor = Exception.class)
     public LazadaConfigResponse exchangeLazadaToken(String maKenh, LazadaOAuthCallbackRequest request) {
         if (request.getCode() == null || request.getCode().isBlank()) {
-            throw new CommonException("Mã authorization code không được để trống", HttpStatus.BAD_REQUEST, null);
+            throw new CommonException(ThongDiep.of("kenhBan.authorizationCodeTrong"), HttpStatus.BAD_REQUEST, null);
         }
 
         String ma = (maKenh != null && !maKenh.isBlank()) ? maKenh.trim().toUpperCase() : MA_KENH_LAZADA;
@@ -1296,7 +1297,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         }
 
         if (appKey == null || appKey.isBlank() || appSecret == null || appSecret.isBlank()) {
-            throw new CommonException("Chưa cấu hình đủ App Key và App Secret cho kênh " + (isSandbox ? "Lazada Sandbox" : "Lazada"), HttpStatus.BAD_REQUEST, null);
+            throw new CommonException(ThongDiep.of("kenhBan.chuaCauHinhAppKeySecretKenh", (isSandbox ? "Lazada Sandbox" : "Lazada")), HttpStatus.BAD_REQUEST, null);
         }
 
         try {
@@ -1306,8 +1307,10 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
             long expiresIn = res.path("expires_in").asLong(2592000L); // 30 ngày mặc định
 
             if (accessToken == null || accessToken.isBlank()) {
-                String errorMsg = res.path("message").asText(res.path("sub_message").asText("Lazada từ chối mã ủy quyền code"));
-                throw new CommonException("Lỗi xác thực OAuth2 Lazada: " + errorMsg, HttpStatus.BAD_REQUEST, null);
+                String errorMsg = res.path("message").asText(res.path("sub_message").asText(null));
+                throw new CommonException(errorMsg != null
+                        ? ThongDiep.of("kenhBan.loiXacThucOAuth2", "Lazada", errorMsg)
+                        : ThongDiep.of("kenhBan.loiXacThucOAuth2LazadaMacDinh"), HttpStatus.BAD_REQUEST, null);
             }
 
             String oldSellerId = kenh.getApiUrl();
@@ -1348,7 +1351,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
             throw ce;
         } catch (Exception e) {
             log.error("Lỗi khi trao đổi token OAuth Lazada: {}", e.getMessage());
-            throw new CommonException("Không thể hoàn tất ủy quyền Lazada: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR, null);
+            throw new CommonException(ThongDiep.of("kenhBan.khongTheHoanTatUyQuyen", "Lazada", e.getMessage()), HttpStatus.INTERNAL_SERVER_ERROR, null);
         }
     }
 
@@ -1577,7 +1580,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
     @Transactional(rollbackFor = Exception.class)
     public TikTokConfigResponse updateTikTokConfig(TikTokConfigUpdating request) {
         if (request.getAppKey() == null || request.getAppKey().isBlank()) {
-            throw new CommonException("TikTok Shop App Key không được để trống", HttpStatus.BAD_REQUEST, null);
+            throw new CommonException(ThongDiep.of("kenhBan.tiktokAppKeyTrong"), HttpStatus.BAD_REQUEST, null);
         }
 
         KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(MA_KENH_TIKTOK)
@@ -1653,7 +1656,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         if (accessToken != null && (accessToken.startsWith("mock_") || accessToken.toUpperCase().contains("SANDBOX"))) {
             return TikTokTestConnectionResponse.builder()
                     .connected(true)
-                    .message("Kết nối TikTok Shop thành công (Môi trường thử nghiệm Sandbox - Gian hàng F-Centric)")
+                    .message(ThongDiep.dich("kenhBan.ketNoiTikTokSandboxThanhCong"))
                     .shopName("F-Centric Official Store (Sandbox)")
                     .tenGianHang("F-Centric Official Store (Sandbox)")
                     .shopId("mock_shop_id_01")
@@ -1670,7 +1673,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         if (appKey == null || appKey.isBlank() || appSecret == null || appSecret.isBlank() || accessToken == null || accessToken.isBlank()) {
             return TikTokTestConnectionResponse.builder()
                     .connected(false)
-                    .message("Thiếu thông tin kết nối (App Key, App Secret hoặc Access Token)")
+                    .message(ThongDiep.dich("kenhBan.thieuThongTinKetNoi"))
                     .build();
         }
 
@@ -1690,8 +1693,8 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                 }
 
                 String msg = soKho > 0
-                        ? "Kết nối thành công: gian hàng " + shop.getName() + " (" + soKho + " kho logistics)"
-                        : "Kết nối tới TikTok Shop thành công (" + shop.getName() + ")";
+                        ? ThongDiep.dich("kenhBan.ketNoiGianHangSoKho", shop.getName(), soKho)
+                        : ThongDiep.dich("kenhBan.ketNoiTikTokGianHang", shop.getName());
 
                 return TikTokTestConnectionResponse.builder()
                         .connected(true)
@@ -1707,14 +1710,14 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
             } else {
                 return TikTokTestConnectionResponse.builder()
                         .connected(false)
-                        .message("Không tìm thấy gian hàng nào được ủy quyền trong tài khoản này")
+                        .message(ThongDiep.dich("kenhBan.khongTimThayGianHangUyQuyen"))
                         .build();
             }
         } catch (Exception e) {
             log.error("Kiểm tra kết nối TikTok Shop thất bại: {}", e.getMessage());
             return TikTokTestConnectionResponse.builder()
                     .connected(false)
-                    .message("Kết nối thất bại: " + e.getMessage())
+                    .message(ThongDiep.dich("kenhBan.ketNoiThatBai", e.getMessage()))
                     .build();
         }
     }
@@ -1733,7 +1736,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         // Chuẩn OAuth2 TikTok Shop: URL ủy quyền ưu tiên Service ID (Mã dịch vụ 19 số trên Partner Center)
         String authIdentifier = (serviceId != null && !serviceId.isBlank()) ? serviceId.trim() : appKey;
         if (authIdentifier == null || authIdentifier.isBlank()) {
-            throw new CommonException("Chưa cấu hình Service ID hoặc App Key cho kênh TikTok Shop", HttpStatus.BAD_REQUEST, null);
+            throw new CommonException(ThongDiep.of("kenhBan.chuaCauHinhServiceIdTikTok"), HttpStatus.BAD_REQUEST, null);
         }
         return getTikTokShopClient().generateAuthUrl(authIdentifier, redirectUri, state);
     }
@@ -1742,7 +1745,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
     @Transactional(rollbackFor = Exception.class)
     public TikTokConfigResponse exchangeTikTokToken(TikTokOAuthCallbackRequest request) {
         if (request.getCode() == null || request.getCode().isBlank()) {
-            throw new CommonException("Authorization code từ TikTok Shop không được để trống", HttpStatus.BAD_REQUEST, null);
+            throw new CommonException(ThongDiep.of("kenhBan.authorizationCodeTikTokTrong"), HttpStatus.BAD_REQUEST, null);
         }
 
         String rawCode = request.getCode().trim();
@@ -1752,7 +1755,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
 
         KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(MA_KENH_TIKTOK).orElse(null);
         if (kenh == null) {
-            throw new CommonException("Chưa thiết lập kênh TikTok Shop trong hệ thống", HttpStatus.BAD_REQUEST, null);
+            throw new CommonException(ThongDiep.of("kenhBan.chuaThietLapKenhTikTok"), HttpStatus.BAD_REQUEST, null);
         }
 
         // =========================================================================
@@ -1793,7 +1796,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         String appSecret = getDecryptedTikTokAppSecret();
 
         if (appKey == null || appKey.isBlank() || appSecret == null || appSecret.isBlank()) {
-            throw new CommonException("Chưa cấu hình đủ App Key và App Secret cho kênh TikTok Shop", HttpStatus.BAD_REQUEST, null);
+            throw new CommonException(ThongDiep.of("kenhBan.chuaCauHinhAppKeySecretKenh", "TikTok Shop"), HttpStatus.BAD_REQUEST, null);
         }
 
         try {
@@ -1805,8 +1808,10 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
             String sellerName = dataNode.path("seller_name").asText(null);
 
             if (accessToken == null || accessToken.isBlank()) {
-                String errorMsg = res.path("message").asText("Máy chủ TikTok Shop từ chối mã ủy quyền");
-                throw new CommonException("Lỗi xác thực OAuth2 TikTok Shop: " + errorMsg, HttpStatus.BAD_REQUEST, null);
+                String errorMsg = res.path("message").asText(null);
+                throw new CommonException(errorMsg != null
+                        ? ThongDiep.of("kenhBan.loiXacThucOAuth2", "TikTok Shop", errorMsg)
+                        : ThongDiep.of("kenhBan.loiXacThucOAuth2TikTokMacDinh"), HttpStatus.BAD_REQUEST, null);
             }
 
             kenh.setApiKey(paymentSecretCipher.encrypt(accessToken));
@@ -1842,7 +1847,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
             throw ce;
         } catch (Exception e) {
             log.error("Lỗi khi trao đổi token OAuth TikTok Shop: {}", e.getMessage());
-            throw new CommonException("Không thể hoàn tất ủy quyền TikTok Shop: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR, null);
+            throw new CommonException(ThongDiep.of("kenhBan.khongTheHoanTatUyQuyen", "TikTok Shop", e.getMessage()), HttpStatus.INTERNAL_SERVER_ERROR, null);
         }
     }
 
@@ -2152,8 +2157,10 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
 
         com.fasterxml.jackson.databind.JsonNode tokenRes = client.getAccessToken(code, shopId != null ? shopId : 0L);
         if (tokenRes == null || !tokenRes.path("error").asText("").isEmpty()) {
-            String err = tokenRes != null ? tokenRes.path("message").asText("Lỗi đổi token Shopee") : "Không nhận được phản hồi";
-            throw new CommonException(err, HttpStatus.BAD_REQUEST, null);
+            String err = tokenRes != null ? tokenRes.path("message").asText(null) : null;
+            throw err != null ? new CommonException(err, HttpStatus.BAD_REQUEST, null)
+                    : new CommonException(tokenRes != null ? ThongDiep.of("kenhBan.loiDoiTokenShopee")
+                            : ThongDiep.of("kenhBan.khongNhanDuocPhanHoi"), HttpStatus.BAD_REQUEST, null);
         }
 
         String accessToken = tokenRes.path("access_token").asText();
@@ -2161,7 +2168,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         long expireIn = tokenRes.path("expire_in").asLong(14400);
 
         KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma).orElseThrow(
-                () -> new CommonException("Không tìm thấy kênh " + ma, HttpStatus.NOT_FOUND, null)
+                () -> new CommonException(ThongDiep.of("kenhBan.khongTimThayKenh", ma), HttpStatus.NOT_FOUND, null)
         );
 
         kenh.setApiKey(paymentSecretCipher.encrypt(accessToken));

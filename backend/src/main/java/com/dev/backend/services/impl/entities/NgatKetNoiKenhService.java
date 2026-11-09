@@ -1,5 +1,6 @@
 package com.dev.backend.services.impl.entities;
 
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.dto.response.customize.DongBoNgayDto;
 import com.dev.backend.dto.response.entities.ShopifyConfigResponse;
 import com.dev.backend.exception.customize.LoiCoMaException;
@@ -63,7 +64,7 @@ public class NgatKetNoiKenhService {
         return new LoiCoMaException(
                 HttpStatus.CONFLICT,
                 MaLoi.DANG_DONG_BO,
-                "Gian hàng đang đồng bộ, không thể ngắt kết nối. Vui lòng thử lại sau ít phút."
+                ThongDiep.of("kenhBan.dangDongBoKhongTheNgat")
         );
     }
 }
