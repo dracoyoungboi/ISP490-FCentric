@@ -114,6 +114,9 @@ public class OmnichannelOrderSyncJob {
     @lombok.experimental.NonFinal
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     com.dev.backend.services.shopee.ShopeeMockEngine shopeeMockEngine;
+    @lombok.experimental.NonFinal
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    com.dev.backend.services.shopee.ShopeeThirdPartySignClient shopeeThirdPartySignClient;
     /** Nhật ký "Thêm khách hàng" khi đơn sàn tự tạo khách (test dựng tay không có thì bỏ qua). */
     @lombok.experimental.NonFinal
     @org.springframework.beans.factory.annotation.Autowired(required = false)
@@ -1542,13 +1545,61 @@ public class OmnichannelOrderSyncJob {
 
     public int syncRealShopeeOrders(KenhBanHang kenh, Instant tuNgay, Instant denNgay) {
         String maKenh = kenh != null ? kenh.getMaKenh() : MA_KENH_SHOPEE;
+        Long shopId = kenhBanHangService.getShopeeShopId(maKenh);
+        String shopIdStr = (shopId != null) ? String.valueOf(shopId) : (kenh != null ? kenh.getClientId() : null);
+
+        // Kênh Shopee Production kết nối qua Cổng ký bên thứ ba MinMinTool chỉ cần Shop ID
+        if (shopIdStr != null && !shopIdStr.isBlank() && shopeeThirdPartySignClient != null) {
+            int synced = 0;
+            try {
+                long timeFrom = tuNgay != null ? tuNgay.getEpochSecond() : (Instant.now().getEpochSecond() - 86400L);
+                long timeTo = denNgay != null ? denNgay.getEpochSecond() : Instant.now().getEpochSecond();
+
+                com.fasterxml.jackson.databind.JsonNode listRes = shopeeThirdPartySignClient.getOrderList(
+                        shopIdStr, timeFrom, timeTo, "READY_TO_SHIP", 50);
+
+                com.fasterxml.jackson.databind.JsonNode orderListNode = listRes.path("response").path("order_list");
+                List<String> orderSnList = new ArrayList<>();
+                if (orderListNode.isArray()) {
+                    for (com.fasterxml.jackson.databind.JsonNode oNode : orderListNode) {
+                        String sn = oNode.path("order_sn").asText("");
+                        if (!sn.isBlank()) orderSnList.add(sn);
+                    }
+                }
+
+                if (!orderSnList.isEmpty()) {
+                    // GOM CỤM THEO LÔ (Batching): Lấy chi tiết toàn bộ đơn hàng trong 1 request
+                    com.fasterxml.jackson.databind.JsonNode detailRes = shopeeThirdPartySignClient.getOrderDetail(shopIdStr, orderSnList);
+                    com.fasterxml.jackson.databind.JsonNode details = detailRes.path("response").path("order_list");
+                    if (details.isArray()) {
+                        batDauLuot();
+                        try {
+                            for (com.fasterxml.jackson.databind.JsonNode dNode : details) {
+                                com.dev.backend.dto.response.customize.ShopeeOrderDto dto =
+                                        objectMapper.convertValue(dNode, com.dev.backend.dto.response.customize.ShopeeOrderDto.class);
+                                if (dto != null && processSingleShopeeOrder(dto, kenh)) {
+                                    synced++;
+                                }
+                            }
+                        } finally {
+                            ketThucLuot(kenh, synced);
+                        }
+                    }
+                }
+                if (kenh.getId() != null) lanLayDonCuoi.put(kenh.getId(), Instant.now());
+                log.info("[JOB-01] Quét đơn Shopee Production qua Cổng ký bên thứ ba hoàn tất: {} đơn mới", synced);
+            } catch (Exception ex) {
+                log.error("[JOB-01] Lỗi khi quét đơn hàng Shopee Production qua Gateway: {}", ex.getMessage());
+            }
+            return synced;
+        }
+
         Long partnerId = kenhBanHangService.getShopeePartnerId(maKenh);
         String partnerKey = kenhBanHangService.getDecryptedShopeePartnerKey(maKenh);
         String accessToken = kenhBanHangService.getDecryptedShopeeAccessToken(maKenh);
-        Long shopId = kenhBanHangService.getShopeeShopId(maKenh);
 
         if (partnerId == null || partnerKey == null || accessToken == null || shopId == null) {
-            log.warn("[JOB-01] Kênh {} chưa có credential Shopee đầy đủ (PartnerId/Key/Token/ShopId), bỏ qua đợt sync", maKenh);
+            log.warn("[JOB-01] Kênh {} chưa có credential Shopee đầy đủ (ShopId hoặc PartnerId/Key/Token), bỏ qua đợt sync", maKenh);
             return 0;
         }
 

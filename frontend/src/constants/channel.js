@@ -249,9 +249,8 @@ export const SAN_BAN_HANG = [
   { maKenh: "LAZADA", ten: "Lazada", duongDan: "/channels/lazada", hoTro: true, kieuKetNoi: "uy_quyen", tienToDon: "LZD", hanUyQuyenNgay: 50 },
   { maKenh: "LAZADA_SANDBOX", ten: "Lazada Sandbox", duongDan: "/channels/lazada-sandbox", hoTro: true, kieuKetNoi: "uy_quyen", tienToDon: "LZD-SBX", hanUyQuyenNgay: 50, isSandbox: true },
   { maKenh: "TIKTOK", ten: "TikTok Shop", duongDan: "/channels/tiktok", hoTro: true, kieuKetNoi: "uy_quyen", tienToDon: "TTS", maThuCong: true },
-  // Đang xin cấp API ở Shopee Open Platform; máy chủ chưa có nhánh SHOPEE (GET /SHOPEE/ket-noi trả 400)
-  // `hienMenu`: tạm hiện ở menu trái trong lúc chờ cấp API (yêu cầu 30/10)
-    { maKenh: "SHOPEE", ten: "Shopee", duongDan: "/channels/shopee", hoTro: true, kieuKetNoi: "uy_quyen", tienToDon: "SHP", hanUyQuyenNgay: 365, hienMenu: true },
+  // Kết nối thông qua Cổng ký chữ ký số bên thứ ba (MinMinTool Gateway); không cần OAuth2
+  { maKenh: "SHOPEE", ten: "Shopee", duongDan: "/channels/shopee", hoTro: true, kieuKetNoi: "ben_thu_ba", tienToDon: "SHP", hanUyQuyenNgay: 365, hienMenu: true },
   { maKenh: "SHOPEE_SANDBOX", ten: "Shopee Sandbox", duongDan: "/channels/shopee-sandbox", hoTro: true, kieuKetNoi: "uy_quyen", tienToDon: "SHP", hanUyQuyenNgay: 365, isSandbox: true, hienMenu: true },
 ];
 

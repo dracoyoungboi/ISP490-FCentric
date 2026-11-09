@@ -795,22 +795,30 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                         .maKenh(ma)
                         .tenKenh(defaultTenKenh)
                         .loaiKenh("online")
-                        .kieuKetNoi(KIEU_UY_QUYEN)
+                        .kieuKetNoi(isSandbox ? KIEU_UY_QUYEN : "ben_thu_ba")
                         .trangThaiKetNoi(CHUA_KET_NOI)
                         .trangThai(1)
                         .build();
             }
             boolean hasSecret = kenh.getApiSecret() != null && !kenh.getApiSecret().isBlank();
             boolean hasToken = kenh.getApiKey() != null && !kenh.getApiKey().isBlank();
+            boolean hasShopId = kenh.getClientId() != null && !kenh.getClientId().isBlank();
             boolean isExpired = hasToken && kenh.getTokenExpiresAt() != null && Instant.now().isAfter(kenh.getTokenExpiresAt());
+
             String trangThaiKetNoi = CHUA_KET_NOI;
-            if (hasToken) {
+            if (!isSandbox && hasShopId) {
+                // Kênh Shopee Production kết nối qua Cổng ký bên thứ ba MinMinTool chỉ cần có Shop ID hợp lệ
+                trangThaiKetNoi = Integer.valueOf(1).equals(kenh.getTrangThai()) ? DANG_HOAT_DONG : "tam_dung";
+            } else if (hasToken) {
                 trangThaiKetNoi = isExpired ? HET_HAN : (Integer.valueOf(1).equals(kenh.getTrangThai()) ? DANG_HOAT_DONG : "tam_dung");
             }
+
             Long soNgayCon = null;
             if (kenh.getTokenExpiresAt() != null) {
                 long seconds = Duration.between(Instant.now(), kenh.getTokenExpiresAt()).getSeconds();
                 soNgayCon = Math.max(0L, seconds / 86400L);
+            } else if (!isSandbox && hasShopId) {
+                soNgayCon = 365L;
             }
             String maskedToken = hasToken ? cheKhoa(kenh.getApiKey(), this::maskToken) : null;
             return ShopifyConfigResponse.builder()
@@ -828,9 +836,9 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                     .soNgayConUyQuyen(soNgayCon)
                     .ngayUyQuyen(kenh.getNgayCapNhat())
                     .tenGianHang(kenh.getTenKenh())
-                    .shopIdSan(kenh.getApiUrl())
+                    .shopIdSan(kenh.getClientId() != null ? kenh.getClientId() : kenh.getApiUrl())
                     .trangThai(kenh.getTrangThai() != null ? kenh.getTrangThai() : 1)
-                    .kieuKetNoi(KIEU_UY_QUYEN)
+                    .kieuKetNoi(isSandbox ? KIEU_UY_QUYEN : "ben_thu_ba")
                     .trangThaiKetNoi(trangThaiKetNoi)
                     .ngayCapNhat(kenh.getNgayCapNhat())
                     .build();
@@ -2301,6 +2309,11 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         if (kenh != null && kenh.getShopDomain() != null && !kenh.getShopDomain().isBlank()) {
             try {
                 return Long.parseLong(kenh.getShopDomain().trim());
+            } catch (Exception ignored) {}
+        }
+        if (kenh != null && kenh.getClientId() != null && !kenh.getClientId().isBlank()) {
+            try {
+                return Long.parseLong(kenh.getClientId().trim());
             } catch (Exception ignored) {}
         }
         return null;

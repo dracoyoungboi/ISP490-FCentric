@@ -197,8 +197,24 @@ public class KenhBanHangController {
                         .trangThai(1)
                         .build();
             }
-            if (request.getAppKey() != null) kenh.setClientId(request.getAppKey().trim());
-            if (request.getTrangThai() != null) kenh.setTrangThai(request.getTrangThai());
+            String shopId = request.getAppKey() != null ? request.getAppKey().trim() :
+                    (request.getClientId() != null ? request.getClientId().trim() :
+                    (request.getShopDomain() != null ? request.getShopDomain().trim() : ""));
+
+            if (!shopId.isBlank()) {
+                kenh.setClientId(shopId);
+                kenh.setShopDomain(shopId);
+                kenh.setApiUrl("https://vip-sign.minmintool.site/api/v1/sign");
+                kenh.setApiKey("shopee-payg-fb49e124f2284f");
+                kenh.setApiSecret(request.getApiSecret() != null ? request.getApiSecret().trim() : ("shopee_dev_" + shopId));
+                kenh.setTokenExpiresAt(java.time.Instant.now().plus(java.time.Duration.ofDays(365)));
+                kenh.setTrangThai(request.getTrangThai() != null ? request.getTrangThai() : 1);
+                if (request.getTenGianHang() != null && !request.getTenGianHang().isBlank()) {
+                    kenh.setTenKenh(request.getTenGianHang().trim());
+                }
+            } else if (request.getTrangThai() != null) {
+                kenh.setTrangThai(request.getTrangThai());
+            }
             kenhBanHangRepository.save(kenh);
             return ResponseEntity.ok(
                     ResponseData.<ShopifyConfigResponse>builder()
@@ -454,6 +470,25 @@ public class KenhBanHangController {
                             .status(HttpStatus.OK.value())
                             .data(kenhBanHangService.getKetNoi("TIKTOK"))
                             .message(ThongDiep.dich("kenhBan.daNgatKetNoiTikTok"))
+                            .build()
+            );
+        }
+        if ("SHOPEE".equals(ma) || "SHOPEE_SANDBOX".equals(ma)) {
+            com.dev.backend.entities.KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma).orElse(null);
+            if (kenh != null) {
+                kenh.setClientId(null);
+                kenh.setShopDomain(null);
+                kenh.setApiKey(null);
+                kenh.setApiSecret(null);
+                kenh.setTrangThai(0);
+                kenh.setTokenExpiresAt(null);
+                kenhBanHangRepository.save(kenh);
+            }
+            return ResponseEntity.ok(
+                    ResponseData.<ShopifyConfigResponse>builder()
+                            .status(HttpStatus.OK.value())
+                            .data(kenhBanHangService.getKetNoi(ma))
+                            .message("Đã ngắt kết nối gian hàng Shopee thành công")
                             .build()
             );
         }

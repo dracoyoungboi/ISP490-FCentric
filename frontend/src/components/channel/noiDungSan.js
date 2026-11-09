@@ -42,17 +42,17 @@ const NOI_DUNG = {
   SHOPEE: {
     nhanIdSan: "Shop ID",
     khachMacDinh: "Khách Shopee", // i18n-giu-nguyen: tên khách hàng mặc định đã lưu trong DB
-    goiYAppKey: t("Lấy ở Shopee Open Platform › Console (Partner ID & Partner Key)."),
+    goiYAppKey: t("Nhập mã Shop ID của gian hàng Shopee (ví dụ: 88201679)."),
     coServiceId: false,
     moTaUyQuyen:
-      t("Bấm Ủy quyền, Shopee mở trang đăng nhập Seller Center và hỏi bạn có cho FCentric đọc sản phẩm, đơn hàng và cập nhật tồn không. Đồng ý xong Shopee đưa bạn quay lại đây."),
-    hanUyQuyen: t("Ủy quyền Shopee có hạn 365 ngày; hệ thống tự động làm mới access token mỗi 4 giờ qua refresh token."),
+      t("Hệ thống kết nối trực tiếp với gian hàng Shopee thông qua Cổng ký chữ ký số bảo mật bên thứ ba (MinMinTool Gateway). Không yêu cầu tài khoản Shopee Developer hay ủy quyền OAuth2."),
+    hanUyQuyen: t("Kết nối thông qua Cổng ký bên thứ ba có hiệu lực 365 ngày (hệ thống tự động gia hạn)."),
     khoSan: {
       nhan: t("Kho trên Shopee"),
       moTa: t("Gian hàng một kho: Shopee nhận số vào kho mặc định, không cần chọn."),
       chiDoc: t("Kho mặc định"),
     },
-    ghiChuTon: t("Hệ thống tự động đồng bộ tồn kho sang Shopee theo quy tắc tồn khả dụng đã cấu hình."),
+    ghiChuTon: t("Hệ thống tự động gom cụm đẩy tồn kho theo lô sang Shopee theo quy tắc tồn khả dụng đã cấu hình."),
     ghiChuDon: t("Đơn mới từ Shopee đồng bộ tự động theo chu kỳ quét định kỳ với tiền tố SHP-."),
   },
   SHOPEE_SANDBOX: {
