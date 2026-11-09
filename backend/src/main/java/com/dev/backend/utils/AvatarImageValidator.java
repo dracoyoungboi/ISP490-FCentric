@@ -1,6 +1,7 @@
 package com.dev.backend.utils;
 
 import com.dev.backend.exception.customize.CommonException;
+import com.dev.backend.i18n.ThongDiep;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.imageio.ImageIO;
@@ -41,32 +42,32 @@ public final class AvatarImageValidator {
      */
     public static String validate(MultipartFile file) {
         if (file == null || file.isEmpty()) {
-            throw new CommonException("Vui lòng chọn tệp ảnh để tải lên");
+            throw new CommonException(ThongDiep.of("heThong.chonTepAnh"));
         }
         if (file.getSize() > MAX_AVATAR_BYTES) {
-            throw new CommonException("Ảnh đại diện vượt quá 2 MB. Vui lòng chọn ảnh nhỏ hơn");
+            throw new CommonException(ThongDiep.of("heThong.anhDaiDienQua2Mb"));
         }
 
         byte[] bytes;
         try {
             bytes = file.getBytes();
         } catch (IOException e) {
-            throw new CommonException("Không thể đọc tệp ảnh tải lên. Vui lòng thử lại");
+            throw new CommonException(ThongDiep.of("heThong.khongDocDuocAnh"));
         }
         if (bytes.length == 0) {
-            throw new CommonException("Vui lòng chọn tệp ảnh để tải lên");
+            throw new CommonException(ThongDiep.of("heThong.chonTepAnh"));
         }
 
         String format = detectFormat(bytes);
         if (format == null || !ALLOWED_FORMATS.contains(format)) {
-            throw new CommonException("Định dạng ảnh không được hỗ trợ. Chỉ chấp nhận ảnh JPEG, PNG hoặc WebP");
+            throw new CommonException(ThongDiep.of("heThong.dinhDangAnhKhongHoTro"));
         }
 
         // Kiểm kích thước từ header TRƯỚC khi decode: ảnh 2 MB nén cao có thể khai 50000×50000 px
         // → decode cấp vài GB bộ nhớ (OOM) trước khi kịp so với giới hạn
         int[] dimensions = readDimensions(bytes);
         if (dimensions == null) {
-            throw new CommonException("Tệp không phải ảnh hợp lệ hoặc ảnh đã bị hỏng");
+            throw new CommonException(ThongDiep.of("heThong.anhHong"));
         }
         checkDimensions(dimensions[0], dimensions[1]);
 
@@ -76,10 +77,10 @@ public final class AvatarImageValidator {
             image = ImageIO.read(new ByteArrayInputStream(bytes));
         } catch (IOException | RuntimeException e) {
             // Bộ giải mã có thể ném lỗi runtime với tệp hỏng cố ý: báo 400, không để thành 500
-            throw new CommonException("Tệp không phải ảnh hợp lệ hoặc ảnh đã bị hỏng");
+            throw new CommonException(ThongDiep.of("heThong.anhHong"));
         }
         if (image == null) {
-            throw new CommonException("Tệp không phải ảnh hợp lệ hoặc ảnh đã bị hỏng");
+            throw new CommonException(ThongDiep.of("heThong.anhHong"));
         }
         checkDimensions(image.getWidth(), image.getHeight());
 
@@ -88,7 +89,7 @@ public final class AvatarImageValidator {
 
     private static void checkDimensions(int width, int height) {
         if (width <= 0 || height <= 0 || width > MAX_DIMENSION || height > MAX_DIMENSION) {
-            throw new CommonException("Kích thước ảnh không hợp lệ (tối đa " + MAX_DIMENSION + "×" + MAX_DIMENSION + " px)");
+            throw new CommonException(ThongDiep.of("heThong.kichThuocAnhKhongHopLe", MAX_DIMENSION));
         }
     }
 

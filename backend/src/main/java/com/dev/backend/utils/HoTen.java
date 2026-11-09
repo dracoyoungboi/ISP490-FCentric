@@ -1,5 +1,7 @@
 package com.dev.backend.utils;
 
+import com.dev.backend.i18n.ThongDiep;
+
 import java.text.Normalizer;
 import java.util.regex.Pattern;
 
@@ -16,11 +18,12 @@ public final class HoTen {
     public static final int DO_DAI_TOI_THIEU = 2;
     public static final int DO_DAI_TOI_DA = 100;
 
-    // Cùng câu với giao diện (hiện dưới ô nên giữ trong một dòng)
-    public static final String LOI_TRONG = "Nhập họ và tên";
-    public static final String LOI_KY_TU = "Họ tên chỉ gồm chữ cái và dấu cách";
-    public static final String LOI_NGAN = "Họ tên cần ít nhất " + DO_DAI_TOI_THIEU + " ký tự";
-    public static final String LOI_DAI = "Họ tên tối đa " + DO_DAI_TOI_DA + " ký tự";
+    // Cùng câu với giao diện (hiện dưới ô nên giữ trong một dòng). Câu tiếng Việt theo khóa: bộ xử lý lỗi chung
+    // nhận ra câu (khớp nguyên văn) và dịch theo ngôn ngữ của request.
+    public static final String LOI_TRONG = ThongDiep.vi("heThong.hoTenTrong");
+    public static final String LOI_KY_TU = ThongDiep.vi("heThong.hoTenKyTu");
+    public static final String LOI_NGAN = ThongDiep.vi("heThong.hoTenNgan", DO_DAI_TOI_THIEU);
+    public static final String LOI_DAI = ThongDiep.vi("heThong.hoTenDai", DO_DAI_TOI_DA);
 
     // Ký tự vô hình hay dính khi dán (liệt kê tường minh như BienSoXe, không dùng \p{Cf})
     private static final Pattern VO_HINH = Pattern.compile(

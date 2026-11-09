@@ -1,6 +1,8 @@
 package com.dev.backend.utils;
 
 import com.dev.backend.exception.customize.CommonException;
+import com.dev.backend.i18n.NhanChungTu;
+import com.dev.backend.i18n.ThongDiep;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -40,7 +42,7 @@ public final class KiemTraTepTai {
 
     /** Ảnh hiển thị được trên trình duyệt (sản phẩm, logo thương hiệu). Không có SVG: SVG chạy được script. */
     public static final Set<LoaiTep> ANH_WEB = Set.of(LoaiTep.JPEG, LoaiTep.PNG, LoaiTep.WEBP, LoaiTep.GIF, LoaiTep.AVIF);
-    public static final String MO_TA_ANH_WEB = "ảnh JPEG, PNG, WebP, GIF hoặc AVIF";
+    public static final String MO_TA_ANH_WEB = ThongDiep.vi("heThong.moTaAnhWeb");
     /** Ảnh chụp (bằng chứng đóng gói). */
     public static final Set<LoaiTep> ANH_CHUP = Set.of(LoaiTep.JPEG, LoaiTep.PNG, LoaiTep.WEBP);
     public static final Set<LoaiTep> VIDEO = Set.of(LoaiTep.MP4, LoaiTep.MOV, LoaiTep.WEBM);
@@ -88,13 +90,15 @@ public final class KiemTraTepTai {
      */
     public static LoaiTep batBuoc(MultipartFile file, Set<LoaiTep> choPhep, long maxBytes, String tenTep, String moTa) {
         if (file == null || file.isEmpty()) {
-            throw new CommonException(tenTep + " đang trống");
+            throw new CommonException(ThongDiep.of("heThong.tepDangTrong", NhanChungTu.theoKhoa(tenTep, false)));
         }
         if (file.getSize() > maxBytes) {
-            throw new CommonException(tenTep + " vượt quá " + (maxBytes / (1024 * 1024)) + " MB cho phép");
+            throw new CommonException(ThongDiep.of("heThong.tepVuotDungLuong", NhanChungTu.theoKhoa(tenTep, false), maxBytes / (1024 * 1024)));
         }
         return nhanDang(file).filter(choPhep::contains)
-                .orElseThrow(() -> new CommonException(tenTep + " phải là " + moTa));
+                .orElseThrow(() -> new CommonException(MO_TA_ANH_WEB.equals(moTa)
+                        ? ThongDiep.of("heThong.tepPhaiLaAnhWeb", NhanChungTu.theoKhoa(tenTep, false))
+                        : ThongDiep.of("heThong.tepSaiLoai", NhanChungTu.theoKhoa(tenTep, false), NhanChungTu.theoKhoa(moTa, false))));
     }
 
     /** Đuôi an toàn lấy từ tên tệp (chỉ chữ / số, tối đa 8 ký tự, chữ thường); rỗng nếu không có. */

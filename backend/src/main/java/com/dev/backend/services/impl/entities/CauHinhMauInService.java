@@ -15,6 +15,7 @@ import com.dev.backend.entities.LichSuThayDoi;
 import com.dev.backend.entities.MauInDangApDung;
 import com.dev.backend.entities.NguoiDung;
 import com.dev.backend.exception.customize.CommonException;
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.repository.CauHinhMauInRepository;
 import com.dev.backend.repository.LichSuThayDoiRepository;
 import com.dev.backend.repository.MauInDangApDungRepository;
@@ -305,13 +306,13 @@ public class CauHinhMauInService {
 
     private void validateDocumentType(String documentType) {
         if (documentType == null || !IPrintTemplateConfig.PRINT_DOCUMENT_TYPES.contains(documentType)) {
-            throw new CommonException("Loại chứng từ không hợp lệ: " + documentType);
+            throw new CommonException(ThongDiep.of("heThong.mauInLoaiChungTuKhongHopLe", documentType));
         }
     }
 
     private void validateTemplateIdForSave(String documentType, String templateId) {
         if (templateId == null || templateId.isBlank()) {
-            throw new CommonException("Định danh mẫu không được để trống");
+            throw new CommonException(ThongDiep.of("heThong.mauInDinhDanhTrong"));
         }
         // Lưu = biến thể này thành mẫu đang áp dụng, nên chỉ nhận biến thể frontend in được (khớp paperProfiles
         // của printSchemas.js): pos_invoice_default_A4, sales_invoice_default_K57… (gọi API thẳng, tab còn
@@ -328,9 +329,9 @@ public class CauHinhMauInService {
     private static void requireFrontendTemplateId(String documentType, String templateId) {
         if (IPrintTemplateConfig.isFrontendTemplateId(documentType, templateId)) return;
         if (IPrintTemplateConfig.isRegistryTemplateId(documentType, templateId)) {
-            throw new CommonException("Khổ giấy này không còn dùng cho loại chứng từ này. Tải lại trang rồi thử lại.");
+            throw new CommonException(ThongDiep.of("heThong.mauInKhoGiayKhongConDung"));
         }
-        throw new CommonException("Định danh mẫu không hợp lệ: " + templateId);
+        throw new CommonException(ThongDiep.of("heThong.mauInDinhDanhKhongHopLe", templateId));
     }
 
     /**
@@ -343,59 +344,59 @@ public class CauHinhMauInService {
         Object raw = sections.get(IPrintTemplateConfig.CUSTOM_SECTION_KEY);
         if (raw == null) return;
         if (!(raw instanceof Map<?, ?> custom)) {
-            throw new CommonException("Tùy chỉnh mẫu in không hợp lệ");
+            throw new CommonException(ThongDiep.of("heThong.mauInTuyChinhKhongHopLe"));
         }
         for (Map.Entry<?, ?> entry : custom.entrySet()) {
             Object key = entry.getKey();
             Object value = entry.getValue();
             if (!(key instanceof String name) || !IPrintTemplateConfig.CUSTOM_OPTION_KEYS.contains(name)) {
-                throw new CommonException("Tùy chỉnh mẫu in không hợp lệ: " + key);
+                throw new CommonException(ThongDiep.of("heThong.mauInTuyChinhKhongHopLeChiTiet", key));
             }
             if (value == null) continue;
             switch (name) {
                 case "loiChanPhieu" -> requireText(value, IPrintTemplateConfig.FOOTER_NOTE_MAX_LENGTH,
-                        "Lời chân phiếu không được quá " + IPrintTemplateConfig.FOOTER_NOTE_MAX_LENGTH + " ký tự");
+                        ThongDiep.of("heThong.mauInLoiChanPhieuQuaDai", IPrintTemplateConfig.FOOTER_NOTE_MAX_LENGTH));
                 case "tieuDe" -> requireText(value, IPrintTemplateConfig.TITLE_MAX_LENGTH,
-                        "Tiêu đề chứng từ không được quá " + IPrintTemplateConfig.TITLE_MAX_LENGTH + " ký tự");
+                        ThongDiep.of("heThong.mauInTieuDeQuaDai", IPrintTemplateConfig.TITLE_MAX_LENGTH));
                 case "coChu" -> {
                     if (!(value instanceof String size) || !IPrintTemplateConfig.FONT_SIZES.contains(size)) {
-                        throw new CommonException("Cỡ chữ không hợp lệ: " + value);
+                        throw new CommonException(ThongDiep.of("heThong.mauInCoChuKhongHopLe", value));
                     }
                 }
                 case "maSoPhieu" -> {
                     if (!(value instanceof String mode) || !IPrintTemplateConfig.DOC_CODE_MODES.contains(mode)) {
-                        throw new CommonException("Kiểu mã số phiếu không hợp lệ: " + value);
+                        throw new CommonException(ThongDiep.of("heThong.mauInKieuMaSoPhieuKhongHopLe", value));
                     }
                 }
                 case "nhan" -> validateLabels(value);
-                default -> throw new CommonException("Tùy chỉnh mẫu in không hợp lệ: " + name);
+                default -> throw new CommonException(ThongDiep.of("heThong.mauInTuyChinhKhongHopLeChiTiet", name));
             }
         }
     }
 
     private void validateLabels(Object value) {
         if (!(value instanceof Map<?, ?> labels)) {
-            throw new CommonException("Nhãn tự đặt của mẫu in không hợp lệ");
+            throw new CommonException(ThongDiep.of("heThong.mauInNhanKhongHopLe"));
         }
         if (labels.size() > IPrintTemplateConfig.MAX_CUSTOM_LABELS) {
-            throw new CommonException("Mẫu in có quá nhiều nhãn tự đặt");
+            throw new CommonException(ThongDiep.of("heThong.mauInQuaNhieuNhan"));
         }
         for (Map.Entry<?, ?> entry : labels.entrySet()) {
             if (!(entry.getKey() instanceof String key) || !IPrintTemplateConfig.LABEL_KEY.matcher(key).matches()) {
-                throw new CommonException("Khóa nhãn không hợp lệ: " + entry.getKey());
+                throw new CommonException(ThongDiep.of("heThong.mauInKhoaNhanKhongHopLe", entry.getKey()));
             }
             if (!(entry.getValue() instanceof String label) || label.isBlank()) {
-                throw new CommonException("Nhãn tự đặt không được để trống");
+                throw new CommonException(ThongDiep.of("heThong.mauInNhanTrong"));
             }
             if (label.length() > IPrintTemplateConfig.LABEL_MAX_LENGTH) {
-                throw new CommonException("Mỗi nhãn không được quá " + IPrintTemplateConfig.LABEL_MAX_LENGTH + " ký tự");
+                throw new CommonException(ThongDiep.of("heThong.mauInNhanQuaDai", IPrintTemplateConfig.LABEL_MAX_LENGTH));
             }
         }
     }
 
-    private static void requireText(Object value, int maxLength, String tooLongMessage) {
+    private static void requireText(Object value, int maxLength, ThongDiep tooLongMessage) {
         if (!(value instanceof String text)) {
-            throw new CommonException("Tùy chỉnh mẫu in không hợp lệ");
+            throw new CommonException(ThongDiep.of("heThong.mauInTuyChinhKhongHopLe"));
         }
         if (text.length() > maxLength) {
             throw new CommonException(tooLongMessage);
@@ -404,32 +405,32 @@ public class CauHinhMauInService {
 
     private void validateConfig(PrintTemplateConfigRequest req, String templateId) {
         if (req == null) {
-            throw new CommonException("Cấu hình mẫu in không được để trống");
+            throw new CommonException(ThongDiep.of("heThong.mauInCauHinhTrong"));
         }
         if (req.getName() == null || req.getName().isBlank()) {
-            throw new CommonException("Tên mẫu in không được để trống");
+            throw new CommonException(ThongDiep.of("heThong.mauInTenTrong"));
         }
         if (req.getName().length() > 200) {
-            throw new CommonException("Tên mẫu in không được quá 200 ký tự");
+            throw new CommonException(ThongDiep.of("heThong.mauInTenQuaDai"));
         }
         if (req.getPaperSize() == null || !IPrintTemplateConfig.PAPER_SIZES.contains(req.getPaperSize())) {
-            throw new CommonException("Khổ giấy không hợp lệ: " + req.getPaperSize());
+            throw new CommonException(ThongDiep.of("heThong.mauInKhoGiayKhongHopLe", req.getPaperSize()));
         }
         // Chốt chặn lỗi "đổi khổ giấy giữ nguyên id": paperSize phải khớp hậu tố templateId
         if (!templateId.endsWith("_" + req.getPaperSize())) {
-            throw new CommonException("Khổ giấy " + req.getPaperSize() + " không khớp với định danh mẫu " + templateId);
+            throw new CommonException(ThongDiep.of("heThong.mauInKhoGiayKhongKhop", req.getPaperSize(), templateId));
         }
         if (req.getOrientation() == null || !IPrintTemplateConfig.ORIENTATIONS.contains(req.getOrientation())) {
-            throw new CommonException("Hướng giấy không hợp lệ: " + req.getOrientation());
+            throw new CommonException(ThongDiep.of("heThong.mauInHuongGiayKhongHopLe", req.getOrientation()));
         }
         if (req.getMargin() == null || !IPrintTemplateConfig.MARGINS.contains(req.getMargin())) {
-            throw new CommonException("Lề giấy không hợp lệ: " + req.getMargin());
+            throw new CommonException(ThongDiep.of("heThong.mauInLeGiayKhongHopLe", req.getMargin()));
         }
         if (req.getAccentColor() == null || !HEX_COLOR.matcher(req.getAccentColor()).matches()) {
-            throw new CommonException("Màu nhấn không hợp lệ (cần mã hex #RRGGBB)");
+            throw new CommonException(ThongDiep.of("heThong.mauInMauNhanKhongHopLe"));
         }
         if (req.getSections() == null || req.getSections().isEmpty()) {
-            throw new CommonException("Nội dung chứng từ (sections) không được để trống");
+            throw new CommonException(ThongDiep.of("heThong.mauInSectionsTrong"));
         }
         validateCustomOptions(req.getSections());
         // Mỗi lần lưu ghi ảnh chụp cả cấu hình vào lich_su_thay_doi (cột TEXT): quá lớn thì phiên bản không ghi
@@ -438,7 +439,7 @@ public class CauHinhMauInService {
                 + utf8Length(writeJson(req.getSections()))
                 + utf8Length(writeJson(req.getColumns()));
         if (kichThuoc > CONFIG_JSON_MAX_BYTES) {
-            throw new CommonException("Cấu hình mẫu in quá lớn, vui lòng bớt nhãn tự đặt hoặc nội dung tùy chỉnh");
+            throw new CommonException(ThongDiep.of("heThong.mauInQuaLon"));
         }
     }
 
@@ -564,7 +565,7 @@ public class CauHinhMauInService {
             return objectMapper.writeValueAsString(value);
         } catch (Exception e) {
             log.error("Lỗi serialize JSON cấu hình mẫu in", e);
-            throw new CommonException("Dữ liệu cấu hình mẫu in không hợp lệ");
+            throw new CommonException(ThongDiep.of("heThong.mauInDuLieuKhongHopLe"));
         }
     }
 

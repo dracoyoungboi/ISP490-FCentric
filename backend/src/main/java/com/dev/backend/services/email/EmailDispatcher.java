@@ -1,6 +1,8 @@
 package com.dev.backend.services.email;
 
 import com.dev.backend.dto.email.CuaHangEmail;
+import com.dev.backend.i18n.LoiTrangThaiException;
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.utils.SauCommit;
 import jakarta.annotation.PreDestroy;
 import jakarta.mail.internet.InternetAddress;
@@ -143,7 +145,7 @@ public class EmailDispatcher {
     public void guiNgay(EmailGui g) {
         try {
             if (!conHieuLuc(g)) {
-                throw new IllegalStateException("Email không còn hiệu lực");
+                throw new LoiTrangThaiException(ThongDiep.of("heThong.emailHetHieuLuc"));
             }
             MimeMessage msg = taoThu(g);
             mailSender.send(msg);
@@ -151,6 +153,7 @@ public class EmailDispatcher {
             chayKhiGuiDuoc(g);
         } catch (Exception e) {
             log.error("[EMAIL] Không gửi được {} tới {}{}: {}", g.loai(), g.den(), donLog(g), e.toString());
+            // i18n-giu-nguyen: lỗi nội bộ, nơi gọi bắt EmailKhongGuiDuocException và trả câu/mã lỗi riêng
             throw new EmailKhongGuiDuocException("Không gửi được email " + g.loai(), e);
         }
     }
@@ -218,7 +221,7 @@ public class EmailDispatcher {
 
     MimeMessage taoThu(EmailGui g) throws Exception {
         if (diaChiGui.isEmpty()) {
-            throw new IllegalStateException("Chưa cấu hình địa chỉ gửi email (MAIL_FROM)");
+            throw new LoiTrangThaiException(ThongDiep.of("heThong.chuaCauHinhMailFrom"));
         }
         CuaHangEmail cuaHang = cuaHangFactory.hienTai();
         if (g.loai().nhaCungCap() && !cuaHang.thieuChoEmailNhaCungCap().isEmpty()) {

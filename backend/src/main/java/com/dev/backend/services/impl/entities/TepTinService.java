@@ -3,6 +3,7 @@ package com.dev.backend.services.impl.entities;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.entities.TepTin;
 import com.dev.backend.exception.customize.CommonException;
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.repository.TepTinRepository;
 import com.dev.backend.services.MinioService;
 import com.dev.backend.services.impl.BaseServiceImpl;
@@ -37,7 +38,7 @@ public class TepTinService extends BaseServiceImpl<TepTin, Integer> {
         Optional<TepTin> tepTin = getOne(id);
 
         if (tepTin.isEmpty()) {
-            throw new CommonException("Không tìm thấy tệp tin id: " + id);
+            throw new CommonException(ThongDiep.of("heThong.tepTinKhongTimThay", id));
         }
 
         minioService.delete(tepTin.get().getTenLuuTru());
@@ -57,7 +58,7 @@ public class TepTinService extends BaseServiceImpl<TepTin, Integer> {
         Optional<TepTin> tepTin = getOne(id);
 
         if (tepTin.isEmpty()) {
-            throw new CommonException("Không tìm thấy tệp tin id: " + id);
+            throw new CommonException(ThongDiep.of("heThong.tepTinKhongTimThay", id));
         }
 
         minioService.delete(tepTin.get().getTenLuuTru());

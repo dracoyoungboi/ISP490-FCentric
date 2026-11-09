@@ -4,6 +4,7 @@ import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.customizeanotation.RequireAuth;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.customize.ThongBaoDto;
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.services.impl.entities.ThongBaoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -32,7 +33,7 @@ public class ThongBaoController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "30") int size,
             @RequestParam(defaultValue = "false") boolean chuaDoc) {
-        return ok(thongBaoService.danhSach(page, size, chuaDoc), "Lấy danh sách thông báo thành công");
+        return ok(thongBaoService.danhSach(page, size, chuaDoc), ThongDiep.dich("heThong.layThongBaoThanhCong"));
     }
 
     /** Đánh dấu một thông báo đã đọc → { id, soChuaDoc }. Thông báo không phải của mình: 404. */
@@ -44,7 +45,7 @@ public class ThongBaoController {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("id", id);
         data.put("soChuaDoc", soChuaDoc);
-        return ok(data, "Đã đánh dấu đã đọc");
+        return ok(data, ThongDiep.dich("heThong.daDanhDauDaDoc"));
     }
 
     /** Đánh dấu mọi thông báo của mình đã đọc → { soDaDanhDau, soChuaDoc: 0 }. */
@@ -55,7 +56,7 @@ public class ThongBaoController {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("soDaDanhDau", thongBaoService.danhDauTatCaDaDoc());
         data.put("soChuaDoc", 0);
-        return ok(data, "Đã đánh dấu tất cả thông báo đã đọc");
+        return ok(data, ThongDiep.dich("heThong.daDanhDauTatCaDaDoc"));
     }
 
     private static <T> ResponseEntity<ResponseData<T>> ok(T data, String message) {

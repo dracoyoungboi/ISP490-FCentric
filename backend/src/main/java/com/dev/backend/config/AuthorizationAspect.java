@@ -13,7 +13,8 @@ import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.access.AccessDeniedException;
+import com.dev.backend.i18n.ThongDiep;
+import com.dev.backend.i18n.TuChoiTruyCapException;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.RequestHeader;
 
@@ -57,7 +58,7 @@ public class AuthorizationAspect {
                     : jwtService.hasAllRoles(nguoiDungAuthInfo, requiredRoles); // Có tất cả roles
 
             if (!hasAccess) {
-                throw new AccessDeniedException("Vai trò của bạn không được phép thực hiện thao tác này");
+                throw new TuChoiTruyCapException(ThongDiep.of("heThong.vaiTroKhongDuocPhep"));
             }
         }
         //check theo Kho
@@ -65,7 +66,7 @@ public class AuthorizationAspect {
             Integer warehouseId = getWarehouseId(joinPoint);
 
             if (!jwtService.inWorkspace(warehouseId, nguoiDungAuthInfo)) {
-                throw new AccessDeniedException("Bạn không thuộc kho đang chọn, vui lòng chọn lại kho");
+                throw new TuChoiTruyCapException(ThongDiep.of("heThong.khongThuocKhoDangChon"));
             }
 
             if (requireAuth.permissions().length > 0) {
@@ -79,7 +80,7 @@ public class AuthorizationAspect {
                           System.out.println(ctqk.getQuyenHan().getMaQuyen());
                       }
                     }
-                    throw new AccessDeniedException("Bạn không có quyền thực hiện thao tác này");
+                    throw new TuChoiTruyCapException(ThongDiep.of("heThong.khongCoQuyenThaoTac"));
                 }
             }
         }
@@ -111,7 +112,7 @@ public class AuthorizationAspect {
             return authHeader;
         }
 
-        throw new AccessDeniedException("Bạn chưa đăng nhập hoặc phiên đăng nhập đã hết hạn");
+        throw new TuChoiTruyCapException(ThongDiep.of("heThong.chuaDangNhap"));
     }
 
     public Integer getWarehouseId(ProceedingJoinPoint joinPoint) {
@@ -136,10 +137,10 @@ public class AuthorizationAspect {
             try {
                 return Integer.parseInt(khoIdStr);
             } catch (NumberFormatException e) {
-                throw new AccessDeniedException("Kho đang chọn không hợp lệ, vui lòng chọn lại kho");
+                throw new TuChoiTruyCapException(ThongDiep.of("heThong.khoDangChonSai"));
             }
         }
 
-        throw new AccessDeniedException("Bạn chưa chọn kho làm việc, vui lòng chọn kho");
+        throw new TuChoiTruyCapException(ThongDiep.of("heThong.chuaChonKho"));
     }
 }

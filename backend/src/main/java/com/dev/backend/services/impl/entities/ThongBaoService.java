@@ -5,6 +5,7 @@ import com.dev.backend.dto.response.customize.ThongBaoDto;
 import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
 import com.dev.backend.entities.ThongBao;
 import com.dev.backend.exception.customize.CommonException;
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.repository.ThongBaoRepository;
 import com.dev.backend.utils.SauCommit;
 import lombok.extern.slf4j.Slf4j;
@@ -479,7 +480,7 @@ public class ThongBaoService {
         Integer nguoiDungId = nguoiDangNhap();
         if (id == null || (thongBaoRepository.danhDauDaDoc(id, nguoiDungId) == 0
                 && !thongBaoRepository.existsByIdAndNguoiNhanIdAndKhoaSuKienIsNotNull(id, nguoiDungId))) {
-            throw new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy thông báo");
+            throw new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("heThong.thongBaoKhongTimThay"));
         }
         return thongBaoRepository.demChuaDoc(nguoiDungId);
     }
@@ -511,7 +512,7 @@ public class ThongBaoService {
     private static Integer nguoiDangNhap() {
         NguoiDungAuthInfo user = SecurityContextHolder.getUser();
         if (user == null || user.getId() == null) {
-            throw new CommonException(HttpStatus.UNAUTHORIZED, "Bạn chưa đăng nhập hoặc phiên đăng nhập đã hết hạn");
+            throw new CommonException(HttpStatus.UNAUTHORIZED, ThongDiep.of("heThong.chuaDangNhap"));
         }
         return user.getId();
     }

@@ -1,6 +1,8 @@
 package com.dev.backend.config;
 
 import com.dev.backend.dto.response.ResponseData;
+import com.dev.backend.i18n.NgonNgu;
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.services.impl.multitable.BangChungDongGoiServiceImpl;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
@@ -32,7 +34,8 @@ public class GioiHanTaiBangChungFilter extends OncePerRequestFilter {
     /** Phần dư cho ranh giới multipart, tiêu đề từng phần, loaiBangChung, thoiLuongGiay. */
     static final long PHAN_DU_MULTIPART = 1024L * 1024;
     static final long GIOI_HAN_YEU_CAU = BangChungDongGoiServiceImpl.MAX_VIDEO_SIZE + PHAN_DU_MULTIPART;
-    static final String THONG_BAO = "Dung lượng tệp tải lên vượt quá 100MB cho phép!";
+    /** Khóa câu thông báo; dịch theo Accept-Language lúc ghi response (filter không qua bộ xử lý lỗi chung). */
+    static final String KHOA_THONG_BAO = "heThong.tepBangChungQuaLon";
 
     private static final Pattern DUONG_DAN_TAI_BANG_CHUNG = Pattern.compile("^/api/v1/dong-goi/don/[^/]+/bang-chung/?$");
 
@@ -59,7 +62,8 @@ public class GioiHanTaiBangChungFilter extends OncePerRequestFilter {
             ResponseData<Void> body = ResponseData.<Void>builder()
                     .status(HttpStatus.PAYLOAD_TOO_LARGE.value())
                     .error(HttpStatus.PAYLOAD_TOO_LARGE.getReasonPhrase())
-                    .message(THONG_BAO)
+                    .message(ThongDiep.dich(KHOA_THONG_BAO))
+                    .messageGoc(NgonNgu.laTiengAnh() ? ThongDiep.vi(KHOA_THONG_BAO) : null)
                     .path(request.getRequestURI())
                     .build();
             response.setStatus(HttpStatus.PAYLOAD_TOO_LARGE.value());
