@@ -8,6 +8,7 @@ import TuyenChuyen from "@/components/chung-tu/TuyenChuyen";
 import { docSo, soVN } from "@/components/chung-tu/bangChungTu";
 import { formatDate } from "@/utils/formatters";
 import { laDaXuat, layThongTinGiaoVan } from "./phieuXuat.js";
+import { t } from "@/i18n";
 
 const ngay = (value) => (value ? formatDate(value) : null);
 const doanGhiChu = (chu) => (chu ? <span className="whitespace-pre-line">{chu}</span> : null);
@@ -29,26 +30,26 @@ export default function ThuocTinhPhieuXuat({ phieu, laCk, laPos, ghiChu }) {
   if (laCk) {
     const maPhieuChuyen = phieu.soPhieuChuyenKhoGoc || ghiChu.maPhieuChuyen;
     return (
-      <CotThuocTinh nhan="Thông tin phiếu xuất">
-        <NhomThuocTinh nhan="Tuyến chuyển">
+      <CotThuocTinh nhan={t("Thông tin phiếu xuất")}>
+        <NhomThuocTinh nhan={t("Tuyến chuyển")}>
           <TuyenChuyen
             khoNguon={phieu.kho?.tenKho}
             khoDich={phieu.khoChuyenDen?.tenKho}
-            ghiChu="Hàng đi qua kho Trung chuyển trong lúc vận chuyển"
+            ghiChu={t("Hàng đi qua kho Trung chuyển trong lúc vận chuyển")}
           />
         </NhomThuocTinh>
         {daXuat || ghiChu.ghiChu ? (
           <NhomThuocTinh>
             <BangThuocTinh
               muc={[
-                { nhan: "Người xuất", giaTri: nguoiXuat, an: !daXuat },
-                { nhan: "Ghi chú", giaTri: doanGhiChu(ghiChu.ghiChu), an: !ghiChu.ghiChu },
+                { nhan: t("Người xuất"), giaTri: nguoiXuat, an: !daXuat },
+                { nhan: t("Ghi chú"), giaTri: doanGhiChu(ghiChu.ghiChu), an: !ghiChu.ghiChu },
               ]}
             />
           </NhomThuocTinh>
         ) : null}
         <ChungTuLienQuan ds={maPhieuChuyen ? [{
-          loai: "Phiếu chuyển kho",
+          loai: t("Phiếu chuyển kho"),
           ma: maPhieuChuyen,
           to: phieu.phieuChuyenKhoGocId != null ? `/transfer-tickets/${phieu.phieuChuyenKhoGocId}` : undefined,
         }] : []} />
@@ -63,16 +64,16 @@ export default function ThuocTinhPhieuXuat({ phieu, laCk, laPos, ghiChu }) {
   let nhanCod = thongTin.nhanThanhToan;
   if (!nhanCod && thongTin.tienThuHoCod != null) {
     const codNum = Number(thongTin.tienThuHoCod);
-    nhanCod = codNum > 0 ? `Thu hộ (COD): ${soVN(codNum)} ₫` : "Đã thanh toán (COD: 0 đ)";
+    nhanCod = codNum > 0 ? t("Thu hộ (COD): {{codNum}} ₫", { codNum: soVN(codNum) }) : t("Đã thanh toán (COD: 0 đ)");
   }
 
   return (
-    <CotThuocTinh nhan="Thông tin phiếu xuất">
+    <CotThuocTinh nhan={t("Thông tin phiếu xuất")}>
       <NhomThuocTinh>
         <BangThuocTinh
           muc={[
             {
-              nhan: "Kho xuất",
+              nhan: t("Kho xuất"),
               giaTri: phieu.kho?.tenKho ? (
                 <>
                   {phieu.kho.tenKho}
@@ -80,35 +81,35 @@ export default function ThuocTinhPhieuXuat({ phieu, laCk, laPos, ghiChu }) {
                 </>
               ) : null,
             },
-            { nhan: "Ngày tạo", giaTri: ngay(phieu.ngayTao), an: !laPos },
-            { nhan: "Ngày xuất", giaTri: ngay(phieu.ngayXuat), an: !laPos },
-            { nhan: "Người xuất", giaTri: nguoiXuat, an: !daXuat },
-            { nhan: "Ghi chú", giaTri: doanGhiChu(ghiChu.ghiChu) },
+            { nhan: t("Ngày tạo"), giaTri: ngay(phieu.ngayTao), an: !laPos },
+            { nhan: t("Ngày xuất"), giaTri: ngay(phieu.ngayXuat), an: !laPos },
+            { nhan: t("Người xuất"), giaTri: nguoiXuat, an: !daXuat },
+            { nhan: t("Ghi chú"), giaTri: doanGhiChu(ghiChu.ghiChu) },
           ]}
         />
       </NhomThuocTinh>
       {thongTin.coSanThongTin || cuoc != null ? (
-        <NhomThuocTinh nhan="Giao vận">
+        <NhomThuocTinh nhan={t("Giao vận")}>
           <BangThuocTinh
             rongNhan={124}
             muc={[
-              { nhan: "Đơn vị vận chuyển", giaTri: thongTin.donViVanChuyen ?? null, an: !thongTin.donViVanChuyen },
+              { nhan: t("Đơn vị vận chuyển"), giaTri: thongTin.donViVanChuyen ?? null, an: !thongTin.donViVanChuyen },
               {
-                nhan: "Mã vận đơn",
+                nhan: t("Mã vận đơn"),
                 giaTri: thongTin.maVanDon ? (
-                  <GiaTriSaoChep giaTri={thongTin.maVanDon} nhanSaoChep="Sao chép mã vận đơn" className="font-mono font-medium text-bo-primary" />
+                  <GiaTriSaoChep giaTri={thongTin.maVanDon} nhanSaoChep={t("Sao chép mã vận đơn")} className="font-mono font-medium text-bo-primary" />
                 ) : null,
                 an: !thongTin.maVanDon,
               },
               {
-                nhan: "Mã kiện hàng",
+                nhan: t("Mã kiện hàng"),
                 giaTri: thongTin.maKienHang ? (
-                  <GiaTriSaoChep giaTri={thongTin.maKienHang} nhanSaoChep="Sao chép mã kiện hàng" className="font-mono text-xs" />
+                  <GiaTriSaoChep giaTri={thongTin.maKienHang} nhanSaoChep={t("Sao chép mã kiện hàng")} className="font-mono text-xs" />
                 ) : null,
                 an: !thongTin.maKienHang,
               },
               {
-                nhan: "Mã chia chọn",
+                nhan: t("Mã chia chọn"),
                 giaTri: thongTin.maDinhTuyen ? (
                   <span className="inline-flex items-center rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 font-mono text-xs font-semibold text-amber-800">
                     {thongTin.maDinhTuyen}
@@ -117,21 +118,21 @@ export default function ThuocTinhPhieuXuat({ phieu, laCk, laPos, ghiChu }) {
                 an: !thongTin.maDinhTuyen,
               },
               {
-                nhan: "Trạm đích",
+                nhan: t("Trạm đích"),
                 giaTri: thongTin.maTramPhat ? (
                   <span className="font-mono text-xs text-slate-600">{thongTin.maTramPhat}</span>
                 ) : null,
                 an: !thongTin.maTramPhat,
               },
               {
-                nhan: "Thu hộ (COD)",
+                nhan: t("Thu hộ (COD)"),
                 giaTri: nhanCod ? (
                   <span className="font-medium text-slate-700">{nhanCod}</span>
                 ) : null,
                 an: !nhanCod,
               },
               {
-                nhan: "Chỉ dẫn sàn",
+                nhan: t("Chỉ dẫn sàn"),
                 giaTri: thongTin.chiDanDongKiem ? (
                   <span className="inline-flex items-center rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-xs font-medium text-emerald-700">
                     {thongTin.chiDanDongKiem}
@@ -139,7 +140,7 @@ export default function ThuocTinhPhieuXuat({ phieu, laCk, laPos, ghiChu }) {
                 ) : null,
                 an: !thongTin.chiDanDongKiem,
               },
-              { nhan: "Cước thực tế", giaTri: cuoc != null ? <span className="tabular-nums font-mono">{soVN(cuoc)} ₫</span> : null, an: cuoc == null },
+              { nhan: t("Cước thực tế"), giaTri: cuoc != null ? <span className="tabular-nums font-mono">{soVN(cuoc)} ₫</span> : null, an: cuoc == null },
             ]}
           />
         </NhomThuocTinh>
@@ -147,7 +148,7 @@ export default function ThuocTinhPhieuXuat({ phieu, laCk, laPos, ghiChu }) {
       <ChungTuLienQuan
         ds={
           don?.soDonHang
-            ? [{ loai: "Đơn bán hàng", ma: don.soDonHang, to: don.id ? `/sales-orders/${don.id}` : undefined }]
+            ? [{ loai: t("Đơn bán hàng"), ma: don.soDonHang, to: don.id ? `/sales-orders/${don.id}` : undefined }]
             : []
         }
       />

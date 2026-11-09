@@ -16,6 +16,7 @@ import {
     ArrowLeft
 } from "lucide-react";
 import { PHIEU_XUAT_KHO_STATUS, getPhieuXuatKhoStatus } from "@/constants/phieuXuatKho";
+import { t } from "@/i18n";
 
 // Trạng thái phiếu xuất — dùng chung tên với danh sách và bản in (constants/phieuXuatKho)
 const STATUS_UI = PHIEU_XUAT_KHO_STATUS;
@@ -32,7 +33,7 @@ export default function PhieuXuatKhoView() {
             const res = await phieuXuatKhoService.view(id);
             setData(res);
         } catch {
-            toast.error("Không thể tải chi tiết phiếu xuất");
+            toast.error(t("Không thể tải chi tiết phiếu xuất"));
         } finally {
             setLoading(false);
         }
@@ -48,7 +49,7 @@ export default function PhieuXuatKhoView() {
         return (
             <PageContainer>
                 <div className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
-                    <LoadingState rows={4} label="Đang tải dữ liệu phiếu xuất kho" />
+                    <LoadingState rows={4} label={t("Đang tải dữ liệu phiếu xuất kho")} />
                 </div>
             </PageContainer>
         );
@@ -67,7 +68,7 @@ export default function PhieuXuatKhoView() {
                     className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-bo-muted transition-colors hover:text-bo-primary"
                 >
                     <ArrowLeft className="size-4" />
-                    Quay lại
+                    {t("Quay lại")}
                 </button>
 
                 <div className="flex flex-wrap items-center gap-2">
@@ -76,38 +77,38 @@ export default function PhieuXuatKhoView() {
             </div>
 
             {/* ── Info Section ── */}
-            <SurfaceCard title="Thông tin phiếu xuất">
+            <SurfaceCard title={t("Thông tin phiếu xuất")}>
                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-                    <InfoItem icon={Package} label="Số phiếu xuất" value={data.soPhieuXuat} highlight />
+                    <InfoItem icon={Package} label={t("Số phiếu xuất")} value={data.soPhieuXuat} highlight />
 
                     <InfoItem
                         icon={ClipboardList}
-                        label="Đơn bán hàng"
+                        label={t("Đơn bán hàng")}
                         value={data.soDonHang}
                     />
 
                     <InfoItem
                         icon={Warehouse}
-                        label="Kho xuất"
+                        label={t("Kho xuất")}
                         value={data.tenKho}
                     />
 
                     <InfoItem
                         icon={Calendar}
-                        label="Ngày xuất"
+                        label={t("Ngày xuất")}
                         value={data.ngayXuat ? new Date(data.ngayXuat).toLocaleDateString("vi-VN") : "---"}
                     />
 
                     <InfoItem
                         icon={User}
-                        label="Người xuất"
+                        label={t("Người xuất")}
                         value={data.nguoiXuat}
                     />
                 </div>
 
                 {data.ghiChu && (
                     <div className="mt-5 border-t border-bo-border pt-4">
-                        <InfoItem icon={InfoIcon} label="Ghi chú" value={data.ghiChu} />
+                        <InfoItem icon={InfoIcon} label={t("Ghi chú")} value={data.ghiChu} />
                     </div>
                 )}
             </SurfaceCard>

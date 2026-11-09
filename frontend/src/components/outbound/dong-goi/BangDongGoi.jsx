@@ -22,6 +22,7 @@ import {
 } from "@/components/chung-tu/kieuBang";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 const BO_LOC = Object.freeze({ chua: (d) => !d.du, tatCa: null });
 
@@ -40,9 +41,9 @@ function Thanh({ phanTram, du, lon = false }) {
 
 /** Cột Còn lại của một dòng: "Cất về kệ" (đơn bị hủy), thẻ "Đủ" hoặc "Còn n". */
 function TrangThaiDong({ hoanKe, du, con }) {
-  if (hoanKe) return <StatusBadge label="Cất về kệ" />;
-  if (du) return <StatusBadge label="Đủ" />;
-  return <span className="whitespace-nowrap font-semibold tabular-nums">Còn {soVN(con)}</span>;
+  if (hoanKe) return <StatusBadge /* i18n-giu-nguyen: StatusBadge tự dịch lúc vẽ */ label="Cất về kệ" />;
+  if (du) return <StatusBadge /* i18n-giu-nguyen: StatusBadge tự dịch lúc vẽ */ label="Đủ" />;
+  return <span className="whitespace-nowrap font-semibold tabular-nums">{t("Còn {{so}}", { so: soVN(con) })}</span>;
 }
 
 /**
@@ -65,7 +66,7 @@ export default function BangDongGoi({ dong, tienDo, lyDoKhoa = "", idLyDo, dongS
     boLoc: BO_LOC,
     // Ít dòng thì không có thanh công cụ → không lọc ngầm; đã đóng gói xong / đơn hủy thì xem tất cả dòng
     locMacDinh: coCongCu(dong.length) && !xong && !hoanKe ? "chua" : "tatCa",
-    donVi: "dòng",
+    donVi: t("dòng"),
   });
   const coDong = bang.dong.length > 0;
   const denDong = bang.denDong;
@@ -84,16 +85,21 @@ export default function BangDongGoi({ dong, tienDo, lyDoKhoa = "", idLyDo, dongS
   return (
     <section aria-labelledby={`${idBang}-tieu-de`} className="flex min-w-0 flex-col">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-4 pb-3 pt-5 sm:px-6">
-        <h2 id={`${idBang}-tieu-de`} className="text-base font-semibold leading-6 text-bo-foreground">Sản phẩm cần đóng gói</h2>
+        <h2 id={`${idBang}-tieu-de`} className="text-base font-semibold leading-6 text-bo-foreground">{t("Sản phẩm cần đóng gói")}</h2>
         <p className="m-0 text-[13px] leading-5 text-bo-muted tabular-nums">
-          Đã quét {soVN(tienDo.da)}/{soVN(tienDo.can)} sản phẩm · {soVN(tienDo.dongDu)}/{soVN(tienDo.soDong)} dòng đủ
+          {t("Đã quét {{da}}/{{can}} sản phẩm · {{dongDu}}/{{soDong}} dòng đủ", {
+            da: soVN(tienDo.da),
+            can: soVN(tienDo.can),
+            dongDu: soVN(tienDo.dongDu),
+            soDong: soVN(tienDo.soDong),
+          })}
         </p>
       </div>
       <div className="px-4 pb-3 sm:px-6">
         <Thanh phanTram={tienDo.phanTram} du={tienDo.conLai === 0} lon />
       </div>
       {lyDoKhoa ? (
-        <p id={idLyDo} className="-mt-1 px-4 pb-3 text-xs leading-4 text-bo-muted sm:px-6">Chưa hoàn tất được: {lyDoKhoa}.</p>
+        <p id={idLyDo} className="-mt-1 px-4 pb-3 text-xs leading-4 text-bo-muted sm:px-6">{t("Chưa hoàn tất được: {{lyDoKhoa}}.", { lyDoKhoa })}</p>
       ) : null}
 
       {bang.coCongCu ? (
@@ -101,20 +107,20 @@ export default function BangDongGoi({ dong, tienDo, lyDoKhoa = "", idLyDo, dongS
           tuKhoa={bang.tuKhoa}
           onDoiTuKhoa={bang.datTuKhoa}
           onXoaTuKhoa={bang.xoaTuKhoa}
-          goiYTim="Tìm theo tên, SKU hoặc mã vạch"
-          nhanTim="Tìm trong phiếu"
+          goiYTim={t("Tìm theo tên, SKU hoặc mã vạch")}
+          nhanTim={t("Tìm trong phiếu")}
           ketQua={bang.chuKetQua}
           khongKetQua={bang.khongKetQua}
           // Enter trong ô tìm (máy quét) không gửi biểu mẫu nào
           propsTim={{ onKeyDown: (suKien) => suKien.key === "Enter" && suKien.preventDefault() }}
           boLoc={
             <NutPhanDoan
-              nhan="Lọc dòng"
+              nhan={t("Lọc dòng")}
               value={bang.locNhanh}
               onChange={bang.datLoc}
               luaChon={[
-                { value: "chua", label: "Chưa đủ", count: bang.demLoc.chua },
-                { value: "tatCa", label: "Tất cả" },
+                { value: "chua", label: t("Chưa đủ"), count: bang.demLoc.chua },
+                { value: "tatCa", label: t("Tất cả") },
               ]}
             />
           }
@@ -126,9 +132,9 @@ export default function BangDongGoi({ dong, tienDo, lyDoKhoa = "", idLyDo, dongS
           <table className={cn(BANG, "@2xl/khoi:min-w-[560px]")}>
             <thead>
               <tr className={DONG_TIEU_DE}>
-                <th scope="col" className={cn(O_TIEU_DE, O_DAU)}>Sản phẩm</th>
-                <th scope="col" className={cn(O_TIEU_DE, "w-[140px] @max-2xl/khoi:w-[104px] @max-2xl/khoi:pr-4")}>Đã quét</th>
-                <th scope="col" className={cn(O_TIEU_DE, O_CUOI, "w-[110px] text-right", AN_DIEN_THOAI)}>Còn lại</th>
+                <th scope="col" className={cn(O_TIEU_DE, O_DAU)}>{t("Sản phẩm")}</th>
+                <th scope="col" className={cn(O_TIEU_DE, "w-[140px] @max-2xl/khoi:w-[104px] @max-2xl/khoi:pr-4")}>{t("Đã quét")}</th>
+                <th scope="col" className={cn(O_TIEU_DE, O_CUOI, "w-[110px] text-right", AN_DIEN_THOAI)}>{t("Còn lại")}</th>
               </tr>
             </thead>
             <tbody>
@@ -178,9 +184,9 @@ export default function BangDongGoi({ dong, tienDo, lyDoKhoa = "", idLyDo, dongS
       ) : null}
 
       {bang.locNhanh === "chua" && !bang.dangTim && bang.khongKetQua ? (
-        <KhongKetQua chu="Đã quét đủ mọi dòng." nhanNut="Xem tất cả dòng" onNut={() => bang.datLoc("tatCa")} />
+        <KhongKetQua chu={t("Đã quét đủ mọi dòng.")} nhanNut={t("Xem tất cả dòng")} onNut={() => bang.datLoc("tatCa")} />
       ) : (
-        <KhongKetQua bang={bang} tenChungTu="phiếu xuất" donVi="dòng" />
+        <KhongKetQua bang={bang} tenChungTu={t("phiếu xuất")} donVi={t("dòng")} />
       )}
       {bang.phanTrang ? <PhanTrangBang {...bang.phanTrang} /> : null}
     </section>

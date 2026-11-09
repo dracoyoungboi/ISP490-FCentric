@@ -3,7 +3,9 @@ import { Truck } from "lucide-react";
 import HopXacNhanChungTu from "@/components/chung-tu/HopXacNhanChungTu";
 import { GHI_CHU_HOP, GOI_Y_O, NHAN_O, O_NHAP, O_NHAP_NHIEU_DONG } from "@/components/chung-tu/kieuHopThoai";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
+// i18n-giu-nguyen: giá trị điền vào ô đơn vị vận chuyển rồi gửi máy chủ; nhãn nút dịch lúc vẽ
 const CARRIERS = ["GHTK", "GHN", "Viettel Post", "J&T Express", "Ahamove", "Tự giao"];
 const EMPTY = { donViVanChuyen: "", maVanDon: "", phiVanChuyenThucTe: "", ghiChu: "" };
 const GHI_CHU_TOI_DA = 500;
@@ -51,15 +53,15 @@ export default function DispatchDialog({ open, onOpenChange, soPhieuXuat, tongSo
   const feeDisplay = values.phiVanChuyenThucTe
     ? Number(values.phiVanChuyenThucTe.replace(/[^\d]/g, "") || 0).toLocaleString("vi-VN")
     : "";
-  const tongSl = tongSoLuong != null ? ` (tổng số lượng ${Number(tongSoLuong).toLocaleString("vi-VN")})` : "";
+  const tongSl = tongSoLuong != null ? t(" (tổng số lượng {{tongSoLuong}})", { tongSoLuong: Number(tongSoLuong).toLocaleString("vi-VN") }) : "";
 
   return (
     <HopXacNhanChungTu
       mo={open}
       onDoiMo={onOpenChange}
-      tieuDe="Xác nhận xuất kho"
-      moTa={`Phiếu ${soPhieuXuat}${tongSl} trừ tồn theo các lô đã chọn và không sửa được nữa.`}
-      nhanXacNhan="Xác nhận xuất kho"
+      tieuDe={t("Xác nhận xuất kho")}
+      moTa={t("Phiếu {{soPhieuXuat}}{{tongSl}} trừ tồn theo các lô đã chọn và không sửa được nữa.", { soPhieuXuat, tongSl })}
+      nhanXacNhan={t("Xác nhận xuất kho")}
       iconXacNhan={Truck}
       dangChay={submitting}
       rong
@@ -68,24 +70,23 @@ export default function DispatchDialog({ open, onOpenChange, soPhieuXuat, tongSo
       <div className={cn(GHI_CHU_HOP, "flex items-start gap-2.5")}>
         <Truck className="mt-0.5 size-4 shrink-0 text-bo-muted" aria-hidden="true" />
         <p>
-          Thông tin giao vận không bắt buộc. Nếu nhập, hệ thống lưu trên phiếu xuất để tra cứu khi giao hàng. Cước thực tế là
-          chi phí shop trả đơn vị vận chuyển, không đổi phí vận chuyển thu của khách trên đơn.
+          {t("Thông tin giao vận không bắt buộc. Nếu nhập, hệ thống lưu trên phiếu xuất để tra cứu khi giao hàng. Cước thực tế là chi phí shop trả đơn vị vận chuyển, không đổi phí vận chuyển thu của khách trên đơn.")}
         </p>
       </div>
 
       <div className="grid gap-1.5">
-        <label htmlFor="dispatch-carrier" className={NHAN_O}>Đơn vị vận chuyển</label>
+        <label htmlFor="dispatch-carrier" className={NHAN_O}>{t("Đơn vị vận chuyển")}</label>
         <input
           id="dispatch-carrier"
           disabled={submitting}
           value={values.donViVanChuyen}
           onChange={(event) => change("donViVanChuyen", event.target.value)}
-          placeholder="Ví dụ: GHTK"
+          placeholder={t("Ví dụ: GHTK")}
           maxLength={100}
           className={O_NHAP}
         />
       </div>
-      <div role="group" aria-label="Chọn nhanh đơn vị vận chuyển" className="flex flex-wrap gap-1.5">
+      <div role="group" aria-label={t("Chọn nhanh đơn vị vận chuyển")} className="flex flex-wrap gap-1.5">
         {CARRIERS.map((name) => {
           const dangChon = values.donViVanChuyen === name;
           return (
@@ -102,7 +103,7 @@ export default function DispatchDialog({ open, onOpenChange, soPhieuXuat, tongSo
                   : "border-bo-border bg-bo-surface text-slate-700 hover:border-bo-primary/40 hover:text-bo-primary",
               )}
             >
-              {name}
+              {t(name)}
             </button>
           );
         })}
@@ -110,13 +111,13 @@ export default function DispatchDialog({ open, onOpenChange, soPhieuXuat, tongSo
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="grid gap-1.5">
-          <label htmlFor="dispatch-tracking" className={NHAN_O}>Mã vận đơn</label>
+          <label htmlFor="dispatch-tracking" className={NHAN_O}>{t("Mã vận đơn")}</label>
           <input
             id="dispatch-tracking"
             disabled={submitting}
             value={values.maVanDon}
             onChange={(event) => change("maVanDon", event.target.value)}
-            placeholder="Ví dụ: GHTK-HN-8849201"
+            placeholder={t("Ví dụ: GHTK-HN-8849201")}
             maxLength={100}
             spellCheck={false}
             autoComplete="off"
@@ -124,7 +125,7 @@ export default function DispatchDialog({ open, onOpenChange, soPhieuXuat, tongSo
           />
         </div>
         <div className="grid gap-1.5">
-          <label htmlFor="dispatch-fee" className={NHAN_O}>Cước thực tế (₫)</label>
+          <label htmlFor="dispatch-fee" className={NHAN_O}>{t("Cước thực tế (₫)")}</label>
           <input
             id="dispatch-fee"
             inputMode="numeric"
@@ -139,20 +140,20 @@ export default function DispatchDialog({ open, onOpenChange, soPhieuXuat, tongSo
       </div>
 
       <div className="grid gap-1.5">
-        <label htmlFor="dispatch-note" className={NHAN_O}>Ghi chú bàn giao</label>
+        <label htmlFor="dispatch-note" className={NHAN_O}>{t("Ghi chú bàn giao")}</label>
         <textarea
           id="dispatch-note"
           rows={3}
           disabled={submitting}
           value={values.ghiChu}
           onChange={(event) => change("ghiChu", event.target.value)}
-          placeholder="Ví dụ: Đã bàn giao cho đơn vị vận chuyển lúc 15:00"
+          placeholder={t("Ví dụ: Đã bàn giao cho đơn vị vận chuyển lúc 15:00")}
           maxLength={GHI_CHU_TOI_DA}
           aria-describedby="dispatch-note-dem"
           className={O_NHAP_NHIEU_DONG}
         />
         <span id="dispatch-note-dem" className={GOI_Y_O}>
-          <span>Không bắt buộc</span>
+          <span>{t("Không bắt buộc")}</span>
           <span>{values.ghiChu.length}/{GHI_CHU_TOI_DA}</span>
         </span>
       </div>

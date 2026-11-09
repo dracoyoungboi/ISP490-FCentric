@@ -31,6 +31,8 @@ import useQuayLai from "@/hooks/useQuayLai";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import { hasAnyRole, ROLES } from "@/utils/roles";
+import { t } from "@/i18n";
+import { cauGocMayChu } from "@/i18n/cauGoc";
 
 /** Dòng phiếu xuất đọc từ GET /api/v1/phieu-xuat-kho/{id}. */
 function dongTuChiTiet(phieu, ct) {
@@ -66,14 +68,14 @@ export default function PickLot() {
 
 // Nhãn loại phiếu xuất ("khac": dòng phiếu chuyển cũ còn trong phieu_xuat_kho trước khi có bảng phieu_chuyen_kho)
 const NHAN_LOAI_XUAT = Object.freeze({
-  ban_hang: "Xuất bán hàng",
-  chuyen_kho: "Chuyển kho nội bộ",
-  khac: "Yêu cầu chuyển kho",
+  ban_hang: t("Xuất bán hàng"),
+  chuyen_kho: t("Chuyển kho nội bộ"),
+  khac: t("Yêu cầu chuyển kho"),
 });
 
 // Backend: chi tiết phiếu / available-lots ném RuntimeException "Không tìm thấy …" (500)
 const TUY_CHON_LOI = Object.freeze({ coi500LaKhongThay: true });
-const locCauMayChu = (cau) => (/^\s*không tìm thấy/i.test(cau) ? null : cau);
+const locCauMayChu = (cau) => (/^\s*không tìm thấy/i.test(cauGocMayChu(cau)) ? null : cau);
 
 function ManChonLo({ phieuXuatKhoId, chiTietPhieuXuatKhoId }) {
   const navigate = useNavigate();
@@ -133,7 +135,7 @@ function ManChonLo({ phieuXuatKhoId, chiTietPhieuXuatKhoId }) {
       if (requestId !== requestIdRef.current) return;
       // Tải ngầm lỗi: giữ dữ liệu và số đang nhập; chỉ báo khi tải lại sau lần lưu bị từ chối
       if (ngam) {
-        if (baoLoi) toast.error("Không tải lại được danh sách lô", { description: "Số còn lấy được có thể đã cũ." });
+        if (baoLoi) toast.error(t("Không tải lại được danh sách lô"), { description: t("Số còn lấy được có thể đã cũ.") });
         return;
       }
       const loai = phanLoaiLoiTai(e, TUY_CHON_LOI);
@@ -160,7 +162,7 @@ function ManChonLo({ phieuXuatKhoId, chiTietPhieuXuatKhoId }) {
   if (dangTai && !duLieu) {
     return (
       <PageContainer className="flex min-h-full flex-col">
-        <KhungDangTai nhan="Đang tải danh sách lô" />
+        <KhungDangTai nhan={t("Đang tải danh sách lô")} />
       </PageContainer>
     );
   }
@@ -169,18 +171,18 @@ function ManChonLo({ phieuXuatKhoId, chiTietPhieuXuatKhoId }) {
       <PageContainer className="flex min-h-full flex-col">
         {khongThay === "dong" ? (
           <KhungKhongThay
-            tieuDe="Không tìm thấy dòng phiếu xuất"
-            moTa="Dòng này không còn trên phiếu xuất hoặc phiếu đã bị xóa. Mở lại từ chi tiết phiếu xuất."
-            nhanNut="Về phiếu xuất kho"
+            tieuDe={t("Không tìm thấy dòng phiếu xuất")}
+            moTa={t("Dòng này không còn trên phiếu xuất hoặc phiếu đã bị xóa. Mở lại từ chi tiết phiếu xuất.")}
+            nhanNut={t("Về phiếu xuất kho")}
             onNut={veChiTiet}
           />
         ) : (
           <KhungLoiChungTu
             loi={loi}
-            tenChungTu="phiếu xuất kho"
+            tenChungTu={t("phiếu xuất kho")}
             tuyChonLoi={TUY_CHON_LOI}
             locCauMayChu={locCauMayChu}
-            moTaKhongThay="Phiếu xuất kho không tồn tại, đã bị xóa hoặc thuộc kho khác với nơi làm việc đang chọn."
+            moTaKhongThay={t("Phiếu xuất kho không tồn tại, đã bị xóa hoặc thuộc kho khác với nơi làm việc đang chọn.")}
             onVeDanhSach={() => navigate("/goods-issues")}
             onThuLai={() => tai()}
           />
@@ -191,7 +193,7 @@ function ManChonLo({ phieuXuatKhoId, chiTietPhieuXuatKhoId }) {
   if (loi || !duLieu) {
     return (
       <PageContainer className="flex min-h-full flex-col">
-        <KhungLoiTai tieuDe="Không tải được danh sách lô" moTa={phanLoaiLoiTai(loi, TUY_CHON_LOI).moTaLoi} onThuLai={() => tai()} />
+        <KhungLoiTai tieuDe={t("Không tải được danh sách lô")} moTa={phanLoaiLoiTai(loi, TUY_CHON_LOI).moTaLoi} onThuLai={() => tai()} />
       </PageContainer>
     );
   }
@@ -221,8 +223,8 @@ function ManChonLo({ phieuXuatKhoId, chiTietPhieuXuatKhoId }) {
     const moi = datLaiTheoFifo(lots, can);
     daSuaRef.current = true;
     setChon(moi);
-    toast.info("Đã điền lại theo nhập trước lấy trước", {
-      description: `${soVN(Object.keys(moi).length)} lô · kiểm tra rồi bấm Lưu lô`,
+    toast.info(t("Đã điền lại theo nhập trước lấy trước"), {
+      description: t("{{so}} lô · kiểm tra rồi bấm Lưu lô", { count: Object.keys(moi).length, so: soVN(Object.keys(moi).length) }),
     });
   };
 
@@ -239,10 +241,10 @@ function ManChonLo({ phieuXuatKhoId, chiTietPhieuXuatKhoId }) {
         chiTietPhieuXuatKhoId: Number(chiTietPhieuXuatKhoId),
         loHangPicks,
       });
-      toast.success(`Đã lưu lô cho ${dong.sku || dong.tenBienThe}`, { description: `Phiếu ${dong.soPhieuXuat}` });
+      toast.success(t("Đã lưu lô cho {{sanPham}}", { sanPham: dong.sku || dong.tenBienThe }), { description: t("Phiếu {{soPhieuXuat}}", { soPhieuXuat: dong.soPhieuXuat }) });
       veChiTiet();
     } catch (e) {
-      toast.error(getApiErrorMessage(e, "Chọn lô thất bại"));
+      toast.error(getApiErrorMessage(e, t("Chọn lô thất bại")));
       setDangLuu(false);
       // 409 "Lô X chỉ còn N có thể lấy" (phiếu khác vừa giữ lô) hoặc phiếu vừa rời trạng thái cho sửa ở máy khác:
       // tải lại ngầm, giữ số đang nhập
@@ -251,33 +253,33 @@ function ManChonLo({ phieuXuatKhoId, chiTietPhieuXuatKhoId }) {
   };
 
   const quyTac = quyen.laBanHang
-    ? "Lô của phiếu bán hàng lấy từ phiếu nhặt. Chỉ quản lý kho sửa khi lấy nhầm lô hoặc lô cũ hết hàng; tổng phải đủ số cần xuất."
-    : "Chọn lô trước khi xác nhận xuất ở phiếu chuyển kho; lưu được một phần. Số lấy ở mỗi lô không vượt số còn lấy được.";
+    ? t("Lô của phiếu bán hàng lấy từ phiếu nhặt. Chỉ quản lý kho sửa khi lấy nhầm lô hoặc lô cũ hết hàng; tổng phải đủ số cần xuất.")
+    : t("Chọn lô trước khi xác nhận xuất ở phiếu chuyển kho; lưu được một phần. Số lấy ở mỗi lô không vượt số còn lấy được.");
 
   return (
     <PageContainer className="flex min-h-full flex-col">
       <KhungChungTu
-        aria-label={`Chọn lô ${dong.sku}`.trim()}
+        aria-label={t("Chọn lô {{sku}}", { sku: dong.sku }).trim()}
         dau={
           <DauChungTu
             // Tên biến thể dài: chữ 20px, tối đa 2 dòng
             ma={dong.tenBienThe || dong.sku}
             kepTieuDe={2}
             coTieuDe="md"
-            trangThai={{ label: tongLuu >= can && can > 0 ? "Đủ hàng" : "Chưa đủ" }}
+            /* i18n-giu-nguyen: StatusBadge tự dịch lúc vẽ */ trangThai={{ label: tongLuu >= can && can > 0 ? "Đủ hàng" : "Chưa đủ" }}
             dongPhu={
               <>
                 SKU <span className="font-mono text-bo-foreground">{dong.sku || "—"}</span>
               </>
             }
             onQuayLai={veChiTiet}
-            nhanQuayLai={`Về phiếu xuất kho ${dong.soPhieuXuat}`}
+            nhanQuayLai={t("Về phiếu xuất kho {{soPhieuXuat}}", { soPhieuXuat: dong.soPhieuXuat })}
             nutPhu={
               chiXem
                 ? null
                 : {
                   ma: "datLai",
-                  nhan: "Đặt lại theo nhập trước lấy trước",
+                  nhan: t("Đặt lại theo nhập trước lấy trước"),
                   icon: RotateCcw,
                   onClick: datLai,
                   khoa: dangLuu || lots.length === 0,
@@ -288,7 +290,7 @@ function ManChonLo({ phieuXuatKhoId, chiTietPhieuXuatKhoId }) {
                 ? null
                 : {
                   ma: "luu",
-                  nhan: "Lưu lô",
+                  nhan: t("Lưu lô"),
                   icon: Check,
                   onClick: luu,
                   khoa: !kiemTra.hopLe,
@@ -300,7 +302,7 @@ function ManChonLo({ phieuXuatKhoId, chiTietPhieuXuatKhoId }) {
         }
         tienTrinh={
           <DaiTongChonLo
-            nhan={chiXem ? "Đã lấy" : "Đã chọn"}
+            nhan={chiXem ? t("Đã lấy") : t("Đã chọn")}
             tong={chiXem ? tongLuu : kiemTra.tong}
             can={can}
             kiemTra={kiemTra}
@@ -320,13 +322,13 @@ function ManChonLo({ phieuXuatKhoId, chiTietPhieuXuatKhoId }) {
           />
         }
         cotPhai={
-          <CotThuocTinh nhan="Thông tin dòng phiếu xuất">
+          <CotThuocTinh nhan={t("Thông tin dòng phiếu xuất")}>
             <NhomThuocTinh>
               <BangThuocTinh
                 rongNhan={120}
                 muc={[
                   {
-                    nhan: "Phiếu xuất",
+                    nhan: t("Phiếu xuất"),
                     giaTri: (
                       <Link
                         to={`/goods-issues/${phieuXuatKhoId}`}
@@ -337,15 +339,15 @@ function ManChonLo({ phieuXuatKhoId, chiTietPhieuXuatKhoId }) {
                     ),
                   },
                   {
-                    nhan: "Trạng thái phiếu",
+                    nhan: t("Trạng thái phiếu"),
                     giaTri: ttPhieu.label ? <StatusBadge label={ttPhieu.label} quyTrinh="phieuXuat" /> : null,
                   },
-                  { nhan: "Loại xuất", giaTri: NHAN_LOAI_XUAT[dong.loaiXuat] ?? null },
-                  { nhan: "Kho xuất", giaTri: dong.tenKho },
+                  { nhan: t("Loại xuất"), giaTri: NHAN_LOAI_XUAT[dong.loaiXuat] ?? null },
+                  { nhan: t("Kho xuất"), giaTri: dong.tenKho },
                 ]}
               />
             </NhomThuocTinh>
-            <NhomThuocTinh nhan="Quy tắc chọn lô">
+            <NhomThuocTinh nhan={t("Quy tắc chọn lô")}>
               <p className="text-[13px] leading-5 text-slate-700">{quyTac}</p>
             </NhomThuocTinh>
           </CotThuocTinh>

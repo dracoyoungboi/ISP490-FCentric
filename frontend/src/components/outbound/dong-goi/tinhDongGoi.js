@@ -12,6 +12,7 @@ import { CANH_BAO_TU_DUNG_VIDEO_GIAY, DUNG_LUONG_VIDEO_TOI_DA_MB, THOI_LUONG_VID
 import { TRANG_THAI_DON, TRANG_THAI_PHIEU_XUAT } from "../../../constants/trangThaiXuatBan.js";
 import { docSo, nhanMauKichCo, soVN } from "../../chung-tu/bangChungTu.js";
 import { laDaXuat } from "../phieu-xuat/phieuXuat.js";
+import { t } from "../../../i18n/t.js";
 
 /** Loại bằng chứng (LoaiBangChungDongGoi của máy chủ) và tên ô khi chưa có tệp (máy chủ trả `tenLoaiBangChung` khi có). */
 export const LOAI_BANG_CHUNG = Object.freeze({
@@ -20,14 +21,14 @@ export const LOAI_BANG_CHUNG = Object.freeze({
   VIDEO_DONG_GOI: "VIDEO_DONG_GOI",
 });
 const TEN_LOAI = Object.freeze({
-  ANH_HANG_TRONG_HOP: "Ảnh hàng đã cho vào hộp/túi",
-  ANH_NIEM_PHONG_TEM_VC: "Ảnh hộp dán băng keo niêm phong kèm tem vận chuyển",
-  VIDEO_DONG_GOI: "Video đóng gói từ lúc cho đồ vào đến khi niêm phong",
+  ANH_HANG_TRONG_HOP: t("Ảnh hàng đã cho vào hộp/túi"),
+  ANH_NIEM_PHONG_TEM_VC: t("Ảnh hộp dán băng keo niêm phong kèm tem vận chuyển"),
+  VIDEO_DONG_GOI: t("Video đóng gói từ lúc cho đồ vào đến khi niêm phong"),
 });
 const GOI_Y_LOAI = Object.freeze({
-  ANH_HANG_TRONG_HOP: "Bấm Chụp ảnh hoặc chọn ảnh có sẵn.",
-  ANH_NIEM_PHONG_TEM_VC: "Chụp rõ tem của đơn vị vận chuyển.",
-  VIDEO_DONG_GOI: "Bấm Quay video, quay liên tục đến khi dán niêm phong.",
+  ANH_HANG_TRONG_HOP: t("Bấm Chụp ảnh hoặc chọn ảnh có sẵn."),
+  ANH_NIEM_PHONG_TEM_VC: t("Chụp rõ tem của đơn vị vận chuyển."),
+  VIDEO_DONG_GOI: t("Bấm Quay video, quay liên tục đến khi dán niêm phong."),
 });
 
 const PX = TRANG_THAI_PHIEU_XUAT;
@@ -105,7 +106,7 @@ export function oBangChung({ yeuCauVideo = false, danhSach = [] } = {}) {
 export function chuSoBangChung(o, { yeuCauVideo = false, soLuongYeuCau } = {}) {
   const co = (Array.isArray(o) ? o : []).filter((x) => x.bangChung).length;
   const can = docSo(soLuongYeuCau) || (Array.isArray(o) ? o.length : 0);
-  return `${soVN(co)}/${soVN(can)} ${yeuCauVideo ? "video" : "ảnh"}`;
+  return `${soVN(co)}/${soVN(can)} ${yeuCauVideo ? "video" : t("ảnh")}`;
 }
 
 /**
@@ -119,7 +120,7 @@ export function bangChungHetHan(tinhHuong, danhSach, items = []) {
 }
 
 /** Không đọc được thời lượng của tệp video chọn từ máy. */
-export const CAU_KHONG_DOC_THOI_LUONG = "Không đọc được thời lượng video. Chọn tệp video khác.";
+export const CAU_KHONG_DOC_THOI_LUONG = t("Không đọc được thời lượng video. Chọn tệp video khác.");
 
 /**
  * Khoảng thời lượng video `{ toiThieu, toiDa }` (giây) theo máy chủ (`thoiLuongVideoToiThieu`, `thoiLuongVideoToiDa` của
@@ -136,8 +137,8 @@ export function gioiHanVideo(nguon) {
 export function chuThoiLuong(giay) {
   const phut = Math.floor(giay / 60);
   const du = giay % 60;
-  if (phut === 0) return `${giay} giây`;
-  return du === 0 ? `${phut} phút` : `${phut} phút ${du} giây`;
+  if (phut === 0) return t("{{giay}} giây", { giay });
+  return du === 0 ? t("{{phut}} phút", { phut }) : t("{{phut}} phút {{du}} giây", { phut, du });
 }
 
 /** "15 giây – 3 phút" (nhãn ngắn). */
@@ -146,8 +147,8 @@ export const khoangVideoNgan = (gioiHan = THOI_LUONG_VIDEO_DONG_GOI) =>
 
 /** Câu lỗi thời lượng video — trùng câu máy chủ ("Thời lượng video đóng gói phải từ 15 giây đến 3 phút (Nhận được: 9 giây)!"). */
 export function cauThoiLuongVideo(giay, gioiHan = THOI_LUONG_VIDEO_DONG_GOI) {
-  const khoang = `từ ${chuThoiLuong(gioiHan.toiThieu)} đến ${chuThoiLuong(gioiHan.toiDa)}`;
-  return `Thời lượng video đóng gói phải ${khoang} (Nhận được: ${giay} giây)!`;
+  const khoang = t("từ {{toiThieu}} đến {{toiDa}}", { toiThieu: chuThoiLuong(gioiHan.toiThieu), toiDa: chuThoiLuong(gioiHan.toiDa) });
+  return t("Thời lượng video đóng gói phải {{khoang}} (Nhận được: {{giay}} giây)!", { khoang, giay });
 }
 
 /**
@@ -177,8 +178,8 @@ export const videoQuaLon = (bytes, toiDaMb = DUNG_LUONG_VIDEO_TOI_DA_MB) => Numb
 export function cauVideoQuaLon(bytes, { daQuay = false, toiDaMb = DUNG_LUONG_VIDEO_TOI_DA_MB } = {}) {
   const mb = soVN(Math.ceil(Number(bytes) / (1024 * 1024)));
   return daQuay
-    ? `Video vừa quay ${mb} MB, vượt ${soVN(toiDaMb)} MB. Hãy quay lại ngắn hơn.`
-    : `Tệp ${mb} MB, vượt ${soVN(toiDaMb)} MB. Hãy bấm Quay video để quay ngay trên trang, hoặc chọn video ngắn hơn.`;
+    ? t("Video vừa quay {{mb}} MB, vượt {{toiDaMb}} MB. Hãy quay lại ngắn hơn.", { mb, toiDaMb: soVN(toiDaMb) })
+    : t("Tệp {{mb}} MB, vượt {{toiDaMb}} MB. Hãy bấm Quay video để quay ngay trên trang, hoặc chọn video ngắn hơn.", { mb, toiDaMb: soVN(toiDaMb) });
 }
 
 /** Phần trăm đã gửi lên (sự kiện tiến độ của axios); không biết tổng → null. */
@@ -194,9 +195,9 @@ export function phanTramTaiLen(suKien) {
  */
 export function lyDoKhoaHoanTat({ conLai = 0, duBangChung = false, yeuCauVideo = false, soThieu = 0, dangCho = 0 } = {}) {
   const ly = [];
-  if (conLai > 0) ly.push(`còn ${soVN(conLai)} sản phẩm chưa quét`);
-  if (!duBangChung) ly.push(yeuCauVideo ? "thiếu video đóng gói" : `thiếu ${soVN(Math.max(1, soThieu))} ảnh đóng gói`);
-  if (dangCho > 0) ly.push(`còn ${soVN(dangCho)} mã đang ghi nhận`);
+  if (conLai > 0) ly.push(t("còn {{conLai}} sản phẩm chưa quét", { conLai: soVN(conLai) }));
+  if (!duBangChung) ly.push(yeuCauVideo ? t("thiếu video đóng gói") : t("thiếu {{so}} ảnh đóng gói", { count: Math.max(1, soThieu), so: soVN(Math.max(1, soThieu)) }));
+  if (dangCho > 0) ly.push(t("còn {{dangCho}} mã đang ghi nhận", { dangCho: soVN(dangCho) }));
   return ly.join(", ");
 }
 
@@ -209,13 +210,13 @@ export function buocDongGoi({ tinhHuong, tienDo, duBangChung = false, chuBangChu
   const b2 = hetHan || duBangChung ? "xong" : b1 === "xong" && !th.biHuy ? "dangLam" : "chua";
   const b3 = th.biHuy ? "dung" : th.xong ? "xong" : b1 === "xong" && b2 === "xong" ? "dangLam" : "chua";
   return [
-    { ma: "quet", nhan: "Quét đủ hàng", trangThai: b1 },
-    { ma: "bangChung", nhan: "Bằng chứng", trangThai: b2, phu: hetHan ? "Đã tự xóa sau hạn lưu" : chuBangChung },
+    { ma: "quet", nhan: t("Quét đủ hàng"), trangThai: b1 },
+    { ma: "bangChung", nhan: t("Bằng chứng"), trangThai: b2, phu: hetHan ? t("Đã tự xóa sau hạn lưu") : chuBangChung },
     {
       ma: "hoanTat",
-      nhan: th.biHuy ? "Đã khóa đóng gói" : "Hoàn tất",
+      nhan: th.biHuy ? t("Đã khóa đóng gói") : t("Hoàn tất"),
       trangThai: b3,
-      phu: th.daXuat ? "Đã xuất kho" : th.xong ? "Chờ xác nhận xuất kho" : "",
+      phu: th.daXuat ? t("Đã xuất kho") : th.xong ? t("Chờ xác nhận xuất kho") : "",
     },
   ];
 }
@@ -229,26 +230,28 @@ export function thongBaoDongGoi(phien, { tinhHuong, hetHan = false, doiKho = nul
   const so = phien?.soDonHang || "";
   const px = phien?.soPhieuXuat || "";
   const ds = [];
-  if (doiKho) ds.push({ ma: "doiKho", tone: "info", chu: `Đã chuyển nơi làm việc sang ${doiKho} để mở phiên đóng gói của đơn này.` });
+  if (doiKho) ds.push({ ma: "doiKho", tone: "info", chu: t("Đã chuyển nơi làm việc sang {{doiKho}} để mở phiên đóng gói của đơn này.", { doiKho }) });
   if (th.donHuy) {
     const tong = (Array.isArray(phien?.items) ? phien.items : []).reduce((s, x) => s + docSo(x?.soLuongCan), 0);
     const san = String(phien?.tenKenh ?? "").trim();
     ds.push({
       ma: "donHuy",
       tone: "bad",
-      chu: `Đơn ${so} đã bị hủy${san ? ` trên ${san}` : ""} nên hệ thống đã khóa đóng gói. Chuyển toàn bộ ${soVN(tong)} sản phẩm của đơn về khu hoàn kệ.`,
+      chu: san
+        ? t("Đơn {{so}} đã bị hủy trên {{san}} nên hệ thống đã khóa đóng gói. Chuyển toàn bộ {{tong}} sản phẩm của đơn về khu hoàn kệ.", { so, san, tong: soVN(tong) })
+        : t("Đơn {{so}} đã bị hủy nên hệ thống đã khóa đóng gói. Chuyển toàn bộ {{tong}} sản phẩm của đơn về khu hoàn kệ.", { so, tong: soVN(tong) }),
     });
   }
   if (th.pxHuy) {
     ds.push({
       ma: "pxHuy",
       tone: "bad",
-      chu: `Phiếu xuất ${px} đã bị hủy nên đã khóa đóng gói. Đơn ${so} vẫn còn hiệu lực${nhanTrangThaiDon ? ` (${nhanTrangThaiDon})` : ""}: bấm Tạo lại phiếu xuất ở màn đơn bán hàng; phiếu mới phải quét lại từ đầu.`,
+      chu: t("Phiếu xuất {{px}} đã bị hủy nên đã khóa đóng gói. Đơn {{so}} vẫn còn hiệu lực{{trangThaiDon}}: bấm Tạo lại phiếu xuất ở màn đơn bán hàng; phiếu mới phải quét lại từ đầu.", { px, so, trangThaiDon: nhanTrangThaiDon ? ` (${nhanTrangThaiDon})` : "" }),
       moDon: true,
     });
   }
-  if (hetHan) ds.push({ ma: "hetHan", tone: "neutral", chu: "Tệp bằng chứng của đơn đã tự xóa sau hạn lưu." });
-  if (th.xong && !th.daXuat) ds.push({ ma: "xong", tone: "ok", chu: `Đã đóng gói xong. Phiếu xuất ${px} chờ xác nhận xuất kho.` });
+  if (hetHan) ds.push({ ma: "hetHan", tone: "neutral", chu: t("Tệp bằng chứng của đơn đã tự xóa sau hạn lưu.") });
+  if (th.xong && !th.daXuat) ds.push({ ma: "xong", tone: "ok", chu: t("Đã đóng gói xong. Phiếu xuất {{px}} chờ xác nhận xuất kho.", { px }) });
   return ds;
 }
 
@@ -257,16 +260,16 @@ export function thongBaoDongGoi(phien, { tinhHuong, hetHan = false, doiKho = nul
  * "Đã quét 1x {tên} [SKU] (x/y)" từ dòng vừa quét (PhienDongGoiDto.items).
  */
 export function cauDaQuet(soLuong, dong, ma) {
-  if (!dong) return `Đã quét ${soVN(soLuong)}x [${ma}]`;
-  return `Đã quét ${soVN(soLuong)}x ${dong.tenSanPham || dong.maSku} [${dong.maSku}] (${soVN(dong.soLuongDaQuet)}/${soVN(dong.soLuongCan)})`;
+  if (!dong) return t("Đã quét {{soLuong}}x [{{ma}}]", { soLuong: soVN(soLuong), ma });
+  return t("Đã quét {{soLuong}}x {{tenSanPham}} [{{maSku}}] ({{soLuongDaQuet}}/{{soLuongCan}})", { soLuong: soVN(soLuong), tenSanPham: dong.tenSanPham || dong.maSku, maSku: dong.maSku, soLuongDaQuet: soVN(dong.soLuongDaQuet), soLuongCan: soVN(dong.soLuongCan) });
 }
 
 /** Câu phụ dưới phản hồi quét, theo câu lỗi của máy chủ (DongGoiServiceImpl.quet). */
 export function cauPhuPhanHoi(cau) {
   const c = String(cau ?? "");
-  if (/không thuộc đơn/i.test(c)) return "Kiểm lại sản phẩm vừa lấy, có thể nhặt nhầm.";
-  if (/đã đóng gói đủ số lượng/i.test(c)) return "Không cho thêm vào hộp.";
-  if (/vượt quá yêu cầu/i.test(c)) return "Giảm số lượng mỗi lần quét rồi quét lại.";
+  if (/không thuộc đơn/i.test(c)) return t("Kiểm lại sản phẩm vừa lấy, có thể nhặt nhầm.");
+  if (/đã đóng gói đủ số lượng/i.test(c)) return t("Không cho thêm vào hộp.");
+  if (/vượt quá yêu cầu/i.test(c)) return t("Giảm số lượng mỗi lần quét rồi quét lại.");
   return "";
 }
 
@@ -278,7 +281,7 @@ export function donCungPhieuNhat(dsDon, donDangMoId) {
   const ds = (Array.isArray(dsDon) ? dsDon : []).filter((d) => d && d.id != null);
   const conCho = ds.filter((d) => Number(d.trangThai) === TRANG_THAI_DON.CHO_DONG_GOI && !d.biHuy);
   const tiep = conCho.find((d) => String(d.id) !== String(donDangMoId)) ?? null;
-  const tomTat = ds.length > 1 ? `${soVN(ds.length)} đơn · ${soVN(conCho.length)} còn chờ đóng gói` : "Phiếu nhặt chỉ có đơn này";
+  const tomTat = ds.length > 1 ? t("{{soDon}} đơn · {{soCho}} còn chờ đóng gói", { soDon: soVN(ds.length), soCho: soVN(conCho.length) }) : t("Phiếu nhặt chỉ có đơn này");
   return { ds, tiep, tomTat };
 }
 
@@ -292,7 +295,7 @@ export function chuThongTinTep(bc, { dinhGio, dinhNgay } = {}) {
     bc.tenNguoiTao || "",
     bc.ngayTao && dinhGio ? dinhGio(bc.ngayTao) : "",
     mb,
-    bc.ngayHetHan && dinhNgay ? `lưu đến ${dinhNgay(bc.ngayHetHan)}` : "",
+    bc.ngayHetHan && dinhNgay ? t("lưu đến {{ngayHetHan}}", { ngayHetHan: dinhNgay(bc.ngayHetHan) }) : "",
   ];
   return phan.filter(Boolean).join(" · ");
 }

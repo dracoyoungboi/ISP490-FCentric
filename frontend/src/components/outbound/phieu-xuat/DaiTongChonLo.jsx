@@ -1,5 +1,6 @@
 import { soVN } from "@/components/chung-tu/bangChungTu";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 const MAU_CHU = { ok: "text-bo-success", warn: "text-bo-warning", bad: "text-bo-danger" };
 
@@ -21,7 +22,7 @@ export default function DaiTongChonLo({ nhan, tong, can, kiemTra }) {
       <div className="whitespace-nowrap tabular-nums">
         <span className="text-bo-foreground">{nhan}</span>{" "}
         <b className="text-base font-semibold text-bo-heading">{soVN(tong)}</b>
-        <span className="text-bo-muted"> / {soVN(can)} cần xuất</span>
+        <span className="text-bo-muted"> / {soVN(can)} {t("cần xuất")}</span>
       </div>
       <span aria-hidden="true" className="h-1.5 min-w-10 max-w-80 flex-[1_1_160px] overflow-hidden rounded-full bg-slate-200/70">
         <span

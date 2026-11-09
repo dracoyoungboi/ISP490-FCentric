@@ -34,6 +34,7 @@ import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import useTaiLaiDanhSach from "@/hooks/useTaiLaiDanhSach";
 import { useBanPhimAoMo } from "@/hooks/useBanPhimAo";
 import { trangCuoiNeuVuot } from "@/lib/tinhTaiLai";
+import { t } from "@/i18n";
 
 const TH_CLASS = "h-10 px-3 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
 // Màn cảm ứng: ô chọn giữ 16px, vùng chạm 44px quanh ô do lớp cảm ứng dùng chung (index.css, data-slot="checkbox") lo
@@ -119,7 +120,7 @@ export default function DonChoXuatPage() {
             setData([]);
             setTotal(0);
             setLoadError(error);
-            if (error?.response?.status !== 403) toast.error(getApiErrorMessage(error, "Không tải được danh sách đơn chờ xuất"));
+            if (error?.response?.status !== 403) toast.error(getApiErrorMessage(error, t("Không tải được danh sách đơn chờ xuất")));
         } finally {
             if (requestId === requestIdRef.current) setLoading(false);
         }
@@ -178,14 +179,14 @@ export default function DonChoXuatPage() {
                 donBanHangIds: selectedRows.map((row) => row.id),
                 ghiChu: ghiChu.trim() || undefined,
             });
-            toast.success(`Đã tạo ${dto?.maPickList || "phiếu nhặt hàng"} cho ${selectedRows.length} đơn`);
+            toast.success(t("Đã tạo {{maPhieu}} cho {{count}} đơn", { maPhieu: dto?.maPickList || t("phiếu nhặt hàng"), count: selectedRows.length }));
             setSelected(new Map());
             setDialogOpen(false);
             setGhiChu("");
             if (dto?.id) navigate(`/goods-issues/pick-lists/${dto.id}`);
             else fetchData();
         } catch (error) {
-            toast.error(getApiErrorMessage(error, "Không thể tạo phiếu nhặt hàng"));
+            toast.error(getApiErrorMessage(error, t("Không thể tạo phiếu nhặt hàng")));
             if (getApiErrorStatus(error) === 409) {
                 setDialogOpen(false);
                 setSelected(new Map());
@@ -220,7 +221,7 @@ export default function DonChoXuatPage() {
                             className="h-9 gap-2 border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                         >
                             <Truck className="size-4" />
-                            Danh sách phiếu nhặt hàng
+                            {t("Danh sách phiếu nhặt hàng")}
                         </Button>
                     </Link>
                 }
@@ -241,9 +242,9 @@ export default function DonChoXuatPage() {
                                 tongDon != null ? (
                                     <p className="whitespace-nowrap py-3.5 text-sm leading-5 text-bo-muted">
                                         <strong className="font-semibold text-bo-foreground">
-                                            {tongDon.toLocaleString("vi-VN")} đơn
+                                            {t("{{so}} đơn", { count: tongDon, so: tongDon.toLocaleString("vi-VN") })}
                                         </strong>{" "}
-                                        chờ gom nhặt
+                                        {t("chờ gom nhặt")}
                                     </p>
                                 ) : null
                             }
@@ -252,17 +253,17 @@ export default function DonChoXuatPage() {
                         >
                             <KhoLamViecSelect onChange={handleDoiKho} />
                             <SearchInput
-                                placeholder="Nhập số đơn hoặc tên khách hàng..."
-                                label="Tìm đơn chờ xuất"
+                                placeholder={t("Nhập số đơn hoặc tên khách hàng...")}
+                                label={t("Tìm đơn chờ xuất")}
                                 value={searchText}
                                 onChange={(event) => setSearchText(event.target.value)}
                                 onClear={() => setSearchText("")}
                                 className="sm:w-[300px]"
                             />
                             <FilterSelect
-                                label="Kênh bán"
+                                label={t("Kênh bán")}
                                 value={filters.kenh}
-                                options={MARKETPLACE_FILTER_OPTIONS}
+                                options={MARKETPLACE_FILTER_OPTIONS.map((option) => ({ ...option, label: t(option.label) }))}
                                 onChange={(kenh) => setFilters((prev) => ({ ...prev, kenh, page: 0 }))}
                                 align="end"
                             />
@@ -272,9 +273,9 @@ export default function DonChoXuatPage() {
                         {selectedSummary.donHang > 0 ? (
                             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-bo-border bg-bo-primary-soft px-4 py-2.5 sm:px-5 max-md:hidden">
                                 <p className="text-sm text-blue-800">
-                                    Đã chọn <span className="font-semibold">{selectedSummary.donHang}</span> đơn ·{" "}
-                                    <span className="font-semibold">{formatQuantity(selectedSummary.sanPham)}</span> sản phẩm
-                                    {selectedSummary.thieuHang > 0 ? ` · ${selectedSummary.thieuHang} đơn thiếu hàng` : ""}
+                                    {t("Đã chọn")} <span className="font-semibold">{selectedSummary.donHang}</span> {t("đơn ·")}{" "}
+                                    <span className="font-semibold">{formatQuantity(selectedSummary.sanPham)}</span> {t("sản phẩm")}
+                                    {selectedSummary.thieuHang > 0 ? t(" · {{thieuHang}} đơn thiếu hàng", { thieuHang: selectedSummary.thieuHang }) : ""}
                                 </p>
                                 <div className="flex flex-wrap items-center gap-3">
                                     <button
@@ -283,7 +284,7 @@ export default function DonChoXuatPage() {
                                         className="inline-flex items-center gap-1 text-sm font-medium text-bo-primary hover:text-bo-primary-hover"
                                     >
                                         <X className="size-4" />
-                                        Bỏ chọn
+                                        {t("Bỏ chọn")}
                                     </button>
                                     <Button
                                         onClick={() => setDialogOpen(true)}
@@ -291,7 +292,7 @@ export default function DonChoXuatPage() {
                                         className="h-9 gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover disabled:opacity-50"
                                     >
                                         <PackageCheck className="size-4" />
-                                        Tạo phiếu nhặt hàng ({selectedSummary.donHang})
+                                        {t("Tạo phiếu nhặt hàng ({{donHang}})", { donHang: selectedSummary.donHang })}
                                     </Button>
                                 </div>
                             </div>
@@ -302,11 +303,11 @@ export default function DonChoXuatPage() {
                         {selectedSummary.donHang > 0 && !banPhimMo ? (
                             <div className="no-print fixed inset-x-0 bottom-[calc(56px+env(safe-area-inset-bottom))] z-30 flex items-center gap-2 border-t border-bo-border bg-bo-surface px-4 py-2.5 shadow-[0_-4px_12px_rgba(15,23,42,0.06)] md:hidden">
                                 <p className="min-w-0 flex-1 text-[13px] leading-[18px] text-bo-muted">
-                                    <span className="block truncate text-sm font-semibold text-bo-foreground">Đã chọn {selectedSummary.donHang} đơn</span>
+                                    <span className="block truncate text-sm font-semibold text-bo-foreground">{t("Đã chọn {{count}} đơn", { count: selectedSummary.donHang })}</span>
                                     <span className="block truncate">
-                                        {formatQuantity(selectedSummary.sanPham)} SP
+                                        {t("{{sanPham}} SP", { sanPham: formatQuantity(selectedSummary.sanPham) })}
                                         {selectedSummary.thieuHang > 0 ? (
-                                            <span className="font-medium text-bo-danger"> · {selectedSummary.thieuHang} thiếu hàng</span>
+                                            <span className="font-medium text-bo-danger"> {t("· {{thieuHang}} thiếu hàng", { thieuHang: selectedSummary.thieuHang })}</span>
                                         ) : null}
                                     </span>
                                 </p>
@@ -314,7 +315,7 @@ export default function DonChoXuatPage() {
                                     type="button"
                                     variant="outline"
                                     onClick={() => setSelected(new Map())}
-                                    aria-label="Bỏ chọn tất cả đơn"
+                                    aria-label={t("Bỏ chọn tất cả đơn")}
                                     className="size-10 shrink-0 border-bo-input-border bg-bo-surface p-0 text-bo-foreground"
                                 >
                                     <X className="size-5" aria-hidden="true" />
@@ -325,7 +326,7 @@ export default function DonChoXuatPage() {
                                     className="h-10 shrink-0 gap-2 bg-bo-primary px-4 text-sm font-semibold text-white hover:bg-bo-primary-hover"
                                 >
                                     <PackageCheck className="size-[18px]" aria-hidden="true" />
-                                    Tạo phiếu nhặt
+                                    {t("Tạo phiếu nhặt")}
                                 </Button>
                             </div>
                         ) : null}
@@ -345,10 +346,10 @@ export default function DonChoXuatPage() {
                 }
             >
                 {loading ? (
-                    <LoadingState className="min-h-64" label="Đang tải đơn chờ xuất" />
+                    <LoadingState className="min-h-64" label={t("Đang tải đơn chờ xuất")} />
                 ) : loadError ? (
                     <ErrorState
-                        description="Không thể tải danh sách đơn chờ xuất. Vui lòng thử lại."
+                        description={t("Không thể tải danh sách đơn chờ xuất. Vui lòng thử lại.")}
                         error={loadError}
                         onRetry={() => fetchData()}
                     />
@@ -356,22 +357,22 @@ export default function DonChoXuatPage() {
                     dangLoc ? (
                         <EmptyState
                             icon={SearchX}
-                            title="Không tìm thấy đơn chờ xuất phù hợp"
-                            description="Thử đổi từ khóa hoặc kênh bán."
+                            title={t("Không tìm thấy đơn chờ xuất phù hợp")}
+                            description={t("Thử đổi từ khóa hoặc kênh bán.")}
                             action={
                                 <Button variant="outline" onClick={clearFilters} className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">
-                                    Xóa lọc
+                                    {t("Xóa lọc")}
                                 </Button>
                             }
                         />
                     ) : (
                         <EmptyState
                             icon={ShoppingBag}
-                            title="Chưa có đơn chờ xuất"
-                            description="Đơn bán đã gửi sang kho sẽ hiện ở đây để gom thành phiếu nhặt hàng."
+                            title={t("Chưa có đơn chờ xuất")}
+                            description={t("Đơn bán đã gửi sang kho sẽ hiện ở đây để gom thành phiếu nhặt hàng.")}
                             action={
                                 <Link to="/sales-orders" className="text-sm font-medium text-bo-primary hover:underline">
-                                    Xem đơn bán hàng
+                                    {t("Xem đơn bán hàng")}
                                 </Link>
                             }
                         />
@@ -382,13 +383,13 @@ export default function DonChoXuatPage() {
                     <label className="flex min-h-11 cursor-pointer items-center gap-1 border-b border-bo-border bg-bo-surface-subtle pl-1.5 pr-4 md:hidden">
                         <span className="flex size-11 shrink-0 items-center justify-center">
                             <Checkbox
-                                aria-label="Chọn tất cả đơn trong trang"
+                                aria-label={t("Chọn tất cả đơn trong trang")}
                                 checked={pageAllSelected}
                                 onCheckedChange={togglePage}
                                 className={CHECKBOX_CLASS}
                             />
                         </span>
-                        <span className="text-[13px] font-medium text-bo-muted">Chọn tất cả {data.length} đơn trong trang</span>
+                        <span className="text-[13px] font-medium text-bo-muted">{t("Chọn tất cả {{count}} đơn trong trang", { count: data.length })}</span>
                     </label>
                     {/* Điện thoại: mỗi đơn một thẻ — chạm thẻ để chọn / bỏ chọn như dòng của bảng (ô chọn có vùng chạm 44px);
                         logo kênh + số đơn + tồn kho, khách, ngày tạo · số SP + tổng tiền; chạm số đơn mở đơn bán */}
@@ -403,7 +404,7 @@ export default function DonChoXuatPage() {
                                 >
                                     <span className="mt-0.5 flex size-11 shrink-0 items-center justify-center" onClick={(event) => event.stopPropagation()}>
                                         <Checkbox
-                                            aria-label={`Chọn đơn ${row.soDonHang}`}
+                                            aria-label={t("Chọn đơn {{soDonHang}}", { soDonHang: row.soDonHang })}
                                             checked={isSelected}
                                             onCheckedChange={() => toggleRow(row)}
                                             className={CHECKBOX_CLASS}
@@ -423,13 +424,13 @@ export default function DonChoXuatPage() {
                                             </span>
                                             <StatusBadge
                                                 nhom={row.duHang ? "xong" : "loi"}
-                                                label={row.khaDung || (row.duHang ? "Đủ hàng" : "Thiếu hàng")}
+                                                /* i18n-giu-nguyen: StatusBadge tự dịch lúc vẽ */ label={row.khaDung || (row.duHang ? "Đủ hàng" : "Thiếu hàng")}
                                             />
                                         </span>
-                                        <span className="min-w-0 truncate text-sm font-semibold text-bo-foreground">{row.tenKhachHang || "Khách lẻ"}</span>
+                                        <span className="min-w-0 truncate text-sm font-semibold text-bo-foreground">{row.tenKhachHang || t("Khách lẻ")}</span>
                                         <span className="flex items-baseline justify-between gap-3 text-[13px] text-bo-muted">
                                             <span className="min-w-0 truncate">
-                                                {formatDateTime(row.ngayTao)} · {formatQuantity(row.tongSoLuong)} SP
+                                                {t("{{ngayTao}} · {{tongSoLuong}} SP", { ngayTao: formatDateTime(row.ngayTao), tongSoLuong: formatQuantity(row.tongSoLuong) })}
                                             </span>
                                             <span className="shrink-0 text-[15px] font-semibold tabular-nums text-bo-foreground">
                                                 {formatCurrency(toNumber(row.tongCong))}
@@ -448,20 +449,20 @@ export default function DonChoXuatPage() {
                             <tr className="border-b border-bo-border bg-bo-surface-subtle">
                                 <th className={`${TH_CLASS} w-12 text-center`}>
                                     <Checkbox
-                                        aria-label="Chọn tất cả đơn trong trang"
+                                        aria-label={t("Chọn tất cả đơn trong trang")}
                                         checked={pageAllSelected}
                                         onCheckedChange={togglePage}
                                         className={CHECKBOX_CLASS}
                                     />
                                 </th>
-                                <th className={`${TH_CLASS} text-left`}>Số đơn</th>
-                                <th className={`${TH_CLASS} text-left`}>Khách hàng</th>
-                                <th className={`${TH_CLASS} text-left cam-ung:max-lg:hidden`}>Kho xuất</th>
-                                <th className={`${TH_CLASS} text-left cam-ung:max-lg:hidden`}>Ngày tạo</th>
+                                <th className={`${TH_CLASS} text-left`}>{t("Số đơn")}</th>
+                                <th className={`${TH_CLASS} text-left`}>{t("Khách hàng")}</th>
+                                <th className={`${TH_CLASS} text-left cam-ung:max-lg:hidden`}>{t("Kho xuất")}</th>
+                                <th className={`${TH_CLASS} text-left cam-ung:max-lg:hidden`}>{t("Ngày tạo")}</th>
                                 <th className={`${TH_CLASS} text-right tabular-nums cam-ung:max-lg:hidden`}>SKU</th>
-                                <th className={`${TH_CLASS} text-right tabular-nums`}>Số lượng</th>
-                                <th className={`${TH_CLASS} text-right tabular-nums`}>Tổng tiền</th>
-                                <th className={`${TH_CLASS} text-left`}>Tồn kho</th>
+                                <th className={`${TH_CLASS} text-right tabular-nums`}>{t("Số lượng")}</th>
+                                <th className={`${TH_CLASS} text-right tabular-nums`}>{t("Tổng tiền")}</th>
+                                <th className={`${TH_CLASS} text-left`}>{t("Tồn kho")}</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-bo-border">
@@ -475,7 +476,7 @@ export default function DonChoXuatPage() {
                                     >
                                         <td className="px-3 py-3 text-center" onClick={(event) => event.stopPropagation()}>
                                             <Checkbox
-                                                aria-label={`Chọn đơn ${row.soDonHang}`}
+                                                aria-label={t("Chọn đơn {{soDonHang}}", { soDonHang: row.soDonHang })}
                                                 checked={isSelected}
                                                 onCheckedChange={() => toggleRow(row)}
                                                 className={CHECKBOX_CLASS}
@@ -497,7 +498,7 @@ export default function DonChoXuatPage() {
                                             </div>
                                         </td>
                                         <td className="px-3 py-3 font-semibold text-bo-foreground">
-                                            {row.tenKhachHang || "Khách lẻ"}
+                                            {row.tenKhachHang || t("Khách lẻ")}
                                             <div className="mt-0.5 hidden text-xs font-normal text-bo-muted cam-ung:max-lg:block">{row.tenKhoXuat}</div>
                                         </td>
                                         <td className="px-3 py-3 text-bo-muted cam-ung:max-lg:hidden">{row.tenKhoXuat || "—"}</td>
@@ -526,7 +527,7 @@ export default function DonChoXuatPage() {
                                             {/* Thiếu hàng là đơn chưa nhặt được: Đỏ như cờ "Thiếu hàng" của đơn kênh */}
                                             <StatusBadge
                                                 nhom={row.duHang ? "xong" : "loi"}
-                                                label={row.khaDung || (row.duHang ? "Đủ hàng" : "Thiếu hàng")}
+                                                /* i18n-giu-nguyen: StatusBadge tự dịch lúc vẽ */ label={row.khaDung || (row.duHang ? "Đủ hàng" : "Thiếu hàng")}
                                             />
                                         </td>
                                     </tr>
@@ -542,11 +543,10 @@ export default function DonChoXuatPage() {
             <Dialog open={dialogOpen} onOpenChange={(open) => !creating && setDialogOpen(open)}>
                 <DialogContent className="rounded-xl border-bo-border sm:max-w-lg">
                     <DialogHeader>
-                        <DialogTitle className="text-bo-foreground">Tạo phiếu nhặt hàng</DialogTitle>
+                        <DialogTitle className="text-bo-foreground">{t("Tạo phiếu nhặt hàng")}</DialogTitle>
                         <DialogDescription className="text-slate-600">
-                            Gom {selectedSummary.donHang} đơn thành một đợt nhặt hàng. Các đơn giữ trạng thái{" "}
-                            <strong className="font-semibold text-bo-foreground">Chờ nhặt hàng</strong> tới khi nhặt xong,
-                            sau đó chuyển sang <strong className="font-semibold text-bo-foreground">Chờ đóng gói</strong>.
+                            {t("Gom {{count}} đơn thành một đợt nhặt hàng. Các đơn giữ trạng thái", { count: selectedSummary.donHang })}{" "}
+                            <strong className="font-semibold text-bo-foreground">{t("Chờ nhặt hàng")}</strong> {t("tới khi nhặt xong, sau đó chuyển sang")} <strong className="font-semibold text-bo-foreground">{t("Chờ đóng gói")}</strong>.
                         </DialogDescription>
                     </DialogHeader>
 
@@ -559,7 +559,7 @@ export default function DonChoXuatPage() {
                                         <span className="min-w-0">
                                             <span className="block truncate text-sm font-semibold text-bo-foreground">{row.soDonHang}</span>
                                             <span className="block truncate text-xs text-bo-muted">
-                                                {row.tenKhachHang || "Khách lẻ"} · {formatQuantity(row.tongSoLuong)} sản phẩm
+                                                {row.tenKhachHang || t("Khách lẻ")} · {formatQuantity(row.tongSoLuong)} {t("sản phẩm")}
                                             </span>
                                         </span>
                                     </li>
@@ -571,14 +571,14 @@ export default function DonChoXuatPage() {
                             <div className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
                                 <AlertTriangle className="mt-0.5 size-4 shrink-0" />
                                 <p>
-                                    Có {selectedSummary.thieuHang} đơn đang báo thiếu hàng. Hệ thống sẽ kiểm tra lại khi tạo phiếu nhặt hàng.
+                                    {t("Có {{thieuHang}} đơn đang báo thiếu hàng. Hệ thống sẽ kiểm tra lại khi tạo phiếu nhặt hàng.", { thieuHang: selectedSummary.thieuHang })}
                                 </p>
                             </div>
                         ) : null}
 
                         <div className="space-y-1.5">
                             <label htmlFor="pick-list-note" className="text-xs font-semibold uppercase tracking-wide text-bo-muted">
-                                Ghi chú (không bắt buộc)
+                                {t("Ghi chú (không bắt buộc)")}
                             </label>
                             <Textarea
                                 id="pick-list-note"
@@ -586,7 +586,7 @@ export default function DonChoXuatPage() {
                                 value={ghiChu}
                                 maxLength={500}
                                 onChange={(event) => setGhiChu(event.target.value)}
-                                placeholder="Ví dụ: Ưu tiên đơn sàn, ca sáng"
+                                placeholder={t("Ví dụ: Ưu tiên đơn sàn, ca sáng")}
                                 className="resize-none border-bo-border bg-bo-surface text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/15"
                             />
                         </div>
@@ -600,7 +600,7 @@ export default function DonChoXuatPage() {
                             onClick={() => setDialogOpen(false)}
                             className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                         >
-                            Hủy
+                            {t("Hủy")}
                         </Button>
                         <Button
                             type="button"
@@ -609,7 +609,7 @@ export default function DonChoXuatPage() {
                             className="min-w-[150px] gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover disabled:opacity-50"
                         >
                             {creating ? <Loader2 className="size-4 animate-spin" /> : <PackageCheck className="size-4" />}
-                            {creating ? "Đang tạo..." : "Tạo phiếu nhặt hàng"}
+                            {creating ? t("Đang tạo...") : t("Tạo phiếu nhặt hàng")}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

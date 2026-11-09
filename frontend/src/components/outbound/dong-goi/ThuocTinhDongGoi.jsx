@@ -8,6 +8,7 @@ import { getPhieuXuatKhoStatus } from "@/constants/phieuXuatKho";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/utils/formatters";
 import { donCungPhieuNhat } from "./tinhDongGoi";
+import { t } from "@/i18n";
 
 /**
  * Cột phải của màn Đóng gói: Khách hàng (không có thì "Khách lẻ"), điện thoại, địa chỉ, kênh bán + ID đơn trên sàn ·
@@ -25,18 +26,18 @@ export default function ThuocTinhDongGoi({ phien, phieuNhat }) {
   const hien = xemHet || cung.ds.length <= SO_DON_HIEN ? cung.ds : cung.ds.slice(0, SO_DON_HIEN);
 
   return (
-    <CotThuocTinh nhan="Thông tin đơn đóng gói">
-      <NhomThuocTinh nhan="Khách hàng">
-        <div className="text-sm font-semibold leading-5 text-bo-foreground">{phien.tenKhachHang || "Khách lẻ"}</div>
+    <CotThuocTinh nhan={t("Thông tin đơn đóng gói")}>
+      <NhomThuocTinh nhan={t("Khách hàng")}>
+        <div className="text-sm font-semibold leading-5 text-bo-foreground">{phien.tenKhachHang || t("Khách lẻ")}</div>
         <BangThuocTinh
           rongNhan={112}
           className="mt-2.5"
           muc={[
-            { ma: "sdt", nhan: "Điện thoại", giaTri: phien.soDienThoai ? <span className="tabular-nums">{phien.soDienThoai}</span> : null },
-            { ma: "dc", nhan: "Địa chỉ", giaTri: phien.diaChiGiaoHang },
+            { ma: "sdt", nhan: t("Điện thoại"), giaTri: phien.soDienThoai ? <span className="tabular-nums">{phien.soDienThoai}</span> : null },
+            { ma: "dc", nhan: t("Địa chỉ"), giaTri: phien.diaChiGiaoHang },
             {
               ma: "kenh",
-              nhan: "Kênh bán",
+              nhan: t("Kênh bán"),
               an: !kenh,
               giaTri: (
                 <>
@@ -60,21 +61,21 @@ export default function ThuocTinhDongGoi({ phien, phieuNhat }) {
           muc={[
             {
               ma: "tong",
-              nhan: "Tổng cộng (gồm phí vận chuyển)",
+              nhan: t("Tổng cộng (gồm phí vận chuyển)"),
               giaTri: <span className="font-semibold tabular-nums">{formatCurrency(phien.tongTienDonHang)}</span>,
             },
-            { ma: "kho", nhan: "Kho", giaTri: phien.tenKho },
+            { ma: "kho", nhan: t("Kho"), giaTri: phien.tenKho },
           ]}
         />
       </NhomThuocTinh>
 
       <ChungTuLienQuan
         ds={[
-          { khoa: "don", loai: "Đơn bán hàng", ma: phien.soDonHang, to: `/sales-orders/${phien.donBanHangId}` },
+          { khoa: "don", loai: t("Đơn bán hàng"), ma: phien.soDonHang, to: `/sales-orders/${phien.donBanHangId}` },
           phien.phieuXuatKhoId
             ? {
               khoa: "px",
-              loai: "Phiếu xuất kho",
+              loai: t("Phiếu xuất kho"),
               ma: phien.soPhieuXuat,
               to: `/goods-issues/${phien.phieuXuatKhoId}`,
               trangThai: getPhieuXuatKhoStatus(phien.trangThaiPhieu).label,
@@ -88,14 +89,14 @@ export default function ThuocTinhDongGoi({ phien, phieuNhat }) {
         <NhomThuocTinh
           nhan={
             <>
-              Cùng phiếu nhặt <span className="tabular-nums">{phien.maPickList}</span>
+              {t("Cùng phiếu nhặt")} <span className="tabular-nums">{phien.maPickList}</span>
             </>
           }
         >
           {phieuNhat?.dang ? (
-            <p className="m-0 text-[13px] leading-5 text-bo-muted">Đang tải các đơn của phiếu nhặt…</p>
+            <p className="m-0 text-[13px] leading-5 text-bo-muted">{t("Đang tải các đơn của phiếu nhặt…")}</p>
           ) : phieuNhat?.loi ? (
-            <p className="m-0 text-[13px] leading-5 text-bo-muted">Không tải được các đơn của phiếu nhặt.</p>
+            <p className="m-0 text-[13px] leading-5 text-bo-muted">{t("Không tải được các đơn của phiếu nhặt.")}</p>
           ) : (
             <>
               <p className="m-0 text-[13px] leading-5 text-bo-muted">{cung.tomTat}</p>
@@ -108,7 +109,7 @@ export default function ThuocTinhDongGoi({ phien, phieuNhat }) {
                         {d.soDonHang}
                       </span>
                       {dangMo ? (
-                        <span className="shrink-0 text-xs text-bo-muted">Đơn đang mở</span>
+                        <span className="shrink-0 text-xs text-bo-muted">{t("Đơn đang mở")}</span>
                       ) : (
                         <StatusBadge label={getDonBanHangStatus(d.trangThai).label} quyTrinh="donBan" />
                       )}
@@ -123,7 +124,7 @@ export default function ThuocTinhDongGoi({ phien, phieuNhat }) {
                   onClick={() => setXemHet((cu) => !cu)}
                   className="mt-2 rounded text-[13px] font-semibold text-bo-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
                 >
-                  {xemHet ? "Thu gọn" : `Xem thêm ${soVN(cung.ds.length - SO_DON_HIEN)} đơn`}
+                  {xemHet ? t("Thu gọn") : t("Xem thêm {{so}} đơn", { so: soVN(cung.ds.length - SO_DON_HIEN) })}
                 </button>
               ) : null}
             </>

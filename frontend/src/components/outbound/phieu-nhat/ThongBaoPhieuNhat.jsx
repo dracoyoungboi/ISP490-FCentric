@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import DongThongBao, { NutChu } from "@/components/chung-tu/DongThongBao";
 import { formatQuantity } from "@/constants/outbound";
 import { dongDaNhatChuyenKho } from "./tinhPhieuNhat";
+import { t } from "@/i18n";
 
 const NUT_VIEN = "h-8 border-bo-border bg-white px-3 text-[13px] font-medium text-bo-foreground shadow-none hover:bg-bo-surface-subtle";
 const NUT_CHINH = "h-8 gap-1.5 bg-bo-primary px-3 text-[13px] font-semibold text-white hover:bg-bo-primary-hover";
@@ -24,35 +25,40 @@ const NUT_CHINH = "h-8 gap-1.5 bg-bo-primary px-3 text-[13px] font-semibold text
 export function CanhBaoHuy({ canhBao, traKe = [], onDaHieu }) {
   const nutDaHieu = (
     <Button type="button" variant="outline" size="sm" onClick={onDaHieu} className={NUT_VIEN}>
-      Đã hiểu
+      {t("Đã hiểu")}
     </Button>
   );
 
   if (canhBao.loai === "caPhieu") {
     return (
       <DongThongBao tone="bad" actions={nutDaHieu}>
-        <b className="font-semibold">{canhBao.message || "Mọi đơn trong phiếu nhặt hàng đã hủy."}</b>
+        <b className="font-semibold">{canhBao.message || t("Mọi đơn trong phiếu nhặt hàng đã hủy.")}</b>
       </DongThongBao>
     );
   }
 
   const so = canhBao.soDonHang || "";
-  const don = canhBao.soDon > 1 ? "các đơn" : "đơn";
+  const nhieu = canhBao.soDon > 1;
   if (canhBao.loai === "donDongGoi") {
     return (
       <DongThongBao tone="warn" actions={nutDaHieu}>
-        <b className="font-semibold">{canhBao.soDon > 1 ? "Các đơn" : "Đơn"} {so} đã hủy sau khi nhặt xong.</b> Phiếu xuất
-        nháp của {don} đã thu hồi. Chuyển hàng của {don} vào thùng gom hàng trả kệ.
+        <b className="font-semibold">
+          {nhieu ? t("Các đơn {{so}} đã hủy sau khi nhặt xong.", { so }) : t("Đơn {{so}} đã hủy sau khi nhặt xong.", { so })}
+        </b>{" "}
+        {nhieu
+          ? t("Phiếu xuất nháp của các đơn đã thu hồi. Chuyển hàng của các đơn vào thùng gom hàng trả kệ.")
+          : t("Phiếu xuất nháp của đơn đã thu hồi. Chuyển hàng của đơn vào thùng gom hàng trả kệ.")}
       </DongThongBao>
     );
   }
 
   return (
     <DongThongBao tone="warn" actions={nutDaHieu}>
-      <b className="font-semibold">{canhBao.soDon > 1 ? "Các đơn" : "Đơn"} {so} đã hủy trên sàn.</b> Số cần nhặt đã tự giảm.
+      <b className="font-semibold">{nhieu ? t("Các đơn {{so}} đã hủy trên sàn.", { so }) : t("Đơn {{so}} đã hủy trên sàn.", { so })}</b>{" "}
+      {t("Số cần nhặt đã tự giảm.")}
       {traKe.length ? (
         <>
-          <div className="mt-1.5">Hàng cần để vào khay trả kệ:</div>
+          <div className="mt-1.5">{t("Hàng cần để vào khay trả kệ:")}</div>
           <ul className="m-0 mt-1 grid list-none gap-0.5 p-0 text-slate-700">
             {traKe.map((k) => (
               <li key={k.khoa}>
@@ -86,16 +92,16 @@ export function KetQuaBoQua({ ketQua, onDaHieu }) {
       tone="warn"
       actions={
         <Button type="button" variant="outline" size="sm" onClick={onDaHieu} className={NUT_VIEN}>
-          Đã hiểu
+          {t("Đã hiểu")}
         </Button>
       }
     >
       <b className="font-semibold">
         {daTao.length
-          ? `Không tạo phiếu xuất cho ${boQua.length} đơn đã hủy hoặc đã xuất trước đó: ${boQua.join(", ")}.`
-          : `Không tạo phiếu xuất kho nào vì mọi đơn đã hủy hoặc đã xuất trước đó: ${boQua.join(", ")}.`}
+          ? t("Không tạo phiếu xuất cho {{count}} đơn đã hủy hoặc đã xuất trước đó: {{ds}}.", { count: boQua.length, ds: boQua.join(", ") })
+          : t("Không tạo phiếu xuất kho nào vì mọi đơn đã hủy hoặc đã xuất trước đó: {{ds}}.", { ds: boQua.join(", ") })}
       </b>{" "}
-      Hàng đã nhặt cho các đơn này cần trả về kệ.
+      {t("Hàng đã nhặt cho các đơn này cần trả về kệ.")}
     </DongThongBao>
   );
 }
@@ -121,10 +127,10 @@ export function DongChuaGiao({ laQuanLy, dangNhan, onNhanViec, onPhanCong, khoaN
               className={NUT_VIEN}
             >
               {dangNhan ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> : <UserCheck className="size-3.5" aria-hidden="true" />}
-              Nhận việc cho tôi
+              {t("Nhận việc cho tôi")}
             </Button>
             <Button type="button" size="sm" disabled={dangNhan} onClick={onPhanCong} className={NUT_CHINH}>
-              Phân công
+              {t("Phân công")}
             </Button>
           </div>
         ) : (
@@ -137,13 +143,13 @@ export function DongChuaGiao({ laQuanLy, dangNhan, onNhanViec, onPhanCong, khoaN
             className={NUT_CHINH}
           >
             {dangNhan ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> : <UserCheck className="size-3.5" aria-hidden="true" />}
-            Nhận việc
+            {t("Nhận việc")}
           </Button>
         )
       }
     >
-      <b className="font-semibold">Phiếu chưa có người nhặt.</b>{" "}
-      {laQuanLy ? "Phân công người nhặt, hoặc tự nhận việc để bắt đầu quét." : "Nhận việc để bắt đầu quét mã."}
+      <b className="font-semibold">{t("Phiếu chưa có người nhặt.")}</b>{" "}
+      {laQuanLy ? t("Phân công người nhặt, hoặc tự nhận việc để bắt đầu quét.") : t("Nhận việc để bắt đầu quét mã.")}
     </DongThongBao>
   );
 }
@@ -153,9 +159,9 @@ export function DongGiaoKhac({ laQuanLy, onPhanCong }) {
   return (
     <DongThongBao
       tone="neutral"
-      actions={laQuanLy ? <NutChu onClick={onPhanCong}>Phân công lại</NutChu> : null}
+      actions={laQuanLy ? <NutChu onClick={onPhanCong}>{t("Phân công lại")}</NutChu> : null}
     >
-      Chỉ người được phân công mới quét được phiếu này.
+      {t("Chỉ người được phân công mới quét được phiếu này.")}
     </DongThongBao>
   );
 }
@@ -168,10 +174,10 @@ export function DongNguoiNhatKhongHopLe({ canhBao, laQuanLy, onPhanCong }) {
   return (
     <DongThongBao
       tone="warn"
-      actions={laQuanLy ? <NutChu onClick={onPhanCong}>Phân công lại</NutChu> : null}
+      actions={laQuanLy ? <NutChu onClick={onPhanCong}>{t("Phân công lại")}</NutChu> : null}
     >
       {canhBao}
-      {laQuanLy ? "" : " Báo quản lý kho phân công lại."}
+      {laQuanLy ? "" : t(" Báo quản lý kho phân công lại.")}
     </DongThongBao>
   );
 }
@@ -183,16 +189,18 @@ export function DongNguoiNhatKhongHopLe({ canhBao, laQuanLy, onPhanCong }) {
  */
 export function DongDaNhat({ xongHet, donHuy = [], dataCu = false, coLienKet = true, onMoDsXuat }) {
   let cau;
-  if (dataCu) cau = "Phiếu nhặt hàng đã xuất kho.";
-  else if (xongHet) cau = "Đã nhặt, đóng gói và xuất kho xong mọi đơn trong phiếu.";
-  else cau = "Đã nhặt xong. Đóng gói từng đơn ở mục Đơn trong phiếu, sau đó xác nhận xuất kho ở phiếu xuất.";
+  if (dataCu) cau = t("Phiếu nhặt hàng đã xuất kho.");
+  else if (xongHet) cau = t("Đã nhặt, đóng gói và xuất kho xong mọi đơn trong phiếu.");
+  else cau = t("Đã nhặt xong. Đóng gói từng đơn ở mục Đơn trong phiếu, sau đó xác nhận xuất kho ở phiếu xuất.");
   return (
     <DongThongBao
       tone="ok"
-      actions={coLienKet ? <NutChu onClick={onMoDsXuat}>Mở danh sách phiếu xuất</NutChu> : null}
+      actions={coLienKet ? <NutChu onClick={onMoDsXuat}>{t("Mở danh sách phiếu xuất")}</NutChu> : null}
     >
       {cau}
-      {donHuy.length ? ` ${donHuy.length > 1 ? "Các đơn" : "Đơn"} ${donHuy.join(", ")} đã hủy nên không tạo phiếu xuất.` : ""}
+      {donHuy.length ? (donHuy.length > 1
+        ? t(" Các đơn {{ds}} đã hủy nên không tạo phiếu xuất.", { ds: donHuy.join(", ") })
+        : t(" Đơn {{ds}} đã hủy nên không tạo phiếu xuất.", { ds: donHuy.join(", ") })) : ""}
     </DongThongBao>
   );
 }
@@ -205,7 +213,7 @@ export function DongDaNhat({ xongHet, donHuy = [], dataCu = false, coLienKet = t
 export function DongDaNhatChuyenKho({ phieu, onMoPhieuChuyen }) {
   const { tone, cau } = dongDaNhatChuyenKho(phieu);
   return (
-    <DongThongBao tone={tone} actions={onMoPhieuChuyen ? <NutChu onClick={onMoPhieuChuyen}>Mở phiếu chuyển</NutChu> : null}>
+    <DongThongBao tone={tone} actions={onMoPhieuChuyen ? <NutChu onClick={onMoPhieuChuyen}>{t("Mở phiếu chuyển")}</NutChu> : null}>
       {cau}
     </DongThongBao>
   );
@@ -219,8 +227,8 @@ export function DongDaHuy({ chuyenKho = false, soPhieuChuyen = null }) {
   return (
     <DongThongBao tone="neutral">
       {chuyenKho
-        ? `Phiếu nhặt hàng đã hủy vì phiếu chuyển${soPhieuChuyen ? ` ${soPhieuChuyen}` : ""} đã hủy. Hàng đã nhặt (nếu có) cất lại lên kệ.`
-        : "Phiếu nhặt hàng đã hủy vì mọi đơn trong phiếu đã hủy."}
+        ? t("Phiếu nhặt hàng đã hủy vì phiếu chuyển{{soPhieuChuyen}} đã hủy. Hàng đã nhặt (nếu có) cất lại lên kệ.", { soPhieuChuyen: soPhieuChuyen ? ` ${soPhieuChuyen}` : "" })
+        : t("Phiếu nhặt hàng đã hủy vì mọi đơn trong phiếu đã hủy.")}
     </DongThongBao>
   );
 }

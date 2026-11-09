@@ -5,6 +5,7 @@ import { toast } from "@/lib/thongBaoNhanh";
 import LoadingState from "@/components/shared/LoadingState";
 import { dinhGio, dinhNgay, urlCua } from "./dinhDangBangChung";
 import { chuThongTinTep, tenTepTaiXuong } from "./tinhDongGoi";
+import { t } from "@/i18n";
 
 /*
  * Phần XEM bằng chứng, dùng chung cho màn Đóng gói (PackingProofSection, có chụp / quay / xóa), khối chỉ xem ở chi tiết
@@ -69,14 +70,14 @@ function XemAnh({ src, ten }) {
   if (trangThai === "hong") {
     return (
       <p className="m-0 grid min-h-40 place-items-center rounded-md border border-bo-border bg-bo-surface-subtle px-4 text-center text-[13px] text-bo-muted">
-        Không tải được ảnh.
+        {t("Không tải được ảnh.")}
       </p>
     );
   }
   return (
     <>
       {trangThai === "dangTai" ? (
-        <LoadingState className="min-h-48 rounded-md bg-bo-surface-subtle" label="Đang tải ảnh" />
+        <LoadingState className="min-h-48 rounded-md bg-bo-surface-subtle" label={t("Đang tải ảnh")} />
       ) : null}
       <img
         src={src}
@@ -157,9 +158,9 @@ export function HopXemBangChung({ o, onDong, onCloseAutoFocus }) {
         return;
       }
       // Hộp đã đóng hoặc đang xem tệp khác
-      toast.error(`Không tải xuống được "${ten}"`, {
-        description: "Kiểm tra mạng rồi thử lại, hoặc mở tệp ở thẻ mới để lưu.",
-        action: { label: "Mở thẻ mới", onClick: () => window.open(urlTai, "_blank", "noopener,noreferrer") },
+      toast.error(t("Không tải xuống được \"{{ten}}\"", { ten }), {
+        description: t("Kiểm tra mạng rồi thử lại, hoặc mở tệp ở thẻ mới để lưu."),
+        action: { label: t("Mở thẻ mới"), onClick: () => window.open(urlTai, "_blank", "noopener,noreferrer") },
       });
     } finally {
       dieuKhienRef.current.delete(urlTai);
@@ -193,15 +194,15 @@ export function HopXemBangChung({ o, onDong, onCloseAutoFocus }) {
               type="button"
               onClick={taiXuong}
               disabled={dangTaiNay}
-              title="Tải xuống"
+              title={t("Tải xuống")}
               // Màn hẹp chỉ còn biểu tượng để tiêu đề đủ chỗ
               className={`${NUT_DAU_HOP} border border-bo-border bg-bo-surface max-sm:w-8 sm:px-2.5`}
             >
               {dangTaiNay ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Download className="size-4" aria-hidden="true" />}
-              <span className="max-sm:sr-only">{dangTaiNay ? "Đang tải…" : "Tải xuống"}</span>
+              <span className="max-sm:sr-only">{dangTaiNay ? t("Đang tải…", { context: "tai_xuong" }) : t("Tải xuống")}</span>
             </button>
           ) : null}
-          <DialogClose ref={nutDongRef} className={`${NUT_DAU_HOP} size-8 text-bo-muted hover:text-bo-foreground`} aria-label="Đóng" title="Đóng">
+          <DialogClose ref={nutDongRef} className={`${NUT_DAU_HOP} size-8 text-bo-muted hover:text-bo-foreground`} aria-label={t("Đóng")} title={t("Đóng")}>
             <X className="size-4" aria-hidden="true" />
           </DialogClose>
         </DialogHeader>
@@ -209,11 +210,11 @@ export function HopXemBangChung({ o, onDong, onCloseAutoFocus }) {
         {url && !hien.laVideo ? <XemAnh key={url} src={url} ten={hien.ten} /> : null}
         {loiTai && loiTai === url ? (
           <p role="alert" className="m-0 text-[13px] leading-5 text-bo-danger-strong [contain:inline-size]">
-            Không tải xuống được tệp. Kiểm tra mạng rồi bấm Tải xuống lại, hoặc{" "}
+            {t("Không tải xuống được tệp. Kiểm tra mạng rồi bấm Tải xuống lại, hoặc")}{" "}
             <a href={url} target="_blank" rel="noopener noreferrer" className="font-medium underline underline-offset-2">
-              mở ở thẻ mới
+              {t("mở ở thẻ mới")}
             </a>{" "}
-            để lưu.
+            {t("để lưu.")}
           </p>
         ) : null}
         <DialogDescription className={thongTin ? "text-xs leading-4 text-bo-muted [contain:inline-size]" : "sr-only"}>

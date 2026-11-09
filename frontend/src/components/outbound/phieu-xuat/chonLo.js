@@ -8,6 +8,8 @@
  */
 import { TRANG_THAI_PHIEU_XUAT } from "../../../constants/trangThaiXuatBan.js";
 import { docSo, soVN } from "../../chung-tu/bangChungTu.js";
+import { t } from "../../../i18n/t.js";
+import { cauGocMayChu } from "../../../i18n/cauGoc.js";
 
 const soCua = (value) => Number(value) || 0;
 
@@ -26,11 +28,11 @@ export function quyenChonLo({ loaiXuat, trangThai, laQuanLy = false } = {}) {
     : laChuyenKho && tt === TRANG_THAI_PHIEU_XUAT.NHAP;
   let lyDoXem = null;
   if (!duocSua) {
-    if (tt === TRANG_THAI_PHIEU_XUAT.DA_XUAT || tt === 5) lyDoXem = "Phiếu đã xuất kho nên chỉ xem được lô đã lấy.";
-    else if (tt === TRANG_THAI_PHIEU_XUAT.DA_HUY) lyDoXem = "Phiếu đã hủy nên chỉ xem được lô.";
-    else if (laBanHang) lyDoXem = "Chỉ quản lý kho hoặc quản trị viên sửa được lô của phiếu bán hàng.";
-    else if (!laChuyenKho) lyDoXem = "Phiếu yêu cầu chuyển kho không chọn lô trực tiếp. Chọn lô ở phiếu xuất chuyển kho.";
-    else lyDoXem = "Phiếu không còn ở trạng thái Nháp nên chỉ xem được lô.";
+    if (tt === TRANG_THAI_PHIEU_XUAT.DA_XUAT || tt === 5) lyDoXem = t("Phiếu đã xuất kho nên chỉ xem được lô đã lấy.");
+    else if (tt === TRANG_THAI_PHIEU_XUAT.DA_HUY) lyDoXem = t("Phiếu đã hủy nên chỉ xem được lô.");
+    else if (laBanHang) lyDoXem = t("Chỉ quản lý kho hoặc quản trị viên sửa được lô của phiếu bán hàng.");
+    else if (!laChuyenKho) lyDoXem = t("Phiếu yêu cầu chuyển kho không chọn lô trực tiếp. Chọn lô ở phiếu xuất chuyển kho.");
+    else lyDoXem = t("Phiếu không còn ở trạng thái Nháp nên chỉ xem được lô.");
   }
   return { duocSua, laBanHang, lyDoXem };
 }
@@ -45,7 +47,7 @@ const MAU_LOI_TRANG_THAI = /trạng thái|nháp/i;
  */
 export function loiLuuCanTaiLai(trangThai, cau) {
   if (trangThai === 409) return true;
-  return typeof cau === "string" && MAU_LOI_TRANG_THAI.test(cau);
+  return typeof cau === "string" && MAU_LOI_TRANG_THAI.test(cauGocMayChu(cau));
 }
 
 /** Bản đồ số lượng theo lô từ GET …/picked-lots (`[{ loHangId, soLuongDaPick }]`), như bản cũ. */
@@ -86,22 +88,22 @@ export function trangThaiChonLo({ chon, lots, can, laBanHang = false } = {}) {
   let chu;
   let tone;
   if (loVuot) {
-    chu = `Lô ${loVuot.maLo} chỉ còn ${soVN(loVuot.soLuongKhaDung)} có thể lấy`;
+    chu = t("Lô {{maLo}} chỉ còn {{soLuongKhaDung}} có thể lấy", { maLo: loVuot.maLo, soLuongKhaDung: soVN(loVuot.soLuongKhaDung) });
     tone = "bad";
   } else if (tong > canXuat) {
-    chu = `Vượt ${soVN(tong - canXuat)} so với số cần xuất`;
+    chu = t("Vượt {{so}} so với số cần xuất", { so: soVN(tong - canXuat) });
     tone = "bad";
   } else if (tong > 0 && tong === canXuat) {
-    chu = "Khớp số cần xuất";
+    chu = t("Khớp số cần xuất");
     tone = "ok";
   } else if (tong === 0) {
-    chu = "Nhập số lượng lấy ở ít nhất một lô";
+    chu = t("Nhập số lượng lấy ở ít nhất một lô");
     tone = "warn";
   } else if (!laBanHang) {
-    chu = `Còn thiếu ${soVN(canXuat - tong)} — phiếu chuyển kho lưu được một phần`;
+    chu = t("Còn thiếu {{so}} — phiếu chuyển kho lưu được một phần", { so: soVN(canXuat - tong) });
     tone = "warn";
   } else {
-    chu = `Còn thiếu ${soVN(canXuat - tong)} — sửa lô phải đủ ${soVN(canXuat)} (không đổi số lượng phiếu)`;
+    chu = t("Còn thiếu {{so}} — sửa lô phải đủ {{canXuat}} (không đổi số lượng phiếu)", { so: soVN(canXuat - tong), canXuat: soVN(canXuat) });
     tone = "warn";
   }
   const hopLe = !loVuot && tong > 0 && (laBanHang ? tong === canXuat : tong <= canXuat);
@@ -115,18 +117,18 @@ export function trangThaiChonLo({ chon, lots, can, laBanHang = false } = {}) {
  */
 export function kiemTraLuuLo({ chon, lots, can, laBanHang = false } = {}) {
   const entries = Object.entries(chon ?? {}).filter(([, v]) => Number(v) > 0);
-  if (entries.length === 0) return { loi: "Vui lòng nhập số lượng cần lấy", loHangPicks: [] };
+  if (entries.length === 0) return { loi: t("Vui lòng nhập số lượng cần lấy"), loHangPicks: [] };
   for (const [id, val] of entries) {
     const lot = (lots ?? []).find((l) => l.loHangId === Number(id));
     if (Number(val) > docSo(lot?.soLuongKhaDung)) {
-      return { loi: `Lô ${lot?.maLo ?? `#${id}`} không đủ tồn kho`, loHangPicks: [] };
+      return { loi: t("Lô {{maLo}} không đủ tồn kho", { maLo: lot?.maLo ?? `#${id}` }), loHangPicks: [] };
     }
   }
   const tong = tongChon(chon);
   const canXuat = docSo(can);
-  if (tong > canXuat) return { loi: "Tổng số lượng lấy vượt quá số lượng cần xuất", loHangPicks: [] };
+  if (tong > canXuat) return { loi: t("Tổng số lượng lấy vượt quá số lượng cần xuất"), loHangPicks: [] };
   if (laBanHang && tong !== canXuat) {
-    return { loi: `Sửa lô phải đủ ${canXuat} (không đổi số lượng phiếu)`, loHangPicks: [] };
+    return { loi: t("Sửa lô phải đủ {{canXuat}} (không đổi số lượng phiếu)", { canXuat }), loHangPicks: [] };
   }
   return {
     loi: null,
@@ -169,11 +171,11 @@ export function loDauFifo(lots) {
 export function tinhTrangLo(soLuong, conLayDuoc) {
   const sl = soCua(soLuong);
   const kd = docSo(conLayDuoc);
-  if (kd <= 0 && sl <= 0) return { chu: "Hết hàng có thể lấy", tone: "mo" };
-  if (sl > kd) return { chu: "Vượt mức", tone: "bad" };
-  if (sl > 0 && sl === kd) return { chu: "Lấy hết lô", tone: "ok" };
-  if (sl > 0) return { chu: "Một phần", tone: "warn" };
-  return { chu: "Không dùng", tone: "mo" };
+  if (kd <= 0 && sl <= 0) return { chu: t("Hết hàng có thể lấy"), tone: "mo" };
+  if (sl > kd) return { chu: t("Vượt mức"), tone: "bad" };
+  if (sl > 0 && sl === kd) return { chu: t("Lấy hết lô"), tone: "ok" };
+  if (sl > 0) return { chu: t("Một phần"), tone: "warn" };
+  return { chu: t("Không dùng"), tone: "mo" };
 }
 
 /**

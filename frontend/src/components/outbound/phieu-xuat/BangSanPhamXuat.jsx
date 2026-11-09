@@ -20,6 +20,7 @@ import {
   O_TIEU_DE,
 } from "@/components/chung-tu/kieuBang";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 function NutLo({ d, nhan, onMoLo }) {
   return (
@@ -41,16 +42,16 @@ function OLo({ d }) {
     return (
       <span className="block">
         <span aria-hidden="true" className="block h-[22px] w-28 animate-pulse rounded bg-slate-100 motion-reduce:animate-none" />
-        <span className="sr-only">Đang tải lô</span>
+        <span className="sr-only">{t("Đang tải lô")}</span>
       </span>
     );
   }
-  if (d.trangThaiLo === "loi") return <span className="text-[13px] text-bo-warning">Không tải được lô</span>;
+  if (d.trangThaiLo === "loi") return <span className="text-[13px] text-bo-warning">{t("Không tải được lô")}</span>;
   return (
     <ChipLo
       lo={d.lo}
       cuaDong={d.sku || d.tenSanPham}
-      khiTrong={<span className="text-[13px] font-medium text-bo-warning">Chưa chọn lô</span>}
+      khiTrong={<span className="text-[13px] font-medium text-bo-warning">{t("Chưa chọn lô")}</span>}
     />
   );
 }
@@ -72,7 +73,7 @@ export default function BangSanPhamXuat({ bang, moTa, soThieu, suaLo, nhanNutLo,
   return (
     <section aria-labelledby="sp-px" className="flex min-w-0 flex-1 flex-col">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-4 pb-3 pt-4 sm:px-6">
-        <h2 id="sp-px" className="text-base font-semibold leading-6 text-bo-foreground">Sản phẩm xuất</h2>
+        <h2 id="sp-px" className="text-base font-semibold leading-6 text-bo-foreground">{t("Sản phẩm xuất")}</h2>
         {moTa ? <span className="text-[13px] leading-5 text-bo-muted">{moTa}</span> : null}
       </div>
 
@@ -81,19 +82,19 @@ export default function BangSanPhamXuat({ bang, moTa, soThieu, suaLo, nhanNutLo,
           tuKhoa={bang.tuKhoa}
           onDoiTuKhoa={bang.datTuKhoa}
           onXoaTuKhoa={bang.xoaTuKhoa}
-          goiYTim="Tìm theo tên, SKU hoặc mã lô"
-          nhanTim="Tìm trong phiếu"
+          goiYTim={t("Tìm theo tên, SKU hoặc mã lô")}
+          nhanTim={t("Tìm trong phiếu")}
           ketQua={bang.chuKetQua}
           khongKetQua={bang.khongKetQua}
           boLoc={
             coLoc ? (
               <NutPhanDoan
-                nhan="Lọc dòng"
+                nhan={t("Lọc dòng")}
                 value={bang.locNhanh}
                 onChange={bang.datLoc}
                 luaChon={[
-                  { value: "tatCa", label: "Tất cả" },
-                  { value: "thieuLo", label: "Thiếu lô", count: bang.demLoc.thieuLo },
+                  { value: "tatCa", label: t("Tất cả") },
+                  { value: "thieuLo", label: t("Thiếu lô"), count: bang.demLoc.thieuLo },
                 ]}
               />
             ) : null
@@ -106,17 +107,17 @@ export default function BangSanPhamXuat({ bang, moTa, soThieu, suaLo, nhanNutLo,
           <table className={cn(BANG, "@2xl/khoi:min-w-[620px]")}>
             <thead>
               <tr className={DONG_TIEU_DE}>
-                <th scope="col" className={cn(O_TIEU_DE, O_DAU)}>Sản phẩm</th>
-                <th scope="col" className={cn(O_TIEU_DE, AN_DIEN_THOAI)}>Lô đã lấy</th>
+                <th scope="col" className={cn(O_TIEU_DE, O_DAU)}>{t("Sản phẩm")}</th>
+                <th scope="col" className={cn(O_TIEU_DE, AN_DIEN_THOAI)}>{t("Lô đã lấy")}</th>
                 <th
                   scope="col"
                   className={cn(O_TIEU_DE, "w-[132px] text-right @max-2xl/khoi:pr-4 @2xl/khoi:w-[150px]", !suaLo && O_CUOI)}
                 >
-                  Đã lấy
+                  {t("Đã lấy")}
                 </th>
                 {suaLo ? (
                   <th scope="col" className={cn(O_TIEU_DE, O_CUOI, "w-[88px]", AN_DIEN_THOAI)}>
-                    <span className="sr-only">Thao tác</span>
+                    <span className="sr-only">{t("Thao tác")}</span>
                   </th>
                 ) : null}
               </tr>
@@ -166,9 +167,9 @@ export default function BangSanPhamXuat({ bang, moTa, soThieu, suaLo, nhanNutLo,
       ) : null}
 
       {bang.khongKetQua && !bang.dangTim ? (
-        <KhongKetQua chu="Không còn dòng nào thiếu lô." nhanNut="Xem tất cả" onNut={bang.xoaLoc} />
+        <KhongKetQua chu={t("Không còn dòng nào thiếu lô.")} nhanNut={t("Xem tất cả")} onNut={bang.xoaLoc} />
       ) : (
-        <KhongKetQua bang={bang} tenChungTu="phiếu xuất kho" donVi="dòng" />
+        <KhongKetQua bang={bang} tenChungTu={t("phiếu xuất kho")} donVi={t("dòng")} />
       )}
       <PhanTrangBang {...bang.phanTrang} />
     </section>

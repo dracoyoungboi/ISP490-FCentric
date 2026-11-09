@@ -1,6 +1,7 @@
 import PrintRoutePage from "@/components/print/PrintRoutePage";
 import { toEcommercePrintModel } from "@/components/print/adapters/ecommercePrintAdapter";
 import { phieuXuatKhoService } from "@/services/phieuXuatKhoService";
+import { t } from "@/i18n";
 
 /**
  * Trang in thật của Phiếu đóng gói đơn sàn TMĐT (Lazada, Shopee, TikTok Shop).
@@ -17,10 +18,10 @@ export default function EcommercePackingSlipPrint() {
       }}
       adapter={toEcommercePrintModel}
       backPath="/goods-issues/:id"
-      loadingLabel="Đang tải dữ liệu phiếu đóng gói đơn sàn"
-      titleFallback="In phiếu vận đơn / đóng gói đơn sàn (A6)"
-      notFoundTitle="Không tìm thấy phiếu xuất kho"
-      notFoundDescription="Phiếu có thể đã bị xóa hoặc bạn không có quyền truy cập."
+      loadingLabel={t("Đang tải dữ liệu phiếu đóng gói đơn sàn")}
+      titleFallback={t("In phiếu vận đơn / đóng gói đơn sàn (A6)")}
+      notFoundTitle={t("Không tìm thấy phiếu xuất kho")}
+      notFoundDescription={t("Phiếu có thể đã bị xóa hoặc bạn không có quyền truy cập.")}
     />
   );
 }

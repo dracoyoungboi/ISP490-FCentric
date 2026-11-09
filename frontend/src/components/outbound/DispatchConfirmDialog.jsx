@@ -3,6 +3,7 @@ import { Truck, Settings2, ShieldCheck, CheckCircle2 } from "lucide-react";
 import HopXacNhanChungTu from "@/components/chung-tu/HopXacNhanChungTu";
 import { GiaTriSaoChep } from "@/components/chung-tu/CotThuocTinh";
 import { soVN } from "@/components/chung-tu/bangChungTu";
+import { t } from "@/i18n";
 
 /**
  * Hộp thoại Xác nhận xuất kho tinh gọn cho đơn ĐÃ CÓ thông tin giao vận (đơn sàn Lazada, Shopee, TikTok Shop, Shopify...)
@@ -37,20 +38,20 @@ export default function DispatchConfirmDialog({
     }
   };
 
-  const tongSl = tongSoLuong != null ? ` (tổng số lượng ${Number(tongSoLuong).toLocaleString("vi-VN")})` : "";
+  const tongSl = tongSoLuong != null ? t(" (tổng số lượng {{tongSoLuong}})", { tongSoLuong: Number(tongSoLuong).toLocaleString("vi-VN") }) : "";
   let nhanCod = thongTinGiaoVan?.nhanThanhToan;
   if (!nhanCod && thongTinGiaoVan?.tienThuHoCod != null) {
     const codNum = Number(thongTinGiaoVan.tienThuHoCod);
-    nhanCod = codNum > 0 ? `Thu hộ (COD): ${soVN(codNum)} ₫` : "Đã thanh toán (COD: 0 đ)";
+    nhanCod = codNum > 0 ? t("Thu hộ (COD): {{codNum}} ₫", { codNum: soVN(codNum) }) : t("Đã thanh toán (COD: 0 đ)");
   }
 
   return (
     <HopXacNhanChungTu
       mo={open}
       onDoiMo={onOpenChange}
-      tieuDe="Xác nhận xuất kho & Bàn giao vận chuyển"
-      moTa={`Phiếu ${soPhieuXuat}${tongSl} sẽ được trừ tồn kho vật lý và cập nhật trạng thái bàn giao.`}
-      nhanXacNhan="Xác nhận xuất kho"
+      tieuDe={t("Xác nhận xuất kho & Bàn giao vận chuyển")}
+      moTa={t("Phiếu {{soPhieuXuat}}{{tongSl}} sẽ được trừ tồn kho vật lý và cập nhật trạng thái bàn giao.", { soPhieuXuat, tongSl })}
+      nhanXacNhan={t("Xác nhận xuất kho")}
       iconXacNhan={Truck}
       dangChay={submitting}
       rong
@@ -63,9 +64,9 @@ export default function DispatchConfirmDialog({
               <Truck className="size-4" />
             </span>
             <div>
-              <span className="text-xs font-medium text-bo-muted">Đơn vị vận chuyển</span>
+              <span className="text-xs font-medium text-bo-muted">{t("Đơn vị vận chuyển")}</span>
               <p className="font-semibold text-slate-800">
-                {thongTinGiaoVan?.donViVanChuyen || "Đơn vị vận chuyển sàn"}
+                {thongTinGiaoVan?.donViVanChuyen || t("Đơn vị vận chuyển sàn")}
               </p>
             </div>
           </div>
@@ -79,26 +80,26 @@ export default function DispatchConfirmDialog({
 
         <div className="grid grid-cols-2 gap-3 pt-3 text-sm">
           <div>
-            <span className="text-xs text-slate-500">Mã vận đơn (Tracking)</span>
+            <span className="text-xs text-slate-500">{t("Mã vận đơn (Tracking)")}</span>
             {thongTinGiaoVan?.maVanDon ? (
               <GiaTriSaoChep
                 giaTri={thongTinGiaoVan.maVanDon}
-                nhanSaoChep="Sao chép mã vận đơn"
+                nhanSaoChep={t("Sao chép mã vận đơn")}
                 className="font-mono font-semibold text-bo-primary"
               />
             ) : (
-              <p className="font-mono text-slate-400">Chưa có mã</p>
+              <p className="font-mono text-slate-400">{t("Chưa có mã")}</p>
             )}
           </div>
 
           <div>
-            <span className="text-xs text-slate-500">Hình thức thu tiền</span>
-            <p className="font-medium text-slate-700">{nhanCod || "Đã thanh toán"}</p>
+            <span className="text-xs text-slate-500">{t("Hình thức thu tiền")}</span>
+            <p className="font-medium text-slate-700">{nhanCod || t("Đã thanh toán")}</p>
           </div>
 
           {thongTinGiaoVan?.maDinhTuyen ? (
             <div>
-              <span className="text-xs text-slate-500">Mã chia chọn định tuyến</span>
+              <span className="text-xs text-slate-500">{t("Mã chia chọn định tuyến")}</span>
               <p>
                 <span className="inline-flex items-center rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 font-mono text-xs font-semibold text-amber-800">
                   {thongTinGiaoVan.maDinhTuyen}
@@ -114,10 +115,10 @@ export default function DispatchConfirmDialog({
 
           {thongTinGiaoVan?.maKienHang ? (
             <div>
-              <span className="text-xs text-slate-500">Mã kiện hàng (Package ID)</span>
+              <span className="text-xs text-slate-500">{t("Mã kiện hàng (Package ID)")}</span>
               <GiaTriSaoChep
                 giaTri={thongTinGiaoVan.maKienHang}
-                nhanSaoChep="Sao chép mã kiện hàng"
+                nhanSaoChep={t("Sao chép mã kiện hàng")}
                 className="font-mono text-xs text-slate-600"
               />
             </div>
@@ -128,7 +129,7 @@ export default function DispatchConfirmDialog({
       <div className="flex items-center justify-between text-xs text-slate-500">
         <span className="flex items-center gap-1 text-emerald-600">
           <CheckCircle2 className="size-3.5" />
-          Thông tin giao vận đã sẵn sàng từ sàn TMĐT
+          {t("Thông tin giao vận đã sẵn sàng từ sàn TMĐT")}
         </span>
         {onMoNangCao ? (
           <button
@@ -138,7 +139,7 @@ export default function DispatchConfirmDialog({
             className="inline-flex items-center gap-1 font-medium text-bo-primary hover:underline focus:outline-none"
           >
             <Settings2 className="size-3.5" />
-            Chỉnh sửa cước / ghi chú
+            {t("Chỉnh sửa cước / ghi chú")}
           </button>
         ) : null}
       </div>

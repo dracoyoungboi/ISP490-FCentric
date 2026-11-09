@@ -34,6 +34,7 @@ import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { formatDateTime, formatNumber } from "@/utils/formatters";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { hasAnyRole, ROLES } from "@/utils/roles";
+import { t } from "@/i18n";
 
 const TH_CLASS = "h-10 px-3 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
 // loai: "" (tất cả) | BAN_HANG | CHUYEN_KHO — phiếu nhặt của phiếu chuyển kho vào danh sách khi duyệt phiếu chuyển
@@ -61,7 +62,7 @@ export default function PickListList() {
     // Quản lý kho / quản trị viên phân công (lại) được; nhân viên kho chỉ tự nhận phiếu chưa có người nhặt
     const laQuanLy = hasAnyRole([ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO]);
     const [tab, setTab] = useTabTrenUrl(TAB_MAS, TAB_MAC_DINH);
-    const tabTrangThai = PICK_LIST_TABS.find((t) => t.ma === tab)?.trangThai ?? null;
+    const tabTrangThai = PICK_LIST_TABS.find((muc) => muc.ma === tab)?.trangThai ?? null;
     const [khoId, setKhoId] = useState(docKhoLamViec);
     const [filters, setFilters] = useState(DEFAULT_FILTERS);
     const [searchText, setSearchText] = useState("");
@@ -114,7 +115,7 @@ export default function PickListList() {
             setData([]);
             setTotal(0);
             setLoadError(error);
-            if (error?.response?.status !== 403) toast.error(getApiErrorMessage(error, "Không tải được danh sách phiếu nhặt hàng"));
+            if (error?.response?.status !== 403) toast.error(getApiErrorMessage(error, t("Không tải được danh sách phiếu nhặt hàng")));
         } finally {
             if (requestId === requestIdRef.current) setLoading(false);
         }
@@ -132,7 +133,7 @@ export default function PickListList() {
                 khoId,
                 keyword: filters.keyword,
                 loai: filters.loai,
-                trangThai: PICK_LIST_TABS.find((t) => t.ma === ma)?.trangThai,
+                trangThai: PICK_LIST_TABS.find((muc) => muc.ma === ma)?.trangThai,
                 page: 0,
                 size: 1,
             }));
@@ -186,12 +187,12 @@ export default function PickListList() {
     const dangTimKiem = Boolean(filters.keyword.trim() || filters.loai);
 
     // Số chỉ hiện khi đếm xong và danh sách không lỗi (R9); số 0 tự ẩn trong StatusTabs
-    const statusTabs = PICK_LIST_TABS.map((t) => ({
-        value: t.ma,
-        label: t.label,
-        count: loadError ? null : tabCounts.counts[t.ma],
+    const statusTabs = PICK_LIST_TABS.map((muc) => ({
+        value: muc.ma,
+        label: t(muc.label),
+        count: loadError ? null : tabCounts.counts[muc.ma],
     }));
-    const emptyTabLabel = PICK_LIST_TABS.find((t) => t.ma === tab)?.label;
+    const emptyTabLabel = t(PICK_LIST_TABS.find((muc) => muc.ma === tab)?.label);
 
     return (
         <PageContainer fill className="space-y-4">
@@ -200,7 +201,7 @@ export default function PickListList() {
                     <Link to="/goods-issues/pending-orders">
                         <Button className="h-9 gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover">
                             <Plus className="size-4" />
-                            Tạo phiếu nhặt hàng
+                            {t("Tạo phiếu nhặt hàng")}
                         </Button>
                     </Link>
                 }
@@ -215,7 +216,7 @@ export default function PickListList() {
                     <ListToolbar
                         tabs={
                             <StatusTabs
-                                label="Lọc phiếu nhặt hàng theo trạng thái"
+                                label={t("Lọc phiếu nhặt hàng theo trạng thái")}
                                 tabs={statusTabs}
                                 value={tab}
                                 onChange={changeTab}
@@ -226,17 +227,17 @@ export default function PickListList() {
                     >
                         <KhoLamViecSelect onChange={handleDoiKho} />
                         <FilterSelect
-                            label="Loại phiếu nhặt"
+                            label={t("Loại phiếu nhặt")}
                             value={filters.loai}
                             options={LOC_LOAI_PHIEU_NHAT}
                             onChange={doiLoai}
                             onClear={() => doiLoai("")}
-                            clearLabel="Bỏ lọc loại phiếu"
+                            clearLabel={t("Bỏ lọc loại phiếu")}
                             className="sm:w-[170px]"
                         />
                         <SearchInput
-                            placeholder="Nhập mã phiếu nhặt hoặc phiếu chuyển..."
-                            label="Tìm phiếu nhặt hàng"
+                            placeholder={t("Nhập mã phiếu nhặt hoặc phiếu chuyển...")}
+                            label={t("Tìm phiếu nhặt hàng")}
                             value={searchText}
                             onChange={(event) => setSearchText(event.target.value)}
                             onClear={clearFilters}
@@ -258,10 +259,10 @@ export default function PickListList() {
                 }
             >
                 {loading ? (
-                    <LoadingState className="min-h-64" label="Đang tải danh sách phiếu nhặt hàng" />
+                    <LoadingState className="min-h-64" label={t("Đang tải danh sách phiếu nhặt hàng")} />
                 ) : loadError ? (
                     <ErrorState
-                        description="Không thể tải danh sách phiếu nhặt hàng. Vui lòng thử lại."
+                        description={t("Không thể tải danh sách phiếu nhặt hàng. Vui lòng thử lại.")}
                         error={loadError}
                         onRetry={handleRefresh}
                     />
@@ -269,33 +270,33 @@ export default function PickListList() {
                     dangTimKiem ? (
                         <EmptyState
                             icon={SearchX}
-                            title="Không tìm thấy phiếu nhặt hàng phù hợp"
-                            description={filters.loai ? "Thử đổi từ khóa hoặc loại phiếu." : "Thử đổi từ khóa tìm kiếm."}
+                            title={t("Không tìm thấy phiếu nhặt hàng phù hợp")}
+                            description={filters.loai ? t("Thử đổi từ khóa hoặc loại phiếu.") : t("Thử đổi từ khóa tìm kiếm.")}
                             action={
                                 <Button variant="outline" onClick={clearFilters} className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">
-                                    Xóa lọc
+                                    {t("Xóa lọc")}
                                 </Button>
                             }
                         />
                     ) : tab !== TAB_MAC_DINH ? (
                         <EmptyState
                             icon={PackageSearch}
-                            title={`Không có phiếu nhặt hàng nào ở trạng thái "${emptyTabLabel}"`}
-                            description="Chọn tab Tất cả để xem mọi phiếu nhặt hàng của kho đang chọn."
+                            title={t("Không có phiếu nhặt hàng nào ở trạng thái \"{{emptyTabLabel}}\"", { emptyTabLabel })}
+                            description={t("Chọn tab Tất cả để xem mọi phiếu nhặt hàng của kho đang chọn.")}
                             action={
                                 <Button variant="outline" onClick={() => changeTab(TAB_MAC_DINH)} className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">
-                                    Xem tất cả
+                                    {t("Xem tất cả")}
                                 </Button>
                             }
                         />
                     ) : (
                         <EmptyState
                             icon={PackageSearch}
-                            title="Chưa có phiếu nhặt hàng"
-                            description="Chọn đơn ở màn Đơn chờ xuất để gom thành phiếu nhặt hàng đầu tiên."
+                            title={t("Chưa có phiếu nhặt hàng")}
+                            description={t("Chọn đơn ở màn Đơn chờ xuất để gom thành phiếu nhặt hàng đầu tiên.")}
                             action={
                                 <Link to="/goods-issues/pending-orders" className="text-sm font-medium text-bo-primary hover:underline">
-                                    Đến Đơn chờ xuất
+                                    {t("Đến Đơn chờ xuất")}
                                 </Link>
                             }
                         />
@@ -342,7 +343,7 @@ export default function PickListList() {
                                             {row.tenNguoiNhat ? (
                                                 <span className="block truncate font-medium text-bo-foreground">{row.tenNguoiNhat}</span>
                                             ) : (
-                                                <span className="block truncate font-medium text-bo-warning">Chưa phân công</span>
+                                                <span className="block truncate font-medium text-bo-warning">{t("Chưa phân công")}</span>
                                             )}
                                             <span className="block truncate">{formatDateTime(row.ngayTao)}</span>
                                         </span>
@@ -354,7 +355,7 @@ export default function PickListList() {
                                                 className="h-9 shrink-0 gap-1.5 border-bo-input-border bg-bo-surface px-3 text-sm font-medium text-bo-foreground"
                                             >
                                                 <UserPlus className="size-4" aria-hidden="true" />
-                                                {!laQuanLy ? "Nhận việc" : row.nguoiNhatId ? "Phân công lại" : "Phân công"}
+                                                {!laQuanLy ? t("Nhận việc") : row.nguoiNhatId ? t("Phân công lại") : t("Phân công")}
                                             </Button>
                                         ) : null}
                                     </div>
@@ -367,14 +368,14 @@ export default function PickListList() {
                     <table className="w-full min-w-[1040px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
                         <thead className="sticky top-0 z-10">
                             <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                                <th className={`${TH_CLASS} text-left`}>Mã phiếu nhặt hàng</th>
-                                <th className={`${TH_CLASS} text-left`}>Đơn / phiếu chuyển</th>
+                                <th className={`${TH_CLASS} text-left`}>{t("Mã phiếu nhặt hàng")}</th>
+                                <th className={`${TH_CLASS} text-left`}>{t("Đơn / phiếu chuyển")}</th>
                                 <th className={`${TH_CLASS} text-right tabular-nums cam-ung:max-lg:hidden`}>SKU</th>
-                                <th className={`${TH_CLASS} w-[220px] text-left cam-ung:max-lg:w-[150px]`}>Tiến độ</th>
-                                <th className={`${TH_CLASS} text-left`}>Người nhặt</th>
-                                <th className={`${TH_CLASS} text-left cam-ung:max-lg:hidden`}>Ngày tạo</th>
-                                <th className={`${TH_CLASS} text-left`}>Trạng thái</th>
-                                <th className={`${TH_CLASS} text-center cam-ung:max-lg:hidden`}>Thao tác</th>
+                                <th className={`${TH_CLASS} w-[220px] text-left cam-ung:max-lg:w-[150px]`}>{t("Tiến độ")}</th>
+                                <th className={`${TH_CLASS} text-left`}>{t("Người nhặt")}</th>
+                                <th className={`${TH_CLASS} text-left cam-ung:max-lg:hidden`}>{t("Ngày tạo")}</th>
+                                <th className={`${TH_CLASS} text-left`}>{t("Trạng thái")}</th>
+                                <th className={`${TH_CLASS} text-center cam-ung:max-lg:hidden`}>{t("Thao tác")}</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-bo-border">
@@ -428,7 +429,7 @@ export default function PickListList() {
                                             {row.tenNguoiNhat ? (
                                                 <span className="font-semibold text-bo-foreground">{row.tenNguoiNhat}</span>
                                             ) : (
-                                                <span className="text-xs italic text-bo-muted">Chưa phân công</span>
+                                                <span className="text-xs italic text-bo-muted">{t("Chưa phân công")}</span>
                                             )}
                                             {canAssign ? (
                                                 <Button
@@ -441,7 +442,7 @@ export default function PickListList() {
                                                     className="mt-1.5 hidden h-9 gap-1.5 border-bo-input-border bg-bo-surface px-3 text-sm font-medium text-bo-foreground cam-ung:max-lg:inline-flex"
                                                 >
                                                     <UserPlus className="size-4" aria-hidden="true" />
-                                                    {!laQuanLy ? "Nhận việc" : row.nguoiNhatId ? "Phân công lại" : "Phân công"}
+                                                    {!laQuanLy ? t("Nhận việc") : row.nguoiNhatId ? t("Phân công lại") : t("Phân công")}
                                                 </Button>
                                             ) : null}
                                         </td>
@@ -456,13 +457,13 @@ export default function PickListList() {
                                                 {canAssign ? (
                                                     <RowActionButton
                                                         icon={UserPlus}
-                                                        label={!laQuanLy ? "Nhận việc" : row.nguoiNhatId ? "Phân công lại" : "Phân công"}
+                                                        label={!laQuanLy ? t("Nhận việc") : row.nguoiNhatId ? t("Phân công lại") : t("Phân công")}
                                                         onClick={() => setAssignTarget(row)}
                                                     />
                                                 ) : null}
                                                 <RowActionButton
                                                     icon={Eye}
-                                                    label="Xem chi tiết"
+                                                    label={t("Xem chi tiết")}
                                                     onClick={() => navigate(`/goods-issues/pick-lists/${row.id}`)}
                                                 />
                                             </RowActions>

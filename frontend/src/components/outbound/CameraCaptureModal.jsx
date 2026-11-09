@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Camera, RefreshCw, Check, X, AlertCircle, SwitchCamera, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { t } from "@/i18n";
 
 /**
  * CameraCaptureModal: Pop-up chụp hình trực tiếp từ Camera/Webcam trình duyệt bằng WebRTC
@@ -10,8 +11,8 @@ export default function CameraCaptureModal({
   isOpen,
   onClose,
   onCapture,
-  title = "Chụp ảnh bằng chứng",
-  description = "Căn chỉnh hàng hóa hoặc kiện hàng trong khung hình và bấm nút chụp",
+  title = t("Chụp ảnh bằng chứng"),
+  description = t("Căn chỉnh hàng hóa hoặc kiện hàng trong khung hình và bấm nút chụp"),
 }) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -52,7 +53,7 @@ export default function CameraCaptureModal({
     setError(null);
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      setError("Trình duyệt của bạn không hỗ trợ tính năng mở Camera trực tiếp. Hãy đóng hộp này và dùng nút Chọn tệp.");
+      setError(t("Trình duyệt của bạn không hỗ trợ tính năng mở Camera trực tiếp. Hãy đóng hộp này và dùng nút Chọn tệp."));
       setLoading(false);
       return;
     }
@@ -100,7 +101,7 @@ export default function CameraCaptureModal({
         setError("NO_CAMERA_FOUND");
       } else {
         // Câu của trình duyệt (err.message) là tiếng Anh: dùng câu chung tiếng Việt
-        setError("Không mở được camera. Hãy đóng các ứng dụng đang dùng camera rồi thử lại.");
+        setError(t("Không mở được camera. Hãy đóng các ứng dụng đang dùng camera rồi thử lại."));
       }
     }
   }, [facingMode, stopStream]);
@@ -244,11 +245,11 @@ export default function CameraCaptureModal({
             <div className="relative w-full h-full flex items-center justify-center p-2">
               <img
                 src={previewUrl}
-                alt="Ảnh vừa chụp"
+                alt={t("Ảnh vừa chụp")}
                 className="max-h-[60vh] max-w-full object-contain rounded-lg shadow-lg"
               />
               <div className="absolute top-4 left-4 bg-emerald-600/90 text-white text-xs px-2.5 py-1 rounded-full font-medium shadow flex items-center gap-1.5">
-                <Check className="size-3.5" /> Ảnh đã chụp xong - Vui lòng kiểm tra
+                <Check className="size-3.5" /> {t("Ảnh đã chụp xong - Vui lòng kiểm tra")}
               </div>
             </div>
           ) : (
@@ -257,7 +258,7 @@ export default function CameraCaptureModal({
               {loading && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-900/90 text-slate-300 z-10">
                   <Loader2 className="size-8 animate-spin text-emerald-500" />
-                  <p className="text-xs sm:text-sm">Đang kết nối thiết bị Camera...</p>
+                  <p className="text-xs sm:text-sm">{t("Đang kết nối thiết bị Camera...")}</p>
                 </div>
               )}
 
@@ -268,21 +269,21 @@ export default function CameraCaptureModal({
                   </div>
                   {error === "PERMISSION_DENIED" ? (
                     <div className="max-w-md space-y-2">
-                      <h4 className="text-sm font-semibold text-white">Trình duyệt chưa được cấp quyền Camera</h4>
+                      <h4 className="text-sm font-semibold text-white">{t("Trình duyệt chưa được cấp quyền Camera")}</h4>
                       <p className="text-xs text-slate-400 leading-relaxed">
-                        Vui lòng bấm vào biểu tượng <strong className="text-white">Ổ khóa</strong> hoặc <strong className="text-white">Máy ảnh</strong> trên thanh địa chỉ của trình duyệt, chọn <strong className="text-emerald-400">Cho phép</strong> dùng camera, sau đó bấm nút Thử lại bên dưới.
+                        {t("Vui lòng bấm vào biểu tượng")} <strong className="text-white">{t("Ổ khóa")}</strong> {t("hoặc")} <strong className="text-white">{t("Máy ảnh")}</strong> {t("trên thanh địa chỉ của trình duyệt, chọn")} <strong className="text-emerald-400">{t("Cho phép")}</strong> {t("dùng camera, sau đó bấm nút Thử lại bên dưới.")}
                       </p>
                     </div>
                   ) : error === "NO_CAMERA_FOUND" ? (
                     <div className="max-w-md space-y-2">
-                      <h4 className="text-sm font-semibold text-white">Không tìm thấy camera</h4>
+                      <h4 className="text-sm font-semibold text-white">{t("Không tìm thấy camera")}</h4>
                       <p className="text-xs text-slate-400 leading-relaxed">
-                        Không phát hiện camera trên thiết bị này. Kiểm tra dây cắm camera, hoặc đóng hộp này và dùng nút <strong className="text-white">&quot;Chọn tệp&quot;</strong> để chọn ảnh có sẵn.
+                        {t("Không phát hiện camera trên thiết bị này. Kiểm tra dây cắm camera, hoặc đóng hộp này và dùng nút")} <strong className="text-white">{t("\"Chọn tệp\"")}</strong> {t("để chọn ảnh có sẵn.")}
                       </p>
                     </div>
                   ) : (
                     <div className="max-w-md space-y-2">
-                      <h4 className="text-sm font-semibold text-white">Lỗi Camera</h4>
+                      <h4 className="text-sm font-semibold text-white">{t("Lỗi Camera")}</h4>
                       <p className="text-xs text-slate-400">{error}</p>
                     </div>
                   )}
@@ -294,7 +295,7 @@ export default function CameraCaptureModal({
                       onClick={() => startCamera(facingMode)}
                       className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs gap-1.5"
                     >
-                      <RefreshCw className="size-3.5" /> Thử lại
+                      <RefreshCw className="size-3.5" /> {t("Thử lại")}
                     </Button>
                     <Button
                       type="button"
@@ -303,7 +304,7 @@ export default function CameraCaptureModal({
                       onClick={handleClose}
                       className="border-slate-700 text-slate-300 hover:bg-slate-800 text-xs"
                     >
-                      Đóng
+                      {t("Đóng")}
                     </Button>
                   </div>
                 </div>
@@ -338,7 +339,7 @@ export default function CameraCaptureModal({
                   type="button"
                   onClick={handleToggleCamera}
                   className="absolute top-4 right-4 z-20 size-9 rounded-full bg-slate-900/70 hover:bg-slate-900 text-white flex items-center justify-center border border-slate-700 shadow backdrop-blur transition-transform active:scale-95"
-                  title="Chuyển đổi Camera"
+                  title={t("Chuyển đổi Camera")}
                 >
                   <SwitchCamera className="size-4" />
                 </button>
@@ -358,14 +359,14 @@ export default function CameraCaptureModal({
                 onClick={handleRetake}
                 className="border-slate-700 text-slate-300 hover:bg-slate-800 text-xs gap-1.5 h-9"
               >
-                <RefreshCw className="size-3.5" /> Chụp lại
+                <RefreshCw className="size-3.5" /> {t("Chụp lại")}
               </Button>
               <Button
                 type="button"
                 onClick={handleConfirm}
                 className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs gap-1.5 h-9 px-5"
               >
-                <Check className="size-4" /> Sử dụng ảnh này
+                <Check className="size-4" /> {t("Sử dụng ảnh này")}
               </Button>
             </div>
           ) : (
@@ -376,7 +377,7 @@ export default function CameraCaptureModal({
                 onClick={handleClose}
                 className="text-xs text-slate-400 hover:text-white transition-colors"
               >
-                Hủy bỏ
+                {t("Hủy bỏ")}
               </button>
 
               {/* Nút Shutter tròn lớn ở trung tâm */}
@@ -385,7 +386,7 @@ export default function CameraCaptureModal({
                 onClick={handleSnap}
                 disabled={loading || Boolean(error)}
                 className="group relative flex size-14 items-center justify-center rounded-full border-4 border-white/80 bg-white/20 transition-all hover:scale-105 active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
-                title="Bấm để chụp ảnh"
+                title={t("Bấm để chụp ảnh")}
               >
                 <span className="size-10 rounded-full bg-white transition-transform group-hover:scale-90" />
               </button>

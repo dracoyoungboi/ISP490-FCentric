@@ -1,6 +1,7 @@
 import PrintRoutePage from "@/components/print/PrintRoutePage";
 import { toGoodsIssuePrintModel } from "@/components/print/adapters/goodsIssuePrintAdapter";
 import { phieuXuatKhoService } from '@/services/phieuXuatKhoService';
+import { t } from "@/i18n";
 
 /**
  * Trang in thật của phiếu xuất kho — dữ liệu API thật
@@ -72,26 +73,26 @@ export default function PhieuXuatKhoPrint() {
                 if (!payload) return null;
                 if (payload.pickedLotFailures?.length) {
                     return {
-                        title: "Không thể tải dữ liệu lô đã xuất",
+                        title: t("Không thể tải dữ liệu lô đã xuất"),
                         description:
-                            "Không thể tải lô đã chọn của một số dòng hàng. Bản in có thể thiếu dữ liệu — vui lòng thử lại.",
+                            t("Không thể tải lô đã chọn của một số dòng hàng. Bản in có thể thiếu dữ liệu — vui lòng thử lại."),
                     };
                 }
                 if (payload.availableLotFailures?.length && payload.hasPicks) {
                     return {
-                        title: "Không thể tải tên lô",
+                        title: t("Không thể tải tên lô"),
                         description:
-                            "Không thể tải tên lô từ kho. Bản in có thể hiển thị sai tên lô — vui lòng thử lại.",
+                            t("Không thể tải tên lô từ kho. Bản in có thể hiển thị sai tên lô — vui lòng thử lại."),
                     };
                 }
                 return null;
             }}
             adapter={toGoodsIssuePrintModel}
             backPath="/goods-issues/:id"
-            loadingLabel="Đang tải dữ liệu phiếu xuất kho"
-            titleFallback="In phiếu xuất kho"
-            notFoundTitle="Không tìm thấy phiếu xuất kho"
-            notFoundDescription="Phiếu có thể đã bị xóa hoặc bạn không có quyền truy cập."
+            loadingLabel={t("Đang tải dữ liệu phiếu xuất kho")}
+            titleFallback={t("In phiếu xuất kho")}
+            notFoundTitle={t("Không tìm thấy phiếu xuất kho")}
+            notFoundDescription={t("Phiếu có thể đã bị xóa hoặc bạn không có quyền truy cập.")}
         />
     );
 }

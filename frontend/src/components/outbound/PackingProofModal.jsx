@@ -8,6 +8,7 @@ import DongThongBao, { NutChu } from "@/components/chung-tu/DongThongBao";
 import { dongGoiService } from "@/services/dongGoiService";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { formatDate } from "@/utils/formatters";
+import { t } from "@/i18n";
 
 export default function PackingProofModal({
   isOpen,
@@ -41,7 +42,7 @@ export default function PackingProofModal({
       if (donDangMoRef.current === donId) setData(res);
     } catch (err) {
       if (donDangMoRef.current === donId) {
-        const cau = getApiErrorMessage(err, "Không tải được bằng chứng đóng gói");
+        const cau = getApiErrorMessage(err, t("Không tải được bằng chứng đóng gói"));
         setLoi(cau);
         toast.error(cau);
       }
@@ -87,14 +88,14 @@ export default function PackingProofModal({
           <div className="flex items-center gap-2">
             <ShieldCheck className="size-5 text-bo-primary" aria-hidden="true" />
             <h3 id="hop-bang-chung-tieu-de" className="text-base font-semibold text-slate-800">
-              Bằng chứng đóng gói · Đơn {soDonHang || data?.soDonHang || `#${donId}`}
+              {t("Bằng chứng đóng gói · Đơn {{so}}", { so: soDonHang || data?.soDonHang || `#${donId}` })}
             </h3>
           </div>
           <button
             ref={nutDongRef}
             type="button"
             onClick={dong}
-            aria-label="Đóng"
+            aria-label={t("Đóng")}
             className="rounded-lg p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition-colors"
           >
             <X className="size-5" aria-hidden="true" />
@@ -104,18 +105,18 @@ export default function PackingProofModal({
         {/* Body */}
         <div className="p-5 overflow-y-auto space-y-4">
           {loading && !data ? (
-            <LoadingState className="min-h-48" label="Đang tải thông tin bằng chứng" />
+            <LoadingState className="min-h-48" label={t("Đang tải thông tin bằng chứng")} />
           ) : !data && loi ? (
             // Không tải được: không vẽ ô trống (trông như đơn chưa có bằng chứng, hoặc sai số ô ảnh / video)
-            <DongThongBao tone="bad" actions={<NutChu onClick={fetchProofs}>Thử lại</NutChu>}>
-              Không tải được bằng chứng của đơn: {loi.replace(/[.!\s]+$/, "")}.
+            <DongThongBao tone="bad" actions={<NutChu onClick={fetchProofs}>{t("Thử lại")}</NutChu>}>
+              {t("Không tải được bằng chứng của đơn: {{loi}}.", { loi: loi.replace(/[.!\s]+$/, "") })}
             </DongThongBao>
           ) : readOnly && data && !data.danhSachBangChung?.length ? (
             // Chỉ xem mà không còn tệp: nói rõ lý do thay vì vẽ ô trống "Chưa có ảnh" (không ai chụp thêm được nữa)
             <p className="py-8 text-center text-sm text-bo-muted">
               {data.ngayTuXoa
-                ? `Tệp bằng chứng đã tự xóa sau hạn lưu (hết hạn ${formatDate(data.ngayTuXoa)}).`
-                : "Đơn không có bằng chứng đóng gói."}
+                ? t("Tệp bằng chứng đã tự xóa sau hạn lưu (hết hạn {{ngayTuXoa}}).", { ngayTuXoa: formatDate(data.ngayTuXoa) })
+                : t("Đơn không có bằng chứng đóng gói.")}
             </p>
           ) : (
             <PackingProofSection
@@ -148,7 +149,7 @@ export default function PackingProofModal({
             onClick={dong}
             className="rounded-md border border-slate-300 bg-bo-surface px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors"
           >
-            Đóng
+            {t("Đóng")}
           </button>
         </div>
       </div>
@@ -158,9 +159,9 @@ export default function PackingProofModal({
         onDoiMo={(mo) => {
           if (!mo) setHoiDong(false);
         }}
-        tieuDe="Đóng khi bằng chứng chưa lưu xong?"
-        moTa="Video đang quay hoặc tệp đang tải lên sẽ bị bỏ, phải chụp, quay hoặc chọn tệp lại."
-        nhanXacNhan="Đóng"
+        tieuDe={t("Đóng khi bằng chứng chưa lưu xong?")}
+        moTa={t("Video đang quay hoặc tệp đang tải lên sẽ bị bỏ, phải chụp, quay hoặc chọn tệp lại.")}
+        nhanXacNhan={t("Đóng")}
         kieu="nguyHiem"
         onXacNhan={() => {
           setHoiDong(false);

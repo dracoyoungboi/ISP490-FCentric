@@ -27,6 +27,7 @@ import { getApiErrorMessage } from "@/utils/apiError";
 import { getCurrentUserId, hasAnyRole, ROLES } from "@/utils/roles";
 import { normalizeText } from "@/mocks/mockHelpers";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 /**
  * Phân công người nhặt cho phiếu nhặt hàng (màn chi tiết và danh sách phiếu nhặt). Kiểu hộp chung của các màn chứng từ
@@ -70,8 +71,8 @@ export default function AssignPickerDialog({ open, onOpenChange, pickList, onAss
       })
       .catch((error) => {
         if (cancelled) return;
-        const cau = cauMayChuPhieuNhat(getApiErrorMessage(error, "Chưa lấy được danh sách nhân viên kho"));
-        setStaffError(`${/[.!?]$/.test(cau) ? cau : `${cau}.`} Bạn vẫn có thể nhận việc cho mình.`);
+        const cau = cauMayChuPhieuNhat(getApiErrorMessage(error, t("Chưa lấy được danh sách nhân viên kho")));
+        setStaffError(t("{{cau}} Bạn vẫn có thể nhận việc cho mình.", { cau: /[.!?]$/.test(cau) ? cau : `${cau}.` }));
       })
       .finally(() => {
         if (!cancelled) setLoadingStaff(false);
@@ -98,11 +99,11 @@ export default function AssignPickerDialog({ open, onOpenChange, pickList, onAss
     setDangChay(thaoTac);
     try {
       const dto = await nhatHangService.phanCong(pickList.id, { nguoiNhatId });
-      toast.success(`Đã phân công ${pickList.maPickList} cho ${dto?.tenNguoiNhat || "nhân viên"}`);
+      toast.success(t("Đã phân công {{maPickList}} cho {{nguoiNhat}}", { maPickList: pickList.maPickList, nguoiNhat: dto?.tenNguoiNhat || t("nhân viên") }));
       onAssigned?.(dto);
       dongHop();
     } catch (error) {
-      toast.error(cauMayChuPhieuNhat(getApiErrorMessage(error, "Không thể phân công người nhặt")));
+      toast.error(cauMayChuPhieuNhat(getApiErrorMessage(error, t("Không thể phân công người nhặt"))));
       if (thaoTac === "phanCong") setLanTai((n) => n + 1);
     } finally {
       savingRef.current = false;
@@ -114,10 +115,10 @@ export default function AssignPickerDialog({ open, onOpenChange, pickList, onAss
     <Dialog open={open} onOpenChange={(next) => !saving && (next ? onOpenChange(next) : dongHop())}>
       <DialogContent showCloseButton={false} className={HOP}>
         <DialogHeader className={DAU_HOP}>
-          <DialogTitle className={TIEU_DE_HOP}>Phân công người nhặt</DialogTitle>
+          <DialogTitle className={TIEU_DE_HOP}>{t("Phân công người nhặt")}</DialogTitle>
           <DialogDescription className={MO_TA_HOP}>
-            {pickList ? `Phiếu nhặt hàng ${pickList.maPickList}` : ""}
-            {pickList?.tenNguoiNhat ? ` · đang giao cho ${pickList.tenNguoiNhat}` : " · chưa có người nhặt"}
+            {pickList ? t("Phiếu nhặt hàng {{maPickList}}", { maPickList: pickList.maPickList }) : ""}
+            {pickList?.tenNguoiNhat ? t(" · đang giao cho {{tenNguoiNhat}}", { tenNguoiNhat: pickList.tenNguoiNhat }) : t(" · chưa có người nhặt")}
           </DialogDescription>
         </DialogHeader>
 
@@ -126,7 +127,7 @@ export default function AssignPickerDialog({ open, onOpenChange, pickList, onAss
             <div className="space-y-3">
               <SearchInput
                 className="sm:max-w-none"
-                placeholder="Tìm theo tên hoặc tài khoản"
+                placeholder={t("Tìm theo tên hoặc tài khoản")}
                 value={keyword}
                 onChange={(event) => setKeyword(event.target.value)}
                 onClear={() => setKeyword("")}
@@ -134,16 +135,16 @@ export default function AssignPickerDialog({ open, onOpenChange, pickList, onAss
               <div className="max-h-64 overflow-y-auto rounded-lg border border-bo-border">
                 {loadingStaff ? (
                   <div className="flex items-center justify-center gap-2 px-3 py-8 text-sm text-bo-muted">
-                    <Loader2 className="size-4 animate-spin" /> Đang tải nhân viên kho
+                    <Loader2 className="size-4 animate-spin" /> {t("Đang tải nhân viên kho")}
                   </div>
                 ) : staffError ? (
                   <p className="px-3 py-6 text-center text-sm text-bo-muted">{staffError}</p>
                 ) : staff.length === 0 ? (
                   <p className="px-3 py-6 text-center text-sm text-bo-muted">
-                    Chưa có nhân viên kho nào được phân quyền ở {pickList?.tenKhoXuat || "kho này"}. Bạn vẫn có thể nhận việc cho mình.
+                    {t("Chưa có nhân viên kho nào được phân quyền ở {{kho}}. Bạn vẫn có thể nhận việc cho mình.", { kho: pickList?.tenKhoXuat || t("kho này") })}
                   </p>
                 ) : filteredStaff.length === 0 ? (
-                  <p className="px-3 py-6 text-center text-sm text-bo-muted">Không có nhân viên phù hợp.</p>
+                  <p className="px-3 py-6 text-center text-sm text-bo-muted">{t("Không có nhân viên phù hợp.")}</p>
                 ) : (
                   <ul className="divide-y divide-bo-border">
                     {filteredStaff.map((person) => {
@@ -161,7 +162,7 @@ export default function AssignPickerDialog({ open, onOpenChange, pickList, onAss
                             <span className="min-w-0">
                               <span className="block truncate text-sm font-semibold text-bo-foreground">{person.hoTen}</span>
                               <span className="block truncate text-xs text-bo-muted">
-                                {person.tenDangNhap || "—"} · {person.vaiTro === ROLES.QUAN_LY_KHO ? "Quản lý kho" : "Nhân viên kho"}
+                                {person.tenDangNhap || "—"} · {person.vaiTro === ROLES.QUAN_LY_KHO ? t("Quản lý kho") : t("Nhân viên kho")}
                               </span>
                             </span>
                             {active ? <Check className="size-4 shrink-0 text-bo-primary" /> : null}
@@ -176,7 +177,7 @@ export default function AssignPickerDialog({ open, onOpenChange, pickList, onAss
           ) : (
             <div className={cn("flex items-start gap-3", GHI_CHU_HOP)}>
               <Users className="mt-0.5 size-4 shrink-0 text-bo-muted" />
-              <p>Bạn có thể nhận phiếu nhặt hàng này để bắt đầu nhặt hàng. Quản lý kho có thể phân công lại sau.</p>
+              <p>{t("Bạn có thể nhận phiếu nhặt hàng này để bắt đầu nhặt hàng. Quản lý kho có thể phân công lại sau.")}</p>
             </div>
           )}
         </div>
@@ -189,7 +190,7 @@ export default function AssignPickerDialog({ open, onOpenChange, pickList, onAss
             onClick={dongHop}
             className={NUT_QUAY_LAI}
           >
-            Quay lại
+            {t("Quay lại")}
           </Button>
           {/* Nhân viên kho chỉ có việc này: nút chính; quản lý còn nút Phân công nên đây là nút viền */}
           <Button
@@ -200,7 +201,7 @@ export default function AssignPickerDialog({ open, onOpenChange, pickList, onAss
             className={canAssignOthers ? cn("gap-1.5", NUT_QUAY_LAI) : NUT_CHINH}
           >
             {dangChay === "nhanViec" ? <Loader2 className="size-4 animate-spin" /> : <UserCheck className="size-4" />}
-            Nhận việc cho tôi
+            {t("Nhận việc cho tôi")}
           </Button>
           {canAssignOthers ? (
             <Button
@@ -210,7 +211,7 @@ export default function AssignPickerDialog({ open, onOpenChange, pickList, onAss
               className={NUT_CHINH}
             >
               {dangChay === "phanCong" ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
-              Phân công
+              {t("Phân công")}
             </Button>
           ) : null}
         </div>

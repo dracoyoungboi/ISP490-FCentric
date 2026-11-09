@@ -6,6 +6,7 @@
  */
 import { PHIEU_XUAT_CHUA_XUAT, TRANG_THAI_PHIEU_XUAT } from "../../../constants/trangThaiXuatBan.js";
 import { cauChungTuRong, docSo, soVN } from "../../chung-tu/bangChungTu.js";
+import { t } from "../../../i18n/t.js";
 
 export const LOAI_XUAT = Object.freeze({ BAN_HANG: "ban_hang", CHUYEN_KHO: "chuyen_kho" });
 
@@ -34,8 +35,8 @@ const DA_XUAT = new Set([TRANG_THAI_PHIEU_XUAT.DA_XUAT, 5]);
 
 function thoiDiem(value) {
   if (value == null || value === "") return null;
-  const t = value instanceof Date ? value.getTime() : new Date(value).getTime();
-  return Number.isFinite(t) ? t : null;
+  const ms = value instanceof Date ? value.getTime() : new Date(value).getTime();
+  return Number.isFinite(ms) ? ms : null;
 }
 
 /** Chuỗi trống hoặc "N/A" (backend ghi khi thiếu đơn vị vận chuyển / mã vận đơn) → null. */
@@ -212,61 +213,61 @@ export function tinhBuocPhieuXuat({ phieu, laPos = false, soDong = 0, soDongDuLo
   const daXuat = laDaXuat(phieu);
 
   if (phieu.loaiXuat === LOAI_XUAT.CHUYEN_KHO) {
-    const tao = { ma: "tao", nhan: "Tạo phiếu", trangThai: "xong", ngay: phieu.ngayTao, coGio: true };
-    const phuLo = `${soVN(soDongDuLo)}/${soVN(soDong)} dòng đủ lô`;
+    const tao = { ma: "tao", nhan: t("Tạo phiếu"), trangThai: "xong", ngay: phieu.ngayTao, coGio: true };
+    const phuLo = t("{{soDongDuLo}}/{{soDong}} dòng đủ lô", { soDongDuLo: soVN(soDongDuLo), soDong: soVN(soDong) });
     const duLo = soDong > 0 && soDongDuLo >= soDong;
-    const chua = { ma: "xuat", nhan: "Xác nhận xuất", trangThai: "chua" };
+    const chua = { ma: "xuat", nhan: t("Xác nhận xuất"), trangThai: "chua" };
     if (tt === TRANG_THAI_PHIEU_XUAT.NHAP) {
       return duLo
         ? [
           tao,
-          { ma: "chonLo", nhan: "Chọn lô", trangThai: "xong", phu: phuLo },
-          { ma: "xuat", nhan: "Xác nhận xuất", trangThai: "dangLam", phu: "Ở phiếu chuyển kho" },
+          { ma: "chonLo", nhan: t("Chọn lô"), trangThai: "xong", phu: phuLo },
+          { ma: "xuat", nhan: t("Xác nhận xuất"), trangThai: "dangLam", phu: t("Ở phiếu chuyển kho") },
         ]
-        : [tao, { ma: "chonLo", nhan: "Chọn lô", trangThai: "dangLam", phu: phuLo }, chua];
+        : [tao, { ma: "chonLo", nhan: t("Chọn lô"), trangThai: "dangLam", phu: phuLo }, chua];
     }
     if (daXuat) {
       return [
         tao,
-        { ma: "chonLo", nhan: "Chọn lô", trangThai: "xong", phu: phuLo },
-        { ma: "xuat", nhan: "Xác nhận xuất", trangThai: "xong", ngay: phieu.ngayXuat, coGio: true },
+        { ma: "chonLo", nhan: t("Chọn lô"), trangThai: "xong", phu: phuLo },
+        { ma: "xuat", nhan: t("Xác nhận xuất"), trangThai: "xong", ngay: phieu.ngayXuat, coGio: true },
       ];
     }
     if (tt === TRANG_THAI_PHIEU_XUAT.DA_HUY) {
-      return [tao, { ma: "huy", nhan: "Đã hủy", trangThai: "dung", phu: "Trước khi xuất" }, chua];
+      return [tao, { ma: "huy", nhan: t("Đã hủy"), trangThai: "dung", phu: t("Trước khi xuất") }, chua];
     }
     return [];
   }
 
   // Loại khác (vd. dòng phiếu chuyển cũ "khac" còn trong phieu_xuat_kho trước khi dọn): không đoán tiến trình
   if (phieu.loaiXuat !== LOAI_XUAT.BAN_HANG) return [];
-  const nhat = { ma: "nhat", nhan: "Nhặt hàng", trangThai: "xong", ngay: phieu.ngayTao, coGio: true };
+  const nhat = { ma: "nhat", nhan: t("Nhặt hàng"), trangThai: "xong", ngay: phieu.ngayTao, coGio: true };
   if (tt === TRANG_THAI_PHIEU_XUAT.NHAP) {
     return [
       nhat,
-      { ma: "dongGoi", nhan: "Đóng gói", trangThai: "dangLam", phu: "Chờ đóng gói" },
-      { ma: "xuat", nhan: "Xuất kho", trangThai: "chua" },
+      { ma: "dongGoi", nhan: t("Đóng gói"), trangThai: "dangLam", phu: t("Chờ đóng gói") },
+      { ma: "xuat", nhan: t("Xuất kho"), trangThai: "chua" },
     ];
   }
   if (tt === TRANG_THAI_PHIEU_XUAT.CHO_XUAT) {
     return [
       nhat,
-      { ma: "dongGoi", nhan: "Đóng gói", trangThai: "xong" },
-      { ma: "xuat", nhan: "Xuất kho", trangThai: "dangLam", phu: "Chờ xác nhận" },
+      { ma: "dongGoi", nhan: t("Đóng gói"), trangThai: "xong" },
+      { ma: "xuat", nhan: t("Xuất kho"), trangThai: "dangLam", phu: t("Chờ xác nhận") },
     ];
   }
   if (daXuat) {
     return [
       nhat,
-      { ma: "dongGoi", nhan: "Đóng gói", trangThai: "xong" },
-      { ma: "xuat", nhan: "Xuất kho", trangThai: "xong", ngay: phieu.ngayXuat, coGio: true },
+      { ma: "dongGoi", nhan: t("Đóng gói"), trangThai: "xong" },
+      { ma: "xuat", nhan: t("Xuất kho"), trangThai: "xong", ngay: phieu.ngayXuat, coGio: true },
     ];
   }
   if (tt === TRANG_THAI_PHIEU_XUAT.DA_HUY) {
     return [
       nhat,
-      { ma: "dongGoi", nhan: "Đóng gói", trangThai: "chua" },
-      { ma: "huy", nhan: "Đã hủy", trangThai: "dung", phu: "Trước khi xuất kho" },
+      { ma: "dongGoi", nhan: t("Đóng gói"), trangThai: "chua" },
+      { ma: "huy", nhan: t("Đã hủy"), trangThai: "dung", phu: t("Trước khi xuất kho") },
     ];
   }
   return [];
@@ -310,7 +311,7 @@ export function quyenPhieuXuat({ phieu, laQuanLy = false, laPos = false } = {}) 
   return {
     coHuy: Boolean(laQuanLy) && !laPos && !laCk && PHIEU_XUAT_CHUA_XUAT.includes(tt),
     suaLo: laCk ? tt === TRANG_THAI_PHIEU_XUAT.NHAP && !phieuNhat : Boolean(laQuanLy) && chuaXuat,
-    nhanNutLo: laCk ? "Chọn lô" : "Sửa lô",
+    nhanNutLo: laCk ? t("Chọn lô") : t("Sửa lô"),
     nutChinh,
     phieuNhat,
     coIn: tt !== TRANG_THAI_PHIEU_XUAT.DA_HUY,
@@ -319,8 +320,8 @@ export function quyenPhieuXuat({ phieu, laQuanLy = false, laPos = false } = {}) 
 
 /** Lý do khóa nút xuất / vận chuyển, null khi được bấm. */
 export function lyDoKhoaXuat({ laCk = false, soDong = 0, soThieu = 0 } = {}) {
-  if (!soDong) return cauChungTuRong("phiếu xuất kho", { dauCham: false });
-  if (soThieu > 0) return laCk ? `Còn ${soVN(soThieu)} dòng chưa chọn đủ lô` : `Còn ${soVN(soThieu)} dòng chưa đủ lô`;
+  if (!soDong) return cauChungTuRong(t("phiếu xuất kho"), { dauCham: false });
+  if (soThieu > 0) return laCk ? t("Còn {{soThieu}} dòng chưa chọn đủ lô", { count: soThieu, soThieu: soVN(soThieu) }) : t("Còn {{soThieu}} dòng chưa đủ lô", { count: soThieu, soThieu: soVN(soThieu) });
   return null;
 }
 
@@ -331,12 +332,12 @@ export function lyDoKhoaXuat({ laCk = false, soDong = 0, soThieu = 0 } = {}) {
 export function cauThieuLo({ laCk = false, laQuanLy = false, soThieu = 0, phieuNhat = null } = {}) {
   const n = soVN(soThieu);
   if (laCk && phieuNhat) {
-    return `Còn ${n} dòng chưa đủ lô. Nhặt hàng theo phiếu nhặt${phieuNhat.ma ? ` ${phieuNhat.ma}` : ""}; hoàn tất nhặt thì lô tự ghi vào phiếu này.`;
+    return t("Còn {{n}} dòng chưa đủ lô. Nhặt hàng theo phiếu nhặt{{maPhieuNhat}}; hoàn tất nhặt thì lô tự ghi vào phiếu này.", { count: soThieu, n, maPhieuNhat: phieuNhat.ma ? ` ${phieuNhat.ma}` : "" });
   }
-  if (laCk) return `Còn ${n} dòng chưa chọn đủ lô. Chọn lô xong mới xác nhận xuất ở phiếu chuyển kho được.`;
+  if (laCk) return t("Còn {{n}} dòng chưa chọn đủ lô. Chọn lô xong mới xác nhận xuất ở phiếu chuyển kho được.", { count: soThieu, n });
   return laQuanLy
-    ? `Còn ${n} dòng chưa đủ lô nên chưa xuất kho được. Bấm Sửa lô ở dòng thiếu để chọn lô còn hàng.`
-    : `Còn ${n} dòng chưa đủ lô nên chưa xuất kho được. Báo quản lý kho sửa lô cho các dòng thiếu.`;
+    ? t("Còn {{n}} dòng chưa đủ lô nên chưa xuất kho được. Bấm Sửa lô ở dòng thiếu để chọn lô còn hàng.", { count: soThieu, n })
+    : t("Còn {{n}} dòng chưa đủ lô nên chưa xuất kho được. Báo quản lý kho sửa lô cho các dòng thiếu.", { count: soThieu, n });
 }
 
 /**
