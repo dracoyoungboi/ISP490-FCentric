@@ -60,6 +60,7 @@ import useScanQueue from "@/hooks/useScanQueue";
 import { lamViecTaiKho } from "@/components/chuyen-kho/lamViecTaiKho";
 import { cauAnhChuaTai, taiLanLuot } from "@/components/chuyen-kho/anhBienBan";
 import useAnhChon from "@/components/chuyen-kho/useAnhChon";
+import { henXepKe } from "@/components/kiem-ke/henXepKe";
 import useQuayLai from "@/hooks/useQuayLai";
 import { cn } from "@/lib/utils";
 import ChonAnhBienBan from "./ChonAnhBienBan";
@@ -592,6 +593,8 @@ function ManNhanHang({ id }) {
         if (daGoRef.current) return;
         setDangChay(false);
         setHop(null);
+        // Chi tiết phiếu mở hộp "Xếp kệ hàng vừa nhận" nếu hàng vừa nhận còn chưa có kệ ở kho nhận
+        henXepKe(id);
         veChiTiet();
     }
 
