@@ -318,7 +318,8 @@ test("quy trình: bước và hủy không trùng, luôn có nhãn đạt tổng
     assert.equal(viTri?.kieu, "vong", `${qt}: "${nhan}"`);
     assert.equal(viTri.buoc, 0, `${qt}: "${nhan}"`);
   }
-  assert.match(badge, /viTri\.buoc === 0\) return <span className="sr-only">\{", chưa bắt đầu"\}<\/span>/, "bước 0 đọc \"chưa bắt đầu\"");
+  // Câu đọc đi qua t() (đa ngôn ngữ): khóa vẫn là câu tiếng Việt cũ
+  assert.match(badge, /viTri\.buoc === 0\) return <span className="sr-only">\{t\(", chưa bắt đầu"\)\}<\/span>/, "bước 0 đọc \"chưa bắt đầu\"");
 });
 
 test("nhãn không phải chuỗi không làm hỏng cách vẽ", () => {
