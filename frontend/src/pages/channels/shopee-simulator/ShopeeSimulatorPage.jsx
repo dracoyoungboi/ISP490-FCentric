@@ -206,16 +206,6 @@ function BuyerStorefrontView() {
             trừ tồn giữ chỗ tự động!
           </p>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={taiSanPham}
-            disabled={loading}
-            className="flex items-center gap-1.5 bg-white text-[#EE4D2D] hover:bg-orange-50 px-4 py-2 rounded-xl text-sm font-semibold shadow-sm transition-colors"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-            <span>Làm mới tồn sàn</span>
-          </button>
-        </div>
       </div>
 
       {/* Thanh tìm kiếm */}
@@ -966,7 +956,7 @@ function AppAuthManagementView({ authStatus, loading, onRefresh }) {
     ];
 
     return (
-      <div className="max-w-3xl mx-auto py-4 space-y-6">
+      <div className="max-w-4xl mx-auto py-6 space-y-6">
         {/* Breadcrumb phong cách Shopee Seller */}
         <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
           <span>Shopee Seller Center</span>
@@ -1008,32 +998,32 @@ function AppAuthManagementView({ authStatus, loading, onRefresh }) {
 
           {/* Thẻ chi tiết Ứng dụng FCentric */}
           <div className="p-6 space-y-6">
-            <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-inner font-extrabold text-xl tracking-wider">
+            <div className="bg-slate-50/80 rounded-2xl p-6 border border-slate-200/90 flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
+              <div className="flex items-start sm:items-center gap-4">
+                <div className="w-14 h-14 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center text-white shadow-md font-extrabold text-xl tracking-wider shrink-0">
                   FC
                 </div>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
+                <div className="space-y-1.5">
+                  <div className="flex flex-wrap items-center gap-2">
                     <h3 className="font-extrabold text-base text-slate-800">{authStatus.appName || "FCentric Omnichannel Hub & WMS"}</h3>
-                    <span className="bg-orange-100 text-[#EE4D2D] text-[10px] font-bold px-2 py-0.5 rounded border border-orange-200">
+                    <span className="bg-orange-100 text-[#EE4D2D] text-[10px] font-bold px-2 py-0.5 rounded border border-orange-200 shrink-0">
                       Shopee Certified Partner
                     </span>
                   </div>
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 font-medium">
-                    <span>Mã đối tác (Partner ID): <strong className="font-mono text-slate-700">{authStatus.partnerId || 1000888}</strong></span>
-                    <span>•</span>
-                    <span>Nhà phát triển: <strong className="text-slate-700">{authStatus.developerName || "FCentric Technology JSC"}</strong></span>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+                    <span>Mã đối tác (Partner ID): <strong className="font-mono text-slate-700 font-semibold">{authStatus.partnerId || 1000888}</strong></span>
+                    <span className="hidden sm:inline text-slate-300">•</span>
+                    <span>Nhà phát triển: <strong className="text-slate-700 font-semibold">{authStatus.developerName || "FCentric Technology JSC"}</strong></span>
                   </div>
                 </div>
               </div>
 
-              <div className="flex sm:flex-col items-end gap-1.5 shrink-0">
-                <span className="inline-flex items-center gap-1.5 bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full text-xs font-bold border border-emerald-300">
+              <div className="flex flex-row md:flex-col items-start md:items-end justify-between w-full md:w-auto gap-2 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-200/60">
+                <span className="inline-flex items-center gap-1.5 bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full text-xs font-bold border border-emerald-300 shrink-0">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                   Đang hoạt động (Connected)
                 </span>
-                <span className="text-[11px] text-slate-400">Hiệu lực: Còn 364 ngày</span>
+                <span className="text-[11px] text-slate-400 font-medium">Hiệu lực: Còn 364 ngày</span>
               </div>
             </div>
 
@@ -1058,16 +1048,16 @@ function AppAuthManagementView({ authStatus, loading, onRefresh }) {
             </div>
 
             {/* Cảnh báo bảo mật & Thao tác */}
-            <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <p className="text-xs text-slate-400 text-center sm:text-left">
+            <div className="pt-5 border-t border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <p className="text-xs text-slate-400 leading-relaxed max-w-md">
                 Bạn có thể ngắt kết nối bất kỳ lúc nào nếu không còn sử dụng dịch vụ quản lý kho của ứng dụng này.
               </p>
 
-              <div className="flex items-center gap-2.5 w-full sm:w-auto">
+              <div className="flex items-center gap-3 w-full md:w-auto justify-end shrink-0">
                 <Link
                   to="/channels/shopee-sandbox"
                   target="_blank"
-                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors"
+                  className="flex-1 md:flex-none inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors whitespace-nowrap"
                 >
                   <span>Mở FCentric</span>
                   <ExternalLink className="w-3.5 h-3.5" />
@@ -1076,7 +1066,7 @@ function AppAuthManagementView({ authStatus, loading, onRefresh }) {
                 <button
                   onClick={handleRevoke}
                   disabled={revoking}
-                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold shadow-xs transition-colors disabled:opacity-50"
+                  className="flex-1 md:flex-none inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold shadow-xs transition-colors disabled:opacity-50 whitespace-nowrap"
                 >
                   {revoking ? (
                     <>
