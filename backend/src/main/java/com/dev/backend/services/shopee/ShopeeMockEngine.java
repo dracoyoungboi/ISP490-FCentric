@@ -5,6 +5,7 @@ import com.dev.backend.entities.BienTheSanPham;
 import com.dev.backend.entities.ShopeeMockOrder;
 import com.dev.backend.entities.ShopeeMockProduct;
 import com.dev.backend.repository.BienTheSanPhamRepository;
+import com.dev.backend.repository.KenhBanHangRepository;
 import com.dev.backend.repository.ShopeeMockOrderRepository;
 import com.dev.backend.repository.ShopeeMockProductRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -36,6 +37,7 @@ public class ShopeeMockEngine {
     ShopeeMockProductRepository productRepository;
     ShopeeMockOrderRepository orderRepository;
     BienTheSanPhamRepository bienTheSanPhamRepository;
+    KenhBanHangRepository kenhBanHangRepository;
     ObjectMapper objectMapper;
     Random random = new Random();
 
@@ -536,5 +538,106 @@ public class ShopeeMockEngine {
         productRepository.deleteAll();
         initMockProductsIfEmpty();
         log.info("[SHOPEE-MOCK] Đã thiết lập lại toàn bộ dữ liệu sàn Shopee Sandbox");
+    }
+
+    /**
+     * Tra cứu trạng thái ủy quyền hiện tại của Ứng dụng FCentric trên gian hàng Shopee Mock.
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> getAppAuthStatus() {
+        Optional<com.dev.backend.entities.KenhBanHang> opt = kenhBanHangRepository.findByMaKenh("SHOPEE_SANDBOX");
+        if (opt.isEmpty()) {
+            opt = kenhBanHangRepository.findByMaKenh("SHOPEE");
+        }
+
+        boolean isAuthorized = false;
+        String appName = "FCentric Omnichannel Hub & WMS";
+        long partnerId = 1000888L;
+        String developerName = "FCentric Technology JSC";
+        String shopName = "FCentric Official Store";
+        long shopId = 10892019L;
+        long authorizedAt = Instant.now().getEpochSecond() - 86400L;
+        long expireAt = Instant.now().getEpochSecond() + (365L * 86400L);
+
+        if (opt.isPresent()) {
+            com.dev.backend.entities.KenhBanHang kenh = opt.get();
+            if (Objects.equals(kenh.getTrangThai(), 1)) {
+                isAuthorized = true;
+                if (kenh.getTenKenh() != null && !kenh.getTenKenh().isBlank()) {
+                    shopName = kenh.getTenKenh();
+                }
+            }
+        }
+
+        Map<String, Object> res = new LinkedHashMap<>();
+        res.put("isAuthorized", isAuthorized);
+        res.put("appName", appName);
+        res.put("partnerId", partnerId);
+        res.put("developerName", developerName);
+        res.put("shopName", shopName);
+        res.put("shopId", shopId);
+        res.put("authorizedAt", authorizedAt);
+        res.put("expireAt", expireAt);
+
+        List<Map<String, String>> scopes = List.of(
+                Map.of("code", "product", "name", "Quản lý sản phẩm & tồn kho", "desc", "Đồng bộ danh mục, cập nhật số lượng tồn kho tự động theo thời gian thực"),
+                Map.of("code", "order", "name", "Quản lý đơn hàng", "desc", "Đọc đơn hàng mới, cập nhật trạng thái đơn và đồng bộ hủy đơn hai chiều"),
+                Map.of("code", "logistics", "name", "Hậu cần & Vận chuyển SPX", "desc", "Cấp mã vận đơn Shopee Xpress, in tem nhãn nhiệt A6 chuẩn sàn"),
+                Map.of("code", "payment", "name", "Quyết toán ví Shopee & Escrow", "desc", "Bóc tách doanh thu thực nhận, phí cố định và phí dịch vụ sàn")
+        );
+        res.put("scopes", scopes);
+        return res;
+    }
+
+    /**
+     * Thu hồi quyền ủy quyền của ứng dụng FCentric từ phía Kênh Người Bán Shopee (Deauthorize).
+     */
+    @Transactional
+    public boolean revokeAppAuth() {
+        Optional<com.dev.backend.entities.KenhBanHang> opt = kenhBanHangRepository.findByMaKenh("SHOPEE_SANDBOX");
+        if (opt.isPresent()) {
+            com.dev.backend.entities.KenhBanHang kenh = opt.get();
+            kenh.setTrangThai(0);
+            kenhBanHangRepository.save(kenh);
+            log.info("[SHOPEE-MOCK-AUTH] Gian hàng Shopee đã thu hồi quyền ủy quyền của ứng dụng FCentric");
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Lấy danh sách Item ID cho ShopeeClient Sandbox.
+     */
+    @Transactional(readOnly = true)
+    public List<Long> getMockItemIds() {
+        initMockProductsIfEmpty();
+        return productRepository.findAll().stream()
+                .map(ShopeeMockProduct::getItemId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+    }
+
+    /**
+     * Lấy thông tin sản phẩm cha theo danh sách Item ID.
+     */
+    @Transactional(readOnly = true)
+    public List<ShopeeMockProduct> getMockProductsByItemIds(List<Long> itemIds) {
+        initMockProductsIfEmpty();
+        if (itemIds == null || itemIds.isEmpty()) return productRepository.findAll();
+        return productRepository.findAll().stream()
+                .filter(p -> itemIds.contains(p.getItemId()))
+                .toList();
+    }
+
+    /**
+     * Lấy danh sách biến thể theo Item ID.
+     */
+    @Transactional(readOnly = true)
+    public List<ShopeeMockProduct> getMockModelsByItemId(Long itemId) {
+        initMockProductsIfEmpty();
+        return productRepository.findAll().stream()
+                .filter(p -> Objects.equals(p.getItemId(), itemId))
+                .toList();
     }
 }

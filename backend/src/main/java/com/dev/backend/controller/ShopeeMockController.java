@@ -133,6 +133,35 @@ public class ShopeeMockController {
     }
 
     // =========================================================================
+    // 3. QUẢN LÝ ỦY QUYỀN ỨNG DỤNG ĐỐI TÁC (APP AUTHORIZATION MANAGEMENT)
+    // =========================================================================
+
+    /**
+     * Lấy trạng thái ủy quyền hiện tại của Ứng dụng FCentric trên gian hàng Shopee.
+     */
+    @GetMapping("/app-auth")
+    public ResponseData<Map<String, Object>> getAppAuthStatus() {
+        return ResponseData.<Map<String, Object>>builder()
+                .status(HttpStatus.OK.value())
+                .message("Lấy thông tin ủy quyền ứng dụng thành công")
+                .data(mockEngine.getAppAuthStatus())
+                .build();
+    }
+
+    /**
+     * Hủy ủy quyền ứng dụng FCentric từ Kênh Người Bán Shopee (Deauthorize / Revoke).
+     */
+    @PostMapping("/app-auth/revoke")
+    public ResponseData<Boolean> revokeAppAuth() {
+        boolean ok = mockEngine.revokeAppAuth();
+        return ResponseData.<Boolean>builder()
+                .status(HttpStatus.OK.value())
+                .message(ok ? "Đã hủy ủy quyền ứng dụng FCentric khỏi gian hàng Shopee thành công" : "Gian hàng chưa được ủy quyền")
+                .data(ok)
+                .build();
+    }
+
+    // =========================================================================
     // DTO REQUEST
     // =========================================================================
 
