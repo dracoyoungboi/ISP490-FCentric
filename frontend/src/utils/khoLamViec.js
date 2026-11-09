@@ -58,8 +58,13 @@ export function khoTrongToken() {
  * cần kho làm việc (header kho_id) nằm trong token và quyền đó ở kho này đang bật.
  */
 export function coQuyenTaiKhoLamViec(maQuyen) {
+  return coQuyenTaiKho(getKhoLamViecId(), maQuyen);
+}
+
+/** Như {@link coQuyenTaiKhoLamViec} nhưng với kho chỉ định (vd. kho đang chọn trong biểu mẫu). */
+export function coQuyenTaiKho(khoIdVao, maQuyen) {
   if (laQuanTriVien()) return true;
-  const khoId = getKhoLamViecId();
+  const khoId = Number(khoIdVao);
   if (!khoId) return false;
   try {
     const token = window.localStorage.getItem("access_token");

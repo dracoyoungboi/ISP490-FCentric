@@ -361,18 +361,17 @@ const CAY_DUONG_DAN = (
         <Route path="/transfer-tickets/adjustments/:id" element={<PhieuDieuChinhChuyenKho />} />
       </Route>
 
-      {/* Kiểm kê kho hàng: đúng vai trò máy chủ cho (KiemKeController). Lập / sửa đợt: quản trị viên + quản lý kho */}
+      {/* Kiểm kê kho hàng: đúng vai trò máy chủ cho (KiemKeController). Lập / sửa đợt: quản trị viên, quản lý kho và nhân
+          viên kho có quyền "Lập đợt kiểm kê" — trang Tạo đợt tự chặn người không có quyền (components/kiem-ke/quyenLapDot) */}
       <Route element={<RequireRole roles={["quan_tri_vien", "quan_ly_kho", "nhan_vien_kho"]} />}>
+        <Route path="/stock-take/new" element={<StockTakeCreate />} />
+        <Route path="/stock-take/:id/edit" element={<StockTakeCreate />} />
         <Route path="/stock-take" element={<StockTakeList />} />
         <Route path="/stock-take/lock-map" element={<StockTakeLockMap />} />
         {/* Hàng chưa có kệ: mục ở Kho hàng, cùng vai trò với API xếp kệ; URL cũ trong kiểm kê chuyển hướng */}
         <Route path="/warehouse/unshelved" element={<StockTakeUnshelved />} />
         <Route path="/stock-take/unshelved" element={<HangChuaCoKeRedirect />} />
         <Route path="/stock-take/:id" element={<StockTakeDetail />} />
-      </Route>
-      <Route element={<RequireRole roles={["quan_tri_vien", "quan_ly_kho"]} />}>
-        <Route path="/stock-take/new" element={<StockTakeCreate />} />
-        <Route path="/stock-take/:id/edit" element={<StockTakeCreate />} />
       </Route>
 
       {/* Báo cáo doanh thu, sản phẩm: quản trị viên, quản lý kho và nhân viên bán hàng (FO-090; nhân viên bán hàng chỉ
