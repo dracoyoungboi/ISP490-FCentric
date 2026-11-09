@@ -8,6 +8,8 @@
 export const HOP =
   "flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden rounded-xl border-bo-border bg-white p-0 shadow-xl sm:max-w-[460px]";
 export const HOP_RONG = "sm:max-w-[560px]";
+/** Hộp có danh sách nhiều cột (vd. xếp kệ hàng của một chứng từ). */
+export const HOP_RAT_RONG = "sm:max-w-[720px]";
 
 export const DAU_HOP = "shrink-0 gap-1 px-5 pt-5 text-left sm:px-6";
 export const TIEU_DE_HOP = "text-lg font-semibold leading-7 text-bo-heading";

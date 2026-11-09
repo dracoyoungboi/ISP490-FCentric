@@ -7,6 +7,7 @@ import {
   CHAN_HOP,
   DAU_HOP,
   HOP,
+  HOP_RAT_RONG,
   HOP_RONG,
   LOI_HOP,
   MO_TA_HOP,
@@ -35,7 +36,8 @@ const O_DAU_TIEN = "textarea:not([disabled]), input:not([disabled]):not([type=hi
  *   sẽ bấm nút đang có tiêu điểm.
  * - `traTieuDiemVe` (ref): đóng hộp thì đưa tiêu điểm về phần tử này thay cho phần tử đã mở hộp (vd. ô quét mã, để mã
  *   quét tiếp không rơi vào nút vừa mở hộp).
- * - `rong`: 560px cho hộp có biểu mẫu (mặc định 460px).
+ * - `rong`: 560px cho hộp có biểu mẫu (mặc định 460px); `ratRong`: 720px cho hộp có danh sách nhiều cột.
+ * - `nhanQuayLai`: chữ nút đóng hộp (mặc định "Quay lại"; vd. "Để sau" khi đóng hộp là hoãn việc).
  * - `loi` (chuỗi | null | undefined): câu lỗi của lần xác nhận vừa rồi (vd. máy chủ từ chối), vẽ NGAY TRONG hộp, ngay
  *   trên chân hộp, trong vùng role="alert" để trình đọc màn hình đọc (toast ngoài hộp bị Radix ẩn khỏi cây trợ năng).
  *   Không có thì hộp như cũ. Nơi gọi tự xóa `loi` khi người dùng sửa / bấm xác nhận lại / đóng hộp.
@@ -53,6 +55,8 @@ export default function HopXacNhanChungTu({
   khoaXacNhan = false,
   lyDoKhoa,
   rong = false,
+  ratRong = false,
+  nhanQuayLai = "Quay lại",
   tieuDiemQuayLai = false,
   tieuDiemONhap = true,
   traTieuDiemVe,
@@ -115,7 +119,7 @@ export default function HopXacNhanChungTu({
         onCloseAutoFocus={tieuDiemKhiDong}
         onEscapeKeyDown={chanKhiDangChay}
         onInteractOutside={chanKhiDangChay}
-        className={cn(HOP, rong && HOP_RONG)}
+        className={cn(HOP, rong && HOP_RONG, ratRong && HOP_RAT_RONG)}
       >
         <DialogHeader className={DAU_HOP}>
           <DialogTitle className={TIEU_DE_HOP}>{tieuDe}</DialogTitle>
@@ -144,7 +148,7 @@ export default function HopXacNhanChungTu({
             onClick={() => doiMo(false)}
             className={NUT_QUAY_LAI}
           >
-            Quay lại
+            {nhanQuayLai}
           </Button>
           <Button
             ref={xacNhanRef}
