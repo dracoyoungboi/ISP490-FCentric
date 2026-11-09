@@ -105,7 +105,7 @@ export default function Breakdowns({ data, ky, khoId, loading, loiKho, loiKenh, 
                 giaTri={formatTienNgan(k.doanhThu)}
                 cot4={<span className="tabular-nums text-bo-foreground">{formatPhanTram(tyLe(k.soDonHoan, k.soDon + k.soDonHoan))}</span>}
                 nhanHep={t("Hoàn")}
-                chiTiet={t("{{tenKenh}}: {{soDon}} đơn đã giao, {{soDonHoan}} đơn hoàn{{trungBinh}}", { tenKenh: tenKenhHien(k), soDon: formatSo(k.soDon), soDonHoan: formatSo(k.soDonHoan), trungBinh: k.soDon ? t(", trung bình {{tien}}/đơn", { tien: formatTienNgan(k.doanhThu / k.soDon) }) : "" })}
+                chiTiet={t("{{tenKenh}}: {{soDon}} đơn đã giao, {{soDonHoan}} đơn hoàn{{trungBinh}}", { tenKenh: tenKenhHien(k), soDon: formatSo(k.soDon), count: Number(k.soDon), soDonHoan: formatSo(k.soDonHoan), trungBinh: k.soDon ? t(", trung bình {{tien}}/đơn", { tien: formatTienNgan(k.doanhThu / k.soDon) }) : "" })}
               />
             ))}
             <p className="pt-2 text-xs text-bo-muted">

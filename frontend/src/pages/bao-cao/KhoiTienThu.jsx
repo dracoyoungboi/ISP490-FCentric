@@ -156,7 +156,7 @@ export default function KhoiTienThu({ tienThu, loi, loading, khoId, onTaiLai, cl
             <Dong mau={MAU_TIEN_MAT} phu={t("Tại quầy {{tienMatTaiQuay}} · đơn thường {{tienMatDonThuong}}", { tienMatTaiQuay: trieu(tt.tienMatTaiQuay), tienMatDonThuong: trieu(tt.tienMatDonThuong) })} so={formatCurrency(tm)} ten={t("Tiền mặt")} />
             <Dong mau={MAU_CHUYEN_KHOAN} phu={t("QR payOS {{qrPayos}} · ghi tay {{ghiTay}}", { qrPayos: trieu(tt.qrPayos), ghiTay: trieu(tt.chuyenKhoanGhiTay) })} so={formatCurrency(ck)} ten={t("Chuyển khoản")} />
             <Dong am={Number(tt.hoan) > 0} phu={t("{{soPhieuHoan}} phiếu hoàn", { soPhieuHoan: formatNumber(tt.soPhieuHoan), count: tt.soPhieuHoan })} so={Number(tt.hoan) > 0 ? `−${formatCurrency(tt.hoan)}` : formatCurrency(0)} ten={t("Hoàn tiền")} />
-            <Dong phu={t("{{soDonSan}} đơn sàn đã giao · đối soát với sàn", { soDonSan: formatNumber(tt.soDonSan) })} so={formatCurrency(tt.sanThuHo)} ten={t("Sàn thu hộ")} />
+            <Dong phu={t("{{soDonSan}} đơn sàn đã giao · đối soát với sàn", { soDonSan: formatNumber(tt.soDonSan), count: Number(tt.soDonSan) })} so={formatCurrency(tt.sanThuHo)} ten={t("Sàn thu hộ")} />
           </dl>
           <div className={`flex flex-col gap-0.5 rounded-lg border px-3.5 py-3 ${conPhaiThu > 0 ? "border-orange-200 bg-bo-warning-soft" : "border-bo-border bg-bo-surface-subtle"}`}>
             <span className={`text-xs ${conPhaiThu > 0 ? "text-orange-800" : "text-bo-muted"}`}>{t("Còn phải thu tới hôm nay")}</span>
@@ -170,7 +170,7 @@ export default function KhoiTienThu({ tienThu, loi, loading, khoId, onTaiLai, cl
           </div>
           {chuaDoiChieu > 0 ? (
             <button className="self-start text-[13px] font-medium text-bo-primary hover:underline" onClick={() => setMoDoiChieu(true)} type="button">
-              {t("{{chuaDoiChieu}} phiếu chuyển khoản chưa đối chiếu ›", { chuaDoiChieu: formatNumber(chuaDoiChieu) })}
+              {t("{{chuaDoiChieu}} phiếu chuyển khoản chưa đối chiếu ›", { chuaDoiChieu: formatNumber(chuaDoiChieu), count: chuaDoiChieu })}
             </button>
           ) : null}
           {tt.theoKhoPhuTrach && !anGhiChuKho ? <p className="m-0 text-xs text-bo-muted">{t("Chỉ tính nơi làm việc của bạn.")}</p> : null}

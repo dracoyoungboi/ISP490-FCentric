@@ -61,7 +61,7 @@ function VongTienDo({ da, tong }) {
   const r = (co - day) / 2;
   const C = 2 * Math.PI * r;
   return (
-    <div className="relative size-[72px] shrink-0" role="img" aria-label={t("Đã nhặt {{da}}/{{tong}} sản phẩm", { da: formatSo(da), tong: formatSo(tong) })}>
+    <div className="relative size-[72px] shrink-0" role="img" aria-label={t("Đã nhặt {{da}}/{{tong}} sản phẩm", { da: formatSo(da), tong: formatSo(tong), count: tong })}>
       <svg viewBox={`0 0 ${co} ${co}`} className="size-full -rotate-90" aria-hidden="true">
         <circle cx={co / 2} cy={co / 2} r={r} fill="none" stroke="#e3ecfb" strokeWidth={day} />
         {pt ? <circle cx={co / 2} cy={co / 2} r={r} fill="none" stroke={XANH} strokeWidth={day} strokeLinecap="round" strokeDasharray={`${(pt / 100) * C} ${C}`} /> : null}
@@ -108,7 +108,7 @@ function ViecCuaBan({ ds, thoiDiem, className, loading, error, onRetry }) {
                       </span>
                     )}
                     <span className="tabular-nums">
-                      {t("{{daQuet}}/{{canNhat}} sản phẩm", { daQuet: formatSo(v.daQuet), canNhat: formatSo(v.canNhat) })}
+                      {t("{{daQuet}}/{{canNhat}} sản phẩm", { daQuet: formatSo(v.daQuet), canNhat: formatSo(v.canNhat), count: v.canNhat })}
                     </span>
                   </p>
                 </div>
@@ -128,9 +128,9 @@ function ViecCuaBan({ ds, thoiDiem, className, loading, error, onRetry }) {
 function HomNay({ so, thoiDiem, className, loading, error, onRetry }) {
   const o = so
     ? [
-        { key: "nhap", ten: t("Đã nhận"), so: so.sanPhamDaNhap, phu: t("sản phẩm · {{phieuDaNhap}} phiếu", { phieuDaNhap: formatSo(so.phieuDaNhap) }) },
-        { key: "nhat", ten: t("Đã nhặt"), so: so.sanPhamDaNhat, phu: t("sản phẩm · {{phieuDaNhat}} phiếu", { phieuDaNhat: formatSo(so.phieuDaNhat) }) },
-        { key: "xuat", ten: t("Đã xuất kho"), so: so.phieuDaXuat, phu: t("phiếu", { context: "so_nhieu" }) },
+        { key: "nhap", ten: t("Đã nhận"), so: so.sanPhamDaNhap, phu: t("sản phẩm · {{phieuDaNhap}} phiếu", { phieuDaNhap: formatSo(so.phieuDaNhap), count: so.sanPhamDaNhap }) },
+        { key: "nhat", ten: t("Đã nhặt"), so: so.sanPhamDaNhat, phu: t("sản phẩm · {{phieuDaNhat}} phiếu", { phieuDaNhat: formatSo(so.phieuDaNhat), count: so.sanPhamDaNhat }) },
+        { key: "xuat", ten: t("Đã xuất kho"), so: so.phieuDaXuat, phu: t("phiếu", { context: "so_nhieu", count: Number(so.phieuDaXuat) || 0 }) },
       ]
     : [];
   return (

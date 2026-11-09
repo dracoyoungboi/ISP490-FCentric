@@ -143,7 +143,7 @@ export default function StockFlow({ data, khoId, loading, loiTonKho, loiBoSung, 
             {tt.giaTriDu > 0 ? (
               <p className="mt-3 text-xs leading-4 text-bo-muted">
                 {t("Hàng dư đang giữ")} <b className="font-semibold text-bo-foreground">{formatTienNgan(tt.giaTriDu)}</b>{t(", bằng {{tyLe}} giá trị tồn.", { tyLe: formatPhanTram(tyLe(tt.giaTriDu, tt.giaTri), 0) })}
-                {tt.duChamBan > 0 ? t(" Trong đó {{duChamBan}} mã chưa bán được trong {{soNgayChamBan}} ngày.", { duChamBan: formatSo(tt.duChamBan), soNgayChamBan: formatSo(tt.soNgayChamBan) }) : ""}
+                {tt.duChamBan > 0 ? t(" Trong đó {{duChamBan}} mã chưa bán được trong {{soNgayChamBan}} ngày.", { duChamBan: formatSo(tt.duChamBan), soNgayChamBan: formatSo(tt.soNgayChamBan), count: tt.duChamBan }) : ""}
               </p>
             ) : null}
           </div>
@@ -186,7 +186,7 @@ function duongDanDeXuat(d, khoTongId) {
 /** Nút đề xuất của một mã; chú thích ghi số Kho tổng có thể chuyển (đã trừ đơn bán chờ xuất) như bảng cũ. */
 function DeXuat({ d, coKhoTong, khoTongId }) {
   const chuyen = d.deXuat === "chuyen_kho";
-  const daTru = d.choXuatKhoTong > 0 ? t(" (đã trừ {{choXuatKhoTong}} đơn bán đang chờ xuất)", { choXuatKhoTong: formatSo(d.choXuatKhoTong) }) : "";
+  const daTru = d.choXuatKhoTong > 0 ? t(" (đã trừ {{choXuatKhoTong}} đơn bán đang chờ xuất)", { choXuatKhoTong: formatSo(d.choXuatKhoTong), count: d.choXuatKhoTong }) : "";
   const ghiChu = chuyen
     ? t("Kho tổng còn {{khaDungKhoTong}} có thể chuyển{{daTru}}", { khaDungKhoTong: formatSo(d.khaDungKhoTong), daTru })
     : d.laKhoTong

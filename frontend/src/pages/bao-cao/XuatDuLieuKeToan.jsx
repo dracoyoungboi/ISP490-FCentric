@@ -304,7 +304,7 @@ export default function XuatDuLieuKeToan() {
       // Tạo lô theo đúng ngày đã kiểm tra; dấu vết để máy chủ từ chối nếu dữ liệu đổi sau lần kiểm tra
       const lo = await keToanService.taoLo({ denNgay: xemTruoc.denNgay, ghiChu: ghiChu.trim() || null, dauVet: xemTruoc.dauVet });
       setMoXacNhan(false);
-      toast.success(t("Đã tạo lô {{soLo}} ({{soChungTu}} chứng từ). Đang tải tệp.", { soLo: lo.soLo, soChungTu: lo.soChungTu }));
+      toast.success(t("Đã tạo lô {{soLo}} ({{soChungTu}} chứng từ). Đang tải tệp.", { soLo: lo.soLo, soChungTu: lo.soChungTu, count: Number(lo.soChungTu) }));
       setXemTruoc(null);
       setGhiChu("");
       setLoiLo(null);
@@ -549,7 +549,7 @@ export default function XuatDuLieuKeToan() {
         variant="info"
         isLoading={dangTao}
         title={t("Tạo lô xuất kế toán")}
-        description={tong ? t("Lô gồm {{soChungTu}} chứng từ đến hết {{denNgay}}. Tạo xong, các chứng từ này bị khóa (không vào lô khác, hóa đơn nhà cung cấp không sửa được) và tệp nén được lưu để tải lại.", { soChungTu: tong.soChungTu, denNgay: hienNgay(xemTruoc?.denNgay) }) : ""}
+        description={tong ? t("Lô gồm {{soChungTu}} chứng từ đến hết {{denNgay}}. Tạo xong, các chứng từ này bị khóa (không vào lô khác, hóa đơn nhà cung cấp không sửa được) và tệp nén được lưu để tải lại.", { soChungTu: tong.soChungTu, denNgay: hienNgay(xemTruoc?.denNgay), count: Number(tong.soChungTu) }) : ""}
         confirmText={t("Tạo lô")}
         cancelText={t("Quay lại")}
       />

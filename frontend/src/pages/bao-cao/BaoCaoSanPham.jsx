@@ -84,7 +84,7 @@ function Hang({ p, coBanKyTruoc }) {
     doi = (
       <span className={cn("font-medium", len ? "text-bo-success" : "text-bo-danger")} title={truoc}>
         <span aria-hidden="true">{len ? "▲" : "▼"}{d.so}</span>
-        <span className="sr-only">{len ? t(" (lên {{so}} hạng so với kỳ trước)", { so: d.so }) : t(" (xuống {{so}} hạng so với kỳ trước)", { so: d.so })}</span>
+        <span className="sr-only">{len ? t(" (lên {{so}} hạng so với kỳ trước)", { so: d.so, count: d.so }) : t(" (xuống {{so}} hạng so với kỳ trước)", { so: d.so, count: d.so })}</span>
       </span>
     );
   } else if (d?.loai === "moi") {
@@ -182,7 +182,7 @@ function TyTrongKenh({ ds }) {
     <ul className="flex flex-col gap-2.5 text-sm">
       {ds.map((d) => (
         <li key={d.ten} className="grid grid-cols-[minmax(0,1fr)_88px_44px] items-center gap-3">
-          <span className="truncate text-bo-foreground" title={t("{{soLuong}} sản phẩm · {{doanhThu}}", { soLuong: formatNumber(d.soLuong), doanhThu: formatCurrency(d.doanhThu) })}>{t(d.ten) /* tên kênh: "Bán tại quầy", "Đơn bán trực tiếp" do máy chủ đặt thì dịch, tên sàn không có khóa nên giữ nguyên */}</span>
+          <span className="truncate text-bo-foreground" title={t("{{soLuong}} sản phẩm · {{doanhThu}}", { soLuong: formatNumber(d.soLuong), doanhThu: formatCurrency(d.doanhThu), count: N(d.soLuong) })}>{t(d.ten) /* tên kênh: "Bán tại quầy", "Đơn bán trực tiếp" do máy chủ đặt thì dịch, tên sàn không có khóa nên giữ nguyên */}</span>
           <span className="block h-1.5 overflow-hidden rounded-full bg-[#eef1f5]" aria-hidden="true">
             <span className="block h-full rounded-full bg-bo-primary" style={{ width: `${(N(d.soLuong) / tong) * 100}%` }} />
           </span>
@@ -231,14 +231,14 @@ function ChiTietMoRong({ p, bc }) {
         <h3 className="mb-2.5 text-xs font-semibold text-bo-muted">{t("Theo kênh bán")}</h3>
         <TyTrongKenh ds={p.theoKenh ?? []} />
         <p className="mt-4 text-xs text-bo-muted">
-          {N(p.soDon) ? t("{{soDon}} đơn · ", { soDon: formatNumber(p.soDon) }) : ""}
+          {N(p.soDon) ? t("{{soDon}} đơn · ", { soDon: formatNumber(p.soDon), count: N(p.soDon) }) : ""}
           {N(p.soLuongHoan) ? t("{{soLuongHoan}} hoàn · ", { soLuongHoan: formatNumber(p.soLuongHoan) }) : ""}
           {p.ngayBanCuoi ? t("bán gần nhất {{ngayBanCuoi}}", { ngayBanCuoi: ngayVN(p.ngayBanCuoi) }) : t("chưa từng bán")}
         </p>
       </div>
       <div className="min-w-0">
         <h3 className="mb-1 text-xs font-semibold text-bo-muted">
-          {t("Bán mỗi ngày")}{N(p.soLuong) ? t(" · bình quân {{binhQuan}} sản phẩm/ngày", { binhQuan: (N(p.soLuong) / bc.soNgay).toLocaleString("vi-VN", { maximumFractionDigits: 1 }) }) : ""}
+          {t("Bán mỗi ngày")}{N(p.soLuong) ? t(" · bình quân {{binhQuan}} sản phẩm/ngày", { binhQuan: (N(p.soLuong) / bc.soNgay).toLocaleString("vi-VN", { maximumFractionDigits: 1 }), count: Math.round((N(p.soLuong) / bc.soNgay) * 10) / 10 }) : ""}
         </h3>
         <BieuDoNgay p={p} tuNgay={bc.tuNgay} />
       </div>

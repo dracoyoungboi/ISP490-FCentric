@@ -157,14 +157,14 @@ function DauTrang({ boLoc, setBoLoc, dsKho, data, loading, gio, onTaiLai }) {
           <OSo className="border-l border-l-[#eef1f5]" coSo={coSo} dau="+" loading={loading} mau={MAU.chuNhap} ten={t("Nhập trong kỳ")} so={formatNumber(data?.nhap?.soLuong)}
             phu={(
               <>
-                <span>{t("Giá trị")} <b className="font-semibold text-bo-foreground">{formatCurrencyCompact(data?.nhap?.giaTri)}</b> <span className="whitespace-nowrap">· {formatNumber(data?.nhap?.soPhieu)} {t("phiếu", { context: "so_nhieu" })}</span></span>
+                <span>{t("Giá trị")} <b className="font-semibold text-bo-foreground">{formatCurrencyCompact(data?.nhap?.giaTri)}</b> <span className="whitespace-nowrap">· {formatNumber(data?.nhap?.soPhieu)} {t("phiếu", { context: "so_nhieu", count: Number(data?.nhap?.soPhieu) || 0 })}</span></span>
                 <CungKy coCungKy={coCungKy} nay={data?.nhap?.soLuong} truoc={data?.cungKy?.nhap} />
               </>
             )} />
           <OSo className="border-t border-t-[#eef1f5] @min-[640px]/dau:border-t-0 @min-[640px]/dau:border-l @min-[640px]/dau:border-l-[#eef1f5]" coSo={coSo} dau="−" loading={loading} mau={MAU.chuXuat} ten={t("Xuất trong kỳ")} so={formatNumber(data?.xuat?.soLuong)}
             phu={(
               <>
-                <span>{t("Giá trị")} <b className="font-semibold text-bo-foreground">{formatCurrencyCompact(data?.xuat?.giaTri)}</b> <span className="whitespace-nowrap">· {formatNumber(data?.xuat?.soPhieu)} {t("phiếu", { context: "so_nhieu" })}</span></span>
+                <span>{t("Giá trị")} <b className="font-semibold text-bo-foreground">{formatCurrencyCompact(data?.xuat?.giaTri)}</b> <span className="whitespace-nowrap">· {formatNumber(data?.xuat?.soPhieu)} {t("phiếu", { context: "so_nhieu", count: Number(data?.xuat?.soPhieu) || 0 })}</span></span>
                 <CungKy coCungKy={coCungKy} nay={data?.xuat?.soLuong} truoc={data?.cungKy?.xuat} />
               </>
             )} />
@@ -314,7 +314,7 @@ function TheLoai({ data, loading, loi, onTaiLai, nhom, onChon, nhieuKho, classNa
                   <span className={cn("truncate", on && "font-medium")}>{l.ten}</span>
                 </span>
                 <b className="text-right text-[13px] font-semibold tabular-nums text-bo-foreground">{formatNumber(l.soLuong)}</b>
-                <span className="pl-4 text-xs text-bo-muted">{formatNumber(l.soPhieu)} {t("phiếu", { context: "so_nhieu" })}</span>
+                <span className="pl-4 text-xs text-bo-muted">{formatNumber(l.soPhieu)} {t("phiếu", { context: "so_nhieu", count: Number(l.soPhieu) || 0 })}</span>
                 <span className="text-right text-xs tabular-nums text-bo-muted">{formatCurrencyCompact(l.giaTri)}</span>
                 <span className="col-span-2 ml-4 mt-1 block h-1 overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
                   <span className="block h-full rounded-full" style={{ width: `${Math.max(2, l.tyLe * 100)}%`, background: mau }} />

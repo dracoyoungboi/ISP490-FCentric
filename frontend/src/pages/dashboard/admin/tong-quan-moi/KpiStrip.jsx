@@ -23,7 +23,7 @@ export default function KpiStrip({ data, ky, loading, error, onRetry, chon, setC
   const bien = nay ? tyLe(nay.loiNhuan, nay.doanhThu) : null;
   const daTron = diemDaTron(dt);
   const coDon = daTron.filter((d) => d.soDon > 0).length;
-  const donVi = dt?.nhom === "thang" ? t("tháng", { context: "so_nhieu" }) : t("ngày", { context: "so_nhieu" });
+  const donVi = dt?.nhom === "thang" ? t("tháng", { context: "so_nhieu", count: daTron.length }) : t("ngày", { context: "so_nhieu", count: daTron.length });
 
   /* Phần chữ sau % là một khối không ngắt giữa chừng: ô hẹp thì cả khối xuống dòng ("+13,7%" / "so với kỳ trước"). */
   const khoiSoVoi = <span className="whitespace-nowrap">{soVoi}</span>;

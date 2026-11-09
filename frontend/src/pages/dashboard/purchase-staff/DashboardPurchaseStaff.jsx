@@ -212,7 +212,7 @@ function NhaCungCap({ ds, className, loading, error, onRetry }) {
                     <span className="shrink-0 text-sm font-semibold tabular-nums text-bo-heading">{formatTienNgan(n.giaTri)}</span>
                   </span>
                   <span className={cn("block text-xs", coTre ? DO : "text-bo-muted")}>
-                    {n.denHan ? t("Giao đúng hạn {{dungHan}}/{{denHan}} đơn", { dungHan: formatSo(n.dungHan), denHan: formatSo(n.denHan) }) : t("Chưa có đơn đến hạn giao")}
+                    {n.denHan ? t("Giao đúng hạn {{dungHan}}/{{denHan}} đơn", { dungHan: formatSo(n.dungHan), denHan: formatSo(n.denHan), count: n.denHan }) : t("Chưa có đơn đến hạn giao")}
                   </span>
                 </Link>
               </li>
