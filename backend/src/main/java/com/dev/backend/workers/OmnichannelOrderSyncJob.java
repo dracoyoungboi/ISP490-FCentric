@@ -1534,7 +1534,69 @@ public class OmnichannelOrderSyncJob {
     }
 
     public int syncShopeeOrders(KenhBanHang kenh, Instant tuNgay, Instant denNgay) {
-        return syncMockShopeeOrders(kenh);
+        if (isShopeeSandbox(kenh.getMaKenh())) {
+            return syncMockShopeeOrders(kenh);
+        }
+        return syncRealShopeeOrders(kenh, tuNgay, denNgay);
+    }
+
+    public int syncRealShopeeOrders(KenhBanHang kenh, Instant tuNgay, Instant denNgay) {
+        String maKenh = kenh != null ? kenh.getMaKenh() : MA_KENH_SHOPEE;
+        Long partnerId = kenhBanHangService.getShopeePartnerId(maKenh);
+        String partnerKey = kenhBanHangService.getDecryptedShopeePartnerKey(maKenh);
+        String accessToken = kenhBanHangService.getDecryptedShopeeAccessToken(maKenh);
+        Long shopId = kenhBanHangService.getShopeeShopId(maKenh);
+
+        if (partnerId == null || partnerKey == null || accessToken == null || shopId == null) {
+            log.warn("[JOB-01] Kênh {} chưa có credential Shopee đầy đủ (PartnerId/Key/Token/ShopId), bỏ qua đợt sync", maKenh);
+            return 0;
+        }
+
+        int synced = 0;
+        try {
+            long timeFrom = tuNgay != null ? tuNgay.getEpochSecond() : (Instant.now().getEpochSecond() - 86400L);
+            long timeTo = denNgay != null ? denNgay.getEpochSecond() : Instant.now().getEpochSecond();
+
+            com.fasterxml.jackson.databind.JsonNode listRes = shopeeClient.getOrderList(
+                    String.valueOf(partnerId), partnerKey, accessToken, String.valueOf(shopId),
+                    timeFrom, timeTo, "READY_TO_SHIP", 50, null, false);
+
+            com.fasterxml.jackson.databind.JsonNode orderListNode = listRes.path("response").path("order_list");
+            List<String> orderSnList = new ArrayList<>();
+            if (orderListNode.isArray()) {
+                for (com.fasterxml.jackson.databind.JsonNode oNode : orderListNode) {
+                    String sn = oNode.path("order_sn").asText("");
+                    if (!sn.isBlank()) orderSnList.add(sn);
+                }
+            }
+
+            if (!orderSnList.isEmpty()) {
+                com.fasterxml.jackson.databind.JsonNode detailRes = shopeeClient.getOrderDetail(
+                        String.valueOf(partnerId), partnerKey, accessToken, String.valueOf(shopId),
+                        orderSnList, false);
+
+                com.fasterxml.jackson.databind.JsonNode details = detailRes.path("response").path("order_list");
+                if (details.isArray()) {
+                    batDauLuot();
+                    try {
+                        for (com.fasterxml.jackson.databind.JsonNode dNode : details) {
+                            com.dev.backend.dto.response.customize.ShopeeOrderDto dto =
+                                    objectMapper.convertValue(dNode, com.dev.backend.dto.response.customize.ShopeeOrderDto.class);
+                            if (dto != null && processSingleShopeeOrder(dto, kenh)) {
+                                synced++;
+                            }
+                        }
+                    } finally {
+                        ketThucLuot(kenh, synced);
+                    }
+                }
+            }
+            if (kenh.getId() != null) lanLayDonCuoi.put(kenh.getId(), Instant.now());
+            log.info("[JOB-01] Quét đơn Shopee Production hoàn tất: {} đơn mới", synced);
+        } catch (Exception ex) {
+            log.error("[JOB-01] Lỗi khi quét đơn hàng Shopee Production: {}", ex.getMessage());
+        }
+        return synced;
     }
 
     public int syncMockShopeeOrders(KenhBanHang kenh) {

@@ -1,5 +1,6 @@
 package com.dev.backend.services.shopee;
 
+import com.dev.backend.entities.ShopeeMockProduct;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -361,10 +362,17 @@ public class ShopeeClient {
             ObjectNode res = objectMapper.createObjectNode();
             res.put("error", "").put("message", "success");
             ObjectNode resp = res.putObject("response");
-            resp.put("has_next_page", false).put("total_count", 2);
+
+            List<Long> itemIds = mockEngine != null ? mockEngine.getMockItemIds() : List.of();
+            if (itemIds.isEmpty()) {
+                itemIds = List.of(1000101L, 1000102L);
+            }
+
+            resp.put("has_next_page", false).put("total_count", itemIds.size());
             ArrayNode arr = resp.putArray("item");
-            arr.addObject().put("item_id", 1000101L).put("item_status", "NORMAL").put("update_time", Instant.now().getEpochSecond());
-            arr.addObject().put("item_id", 1000102L).put("item_status", "NORMAL").put("update_time", Instant.now().getEpochSecond());
+            for (Long id : itemIds) {
+                arr.addObject().put("item_id", id).put("item_status", "NORMAL").put("update_time", Instant.now().getEpochSecond());
+            }
             return res;
         }
 
@@ -384,12 +392,28 @@ public class ShopeeClient {
             res.put("error", "").put("message", "success");
             ObjectNode resp = res.putObject("response");
             ArrayNode arr = resp.putArray("item_list");
-            for (Long id : (itemIdList != null ? itemIdList : List.of(1000101L))) {
-                ObjectNode it = arr.addObject();
-                it.put("item_id", id);
-                it.put("item_name", "Áo Polo Thể Thao FCentric Cao Cấp #" + id);
-                it.put("item_sku", "POLO-" + id);
-                it.put("description", "Chất vải mè thể thao thoáng khí");
+
+            List<ShopeeMockProduct> prods = mockEngine != null ? mockEngine.getMockProductsByItemIds(itemIdList) : List.of();
+            if (prods.isEmpty()) {
+                for (Long id : (itemIdList != null ? itemIdList : List.of(1000101L))) {
+                    ObjectNode it = arr.addObject();
+                    it.put("item_id", id);
+                    it.put("item_name", "Áo Polo Thể Thao FCentric Cao Cấp #" + id);
+                    it.put("item_sku", "POLO-" + id);
+                    it.put("description", "Chất vải mè thể thao thoáng khí");
+                }
+            } else {
+                Map<Long, ShopeeMockProduct> seenItem = new LinkedHashMap<>();
+                for (ShopeeMockProduct p : prods) {
+                    seenItem.putIfAbsent(p.getItemId(), p);
+                }
+                for (ShopeeMockProduct p : seenItem.values()) {
+                    ObjectNode it = arr.addObject();
+                    it.put("item_id", p.getItemId());
+                    it.put("item_name", p.getItemName());
+                    it.put("item_sku", p.getItemSku() != null ? p.getItemSku() : ("POLO-" + p.getItemId()));
+                    it.put("description", "Sản phẩm thời trang cao cấp FCentric WMS");
+                }
             }
             return res;
         }
@@ -410,15 +434,29 @@ public class ShopeeClient {
             res.put("error", "").put("message", "success");
             ObjectNode resp = res.putObject("response");
             ArrayNode arr = resp.putArray("model");
-            ObjectNode m1 = arr.addObject();
-            m1.put("model_id", 2000201L).put("model_sku", "POLO-BLK-M").put("model_name", "Đen / M");
-            m1.putObject("price_info").put("current_price", 280000);
-            m1.putObject("stock_info_v2").putObject("summary_info").put("total_available_stock", 50);
 
-            ObjectNode m2 = arr.addObject();
-            m2.put("model_id", 2000202L).put("model_sku", "POLO-BLK-L").put("model_name", "Đen / L");
-            m2.putObject("price_info").put("current_price", 280000);
-            m2.putObject("stock_info_v2").putObject("summary_info").put("total_available_stock", 35);
+            List<ShopeeMockProduct> models = mockEngine != null ? mockEngine.getMockModelsByItemId(itemId) : List.of();
+            if (models.isEmpty()) {
+                ObjectNode m1 = arr.addObject();
+                m1.put("model_id", 2000201L).put("model_sku", "POLO-BLK-M").put("model_name", "Đen / M");
+                m1.putObject("price_info").put("current_price", 280000);
+                m1.putObject("stock_info_v2").putObject("summary_info").put("total_available_stock", 50);
+
+                ObjectNode m2 = arr.addObject();
+                m2.put("model_id", 2000202L).put("model_sku", "POLO-BLK-L").put("model_name", "Đen / L");
+                m2.putObject("price_info").put("current_price", 280000);
+                m2.putObject("stock_info_v2").putObject("summary_info").put("total_available_stock", 35);
+            } else {
+                for (ShopeeMockProduct m : models) {
+                    ObjectNode node = arr.addObject();
+                    node.put("model_id", m.getModelId())
+                            .put("model_sku", m.getModelSku())
+                            .put("model_name", m.getTierVariation() != null ? m.getTierVariation() : "Tiêu chuẩn");
+                    node.putObject("price_info").put("current_price", m.getPrice() != null ? m.getPrice().doubleValue() : 250000.0);
+                    node.putObject("stock_info_v2").putObject("summary_info")
+                            .put("total_available_stock", m.getStockQuantity() != null ? m.getStockQuantity() : 0);
+                }
+            }
             return res;
         }
 
@@ -454,6 +492,30 @@ public class ShopeeClient {
         } else {
             body.put("stock_list", List.of(Map.of("normal_stock", stock)));
         }
+
+        return executePost(url, body);
+    }
+
+    public JsonNode updateStockBatch(String partnerId, String partnerKey, String accessToken, String shopId,
+                                     Long itemId, List<Map<String, Object>> stockList, boolean isSandbox) {
+        if (isSandbox || isMockCredentials(partnerId, partnerKey)) {
+            log.info("[SHOPEE-MOCK-UPDATE-STOCK-BATCH] Giả lập cập nhật tồn kho Shopee theo lô: item={}, số SKU={}", itemId, stockList != null ? stockList.size() : 0);
+            if (mockEngine != null) {
+                mockEngine.updateStockBatchFromFCentric(itemId, stockList);
+            }
+            return objectMapper.createObjectNode().put("error", "").put("message", "success");
+        }
+
+        long timestamp = Instant.now().getEpochSecond();
+        String baseString = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_UPDATE_STOCK, timestamp, accessToken, shopId);
+        String sign = ShopeeSignatureHelper.sign(partnerKey, baseString);
+
+        String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s",
+                PRODUCTION_HOST, PATH_UPDATE_STOCK, partnerId.trim(), timestamp, accessToken.trim(), shopId.trim(), sign);
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("item_id", itemId);
+        body.put("stock_list", stockList != null ? stockList : List.of());
 
         return executePost(url, body);
     }
@@ -796,6 +858,10 @@ public class ShopeeClient {
 
     public JsonNode updateStock(Long itemId, Long modelId, int stock) {
         return updateStock(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), itemId, modelId, stock, this.isSandbox);
+    }
+
+    public JsonNode updateStockBatch(Long itemId, List<Map<String, Object>> stockList) {
+        return updateStockBatch(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), itemId, stockList, this.isSandbox);
     }
 
     public JsonNode getAccessToken(String code, long shopId) {

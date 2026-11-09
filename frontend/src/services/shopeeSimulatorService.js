@@ -35,4 +35,15 @@ export const shopeeSimulatorService = {
     const res = await apiClient.post(`${BASE}/reset`);
     return res.data?.data;
   },
+
+  // 4. Quản lý Ủy quyền Ứng dụng Đối tác (OAuth2 & App Management)
+  getAppAuthStatus: async () => {
+    const res = await apiClient.get(`${BASE}/app-auth`);
+    return res.data?.data;
+  },
+
+  revokeAppAuth: async () => {
+    const res = await apiClient.post(`${BASE}/app-auth/revoke`);
+    return res.data?.data;
+  },
 };
