@@ -211,6 +211,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         if ("TIKTOK".equalsIgnoreCase(kenh.getMaKenh())) {
             return taiSanPhamTikTok(kenh);
         }
+        if (OmnichannelOrderSyncJob.isShopee(kenh.getMaKenh())) {
+            return taiSanPhamShopee(kenh);
+        }
         kiemTraDaKetNoi(kenh);
         String token = kenhBanHangService.getDecryptedShopifyAccessToken();
         if (token == null || token.isBlank()) {
@@ -1259,6 +1262,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         if ("TIKTOK".equalsIgnoreCase(kenh.getMaKenh())) {
             return tuDongLienKetTikTok(kenh);
         }
+        if (OmnichannelOrderSyncJob.isShopee(kenh.getMaKenh())) {
+            return tuDongLienKetShopee(kenh);
+        }
         kiemTraDaKetNoi(kenh);
         String token = kenhBanHangService.getDecryptedShopifyAccessToken();
         String domain = extractDomainFromApiUrl(kenh.getApiUrl());
@@ -2209,6 +2215,17 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             return dayTonLazadaToiUu(kenh, maKenh, dongCanDay, tyLe, tonDem, nguongVe0, theoDoi);
         } else if (OmnichannelOrderSyncJob.MA_KENH_TIKTOK.equalsIgnoreCase(kenh.getMaKenh()) || "TIKTOK".equalsIgnoreCase(kenh.getMaKenh())) {
             return dayTonTikTokToiUu(kenh, maKenh, dongCanDay, tyLe, tonDem, nguongVe0, theoDoi);
+        } else if (OmnichannelOrderSyncJob.isShopee(kenh.getMaKenh())) {
+            if (dongCanDay.isEmpty()) {
+                try {
+                    tuDongLienKetShopee(kenh);
+                    dongCanDay = trangThaiDongBoSanPhamRepository.findByKenhBanHangId(kenh.getId())
+                            .stream().filter(KenhBanHangDongBoServiceImpl::duocDayTon).toList();
+                } catch (Exception ex) {
+                    log.warn("[SHOPEE-SYNC] Tự động liên kết Shopee trước khi đẩy tồn gặp lỗi: {}", ex.getMessage());
+                }
+            }
+            return dayTonShopeeToiUu(kenh, maKenh, dongCanDay, tyLe, tonDem, nguongVe0, theoDoi);
         } else if (dongCanDay.isEmpty() && trangThaiDongBoSanPhamRepository.countByKenhBanHangId(kenh.getId()) == 0) {
             log.info("Kênh {} chưa có SKU liên kết nào, tự động kích hoạt liên kết & tạo sản phẩm trước khi đẩy tồn...", kenh.getMaKenh());
             try {
@@ -2391,6 +2408,16 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     ShopifyLocationDto.builder()
                             .maKhoSan("lazada-default-warehouse")
                             .tenKhoSan("Kho mặc định Lazada")
+                            .loai("fulfillment")
+                            .macDinh(true)
+                            .build()
+            );
+        }
+        if (OmnichannelOrderSyncJob.isShopee(kenh.getMaKenh())) {
+            return List.of(
+                    ShopifyLocationDto.builder()
+                            .maKhoSan("shopee-default-warehouse")
+                            .tenKhoSan("Kho mặc định Shopee" + (OmnichannelOrderSyncJob.isShopeeSandbox(kenh.getMaKenh()) ? " Sandbox" : ""))
                             .loai("fulfillment")
                             .macDinh(true)
                             .build()
@@ -2583,6 +2610,12 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     totalSku += dayTonRes.getSoDong();
                 }
                 omnichannelOrderSyncJob.syncTikTokOrders(kenh);
+            } else if (OmnichannelOrderSyncJob.isShopee(kenh.getMaKenh())) {
+                DayTonResultDto dayTonRes = dayTonKhoLenKenh(kenh.getMaKenh(), quyTacDaLuu(kenh.getMaKenh()));
+                if (dayTonRes != null) {
+                    totalSku += dayTonRes.getSoDong();
+                }
+                omnichannelOrderSyncJob.syncShopeeOrders(kenh, 30);
             }
         }
         return DayTonResultDto.builder()
@@ -3404,6 +3437,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             }
             return new KetNoiDayTon("api.lazada.vn", token, 0L, "Gian hàng Lazada", Map.of(), null);
         }
+        if (kenh != null && OmnichannelOrderSyncJob.isShopee(kenh.getMaKenh())) {
+            return new KetNoiDayTon("partner.shopeemobile.com", "shopee_mock_token", 0L, "Gian hàng Shopee", Map.of(), null);
+        }
         String token = kenhBanHangService.getDecryptedShopifyAccessToken();
         String domain = kenh != null ? extractDomainFromApiUrl(kenh.getApiUrl()) : "";
         if (token == null || token.isBlank() || domain.isBlank()) {
@@ -3437,6 +3473,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         KetQuaGuiTon kq;
         if (dong.getKenhBanHang() != null && OmnichannelOrderSyncJob.isLazada(dong.getKenhBanHang().getMaKenh())) {
             kq = guiTonLenLazada(dong, soDay);
+        } else if (dong.getKenhBanHang() != null && OmnichannelOrderSyncJob.isShopee(dong.getKenhBanHang().getMaKenh())) {
+            kq = guiTonLenShopee(dong, soDay);
         } else {
             BienTheSanPham bt = dong.getBienTheSanPham();
             String maSku = bt != null ? bt.getMaSku() : null;
@@ -3458,6 +3496,37 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             dong.setNgayDongBoCuoi(now);
         }
         return kq;
+    }
+
+    KetQuaGuiTon guiTonLenShopee(TrangThaiDongBoSanPham dong, int soDay) {
+        BienTheSanPham bt = dong.getBienTheSanPham();
+        String maSku = bt != null ? bt.getMaSku() : null;
+        if (maSku == null || maSku.isBlank()) {
+            return KetQuaGuiTon.loiSku("Biến thể chưa có mã SKU");
+        }
+        KenhBanHang kenh = dong.getKenhBanHang();
+        if (kenh == null) {
+            kenh = getKenhActive("SHOPEE_SANDBOX");
+        }
+        com.dev.backend.services.shopee.ShopeeClient client = getShopeeClient(kenh);
+        Long itemId = 1000L + bt.getId();
+        Long modelId = null;
+        try {
+            if (dong.getMaSanPhamKenh() != null && dong.getMaSanPhamKenh().matches("\\d+")) {
+                modelId = Long.parseLong(dong.getMaSanPhamKenh());
+            }
+        } catch (Exception ignored) {}
+        try {
+            JsonNode res = client.updateStock(itemId, modelId, soDay);
+            if (res != null && res.path("error").asText("").isEmpty()) {
+                return KetQuaGuiTon.THANH_CONG;
+            } else {
+                String err = res != null ? res.path("message").asText("Lỗi cập nhật tồn Shopee") : "Không có phản hồi từ Shopee";
+                return KetQuaGuiTon.loiSku(err);
+            }
+        } catch (Exception ex) {
+            return KetQuaGuiTon.loiSku("Lỗi đẩy tồn Shopee: " + ex.getMessage());
+        }
     }
 
     KetQuaGuiTon guiTonLenLazada(TrangThaiDongBoSanPham dong, int soDay) {
