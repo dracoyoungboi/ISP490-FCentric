@@ -171,8 +171,12 @@ export default function ChannelMappingsPage() {
   const SAN = useSanHienTai();
   // Sàn kết nối bằng khóa (Shopify) vs sàn ủy quyền (Lazada, TikTok Shop)
   const coDuaLen = SAN?.kieuKetNoi === "khoa";
-  // Sàn hỗ trợ đưa sản phẩm FCentric lên: Shopify (khóa) và Lazada (API Catalog Sync cho cả Prod và Sandbox)
-  const hoTroDuaLen = coDuaLen || SAN?.maKenh?.toUpperCase() === "LAZADA" || SAN?.maKenh?.toUpperCase() === "LAZADA_SANDBOX";
+  // Sàn hỗ trợ đưa sản phẩm FCentric lên: Shopify, Lazada và Shopee (kể cả Sandbox)
+  const hoTroDuaLen = coDuaLen
+    || SAN?.maKenh?.toUpperCase() === "LAZADA"
+    || SAN?.maKenh?.toUpperCase() === "LAZADA_SANDBOX"
+    || SAN?.maKenh?.toUpperCase() === "SHOPEE"
+    || SAN?.maKenh?.toUpperCase() === "SHOPEE_SANDBOX";
   const NHO_SO_DONG = nhoSoDong(SAN.maKenh);
   const NHO_MO_TAT_CA = nhoMoTatCa(SAN.maKenh);
   const [tab, setTab] = useTabTrenUrl(TAB_MAS, TAB_MAC_DINH);

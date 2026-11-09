@@ -460,7 +460,8 @@ const mockApi = {
     return { ...chung, soKhongKhop: res.soKhongKhop, skuKhongKhop: res.skuKhongKhop, soNgung: res.soNgung };
   },
   async dayVaLienKetSanPham(maKenh) {
-    if (!laShopify(maKenh) && String(maKenh ?? "").toUpperCase() !== "LAZADA" && String(maKenh ?? "").toUpperCase() !== "LAZADA_SANDBOX") {
+    const k = String(maKenh ?? "").toUpperCase();
+    if (!laShopify(maKenh) && k !== "LAZADA" && k !== "LAZADA_SANDBOX" && k !== "SHOPEE" && k !== "SHOPEE_SANDBOX") {
       await mockDelay();
       throw mockError(400, "Sàn không hỗ trợ đưa sản phẩm lên từ FCentric");
     }
