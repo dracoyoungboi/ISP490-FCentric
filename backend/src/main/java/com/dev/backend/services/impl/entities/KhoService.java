@@ -18,6 +18,7 @@ import com.dev.backend.repository.KhoTomTatRepository;
 import com.dev.backend.services.impl.BaseServiceImpl;
 import com.dev.backend.services.impl.multitable.TongQuanAdminServiceImpl;
 import com.dev.backend.services.impl.kiemke.KhoaKiemKeGuard;
+import com.dev.backend.i18n.ThongDiep;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.TypedQuery;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -85,21 +86,36 @@ public class KhoService extends BaseServiceImpl<Kho, Integer> {
     /** Kho của chứng từ mới (chuyển kho, bán hàng...): phải tồn tại, đang hoạt động và không phải kho ảo. */
     public static void kiemTraKhoGiaoDich(Kho kho, String vaiTro) {
         if (kho == null) {
-            throw new CommonException(vaiTro + " không tồn tại");
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.khoVaiTroKhongTonTai", vaiTroKho(vaiTro, false)));
         }
         if (laKhoAo(kho)) {
-            throw new CommonException(vaiTro + " không được là Kho Trung Chuyển (kho ảo chứa hàng đang chuyển giữa các kho)");
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.khoVaiTroLaKhoAo", vaiTroKho(vaiTro, false)));
         }
         if (kho.getTrangThai() == null || kho.getTrangThai() != 1) {
-            throw new CommonException(kho.getTenKho() + " đang ngừng hoạt động, không dùng làm " + vaiTro.toLowerCase() + " được");
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.khoNgungHoatDongKhongDungLam", kho.getTenKho(), vaiTroKho(vaiTro, true)));
         }
+    }
+
+    /** Tên vai trò kho trong câu lỗi (dịch được); vai trò lạ thì giữ nguyên chuỗi truyền vào. */
+    private static final Map<String, String> KHOA_VAI_TRO_KHO = Map.of(
+            "Kho bán hàng", "sanPhamMuaHang.vaiTroKhoBanHang",
+            "Kho nhận hàng", "sanPhamMuaHang.vaiTroKhoNhanHang",
+            "Kho xuất hàng", "sanPhamMuaHang.vaiTroKhoXuatHang",
+            "Kho xuất", "sanPhamMuaHang.vaiTroKhoXuat",
+            "Kho nhận", "sanPhamMuaHang.vaiTroKhoNhan");
+
+    /** chuThuong: dạng chữ thường giữa câu (câu cũ dùng vaiTro.toLowerCase()). */
+    private static Object vaiTroKho(String vaiTro, boolean chuThuong) {
+        String khoa = vaiTro == null ? null : KHOA_VAI_TRO_KHO.get(vaiTro);
+        if (khoa == null) return chuThuong ? vaiTro.toLowerCase() : vaiTro;
+        return ThongDiep.of(chuThuong ? khoa + "Thuong" : khoa);
     }
 
     /** Bán tại quầy: kho giao dịch và không phải Kho tổng. */
     public static void kiemTraKhoBanTaiQuay(Kho kho) {
         kiemTraKhoGiaoDich(kho, "Kho bán hàng");
         if (laKhoTong(kho)) {
-            throw new CommonException("Kho tổng chỉ dùng để phân phối hàng, không bán tại quầy. Hãy chọn một kho bán hàng.");
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.khoTongKhongBanTaiQuay"));
         }
     }
 
@@ -107,8 +123,7 @@ public class KhoService extends BaseServiceImpl<Kho, Integer> {
     public static void kiemTraKhoNhapNcc(Kho kho) {
         kiemTraKhoGiaoDich(kho, "Kho nhận hàng");
         if (!laKhoTong(kho)) {
-            throw new CommonException("Chỉ Kho tổng được nhập hàng từ nhà cung cấp. " + kho.getTenKho()
-                    + " là kho bán hàng, hãy nhận hàng bằng phiếu chuyển kho từ Kho tổng.");
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.khoChiKhoTongNhapNcc", kho.getTenKho()));
         }
     }
 
@@ -119,7 +134,7 @@ public class KhoService extends BaseServiceImpl<Kho, Integer> {
         }
         String giaTri = loaiKho.trim().toLowerCase();
         if (!KHO_TONG.equals(giaTri) && !KHO_BAN_HANG.equals(giaTri)) {
-            throw new CommonException("Loại kho không hợp lệ, chỉ nhận Kho tổng hoặc Kho bán hàng");
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.khoLoaiKhongHopLe"));
         }
         return giaTri;
     }
@@ -130,7 +145,7 @@ public class KhoService extends BaseServiceImpl<Kho, Integer> {
             return;
         }
         if (MA_KHO_AO.equalsIgnoreCase(maKho)) {
-            throw new CommonException("Kho Trung Chuyển là kho ảo chứa hàng đang chuyển, không thể làm Kho tổng");
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.khoAoKhongLamKhoTong"));
         }
         if (trangThai == null || trangThai != 1) {
             return;
@@ -143,8 +158,7 @@ public class KhoService extends BaseServiceImpl<Kho, Integer> {
         }
         List<Kho> khoTongKhac = query.setMaxResults(1).getResultList();
         if (!khoTongKhac.isEmpty()) {
-            throw new CommonException("Đã có Kho tổng đang hoạt động: " + khoTongKhac.get(0).getTenKho()
-                    + ". Hãy đổi kho đó thành Kho bán hàng trước.");
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.khoDaCoKhoTong", khoTongKhac.get(0).getTenKho()));
         }
     }
 
@@ -154,12 +168,12 @@ public class KhoService extends BaseServiceImpl<Kho, Integer> {
         Optional<NguoiDung> findingQuanLy = nguoiDungService.getOne(creating.getQuanLyId());
 
         if (findingQuanLy.isEmpty()) {
-            throw new CommonException("Không tìm thấy người dùng id: " + creating.getQuanLyId());
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.nguoiDungKhongTimThay", creating.getQuanLyId()));
         }
 
         Optional<Kho> findingKho = khoRepository.findByMaKho(creating.getMaKho());
         if (findingKho.isPresent()) {
-            throw new CommonException("Mã kho đã tồn tại");
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.khoMaDaTonTai"));
         }
         String loaiKho = chuanHoaLoaiKho(creating.getLoaiKho(), KHO_BAN_HANG);
         kiemTraKhoTong(null, creating.getMaKho(), loaiKho, creating.getTrangThai());
@@ -192,11 +206,11 @@ public class KhoService extends BaseServiceImpl<Kho, Integer> {
 
         Optional<NguoiDung> findingQuanLy = nguoiDungService.getOne(updating.getQuanLyId());
         if (findingQuanLy.isEmpty()) {
-            throw new CommonException("Không tìm thấy người dùng id: " + updating.getQuanLyId());
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.nguoiDungKhongTimThay", updating.getQuanLyId()));
         }
         Optional<Kho> findingKho = khoRepository.findByMaKho(updating.getMaKho());
         if (findingKho.isPresent() && !findingKho.get().getId().equals(updating.getId())) {
-            throw new CommonException("Mã kho đã tồn tại");
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.khoMaDaTonTai"));
         }
         Kho kho = null;
         if (findingKho.isPresent()) {
@@ -204,7 +218,7 @@ public class KhoService extends BaseServiceImpl<Kho, Integer> {
         } else {
             Optional<Kho> findingUpdatingKho = getOne(updating.getId());
             if (findingUpdatingKho.isEmpty()){
-                throw new CommonException("Không tìm thấy kho id: " + updating.getId());
+                throw new CommonException(ThongDiep.of("sanPhamMuaHang.khoKhongTimThay", updating.getId()));
             }
             kho = findingUpdatingKho.get();
         }
@@ -213,7 +227,7 @@ public class KhoService extends BaseServiceImpl<Kho, Integer> {
         // quy tắc "luôn hoạt động" của kho ảo), nên kho ảo chỉ sửa được tên, địa chỉ, người quản lý.
         if (laKhoAo(kho) && (!MA_KHO_AO.equalsIgnoreCase(updating.getMaKho())
                 || !Objects.equals(loaiKho, kho.getLoaiKho() != null ? kho.getLoaiKho() : KHO_BAN_HANG))) {
-            throw new CommonException("Kho Trung Chuyển là kho ảo: không đổi được mã kho và loại kho");
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.khoAoKhongDoiMaLoai"));
         }
         // Sửa thông tin không đổi trạng thái (trangThai trong payload bị bỏ qua): form mở từ trước còn giữ trạng thái cũ,
         // lưu form sẽ lặng lẽ đảo lại thao tác Ngừng / Cho phép hoạt động. Trạng thái chỉ đổi qua doiTrangThai.
@@ -241,7 +255,7 @@ public class KhoService extends BaseServiceImpl<Kho, Integer> {
     /** Kho ảo giữ hàng đang chuyển giữa các kho, ngừng nó thì phiếu chuyển đang đi không nhận được. */
     private static void kiemTraKhoAoLuonHoatDong(Kho kho, Integer trangThaiMoi) {
         if (laKhoAo(kho) && !Integer.valueOf(1).equals(trangThaiMoi)) {
-            throw new CommonException("Kho Trung Chuyển là kho ảo giữ hàng đang chuyển giữa các kho, không ngừng hoạt động được");
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.khoAoKhongNgungHoatDong"));
         }
     }
 
@@ -263,9 +277,9 @@ public class KhoService extends BaseServiceImpl<Kho, Integer> {
 
     private Kho doiTrangThai(Integer id, Integer trangThai, String hanhDong) {
         if (trangThai == null || (trangThai != 0 && trangThai != 1)) {
-            throw new CommonException("Trạng thái không hợp lệ");
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.trangThaiKhongHopLe"));
         }
-        Kho kho = getOne(id).orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy kho id: " + id));
+        Kho kho = getOne(id).orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("sanPhamMuaHang.khoKhongTimThay", id)));
         kiemTraKhoAoLuonHoatDong(kho, trangThai);
         if (trangThai.equals(kho.getTrangThai())) {
             return kho;
@@ -305,7 +319,7 @@ public class KhoService extends BaseServiceImpl<Kho, Integer> {
     @Transactional(readOnly = true)
     public KhoTomTatResponse tomTat(Integer khoId) {
         if (getOne(khoId).isEmpty()) {
-            throw new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy kho id: " + khoId);
+            throw new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("sanPhamMuaHang.khoKhongTimThay", khoId));
         }
         Integer cauHinh = khoTomTatRepository.cauHinhSoDuong(CH_NGUONG_SAP_HET);
         int nguong = cauHinh != null ? cauHinh : TongQuanAdminServiceImpl.NGUONG_TON_MAC_DINH;

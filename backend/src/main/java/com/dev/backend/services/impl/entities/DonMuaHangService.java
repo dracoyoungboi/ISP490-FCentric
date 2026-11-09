@@ -32,6 +32,7 @@ import com.dev.backend.repository.LichSuThayDoiRepository;
 import com.dev.backend.services.CalcService;
 import com.dev.backend.services.email.EmailNghiepVuService;
 import com.dev.backend.services.impl.BaseServiceImpl;
+import com.dev.backend.i18n.ThongDiep;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.persistence.LockModeType;
@@ -124,15 +125,15 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
     public static final int GUI_LAI_E4_CHAN_LAP_GIAY = 60;
 
     /** Báo chung cho "không có mã đơn" và "email không khớp" để API công khai không lộ đơn nào tồn tại. */
-    private static final String LOI_MA_DON_HOAC_EMAIL = "Email hoặc mã đơn hàng không đúng. Vui lòng kiểm tra lại email nhận yêu cầu báo giá.";
-    private static final String LOI_DON_KHONG_CON_NHAN = "Đơn mua hàng này không còn nhận báo giá. Vui lòng liên hệ nhân viên mua hàng đã gửi yêu cầu cho Quý công ty.";
-    private static final String LOI_PHIEN_HET_HAN = "Phiên báo giá đã hết hạn. Vui lòng nhận mã mới.";
-    private static final String LOI_MA_HET_HAN = "Mã xác nhận đã hết hạn hoặc đã dùng. Vui lòng nhận mã mới.";
-    private static final String LOI_DON_DA_CO_KET_QUA = "Đơn này đã có kết quả.";
-    private static final String LOI_CHUA_CO_BAO_GIA = "Nhà cung cấp chưa gửi báo giá.";
-    private static final String LOI_BAO_GIA_DA_DOI = "Nhà cung cấp vừa gửi lại báo giá. Tải lại để xem giá mới.";
-    private static final String LOI_YEU_CAU_KHONG_CON_MO = "Yêu cầu báo giá này đã chọn nhà cung cấp hoặc không còn mở.";
-    private static final String LOI_KHONG_TIM_THAY_DON = "Không tìm thấy đơn mua hàng.";
+    private static final ThongDiep LOI_MA_DON_HOAC_EMAIL = ThongDiep.of("sanPhamMuaHang.donMuaEmailHoacMaSai");
+    private static final ThongDiep LOI_DON_KHONG_CON_NHAN = ThongDiep.of("sanPhamMuaHang.donMuaKhongConNhanBaoGia");
+    private static final ThongDiep LOI_PHIEN_HET_HAN = ThongDiep.of("sanPhamMuaHang.donMuaPhienBaoGiaHetHan");
+    private static final ThongDiep LOI_MA_HET_HAN = ThongDiep.of("sanPhamMuaHang.donMuaMaXacNhanHetHan");
+    private static final ThongDiep LOI_DON_DA_CO_KET_QUA = ThongDiep.of("sanPhamMuaHang.donMuaDaCoKetQua");
+    private static final ThongDiep LOI_CHUA_CO_BAO_GIA = ThongDiep.of("sanPhamMuaHang.donMuaChuaCoBaoGia");
+    private static final ThongDiep LOI_BAO_GIA_DA_DOI = ThongDiep.of("sanPhamMuaHang.donMuaBaoGiaDaDoi");
+    private static final ThongDiep LOI_YEU_CAU_KHONG_CON_MO = ThongDiep.of("sanPhamMuaHang.donMuaYeuCauKhongConMo");
+    private static final ThongDiep LOI_KHONG_TIM_THAY_DON = ThongDiep.of("sanPhamMuaHang.donMuaKhongTimThay");
 
     private static final SecureRandom NGAU_NHIEN = new SecureRandom();
 
@@ -268,7 +269,7 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
         }
     }
 
-    static final String LOI_NGOAI_PHAM_VI = "Đơn mua này thuộc kho nhập ngoài phạm vi của bạn.";
+    static final ThongDiep LOI_NGOAI_PHAM_VI = ThongDiep.of("sanPhamMuaHang.donMuaNgoaiPhamVi");
 
     /** Xem chi tiết đơn mua: 404 nếu không có, 403 nếu ngoài phạm vi kho của người xem. */
     @Transactional(readOnly = true)
@@ -329,7 +330,7 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
 
 
         Kho khoNhap = khoService.getOne(SecurityContextHolder.getKhoId()).orElseThrow(
-                () -> new CommonException("Không tìm thấy kho id: " + SecurityContextHolder.getKhoId())
+                () -> new CommonException(ThongDiep.of("sanPhamMuaHang.khoKhongTimThay", SecurityContextHolder.getKhoId()))
         );
         KhoService.kiemTraKhoNhapNcc(khoNhap);
 
@@ -337,7 +338,7 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
         NguoiDungAuthInfo authInfo = SecurityContextHolder.getUser();
 
         NguoiDung nguoiTao = nguoiDungService.getOne(authInfo.getId()).orElseThrow(
-                () -> new CommonException("Không tìm thấy người dùng id :" + authInfo.getId())
+                () -> new CommonException(ThongDiep.of("sanPhamMuaHang.nguoiDungKhongTimThayCach", authInfo.getId()))
         );
 
         DonMuaHang donMuaHang = DonMuaHang.builder()
@@ -360,7 +361,7 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
 
         for (ChiTietDonMuaHangCreating ctdmhCreating : creating.getChiTietDonMuaHangs()) {
             BienTheSanPham bienTheSanPham = bienTheSanPhamService.getOne(ctdmhCreating.getBienTheSanPhamId()).orElseThrow(
-                    () -> new CommonException("Không tìm thấy biến thể sản phẩm id: " + ctdmhCreating.getBienTheSanPhamId())
+                    () -> new CommonException(ThongDiep.of("sanPhamMuaHang.bienTheKhongTimThay", ctdmhCreating.getBienTheSanPhamId()))
             );
             ChiTietDonMuaHang chiTietDonMuaHang = ChiTietDonMuaHang.builder()
                     .donMuaHang(donMuaHang)
@@ -379,7 +380,7 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
         donMuaHang.setChiTietDonMuaHangs(chiTietDonMuaHangs);
         update(donMuaHang.getId(), donMuaHang);
         donMuaHang = getOne(donMuaHang.getId()).orElseThrow(
-                () -> new CommonException("Không tìm thấy đơn mua hàng : " + creating.getNgayDatHang())
+                () -> new CommonException(ThongDiep.of("sanPhamMuaHang.donMuaKhongTimThayNgayDat", creating.getNgayDatHang()))
         );
 
         for (ChiTietDonMuaHang chiTietDonMuaHang : donMuaHang.getChiTietDonMuaHangs()) {
@@ -415,7 +416,7 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
         return emailDaChuanHoa.equals(chuanHoaEmail(don.getNhaCungCap().getEmail()));
     }
 
-    private static LoiCoMaException loiDonHoacEmail(String message) {
+    private static LoiCoMaException loiDonHoacEmail(ThongDiep message) {
         return new LoiCoMaException(HttpStatus.BAD_REQUEST, MaLoi.DON_HOAC_EMAIL_SAI, message);
     }
 
@@ -427,7 +428,7 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
         return new LoiCoMaException(HttpStatus.FORBIDDEN, MaLoi.PHIEN_HET_HAN, LOI_PHIEN_HET_HAN);
     }
 
-    private static LoiCoMaException maHetHan(String message) {
+    private static LoiCoMaException maHetHan(ThongDiep message) {
         return new LoiCoMaException(HttpStatus.BAD_REQUEST, MaLoi.MA_HET_HAN, message);
     }
 
@@ -438,7 +439,7 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
      */
     private DonMuaHang timDonChoNhaCungCap(Integer donMuaHangId, String soDonMua, String emailDaChuanHoa) {
         if (emailDaChuanHoa == null) {
-            throw loiDonHoacEmail("Vui lòng nhập email nhận yêu cầu báo giá.");
+            throw loiDonHoacEmail(ThongDiep.of("sanPhamMuaHang.donMuaNhapEmailNhanYeuCau"));
         }
         Optional<DonMuaHang> don;
         if (donMuaHangId != null) {
@@ -446,7 +447,7 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
         } else if (soDonMua != null && !soDonMua.isBlank()) {
             don = donMuaHangRepository.findBySoDonMua(soDonMua.trim());
         } else {
-            throw loiDonHoacEmail("Vui lòng nhập mã đơn hàng.");
+            throw loiDonHoacEmail(ThongDiep.of("sanPhamMuaHang.donMuaNhapMaDon"));
         }
         return don.filter(d -> emailKhop(d, emailDaChuanHoa))
                 .orElseThrow(() -> loiDonHoacEmail(LOI_MA_DON_HOAC_EMAIL));
@@ -523,7 +524,7 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
             if (cu != null && now.isBefore(cu.getCreatedAt().plusSeconds(MA_NCC_GUI_LAI_SAU_GIAY))) {
                 int cho = giayConLai(now, cu.getCreatedAt().plusSeconds(MA_NCC_GUI_LAI_SAU_GIAY));
                 throw new LoiCoMaException(HttpStatus.TOO_MANY_REQUESTS, MaLoi.MA_CU_CON_HIEU_LUC,
-                        "Vui lòng chờ " + cho + " giây rồi nhận mã mới.",
+                        ThongDiep.of("sanPhamMuaHang.donMuaChoGiayNhanMaMoi", cho),
                         Map.of("guiLaiSauGiay", cho, "hetHanGiay", hetHanMaCu));
             }
             Instant motGioTruoc = now.minus(1, ChronoUnit.HOURS);
@@ -534,8 +535,7 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
             if (luot.size() >= MA_NCC_TOI_DA_MOI_GIO) {
                 int cho = Math.max(1, giayConLai(now, luot.get(0).plus(1, ChronoUnit.HOURS)));
                 throw new LoiCoMaException(HttpStatus.TOO_MANY_REQUESTS, MaLoi.MA_CU_CON_HIEU_LUC,
-                        "Đã gửi " + MA_NCC_TOI_DA_MOI_GIO + " mã xác nhận trong một giờ. Vui lòng thử lại sau "
-                                + ((cho + 59) / 60) + " phút.",
+                        ThongDiep.of("sanPhamMuaHang.donMuaQuaSoMaMoiGio", MA_NCC_TOI_DA_MOI_GIO, ((cho + 59) / 60)),
                         Map.of("guiLaiSauGiay", cho, "hetHanGiay", hetHanMaCu));
             }
             GlobalCache.OTP_SCHEDULE_OBJS.removeIf(o -> laMaNccCua(o, email, don.getId()));
@@ -568,7 +568,7 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
             }
             log.warn("Không gửi được email mã xác nhận báo giá đơn {} ({})", don.getSoDonMua(), e.getClass().getSimpleName());
             throw new LoiCoMaException(HttpStatus.SERVICE_UNAVAILABLE, MaLoi.CHUA_GUI_DUOC_MA,
-                    "Chưa gửi được mã xác nhận. Vui lòng thử lại sau ít phút.");
+                    ThongDiep.of("sanPhamMuaHang.donMuaChuaGuiDuocMa"));
         }
 
         return ResponseEntity.ok(
@@ -578,7 +578,7 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
                                 .hetHanGiay((int) thoiHanMa.toSeconds())
                                 .guiLaiSauGiay(MA_NCC_GUI_LAI_SAU_GIAY)
                                 .build())
-                        .message("Đã gửi mã xác nhận.")
+                        .message(ThongDiep.dich("sanPhamMuaHang.donMuaDaGuiMa"))
                         .error(null)
                         .build()
         );
@@ -635,11 +635,11 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
             int sai = ma.getFailedAttempts().incrementAndGet();
             if (sai >= MA_NCC_SAI_TOI_DA) {
                 GlobalCache.OTP_SCHEDULE_OBJS.remove(ma);
-                throw maHetHan("Đã nhập sai " + MA_NCC_SAI_TOI_DA + " lần. Vui lòng nhận mã mới.");
+                throw maHetHan(ThongDiep.of("sanPhamMuaHang.donMuaNhapSaiQuaSoLan", MA_NCC_SAI_TOI_DA));
             }
             int conLai = MA_NCC_SAI_TOI_DA - sai;
             throw new LoiCoMaException(HttpStatus.BAD_REQUEST, MaLoi.MA_SAI,
-                    "Mã xác nhận không đúng. Còn " + conLai + " lần thử.", Map.of("conLaiLanThu", conLai));
+                    ThongDiep.of("sanPhamMuaHang.donMuaMaSaiConLan", conLai), Map.of("conLaiLanThu", conLai));
         }
         if (!GlobalCache.OTP_SCHEDULE_OBJS.remove(ma)) {
             // Yêu cầu khác vừa dùng (hoặc job vừa dọn) đúng mã này
@@ -681,7 +681,7 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
         return phien;
     }
 
-    private static LoiCoMaException baoGiaSai(String message, Integer dong) {
+    private static LoiCoMaException baoGiaSai(ThongDiep message, Integer dong) {
         Map<String, Object> duLieu = new HashMap<>();
         if (dong != null) duLieu.put("dong", dong);
         return new LoiCoMaException(HttpStatus.BAD_REQUEST, MaLoi.BAO_GIA_KHONG_HOP_LE, message, duLieu);
@@ -737,18 +737,18 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
 
         String ghiChu = baoGia.getGhiChu() == null || baoGia.getGhiChu().isBlank() ? null : baoGia.getGhiChu().trim();
         if (ghiChu != null && ghiChu.length() > GHI_CHU_NCC_TOI_DA) {
-            throw baoGiaSai("Ghi chú không được quá 2.000 ký tự.", null);
+            throw baoGiaSai(ThongDiep.of("sanPhamMuaHang.baoGiaGhiChuQuaDai"), null);
         }
 
         List<ChiTietDonMuaHang> cacDong = new ArrayList<>(
                 don.getChiTietDonMuaHangs() == null ? List.of() : don.getChiTietDonMuaHangs());
         cacDong.sort(Comparator.comparing(ChiTietDonMuaHang::getId));
         if (cacDong.isEmpty()) {
-            throw baoGiaSai("Đơn này chưa có sản phẩm nào để báo giá.", null);
+            throw baoGiaSai(ThongDiep.of("sanPhamMuaHang.baoGiaDonChuaCoSanPham"), null);
         }
         List<ChiTietDonMuaHangBaoGia> gui = baoGia.getChiTietDonMuaHangBaoGias();
         if (gui == null || gui.isEmpty()) {
-            throw baoGiaSai("Báo giá chưa có dòng sản phẩm nào.", null);
+            throw baoGiaSai(ThongDiep.of("sanPhamMuaHang.baoGiaChuaCoDong"), null);
         }
 
         Map<Integer, ChiTietDonMuaHang> dongTheoId = new LinkedHashMap<>();
@@ -762,34 +762,34 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
         for (ChiTietDonMuaHangBaoGia muc : gui) {
             Integer idDong = muc == null ? null : idDongBaoGia(muc);
             if (idDong == null) {
-                throw baoGiaSai("Báo giá có dòng thiếu mã dòng. Tải lại trang rồi gửi lại.", null);
+                throw baoGiaSai(ThongDiep.of("sanPhamMuaHang.baoGiaDongThieuMa"), null);
             }
             ChiTietDonMuaHang ct = dongTheoId.get(idDong);
             if (ct == null) {
-                throw baoGiaSai("Báo giá có dòng không thuộc đơn " + don.getSoDonMua() + ". Tải lại trang rồi gửi lại.", idDong);
+                throw baoGiaSai(ThongDiep.of("sanPhamMuaHang.baoGiaDongKhongThuocDon", don.getSoDonMua()), idDong);
             }
             String nhan = nhanDong(sttTheoId.get(idDong), ct);
             if (giaTheoId.containsKey(idDong)) {
-                throw baoGiaSai("Dòng " + nhan + " bị gửi hai lần. Tải lại trang rồi gửi lại.", idDong);
+                throw baoGiaSai(ThongDiep.of("sanPhamMuaHang.baoGiaDongGuiHaiLan", nhan), idDong);
             }
             BigDecimal donGia = muc.getDonGia();
             if (donGia == null) {
-                throw baoGiaSai("Dòng " + nhan + " chưa có đơn giá.", idDong);
+                throw baoGiaSai(ThongDiep.of("sanPhamMuaHang.baoGiaDongChuaCoDonGia", nhan), idDong);
             }
             if (donGia.signum() <= 0) {
-                throw baoGiaSai("Đơn giá dòng " + nhan + " phải lớn hơn 0.", idDong);
+                throw baoGiaSai(ThongDiep.of("sanPhamMuaHang.baoGiaDonGiaLonHon0", nhan), idDong);
             }
             if (donGia.stripTrailingZeros().scale() > 0) {
-                throw baoGiaSai("Đơn giá dòng " + nhan + " phải là số nguyên đồng, không có phần lẻ.", idDong);
+                throw baoGiaSai(ThongDiep.of("sanPhamMuaHang.baoGiaDonGiaSoNguyen", nhan), idDong);
             }
             if (donGia.compareTo(DON_GIA_TOI_DA) > 0) {
-                throw baoGiaSai("Đơn giá dòng " + nhan + " không được quá 9.999.999.999 ₫.", idDong);
+                throw baoGiaSai(ThongDiep.of("sanPhamMuaHang.baoGiaDonGiaQuaLon", nhan), idDong);
             }
             giaTheoId.put(idDong, donGia.setScale(2, RoundingMode.UNNECESSARY));
         }
         for (ChiTietDonMuaHang ct : cacDong) {
             if (!giaTheoId.containsKey(ct.getId())) {
-                throw baoGiaSai("Dòng " + nhanDong(sttTheoId.get(ct.getId()), ct) + " chưa có đơn giá.", ct.getId());
+                throw baoGiaSai(ThongDiep.of("sanPhamMuaHang.baoGiaDongChuaCoDonGia", nhanDong(sttTheoId.get(ct.getId()), ct)), ct.getId());
             }
         }
 
@@ -799,13 +799,12 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
             BigDecimal soLuong = ct.getSoLuongDat() == null ? BigDecimal.ZERO : ct.getSoLuongDat();
             BigDecimal thanhTien = soLuong.multiply(giaTheoId.get(ct.getId())).setScale(2, RoundingMode.HALF_UP);
             if (thanhTien.compareTo(TIEN_TOI_DA) > 0) {
-                throw baoGiaSai("Thành tiền dòng " + nhanDong(sttTheoId.get(ct.getId()), ct)
-                        + " vượt quá giới hạn 9.999.999.999.999 ₫. Kiểm tra lại đơn giá.", ct.getId());
+                throw baoGiaSai(ThongDiep.of("sanPhamMuaHang.baoGiaThanhTienQuaLon", nhanDong(sttTheoId.get(ct.getId()), ct)), ct.getId());
             }
             tongTien = tongTien.add(thanhTien);
         }
         if (tongTien.compareTo(TIEN_TOI_DA) > 0) {
-            throw baoGiaSai("Tổng tiền báo giá vượt quá giới hạn 9.999.999.999.999 ₫. Kiểm tra lại đơn giá.", null);
+            throw baoGiaSai(ThongDiep.of("sanPhamMuaHang.baoGiaTongTienQuaLon"), null);
         }
 
         for (ChiTietDonMuaHang ct : cacDong) {
@@ -912,10 +911,10 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
     private NguoiDung nguoiDangThaoTac() {
         NguoiDungAuthInfo authInfo = SecurityContextHolder.getUser();
         if (authInfo == null || authInfo.getId() == null) {
-            throw new CommonException("Bạn phải đăng nhập", HttpStatus.UNAUTHORIZED, null);
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.phaiDangNhap"), HttpStatus.UNAUTHORIZED, null);
         }
         return nguoiDungService.getOne(authInfo.getId()).orElseThrow(
-                () -> new CommonException("Không tìm thấy người dùng id: " + authInfo.getId())
+                () -> new CommonException(ThongDiep.of("sanPhamMuaHang.nguoiDungKhongTimThay", authInfo.getId()))
         );
     }
 
@@ -941,11 +940,11 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public void xetBaoGia(Integer id, Integer ketQua, String lyDo, Instant ngayBaoGiaDaXem) {
         if (ketQua == null || (ketQua != TRANG_THAI_DA_CHAP_NHAN && ketQua != TRANG_THAI_KHONG_CHAP_NHAN)) {
-            throw new CommonException("Kết quả xét báo giá không hợp lệ: chỉ nhận Chấp nhận (3) hoặc Không chấp nhận (4).");
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.xetBaoGiaKetQuaKhongHopLe"));
         }
         String lyDoChuan = lyDo == null || lyDo.isBlank() ? null : lyDo.trim();
         if (lyDoChuan != null && lyDoChuan.length() > LY_DO_TU_CHOI_TOI_DA) {
-            throw new CommonException("Lý do không chấp nhận không được quá " + LY_DO_TU_CHOI_TOI_DA + " ký tự.");
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.xetBaoGiaLyDoQuaDai", LY_DO_TU_CHOI_TOI_DA));
         }
         if (id == null) {
             throw new CommonException(HttpStatus.NOT_FOUND, LOI_KHONG_TIM_THAY_DON);
@@ -976,7 +975,7 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
             throw new LoiCoMaException(HttpStatus.CONFLICT, MaLoi.CHUA_CO_BAO_GIA, LOI_CHUA_CO_BAO_GIA);
         }
         if (ngayBaoGiaDaXem == null) {
-            throw new CommonException("Tải lại trang để xem báo giá mới nhất rồi thử lại.");
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.xetBaoGiaTaiLaiTrang"));
         }
         if (don.getNgayBaoGia().getEpochSecond() != ngayBaoGiaDaXem.getEpochSecond()) {
             throw new LoiCoMaException(HttpStatus.CONFLICT, MaLoi.BAO_GIA_DA_DOI, LOI_BAO_GIA_DA_DOI);
@@ -1051,13 +1050,13 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
      */
     private void ketThucDon(Integer id, String lyDo, int trangThaiMoi) {
         boolean dong = trangThaiMoi == TRANG_THAI_DA_DONG;
-        String viec = dong ? "đóng đơn" : "hủy đơn";
+        ThongDiep viec = ThongDiep.of(dong ? "sanPhamMuaHang.viecDongDon" : "sanPhamMuaHang.viecHuyDon");
         String lyDoChuan = lyDo == null ? "" : lyDo.trim();
         if (lyDoChuan.isEmpty()) {
-            throw new CommonException("Vui lòng nhập lý do " + viec + ".");
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.ketThucDonNhapLyDo", viec));
         }
         if (lyDoChuan.length() > LY_DO_KET_THUC_TOI_DA) {
-            throw new CommonException("Lý do " + viec + " tối đa " + LY_DO_KET_THUC_TOI_DA + " ký tự.");
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.ketThucDonLyDoToiDa", viec, LY_DO_KET_THUC_TOI_DA));
         }
         if (id == null) {
             throw new CommonException(HttpStatus.NOT_FOUND, LOI_KHONG_TIM_THAY_DON);
@@ -1079,22 +1078,22 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
         }
         // Kiểm lại sau khóa: phiếu nhập hoàn tất / người khác đóng, hủy đơn trong lúc chờ khóa
         chiKhiDangVanChuyen(don, viec);
-        String ma = tenDonTrongCau(don);
+        ThongDiep ma = tenDonTrongCau(don);
 
         BigDecimal daNhan = donMuaHangRepository.tongDaNhan(id);
         boolean coDotNhan = daNhan != null && daNhan.signum() > 0;
         if (dong && !coDotNhan) {
             throw new CommonException(HttpStatus.CONFLICT,
-                    ma + " chưa nhận đợt hàng nào. Nhà cung cấp không giao thì dùng Hủy đơn.");
+                    ThongDiep.of("sanPhamMuaHang.ketThucDonChuaNhanDot", ma));
         }
         // Đóng là "nhận thiếu": đơn đã nhận đủ mọi dòng thì không có phần nào để đóng (màn chi tiết cũng ẩn nút này)
         if (dong && cacDongDon.stream().noneMatch(ct -> (ct.getSoLuongDaNhan() == null ? BigDecimal.ZERO : ct.getSoLuongDaNhan())
                 .compareTo(ct.getSoLuongDat() == null ? BigDecimal.ZERO : ct.getSoLuongDat()) < 0)) {
-            throw new CommonException(HttpStatus.CONFLICT, ma + " đã nhận đủ hàng, không có phần thiếu để đóng.");
+            throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("sanPhamMuaHang.ketThucDonDaNhanDuKhongDong", ma));
         }
         if (!dong && coDotNhan) {
             throw new CommonException(HttpStatus.CONFLICT,
-                    ma + " đã nhận hàng nên không hủy được. Dùng Đóng đơn (nhận thiếu) để kết thúc phần còn lại.");
+                    ThongDiep.of("sanPhamMuaHang.ketThucDonDaNhanKhongHuy", ma));
         }
         // Phiếu nhập chưa hoàn tất, chưa hủy (nháp; chờ duyệt / đã duyệt của dữ liệu cũ) đang giữ phần còn lại của đơn
         List<String> phieuNhap = donMuaHangRepository.soPhieuNhapTheoTrangThai(id, List.of(
@@ -1102,8 +1101,7 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
                 TrangThaiPhieuNhap.APPROVED.getValue()));
         if (!phieuNhap.isEmpty()) {
             String so = phieuNhap.get(0) == null ? "" : " " + phieuNhap.get(0);
-            throw new CommonException(HttpStatus.CONFLICT, ma + " còn phiếu nhập" + so
-                    + " chưa nhập kho. Hủy hoặc hoàn tất phiếu nhập đó trước khi " + viec + ".");
+            throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("sanPhamMuaHang.ketThucDonConPhieuNhap", ma, so, viec));
         }
 
         don.setTrangThai(trangThaiMoi);
@@ -1129,21 +1127,23 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
     }
 
     /** 409 khi đơn không còn Đang vận chuyển (3), câu theo trạng thái hiện tại; {@code viec}: "đóng đơn" / "hủy đơn". */
-    private static void chiKhiDangVanChuyen(DonMuaHang don, String viec) {
+    private static void chiKhiDangVanChuyen(DonMuaHang don, ThongDiep viec) {
         Integer trangThai = don.getTrangThai();
         if (Objects.equals(trangThai, TRANG_THAI_DA_CHAP_NHAN)) return;
-        String ma = tenDonTrongCau(don);
-        String cau;
-        if (Objects.equals(trangThai, TRANG_THAI_DA_DONG)) cau = ma + " đã được đóng trước đó.";
-        else if (Objects.equals(trangThai, TRANG_THAI_DA_HUY)) cau = ma + " đã được hủy trước đó.";
-        else if (Objects.equals(trangThai, TRANG_THAI_DA_NHAN_DU)) cau = ma + " đã nhận đủ hàng, không cần " + viec + ".";
-        else cau = "Chỉ " + viec + " được khi đơn đang vận chuyển.";
+        ThongDiep ma = tenDonTrongCau(don);
+        ThongDiep cau;
+        if (Objects.equals(trangThai, TRANG_THAI_DA_DONG)) cau = ThongDiep.of("sanPhamMuaHang.ketThucDonDaDongTruoc", ma);
+        else if (Objects.equals(trangThai, TRANG_THAI_DA_HUY)) cau = ThongDiep.of("sanPhamMuaHang.ketThucDonDaHuyTruoc", ma);
+        else if (Objects.equals(trangThai, TRANG_THAI_DA_NHAN_DU)) cau = ThongDiep.of("sanPhamMuaHang.ketThucDonDaNhanDuKhongCan", ma, viec);
+        else cau = ThongDiep.of("sanPhamMuaHang.ketThucDonChiKhiVanChuyen", viec);
         throw new CommonException(HttpStatus.CONFLICT, cau);
     }
 
     /** "Đơn mua PO…" để ghép câu báo; đơn chưa có số thì "Đơn mua này". */
-    private static String tenDonTrongCau(DonMuaHang don) {
-        return don.getSoDonMua() == null || don.getSoDonMua().isBlank() ? "Đơn mua này" : "Đơn mua " + don.getSoDonMua();
+    private static ThongDiep tenDonTrongCau(DonMuaHang don) {
+        return don.getSoDonMua() == null || don.getSoDonMua().isBlank()
+                ? ThongDiep.of("sanPhamMuaHang.donMuaNay")
+                : ThongDiep.of("sanPhamMuaHang.donMuaSo", don.getSoDonMua());
     }
 
     /**
@@ -1181,17 +1181,17 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
     public ResponseEntity<ResponseData<String>> guiYeuCauBaoGiaDenNhaCungCap(YeuCauDenNhaCungCapCreating yeuCau) {
         thongTinCuaHangMuaHang.kiemDuDeGuiNhaCungCap();
         if (yeuCau == null || yeuCau.getYeuCauMuaHangId() == null) {
-            throw new CommonException("Vui lòng chọn yêu cầu nhập hàng.");
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.guiBaoGiaChonYeuCau"));
         }
         if (yeuCau.getNhaCungCapIds() == null || yeuCau.getNhaCungCapIds().isEmpty()) {
-            throw new CommonException("Vui lòng chọn ít nhất một nhà cung cấp");
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.guiBaoGiaChonNcc"));
         }
         // lấy thông tin người dùng đang đăng nhập
         NguoiDung nguoiDung = nguoiDangThaoTac();
 
         YeuCauMuaHang yeuCauMuaHang = khoaYeuCau(yeuCau.getYeuCauMuaHangId());
         if (yeuCauMuaHang == null) {
-            throw new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy yêu cầu nhập hàng.");
+            throw new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("sanPhamMuaHang.guiBaoGiaKhongTimThayYeuCau"));
         }
         // Đơn mua sinh ra lấy kho nhập của yêu cầu: chỉ người xem được đơn của kho đó mới gửi được
         kiemTraPhamViKhoNhap(yeuCauMuaHang.getKhoNhap());
@@ -1200,13 +1200,14 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
                 || Objects.equals(yeuCauMuaHang.getTrangThai(), YeuCauMuaHangService.TRANG_THAI_DA_CHON_NCC)) {
             String ma = yeuCauMuaHang.getSoYeuCauMuaHang();
             throw new LoiCoMaException(HttpStatus.CONFLICT, MaLoi.YEU_CAU_DA_GUI,
-                    (ma == null || ma.isBlank() ? "Yêu cầu này" : "Yêu cầu " + ma)
-                            + " đã được gửi báo giá. Tải lại trang để xem.");
+                    ma == null || ma.isBlank()
+                            ? ThongDiep.of("sanPhamMuaHang.guiBaoGiaYeuCauNayDaGui")
+                            : ThongDiep.of("sanPhamMuaHang.guiBaoGiaYeuCauDaGui", ma));
         }
         //kiểm tra xem yêu cầu đã dc duyệt hay chưa
         if (!Objects.equals(yeuCauMuaHang.getTrangThai(), YeuCauMuaHangService.TRANG_THAI_DA_DUYET)) {
             throw new CommonException(HttpStatus.CONFLICT,
-                    "Yêu cầu nhập hàng chưa được duyệt nên chưa gửi được yêu cầu báo giá.");
+                    ThongDiep.of("sanPhamMuaHang.guiBaoGiaYeuCauChuaDuyet"));
         }
 
         // Kiểm tra hết các nhà cung cấp TRƯỚC khi tạo đơn: chỉ một nhà cung cấp không hợp lệ
@@ -1214,17 +1215,15 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
         List<NhaCungCap> danhSachNhaCungCap = new ArrayList<>();
         for (Integer nhaCungCapId : new LinkedHashSet<>(yeuCau.getNhaCungCapIds())) {
             NhaCungCap nhaCungCap = nhaCungCapService.getOne(nhaCungCapId).orElseThrow(
-                    () -> new CommonException("Có nhà cung cấp đã chọn không còn trong hệ thống. Tải lại trang rồi chọn lại.")
+                    () -> new CommonException(ThongDiep.of("sanPhamMuaHang.guiBaoGiaNccKhongCon"))
             );
             // Nhà cung cấp đã ngừng hoạt động thì không nhận yêu cầu báo giá mới
             if (!Objects.equals(nhaCungCap.getTrangThai(), NhaCungCapService.TRANG_THAI_HOAT_DONG)) {
-                throw new CommonException("Nhà cung cấp " + nhaCungCap.getTenNhaCungCap()
-                        + " đã ngừng hoạt động, không thể gửi yêu cầu báo giá.");
+                throw new CommonException(ThongDiep.of("sanPhamMuaHang.guiBaoGiaNccNgungHoatDong", nhaCungCap.getTenNhaCungCap()));
             }
             // Yêu cầu báo giá gửi qua email và nhà cung cấp đăng nhập cổng bằng email
             if (nhaCungCap.getEmail() == null || nhaCungCap.getEmail().isBlank()) {
-                throw new CommonException("Nhà cung cấp " + nhaCungCap.getTenNhaCungCap()
-                        + " chưa có email nên không gửi được yêu cầu báo giá. Vui lòng cập nhật email trước.");
+                throw new CommonException(ThongDiep.of("sanPhamMuaHang.guiBaoGiaNccChuaCoEmail", nhaCungCap.getTenNhaCungCap()));
             }
             danhSachNhaCungCap.add(nhaCungCap);
         }
@@ -1311,7 +1310,7 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
                 && Objects.equals(trangThaiYeuCau, YeuCauMuaHangService.TRANG_THAI_DA_CHON_NCC);
     }
 
-    private static LoiCoMaException khongGuiLaiDuoc(String message) {
+    private static LoiCoMaException khongGuiLaiDuoc(ThongDiep message) {
         return new LoiCoMaException(HttpStatus.CONFLICT, MaLoi.KHONG_GUI_LAI_DUOC, message);
     }
 
@@ -1340,24 +1339,24 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
         kiemTraPhamViKhoNhap(don.getKhoNhap());
 
         if (!Objects.equals(don.getTrangThai(), TRANG_THAI_CHO_BAO_GIA)) {
-            throw khongGuiLaiDuoc("Đơn này đã có kết quả nên không cần gửi lại email yêu cầu báo giá. Tải lại trang.");
+            throw khongGuiLaiDuoc(ThongDiep.of("sanPhamMuaHang.guiLaiDonDaCoKetQua"));
         }
         if (!yeuCauConMo(yeuCau, cacDon)) {
             throw yeuCauKhongConMo();
         }
         if (don.getNgayBaoGia() != null) {
-            throw khongGuiLaiDuoc("Nhà cung cấp đã gửi báo giá nên không cần gửi lại email yêu cầu báo giá. Tải lại trang.");
+            throw khongGuiLaiDuoc(ThongDiep.of("sanPhamMuaHang.guiLaiNccDaBaoGia"));
         }
         if (don.getNgayGuiYeuCau() != null) {
-            throw khongGuiLaiDuoc("Email yêu cầu báo giá đã gửi được tới nhà cung cấp. Tải lại trang.");
+            throw khongGuiLaiDuoc(ThongDiep.of("sanPhamMuaHang.guiLaiEmailDaGuiDuoc"));
         }
         Instant now = dongHo.instant();
         if (!chuaGuiDuocYeuCau(don, yeuCau.getTrangThai(), now)) {
             // Còn lại đúng một lý do: đơn vừa tạo, email lần đầu có thể còn trong hàng đợi
-            throw khongGuiLaiDuoc("Email yêu cầu báo giá đang được gửi. Vui lòng chờ vài phút rồi tải lại trang.");
+            throw khongGuiLaiDuoc(ThongDiep.of("sanPhamMuaHang.guiLaiEmailDangGui"));
         }
         if (don.getNhaCungCap() == null || blankToNull(don.getNhaCungCap().getEmail()) == null) {
-            throw khongGuiLaiDuoc("Nhà cung cấp chưa có email nên không gửi được yêu cầu báo giá. Cập nhật email nhà cung cấp trước.");
+            throw khongGuiLaiDuoc(ThongDiep.of("sanPhamMuaHang.guiLaiNccChuaCoEmail"));
         }
 
         boolean[] duocGui = {false};
@@ -1368,7 +1367,7 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
         });
         if (!duocGui[0]) {
             int cho = Math.max(1, giayConLai(now, lanTruoc.plusSeconds(GUI_LAI_E4_CHAN_LAP_GIAY)));
-            throw khongGuiLaiDuoc("Email yêu cầu báo giá vừa được gửi lại. Vui lòng thử lại sau " + cho + " giây.");
+            throw khongGuiLaiDuoc(ThongDiep.of("sanPhamMuaHang.guiLaiVuaGuiLai", cho));
         }
 
         // E4 đọc dòng của đơn: don là entity đã nạp lại sau khi khóa, danh sách dòng nạp từ CSDL (@OrderBy id)

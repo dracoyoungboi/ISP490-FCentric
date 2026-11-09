@@ -19,6 +19,7 @@ import com.dev.backend.services.impl.entities.GiaBanBienTheService;
 import com.dev.backend.services.impl.entities.SanPhamQuanAoService;
 import com.dev.backend.services.impl.multitable.NhatKyDocService;
 import com.dev.backend.utils.XemGiaVon;
+import com.dev.backend.i18n.ThongDiep;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
@@ -127,7 +128,7 @@ public class SanPhamQuanAoController {
                         ResponseData.<SanPhamQuanAoDto>builder()
                                 .status(HttpStatus.OK.value())
                                 .data(daLuu)
-                                .message("Cập nhật thông tin cơ bản thành công")
+                                .message(ThongDiep.dich("sanPhamMuaHang.sanPhamCapNhatThongTinCoBanThanhCong"))
                                 .build());
         }
 
@@ -210,7 +211,7 @@ public class SanPhamQuanAoController {
                 return ResponseEntity.ok(ResponseData.<String>builder()
                         .status(HttpStatus.OK.value())
                         .data("Success")
-                        .message("Cập nhật trạng thái thành công")
+                        .message(ThongDiep.dich("sanPhamMuaHang.capNhatTrangThaiThanhCong"))
                         .build());
         }
 
@@ -239,7 +240,7 @@ public class SanPhamQuanAoController {
                 return ResponseEntity.ok(ResponseData.<KetQuaDoiGiaBanDto>builder()
                         .status(HttpStatus.OK.value())
                         .data(ketQua)
-                        .message("Đã đổi giá bán " + ketQua.getDaDoi().size() + " SKU")
+                        .message(ThongDiep.dich("sanPhamMuaHang.daDoiGiaBanSku", ketQua.getDaDoi().size()))
                         .build());
         }
 

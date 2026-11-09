@@ -1,5 +1,7 @@
 package com.dev.backend.utils;
 
+import com.dev.backend.i18n.ThongDiep;
+
 import java.text.Normalizer;
 import java.util.Locale;
 import java.util.Set;
@@ -20,10 +22,17 @@ public final class BienSoXe {
 
     public enum Loai { O_TO, XE_MAY, TAM_THOI }
 
-    /** Hợp lệ thì có giaTri (cách viết lưu vào phiếu) và loai; sai thì loi là câu báo người dùng. */
-    public record KetQua(String giaTri, Loai loai, String loi) {
+    /**
+     * Hợp lệ thì có giaTri (cách viết lưu vào phiếu) và loai; sai thì loiThongDiep là câu báo người dùng (theo khóa,
+     * để ném lỗi đa ngôn ngữ), {@link #loi()} là câu đó bằng tiếng Việt.
+     */
+    public record KetQua(String giaTri, Loai loai, ThongDiep loiThongDiep) {
         public boolean hopLe() {
-            return loi == null;
+            return loiThongDiep == null;
+        }
+
+        public String loi() {
+            return loiThongDiep == null ? null : loiThongDiep.tiengViet();
         }
     }
 
@@ -62,8 +71,8 @@ public final class BienSoXe {
     private static final Pattern CHU_KHONG_DUNG = Pattern.compile("[IJOQW]");
 
     // Cùng câu với giao diện (hiện dưới ô nửa hộp nên giữ trong một dòng)
-    private static final String LOI_MAU = "Chưa đúng mẫu, ví dụ 30A-123.45";
-    public static final String LOI_TRONG = "Nhập biển số xe";
+    private static final ThongDiep LOI_MAU = ThongDiep.of("sanPhamMuaHang.bienSoChuaDungMau");
+    public static final String LOI_TRONG = ThongDiep.vi("sanPhamMuaHang.bienSoTrong");
 
     private BienSoXe() {
     }
@@ -71,7 +80,7 @@ public final class BienSoXe {
     public static KetQua kiemTra(String chuoi) {
         if (chuoi != null && chuoi.length() > DO_DAI_TOI_DA) return loi(LOI_MAU);
         String s = chuanHoaTho(chuoi);
-        if (s.isEmpty()) return loi(LOI_TRONG);
+        if (s.isEmpty()) return loi(ThongDiep.of("sanPhamMuaHang.bienSoTrong"));
         KetQua kq = khop(s);
         if (kq.hopLe()) return kq;
         // Gõ "MD1" thay "MĐ1" (xe máy điện, biển cũ): "MD" cũng là sê ri xe máy 2 chữ nên chỉ thử khi chuỗi gõ vào không khớp
@@ -104,8 +113,8 @@ public final class BienSoXe {
     }
 
     private static KetQua ketQua(Loai loai, String ma, String giaTri, String so) {
-        if (!MA_DIA_PHUONG.contains(ma)) return loi("2 số đầu \"" + ma + "\" không phải mã tỉnh");
-        if (so.chars().allMatch(c -> c == '0' || c == '.')) return loi("Số thứ tự không được toàn số 0");
+        if (!MA_DIA_PHUONG.contains(ma)) return loi(ThongDiep.of("sanPhamMuaHang.bienSoMaTinhSai", ma));
+        if (so.chars().allMatch(c -> c == '0' || c == '.')) return loi(ThongDiep.of("sanPhamMuaHang.bienSoToanSo0"));
         return new KetQua(giaTri, loai, null);
     }
 
@@ -125,13 +134,13 @@ public final class BienSoXe {
         return KHOANG_QUANH_DAU.matcher(s).replaceAll("$1");
     }
 
-    private static KetQua loi(String cau) {
+    private static KetQua loi(ThongDiep cau) {
         return new KetQua(null, null, cau);
     }
 
     private static KetQua loiMau(String s) {
-        if (HAI_SO_DAU_CO_O_I.matcher(s).find()) return loi("2 số đầu có chữ O/I, có thể là số 0/1");
-        if (CHU_KHONG_DUNG.matcher(s).find()) return loi("Không dùng chữ I, J, O, Q, W");
+        if (HAI_SO_DAU_CO_O_I.matcher(s).find()) return loi(ThongDiep.of("sanPhamMuaHang.bienSoHaiSoDauCoOI"));
+        if (CHU_KHONG_DUNG.matcher(s).find()) return loi(ThongDiep.of("sanPhamMuaHang.bienSoChuKhongDung"));
         return loi(LOI_MAU);
     }
 }

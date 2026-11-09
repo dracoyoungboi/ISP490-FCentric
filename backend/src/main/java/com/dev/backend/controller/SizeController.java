@@ -11,6 +11,7 @@ import com.dev.backend.entities.Size;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.mapper.SizeMapper;
 import com.dev.backend.services.impl.entities.SizeService;
+import com.dev.backend.i18n.ThongDiep;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
@@ -35,7 +36,7 @@ public class SizeController {
     public ResponseEntity<ResponseData<SizeDto>> getById(@PathVariable Integer id) {
         Optional<Size> finding = sizeService.getOne(id);
         if (finding.isEmpty()) {
-            throw new CommonException("Không tìm thấy kích cỡ có id: " + id);
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.kichCoKhongTimThayCoId", id));
         }
         return ResponseEntity.ok(
                 ResponseData.<SizeDto>builder()
@@ -111,7 +112,7 @@ public class SizeController {
     public ResponseEntity<ResponseData<String>> delete(@PathVariable Integer id) {
         Optional<Size> finding = sizeService.getOne(id);
         if (finding.isEmpty()) {
-            throw new CommonException("Không tìm thấy kích cỡ có id: " + id);
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.kichCoKhongTimThayCoId", id));
         }
         sizeService.delete(id);
         return ResponseEntity.ok(

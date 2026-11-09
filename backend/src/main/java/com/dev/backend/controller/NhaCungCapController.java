@@ -9,6 +9,7 @@ import com.dev.backend.dto.response.customize.NhaCungCapKiemTraXoaDto;
 import com.dev.backend.dto.response.entities.NhaCungCapDto;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.services.impl.entities.NhaCungCapService;
+import com.dev.backend.i18n.ThongDiep;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -32,7 +33,7 @@ public class NhaCungCapController {
         return ResponseEntity.ok(ResponseData.builder()
                 .status(200)
                 .data(dtos)
-                .message("Lấy danh sách nhà cung cấp thành công")
+                .message(ThongDiep.dich("sanPhamMuaHang.nccLayDanhSachThanhCong"))
                 .build());
     }
 
@@ -46,7 +47,7 @@ public class NhaCungCapController {
         return ResponseEntity.ok(ResponseData.builder()
                 .status(200)
                 .data(dto)
-                .message("Lấy chi tiết nhà cung cấp thành công")
+                .message(ThongDiep.dich("sanPhamMuaHang.nccLayChiTietThanhCong"))
                 .build());
     }
 
@@ -60,7 +61,7 @@ public class NhaCungCapController {
         return ResponseEntity.ok(ResponseData.builder()
                 .status(200)
                 .data(dto)
-                .message("Thêm nhà cung cấp mới thành công")
+                .message(ThongDiep.dich("sanPhamMuaHang.nccThemThanhCong"))
                 .build());
     }
 
@@ -74,7 +75,7 @@ public class NhaCungCapController {
         return ResponseEntity.ok(ResponseData.builder()
                 .status(200)
                 .data(dto)
-                .message("Cập nhật nhà cung cấp thành công")
+                .message(ThongDiep.dich("sanPhamMuaHang.nccCapNhatThanhCong"))
                 .build());
     }
 
@@ -91,8 +92,8 @@ public class NhaCungCapController {
                 .status(200)
                 .data(dto)
                 .message(hoatDong
-                        ? "Đã cho phép nhà cung cấp hoạt động lại"
-                        : "Đã ngừng hoạt động nhà cung cấp")
+                        ? ThongDiep.dich("sanPhamMuaHang.nccDaChoHoatDongLai")
+                        : ThongDiep.dich("sanPhamMuaHang.nccDaNgungHoatDong"))
                 .build());
     }
 
@@ -106,7 +107,7 @@ public class NhaCungCapController {
         return ResponseEntity.ok(ResponseData.builder()
                 .status(200)
                 .data(dto)
-                .message("Kiểm tra xóa nhà cung cấp thành công")
+                .message(ThongDiep.dich("sanPhamMuaHang.nccKiemTraXoaThanhCong"))
                 .build());
     }
 
@@ -119,7 +120,7 @@ public class NhaCungCapController {
         service.delete(id);
         return ResponseEntity.ok(ResponseData.builder()
                 .status(200)
-                .message("Xóa nhà cung cấp thành công")
+                .message(ThongDiep.dich("sanPhamMuaHang.nccXoaThanhCong"))
                 .build());
     }
 }

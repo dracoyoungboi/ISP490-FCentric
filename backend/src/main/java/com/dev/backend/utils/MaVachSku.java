@@ -1,5 +1,8 @@
 package com.dev.backend.utils;
 
+import com.dev.backend.i18n.LoiThamSoException;
+import com.dev.backend.i18n.ThongDiep;
+
 import java.util.regex.Pattern;
 
 /**
@@ -34,7 +37,7 @@ public final class MaVachSku {
     /** Mã tự sinh cho biến thể đã có id. */
     public static String sinh(String tienTo, int bienTheId) {
         if (bienTheId <= 0) {
-            throw new IllegalArgumentException("Chỉ sinh mã vạch cho biến thể đã có id");
+            throw new LoiThamSoException(ThongDiep.of("sanPhamMuaHang.maVachChiSinhChoBienTheCoId"));
         }
         String tt = tienToDung(tienTo);
         String so = String.valueOf(bienTheId);

@@ -1,6 +1,7 @@
 package com.dev.backend.utils;
 
 import com.dev.backend.exception.customize.CommonException;
+import com.dev.backend.i18n.ThongDiep;
 
 import java.math.BigDecimal;
 
@@ -31,7 +32,15 @@ public final class GioiHanSoThapPhan {
     /** Ném 400 khi vượt giới hạn; trả lại chính số đó để dùng tiếp. */
     public static BigDecimal kiemTra(BigDecimal so, String tenTruong) {
         if (!hopLe(so)) {
-            throw new CommonException(tenTruong + " vượt giới hạn cho phép");
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.truongVuotGioiHan", tenTruong));
+        }
+        return so;
+    }
+
+    /** Như {@link #kiemTra(BigDecimal, String)} nhưng tên trường theo khóa (dịch được cùng câu lỗi). */
+    public static BigDecimal kiemTra(BigDecimal so, ThongDiep tenTruong) {
+        if (!hopLe(so)) {
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.truongVuotGioiHan", tenTruong));
         }
         return so;
     }

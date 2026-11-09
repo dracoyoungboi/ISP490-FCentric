@@ -25,6 +25,7 @@ import com.dev.backend.repository.PhieuNhapKhoRepository;
 import com.dev.backend.services.MaVachNhaCungCapService;
 import com.dev.backend.utils.KhoDangChon;
 import com.dev.backend.utils.MaVachUtils;
+import com.dev.backend.i18n.ThongDiep;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -64,7 +65,7 @@ public class MaVachNhaCungCapServiceImpl implements MaVachNhaCungCapService {
                 : null;
         for (org.springframework.data.domain.Sort.Order o : pageable.getSort()) {
             if (!TRUONG_SAP_XEP.contains(o.getProperty())) {
-                throw new CommonException(HttpStatus.BAD_REQUEST, "Không sắp xếp được theo \"" + o.getProperty() + "\".");
+                throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("sanPhamMuaHang.maVachNccKhongSapXepDuoc", o.getProperty()));
             }
         }
         return maVachNhaCungCapRepository.searchMappings(nhaCungCapId, queryStr, pageable).map(this::toDto);
@@ -142,70 +143,69 @@ public class MaVachNhaCungCapServiceImpl implements MaVachNhaCungCapService {
     @Transactional(rollbackFor = Exception.class)
     public MaVachNhaCungCapDto lienKet(MaVachLienKetRequest request) {
         if (request.getMaVach() == null || request.getMaVach().isBlank()) {
-            throw new CommonException(HttpStatus.BAD_REQUEST, "Mã vạch không được để trống");
+            throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("sanPhamMuaHang.maVachNccTrongMa"));
         }
         if (request.getNhaCungCapId() == null) {
-            throw new CommonException(HttpStatus.BAD_REQUEST, "Nhà cung cấp không được để trống");
+            throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("sanPhamMuaHang.maVachNccTrongNcc"));
         }
         if (request.getBienTheSanPhamId() == null) {
-            throw new CommonException(HttpStatus.BAD_REQUEST, "Biến thể sản phẩm không được để trống");
+            throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("sanPhamMuaHang.maVachNccTrongBienThe"));
         }
         if (request.getPhieuNhapKhoId() == null) {
-            throw new CommonException(HttpStatus.BAD_REQUEST, "Chỉ liên kết mã vạch nhà cung cấp khi đang kiểm đếm một phiếu nhập");
+            throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("sanPhamMuaHang.maVachNccChiKhiKiemDem"));
         }
 
         String maVach = request.getMaVach().trim();
         if (maVach.length() > 100) {
-            throw new CommonException(HttpStatus.BAD_REQUEST, "Mã vạch tối đa 100 ký tự");
+            throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("sanPhamMuaHang.maVachNccToiDa100"));
         }
         if (!MaVachUtils.kyTuHopLe(maVach)) {
             throw new CommonException(HttpStatus.BAD_REQUEST,
-                    "Mã \"" + maVach + "\" có ký tự không có trên tem mã vạch (chỉ gồm chữ không dấu, số và . _ / -)");
+                    ThongDiep.of("sanPhamMuaHang.maVachNccKyTuKhongHopLe", maVach));
         }
         if (MaVachUtils.laMaTheLenh(maVach)) {
             throw new CommonException(HttpStatus.BAD_REQUEST,
-                    "Mã bắt đầu bằng " + MaVachUtils.TIEN_TO_THE_LENH + " dành cho thẻ lệnh kiểm đếm, không liên kết được");
+                    ThongDiep.of("sanPhamMuaHang.maVachNccLaTheLenh", MaVachUtils.TIEN_TO_THE_LENH));
         }
         if (Boolean.FALSE.equals(MaVachUtils.soKiemTraGs1Dung(maVach))) {
             throw new CommonException(HttpStatus.BAD_REQUEST,
-                    "Mã " + maVach + " sai số kiểm tra " + MaVachUtils.dangGs1(maVach) + ", máy quét đã đọc lệch. Quét lại tem.");
+                    ThongDiep.of("sanPhamMuaHang.maVachNccSaiSoKiemTra", maVach, MaVachUtils.dangGs1(maVach)));
         }
         Optional<BienTheSanPham> maFcentric = timMaFcentric(maVach);
         if (maFcentric.isPresent()) {
             throw new CommonException(HttpStatus.BAD_REQUEST,
-                    "Mã " + maVach + " là mã FCentric của " + nhan(maFcentric.get()) + ", không cần liên kết");
+                    ThongDiep.of("sanPhamMuaHang.maVachNccLaMaFcentric", maVach, nhan(maFcentric.get())));
         }
 
         PhieuNhapKho phieu = phieuNhapKhoRepository.findById(request.getPhieuNhapKhoId())
-                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy phiếu nhập ID: " + request.getPhieuNhapKhoId()));
+                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("sanPhamMuaHang.phieuNhapKhongTimThay", request.getPhieuNhapKhoId())));
         KhoDangChon.kiemTra(phieu.getKho(), "Phiếu nhập " + phieu.getSoPhieuNhap());
         if (phieu.getTrangThai() == null || phieu.getTrangThai() != TrangThaiPhieuNhap.DRAFT.getValue()) {
-            throw new CommonException(HttpStatus.BAD_REQUEST, "Phiếu nhập " + phieu.getSoPhieuNhap() + " không còn đang kiểm đếm");
+            throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("sanPhamMuaHang.maVachNccPhieuHetKiemDem", phieu.getSoPhieuNhap()));
         }
         if (phieu.getNhaCungCap() == null || !phieu.getNhaCungCap().getId().equals(request.getNhaCungCapId())) {
-            throw new CommonException(HttpStatus.BAD_REQUEST, "Nhà cung cấp không khớp nhà cung cấp của phiếu nhập " + phieu.getSoPhieuNhap());
+            throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("sanPhamMuaHang.maVachNccKhongKhopNcc", phieu.getSoPhieuNhap()));
         }
         if (chiTietPhieuNhapKhoRepository.findFirstByPhieuNhapKho_IdAndBienTheSanPham_IdAndLoHangIsNull(
                 phieu.getId(), request.getBienTheSanPhamId()).isEmpty()) {
-            throw new CommonException(HttpStatus.BAD_REQUEST, "Biến thể không có trong phiếu nhập " + phieu.getSoPhieuNhap());
+            throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("sanPhamMuaHang.maVachNccBienTheKhongTrongPhieu", phieu.getSoPhieuNhap()));
         }
         // Mã kệ quét lúc danh sách kệ chưa tải xong trông như mã lạ: không để thành mã vạch sản phẩm
         if (phieu.getKho() != null && viTriKhoRepository.existsByKho_IdAndMaViTriIgnoreCase(phieu.getKho().getId(), maVach)) {
             throw new CommonException(HttpStatus.BAD_REQUEST,
-                    "Mã " + maVach + " là mã kệ của kho, không phải mã vạch sản phẩm. Không liên kết được.");
+                    ThongDiep.of("sanPhamMuaHang.maVachNccLaMaKe", maVach));
         }
 
         NhaCungCap ncc = phieu.getNhaCungCap();
         BienTheSanPham bt = bienTheSanPhamRepository.findById(request.getBienTheSanPhamId())
-                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy biến thể ID: " + request.getBienTheSanPhamId()));
+                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("sanPhamMuaHang.maVachNccKhongTimThayBienThe", request.getBienTheSanPhamId())));
 
         Optional<MaVachNhaCungCap> daCo = maVachNhaCungCapRepository.findByBarcodeNccAndNhaCungCap_Id(maVach, ncc.getId());
         if (daCo.isPresent()) {
             MaVachNhaCungCap cu = daCo.get();
             if (!cu.getBienTheSanPham().getId().equals(bt.getId())) {
                 throw new CommonException(HttpStatus.CONFLICT,
-                        "Mã " + maVach + " đã liên kết với " + nhan(cu.getBienTheSanPham())
-                                + ". Nếu liên kết sai, quản lý kho gỡ ở trang Mã vạch nhà cung cấp rồi quét lại.");
+                        ThongDiep.of("sanPhamMuaHang.maVachNccDaLienKet", maVach, nhan(cu.getBienTheSanPham())));
             }
             // Cùng biến thể (hai người cùng xác nhận một mã): giữ liên kết cũ, chỉ bổ sung mã hàng NCC nếu còn trống
             if ((cu.getMaSanPhamNcc() == null || cu.getMaSanPhamNcc().isBlank()) && request.getMaHangNcc() != null
@@ -237,8 +237,7 @@ public class MaVachNhaCungCapServiceImpl implements MaVachNhaCungCapService {
             // Máy khác vừa liên kết đúng mã này cùng lúc (khóa duy nhất mã + NCC chặn bản thứ hai)
             // Không đọc lại bản ghi của máy kia được trong giao dịch đã hỏng: hướng dẫn quét lại để thấy mã đã gắn với sản phẩm nào
             throw new CommonException(HttpStatus.CONFLICT,
-                    "Mã " + maVach + " vừa được liên kết ở máy khác cùng lúc. Quét lại mã để xem mã đã gắn với sản phẩm nào"
-                            + " trước khi tính lượt.");
+                    ThongDiep.of("sanPhamMuaHang.maVachNccLienKetDongThoi", maVach));
         }
         if (nhatKy != null) {
             // Ghi lên nhà cung cấp (loai nha_cung_cap, id NCC) để hiện trong lịch sử nhà cung cấp
@@ -257,7 +256,7 @@ public class MaVachNhaCungCapServiceImpl implements MaVachNhaCungCapService {
     @Transactional(rollbackFor = Exception.class)
     public void huyLienKet(Integer id) {
         MaVachNhaCungCap entity = maVachNhaCungCapRepository.findById(id)
-                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy liên kết ID: " + id));
+                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("sanPhamMuaHang.maVachNccKhongTimThayLienKet", id)));
         if (nhatKy != null) {
             PhieuNhapKho phieuGoc = entity.getPhieuNhapKho();
             nhatKy.ghi(NhatKyNghiepVu.dong(ITable.nha_cung_cap,

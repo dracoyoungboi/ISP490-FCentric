@@ -15,6 +15,7 @@ import com.dev.backend.repository.ThuongHieuRepository;
 import com.dev.backend.services.MinioService;
 import com.dev.backend.services.impl.BaseServiceImpl;
 import com.dev.backend.utils.KiemTraTepTai;
+import com.dev.backend.i18n.ThongDiep;
 import jakarta.persistence.EntityManager;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -71,7 +72,7 @@ public class ThuongHieuService extends BaseServiceImpl<ThuongHieu, Integer> {
         String ten = creating.getTenThuongHieu().trim();
 
         if (repository.existsByMaThuongHieu(ma)) {
-            throw new CommonException("Mã thương hiệu đã tồn tại");
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.thuongHieuMaDaTonTai"));
         }
 
         ThuongHieu entity = mapper.toEntity(creating);
@@ -92,13 +93,13 @@ public class ThuongHieuService extends BaseServiceImpl<ThuongHieu, Integer> {
     public ThuongHieuDto update(Integer id, ThuongHieuUpdating updating) {
 
         ThuongHieu entity = repository.findById(id)
-                .orElseThrow(() -> new CommonException("Không tìm thấy thương hiệu với ID: " + id));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("sanPhamMuaHang.thuongHieuKhongTimThay", id)));
         Map<String, Object> truoc = anhThuongHieu(entity);
         // Nếu có sửa mã thì kiểm tra trùng (trừ chính bản ghi đang sửa)
         if (updating.getMaThuongHieu() != null
                 && !updating.getMaThuongHieu().trim().isEmpty()
                 && repository.existsByMaThuongHieuAndIdNot(updating.getMaThuongHieu().trim(), id)) {
-            throw new CommonException("Mã thương hiệu đã tồn tại");
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.thuongHieuMaDaTonTai"));
         }
 
         mapper.partialUpdate(updating, entity);
@@ -122,13 +123,13 @@ public class ThuongHieuService extends BaseServiceImpl<ThuongHieu, Integer> {
     @Transactional
     public ThuongHieuDto updateLogo(Integer id, MultipartFile file) {
         if (file == null || file.isEmpty()) {
-            throw new CommonException("Không tìm thấy tệp logo");
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.thuongHieuKhongCoTepLogo"));
         }
         // Kiểm byte đầu tệp, không tin Content-Type client khai (SVG / HTML đổi tên thành ảnh)
         KiemTraTepTai.batBuoc(file, KiemTraTepTai.ANH_WEB, LOGO_TOI_DA_BYTE, "Tệp logo", KiemTraTepTai.MO_TA_ANH_WEB);
         try {
             ThuongHieu entity = repository.findById(id)
-                    .orElseThrow(() -> new CommonException("Không tìm thấy thương hiệu với ID: " + id));
+                    .orElseThrow(() -> new CommonException(ThongDiep.of("sanPhamMuaHang.thuongHieuKhongTimThay", id)));
 
             TepTin tepTinCu = entity.getTepTin();
 
@@ -164,7 +165,7 @@ public class ThuongHieuService extends BaseServiceImpl<ThuongHieu, Integer> {
             throw e;
         } catch (Exception e) {
             log.error("Lỗi upload logo thương hiệu lên MinIO", e);
-            throw new CommonException("Không thể tải logo lên, vui lòng thử lại");
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.thuongHieuTaiLogoLoi"));
         }
     }
 

@@ -8,6 +8,7 @@ import com.dev.backend.dto.response.inbound.MaVachNhaCungCapDto;
 import com.dev.backend.dto.response.inbound.TraCuuMaVachResponse;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.services.MaVachNhaCungCapService;
+import com.dev.backend.i18n.ThongDiep;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -44,7 +45,7 @@ public class MaVachNhaCungCapController {
         Page<MaVachNhaCungCapDto> page = maVachNhaCungCapService.timKiem(q, nhaCungCapId, pageable);
         return ResponseEntity.ok(ResponseData.<Page<MaVachNhaCungCapDto>>builder()
                 .status(HttpStatus.OK.value())
-                .message("Thành công")
+                .message(ThongDiep.dich("sanPhamMuaHang.thanhCong"))
                 .data(page)
                 .build());
     }
@@ -62,7 +63,7 @@ public class MaVachNhaCungCapController {
         TraCuuMaVachResponse res = maVachNhaCungCapService.traCuu(maVach, nhaCungCapId);
         return ResponseEntity.ok(ResponseData.<TraCuuMaVachResponse>builder()
                 .status(HttpStatus.OK.value())
-                .message("Thành công")
+                .message(ThongDiep.dich("sanPhamMuaHang.thanhCong"))
                 .data(res)
                 .build());
     }
@@ -79,7 +80,7 @@ public class MaVachNhaCungCapController {
         // Mã vạch toàn số có thể được gửi dạng số JSON: đọc thành chuỗi; mã NCC phải là số
         Object giaTriMa = body != null ? body.get("maVach") : null;
         if (giaTriMa != null && !(giaTriMa instanceof String) && !(giaTriMa instanceof Number)) {
-            throw new CommonException(HttpStatus.BAD_REQUEST, "Mã vạch không hợp lệ");
+            throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("sanPhamMuaHang.maVachKhongHopLe"));
         }
         String maVach = giaTriMa != null ? String.valueOf(giaTriMa) : null;
         Object giaTriNcc = body != null ? body.get("nhaCungCapId") : null;
@@ -93,13 +94,13 @@ public class MaVachNhaCungCapController {
             try {
                 nhaCungCapId = Integer.valueOf(String.valueOf(giaTriNcc).trim());
             } catch (NumberFormatException e) {
-                throw new CommonException(HttpStatus.BAD_REQUEST, "Mã nhà cung cấp không hợp lệ");
+                throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("sanPhamMuaHang.maNhaCungCapKhongHopLe"));
             }
         }
         TraCuuMaVachResponse res = maVachNhaCungCapService.traCuu(maVach, nhaCungCapId);
         return ResponseEntity.ok(ResponseData.<TraCuuMaVachResponse>builder()
                 .status(HttpStatus.OK.value())
-                .message("Thành công")
+                .message(ThongDiep.dich("sanPhamMuaHang.thanhCong"))
                 .data(res)
                 .build());
     }
@@ -114,7 +115,7 @@ public class MaVachNhaCungCapController {
         MaVachNhaCungCapDto dto = maVachNhaCungCapService.lienKet(request);
         return ResponseEntity.ok(ResponseData.<MaVachNhaCungCapDto>builder()
                 .status(HttpStatus.OK.value())
-                .message("Liên kết mã vạch NCC thành công")
+                .message(ThongDiep.dich("sanPhamMuaHang.maVachNccLienKetThanhCong"))
                 .data(dto)
                 .build());
     }
@@ -129,7 +130,7 @@ public class MaVachNhaCungCapController {
         maVachNhaCungCapService.huyLienKet(id);
         return ResponseEntity.ok(ResponseData.<String>builder()
                 .status(HttpStatus.OK.value())
-                .message("Hủy liên kết mã vạch thành công")
+                .message(ThongDiep.dich("sanPhamMuaHang.maVachNccHuyLienKetThanhCong"))
                 .data("SUCCESS")
                 .build());
     }

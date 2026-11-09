@@ -22,6 +22,7 @@ import com.dev.backend.repository.PhanQuyenNguoiDungKhoRepository;
 import com.dev.backend.repository.TonKhoTheoLoRepository;
 import com.dev.backend.services.JwtService;
 import com.dev.backend.services.impl.entities.KhoService;
+import com.dev.backend.i18n.ThongDiep;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -62,7 +63,7 @@ public class KhoController {
     public ResponseEntity<ResponseData<KhoDto>> getById(@PathVariable Integer id) {
         Optional<Kho> findingKho = khoService.getOne(id);
         if (findingKho.isEmpty()) {
-            throw new CommonException("Không tìm thấy kho id: " + id);
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.khoKhongTimThay", id));
         }
         KhoDto dto = khoMapper.toDto(findingKho.get());
         ganSoLuongTon(List.of(dto));
@@ -90,7 +91,7 @@ public class KhoController {
                 && nguoiDung.getVaiTro().contains(IRoleType.quan_tri_vien);
         if (!laQuanTriVien && (nguoiDung == null || nguoiDung.getPhanQuyenNguoiDungKhos() == null
                 || !jwtService.inWorkspace(id, nguoiDung))) {
-            throw new CommonException("Bạn không phụ trách kho này nên không xem được số liệu tồn kho", HttpStatus.FORBIDDEN, null);
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.khoKhongPhuTrachXemTon"), HttpStatus.FORBIDDEN, null);
         }
         return ResponseEntity.ok(
                 ResponseData.<KhoTomTatResponse>builder()
@@ -115,8 +116,8 @@ public class KhoController {
                         .status(HttpStatus.OK.value())
                         .data(dto)
                         .message(Integer.valueOf(1).equals(dto.getTrangThai())
-                                ? "Đã cho phép kho hoạt động lại"
-                                : "Đã ngừng hoạt động kho")
+                                ? ThongDiep.dich("sanPhamMuaHang.khoDaChoHoatDongLai")
+                                : ThongDiep.dich("sanPhamMuaHang.khoDaNgungHoatDong"))
                         .build()
         );
     }
@@ -214,7 +215,7 @@ public class KhoController {
                         ResponseData.<Page<KhoDto>>builder()
                                 .status(HttpStatus.OK.value())
                                 .data(Page.empty())
-                                .message("Bạn chưa được giao phụ trách kho nào.")
+                                .message(ThongDiep.dich("sanPhamMuaHang.khoChuaDuocGiaoPhuTrach"))
                                 .build()
                 );
             }
@@ -233,7 +234,7 @@ public class KhoController {
                 ResponseData.<Page<KhoDto>>builder()
                         .status(HttpStatus.OK.value())
                         .data(khoMapper.toDtoPage(khoService.filter(filter)))
-                        .message("Lấy danh sách kho phụ trách thành công")
+                        .message(ThongDiep.dich("sanPhamMuaHang.khoLayDanhSachPhuTrachThanhCong"))
                         .build()
         );
     }

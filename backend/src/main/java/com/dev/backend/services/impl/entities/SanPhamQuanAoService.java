@@ -34,6 +34,8 @@ import com.dev.backend.utils.GioiHanSoThapPhan;
 import com.dev.backend.utils.KiemTraTepTai;
 import com.dev.backend.utils.MaVachSku;
 import com.dev.backend.services.impl.kiemke.KhoaKiemKeGuard;
+import com.dev.backend.i18n.ThongDiep;
+import com.dev.backend.i18n.LoiChungException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Query;
@@ -151,7 +153,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 entityManager.flush();
 
                 SanPhamQuanAo sp = repository.findById(sanPhamId)
-                        .orElseThrow(() -> new CommonException("Không tìm thấy sản phẩm id: " + sanPhamId));
+                        .orElseThrow(() -> new CommonException(ThongDiep.of("sanPhamMuaHang.sanPhamKhongTimThay", sanPhamId)));
 
                 List<BienTheSanPham> danhSachBienThe = sp.getBienTheSanPhams();
 
@@ -247,7 +249,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 Date now = new Date();
 
                 DanhMucQuanAo danhMucQuanAo = danhMucQuanAoService.getOne(creating.getDanhMucId()).orElseThrow(
-                        () -> new CommonException("Danh mục không tồn tại id: " + creating.getDanhMucId())
+                        () -> new CommonException(ThongDiep.of("sanPhamMuaHang.sanPhamDanhMucKhongTonTai", creating.getDanhMucId()))
                 );
 
                 String maVietTatDM = generateCodeFromName(danhMucQuanAo.getTenDanhMuc());
@@ -262,7 +264,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
 
                 Integer nguoiTaoId = SecurityContextHolder.getUser().getId();
                 NguoiDung nguoiTao = nguoiDungService.getOne(nguoiTaoId).orElseThrow(
-                        () -> new CommonException("Người tạo không tồn tại id: " + nguoiTaoId)
+                        () -> new CommonException(ThongDiep.of("sanPhamMuaHang.sanPhamNguoiTaoKhongTonTai", nguoiTaoId))
                 );
 
                 sanPhamQuanAo.setMaSanPham(maSanPhamAuto);
@@ -273,11 +275,10 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 // Gán thương hiệu (nếu có). Sản phẩm mới = gán mới nên chỉ chấp nhận thương hiệu đang hoạt động.
                 if (creating.getThuongHieuId() != null) {
                         ThuongHieu thuongHieu = thuongHieuService.getOne(creating.getThuongHieuId()).orElseThrow(
-                                () -> new CommonException("Thương hiệu không tồn tại id: " + creating.getThuongHieuId())
+                                () -> new CommonException(ThongDiep.of("sanPhamMuaHang.sanPhamThuongHieuKhongTonTai", creating.getThuongHieuId()))
                         );
                         if (!Integer.valueOf(1).equals(thuongHieu.getTrangThai())) {
-                                throw new CommonException("Thương hiệu \"" + thuongHieu.getTenThuongHieu()
-                                        + "\" đang ngừng hoạt động, không thể gán cho sản phẩm mới");
+                                throw new CommonException(ThongDiep.of("sanPhamMuaHang.sanPhamThuongHieuNgungChoSanPhamMoi", thuongHieu.getTenThuongHieu()));
                         }
                         sanPhamQuanAo.setThuongHieu(thuongHieu);
                 }
@@ -316,7 +317,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                                 }
                         } catch (Exception e) {
                                 log.error("Lỗi tạo tệp tin cho quần áo: {}", creating.getTenSanPham(), e);
-                                throw new RuntimeException("Lỗi tạo tệp tin cho quần áo: " + creating.getTenSanPham());
+                                throw new LoiChungException(ThongDiep.of("sanPhamMuaHang.sanPhamLoiTaoTepTin", creating.getTenSanPham()));
                         }
                 }
 
@@ -329,13 +330,13 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                         BienTheSanPhamCreating btspCreating = dsBienThe.get(i);
 
                         MauSac mauSac = mauSacService.getOne(btspCreating.getMauSacId()).orElseThrow(
-                                () -> new CommonException("Không tìm thấy màu id: " + btspCreating.getMauSacId()));
+                                () -> new CommonException(ThongDiep.of("sanPhamMuaHang.mauKhongTimThay", btspCreating.getMauSacId())));
 
                         Size size = sizeService.getOne(btspCreating.getSizeId()).orElseThrow(
-                                () -> new CommonException("Không tìm thấy kích cỡ id: " + btspCreating.getSizeId()));
+                                () -> new CommonException(ThongDiep.of("sanPhamMuaHang.kichCoKhongTimThay", btspCreating.getSizeId())));
 
                         ChatLieu chatLieu = chatLieuService.getOne(btspCreating.getChatLieuId()).orElseThrow(
-                                () -> new CommonException("Không tìm thấy chất liệu id: " + btspCreating.getChatLieuId()));
+                                () -> new CommonException(ThongDiep.of("sanPhamMuaHang.chatLieuKhongTimThayId", btspCreating.getChatLieuId())));
 
                         // Công thức SKU = [Mã SP] + [Mã chất liệu] + [Mã size] + [Mã màu]
                         String maCL = chatLieu.getMaChatLieu();
@@ -394,7 +395,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                         ResponseData.<SanPhamQuanAoDto>builder()
                                 .status(HttpStatus.OK.value())
                                 .data(sanPhamQuanAoMapper.toDto(sanPhamQuanAo))
-                                .message("Tạo sản phẩm thành công với mã: " + maSanPhamAuto)
+                                .message(ThongDiep.dich("sanPhamMuaHang.sanPhamTaoThanhCong", maSanPhamAuto))
                                 .build()
                 );
         }
@@ -406,28 +407,27 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
          */
         private void kiemTraBienTheTaoMoi(List<BienTheSanPhamCreating> dsBienThe, List<MultipartFile> anhBienThes) {
                 if (dsBienThe == null || dsBienThe.isEmpty()) {
-                        throw new CommonException("Sản phẩm phải có ít nhất 1 biến thể.");
+                        throw new CommonException(ThongDiep.of("sanPhamMuaHang.sanPhamItNhatMotBienThe"));
                 }
                 if (dsBienThe.size() > SO_BIEN_THE_TOI_DA) {
-                        throw new CommonException("Mỗi sản phẩm có tối đa " + SO_BIEN_THE_TOI_DA
-                                + " biến thể. Vui lòng bỏ bớt màu sắc hoặc kích cỡ.");
+                        throw new CommonException(ThongDiep.of("sanPhamMuaHang.sanPhamToiDaBienThe", SO_BIEN_THE_TOI_DA));
                 }
                 Set<String> toHopDaGap = new HashSet<>();
                 for (int i = 0; i < dsBienThe.size(); i++) {
                         BienTheSanPhamCreating bt = dsBienThe.get(i);
                         int stt = i + 1;
                         if (bt == null || bt.getMauSacId() == null || bt.getSizeId() == null || bt.getChatLieuId() == null) {
-                                throw new CommonException("Biến thể #" + stt + ": vui lòng chọn màu sắc, kích cỡ và chất liệu.");
+                                throw new CommonException(ThongDiep.of("sanPhamMuaHang.bienTheChonMauCoChatLieu", stt));
                         }
                         if (!toHopDaGap.add(bt.getMauSacId() + "-" + bt.getSizeId() + "-" + bt.getChatLieuId())) {
-                                throw new CommonException("Có biến thể trùng màu sắc, kích cỡ và chất liệu. Mỗi biến thể phải khác nhau.");
+                                throw new CommonException(ThongDiep.of("sanPhamMuaHang.bienTheTrungToHop"));
                         }
                         if ((bt.getGiaVon() != null && bt.getGiaVon().signum() < 0)
                                 || (bt.getGiaBan() != null && bt.getGiaBan().signum() < 0)) {
-                                throw new CommonException("Giá của biến thể #" + stt + " không được âm.");
+                                throw new CommonException(ThongDiep.of("sanPhamMuaHang.bienTheGiaAm", stt));
                         }
                         if (bt.getViTriAnh() != null && layTepAnh(anhBienThes, bt.getViTriAnh()) == null) {
-                                throw new CommonException("Thiếu tệp ảnh cho biến thể #" + stt + ".");
+                                throw new CommonException(ThongDiep.of("sanPhamMuaHang.bienTheThieuTepAnhCham", stt));
                         }
                 }
         }
@@ -451,13 +451,13 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                         bt.setMaVachSku(ma);
                         if (ma == null) continue;
                         if (ma.length() > 100) {
-                                throw new CommonException("Mã vạch " + ma + " dài quá 100 ký tự");
+                                throw new CommonException(ThongDiep.of("sanPhamMuaHang.maVachDaiQua100", ma));
                         }
                         if (!daGap.add(ma.toLowerCase(Locale.ROOT))) {
-                                throw new CommonException("Mã vạch " + ma + " bị trùng giữa các biến thể");
+                                throw new CommonException(ThongDiep.of("sanPhamMuaHang.maVachTrungGiuaBienThe", ma));
                         }
                         bienTheSanPhamRepository.findFirstByMaVachSkuIgnoreCase(ma).ifPresent(cu -> {
-                                throw new CommonException("Mã vạch " + ma + " đã dùng cho SKU " + cu.getMaSku());
+                                throw new CommonException(ThongDiep.of("sanPhamMuaHang.maVachDaDungChoSku", ma, cu.getMaSku()));
                         });
                 }
         }
@@ -466,8 +466,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
         private void ganMaVachTuSinh(BienTheSanPham bienThe, String tienTo) {
                 String ma = MaVachSku.sinh(tienTo, bienThe.getId());
                 bienTheSanPhamRepository.findFirstByMaVachSkuIgnoreCase(ma).ifPresent(cu -> {
-                        throw new CommonException("Mã vạch tự sinh " + ma + " trùng mã nhập tay của SKU " + cu.getMaSku()
-                                + ". Bấm lưu lại để cấp mã khác.");
+                        throw new CommonException(ThongDiep.of("sanPhamMuaHang.maVachTuSinhTrung", ma, cu.getMaSku()));
                 });
                 bienThe.setMaVachSku(ma);
                 bienTheSanPhamService.update(bienThe.getId(), bienThe);
@@ -513,7 +512,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                                 .build());
                 } catch (Exception e) {
                         log.error("Lỗi tải ảnh biến thể của sản phẩm {}", maSanPham, e);
-                        throw new CommonException("Không tải được ảnh biến thể. Vui lòng thử lại.", e);
+                        throw new CommonException(ThongDiep.of("sanPhamMuaHang.bienTheTaiAnhLoi"), e);
                 }
         }
 
@@ -621,18 +620,18 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 kiemTraTepAnh(anhBienThes);
 
                 SanPhamQuanAo sanPhamQuanAo = getOne(updating.getId()).orElseThrow(
-                        () -> new CommonException("Không tìm thấy sản phẩm id: " + updating.getId())
+                        () -> new CommonException(ThongDiep.of("sanPhamMuaHang.sanPhamKhongTimThay", updating.getId()))
                 );
 
                 // Mã sản phẩm do hệ thống sinh khi tạo và đã dùng để ghép mã SKU -> không cho đổi.
                 // FE gửi lại đúng mã cũ (hoặc để trống) thì bỏ qua; gửi mã khác thì từ chối.
                 String maSanPhamGuiLen = updating.getMaSanPham() == null ? "" : updating.getMaSanPham().trim();
                 if (!maSanPhamGuiLen.isEmpty() && !maSanPhamGuiLen.equals(sanPhamQuanAo.getMaSanPham())) {
-                        throw new CommonException("Mã sản phẩm được hệ thống sinh tự động, không thể thay đổi");
+                        throw new CommonException(ThongDiep.of("sanPhamMuaHang.sanPhamKhongDoiMa"));
                 }
 
                 DanhMucQuanAo danhMucQuanAo = danhMucQuanAoService.getOne(updating.getDanhMucId()).orElseThrow(
-                        () -> new CommonException("Không tìm thấy danh mục quần áo id: " + updating.getDanhMucId())
+                        () -> new CommonException(ThongDiep.of("sanPhamMuaHang.danhMucQuanAoKhongTimThay", updating.getDanhMucId()))
                 );
 
                 // Kiểm tra và lập kế hoạch ghi cho từng biến thể (sửa giá/trạng thái, đổi màu/size, thêm mới).
@@ -793,7 +792,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
 
                 recalculatePriceAndStatus(sanPhamQuanAo.getId());
                 sanPhamQuanAo = getOne(sanPhamQuanAo.getId()).orElseThrow(
-                        () -> new CommonException("Không tìm thấy sản phẩm quần áo id: " + updating.getId())
+                        () -> new CommonException(ThongDiep.of("sanPhamMuaHang.sanPhamQuanAoKhongTimThay", updating.getId()))
                 );
                 // Trường chính lấy từ bản ĐÃ tính lại (trạng thái có thể đổi theo tồn), không theo dữ liệu gửi lên
                 sauSua.putAll(anhSanPham(sanPhamQuanAo));
@@ -868,32 +867,32 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                         BienTheSanPhamUpdating duLieu = dsGuiLen.get(i);
                         int stt = i + 1;
                         if (duLieu == null) {
-                                throw new CommonException("Dữ liệu biến thể #" + stt + " không hợp lệ");
+                                throw new CommonException(ThongDiep.of("sanPhamMuaHang.bienTheDuLieuKhongHopLe", stt));
                         }
                         if (duLieu.getGiaVon() != null && duLieu.getGiaVon().signum() < 0) {
-                                throw new CommonException("Giá vốn của biến thể #" + stt + " không được âm");
+                                throw new CommonException(ThongDiep.of("sanPhamMuaHang.bienTheGiaVonAm", stt));
                         }
                         if (duLieu.getGiaBan() != null && duLieu.getGiaBan().signum() < 0) {
-                                throw new CommonException("Giá bán của biến thể #" + stt + " không được âm");
+                                throw new CommonException(ThongDiep.of("sanPhamMuaHang.bienTheGiaBanAm", stt));
                         }
 
                         KeHoachBienThe keHoach;
                         if (duLieu.getId() != null) {
                                 // ----- Biến thể đã có -----
                                 if (!idDaGap.add(duLieu.getId())) {
-                                        throw new CommonException("Biến thể id " + duLieu.getId() + " bị gửi trùng trong cùng một lần lưu");
+                                        throw new CommonException(ThongDiep.of("sanPhamMuaHang.bienTheGuiTrung", duLieu.getId()));
                                 }
                                 BienTheSanPham bienThe = bienTheTheoId.get(duLieu.getId());
                                 if (bienThe == null) {
                                         // Chặn sửa chéo biến thể của sản phẩm khác.
                                         if (bienTheSanPhamRepository.existsById(duLieu.getId())) {
-                                                throw new CommonException("Biến thể id " + duLieu.getId() + " không thuộc sản phẩm đang cập nhật");
+                                                throw new CommonException(ThongDiep.of("sanPhamMuaHang.bienTheKhongThuocSanPham", duLieu.getId()));
                                         }
-                                        throw new CommonException("Không tìm thấy biến thể sản phẩm id: " + duLieu.getId());
+                                        throw new CommonException(ThongDiep.of("sanPhamMuaHang.bienTheKhongTimThay", duLieu.getId()));
                                 }
                                 if (duLieu.getChatLieuId() != null
                                         && !duLieu.getChatLieuId().equals(bienThe.getChatLieu().getId())) {
-                                        throw new CommonException("Không thể đổi chất liệu của biến thể đã tạo (" + bienThe.getMaSku() + ")");
+                                        throw new CommonException(ThongDiep.of("sanPhamMuaHang.bienTheKhongDoiChatLieu", bienThe.getMaSku()));
                                 }
                                 boolean doiMau = duLieu.getMauSacId() != null
                                         && !duLieu.getMauSacId().equals(bienThe.getMauSac().getId());
@@ -903,9 +902,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                                 keHoach = new KeHoachBienThe(i, duLieu, bienThe);
                                 keHoach.doiThuocTinh = doiMau || doiSize;
                                 if (keHoach.doiThuocTinh && idDaPhatSinhGiaoDich.contains(bienThe.getId())) {
-                                        throw new CommonException("Biến thể " + bienThe.getMaSku()
-                                                + " đã phát sinh giao dịch (tồn kho, chứng từ hoặc đồng bộ sàn) nên không thể đổi màu sắc, kích cỡ."
-                                                + " Hãy chuyển biến thể này sang Tạm ngừng và thêm biến thể mới.");
+                                        throw new CommonException(ThongDiep.of("sanPhamMuaHang.bienTheDaPhatSinhGiaoDich", bienThe.getMaSku()));
                                 }
                                 keHoach.mauSac = doiMau ? timMauSac(duLieu.getMauSacId()) : bienThe.getMauSac();
                                 keHoach.size = doiSize ? timSize(duLieu.getSizeId()) : bienThe.getSize();
@@ -917,14 +914,13 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                                 boolean guiGiaTrong = duLieu.getGiaBan() == null || (chuaCoGia && duLieu.getGiaBan().signum() <= 0);
                                 if (!guiGiaTrong && GiaBanBienTheService.laGiaDoi(bienThe.getGiaBan(), duLieu.getGiaBan())) {
                                         if (!GiaBanBienTheService.duocDoiGiaBan()) {
-                                                throw new CommonException(HttpStatus.FORBIDDEN, "Biến thể " + bienThe.getMaSku()
-                                                        + ": chỉ quản trị viên được đổi giá bán");
+                                                throw new CommonException(HttpStatus.FORBIDDEN, ThongDiep.of("sanPhamMuaHang.bienTheChiAdminDoiGia", bienThe.getMaSku()));
                                         }
                                         BigDecimal giaMoi;
                                         try {
                                                 giaMoi = GiaBanBienTheService.kiemTraGiaBan(duLieu.getGiaBan());
                                         } catch (CommonException e) {
-                                                throw new CommonException("Biến thể " + bienThe.getMaSku() + ": " + e.getMessage());
+                                                throw new CommonException(ThongDiep.of("sanPhamMuaHang.bienTheLoi", bienThe.getMaSku(), e.getThongDiep() != null ? e.getThongDiep() : e.getMessage()));
                                         }
                                         keHoach.doiGiaBan = GiaBanBienTheService.laGiaDoi(bienThe.getGiaBan(), giaMoi);
                                         keHoach.giaBanCu = bienThe.getGiaBan();
@@ -933,7 +929,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                         } else {
                                 // ----- Biến thể mới -----
                                 if (duLieu.getMauSacId() == null || duLieu.getSizeId() == null) {
-                                        throw new CommonException("Biến thể mới #" + stt + ": vui lòng chọn màu sắc và kích cỡ");
+                                        throw new CommonException(ThongDiep.of("sanPhamMuaHang.bienTheMoiChonMauCo", stt));
                                 }
                                 keHoach = new KeHoachBienThe(i, duLieu, null);
                                 keHoach.doiThuocTinh = true;
@@ -941,22 +937,22 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                                 keHoach.size = timSize(duLieu.getSizeId());
                                 if (duLieu.getChatLieuId() != null) {
                                         keHoach.chatLieu = chatLieuService.getOne(duLieu.getChatLieuId()).orElseThrow(
-                                                () -> new CommonException("Không tìm thấy chất liệu id: " + duLieu.getChatLieuId()));
+                                                () -> new CommonException(ThongDiep.of("sanPhamMuaHang.chatLieuKhongTimThayId", duLieu.getChatLieuId())));
                                 } else if (idChatLieuHienCo.size() == 1) {
                                         keHoach.chatLieu = bienTheHienCo.get(0).getChatLieu();
                                 } else {
-                                        throw new CommonException("Biến thể mới #" + stt + ": vui lòng chọn chất liệu");
+                                        throw new CommonException(ThongDiep.of("sanPhamMuaHang.bienTheMoiChonChatLieu", stt));
                                 }
                         }
 
                         if (duLieu.getViTriAnh() != null) {
                                 if (layTepAnh(anhBienThes, duLieu.getViTriAnh()) == null) {
-                                        throw new CommonException("Thiếu tệp ảnh cho biến thể #" + stt);
+                                        throw new CommonException(ThongDiep.of("sanPhamMuaHang.bienTheThieuTepAnh", stt));
                                 }
                         } else if (duLieu.isImageUpdated()) {
                                 MultipartFile file = anhBienThes != null && i < anhBienThes.size() ? anhBienThes.get(i) : null;
                                 if (file == null || file.isEmpty()) {
-                                        throw new CommonException("Thiếu tệp ảnh cho biến thể #" + stt);
+                                        throw new CommonException(ThongDiep.of("sanPhamMuaHang.bienTheThieuTepAnh", stt));
                                 }
                         }
                         if (keHoach.doiThuocTinh) {
@@ -969,8 +965,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
 
                 long soBienTheMoi = dsKeHoach.stream().filter(k -> k.bienThe == null).count();
                 if (soBienTheMoi > 0 && bienTheHienCo.size() + soBienTheMoi > SO_BIEN_THE_TOI_DA) {
-                        throw new CommonException("Mỗi sản phẩm có tối đa " + SO_BIEN_THE_TOI_DA + " biến thể, sản phẩm đang có "
-                                + bienTheHienCo.size() + ". Vui lòng bớt màu sắc hoặc kích cỡ mới.");
+                        throw new CommonException(ThongDiep.of("sanPhamMuaHang.sanPhamToiDaBienTheDangCo", SO_BIEN_THE_TOI_DA, bienTheHienCo.size()));
                 }
 
                 // Tổ hợp (màu + kích cỡ + chất liệu) của TẤT CẢ biến thể sau khi lưu phải khác nhau.
@@ -986,8 +981,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 }
                 for (KeHoachBienThe keHoach : dsKeHoach) {
                         if (!toHopSauLuu.add(khoaToHop(keHoach.mauSac, keHoach.size, keHoach.chatLieu))) {
-                                throw new CommonException("Đã có biến thể cùng màu sắc, kích cỡ và chất liệu ("
-                                        + moTaToHop(keHoach) + "). Mỗi biến thể phải khác nhau.");
+                                throw new CommonException(ThongDiep.of("sanPhamMuaHang.bienTheDaCoToHop", moTaToHop(keHoach)));
                         }
                 }
 
@@ -1002,29 +996,27 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                         BienTheSanPham dangGiu = bienTheTheoToHopHienTai.get(
                                 khoaToHop(keHoach.mauSac, keHoach.size, keHoach.chatLieu));
                         if (dangGiu != null && (keHoach.bienThe == null || !dangGiu.getId().equals(keHoach.bienThe.getId()))) {
-                                throw new CommonException("Tổ hợp " + moTaToHop(keHoach) + " hiện đang thuộc biến thể "
-                                        + dangGiu.getMaSku() + ". Không thể đổi chéo màu, kích cỡ giữa các biến thể trong cùng một lần lưu,"
-                                        + " hãy lưu thay đổi của biến thể " + dangGiu.getMaSku() + " trước.");
+                                throw new CommonException(ThongDiep.of("sanPhamMuaHang.bienTheDoiCheo", moTaToHop(keHoach), dangGiu.getMaSku()));
                         }
                         if (!skuMoi.add(keHoach.maSkuMoi)) {
-                                throw new CommonException("Mã SKU " + keHoach.maSkuMoi + " bị trùng giữa các biến thể");
+                                throw new CommonException(ThongDiep.of("sanPhamMuaHang.skuTrungGiuaBienThe", keHoach.maSkuMoi));
                         }
                         boolean skuDaTonTai = keHoach.bienThe == null
                                 ? bienTheSanPhamRepository.existsByMaSku(keHoach.maSkuMoi)
                                 : bienTheSanPhamRepository.existsByMaSkuAndIdNot(keHoach.maSkuMoi, keHoach.bienThe.getId());
                         if (skuDaTonTai) {
-                                throw new CommonException("Mã SKU " + keHoach.maSkuMoi + " đã tồn tại trong hệ thống. Vui lòng chọn màu sắc hoặc kích cỡ khác.");
+                                throw new CommonException(ThongDiep.of("sanPhamMuaHang.skuDaTonTai", keHoach.maSkuMoi));
                         }
                 }
                 return dsKeHoach;
         }
 
         private MauSac timMauSac(Integer id) {
-                return mauSacService.getOne(id).orElseThrow(() -> new CommonException("Không tìm thấy màu id: " + id));
+                return mauSacService.getOne(id).orElseThrow(() -> new CommonException(ThongDiep.of("sanPhamMuaHang.mauKhongTimThay", id)));
         }
 
         private Size timSize(Integer id) {
-                return sizeService.getOne(id).orElseThrow(() -> new CommonException("Không tìm thấy kích cỡ id: " + id));
+                return sizeService.getOne(id).orElseThrow(() -> new CommonException(ThongDiep.of("sanPhamMuaHang.kichCoKhongTimThay", id)));
         }
 
         private String khoaToHop(MauSac mauSac, Size size, ChatLieu chatLieu) {
@@ -1105,20 +1097,20 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                         Set<Integer> viTriDaGap = new HashSet<>();
                         for (AnhSanPhamSapXep o : sapXep) {
                                 if (o == null || (o.getId() == null) == (o.getViTriTep() == null)) {
-                                        throw new CommonException("Dữ liệu ảnh sản phẩm không hợp lệ. Vui lòng tải lại trang và thử lại.");
+                                        throw new CommonException(ThongDiep.of("sanPhamMuaHang.anhSanPhamDuLieuKhongHopLe"));
                                 }
                                 if (o.getId() != null && (!idHienCo.contains(o.getId()) || !idDaGap.add(o.getId()))) {
-                                        throw new CommonException("Ảnh sản phẩm không còn tồn tại. Vui lòng tải lại trang và thử lại.");
+                                        throw new CommonException(ThongDiep.of("sanPhamMuaHang.anhSanPhamKhongCon"));
                                 }
                                 if (o.getViTriTep() != null
                                         && (layTepAnh(anhSanPhams, o.getViTriTep()) == null || !viTriDaGap.add(o.getViTriTep()))) {
-                                        throw new CommonException("Thiếu tệp ảnh sản phẩm mới. Vui lòng chọn lại ảnh.");
+                                        throw new CommonException(ThongDiep.of("sanPhamMuaHang.anhSanPhamThieuTepMoi"));
                                 }
                                 ketQua.add(o);
                         }
                 }
                 if (ketQua.isEmpty()) {
-                        throw new CommonException("Sản phẩm cần ít nhất 1 ảnh. Vui lòng thêm ảnh sản phẩm.");
+                        throw new CommonException(ThongDiep.of("sanPhamMuaHang.anhSanPhamItNhatMot"));
                 }
                 return ketQua;
         }
@@ -1171,7 +1163,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                                 .build());
                 } catch (Exception e) {
                         log.error("Lỗi tải ảnh sản phẩm {}", maSanPham, e);
-                        throw new CommonException("Không tải được ảnh sản phẩm. Vui lòng thử lại.", e);
+                        throw new CommonException(ThongDiep.of("sanPhamMuaHang.anhSanPhamTaiLoi"), e);
                 }
         }
 
@@ -1182,7 +1174,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
         @Transactional
         public SanPhamQuanAoDto updateBasicInfo(Integer id, SanPhamQuanAoBasicInfoUpdating dto) {
                 SanPhamQuanAo sp = getOne(id).orElseThrow(
-                        () -> new CommonException("Không tìm thấy sản phẩm id: " + id));
+                        () -> new CommonException(ThongDiep.of("sanPhamMuaHang.sanPhamKhongTimThay", id)));
                 // Nhật ký: so ảnh chụp trước / sau (danh mục, thương hiệu ghi tên)
                 Map<String, Object> truocSua = anhSanPham(sp);
 
@@ -1207,7 +1199,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 }
                 if (dto.getDanhMucId() != null) {
                         DanhMucQuanAo danhMuc = danhMucQuanAoService.getOne(dto.getDanhMucId()).orElseThrow(
-                                () -> new CommonException("Không tìm thấy danh mục quần áo id: " + dto.getDanhMucId())
+                                () -> new CommonException(ThongDiep.of("sanPhamMuaHang.danhMucQuanAoKhongTimThay", dto.getDanhMucId()))
                         );
                         if (!danhMuc.getId().equals(sp.getDanhMuc().getId())) {
                                 kiemTraDoiDanhMucKhiKiemKe(sp.getDanhMuc(), danhMuc);
@@ -1248,13 +1240,12 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                         return;
                 }
                 ThuongHieu thuongHieu = thuongHieuService.getOne(thuongHieuId).orElseThrow(
-                        () -> new CommonException("Thương hiệu không tồn tại id: " + thuongHieuId)
+                        () -> new CommonException(ThongDiep.of("sanPhamMuaHang.sanPhamThuongHieuKhongTonTai", thuongHieuId))
                 );
                 boolean laThuongHieuHienTai = sp.getThuongHieu() != null
                         && sp.getThuongHieu().getId().equals(thuongHieuId);
                 if (!Integer.valueOf(1).equals(thuongHieu.getTrangThai()) && !laThuongHieuHienTai) {
-                        throw new CommonException("Thương hiệu \"" + thuongHieu.getTenThuongHieu()
-                                + "\" đang ngừng hoạt động, không thể gán cho sản phẩm");
+                        throw new CommonException(ThongDiep.of("sanPhamMuaHang.sanPhamThuongHieuNgung", thuongHieu.getTenThuongHieu()));
                 }
                 sp.setThuongHieu(thuongHieu);
         }
@@ -1289,7 +1280,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
          */
         private void kiemTraTenKhongTrung(String ten, Integer boQuaId) {
                 if (ten == null || ten.isEmpty()) {
-                        throw new CommonException("Vui lòng nhập tên sản phẩm.");
+                        throw new CommonException(ThongDiep.of("sanPhamMuaHang.sanPhamNhapTen"));
                 }
                 String khoa = khoaSoTenSanPham(ten);
                 for (Object[] dong : repository.findUngVienTrungTen(ten)) {
@@ -1301,9 +1292,9 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                         duLieu.put("sanPhamId", id);
                         duLieu.put("maSanPham", maSanPham);
                         throw new LoiCoMaException(HttpStatus.CONFLICT, MaLoi.TEN_SAN_PHAM_TRUNG,
-                                "Đã có sản phẩm cùng tên «" + dong[2] + "» (mã " + maSanPham
-                                        + (ngungHoatDong ? ", đang ngừng hoạt động" : "")
-                                        + "). Vui lòng đặt tên khác.",
+                                ngungHoatDong
+                                        ? ThongDiep.of("sanPhamMuaHang.sanPhamTenTrungDangNgung", dong[2], maSanPham)
+                                        : ThongDiep.of("sanPhamMuaHang.sanPhamTenTrung", dong[2], maSanPham),
                                 duLieu);
                 }
         }
@@ -1312,7 +1303,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
         public SanPhamQuanAoDto getDetail(Integer id) {
                 // Sử dụng findDetailById vừa tạo ở Bước 1
                 SanPhamQuanAo sp = repository.findDetailById(id)
-                        .orElseThrow(() -> new CommonException("Không tìm thấy sản phẩm id: " + id));
+                        .orElseThrow(() -> new CommonException(ThongDiep.of("sanPhamMuaHang.sanPhamKhongTimThay", id)));
 
                 SanPhamQuanAoDto dto = sanPhamQuanAoMapper.toDto(sp);
                 // Đánh dấu biến thể đã phát sinh giao dịch để form Sửa khóa màu/size đúng như backend kiểm tra.
@@ -1334,7 +1325,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
         public SanPhamQuanAo changeStatus(Integer id, Integer status) {
                 // Đổi trạng thái nhanh cho sản phẩm (1/0/2).
                 SanPhamQuanAo sanPhamQuanAo = getOne(id).orElseThrow(
-                        () -> new CommonException("Không tìm thấy sản phẩm id: " + id));
+                        () -> new CommonException(ThongDiep.of("sanPhamMuaHang.sanPhamKhongTimThay", id)));
                 Integer trangThaiCu = sanPhamQuanAo.getTrangThai();
                 if (laNgungKinhDoanh(trangThaiCu, status)) {
                         kiemTraTruocKhiNgung(sanPhamQuanAo);
@@ -1375,7 +1366,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 // Giữ mutex mọi kho trước khi đọc: đợt kiểm kê không bắt đầu xen giữa lúc kiểm và lúc lưu
                 if (khoaKiemKeGuard != null) khoaKiemKeGuard.giuTatCaKho();
 
-                List<String> conDo = new ArrayList<>();
+                List<ThongDiep> conDo = new ArrayList<>();
                 Object[] ton = (Object[]) entityManager.createNativeQuery(
                                 "SELECT COALESCE(SUM(t.so_luong_ton), 0), COUNT(DISTINCT t.kho_id) FROM ton_kho_theo_lo t "
                                         + "JOIN lo_hang l ON l.id = t.lo_hang_id "
@@ -1387,8 +1378,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                         .getSingleResult();
                 BigDecimal tongTon = ton[0] == null ? BigDecimal.ZERO : new BigDecimal(ton[0].toString());
                 if (tongTon.signum() > 0) {
-                        conDo.add(dinhDangSoLuong(tongTon) + " " + donViTinhChuThuong(sanPham)
-                                + " ở " + ((Number) ton[1]).longValue() + " kho");
+                        conDo.add(ThongDiep.of("sanPhamMuaHang.ngungConTon", dinhDangSoLuong(tongTon), donViTinhChuThuong(sanPham), ((Number) ton[1]).longValue()));
                 }
 
                 long donBan = demChungTu("SELECT COUNT(DISTINCT d.id) FROM don_ban_hang d "
@@ -1396,7 +1386,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                                 + "JOIN bien_the_san_pham bt ON bt.id = ct.bien_the_san_pham_id "
                                 + "WHERE bt.san_pham_id = :id AND d.loai_chung_tu = 'don_ban_hang' AND d.trang_thai IN (:trangThai)",
                         id, ITrangThaiDonBanHang.DANG_GIU_HANG);
-                if (donBan > 0) conDo.add(donBan + " đơn bán đang xử lý");
+                if (donBan > 0) conDo.add(ThongDiep.of("sanPhamMuaHang.ngungConDonBan", donBan));
 
                 long donMua = demChungTu("SELECT COUNT(DISTINCT d.id) FROM don_mua_hang d "
                                 + "JOIN chi_tiet_don_mua_hang ct ON ct.don_mua_hang_id = d.id "
@@ -1404,18 +1394,17 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                                 + "WHERE bt.san_pham_id = :id AND d.trang_thai IN (:trangThai) "
                                 + "AND COALESCE(ct.so_luong_da_nhan, 0) < ct.so_luong_dat",
                         id, List.of(DonMuaHangService.TRANG_THAI_DA_CHAP_NHAN));
-                if (donMua > 0) conDo.add(donMua + " đơn mua đang về");
+                if (donMua > 0) conDo.add(ThongDiep.of("sanPhamMuaHang.ngungConDonMua", donMua));
 
                 long phieuChuyen = demChungTu("SELECT COUNT(DISTINCT p.id) FROM phieu_chuyen_kho p "
                                 + "JOIN chi_tiet_phieu_chuyen_kho ct ON ct.phieu_chuyen_kho_id = p.id "
                                 + "JOIN bien_the_san_pham bt ON bt.id = ct.bien_the_san_pham_id "
                                 + "WHERE bt.san_pham_id = :id AND p.trang_thai NOT IN (:trangThai)",
                         id, List.of(IChuyenKho.HOAN_TAT, IChuyenKho.DA_HUY));
-                if (phieuChuyen > 0) conDo.add(phieuChuyen + " phiếu chuyển kho chưa hoàn tất");
+                if (phieuChuyen > 0) conDo.add(ThongDiep.of("sanPhamMuaHang.ngungConPhieuChuyen", phieuChuyen));
 
                 if (!conDo.isEmpty()) {
-                        throw new CommonException(HttpStatus.CONFLICT, "Còn " + noiDanhSach(conDo)
-                                + " — không thể ngừng kinh doanh sản phẩm này.");
+                        throw new CommonException(HttpStatus.CONFLICT, cauKhongTheNgung(conDo));
                 }
 
                 if (khoaKiemKeGuard != null && sanPham.getDanhMuc() != null) {
@@ -1433,8 +1422,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 if (!dotDangKiem.isEmpty()) {
                         String ma = (String) dotDangKiem.get(0)[1];
                         throw new LoiCoMaException(HttpStatus.CONFLICT, MaLoi.STK_LOCKED,
-                                "Sản phẩm đang được kiểm kê (đợt " + ma + "). Tạm dừng " + THAO_TAC_NGUNG
-                                        + " tới khi đợt được duyệt hoặc hủy.",
+                                ThongDiep.of("sanPhamMuaHang.ngungDangKiemKe", ma),
                                 Map.of("dotKiemKeId", ((Number) dotDangKiem.get(0)[0]).intValue(), "maDotKiemKe", ma));
                 }
         }
@@ -1447,10 +1435,14 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 return kq == null ? 0 : ((Number) kq).longValue();
         }
 
-        /** "a", "a và b", "a, b và c". */
-        static String noiDanhSach(List<String> ds) {
-                if (ds.size() == 1) return ds.get(0);
-                return String.join(", ", ds.subList(0, ds.size() - 1)) + " và " + ds.get(ds.size() - 1);
+        /** "Còn a — …", "Còn a và b — …", "Còn a, b và c — …" (1–4 phần; mỗi số phần một khóa để dịch được). */
+        static ThongDiep cauKhongTheNgung(List<ThongDiep> ds) {
+                return switch (ds.size()) {
+                        case 1 -> ThongDiep.of("sanPhamMuaHang.ngungKhongDuoc", ds.get(0));
+                        case 2 -> ThongDiep.of("sanPhamMuaHang.ngungKhongDuocHai", ds.get(0), ds.get(1));
+                        case 3 -> ThongDiep.of("sanPhamMuaHang.ngungKhongDuocBa", ds.get(0), ds.get(1), ds.get(2));
+                        default -> ThongDiep.of("sanPhamMuaHang.ngungKhongDuocBon", ds.get(0), ds.get(1), ds.get(2), ds.get(3));
+                };
         }
 
         /** "1.542" — đặt cứng dấu chấm ngăn nghìn (JRE thiếu dữ liệu locale vi-VN sẽ in "1,542"). */
@@ -1461,9 +1453,9 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 return new java.text.DecimalFormat("#,##0.###", kyHieu).format(so);
         }
 
-        private static String donViTinhChuThuong(SanPhamQuanAo sanPham) {
+        private static Object donViTinhChuThuong(SanPhamQuanAo sanPham) {
                 String dvt = sanPham.getDonViTinh();
-                return dvt == null || dvt.isBlank() ? "cái" : dvt.trim().toLowerCase(Locale.forLanguageTag("vi"));
+                return dvt == null || dvt.isBlank() ? ThongDiep.of("sanPhamMuaHang.donViCai") : dvt.trim().toLowerCase(Locale.forLanguageTag("vi"));
         }
 
         public ResponseEntity<ResponseData<List<SanPhamQuanAoDto>>> getAllByKho(Integer khoId) {
@@ -1514,11 +1506,11 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                                         giaTri = new BigDecimal(String.valueOf(f.getValue()).trim());
                                 } catch (NumberFormatException e) {
                                         // InvalidFieldException: filter() trả 400, lỗi khác bị bọc thành 500
-                                        throw new InvalidFieldException("Giá lọc không hợp lệ: " + f.getValue());
+                                        throw new InvalidFieldException(ThongDiep.of("sanPhamMuaHang.giaLocKhongHopLe", f.getValue()));
                                 }
                                 // Số mũ khổng lồ ("1e900000000"): driver ghi toPlainString → gần 1 tỷ chữ số, hết bộ nhớ
                                 if (!GioiHanSoThapPhan.hopLe(giaTri)) {
-                                        throw new InvalidFieldException("Giá lọc vượt giới hạn cho phép");
+                                        throw new InvalidFieldException(ThongDiep.of("sanPhamMuaHang.giaLocVuotGioiHan"));
                                 }
                                 jakarta.persistence.criteria.Path<BigDecimal> gia = bt.get("giaBan");
                                 switch (f.getOperation()) {
@@ -1527,7 +1519,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                                         case LESS_THAN_OR_EQUAL -> dieuKien.add(cb.lessThanOrEqualTo(gia, giaTri));
                                         case LESS_THAN -> dieuKien.add(cb.lessThan(gia, giaTri));
                                         case EQUALS -> dieuKien.add(cb.equal(gia, giaTri));
-                                        default -> throw new CommonException("Không hỗ trợ phép lọc " + f.getOperation() + " cho giá biến thể");
+                                        default -> throw new CommonException(ThongDiep.of("sanPhamMuaHang.giaLocKhongHoTroPhep", f.getOperation()));
                                 }
                         }
                         sub.select(bt.get("id")).where(dieuKien.toArray(new jakarta.persistence.criteria.Predicate[0]));

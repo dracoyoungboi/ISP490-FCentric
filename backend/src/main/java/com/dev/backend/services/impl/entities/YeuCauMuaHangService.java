@@ -15,12 +15,13 @@ import com.dev.backend.mapper.YeuCauMuaHangMapper;
 import com.dev.backend.repository.LichSuThayDoiRepository;
 import com.dev.backend.repository.YeuCauMuaHangRepository;
 import com.dev.backend.services.impl.BaseServiceImpl;
+import com.dev.backend.i18n.ThongDiep;
+import com.dev.backend.i18n.TuChoiTruyCapException;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -90,38 +91,38 @@ public class YeuCauMuaHangService extends BaseServiceImpl<YeuCauMuaHang, Integer
     @Transactional
     public ResponseEntity<ResponseData<YeuCauMuaHangDto>> create(YeuCauMuaHangCreating creating) {
         // kiểm tra xem NVK có quyền hạn kho này ko
-        if (creating.getKhoNhapId() == null) throw new CommonException("Vui lòng chọn kho nhận hàng");
+        if (creating.getKhoNhapId() == null) throw new CommonException(ThongDiep.of("sanPhamMuaHang.ycmChonKhoNhan"));
         Kho khoNhap = khoService.getOne(creating.getKhoNhapId()).orElseThrow(
-                () -> new CommonException("Không tìm thấy kho id: " + creating.getKhoNhapId())
+                () -> new CommonException(ThongDiep.of("sanPhamMuaHang.khoKhongTimThay", creating.getKhoNhapId()))
         );
         KhoService.kiemTraKhoNhapNcc(khoNhap);
 
         // lấy người dùng đang đăng nhập
         NguoiDungAuthInfo authInfo = SecurityContextHolder.getUser();
-        if (authInfo == null) throw new CommonException("Bạn phải đănh nhập");
+        if (authInfo == null) throw new CommonException(ThongDiep.of("sanPhamMuaHang.phaiDangNhapGoSai"));
 
         // lấy người dùng đang đăng nhập trong DB
         // người dùng đăng nhập thì để lại ID cho mình và mình lấy ID check trong DB
         NguoiDung nguoiTao = nguoiDungService.getOne(authInfo.getId()).orElseThrow(
-                () -> new CommonException("Người dùng không tồn tại trong hệ thống id:" + authInfo.getId())
+                () -> new CommonException(ThongDiep.of("sanPhamMuaHang.nguoiDungKhongTonTaiHeThong", authInfo.getId()))
         );
 
         // phải có ít nhất 1 mặt hàng, số lượng > 0 (không để phiếu rỗng / số âm in ra)
         if (creating.getChiTietYeuCauMuaHangs() == null || creating.getChiTietYeuCauMuaHangs().isEmpty()) {
-            throw new CommonException("Yêu cầu nhập hàng phải có ít nhất một sản phẩm");
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.ycmItNhatMotSanPham"));
         }
         kiemTraDongHang(creating.getChiTietYeuCauMuaHangs());
         kiemTraNgayGiao(creating.getNgayGiaoDuKien(), Instant.now());
         String ghiChu = chuanHoaGhiChu(creating.getGhiChu());
         if (ghiChu != null && ghiChu.length() > GHI_CHU_MAX) {
-            throw new CommonException("Ghi chú tối đa " + GHI_CHU_MAX + " ký tự");
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.ghiChuToiDa", GHI_CHU_MAX));
         }
 
         // Kiểm mọi mã trước khi lưu: còn tồn tại và còn kinh doanh
         List<BienTheSanPham> bienThes = new ArrayList<>();
         for (ChiTietYeuCauMuaHangCreating item : creating.getChiTietYeuCauMuaHangs()) {
             BienTheSanPham bienThe = bienTheSanPhamService.getOne(item.getBienTheSanPhamId()).orElseThrow(
-                    () -> new CommonException("Không tìm thấy biến thể sản phẩm id: " + item.getBienTheSanPhamId())
+                    () -> new CommonException(ThongDiep.of("sanPhamMuaHang.bienTheKhongTimThay", item.getBienTheSanPhamId()))
             );
             kiemTraConKinhDoanh(bienThe);
             bienThes.add(bienThe);
@@ -206,29 +207,27 @@ public class YeuCauMuaHangService extends BaseServiceImpl<YeuCauMuaHang, Integer
      */
     static void kiemTraDongHang(List<ChiTietYeuCauMuaHangCreating> dongs) {
         if (dongs.size() > SO_DONG_MAX) {
-            throw new CommonException("Một yêu cầu nhập hàng tối đa " + soVN(SO_DONG_MAX)
-                    + " dòng, hãy tách thành nhiều yêu cầu");
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.ycmToiDaDong", soVN(SO_DONG_MAX)));
         }
         Map<Integer, Integer> dongDauCua = new HashMap<>();
         for (int i = 0; i < dongs.size(); i++) {
             ChiTietYeuCauMuaHangCreating item = dongs.get(i);
             if (item == null || item.getBienTheSanPhamId() == null) {
-                throw new CommonException("Có dòng hàng chưa chọn sản phẩm");
+                throw new CommonException(ThongDiep.of("sanPhamMuaHang.ycmDongChuaChonSanPham"));
             }
             BigDecimal soLuong = item.getSoLuongDat();
             if (soLuong == null || soLuong.compareTo(BigDecimal.ZERO) <= 0) {
-                throw new CommonException("Số lượng yêu cầu phải lớn hơn 0");
+                throw new CommonException(ThongDiep.of("sanPhamMuaHang.ycmSoLuongLonHon0"));
             }
             if (soLuong.stripTrailingZeros().scale() > 0) {
-                throw new CommonException("Số lượng yêu cầu phải là số nguyên");
+                throw new CommonException(ThongDiep.of("sanPhamMuaHang.ycmSoLuongSoNguyen"));
             }
             if (soLuong.compareTo(BigDecimal.valueOf(SO_LUONG_MAX)) > 0) {
-                throw new CommonException("Số lượng mỗi dòng tối đa " + soVN(SO_LUONG_MAX));
+                throw new CommonException(ThongDiep.of("sanPhamMuaHang.ycmSoLuongDongToiDa", soVN(SO_LUONG_MAX)));
             }
             Integer dongDau = dongDauCua.putIfAbsent(item.getBienTheSanPhamId(), i + 1);
             if (dongDau != null) {
-                throw new CommonException("Mỗi mã hàng chỉ được một dòng trong yêu cầu: dòng " + (i + 1)
-                        + " trùng mã với dòng " + dongDau);
+                throw new CommonException(ThongDiep.of("sanPhamMuaHang.ycmTrungMaDong", (i + 1), dongDau));
             }
         }
     }
@@ -240,9 +239,9 @@ public class YeuCauMuaHangService extends BaseServiceImpl<YeuCauMuaHang, Integer
 
     /** Ngày giao dự kiến bắt buộc và không trước hôm nay (theo giờ Việt Nam). */
     static void kiemTraNgayGiao(Instant ngayGiao, Instant bayGio) {
-        if (ngayGiao == null) throw new CommonException("Vui lòng chọn ngày giao dự kiến");
+        if (ngayGiao == null) throw new CommonException(ThongDiep.of("sanPhamMuaHang.ycmChonNgayGiao"));
         if (ngayGiao.atZone(MUI_GIO_VN).toLocalDate().isBefore(bayGio.atZone(MUI_GIO_VN).toLocalDate())) {
-            throw new CommonException("Ngày giao dự kiến không được trước hôm nay");
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.ycmNgayGiaoTruocHomNay"));
         }
     }
 
@@ -257,7 +256,7 @@ public class YeuCauMuaHangService extends BaseServiceImpl<YeuCauMuaHang, Integer
         boolean sanPhamKinhDoanh = Integer.valueOf(0).equals(ttSanPham) || Integer.valueOf(1).equals(ttSanPham);
         if (!bienTheDangBan || !sanPhamKinhDoanh) {
             String ma = bienThe.getMaSku() != null ? bienThe.getMaSku() : "id " + bienThe.getId();
-            throw new CommonException("Mã " + ma + " đã ngừng kinh doanh, không nhập được");
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.ycmMaNgungKinhDoanh", ma));
         }
     }
 
@@ -276,37 +275,37 @@ public class YeuCauMuaHangService extends BaseServiceImpl<YeuCauMuaHang, Integer
     public void duyetTuChoi(Integer id, Integer trangThaiMoi, String lyDoTuChoi) {
         if (trangThaiMoi == null
                 || (trangThaiMoi != TRANG_THAI_DA_DUYET && trangThaiMoi != TRANG_THAI_TU_CHOI)) {
-            throw new CommonException("Trạng thái không hợp lệ: chỉ được Duyệt (2) hoặc Từ chối (4)");
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.ycmTrangThaiDuyetKhongHopLe"));
         }
         NguoiDungAuthInfo authInfo = SecurityContextHolder.getUser();
         if (authInfo == null) {
-            throw new CommonException("Bạn phải đăng nhập", HttpStatus.UNAUTHORIZED, null);
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.phaiDangNhap"), HttpStatus.UNAUTHORIZED, null);
         }
 
         YeuCauMuaHang yeuCauMuaHang = entityManager.find(YeuCauMuaHang.class, id, LockModeType.PESSIMISTIC_WRITE);
         if (yeuCauMuaHang == null) {
-            throw new CommonException("Không tìm thấy yêu cầu mua hàng id: " + id);
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.yeuCauMuaKhongTimThay", id));
         }
         if (!Objects.equals(yeuCauMuaHang.getTrangThai(), TRANG_THAI_CHO_DUYET)) {
-            throw new CommonException("Chỉ duyệt hoặc từ chối được yêu cầu đang ở trạng thái Chờ duyệt");
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.ycmChiDuyetChoDuyet"));
         }
         if (!coQuyenDuyetKho(authInfo, yeuCauMuaHang.getKhoNhap())) {
             String tenKho = yeuCauMuaHang.getKhoNhap() != null ? yeuCauMuaHang.getKhoNhap().getTenKho() : "";
-            throw new AccessDeniedException("Bạn không phải quản lý của kho " + tenKho + " nên không thể duyệt yêu cầu này");
+            throw new TuChoiTruyCapException(ThongDiep.of("sanPhamMuaHang.ycmKhongPhaiQuanLyKho", tenKho));
         }
 
         String lyDo = lyDoTuChoi == null ? null : lyDoTuChoi.trim();
         if (trangThaiMoi == TRANG_THAI_TU_CHOI) {
             if (lyDo == null || lyDo.isEmpty()) {
-                throw new CommonException("Vui lòng nhập lý do từ chối");
+                throw new CommonException(ThongDiep.of("sanPhamMuaHang.ycmNhapLyDoTuChoi"));
             }
             if (lyDo.length() > LY_DO_TU_CHOI_MAX) {
-                throw new CommonException("Lý do từ chối không được quá " + LY_DO_TU_CHOI_MAX + " ký tự");
+                throw new CommonException(ThongDiep.of("sanPhamMuaHang.lyDoTuChoiQuaDai", LY_DO_TU_CHOI_MAX));
             }
         }
 
         NguoiDung nguoiDuyet = nguoiDungService.getOne(authInfo.getId()).orElseThrow(
-                () -> new CommonException("Người dùng không tồn tại trong hệ thống id:" + authInfo.getId())
+                () -> new CommonException(ThongDiep.of("sanPhamMuaHang.nguoiDungKhongTonTaiHeThong", authInfo.getId()))
         );
         Instant now = Instant.now();
 

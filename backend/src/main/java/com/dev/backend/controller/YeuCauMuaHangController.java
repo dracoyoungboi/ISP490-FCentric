@@ -9,6 +9,7 @@ import com.dev.backend.entities.YeuCauMuaHang;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.mapper.YeuCauMuaHangMapper;
 import com.dev.backend.services.impl.entities.YeuCauMuaHangService;
+import com.dev.backend.i18n.ThongDiep;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
@@ -45,7 +46,7 @@ public class YeuCauMuaHangController {
                         .data(
                                 locDonMua(yeuCauMuaHangService.boSungThongTinDuyet(
                                         yeuCauMuaHangMapper.toDto(yeuCauMuaHangService.getOne(id).orElseThrow(
-                                                () -> new CommonException("Không tìm thấy yêu cầu mua hàng id: " + id)
+                                                () -> new CommonException(ThongDiep.of("sanPhamMuaHang.yeuCauMuaKhongTimThay", id))
                                         ))))
                         )
                         .build()
