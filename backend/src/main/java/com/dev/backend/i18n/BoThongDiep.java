@@ -10,8 +10,12 @@ import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.text.ChoiceFormat;
+import java.text.MessageFormat;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -27,6 +31,10 @@ import java.util.regex.Pattern;
  *
  * <p>Tệp viết UTF-8, theo cú pháp MessageFormat: tham số {@code {0}}, {@code {1}}; dấu nháy đơn phải viết đôi ({@code ''}).
  * Tham số luôn được đổi sang chuỗi trước khi ghép (giữ đúng câu tiếng Việt cũ: số không bị chèn dấu phân cách).
+ * Câu chia số ít/nhiều ({@code {0,choice,0#{0} items|1#{0} item|1<{0} items}}, chỉ có ở tệp tiếng Anh) do
+ * {@link #dich} tự chọn nhánh theo giá trị số của tham số đếm, rồi ghép như mọi câu khác: số hiện đúng chuỗi nơi gọi
+ * truyền vào (không thêm dấu phân cách). Tham số đếm không đọc được thành số thì trả câu tiếng Việt.
+ * Gọi thẳng bean {@code messageSource} với khóa có choice thì phải truyền tham số đếm kiểu số.
  *
  * <p>Dùng tĩnh (không cần tiêm bean) để exception và lớp tiện ích gọi được; cùng một thể hiện cũng là bean
  * {@code messageSource} của Spring ({@link CauHinhThongDiep}).
@@ -36,12 +44,15 @@ public final class BoThongDiep {
     private static final Logger log = LoggerFactory.getLogger(BoThongDiep.class);
     private static final String THU_MUC = "i18n/thong-diep/";
     private static final Pattern THAM_SO = Pattern.compile("\\{(\\d+)}");
+    private static final Pattern THAM_SO_DEM = Pattern.compile("\\{(\\d+),\\s*choice\\s*,");
 
     private static final ResourceBundleMessageSource NGUON;
     /** Câu tiếng Việt (không tham số) → khóa, để dịch câu đã ghép sẵn (annotation kiểm dữ liệu, câu cũ chưa chuyển khóa). */
     private static final Map<String, String> KHOA_THEO_CAU = new LinkedHashMap<>();
     /** Câu tiếng Việt có tham số → mẫu so khớp. */
     private static final List<MauCau> MAU_CAU = new ArrayList<>();
+    /** "ngôn ngữ:khóa" → mẫu câu gốc có {@code {n,choice,...}} (đọc thẳng từ tệp). */
+    private static final Map<String, String> MAU_CO_SO_DEM = new HashMap<>();
 
     private record MauCau(String khoa, Pattern mau, List<Integer> thuTuThamSo) {
     }
@@ -54,6 +65,7 @@ public final class BoThongDiep {
         NGUON.setUseCodeAsDefaultMessage(false);
         NGUON.setBasenames(timCacNhom().stream().map(nhom -> THU_MUC + nhom).toArray(String[]::new));
         napBangNguoc();
+        napThamSoDem();
     }
 
     private BoThongDiep() {
@@ -67,11 +79,89 @@ public final class BoThongDiep {
     public static String dich(String khoa, Object[] thamSo, Locale ngonNgu) {
         Locale dich = ngonNgu == null ? NgonNgu.VI : ngonNgu;
         Object[] chuoi = thanhChuoi(thamSo, dich);
+        String mauDem = MAU_CO_SO_DEM.get(dich.getLanguage() + ":" + khoa);
+        if (mauDem != null) {
+            String cau = ghepCoSoDem(mauDem, thamSo, chuoi, dich);
+            if (cau != null) return cau;
+            // Tham số đếm thiếu hoặc không phải số: câu tiếng Việt vẫn đúng hơn câu tiếng Anh sai/hỏng
+            log.warn("Không chia được số ít/nhiều cho khóa '{}', dùng câu tiếng Việt", khoa);
+            return NgonNgu.VI.equals(dich) ? khoa : dich(khoa, thamSo, NgonNgu.VI);
+        }
         try {
             return NGUON.getMessage(khoa, chuoi, dich);
         } catch (NoSuchMessageException e) {
             log.warn("Thiếu câu thông báo cho khóa '{}'", khoa);
             return khoa;
+        }
+    }
+
+    /**
+     * Thay từng khối {@code {n,choice,...}} bằng nhánh hợp với giá trị số của tham số n, rồi ghép phần còn lại bằng
+     * MessageFormat với tham số dạng chuỗi (số trong nhánh hiện đúng như nơi gọi truyền). Không làm được thì trả null.
+     */
+    private static String ghepCoSoDem(String mau, Object[] thamSo, Object[] chuoi, Locale ngonNgu) {
+        if (thamSo == null || chuoi == null) return null;
+        StringBuilder ra = new StringBuilder();
+        Matcher m = THAM_SO_DEM.matcher(mau);
+        int viTri = 0;
+        try {
+            while (m.find(viTri)) {
+                int n = Integer.parseInt(m.group(1));
+                int dau = m.end();
+                int cuoi = dau;
+                for (int sau = 1; cuoi < mau.length(); cuoi++) {
+                    char c = mau.charAt(cuoi);
+                    if (c == '{') sau++;
+                    else if (c == '}' && --sau == 0) break;
+                }
+                if (cuoi >= mau.length() || n >= thamSo.length) return null;
+                BigDecimal so = thanhSo(thamSo[n]);
+                if (so == null) return null;
+                ra.append(mau, viTri, m.start()).append(new ChoiceFormat(mau.substring(dau, cuoi)).format(so.doubleValue()));
+                viTri = cuoi + 1;
+            }
+            ra.append(mau.substring(viTri));
+            return new MessageFormat(ra.toString(), ngonNgu).format(chuoi);
+        } catch (IllegalArgumentException e) {
+            log.warn("Mẫu chia số ít/nhiều sai cú pháp: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /** Giá trị số của tham số đếm (số thô hoặc chuỗi toPlainString, dấu chấm là dấu thập phân); không đọc được thì null. */
+    private static BigDecimal thanhSo(Object x) {
+        if (x instanceof BigDecimal so) return so;
+        if (x instanceof Number so) return new BigDecimal(so.toString());
+        if (x == null) return null;
+        try {
+            return new BigDecimal(String.valueOf(x).trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /** Ghi lại mẫu câu gốc của mọi khóa có {@code {n,choice,...}}, theo từng tệp ngôn ngữ. */
+    private static void napThamSoDem() {
+        Pattern duoiNgonNgu = Pattern.compile("_([a-z]{2})(_[A-Z]{2})?$");
+        try {
+            Resource[] tep = new PathMatchingResourcePatternResolver(BoThongDiep.class.getClassLoader())
+                    .getResources("classpath*:" + THU_MUC + "*.properties");
+            for (Resource r : tep) {
+                String ten = r.getFilename();
+                if (ten == null || !ten.endsWith(".properties")) continue;
+                Matcher duoi = duoiNgonNgu.matcher(ten.substring(0, ten.length() - ".properties".length()));
+                String ma = duoi.find() ? duoi.group(1) : NgonNgu.VI.getLanguage();
+                Properties p = new Properties();
+                try (var vao = r.getInputStream(); Reader doc = new InputStreamReader(vao, StandardCharsets.UTF_8)) {
+                    p.load(doc);
+                }
+                for (String khoa : p.stringPropertyNames()) {
+                    String mau = p.getProperty(khoa);
+                    if (THAM_SO_DEM.matcher(mau).find()) MAU_CO_SO_DEM.put(ma + ":" + khoa, mau);
+                }
+            }
+        } catch (IOException e) {
+            log.error("Không đọc được thư mục câu thông báo {}", THU_MUC, e);
         }
     }
 
