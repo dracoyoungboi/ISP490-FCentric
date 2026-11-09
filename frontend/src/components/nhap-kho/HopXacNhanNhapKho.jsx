@@ -19,10 +19,10 @@ import { t } from "@/i18n";
  * Hộp xác nhận nhập kho chính thức (FO-100).
  * - Bảng hàng sẽ nhập (số đạt) và các lô.
  * - Tồn trước → sau (On Hand / Incoming / Free to Use) của các biến thể trong phiếu, tại kho nhận.
- * - "Đẩy tồn mới lên Shopify ngay": chỉ hiện cho vai trò được phép đẩy tồn.
+ * Không có ô đẩy tồn: máy chủ tự đẩy tồn các SKU vừa nhập (đã liên kết) lên các sàn đang bật tự động đẩy tồn
+ * ngay khi xác nhận (InventoryRestockedEvent → KenhBanHangDongBoServiceImpl.dayTonKhoKhanCap).
  */
-export default function HopXacNhanNhapKho({ open, onOpenChange, phieu, dong, coTheDayTon, dangXuLy, onXacNhan }) {
-  const [dayTon, setDayTon] = useState(true);
+export default function HopXacNhanNhapKho({ open, onOpenChange, phieu, dong, dangXuLy, onXacNhan }) {
   const [ton, setTon] = useState(null);
 
   const khoId = phieu?.khoId;
@@ -136,21 +136,6 @@ export default function HopXacNhanNhapKho({ open, onOpenChange, phieu, dong, coT
                   ))}
             </DaiO>
           )}
-
-          {coTheDayTon ? (
-            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-bo-border px-4 py-3">
-              <input
-                type="checkbox"
-                checked={dayTon}
-                onChange={(e) => setDayTon(e.target.checked)}
-                className="mt-0.5 size-4 accent-[var(--color-bo-primary)]"
-              />
-              <span>
-                <span className="block text-sm font-medium text-bo-foreground">{t("Đẩy tồn mới lên Shopify ngay")}</span>
-                <span className="block text-xs text-bo-muted">{t("Bỏ chọn thì hệ thống tự đẩy ở chu kỳ đồng bộ tiếp theo.")}</span>
-              </span>
-            </label>
-          ) : null}
         </div>
 
         <DialogFooter className="shrink-0 border-t border-bo-border bg-bo-surface-subtle px-6 py-3">
@@ -164,7 +149,7 @@ export default function HopXacNhanNhapKho({ open, onOpenChange, phieu, dong, coT
           </Button>
           <Button
             disabled={dangXuLy}
-            onClick={() => onXacNhan({ dayTon: coTheDayTon && dayTon })}
+            onClick={() => onXacNhan()}
             className="min-w-28 gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover"
           >
             {dangXuLy ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}

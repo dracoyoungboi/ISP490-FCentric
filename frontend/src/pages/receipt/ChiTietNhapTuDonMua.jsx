@@ -23,14 +23,11 @@ import HopBienBanTraHang from "@/components/nhap-kho/HopBienBanTraHang";
 import HopXacNhanNhapKho from "@/components/nhap-kho/HopXacNhanNhapKho";
 import TheHoaDonNhaCungCap from "@/components/nhap-kho/TheHoaDonNhaCungCap";
 import { DaiO, OBuoc, ThanhMuc, TienDoSo } from "@/components/nhap-kho/ThanhBuoc";
-import { quyTacTonKho } from "@/components/channel/cauHinhDongBo";
-import { ketQuaDayTon } from "@/components/channel/ketQuaThaoTac";
 import { getGoodsReceiptStatus } from "@/constants/goodsReceipt";
 import { PHUONG_AN_MAC_DINH, PHUONG_AN_TRA_HANG, chuanHoaPhuongAn, trangThaiKiemDem } from "@/constants/nhapKho";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import { cn } from "@/lib/utils";
 import { THONG_BAO_CHUA_HO_TRO_BIEN_BAN, bienBanTraHangService } from "@/services/bienBanTraHangService";
-import { kenhBanHangService } from "@/services/kenhBanHangService";
 import { phieuNhapKhoService } from "@/services/phieuNhapKhoService";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { formatDate, formatNumber } from "@/utils/formatters";
@@ -40,7 +37,6 @@ import HopInTem from "@/pages/product/components/product/HopInTem";
 import { t } from "@/i18n";
 
 const TH = "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
-const KENH_SHOPIFY = "SHOPIFY";
 
 /** Mã lô để so: không phân biệt hoa thường / khoảng trắng thừa (khớp máy chủ khi lập lại biên bản). */
 const maLoSo = (m) => String(m ?? "").trim().replace(/\s+/g, " ").toUpperCase();
@@ -146,7 +142,6 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
   const bienBanLech = Boolean(data.bienBanLech);
   const xuLyLoiXong = !data.safetyLock;
   const coTheXacNhan = nhap && kiemXong && xuLyLoiXong;
-  const coTheDayTon = hasAnyRole([ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO]);
   // In tem theo phiếu đã nhập kho: số tem = số lượng thực nhận (đạt kiểm đếm) của từng biến thể
   const coTheInTem = daNhap && hasAnyRole([ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO, ROLES.NHAN_VIEN_KHO]);
   const [dongInTem, setDongInTem] = useState(null);
@@ -167,8 +162,9 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
   const moKiemDem = (bienTheId) => navigate(`/goods-receipts/${id}/receive/${bienTheId}`);
   const bienTheTiepTheo = dong.find((d) => d.kiem < d.canNhap) ?? dong[0];
 
+  // Máy chủ tự đẩy tồn các SKU vừa nhập lên các sàn đang bật tự động đẩy tồn ngay khi xác nhận, frontend không gọi thêm
   const xacNhanNhapKho = useCallback(
-    async ({ dayTon }) => {
+    async () => {
       if (dangXuLyRef.current) return;
       dangXuLyRef.current = true;
       setDangXuLy(true);
@@ -176,18 +172,6 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
         await phieuNhapKhoService.complete(id);
         toast.success(t("Đã nhập kho {{dat}} sản phẩm", { count: tong.dat, dat: formatNumber(tong.dat) }));
         setMoXacNhan(false);
-        if (dayTon) {
-          try {
-            const cauHinh = await kenhBanHangService.getCauHinhDongBo(KENH_SHOPIFY);
-            const res = await kenhBanHangService.dayTon(KENH_SHOPIFY, quyTacTonKho(cauHinh));
-            const kq = ketQuaDayTon(res, "Shopify");
-            (kq.tone === "error" ? toast.error : kq.ok ? toast.success : toast.warning)(kq.title, { description: kq.message });
-          } catch (error) {
-            toast.warning(t("Đã nhập kho nhưng chưa đẩy được tồn lên Shopify"), {
-              description: getApiErrorMessage(error, t("Hệ thống sẽ tự đẩy ở chu kỳ đồng bộ tiếp theo.")),
-            });
-          }
-        }
         onReload();
       } catch (error) {
         toast.error(getApiErrorMessage(error, t("Xác nhận nhập kho thất bại")));
@@ -556,7 +540,6 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
         onOpenChange={setMoXacNhan}
         phieu={data}
         dong={dong.map((d) => ({ ...d, lots: d.lots ?? [] }))}
-        coTheDayTon={coTheDayTon}
         dangXuLy={dangXuLy}
         onXacNhan={xacNhanNhapKho}
       />
