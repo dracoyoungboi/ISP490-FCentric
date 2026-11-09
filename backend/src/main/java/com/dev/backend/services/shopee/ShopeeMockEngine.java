@@ -55,26 +55,41 @@ public class ShopeeMockEngine {
     };
 
     /**
-     * Tự động khởi tạo dữ liệu sản phẩm trên sàn Shopee Mock nếu bảng trống.
+     * Tự động khởi tạo và đồng bộ dữ liệu sản phẩm trên sàn Shopee Mock theo danh mục FCentric.
+     * Quét toàn bộ biến thể đang có trong FCentric và bổ sung các biến thể chưa có trên sàn.
      */
     @Transactional
     public synchronized void initMockProductsIfEmpty() {
-        if (productRepository.count() > 0) {
-            return;
-        }
-
-        List<BienTheSanPham> samples = bienTheSanPhamRepository.findAll(PageRequest.of(0, 30)).getContent();
-        if (samples.isEmpty()) {
+        List<BienTheSanPham> allVariants = bienTheSanPhamRepository.findAll();
+        if (allVariants.isEmpty()) {
             log.warn("[SHOPEE-MOCK] CSDL chưa có biến thể sản phẩm, không thể khởi tạo sàn Shopee Mock");
             return;
         }
 
+        List<ShopeeMockProduct> existing = productRepository.findAll();
+        Set<String> existingSkus = new HashSet<>();
         Map<Integer, Long> spToItemId = new HashMap<>();
         long baseItemId = 188200000L;
         long baseModelId = 588300000L;
 
+        for (ShopeeMockProduct p : existing) {
+            if (p.getModelSku() != null) {
+                existingSkus.add(p.getModelSku().trim().toLowerCase(Locale.ROOT));
+            }
+            if (p.getItemSku() != null && p.getItemSku().startsWith("FC-SP-")) {
+                try {
+                    int spId = Integer.parseInt(p.getItemSku().replace("FC-SP-", "").trim());
+                    spToItemId.putIfAbsent(spId, p.getItemId());
+                } catch (Exception ignored) {}
+            }
+        }
+
         List<ShopeeMockProduct> toSave = new ArrayList<>();
-        for (BienTheSanPham bt : samples) {
+        for (BienTheSanPham bt : allVariants) {
+            if (bt.getMaSku() == null || bt.getMaSku().isBlank()) continue;
+            String norm = bt.getMaSku().trim().toLowerCase(Locale.ROOT);
+            if (existingSkus.contains(norm)) continue;
+
             int spId = (bt.getSanPham() != null && bt.getSanPham().getId() != null) ? bt.getSanPham().getId() : 1;
             Long itemId = spToItemId.computeIfAbsent(spId, k -> baseItemId + k * 100L);
             Long modelId = baseModelId + bt.getId();
@@ -99,7 +114,7 @@ public class ShopeeMockEngine {
                     .itemId(itemId)
                     .modelId(modelId)
                     .itemSku(itemSku)
-                    .modelSku(bt.getMaSku())
+                    .modelSku(bt.getMaSku().trim())
                     .itemName(spName)
                     .tierVariation(tierVar)
                     .price(price)
@@ -109,10 +124,13 @@ public class ShopeeMockEngine {
                     .build();
 
             toSave.add(prod);
+            existingSkus.add(norm);
         }
 
-        productRepository.saveAll(toSave);
-        log.info("[SHOPEE-MOCK] Đã tự động nạp {} biến thể sản phẩm vào sàn Shopee Mock", toSave.size());
+        if (!toSave.isEmpty()) {
+            productRepository.saveAll(toSave);
+            log.info("[SHOPEE-MOCK] Đã tự động nạp/bổ sung {} biến thể sản phẩm vào sàn Shopee Mock", toSave.size());
+        }
     }
 
     /**
@@ -449,8 +467,10 @@ public class ShopeeMockEngine {
 
     /**
      * Trả về danh sách ShopeeOrderDto cho ShopeeClient và OmnichannelOrderSyncJob kéo đơn về FCentric.
+     * Chỉ trả về các đơn hàng thực tế phát sinh từ Buyer Storefront.
+     * TUYỆT ĐỐI không tự động sinh đơn ngầm khi danh sách đơn rỗng.
      */
-    @Transactional
+    @Transactional(readOnly = true)
     public List<ShopeeOrderDto> getOrdersForSync(String status, Long timeFrom) {
         initMockProductsIfEmpty();
 
@@ -458,12 +478,6 @@ public class ShopeeMockEngine {
         if (status != null && !status.isBlank()) {
             orders = orderRepository.findByOrderStatusOrderByCreateTimeDesc(status.toUpperCase());
         } else {
-            orders = orderRepository.findAllByOrderByCreateTimeDesc();
-        }
-
-        // Nếu chưa có đơn nào từ Buyer đặt, tự động sinh 2 đơn mẫu để sẵn sàng sync
-        if (orders.isEmpty()) {
-            generateMockOrders(2, "READY_TO_SHIP");
             orders = orderRepository.findAllByOrderByCreateTimeDesc();
         }
 
