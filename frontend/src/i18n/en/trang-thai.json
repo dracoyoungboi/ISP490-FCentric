@@ -138,8 +138,6 @@
   "Đã đóng": "Closed",
   "Có vấn đề": "Has issues",
   "Quá hạn {{so}} ngày": "{{so}} days overdue",
-  "Còn {{so}} ngày": "{{so}} days left",
-  "Trễ {{so}} ngày": "{{so}} days late",
   "Đủ hàng ({{so}})": "In stock ({{so}})",
   "Thiếu hàng ({{so}})": "Insufficient stock ({{so}})",
   "Không xác định (mã {{so}})": "Unknown (code {{so}})",

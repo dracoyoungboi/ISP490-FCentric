@@ -344,7 +344,7 @@ function ChipChuaXepKe({ p, className = "" }) {
     if (!(Number(p.chuaXepKe) > 0)) return null;
     return (
         <span className={`inline-flex w-fit items-center whitespace-nowrap rounded-md bg-bo-tt-chu-y px-2 py-0.5 text-xs font-medium tabular-nums text-bo-tt-chu-y-chu ${className}`}>
-            {t("{{chuaXepKe}} sp chưa xếp kệ", { chuaXepKe: formatNumber(p.chuaXepKe) })}
+            {t("{{chuaXepKe}} sp chưa xếp kệ", { count: Number(p.chuaXepKe) || 0, chuaXepKe: formatNumber(p.chuaXepKe) })}
         </span>
     );
 }

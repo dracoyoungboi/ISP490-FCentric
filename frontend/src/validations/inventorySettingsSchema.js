@@ -151,7 +151,7 @@ export function moTaTacDong(code, value) {
     case "DEFAULT_MIN_STOCK_ALERT":
       return [t("Báo thiếu hàng khi tồn khả dụng còn "), t("{{so}} cái", { count: Number(value), so: soVi(value) }), t(" trở xuống.")];
     case "OMNI_SYNC_INTERVAL_MINS":
-      return [t("Lấy đơn mới và đẩy tồn lên kênh bán "), t("mỗi {{so}} phút", { count: Number(value), so: soVi(value) }), t(", khoảng {{soLan}} lần/ngày.", { soLan: soVi(Math.floor(1440 / Number(value))) })];
+      return [t("Lấy đơn mới và đẩy tồn lên kênh bán "), t("mỗi {{so}} phút", { count: Number(value), so: soVi(value) }), t(", khoảng {{soLan}} lần/ngày.", { count: Math.floor(1440 / Number(value)), soLan: soVi(Math.floor(1440 / Number(value))) })];
     case "REALTIME_SYNC_THRESHOLD":
       return Number(value) === 0
         ? [t("Đẩy tồn tức thời "), t("đang tắt"), t("; tồn chỉ được đẩy theo chu kỳ.")]

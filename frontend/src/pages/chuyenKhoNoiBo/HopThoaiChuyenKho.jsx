@@ -624,7 +624,7 @@ export function HopXacNhanBienBan({ mo, onDong, ct, dangChay, loi, onXacNhan }) 
             mo={mo}
             onDoiMo={(m) => !m && onDong()}
             tieuDe={t("Xác nhận biên bản · {{so}}", { so: bb?.soBienBan ?? "" })}
-            moTa={t("{{khoNhap}} nhận {{tongNhan}}/{{tongGui}} sản phẩm {{khoXuat}} gửi, ghi thiếu {{tongThieu}}, hỏng {{tongHong}}. Xác nhận thay chữ ký ở ô Đại diện kho gửi; sau đó {{ai}} chọn cách xử lý phần lệch.", { khoNhap: ct.khoNhap?.ten, tongNhan: soVN(bb?.tongNhan), tongGui: soVN(bb?.tongGui), khoXuat: ct.khoXuat?.ten, tongThieu: soVN(bb?.tongThieu), tongHong: soVN(bb?.tongHong), ai: aiXuLyChenhLechHienThi(ct) })}
+            moTa={t("{{khoNhap}} nhận {{tongNhan}}/{{tongGui}} sản phẩm {{khoXuat}} gửi, ghi thiếu {{tongThieu}}, hỏng {{tongHong}}. Xác nhận thay chữ ký ở ô Đại diện kho gửi; sau đó {{ai}} chọn cách xử lý phần lệch.", { khoNhap: ct.khoNhap?.ten, tongNhan: soVN(bb?.tongNhan), tongGui: soVN(bb?.tongGui), count: Number(bb?.tongGui) || 0, khoXuat: ct.khoXuat?.ten, tongThieu: soVN(bb?.tongThieu), tongHong: soVN(bb?.tongHong), ai: aiXuLyChenhLechHienThi(ct) })}
             nhanXacNhan={t("Xác nhận biên bản")}
             iconXacNhan={Check}
             rong

@@ -701,7 +701,7 @@ function ManNhanHang({ id }) {
         </DongThongBao>
     ) : kq.khop ? (
         <DongThongBao tone="ok">
-            {t("Khớp đủ {{dat}}/{{gui}} sản phẩm, hàng nguyên vẹn. Bấm", { dat: soVN(kq.tong.dat), gui: soVN(kq.tong.gui) })} <B>{t("Xác nhận nhận đủ")}</B> {t("để phát hành phiếu nhập và hoàn tất phiếu.")}
+            {t("Khớp đủ {{dat}}/{{gui}} sản phẩm, hàng nguyên vẹn. Bấm", { count: Number(kq.tong.gui) || 0, dat: soVN(kq.tong.dat), gui: soVN(kq.tong.gui) })} <B>{t("Xác nhận nhận đủ")}</B> {t("để phát hành phiếu nhập và hoàn tất phiếu.")}
         </DongThongBao>
     ) : (
         <DongThongBao tone="warn">
@@ -954,7 +954,7 @@ function ManNhanHang({ id }) {
                     mo
                     onDoiMo={(m) => !m && (setHop(null), setLoiHop(null))}
                     tieuDe={t("Xác nhận nhận đủ")}
-                    moTa={t("{{khoNhap}} nhận đủ {{gui}}/{{gui}} sản phẩm, hàng nguyên vẹn. Hệ thống phát hành phiếu nhập, ghi tăng tồn {{khoNhap}}, đưa hàng đang chuyển của phiếu về 0 và hoàn tất phiếu.", { khoNhap, gui: soVN(kq.tong.gui) })}
+                    moTa={t("{{khoNhap}} nhận đủ {{gui}}/{{gui}} sản phẩm, hàng nguyên vẹn. Hệ thống phát hành phiếu nhập, ghi tăng tồn {{khoNhap}}, đưa hàng đang chuyển của phiếu về 0 và hoàn tất phiếu.", { khoNhap, count: Number(kq.tong.gui) || 0, gui: soVN(kq.tong.gui) })}
                     nhanXacNhan={t("Xác nhận nhận đủ")}
                     iconXacNhan={ClipboardCheck}
                     dangChay={dangChay}
@@ -1321,7 +1321,7 @@ function HopBienBan({ ct, khoNhap, kq, anhChon, tienDoAnh, dangChay, loi, onDong
             mo
             onDoiMo={(m) => !m && onDong()}
             tieuDe={t("Lập biên bản giao nhận")}
-            moTa={t("{{khoNhap}} nhận {{dat}}/{{gui}} sản phẩm đạt. Hệ thống phát hành phiếu nhập cho phần đạt và biên bản cho phần lệch; số biên bản do hệ thống cấp.", { khoNhap, dat: soVN(kq.tong.dat), gui: soVN(kq.tong.gui) })}
+            moTa={t("{{khoNhap}} nhận {{dat}}/{{gui}} sản phẩm đạt. Hệ thống phát hành phiếu nhập cho phần đạt và biên bản cho phần lệch; số biên bản do hệ thống cấp.", { khoNhap, count: Number(kq.tong.gui) || 0, dat: soVN(kq.tong.dat), gui: soVN(kq.tong.gui) })}
             nhanXacNhan={t("Lập biên bản và nhận hàng")}
             iconXacNhan={FileWarning}
             rong

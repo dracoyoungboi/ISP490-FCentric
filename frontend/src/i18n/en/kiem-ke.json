@@ -1,7 +1,8 @@
 {
   "Không thể tải dữ liệu đợt kiểm kê": "Couldn't load the stock take data",
   "Không có mẫu in này cho đợt kiểm kê.": "This print template isn't available for stock takes.",
-  "Phiếu {{soPhieu}} có {{soDong}} dòng nhưng đợt có {{soDongDot}} dòng lệch. Báo quản trị viên kiểm tra trước khi in.": "Note {{soPhieu}} has {{soDong}} lines but the stock take has {{soDongDot}} variance lines. Ask an administrator to check before printing.",
+  "Phiếu {{soPhieu}} có {{soDong}} dòng nhưng đợt có {{soDongDot}} dòng lệch. Báo quản trị viên kiểm tra trước khi in._one": "Note {{soPhieu}} has {{soDong}} line, but the stock take's variance line count is {{soDongDot}}. Ask an administrator to check before printing.",
+  "Phiếu {{soPhieu}} có {{soDong}} dòng nhưng đợt có {{soDongDot}} dòng lệch. Báo quản trị viên kiểm tra trước khi in._other": "Note {{soPhieu}} has {{soDong}} lines, but the stock take's variance line count is {{soDongDot}}. Ask an administrator to check before printing.",
   "Không có mẫu in này": "Print template not available",
   "Đang tải dữ liệu in": "Loading print data",
   "Bạn không có quyền xem đợt kiểm kê này.": "You don't have permission to view this stock take.",

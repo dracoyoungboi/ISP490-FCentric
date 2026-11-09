@@ -111,7 +111,7 @@ export default function InKiemKe({ loai = "bien-ban" }) {
   if (!chuaIn && loai === "dieu-chinh" && duLieu?.phieu) {
     const soDongDot = dongPhieuDieuChinh(duLieu.dong).dong.length;
     if (soDongDot !== Number(duLieu.phieu.soDong)) {
-      chuaIn = t("Phiếu {{soPhieu}} có {{soDong}} dòng nhưng đợt có {{soDongDot}} dòng lệch. Báo quản trị viên kiểm tra trước khi in.", { soPhieu: duLieu.phieu.soPhieu, soDong: duLieu.phieu.soDong, soDongDot });
+      chuaIn = t("Phiếu {{soPhieu}} có {{soDong}} dòng nhưng đợt có {{soDongDot}} dòng lệch. Báo quản trị viên kiểm tra trước khi in.", { soPhieu: duLieu.phieu.soPhieu, soDong: duLieu.phieu.soDong, soDongDot, count: Number(duLieu.phieu.soDong) });
     }
   }
   const so = loai === "dieu-chinh" ? duLieu?.phieu?.soPhieu ?? "" : dot?.ma ?? "";

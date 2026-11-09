@@ -572,6 +572,7 @@ export default function GlobalSearch({ userId, role, isPhone = false, placeholde
                   {t("Đang hiện {{soHien}} / {{tong}} kết quả, gõ cụ thể hơn để thu hẹp.", {
                     soHien: Math.min(gioiHan, n.content.length),
                     tong: n.totalElements.toLocaleString("vi-VN"),
+                    count: n.totalElements,
                   })}
                 </p>
               ) : null}

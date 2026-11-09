@@ -297,7 +297,7 @@ export default function HopXepKeChungTu({ mo, kho, phieuChuyenId = null, phieuNh
             <div className="flex flex-wrap items-center justify-between gap-2 border-t border-bo-border pb-1 pt-2.5 text-xs text-bo-muted">
               <span className="tabular-nums">
                 {xepGoiY.length
-                  ? t("Bấm nút xếp: {{soSanPham}} sản phẩm của {{soLo}} lô lên kệ gợi ý{{phanDeSau}}.", { soSanPham: soVN(soSanPham), soLo: soVN(xepGoiY.length), phanDeSau: xepGoiY.length < ds.length ? t("; {{soLo}} lô để sau", { count: ds.length - xepGoiY.length, soLo: soVN(ds.length - xepGoiY.length) }) : "" })
+                  ? t("Bấm nút xếp: {{soSanPham}} sản phẩm của {{soLo}} lô lên kệ gợi ý{{phanDeSau}}.", { count: soSanPham, soSanPham: soVN(soSanPham), soLo: soVN(xepGoiY.length), phanDeSau: xepGoiY.length < ds.length ? t("; {{soLo}} lô để sau", { count: ds.length - xepGoiY.length, soLo: soVN(ds.length - xepGoiY.length) }) : "" })
                   : t("Chưa có lô nào được chọn để xếp.")}
               </span>
               <NutChu onClick={moManChung} disabled={dangChay}>

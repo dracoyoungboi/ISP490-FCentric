@@ -58,7 +58,7 @@ export default function NhomTuyChon({
                     <span className="min-w-0 truncate text-sm font-semibold text-bo-foreground">{group.title}</span>
                     <span className="inline-flex shrink-0 items-center gap-2 text-xs text-bo-muted">
                         {hasRows ? (
-                            <span aria-label={t("Đang in {{onCount}} trên {{total}} mục", { onCount: group.onCount, total: group.total })}>
+                            <span aria-label={t("Đang in {{onCount}} trên {{total}} mục", { count: group.total, onCount: group.onCount, total: group.total })}>
                                 {group.onCount}/{group.total}
                             </span>
                         ) : null}
