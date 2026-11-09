@@ -16,6 +16,7 @@ import LuoiMatBang from "@/components/mat-bang/LuoiMatBang";
 import { cauChiDuong } from "@/components/mat-bang/matBang";
 import { nhomTrangThaiKe } from "@/constants/nhapKho";
 import { THONG_BAO_CHUA_HO_TRO_VI_TRI, viTriKhoService } from "@/services/viTriKhoService";
+import { t } from "@/i18n";
 
 /**
  * "Vị trí này nằm ở đâu?" — mở từ Danh sách vị trí kệ, Sơ đồ kệ và màn Kiểm đếm.
@@ -69,23 +70,23 @@ function NoiDung({ khoId, viTriId, khuVucId, duLieu, onDong, onMoSoDoKe }) {
   if (!viTriKhoService.hoTro) {
     noiDung = <DongThongBao>{THONG_BAO_CHUA_HO_TRO_VI_TRI}</DongThongBao>;
   } else if (loi) {
-    noiDung = <DongThongBao tone="bad">Không tải được mặt bằng kho. Vui lòng thử lại.</DongThongBao>;
+    noiDung = <DongThongBao tone="bad">{t("Không tải được mặt bằng kho. Vui lòng thử lại.")}</DongThongBao>;
   } else if (!taiVe) {
     noiDung = (
-      <LoadingState className="min-h-40" label="Đang tải mặt bằng" />
+      <LoadingState className="min-h-40" label={t("Đang tải mặt bằng")} />
     );
   } else if (!taiVe.matBang?.soCot) {
-    noiDung = <DongThongBao>Kho này chưa vẽ mặt bằng. Vào Vị trí kệ → Mặt bằng để vẽ.</DongThongBao>;
+    noiDung = <DongThongBao>{t("Kho này chưa vẽ mặt bằng. Vào Vị trí kệ → Mặt bằng để vẽ.")}</DongThongBao>;
   } else {
     noiDung = (
       <>
         {viTri && khu ? (
           <DaiO soO={4}>
             {[
-              ["Khu vực", khu.tenKhuVuc, `${khu.maKhuVuc}${khu.loaiKhu ? ` · ${khu.loaiKhu}` : ""}`],
-              ["Dãy · Hàng · Tầng", `${viTri.day} · ${viTri.hang} · ${viTri.tang}`, "Tầng 01 là tầng sát sàn"],
-              ["Đang chứa", `${viTri.dangChua ?? 0} / ${viTri.sucChua ?? 0}`, `Còn trống ${Math.max(0, (viTri.sucChua ?? 0) - (viTri.dangChua ?? 0))}`],
-              ["Trạng thái", <StatusBadge key="tt" label={nhom.label} />, nhom.ma === "CON_CHO" ? "Nhận hàng được" : "Không nhận hàng"],
+              [t("Khu vực"), khu.tenKhuVuc, `${khu.maKhuVuc}${khu.loaiKhu ? ` · ${khu.loaiKhu}` : ""}`],
+              [t("Dãy · Hàng · Tầng"), `${viTri.day} · ${viTri.hang} · ${viTri.tang}`, t("Tầng 01 là tầng sát sàn")],
+              [t("Đang chứa"), `${viTri.dangChua ?? 0} / ${viTri.sucChua ?? 0}`, t("Còn trống {{soCho}}", { soCho: Math.max(0, (viTri.sucChua ?? 0) - (viTri.dangChua ?? 0)) })],
+              [t("Trạng thái"), <StatusBadge key="tt" label={nhom.label} />, nhom.ma === "CON_CHO" ? t("Nhận hàng được") : t("Không nhận hàng")],
             ].map(([nhan, giaTri, phu]) => (
               <div key={nhan} className="flex min-w-0 flex-col gap-1 bg-bo-surface px-4 py-3">
                 <span className="text-xs font-medium text-bo-muted">{nhan}</span>
@@ -96,13 +97,13 @@ function NoiDung({ khoId, viTriId, khuVucId, duLieu, onDong, onMoSoDoKe }) {
           </DaiO>
         ) : null}
         {khu && !hinhKhu ? (
-          <DongThongBao tone="warn">{khu.tenKhuVuc} chưa được vẽ trên mặt bằng. Vào Vị trí kệ → Mặt bằng để vẽ.</DongThongBao>
+          <DongThongBao tone="warn">{t("{{tenKhuVuc}} chưa được vẽ trên mặt bằng. Vào Vị trí kệ → Mặt bằng để vẽ.", { tenKhuVuc: khu.tenKhuVuc })}</DongThongBao>
         ) : chiDuong ? (
           <DongThongBao tone="info">
             {chiDuong.map((d, i) => (d.dam ? <b key={i}>{d.chu}</b> : <span key={i}>{d.chu}</span>))}
             {viTri ? (
               <>
-                {" "}Mã dán trên kệ: <span className="whitespace-nowrap font-mono">{viTri.maViTri}</span>.
+                {" "}{t("Mã dán trên kệ:")} <span className="whitespace-nowrap font-mono">{viTri.maViTri}</span>.
               </>
             ) : null}
           </DongThongBao>
@@ -125,20 +126,20 @@ function NoiDung({ khoId, viTriId, khuVucId, duLieu, onDong, onMoSoDoKe }) {
     <DialogContent className="flex max-h-[calc(100dvh-4rem)] flex-col gap-0 overflow-hidden rounded-xl border-bo-border p-0 sm:max-w-[1080px]">
       <DialogHeader className="shrink-0 border-b border-bo-border px-6 py-4 text-left">
         <DialogTitle className="text-base text-bo-foreground">
-          {viTri ? `Vị trí ${viTri.maViTri} nằm ở đâu?` : khu ? `${khu.tenKhuVuc} trên mặt bằng` : "Mặt bằng kho"}
+          {viTri ? t("Vị trí {{maViTri}} nằm ở đâu?", { maViTri: viTri.maViTri }) : khu ? t("{{tenKhuVuc}} trên mặt bằng", { tenKhuVuc: khu.tenKhuVuc }) : t("Mặt bằng kho")}
         </DialogTitle>
         <DialogDescription className="text-[13px] text-bo-muted">
-          {viTri && khu ? `${khu.tenKhuVuc} · dãy ${viTri.day} · hàng ${viTri.hang} · tầng ${viTri.tang}` : "Chỉ để xem, không chỉnh sửa ở đây"}
+          {viTri && khu ? t("{{tenKhuVuc}} · dãy {{day}} · hàng {{hang}} · tầng {{tang}}", { tenKhuVuc: khu.tenKhuVuc, day: viTri.day, hang: viTri.hang, tang: viTri.tang }) : t("Chỉ để xem, không chỉnh sửa ở đây")}
         </DialogDescription>
       </DialogHeader>
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-5">{noiDung}</div>
       <DialogFooter className="shrink-0 border-t border-bo-border bg-bo-surface-subtle px-6 py-3">
         {khu && onMoSoDoKe ? (
           <Button variant="outline" onClick={() => onMoSoDoKe({ khuVucId: khu.id, viTriId: viTri?.id ?? null })} className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">
-            Mở sơ đồ kệ của khu
+            {t("Mở sơ đồ kệ của khu")}
           </Button>
         ) : null}
-        <Button onClick={onDong} className="min-w-28 bg-bo-primary text-white hover:bg-bo-primary-hover">Đóng</Button>
+        <Button onClick={onDong} className="min-w-28 bg-bo-primary text-white hover:bg-bo-primary-hover">{t("Đóng")}</Button>
       </DialogFooter>
     </DialogContent>
   );

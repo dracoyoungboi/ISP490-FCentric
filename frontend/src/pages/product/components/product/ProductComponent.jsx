@@ -10,6 +10,7 @@ import {
     PaginationNext,
     PaginationEllipsis
 } from "@/components/ui/pagination";
+import { t } from "@/i18n";
 
 export default function PaginationComponent({
     currentPage = 0,
@@ -32,12 +33,12 @@ export default function PaginationComponent({
         <div className="p-4 border-t flex-none bg-bo-surface">
             <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-500">
-                    Hiển thị {displayedItems} / {totalItems}
+                    {t("Hiển thị {{displayedItems}} / {{totalItems}}", { displayedItems, totalItems })}
                 </span>
 
                 <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2">
-                        <Label className="text-xs text-gray-500">Số lượng:</Label>
+                        <Label className="text-xs text-gray-500">{t("Số lượng:")}</Label>
                         <Select
                             value={String(pageSize)}
                             onValueChange={(value) => onPageSizeChange(Number(value))}

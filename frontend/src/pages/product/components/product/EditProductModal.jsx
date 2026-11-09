@@ -74,6 +74,7 @@ import {
     tinhNhomSua,
 } from "./logicSuaBienThe";
 import { laCamUng } from "@/lib/camUng";
+import { t } from "@/i18n";
 
 const DO_DAI_MA_VACH_TOI_DA = 100; // cột ma_vach là varchar(100)
 
@@ -82,16 +83,16 @@ const editProductSchema = yup.object({
     tenSanPham: yup
         .string()
         .trim()
-        .required("Vui lòng nhập tên sản phẩm")
-        .max(DO_DAI_TEN_TOI_DA, `Tên sản phẩm tối đa ${DO_DAI_TEN_TOI_DA} ký tự`),
-    danhMucId: yup.number().required("Vui lòng chọn danh mục").typeError("Vui lòng chọn danh mục"),
+        .required(t("Vui lòng nhập tên sản phẩm"))
+        .max(DO_DAI_TEN_TOI_DA, t("Tên sản phẩm tối đa {{so}} ký tự", { so: DO_DAI_TEN_TOI_DA })),
+    danhMucId: yup.number().required(t("Vui lòng chọn danh mục")).typeError(t("Vui lòng chọn danh mục")),
     thuongHieuId: yup.number().nullable(),
-    maVach: yup.string().trim().max(DO_DAI_MA_VACH_TOI_DA, `Mã vạch tối đa ${DO_DAI_MA_VACH_TOI_DA} ký tự`),
+    maVach: yup.string().trim().max(DO_DAI_MA_VACH_TOI_DA, t("Mã vạch tối đa {{so}} ký tự", { so: DO_DAI_MA_VACH_TOI_DA })),
     mucTonToiThieu: yup
         .number()
         .transform((value) => (isNaN(value) ? 0 : value))
-        .min(0, "Vui lòng nhập mức tồn từ 0 trở lên")
-        .integer("Vui lòng nhập số nguyên"),
+        .min(0, t("Vui lòng nhập mức tồn từ 0 trở lên"))
+        .integer(t("Vui lòng nhập số nguyên")),
     moTa: yup.string(),
 });
 
@@ -105,9 +106,9 @@ const GIA_TRI_TRONG = {
 };
 
 const TRANG_THAI_SAN_PHAM = {
-    1: { nhan: "Còn hàng" },
-    0: { nhan: "Hết hàng" },
-    2: { nhan: "Ngừng hoạt động" },
+    1: { nhan: "Còn hàng" }, // i18n-giu-nguyen: StatusBadge tự dịch
+    0: { nhan: "Hết hàng" }, // i18n-giu-nguyen: StatusBadge tự dịch
+    2: { nhan: "Ngừng hoạt động" }, // i18n-giu-nguyen: StatusBadge tự dịch
 };
 
 /** Ảnh đang lưu trên máy chủ; id dạng "cu-…" để không trùng ảnh mới ("moi-…"). */
@@ -158,7 +159,7 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
     const danhMucs = useMemo(() => {
         const danhMuc = sanPham?.danhMuc;
         if (!danhMuc || categories.length === 0 || categories.some((c) => c.id === danhMuc.id)) return categories;
-        return [...categories, { id: danhMuc.id, displayTitle: `${danhMuc.tenDanhMuc} (ngừng hoạt động)`, level: 1 }];
+        return [...categories, { id: danhMuc.id, displayTitle: t("{{tenDanhMuc}} (ngừng hoạt động)", { tenDanhMuc: danhMuc.tenDanhMuc }), level: 1 }];
     }, [categories, sanPham]);
 
     const { bienTheCu, thuTuCu } = bienThe;
@@ -207,7 +208,7 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
                 if (lan !== lanTaiRef.current) return;
                 const sp = res?.data?.data;
                 if (res?.data?.status !== 200 || !sp) {
-                    throw new Error(res?.data?.message || "Không thể tải thông tin sản phẩm");
+                    throw new Error(res?.data?.message || t("Không thể tải thông tin sản phẩm"));
                 }
                 reset({
                     tenSanPham: sp.tenSanPham || "",
@@ -229,7 +230,7 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
             } catch (error) {
                 if (lan !== lanTaiRef.current) return;
                 console.error("Lỗi khi tải chi tiết sản phẩm:", error);
-                toast.error(getApiErrorMessage(error, error?.message || "Không thể tải thông tin sản phẩm"));
+                toast.error(getApiErrorMessage(error, error?.message || t("Không thể tải thông tin sản phẩm")));
                 onCloseRef.current();
             }
         },
@@ -268,15 +269,15 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
             if (categoriesResult.status === "fulfilled") {
                 setCategories(flattenCategoryTree(layDuLieu(categoriesResult.value)));
             } else {
-                toast.error("Không thể tải dữ liệu danh mục");
+                toast.error(t("Không thể tải dữ liệu danh mục"));
             }
             if ([colorsResult, sizesResult, materialsResult].some((r) => r.status === "rejected")) {
                 setLoiTaiThamChieu(true);
-                toast.error("Không tải được màu sắc, kích cỡ hoặc chất liệu. Vui lòng thử lại.");
+                toast.error(t("Không tải được màu sắc, kích cỡ hoặc chất liệu. Vui lòng thử lại."));
             }
         } catch {
             setLoiTaiThamChieu(true);
-            toast.error("Lỗi hệ thống khi tải dữ liệu khởi tạo");
+            toast.error(t("Lỗi hệ thống khi tải dữ liệu khởi tạo"));
         } finally {
             setDangTaiThamChieu(false);
         }
@@ -291,23 +292,23 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
     const danhSachLoi = useMemo(() => {
         const loi = [];
         if (anhSanPhams.length === 0) {
-            loi.push({ id: "khu-anh-san-pham", thongBao: "Vui lòng giữ ít nhất 1 ảnh sản phẩm chính." });
+            loi.push({ id: "khu-anh-san-pham", thongBao: t("Vui lòng giữ ít nhất 1 ảnh sản phẩm chính.") });
         }
         if (canChonChatLieu && !chatLieuMoi) {
-            loi.push({ id: "khu-thong-tin", oFocus: "#chatLieuMoiId", thongBao: "Vui lòng chọn chất liệu cho biến thể mới." });
+            loi.push({ id: "khu-thong-tin", oFocus: "#chatLieuMoiId", thongBao: t("Vui lòng chọn chất liệu cho biến thể mới.") });
         }
         if (thongKe.soSauLuu > SO_BIEN_THE_TOI_DA) {
             loi.push({
                 id: "khu-bien-the",
                 oFocus: O_CHON_MAU,
-                thongBao: `Mỗi sản phẩm có tối đa ${SO_BIEN_THE_TOI_DA} biến thể, sau khi lưu sẽ có ${thongKe.soSauLuu}. Vui lòng bỏ bớt màu sắc hoặc kích cỡ mới.`,
+                thongBao: t("Mỗi sản phẩm có tối đa {{toiDa}} biến thể, sau khi lưu sẽ có {{soSauLuu}}. Vui lòng bỏ bớt màu sắc hoặc kích cỡ mới.", { toiDa: SO_BIEN_THE_TOI_DA, soSauLuu: thongKe.soSauLuu }),
             });
         }
         if (thongKe.soGiaTrong > 0) {
             loi.push({
                 id: "khu-bien-the",
                 oFocus: O_THIEU_GIA,
-                thongBao: `Còn ${thongKe.soGiaTrong} biến thể đang có chưa có giá. Vui lòng nhập giá vốn và giá bán.`,
+                thongBao: t("Còn {{count}} biến thể đang có chưa có giá. Vui lòng nhập giá vốn và giá bán.", { count: thongKe.soGiaTrong }),
             });
         }
         for (const mauSacId of thongKe.mauThieuAnh) {
@@ -315,7 +316,7 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
             loi.push({
                 id: `nhom-mau-${mauSacId}`,
                 oFocus: O_ANH_MAU,
-                thongBao: `Màu ${tenMau} chưa có ảnh. Bấm ô ảnh ở dòng màu để thêm.`,
+                thongBao: t("Màu {{tenMau}} chưa có ảnh. Bấm ô ảnh ở dòng màu để thêm.", { tenMau }),
             });
         }
         return loi;
@@ -342,7 +343,7 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
         (mauSacId, file) => {
             const thongBao = kiemTraTepAnh(file);
             if (thongBao) {
-                toast.error(`${thongBao}. Vui lòng chọn ảnh khác.`);
+                toast.error(t("{{thongBao}}. Vui lòng chọn ảnh khác.", { thongBao }));
                 return false;
             }
             dispatchBienThe({ type: "ganAnhMau", mauSacId, anh: taoAnhXemTruoc(file) });
@@ -362,7 +363,7 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
     // ---------- lưu ----------
     const onInvalid = () => {
         setHienLoi(true);
-        toast.error("Vui lòng điền đủ thông tin bắt buộc.");
+        toast.error(t("Vui lòng điền đủ thông tin bắt buộc."));
     };
 
     const onSubmit = async (data) => {
@@ -374,7 +375,7 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
             return;
         }
         if (!coThayDoi) {
-            toast.info("Chưa có thay đổi nào để lưu.");
+            toast.info(t("Chưa có thay đổi nào để lưu."));
             return;
         }
 
@@ -427,20 +428,20 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
             }
 
             if (res?.data?.status >= 400) {
-                toast.error(res.data.message || "Có lỗi xảy ra");
+                toast.error(res.data.message || t("Có lỗi xảy ra"));
                 return;
             }
             toast.success(
                 thongKe.soTao > 0
-                    ? `Cập nhật sản phẩm thành công, thêm ${thongKe.soTao} biến thể mới.`
-                    : "Cập nhật sản phẩm thành công.",
+                    ? t("Cập nhật sản phẩm thành công, thêm {{count}} biến thể mới.", { count: thongKe.soTao })
+                    : t("Cập nhật sản phẩm thành công."),
             );
             onSuccess();
             onClose();
         } catch (error) {
             if (xuLyLoiTenTrung(error, { setError, henCuonToiLoi })) return;
             console.error("Lỗi khi cập nhật sản phẩm:", error);
-            toast.error(getApiErrorMessage(error, "Có lỗi xảy ra khi cập nhật sản phẩm"));
+            toast.error(getApiErrorMessage(error, t("Có lỗi xảy ra khi cập nhật sản phẩm")));
         }
     };
 
@@ -478,32 +479,31 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
                     <DialogHeader className="gap-0 border-b border-bo-border bg-bo-surface px-4 py-3.5 pr-12 text-left sm:px-5 sm:pr-12">
                         <DialogTitle className="flex items-center gap-2 text-base font-semibold text-bo-foreground">
                             <Package className="size-5 text-bo-primary" />
-                            Chỉnh sửa sản phẩm
+                            {t("Chỉnh sửa sản phẩm")}
                         </DialogTitle>
                         <DialogDescription className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm leading-6 text-bo-muted">
                             {sanPham ? (
                                 <>
                                     <span className="inline-flex items-center gap-1.5">
-                                        Trạng thái:
-                                        {trangThai ? <StatusBadge label={trangThai.nhan} /> : <span>Không rõ</span>}
+                                        {t("Trạng thái:")}
+                                        {trangThai ? <StatusBadge label={trangThai.nhan} /> : <span>{t("Không rõ")}</span>}
                                     </span>
                                     <span aria-hidden="true" className="hidden sm:inline">·</span>
                                     <span>
-                                        Giá mặc định: vốn <b className="font-medium text-bo-foreground">{formatCurrency(sanPham.giaVonMacDinh)}</b>,
-                                        bán <b className="font-medium text-bo-foreground">{formatCurrency(sanPham.giaBanMacDinh)}</b>
+                                        {t("Giá mặc định: vốn")} <b className="font-medium text-bo-foreground">{formatCurrency(sanPham.giaVonMacDinh)}</b>{t(", bán")} <b className="font-medium text-bo-foreground">{formatCurrency(sanPham.giaBanMacDinh)}</b>
                                     </span>
                                     <span aria-hidden="true" className="hidden md:inline">·</span>
-                                    <span className="hidden md:inline">Hệ thống tự tính theo tồn kho</span>
+                                    <span className="hidden md:inline">{t("Hệ thống tự tính theo tồn kho")}</span>
                                 </>
                             ) : (
-                                "Đang tải thông tin sản phẩm…"
+                                t("Đang tải thông tin sản phẩm…")
                             )}
                     </DialogDescription>
                     </DialogHeader>
 
                     <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
                         {!sanPham ? (
-                            <LoadingState className="min-h-64" label="Đang tải thông tin sản phẩm" />
+                            <LoadingState className="min-h-64" label={t("Đang tải thông tin sản phẩm")} />
                         ) : (
                             <form onSubmit={handleFormSubmit} className={LOP_FORM}>
                                 {hienLoi && <TomTatLoi soLoiCoBan={loiCoBan} danhSachLoi={danhSachLoi} />}
@@ -513,9 +513,9 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
                                         <FormSection
                                             title={
                                                 <span className="flex flex-wrap items-center justify-between gap-2">
-                                                    Thông tin cơ bản
+                                                    {t("Thông tin cơ bản")}
                                                     <span className="rounded-full border border-bo-border bg-bo-surface-subtle px-2.5 py-0.5 text-xs font-medium text-bo-muted">
-                                                        Mã sản phẩm:{" "}
+                                                        {t("Mã sản phẩm:")}{" "}
                                                         <span className="select-all font-mono text-bo-foreground">{sanPham.maSanPham}</span>
                                                     </span>
                                                 </span>
@@ -538,7 +538,7 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
                                                 <TruongMucTon control={control} loi={errors.mucTonToiThieu} disabled={isSubmitting} />
 
                                                 <div className="space-y-2">
-                                                    <Label htmlFor="maVach">Mã vạch</Label>
+                                                    <Label htmlFor="maVach">{t("Mã vạch")}</Label>
                                                     <Controller
                                                         name="maVach"
                                                         control={control}
@@ -546,7 +546,7 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
                                                             <Input
                                                                 {...field}
                                                                 id="maVach"
-                                                                placeholder="VD: 8935049501234"
+                                                                placeholder={t("VD: 8935049501234")}
                                                                 maxLength={DO_DAI_MA_VACH_TOI_DA}
                                                                 autoComplete="off"
                                                                 disabled={isSubmitting}
@@ -561,7 +561,7 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
                                                 {canChonChatLieu && (
                                                     <div className="space-y-2">
                                                         <Label htmlFor="chatLieuMoiId">
-                                                            Chất liệu cho biến thể mới <span className="text-bo-danger">*</span>
+                                                            {t("Chất liệu cho biến thể mới")} <span className="text-bo-danger">*</span>
                                                         </Label>
                                                         <Select
                                                             value={chatLieuMoiId == null ? "" : String(chatLieuMoiId)}
@@ -573,12 +573,12 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
                                                                 aria-invalid={hienLoi && !chatLieuMoi ? true : undefined}
                                                                 className={SELECT_TRIGGER_CLASS}
                                                             >
-                                                                <SelectValue placeholder="Chọn chất liệu" />
+                                                                <SelectValue placeholder={t("Chọn chất liệu")} />
                                                             </SelectTrigger>
                                                             <SelectContent position="popper" side="bottom" align="start" className={`${SELECT_CONTENT_CLASS} max-h-[300px]`}>
                                                                 {materials.length === 0 ? (
                                                                     <div className="p-2 text-center text-sm text-bo-muted">
-                                                                        {dangTaiThamChieu ? "Đang tải chất liệu…" : "Không có chất liệu nào đang hoạt động"}
+                                                                        {dangTaiThamChieu ? t("Đang tải chất liệu…") : t("Không có chất liệu nào đang hoạt động")}
                                                                     </div>
                                                                 ) : (
                                                                     materials.map((material) => (
@@ -595,13 +595,13 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
                                                 <TruongMoTa control={control} disabled={isSubmitting} />
                                             </div>
                                             <p className="mt-4 text-xs text-bo-muted">
-                                                Chất liệu:{" "}
+                                                {t("Chất liệu:")}{" "}
                                                 <span className="font-medium text-bo-foreground">
-                                                    {chatLieuDangDung.map((cl) => cl.tenChatLieu).join(", ") || "Chưa có"}
+                                                    {chatLieuDangDung.map((cl) => cl.tenChatLieu).join(", ") || t("Chưa có")}
                                                 </span>
                                                 {chatLieuDangDung.length > 1
-                                                    ? " (mỗi biến thể một chất liệu)"
-                                                    : ", cố định sau khi tạo và áp dụng cho mọi biến thể."}
+                                                    ? t(" (mỗi biến thể một chất liệu)")
+                                                    : t(", cố định sau khi tạo và áp dụng cho mọi biến thể.")}
                                             </p>
                                         </FormSection>
                                     </div>
@@ -621,9 +621,9 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
                                     <FormSection
                                         title={
                                             <span className="flex items-center justify-between gap-2">
-                                                <span>Biến thể <span className="text-bo-danger">*</span></span>
+                                                <span>{t("Biến thể")} <span className="text-bo-danger">*</span></span>
                                                 <span className="rounded-full bg-bo-primary-soft px-2.5 py-0.5 text-xs font-semibold text-bo-primary">
-                                                    {thongKe.soSauLuu} biến thể
+                                                    {t("{{count}} biến thể", { count: thongKe.soSauLuu })}
                                                 </span>
                                             </span>
                                         }
@@ -661,14 +661,14 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
                         <div className="flex w-full flex-wrap items-center justify-between gap-3 max-sm:flex-col max-sm:items-stretch max-sm:gap-2">
                             <p className="text-sm text-bo-muted" aria-live="polite">
                                 {!sanPham ? null : !coThayDoi ? (
-                                    "Chưa có thay đổi"
+                                    t("Chưa có thay đổi")
                                 ) : thongKe.soTao > 0 ? (
                                     <>
-                                        Sẽ thêm <b className="text-bo-foreground">{thongKe.soTao}</b> biến thể mới, tổng{" "}
-                                        <b className="text-bo-foreground">{thongKe.soSauLuu}</b> biến thể
+                                        {t("Sẽ thêm")} <b className="text-bo-foreground">{thongKe.soTao}</b> {t("biến thể mới, tổng")}{" "}
+                                        <b className="text-bo-foreground">{thongKe.soSauLuu}</b> {t("biến thể")}
                                     </>
                                 ) : (
-                                    "Có thay đổi chưa lưu"
+                                    t("Có thay đổi chưa lưu")
                                 )}
                             </p>
                             <div className="flex items-center gap-2 max-sm:w-full">
@@ -679,12 +679,12 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
                                     disabled={isSubmitting}
                                     className={NUT_VIEN_CLASS}
                                 >
-                                    Hủy
+                                    {t("Hủy")}
                                 </Button>
                                 <Button
                                     type="button"
                                     disabled={!duocLuu}
-                                    title={sanPham && !coThayDoi ? "Chưa có thay đổi để lưu" : "Lưu (Ctrl + S)"}
+                                    title={sanPham && !coThayDoi ? t("Chưa có thay đổi để lưu") : t("Lưu (Ctrl + S)")}
                                     aria-keyshortcuts="Control+S Meta+S"
                                     className="bg-bo-primary text-white hover:bg-bo-primary-hover focus-visible:ring-[3px] focus-visible:ring-bo-primary/30 max-sm:flex-1"
                                     onClick={handleLuu}
@@ -692,10 +692,10 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
                                     {isSubmitting ? (
                                         <>
                                             <Loader2 className="size-4 animate-spin" />
-                                            Đang lưu...
+                                            {t("Đang lưu...")}
                                         </>
                                     ) : (
-                                        "Lưu thay đổi"
+                                        t("Lưu thay đổi")
                                     )}
                                 </Button>
                             </div>
@@ -709,8 +709,8 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
                 onOpenChange={setHoiBoThayDoi}
                 onBo={dongForm}
                 onCloseAutoFocus={traFocusSauKhiHoi}
-                tieuDe="Bỏ các thay đổi chưa lưu?"
-                moTa="Thay đổi về thông tin, ảnh và biến thể của sản phẩm sẽ không được lưu."
+                tieuDe={t("Bỏ các thay đổi chưa lưu?")}
+                moTa={t("Thay đổi về thông tin, ảnh và biến thể của sản phẩm sẽ không được lưu.")}
             />
         </>
     );

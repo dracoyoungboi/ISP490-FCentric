@@ -16,6 +16,7 @@ import {
     chanKyTuKhongPhaiSoNguyen,
     cuonToiLoi,
 } from "./kieuForm";
+import { t } from "@/i18n";
 
 /**
  * Các ô thông tin cơ bản dùng chung cho form Thêm và form Chỉnh sửa sản phẩm (react-hook-form).
@@ -31,7 +32,7 @@ export function TruongTenSanPham({ control, loi, disabled }) {
     return (
         <div className="space-y-2 sm:col-span-2">
             <Label htmlFor="tenSanPham">
-                Tên sản phẩm <NhanBatBuoc />
+                {t("Tên sản phẩm")} <NhanBatBuoc />
             </Label>
             <Controller
                 name="tenSanPham"
@@ -41,7 +42,7 @@ export function TruongTenSanPham({ control, loi, disabled }) {
                         <Input
                             {...field}
                             id="tenSanPham"
-                            placeholder="VD: Áo khoác gió unisex"
+                            placeholder={t("VD: Áo khoác gió unisex")}
                             maxLength={DO_DAI_TEN_TOI_DA}
                             autoComplete="off"
                             disabled={disabled}
@@ -66,7 +67,7 @@ export function TruongDanhMuc({ control, loi, disabled, danhMucs, dangTai }) {
     return (
         <div className="space-y-2">
             <Label htmlFor="danhMucId">
-                Danh mục <NhanBatBuoc />
+                {t("Danh mục")} <NhanBatBuoc />
             </Label>
             <Controller
                 name="danhMucId"
@@ -81,12 +82,12 @@ export function TruongDanhMuc({ control, loi, disabled, danhMucs, dangTai }) {
                         disabled={disabled}
                     >
                         <SelectTrigger id="danhMucId" aria-invalid={loi ? true : undefined} className={SELECT_TRIGGER_CLASS}>
-                            <SelectValue placeholder="Chọn danh mục" />
+                            <SelectValue placeholder={t("Chọn danh mục")} />
                         </SelectTrigger>
                         <SelectContent position="popper" side="bottom" align="start" className={`${SELECT_CONTENT_CLASS} max-h-[300px]`}>
                             {danhMucs.length === 0 ? (
                                 <div className="p-2 text-center text-sm text-bo-muted">
-                                    {dangTai ? "Đang tải danh mục…" : "Không có danh mục nào đang hoạt động"}
+                                    {dangTai ? t("Đang tải danh mục…") : t("Không có danh mục nào đang hoạt động")}
                                 </div>
                             ) : (
                                 danhMucs.map((danhMuc) => (
@@ -111,7 +112,7 @@ export function TruongDanhMuc({ control, loi, disabled, danhMucs, dangTai }) {
 export function TruongThuongHieu({ control, disabled, thuongHieuHienTai = null }) {
     return (
         <div className="space-y-2">
-            <Label htmlFor="thuongHieuId">Thương hiệu</Label>
+            <Label htmlFor="thuongHieuId">{t("Thương hiệu")}</Label>
             <Controller
                 name="thuongHieuId"
                 control={control}
@@ -132,7 +133,7 @@ export function TruongThuongHieu({ control, disabled, thuongHieuHienTai = null }
 export function TruongMucTon({ control, loi, disabled }) {
     return (
         <div className="space-y-2">
-            <Label htmlFor="mucTonToiThieu">Mức tồn tối thiểu</Label>
+            <Label htmlFor="mucTonToiThieu">{t("Mức tồn tối thiểu")}</Label>
             <Controller
                 name="mucTonToiThieu"
                 control={control}
@@ -160,7 +161,7 @@ export function TruongMucTon({ control, loi, disabled }) {
 export function TruongMoTa({ control, disabled }) {
     return (
         <div className="space-y-2 sm:col-span-2">
-            <Label htmlFor="moTa">Mô tả</Label>
+            <Label htmlFor="moTa">{t("Mô tả")}</Label>
             <Controller
                 name="moTa"
                 control={control}
@@ -168,7 +169,7 @@ export function TruongMoTa({ control, disabled }) {
                     <Textarea
                         {...field}
                         id="moTa"
-                        placeholder="Chất liệu, form dáng, hướng dẫn giặt..."
+                        placeholder={t("Chất liệu, form dáng, hướng dẫn giặt...")}
                         rows={3}
                         disabled={disabled}
                         className={CONTROL_CLASS}
@@ -190,12 +191,12 @@ export function TomTatLoi({ soLoiCoBan, danhSachLoi }) {
         <div role="alert" className="flex gap-2 rounded-lg border border-bo-danger/30 bg-bo-danger-soft p-3 text-sm text-bo-foreground">
             <AlertTriangle className="mt-0.5 size-4 shrink-0 text-bo-danger" aria-hidden="true" />
             <div className="space-y-1">
-                <p className="font-semibold">Cần sửa {danhSachLoi.length + (soLoiCoBan > 0 ? 1 : 0)} mục trước khi lưu</p>
+                <p className="font-semibold">{t("Cần sửa {{count}} mục trước khi lưu", { count: danhSachLoi.length + (soLoiCoBan > 0 ? 1 : 0) })}</p>
                 <ul className="list-disc space-y-0.5 pl-4">
                     {soLoiCoBan > 0 && (
                         <li>
                             <button type="button" className={NUT_LIEN_KET_LOI_CLASS} onClick={() => cuonToiLoi("khu-thong-tin")}>
-                                Thông tin cơ bản còn {soLoiCoBan} ô chưa hợp lệ.
+                                {t("Thông tin cơ bản còn {{count}} ô chưa hợp lệ.", { count: soLoiCoBan })}
                             </button>
                         </li>
                     )}

@@ -13,6 +13,7 @@
  * File này không phụ thuộc React để dễ kiểm thử.
  */
 import { bienTheReducer, khoaBienThe, trangThaiBanDau } from "./logicBienThe.js";
+import { t } from "../../../../i18n/t.js";
 
 const KHOA_CU = "id:";
 export const khoaBienTheCu = (id) => `${KHOA_CU}${id}`;
@@ -98,16 +99,16 @@ function ganGiaCu(state, chon, { giaVon, giaBan }) {
  */
 export function kiemTraDoiThuocTinh(state, id, mauSacId, sizeId) {
     const b = state.bienTheCu[id];
-    if (!b) return "Không tìm thấy biến thể.";
-    if (b.daPhatSinhGiaoDich) return "Biến thể đã phát sinh giao dịch nên không đổi được màu sắc, kích cỡ.";
-    if (mauSacId == null || sizeId == null) return "Vui lòng chọn màu sắc và kích cỡ.";
+    if (!b) return t("Không tìm thấy biến thể.");
+    if (b.daPhatSinhGiaoDich) return t("Biến thể đã phát sinh giao dịch nên không đổi được màu sắc, kích cỡ.");
+    if (mauSacId == null || sizeId == null) return t("Vui lòng chọn màu sắc và kích cỡ.");
     for (const khac of dsCu(state)) {
         if (khac.id === id) continue;
         if (khac.mauSacId === mauSacId && khac.sizeId === sizeId) {
-            return `Đã có biến thể ${khac.maSku} cùng màu sắc và kích cỡ này.`;
+            return t("Đã có biến thể {{maSku}} cùng màu sắc và kích cỡ này.", { maSku: khac.maSku });
         }
         if (khac.goc.mauSacId === mauSacId && khac.goc.sizeId === sizeId) {
-            return `Tổ hợp này đang được lưu cho biến thể ${khac.maSku}. Vui lòng lưu thay đổi của biến thể đó trước.`;
+            return t("Tổ hợp này đang được lưu cho biến thể {{maSku}}. Vui lòng lưu thay đổi của biến thể đó trước.", { maSku: khac.maSku });
         }
     }
     return null;

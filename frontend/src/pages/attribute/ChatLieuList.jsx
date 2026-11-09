@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { toast } from "@/lib/thongBaoNhanh";
 import { getAllChatLieu, deleteChatLieu } from "@/services/chatLieuService";
+import { t } from "@/i18n";
 
 export default function ChatLieuList() {
     const [chatLieus,    setChatLieus]    = useState([]);
@@ -32,7 +33,7 @@ export default function ChatLieuList() {
             const data = await getAllChatLieu(search);
             setChatLieus(data);
         } catch {
-            toast.error("Không thể tải danh sách chất liệu");
+            toast.error(t("Không thể tải danh sách chất liệu"));
         } finally {
             setLoading(false);
         }
@@ -45,11 +46,11 @@ export default function ChatLieuList() {
         setIsDeleting(true);
         try {
             await deleteChatLieu(deleteTarget.id);
-            toast.success(`Đã xóa chất liệu "${deleteTarget.tenChatLieu}"`);
+            toast.success(t("Đã xóa chất liệu \"{{tenChatLieu}}\"", { tenChatLieu: deleteTarget.tenChatLieu }));
             setChatLieus(prev => prev.filter(s => s.id !== deleteTarget.id));
             setDeleteTarget(null);
         } catch {
-            toast.error("Xóa thất bại");
+            toast.error(t("Xóa thất bại"));
         } finally {
             setIsDeleting(false);
         }
@@ -83,7 +84,7 @@ export default function ChatLieuList() {
                         <CardContent className="p-6">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm font-medium text-gray-500">Tổng chất liệu</p>
+                                    <p className="text-sm font-medium text-gray-500">{t("Tổng chất liệu")}</p>
                                     <p className="text-2xl font-bold text-gray-900 mt-1">{chatLieus.length}</p>
                                 </div>
                                 <div className="h-12 w-12 rounded-full bg-yellow-100 flex items-center justify-center">
@@ -97,7 +98,7 @@ export default function ChatLieuList() {
                         <CardContent className="p-6">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm font-medium text-gray-500">Đang hoạt động</p>
+                                    <p className="text-sm font-medium text-gray-500">{t("Đang hoạt động")}</p>
                                     <p className="text-2xl font-bold text-gray-900 mt-1">
                                         {chatLieus.filter(c => c.trangThai === 1 || c.trangThai === true).length}
                                     </p>
@@ -113,7 +114,7 @@ export default function ChatLieuList() {
                         <CardContent className="p-6">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm font-medium text-gray-500">Ngừng hoạt động</p>
+                                    <p className="text-sm font-medium text-gray-500">{t("Ngừng hoạt động")}</p>
                                     <p className="text-2xl font-bold text-gray-900 mt-1">
                                         {chatLieus.filter(c => c.trangThai !== 1 && c.trangThai !== true).length}
                                     </p>
@@ -131,18 +132,18 @@ export default function ChatLieuList() {
                     <CardHeader className="pb-2">
                         <CardTitle className="flex items-center gap-2 text-lg font-semibold text-gray-900">
                             <Filter className="h-5 w-5 text-yellow-600" />
-                            Bộ lọc tìm kiếm
+                            {t("Bộ lọc tìm kiếm")}
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="pt-2">
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                             {/* Search */}
                             <div className="space-y-2 md:col-span-2">
-                                <Label className="text-gray-700 font-medium">Tìm kiếm</Label>
+                                <Label className="text-gray-700 font-medium">{t("Tìm kiếm")}</Label>
                                 <div className="relative">
                                     <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                                     <Input
-                                        placeholder="Mã hoặc tên chất liệu..."
+                                        placeholder={t("Mã hoặc tên chất liệu...")}
                                         className="pl-9 border-gray-200 focus:border-yellow-500 focus:ring-yellow-500"
                                         value={search}
                                         onChange={e => { setSearch(e.target.value); setPageNumber(0); }}
@@ -152,7 +153,7 @@ export default function ChatLieuList() {
 
                             {/* Status filter */}
                             <div className="space-y-2">
-                                <Label className="text-gray-700 font-medium">Trạng thái</Label>
+                                <Label className="text-gray-700 font-medium">{t("Trạng thái")}</Label>
                                 <DropdownMenu modal={false}>
                                     <DropdownMenuTrigger asChild>
                                         <button
@@ -161,18 +162,18 @@ export default function ChatLieuList() {
                                             style={{ color: "#374151" }}
                                         >
                                             <span>
-                                                {filterStatus === "all"      && "Tất cả trạng thái"}
-                                                {filterStatus === "active"   && "Hoạt động"}
-                                                {filterStatus === "inactive" && "Ngừng hoạt động"}
+                                                {filterStatus === "all"      && t("Tất cả trạng thái")}
+                                                {filterStatus === "active"   && t("Hoạt động")}
+                                                {filterStatus === "inactive" && t("Ngừng hoạt động")}
                                             </span>
                                             <ChevronDown className="h-4 w-4 opacity-70 flex-shrink-0" />
                                         </button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end" className="min-w-[var(--radix-dropdown-menu-trigger-width)] bg-bo-surface border border-gray-100 shadow-xl z-50">
                                         {[
-                                            { value: "all",      label: "Tất cả trạng thái" },
-                                            { value: "active",   label: "Hoạt động" },
-                                            { value: "inactive", label: "Ngừng hoạt động" },
+                                            { value: "all",      label: t("Tất cả trạng thái") },
+                                            { value: "active",   label: t("Hoạt động") },
+                                            { value: "inactive", label: t("Ngừng hoạt động") },
                                         ].map(opt => (
                                             <DropdownMenuItem
                                                 key={opt.value}
@@ -194,7 +195,7 @@ export default function ChatLieuList() {
                                     onClick={() => { setSearch(""); setFilterStatus("all"); setPageNumber(0); }}
                                     className="h-10 w-full flex items-center justify-center gap-2 rounded-md border border-gray-200 bg-bo-surface text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors duration-150"
                                 >
-                                    <RefreshCcw className="h-4 w-4" /> Đặt lại
+                                    <RefreshCcw className="h-4 w-4" /> {t("Đặt lại")}
                                 </button>
                             </div>
                         </div>
@@ -211,7 +212,7 @@ export default function ChatLieuList() {
                         onMouseEnter={e => e.currentTarget.style.background = "#ca8a04"}
                         onMouseLeave={e => e.currentTarget.style.background = "#eab308"}
                     >
-                        <Plus className="h-4 w-4" /> Thêm chất liệu mới
+                        <Plus className="h-4 w-4" /> {t("Thêm chất liệu mới")}
                     </button>
                 </div>
 
@@ -221,12 +222,12 @@ export default function ChatLieuList() {
                         <table className="w-full text-sm">
                             <thead>
                                 <tr className="border-b border-slate-200 bg-bo-surface-subtle">
-                                    <th className="h-12 px-4 text-center font-semibold text-slate-600 tracking-wide text-xs uppercase w-14">STT</th>
-                                    <th className="h-12 px-4 text-left font-semibold text-slate-600 tracking-wide text-xs uppercase">Mã định danh</th>
-                                    <th className="h-12 px-4 text-left font-semibold text-slate-600 tracking-wide text-xs uppercase">Tên chất liệu</th>
-                                    <th className="h-12 px-4 text-left font-semibold text-slate-600 tracking-wide text-xs uppercase">Mô tả</th>
-                                    <th className="h-12 px-4 text-center font-semibold text-slate-600 tracking-wide text-xs uppercase">Trạng thái</th>
-                                    <th className="h-12 px-4 text-center font-semibold text-slate-600 tracking-wide text-xs uppercase">Thao tác</th>
+                                    <th className="h-12 px-4 text-center font-semibold text-slate-600 tracking-wide text-xs uppercase w-14">{t("STT")}</th>
+                                    <th className="h-12 px-4 text-left font-semibold text-slate-600 tracking-wide text-xs uppercase">{t("Mã định danh")}</th>
+                                    <th className="h-12 px-4 text-left font-semibold text-slate-600 tracking-wide text-xs uppercase">{t("Tên chất liệu")}</th>
+                                    <th className="h-12 px-4 text-left font-semibold text-slate-600 tracking-wide text-xs uppercase">{t("Mô tả")}</th>
+                                    <th className="h-12 px-4 text-center font-semibold text-slate-600 tracking-wide text-xs uppercase">{t("Trạng thái")}</th>
+                                    <th className="h-12 px-4 text-center font-semibold text-slate-600 tracking-wide text-xs uppercase">{t("Thao tác")}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -235,14 +236,14 @@ export default function ChatLieuList() {
                                         <td colSpan={6} className="text-center py-12 text-gray-500">
                                             <div className="flex items-center justify-center gap-2">
                                                 <Loader2 className="h-6 w-6 animate-spin text-yellow-500" />
-                                                Đang tải dữ liệu...
+                                                {t("Đang tải dữ liệu...")}
                                             </div>
                                         </td>
                                     </tr>
                                 ) : pageItems.length === 0 ? (
                                     <tr>
                                         <td colSpan={6} className="text-center py-12 text-gray-500">
-                                            Không có dữ liệu
+                                            {t("Không có dữ liệu")}
                                         </td>
                                     </tr>
                                 ) : (
@@ -260,18 +261,18 @@ export default function ChatLieuList() {
                                                 {item.tenChatLieu}
                                             </td>
                                             <td className="px-4 py-3.5 align-middle text-xs text-slate-500 italic max-w-xs truncate">
-                                                {item.moTa || "Không có mô tả"}
+                                                {item.moTa || t("Không có mô tả")}
                                             </td>
                                             <td className="px-4 py-3.5 align-middle text-center">
                                                 {(item.trangThai === 1 || item.trangThai === true) ? (
                                                     <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
                                                         <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                                                        Hoạt động
+                                                        {t("Hoạt động")}
                                                     </span>
                                                 ) : (
                                                     <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-500">
                                                         <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
-                                                        Ngừng
+                                                        {t("Ngừng")}
                                                     </span>
                                                 )}
                                             </td>
@@ -280,21 +281,21 @@ export default function ChatLieuList() {
                                                     <button
                                                         onClick={() => navigate(`/material/view/${item.id}`)}
                                                         className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-transparent transition-all duration-150 hover:scale-110 active:scale-95 text-yellow-600 hover:bg-yellow-50 hover:border-yellow-200"
-                                                        title="Xem chi tiết"
+                                                        title={t("Xem chi tiết")}
                                                     >
                                                         <Eye className="w-4 h-4" />
                                                     </button>
                                                     <button
                                                         onClick={() => navigate(`/material/${item.id}`)}
                                                         className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-transparent transition-all duration-150 hover:scale-110 active:scale-95 text-slate-500 hover:bg-bo-surface-subtle hover:border-slate-200"
-                                                        title="Chỉnh sửa"
+                                                        title={t("Chỉnh sửa")}
                                                     >
                                                         <Edit className="w-4 h-4" />
                                                     </button>
                                                     <button
                                                         onClick={() => setDeleteTarget(item)}
                                                         className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-transparent transition-all duration-150 hover:scale-110 active:scale-95 text-red-500 hover:bg-bo-danger-soft hover:border-red-200"
-                                                        title="Xóa"
+                                                        title={t("Xóa")}
                                                     >
                                                         <Trash2 className="w-4 h-4" />
                                                     </button>
@@ -314,14 +315,14 @@ export default function ChatLieuList() {
                         <CardContent className="p-4">
                             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                                 <div className="flex items-center gap-2">
-                                    <Label className="text-sm text-gray-600 whitespace-nowrap">Hiển thị:</Label>
+                                    <Label className="text-sm text-gray-600 whitespace-nowrap">{t("Hiển thị:")}</Label>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
                                             <button
                                                 type="button"
                                                 className="h-9 px-3 rounded-md border border-gray-200 bg-bo-surface text-sm flex items-center gap-2 hover:bg-gray-50 transition-colors"
                                             >
-                                                {pageSize} dòng <ChevronDown className="h-4 w-4 opacity-50" />
+                                                {t("{{pageSize}} dòng", { pageSize })} <ChevronDown className="h-4 w-4 opacity-50" />
                                             </button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent className="w-[120px] bg-bo-surface shadow-lg border border-gray-100 z-50">
@@ -331,7 +332,7 @@ export default function ChatLieuList() {
                                                     onClick={() => { setPageSize(size); setPageNumber(0); }}
                                                     className="cursor-pointer hover:bg-yellow-50"
                                                 >
-                                                    {size} dòng
+                                                    {t("{{size}} dòng", { size })}
                                                 </DropdownMenuItem>
                                             ))}
                                         </DropdownMenuContent>
@@ -339,12 +340,12 @@ export default function ChatLieuList() {
                                 </div>
 
                                 <div className="text-sm text-gray-600">
-                                    Hiển thị{' '}
+                                    {t("Hiển thị")}{' '}
                                     <span className="font-semibold text-gray-900">{pageNumber * pageSize + 1}</span>
                                     {' '}–{' '}
                                     <span className="font-semibold text-gray-900">{Math.min((pageNumber + 1) * pageSize, totalElements)}</span>
-                                    {' '}trong tổng số{' '}
-                                    <span className="font-semibold text-yellow-600">{totalElements}</span> kết quả
+                                    {' '}{t("trong tổng số")}{' '}
+                                    <span className="font-semibold text-yellow-600">{totalElements}</span> {t("kết quả")}
                                 </div>
 
                                 <div className="flex items-center gap-2">
@@ -353,7 +354,7 @@ export default function ChatLieuList() {
                                         onClick={() => setPageNumber(p => p - 1)}
                                         className="inline-flex h-8 items-center gap-1 px-3 rounded-md border border-gray-200 text-sm hover:bg-gray-50 disabled:opacity-40 transition-colors"
                                     >
-                                        <ChevronLeft className="h-4 w-4" /> Trước
+                                        <ChevronLeft className="h-4 w-4" /> {t("Trước")}
                                     </button>
 
                                     <div className="hidden sm:flex gap-1">
@@ -378,7 +379,7 @@ export default function ChatLieuList() {
                                         onClick={() => setPageNumber(p => p + 1)}
                                         className="inline-flex h-8 items-center gap-1 px-3 rounded-md border border-gray-200 text-sm hover:bg-gray-50 disabled:opacity-40 transition-colors"
                                     >
-                                        Sau <ChevronRight className="h-4 w-4" />
+                                        {t("Sau")} <ChevronRight className="h-4 w-4" />
                                     </button>
                                 </div>
                             </div>
@@ -405,8 +406,8 @@ export default function ChatLieuList() {
                                     <AlertCircle className="h-5 w-5 text-red-600" />
                                 </div>
                                 <div>
-                                    <p className="font-semibold text-slate-900">Xác nhận xóa</p>
-                                    <p className="text-xs text-slate-500 mt-0.5">Hành động này không thể hoàn tác</p>
+                                    <p className="font-semibold text-slate-900">{t("Xác nhận xóa")}</p>
+                                    <p className="text-xs text-slate-500 mt-0.5">{t("Hành động này không thể hoàn tác")}</p>
                                 </div>
                             </div>
                         </div>
@@ -414,11 +415,11 @@ export default function ChatLieuList() {
                         {/* Body */}
                         <div className="px-6 pb-4">
                             <p className="text-sm text-gray-700">
-                                Bạn có chắc chắn muốn xóa chất liệu{" "}
+                                {t("Bạn có chắc chắn muốn xóa chất liệu")}{" "}
                                 <span className="font-bold text-gray-900">"{deleteTarget.tenChatLieu}"</span>?
                             </p>
                             <p className="text-xs text-gray-500 mt-1">
-                                Chất liệu sẽ bị xóa khỏi hệ thống.
+                                {t("Chất liệu sẽ bị xóa khỏi hệ thống.")}
                             </p>
                         </div>
 
@@ -432,7 +433,7 @@ export default function ChatLieuList() {
                                 onMouseEnter={e => e.currentTarget.style.background = "#faf7f0"}
                                 onMouseLeave={e => e.currentTarget.style.background = "#ffffff"}
                             >
-                                Hủy
+                                {t("Hủy")}
                             </button>
                             <button
                                 type="button"
@@ -444,8 +445,8 @@ export default function ChatLieuList() {
                                 onMouseLeave={e => e.currentTarget.style.background = "#dc2626"}
                             >
                                 {isDeleting
-                                    ? <><Loader2 className="h-4 w-4 animate-spin" /> Đang xóa...</>
-                                    : <><Trash2 className="h-4 w-4" /> Xóa</>
+                                    ? <><Loader2 className="h-4 w-4 animate-spin" /> {t("Đang xóa...")}</>
+                                    : <><Trash2 className="h-4 w-4" /> {t("Xóa")}</>
                                 }
                             </button>
                         </div>

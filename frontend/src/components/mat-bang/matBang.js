@@ -1,3 +1,4 @@
+import { t } from "../../i18n/t.js";
 /**
  * Hàm thuần cho mặt bằng kho (FO-094 PA3). Đơn vị là ô lưới, đếm từ 1; mọi hình là chữ nhật { x, y, rong, cao }.
  * Mặt bằng (lấy từ máy chủ): { soCot, soHang, khuVuc: [{ khuVucId, x, y, rong, cao }], cua, loiDi, vatCoDinh }.
@@ -7,14 +8,14 @@ export const KHU_NHO_NHAT = 2;
 
 /** Khu vực cần tối thiểu KHU_NHO_NHAT × KHU_NHO_NHAT ô; lối đi, cửa, vật cố định dày 1 ô vẫn được. */
 export const khuQuaNho = (hinh) => Boolean(hinh) && (hinh.rong < KHU_NHO_NHAT || hinh.cao < KHU_NHO_NHAT);
-export const THONG_BAO_KHU_QUA_NHO = `Khu vực cần rộng ít nhất ${KHU_NHO_NHAT} × ${KHU_NHO_NHAT} ô.`;
+export const THONG_BAO_KHU_QUA_NHO = t("Khu vực cần rộng ít nhất {{so}} × {{so}} ô.", { so: KHU_NHO_NHAT });
 
 /** Các loại vật vẽ được trên mặt bằng. `ma` trùng tên mảng trong dữ liệu mặt bằng. */
 export const LOAI_VAT_MAT_BANG = [
-  { ma: "khuVuc", ten: "Khu vực" },
-  { ma: "loiDi", ten: "Lối đi" },
-  { ma: "cua", ten: "Cửa" },
-  { ma: "vatCoDinh", ten: "Vật cố định" },
+  { ma: "khuVuc", ten: t("Khu vực") },
+  { ma: "loiDi", ten: t("Lối đi") },
+  { ma: "cua", ten: t("Cửa") },
+  { ma: "vatCoDinh", ten: t("Vật cố định") },
 ];
 
 export const tenLoaiVat = (ma) => LOAI_VAT_MAT_BANG.find((l) => l.ma === ma)?.ten ?? "";
@@ -27,7 +28,7 @@ export function vatNgoaiLuoi(matBang, soCot, soHang, tenKhu) {
   for (const loai of LOAI_VAT_MAT_BANG) {
     for (const vat of matBang?.[loai.ma] ?? []) {
       if (vat.x + vat.rong - 1 > soCot || vat.y + vat.cao - 1 > soHang) {
-        return loai.ma === "khuVuc" ? tenKhu?.(vat.khuVucId) ?? "khu vực" : vat.ten;
+        return loai.ma === "khuVuc" ? tenKhu?.(vat.khuVucId) ?? t("khu vực") : vat.ten;
       }
     }
   }
@@ -57,7 +58,7 @@ export function vatBiChong(hinh, matBang, tenKhu, boQua) {
   const laBoQua = (loai, id) => Boolean(boQua) && boQua.loai === loai && boQua.id === id;
   for (const k of matBang.khuVuc ?? []) {
     if (laBoQua("khuVuc", k.khuVucId)) continue;
-    if (chongNhau(hinh, k)) return tenKhu?.(k.khuVucId) ?? "khu khác";
+    if (chongNhau(hinh, k)) return tenKhu?.(k.khuVucId) ?? t("khu khác");
   }
   for (const loai of ["loiDi", "cua", "vatCoDinh"]) {
     const ds = matBang[loai] ?? [];
@@ -98,24 +99,24 @@ export function cauChiDuong(matBang, khu, hinhKhu, viTri) {
   const soCot = Number(matBang.soCot) || 1;
   const giuaX = hinhKhu.x + hinhKhu.rong / 2;
   const giuaY = hinhKhu.y + hinhKhu.cao / 2;
-  const ben = giuaX < soCot / 3 ? "phía bên trái" : giuaX > (soCot * 2) / 3 ? "phía bên phải" : "ở giữa kho";
+  const ben = giuaX < soCot / 3 ? t("phía bên trái") : giuaX > (soCot * 2) / 3 ? t("phía bên phải") : t("ở giữa kho");
   const loiDi = (matBang.loiDi ?? [])[0];
-  const soVoiLoiDi = loiDi ? (giuaY < loiDi.y ? "phía trên lối đi chính" : "phía dưới lối đi chính") : "";
+  const soVoiLoiDi = loiDi ? (giuaY < loiDi.y ? t("phía trên lối đi chính") : t("phía dưới lối đi chính")) : "";
   const cuaNhan = (matBang.cua ?? []).find((c) => c.huong === "VAO") ?? (matBang.cua ?? [])[0];
   const doan = [
-    { chu: `Từ ${cuaNhan ? cuaNhan.ten.toLowerCase() : "cửa kho"}, đi theo ${loiDi ? "lối đi chính" : "lối đi"} tới ` },
+    { chu: t("Từ {{diemDau}}, đi theo {{loiDi}} tới ", { diemDau: cuaNhan ? cuaNhan.ten.toLowerCase() : t("cửa kho"), loiDi: loiDi ? t("lối đi chính") : t("lối đi") }) },
     { chu: khu.tenKhuVuc, dam: true },
     { chu: ` (${[soVoiLoiDi, ben].filter(Boolean).join(", ")})` },
   ];
   if (viTri) {
     doan.push(
-      { chu: ", tìm " },
-      { chu: `dãy ${viTri.day}`, dam: true },
+      { chu: t(", tìm ") },
+      { chu: t("dãy {{day}}", { day: viTri.day }), dam: true },
       { chu: ", " },
-      { chu: `hàng ${viTri.hang}`, dam: true },
+      { chu: t("hàng {{hang}}", { hang: viTri.hang }), dam: true },
       { chu: ", " },
-      { chu: `tầng ${viTri.tang}`, dam: true },
-      { chu: " (tầng 01 sát sàn)" },
+      { chu: t("tầng {{tang}}", { tang: viTri.tang }), dam: true },
+      { chu: t(" (tầng 01 sát sàn)") },
     );
   }
   doan.push({ chu: "." });

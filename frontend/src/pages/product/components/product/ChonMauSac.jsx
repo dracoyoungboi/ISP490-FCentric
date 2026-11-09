@@ -4,6 +4,7 @@ import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "@/compon
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import { locMauSac } from "./logicBienThe";
+import { t } from "@/i18n";
 
 export function ChamMau({ hex, className }) {
     return (
@@ -16,7 +17,7 @@ export function ChamMau({ hex, className }) {
 }
 
 const KHONG_KHOA = [];
-const GOI_Y_KHOA = "Màu đang có biến thể nên không bỏ chọn được";
+const GOI_Y_KHOA = t("Màu đang có biến thể nên không bỏ chọn được");
 
 /**
  * Ô chọn nhiều màu sắc. Trong ô chỉ hiện các màu đã chọn dạng thẻ, theo thứ tự chọn (cũng là thứ tự nhóm
@@ -88,7 +89,7 @@ export default function ChonMauSac({ mauSacs, daChon, khoa = KHONG_KHOA, dangTai
                                         type="button"
                                         tabIndex={-1}
                                         disabled={disabled}
-                                        aria-label={`Bỏ màu ${mau.tenMau}`}
+                                        aria-label={t("Bỏ màu {{tenMau}}", { tenMau: mau.tenMau })}
                                         onClick={() => onBatTat(mau.id)}
                                         // Nút trong thẻ màu cao 26px: giữ cỡ vẽ 20px trên màn cảm ứng, vùng chạm 44px vẫn có (index.css)
                                         data-nut-nho=""
@@ -107,13 +108,13 @@ export default function ChonMauSac({ mauSacs, daChon, khoa = KHONG_KHOA, dangTai
                             disabled={disabled}
                             aria-label={
                                 dsDaChon.length > 0
-                                    ? `Màu sắc: đã chọn ${dsDaChon.length}. Bấm để thêm hoặc bỏ màu`
-                                    : "Chọn màu sắc"
+                                    ? t("Màu sắc: đã chọn {{so}}. Bấm để thêm hoặc bỏ màu", { so: dsDaChon.length })
+                                    : t("Chọn màu sắc")
                             }
                             aria-invalid={coLoi || undefined}
                             className="flex h-[26px] min-w-[120px] flex-1 items-center justify-between gap-2 rounded px-1.5 text-left text-sm text-bo-muted outline-none"
                         >
-                            <span>{dsDaChon.length > 0 ? "Thêm màu…" : "Chọn màu sắc…"}</span>
+                            <span>{dsDaChon.length > 0 ? t("Thêm màu…") : t("Chọn màu sắc…")}</span>
                             <ChevronDown className={cn("size-4 shrink-0 transition-transform", mo && "rotate-180")} aria-hidden="true" />
                         </button>
                     </PopoverTrigger>
@@ -127,7 +128,7 @@ export default function ChonMauSac({ mauSacs, daChon, khoa = KHONG_KHOA, dangTai
             >
                 {/* label: cmdk gắn nhãn này cho ô tìm (aria-labelledby), aria-label đặt trên ô sẽ bị bỏ qua. */}
                 <Command
-                    label="Tìm màu sắc"
+                    label={t("Tìm màu sắc")}
                     shouldFilter={false}
                     loop
                     className="bg-bo-surface [&_[data-slot=command-input-wrapper]]:border-bo-border"
@@ -136,14 +137,14 @@ export default function ChonMauSac({ mauSacs, daChon, khoa = KHONG_KHOA, dangTai
                         value={tuKhoa}
                         onValueChange={setTuKhoa}
                         onKeyDown={handleKeyDownTim}
-                        placeholder="Tìm màu: xanh, xám…"
+                        placeholder={t("Tìm màu: xanh, xám…")}
                         className="text-bo-foreground placeholder:text-bo-muted"
                     />
-                    <CommandList className="max-h-[280px] py-1" aria-label="Danh sách màu sắc" aria-multiselectable="true">
+                    <CommandList className="max-h-[280px] py-1" aria-label={t("Danh sách màu sắc")} aria-multiselectable="true">
                         <CommandEmpty className="px-3 py-6 text-center text-sm text-bo-muted">
                             {mauSacs.length === 0
-                                ? "Chưa có màu sắc nào. Vui lòng thêm ở trang Thuộc tính."
-                                : "Không có màu khớp từ khóa."}
+                                ? t("Chưa có màu sắc nào. Vui lòng thêm ở trang Thuộc tính.")
+                                : t("Không có màu khớp từ khóa.")}
                         </CommandEmpty>
                         {ketQua.map((mau) => {
                             const daTick = tapDaChon.has(mau.id);
@@ -176,7 +177,7 @@ export default function ChonMauSac({ mauSacs, daChon, khoa = KHONG_KHOA, dangTai
                                     <ChamMau hex={mau.maMauHex} />
                                     <span className="min-w-0 flex-1 truncate">
                                         {mau.tenMau}
-                                        {daKhoa && <span className="sr-only"> (đang có biến thể)</span>}
+                                        {daKhoa && <span className="sr-only"> {t("(đang có biến thể)")}</span>}
                                     </span>
                                     {daKhoa && <Lock className="size-3.5 text-bo-muted" aria-hidden="true" />}
                                     <span className="shrink-0 font-mono text-xs text-bo-muted">{mau.maMau}</span>
@@ -193,9 +194,9 @@ export default function ChonMauSac({ mauSacs, daChon, khoa = KHONG_KHOA, dangTai
                             onClick={() => onThem(chuaChonTrongKetQua.map((m) => m.id))}
                             className="whitespace-nowrap rounded-sm font-medium text-bo-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bo-primary disabled:text-bo-muted disabled:no-underline"
                         >
-                            {dangTim ? `Chọn cả ${ketQua.length} kết quả` : `Chọn tất cả (${mauSacs.length})`}
+                            {dangTim ? t("Chọn cả {{count}} kết quả", { count: ketQua.length }) : t("Chọn tất cả ({{so}})", { so: mauSacs.length })}
                         </button>
-                        <span className="hidden truncate text-bo-muted sm:inline pointer-coarse:hidden">Enter để chọn · Esc để đóng</span>
+                        <span className="hidden truncate text-bo-muted sm:inline pointer-coarse:hidden">{t("Enter để chọn · Esc để đóng")}</span>
                     </div>
                 )}
             </PopoverContent>

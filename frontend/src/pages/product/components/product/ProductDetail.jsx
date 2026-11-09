@@ -21,6 +21,7 @@ import { trangThaiLa } from "@/constants/trangThaiChung";
 import NganKeoLichSu from "@/components/nhat-ky/NganKeoLichSu";
 import { layLichSuSanPham } from "@/services/nhatKyService";
 import { ROLES, hasAnyRole } from "@/utils/roles";
+import { t } from "@/i18n";
 
 // Lịch sử thay đổi sản phẩm: quản trị viên, quản lý kho (khớp @RequireAuth của GET /san-pham-quan-ao/{id}/lich-su)
 const VAI_TRO_XEM_LICH_SU = [ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO];
@@ -70,7 +71,7 @@ export default function ProductDetail() {
             }
         } catch (error) {
             console.error("Lỗi fetch dữ liệu:", error);
-            toast.error("Không thể tải thông tin sản phẩm");
+            toast.error(t("Không thể tải thông tin sản phẩm"));
         } finally {
             setIsLoading(false);
         }
@@ -111,9 +112,9 @@ export default function ProductDetail() {
     const statusMeta = useMemo(() => {
         // Tên trạng thái sản phẩm; màu thẻ tra theo tên ở constants/trangThai ("Còn hàng" là chữ thường).
         const configs = {
-            1: { label: "Còn hàng" },
-            0: { label: "Hết hàng" },
-            2: { label: "Ngừng hoạt động" }
+            1: { label: "Còn hàng" }, // i18n-giu-nguyen: StatusBadge tự dịch
+            0: { label: "Hết hàng" }, // i18n-giu-nguyen: StatusBadge tự dịch
+            2: { label: "Ngừng hoạt động" } // i18n-giu-nguyen: StatusBadge tự dịch
         };
         return configs[product?.trangThai] ?? trangThaiLa(product?.trangThai);
     }, [product?.trangThai]);
@@ -126,7 +127,7 @@ export default function ProductDetail() {
     if (isLoading) return (
         <PageContainer>
             <div className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
-                <LoadingState label="Đang tải thông tin sản phẩm" />
+                <LoadingState label={t("Đang tải thông tin sản phẩm")} />
             </div>
         </PageContainer>
     );
@@ -136,8 +137,8 @@ export default function ProductDetail() {
             <div className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
                 <EmptyState
                     icon={Package}
-                    title="Sản phẩm không tồn tại trong hệ thống."
-                    description="Sản phẩm có thể đã bị xóa hoặc đường dẫn không còn hợp lệ."
+                    title={t("Sản phẩm không tồn tại trong hệ thống.")}
+                    description={t("Sản phẩm có thể đã bị xóa hoặc đường dẫn không còn hợp lệ.")}
                 />
             </div>
         </PageContainer>
@@ -154,7 +155,7 @@ export default function ProductDetail() {
                     className="h-9 gap-1.5 border-bo-border bg-bo-surface px-3 text-bo-foreground hover:bg-bo-surface-subtle"
                 >
                     <ArrowLeft className="size-4" />
-                    Quay lại danh sách
+                    {t("Quay lại danh sách")}
                 </Button>
 
                 <div className="hidden h-4 w-px bg-bo-border sm:block" />
@@ -180,7 +181,7 @@ export default function ProductDetail() {
                         className="ml-auto h-9 gap-1.5 border-bo-border bg-bo-surface px-3 text-bo-foreground hover:bg-bo-surface-subtle"
                     >
                         <History className="size-4" aria-hidden="true" />
-                        Lịch sử thay đổi
+                        {t("Lịch sử thay đổi")}
                     </Button>
                 ) : null}
             </div>
@@ -198,7 +199,7 @@ export default function ProductDetail() {
                         ) : (
                             <div className="flex h-full flex-col items-center justify-center text-bo-muted">
                                 <Package className="mb-4 size-16 stroke-[1.5] text-slate-300" />
-                                <p>Ảnh sản phẩm chưa được cập nhật</p>
+                                <p>{t("Ảnh sản phẩm chưa được cập nhật")}</p>
                             </div>
                         )}
 
@@ -208,7 +209,7 @@ export default function ProductDetail() {
                                     type="button"
                                     onClick={handlePrevImage}
                                     disabled={!canGoPrev}
-                                    aria-label="Ảnh trước"
+                                    aria-label={t("Ảnh trước")}
                                     className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full border border-bo-border bg-bo-surface p-2 text-bo-foreground shadow-sm transition-colors hover:bg-bo-surface-subtle disabled:cursor-not-allowed disabled:opacity-50"
                                 >
                                     <ChevronLeft className="size-5" />
@@ -217,7 +218,7 @@ export default function ProductDetail() {
                                     type="button"
                                     onClick={handleNextImage}
                                     disabled={!canGoNext}
-                                    aria-label="Ảnh kế tiếp"
+                                    aria-label={t("Ảnh kế tiếp")}
                                     className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full border border-bo-border bg-bo-surface p-2 text-bo-foreground shadow-sm transition-colors hover:bg-bo-surface-subtle disabled:cursor-not-allowed disabled:opacity-50"
                                 >
                                     <ChevronRight className="size-5" />
@@ -232,7 +233,7 @@ export default function ProductDetail() {
                                 key={idx}
                                 type="button"
                                 onClick={() => setSelectedImageIndex(idx)}
-                                aria-label={`Xem ảnh ${idx + 1}`}
+                                aria-label={t("Xem ảnh {{so}}", { so: idx + 1 })}
                                 className={`relative size-20 flex-shrink-0 overflow-hidden rounded-lg border-2 transition-colors ${
                                     selectedImageIndex === idx
                                         ? "border-bo-primary"
@@ -265,7 +266,7 @@ export default function ProductDetail() {
                                         {product.thuongHieu.tenThuongHieu}
                                     </span>
                                 ) : (
-                                    <span className="text-[13px] italic text-bo-muted">Chưa có thương hiệu</span>
+                                    <span className="text-[13px] italic text-bo-muted">{t("Chưa có thương hiệu")}</span>
                                 )}
                                 <span aria-hidden="true" className="text-slate-300">·</span>
                                 <StatusBadge size="lg" label={statusMeta.label} />
@@ -278,40 +279,40 @@ export default function ProductDetail() {
                             <div className="flex flex-wrap items-center gap-4 text-sm text-bo-muted">
                                 <span className="inline-flex items-center gap-2">
                                     <Box className="size-4" />
-                                    Mã sản phẩm: <b className="text-bo-foreground">{product.maSanPham || id}</b>
+                                    {t("Mã sản phẩm:")} <b className="text-bo-foreground">{product.maSanPham || id}</b>
                                 </span>
                                 <span className="inline-flex items-center gap-2">
                                     <Tag className="size-4" />
-                                    Mã vạch: <b className="text-bo-foreground">{product.maVach || "Chưa cập nhật"}</b>
+                                    {t("Mã vạch:")} <b className="text-bo-foreground">{product.maVach || t("Chưa cập nhật")}</b>
                                 </span>
                             </div>
                         </div>
 
                         <div className={`grid gap-3 ${xemGiaVon ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
                             <div className="rounded-lg border border-bo-border bg-bo-surface-subtle p-3">
-                                <p className="text-xs font-medium text-bo-muted">Giá bán</p>
+                                <p className="text-xs font-medium text-bo-muted">{t("Giá bán")}</p>
                                 <p className="mt-1 text-lg font-bold tabular-nums text-bo-foreground">
                                     {giaBanHienThi ?? <span className="font-normal text-bo-muted">—</span>}
                                 </p>
                             </div>
                             {xemGiaVon ? (
                                 <div className="rounded-lg border border-bo-border bg-bo-surface-subtle p-3">
-                                    <p className="text-xs font-medium text-bo-muted">Giá vốn</p>
+                                    <p className="text-xs font-medium text-bo-muted">{t("Giá vốn")}</p>
                                     <p className="mt-1 text-lg font-bold tabular-nums text-bo-foreground">
                                         {giaVonHienThi ?? <span className="font-normal text-bo-muted">—</span>}
                                     </p>
                                 </div>
                             ) : null}
                             <div className="rounded-lg border border-bo-border bg-bo-surface-subtle p-3">
-                                <p className="text-xs font-medium text-bo-muted">Biến thể hiện có</p>
+                                <p className="text-xs font-medium text-bo-muted">{t("Biến thể hiện có")}</p>
                                 <p className="mt-1 text-lg font-bold text-bo-foreground">{variantCount}</p>
                             </div>
                         </div>
 
                         <div className="space-y-3">
                             <div className="flex items-center justify-between">
-                                <h3 className="text-sm font-semibold text-bo-foreground">Danh sách biến thể</h3>
-                                <span className="text-xs text-bo-muted">{variantCount} biến thể</span>
+                                <h3 className="text-sm font-semibold text-bo-foreground">{t("Danh sách biến thể")}</h3>
+                                <span className="text-xs text-bo-muted">{t("{{count}} biến thể", { count: variantCount })}</span>
                             </div>
 
                             <div className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface">
@@ -319,10 +320,10 @@ export default function ProductDetail() {
                                     <thead className="border-b border-bo-border bg-bo-surface-subtle">
                                         <tr>
                                             <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                                Chi tiết màu sắc &amp; kích cỡ
+                                                {t("Chi tiết màu sắc & kích cỡ")}
                                             </th>
                                             <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                                Giá bán lẻ
+                                                {t("Giá bán lẻ")}
                                             </th>
                                         </tr>
                                     </thead>
@@ -337,7 +338,7 @@ export default function ProductDetail() {
                                                         />
                                                         <div className="flex flex-col">
                                                             <span className="font-semibold text-bo-foreground">{variant.mauSac?.tenMau || "-"}</span>
-                                                            <span className="text-xs text-bo-muted">Kích cỡ: {variant.size?.tenSize || "-"}</span>
+                                                            <span className="text-xs text-bo-muted">{t("Kích cỡ: {{tenSize}}", { tenSize: variant.size?.tenSize || "-" })}</span>
                                                         </div>
                                                     </div>
                                                 </td>
@@ -362,19 +363,19 @@ export default function ProductDetail() {
                             value="desc"
                             className="rounded-md px-4 py-2 text-sm font-semibold text-bo-muted data-[state=active]:bg-bo-surface data-[state=active]:text-bo-primary data-[state=active]:shadow-sm"
                         >
-                            Mô tả chi tiết
+                            {t("Mô tả chi tiết")}
                         </TabsTrigger>
                         <TabsTrigger
                             value="spec"
                             className="rounded-md px-4 py-2 text-sm font-semibold text-bo-muted data-[state=active]:bg-bo-surface data-[state=active]:text-bo-primary data-[state=active]:shadow-sm"
                         >
-                            Thông số kỹ thuật
+                            {t("Thông số kỹ thuật")}
                         </TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="desc" className="mt-0 outline-none">
                         <div className="rounded-lg border border-bo-border bg-bo-surface-subtle p-4 leading-relaxed text-bo-foreground">
-                            {product.moTa || "Hiện tại chưa có mô tả chi tiết cho sản phẩm này."}
+                            {product.moTa || t("Hiện tại chưa có mô tả chi tiết cho sản phẩm này.")}
                         </div>
                     </TabsContent>
 
@@ -382,23 +383,23 @@ export default function ProductDetail() {
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div className="rounded-lg border border-bo-border bg-bo-surface-subtle p-4">
                                 <p className="flex items-center gap-2 text-xs font-medium text-bo-muted">
-                                    <Tag className="size-3.5" /> Chất liệu chính
+                                    <Tag className="size-3.5" /> {t("Chất liệu chính")}
                                 </p>
                                 <p className="mt-2 text-base font-semibold text-bo-foreground">
-                                    {product.bienTheSanPhams?.[0]?.chatLieu?.tenChatLieu || "Thông tin đang cập nhật"}
+                                    {product.bienTheSanPhams?.[0]?.chatLieu?.tenChatLieu || t("Thông tin đang cập nhật")}
                                 </p>
                             </div>
                             <div className="rounded-lg border border-bo-border bg-bo-surface-subtle p-4">
                                 <p className="flex items-center gap-2 text-xs font-medium text-bo-muted">
-                                    <Tag className="size-3.5" /> Thương hiệu
+                                    <Tag className="size-3.5" /> {t("Thương hiệu")}
                                 </p>
                                 <p className="mt-2 text-base font-semibold text-bo-foreground">
-                                    {product.thuongHieu?.tenThuongHieu || "Chưa xác định"}
+                                    {product.thuongHieu?.tenThuongHieu || t("Chưa xác định")}
                                 </p>
                             </div>
                             <div className="rounded-lg border border-bo-border bg-bo-surface-subtle p-4">
                                 <p className="flex items-center gap-2 text-xs font-medium text-bo-muted">
-                                    <Info className="size-3.5" /> Phân loại ngành hàng
+                                    <Info className="size-3.5" /> {t("Phân loại ngành hàng")}
                                 </p>
                                 <p className="mt-2 text-base font-semibold text-bo-foreground">
                                     {product.danhMuc?.tenDanhMuc}
@@ -412,8 +413,8 @@ export default function ProductDetail() {
                 <NganKeoLichSu
                     open={moLichSu}
                     onOpenChange={setMoLichSu}
-                    tieuDe={`Lịch sử ${product.tenSanPham || product.maSanPham || "sản phẩm"}`}
-                    moTa="Thông tin, biến thể, ảnh, trạng thái và đổi giá bán các biến thể. Mới nhất ở trên."
+                    tieuDe={t("Lịch sử {{ten}}", { ten: product.tenSanPham || product.maSanPham || t("sản phẩm") })}
+                    moTa={t("Thông tin, biến thể, ảnh, trạng thái và đổi giá bán các biến thể. Mới nhất ở trên.")}
                     tai={() => layLichSuSanPham(product.id)}
                     // Dòng đổi giá thuộc biến thể: hiện SKU (dòng cũ chưa có mã thì tra theo biến thể của sản phẩm)
                     nhanDoiTuong={(dong) => {

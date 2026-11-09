@@ -41,6 +41,7 @@ import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import NganKeoLichSu from "@/components/nhat-ky/NganKeoLichSu";
 import { layLichSuDanhMuc } from "@/services/nhatKyService";
 import { ROLES, hasAnyRole } from "@/utils/roles";
+import { t } from "@/i18n";
 
 // loai_tham_chieu của nhật ký theo tab (khớp ITable ở máy chủ)
 const LOAI_NHAT_KY = { color: "mau_sac", size: "size", material: "chat_lieu", brand: "thuong_hieu" };
@@ -59,10 +60,10 @@ const DEFAULT_HEX = "#000000";
 const EMPTY_FORM = { ten: "", ma: "", maMauHex: DEFAULT_HEX, loaiSize: "", thuTuSapXep: 0, moTa: "", trangThai: 1 };
 
 const formSchema = z.object({
-    ten: z.string().min(1, "Tên không được để trống"),
-    ma: z.string().min(1, "Mã không được để trống"),
+    ten: z.string().min(1, t("Tên không được để trống")),
+    ma: z.string().min(1, t("Mã không được để trống")),
     maMauHex: z.string()
-        .refine(v => normalizeHex(v) !== null, "Mã màu phải có dạng #RRGGBB")
+        .refine(v => normalizeHex(v) !== null, t("Mã màu phải có dạng #RRGGBB"))
         .transform(normalizeHex),
     loaiSize: z.string().optional(),
     thuTuSapXep: z.coerce.number().optional(),
@@ -71,12 +72,12 @@ const formSchema = z.object({
 });
 
 const TAB_ICONS = { color: Palette, size: Ruler, material: Layers, brand: Tag };
-const TAB_LABELS = { color: 'màu sắc', size: 'kích cỡ', material: 'chất liệu', brand: 'thương hiệu' };
-const TAB_NAMES = { color: 'Màu sắc', size: 'Kích cỡ', material: 'Chất liệu', brand: 'Thương hiệu' };
+const TAB_LABELS = { color: t("màu sắc"), size: t("kích cỡ"), material: t("chất liệu"), brand: t("thương hiệu") };
+const TAB_NAMES = { color: t("Màu sắc"), size: t("Kích cỡ"), material: t("Chất liệu"), brand: t("Thương hiệu") };
 const BRAND_STATUS_OPTIONS = [
-    { value: "ALL", label: "Tất cả trạng thái" },
-    { value: "1", label: "Hoạt động" },
-    { value: "0", label: "Ngừng hoạt động" },
+    { value: "ALL", label: t("Tất cả trạng thái") },
+    { value: "1", label: t("Hoạt động") },
+    { value: "0", label: t("Ngừng hoạt động") },
 ];
 const DEFAULT_FILTERS = { keyword: "", page: 0, size: SO_DONG_MAC_DINH, trangThai: "ALL" };
 // Vai trò được thêm / sửa / xóa theo từng loại, khớp @RequireAuth của API ghi: màu sắc, kích cỡ, chất liệu cho quản trị
@@ -129,27 +130,27 @@ const ViewModal = ({ viewItem, activeTab, onClose, onEdit, onLichSu }) => {
                         </span>
                         <div className="min-w-0">
                             <p className="text-[10px] font-semibold uppercase tracking-wide text-bo-muted">
-                                Chi tiết thuộc tính
+                                {t("Chi tiết thuộc tính")}
                             </p>
                             <DialogTitle className="text-base font-semibold text-bo-foreground">
                                 {tabLabel}
                             </DialogTitle>
                         </div>
                     </div>
-                    <DialogDescription className="sr-only">Hồ sơ dữ liệu thuộc tính {tabLabel}</DialogDescription>
+                    <DialogDescription className="sr-only">{t("Hồ sơ dữ liệu thuộc tính {{tabLabel}}", { tabLabel })}</DialogDescription>
                 </DialogHeader>
 
                 {/* ── Body ── */}
                 <div className="space-y-3">
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        <InfoTile icon={<Hash className="size-3.5" />} label="Mã định danh" value={getCode(viewItem)} mono />
-                        <InfoTile icon={<Tag className="size-3.5" />} label="Tên hiển thị" value={getName(viewItem)} />
+                        <InfoTile icon={<Hash className="size-3.5" />} label={t("Mã định danh")} value={getCode(viewItem)} mono />
+                        <InfoTile icon={<Tag className="size-3.5" />} label={t("Tên hiển thị")} value={getName(viewItem)} />
                     </div>
 
                     {/* ── COLOR specific ── */}
                     {activeTab === 'color' && (
                         <div className="rounded-lg border border-bo-border bg-bo-surface-subtle p-3">
-                            <TileLabel icon={<Pipette className="size-3.5" />} label="Mã màu HEX" />
+                            <TileLabel icon={<Pipette className="size-3.5" />} label={t("Mã màu HEX")} />
                             <div className="mt-1.5 flex items-center gap-2.5">
                                 <ColorSwatch hex={viewItem.maMauHex} className="size-8" />
                                 <p className="font-mono text-sm font-semibold text-bo-foreground">
@@ -163,7 +164,7 @@ const ViewModal = ({ viewItem, activeTab, onClose, onEdit, onLichSu }) => {
                     {activeTab === 'size' && (
                         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                             <div className="rounded-lg border border-bo-border bg-bo-surface-subtle p-3">
-                                <TileLabel icon={<Ruler className="size-3.5" />} label="Loại kích cỡ" />
+                                <TileLabel icon={<Ruler className="size-3.5" />} label={t("Loại kích cỡ")} />
                                 {viewItem.loaiSize ? (
                                     <p className="mt-1.5 text-sm font-medium uppercase text-bo-foreground">{viewItem.loaiSize}</p>
                                 ) : (
@@ -172,7 +173,7 @@ const ViewModal = ({ viewItem, activeTab, onClose, onEdit, onLichSu }) => {
                             </div>
                             <InfoTile
                                 icon={<SortAsc className="size-3.5" />}
-                                label="Thứ tự ưu tiên"
+                                label={t("Thứ tự ưu tiên")}
                                 value={viewItem.thuTuSapXep ?? '—'}
                                 mono
                             />
@@ -191,13 +192,13 @@ const ViewModal = ({ viewItem, activeTab, onClose, onEdit, onLichSu }) => {
                                         className="mt-1.5 h-14 w-14 rounded-md border border-bo-border bg-bo-surface object-contain p-1"
                                     />
                                 ) : (
-                                    <p className="mt-1.5 text-sm italic text-bo-muted">Chưa có logo</p>
+                                    <p className="mt-1.5 text-sm italic text-bo-muted">{t("Chưa có logo")}</p>
                                 )}
                             </div>
                             <InfoTile
                                 icon={<AlignLeft className="size-3.5" />}
-                                label="Trạng thái"
-                                value={Number(viewItem.trangThai) === 1 ? 'Hoạt động' : 'Ngừng hoạt động'}
+                                label={t("Trạng thái")}
+                                value={Number(viewItem.trangThai) === 1 ? t("Hoạt động") : t("Ngừng hoạt động")}
                             />
                         </>
                     )}
@@ -205,12 +206,12 @@ const ViewModal = ({ viewItem, activeTab, onClose, onEdit, onLichSu }) => {
                     {/* ── Description (material & size) ── */}
                     {(activeTab === 'material' || activeTab === 'size' || activeTab === 'brand') && (
                         <div className="rounded-lg border border-bo-border bg-bo-surface-subtle p-3">
-                            <TileLabel icon={<AlignLeft className="size-3.5" />} label="Mô tả chi tiết" />
+                            <TileLabel icon={<AlignLeft className="size-3.5" />} label={t("Mô tả chi tiết")} />
                             {viewItem.moTa ? (
                                 <p className="mt-1.5 text-sm leading-6 text-bo-foreground">{viewItem.moTa}</p>
                             ) : (
                                 <p className="mt-1.5 border-l-2 border-bo-border pl-2.5 text-sm italic text-bo-muted">
-                                    Không có mô tả chi tiết cho thuộc tính này.
+                                    {t("Không có mô tả chi tiết cho thuộc tính này.")}
                                 </p>
                             )}
                         </div>
@@ -227,7 +228,7 @@ const ViewModal = ({ viewItem, activeTab, onClose, onEdit, onLichSu }) => {
                             className="gap-1.5 border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle sm:mr-auto"
                         >
                             <History className="size-4" aria-hidden="true" />
-                            Lịch sử thay đổi
+                            {t("Lịch sử thay đổi")}
                         </Button>
                     ) : null}
                     <Button
@@ -235,7 +236,7 @@ const ViewModal = ({ viewItem, activeTab, onClose, onEdit, onLichSu }) => {
                         onClick={onClose}
                         className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                     >
-                        Đóng
+                        {t("Đóng")}
                     </Button>
                     {/* Chỉ vai trò được sửa loại thuộc tính này (trang chỉ truyền onEdit khi được sửa) */}
                     {onEdit ? (
@@ -244,7 +245,7 @@ const ViewModal = ({ viewItem, activeTab, onClose, onEdit, onLichSu }) => {
                             className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
                         >
                             <Edit className="size-4" />
-                            Chỉnh sửa
+                            {t("Chỉnh sửa")}
                         </Button>
                     ) : null}
                 </DialogFooter>
@@ -375,7 +376,7 @@ const ProductAttributeHub = () => {
             // Lỗi: hiện khung báo lỗi trong bảng, không giữ dòng/tổng số cũ (R9)
             setData([]); setTotal(0);
             // Giữ lỗi gốc để ô lỗi phân biệt 403 (không có quyền: ổ khóa, không "Thử lại")
-            setLoadError({ moTa: getApiErrorMessage(err, `Không thể tải danh sách ${TAB_LABELS[activeTab]}`), goc: err });
+            setLoadError({ moTa: getApiErrorMessage(err, t("Không thể tải danh sách {{loai}}", { loai: TAB_LABELS[activeTab] })), goc: err });
             setLoading(false);
         }
     }, [activeTab, filters]);
@@ -425,17 +426,17 @@ const ProductAttributeHub = () => {
                 if (modalConfig.mode === 'add') {
                     const res = await thuongHieuService.create(mapToPayload(values));
                     saved = res?.data;
-                    toast.success("Thêm mới thành công");
+                    toast.success(t("Thêm mới thành công"));
                 } else {
                     const res = await thuongHieuService.update(modalConfig.item.id, mapToPayload(values));
                     saved = res?.data;
-                    toast.success("Cập nhật thành công");
+                    toast.success(t("Cập nhật thành công"));
                 }
                 if (logoFile && saved?.id) {
                     try {
                         await thuongHieuService.uploadLogo(saved.id, logoFile);
                     } catch {
-                        toast.warning("Đã lưu thương hiệu nhưng logo chưa được tải lên");
+                        toast.warning(t("Đã lưu thương hiệu nhưng logo chưa được tải lên"));
                     }
                 }
                 setModalConfig({ open: false, mode: 'add', item: null });
@@ -448,16 +449,16 @@ const ProductAttributeHub = () => {
             const payload = mapToPayload(values);
             if (modalConfig.mode === 'add') {
                 activeTab === 'color' ? await mauSacService.create(payload) : activeTab === 'size' ? await sizeService.create(payload) : await createChatLieu(payload);
-                toast.success("Thêm mới thành công");
+                toast.success(t("Thêm mới thành công"));
             } else {
                 const id = modalConfig.item.id;
                 activeTab === 'color' ? await mauSacService.update({ id, ...payload }) : activeTab === 'size' ? await sizeService.update({ id, ...payload }) : await updateChatLieu(id, payload);
-                toast.success("Cập nhật thành công");
+                toast.success(t("Cập nhật thành công"));
             }
             setModalConfig({ open: false, mode: 'add', item: null });
             fetchData();
         } catch (err) {
-            toast.error(err?.response?.data?.message || "Thao tác thất bại");
+            toast.error(err?.response?.data?.message || t("Thao tác thất bại"));
         }
     };
 
@@ -467,15 +468,15 @@ const ProductAttributeHub = () => {
         try {
             if (activeTab === 'brand') {
                 // Thương hiệu KHÔNG có luồng xóa — quản lý vòng đời qua trạng thái.
-                toast.error("Thương hiệu không hỗ trợ xóa, hãy chuyển trạng thái Ngừng hoạt động");
+                toast.error(t("Thương hiệu không hỗ trợ xóa, hãy chuyển trạng thái Ngừng hoạt động"));
                 setDeleteConfig({ open: false, item: null });
                 return;
             }
             activeTab === 'color' ? await mauSacService.delete(deleteConfig.item.id) : activeTab === 'size' ? await sizeService.delete(deleteConfig.item.id) : await deleteChatLieu(deleteConfig.item.id);
-            toast.success("Xóa thành công");
+            toast.success(t("Xóa thành công"));
             setDeleteConfig({ open: false, item: null });
             fetchData();
-        } catch { toast.error("Xóa thất bại"); }
+        } catch { toast.error(t("Xóa thất bại")); }
         finally { setIsDeleting(false); }
     };
 
@@ -505,7 +506,7 @@ const ProductAttributeHub = () => {
                             className="h-9 gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
                         >
                             <Plus className="size-4" />
-                            Thêm {TAB_LABELS[activeTab]}
+                            {t("Thêm {{loai}}", { loai: TAB_LABELS[activeTab] })}
                         </Button>
                     ) : null
                 }
@@ -518,7 +519,7 @@ const ProductAttributeHub = () => {
                     <ListToolbar
                         tabs={
                             <StatusTabs
-                                label="Chọn loại thuộc tính"
+                                label={t("Chọn loại thuộc tính")}
                                 tabs={LOAI_TABS}
                                 value={tabLoai}
                                 onChange={(value) => setTabLoai(value)}
@@ -528,17 +529,17 @@ const ProductAttributeHub = () => {
                         onClear={clearFilters}
                     >
                         <SearchInput
-                            label={`Tìm ${TAB_LABELS[activeTab]}`}
+                            label={t("Tìm {{loai}}", { loai: TAB_LABELS[activeTab] })}
                             value={filters.keyword}
                             onChange={e => setFilters(p => ({ ...p, keyword: e.target.value, page: 0 }))}
                             onClear={() => setFilters(p => ({ ...p, keyword: "", page: 0 }))}
-                            placeholder="Tìm kiếm theo mã hoặc tên..."
+                            placeholder={t("Tìm kiếm theo mã hoặc tên...")}
                             className="sm:w-[300px]"
                         />
                         {/* Lọc trạng thái chỉ có ở tab thương hiệu */}
                         {activeTab === 'brand' && (
                             <FilterSelect
-                                label="Lọc thương hiệu theo trạng thái"
+                                label={t("Lọc thương hiệu theo trạng thái")}
                                 value={filters.trangThai}
                                 options={BRAND_STATUS_OPTIONS}
                                 onChange={(value) => setFilters(p => ({ ...p, trangThai: value, page: 0 }))}
@@ -560,32 +561,32 @@ const ProductAttributeHub = () => {
                 }
             >
                 {loading ? (
-                    <LoadingState label={`Đang tải danh sách ${TAB_LABELS[activeTab]}`} />
+                    <LoadingState label={t("Đang tải danh sách {{loai}}", { loai: TAB_LABELS[activeTab] })} />
                 ) : loadError ? (
                     <ErrorState description={loadError.moTa} error={loadError.goc} onRetry={() => fetchData()} />
                 ) : data.length === 0 ? (
                     hasActiveFilters ? (
                         <EmptyState
                             icon={SearchX}
-                            title={`Không tìm thấy ${TAB_LABELS[activeTab]} phù hợp`}
-                            description="Thử đổi từ khóa hoặc bỏ bớt bộ lọc."
+                            title={t("Không tìm thấy {{loai}} phù hợp", { loai: TAB_LABELS[activeTab] })}
+                            description={t("Thử đổi từ khóa hoặc bỏ bớt bộ lọc.")}
                             action={
                                 <Button
                                     variant="outline"
                                     onClick={clearFilters}
                                     className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
-                                    Xóa lọc
+                                    {t("Xóa lọc")}
                                 </Button>
                             }
                         />
                     ) : (
                         <EmptyState
                             icon={TabIcon}
-                            title={`Chưa có ${TAB_LABELS[activeTab]}`}
+                            title={t("Chưa có {{loai}}", { loai: TAB_LABELS[activeTab] })}
                             description={coTheSua
-                                ? "Danh mục này hiện đang trống. Hãy bắt đầu bằng cách thêm mới một mục."
-                                : "Danh mục này hiện đang trống."}
+                                ? t("Danh mục này hiện đang trống. Hãy bắt đầu bằng cách thêm mới một mục.")
+                                : t("Danh mục này hiện đang trống.")}
                         />
                     )
                 ) : (
@@ -617,13 +618,13 @@ const ProductAttributeHub = () => {
                                         <span className="flex min-w-0 items-center justify-between gap-2">
                                             <span className="truncate font-semibold text-bo-foreground">{tenCua(item)}</span>
                                             {activeTab === 'brand' ? (
-                                                <StatusBadge label={Number(item.trangThai) === 1 ? 'Hoạt động' : 'Ngừng hoạt động'} />
+                                                <StatusBadge /* i18n-giu-nguyen: StatusBadge tự dịch */ label={Number(item.trangThai) === 1 ? 'Hoạt động' : 'Ngừng hoạt động'} />
                                             ) : null}
                                         </span>
                                         <span className="truncate text-[13px] text-bo-muted">
                                             <span className="font-mono font-semibold tracking-wide text-bo-primary">{maCua(item)}</span>
                                             {activeTab === 'color' ? <span className="font-mono uppercase"> · {item.maMauHex || '—'}</span> : null}
-                                            {activeTab === 'size' ? ` · ${item.loaiSize || '—'} · Thứ tự ${item.thuTuSapXep ?? '—'}` : null}
+                                            {activeTab === 'size' ? t(" · {{loaiSize}} · Thứ tự {{thuTu}}", { loaiSize: item.loaiSize || '—', thuTu: item.thuTuSapXep ?? '—' }) : null}
                                             {activeTab === 'brand' ? ` · ${formatDate(item.ngayTao)}` : null}
                                         </span>
                                         {activeTab !== 'color' && item.moTa ? (
@@ -641,17 +642,17 @@ const ProductAttributeHub = () => {
                         <table className="w-full min-w-[880px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
                             <thead className="sticky top-0 z-10">
                                 <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                                    <th className="h-11 w-14 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">STT</th>
-                                    <th className="h-11 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Mã</th>
-                                    <th className="h-11 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Tên hiển thị</th>
-                                    {activeTab === 'color' && <th className="h-11 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Màu sắc</th>}
-                                    {activeTab === 'size' && <th className="h-11 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Phân loại</th>}
-                                    {activeTab === 'material' && <th className="h-11 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Mô tả</th>}
+                                    <th className="h-11 w-14 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">{t("STT")}</th>
+                                    <th className="h-11 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Mã")}</th>
+                                    <th className="h-11 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Tên hiển thị")}</th>
+                                    {activeTab === 'color' && <th className="h-11 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Màu sắc")}</th>}
+                                    {activeTab === 'size' && <th className="h-11 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Phân loại")}</th>}
+                                    {activeTab === 'material' && <th className="h-11 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Mô tả")}</th>}
                                     {activeTab === 'brand' && <th className="h-11 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Logo</th>}
-                                    {activeTab === 'brand' && <th className="h-11 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">Mô tả</th>}
-                                    {activeTab === 'brand' && <th className="h-11 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>}
-                                    {activeTab === 'brand' && <th className="h-11 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">Ngày tạo</th>}
-                                    <th className="h-11 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Thao tác</th>
+                                    {activeTab === 'brand' && <th className="h-11 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">{t("Mô tả")}</th>}
+                                    {activeTab === 'brand' && <th className="h-11 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Trạng thái")}</th>}
+                                    {activeTab === 'brand' && <th className="h-11 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">{t("Ngày tạo")}</th>}
+                                    <th className="h-11 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Thao tác")}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-bo-border">
@@ -721,7 +722,7 @@ const ProductAttributeHub = () => {
                                         )}
                                         {activeTab === 'brand' && (
                                             <td className="px-3 py-3">
-                                                <StatusBadge label={Number(item.trangThai) === 1 ? 'Hoạt động' : 'Ngừng hoạt động'} />
+                                                <StatusBadge /* i18n-giu-nguyen: StatusBadge tự dịch */ label={Number(item.trangThai) === 1 ? 'Hoạt động' : 'Ngừng hoạt động'} />
                                             </td>
                                         )}
                                         {activeTab === 'brand' && (
@@ -733,20 +734,20 @@ const ProductAttributeHub = () => {
                                             <RowActions className="cam-ung:max-lg:hidden">
                                                 <RowActionButton
                                                     icon={Eye}
-                                                    label="Xem chi tiết"
+                                                    label={t("Xem chi tiết")}
                                                     onClick={() => handleOpenModal('view', item)}
                                                 />
                                                 {coTheSua && (
                                                     <RowActionButton
                                                         icon={Edit}
-                                                        label="Chỉnh sửa"
+                                                        label={t("Chỉnh sửa")}
                                                         onClick={() => handleOpenModal('edit', item)}
                                                     />
                                                 )}
                                                 {coTheSua && activeTab !== 'brand' && (
                                                     <RowActionButton
                                                         icon={Trash2}
-                                                        label="Xóa"
+                                                        label={t("Xóa")}
                                                         tone="danger"
                                                         onClick={() => setDeleteConfig({ open: true, item })}
                                                     />
@@ -773,14 +774,14 @@ const ProductAttributeHub = () => {
                 mo={moThaoTac}
                 onDoiMo={setMoThaoTac}
                 tieuDe={mucThaoTac ? tenCua(mucThaoTac) : ""}
-                moTa={`Thao tác với ${TAB_LABELS[activeTab]}`}
+                moTa={t("Thao tác với {{loai}}", { loai: TAB_LABELS[activeTab] })}
                 thaoTac={[
-                    { khoa: "xem", icon: Eye, nhan: "Xem chi tiết", onChon: () => handleOpenModal('view', mucThaoTac) },
+                    { khoa: "xem", icon: Eye, nhan: t("Xem chi tiết"), onChon: () => handleOpenModal('view', mucThaoTac) },
                     ...(coTheSua
-                        ? [{ khoa: "sua", icon: Edit, nhan: "Chỉnh sửa", onChon: () => handleOpenModal('edit', mucThaoTac) }]
+                        ? [{ khoa: "sua", icon: Edit, nhan: t("Chỉnh sửa"), onChon: () => handleOpenModal('edit', mucThaoTac) }]
                         : []),
                     ...(coTheSua && activeTab !== 'brand'
-                        ? [{ khoa: "xoa", icon: Trash2, nhan: `Xóa ${TAB_LABELS[activeTab]}`, nguyHiem: true, onChon: () => setDeleteConfig({ open: true, item: mucThaoTac }) }]
+                        ? [{ khoa: "xoa", icon: Trash2, nhan: t("Xóa {{loai}}", { loai: TAB_LABELS[activeTab] }), nguyHiem: true, onChon: () => setDeleteConfig({ open: true, item: mucThaoTac }) }]
                         : []),
                 ]}
             />
@@ -795,32 +796,32 @@ const ProductAttributeHub = () => {
                             </span>
                             <div className="min-w-0">
                                 <p className="text-[10px] font-semibold uppercase tracking-wide text-bo-muted">
-                                    {modalConfig.mode === 'add' ? 'Khởi tạo thuộc tính' : 'Chỉnh sửa thuộc tính'}
+                                    {modalConfig.mode === 'add' ? t("Khởi tạo thuộc tính") : t("Chỉnh sửa thuộc tính")}
                                 </p>
                                 <DialogTitle className="text-base font-semibold text-bo-foreground">
-                                    {modalConfig.mode === 'add' ? 'Thêm mới' : 'Chỉnh sửa'} {TAB_NAMES[activeTab]}
+                                    {modalConfig.mode === 'add' ? t("Thêm mới {{loai}}", { loai: TAB_NAMES[activeTab] }) : t("Chỉnh sửa {{loai}}", { loai: TAB_NAMES[activeTab] })}
                                 </DialogTitle>
                             </div>
                         </div>
-                        <DialogDescription className="sr-only">Biểu mẫu cập nhật thuộc tính</DialogDescription>
+                        <DialogDescription className="sr-only">{t("Biểu mẫu cập nhật thuộc tính")}</DialogDescription>
                     </DialogHeader>
 
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div className="space-y-1.5">
-                                <Label className="text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Mã định danh *</Label>
+                                <Label className="text-[10px] font-semibold uppercase tracking-wide text-bo-muted">{t("Mã định danh *")}</Label>
                                 <div className="flex gap-2">
                                     <Input
                                         {...form.register("ma")}
                                         className="h-9 border-bo-border bg-bo-surface font-mono font-semibold text-bo-primary focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
-                                        placeholder="VD: 42"
+                                        placeholder={t("VD: 42")}
                                     />
                                     {(activeTab === 'color' || activeTab === 'material') && (
                                         <button
                                             type="button"
                                             className="inline-flex size-9 shrink-0 items-center justify-center rounded-md border border-bo-border bg-bo-surface text-bo-muted transition-colors hover:border-bo-primary hover:text-bo-primary"
                                             onClick={() => form.setValue('ma', generateAutoCode())}
-                                            title="Tạo mã tự động"
+                                            title={t("Tạo mã tự động")}
                                         >
                                             <RotateCcw className="size-4" />
                                         </button>
@@ -830,11 +831,11 @@ const ProductAttributeHub = () => {
                             </div>
 
                             <div className="space-y-1.5">
-                                <Label className="text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Tên hiển thị *</Label>
+                                <Label className="text-[10px] font-semibold uppercase tracking-wide text-bo-muted">{t("Tên hiển thị *")}</Label>
                                 <Input
                                     {...form.register("ten")}
                                     className="h-9 border-bo-border bg-bo-surface font-semibold text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
-                                    placeholder="Nhập tên hiển thị"
+                                    placeholder={t("Nhập tên hiển thị")}
                                 />
                                 <FieldError message={errors.ten?.message} />
                             </div>
@@ -842,7 +843,7 @@ const ProductAttributeHub = () => {
 
                         {activeTab === 'color' && (
                             <div className="space-y-1.5">
-                                <Label className="text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Mã màu HEX *</Label>
+                                <Label className="text-[10px] font-semibold uppercase tracking-wide text-bo-muted">{t("Mã màu HEX *")}</Label>
                                 {/* Một field duy nhất cho cả ô chọn màu và ô nhập — hai ô luôn đồng bộ */}
                                 <Controller
                                     name="maMauHex"
@@ -853,7 +854,7 @@ const ProductAttributeHub = () => {
                                             <div className="flex items-center gap-3">
                                                 <input
                                                     type="color"
-                                                    aria-label="Chọn màu"
+                                                    aria-label={t("Chọn màu")}
                                                     value={(validHex || DEFAULT_HEX).toLowerCase()}
                                                     onChange={(e) => field.onChange(e.target.value.toUpperCase())}
                                                     onBlur={field.onBlur}
@@ -885,15 +886,15 @@ const ProductAttributeHub = () => {
                         {activeTab === 'size' && (
                             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                 <div className="space-y-1.5">
-                                    <Label className="text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Loại kích cỡ</Label>
+                                    <Label className="text-[10px] font-semibold uppercase tracking-wide text-bo-muted">{t("Loại kích cỡ")}</Label>
                                     <Input
                                         {...form.register("loaiSize")}
                                         className="h-9 border-bo-border bg-bo-surface text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
-                                        placeholder="VD: Số, Chữ"
+                                        placeholder={t("VD: Số, Chữ")}
                                     />
                                 </div>
                                 <div className="space-y-1.5">
-                                    <Label className="text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Thứ tự ưu tiên</Label>
+                                    <Label className="text-[10px] font-semibold uppercase tracking-wide text-bo-muted">{t("Thứ tự ưu tiên")}</Label>
                                     <Input
                                         type="number"
                                         {...form.register("thuTuSapXep")}
@@ -905,7 +906,7 @@ const ProductAttributeHub = () => {
 
                         {activeTab === 'brand' && (
                             <div className="space-y-1.5">
-                                <Label className="text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</Label>
+                                <Label className="text-[10px] font-semibold uppercase tracking-wide text-bo-muted">{t("Trạng thái")}</Label>
                                 <Controller
                                     name="trangThai"
                                     control={form.control}
@@ -915,11 +916,11 @@ const ProductAttributeHub = () => {
                                             onValueChange={(value) => field.onChange(Number(value))}
                                         >
                                             <SelectTrigger className="h-9 w-full border-bo-border bg-bo-surface text-bo-foreground">
-                                                <SelectValue placeholder="Chọn trạng thái" />
+                                                <SelectValue placeholder={t("Chọn trạng thái")} />
                                             </SelectTrigger>
                                             <SelectContent position="popper" side="bottom" className="z-50 rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg">
-                                                <SelectItem value="1" className="rounded-md text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900">Hoạt động</SelectItem>
-                                                <SelectItem value="0" className="rounded-md text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900">Ngừng hoạt động</SelectItem>
+                                                <SelectItem value="1" className="rounded-md text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900">{t("Hoạt động")}</SelectItem>
+                                                <SelectItem value="0" className="rounded-md text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900">{t("Ngừng hoạt động")}</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     )}
@@ -929,7 +930,7 @@ const ProductAttributeHub = () => {
 
                         {activeTab === 'brand' && (
                             <div className="space-y-1.5">
-                                <Label className="text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Logo (tùy chọn)</Label>
+                                <Label className="text-[10px] font-semibold uppercase tracking-wide text-bo-muted">{t("Logo (tùy chọn)")}</Label>
                                 <div className="rounded-lg border-2 border-dashed border-bo-border bg-bo-surface-subtle p-3">
                                     <input
                                         type="file"
@@ -949,19 +950,19 @@ const ProductAttributeHub = () => {
                                         className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-bo-border bg-bo-surface p-2 text-sm font-medium text-bo-foreground transition-colors hover:bg-bo-primary-soft hover:text-bo-primary cam-ung:min-h-11"
                                     >
                                         <Upload className="size-4" />
-                                        <span>{logoPreview ? "Đổi logo khác" : "Chọn ảnh logo"}</span>
+                                        <span>{logoPreview ? t("Đổi logo khác") : t("Chọn ảnh logo")}</span>
                                     </label>
                                     {logoPreview && (
                                         <div className="relative mt-3 inline-block">
                                             <img
                                                 src={logoPreview}
-                                                alt="Xem trước logo"
+                                                alt={t("Xem trước logo")}
                                                 className="h-16 w-16 rounded-md border border-bo-border bg-bo-surface object-contain"
                                             />
                                             <button
                                                 type="button"
                                                 onClick={() => { setLogoFile(null); setLogoPreview(null); }}
-                                                aria-label="Xóa logo đã chọn"
+                                                aria-label={t("Xóa logo đã chọn")}
                                                 className="absolute -right-2 -top-2 rounded-full bg-bo-danger p-1 text-white transition-opacity hover:opacity-90"
                                             >
                                                 <X className="size-3" />
@@ -974,12 +975,12 @@ const ProductAttributeHub = () => {
 
                         {(activeTab === 'material' || activeTab === 'size' || activeTab === 'brand') && (
                             <div className="space-y-1.5">
-                                <Label className="text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Mô tả chi tiết</Label>
+                                <Label className="text-[10px] font-semibold uppercase tracking-wide text-bo-muted">{t("Mô tả chi tiết")}</Label>
                                 <Textarea
                                     {...form.register("moTa")}
                                     rows={3}
                                     className="min-h-[88px] resize-none border-bo-border bg-bo-surface text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
-                                    placeholder="Nhập mô tả ngắn"
+                                    placeholder={t("Nhập mô tả ngắn")}
                                 />
                             </div>
                         )}
@@ -991,14 +992,14 @@ const ProductAttributeHub = () => {
                                 onClick={() => setModalConfig({ ...modalConfig, open: false })}
                                 className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                             >
-                                Đóng
+                                {t("Đóng")}
                             </Button>
                             <Button
                                 type="submit"
                                 className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
                             >
                                 <Save className="size-4" />
-                                {modalConfig.mode === 'add' ? 'Khởi tạo' : 'Lưu'}
+                                {modalConfig.mode === 'add' ? t("Khởi tạo") : t("Lưu")}
                             </Button>
                         </DialogFooter>
                     </form>
@@ -1019,8 +1020,8 @@ const ProductAttributeHub = () => {
                 <NganKeoLichSu
                     open={Boolean(lichSu)}
                     onOpenChange={(mo) => !mo && setLichSu(null)}
-                    tieuDe={lichSu ? `Lịch sử ${TAB_NAMES[lichSu.tab].toLocaleLowerCase("vi-VN")} ${tenThuocTinh(lichSu.item)}` : "Lịch sử thuộc tính"}
-                    moTa="Thêm, sửa, ngừng / xóa thuộc tính. Mới nhất ở trên."
+                    tieuDe={lichSu ? t("Lịch sử {{loai}} {{ten}}", { loai: TAB_NAMES[lichSu.tab].toLocaleLowerCase("vi-VN"), ten: tenThuocTinh(lichSu.item) }) : t("Lịch sử thuộc tính")}
+                    moTa={t("Thêm, sửa, ngừng / xóa thuộc tính. Mới nhất ở trên.")}
                     tai={() => (lichSu ? layLichSuDanhMuc(LOAI_NHAT_KY[lichSu.tab], lichSu.item.id) : Promise.resolve([]))}
                 />
             ) : null}
@@ -1030,20 +1031,20 @@ const ProductAttributeHub = () => {
                 isOpen={deleteConfig.open}
                 onClose={() => !isDeleting && setDeleteConfig({ open: false, item: null })}
                 onConfirm={confirmDelete}
-                title="Xác nhận xóa"
+                title={t("Xác nhận xóa")}
                 description={
                     <>
-                        Bạn có chắc chắn muốn xóa vĩnh viễn {TAB_LABELS[activeTab]}{" "}
+                        {t("Bạn có chắc chắn muốn xóa vĩnh viễn {{loai}}", { loai: TAB_LABELS[activeTab] })}{" "}
                         <strong className="font-semibold text-bo-foreground">
                             "{deleteConfig.item?.tenMau || deleteConfig.item?.tenSize || deleteConfig.item?.tenChatLieu || deleteConfig.item?.tenThuongHieu}"
                         </strong>?
                         <span className="mt-1 block text-xs font-medium text-bo-muted">
-                            Cẩn trọng: Thao tác này không thể hoàn tác
+                            {t("Cẩn trọng: Thao tác này không thể hoàn tác")}
                         </span>
                     </>
                 }
-                confirmText="Xóa dữ liệu"
-                cancelText="Hủy bỏ"
+                confirmText={t("Xóa dữ liệu")}
+                cancelText={t("Hủy bỏ")}
                 variant="danger"
                 isLoading={isDeleting}
             />
@@ -1073,7 +1074,7 @@ function ColorSwatch({ hex, className = "" }) {
     if (!validHex) {
         return (
             <span
-                title="Chưa có mã màu hợp lệ"
+                title={t("Chưa có mã màu hợp lệ")}
                 className={`inline-block shrink-0 rounded-md border border-dashed border-bo-border bg-bo-surface-subtle ${className}`}
             />
         );

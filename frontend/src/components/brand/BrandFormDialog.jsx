@@ -19,17 +19,18 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { Loader2, Tag, Upload, X } from "lucide-react";
 import { toast } from "@/lib/thongBaoNhanh";
 import { thuongHieuService } from "@/services/thuongHieuService.js";
+import { t } from "@/i18n";
 
 const brandSchema = z.object({
     maThuongHieu: z
         .string()
-        .min(1, "Mã thương hiệu không được để trống")
-        .max(50, "Mã thương hiệu tối đa 50 ký tự"),
+        .min(1, t("Mã thương hiệu không được để trống"))
+        .max(50, t("Mã thương hiệu tối đa 50 ký tự")),
     tenThuongHieu: z
         .string()
-        .min(1, "Tên thương hiệu không được để trống")
-        .max(100, "Tên thương hiệu tối đa 100 ký tự"),
-    moTa: z.string().max(2000, "Mô tả thương hiệu tối đa 2000 ký tự").optional(),
+        .min(1, t("Tên thương hiệu không được để trống"))
+        .max(100, t("Tên thương hiệu tối đa 100 ký tự")),
+    moTa: z.string().max(2000, t("Mô tả thương hiệu tối đa 2000 ký tự")).optional(),
     trangThai: z.coerce.number(),
 });
 
@@ -97,7 +98,7 @@ export default function BrandFormDialog({ open, onOpenChange, onCreated }) {
             });
             const brand = res?.data;
             if (!brand?.id) {
-                toast.error(res?.message || "Không thể tạo thương hiệu");
+                toast.error(res?.message || t("Không thể tạo thương hiệu"));
                 return;
             }
 
@@ -108,14 +109,14 @@ export default function BrandFormDialog({ open, onOpenChange, onCreated }) {
                     const logoRes = await thuongHieuService.uploadLogo(brand.id, logoFile);
                     savedBrand = logoRes?.data ?? brand;
                 } catch {
-                    toast.warning("Đã lưu thương hiệu nhưng logo chưa được tải lên");
+                    toast.warning(t("Đã lưu thương hiệu nhưng logo chưa được tải lên"));
                 }
             }
 
-            toast.success(`Đã tạo thương hiệu "${savedBrand.tenThuongHieu}"`);
+            toast.success(t("Đã tạo thương hiệu \"{{tenThuongHieu}}\"", { tenThuongHieu: savedBrand.tenThuongHieu }));
             onCreated?.(savedBrand);
         } catch (error) {
-            const errorMessage = getApiErrorMessage(error, "Có lỗi xảy ra khi tạo thương hiệu");
+            const errorMessage = getApiErrorMessage(error, t("Có lỗi xảy ra khi tạo thương hiệu"));
             toast.error(errorMessage);
         }
     };
@@ -132,21 +133,21 @@ export default function BrandFormDialog({ open, onOpenChange, onCreated }) {
                 <DialogHeader className="border-b border-bo-border bg-bo-surface px-4 py-3.5 text-left sm:px-5">
                     <DialogTitle className="flex items-center gap-2 text-base font-semibold text-bo-foreground">
                         <Tag className="size-5 text-bo-primary" />
-                        Tạo thương hiệu mới
+                        {t("Tạo thương hiệu mới")}
                     </DialogTitle>
                     <DialogDescription className="mt-1 text-sm leading-6 text-bo-muted">
-                        Thương hiệu mới sẽ được chọn ngay cho sản phẩm sau khi tạo.
+                        {t("Thương hiệu mới sẽ được chọn ngay cho sản phẩm sau khi tạo.")}
                     </DialogDescription>
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 px-4 py-4 sm:px-5">
                     <div className="space-y-2">
-                        <Label htmlFor="brand-ma">Mã định danh <span className="text-bo-danger">*</span></Label>
+                        <Label htmlFor="brand-ma">{t("Mã định danh")} <span className="text-bo-danger">*</span></Label>
                         <Controller
                             name="maThuongHieu"
                             control={control}
                             render={({ field }) => (
-                                <Input {...field} placeholder="VD: NIKE, ZARA" disabled={isSubmitting} className={CONTROL_CLASS} />
+                                <Input {...field} placeholder={t("VD: NIKE, ZARA")} disabled={isSubmitting} className={CONTROL_CLASS} />
                             )}
                         />
                         {errors.maThuongHieu && (
@@ -155,12 +156,12 @@ export default function BrandFormDialog({ open, onOpenChange, onCreated }) {
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="brand-ten">Tên hiển thị <span className="text-bo-danger">*</span></Label>
+                        <Label htmlFor="brand-ten">{t("Tên hiển thị")} <span className="text-bo-danger">*</span></Label>
                         <Controller
                             name="tenThuongHieu"
                             control={control}
                             render={({ field }) => (
-                                <Input {...field} placeholder="VD: Nike" disabled={isSubmitting} className={CONTROL_CLASS} />
+                                <Input {...field} placeholder={t("VD: Nike")} disabled={isSubmitting} className={CONTROL_CLASS} />
                             )}
                         />
                         {errors.tenThuongHieu && (
@@ -169,12 +170,12 @@ export default function BrandFormDialog({ open, onOpenChange, onCreated }) {
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="brand-mota">Mô tả</Label>
+                        <Label htmlFor="brand-mota">{t("Mô tả")}</Label>
                         <Controller
                             name="moTa"
                             control={control}
                             render={({ field }) => (
-                                <Textarea {...field} placeholder="Mô tả ngắn về thương hiệu..." rows={3} disabled={isSubmitting} className={CONTROL_CLASS} />
+                                <Textarea {...field} placeholder={t("Mô tả ngắn về thương hiệu...")} rows={3} disabled={isSubmitting} className={CONTROL_CLASS} />
                             )}
                         />
                         {errors.moTa && (
@@ -183,7 +184,7 @@ export default function BrandFormDialog({ open, onOpenChange, onCreated }) {
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="brand-trangthai">Trạng thái</Label>
+                        <Label htmlFor="brand-trangthai">{t("Trạng thái")}</Label>
                         <Controller
                             name="trangThai"
                             control={control}
@@ -194,11 +195,11 @@ export default function BrandFormDialog({ open, onOpenChange, onCreated }) {
                                     disabled={isSubmitting}
                                 >
                                     <SelectTrigger className="h-10 w-full border-bo-border text-bo-foreground">
-                                        <SelectValue placeholder="Chọn trạng thái" />
+                                        <SelectValue placeholder={t("Chọn trạng thái")} />
                                     </SelectTrigger>
                                     <SelectContent position="popper" side="bottom" className="z-50 rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg">
-                                        <SelectItem value="1" className="rounded-md text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900">Hoạt động</SelectItem>
-                                        <SelectItem value="0" className="rounded-md text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900">Ngừng hoạt động</SelectItem>
+                                        <SelectItem value="1" className="rounded-md text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900">{t("Hoạt động")}</SelectItem>
+                                        <SelectItem value="0" className="rounded-md text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900">{t("Ngừng hoạt động")}</SelectItem>
                                     </SelectContent>
                                 </Select>
                             )}
@@ -206,7 +207,7 @@ export default function BrandFormDialog({ open, onOpenChange, onCreated }) {
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="brand-logo">Logo (tùy chọn)</Label>
+                        <Label htmlFor="brand-logo">{t("Logo (tùy chọn)")}</Label>
                         <div className="rounded-lg border-2 border-dashed border-bo-border bg-bo-surface-subtle p-3">
                             <input
                                 type="file"
@@ -221,19 +222,19 @@ export default function BrandFormDialog({ open, onOpenChange, onCreated }) {
                                 className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-bo-border bg-bo-surface p-2 text-sm font-medium text-bo-foreground transition-colors hover:bg-bo-primary-soft hover:text-bo-primary cam-ung:min-h-11"
                             >
                                 <Upload className="size-4" />
-                                <span>Chọn ảnh logo</span>
+                                <span>{t("Chọn ảnh logo")}</span>
                             </label>
                             {logoPreview ? (
                                 <div className="relative mt-3 inline-block">
                                     <img
                                         src={logoPreview}
-                                        alt="Xem trước logo"
+                                        alt={t("Xem trước logo")}
                                         className="h-16 w-16 rounded-md border border-bo-border object-contain"
                                     />
                                     <button
                                         type="button"
                                         onClick={handleRemoveLogo}
-                                        aria-label="Xóa logo đã chọn"
+                                        aria-label={t("Xóa logo đã chọn")}
                                         className="absolute -right-2 -top-2 rounded-full bg-bo-danger p-1 text-white transition-opacity hover:opacity-90"
                                     >
                                         <X className="size-3" />
@@ -251,7 +252,7 @@ export default function BrandFormDialog({ open, onOpenChange, onCreated }) {
                             disabled={isSubmitting}
                             className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                         >
-                            Hủy
+                            {t("Hủy")}
                         </Button>
                         <Button
                             type="submit"
@@ -261,10 +262,10 @@ export default function BrandFormDialog({ open, onOpenChange, onCreated }) {
                             {isSubmitting ? (
                                 <>
                                     <Loader2 className="size-4 animate-spin" />
-                                    Đang lưu...
+                                    {t("Đang lưu...")}
                                 </>
                             ) : (
-                                "Lưu thương hiệu"
+                                t("Lưu thương hiệu")
                             )}
                         </Button>
                     </DialogFooter>
