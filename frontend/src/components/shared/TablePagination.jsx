@@ -67,7 +67,7 @@ export default function TablePagination({
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="start"
-              className="z-50 w-max min-w-[8rem] rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg"
+              className="z-50 w-max min-w-[var(--radix-dropdown-menu-trigger-width)] rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg"
             >
               {sizeMenuTitle ? (
                 <p className="px-2.5 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{sizeMenuTitle}</p>

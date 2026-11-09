@@ -46,7 +46,7 @@ export default function LocTrangThai({ value, onChange, dem = {}, className }) {
           <ChevronDown className="size-4 shrink-0 opacity-60" aria-hidden="true" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="z-50 w-[248px] rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg">
+      <DropdownMenuContent align="start" className="z-50 w-max min-w-[var(--radix-dropdown-menu-trigger-width)] rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg">
         {LUA_CHON_TRANG_THAI.map((o) => (
           <DropdownMenuItem
             key={o.value}

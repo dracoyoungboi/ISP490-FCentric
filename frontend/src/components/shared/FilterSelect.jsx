@@ -81,7 +81,8 @@ export default function FilterSelect({
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align={align}
-        className="z-50 min-w-[200px] rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg"
+        // Rộng tối thiểu bằng ô bấm (thẳng hai mép); lựa chọn nào dài hơn ô thì danh sách tự giãn ra
+        className="z-50 min-w-[var(--radix-dropdown-menu-trigger-width)] rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg"
       >
         {options.map((option) => (
           <DropdownMenuItem

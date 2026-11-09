@@ -128,7 +128,7 @@ export default function KhoLamViecSelect({ onChange }) {
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="start"
-        className="z-50 w-[260px] rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg"
+        className="z-50 w-[max(var(--radix-dropdown-menu-trigger-width),240px)] rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg"
       >
         <p className="px-2.5 pb-1 pt-1.5 text-xs text-bo-muted">
           {chu.menu}
