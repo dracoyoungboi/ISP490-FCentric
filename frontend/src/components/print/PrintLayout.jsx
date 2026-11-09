@@ -17,6 +17,7 @@ const DEFAULT_PAPER = { size: "A4", orientation: "portrait", margin: "default" }
  * tờ giấy được bung hết cỡ nhờ .print-root/.print-container trong print.css
  * và các class `print:*!`; @page được ghi đè động theo cấu hình.
  * `pageFooter`: chữ in ở lề dưới mỗi trang kèm "Trang n/N" (khổ tờ).
+ * `toolbarExtra`: tùy chọn in đặt cạnh nút In phiếu (vd. ô "In kèm phụ lục"), chỉ hiện trên màn hình.
  */
 export default function PrintLayout({
     title,
@@ -25,6 +26,7 @@ export default function PrintLayout({
     disablePrint = false,
     paper,
     pageFooter = null,
+    toolbarExtra = null,
     children,
 }) {
     const paperConfig = paper ?? DEFAULT_PAPER;
@@ -78,14 +80,17 @@ export default function PrintLayout({
                         {title}
                     </span>
                 </div>
-                <Button
-                    className="bg-bo-primary text-white hover:bg-bo-primary-hover"
-                    onClick={onPrint}
-                    disabled={disablePrint}
-                >
-                    <Printer className="size-4" />
-                    In phiếu
-                </Button>
+                <div className="flex shrink-0 items-center gap-3">
+                    {toolbarExtra}
+                    <Button
+                        className="bg-bo-primary text-white hover:bg-bo-primary-hover"
+                        onClick={onPrint}
+                        disabled={disablePrint}
+                    >
+                        <Printer className="size-4" />
+                        In phiếu
+                    </Button>
+                </div>
             </div>
 
             <div ref={khungRef} className="print-container overflow-x-auto px-4 py-6 sm:px-6">

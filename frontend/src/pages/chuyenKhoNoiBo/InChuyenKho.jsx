@@ -14,7 +14,6 @@ import { LY_DO_DIEU_DONG_HIEN_THI } from "@/constants/phieuChuyenKho";
 import {
   LOAI_IN,
   bienBanMauCu,
-  dauCongTy,
   dongBienBan,
   dongDieuChinh,
   dongHangXknb,
@@ -33,76 +32,12 @@ import {
   veViec,
 } from "@/components/chuyen-kho/inChuyenKho";
 import { aiXuLyChenhLech, cauChoXuLyLech } from "@/components/chuyen-kho/hienThiChuyenKho";
+import { CSS_GIAY, DauGiay, Ky, TenGiay } from "@/components/print/GiayChungTu";
 
 /*
- * Giấy in của chuyển kho nội bộ theo bố cục bản demo đã duyệt (tài liệu BA): chữ đen trên nền trắng, phông có chân như
- * chứng từ kế toán. Không dùng thẻ <header>/<footer> vì print.css ẩn hai thẻ đó khi in.
+ * Giấy in của chuyển kho nội bộ theo bố cục bản demo đã duyệt (tài liệu BA); khung giấy (CSS, đầu giấy, ô ký) dùng chung
+ * ở components/print/GiayChungTu.
  */
-const CSS_GIAY = `
-.giay-ck{position:relative;color:#111;font:13.5px/1.45 "Times New Roman",Times,"Liberation Serif",serif}
-.giay-ck .dau-giay{display:flex;justify-content:space-between;gap:20px;font-size:12.5px}
-.giay-ck .dau-giay b{font-size:13px}
-.giay-ck .ten-giay{text-align:center;margin:22px 0 4px;font-size:18px;font-weight:700;letter-spacing:.02em}
-.giay-ck .ngay-giay{text-align:center;font-style:italic;margin-bottom:16px}
-.giay-ck p{margin:3px 0}
-.giay-ck table{width:100%;border-collapse:collapse;margin:12px 0;font-size:12.5px}
-.giay-ck th,.giay-ck td{border:1px solid #333;padding:4px 6px;vertical-align:top}
-.giay-ck th{font-weight:700;text-align:center}
-.giay-ck td.r{text-align:right;white-space:nowrap}
-.giay-ck td.c{text-align:center}
-.giay-ck tr{break-inside:avoid}
-.giay-ck .ky{display:grid;gap:8px;margin-top:22px;text-align:center;font-size:12.5px;break-inside:avoid}
-.giay-ck .ky b{display:block}
-.giay-ck .ky i{display:block;font-size:11.5px}
-.giay-ck .ky .ten-ky{margin-top:62px;font-weight:700;min-height:1.45em}
-.giay-ck .chan-giay{margin-top:28px;font-size:11.5px;font-style:italic;color:#333;border-top:1px solid #999;padding-top:8px}
-.giay-ck .dau-dong{position:absolute;right:0;top:64px;border:2px solid #c2410c;color:#c2410c;padding:4px 10px;font:700 13px Inter,Arial,sans-serif;transform:rotate(-6deg);letter-spacing:.04em;background:rgba(255,255,255,.8)}
-`;
-
-/** Đầu giấy: tên đăng ký, mã số thuế, địa chỉ của công ty (bên trái) và số chứng từ (bên phải). */
-function DauGiay({ hoSo, children }) {
-  const cty = dauCongTy(hoSo);
-  return (
-    <div className="dau-giay">
-      <div>
-        <b>{cty.ten}</b>
-        <br />
-        Mã số thuế: {cty.maSoThue}
-        <br />
-        Địa chỉ: {cty.diaChi}
-      </div>
-      <div style={{ textAlign: "right" }}>{children}</div>
-    </div>
-  );
-}
-
-function TenGiay({ ten, ngay }) {
-  return (
-    <>
-      <div className="ten-giay">{ten}</div>
-      <div className="ngay-giay">{ngay}</div>
-    </>
-  );
-}
-
-/**
- * Ô ký: mỗi cột `[chức danh, tên, dòng nhắc, dòng dưới tên]`; dòng nhắc mặc định "(Ký, ghi rõ họ tên)". Ô xác nhận trên
- * F Centric (kho gửi của biên bản giao nhận) ghi "(Xác nhận trên hệ thống)" và giờ xác nhận dưới tên.
- */
-function Ky({ cot }) {
-  return (
-    <div className="ky" style={{ gridTemplateColumns: `repeat(${cot.length}, 1fr)` }}>
-      {cot.map(([chucDanh, ten, nhac = "(Ký, ghi rõ họ tên)", duoiTen]) => (
-        <div key={chucDanh}>
-          <b>{chucDanh}</b>
-          <i>{nhac}</i>
-          <div className="ten-ky">{ten || ""}</div>
-          {duoiTen ? <i>{duoiTen}</i> : null}
-        </div>
-      ))}
-    </div>
-  );
-}
 
 /** Bảng hàng của yêu cầu và lệnh điều động. */
 function BangHangDon({ ct }) {
@@ -549,7 +484,7 @@ export default function InChuyenKho({ dieuChinh = false }) {
     noiDung = <EmptyState icon={FileX} title={`Chưa in được ${mau.tieuDe.toLowerCase()}`} description={chuaIn} action={nutVe} />;
   } else {
     noiDung = (
-      <div className="giay-ck">
+      <div className="giay-ct">
         <style>{CSS_GIAY}</style>
         {loai === "dieu-chinh" ? <GiayDieuChinh pdc={duLieu} hoSo={hoSo} /> : null}
         {loai === "yeu-cau" ? <GiayYeuCau ct={duLieu} hoSo={hoSo} /> : null}
