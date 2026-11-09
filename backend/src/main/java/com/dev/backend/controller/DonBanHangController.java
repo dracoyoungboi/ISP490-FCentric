@@ -1,5 +1,6 @@
 package com.dev.backend.controller;
 
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.customizeanotation.RequireAuth;
 import com.dev.backend.dto.request.BaseFilterRequest;
@@ -78,7 +79,7 @@ public class DonBanHangController {
                 ResponseData.<DonBanHangKpiHomNayDto>builder()
                         .status(HttpStatus.OK.value())
                         .data(donBanHangService.getKpiHomNay())
-                        .message("Lấy chỉ số KPI bán hàng hôm nay thành công")
+                        .message(ThongDiep.dich("banHang.layKpiHomNayThanhCong"))
                         .build()
         );
     }
@@ -148,7 +149,7 @@ public class DonBanHangController {
                 ResponseData.<String>builder()
                         .status(200)
                         .data("Success")
-                        .message("Đã gửi đơn sang kho")
+                        .message(ThongDiep.dich("banHang.daGuiDonSangKho"))
                         .error(null)
                         .build()
         );
@@ -171,7 +172,7 @@ public class DonBanHangController {
                 ResponseData.<String>builder()
                         .status(200)
                         .data("Success")
-                        .message("Đã hủy đơn bán")
+                        .message(ThongDiep.dich("banHang.daHuyDonBan"))
                         .error(null)
                         .build()
         );
@@ -193,7 +194,7 @@ public class DonBanHangController {
                 ResponseData.<DonBanHangDto>builder()
                         .status(200)
                         .data(donBanHangMapper.toDto(don))
-                        .message("Tạo đơn bán thành công")
+                        .message(ThongDiep.dich("banHang.taoDonBanThanhCong"))
                         .build()
         );
     }
@@ -236,7 +237,7 @@ public class DonBanHangController {
                 ResponseData.<String>builder()
                         .status(200)
                         .data("Success")
-                        .message("Đã xác nhận giao hàng thành công")
+                        .message(ThongDiep.dich("banHang.daXacNhanGiaoHang"))
                         .error(null)
                         .build()
         );
@@ -258,7 +259,7 @@ public class DonBanHangController {
         String diaChi = body.get("diaChiGiaoHang") != null ? body.get("diaChiGiaoHang").toString() : null;
         // Map<String, Object> không đi qua bộ đọc BigDecimal của Jackson: kiểm giới hạn tay (số mũ khổng lồ làm treo máy chủ)
         java.math.BigDecimal phiVanChuyen = body.get("phiVanChuyen") != null
-                ? GioiHanSoThapPhan.kiemTra(new java.math.BigDecimal(body.get("phiVanChuyen").toString()), "Phí vận chuyển")
+                ? GioiHanSoThapPhan.kiemTra(new java.math.BigDecimal(body.get("phiVanChuyen").toString()), ThongDiep.of("nhan.phiVanChuyen"))
                 : null;
 
         donBanHangService.convertToOrder(id, khoXuatId, ghiChu, diaChi, phiVanChuyen);
@@ -267,7 +268,7 @@ public class DonBanHangController {
                 ResponseData.<String>builder()
                         .status(200)
                         .data("Success")
-                        .message("Đã chấp nhận báo giá và chuyển thành đơn bán hàng")
+                        .message(ThongDiep.dich("banHang.daChapNhanBaoGia"))
                         .error(null)
                         .build()
         );
@@ -292,7 +293,7 @@ public class DonBanHangController {
                 ResponseData.<String>builder()
                         .status(200)
                         .data("Success")
-                        .message("Đã từ chối báo giá thành công")
+                        .message(ThongDiep.dich("banHang.daTuChoiBaoGia"))
                         .error(null)
                         .build()
         );
@@ -315,7 +316,7 @@ public class DonBanHangController {
                 ResponseData.<String>builder()
                         .status(200)
                         .data("Success")
-                        .message("Đã chuyển trạng thái đơn hàng thành Bị hoàn trả")
+                        .message(ThongDiep.dich("banHang.daChuyenBiHoanTra"))
                         .error(null)
                         .build()
         );

@@ -1,5 +1,6 @@
 package com.dev.backend.services.impl.payos;
 
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.config.SecurityContextHolder;
 import com.dev.backend.constant.variables.IHanhDong;
 import com.dev.backend.constant.variables.ITable;
@@ -68,11 +69,11 @@ public class PaymentConfigService {
         if (req.getThoiGianHetHanPhut() != null) {
             int m = req.getThoiGianHetHanPhut();
             if (m < 3 || m > 60)
-                throw new CommonException("Thời gian hết hạn mã QR phải từ 3 đến 60 phút");
+                throw new CommonException(ThongDiep.of("banHang.thoiGianHetHanQrSai"));
         }
         String newWebhookUrl = req.getWebhookUrl() == null ? null : req.getWebhookUrl().trim();
         if (newWebhookUrl != null && !newWebhookUrl.isEmpty() && !newWebhookUrl.startsWith("https://")) {
-            throw new CommonException("Webhook URL phải bắt đầu bằng https://");
+            throw new CommonException(ThongDiep.of("banHang.webhookPhaiHttps"));
         }
         boolean keysChanged = newClientId != null || newApiKey != null || newChecksum != null;
 
@@ -81,26 +82,28 @@ public class PaymentConfigService {
         if (keysChanged) {
             if (!cipher.isConfigured()) {
                 throw new CommonException(
-                        "Máy chủ chưa đặt biến môi trường PAYMENT_CONFIG_SECRET nên không thể lưu khóa thanh toán",
+                        ThongDiep.of("banHang.chuaDatPaymentSecretLuu"),
                         HttpStatus.SERVICE_UNAVAILABLE, null);
             }
             String oldClientId = decryptOrNull(cfg.getClientIdMaHoa());
             boolean channelChanged = newClientId != null && !newClientId.equals(oldClientId);
             // Đổi sang kênh khác: khóa đang lưu thuộc kênh cũ, không được ghép với Client ID mới
             if (channelChanged && oldClientId != null && (newApiKey == null || newChecksum == null)) {
-                throw new CommonException("Đổi Client ID cần nhập đủ API Key và Checksum Key của kênh mới");
+                throw new CommonException(ThongDiep.of("banHang.doiClientIdCanDuKhoa"));
             }
             PayosCredentials candidate = new PayosCredentials(
                     newClientId != null ? newClientId : oldClientId,
                     newApiKey != null ? newApiKey : decryptOrNull(cfg.getApiKeyMaHoa()),
                     newChecksum != null ? newChecksum : decryptOrNull(cfg.getChecksumKeyMaHoa()));
             if (candidate.clientId() == null || candidate.apiKey() == null || candidate.checksumKey() == null) {
-                throw new CommonException("Cần nhập đủ Client ID, API Key và Checksum Key");
+                throw new CommonException(ThongDiep.of("banHang.canDuBoKhoaPayos"));
             }
             PayosCredentialVerifier.Result check = verifier.verify(candidate);
             if (!check.ok()) {
-                throw new CommonException(check.message(),
-                        check.unreachable() ? HttpStatus.BAD_GATEWAY : HttpStatus.BAD_REQUEST, null);
+                HttpStatus trangThaiLoi = check.unreachable() ? HttpStatus.BAD_GATEWAY : HttpStatus.BAD_REQUEST;
+                throw check.thongDiep() != null
+                        ? new CommonException(check.thongDiep(), trangThaiLoi, null)
+                        : new CommonException(check.message(), trangThaiLoi, null);
             }
             // Webhook được xác nhận cho kênh cũ -> đổi kênh thì phải đăng ký lại
             if (channelChanged) {
@@ -131,7 +134,7 @@ public class PaymentConfigService {
         Boolean kichHoatCu = cfg.getKichHoat();
         if (req.getKichHoat() != null) {
             if (req.getKichHoat() && !isComplete(cfg)) {
-                throw new CommonException("Cần nhập đủ Client ID, API Key và Checksum Key trước khi bật payOS");
+                throw new CommonException(ThongDiep.of("banHang.canDuBoKhoaTruocKhiBat"));
             }
             cfg.setKichHoat(req.getKichHoat());
         }
@@ -163,7 +166,7 @@ public class PaymentConfigService {
     public PayosTestResult testConnection() {
         PayosCredentials cred = credentials(load());
         PayosCredentialVerifier.Result r = verifier.verify(cred);
-        return PayosTestResult.builder().ok(r.ok()).code(r.code()).message(r.message()).build();
+        return PayosTestResult.builder().ok(r.ok()).code(r.code()).message(r.messageTheoNgonNgu()).build();
     }
 
     /**
@@ -174,14 +177,12 @@ public class PaymentConfigService {
         CauHinhThanhToan cfg = load();
         String url = webhookUrl == null || webhookUrl.isBlank() ? cfg.getWebhookUrl() : webhookUrl.trim();
         if (url == null || !url.startsWith("https://")) {
-            throw new CommonException(
-                    "Webhook URL phải là địa chỉ công khai bắt đầu bằng https:// (máy dev dùng ngrok/cloudflared)");
+            throw new CommonException(ThongDiep.of("banHang.webhookPhaiCongKhai"));
         }
         PayosClient.PayosResult r = payosClient.confirmWebhook(credentials(cfg), url);
         if (!r.ok()) {
             throw new CommonException(
-                    "payOS chưa xác nhận webhook: " + (r.desc() == null ? "HTTP " + r.httpStatus() : r.desc())
-                            + ". Hãy chắc chắn backend đang chạy và URL truy cập được từ Internet.",
+                    ThongDiep.of("banHang.payosChuaXacNhanWebhook", r.desc() == null ? "HTTP " + r.httpStatus() : r.desc()),
                     HttpStatus.BAD_GATEWAY, null);
         }
         boolean doiUrl = !url.equals(cfg.getWebhookUrl());
@@ -202,7 +203,7 @@ public class PaymentConfigService {
     public ActivePayos activePayos() {
         CauHinhThanhToan cfg = load();
         if (!Boolean.TRUE.equals(cfg.getKichHoat())) {
-            throw new CommonException("Thanh toán chuyển khoản payOS đang tắt. Bật ở Cài đặt → Thanh toán.",
+            throw new CommonException(ThongDiep.of("banHang.payosDangTat"),
                     HttpStatus.SERVICE_UNAVAILABLE, null);
         }
         return new ActivePayos(credentials(cfg),
@@ -253,7 +254,7 @@ public class PaymentConfigService {
 
     private PayosCredentials credentials(CauHinhThanhToan cfg) {
         if (!isComplete(cfg)) {
-            throw new CommonException("Chưa nhập đủ Client ID, API Key và Checksum Key của payOS");
+            throw new CommonException(ThongDiep.of("banHang.chuaDuBoKhoaPayos"));
         }
         return new PayosCredentials(
                 cipher.decrypt(cfg.getClientIdMaHoa()),
@@ -293,7 +294,7 @@ public class PaymentConfigService {
                 return "••••••••";
             return plain.substring(0, 4) + "••••••••" + plain.substring(plain.length() - 4);
         } catch (CommonException e) {
-            return "(không giải mã được — nhập lại)";
+            return ThongDiep.dich("banHang.khongGiaiMaDuocNhapLai");
         }
     }
 
@@ -306,7 +307,7 @@ public class PaymentConfigService {
         if (!notBlank(raw)) return null;
         String v = raw.trim();
         if (!UUID.matcher(v).matches())
-            throw new CommonException(label + " không đúng định dạng (dạng xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)");
+            throw new CommonException(ThongDiep.of("banHang.khoaSaiDinhDangUuid", label));
         return v;
     }
 
@@ -314,7 +315,7 @@ public class PaymentConfigService {
         if (!notBlank(raw)) return null;
         String v = raw.trim();
         if (!HEX64.matcher(v).matches())
-            throw new CommonException("Checksum Key phải gồm 64 ký tự 0-9, a-f");
+            throw new CommonException(ThongDiep.of("banHang.checksumKeySai"));
         return v;
     }
 

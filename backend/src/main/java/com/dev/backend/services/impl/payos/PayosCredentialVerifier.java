@@ -1,5 +1,7 @@
 package com.dev.backend.services.impl.payos;
 
+import com.dev.backend.i18n.NgonNgu;
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.utils.PayosSignature;
 import org.slf4j.Logger;
@@ -55,7 +57,20 @@ public class PayosCredentialVerifier {
      * @param code        mã payOS trả về (có thể null)
      * @param message     thông điệp tiếng Việt cho quản trị viên
      */
-    public record Result(boolean ok, boolean unreachable, String code, String message) {
+    public record Result(boolean ok, boolean unreachable, String code, String message, ThongDiep thongDiep) {
+        public Result(boolean ok, boolean unreachable, String code, String message) {
+            this(ok, unreachable, code, message, null);
+        }
+
+        /** message là câu tiếng Việt của thongDiep (nhật ký, so khớp cũ không đổi). */
+        static Result of(boolean ok, boolean unreachable, String code, ThongDiep thongDiep) {
+            return new Result(ok, unreachable, code, thongDiep.tiengViet(), thongDiep);
+        }
+
+        /** Câu hiển thị theo ngôn ngữ của request hiện tại. */
+        public String messageTheoNgonNgu() {
+            return thongDiep == null ? message : thongDiep.theoNgonNgu(NgonNgu.hienTai());
+        }
     }
 
     public Result verify(PayosCredentials cred) {
@@ -68,42 +83,43 @@ public class PayosCredentialVerifier {
                     settingsUrl, settingsUrl, expiredAt,
                     List.of(new PayosClient.Item(ITEM_NAME, 1, TEST_AMOUNT)));
         } catch (CommonException e) {
-            return new Result(false, true, null,
-                    "Không kết nối được tới payOS nên chưa kiểm tra được khóa. Kiểm tra mạng của máy chủ rồi thử lại.");
+            return Result.of(false, true, null, ThongDiep.of("banHang.payosKhongKetNoiKiemTraKhoa"));
         }
         if (r == null) {
-            return new Result(false, false, null, "payOS không trả về kết quả. Vui lòng thử lại.");
+            return Result.of(false, false, null, ThongDiep.of("banHang.payosKhongTraKetQua"));
         }
 
         if (r.httpStatus() == 401 || r.httpStatus() == 403) {
-            return new Result(false, false, r.code(),
-                    "payOS từ chối Client ID hoặc API Key (HTTP " + r.httpStatus() + "). Kiểm tra lại hai khóa này.");
+            return Result.of(false, false, r.code(), ThongDiep.of("banHang.payosTuChoiClientIdApiKey", r.httpStatus()));
         }
         if (r.httpStatus() >= 500) {
-            return new Result(false, false, r.code(),
-                    "payOS đang gặp sự cố (HTTP " + r.httpStatus() + "). Vui lòng thử lại sau.");
+            return Result.of(false, false, r.code(), ThongDiep.of("banHang.payosGapSuCo", r.httpStatus()));
         }
         if (!r.ok()) {
-            String reason = r.desc() == null || r.desc().isBlank() ? "phản hồi không hợp lệ" : r.desc();
-            return new Result(false, false, r.code(),
-                    "payOS từ chối bộ khóa: " + reason
-                            + (r.code() == null ? " (HTTP " + r.httpStatus() + ")" : " (mã " + r.code() + ")")
-                            + ". Kiểm tra lại Client ID, API Key và Checksum Key.");
+            boolean khongLyDo = r.desc() == null || r.desc().isBlank();
+            ThongDiep cau;
+            if (khongLyDo) {
+                cau = r.code() == null
+                        ? ThongDiep.of("banHang.payosTuChoiBoKhoaKhongHopLeHttp", r.httpStatus())
+                        : ThongDiep.of("banHang.payosTuChoiBoKhoaKhongHopLeMa", r.code());
+            } else {
+                cau = r.code() == null
+                        ? ThongDiep.of("banHang.payosTuChoiBoKhoaHttp", r.desc(), r.httpStatus())
+                        : ThongDiep.of("banHang.payosTuChoiBoKhoaMa", r.desc(), r.code());
+            }
+            return Result.of(false, false, r.code(), cau);
         }
 
         // Từ đây link đã được tạo trên payOS -> luôn huỷ, dù kết quả thế nào.
         try {
             if (r.data() == null || r.data().isNull()) {
-                return new Result(false, false, r.code(),
-                        "payOS báo thành công nhưng không trả dữ liệu link. Vui lòng thử lại.");
+                return Result.of(false, false, r.code(), ThongDiep.of("banHang.payosKhongTraDuLieuLink"));
             }
             if (r.signature() != null && !r.signature().isBlank()
                     && !PayosSignature.verifyData(r.data(), r.signature(), cred.checksumKey())) {
-                return new Result(false, false, r.code(),
-                        "Checksum Key không khớp: chữ ký payOS trả về không đúng với Checksum Key đã nhập.");
+                return Result.of(false, false, r.code(), ThongDiep.of("banHang.checksumKeyKhongKhop"));
             }
-            return new Result(true, false, r.code(),
-                    "Đã xác minh Client ID, API Key và Checksum Key.");
+            return Result.of(true, false, r.code(), ThongDiep.of("banHang.daXacMinhBoKhoa"));
         } finally {
             cancelQuietly(cred, orderCode);
         }

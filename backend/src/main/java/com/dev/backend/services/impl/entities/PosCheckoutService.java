@@ -1,5 +1,7 @@
 package com.dev.backend.services.impl.entities;
 
+import com.dev.backend.i18n.ThongDiep;
+import com.dev.backend.i18n.LoiTrangThaiException;
 import com.dev.backend.config.SecurityContextHolder;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.dto.request.PosCheckoutCreating;
@@ -38,7 +40,7 @@ import java.util.Optional;
 @Service
 public class PosCheckoutService {
 
-    static final String BUSY_MESSAGE = "Nhiều quầy đang thanh toán cùng lúc nên chưa tạo được đơn. Vui lòng bấm thanh toán lại.";
+    static final String BUSY_MESSAGE = ThongDiep.vi("banHang.nhieuQuayThanhToan");
 
     @Autowired
     private PosCheckoutTransaction transaction;
@@ -58,7 +60,7 @@ public class PosCheckoutService {
             return PosConcurrencyRetry.call(() -> transaction.execute(request));
         } catch (DataIntegrityViolationException ex) {
             if (PosConcurrencyRetry.isDuplicateDocumentNumber(ex)) {
-                throw new CommonException(BUSY_MESSAGE, HttpStatus.CONFLICT, null);
+                throw new CommonException(ThongDiep.of("banHang.nhieuQuayThanhToan"), HttpStatus.CONFLICT, null);
             }
             if (!isDuplicateRequestId(ex)) {
                 throw ex;
@@ -84,7 +86,7 @@ public class PosCheckoutService {
         String hash = PosCheckoutPayloadHash.of(request);
         if (!hash.equals(existing.getRequestHash())) {
             throw new CommonException(
-                    "requestId đã được dùng với nội dung thanh toán khác",
+                    ThongDiep.of("banHang.requestIdDaDung"),
                     HttpStatus.CONFLICT,
                     null);
         }
@@ -92,15 +94,13 @@ public class PosCheckoutService {
             try {
                 return objectMapper.readValue(existing.getResultJson(), PosCheckoutResponse.class);
             } catch (Exception e) {
-                throw new IllegalStateException("Không thể đọc kết quả thanh toán đã lưu", e);
+                throw new LoiTrangThaiException(ThongDiep.of("banHang.khongDocKetQuaThanhToan"), e);
             }
         }
-        throw new CommonException(
-                existing.getErrorMessage() != null
-                        ? existing.getErrorMessage()
-                        : "Yêu cầu thanh toán này đã thất bại trước đó",
-                HttpStatus.CONFLICT,
-                null);
+        // Câu lỗi đã lưu (tiếng Việt) trả lại nguyên văn; bộ xử lý lỗi chung dịch nếu khớp kho câu
+        throw existing.getErrorMessage() != null
+                ? new CommonException(existing.getErrorMessage(), HttpStatus.CONFLICT, null)
+                : new CommonException(ThongDiep.of("banHang.yeuCauThanhToanDaThatBai"), HttpStatus.CONFLICT, null);
     }
 
     private PosCheckoutRequest findExisting(PosCheckoutCreating request) {
@@ -129,7 +129,7 @@ public class PosCheckoutService {
     /** Phục hồi kết quả checkout — có xác thực + chủ sở hữu/quyền kho. */
     public PosCheckoutRecoveryResponse getCheckoutRequest(String requestId) {
         PosCheckoutRequest row = posCheckoutRequestRepository.findByRequestId(requestId)
-                .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy yêu cầu thanh toán: " + requestId));
+                .orElseThrow(() -> new EntityNotFoundException(ThongDiep.vi("banHang.yeuCauThanhToanKhongTimThay", requestId)));
 
         authorizeRecovery(row);
 
@@ -142,7 +142,7 @@ public class PosCheckoutService {
             try {
                 builder.result(objectMapper.readValue(row.getResultJson(), PosCheckoutResponse.class));
             } catch (Exception e) {
-                throw new IllegalStateException("Không thể đọc kết quả thanh toán đã lưu", e);
+                throw new LoiTrangThaiException(ThongDiep.of("banHang.khongDocKetQuaThanhToan"), e);
             }
         }
         return builder.build();

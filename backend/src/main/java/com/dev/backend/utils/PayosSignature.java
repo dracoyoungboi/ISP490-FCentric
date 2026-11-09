@@ -1,5 +1,7 @@
 package com.dev.backend.utils;
 
+import com.dev.backend.i18n.ThongDiep;
+import com.dev.backend.i18n.LoiTrangThaiException;
 import com.fasterxml.jackson.databind.JsonNode;
 
 import javax.crypto.Mac;
@@ -74,7 +76,7 @@ public final class PayosSignature {
             }
             return sb.toString();
         } catch (Exception e) {
-            throw new IllegalStateException("Không thể tính chữ ký payOS", e);
+            throw new LoiTrangThaiException(ThongDiep.of("banHang.khongTinhChuKyPayos"), e);
         }
     }
 }

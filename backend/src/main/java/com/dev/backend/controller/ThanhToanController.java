@@ -1,5 +1,6 @@
 package com.dev.backend.controller;
 
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.customizeanotation.RequireAuth;
 import com.dev.backend.dto.request.ThanhToanRequest;
@@ -35,7 +36,7 @@ public class ThanhToanController {
     @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.nhan_vien_ban_hang})
     public ResponseEntity<ResponseData<ThanhToanDonBanDto.TheoDon>> thuTien(@PathVariable Integer donId,
                                                                            @RequestBody ThanhToanRequest.ThuTien request) {
-        return ok(thanhToanService.thuTien(donId, request), "Đã ghi nhận thanh toán");
+        return ok(thanhToanService.thuTien(donId, request), ThongDiep.dich("banHang.daGhiNhanThanhToan"));
     }
 
     /** Hoàn phần thu thừa của đơn. Body: {"phuongThuc", "soTien", "maThamChieu" (chuyển khoản), "ghiChu", "khoaChongTrung"}. */
@@ -43,7 +44,7 @@ public class ThanhToanController {
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
     public ResponseEntity<ResponseData<ThanhToanDonBanDto.TheoDon>> hoanTien(@PathVariable Integer donId,
                                                                             @RequestBody ThanhToanRequest.HoanTien request) {
-        return ok(thanhToanService.hoanTien(donId, request), "Đã ghi nhận hoàn tiền");
+        return ok(thanhToanService.hoanTien(donId, request), ThongDiep.dich("banHang.daGhiNhanHoanTien"));
     }
 
     /** Hủy phiếu ghi nhầm. Body: {"lyDo": "..."} (bắt buộc). */
@@ -51,7 +52,7 @@ public class ThanhToanController {
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
     public ResponseEntity<ResponseData<ThanhToanDonBanDto.TheoDon>> huyPhieu(@PathVariable Long id,
                                                                             @RequestBody(required = false) ThanhToanRequest.HuyPhieu request) {
-        return ok(thanhToanService.huyPhieu(id, request == null ? null : request.getLyDo()), "Đã hủy phiếu");
+        return ok(thanhToanService.huyPhieu(id, request == null ? null : request.getLyDo()), ThongDiep.dich("banHang.daHuyPhieu"));
     }
 
     /**
@@ -70,7 +71,7 @@ public class ThanhToanController {
     @PostMapping("/chuyen-khoan/doi-chieu")
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
     public ResponseEntity<ResponseData<Integer>> doiChieu(@RequestBody ThanhToanRequest.DoiChieu request) {
-        return ok(thanhToanService.doiChieu(request == null ? null : request.getIds()), "Đã đánh dấu đối chiếu");
+        return ok(thanhToanService.doiChieu(request == null ? null : request.getIds()), ThongDiep.dich("banHang.daDanhDauDoiChieu"));
     }
 
     private static <T> ResponseEntity<ResponseData<T>> ok(T data, String message) {

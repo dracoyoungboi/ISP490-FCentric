@@ -1,5 +1,7 @@
 package com.dev.backend.services.impl.payos;
 
+import com.dev.backend.i18n.ThongDiep;
+import com.dev.backend.i18n.LoiTrangThaiException;
 import com.dev.backend.dto.request.PosCheckoutCreating;
 import com.dev.backend.dto.response.customize.PosCheckoutResponse;
 import com.dev.backend.entities.PosPayosPayment;
@@ -181,12 +183,13 @@ public class PosPayosTransaction {
             throw new CommonException(row.getErrorMessage(), HttpStatus.CONFLICT, null);
         }
         if (!PosPayosPayment.PENDING.equals(row.getTrangThai())) {
-            throw new CommonException("khách chuyển khoản sau khi mã QR đã bị hủy hoặc hết hạn — "
-                    + "kiểm tra hàng đã giao chưa rồi tạo đơn hoặc hoàn tiền", HttpStatus.CONFLICT, null);
+            throw new CommonException(ThongDiep.of("banHang.chuyenKhoanSauKhiQrHuy"), HttpStatus.CONFLICT, null);
         }
         if (paidAmount == null || paidAmount.compareTo(row.getSoTien()) != 0) {
-            throw new CommonException("Số tiền nhận được (" + (paidAmount == null ? "?" : plain(paidAmount))
-                    + "đ) khác số tiền " + (coTienMat(row) ? "mã QR" : "hóa đơn") + " (" + plain(row.getSoTien()) + "đ)");
+            String daNhan = paidAmount == null ? "?" : plain(paidAmount);
+            throw new CommonException(coTienMat(row)
+                    ? ThongDiep.of("banHang.soTienNhanKhacMaQr", daNhan, plain(row.getSoTien()))
+                    : ThongDiep.of("banHang.soTienNhanKhacHoaDon", daNhan, plain(row.getSoTien())));
         }
         PosCheckoutResponse result = createOrder(row, payload(row), paidAmount, null);
 
@@ -292,18 +295,16 @@ public class PosPayosTransaction {
         PosPayosPayment row = lockPaidError(orderCode);
         if (row.isTienVeSauHuy() && coTienMat(row)) {
             // Lúc hủy mã, quầy đã / sẽ trả lại khách phần tiền mặt: tiền payOS một mình không đủ trả hóa đơn
-            throw new CommonException("Tiền payOS về sau khi mã QR đã hủy, phần tiền mặt " + plain(row.getTienMatTruoc())
-                    + "đ đã trả lại khách — không tạo đơn được. Hoàn khoản payOS cho khách rồi chọn Đã hoàn tiền.",
+            throw new CommonException(ThongDiep.of("banHang.tienPayosVeSauHuyCoTienMat", plain(row.getTienMatTruoc())),
                     HttpStatus.CONFLICT, null);
         }
         BigDecimal received = row.getSoTienDaNhan();
         if (received == null) {
-            throw new CommonException("Chưa rõ số tiền đã nhận của giao dịch này — kiểm tra sao kê ngân hàng; "
-                    + "nếu đã hoàn tiền cho khách thì chọn Đã hoàn tiền.", HttpStatus.CONFLICT, null);
+            throw new CommonException(ThongDiep.of("banHang.chuaRoSoTienDaNhan"), HttpStatus.CONFLICT, null);
         }
         if (received.compareTo(row.getSoTien()) < 0) {
-            throw new CommonException("Khách mới chuyển " + plain(received) + "đ / " + plain(row.getSoTien())
-                    + "đ — không tạo đơn được. Hoàn tiền cho khách rồi bán lại bằng hóa đơn mới.", HttpStatus.CONFLICT, null);
+            throw new CommonException(ThongDiep.of("banHang.khachChuyenThieu", plain(received), plain(row.getSoTien())),
+                    HttpStatus.CONFLICT, null);
         }
         BigDecimal overpaid = received.subtract(row.getSoTien());
         PosCheckoutCreating payload = payload(row);
@@ -349,20 +350,20 @@ public class PosPayosTransaction {
     public PosPayosPayment traLaiTienMat(Long orderCode, Integer userId) {
         PosPayosPayment row = lock(orderCode);
         if (!coTienMat(row)) {
-            throw new CommonException("Giao dịch này không có tiền mặt khách trả trước.", HttpStatus.CONFLICT, null);
+            throw new CommonException(ThongDiep.of("banHang.khongCoTienMatTraTruoc"), HttpStatus.CONFLICT, null);
         }
         if (row.getTienMatTraLaiLuc() != null) return row;
         String trangThai = row.getTrangThai();
         if (PosPayosPayment.PENDING.equals(trangThai)) {
-            throw new CommonException("Mã QR còn đang chờ khách chuyển — hủy mã trước rồi mới trả lại tiền mặt.",
+            throw new CommonException(ThongDiep.of("banHang.qrConChoKhongTraTienMat"),
                     HttpStatus.CONFLICT, null);
         }
         if (PosPayosPayment.PAID.equals(trangThai)) {
-            throw new CommonException("Đơn đã hoàn tất, tiền mặt đã ghi vào đơn — không trả lại ở đây.",
+            throw new CommonException(ThongDiep.of("banHang.donHoanTatKhongTraTienMat"),
                     HttpStatus.CONFLICT, null);
         }
         if (PosPayosPayment.PAID_ERROR.equals(trangThai) && !row.isTienVeSauHuy()) {
-            throw new CommonException("Giao dịch đang chờ quản lý xử lý ở Đối soát chuyển khoản (tạo đơn hoặc hoàn tiền).",
+            throw new CommonException(ThongDiep.of("banHang.giaoDichChoQuanLyXuLy"),
                     HttpStatus.CONFLICT, null);
         }
         // Cột lưu tới giây: cắt sẵn để lần bấm lại trả đúng giờ đã trả về lần đầu
@@ -378,15 +379,15 @@ public class PosPayosTransaction {
      */
     static BigDecimal tienMatTruocQr(BigDecimal tienMat, BigDecimal tongHoaDon) {
         if (tienMat == null || tienMat.signum() == 0) return null;
-        if (tienMat.signum() < 0) throw new CommonException("Tiền mặt khách trả trước không được âm");
+        if (tienMat.signum() < 0) throw new CommonException(ThongDiep.of("banHang.tienMatTraTruocAm"));
         if (tienMat.stripTrailingZeros().scale() > 0) {
-            throw new CommonException("Tiền mặt khách trả trước phải là số nguyên đồng");
+            throw new CommonException(ThongDiep.of("banHang.tienMatTraTruocKhongNguyen"));
         }
         if (tienMat.compareTo(tongHoaDon) >= 0) {
-            throw new CommonException("Khách trả đủ bằng tiền mặt — chọn cách trả Tiền mặt thay vì tạo mã QR");
+            throw new CommonException(ThongDiep.of("banHang.traDuTienMatChonTienMat"));
         }
         if (tongHoaDon.subtract(tienMat).compareTo(MIN_QR) < 0) {
-            throw new CommonException("Phần quét mã QR phải từ " + plain(MIN_QR) + "đ trở lên");
+            throw new CommonException(ThongDiep.of("banHang.phanQrToiThieu", plain(MIN_QR)));
         }
         return tienMat.setScale(2);
     }
@@ -398,8 +399,8 @@ public class PosPayosTransaction {
     private PosPayosPayment lockPaidError(Long orderCode) {
         PosPayosPayment row = lock(orderCode);
         if (!PosPayosPayment.PAID_ERROR.equals(row.getTrangThai())) {
-            throw new CommonException("Giao dịch này không còn chờ xử lý (trạng thái " + row.getTrangThai()
-                    + ") — tải lại danh sách.", HttpStatus.CONFLICT, null);
+            throw new CommonException(ThongDiep.of("banHang.giaoDichKhongConChoXuLy", row.getTrangThai()),
+                    HttpStatus.CONFLICT, null);
         }
         return row;
     }
@@ -440,7 +441,7 @@ public class PosPayosTransaction {
      */
     private PosPayosPayment lock(Long orderCode) {
         PosPayosPayment row = repository.lockByOrderCode(orderCode)
-                .orElseThrow(() -> new CommonException("Không tìm thấy giao dịch chuyển khoản " + orderCode, HttpStatus.NOT_FOUND, null));
+                .orElseThrow(() -> new CommonException(ThongDiep.of("banHang.giaoDichChuyenKhoanKhongTimThay", orderCode), HttpStatus.NOT_FOUND, null));
         entityManager.refresh(row, LockModeType.PESSIMISTIC_WRITE);
         return row;
     }
@@ -451,7 +452,7 @@ public class PosPayosTransaction {
             long code = (System.currentTimeMillis() / 1000L) * 1000L + ThreadLocalRandom.current().nextInt(1000);
             if (!repository.existsByOrderCode(code)) return code;
         }
-        throw new IllegalStateException("Không sinh được mã đơn payOS duy nhất");
+        throw new LoiTrangThaiException(ThongDiep.of("banHang.khongSinhMaDonPayos"));
     }
 
     /** Nội dung chuyển khoản ≤ 9 ký tự (giới hạn payOS cho tài khoản chưa liên kết). */
@@ -466,7 +467,7 @@ public class PosPayosTransaction {
             return objectMapper.readValue(row.getGiuChoJson(), new TypeReference<List<ReservedLot>>() {
             });
         } catch (Exception e) {
-            throw new IllegalStateException("Không đọc được dữ liệu giữ chỗ của giao dịch " + row.getOrderCode(), e);
+            throw new LoiTrangThaiException(ThongDiep.of("banHang.khongDocGiuCho", row.getOrderCode()), e);
         }
     }
 
@@ -475,7 +476,7 @@ public class PosPayosTransaction {
             JsonNode root = objectMapper.readTree(row.getPayloadJson());
             return objectMapper.treeToValue(root.get("payload"), PosCheckoutCreating.class);
         } catch (Exception e) {
-            throw new IllegalStateException("Không đọc được giỏ hàng của giao dịch " + row.getOrderCode(), e);
+            throw new LoiTrangThaiException(ThongDiep.of("banHang.khongDocGioHang", row.getOrderCode()), e);
         }
     }
 
@@ -494,7 +495,7 @@ public class PosPayosTransaction {
         try {
             return objectMapper.writeValueAsString(value);
         } catch (Exception e) {
-            throw new IllegalStateException("Không ghi được dữ liệu giao dịch payOS", e);
+            throw new LoiTrangThaiException(ThongDiep.of("banHang.khongGhiDuLieuPayos"), e);
         }
     }
 
@@ -503,7 +504,7 @@ public class PosPayosTransaction {
         try {
             return objectMapper.readValue(json, type);
         } catch (Exception e) {
-            throw new IllegalStateException("Không đọc được kết quả giao dịch payOS", e);
+            throw new LoiTrangThaiException(ThongDiep.of("banHang.khongDocKetQuaPayos"), e);
         }
     }
 

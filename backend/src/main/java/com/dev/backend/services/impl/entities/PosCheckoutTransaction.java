@@ -1,5 +1,7 @@
 package com.dev.backend.services.impl.entities;
 
+import com.dev.backend.i18n.ThongDiep;
+import com.dev.backend.i18n.LoiTrangThaiException;
 import com.dev.backend.config.SecurityContextHolder;
 import com.dev.backend.constant.variables.ITrangThaiDonBanHang;
 import com.dev.backend.dto.request.PosCheckoutCreating;
@@ -143,14 +145,15 @@ public class PosCheckoutTransaction {
             tienMatTruoc = ctx.tienMatTruoc() != null && ctx.tienMatTruoc().signum() > 0 ? ctx.tienMatTruoc() : null;
             tendered = paid == null ? null : (tienMatTruoc == null ? paid : paid.add(tienMatTruoc));
             if (tendered == null || tendered.compareTo(tongTienHang) != 0) {
-                throw new CommonException("Số tiền chuyển khoản (" + (paid == null ? "?" : plain(paid)) + ")"
-                        + (tienMatTruoc != null ? " cộng tiền mặt (" + plain(tienMatTruoc) + ")" : "")
-                        + " không khớp tổng hóa đơn (" + plain(tongTienHang) + ")");
+                String daChuyen = paid == null ? "?" : plain(paid);
+                throw new CommonException(tienMatTruoc != null
+                        ? ThongDiep.of("banHang.chuyenKhoanCongTienMatKhongKhop", daChuyen, plain(tienMatTruoc), plain(tongTienHang))
+                        : ThongDiep.of("banHang.chuyenKhoanKhongKhop", daChuyen, plain(tongTienHang)));
             }
         } else {
             tendered = validatePayment(request.getPayment());
             if (tendered.compareTo(tongTienHang) < 0) {
-                throw new CommonException("Số tiền khách đưa không đủ để thanh toán hóa đơn");
+                throw new CommonException(ThongDiep.of("banHang.tienKhachDuaKhongDu"));
             }
         }
         BigDecimal tienThua = tendered.subtract(tongTienHang);
@@ -210,7 +213,7 @@ public class PosCheckoutTransaction {
             for (LotAllocation alloc : entry.getValue()) {
                 TonKhoTheoLo t = alloc.row;
                 if (!seenLotIds.add(t.getLoHang().getId())) {
-                    throw new IllegalStateException("Lô " + t.getLoHang().getMaLo() + " bị phân bổ trùng trong checkout");
+                    throw new LoiTrangThaiException(ThongDiep.of("banHang.loPhanBoTrung", t.getLoHang().getMaLo()));
                 }
                 BigDecimal truoc = t.getSoLuongTon();
                 if (khoaKiemKeGuard != null) {
@@ -275,7 +278,7 @@ public class PosCheckoutTransaction {
             requestRow.setDonBanHangId(don.getId());
             requestRow.setResultJson(objectMapper.writeValueAsString(response));
         } catch (Exception e) {
-            throw new IllegalStateException("Không thể lưu kết quả checkout", e);
+            throw new LoiTrangThaiException(ThongDiep.of("banHang.khongLuuKetQuaCheckout"), e);
         }
         posCheckoutRequestRepository.save(requestRow);
         return response;
@@ -454,7 +457,7 @@ public class PosCheckoutTransaction {
             BienTheSanPham variant = variants.get(item.getBienTheSanPhamId());
             BigDecimal giaBan = lockedPrices != null ? lockedPrices.get(variant.getId()) : variant.getGiaBan();
             if (giaBan == null || giaBan.compareTo(BigDecimal.ZERO) <= 0) {
-                throw new CommonException("Biến thể " + variant.getMaSku() + " chưa có giá bán, không thể bán tại quầy");
+                throw new CommonException(ThongDiep.of("banHang.bienTheChuaCoGiaBan", variant.getMaSku()));
             }
             if (item.getUnitPriceClient() == null || item.getUnitPriceClient().compareTo(giaBan) != 0) {
                 priceChanges.add(PosPriceChangeInfo.PosPriceChangeItem.builder()
@@ -469,7 +472,7 @@ public class PosCheckoutTransaction {
         }
         if (!priceChanges.isEmpty()) {
             throw new CommonException(
-                    "Giá sản phẩm đã thay đổi. Vui lòng xác nhận lại giá mới trước khi thanh toán.",
+                    ThongDiep.of("banHang.giaDaThayDoi"),
                     HttpStatus.CONFLICT,
                     PosPriceChangeInfo.builder().priceChanged(true).items(priceChanges).build());
         }
@@ -508,7 +511,7 @@ public class PosCheckoutTransaction {
                                                            Map<Integer, BigDecimal> giuChoChuyen) {
         Map<Integer, List<LotAllocation>> allocationByVariant = new LinkedHashMap<>();
         List<PosInsufficientStockInfo.PosInsufficientItem> insufficient = new ArrayList<>();
-        List<String> messages = new ArrayList<>();
+        List<ThongDiep> messages = new ArrayList<>();
         for (PosCheckoutCreating.PosCheckoutItemCreating item : items) {
             List<TonKhoTheoLo> rows = lotsByVariant.getOrDefault(item.getBienTheSanPhamId(), List.of());
             List<TonKhoTheoLo> fifo = rows.stream()
@@ -529,8 +532,7 @@ public class PosCheckoutTransaction {
                         .canBan(need)
                         .conLai(can)
                         .build());
-                messages.add("Sản phẩm [" + maSku + "] không đủ tồn kho khả dụng tại kho này (cần "
-                        + plain(need) + ", còn " + plain(can) + ")");
+                messages.add(ThongDiep.of("banHang.khongDuTonTaiKho", maSku, plain(need), plain(can)));
                 continue;
             }
 
@@ -546,7 +548,12 @@ public class PosCheckoutTransaction {
             allocationByVariant.put(item.getBienTheSanPhamId(), allocations);
         }
         if (!insufficient.isEmpty()) {
-            throw new CommonException(String.join("; ", messages), HttpStatus.CONFLICT,
+            // Nhiều mã thiếu: nối các câu bằng "; " như cũ
+            ThongDiep cau = messages.get(0);
+            for (int i = 1; i < messages.size(); i++) {
+                cau = ThongDiep.of("banHang.noiCau", cau, messages.get(i));
+            }
+            throw new CommonException(cau, HttpStatus.CONFLICT,
                     PosInsufficientStockInfo.builder().insufficient(insufficient).build());
         }
         return allocationByVariant;
@@ -554,10 +561,10 @@ public class PosCheckoutTransaction {
 
     private String validateRequestId(String requestId) {
         if (requestId == null || requestId.isBlank()) {
-            throw new CommonException("Thiếu requestId cho giao dịch thanh toán");
+            throw new CommonException(ThongDiep.of("banHang.thieuRequestId"));
         }
         if (requestId.length() > 64) {
-            throw new CommonException("requestId không được dài quá 64 ký tự");
+            throw new CommonException(ThongDiep.of("banHang.requestIdQuaDai"));
         }
         return requestId.trim();
     }
@@ -574,46 +581,45 @@ public class PosCheckoutTransaction {
                     .setParameter("ma", KhachHang.MA_KHACH_LE)
                     .getResultStream().findFirst().orElse(null);
             if (khachLe == null) {
-                throw new CommonException("Hệ thống chưa có Khách lẻ mặc định (mã " + KhachHang.MA_KHACH_LE
-                        + "). Hãy chọn khách hàng cho hóa đơn hoặc báo quản trị viên chạy Database/pos_checkout_v1.sql");
+                throw new CommonException(ThongDiep.of("banHang.chuaCoKhachLeMacDinh", KhachHang.MA_KHACH_LE));
             }
             khachHangId = khachLe.getId();
         }
         KhachHang khachHang = entityManager.find(KhachHang.class, khachHangId);
         if (khachHang == null) {
-            throw new CommonException("Khách hàng không tồn tại");
+            throw new CommonException(ThongDiep.of("banHang.khachHangKhongTonTai"));
         }
         if (khachHang.getTrangThai() == null || khachHang.getTrangThai() != 1) {
-            throw new CommonException("Khách hàng không còn hoạt động, không thể bán hàng");
+            throw new CommonException(ThongDiep.of("banHang.khachHangNgungHoatDong"));
         }
         return khachHang;
     }
 
     private List<PosCheckoutCreating.PosCheckoutItemCreating> validateItems(List<PosCheckoutCreating.PosCheckoutItemCreating> items) {
         if (items == null || items.isEmpty()) {
-            throw new CommonException("Hóa đơn không có sản phẩm nào");
+            throw new CommonException(ThongDiep.of("banHang.hoaDonKhongCoSanPham"));
         }
         if (items.size() > MAX_DONG) {
-            throw new CommonException("Hóa đơn quá nhiều dòng (tối đa " + MAX_DONG + ")");
+            throw new CommonException(ThongDiep.of("banHang.hoaDonQuaNhieuDong", MAX_DONG));
         }
         Set<Integer> seen = new HashSet<>();
         for (PosCheckoutCreating.PosCheckoutItemCreating item : items) {
             if (item.getBienTheSanPhamId() == null) {
-                throw new CommonException("Dòng sản phẩm thiếu mã biến thể");
+                throw new CommonException(ThongDiep.of("banHang.dongThieuMaBienThe"));
             }
             if (!seen.add(item.getBienTheSanPhamId())) {
-                throw new CommonException("Biến thể " + item.getBienTheSanPhamId() + " bị lặp trong hóa đơn");
+                throw new CommonException(ThongDiep.of("banHang.bienTheLapTrongHoaDon", item.getBienTheSanPhamId()));
             }
             BigDecimal qty = item.getQuantity();
             if (qty == null || qty.compareTo(BigDecimal.ZERO) <= 0) {
-                throw new CommonException("Số lượng sản phẩm phải lớn hơn 0");
+                throw new CommonException(ThongDiep.of("banHang.soLuongPhaiLonHon0"));
             }
             // Hàng may mặc: chỉ số lượng nguyên dương.
             if (qty.stripTrailingZeros().scale() > 0) {
-                throw new CommonException("Số lượng sản phẩm phải là số nguyên");
+                throw new CommonException(ThongDiep.of("banHang.soLuongPhaiNguyen"));
             }
             if (qty.compareTo(BigDecimal.valueOf(MAX_SO_LUONG_MOI_DONG)) > 0) {
-                throw new CommonException("Số lượng mỗi dòng tối đa " + MAX_SO_LUONG_MOI_DONG);
+                throw new CommonException(ThongDiep.of("banHang.soLuongMoiDongToiDa", MAX_SO_LUONG_MOI_DONG));
             }
         }
         return items;
@@ -629,14 +635,14 @@ public class PosCheckoutTransaction {
         for (Integer id : ids) {
             BienTheSanPham variant = found.get(id);
             if (variant == null) {
-                throw new CommonException("Biến thể " + id + " không tồn tại");
+                throw new CommonException(ThongDiep.of("banHang.bienTheKhongTonTai", id));
             }
             if (variant.getTrangThai() == null || variant.getTrangThai() != 1) {
-                throw new CommonException("Biến thể " + variant.getMaSku() + " không còn hoạt động");
+                throw new CommonException(ThongDiep.of("banHang.bienTheNgungHoatDong", variant.getMaSku()));
             }
             if (variant.getSanPham() == null || variant.getSanPham().getTrangThai() == null
                     || variant.getSanPham().getTrangThai() != 1) {
-                throw new CommonException("Sản phẩm của biến thể " + variant.getMaSku() + " không còn bán được");
+                throw new CommonException(ThongDiep.of("banHang.sanPhamCuaBienTheNgungBan", variant.getMaSku()));
             }
         }
         return found;
@@ -644,23 +650,23 @@ public class PosCheckoutTransaction {
 
     private BigDecimal validatePayment(PosCheckoutCreating.PosCheckoutPaymentCreating payment) {
         if (payment == null || payment.getMethod() == null || payment.getMethod().isBlank()) {
-            throw new CommonException("Thiếu thông tin thanh toán");
+            throw new CommonException(ThongDiep.of("banHang.thieuThongTinThanhToan"));
         }
         if (!"CASH".equalsIgnoreCase(payment.getMethod())) {
-            throw new CommonException("Phương thức thanh toán không được hỗ trợ ở giai đoạn hiện tại (chỉ CASH)");
+            throw new CommonException(ThongDiep.of("banHang.chiHoTroCash"));
         }
         BigDecimal tendered = payment.getTenderedAmount();
         if (tendered == null) {
-            throw new CommonException("Thiếu số tiền khách đưa");
+            throw new CommonException(ThongDiep.of("banHang.thieuTienKhachDua"));
         }
         if (tendered.compareTo(BigDecimal.ZERO) < 0) {
-            throw new CommonException("Số tiền khách đưa không được âm");
+            throw new CommonException(ThongDiep.of("banHang.tienKhachDuaAm"));
         }
         if (tendered.stripTrailingZeros().scale() > 0) {
-            throw new CommonException("Số tiền khách đưa phải là số nguyên đồng");
+            throw new CommonException(ThongDiep.of("banHang.tienKhachDuaKhongNguyen"));
         }
         if (tendered.compareTo(MAX_TIEN_MAT) > 0) {
-            throw new CommonException("Số tiền mặt một giao dịch vượt giới hạn cho phép (" + MAX_TIEN_MAT.toPlainString() + ")");
+            throw new CommonException(ThongDiep.of("banHang.tienMatVuotGioiHan", MAX_TIEN_MAT.toPlainString()));
         }
         return tendered;
     }
