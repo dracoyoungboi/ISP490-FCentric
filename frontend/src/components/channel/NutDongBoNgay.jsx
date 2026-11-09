@@ -329,7 +329,7 @@ function BangTienDo({ phien: p, pct, conLaiMs, tenSan, onDong, onDung, onBatDauL
           </>
         ) : (
           <>
-            <span className="min-w-0 flex-1 text-[12.5px] text-bo-muted">{chuaDay ? t("Còn {{chuaDay}} SKU chưa đẩy", { chuaDay: formatNumber(chuaDay) }) : null}</span>
+            <span className="min-w-0 flex-1 text-[12.5px] text-bo-muted">{chuaDay ? t("Còn {{chuaDay}} SKU chưa đẩy", { count: chuaDay, chuaDay: formatNumber(chuaDay) }) : null}</span>
             {p.trangThai === "loi" ? (
               <button type="button" className={LIEN_KET} onClick={() => onDen("/settings")}>
                 {t("Mở cấu hình")}
@@ -373,7 +373,7 @@ function ChiTietBuoc({ ma, tt, phien: p }) {
             <LyDoLoiSku loi={l} />
           </p>
         ))}
-        {conLai > 0 ? <p>{t("và {{conLai}} SKU lỗi khác", { conLai: formatNumber(conLai) })}</p> : null}
+        {conLai > 0 ? <p>{t("và {{conLai}} SKU lỗi khác", { count: conLai, conLai: formatNumber(conLai) })}</p> : null}
       </div>
     );
   }

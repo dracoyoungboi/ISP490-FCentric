@@ -61,6 +61,6 @@ export function viecKhiHoanTat(luaChon, cauHinh) {
     viec.push(t("bật tự động lấy đơn"));
   }
   const soNgayDonCu = Number(luaChon?.layDonCu) > 0 ? Number(luaChon.layDonCu) : 0;
-  if (soNgayDonCu) viec.push(t("lấy đơn {{soNgayDonCu}} ngày qua", { soNgayDonCu }));
+  if (soNgayDonCu) viec.push(t("lấy đơn {{soNgayDonCu}} ngày qua", { count: soNgayDonCu, soNgayDonCu }));
   return { batTuDong, soNgayDonCu, viec };
 }

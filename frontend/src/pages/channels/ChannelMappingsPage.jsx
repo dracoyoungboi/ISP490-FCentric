@@ -958,7 +958,7 @@ export default function ChannelMappingsPage() {
           <div className="flex flex-col items-end">
             <span className="font-medium tabular-nums text-bo-heading">{daDay.length ? formatNumberOrDash(daDay.reduce((s, v) => s + v, 0)) : "—"}</span>
             {soChoDay ? (
-              <span className="text-[12px] font-medium tabular-nums text-amber-600">{formatNumberOrDash(soChoDay)} {t("SKU chờ đẩy")}</span>
+              <span className="text-[12px] font-medium tabular-nums text-amber-600">{formatNumberOrDash(soChoDay)} {t("SKU chờ đẩy", { count: soChoDay })}</span>
             ) : gioNhom ? (
               <span className="text-[12px] tabular-nums text-slate-400" title={t("Lần đẩy tồn gần nhất của sản phẩm")}>
                 {gioNhom}
@@ -1097,7 +1097,7 @@ export default function ChannelMappingsPage() {
                 {nhanSoPhanLoai(g, formatNumberOrDash)}
                 {dangLoc && g.dong.length < g.tongPhanLoai ? t(" khớp") : ""} {t("· Khả dụng")}{" "}
                 <span className="font-medium text-bo-foreground">{formatNumberOrDash(st.tongKhaDung)}</span>
-                {st.soChoDay ? <span className="font-medium text-amber-600"> · {formatNumberOrDash(st.soChoDay)} {t("SKU chờ đẩy")}</span> : null}
+                {st.soChoDay ? <span className="font-medium text-amber-600"> · {formatNumberOrDash(st.soChoDay)} {t("SKU chờ đẩy", { count: st.soChoDay })}</span> : null}
               </span>
               {tomTatNhom(g, st)}
             </span>
@@ -1205,7 +1205,7 @@ export default function ChannelMappingsPage() {
             {daChon.length ? (
               <div className="flex flex-wrap items-center gap-2 border-b border-bo-border bg-bo-primary-soft px-3 py-2 text-sm text-bo-heading">
                 <span className="mr-1">
-                  <strong className="font-semibold tabular-nums">{formatNumberOrDash(daChon.length)}</strong> {t("SKU đã chọn trên trang này")}
+                  <strong className="font-semibold tabular-nums">{formatNumberOrDash(daChon.length)}</strong> {t("SKU đã chọn trên trang này", { count: daChon.length })}
                 </span>
                 <Button type="button" variant="outline" disabled={khoaBang} onClick={() => batTatNhieu(true)} className="h-8 rounded-lg border-bo-border bg-bo-surface px-3 text-[13px] text-bo-foreground hover:bg-bo-surface-subtle max-sm:h-11">
                   {t("Bật đồng bộ")}

@@ -39,7 +39,7 @@ export function TheTonKho({ moTa, values, errors = {}, onChange, cheDo, onDoiChe
     <TheCaiDat title={t("Tồn kho")} description={moTa}>
       <DongCongTac
         title={t("Tự động cập nhật tồn lên {{tenSan}}", { tenSan })}
-        description={t("Mỗi {{chuKy}} phút, và ngay khi tồn dưới {{nguongNgay}} cái.", { chuKy, nguongNgay })}
+        description={t("Mỗi {{chuKy}} phút, và ngay khi tồn dưới {{nguongNgay}} cái.", { count: Number(nguongNgay), chuKy, nguongNgay })}
         checked={values.tuDongDayTon}
         onCheckedChange={(checked) => onChange("tuDongDayTon", checked)}
         disabled={disabled}

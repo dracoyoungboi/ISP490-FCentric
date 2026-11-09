@@ -73,7 +73,7 @@ export function thoiLuong(ms) {
 export function ketQuaDongBo(p) {
   if (p?.trangThai === DB_TRANG_THAI.LOI) return { tone: "loi", tieuDe: t("Đồng bộ dừng giữa chừng"), nhan: t("Đồng bộ lỗi") };
   if (p?.trangThai === DB_TRANG_THAI.DA_DUNG) return { tone: "dung", tieuDe: t("Đã dừng đồng bộ"), nhan: t("Đã dừng") };
-  if (p?.soLoi) return { tone: "canh", tieuDe: t("Đồng bộ xong"), nhan: t("Xong · {{soLoi}} SKU lỗi", { soLoi: formatNumber(p.soLoi) }) };
+  if (p?.soLoi) return { tone: "canh", tieuDe: t("Đồng bộ xong"), nhan: t("Xong · {{soLoi}} SKU lỗi", { count: Number(p.soLoi), soLoi: formatNumber(p.soLoi) }) };
   return { tone: "ok", tieuDe: t("Đồng bộ xong"), nhan: t("Đã đồng bộ") };
 }
 
@@ -100,12 +100,12 @@ export function cacBuocDongBo(p, tenSan = "Shopify") {
   else if (tt === DB_TRANG_THAI.LOI) docSp = { tt: "loi", phu: t("Không đọc được") };
   else docSp = { tt: "dung", phu: t("Đã dừng") };
 
-  const loi = p?.soLoi ? t(" · {{soLoi}} lỗi", { soLoi: formatNumber(p.soLoi) }) : "";
+  const loi = p?.soLoi ? t(" · {{soLoi}} lỗi", { count: Number(p.soLoi), soLoi: formatNumber(p.soLoi) }) : "";
   let dayTon;
   if (giaiDoan < 1) dayTon = chay ? { tt: "cho", phu: t("Chờ") } : { tt: "boqua", phu: t("Chưa đẩy") };
   else if (giaiDoan === 1 && chay) dayTon = { tt: "dang", phu: `${formatNumber(p.daXuLy)}/${formatNumber(tong)} SKU${loi}` };
   else if (giaiDoan === 1 && tt === DB_TRANG_THAI.LOI) dayTon = { tt: "loi", phu: t("Dừng ở SKU {{thuTu}}/{{tong}}", { thuTu: formatNumber(Number(p.daXuLy) + 1), tong: formatNumber(tong) }) };
-  else if (giaiDoan === 1 && tt === DB_TRANG_THAI.DA_DUNG) dayTon = { tt: "dung", phu: t("Đã đẩy {{daXuLy}}/{{tong}} SKU", { daXuLy: formatNumber(p.daXuLy), tong: formatNumber(tong) }) };
+  else if (giaiDoan === 1 && tt === DB_TRANG_THAI.DA_DUNG) dayTon = { tt: "dung", phu: t("Đã đẩy {{daXuLy}}/{{tong}} SKU", { count: Number(tong), daXuLy: formatNumber(p.daXuLy), tong: formatNumber(tong) }) };
   else dayTon = { tt: p?.soLoi ? "canh" : "xong", phu: `${formatNumber(p?.soThanhCong)}/${formatNumber(tong)} SKU${loi}` };
 
   let layDon;

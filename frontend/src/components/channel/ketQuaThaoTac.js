@@ -14,13 +14,13 @@ export function ketQuaTaiSanPham(res, tenSan) {
     const ngung = Number(res.soNgung || 0);
     return {
       ok: true,
-      title: t("Đã tải {{soSku}} SKU từ {{tenSan}}: {{soGhep}} ghép tự động, {{khongKhop}} chưa có mã trùng{{phanNgung}}", { soSku: formatNumber(soSku), tenSan, soGhep: formatNumber(Math.max(0, soSku - khongKhop - ngung)), khongKhop: formatNumber(khongKhop), phanNgung: ngung ? t(", {{ngung}} ngừng", { ngung: formatNumber(ngung) }) : "" }),
+      title: t("Đã tải {{soSku}} SKU từ {{tenSan}}: {{soGhep}} ghép tự động, {{khongKhop}} chưa có mã trùng{{phanNgung}}", { count: soSku, soSku: formatNumber(soSku), tenSan, soGhep: formatNumber(Math.max(0, soSku - khongKhop - ngung)), khongKhop: formatNumber(khongKhop), phanNgung: ngung ? t(", {{ngung}} ngừng", { ngung: formatNumber(ngung) }) : "" }),
       message: null,
     };
   }
   return {
     ok: true,
-    title: t("Đã đọc {{soSku}} SKU trên {{tenSan}}", { soSku: formatNumber(res?.soSku), tenSan }),
+    title: t("Đã đọc {{soSku}} SKU trên {{tenSan}}", { count: Number(res?.soSku) || 0, soSku: formatNumber(res?.soSku), tenSan }),
     message: t("Ghép mới {{soMoi}}, cập nhật {{soCapNhat}}. SKU không trùng với FCentric được bỏ qua; dòng đang ngừng đồng bộ giữ nguyên.", { soMoi: formatNumber(res?.soMoi), soCapNhat: formatNumber(res?.soCapNhat) }),
   };
 }
@@ -32,10 +32,10 @@ export function ketQuaDayLenSan(res, tenSan) {
     ok: loi === 0,
     title: t("Đã ghép {{soDaGhep}} SKU", { soDaGhep: formatNumber(res?.soDaGhep), count: Number(res?.soDaGhep) || 0 }),
     message: [
-      t("tạo mới trên {{tenSan}} {{soTaoMoiTrenShopify}} sản phẩm", { tenSan, soTaoMoiTrenShopify: formatNumber(res?.soTaoMoiTrenShopify) }),
-      t("cập nhật {{soCapNhatTrenShopify}} sản phẩm", { soCapNhatTrenShopify: formatNumber(res?.soCapNhatTrenShopify) }),
+      t("tạo mới trên {{tenSan}} {{soTaoMoiTrenShopify}} sản phẩm", { tenSan, count: Number(res?.soTaoMoiTrenShopify) || 0, soTaoMoiTrenShopify: formatNumber(res?.soTaoMoiTrenShopify) }),
+      t("cập nhật {{soCapNhatTrenShopify}} sản phẩm", { count: Number(res?.soCapNhatTrenShopify) || 0, soCapNhatTrenShopify: formatNumber(res?.soCapNhatTrenShopify) }),
       t("đẩy tồn {{soTonKhoDaDay}} SKU", { soTonKhoDaDay: formatNumber(res?.soTonKhoDaDay) }),
-      res?.soAnhDaDay ? t("{{soAnhDaDay}} ảnh", { soAnhDaDay: formatNumber(res.soAnhDaDay) }) : null,
+      res?.soAnhDaDay ? t("{{soAnhDaDay}} ảnh", { count: Number(res.soAnhDaDay) || 0, soAnhDaDay: formatNumber(res.soAnhDaDay) }) : null,
       loi > 0 ? t("lỗi {{loi}}", { loi: formatNumber(loi) }) : null,
     ]
       .filter(Boolean)
@@ -63,15 +63,15 @@ export function ketQuaDayTon(res, tenSan) {
     return {
       ok: false,
       tone: "warning",
-      title: t("Đã đẩy {{daDay}}/{{tong}} SKU lên {{tenSan}}{{phanLoi}}", { daDay: formatNumber(daDay), tong: formatNumber(tong), tenSan, phanLoi: soLoi > 0 ? t(" · {{soLoi}} lỗi", { soLoi: formatNumber(soLoi) }) : "" }),
-      message: t("Dừng giữa chừng: {{loiKenh}}. {{chuaDay}} SKU chưa đẩy sẽ được đẩy ở lần sau.", { loiKenh, chuaDay: formatNumber(chuaDay) }),
+      title: t("Đã đẩy {{daDay}}/{{tong}} SKU lên {{tenSan}}{{phanLoi}}", { count: tong, daDay: formatNumber(daDay), tong: formatNumber(tong), tenSan, phanLoi: soLoi > 0 ? t(" · {{soLoi}} lỗi", { count: soLoi, soLoi: formatNumber(soLoi) }) : "" }),
+      message: t("Dừng giữa chừng: {{loiKenh}}. {{chuaDay}} SKU chưa đẩy sẽ được đẩy ở lần sau.", { count: chuaDay, loiKenh, chuaDay: formatNumber(chuaDay) }),
     };
   }
   if (soLoi > 0) {
     return {
       ok: false,
       tone: "warning",
-      title: t("Đã đẩy {{daDay}}/{{tong}} SKU lên {{tenSan}} · {{soLoi}} lỗi", { daDay: formatNumber(daDay), tong: formatNumber(tong), tenSan, soLoi: formatNumber(soLoi) }),
+      title: t("Đã đẩy {{daDay}}/{{tong}} SKU lên {{tenSan}} · {{soLoi}} lỗi", { count: tong, daDay: formatNumber(daDay), tong: formatNumber(tong), tenSan, soLoi: formatNumber(soLoi) }),
       message: t("Xem lý do ở tab Lỗi. Lần đẩy sau sẽ tự thử lại các SKU này."),
     };
   }

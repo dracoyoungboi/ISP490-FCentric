@@ -215,7 +215,7 @@ function DongSan({ san }) {
       <span>
         {formatNumberOrDash(tongQuan?.daLienKet)}
         {Number(tongQuan?.loiDongBo) > 0 ? (
-          <span className="ml-1.5 whitespace-nowrap text-[13px] text-bo-danger">{t("· {{loiDongBo}} lỗi", { loiDongBo: formatNumberOrDash(tongQuan.loiDongBo) })}</span>
+          <span className="ml-1.5 whitespace-nowrap text-[13px] text-bo-danger">{t("· {{loiDongBo}} lỗi", { count: Number(tongQuan.loiDongBo), loiDongBo: formatNumberOrDash(tongQuan.loiDongBo) })}</span>
         ) : null}
       </span>
     );
