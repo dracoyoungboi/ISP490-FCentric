@@ -144,7 +144,10 @@ public final class BoThongDiep {
         if (x instanceof Number so) return new BigDecimal(so.toString());
         if (x == null) return null;
         try {
-            return new BigDecimal(String.valueOf(x).trim());
+            String s = String.valueOf(x).trim();
+            // "2,5" (số thập phân kiểu Việt) → 2.5; chuỗi khác giữ nguyên
+            if (s.matches("\\d+,\\d+")) s = s.replace(',', '.');
+            return new BigDecimal(s);
         } catch (NumberFormatException e) {
             return null;
         }
@@ -246,7 +249,8 @@ public final class BoThongDiep {
 
     private static void napBangNguoc() {
         for (String nhom : timCacNhom()) {
-            if (NHOM_KHONG_DO_NGUOC.contains(nhom)) continue;
+            // thongBao*: có bảng dò ngược riêng ở DichThongBao (tham số được phép có chữ Việt), không trộn vào bảng chung
+            if (NHOM_KHONG_DO_NGUOC.contains(nhom) || nhom.startsWith(DichThongBao.TIEN_TO_NHOM)) continue;
             Properties p = new Properties();
             try (var vao = BoThongDiep.class.getClassLoader().getResourceAsStream(THU_MUC + nhom + ".properties")) {
                 if (vao == null) continue;
