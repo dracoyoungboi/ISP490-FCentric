@@ -729,6 +729,8 @@
   " Giữ nguyên giá vốn {{count}} biến thể còn tồn kho._other": " Kept the cost of {{count}} variants that still have stock.",
   "Giá vốn của biến thể còn tồn kho tính theo lô nhập (ô có khóa) nên không sửa được.": "Cost of in-stock variants comes from received lots (locked fields) and can't be edited.",
   "Giá vốn × 1,2, làm tròn lên nghìn.": "Cost × 1.2, rounded up to the nearest thousand.",
+  "Sẽ đổi giá bán {{count}} biến thể còn tồn kho. Lưu xong nhớ in lại tem._one": "Saving changes the selling price of {{count}} in-stock variant. Reprint its labels afterward.",
+  "Sẽ đổi giá bán {{count}} biến thể còn tồn kho. Lưu xong nhớ in lại tem._other": "Saving changes the selling price of {{count}} in-stock variants. Reprint their labels afterward.",
   "Giá bán đang trống hoặc thấp hơn giá gợi ý": "Selling price is empty or below the suggested price",
   "Đã nâng {{count}} dòng lên giá gợi ý._one": "Raised {{count}} row to the suggested price.",
   "Đã nâng {{count}} dòng lên giá gợi ý._other": "Raised {{count}} rows to the suggested price.",

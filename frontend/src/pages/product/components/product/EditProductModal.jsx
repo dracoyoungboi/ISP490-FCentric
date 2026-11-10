@@ -65,6 +65,7 @@ import {
 import { SO_BIEN_THE_TOI_DA, kiemTraTepAnh, sapXepKichCo } from "./logicBienThe";
 import {
     coThayDoiBienThe,
+    demDoiGiaBanConHang,
     kichCoBiKhoa,
     khoiTaoSuaBienThe,
     mauBiKhoa,
@@ -179,6 +180,8 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
 
     const anhDaDoi = sanPham != null && chuKyAnh(anhSanPhams) !== chuKyAnhGoc;
     const bienTheDaDoi = coThayDoiBienThe(bienThe, thongKe);
+    // Hàng còn trong kho đang dán tem giá cũ: nhắc in lại tem khi đổi giá bán.
+    const soDoiGiaBanConHang = demDoiGiaBanConHang(bienThe);
     const coThayDoi = sanPham != null && (isDirty || anhDaDoi || bienTheDaDoi);
 
     const { hoiBoThayDoi, setHoiBoThayDoi, dongForm, handleCancel, nhoNutMoForm, traFocusNutMoForm, traFocusSauKhiHoi } =
@@ -669,6 +672,11 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
                                     </>
                                 ) : (
                                     t("Có thay đổi chưa lưu")
+                                )}
+                                {sanPham && soDoiGiaBanConHang > 0 && (
+                                    <span className="block text-xs font-medium text-bo-warning">
+                                        {t("Sẽ đổi giá bán {{count}} biến thể còn tồn kho. Lưu xong nhớ in lại tem.", { count: soDoiGiaBanConHang })}
+                                    </span>
                                 )}
                             </p>
                             <div className="flex items-center gap-2 max-sm:w-full">
