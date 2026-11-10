@@ -140,8 +140,12 @@ public class ShopeeThirdPartySignClient {
      * Lấy danh sách sản phẩm theo lô (Batch Item List).
      */
     public JsonNode getItemList(String shopId, int offset, int pageSize) {
+        if (shopId == null || shopId.isBlank()) {
+            log.warn("[SHOPEE-GATEWAY] Không thể lấy danh sách sản phẩm vì thiếu Shop ID");
+            return fallbackResponse("", shopId);
+        }
         String url = String.format("%s/api/v4/item/get_shop_items?shopid=%s&offset=%d&limit=%d",
-                SHOPEE_MALL_API_BASE, shopId != null ? shopId : "88201679", offset, pageSize);
+                SHOPEE_MALL_API_BASE, shopId.trim(), offset, pageSize);
         return callShopeeViaSignGateway(url, HttpMethod.GET, null, shopId, null, null);
     }
 
@@ -150,12 +154,16 @@ public class ShopeeThirdPartySignClient {
      * Gửi nhiều item_id trong 1 request duy nhất thay vì gọi đơn lẻ từng sản phẩm.
      */
     public JsonNode getItemBaseInfo(String shopId, List<Long> itemIds) {
+        if (shopId == null || shopId.isBlank()) {
+            log.warn("[SHOPEE-GATEWAY] Không thể lấy chi tiết sản phẩm vì thiếu Shop ID");
+            return fallbackResponse("", shopId);
+        }
         if (itemIds == null || itemIds.isEmpty()) {
             return objectMapper.createObjectNode().put("error", "").put("message", "success");
         }
         String idListStr = String.join(",", itemIds.stream().map(String::valueOf).toList());
         String url = String.format("%s/api/v4/item/get_batch?shopid=%s&item_id_list=%s",
-                SHOPEE_MALL_API_BASE, shopId != null ? shopId : "88201679", idListStr);
+                SHOPEE_MALL_API_BASE, shopId.trim(), idListStr);
         return callShopeeViaSignGateway(url, HttpMethod.GET, null, shopId, null, null);
     }
 
@@ -164,8 +172,12 @@ public class ShopeeThirdPartySignClient {
      * Gom tất cả SKU của cùng một sản phẩm cha thành 1 request duy nhất.
      */
     public JsonNode updateStockBatch(String shopId, Long itemId, List<Map<String, Object>> stockList) {
+        if (shopId == null || shopId.isBlank()) {
+            log.warn("[SHOPEE-GATEWAY] Không thể cập nhật tồn kho vì thiếu Shop ID");
+            return fallbackResponse("", shopId);
+        }
         String url = String.format("%s/api/v4/product/update_stock_batch?shopid=%s&item_id=%d",
-                SHOPEE_MALL_API_BASE, shopId != null ? shopId : "88201679", itemId);
+                SHOPEE_MALL_API_BASE, shopId.trim(), itemId);
 
         Map<String, Object> body = new HashMap<>();
         body.put("item_id", itemId);
@@ -179,8 +191,12 @@ public class ShopeeThirdPartySignClient {
      * Kéo danh sách mã đơn hàng theo khoảng thời gian - GOM CỤM (Batch Order List).
      */
     public JsonNode getOrderList(String shopId, long timeFrom, long timeTo, String status, int pageSize) {
+        if (shopId == null || shopId.isBlank()) {
+            log.warn("[SHOPEE-GATEWAY] Không thể kéo danh sách đơn vì thiếu Shop ID");
+            return fallbackResponse("", shopId);
+        }
         String url = String.format("%s/api/v4/order/get_order_list?shopid=%s&time_from=%d&time_to=%d&order_status=%s&page_size=%d",
-                SHOPEE_MALL_API_BASE, shopId != null ? shopId : "88201679", timeFrom, timeTo,
+                SHOPEE_MALL_API_BASE, shopId.trim(), timeFrom, timeTo,
                 status != null ? status : "READY_TO_SHIP", pageSize);
         return callShopeeViaSignGateway(url, HttpMethod.GET, null, shopId, null, null);
     }
@@ -190,12 +206,16 @@ public class ShopeeThirdPartySignClient {
      * Gom danh sách order_sn_list thành 1 request duy nhất, tối ưu 100% số lượng request mạng.
      */
     public JsonNode getOrderDetail(String shopId, List<String> orderSnList) {
+        if (shopId == null || shopId.isBlank()) {
+            log.warn("[SHOPEE-GATEWAY] Không thể lấy chi tiết đơn vì thiếu Shop ID");
+            return fallbackResponse("", shopId);
+        }
         if (orderSnList == null || orderSnList.isEmpty()) {
             return objectMapper.createObjectNode().put("error", "").put("message", "success");
         }
         String snListStr = String.join(",", orderSnList);
         String url = String.format("%s/api/v4/order/get_order_detail_batch?shopid=%s&order_sn_list=%s",
-                SHOPEE_MALL_API_BASE, shopId != null ? shopId : "88201679", snListStr);
+                SHOPEE_MALL_API_BASE, shopId.trim(), snListStr);
         return callShopeeViaSignGateway(url, HttpMethod.GET, null, shopId, null, null);
     }
 
@@ -203,9 +223,12 @@ public class ShopeeThirdPartySignClient {
      * Kiểm tra kết nối thử nghiệm tới Shop ID thông qua Cổng ký bên thứ ba.
      */
     public boolean testConnection(String shopId, String apiKey, String deviceId) {
+        if (shopId == null || shopId.isBlank()) {
+            return false;
+        }
         try {
             String testUrl = String.format("%s/api/v4/shop/get_shop_info?shopid=%s",
-                    SHOPEE_MALL_API_BASE, shopId != null ? shopId : "88201679");
+                    SHOPEE_MALL_API_BASE, shopId.trim());
             JsonNode res = callShopeeViaSignGateway(testUrl, HttpMethod.GET, null, shopId, apiKey, deviceId);
             return res != null && !res.path("error").asText("").contains("GATEWAY_FAILED");
         } catch (Exception e) {

@@ -3525,8 +3525,14 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         try {
             JsonNode res;
             boolean isProductionShopee = !"SHOPEE_SANDBOX".equalsIgnoreCase(kenh.getMaKenh());
-            String shopIdStr = kenh.getClientId() != null ? kenh.getClientId() : (kenh.getShopDomain() != null ? kenh.getShopDomain() : "88201679");
+            String shopIdStr = (kenh.getClientId() != null && !kenh.getClientId().isBlank())
+                    ? kenh.getClientId().trim()
+                    : ((kenh.getShopDomain() != null && !kenh.getShopDomain().isBlank()) ? kenh.getShopDomain().trim() : null);
             if (isProductionShopee && shopeeThirdPartySignClient != null) {
+                if (shopIdStr == null || shopIdStr.isBlank()) {
+                    log.warn("[SHOPEE-SYNC] Kênh Shopee Production chưa cấu hình Shop ID, không thể đẩy tồn SKU {}", bt.getMaSku());
+                    return KetQuaGuiTon.THAT_BAI;
+                }
                 Map<String, Object> stockItem = new HashMap<>();
                 stockItem.put("model_id", modelId != null ? modelId : (588300000L + bt.getId()));
                 stockItem.put("normal_stock", soDay);
@@ -4259,7 +4265,13 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     private TaiSanPhamResultDto taiSanPhamShopee(KenhBanHang kenh) {
         com.dev.backend.services.shopee.ShopeeClient client = getShopeeClient(kenh);
         boolean isProductionShopee = !"SHOPEE_SANDBOX".equalsIgnoreCase(kenh.getMaKenh());
-        String shopIdStr = kenh.getClientId() != null ? kenh.getClientId() : (kenh.getShopDomain() != null ? kenh.getShopDomain() : "88201679");
+        String shopIdStr = (kenh.getClientId() != null && !kenh.getClientId().isBlank())
+                ? kenh.getClientId().trim()
+                : ((kenh.getShopDomain() != null && !kenh.getShopDomain().isBlank()) ? kenh.getShopDomain().trim() : null);
+
+        if (isProductionShopee && (shopIdStr == null || shopIdStr.isBlank())) {
+            throw new CommonException("Chưa cấu hình Shop ID cho kênh " + kenh.getMaKenh() + ". Vui lòng vào Cấu hình gian hàng để nhập Shop ID của bạn.", HttpStatus.BAD_REQUEST, null);
+        }
 
         int soSku = 0;
         int soMoi = 0;
@@ -4558,8 +4570,14 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 // Gọi API cập nhật tồn kho theo lô (Batching) cho sản phẩm cha
                 JsonNode res;
                 boolean isProductionShopee = !"SHOPEE_SANDBOX".equalsIgnoreCase(kenh.getMaKenh());
-                String shopIdStr = kenh.getClientId() != null ? kenh.getClientId() : (kenh.getShopDomain() != null ? kenh.getShopDomain() : "88201679");
+                String shopIdStr = (kenh.getClientId() != null && !kenh.getClientId().isBlank())
+                        ? kenh.getClientId().trim()
+                        : ((kenh.getShopDomain() != null && !kenh.getShopDomain().isBlank()) ? kenh.getShopDomain().trim() : null);
                 if (isProductionShopee && shopeeThirdPartySignClient != null) {
+                    if (shopIdStr == null || shopIdStr.isBlank()) {
+                        log.warn("[SHOPEE-SYNC-BATCH] Kênh Shopee Production chưa cấu hình Shop ID, bỏ qua đẩy tồn lô sản phẩm {}", itemId);
+                        continue;
+                    }
                     res = shopeeThirdPartySignClient.updateStockBatch(shopIdStr, itemId, stockList);
                 } else {
                     res = client.updateStockBatch(itemId, stockList);
