@@ -58,6 +58,58 @@ export const docTien = (giaTri) => {
 
 export const hienTien = (so) => (so === "" || so == null ? "" : Number(so).toLocaleString("vi-VN"));
 
+const coSo = (giaTri) => giaTri !== "" && giaTri != null && Number.isFinite(Number(giaTri));
+
+/**
+ * Giá bán gợi ý = giá vốn × 1,2 rồi làm tròn lên hàng nghìn (giá đẹp để in tem, vẫn lãi ít nhất 20%).
+ * Đây chỉ là số gợi ý cho người dùng chọn: máy chủ (SanPhamQuanAoService.recalculatePriceAndStatus) vẫn tự điền
+ * giá vốn × 1,2 làm tròn lên đồng khi biến thể chưa có giá bán. Tính bằng số nguyên (xu × 12 / 10^6 nghìn) để tránh
+ * sai số dấu phẩy động.
+ * @returns {number|null} null khi chưa có giá vốn.
+ */
+export function giaBanGoiY(giaVon) {
+    if (!coSo(giaVon)) return null;
+    const xu = Math.round(Number(giaVon) * 100);
+    if (xu <= 0) return null;
+    return Math.ceil((xu * 12) / 1_000_000) * 1000;
+}
+
+/** Dòng sẽ được lưu và sửa được giá bán (nhận giá gợi ý được). */
+const dongNhanGiaBan = (d) => !d.khoaGiaBan && (d.loai === "cu" || d.tao);
+const dongSeLuu = (d) => d.loai === "cu" || d.tao;
+
+/**
+ * Giá bán đang trống hoặc thấp hơn `gia`. Gợi ý là giá sàn (lãi ít nhất 20%), không phải giá nên bán: giá bằng hoặc
+ * cao hơn thì không gợi ý, để không mời người dùng hạ giá.
+ */
+export const canNangGia = (giaBan, gia) => gia != null && (!coSo(giaBan) || Number(giaBan) < gia);
+
+/** Giá gợi ý của một dòng (bóng đèn trong ô giá bán). null khi không cần gợi ý. */
+export function goiYChoDong(d) {
+    if (!dongNhanGiaBan(d)) return null;
+    const goiY = giaBanGoiY(d.giaVon);
+    return canNangGia(d.giaBan, goiY) ? goiY : null;
+}
+
+/**
+ * Giá gợi ý cả màu (hàng màu và nút Áp giá gợi ý chung): theo giá vốn cao nhất trong màu để cỡ nào cũng lãi ít nhất
+ * 20%. Đang nhập giá vốn nhóm thì dùng số đó thay cho các dòng sửa được giá vốn (dòng giá vốn khóa vẫn tính).
+ * @returns {number|null} null khi màu không có dòng nhận giá bán hoặc chưa có giá vốn nào.
+ */
+export function goiYMau(dsDong, giaVonNhom = "") {
+    if (!dsDong.some(dongNhanGiaBan)) return null;
+    const coNhapNhom = coSo(giaVonNhom);
+    const giaVons = dsDong
+        .filter((d) => dongSeLuu(d) && (!coNhapNhom || d.khoaGia) && coSo(d.giaVon))
+        .map((d) => Number(d.giaVon));
+    if (coNhapNhom) giaVons.push(Number(giaVonNhom));
+    return giaVons.length === 0 ? null : giaBanGoiY(Math.max(...giaVons));
+}
+
+/** Số dòng sẽ được nâng lên `gia` (dòng nhận giá bán đang trống hoặc thấp hơn). */
+export const demDongCanNang = (dsDong, gia) =>
+    gia == null ? 0 : dsDong.filter((d) => dongNhanGiaBan(d) && canNangGia(d.giaBan, gia)).length;
+
 /**
  * Xử lý một lần sửa ô tiền đang hiện dạng 1.250.000.
  * Backspace/Delete đúng vào dấu chấm phân cách thì xóa luôn chữ số liền kề (nếu không thao tác sẽ không có tác dụng).
@@ -209,6 +261,15 @@ export function bienTheReducer(state, action) {
             };
             return { ...state, giaChung, dong: ganGia(state.dong, khoas, action) };
         }
+        case "nangGiaBanTheoMau": {
+            // giaTheoMau: { mauSacId: giá gợi ý của màu } — chỉ nâng dòng giá bán trống hoặc thấp hơn, không hạ giá.
+            let dong = state.dong;
+            for (const [mauSacId, gia] of Object.entries(action.giaTheoMau)) {
+                const khoas = moiKhoaCuaMau(dong, mauSacId).filter((khoa) => canNangGia(dong[khoa].giaBan, gia));
+                if (khoas.length > 0) dong = ganGia(dong, khoas, { giaVon: "", giaBan: gia });
+            }
+            return dong === state.dong ? state : { ...state, dong };
+        }
         case "ganAnhMau":
             return { ...state, anhMau: { ...state.anhMau, [action.mauSacId]: action.anh } };
         case "goAnhMau": {
@@ -267,12 +328,17 @@ export function thongKeBienThe(nhom, anhMau) {
 /**
  * Số dòng vừa nhận giá chung, để báo cho người dùng: chỉ đếm dòng sẽ được lưu (biến thể đã lưu ở form Chỉnh sửa
  * và tổ hợp đang tích). Dòng bỏ tích vẫn nhận giá (tích lại thấy đúng giá) nhưng không đếm.
- * @returns {{soApDung:number, soKhoaGia:number}} soKhoaGia: biến thể còn tồn kho, giữ nguyên giá.
+ * Một dòng được tính là đã áp khi nhận được ít nhất một trong hai giá vừa nhập.
+ * @returns {{soApDung:number, soKhoaGia:number}} soKhoaGia: biến thể còn tồn kho giữ nguyên giá vốn (chỉ đếm khi có
+ *   nhập giá vốn chung).
  */
-export function demDongApGiaChung(nhom) {
+export function demDongApGiaChung(nhom, { giaVon = "", giaBan = "" } = {}) {
     const dongSeLuu = nhom.flatMap((n) => n.dong).filter((d) => d.loai === "cu" || d.tao);
-    const soKhoaGia = dongSeLuu.filter((d) => d.khoaGia).length;
-    return { soApDung: dongSeLuu.length - soKhoaGia, soKhoaGia };
+    const coGiaVon = giaVon !== "";
+    const coGiaBan = giaBan !== "";
+    const soApDung = dongSeLuu.filter((d) => (coGiaVon && !d.khoaGia) || (coGiaBan && !d.khoaGiaBan)).length;
+    const soKhoaGia = coGiaVon ? dongSeLuu.filter((d) => d.khoaGia).length : 0;
+    return { soApDung, soKhoaGia };
 }
 
 /**

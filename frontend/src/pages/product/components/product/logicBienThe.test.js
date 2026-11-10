@@ -16,7 +16,7 @@ test("form Thêm: câu báo áp giá chung chỉ đếm dòng đang tích", () =
         { type: "batTatToHop", khoa: khoaBienThe(2, 12) },
     );
     const nhom = tinhNhomBienThe(state, KICH_CO);
-    assert.deepEqual(demDongApGiaChung(nhom), { soApDung: 4, soKhoaGia: 0 });
+    assert.deepEqual(demDongApGiaChung(nhom, { giaVon: 100000, giaBan: 150000 }), { soApDung: 4, soKhoaGia: 0 });
 });
 
 test("form Thêm: dòng bỏ tích vẫn nhận giá chung, tích lại thấy đúng giá", () => {
@@ -26,7 +26,7 @@ test("form Thêm: dòng bỏ tích vẫn nhận giá chung, tích lại thấy �
         { type: "batTatToHop", khoa: khoaBienThe(1, 10) },
         { type: "apDungGiaChung", giaVon: 100000, giaBan: 150000 },
     );
-    assert.equal(demDongApGiaChung(tinhNhomBienThe(state, KICH_CO)).soApDung, 1);
+    assert.equal(demDongApGiaChung(tinhNhomBienThe(state, KICH_CO), { giaVon: 100000, giaBan: 150000 }).soApDung, 1);
     state = bienTheReducer(state, { type: "batTatToHop", khoa: khoaBienThe(1, 10) });
     const [{ dong }] = tinhNhomBienThe(state, KICH_CO);
     assert.deepEqual(
@@ -44,10 +44,10 @@ test("form Thêm: bỏ tích hết thì báo 0 dòng", () => {
         { type: "chonKichCo", sizeIds: [10] },
         { type: "batTatToHop", khoa: khoaBienThe(1, 10) },
     );
-    assert.deepEqual(demDongApGiaChung(tinhNhomBienThe(state, KICH_CO)), { soApDung: 0, soKhoaGia: 0 });
+    assert.deepEqual(demDongApGiaChung(tinhNhomBienThe(state, KICH_CO), { giaVon: 100000, giaBan: 150000 }), { soApDung: 0, soKhoaGia: 0 });
 });
 
-test("form Chỉnh sửa: đếm biến thể đã lưu (trừ dòng khóa giá) và tổ hợp mới đang tích", () => {
+test("form Chỉnh sửa: đếm biến thể đã lưu và tổ hợp mới đang tích, biến thể còn tồn chỉ giữ giá vốn", () => {
     const bienThe = (id, sizeId, conTonKho) => ({
         id,
         mauSac: { id: 1 },
@@ -67,6 +67,10 @@ test("form Chỉnh sửa: đếm biến thể đã lưu (trừ dòng khóa giá)
     const moi = nhom.flatMap((n) => n.dong).filter((d) => d.loai !== "cu");
     assert.equal(moi.filter((d) => d.tao).length, 3, "tổ hợp mới đang tích: 1-12, 2-11, 2-12");
     assert.equal(moi.filter((d) => !d.tao).length, 1);
-    // 2 biến thể đã lưu (1 khóa giá) + 3 tổ hợp mới đang tích
-    assert.deepEqual(demDongApGiaChung(nhom), { soApDung: 4, soKhoaGia: 1 });
+    // Nhập cả hai giá: 2 biến thể đã lưu (biến thể còn tồn vẫn nhận giá bán) + 3 tổ hợp mới đang tích; giữ giá vốn 1 biến thể
+    assert.deepEqual(demDongApGiaChung(nhom, { giaVon: 100000, giaBan: 150000 }), { soApDung: 5, soKhoaGia: 1 });
+    // Chỉ nhập giá vốn: biến thể còn tồn không đổi gì
+    assert.deepEqual(demDongApGiaChung(nhom, { giaVon: 100000 }), { soApDung: 4, soKhoaGia: 1 });
+    // Chỉ nhập giá bán: không báo giữ giá vốn
+    assert.deepEqual(demDongApGiaChung(nhom, { giaBan: 150000 }), { soApDung: 5, soKhoaGia: 0 });
 });
