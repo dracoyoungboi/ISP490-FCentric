@@ -6,6 +6,7 @@ import com.dev.backend.entities.DanhSachNhatHang;
 import com.dev.backend.entities.DonBanHang;
 import com.dev.backend.entities.KenhBanHang;
 import com.dev.backend.entities.NguoiDung;
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.repository.ChiTietNhatHangRepository;
 import com.dev.backend.repository.DonBanHangRepository;
 import com.dev.backend.repository.KhoRepository;
@@ -78,30 +79,30 @@ public class ThongBaoXuatKhoService {
             String moc = ThongBaoService.mocDuyNhat();
             return new Lan("phiếu nhặt " + ma + " giao người nhặt", () -> {
                 String tenKho = tenKho(khoId);
-                List<String> cau = new ArrayList<>();
-                cau.add(tenKho);
                 // Đơn bị hủy vẫn nối với phiếu: không đếm
                 long soDon = donBanHangRepository.findByDanhSachNhatHang_Id(id).stream()
                         .filter(d -> !Objects.equals(d.getTrangThai(), ITrangThaiDonBanHang.DA_HUY)).count();
-                if (soDon > 0) cau.add(soDon + " đơn");
                 BigDecimal tong = chiTietNhatHangRepository.findByDanhSachNhatHang_Id(id).stream()
                         .map(ct -> ct.getSoLuongCanNhat() == null ? BigDecimal.ZERO : ct.getSoLuongCanNhat())
                         .reduce(BigDecimal.ZERO, BigDecimal::add);
-                if (tong.signum() > 0) cau.add(so(tong) + " sản phẩm");
+                String moTaGiao = soDon > 0 && tong.signum() > 0 ? tb("giaoPhieuNhatDonSanPham", tenKho, soDon, so(tong))
+                        : soDon > 0 ? tb("giaoPhieuNhatDon", tenKho, soDon)
+                        : tong.signum() > 0 ? tb("giaoPhieuNhatSanPham", tenKho, so(tong))
+                        : tb("giaoPhieuNhatChiKho", tenKho);
                 String duongDan = "/goods-issues/pick-lists/" + id;
                 List<GuiDi> gui = new ArrayList<>();
                 gui.add(new GuiDi(List.of(nguoiNhatMoiId), nguoiThaoTacId,
                         new NoiDung(ThongBaoService.LOAI_PHIEU_NHAT_HANG, ThongBaoService.TONE_INFO,
-                                "Bạn được giao phiếu nhặt " + ma, String.join(", ", cau) + ". Bắt đầu nhặt hàng.",
+                                tb("giaoPhieuNhat", ma), moTaGiao,
                                 duongDan, ThongBaoService.LOAI_PHIEU_NHAT_HANG, id, khoId,
                                 "PL:" + id + ":GIAO:" + nguoiNhatMoiId + ":" + moc)));
                 if (nguoiNhatCuId != null) {
                     String tenMoi = nguoiDungRepository.findById(nguoiNhatMoiId).map(NguoiDung::getHoTen)
-                            .filter(t -> t != null && !t.isBlank()).map(String::trim).orElse("người khác");
+                            .filter(t -> t != null && !t.isBlank()).map(String::trim).orElse(tb("nguoiKhac"));
                     gui.add(new GuiDi(List.of(nguoiNhatCuId), nguoiThaoTacId,
                             new NoiDung(ThongBaoService.LOAI_PHIEU_NHAT_HANG, ThongBaoService.TONE_INFO,
-                                    "Phiếu nhặt " + ma + " đã chuyển cho " + tenMoi,
-                                    "Bạn không cần nhặt phiếu này nữa.", duongDan,
+                                    tb("phieuNhatDaChuyen", ma, tenMoi),
+                                    tb("khongCanNhatNua"), duongDan,
                                     ThongBaoService.LOAI_PHIEU_NHAT_HANG, id, khoId,
                                     "PL:" + id + ":BO:" + nguoiNhatCuId + ":" + moc)));
                 }
@@ -143,16 +144,16 @@ public class ThongBaoXuatKhoService {
                 String tieuDe;
                 String moTa;
                 if (caPhieuHuy) {
-                    tieuDe = "Phiếu nhặt " + ma + " đã hủy";
-                    moTa = "Mọi đơn trong phiếu đã bị hủy. "
-                            + (giaiDoan == GiaiDoanHuy.CHO_DONG_GOI ? "Dừng đóng gói. " : "Dừng nhặt. ")
-                            + (catCau != null ? catCau : "Không có hàng phải cất lại.");
+                    tieuDe = tb("phieuNhatDaHuy", ma);
+                    moTa = tb("moiDonTrongPhieuDaHuy") + " "
+                            + (giaiDoan == GiaiDoanHuy.CHO_DONG_GOI ? tb("dungDongGoi") : tb("dungNhat")) + " "
+                            + (catCau != null ? catCau : tb("khongCoHangCatLai"));
                 } else if (giaiDoan == GiaiDoanHuy.CHO_DONG_GOI) {
-                    tieuDe = "Đơn " + soDon + " bị hủy lúc chờ đóng gói";
-                    moTa = "Phiếu nhặt " + ma + ". Đơn không cần đóng gói nữa." + (catCau != null ? " " + catCau : "");
+                    tieuDe = tb("donHuyChoDongGoi", soDon);
+                    moTa = moTaHuyChoDongGoi(ma, catKe);
                 } else {
-                    tieuDe = "Đơn " + soDon + " bị hủy khi đang nhặt";
-                    moTa = "Số cần nhặt của phiếu " + ma + " đã giảm." + (catCau != null ? " " + catCau : "");
+                    tieuDe = tb("donHuyDangNhat", soDon);
+                    moTa = tb("soCanNhatGiam", ma) + (catCau != null ? " " + catCau : "");
                 }
                 return List.of(new GuiDi(nhan, null, new NoiDung(ThongBaoService.LOAI_PHIEU_NHAT_HANG,
                         ThongBaoService.TONE_WARNING, tieuDe, moTa, "/goods-issues/pick-lists/" + id,
@@ -174,15 +175,14 @@ public class ThongBaoXuatKhoService {
             Integer khoId = don.getKhoXuat() == null ? null : don.getKhoXuat().getId();
             Integer nguoiTaoId = don.getNguoiTao() == null ? null : don.getNguoiTao().getId();
             String tenKenh = don.getKenhBanHang() == null || don.getKenhBanHang().getTenKenh() == null
-                    || don.getKenhBanHang().getTenKenh().isBlank() ? "Sàn" : don.getKenhBanHang().getTenKenh().trim();
+                    || don.getKenhBanHang().getTenKenh().isBlank() ? tb("san") : don.getKenhBanHang().getTenKenh().trim();
             String lyDoGon = lyDoHuySan(lyDo);
             return new Lan("sàn hủy đơn đã xuất " + soDon, () -> {
                 List<Integer> nhan = new ArrayList<>(nguoiNhan.quanTriVien());
                 if (nguoiTaoId != null) nhan.add(nguoiTaoId);
-                String moTa = (lyDoGon.isEmpty() ? "" : "Lý do: " + lyDoGon + ". ")
-                        + "Nhận lại hàng hoàn rồi bấm Ghi nhận hoàn trả.";
+                String moTa = lyDoGon.isEmpty() ? tb("sanHuyMoTa") : tb("sanHuyMoTaLyDo", lyDoGon);
                 return List.of(new GuiDi(nhan, null, new NoiDung(ThongBaoService.LOAI_DON_BAN_HANG,
-                        ThongBaoService.TONE_DANGER, tenKenh + " hủy đơn " + soDon + " đã xuất kho", moTa,
+                        ThongBaoService.TONE_DANGER, tb("sanHuyDonDaXuat", tenKenh, soDon), moTa,
                         "/sales-orders/" + donId, ThongBaoService.LOAI_DON_BAN_HANG, donId, khoId,
                         "DBH:" + donId + ":SAN_HUY_DA_XUAT")));
             });
@@ -220,16 +220,16 @@ public class ThongBaoXuatKhoService {
             long n = donBanHangRepository.demDonChoXuat(khoId);
             if (n <= 0) {
                 return ThongBaoService.TomTat.hetViec(khoa, new NoiDung(ThongBaoService.LOAI_DON_BAN_HANG,
-                        ThongBaoService.TONE_INFO, "Không còn đơn chờ xuất ở " + tenKho(khoId),
-                        "Các đơn đã vào phiếu nhặt hoặc đã hủy.", "/goods-issues/pending-orders", ThongBaoService.LOAI_DON_BAN_HANG,
+                        ThongBaoService.TONE_INFO, tb("khongConDonChoXuat", tenKho(khoId)),
+                        tb("donDaVaoPhieuNhatHoacHuy"), "/goods-issues/pending-orders", ThongBaoService.LOAI_DON_BAN_HANG,
                         null, khoId, khoa));
             }
             List<Integer> nhan = new ArrayList<>(nguoiNhan.quanLyKho(khoId));
             nhan.addAll(nguoiNhan.theoKho(khoId, IRoleType.nhan_vien_kho));
-            String moTa = (soDonMoi == null ? "" : "Mới nhất: đơn " + soDonMoi + ". ") + "Tạo phiếu nhặt để xuất hàng.";
+            String moTa = (soDonMoi == null ? "" : tb("moiNhatDon", soDonMoi) + " ") + tb("taoPhieuNhatDeXuat");
             return new ThongBaoService.TomTat(khoa, nguoiNhan.hoacQuanTri(nhan, "Đơn chờ xuất kho " + khoId), nguoiThaoTacId,
                     new NoiDung(ThongBaoService.LOAI_DON_BAN_HANG, ThongBaoService.TONE_INFO,
-                            n + " đơn chờ xuất ở " + tenKho(khoId), moTa, "/goods-issues/pending-orders",
+                            tb("donChoXuat", n, tenKho(khoId)), moTa, "/goods-issues/pending-orders",
                             ThongBaoService.LOAI_DON_BAN_HANG, null, khoId, khoa),
                     baoMoi);
         });
@@ -267,12 +267,12 @@ public class ThongBaoXuatKhoService {
             String duongDan = "/sales-orders?kenh=" + ma.toLowerCase(Locale.ROOT) + "&trangThai=nhap";
             if (n <= 0) {
                 return ThongBaoService.TomTat.hetViec(khoa, new NoiDung(ThongBaoService.LOAI_DON_BAN_HANG,
-                        ThongBaoService.TONE_INFO, "Không còn đơn " + ten + " chờ gửi sang kho",
-                        "Mọi đơn đã gửi sang kho hoặc đã hủy.", duongDan, ThongBaoService.LOAI_DON_BAN_HANG, null, null, khoa));
+                        ThongBaoService.TONE_INFO, tb("khongConDonSanCho", ten),
+                        tb("moiDonDaGuiHoacHuy"), duongDan, ThongBaoService.LOAI_DON_BAN_HANG, null, null, khoa));
             }
             return new ThongBaoService.TomTat(khoa, nguoiNhan.quanTriVien(), null,
                     new NoiDung(ThongBaoService.LOAI_DON_BAN_HANG, ThongBaoService.TONE_INFO,
-                            n + " đơn " + ten + " chờ gửi sang kho", "Gửi đơn sang kho để nhặt hàng.", duongDan,
+                            tb("donSanChoGuiKho", n, ten), tb("guiDonSangKho"), duongDan,
                             ThongBaoService.LOAI_DON_BAN_HANG, null, null, khoa),
                     baoMoi);
         });
@@ -302,22 +302,24 @@ public class ThongBaoXuatKhoService {
                 });
             }
             int tong = cacDon.size();
-            List<String> cau = new ArrayList<>();
-            cau.add("Đơn " + String.join(", ", soDon.stream().limit(3).toList())
-                    + (soDon.size() > 3 ? " và " + (soDon.size() - 3) + " đơn khác" : "") + ".");
+            // Mô tả ghép từ 12 tổ hợp (A: danh sách đơn có/không "và N đơn khác"; B: không / có SKU chưa liên kết có/không
+            // "và N mã khác"; C: có/không đơn không lấy được dòng) — mỗi tổ hợp một khóa để dịch ngược khớp trọn.
+            String dsSku = "";
             if (!tongSku.isEmpty()) {
                 List<String> ds = new ArrayList<>();
                 tongSku.entrySet().stream().limit(3).forEach(e -> ds.add(e.getKey() + " ×" + e.getValue()));
-                cau.add("SKU chưa liên kết: " + String.join(", ", ds)
-                        + (tongSku.size() > 3 ? " và " + (tongSku.size() - 3) + " mã khác" : "") + ".");
+                dsSku = String.join(", ", ds);
             }
-            if (khongLayDuoc > 0) cau.add(khongLayDuoc + " đơn không lấy được dòng hàng.");
-            cau.add("Liên kết SKU để đơn sau đủ dòng; kiểm tra các đơn này trước khi gửi sang kho.");
+            int a = soDon.size() > 3 ? 2 : 1;
+            int b = tongSku.isEmpty() ? 0 : (tongSku.size() > 3 ? 2 : 1);
+            int c = khongLayDuoc > 0 ? 1 : 0;
+            String moTa = tb("thieuDongMoTaA" + a + "B" + b + "C" + c,
+                    String.join(", ", soDon.stream().limit(3).toList()), soDon.size() - 3, dsSku, khongLayDuoc, tongSku.size() - 3);
             // Một dòng mỗi kênh mỗi ngày: lượt mới có đơn thiếu dòng thì sửa chữ theo lượt đó và hiện lại chưa đọc
             // (kênh còn SKU chưa liên kết mà phút nào cũng có đơn mới không sinh hàng trăm dòng)
             String khoa = "SKU:" + ma + ":" + NGAY_KHOA.format(Instant.now());
             NoiDung nd = new NoiDung(ThongBaoService.LOAI_KENH_BAN_HANG, ThongBaoService.TONE_WARNING,
-                    tong + " đơn " + ten + " thiếu dòng hàng", String.join(" ", cau),
+                    tb("donSanThieuDong", tong, ten), moTa,
                     "/channels/" + ma.toLowerCase(Locale.ROOT) + "/products",
                     ThongBaoService.LOAI_KENH_BAN_HANG, kenh.getId(), null, khoa);
             thongBaoService.capNhatTomTatSauCommit("Thông báo đơn " + ten + " thiếu dòng",
@@ -340,22 +342,22 @@ public class ThongBaoXuatKhoService {
             String soDon = soDon(don);
             Integer khoId = don.getKhoXuat() == null ? null : don.getKhoXuat().getId();
             // Tên kênh lấy từ kênh của job (đã nạp): đơn có sẵn là bản tách rời, đọc don.getKenhBanHang() ném lỗi tải chậm
-            String ten = kenh == null ? "sàn" : tenKenh(kenh);
+            String ten = kenh == null ? tb("sanChung") : tenKenh(kenh);
             boolean daSangKho = tt != 0;
             return new Lan("khách yêu cầu hủy " + soDon, () -> {
-                String tieuDe = "Khách yêu cầu hủy đơn " + soDon;
+                String tieuDe = tb("khachYeuCauHuy", soDon);
                 String khoa = "DBH:" + donId + ":KHACH_YEU_CAU_HUY";
                 String duongDan = "/sales-orders/" + donId;
                 List<GuiDi> gui = new ArrayList<>();
                 // Chỉ quản trị viên xử lý được trên sàn; quản lý kho chỉ cần dừng tay
                 gui.add(new GuiDi(nguoiNhan.quanTriVien(), null, new NoiDung(ThongBaoService.LOAI_DON_BAN_HANG,
                         ThongBaoService.TONE_WARNING, tieuDe,
-                        (daSangKho ? "Đơn đang bị chặn nhặt và xuất. " : "") + "Xử lý yêu cầu hủy trên " + ten + ".",
+                        (daSangKho ? tb("donBiChanNhatXuat") + " " : "") + tb("xuLyYeuCauHuyTren", ten),
                         duongDan, ThongBaoService.LOAI_DON_BAN_HANG, donId, khoId, khoa)));
                 if (daSangKho) {
                     gui.add(new GuiDi(nguoiNhan.quanLyKho(khoId), null, new NoiDung(ThongBaoService.LOAI_DON_BAN_HANG,
                             ThongBaoService.TONE_WARNING, tieuDe,
-                            "Tạm dừng nhặt và đóng gói đơn này, chờ quản trị viên xử lý trên " + ten + ".",
+                            tb("tamDungNhatDongGoi", ten),
                             duongDan, ThongBaoService.LOAI_DON_BAN_HANG, donId, khoId, khoa)));
                 }
                 return gui;
@@ -378,9 +380,9 @@ public class ThongBaoXuatKhoService {
             thongBaoService.guiSauRollback("Thông báo phiếu nhặt " + ma + " thiếu tồn theo lô", () -> List.of(
                     new GuiDi(nguoiNhan.hoacQuanTri(nguoiNhan.quanLyKho(khoId), "Phiếu nhặt " + ma + " thiếu tồn theo lô"),
                             nguoiThaoTacId, new NoiDung(ThongBaoService.LOAI_PHIEU_NHAT_HANG, ThongBaoService.TONE_WARNING,
-                            "Phiếu nhặt " + ma + " thiếu tồn theo lô",
-                            maSku + ": cần " + so(can == null ? BigDecimal.ZERO : can) + ", theo lô còn "
-                                    + so(co == null ? BigDecimal.ZERO : co) + ". Phân bổ lại lô hoặc kiểm kê, rồi báo người nhặt.",
+                            tb("phieuNhatThieuTonLo", ma),
+                            tb("thieuTonLoMoTa", maSku, so(can == null ? BigDecimal.ZERO : can),
+                                    so(co == null ? BigDecimal.ZERO : co)),
                             "/goods-issues/pick-lists/" + phieuNhatId, ThongBaoService.LOAI_PHIEU_NHAT_HANG, phieuNhatId,
                             khoId, "PL:" + phieuNhatId + ":THIEU_LO:" + bienTheId + ":" + ngay))));
         } catch (RuntimeException e) {
@@ -406,12 +408,15 @@ public class ThongBaoXuatKhoService {
             String so = soPhieu == null || soPhieu.isBlank() ? "#" + phieuId : soPhieu.trim();
             String soDon = don == null ? null : soDon(don);
             List<String> ds = skus.stream().filter(Objects::nonNull).limit(5).toList();
-            String moTa = (soDon == null ? "" : "Đơn " + soDon + ": ") + String.join(", ", ds)
-                    + (skus.size() > 5 ? " và " + (skus.size() - 5) + " mã khác" : "") + " chưa đủ lô. Chọn lô cho các dòng thiếu trước khi xuất.";
+            boolean nhieuMa = skus.size() > 5;
+            String dsSku = String.join(", ", ds);
+            String moTa = soDon == null
+                    ? (nhieuMa ? tb("canSuaLoNhieuMa", dsSku, skus.size() - 5) : tb("canSuaLo", dsSku))
+                    : (nhieuMa ? tb("canSuaLoDonNhieuMa", soDon, dsSku, skus.size() - 5) : tb("canSuaLoDon", soDon, dsSku));
             return new Lan("phiếu xuất " + so + " cần sửa lô", () -> List.of(new GuiDi(
                     nguoiNhan.hoacQuanTri(nguoiNhan.quanLyKho(khoId), "Phiếu xuất " + so + " cần sửa lô"), nguoiThaoTacId,
                     new NoiDung(ThongBaoService.LOAI_PHIEU_XUAT_KHO, ThongBaoService.TONE_WARNING,
-                            "Phiếu xuất " + so + " chưa đủ lô", moTa, "/goods-issues/" + phieuId,
+                            tb("phieuXuatChuaDuLo", so), moTa, "/goods-issues/" + phieuId,
                             ThongBaoService.LOAI_PHIEU_XUAT_KHO, phieuId, khoId, "PXK:" + phieuId + ":CAN_SUA_LO"))));
         });
     }
@@ -441,11 +446,12 @@ public class ThongBaoXuatKhoService {
             Integer khoId = don.getKhoXuat() == null ? null : don.getKhoXuat().getId();
             boolean du = Objects.equals(trangThaiDon, ITrangThaiDonBanHang.DA_XUAT_TOAN_BO);
             String so = soPhieu == null || soPhieu.isBlank() ? "#" + phieuId : soPhieu.trim();
-            String vanDon = maVanDon == null || maVanDon.isBlank() ? "" : ", mã vận đơn " + maVanDon.trim();
+            String maVD = maVanDon == null || maVanDon.isBlank() ? null : maVanDon.trim();
             return new Lan("đơn " + soDon + " đã xuất kho", () -> List.of(new GuiDi(List.of(nguoiTaoId), nguoiThaoTacId,
                     new NoiDung(ThongBaoService.LOAI_DON_BAN_HANG, du ? ThongBaoService.TONE_SUCCESS : ThongBaoService.TONE_INFO,
-                            "Đơn " + soDon + (du ? " đã xuất kho" : " đã xuất một phần"),
-                            (du ? "Bấm Xác nhận đã giao khi khách nhận hàng. " : "") + "Phiếu xuất " + so + vanDon + ".",
+                            du ? tb("donDaXuatKho", soDon) : tb("donDaXuatMotPhan", soDon),
+                            (du ? tb("nhacXacNhanDaGiao") + " " : "")
+                                    + (maVD == null ? tb("phieuXuatSo", so) : tb("phieuXuatVanDon", so, maVD)),
                             "/sales-orders/" + donId, ThongBaoService.LOAI_DON_BAN_HANG, donId, khoId,
                             "DBH:" + donId + ":DA_XUAT:" + phieuId))));
         });
@@ -473,8 +479,8 @@ public class ThongBaoXuatKhoService {
                 nhan.addAll(nguoiNhan.theoKho(khoId, IRoleType.nhan_vien_kho));
                 return List.of(new GuiDi(nguoiNhan.hoacQuanTri(nhan, "Đơn " + soDon + " hoàn trả"), nguoiThaoTacId,
                         new NoiDung(ThongBaoService.LOAI_DON_BAN_HANG, ThongBaoService.TONE_WARNING,
-                                "Đơn " + soDon + " bị hoàn trả",
-                                "Khi hàng về " + tenKho(khoId) + ", lập phiếu nhập hoàn trả để cộng lại tồn.",
+                                tb("donBiHoanTra", soDon),
+                                tb("hangVeLapPhieuNhap", tenKho(khoId)),
                                 "/goods-receipts/create", ThongBaoService.LOAI_DON_BAN_HANG, donId, khoId,
                                 "DBH:" + donId + ":HOAN_TRA")));
             });
@@ -533,6 +539,11 @@ public class ThongBaoXuatKhoService {
 
     private record Lan(String moTa, Supplier<List<GuiDi>> lap) {}
 
+    /** Câu tiếng Việt của khóa trong nhóm thongBaoXuatKho (lưu vào thông báo; dịch lúc đọc bằng DichThongBao). */
+    private static String tb(String khoa, Object... thamSo) {
+        return ThongDiep.vi("thongBaoXuatKho." + khoa, thamSo);
+    }
+
     /** Chụp dữ liệu ngay (trong giao dịch nghiệp vụ), soạn và ghi sau commit. Không ném lỗi. */
     private void dangKy(String suKien, Supplier<Lan> chup) {
         try {
@@ -545,19 +556,31 @@ public class ThongBaoXuatKhoService {
 
     /** Tối đa 3 mã thì ghi từng mã: "Cất về kệ: POLO-X ×5, AO-Y ×2."; nhiều hơn thì "Cất 12 sản phẩm (5 mã) về kệ." */
     static String cauCatKe(Map<String, BigDecimal> catKe) {
-        if (catKe.size() <= 3) {
-            List<String> ds = new ArrayList<>();
-            catKe.forEach((sku, sl) -> ds.add(sku + " ×" + so(sl)));
-            return "Cất về kệ: " + String.join(", ", ds) + ".";
-        }
-        BigDecimal tong = catKe.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
-        return "Cất " + so(tong) + " sản phẩm (" + catKe.size() + " mã) về kệ.";
+        if (catKe.size() <= 3) return tb("catVeKe", dsCatKe(catKe));
+        return tb("catNhieuMa", so(tongCatKe(catKe)), catKe.size());
+    }
+
+    /** Mô tả đơn hủy lúc chờ đóng gói, kèm câu cất kệ (nếu có) — một khóa theo từng dạng câu cất kệ. */
+    private static String moTaHuyChoDongGoi(String ma, Map<String, BigDecimal> catKe) {
+        if (catKe.isEmpty()) return tb("huyChoDongGoiMoTa", ma);
+        if (catKe.size() <= 3) return tb("huyChoDongGoiCatVeKe", ma, dsCatKe(catKe));
+        return tb("huyChoDongGoiCatNhieuMa", ma, so(tongCatKe(catKe)), catKe.size());
+    }
+
+    private static String dsCatKe(Map<String, BigDecimal> catKe) {
+        List<String> ds = new ArrayList<>();
+        catKe.forEach((sku, sl) -> ds.add(sku + " ×" + so(sl)));
+        return String.join(", ", ds);
+    }
+
+    private static BigDecimal tongCatKe(Map<String, BigDecimal> catKe) {
+        return catKe.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     private String tenKho(Integer khoId) {
-        if (khoId == null) return "Kho";
+        if (khoId == null) return tb("kho");
         return khoRepository.findById(khoId).map(k -> k.getTenKho()).filter(t -> t != null && !t.isBlank())
-                .map(String::trim).orElse("Kho #" + khoId);
+                .map(String::trim).orElse(ThongDiep.vi("thongBaoChung.khoSo", khoId));
     }
 
     private static String ma(DanhSachNhatHang pl) {
@@ -566,11 +589,11 @@ public class ThongBaoXuatKhoService {
 
     /** Mã lý do hủy của Shopify (cancel_reason) → câu tiếng Việt; "other" và mã lạ không ghi. */
     private static final Map<String, String> LY_DO_SHOPIFY = Map.of(
-            "customer", "khách hủy",
-            "fraud", "nghi gian lận",
-            "inventory", "hết hàng",
-            "declined", "thanh toán bị từ chối",
-            "staff", "nhân viên shop hủy");
+            "customer", tb("lyDoKhachHuy"),
+            "fraud", tb("lyDoNghiGianLan"),
+            "inventory", tb("lyDoHetHang"),
+            "declined", tb("lyDoThanhToanTuChoi"),
+            "staff", tb("lyDoNhanVienHuy"));
 
     /**
      * Lý do sàn gửi kèm → phần đáng đọc: bỏ tiền tố "Hủy từ sàn X:" mà job đồng bộ đơn tự thêm (chỉ còn tiền tố thì không
