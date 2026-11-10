@@ -379,7 +379,7 @@ export const SIDEBAR_MENU = [
   // Mở trung tâm Cấu hình; các trang con (menu trái của SettingsLayout) khai báo ở settings.config.js
   // và được liệt kê ở đây để phân quyền / tìm kiếm toàn hệ thống đếm đủ màn hình.
   {
-    label: t("Cấu hình"),
+    label: t("Cài đặt"),
     icon: Settings,
     section: SIDEBAR_FOOTER_SECTION,
     to: "/settings",

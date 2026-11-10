@@ -480,7 +480,7 @@ function NoiDung({ nguon, dongBanDau, maPhieu, onDatGia, onDaMoIn, onDong }) {
             {xemCauHinh ? (
               // Màn cảm ứng: liên kết cao 44px (hộp thoại nằm ngoài vùng nội dung chính nên lớp đệm liên kết chung không áp)
               <Link to="/settings/print-templates" className="shrink-0 font-medium text-bo-primary hover:text-bo-primary-hover cam-ung:inline-flex cam-ung:min-h-11 cam-ung:items-center">
-                {suaCauHinh ? t("Sửa trong Cấu hình") : t("Xem trong Cấu hình")}
+                {suaCauHinh ? t("Sửa trong Cài đặt") : t("Xem trong Cài đặt")}
               </Link>
             ) : null}
           </div>
