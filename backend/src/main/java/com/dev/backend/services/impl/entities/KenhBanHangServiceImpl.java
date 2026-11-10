@@ -857,6 +857,12 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
             }
             boolean hasSecret = kenh.getApiSecret() != null && !kenh.getApiSecret().isBlank();
             boolean hasToken = kenh.getApiKey() != null && !kenh.getApiKey().isBlank();
+            // Tự động chuẩn hóa hạn token nếu còn tàn dư lỗi năm 2083
+            if (kenh.getTokenExpiresAt() != null && kenh.getTokenExpiresAt().isAfter(Instant.now().plus(Duration.ofDays(60)))) {
+                kenh.setTokenExpiresAt(Instant.now().plus(Duration.ofDays(7)));
+                kenhBanHangRepository.save(kenh);
+            }
+
             boolean isExpired = hasToken && kenh.getTokenExpiresAt() != null && Instant.now().isAfter(kenh.getTokenExpiresAt());
             String trangThaiKetNoi = CHUA_KET_NOI;
             if (hasToken) {
@@ -876,6 +882,13 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                 tenKhoSan = cauHinhHeThongRepository.findById("KENH_" + ma + "_TEN_KHO_SAN")
                         .map(com.dev.backend.entities.CauHinhHeThong::getGiaTri).orElse(null);
             }
+
+            // Tự động phục hồi Shop Cipher nếu bị thiếu hoặc bị ghi đè
+            String cipherThucTe = ensureValidTikTokShopCipher(kenh);
+            String tenGianHang = (kenh.getApiUrl() != null && !kenh.getApiUrl().isBlank() && !kenh.getApiUrl().contains("::"))
+                    ? kenh.getApiUrl().trim()
+                    : (kenh.getTenKenh() != null ? kenh.getTenKenh() : "Gian hàng TikTok Shop");
+
             return ShopifyConfigResponse.builder()
                     .id(kenh.getId())
                     .maKenh(ma)
@@ -890,8 +903,8 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                     .hanUyQuyen(kenh.getTokenExpiresAt())
                     .soNgayConUyQuyen(soNgayCon)
                     .ngayUyQuyen(kenh.getNgayCapNhat())
-                    .tenGianHang(kenh.getTenKenh())
-                    .shopIdSan(kenh.getShopCipher())
+                    .tenGianHang(tenGianHang)
+                    .shopIdSan(cipherThucTe)
                     .trangThai(kenh.getTrangThai() != null ? kenh.getTrangThai() : 1)
                     .kieuKetNoi(KIEU_UY_QUYEN)
                     .trangThaiKetNoi(trangThaiKetNoi)
@@ -1697,6 +1710,30 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
             TikTokAuthorizedShopsResponse res = getTikTokShopClient().getAuthorizedShops(appKey, appSecret, accessToken);
             if (res.getShops() != null && !res.getShops().isEmpty()) {
                 TikTokShopDto shop = res.getShops().get(0);
+
+                // Tự động lưu và đồng bộ Shop Cipher thật cùng tên gian hàng vào CSDL
+                try {
+                    KenhBanHang kenhDb = kenhBanHangRepository.findByMaKenh(MA_KENH_TIKTOK).orElse(null);
+                    if (kenhDb != null) {
+                        boolean coDoi = false;
+                        if (shop.getCipher() != null && !shop.getCipher().equals(kenhDb.getShopCipher())) {
+                            kenhDb.setShopCipher(shop.getCipher());
+                            coDoi = true;
+                        }
+                        if (shop.getName() != null && !shop.getName().isBlank() && !shop.getName().equals(kenhDb.getApiUrl())) {
+                            kenhDb.setApiUrl(shop.getName());
+                            coDoi = true;
+                        }
+                        if (coDoi) {
+                            kenhBanHangRepository.save(kenhDb);
+                            log.info("[TIKTOK-TEST-CONN] Đã tự động cập nhật Shop Cipher ({}) và tên gian hàng ({})",
+                                    maskToken(shop.getCipher()), shop.getName());
+                        }
+                    }
+                } catch (Exception syncEx) {
+                    log.warn("Không thể tự động cập nhật shop cipher khi test kết nối: {}", syncEx.getMessage());
+                }
+
                 int soKho = 0;
                 try {
                     com.dev.backend.dto.response.customize.TikTokWarehousesResponse whRes =
@@ -1980,7 +2017,53 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
     @Override
     public String getTikTokShopCipher() {
         KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(MA_KENH_TIKTOK).orElse(null);
-        return kenh != null ? kenh.getShopCipher() : null;
+        return ensureValidTikTokShopCipher(kenh);
+    }
+
+    /**
+     * Tự động kiểm tra và phục hồi mã Shop Cipher thật của TikTok Shop.
+     * Cơ chế tự lành (Self-Healing): Nếu cipher bị null hoặc bị ghi đè bởi tên shop (chuỗi ngắn không chứa mã hợp lệ),
+     * hệ thống sẽ tự động gọi endpoint /authorization/202309/shops từ TikTok Open API để lấy và lưu lại cipher thật.
+     */
+    public String ensureValidTikTokShopCipher(KenhBanHang kenh) {
+        if (kenh == null) return null;
+        String cipher = kenh.getShopCipher();
+        String apiUrl = kenh.getApiUrl();
+
+        // Kiểm tra xem cipher có bị ghi đè bởi tên shop (vd: "f-centric") không:
+        // Cipher thật của TikTok Shop là một mã hash đặc biệt (thường dài >= 20 ký tự hoặc có prefix theo chuẩn TikTok).
+        // Nếu cipher trùng với apiUrl và ngắn (< 25 ký tự) hoặc chứa ký tự tên thông thường không phải hash:
+        boolean nghiNgoBiGhiDe = cipher != null && apiUrl != null && cipher.equalsIgnoreCase(apiUrl.trim()) && cipher.length() < 25;
+        if (cipher != null && !cipher.isBlank() && !nghiNgoBiGhiDe) {
+            return cipher;
+        }
+
+        String appKey = kenh.getClientId();
+        String appSecret = getDecryptedTikTokAppSecret();
+        String token = getDecryptedTikTokAccessToken();
+        if (appKey != null && !appKey.isBlank() && appSecret != null && !appSecret.isBlank() && token != null && !token.isBlank()) {
+            try {
+                log.info("[TIKTOK-AUTO-RECOVER] Tự động truy vấn TikTok Open API để phục hồi Shop Cipher...");
+                TikTokAuthorizedShopsResponse shopsRes = getTikTokShopClient().getAuthorizedShops(appKey, appSecret, token);
+                if (shopsRes.getShops() != null && !shopsRes.getShops().isEmpty()) {
+                    TikTokShopDto firstShop = shopsRes.getShops().get(0);
+                    String realCipher = firstShop.getCipher();
+                    if (realCipher != null && !realCipher.isBlank()) {
+                        kenh.setShopCipher(realCipher);
+                        if (firstShop.getName() != null && !firstShop.getName().isBlank()) {
+                            kenh.setApiUrl(firstShop.getName());
+                        }
+                        kenhBanHangRepository.save(kenh);
+                        log.info("[TIKTOK-AUTO-RECOVER] Đã phục hồi thành công Shop Cipher TikTok: {} (Tên shop: {})",
+                                maskToken(realCipher), kenh.getApiUrl());
+                        return realCipher;
+                    }
+                }
+            } catch (Exception ex) {
+                log.warn("[TIKTOK-AUTO-RECOVER] Không thể tự động phục hồi Shop Cipher từ TikTok: {}", ex.getMessage());
+            }
+        }
+        return cipher;
     }
 
     // ── Shopee Open Platform Implementation ──
