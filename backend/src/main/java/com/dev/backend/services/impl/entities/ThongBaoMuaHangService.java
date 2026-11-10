@@ -6,6 +6,7 @@ import com.dev.backend.entities.DonMuaHang;
 import com.dev.backend.entities.NguoiDung;
 import com.dev.backend.entities.PhieuNhapKho;
 import com.dev.backend.entities.YeuCauMuaHang;
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.repository.KhoRepository;
 import com.dev.backend.repository.NguoiDungRepository;
 import com.dev.backend.services.impl.entities.ThongBaoService.GuiDi;
@@ -81,11 +82,12 @@ public class ThongBaoMuaHangService {
                 Integer quanLyGhiTrenKho = quanLyGhiTrenKho(khoId);
                 if (quanLyGhiTrenKho != null) nhan.add(quanLyGhiTrenKho);
                 String tenKho = tenKho(khoId);
-                String moTa = (tenNguoiTao == null || tenNguoiTao.isBlank() ? "Đề nghị" : tenNguoiTao.trim() + " đề nghị")
-                        + " nhập " + soMaHang + " mã hàng về " + tenKho + ".";
+                String moTa = tenNguoiTao == null || tenNguoiTao.isBlank()
+                        ? cau("deNghiNhap", soMaHang, tenKho)
+                        : cau("nguoiDeNghiNhap", tenNguoiTao.trim(), soMaHang, tenKho);
                 return List.of(new GuiDi(nguoiNhan.hoacQuanTri(nhan, "Yêu cầu nhập hàng " + so + " chờ duyệt"), nguoiTaoId,
                         new NoiDung(ThongBaoService.LOAI_YEU_CAU_NHAP_HANG, ThongBaoService.TONE_INFO,
-                                "Yêu cầu nhập hàng " + so + " chờ duyệt", moTa, "/purchase-requests/" + id,
+                                cau("ycChoDuyet", so), moTa, "/purchase-requests/" + id,
                                 ThongBaoService.LOAI_YEU_CAU_NHAP_HANG, id, khoId, "YCNH:" + id + ":CHO_DUYET")));
             });
         });
@@ -112,19 +114,21 @@ public class ThongBaoMuaHangService {
                     ? null : nguoiXet.getHoTen().trim();
             String lyDo = lyDoTuChoi == null ? "" : lyDoTuChoi.trim().replaceAll("[.\\s]+$", "");
             return new Lan("yêu cầu nhập hàng " + so + (duyet ? " đã duyệt" : " bị từ chối"), nguoiXetId, () -> {
-                String tieuDe = "Yêu cầu nhập hàng " + so + (duyet ? " đã được duyệt" : " bị từ chối");
+                String tieuDe = cau(duyet ? "ycDaDuocDuyet" : "ycBiTuChoi", so);
                 String khoa = "YCNH:" + id + (duyet ? ":DUYET" : ":TU_CHOI");
                 String duongDan = "/purchase-requests/" + id;
                 List<Integer> nguoiLap = nguoiTaoId == null ? List.of() : List.of(nguoiTaoId);
                 if (!duyet) {
-                    String moTa = (tenNguoiXet == null ? "Bị từ chối" : tenNguoiXet + " từ chối")
-                            + (lyDo.isEmpty() ? "." : ". Lý do: " + lyDo + ".");
+                    String moTa = lyDo.isEmpty()
+                            ? (tenNguoiXet == null ? cau("biTuChoi") : cau("nguoiTuChoi", tenNguoiXet))
+                            : (tenNguoiXet == null ? cau("biTuChoiLyDo", lyDo) : cau("nguoiTuChoiLyDo", tenNguoiXet, lyDo));
                     return List.of(new GuiDi(nguoiLap, nguoiXetId, new NoiDung(ThongBaoService.LOAI_YEU_CAU_NHAP_HANG,
                             ThongBaoService.TONE_DANGER, tieuDe, moTa, duongDan, ThongBaoService.LOAI_YEU_CAU_NHAP_HANG,
                             id, khoId, khoa)));
                 }
-                String daDuyet = (tenNguoiXet == null ? "Đã duyệt" : tenNguoiXet + " đã duyệt") + ".";
-                String nhac = daDuyet + " Gửi yêu cầu báo giá cho nhà cung cấp.";
+                String daDuyet = tenNguoiXet == null ? cau("daDuyet") : cau("nguoiDaDuyet", tenNguoiXet);
+                // Cả hai câu là một khóa: tên người có thể có ". " (vd. "Nguyễn V. An"), tách câu sẽ cắt nhầm
+                String nhac = tenNguoiXet == null ? cau("daDuyetNhacBaoGia") : cau("nguoiDaDuyetNhacBaoGia", tenNguoiXet);
                 // Người lập không gửi được yêu cầu báo giá (vd. nhân viên bán hàng): không nhắc việc họ không làm được,
                 // báo nhân viên mua hàng của kho nhập làm tiếp
                 if (nguoiTaoId == null || coVaiTro(VAI_TRO_GUI_YEU_CAU_BAO_GIA, vaiTro(nguoiTaoId))) {
@@ -154,9 +158,11 @@ public class ThongBaoMuaHangService {
         }
         dangKy(guiLai ? "báo giá gửi lại" : "báo giá mới", () -> {
             Integer donId = don.getId();
+            // null = chưa có tên nhà cung cấp: dùng câu riêng có sẵn chữ "Nhà cung cấp" (không đặt làm tham số vì cụm
+            // "Nhà cung cấp" đứng riêng sẽ làm bộ dịch ngược tách cụm nhầm ở các câu ghép)
             String tenNcc = don.getNhaCungCap() == null || don.getNhaCungCap().getTenNhaCungCap() == null
                     || don.getNhaCungCap().getTenNhaCungCap().isBlank()
-                    ? "Nhà cung cấp" : don.getNhaCungCap().getTenNhaCungCap().trim();
+                    ? null : don.getNhaCungCap().getTenNhaCungCap().trim();
             BigDecimal tongTien = don.getTongTien();
             Integer khoId = don.getKhoNhap() == null ? null : don.getKhoNhap().getId();
             Integer nguoiGuiId = don.getNguoiTao() == null ? null : don.getNguoiTao().getId();
@@ -187,12 +193,9 @@ public class ThongBaoMuaHangService {
                     nhan.addAll(nguoiNhan.hoacQuanTri(nguoiNhan.theoKho(khoId, IRoleType.nhan_vien_mua_hang),
                             "Báo giá đơn mua " + donId));
                 }
-                String tieuDe = tenNcc + (guiLai ? " đã gửi lại báo giá" : " đã gửi báo giá");
-                List<String> cau = new ArrayList<>();
-                if (soDon != null) cau.add("Đơn mua hàng " + soDon);
-                if (soYc != null) cau.add(cau.isEmpty() ? "Yêu cầu nhập hàng " + soYc : "yêu cầu nhập hàng " + soYc);
-                if (tongTien != null) cau.add("tổng " + tien(tongTien));
-                String moTa = cau.isEmpty() ? "Xem báo giá." : String.join(", ", cau) + ".";
+                String tieuDe = tenNcc == null ? cau(guiLai ? "nccMacDinhGuiLaiBaoGia" : "nccMacDinhGuiBaoGia")
+                        : cau(guiLai ? "nccGuiLaiBaoGia" : "nccGuiBaoGia", tenNcc);
+                String moTa = moTaBaoGia(soDon, soYc, tongTien);
                 List<GuiDi> gui = new ArrayList<>();
                 gui.add(new GuiDi(nhan, null,
                         new NoiDung(ThongBaoService.LOAI_DON_MUA_HANG, ThongBaoService.TONE_INFO, tieuDe, moTa,
@@ -247,12 +250,18 @@ public class ThongBaoMuaHangService {
             return new Lan("đơn mua " + soDon + " đã chốt", nguoiChotId, () -> {
                 List<Integer> nhan = new ArrayList<>(nguoiNhan.theoKho(khoId, IRoleType.nhan_vien_kho));
                 nhan.addAll(nguoiNhan.quanLyKho(khoId));
-                String moTa = (tenNcc.equals("nhà cung cấp") ? "Nhà cung cấp" : tenNcc)
-                        + (ngayGiao == null ? "" : ", giao dự kiến " + NGAY_VN.format(ngayGiao))
-                        + ". Tạo phiếu nhập khi hàng về.";
+                String moTa;
+                if (tenNcc.equals(cau("nhaCungCapThuong"))) {
+                    // Chưa có tên nhà cung cấp: câu riêng có sẵn chữ "Nhà cung cấp" (xem ghi chú ở baoGiaMoi)
+                    moTa = ngayGiao == null ? cau("chotKhongNgayMacDinh")
+                            : cau("chotCoNgayMacDinh", NGAY_VN.format(ngayGiao));
+                } else {
+                    moTa = ngayGiao == null ? cau("chotKhongNgay", tenNcc)
+                            : cau("chotCoNgay", tenNcc, NGAY_VN.format(ngayGiao));
+                }
                 return List.of(new GuiDi(nguoiNhan.hoacQuanTri(nhan, "Đơn mua " + soDon + " đã chốt"), nguoiChotId,
                         new NoiDung(ThongBaoService.LOAI_DON_MUA_HANG, ThongBaoService.TONE_INFO,
-                                "Đơn mua hàng " + soDon + " đã chốt, chờ nhận hàng", moTa,
+                                cau("donChotTieuDe", soDon), moTa,
                                 "/purchase-orders/" + donId, ThongBaoService.LOAI_DON_MUA_HANG, donId, khoId,
                                 "DMH:" + donId + ":CHAP_NHAN")));
             });
@@ -298,15 +307,12 @@ public class ThongBaoMuaHangService {
                 String moTa;
                 String tone;
                 if (daHuy) {
-                    tieuDe = "Biên bản trả hàng " + maBb + " đã hủy";
-                    moTa = doHuyPhieuNhap
-                            ? "Phiếu nhập " + soPn + " đã hủy, không cần trả hàng cho nhà cung cấp."
-                            : "Phiếu nhập " + soPn + " không còn hàng lỗi cần trả.";
+                    tieuDe = cau("bbHuyTieuDe", maBb);
+                    moTa = doHuyPhieuNhap ? cau("bbHuyPhieuNhap", soPn) : cau("bbHetHangLoi", soPn);
                     tone = ThongBaoService.TONE_INFO;
                 } else {
-                    tieuDe = "Hàng lỗi đơn mua " + soDon + ": " + tenPhuongAn(phuongAn);
-                    moTa = soLoi + " sản phẩm lỗi (phiếu nhập " + soPn + ", biên bản " + maBb + "). "
-                            + cauPhuongAn(phuongAn, tenNcc);
+                    tieuDe = cau("bbLoiTieuDe", soDon, tenPhuongAn(phuongAn));
+                    moTa = moTaHangLoi(phuongAn, soLoi, soPn, maBb, tenNcc);
                     tone = "TRA_TAI_XE".equals(phuongAn) ? ThongBaoService.TONE_INFO : ThongBaoService.TONE_WARNING;
                 }
                 List<Integer> nhan = new ArrayList<>();
@@ -369,8 +375,8 @@ public class ThongBaoMuaHangService {
             Integer nguoiNhapId = nguoiNhap == null ? null : nguoiNhap.getId();
             return new Lan("đơn mua " + soDon + " nhận đủ", nguoiNhapId, () -> {
                 String tenKho = tenKho(khoId);
-                String moTa = (soPn == null ? "Nhập" : "Phiếu nhập " + soPn) + " tại " + tenKho + ".";
-                String tieuDe = "Đơn mua hàng " + soDon + " đã nhận đủ";
+                String moTa = soPn == null ? cau("nhanDuTaiKho", tenKho) : cau("nhanDuPhieuTaiKho", soPn, tenKho);
+                String tieuDe = cau("nhanDuTieuDe", soDon);
                 String khoa = "DMH:" + donId + ":DA_NHAN_DU";
                 List<Integer> xemDonMua = new ArrayList<>();
                 List<Integer> xemYeuCau = new ArrayList<>();
@@ -404,15 +410,34 @@ public class ThongBaoMuaHangService {
 
     /** Tên phương án trả hàng, khớp PHUONG_AN_TRA_HANG ở frontend/src/constants/nhapKho.js. */
     static String tenPhuongAn(String ma) {
-        if ("TRU_CONG_NO".equals(ma)) return "Trừ công nợ";
-        if ("TRA_TAI_XE".equals(ma)) return "Trả cho tài xế";
-        return "Đổi hàng mới";
+        if ("TRU_CONG_NO".equals(ma)) return cau("paTruCongNo");
+        if ("TRA_TAI_XE".equals(ma)) return cau("paTraTaiXe");
+        return cau("paDoiHangMoi");
     }
 
-    private static String cauPhuongAn(String ma, String tenNcc) {
-        if ("TRU_CONG_NO".equals(ma)) return "Trừ vào công nợ " + tenNcc + " theo giá nhập.";
-        if ("TRA_TAI_XE".equals(ma)) return "Hàng lỗi đã giao lại cho tài xế của " + tenNcc + ".";
-        return "Báo " + tenNcc + " giao bù hàng đạt ở đợt sau.";
+    /** Một câu duy nhất theo phương án (cả phần số lỗi + phiếu + biên bản): tên nhà cung cấp có thể có ". ". */
+    private static String moTaHangLoi(String phuongAn, int soLoi, String soPn, String maBb, String tenNcc) {
+        if ("TRU_CONG_NO".equals(phuongAn)) return cau("bbLoiTruCongNo", soLoi, soPn, maBb, tenNcc);
+        if ("TRA_TAI_XE".equals(phuongAn)) return cau("bbLoiTraTaiXe", soLoi, soPn, maBb, tenNcc);
+        return cau("bbLoiDoiHang", soLoi, soPn, maBb, tenNcc);
+    }
+
+    /** Mô tả báo giá: ghép từ đơn mua / yêu cầu nhập / tổng tiền nào có; mỗi tổ hợp là một khóa (mẫu khớp trọn câu). */
+    private static String moTaBaoGia(String soDon, String soYc, BigDecimal tongTien) {
+        String tong = tongTien == null ? null : tien(tongTien);
+        if (soDon != null && soYc != null && tong != null) return cau("baoGiaDonYcTong", soDon, soYc, tong);
+        if (soDon != null && soYc != null) return cau("baoGiaDonYc", soDon, soYc);
+        if (soDon != null && tong != null) return cau("baoGiaDonTong", soDon, tong);
+        if (soYc != null && tong != null) return cau("baoGiaYcTong", soYc, tong);
+        if (soDon != null) return cau("baoGiaDon", soDon);
+        if (soYc != null) return cau("baoGiaYc", soYc);
+        if (tong != null) return cau("baoGiaTong", tong);
+        return cau("xemBaoGia");
+    }
+
+    /** Câu thông báo mua hàng theo khóa của nhóm thongBaoMuaHang, bằng tiếng Việt (lưu xuống bảng thông báo). */
+    private static String cau(String khoa, Object... thamSo) {
+        return ThongDiep.vi("thongBaoMuaHang." + khoa, thamSo);
     }
 
     private static String soDon(DonMuaHang don) {
@@ -420,7 +445,7 @@ public class ThongBaoMuaHangService {
     }
 
     private static String tenNcc(String ten) {
-        return ten == null || ten.isBlank() ? "nhà cung cấp" : ten.trim();
+        return ten == null || ten.isBlank() ? cau("nhaCungCapThuong") : ten.trim();
     }
 
     /** Một lần gửi: mô tả cho log, người thao tác (chỉ để log) và phần soạn chạy sau commit. */
@@ -475,9 +500,9 @@ public class ThongBaoMuaHangService {
     }
 
     private String tenKho(Integer khoId) {
-        if (khoId == null) return "kho";
+        if (khoId == null) return cau("khoThuong");
         return khoRepository.findById(khoId).map(k -> k.getTenKho()).filter(t -> t != null && !t.isBlank())
-                .map(String::trim).orElse("kho #" + khoId);
+                .map(String::trim).orElse(ThongDiep.vi("thongBaoChung.khoSoThuong", khoId));
     }
 
     private static String so(YeuCauMuaHang yc) {
