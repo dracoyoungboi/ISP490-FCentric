@@ -1789,7 +1789,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
             JsonNode dataNode = res.path("data");
             String accessToken = dataNode.path("access_token").asText(null);
             String refreshToken = dataNode.path("refresh_token").asText(null);
-            long expiresIn = dataNode.path("access_token_expire_in").asLong(86400L); // 1 ngày mặc định
+            long rawExpire = dataNode.path("access_token_expire_in").asLong(0L);
             String sellerName = dataNode.path("seller_name").asText(null);
 
             if (accessToken == null || accessToken.isBlank()) {
@@ -1803,7 +1803,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
             if (refreshToken != null && !refreshToken.isBlank()) {
                 kenh.setRefreshToken(paymentSecretCipher.encrypt(refreshToken));
             }
-            kenh.setTokenExpiresAt(Instant.now().plusSeconds(expiresIn));
+            kenh.setTokenExpiresAt(tinhHanTokenTikTok(rawExpire, 7));
 
             // Tự động gọi API lấy danh sách gian hàng để trích xuất shop_cipher
             try {
@@ -1880,14 +1880,14 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
 
             String newAccessToken = dataNode.path("access_token").asText(null);
             String newRefreshToken = dataNode.path("refresh_token").asText(null);
-            long expiresIn = dataNode.path("access_token_expire_in").asLong(86400L);
+            long rawExpire = dataNode.path("access_token_expire_in").asLong(0L);
 
             if (newAccessToken != null && !newAccessToken.isBlank()) {
                 kenh.setApiKey(paymentSecretCipher.encrypt(newAccessToken));
                 if (newRefreshToken != null && !newRefreshToken.isBlank()) {
                     kenh.setRefreshToken(paymentSecretCipher.encrypt(newRefreshToken));
                 }
-                kenh.setTokenExpiresAt(Instant.now().plusSeconds(expiresIn));
+                kenh.setTokenExpiresAt(tinhHanTokenTikTok(rawExpire, 7));
                 kenhBanHangRepository.save(kenh);
                 ghiLichSuThayDoi(kenh, "Làm mới Access Token TikTok Shop tự động thành công");
                 uyQuyenDaOn(MA_KENH_TIKTOK);
@@ -1900,6 +1900,47 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         } finally {
             tikTokTokenRefreshLock.unlock();
         }
+    }
+
+    /**
+     * Chuẩn hóa thời gian hết hạn Access Token từ TikTok Shop Open Platform.
+     * TikTok Shop trả về `access_token_expire_in` là Unix Epoch Timestamp (giây từ 1970).
+     * Hàm này tự động phát hiện Unix timestamp (Epoch seconds/millis) hoặc delta seconds,
+     * đồng thời chặn tràn giá trị (Safety Clamp) để không vượt quá giới hạn CSDL (MySQL 2038).
+     */
+    private Instant tinhHanTokenTikTok(long rawExpire, long macDinhNgay) {
+        Instant now = Instant.now();
+        Instant fallback = now.plus(Duration.ofDays(macDinhNgay > 0 ? macDinhNgay : 7));
+
+        if (rawExpire <= 0) {
+            return fallback;
+        }
+
+        Instant calculated;
+        try {
+            if (rawExpire > 100_000_000_000L) {
+                // Định dạng Unix Timestamp tính bằng mili-giây (>= 11 chữ số)
+                calculated = Instant.ofEpochMilli(rawExpire);
+            } else if (rawExpire > 1_000_000_000L) {
+                // Định dạng Unix Timestamp tính bằng giây (>= 10 chữ số, từ năm 2001 trở đi)
+                calculated = Instant.ofEpochSecond(rawExpire);
+            } else {
+                // Định dạng Delta seconds (số giây còn lại, ví dụ 604800s = 7 ngày)
+                calculated = now.plusSeconds(rawExpire);
+            }
+        } catch (Exception e) {
+            log.warn("Lỗi khi chuyển đổi access_token_expire_in TikTok ({}): {}", rawExpire, e.getMessage());
+            return fallback;
+        }
+
+        // Chốt chặn an toàn (Safety Clamp):
+        // Token TikTok access token chuẩn chỉ có hạn tối đa 7 ngày, không thể ở quá khứ hoặc vượt quá 60 ngày.
+        if (calculated.isBefore(now) || calculated.isAfter(now.plus(Duration.ofDays(60)))) {
+            log.warn("Thời gian hết hạn token TikTok bất thường ({}), tự động áp dụng thời hạn chuẩn {} ngày", calculated, macDinhNgay);
+            return fallback;
+        }
+
+        return calculated;
     }
 
     @Override
