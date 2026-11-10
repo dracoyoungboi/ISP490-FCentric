@@ -3531,7 +3531,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             if (isProductionShopee && shopeeThirdPartySignClient != null) {
                 if (shopIdStr == null || shopIdStr.isBlank()) {
                     log.warn("[SHOPEE-SYNC] Kênh Shopee Production chưa cấu hình Shop ID, không thể đẩy tồn SKU {}", bt.getMaSku());
-                    return KetQuaGuiTon.THAT_BAI;
+                    return KetQuaGuiTon.loiCaKenh("Kênh Shopee Production chưa cấu hình Shop ID");
                 }
                 Map<String, Object> stockItem = new HashMap<>();
                 stockItem.put("model_id", modelId != null ? modelId : (588300000L + bt.getId()));
