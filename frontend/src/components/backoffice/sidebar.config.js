@@ -330,8 +330,7 @@ export const SIDEBAR_MENU = [
       path.startsWith("/channels/oauth/") ||
       SAN_BAN_HANG.some(
         (san) =>
-          (san.hoTro || !san.hienMenu) &&
-          !kenhDaKetNoi.includes(san.maKenh) &&
+          (san.anTam || ((san.hoTro || !san.hienMenu) && !kenhDaKetNoi.includes(san.maKenh))) &&
           (path === san.duongDan || path.startsWith(`${san.duongDan}/`)),
       ),
   },
@@ -345,7 +344,7 @@ export const SIDEBAR_MENU = [
     roles: ["quan_tri_vien", "nhan_vien_ban_hang"],
   },
   // Sinh từ SAN_BAN_HANG; `maKenh`: BackofficeSidebar chỉ hiện sàn đã kết nối (danh sách tải ở BackofficeLayout)
-  ...SAN_BAN_HANG.filter((san) => san.hoTro).map((san) => ({
+  ...SAN_BAN_HANG.filter((san) => san.hoTro && !san.anTam).map((san) => ({
     label: san.ten,
     icon: ICON_MENU_SAN[san.maKenh] ?? Store,
     section: "channels",
@@ -367,7 +366,7 @@ export const SIDEBAR_MENU = [
   })),
   // Sàn chờ cấp API bật `hienMenu` (Shopee): một mục mở màn giới thiệu, không có mục con vì trang con chuyển về đó;
   // không khai báo `maKenh` nên hiện cả khi chưa kết nối
-  ...SAN_BAN_HANG.filter((san) => !san.hoTro && san.hienMenu).map((san) => ({
+  ...SAN_BAN_HANG.filter((san) => !san.hoTro && san.hienMenu && !san.anTam).map((san) => ({
     label: san.ten,
     icon: ICON_MENU_SAN[san.maKenh] ?? Store,
     section: "channels",

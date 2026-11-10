@@ -81,7 +81,7 @@ export default function ChannelsPage() {
               </thead>
               <tbody className="divide-y divide-bo-border max-sm:block">
                 <DongTaiQuay />
-                {SAN_BAN_HANG.map((san) => (san.hoTro ? <DongSan key={san.maKenh} san={san} /> : <DongSanChoCapApi key={san.maKenh} san={san} />))}
+                {SAN_BAN_HANG.filter((san) => !san.anTam).map((san) => (san.hoTro ? <DongSan key={san.maKenh} san={san} /> : <DongSanChoCapApi key={san.maKenh} san={san} />))}
               </tbody>
             </table>
           </div>
