@@ -63,7 +63,7 @@ public class KenhBanHang {
     @Column(name = "refresh_token", columnDefinition = "TEXT")
     String refreshToken;
 
-    @Column(name = "token_expires_at")
+    @Column(name = "token_expires_at", columnDefinition = "DATETIME(6)")
     Instant tokenExpiresAt;
 
     @ColumnDefault("1")
