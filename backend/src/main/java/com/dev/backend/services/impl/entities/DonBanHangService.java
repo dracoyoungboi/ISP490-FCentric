@@ -943,7 +943,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         }
 
         String st = trangThaiSan.toLowerCase();
-        if (st.contains("delivered") || st.contains("fulfilled")) {
+        if (st.contains("delivered") || st.contains("fulfilled") || st.contains("completed")) {
             // Cho phép từ DA_XUAT_TOAN_BO (3), DA_DONG_GOI (8), CHO_DONG_GOI (7)
             if (trangThaiHienTai == ITrangThaiDonBanHang.DA_XUAT_TOAN_BO
                     || trangThaiHienTai == ITrangThaiDonBanHang.DA_DONG_GOI
@@ -956,13 +956,13 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                 log.info("[CHANNEL-DELIVERY] Đơn {} đã giao thành công trên sàn -> Chuyển Hoàn thành (5)", don.getSoDonHang());
                 return true;
             }
-        } else if (st.contains("shipped")) {
-            // Sàn đã xuất giao (shipped) -> nếu đang đóng gói (8) thì chuyển sang Đã xuất kho (3)
-            if (trangThaiHienTai == ITrangThaiDonBanHang.DA_DONG_GOI) {
+        } else if (st.contains("shipped") || st.contains("in_transit")) {
+            // Sàn đã xuất giao (shipped / in_transit) -> nếu đang đóng gói (8) hoặc chờ đóng gói (7) thì chuyển sang Đã xuất kho (3)
+            if (trangThaiHienTai == ITrangThaiDonBanHang.DA_DONG_GOI || trangThaiHienTai == ITrangThaiDonBanHang.CHO_DONG_GOI) {
                 don.setTrangThai(ITrangThaiDonBanHang.DA_XUAT_TOAN_BO);
                 don.setNgayCapNhat(Instant.now());
                 repository.save(don);
-                ghiNhatKyDon(don, "xuat_kho_tu_san", "Sàn cập nhật đang vận chuyển (shipped)");
+                ghiNhatKyDon(don, "xuat_kho_tu_san", "Sàn cập nhật đang vận chuyển (" + trangThaiSan + ")");
                 log.info("[CHANNEL-SHIPPED] Đơn {} đang vận chuyển trên sàn -> Chuyển Đã xuất toàn bộ (3)", don.getSoDonHang());
                 return true;
             }

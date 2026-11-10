@@ -398,13 +398,13 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                         }
                     }
                 }
-                TikTokCatalogCache newCache = new TikTokCatalogCache(skuToProduct, skuToSku, now.plus(Duration.ofMinutes(30)));
+                TikTokCatalogCache newCache = new TikTokCatalogCache(skuToProduct, skuToSku, now.plus(java.time.Duration.ofMinutes(30)));
                 tikTokCatalogCacheRef.set(newCache);
                 return newCache;
             } catch (Exception ex) {
                 log.warn("[TIKTOK-SYNC] Không làm mới được cache danh mục TikTok Shop: {}", ex.getMessage());
                 if (cached != null) return cached;
-                return new TikTokCatalogCache(Map.of(), Map.of(), now.plus(Duration.ofMinutes(5)));
+                return new TikTokCatalogCache(Map.of(), Map.of(), now.plus(java.time.Duration.ofMinutes(5)));
             }
         }
     }
@@ -2514,12 +2514,20 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     if (warehouses != null && !warehouses.isEmpty()) {
                         List<ShopifyLocationDto> list = new ArrayList<>();
                         for (TikTokWarehouseDto w : warehouses) {
-                            boolean isSales = "SALES_WAREHOUSE".equalsIgnoreCase(w.getWarehouseType());
+                            boolean isSales = "SALES_WAREHOUSE".equalsIgnoreCase(w.getWarehouseType())
+                                    || "DOMESTIC_WAREHOUSE".equalsIgnoreCase(w.getWarehouseSubType());
+                            boolean isReturn = "RETURN_WAREHOUSE".equalsIgnoreCase(w.getWarehouseType());
                             String warehouseId = (w.getWarehouseId() != null && !w.getWarehouseId().isBlank())
                                     ? w.getWarehouseId() : w.getId();
-                            String warehouseName = (w.getWarehouseName() != null && !w.getWarehouseName().isBlank())
+                            String baseName = (w.getWarehouseName() != null && !w.getWarehouseName().isBlank())
                                     ? w.getWarehouseName()
                                     : (w.getName() != null && !w.getName().isBlank() ? w.getName() : "Kho TikTok " + (warehouseId != null ? warehouseId : ""));
+                            String warehouseName = baseName;
+                            if (isReturn) {
+                                warehouseName += " (Kho trả hàng)";
+                            } else if (isSales && !baseName.toLowerCase().contains("bán hàng")) {
+                                warehouseName += " (Kho bán hàng)";
+                            }
                             list.add(ShopifyLocationDto.builder()
                                     .maKhoSan(warehouseId)
                                     .tenKhoSan(warehouseName)

@@ -860,6 +860,35 @@ public class OmnichannelOrderSyncJob {
                         if (existing.getKhoXuat() != null) thongBaoXuatKhoService.lamMoiDonChoXuat(existing.getKhoXuat().getId());
                     }
                 }
+            } else {
+                // 1. Đồng bộ trạng thái thanh toán nếu sàn đổi sang đã thanh toán
+                String ttThanhToanMoi = TikTokOrderMapper.mapTrangThaiThanhToan(order.getStatus(), order.getPaidTime(), order.getPaymentMethodName());
+                if ("da_thanh_toan".equals(ttThanhToanMoi) && !"da_thanh_toan".equals(existing.getTrangThaiThanhToan())) {
+                    existing.setTrangThaiThanhToan("da_thanh_toan");
+                    existing.setNgayCapNhat(Instant.now());
+                    donBanHangRepository.save(existing);
+                    log.info("[JOB-01] Đơn {} trên TikTok Shop đã thanh toán -> Cập nhật trạng thái thanh toán = da_thanh_toan", soDonHang);
+                }
+
+                // 2. Đồng bộ trạng thái giao hàng / hoàn thành theo sàn TikTok Shop
+                if (order.getStatus() != null && !order.getStatus().isBlank()) {
+                    try {
+                        donBanHangService.capNhatTrangThaiGiaoHangTuSan(existing.getId(), order.getStatus());
+                    } catch (Exception ex) {
+                        log.error("[JOB-01] Lỗi khi cập nhật trạng thái giao hàng đơn {} theo TikTok Shop: {}", soDonHang, ex.getMessage());
+                    }
+                }
+
+                // 3. Đồng bộ bổ sung mã vận đơn và đơn vị vận chuyển nếu có
+                String currentNote = existing.getGhiChu() != null ? existing.getGhiChu() : "";
+                if (!currentNote.contains("[VẬN ĐƠN:") && order.getTrackingNumber() != null && !order.getTrackingNumber().isBlank()) {
+                    String trackingInfo = "[VẬN ĐƠN: " + order.getTrackingNumber().trim() +
+                            (order.getShippingProvider() != null && !order.getShippingProvider().isBlank() ? " - " + order.getShippingProvider().trim() : "") + "]";
+                    existing.setGhiChu((currentNote.isBlank() ? "" : currentNote + " | ") + trackingInfo);
+                    existing.setNgayCapNhat(Instant.now());
+                    donBanHangRepository.save(existing);
+                    log.info("[JOB-01] Cập nhật mã vận đơn TikTok Shop {} ({}) cho đơn {}", order.getTrackingNumber(), order.getShippingProvider(), soDonHang);
+                }
             }
             return false;
         }
