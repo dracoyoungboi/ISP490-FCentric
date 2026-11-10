@@ -187,6 +187,7 @@ export default function ChannelMappingsPage() {
     || SAN?.maKenh?.toUpperCase() === "LAZADA"
     || SAN?.maKenh?.toUpperCase() === "LAZADA_SANDBOX"
     || SAN?.maKenh?.toUpperCase() === "SHOPEE"
+    || SAN?.maKenh?.toUpperCase() === "SHOPEE_OFFICIAL"
     || SAN?.maKenh?.toUpperCase() === "SHOPEE_SANDBOX"
     || SAN?.maKenh?.toUpperCase() === "TIKTOK"
     || SAN?.maKenh?.toUpperCase() === "TIKTOK_SHOP";

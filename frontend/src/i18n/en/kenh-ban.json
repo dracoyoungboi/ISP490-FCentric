@@ -848,6 +848,7 @@
   "Nhập mã Shop ID của gian hàng Shopee (ví dụ: 88201679).": "Enter your Shopee shop's Shop ID (e.g. 88201679).",
   "Kết nối trực tiếp với gian hàng Shopee bằng Shop ID. Hệ thống tự động xác thực và đồng bộ tồn kho, đơn hàng.": "Connect directly to your Shopee shop using your Shop ID. FCentric verifies and syncs inventory and orders automatically.",
   "Thời hạn kết nối có hiệu lực 365 ngày (hệ thống tự động gia hạn).": "The connection is valid for 365 days and renews automatically.",
+  "Shopee (Cổng phụ)": "Shopee (Secondary Gateway)",
   "Shopee Chính Thống": "Shopee Official",
   "Partner ID ứng dụng đối tác trên Shopee Open Platform Console.": "Partner ID of your app on Shopee Open Platform Console.",
   "Bấm Ủy quyền, Shopee mở trang đăng nhập Shopee Partner và hỏi bạn có cho FCentric đọc sản phẩm, đơn hàng và cập nhật tồn không. Đồng ý xong Shopee đưa bạn quay lại đây.": "Click Authorize, and Shopee opens the Partner login page asking if you grant FCentric access to products, orders, and inventory. Once approved, you are redirected back here.",

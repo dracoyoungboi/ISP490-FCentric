@@ -337,6 +337,7 @@ function ManPhieuXuatKho({ id }) {
   const laShopee = Boolean(
     phieu.donBanHang?.soDonHang?.startsWith("SHP-") ||
     phieu.donBanHang?.kenhBanHang?.maKenh === "SHOPEE" ||
+    phieu.donBanHang?.kenhBanHang?.maKenh === "SHOPEE_OFFICIAL" ||
     phieu.donBanHang?.kenhBanHang?.maKenh === "SHOPEE_SANDBOX" ||
     phieu.donBanHang?.kenhBanHang?.tenKenh?.toLowerCase()?.includes("shopee") ||
     phieu.donBanHang?.maDonHangKenh?.startsWith("SHP-")

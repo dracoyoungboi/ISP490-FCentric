@@ -57,7 +57,7 @@ const NOI_DUNG = {
   },
   SHOPEE_OFFICIAL: {
     nhanIdSan: "Shop ID",
-    khachMacDinh: "Khách Shopee Chính Thống", // i18n-giu-nguyen: tên khách hàng mặc định đã lưu trong DB
+    khachMacDinh: "Khách Shopee", // i18n-giu-nguyen: tên khách hàng mặc định đã lưu trong DB
     goiYAppKey: t("Partner ID ứng dụng đối tác trên Shopee Open Platform Console."),
     coServiceId: false,
     moTaUyQuyen:
