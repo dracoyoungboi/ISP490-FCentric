@@ -29,7 +29,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *   H4 Nhà cung cấp đổi MST                                    Quản trị viên      NCC:{id}:NHAY_CAM:{epochMs}
  *   H5 Email đăng nhập của một tài khoản bị quản trị đổi      Quản trị viên      ND:{id}:EMAIL:{epochMs}
  * </pre>
- * Kênh giả lập (TikTok Sandbox, shop cipher "mock_") không báo H1, H2: khóa giả không làm mới / đẩy tồn được, báo mỗi ngày
+ * Kênh giả lập (shop cipher "mock_") không báo H1, H2: khóa giả không làm mới / đẩy tồn được, báo mỗi ngày
  * chỉ là nhiễu. Câu thông báo không chứa lỗi thô (lỗi kết nối của sàn có thể kèm đường dẫn mang khóa truy cập), chỉ ghi
  * nhóm lỗi cố định; chi tiết nằm trong log. Không bao giờ ném lỗi.
  */
@@ -365,7 +365,7 @@ public class ThongBaoHeThongService {
         return Set.of("SHOPIFY", "LAZADA", "LAZADA_SANDBOX", "TIKTOK", "SHOPEE", "SHOPEE_SANDBOX").contains(ma);
     }
 
-    /** Kênh giả lập: TikTok Sandbox cấp shop cipher / khóa "mock_" (cùng dấu hiệu OmnichannelOrderSyncJob dùng). */
+    /** Kênh giả lập thử nghiệm mang shop cipher "mock_". */
     static boolean laKenhGiaLap(KenhBanHang kenh) {
         String cipher = kenh.getShopCipher();
         return cipher != null && cipher.startsWith("mock_");

@@ -3481,6 +3481,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             kq = guiTonLenLazada(dong, soDay);
         } else if (dong.getKenhBanHang() != null && OmnichannelOrderSyncJob.isShopee(dong.getKenhBanHang().getMaKenh())) {
             kq = guiTonLenShopee(dong, soDay);
+        } else if (dong.getKenhBanHang() != null && OmnichannelOrderSyncJob.isTikTok(dong.getKenhBanHang().getMaKenh())) {
+            kq = guiTonLenTikTok(dong, soDay);
         } else {
             BienTheSanPham bt = dong.getBienTheSanPham();
             String maSku = bt != null ? bt.getMaSku() : null;
@@ -3603,6 +3605,92 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         } catch (Exception ex) {
             log.warn("Lỗi khi đẩy tồn Lazada cho SkuId [{}]: {}", skuIdKenh, ex.getMessage());
             return KetQuaGuiTon.loiCaKenh("Lỗi kết nối tới Lazada: " + ex.getMessage());
+        }
+    }
+
+    KetQuaGuiTon guiTonLenTikTok(TrangThaiDongBoSanPham dong, int soDay) {
+        BienTheSanPham bt = dong.getBienTheSanPham();
+        String maSku = bt != null ? bt.getMaSku() : null;
+        if (maSku == null || maSku.isBlank()) {
+            return KetQuaGuiTon.loiSku("Biến thể chưa có mã SKU");
+        }
+        String appKey = kenhBanHangService.getTikTokAppKey();
+        String appSecret = kenhBanHangService.getDecryptedTikTokAppSecret();
+        String token = kenhBanHangService.getDecryptedTikTokAccessToken();
+        String cipher = kenhBanHangService.getTikTokShopCipher();
+        if (appKey == null || appSecret == null || token == null || cipher == null || cipher.isBlank()) {
+            return KetQuaGuiTon.loiCaKenh("Chưa có cấu hình ủy quyền hoặc Shop Cipher cho kênh TikTok Shop");
+        }
+
+        String warehouseId = "7092830192";
+        try {
+            TikTokWarehousesResponse whRes = getTikTokShopClient().getWarehouses(appKey, appSecret, token, cipher);
+            if (whRes != null && whRes.getWarehouses() != null && !whRes.getWarehouses().isEmpty()) {
+                warehouseId = whRes.getWarehouses().get(0).getId();
+            }
+        } catch (Exception ex) {
+            log.warn("[TIKTOK-SYNC] Không tra cứu được warehouse mặc định TikTok Shop: {}", ex.getMessage());
+        }
+
+        String prodId = null;
+        String actualSkuId = null;
+
+        // Tra cứu Product ID và Sku ID từ danh mục sản phẩm TikTok
+        try {
+            List<TikTokProductDto> prods = taiDanhSachSanPhamTikTokTheoToken(appKey, appSecret, token, cipher);
+            for (TikTokProductDto prod : prods) {
+                if (prod.getSkus() == null) continue;
+                for (TikTokSkuDto sku : prod.getSkus()) {
+                    boolean matchSellerSku = sku.getSellerSku() != null && sku.getSellerSku().trim().equalsIgnoreCase(maSku.trim());
+                    boolean matchDongSku = dong.getMaSanPhamKenh() != null && sku.getSellerSku() != null && sku.getSellerSku().trim().equalsIgnoreCase(dong.getMaSanPhamKenh().trim());
+                    boolean matchSkuId = sku.getId() != null && sku.getId().trim().equalsIgnoreCase(maSku.trim());
+                    if (matchSellerSku || matchDongSku || matchSkuId) {
+                        prodId = prod.getId();
+                        actualSkuId = sku.getId();
+                        break;
+                    }
+                }
+                if (prodId != null) break;
+            }
+        } catch (Exception ex) {
+            log.warn("[TIKTOK-SYNC] Không tra cứu được sản phẩm TikTok cho SKU {}: {}", maSku, ex.getMessage());
+        }
+
+        if (prodId == null || prodId.isBlank()) {
+            return KetQuaGuiTon.loiSku("Không tìm thấy Product ID tương ứng trên TikTok Shop cho SKU " + maSku);
+        }
+        if (actualSkuId == null || actualSkuId.isBlank()) {
+            actualSkuId = (dong.getMaSanPhamKenh() != null && !dong.getMaSanPhamKenh().isBlank())
+                    ? dong.getMaSanPhamKenh().trim() : maSku;
+        }
+
+        TikTokInventoryUpdateRequest updateReq = TikTokInventoryUpdateRequest.builder()
+                .skus(List.of(TikTokInventoryUpdateRequest.SkuInventory.builder()
+                        .id(actualSkuId)
+                        .inventory(List.of(TikTokInventoryUpdateRequest.WarehouseQuantity.builder()
+                                .warehouseId(warehouseId)
+                                .quantity(Math.max(0, soDay))
+                                .build()))
+                        .build()))
+                .build();
+
+        try {
+            TikTokInventoryUpdateResponse res = getTikTokShopClient()
+                    .updateProductInventory(appKey, appSecret, token, cipher, prodId, updateReq);
+            if (res != null && res.getCode() == 0) {
+                return KetQuaGuiTon.THANH_CONG;
+            } else {
+                String errMsg = res != null ? res.getMessage() : "Lỗi không xác định từ TikTok Shop";
+                return KetQuaGuiTon.loiSku(errMsg);
+            }
+        } catch (LoiCoMaException e) {
+            if (MaLoi.TIKTOK_RATE_LIMIT.equals(e.getMa())) {
+                return KetQuaGuiTon.loiCaKenh("TikTok Shop vượt giới hạn tần suất gọi API (HTTP 429 Rate Limit)");
+            }
+            return KetQuaGuiTon.loiSku(e.getMessage());
+        } catch (Exception ex) {
+            log.warn("Lỗi khi đẩy tồn TikTok cho SkuId [{}]: {}", actualSkuId, ex.getMessage());
+            return KetQuaGuiTon.loiCaKenh("Lỗi kết nối tới TikTok Shop: " + ex.getMessage());
         }
     }
 

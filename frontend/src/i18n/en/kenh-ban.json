@@ -873,5 +873,7 @@
   "Đang hủy ủy quyền...": "Revoking access…",
   "Hủy ủy quyền (Ngắt kết nối)": "Revoke access (disconnect)",
   "Quyết toán ví Shopee & Escrow:": "Shopee wallet and escrow settlement:",
-  "Bóc tách tiền thực nhận và đối soát chi tiết thanh toán.": "Breaks down the amount received and reconciles payment details."
+  "Bóc tách tiền thực nhận và đối soát chi tiết thanh toán.": "Breaks down the amount received and reconciles payment details.",
+  "App Key, App Secret.": "App Key, App Secret.",
+  "App Key, App Secret, Service ID.": "App Key, App Secret, Service ID."
 }

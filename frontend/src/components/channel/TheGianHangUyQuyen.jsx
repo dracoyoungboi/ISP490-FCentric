@@ -185,7 +185,7 @@ export default function TheGianHangUyQuyen({
                   <NoiDungMuc icon={ShieldCheck} nhan={t("Ủy quyền lại")} moTa={t("Mở lại trang đồng ý của {{ten}}, giữ nguyên cấu hình.", { ten: san.ten })} />
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={sauKhiDongMenu(onCapNhatKhoa)} className={MUC_MENU}>
-                  <NoiDungMuc icon={KeyRound} nhan={t("Cập nhật khóa ứng dụng")} moTa={noiDung?.coServiceId ? "App Key, App Secret, Service ID." : "App Key, App Secret."} />
+                  <NoiDungMuc icon={KeyRound} nhan={t("Cập nhật khóa ứng dụng")} moTa={noiDung?.coServiceId ? t("App Key, App Secret, Service ID.") : t("App Key, App Secret.")} />
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild className={MUC_MENU}>
                   <Link to={`${san.duongDan}/setup?buoc=1`}>

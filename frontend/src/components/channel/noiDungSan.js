@@ -75,7 +75,7 @@ const NOI_DUNG = {
     nhanIdSan: "Shop ID",
     khachMacDinh: "Khách TikTok Shop", // i18n-giu-nguyen: tên khách hàng mặc định đã lưu trong DB
     goiYAppKey: t("Lấy ở Partner Center › App & Service."),
-    coServiceId: true,
+    coServiceId: false,
     moTaUyQuyen:
       t("Bấm Ủy quyền, TikTok Shop mở trang đăng nhập Seller Center và hỏi bạn có cho FCentric đọc sản phẩm, đơn hàng và cập nhật tồn không. Đồng ý xong TikTok Shop đưa bạn quay lại đây."),
     hanUyQuyen:

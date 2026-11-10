@@ -1749,10 +1749,10 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         String serviceId = kenh != null ? kenh.getServiceId() : null;
         String appKey = getTikTokAppKey();
 
-        // Chuẩn OAuth2 TikTok Shop: URL ủy quyền ưu tiên Service ID (Mã dịch vụ 19 số trên Partner Center)
+        // Chuẩn OAuth2 TikTok Shop: Ưu tiên Service ID (Partner App), nếu chưa cấu hình thì dùng App Key (Custom App)
         String authIdentifier = (serviceId != null && !serviceId.isBlank()) ? serviceId.trim() : appKey;
         if (authIdentifier == null || authIdentifier.isBlank()) {
-            throw new CommonException(ThongDiep.of("kenhBan.chuaCauHinhServiceIdTikTok"), HttpStatus.BAD_REQUEST, null);
+            throw new CommonException(ThongDiep.of("kenhBan.tiktokAppKeyTrong"), HttpStatus.BAD_REQUEST, null);
         }
         return getTikTokShopClient().generateAuthUrl(authIdentifier, redirectUri, state);
     }
@@ -1764,41 +1764,9 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
             throw new CommonException(ThongDiep.of("kenhBan.authorizationCodeTikTokTrong"), HttpStatus.BAD_REQUEST, null);
         }
 
-        String rawCode = request.getCode().trim();
-        boolean isMockCode = rawCode.toUpperCase().contains("SANDBOX")
-                || rawCode.toUpperCase().contains("MOCK")
-                || rawCode.startsWith("TTP_TEST");
-
         KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(MA_KENH_TIKTOK).orElse(null);
         if (kenh == null) {
             throw new CommonException(ThongDiep.of("kenhBan.chuaThietLapKenhTikTok"), HttpStatus.BAD_REQUEST, null);
-        }
-
-        // =========================================================================
-        // [SANDBOX MOCK BYPASS] - Tự động cấp token thử nghiệm khi nhập mã Sandbox/Mock
-        // Không xóa luồng Production bên dưới; chỉ rẽ nhánh khi code mang tiền tố thử nghiệm
-        // =========================================================================
-        if (isMockCode) {
-            String appKey = request.getAppKey() != null && !request.getAppKey().isBlank()
-                    ? request.getAppKey().trim()
-                    : (kenh.getClientId() != null && !kenh.getClientId().isBlank() ? kenh.getClientId() : "6lon0l7p95ihb");
-            kenh.setClientId(appKey);
-            if (kenh.getServiceId() == null || kenh.getServiceId().isBlank()) {
-                kenh.setServiceId("7702003619950200596");
-            }
-            if (kenh.getApiSecret() == null || kenh.getApiSecret().isBlank()) {
-                kenh.setApiSecret(paymentSecretCipher.encrypt("mock_secret_tiktok_partner"));
-            }
-            String mockAccessToken = "mock_tts_token_" + java.util.UUID.randomUUID().toString().replace("-", "");
-            String mockRefreshToken = "mock_tts_refresh_" + java.util.UUID.randomUUID().toString().replace("-", "");
-            kenh.setApiKey(paymentSecretCipher.encrypt(mockAccessToken));
-            kenh.setRefreshToken(paymentSecretCipher.encrypt(mockRefreshToken));
-            kenh.setTokenExpiresAt(Instant.now().plus(30, java.time.temporal.ChronoUnit.DAYS));
-            kenh.setShopCipher("mock_cipher_fcentric_vn");
-            kenh.setTrangThai(1);
-            kenhBanHangRepository.save(kenh);
-            ghiLichSuThayDoi(kenh, "Ủy quyền TikTok Shop Sandbox thành công (Shop Cipher: mock_cipher_fcentric_vn)");
-            return getTikTokConfig();
         }
 
         // =========================================================================
