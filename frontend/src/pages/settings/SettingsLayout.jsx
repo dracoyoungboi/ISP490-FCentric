@@ -121,7 +121,7 @@ export default function SettingsLayout() {
       }
     >
       <nav
-        aria-label={t("Cấu hình")}
+        aria-label={t("Cài đặt")}
         className={cn(
           "shrink-0 rounded-lg bg-bo-surface py-1.5 shadow-[0_1px_2px_rgba(16,24,40,0.06),0_1px_3px_rgba(16,24,40,0.08)] lg:sticky lg:top-6 lg:w-[236px] lg:self-start",
           danhSach && "hidden",
@@ -168,14 +168,14 @@ export default function SettingsLayout() {
             <button
               type="button"
               onClick={veDanhSach}
-              aria-label={t("Về danh sách Cấu hình")}
+              aria-label={t("Về danh sách Cài đặt")}
               className="-mr-1 inline-flex size-9 shrink-0 items-center justify-center rounded-md text-slate-700 hover:bg-[#e9edf2] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bo-primary"
             >
               <ArrowLeft className="size-5" aria-hidden="true" />
             </button>
           ) : null}
           <h1 className={cn("min-w-0 truncate text-[22px] leading-7 font-semibold tracking-[-0.01em] text-bo-heading", danhSach && "flex-1")}>
-            {allowed ? current.label : t("Cấu hình")}
+            {allowed ? current.label : t("Cài đặt")}
           </h1>
           <div className="flex shrink-0 items-center gap-3">
             {allowed && !canEdit ? (
@@ -188,7 +188,7 @@ export default function SettingsLayout() {
             <button
               type="button"
               onClick={() => requestLeave(null)}
-              aria-label={t("Đóng cấu hình, quay lại trang trước")}
+              aria-label={t("Đóng cài đặt, quay lại trang trước")}
               title={t("Đóng")}
               className="inline-flex size-9 items-center justify-center rounded-md bg-[#e9edf2] text-slate-700 hover:bg-[#dde3ea] hover:text-bo-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bo-primary"
             >
@@ -206,7 +206,7 @@ export default function SettingsLayout() {
           <EmptyState
             icon={Lock}
             title={t("Bạn không có quyền truy cập")}
-            description={t("Tài khoản của bạn không được phép mở mục cấu hình này.")}
+            description={t("Tài khoản của bạn không được phép mở mục cài đặt này.")}
           />
         )}
       </main>
@@ -237,17 +237,17 @@ function DanhSachCauHinh({ groups, role, onDong }) {
   return (
     <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-5 p-4 sm:p-5">
       <header className="flex min-h-9 items-center justify-between gap-3">
-        <h1 className="min-w-0 truncate text-[22px] leading-7 font-semibold tracking-[-0.01em] text-bo-heading">{t("Cấu hình")}</h1>
+        <h1 className="min-w-0 truncate text-[22px] leading-7 font-semibold tracking-[-0.01em] text-bo-heading">{t("Cài đặt")}</h1>
         <button
           type="button"
           onClick={onDong}
-          aria-label={t("Đóng cấu hình, quay lại trang trước")}
+          aria-label={t("Đóng cài đặt, quay lại trang trước")}
           className="inline-flex size-9 shrink-0 items-center justify-center rounded-md bg-[#e9edf2] text-slate-700 hover:bg-[#dde3ea] hover:text-bo-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bo-primary"
         >
           <X className="size-[18px]" aria-hidden="true" />
         </button>
       </header>
-      <nav aria-label={t("Cấu hình")} className="flex flex-col gap-5">
+      <nav aria-label={t("Cài đặt")} className="flex flex-col gap-5">
         {groups.map((group) => (
           <section key={group.key} aria-labelledby={`nhom-cau-hinh-${group.key}`}>
             <h2

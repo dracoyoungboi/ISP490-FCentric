@@ -382,7 +382,7 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
         ...SETTINGS_PAGES.map((page) => ({
             key: `SETTINGS_${page.key.toUpperCase()}`,
             match: (path) => path === page.to,
-            title: t("{{trang}} · Cấu hình", { trang: page.label }),
+            title: t("{{trang}} · Cài đặt",{ trang: page.label }),
         })),
         {
             // Trình sửa mẫu in một màn (đường dẫn cũ /…/edit, /…/:templateId chuyển về đây)

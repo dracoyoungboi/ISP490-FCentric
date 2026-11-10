@@ -243,6 +243,8 @@ export function locKhoDongBo(list) {
  * `hoTro: false` = sàn đang chờ cấp API: có dòng ở bảng Kênh bán hàng và màn giới thiệu với nút kết nối bị khóa, không gọi
  * máy chủ; các trang con (thiết lập, sản phẩm, trang quay về sau ủy quyền…) chuyển về màn giới thiệu. Thêm `hienMenu: true`
  * thì có một mục ở menu trái mở màn giới thiệu (không có mục con); bỏ cờ thì mục đó biến mất.
+ * `anTam: true` = tạm ẩn sàn khỏi menu trái và bảng Kênh bán hàng (vẫn giữ để tra tên kênh, đơn cũ và trang theo đường dẫn);
+ * bỏ cờ để hiện lại.
  */
 export const SAN_BAN_HANG = [
   { maKenh: "SHOPIFY", ten: "Shopify", duongDan: "/channels/shopify", hoTro: true, kieuKetNoi: "khoa", tienToDon: "SHP" },
@@ -251,7 +253,7 @@ export const SAN_BAN_HANG = [
   { maKenh: "TIKTOK", ten: "TikTok Shop", duongDan: "/channels/tiktok", hoTro: true, kieuKetNoi: "uy_quyen", tienToDon: "TTS", maThuCong: true },
   // Kết nối thông qua Cổng ký chữ ký số bên thứ ba (MinMinTool Gateway); không cần OAuth2
   { maKenh: "SHOPEE", ten: "Shopee", duongDan: "/channels/shopee", hoTro: true, kieuKetNoi: "ben_thu_ba", tienToDon: "SHP", hanUyQuyenNgay: 365, hienMenu: true },
-  { maKenh: "SHOPEE_SANDBOX", ten: "Shopee Sandbox", duongDan: "/channels/shopee-sandbox", hoTro: true, kieuKetNoi: "uy_quyen", tienToDon: "SHP", hanUyQuyenNgay: 365, isSandbox: true, hienMenu: true },
+  { maKenh: "SHOPEE_SANDBOX", ten: "Shopee Sandbox", duongDan: "/channels/shopee-sandbox", hoTro: true, kieuKetNoi: "uy_quyen", tienToDon: "SHP", hanUyQuyenNgay: 365, isSandbox: true, hienMenu: true, anTam: true },
 ];
 
 /** Sàn theo mã kênh ("LAZADA") hoặc đoạn cuối đường dẫn ("lazada"), không phân biệt hoa thường; không có thì null. */
