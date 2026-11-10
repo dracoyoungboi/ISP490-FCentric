@@ -92,6 +92,8 @@
 
 	--color-bo-success: #15803d;
 	--color-bo-success-soft: #ecfdf3;
+	/* Nền công tắc "Đang bán" của biến thể: dịu hơn chữ bo-success để công tắc không chói */
+	--color-bo-success-track: #2e9e5f;
 	--color-bo-warning: #b45309;
 	--color-bo-warning-soft: #fff7ed;
 	--color-bo-danger: #dc2626;
