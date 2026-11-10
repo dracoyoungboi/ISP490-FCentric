@@ -38,10 +38,6 @@ public class ShopeeThirdPartySignClient {
     RestTemplate restTemplate;
     ObjectMapper objectMapper;
 
-    @lombok.experimental.NonFinal
-    @Autowired(required = false)
-    ShopeeMockEngine mockEngine;
-
     public ShopeeThirdPartySignClient() {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(6_000);
@@ -220,6 +216,7 @@ public class ShopeeThirdPartySignClient {
 
     /**
      * Tạo dữ liệu fallback an toàn tương thích hoàn hảo với cấu trúc Shopee Open Platform.
+     * Đảm bảo cách ly 100%: Kênh Production tuyệt đối không lấy dữ liệu giả lập từ MockEngine.
      */
     private JsonNode fallbackResponse(String targetUrl, String shopId) {
         ObjectNode root = objectMapper.createObjectNode();
@@ -228,35 +225,9 @@ public class ShopeeThirdPartySignClient {
         ObjectNode resp = root.putObject("response");
 
         if (targetUrl.contains("item/get_shop_items") || targetUrl.contains("item/get_batch")) {
-            ArrayNode arr = resp.putArray("item_list");
-            if (mockEngine != null) {
-                var mockProducts = mockEngine.getSellerProducts();
-                Map<Long, com.dev.backend.entities.ShopeeMockProduct> uniqueItems = new LinkedHashMap<>();
-                for (var p : mockProducts) uniqueItems.putIfAbsent(p.getItemId(), p);
-
-                for (var p : uniqueItems.values()) {
-                    ObjectNode itemNode = arr.addObject();
-                    itemNode.put("item_id", p.getItemId());
-                    itemNode.put("item_name", p.getItemName());
-                    itemNode.put("item_sku", p.getItemSku());
-
-                    ArrayNode models = itemNode.putArray("model");
-                    for (var m : mockEngine.getMockModelsByItemId(p.getItemId())) {
-                        ObjectNode mNode = models.addObject();
-                        mNode.put("model_id", m.getModelId());
-                        mNode.put("model_sku", m.getModelSku());
-                        ArrayNode priceInfo = mNode.putArray("price_info");
-                        priceInfo.addObject().put("original_price", m.getPrice() != null ? m.getPrice().doubleValue() : 250000.0);
-                    }
-                }
-            }
-        } else if (targetUrl.contains("order/get_order_detail_batch")) {
-            ArrayNode arr = resp.putArray("order_list");
-            if (mockEngine != null) {
-                for (var o : mockEngine.getOrdersForSync("READY_TO_SHIP", 0L)) {
-                    arr.add(objectMapper.valueToTree(o));
-                }
-            }
+            resp.putArray("item_list");
+        } else if (targetUrl.contains("order/get_order_detail_batch") || targetUrl.contains("order/get_order_list")) {
+            resp.putArray("order_list");
         }
         return root;
     }

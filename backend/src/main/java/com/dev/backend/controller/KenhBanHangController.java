@@ -940,7 +940,6 @@ public class KenhBanHangController {
             @RequestParam(defaultValue = "READY_TO_SHIP") String status) {
         String ma = "SHOPEE_SANDBOX";
         com.dev.backend.entities.KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma)
-                .or(() -> kenhBanHangRepository.findByMaKenh("SHOPEE"))
                 .orElse(null);
         if (kenh == null) {
             kenh = kenhBanHangRepository.save(com.dev.backend.entities.KenhBanHang.builder()

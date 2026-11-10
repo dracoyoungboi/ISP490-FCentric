@@ -469,7 +469,7 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, onConfigSaved, onCauH
                           {t("Chạy lại trình thiết lập")}
                         </Link>
                       </DropdownMenuItem>
-                      {Boolean(SAN.maKenh?.includes("SHOPEE")) && (
+                      {Boolean(SAN.maKenh === "SHOPEE_SANDBOX") && (
                         <DropdownMenuItem asChild className={nutMenu}>
                           <a href="/shopee-simulator" target="_blank" rel="noopener noreferrer">
                             <ExternalLink className="size-4 text-bo-muted" />

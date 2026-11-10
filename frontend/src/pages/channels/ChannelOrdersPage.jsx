@@ -371,7 +371,7 @@ export default function ChannelOrdersPage() {
                 Icon: CalendarRange,
                 onChon: () => setMoLayDon(true),
               },
-              ...(SAN?.maKenh?.includes("SHOPEE")
+              ...(SAN?.maKenh === "SHOPEE_SANDBOX"
                 ? [
                     {
                       ma: "sinh-don-shopee-mau",

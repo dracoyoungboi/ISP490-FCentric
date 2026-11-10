@@ -562,9 +562,6 @@ public class ShopeeMockEngine {
     @Transactional(readOnly = true)
     public Map<String, Object> getAppAuthStatus() {
         Optional<com.dev.backend.entities.KenhBanHang> opt = kenhBanHangRepository.findByMaKenh("SHOPEE_SANDBOX");
-        if (opt.isEmpty()) {
-            opt = kenhBanHangRepository.findByMaKenh("SHOPEE");
-        }
 
         boolean isAuthorized = false;
         String appName = "FCentric Omnichannel Hub & WMS";

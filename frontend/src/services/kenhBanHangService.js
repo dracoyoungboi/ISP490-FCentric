@@ -146,26 +146,26 @@ const realApi = {
   kiemTraKetNoi: (maKenh) => apiClient.post(`${BASE}/${ma(maKenh)}/kiem-tra-ket-noi`, {}).then(data).catch(baoApiChuaCo(maKenh)),
   lamMoiToken: (maKenh) => apiClient.post(`${BASE}/${ma(maKenh)}/lam-moi-token`).then(data).catch(baoApiChuaCo(maKenh)),
     sinhDonShopeeMau: (count = 1, status = "READY_TO_SHIP") =>
-    apiClient.post(`${BASE}/shopee/mock-order`, null, { params: { count, status } }).then(data),
+    apiClient.post(`${BASE}/shopee/mock-order`, null, { params: { count, status, maKenh: "SHOPEE_SANDBOX" } }).then(data),
 
-  // ── Shopee APIs chi tiết ──
-  huyDonShopee: (orderSn, cancelReason = "OUT_OF_STOCK", maKenh = "SHOPEE_SANDBOX") =>
+  // ── Shopee APIs chi tiết (Hỗ trợ cả SHOPEE production và SHOPEE_SANDBOX) ──
+  huyDonShopee: (orderSn, cancelReason = "OUT_OF_STOCK", maKenh = "SHOPEE") =>
     apiClient.post(`${BASE}/shopee/orders/cancel`, null, { params: { orderSn, cancelReason, maKenh } }).then(data),
-  xuLyHuyShopee: (orderSn, operation = "ACCEPT", maKenh = "SHOPEE_SANDBOX") =>
+  xuLyHuyShopee: (orderSn, operation = "ACCEPT", maKenh = "SHOPEE") =>
     apiClient.post(`${BASE}/shopee/orders/handle-cancellation`, null, { params: { orderSn, operation, maKenh } }).then(data),
-  ghiChuDonShopee: (orderSn, note, maKenh = "SHOPEE_SANDBOX") =>
+  ghiChuDonShopee: (orderSn, note, maKenh = "SHOPEE") =>
     apiClient.post(`${BASE}/shopee/orders/${orderSn}/note`, null, { params: { note, maKenh } }).then(data),
-  layThamSoGiaoHangShopee: (orderSn, maKenh = "SHOPEE_SANDBOX") =>
+  layThamSoGiaoHangShopee: (orderSn, maKenh = "SHOPEE") =>
     apiClient.get(`${BASE}/shopee/orders/${orderSn}/shipping-parameter`, { params: { maKenh } }).then(data),
-  giaoHangShopee: (orderSn, method = "dropoff", maKenh = "SHOPEE_SANDBOX") =>
+  giaoHangShopee: (orderSn, method = "dropoff", maKenh = "SHOPEE") =>
     apiClient.post(`${BASE}/shopee/orders/${orderSn}/ship`, null, { params: { method, maKenh } }).then(data),
-  layMaVanDonShopee: (orderSn, maKenh = "SHOPEE_SANDBOX") =>
+  layMaVanDonShopee: (orderSn, maKenh = "SHOPEE") =>
     apiClient.get(`${BASE}/shopee/orders/${orderSn}/tracking-number`, { params: { maKenh } }).then(data),
-  layLichTrinhVanChuyenShopee: (orderSn, maKenh = "SHOPEE_SANDBOX") =>
+  layLichTrinhVanChuyenShopee: (orderSn, maKenh = "SHOPEE") =>
     apiClient.get(`${BASE}/shopee/orders/${orderSn}/tracking-info`, { params: { maKenh } }).then(data),
-  inVanDonShopee: (orderSn, maKenh = "SHOPEE_SANDBOX") =>
+  inVanDonShopee: (orderSn, maKenh = "SHOPEE") =>
     apiClient.get(`${BASE}/shopee/orders/${orderSn}/shipping-document`, { params: { maKenh } }).then(data),
-  doiSoatViShopee: (orderSn, maKenh = "SHOPEE_SANDBOX") =>
+  doiSoatViShopee: (orderSn, maKenh = "SHOPEE") =>
     apiClient.get(`${BASE}/shopee/orders/${orderSn}/escrow`, { params: { maKenh } }).then(data),
   giaLapNguoiMuaHuyShopee: (orderSn) =>
     apiClient.post(`${BASE}/shopee/mock-cancel`, null, { params: { orderSn } }).then(data),

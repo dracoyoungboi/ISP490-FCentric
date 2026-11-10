@@ -236,7 +236,7 @@ function TongQuanGianHang() {
           </div>
           {/* max-w-full: màn hẹp thì nút xuống dòng dưới tên gian hàng (ml-auto giữ bên phải), không lẹm ra ngoài */}
           <div className="ml-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-2">
-            {Boolean(SAN.maKenh?.includes("SHOPEE")) && (
+            {Boolean(SAN.maKenh === "SHOPEE_SANDBOX") && (
               <a
                 href="/shopee-simulator"
                 target="_blank"
