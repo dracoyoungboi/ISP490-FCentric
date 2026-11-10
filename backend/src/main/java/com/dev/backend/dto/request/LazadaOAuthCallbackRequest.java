@@ -26,4 +26,9 @@ public class LazadaOAuthCallbackRequest implements Serializable {
      * App Key dùng để đối soát. Nếu để trống, hệ thống sẽ lấy App Key đã lưu trong cấu hình.
      */
     String appKey;
+
+    /**
+     * Shop ID định danh (Shopee / TikTok).
+     */
+    String shopId;
 }

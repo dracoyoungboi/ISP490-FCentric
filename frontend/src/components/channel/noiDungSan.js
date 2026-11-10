@@ -45,8 +45,8 @@ const NOI_DUNG = {
     goiYAppKey: t("Nhập mã Shop ID của gian hàng Shopee (ví dụ: 88201679)."),
     coServiceId: false,
     moTaUyQuyen:
-      t("Hệ thống kết nối trực tiếp với gian hàng Shopee thông qua Cổng ký chữ ký số bảo mật bên thứ ba (MinMinTool Gateway). Không yêu cầu tài khoản Shopee Developer hay ủy quyền OAuth2."),
-    hanUyQuyen: t("Kết nối thông qua Cổng ký bên thứ ba có hiệu lực 365 ngày (hệ thống tự động gia hạn)."),
+      t("Kết nối trực tiếp với gian hàng Shopee bằng Shop ID. Hệ thống tự động xác thực và đồng bộ tồn kho, đơn hàng."),
+    hanUyQuyen: t("Thời hạn kết nối có hiệu lực 365 ngày (hệ thống tự động gia hạn)."),
     khoSan: {
       nhan: t("Kho trên Shopee"),
       moTa: t("Gian hàng một kho: Shopee nhận số vào kho mặc định, không cần chọn."),
@@ -54,6 +54,23 @@ const NOI_DUNG = {
     },
     ghiChuTon: t("Hệ thống tự động gom cụm đẩy tồn kho theo lô sang Shopee theo quy tắc tồn khả dụng đã cấu hình."),
     ghiChuDon: t("Đơn mới từ Shopee đồng bộ tự động theo chu kỳ quét định kỳ với tiền tố SHP-."),
+  },
+  SHOPEE_OFFICIAL: {
+    nhanIdSan: "Shop ID",
+    khachMacDinh: "Khách Shopee Chính Thống", // i18n-giu-nguyen: tên khách hàng mặc định đã lưu trong DB
+    goiYAppKey: t("Partner ID ứng dụng đối tác trên Shopee Open Platform Console."),
+    coServiceId: false,
+    moTaUyQuyen:
+      t("Bấm Ủy quyền, Shopee mở trang đăng nhập Shopee Partner và hỏi bạn có cho FCentric đọc sản phẩm, đơn hàng và cập nhật tồn không. Đồng ý xong Shopee đưa bạn quay lại đây."),
+    hanUyQuyen:
+      t("Hạn ủy quyền Shopee là 30 ngày (hệ thống tự động làm mới mã truy cập mỗi 4 giờ bằng mã làm mới)."),
+    khoSan: {
+      nhan: t("Kho trên Shopee"),
+      moTa: t("Gian hàng một kho: Shopee nhận số vào kho mặc định, không cần chọn."),
+      chiDoc: t("Kho mặc định"),
+    },
+    ghiChuTon: t("Cập nhật tồn kho trực tiếp qua Shopee Open Platform API v2 (/api/v2/product/update_stock)."),
+    ghiChuDon: t("Đồng bộ đơn hàng tự động qua Shopee Open Platform API v2 (/api/v2/order/get_order_list)."),
   },
   SHOPEE_SANDBOX: {
     nhanIdSan: "Shop ID (Sandbox)",

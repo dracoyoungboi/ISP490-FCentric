@@ -385,7 +385,7 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, onConfigSaved, onCauH
                     <span aria-hidden="true" className="max-sm:hidden">
                       ·
                     </span>
-                    <span className="tabular-nums">{SAN.kieuKetNoi === "ben_thu_ba" ? t("Cổng ký MinMinTool") : t("Khóa {{khoa}}", { khoa: config.accessTokenMasked || t("đã lưu") })}</span>
+                    <span className="tabular-nums">{SAN.kieuKetNoi === "ben_thu_ba" ? t("Kết nối Shop ID") : t("Khóa {{khoa}}", { khoa: config.accessTokenMasked || t("đã lưu") })}</span>
                   </p>
                   {ketQuaKetNoi ? (
                     <p role="status" className="mt-1">

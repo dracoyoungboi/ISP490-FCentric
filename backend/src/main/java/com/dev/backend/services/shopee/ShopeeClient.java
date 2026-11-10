@@ -724,6 +724,7 @@ public class ShopeeClient {
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.setAccept(List.of(MediaType.APPLICATION_JSON));
+            headers.set(HttpHeaders.USER_AGENT, "ShopeeOpenAPI/2.0");
             HttpEntity<Void> entity = new HttpEntity<>(headers);
             ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
             return objectMapper.readTree(response.getBody());
@@ -738,6 +739,7 @@ public class ShopeeClient {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.setAccept(List.of(MediaType.APPLICATION_JSON));
+            headers.set(HttpHeaders.USER_AGENT, "ShopeeOpenAPI/2.0");
             HttpEntity<Object> entity = new HttpEntity<>(body, headers);
             ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
             return objectMapper.readTree(response.getBody());
@@ -835,6 +837,7 @@ public class ShopeeClient {
                     PRODUCTION_HOST, PATH_DOWNLOAD_DOC, partnerId, timestamp, accessToken, shopId, sign, orderSn);
             HttpHeaders headers = new HttpHeaders();
             headers.setAccept(List.of(MediaType.APPLICATION_OCTET_STREAM, MediaType.ALL));
+            headers.set(HttpHeaders.USER_AGENT, "ShopeeOpenAPI/2.0");
             HttpEntity<Void> entity = new HttpEntity<>(headers);
             ResponseEntity<byte[]> res = restTemplate.exchange(url, HttpMethod.GET, entity, byte[].class);
             return res.getBody() != null ? res.getBody() : new byte[0];

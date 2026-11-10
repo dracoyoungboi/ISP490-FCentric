@@ -77,7 +77,9 @@ public class OmnichannelOrderSyncJob {
     }
 
     public static boolean isShopee(String maKenh) {
-        return MA_KENH_SHOPEE.equalsIgnoreCase(maKenh) || MA_KENH_SHOPEE_SANDBOX.equalsIgnoreCase(maKenh);
+        return MA_KENH_SHOPEE.equalsIgnoreCase(maKenh)
+                || "SHOPEE_OFFICIAL".equalsIgnoreCase(maKenh)
+                || MA_KENH_SHOPEE_SANDBOX.equalsIgnoreCase(maKenh);
     }
 
     public static boolean isTikTok(String maKenh) {
@@ -1459,8 +1461,8 @@ public class OmnichannelOrderSyncJob {
         Long shopId = kenhBanHangService.getShopeeShopId(maKenh);
         String shopIdStr = (shopId != null) ? String.valueOf(shopId) : (kenh != null ? kenh.getClientId() : null);
 
-        // Kênh Shopee Production kết nối qua Cổng ký bên thứ ba MinMinTool chỉ cần Shop ID
-        if (shopIdStr != null && !shopIdStr.isBlank() && shopeeThirdPartySignClient != null) {
+        // Kênh Shopee Shop ID kết nối trực tiếp qua Cổng ký chỉ cần Shop ID
+        if ("SHOPEE".equalsIgnoreCase(maKenh) && shopIdStr != null && !shopIdStr.isBlank() && shopeeThirdPartySignClient != null) {
             int synced = 0;
             try {
                 long timeFrom = tuNgay != null ? tuNgay.getEpochSecond() : (Instant.now().getEpochSecond() - 86400L);

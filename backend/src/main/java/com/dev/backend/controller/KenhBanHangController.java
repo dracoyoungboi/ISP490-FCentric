@@ -186,6 +186,29 @@ public class KenhBanHangController {
                             .build()
             );
         }
+        if ("SHOPEE_OFFICIAL".equals(ma)) {
+            com.dev.backend.dto.request.ShopeeConfigUpdating shopeeReq = com.dev.backend.dto.request.ShopeeConfigUpdating.builder()
+                    .partnerId(request.getAppKey())
+                    .partnerKey(request.getAppSecret())
+                    .trangThai(request.getTrangThai())
+                    .isSandbox(false)
+                    .build();
+            kenhBanHangService.updateShopeeConfig("SHOPEE_OFFICIAL", shopeeReq);
+            if (request.getTenGianHang() != null && !request.getTenGianHang().isBlank()) {
+                com.dev.backend.entities.KenhBanHang kenh = kenhBanHangRepository.findByMaKenh("SHOPEE_OFFICIAL").orElse(null);
+                if (kenh != null) {
+                    kenh.setTenKenh(request.getTenGianHang().trim());
+                    kenhBanHangRepository.save(kenh);
+                }
+            }
+            return ResponseEntity.ok(
+                    ResponseData.<ShopifyConfigResponse>builder()
+                            .status(HttpStatus.OK.value())
+                            .data(kenhBanHangService.getKetNoi(ma))
+                            .message(ThongDiep.dich("kenhBan.capNhatCauHinhSanThanhCong", "Shopee Chính Thống"))
+                            .build()
+            );
+        }
         if ("SHOPEE".equals(ma) || "SHOPEE_SANDBOX".equals(ma)) {
             com.dev.backend.entities.KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma).orElse(null);
             if (kenh == null) {
@@ -256,6 +279,16 @@ public class KenhBanHangController {
                             .build()
             );
         }
+        if ("SHOPEE_OFFICIAL".equals(ma)) {
+            String authUrl = kenhBanHangService.getShopeeAuthUrl("SHOPEE_OFFICIAL", redirectUri);
+            return ResponseEntity.ok(
+                    ResponseData.<Map<String, String>>builder()
+                            .status(HttpStatus.OK.value())
+                            .data(Map.of("authUrl", authUrl))
+                            .message(ThongDiep.dich("kenhBan.sinhUrlUyQuyenThanhCong", "Shopee Chính Thống"))
+                            .build()
+            );
+        }
         if ("SHOPEE".equals(ma) || "SHOPEE_SANDBOX".equals(ma)) {
             String partnerId = "1000888";
             String partnerKey = "mock_shopee_key";
@@ -300,6 +333,17 @@ public class KenhBanHangController {
                             .status(HttpStatus.OK.value())
                             .data(kenhBanHangService.getKetNoi("TIKTOK"))
                             .message(ThongDiep.dich("kenhBan.uyQuyenGianHangThanhCong", "TikTok Shop"))
+                            .build()
+            );
+        }
+        if ("SHOPEE_OFFICIAL".equals(ma)) {
+            String shopId = request.getShopId() != null ? String.valueOf(request.getShopId()) : null;
+            kenhBanHangService.exchangeShopeeToken("SHOPEE_OFFICIAL", request.getCode(), shopId);
+            return ResponseEntity.ok(
+                    ResponseData.<ShopifyConfigResponse>builder()
+                            .status(HttpStatus.OK.value())
+                            .data(kenhBanHangService.getKetNoi("SHOPEE_OFFICIAL"))
+                            .message(ThongDiep.dich("kenhBan.uyQuyenGianHangThanhCong", "Shopee Chính Thống"))
                             .build()
             );
         }
@@ -382,6 +426,23 @@ public class KenhBanHangController {
                             .build()
             );
         }
+        if ("SHOPEE_OFFICIAL".equals(ma)) {
+            boolean connected = kenhBanHangService.testShopeeConnection("SHOPEE_OFFICIAL");
+            com.dev.backend.entities.KenhBanHang kenh = kenhBanHangRepository.findByMaKenh("SHOPEE_OFFICIAL").orElse(null);
+            String shopName = (kenh != null && kenh.getTenKenh() != null) ? kenh.getTenKenh() : "Shopee Chính Thống";
+            return ResponseEntity.ok(
+                    ResponseData.<LazadaTestConnectionResponse>builder()
+                            .status(HttpStatus.OK.value())
+                            .data(LazadaTestConnectionResponse.builder()
+                                    .connected(connected)
+                                    .shopName(shopName)
+                                    .country("VN")
+                                    .build())
+                            .message(connected ? ThongDiep.dich("kenhBan.ketNoiSanThanhCong", "Shopee Chính Thống")
+                                    : ThongDiep.dich("kenhBan.kiemTraKetNoiSanThatBai", "Shopee Chính Thống"))
+                            .build()
+            );
+        }
         if ("SHOPEE".equals(ma) || "SHOPEE_SANDBOX".equals(ma)) {
             return ResponseEntity.ok(
                     ResponseData.<LazadaTestConnectionResponse>builder()
@@ -435,6 +496,19 @@ public class KenhBanHangController {
                             .build()
             );
         }
+        if ("SHOPEE_OFFICIAL".equals(ma)) {
+            boolean success = kenhBanHangService.refreshShopeeAccessToken("SHOPEE_OFFICIAL");
+            if (!success) {
+                throw new LoiCoMaException(HttpStatus.FAILED_DEPENDENCY, MaLoi.LAM_MOI_KHOA_LOI, ThongDiep.of("kenhBan.khongTheLamMoiTokenSan", "Shopee Chính Thống"));
+            }
+            return ResponseEntity.ok(
+                    ResponseData.<ShopifyConfigResponse>builder()
+                            .status(HttpStatus.OK.value())
+                            .data(kenhBanHangService.getKetNoi(ma))
+                            .message(ThongDiep.dich("kenhBan.lamMoiAccessTokenSanThanhCong", "Shopee Chính Thống"))
+                            .build()
+            );
+        }
         if ("SHOPEE".equals(ma) || "SHOPEE_SANDBOX".equals(ma)) {
             return ResponseEntity.ok(
                     ResponseData.<ShopifyConfigResponse>builder()
@@ -470,6 +544,16 @@ public class KenhBanHangController {
                             .status(HttpStatus.OK.value())
                             .data(kenhBanHangService.getKetNoi("TIKTOK"))
                             .message(ThongDiep.dich("kenhBan.daNgatKetNoiTikTok"))
+                            .build()
+            );
+        }
+        if ("SHOPEE_OFFICIAL".equals(ma)) {
+            kenhBanHangService.xoaKhoaShopee("SHOPEE_OFFICIAL");
+            return ResponseEntity.ok(
+                    ResponseData.<ShopifyConfigResponse>builder()
+                            .status(HttpStatus.OK.value())
+                            .data(kenhBanHangService.getKetNoi(ma))
+                            .message(ThongDiep.dich("kenhBan.daNgatKetNoiKenhSan", "Shopee Chính Thống"))
                             .build()
             );
         }

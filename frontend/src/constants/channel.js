@@ -26,8 +26,19 @@ export const CHANNELS = {
     CANCELLED: "Đã hủy",
     INVOICE_PENDING: "Chờ hóa đơn",
   },
+  SHOPEE_OFFICIAL: {
+    UNPAID: "Chờ thanh toán",
+    READY_TO_SHIP: "Chờ lấy hàng",
+    PROCESSED: "Đã đóng gói",
+    SHIPPED: "Đang giao",
+    COMPLETED: "Hoàn thành",
+    IN_CANCEL: "Đang yêu cầu hủy",
+    CANCELLED: "Đã hủy",
+    INVOICE_PENDING: "Chờ hóa đơn",
+  },
   TIKTOK: { id: 5, maKenh: "TIKTOK", tenKenh: "TikTok Shop" },
   SHOPEE: { id: 4, maKenh: "SHOPEE", tenKenh: "Shopee" },
+  SHOPEE_OFFICIAL: { id: 8, maKenh: "SHOPEE_OFFICIAL", tenKenh: "Shopee Chính Thống" },
   SHOPEE_SANDBOX: { id: 7, maKenh: "SHOPEE_SANDBOX", tenKenh: "Shopee Sandbox" },
 };
 
@@ -39,6 +50,7 @@ export const MARKETPLACE_FILTER_OPTIONS = [
   { value: "lazada_sandbox", label: "Lazada Sandbox", id: 6 },
   { value: "tiktok", label: "TikTok Shop", id: CHANNELS.TIKTOK.id },
   { value: "shopee", label: "Shopee", id: 4 },
+  { value: "shopee_official", label: "Shopee Chính Thống", id: 8 },
   { value: "shopee_sandbox", label: "Shopee Sandbox", id: 7 },
 ];
 
@@ -49,6 +61,7 @@ export const CHANNEL_BADGE_CLASS = {
   LAZADA_SANDBOX: "border-amber-200 bg-amber-50 text-amber-700",
   TIKTOK: "border-slate-300 bg-slate-100 text-slate-800",
   SHOPEE: "border-orange-200 bg-orange-50 text-orange-700",
+  SHOPEE_OFFICIAL: "border-orange-200 bg-orange-50 text-orange-700",
   SHOPEE_SANDBOX: "border-orange-300 bg-orange-100 text-orange-800",
   POS: "border-indigo-200 bg-indigo-50 text-indigo-700",
   DEFAULT: "border-bo-border bg-bo-surface-subtle text-slate-600",
@@ -60,6 +73,7 @@ const CHANNEL_NAMES = {
   LAZADA_SANDBOX: "Lazada Sandbox",
   TIKTOK: "TikTok Shop",
   SHOPEE: "Shopee",
+  SHOPEE_OFFICIAL: "Shopee Chính Thống",
   SHOPEE_SANDBOX: "Shopee Sandbox",
   POS: "POS",
 };
@@ -251,8 +265,10 @@ export const SAN_BAN_HANG = [
   { maKenh: "LAZADA", ten: "Lazada", duongDan: "/channels/lazada", hoTro: true, kieuKetNoi: "uy_quyen", tienToDon: "LZD", hanUyQuyenNgay: 50 },
   { maKenh: "LAZADA_SANDBOX", ten: "Lazada Sandbox", duongDan: "/channels/lazada-sandbox", hoTro: true, kieuKetNoi: "uy_quyen", tienToDon: "LZD-SBX", hanUyQuyenNgay: 50, isSandbox: true },
   { maKenh: "TIKTOK", ten: "TikTok Shop", duongDan: "/channels/tiktok", hoTro: true, kieuKetNoi: "uy_quyen", tienToDon: "TTS", maThuCong: true },
-  // Kết nối thông qua Cổng ký chữ ký số bên thứ ba (MinMinTool Gateway); không cần OAuth2
+  // Kênh 1: Shopee (Kết nối nhanh bằng Shop ID)
   { maKenh: "SHOPEE", ten: "Shopee", duongDan: "/channels/shopee", hoTro: true, kieuKetNoi: "ben_thu_ba", tienToDon: "SHP", hanUyQuyenNgay: 365, hienMenu: true },
+  // Kênh 2: Shopee Chính Thống (Shopee Open Platform v2 Official)
+  { maKenh: "SHOPEE_OFFICIAL", ten: "Shopee Chính Thống", duongDan: "/channels/shopee-official", hoTro: true, kieuKetNoi: "uy_quyen", tienToDon: "SHP", hanUyQuyenNgay: 30, hienMenu: true },
   { maKenh: "SHOPEE_SANDBOX", ten: "Shopee Sandbox", duongDan: "/channels/shopee-sandbox", hoTro: true, kieuKetNoi: "uy_quyen", tienToDon: "SHP", hanUyQuyenNgay: 365, isSandbox: true, hienMenu: true, anTam: true },
 ];
 
@@ -319,6 +335,26 @@ const TRANG_THAI_SAN = {
     CANCELLED: "Đã hủy",
     // Webhook TikTok ghi trạng thái hủy là CANCEL (KH Phụ lục J)
     CANCEL: "Đã hủy",
+  },
+  SHOPEE: {
+    UNPAID: "Chờ thanh toán",
+    READY_TO_SHIP: "Chờ lấy hàng",
+    PROCESSED: "Đã đóng gói",
+    SHIPPED: "Đang giao",
+    COMPLETED: "Hoàn thành",
+    IN_CANCEL: "Đang yêu cầu hủy",
+    CANCELLED: "Đã hủy",
+    INVOICE_PENDING: "Chờ hóa đơn",
+  },
+  SHOPEE_OFFICIAL: {
+    UNPAID: "Chờ thanh toán",
+    READY_TO_SHIP: "Chờ lấy hàng",
+    PROCESSED: "Đã đóng gói",
+    SHIPPED: "Đang giao",
+    COMPLETED: "Hoàn thành",
+    IN_CANCEL: "Đang yêu cầu hủy",
+    CANCELLED: "Đã hủy",
+    INVOICE_PENDING: "Chờ hóa đơn",
   },
 };
 

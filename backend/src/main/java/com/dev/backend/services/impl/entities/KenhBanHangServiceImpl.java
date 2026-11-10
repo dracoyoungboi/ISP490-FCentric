@@ -70,6 +70,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
     public static final String MA_KENH_LAZADA_SANDBOX = "LAZADA_SANDBOX";
     public static final String DEFAULT_LAZADA_API_URL = "https://api.lazada.vn/rest";
     public static final String MA_KENH_SHOPEE = "SHOPEE";
+    public static final String MA_KENH_SHOPEE_OFFICIAL = "SHOPEE_OFFICIAL";
     public static final String MA_KENH_SHOPEE_SANDBOX = "SHOPEE_SANDBOX";
 
     /** Kiểu kết nối trả về giao diện: Shopify dán khóa, Lazada / TikTok Shop ủy quyền. */
@@ -786,16 +787,17 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                     .ngayCapNhat(kenh.getNgayCapNhat())
                     .build();
         }
-        if (MA_KENH_SHOPEE.equals(ma) || MA_KENH_SHOPEE_SANDBOX.equals(ma)) {
+        if (MA_KENH_SHOPEE.equals(ma) || MA_KENH_SHOPEE_OFFICIAL.equals(ma) || MA_KENH_SHOPEE_SANDBOX.equals(ma)) {
             KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma).orElse(null);
             boolean isSandbox = MA_KENH_SHOPEE_SANDBOX.equals(ma);
-            String defaultTenKenh = isSandbox ? "Shopee Sandbox" : "Gian hàng Shopee";
+            boolean isOfficial = MA_KENH_SHOPEE_OFFICIAL.equals(ma);
+            String defaultTenKenh = isOfficial ? "Shopee Chính Thống" : (isSandbox ? "Shopee Sandbox" : "Gian hàng Shopee");
             if (kenh == null) {
                 return ShopifyConfigResponse.builder()
                         .maKenh(ma)
                         .tenKenh(defaultTenKenh)
                         .loaiKenh("online")
-                        .kieuKetNoi(isSandbox ? KIEU_UY_QUYEN : "ben_thu_ba")
+                        .kieuKetNoi(isOfficial || isSandbox ? KIEU_UY_QUYEN : "ben_thu_ba")
                         .trangThaiKetNoi(CHUA_KET_NOI)
                         .trangThai(1)
                         .build();
@@ -806,8 +808,8 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
             boolean isExpired = hasToken && kenh.getTokenExpiresAt() != null && Instant.now().isAfter(kenh.getTokenExpiresAt());
 
             String trangThaiKetNoi = CHUA_KET_NOI;
-            if (!isSandbox && hasShopId) {
-                // Kênh Shopee Production kết nối qua Cổng ký bên thứ ba MinMinTool chỉ cần có Shop ID hợp lệ
+            if (!isOfficial && !isSandbox && hasShopId) {
+                // Kênh Shopee Shop ID kết nối trực tiếp chỉ cần có Shop ID hợp lệ
                 trangThaiKetNoi = Integer.valueOf(1).equals(kenh.getTrangThai()) ? DANG_HOAT_DONG : "tam_dung";
             } else if (hasToken) {
                 trangThaiKetNoi = isExpired ? HET_HAN : (Integer.valueOf(1).equals(kenh.getTrangThai()) ? DANG_HOAT_DONG : "tam_dung");
@@ -817,7 +819,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
             if (kenh.getTokenExpiresAt() != null) {
                 long seconds = Duration.between(Instant.now(), kenh.getTokenExpiresAt()).getSeconds();
                 soNgayCon = Math.max(0L, seconds / 86400L);
-            } else if (!isSandbox && hasShopId) {
+            } else if (!isOfficial && !isSandbox && hasShopId) {
                 soNgayCon = 365L;
             }
             String maskedToken = hasToken ? cheKhoa(kenh.getApiKey(), this::maskToken) : null;
@@ -836,9 +838,10 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                     .soNgayConUyQuyen(soNgayCon)
                     .ngayUyQuyen(kenh.getNgayCapNhat())
                     .tenGianHang(kenh.getTenKenh())
-                    .shopIdSan(kenh.getClientId() != null ? kenh.getClientId() : kenh.getApiUrl())
+                    .shopIdSan(kenh.getShopDomain() != null ? kenh.getShopDomain() : (kenh.getClientId() != null ? kenh.getClientId() : kenh.getApiUrl()))
+                    .shopDomain(kenh.getShopDomain() != null ? kenh.getShopDomain() : kenh.getClientId())
                     .trangThai(kenh.getTrangThai() != null ? kenh.getTrangThai() : 1)
-                    .kieuKetNoi(isSandbox ? KIEU_UY_QUYEN : "ben_thu_ba")
+                    .kieuKetNoi(isOfficial || isSandbox ? KIEU_UY_QUYEN : "ben_thu_ba")
                     .trangThaiKetNoi(trangThaiKetNoi)
                     .ngayCapNhat(kenh.getNgayCapNhat())
                     .build();

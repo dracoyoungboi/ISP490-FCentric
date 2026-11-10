@@ -25,6 +25,7 @@ const ICON_MENU_SAN = {
   LAZADA_SANDBOX: LazadaSandboxMenuIcon,
   TIKTOK: TiktokMenuIcon,
   SHOPEE: ShopeeMenuIcon,
+  SHOPEE_OFFICIAL: ShopeeMenuIcon,
 };
 import { SETTINGS_PAGES, SETTINGS_ROLES } from "@/components/settings/settings.config";
 import { canKho } from "@/components/nguoi-dung/phanQuyen";

@@ -107,7 +107,7 @@ export default function KhoaUngDungDialog({ open, onOpenChange, san, ketNoi, onS
           </DialogTitle>
           <DialogDescription className="text-bo-muted">
             {isThirdParty
-              ? t("Kết nối qua cổng ký MinMinTool. Chỉ cần nhập Shop ID để liên kết.")
+              ? t("Chỉ cần nhập mã Shop ID để liên kết gian hàng Shopee.")
               : t("Khóa được mã hóa trước khi lưu và không hiển thị lại. Đổi App Key thì cần ủy quyền lại với {{ten}}.", { ten: san.ten })}
           </DialogDescription>
         </DialogHeader>

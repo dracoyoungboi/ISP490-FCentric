@@ -461,16 +461,16 @@ function BuocKetNoiShopeeThirdParty({ config, onHuy, onXong }) {
     <>
       <TheCaiDat
         title={t("Liên kết gian hàng Shopee")}
-        description={t("Kết nối qua cổng ký bên thứ ba MinMinTool. Hệ thống tự ký từng yêu cầu đồng bộ, không cần tài khoản Shopee Open Platform hay bước ủy quyền.")}
+        description={t("Kết nối trực tiếp với gian hàng Shopee. Hệ thống tự động đồng bộ tồn kho và đơn hàng, chỉ cần cung cấp Shop ID.")}
       >
         <div className="space-y-6">
           <div className="rounded-lg border border-orange-200 bg-orange-50/70 p-4">
             <div className="flex items-start gap-3">
               <ChannelLogo maKenh="SHOPEE" size={28} />
               <div className="min-w-0 flex-1 text-sm">
-                <p className="font-semibold text-orange-950">{t("Cổng ký MinMinTool")}</p>
+                <p className="font-semibold text-orange-950">{t("Kết nối nhanh bằng Shop ID")}</p>
                 <p className="mt-1 text-orange-800 text-[13px] leading-relaxed">
-                  {t("Chỉ cần nhập Shop ID của gian hàng. FCentric gửi mọi thao tác đẩy tồn, lấy đơn và đọc sản phẩm qua cổng ký này.")}
+                  {t("Chỉ cần nhập mã Shop ID của gian hàng. FCentric sẽ tự động kết nối và đồng bộ tồn kho, đơn hàng cho gian hàng của bạn.")}
                 </p>
               </div>
             </div>
@@ -524,7 +524,7 @@ function BuocKetNoiShopeeThirdParty({ config, onHuy, onXong }) {
             <ul className="list-disc pl-5 space-y-1">
               <li><strong>{t("Đẩy tồn theo lô:")}</strong> {t("mọi biến thể của một sản phẩm gửi trong một lần.")}</li>
               <li><strong>{t("Lấy đơn theo lô:")}</strong> {t("nhiều mã đơn gửi trong một lần.")}</li>
-              <li><strong>{t("Tự phòng vệ:")}</strong> {t("hệ thống không bị treo khi mạng hoặc cổng ký tạm gián đoạn.")}</li>
+              <li><strong>{t("Tự phòng vệ:")}</strong> {t("hệ thống tự động thử lại khi mạng tạm thời gián đoạn.")}</li>
             </ul>
           </div>
         </div>

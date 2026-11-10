@@ -23,6 +23,22 @@ public class TrangThaiDongBoTableInitializer implements ApplicationRunner {
         themCotNeuChuaTonTai("so_luong_da_day", "INT DEFAULT NULL");
         themCotNeuChuaTonTai("ngay_day_ton_cuoi", "DATETIME DEFAULT NULL");
         nangCapKieuCotKenhBanHang();
+        themKenhShopeeOfficialNeuChuaCo();
+    }
+
+    private void themKenhShopeeOfficialNeuChuaCo() {
+        try {
+            String checkSql = "SELECT COUNT(*) FROM kenh_ban_hang WHERE ma_kenh = 'SHOPEE_OFFICIAL'";
+            Integer count = jdbcTemplate.queryForObject(checkSql, Integer.class);
+            if (count == null || count == 0) {
+                String insertSql = "INSERT INTO kenh_ban_hang (ma_kenh, ten_kenh, loai_kenh, api_url, trang_thai, ngay_tao, ngay_cap_nhat) " +
+                        "VALUES ('SHOPEE_OFFICIAL', 'Shopee Chính Thống', 'online', 'https://partner.shopeemobile.com/api/v2', 1, NOW(), NOW())";
+                jdbcTemplate.execute(insertSql);
+                log.info("[TABLE-INIT] Đã khởi tạo kênh bán hàng `SHOPEE_OFFICIAL` (Shopee Chính Thống)");
+            }
+        } catch (Exception e) {
+            log.warn("[TABLE-INIT] Không thể tự động thêm kênh `SHOPEE_OFFICIAL`: {}", e.getMessage());
+        }
     }
 
     private void nangCapKieuCotKenhBanHang() {
