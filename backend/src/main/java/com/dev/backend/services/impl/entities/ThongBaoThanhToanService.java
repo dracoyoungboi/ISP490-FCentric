@@ -6,6 +6,7 @@ import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
 import com.dev.backend.entities.DonBanHang;
 import com.dev.backend.entities.NguoiDung;
 import com.dev.backend.entities.PosPayosPayment;
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.repository.KhoRepository;
 import com.dev.backend.repository.NguoiDungRepository;
 import com.dev.backend.repository.ThanhToanDonBanRepository;
@@ -68,30 +69,30 @@ public class ThongBaoThanhToanService {
                 String thuNgan = thuNganId == null ? null : nguoiDungRepository.findById(thuNganId)
                         .map(NguoiDung::getHoTen).filter(t -> t != null && !t.isBlank()).map(String::trim).orElse(null);
                 // Mã orderCode không hiện ở màn Đối soát nên không ghi; nút ở đó là "Bán cho khách" / "Trả lại tiền"
-                String noi = " ở " + tenKho + (thuNgan == null ? "" : " (thu ngân " + thuNgan + ")");
+                // Câu lưu bằng tiếng Việt (ThongDiep.vi); dịch lúc đọc ở DichThongBao theo nhóm thongBaoThanhToan
                 String tieuDe;
                 String moTa;
                 switch (lyDo == null ? "" : lyDo) {
                     case "CHUYEN_THIEU" -> {
-                        tieuDe = "QR chuyển thiếu, chưa tạo được đơn";
-                        moTa = "Đã nhận " + tien(daNhan) + " / " + tien(soTien) + noi + ".";
+                        tieuDe = ThongDiep.vi("thongBaoThanhToan.qrChuyenThieu");
+                        moTa = daNhanTrenTong(daNhan, soTien, tenKho, thuNgan);
                     }
                     case "CHUYEN_DU" -> {
-                        tieuDe = "QR chuyển dư, chưa tạo được đơn";
-                        moTa = "Đã nhận " + tien(daNhan) + " / " + tien(soTien) + noi + ".";
+                        tieuDe = ThongDiep.vi("thongBaoThanhToan.qrChuyenDu");
+                        moTa = daNhanTrenTong(daNhan, soTien, tenKho, thuNgan);
                     }
                     case "TIEN_VE_MUON" -> {
-                        tieuDe = "Tiền QR về sau khi mã đã hủy";
-                        moTa = "Đã nhận " + tien(daNhan != null ? daNhan : soTien) + noi + ".";
+                        tieuDe = ThongDiep.vi("thongBaoThanhToan.qrTienVeMuon");
+                        moTa = daNhanSoTien(daNhan != null ? daNhan : soTien, tenKho, thuNgan);
                     }
                     default -> {
-                        tieuDe = "Đã nhận tiền QR, chưa tạo được đơn";
-                        moTa = (daNhan != null ? "Đã nhận " + tien(daNhan) : "Đã nhận tiền") + noi + ".";
+                        tieuDe = ThongDiep.vi("thongBaoThanhToan.qrDaNhanTien");
+                        moTa = daNhan != null ? daNhanSoTien(daNhan, tenKho, thuNgan) : daNhanTienChuaRo(tenKho, thuNgan);
                     }
                 }
                 // Chuyển thiếu: nút Bán cho khách bị khóa, chỉ trả lại tiền được
-                moTa += "CHUYEN_THIEU".equals(lyDo) ? " Trả lại tiền cho khách ở Đối soát chuyển khoản."
-                        : " Bán cho khách hoặc trả lại tiền ở Đối soát chuyển khoản.";
+                moTa += " " + ThongDiep.vi("CHUYEN_THIEU".equals(lyDo)
+                        ? "thongBaoThanhToan.traLaiTienChoKhach" : "thongBaoThanhToan.banChoKhachHoacTraTien");
                 String khoa = "PAYOS:" + orderCode + ":PAID_ERROR";
                 return new TomTat(khoa, nguoiNhan.quanTriVien(), null, new NoiDung(ThongBaoService.LOAI_THANH_TOAN_QR,
                         ThongBaoService.TONE_DANGER, tieuDe, moTa, "/pos-transfers", ThongBaoService.LOAI_THANH_TOAN_QR,
@@ -118,14 +119,14 @@ public class ThongBaoThanhToanService {
             String khoa = "DBH:" + donId + ":CAN_HOAN_TIEN";
             thongBaoService.capNhatTomTatSauCommit("Thông báo đơn " + soDon + " cần hoàn tiền", () -> {
                 String tinhHuong;
-                if (Objects.equals(trangThai, ITrangThaiDonBanHang.DA_HUY)) tinhHuong = "Đơn đã hủy sau khi thu tiền.";
-                else if (Objects.equals(trangThai, ITrangThaiDonBanHang.BI_HOAN_TRA)) tinhHuong = "Khách trả hàng sau khi thu tiền.";
-                else tinhHuong = "Khách trả dư.";
+                if (Objects.equals(trangThai, ITrangThaiDonBanHang.DA_HUY)) tinhHuong = ThongDiep.vi("thongBaoThanhToan.donHuySauThuTien");
+                else if (Objects.equals(trangThai, ITrangThaiDonBanHang.BI_HOAN_TRA)) tinhHuong = ThongDiep.vi("thongBaoThanhToan.khachTraHangSauThuTien");
+                else tinhHuong = ThongDiep.vi("thongBaoThanhToan.khachTraDu");
                 String tieuDe = soTienHoan != null && soTienHoan.signum() > 0
-                        ? "Đơn " + soDon + " cần hoàn " + tien(soTienHoan)
-                        : "Đơn " + soDon + " cần hoàn tiền";
+                        ? ThongDiep.vi("thongBaoThanhToan.donCanHoanSoTien", soDon, tien(soTienHoan))
+                        : ThongDiep.vi("thongBaoThanhToan.donCanHoanTien", soDon);
                 return new TomTat(khoa, nguoiNhan.quanTriVien(), nguoiThaoTac, new NoiDung(ThongBaoService.LOAI_DON_BAN_HANG,
-                        ThongBaoService.TONE_WARNING, tieuDe, tinhHuong + " Trả lại khách rồi bấm Ghi nhận hoàn tiền.",
+                        ThongBaoService.TONE_WARNING, tieuDe, tinhHuong + " " + ThongDiep.vi("thongBaoThanhToan.traLaiKhachRoiGhiNhan"),
                         "/sales-orders/" + donId, ThongBaoService.LOAI_DON_BAN_HANG, donId, khoId, khoa), vuaVao);
             });
         } catch (RuntimeException e) {
@@ -144,14 +145,14 @@ public class ThongBaoThanhToanService {
                 long n = thanhToanDonBanRepository.choDoiChieu(null, PageRequest.of(0, 1)).getTotalElements();
                 if (n <= 0) {
                     return TomTat.hetViec(KHOA_CHO_DOI_CHIEU, new NoiDung(ThongBaoService.LOAI_PHIEU_THU,
-                            ThongBaoService.TONE_INFO, "Không còn phiếu chuyển khoản chưa đối chiếu",
-                            "Mọi phiếu đã đối chiếu với sao kê.", "/reports/revenue", ThongBaoService.LOAI_PHIEU_THU,
+                            ThongBaoService.TONE_INFO, ThongDiep.vi("thongBaoThanhToan.khongConPhieuChuaDoiChieu"),
+                            ThongDiep.vi("thongBaoThanhToan.moiPhieuDaDoiChieu"), "/reports/revenue", ThongBaoService.LOAI_PHIEU_THU,
                             null, null, KHOA_CHO_DOI_CHIEU));
                 }
                 return new TomTat(KHOA_CHO_DOI_CHIEU, nguoiNhan.quanTriVien(), nguoiThaoTac,
                         new NoiDung(ThongBaoService.LOAI_PHIEU_THU, ThongBaoService.TONE_INFO,
-                                n + " phiếu chuyển khoản chưa đối chiếu",
-                                "Đối chiếu với sao kê ngân hàng ở Báo cáo doanh thu.", "/reports/revenue",
+                                ThongDiep.vi("thongBaoThanhToan.phieuChuaDoiChieu", n),
+                                ThongDiep.vi("thongBaoThanhToan.doiChieuVoiSaoKe"), "/reports/revenue",
                                 ThongBaoService.LOAI_PHIEU_THU, null, null, KHOA_CHO_DOI_CHIEU),
                         baoMoi);
             });
@@ -193,9 +194,30 @@ public class ThongBaoThanhToanService {
     }
 
     private String tenKho(Integer khoId) {
-        if (khoId == null) return "Quầy";
+        if (khoId == null) return ThongDiep.vi("thongBaoThanhToan.quay");
         return khoRepository.findById(khoId).map(k -> k.getTenKho()).filter(t -> t != null && !t.isBlank())
-                .map(String::trim).orElse("Kho #" + khoId);
+                .map(String::trim).orElse(ThongDiep.vi("thongBaoChung.khoSo", khoId));
+    }
+
+    /** "Đã nhận {đã nhận} / {cần thu} ở {kho}[ (thu ngân {tên})]." */
+    private static String daNhanTrenTong(BigDecimal daNhan, BigDecimal soTien, String tenKho, String thuNgan) {
+        return thuNgan == null
+                ? ThongDiep.vi("thongBaoThanhToan.daNhanTrenTong", tien(daNhan), tien(soTien), tenKho)
+                : ThongDiep.vi("thongBaoThanhToan.daNhanTrenTongThuNgan", tien(daNhan), tien(soTien), tenKho, thuNgan);
+    }
+
+    /** "Đã nhận {số tiền} ở {kho}[ (thu ngân {tên})]." */
+    private static String daNhanSoTien(BigDecimal soTien, String tenKho, String thuNgan) {
+        return thuNgan == null
+                ? ThongDiep.vi("thongBaoThanhToan.daNhanSoTien", tien(soTien), tenKho)
+                : ThongDiep.vi("thongBaoThanhToan.daNhanSoTienThuNgan", tien(soTien), tenKho, thuNgan);
+    }
+
+    /** "Đã nhận tiền ở {kho}[ (thu ngân {tên})]." — chưa rõ số tiền. */
+    private static String daNhanTienChuaRo(String tenKho, String thuNgan) {
+        return thuNgan == null
+                ? ThongDiep.vi("thongBaoThanhToan.daNhanTienOKho", tenKho)
+                : ThongDiep.vi("thongBaoThanhToan.daNhanTienOKhoThuNgan", tenKho, thuNgan);
     }
 
     private static String tien(BigDecimal soTien) {
