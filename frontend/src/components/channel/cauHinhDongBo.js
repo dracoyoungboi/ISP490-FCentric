@@ -78,6 +78,10 @@ export function tenKhoSanHienThi(ten) {
   if (kho) return t("Kho {{id}}", { id: kho[1] });
   const khoShopify = ten.match(/^Kho Shopify (\d+)$/);
   if (khoShopify) return t("Kho Shopify {{id}}", { id: khoShopify[1] });
+  const khoTikTok = ten.match(/^Kho TikTok (\d+)$/);
+  if (khoTikTok) return t("Kho TikTok {{id}}", { id: khoTikTok[1] });
+  const khoBanMacDinh = ten.match(/^(.+) \(Kho bán hàng mặc định\)$/);
+  if (khoBanMacDinh) return t("{{ten}} (Kho bán hàng mặc định)", { ten: khoBanMacDinh[1] });
   return tDuLieu(ten);
 }
 
