@@ -63,7 +63,11 @@ public class KenhBanHang {
     @Column(name = "refresh_token", columnDefinition = "TEXT")
     String refreshToken;
 
-    @Column(name = "token_expires_at")
+    @Size(max = 255)
+    @Column(name = "shop_cipher", length = 255)
+    String shopCipher;
+
+    @Column(name = "token_expires_at", columnDefinition = "DATETIME(6)")
     Instant tokenExpiresAt;
 
     @ColumnDefault("1")
@@ -85,6 +89,9 @@ public class KenhBanHang {
      * Tiện ích lấy mã Shop Cipher đối với kênh bán hàng TikTok Shop
      */
     public String getShopCipher() {
+        if (this.shopCipher != null && !this.shopCipher.isBlank()) {
+            return this.shopCipher.trim();
+        }
         if (!"TIKTOK".equalsIgnoreCase(this.maKenh) || this.apiUrl == null) return null;
         if (this.apiUrl.contains("::")) {
             String[] parts = this.apiUrl.split("::", 2);
@@ -97,12 +104,11 @@ public class KenhBanHang {
     }
 
     public void setShopCipher(String cipher) {
+        this.shopCipher = (cipher != null && !cipher.isBlank()) ? cipher.trim() : null;
         if ("TIKTOK".equalsIgnoreCase(this.maKenh)) {
             String sid = getServiceId();
             if (sid != null && !sid.isBlank()) {
                 this.apiUrl = sid + "::" + (cipher != null ? cipher.trim() : "");
-            } else {
-                this.apiUrl = cipher != null ? cipher.trim() : null;
             }
         }
     }

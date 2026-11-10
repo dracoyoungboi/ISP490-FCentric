@@ -142,6 +142,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         }
     }
 
+    private record TikTokCatalogCache(Map<String, String> skuToProductId, Map<String, String> skuToSkuId, Instant expiresAt) {}
+    private final java.util.concurrent.atomic.AtomicReference<TikTokCatalogCache> tikTokCatalogCacheRef = new java.util.concurrent.atomic.AtomicReference<>();
+
     @org.springframework.beans.factory.annotation.Autowired
     public KenhBanHangDongBoServiceImpl(
             KenhBanHangRepository kenhBanHangRepository,
@@ -355,6 +358,57 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         return ketQua;
     }
 
+    /**
+     * Tra cứu và cache ánh xạ SKU -> Product ID và Sku ID từ danh mục TikTok Shop (TTL 30 phút).
+     * Giúp ngăn chặn việc spam gọi API tìm kiếm sản phẩm lặp đi lặp lại ở mỗi đợt đẩy tồn (tránh lỗi ngốn quota như Shopee).
+     */
+    private TikTokCatalogCache layHoacCapNhatTikTokCatalog(String appKey, String appSecret, String token, String cipher, boolean forceRefresh) {
+        TikTokCatalogCache cached = tikTokCatalogCacheRef.get();
+        Instant now = Instant.now();
+        if (!forceRefresh && cached != null && cached.expiresAt() != null && cached.expiresAt().isAfter(now)) {
+            return cached;
+        }
+        synchronized (this) {
+            cached = tikTokCatalogCacheRef.get();
+            if (!forceRefresh && cached != null && cached.expiresAt() != null && cached.expiresAt().isAfter(now)) {
+                return cached;
+            }
+            Map<String, String> skuToProduct = new java.util.concurrent.ConcurrentHashMap<>();
+            Map<String, String> skuToSku = new java.util.concurrent.ConcurrentHashMap<>();
+            try {
+                List<TikTokProductDto> prods = taiDanhSachSanPhamTikTokTheoToken(appKey, appSecret, token, cipher);
+                if (prods != null) {
+                    for (TikTokProductDto prod : prods) {
+                        if (prod.getSkus() == null) continue;
+                        for (TikTokSkuDto sku : prod.getSkus()) {
+                            if (sku.getSellerSku() != null && !sku.getSellerSku().isBlank()) {
+                                String sSku = sku.getSellerSku().trim();
+                                skuToProduct.put(sSku.toLowerCase(), prod.getId());
+                                skuToSku.put(sSku.toLowerCase(), sku.getId());
+                                skuToProduct.put(sSku, prod.getId());
+                                skuToSku.put(sSku, sku.getId());
+                            }
+                            if (sku.getId() != null && !sku.getId().isBlank()) {
+                                String sId = sku.getId().trim();
+                                skuToProduct.put(sId.toLowerCase(), prod.getId());
+                                skuToSku.put(sId.toLowerCase(), sku.getId());
+                                skuToProduct.put(sId, prod.getId());
+                                skuToSku.put(sId, sku.getId());
+                            }
+                        }
+                    }
+                }
+                TikTokCatalogCache newCache = new TikTokCatalogCache(skuToProduct, skuToSku, now.plus(Duration.ofMinutes(30)));
+                tikTokCatalogCacheRef.set(newCache);
+                return newCache;
+            } catch (Exception ex) {
+                log.warn("[TIKTOK-SYNC] Không làm mới được cache danh mục TikTok Shop: {}", ex.getMessage());
+                if (cached != null) return cached;
+                return new TikTokCatalogCache(Map.of(), Map.of(), now.plus(Duration.ofMinutes(5)));
+            }
+        }
+    }
+
     private TaiSanPhamResultDto taiSanPhamTikTok(KenhBanHang kenh) {
         String appKey = kenhBanHangService.getTikTokAppKey();
         String appSecret = kenhBanHangService.getDecryptedTikTokAppSecret();
@@ -413,6 +467,12 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
             ghiNhatKy(kenh.getId(), IHanhDong.cap_nhat_kenh_ban,
                     String.format("Tải sản phẩm từ TikTok Shop: %s SKU (%s mới, %s cập nhật)", soSku, soMoi, soCapNhat));
+
+            try {
+                layHoacCapNhatTikTokCatalog(appKey, appSecret, token, cipher, true);
+            } catch (Exception cacheEx) {
+                log.warn("[TIKTOK-SYNC] Không thể làm mới cache sau khi tải sản phẩm: {}", cacheEx.getMessage());
+            }
 
             return TaiSanPhamResultDto.builder()
                     .soSku(soSku)
@@ -1803,6 +1863,12 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 soBoQuaKhongDoi++;
                 continue;
             }
+            // Chống spam lặp lỗi (Delta Sync bảo vệ quota): nếu lần trước thất bại nhưng số tồn không đổi và lần thử gần nhất chưa quá 60 phút -> bỏ qua
+            if (!daThanhCong && soTonKhongDoi && dong.getNgayDongBoCuoi() != null
+                    && java.time.Duration.between(dong.getNgayDongBoCuoi(), Instant.now()).toMinutes() < 60) {
+                soBoQuaKhongDoi++;
+                continue;
+            }
 
             String skuSan = dong.getMaSanPhamKenh() != null ? dong.getMaSanPhamKenh().trim() : bt.getMaSku().trim();
             dirtyList.add(new DongCanCapNhat(dong, soDay, skuSan, bt.getMaSku().trim()));
@@ -1819,30 +1885,19 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             return DayTonResultDto.builder().soDong(0).soLoi(0).soChuaDay(0).loiKenh(null).build();
         }
 
-        Map<String, String> skuToProductId = new HashMap<>();
-        Map<String, String> skuToSkuId = new HashMap<>();
-        try {
-            List<TikTokProductDto> prods = taiDanhSachSanPhamTikTokTheoToken(appKey, appSecret, token, cipher);
-            for (TikTokProductDto prod : prods) {
-                if (prod.getSkus() == null) continue;
-                for (TikTokSkuDto sku : prod.getSkus()) {
-                    if (sku.getSellerSku() != null && !sku.getSellerSku().isBlank()) {
-                        skuToProductId.put(sku.getSellerSku().trim(), prod.getId());
-                        skuToSkuId.put(sku.getSellerSku().trim(), sku.getId());
-                    }
-                    if (sku.getId() != null && !sku.getId().isBlank()) {
-                        skuToProductId.put(sku.getId().trim(), prod.getId());
-                        skuToSkuId.put(sku.getId().trim(), sku.getId());
-                    }
-                }
-            }
-        } catch (Exception ex) {
-            log.warn("[TIKTOK-SYNC] Không tải được danh mục để ánh xạ SKU/ProductId: {}", ex.getMessage());
-        }
+        TikTokCatalogCache catalog = layHoacCapNhatTikTokCatalog(appKey, appSecret, token, cipher, false);
+        Map<String, String> skuToProductId = catalog.skuToProductId();
+        Map<String, String> skuToSkuId = catalog.skuToSkuId();
 
         Map<String, List<DongCanCapNhat>> groupedByProduct = new LinkedHashMap<>();
         for (DongCanCapNhat item : dirtyList) {
-            String prodId = skuToProductId.get(item.sellerSku());
+            String prodId = skuToProductId.get(item.sellerSku().toLowerCase());
+            if (prodId == null) {
+                prodId = skuToProductId.get(item.sellerSku());
+            }
+            if (prodId == null) {
+                prodId = skuToProductId.get(item.skuSan().toLowerCase());
+            }
             if (prodId == null) {
                 prodId = skuToProductId.get(item.skuSan());
             }
@@ -1868,6 +1923,23 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
             String prodId = entry.getKey();
             List<DongCanCapNhat> batch = entry.getValue();
+
+            boolean isNumericProdId = prodId != null && prodId.matches("\\d+");
+            if (!isNumericProdId) {
+                String errorMsg = "Chưa liên kết với Product ID hợp lệ trên TikTok Shop";
+                log.warn("[TIKTOK-SYNC] Bỏ qua gọi API sàn vì Product ID không hợp lệ ({}) cho {} SKU: {}",
+                        prodId, batch.size(), batch.stream().map(DongCanCapNhat::sellerSku).toList());
+                for (DongCanCapNhat item : batch) {
+                    item.dong().setTrangThaiDongBo("that_bai");
+                    item.dong().setChiTietLoi(errorMsg);
+                    item.dong().setNgayDongBoCuoi(now);
+                    soLoi++;
+                    theoDoi.daDay(item.sellerSku(), tenHienThi(item.dong().getBienTheSanPham()), false, errorMsg);
+                }
+                List<TrangThaiDongBoSanPham> batchEntities = batch.stream().map(DongCanCapNhat::dong).toList();
+                trangThaiDongBoSanPhamRepository.saveAll(batchEntities);
+                continue;
+            }
 
             for (DongCanCapNhat item : batch) {
                 theoDoi.dangDay(item.sellerSku());
@@ -2443,9 +2515,14 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                         List<ShopifyLocationDto> list = new ArrayList<>();
                         for (TikTokWarehouseDto w : warehouses) {
                             boolean isSales = "SALES_WAREHOUSE".equalsIgnoreCase(w.getWarehouseType());
+                            String warehouseId = (w.getWarehouseId() != null && !w.getWarehouseId().isBlank())
+                                    ? w.getWarehouseId() : w.getId();
+                            String warehouseName = (w.getWarehouseName() != null && !w.getWarehouseName().isBlank())
+                                    ? w.getWarehouseName()
+                                    : (w.getName() != null && !w.getName().isBlank() ? w.getName() : "Kho TikTok " + (warehouseId != null ? warehouseId : ""));
                             list.add(ShopifyLocationDto.builder()
-                                    .maKhoSan(w.getWarehouseId())
-                                    .tenKhoSan(w.getWarehouseName() != null ? w.getWarehouseName() : "Kho " + w.getWarehouseId())
+                                    .maKhoSan(warehouseId)
+                                    .tenKhoSan(warehouseName)
                                     .loai(isSales ? "sales" : "fulfillment")
                                     .macDinh(Boolean.TRUE.equals(w.getIsDefault()))
                                     .build());
@@ -3622,42 +3699,63 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             return KetQuaGuiTon.loiCaKenh("Chưa có cấu hình ủy quyền hoặc Shop Cipher cho kênh TikTok Shop");
         }
 
-        String warehouseId = "7092830192";
-        try {
-            TikTokWarehousesResponse whRes = getTikTokShopClient().getWarehouses(appKey, appSecret, token, cipher);
-            if (whRes != null && whRes.getWarehouses() != null && !whRes.getWarehouses().isEmpty()) {
-                warehouseId = whRes.getWarehouses().get(0).getId();
-            }
-        } catch (Exception ex) {
-            log.warn("[TIKTOK-SYNC] Không tra cứu được warehouse mặc định TikTok Shop: {}", ex.getMessage());
-        }
-
-        String prodId = null;
-        String actualSkuId = null;
-
-        // Tra cứu Product ID và Sku ID từ danh mục sản phẩm TikTok
-        try {
-            List<TikTokProductDto> prods = taiDanhSachSanPhamTikTokTheoToken(appKey, appSecret, token, cipher);
-            for (TikTokProductDto prod : prods) {
-                if (prod.getSkus() == null) continue;
-                for (TikTokSkuDto sku : prod.getSkus()) {
-                    boolean matchSellerSku = sku.getSellerSku() != null && sku.getSellerSku().trim().equalsIgnoreCase(maSku.trim());
-                    boolean matchDongSku = dong.getMaSanPhamKenh() != null && sku.getSellerSku() != null && sku.getSellerSku().trim().equalsIgnoreCase(dong.getMaSanPhamKenh().trim());
-                    boolean matchSkuId = sku.getId() != null && sku.getId().trim().equalsIgnoreCase(maSku.trim());
-                    if (matchSellerSku || matchDongSku || matchSkuId) {
-                        prodId = prod.getId();
-                        actualSkuId = sku.getId();
-                        break;
-                    }
+        String warehouseId = dieuHanhHeThongService.getCauHinhString(KenhCauHinhDongBo.khoa("TIKTOK", "MA_KHO_SAN"), null);
+        if (warehouseId == null || warehouseId.isBlank()) {
+            try {
+                TikTokWarehousesResponse whRes = getTikTokShopClient().getWarehouses(appKey, appSecret, token, cipher);
+                if (whRes != null && whRes.getWarehouses() != null && !whRes.getWarehouses().isEmpty()) {
+                    TikTokWarehouseDto firstWh = whRes.getWarehouses().get(0);
+                    warehouseId = firstWh.getWarehouseId() != null ? firstWh.getWarehouseId() : firstWh.getId();
                 }
-                if (prodId != null) break;
+            } catch (Exception ex) {
+                log.warn("[TIKTOK-SYNC] Không tra cứu được warehouse mặc định TikTok Shop: {}", ex.getMessage());
             }
-        } catch (Exception ex) {
-            log.warn("[TIKTOK-SYNC] Không tra cứu được sản phẩm TikTok cho SKU {}: {}", maSku, ex.getMessage());
+        }
+        if (warehouseId == null || warehouseId.isBlank()) {
+            warehouseId = "default";
         }
 
-        if (prodId == null || prodId.isBlank()) {
-            return KetQuaGuiTon.loiSku("Không tìm thấy Product ID tương ứng trên TikTok Shop cho SKU " + maSku);
+        // Tra cứu Product ID và Sku ID từ cache danh mục TikTok (tiết kiệm quota API sàn)
+        TikTokCatalogCache catalog = layHoacCapNhatTikTokCatalog(appKey, appSecret, token, cipher, false);
+        String prodId = catalog.skuToProductId().get(maSku.trim().toLowerCase());
+        if (prodId == null) {
+            prodId = catalog.skuToProductId().get(maSku.trim());
+        }
+        if (prodId == null && dong.getMaSanPhamKenh() != null) {
+            prodId = catalog.skuToProductId().get(dong.getMaSanPhamKenh().trim().toLowerCase());
+            if (prodId == null) {
+                prodId = catalog.skuToProductId().get(dong.getMaSanPhamKenh().trim());
+            }
+        }
+
+        String actualSkuId = catalog.skuToSkuId().get(maSku.trim().toLowerCase());
+        if (actualSkuId == null) {
+            actualSkuId = catalog.skuToSkuId().get(maSku.trim());
+        }
+        if (actualSkuId == null && dong.getMaSanPhamKenh() != null) {
+            actualSkuId = catalog.skuToSkuId().get(dong.getMaSanPhamKenh().trim().toLowerCase());
+            if (actualSkuId == null) {
+                actualSkuId = catalog.skuToSkuId().get(dong.getMaSanPhamKenh().trim());
+            }
+        }
+
+        // Nếu chưa tìm thấy trong cache, thử làm mới cache 1 lần (dành cho SKU vừa tạo mới trên Seller Center)
+        if (prodId == null) {
+            catalog = layHoacCapNhatTikTokCatalog(appKey, appSecret, token, cipher, true);
+            prodId = catalog.skuToProductId().get(maSku.trim().toLowerCase());
+            if (prodId == null) prodId = catalog.skuToProductId().get(maSku.trim());
+            if (prodId == null && dong.getMaSanPhamKenh() != null) {
+                prodId = catalog.skuToProductId().get(dong.getMaSanPhamKenh().trim().toLowerCase());
+                if (prodId == null) prodId = catalog.skuToProductId().get(dong.getMaSanPhamKenh().trim());
+            }
+            if (actualSkuId == null) {
+                actualSkuId = catalog.skuToSkuId().get(maSku.trim().toLowerCase());
+                if (actualSkuId == null) actualSkuId = catalog.skuToSkuId().get(maSku.trim());
+            }
+        }
+
+        if (prodId == null || !prodId.matches("\\d+")) {
+            return KetQuaGuiTon.loiSku("Không tìm thấy Product ID hợp lệ tương ứng trên TikTok Shop cho SKU " + maSku);
         }
         if (actualSkuId == null || actualSkuId.isBlank()) {
             actualSkuId = (dong.getMaSanPhamKenh() != null && !dong.getMaSanPhamKenh().isBlank())

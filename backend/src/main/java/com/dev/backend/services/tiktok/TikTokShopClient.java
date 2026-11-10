@@ -195,12 +195,24 @@ public class TikTokShopClient {
             java.util.List<TikTokWarehouseDto> list = new java.util.ArrayList<>();
             for (JsonNode w : warehousesNode) {
                 TikTokWarehouseDto dto = new TikTokWarehouseDto();
-                dto.setWarehouseId(w.path("warehouse_id").asText(null));
-                dto.setWarehouseName(w.path("warehouse_name").asText(null));
-                dto.setWarehouseType(w.path("warehouse_type").asText(null));
-                dto.setWarehouseSubType(w.path("warehouse_sub_type").asText(null));
-                dto.setWarehouseEffectStatus(w.path("warehouse_effect_status").asText(null));
-                dto.setIsDefault(w.path("is_default").asBoolean(false));
+                String id = w.hasNonNull("id") ? w.path("id").asText() : w.path("warehouse_id").asText(null);
+                String name = w.hasNonNull("name") ? w.path("name").asText() : w.path("warehouse_name").asText(null);
+                String type = w.hasNonNull("type") ? w.path("type").asText() : w.path("warehouse_type").asText(null);
+                String subType = w.hasNonNull("sub_type") ? w.path("sub_type").asText() : w.path("warehouse_sub_type").asText(null);
+                String effectStatus = w.hasNonNull("effect_status") ? w.path("effect_status").asText() : w.path("warehouse_effect_status").asText(null);
+                boolean isDefault = w.hasNonNull("is_default") ? w.path("is_default").asBoolean(false) : false;
+
+                dto.setId(id);
+                dto.setName(name);
+                dto.setWarehouseId(id);
+                dto.setWarehouseName(name);
+                dto.setType(type);
+                dto.setWarehouseType(type);
+                dto.setSubType(subType);
+                dto.setWarehouseSubType(subType);
+                dto.setEffectStatus(effectStatus);
+                dto.setWarehouseEffectStatus(effectStatus);
+                dto.setIsDefault(isDefault);
                 list.add(dto);
             }
             response.setWarehouses(list);
