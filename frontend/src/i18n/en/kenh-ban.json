@@ -667,6 +667,7 @@
   "Ủy quyền có hạn 50 ngày và không tự gia hạn được. Hệ thống nhắc trước 7 ngày; bạn chỉ cần bấm Ủy quyền lại.": "Authorization lasts 50 days and can't renew automatically. The system reminds you 7 days ahead; just click Re-authorize.",
   "Kho trên Lazada": "Lazada warehouse",
   "Gian hàng một kho: Lazada nhận số vào kho mặc định, không cần chọn.": "Single-warehouse shop: Lazada receives quantities into the default warehouse, no selection needed.",
+  "Gian hàng một kho bán: {{tenSan}} nhận số vào kho bán hàng mặc định, không cần chọn.": "Single-warehouse shop: {{tenSan}} receives stock into the default sales warehouse, no selection needed.",
   "Kho mặc định": "Default warehouse",
   "Trong giờ sale lớn Lazada khóa cập nhật tồn; hệ thống chuyển sang cộng/trừ và đẩy lại ở lượt sau.": "During big sales Lazada locks stock updates; the system switches to adding/subtracting and pushes again on the next run.",
   "Lazada không gửi thông báo tới máy chủ này nên đơn mới chỉ về theo chu kỳ quét.": "Lazada doesn't send notifications to this server, so new orders only arrive on the polling interval.",

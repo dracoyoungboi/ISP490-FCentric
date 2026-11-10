@@ -1839,8 +1839,14 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         if (warehouseId == null || warehouseId.isBlank()) {
             try {
                 TikTokWarehousesResponse whRes = getTikTokShopClient().getWarehouses(appKey, appSecret, token, cipher);
-                if (whRes.getWarehouses() != null && !whRes.getWarehouses().isEmpty()) {
-                    warehouseId = whRes.getWarehouses().get(0).getWarehouseId();
+                if (whRes != null && whRes.getWarehouses() != null && !whRes.getWarehouses().isEmpty()) {
+                    TikTokWarehouseDto salesWh = whRes.getWarehouses().stream()
+                            .filter(w -> "SALES_WAREHOUSE".equalsIgnoreCase(w.getWarehouseType())
+                                    || "DOMESTIC_WAREHOUSE".equalsIgnoreCase(w.getWarehouseSubType())
+                                    || Boolean.TRUE.equals(w.getIsDefault()))
+                            .findFirst()
+                            .orElse(whRes.getWarehouses().get(0));
+                    warehouseId = salesWh.getWarehouseId() != null ? salesWh.getWarehouseId() : salesWh.getId();
                 }
             } catch (Exception ex) {
                 log.warn("Không tra cứu được warehouse mặc định TikTok Shop: {}", ex.getMessage());
@@ -2518,25 +2524,37 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                             boolean isSales = "SALES_WAREHOUSE".equalsIgnoreCase(w.getWarehouseType())
                                     || "DOMESTIC_WAREHOUSE".equalsIgnoreCase(w.getWarehouseSubType());
                             boolean isReturn = "RETURN_WAREHOUSE".equalsIgnoreCase(w.getWarehouseType());
+                            // Bỏ qua kho trả hàng (chỉ là địa chỉ bưu phẩm hoàn, không nhận tồn kho bán)
+                            if (isReturn) {
+                                continue;
+                            }
                             String warehouseId = (w.getWarehouseId() != null && !w.getWarehouseId().isBlank())
                                     ? w.getWarehouseId() : w.getId();
                             String baseName = (w.getWarehouseName() != null && !w.getWarehouseName().isBlank())
                                     ? w.getWarehouseName()
                                     : (w.getName() != null && !w.getName().isBlank() ? w.getName() : "Kho TikTok " + (warehouseId != null ? warehouseId : ""));
                             String warehouseName = baseName;
-                            if (isReturn) {
-                                warehouseName += " (Kho trả hàng)";
-                            } else if (isSales && !baseName.toLowerCase().contains("bán hàng")) {
-                                warehouseName += " (Kho bán hàng)";
+                            if (isSales && !baseName.toLowerCase().contains("bán hàng")) {
+                                warehouseName += " (Kho bán hàng mặc định)";
                             }
                             list.add(ShopifyLocationDto.builder()
                                     .maKhoSan(warehouseId)
                                     .tenKhoSan(warehouseName)
-                                    .loai(isSales ? "sales" : "fulfillment")
-                                    .macDinh(Boolean.TRUE.equals(w.getIsDefault()))
+                                    .loai("sales")
+                                    .macDinh(Boolean.TRUE.equals(w.getIsDefault()) || list.isEmpty())
                                     .build());
                         }
-                        return list;
+                        // Nếu chỉ có 1 kho bán hàng duy nhất, tự động gán mặc định và ghi nhận cấu hình nếu trống
+                        if (list.size() == 1) {
+                            list.get(0).setMacDinh(true);
+                            String curSaved = dieuHanhHeThongService.getCauHinhString(KenhCauHinhDongBo.khoa("TIKTOK", "MA_KHO_SAN"), null);
+                            if (curSaved == null || curSaved.isBlank()) {
+                                dieuHanhHeThongService.luuCauHinh(KenhCauHinhDongBo.khoa("TIKTOK", "MA_KHO_SAN"), list.get(0).getMaKhoSan());
+                            }
+                        }
+                        if (!list.isEmpty()) {
+                            return list;
+                        }
                     }
                 } catch (Exception e) {
                     log.warn("Không lấy được danh sách kho logistics từ TikTok Shop: {}", e.getMessage());
@@ -3713,8 +3731,13 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             try {
                 TikTokWarehousesResponse whRes = getTikTokShopClient().getWarehouses(appKey, appSecret, token, cipher);
                 if (whRes != null && whRes.getWarehouses() != null && !whRes.getWarehouses().isEmpty()) {
-                    TikTokWarehouseDto firstWh = whRes.getWarehouses().get(0);
-                    warehouseId = firstWh.getWarehouseId() != null ? firstWh.getWarehouseId() : firstWh.getId();
+                    TikTokWarehouseDto salesWh = whRes.getWarehouses().stream()
+                            .filter(w -> "SALES_WAREHOUSE".equalsIgnoreCase(w.getWarehouseType())
+                                    || "DOMESTIC_WAREHOUSE".equalsIgnoreCase(w.getWarehouseSubType())
+                                    || Boolean.TRUE.equals(w.getIsDefault()))
+                            .findFirst()
+                            .orElse(whRes.getWarehouses().get(0));
+                    warehouseId = salesWh.getWarehouseId() != null ? salesWh.getWarehouseId() : salesWh.getId();
                 }
             } catch (Exception ex) {
                 log.warn("[TIKTOK-SYNC] Không tra cứu được warehouse mặc định TikTok Shop: {}", ex.getMessage());

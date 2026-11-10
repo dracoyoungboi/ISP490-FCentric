@@ -18,6 +18,8 @@ export default function DongKhoSan({ maKenh, tenSan, khoSan, value, maKhoDaLuu, 
   const moTa =
     !chiDoc && khoDaLuuKhongCon(maKhoDaLuu, ds) ? (
       <span className="text-bo-warning">{t("Kho đã lưu không còn trên {{tenSan}}. Lưu để chuyển sang kho đang chọn.", { tenSan })}</span>
+    ) : ds.length === 1 ? (
+      t("Gian hàng một kho bán: {{tenSan}} nhận số vào kho bán hàng mặc định, không cần chọn.", { tenSan })
     ) : (
       noiDung.khoSan.moTa
     );
@@ -43,6 +45,12 @@ export default function DongKhoSan({ maKenh, tenSan, khoSan, value, maKhoDaLuu, 
     );
   } else if (!ds.length) {
     control = <span className="max-w-[240px] text-sm text-bo-muted">{t("{{tenSan}} chưa có kho bán hàng nào", { tenSan })}</span>;
+  } else if (ds.length === 1) {
+    control = (
+      <span className="text-sm font-medium text-bo-foreground">
+        {tenKhoSanHienThi(ds[0].tenKhoSan)}
+      </span>
+    );
   } else {
     control = (
       <Select value={value || khoSanDangChon(null, ds)} onValueChange={onChange} disabled={disabled}>
@@ -61,7 +69,7 @@ export default function DongKhoSan({ maKenh, tenSan, khoSan, value, maKhoDaLuu, 
     );
   }
 
-  // Chỉ là chữ (kho chỉ đọc, đang tải, lỗi, chưa có kho): như các dòng khóa–giá trị khác, điện thoại xếp dưới tên
-  const laChu = Boolean(chiDoc) || khoSan?.initialLoading || !ds.length;
+  // Chỉ là chữ (kho chỉ đọc, 1 kho duy nhất, đang tải, lỗi, chưa có kho): như các dòng khóa–giá trị khác, điện thoại xếp dưới tên
+  const laChu = Boolean(chiDoc) || ds.length === 1 || khoSan?.initialLoading || !ds.length;
   return <DongCaiDat title={nhan} description={moTa} control={control} giaTriChu={laChu} />;
 }

@@ -118,8 +118,12 @@ vào `Dev` / `main`. Báo đỏ thì xem log để biết dòng lỗi, sửa r�
 
 ### 1. Cấu hình kho (Single vs Multi-Warehouse)
 - **Lazada**: Gian hàng 1 kho mặc định -> `chiDoc: t("Kho mặc định")` (chỉ đọc, không mở dropdown chọn kho).
-- **TikTok Shop**: Multi-Warehouse. Gian hàng nội địa có 2 kho tự động: `SALES_WAREHOUSE` (kho bán hàng) và `RETURN_WAREHOUSE` (kho trả hàng). Hiển thị nhãn rõ ràng: `Tên kho (Kho bán hàng - mặc định)` và `Tên kho (Kho trả hàng)` để tránh nhầm lẫn 2 kho trùng tên.
-- Khi đẩy tồn, luôn đẩy vào kho `MA_KHO_SAN` đã chọn hoặc kho bán hàng `SALES_WAREHOUSE`.
+- **TikTok Shop**: 
+  - Mặc dù TikTok Shop có 2 kho nội bộ (`SALES_WAREHOUSE` kho bán hàng và `RETURN_WAREHOUSE` kho trả hàng bưu cục), nhưng kho nhận tồn bán hàng **DUY NHẤT** là `SALES_WAREHOUSE`.
+  - Backend BẮT BUỘC lọc bỏ `RETURN_WAREHOUSE` khỏi danh sách kho bán hàng.
+  - Khi gian hàng chỉ có 1 kho bán hàng (mô hình chuẩn nội địa), giao diện tự động hiển thị chỉ đọc `Tên kho (Kho bán hàng mặc định)` tương tự như Lazada, loại bỏ dropdown chọn kho trùng tên gây nhầm lẫn.
+  - Luồng hàng FCentric: Hàng đi ra từ Kho Tổng FCentric; khi khách hủy/hoàn thì hàng nhập về đúng Kho Tổng FCentric; số tồn khả dụng FCentric được đồng bộ trực tiếp vào `SALES_WAREHOUSE` của TikTok Shop.
+- **Shopee**: Áp dụng mô hình gian hàng 1 kho mặc định -> `chiDoc: t("Kho mặc định")`.
 
 ### 2. Bảo vệ Quota API và Delta Sync (Tránh lặp lỗi Shopee 433 reqs)
 - **Delta Sync**: Bỏ qua 100% SKU có `soLuongDaDay == soDay` và trạng thái `thanh_cong`.
