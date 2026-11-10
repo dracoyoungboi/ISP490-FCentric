@@ -145,7 +145,7 @@ public class ShopeeMockController {
     public ResponseData<Map<String, Object>> getAppAuthStatus() {
         return ResponseData.<Map<String, Object>>builder()
                 .status(HttpStatus.OK.value())
-                .message("Lấy thông tin ủy quyền ứng dụng thành công")
+                .message(ThongDiep.dich("kenhBan.layUyQuyenUngDungThanhCong"))
                 .data(mockEngine.getAppAuthStatus())
                 .build();
     }
@@ -158,7 +158,7 @@ public class ShopeeMockController {
         boolean ok = mockEngine.revokeAppAuth();
         return ResponseData.<Boolean>builder()
                 .status(HttpStatus.OK.value())
-                .message(ok ? "Đã hủy ủy quyền ứng dụng FCentric khỏi gian hàng Shopee thành công" : "Gian hàng chưa được ủy quyền")
+                .message(ok ? ThongDiep.dich("kenhBan.huyUyQuyenUngDungThanhCong") : ThongDiep.dich("kenhBan.gianHangChuaUyQuyen"))
                 .data(ok)
                 .build();
     }

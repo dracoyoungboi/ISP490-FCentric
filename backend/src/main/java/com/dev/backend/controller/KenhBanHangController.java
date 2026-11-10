@@ -572,7 +572,7 @@ public class KenhBanHangController {
                     ResponseData.<ShopifyConfigResponse>builder()
                             .status(HttpStatus.OK.value())
                             .data(kenhBanHangService.getKetNoi(ma))
-                            .message("Đã ngắt kết nối gian hàng Shopee thành công")
+                            .message(ThongDiep.dich("kenhBan.daNgatKetNoiKenhSan", "Shopee"))
                             .build()
             );
         }
