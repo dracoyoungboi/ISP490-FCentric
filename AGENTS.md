@@ -3,6 +3,11 @@
 Tệp này dành cho mọi trợ lý AI (Claude Code, Codex, Cursor, Copilot, Gemini…) và cho người viết code trong repo.
 Đọc hết trước khi sửa giao diện hoặc câu thông báo của máy chủ.
 
+> [!IMPORTANT]
+> **Bộ quy chuẩn chuyên sâu bắt buộc tham chiếu:**
+> - `.agents/rules/coding-standards.md`: Chuẩn lập trình Backend Spring Boot (`java-pro`), phân quyền `@RequireAuth` (`hunt-springboot`, `api-security`), RESTful API (`api-design-principles`).
+> - `.agents/rules/omnichannel-standards.md`: Chuẩn tích hợp đa kênh Shopee, Lazada, TikTok Shop, Shopify (Single vs Multi-Warehouse, Delta Sync chống spam quota, vòng đời đơn hàng, OAuth token AES-GCM).
+
 ## Đa ngôn ngữ (tiếng Việt + tiếng Anh)
 
 Ứng dụng chạy hai ngôn ngữ. **Tiếng Việt là ngôn ngữ gốc**, tiếng Anh là bản dịch. Mọi chữ người dùng nhìn thấy
@@ -106,3 +111,34 @@ GitHub Actions (`.github/workflows/kiem-dich.yml`) chạy đúng lệnh này m�
 vào `Dev` / `main`. Báo đỏ thì xem log để biết dòng lỗi, sửa rồi đẩy lại.
 
 4. Backend: mỗi khóa mới trong `<nhom>.properties` có dòng tương ứng trong `<nhom>_en.properties`.
+
+## Quy chuẩn đồng bộ đa kênh & Sàn TMĐT (Omnichannel)
+
+Áp dụng cho mọi module liên quan tới Shopify, Lazada, Shopee (Production & Sandbox), TikTok Shop:
+
+### 1. Cấu hình kho (Single vs Multi-Warehouse)
+- **Lazada**: Gian hàng 1 kho mặc định -> `chiDoc: t("Kho mặc định")` (chỉ đọc, không mở dropdown chọn kho).
+- **TikTok Shop**: Multi-Warehouse. Gian hàng nội địa có 2 kho tự động: `SALES_WAREHOUSE` (kho bán hàng) và `RETURN_WAREHOUSE` (kho trả hàng). Hiển thị nhãn rõ ràng: `Tên kho (Kho bán hàng - mặc định)` và `Tên kho (Kho trả hàng)` để tránh nhầm lẫn 2 kho trùng tên.
+- Khi đẩy tồn, luôn đẩy vào kho `MA_KHO_SAN` đã chọn hoặc kho bán hàng `SALES_WAREHOUSE`.
+
+### 2. Bảo vệ Quota API và Delta Sync (Tránh lặp lỗi Shopee 433 reqs)
+- **Delta Sync**: Bỏ qua 100% SKU có `soLuongDaDay == soDay` và trạng thái `thanh_cong`.
+- **Chống lặp lỗi (Backoff 60 phút)**: Với SKU trạng thái `that_bai`, nếu số tồn không đổi và lần thử gần nhất chưa quá 60 phút -> BẮT BUỘC BỎ QUA trong đợt quét tự động 5 phút. Chỉ thử lại khi tồn kho thay đổi, quá 60 phút, hoặc người dùng bấm đẩy tồn lại.
+- **Bộ nhớ đệm Catalog (TTL 30 phút)**: Lưu cache RAM ánh xạ `sku -> {productId, skuId}`. Tuyệt đối không gọi API phân trang `searchProducts` mỗi lần có SKU dirty hoặc khi đẩy lẻ.
+- **Kiểm tra Product ID**: Chỉ gọi sàn khi `productId` là chuỗi số hợp lệ của sàn. Không gửi mã SKU vào endpoint `productId` rồi retry làm nghẽn thread.
+
+### 3. Vòng đời đơn hàng đa sàn
+Đơn hàng đã tồn tại (`existingOpt.isPresent()`) BẮT BUỘC xử lý đủ các giai đoạn:
+1. `CANCELLED`: Gọi `huyDonTuSan`.
+2. Khách yêu cầu hủy (`laYeuCauHuy`): Gắn cờ `[KHÁCH YÊU CẦU HỦY]` vào ghi chú.
+3. Thanh toán: Cập nhật `trangThaiThanhToan = "da_thanh_toan"` khi sàn xác nhận thanh toán.
+4. Giao hàng: Gọi `capNhatTrangThaiGiaoHangTuSan` khi sàn chuyển `shipped`/`in_transit` (Đã xuất) hoặc `delivered`/`completed`/`fulfilled` (Hoàn thành).
+5. Vận đơn: Đồng bộ bổ sung `tracking_number` và `shipping_provider` vào ghi chú đơn hàng.
+
+### 4. Giao diện Sản phẩm sàn (Channel Mappings)
+- Biến `hoTroDuaLen` tại `ChannelMappingsPage.jsx` phải bao gồm cả `TIKTOK` / `TIKTOK_SHOP` để hiển thị nút "Đưa sản phẩm FCentric lên sàn" và "Tự động liên kết".
+
+### 5. Xác thực & Khóa API
+- Cột `apiKey`, `apiSecret`, `token` phải là kiểu `TEXT` để lưu token mã hóa AES-GCM.
+- Hạn token `token_expires_at` phải là ngày giờ hợp lệ (7–365 ngày), không lưu năm 2083.
+- `shop_cipher` của TikTok Shop phải lưu độc lập ở cột riêng, không ghi đè tên gian hàng vào cipher.
