@@ -7,6 +7,7 @@ import com.dev.backend.entities.BienBanGiaoNhan;
 import com.dev.backend.entities.Kho;
 import com.dev.backend.entities.NguoiDung;
 import com.dev.backend.entities.PhieuChuyenKho;
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.repository.KhoRepository;
 import com.dev.backend.repository.NguoiDungRepository;
 import com.dev.backend.repository.PhanQuyenNguoiDungKhoRepository;
@@ -100,9 +101,8 @@ public class ThongBaoChuyenKhoService {
             String soGoc = ph.phieuGocId() == null ? null : phieuChuyenKhoRepository.findById(ph.phieuGocId())
                     .map(PhieuChuyenKho::getSoPhieuChuyen).orElse(null);
             boolean giaoBu = ph.phieuGocId() != null;
-            String tieuDe = (giaoBu ? "Phiếu giao bù " : "Phiếu chuyển ") + ph.so() + " chờ duyệt";
-            String moTa = (giaoBu && soGoc != null ? "Giao bù cho " + soGoc + ": " : "") + tuyen(ph, ten)
-                    + ". Kiểm tồn và lập lệnh điều động.";
+            String tieuDe = tieuDeChoDuyet(giaoBu, ph.so());
+            String moTa = moTaChoDuyet(ten(ten, ph.khoXuatId()), ten(ten, ph.khoNhapId()), soGoc);
             return List.of(new GuiDi(hoacQuanTri(quanLyKhoTong(), ph, "chờ duyệt"), ng.id(),
                     noiDung(ph, "CHO_DUYET", ThongBaoService.TONE_INFO, tieuDe, moTa, ph.khoXuatId())));
         });
@@ -114,10 +114,9 @@ public class ThongBaoChuyenKhoService {
             Map<Integer, String> ten = tenKho(ph);
             List<Integer> nhan = new ArrayList<>(quanLyKho(ph.khoXuatId()));
             nhan.add(ph.nguoiTaoId());
-            String moTa = (ph.soLenh() != null ? "Lệnh điều động " + ph.soLenh() + ". " : "")
-                    + ten(ten, ph.khoXuatId()) + " nhặt và xuất hàng cho " + ten(ten, ph.khoNhapId()) + ".";
+            String moTa = moTaDaDuyet(ph.soLenh(), ten(ten, ph.khoXuatId()), ten(ten, ph.khoNhapId()));
             return List.of(new GuiDi(nhan, ng.id(), noiDung(ph, "DUYET", ThongBaoService.TONE_SUCCESS,
-                    "Phiếu chuyển " + ph.so() + " đã được duyệt", moTa, ph.khoXuatId())));
+                    tieuDeDaDuyet(ph.so()), moTa, ph.khoXuatId())));
         });
     }
 
@@ -136,17 +135,12 @@ public class ThongBaoChuyenKhoService {
             nhan.addAll(quanLyKho(ph.khoNhapId()));
             if (tuChoi || khoXuatDaLam) nhan.addAll(quanLyKho(ph.khoXuatId()));
 
-            List<String> cau = new ArrayList<>();
-            cau.add(tuyen(ph, ten));
             String lyDo = ph.lyDoHuy() == null ? "" : ph.lyDoHuy().trim().replaceAll("[.\\s]+$", "");
-            if (!lyDo.isEmpty()) cau.add("Lý do: " + lyDo);
-            if (IChuyenKho.DANG_VAN_CHUYEN.equals(trangThaiTruoc)) {
-                cau.add("Hàng đang trên đường, " + ten(ten, ph.khoXuatId()) + " nhập hoàn trả");
-            }
+            String moTa = moTaDaHuy(ten(ten, ph.khoXuatId()), ten(ten, ph.khoNhapId()), lyDo,
+                    IChuyenKho.DANG_VAN_CHUYEN.equals(trangThaiTruoc));
             return List.of(new GuiDi(nhan, ng.id(), noiDung(ph, "HUY",
                     tuChoi ? ThongBaoService.TONE_DANGER : ThongBaoService.TONE_WARNING,
-                    "Phiếu chuyển " + ph.so() + (tuChoi ? " bị từ chối" : " đã hủy"),
-                    String.join(". ", cau) + ".", ph.khoNhapId())));
+                    tieuDeDaHuy(ph.so(), tuChoi), moTa, ph.khoNhapId())));
         });
     }
 
@@ -154,11 +148,10 @@ public class ThongBaoChuyenKhoService {
     public void daXuat(PhieuChuyenKho p, NguoiDung nguoi) {
         dangKy("đã xuất", p, nguoi, (ph, ng) -> {
             Map<Integer, String> ten = tenKho(ph);
-            String moTa = "Từ " + ten(ten, ph.khoXuatId()) + ", "
-                    + (ph.ngayDuKienDen() != null ? "dự kiến đến " + GIO_NGAY.format(ph.ngayDuKienDen()) : "chưa hẹn giờ đến")
-                    + ".";
+            String moTa = moTaDaXuat(ten(ten, ph.khoXuatId()),
+                    ph.ngayDuKienDen() != null ? GIO_NGAY.format(ph.ngayDuKienDen()) : null);
             return List.of(new GuiDi(quanLyKho(ph.khoNhapId()), ng.id(), noiDung(ph, "XUAT", ThongBaoService.TONE_INFO,
-                    "Phiếu chuyển " + ph.so() + " đang trên đường đến", moTa, ph.khoNhapId())));
+                    tieuDeDaXuat(ph.so()), moTa, ph.khoNhapId())));
         });
     }
 
@@ -168,15 +161,14 @@ public class ThongBaoChuyenKhoService {
      * hoặc quản lý duy nhất chính là người lập) thì quản trị viên (xác nhận thay được).
      */
     public void nhanLech(PhieuChuyenKho p, BienBanGiaoNhan bb, NguoiDung nguoi) {
-        String cauBienBan = cauBienBan(bb);
+        BienBan bienBan = bienBan(bb);
         dangKy("nhận lệch", p, nguoi, (ph, ng) -> {
             Map<Integer, String> ten = tenKho(ph);
-            String moTa = ten(ten, ph.khoNhapId()) + " lập " + cauBienBan
-                    + ". Xem biên bản, ảnh rồi bấm Xác nhận biên bản thay chữ ký của kho gửi.";
+            String moTa = moTaNhanLech(ten(ten, ph.khoNhapId()), bienBan);
             List<Integer> khoGui = quanLyKho(ph.khoXuatId()).stream().filter(id -> id != null && !id.equals(ng.id())).toList();
             return List.of(new GuiDi(hoacQuanTri(khoGui, ph, "nhận lệch"), ng.id(),
                     noiDung(ph, "NHAN_LECH", ThongBaoService.TONE_WARNING,
-                            "Phiếu chuyển " + ph.so() + " nhận lệch, chờ kho gửi xác nhận", moTa, ph.khoXuatId())));
+                            tieuDeNhanLech(ph.so()), moTa, ph.khoXuatId())));
         });
     }
 
@@ -186,16 +178,14 @@ public class ThongBaoChuyenKhoService {
      * Thông báo "chờ kho gửi xác nhận" của phiếu đánh dấu đã đọc.
      */
     public void daXacNhanBienBan(PhieuChuyenKho p, BienBanGiaoNhan bb, NguoiDung nguoi) {
-        String cauBienBan = cauBienBan(bb);
+        BienBan bienBan = bienBan(bb);
         String yKien = bb == null || bb.getGhiChuKhoGui() == null ? "" : bb.getGhiChuKhoGui().trim().replaceAll("[.\\s]+$", "");
         if (p != null && p.getId() != null) thongBaoService.daXuLySauCommit("PCK:" + p.getId() + ":NHAN_LECH");
         dangKy("kho gửi xác nhận biên bản", p, nguoi, (ph, ng) -> {
             Map<Integer, String> ten = tenKho(ph);
-            String moTa = ten(ten, ph.khoXuatId()) + " đã xác nhận " + cauBienBan + "."
-                    + (yKien.isEmpty() ? "" : " Ý kiến kho gửi: " + yKien + ".")
-                    + " Chọn ghi giảm hao hụt hoặc giao bù.";
+            String moTa = moTaXacNhanBienBan(ten(ten, ph.khoXuatId()), bienBan, yKien);
             return List.of(new GuiDi(nguoiXuLyLech(ph), ng.id(), noiDung(ph, "XAC_NHAN_BB", ThongBaoService.TONE_WARNING,
-                    "Phiếu chuyển " + ph.so() + " chờ xử lý chênh lệch", moTa, ph.khoNhapId())));
+                    tieuDeXacNhanBienBan(ph.so()), moTa, ph.khoNhapId())));
         });
     }
 
@@ -204,13 +194,20 @@ public class ThongBaoChuyenKhoService {
         if (p != null && p.getId() != null) thongBaoService.daXuLySauCommit("PCK:" + p.getId() + ":XAC_NHAN_BB");
     }
 
-    /** "biên bản BBGN-…: thiếu 0, hỏng 2" — chụp ngay lúc gọi (không đọc CSDL sau commit). */
-    private static String cauBienBan(BienBanGiaoNhan bb) {
-        if (bb == null || bb.getSoBienBan() == null) return "biên bản giao nhận";
-        List<String> lech = new ArrayList<>();
-        if (bb.getTongSoLuongThieu() != null && bb.getTongSoLuongThieu() > 0) lech.add("thiếu " + bb.getTongSoLuongThieu());
-        if (bb.getTongSoLuongHong() != null && bb.getTongSoLuongHong() > 0) lech.add("hỏng " + bb.getTongSoLuongHong());
-        return "biên bản " + bb.getSoBienBan() + (lech.isEmpty() ? "" : ": " + String.join(", ", lech));
+    /**
+     * Biên bản giao nhận rút gọn để ghép câu: {@code so} null = chưa có số ("biên bản giao nhận"); {@code thieu} / {@code hong}
+     * null = không lệch loại đó. Chụp ngay lúc gọi (không đọc CSDL sau commit).
+     */
+    record BienBan(String so, String thieu, String hong) {
+    }
+
+    static BienBan bienBan(BienBanGiaoNhan bb) {
+        if (bb == null || bb.getSoBienBan() == null) return new BienBan(null, null, null);
+        String thieu = bb.getTongSoLuongThieu() != null && bb.getTongSoLuongThieu() > 0
+                ? String.valueOf(bb.getTongSoLuongThieu()) : null;
+        String hong = bb.getTongSoLuongHong() != null && bb.getTongSoLuongHong() > 0
+                ? String.valueOf(bb.getTongSoLuongHong()) : null;
+        return new BienBan(bb.getSoBienBan(), thieu, hong);
     }
 
     /** Người được xử lý chênh lệch theo Cấu hình › Chuyển kho (cùng luật PhieuChuyenKhoService.duocXuLyChenhLech). */
@@ -285,11 +282,101 @@ public class ThongBaoChuyenKhoService {
     }
 
     private static String ten(Map<Integer, String> ten, Integer khoId) {
-        return Optional.ofNullable(ten.get(khoId)).orElse(khoId == null ? "kho" : "kho #" + khoId);
+        return Optional.ofNullable(ten.get(khoId)).orElse(khoId == null ? "kho" : ThongDiep.vi("thongBaoChung.khoSoThuong", khoId));
     }
 
-    private static String tuyen(Phieu ph, Map<Integer, String> ten) {
-        return ten(ten, ph.khoXuatId()) + " → " + ten(ten, ph.khoNhapId());
+    // ─────────────────────────────────────────────────────────────
+    // CÂU THÔNG BÁO — nhóm thongBaoChuyenKho. Lưu tiếng Việt (ThongDiep.vi), DichThongBao dịch lúc đọc theo mẫu của khóa.
+    // Nội dung nhiều câu / có phần tùy chọn dùng một khóa nguyên chuỗi cho mỗi biến thể (mẫu nuốt đủ tham số, không
+    // phải tách câu); đổi chữ ở đây thì đổi cả hai tệp thongBaoChuyenKho*.properties.
+    // ─────────────────────────────────────────────────────────────
+
+    private static final String NHOM = "thongBaoChuyenKho.";
+
+    static String tieuDeChoDuyet(boolean giaoBu, String so) {
+        return ThongDiep.vi(NHOM + (giaoBu ? "choDuyetGiaoBuTieuDe" : "choDuyetTieuDe"), so);
+    }
+
+    /** {@code soGoc} khác null: phiếu giao bù cho phiếu gốc đó. */
+    static String moTaChoDuyet(String khoXuat, String khoNhap, String soGoc) {
+        return soGoc == null
+                ? ThongDiep.vi(NHOM + "choDuyetMoTa", khoXuat, khoNhap)
+                : ThongDiep.vi(NHOM + "choDuyetGiaoBuMoTa", khoXuat, khoNhap, soGoc);
+    }
+
+    static String tieuDeDaDuyet(String so) {
+        return ThongDiep.vi(NHOM + "daDuyetTieuDe", so);
+    }
+
+    static String moTaDaDuyet(String soLenh, String khoXuat, String khoNhap) {
+        return soLenh != null
+                ? ThongDiep.vi(NHOM + "daDuyetCoLenhMoTa", soLenh, khoXuat, khoNhap)
+                : ThongDiep.vi(NHOM + "daDuyetMoTa", khoXuat, khoNhap);
+    }
+
+    static String tieuDeDaHuy(String so, boolean tuChoi) {
+        return ThongDiep.vi(NHOM + (tuChoi ? "huyTuChoiTieuDe" : "huyTieuDe"), so);
+    }
+
+    /**
+     * Chỉ có tuyến kho (không lý do, không hàng đang đi) thì câu không có chữ nào cần dịch: "kho A → kho B." giữ nguyên
+     * ở cả hai ngôn ngữ nên không cần khóa.
+     */
+    static String moTaDaHuy(String khoXuat, String khoNhap, String lyDo, boolean dangVanChuyen) {
+        boolean coLyDo = lyDo != null && !lyDo.isEmpty();
+        if (!coLyDo && !dangVanChuyen) return khoXuat + " → " + khoNhap + ".";
+        if (coLyDo && dangVanChuyen) return ThongDiep.vi(NHOM + "huyLyDoDuongMoTa", khoXuat, khoNhap, lyDo, khoXuat);
+        if (coLyDo) return ThongDiep.vi(NHOM + "huyLyDoMoTa", khoXuat, khoNhap, lyDo);
+        return ThongDiep.vi(NHOM + "huyDuongMoTa", khoXuat, khoNhap, khoXuat);
+    }
+
+    static String tieuDeDaXuat(String so) {
+        return ThongDiep.vi(NHOM + "daXuatTieuDe", so);
+    }
+
+    /** {@code denDuKien} đã định dạng giờ ngày; null = chưa hẹn giờ đến. */
+    static String moTaDaXuat(String khoXuat, String denDuKien) {
+        return denDuKien != null
+                ? ThongDiep.vi(NHOM + "daXuatDuKienMoTa", khoXuat, denDuKien)
+                : ThongDiep.vi(NHOM + "daXuatChuaHenMoTa", khoXuat);
+    }
+
+    static String tieuDeNhanLech(String so) {
+        return ThongDiep.vi(NHOM + "nhanLechTieuDe", so);
+    }
+
+    static String moTaNhanLech(String khoNhap, BienBan bb) {
+        return ThongDiep.vi(NHOM + "nhanLech" + hauKhoaBienBan(bb) + "MoTa", thamSoBienBan(khoNhap, bb).toArray());
+    }
+
+    static String tieuDeXacNhanBienBan(String so) {
+        return ThongDiep.vi(NHOM + "xacNhanTieuDe", so);
+    }
+
+    /** {@code yKien} rỗng: không kèm câu "Ý kiến kho gửi". */
+    static String moTaXacNhanBienBan(String khoXuat, BienBan bb, String yKien) {
+        List<Object> thamSo = thamSoBienBan(khoXuat, bb);
+        boolean coYKien = yKien != null && !yKien.isEmpty();
+        if (coYKien) thamSo.add(yKien);
+        return ThongDiep.vi(NHOM + "xacNhan" + hauKhoaBienBan(bb) + (coYKien ? "YKien" : "") + "MoTa", thamSo.toArray());
+    }
+
+    /** Chung = chưa có số biên bản; "" = có số, không lệch; Thieu / Hong / ThieuHong = kèm số lệch. */
+    private static String hauKhoaBienBan(BienBan bb) {
+        if (bb.so() == null) return "Chung";
+        if (bb.thieu() != null && bb.hong() != null) return "ThieuHong";
+        if (bb.thieu() != null) return "Thieu";
+        if (bb.hong() != null) return "Hong";
+        return "";
+    }
+
+    private static List<Object> thamSoBienBan(String kho, BienBan bb) {
+        List<Object> thamSo = new ArrayList<>();
+        thamSo.add(kho);
+        if (bb.so() != null) thamSo.add(bb.so());
+        if (bb.thieu() != null) thamSo.add(bb.thieu());
+        if (bb.hong() != null) thamSo.add(bb.hong());
+        return thamSo;
     }
 
     private static NoiDung noiDung(Phieu ph, String suKien, String tone, String tieuDe, String moTa, Integer khoId) {
