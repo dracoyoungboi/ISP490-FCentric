@@ -41,7 +41,6 @@ import com.dev.backend.services.KenhBanHangService;
 import com.dev.backend.services.MinioService;
 import com.dev.backend.services.multitable.DieuHanhHeThongService;
 import com.dev.backend.services.lazada.LazadaClient;
-import com.dev.backend.services.tiktok.TikTokShopClient;
 import com.dev.backend.dto.response.customize.TikTokWarehouseDto;
 import com.dev.backend.dto.response.customize.TikTokWarehousesResponse;
 import com.dev.backend.dto.response.customize.TikTokProductDto;
@@ -2549,7 +2548,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                             list.get(0).setMacDinh(true);
                             String curSaved = dieuHanhHeThongService.getCauHinhString(KenhCauHinhDongBo.khoa("TIKTOK", "MA_KHO_SAN"), null);
                             if (curSaved == null || curSaved.isBlank()) {
-                                dieuHanhHeThongService.luuCauHinh(KenhCauHinhDongBo.khoa("TIKTOK", "MA_KHO_SAN"), list.get(0).getMaKhoSan());
+                                dieuHanhHeThongService.setCauHinhString(KenhCauHinhDongBo.khoa("TIKTOK", "MA_KHO_SAN"), list.get(0).getMaKhoSan());
                             }
                         }
                         if (!list.isEmpty()) {
