@@ -173,19 +173,33 @@ function SuaKhachHangRedirect() {
 
 /**
  * Điều hướng thông minh ở Trang chủ (/):
- * - Nếu nhận được query ?code= từ sàn TMĐT (đặc biệt Lazada redirect về domain gốc):
- *   Tự động giữ nguyên query params và chuyển hướng tới /channels/oauth/callback/lazada.
+ * - Nếu nhận được query ?code= hoặc ?auth_code= từ sàn TMĐT (sàn redirect về domain gốc):
+ *   Tự động xác định kênh (TikTok Shop, Shopee, Lazada) từ session hoặc state, giữ nguyên query params và chuyển hướng đúng trang callback.
  * - Nếu không có OAuth callback, chuyển về /dashboard (đã đăng nhập) hoặc /login (chưa đăng nhập).
  */
 function RootOAuthRedirect() {
   const [searchParams] = useSearchParams();
-  const code = searchParams.get("code");
+  const code = searchParams.get("code") || searchParams.get("auth_code");
   const state = searchParams.get("state") || "";
   const token = localStorage.getItem("access_token");
 
   if (code) {
-    const isSandbox = state.toLowerCase().includes("sandbox") || searchParams.get("sandbox") === "true";
-    const kenhSlug = isSandbox ? "lazada-sandbox" : "lazada";
+    const savedKenh = (window.sessionStorage.getItem("fc:dang-uy-quyen-kenh") || "").toLowerCase();
+    const stateLower = state.toLowerCase();
+
+    let kenhSlug = "lazada";
+    if (savedKenh.includes("tiktok") || stateLower.includes("tiktok") || stateLower.includes("tts")) {
+      kenhSlug = "tiktok";
+    } else if (savedKenh.includes("shopee-sandbox") || stateLower.includes("shopee-sandbox") || stateLower.includes("shopee_sandbox")) {
+      kenhSlug = "shopee-sandbox";
+    } else if (savedKenh.includes("shopee") || stateLower.includes("shopee")) {
+      kenhSlug = "shopee";
+    } else if (savedKenh.includes("lazada-sandbox") || stateLower.includes("sandbox") || searchParams.get("sandbox") === "true") {
+      kenhSlug = "lazada-sandbox";
+    } else if (savedKenh.includes("lazada") || stateLower.includes("lazada")) {
+      kenhSlug = "lazada";
+    }
+
     const target = `/channels/oauth/callback/${kenhSlug}${window.location.search}`;
     if (!token) {
       return <Navigate to={`/login?returnUrl=${encodeURIComponent(target)}`} replace />;

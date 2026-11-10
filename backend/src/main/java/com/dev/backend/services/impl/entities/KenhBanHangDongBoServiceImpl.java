@@ -4592,6 +4592,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 .build();
     }
 
+    record DongCanCapNhatShopee(TrangThaiDongBoSanPham dong, int soDay) {}
+
     private DayTonResultDto dayTonShopeeToiUu(
             KenhBanHang kenh,
             String maKenh,
@@ -4602,40 +4604,69 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             TheoDoiDayTon theoDoi) {
 
         com.dev.backend.services.shopee.ShopeeClient client = getShopeeClient(kenh);
+        Instant now = Instant.now();
+
+        // ═══════════════════════════════════════════════════════════════════
+        // [DELTA SYNC SHOPEE] Lọc chỉ những biến thể có số tồn thay đổi
+        // Bỏ qua các SKU đã đẩy thành công và số tồn giữ nguyên -> Tiết kiệm 100% quota API
+        // ═══════════════════════════════════════════════════════════════════
+        int soBoQuaKhongDoi = 0;
+        List<DongCanCapNhatShopee> dirtyList = new ArrayList<>();
+
+        for (TrangThaiDongBoSanPham dong : dongCanDay) {
+            BienTheSanPham bt = dong.getBienTheSanPham();
+            if (bt == null || bt.getId() == null) continue;
+            int soDay = tinhSoTonDay(khaDungToanChuoi(bt.getId()), tyLe, tonDem, nguongVe0);
+
+            boolean daThanhCong = "thanh_cong".equalsIgnoreCase(dong.getTrangThaiDongBo());
+            boolean soTonKhongDoi = dong.getSoLuongDaDay() != null && dong.getSoLuongDaDay().equals(soDay);
+            if (daThanhCong && soTonKhongDoi) {
+                soBoQuaKhongDoi++;
+                continue;
+            }
+            dirtyList.add(new DongCanCapNhatShopee(dong, soDay));
+        }
+
+        log.info("[SHOPEE-SYNC-DELTA] Tổng số SKU: {}, Bỏ qua không đổi: {}, Cần đẩy (dirty): {}",
+                dongCanDay.size(), soBoQuaKhongDoi, dirtyList.size());
+
+        if (dirtyList.isEmpty()) {
+            theoDoi.batDauDay(0);
+            lanDayTonCuoi.put(kenh.getId(), now);
+            String moTa = "Shopee: Tất cả " + dongCanDay.size() + " SKU tồn kho không đổi, bỏ qua đẩy tồn (tiết kiệm 100% quota API)";
+            ghiNhatKy(kenh.getId(), IHanhDong.dong_bo_ton_kho, moTa);
+            return DayTonResultDto.builder().soDong(0).soLoi(0).soChuaDay(0).loiKenh(null).build();
+        }
+
+        theoDoi.batDauDay(dirtyList.size());
+
+        // Gom nhóm biến thể theo sản phẩm cha (Batch stock update theo item_id chuẩn Shopee Open Platform)
+        Map<Integer, List<DongCanCapNhatShopee>> gomNhomTheoSp = new LinkedHashMap<>();
+        for (DongCanCapNhatShopee item : dirtyList) {
+            TrangThaiDongBoSanPham dong = item.dong();
+            int spId = (dong.getBienTheSanPham().getSanPham() != null && dong.getBienTheSanPham().getSanPham().getId() != null)
+                    ? dong.getBienTheSanPham().getSanPham().getId() : 0;
+            gomNhomTheoSp.computeIfAbsent(spId, k -> new ArrayList<>()).add(item);
+        }
+
         int soThanhCong = 0;
         int soLoi = 0;
 
-        theoDoi.batDauDay(dongCanDay.size());
-        Instant now = Instant.now();
-
-        // Gom nhóm biến thể theo sản phẩm cha (Batch stock update theo item_id chuẩn Shopee Open Platform)
-        Map<Integer, List<TrangThaiDongBoSanPham>> gomNhomTheoSp = new LinkedHashMap<>();
-        for (TrangThaiDongBoSanPham dong : dongCanDay) {
-            if (dong.getBienTheSanPham() == null) {
-                soLoi++;
-                continue;
-            }
-            int spId = (dong.getBienTheSanPham().getSanPham() != null && dong.getBienTheSanPham().getSanPham().getId() != null)
-                    ? dong.getBienTheSanPham().getSanPham().getId() : 0;
-            gomNhomTheoSp.computeIfAbsent(spId, k -> new ArrayList<>()).add(dong);
-        }
-
-        for (Map.Entry<Integer, List<TrangThaiDongBoSanPham>> entry : gomNhomTheoSp.entrySet()) {
+        for (Map.Entry<Integer, List<DongCanCapNhatShopee>> entry : gomNhomTheoSp.entrySet()) {
             if (theoDoi.canDung()) {
                 break;
             }
 
             Integer spId = entry.getKey();
-            List<TrangThaiDongBoSanPham> nhomDong = entry.getValue();
+            List<DongCanCapNhatShopee> nhomDong = entry.getValue();
             Long itemId = spId > 0 ? (188200000L + spId * 100L) : 1000L;
 
             List<Map<String, Object>> stockList = new ArrayList<>();
-            Map<TrangThaiDongBoSanPham, Integer> soDayMap = new LinkedHashMap<>();
 
-            for (TrangThaiDongBoSanPham dong : nhomDong) {
+            for (DongCanCapNhatShopee item : nhomDong) {
+                TrangThaiDongBoSanPham dong = item.dong();
                 BienTheSanPham bt = dong.getBienTheSanPham();
-                int soDay = tinhSoTonDay(khaDungToanChuoi(bt.getId()), tyLe, tonDem, nguongVe0);
-                soDayMap.put(dong, soDay);
+                int soDay = item.soDay();
 
                 Long modelId = null;
                 try {
@@ -4672,8 +4703,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 }
                 boolean ok = res != null && res.path("error").asText("").isEmpty();
 
-                for (TrangThaiDongBoSanPham dong : nhomDong) {
-                    int soDay = soDayMap.getOrDefault(dong, 0);
+                for (DongCanCapNhatShopee item : nhomDong) {
+                    TrangThaiDongBoSanPham dong = item.dong();
+                    int soDay = item.soDay();
                     if (ok) {
                         dong.setNgayDayTonCuoi(now);
                         dong.setSoLuongDaDay(soDay);
@@ -4693,7 +4725,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 }
             } catch (Exception ex) {
                 log.error("[SHOPEE-STOCK-BATCH] Lỗi đẩy tồn theo lô cho sản phẩm ID {}: {}", spId, ex.getMessage());
-                for (TrangThaiDongBoSanPham dong : nhomDong) {
+                for (DongCanCapNhatShopee item : nhomDong) {
+                    TrangThaiDongBoSanPham dong = item.dong();
                     dong.setChiTietLoi(ex.getMessage());
                     dong.setTrangThaiDongBo("that_bai");
                     trangThaiDongBoSanPhamRepository.save(dong);
@@ -4707,9 +4740,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         return DayTonResultDto.builder()
                 .soDong(soThanhCong)
                 .soLoi(soLoi)
-                .soChuaDay(dongCanDay.size() - soThanhCong - soLoi)
+                .soChuaDay(dirtyList.size() - soThanhCong - soLoi)
                 .loiKenh(null)
                 .build();
     }
-
 }

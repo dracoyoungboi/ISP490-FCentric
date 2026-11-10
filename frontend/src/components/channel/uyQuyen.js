@@ -8,16 +8,20 @@ import { t } from "@/i18n";
  * vào Thiết lập). Lưu trong sessionStorage vì cả trang chuyển sang sàn rồi quay lại.
  */
 const khoaUyQuyenLai = (maKenh) => `fc:uy-quyen-lai:${String(maKenh ?? "").toUpperCase()}`;
+export const KHOA_DANG_UY_QUYEN_KENH = "fc:dang-uy-quyen-kenh";
 
 export async function moTrangUyQuyen(san, { uyQuyenLai = false } = {}) {
-  const { authUrl } = (await kenhBanHangService.batDauUyQuyen(san.maKenh)) ?? {};
-  if (!authUrl) throw new Error(t("Máy chủ không trả đường dẫn ủy quyền của {{ten}}.", { ten: san.ten }));
+  const slug = san.duongDan ? san.duongDan.split("/").pop() : String(san.maKenh ?? "").toLowerCase();
+  const redirectUri = `${window.location.origin}/channels/oauth/callback/${slug}`;
   try {
+    window.sessionStorage.setItem(KHOA_DANG_UY_QUYEN_KENH, String(san.maKenh ?? "").toLowerCase());
     if (uyQuyenLai) window.sessionStorage.setItem(khoaUyQuyenLai(san.maKenh), "1");
     else window.sessionStorage.removeItem(khoaUyQuyenLai(san.maKenh));
   } catch {
     // Trình duyệt chặn lưu: trang quay về dùng câu của lần kết nối đầu
   }
+  const { authUrl } = (await kenhBanHangService.batDauUyQuyen(san.maKenh, redirectUri)) ?? {};
+  if (!authUrl) throw new Error(t("Máy chủ không trả đường dẫn ủy quyền của {{ten}}.", { ten: san.ten }));
   window.location.assign(authUrl);
 }
 

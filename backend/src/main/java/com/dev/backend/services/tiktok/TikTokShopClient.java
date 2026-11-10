@@ -88,7 +88,7 @@ public class TikTokShopClient {
         StringBuilder urlBuilder = new StringBuilder(TikTokShopConstants.AUTH_URL_PARTNER);
         urlBuilder.append("?service_id=").append(URLEncoder.encode(cleanAppKey, StandardCharsets.UTF_8));
         urlBuilder.append("&state=").append(URLEncoder.encode(cleanState, StandardCharsets.UTF_8));
-        if (redirectUri != null && !redirectUri.isBlank() && !redirectUri.contains("localhost")) {
+        if (redirectUri != null && !redirectUri.isBlank()) {
             urlBuilder.append("&redirect_uri=").append(URLEncoder.encode(redirectUri.trim(), StandardCharsets.UTF_8));
         }
         return urlBuilder.toString();

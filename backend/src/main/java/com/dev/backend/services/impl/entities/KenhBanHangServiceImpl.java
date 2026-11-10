@@ -1754,7 +1754,8 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         if (authIdentifier == null || authIdentifier.isBlank()) {
             throw new CommonException(ThongDiep.of("kenhBan.tiktokAppKeyTrong"), HttpStatus.BAD_REQUEST, null);
         }
-        return getTikTokShopClient().generateAuthUrl(authIdentifier, redirectUri, state);
+        String cleanState = (state != null && !state.isBlank()) ? state : ("tiktok_" + java.util.UUID.randomUUID().toString().replace("-", ""));
+        return getTikTokShopClient().generateAuthUrl(authIdentifier, redirectUri, cleanState);
     }
 
     @Override
