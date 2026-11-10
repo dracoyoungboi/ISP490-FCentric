@@ -199,7 +199,7 @@ export default function BackofficeHeader() {
               sideOffset={6}
               className="z-50 w-56 rounded-lg border border-bo-border bg-bo-surface p-1 text-bo-foreground shadow-lg"
             >
-              <div className="px-2 py-2">
+              <div className="px-2.5 py-2">
                 <p className="truncate text-sm font-semibold">{username}</p>
                 <p className="mt-0.5 truncate text-xs text-bo-muted">{roleLabel}</p>
               </div>

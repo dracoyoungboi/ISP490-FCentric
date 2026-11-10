@@ -25,6 +25,8 @@ function chon(ma) {
  * Dải ngôn ngữ ở đáy menu tài khoản (thanh trên trang quản trị và POS), cùng ý với chân trang trang Đăng nhập:
  * "🌐 Tiếng Việt · English" chữ nhỏ xám, cùng một tông với menu (không tô nền); ngôn ngữ đang dùng đậm hơn,
  * bấm ngôn ngữ kia là đổi. Đặt làm phần tử CUỐI của DropdownMenuContent (có p-1): lề âm cho đường kẻ chạm mép menu.
+ * px-3.5 bù lề âm để quả địa cầu cùng mép trái 14px với icon các dòng trên (p-1 + px-2.5); quả địa cầu nằm giữa ô 16px
+ * cho tâm thẳng với icon size-4.
  */
 export function DaiNgonNguChanMenu() {
   const hienTai = ngonNguHienTai();
@@ -32,9 +34,11 @@ export function DaiNgonNguChanMenu() {
     <div
       role="group"
       aria-label={t("Ngôn ngữ")}
-      className="-mx-1 mt-1 flex items-center gap-1 border-t border-bo-border px-2.5 pb-0.5 pt-1.5 text-xs text-slate-400"
+      className="-mx-1 mt-1 flex items-center gap-1 border-t border-bo-border px-3.5 pb-0.5 pt-1.5 text-xs text-slate-400"
     >
-      <Globe className="mr-0.5 size-3.5 shrink-0" aria-hidden="true" />
+      <span className="flex w-4 shrink-0 justify-center" aria-hidden="true">
+        <Globe className="size-3.5" />
+      </span>
       {CAC_NGON_NGU.map(({ ma, ten }, i) => (
         <span key={ma} className="contents">
           {i > 0 ? <span aria-hidden="true" className="text-slate-300">·</span> : null}
