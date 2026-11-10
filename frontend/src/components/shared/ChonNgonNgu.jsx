@@ -1,4 +1,4 @@
-import { Check, ChevronDown, Globe } from "lucide-react";
+import { Check, ChevronDown, Globe, Languages } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,6 +22,9 @@ function chon(ma) {
 }
 
 /**
+ * Tạm không dùng (10/11): chọn ngôn ngữ đưa lên thanh trên cạnh chuông (NutChonNgonNguThanhTren).
+ * Giữ lại để đổi về đáy menu tài khoản khi cần.
+ *
  * Dải ngôn ngữ ở đáy menu tài khoản (thanh trên trang quản trị và POS), cùng ý với chân trang trang Đăng nhập:
  * "🌐 Tiếng Việt · English" chữ nhỏ xám, cùng một tông với menu (không tô nền); ngôn ngữ đang dùng đậm hơn,
  * bấm ngôn ngữ kia là đổi. Đặt làm phần tử CUỐI của DropdownMenuContent (có p-1): lề âm cho đường kẻ chạm mép menu.
@@ -78,6 +81,44 @@ function CacMucNgonNgu({ hienTai }) {
       {ma === hienTai ? <Check className="size-4 text-bo-primary" aria-hidden="true" /> : null}
     </DropdownMenuItem>
   ));
+}
+
+/**
+ * Nút ngôn ngữ trên thanh trên cùng (cạnh chuông thông báo): biểu tượng 文A + mã "VI"/"EN",
+ * bấm mở danh sách ngôn ngữ. Màn hẹp chỉ còn biểu tượng.
+ * `className` là kiểu của nút để khớp các nút bên cạnh; `lopMenu` dùng khi menu cần z-index riêng (POS).
+ */
+export function NutChonNgonNguThanhTren({ className, lopMenu }) {
+  const hienTai = ngonNguHienTai();
+  const tenHienTai = CAC_NGON_NGU.find((n) => n.ma === hienTai)?.ten ?? "";
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          title={t("Ngôn ngữ")}
+          aria-label={`${t("Ngôn ngữ")}: ${tenHienTai}`}
+          className={cn(
+            "inline-flex shrink-0 items-center justify-center gap-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30",
+            "data-[state=open]:bg-bo-primary-soft data-[state=open]:text-bo-primary data-[state=open]:hover:bg-bo-primary-soft data-[state=open]:hover:text-bo-primary",
+            className,
+          )}
+        >
+          <Languages className="size-5 shrink-0" aria-hidden="true" />
+          <span className="hidden text-xs font-semibold uppercase tracking-wide sm:inline" aria-hidden="true">
+            {hienTai}
+          </span>
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        sideOffset={6}
+        className={cn("z-50 w-44 rounded-lg border border-bo-border bg-bo-surface p-1 text-bo-foreground shadow-lg", lopMenu)}
+      >
+        <CacMucNgonNgu hienTai={hienTai} />
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 }
 
 /**
