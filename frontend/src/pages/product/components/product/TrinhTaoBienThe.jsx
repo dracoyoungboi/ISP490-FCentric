@@ -226,15 +226,25 @@ function NutTrangThai({ dangBan, ten, disabled, onClick }) {
             title={dangBan ? t("Bấm để tạm ngừng bán biến thể này") : t("Bấm để bán lại biến thể này")}
             disabled={disabled}
             onClick={onClick}
-            className={cn(
-                "inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bo-primary disabled:opacity-50",
-                dangBan
-                    ? "border-bo-success/30 bg-bo-success-soft text-bo-success hover:border-bo-success/60"
-                    : "border-bo-border bg-bo-surface-subtle text-bo-muted hover:border-bo-muted",
-            )}
+            className="inline-flex h-7 items-center gap-2 whitespace-nowrap rounded-md px-1 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bo-primary disabled:opacity-50"
         >
-            <span className={cn("size-1.5 rounded-full", dangBan ? "bg-bo-success" : "bg-bo-muted")} aria-hidden="true" />
-            {dangBan ? t("Đang bán") : t("Tạm ngừng")}
+            <span
+                aria-hidden="true"
+                className={cn(
+                    "relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors motion-reduce:transition-none",
+                    dangBan ? "bg-bo-success-track" : "bg-bo-input-border",
+                )}
+            >
+                <span
+                    className={cn(
+                        "absolute left-0.5 top-0.5 size-4 rounded-full bg-white shadow-sm transition-transform motion-reduce:transition-none",
+                        dangBan && "translate-x-4",
+                    )}
+                />
+            </span>
+            <span className={dangBan ? "text-bo-success" : "text-bo-muted"}>
+                {dangBan ? t("Đang bán") : t("Tạm ngừng")}
+            </span>
         </button>
     );
 }
