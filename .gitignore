@@ -1,7 +1,9 @@
 # AI Agent Skills & Customizations
 .agents/
-AGENTS.md
+# AGENTS.md là quy ước chung cho mọi trợ lý AI, đưa lên git; ghi chú AI riêng để ở agent.md hoặc AGENTS.override.md
+AGENTS.override.md
 agent.md
+CLAUDE.md
 
 # Internal tracking & Architecture markdown files
 audit.md

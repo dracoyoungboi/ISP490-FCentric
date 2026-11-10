@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { boDau, soVN } from "@/components/chung-tu/bangChungTu";
 import ChonKhoKiemKe from "@/components/kiem-ke/ChonKhoKiemKe";
 import { TAB_DOT, TT_DOT, moTaPhamVi, nhanPhamVi, nhanTrangThaiDot, tienCoDau } from "@/components/kiem-ke/kiemKe";
+import { coQuyenLapDot } from "@/components/kiem-ke/quyenLapDot";
 import { toast } from "@/lib/thongBaoNhanh";
 import { cn } from "@/lib/utils";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
@@ -155,6 +156,8 @@ export default function StockTakeList() {
   const [trang, setTrang] = useState(0);
   const [coTrang, setCoTrang] = useState(SO_DONG_MAC_DINH);
   const [laQuanLy] = useState(() => hasAnyRole([ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO]));
+  // Nút Tạo đợt: quản lý kho, quản trị viên, hoặc nhân viên kho được cấp quyền "Lập đợt kiểm kê" ở kho được phân công
+  const [coLapDot] = useState(() => coQuyenLapDot());
   const [laNhanVien] = useState(() => !hasAnyRole([ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO]) && hasAnyRole([ROLES.NHAN_VIEN_KHO]));
 
   const lanTaiRef = useRef(0);
@@ -283,7 +286,7 @@ export default function StockTakeList() {
               <Grid2x2 className="size-4" />
               {t("Sơ đồ khóa")}
             </Button>
-            {laQuanLy ? (
+            {coLapDot ? (
               <Button onClick={() => navigate("/stock-take/new")} className="h-9 gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover">
                 <Plus className="size-4" />
                 {t("Tạo đợt kiểm kê")}
@@ -407,12 +410,12 @@ export default function StockTakeList() {
               icon={ClipboardList}
               title={t("Chưa có đợt kiểm kê nào")}
               description={
-                laQuanLy
+                coLapDot
                   ? t("Kiểm kê theo khu vực, theo kệ hay theo danh mục để chỉ tạm dừng đúng phần hàng cần đếm.")
                   : t("Quản lý kho sẽ lập đợt kiểm kê; đợt đang đếm sẽ hiện ở đây.")
               }
               action={
-                laQuanLy ? (
+                coLapDot ? (
                   <Button onClick={() => navigate("/stock-take/new")} className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover">
                     <Plus className="size-4" />
                     {t("Tạo đợt đầu tiên")}

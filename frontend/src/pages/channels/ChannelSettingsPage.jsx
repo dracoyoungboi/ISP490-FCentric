@@ -381,7 +381,7 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, onConfigSaved, onCauH
                   <p className="text-[15px] font-semibold leading-5 text-bo-heading">{config.tenGianHang || t("Gian hàng {{ten}}", { ten: SAN.ten })}</p>
                   {/* Điện thoại: mỗi ý một dòng, không có dấu "·" treo cuối dòng (như thẻ của sàn ủy quyền) */}
                   <p className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 text-[13px] leading-5 text-bo-muted max-sm:flex-col max-sm:items-start">
-                    <span className="truncate">{config.shopDomain ? (SAN.kieuKetNoi === "ben_thu_ba" ? `Shop ID: ${config.shopDomain}` : config.shopDomain) : ""}</span>
+                    <span className="truncate">{config.shopDomain ? (SAN.kieuKetNoi === "ben_thu_ba" ? t("Shop ID: {{id}}", { id: config.shopDomain }) : config.shopDomain) : ""}</span>
                     <span aria-hidden="true" className="max-sm:hidden">
                       ·
                     </span>

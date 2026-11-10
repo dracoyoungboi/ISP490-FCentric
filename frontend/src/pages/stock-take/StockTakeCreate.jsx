@@ -16,6 +16,9 @@ import ChonDanhMucKiemKe from "@/components/kiem-ke/ChonDanhMucKiemKe";
 import ChonKhoKiemKe, { BieuTuongKho } from "@/components/kiem-ke/ChonKhoKiemKe";
 import ChonKhuVucKiemKe from "@/components/kiem-ke/ChonKhuVucKiemKe";
 import XemTruocPhamVi from "@/components/kiem-ke/XemTruocPhamVi";
+import { coQuyenLapDot, lapNhoQuyen } from "@/components/kiem-ke/quyenLapDot";
+import EmptyState from "@/components/shared/EmptyState";
+import { Button } from "@/components/ui/button";
 import { LOAI_PHAM_VI, THU_TU_PHAM_VI, TT_DOT, vanDeTuLoi } from "@/components/kiem-ke/kiemKe";
 import {
   GO_VUONG_MAC,
@@ -163,6 +166,24 @@ export default function StockTakeCreate() {
     enabled: Boolean(dotId),
   });
   const navigate = useNavigate();
+  const [duocLap] = useState(() => coQuyenLapDot());
+  // Lập đợt mới: nhân viên kho chưa được cấp quyền "Lập đợt kiểm kê" thì báo ngay, không mở biểu mẫu (máy chủ cũng chặn)
+  if (!dotId && !duocLap) {
+    return (
+      <PageContainer className="flex min-h-full flex-col">
+        <EmptyState
+          icon={Lock}
+          title={t("Bạn chưa được cấp quyền lập đợt kiểm kê")}
+          description={t("Nhờ quản lý kho cấp quyền \"Lập đợt kiểm kê\" ở kho của bạn.")}
+          action={
+            <Button className="bg-bo-primary text-white hover:bg-bo-primary-hover" onClick={() => navigate("/stock-take")}>
+              {t("Về danh sách kiểm kê")}
+            </Button>
+          }
+        />
+      </PageContainer>
+    );
+  }
   if (dotId) {
     if (qDot.data === undefined && !qDot.error) {
       return (
@@ -187,14 +208,17 @@ function BieuMauDot({ dot }) {
   const idForm = useId();
   const laSua = Boolean(dot);
   const laQtv = hasAnyRole([ROLES.QUAN_TRI_VIEN]);
+  // Nhân viên kho lập đợt nhờ quyền được cấp: chỉ lưu nháp, phải chọn quản lý kho chủ trì; người chủ trì bấm Bắt đầu
+  const [nhanVienLap] = useState(lapNhoQuyen);
   const [nguoiDungId] = useState(getCurrentUserId);
   const suaDuoc = !laSua || (Number(dot.trangThai) === TT_DOT.NHAP && dot.quyen?.suaNhap);
 
   // ── Kho ────────────────────────────────────────────────────────────────────────────────────────────
   const taiKho = useCallback(async () => {
     if (laQtv) return (await getKhoList()).filter(laKhoGiaoDich);
-    return dsKhoLamViecTrongToken();
-  }, [laQtv]);
+    const ds = dsKhoLamViecTrongToken();
+    return nhanVienLap ? ds.filter((k) => coQuyenLapDot(k.id)) : ds;
+  }, [laQtv, nhanVienLap]);
   const qKho = useTaiDuLieu(taiKho, "kho-kiem-ke");
   const dsKho = useMemo(() => qKho.data ?? [], [qKho.data]);
   const [khoChon, setKhoChon] = useState(dot?.kho?.id ?? null);
@@ -279,6 +303,10 @@ function BieuMauDot({ dot }) {
   const [nguoiChuTriId, setNguoiChuTriId] = useState(dot?.nguoiChuTri?.id ?? null);
   const [lyDo, setLyDo] = useState(dot?.lyDo ?? "");
   const [ngayDuKien, setNgayDuKien] = useState(veONgay(dot?.ngayDuKienBatDau));
+  // Dự kiến bắt đầu không được ở quá khứ (như máy chủ, so theo phút). Sửa nháp giữ nguyên thời điểm cũ đã qua thì vẫn lưu được
+  const [ngayDuKienBanDau] = useState(ngayDuKien);
+  const bayGioPhut = veONgay(new Date());
+  const ngayDuKienDaQua = Boolean(ngayDuKien) && ngayDuKien !== ngayDuKienBanDau && ngayDuKien < bayGioPhut;
   const [ghiChu, setGhiChu] = useState(dot?.ghiChu ?? "");
   // Ghi chú cũ nhiều dòng: giữ ô nhiều dòng (ô một dòng sẽ nuốt dấu xuống dòng khi lưu lại)
   const [ghiChuNhieuDong] = useState(() => /\n/.test(dot?.ghiChu ?? ""));
@@ -322,7 +350,10 @@ function BieuMauDot({ dot }) {
   const tenDeXuat = tenGoiY({ loai, kho: tenKho, khuVuc: tenKhu, maKe: maKeChon, danhMuc: tenDanhMuc });
   const tenGui = (daSuaTen ? ten : ten || tenDeXuat).trim().slice(0, TEN_TOI_DA);
   // Nhiều quản lý kho mà chưa ai được chọn (người tạo không nằm trong danh sách): phải chọn, không đoán
-  const thieuChuTri = dsNguoi.length > 1 && chuTri == null;
+  // Nhân viên kho lập đợt: luôn phải có người chủ trì (máy chủ không tự gán người lập)
+  const thieuChuTri = (nhanVienLap || dsNguoi.length > 1) && chuTri == null;
+  // Nhân viên kho lập đợt ở kho chưa có quản lý kho: không ai chủ trì được, nói rõ cần làm gì
+  const khoChuaCoQuanLy = nhanVienLap && qNguoi.dungKhoa && !qNguoi.loading && !qNguoi.error && !dsNguoi.length;
 
   // Chip lý do nhanh: chưa có thì nối thêm, đang có thì gỡ khỏi ô. Màn cảm ứng không đưa con trỏ vào ô (khỏi bật bàn phím ảo)
   const batTatLyDoNhanh = (chu) => {
@@ -405,11 +436,15 @@ function BieuMauDot({ dot }) {
             ? t("Nhập tên đợt")
             : !lyDo.trim()
               ? t("Nhập lý do kiểm kê")
-              : dangTaiNguoi
+              : ngayDuKienDaQua
+                ? t("Thời điểm dự kiến bắt đầu đã qua")
+                : dangTaiNguoi
                 ? t("Đang tải người chủ trì…")
-                : thieuChuTri
-                  ? t("Chọn người chủ trì")
-                  : null);
+                : khoChuaCoQuanLy
+                  ? t("Kho này chưa có quản lý kho để chủ trì. Nhờ quản trị viên phân quản lý kho cho kho.")
+                  : thieuChuTri
+                    ? t("Chọn người chủ trì")
+                    : null);
 
   const truocKhiGui = () => {
     setLoi(null);
@@ -428,7 +463,15 @@ function BieuMauDot({ dot }) {
     try {
       const kq = laSua ? await suaNhap(dot.id, thanGui()) : await luuNhap(thanGui());
       setDaXong(true);
-      toast.success(laSua ? t("Đã lưu thay đổi") : t("Đã lưu đợt nháp"), { description: t("Chưa khóa kệ nào. Bắt đầu khi sẵn sàng.") });
+      // Máy chủ báo người chủ trì khi tạo nháp, hoặc khi sửa mà đổi sang người chủ trì khác
+      const daBao = chuTri != null && chuTri !== nguoiDungId && (!laSua || chuTri !== dot.nguoiChuTri?.id);
+      const tenChuTri = daBao ? dsNguoi.find((n) => n.id === chuTri)?.hoTen : null;
+      toast.success(laSua ? t("Đã lưu thay đổi") : t("Đã lưu đợt nháp"), {
+        description:
+          nhanVienLap && tenChuTri
+            ? t("Chưa khóa kệ nào. Đã báo {{ten}} vào bắt đầu đợt.", { ten: tenChuTri })
+            : t("Chưa khóa kệ nào. Bắt đầu khi sẵn sàng."),
+      });
       navigate(`/stock-take/${kq.dotKiemKeId}`, { replace: true });
     } catch (error) {
       loiGui(error, t("Chưa lưu được đợt kiểm kê"));
@@ -572,7 +615,7 @@ function BieuMauDot({ dot }) {
   const thongBao = [
     laSua && !suaDuoc ? (
       <DongThongBao key="khong-sua" tone="warn">
-        {t("Đợt này không còn là nháp hoặc bạn không có quyền sửa (chỉ quản lý kho của {{ten}}).", { ten: dot.kho?.ten })}
+        {t("Đợt này không còn là nháp hoặc bạn không có quyền sửa (quản lý kho của {{ten}}, hoặc người đã lập nháp).", { ten: dot.kho?.ten })}
       </DongThongBao>
     ) : null,
     qKho.error && !qKho.loading ? (
@@ -595,6 +638,14 @@ function BieuMauDot({ dot }) {
   ].filter(Boolean);
 
   const idLyDo = `${idForm}-ly-do`;
+  const nutLuuNhap = {
+    nhan: t("Lưu nháp"),
+    icon: Save,
+    khoa: Boolean(lyDoKhoa) || Boolean(dangGui),
+    lyDo: lyDoKhoa ?? undefined,
+    dangChay: dangGui === "nhap",
+    onClick: luuNhapNgay,
+  };
 
   return (
     <PageContainer className="flex min-h-full flex-col">
@@ -607,15 +658,8 @@ function BieuMauDot({ dot }) {
             dongPhu={laSua ? [dot.ten, t("Nháp")] : undefined}
             onQuayLai={veTrangTruoc}
             nhanQuayLai={laSua ? t("Về đợt kiểm kê") : t("Về danh sách kiểm kê")}
-            nutPhu={{
-              nhan: t("Lưu nháp"),
-              icon: Save,
-              khoa: Boolean(lyDoKhoa) || Boolean(dangGui),
-              lyDo: lyDoKhoa ?? undefined,
-              dangChay: dangGui === "nhap",
-              onClick: luuNhapNgay,
-            }}
-            nutChinh={{
+            nutPhu={nhanVienLap ? undefined : nutLuuNhap}
+            nutChinh={nhanVienLap ? { ...nutLuuNhap, hienLyDo: true } : {
               nhan: t("Bắt đầu kiểm kê"),
               icon: Play,
               khoa: !coTheBatDau || Boolean(dangGui),
@@ -1021,8 +1065,20 @@ function BieuMauDot({ dot }) {
                 </div>
                 <label className="grid content-start gap-1.5">
                   <span className={NHAN_O}>{t("Dự kiến bắt đầu")}</span>
-                  <input type="datetime-local" value={ngayDuKien} disabled={!suaDuoc} onChange={(e) => setNgayDuKien(e.target.value)} className={O_NHAP} />
-                  <span className={GOI_Y_O}>{t("Không bắt buộc. Hiện ở danh sách đợt để mọi người biết lịch")}</span>
+                  <input
+                    type="datetime-local"
+                    value={ngayDuKien}
+                    min={bayGioPhut}
+                    disabled={!suaDuoc}
+                    aria-invalid={ngayDuKienDaQua || undefined}
+                    onChange={(e) => setNgayDuKien(e.target.value)}
+                    className={cn(O_NHAP, ngayDuKienDaQua && "border-bo-danger focus:border-bo-danger focus:ring-bo-danger/15")}
+                  />
+                  {ngayDuKienDaQua ? (
+                    <span className={cn(GOI_Y_O, "text-bo-danger-strong")}>{t("Đã qua. Chọn từ bây giờ trở đi hoặc để trống")}</span>
+                  ) : (
+                    <span className={GOI_Y_O}>{t("Không bắt buộc. Hiện ở danh sách đợt để mọi người biết lịch")}</span>
+                  )}
                 </label>
                 <label className="grid content-start gap-1.5">
                   <span className={NHAN_O}>{t("Ghi chú cho người đếm")}</span>

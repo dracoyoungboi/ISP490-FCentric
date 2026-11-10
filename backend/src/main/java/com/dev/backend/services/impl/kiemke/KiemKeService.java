@@ -25,6 +25,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
 import com.dev.backend.i18n.NgonNgu;
@@ -187,6 +188,7 @@ public class KiemKeService {
         dot.setTenDotKiemKe(tenDot);
         dot.setLyDo(lyDo);
         dot.setGhiChu(chuoi(yc.ghiChu(), IKiemKe.LY_DO_TOI_DA, "khoVanHanh.ghiChuToiDaKyTu"));
+        kiemTraNgayDuKien(yc.ngayDuKienBatDau(), dot.getNgayDuKienBatDau(), Instant.now());
         dot.setNgayDuKienBatDau(yc.ngayDuKienBatDau());
         dot.setNguoiChuTri(nguoiChuTri(kho, yc.nguoiChuTriId(), nguoiTao));
         DotKiemKe.LoaiKiemKe loai;
@@ -200,8 +202,27 @@ public class KiemKeService {
                 ? danhMucRepo.findById(yc.danhMucId()).orElse(null) : null);
     }
 
-    /** Người chủ trì (Đ11): quản lý kho đang được phân quyền ở kho, hoặc quản trị viên; mặc định người tạo. */
+    /**
+     * Thời điểm dự kiến bắt đầu không được ở quá khứ (so theo phút: ô chọn chỉ tới phút). Sửa nháp mà giữ nguyên thời điểm
+     * cũ đã trôi qua thì vẫn cho lưu, để không chặn việc sửa phần khác của đợt.
+     */
+    static void kiemTraNgayDuKien(Instant moi, Instant cu, Instant bayGio) {
+        if (moi == null) return;
+        Instant phutMoi = moi.truncatedTo(ChronoUnit.MINUTES);
+        if (cu != null && phutMoi.equals(cu.truncatedTo(ChronoUnit.MINUTES))) return;
+        if (phutMoi.isBefore(bayGio.truncatedTo(ChronoUnit.MINUTES))) {
+            throw KiemKePhamViService.phamViSai(ThongDiep.of("khoVanHanh.ngayDuKienDaQua"));
+        }
+    }
+
+    /**
+     * Người chủ trì (Đ11): quản lý kho đang được phân quyền ở kho, hoặc quản trị viên; mặc định người tạo. Nhân viên kho lập
+     * đợt (quyền tao_dot_kiem_ke) phải chọn chủ trì: người chủ trì bấm Bắt đầu, việc của quản lý kho.
+     */
     private NguoiDung nguoiChuTri(Kho kho, Integer id, NguoiDung nguoiTao) {
+        if (id == null && KiemKeQuyen.lapNhoQuyen(quyen.nguoiXem())) {
+            throw KiemKePhamViService.phamViSai(ThongDiep.of("khoVanHanh.chonNguoiChuTriLaQuanLy"));
+        }
         NguoiDung nd = id == null ? nguoiTao : nguoiDungRepo.findById(id)
                 .orElseThrow(() -> KiemKePhamViService.phamViSai(ThongDiep.of("khoVanHanh.nguoiChuTriKhongTimThay")));
         if (IRoleType.quan_tri_vien.equals(nd.getVaiTro())) return nd;
@@ -244,6 +265,7 @@ public class KiemKeService {
     private DotKiemKe taoHeader(KiemKeYeuCau.Dot yc, NguoiDung nguoi) {
         Kho kho = phamVi.khoHopLe(yc.khoId());
         KhoDangChon.kiemTra(kho, "Đợt kiểm kê kho " + kho.getTenKho());
+        quyen.batBuocLapDot(kho.getId());
         KiemKePhamViService.LuaChon lc = luaChon(yc);
         phamVi.kiemTraLuaChon(kho, lc);
         DotKiemKe dot = new DotKiemKe();
@@ -277,7 +299,15 @@ public class KiemKeService {
     public KiemKeDto.KetQuaLenh taoNhap(KiemKeYeuCau.Dot yc) {
         sanSang.batBuoc();
         NguoiDung nguoi = quyen.nguoiHienTai();
-        return ketQua(taoHeader(yc, nguoi), null);
+        DotKiemKe dot = taoHeader(yc, nguoi);
+        baoChuTriNeuKhacNguoi(dot, nguoi);
+        return ketQua(dot, null);
+    }
+
+    /** Đ3 (chốt 10/11): người lưu nháp không phải người chủ trì thì báo người chủ trì vào bắt đầu đợt. */
+    private void baoChuTriNeuKhacNguoi(DotKiemKe dot, NguoiDung nguoi) {
+        NguoiDung chuTri = dot.getNguoiChuTri();
+        if (chuTri != null && nguoi != null && !chuTri.getId().equals(nguoi.getId())) thongBao.choBatDau(dot, nguoi);
     }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -286,8 +316,10 @@ public class KiemKeService {
         NguoiDung nguoi = quyen.nguoiHienTai();
         DotKiemKe dot = khoaDot(id);
         KhoDangChon.kiemTra(dot.getKho(), ten(dot));
+        quyen.batBuocSuaNhap(dot);
         if (dot.getTrangThai() != IKiemKe.NHAP) throw saiTrangThai(ThongDiep.of("khoVanHanh.chiSuaDotNhap"), dot);
         kiemTraPhienBan(dot, yc.phienBan());
+        Integer chuTriCu = dot.getNguoiChuTri() == null ? null : dot.getNguoiChuTri().getId();
         if (yc.khoId() != null && !yc.khoId().equals(dot.getKho().getId())) {
             throw KiemKePhamViService.phamViSai(ThongDiep.of("khoVanHanh.khongDoiKhoCuaDot"));
         }
@@ -299,6 +331,8 @@ public class KiemKeService {
         dotRepo.save(dot);
         luuLuaChon(dot, lc);
         ghiNhatKy(dot, IKiemKe.HD_SUA_NHAP, "Sửa nháp, phạm vi " + moTaLoai(lc.loai()), nguoi);
+        // Chỉ báo khi đổi sang người chủ trì khác (không báo lại mỗi lần lưu nháp)
+        if (dot.getNguoiChuTri() != null && !dot.getNguoiChuTri().getId().equals(chuTriCu)) baoChuTriNeuKhacNguoi(dot, nguoi);
         return ketQua(dot, null);
     }
 
@@ -308,6 +342,7 @@ public class KiemKeService {
         sanSang.batBuoc();
         Kho kho = phamVi.khoHopLe(yc.khoId());
         KhoDangChon.kiemTraXem(kho, "Kho " + kho.getTenKho());
+        quyen.batBuocLapDot(kho.getId());
         KiemKePhamViService.PhamVi pv = phamVi.xacDinh(luaChon(yc), dotId, false);
         List<KiemKeDto.VanDe> vanDe = pv.vanDe().stream()
                 .map(v -> new KiemKeDto.VanDe(v.ma(), v.cau().theoNgonNgu(NgonNgu.hienTai()), v.cau().tiengViet())).toList();

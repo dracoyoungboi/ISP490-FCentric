@@ -32,7 +32,7 @@ import {
 import { useSidebar } from "@/components/ui/sidebar";
 import ConfirmModal from "@/components/ui/confirm-modal";
 import { demLuotChuaKhoa } from "@/utils/hangLoiTam";
-import { NutChonNgonNguThanhTren } from "@/components/shared/ChonNgonNgu";
+import { DaiNgonNguChanMenu } from "@/components/shared/ChonNgonNgu";
 import { t } from "@/i18n";
 
 // Phím tắt mở ô tìm kiếm: ⌘ + K trên máy Mac, Ctrl + K trên Windows/Linux
@@ -168,9 +168,6 @@ export default function BackofficeHeader() {
         </div>
 
         <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-          {/* Cùng cỡ và màu với chuông bên cạnh; màn hẹp chỉ còn biểu tượng */}
-          <NutChonNgonNguThanhTren className="h-10 min-w-10 rounded-md px-2.5 text-slate-500 hover:bg-slate-100 hover:text-slate-900" />
-
           {/* Chuông thông báo của người đang đăng nhập (API /api/v1/thong-bao, xem thongBaoService.js) */}
           <NotificationBell />
 
@@ -220,15 +217,16 @@ export default function BackofficeHeader() {
                 </Link>
               </DropdownMenuItem>
 
-              <DropdownMenuSeparator className="bg-bo-border" />
-
+              {/* Một tông xám như các dòng khác; rê chuột / chọn bằng phím mới hiện đỏ */}
               <DropdownMenuItem
                 onClick={handleLogout}
-                className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-bo-danger focus:bg-bo-danger-soft focus:text-bo-danger"
+                className="group cursor-pointer rounded-md px-2.5 py-2 text-sm text-slate-700 focus:bg-bo-danger-soft focus:text-bo-danger"
               >
-                <LogOut className="size-4" />
+                <LogOut className="size-4 text-slate-500 group-focus:text-bo-danger" />
                 {t("Đăng xuất")}
               </DropdownMenuItem>
+
+              <DaiNgonNguChanMenu />
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

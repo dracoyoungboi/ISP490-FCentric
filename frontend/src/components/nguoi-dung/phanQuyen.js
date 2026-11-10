@@ -60,7 +60,7 @@ export const NHOM_QUYEN = [
     ma: "quan_ly_kho",
     ten: t("Tồn kho"),
     luong: true,
-    thuTu: ["xem_ton_kho", "xem_chi_tiet_lo", "chuyen_kho", "dieu_chinh_ton_kho"],
+    thuTu: ["xem_ton_kho", "xem_chi_tiet_lo", "chuyen_kho", "tao_dot_kiem_ke", "dieu_chinh_ton_kho"],
   },
   {
     ma: "xuat_kho",
@@ -134,6 +134,7 @@ export const MAN_DUNG_QUYEN = {
   xem_ton_kho: ["/reports/inventory"],
   xem_chi_tiet_lo: ["/warehouse/locations", "/inventory-transactions"],
   dieu_chinh_ton_kho: ["/stock-take"],
+  tao_dot_kiem_ke: ["/stock-take"],
   chuyen_kho: ["/transfer-tickets"],
   tao_don_mua_hang: ["/purchase-requests", "/purchase-orders"],
   duyet_don_mua_hang: ["/purchase-orders"],
@@ -727,6 +728,7 @@ export const MO_TA_CHO_NGUOI_DUNG = {
   xem_ton_kho: t("Xem số lượng còn của từng sản phẩm trong kho"),
   xem_chi_tiet_lo: t("Xem lô, hạn dùng và vị trí kệ của hàng"),
   dieu_chinh_ton_kho: t("Sửa số lượng tồn khi kiểm kê thấy lệch"),
+  tao_dot_kiem_ke: t("Lập đợt kiểm kê nháp để quản lý kho bắt đầu"),
   chuyen_kho: t("Lập phiếu chuyển hàng sang kho khác"),
   tao_don_mua_hang: t("Lập yêu cầu và đơn mua hàng"),
   duyet_don_mua_hang: t("Duyệt hoặc từ chối đơn mua hàng"),
@@ -768,7 +770,7 @@ export const NHOM_HO_SO = [
     ten: t("Tồn kho"),
     bieuTuong: "ton",
     nhomGoc: "quan_ly_kho",
-    thuTu: ["xem_ton_kho", "xem_chi_tiet_lo", "chuyen_kho", "dieu_chinh_ton_kho"],
+    thuTu: ["xem_ton_kho", "xem_chi_tiet_lo", "chuyen_kho", "tao_dot_kiem_ke", "dieu_chinh_ton_kho"],
   },
   {
     ma: "xuat",
