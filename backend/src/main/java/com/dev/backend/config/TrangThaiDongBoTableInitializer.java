@@ -22,6 +22,29 @@ public class TrangThaiDongBoTableInitializer implements ApplicationRunner {
     public void run(ApplicationArguments args) {
         themCotNeuChuaTonTai("so_luong_da_day", "INT DEFAULT NULL");
         themCotNeuChuaTonTai("ngay_day_ton_cuoi", "DATETIME DEFAULT NULL");
+        nangCapKieuCotKenhBanHang();
+    }
+
+    private void nangCapKieuCotKenhBanHang() {
+        nangCapCotSangText("kenh_ban_hang", "api_key");
+        nangCapCotSangText("kenh_ban_hang", "api_secret");
+        nangCapCotSangText("kenh_ban_hang", "refresh_token");
+        nangCapCotSangText("kenh_ban_hang", "api_url");
+    }
+
+    private void nangCapCotSangText(String tenBang, String tenCot) {
+        try {
+            String checkSql = "SELECT DATA_TYPE FROM information_schema.COLUMNS " +
+                    "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?";
+            String dataType = jdbcTemplate.queryForObject(checkSql, String.class, tenBang, tenCot);
+            if (dataType != null && !"text".equalsIgnoreCase(dataType) && !"mediumtext".equalsIgnoreCase(dataType) && !"longtext".equalsIgnoreCase(dataType)) {
+                String alterSql = "ALTER TABLE " + tenBang + " MODIFY COLUMN " + tenCot + " TEXT NULL";
+                jdbcTemplate.execute(alterSql);
+                log.info("[TABLE-INIT] Đã nâng cấp kiểu cột `{}` trong bảng `{}` lên TEXT (Hỗ trợ mã hóa token dài)", tenCot, tenBang);
+            }
+        } catch (Exception e) {
+            log.warn("[TABLE-INIT] Không thể tự động nâng cấp kiểu cột `{}` trong bảng `{}`: {}", tenCot, tenBang, e.getMessage());
+        }
     }
 
     private void themCotNeuChuaTonTai(String tenCot, String kieuDuLieu) {

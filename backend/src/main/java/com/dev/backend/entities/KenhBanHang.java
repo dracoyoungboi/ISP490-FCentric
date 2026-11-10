@@ -43,24 +43,24 @@ public class KenhBanHang {
     @Builder.Default
     String loaiKenh = "online";
 
-    @Size(max = 255)
-    @Column(name = "api_url")
+    @Size(max = 2000)
+    @Column(name = "api_url", columnDefinition = "TEXT")
     String apiUrl;
 
-    @Size(max = 255)
-    @Column(name = "api_key")
+    @Size(max = 4000)
+    @Column(name = "api_key", columnDefinition = "TEXT")
     String apiKey;
 
-    @Size(max = 255)
-    @Column(name = "api_secret")
+    @Size(max = 4000)
+    @Column(name = "api_secret", columnDefinition = "TEXT")
     String apiSecret;
 
     @Size(max = 100)
     @Column(name = "client_id", length = 100)
     String clientId;
 
-    @Size(max = 500)
-    @Column(name = "refresh_token", length = 500)
+    @Size(max = 4000)
+    @Column(name = "refresh_token", columnDefinition = "TEXT")
     String refreshToken;
 
     @Column(name = "token_expires_at")
