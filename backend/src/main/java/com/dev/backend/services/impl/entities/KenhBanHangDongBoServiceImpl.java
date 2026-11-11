@@ -82,6 +82,7 @@ import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
@@ -1122,55 +1123,13 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 ? sp.getMoTa().trim() : title;
         String descHtml = "<p>" + desc + "</p>";
 
-        // Upload ảnh sản phẩm lên TikTok Shop CDN để lấy Image URI (TikTok Shop bắt buộc uri nội bộ)
-        List<TikTokProductCreateRequest.ImageUri> mainImages = new ArrayList<>();
-        try {
-            List<AnhQuanAo> prodImages = anhQuanAoRepository.findActiveByQuanAoIds(List.of(sp.getId()));
-            if (prodImages != null && !prodImages.isEmpty()) {
-                int limit = Math.min(prodImages.size(), 5);
-                for (int i = 0; i < limit; i++) {
-                    AnhQuanAo curImg = prodImages.get(i);
-                    if (curImg.getTepTin() != null && curImg.getTepTin().getTenLuuTru() != null) {
-                        TepTin tep = curImg.getTepTin();
-                        String fileKey = tep.getTenLuuTru();
-                        String uri = cdnCache.get(fileKey);
-                        if (uri == null && tep.getMoTa() != null && tep.getMoTa().startsWith("TTS_URI:")) {
-                            uri = tep.getMoTa().substring("TTS_URI:".length()).trim();
-                        }
-                        if (uri == null) {
-                            try {
-                                byte[] bytes = minioService.download(fileKey);
-                                if (bytes != null && bytes.length > 0) {
-                                    uri = getTikTokShopClient().uploadImage(appKey, appSecret, token, cipher, bytes, "sp_" + sp.getId() + "_" + i + ".jpg");
-                                    if (uri != null && !uri.isBlank()) {
-                                        cdnCache.put(fileKey, uri);
-                                        if (tepTinRepository != null) {
-                                            try {
-                                                tep.setMoTa("TTS_URI:" + uri);
-                                                tepTinRepository.save(tep);
-                                            } catch (Exception ex) {
-                                                log.warn("Không thể lưu cache TTS_URI cho tệp tin: {}", ex.getMessage());
-                                            }
-                                        }
-                                    }
-                                }
-                            } catch (Exception ex) {
-                                log.warn("[TIKTOK-UPLOAD-IMG] Lỗi upload ảnh sản phẩm {} lên TikTok: {}", sp.getId(), ex.getMessage());
-                            }
-                        }
-                        if (uri != null && !uri.isBlank()) {
-                            mainImages.add(new TikTokProductCreateRequest.ImageUri(uri));
-                        }
-                    }
-                }
-            }
-        } catch (Exception ex) {
-            log.warn("[TIKTOK-PRODUCT] Không thể chuẩn bị ảnh cho sản phẩm {}: {}", sp.getId(), ex.getMessage());
-        }
+        // Upload ảnh sản phẩm lên TikTok Shop CDN để lấy Image URI hợp lệ (TikTok Shop bắt buộc uri nội bộ thật)
+        List<TikTokProductCreateRequest.ImageUri> mainImages = chuanBiVaUploadAnhTikTok(
+                sp, variants, appKey, appSecret, token, cipher, cdnCache);
 
-        // Nếu chưa có ảnh nào tải lên thành công, fallback 1 uri tượng trưng
         if (mainImages.isEmpty()) {
-            mainImages.add(new TikTokProductCreateRequest.ImageUri("tos-maliva-i-o260ufnz6q-us/fcentric_default_placeholder"));
+            log.warn("[TIKTOK-CREATE] Không thể chuẩn bị ảnh hợp lệ cho sản phẩm [{}]. Dừng tạo sản phẩm để tránh lỗi sàn.", title);
+            return createdSkuMap;
         }
 
         List<TikTokProductCreateRequest.CreateSku> skuList = new ArrayList<>();
@@ -1314,6 +1273,272 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
         log.warn("[TIKTOK-CAT-V2] Không thể xác định danh mục V2 tự động cho [{}], sử dụng mã dự phòng", title);
         return "601234";
+    }
+
+    private static final Map<String, String> CACHED_TIKTOK_DEFAULT_URI_BY_CIPHER = new ConcurrentHashMap<>();
+
+    /**
+     * Chuẩn bị và upload ảnh sản phẩm lên TikTok Shop CDN để lấy Image URI nội bộ.
+     * Thứ tự ưu tiên thu thập ảnh:
+     * 1. Ảnh sản phẩm từ bảng AnhQuanAo (findActiveByQuanAoIds).
+     * 2. Nếu chưa có, thu thập ảnh biến thể từ bảng AnhBienThe (findActiveByBienTheIds).
+     * 3. Nếu vẫn không có ảnh hoặc không tải được từ MinIO, tự động sinh ảnh JPEG 800x800 tiêu chuẩn
+     *    (thương hiệu FCENTRIC + tên sản phẩm) và upload lên TikTok CDN để lấy URI thật.
+     * Tuyệt đối không dùng URI chuỗi giả lập để tránh lỗi TikTok 12052300 (Invalid product image URI).
+     */
+    private List<TikTokProductCreateRequest.ImageUri> chuanBiVaUploadAnhTikTok(
+            SanPhamQuanAo sp,
+            List<BienTheSanPham> variants,
+            String appKey,
+            String appSecret,
+            String token,
+            String cipher,
+            Map<String, String> cdnCache) {
+
+        List<TikTokProductCreateRequest.ImageUri> mainImages = new ArrayList<>();
+        Set<String> processedFileKeys = new HashSet<>();
+
+        // 1. Thu thập ảnh cấp sản phẩm (AnhQuanAo)
+        try {
+            List<AnhQuanAo> prodImages = anhQuanAoRepository.findActiveByQuanAoIds(List.of(sp.getId()));
+            if (prodImages != null && !prodImages.isEmpty()) {
+                for (AnhQuanAo curImg : prodImages) {
+                    if (mainImages.size() >= 5) break;
+                    if (curImg.getTepTin() != null && curImg.getTepTin().getTenLuuTru() != null) {
+                        TepTin tep = curImg.getTepTin();
+                        String fileKey = tep.getTenLuuTru();
+                        if (processedFileKeys.add(fileKey)) {
+                            String uri = layHoacUploadAnhTikTok(tep, fileKey, sp.getId(), sp.getTenSanPham(),
+                                    appKey, appSecret, token, cipher, cdnCache);
+                            if (uri != null && !uri.isBlank()) {
+                                mainImages.add(new TikTokProductCreateRequest.ImageUri(uri));
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("[TIKTOK-IMG] Lỗi đọc ảnh sản phẩm {}: {}", sp.getId(), ex.getMessage());
+        }
+
+        // 2. Nếu chưa đủ ảnh, thu thập tiếp từ ảnh cấp biến thể (AnhBienThe)
+        if (mainImages.isEmpty() && variants != null && !variants.isEmpty()) {
+            List<Integer> btIds = variants.stream()
+                    .map(BienTheSanPham::getId)
+                    .filter(Objects::nonNull)
+                    .toList();
+            if (!btIds.isEmpty() && anhBienTheRepository != null) {
+                try {
+                    List<AnhBienThe> anhBienTheList = anhBienTheRepository.findActiveByBienTheIds(btIds);
+                    if (anhBienTheList != null && !anhBienTheList.isEmpty()) {
+                        for (AnhBienThe ab : anhBienTheList) {
+                            if (mainImages.size() >= 5) break;
+                            if (ab.getTepTin() != null && ab.getTepTin().getTenLuuTru() != null) {
+                                TepTin vTep = ab.getTepTin();
+                                String vFileKey = vTep.getTenLuuTru();
+                                if (processedFileKeys.add(vFileKey)) {
+                                    String uri = layHoacUploadAnhTikTok(vTep, vFileKey, sp.getId(), sp.getTenSanPham(),
+                                            appKey, appSecret, token, cipher, cdnCache);
+                                    if (uri != null && !uri.isBlank()) {
+                                        mainImages.add(new TikTokProductCreateRequest.ImageUri(uri));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (Exception ex) {
+                    log.warn("[TIKTOK-IMG] Lỗi đọc ảnh biến thể cho sản phẩm {}: {}", sp.getId(), ex.getMessage());
+                }
+            }
+        }
+
+        // 3. Fallback: Nếu không có ảnh nào trong DB hoặc MinIO không tải được, sinh ảnh mặc định chuẩn e-commerce
+        // và upload thật lên TikTok Shop CDN để lấy URI hợp lệ (tuyệt đối không dùng URI giả lập để tránh lỗi 12052300)
+        if (mainImages.isEmpty()) {
+            try {
+                String fallbackUri = layHoacUploadAnhMacDinhTikTok(sp.getTenSanPham(), appKey, appSecret, token, cipher);
+                if (fallbackUri != null && !fallbackUri.isBlank()) {
+                    mainImages.add(new TikTokProductCreateRequest.ImageUri(fallbackUri));
+                }
+            } catch (Exception ex) {
+                log.error("[TIKTOK-IMG] Không thể upload ảnh mặc định cho sản phẩm [{}]: {}", sp.getTenSanPham(), ex.getMessage());
+            }
+        }
+
+        return mainImages;
+    }
+
+    private String layHoacUploadAnhTikTok(
+            TepTin tep, String fileKey, Integer spId, String spName,
+            String appKey, String appSecret, String token, String cipher,
+            Map<String, String> cdnCache) {
+
+        if (fileKey == null || fileKey.isBlank()) {
+            return null;
+        }
+
+        // 1. Kiểm tra cache RAM
+        String uri = cdnCache.get(fileKey);
+        if (uri != null && !uri.isBlank()) {
+            return uri;
+        }
+
+        // 2. Kiểm tra cache DB (cột moTa)
+        if (tep != null && tep.getMoTa() != null && tep.getMoTa().startsWith("TTS_URI:")) {
+            uri = tep.getMoTa().substring("TTS_URI:".length()).trim();
+            if (!uri.isBlank()) {
+                cdnCache.put(fileKey, uri);
+                return uri;
+            }
+        }
+
+        // 3. Tải từ MinIO và upload lên TikTok Shop CDN
+        try {
+            byte[] bytes = minioService.download(fileKey);
+            if (bytes != null && bytes.length > 0) {
+                byte[] cleanJpeg = convertToTikTokCompliantJpeg(bytes, spName);
+                if (cleanJpeg != null && cleanJpeg.length > 0) {
+                    uri = getTikTokShopClient().uploadImage(appKey, appSecret, token, cipher, cleanJpeg, "sp_" + spId + "_" + System.currentTimeMillis() + ".jpg");
+                    if (uri != null && !uri.isBlank()) {
+                        cdnCache.put(fileKey, uri);
+                        if (tepTinRepository != null && tep != null) {
+                            try {
+                                tep.setMoTa("TTS_URI:" + uri);
+                                tepTinRepository.save(tep);
+                            } catch (Exception saveEx) {
+                                log.warn("[TIKTOK-CDN-CACHE] Không thể lưu TTS_URI cho tệp {}: {}", tep.getId(), saveEx.getMessage());
+                            }
+                        }
+                        return uri;
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("[TIKTOK-UPLOAD-IMG] Lỗi tải/upload ảnh tệp {} cho sản phẩm {}: {}", fileKey, spId, ex.getMessage());
+        }
+
+        return null;
+    }
+
+    private String layHoacUploadAnhMacDinhTikTok(
+            String spName, String appKey, String appSecret, String token, String cipher) {
+
+        String key = (cipher != null && !cipher.isBlank()) ? cipher.trim() : "DEFAULT";
+        String cached = CACHED_TIKTOK_DEFAULT_URI_BY_CIPHER.get(key);
+        if (cached != null && !cached.isBlank()) {
+            return cached;
+        }
+
+        byte[] defaultBytes = taoTikTokDefaultImage(spName);
+        if (defaultBytes == null || defaultBytes.length == 0) {
+            return null;
+        }
+
+        try {
+            log.info("[TIKTOK-IMG] Đang upload ảnh mặc định cho [{}] lên TikTok Shop CDN...", spName);
+            String uri = getTikTokShopClient().uploadImage(appKey, appSecret, token, cipher, defaultBytes, "fcentric_default_product.jpg");
+            if (uri != null && !uri.isBlank()) {
+                log.info("[TIKTOK-IMG] Upload ảnh mặc định lên TikTok CDN thành công! URI: {}", uri);
+                CACHED_TIKTOK_DEFAULT_URI_BY_CIPHER.put(key, uri);
+                return uri;
+            }
+        } catch (Exception ex) {
+            log.warn("[TIKTOK-IMG] Gặp lỗi khi upload ảnh mặc định lên TikTok: {}", ex.getMessage());
+        }
+        return null;
+    }
+
+    private static byte[] taoTikTokDefaultImage(String tenSp) {
+        try {
+            int size = 800;
+            java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(size, size, java.awt.image.BufferedImage.TYPE_INT_RGB);
+            java.awt.Graphics2D g = img.createGraphics();
+            g.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+            g.setRenderingHint(java.awt.RenderingHints.KEY_TEXT_ANTIALIASING, java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+
+            g.setColor(new java.awt.Color(248, 250, 252));
+            g.fillRect(0, 0, size, size);
+
+            g.setColor(new java.awt.Color(226, 232, 240));
+            g.drawRect(20, 20, size - 40, size - 40);
+
+            g.setColor(new java.awt.Color(239, 246, 255));
+            g.fillRect(21, 21, size - 42, 100);
+
+            g.setColor(new java.awt.Color(37, 99, 235));
+            g.setFont(new java.awt.Font("SansSerif", java.awt.Font.BOLD, 46));
+            g.drawString("FCENTRIC", 270, 85);
+
+            g.setColor(new java.awt.Color(219, 234, 254));
+            g.fillRoundRect(300, 220, 200, 200, 30, 30);
+            g.setColor(new java.awt.Color(59, 130, 246));
+            g.setFont(new java.awt.Font("SansSerif", java.awt.Font.BOLD, 72));
+            g.drawString("FC", 350, 345);
+
+            g.setColor(new java.awt.Color(30, 41, 59));
+            g.setFont(new java.awt.Font("SansSerif", java.awt.Font.BOLD, 26));
+            String title = (tenSp != null && !tenSp.isBlank()) ? tenSp : "Thời Trang FCentric";
+            if (title.length() > 36) title = title.substring(0, 33) + "...";
+            java.awt.FontMetrics fm = g.getFontMetrics();
+            int titleWidth = fm.stringWidth(title);
+            int x = Math.max(30, (size - titleWidth) / 2);
+            g.drawString(title, x, 500);
+
+            g.setColor(new java.awt.Color(100, 116, 139));
+            g.setFont(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 18));
+            g.drawString("Chính Hãng • Chất Lượng Đảm Bảo", 260, 545);
+
+            g.dispose();
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+            javax.imageio.ImageIO.write(img, "jpg", baos);
+            return baos.toByteArray();
+        } catch (Exception e) {
+            log.warn("Không thể sinh ảnh mặc định cho TikTok Shop: {}", e.getMessage());
+            return new byte[0];
+        }
+    }
+
+    private static byte[] convertToTikTokCompliantJpeg(byte[] rawBytes, String productName) {
+        if (rawBytes == null || rawBytes.length == 0) {
+            return taoTikTokDefaultImage(productName);
+        }
+        try {
+            java.io.ByteArrayInputStream bais = new java.io.ByteArrayInputStream(rawBytes);
+            java.awt.image.BufferedImage original = javax.imageio.ImageIO.read(bais);
+            if (original != null) {
+                int maxDim = 1200;
+                int w = original.getWidth();
+                int h = original.getHeight();
+                if (w > maxDim || h > maxDim) {
+                    if (w >= h) {
+                        h = (int) Math.round(((double) h * maxDim) / w);
+                        w = maxDim;
+                    } else {
+                        w = (int) Math.round(((double) w * maxDim) / h);
+                        h = maxDim;
+                    }
+                }
+                w = Math.max(w, 600);
+                h = Math.max(h, 600);
+
+                java.awt.image.BufferedImage rgbImg = new java.awt.image.BufferedImage(w, h, java.awt.image.BufferedImage.TYPE_INT_RGB);
+                java.awt.Graphics2D g = rgbImg.createGraphics();
+                g.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION, java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                g.setRenderingHint(java.awt.RenderingHints.KEY_RENDERING, java.awt.RenderingHints.VALUE_RENDER_QUALITY);
+                g.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+                g.setColor(java.awt.Color.WHITE);
+                g.fillRect(0, 0, w, h);
+                g.drawImage(original, 0, 0, w, h, null);
+                g.dispose();
+
+                java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+                javax.imageio.ImageIO.write(rgbImg, "jpg", baos);
+                return baos.toByteArray();
+            }
+        } catch (Throwable ex) {
+            log.warn("[TIKTOK-IMAGE-CONVERT] Không thể chuyển đổi ảnh sang JPEG cho [{}]: {}", productName, ex.getMessage());
+        }
+        return taoTikTokDefaultImage(productName);
     }
 
     private TuDongLienKetResultDto tuDongLienKetTikTok(KenhBanHang kenh) {
