@@ -147,6 +147,14 @@ vào `Dev` / `main`. Báo đỏ thì xem log để biết dòng lỗi, sửa r�
 - Hạn token `token_expires_at` phải là ngày giờ hợp lệ (7–365 ngày), không lưu năm 2083.
 - `shop_cipher` của TikTok Shop phải lưu độc lập ở cột riêng, không ghi đè tên gian hàng vào cipher.
 
+### 6. Tạo sản phẩm & Phân trang TikTok Shop (API v202309)
+- **Đo lường (Struct)**: `package_weight` BẮT BUỘC là struct `{"value": "0.3", "unit": "KILOGRAM"}` (tuyệt đối không gửi String thô). `package_dimensions` BẮT BUỘC là struct kèm `"unit": "CENTIMETER"`.
+- **Phân trang API**: `page_size` và `page_token` của API tìm đơn hàng (`/order/202309/orders/search`) và tìm sản phẩm BẮT BUỘC nằm ở **Query Parameter trên URL** (không để trong body JSON).
+- **Phân loại biến thể**: Khi sản phẩm có nhiều SKU biến thể, BẮT BUỘC bổ sung `sales_attributes` (Màu sắc, Kích cỡ) cho từng SKU để TikTok Shop nhận diện.
+- **Tiêu đề**: Độ dài bắt buộc từ 25 đến 255 ký tự (nếu ngắn phải tự động đệm thông tin).
+- **Hình ảnh**: Bắt buộc upload ảnh lên TikTok CDN qua `/product/202309/images/upload` để lấy `Image URI` nội bộ (`tos-maliva-...`). Tuyệt đối không truyền URL bên ngoài.
+- **Thương hiệu**: Mặc định `brand_id = "0"` (No Brand) để tránh bị từ chối phê duyệt bản quyền.
+
 ## Quy chuẩn Git Commit nguyên tử & Chiến lược đóng góp (~500 commits/tuần)
 
 > **Mục tiêu**: Đạt KPI ~500 commits/tuần, tăng tính minh bạch của lịch sử Git, hỗ trợ bóc tách lỗi và tránh tuyệt đối monolithic commits.
