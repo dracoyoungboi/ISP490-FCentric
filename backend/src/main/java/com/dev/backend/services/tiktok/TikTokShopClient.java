@@ -39,6 +39,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -384,7 +385,8 @@ public class TikTokShopClient {
             throw new LoiThamSoException(ThongDiep.of("kenhBan.loiSerializeCapNhatTon", e.getMessage()), e);
         }
 
-        String fullSignedUrl = buildUrlWithSign(TikTokShopConstants.BASE_URL, apiPath, Map.of(), body, appKey, appSecret, shopCipher);
+        Map<String, String> queryParams = Map.of("category_version", TikTokShopConstants.CATEGORY_VERSION_V2);
+        String fullSignedUrl = buildUrlWithSign(TikTokShopConstants.BASE_URL, apiPath, queryParams, body, appKey, appSecret, shopCipher);
         JsonNode root = executePost(fullSignedUrl, body, accessToken);
 
         TikTokProductCreateResponse response = new TikTokProductCreateResponse();
@@ -411,6 +413,180 @@ public class TikTokShopClient {
             response.setData(data);
         }
         return response;
+    }
+
+    /**
+     * Sử dụng AI của TikTok Shop để gợi ý danh mục lá (Leaf Category) phiên bản V2 dựa trên tiêu đề và mô tả sản phẩm.
+     * Endpoint: POST /product/202309/categories/recommend?category_version=v2
+     */
+    public String recommendCategoryV2(String appKey, String appSecret, String accessToken,
+                                      String shopCipher, String productTitle, String description) {
+        if (accessToken == null || accessToken.isBlank() || shopCipher == null || shopCipher.isBlank()) {
+            return null;
+        }
+        if (productTitle == null || productTitle.isBlank()) {
+            return null;
+        }
+
+        String apiPath = TikTokShopConstants.PATH_CATEGORIES_RECOMMEND;
+        Map<String, Object> reqBody = new HashMap<>();
+        reqBody.put("product_title", productTitle.trim());
+        if (description != null && !description.isBlank()) {
+            reqBody.put("description", description.trim());
+        }
+        reqBody.put("category_version", TikTokShopConstants.CATEGORY_VERSION_V2);
+
+        String bodyJson;
+        try {
+            bodyJson = objectMapper.writeValueAsString(reqBody);
+        } catch (Exception e) {
+            log.warn("Lỗi serialize body recommend category TikTok: {}", e.getMessage());
+            return null;
+        }
+
+        Map<String, String> queryParams = Map.of("category_version", TikTokShopConstants.CATEGORY_VERSION_V2);
+        String fullSignedUrl = buildUrlWithSign(TikTokShopConstants.BASE_URL, apiPath, queryParams, bodyJson, appKey, appSecret, shopCipher);
+
+        try {
+            JsonNode root = executePost(fullSignedUrl, bodyJson, accessToken);
+            JsonNode categoriesNode = root.path("data").path("categories");
+            if (categoriesNode.isArray()) {
+                for (JsonNode cat : categoriesNode) {
+                    boolean isLeaf = cat.path("is_leaf").asBoolean(false);
+                    String id = cat.path("id").asText(null);
+                    JsonNode perms = cat.path("permission_statuses");
+                    boolean available = true;
+                    if (perms.isArray() && perms.size() > 0) {
+                        available = false;
+                        for (JsonNode p : perms) {
+                            if ("AVAILABLE".equalsIgnoreCase(p.asText())) {
+                                available = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (isLeaf && id != null && !id.isBlank() && available) {
+                        log.info("TikTok Shop gợi ý danh mục V2 leaf thành công: id={}, name={}",
+                                id, cat.path("local_display_name").asText(cat.path("name").asText("")));
+                        return id;
+                    }
+                }
+                // Fallback: Nếu không đánh dấu is_leaf nhưng có danh mục gợi ý
+                for (JsonNode cat : categoriesNode) {
+                    String id = cat.path("id").asText(null);
+                    if (id != null && !id.isBlank()) {
+                        return id;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Không thể lấy danh mục gợi ý V2 từ TikTok Shop (title: {}): {}", productTitle, e.getMessage());
+        }
+        return null;
+    }
+
+    /**
+     * Lấy danh mục sản phẩm V2 từ TikTok Shop Open Platform (v202309).
+     * Endpoint: GET /product/202309/categories?category_version=v2&category_id=...&locale=vi-VN
+     */
+    public JsonNode getCategoriesV2(String appKey, String appSecret, String accessToken,
+                                    String shopCipher, String parentCategoryId, String locale) {
+        if (accessToken == null || accessToken.isBlank() || shopCipher == null || shopCipher.isBlank()) {
+            return null;
+        }
+        Map<String, String> queryParams = new HashMap<>();
+        queryParams.put("category_version", TikTokShopConstants.CATEGORY_VERSION_V2);
+        queryParams.put("locale", (locale != null && !locale.isBlank()) ? locale : "vi-VN");
+        if (parentCategoryId != null && !parentCategoryId.isBlank()) {
+            queryParams.put("category_id", parentCategoryId.trim());
+        }
+
+        String apiPath = TikTokShopConstants.PATH_CATEGORIES;
+        String fullSignedUrl = buildUrlWithSign(TikTokShopConstants.BASE_URL, apiPath, queryParams, null, appKey, appSecret, shopCipher);
+
+        try {
+            return executeGet(fullSignedUrl, accessToken);
+        } catch (Exception e) {
+            log.warn("Lỗi khi tải danh mục V2 từ TikTok Shop (parentId: {}): {}", parentCategoryId, e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Tìm kiếm danh mục lá V2 theo từ khóa (danh mục FCentric hoặc loại quần áo).
+     * Duyệt qua các danh mục gốc và nhánh con để tìm danh mục leaf phù hợp nhất.
+     */
+    public String timDanhMucLaTheoTuKhoaV2(String appKey, String appSecret, String accessToken,
+                                          String shopCipher, String keyword) {
+        if (keyword == null || keyword.isBlank()) {
+            return null;
+        }
+        String kwLower = keyword.toLowerCase(Locale.ROOT).trim();
+        try {
+            JsonNode rootRes = getCategoriesV2(appKey, appSecret, accessToken, shopCipher, null, "vi-VN");
+            if (rootRes == null) return null;
+
+            JsonNode cats = rootRes.path("data").path("categories");
+            if (!cats.isArray()) return null;
+
+            String fashionParentId = null;
+            for (JsonNode c : cats) {
+                String name = c.path("local_display_name").asText(c.path("name").asText("")).toLowerCase(Locale.ROOT);
+                if (name.contains("thời trang") || name.contains("quần áo") || name.contains("fashion") || name.contains("apparel")) {
+                    fashionParentId = c.path("id").asText(null);
+                    break;
+                }
+            }
+
+            if (fashionParentId != null) {
+                String leafId = timLeafCategoryRecursive(appKey, appSecret, accessToken, shopCipher, fashionParentId, kwLower, 0);
+                if (leafId != null) {
+                    return leafId;
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Lỗi tìm kiếm danh mục lá TikTok V2 theo từ khóa '{}': {}", keyword, e.getMessage());
+        }
+        return null;
+    }
+
+    private String timLeafCategoryRecursive(String appKey, String appSecret, String accessToken,
+                                            String shopCipher, String parentId, String keyword, int depth) {
+        if (depth > 5) return null;
+        JsonNode res = getCategoriesV2(appKey, appSecret, accessToken, shopCipher, parentId, "vi-VN");
+        if (res == null) return null;
+        JsonNode cats = res.path("data").path("categories");
+        if (!cats.isArray() || cats.isEmpty()) return null;
+
+        String fallbackLeaf = null;
+        String bestSubParent = null;
+
+        for (JsonNode c : cats) {
+            boolean isLeaf = c.path("is_leaf").asBoolean(false);
+            String id = c.path("id").asText(null);
+            String name = c.path("local_display_name").asText(c.path("name").asText("")).toLowerCase(Locale.ROOT);
+
+            if (isLeaf && id != null) {
+                if (fallbackLeaf == null) {
+                    fallbackLeaf = id;
+                }
+                if (name.contains(keyword) || keyword.contains(name)) {
+                    return id;
+                }
+            } else if (!isLeaf && id != null) {
+                if (name.contains(keyword) || (keyword.contains("áo") && (name.contains("áo") || name.contains("top")))
+                        || (keyword.contains("quần") && (name.contains("quần") || name.contains("bottom")))) {
+                    bestSubParent = id;
+                }
+            }
+        }
+
+        if (bestSubParent != null) {
+            String subLeaf = timLeafCategoryRecursive(appKey, appSecret, accessToken, shopCipher, bestSubParent, keyword, depth + 1);
+            if (subLeaf != null) return subLeaf;
+        }
+
+        return fallbackLeaf;
     }
 
     /**
