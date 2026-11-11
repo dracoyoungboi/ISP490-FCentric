@@ -1101,8 +1101,23 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             }
         }
 
+        int soTonKhoDaDay = 0;
+        for (TrangThaiDongBoSanPham tt : danhSach) {
+            if (tt.getBienTheSanPham() != null && "thanh_cong".equalsIgnoreCase(tt.getTrangThaiDongBo())) {
+                try {
+                    int soDay = tinhSoTonDay(khaDungToanChuoi(tt.getBienTheSanPham().getId()), BigDecimal.valueOf(100), 0, 0);
+                    KetQuaGuiTon kq = guiTonLenTikTok(tt, soDay);
+                    if (kq != null && kq.thanhCong()) {
+                        soTonKhoDaDay++;
+                    }
+                } catch (Exception ex) {
+                    log.warn("Không đẩy được tồn ban đầu cho SKU TikTok Shop {}: {}", tt.getMaSanPhamKenh(), ex.getMessage());
+                }
+            }
+        }
+
         ghiNhatKy(kenh.getId(), IHanhDong.cap_nhat_kenh_ban,
-                String.format("Tự động liên kết SKU TikTok Shop: %s đã ghép, %s chưa khớp", soDaGhep, soKhongKhop));
+                String.format("Tự động liên kết SKU TikTok Shop: %s đã ghép, %s chưa khớp, đã đẩy tồn %s SKU", soDaGhep, soKhongKhop, soTonKhoDaDay));
 
         return TuDongLienKetResultDto.builder()
                 .soDaGhep(soDaGhep)
@@ -1110,7 +1125,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 .soNhieuKhop(0)
                 .soTaoMoiTrenShopify(0)
                 .soCapNhatTrenShopify(0)
-                .soTonKhoDaDay(0)
+                .soTonKhoDaDay(soTonKhoDaDay)
                 .soThatBai(0)
                 .build();
     }

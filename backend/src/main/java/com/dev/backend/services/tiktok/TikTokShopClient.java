@@ -244,7 +244,8 @@ public class TikTokShopClient {
         }
 
         String apiPath = TikTokShopConstants.PATH_PRODUCTS_SEARCH;
-        String body = "{}"; // JSON rỗng để lấy toàn bộ danh mục
+        // status: ALL để lấy toàn bộ danh mục sản phẩm của shop (ACTIVATE, DRAFT, PENDING, v.v.)
+        String body = "{\"status\":\"ALL\"}";
 
         String fullSignedUrl = buildUrlWithSign(TikTokShopConstants.BASE_URL, apiPath, queryParams, body, appKey, appSecret, shopCipher);
         JsonNode root = executePost(fullSignedUrl, body, accessToken);
