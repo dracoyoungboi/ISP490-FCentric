@@ -388,4 +388,67 @@ class TikTokShopClientTest {
         assertTrue(json.contains("\"size_chart\":{\"image\":{\"uri\":\"tos-maliva-i-o260ufnz6q-us/size_chart_uri_test\"}}"),
                 "Payload JSON bắt buộc chứa size_chart.image.uri");
     }
+
+    @Test
+    @DisplayName("getWarehouses: trích xuất danh sách kho TikTok Shop, phân biệt SALES_WAREHOUSE và RETURN_WAREHOUSE")
+    void getWarehouses_thanhCong() {
+        String appKey = "test_app_key";
+        String appSecret = "test_app_secret";
+        String accessToken = "test_access_token";
+        String shopCipher = "ROW_TEST_CIPHER";
+
+        String mockResponseBody = """
+                {
+                    "code": 0,
+                    "message": "success",
+                    "request_id": "test_wh_123",
+                    "data": {
+                        "warehouses": [
+                            {
+                                "id": "7702135691702454068",
+                                "name": "F-Centric",
+                                "type": "RETURN_WAREHOUSE",
+                                "sub_type": "DOMESTIC_WAREHOUSE",
+                                "is_default": false,
+                                "effect_status": "ENABLED"
+                            },
+                            {
+                                "id": "7702121381413914388",
+                                "name": "F-Centric",
+                                "type": "SALES_WAREHOUSE",
+                                "sub_type": "DOMESTIC_WAREHOUSE",
+                                "is_default": true,
+                                "effect_status": "ENABLED"
+                            }
+                        ]
+                    }
+                }
+                """;
+
+        ArgumentCaptor<String> urlCaptor = ArgumentCaptor.forClass(String.class);
+        when(restTemplate.exchange(urlCaptor.capture(), eq(HttpMethod.GET), any(), eq(String.class)))
+                .thenReturn(new ResponseEntity<>(mockResponseBody, HttpStatus.OK));
+
+        com.dev.backend.dto.response.customize.TikTokWarehousesResponse res =
+                client.getWarehouses(appKey, appSecret, accessToken, shopCipher);
+
+        assertNotNull(res);
+        assertEquals(0, res.getCode());
+        assertNotNull(res.getWarehouses());
+        assertEquals(2, res.getWarehouses().size());
+
+        com.dev.backend.dto.response.customize.TikTokWarehouseDto returnWh = res.getWarehouses().get(0);
+        assertEquals("7702135691702454068", returnWh.getId());
+        assertEquals("RETURN_WAREHOUSE", returnWh.getType());
+        assertFalse(returnWh.getIsDefault());
+
+        com.dev.backend.dto.response.customize.TikTokWarehouseDto salesWh = res.getWarehouses().get(1);
+        assertEquals("7702121381413914388", salesWh.getId());
+        assertEquals("SALES_WAREHOUSE", salesWh.getType());
+        assertTrue(salesWh.getIsDefault());
+
+        String capturedUrl = urlCaptor.getValue();
+        assertTrue(capturedUrl.contains(TikTokShopConstants.PATH_WAREHOUSES));
+        assertTrue(capturedUrl.contains("shop_cipher=" + shopCipher));
+    }
 }
