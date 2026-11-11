@@ -104,17 +104,23 @@ test("timSan: theo mã kênh hoặc đoạn đường dẫn, không phân biệt
   assert.equal(timSan(""), null);
 });
 
-test("Shopee chờ cấp API: tìm được sàn để vẽ dòng và màn giới thiệu, nhưng không tính là sàn hỗ trợ", () => {
+test("Shopee: phân biệt cổng phụ ẩn tạm và cổng chính thức ủy quyền", () => {
   const shopee = timSan("shopee");
   assert.equal(shopee?.maKenh, "SHOPEE");
   assert.equal(shopee.duongDan, "/channels/shopee");
-  assert.equal(shopee.kieuKetNoi, "uy_quyen");
-  // Tải danh sách sàn đã kết nối, bảng số liệu và nhóm mục của sàn ở menu trái chỉ lấy sàn hỗ trợ: Shopee không được
-  // gọi máy chủ (menu trái chỉ có một mục Shopee mở màn giới thiệu khi bật `hienMenu`)
-  assert.equal(shopee.hoTro, false);
+  assert.equal(shopee.kieuKetNoi, "ben_thu_ba");
+  assert.equal(shopee.anTam, true);
+  assert.equal(shopee.hienMenu, false);
+
+  const shopeeOfficial = timSan("shopee_official") || timSan("shopee-official");
+  assert.equal(shopeeOfficial?.maKenh, "SHOPEE_OFFICIAL");
+  assert.equal(shopeeOfficial.kieuKetNoi, "uy_quyen");
+  assert.equal(shopeeOfficial.hienMenu, true);
+
+  // Danh sách sàn hiển thị ở menu trái (không bị ẩn tạm):
   assert.deepEqual(
-    SAN_BAN_HANG.filter((san) => san.hoTro).map((san) => san.maKenh),
-    ["SHOPIFY", "LAZADA", "TIKTOK"],
+    SAN_BAN_HANG.filter((san) => san.hoTro && !san.anTam).map((san) => san.maKenh),
+    ["SHOPIFY", "LAZADA", "LAZADA_SANDBOX", "TIKTOK", "SHOPEE_OFFICIAL"],
   );
   assert.equal(timSan("SHOPEE"), shopee);
 });
@@ -160,13 +166,13 @@ test("câu xác nhận ngắt kết nối: nói rõ tồn và đơn trên sàn; 
   const shopify = moTaNgatKetNoi(timSan("SHOPIFY"), { shopDomain: "fcentric-dev.myshopify.com" });
   assert.match(shopify, /^Hệ thống sẽ xóa mọi khóa đã lưu và dừng đồng bộ với fcentric-dev\.myshopify\.com\. /);
   assert.match(shopify, /Số tồn trên Shopify giữ nguyên như lần đẩy cuối, đơn mới sẽ không về FCentric\./);
-  assert.match(shopify, /kết nối lại bằng cửa hàng khác thì phải ghép sản phẩm lại\./);
+  assert.match(shopify, /các sản phẩm sẽ được làm sạch mã sàn cũ để sẵn sàng kết nối lại\./);
   assert.match(shopify, /hãy gỡ ứng dụng trong trang quản trị Shopify\.$/);
   assert.doesNotMatch(shopify, /ủy quyền/i);
 
   const lazada = moTaNgatKetNoi(timSan("LAZADA"), { tenGianHang: "Fashion House VN" });
   assert.match(lazada, /^Hệ thống sẽ xóa ủy quyền đã lưu và dừng đồng bộ với Fashion House VN\. Số tồn trên Lazada giữ nguyên/);
-  assert.match(lazada, /các đơn đã về FCentric vẫn được giữ; ủy quyền lại bằng gian hàng khác thì phải ghép sản phẩm lại\.$/);
+  assert.match(lazada, /Toàn bộ đơn hàng đã nhận vẫn được bảo toàn trong hệ thống kho; các sản phẩm sẽ được làm sạch mã sàn cũ/);
   assert.doesNotMatch(lazada, /gỡ ứng dụng/);
 
   // Chưa có tên gian hàng / tên miền thì gọi theo sàn
