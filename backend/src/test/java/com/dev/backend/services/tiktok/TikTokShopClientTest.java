@@ -290,7 +290,7 @@ class TikTokShopClientTest {
                 .mainImages(List.of(new TikTokProductCreateRequest.ImageUri("tos-maliva-i-o260ufnz6q-us/nike_sportswear")))
                 .productAttributes(List.of(
                         TikTokProductCreateRequest.ProductAttribute.builder()
-                                .attributeId("100149")
+                                .id("100149")
                                 .values(List.of(TikTokProductCreateRequest.AttributeValue.builder()
                                         .id("1000100")
                                         .name("Việt Nam")
@@ -306,7 +306,7 @@ class TikTokShopClientTest {
                 .build();
 
         String json = objectMapper.writeValueAsString(payload);
-        assertTrue(json.contains("\"product_attributes\":[{\"attribute_id\":\"100149\""), "Phải chứa product_attributes với attribute_id=100149");
+        assertTrue(json.contains("\"product_attributes\":[{\"id\":\"100149\""), "Phải chứa product_attributes với id=100149");
         assertTrue(json.contains("\"name\":\"Việt Nam\""), "Phải chứa giá trị Việt Nam");
         assertTrue(json.contains("\"id\":\"1000100\""), "Phải chứa ID giá trị 1000100");
     }
