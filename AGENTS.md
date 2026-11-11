@@ -152,7 +152,8 @@ vào `Dev` / `main`. Báo đỏ thì xem log để biết dòng lỗi, sửa r�
 - **Phân trang API**: `page_size` và `page_token` của API tìm đơn hàng (`/order/202309/orders/search`) và tìm sản phẩm BẮT BUỘC nằm ở **Query Parameter trên URL** (không để trong body JSON).
 - **Phân loại biến thể & Single SKU**:
   - Với sản phẩm đơn (1 SKU duy nhất): BẮT BUỘC để `sales_attributes = null` (không gửi trường này).
-  - Với sản phẩm nhiều biến thể: BẮT BUỘC bổ sung `sales_attributes` (`name`, `custom_value`) cho từng SKU để TikTok Shop nhận diện và phân biệt.
+  - Với sản phẩm nhiều biến thể: BẮT BUỘC bổ sung `sales_attributes` gồm CẢ `name`, `value_name` VÀ `custom_value` cho từng SKU để TikTok Shop nhận diện và hiển thị giá trị (chống lỗi `Resource Already Exists: Kích cỡ() Màu sắc() is already in use` mã `12052251`).
+  - Đảm bảo tính đồng nhất số chiều thuộc tính giữa các SKU và cơ chế chống trùng lặp tổ hợp thuộc tính (tự động đệm mã SKU khi trùng).
   - Toàn bộ payload DTO sử dụng `@JsonInclude(JsonInclude.Include.NON_NULL)` để loại bỏ các trường rỗng/null, tránh lỗi schema sàn.
 - **Tiêu đề**: Độ dài bắt buộc từ 25 đến 255 ký tự (nếu ngắn phải tự động đệm thông tin).
 - **Hình ảnh & Upload CDN**:

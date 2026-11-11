@@ -76,7 +76,8 @@ Mọi kênh bán (Shopify, Lazada, Shopee, TikTok Shop) khi quét đơn về ph�
 2. **Quy tắc phân trang API**:
    - `page_size` và `page_token` của API tìm đơn hàng (`/order/202309/orders/search`) và tìm sản phẩm (`/product/202309/products/search`) BẮT BUỘC nằm ở **Query Parameter trên URL**, không để trong request body JSON.
 3. **Phân loại biến thể đa SKU & Single SKU (`sales_attributes`)**:
-   - Khi sản phẩm cha có từ 2 SKU biến thể trở lên, BẮT BUỘC gửi `sales_attributes` (mảng thuộc tính `name`, `custom_value`) cho từng SKU để TikTok Shop gom nhóm và hiển thị biến thể.
+   - Khi sản phẩm cha có từ 2 SKU biến thể trở lên, BẮT BUỘC gửi `sales_attributes` gồm CẢ `name`, `value_name` VÀ `custom_value` cho từng SKU để TikTok Shop nhận diện đúng giá trị (chống lỗi `Resource Already Exists: Kích cỡ() Màu sắc() is already in use` mã `12052251`).
+   - Đảm bảo tính đồng nhất số chiều thuộc tính giữa các SKU và cơ chế chống trùng lặp tổ hợp thuộc tính (tự động đệm mã SKU khi trùng).
    - Khi sản phẩm chỉ có 1 SKU duy nhất (Single SKU product), BẮT BUỘC để `sales_attributes = null` (không gửi trường này trong JSON).
    - DTO request sử dụng `@JsonInclude(JsonInclude.Include.NON_NULL)` để loại bỏ hoàn toàn các trường null khỏi payload JSON gửi sang sàn.
 4. **Tiêu đề & Thương hiệu**:
