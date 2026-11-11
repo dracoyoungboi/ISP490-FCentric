@@ -488,7 +488,16 @@ public class TikTokShopClient {
             throw new LoiThamSoException(ThongDiep.of("kenhBan.loiSerializeTimDon", e.getMessage()), e);
         }
 
-        String fullSignedUrl = buildUrlWithSign(TikTokShopConstants.BASE_URL, apiPath, Map.of(), body, appKey, appSecret, shopCipher);
+        Map<String, String> queryParams = new HashMap<>();
+        int pageSize = (request != null && request.getPageSize() != null)
+                ? Math.max(1, Math.min(request.getPageSize(), 100))
+                : 50;
+        queryParams.put("page_size", String.valueOf(pageSize));
+        if (request != null && request.getPageToken() != null && !request.getPageToken().isBlank()) {
+            queryParams.put("page_token", request.getPageToken().trim());
+        }
+
+        String fullSignedUrl = buildUrlWithSign(TikTokShopConstants.BASE_URL, apiPath, queryParams, body, appKey, appSecret, shopCipher);
         JsonNode root = executePost(fullSignedUrl, body, accessToken);
 
         try {
