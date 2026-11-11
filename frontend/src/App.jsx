@@ -67,6 +67,8 @@ const DonBanHangList = taiTrang(() => import("./pages/sales-orders/DonBanHangLis
 const DonBanHangDetail = taiTrang(() => import("./pages/sales-orders/DonBanHangDetail"));
 const DonBanHangCreate = taiTrang(() => import("./pages/sales-orders/DonBanHangCreate"));
 const DoiSoatChuyenKhoan = taiTrang(() => import("./pages/pos-transfers/DoiSoatChuyenKhoan"));
+const PosReturnsPage = taiTrang(() => import("./pages/pos/returns/PosReturnsPage"));
+const PosReturnPrintPage = taiTrang(() => import("./pages/pos/returns/PosReturnPrintPage"));
 const ProductDetail = taiTrang(() => import("./pages/product/components/product/ProductDetail"));
 const PhieuChuyenKhoDetail = taiTrang(() => import("./pages/chuyenKhoNoiBo/PhieuChuyenKhoDetail"));
 const PhieuChuyenKhoCreate = taiTrang(() => import("./pages/chuyenKhoNoiBo/PhieuChuyenKhoCreate"));
@@ -500,10 +502,15 @@ const CAY_DUONG_DAN = (
       <Route element={<PosLayout />}>
         <Route element={<RequireRole roles={["quan_tri_vien", "nhan_vien_ban_hang"]} />}>
           <Route path="/pos" element={<PosPage />} />
+          {/* Trả hàng tại quầy theo hóa đơn POS gốc (đặc tả BA "Trả hàng / Đổi hàng tại POS") */}
+          <Route path="/pos/returns" element={<PosReturnsPage />} />
         </Route>
       </Route>
 
       {/* In phiếu — ngoài BackofficeLayout (không sidebar/header, không bị shell clipping); cùng vai trò với trang chi tiết */}
+      <Route element={<RequireRole roles={["quan_tri_vien", "nhan_vien_ban_hang"]} />}>
+        <Route path="/pos/returns/:id/print" element={<PosReturnPrintPage />} />
+      </Route>
       <Route path="/purchase-requests/:id/print" element={<PurchaseRequestPrint />} />
       <Route element={<RequireRole roles={VAI_TRO_DON_MUA} />}>
         <Route path="/quotation-requests/:id/print" element={<QuotationRequestPrint />} />
