@@ -292,8 +292,14 @@ class TikTokShopClientTest {
                         TikTokProductCreateRequest.ProductAttribute.builder()
                                 .id("100149")
                                 .values(List.of(TikTokProductCreateRequest.AttributeValue.builder()
-                                        .id("1000100")
+                                        .id("1000854")
                                         .name("Việt Nam")
+                                        .build()))
+                                .build(),
+                        TikTokProductCreateRequest.ProductAttribute.builder()
+                                .id("101489")
+                                .values(List.of(TikTokProductCreateRequest.AttributeValue.builder()
+                                        .name("Công ty Cổ phần Thời trang FCentric")
                                         .build()))
                                 .build()
                 ))
@@ -308,6 +314,8 @@ class TikTokShopClientTest {
         String json = objectMapper.writeValueAsString(payload);
         assertTrue(json.contains("\"product_attributes\":[{\"id\":\"100149\""), "Phải chứa product_attributes với id=100149");
         assertTrue(json.contains("\"name\":\"Việt Nam\""), "Phải chứa giá trị Việt Nam");
-        assertTrue(json.contains("\"id\":\"1000100\""), "Phải chứa ID giá trị 1000100");
+        assertTrue(json.contains("\"id\":\"1000854\""), "Phải chứa ID giá trị 1000854");
+        assertTrue(json.contains("{\"id\":\"101489\""), "Phải chứa thuộc tính 101489 Tên tổ chức chịu trách nhiệm hàng hóa");
+        assertTrue(json.contains("\"name\":\"Công ty Cổ phần Thời trang FCentric\""), "Phải chứa tên công ty");
     }
 }
