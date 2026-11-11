@@ -99,6 +99,18 @@ Mọi kênh bán (Shopify, Lazada, Shopee, TikTok Shop) khi quét đơn về ph�
      - Mọi thuộc tính có `is_mandatory = true` phải được gán giá trị hợp lệ (lấy từ enum giá trị có sẵn hoặc điền mặc định).
      - Thuộc tính **Quốc gia xuất xứ** (Attribute ID: `100149` / Country of Origin, Value ID: `1000854`) BẮT BUỘC phải luôn có mặt trong `product_attributes`. Giá trị mặc định là `"Việt Nam"`. Nếu API trả về danh sách `values`, ánh xạ đúng `id` và `name` tương ứng với "Việt Nam"; nếu không, dùng fallback `id = "100149"`, `id = "1000854"` và `name = "Việt Nam"` (ngăn chặn triệt để lỗi TikTok mã `12052104: Parameter 'Quốc gia xuất xứ' is invalid because the request is missing product attribute ID '100149'`).
      - Thuộc tính **Tên tổ chức chịu trách nhiệm hàng hóa** (Attribute ID: `101489` theo Nghị định 85/2021/NĐ-CP của Việt Nam) BẮT BUỘC phải luôn có mặt trong `product_attributes`. Tự động điền giá trị doanh nghiệp `"Công ty Cổ phần Thời trang FCentric"` để tránh lỗi TikTok Shop mã `12052104` (`missing product attribute ID '101489'`). Bổ sung kèm địa chỉ tổ chức chịu trách nhiệm nếu danh mục yêu cầu.
+8. **Bảng quy đổi kích cỡ (Size Chart Image - `size_chart`)**:
+   - Đối với ngành hàng may mặc và thời trang (như Áo Polo, Áo khoác, Đồ thể thao...), TikTok Shop BẮT BUỘC cung cấp trường `size_chart` chứa `image.uri` trong payload tạo sản phẩm (chống lỗi HTTP 400 mã `12052673: Missing Parameter. size_chart_image is required. Please provide it and retry.`).
+   - Ảnh size chart BẮT BUỘC phải được upload lên TikTok Shop CDN qua `POST /product/202309/images/upload` với multipart parameter `use_case = "SIZE_CHART_IMAGE"` (tuyệt đối không dùng `MAIN_IMAGE` cho size chart để tránh lỗi `12052670: Invalid size chart image URI`).
+   - Cấu trúc JSON chuẩn:
+     ```json
+     "size_chart": {
+       "image": {
+         "uri": "tos-maliva-i-o260ufnz6q-us/..."
+       }
+     }
+     ```
+   - Hệ thống tự động sinh ảnh bảng quy đổi kích cỡ chuẩn 800x800 cho thương hiệu FCentric và lưu bộ nhớ đệm URI theo `shop_cipher` để tối ưu số lần gọi API upload ảnh.
 
 
 

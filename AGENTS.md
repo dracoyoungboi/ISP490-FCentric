@@ -168,6 +168,10 @@ vào `Dev` / `main`. Báo đỏ thì xem log để biết dòng lỗi, sửa r�
   - Tên trường định danh thuộc tính trong `product_attributes` BẮT BUỘC là `id` (tuyệt đối không đặt tên `attribute_id`), cấu trúc chuẩn: `[{"id": "100149", "values": [{"id": "1000854", "name": "Việt Nam"}]}]` để tránh lỗi HTTP 400 mã `36009004` (`Id of ProductAttributes[0] is a required field and has not been provided`).
   - Thuộc tính **Quốc gia xuất xứ** (Attribute ID: `100149` / Country of Origin = "Việt Nam", Value ID: `1000854`) BẮT BUỘC phải luôn có mặt trong `product_attributes` đối với ngành hàng thời trang để chống lỗi TikTok Shop mã `12052104`. Tự động ánh xạ `id` và `name` từ enum của sàn hoặc sử dụng fallback `Việt Nam` (`id = "1000854"`).
   - Thuộc tính **Tên tổ chức chịu trách nhiệm hàng hóa** (Attribute ID: `101489` theo Nghị định 85/2021/NĐ-CP của Việt Nam) BẮT BUỘC phải luôn có mặt trong `product_attributes`. Tự động điền giá trị doanh nghiệp `"Công ty Cổ phần Thời trang FCentric"` để tránh lỗi TikTok Shop mã `12052104` (`missing product attribute ID '101489'`). Kèm theo địa chỉ tổ chức chịu trách nhiệm nếu danh mục yêu cầu.
+- **Bảng quy đổi kích cỡ (Size Chart Image)**:
+  - Đối với ngành hàng thời trang may mặc (như Áo Polo, Áo khoác, Quần thể thao...), TikTok Shop BẮT BUỘC cung cấp trường `size_chart` chứa `image.uri` (chống lỗi HTTP 400 mã `12052673`: `Missing Parameter. size_chart_image is required`).
+  - Ảnh size chart BẮT BUỘC phải được upload lên TikTok Shop CDN qua `POST /product/202309/images/upload` với multipart parameter `use_case = "SIZE_CHART_IMAGE"` (tuyệt đối không dùng `MAIN_IMAGE` cho size chart để tránh lỗi `12052670`: `Invalid size chart image URI`).
+  - Hệ thống tự động sinh ảnh bảng quy đổi kích cỡ chuẩn 800x800 cho thương hiệu FCentric và lưu bộ nhớ đệm URI theo `shop_cipher`.
 
 ## Quy chuẩn Git Commit nguyên tử & Chiến lược đóng góp (~500 commits/tuần)
 
