@@ -1330,14 +1330,17 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
     /**
      * Chuẩn bị danh sách thuộc tính sản phẩm (product_attributes) cho TikTok Shop (v202309).
-     * Bắt buộc cung cấp các thuộc tính bắt buộc (is_mandatory = true) từ danh mục V2,
-     * đặc biệt là Quốc gia xuất xứ (Attribute ID: 100149) để tránh lỗi TikTok 12052104.
+     * Bắt buộc cung cấp các thuộc tính bắt buộc từ danh mục V2 theo quy định pháp luật Việt Nam (Nghị định 85):
+     * - Quốc gia xuất xứ (ID: 100149 = "Việt Nam", ID giá trị: 1000854)
+     * - Tên tổ chức chịu trách nhiệm hàng hóa (ID: 101489)
+     * - Địa chỉ tổ chức chịu trách nhiệm hàng hóa (nếu danh mục yêu cầu)
      */
     private List<TikTokProductCreateRequest.ProductAttribute> chuanBiProductAttributesTikTok(
             String appKey, String appSecret, String token, String cipher,
             String categoryId, SanPhamQuanAo sp) {
         List<TikTokProductCreateRequest.ProductAttribute> attributes = new ArrayList<>();
         boolean hasCountryOfOrigin = false;
+        boolean hasResponsibleEntity = false;
 
         if (categoryId != null && !categoryId.isBlank()) {
             try {
@@ -1349,18 +1352,42 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                             String attrId = attr.path("id").asText(attr.path("attribute_id").asText(null));
                             if (attrId == null || attrId.isBlank()) continue;
 
+                            String attrType = attr.path("type").asText("PRODUCT_PROPERTY");
+                            // Bỏ qua các thuộc tính biến thể SALES_PROPERTY (được cấu hình ở sales_attributes của SKU)
+                            if ("SALES_PROPERTY".equalsIgnoreCase(attrType)) {
+                                continue;
+                            }
+
                             String attrName = attr.path("name").asText(attr.path("local_display_name").asText(""));
-                            boolean isMandatory = attr.path("is_mandatory").asBoolean(false);
+                            String attrNameLower = attrName.toLowerCase(Locale.ROOT);
+
+                            // Nhận diện trạng thái bắt buộc từ mọi biến thể định dạng của TikTok Shop API
+                            boolean isMandatory = attr.path("is_mandatory").asBoolean(false)
+                                    || attr.path("is_required").asBoolean(false)
+                                    || attr.path("is_requried").asBoolean(false)
+                                    || attr.path("required").asBoolean(false)
+                                    || "MANDATORY".equalsIgnoreCase(attr.path("requirement").asText(""))
+                                    || "REQUIRED".equalsIgnoreCase(attr.path("requirement").asText(""))
+                                    || "MANDATORY".equalsIgnoreCase(attr.path("requirement_level").asText(""))
+                                    || "REQUIRED".equalsIgnoreCase(attr.path("requirement_level").asText(""))
+                                    || (attr.hasNonNull("requirement_conditions") && !attr.path("requirement_conditions").isEmpty());
+
                             boolean isOrigin = "100149".equals(attrId)
-                                    || attrName.toLowerCase(Locale.ROOT).contains("xuất xứ")
-                                    || attrName.toLowerCase(Locale.ROOT).contains("origin");
+                                    || attrNameLower.contains("xuất xứ")
+                                    || attrNameLower.contains("origin");
+
+                            boolean isResponsible = "101489".equals(attrId)
+                                    || (attrNameLower.contains("chịu trách nhiệm") && !attrNameLower.contains("địa chỉ"));
+
+                            boolean isResponsibleAddr = attrNameLower.contains("chịu trách nhiệm") && attrNameLower.contains("địa chỉ");
+
+                            JsonNode valuesNode = attr.path("values");
 
                             if (isOrigin) {
                                 hasCountryOfOrigin = true;
                                 String valId = null;
                                 String valName = "Việt Nam";
 
-                                JsonNode valuesNode = attr.path("values");
                                 if (valuesNode.isArray() && !valuesNode.isEmpty()) {
                                     for (JsonNode val : valuesNode) {
                                         String vName = val.path("name").asText(val.path("local_display_name").asText(""));
@@ -1371,12 +1398,33 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                                             break;
                                         }
                                     }
-                                    // Fallback nếu không có mục "Việt Nam" rõ ràng
                                     if (valId == null && valuesNode.size() > 0) {
                                         JsonNode firstVal = valuesNode.get(0);
-                                        valId = firstVal.path("id").asText(null);
+                                        valId = firstVal.path("id").asText("1000854");
                                         valName = firstVal.path("name").asText("Việt Nam");
                                     }
+                                } else {
+                                    valId = "1000854";
+                                }
+
+                                attributes.add(TikTokProductCreateRequest.ProductAttribute.builder()
+                                        .id(attrId)
+                                        .values(List.of(TikTokProductCreateRequest.AttributeValue.builder()
+                                                .id(valId)
+                                                .name(valName)
+                                                .build()))
+                                        .build());
+                                log.info("[TIKTOK-ATTR] Đã gắn thuộc tính Quốc gia xuất xứ ID [{}]: id={}, name={}", attrId, valId, valName);
+
+                            } else if (isResponsible) {
+                                hasResponsibleEntity = true;
+                                String valId = null;
+                                String valName = "Công ty Cổ phần Thời trang FCentric";
+
+                                if (valuesNode.isArray() && !valuesNode.isEmpty()) {
+                                    JsonNode firstVal = valuesNode.get(0);
+                                    valId = firstVal.path("id").asText(null);
+                                    valName = firstVal.path("name").asText(valName);
                                 }
 
                                 attributes.add(TikTokProductCreateRequest.ProductAttribute.builder()
@@ -1386,10 +1434,28 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                                                 .name(valName)
                                                 .build()))
                                         .build());
-                                log.info("[TIKTOK-ATTR] Đã gắn thuộc tính Quốc gia xuất xứ ID [{}]: id={}, name={}", attrId, valId, valName);
+                                log.info("[TIKTOK-ATTR] Đã gắn thuộc tính Tên tổ chức chịu trách nhiệm [{}]: id={}, name={}", attrId, valId, valName);
+
+                            } else if (isResponsibleAddr) {
+                                String valId = null;
+                                String valName = "Số 1 Trịnh Văn Bô, Phường Phương Canh, Quận Nam Từ Liêm, Hà Nội, Việt Nam";
+
+                                if (valuesNode.isArray() && !valuesNode.isEmpty()) {
+                                    JsonNode firstVal = valuesNode.get(0);
+                                    valId = firstVal.path("id").asText(null);
+                                    valName = firstVal.path("name").asText(valName);
+                                }
+
+                                attributes.add(TikTokProductCreateRequest.ProductAttribute.builder()
+                                        .id(attrId)
+                                        .values(List.of(TikTokProductCreateRequest.AttributeValue.builder()
+                                                .id((valId != null && !valId.isBlank()) ? valId : null)
+                                                .name(valName)
+                                                .build()))
+                                        .build());
+                                log.info("[TIKTOK-ATTR] Đã gắn thuộc tính Địa chỉ tổ chức chịu trách nhiệm [{}]: id={}, name={}", attrId, valId, valName);
+
                             } else if (isMandatory) {
-                                // Tự động thỏa mãn các thuộc tính bắt buộc khác của danh mục
-                                JsonNode valuesNode = attr.path("values");
                                 String valId = null;
                                 String valName = null;
 
@@ -1398,7 +1464,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                                     valId = firstVal.path("id").asText(null);
                                     valName = firstVal.path("name").asText(null);
                                 } else {
-                                    valName = "Khác";
+                                    valName = "Tiêu chuẩn FCentric";
                                 }
 
                                 if (valName != null || valId != null) {
@@ -1428,6 +1494,18 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     .values(List.of(TikTokProductCreateRequest.AttributeValue.builder()
                             .id("1000854")
                             .name("Việt Nam")
+                            .build()))
+                    .build());
+        }
+
+        // Bắt buộc luôn bổ sung thuộc tính Tên tổ chức chịu trách nhiệm hàng hóa ID '101489' nếu chưa có
+        if (!hasResponsibleEntity) {
+            log.info("[TIKTOK-ATTR] Bổ sung fallback thuộc tính bắt buộc Tên tổ chức chịu trách nhiệm hàng hóa (ID: 101489 = 'Công ty Cổ phần Thời trang FCentric')");
+            attributes.add(TikTokProductCreateRequest.ProductAttribute.builder()
+                    .id("101489")
+                    .values(List.of(TikTokProductCreateRequest.AttributeValue.builder()
+                            .id(null)
+                            .name("Công ty Cổ phần Thời trang FCentric")
                             .build()))
                     .build());
         }
