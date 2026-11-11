@@ -31,7 +31,7 @@ public class TikTokProductCreateRequest implements Serializable {
     List<ImageUri> mainImages;
 
     @JsonProperty("package_weight")
-    String packageWeight;
+    PackageWeight packageWeight;
 
     @JsonProperty("package_dimensions")
     PackageDimensions packageDimensions;
@@ -56,6 +56,20 @@ public class TikTokProductCreateRequest implements Serializable {
     @NoArgsConstructor
     @Builder
     @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class PackageWeight implements Serializable {
+        @JsonProperty("value")
+        String value;
+
+        @JsonProperty("unit")
+        String unit; // "KILOGRAM", "GRAM"
+    }
+
+    @AllArgsConstructor
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class PackageDimensions implements Serializable {
         @JsonProperty("length")
         String length;
@@ -65,6 +79,9 @@ public class TikTokProductCreateRequest implements Serializable {
 
         @JsonProperty("height")
         String height;
+
+        @JsonProperty("unit")
+        String unit; // "CENTIMETER"
     }
 
     @AllArgsConstructor
@@ -82,6 +99,26 @@ public class TikTokProductCreateRequest implements Serializable {
 
         @JsonProperty("inventory")
         List<SkuInventoryQuantity> inventory;
+
+        @JsonProperty("sales_attributes")
+        List<SalesAttribute> salesAttributes;
+    }
+
+    @AllArgsConstructor
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class SalesAttribute implements Serializable {
+        @JsonProperty("attribute_id")
+        String attributeId;
+
+        @JsonProperty("attribute_name")
+        String attributeName;
+
+        @JsonProperty("custom_value")
+        String customValue;
     }
 
     @AllArgsConstructor
@@ -112,4 +149,3 @@ public class TikTokProductCreateRequest implements Serializable {
         Integer quantity;
     }
 }
-
