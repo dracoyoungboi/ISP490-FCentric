@@ -98,6 +98,7 @@ Mọi kênh bán (Shopify, Lazada, Shopee, TikTok Shop) khi quét đơn về ph�
    - Hệ thống tự động truy vấn `GET /product/202309/categories/{category_id}/attributes?category_version=v2&locale=vi-VN` để lấy danh mục thuộc tính:
      - Mọi thuộc tính có `is_mandatory = true` phải được gán giá trị hợp lệ (lấy từ enum giá trị có sẵn hoặc điền mặc định).
      - Thuộc tính **Quốc gia xuất xứ** (Attribute ID: `100149` / Country of Origin, Value ID: `1000854`) BẮT BUỘC phải luôn có mặt trong `product_attributes`. Giá trị mặc định là `"Việt Nam"`. Nếu API trả về danh sách `values`, ánh xạ đúng `id` và `name` tương ứng với "Việt Nam"; nếu không, dùng fallback `id = "100149"`, `id = "1000854"` và `name = "Việt Nam"` (ngăn chặn triệt để lỗi TikTok mã `12052104: Parameter 'Quốc gia xuất xứ' is invalid because the request is missing product attribute ID '100149'`).
+     - Thuộc tính **Tên tổ chức chịu trách nhiệm hàng hóa** (Attribute ID: `101489` theo Nghị định 85/2021/NĐ-CP của Việt Nam) BẮT BUỘC phải luôn có mặt trong `product_attributes`. Tự động điền giá trị doanh nghiệp `"Công ty Cổ phần Thời trang FCentric"` để tránh lỗi TikTok Shop mã `12052104` (`missing product attribute ID '101489'`). Bổ sung kèm địa chỉ tổ chức chịu trách nhiệm nếu danh mục yêu cầu.
 
 
 
