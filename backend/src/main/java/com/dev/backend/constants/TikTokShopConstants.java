@@ -38,6 +38,12 @@ public final class TikTokShopConstants {
     /** Đường dẫn API tìm kiếm sản phẩm và SKU phân loại */
     public static final String PATH_PRODUCTS_SEARCH = "/product/202309/products/search";
 
+    /** Đường dẫn API tạo mới sản phẩm lên TikTok Shop Open Platform (v202309) */
+    public static final String PATH_PRODUCTS_CREATE = "/product/202309/products";
+
+    /** Đường dẫn API tải ảnh sản phẩm lên CDN của TikTok Shop Open Platform (v202309) */
+    public static final String PATH_IMAGE_UPLOAD = "/product/202309/images/upload";
+
     /** Đường dẫn mẫu cập nhật tồn kho biến thể theo sản phẩm cha */
     public static final String PATH_INVENTORY_UPDATE = "/product/202309/products/%s/inventory/update";
 
