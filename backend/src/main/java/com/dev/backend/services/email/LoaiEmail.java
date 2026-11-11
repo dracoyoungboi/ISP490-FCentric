@@ -1,7 +1,7 @@
 package com.dev.backend.services.email;
 
 /**
- * Chín loại email: tên mẫu (templates/email/{mau}.html và .txt), có thử lại khi SMTP lỗi tạm thời không,
+ * Mười loại email: tên mẫu (templates/email/{mau}.html và .txt), có thử lại khi SMTP lỗi tạm thời không,
  * gửi nhà cung cấp hay nhân sự (quyết định chân email, Trả lời tới).
  */
 public enum LoaiEmail {
@@ -15,7 +15,9 @@ public enum LoaiEmail {
     E5("e5-ma-xac-nhan-bao-gia", false, true),
     M3("m3-da-nhan-bao-gia", true, true),
     M1("m1-xac-nhan-dat-hang", true, true),
-    M2("m2-ket-qua-bao-gia", true, true);
+    M2("m2-ket-qua-bao-gia", true, true),
+    /** Mã PIN quản lý cửa hàng duyệt trả hàng quá hạn. Không thử lại: thu ngân bấm gửi lại là có mã mới. */
+    E6("e6-ma-duyet-tra-hang", false, false);
 
     private final String mau;
     private final boolean thuLai;

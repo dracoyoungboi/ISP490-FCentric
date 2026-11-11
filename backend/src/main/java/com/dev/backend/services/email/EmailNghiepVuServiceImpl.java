@@ -490,6 +490,31 @@ public class EmailNghiepVuServiceImpl implements EmailNghiepVuService {
                 .orElse(false);
     }
 
+    /** E6. Gửi thẳng (không hàng đợi, không thử lại): thu ngân đang chờ mã ở quầy. */
+    @Override
+    public void guiMaDuyetTraHang(NguoiDung quanLy, MaDuyetTraHangThongTin tt, String ma, Instant hetHanLuc) {
+        EmailGui g;
+        try {
+            String den = emailCua(quanLy, LoaiEmail.E6);
+            kiem(den != null, "quản lý chưa có email");
+            kiem(tt != null && ma != null && !ma.isBlank() && hetHanLuc != null, "thiếu mã hoặc hạn dùng");
+            MaDuyetTraHangEmail duLieu = new MaDuyetTraHangEmail(hoTen(quanLy), tt.tenCuaHang(), tt.nguoiYeuCau(),
+                    tt.soDonHang(), DinhDangEmail.gioNgay(tt.thanhToanLuc()), tt.soNgay(), tt.lyDo(), ma,
+                    DinhDangEmail.gioNgay(hetHanLuc), DinhDangEmail.phut(Duration.between(clock.instant(), hetHanLuc)));
+            String soDon = tt.soDonHang();
+            g = EmailGui.builder()
+                    .loai(LoaiEmail.E6).den(den).maDon(soDon)
+                    .tieuDe(c -> "Mã duyệt trả hàng đơn " + soDon)
+                    .duLieu(duLieu)
+                    .build();
+        } catch (Exception e) {
+            loiDung(LoaiEmail.E6, tt == null ? null : tt.soDonHang(), e);
+            // i18n-giu-nguyen: lỗi nội bộ, nơi gọi bắt EmailKhongGuiDuocException và trả câu lỗi riêng
+            throw new EmailKhongGuiDuocException("Không dựng được email mã duyệt trả hàng", e);
+        }
+        dispatcher.guiNgay(g);
+    }
+
     private static String emailCua(NguoiDung nd, LoaiEmail loai) {
         String email = nd == null ? null : sach(nd.getEmail());
         if (email == null) {

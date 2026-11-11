@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<!--/* E6 · Mã PIN quản lý cửa hàng duyệt trả hàng quá hạn 03 ngày (đặc tả BA trả hàng POS, GBR-RET-02). */-->
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{khung :: thu(xemTruoc=~{::xem-truoc}, noiDung=~{::noi-dung}, chan=~{khung :: chan-nhan-su}, nhom='Bán hàng tại quầy')}">
+<body>
+<th:block th:fragment="xem-truoc">Thu ngân <th:block th:text="${e.nguoiYeuCau}">tên</th:block> xin duyệt trả hàng đơn <th:block th:text="${e.soDonHang}">mã đơn</th:block>. Mã có hiệu lực <th:block th:text="${e.thoiHan}">10 phút</th:block>.</th:block>
+<th:block th:fragment="noi-dung">
+<tr th:replace="~{khung :: tieu-de('Mã duyệt trả hàng quá hạn')}"></tr>
+<tr><td style="padding:0 0 14px;"><p class="chu" style="margin:0;font-size:15px;line-height:24px;color:#172233;" th:text="|Xin chào ${e.hoTen},|">Xin chào,</p></td></tr>
+<tr><td style="padding:0 0 14px;"><p class="chu" style="margin:0;font-size:15px;line-height:24px;color:#172233;">Thu ngân <strong th:text="${e.nguoiYeuCau}">tên</strong> tại <strong th:text="${e.tenCuaHang}">cửa hàng</strong> xin duyệt trả hàng cho đơn <strong th:text="${e.soDonHang}">mã đơn</strong>, thanh toán lúc <th:block th:text="${e.ngayThanhToan}">ngày</th:block> (đã <th:block th:text="${e.soNgay}">4</th:block> ngày, quá hạn 03 ngày).</p></td></tr>
+<tr><td style="padding:0 0 22px;"><p class="chu" style="margin:0;font-size:15px;line-height:24px;color:#172233;">Lý do: <strong th:text="${e.lyDo}">lý do</strong>. Nếu đồng ý, đọc mã dưới đây cho thu ngân nhập trên màn trả hàng.</p></td></tr>
+<tr th:replace="~{khung :: o-ma(${e.ma}, ${e.hetHanLuc})}"></tr>
+<tr><td style="padding:0 0 22px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="hop-trang vien" style="width:100%;background-color:#ffffff;border:1px solid #e3e8ef;border-radius:8px;border-collapse:separate;">
+<tr><td style="padding:16px 18px;">
+<p class="chu" style="margin:0 0 6px;font-size:14px;line-height:20px;font-weight:600;color:#172233;">Không đồng ý?</p>
+<p class="chu" style="margin:0;font-size:14px;line-height:22px;color:#172233;">Bỏ qua email này: không có mã, thu ngân không nhận trả được đơn quá hạn. Mã này là của riêng bạn, hệ thống ghi bạn là người duyệt khi mã được dùng.</p>
+</td></tr>
+</table>
+</td></tr>
+</th:block>
+</body>
+</html>

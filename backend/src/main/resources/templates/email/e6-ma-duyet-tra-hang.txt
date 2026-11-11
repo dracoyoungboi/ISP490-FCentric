@@ -1,0 +1,15 @@
+[# th:insert="~{khung-dau.txt}" /]Mã duyệt trả hàng quá hạn
+
+Xin chào [(${e.hoTen})],
+
+Thu ngân [(${e.nguoiYeuCau})] tại [(${e.tenCuaHang})] xin duyệt trả hàng cho đơn [(${e.soDonHang})], thanh toán lúc [(${e.ngayThanhToan})] (đã [(${e.soNgay})] ngày, quá hạn 03 ngày).
+
+Lý do: [(${e.lyDo})]. Nếu đồng ý, đọc mã dưới đây cho thu ngân nhập trên màn trả hàng.
+
+Mã duyệt: [(${e.ma})]
+Hiệu lực đến [(${e.hetHanLuc})] · Chỉ dùng được một lần
+
+Không đồng ý?
+Bỏ qua email này: không có mã, thu ngân không nhận trả được đơn quá hạn. Mã này là của riêng bạn, hệ thống ghi bạn là người duyệt khi mã được dùng.
+
+[# th:insert="~{khung-chan-nhan-su.txt}" /]

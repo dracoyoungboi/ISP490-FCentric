@@ -59,4 +59,16 @@ public interface EmailNghiepVuService {
      * ngược lại bản "yêu cầu đã kết thúc". Lý do lấy từ {@code don.getLyDoTuChoi()}, trống thì không hiện.
      */
     void guiKetQuaBaoGia(DonMuaHang don);
+
+    /**
+     * E6 · Mã PIN duyệt trả hàng quá hạn gửi một quản lý cửa hàng. Gửi NGAY, đồng bộ (thu ngân đang chờ ở quầy).
+     *
+     * @throws EmailKhongGuiDuocException khi không gửi được (nơi gọi bỏ mã của người này, thử người khác).
+     */
+    void guiMaDuyetTraHang(NguoiDung quanLy, MaDuyetTraHangThongTin thongTin, String ma, Instant hetHanLuc);
+
+    /** Thông tin yêu cầu in trong thư E6 (đã dựng xong ở nơi gọi, không entity). */
+    record MaDuyetTraHangThongTin(String tenCuaHang, String nguoiYeuCau, String soDonHang, Instant thanhToanLuc,
+                                  long soNgay, String lyDo) {
+    }
 }
