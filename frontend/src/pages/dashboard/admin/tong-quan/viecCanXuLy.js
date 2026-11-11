@@ -40,7 +40,7 @@ function viecPhieuXuat(v) {
 
 /** Trang sản phẩm của kênh, mở sẵn tab Lỗi; kênh chưa có trang riêng (kể cả sàn chờ cấp API) thì mở danh sách kênh. */
 export function duongDanLoiDongBo(maKenh) {
-  const san = SAN_BAN_HANG.find((s) => s.hoTro && s.maKenh === maKenh);
+  const san = SAN_BAN_HANG.find((s) => s.hoTro && !s.anTam && s.maKenh === maKenh);
   return san?.duongDan ? `${san.duongDan}/products?trangThai=loi` : "/channels";
 }
 
