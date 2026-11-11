@@ -1135,6 +1135,14 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         List<TikTokProductCreateRequest.CreateSku> skuList = new ArrayList<>();
         boolean isMultiSku = variants.size() > 1;
 
+        // Phân tích các chiều biến thể của sản phẩm để đảm bảo tính đồng nhất giữa tất cả SKU
+        boolean hasSizeDimension = isMultiSku && variants.stream()
+                .anyMatch(bt -> bt.getSize() != null && bt.getSize().getTenSize() != null && !bt.getSize().getTenSize().isBlank());
+        boolean hasColorDimension = isMultiSku && variants.stream()
+                .anyMatch(bt -> bt.getMauSac() != null && bt.getMauSac().getTenMau() != null && !bt.getMauSac().getTenMau().isBlank());
+
+        Set<String> seenAttributeCombinations = new HashSet<>();
+
         for (BienTheSanPham bt : variants) {
             String sku = bt.getMaSku() != null ? bt.getMaSku().trim() : "";
             if (sku.isBlank()) continue;
@@ -1147,24 +1155,50 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             // Theo chuẩn TikTok Shop API v202309: Chỉ khai báo sales_attributes khi sản phẩm có từ 2 SKU trở lên
             if (isMultiSku) {
                 salesAttrs = new ArrayList<>();
-                if (bt.getSize() != null && bt.getSize().getTenSize() != null && !bt.getSize().getTenSize().isBlank()) {
-                    salesAttrs.add(TikTokProductCreateRequest.SalesAttribute.builder()
-                            .name("Kích cỡ")
-                            .customValue(bt.getSize().getTenSize().trim())
-                            .build());
-                }
-                if (bt.getMauSac() != null && bt.getMauSac().getTenMau() != null && !bt.getMauSac().getTenMau().isBlank()) {
-                    salesAttrs.add(TikTokProductCreateRequest.SalesAttribute.builder()
-                            .name("Màu sắc")
-                            .customValue(bt.getMauSac().getTenMau().trim())
-                            .build());
-                }
-                // Nếu sản phẩm nhiều biến thể nhưng thiếu size/màu, dùng mã SKU làm phân loại phân biệt
-                if (salesAttrs.isEmpty()) {
+
+                String sizeVal = (bt.getSize() != null && bt.getSize().getTenSize() != null && !bt.getSize().getTenSize().isBlank())
+                        ? bt.getSize().getTenSize().trim() : (hasSizeDimension ? "Tiêu chuẩn" : null);
+
+                String colorVal = (bt.getMauSac() != null && bt.getMauSac().getTenMau() != null && !bt.getMauSac().getTenMau().isBlank())
+                        ? bt.getMauSac().getTenMau().trim() : (hasColorDimension ? "Mặc định" : null);
+
+                // Nếu sản phẩm không có cả size lẫn màu, dùng thuộc tính Phân loại
+                if (!hasSizeDimension && !hasColorDimension) {
+                    String specVal = sku;
                     salesAttrs.add(TikTokProductCreateRequest.SalesAttribute.builder()
                             .name("Phân loại")
-                            .customValue(sku)
+                            .valueName(specVal)
+                            .customValue(specVal)
                             .build());
+                } else {
+                    // Kiểm tra và chống trùng lặp tổ hợp thuộc tính giữa các SKU (ngăn lỗi 12052251 Resource Already Exists)
+                    String comboKey = (sizeVal != null ? sizeVal : "") + "|" + (colorVal != null ? colorVal : "");
+                    if (seenAttributeCombinations.contains(comboKey)) {
+                        // Nếu trùng lặp tổ hợp với SKU trước đó, bổ sung mã SKU để đảm bảo tính duy nhất
+                        if (sizeVal != null) {
+                            sizeVal = sizeVal + " (" + sku + ")";
+                        } else if (colorVal != null) {
+                            colorVal = colorVal + " (" + sku + ")";
+                        }
+                        comboKey = (sizeVal != null ? sizeVal : "") + "|" + (colorVal != null ? colorVal : "");
+                    }
+                    seenAttributeCombinations.add(comboKey);
+
+                    // Bắt buộc gửi CẢ valueName VÀ customValue theo chuẩn v202309 để TikTok Shop hiển thị giá trị trong ngoặc
+                    if (hasSizeDimension && sizeVal != null) {
+                        salesAttrs.add(TikTokProductCreateRequest.SalesAttribute.builder()
+                                .name("Kích cỡ")
+                                .valueName(sizeVal)
+                                .customValue(sizeVal)
+                                .build());
+                    }
+                    if (hasColorDimension && colorVal != null) {
+                        salesAttrs.add(TikTokProductCreateRequest.SalesAttribute.builder()
+                                .name("Màu sắc")
+                                .valueName(colorVal)
+                                .customValue(colorVal)
+                                .build());
+                    }
                 }
             }
 
