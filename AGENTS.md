@@ -163,6 +163,9 @@ vào `Dev` / `main`. Báo đỏ thì xem log để biết dòng lỗi, sửa r�
   - Khi sản phẩm không có ảnh trong DB, tự động sinh ảnh JPEG 800x800 chuẩn e-commerce (logo FCENTRIC + tên sản phẩm) và upload thật lên TikTok CDN.
 - **Thương hiệu**: Mặc định `brand_id = "0"` (No Brand) để tránh bị từ chối phê duyệt bản quyền.
 - **Danh mục V2**: `category_version = "v2"` bắt buộc ở cả URL Query Param và Body JSON. `category_id` phải là danh mục lá (Leaf Category) V2 xác định tự động qua AI recommend hoặc tìm kiếm từ khóa.
+- **Thuộc tính sản phẩm bắt buộc (Product Attributes)**:
+  - Bắt buộc kiểm tra và cung cấp các thuộc tính có `is_mandatory = true` qua API `GET /product/202309/categories/{category_id}/attributes`.
+  - Thuộc tính **Quốc gia xuất xứ** (Attribute ID: `100149` / Country of Origin = "Việt Nam") BẮT BUỘC phải luôn có mặt trong `product_attributes` đối với ngành hàng thời trang để chống lỗi TikTok Shop mã `12052104`. Tự động ánh xạ `id` và `name` từ enum của sàn hoặc sử dụng fallback `Việt Nam`.
 
 ## Quy chuẩn Git Commit nguyên tử & Chiến lược đóng góp (~500 commits/tuần)
 

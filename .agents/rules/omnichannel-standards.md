@@ -92,5 +92,11 @@ Mọi kênh bán (Shopify, Lazada, Shopee, TikTok Shop) khi quét đơn về ph�
    - Theo quy định API v202309 cho khu vực Đông Nam Á (Việt Nam) và All-Region, tham số `category_version` BẮT BUỘC có giá trị `"v2"` và phải hiện diện ở CẢ HAI NƠI: **Query Parameter trên URL** (`POST /product/202309/products?category_version=v2`) và **Request Body JSON** (`"category_version": "v2"`). Thiếu query param sẽ gây lỗi `code=12052217: Invalid Parameter. Parameter category_version is invalid because all-region shops must use V2 categories.`
    - `category_id` BẮT BUỘC là mã danh mục lá (`is_leaf: true`) của cây V2 7 tầng. Tuyệt đối không dùng mã V1 cũ (như `601234`).
    - Ưu tiên tự động xác định `category_id` qua AI Recommendation (`POST /product/202309/categories/recommend?category_version=v2`) dựa trên tiêu đề và mô tả, kết hợp tìm kiếm danh mục lá theo từ khóa (`GET /product/202309/categories?category_version=v2&locale=vi-VN`).
+7. **Thuộc tính sản phẩm bắt buộc (Product Attributes & Quốc gia xuất xứ ID 100149)**:
+   - Với các danh mục lá ngành thời trang và may mặc, TikTok Shop bắt buộc khai báo danh sách `product_attributes` trong payload tạo sản phẩm.
+   - Hệ thống tự động truy vấn `GET /product/202309/categories/{category_id}/attributes?category_version=v2&locale=vi-VN` để lấy danh mục thuộc tính:
+     - Mọi thuộc tính có `is_mandatory = true` phải được gán giá trị hợp lệ (lấy từ enum giá trị có sẵn hoặc điền mặc định).
+     - Thuộc tính **Quốc gia xuất xứ** (Attribute ID: `100149` / Country of Origin) BẮT BUỘC phải luôn có mặt trong `product_attributes`. Giá trị mặc định là `"Việt Nam"`. Nếu API trả về danh sách `values`, ánh xạ đúng `id` và `name` tương ứng với "Việt Nam"; nếu không, dùng fallback `attribute_id = "100149"` và `name = "Việt Nam"` (ngăn chặn triệt để lỗi TikTok mã `12052104: Parameter 'Quốc gia xuất xứ' is invalid because the request is missing product attribute ID '100149'`).
+
 
 
