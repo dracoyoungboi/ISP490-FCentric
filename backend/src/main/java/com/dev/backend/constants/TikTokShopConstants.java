@@ -65,6 +65,9 @@ public final class TikTokShopConstants {
     /** Đường dẫn API AI tự động đề xuất danh mục lá của TikTok Shop (v202309) */
     public static final String PATH_CATEGORIES_RECOMMEND = "/product/202309/categories/recommend";
 
+    /** Đường dẫn API lấy thuộc tính sản phẩm theo danh mục lá của TikTok Shop (v202309) */
+    public static final String PATH_CATEGORY_ATTRIBUTES = "/product/202309/categories/%s/attributes";
+
     /** Phiên bản cây danh mục 7 tầng bắt buộc cho các gian hàng All-Region / SEA */
     public static final String CATEGORY_VERSION_V2 = "v2";
 

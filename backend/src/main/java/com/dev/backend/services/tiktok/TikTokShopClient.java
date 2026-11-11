@@ -518,6 +518,34 @@ public class TikTokShopClient {
     }
 
     /**
+     * Lấy danh sách thuộc tính sản phẩm của danh mục V2 (v202309).
+     * Endpoint: GET /product/202309/categories/{category_id}/attributes?category_version=v2&locale=vi-VN
+     */
+    public JsonNode getCategoryAttributes(String appKey, String appSecret, String accessToken,
+                                          String shopCipher, String categoryId, String locale) {
+        if (accessToken == null || accessToken.isBlank() || shopCipher == null || shopCipher.isBlank()) {
+            return null;
+        }
+        if (categoryId == null || categoryId.isBlank()) {
+            return null;
+        }
+
+        Map<String, String> queryParams = new HashMap<>();
+        queryParams.put("category_version", TikTokShopConstants.CATEGORY_VERSION_V2);
+        queryParams.put("locale", (locale != null && !locale.isBlank()) ? locale : "vi-VN");
+
+        String apiPath = String.format(TikTokShopConstants.PATH_CATEGORY_ATTRIBUTES, categoryId.trim());
+        String fullSignedUrl = buildUrlWithSign(TikTokShopConstants.BASE_URL, apiPath, queryParams, null, appKey, appSecret, shopCipher);
+
+        try {
+            return executeGet(fullSignedUrl, accessToken);
+        } catch (Exception e) {
+            log.warn("Lỗi khi tải thuộc tính danh mục V2 từ TikTok Shop (categoryId: {}): {}", categoryId, e.getMessage());
+            return null;
+        }
+    }
+
+    /**
      * Tìm kiếm danh mục lá V2 theo từ khóa (danh mục FCentric hoặc loại quần áo).
      * Duyệt qua các danh mục gốc và nhánh con để tìm danh mục leaf phù hợp nhất.
      */
