@@ -120,7 +120,7 @@ vào `Dev` / `main`. Báo đỏ thì xem log để biết dòng lỗi, sửa r�
 - **Lazada**: Gian hàng 1 kho mặc định -> `chiDoc: t("Kho mặc định")` (chỉ đọc, không mở dropdown chọn kho).
 - **TikTok Shop**: 
   - Mặc dù TikTok Shop có 2 kho nội bộ (`SALES_WAREHOUSE` kho bán hàng và `RETURN_WAREHOUSE` kho trả hàng bưu cục), nhưng kho nhận tồn bán hàng **DUY NHẤT** là `SALES_WAREHOUSE`.
-  - Backend BẮT BUỘC lọc bỏ `RETURN_WAREHOUSE` khỏi danh sách kho bán hàng.
+  - Backend BẮT BUỘC lọc bỏ `RETURN_WAREHOUSE` khỏi danh sách kho bán hàng. Khi tra cứu kho qua `GET /logistics/202309/warehouses`, cả 2 kho đều có `sub_type = "DOMESTIC_WAREHOUSE"`. Do đó, stream filter **TUYỆT ĐỐI KHÔNG** dùng `subType == "DOMESTIC_WAREHOUSE"` làm điều kiện OR mà BẮT BUỘC kiểm tra `type == "SALES_WAREHOUSE"` và loại trừ hoàn toàn `RETURN_WAREHOUSE` để chống lỗi `12052532` (`warehouse_id must identify a warehouse available to the current shop`).
   - Khi gian hàng chỉ có 1 kho bán hàng (mô hình chuẩn nội địa), giao diện tự động hiển thị chỉ đọc `Tên kho (Kho bán hàng mặc định)` tương tự như Lazada, loại bỏ dropdown chọn kho trùng tên gây nhầm lẫn.
   - Luồng hàng FCentric: Hàng đi ra từ Kho Tổng FCentric; khi khách hủy/hoàn thì hàng nhập về đúng Kho Tổng FCentric; số tồn khả dụng FCentric được đồng bộ trực tiếp vào `SALES_WAREHOUSE` của TikTok Shop.
 - **Shopee**: Áp dụng mô hình gian hàng 1 kho mặc định -> `chiDoc: t("Kho mặc định")`.

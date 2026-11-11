@@ -12,7 +12,7 @@
    - TikTok Shop trả về nhiều kho từ API `GET /logistics/202309/warehouses`:
      - `SALES_WAREHOUSE`: Kho lấy hàng / bán hàng (nhận số tồn, bưu tá đến lấy).
      - `RETURN_WAREHOUSE`: Kho trả hàng (chỉ là địa chỉ hậu cần bưu phẩm nhận hàng hoàn, KHÔNG nhận tồn bán hàng).
-   - **Quy tắc lọc Backend**: Backend BẮT BUỘC lọc bỏ 100% kho `RETURN_WAREHOUSE` khỏi danh sách kho bán hàng.
+   - **Quy tắc lọc Backend**: Backend BẮT BUỘC lọc bỏ 100% kho `RETURN_WAREHOUSE` khỏi danh sách kho bán hàng. Khi tra cứu kho qua `GET /logistics/202309/warehouses`, cả 2 kho đều có `sub_type = "DOMESTIC_WAREHOUSE"`. Do đó, stream filter **TUYỆT ĐỐI KHÔNG** dùng `subType == "DOMESTIC_WAREHOUSE"` làm điều kiện OR mà BẮT BUỘC kiểm tra `type == "SALES_WAREHOUSE"` và loại trừ hoàn toàn `RETURN_WAREHOUSE` để chống lỗi `12052532` (`warehouse_id must identify a warehouse available to the current shop`).
    - **Quy tắc hiển thị Frontend (Đồng nhất như Lazada)**: Khi gian hàng có 1 kho bán hàng duy nhất, giao diện hiển thị dạng văn bản chỉ đọc `Tên kho (Kho bán hàng mặc định)` (không mở dropdown chọn kho trùng tên gây nhầm lẫn). Hệ thống tự động gán và lưu `MA_KHO_SAN` của kho này. Chỉ hiển thị dropdown khi thực tế có trên 1 kho bán hàng (`SALES_WAREHOUSE`).
    - **Dòng chảy FCentric**: Xuất hàng từ Kho Tổng FCentric; khách hủy đơn hoặc hàng hoàn về thì nhập hoàn lại đúng Kho Tổng FCentric; số tồn khả dụng FCentric được đồng bộ trực tiếp vào `SALES_WAREHOUSE` của TikTok Shop.
 3. **Shopee**:
