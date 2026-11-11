@@ -1223,6 +1223,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         // Xác định Leaf Category ID phiên bản V2 bắt buộc theo quy định TikTok Shop API v202309
         String v2CategoryId = xacDinhTikTokV2CategoryId(appKey, appSecret, token, cipher, title, desc, sp);
 
+        // Chuẩn bị thuộc tính sản phẩm bắt buộc (Quốc gia xuất xứ ID: 100149, v.v.)
+        List<TikTokProductCreateRequest.ProductAttribute> productAttributes =
+                chuanBiProductAttributesTikTok(appKey, appSecret, token, cipher, v2CategoryId, sp);
+
         TikTokProductCreateRequest req = TikTokProductCreateRequest.builder()
                 .title(title)
                 .description(descHtml)
@@ -1240,6 +1244,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                         .height("5")
                         .unit("CENTIMETER")
                         .build())
+                .productAttributes(productAttributes.isEmpty() ? null : productAttributes)
                 .skus(skuList)
                 .build();
 
@@ -1321,6 +1326,113 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
         log.warn("[TIKTOK-CAT-V2] Không thể xác định danh mục V2 tự động cho [{}], sử dụng mã dự phòng", title);
         return "601234";
+    }
+
+    /**
+     * Chuẩn bị danh sách thuộc tính sản phẩm (product_attributes) cho TikTok Shop (v202309).
+     * Bắt buộc cung cấp các thuộc tính bắt buộc (is_mandatory = true) từ danh mục V2,
+     * đặc biệt là Quốc gia xuất xứ (Attribute ID: 100149) để tránh lỗi TikTok 12052104.
+     */
+    private List<TikTokProductCreateRequest.ProductAttribute> chuanBiProductAttributesTikTok(
+            String appKey, String appSecret, String token, String cipher,
+            String categoryId, SanPhamQuanAo sp) {
+        List<TikTokProductCreateRequest.ProductAttribute> attributes = new ArrayList<>();
+        boolean hasCountryOfOrigin = false;
+
+        if (categoryId != null && !categoryId.isBlank()) {
+            try {
+                JsonNode attrRes = getTikTokShopClient().getCategoryAttributes(appKey, appSecret, token, cipher, categoryId, "vi-VN");
+                if (attrRes != null && attrRes.path("code").asInt(-1) == 0) {
+                    JsonNode attrList = attrRes.path("data").path("attributes");
+                    if (attrList.isArray()) {
+                        for (JsonNode attr : attrList) {
+                            String attrId = attr.path("id").asText(attr.path("attribute_id").asText(null));
+                            if (attrId == null || attrId.isBlank()) continue;
+
+                            String attrName = attr.path("name").asText(attr.path("local_display_name").asText(""));
+                            boolean isMandatory = attr.path("is_mandatory").asBoolean(false);
+                            boolean isOrigin = "100149".equals(attrId)
+                                    || attrName.toLowerCase(Locale.ROOT).contains("xuất xứ")
+                                    || attrName.toLowerCase(Locale.ROOT).contains("origin");
+
+                            if (isOrigin) {
+                                hasCountryOfOrigin = true;
+                                String valId = null;
+                                String valName = "Việt Nam";
+
+                                JsonNode valuesNode = attr.path("values");
+                                if (valuesNode.isArray() && !valuesNode.isEmpty()) {
+                                    for (JsonNode val : valuesNode) {
+                                        String vName = val.path("name").asText(val.path("local_display_name").asText(""));
+                                        String vLower = vName.toLowerCase(Locale.ROOT);
+                                        if (vLower.contains("việt nam") || vLower.contains("vietnam") || vLower.equals("vn")) {
+                                            valId = val.path("id").asText(null);
+                                            valName = vName;
+                                            break;
+                                        }
+                                    }
+                                    // Fallback nếu không có mục "Việt Nam" rõ ràng
+                                    if (valId == null && valuesNode.size() > 0) {
+                                        JsonNode firstVal = valuesNode.get(0);
+                                        valId = firstVal.path("id").asText(null);
+                                        valName = firstVal.path("name").asText("Việt Nam");
+                                    }
+                                }
+
+                                attributes.add(TikTokProductCreateRequest.ProductAttribute.builder()
+                                        .attributeId(attrId)
+                                        .values(List.of(TikTokProductCreateRequest.AttributeValue.builder()
+                                                .id((valId != null && !valId.isBlank()) ? valId : null)
+                                                .name(valName)
+                                                .build()))
+                                        .build());
+                                log.info("[TIKTOK-ATTR] Đã gắn thuộc tính Quốc gia xuất xứ ID [{}]: id={}, name={}", attrId, valId, valName);
+                            } else if (isMandatory) {
+                                // Tự động thỏa mãn các thuộc tính bắt buộc khác của danh mục
+                                JsonNode valuesNode = attr.path("values");
+                                String valId = null;
+                                String valName = null;
+
+                                if (valuesNode.isArray() && !valuesNode.isEmpty()) {
+                                    JsonNode firstVal = valuesNode.get(0);
+                                    valId = firstVal.path("id").asText(null);
+                                    valName = firstVal.path("name").asText(null);
+                                } else {
+                                    valName = "Khác";
+                                }
+
+                                if (valName != null || valId != null) {
+                                    attributes.add(TikTokProductCreateRequest.ProductAttribute.builder()
+                                            .attributeId(attrId)
+                                            .values(List.of(TikTokProductCreateRequest.AttributeValue.builder()
+                                                    .id((valId != null && !valId.isBlank()) ? valId : null)
+                                                    .name(valName)
+                                                    .build()))
+                                            .build());
+                                    log.info("[TIKTOK-ATTR] Đã gắn thuộc tính bắt buộc [{} - {}]: id={}, name={}", attrId, attrName, valId, valName);
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (Exception ex) {
+                log.warn("[TIKTOK-ATTR] Không thể tải thuộc tính danh mục V2 [{}] từ TikTok Shop: {}", categoryId, ex.getMessage());
+            }
+        }
+
+        // Bắt buộc luôn bổ sung thuộc tính Quốc gia xuất xứ ID '100149' nếu chưa có trong danh sách
+        if (!hasCountryOfOrigin) {
+            log.info("[TIKTOK-ATTR] Bổ sung fallback thuộc tính bắt buộc Quốc gia xuất xứ (ID: 100149 = 'Việt Nam')");
+            attributes.add(TikTokProductCreateRequest.ProductAttribute.builder()
+                    .attributeId("100149")
+                    .values(List.of(TikTokProductCreateRequest.AttributeValue.builder()
+                            .id(null)
+                            .name("Việt Nam")
+                            .build()))
+                    .build());
+        }
+
+        return attributes;
     }
 
     private static final Map<String, String> CACHED_TIKTOK_DEFAULT_URI_BY_CIPHER = new ConcurrentHashMap<>();
