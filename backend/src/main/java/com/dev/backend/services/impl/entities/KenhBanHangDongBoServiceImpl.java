@@ -1181,6 +1181,20 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     ? bt.getGiaBan() : BigDecimal.valueOf(100000);
             int qty = soTonDayTheoQuyTacDaLuu(kenh.getMaKenh(), khaDungToanChuoi(bt.getId()));
 
+            List<TikTokProductCreateRequest.SalesAttribute> salesAttrs = new ArrayList<>();
+            if (bt.getKichThuoc() != null && bt.getKichThuoc().getTenKichThuoc() != null && !bt.getKichThuoc().getTenKichThuoc().isBlank()) {
+                salesAttrs.add(TikTokProductCreateRequest.SalesAttribute.builder()
+                        .attributeName("Kích cỡ")
+                        .customValue(bt.getKichThuoc().getTenKichThuoc().trim())
+                        .build());
+            }
+            if (bt.getMauSac() != null && bt.getMauSac().getTenMau() != null && !bt.getMauSac().getTenMau().isBlank()) {
+                salesAttrs.add(TikTokProductCreateRequest.SalesAttribute.builder()
+                        .attributeName("Màu sắc")
+                        .customValue(bt.getMauSac().getTenMau().trim())
+                        .build());
+            }
+
             skuList.add(TikTokProductCreateRequest.CreateSku.builder()
                     .sellerSku(sku)
                     .price(TikTokProductCreateRequest.SkuPrice.builder()
@@ -1191,6 +1205,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                             .warehouseId(warehouseId)
                             .quantity(Math.max(0, qty))
                             .build()))
+                    .salesAttributes(salesAttrs.isEmpty() ? null : salesAttrs)
                     .build());
         }
 
@@ -1204,11 +1219,15 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 .categoryId("601234") // Ngành hàng Thời trang & Quần áo lá mặc định
                 .brandId("0") // No Brand theo quy định sàn để tránh kiểm duyệt ủy quyền thương hiệu
                 .mainImages(mainImages)
-                .packageWeight("0.3")
+                .packageWeight(TikTokProductCreateRequest.PackageWeight.builder()
+                        .value("0.3")
+                        .unit("KILOGRAM")
+                        .build())
                 .packageDimensions(TikTokProductCreateRequest.PackageDimensions.builder()
                         .length("25")
                         .width("15")
                         .height("5")
+                        .unit("CENTIMETER")
                         .build())
                 .skus(skuList)
                 .build();
