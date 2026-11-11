@@ -59,6 +59,15 @@ public final class TikTokShopConstants {
     /** Thuật toán ký số HMAC-SHA256 theo chuẩn TikTok Shop */
     public static final String SIGN_ALGORITHM = "HmacSHA256";
 
+    /** Đường dẫn API lấy danh mục sản phẩm của TikTok Shop (v202309) */
+    public static final String PATH_CATEGORIES = "/product/202309/categories";
+
+    /** Đường dẫn API AI tự động đề xuất danh mục lá của TikTok Shop (v202309) */
+    public static final String PATH_CATEGORIES_RECOMMEND = "/product/202309/categories/recommend";
+
+    /** Phiên bản cây danh mục 7 tầng bắt buộc cho các gian hàng All-Region / SEA */
+    public static final String CATEGORY_VERSION_V2 = "v2";
+
     /** Thời hạn ủy quyền mặc định cảnh báo sắp hết hạn (7 ngày) */
     public static final int SO_NGAY_NHAC_UY_QUYEN = 7;
 }

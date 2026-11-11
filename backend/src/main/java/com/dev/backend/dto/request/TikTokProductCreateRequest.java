@@ -24,6 +24,10 @@ public class TikTokProductCreateRequest implements Serializable {
     @JsonProperty("category_id")
     String categoryId;
 
+    @JsonProperty("category_version")
+    @Builder.Default
+    String categoryVersion = "v2";
+
     @JsonProperty("brand_id")
     String brandId;
 
