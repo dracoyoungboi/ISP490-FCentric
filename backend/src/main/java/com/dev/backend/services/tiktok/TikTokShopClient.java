@@ -592,14 +592,14 @@ public class TikTokShopClient {
     /**
      * Tải tệp ảnh nhị phân lên CDN của TikTok Shop Open Platform (v202309).
      * Endpoint: POST /product/202309/images/upload
-     * Query: app_key, timestamp, shop_cipher, sign
+     * Query: app_key, timestamp, sign (TUYỆT ĐỐI KHÔNG truyền shop_cipher để tránh lỗi HTTP 400 mã 36009004)
      * Header: x-tts-access-token, Content-Type: multipart/form-data
-     * Multipart: data (file binary)
+     * Multipart: data (file binary), use_case ("MAIN_IMAGE" bắt buộc)
      * Trả về URI nội bộ dạng `tos-maliva-i-o260ufnz6q-us/...` để gắn vào main_images khi tạo sản phẩm.
      */
     public String uploadImage(String appKey, String appSecret, String accessToken,
                               String shopCipher, byte[] imageBytes, String fileName) {
-        if (accessToken == null || accessToken.isBlank() || shopCipher == null || shopCipher.isBlank()) {
+        if (accessToken == null || accessToken.isBlank()) {
             throw new LoiThamSoException(ThongDiep.of("kenhBan.accessTokenTrongKhiCapNhatTonTikTok"));
         }
         if (imageBytes == null || imageBytes.length == 0) {
@@ -607,7 +607,9 @@ public class TikTokShopClient {
         }
 
         String apiPath = TikTokShopConstants.PATH_IMAGE_UPLOAD;
-        String fullSignedUrl = buildUrlWithSign(TikTokShopConstants.BASE_URL, apiPath, Map.of(), "", appKey, appSecret, shopCipher);
+        // Theo quy chuẩn TikTok Shop API v202309, /product/202309/images/upload là API cấp Platform,
+        // không nhận tham số query shop_cipher (truyền shop_cipher sẽ bị lỗi HTTP 400 mã 36009004).
+        String fullSignedUrl = buildUrlWithSign(TikTokShopConstants.BASE_URL, apiPath, Map.of(), "", appKey, appSecret, null);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.MULTIPART_FORM_DATA);
@@ -622,13 +624,19 @@ public class TikTokShopClient {
 
         org.springframework.util.MultiValueMap<String, Object> form = new org.springframework.util.LinkedMultiValueMap<>();
         form.add("data", resource);
+        // use_case là tham số bắt buộc trong body multipart của TikTok Shop API v202309
+        form.add("use_case", "MAIN_IMAGE");
 
         HttpEntity<org.springframework.util.MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(form, headers);
 
         try {
             ResponseEntity<String> res = restTemplate.exchange(fullSignedUrl, HttpMethod.POST, requestEntity, String.class);
             JsonNode root = parseAndValidateResponse(res.getBody());
-            return root.path("data").path("uri").asText(null);
+            String uri = root.path("data").path("uri").asText(null);
+            if (uri != null && !uri.isBlank()) {
+                log.info("Tải ảnh lên TikTok Shop CDN thành công: uri={}", uri);
+            }
+            return uri;
         } catch (HttpStatusCodeException e) {
             handleHttpException("POST", fullSignedUrl, e);
             throw e;
