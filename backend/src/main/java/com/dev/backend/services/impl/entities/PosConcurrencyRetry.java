@@ -26,7 +26,10 @@ public final class PosConcurrencyRetry {
     // MySQL báo tên index nó gặp trước; bảng có cả index cũ (so_don_hang) lẫn uk_*.
     private static final String[] DOCUMENT_NUMBER_KEYS = {
             "don_ban_hang.so_don_hang'", "uk_don_ban_hang_so_don_hang",
-            "phieu_xuat_kho.so_phieu_xuat'", "uk_phieu_xuat_kho_so_phieu"
+            "phieu_xuat_kho.so_phieu_xuat'", "uk_phieu_xuat_kho_so_phieu",
+            // Trả hàng tại quầy: số RET-…, PN-RET-… và dòng tồn (lô, kho) mới tạo khi hai quầy cùng nhận trả một lô
+            "uk_phieu_tra_hang_so_phieu", "phieu_nhap_kho.so_phieu_nhap'", "uk_phieu_nhap_kho_so_phieu",
+            "ton_kho_theo_lo.unique_lo_kho'"
     };
 
     private PosConcurrencyRetry() {
