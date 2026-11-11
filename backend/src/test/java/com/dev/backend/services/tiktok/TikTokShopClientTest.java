@@ -159,4 +159,72 @@ class TikTokShopClientTest {
         assertEquals(1, res.getData().getSkus().size());
         assertEquals("AO-SM-01", res.getData().getSkus().get(0).getSellerSku());
     }
+
+    @Test
+    @DisplayName("createProduct: với sản phẩm nhiều biến thể, sales_attributes phải có cả name, value_name và custom_value")
+    void createProduct_multiSku_coDayDuValueNameVaCustomValue() throws Exception {
+        String appKey = "test_app_key";
+        String appSecret = "test_app_secret";
+        String accessToken = "test_access_token";
+        String shopCipher = "ROW_TEST_CIPHER";
+
+        TikTokProductCreateRequest payload = TikTokProductCreateRequest.builder()
+                .title("Áo khoác gió thể thao nam cao cấp FCentric")
+                .description("<p>Mô tả áo khoác</p>")
+                .categoryId("603706")
+                .brandId("0")
+                .mainImages(List.of(new TikTokProductCreateRequest.ImageUri("tos-maliva-i-o260ufnz6q-us/test")))
+                .skus(List.of(
+                        TikTokProductCreateRequest.CreateSku.builder()
+                                .sellerSku("AK-DEN-L")
+                                .price(TikTokProductCreateRequest.SkuPrice.builder().amount("350000").currency("VND").build())
+                                .salesAttributes(List.of(
+                                        TikTokProductCreateRequest.SalesAttribute.builder().name("Kích cỡ").valueName("L").customValue("L").build(),
+                                        TikTokProductCreateRequest.SalesAttribute.builder().name("Màu sắc").valueName("Đen").customValue("Đen").build()
+                                ))
+                                .build(),
+                        TikTokProductCreateRequest.CreateSku.builder()
+                                .sellerSku("AK-DEN-XL")
+                                .price(TikTokProductCreateRequest.SkuPrice.builder().amount("350000").currency("VND").build())
+                                .salesAttributes(List.of(
+                                        TikTokProductCreateRequest.SalesAttribute.builder().name("Kích cỡ").valueName("XL").customValue("XL").build(),
+                                        TikTokProductCreateRequest.SalesAttribute.builder().name("Màu sắc").valueName("Đen").customValue("Đen").build()
+                                ))
+                                .build()
+                ))
+                .build();
+
+        ArgumentCaptor<String> bodyCaptor = ArgumentCaptor.forClass(String.class);
+
+        String mockResponseBody = """
+                {
+                    "code": 0,
+                    "message": "success",
+                    "request_id": "test_create_multi",
+                    "data": {
+                        "product_id": "1729592969712207009",
+                        "skus": [
+                            {"id": "sku_1", "seller_sku": "AK-DEN-L"},
+                            {"id": "sku_2", "seller_sku": "AK-DEN-XL"}
+                        ]
+                    }
+                }
+                """;
+
+        when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(), eq(String.class)))
+                .thenReturn(new ResponseEntity<>(mockResponseBody, HttpStatus.OK));
+
+        TikTokProductCreateResponse res = client.createProduct(appKey, appSecret, accessToken, shopCipher, payload);
+
+        assertNotNull(res);
+        assertEquals(0, res.getCode());
+        assertEquals(2, res.getData().getSkus().size());
+
+        // Kiểm tra payload serialize
+        String json = objectMapper.writeValueAsString(payload);
+        assertTrue(json.contains("\"value_name\":\"L\""), "JSON phải chứa value_name cho Kích cỡ");
+        assertTrue(json.contains("\"custom_value\":\"L\""), "JSON phải chứa custom_value cho Kích cỡ");
+        assertTrue(json.contains("\"value_name\":\"XL\""), "JSON phải chứa value_name cho biến thể thứ hai");
+        assertTrue(json.contains("\"value_name\":\"Đen\""), "JSON phải chứa value_name cho Màu sắc");
+    }
 }
