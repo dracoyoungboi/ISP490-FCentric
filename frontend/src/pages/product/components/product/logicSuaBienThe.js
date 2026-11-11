@@ -4,15 +4,15 @@
  * Trạng thái là bản mở rộng của trạng thái chế độ thêm (logicBienThe.js) nên dùng chung giao diện:
  * - Biến thể đã lưu nằm trong `bienTheCu` (tra theo id). Màu và kích cỡ của chúng bị khóa: không bỏ chọn được.
  * - Chọn thêm màu hoặc kích cỡ thì chỉ sinh tổ hợp còn thiếu (dòng "mới"), giống chế độ thêm.
- * - Biến thể còn tồn kho: giá vốn do hệ thống tính theo lô nhập nên không sửa được (`conTonKho`); giá bán của chúng
- *   đổi ở màn Giá bán & tem mã vạch.
+ * - Biến thể còn tồn kho: giá vốn do hệ thống tính theo lô nhập nên không sửa được (`conTonKho`); giá bán vẫn sửa
+ *   được; giá bán trống hoặc thấp hơn giá gợi ý thì ô có bóng đèn để điền giá gợi ý.
  * - Người không phải quản trị viên không đổi được giá bán biến thể đã lưu (`khoaGiaBanCu`, máy chủ trả 403).
  * - Chỉ gửi giá người dùng đã sửa: form mở lâu không ghi đè giá vừa đổi ở màn Giá bán / giá vốn vừa tính lại.
  * - Biến thể chưa phát sinh giao dịch đổi được màu/kích cỡ (backend kiểm tra lại khi lưu).
  *
  * File này không phụ thuộc React để dễ kiểm thử.
  */
-import { bienTheReducer, khoaBienThe, trangThaiBanDau } from "./logicBienThe.js";
+import { bienTheReducer, canNangGia, khoaBienThe, trangThaiBanDau } from "./logicBienThe.js";
 import { t } from "../../../../i18n/t.js";
 
 const KHOA_CU = "id:";
@@ -74,16 +74,16 @@ export const mauBiKhoa = (state) => [...new Set(dsCu(state).map((b) => b.mauSacI
 export const kichCoBiKhoa = (state) => [...new Set(dsCu(state).map((b) => b.sizeId))];
 
 /**
- * Ghi giá vào các biến thể đã lưu (bỏ qua biến thể còn tồn kho); ô giá để trống thì giữ giá cũ. Không được đổi giá
- * bán (`khoaGiaBanCu`) thì chỉ ghi giá vốn.
+ * Ghi giá vào các biến thể đã lưu; ô giá để trống thì giữ giá cũ. Biến thể còn tồn kho giữ giá vốn (tính theo lô),
+ * không được đổi giá bán (`khoaGiaBanCu`) thì giữ giá bán.
  */
 function ganGiaCu(state, chon, { giaVon, giaBan }) {
     let bienTheCu = state.bienTheCu;
     for (const b of dsCu(state)) {
-        if (b.conTonKho || !chon(b)) continue;
+        if (!chon(b)) continue;
         const moi = {
             ...b,
-            ...(giaVon !== "" && giaVon != null ? { giaVon } : {}),
+            ...(giaVon !== "" && giaVon != null && !b.conTonKho ? { giaVon } : {}),
             ...(giaBan !== "" && giaBan != null && !state.khoaGiaBanCu ? { giaBan } : {}),
         };
         if (moi.giaVon === b.giaVon && moi.giaBan === b.giaBan) continue;
@@ -155,7 +155,8 @@ export function suaBienTheReducer(state, action) {
         case "suaGia": {
             if (!laKhoaCu(action.khoa)) return bienTheReducer(state, action);
             const b = state.bienTheCu[idTuKhoa(action.khoa)];
-            if (!b || b.conTonKho || (action.truong === "giaBan" && state.khoaGiaBanCu)) return state;
+            const khoa = action.truong === "giaVon" ? b?.conTonKho : state.khoaGiaBanCu;
+            if (!b || khoa) return state;
             return { ...state, bienTheCu: { ...state.bienTheCu, [b.id]: { ...b, [action.truong]: action.giaTri } } };
         }
         case "apDungGiaMau": {
@@ -165,6 +166,13 @@ export function suaBienTheReducer(state, action) {
         }
         case "apDungGiaChung":
             return ganGiaCu(bienTheReducer(state, action), () => true, action);
+        case "nangGiaBanTheoMau": {
+            let sau = bienTheReducer(state, action);
+            for (const [mauSacId, gia] of Object.entries(action.giaTheoMau)) {
+                sau = ganGiaCu(sau, (b) => b.mauSacId === Number(mauSacId) && canNangGia(b.giaBan, gia), { giaVon: "", giaBan: gia });
+            }
+            return sau;
+        }
         case "batTatToHop":
             return laKhoaCu(action.khoa) ? state : bienTheReducer(state, action);
         case "doiTrangThai": {
@@ -216,7 +224,7 @@ export function tinhNhomSua(state, kichCoTheoThuTu) {
                 giaVon: b.giaVon,
                 giaBan: b.giaBan,
                 khoaGia: b.conTonKho,
-                khoaGiaBan: b.conTonKho || Boolean(state.khoaGiaBanCu),
+                khoaGiaBan: Boolean(state.khoaGiaBanCu),
                 maSku: b.maSku,
                 doiDuoc: !b.daPhatSinhGiaoDich,
                 daDoi: b.mauSacId !== b.goc.mauSacId || b.sizeId !== b.goc.sizeId,
@@ -266,6 +274,12 @@ export function thongKeSua(nhom, state) {
         soMauCoBienThe,
     };
 }
+
+/**
+ * Số biến thể còn hàng vừa đổi giá bán: tem đã dán trên hàng đang in giá cũ, chân form nhắc in lại tem.
+ */
+export const demDoiGiaBanConHang = (state) =>
+    dsCu(state).filter((b) => b.conTonKho && b.giaBan !== "" && b.giaBan !== b.goc.giaBan).length;
 
 /** Có thay đổi gì ở phần biến thể không (để chọn đường lưu và hỏi trước khi bỏ). */
 export function coThayDoiBienThe(state, thongKe) {

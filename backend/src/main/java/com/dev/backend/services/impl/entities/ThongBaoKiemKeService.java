@@ -2,6 +2,7 @@ package com.dev.backend.services.impl.entities;
 
 import com.dev.backend.entities.DotKiemKe;
 import com.dev.backend.entities.NguoiDung;
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.repository.KhoRepository;
 import com.dev.backend.services.impl.entities.ThongBaoService.GuiDi;
 import com.dev.backend.services.impl.entities.ThongBaoService.NoiDung;
@@ -9,7 +10,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -45,16 +45,18 @@ public class ThongBaoKiemKeService {
             Integer nguoiId = nguoiTrinh == null ? null : nguoiTrinh.getId();
             thongBaoService.guiSauCommit("Thông báo đợt kiểm kê " + ma + " chờ duyệt", () -> {
                 String tenKho = khoId == null ? "Kho" : khoRepository.findById(khoId).map(k -> k.getTenKho())
-                        .filter(t -> t != null && !t.isBlank()).map(String::trim).orElse("Kho #" + khoId);
-                List<String> lech = new ArrayList<>();
-                if (thua > 0) lech.add("thừa " + thua);
-                if (thieu > 0) lech.add("thiếu " + thieu);
-                String moTa = tenKho + (soLech == 0 ? ": khớp toàn bộ" : ": lệch " + soLech + " dòng (" + String.join(", ", lech)
-                        + " sản phẩm)") + ". Khóa kiểm kê vẫn giữ tới khi duyệt.";
+                        .filter(t -> t != null && !t.isBlank()).map(String::trim).orElse(ThongDiep.vi("thongBaoChung.khoSo", khoId));
+                String cauLech;
+                if (soLech == 0) cauLech = ThongDiep.vi("thongBaoKiemKe.choDuyetKhop", tenKho);
+                else if (thua > 0 && thieu > 0) cauLech = ThongDiep.vi("thongBaoKiemKe.choDuyetLechCaHai", tenKho, soLech, thua, thieu);
+                else if (thua > 0) cauLech = ThongDiep.vi("thongBaoKiemKe.choDuyetLechThua", tenKho, soLech, thua);
+                else if (thieu > 0) cauLech = ThongDiep.vi("thongBaoKiemKe.choDuyetLechThieu", tenKho, soLech, thieu);
+                else cauLech = ThongDiep.vi("thongBaoKiemKe.choDuyetLechKhongSo", tenKho, soLech);
+                String moTa = cauLech + " " + ThongDiep.vi("thongBaoKiemKe.khoaVanGiu");
                 return List.of(new GuiDi(nguoiNhan.hoacQuanTri(nguoiNhan.quanLyKho(khoId), "Đợt kiểm kê " + ma + " chờ duyệt"),
                         nguoiId, new NoiDung(ThongBaoService.LOAI_DOT_KIEM_KE,
                         soLech > 0 ? ThongBaoService.TONE_WARNING : ThongBaoService.TONE_INFO,
-                        "Đợt kiểm kê " + ma + " chờ duyệt", moTa, "/stock-take/" + id,
+                        ThongDiep.vi("thongBaoKiemKe.choDuyetTieuDe", ma), moTa, "/stock-take/" + id,
                         ThongBaoService.LOAI_DOT_KIEM_KE, id, khoId, "KK:" + id + ":CHO_DUYET:" + dot.getPhienBan())));
             });
         } catch (RuntimeException e) {
@@ -65,22 +67,22 @@ public class ThongBaoKiemKeService {
     /** K0: người khác (vd. nhân viên kho có quyền lập đợt) lưu nháp và giao cho người chủ trì bắt đầu. */
     public void choBatDau(DotKiemKe dot, NguoiDung nguoiLap) {
         String ten = nguoiLap == null || nguoiLap.getHoTen() == null || nguoiLap.getHoTen().isBlank()
-                ? "Người lập" : nguoiLap.getHoTen().trim();
-        guiChuTri(dot, nguoiLap, ThongBaoService.TONE_INFO, "Đợt kiểm kê " + ma(dot) + " chờ bạn bắt đầu",
-                ten + " đã lập đợt nháp và chọn bạn chủ trì. Xem lại phạm vi rồi bấm Bắt đầu kiểm kê.", "CHO_BAT_DAU");
+                ? ThongDiep.vi("thongBaoKiemKe.nguoiLap") : nguoiLap.getHoTen().trim();
+        guiChuTri(dot, nguoiLap, ThongBaoService.TONE_INFO, ThongDiep.vi("thongBaoKiemKe.choBatDauTieuDe", ma(dot)),
+                ThongDiep.vi("thongBaoKiemKe.daLapDotNhap", ten) + " " + ThongDiep.vi("thongBaoKiemKe.xemLaiPhamVi"), "CHO_BAT_DAU");
     }
 
     /** K2: quản lý mở lại {@code soDong} dòng để đếm lại. */
     public void demLai(DotKiemKe dot, int soDong, String lyDo, NguoiDung nguoiYeuCau) {
-        guiChuTri(dot, nguoiYeuCau, ThongBaoService.TONE_WARNING, "Đợt kiểm kê " + ma(dot) + " cần đếm lại " + soDong + " dòng",
-                "Lý do: " + lyDo, "DEM_LAI");
+        guiChuTri(dot, nguoiYeuCau, ThongBaoService.TONE_WARNING, ThongDiep.vi("thongBaoKiemKe.demLaiTieuDe", ma(dot), soDong),
+                ThongDiep.vi("thongBaoKiemKe.lyDo", lyDo), "DEM_LAI");
     }
 
     /** K3: đợt đã duyệt; {@code soPhieu} null khi khớp toàn bộ. */
     public void daDuyet(DotKiemKe dot, String soPhieu, NguoiDung nguoiDuyet) {
-        guiChuTri(dot, nguoiDuyet, ThongBaoService.TONE_SUCCESS, "Đợt kiểm kê " + ma(dot) + " đã được duyệt",
-                soPhieu == null ? "Khớp toàn bộ, không điều chỉnh tồn. Khóa kiểm kê đã mở."
-                        : "Tồn kho đã điều chỉnh theo phiếu " + soPhieu + ". Khóa kiểm kê đã mở.", "DA_DUYET");
+        guiChuTri(dot, nguoiDuyet, ThongBaoService.TONE_SUCCESS, ThongDiep.vi("thongBaoKiemKe.daDuyetTieuDe", ma(dot)),
+                (soPhieu == null ? ThongDiep.vi("thongBaoKiemKe.duyetKhop") : ThongDiep.vi("thongBaoKiemKe.duyetDaDieuChinh", soPhieu))
+                        + " " + ThongDiep.vi("thongBaoKiemKe.khoaDaMo"), "DA_DUYET");
     }
 
     private void guiChuTri(DotKiemKe dot, NguoiDung nguoiThaoTac, String tone, String tieuDe, String moTa, String loai) {

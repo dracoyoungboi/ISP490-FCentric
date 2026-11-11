@@ -5,6 +5,7 @@ import com.dev.backend.dto.response.customize.ThongBaoDto;
 import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
 import com.dev.backend.entities.ThongBao;
 import com.dev.backend.exception.customize.CommonException;
+import com.dev.backend.i18n.DichThongBao;
 import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.repository.ThongBaoRepository;
 import com.dev.backend.utils.SauCommit;
@@ -499,8 +500,9 @@ public class ThongBaoService {
                 .loai(maLoai)
                 .tone(toneHopLe(t.getTone()))
                 .nhom(maLoai == null ? null : NHOM_THEO_LOAI.get(maLoai))
-                .tieuDe(t.getTieuDe())
-                .moTa(t.getMoTa())
+                // Lưu tiếng Việt; câu thông báo (nhóm thongBao*) được dịch lúc đọc theo ngôn ngữ của người xem
+                .tieuDe(DichThongBao.dich(t.getTieuDe()))
+                .moTa(DichThongBao.dich(t.getMoTa()))
                 .duongDan(t.getDuongDan())
                 .thoiGian(t.getNgayTao() == null ? null : t.getNgayTao().toString())
                 .daDoc(Boolean.TRUE.equals(t.getDaDoc()))

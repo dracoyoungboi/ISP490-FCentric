@@ -4,6 +4,7 @@ import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.constant.variables.TenVaiTro;
 import com.dev.backend.entities.KenhBanHang;
 import com.dev.backend.entities.QuyenHan;
+import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.repository.QuyenHanRepository;
 import com.dev.backend.services.impl.entities.ThongBaoService.GuiDi;
 import com.dev.backend.services.impl.entities.ThongBaoService.NoiDung;
@@ -72,11 +73,11 @@ public class ThongBaoHeThongService {
             String moc = Instant.now().toEpochMilli() + "." + ThongBaoService.mocDuyNhat();
             String ten = (tenNcc == null || tenNcc.isBlank() ? "" : tenNcc.trim())
                     + (maNcc == null || maNcc.isBlank() ? "" : " (" + maNcc.trim() + ")");
-            String moTa = "Đã đổi " + String.join(", ", tenTruong) + " của nhà cung cấp " + ten.trim()
-                    + ". Kiểm tra lại ở thẻ Lịch sử nếu không phải bạn chủ động.";
+            String moTa = ThongDiep.vi("thongBaoHeThong.nccDoiTruong", String.join(", ", tenTruong), ten.trim()) + " "
+                    + ThongDiep.vi("thongBaoHeThong.kiemTraLaiLichSu");
             thongBaoService.guiSauCommit("Thông báo đổi thông tin nhạy cảm NCC " + nhaCungCapId, () ->
                     List.of(new GuiDi(nguoiNhan.quanTriVien(), nguoiThaoTacId, new NoiDung(ThongBaoService.LOAI_NHA_CUNG_CAP,
-                            ThongBaoService.TONE_WARNING, "Mã số thuế nhà cung cấp vừa đổi", moTa,
+                            ThongBaoService.TONE_WARNING, ThongDiep.vi("thongBaoHeThong.nccDoiMstTieuDe"), moTa,
                             "/supplier/" + nhaCungCapId, ThongBaoService.LOAI_NHA_CUNG_CAP, nhaCungCapId, null,
                             "NCC:" + nhaCungCapId + ":NHAY_CAM:" + moc))));
         } catch (RuntimeException e) {
@@ -95,9 +96,9 @@ public class ThongBaoHeThongService {
             String ten = tenDangNhap == null || tenDangNhap.isBlank() ? "#" + nguoiDungId : tenDangNhap.trim();
             thongBaoService.guiSauCommit("Thông báo đổi email tài khoản " + nguoiDungId, () ->
                     List.of(new GuiDi(nguoiNhan.quanTriVien(), nguoiThaoTacId, new NoiDung(ThongBaoService.LOAI_NGUOI_DUNG,
-                            ThongBaoService.TONE_WARNING, "Email tài khoản vừa đổi",
-                            "Email đăng nhập (nhận liên kết đặt lại mật khẩu) của tài khoản " + ten
-                                    + " vừa được đổi. Kiểm tra lại ở thẻ Lịch sử nếu không phải bạn chủ động.",
+                            ThongBaoService.TONE_WARNING, ThongDiep.vi("thongBaoHeThong.emailDoiTieuDe"),
+                            ThongDiep.vi("thongBaoHeThong.emailDoiNoiDung", ten) + " "
+                                    + ThongDiep.vi("thongBaoHeThong.kiemTraLaiLichSu"),
                             "/users/" + nguoiDungId, ThongBaoService.LOAI_NGUOI_DUNG, nguoiDungId, null,
                             "ND:" + nguoiDungId + ":EMAIL:" + moc))));
         } catch (RuntimeException e) {
@@ -118,8 +119,8 @@ public class ThongBaoHeThongService {
             Instant bayGio = Instant.now();
             if (hetHan != null && hetHan.isAfter(bayGio.plus(BAO_TRUOC_HET_HAN))) return;
             String moTa = hetHan == null || !hetHan.isAfter(bayGio)
-                    ? "Ủy quyền đã hết hạn, hệ thống chưa tự gia hạn được."
-                    : "Ủy quyền sẽ hết hạn lúc " + GIO_NGAY.format(hetHan) + ", hệ thống chưa tự gia hạn được.";
+                    ? ThongDiep.vi("thongBaoHeThong.uyQuyenHetHan")
+                    : ThongDiep.vi("thongBaoHeThong.uyQuyenSapHetHan", GIO_NGAY.format(hetHan));
             baoUyQuyen(kenh.getMaKenh(), kenh.getTenKenh(), kenh.getId(), moTa, false);
         } catch (RuntimeException e) {
             log.warn("[THONG-BAO] Không chuẩn bị được thông báo ủy quyền kênh: {}", e.getMessage());
@@ -130,7 +131,7 @@ public class ThongBaoHeThongService {
     public void kenhCanUyQuyenLai(KenhBanHang kenh) {
         try {
             if (kenh == null || laKenhGiaLap(kenh)) return;
-            baoUyQuyen(kenh.getMaKenh(), kenh.getTenKenh(), kenh.getId(), "Sàn không còn chấp nhận kết nối hiện tại.", false);
+            baoUyQuyen(kenh.getMaKenh(), kenh.getTenKenh(), kenh.getId(), ThongDiep.vi("thongBaoHeThong.sanKhongChapNhan"), false);
         } catch (RuntimeException e) {
             log.warn("[THONG-BAO] Không chuẩn bị được thông báo ủy quyền kênh: {}", e.getMessage());
         }
@@ -152,7 +153,7 @@ public class ThongBaoHeThongService {
     public void kenhCanUyQuyenLai(String maKenh, String tenKenh, Integer kenhId, Instant hetHanKhoa) {
         try {
             if (hetHanKhoa != null && hetHanKhoa.isAfter(Instant.now().plus(BAO_TRUOC_HET_HAN))) return;
-            baoUyQuyen(maKenh, tenKenh, kenhId, "Sàn không còn chấp nhận kết nối hiện tại.", true);
+            baoUyQuyen(maKenh, tenKenh, kenhId, ThongDiep.vi("thongBaoHeThong.sanKhongChapNhan"), true);
         } catch (RuntimeException e) {
             log.warn("[THONG-BAO] Không chuẩn bị được thông báo ủy quyền kênh: {}", e.getMessage());
         }
@@ -180,9 +181,9 @@ public class ThongBaoHeThongService {
         String ngay = NGAY_KHOA.format(Instant.now());
         // Shopify dùng khóa truy cập (không có nút ủy quyền lại): cập nhật khóa ở Cấu hình kênh
         boolean shopify = "SHOPIFY".equals(ma);
-        String tieuDe = shopify ? "Khóa truy cập Shopify không còn dùng được" : "Kết nối " + ten + " cần ủy quyền lại";
-        String moTa = nguyenNhan + (shopify ? " Cập nhật khóa truy cập ở Cấu hình kênh."
-                : " Ủy quyền lại để không ngừng lấy đơn và đẩy tồn.");
+        String tieuDe = shopify ? ThongDiep.vi("thongBaoHeThong.khoaShopifyHong") : ThongDiep.vi("thongBaoHeThong.canUyQuyenLai", ten);
+        String moTa = nguyenNhan + " " + (shopify ? ThongDiep.vi("thongBaoHeThong.capNhatKhoaTruyCap")
+                : ThongDiep.vi("thongBaoHeThong.uyQuyenLaiDeLayDon"));
         java.util.function.Supplier<List<GuiDi>> lap = () ->
                 List.of(new GuiDi(nguoiNhan.quanTriVien(), null, new NoiDung(ThongBaoService.LOAI_KENH_BAN_HANG,
                         ThongBaoService.TONE_DANGER, tieuDe, moTa, duongDanCauHinhKenh(ma),
@@ -236,15 +237,15 @@ public class ThongBaoHeThongService {
         if (lan < SO_LUOT_LOI_DE_BAO) return;
         String ten = tenHienThi(ma, kenh.getTenKenh());
         String moTa = switch (nhom) {
-            case XAC_THUC -> "Sàn không còn chấp nhận kết nối hiện tại. Kiểm tra kết nối ở Cấu hình kênh.";
-            case THIEU_CAU_HINH -> "Kênh còn thiếu thông tin kết nối. Hoàn tất kết nối ở Cấu hình kênh.";
-            default -> "Hai lần đẩy tồn gần nhất không kết nối được sàn. Hệ thống sẽ tự thử lại.";
+            case XAC_THUC -> ThongDiep.vi("thongBaoHeThong.sanKhongChapNhan") + " " + ThongDiep.vi("thongBaoHeThong.kiemTraKetNoi");
+            case THIEU_CAU_HINH -> ThongDiep.vi("thongBaoHeThong.kenhThieuThongTin") + " " + ThongDiep.vi("thongBaoHeThong.hoanTatKetNoi");
+            default -> ThongDiep.vi("thongBaoHeThong.haiLanDayTonLoi") + " " + ThongDiep.vi("thongBaoHeThong.heThongTuThuLai");
         };
         Integer kenhId = kenh.getId();
         String ngay = NGAY_KHOA.format(Instant.now());
         thongBaoService.guiSauCommit("Thông báo kênh " + ma + " đẩy tồn lỗi", () ->
                 List.of(new GuiDi(nguoiNhan.quanTriVien(), null, new NoiDung(ThongBaoService.LOAI_KENH_BAN_HANG,
-                        ThongBaoService.TONE_DANGER, "Không đẩy được tồn lên " + ten, moTa, duongDanCauHinhKenh(ma),
+                        ThongBaoService.TONE_DANGER, ThongDiep.vi("thongBaoHeThong.dayTonLoiTieuDe", ten), moTa, duongDanCauHinhKenh(ma),
                         ThongBaoService.LOAI_KENH_BAN_HANG, kenhId, null, "KENH:" + ma + ":DAY_TON:" + ngay))));
     }
 
@@ -288,7 +289,7 @@ public class ThongBaoHeThongService {
                 }
                 String moTa = moTaDoiQuyen(truoc, sau, tenQuyen);
                 return List.of(new GuiDi(List.of(nguoiDungId), nguoiThaoTacId, new NoiDung(ThongBaoService.LOAI_NGUOI_DUNG,
-                        ThongBaoService.TONE_INFO, "Quyền của bạn vừa thay đổi", moTa, "/profile",
+                        ThongBaoService.TONE_INFO, ThongDiep.vi("thongBaoHeThong.quyenTieuDe"), moTa, "/profile",
                         ThongBaoService.LOAI_NGUOI_DUNG, nguoiDungId, khoId, "PQ:" + nguoiDungId + ":" + moc)));
             });
         } catch (RuntimeException e) {
@@ -300,58 +301,64 @@ public class ThongBaoHeThongService {
     static String moTaDoiQuyen(AnhQuyen truoc, AnhQuyen sau, Map<String, String> tenQuyen) {
         // Lên quản trị viên: có toàn quyền, câu "không còn làm việc ở kho / bỏ quyền" dễ đọc thành bị hạ quyền
         if (IRoleType.quan_tri_vien.equals(sau.vaiTro()) && !IRoleType.quan_tri_vien.equals(truoc.vaiTro())) {
-            return "Đăng nhập lại để dùng quyền mới. Vai trò: " + tenVaiTro(truoc.vaiTro()) + " → "
-                    + tenVaiTro(sau.vaiTro()) + " (toàn quyền).";
+            return ThongDiep.vi("thongBaoHeThong.dangNhapLaiQuyenMoi") + " "
+                    + ThongDiep.vi("thongBaoHeThong.vaiTroToanQuyen", tenVaiTro(truoc.vaiTro()), tenVaiTro(sau.vaiTro()));
         }
         List<String> cau = new ArrayList<>();
         boolean coThem = false;
         if (!Objects.equals(truoc.vaiTro(), sau.vaiTro())) {
-            cau.add("Vai trò: " + tenVaiTro(truoc.vaiTro()) + " → " + tenVaiTro(sau.vaiTro()) + ".");
+            cau.add(ThongDiep.vi("thongBaoHeThong.vaiTroDoi", tenVaiTro(truoc.vaiTro()), tenVaiTro(sau.vaiTro())));
         }
         if (!Objects.equals(truoc.khoId(), sau.khoId())) {
             if (sau.khoId() == null) {
-                cau.add("Không còn làm việc ở " + tenKho(truoc) + ".");
+                cau.add(ThongDiep.vi("thongBaoHeThong.khongConLamViec", tenKho(truoc)));
             } else {
-                cau.add((truoc.khoId() == null ? "Làm việc ở " : "Chuyển sang ") + tenKho(sau) + ".");
+                cau.add(truoc.khoId() == null ? ThongDiep.vi("thongBaoHeThong.lamViecO", tenKho(sau)) : ThongDiep.vi("thongBaoHeThong.chuyenSang", tenKho(sau)));
                 coThem = true;
             }
         }
         if (sau.khoId() != null && !Objects.equals(truoc.ngayKetThuc(), sau.ngayKetThuc())) {
-            cau.add(sau.ngayKetThuc() == null ? "Phân quyền không còn hạn kết thúc."
-                    : "Phân quyền đến hết " + NGAY.format(sau.ngayKetThuc()) + ".");
+            cau.add(sau.ngayKetThuc() == null ? ThongDiep.vi("thongBaoHeThong.phanQuyenKhongHan")
+                    : ThongDiep.vi("thongBaoHeThong.phanQuyenDenHet", NGAY.format(sau.ngayKetThuc())));
         }
         Set<String> cu = truoc.quyen() == null ? Set.of() : truoc.quyen();
         Set<String> moi = sau.quyen() == null ? Set.of() : sau.quyen();
         List<String> them = moi.stream().filter(q -> !cu.contains(q)).sorted().toList();
         List<String> bo = cu.stream().filter(q -> !moi.contains(q)).sorted().toList();
         if (!them.isEmpty()) {
-            cau.add("Thêm quyền: " + dsTen(them, tenQuyen) + ".");
+            cau.add(cauQuyen("themQuyen", "themQuyenVaKhac", them, tenQuyen));
             coThem = true;
         }
-        if (!bo.isEmpty()) cau.add("Bỏ quyền: " + dsTen(bo, tenQuyen) + ".");
-        if (cau.isEmpty()) cau.add("Quản trị viên vừa cập nhật phân quyền của bạn.");
+        if (!bo.isEmpty()) cau.add(cauQuyen("boQuyen", "boQuyenVaKhac", bo, tenQuyen));
+        if (cau.isEmpty()) cau.add(ThongDiep.vi("thongBaoHeThong.capNhatPhanQuyen"));
         // Câu nhắc đứng đầu: mô tả bị cắt còn 2 dòng trên chuông
-        if (coThem) cau.add(0, "Đăng nhập lại để dùng quyền mới.");
+        if (coThem) cau.add(0, ThongDiep.vi("thongBaoHeThong.dangNhapLaiQuyenMoi"));
         return String.join(" ", cau);
     }
 
-    private static String dsTen(List<String> ma, Map<String, String> tenQuyen) {
+    /**
+     * Một câu liệt kê quyền: tối đa {@link #SO_TEN_QUYEN_TOI_DA} tên, còn lại ghi "và N quyền khác" (hai khóa riêng để
+     * mẫu dò ngược khớp trọn câu).
+     */
+    private static String cauQuyen(String khoaDon, String khoaVaKhac, List<String> ma, Map<String, String> tenQuyen) {
         List<String> ten = new ArrayList<>();
         for (int i = 0; i < ma.size() && i < SO_TEN_QUYEN_TOI_DA; i++) {
             String t = tenQuyen.get(ma.get(i));
             ten.add(t == null || t.isBlank() ? ma.get(i) : t.trim());
         }
         String s = String.join(", ", ten);
-        return ma.size() > SO_TEN_QUYEN_TOI_DA ? s + " và " + (ma.size() - SO_TEN_QUYEN_TOI_DA) + " quyền khác" : s;
+        return ma.size() > SO_TEN_QUYEN_TOI_DA
+                ? ThongDiep.vi("thongBaoHeThong." + khoaVaKhac, s, ma.size() - SO_TEN_QUYEN_TOI_DA)
+                : ThongDiep.vi("thongBaoHeThong." + khoaDon, s);
     }
 
     private static String tenVaiTro(String ma) {
         String t = TenVaiTro.cua(ma);
-        return t != null ? t : (ma == null || ma.isBlank() ? "chưa có" : ma);
+        return t != null ? t : (ma == null || ma.isBlank() ? ThongDiep.vi("thongBaoHeThong.chuaCo") : ma);
     }
 
     private static String tenKho(AnhQuyen a) {
-        return a.tenKho() != null && !a.tenKho().isBlank() ? a.tenKho().trim() : "kho #" + a.khoId();
+        return a.tenKho() != null && !a.tenKho().isBlank() ? a.tenKho().trim() : ThongDiep.vi("thongBaoChung.khoSoThuong", a.khoId());
     }
 
     // ─────────────────────────────── chung ───────────────────────────────

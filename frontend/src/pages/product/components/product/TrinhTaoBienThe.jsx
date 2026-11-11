@@ -7,6 +7,7 @@ import {
     ChevronsDownUp,
     ChevronsUpDown,
     ImagePlus,
+    Lightbulb,
     Lock,
     RefreshCcw,
     Upload,
@@ -18,14 +19,26 @@ import { cn } from "@/lib/utils";
 import ChonMauSac, { ChamMau } from "./ChonMauSac";
 import DoiThuocTinhBienThe from "./DoiThuocTinhBienThe";
 import { VIEN_FOCUS } from "./kieuForm";
-import { SO_BIEN_THE_TOI_DA, demDongApGiaChung, hienTien, viTriSauChuSo, xemTruocSku, xuLyNhapTien } from "./logicBienThe";
+import {
+    SO_BIEN_THE_TOI_DA,
+    demDongApGiaChung,
+    demDongCanNang,
+    goiYChoDong,
+    goiYMau,
+    hienTien,
+    viTriSauChuSo,
+    xemTruocSku,
+    xuLyNhapTien,
+} from "./logicBienThe";
 import { t } from "@/i18n";
 
 const NHAN_NHOM_KICH_CO = { chu: t("Chữ"), so: t("Số"), khac: t("Khác") };
 const KHONG_KHOA = [];
 const KHONG_CO_ANH_CU = {};
 const GIA_KHOA = t("Tính theo lô nhập");
-const GIA_BAN_KHOA = t("Đổi ở màn Giá bán & tem mã vạch");
+const GIA_BAN_KHOA = t("Chỉ quản trị viên đổi được giá bán");
+const CACH_TINH_GOI_Y = t("Giá vốn × 1,2, làm tròn lên nghìn.");
+const CACH_TINH_GOI_Y_MAU = t("Giá vốn cao nhất trong màu × 1,2, làm tròn lên nghìn. Chỉ nâng cỡ đang trống hoặc thấp hơn, không hạ giá.");
 
 // Vòng focus theo màu chung (Button/Checkbox dựng sẵn mặc định lấy màu chữ làm vòng focus, trông đậm và lệch tông).
 const CHECKBOX_CLASS =
@@ -125,7 +138,7 @@ function OTien({ value, onChange, onEnter, cot, className, ...props }) {
 
 /**
  * Giá chỉ xem (vẫn chọn và sao chép được): giá vốn biến thể còn tồn do hệ thống tính theo lô nhập; giá bán biến thể đã
- * lưu không sửa ở đây khi còn tồn hoặc người dùng không phải quản trị viên (`ghiChu` nói chỗ đổi).
+ * lưu không sửa được khi người dùng không phải quản trị viên (`ghiChu` nói lý do).
  */
 function GiaKhoa({ value, nhan, ghiChu = GIA_KHOA }) {
     return (
@@ -141,6 +154,67 @@ function GiaKhoa({ value, nhan, ghiChu = GIA_KHOA }) {
     );
 }
 
+/**
+ * Ô giá bán kèm bóng đèn gợi ý ở mép trái (cùng chỗ ổ khóa của ô giá vốn). Bóng đèn chỉ hiện khi có `goiY` (giá đang
+ * trống hoặc thấp hơn giá gợi ý); bấm mở ô nhỏ với số gợi ý và nút dùng. Hàng không đổi chiều cao.
+ * `tieuDe`/`cachTinh`/`nhanNut`/`nhanMo`: chữ cho dòng biến thể hoặc hàng màu.
+ */
+function OGiaCoGoiY({ goiY, tieuDe, cachTinh, nhanNut, nhanMo, onDung, disabled, className, ...otienProps }) {
+    const [mo, setMo] = useState(false);
+    const vungRef = useRef(null);
+    const vuaDung = useRef(false);
+    const coGoiY = goiY != null;
+    return (
+        <div ref={vungRef} className="relative">
+            {/* Bóng đèn đứng trước ô trong DOM để Tab đi đúng thứ tự nhìn thấy (nút nằm absolute bên trái) */}
+            {coGoiY && (
+                <Popover open={mo} onOpenChange={setMo}>
+                    <PopoverTrigger asChild>
+                        <button
+                            type="button"
+                            disabled={disabled}
+                            aria-label={nhanMo}
+                            title={t("Giá bán đang trống hoặc thấp hơn giá gợi ý")}
+                            className="absolute left-1 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center rounded text-bo-primary transition-colors hover:bg-bo-primary-soft focus-visible:outline-2 focus-visible:outline-bo-primary disabled:opacity-50"
+                        >
+                            <Lightbulb className="size-3.5" aria-hidden="true" />
+                        </button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                        align="start"
+                        className="w-64 space-y-2 border-bo-border bg-bo-surface p-3"
+                        onCloseAutoFocus={(e) => {
+                            // Vừa dùng gợi ý thì bóng đèn biến mất: đưa focus về ô giá thay vì nút đã gỡ.
+                            if (!vuaDung.current) return;
+                            vuaDung.current = false;
+                            e.preventDefault();
+                            vungRef.current?.querySelector("input")?.focus();
+                        }}
+                    >
+                        <p className="text-sm text-bo-foreground">
+                            {tieuDe} <span className="font-semibold tabular-nums">{hienTien(goiY)} ₫</span>
+                        </p>
+                        <p className="text-xs text-bo-muted">{cachTinh}</p>
+                        <Button
+                            type="button"
+                            size="sm"
+                            className="h-8 w-full bg-bo-primary text-white hover:bg-bo-primary-hover focus-visible:ring-[3px] focus-visible:ring-bo-primary/30"
+                            onClick={() => {
+                                vuaDung.current = true;
+                                onDung();
+                                setMo(false);
+                            }}
+                        >
+                            {nhanNut}
+                        </Button>
+                    </PopoverContent>
+                </Popover>
+            )}
+            <OTien {...otienProps} disabled={disabled} className={cn(coGoiY && "pl-8", className)} />
+        </div>
+    );
+}
+
 /** Nút bật/tắt bán của biến thể đã lưu (biến thể đã lưu không xóa được, chỉ tạm ngừng). */
 function NutTrangThai({ dangBan, ten, disabled, onClick }) {
     return (
@@ -152,15 +226,25 @@ function NutTrangThai({ dangBan, ten, disabled, onClick }) {
             title={dangBan ? t("Bấm để tạm ngừng bán biến thể này") : t("Bấm để bán lại biến thể này")}
             disabled={disabled}
             onClick={onClick}
-            className={cn(
-                "inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bo-primary disabled:opacity-50",
-                dangBan
-                    ? "border-bo-success/30 bg-bo-success-soft text-bo-success hover:border-bo-success/60"
-                    : "border-bo-border bg-bo-surface-subtle text-bo-muted hover:border-bo-muted",
-            )}
+            className="inline-flex h-7 items-center gap-2 whitespace-nowrap rounded-md px-1 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bo-primary disabled:opacity-50"
         >
-            <span className={cn("size-1.5 rounded-full", dangBan ? "bg-bo-success" : "bg-bo-muted")} aria-hidden="true" />
-            {dangBan ? t("Đang bán") : t("Tạm ngừng")}
+            <span
+                aria-hidden="true"
+                className={cn(
+                    "relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors motion-reduce:transition-none",
+                    dangBan ? "bg-bo-success-track" : "bg-bo-input-border",
+                )}
+            >
+                <span
+                    className={cn(
+                        "absolute left-0.5 top-0.5 size-4 rounded-full bg-white shadow-sm transition-transform motion-reduce:transition-none",
+                        dangBan && "translate-x-4",
+                    )}
+                />
+            </span>
+            <span className={dangBan ? "text-bo-success" : "text-bo-muted"}>
+                {dangBan ? t("Đang bán") : t("Tạm ngừng")}
+            </span>
         </button>
     );
 }
@@ -271,7 +355,9 @@ function OAnhMau({ mau, anh, anhCu, thieuAnh, anhSanPhams, disabled, onChonTep, 
  *
  * cheDo="sua" (form Chỉnh sửa, dùng suaBienTheReducer): bảng gồm biến thể đã lưu và tổ hợp mới còn thiếu.
  * Màu/kích cỡ đang có biến thể bị khóa; biến thể đã lưu có nút Đang bán/Tạm ngừng, đổi màu/kích cỡ khi
- * chưa phát sinh giao dịch; giá của biến thể còn tồn kho chỉ xem vì được tính theo lô nhập.
+ * chưa phát sinh giao dịch; giá vốn của biến thể còn tồn kho chỉ xem vì được tính theo lô nhập.
+ * Ô giá bán có bóng đèn gợi ý (giá vốn × 1,2 làm tròn lên nghìn) khi giá trống hoặc thấp hơn; ở hàng màu theo giá vốn
+ * cao nhất trong màu và chỉ nâng, không hạ giá.
  */
 export default function TrinhTaoBienThe({
     cheDo = "them",
@@ -325,6 +411,19 @@ export default function TrinhTaoBienThe({
     const vuotGioiHan = soBienTheSauLuu > SO_BIEN_THE_TOI_DA;
     const choKichCo = dangTai && kichCos.length === 0;
     const daThuGonHet = nhom.length > 0 && nhom.every((n) => state.mauThuGon.includes(n.mauSacId));
+    // Nút Áp giá gợi ý chung: mỗi màu một giá (giá gợi ý của hàng màu), để giá trong một màu đồng nhất.
+    const goiYTheoMau = useMemo(() => {
+        const giaTheoMau = {};
+        let soDong = 0;
+        for (const { mauSacId, dong } of nhom) {
+            const gia = goiYMau(dong, state.giaMau[mauSacId]?.giaVon);
+            if (gia == null) continue;
+            giaTheoMau[mauSacId] = gia;
+            soDong += demDongCanNang(dong, gia);
+        }
+        return { giaTheoMau, soDong };
+    }, [nhom, state.giaMau]);
+    const soDongGoiY = goiYTheoMau.soDong;
 
     const doiGiaChung = (setter) => (giaTri) => {
         setter(giaTri);
@@ -337,7 +436,7 @@ export default function TrinhTaoBienThe({
             return;
         }
         dispatch({ type: "apDungGiaChung", giaVon: giaVonChung, giaBan: giaBanChung });
-        const { soApDung, soKhoaGia } = demDongApGiaChung(nhom);
+        const { soApDung, soKhoaGia } = demDongApGiaChung(nhom, { giaVon: giaVonChung, giaBan: giaBanChung });
         const ketQua =
             soApDung > 0
                 ? t("Đã áp dụng cho {{count}} dòng.", { count: soApDung })
@@ -346,8 +445,13 @@ export default function TrinhTaoBienThe({
                   : t("Chưa có dòng nào đang chọn. Giá sẽ dùng khi bạn tích lại.");
         setThongBaoApDung({
             loi: false,
-            noiDung: ketQua + (soKhoaGia > 0 ? t(" Giữ nguyên giá {{count}} biến thể còn tồn kho.", { count: soKhoaGia }) : ""),
+            noiDung: ketQua + (soKhoaGia > 0 ? t(" Giữ nguyên giá vốn {{count}} biến thể còn tồn kho.", { count: soKhoaGia }) : ""),
         });
+    };
+
+    const apGiaGoiY = () => {
+        dispatch({ type: "nangGiaBanTheoMau", giaTheoMau: goiYTheoMau.giaTheoMau });
+        setThongBaoApDung({ loi: false, noiDung: t("Đã nâng {{count}} dòng lên giá gợi ý.", { count: soDongGoiY }) });
     };
 
     // Form cha chỉ báo loiTai khi thiếu hẳn danh sách màu sắc hoặc kích cỡ (không tạo được biến thể nào).
@@ -588,34 +692,56 @@ export default function TrinhTaoBienThe({
             </div>
 
             {/* Giá chung */}
-            <div className="grid grid-cols-2 items-end gap-3 rounded-lg border border-bo-border bg-bo-surface-subtle p-3 md:grid-cols-[180px_180px_auto_1fr]">
+            {/* md: hai nút chung một cột, tự xuống dòng khi hẹp; câu trạng thái nằm dòng riêng. lg: câu nằm cạnh nút. */}
+            <div className="grid grid-cols-2 items-end gap-3 rounded-lg border border-bo-border bg-bo-surface-subtle p-3 md:grid-cols-[180px_180px_minmax(0,1fr)] lg:grid-cols-[180px_180px_auto_minmax(0,1fr)]">
                 <label className="space-y-1.5">
                     <span className="text-xs font-medium text-bo-foreground">{t("Giá vốn chung (₫)")}</span>
-                    <OTien value={giaVonChung} onChange={doiGiaChung(setGiaVonChung)} onEnter={apDungGiaChung} placeholder="280.000" disabled={disabled} />
+                    <OTien value={giaVonChung} onChange={doiGiaChung(setGiaVonChung)} onEnter={apDungGiaChung} disabled={disabled} />
                 </label>
                 <label className="space-y-1.5">
                     <span className="text-xs font-medium text-bo-foreground">{t("Giá bán chung (₫)")}</span>
-                    <OTien value={giaBanChung} onChange={doiGiaChung(setGiaBanChung)} onEnter={apDungGiaChung} placeholder="459.000" disabled={disabled} />
+                    <OTien value={giaBanChung} onChange={doiGiaChung(setGiaBanChung)} onEnter={apDungGiaChung} disabled={disabled} />
                 </label>
-                <Button
-                    type="button"
-                    variant="outline"
-                    disabled={disabled || thongKe.soToHop === 0}
-                    onClick={apDungGiaChung}
-                    className={cn("col-span-2 h-8 md:col-span-1", NUT_VIEN_CLASS)}
-                >
-                    {t("Áp dụng cho tất cả")}
-                </Button>
+                <div className="col-span-2 flex flex-wrap gap-2 md:col-span-1">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        disabled={disabled || thongKe.soToHop === 0}
+                        onClick={apDungGiaChung}
+                        className={cn("h-8 max-sm:flex-1", NUT_VIEN_CLASS)}
+                    >
+                        {t("Áp dụng cho tất cả")}
+                    </Button>
+                    {/* Bọc span để tooltip vẫn hiện khi nút bị vô hiệu (nút disabled không nhận chuột) */}
+                    <span
+                        className="inline-flex max-sm:flex-1"
+                        title={
+                            soDongGoiY > 0
+                                ? t("Nâng giá bán đang trống hoặc thấp hơn lên giá gợi ý của màu. Không hạ giá nào.")
+                                : t("Không có giá bán nào trống hoặc thấp hơn giá gợi ý.")
+                        }
+                    >
+                        <Button
+                            type="button"
+                            variant="outline"
+                            disabled={disabled || soDongGoiY === 0}
+                            onClick={apGiaGoiY}
+                            className={cn("h-8 max-sm:flex-1", NUT_VIEN_CLASS)}
+                        >
+                            {t("Áp giá gợi ý")}
+                        </Button>
+                    </span>
+                </div>
                 <p
                     role="status"
                     className={cn(
-                        "col-span-2 text-xs md:col-span-1",
+                        "col-span-2 text-xs md:col-span-3 lg:col-span-1",
                         thongBaoApDung ? (thongBaoApDung.loi ? "text-bo-danger" : "font-medium text-bo-success") : "text-bo-muted",
                     )}
                 >
                     {thongBaoApDung?.noiDung ??
                         (laSua
-                            ? t("Biến thể còn tồn kho có giá tính theo lô nhập (ô có khóa) nên không sửa được.")
+                            ? t("Giá vốn của biến thể còn tồn kho tính theo lô nhập (ô có khóa) nên không sửa được.")
                             : t("Giá không bắt buộc. Theo quy tắc hiện tại, giá được tính lại theo lô thực tế khi nhập kho."))}
                 </p>
             </div>
@@ -754,8 +880,13 @@ const NhomMau = memo(function NhomMau({
     const soTao = dongMoi.filter((d) => d.tao).length;
     const chuaCoKichCo = dong.length === 0;
     const trangThaiChon = dongMoi.length === 0 || soTao === 0 ? false : soTao === dongMoi.length ? true : "indeterminate";
-    // Form Chỉnh sửa: màu chỉ còn biến thể có giá khóa thì ô giá nhóm không có tác dụng.
-    const coGiaSuaDuoc = !laSua || dong.some((d) => !d.khoaGia);
+    // Form Chỉnh sửa: màu chỉ còn biến thể có giá khóa thì ô giá nhóm tương ứng không có tác dụng.
+    const coGiaVonSuaDuoc = !laSua || dong.some((d) => !d.khoaGia);
+    const coGiaBanSuaDuoc = !laSua || dong.some((d) => !d.khoaGiaBan);
+    const coGiaSuaDuoc = coGiaVonSuaDuoc || coGiaBanSuaDuoc;
+    // Gợi ý cả màu chỉ hiện khi còn dòng giá bán trống hoặc thấp hơn.
+    const goiYCaMau = goiYMau(dong, giaMau.giaVon);
+    const giaGoiYMau = goiYCaMau != null && demDongCanNang(dong, goiYCaMau) > 0 ? goiYCaMau : null;
     const nhanSoLuong = !laSua
         ? chuaCoKichCo
             ? t("Chưa chọn kích cỡ")
@@ -828,17 +959,25 @@ const NhomMau = memo(function NhomMau({
                         onChange={(giaTri) => dispatch({ type: "suaGiaMau", mauSacId, truong: "giaVon", giaTri })}
                         onEnter={() => dispatch({ type: "apDungGiaMau", mauSacId })}
                         placeholder={t("Giá nhóm")}
-                        disabled={disabled || !coGiaSuaDuoc}
+                        disabled={disabled || !coGiaVonSuaDuoc}
                         aria-label={t("Giá vốn nhóm màu {{tenMau}}", { tenMau: mau.tenMau })}
                     />
                 </td>
                 <td className="px-3 py-2">
-                    <OTien
+                    {/* Bóng đèn nâng thẳng các cỡ đang trống hoặc thấp hơn; không điền vào ô giá nhóm vì Áp cho màu
+                        đặt mọi cỡ về một giá, sẽ hạ cả cỡ đang bán cao hơn. */}
+                    <OGiaCoGoiY
+                        goiY={giaGoiYMau}
+                        tieuDe={t("Giá gợi ý cả màu:")}
+                        cachTinh={CACH_TINH_GOI_Y_MAU}
+                        nhanNut={t("Nâng giá trong màu")}
+                        nhanMo={t("Xem giá gợi ý cho màu {{tenMau}}", { tenMau: mau.tenMau })}
+                        onDung={() => dispatch({ type: "nangGiaBanTheoMau", giaTheoMau: { [mauSacId]: giaGoiYMau } })}
                         value={giaMau.giaBan}
                         onChange={(giaTri) => dispatch({ type: "suaGiaMau", mauSacId, truong: "giaBan", giaTri })}
                         onEnter={() => dispatch({ type: "apDungGiaMau", mauSacId })}
                         placeholder={t("Giá nhóm")}
-                        disabled={disabled || !coGiaSuaDuoc}
+                        disabled={disabled || !coGiaBanSuaDuoc}
                         aria-label={t("Giá bán nhóm màu {{tenMau}}", { tenMau: mau.tenMau })}
                     />
                 </td>
@@ -862,8 +1001,11 @@ const NhomMau = memo(function NhomMau({
                     const ten = `${mau.tenMau} ${size?.tenSize || size?.maSize || ""}`;
                     const giaBanThap = d.tao && d.giaVon !== "" && d.giaBan !== "" && d.giaBan < d.giaVon;
                     // Biến thể đã lưu phải có giá; data-thieu-gia để khung lỗi đưa con trỏ tới đúng ô.
-                    const coTheThieuGia = laCu && !d.khoaGia;
-                    const thieuGia = coTheThieuGia && hienLoi;
+                    const coTheThieuGiaVon = laCu && !d.khoaGia;
+                    const coTheThieuGiaBan = laCu && !d.khoaGiaBan;
+                    const thieuGiaVon = coTheThieuGiaVon && hienLoi && d.giaVon === "";
+                    const thieuGiaBan = coTheThieuGiaBan && hienLoi && d.giaBan === "";
+                    const goiY = goiYChoDong(d);
                     return (
                         <tr key={d.khoa} className={cn("border-b border-bo-border transition-colors last:border-b-0 hover:bg-bo-surface-subtle/60", !d.tao && "opacity-50")}>
                             <td className="px-3 py-1.5">
@@ -906,28 +1048,34 @@ const NhomMau = memo(function NhomMau({
                                         placeholder="0"
                                         disabled={disabled || !d.tao}
                                         aria-label={t("Giá vốn {{ten}}", { ten })}
-                                        data-thieu-gia={coTheThieuGia && d.giaVon === "" ? "" : undefined}
-                                        aria-invalid={thieuGia && d.giaVon === "" ? true : undefined}
-                                        className={thieuGia && d.giaVon === "" ? "border-bo-danger" : undefined}
+                                        data-thieu-gia={coTheThieuGiaVon && d.giaVon === "" ? "" : undefined}
+                                        aria-invalid={thieuGiaVon || undefined}
+                                        className={thieuGiaVon ? "border-bo-danger" : undefined}
                                     />
                                 )}
                             </td>
                             <td className="px-3 py-1.5">
-                                {d.khoaGiaBan ?? d.khoaGia ? (
+                                {d.khoaGiaBan ? (
                                     <GiaKhoa value={d.giaBan} nhan={t("Giá bán {{ten}}", { ten })} ghiChu={GIA_BAN_KHOA} />
                                 ) : (
-                                    <OTien
+                                    <OGiaCoGoiY
+                                        goiY={goiY}
+                                        tieuDe={t("Giá gợi ý:")}
+                                        cachTinh={CACH_TINH_GOI_Y}
+                                        nhanNut={t("Dùng giá này")}
+                                        nhanMo={t("Xem giá gợi ý cho {{ten}}", { ten })}
+                                        onDung={() => dispatch({ type: "suaGia", khoa: d.khoa, truong: "giaBan", giaTri: goiY })}
                                         cot="giaBan"
                                         value={d.giaBan}
                                         onChange={(giaTri) => dispatch({ type: "suaGia", khoa: d.khoa, truong: "giaBan", giaTri })}
                                         placeholder="0"
                                         disabled={disabled || !d.tao}
                                         aria-label={t("Giá bán {{ten}}", { ten })}
-                                        data-thieu-gia={coTheThieuGia && d.giaBan === "" ? "" : undefined}
-                                        aria-invalid={thieuGia && d.giaBan === "" ? true : undefined}
+                                        data-thieu-gia={coTheThieuGiaBan && d.giaBan === "" ? "" : undefined}
+                                        aria-invalid={thieuGiaBan || undefined}
                                         className={cn(
                                             giaBanThap && "border-bo-warning bg-bo-warning-soft",
-                                            thieuGia && d.giaBan === "" && "border-bo-danger",
+                                            thieuGiaBan && "border-bo-danger",
                                         )}
                                     />
                                 )}
