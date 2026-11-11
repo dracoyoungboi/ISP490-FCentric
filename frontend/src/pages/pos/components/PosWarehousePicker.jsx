@@ -10,10 +10,10 @@ import {
 import { t } from "@/i18n";
 
 /** Hai dòng chữ "Kho bán hàng" / tên kho, không ô biểu tượng (chốt kiểu C: gọn ~140px, cao 36px). */
-function WarehouseLabel({ name, hidden = false }) {
+function WarehouseLabel({ name, hidden = false, nhan = null }) {
   return (
     <span aria-hidden={hidden || undefined} className="min-w-0 text-left">
-      <span className="hidden text-[10px] leading-3 text-bo-muted sm:block">{t("Kho bán hàng")}</span>
+      <span className="hidden text-[10px] leading-3 text-bo-muted sm:block">{nhan ?? t("Kho bán hàng")}</span>
       <span className="block max-w-[9rem] truncate text-[13px] font-semibold leading-4 text-bo-foreground sm:max-w-[16rem]">{name}</span>
     </span>
   );
@@ -41,6 +41,9 @@ export default function PosWarehousePicker({
   disabled = false,
   disabledReason = '',
   blocked = false,
+  // Màn khác dùng lại (vd. Trả hàng): nhãn ô và ghi chú cuối danh sách; mặc định là của màn bán hàng
+  nhan = null,
+  ghiChu = null,
 }) {
   const [open, setOpen] = useState(false);
   // Bị khóa / có hộp thoại khi đang mở: đóng hẳn (không tự mở lại khi hộp thoại đóng).
@@ -60,7 +63,7 @@ export default function PosWarehousePicker({
   if (warehouses.length <= 1) {
     return (
       <div className="flex h-9 min-w-0 items-center px-2 xl:shrink-0" data-pos-warehouse="" title={t("Kho bán hàng: {{fullName}}", { fullName })}>
-        <WarehouseLabel hidden name={name} />
+        <WarehouseLabel hidden name={name} nhan={nhan} />
         <span className="sr-only">{t("Kho bán hàng: {{fullName}}", { fullName })}</span>
       </div>
     );
@@ -90,7 +93,7 @@ export default function PosWarehousePicker({
           title={label}
           type="button"
         >
-          <WarehouseLabel name={name} />
+          <WarehouseLabel name={name} nhan={nhan} />
           <ChevronDown aria-hidden="true" className="size-3.5 shrink-0 text-bo-muted transition-transform group-data-[state=open]:rotate-180" />
         </button>
       </DropdownMenuTrigger>
@@ -111,7 +114,7 @@ export default function PosWarehousePicker({
         }}
         sideOffset={6}
       >
-        <p className="px-2.5 pb-1.5 pt-2 text-[11px] font-semibold leading-4 text-bo-muted" id={titleId}>{t("Kho bán hàng")}</p>
+        <p className="px-2.5 pb-1.5 pt-2 text-[11px] font-semibold leading-4 text-bo-muted" id={titleId}>{nhan ?? t("Kho bán hàng")}</p>
         <DropdownMenuPrimitive.RadioGroup onValueChange={(next) => { pickedRef.current = true; onChange(Number(next)); }} value={value != null ? String(value) : ''}>
           {warehouses.map((warehouse) => (
             <DropdownMenuPrimitive.RadioItem
@@ -133,7 +136,7 @@ export default function PosWarehousePicker({
         <DropdownMenuSeparator className="bg-bo-border" />
         <p className="flex items-start gap-2 px-2.5 py-2 text-xs leading-4 text-bo-muted" id={noteId}>
           <Info aria-hidden="true" className="mt-px size-3.5 shrink-0" />
-          <span>{t("Mỗi hóa đơn bán từ một kho. Nếu hóa đơn đã có hàng, hệ thống sẽ hỏi lại trước khi đổi kho vì giỏ sẽ bị xóa.")}</span>
+          <span>{ghiChu ?? t("Mỗi hóa đơn bán từ một kho. Nếu hóa đơn đã có hàng, hệ thống sẽ hỏi lại trước khi đổi kho vì giỏ sẽ bị xóa.")}</span>
         </p>
       </DropdownMenuContent>
     </DropdownMenu>

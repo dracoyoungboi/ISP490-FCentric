@@ -90,7 +90,7 @@ function useFullscreen() {
  * có mạng lại -> thông báo ngắn rồi tự tắt. Lúc bình thường không hiện gì để đỡ rối mắt.
  * Màn hình phụ cho khách (cần màn thứ hai): mở từ menu tài khoản; dấu "Màn hình khách" chỉ hiện khi đang có màn đó mở.
  */
-export default function PosTopBar({ children, tabs = null, onHelp, pendingPaymentCount = 0, onMoManHinhKhach, coManHinhKhach = false }) {
+export default function PosTopBar({ children, tabs = null, onHelp, helpLabel = null, pendingPaymentCount = 0, onMoManHinhKhach, coManHinhKhach = false }) {
   const navigate = useNavigate();
   const online = useOnlineStatus();
   useOnReconnect(showReconnectedToast);
@@ -204,7 +204,7 @@ export default function PosTopBar({ children, tabs = null, onHelp, pendingPaymen
           />
 
           {onHelp ? (
-            <button aria-label={t("Hướng dẫn phím tắt")} className={iconButton} onClick={onHelp} title={t("Phím tắt (F1)")} type="button">
+            <button aria-label={helpLabel ?? t("Hướng dẫn phím tắt")} className={iconButton} onClick={onHelp} title={helpLabel ?? t("Phím tắt (F1)")} type="button">
               <CircleHelp aria-hidden="true" size={16} />
             </button>
           ) : null}

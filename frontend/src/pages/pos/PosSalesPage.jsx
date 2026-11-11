@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import PosTopBar from './components/PosTopBar';
 import PosWarehousePicker from './components/PosWarehousePicker';
+import PosModeTabs from './components/PosModeTabs';
 import PosCartPanel from './components/PosCartPanel';
 import PosInvoiceTabs from './components/PosInvoiceTabs';
 import PosDialogs from './components/PosDialogs';
@@ -2030,6 +2031,8 @@ export default function PosSalesPage({
         pendingPaymentCount={invoices.filter(isFrozenInvoice).length}
         tabs={wideScreen ? renderInvoiceTabs('bar') : null}
       >
+        {/* Bán hàng | Trả hàng: rời màn bán không mất hóa đơn đang làm (bản nháp theo tài khoản) */}
+        <PosModeTabs hienTai="ban" khoa={isSubmitting} lyDoKhoa={t("Đang xử lý thanh toán — đợi xong rồi đổi kho.")} />
         <PosWarehousePicker
           blocked={Boolean(dialog)}
           disabled={isSubmitting || frozen}
