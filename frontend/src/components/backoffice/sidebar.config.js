@@ -83,6 +83,8 @@ const TAT_CA_VAI_TRO = [
 export const VAI_TRO_NGUOI_DUNG = ["quan_tri_vien"];
 // Phiếu nhập, xuất, chuyển kho, vị trí kệ, lịch sử giao dịch kho
 export const VAI_TRO_KHO = ["quan_tri_vien", "quan_ly_kho", "nhan_vien_kho"];
+// Chuyển kệ nội bộ (UC-7.4): BA cho cả nhân viên bán hàng kiêm kho cửa hàng (ChuyenKeNoiBoController)
+export const VAI_TRO_CHUYEN_KE = [...VAI_TRO_KHO, "nhan_vien_ban_hang"];
 // Đơn mua hàng (GET /don-mua-hang/get-by-id, /filter); cũng là vai trò xem được giá mua ở yêu cầu báo giá, báo giá
 export const VAI_TRO_DON_MUA = ["quan_tri_vien", "quan_ly_kho", "nhan_vien_mua_hang", "nhan_vien_kho"];
 // Danh sách kho: GET /kho/{id}/tom-tat
@@ -190,23 +192,33 @@ export const SIDEBAR_MENU = [
     label: t("Kho hàng"),
     icon: Warehouse,
     section: "main",
-    roles: VAI_TRO_KHO,
+    // Nhân viên bán hàng chỉ thấy mục Chuyển kệ nội bộ: các mục khác ghi rõ VAI_TRO_KHO
+    roles: VAI_TRO_CHUYEN_KE,
     children: [
       { label: t("Phiếu nhập kho"), to: "/goods-receipts", nhom: CHUNG_TU, roles: VAI_TRO_KHO },
       // Xuất kho theo Pick List (FO-045–047): Đơn chờ xuất → Pick List → Phiếu xuất kho
-      { label: t("Đơn chờ xuất"), to: "/goods-issues/pending-orders", nhom: CHUNG_TU },
-      { label: t("Phiếu nhặt hàng"), to: "/goods-issues/pick-lists", nhom: CHUNG_TU },
+      { label: t("Đơn chờ xuất"), to: "/goods-issues/pending-orders", nhom: CHUNG_TU, roles: VAI_TRO_KHO },
+      { label: t("Phiếu nhặt hàng"), to: "/goods-issues/pick-lists", nhom: CHUNG_TU, roles: VAI_TRO_KHO },
       {
         label: t("Phiếu xuất kho"),
         to: "/goods-issues",
         nhom: CHUNG_TU,
+        roles: VAI_TRO_KHO,
         match: (path) =>
           path.startsWith("/goods-issues") &&
           !path.startsWith("/goods-issues/pending-orders") &&
           !path.startsWith("/goods-issues/pick-lists"),
       },
       { label: t("Chuyển kho nội bộ"), to: "/transfer-tickets", nhom: CHUNG_TU, roles: VAI_TRO_KHO },
-      { label: t("Kiểm kê"), to: "/stock-take", nhom: CHUNG_TU },
+      { label: t("Kiểm kê"), to: "/stock-take", nhom: CHUNG_TU, roles: VAI_TRO_KHO },
+      // UC-7.4 Scan-to-Move; /warehouse/bin-moves/history (Lịch sử chuyển kệ) thuộc mục này
+      {
+        label: t("Chuyển kệ nội bộ"),
+        to: "/warehouse/bin-moves",
+        nhom: CHUNG_TU,
+        roles: VAI_TRO_CHUYEN_KE,
+        match: (path) => path.startsWith("/warehouse/bin-moves"),
+      },
       {
         label: t("Danh sách kho"),
         to: "/warehouse",

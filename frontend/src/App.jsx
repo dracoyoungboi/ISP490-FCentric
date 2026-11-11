@@ -12,6 +12,7 @@ import {
   VAI_TRO_DANH_SACH_KHO,
   VAI_TRO_DON_BAN,
   VAI_TRO_DON_MUA,
+  VAI_TRO_CHUYEN_KE,
   VAI_TRO_KHO,
   VAI_TRO_NGUOI_DUNG,
 } from "./components/backoffice/sidebar.config";
@@ -77,6 +78,8 @@ const StockTakeCreate = taiTrang(() => import("./pages/stock-take/StockTakeCreat
 const StockTakeDetail = taiTrang(() => import("./pages/stock-take/StockTakeDetail"));
 const StockTakeLockMap = taiTrang(() => import("./pages/stock-take/StockTakeLockMap"));
 const StockTakeUnshelved = taiTrang(() => import("./pages/stock-take/StockTakeUnshelved"));
+const BinMovePage = taiTrang(() => import("./pages/bin-move/BinMovePage"));
+const BinMoveHistory = taiTrang(() => import("./pages/bin-move/BinMoveHistory"));
 const InKiemKe = taiTrang(() => import("./pages/stock-take/InKiemKe"));
 const BaoCaoDoanhThu = taiTrang(() => import("./pages/bao-cao/BaoCaoDoanhThu"));
 const XuatDuLieuKeToan = taiTrang(() => import("./pages/bao-cao/XuatDuLieuKeToan"));
@@ -388,6 +391,12 @@ const CAY_DUONG_DAN = (
         <Route path="/warehouse/unshelved" element={<StockTakeUnshelved />} />
         <Route path="/stock-take/unshelved" element={<HangChuaCoKeRedirect />} />
         <Route path="/stock-take/:id" element={<StockTakeDetail />} />
+      </Route>
+
+      {/* Chuyển kệ nội bộ (UC-7.4 Scan-to-Move): vai trò kho và nhân viên bán hàng kiêm kho cửa hàng (ChuyenKeNoiBoController) */}
+      <Route element={<RequireRole roles={VAI_TRO_CHUYEN_KE} />}>
+        <Route path="/warehouse/bin-moves" element={<BinMovePage />} />
+        <Route path="/warehouse/bin-moves/history" element={<BinMoveHistory />} />
       </Route>
 
       {/* Báo cáo doanh thu, sản phẩm: quản trị viên, quản lý kho và nhân viên bán hàng (FO-090; nhân viên bán hàng chỉ

@@ -194,6 +194,16 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
             title: t("Hàng chưa có kệ"),
         },
         {
+            key: "WAREHOUSE_BIN_MOVES_HISTORY",
+            match: (path) => path === "/warehouse/bin-moves/history",
+            title: t("Lịch sử chuyển kệ"),
+        },
+        {
+            key: "WAREHOUSE_BIN_MOVES",
+            match: (path) => path === "/warehouse/bin-moves",
+            title: t("Chuyển kệ nội bộ"),
+        },
+        {
             key: "DANH_MUC_QUAN_AO",
             match: (path) => path === "/categories",
             title: t("Danh mục"),
