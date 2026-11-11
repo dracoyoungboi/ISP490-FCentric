@@ -6,6 +6,7 @@ import com.dev.backend.constant.variables.ITable;
 import com.dev.backend.dto.request.CapNhatLienKetRequest;
 import com.dev.backend.dto.request.DayTonKenhRequest;
 import com.dev.backend.dto.request.TikTokInventoryUpdateRequest;
+import com.dev.backend.constants.TikTokShopConstants;
 import com.dev.backend.services.tiktok.TikTokShopClient;
 import com.dev.backend.dto.request.KenhBanHangCaiDatRequest;
 import com.dev.backend.dto.request.LayDonHangKenhRequest;
@@ -1213,10 +1214,14 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             return createdSkuMap;
         }
 
+        // Xác định Leaf Category ID phiên bản V2 bắt buộc theo quy định TikTok Shop API v202309
+        String v2CategoryId = xacDinhTikTokV2CategoryId(appKey, appSecret, token, cipher, title, desc, sp);
+
         TikTokProductCreateRequest req = TikTokProductCreateRequest.builder()
                 .title(title)
                 .description(descHtml)
-                .categoryId("601234") // Ngành hàng Thời trang & Quần áo lá mặc định
+                .categoryId(v2CategoryId)
+                .categoryVersion(TikTokShopConstants.CATEGORY_VERSION_V2)
                 .brandId("0") // No Brand theo quy định sàn để tránh kiểm duyệt ủy quyền thương hiệu
                 .mainImages(mainImages)
                 .packageWeight(TikTokProductCreateRequest.PackageWeight.builder()
@@ -1254,6 +1259,61 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         }
 
         return createdSkuMap;
+    }
+
+    /**
+     * Tự động xác định Leaf Category ID phiên bản V2 cho sản phẩm đăng lên TikTok Shop.
+     * Quy trình 3 bước chuẩn hóa:
+     * 1. Gọi TikTok Shop AI Category Recommendation (POST /product/202309/categories/recommend?category_version=v2).
+     * 2. Nếu AI chưa trả về, tìm kiếm danh mục lá theo tên danh mục sản phẩm FCentric hoặc loại quần áo.
+     * 3. Nếu vẫn chưa có, sử dụng fallback leaf ID tìm được từ ngành hàng thời trang V2.
+     */
+    private String xacDinhTikTokV2CategoryId(String appKey, String appSecret, String token, String cipher,
+                                             String title, String desc, SanPhamQuanAo sp) {
+        // 1. Thử gợi ý danh mục V2 bằng AI của TikTok Shop
+        try {
+            String aiCategoryId = getTikTokShopClient().recommendCategoryV2(appKey, appSecret, token, cipher, title, desc);
+            if (aiCategoryId != null && !aiCategoryId.isBlank()) {
+                log.info("[TIKTOK-CAT-V2] AI gợi ý thành công Leaf Category ID [{}] cho sản phẩm [{}]", aiCategoryId, title);
+                return aiCategoryId;
+            }
+        } catch (Exception ex) {
+            log.warn("[TIKTOK-CAT-V2] Lỗi khi gọi TikTok AI recommend category cho [{}]: {}", title, ex.getMessage());
+        }
+
+        // 2. Thử tìm kiếm theo danh mục FCentric
+        String keyword = null;
+        if (sp != null && sp.getDanhMuc() != null && sp.getDanhMuc().getTenDanhMuc() != null) {
+            keyword = sp.getDanhMuc().getTenDanhMuc();
+        } else if (title != null) {
+            keyword = title;
+        }
+
+        if (keyword != null && !keyword.isBlank()) {
+            try {
+                String searchCategoryId = getTikTokShopClient().timDanhMucLaTheoTuKhoaV2(appKey, appSecret, token, cipher, keyword);
+                if (searchCategoryId != null && !searchCategoryId.isBlank()) {
+                    log.info("[TIKTOK-CAT-V2] Tìm kiếm danh mục lá V2 theo từ khóa [{}] thành công: {}", keyword, searchCategoryId);
+                    return searchCategoryId;
+                }
+            } catch (Exception ex) {
+                log.warn("[TIKTOK-CAT-V2] Lỗi khi tìm kiếm danh mục lá theo từ khóa [{}]: {}", keyword, ex.getMessage());
+            }
+        }
+
+        // 3. Fallback: Thử với từ khóa "áo"
+        try {
+            String fallbackLeafId = getTikTokShopClient().timDanhMucLaTheoTuKhoaV2(appKey, appSecret, token, cipher, "áo");
+            if (fallbackLeafId != null && !fallbackLeafId.isBlank()) {
+                log.info("[TIKTOK-CAT-V2] Fallback danh mục lá V2 'áo' thành công: {}", fallbackLeafId);
+                return fallbackLeafId;
+            }
+        } catch (Exception ex) {
+            log.warn("[TIKTOK-CAT-V2] Lỗi khi fallback danh mục lá: {}", ex.getMessage());
+        }
+
+        log.warn("[TIKTOK-CAT-V2] Không thể xác định danh mục V2 tự động cho [{}], sử dụng mã dự phòng", title);
+        return "601234";
     }
 
     private TuDongLienKetResultDto tuDongLienKetTikTok(KenhBanHang kenh) {
