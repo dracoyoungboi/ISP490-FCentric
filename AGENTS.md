@@ -146,3 +146,29 @@ vào `Dev` / `main`. Báo đỏ thì xem log để biết dòng lỗi, sửa r�
 - Cột `apiKey`, `apiSecret`, `token` phải là kiểu `TEXT` để lưu token mã hóa AES-GCM.
 - Hạn token `token_expires_at` phải là ngày giờ hợp lệ (7–365 ngày), không lưu năm 2083.
 - `shop_cipher` của TikTok Shop phải lưu độc lập ở cột riêng, không ghi đè tên gian hàng vào cipher.
+
+## Quy chuẩn Git Commit nguyên tử & Chiến lược đóng góp (~500 commits/tuần)
+
+> **Mục tiêu**: Đạt KPI ~500 commits/tuần, tăng tính minh bạch của lịch sử Git, hỗ trợ bóc tách lỗi và tránh tuyệt đối monolithic commits.
+
+### 1. Nguyên tắc cốt lõi (No Monolithic Commits)
+- **Tuyệt đối không gom thay đổi**: Nghiêm cấm dùng `git add -A` rồi dồn tất cả thay đổi (Frontend + Backend + i18n + Docs) vào 1 commit to duy nhất rồi mới đẩy lên.
+- **Mỗi commit = 1 đơn vị công việc logic nhỏ nhất (Single Logical Unit)**: Thay đổi nào độc lập được thì BẮT BUỘC phải commit riêng.
+
+### 2. Quy tắc phân rã chuỗi commit bắt buộc khi triển khai tính năng / sửa lỗi
+Khi thực hiện một luồng công việc, BẮT BUỘC chia nhỏ thành chuỗi commit tuần tự theo từng tầng:
+1. **DTO / Entity**: `feat(dto)` / `feat(entity)`: Thêm hoặc chỉnh sửa Entity, DTO, Request/Response class, Record.
+2. **Thông điệp Backend (i18n)**: `i18n(backend)`: Cập nhật tệp `.properties` (cả tiếng Việt và tiếng Anh song song).
+3. **Tầng Client / Sàn bên ngoài**: `feat(client)` / `fix(client)`: Viết/sửa các hàm gọi API đối tác (TikTokShopClient, LazadaClient, ShopeeClient).
+4. **Tầng Service Logic**: `feat(service)` / `fix(service)`: Viết xử lý nghiệp vụ trong Service.
+5. **Tối ưu hiệu năng & Cache**: `perf(cache)` / `perf(sync)`: Bổ sung in-memory cache, rate-limiting guard, delta sync.
+6. **Tầng Controller & API**: `feat(controller)`: Khai báo endpoint, phân quyền `@RequireAuth`, gắn `@Operation` Swagger.
+7. **Đa ngôn ngữ Giao diện (Frontend i18n)**: `i18n(frontend)`: Thêm các khóa JSON trong `src/i18n/en/*.json`.
+8. **Tầng Giao diện UI**: `feat(ui)` / `fix(ui)`: Tạo hoặc sửa Component React, trang JSX, CSS.
+9. **Kiểm thử tự động**: `test(...)`: Bổ sung kiểm thử đơn vị, mock test, test coverage.
+10. **Tài liệu & Quy chuẩn**: `docs(...)`: Cập nhật tài liệu, Swagger annotations, README hoặc rule files.
+
+### 3. Cú pháp Conventional Commits
+- Định dạng: `<loại>(<phạm vi>): <mô tả ngắn bằng tiếng Việt không viết hoa chữ đầu>`
+- Các loại commit: `feat`, `fix`, `refactor`, `perf`, `i18n`, `style`, `test`, `docs`, `chore`.
+- Sau mỗi cụm 2–4 commits nhỏ hoặc khi hoàn thành 1 bước logic đã kiểm thử thành công, push ngay lên cả `origin/PhanAnh` và `origin/Dev`.
