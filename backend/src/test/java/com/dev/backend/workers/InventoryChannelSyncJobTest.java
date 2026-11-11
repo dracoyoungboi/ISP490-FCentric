@@ -49,6 +49,7 @@ class InventoryChannelSyncJobTest {
         when(dieuHanhHeThongService.getCauHinhInt("OMNI_SYNC_INTERVAL_MINS", 10)).thenReturn(10);
         when(entityManagerFactory.createEntityManager()).thenReturn(entityManager);
         when(entityManager.isOpen()).thenReturn(true);
+        when(kenhBanHangRepository.findByTrangThai(1)).thenReturn(List.of(shopify));
     }
 
     @AfterEach
@@ -145,6 +146,16 @@ class InventoryChannelSyncJobTest {
         job.onInventoryDeducted(event);
 
         verify(kenhBanHangDongBoService, times(1)).dayTonKhoKhanCap(202);
+    }
+
+    @Test
+    void onInventoryDeducted_tatTuDongDayTon_khongDayKhanCap() {
+        when(dieuHanhHeThongService.getCauHinhString("KENH_SHOPIFY_TU_DONG_DAY_TON", null)).thenReturn("false");
+        InventoryDeductedEvent event = new InventoryDeductedEvent(this, 101, BigDecimal.valueOf(1), 1);
+
+        job.onInventoryDeducted(event);
+
+        verify(kenhBanHangDongBoService, never()).dayTonKhoKhanCap(any());
     }
 }
 
