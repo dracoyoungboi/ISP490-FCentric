@@ -318,4 +318,74 @@ class TikTokShopClientTest {
         assertTrue(json.contains("{\"id\":\"101489\""), "Phải chứa thuộc tính 101489 Tên tổ chức chịu trách nhiệm hàng hóa");
         assertTrue(json.contains("\"name\":\"Công ty Cổ phần Thời trang FCentric\""), "Phải chứa tên công ty");
     }
+
+    @Test
+    @DisplayName("uploadImageWithUseCase: gửi tham số use_case=SIZE_CHART_IMAGE khi tải ảnh bảng quy đổi kích cỡ")
+    void uploadImageWithUseCase_sizeChartImage_thanhCong() {
+        String appKey = "test_app_key";
+        String appSecret = "test_app_secret";
+        String accessToken = "test_access_token";
+        String shopCipher = "ROW_TEST_CIPHER";
+        byte[] fakeImageBytes = new byte[]{1, 2, 3, 4};
+
+        String mockResponseBody = """
+                {
+                    "code": 0,
+                    "message": "success",
+                    "request_id": "test_upload_sc_123",
+                    "data": {
+                        "uri": "tos-maliva-i-o260ufnz6q-us/size_chart_test_uri",
+                        "url": "https://p16-oec-va.ibyteimg.com/tos-maliva-i-o260ufnz6q-us/size_chart_test_uri~tplv-oec-image.jpeg"
+                    }
+                }
+                """;
+
+        ArgumentCaptor<String> urlCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<HttpEntity<MultiValueMap<String, Object>>> requestCaptor = ArgumentCaptor.forClass(HttpEntity.class);
+
+        when(restTemplate.exchange(urlCaptor.capture(), eq(HttpMethod.POST), requestCaptor.capture(), eq(String.class)))
+                .thenReturn(new ResponseEntity<>(mockResponseBody, HttpStatus.OK));
+
+        String uri = client.uploadImageWithUseCase(appKey, appSecret, accessToken, shopCipher, fakeImageBytes, "size_chart.jpg", "SIZE_CHART_IMAGE");
+
+        assertNotNull(uri);
+        assertEquals("tos-maliva-i-o260ufnz6q-us/size_chart_test_uri", uri);
+
+        HttpEntity<MultiValueMap<String, Object>> capturedRequest = requestCaptor.getValue();
+        assertNotNull(capturedRequest);
+        MultiValueMap<String, Object> form = capturedRequest.getBody();
+        assertNotNull(form);
+        assertEquals("SIZE_CHART_IMAGE", form.getFirst("use_case"), "Body parameter use_case bắt buộc phải là SIZE_CHART_IMAGE");
+
+        String capturedUrl = urlCaptor.getValue();
+        assertFalse(capturedUrl.contains("shop_cipher="), "URL upload size chart không được chứa shop_cipher");
+    }
+
+    @Test
+    @DisplayName("createProduct: payload chứa size_chart.image.uri hợp lệ theo quy định ngành hàng thời trang")
+    void createProduct_coSizeChartImage() throws Exception {
+        TikTokProductCreateRequest payload = TikTokProductCreateRequest.builder()
+                .title("Áo Polo Jacquard Ultimate365 FCentric")
+                .description("<p>Mô tả áo Polo</p>")
+                .categoryId("960776")
+                .categoryVersion("v2")
+                .brandId("0")
+                .mainImages(List.of(new TikTokProductCreateRequest.ImageUri("tos-maliva-i-o260ufnz6q-us/polo_main")))
+                .sizeChart(TikTokProductCreateRequest.SizeChart.builder()
+                        .image(TikTokProductCreateRequest.SizeChartImage.builder()
+                                .uri("tos-maliva-i-o260ufnz6q-us/size_chart_uri_test")
+                                .build())
+                        .build())
+                .skus(List.of(
+                        TikTokProductCreateRequest.CreateSku.builder()
+                                .sellerSku("POLO-01")
+                                .price(TikTokProductCreateRequest.SkuPrice.builder().amount("299000").currency("VND").build())
+                                .build()
+                ))
+                .build();
+
+        String json = objectMapper.writeValueAsString(payload);
+        assertTrue(json.contains("\"size_chart\":{\"image\":{\"uri\":\"tos-maliva-i-o260ufnz6q-us/size_chart_uri_test\"}}"),
+                "Payload JSON bắt buộc chứa size_chart.image.uri");
+    }
 }
