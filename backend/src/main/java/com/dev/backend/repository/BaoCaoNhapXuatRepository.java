@@ -38,6 +38,7 @@ public class BaoCaoNhapXuatRepository {
             JOIN kho k0 ON k0.id = x.kho_id AND k0.ma_kho <> 'KHO_TRANSIT'
             LEFT JOIN lo_hang lh ON lh.id = x.lo_hang_id
             WHERE (:tatCaKho = TRUE OR x.kho_id IN (:khoIds))
+              AND x.loai_giao_dich <> 'chuyen_ke_noi_bo'
             """;
 
     /** Dòng sổ đã quy dấu kèm nhóm và chứng từ. Còn thiếu điều kiện thời gian. */
@@ -73,6 +74,7 @@ public class BaoCaoNhapXuatRepository {
             LEFT JOIN don_ban_hang dbh ON dbh.id = px.don_ban_hang_id
             LEFT JOIN kenh_ban_hang kb ON kb.id = dbh.kenh_ban_id
             WHERE (:tatCaKho = TRUE OR x.kho_id IN (:khoIds))
+              AND x.loai_giao_dich <> 'chuyen_ke_noi_bo'
             """;
 
     private static final String TRONG_KY = " AND x.ngay_giao_dich >= :tu AND x.ngay_giao_dich < :denSau";

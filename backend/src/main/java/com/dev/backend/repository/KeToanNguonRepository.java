@@ -326,12 +326,12 @@ public class KeToanNguonRepository {
                         SELECT kho_id, lo_hang_id, so_luong_sau,
                                ROW_NUMBER() OVER (PARTITION BY kho_id, lo_hang_id ORDER BY ngay_giao_dich DESC, id DESC) AS thu_tu
                           FROM lich_su_giao_dich_kho
-                         WHERE ngay_giao_dich < :moc
+                         WHERE ngay_giao_dich < :moc AND loai_giao_dich <> 'chuyen_ke_noi_bo'
                 ), sau AS (
                         SELECT kho_id, lo_hang_id, so_luong_truoc,
                                ROW_NUMBER() OVER (PARTITION BY kho_id, lo_hang_id ORDER BY ngay_giao_dich, id) AS thu_tu
                           FROM lich_su_giao_dich_kho
-                         WHERE ngay_giao_dich >= :moc
+                         WHERE ngay_giao_dich >= :moc AND loai_giao_dich <> 'chuyen_ke_noi_bo'
                 ), di AS (
                         SELECT ct.lo_hang_id, SUM(ct.so_luong_xuat) AS so_luong
                           FROM chi_tiet_phieu_xuat_kho ct
@@ -519,6 +519,7 @@ public class KeToanNguonRepository {
                       LEFT JOIN phieu_dieu_chinh_kho dck ON l.loai_tham_chieu = 'phieu_dieu_chinh_kho' AND dck.id = l.id_tham_chieu
                       LEFT JOIN dot_kiem_ke dkk ON l.loai_tham_chieu = 'kiem_ke' AND dkk.id = l.id_tham_chieu
                      WHERE l.ngay_giao_dich >= :tu AND l.ngay_giao_dich < :den
+                       AND l.loai_giao_dich <> 'chuyen_ke_noi_bo'
                   ) x
                  WHERE nhom IS NOT NULL
                  GROUP BY nhom, loai_tham_chieu, id_tham_chieu, ma_kho
