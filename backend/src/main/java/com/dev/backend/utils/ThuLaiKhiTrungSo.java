@@ -44,7 +44,8 @@ public final class ThuLaiKhiTrungSo {
             "uk_phieu_nhap_kho_so_phieu", "so_phieu_nhap",          // phieu_nhap_kho: PN-TRF, PN-RET
             "uk_so_bien_ban",                                       // bien_ban_giao_nhan: BBGN
             "so_phieu",                                             // phieu_dieu_chinh_kho: DCK
-            "uk_ma_pick_list");                                     // danh_sach_nhat_hang: PL
+            "uk_ma_pick_list",                                      // danh_sach_nhat_hang: PL
+            "uk_phieu_chuyen_ke_ma");                               // phieu_chuyen_ke: MV
 
     private static final Pattern TRUNG = Pattern.compile("Duplicate entry '.*' for key '(?:[^'.]+\\.)?([^']+)'");
 
