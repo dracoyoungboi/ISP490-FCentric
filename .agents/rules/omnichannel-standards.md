@@ -94,9 +94,10 @@ Mọi kênh bán (Shopify, Lazada, Shopee, TikTok Shop) khi quét đơn về ph�
    - Ưu tiên tự động xác định `category_id` qua AI Recommendation (`POST /product/202309/categories/recommend?category_version=v2`) dựa trên tiêu đề và mô tả, kết hợp tìm kiếm danh mục lá theo từ khóa (`GET /product/202309/categories?category_version=v2&locale=vi-VN`).
 7. **Thuộc tính sản phẩm bắt buộc (Product Attributes & Quốc gia xuất xứ ID 100149)**:
    - Với các danh mục lá ngành thời trang và may mặc, TikTok Shop bắt buộc khai báo danh sách `product_attributes` trong payload tạo sản phẩm.
+   - **Tên trường định danh thuộc tính BẮT BUỘC là `id`** (tuyệt đối không đặt tên `attribute_id` để tránh lỗi HTTP 400 mã `36009004: Id of ProductAttributes[0] is a required field and has not been provided`). Cấu trúc chuẩn: `[{"id": "100149", "values": [{"id": "1000854", "name": "Việt Nam"}]}]`.
    - Hệ thống tự động truy vấn `GET /product/202309/categories/{category_id}/attributes?category_version=v2&locale=vi-VN` để lấy danh mục thuộc tính:
      - Mọi thuộc tính có `is_mandatory = true` phải được gán giá trị hợp lệ (lấy từ enum giá trị có sẵn hoặc điền mặc định).
-     - Thuộc tính **Quốc gia xuất xứ** (Attribute ID: `100149` / Country of Origin) BẮT BUỘC phải luôn có mặt trong `product_attributes`. Giá trị mặc định là `"Việt Nam"`. Nếu API trả về danh sách `values`, ánh xạ đúng `id` và `name` tương ứng với "Việt Nam"; nếu không, dùng fallback `attribute_id = "100149"` và `name = "Việt Nam"` (ngăn chặn triệt để lỗi TikTok mã `12052104: Parameter 'Quốc gia xuất xứ' is invalid because the request is missing product attribute ID '100149'`).
+     - Thuộc tính **Quốc gia xuất xứ** (Attribute ID: `100149` / Country of Origin, Value ID: `1000854`) BẮT BUỘC phải luôn có mặt trong `product_attributes`. Giá trị mặc định là `"Việt Nam"`. Nếu API trả về danh sách `values`, ánh xạ đúng `id` và `name` tương ứng với "Việt Nam"; nếu không, dùng fallback `id = "100149"`, `id = "1000854"` và `name = "Việt Nam"` (ngăn chặn triệt để lỗi TikTok mã `12052104: Parameter 'Quốc gia xuất xứ' is invalid because the request is missing product attribute ID '100149'`).
 
 
 

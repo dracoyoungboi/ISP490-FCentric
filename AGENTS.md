@@ -165,7 +165,8 @@ vào `Dev` / `main`. Báo đỏ thì xem log để biết dòng lỗi, sửa r�
 - **Danh mục V2**: `category_version = "v2"` bắt buộc ở cả URL Query Param và Body JSON. `category_id` phải là danh mục lá (Leaf Category) V2 xác định tự động qua AI recommend hoặc tìm kiếm từ khóa.
 - **Thuộc tính sản phẩm bắt buộc (Product Attributes)**:
   - Bắt buộc kiểm tra và cung cấp các thuộc tính có `is_mandatory = true` qua API `GET /product/202309/categories/{category_id}/attributes`.
-  - Thuộc tính **Quốc gia xuất xứ** (Attribute ID: `100149` / Country of Origin = "Việt Nam") BẮT BUỘC phải luôn có mặt trong `product_attributes` đối với ngành hàng thời trang để chống lỗi TikTok Shop mã `12052104`. Tự động ánh xạ `id` và `name` từ enum của sàn hoặc sử dụng fallback `Việt Nam`.
+  - Tên trường định danh thuộc tính trong `product_attributes` BẮT BUỘC là `id` (tuyệt đối không đặt tên `attribute_id`), cấu trúc chuẩn: `[{"id": "100149", "values": [{"id": "1000854", "name": "Việt Nam"}]}]` để tránh lỗi HTTP 400 mã `36009004` (`Id of ProductAttributes[0] is a required field and has not been provided`).
+  - Thuộc tính **Quốc gia xuất xứ** (Attribute ID: `100149` / Country of Origin = "Việt Nam", Value ID: `1000854`) BẮT BUỘC phải luôn có mặt trong `product_attributes` đối với ngành hàng thời trang để chống lỗi TikTok Shop mã `12052104`. Tự động ánh xạ `id` và `name` từ enum của sàn hoặc sử dụng fallback `Việt Nam` (`id = "1000854"`).
 
 ## Quy chuẩn Git Commit nguyên tử & Chiến lược đóng góp (~500 commits/tuần)
 
