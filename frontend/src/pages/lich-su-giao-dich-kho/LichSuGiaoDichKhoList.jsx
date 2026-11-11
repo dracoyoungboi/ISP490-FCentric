@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/dialog";
 import {
     History, ArrowDownToLine, ArrowUpFromLine,
-    ArrowLeftRight, SlidersHorizontal, Warehouse, Eye,
+    ArrowLeftRight, SlidersHorizontal, Warehouse, Eye, MoveRight,
     CalendarDays, User2, FileText, Hash, Package, SearchX, X,
 } from "lucide-react";
 import { toast } from "@/lib/thongBaoNhanh";
@@ -38,7 +38,10 @@ const LOAI_GIAO_DICH_CONFIG = {
     xuat_kho:   { label: t("Xuất kho"),   icon: ArrowUpFromLine },
     chuyen_kho: { label: t("Chuyển kho"), icon: ArrowLeftRight },
     dieu_chinh: { label: t("Điều chỉnh"), icon: SlidersHorizontal },
+    // Chuyển kệ nội bộ (phiếu MV): đổi chỗ trong kho, tồn kho không đổi — số lượng hiện không dấu
+    chuyen_ke_noi_bo: { label: t("Chuyển kệ"), icon: MoveRight },
 };
+const KHONG_DOI_TON = new Set(["chuyen_ke_noi_bo"]);
 
 // Tab theo LOẠI giao dịch (bố cục A+G) — mã tab trên URL ?loai=; `loai` là giá trị loaiGiaoDich
 const LOAI_TABS = [
@@ -46,6 +49,7 @@ const LOAI_TABS = [
     { value: "nhap-kho",   label: LOAI_GIAO_DICH_CONFIG.nhap_kho.label,   loai: "nhap_kho"   },
     { value: "xuat-kho",   label: LOAI_GIAO_DICH_CONFIG.xuat_kho.label,   loai: "xuat_kho"   },
     { value: "dieu-chinh", label: LOAI_GIAO_DICH_CONFIG.dieu_chinh.label, loai: "dieu_chinh" },
+    { value: "chuyen-ke",  label: LOAI_GIAO_DICH_CONFIG.chuyen_ke_noi_bo.label, loai: "chuyen_ke_noi_bo" },
 ];
 const LOAI_TAB_VALUES = LOAI_TABS.map((tab) => tab.value);
 const TAB_MAC_DINH = "tat-ca";
@@ -95,6 +99,7 @@ function soLuongCoDau(item) {
     const soLuong = Number(item.soLuong);
     const isXuatKho = item.loaiGiaoDich === "xuat_kho";
     const displaySoLuong = isXuatKho ? -Math.abs(soLuong) : soLuong;
+    if (KHONG_DOI_TON.has(item.loaiGiaoDich)) return { displaySoLuong: Math.abs(soLuong), soLuongColor: "text-slate-700", soLuongPrefix: "" };
     const soLuongColor =
         displaySoLuong > 0 ? "text-bo-success" :
         displaySoLuong < 0 ? "text-bo-danger" :
@@ -134,10 +139,12 @@ function LightField({ icon: Icon, label, value, mono = false }) {
 function DetailModal({ open, onClose, item, loading }) {
     const soLuong = Number(item?.soLuong ?? 0);
     const isXuatKho = item?.loaiGiaoDich === "xuat_kho";
-    const displaySoLuong = isXuatKho ? -Math.abs(soLuong) : soLuong;
-    const soLuongColor  = displaySoLuong > 0 ? "text-bo-success" : displaySoLuong < 0 ? "text-bo-danger" : "text-slate-600";
-    const soLuongBg     = displaySoLuong > 0 ? "bg-bo-success-soft" : displaySoLuong < 0 ? "bg-bo-danger-soft" : "bg-bo-surface-subtle";
-    const soLuongPrefix = displaySoLuong > 0 ? "+" : displaySoLuong < 0 ? "-" : "";
+    const khongDoiTon = KHONG_DOI_TON.has(item?.loaiGiaoDich);
+    // Chuyển kệ: ô giữa ghi số đã đổi kệ (không dấu, màu trung tính) — trước = sau vì tồn kho không đổi
+    const displaySoLuong = isXuatKho ? -Math.abs(soLuong) : khongDoiTon ? Math.abs(soLuong) : soLuong;
+    const soLuongColor  = khongDoiTon ? "text-slate-700" : displaySoLuong > 0 ? "text-bo-success" : displaySoLuong < 0 ? "text-bo-danger" : "text-slate-600";
+    const soLuongBg     = khongDoiTon ? "bg-bo-surface-subtle" : displaySoLuong > 0 ? "bg-bo-success-soft" : displaySoLuong < 0 ? "bg-bo-danger-soft" : "bg-bo-surface-subtle";
+    const soLuongPrefix = khongDoiTon ? "" : displaySoLuong > 0 ? "+" : displaySoLuong < 0 ? "-" : "";
 
     return (
         <Dialog open={open} onOpenChange={onClose}>
@@ -187,7 +194,7 @@ function DetailModal({ open, onClose, item, loading }) {
                         <div className="grid grid-cols-3 divide-x divide-bo-border overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
                             {[
                                 { label: t("TRƯỚC"),    value: item.soLuongTruoc ?? 0, color: "text-slate-700", bg: "bg-white",    prefix: "" },
-                                { label: t("THAY ĐỔI"), value: Math.abs(displaySoLuong), color: soLuongColor,     bg: soLuongBg,     prefix: soLuongPrefix },
+                                { label: khongDoiTon ? t("ĐỔI KỆ") : t("THAY ĐỔI"), value: Math.abs(displaySoLuong), color: soLuongColor,     bg: soLuongBg,     prefix: soLuongPrefix },
                                 { label: t("SAU"),      value: item.soLuongSau ?? 0,   color: "text-slate-700", bg: "bg-white",    prefix: "" },
                             ].map(({ label, value, color, bg, prefix }) => (
                                 <div key={label} className={`flex flex-col items-center py-4 ${bg}`}>
