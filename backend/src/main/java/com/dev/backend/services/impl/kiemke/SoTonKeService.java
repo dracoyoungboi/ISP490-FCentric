@@ -289,11 +289,21 @@ public class SoTonKeService {
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public void chuyenKe(Integer khoId, Integer loId, Integer tuViTriId, Integer denViTriId, int soLuong) {
         if (soLuong <= 0) throw new CommonException(ThongDiep.of("khoVanHanh.soLuongChuyenKePhaiDuong"));
+        if (tuViTriId == null || denViTriId == null) {
+            throw new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("khoVanHanh.keDaChonKhongTimThay"));
+        }
         if (Objects.equals(tuViTriId, denViTriId)) throw new CommonException(ThongDiep.of("khoVanHanh.chonKeDenKhacKeDangChua"));
         guard.giuKho(khoId);
         TonKhoTheoLo ton = khoaTonLo(khoId, loId);
-        ViTriKho tu = keCuaKho(khoId, tuViTriId);
-        ViTriKho den = keCuaKho(khoId, denViTriId);
+        // Khóa hai kệ theo id tăng dần (cùng thứ tự với Chuyển kệ nội bộ nhiều kệ) để hai luồng ngược chiều không chờ vòng
+        ViTriKho tu, den;
+        if (tuViTriId < denViTriId) {
+            tu = keCuaKho(khoId, tuViTriId);
+            den = keCuaKho(khoId, denViTriId);
+        } else {
+            den = keCuaKho(khoId, denViTriId);
+            tu = keCuaKho(khoId, tuViTriId);
+        }
         guard.kiemTraXuat(khoId, Map.of(loId, BigDecimal.valueOf(soLuong)), Map.of(loId, ton.getSoLuongTon()), "chuyển hàng khỏi kệ");
         if (guard.keDangKiemCuaLo(khoId, loId).contains(tuViTriId)) {
             throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("khoVanHanh.keDangKiemKeChuaChuyen", tu.getMaViTri()));
