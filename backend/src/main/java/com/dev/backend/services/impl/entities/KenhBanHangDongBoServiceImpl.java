@@ -1182,10 +1182,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             int qty = soTonDayTheoQuyTacDaLuu(kenh.getMaKenh(), khaDungToanChuoi(bt.getId()));
 
             List<TikTokProductCreateRequest.SalesAttribute> salesAttrs = new ArrayList<>();
-            if (bt.getKichThuoc() != null && bt.getKichThuoc().getTenKichThuoc() != null && !bt.getKichThuoc().getTenKichThuoc().isBlank()) {
+            if (bt.getSize() != null && bt.getSize().getTenSize() != null && !bt.getSize().getTenSize().isBlank()) {
                 salesAttrs.add(TikTokProductCreateRequest.SalesAttribute.builder()
                         .attributeName("Kích cỡ")
-                        .customValue(bt.getKichThuoc().getTenKichThuoc().trim())
+                        .customValue(bt.getSize().getTenSize().trim())
                         .build());
             }
             if (bt.getMauSac() != null && bt.getMauSac().getTenMau() != null && !bt.getMauSac().getTenMau().isBlank()) {
