@@ -23,6 +23,8 @@ public interface ViTriKhoRepository extends JpaRepository<ViTriKho, Integer> {
     List<ViTriKho> findByKhuVucKho_IdOrderByMaViTriAsc(Integer khuVucKhoId);
     Optional<ViTriKho> findByKho_IdAndMaViTri(Integer khoId, String maViTri);
     Optional<ViTriKho> findByMaViTri(String maViTri);
+    /** Mã kệ gõ tay khác hoa thường (quét / gõ ở màn Chuyển kệ). */
+    Optional<ViTriKho> findFirstByKho_IdAndMaViTriIgnoreCase(Integer khoId, String maViTri);
     boolean existsByKho_IdAndMaViTri(Integer khoId, String maViTri);
     boolean existsByMaViTri(String maViTri);
     /** Kho có kệ đang hoạt động: khi đó lô có hàng đạt phải chọn kệ. */

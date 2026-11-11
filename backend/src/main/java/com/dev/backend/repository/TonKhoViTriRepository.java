@@ -24,6 +24,15 @@ public interface TonKhoViTriRepository extends JpaRepository<TonKhoViTri, Intege
     @Query("SELECT COALESCE(SUM(t.soLuong), 0) FROM TonKhoViTri t WHERE t.viTriKho.id = :viTriKhoId")
     Integer sumDangChuaByViTriId(@Param("viTriKhoId") Integer viTriKhoId);
 
+    /** Số đang chứa của kệ, dòng sổ âm (dữ liệu lệch) tính là 0 — không làm phồng sức chứa còn trống (chuyển kệ). */
+    @Query("SELECT COALESCE(SUM(CASE WHEN t.soLuong > 0 THEN t.soLuong ELSE 0 END), 0) FROM TonKhoViTri t WHERE t.viTriKho.id = :viTriKhoId")
+    Integer dangChuaDuong(@Param("viTriKhoId") Integer viTriKhoId);
+
+    /** Như {@link #dangChuaDuong} cho mọi kệ của kho (theo vi_tri_kho.kho_id, kể cả kệ chưa gắn khu vực): [viTriId, số]. */
+    @Query("SELECT t.viTriKho.id, COALESCE(SUM(CASE WHEN t.soLuong > 0 THEN t.soLuong ELSE 0 END), 0) FROM TonKhoViTri t "
+            + "WHERE t.viTriKho.kho.id = :khoId GROUP BY t.viTriKho.id")
+    List<Object[]> dangChuaDuongTheoKho(@Param("khoId") Integer khoId);
+
     @Query("SELECT t.viTriKho.id, COALESCE(SUM(t.soLuong), 0) FROM TonKhoViTri t WHERE t.viTriKho.khuVucKho.kho.id = :khoId GROUP BY t.viTriKho.id")
     List<Object[]> sumDangChuaByKhoIdGroupByViTriId(@Param("khoId") Integer khoId);
 
