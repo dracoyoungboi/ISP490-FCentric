@@ -1133,6 +1133,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         }
 
         List<TikTokProductCreateRequest.CreateSku> skuList = new ArrayList<>();
+        boolean isMultiSku = variants.size() > 1;
+
         for (BienTheSanPham bt : variants) {
             String sku = bt.getMaSku() != null ? bt.getMaSku().trim() : "";
             if (sku.isBlank()) continue;
@@ -1141,18 +1143,29 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     ? bt.getGiaBan() : BigDecimal.valueOf(100000);
             int qty = soTonDayTheoQuyTacDaLuu(kenh.getMaKenh(), khaDungToanChuoi(bt.getId()));
 
-            List<TikTokProductCreateRequest.SalesAttribute> salesAttrs = new ArrayList<>();
-            if (bt.getSize() != null && bt.getSize().getTenSize() != null && !bt.getSize().getTenSize().isBlank()) {
-                salesAttrs.add(TikTokProductCreateRequest.SalesAttribute.builder()
-                        .attributeName("Kích cỡ")
-                        .customValue(bt.getSize().getTenSize().trim())
-                        .build());
-            }
-            if (bt.getMauSac() != null && bt.getMauSac().getTenMau() != null && !bt.getMauSac().getTenMau().isBlank()) {
-                salesAttrs.add(TikTokProductCreateRequest.SalesAttribute.builder()
-                        .attributeName("Màu sắc")
-                        .customValue(bt.getMauSac().getTenMau().trim())
-                        .build());
+            List<TikTokProductCreateRequest.SalesAttribute> salesAttrs = null;
+            // Theo chuẩn TikTok Shop API v202309: Chỉ khai báo sales_attributes khi sản phẩm có từ 2 SKU trở lên
+            if (isMultiSku) {
+                salesAttrs = new ArrayList<>();
+                if (bt.getSize() != null && bt.getSize().getTenSize() != null && !bt.getSize().getTenSize().isBlank()) {
+                    salesAttrs.add(TikTokProductCreateRequest.SalesAttribute.builder()
+                            .name("Kích cỡ")
+                            .customValue(bt.getSize().getTenSize().trim())
+                            .build());
+                }
+                if (bt.getMauSac() != null && bt.getMauSac().getTenMau() != null && !bt.getMauSac().getTenMau().isBlank()) {
+                    salesAttrs.add(TikTokProductCreateRequest.SalesAttribute.builder()
+                            .name("Màu sắc")
+                            .customValue(bt.getMauSac().getTenMau().trim())
+                            .build());
+                }
+                // Nếu sản phẩm nhiều biến thể nhưng thiếu size/màu, dùng mã SKU làm phân loại phân biệt
+                if (salesAttrs.isEmpty()) {
+                    salesAttrs.add(TikTokProductCreateRequest.SalesAttribute.builder()
+                            .name("Phân loại")
+                            .customValue(sku)
+                            .build());
+                }
             }
 
             skuList.add(TikTokProductCreateRequest.CreateSku.builder()
@@ -1165,7 +1178,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                             .warehouseId(warehouseId)
                             .quantity(Math.max(0, qty))
                             .build()))
-                    .salesAttributes(salesAttrs.isEmpty() ? null : salesAttrs)
+                    .salesAttributes(salesAttrs)
                     .build());
         }
 
@@ -1211,7 +1224,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 }
             } else {
                 String errMsg = res != null ? res.getMessage() : "Phản hồi rỗng";
-                log.warn("[TIKTOK-CREATE] TikTok Shop từ chối tạo sản phẩm [{}]: {}", title, errMsg);
+                int errCode = res != null ? res.getCode() : -1;
+                log.warn("[TIKTOK-CREATE] TikTok Shop từ chối tạo sản phẩm [{}]: code={} - {}", title, errCode, errMsg);
             }
         } catch (Exception e) {
             log.error("[TIKTOK-CREATE] Lỗi khi tạo sản phẩm [{}] lên TikTok Shop: {}", title, e.getMessage());
