@@ -145,7 +145,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         }
     }
 
-    private record TikTokCatalogCache(Map<String, String> skuToProductId, Map<String, String> skuToSkuId, Instant expiresAt) {}
+    private record TikTokCatalogCache(Map<String, String> skuToProductId, Map<String, String> skuToSkuId, Instant expiresAt, Instant createdAt) {}
     private final java.util.concurrent.atomic.AtomicReference<TikTokCatalogCache> tikTokCatalogCacheRef = new java.util.concurrent.atomic.AtomicReference<>();
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -371,9 +371,19 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         if (!forceRefresh && cached != null && cached.expiresAt() != null && cached.expiresAt().isAfter(now)) {
             return cached;
         }
+        // Bảo vệ quota: Ngăn chặn bão API quét phân trang nếu cache vừa được nạp cách đây chưa quá 2 phút
+        if (forceRefresh && cached != null && cached.createdAt() != null
+                && java.time.Duration.between(cached.createdAt(), now).toMinutes() < 2) {
+            log.info("[TIKTOK-CATALOG] Bỏ qua forceRefresh vì cache danh mục vừa được cập nhật cách đây < 2 phút (bảo vệ quota API)");
+            return cached;
+        }
         synchronized (this) {
             cached = tikTokCatalogCacheRef.get();
             if (!forceRefresh && cached != null && cached.expiresAt() != null && cached.expiresAt().isAfter(now)) {
+                return cached;
+            }
+            if (forceRefresh && cached != null && cached.createdAt() != null
+                    && java.time.Duration.between(cached.createdAt(), now).toMinutes() < 2) {
                 return cached;
             }
             Map<String, String> skuToProduct = new java.util.concurrent.ConcurrentHashMap<>();
@@ -401,13 +411,13 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                         }
                     }
                 }
-                TikTokCatalogCache newCache = new TikTokCatalogCache(skuToProduct, skuToSku, now.plus(java.time.Duration.ofMinutes(30)));
+                TikTokCatalogCache newCache = new TikTokCatalogCache(skuToProduct, skuToSku, now.plus(java.time.Duration.ofMinutes(30)), now);
                 tikTokCatalogCacheRef.set(newCache);
                 return newCache;
             } catch (Exception ex) {
                 log.warn("[TIKTOK-SYNC] Không làm mới được cache danh mục TikTok Shop: {}", ex.getMessage());
                 if (cached != null) return cached;
-                return new TikTokCatalogCache(Map.of(), Map.of(), now.plus(java.time.Duration.ofMinutes(5)));
+                return new TikTokCatalogCache(Map.of(), Map.of(), now.plus(java.time.Duration.ofMinutes(5)), now);
             }
         }
     }
@@ -1105,18 +1115,36 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         }
 
         int soTonKhoDaDay = 0;
+        Instant now = Instant.now();
+        List<TrangThaiDongBoSanPham> canLuu = new ArrayList<>();
         for (TrangThaiDongBoSanPham tt : danhSach) {
             if (tt.getBienTheSanPham() != null && "thanh_cong".equalsIgnoreCase(tt.getTrangThaiDongBo())) {
                 try {
                     int soDay = tinhSoTonDay(khaDungToanChuoi(tt.getBienTheSanPham().getId()), BigDecimal.valueOf(100), 0, 0);
+                    // Delta Sync: Bỏ qua nếu số tồn khả dụng không đổi và đã đẩy thành công trước đó (bảo vệ quota)
+                    if (tt.getSoLuongDaDay() != null && tt.getSoLuongDaDay().equals(soDay)) {
+                        continue;
+                    }
                     KetQuaGuiTon kq = guiTonLenTikTok(tt, soDay);
                     if (kq != null && kq.thanhCong()) {
                         soTonKhoDaDay++;
+                        tt.setSoLuongDaDay(soDay);
+                        tt.setNgayDayTonCuoi(now);
+                        tt.setChiTietLoi(null);
+                        canLuu.add(tt);
+                    } else if (kq != null && !kq.thanhCong()) {
+                        tt.setTrangThaiDongBo("that_bai");
+                        tt.setChiTietLoi(kq.lyDo());
+                        tt.setNgayDongBoCuoi(now);
+                        canLuu.add(tt);
                     }
                 } catch (Exception ex) {
                     log.warn("Không đẩy được tồn ban đầu cho SKU TikTok Shop {}: {}", tt.getMaSanPhamKenh(), ex.getMessage());
                 }
             }
+        }
+        if (!canLuu.isEmpty()) {
+            trangThaiDongBoSanPhamRepository.saveAll(canLuu);
         }
 
         ghiNhatKy(kenh.getId(), IHanhDong.cap_nhat_kenh_ban,
@@ -1343,7 +1371,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         if (OmnichannelOrderSyncJob.isLazada(kenh.getMaKenh())) {
             return tuDongLienKetLazada(kenh);
         }
-        if ("TIKTOK".equalsIgnoreCase(kenh.getMaKenh())) {
+        if (OmnichannelOrderSyncJob.isTikTok(kenh.getMaKenh())) {
             return tuDongLienKetTikTok(kenh);
         }
         if (OmnichannelOrderSyncJob.isShopee(kenh.getMaKenh())) {
@@ -1970,9 +1998,21 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             }
 
             List<TikTokInventoryUpdateRequest.SkuInventory> skuList = new ArrayList<>();
+            List<DongCanCapNhat> validItems = new ArrayList<>();
             for (DongCanCapNhat item : batch) {
                 String actualSkuId = skuToSkuId.getOrDefault(item.sellerSku(),
                         skuToSkuId.getOrDefault(item.skuSan(), item.skuSan()));
+                boolean isValidSkuId = actualSkuId != null && actualSkuId.matches("\\d+");
+                if (!isValidSkuId) {
+                    String errorMsg = ThongDiep.vi("hienThiKenhPos.tiktokKhongTimThaySkuId", item.sellerSku());
+                    item.dong().setTrangThaiDongBo("that_bai");
+                    item.dong().setChiTietLoi(errorMsg);
+                    item.dong().setNgayDongBoCuoi(now);
+                    soLoi++;
+                    theoDoi.daDay(item.sellerSku(), tenHienThi(item.dong().getBienTheSanPham()), false, errorMsg);
+                    continue;
+                }
+                validItems.add(item);
                 skuList.add(TikTokInventoryUpdateRequest.SkuInventory.builder()
                         .id(actualSkuId)
                         .inventory(List.of(TikTokInventoryUpdateRequest.WarehouseQuantity.builder()
@@ -1980,6 +2020,12 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                                 .quantity(Math.max(0, item.soDay()))
                                 .build()))
                         .build());
+            }
+
+            if (skuList.isEmpty()) {
+                List<TrangThaiDongBoSanPham> batchEntities = batch.stream().map(DongCanCapNhat::dong).toList();
+                trangThaiDongBoSanPhamRepository.saveAll(batchEntities);
+                continue;
             }
 
             TikTokInventoryUpdateRequest updateReq = TikTokInventoryUpdateRequest.builder()
@@ -2026,7 +2072,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             }
 
             if (capNhatThanhCong) {
-                for (DongCanCapNhat item : batch) {
+                for (DongCanCapNhat item : validItems) {
                     item.dong().setTrangThaiDongBo("thanh_cong");
                     item.dong().setChiTietLoi(null);
                     item.dong().setSoLuongDaDay(item.soDay());
@@ -2036,7 +2082,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 }
             } else {
                 String errorMsg = loiKenh != null ? loiKenh : "Cập nhật tồn thất bại trên TikTok Shop";
-                for (DongCanCapNhat item : batch) {
+                for (DongCanCapNhat item : validItems) {
                     item.dong().setTrangThaiDongBo("that_bai");
                     item.dong().setChiTietLoi(errorMsg);
                     soLoi++;
@@ -3789,27 +3835,11 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             }
         }
 
-        // Nếu chưa tìm thấy trong cache, thử làm mới cache 1 lần (dành cho SKU vừa tạo mới trên Seller Center)
-        if (prodId == null) {
-            catalog = layHoacCapNhatTikTokCatalog(appKey, appSecret, token, cipher, true);
-            prodId = catalog.skuToProductId().get(maSku.trim().toLowerCase());
-            if (prodId == null) prodId = catalog.skuToProductId().get(maSku.trim());
-            if (prodId == null && dong.getMaSanPhamKenh() != null) {
-                prodId = catalog.skuToProductId().get(dong.getMaSanPhamKenh().trim().toLowerCase());
-                if (prodId == null) prodId = catalog.skuToProductId().get(dong.getMaSanPhamKenh().trim());
-            }
-            if (actualSkuId == null) {
-                actualSkuId = catalog.skuToSkuId().get(maSku.trim().toLowerCase());
-                if (actualSkuId == null) actualSkuId = catalog.skuToSkuId().get(maSku.trim());
-            }
-        }
-
         if (prodId == null || !prodId.matches("\\d+")) {
             return KetQuaGuiTon.loiSku(ThongDiep.vi("hienThiKenhPos.tiktokKhongTimThayProductId", maSku));
         }
-        if (actualSkuId == null || actualSkuId.isBlank()) {
-            actualSkuId = (dong.getMaSanPhamKenh() != null && !dong.getMaSanPhamKenh().isBlank())
-                    ? dong.getMaSanPhamKenh().trim() : maSku;
+        if (actualSkuId == null || !actualSkuId.matches("\\d+")) {
+            return KetQuaGuiTon.loiSku(ThongDiep.vi("hienThiKenhPos.tiktokKhongTimThaySkuId", maSku));
         }
 
         TikTokInventoryUpdateRequest updateReq = TikTokInventoryUpdateRequest.builder()
