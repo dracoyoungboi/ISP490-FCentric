@@ -272,6 +272,11 @@ public interface DoanhThuReportRepository extends JpaRepository<DonBanHang, Inte
             FROM thanh_toan_don_ban t
             JOIN don_ban_hang d ON d.id = t.don_ban_hang_id
             WHERE t.trang_thai = 'HIEU_LUC' AND t.thoi_diem_thu >= :tu AND t.thoi_diem_thu < :den
+            UNION ALL
+            -- Trả hàng tại quầy: cửa hàng nhận trả (B) chi tiền hoàn (GBR-RET-06)
+            SELECT r.ngay_tao, r.kho_nhan_id, 'POS', 0, 0, 0, r.tong_tien_hoan, 1
+            FROM phieu_tra_hang r
+            WHERE r.ngay_tao >= :tu AND r.ngay_tao < :den
         ) x
         WHERE (:tatCaKho = TRUE OR x.kho_id IN (:khoIds))
         GROUP BY ngay, tuan, nguon
@@ -353,6 +358,17 @@ public interface DoanhThuReportRepository extends JpaRepository<DonBanHang, Inte
                                                       WHERE p2.don_ban_hang_id = dbh.id AND p2.trang_thai = 3)) >= :tu
                     AND COALESCE(dbh.ngay_giao_hang, (SELECT MAX(p2.ngay_xuat) FROM phieu_xuat_kho p2
                                                       WHERE p2.don_ban_hang_id = dbh.id AND p2.trang_thai = 3)) < :den))
+            UNION ALL
+            -- Trả hàng tại quầy: giảm doanh thu kênh quầy của cửa hàng bán (A) theo ngày trả; giá vốn giảm phần hàng Đạt
+            -- (quay lại kho), hàng Lỗi vẫn tính giá vốn (tổn thất)
+            SELECT 'POS', NULL, -r.tong_tien_hoan, -COALESCE((
+                        SELECT SUM(l.so_luong * l.gia_von)
+                        FROM chi_tiet_phieu_tra_hang c
+                        JOIN chi_tiet_phieu_tra_hang_lo l ON l.chi_tiet_phieu_tra_hang_id = c.id
+                        WHERE c.phieu_tra_hang_id = r.id AND c.tinh_trang = 'dat'), 0), 0, 0
+            FROM phieu_tra_hang r
+            WHERE r.ngay_tao >= :tu AND r.ngay_tao < :den
+              AND (:tatCaKho = TRUE OR r.kho_ban_id IN (:khoIds))
         ) x
         GROUP BY x.kenh
         """,
@@ -366,7 +382,7 @@ public interface DoanhThuReportRepository extends JpaRepository<DonBanHang, Inte
      * người lập, còn lại = id người dùng (đơn tại quầy: thu ngân; đơn từ báo giá: người lập báo giá).
      */
     @Query(value = """
-        SELECT x.nguoi, MAX(x.ho_ten), SUM(x.doanh_thu), SUM(x.gia_von), COUNT(*)
+        SELECT x.nguoi, MAX(x.ho_ten), SUM(x.doanh_thu), SUM(x.gia_von), SUM(x.so_don)
         FROM (
             SELECT CASE WHEN kb.id IS NOT NULL AND COALESCE(kb.ma_kenh, '') <> 'POS' THEN -1
                         ELSE COALESCE(dbh.nguoi_tao_id, 0) END AS nguoi,
@@ -376,7 +392,8 @@ public interface DoanhThuReportRepository extends JpaRepository<DonBanHang, Inte
                         SELECT SUM(ctpx.so_luong_xuat * ctpx.gia_von)
                         FROM phieu_xuat_kho pxk
                         JOIN chi_tiet_phieu_xuat_kho ctpx ON ctpx.phieu_xuat_kho_id = pxk.id AND ctpx.lo_hang_id IS NOT NULL
-                        WHERE pxk.don_ban_hang_id = dbh.id AND pxk.trang_thai = 3), 0) AS gia_von
+                        WHERE pxk.don_ban_hang_id = dbh.id AND pxk.trang_thai = 3), 0) AS gia_von,
+                   1                                           AS so_don
             FROM don_ban_hang dbh
             LEFT JOIN kenh_ban_hang kb ON kb.id = dbh.kenh_ban_id
             LEFT JOIN nguoi_dung nd    ON nd.id = dbh.nguoi_tao_id
@@ -384,12 +401,47 @@ public interface DoanhThuReportRepository extends JpaRepository<DonBanHang, Inte
               AND dbh.trang_thai IN (3, 5)
               AND dbh.ngay_giao_hang >= :tu AND dbh.ngay_giao_hang < :den
               AND (:tatCaKho = TRUE OR dbh.kho_xuat_id IN (:khoIds))
+            UNION ALL
+            -- Trả hàng tại quầy: trừ vào thu ngân đã bán đơn gốc, theo ngày trả (như theoKenh)
+            SELECT COALESCE(dbh.nguoi_tao_id, 0), nd.ho_ten, -r.tong_tien_hoan, -COALESCE((
+                        SELECT SUM(l.so_luong * l.gia_von)
+                        FROM chi_tiet_phieu_tra_hang c
+                        JOIN chi_tiet_phieu_tra_hang_lo l ON l.chi_tiet_phieu_tra_hang_id = c.id
+                        WHERE c.phieu_tra_hang_id = r.id AND c.tinh_trang = 'dat'), 0), 0
+            FROM phieu_tra_hang r
+            JOIN don_ban_hang dbh   ON dbh.id = r.don_ban_hang_id
+            LEFT JOIN nguoi_dung nd ON nd.id = dbh.nguoi_tao_id
+            WHERE r.ngay_tao >= :tu AND r.ngay_tao < :den
+              AND (:tatCaKho = TRUE OR r.kho_ban_id IN (:khoIds))
         ) x
         GROUP BY x.nguoi
         """,
             nativeQuery = true)
     List<Object[]> theoNhanVien(@Param("tu") LocalDate tu, @Param("den") LocalDate den,
                                 @Param("tatCaKho") boolean tatCaKho, @Param("khoIds") Collection<Integer> khoIds);
+
+    /**
+     * Hàng trả tại quầy theo ngày lập phiếu trả, tính cho cửa hàng BÁN (kho_ban_id — GBR-RET-06: cửa hàng A chịu giảm
+     * doanh thu): [ngày yyyy-MM-dd, tiền hoàn, giá vốn phần hàng Đạt]. Khoảng [tu, den]; khoId null = mọi kho. Dịch vụ
+     * báo cáo trừ các số này khỏi doanh thu / giá vốn của kỳ chứa ngày trả.
+     */
+    @Query(value = """
+        SELECT DATE_FORMAT(r.ngay_tao, '%Y-%m-%d') AS ngay,
+               SUM(r.tong_tien_hoan)                AS tienHoan,
+               SUM(COALESCE((SELECT SUM(l.so_luong * l.gia_von)
+                               FROM chi_tiet_phieu_tra_hang c
+                               JOIN chi_tiet_phieu_tra_hang_lo l ON l.chi_tiet_phieu_tra_hang_id = c.id
+                              WHERE c.phieu_tra_hang_id = r.id AND c.tinh_trang = 'dat'), 0)) AS giaVonDat
+        FROM phieu_tra_hang r
+        WHERE r.ngay_tao >= :tuNgay
+          AND r.ngay_tao < DATE_ADD(:denNgay, INTERVAL 1 DAY)
+          AND (:khoId IS NULL OR r.kho_ban_id = :khoId)
+        GROUP BY ngay
+        """,
+            nativeQuery = true)
+    List<Object[]> hangTraTheoNgay(@Param("tuNgay") LocalDate tuNgay,
+                                   @Param("denNgay") LocalDate denNgay,
+                                   @Param("khoId") Integer khoId);
 
     /** Phiếu chuyển khoản còn hiệu lực chưa đối chiếu sao kê (lọc theo kho của phiếu). */
     @Query(value = """

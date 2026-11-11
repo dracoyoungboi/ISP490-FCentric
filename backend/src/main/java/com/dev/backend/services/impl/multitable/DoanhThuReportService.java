@@ -35,30 +35,101 @@ public class DoanhThuReportService {
     private final XuatBaoCaoService xuatBaoCaoService;
 
     public List<DoanhThuChartDTO> layBaoCaoTheoNgay(LocalDate tuNgay, LocalDate denNgay, Integer khoId) {
-        return tinhTyLe(repo.baoCaoTheoNgay(tuNgay, denNgay, khoId));
+        return tinhTyLe(bcNgay(tuNgay, denNgay, khoId));
     }
 
     public List<DoanhThuChartDTO> layBaoCaoTheoTuan(Integer nam, Integer khoId) {
-        return tinhTyLe(repo.baoCaoTheoTuan(nam, khoId));
+        return tinhTyLe(bcTuan(nam, khoId));
     }
 
     public List<DoanhThuChartDTO> layBaoCaoTheoThang(Integer nam, Integer khoId) {
-        return tinhTyLe(repo.baoCaoTheoThang(nam, khoId));
+        return tinhTyLe(bcThang(nam, khoId));
     }
 
     public List<DoanhThuChartDTO> layBaoCaoTheoNam(Integer tuNam, Integer denNam, Integer khoId) {
-        return tinhTyLe(repo.baoCaoTheoNam(tuNam, denNam, khoId));
+        return tinhTyLe(bcNam(tuNam, denNam, khoId));
     }
 
     public List<DoanhThuChartDTO> laySoSanhCungKy(Integer nam, Integer thang, Integer khoId) {
         // Tính tháng trước
         LocalDate thangHienTai = LocalDate.of(nam, thang, 1);
         LocalDate thangTruoc   = thangHienTai.minusMonths(1);
-        return tinhTyLe(repo.soSanhCungKy(
+        return tinhTyLe(bcSoSanh(
                 nam, thang,
                 thangTruoc.getYear(), thangTruoc.getMonthValue(),
                 khoId
         ));
+    }
+
+    // ================= Trừ hàng trả tại quầy (GBR-RET-06) =================
+    // Các câu doanh thu theo kỳ chỉ cộng đơn bán; phiếu trả tại quầy trừ doanh thu (tiền hoàn) và giá vốn (phần hàng Đạt
+    // quay lại kho) vào kỳ chứa NGÀY TRẢ, cho cửa hàng BÁN đơn gốc. Kỳ chỉ có hàng trả (không có đơn) vẫn hiện, số âm.
+
+    private List<DoanhThuChartDTO> bcNgay(LocalDate tuNgay, LocalDate denNgay, Integer khoId) {
+        return truHangTra(repo.baoCaoTheoNgay(tuNgay, denNgay, khoId), tuNgay, denNgay, khoId,
+                d -> new NhanKy(String.format("%02d/%02d", d.getDayOfMonth(), d.getMonthValue()), d.getDayOfMonth()));
+    }
+
+    private List<DoanhThuChartDTO> bcTuan(Integer nam, Integer khoId) {
+        return truHangTra(repo.baoCaoTheoTuan(nam, khoId), LocalDate.of(nam, 1, 1), LocalDate.of(nam, 12, 31), khoId,
+                d -> {
+                    int tuan = d.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR); // = WEEK(ngay, 3) của MySQL
+                    return new NhanKy("Tuần " + tuan, tuan);
+                });
+    }
+
+    private List<DoanhThuChartDTO> bcThang(Integer nam, Integer khoId) {
+        return truHangTra(repo.baoCaoTheoThang(nam, khoId), LocalDate.of(nam, 1, 1), LocalDate.of(nam, 12, 31), khoId,
+                d -> new NhanKy("T" + d.getMonthValue() + "/" + d.getYear(), d.getMonthValue()));
+    }
+
+    private List<DoanhThuChartDTO> bcNam(Integer tuNam, Integer denNam, Integer khoId) {
+        return truHangTra(repo.baoCaoTheoNam(tuNam, denNam, khoId), LocalDate.of(tuNam, 1, 1),
+                LocalDate.of(denNam, 12, 31), khoId, d -> new NhanKy(String.valueOf(d.getYear()), d.getYear()));
+    }
+
+    private List<DoanhThuChartDTO> bcSoSanh(Integer nam, Integer thang, Integer namTruoc, Integer thangTruoc,
+                                            Integer khoId) {
+        List<DoanhThuChartDTO> ds = repo.soSanhCungKy(nam, thang, namTruoc, thangTruoc, khoId);
+        ds = truHangTra(ds, LocalDate.of(nam, thang, 1), LocalDate.of(nam, thang, 1).plusMonths(1).minusDays(1), khoId,
+                d -> new NhanKy("T" + thang + "/" + nam, thang));
+        return truHangTra(ds, LocalDate.of(namTruoc, thangTruoc, 1),
+                LocalDate.of(namTruoc, thangTruoc, 1).plusMonths(1).minusDays(1), khoId,
+                d -> new NhanKy("T" + thangTruoc + "/" + namTruoc, thangTruoc));
+    }
+
+    /**
+     * Trừ hàng trả có ngày trả trong [tuNgay, denNgay] khỏi dòng cùng nhãn kỳ ({@code nhanCua} phải dựng nhãn và khóa
+     * sắp xếp ĐÚNG như câu SQL của kỳ đó). Không có hàng trả thì trả nguyên danh sách.
+     */
+    private List<DoanhThuChartDTO> truHangTra(List<DoanhThuChartDTO> ds, LocalDate tuNgay, LocalDate denNgay,
+                                             Integer khoId, Function<LocalDate, NhanKy> nhanCua) {
+        List<Object[]> tra = repo.hangTraTheoNgay(tuNgay, denNgay, khoId);
+        if (tra == null || tra.isEmpty()) return ds;
+        Map<String, DoanhThuChartDTO> theoNhan = new LinkedHashMap<>();
+        for (DoanhThuChartDTO d : ds) theoNhan.put(d.getNhanThoiGian(), d);
+        boolean themDong = false;
+        for (Object[] r : tra) {
+            NhanKy nhan = nhanCua.apply(LocalDate.parse(String.valueOf(r[0])));
+            BigDecimal hoan = so(r[1]);
+            BigDecimal giaVon = so(r[2]);
+            DoanhThuChartDTO d = theoNhan.get(nhan.nhan());
+            if (d == null) {
+                d = new DoanhThuChartDTO(nhan.nhan(), BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
+                        BigDecimal.ZERO, 0L, nhan.sortKey());
+                theoNhan.put(nhan.nhan(), d);
+                themDong = true;
+            }
+            d.setTienHang(so(d.getTienHang()).subtract(hoan));
+            d.setDoanhThu(so(d.getDoanhThu()).subtract(hoan));
+            d.setGiaVon(so(d.getGiaVon()).subtract(giaVon));
+            d.setLoiNhuan(so(d.getDoanhThu()).subtract(so(d.getGiaVon())));
+        }
+        List<DoanhThuChartDTO> kq = new ArrayList<>(theoNhan.values());
+        if (themDong) {
+            kq.sort(Comparator.comparing(DoanhThuChartDTO::getSortKey, Comparator.nullsLast(Comparator.naturalOrder())));
+        }
+        return kq;
     }
 
     private static final ZoneId VN = ZoneId.of("Asia/Ho_Chi_Minh");
@@ -145,8 +216,8 @@ public class DoanhThuReportService {
         List<DoanhThuTongHopDTO.Ky> ky = new ArrayList<>();
         switch (loai) {
             case "ngay" -> {
-                Map<String, DoanhThuChartDTO> nay = theoNhan(gop(pv, k -> repo.baoCaoTheoNgay(tu, den, k)));
-                Map<String, DoanhThuChartDTO> truoc = theoNhan(gop(pv, k -> repo.baoCaoTheoNgay(tuTruoc, denTruoc, k)));
+                Map<String, DoanhThuChartDTO> nay = theoNhan(gop(pv, k -> bcNgay(tu, den, k)));
+                Map<String, DoanhThuChartDTO> truoc = theoNhan(gop(pv, k -> bcNgay(tuTruoc, denTruoc, k)));
                 int i = 0;
                 for (LocalDate d = tu; !d.isAfter(denDayDu); d = d.plusDays(1)) {
                     String nhan = String.format("%02d/%02d", d.getDayOfMonth(), d.getMonthValue());
@@ -155,8 +226,8 @@ public class DoanhThuReportService {
                 }
             }
             case "thang" -> {
-                Map<Integer, DoanhThuChartDTO> nay = theoSortKey(gop(pv, k -> repo.baoCaoTheoThang(nam, k)));
-                Map<Integer, DoanhThuChartDTO> truoc = theoSortKey(gop(pv, k -> repo.baoCaoTheoThang(nam - 1, k)));
+                Map<Integer, DoanhThuChartDTO> nay = theoSortKey(gop(pv, k -> bcThang(nam, k)));
+                Map<Integer, DoanhThuChartDTO> truoc = theoSortKey(gop(pv, k -> bcThang(nam - 1, k)));
                 for (int m = 1; m <= 12; m++) {
                     LocalDate dau = LocalDate.of(nam, m, 1);
                     LocalDate cuoi = dau.withDayOfMonth(dau.lengthOfMonth());
@@ -164,15 +235,15 @@ public class DoanhThuReportService {
                     DoanhThuChartDTO t = chuaToi ? null : truoc.get(m);
                     // Tháng đang chạy: so với đúng số ngày đã qua của tháng đó năm trước; tháng chưa tới không so
                     if (!chuaToi && cuoi.isAfter(homNay)) {
-                        t = tongDong(gop(pv, k -> repo.baoCaoTheoNgay(dau.minusYears(1), homNay.minusYears(1), k)));
+                        t = tongDong(gop(pv, k -> bcNgay(dau.minusYears(1), homNay.minusYears(1), k)));
                     }
                     ky.add(dongKy("T" + m + "/" + nam, m, dau, cuoi.isAfter(homNay) && !chuaToi ? homNay : cuoi,
                             chuaToi ? null : nay.get(m), t, chuaToi));
                 }
             }
             default -> {
-                Map<Integer, DoanhThuChartDTO> nay = theoSortKey(gop(pv, k -> repo.baoCaoTheoNam(tuNam, denNam, k)));
-                Map<Integer, DoanhThuChartDTO> truoc = theoSortKey(gop(pv, k -> repo.baoCaoTheoNam(tuNam - 1, denNam - 1, k)));
+                Map<Integer, DoanhThuChartDTO> nay = theoSortKey(gop(pv, k -> bcNam(tuNam, denNam, k)));
+                Map<Integer, DoanhThuChartDTO> truoc = theoSortKey(gop(pv, k -> bcNam(tuNam - 1, denNam - 1, k)));
                 for (int y = tuNam; y <= denNam; y++) {
                     LocalDate dau = LocalDate.of(y, 1, 1);
                     LocalDate cuoi = LocalDate.of(y, 12, 31);
@@ -180,7 +251,7 @@ public class DoanhThuReportService {
                     DoanhThuChartDTO t = chuaToi ? null : truoc.get(y - 1);
                     // Năm đang chạy: so với cùng phần đã qua của năm trước; năm chưa tới không so
                     if (!chuaToi && cuoi.isAfter(homNay)) {
-                        t = tongDong(gop(pv, k -> repo.baoCaoTheoNgay(dau.minusYears(1), homNay.minusYears(1), k)));
+                        t = tongDong(gop(pv, k -> bcNgay(dau.minusYears(1), homNay.minusYears(1), k)));
                     }
                     ky.add(dongKy(String.valueOf(y), y, dau, cuoi.isAfter(homNay) && !chuaToi ? homNay : cuoi,
                             chuaToi ? null : nay.get(y), t, chuaToi));
@@ -190,8 +261,8 @@ public class DoanhThuReportService {
         DoanhThuTongHopDTO kq = DoanhThuTongHopDTO.builder()
                 .loai(loai)
                 .tuNgay(tu).denNgay(den).tuNgayCungKy(tuTruoc).denNgayCungKy(denTruoc)
-                .kyNay(tong(tuongLai ? List.of() : gop(pv, k -> repo.baoCaoTheoNgay(tu, den, k))))
-                .cungKy(tong(tuongLai ? List.of() : gop(pv, k -> repo.baoCaoTheoNgay(tuTruoc, denTruoc, k))))
+                .kyNay(tong(tuongLai ? List.of() : gop(pv, k -> bcNgay(tu, den, k))))
+                .cungKy(tong(tuongLai ? List.of() : gop(pv, k -> bcNgay(tuTruoc, denTruoc, k))))
                 .theoKhoPhuTrach(pv.theoKhoPhuTrach())
                 .theoKy(ky)
                 .coGiaVon(true)
@@ -224,7 +295,9 @@ public class DoanhThuReportService {
             k.setSoDonCungKy(dem(r[4]));
         }
         List<DoanhThuTongHopDTO.Kenh> ds = new ArrayList<>(theoMa.values().stream()
-                .filter(k -> k.getSoDon() > 0 || k.getSoDonHoan() > 0 || k.getSoDonCungKy() > 0)
+                // doanh thu ≠ 0: kỳ chỉ có hàng trả tại quầy (số âm) vẫn hiện để tổng các kênh khớp doanh thu kỳ
+                .filter(k -> k.getSoDon() > 0 || k.getSoDonHoan() > 0 || k.getSoDonCungKy() > 0
+                        || k.getDoanhThu().signum() != 0)
                 .toList());
         ds.sort(Comparator.comparing(DoanhThuTongHopDTO.Kenh::getDoanhThu).reversed()
                 .thenComparing(Comparator.comparing(DoanhThuTongHopDTO.Kenh::getDoanhThuCungKy).reversed())
