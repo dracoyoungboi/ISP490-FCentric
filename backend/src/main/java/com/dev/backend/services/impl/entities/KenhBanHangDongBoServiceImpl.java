@@ -1380,7 +1380,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                                 }
 
                                 attributes.add(TikTokProductCreateRequest.ProductAttribute.builder()
-                                        .attributeId(attrId)
+                                        .id(attrId)
                                         .values(List.of(TikTokProductCreateRequest.AttributeValue.builder()
                                                 .id((valId != null && !valId.isBlank()) ? valId : null)
                                                 .name(valName)
@@ -1403,7 +1403,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
                                 if (valName != null || valId != null) {
                                     attributes.add(TikTokProductCreateRequest.ProductAttribute.builder()
-                                            .attributeId(attrId)
+                                            .id(attrId)
                                             .values(List.of(TikTokProductCreateRequest.AttributeValue.builder()
                                                     .id((valId != null && !valId.isBlank()) ? valId : null)
                                                     .name(valName)
@@ -1424,9 +1424,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         if (!hasCountryOfOrigin) {
             log.info("[TIKTOK-ATTR] Bổ sung fallback thuộc tính bắt buộc Quốc gia xuất xứ (ID: 100149 = 'Việt Nam')");
             attributes.add(TikTokProductCreateRequest.ProductAttribute.builder()
-                    .attributeId("100149")
+                    .id("100149")
                     .values(List.of(TikTokProductCreateRequest.AttributeValue.builder()
-                            .id(null)
+                            .id("1000854")
                             .name("Việt Nam")
                             .build()))
                     .build());
