@@ -42,6 +42,9 @@ public class TikTokProductCreateRequest implements Serializable {
     @JsonProperty("package_dimensions")
     PackageDimensions packageDimensions;
 
+    @JsonProperty("product_attributes")
+    List<ProductAttribute> productAttributes;
+
     @JsonProperty("skus")
     List<CreateSku> skus;
 
@@ -179,5 +182,35 @@ public class TikTokProductCreateRequest implements Serializable {
 
         @JsonProperty("quantity")
         Integer quantity;
+    }
+
+    @AllArgsConstructor
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public static class ProductAttribute implements Serializable {
+        @JsonProperty("attribute_id")
+        String attributeId;
+
+        @JsonProperty("values")
+        List<AttributeValue> values;
+    }
+
+    @AllArgsConstructor
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public static class AttributeValue implements Serializable {
+        @JsonProperty("id")
+        String id;
+
+        @JsonProperty("name")
+        String name;
     }
 }
