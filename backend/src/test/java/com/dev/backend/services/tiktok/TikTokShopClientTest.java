@@ -227,4 +227,87 @@ class TikTokShopClientTest {
         assertTrue(json.contains("\"value_name\":\"XL\""), "JSON phải chứa value_name cho biến thể thứ hai");
         assertTrue(json.contains("\"value_name\":\"Đen\""), "JSON phải chứa value_name cho Màu sắc");
     }
+
+    @Test
+    @DisplayName("getCategoryAttributes: gọi GET đúng đường dẫn v202309 có category_version=v2 và locale")
+    void getCategoryAttributes_thanhCong() {
+        String appKey = "test_app_key";
+        String appSecret = "test_app_secret";
+        String accessToken = "test_access_token";
+        String shopCipher = "ROW_TEST_CIPHER";
+        String categoryId = "603729";
+
+        String mockResponse = """
+                {
+                    "code": 0,
+                    "message": "success",
+                    "request_id": "req_attr_123",
+                    "data": {
+                        "attributes": [
+                            {
+                                "id": "100149",
+                                "name": "Quốc gia xuất xứ",
+                                "is_mandatory": true,
+                                "type": "SINGLE_SELECT",
+                                "values": [
+                                    {"id": "1000100", "name": "Việt Nam"},
+                                    {"id": "1000101", "name": "Trung Quốc"}
+                                ]
+                            }
+                        ]
+                    }
+                }
+                """;
+
+        ArgumentCaptor<String> urlCaptor = ArgumentCaptor.forClass(String.class);
+        when(restTemplate.exchange(urlCaptor.capture(), eq(HttpMethod.GET), any(), eq(String.class)))
+                .thenReturn(new ResponseEntity<>(mockResponse, HttpStatus.OK));
+
+        com.fasterxml.jackson.databind.JsonNode res = client.getCategoryAttributes(appKey, appSecret, accessToken, shopCipher, categoryId, "vi-VN");
+
+        assertNotNull(res);
+        assertEquals(0, res.path("code").asInt());
+        assertEquals(1, res.path("data").path("attributes").size());
+        assertEquals("100149", res.path("data").path("attributes").get(0).path("id").asText());
+
+        String capturedUrl = urlCaptor.getValue();
+        assertTrue(capturedUrl.contains("/product/202309/categories/603729/attributes"));
+        assertTrue(capturedUrl.contains("category_version=v2"));
+        assertTrue(capturedUrl.contains("locale=vi-VN"));
+        assertTrue(capturedUrl.contains("shop_cipher=" + shopCipher));
+        assertTrue(capturedUrl.contains("sign="));
+    }
+
+    @Test
+    @DisplayName("createProduct: payload chứa product_attributes với thuộc tính bắt buộc Quốc gia xuất xứ 100149")
+    void createProduct_coProductAttributesQuocGiaXuatXu() throws Exception {
+        TikTokProductCreateRequest payload = TikTokProductCreateRequest.builder()
+                .title("Nike Sportswear - Thời trang FCentric chính hãng")
+                .description("<p>Mô tả áo ngực thể thao</p>")
+                .categoryId("603729")
+                .categoryVersion("v2")
+                .brandId("0")
+                .mainImages(List.of(new TikTokProductCreateRequest.ImageUri("tos-maliva-i-o260ufnz6q-us/nike_sportswear")))
+                .productAttributes(List.of(
+                        TikTokProductCreateRequest.ProductAttribute.builder()
+                                .attributeId("100149")
+                                .values(List.of(TikTokProductCreateRequest.AttributeValue.builder()
+                                        .id("1000100")
+                                        .name("Việt Nam")
+                                        .build()))
+                                .build()
+                ))
+                .skus(List.of(
+                        TikTokProductCreateRequest.CreateSku.builder()
+                                .sellerSku("NIKE-SP-01")
+                                .price(TikTokProductCreateRequest.SkuPrice.builder().amount("450000").currency("VND").build())
+                                .build()
+                ))
+                .build();
+
+        String json = objectMapper.writeValueAsString(payload);
+        assertTrue(json.contains("\"product_attributes\":[{\"attribute_id\":\"100149\""), "Phải chứa product_attributes với attribute_id=100149");
+        assertTrue(json.contains("\"name\":\"Việt Nam\""), "Phải chứa giá trị Việt Nam");
+        assertTrue(json.contains("\"id\":\"1000100\""), "Phải chứa ID giá trị 1000100");
+    }
 }
