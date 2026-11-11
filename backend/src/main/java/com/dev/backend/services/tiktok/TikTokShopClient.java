@@ -65,6 +65,11 @@ public class TikTokShopClient {
         this.objectMapper = new ObjectMapper();
     }
 
+    public TikTokShopClient(RestTemplate restTemplate, ObjectMapper objectMapper) {
+        this.restTemplate = restTemplate;
+        this.objectMapper = objectMapper != null ? objectMapper : new ObjectMapper();
+    }
+
     public RestTemplate getRestTemplate() {
         return restTemplate;
     }
