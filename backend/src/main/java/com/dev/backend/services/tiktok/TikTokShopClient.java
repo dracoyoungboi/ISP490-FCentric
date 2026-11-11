@@ -12,8 +12,10 @@ import com.dev.backend.dto.response.customize.TikTokProductSearchResponse;
 import com.dev.backend.dto.response.customize.TikTokSkuDto;
 import com.dev.backend.dto.request.TikTokInventoryUpdateRequest;
 import com.dev.backend.dto.request.TikTokOrderSearchRequest;
-import com.dev.backend.dto.response.customize.TikTokOrderSearchResponse;
+import com.dev.backend.dto.request.TikTokProductCreateRequest;
 import com.dev.backend.dto.response.customize.TikTokInventoryUpdateResponse;
+import com.dev.backend.dto.response.customize.TikTokOrderSearchResponse;
+import com.dev.backend.dto.response.customize.TikTokProductCreateResponse;
 import com.dev.backend.exception.customize.LoiCoMaException;
 import com.dev.backend.exception.customize.MaLoi;
 import com.dev.backend.utils.TikTokShopSigner;
@@ -353,6 +355,114 @@ public class TikTokShopClient {
             response.setData(data);
         }
         return response;
+    }
+
+    /**
+     * Tạo mới sản phẩm từ FCentric lên TikTok Shop Open Platform (v202309).
+     * Endpoint: POST /product/202309/products
+     * Query: app_key, timestamp, shop_cipher, sign
+     * Header: x-tts-access-token, Content-Type: application/json
+     * Body: JSON TikTokProductCreateRequest
+     */
+    public TikTokProductCreateResponse createProduct(String appKey, String appSecret, String accessToken,
+                                                     String shopCipher, TikTokProductCreateRequest payload) {
+        if (accessToken == null || accessToken.isBlank()) {
+            throw new LoiThamSoException(ThongDiep.of("kenhBan.accessTokenTrongKhiCapNhatTonTikTok"));
+        }
+        if (shopCipher == null || shopCipher.isBlank()) {
+            throw new LoiThamSoException(ThongDiep.of("kenhBan.shopCipherTrongKhiCapNhatTonTikTok"));
+        }
+        if (payload == null) {
+            throw new LoiThamSoException(ThongDiep.of("kenhBan.tiktokPhanHoiRong"));
+        }
+
+        String apiPath = TikTokShopConstants.PATH_PRODUCTS_CREATE;
+        String body;
+        try {
+            body = objectMapper.writeValueAsString(payload);
+        } catch (Exception e) {
+            throw new LoiThamSoException(ThongDiep.of("kenhBan.loiSerializeCapNhatTon", e.getMessage()), e);
+        }
+
+        String fullSignedUrl = buildUrlWithSign(TikTokShopConstants.BASE_URL, apiPath, Map.of(), body, appKey, appSecret, shopCipher);
+        JsonNode root = executePost(fullSignedUrl, body, accessToken);
+
+        TikTokProductCreateResponse response = new TikTokProductCreateResponse();
+        response.setCode(root.path("code").asInt(0));
+        response.setMessage(root.path("message").asText(""));
+        response.setRequestId(root.path("request_id").asText(""));
+
+        JsonNode dataNode = root.path("data");
+        if (dataNode.isObject()) {
+            TikTokProductCreateResponse.ProductCreateData data = new TikTokProductCreateResponse.ProductCreateData();
+            data.setProductId(dataNode.path("product_id").asText(null));
+
+            JsonNode skusNode = dataNode.path("skus");
+            if (skusNode.isArray()) {
+                java.util.List<TikTokProductCreateResponse.CreatedSku> skuList = new java.util.ArrayList<>();
+                for (JsonNode s : skusNode) {
+                    TikTokProductCreateResponse.CreatedSku createdSku = new TikTokProductCreateResponse.CreatedSku();
+                    createdSku.setId(s.path("id").asText(null));
+                    createdSku.setSellerSku(s.path("seller_sku").asText(null));
+                    skuList.add(createdSku);
+                }
+                data.setSkus(skuList);
+            }
+            response.setData(data);
+        }
+        return response;
+    }
+
+    /**
+     * Tải tệp ảnh nhị phân lên CDN của TikTok Shop Open Platform (v202309).
+     * Endpoint: POST /product/202309/images/upload
+     * Query: app_key, timestamp, shop_cipher, sign
+     * Header: x-tts-access-token, Content-Type: multipart/form-data
+     * Multipart: data (file binary)
+     * Trả về URI nội bộ dạng `tos-maliva-i-o260ufnz6q-us/...` để gắn vào main_images khi tạo sản phẩm.
+     */
+    public String uploadImage(String appKey, String appSecret, String accessToken,
+                              String shopCipher, byte[] imageBytes, String fileName) {
+        if (accessToken == null || accessToken.isBlank() || shopCipher == null || shopCipher.isBlank()) {
+            throw new LoiThamSoException(ThongDiep.of("kenhBan.accessTokenTrongKhiCapNhatTonTikTok"));
+        }
+        if (imageBytes == null || imageBytes.length == 0) {
+            return null;
+        }
+
+        String apiPath = TikTokShopConstants.PATH_IMAGE_UPLOAD;
+        String fullSignedUrl = buildUrlWithSign(TikTokShopConstants.BASE_URL, apiPath, Map.of(), "", appKey, appSecret, shopCipher);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+        headers.set(TikTokShopConstants.HEADER_ACCESS_TOKEN, accessToken);
+
+        org.springframework.core.io.ByteArrayResource resource = new org.springframework.core.io.ByteArrayResource(imageBytes) {
+            @Override
+            public String getFilename() {
+                return (fileName != null && !fileName.isBlank()) ? fileName : "product_image.jpg";
+            }
+        };
+
+        org.springframework.util.MultiValueMap<String, Object> form = new org.springframework.util.LinkedMultiValueMap<>();
+        form.add("data", resource);
+
+        HttpEntity<org.springframework.util.MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(form, headers);
+
+        try {
+            ResponseEntity<String> res = restTemplate.exchange(fullSignedUrl, HttpMethod.POST, requestEntity, String.class);
+            JsonNode root = parseAndValidateResponse(res.getBody());
+            return root.path("data").path("uri").asText(null);
+        } catch (HttpStatusCodeException e) {
+            handleHttpException("POST", fullSignedUrl, e);
+            throw e;
+        } catch (LoiCoMaException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Lỗi khi tải ảnh lên TikTok Shop CDN: {}", e.getMessage());
+            throw new LoiCoMaException(HttpStatus.BAD_GATEWAY, MaLoi.TIKTOK_API_ERROR,
+                    ThongDiep.of("kenhBan.tiktokLoiUploadAnh", e.getMessage()));
+        }
     }
 
     /**
