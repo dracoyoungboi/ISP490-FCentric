@@ -14,7 +14,11 @@ import PosTopBar from '../components/PosTopBar';
 import PosWarehousePicker from '../components/PosWarehousePicker';
 import PosModal from '../components/PosModal';
 import PosModeTabs from '../components/PosModeTabs';
-import BienBanTraHang from '@/components/print/BienBanTraHang';
+import PrintTemplateDocument from '@/components/print/PrintTemplateDocument';
+import { getPaperSheetClasses, getPaperSheetWidthPx } from '@/components/print/paperStyles';
+import { toPosReturnPrintModel } from '@/components/print/adapters/posReturnPrintAdapter';
+import { printTemplateConfigService } from '@/services/printTemplateConfigService';
+import { companyProfileService } from '@/services/companyProfileService';
 import { formatMoney } from '../pos-format';
 import DuyetQuaHanModal from './DuyetQuaHanModal';
 import {
@@ -794,13 +798,24 @@ function ThongTinChuyenKhoan({ ck, loi, hienLoi, onChange }) {
 }
 
 /** Hoàn tất: biên lai bên trái, xem trước biên bản 02 liên bên phải. */
+// i18n-giu-nguyen: nhãn liên in trên giấy (mẫu in giữ tiếng Việt)
+const LIEN_XEM_TRUOC = "1 · Giao khách hàng giữ";
+
 function HoanTat({ ketQua, onIn, onLamMoi, onVeBanHang }) {
-  const [phieu, setPhieu] = useState(null);
+  // Xem trước đúng bản sẽ in: mẫu đang dùng của Biên bản trả hàng + Thông tin cửa hàng (như trang in)
+  const [xem, setXem] = useState(null);
   useEffect(() => {
     const ctrl = new AbortController();
-    traHangService.phieu(ketQua.phieuTraHangId, { signal: ctrl.signal }).then(setPhieu).catch(() => {});
+    Promise.all([
+      traHangService.phieu(ketQua.phieuTraHangId, { signal: ctrl.signal }),
+      printTemplateConfigService.getActiveTemplate('pos_return'),
+      companyProfileService.get(),
+    ]).then(([phieu, config, company]) => {
+      if (!ctrl.signal.aborted && phieu && config) setXem({ model: { ...toPosReturnPrintModel(phieu), copy: LIEN_XEM_TRUOC }, config, company });
+    }).catch(() => {});
     return () => ctrl.abort();
   }, [ketQua.phieuTraHangId]);
+  const giay = xem ? { size: xem.config.paperSize, orientation: xem.config.orientation, margin: xem.config.margin } : null;
   return (
     <main className="grid min-h-0 flex-1 gap-3 overflow-y-auto p-3 sm:p-4 lg:grid-cols-[minmax(0,1fr)_420px] lg:overflow-hidden">
       <section className="flex flex-col items-center justify-center gap-1.5 rounded-lg border border-bo-border bg-bo-surface p-8 text-center">
@@ -818,10 +833,17 @@ function HoanTat({ ketQua, onIn, onLamMoi, onVeBanHang }) {
       <section aria-label={t("Biên bản trả hàng")} className="flex min-h-[420px] flex-col overflow-hidden rounded-lg border border-bo-border bg-bo-surface lg:min-h-0">
         <div className="flex shrink-0 items-center justify-between border-b border-bo-border px-4 py-3">
           <p className="text-sm font-semibold">{t("Biên bản trả hàng")}</p>
-          <span className="text-xs text-bo-muted">{t("A5 · 02 liên")}</span>
+          <span className="text-xs text-bo-muted">{giay ? t("{{kho}} · 02 liên", { kho: giay.size }) : null}</span>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto bg-white p-5">
-          {phieu ? <BienBanTraHang lien={1} phieu={phieu} /> : <LoadingState label={t("Đang tải biên bản")} />}
+        <div className="min-h-0 flex-1 overflow-y-auto bg-bo-canvas p-4">
+          {xem ? (
+            <div
+              className={`mx-auto bg-white shadow-sm ${getPaperSheetClasses(giay)}`}
+              style={{ zoom: Math.min(1, 380 / getPaperSheetWidthPx(giay)) }}
+            >
+              <PrintTemplateDocument company={xem.company} config={xem.config} documentType="pos_return" model={xem.model} />
+            </div>
+          ) : <LoadingState label={t("Đang tải biên bản")} />}
         </div>
       </section>
     </main>

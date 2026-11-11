@@ -654,3 +654,20 @@
         page-break-before: avoid;
     }
 }
+
+/* Nhiều liên trên một lần in (biên bản trả hàng 02 liên): trên màn hình ngăn bằng đường cắt, khi in mỗi liên một trang */
+.pdoc-lien-sau {
+    margin-top: 28px;
+    padding-top: 28px;
+    border-top: 1px dashed #cbd5e1;
+}
+
+@media print {
+    .pdoc-lien-sau {
+        margin-top: 0;
+        padding-top: 0;
+        border-top: 0;
+        break-before: page;
+        page-break-before: always;
+    }
+}

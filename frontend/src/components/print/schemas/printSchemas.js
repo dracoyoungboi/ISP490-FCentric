@@ -744,6 +744,133 @@ export const PRINT_SCHEMAS = {
         ],
     },
 
+    pos_return: {
+        key: "pos_return",
+        slug: "pos-return",
+        description: "In 02 liên khi nhận trả hàng tại quầy: liên 1 giao khách, liên 2 kẹp hóa đơn gốc",
+        // Biên bản trả hàng / đổi hàng (đặc tả BA bước 5.5). Số biên bản là số phiếu trả RET-YYYYMMDD-XXXX.
+        label: "Biên bản trả hàng",
+        docTitle: "BIÊN BẢN TRẢ HÀNG",
+        docNoun: "biên bản",
+        hasRealPrintRoute: true,
+        paperProfiles: ["A5", "A4"],
+        templates: [
+            {
+                id: "pos_return_default_A5",
+                name: "Mẫu FCentric mặc định (A5)",
+                paperSize: "A5",
+                orientation: "portrait",
+                margin: "default",
+                isDefault: true,
+            },
+            {
+                id: "pos_return_default_A4",
+                name: "Mẫu FCentric mặc định",
+                paperSize: "A4",
+                orientation: "portrait",
+                margin: "default",
+                isDefault: false,
+            },
+        ],
+        footerNote: "Quý khách vui lòng giữ biên bản này để đối chiếu khi cần.",
+        footerExample: "Ví dụ: Hàng đổi trả trong 03 ngày, còn nguyên tem mác.",
+        sections: [
+            {
+                key: "returnInfo",
+                type: "info",
+                title: "Thông tin trả hàng",
+                columns: 2,
+                // Một khối duy nhất (khách và hoàn tiền gộp vào) để mỗi liên vừa một trang A5
+                fields: [
+                    { key: "copy", label: "Liên", modelPath: "copy", hideWhenEmpty: true, hint: "Liên 1 giao khách, liên 2 lưu quầy" },
+                    { key: "originalOrder", label: "Hóa đơn gốc", modelPath: "originalOrder" },
+                    { key: "customer", label: "Khách hàng", modelPath: "customer" },
+                    { key: "soldAt", label: "Nơi bán", modelPath: "soldAt" },
+                    { key: "refundMethod", label: "Hoàn tiền", modelPath: "refund.method" },
+                    { key: "receivedAt", label: "Nơi nhận trả", modelPath: "receivedAt" },
+                    {
+                        key: "refundAccount",
+                        label: "Tài khoản nhận",
+                        modelPath: "refund.account",
+                        hideWhenEmpty: true,
+                        hint: "Chỉ in khi hoàn bằng chuyển khoản",
+                    },
+                    {
+                        key: "refundReference",
+                        label: "Mã giao dịch",
+                        modelPath: "refund.reference",
+                        hideWhenEmpty: true,
+                        hint: "Chỉ in khi hoàn bằng chuyển khoản",
+                    },
+                    {
+                        key: "goodsReceipt",
+                        label: "Phiếu nhập",
+                        modelPath: "goodsReceipt",
+                        hideWhenEmpty: true,
+                        hint: "Chỉ in khi có hàng Đạt nhập lại kho",
+                    },
+                    {
+                        key: "approval",
+                        label: "Duyệt quá hạn",
+                        modelPath: "approval",
+                        hideWhenEmpty: true,
+                        hint: "Chỉ in khi đơn quá 03 ngày có quản lý duyệt",
+                    },
+                ],
+            },
+            {
+                key: "items",
+                type: "items",
+                essentialShow: true,
+                title: "Sản phẩm thu hồi",
+                path: "items",
+                totals: [{ label: "Tổng số lượng", modelPath: "totalQuantity", column: "quantity" }],
+                // Khổ A5 hẹp: chỉ 5 cột số liệu; mã SKU, màu / cỡ và lý do in dòng phụ dưới tên sản phẩm
+                columns: [
+                    { key: "productName", label: "Sản phẩm", path: "name", essential: true },
+                    { key: "sku", label: "Mã SKU", path: "sku", inline: true },
+                    ...VARIANT_INLINE_COLUMNS.filter((column) => column.key !== "material"),
+                    { key: "reason", label: "Lý do", path: "reason", inline: true, inlineLabel: true },
+                    { key: "condition", label: "Hiện trạng", path: "condition", essential: true },
+                    { key: "quantity", label: "SL", path: "quantity", essential: true, kind: "qty" },
+                    { key: "unitPrice", label: "Đơn giá", path: "unitPrice", kind: "money" },
+                    { key: "amount", label: "Tiền hoàn", path: "amount", essential: true, kind: "money" },
+                ],
+            },
+            {
+                key: "totals",
+                type: "summary",
+                title: "Tổng cộng",
+                rows: [
+                    { key: "refund", label: "Tổng tiền hoàn khách", modelPath: "totals.refund", emphasis: true, essential: true },
+                ],
+                words: { key: "amountInWords", label: "Bằng chữ", modelPath: "amountInWords" },
+            },
+            { key: "notes", type: "notes", title: "Ghi chú", path: "notes" },
+            {
+                key: "signatures",
+                type: "signatures",
+                title: "Chữ ký",
+                blocks: [
+                    {
+                        key: "customer",
+                        label: "Khách hàng",
+                        path: "signatures.customer",
+                        hint: "Ô trống — khách ký và ghi rõ họ tên",
+                    },
+                    { key: "cashier", label: "Thu ngân tiếp nhận", path: "signatures.cashier" },
+                    {
+                        key: "approver",
+                        label: "Quản lý duyệt",
+                        path: "signatures.approver",
+                        defaultOn: false,
+                        hint: "Bật khi cửa hàng cần quản lý ký các lần trả quá hạn",
+                    },
+                ],
+            },
+        ],
+    },
+
     ecommerce_packing_slip: {
         key: "ecommerce_packing_slip",
         slug: "ecommerce-packing-slip",
@@ -978,7 +1105,7 @@ export const PRINT_DOCUMENT_GROUPS = (() => {
     const groups = [
         { key: "mua-hang", label: "Mua hàng", types: ["purchase_request", "quotation_request", "purchase_order"] },
         { key: "kho", label: "Kho", types: ["goods_receipt", "goods_issue"] },
-        { key: "ban-hang", label: "Bán hàng", types: ["sales_quotation", "sales_invoice", "pos_invoice"] },
+        { key: "ban-hang", label: "Bán hàng", types: ["sales_quotation", "sales_invoice", "pos_invoice", "pos_return"] },
     ];
     const grouped = new Set(groups.flatMap((group) => group.types));
     const others = PRINT_DOCUMENT_TYPES.map((schema) => schema.key).filter((key) => !grouped.has(key));

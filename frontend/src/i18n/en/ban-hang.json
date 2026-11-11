@@ -885,11 +885,7 @@
   "Hiệu lực tới {{luc}}.": "Valid until {{luc}}.",
   "Mã PIN quản lý cửa hàng": "Store manager PIN",
   "Gửi lại sau {{s}} giây": "Resend in {{s}}s",
-  "Không tải được biên bản trả hàng.": "Couldn't load the return slip.",
-  "Không in được biên bản": "Couldn't print the return slip",
   "Đang tải biên bản": "Loading return slip",
-  "Biên bản {{so}} · 02 liên": "Slip {{so}} · 2 copies",
-  "In 02 liên": "Print 2 copies",
   "Không tải được hóa đơn gốc.": "Couldn't load the original receipt.",
   "Không tìm thấy thông tin đơn hàng hợp lệ. Vui lòng kiểm tra lại mã hóa đơn!": "No valid order found. Check the receipt number and try again.",
   "Hoàn tất thủ tục trả hàng thành công. Mã phiếu: {{so}}. Hệ thống đang in biên lai": "Return completed. Slip number: {{so}}. Printing the receipt",
@@ -984,6 +980,8 @@
   "Trả": "Return",
   "Chọn kệ cất": "Choose shelf",
   "Về bán hàng": "Back to sales",
-  "A5 · 02 liên": "A5 · 2 copies",
-  "Đã tải lại hóa đơn để kiểm tra lần gửi trước. Xem số Đã trả của từng món rồi làm lại nếu cần.": "Reloaded the receipt to check the previous attempt. Check the Returned count on each item, then try again if needed."
+  "Đã tải lại hóa đơn để kiểm tra lần gửi trước. Xem số Đã trả của từng món rồi làm lại nếu cần.": "Reloaded the receipt to check the previous attempt. Check the Returned count on each item, then try again if needed.",
+  "Không tìm thấy phiếu trả hàng": "Return slip not found",
+  "In biên bản trả hàng": "Print return slip",
+  "{{kho}} · 02 liên": "{{kho}} · 2 copies"
 }
