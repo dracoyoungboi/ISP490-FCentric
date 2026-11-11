@@ -152,7 +152,7 @@ vào `Dev` / `main`. Báo đỏ thì xem log để biết dòng lỗi, sửa r�
 - **Phân trang API**: `page_size` và `page_token` của API tìm đơn hàng (`/order/202309/orders/search`) và tìm sản phẩm BẮT BUỘC nằm ở **Query Parameter trên URL** (không để trong body JSON).
 - **Phân loại biến thể**: Khi sản phẩm có nhiều SKU biến thể, BẮT BUỘC bổ sung `sales_attributes` (Màu sắc, Kích cỡ) cho từng SKU để TikTok Shop nhận diện.
 - **Tiêu đề**: Độ dài bắt buộc từ 25 đến 255 ký tự (nếu ngắn phải tự động đệm thông tin).
-- **Hình ảnh**: Bắt buộc upload ảnh lên TikTok CDN qua `/product/202309/images/upload` để lấy `Image URI` nội bộ (`tos-maliva-...`). Tuyệt đối không truyền URL bên ngoài.
+- **Hình ảnh**: Bắt buộc upload ảnh lên TikTok CDN qua `/product/202309/images/upload` để lấy `Image URI` nội bộ (`tos-maliva-...`). Tuyệt đối không truyền URL bên ngoài hoặc chuỗi URI giả lập. Khi sản phẩm không có ảnh trong DB, tự động sinh ảnh JPEG 800x800 chuẩn e-commerce (logo FCENTRIC + tên sản phẩm) và upload thật lên TikTok CDN (chống lỗi 12052300).
 - **Thương hiệu**: Mặc định `brand_id = "0"` (No Brand) để tránh bị từ chối phê duyệt bản quyền.
 - **Danh mục V2**: `category_version = "v2"` bắt buộc ở cả URL Query Param và Body JSON. `category_id` phải là danh mục lá (Leaf Category) V2 xác định tự động qua AI recommend hoặc tìm kiếm từ khóa.
 
