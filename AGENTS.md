@@ -150,9 +150,16 @@ vào `Dev` / `main`. Báo đỏ thì xem log để biết dòng lỗi, sửa r�
 ### 6. Tạo sản phẩm & Phân trang TikTok Shop (API v202309)
 - **Đo lường (Struct)**: `package_weight` BẮT BUỘC là struct `{"value": "0.3", "unit": "KILOGRAM"}` (tuyệt đối không gửi String thô). `package_dimensions` BẮT BUỘC là struct kèm `"unit": "CENTIMETER"`.
 - **Phân trang API**: `page_size` và `page_token` của API tìm đơn hàng (`/order/202309/orders/search`) và tìm sản phẩm BẮT BUỘC nằm ở **Query Parameter trên URL** (không để trong body JSON).
-- **Phân loại biến thể**: Khi sản phẩm có nhiều SKU biến thể, BẮT BUỘC bổ sung `sales_attributes` (Màu sắc, Kích cỡ) cho từng SKU để TikTok Shop nhận diện.
+- **Phân loại biến thể & Single SKU**:
+  - Với sản phẩm đơn (1 SKU duy nhất): BẮT BUỘC để `sales_attributes = null` (không gửi trường này).
+  - Với sản phẩm nhiều biến thể: BẮT BUỘC bổ sung `sales_attributes` (`name`, `custom_value`) cho từng SKU để TikTok Shop nhận diện và phân biệt.
+  - Toàn bộ payload DTO sử dụng `@JsonInclude(JsonInclude.Include.NON_NULL)` để loại bỏ các trường rỗng/null, tránh lỗi schema sàn.
 - **Tiêu đề**: Độ dài bắt buộc từ 25 đến 255 ký tự (nếu ngắn phải tự động đệm thông tin).
-- **Hình ảnh**: Bắt buộc upload ảnh lên TikTok CDN qua `/product/202309/images/upload` để lấy `Image URI` nội bộ (`tos-maliva-...`). Tuyệt đối không truyền URL bên ngoài hoặc chuỗi URI giả lập. Khi sản phẩm không có ảnh trong DB, tự động sinh ảnh JPEG 800x800 chuẩn e-commerce (logo FCENTRIC + tên sản phẩm) và upload thật lên TikTok CDN (chống lỗi 12052300).
+- **Hình ảnh & Upload CDN**:
+  - Bắt buộc upload ảnh lên TikTok CDN qua `POST /product/202309/images/upload` để lấy `Image URI` nội bộ (`tos-maliva-...`). Tuyệt đối không truyền URL bên ngoài hoặc chuỗi URI giả lập (chống lỗi 12052300).
+  - API upload ảnh là cấp Platform: TUYỆT ĐỐI **KHÔNG truyền `shop_cipher`** vào query parameters trên URL (chống lỗi HTTP 400 mã 36009004).
+  - Body multipart của API upload ảnh BẮT BUỘC phải kèm tham số `use_case = "MAIN_IMAGE"`.
+  - Khi sản phẩm không có ảnh trong DB, tự động sinh ảnh JPEG 800x800 chuẩn e-commerce (logo FCENTRIC + tên sản phẩm) và upload thật lên TikTok CDN.
 - **Thương hiệu**: Mặc định `brand_id = "0"` (No Brand) để tránh bị từ chối phê duyệt bản quyền.
 - **Danh mục V2**: `category_version = "v2"` bắt buộc ở cả URL Query Param và Body JSON. `category_id` phải là danh mục lá (Leaf Category) V2 xác định tự động qua AI recommend hoặc tìm kiếm từ khóa.
 
