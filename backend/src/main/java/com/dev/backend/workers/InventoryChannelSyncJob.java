@@ -121,6 +121,22 @@ public class InventoryChannelSyncJob {
         threshold = Math.max(0, Math.min(threshold, 100));
 
         if (event.getSoLuongTonConLai() != null && event.getSoLuongTonConLai().compareTo(BigDecimal.valueOf(threshold)) < 0) {
+            List<KenhBanHang> activeChannels = kenhBanHangRepository.findByTrangThai(1);
+            boolean coKenhDay = false;
+            if (activeChannels != null) {
+                for (KenhBanHang kenh : activeChannels) {
+                    if (KenhCauHinhDongBo.tuDongDayTon(dieuHanhHeThongService, kenh.getMaKenh())) {
+                        coKenhDay = true;
+                        break;
+                    }
+                }
+            }
+            if (!coKenhDay) {
+                log.info("[JOB-03 Real-time] Tất cả kênh bán active đều tắt tự động đẩy tồn, bỏ qua đẩy tồn khẩn cấp SKU ID {}",
+                        event.getBienTheSanPhamId());
+                return;
+            }
+
             log.warn("[JOB-03 Real-time] CẢNH BÁO TỒN KHO THẤP: SKU ID {} chỉ còn {} đơn vị (< {} units theo cấu hình). Kích hoạt đẩy tồn tức thì!",
                     event.getBienTheSanPhamId(), event.getSoLuongTonConLai(), threshold);
             try {
