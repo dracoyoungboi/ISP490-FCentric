@@ -61,4 +61,5 @@ public class PhieuXuatKhoDto implements Serializable {
     String donViPickup;
     String donViDelivery;
     String loaiDichVu;
+    String shippingDocUrl;
 }

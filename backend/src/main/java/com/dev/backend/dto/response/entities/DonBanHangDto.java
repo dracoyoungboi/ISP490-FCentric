@@ -74,4 +74,6 @@ public class DonBanHangDto implements Serializable {
     String donViDelivery;
     /** Loại dịch vụ vận chuyển sàn, vd: "STANDARD". */
     String loaiDichVu;
+    /** Link tải PDF vận đơn chính thức từ sàn (vd: TikTok Shop shipping documents doc_url). */
+    String shippingDocUrl;
 }
