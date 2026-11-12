@@ -396,52 +396,66 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     && java.time.Duration.between(cached.createdAt(), now).toMinutes() < 2) {
                 return cached;
             }
-            Map<String, String> skuToProduct = new java.util.concurrent.ConcurrentHashMap<>();
-            Map<String, String> skuToSku = new java.util.concurrent.ConcurrentHashMap<>();
-            Map<String, String> productTitles = new java.util.concurrent.ConcurrentHashMap<>();
-            Map<String, String> productStatuses = new java.util.concurrent.ConcurrentHashMap<>();
             try {
                 List<TikTokProductDto> prods = taiDanhSachSanPhamTikTokTheoToken(appKey, appSecret, token, cipher);
-                if (prods != null) {
-                    for (TikTokProductDto prod : prods) {
-                        if (prod.getId() != null && !prod.getId().isBlank()) {
-                            String pId = prod.getId().trim();
-                            if (prod.getTitle() != null && !prod.getTitle().isBlank()) {
-                                productTitles.put(pId, prod.getTitle().trim());
-                            }
-                            if (prod.getStatus() != null && !prod.getStatus().isBlank()) {
-                                productStatuses.put(pId, prod.getStatus().trim());
-                            }
-                        }
-                        if (prod.getSkus() == null) continue;
-                        for (TikTokSkuDto sku : prod.getSkus()) {
-                            if (sku.getSellerSku() != null && !sku.getSellerSku().isBlank()) {
-                                String sSku = sku.getSellerSku().trim();
-                                skuToProduct.put(sSku.toLowerCase(), prod.getId());
-                                skuToSku.put(sSku.toLowerCase(), sku.getId());
-                                skuToProduct.put(sSku, prod.getId());
-                                skuToSku.put(sSku, sku.getId());
-                            }
-                            if (sku.getId() != null && !sku.getId().isBlank()) {
-                                String sId = sku.getId().trim();
-                                skuToProduct.put(sId.toLowerCase(), prod.getId());
-                                skuToSku.put(sId.toLowerCase(), sku.getId());
-                                skuToProduct.put(sId, prod.getId());
-                                skuToSku.put(sId, sku.getId());
-                            }
-                        }
-                    }
-                }
-                TikTokCatalogCache newCache = new TikTokCatalogCache(
-                        skuToProduct, skuToSku, productTitles, productStatuses, now.plus(java.time.Duration.ofMinutes(30)), now);
-                tikTokCatalogCacheRef.set(newCache);
-                return newCache;
+                return capNhatTikTokCatalogTuDanhSach(prods);
             } catch (Exception ex) {
                 log.warn("[TIKTOK-SYNC] Không làm mới được cache danh mục TikTok Shop: {}", ex.getMessage());
                 if (cached != null) return cached;
                 return new TikTokCatalogCache(Map.of(), Map.of(), Map.of(), Map.of(), now.plus(java.time.Duration.ofMinutes(5)), now);
             }
         }
+    }
+
+    /**
+     * Nạp lại bộ nhớ đệm danh mục TikTok Shop từ danh sách sản phẩm, loại bỏ 100% các sản phẩm đã xóa (DELETED).
+     */
+    private TikTokCatalogCache capNhatTikTokCatalogTuDanhSach(List<TikTokProductDto> prods) {
+        Map<String, String> skuToProduct = new java.util.concurrent.ConcurrentHashMap<>();
+        Map<String, String> skuToSku = new java.util.concurrent.ConcurrentHashMap<>();
+        Map<String, String> productTitles = new java.util.concurrent.ConcurrentHashMap<>();
+        Map<String, String> productStatuses = new java.util.concurrent.ConcurrentHashMap<>();
+        Instant now = Instant.now();
+
+        if (prods != null) {
+            for (TikTokProductDto prod : prods) {
+                // LOẠI BỎ 100% SẢN PHẨM ĐÃ BỊ XÓA TRÊN SÀN TIKTOK SHOP (STATUS = "DELETED")
+                if (prod.getStatus() != null && "DELETED".equalsIgnoreCase(prod.getStatus().trim())) {
+                    log.info("[TIKTOK-CATALOG] Bỏ qua sản phẩm đã xóa khỏi sàn TikTok Shop: id={}, title={}", prod.getId(), prod.getTitle());
+                    continue;
+                }
+                if (prod.getId() != null && !prod.getId().isBlank()) {
+                    String pId = prod.getId().trim();
+                    if (prod.getTitle() != null && !prod.getTitle().isBlank()) {
+                        productTitles.put(pId, prod.getTitle().trim());
+                    }
+                    if (prod.getStatus() != null && !prod.getStatus().isBlank()) {
+                        productStatuses.put(pId, prod.getStatus().trim());
+                    }
+                }
+                if (prod.getSkus() == null) continue;
+                for (TikTokSkuDto sku : prod.getSkus()) {
+                    if (sku.getSellerSku() != null && !sku.getSellerSku().isBlank()) {
+                        String sSku = sku.getSellerSku().trim();
+                        skuToProduct.put(sSku.toLowerCase(), prod.getId());
+                        skuToSku.put(sSku.toLowerCase(), sku.getId());
+                        skuToProduct.put(sSku, prod.getId());
+                        skuToSku.put(sSku, sku.getId());
+                    }
+                    if (sku.getId() != null && !sku.getId().isBlank()) {
+                        String sId = sku.getId().trim();
+                        skuToProduct.put(sId.toLowerCase(), prod.getId());
+                        skuToSku.put(sId.toLowerCase(), sku.getId());
+                        skuToProduct.put(sId, prod.getId());
+                        skuToSku.put(sId, sku.getId());
+                    }
+                }
+            }
+        }
+        TikTokCatalogCache newCache = new TikTokCatalogCache(
+                skuToProduct, skuToSku, productTitles, productStatuses, now.plus(java.time.Duration.ofMinutes(30)), now);
+        tikTokCatalogCacheRef.set(newCache);
+        return newCache;
     }
 
     private TaiSanPhamResultDto taiSanPhamTikTok(KenhBanHang kenh) {
@@ -477,6 +491,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             }
 
             for (TikTokProductDto prod : products) {
+                // Bỏ qua các sản phẩm đã bị xóa trên TikTok Shop
+                if (prod.getStatus() != null && "DELETED".equalsIgnoreCase(prod.getStatus().trim())) {
+                    continue;
+                }
                 if (prod.getSkus() == null) continue;
                 for (TikTokSkuDto sku : prod.getSkus()) {
                     String sellerSku = sku.getSellerSku();
@@ -541,7 +559,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     String.format("Tải sản phẩm từ TikTok Shop: %s SKU (%s mới, %s cập nhật)", soSku, soMoi, soCapNhat));
 
             try {
-                layHoacCapNhatTikTokCatalog(appKey, appSecret, token, cipher, true);
+                capNhatTikTokCatalogTuDanhSach(products);
             } catch (Exception cacheEx) {
                 log.warn("[TIKTOK-SYNC] Không thể làm mới cache sau khi tải sản phẩm: {}", cacheEx.getMessage());
             }
