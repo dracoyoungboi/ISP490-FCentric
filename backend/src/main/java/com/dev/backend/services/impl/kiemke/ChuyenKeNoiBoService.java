@@ -104,6 +104,14 @@ public class ChuyenKeNoiBoService {
     /** CSDL đã chạy migration-2026-11-11-chuyen-ke-noi-bo.sql chưa (nhớ khi đã thấy; chưa thì kiểm lại mỗi 30 giây). */
     boolean sanSang() {
         if (sanSang) return true;
+        // Một luồng kiểm một lúc: luồng đến cùng lúc chờ kết quả thay vì nhận "chưa sẵn sàng" (503) khi CSDL đã đủ bảng
+        synchronized (this) {
+            return kiemSanSang();
+        }
+    }
+
+    private boolean kiemSanSang() {
+        if (sanSang) return true;
         long bayGio = System.currentTimeMillis();
         if (lanKiemCuoi != 0 && bayGio - lanKiemCuoi < KIEM_LAI_SAU_MS) return false;
         lanKiemCuoi = bayGio;
@@ -155,6 +163,54 @@ public class ChuyenKeNoiBoService {
                 v.getKhuVucKho() == null ? null : v.getKhuVucKho().getTenKhuVuc(), v.getTrangThai(),
                 v.getSucChuaToiDa() != null && v.getSucChuaToiDa() > 0 ? v.getSucChuaToiDa() : null,
                 dang.getOrDefault(v.getId(), 0))).toList();
+    }
+
+    static final int SO_GOI_Y = 5;
+
+    /**
+     * Kệ đích gợi ý (màn Chuyển kệ, cột "Sang kệ"): kệ cùng kho nhận được hàng và còn chỗ. Thứ tự: kệ đang chứa cùng biến
+     * thể (dồn kệ, BA 1.1) → còn đủ chỗ cho {@code can} sản phẩm → cùng khu vực với kệ nguồn → ít chỗ trống hơn trước (lấp
+     * kệ dở trước kệ trống) → mã kệ. Tối đa {@link #SO_GOI_Y} kệ. Chỉ đọc; xác nhận vẫn kiểm lại sức chứa.
+     */
+    @Transactional(readOnly = true)
+    public List<ChuyenKeDto.KeGoiY> goiYKe(Integer khoId, Integer keNguonId, Collection<Integer> bienTheIds, int can) {
+        batBuocSanSang();
+        ViTriKho nguon = keNguonId == null ? null : viTriRepo.findById(keNguonId).orElse(null);
+        Integer khuNguon = nguon != null && nguon.getKhuVucKho() != null ? nguon.getKhuVucKho().getId() : null;
+        Map<Integer, Integer> dang = new HashMap<>();
+        for (Object[] r : tonKeRepo.dangChuaDuongTheoKho(khoId)) {
+            dang.put(((Number) r[0]).intValue(), ((Number) r[1]).intValue());
+        }
+        Set<Integer> cungMa = new HashSet<>();
+        List<Integer> bt = bienTheIds == null ? List.of() : bienTheIds.stream().filter(Objects::nonNull).distinct().toList();
+        if (!bt.isEmpty()) {
+            @SuppressWarnings("unchecked")
+            List<Object> rows = em.createNativeQuery("""
+                    SELECT DISTINCT t.vi_tri_kho_id FROM ton_kho_vi_tri t JOIN vi_tri_kho v ON v.id = t.vi_tri_kho_id
+                     WHERE v.kho_id = :kho AND t.so_luong > 0 AND t.bien_the_san_pham_id IN (:bt)
+                    """).setParameter("kho", khoId).setParameter("bt", bt).getResultList();
+            for (Object r : rows) cungMa.add(((Number) r).intValue());
+        }
+        KhoaKiemKeGuard.TrangThaiKhoa tt = guard.trangThai(khoId);
+        int canCat = Math.max(0, can);
+        List<ChuyenKeDto.KeGoiY> ds = new ArrayList<>();
+        for (ViTriKho v : viTriRepo.findByKho_IdOrderByMaViTriAsc(khoId)) {
+            if (Objects.equals(v.getId(), keNguonId) || khoaCuaKe(v, tt) != null) continue;
+            Integer sucChua = v.getSucChuaToiDa() != null && v.getSucChuaToiDa() > 0 ? v.getSucChuaToiDa() : null;
+            int dc = dang.getOrDefault(v.getId(), 0);
+            Integer conTrong = sucChua == null ? null : Math.max(0, sucChua - dc);
+            if (conTrong != null && conTrong == 0) continue;
+            boolean cungKhuVuc = khuNguon != null && v.getKhuVucKho() != null && khuNguon.equals(v.getKhuVucKho().getId());
+            ds.add(new ChuyenKeDto.KeGoiY(v.getId(), v.getMaViTri(), v.getKhuVucKho() == null ? null : v.getKhuVucKho().getTenKhuVuc(),
+                    v.getDayKe(), v.getTangKe(), sucChua, dc, conTrong, cungMa.contains(v.getId()), cungKhuVuc,
+                    conTrong == null || conTrong >= canCat));
+        }
+        ds.sort(Comparator.comparing((ChuyenKeDto.KeGoiY k) -> !k.cungMa())
+                .thenComparing(k -> !k.duCho())
+                .thenComparing(k -> !k.cungKhu())
+                .thenComparing(k -> k.conTrong() == null ? Integer.MAX_VALUE : k.conTrong())
+                .thenComparing(k -> k.maViTri() == null ? "" : k.maViTri()));
+        return ds.size() > SO_GOI_Y ? List.copyOf(ds.subList(0, SO_GOI_Y)) : ds;
     }
 
     ChuyenKeDto.Ke moTaKe(Integer khoId, ViTriKho ke) {
@@ -463,7 +519,7 @@ public class ChuyenKeNoiBoService {
             List<ChuyenKeDto.DongPhieu> d = cs.stream().map(c -> {
                 BienTheSanPham bt = c.getBienTheSanPham();
                 return new ChuyenKeDto.DongPhieu(c.getId(), c.getLoHang().getId(), c.getLoHang().getMaLo(), bt.getId(),
-                        bt.getMaSku(), HienThiBienThe.tenSanPham(bt), HienThiBienThe.tenMau(bt), HienThiBienThe.kichCo(bt),
+                        bt.getMaSku(), HienThiBienThe.tenSanPham(bt), HienThiBienThe.tenMau(bt), HienThiBienThe.maMauHex(bt), HienThiBienThe.kichCo(bt),
                         c.getKeNguon().getMaViTri(), c.getKeDich().getMaViTri(), SoTonKeService.soNguyen(c.getSoLuong()));
             }).toList();
             NguoiDung n = p.getNguoiThucHien();
