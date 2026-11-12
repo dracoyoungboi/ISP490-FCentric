@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "@/lib/thongBaoNhanh";
 import { FileX, Lock } from "lucide-react";
@@ -48,6 +48,11 @@ export default function PrintRoutePage({
     forbiddenDescription = "Tài khoản của bạn không có quyền truy cập phiếu này.",
     errorDescription = "Không thể tải dữ liệu phiếu. Vui lòng thử lại.",
     getDataError,
+    // In nhiều liên (vd. biên bản trả hàng: ["1 · Giao khách hàng", "2 · Lưu quầy"]): mỗi liên một trang, nhãn liên
+    // đặt vào model.copy. Không truyền thì in một bản như cũ.
+    copies = null,
+    // Tự mở hộp in một lần khi mọi thứ đã sẵn sàng (in ngay sau khi lập chứng từ ở quầy)
+    autoPrint = false,
 }) {
     const navigate = useNavigate();
     const { id } = useParams();
@@ -161,6 +166,14 @@ export default function PrintRoutePage({
         !config ||
         !company;
 
+    const daTuIn = useRef(false);
+    useEffect(() => {
+        if (!autoPrint || disablePrint || daTuIn.current) return undefined;
+        daTuIn.current = true;
+        const hen = window.setTimeout(() => window.print(), 300);
+        return () => window.clearTimeout(hen);
+    }, [autoPrint, disablePrint]);
+
     return (
         <PrintLayout
             title={title}
@@ -248,6 +261,17 @@ export default function PrintRoutePage({
                     title="Chưa có cấu hình mẫu in"
                     description="Loại chứng từ này chưa có mẫu in được cấu hình."
                 />
+            ) : copies?.length ? (
+                copies.map((copy, index) => (
+                    <div className={index > 0 ? "pdoc-lien-sau" : undefined} key={copy}>
+                        <PrintTemplateDocument
+                            documentType={documentType}
+                            config={config}
+                            model={{ ...model, copy }}
+                            company={company}
+                        />
+                    </div>
+                ))
             ) : (
                 <PrintTemplateDocument
                     documentType={documentType}

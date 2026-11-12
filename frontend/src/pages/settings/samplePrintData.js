@@ -5,6 +5,7 @@ import { toPurchaseOrderPrintModel } from "@/components/print/adapters/purchaseO
 import { toGoodsReceiptPrintModel } from "@/components/print/adapters/goodsReceiptPrintAdapter";
 import { toEcommercePrintModel } from "@/components/print/adapters/ecommercePrintAdapter";
 import { toGoodsIssuePrintModel } from "@/components/print/adapters/goodsIssuePrintAdapter";
+import { toPosReturnPrintModel } from "@/components/print/adapters/posReturnPrintAdapter";
 import {
     toSalesQuotationPrintModel,
     toSalesInvoicePrintModel,
@@ -537,6 +538,63 @@ export const SAMPLE_ECOMMERCE_PACKING_SLIP_PAYLOAD = {
     ],
 };
 
+/** Cùng dạng GET /api/v1/pos/returns/{id} (TraHangDto.PhieuChiTiet): trả chéo, 1 Đạt lên kệ + 1 Lỗi, hoàn chuyển khoản. */
+export const SAMPLE_POS_RETURN_RAW = {
+    id: 18,
+    soPhieu: "MẪU-RET-20261111-0018",
+    ngayTao: "2026-11-11T13:15:00Z",
+    soPhieuNhap: "MẪU-PN-RET-20261111-0014",
+    soDonHang: "SO2026111112",
+    thanhToanLuc: "2026-11-10T03:42:00Z",
+    khoBan: "Cửa hàng Hà Nội",
+    khoNhan: "Cửa hàng Hồ Chí Minh",
+    traCheo: true,
+    khachHang: "Lê Văn Minh",
+    soDienThoai: "09xx xxx 890",
+    nguoiLap: "Nguyễn Thị Thu",
+    quaHan: false,
+    nguoiDuyet: null,
+    lyDoDuyet: null,
+    phuongThucHoan: "chuyen_khoan",
+    nganHang: "Vietcombank",
+    soTaiKhoan: "•••• 4567",
+    tenChuTaiKhoan: "LE VAN MINH",
+    maGiaoDich: "FT26315612345",
+    tongSoLuong: 2,
+    soLuongDat: 1,
+    soLuongLoi: 1,
+    tongTienHoan: 279000,
+    ghiChu: null,
+    dong: [
+        {
+            tenSanPham: "Áo khoác phối lót lông cừu",
+            maSku: "AK2610051-CL005-1",
+            mauSac: "Đen",
+            kichCo: "M",
+            soLuong: 1,
+            donGiaHoan: 120000,
+            thanhTienHoan: 120000,
+            tinhTrang: "dat",
+            ke: "A-01-01",
+            lyDo: "mac_rong",
+            nhomLoi: null,
+        },
+        {
+            tenSanPham: "Áo thun cotton basic cổ tròn",
+            maSku: "AT2609011-TR-L",
+            mauSac: "Trắng",
+            kichCo: "L",
+            soLuong: 1,
+            donGiaHoan: 159000,
+            thanhTienHoan: 159000,
+            tinhTrang: "loi",
+            ke: null,
+            lyDo: "loi_san_xuat",
+            nhomLoi: "o_ban",
+        },
+    ],
+};
+
 export function getSamplePrintModel(documentType) {
     switch (documentType) {
         case "purchase_request":
@@ -557,6 +615,8 @@ export function getSamplePrintModel(documentType) {
             return toSalesInvoicePrintModel(SAMPLE_SALES_INVOICE_RAW);
         case "pos_invoice":
             return toSalesInvoicePrintModel(SAMPLE_POS_INVOICE_RAW);
+        case "pos_return":
+            return { ...toPosReturnPrintModel(SAMPLE_POS_RETURN_RAW), copy: "1 · Giao khách hàng giữ" };
         default:
             return null;
     }

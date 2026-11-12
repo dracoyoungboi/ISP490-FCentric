@@ -24,7 +24,9 @@ public interface IPrintTemplateConfig {
             // Hóa đơn bán hàng in tại quầy (máy in nhiệt K80/K57) — mẫu riêng để đơn bán in A4/A5 không đổi theo
             "pos_invoice",
             // Phiếu đóng gói kèm hàng đơn sàn TMĐT (Lazada, Shopee, TikTok) — in khổ A6 tem nhiệt hoặc A5/A4/K80
-            "ecommerce_packing_slip"
+            "ecommerce_packing_slip",
+            // Biên bản trả hàng tại quầy (02 liên) — khổ tờ A5 (mặc định) / A4
+            "pos_return"
     );
 
     Set<String> PAPER_SIZES = Set.of("A4", "A5", "K80", "K57", "A6");
@@ -90,6 +92,9 @@ public interface IPrintTemplateConfig {
     static String defaultTemplateId(String documentType) {
         if ("ecommerce_packing_slip".equals(documentType)) {
             return "ecommerce_packing_slip_default_A6";
+        }
+        if ("pos_return".equals(documentType)) {
+            return "pos_return_default_A5";
         }
         return documentType + (THERMAL_ONLY_DOCUMENT_TYPES.contains(documentType) ? "_default_K80" : "_default_A4");
     }

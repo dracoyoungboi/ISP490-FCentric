@@ -11,6 +11,12 @@ export const traHangService = {
     return res.data?.data ?? [];
   },
 
+  /** Hóa đơn POS còn hạn trả (03 ngày), mới nhất trước. tatCa = true: mọi cửa hàng, false: chỉ cửa hàng khoId. */
+  async ganDay(khoId, tatCa = false, { signal } = {}) {
+    const res = await apiClient.get("/api/v1/pos/returns/recent", { params: { khoId, tatCa }, signal });
+    return res.data?.data ?? [];
+  },
+
   /** Khối thông tin đơn gốc + các dòng còn trả được, kệ của cửa hàng nhận, duyệt quá hạn đang hiệu lực. */
   async donGoc(donBanHangId, khoId, { signal } = {}) {
     const res = await apiClient.get(`/api/v1/pos/returns/orders/${donBanHangId}`, { params: { khoId }, signal });

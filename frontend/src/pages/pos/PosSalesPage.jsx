@@ -2032,7 +2032,7 @@ export default function PosSalesPage({
         tabs={wideScreen ? renderInvoiceTabs('bar') : null}
       >
         {/* Bán hàng | Trả hàng: rời màn bán không mất hóa đơn đang làm (bản nháp theo tài khoản) */}
-        <PosModeTabs hienTai="ban" khoa={isSubmitting} lyDoKhoa={t("Đang xử lý thanh toán — đợi xong rồi đổi kho.")} />
+        <PosModeTabs hienTai="ban" khoa={isSubmitting} lyDoKhoa={t("Đang xử lý thanh toán — đợi xong rồi đổi kho.")} tatPhimTat={Boolean(dialog)} />
         <PosWarehousePicker
           blocked={Boolean(dialog)}
           disabled={isSubmitting || frozen}

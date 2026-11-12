@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu';
-import { Check, ChevronDown, Info } from 'lucide-react';
+import { Check, ChevronDown, Info, MapPin } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,19 +9,22 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { t } from "@/i18n";
 
-/** Hai dòng chữ "Kho bán hàng" / tên kho, không ô biểu tượng (chốt kiểu C: gọn ~140px, cao 36px). */
-function WarehouseLabel({ name, hidden = false, nhan = null }) {
+/**
+ * Một dòng: ghim vị trí + tên kho (PA D thanh trên POS 12/11). Nhãn "Kho bán hàng" / "Cửa hàng nhận trả" không
+ * in ra nữa mà nằm ở chú thích khi rê chuột, nhãn cho trình đọc màn hình và dòng đầu danh sách kho.
+ */
+function WarehouseLabel({ name, hidden = false }) {
   return (
-    <span aria-hidden={hidden || undefined} className="min-w-0 text-left">
-      <span className="hidden text-[10px] leading-3 text-bo-muted sm:block">{nhan ?? t("Kho bán hàng")}</span>
-      <span className="block max-w-[9rem] truncate text-[13px] font-semibold leading-4 text-bo-foreground sm:max-w-[16rem]">{name}</span>
+    <span aria-hidden={hidden || undefined} className="flex min-w-0 items-center gap-1.5">
+      {/* Điện thoại: bỏ ghim để chừa chỗ cho tên kho */}
+      <MapPin aria-hidden="true" className="hidden size-[15px] shrink-0 text-bo-muted sm:block" />
+      <span className="block max-w-[9rem] truncate text-[13px] font-medium leading-4 text-bo-foreground sm:max-w-[16rem]">{name}</span>
     </span>
   );
 }
 
 /**
- * Ô chọn kho của hóa đơn đang mở (chốt PA2, thu gọn kiểu C): hai dòng chữ, không viền, mở danh sách
- * nền trắng như menu tài khoản.
+ * Ô chọn kho của hóa đơn đang mở: một dòng có viền mảnh, mở danh sách nền trắng như menu tài khoản.
  * - Chỉ có 1 Kho bán hàng bán được (kể cả quản trị viên khi hệ thống chỉ có 1 Kho bán hàng): hiện chữ cố định.
  * - disabled (đang thanh toán / hóa đơn chờ thanh toán): vẫn hiện kho, vẫn nhận con trỏ để đọc lý do,
  *   bấm không mở danh sách mà gọi onBlockedOpen (trang hiện thông báo lý do).
@@ -59,19 +62,21 @@ export default function PosWarehousePicker({
   const current = warehouses.find((warehouse) => warehouse.id === value) || null;
   const name = current?.tenKho || (warehouses.length ? t("Chọn kho") : t("Chưa có kho"));
   const fullName = current ? `${current.tenKho} (${current.maKho})` : name;
+  const nhanO = nhan ?? t("Kho bán hàng");
 
   if (warehouses.length <= 1) {
+    const nhanCoDinh = t("{{nhan}}: {{fullName}}", { nhan: nhanO, fullName });
     return (
-      <div className="flex h-9 min-w-0 items-center px-2 xl:shrink-0" data-pos-warehouse="" title={t("Kho bán hàng: {{fullName}}", { fullName })}>
-        <WarehouseLabel hidden name={name} nhan={nhan} />
-        <span className="sr-only">{t("Kho bán hàng: {{fullName}}", { fullName })}</span>
+      <div className="flex h-9 min-w-0 items-center px-2 xl:shrink-0" data-pos-warehouse="" title={nhanCoDinh}>
+        <WarehouseLabel hidden name={name} />
+        <span className="sr-only">{nhanCoDinh}</span>
       </div>
     );
   }
 
   const label = disabled && disabledReason
-    ? t("Kho bán hàng: {{fullName}}. {{disabledReason}}", { fullName, disabledReason })
-    : t("Kho bán hàng: {{fullName}} — bấm để đổi kho", { fullName });
+    ? t("{{nhan}}: {{fullName}}. {{disabledReason}}", { nhan: nhanO, fullName, disabledReason })
+    : t("{{nhan}}: {{fullName}} — bấm để đổi", { nhan: nhanO, fullName });
   const isOpen = open && !disabled && !blocked;
 
   const handleOpenChange = (next) => {
@@ -88,12 +93,12 @@ export default function PosWarehousePicker({
         <button
           aria-disabled={disabled || undefined}
           aria-label={label}
-          className="group flex h-9 min-w-0 items-center gap-1 rounded-lg pl-2 pr-1.5 text-left transition-colors hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-bo-primary aria-disabled:cursor-not-allowed aria-disabled:opacity-60 aria-disabled:hover:bg-transparent data-[state=open]:bg-slate-100 xl:shrink-0"
+          className="group flex h-9 min-w-0 items-center gap-1 rounded-lg border border-bo-border bg-bo-surface pl-2.5 pr-1.5 text-left transition-colors hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-bo-primary aria-disabled:cursor-not-allowed aria-disabled:opacity-60 aria-disabled:hover:bg-bo-surface data-[state=open]:bg-slate-100 xl:shrink-0"
           data-pos-warehouse=""
           title={label}
           type="button"
         >
-          <WarehouseLabel name={name} nhan={nhan} />
+          <WarehouseLabel name={name} />
           <ChevronDown aria-hidden="true" className="size-3.5 shrink-0 text-bo-muted transition-transform group-data-[state=open]:rotate-180" />
         </button>
       </DropdownMenuTrigger>
@@ -114,7 +119,7 @@ export default function PosWarehousePicker({
         }}
         sideOffset={6}
       >
-        <p className="px-2.5 pb-1.5 pt-2 text-[11px] font-semibold leading-4 text-bo-muted" id={titleId}>{nhan ?? t("Kho bán hàng")}</p>
+        <p className="px-2.5 pb-1.5 pt-2 text-[11px] font-semibold leading-4 text-bo-muted" id={titleId}>{nhanO}</p>
         <DropdownMenuPrimitive.RadioGroup onValueChange={(next) => { pickedRef.current = true; onChange(Number(next)); }} value={value != null ? String(value) : ''}>
           {warehouses.map((warehouse) => (
             <DropdownMenuPrimitive.RadioItem
