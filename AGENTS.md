@@ -112,6 +112,20 @@ vào `Dev` / `main`. Báo đỏ thì xem log để biết dòng lỗi, sửa r�
 
 4. Backend: mỗi khóa mới trong `<nhom>.properties` có dòng tương ứng trong `<nhom>_en.properties`.
 
+## Quy chuẩn Sổ kiểm toán hệ thống bắt buộc (System Audit Trail - audit.md)
+
+> [!IMPORTANT]
+> **Nguyên tắc bắt buộc kiểm toán**: Mọi sự thay đổi đối với mã nguồn (Backend, Frontend), cơ sở dữ liệu (Entity, Schema, Migration), cấu hình hệ thống, tích hợp đối tác sàn TMĐT hoặc tài liệu quy chuẩn BẮT BUỘC phải được ghi nhận chi tiết vào tệp `audit.md` (tại thư mục gốc repository) theo thứ tự thời gian trước khi bàn giao.
+
+1. **Mã định danh tuần tự**: `[AUDIT-xxx]` (ví dụ: `[AUDIT-055]`, tiếp nối tuần tự từ mã mới nhất trong `audit.md`).
+2. **Cấu trúc mục audit bắt buộc**:
+   - **Mã & Tiêu đề**: `### [AUDIT-xxx] TÊN THAY ĐỔI VIẾT HOA`
+   - **Metadata**: Thời gian (GMT+7), Tác giả thực hiện, Phân hệ ảnh hưởng, Tệp thay đổi.
+   - **Mục tiêu & Phân tích nguyên nhân gốc rễ (Root Cause Analysis)**: Nêu rõ hiện tượng lỗi, lỗi cơ sở dữ liệu/sàn, stack trace và cơ chế dẫn đến sự cố.
+   - **Giải pháp kỹ thuật & Chi tiết triển khai**: Mô tả cụ thể tầng kiến trúc được sửa (Client, Service, Entity, DB Constraint, i18n...).
+   - **Kết quả kiểm thử & Đối soát hồi quy**: Báo cáo kết quả kiểm thử đơn vị, kiểm thử tích hợp (JUnit/Maven, i18n frontend, build).
+3. **Cập nhật Bảng tổng hợp nhật ký**: Luôn bổ sung 1 dòng mới vào bảng `## BẢNG TỔNG HỢP NHẬT KÝ THAY ĐỔI (AUDIT LOGS)` ở đầu tệp `audit.md`.
+
 ## Quy chuẩn đồng bộ đa kênh & Sàn TMĐT (Omnichannel)
 
 Áp dụng cho mọi module liên quan tới Shopify, Lazada, Shopee (Production & Sandbox), TikTok Shop:
