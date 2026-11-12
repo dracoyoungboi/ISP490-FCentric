@@ -317,7 +317,7 @@ export default function PosReturnsPage() {
 
   const renderTopBar = (picker = true) => (
     <PosTopBar helpLabel={t("Chính sách trả hàng")} onHelp={() => setModal('chinhSach')}>
-      <PosModeTabs hienTai="tra" khoa={submitting} lyDoKhoa={t("Đang xử lý trả hàng nên chưa đổi được kho.")} />
+      <PosModeTabs hienTai="tra" khoa={submitting} lyDoKhoa={t("Đang xử lý trả hàng nên chưa đổi được kho.")} tatPhimTat={Boolean(modal) || Boolean(don && !ketQua)} />
       {picker && warehouses?.length ? (
         <PosWarehousePicker
           blocked={Boolean(modal)}
