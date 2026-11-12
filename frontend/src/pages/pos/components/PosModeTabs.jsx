@@ -1,19 +1,19 @@
 import { useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ShoppingBag, Undo2 } from 'lucide-react';
 import { t } from "@/i18n";
+import { HoaDonQuayVe, MayTinhTien } from './BieuTuongCheDoQuay';
 
 const base = 'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-[7px] px-2.5 text-sm transition focus-visible:outline-2 focus-visible:outline-bo-primary sm:px-3';
 const off = `${base} font-medium text-bo-muted hover:text-bo-foreground`;
-// Chế độ đang chọn nổi lên khỏi khung xám; Trả hàng mang màu cam để thu ngân nhìn là biết đang trả, không phải đang bán.
-const on = {
-  ban: `${base} bg-bo-surface font-semibold text-bo-primary-strong shadow-[0_1px_2px_rgba(15,23,42,0.14),0_0_0_1px_rgba(15,23,42,0.04)]`,
-  tra: `${base} bg-orange-50 font-semibold text-orange-800 shadow-[0_1px_2px_rgba(154,52,18,0.18),0_0_0_1px_#fed7aa]`,
-};
+// Chế độ đang chọn nổi lên khỏi khung xám, chữ đậm và biểu tượng tô màu nhấn của dự án. Hai chế độ dùng chung
+// một màu như mọi công tắc khác: phân biệt bằng biểu tượng và nội dung màn hình; màu cam để dành cho cảnh báo
+// (ở màn trả hàng cam là nút duyệt trả quá hạn).
+// Không đặt chip F7 trên nút cho gọn: phím có trong bảng phím tắt (F1) và chú thích khi rê chuột.
+const dangChonLop = `${base} bg-bo-surface font-semibold text-bo-primary-strong shadow-[0_1px_2px_rgba(15,23,42,0.14),0_0_0_1px_rgba(15,23,42,0.05)]`;
 
 const MUC = [
-  { ma: 'ban', href: '/pos', nhan: t("Bán hàng"), bieuTuong: <ShoppingBag aria-hidden="true" className="size-4 shrink-0" /> },
-  { ma: 'tra', href: '/pos/returns', nhan: t("Trả hàng"), bieuTuong: <Undo2 aria-hidden="true" className="size-4 shrink-0" /> },
+  { ma: 'ban', href: '/pos', nhan: t("Bán hàng"), BieuTuong: MayTinhTien },
+  { ma: 'tra', href: '/pos/returns', nhan: t("Trả hàng"), BieuTuong: HoaDonQuayVe },
 ];
 
 /**
@@ -51,16 +51,18 @@ export default function PosModeTabs({ hienTai, khoa = false, lyDoKhoa = '', tatP
 
   return (
     <nav aria-label={t("Chế độ quầy")} className="flex shrink-0 items-center gap-0.5 rounded-[10px] bg-slate-100 p-[3px]">
-      {MUC.map(({ ma, href, nhan, bieuTuong }) => {
+      {MUC.map((muc) => {
+        const { ma, href, nhan, BieuTuong } = muc;
+        const dangChon = ma === hienTai;
         const noiDung = (
           <>
-            {bieuTuong}
+            <BieuTuong className={`size-4 shrink-0${dangChon ? ' text-bo-primary' : ''}`} />
             {/* Màn hẹp chỉ còn biểu tượng; chữ vẫn đọc được bằng trình đọc màn hình */}
             <span className="sr-only sm:not-sr-only">{nhan}</span>
           </>
         );
-        if (ma === hienTai) {
-          return <span aria-current="page" className={on[ma]} key={ma} title={nhan}>{noiDung}</span>;
+        if (dangChon) {
+          return <span aria-current="page" className={dangChonLop} key={ma} title={nhan}>{noiDung}</span>;
         }
         if (khoa) {
           return (
@@ -70,7 +72,7 @@ export default function PosModeTabs({ hienTai, khoa = false, lyDoKhoa = '', tatP
           );
         }
         return (
-          <Link className={off} key={ma} title={t("{{nhan}} (F7)", { nhan })} to={href}>
+          <Link aria-keyshortcuts={tatPhimTat ? undefined : 'F7'} className={off} key={ma} title={tatPhimTat ? nhan : t("{{nhan}} (F7)", { nhan })} to={href}>
             {noiDung}
           </Link>
         );

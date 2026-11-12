@@ -34,6 +34,15 @@ public final class ChuyenKeDto {
     public record KeGon(Integer id, String maViTri, String khuVuc, String trangThai, Integer sucChua, int dangChua) {
     }
 
+    /**
+     * Kệ đích gợi ý cho lượt chuyển. {@code conTrong} null = không giới hạn sức chứa. {@code cungMa}: kệ đang chứa một
+     * biến thể đang chuyển (cất về đây là dồn kệ); {@code cungKhu}: cùng khu vực với kệ nguồn; {@code duCho}: còn đủ chỗ
+     * cho toàn bộ số đang cần cất. Không gồm kệ nguồn, kệ đang kiểm kê / bảo trì / trạng thái khác, kệ đã đầy.
+     */
+    public record KeGoiY(Integer id, String maViTri, String khuVuc, String dayKe, String tangKe, Integer sucChua,
+                         int dangChua, Integer conTrong, boolean cungMa, boolean cungKhu, boolean duCho) {
+    }
+
     /** Kết quả chốt chuyển kệ. */
     public record KetQua(Integer id, String maPhieu, int soDong, int tongSoLuong) {
     }
@@ -45,7 +54,7 @@ public final class ChuyenKeDto {
     }
 
     public record DongPhieu(Integer id, Integer loHangId, String maLo, Integer bienTheId, String maSku, String tenSanPham,
-                            String mau, String kichCo, String keNguon, String keDich, int soLuong) {
+                            String mau, String maMauHex, String kichCo, String keNguon, String keDich, int soLuong) {
     }
 
     /** Trang danh sách phiếu. */

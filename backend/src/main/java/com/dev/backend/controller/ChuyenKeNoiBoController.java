@@ -57,6 +57,17 @@ public class ChuyenKeNoiBoController {
         return ok(service.dsKe(khoId), ThongDiep.dich("khoVanHanh.chuyenKeLayKeThanhCong"));
     }
 
+    @GetMapping("/goi-y-ke")
+    @Operation(summary = "Gợi ý kệ đích còn chỗ: ưu tiên kệ đang chứa cùng mã hàng, đủ chỗ, cùng khu với kệ nguồn")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho, IRoleType.nhan_vien_ban_hang},
+            inWarehouse = true)
+    public ResponseEntity<ResponseData<java.util.List<ChuyenKeDto.KeGoiY>>> goiYKe(
+            @RequestParam Integer khoId, @RequestParam(required = false) Integer keNguonId,
+            @RequestParam(required = false) java.util.List<Integer> bienTheIds, @RequestParam(defaultValue = "0") int can) {
+        kiemTraKho(khoId);
+        return ok(service.goiYKe(khoId, keNguonId, bienTheIds, can), ThongDiep.dich("khoVanHanh.chuyenKeLayKeThanhCong"));
+    }
+
     @PostMapping
     @Operation(summary = "Xác nhận chuyển kệ: giao dịch nguyên tử trừ kệ nguồn, cộng các kệ đích, sinh phiếu MV")
     @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho, IRoleType.nhan_vien_ban_hang},
