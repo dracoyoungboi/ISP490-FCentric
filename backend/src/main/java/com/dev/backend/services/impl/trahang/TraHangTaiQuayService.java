@@ -34,6 +34,7 @@ public class TraHangTaiQuayService {
     public static final String TRA_MOT_PHAN = "tra_mot_phan";
     public static final String DA_TRA_HET = "da_tra_het";
     private static final int TOI_DA_KET_QUA_TIM = 20;
+    private static final int TOI_DA_GAN_DAY = 50;
 
     @Autowired
     private EntityManager em;
@@ -91,6 +92,53 @@ public class TraHangTaiQuayService {
             kq.add(new TraHangDto.DonTomTat(d.getId(), d.getSoDonHang(), thanhToanLuc(d),
                     d.getKhoXuat() == null ? null : d.getKhoXuat().getTenKho(), d.getTongCong(),
                     kh == null ? null : kh.getTenKhachHang(), kh == null ? null : TraHangQuyTac.cheSoDienThoai(kh.getSoDienThoai()),
+                    tt, !DA_TRA_HET.equals(tt), TraHangQuyTac.quaHan(thanhToanLuc(d), bayGio)));
+        }
+        return kq;
+    }
+
+    /**
+     * Hóa đơn POS đã thanh toán còn trong hạn trả (GBR-RET 03 ngày), mới nhất trước, tối đa 50: danh sách chọn nhanh
+     * khi màn trả hàng chưa chọn hóa đơn. {@code moiCuaHang} = false: chỉ hóa đơn bán tại chính cửa hàng nhận;
+     * true: mọi cửa hàng (trả chéo, như tìm theo mã). Hóa đơn đã trả hết vẫn trả về (conTraDuoc = false) để thu ngân
+     * thấy vì sao không trả được nữa.
+     */
+    @Transactional(readOnly = true)
+    public List<TraHangDto.DonTomTat> ganDay(Integer khoNhanId, boolean moiCuaHang) {
+        posCatalogService.authorizeWarehouse(khoNhanId);
+        Instant bayGio = Instant.now();
+        // JPQL trên thuộc tính Instant của thực thể: cùng cách đổi múi giờ với lúc ghi, không so chuỗi giờ thô
+        // Lọc "có giao dịch POS" ngay trong câu truy vấn (đơn sàn đã giao cũng hoàn thành + đã thanh toán, lọc sau
+        // giới hạn số dòng thì chúng chiếm chỗ làm danh sách thiếu). Khách và kho lấy kèm, không hỏi từng đơn.
+        String jpql = "select d from DonBanHang d left join fetch d.khachHang join fetch d.khoXuat k"
+                + " where d.loaiChungTu = 'don_ban_hang' and d.trangThai = :hoanThanh"
+                + " and d.trangThaiThanhToan = 'da_thanh_toan'"
+                + " and coalesce(d.ngayGiaoHang, d.ngayDatHang) >= :tu"
+                + " and exists (select 1 from PosPayment p where p.donBanHangId = d.id)"
+                + (moiCuaHang ? "" : " and k.id = :kho")
+                + " order by coalesce(d.ngayGiaoHang, d.ngayDatHang) desc, d.id desc";
+        var query = em.createQuery(jpql, DonBanHang.class)
+                .setParameter("hoanThanh", ITrangThaiDonBanHang.HOAN_THANH)
+                .setParameter("tu", bayGio.minus(TraHangQuyTac.HAN_TRA))
+                .setMaxResults(TOI_DA_GAN_DAY);
+        if (!moiCuaHang) query.setParameter("kho", khoNhanId);
+        List<DonBanHang> ds = query.getResultList();
+        if (ds.isEmpty()) return List.of();
+        List<Integer> ids = ds.stream().map(DonBanHang::getId).toList();
+        // Trạng thái trả (cột không ánh xạ trên thực thể): một truy vấn gộp
+        Map<Integer, String> trangThaiTra = new HashMap<>();
+        for (Object o : em.createNativeQuery("SELECT id, trang_thai_tra_hang FROM don_ban_hang WHERE id IN (:ids)")
+                .setParameter("ids", ids).getResultList()) {
+            Object[] r = (Object[]) o;
+            trangThaiTra.put(((Number) r[0]).intValue(), r[1] == null ? null : String.valueOf(r[1]));
+        }
+        List<TraHangDto.DonTomTat> kq = new ArrayList<>();
+        for (DonBanHang d : ds) {
+            KhachHang kh = d.getKhachHang();
+            String tt = trangThaiTra.get(d.getId());
+            kq.add(new TraHangDto.DonTomTat(d.getId(), d.getSoDonHang(), thanhToanLuc(d), d.getKhoXuat().getTenKho(),
+                    d.getTongCong(), kh == null ? null : kh.getTenKhachHang(),
+                    kh == null ? null : TraHangQuyTac.cheSoDienThoai(kh.getSoDienThoai()),
                     tt, !DA_TRA_HET.equals(tt), TraHangQuyTac.quaHan(thanhToanLuc(d), bayGio)));
         }
         return kq;
