@@ -6204,8 +6204,51 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 packageId = m.group(1).trim();
             }
         }
+
+        // Tự phục hồi: nếu đơn hàng chưa có mã kiện trong ghi chú, tra cứu chi tiết đơn từ sàn để lấy package_id
+        if ((packageId == null || packageId.isBlank()) && maDonHangKenh != null) {
+            try {
+                com.fasterxml.jackson.databind.JsonNode orderDetailRes =
+                        getTikTokShopClient().getOrderDetails(appKey, appSecret, token, cipher, maDonHangKenh.trim());
+                if (orderDetailRes != null && orderDetailRes.path("code").asInt(-1) == 0) {
+                    com.fasterxml.jackson.databind.JsonNode ordersArr = orderDetailRes.path("data").path("orders");
+                    if (ordersArr.isArray() && ordersArr.size() > 0) {
+                        com.fasterxml.jackson.databind.JsonNode firstOrder = ordersArr.get(0);
+                        com.fasterxml.jackson.databind.JsonNode packagesArr = firstOrder.path("packages");
+                        if (!packagesArr.isArray() || packagesArr.size() == 0) {
+                            packagesArr = firstOrder.path("package_list");
+                        }
+                        if (packagesArr.isArray() && packagesArr.size() > 0) {
+                            packageId = packagesArr.get(0).path("package_id").asText(null);
+                        }
+                    }
+                }
+                if (packageId != null && !packageId.isBlank() && don != null) {
+                    String currentNote = don.getGhiChu() != null ? don.getGhiChu() : "";
+                    if (!currentNote.contains("[KIỆN:")) {
+                        don.setGhiChu((currentNote.isBlank() ? "" : currentNote + " | ") + "[KIỆN: " + packageId + "]");
+                        don.setNgayCapNhat(Instant.now());
+                        donBanHangRepository.save(don);
+                        log.info("[TIKTOK-FULFILLMENT] Tự động cập nhật package_id {} cho đơn {}", packageId, maDonHangKenh);
+                    }
+                }
+            } catch (Exception ex) {
+                log.warn("[TIKTOK-FULFILLMENT] Không thể tra cứu chi tiết đơn {} để lấy package_id: {}", maDonHangKenh, ex.getMessage());
+            }
+        }
+
         if (packageId != null && !packageId.isBlank()) {
-            return getTikTokShopClient().getPackageShippingDocumentUrl(appKey, appSecret, token, cipher, packageId);
+            String docUrl = getTikTokShopClient().getPackageShippingDocumentUrl(appKey, appSecret, token, cipher, packageId);
+            if (docUrl != null && !docUrl.isBlank() && don != null) {
+                String currentNote = don.getGhiChu() != null ? don.getGhiChu() : "";
+                if (!currentNote.contains("[PDF_AWB:")) {
+                    don.setGhiChu((currentNote.isBlank() ? "" : currentNote + " | ") + "[PDF_AWB: " + docUrl.trim() + "]");
+                    don.setNgayCapNhat(Instant.now());
+                    donBanHangRepository.save(don);
+                    log.info("[TIKTOK-FULFILLMENT] Đã lưu cache URL PDF vận đơn gốc TikTok Shop cho đơn {}", don.getSoDonHang());
+                }
+            }
+            return docUrl;
         }
         return null;
     }

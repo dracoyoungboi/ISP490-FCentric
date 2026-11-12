@@ -24,6 +24,7 @@ import com.dev.backend.services.impl.kiemke.KhoaKiemKeGuard;
 import com.dev.backend.services.impl.kiemke.PhanBoKeService;
 import com.dev.backend.services.impl.kiemke.SoTonKeService;
 import com.dev.backend.constant.enums.TrangThaiPhieuNhap;
+import com.dev.backend.services.KenhBanHangDongBoService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -131,6 +132,10 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
 
     @Autowired(required = false)
     private com.dev.backend.services.KenhBanHangService kenhBanHangService;
+
+    @Lazy
+    @Autowired(required = false)
+    private KenhBanHangDongBoService kenhBanHangDongBoService;
 
     @Override
     protected EntityManager getEntityManager() {
@@ -1220,6 +1225,23 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                 maDinhTuyen = "473 / H024V02 / 018";
                 maTramPhat = null;
                 tagGiaoNhan = null;
+
+                // Tự động gọi API TikTok Shop để lấy PDF tem AWB gốc nếu chưa có trong ghi chú
+                if ((shippingDocUrl == null || shippingDocUrl.isBlank()) && donGoc.getMaDonHangKenh() != null && kenhBanHangDongBoService != null) {
+                    try {
+                        shippingDocUrl = kenhBanHangDongBoService.layShippingDocumentUrlTikTok(donGoc.getMaDonHangKenh());
+                        if (shippingDocUrl != null && !shippingDocUrl.isBlank()) {
+                            String currentNote = donGoc.getGhiChu() != null ? donGoc.getGhiChu() : "";
+                            if (!currentNote.contains("[PDF_AWB:")) {
+                                donGoc.setGhiChu((currentNote.isBlank() ? "" : currentNote + " | ") + "[PDF_AWB: " + shippingDocUrl.trim() + "]");
+                                donBanHangRepository.save(donGoc);
+                                log.info("[TIKTOK-AWB] Đã lưu URL PDF vận đơn gốc từ TikTok Shop cho đơn {}", donGoc.getSoDonHang());
+                            }
+                        }
+                    } catch (Exception ex) {
+                        log.warn("[TIKTOK-AWB] Không thể lấy URL PDF vận đơn TikTok Shop cho đơn {}: {}", donGoc.getMaDonHangKenh(), ex.getMessage());
+                    }
+                }
             } else if (lazadaRoutingDecoder != null) {
                 com.fasterxml.jackson.databind.JsonNode traceNode = null;
                 if (kb != null && ("LAZADA".equalsIgnoreCase(kb.getMaKenh()) || "LAZADA_SANDBOX".equalsIgnoreCase(kb.getMaKenh()))
