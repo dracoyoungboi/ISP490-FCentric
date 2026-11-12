@@ -799,6 +799,25 @@ public class TikTokShopClient {
         }
     }
 
+    /**
+     * Lấy chi tiết đơn hàng theo order_id từ TikTok Shop OpenAPI.
+     * Endpoint: GET /order/202309/orders?ids={orderId}
+     * Scope: seller.order.info hoặc seller.fulfillment.basic
+     */
+    public JsonNode getOrderDetails(String appKey, String appSecret, String accessToken, String shopCipher, String orderId) {
+        if (orderId == null || orderId.isBlank()) return null;
+        String apiPath = "/order/202309/orders";
+        Map<String, String> qParams = new LinkedHashMap<>();
+        qParams.put("ids", orderId.trim());
+        String url = buildUrlWithSign(TikTokShopConstants.BASE_URL, apiPath, qParams, null, appKey, appSecret, shopCipher);
+        try {
+            return executeGet(url, accessToken);
+        } catch (Exception ex) {
+            log.warn("[TIKTOK-ORDER] Lỗi khi lấy chi tiết đơn {}: {}", orderId, ex.getMessage());
+            return null;
+        }
+    }
+
     public TikTokAuthorizedShopsResponse getAuthorizedShops(String appKey, String appSecret, String accessToken) {
         if (accessToken == null || accessToken.isBlank()) {
             throw new LoiThamSoException(ThongDiep.of("kenhBan.accessTokenTrongKhiLayGianHangTikTok"));
