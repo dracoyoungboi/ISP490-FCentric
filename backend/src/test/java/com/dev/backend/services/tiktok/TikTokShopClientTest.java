@@ -537,6 +537,37 @@ class TikTokShopClientTest {
     }
 
     @Test
+    @DisplayName("getOrderTracking: Lấy thông tin tracking và package_id theo order_id từ TikTok Shop")
+    void getOrderTracking_thanhCong() {
+        String orderId = "587149040959063442";
+        String mockRes = """
+                {
+                    "code": 0,
+                    "message": "success",
+                    "data": {
+                        "package_list": [
+                            {
+                                "package_id": "PKG-587149040959063442",
+                                "tracking_number": "862739254873",
+                                "shipping_provider_name": "J&T Express"
+                            }
+                        ]
+                    }
+                }
+                """;
+
+        when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
+                .thenReturn(new ResponseEntity<>(mockRes, HttpStatus.OK));
+
+        var res = client.getOrderTracking("appKey", "appSecret", "token", "cipher", orderId);
+
+        assertNotNull(res);
+        assertEquals(0, res.path("code").asInt());
+        assertEquals("PKG-587149040959063442", res.path("data").path("package_list").get(0).path("package_id").asText());
+        assertEquals("862739254873", res.path("data").path("package_list").get(0).path("tracking_number").asText());
+    }
+
+    @Test
     @DisplayName("TikTokOrderDto: Parse payment.total_amount và layTongTienThanhToan chống lỗi 0đ đơn MoMo")
     void tikTokOrderDto_parsePaymentTotalAmount_khacPhucLoi0d() throws Exception {
         String jsonWithPayment = """
