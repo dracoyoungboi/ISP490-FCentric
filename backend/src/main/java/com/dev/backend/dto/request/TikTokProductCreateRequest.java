@@ -1,5 +1,6 @@
 package com.dev.backend.dto.request;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -13,6 +14,7 @@ import java.util.List;
 @NoArgsConstructor
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class TikTokProductCreateRequest implements Serializable {
 
     @JsonProperty("title")
@@ -40,6 +42,12 @@ public class TikTokProductCreateRequest implements Serializable {
     @JsonProperty("package_dimensions")
     PackageDimensions packageDimensions;
 
+    @JsonProperty("product_attributes")
+    List<ProductAttribute> productAttributes;
+
+    @JsonProperty("size_chart")
+    SizeChart sizeChart;
+
     @JsonProperty("skus")
     List<CreateSku> skus;
 
@@ -49,6 +57,7 @@ public class TikTokProductCreateRequest implements Serializable {
     @NoArgsConstructor
     @Builder
     @FieldDefaults(level = AccessLevel.PRIVATE)
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class ImageUri implements Serializable {
         @JsonProperty("uri")
         String uri;
@@ -60,6 +69,7 @@ public class TikTokProductCreateRequest implements Serializable {
     @NoArgsConstructor
     @Builder
     @FieldDefaults(level = AccessLevel.PRIVATE)
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class PackageWeight implements Serializable {
         @JsonProperty("value")
         String value;
@@ -74,6 +84,7 @@ public class TikTokProductCreateRequest implements Serializable {
     @NoArgsConstructor
     @Builder
     @FieldDefaults(level = AccessLevel.PRIVATE)
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class PackageDimensions implements Serializable {
         @JsonProperty("length")
         String length;
@@ -94,6 +105,7 @@ public class TikTokProductCreateRequest implements Serializable {
     @NoArgsConstructor
     @Builder
     @FieldDefaults(level = AccessLevel.PRIVATE)
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class CreateSku implements Serializable {
         @JsonProperty("seller_sku")
         String sellerSku;
@@ -114,15 +126,35 @@ public class TikTokProductCreateRequest implements Serializable {
     @NoArgsConstructor
     @Builder
     @FieldDefaults(level = AccessLevel.PRIVATE)
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class SalesAttribute implements Serializable {
-        @JsonProperty("attribute_id")
-        String attributeId;
+        @JsonProperty("id")
+        String id;
 
-        @JsonProperty("attribute_name")
-        String attributeName;
+        @JsonProperty("name")
+        String name;
+
+        @JsonProperty("value_id")
+        String valueId;
+
+        @JsonProperty("value_name")
+        String valueName;
 
         @JsonProperty("custom_value")
         String customValue;
+
+        // Giữ tương thích ngược với code gọi attributeName / attributeId
+        public static class SalesAttributeBuilder {
+            public SalesAttributeBuilder attributeName(String attributeName) {
+                this.name = attributeName;
+                return this;
+            }
+
+            public SalesAttributeBuilder attributeId(String attributeId) {
+                this.id = attributeId;
+                return this;
+            }
+        }
     }
 
     @AllArgsConstructor
@@ -131,6 +163,7 @@ public class TikTokProductCreateRequest implements Serializable {
     @NoArgsConstructor
     @Builder
     @FieldDefaults(level = AccessLevel.PRIVATE)
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class SkuPrice implements Serializable {
         @JsonProperty("amount")
         String amount;
@@ -145,11 +178,81 @@ public class TikTokProductCreateRequest implements Serializable {
     @NoArgsConstructor
     @Builder
     @FieldDefaults(level = AccessLevel.PRIVATE)
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class SkuInventoryQuantity implements Serializable {
         @JsonProperty("warehouse_id")
         String warehouseId;
 
         @JsonProperty("quantity")
         Integer quantity;
+    }
+
+    @AllArgsConstructor
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public static class ProductAttribute implements Serializable {
+        @JsonProperty("id")
+        String id;
+
+        @JsonProperty("values")
+        List<AttributeValue> values;
+    }
+
+    @AllArgsConstructor
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public static class AttributeValue implements Serializable {
+        @JsonProperty("id")
+        String id;
+
+        @JsonProperty("name")
+        String name;
+    }
+
+    @AllArgsConstructor
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public static class SizeChart implements Serializable {
+        @JsonProperty("image")
+        SizeChartImage image;
+
+        @JsonProperty("template")
+        SizeChartTemplate template;
+    }
+
+    @AllArgsConstructor
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public static class SizeChartImage implements Serializable {
+        @JsonProperty("uri")
+        String uri;
+    }
+
+    @AllArgsConstructor
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public static class SizeChartTemplate implements Serializable {
+        @JsonProperty("id")
+        String id;
     }
 }

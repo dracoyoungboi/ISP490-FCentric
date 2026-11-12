@@ -26,7 +26,8 @@ public final class DichCauDaLuu {
             "hienThiKenhPos.loiKetNoiToiLazada",
             "hienThiKenhPos.loiKetNoi",
             "hienThiKenhPos.lazadaTuChoi",
-            "hienThiKenhPos.shopifyTuChoiSoTonChiTiet");
+            "hienThiKenhPos.shopifyTuChoiSoTonChiTiet",
+            "hienThiKenhPos.tiktokTuChoiSoTonChiTiet");
     private static final int SO_THAM_SO_TOI_DA = 3;
     private static final int DO_SAU_TOI_DA = 3;
     private static final List<MauBoc> MAU_BOC = new ArrayList<>();

@@ -120,7 +120,7 @@ vào `Dev` / `main`. Báo đỏ thì xem log để biết dòng lỗi, sửa r�
 - **Lazada**: Gian hàng 1 kho mặc định -> `chiDoc: t("Kho mặc định")` (chỉ đọc, không mở dropdown chọn kho).
 - **TikTok Shop**: 
   - Mặc dù TikTok Shop có 2 kho nội bộ (`SALES_WAREHOUSE` kho bán hàng và `RETURN_WAREHOUSE` kho trả hàng bưu cục), nhưng kho nhận tồn bán hàng **DUY NHẤT** là `SALES_WAREHOUSE`.
-  - Backend BẮT BUỘC lọc bỏ `RETURN_WAREHOUSE` khỏi danh sách kho bán hàng.
+  - Backend BẮT BUỘC lọc bỏ `RETURN_WAREHOUSE` khỏi danh sách kho bán hàng. Khi tra cứu kho qua `GET /logistics/202309/warehouses`, cả 2 kho đều có `sub_type = "DOMESTIC_WAREHOUSE"`. Do đó, stream filter **TUYỆT ĐỐI KHÔNG** dùng `subType == "DOMESTIC_WAREHOUSE"` làm điều kiện OR mà BẮT BUỘC kiểm tra `type == "SALES_WAREHOUSE"` và loại trừ hoàn toàn `RETURN_WAREHOUSE` để chống lỗi `12052532` (`warehouse_id must identify a warehouse available to the current shop`).
   - Khi gian hàng chỉ có 1 kho bán hàng (mô hình chuẩn nội địa), giao diện tự động hiển thị chỉ đọc `Tên kho (Kho bán hàng mặc định)` tương tự như Lazada, loại bỏ dropdown chọn kho trùng tên gây nhầm lẫn.
   - Luồng hàng FCentric: Hàng đi ra từ Kho Tổng FCentric; khi khách hủy/hoàn thì hàng nhập về đúng Kho Tổng FCentric; số tồn khả dụng FCentric được đồng bộ trực tiếp vào `SALES_WAREHOUSE` của TikTok Shop.
 - **Shopee**: Áp dụng mô hình gian hàng 1 kho mặc định -> `chiDoc: t("Kho mặc định")`.
@@ -150,11 +150,41 @@ vào `Dev` / `main`. Báo đỏ thì xem log để biết dòng lỗi, sửa r�
 ### 6. Tạo sản phẩm & Phân trang TikTok Shop (API v202309)
 - **Đo lường (Struct)**: `package_weight` BẮT BUỘC là struct `{"value": "0.3", "unit": "KILOGRAM"}` (tuyệt đối không gửi String thô). `package_dimensions` BẮT BUỘC là struct kèm `"unit": "CENTIMETER"`.
 - **Phân trang API**: `page_size` và `page_token` của API tìm đơn hàng (`/order/202309/orders/search`) và tìm sản phẩm BẮT BUỘC nằm ở **Query Parameter trên URL** (không để trong body JSON).
-- **Phân loại biến thể**: Khi sản phẩm có nhiều SKU biến thể, BẮT BUỘC bổ sung `sales_attributes` (Màu sắc, Kích cỡ) cho từng SKU để TikTok Shop nhận diện.
+- **Phân loại biến thể & Single SKU**:
+  - Với sản phẩm đơn (1 SKU duy nhất): BẮT BUỘC để `sales_attributes = null` (không gửi trường này).
+  - Với sản phẩm nhiều biến thể: BẮT BUỘC bổ sung `sales_attributes` gồm CẢ `name`, `value_name` VÀ `custom_value` cho từng SKU để TikTok Shop nhận diện và hiển thị giá trị (chống lỗi `Resource Already Exists: Kích cỡ() Màu sắc() is already in use` mã `12052251`).
+  - Đảm bảo tính đồng nhất số chiều thuộc tính giữa các SKU và cơ chế chống trùng lặp tổ hợp thuộc tính (tự động đệm mã SKU khi trùng).
+  - Toàn bộ payload DTO sử dụng `@JsonInclude(JsonInclude.Include.NON_NULL)` để loại bỏ các trường rỗng/null, tránh lỗi schema sàn.
 - **Tiêu đề**: Độ dài bắt buộc từ 25 đến 255 ký tự (nếu ngắn phải tự động đệm thông tin).
-- **Hình ảnh**: Bắt buộc upload ảnh lên TikTok CDN qua `/product/202309/images/upload` để lấy `Image URI` nội bộ (`tos-maliva-...`). Tuyệt đối không truyền URL bên ngoài hoặc chuỗi URI giả lập. Khi sản phẩm không có ảnh trong DB, tự động sinh ảnh JPEG 800x800 chuẩn e-commerce (logo FCENTRIC + tên sản phẩm) và upload thật lên TikTok CDN (chống lỗi 12052300).
+- **Hình ảnh & Upload CDN**:
+  - Bắt buộc upload ảnh lên TikTok CDN qua `POST /product/202309/images/upload` để lấy `Image URI` nội bộ (`tos-maliva-...`). Tuyệt đối không truyền URL bên ngoài hoặc chuỗi URI giả lập (chống lỗi 12052300).
+  - API upload ảnh là cấp Platform: TUYỆT ĐỐI **KHÔNG truyền `shop_cipher`** vào query parameters trên URL (chống lỗi HTTP 400 mã 36009004).
+  - Body multipart của API upload ảnh BẮT BUỘC phải kèm tham số `use_case = "MAIN_IMAGE"`.
+  - Khi sản phẩm không có ảnh trong DB, tự động sinh ảnh JPEG 800x800 chuẩn e-commerce (logo FCENTRIC + tên sản phẩm) và upload thật lên TikTok CDN.
 - **Thương hiệu**: Mặc định `brand_id = "0"` (No Brand) để tránh bị từ chối phê duyệt bản quyền.
 - **Danh mục V2**: `category_version = "v2"` bắt buộc ở cả URL Query Param và Body JSON. `category_id` phải là danh mục lá (Leaf Category) V2 xác định tự động qua AI recommend hoặc tìm kiếm từ khóa.
+- **Thuộc tính sản phẩm bắt buộc (Product Attributes)**:
+  - Bắt buộc kiểm tra và cung cấp các thuộc tính có `is_mandatory = true` qua API `GET /product/202309/categories/{category_id}/attributes`.
+  - Tên trường định danh thuộc tính trong `product_attributes` BẮT BUỘC là `id` (tuyệt đối không đặt tên `attribute_id`), cấu trúc chuẩn: `[{"id": "100149", "values": [{"id": "1000854", "name": "Việt Nam"}]}]` để tránh lỗi HTTP 400 mã `36009004` (`Id of ProductAttributes[0] is a required field and has not been provided`).
+  - Thuộc tính **Quốc gia xuất xứ** (Attribute ID: `100149` / Country of Origin = "Việt Nam", Value ID: `1000854`) BẮT BUỘC phải luôn có mặt trong `product_attributes` đối với ngành hàng thời trang để chống lỗi TikTok Shop mã `12052104`. Tự động ánh xạ `id` và `name` từ enum của sàn hoặc sử dụng fallback `Việt Nam` (`id = "1000854"`).
+  - Thuộc tính **Tên tổ chức chịu trách nhiệm hàng hóa** (Attribute ID: `101489` theo Nghị định 85/2021/NĐ-CP của Việt Nam) BẮT BUỘC phải luôn có mặt trong `product_attributes`. Tự động điền giá trị doanh nghiệp `"Công ty Cổ phần Thời trang FCentric"` để tránh lỗi TikTok Shop mã `12052104` (`missing product attribute ID '101489'`). Kèm theo địa chỉ tổ chức chịu trách nhiệm nếu danh mục yêu cầu.
+- **Bảng quy đổi kích cỡ (Size Chart Image)**:
+  - Đối với ngành hàng thời trang may mặc (như Áo Polo, Áo khoác, Quần thể thao...), TikTok Shop BẮT BUỘC cung cấp trường `size_chart` chứa `image.uri` (chống lỗi HTTP 400 mã `12052673`: `Missing Parameter. size_chart_image is required`).
+  - Ảnh size chart BẮT BUỘC phải được upload lên TikTok Shop CDN qua `POST /product/202309/images/upload` với multipart parameter `use_case = "SIZE_CHART_IMAGE"` (tuyệt đối không dùng `MAIN_IMAGE` cho size chart để tránh lỗi `12052670`: `Invalid size chart image URI`).
+  - Hệ thống tự động sinh ảnh bảng quy đổi kích cỡ chuẩn 800x800 cho thương hiệu FCentric và lưu bộ nhớ đệm URI theo `shop_cipher`.
+
+### 7. Chuẩn hóa bắt lỗi trực quan kênh TikTok Shop (tương đương Shopify)
+- **Chuẩn hóa qua `phanLoaiLoiTikTok`**: Bắt buộc lọc và dịch 100% các mã phản hồi sàn thành hướng dẫn hành động thân thiện người dùng:
+  - Token hết hạn (`105001`, `105002`, `401`, `403`): Báo lỗi cả kênh, yêu cầu kết nối lại gian hàng.
+  - Vượt tần suất (`429`, `105003`): Báo lỗi cả kênh, thông báo sàn đang giới hạn tần suất.
+  - Kho hàng (`12052532`): Hướng dẫn kiểm tra cấu hình kho bán hàng nội địa.
+  - Vi phạm nhãn hiệu (`12052106`, `12052107`, bot từ chối thương hiệu): Hướng dẫn sửa tên sản phẩm hoặc nộp giấy phép ủy quyền phân phối.
+  - Nghị định 85 (`101489`, `101490`): Hướng dẫn bổ sung đơn vị chịu trách nhiệm hàng hóa.
+  - Xuất xứ (`100149`): Hướng dẫn bổ sung quốc gia xuất xứ.
+  - Bảng quy đổi kích cỡ (`12052673`): Hướng dẫn cung cấp ảnh bảng size chart.
+  - Trùng biến thể (`12052251`): Hướng dẫn kiểm tra tổ hợp phân loại màu sắc - kích cỡ.
+  - Chờ duyệt sàn (`12052528`): Báo trạng thái sản phẩm đang chờ duyệt hoặc bị từ chối niêm yết.
+- **Ghi nhận lỗi tạo sản phẩm vào DB**: Khi sàn từ chối tạo bài trong `taoSanPhamLenTikTok`, BẮT BUỘC lưu trạng thái `that_bai` kèm lý do trực quan vào bảng `TrangThaiDongBoSanPham` cho toàn bộ biến thể của sản phẩm đó để người dùng nhận diện ngay ở tab "Lỗi".
 
 ## Quy chuẩn Git Commit nguyên tử & Chiến lược đóng góp (~500 commits/tuần)
 

@@ -1223,4 +1223,61 @@ class KenhBanHangDongBoServiceTest {
         service.xoaMocLanChay("SHOPIFY");
         verify(omnichannelOrderSyncJob).xoaLanLayDonCuoi(1);
     }
+
+    @Test
+    void phanLoaiLoiTikTok_cacMaLoiNghiepVu_chuyenDoiChinhXacSangTiengViet() {
+        // 1. Token hết hạn / 105001
+        var kq1 = service.phanLoaiLoiTikTok(105001, "access_token is expired", null);
+        assertFalse(kq1.thanhCong());
+        assertTrue(kq1.loiKenh());
+        assertTrue(kq1.lyDo().contains("hết hạn hoặc không hợp lệ"));
+
+        // 2. Rate limit 429
+        var kq2 = service.phanLoaiLoiTikTok(429, "Too Many Requests", null);
+        assertFalse(kq2.thanhCong());
+        assertTrue(kq2.loiKenh());
+        assertTrue(kq2.lyDo().contains("giới hạn tần suất"));
+
+        // 3. Kho hàng 12052532
+        var kq3 = service.phanLoaiLoiTikTok(12052532, "Invalid Parameter. Parameter skus[].inventory[].warehouse_id is invalid", null);
+        assertFalse(kq3.thanhCong());
+        assertFalse(kq3.loiKenh());
+        assertTrue(kq3.lyDo().contains("kho trả hàng") || kq3.lyDo().contains("Kho hàng"));
+
+        // 4. Vi phạm bản quyền thương hiệu (Nike, Adidas)
+        var kq4 = service.phanLoaiLoiTikTok(12052106, "Chúng tôi phát hiện sản phẩm hoặc bao bì sản phẩm của bạn là của thương hiệu khác với thương hiệu bạn đã đề cập", null);
+        assertFalse(kq4.thanhCong());
+        assertFalse(kq4.loiKenh());
+        assertTrue(kq4.lyDo().contains("thương hiệu được bảo hộ"));
+
+        // 5. Nghị định 85 (ID 101489)
+        var kq5 = service.phanLoaiLoiTikTok(12052104, "missing product attribute ID '101489'", null);
+        assertFalse(kq5.thanhCong());
+        assertFalse(kq5.loiKenh());
+        assertTrue(kq5.lyDo().contains("Nghị định 85"));
+
+        // 6. Quốc gia xuất xứ (ID 100149)
+        var kq6 = service.phanLoaiLoiTikTok(12052104, "missing product attribute ID '100149'", null);
+        assertFalse(kq6.thanhCong());
+        assertFalse(kq6.loiKenh());
+        assertTrue(kq6.lyDo().contains("Quốc gia xuất xứ"));
+
+        // 7. Bảng quy đổi kích cỡ (Size chart)
+        var kq7 = service.phanLoaiLoiTikTok(12052673, "Missing Parameter. size_chart_image is required", null);
+        assertFalse(kq7.thanhCong());
+        assertFalse(kq7.loiKenh());
+        assertTrue(kq7.lyDo().contains("bảng quy đổi kích cỡ"));
+
+        // 8. Trùng tổ hợp biến thể 12052251
+        var kq8 = service.phanLoaiLoiTikTok(12052251, "Resource Already Exists. A value for sale attribute is already in use", null);
+        assertFalse(kq8.thanhCong());
+        assertFalse(kq8.loiKenh());
+        assertTrue(kq8.lyDo().contains("trùng lặp"));
+
+        // 9. Sản phẩm chờ duyệt 12052528
+        var kq9 = service.phanLoaiLoiTikTok(12052528, "Product is under_review", null);
+        assertFalse(kq9.thanhCong());
+        assertFalse(kq9.loiKenh());
+        assertTrue(kq9.lyDo().contains("chờ TikTok Shop phê duyệt"));
+    }
 }
