@@ -1292,12 +1292,39 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 String errMsg = res != null ? res.getMessage() : "Phản hồi rỗng";
                 int errCode = res != null ? res.getCode() : -1;
                 log.warn("[TIKTOK-CREATE] TikTok Shop từ chối tạo sản phẩm [{}]: code={} - {}", title, errCode, errMsg);
+                KetQuaGuiTon kqLoi = phanLoaiLoiTikTok(errCode, errMsg, null);
+                ghiNhanLoiTaoSanPhamTikTok(kenh, variants, kqLoi.lyDo());
             }
         } catch (Exception e) {
             log.error("[TIKTOK-CREATE] Lỗi khi tạo sản phẩm [{}] lên TikTok Shop: {}", title, e.getMessage());
+            KetQuaGuiTon kqLoi = phanLoaiLoiTikTok(-1, e.getMessage(), null);
+            ghiNhanLoiTaoSanPhamTikTok(kenh, variants, kqLoi.lyDo());
         }
 
         return createdSkuMap;
+    }
+
+    private void ghiNhanLoiTaoSanPhamTikTok(KenhBanHang kenh, List<BienTheSanPham> variants, String lyDoLoi) {
+        if (kenh == null || variants == null || variants.isEmpty()) return;
+        Instant now = Instant.now();
+        List<TrangThaiDongBoSanPham> listCanLuu = new ArrayList<>();
+        for (BienTheSanPham bt : variants) {
+            if (bt.getId() == null) continue;
+            var opt = trangThaiDongBoSanPhamRepository.findByKenhBanHangIdAndBienTheSanPhamId(kenh.getId(), bt.getId());
+            TrangThaiDongBoSanPham tt = opt.orElseGet(() -> {
+                TrangThaiDongBoSanPham moi = new TrangThaiDongBoSanPham();
+                moi.setKenhBanHang(kenh);
+                moi.setBienTheSanPham(bt);
+                return moi;
+            });
+            tt.setTrangThaiDongBo("that_bai");
+            tt.setChiTietLoi(lyDoLoi);
+            tt.setNgayDongBoCuoi(now);
+            listCanLuu.add(tt);
+        }
+        if (!listCanLuu.isEmpty()) {
+            trangThaiDongBoSanPhamRepository.saveAll(listCanLuu);
+        }
     }
 
     /**
@@ -3059,8 +3086,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     if (res != null && res.getCode() == 0) {
                         capNhatThanhCong = true;
                     } else {
-                        String errMsg = res != null ? res.getMessage() : ThongDiep.vi("hienThiKenhPos.tiktokLoiKhongXacDinh");
-                        log.warn("[TIKTOK-SYNC] Cập nhật tồn thất bại cho sản phẩm {}: {}", prodId, errMsg);
+                        int errCode = res != null && res.getCode() != null ? res.getCode() : -1;
+                        String errMsg = res != null ? res.getMessage() : "";
+                        loiKenh = phanLoaiLoiTikTok(errCode, errMsg, null).lyDo();
+                        log.warn("[TIKTOK-SYNC] Cập nhật tồn thất bại cho sản phẩm {}: code={} - {}", prodId, errCode, errMsg);
                         break;
                     }
                 } catch (LoiCoMaException e) {
@@ -3077,12 +3106,15 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                             break;
                         }
                     } else {
-                        loiKenh = e.getMessage();
+                        loiKenh = phanLoaiLoiTikTok(-1, e.getMessage(), null).lyDo();
                         break;
                     }
+                } catch (org.springframework.web.client.HttpStatusCodeException e) {
+                    loiKenh = phanLoaiLoiTikTok(e.getStatusCode().value(), e.getStatusText(), e.getResponseBodyAsString()).lyDo();
+                    break;
                 } catch (Exception e) {
                     log.warn("[TIKTOK-SYNC] Lỗi kết nối khi cập nhật sản phẩm {}: {}", prodId, e.getMessage());
-                    loiKenh = e.getMessage();
+                    loiKenh = phanLoaiLoiTikTok(-1, e.getMessage(), null).lyDo();
                     break;
                 }
             }
@@ -4839,10 +4871,11 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
         // Nếu chưa tìm thấy prodId, thử tìm từ các biến thể anh em cùng sản phẩm cha (vì cùng 1 sản phẩm trên TikTok Shop)
         if ((prodId == null || !prodId.matches("\\d+"))
-                && dong.getBienTheSanPham() != null && dong.getBienTheSanPham().getSanPham() != null) {
-            SanPhamQuanAo sp = dong.getBienTheSanPham().getSanPham();
-            if (sp.getBienThes() != null) {
-                for (BienTheSanPham sibling : sp.getBienThes()) {
+                && dong.getBienTheSanPham() != null && dong.getBienTheSanPham().getSanPham() != null
+                && dong.getBienTheSanPham().getSanPham().getId() != null) {
+            List<BienTheSanPham> siblings = bienTheSanPhamRepository.findBySanPham_Id(dong.getBienTheSanPham().getSanPham().getId());
+            if (siblings != null) {
+                for (BienTheSanPham sibling : siblings) {
                     if (sibling.getMaSku() != null) {
                         String sibProdId = catalog.skuToProductId().get(sibling.getMaSku().trim().toLowerCase());
                         if (sibProdId != null && sibProdId.matches("\\d+")) {
@@ -4879,17 +4912,22 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             if (res != null && res.getCode() == 0) {
                 return KetQuaGuiTon.THANH_CONG;
             } else {
-                String errMsg = res != null ? res.getMessage() : ThongDiep.vi("hienThiKenhPos.tiktokLoiKhongXacDinh");
-                return KetQuaGuiTon.loiSku(errMsg);
+                int errCode = res != null && res.getCode() != null ? res.getCode() : -1;
+                String errMsg = res != null ? res.getMessage() : "";
+                return phanLoaiLoiTikTok(errCode, errMsg, null);
             }
         } catch (LoiCoMaException e) {
             if (MaLoi.TIKTOK_RATE_LIMIT.equals(e.getMa())) {
                 return KetQuaGuiTon.loiCaKenh(ThongDiep.vi("hienThiKenhPos.tiktokVuotTanSuat429"));
             }
-            return KetQuaGuiTon.loiSku(e.getMessage());
+            return phanLoaiLoiTikTok(-1, e.getMessage(), null);
+        } catch (org.springframework.web.client.HttpStatusCodeException e) {
+            return phanLoaiLoiTikTok(e.getStatusCode().value(), e.getStatusText(), e.getResponseBodyAsString());
+        } catch (org.springframework.web.client.ResourceAccessException e) {
+            return KetQuaGuiTon.loiCaKenh(ThongDiep.vi("hienThiKenhPos.tiktokLoiKetNoi", e.getMessage()));
         } catch (Exception ex) {
             log.warn("Lỗi khi đẩy tồn TikTok cho SkuId [{}]: {}", actualSkuId, ex.getMessage());
-            return KetQuaGuiTon.loiCaKenh(ThongDiep.vi("hienThiKenhPos.tiktokLoiKetNoi", ex.getMessage()));
+            return phanLoaiLoiTikTok(-1, ex.getMessage(), null);
         }
     }
 
@@ -5106,6 +5144,104 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             return;
         }
         node.forEach(con -> gomCauLoi(con, cau));
+    }
+
+    /**
+     * Phân loại mã lỗi nghiệp vụ và thông điệp từ sàn TikTok Shop thành thông điệp tiếng Việt trực quan,
+     * hướng dẫn người dùng hành động thay vì hiển thị thuật ngữ kỹ thuật thô.
+     */
+    KetQuaGuiTon phanLoaiLoiTikTok(int code, String message, String rawBody) {
+        String combined = ((message != null ? message : "") + " " + (rawBody != null ? rawBody : "")).toLowerCase(Locale.ROOT);
+
+        // 1. Lỗi xác thực và ủy quyền (Token hết hạn / Shop Cipher)
+        if (code == 105001 || code == 105002 || combined.contains("token expired") || combined.contains("access_token")
+                || combined.contains("shop_cipher is invalid") || code == 401 || code == 403) {
+            return KetQuaGuiTon.loiCaKenh(ThongDiep.vi("hienThiKenhPos.tiktokUyQuyenHetHan"));
+        }
+
+        // 2. Lỗi tần suất gọi API (Rate limit)
+        if (code == 429 || code == 105003 || combined.contains("too many requests") || combined.contains("rate limit")
+                || combined.contains("frequency limit")) {
+            return KetQuaGuiTon.loiCaKenh(ThongDiep.vi("hienThiKenhPos.tiktokVuotTanSuat429"));
+        }
+
+        // 3. Lỗi kho hàng (Chọn nhầm kho trả hàng hoặc kho không khả dụng)
+        if (code == 12052532 || combined.contains("warehouse_id") || combined.contains("get warehouse list")) {
+            return KetQuaGuiTon.loiSku(ThongDiep.vi("hienThiKenhPos.tiktokLoiKhoHang"));
+        }
+
+        // 4. Lỗi vi phạm thương hiệu / nhãn hiệu bảo hộ
+        if (code == 12052106 || code == 12052107 || combined.contains("thương hiệu khác") || combined.contains("brand")
+                || combined.contains("trademark") || combined.contains("infringement") || combined.contains("vi phạm")) {
+            return KetQuaGuiTon.loiSku(ThongDiep.vi("hienThiKenhPos.tiktokViPhamThuongHieu"));
+        }
+
+        // 5. Lỗi thuộc tính Nghị định 85 (Đơn vị chịu trách nhiệm hàng hóa ID 101489, 101490)
+        if (combined.contains("101489") || combined.contains("101490") || combined.contains("tổ chức chịu trách nhiệm")) {
+            return KetQuaGuiTon.loiSku(ThongDiep.vi("hienThiKenhPos.tiktokThieuNghiDinh85"));
+        }
+
+        // 6. Lỗi thuộc tính Quốc gia xuất xứ (ID 100149)
+        if (combined.contains("100149") || combined.contains("quốc gia xuất xứ") || combined.contains("country of origin")) {
+            return KetQuaGuiTon.loiSku(ThongDiep.vi("hienThiKenhPos.tiktokThieuXuatXu"));
+        }
+
+        // 7. Lỗi thuộc tính bắt buộc khác
+        if (code == 12052104 || combined.contains("missing product attribute")) {
+            String attrName = trichXuatTenThuocTinh(message != null ? message : rawBody);
+            return KetQuaGuiTon.loiSku(attrName != null && !attrName.isBlank()
+                    ? ThongDiep.vi("hienThiKenhPos.tiktokThieuThuocTinh", attrName)
+                    : ThongDiep.vi("hienThiKenhPos.tiktokThieuThuocTinh", "Cơ bản"));
+        }
+
+        // 8. Lỗi bảng quy đổi kích cỡ (Size Chart)
+        if (code == 12052673 || combined.contains("size_chart_image is required") || combined.contains("size_chart")) {
+            return KetQuaGuiTon.loiSku(ThongDiep.vi("hienThiKenhPos.tiktokThieuSizeChart"));
+        }
+        if (code == 12052670 || combined.contains("invalid size chart image")) {
+            return KetQuaGuiTon.loiSku(ThongDiep.vi("hienThiKenhPos.tiktokLoiSizeChart"));
+        }
+
+        // 9. Lỗi trùng lặp tổ hợp biến thể (Sales Attribute)
+        if (code == 12052251 || combined.contains("sale attribute") || combined.contains("already in use")) {
+            return KetQuaGuiTon.loiSku(ThongDiep.vi("hienThiKenhPos.tiktokTrungBienThe"));
+        }
+
+        // 10. Lỗi trạng thái phê duyệt sản phẩm trên sàn
+        if (code == 12052528 || combined.contains("under_review") || combined.contains("rejected") || combined.contains("frozen")
+                || combined.contains("suspended") || combined.contains("status is not active")) {
+            return KetQuaGuiTon.loiSku(ThongDiep.vi("hienThiKenhPos.tiktokChoPheDuyet"));
+        }
+
+        // 11. Lỗi chưa tìm thấy Product ID hoặc SKU ID
+        if (code == 12052529 || code == 12052530 || combined.contains("product not found") || combined.contains("sku not found")) {
+            return KetQuaGuiTon.loiSku(ThongDiep.vi("hienThiKenhPos.tiktokChuaTimThaySanPham"));
+        }
+
+        // 12. Lỗi ảnh sản phẩm
+        if (code == 12052300 || combined.contains("image uri") || combined.contains("upload image")) {
+            return KetQuaGuiTon.loiSku(ThongDiep.vi("hienThiKenhPos.tiktokLoiAnh"));
+        }
+
+        // 13. Lỗi tồn kho và giá bán
+        if (code == 12052533 || code == 12052400 || combined.contains("stock must be") || combined.contains("price is invalid")) {
+            return KetQuaGuiTon.loiSku(ThongDiep.vi("hienThiKenhPos.tiktokLoiTonGia"));
+        }
+
+        // Fallback: Nếu có message chi tiết
+        if (message != null && !message.isBlank()) {
+            return KetQuaGuiTon.loiSku(ThongDiep.vi("hienThiKenhPos.tiktokTuChoiSoTonChiTiet", message));
+        }
+        return KetQuaGuiTon.loiSku(ThongDiep.vi("hienThiKenhPos.tiktokLoiKhongXacDinh"));
+    }
+
+    private static String trichXuatTenThuocTinh(String text) {
+        if (text == null) return null;
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("['\"]([^'\"]+)['\"]").matcher(text);
+        if (m.find()) {
+            return m.group(1);
+        }
+        return null;
     }
 
     private BigDecimal khaDungToanChuoi(Integer bienTheId) {
