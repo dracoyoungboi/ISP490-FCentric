@@ -1203,7 +1203,6 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                 }
             }
 
-            String shippingDocUrl = null;
             if (donGoc.getGhiChu() != null) {
                 java.util.regex.Matcher m = java.util.regex.Pattern.compile("\\[PDF_AWB:\\s*([^\\]]+)\\]").matcher(donGoc.getGhiChu());
                 if (m.find()) {
