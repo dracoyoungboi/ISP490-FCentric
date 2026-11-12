@@ -32,6 +32,8 @@ public class PosCatalogBienTheDto {
     private final Integer danhMucId;
     private final String tenDanhMuc;
     private String anhUrl;
+    /** Phần đang kiểm kê làm giảm số bán được của mã ở kho này (quầy hiện "Đang kiểm kê" thay cho "Hết"). */
+    private boolean dangKiemKe;
 
     public PosCatalogBienTheDto(Integer bienTheSanPhamId, Integer sanPhamId, String tenSanPham,
                                 String maSku, String maVachSku,
@@ -78,4 +80,6 @@ public class PosCatalogBienTheDto {
 
     public void setAnhUrl(String anhUrl) { this.anhUrl = anhUrl; }
     public void setSoLuongKhaDung(BigDecimal soLuongKhaDung) { this.soLuongKhaDung = soLuongKhaDung; }
+    public boolean isDangKiemKe() { return dangKiemKe; }
+    public void setDangKiemKe(boolean dangKiemKe) { this.dangKiemKe = dangKiemKe; }
 }

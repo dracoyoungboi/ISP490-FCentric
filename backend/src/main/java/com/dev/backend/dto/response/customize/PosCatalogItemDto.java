@@ -35,6 +35,8 @@ public class PosCatalogItemDto {
     Integer danhMucId;
     String danhMucTen;
     String anhUrl;
+    /** Phần đang kiểm kê làm giảm số bán được của mã ở kho này. */
+    boolean dangKiemKe;
 
     public PosCatalogItemDto(
             Integer bienTheSanPhamId,
