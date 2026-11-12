@@ -482,4 +482,96 @@ class TikTokShopClientTest {
         assertTrue(json.contains("tos-maliva-i-o260ufnz6q-us/sku_variant_img_white"));
         assertTrue(json.contains("\"seller_sku\":\"AP2611011-CL001-S-MS-7330\""));
     }
+
+    @Test
+    @DisplayName("shipPackage: Gọi POST /fulfillment/202309/packages/{id}/ship chuyển trạng thái sang AWAITING_COLLECTION")
+    void shipPackage_thanhCong() {
+        String packageId = "PKG-587143735838410130";
+        String mockRes = """
+                {
+                    "code": 0,
+                    "message": "Success",
+                    "data": {}
+                }
+                """;
+
+        when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(String.class)))
+                .thenReturn(new ResponseEntity<>(mockRes, HttpStatus.OK));
+
+        var res = client.shipPackage("appKey", "appSecret", "token", "cipher", packageId);
+
+        assertNotNull(res);
+        assertEquals(0, res.path("code").asInt());
+        ArgumentCaptor<String> urlCaptor = ArgumentCaptor.forClass(String.class);
+        verify(restTemplate).exchange(urlCaptor.capture(), eq(HttpMethod.POST), any(HttpEntity.class), eq(String.class));
+        assertTrue(urlCaptor.getValue().contains("/fulfillment/202309/packages/" + packageId + "/ship"));
+    }
+
+    @Test
+    @DisplayName("getPackageShippingDocumentUrl: Lấy link PDF A6 tem vận đơn chính thức từ TikTok Shop")
+    void getPackageShippingDocumentUrl_thanhCong() {
+        String packageId = "PKG-587143735838410130";
+        String docUrlExpected = "https://p16-oec-va.ibyteimg.com/tos-maliva-i-o260ufnz6q-us/shipping_label_a6.pdf";
+        String mockRes = """
+                {
+                    "code": 0,
+                    "message": "Success",
+                    "data": {
+                        "doc_url": "%s"
+                    }
+                }
+                """.formatted(docUrlExpected);
+
+        when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
+                .thenReturn(new ResponseEntity<>(mockRes, HttpStatus.OK));
+
+        String docUrl = client.getPackageShippingDocumentUrl("appKey", "appSecret", "token", "cipher", packageId);
+
+        assertNotNull(docUrl);
+        assertEquals(docUrlExpected, docUrl);
+        ArgumentCaptor<String> urlCaptor = ArgumentCaptor.forClass(String.class);
+        verify(restTemplate).exchange(urlCaptor.capture(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
+        assertTrue(urlCaptor.getValue().contains("/fulfillment/202309/packages/" + packageId + "/shipping_documents"));
+        assertTrue(urlCaptor.getValue().contains("document_type=SHIPPING_LABEL"));
+        assertTrue(urlCaptor.getValue().contains("document_size=A6"));
+    }
+
+    @Test
+    @DisplayName("TikTokOrderDto: Parse payment.total_amount và layTongTienThanhToan chống lỗi 0đ đơn MoMo")
+    void tikTokOrderDto_parsePaymentTotalAmount_khacPhucLoi0d() throws Exception {
+        String jsonWithPayment = """
+                {
+                    "id": "587143735838410130",
+                    "status": "AWAITING_SHIPMENT",
+                    "payment": {
+                        "currency": "VND",
+                        "sub_total": "2600000",
+                        "shipping_fee": "30000",
+                        "total_amount": "2630000"
+                    },
+                    "package_list": [
+                        {
+                            "package_id": "PKG-587143735838410130"
+                        }
+                    ],
+                    "line_items": [
+                        {
+                            "id": "item-1",
+                            "seller_sku": "AK2610192-CL005-S-MS-2691",
+                            "sale_price": "2600000",
+                            "quantity": 1
+                        }
+                    ]
+                }
+                """;
+
+        com.dev.backend.dto.response.customize.TikTokOrderDto order =
+                objectMapper.readValue(jsonWithPayment, com.dev.backend.dto.response.customize.TikTokOrderDto.class);
+
+        assertNotNull(order);
+        assertNotNull(order.getPayment());
+        assertEquals("2630000", order.layTongTienThanhToan());
+        assertEquals("30000", order.layPhiVanChuyen());
+        assertEquals("PKG-587143735838410130", order.getFirstPackageId());
+    }
 }
