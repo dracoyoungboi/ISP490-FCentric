@@ -446,36 +446,73 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 return TaiSanPhamResultDto.builder().soSku(0).soMoi(0).soCapNhat(0).build();
             }
 
+            List<TrangThaiDongBoSanPham> existingList = trangThaiDongBoSanPhamRepository.findByKenhBanHangId(kenh.getId());
+            Map<Integer, TrangThaiDongBoSanPham> mappingByBtId = new HashMap<>();
+            Map<String, TrangThaiDongBoSanPham> mappingByMaKenh = new HashMap<>();
+            for (TrangThaiDongBoSanPham item : existingList) {
+                if (item.getBienTheSanPham() != null && item.getBienTheSanPham().getId() != null) {
+                    mappingByBtId.put(item.getBienTheSanPham().getId(), item);
+                }
+                if (item.getMaSanPhamKenh() != null && !item.getMaSanPhamKenh().isBlank()) {
+                    mappingByMaKenh.put(item.getMaSanPhamKenh().trim().toLowerCase(Locale.ROOT), item);
+                }
+            }
+
             for (TikTokProductDto prod : products) {
                 if (prod.getSkus() == null) continue;
                 for (TikTokSkuDto sku : prod.getSkus()) {
                     String sellerSku = sku.getSellerSku();
+                    String skuId = sku.getId();
                     if (sellerSku == null || sellerSku.isBlank()) {
-                        sellerSku = sku.getId();
+                        sellerSku = skuId;
                     }
                     if (sellerSku == null || sellerSku.isBlank()) continue;
 
-                    var opt = trangThaiDongBoSanPhamRepository.findByKenhBanHangIdAndMaSanPhamKenh(kenh.getId(), sellerSku.trim());
-                    TrangThaiDongBoSanPham tt;
-                    if (opt.isPresent()) {
-                        tt = opt.get();
+                    String normSellerSku = sellerSku.trim().toLowerCase(Locale.ROOT);
+                    String normSkuId = (skuId != null && !skuId.isBlank()) ? skuId.trim().toLowerCase(Locale.ROOT) : null;
+
+                    BienTheSanPham bt = bienTheSanPhamRepository.findByMaSkuIgnoreCase(sellerSku.trim()).orElse(null);
+
+                    TrangThaiDongBoSanPham tt = null;
+                    // Ưu tiên 1: Đã có liên kết cho chính biến thể FCentric này -> Tái sử dụng để chống lỗi Duplicate uk_bien_the_kenh
+                    if (bt != null && mappingByBtId.containsKey(bt.getId())) {
+                        tt = mappingByBtId.get(bt.getId());
+                    }
+                    // Ưu tiên 2: Khớp theo mã định danh số SKU của sàn TikTok Shop (skuId)
+                    if (tt == null && normSkuId != null && mappingByMaKenh.containsKey(normSkuId)) {
+                        tt = mappingByMaKenh.get(normSkuId);
+                    }
+                    // Ưu tiên 3: Khớp theo sellerSku người bán đặt
+                    if (tt == null && mappingByMaKenh.containsKey(normSellerSku)) {
+                        tt = mappingByMaKenh.get(normSellerSku);
+                    }
+
+                    if (tt != null) {
                         soCapNhat++;
                     } else {
                         tt = new TrangThaiDongBoSanPham();
                         tt.setKenhBanHang(kenh);
-                        tt.setMaSanPhamKenh(sellerSku.trim());
                         soMoi++;
                     }
                     soSku++;
 
-                    if (tt.getBienTheSanPham() == null) {
-                        BienTheSanPham bt = bienTheSanPhamRepository.findByMaSkuIgnoreCase(sellerSku.trim()).orElse(null);
-                        if (bt != null) {
-                            tt.setBienTheSanPham(bt);
-                            tt.setTrangThaiDongBo("thanh_cong");
-                        } else {
-                            tt.setTrangThaiDongBo("chua_dong_bo");
-                        }
+                    if (normSkuId != null && normSkuId.matches("\\d+")) {
+                        tt.setMaSanPhamKenh(skuId.trim());
+                    } else if (tt.getMaSanPhamKenh() == null || tt.getMaSanPhamKenh().isBlank()) {
+                        tt.setMaSanPhamKenh(sellerSku.trim());
+                    }
+
+                    if (bt != null) {
+                        tt.setBienTheSanPham(bt);
+                        tt.setTrangThaiDongBo("thanh_cong");
+                        tt.setChiTietLoi(null);
+                        mappingByBtId.put(bt.getId(), tt);
+                    } else if (tt.getBienTheSanPham() == null) {
+                        tt.setTrangThaiDongBo("chua_dong_bo");
+                    }
+
+                    if (tt.getMaSanPhamKenh() != null) {
+                        mappingByMaKenh.put(tt.getMaSanPhamKenh().trim().toLowerCase(Locale.ROOT), tt);
                     }
                     tt.setNgayDongBoCuoi(Instant.now());
                     trangThaiDongBoSanPhamRepository.save(tt);
@@ -515,6 +552,18 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         int soMoi = 0;
         int soCapNhat = 0;
 
+        List<TrangThaiDongBoSanPham> existingList = trangThaiDongBoSanPhamRepository.findByKenhBanHangId(kenh.getId());
+        Map<Integer, TrangThaiDongBoSanPham> mappingByBtId = new HashMap<>();
+        Map<String, TrangThaiDongBoSanPham> mappingByMaKenh = new HashMap<>();
+        for (TrangThaiDongBoSanPham item : existingList) {
+            if (item.getBienTheSanPham() != null && item.getBienTheSanPham().getId() != null) {
+                mappingByBtId.put(item.getBienTheSanPham().getId(), item);
+            }
+            if (item.getMaSanPhamKenh() != null && !item.getMaSanPhamKenh().isBlank()) {
+                mappingByMaKenh.put(item.getMaSanPhamKenh().trim().toLowerCase(Locale.ROOT), item);
+            }
+        }
+
         try {
             int offset = 0;
             int limit = 50;
@@ -545,6 +594,14 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                             }
                             if (sellerSku.isBlank()) continue;
 
+                            String shopSku = skuNode.path("ShopSku").asText("").trim();
+                            String skuId = skuNode.path("SkuId").asText("").trim();
+                            if (skuId.isBlank()) skuId = skuNode.path("sku_id").asText("").trim();
+
+                            String normSellerSku = sellerSku.toLowerCase(Locale.ROOT);
+                            String normShopSku = !shopSku.isBlank() ? shopSku.toLowerCase(Locale.ROOT) : null;
+                            String normSkuId = !skuId.isBlank() ? skuId.toLowerCase(Locale.ROOT) : null;
+
                             BigDecimal price = null;
                             try {
                                 if (skuNode.hasNonNull("price")) {
@@ -552,10 +609,23 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                                 }
                             } catch (Exception ignored) {}
 
-                            var opt = trangThaiDongBoSanPhamRepository.findByKenhBanHangIdAndMaSanPhamKenh(kenh.getId(), sellerSku);
-                            TrangThaiDongBoSanPham tt;
-                            if (opt.isPresent()) {
-                                tt = opt.get();
+                            BienTheSanPham bt = bienTheSanPhamRepository.findByMaSkuIgnoreCase(sellerSku).orElse(null);
+
+                            TrangThaiDongBoSanPham tt = null;
+                            if (bt != null && mappingByBtId.containsKey(bt.getId())) {
+                                tt = mappingByBtId.get(bt.getId());
+                            }
+                            if (tt == null && normSkuId != null && mappingByMaKenh.containsKey(normSkuId)) {
+                                tt = mappingByMaKenh.get(normSkuId);
+                            }
+                            if (tt == null && mappingByMaKenh.containsKey(normSellerSku)) {
+                                tt = mappingByMaKenh.get(normSellerSku);
+                            }
+                            if (tt == null && normShopSku != null && mappingByMaKenh.containsKey(normShopSku)) {
+                                tt = mappingByMaKenh.get(normShopSku);
+                            }
+
+                            if (tt != null) {
                                 soCapNhat++;
                             } else {
                                 tt = new TrangThaiDongBoSanPham();
@@ -565,14 +635,16 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                             }
                             soSku++;
 
-                            if (tt.getBienTheSanPham() == null) {
-                                BienTheSanPham bt = bienTheSanPhamRepository.findByMaSkuIgnoreCase(sellerSku).orElse(null);
-                                if (bt != null) {
-                                    tt.setBienTheSanPham(bt);
-                                    tt.setTrangThaiDongBo("thanh_cong");
-                                } else {
-                                    tt.setTrangThaiDongBo("chua_dong_bo");
-                                }
+                            if (bt != null) {
+                                tt.setBienTheSanPham(bt);
+                                tt.setTrangThaiDongBo("thanh_cong");
+                                tt.setChiTietLoi(null);
+                                mappingByBtId.put(bt.getId(), tt);
+                            } else if (tt.getBienTheSanPham() == null) {
+                                tt.setTrangThaiDongBo("chua_dong_bo");
+                            }
+                            if (tt.getMaSanPhamKenh() != null) {
+                                mappingByMaKenh.put(tt.getMaSanPhamKenh().trim().toLowerCase(Locale.ROOT), tt);
                             }
                             tt.setGiaBanSan(price);
                             tt.setNgayDongBoCuoi(Instant.now());
@@ -599,15 +671,21 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             if (activeVariants != null) {
                 for (BienTheSanPham bt : activeVariants) {
                     if (bt.getMaSku() == null || bt.getMaSku().isBlank()) continue;
-                    var opt = trangThaiDongBoSanPhamRepository.findByKenhBanHangIdAndMaSanPhamKenh(kenh.getId(), bt.getMaSku().trim());
-                    if (opt.isEmpty()) {
-                        TrangThaiDongBoSanPham tt = new TrangThaiDongBoSanPham();
+                    TrangThaiDongBoSanPham tt = mappingByBtId.get(bt.getId());
+                    if (tt == null) {
+                        String norm = bt.getMaSku().trim().toLowerCase(Locale.ROOT);
+                        tt = mappingByMaKenh.get(norm);
+                    }
+                    if (tt == null) {
+                        tt = new TrangThaiDongBoSanPham();
                         tt.setKenhBanHang(kenh);
                         tt.setBienTheSanPham(bt);
                         tt.setMaSanPhamKenh(bt.getMaSku().trim());
                         tt.setTrangThaiDongBo("thanh_cong");
                         tt.setNgayDongBoCuoi(Instant.now());
                         trangThaiDongBoSanPhamRepository.save(tt);
+                        mappingByBtId.put(bt.getId(), tt);
+                        mappingByMaKenh.put(bt.getMaSku().trim().toLowerCase(Locale.ROOT), tt);
                         soMoi++;
                         soSku++;
                     }
@@ -2129,9 +2207,13 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         // 4. Ghép SKU và đồng bộ trạng thái
         List<TrangThaiDongBoSanPham> danhSach = trangThaiDongBoSanPhamRepository.findByKenhBanHangId(kenh.getId());
         Map<String, TrangThaiDongBoSanPham> existingBySkuSan = new HashMap<>();
+        Map<Integer, TrangThaiDongBoSanPham> existingByBtId = new HashMap<>();
         for (TrangThaiDongBoSanPham tt : danhSach) {
             if (tt.getMaSanPhamKenh() != null) {
                 existingBySkuSan.put(tt.getMaSanPhamKenh().trim().toLowerCase(Locale.ROOT), tt);
+            }
+            if (tt.getBienTheSanPham() != null && tt.getBienTheSanPham().getId() != null) {
+                existingByBtId.put(tt.getBienTheSanPham().getId(), tt);
             }
         }
 
@@ -2145,7 +2227,13 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 String norm = bt.getMaSku().trim().toLowerCase(Locale.ROOT);
                 String tiktokSkuId = tiktokSkuMap.get(norm);
 
-                TrangThaiDongBoSanPham record = existingBySkuSan.get(norm);
+                // Ưu tiên 1: Tra cứu theo biến thể FCentric đã tồn tại để tránh vi phạm uk_bien_the_kenh
+                TrangThaiDongBoSanPham record = existingByBtId.get(bt.getId());
+                // Ưu tiên 2: Tra cứu theo SKU người bán
+                if (record == null) {
+                    record = existingBySkuSan.get(norm);
+                }
+                // Ưu tiên 3: Tra cứu theo mã số TikTok SKU
                 if (record == null && tiktokSkuId != null) {
                     record = existingBySkuSan.get(tiktokSkuId.toLowerCase(Locale.ROOT));
                 }
@@ -2153,11 +2241,16 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 if (record != null) {
                     record.setBienTheSanPham(bt);
                     record.setTrangThaiDongBo("thanh_cong");
+                    record.setChiTietLoi(null);
                     record.setNgayDongBoCuoi(now);
                     if (tiktokSkuId != null && tiktokSkuId.matches("\\d+")) {
                         record.setMaSanPhamKenh(tiktokSkuId);
                     }
                     trangThaiDongBoSanPhamRepository.save(record);
+                    existingByBtId.put(bt.getId(), record);
+                    if (record.getMaSanPhamKenh() != null) {
+                        existingBySkuSan.put(record.getMaSanPhamKenh().trim().toLowerCase(Locale.ROOT), record);
+                    }
                     soDaGhep++;
                 } else if (tiktokSkuId != null) {
                     TrangThaiDongBoSanPham moi = new TrangThaiDongBoSanPham();
@@ -2165,8 +2258,11 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     moi.setBienTheSanPham(bt);
                     moi.setMaSanPhamKenh(tiktokSkuId);
                     moi.setTrangThaiDongBo("thanh_cong");
+                    moi.setChiTietLoi(null);
                     moi.setNgayDongBoCuoi(now);
                     trangThaiDongBoSanPhamRepository.save(moi);
+                    existingByBtId.put(bt.getId(), moi);
+                    existingBySkuSan.put(tiktokSkuId.toLowerCase(Locale.ROOT), moi);
                     soDaGhep++;
                 } else {
                     soKhongKhop++;
@@ -5701,6 +5797,18 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         int soMoi = 0;
         int soCapNhat = 0;
 
+        List<TrangThaiDongBoSanPham> existingList = trangThaiDongBoSanPhamRepository.findByKenhBanHangId(kenh.getId());
+        Map<Integer, TrangThaiDongBoSanPham> mappingByBtId = new HashMap<>();
+        Map<String, TrangThaiDongBoSanPham> mappingByMaKenh = new HashMap<>();
+        for (TrangThaiDongBoSanPham item : existingList) {
+            if (item.getBienTheSanPham() != null && item.getBienTheSanPham().getId() != null) {
+                mappingByBtId.put(item.getBienTheSanPham().getId(), item);
+            }
+            if (item.getMaSanPhamKenh() != null && !item.getMaSanPhamKenh().isBlank()) {
+                mappingByMaKenh.put(item.getMaSanPhamKenh().trim().toLowerCase(Locale.ROOT), item);
+            }
+        }
+
         try {
             JsonNode listRes;
             if (isThirdPartyShopee && shopeeThirdPartySignClient != null) {
@@ -5727,10 +5835,14 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                         var bt = bienThes.get(i);
                         String skuKenh = bt.getMaSku() != null ? bt.getMaSku() : ("SHP-SKU-" + bt.getId());
                         String maSanPhamKenh = "SHP_ITEM_" + (1000 + bt.getId());
-                        var opt = trangThaiDongBoSanPhamRepository.findByKenhBanHangIdAndMaSanPhamKenh(kenh.getId(), maSanPhamKenh);
-                        TrangThaiDongBoSanPham tt;
-                        if (opt.isPresent()) {
-                            tt = opt.get();
+                        TrangThaiDongBoSanPham tt = null;
+                        if (bt.getId() != null && mappingByBtId.containsKey(bt.getId())) {
+                            tt = mappingByBtId.get(bt.getId());
+                        }
+                        if (tt == null && mappingByMaKenh.containsKey(maSanPhamKenh.toLowerCase(Locale.ROOT))) {
+                            tt = mappingByMaKenh.get(maSanPhamKenh.toLowerCase(Locale.ROOT));
+                        }
+                        if (tt != null) {
                             soCapNhat++;
                         } else {
                             tt = new TrangThaiDongBoSanPham();
@@ -5742,6 +5854,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                         tt.setBienTheSanPham(bt);
                         tt.setTrangThaiDongBo("thanh_cong");
                         trangThaiDongBoSanPhamRepository.save(tt);
+                        mappingByBtId.put(bt.getId(), tt);
+                        mappingByMaKenh.put(maSanPhamKenh.toLowerCase(Locale.ROOT), tt);
                         soSku++;
                     }
                     return TaiSanPhamResultDto.builder().soSku(soSku).soMoi(soMoi).soCapNhat(soCapNhat).build();
@@ -5776,10 +5890,16 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                             }
 
                             String maSanPhamKenh = String.valueOf(modelId);
-                            var opt = trangThaiDongBoSanPhamRepository.findByKenhBanHangIdAndMaSanPhamKenh(kenh.getId(), maSanPhamKenh);
-                            TrangThaiDongBoSanPham tt;
-                            if (opt.isPresent()) {
-                                tt = opt.get();
+                            BienTheSanPham bt = bienTheSanPhamRepository.findByMaSkuIgnoreCase(modelSku).orElse(null);
+
+                            TrangThaiDongBoSanPham tt = null;
+                            if (bt != null && mappingByBtId.containsKey(bt.getId())) {
+                                tt = mappingByBtId.get(bt.getId());
+                            }
+                            if (tt == null && mappingByMaKenh.containsKey(maSanPhamKenh.toLowerCase(Locale.ROOT))) {
+                                tt = mappingByMaKenh.get(maSanPhamKenh.toLowerCase(Locale.ROOT));
+                            }
+                            if (tt != null) {
                                 soCapNhat++;
                             } else {
                                 tt = new TrangThaiDongBoSanPham();
@@ -5787,14 +5907,16 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                                 tt.setMaSanPhamKenh(maSanPhamKenh);
                                 soMoi++;
                             }
-                            if (tt.getBienTheSanPham() == null) {
-                                BienTheSanPham bt = bienTheSanPhamRepository.findByMaSkuIgnoreCase(modelSku).orElse(null);
-                                if (bt != null) {
-                                    tt.setBienTheSanPham(bt);
-                                    tt.setTrangThaiDongBo("thanh_cong");
-                                } else {
-                                    tt.setTrangThaiDongBo("chua_dong_bo");
-                                }
+                            if (bt != null) {
+                                tt.setBienTheSanPham(bt);
+                                tt.setTrangThaiDongBo("thanh_cong");
+                                tt.setChiTietLoi(null);
+                                mappingByBtId.put(bt.getId(), tt);
+                            } else if (tt.getBienTheSanPham() == null) {
+                                tt.setTrangThaiDongBo("chua_dong_bo");
+                            }
+                            if (tt.getMaSanPhamKenh() != null) {
+                                mappingByMaKenh.put(tt.getMaSanPhamKenh().trim().toLowerCase(Locale.ROOT), tt);
                             }
                             if (price != null) tt.setGiaBanSan(price);
                             trangThaiDongBoSanPhamRepository.save(tt);
@@ -5809,10 +5931,15 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                             price = BigDecimal.valueOf(priceInfo.get(0).path("original_price").asDouble(0.0));
                         }
 
-                        var opt = trangThaiDongBoSanPhamRepository.findByKenhBanHangIdAndMaSanPhamKenh(kenh.getId(), maSanPhamKenh);
-                        TrangThaiDongBoSanPham tt;
-                        if (opt.isPresent()) {
-                            tt = opt.get();
+                        BienTheSanPham bt = bienTheSanPhamRepository.findByMaSkuIgnoreCase(sku).orElse(null);
+                        TrangThaiDongBoSanPham tt = null;
+                        if (bt != null && mappingByBtId.containsKey(bt.getId())) {
+                            tt = mappingByBtId.get(bt.getId());
+                        }
+                        if (tt == null && mappingByMaKenh.containsKey(maSanPhamKenh.toLowerCase(Locale.ROOT))) {
+                            tt = mappingByMaKenh.get(maSanPhamKenh.toLowerCase(Locale.ROOT));
+                        }
+                        if (tt != null) {
                             soCapNhat++;
                         } else {
                             tt = new TrangThaiDongBoSanPham();
@@ -5820,14 +5947,16 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                             tt.setMaSanPhamKenh(maSanPhamKenh);
                             soMoi++;
                         }
-                        if (tt.getBienTheSanPham() == null) {
-                            BienTheSanPham bt = bienTheSanPhamRepository.findByMaSkuIgnoreCase(sku).orElse(null);
-                            if (bt != null) {
-                                tt.setBienTheSanPham(bt);
-                                tt.setTrangThaiDongBo("thanh_cong");
-                            } else {
-                                tt.setTrangThaiDongBo("chua_dong_bo");
-                            }
+                        if (bt != null) {
+                            tt.setBienTheSanPham(bt);
+                            tt.setTrangThaiDongBo("thanh_cong");
+                            tt.setChiTietLoi(null);
+                            mappingByBtId.put(bt.getId(), tt);
+                        } else if (tt.getBienTheSanPham() == null) {
+                            tt.setTrangThaiDongBo("chua_dong_bo");
+                        }
+                        if (tt.getMaSanPhamKenh() != null) {
+                            mappingByMaKenh.put(tt.getMaSanPhamKenh().trim().toLowerCase(Locale.ROOT), tt);
                         }
                         if (price != null) tt.setGiaBanSan(price);
                         trangThaiDongBoSanPhamRepository.save(tt);
