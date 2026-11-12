@@ -421,6 +421,66 @@ public class TikTokShopClient {
     }
 
     /**
+     * Cập nhật / Chỉnh sửa sản phẩm đã tồn tại trên TikTok Shop Open Platform (v202309).
+     * Cho phép đồng bộ cập nhật tên sản phẩm, mô tả, danh mục, thuộc tính và biến thể.
+     * Endpoint: PUT /product/202309/products/{product_id}?category_version=v2
+     * Header: x-tts-access-token, Content-Type: application/json
+     * Body: JSON TikTokProductCreateRequest
+     */
+    public TikTokProductCreateResponse editProduct(String appKey, String appSecret, String accessToken,
+                                                   String shopCipher, String productId, TikTokProductCreateRequest payload) {
+        if (accessToken == null || accessToken.isBlank()) {
+            throw new LoiThamSoException(ThongDiep.of("kenhBan.accessTokenTrongKhiCapNhatTonTikTok"));
+        }
+        if (shopCipher == null || shopCipher.isBlank()) {
+            throw new LoiThamSoException(ThongDiep.of("kenhBan.shopCipherTrongKhiCapNhatTonTikTok"));
+        }
+        if (productId == null || productId.isBlank()) {
+            throw new LoiThamSoException(ThongDiep.of("kenhBan.khongTimThaySanPham"));
+        }
+        if (payload == null) {
+            throw new LoiThamSoException(ThongDiep.of("kenhBan.tiktokPhanHoiRong"));
+        }
+
+        String apiPath = "/product/202309/products/" + productId.trim();
+        String body;
+        try {
+            body = objectMapper.writeValueAsString(payload);
+        } catch (Exception e) {
+            throw new LoiThamSoException(ThongDiep.of("kenhBan.loiSerializeCapNhatTon", e.getMessage()), e);
+        }
+
+        Map<String, String> queryParams = Map.of("category_version", TikTokShopConstants.CATEGORY_VERSION_V2);
+        String fullSignedUrl = buildUrlWithSign(TikTokShopConstants.BASE_URL, apiPath, queryParams, body, appKey, appSecret, shopCipher);
+        JsonNode root = executePut(fullSignedUrl, body, accessToken);
+
+        TikTokProductCreateResponse response = new TikTokProductCreateResponse();
+        response.setCode(root.path("code").asInt(0));
+        response.setMessage(root.path("message").asText(""));
+        response.setRequestId(root.path("request_id").asText(""));
+
+        JsonNode dataNode = root.path("data");
+        if (dataNode.isObject()) {
+            TikTokProductCreateResponse.ProductCreateData data = new TikTokProductCreateResponse.ProductCreateData();
+            data.setProductId(dataNode.path("product_id").asText(productId.trim()));
+
+            JsonNode skusNode = dataNode.path("skus");
+            if (skusNode.isArray()) {
+                java.util.List<TikTokProductCreateResponse.CreatedSku> skuList = new java.util.ArrayList<>();
+                for (JsonNode s : skusNode) {
+                    TikTokProductCreateResponse.CreatedSku createdSku = new TikTokProductCreateResponse.CreatedSku();
+                    createdSku.setId(s.path("id").asText(null));
+                    createdSku.setSellerSku(s.path("seller_sku").asText(null));
+                    skuList.add(createdSku);
+                }
+                data.setSkus(skuList);
+            }
+            response.setData(data);
+        }
+        return response;
+    }
+
+    /**
      * Sử dụng AI của TikTok Shop để gợi ý danh mục lá (Leaf Category) phiên bản V2 dựa trên tiêu đề và mô tả sản phẩm.
      * Endpoint: POST /product/202309/categories/recommend?category_version=v2
      */
@@ -856,6 +916,26 @@ public class TikTokShopClient {
             throw e;
         } catch (Exception e) {
             log.error("Lỗi kết nối tới TikTok Shop API POST [{}]: {}", fullSignedUrl, e.getMessage());
+            throw new LoiCoMaException(HttpStatus.BAD_GATEWAY, MaLoi.TIKTOK_API_ERROR,
+                    ThongDiep.of("kenhBan.khongTheGuiDuLieuTikTokApi", e.getMessage()));
+        }
+    }
+
+    /**
+     * Thực thi lệnh PUT có ký số, body JSON và header x-tts-access-token, bắt ngoại lệ HTTP và kiểm tra mã phản hồi.
+     */
+    public JsonNode executePut(String fullSignedUrl, String body, String accessToken) {
+        HttpEntity<String> entity = new HttpEntity<>(body, createHeaders(accessToken));
+        try {
+            ResponseEntity<String> response = restTemplate.exchange(fullSignedUrl, HttpMethod.PUT, entity, String.class);
+            return parseAndValidateResponse(response.getBody());
+        } catch (HttpStatusCodeException e) {
+            handleHttpException("PUT", fullSignedUrl, e);
+            throw e;
+        } catch (LoiCoMaException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Lỗi kết nối tới TikTok Shop API PUT [{}]: {}", fullSignedUrl, e.getMessage());
             throw new LoiCoMaException(HttpStatus.BAD_GATEWAY, MaLoi.TIKTOK_API_ERROR,
                     ThongDiep.of("kenhBan.khongTheGuiDuLieuTikTokApi", e.getMessage()));
         }
