@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   getPosOwner,
   newCheckoutRequestId,
@@ -167,14 +167,18 @@ function createTabLockSession({ userKey, tabId, onStatus }) {
 /**
  * Mỗi tài khoản chỉ mở màn POS ở MỘT tab trên trình duyệt này (tránh hai tab ghi đè bản nháp
  * của nhau và bán cùng một giỏ hai lần). Hai tài khoản khác nhau dùng khóa khác nhau.
+ * {@code batDau}: false thì chưa xin khóa (giữ 'checking'); khung POS bật khi màn bán mở lần đầu rồi giữ suốt lúc
+ * còn ở POS, nên đổi qua màn trả hàng rồi quay lại không phải xin lại. {@code lanXin} đổi thì xin lại từ đầu
+ * (dùng khi đang bị chặn mà người dùng mở lại màn bán).
  * Trả về { status: 'checking' | 'owner' | 'blocked' | 'lost', tabId, takeOver }.
  */
-export default function usePosTabLock(userKey) {
+export default function usePosTabLock(userKey, batDau = true, lanXin = 0) {
   const [tabId] = useState(() => newCheckoutRequestId());
   const [status, setStatus] = useState('checking');
   const sessionRef = useRef(null);
 
   useEffect(() => {
+    if (!batDau) return undefined;
     const session = createTabLockSession({ userKey, tabId, onStatus: setStatus });
     sessionRef.current = session;
     session.start();
@@ -182,11 +186,11 @@ export default function usePosTabLock(userKey) {
       session.dispose();
       if (sessionRef.current === session) sessionRef.current = null;
     };
-  }, [userKey, tabId]);
+  }, [userKey, tabId, batDau, lanXin]);
 
   const takeOver = useCallback(() => {
     sessionRef.current?.takeOver();
   }, []);
 
-  return { status, tabId, takeOver };
+  return useMemo(() => ({ status, tabId, takeOver }), [status, tabId, takeOver]);
 }

@@ -4,8 +4,7 @@ import { AlertTriangle, Banknote, Check, Clock3, Minus, PackageOpen, Plus, Print
 import { toast } from '@/lib/thongBaoNhanh';
 import { getApiErrorMessage } from '@/utils/apiError';
 import { formatDateTime } from '@/utils/formatters';
-import { getMineKhoList } from '@/services/khoService';
-import { laKhoBanTaiQuay } from '@/utils/kho';
+import { usePosDuLieuChung } from '../pos-du-lieu-chung';
 import { traHangService, newReturnRequestId } from '@/services/traHangService';
 import LoadingState from '@/components/shared/LoadingState';
 import ErrorState from '@/components/shared/ErrorState';
@@ -67,9 +66,18 @@ function readStoredKho(warehouses) {
  */
 export default function PosReturnsPage() {
   const navigate = useNavigate();
-  const [warehouses, setWarehouses] = useState(null);
-  const [loadError, setLoadError] = useState(null);
-  const [khoId, setKhoId] = useState(null);
+  // Kho bán tại quầy (cùng nguồn với màn bán) do khung POS giữ: từ màn bán sang thì có sẵn, chỉ làm mới ngầm
+  const { kho, boNho } = usePosDuLieuChung();
+  const { tai: taiKho } = kho;
+  useEffect(() => { taiKho(); }, [taiKho]);
+  const warehouses = kho.ds;
+  const loadError = kho.loi;
+  // Cửa hàng nhận trả: lựa chọn của người dùng nếu còn trong danh sách, không thì cửa hàng đã nhớ / đầu tiên.
+  // Cửa hàng mặc định chốt theo danh sách kho, không đọc lại localStorage mỗi lần dựng: trang quản trị ở tab khác đổi
+  // kho làm việc thì phiếu trả đang làm dở không bị đổi cửa hàng ngầm.
+  const [khoChon, setKhoId] = useState(() => (kho.ds ? readStoredKho(kho.ds) : null));
+  const khoMacDinh = useMemo(() => (warehouses ? readStoredKho(warehouses) : null), [warehouses]);
+  const khoId = warehouses?.some((w) => w.id === khoChon) ? khoChon : khoMacDinh;
 
   const [query, setQuery] = useState('');
   const [searching, setSearching] = useState(false);
@@ -105,20 +113,6 @@ export default function PosReturnsPage() {
   useEffect(() => {
     document.title = t("Trả hàng tại quầy · FCentric");
     return () => { document.title = t("Bán hàng tại quầy · FCentric"); };
-  }, []);
-
-  // Kho bán tại quầy được phân quyền (cùng nguồn với màn bán hàng)
-  useEffect(() => {
-    let huy = false;
-    getMineKhoList()
-      .then((ds) => {
-        if (huy) return;
-        const ban = (ds ?? []).filter(laKhoBanTaiQuay);
-        setWarehouses(ban);
-        setKhoId(readStoredKho(ban));
-      })
-      .catch((err) => { if (!huy) setLoadError(err); });
-    return () => { huy = true; };
   }, []);
 
   const resetChon = useCallback((d) => {
@@ -249,6 +243,9 @@ export default function PosReturnsPage() {
     setSubmitError(null);
     try {
       const { data, message } = await traHangService.xacNhan(payload);
+      // Tồn và trạng thái trả của hóa đơn vừa đổi: bỏ bản nhớ tạm để màn bán và danh sách hóa đơn tải lại có vòng chờ
+      boNho.xoaTheo('danhMuc|');
+      boNho.xoaTheo('hoaDonConHan|');
       setKetQua({ ...data, phuongThucHoan: payload.phuongThucHoan });
       setModal(null);
       setChuaRo(false);
@@ -346,7 +343,7 @@ export default function PosReturnsPage() {
 
   if (loadError) {
     return trangThaiTrong(
-      <ErrorState description={t("Không tải được danh sách kho bán hàng.")} onRetry={() => window.location.reload()} title={t("Không mở được màn trả hàng")} />
+      <ErrorState description={t("Không tải được danh sách kho bán hàng.")} onRetry={kho.thuLai} title={t("Không mở được màn trả hàng")} />
     );
   }
   if (!warehouses) return trangThaiTrong(<LoadingState label={t("Đang tải dữ liệu trả hàng")} />);
