@@ -104,6 +104,11 @@ public final class MaLoi {
     public static final String STK_SCOPE_CONFLICT = "STK_SCOPE_CONFLICT";
     /** 409 · Còn phiếu nhặt đang mở, phiếu xuất đã nhặt chưa xuất hoặc QR payOS đang giữ hàng trong phạm vi. data: vanDe. */
     public static final String STK_PENDING_PICK = "STK_PENDING_PICK";
+    /**
+     * Cảnh báo ở Xem trước, KHÔNG chặn Bắt đầu: phiếu chuyển đang về kho, phiếu nhập chưa hoàn tất đã gán kệ trong
+     * phạm vi (việc có thể làm lệch số đếm nếu người kiểm không biết).
+     */
+    public static final String STK_SCOPE_WARNING = "STK_SCOPE_WARNING";
     /** 400 · Khu vực / kệ khác kho, thiếu lựa chọn, kho ảo, danh mục sai, kệ bảo trì, tồn chưa có kệ. data: vanDe. */
     public static final String STK_INVALID_SCOPE = "STK_INVALID_SCOPE";
     /** 409 · Thao tác không hợp lệ với trạng thái hiện tại của đợt hoặc dòng. data: trangThai. */
