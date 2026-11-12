@@ -418,7 +418,7 @@ function ManDongGoi({ donId }) {
             menu={[
               pxId ? { ma: "moPx", nhan: t("Mở phiếu xuất {{px}}", { px }), icon: FileText, onSelect: moPx } : null,
               pxId ? { ma: "inPx", nhan: t("In phiếu xuất"), icon: Printer, onSelect: () => xinRoiTrang(() => navigate(`/goods-issues/${pxId}/print`)) } : null,
-              laDonSan && pxId
+              laDonSan && pxId && th.xong
                 ? { ma: "inPackingSlip", nhan: t("In vận đơn / phiếu đóng gói sàn (A6)"), icon: Printer, onSelect: () => xinRoiTrang(() => navigate(`/goods-issues/${pxId}/print-packing-slip`)) }
                 : null,
             ].filter(Boolean)}

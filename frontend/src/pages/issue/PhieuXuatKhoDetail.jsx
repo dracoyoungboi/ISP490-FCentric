@@ -400,7 +400,7 @@ function ManPhieuXuatKho({ id }) {
             nutPhu={quyen.coIn ? { ma: "in", nhan: t("In phiếu"), icon: Printer, onClick: () => navigate(`/goods-issues/${phieu.id}/print`) } : null}
             saoChepMa={{ giaTri: phieu.soPhieuXuat, nhan: t("Sao chép mã phiếu") }}
                         menu={[
-              laDonSan
+              laDonSan && (phieu.trangThai >= 1 || (phieu.donBanHang?.trangThai && phieu.donBanHang.trangThai >= 8))
                 ? { ma: "inPackingSlip", nhan: t("In vận đơn / phiếu đóng gói sàn (A6)"), icon: Printer, onSelect: () => navigate(`/goods-issues/${phieu.id}/print-packing-slip`) }
                 : null,
               coXemBangChung
