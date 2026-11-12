@@ -1259,10 +1259,32 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             if (res != null && res.getCode() == 0 && res.getData() != null) {
                 String prodId = res.getData().getProductId();
                 log.info("[TIKTOK-CREATE] Tạo sản phẩm [{}] thành công trên TikTok Shop! ProductId: {}", title, prodId);
+                TikTokCatalogCache curCache = tikTokCatalogCacheRef.get();
+                if (curCache == null) {
+                    curCache = new TikTokCatalogCache(
+                            new java.util.concurrent.ConcurrentHashMap<>(),
+                            new java.util.concurrent.ConcurrentHashMap<>(),
+                            Instant.now().plus(java.time.Duration.ofMinutes(30)),
+                            Instant.now()
+                    );
+                    tikTokCatalogCacheRef.set(curCache);
+                }
                 if (res.getData().getSkus() != null) {
                     for (TikTokProductCreateResponse.CreatedSku cSku : res.getData().getSkus()) {
                         if (cSku.getSellerSku() != null && cSku.getId() != null) {
-                            createdSkuMap.put(cSku.getSellerSku().trim().toLowerCase(Locale.ROOT), cSku.getId().trim());
+                            String sSku = cSku.getSellerSku().trim();
+                            String sId = cSku.getId().trim();
+                            createdSkuMap.put(sSku.toLowerCase(Locale.ROOT), sId);
+                            if (prodId != null && !prodId.isBlank()) {
+                                curCache.skuToProductId().put(sSku.toLowerCase(Locale.ROOT), prodId);
+                                curCache.skuToProductId().put(sSku, prodId);
+                                curCache.skuToProductId().put(sId.toLowerCase(Locale.ROOT), prodId);
+                                curCache.skuToProductId().put(sId, prodId);
+                            }
+                            curCache.skuToSkuId().put(sSku.toLowerCase(Locale.ROOT), sId);
+                            curCache.skuToSkuId().put(sSku, sId);
+                            curCache.skuToSkuId().put(sId.toLowerCase(Locale.ROOT), sId);
+                            curCache.skuToSkuId().put(sId, sId);
                         }
                     }
                 }
@@ -4808,6 +4830,29 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             actualSkuId = catalog.skuToSkuId().get(dong.getMaSanPhamKenh().trim().toLowerCase());
             if (actualSkuId == null) {
                 actualSkuId = catalog.skuToSkuId().get(dong.getMaSanPhamKenh().trim());
+            }
+        }
+        if ((actualSkuId == null || !actualSkuId.matches("\\d+"))
+                && dong.getMaSanPhamKenh() != null && dong.getMaSanPhamKenh().matches("\\d+")) {
+            actualSkuId = dong.getMaSanPhamKenh().trim();
+        }
+
+        // Nếu chưa tìm thấy prodId, thử tìm từ các biến thể anh em cùng sản phẩm cha (vì cùng 1 sản phẩm trên TikTok Shop)
+        if ((prodId == null || !prodId.matches("\\d+"))
+                && dong.getBienTheSanPham() != null && dong.getBienTheSanPham().getSanPham() != null) {
+            SanPhamQuanAo sp = dong.getBienTheSanPham().getSanPham();
+            if (sp.getBienThes() != null) {
+                for (BienTheSanPham sibling : sp.getBienThes()) {
+                    if (sibling.getMaSku() != null) {
+                        String sibProdId = catalog.skuToProductId().get(sibling.getMaSku().trim().toLowerCase());
+                        if (sibProdId != null && sibProdId.matches("\\d+")) {
+                            prodId = sibProdId;
+                            catalog.skuToProductId().put(maSku.trim().toLowerCase(), prodId);
+                            catalog.skuToProductId().put(maSku.trim(), prodId);
+                            break;
+                        }
+                    }
+                }
             }
         }
 
