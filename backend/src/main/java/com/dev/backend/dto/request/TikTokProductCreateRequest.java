@@ -121,6 +121,9 @@ public class TikTokProductCreateRequest implements Serializable {
 
         @JsonProperty("sales_attributes")
         List<SalesAttribute> salesAttributes;
+
+        @JsonProperty("sku_img")
+        ImageUri skuImg;
     }
 
     @AllArgsConstructor
@@ -145,6 +148,9 @@ public class TikTokProductCreateRequest implements Serializable {
 
         @JsonProperty("custom_value")
         String customValue;
+
+        @JsonProperty("sku_img")
+        ImageUri skuImg;
 
         // Giữ tương thích ngược với code gọi attributeName / attributeId
         public static class SalesAttributeBuilder {
