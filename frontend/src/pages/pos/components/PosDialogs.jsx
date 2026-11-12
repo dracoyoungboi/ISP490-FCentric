@@ -9,7 +9,10 @@ import {
   Printer,
   Receipt,
   RefreshCcw,
+  PanelTop,
   Search,
+  ShoppingBag,
+  SquarePen,
   UserPlus,
   QrCode,
   Clock,
@@ -22,27 +25,119 @@ import PosModal from './PosModal';
 import { WALKIN_CUSTOMER_CODE, posService, toPosCustomer } from '@/services/posService';
 import { formatMoney } from '../pos-format';
 import { canTraLaiTienMat, chiaThanhToanKetHop, kiemTienMatTruocQr, msToiHetHan, phaMaQr, tienMatTruocCua } from '../pos-payment';
-import { SCAN_HINT } from '../pos-scan';
 import { t } from "@/i18n";
 
 const primaryButton = 'inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-bo-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-bo-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bo-primary disabled:cursor-not-allowed disabled:bg-slate-300';
 const secondaryButton = 'inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-bo-border bg-bo-surface px-4 py-2 text-sm font-medium text-bo-foreground transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bo-primary disabled:cursor-not-allowed disabled:opacity-50';
 const fieldClass = 'mt-1.5 min-h-10 w-full rounded-lg border border-bo-border bg-bo-surface px-3 py-2 text-sm text-bo-foreground outline-none placeholder:text-bo-muted focus:border-bo-primary focus:ring-2 focus:ring-bo-primary/10';
 
-// Bảng phím tắt là văn bản UI tĩnh (không phải dữ liệu nghiệp vụ).
-const POS_SHORTCUTS = [
-  { key: 'F1', label: t("Mở bảng phím tắt") },
-  { key: 'F2', label: t("Thêm hóa đơn mới") },
-  { key: 'F3', label: t("Tìm kiếm hàng hóa") },
-  { key: 'Enter', label: t("Trong ô tìm kiếm: thêm nhanh theo mã SKU / mã vạch (ưu tiên mã khớp đúng)") },
-  { key: 'F4', label: t("Chọn khách hàng") },
-  { key: 'F7', label: t("Chuyển sang màn trả hàng") },
-  { key: 'F8', label: t("Bật / tắt chế độ quét mã vạch"), hint: SCAN_HINT },
-  { key: 'F9', label: t("Mở thanh toán · trong màn thanh toán: xác nhận") },
-  { key: '← →', label: t("Chuyển giữa các hóa đơn (khi đang chọn tab)") },
-  { key: 'Shift F10', label: t("Trên tab hóa đơn: mở menu đóng hóa đơn trống / đóng tất cả (hoặc bấm chuột phải)") },
-  { key: 'Esc', label: t("Đóng cửa sổ đang mở") },
+/*
+ * Bảng phím tắt (F1), chia nhóm theo CHỖ phím có tác dụng. Mỗi dòng: keys là các lựa chọn, mỗi lựa chọn là các phím
+ * bấm cùng lúc ([['Shift', 'F10']] = Shift + F10; [['←'], ['→']] = ← hoặc →). Tên phím giữ nguyên như in trên bàn phím.
+ * Thêm/đổi phím tắt ở PosSalesPage, PosInvoiceTabs, PosCartPanel hay PosModeTabs thì sửa cả bảng này.
+ */
+const SHORTCUT_GROUPS = [
+  {
+    icon: ShoppingBag,
+    title: t("Bán hàng"),
+    rows: [
+      { keys: [['F2']], label: t("Thêm hóa đơn mới") },
+      { keys: [['F3']], label: t("Tìm hàng") },
+      { keys: [['F4']], label: t("Chọn khách hàng") },
+      { keys: [['F8']], label: t("Bật / tắt quét mã vạch"), hint: t("Quét mã là thêm thẳng vào hóa đơn.") },
+      { keys: [['F9']], label: t("Thanh toán"), hint: t("Trong màn thanh toán: bấm lần nữa để xác nhận.") },
+      { keys: [['F7']], label: t("Chuyển sang trả hàng") },
+    ],
+  },
+  {
+    icon: PanelTop,
+    title: t("Trên tab hóa đơn"),
+    rows: [
+      { keys: [['←'], ['→']], label: t("Hóa đơn trước / sau") },
+      { keys: [['Home'], ['End']], label: t("Hóa đơn đầu / cuối") },
+      { keys: [['Delete']], label: t("Đóng hóa đơn đang chọn") },
+      { keys: [['Shift', 'F10']], label: t("Đóng hóa đơn trống / đóng tất cả"), hint: t("Hoặc bấm chuột phải vào tab.") },
+    ],
+  },
+  {
+    icon: Search,
+    title: t("Trong ô tìm kiếm"),
+    rows: [{ keys: [['Enter']], label: t("Thêm theo SKU / mã vạch"), hint: t("Ưu tiên mã khớp đúng.") }],
+  },
+  {
+    icon: SquarePen,
+    title: t("Trong ô số lượng"),
+    rows: [{ keys: [['Enter'], ['Esc']], joiner: '/', label: t("Chốt số / bỏ số vừa gõ") }],
+  },
 ];
+
+/** Nắp phím: mỗi phím một nắp, viền đáy dày hơn cho giống phím thật. */
+function Kbd({ children, small = false }) {
+  return <kbd className={`inline-flex items-center justify-center rounded-[5px] border border-b-2 border-slate-200 border-b-slate-300 bg-white font-sans font-semibold leading-none text-slate-700 ${small ? 'h-5 min-w-5 px-1 text-[10px]' : 'h-6 min-w-6 px-1.5 text-[11px]'}`}>{children}</kbd>;
+}
+
+function ShortcutKeys({ keys, joiner }) {
+  return (
+    <span className="flex shrink-0 items-center gap-1">
+      {keys.map((combo, index) => (
+        <span className="flex items-center gap-1" key={combo.join('+')}>
+          {index > 0 && joiner ? <span aria-hidden="true" className="px-0.5 text-[11px] text-bo-muted">{joiner}</span> : null}
+          {combo.map((key, keyIndex) => (
+            <span className="flex items-center gap-1" key={key}>
+              {keyIndex > 0 ? <span aria-hidden="true" className="text-[11px] text-bo-muted">+</span> : null}
+              <Kbd>{key}</Kbd>
+            </span>
+          ))}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+function ShortcutGroup({ group }) {
+  const Icon = group.icon;
+  return (
+    <section className="min-w-0">
+      <h3 className="flex items-center gap-1.5 text-xs font-semibold text-bo-muted"><Icon aria-hidden="true" size={14} strokeWidth={2} />{group.title}</h3>
+      <ul className="mt-1 divide-y divide-bo-border">
+        {group.rows.map((row) => (
+          <li className="flex items-center justify-between gap-4 py-2.5" key={row.label}>
+            <span className="min-w-0">
+              <span className="block text-sm text-bo-foreground">{row.label}</span>
+              {row.hint ? <span className="mt-0.5 block text-xs leading-5 text-bo-muted">{row.hint}</span> : null}
+            </span>
+            <ShortcutKeys joiner={row.joiner} keys={row.keys} />
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function ShortcutsDialog({ onClose }) {
+  const [sales, ...contextual] = SHORTCUT_GROUPS;
+  return (
+    <PosModal
+      description={t("Bán nhanh bằng bàn phím, không cần chuột.")}
+      footer={(
+        <div className="flex items-center justify-between gap-3">
+          <p className="flex items-center gap-1.5 text-xs text-bo-muted">{t("Mở lại bảng này:")} <Kbd small>F1</Kbd></p>
+          <button className={secondaryButton} onClick={onClose} type="button">{t("Đóng")}</button>
+        </div>
+      )}
+      onClose={onClose}
+      size="lg"
+      title={t("Phím tắt")}
+    >
+      <div className="grid gap-x-8 gap-y-5 md:grid-cols-2">
+        <ShortcutGroup group={sales} />
+        <div className="grid content-start gap-5">
+          {contextual.map((group) => <ShortcutGroup group={group} key={group.title} />)}
+        </div>
+      </div>
+    </PosModal>
+  );
+}
 
 function FooterButtons({ onClose, onConfirm, confirmText = t("Xác nhận"), cancelText = t("Đóng"), disabled = false, destructive = false, busy = false, cancelAutoFocus = false }) {
   return (
@@ -733,15 +828,7 @@ export default function PosDialogs({ dialog, state, actions, onClose, checkoutEn
     );
   }
 
-  if (dialog === 'shortcuts') {
-    return (
-      <PosModal description={t("Phím tắt dùng được khi màn POS đang mở.")} onClose={onClose} title={t("Phím tắt chức năng")} size="sm">
-        <ul className="divide-y divide-bo-border rounded-lg border border-bo-border">
-          {POS_SHORTCUTS.map((shortcut) => <li className="flex items-center justify-between gap-4 px-3 py-3" key={shortcut.key}><span className="min-w-0 text-sm text-bo-foreground">{shortcut.label}{shortcut.hint ? <span className="mt-0.5 block text-xs leading-5 text-bo-muted">{shortcut.hint}</span> : null}</span><kbd className="min-w-11 rounded-md border border-bo-border bg-slate-50 px-2 py-1 text-center text-xs font-semibold text-bo-muted">{shortcut.key}</kbd></li>)}
-        </ul>
-      </PosModal>
-    );
-  }
+  if (dialog === 'shortcuts') return <ShortcutsDialog onClose={onClose} />;
 
   return null;
 }
