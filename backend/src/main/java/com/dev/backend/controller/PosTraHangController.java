@@ -46,6 +46,15 @@ public class PosTraHangController {
         return ok(traHangService.tim(q, khoId), "Success");
     }
 
+    @GetMapping("/recent")
+    @Operation(summary = "Hóa đơn POS còn hạn trả (03 ngày), mới nhất trước; tatCa = true lấy mọi cửa hàng")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_ban_hang},
+            rolesLogic = RequireAuth.LogicType.OR)
+    public ResponseEntity<ResponseData<List<TraHangDto.DonTomTat>>> ganDay(@RequestParam Integer khoId,
+                                                                          @RequestParam(defaultValue = "false") boolean tatCa) {
+        return ok(traHangService.ganDay(khoId, tatCa), "Success");
+    }
+
     @GetMapping("/orders/{donBanHangId}")
     @Operation(summary = "Thông tin đơn gốc và các dòng hàng còn trả được, tính cho cửa hàng nhận khoId")
     @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_ban_hang},
