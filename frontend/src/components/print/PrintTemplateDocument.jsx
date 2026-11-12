@@ -6,6 +6,7 @@ import PrintSummary from "@/components/print/PrintSummary";
 import PrintSignatures from "@/components/print/PrintSignatures";
 import PrintDocCode from "@/components/print/PrintDocCode";
 import LazadaAwbDocument from "@/components/print/LazadaAwbDocument";
+import TikTokShopAwbDocument from "@/components/print/TikTokShopAwbDocument";
 import { toBarcodeText, toQrText } from "@/components/print/maVach";
 import { dongKhoiTong, getByPath, isEmptyValue } from "@/components/print/khoiTongIn";
 import {
@@ -331,9 +332,12 @@ export default function PrintTemplateDocument({ documentType, config, model, com
     const schema = getPrintSchema(documentType);
     if (!schema || !model || !config) return null;
 
-    // Vận đơn TMĐT chuẩn sàn AWB (Lazada / Shopee) khổ tem nhiệt A6 100 × 150 mm:
-    // Render mẫu tem AWB chuẩn sàn (có viền watermark, barcode to, cụm routing + QR code, 3 badge COD/Đồng kiểm)
+    // Vận đơn TMĐT chuẩn sàn AWB (TikTok Shop / Lazada / Shopee) khổ tem nhiệt A6 100 × 150 mm:
+    // Render đúng mẫu tem AWB theo từng sàn (TikTok Shop AWB chuẩn hoặc Lazada AWB chuẩn)
     if (documentType === "ecommerce_packing_slip" && config.paperSize === "A6" && !editable) {
+        if (model.isTikTok) {
+            return <TikTokShopAwbDocument model={model} company={company} config={config} />;
+        }
         return <LazadaAwbDocument model={model} company={company} config={config} />;
     }
 
