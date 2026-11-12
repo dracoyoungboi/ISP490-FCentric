@@ -1024,6 +1024,10 @@ public class NhatHangServiceImpl implements NhatHangService {
             TonKhoTheoLo ton = tonTheoLo.get(lo.getId());
             BigDecimal conLai = ton != null ? LoDangGiuService.conLai(ton, dangGiu) : BigDecimal.ZERO;
             if (e.getValue().compareTo(conLai) > 0) {
+                // Phần còn lại đang được kiểm kê (không phải phiếu khác giữ): nói rõ đợt
+                KhoaKiemKeGuard.ThieuDoKiemKe doKiemKe = khoaKiemKeGuard == null ? null
+                        : khoaKiemKeGuard.thieuDoKiemKe(khoId, List.of(lo.getId()), conLai, e.getValue(), "xuất kho", null);
+                if (doKiemKe != null) throw doKiemKe.loi();
                 throw new CommonException(ThongDiep.of("khoVanHanh.loChiConCoTheLay", lo.getMaLo(), hienThi(conLai.max(BigDecimal.ZERO)), hienThi(e.getValue())),
                         HttpStatus.CONFLICT, null);
             }
@@ -1285,6 +1289,13 @@ public class NhatHangServiceImpl implements NhatHangService {
             TonKhoTheoLo t = tonTheoLo.get(e.getKey());
             BigDecimal conLai = t != null ? LoDangGiuService.conLai(t, dangGiu) : BigDecimal.ZERO;
             if (e.getValue().compareTo(conLai) > 0) {
+                // Lô đã phân bổ nay nằm ở kệ / phạm vi đang kiểm kê: nói rõ đợt thay cho "đang phân bổ"
+                DanhSachNhatHang phieuCuaDong = dong.getDanhSachNhatHang();
+                KhoaKiemKeGuard.ThieuDoKiemKe doKiemKe = khoaKiemKeGuard == null || phieuCuaDong == null
+                        || phieuCuaDong.getKhoXuat() == null ? null
+                        : khoaKiemKeGuard.thieuDoKiemKe(phieuCuaDong.getKhoXuat().getId(), List.of(e.getKey()), conLai,
+                        e.getValue(), "xuất kho", null);
+                if (doKiemKe != null) throw doKiemKe.loi();
                 String maLo = t != null ? t.getLoHang().getMaLo() : daLuu.stream()
                         .filter(pb -> pb.getLoHang().getId().equals(e.getKey()))
                         .map(pb -> pb.getLoHang().getMaLo()).findFirst().orElse("#" + e.getKey());
@@ -1303,8 +1314,23 @@ public class NhatHangServiceImpl implements NhatHangService {
             List<PhanBoLoFifo.Lo> bu = PhanBoLoFifo.layFifo(conLaiFifo, canBu);
             BigDecimal tongSauBu = tongDaCo.add(PhanBoLoFifo.tong(bu));
             if (tongSauBu.compareTo(can) < 0) {
-                // Báo quản lý kho sau khi giao dịch hoàn tác (lúc này còn giữ khóa tồn / phiếu nhặt)
                 DanhSachNhatHang phieu = dong.getDanhSachNhatHang();
+                // Thiếu chỉ vì phần đang kiểm kê: nói rõ đợt, không báo quản lý "thiếu tồn theo lô" (không phải lệch sổ)
+                Integer khoXuatId = phieu == null || phieu.getKhoXuat() == null ? null : phieu.getKhoXuat().getId();
+                KhoaKiemKeGuard.ThieuDoKiemKe doKiemKe = khoaKiemKeGuard == null ? null
+                        : khoaKiemKeGuard.thieuDoKiemKe(khoXuatId, tonList.stream()
+                                .filter(t -> bienTheId.equals(t.getLoHang().getBienTheSanPham().getId()))
+                                .map(t -> t.getLoHang().getId()).toList(),
+                        tongSauBu, kk -> {
+                            // Bù lại theo FIFO như trên nhưng bỏ phần đang kiểm kê ra: vẫn thiếu thì không phải do kiểm kê
+                            Map<Integer, BigDecimal> boKiemKe = new HashMap<>(dangGiu);
+                            kk.forEach((lo, sl) -> boKiemKe.computeIfPresent(lo, (k, v) -> v.subtract(sl).max(BigDecimal.ZERO)));
+                            BigDecimal conBu = PhanBoLoFifo.tong(conLaiTheoFifo(tonList, bienTheId, boKiemKe, daCo))
+                                    .subtract(giuCho).max(BigDecimal.ZERO);
+                            return tongDaCo.add(conBu);
+                        }, can, "xuất kho", null);
+                if (doKiemKe != null) throw doKiemKe.loi();
+                // Báo quản lý kho sau khi giao dịch hoàn tác (lúc này còn giữ khóa tồn / phiếu nhặt)
                 NguoiDungAuthInfo nguoi = SecurityContextHolder.getUser();
                 thongBaoXuatKhoService.thieuTonTheoLo(phieu == null ? null : phieu.getId(),
                         phieu == null ? null : phieu.getMaPickList(),

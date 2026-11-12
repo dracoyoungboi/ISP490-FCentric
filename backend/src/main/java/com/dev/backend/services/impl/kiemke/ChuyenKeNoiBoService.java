@@ -8,6 +8,7 @@ import com.dev.backend.dto.chuyenke.ChuyenKeYeuCau;
 import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
 import com.dev.backend.entities.*;
 import com.dev.backend.exception.customize.CommonException;
+import com.dev.backend.exception.customize.LoiCoMaException;
 import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.repository.*;
 import com.dev.backend.utils.HienThiBienThe;
@@ -247,7 +248,26 @@ public class ChuyenKeNoiBoService {
                 ke.getKhuVucKho() == null ? null : ke.getKhuVucKho().getTenKhuVuc(),
                 ke.getDayKe(), ke.getHangKe(), ke.getTangKe(), ke.getTrangThai(), sucChua, dangChuaSo,
                 sucChua == null ? null : Math.max(0, sucChua - dangChuaSo), khoa,
-                khoa == null ? null : ThongDiep.dich("khoVanHanh.chuyenKeKeBiKhoa", ke.getMaViTri()), dong);
+                khoa == null ? null : dichLyDo(lyDoKhoa(khoa, ke)), dong);
+    }
+
+    /** Lý do kệ không dùng được, theo loại khóa (không gộp kiểm kê với bảo trì thành một câu mơ hồ). */
+    static ThongDiep lyDoKhoa(String khoa, ViTriKho ke) {
+        if (KHOA_KIEM_KE.equals(khoa)) return ThongDiep.of("khoVanHanh.keDangKiemKe", ke.getMaViTri());
+        if (KHOA_BAO_TRI.equals(khoa)) return ThongDiep.of("khoVanHanh.chuyenKeKeBaoTri", ke.getMaViTri());
+        return ThongDiep.of("khoVanHanh.chuyenKeKeKhongNhanHang", ke.getMaViTri());
+    }
+
+    private static String dichLyDo(ThongDiep cau) {
+        return ThongDiep.dich(cau.khoa(), cau.thamSo());
+    }
+
+    /** Kệ đang kiểm kê: câu có mã đợt (đợt toàn kho → câu cấp kho) qua chốt chặn chung. */
+    private LoiCoMaException loiKeKiemKe(KhoaKiemKeGuard.TrangThaiKhoa tt, ViTriKho ke, String thaoTac) {
+        Integer dot = tt.dotToanKho != null ? tt.dotToanKho : tt.keToanKe.get(ke.getId());
+        // Kệ mang trạng thái đang kiểm mà không thấy khóa toàn kệ (đợt khóa theo lô): nêu đợt đầu tiên của kho
+        if (dot == null) dot = tt.maDot.keySet().stream().sorted().findFirst().orElse(null);
+        return guard.loi(tt, dot, ke.getId(), null, thaoTac);
     }
 
     /** null = kệ dùng được; KIEM_KE (cả kệ / cả kho đang kiểm kê) · BAO_TRI · KHAC (trạng thái lạ). */
@@ -349,16 +369,13 @@ public class ChuyenKeNoiBoService {
         ViTriKho nguon = ke.get(nguonId);
         // BR-BIN-03: kệ nguồn không đang kiểm kê (bảo trì vẫn chuyển đi được)
         if (KHOA_KIEM_KE.equals(khoaCuaKe(nguon, tt))) {
-            throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("khoVanHanh.chuyenKeKeBiKhoa", nguon.getMaViTri()));
+            throw loiKeKiemKe(tt, nguon, "chuyển hàng khỏi kệ");
         }
         for (Integer id : vaoKeDich.keySet()) {
             ViTriKho dich = ke.get(id);
             String khoa = khoaCuaKe(dich, tt);
-            if (khoa != null) {
-                throw new CommonException(HttpStatus.CONFLICT, KHOA_KHAC.equals(khoa)
-                        ? ThongDiep.of("khoVanHanh.chuyenKeKeKhongNhanHang", dich.getMaViTri())
-                        : ThongDiep.of("khoVanHanh.chuyenKeKeBiKhoa", dich.getMaViTri()));
-            }
+            if (KHOA_KIEM_KE.equals(khoa)) throw loiKeKiemKe(tt, dich, "chuyển hàng lên kệ");
+            if (khoa != null) throw new CommonException(HttpStatus.CONFLICT, lyDoKhoa(khoa, dich));
         }
         // Chốt chặn kiểm kê theo lô (danh mục đang kiểm, cặp kệ–lô khóa tối thiểu) — cùng các bước của chuyenKe một lô
         Map<Integer, BigDecimal> canBd = new HashMap<>();
