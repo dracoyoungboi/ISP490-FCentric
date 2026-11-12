@@ -107,6 +107,9 @@ public class TikTokProductCreateRequest implements Serializable {
     @FieldDefaults(level = AccessLevel.PRIVATE)
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class CreateSku implements Serializable {
+        @JsonProperty("id")
+        String id;
+
         @JsonProperty("seller_sku")
         String sellerSku;
 
