@@ -1279,6 +1279,12 @@ class KenhBanHangDongBoServiceTest {
         assertFalse(kq9.thanhCong());
         assertFalse(kq9.loiKenh());
         assertTrue(kq9.lyDo().contains("chờ TikTok Shop phê duyệt"));
+
+        // 10. Trạng thái sản phẩm không hợp lệ 12052901 (Precondition Required / Suspended)
+        var kq10 = service.phanLoaiLoiTikTok(12052901, "Precondition Required. This operation requires a valid product status.", null);
+        assertFalse(kq10.thanhCong());
+        assertFalse(kq10.loiKenh());
+        assertTrue(kq10.lyDo().contains("12052901") || kq10.lyDo().contains("khóa/đình chỉ"));
     }
 
     @Test
