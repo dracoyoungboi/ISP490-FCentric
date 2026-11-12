@@ -10,6 +10,7 @@ import PosWarehousePicker from './components/PosWarehousePicker';
 import PosModeTabs from './components/PosModeTabs';
 import PosCartPanel from './components/PosCartPanel';
 import PosInvoiceTabs from './components/PosInvoiceTabs';
+import { getTabStatus } from './pos-invoice-status';
 import PosDialogs from './components/PosDialogs';
 import PosProductCatalog from './components/PosProductCatalog';
 import { formatMoney } from './pos-format';
@@ -196,6 +197,17 @@ const isFrozenInvoice = (invoice) =>
 /** Khách đã chuyển khoản nhưng chưa có đơn: quản lý xử lý ở màn Đối soát chuyển khoản. */
 const isPayosPaidError = (invoice) => invoice?.payos?.trangThai === 'PAID_ERROR';
 
+/**
+ * Hóa đơn còn dính tới tiền hoặc hàng đang giữ chỗ: lệnh đóng hàng loạt (menu chuột phải) luôn chừa lại,
+ * thu ngân mở ra xử lý riêng như khi bấm X. Gồm đang xử lý / chờ QR / đã nhận tiền chờ quản lý (isFrozenInvoice),
+ * cần trả lại tiền mặt khách đưa trước, và đã thanh toán xong nhưng chưa in / hoàn tất.
+ */
+const isKeptOnBulkClose = (invoice) => isFrozenInvoice(invoice)
+  || canTraLaiTienMat(invoice?.payos)
+  || invoice?.attempt?.status === 'succeeded'
+  // Tiền QR đã về nhưng chưa có kết quả đơn trên máy (toDraft cũng coi là đã thanh toán)
+  || invoice?.payos?.trangThai === 'PAID';
+
 /** Tồn khả dụng đã biết (số) hoặc null = chưa biết — không coi null/'' là hết hàng như Number(null) = 0. */
 const knownStock = (stock) => (stock === null || stock === undefined || stock === '' || !Number.isFinite(Number(stock)) ? null : Number(stock));
 /** Dòng giỏ có số lượng vượt tồn khả dụng đã biết (tồn chưa biết = không chặn, server vẫn kiểm). */
@@ -359,6 +371,10 @@ export default function PosSalesPage({
 
   const [dialog, setDialog] = useState(null);
   const [closingInvoiceNumber, setClosingInvoiceNumber] = useState(null);
+  // Đóng hàng loạt đang chờ xác nhận: { numbers, clickedNumber, kind }
+  const [bulkClose, setBulkClose] = useState(null);
+  // Lần đóng hàng loạt gần nhất có hóa đơn chứa nội dung, để Hoàn tác: { closed: [{ invoice, index }], activeBefore, replacementNumber }
+  const [lastBulkClosed, setLastBulkClosed] = useState(null);
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
   const [paymentError, setPaymentError] = useState('');
   // Lỗi khi xác nhận trả lại tiền mặt khách đưa trước (409…): { orderCode, message } — chỉ hiện ở đúng mã QR đó.
@@ -366,6 +382,18 @@ export default function PosSalesPage({
   // Lần tự hủy mã QR hết giờ gần nhất bị lỗi, theo orderCode: { message, final } (final = không tự thử lại nữa)
   const [autoCloseErrors, setAutoCloseErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Thông báo "Đã đóng N hóa đơn" đang hiện (có nút Hoàn tác) + số thứ tự lần đóng, để nút trên thông báo
+  // chỉ hoàn tác đúng lần đóng của nó. Rời trang bán thì gỡ thông báo (nút bấm lúc đó không còn tác dụng).
+  const bulkCloseToastRef = useRef(null);
+  const bulkCloseSeqRef = useRef(0);
+  useEffect(() => () => {
+    if (bulkCloseToastRef.current != null) sonnerToast.dismiss(bulkCloseToastRef.current);
+  }, []);
+  const dropBulkUndo = () => {
+    if (bulkCloseToastRef.current != null) sonnerToast.dismiss(bulkCloseToastRef.current);
+    bulkCloseToastRef.current = null;
+    setLastBulkClosed(null);
+  };
   // Chế độ quét mã: ô quét thay ô tìm kiếm, mỗi mã quét được tra CHÍNH XÁC rồi thêm 1 vào hóa đơn.
   const [scanMode, setScanMode] = useState(() => readFlag(SCAN_MODE_KEY, false));
   const [lastScan, setLastScan] = useState(null); // {ok, message, code, seq, ambiguous?}
@@ -880,6 +908,8 @@ export default function PosSalesPage({
     setActiveInvoice(number);
     setPaymentError('');
     setMobileCartOpen(false);
+    // Hoàn tác đóng hàng loạt chỉ dành cho lần đóng vừa xong: thêm/đóng tab khác thì bỏ, tránh lấy lại giỏ cũ hàng giờ trước.
+    if (lastBulkClosed) dropBulkUndo();
   };
 
   const selectInvoice = (number) => {
@@ -911,6 +941,7 @@ export default function PosSalesPage({
     setDialog(null);
     setPaymentError('');
     setMobileCartOpen(false);
+    if (lastBulkClosed) dropBulkUndo();
   };
 
   const requestCloseInvoice = (number) => {
@@ -938,6 +969,158 @@ export default function PosSalesPage({
       setClosingInvoiceNumber(number);
       setDialog('close-invoice');
     } else removeInvoice(number);
+  };
+
+  // ===== Đóng hàng loạt (menu chuột phải trên tab hóa đơn) =====
+  // Chỉ đóng hóa đơn chưa thanh toán và không vướng tiền (isKeptOnBulkClose). Luôn còn ít nhất một
+  // hóa đơn bán được: đóng hết thì mở hóa đơn trống mới, không đậu vào tab đang chờ tiền.
+  const planBulkClose = (kind, clickedNumber, list = invoices, activeNumber = activeInvoice) => {
+    const sellable = list.filter((invoice) => !isKeptOnBulkClose(invoice));
+    if (kind === 'empty') {
+      const empties = sellable.filter(isInvoiceUntouched);
+      // Mọi hóa đơn bán được đều trống: chừa một tab trống (ưu tiên tab đang chọn) thay vì đóng hết rồi mở lại y hệt.
+      if (empties.length && empties.length === sellable.length) {
+        const keep = empties.find((invoice) => invoice.number === activeNumber)
+          || empties.find((invoice) => invoice.number === clickedNumber)
+          || empties[0];
+        return empties.filter((invoice) => invoice !== keep);
+      }
+      return empties;
+    }
+    // Chỉ còn đúng một hóa đơn trống: đóng rồi cũng mở lại y hệt.
+    if (sellable.length === 1 && isInvoiceUntouched(sellable[0])) return [];
+    return sellable;
+  };
+
+  const getCloseCounts = (number) => ({
+    empty: planBulkClose('empty', number).length,
+    all: planBulkClose('all', number).length,
+  });
+
+  const applyBulkClose = (numbers, clickedNumber, kind) => {
+    const ids = new Set(numbers);
+    const closed = invoices
+      .map((invoice, index) => ({ invoice, index }))
+      .filter(({ invoice }) => ids.has(invoice.number) && !isKeptOnBulkClose(invoice));
+    setDialog(null);
+    setBulkClose(null);
+    if (!closed.length) return;
+    const closedIds = new Set(closed.map(({ invoice }) => invoice.number));
+    let remaining = invoices.filter((invoice) => !closedIds.has(invoice.number));
+    let nextActive = activeInvoice;
+    let replacementNumber = null;
+    const sellable = remaining.filter((invoice) => !isKeptOnBulkClose(invoice));
+    if (!sellable.length) {
+      const fresh = createInvoice(nextFreeInvoiceNumber(remaining), { warehouseId, customer: walkInCustomer });
+      remaining = [...remaining, fresh];
+      nextActive = fresh.number;
+      replacementNumber = fresh.number;
+    } else if (closedIds.has(activeInvoice)) {
+      nextActive = (sellable.find((invoice) => invoice.number === clickedNumber)
+        || sellable.find(isInvoiceUntouched)
+        || sellable[0]).number;
+    }
+    setInvoices(remaining);
+    setActiveInvoice(nextActive);
+    setPaymentError('');
+    setMobileCartOpen(false);
+    // Lần đóng mới thay lần trước: gỡ thông báo cũ để nút Hoàn tác của nó không lấy lại nhầm lần này.
+    dropBulkUndo();
+    const kept = kind === 'all' ? remaining.filter(isKeptOnBulkClose) : [];
+    const message = kept.length
+      ? t("Đã đóng {{count}} hóa đơn. Giữ lại {{danhSach}} vì thanh toán chưa xong.", {
+        count: closed.length,
+        danhSach: kept.map((invoice) => t("Hóa đơn {{number}}", { number: invoice.number })).join(', '),
+      })
+      : t("Đã đóng {{count}} hóa đơn.", { count: closed.length });
+    // Đóng toàn hóa đơn trống thì không mất gì: không cần Hoàn tác.
+    if (closed.some(({ invoice }) => !isInvoiceUntouched(invoice))) {
+      bulkCloseSeqRef.current += 1;
+      const id = bulkCloseSeqRef.current;
+      setLastBulkClosed({ id, closed, activeBefore: activeInvoice, replacementNumber });
+      bulkCloseToastRef.current = sonnerToast.success(message, { action: { label: t("Hoàn tác"), onClick: () => undoBulkClose(id) } });
+    } else showToast(message, 'success');
+  };
+
+  const requestBulkClose = (kind, clickedNumber) => {
+    if (isSubmitting || dialog) return;
+    const targets = planBulkClose(kind, clickedNumber);
+    if (!targets.length) return;
+    const numbers = targets.map((invoice) => invoice.number);
+    if (targets.every(isInvoiceUntouched)) {
+      applyBulkClose(numbers, clickedNumber, kind);
+      return;
+    }
+    setBulkClose({ numbers, clickedNumber, kind });
+    setDialog('close-many');
+  };
+
+  /** Nội dung hộp hỏi đóng nhiều hóa đơn: hóa đơn có nội dung (kèm cửa hàng nếu khác nhau), số hóa đơn trống, hóa đơn giữ lại. */
+  const buildClosingMany = ({ numbers, kind }) => {
+    const ids = new Set(numbers);
+    const targets = invoices.filter((invoice) => ids.has(invoice.number) && !isKeptOnBulkClose(invoice));
+    const withContent = targets.filter((invoice) => !isInvoiceUntouched(invoice));
+    const multiStore = new Set(targets.map((invoice) => invoice.warehouseId)).size > 1;
+    return {
+      total: targets.length,
+      emptyCount: targets.length - withContent.length,
+      items: withContent.map((invoice) => ({
+        number: invoice.number,
+        count: invoice.cart.reduce((sum, line) => sum + line.quantity, 0),
+        customerName: invoice.customer && invoice.customer.id !== walkInCustomer?.id ? invoice.customer.name : '',
+        storeName: multiStore ? warehouses.find((w) => w.id === invoice.warehouseId)?.tenKho ?? '' : '',
+      })),
+      kept: kind === 'all'
+        ? invoices.filter(isKeptOnBulkClose).map((invoice) => ({ number: invoice.number, label: getTabStatus(invoice)?.label ?? '' }))
+        : [],
+    };
+  };
+
+  /**
+   * Lấy lại lần đóng hàng loạt gần nhất. snapshotId: nút trên thông báo chỉ hoàn tác đúng lần đóng của nó
+   * (bỏ trống = mục trong menu, lấy lần gần nhất). Đọc uiRef vì nút trên thông báo bấm vài giây sau, closure đã cũ.
+   */
+  const undoBulkClose = (snapshotId = null) => {
+    const ui = uiRef.current;
+    const snapshot = ui.lastBulkClosed;
+    if (!snapshot || (snapshotId != null && snapshot.id !== snapshotId)) return;
+    if (ui.dialog || ui.isSubmitting) {
+      showToast(t("Đang mở một hộp thoại. Đóng hộp thoại rồi chuột phải vào tab hóa đơn, chọn \"Mở lại hóa đơn vừa đóng\"."), 'warning');
+      return;
+    }
+    let list = ui.invoices;
+    // Hóa đơn trống tự mở khi đóng hết: còn trống thì bỏ; đã quét hàng vào thì giữ, hóa đơn lấy lại nhận số mới.
+    if (snapshot.replacementNumber != null) {
+      list = list.filter((invoice) => !(invoice.number === snapshot.replacementNumber && isInvoiceUntouched(invoice)));
+    }
+    // Số cũ còn trống thì giữ nguyên; chỉ hóa đơn bị trùng số mới nhận số mới (không đẩy dây chuyền số của hóa đơn khác).
+    const used = new Set(list.map((invoice) => invoice.number));
+    const collide = new Set(snapshot.closed.filter(({ invoice }) => used.has(invoice.number)).map(({ invoice }) => invoice.number));
+    snapshot.closed.forEach(({ invoice }) => { if (!collide.has(invoice.number)) used.add(invoice.number); });
+    list = [...list];
+    const numberMap = new Map();
+    snapshot.closed.forEach(({ invoice, index }) => {
+      let number = invoice.number;
+      if (collide.has(number)) {
+        number = 1;
+        while (used.has(number)) number += 1;
+        used.add(number);
+      }
+      numberMap.set(invoice.number, number);
+      list.splice(Math.min(index, list.length), 0, number === invoice.number ? invoice : { ...invoice, number });
+    });
+    const renumbered = collide.size;
+    const activeNow = ui.activeInvoice;
+    const nextActive = numberMap.get(snapshot.activeBefore)
+      ?? (list.some((invoice) => invoice.number === activeNow) ? activeNow : numberMap.values().next().value);
+    setInvoices(list);
+    setActiveInvoice(nextActive);
+    dropBulkUndo();
+    setPaymentError('');
+    setMobileCartOpen(false);
+    showToast(renumbered
+      ? t("Đã mở lại {{count}} hóa đơn. Hóa đơn trùng số với tab đang mở được đánh số mới.", { count: snapshot.closed.length })
+      : t("Đã mở lại {{count}} hóa đơn.", { count: snapshot.closed.length }), 'success');
   };
 
   // ===== Tra cứu phím tắt / mã vạch (server-side) =====
@@ -1803,6 +1986,14 @@ export default function PosSalesPage({
       if (closingInvoiceNumber != null) removeInvoice(closingInvoiceNumber);
       setClosingInvoiceNumber(null);
     },
+    // applyBulkClose lọc lại isKeptOnBulkClose: tiền chuyển khoản về muộn trong lúc hộp hỏi đang mở thì hóa đơn đó được giữ.
+    onConfirmBulkClose: () => {
+      if (bulkClose) applyBulkClose(bulkClose.numbers, bulkClose.clickedNumber, bulkClose.kind);
+    },
+    onCancelBulkClose: () => {
+      setBulkClose(null);
+      setDialog(null);
+    },
     onPaymentAmount: setPaymentAmountForInvoice,
     onConfirmPayment: submitCheckout,
     onCheckRecovery: recoverCurrentAttempt,
@@ -1836,6 +2027,7 @@ export default function PosSalesPage({
     closingInvoice: closingInvoiceNumber != null
       ? invoices.find((invoice) => invoice.number === closingInvoiceNumber) || null
       : null,
+    closingMany: dialog === 'close-many' && bulkClose ? buildClosingMany(bulkClose) : null,
     invoiceNumber: ticketNumber,
     attemptStatus: attempt?.status ?? null,
     receipt: receiptResult,
@@ -1894,7 +2086,7 @@ export default function PosSalesPage({
   };
 
   // Trạng thái/handler mới nhất cho callback chạy nền (polling payOS, phím tắt) — tránh closure cũ.
-  uiRef.current = { dialog, isSubmitting, activeInvoice, invoices };
+  uiRef.current = { dialog, isSubmitting, activeInvoice, invoices, lastBulkClosed };
   keyboardContext.current = {
     isSubmitting,
     frozen,
@@ -2050,6 +2242,12 @@ export default function PosSalesPage({
       onClose={requestCloseInvoice}
       onSelect={selectInvoice}
       variant={variant}
+      walkInCustomerId={walkInCustomer?.id ?? null}
+      getCloseCounts={getCloseCounts}
+      onCloseEmpty={(number) => requestBulkClose('empty', number)}
+      onCloseAll={(number) => requestBulkClose('all', number)}
+      undoCount={lastBulkClosed?.closed.length ?? 0}
+      onUndoClose={undoBulkClose}
     />
   );
 

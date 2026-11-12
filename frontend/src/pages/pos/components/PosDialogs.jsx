@@ -40,6 +40,7 @@ const POS_SHORTCUTS = [
   { key: 'F8', label: t("Bật / tắt chế độ quét mã vạch"), hint: SCAN_HINT },
   { key: 'F9', label: t("Mở thanh toán · trong màn thanh toán: xác nhận") },
   { key: '← →', label: t("Chuyển giữa các hóa đơn (khi đang chọn tab)") },
+  { key: 'Shift F10', label: t("Trên tab hóa đơn: mở menu đóng hóa đơn trống / đóng tất cả (hoặc bấm chuột phải)") },
   { key: 'Esc', label: t("Đóng cửa sổ đang mở") },
 ];
 
@@ -477,10 +478,40 @@ export default function PosDialogs({ dialog, state, actions, onClose, checkoutEn
   }
 
   if (dialog === 'close-invoice') {
+    // Đã thanh toán xong (tiền chuyển khoản về khi đang ở tab khác) nhưng chưa in / hoàn tất: đơn đã lưu, không mất gì.
+    const daThanhToan = state.closingInvoice?.attempt?.status === 'succeeded';
     return (
-      <PosModal description={t("Hóa đơn đang có nội dung chưa thanh toán.")} onClose={onClose} title={t("Đóng hóa đơn {{number}}?", { number: state.closingInvoice?.number })} size="sm">
-        <p className="text-sm leading-6 text-bo-muted">{t("Sản phẩm, khách hàng và ghi chú của hóa đơn này sẽ bị bỏ. Các hóa đơn khác được giữ lại.")}</p>
-        <div className="mt-5"><FooterButtons cancelText={t("Hủy")} confirmText={t("Đóng hóa đơn")} destructive onClose={onClose} onConfirm={actions.onCloseInvoice} /></div>
+      <PosModal description={daThanhToan ? t("Hóa đơn đã thanh toán, chưa in.") : t("Hóa đơn đang có nội dung chưa thanh toán.")} onClose={onClose} title={t("Đóng hóa đơn {{number}}?", { number: state.closingInvoice?.number })} size="sm">
+        <p className="text-sm leading-6 text-bo-muted">{daThanhToan
+          ? t("Đơn bán đã được lưu. Khách cần hóa đơn thì in trước khi đóng; sau khi đóng vẫn in lại được ở trang Đơn bán.")
+          : t("Sản phẩm, khách hàng và ghi chú của hóa đơn này sẽ bị bỏ. Các hóa đơn khác được giữ lại.")}</p>
+        <div className="mt-5"><FooterButtons cancelText={t("Hủy")} confirmText={t("Đóng hóa đơn")} destructive={!daThanhToan} onClose={onClose} onConfirm={actions.onCloseInvoice} /></div>
+      </PosModal>
+    );
+  }
+
+  if (dialog === 'close-many' && state.closingMany) {
+    const { total, emptyCount, items, kept } = state.closingMany;
+    return (
+      <PosModal description={t("Hóa đơn có nội dung chưa thanh toán sẽ bị bỏ.")} onClose={actions.onCancelBulkClose} title={t("Đóng {{count}} hóa đơn?", { count: total })} size="sm">
+        <ul className="divide-y divide-bo-border rounded-lg border border-bo-border text-sm">
+          {items.map((item) => (
+            <li className="flex items-start justify-between gap-3 px-3 py-2" key={item.number}>
+              <span className="min-w-0">
+                <span className="block font-medium text-bo-foreground">{t("Hóa đơn {{number}}", { number: item.number })}</span>
+                {item.customerName || item.storeName ? <span className="block truncate text-xs text-bo-muted">{[item.customerName, item.storeName].filter(Boolean).join(' · ')}</span> : null}
+              </span>
+              <span className="shrink-0 tabular-nums text-bo-muted">{item.count ? t("{{count}} sản phẩm", { count: item.count }) : t("Có khách hoặc ghi chú")}</span>
+            </li>
+          ))}
+        </ul>
+        {emptyCount ? <p className="mt-2 text-xs leading-5 text-bo-muted">{t("Kèm {{count}} hóa đơn trống.", { count: emptyCount })}</p> : null}
+        {kept.length ? (
+          <p className="mt-2 rounded-md bg-bo-surface-subtle px-3 py-2 text-xs leading-5 text-bo-muted">
+            {t("Giữ lại vì thanh toán chưa xong: {{danhSach}}.", { danhSach: kept.map((item) => (item.label ? t("Hóa đơn {{number}} ({{trangThai}})", { number: item.number, trangThai: item.label.toLowerCase() }) : t("Hóa đơn {{number}}", { number: item.number }))).join(', ') })}
+          </p>
+        ) : null}
+        <div className="mt-5"><FooterButtons cancelAutoFocus cancelText={t("Không đóng")} confirmText={t("Đóng {{count}} hóa đơn", { count: total })} destructive onClose={actions.onCancelBulkClose} onConfirm={actions.onConfirmBulkClose} /></div>
       </PosModal>
     );
   }
