@@ -1,4 +1,4 @@
-import { CircleCheck, Loader2, OctagonAlert } from "lucide-react";
+import { CircleCheck, Loader2, OctagonAlert, TriangleAlert } from "lucide-react";
 import { NutChu } from "@/components/chung-tu/DongThongBao";
 import { soVN } from "@/components/chung-tu/bangChungTu";
 import { cn } from "@/lib/utils";
@@ -21,6 +21,7 @@ function O({ so, nhan }) {
  * - `kq`: KiemKeDto.XemTruoc. `dang`: đang tính. `loi`: câu lỗi (kèm `onThuLai`).
  * - `cheDo`: "toan_ke" | "theo_lo" — câu giải thích khóa.
  * - `nutCuaVanDe(vanDe)`: nút gỡ vướng mắc đặt sau câu (vd. "Xếp kệ" cho hàng chưa có kệ); mọi vướng mắc đều chặn Bắt đầu.
+ * - `kq.canhBao`: lưu ý KHÔNG chặn Bắt đầu (phiếu chuyển đang về kho, phiếu nhập chưa hoàn tất đã gán kệ trong phạm vi).
  */
 export default function XemTruocPhamVi({ kq, dang = false, loi, onThuLai, cheDo = "toan_ke", nutCuaVanDe, className }) {
   if (loi) {
@@ -39,6 +40,7 @@ export default function XemTruocPhamVi({ kq, dang = false, loi, onThuLai, cheDo 
     );
   }
   const vanDe = Array.isArray(kq.vanDe) ? kq.vanDe : [];
+  const canhBao = Array.isArray(kq.canhBao) ? kq.canhBao : [];
   return (
     <div className={cn("grid gap-3", dang && "opacity-70 transition-opacity", className)} aria-busy={dang || undefined}>
       <div className="grid grid-cols-2 gap-2">
@@ -61,6 +63,19 @@ export default function XemTruocPhamVi({ kq, dang = false, loi, onThuLai, cheDo 
               <span className="min-w-0 break-words">
                 {v.noiDung} {nutCuaVanDe?.(v) ?? null}
               </span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {canhBao.length ? (
+        <ul className="m-0 grid list-none gap-1.5 p-0">
+          {canhBao.map((v, i) => (
+            <li
+              key={`${v.ma}-${i}`}
+              className="flex items-start gap-2 rounded-md border border-bo-warning/30 bg-bo-warning-soft px-2.5 py-2 text-[13px] leading-5 text-bo-foreground"
+            >
+              <TriangleAlert className="mt-0.5 size-4 shrink-0 text-bo-warning" aria-hidden="true" />
+              <span className="min-w-0 break-words">{v.noiDung}</span>
             </li>
           ))}
         </ul>
