@@ -13,6 +13,8 @@ import LoadingState from "@/components/shared/LoadingState";
 import { Button } from "@/components/ui/button";
 import { soVN } from "@/components/chung-tu/bangChungTu";
 import MauKichCo from "@/components/chung-tu/MauKichCo";
+import { ChamNhan } from "@/components/chuyen-ke/KeHienThi";
+import { hienGhiChu } from "@/components/chuyen-ke/nhanKe";
 import ChonKhoKiemKe from "@/components/kiem-ke/ChonKhoKiemKe";
 import useKhoKiemKe from "@/components/kiem-ke/useKhoKiemKe";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
@@ -22,8 +24,24 @@ import { getApiErrorMessage } from "@/utils/apiError";
 import { formatDateTime } from "@/utils/dateTime";
 import { t, tDuLieu } from "@/i18n";
 
-const TH = "px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-bo-muted";
-const TD = "px-3 py-3 align-top text-sm text-bo-foreground";
+const TH = "h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
+const TD = "px-3 py-3 align-middle text-sm text-bo-foreground";
+
+// Lọc nhanh theo ngày thực hiện: số ngày tính cả hôm nay (null = tất cả)
+const KHOANG = [
+  { ma: "hom-nay", nhan: t("Hôm nay"), ngay: 1 },
+  { ma: "7-ngay", nhan: t("7 ngày"), ngay: 7 },
+  { ma: "30-ngay", nhan: t("30 ngày"), ngay: 30 },
+  { ma: "tat-ca", nhan: t("Tất cả"), ngay: null },
+];
+
+/** Ngày bắt đầu (yyyy-mm-dd theo giờ máy) của khoảng `ngay` ngày tính cả hôm nay. */
+function tuNgayCua(ngay) {
+  if (!ngay) return undefined;
+  const d = new Date();
+  d.setDate(d.getDate() - (ngay - 1));
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
 /** "A-01-02, A-01-03" — tối đa 3 mã, còn lại "+n". */
 function dsMa(ds) {
@@ -45,6 +63,8 @@ export default function BinMoveHistory() {
   const [trang, setTrang] = useState(0);
   const [kichThuoc, setKichThuoc] = useState(20);
   const [mo, setMo] = useState(() => new Set());
+  const [khoang, setKhoang] = useState("tat-ca");
+  const tuNgay = tuNgayCua(KHOANG.find((k) => k.ma === khoang)?.ngay);
 
   // Gõ tìm: chờ 300ms mới gọi máy chủ
   useEffect(() => {
@@ -55,10 +75,16 @@ export default function BinMoveHistory() {
     return () => clearTimeout(id);
   }, [tim]);
 
-  const tai = useCallback(() => layLichSuChuyenKe(khoId, { tim: timGui, trang, kichThuoc }), [khoId, timGui, trang, kichThuoc]);
-  const q = useTaiDuLieu(tai, `chuyen-ke-lich-su-${khoId}-${timGui}-${trang}-${kichThuoc}`, { enabled: khoId != null });
+  const tai = useCallback(() => layLichSuChuyenKe(khoId, { tim: timGui, tuNgay, trang, kichThuoc }), [khoId, timGui, tuNgay, trang, kichThuoc]);
+  const q = useTaiDuLieu(tai, `chuyen-ke-lich-su-${khoId}-${timGui}-${tuNgay ?? ""}-${trang}-${kichThuoc}`, { enabled: khoId != null });
   const duLieu = q.dungKhoa ? q.data : undefined;
   const ds = duLieu?.ds ?? [];
+
+  // Mở từ "Xem phiếu" (?tim=mã phiếu): tìm đúng một phiếu thì mở sẵn chi tiết
+  const timUrl = params.get("tim");
+  const phieuDuyNhat = ds.length === 1 && timUrl && ds[0].maPhieu === timUrl ? ds[0].id : null;
+  const [daDongMoSan, setDaDongMoSan] = useState(false);
+  const dangMoPhieu = (id) => mo.has(id) || (id === phieuDuyNhat && !daDongMoSan);
 
   /** Bỏ ?tim= trên URL (liên kết "Xem phiếu"): sửa / xóa ô tìm thì F5 không lọc lại theo mã cũ. */
   const boTimTrenUrl = () => {
@@ -78,13 +104,18 @@ export default function BinMoveHistory() {
     setMo(new Set());
     kho.doiKho(id);
   };
-  const batTat = (id) =>
+  const batTat = (id) => {
+    if (id === phieuDuyNhat && !daDongMoSan) {
+      setDaDongMoSan(true);
+      return;
+    }
     setMo((cu) => {
       const moi = new Set(cu);
       if (moi.has(id)) moi.delete(id);
       else moi.add(id);
       return moi;
     });
+  };
 
   const khongCoKho = !kho.dangTai && !kho.loi && kho.dsKho.length === 0;
 
@@ -95,16 +126,16 @@ export default function BinMoveHistory() {
   ) : ds.length === 0 ? (
     <EmptyState
       icon={MoveRight}
-      title={timGui ? t("Không có phiếu nào khớp") : t("Chưa có phiếu chuyển kệ")}
-      description={timGui ? t("Thử mã phiếu, mã kệ, SKU hoặc mã lô khác.") : t("Phiếu được ghi mỗi lần xác nhận chuyển hàng giữa các kệ.")}
+      title={timGui || tuNgay ? t("Không có phiếu nào khớp") : t("Chưa có phiếu chuyển kệ")}
+      description={timGui || tuNgay ? t("Thử mã phiếu, mã kệ, SKU, mã lô khác hoặc chọn Tất cả.") : t("Phiếu được ghi mỗi lần xác nhận chuyển hàng giữa các kệ.")}
     />
   ) : (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[760px] border-collapse">
         <thead className="sticky top-0 z-[1] bg-bo-surface-subtle">
-          <tr>
+          <tr className="border-b border-bo-border">
             <th className={cn(TH, "w-10")} aria-label={t("Mở chi tiết")} />
-            <th className={TH}>{t("Mã phiếu")}</th>
+            <th className={TH}>{t("Mã phiếu chuyển kệ")}</th>
             <th className={TH}>{t("Thời gian")}</th>
             <th className={TH}>{t("Người thực hiện")}</th>
             <th className={TH}>{t("Kệ nguồn → kệ đích")}</th>
@@ -112,12 +143,12 @@ export default function BinMoveHistory() {
             <th className={TH}>{t("Ghi chú")}</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-bo-border">
+        <tbody>
           {ds.map((p) => {
-            const dangMo = mo.has(p.id);
+            const dangMo = dangMoPhieu(p.id);
             return (
               <Fragment key={p.id}>
-                <tr className={cn("cursor-pointer hover:bg-bo-surface-subtle/70", dangMo && "bg-bo-surface-subtle/70")} onClick={() => batTat(p.id)}>
+                <tr className={cn("cursor-pointer border-b border-bo-border", dangMo ? "bg-[#f3f7fe]" : "hover:bg-bo-surface-subtle")} onClick={() => batTat(p.id)}>
                   <td className={TD}>
                     <button
                       type="button"
@@ -132,15 +163,13 @@ export default function BinMoveHistory() {
                       <ChevronDown className={cn("size-4 transition-transform", dangMo && "rotate-180")} aria-hidden="true" />
                     </button>
                   </td>
-                  <td className={cn(TD, "font-mono font-semibold")}>
-                    {p.maPhieu}
-                    {p.vuotSucChua ? (
-                      <span className="ml-2 rounded-full border border-amber-200 bg-bo-warning-soft px-2 py-0.5 font-sans text-[11px] font-medium text-amber-800">{t("Vượt sức chứa")}</span>
-                    ) : null}
+                  <td className={TD}>
+                    <span className="font-mono text-sm font-semibold text-bo-primary-strong">{p.maPhieu}</span>
+                    {p.vuotSucChua ? <ChamNhan tone="bad" className="ml-2">{t("Vượt sức chứa")}</ChamNhan> : null}
                   </td>
                   <td className={cn(TD, "whitespace-nowrap tabular-nums")}>{formatDateTime(p.ngayThucHien)}</td>
                   <td className={TD}>{p.nguoiThucHien ? tDuLieu(p.nguoiThucHien) : "—"}</td>
-                  <td className={cn(TD, "font-mono")}>
+                  <td className={cn(TD, "font-mono text-[13px]")}>
                     <span className="inline-flex flex-wrap items-center gap-1.5">
                       {dsMa(p.keNguon)}
                       <ArrowRight className="size-3.5 text-bo-muted" aria-hidden="true" />
@@ -148,23 +177,23 @@ export default function BinMoveHistory() {
                     </span>
                   </td>
                   <td className={cn(TD, "text-right font-semibold tabular-nums")}>{soVN(p.tongSoLuong)}</td>
-                  <td className={cn(TD, "max-w-[240px] truncate text-bo-muted")} title={p.ghiChu ?? undefined}>
-                    {p.ghiChu ? tDuLieu(p.ghiChu) : "—"}
+                  <td className={cn(TD, "max-w-[240px] truncate text-bo-muted")} title={p.ghiChu ? hienGhiChu(p.ghiChu) : undefined}>
+                    {p.ghiChu ? hienGhiChu(p.ghiChu) : "—"}
                   </td>
                 </tr>
                 {dangMo ? (
-                  <tr className="bg-bo-surface-subtle/40">
+                  <tr className="border-b border-bo-border bg-[#f3f7fe]">
                     <td />
                     <td colSpan={6} className="px-3 pb-3">
-                      <table className="w-full border-collapse rounded-md border border-bo-border bg-white text-[13px]">
+                      <table className="w-full border-collapse overflow-hidden rounded-md border border-bo-border bg-white text-[13px]">
                         <thead>
-                          <tr className="border-b border-bo-border text-left text-xs text-bo-muted">
-                            <th className="px-3 py-2 font-medium">{t("Sản phẩm")}</th>
-                            <th className="px-3 py-2 font-medium">{t("SKU")}</th>
-                            <th className="px-3 py-2 font-medium">{t("Lô")}</th>
-                            <th className="px-3 py-2 font-medium">{t("Kệ nguồn")}</th>
-                            <th className="px-3 py-2 font-medium">{t("Kệ đích")}</th>
-                            <th className="px-3 py-2 text-right font-medium">{t("Số lượng")}</th>
+                          <tr className="border-b border-bo-border">
+                            <th className={TH}>{t("Sản phẩm")}</th>
+                            <th className={TH}>{t("SKU")}</th>
+                            <th className={TH}>{t("Lô")}</th>
+                            <th className={TH}>{t("Kệ nguồn")}</th>
+                            <th className={TH}>{t("Kệ đích")}</th>
+                            <th className={cn(TH, "text-right")}>{t("Số lượng")}</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-bo-border">
@@ -172,7 +201,7 @@ export default function BinMoveHistory() {
                             <tr key={d.id}>
                               <td className="px-3 py-2">
                                 <span className="font-medium">{d.tenSanPham ? tDuLieu(d.tenSanPham) : "—"}</span>
-                                <MauKichCo tenMau={d.mau} kichCo={d.kichCo} className="mt-0.5" />
+                                <MauKichCo tenMau={d.mau} maMauHex={d.maMauHex} kichCo={d.kichCo} className="mt-0.5 flex" />
                               </td>
                               <td className="px-3 py-2 font-mono">{d.maSku}</td>
                               <td className="px-3 py-2 font-mono">{d.maLo}</td>
@@ -195,11 +224,11 @@ export default function BinMoveHistory() {
   );
 
   return (
-    <PageContainer fill className="space-y-4">
+    <PageContainer fill className="gap-4">
       <ListPageHeader
         title={t("Lịch sử chuyển kệ")}
         actions={
-          <Button onClick={() => navigate(`/warehouse/bin-moves${khoId ? `?khoId=${khoId}` : ""}`)} className="h-9 gap-2">
+          <Button onClick={() => navigate(`/warehouse/bin-moves${khoId ? `?khoId=${khoId}` : ""}`)} className="h-9 gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover">
             <MoveRight className="size-4" />
             {t("Chuyển hàng giữa kệ")}
           </Button>
@@ -232,6 +261,22 @@ export default function BinMoveHistory() {
                 placeholder={t("Tìm mã phiếu, mã kệ, SKU, mã lô")}
                 label={t("Tìm phiếu chuyển kệ")}
               />
+              <div className="flex rounded-md border border-bo-border p-0.5 text-[13px]" role="group" aria-label={t("Thời gian thực hiện")}>
+                {KHOANG.map((k) => (
+                  <button
+                    key={k.ma}
+                    type="button"
+                    aria-pressed={khoang === k.ma}
+                    onClick={() => {
+                      setKhoang(k.ma);
+                      setTrang(0);
+                    }}
+                    className={cn("h-7 rounded px-2.5", khoang === k.ma ? "bg-bo-primary-soft font-medium text-bo-primary-strong" : "text-slate-600 hover:bg-slate-50")}
+                  >
+                    {k.nhan}
+                  </button>
+                ))}
+              </div>
             </div>
           }
           footer={
