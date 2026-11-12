@@ -818,6 +818,24 @@ public class TikTokShopClient {
         }
     }
 
+    /**
+     * Lấy thông tin vận chuyển và danh sách kiện hàng của đơn hàng (Fulfillment Order Tracking).
+     * Endpoint: GET /fulfillment/202309/orders/{order_id}/tracking
+     * Scope: seller.fulfillment.basic (Fulfillment Basic)
+     * Trả về: JsonNode chứa data.package_list (chứa package_id, tracking_number, shipping_provider_name...)
+     */
+    public JsonNode getOrderTracking(String appKey, String appSecret, String accessToken, String shopCipher, String orderId) {
+        if (orderId == null || orderId.isBlank()) return null;
+        String apiPath = "/fulfillment/202309/orders/" + orderId.trim() + "/tracking";
+        String url = buildUrlWithSign(TikTokShopConstants.BASE_URL, apiPath, Collections.emptyMap(), null, appKey, appSecret, shopCipher);
+        try {
+            return executeGet(url, accessToken);
+        } catch (Exception ex) {
+            log.warn("[TIKTOK-FULFILLMENT] Lỗi khi lấy tracking đơn {}: {}", orderId, ex.getMessage());
+            return null;
+        }
+    }
+
     public TikTokAuthorizedShopsResponse getAuthorizedShops(String appKey, String appSecret, String accessToken) {
         if (accessToken == null || accessToken.isBlank()) {
             throw new LoiThamSoException(ThongDiep.of("kenhBan.accessTokenTrongKhiLayGianHangTikTok"));
