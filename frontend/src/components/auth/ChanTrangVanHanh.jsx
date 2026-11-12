@@ -1,4 +1,4 @@
-/* i18n-giu-nguyen-ca-tep: chân trang đơn vị vận hành phải đúng nguyên văn đã nộp cho Shopee duyệt, ở mọi ngôn ngữ */
+import { t } from '@/i18n';
 import { cn } from '@/lib/utils';
 import { DON_VI_VAN_HANH } from '@/constants/donViVanHanh';
 
@@ -9,6 +9,7 @@ const LIEN_KET =
 
 /**
  * Chân trang ghi đơn vị vận hành (Shopee yêu cầu ở website khi duyệt ứng dụng), dùng ở các trang không cần đăng nhập.
+ * Tiếng Anh chỉ dịch câu dẫn và nhãn mã số; tên "Hộ kinh doanh KAIZ" giữ đúng tên đăng ký.
  * Hai dòng theo nhóm: đơn vị + mã số, rồi hotline | email; đọc liền vẫn đúng câu đã nộp cho Shopee.
  * Cụm "(Mã số HKD …)", hotline, email không bị cắt giữa chừng khi xuống dòng.
  * `phanDau` (tùy chọn): nội dung đặt trên hai dòng đó, như ô chọn ngôn ngữ ở trang Đăng nhập.
@@ -19,7 +20,9 @@ export default function ChanTrangVanHanh({ className, phanDau }) {
         <footer className={cn('shrink-0 px-6 pt-4 pb-5 text-center text-xs leading-5 text-bo-muted', className)}>
             {phanDau ? <div className="mb-1.5">{phanDau}</div> : null}
             <p>
-                {banQuyen} - Vận hành bởi {ten} <span className="whitespace-nowrap">(Mã số HKD: {maSoHkd})</span>
+                {/* Tiếng Việt (mặc định) ra đúng nguyên văn đã nộp Shopee; tên đơn vị giữ nguyên ở mọi ngôn ngữ */}
+                {t('{{banQuyen}} - Vận hành bởi {{ten}}', { banQuyen, ten })}{' '}
+                <span className="whitespace-nowrap">{t('(Mã số HKD: {{maSoHkd}})', { maSoHkd })}</span>
             </p>
             <p>
                 <span className="whitespace-nowrap">
