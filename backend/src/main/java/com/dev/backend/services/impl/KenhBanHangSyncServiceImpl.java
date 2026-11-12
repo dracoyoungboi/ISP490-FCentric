@@ -54,6 +54,14 @@ public class KenhBanHangSyncServiceImpl implements KenhBanHangSyncService {
                 } else {
                     log.info("KenhBanHangSync: Đã nạp thành công Credential {} (AppKey: {}), sẵn sàng đồng bộ trạng thái đơn {} sang {}", maKenh, appKey, don.getSoDonHang(), maKenh);
                 }
+            } else if ("TIKTOK".equalsIgnoreCase(maKenh) || "TIKTOK_SHOP".equalsIgnoreCase(maKenh)) {
+                String appKey = kenhBanHangService.getTikTokAppKey();
+                String token = kenhBanHangService.getDecryptedTikTokAccessToken();
+                if (token == null || token.isBlank()) {
+                    log.warn("KenhBanHangSync: Kênh bán TikTok Shop chưa cấu hình Access Token trong DB, bỏ qua gọi API ngoài.");
+                } else {
+                    log.info("KenhBanHangSync: Đã nạp thành công Credential TikTok Shop (AppKey: {}), sẵn sàng xác nhận xuất kho cho đơn {}", appKey, don.getSoDonHang());
+                }
             }
 
             // Ghi nhận trạng thái push thành công vào log

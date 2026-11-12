@@ -914,8 +914,9 @@ public class OmnichannelOrderSyncJob {
 
                 // 5. Lưu package_id vào ghi chú nếu chưa có
                 String pkgId = order.getFirstPackageId();
-                if (pkgId != null && !pkgId.isBlank() && !existing.getGhiChu().contains("[KIỆN:")) {
-                    existing.setGhiChu((existing.getGhiChu() != null && !existing.getGhiChu().isBlank() ? existing.getGhiChu() + " | " : "") + "[KIỆN: " + pkgId + "]");
+                String noteToCheck = existing.getGhiChu() != null ? existing.getGhiChu() : "";
+                if (pkgId != null && !pkgId.isBlank() && !noteToCheck.contains("[KIỆN:")) {
+                    existing.setGhiChu((noteToCheck.isBlank() ? "" : noteToCheck + " | ") + "[KIỆN: " + pkgId + "]");
                     existing.setNgayCapNhat(Instant.now());
                     donBanHangRepository.save(existing);
                 }

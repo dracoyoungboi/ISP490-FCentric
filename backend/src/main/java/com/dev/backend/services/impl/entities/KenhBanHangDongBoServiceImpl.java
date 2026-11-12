@@ -6123,6 +6123,30 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 }
             }
 
+            // 1. Tra cứu tracking đơn qua endpoint Fulfillment Order Tracking chuyên dụng
+            if (packageId == null || packageId.isBlank()) {
+                try {
+                    JsonNode trackRes = getTikTokShopClient().getOrderTracking(appKey, appSecret, token, cipher, maDonHangKenh.trim());
+                    packageId = trichXuatPackageIdTuTikTokJson(trackRes);
+                    if (trackRes != null && don != null) {
+                        dongBoThongTinTrackingTuJson(don, trackRes);
+                    }
+                } catch (Exception ex) {
+                    log.warn("[TIKTOK-RTS] Không thể lấy tracking đơn {}: {}", maDonHangKenh, ex.getMessage());
+                }
+            }
+
+            // 2. Tra cứu chi tiết đơn qua GET /order/202309/orders?ids=...
+            if (packageId == null || packageId.isBlank()) {
+                try {
+                    JsonNode detailRes = getTikTokShopClient().getOrderDetails(appKey, appSecret, token, cipher, maDonHangKenh.trim());
+                    packageId = trichXuatPackageIdTuTikTokJson(detailRes);
+                } catch (Exception ex) {
+                    log.warn("[TIKTOK-RTS] Không thể lấy chi tiết đơn {}: {}", maDonHangKenh, ex.getMessage());
+                }
+            }
+
+            // 3. Fallback: tìm qua searchOrders
             if (packageId == null || packageId.isBlank()) {
                 com.dev.backend.dto.request.TikTokOrderSearchRequest req =
                         com.dev.backend.dto.request.TikTokOrderSearchRequest.builder()
@@ -6142,6 +6166,16 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             if (packageId == null || packageId.isBlank()) {
                 log.warn("[TIKTOK-RTS] Không tìm thấy package_id của đơn hàng {} để ship trên TikTok Shop", maDonHangKenh);
                 return false;
+            }
+
+            // Cập nhật package_id vào đơn hàng nếu chưa có
+            if (don != null) {
+                String currentNote = don.getGhiChu() != null ? don.getGhiChu() : "";
+                if (!currentNote.contains("[KIỆN:")) {
+                    don.setGhiChu((currentNote.isBlank() ? "" : currentNote + " | ") + "[KIỆN: " + packageId + "]");
+                    don.setNgayCapNhat(Instant.now());
+                    donBanHangRepository.save(don);
+                }
             }
 
             JsonNode shipRes = getTikTokShopClient().shipPackage(appKey, appSecret, token, cipher, packageId);
@@ -6173,6 +6207,18 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 if (msg.toLowerCase().contains("already") || msg.toLowerCase().contains("shipped")
                         || msg.toLowerCase().contains("awaiting_collection") || code == 12051000) {
                     log.info("[TIKTOK-RTS] Kiện hàng {} đơn {} đã ở trạng thái chờ lấy hàng trên TikTok Shop", packageId, maDonHangKenh);
+                    // Lấy luôn PDF AWB nếu kiện đã ở trạng thái sẵn sàng giao
+                    if (don != null) {
+                        String docUrl = getTikTokShopClient().getPackageShippingDocumentUrl(appKey, appSecret, token, cipher, packageId);
+                        if (docUrl != null && !docUrl.isBlank()) {
+                            String currentNote = don.getGhiChu() != null ? don.getGhiChu() : "";
+                            if (!currentNote.contains("[PDF_AWB:")) {
+                                don.setGhiChu((currentNote.isBlank() ? "" : currentNote + " | ") + "[PDF_AWB: " + docUrl.trim() + "]");
+                                don.setNgayCapNhat(Instant.now());
+                                donBanHangRepository.save(don);
+                            }
+                        }
+                    }
                     return true;
                 }
                 log.warn("[TIKTOK-RTS] TikTok Shop từ chối ship package {} đơn {}: code={}, msg={}", packageId, maDonHangKenh, code, msg);
@@ -6197,6 +6243,18 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         DonBanHang don = donBanHangRepository.findByMaDonHangKenh(maDonHangKenh)
                 .or(() -> donBanHangRepository.findBySoDonHang("TTS-" + maDonHangKenh))
                 .orElse(null);
+
+        // 1. Kiểm tra cache trong ghi chú đơn hàng
+        if (don != null && don.getGhiChu() != null) {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("\\[PDF_AWB:\\s*([^\\]]+)\\]").matcher(don.getGhiChu());
+            if (m.find()) {
+                String cachedUrl = m.group(1).trim();
+                if (!cachedUrl.isBlank()) {
+                    return cachedUrl;
+                }
+            }
+        }
+
         String packageId = null;
         if (don != null && don.getGhiChu() != null) {
             java.util.regex.Matcher m = java.util.regex.Pattern.compile("\\[KIỆN:\\s*([^\\]]+)\\]").matcher(don.getGhiChu());
@@ -6205,38 +6263,42 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             }
         }
 
-        // Tự phục hồi: nếu đơn hàng chưa có mã kiện trong ghi chú, tra cứu chi tiết đơn từ sàn để lấy package_id
+        // 2. Tra cứu qua Fulfillment Order Tracking API
         if ((packageId == null || packageId.isBlank()) && maDonHangKenh != null) {
             try {
-                com.fasterxml.jackson.databind.JsonNode orderDetailRes =
+                JsonNode trackRes = getTikTokShopClient().getOrderTracking(appKey, appSecret, token, cipher, maDonHangKenh.trim());
+                packageId = trichXuatPackageIdTuTikTokJson(trackRes);
+                if (trackRes != null && don != null) {
+                    dongBoThongTinTrackingTuJson(don, trackRes);
+                }
+            } catch (Exception ex) {
+                log.warn("[TIKTOK-FULFILLMENT] Không thể tra cứu tracking đơn {} để lấy package_id: {}", maDonHangKenh, ex.getMessage());
+            }
+        }
+
+        // 3. Fallback qua GET /order/202309/orders?ids=...
+        if ((packageId == null || packageId.isBlank()) && maDonHangKenh != null) {
+            try {
+                JsonNode orderDetailRes =
                         getTikTokShopClient().getOrderDetails(appKey, appSecret, token, cipher, maDonHangKenh.trim());
-                if (orderDetailRes != null && orderDetailRes.path("code").asInt(-1) == 0) {
-                    com.fasterxml.jackson.databind.JsonNode ordersArr = orderDetailRes.path("data").path("orders");
-                    if (ordersArr.isArray() && ordersArr.size() > 0) {
-                        com.fasterxml.jackson.databind.JsonNode firstOrder = ordersArr.get(0);
-                        com.fasterxml.jackson.databind.JsonNode packagesArr = firstOrder.path("packages");
-                        if (!packagesArr.isArray() || packagesArr.size() == 0) {
-                            packagesArr = firstOrder.path("package_list");
-                        }
-                        if (packagesArr.isArray() && packagesArr.size() > 0) {
-                            packageId = packagesArr.get(0).path("package_id").asText(null);
-                        }
-                    }
-                }
-                if (packageId != null && !packageId.isBlank() && don != null) {
-                    String currentNote = don.getGhiChu() != null ? don.getGhiChu() : "";
-                    if (!currentNote.contains("[KIỆN:")) {
-                        don.setGhiChu((currentNote.isBlank() ? "" : currentNote + " | ") + "[KIỆN: " + packageId + "]");
-                        don.setNgayCapNhat(Instant.now());
-                        donBanHangRepository.save(don);
-                        log.info("[TIKTOK-FULFILLMENT] Tự động cập nhật package_id {} cho đơn {}", packageId, maDonHangKenh);
-                    }
-                }
+                packageId = trichXuatPackageIdTuTikTokJson(orderDetailRes);
             } catch (Exception ex) {
                 log.warn("[TIKTOK-FULFILLMENT] Không thể tra cứu chi tiết đơn {} để lấy package_id: {}", maDonHangKenh, ex.getMessage());
             }
         }
 
+        // 4. Cập nhật package_id vào ghi chú nếu mới lấy được
+        if (packageId != null && !packageId.isBlank() && don != null) {
+            String currentNote = don.getGhiChu() != null ? don.getGhiChu() : "";
+            if (!currentNote.contains("[KIỆN:")) {
+                don.setGhiChu((currentNote.isBlank() ? "" : currentNote + " | ") + "[KIỆN: " + packageId + "]");
+                don.setNgayCapNhat(Instant.now());
+                donBanHangRepository.save(don);
+                log.info("[TIKTOK-FULFILLMENT] Tự động cập nhật package_id {} cho đơn {}", packageId, maDonHangKenh);
+            }
+        }
+
+        // 5. Gọi API lấy link PDF AWB chính thức
         if (packageId != null && !packageId.isBlank()) {
             String docUrl = getTikTokShopClient().getPackageShippingDocumentUrl(appKey, appSecret, token, cipher, packageId);
             if (docUrl != null && !docUrl.isBlank() && don != null) {
@@ -6251,6 +6313,65 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             return docUrl;
         }
         return null;
+    }
+
+    private String trichXuatPackageIdTuTikTokJson(JsonNode res) {
+        if (res == null || res.path("code").asInt(-1) != 0) return null;
+        JsonNode data = res.path("data");
+        JsonNode pkgList = data.path("package_list");
+        if (!pkgList.isArray() || pkgList.isEmpty()) {
+            pkgList = data.path("packages");
+        }
+        if (pkgList.isArray() && !pkgList.isEmpty()) {
+            JsonNode firstPkg = pkgList.get(0);
+            String pId = firstPkg.path("package_id").asText(null);
+            if (pId == null || pId.isBlank()) {
+                pId = firstPkg.path("id").asText(null);
+            }
+            if (pId != null && !pId.isBlank()) return pId.trim();
+        }
+        JsonNode orders = data.path("orders");
+        if (!orders.isArray() || orders.isEmpty()) {
+            orders = data.path("order_list");
+        }
+        if (orders.isArray() && !orders.isEmpty()) {
+            JsonNode firstOrder = orders.get(0);
+            JsonNode innerPkgs = firstOrder.path("packages");
+            if (!innerPkgs.isArray() || innerPkgs.isEmpty()) {
+                innerPkgs = firstOrder.path("package_list");
+            }
+            if (innerPkgs.isArray() && !innerPkgs.isEmpty()) {
+                JsonNode firstPkg = innerPkgs.get(0);
+                String pId = firstPkg.path("package_id").asText(null);
+                if (pId == null || pId.isBlank()) {
+                    pId = firstPkg.path("id").asText(null);
+                }
+                if (pId != null && !pId.isBlank()) return pId.trim();
+            }
+        }
+        return null;
+    }
+
+    private void dongBoThongTinTrackingTuJson(DonBanHang don, JsonNode trackRes) {
+        if (don == null || trackRes == null) return;
+        JsonNode pkgList = trackRes.path("data").path("package_list");
+        if (!pkgList.isArray() || pkgList.isEmpty()) {
+            pkgList = trackRes.path("data").path("packages");
+        }
+        if (pkgList.isArray() && !pkgList.isEmpty()) {
+            JsonNode firstPkg = pkgList.get(0);
+            String trackingNum = firstPkg.path("tracking_number").asText(null);
+            String carrierName = firstPkg.path("shipping_provider_name").asText(null);
+            String currentNote = don.getGhiChu() != null ? don.getGhiChu() : "";
+            if (trackingNum != null && !trackingNum.isBlank() && !currentNote.contains("[VẬN ĐƠN:")) {
+                String trackingInfo = "[VẬN ĐƠN: " + trackingNum.trim() +
+                        (carrierName != null && !carrierName.isBlank() ? " - " + carrierName.trim() : "") + "]";
+                don.setGhiChu((currentNote.isBlank() ? "" : currentNote + " | ") + trackingInfo);
+                don.setNgayCapNhat(Instant.now());
+                donBanHangRepository.save(don);
+                log.info("[TIKTOK-FULFILLMENT] Tự động cập nhật tracking {} ({}) cho đơn {}", trackingNum, carrierName, don.getSoDonHang());
+            }
+        }
     }
 
     /** Trích xuất URL trang tiếp theo từ Header Link của Shopify (RFC 5988 cursor pagination) */
