@@ -451,4 +451,35 @@ class TikTokShopClientTest {
         assertTrue(capturedUrl.contains(TikTokShopConstants.PATH_WAREHOUSES));
         assertTrue(capturedUrl.contains("shop_cipher=" + shopCipher));
     }
+
+    @Test
+    @DisplayName("createProduct: Payload JSON phải mang trường sku_img ở CreateSku và SalesAttribute Màu sắc")
+    void createProduct_chuoiJsonMangSkuImgChoBienTheVaMauSac() throws Exception {
+        TikTokProductCreateRequest.ImageUri skuImg = new TikTokProductCreateRequest.ImageUri("tos-maliva-i-o260ufnz6q-us/sku_variant_img_white");
+
+        TikTokProductCreateRequest.SalesAttribute colorAttr = TikTokProductCreateRequest.SalesAttribute.builder()
+                .name("Màu sắc")
+                .valueName("Trắng")
+                .customValue("Trắng")
+                .skuImg(skuImg)
+                .build();
+
+        TikTokProductCreateRequest.CreateSku sku = TikTokProductCreateRequest.CreateSku.builder()
+                .sellerSku("AP2611011-CL001-S-MS-7330")
+                .salesAttributes(List.of(colorAttr))
+                .skuImg(skuImg)
+                .build();
+
+        TikTokProductCreateRequest req = TikTokProductCreateRequest.builder()
+                .title("Áo Polo Jacquard Ultimate365 Chính Hãng")
+                .skus(List.of(sku))
+                .build();
+
+        String json = objectMapper.writeValueAsString(req);
+
+        // Kiểm tra JSON payload chứa đúng cấu trúc sku_img
+        assertTrue(json.contains("\"sku_img\""));
+        assertTrue(json.contains("tos-maliva-i-o260ufnz6q-us/sku_variant_img_white"));
+        assertTrue(json.contains("\"seller_sku\":\"AP2611011-CL001-S-MS-7330\""));
+    }
 }

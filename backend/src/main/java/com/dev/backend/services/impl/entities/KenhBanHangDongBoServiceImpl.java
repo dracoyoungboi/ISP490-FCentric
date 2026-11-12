@@ -1249,6 +1249,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         List<TikTokProductCreateRequest.CreateSku> skuList = new ArrayList<>();
         boolean isMultiSku = variants.size() > 1;
 
+        // Nạp trước bản đồ ảnh của từng biến thể (tránh N+1 query)
+        Map<Integer, TepTin> anhBienTheMap = chuanBiBanDoAnhBienThe(variants);
+
         // Phân tích các chiều biến thể của sản phẩm để đảm bảo tính đồng nhất giữa tất cả SKU
         boolean hasSizeDimension = isMultiSku && variants.stream()
                 .anyMatch(bt -> bt.getSize() != null && bt.getSize().getTenSize() != null && !bt.getSize().getTenSize().isBlank());
@@ -1264,6 +1267,17 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             BigDecimal price = bt.getGiaBan() != null && bt.getGiaBan().compareTo(BigDecimal.ZERO) > 0
                     ? bt.getGiaBan() : BigDecimal.valueOf(100000);
             int qty = soTonDayTheoQuyTacDaLuu(kenh.getMaKenh(), khaDungToanChuoi(bt.getId()));
+
+            // Chuẩn bị ảnh biến thể riêng (sku_img) nếu biến thể có ảnh trong FCentric
+            TikTokProductCreateRequest.ImageUri skuImg = null;
+            TepTin vTep = anhBienTheMap.get(bt.getId());
+            if (vTep != null && vTep.getTenLuuTru() != null && !vTep.getTenLuuTru().isBlank()) {
+                String uri = layHoacUploadAnhTikTok(vTep, vTep.getTenLuuTru(), sp.getId(), sp.getTenSanPham(),
+                        appKey, appSecret, token, cipher, cdnCache);
+                if (uri != null && !uri.isBlank()) {
+                    skuImg = new TikTokProductCreateRequest.ImageUri(uri);
+                }
+            }
 
             List<TikTokProductCreateRequest.SalesAttribute> salesAttrs = null;
             // Theo chuẩn TikTok Shop API v202309: Chỉ khai báo sales_attributes khi sản phẩm có từ 2 SKU trở lên
@@ -1283,6 +1297,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                             .name("Phân loại")
                             .valueName(specVal)
                             .customValue(specVal)
+                            .skuImg(skuImg)
                             .build());
                 } else {
                     // Kiểm tra và chống trùng lặp tổ hợp thuộc tính giữa các SKU (ngăn lỗi 12052251 Resource Already Exists)
@@ -1311,6 +1326,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                                 .name("Màu sắc")
                                 .valueName(colorVal)
                                 .customValue(colorVal)
+                                .skuImg(skuImg)
                                 .build());
                     }
                 }
@@ -1327,6 +1343,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                             .quantity(Math.max(0, qty))
                             .build()))
                     .salesAttributes(salesAttrs)
+                    .skuImg(skuImg)
                     .build());
         }
 
@@ -1388,6 +1405,17 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 if (prodId != null && !prodId.isBlank()) {
                     curCache.productTitles().put(prodId, title);
                     curCache.productStatuses().put(prodId, "ACTIVATE");
+                    String mainImagesSig = mainImages.stream()
+                            .map(TikTokProductCreateRequest.ImageUri::getUri)
+                            .filter(Objects::nonNull)
+                            .collect(Collectors.joining(","));
+                    String variantImagesSig = variants.stream()
+                            .map(bt -> {
+                                TepTin t = anhBienTheMap.get(bt.getId());
+                                return bt.getMaSku() + ":" + (t != null && t.getTenLuuTru() != null ? t.getTenLuuTru() : "none");
+                            })
+                            .collect(Collectors.joining(","));
+                    CACHED_TIKTOK_PRODUCT_SIGNATURES.put(prodId, title.trim() + "||" + mainImagesSig + "||" + variantImagesSig);
                 }
                 if (res.getData().getSkus() != null) {
                     for (TikTokProductCreateResponse.CreatedSku cSku : res.getData().getSkus()) {
@@ -1514,14 +1542,6 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             }
         }
 
-        // 2. Delta Check: So sánh tiêu đề sản phẩm mới với tiêu đề hiện tại trên sàn TikTok Shop
-        String currentTitle = catalog.productTitles() != null ? catalog.productTitles().get(prodId) : null;
-        if (currentTitle != null && currentTitle.trim().equalsIgnoreCase(title.trim())) {
-            log.info("[TIKTOK-UPDATE] Sản phẩm [{}] (ID: {}) không có thay đổi tiêu đề. Bỏ qua gọi API PUT để tránh kích hoạt kiểm duyệt sàn và bảo vệ Quota.",
-                    title, prodId);
-            return false;
-        }
-
         String desc = (sp.getMoTa() != null && !sp.getMoTa().isBlank())
                 ? sp.getMoTa().trim() : title;
         String descHtml = "<p>" + desc + "</p>";
@@ -1530,6 +1550,30 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 sp, variants, appKey, appSecret, token, cipher, cdnCache);
         if (mainImages.isEmpty()) {
             log.warn("[TIKTOK-UPDATE] Không thể chuẩn bị ảnh hợp lệ cho sản phẩm [{}]. Dừng cập nhật.", title);
+            return false;
+        }
+
+        // Nạp trước bản đồ ảnh của từng biến thể (tránh N+1 query)
+        Map<Integer, TepTin> anhBienTheMap = chuanBiBanDoAnhBienThe(variants);
+
+        // 2. Smart Content Signature Check: Phát hiện thay đổi cả Tiêu đề, Ảnh chính và Ảnh biến thể (sku_img)
+        String mainImagesSig = mainImages.stream()
+                .map(TikTokProductCreateRequest.ImageUri::getUri)
+                .filter(Objects::nonNull)
+                .collect(Collectors.joining(","));
+
+        String variantImagesSig = variants.stream()
+                .map(bt -> {
+                    TepTin t = anhBienTheMap.get(bt.getId());
+                    return bt.getMaSku() + ":" + (t != null && t.getTenLuuTru() != null ? t.getTenLuuTru() : "none");
+                })
+                .collect(Collectors.joining(","));
+
+        String productSignature = title.trim() + "||" + mainImagesSig + "||" + variantImagesSig;
+        String lastSignature = CACHED_TIKTOK_PRODUCT_SIGNATURES.get(prodId);
+        if (lastSignature != null && lastSignature.equals(productSignature)) {
+            log.info("[TIKTOK-UPDATE] Sản phẩm [{}] (ID: {}) không có thay đổi về tiêu đề và hình ảnh. Bỏ qua gọi API PUT để tránh kích hoạt kiểm duyệt sàn và bảo vệ Quota.",
+                    title, prodId);
             return false;
         }
 
@@ -1560,6 +1604,17 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     ? bt.getGiaBan() : BigDecimal.valueOf(100000);
             int qty = soTonDayTheoQuyTacDaLuu(kenh.getMaKenh(), khaDungToanChuoi(bt.getId()));
 
+            // Chuẩn bị ảnh biến thể riêng (sku_img) nếu biến thể có ảnh trong FCentric
+            TikTokProductCreateRequest.ImageUri skuImg = null;
+            TepTin vTep = anhBienTheMap.get(bt.getId());
+            if (vTep != null && vTep.getTenLuuTru() != null && !vTep.getTenLuuTru().isBlank()) {
+                String uri = layHoacUploadAnhTikTok(vTep, vTep.getTenLuuTru(), sp.getId(), sp.getTenSanPham(),
+                        appKey, appSecret, token, cipher, cdnCache);
+                if (uri != null && !uri.isBlank()) {
+                    skuImg = new TikTokProductCreateRequest.ImageUri(uri);
+                }
+            }
+
             List<TikTokProductCreateRequest.SalesAttribute> salesAttrs = null;
             if (isMultiSku) {
                 salesAttrs = new ArrayList<>();
@@ -1575,6 +1630,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                             .name("Phân loại")
                             .valueName(specVal)
                             .customValue(specVal)
+                            .skuImg(skuImg)
                             .build());
                 } else {
                     String comboKey = (sizeVal != null ? sizeVal : "") + "|" + (colorVal != null ? colorVal : "");
@@ -1600,6 +1656,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                                 .name("Màu sắc")
                                 .valueName(colorVal)
                                 .customValue(colorVal)
+                                .skuImg(skuImg)
                                 .build());
                     }
                 }
@@ -1617,6 +1674,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                             .quantity(Math.max(0, qty))
                             .build()))
                     .salesAttributes(salesAttrs)
+                    .skuImg(skuImg)
                     .build());
         }
 
@@ -1657,6 +1715,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             TikTokProductCreateResponse res = getTikTokShopClient().editProduct(appKey, appSecret, token, cipher, prodId, req);
             if (res != null && res.getCode() == 0) {
                 log.info("[TIKTOK-UPDATE] Cập nhật thành công sản phẩm [{}] (ProductId: {}) trên TikTok Shop!", title, prodId);
+                CACHED_TIKTOK_PRODUCT_SIGNATURES.put(prodId, productSignature);
                 TikTokCatalogCache curCache = tikTokCatalogCacheRef.get();
                 if (curCache != null) {
                     curCache.productTitles().put(prodId, title);
@@ -1937,6 +1996,37 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
     private static final Map<String, String> CACHED_TIKTOK_DEFAULT_URI_BY_CIPHER = new ConcurrentHashMap<>();
     private static final Map<String, String> CACHED_TIKTOK_SIZE_CHART_URI_BY_CIPHER = new ConcurrentHashMap<>();
+    private static final Map<String, String> CACHED_TIKTOK_PRODUCT_SIGNATURES = new ConcurrentHashMap<>();
+
+    /**
+     * Nạp trước bản đồ ánh xạ biến thể sang TepTin ảnh tương ứng (tránh N+1 query).
+     */
+    private Map<Integer, TepTin> chuanBiBanDoAnhBienThe(List<BienTheSanPham> variants) {
+        Map<Integer, TepTin> map = new HashMap<>();
+        if (variants == null || variants.isEmpty() || anhBienTheRepository == null) {
+            return map;
+        }
+        List<Integer> btIds = variants.stream()
+                .map(BienTheSanPham::getId)
+                .filter(Objects::nonNull)
+                .toList();
+        if (btIds.isEmpty()) {
+            return map;
+        }
+        try {
+            List<AnhBienThe> abList = anhBienTheRepository.findActiveByBienTheIds(btIds);
+            if (abList != null) {
+                for (AnhBienThe ab : abList) {
+                    if (ab.getBienThe() != null && ab.getBienThe().getId() != null && ab.getTepTin() != null) {
+                        map.putIfAbsent(ab.getBienThe().getId(), ab.getTepTin());
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("[TIKTOK-IMG] Lỗi nạp ảnh biến thể trước: {}", ex.getMessage());
+        }
+        return map;
+    }
 
     /**
      * Chuẩn bị và upload ảnh sản phẩm lên TikTok Shop CDN để lấy Image URI nội bộ.
