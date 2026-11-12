@@ -25,7 +25,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { NutChonNgonNguThanhTren } from '@/components/shared/ChonNgonNgu';
+import { DaiNgonNguChanMenu } from '@/components/shared/ChonNgonNgu';
 import { laTiengAnh, localeHienThi, t } from "@/i18n";
 
 const ROLE_LABELS = {
@@ -197,12 +197,7 @@ export default function PosTopBar({ children, tabs = null, onHelp, helpLabel = n
             </button>
           ) : null}
 
-          {/* Cùng khung viền với các nút biểu tượng bên cạnh; menu nổi trên lớp POS (z-[90]) */}
-          <NutChonNgonNguThanhTren
-            className="h-9 min-w-9 rounded-lg border border-bo-border px-2 text-bo-muted hover:bg-slate-50 hover:text-bo-foreground [&>svg]:size-4"
-            lopMenu="z-[90]"
-          />
-
+          {/* Ngôn ngữ nằm ở đáy menu tài khoản (12/11) cho thanh gọn */}
           {onHelp ? (
             <button aria-label={helpLabel ?? t("Hướng dẫn phím tắt")} className={iconButton} onClick={onHelp} title={helpLabel ?? t("Phím tắt (F1)")} type="button">
               <CircleHelp aria-hidden="true" size={16} />
@@ -217,10 +212,8 @@ export default function PosTopBar({ children, tabs = null, onHelp, helpLabel = n
                 type="button"
               >
                 <UserAvatar avatarUrl={avatarUrl} name={username} size="xs" userId={userId} />
-                <span className="hidden min-w-0 text-left xl:block">
-                  <span className="block truncate text-sm font-semibold leading-4">{username}</span>
-                  <span className="mt-0.5 block truncate text-[11px] leading-3 text-bo-muted">{roleLabel}</span>
-                </span>
+                {/* Chỉ họ tên; vai trò xem trong menu */}
+                <span className="hidden min-w-0 truncate text-sm font-semibold xl:block">{username}</span>
                 <ChevronDown aria-hidden="true" className="hidden size-3.5 text-bo-muted transition-transform group-hover:text-bo-foreground group-data-[state=open]:rotate-180 group-data-[state=open]:text-bo-foreground motion-reduce:transition-none xl:block" />
               </button>
             </DropdownMenuTrigger>
@@ -251,6 +244,7 @@ export default function PosTopBar({ children, tabs = null, onHelp, helpLabel = n
                 <LogOut className="size-4 text-slate-500 group-focus:text-bo-danger" />
                 {t("Đăng xuất")}
               </DropdownMenuItem>
+              <DaiNgonNguChanMenu />
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

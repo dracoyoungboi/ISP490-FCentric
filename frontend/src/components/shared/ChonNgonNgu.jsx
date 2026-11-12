@@ -22,8 +22,8 @@ function chon(ma) {
 }
 
 /**
- * Tạm không dùng (10/11): chọn ngôn ngữ đưa lên thanh trên cạnh chuông (NutChonNgonNguThanhTren).
- * Giữ lại để đổi về đáy menu tài khoản khi cần.
+ * Trang quản trị (10/11) dùng nút cạnh chuông (NutChonNgonNguThanhTren); màn POS (12/11) dùng dải này ở đáy
+ * menu tài khoản để thanh trên gọn.
  *
  * Dải ngôn ngữ ở đáy menu tài khoản (thanh trên trang quản trị và POS), cùng ý với chân trang trang Đăng nhập:
  * "🌐 Tiếng Việt · English" chữ nhỏ xám, cùng một tông với menu (không tô nền); ngôn ngữ đang dùng đậm hơn,
