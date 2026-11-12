@@ -1405,6 +1405,17 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 if (prodId != null && !prodId.isBlank()) {
                     curCache.productTitles().put(prodId, title);
                     curCache.productStatuses().put(prodId, "ACTIVATE");
+                    String mainImagesSig = mainImages.stream()
+                            .map(TikTokProductCreateRequest.ImageUri::getUri)
+                            .filter(Objects::nonNull)
+                            .collect(Collectors.joining(","));
+                    String variantImagesSig = variants.stream()
+                            .map(bt -> {
+                                TepTin t = anhBienTheMap.get(bt.getId());
+                                return bt.getMaSku() + ":" + (t != null && t.getTenLuuTru() != null ? t.getTenLuuTru() : "none");
+                            })
+                            .collect(Collectors.joining(","));
+                    CACHED_TIKTOK_PRODUCT_SIGNATURES.put(prodId, title.trim() + "||" + mainImagesSig + "||" + variantImagesSig);
                 }
                 if (res.getData().getSkus() != null) {
                     for (TikTokProductCreateResponse.CreatedSku cSku : res.getData().getSkus()) {
@@ -1531,14 +1542,6 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             }
         }
 
-        // 2. Delta Check: So sánh tiêu đề sản phẩm mới với tiêu đề hiện tại trên sàn TikTok Shop
-        String currentTitle = catalog.productTitles() != null ? catalog.productTitles().get(prodId) : null;
-        if (currentTitle != null && currentTitle.trim().equalsIgnoreCase(title.trim())) {
-            log.info("[TIKTOK-UPDATE] Sản phẩm [{}] (ID: {}) không có thay đổi tiêu đề. Bỏ qua gọi API PUT để tránh kích hoạt kiểm duyệt sàn và bảo vệ Quota.",
-                    title, prodId);
-            return false;
-        }
-
         String desc = (sp.getMoTa() != null && !sp.getMoTa().isBlank())
                 ? sp.getMoTa().trim() : title;
         String descHtml = "<p>" + desc + "</p>";
@@ -1550,11 +1553,32 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             return false;
         }
 
-        List<TikTokProductCreateRequest.CreateSku> skuList = new ArrayList<>();
-        boolean isMultiSku = variants.size() > 1;
-
         // Nạp trước bản đồ ảnh của từng biến thể (tránh N+1 query)
         Map<Integer, TepTin> anhBienTheMap = chuanBiBanDoAnhBienThe(variants);
+
+        // 2. Smart Content Signature Check: Phát hiện thay đổi cả Tiêu đề, Ảnh chính và Ảnh biến thể (sku_img)
+        String mainImagesSig = mainImages.stream()
+                .map(TikTokProductCreateRequest.ImageUri::getUri)
+                .filter(Objects::nonNull)
+                .collect(Collectors.joining(","));
+
+        String variantImagesSig = variants.stream()
+                .map(bt -> {
+                    TepTin t = anhBienTheMap.get(bt.getId());
+                    return bt.getMaSku() + ":" + (t != null && t.getTenLuuTru() != null ? t.getTenLuuTru() : "none");
+                })
+                .collect(Collectors.joining(","));
+
+        String productSignature = title.trim() + "||" + mainImagesSig + "||" + variantImagesSig;
+        String lastSignature = CACHED_TIKTOK_PRODUCT_SIGNATURES.get(prodId);
+        if (lastSignature != null && lastSignature.equals(productSignature)) {
+            log.info("[TIKTOK-UPDATE] Sản phẩm [{}] (ID: {}) không có thay đổi về tiêu đề và hình ảnh. Bỏ qua gọi API PUT để tránh kích hoạt kiểm duyệt sàn và bảo vệ Quota.",
+                    title, prodId);
+            return false;
+        }
+
+        List<TikTokProductCreateRequest.CreateSku> skuList = new ArrayList<>();
+        boolean isMultiSku = variants.size() > 1;
 
         boolean hasSizeDimension = isMultiSku && variants.stream()
                 .anyMatch(bt -> bt.getSize() != null && bt.getSize().getTenSize() != null && !bt.getSize().getTenSize().isBlank());
@@ -1691,6 +1715,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             TikTokProductCreateResponse res = getTikTokShopClient().editProduct(appKey, appSecret, token, cipher, prodId, req);
             if (res != null && res.getCode() == 0) {
                 log.info("[TIKTOK-UPDATE] Cập nhật thành công sản phẩm [{}] (ProductId: {}) trên TikTok Shop!", title, prodId);
+                CACHED_TIKTOK_PRODUCT_SIGNATURES.put(prodId, productSignature);
                 TikTokCatalogCache curCache = tikTokCatalogCacheRef.get();
                 if (curCache != null) {
                     curCache.productTitles().put(prodId, title);
@@ -1971,6 +1996,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
     private static final Map<String, String> CACHED_TIKTOK_DEFAULT_URI_BY_CIPHER = new ConcurrentHashMap<>();
     private static final Map<String, String> CACHED_TIKTOK_SIZE_CHART_URI_BY_CIPHER = new ConcurrentHashMap<>();
+    private static final Map<String, String> CACHED_TIKTOK_PRODUCT_SIGNATURES = new ConcurrentHashMap<>();
 
     /**
      * Nạp trước bản đồ ánh xạ biến thể sang TepTin ảnh tương ứng (tránh N+1 query).
