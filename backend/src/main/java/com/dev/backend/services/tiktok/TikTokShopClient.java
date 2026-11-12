@@ -38,7 +38,9 @@ import org.springframework.web.client.RestTemplate;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 
@@ -826,6 +828,60 @@ public class TikTokShopClient {
             response.setShops(list);
         }
         return response;
+    }
+
+    /**
+     * Xác nhận chuẩn bị hàng và vận chuyển kiện hàng (Fulfillment Ship Package).
+     * Chuyển trạng thái đơn từ AWAITING_SHIPMENT sang AWAITING_COLLECTION (Đang chờ lấy hàng).
+     * Scope: seller.fulfillment.basic (Fulfillment Basic)
+     * Endpoint: POST /fulfillment/202309/packages/{package_id}/ship
+     */
+    public JsonNode shipPackage(String appKey, String appSecret, String accessToken, String shopCipher, String packageId) {
+        if (packageId == null || packageId.isBlank()) {
+            throw new LoiThamSoException(ThongDiep.of("kenhBan.maKienHangTrong"));
+        }
+        String apiPath = "/fulfillment/202309/packages/" + packageId.trim() + "/ship";
+        String body = "{\"handover_method\":\"PICKUP\"}";
+        String url = buildUrlWithSign(TikTokShopConstants.BASE_URL, apiPath, Collections.emptyMap(), body, appKey, appSecret, shopCipher);
+        try {
+            return executePost(url, body, accessToken);
+        } catch (Exception ex) {
+            log.error("[TIKTOK-FULFILLMENT] Lỗi khi ship package {}: {}", packageId, ex.getMessage());
+            throw ex;
+        }
+    }
+
+    /**
+     * Lấy tài liệu vận đơn chính thức của kiện hàng (Shipping Document / AWB PDF).
+     * Scope: seller.fulfillment.basic (Fulfillment Basic)
+     * Endpoint: GET /fulfillment/202309/packages/{package_id}/shipping_documents
+     * Trả về: doc_url (đường dẫn tải PDF tem AWB chính thức của TikTok Shop).
+     */
+    public String getPackageShippingDocumentUrl(String appKey, String appSecret, String accessToken, String shopCipher, String packageId) {
+        if (packageId == null || packageId.isBlank()) {
+            return null;
+        }
+        String apiPath = "/fulfillment/202309/packages/" + packageId.trim() + "/shipping_documents";
+        Map<String, String> qParams = new LinkedHashMap<>();
+        qParams.put("document_type", "SHIPPING_LABEL");
+        qParams.put("document_size", "A6");
+        qParams.put("document_format", "PDF");
+        String url = buildUrlWithSign(TikTokShopConstants.BASE_URL, apiPath, qParams, null, appKey, appSecret, shopCipher);
+        try {
+            JsonNode res = executeGet(url, accessToken);
+            if (res != null && res.path("code").asInt(-1) == 0) {
+                String docUrl = res.path("data").path("doc_url").asText(null);
+                if (docUrl != null && !docUrl.isBlank()) {
+                    return docUrl;
+                }
+            } else if (res != null) {
+                log.warn("[TIKTOK-FULFILLMENT] TikTok Shop trả phản hồi khi lấy shipping document cho package {}: code={}, message={}",
+                        packageId, res.path("code").asText(), res.path("message").asText());
+            }
+        } catch (Exception ex) {
+            log.error("[TIKTOK-FULFILLMENT] Lỗi ngoại lệ khi lấy shipping document cho package {}: {}", packageId, ex.getMessage());
+        }
+        return null;
     }
 
     /**
