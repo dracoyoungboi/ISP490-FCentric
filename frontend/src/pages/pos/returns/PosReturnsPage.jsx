@@ -457,13 +457,13 @@ export default function PosReturnsPage() {
                 ))}
               </ul>
             ) : (
-              <>
+              <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
                 <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center text-sm text-bo-muted">
                   <span className="grid size-12 place-items-center rounded-full bg-slate-100"><Undo2 aria-hidden="true" size={20} /></span>
                   {don ? t("Bấm Trả ở món khách mang lại") : t("Chọn một hóa đơn để bắt đầu")}
                 </div>
-                {don ? null : <QuyDinhNhanh onXemDayDu={() => setModal('chinhSach')} />}
-              </>
+                {don ? null : <TomTatChinhSach onXemDayDu={() => setModal('chinhSach')} />}
+              </div>
             )}
 
             {daChon.length ? (
@@ -590,8 +590,11 @@ function TrangThai({ tone, children }) {
   );
 }
 
-/** Bốn ý chính của chính sách trả hàng khi chưa chọn hóa đơn; bản đầy đủ ở nút trợ giúp trên thanh trên. */
-function QuyDinhNhanh({ onXemDayDu }) {
+/**
+ * Bốn ý chính của chính sách trả hàng, làm chân khung Phiếu trả khi chưa chọn hóa đơn
+ * (cùng chỗ, cùng vạch kẻ với khối tổng tiền sau khi chọn); bản đầy đủ ở nút trợ giúp trên thanh trên.
+ */
+function TomTatChinhSach({ onXemDayDu }) {
   const lop = 'mt-0.5 size-[15px] shrink-0 text-bo-muted';
   const y = [
     [<Clock3 aria-hidden="true" className={lop} key="i" />, t("Nhận trả trong 03 ngày kể từ lúc thanh toán, ở mọi cửa hàng.")],
@@ -600,9 +603,9 @@ function QuyDinhNhanh({ onXemDayDu }) {
     [<Banknote aria-hidden="true" className={lop} key="i" />, t("Hoàn tiền mặt hoặc chuyển khoản, in biên bản 02 liên.")],
   ];
   return (
-    <div className="mx-3 mb-3 shrink-0 space-y-2.5 rounded-lg bg-bo-surface-subtle p-3.5">
+    <div className="shrink-0 space-y-2.5 border-t border-bo-border px-4 pb-4 pt-3">
       <div className="flex items-center justify-between">
-        <p className="text-xs font-semibold text-bo-muted">{t("Quy định nhanh")}</p>
+        <p className="text-xs font-semibold text-bo-muted">{t("Chính sách trả hàng")}</p>
         <button className="text-xs font-medium text-bo-primary hover:underline" onClick={onXemDayDu} type="button">{t("Xem đầy đủ")}</button>
       </div>
       <ul className="space-y-2">
