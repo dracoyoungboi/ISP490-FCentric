@@ -27,3 +27,10 @@ export const layLichSuChuyenKe = async (khoId, { tim, tuNgay, denNgay, trang = 0
   du(await apiClient.get(GOC, { params: { khoId, tim: tim || undefined, tuNgay: tuNgay || undefined, denNgay: denNgay || undefined, trang, kichThuoc } }));
 
 export const layPhieuChuyenKe = async (id) => du(await apiClient.get(`${GOC}/${id}`));
+
+/**
+ * Kệ đích gợi ý: kệ cùng kho còn chỗ, ưu tiên kệ đang chứa cùng biến thể (dồn kệ), đủ chỗ cho `can`, cùng khu với kệ
+ * nguồn. `bienTheIds`: chuỗi id cách nhau dấu phẩy (Spring đọc thành danh sách).
+ */
+export const goiYKeDich = async (khoId, { keNguonId, bienTheIds, can }) =>
+  du(await apiClient.get(`${GOC}/goi-y-ke`, { params: { khoId, keNguonId, bienTheIds: bienTheIds || undefined, can } })) ?? [];
