@@ -79,9 +79,12 @@ public class KiemKePhamViService {
         }
     }
 
-    /** Kết quả xác định phạm vi. {@code dong}: dòng sổ kệ sẽ chốt (sắp theo kệ rồi lô). */
+    /**
+     * Kết quả xác định phạm vi. {@code dong}: dòng sổ kệ sẽ chốt (sắp theo kệ rồi lô). {@code vanDe} chặn Bắt đầu;
+     * {@code canhBao} chỉ để người lập đợt biết (không chặn).
+     */
     public record PhamVi(Kho kho, String loai, List<ViTriKho> ke, Set<Integer> danhMuc, List<TonKhoViTri> dong,
-                         List<VanDe> vanDe) {
+                         List<VanDe> vanDe, List<VanDe> canhBao) {
         public int soLo() {
             return (int) dong.stream().map(t -> t.getLoHang().getId()).distinct().count();
         }
@@ -198,10 +201,14 @@ public class KiemKePhamViService {
         vanDe.addAll(keKhongKiemDuoc(ke));
         vanDe.addAll(giaoThoa(kho, loai, ke, danhMuc, dong, boQuaDotId));
         Set<Integer> loTrongPhamVi = dong.stream().map(t -> t.getLoHang().getId()).collect(Collectors.toSet());
+        Set<Integer> bienTheTrongPhamVi = dong.stream().map(t -> t.getLoHang().getBienTheSanPham().getId())
+                .collect(Collectors.toSet());
         Set<Integer> keTrongPhamVi = ke.stream().map(ViTriKho::getId).collect(Collectors.toSet());
         vanDe.addAll(viecDo(kho, loai, keTrongPhamVi, loTrongPhamVi, danhMuc));
+        vanDe.addAll(hangRoiKe(kho, loai, loTrongPhamVi, bienTheTrongPhamVi, danhMuc));
         vanDe.addAll(tonChuaCoKe(kho, loai, danhMuc, loTrongPhamVi));
-        return new PhamVi(kho, loai, ke, danhMuc, dong, vanDe);
+        List<VanDe> canhBao = canhBao(kho, loai, keTrongPhamVi, danhMuc);
+        return new PhamVi(kho, loai, ke, danhMuc, dong, vanDe, canhBao);
     }
 
     private List<ViTriKho> keTrongPhamVi(Kho kho, LuaChon lc, boolean khoa) {
@@ -402,23 +409,6 @@ public class KiemKePhamViService {
             kq.add(new VanDe(MaLoi.STK_PENDING_PICK, ThongDiep.of("khoVanHanh.vuongPhieuXuat", gonTheoKhoa(vuongXuat))));
         }
 
-        // Hàng chờ hoàn kệ (đơn hủy sau khi đã nhặt): hàng đã rời kệ nhưng sổ kệ vẫn tính, đếm lúc này sẽ ra thiếu giả
-        @SuppressWarnings("unchecked")
-        List<Object[]> hoanKe = em.createNativeQuery("""
-                SELECT l.ma_lo, cb.so_luong_hien_tai, cb.lo_hang_id FROM canh_bao cb JOIN lo_hang l ON l.id = cb.lo_hang_id
-                 WHERE cb.kho_id = :kho AND cb.loai_canh_bao = 'HOAN_KE_CHO_CAT' AND cb.trang_thai = 0
-                """).setParameter("kho", kho.getId()).getResultList();
-        List<ThongDiep> vuongHoanKe = new ArrayList<>();
-        for (Object[] r : hoanKe) {
-            Integer lo = ((Number) r[2]).intValue();
-            if (toanKho || loTrongPhamVi.contains(lo) || loDanhMuc.contains(lo)) {
-                vuongHoanKe.add(ThongDiep.of("khoVanHanh.mucLoSp", r[0], so((BigDecimal) r[1])));
-            }
-        }
-        if (!vuongHoanKe.isEmpty()) {
-            kq.add(new VanDe(MaLoi.STK_PENDING_PICK, ThongDiep.of("khoVanHanh.vuongHoanKe", gonTheoKhoa(vuongHoanKe))));
-        }
-
         // Chỉ giao dịch còn có thể giữ hàng: chờ khách trả (PENDING) hoặc tiền về lỗi chờ quản lý xử lý (PAID_ERROR).
         // Giao dịch đã thanh toán / đã đóng mà cờ còn bật là dữ liệu cũ (trước khi có cờ) — không chặn kiểm kê vì nó
         @SuppressWarnings("unchecked")
@@ -457,6 +447,138 @@ public class KiemKePhamViService {
             });
             if (!vuongQr.isEmpty()) {
                 kq.add(new VanDe(MaLoi.STK_PENDING_PICK, ThongDiep.of("khoVanHanh.vuongQrPos", gonTheoKhoa(vuongQr))));
+            }
+        }
+        return kq;
+    }
+
+    /**
+     * Hàng đã rời kệ nhưng sổ kệ vẫn tính (đếm lúc này ra thiếu giả, duyệt ghi giảm tồn sai):
+     * <ol>
+     *   <li>Lệnh hoàn kệ chờ cất (đơn / phiếu chuyển hủy sau khi đã nhặt). Lệnh chỉ ghi mã hàng (lô thường trống) nên xét
+     *   theo mã: kiểm toàn kho, mã thuộc danh mục đang kiểm, hoặc mã có lô trên kệ trong phạm vi (chặn bảo thủ).</li>
+     *   <li>Đơn bán đã nhặt xong mà phiếu xuất bị hủy tay, chưa tạo lại: hàng nằm ở khu đóng gói, tạo lại phiếu rồi xuất
+     *   kho sẽ trừ tồn thêm lần nữa sau khi duyệt đã ghi giảm.</li>
+     * </ol>
+     */
+    private List<VanDe> hangRoiKe(Kho kho, String loai, Set<Integer> loTrongPhamVi, Set<Integer> bienTheTrongPhamVi,
+                                  Set<Integer> danhMuc) {
+        boolean toanKho = IKiemKe.TOAN_BO.equals(loai);
+        boolean theoDanhMuc = IKiemKe.THEO_DANH_MUC.equals(loai);
+        if (!toanKho && !theoDanhMuc && loTrongPhamVi.isEmpty()) return List.of();
+        List<VanDe> kq = new ArrayList<>();
+
+        @SuppressWarnings("unchecked")
+        List<Object[]> hoanKe = em.createNativeQuery("""
+                SELECT l.ma_lo, cb.so_luong_hien_tai, cb.lo_hang_id, bt.ma_sku, bt.id, sp.danh_muc_id
+                  FROM canh_bao cb
+                  JOIN bien_the_san_pham bt ON bt.id = cb.bien_the_san_pham_id
+                  JOIN san_pham_quan_ao sp ON sp.id = bt.san_pham_id
+                  LEFT JOIN lo_hang l ON l.id = cb.lo_hang_id
+                 WHERE cb.kho_id = :kho AND cb.loai_canh_bao = 'HOAN_KE_CHO_CAT' AND cb.trang_thai = 0
+                 ORDER BY cb.id
+                """).setParameter("kho", kho.getId()).getResultList();
+        List<ThongDiep> vuongHoanKe = new ArrayList<>();
+        for (Object[] r : hoanKe) {
+            Integer lo = r[2] == null ? null : ((Number) r[2]).intValue();
+            Integer bienThe = ((Number) r[4]).intValue();
+            Integer dm = r[5] == null ? null : ((Number) r[5]).intValue();
+            boolean vuong = toanKho || (theoDanhMuc && dm != null && danhMuc.contains(dm))
+                    || (lo != null ? loTrongPhamVi.contains(lo) : bienTheTrongPhamVi.contains(bienThe));
+            if (!vuong) continue;
+            vuongHoanKe.add(lo != null ? ThongDiep.of("khoVanHanh.mucLoSp", r[0], so((BigDecimal) r[1]))
+                    : ThongDiep.of("khoVanHanh.mucMaSp", r[3], so((BigDecimal) r[1])));
+        }
+        if (!vuongHoanKe.isEmpty()) {
+            kq.add(new VanDe(MaLoi.STK_PENDING_PICK, ThongDiep.of("khoVanHanh.vuongHoanKe", gonTheoKhoa(vuongHoanKe))));
+        }
+
+        // Đơn đã nhặt xong (phiếu nhặt da_nhat), không còn phiếu xuất mở, còn hàng chưa xuất: phần còn lại đang ở khu đóng gói
+        @SuppressWarnings("unchecked")
+        List<Object[]> donNhat = em.createNativeQuery("""
+                SELECT d.so_don_hang, bt.ma_sku, bt.id, sp.danh_muc_id,
+                       SUM(ct.so_luong_dat) - COALESCE((SELECT SUM(cx.so_luong_xuat) FROM chi_tiet_phieu_xuat_kho cx
+                                                         JOIN phieu_xuat_kho px ON px.id = cx.phieu_xuat_kho_id
+                                                        WHERE px.don_ban_hang_id = d.id AND px.trang_thai = 3
+                                                          AND cx.bien_the_san_pham_id = bt.id AND cx.lo_hang_id IS NOT NULL), 0) AS con
+                  FROM don_ban_hang d
+                  JOIN danh_sach_nhat_hang ds ON ds.id = d.danh_sach_nhat_hang_id AND ds.trang_thai = 'da_nhat'
+                  JOIN chi_tiet_don_ban_hang ct ON ct.don_ban_hang_id = d.id
+                  JOIN bien_the_san_pham bt ON bt.id = ct.bien_the_san_pham_id
+                  JOIN san_pham_quan_ao sp ON sp.id = bt.san_pham_id
+                 WHERE d.kho_xuat_id = :kho AND d.loai_chung_tu = 'don_ban_hang' AND d.trang_thai IN (1, 2)
+                   AND NOT EXISTS (SELECT 1 FROM phieu_xuat_kho p WHERE p.don_ban_hang_id = d.id AND p.trang_thai IN (0, 1, 2, 6))
+                 GROUP BY d.id, d.so_don_hang, bt.id, bt.ma_sku, sp.danh_muc_id
+                HAVING con > 0
+                 ORDER BY d.id, bt.id
+                """).setParameter("kho", kho.getId()).getResultList();
+        List<ThongDiep> vuongDon = new ArrayList<>();
+        for (Object[] r : donNhat) {
+            Integer bienThe = ((Number) r[2]).intValue();
+            Integer dm = r[3] == null ? null : ((Number) r[3]).intValue();
+            if (toanKho || (theoDanhMuc && dm != null && danhMuc.contains(dm)) || bienTheTrongPhamVi.contains(bienThe)) {
+                vuongDon.add(ThongDiep.of("khoVanHanh.mucDonMaSp", r[0], r[1], so(new BigDecimal(r[4].toString()))));
+            }
+        }
+        if (!vuongDon.isEmpty()) {
+            kq.add(new VanDe(MaLoi.STK_PENDING_PICK, ThongDiep.of("khoVanHanh.vuongDonDaNhatChuaCoPhieuXuat", gonTheoKhoa(vuongDon))));
+        }
+        return kq;
+    }
+
+    /**
+     * Cảnh báo không chặn: (1) phiếu chuyển đã duyệt / đang vận chuyển về kho — kiểm toàn kho hoặc theo danh mục thì kho
+     * không nhận được hàng của phiếu tới khi đợt xong; (2) phiếu nhập chưa hoàn tất đã gán lô vào kệ trong phạm vi — nếu
+     * hàng đã đặt lên kệ thì sẽ bị đếm thành hàng thừa, rồi hoàn tất nhập lại cộng thêm lần nữa.
+     */
+    private List<VanDe> canhBao(Kho kho, String loai, Set<Integer> keIds, Set<Integer> danhMuc) {
+        boolean toanKho = IKiemKe.TOAN_BO.equals(loai);
+        boolean theoDanhMuc = IKiemKe.THEO_DANH_MUC.equals(loai);
+        List<VanDe> kq = new ArrayList<>();
+        if (toanKho || theoDanhMuc) {
+            @SuppressWarnings("unchecked")
+            List<Object[]> chuyen = em.createNativeQuery("""
+                    SELECT DISTINCT p.so_phieu_chuyen, sp.danh_muc_id, p.id
+                      FROM phieu_chuyen_kho p
+                      JOIN chi_tiet_phieu_chuyen_kho ct ON ct.phieu_chuyen_kho_id = p.id
+                      JOIN bien_the_san_pham bt ON bt.id = ct.bien_the_san_pham_id
+                      JOIN san_pham_quan_ao sp ON sp.id = bt.san_pham_id
+                     WHERE p.kho_nhap_id = :kho AND p.trang_thai IN ('DA_DUYET', 'DANG_VAN_CHUYEN')
+                     ORDER BY p.id
+                    """).setParameter("kho", kho.getId()).getResultList();
+            Set<String> phieu = new LinkedHashSet<>();
+            for (Object[] r : chuyen) {
+                Integer dm = r[1] == null ? null : ((Number) r[1]).intValue();
+                if (toanKho || (dm != null && danhMuc.contains(dm))) phieu.add((String) r[0]);
+            }
+            if (!phieu.isEmpty()) {
+                kq.add(new VanDe(MaLoi.STK_SCOPE_WARNING,
+                        ThongDiep.of("khoVanHanh.canhBaoPhieuChuyenDangVe", gonTheoKhoa(new ArrayList<>(phieu)))));
+            }
+        }
+        if (toanKho || theoDanhMuc || !keIds.isEmpty()) {
+            @SuppressWarnings("unchecked")
+            List<Object[]> nhap = em.createNativeQuery("""
+                    SELECT p.so_phieu_nhap, l.vi_tri_kho_id, sp.danh_muc_id, p.id
+                      FROM phieu_nhap_kho p
+                      JOIN chi_tiet_phieu_nhap_kho ct ON ct.phieu_nhap_kho_id = p.id
+                      JOIN lo_hang l ON l.id = ct.lo_hang_id
+                      JOIN bien_the_san_pham bt ON bt.id = ct.bien_the_san_pham_id
+                      JOIN san_pham_quan_ao sp ON sp.id = bt.san_pham_id
+                     WHERE p.kho_id = :kho AND p.trang_thai IN (0, 1, 2) AND l.vi_tri_kho_id IS NOT NULL
+                     ORDER BY p.id
+                    """).setParameter("kho", kho.getId()).getResultList();
+            Set<String> phieu = new LinkedHashSet<>();
+            for (Object[] r : nhap) {
+                Integer ke = ((Number) r[1]).intValue();
+                Integer dm = r[2] == null ? null : ((Number) r[2]).intValue();
+                boolean vuong = toanKho ? (keIds.isEmpty() || keIds.contains(ke))
+                        : theoDanhMuc ? dm != null && danhMuc.contains(dm) : keIds.contains(ke);
+                if (vuong) phieu.add((String) r[0]);
+            }
+            if (!phieu.isEmpty()) {
+                kq.add(new VanDe(MaLoi.STK_SCOPE_WARNING,
+                        ThongDiep.of("khoVanHanh.canhBaoPhieuNhapDaGanKe", gonTheoKhoa(new ArrayList<>(phieu)))));
             }
         }
         return kq;

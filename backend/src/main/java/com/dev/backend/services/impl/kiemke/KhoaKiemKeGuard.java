@@ -278,6 +278,8 @@ public class KhoaKiemKeGuard {
         if (khoId == null || loIds == null || loIds.isEmpty() || can == null || can.signum() <= 0 || !sanSang.sanSang()) {
             return null;
         }
+        // Lấy đủ thì không thiếu gì để giải thích (nơi gọi lỡ gọi khi chưa thiếu cũng không bị chặn oan)
+        if (coTheLay != null && coTheLay.compareTo(can) >= 0) return null;
         TrangThaiKhoa tt = trangThai(khoId);
         if (tt.trong()) return null;
         Map<Integer, BigDecimal> kk = luongDangKiemKe(tt, khoId, tonCuaLo(khoId, loIds));
@@ -323,6 +325,15 @@ public class KhoaKiemKeGuard {
         if (dot != null) duLieu.put("dotKiemKeId", dot);
         if (ma != null) duLieu.put("maDotKiemKe", ma);
         return new ThieuDoKiemKe(cau, duLieu, false);
+    }
+
+    /**
+     * Mã hàng có phần đang kiểm kê ở kho (lô nằm ở kệ đang khóa, thuộc danh mục đang kiểm, hoặc kiểm toàn kho): lỗi
+     * STK_LOCKED theo mã, nêu đợt. Dùng khi không biết lô / kệ cụ thể của thao tác (lệnh hoàn kệ chỉ ghi mã hàng) — chặn
+     * bảo thủ như lúc Bắt đầu. Null khi mã không có phần nào đang kiểm.
+     */
+    public ThieuDoKiemKe maCoPhanDangKiemKe(Integer khoId, Collection<Integer> loIds, String thaoTac, String maSku) {
+        return thieuDoKiemKe(khoId, loIds, BigDecimal.ZERO, kk -> BigDecimal.ONE, BigDecimal.ONE, thaoTac, maSku);
     }
 
     private static String so(BigDecimal v) {
@@ -594,6 +605,8 @@ public class KhoaKiemKeGuard {
             Map.entry("xuất kho", "khoVanHanh.thaoTacXuatKho"),
             Map.entry("bán tại quầy", "khoVanHanh.thaoTacBanTaiQuay"),
             Map.entry("nhận hàng khách trả", "khoVanHanh.thaoTacNhanHangKhachTra"),
+            Map.entry("tạo phiếu nhặt", "khoVanHanh.thaoTacTaoPhieuNhat"),
+            Map.entry("nhặt hàng", "khoVanHanh.thaoTacNhatHang"),
             Map.entry("thêm kệ vào khu vực", "khoVanHanh.thaoTacThemKeVaoKhuVuc"),
             Map.entry("chuyển kệ vào khu vực", "khoVanHanh.thaoTacChuyenKeVaoKhuVuc"),
             Map.entry("sửa kệ", "khoVanHanh.thaoTacSuaKe"),

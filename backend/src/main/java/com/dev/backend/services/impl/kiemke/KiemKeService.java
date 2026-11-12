@@ -346,8 +346,10 @@ public class KiemKeService {
         KiemKePhamViService.PhamVi pv = phamVi.xacDinh(luaChon(yc), dotId, false);
         List<KiemKeDto.VanDe> vanDe = pv.vanDe().stream()
                 .map(v -> new KiemKeDto.VanDe(v.ma(), v.cau().theoNgonNgu(NgonNgu.hienTai()), v.cau().tiengViet())).toList();
+        List<KiemKeDto.VanDe> canhBao = pv.canhBao().stream()
+                .map(v -> new KiemKeDto.VanDe(v.ma(), v.cau().theoNgonNgu(NgonNgu.hienTai()), v.cau().tiengViet())).toList();
         return new KiemKeDto.XemTruoc(pv.keIds().size(), pv.dong().size(), pv.soLo(), pv.tongSoLuong(),
-                pv.danhMuc().size(), vanDe, vanDe.isEmpty());
+                pv.danhMuc().size(), vanDe, vanDe.isEmpty(), canhBao);
     }
 
     // ───────────────────────────── Bắt đầu ─────────────────────────────

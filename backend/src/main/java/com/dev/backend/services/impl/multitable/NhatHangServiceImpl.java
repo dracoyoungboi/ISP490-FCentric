@@ -1108,8 +1108,25 @@ public class NhatHangServiceImpl implements NhatHangService {
                 ? giuChoChuyenKhoService.taiKhoNgoaiPhieuNhat(khoId, bienTheIds) : Map.of();
         for (ChiTietNhatHang dong : dongs) {
             List<PhanBoLoFifo.Lo> conLai = conLaiTheoFifo(tonList, dong.getBienTheSanPham().getId(), dangGiu, Map.of());
-            BigDecimal duocLay = PhanBoLoFifo.tong(conLai)
-                    .subtract(giuChoChuyen.getOrDefault(dong.getBienTheSanPham().getId(), BigDecimal.ZERO)).max(BigDecimal.ZERO);
+            BigDecimal giuChoMa = giuChoChuyen.getOrDefault(dong.getBienTheSanPham().getId(), BigDecimal.ZERO);
+            BigDecimal duocLay = PhanBoLoFifo.tong(conLai).subtract(giuChoMa).max(BigDecimal.ZERO);
+            // Phiếu nhặt đơn bán thiếu vì hàng đang kiểm kê (kiểm toàn kho, danh mục, kệ đang khóa): chặn tạo phiếu, nêu đợt —
+            // không tạo phiếu phân bổ thiếu rồi để người nhặt quét lấy hàng ở kệ đang đếm (đặc tả kiểm kê 8.2). Phiếu nhặt
+            // chuyển kho tạo bên trong Duyệt / Giao bù phiếu chuyển: giữ phân bổ phần có (chặn ở đây hủy cả lần duyệt);
+            // quét và Hoàn tất nhặt vẫn chặn phần đang kiểm
+            if (truGiuChoChuyen && khoaKiemKeGuard != null && dong.getSoLuongCanNhat().compareTo(duocLay) > 0) {
+                Integer bienTheId = dong.getBienTheSanPham().getId();
+                KhoaKiemKeGuard.ThieuDoKiemKe doKiemKe = khoaKiemKeGuard.thieuDoKiemKe(khoId, tonList.stream()
+                                .filter(t -> bienTheId.equals(t.getLoHang().getBienTheSanPham().getId()))
+                                .map(t -> t.getLoHang().getId()).toList(),
+                        duocLay, kk -> {
+                            Map<Integer, BigDecimal> boKiemKe = new HashMap<>(dangGiu);
+                            kk.forEach((lo, sl) -> boKiemKe.computeIfPresent(lo, (k, v) -> v.subtract(sl).max(BigDecimal.ZERO)));
+                            return PhanBoLoFifo.tong(conLaiTheoFifo(tonList, bienTheId, boKiemKe, Map.of()))
+                                    .subtract(giuChoMa).max(BigDecimal.ZERO);
+                        }, dong.getSoLuongCanNhat(), "tạo phiếu nhặt", dong.getBienTheSanPham().getMaSku());
+                if (doKiemKe != null) throw doKiemKe.loi();
+            }
             for (PhanBoLoFifo.Lo lo : PhanBoLoFifo.layFifo(conLai, dong.getSoLuongCanNhat().min(duocLay))) {
                 PhanBoLoNhatHang pb = phanBoLoNhatHangRepository.save(PhanBoLoNhatHang.builder()
                         .chiTietNhatHang(dong)
@@ -1623,6 +1640,9 @@ public class NhatHangServiceImpl implements NhatHangService {
         if (newScanned.compareTo(required) > 0) {
             throw new CommonException(ThongDiep.of("khoVanHanh.quetVuotYeuCauNhat", currentScanned, qtyToAdd, required));
         }
+        // Quét vượt phần đã phân bổ lô: phần chưa phân bổ chỉ còn ở hàng đang kiểm kê thì dừng, không cho lấy hàng khỏi
+        // kệ / phạm vi đang đếm (kiemTraQuet ở trên chỉ xét các dòng đã chia kệ)
+        kiemTraQuetNgoaiPhanBo(pickList, lockedItem, newScanned);
 
         lockedItem.setSoLuongDaQuet(newScanned);
         lockedItem = chiTietNhatHangRepository.save(lockedItem);
@@ -2191,6 +2211,34 @@ public class NhatHangServiceImpl implements NhatHangService {
     }
 
     /**
+     * Quét tới {@code daQuet} sản phẩm của dòng mà phân bổ lô của dòng ít hơn: phần vượt phân bổ chỉ lấy được ở hàng đang
+     * kiểm kê thì chặn, nêu đợt. Kho không có đợt / thiếu vì lý do khác thì để như cũ (Hoàn tất nhặt bù FIFO hoặc chặn).
+     */
+    private void kiemTraQuetNgoaiPhanBo(DanhSachNhatHang pickList, ChiTietNhatHang dong, BigDecimal daQuet) {
+        if (khoaKiemKeGuard == null || pickList.getKhoXuat() == null || dong.getBienTheSanPham() == null) return;
+        Map<Integer, BigDecimal> daCo = new HashMap<>();
+        phanBoLoNhatHangRepository.findByChiTietId(dong.getId()).forEach(pb -> daCo.merge(pb.getLoHang().getId(),
+                pb.getSoLuong() == null ? BigDecimal.ZERO : pb.getSoLuong(), BigDecimal::add));
+        BigDecimal phanBo = daCo.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (daQuet.compareTo(phanBo) <= 0) return;
+        Integer khoId = pickList.getKhoXuat().getId();
+        Integer bienTheId = dong.getBienTheSanPham().getId();
+        List<TonKhoTheoLo> tonList = tonKhoTheoLoRepository.findByKhoAndBienTheIds(khoId, List.of(bienTheId));
+        List<Integer> loIds = tonList.stream().map(t -> t.getLoHang().getId()).toList();
+        // Ngoài phân bổ = còn lại theo lô (đã trừ đang kiểm kê), trừ phân bổ của chính dòng: dangGiu bỏ qua phiếu này nên
+        // phân bổ của dòng vẫn nằm trong "còn lại" — không trừ thì tính hai lần
+        Map<Integer, BigDecimal> dangGiu = loDangGiuService.dangGiuTheoLo(khoId, loIds, pickList.getId(), null);
+        BigDecimal layDuoc = phanBo.add(PhanBoLoFifo.tong(conLaiTheoFifo(tonList, bienTheId, dangGiu, daCo)));
+        if (daQuet.compareTo(layDuoc) <= 0) return;
+        KhoaKiemKeGuard.ThieuDoKiemKe doKiemKe = khoaKiemKeGuard.thieuDoKiemKe(khoId, loIds, layDuoc, kk -> {
+            Map<Integer, BigDecimal> boKiemKe = new HashMap<>(dangGiu);
+            kk.forEach((lo, sl) -> boKiemKe.computeIfPresent(lo, (k, v) -> v.subtract(sl).max(BigDecimal.ZERO)));
+            return phanBo.add(PhanBoLoFifo.tong(conLaiTheoFifo(tonList, bienTheId, boKiemKe, daCo)));
+        }, daQuet, "nhặt hàng", dong.getBienTheSanPham().getMaSku());
+        if (doKiemKe != null) throw doKiemKe.loi();
+    }
+
+    /**
      * Lệnh trả hàng về kệ (cảnh báo HOAN_KE_CHO_CAT, nguong_canh_bao = id phiếu nhặt, 0 = chờ cất kệ). Lý do ở màn Hàng cần
      * hoàn kệ đọc theo loại phiếu nhặt (lyDoHoanKe).
      */
@@ -2467,6 +2515,16 @@ public class NhatHangServiceImpl implements NhatHangService {
             } else {
                 khoaKiemKeGuard.kiemTraNhapKho(cb.getKho().getId(), List.of(cb.getLoHang().getId()), "hoàn kệ");
             }
+        } else if (khoaKiemKeGuard != null && cb.getKho() != null && cb.getBienTheSanPham() != null) {
+            // Lệnh chỉ ghi mã hàng (không biết lô / kệ sẽ cất): giữ ở Chờ cất kệ khi kiểm toàn kho, hoặc mã có phần đang kiểm
+            // (lô ở kệ đang khóa / danh mục đang kiểm) — cùng cách xét với lúc Bắt đầu đợt, không cất nhầm vào kệ đang đếm
+            khoaKiemKeGuard.giuKho(cb.getKho().getId());
+            khoaKiemKeGuard.kiemTraNhapKho(cb.getKho().getId(), List.of(), "hoàn kệ");
+            List<Integer> loCuaMa = tonKhoTheoLoRepository.findByKhoAndBienTheIds(cb.getKho().getId(),
+                    List.of(cb.getBienTheSanPham().getId())).stream().map(t -> t.getLoHang().getId()).toList();
+            KhoaKiemKeGuard.ThieuDoKiemKe dangKiem = khoaKiemKeGuard.maCoPhanDangKiemKe(cb.getKho().getId(), loCuaMa,
+                    "hoàn kệ", cb.getBienTheSanPham().getMaSku());
+            if (dangKiem != null) throw dangKiem.loi();
         }
 
         // Đóng lệnh bằng một câu UPDATE có điều kiện "còn chờ": hai lần bấm (hoặc hai người cùng lúc) chỉ một lần đổi được,

@@ -69,9 +69,12 @@ public final class KiemKeDto {
         }
     }
 
-    /** Xem trước phạm vi (UC-STK-01): ước tính lúc xem, Bắt đầu tính lại trong giao dịch. */
+    /**
+     * Xem trước phạm vi (UC-STK-01): ước tính lúc xem, Bắt đầu tính lại trong giao dịch. {@code vanDe} chặn Bắt đầu;
+     * {@code canhBao} chỉ báo cho người lập đợt (không chặn).
+     */
     public record XemTruoc(int soViTri, int soDong, int soLo, long tongSoLuong, int soDanhMuc, List<VanDe> vanDe,
-                           boolean coTheBatDau) {
+                           boolean coTheBatDau, List<VanDe> canhBao) {
     }
 
     /** Kết quả lệnh (lưu cùng Idempotency-Key ở kiem_ke_lenh). */
