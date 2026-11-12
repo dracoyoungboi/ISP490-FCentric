@@ -156,6 +156,15 @@ export const posService = {
   },
 
   /**
+   * Kho đang bán có đợt kiểm kê đang giữ khóa không: { dangKiemKe, toanKho, dots: [{ maDot, loai, trangThai }] }.
+   * toanKho = cả kho đang kiểm (không bán được mã nào); ngược lại chỉ các mã thuộc phạm vi đợt.
+   */
+  async getKiemKe(khoId, { signal } = {}) {
+    const res = await apiClient.get("/api/v1/pos/kiem-ke", { params: { khoId }, signal });
+    return res.data?.data ?? null;
+  },
+
+  /**
    * Tồn khả dụng hiện tại của các SKU (thường là dòng trong giỏ) tại kho đang bán.
    * Trả về object { [bienTheSanPhamId]: tồn }. ids gửi dạng "1,2,3" để Spring đọc được
    * (axios mặc định gửi mảng thành ids[]=1&ids[]=2, server không nhận).
@@ -313,6 +322,8 @@ export const toPosProduct = (item) => ({
   price: Number(item.giaBan ?? 0),
   // Tồn khả dụng của ĐÚNG kho đang bán (server đã SUM theo kho); null = chưa biết
   stock: item.soLuongKhaDung != null ? Number(item.soLuongKhaDung) : null,
+  // Phần đang kiểm kê làm giảm số bán được (ô cỡ ghi "Kiểm" thay cho "Hết")
+  dangKiemKe: Boolean(item.dangKiemKe),
   image: item.anhUrl || null,
   tenMau: item.tenMau,
   tenSize: item.tenSize,

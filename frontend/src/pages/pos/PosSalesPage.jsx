@@ -13,6 +13,8 @@ import PosInvoiceTabs from './components/PosInvoiceTabs';
 import { getTabStatus } from './pos-invoice-status';
 import PosDialogs from './components/PosDialogs';
 import PosProductCatalog from './components/PosProductCatalog';
+import PosDaiKiemKe from './components/PosDaiKiemKe';
+import { useKiemKeKho } from './useKiemKeKho';
 import { formatMoney } from './pos-format';
 import { noiDungManKhach } from './pos-man-khach';
 import { usePosDuLieuChung } from './pos-du-lieu-chung';
@@ -213,6 +215,18 @@ const knownStock = (stock) => (stock === null || stock === undefined || stock ==
 /** Dòng giỏ có số lượng vượt tồn khả dụng đã biết (tồn chưa biết = không chặn, server vẫn kiểm). */
 const isOverStock = (line) => Number.isFinite(line.product.stock) && line.quantity > line.product.stock;
 const OVER_STOCK_MESSAGE = t("Có sản phẩm vượt tồn khả dụng — giảm số lượng hoặc xóa dòng đó trước khi thanh toán.");
+const KIEM_KE_MA_MESSAGE = t("Có sản phẩm đang được kiểm kê — xóa dòng đó hoặc chờ đợt kiểm kê được duyệt.");
+const KIEM_KE_TOAN_KHO_MESSAGE = t("Kho đang kiểm kê toàn bộ — tạm dừng thanh toán tới khi đợt được duyệt hoặc hủy.");
+
+/**
+ * Lý do chưa cho thanh toán giỏ (hóa đơn chưa treo), rỗng = được: kho đang kiểm toàn bộ; có dòng vượt số bán được vì
+ * mã đang kiểm kê; có dòng vượt tồn (quầy khác vừa bán / máy chủ báo thiếu).
+ */
+const lyDoChanBan = (cart, toanKho) => {
+  if (toanKho && cart.length) return KIEM_KE_TOAN_KHO_MESSAGE;
+  if (cart.some((line) => isOverStock(line) && line.product.dangKiemKe)) return KIEM_KE_MA_MESSAGE;
+  return cart.some(isOverStock) ? OVER_STOCK_MESSAGE : '';
+};
 const OFFLINE_PAYMENT_MESSAGE = t("Mất kết nối mạng — chưa thể thanh toán. Kiểm tra mạng rồi thử lại; hóa đơn vẫn được giữ.");
 const OFFLINE_CHECK_MESSAGE = t("Đang mất mạng — chưa kiểm tra được giao dịch. Có mạng lại hãy bấm kiểm tra kết quả.");
 const NETWORK_ERROR_MESSAGE = t("Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.");
@@ -223,17 +237,20 @@ const NETWORK_ERROR_MESSAGE = t("Không kết nối được máy chủ. Kiểm 
  * Không có gì đổi -> trả lại đúng mảng cũ (không render/lưu nháp thừa).
  */
 const withCartStock = (invoices, warehouseId, products) => {
-  const stockById = new Map(products.filter((p) => Number.isFinite(p.stock)).map((p) => [p.id, p.stock]));
-  if (!stockById.size) return invoices;
+  const byId = new Map(products.filter((p) => Number.isFinite(p.stock)).map((p) => [p.id, p]));
+  if (!byId.size) return invoices;
   let changed = false;
   const next = invoices.map((invoice) => {
     if (invoice.warehouseId !== warehouseId || isFrozenInvoice(invoice)) return invoice;
     let cartChanged = false;
     const cart = invoice.cart.map((line) => {
-      const stock = stockById.get(line.product.id);
-      if (stock === undefined || stock === line.product.stock) return line;
+      const moi = byId.get(line.product.id);
+      if (!moi) return line;
+      // Tra tồn riêng cho dòng ngoài trang danh mục chỉ có số, không có cờ: giữ cờ cũ của dòng
+      const dangKiemKe = 'dangKiemKe' in moi ? Boolean(moi.dangKiemKe) : Boolean(line.product.dangKiemKe);
+      if (moi.stock === line.product.stock && dangKiemKe === Boolean(line.product.dangKiemKe)) return line;
       cartChanged = true;
-      return { ...line, product: { ...line.product, stock } };
+      return { ...line, product: { ...line.product, stock: moi.stock, dangKiemKe } };
     });
     if (!cartChanged) return invoice;
     changed = true;
@@ -357,8 +374,6 @@ export default function PosSalesPage({
   const currentInvoice = invoices.find((invoice) => invoice.number === activeInvoice) || invoices[0];
   const { cart, customer, note, paymentMethod, paymentAmount, warehouseId, attempt, number: ticketNumber } = currentInvoice;
   const frozen = isFrozenInvoice(currentInvoice);
-  // Có dòng vượt tồn khả dụng (quầy khác vừa bán / server báo thiếu) -> khóa thanh toán tới khi sửa giỏ.
-  const overStock = !frozen && cart.some(isOverStock);
   const activeWarehouse = warehouses.find((w) => w.id === warehouseId) || null;
 
   const updateInvoice = (key, value) => setInvoices((current) => current.map((invoice) => invoice.number === activeInvoice
@@ -408,6 +423,9 @@ export default function PosSalesPage({
   // Bộ lọc tồn kho của danh mục hàng (lọc ở server). Không lưu lại — mỗi lần mở POS về mặc định.
   const [stockFilter, setStockFilter] = useState(DEFAULT_STOCK_FILTER);
   const [refreshKey, setRefreshKey] = useState(0);
+  // Đợt kiểm kê đang giữ khóa ở kho đang bán: dải báo + chặn thanh toán khi kiểm toàn kho
+  const kiemKe = useKiemKeKho(warehouseId, refreshKey);
+  const chanBan = frozen ? '' : lyDoChanBan(cart, kiemKe.toanKho);
   // Bộ nhớ tạm của khung POS: quay lại từ màn trả hàng thì danh mục hiện ngay bản lần trước, bản mới về thì thay
   const { boNho } = usePosDuLieuChung();
   // Tải lại danh mục có vòng chờ (sau thanh toán, server báo thiếu tồn, bấm Thử lại): bản nhớ tạm của kho có tồn cũ nên bỏ
@@ -784,7 +802,8 @@ export default function PosSalesPage({
     const stock = Number(product.stock);
     // Kiểm tra tồn NGOÀI state updater (updater phải thuần — StrictMode gọi 2 lần sẽ bắn toast 2 lần).
     if (Number.isFinite(stock) && cartQuantity(product.id) + 1 > stock) {
-      return stock > 0 ? t("Chỉ còn {{stock}} sản phẩm khả dụng tại kho này.", { stock }) : t("{{name}} đã hết hàng tại kho này.", { name: product.name });
+      if (stock > 0) return t("Chỉ còn {{stock}} sản phẩm khả dụng tại kho này.", { stock });
+      return product.dangKiemKe ? t("{{name}} đang được kiểm kê, tạm chưa bán.", { name: product.name }) : t("{{name}} đã hết hàng tại kho này.", { name: product.name });
     }
     return null;
   };
@@ -839,7 +858,9 @@ export default function PosSalesPage({
     if (stock !== null && quantity > stock && quantity > line.quantity) {
       showToast(stock > 0
         ? t("Chỉ còn {{stock}} sản phẩm khả dụng tại kho này — số lượng giữ nguyên {{quantity}}.", { stock, quantity: line.quantity })
-        : t("{{name}} đã hết hàng tại kho này — số lượng giữ nguyên {{quantity}}.", { name: line.product.name, quantity: line.quantity }), 'warning');
+        : line.product.dangKiemKe
+          ? t("{{name}} đang được kiểm kê — số lượng giữ nguyên {{quantity}}.", { name: line.product.name, quantity: line.quantity })
+          : t("{{name}} đã hết hàng tại kho này — số lượng giữ nguyên {{quantity}}.", { name: line.product.name, quantity: line.quantity }), 'warning');
       return;
     }
     setCart((current) => current.map((item) => item.product.id === variantId ? { ...item, quantity } : item));
@@ -1153,7 +1174,7 @@ export default function PosSalesPage({
       }
       const { product } = result;
       if (Number(product.stock) <= 0) {
-        showToast(t("{{name}} đã hết hàng tại kho này.", { name: product.name }), 'warning');
+        showToast(product.dangKiemKe ? t("{{name}} đang được kiểm kê, tạm chưa bán.", { name: product.name }) : t("{{name}} đã hết hàng tại kho này.", { name: product.name }), 'warning');
         return;
       }
       if (addProduct(product)) {
@@ -1357,8 +1378,9 @@ export default function PosSalesPage({
       setPaymentError(t("Số tiền khách thanh toán chưa đủ."));
       return;
     }
-    if (!isFrozenInvoice(invoice) && invoice.cart.some(isOverStock)) {
-      setPaymentError(OVER_STOCK_MESSAGE);
+    const lyDo = isFrozenInvoice(invoice) ? '' : lyDoChanBan(invoice.cart, kiemKe.toanKho);
+    if (lyDo) {
+      setPaymentError(lyDo);
       return;
     }
     let attemptState = invoice.attempt;
@@ -1471,8 +1493,10 @@ export default function PosSalesPage({
       showToast(OFFLINE_PAYMENT_MESSAGE, 'error');
       return;
     }
-    if (overStock) {
-      showToast(OVER_STOCK_MESSAGE, 'warning');
+    // Hỏi lại trạng thái kiểm kê: đợt vừa bắt đầu ở màn khác thì câu chặn trong hộp thanh toán nói đúng lý do
+    kiemKe.lamMoi();
+    if (chanBan) {
+      showToast(chanBan, 'warning');
       return;
     }
     if (!checkoutEnabled) {
@@ -1589,8 +1613,9 @@ export default function PosSalesPage({
     }
     // Chưa chọn khách: máy chủ gán Khách lẻ mặc định (như lúc thanh toán)
     if (!invoice.cart.length) return;
-    if (!isFrozenInvoice(invoice) && invoice.cart.some(isOverStock)) {
-      setPaymentError(OVER_STOCK_MESSAGE);
+    const lyDo = isFrozenInvoice(invoice) ? '' : lyDoChanBan(invoice.cart, kiemKe.toanKho);
+    if (lyDo) {
+      setPaymentError(lyDo);
       return;
     }
     // Mã trước không thành mà chưa xác nhận trả lại tiền mặt khách đưa trước: xác nhận xong mới tạo mã mới.
@@ -2226,7 +2251,7 @@ export default function PosSalesPage({
       onQuantity={setQuantity}
       onRemove={removeLine}
       offline={!online}
-      overStockMessage={overStock ? OVER_STOCK_MESSAGE : ''}
+      overStockMessage={chanBan}
       canTraLai={canTraLaiTienMat(currentInvoice?.payos)}
       subtotal={subtotal}
       total={total}
@@ -2279,6 +2304,10 @@ export default function PosSalesPage({
       {/* Màn hẹp hơn 1280px: thanh trên cùng không đủ chỗ -> dải hóa đơn giữ hàng riêng như cũ. */}
       {wideScreen ? null : renderInvoiceTabs('strip')}
 
+      {kiemKe.dangKiemKe ? (
+        <div className="bg-bo-surface px-3 pt-3 sm:px-4"><PosDaiKiemKe kiemKe={kiemKe} /></div>
+      ) : null}
+
       {/* overflow-clip (không phải hidden): khung không là vùng cuộn, focus/scrollIntoView không đẩy lệch được. */}
       <main aria-labelledby={`pos-invoice-tab-${ticketNumber}`} id="pos-invoice-panel" role="tabpanel" className="grid min-h-0 flex-1 gap-3 overflow-clip bg-bo-surface px-3 pb-24 pt-3 sm:px-4 xl:grid-cols-[minmax(0,1fr)_390px] xl:pb-3 cam-ung:lg:max-xl:grid-cols-[minmax(0,1fr)_360px] cam-ung:lg:max-xl:pb-3">
         <PosProductCatalog
@@ -2306,6 +2335,7 @@ export default function PosSalesPage({
           stockFilter={stockFilter}
           totalElements={catalog.totalElements}
           warehouseId={warehouseId}
+          kiemKeToanKho={kiemKe.toanKho}
         />
 
         <div className="hidden min-h-0 xl:flex cam-ung:lg:flex">{renderCartPanel()}</div>
@@ -2317,7 +2347,7 @@ export default function PosSalesPage({
             <span className="relative grid size-9 shrink-0 place-items-center rounded-lg bg-bo-primary-soft text-bo-primary"><ShoppingBag aria-hidden="true" size={17} /><span className="absolute -right-1 -top-1 grid min-w-4 place-items-center rounded-full bg-bo-primary px-1 text-[9px] font-bold text-white">{countCart(cart)}</span></span>
             <span className="min-w-0"><span className="block text-[11px] text-bo-muted">{t("Mở hóa đơn")}</span><span className="block truncate text-sm font-bold text-bo-foreground">{formatMoney(total)}</span></span>
           </button>
-          <button className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg bg-bo-primary px-4 text-sm font-semibold text-white transition hover:bg-bo-primary-hover disabled:cursor-not-allowed disabled:bg-slate-300" disabled={canTraLaiTienMat(currentInvoice?.payos) ? isSubmitting : (!cart.length || isSubmitting || overStock || (!online && !frozen))} onClick={openPayment} title={!online && !frozen ? OFFLINE_PAYMENT_MESSAGE : overStock ? OVER_STOCK_MESSAGE : undefined} type="button">{!online && !frozen ? t("Mất mạng") : t("Thanh toán")}</button>
+          <button className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg bg-bo-primary px-4 text-sm font-semibold text-white transition hover:bg-bo-primary-hover disabled:cursor-not-allowed disabled:bg-slate-300" disabled={canTraLaiTienMat(currentInvoice?.payos) ? isSubmitting : (!cart.length || isSubmitting || Boolean(chanBan) || (!online && !frozen))} onClick={openPayment} title={!online && !frozen ? OFFLINE_PAYMENT_MESSAGE : chanBan || undefined} type="button">{!online && !frozen ? t("Mất mạng") : t("Thanh toán")}</button>
         </div>
       </div>
 
