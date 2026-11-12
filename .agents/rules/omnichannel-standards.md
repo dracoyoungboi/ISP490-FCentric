@@ -112,5 +112,18 @@ Mọi kênh bán (Shopify, Lazada, Shopee, TikTok Shop) khi quét đơn về ph�
      ```
    - Hệ thống tự động sinh ảnh bảng quy đổi kích cỡ chuẩn 800x800 cho thương hiệu FCentric và lưu bộ nhớ đệm URI theo `shop_cipher` để tối ưu số lần gọi API upload ảnh.
 
+9. **Chuẩn hóa bắt lỗi trực quan kênh TikTok Shop (tương đương Shopify)**:
+   - Toàn bộ phản hồi từ sàn TikTok Shop phải đi qua hàm phân loại `phanLoaiLoiTikTok`, ánh xạ triệt để các mã lỗi kỹ thuật sang thông điệp tiếng Việt và tiếng Anh thân thiện người dùng:
+     - Xác thực/Ủy quyền (`105001`, `105002`, `401`, `403`): Báo lỗi cả kênh, yêu cầu kết nối lại gian hàng.
+     - Giới hạn tần suất (`429`, `105003`): Báo lỗi cả kênh, hệ thống tự động thử lại.
+     - Kho bán hàng (`12052532`): Hướng dẫn cấu hình kho bán hàng nội địa.
+     - Bản quyền thương hiệu (`12052106`, `12052107`, bot từ chối nhãn hiệu): Hướng dẫn sửa tên sản phẩm hoặc nộp giấy phép đại lý chính hãng.
+     - Thuộc tính Nghị định 85 (`101489`, `101490`): Hướng dẫn bổ sung đơn vị chịu trách nhiệm.
+     - Quốc gia xuất xứ (`100149`): Hướng dẫn bổ sung xuất xứ hàng hóa.
+     - Bảng quy đổi kích cỡ (`12052673`): Hướng dẫn bổ sung ảnh size chart.
+     - Trùng biến thể (`12052251`): Hướng dẫn kiểm tra tổ hợp kích cỡ - màu sắc.
+     - Trạng thái kiểm duyệt (`12052528`): Báo sản phẩm đang chờ duyệt hoặc bị từ chối niêm yết.
+   - Khi sàn từ chối tạo bài trong `taoSanPhamLenTikTok`, BẮT BUỘC lưu trạng thái `that_bai` kèm lý do trực quan vào bảng `TrangThaiDongBoSanPham` cho toàn bộ biến thể của sản phẩm đó để hiển thị trực tiếp lên tab "Lỗi" của giao diện người dùng.
+
 
 

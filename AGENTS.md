@@ -173,6 +173,19 @@ vào `Dev` / `main`. Báo đỏ thì xem log để biết dòng lỗi, sửa r�
   - Ảnh size chart BẮT BUỘC phải được upload lên TikTok Shop CDN qua `POST /product/202309/images/upload` với multipart parameter `use_case = "SIZE_CHART_IMAGE"` (tuyệt đối không dùng `MAIN_IMAGE` cho size chart để tránh lỗi `12052670`: `Invalid size chart image URI`).
   - Hệ thống tự động sinh ảnh bảng quy đổi kích cỡ chuẩn 800x800 cho thương hiệu FCentric và lưu bộ nhớ đệm URI theo `shop_cipher`.
 
+### 7. Chuẩn hóa bắt lỗi trực quan kênh TikTok Shop (tương đương Shopify)
+- **Chuẩn hóa qua `phanLoaiLoiTikTok`**: Bắt buộc lọc và dịch 100% các mã phản hồi sàn thành hướng dẫn hành động thân thiện người dùng:
+  - Token hết hạn (`105001`, `105002`, `401`, `403`): Báo lỗi cả kênh, yêu cầu kết nối lại gian hàng.
+  - Vượt tần suất (`429`, `105003`): Báo lỗi cả kênh, thông báo sàn đang giới hạn tần suất.
+  - Kho hàng (`12052532`): Hướng dẫn kiểm tra cấu hình kho bán hàng nội địa.
+  - Vi phạm nhãn hiệu (`12052106`, `12052107`, bot từ chối thương hiệu): Hướng dẫn sửa tên sản phẩm hoặc nộp giấy phép ủy quyền phân phối.
+  - Nghị định 85 (`101489`, `101490`): Hướng dẫn bổ sung đơn vị chịu trách nhiệm hàng hóa.
+  - Xuất xứ (`100149`): Hướng dẫn bổ sung quốc gia xuất xứ.
+  - Bảng quy đổi kích cỡ (`12052673`): Hướng dẫn cung cấp ảnh bảng size chart.
+  - Trùng biến thể (`12052251`): Hướng dẫn kiểm tra tổ hợp phân loại màu sắc - kích cỡ.
+  - Chờ duyệt sàn (`12052528`): Báo trạng thái sản phẩm đang chờ duyệt hoặc bị từ chối niêm yết.
+- **Ghi nhận lỗi tạo sản phẩm vào DB**: Khi sàn từ chối tạo bài trong `taoSanPhamLenTikTok`, BẮT BUỘC lưu trạng thái `that_bai` kèm lý do trực quan vào bảng `TrangThaiDongBoSanPham` cho toàn bộ biến thể của sản phẩm đó để người dùng nhận diện ngay ở tab "Lỗi".
+
 ## Quy chuẩn Git Commit nguyên tử & Chiến lược đóng góp (~500 commits/tuần)
 
 > **Mục tiêu**: Đạt KPI ~500 commits/tuần, tăng tính minh bạch của lịch sử Git, hỗ trợ bóc tách lỗi và tránh tuyệt đối monolithic commits.
