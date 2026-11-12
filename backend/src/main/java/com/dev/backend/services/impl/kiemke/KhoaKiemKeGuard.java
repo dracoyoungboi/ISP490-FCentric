@@ -229,13 +229,128 @@ public class KhoaKiemKeGuard {
         if (khoId == null || loIds == null || loIds.isEmpty() || !sanSang.sanSang()) return new HashMap<>();
         TrangThaiKhoa tt = trangThai(khoId);
         if (tt.trong()) return new HashMap<>();
+        return luongDangKiemKe(tt, khoId, tonCuaLo(khoId, loIds));
+    }
+
+    private Map<Integer, BigDecimal> tonCuaLo(Integer khoId, Collection<Integer> loIds) {
         Map<Integer, BigDecimal> ton = new HashMap<>();
         @SuppressWarnings("unchecked")
         List<Object[]> rows = em.createNativeQuery("SELECT lo_hang_id, so_luong_ton FROM ton_kho_theo_lo "
                         + "WHERE kho_id = :kho AND lo_hang_id IN (:ids)")
                 .setParameter("kho", khoId).setParameter("ids", new ArrayList<>(new HashSet<>(loIds))).getResultList();
         for (Object[] r : rows) ton.put(((Number) r[0]).intValue(), r[1] == null ? BigDecimal.ZERO : (BigDecimal) r[1]);
-        return luongDangKiemKe(tt, khoId, ton);
+        return ton;
+    }
+
+    // ───────────────────────────── Thiếu hàng do kiểm kê ─────────────────────────────
+
+    /**
+     * Phần thiếu của một lần lấy hàng là do kiểm kê: câu báo (có mã đợt) và dữ liệu kèm lỗi STK_LOCKED.
+     * {@link #loi()} dựng lỗi 409 để ném.
+     */
+    public record ThieuDoKiemKe(ThongDiep cau, Map<String, Object> duLieu, boolean toanKho) {
+        public LoiCoMaException loi() {
+            return new LoiCoMaException(HttpStatus.CONFLICT, MaLoi.STK_LOCKED, cau, duLieu);
+        }
+    }
+
+    /**
+     * Lấy {@code can} từ các lô {@code loIds} của kho chỉ được {@code coTheLay}: số còn lại của lô theo
+     * LoDangGiuService.conLai (đã trừ phần đang kiểm kê, CÓ THỂ ÂM — không cắt về 0, để phần phiếu khác giữ không bị bỏ
+     * qua). Nếu cộng lại phần đang kiểm kê của các lô mà đủ {@code can} thì lý do thiếu là kiểm kê: trả câu báo nêu đợt
+     * (đợt toàn kho → câu cấp kho). Null khi kho không có đợt, các lô không thuộc phạm vi, hoặc vẫn thiếu khi bỏ kiểm kê
+     * ra (phiếu khác giữ / hàng thật sự không đủ) — nơi gọi giữ câu cũ. {@code maSku} khác null: câu theo mã hàng (quầy).
+     */
+    public ThieuDoKiemKe thieuDoKiemKe(Integer khoId, Collection<Integer> loIds, BigDecimal coTheLay, BigDecimal can,
+                                       String thaoTac, String maSku) {
+        BigDecimal lay = coTheLay == null ? BigDecimal.ZERO : coTheLay;
+        return thieuDoKiemKe(khoId, loIds, lay,
+                kk -> lay.add(kk.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add)), can, thaoTac, maSku);
+    }
+
+    /**
+     * Như trên khi số lấy được không cộng thẳng theo lô (quầy: Σ theo lô cắt 0 rồi trừ giữ chỗ phiếu chuyển; hoàn tất
+     * nhặt: FIFO trừ phân bổ sẵn): {@code layNeuBoKiemKe} tính lại số lấy được khi bỏ phần đang kiểm kê (lô → số) ra.
+     */
+    public ThieuDoKiemKe thieuDoKiemKe(Integer khoId, Collection<Integer> loIds, BigDecimal coTheLay,
+                                       java.util.function.Function<Map<Integer, BigDecimal>, BigDecimal> layNeuBoKiemKe,
+                                       BigDecimal can, String thaoTac, String maSku) {
+        if (khoId == null || loIds == null || loIds.isEmpty() || can == null || can.signum() <= 0 || !sanSang.sanSang()) {
+            return null;
+        }
+        TrangThaiKhoa tt = trangThai(khoId);
+        if (tt.trong()) return null;
+        Map<Integer, BigDecimal> kk = luongDangKiemKe(tt, khoId, tonCuaLo(khoId, loIds));
+        BigDecimal tong = kk.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (tong.signum() <= 0) return null;
+        BigDecimal boKiemKe = layNeuBoKiemKe.apply(kk);
+        if (boKiemKe == null || boKiemKe.compareTo(can) < 0) return null;
+        BigDecimal lay = coTheLay == null ? BigDecimal.ZERO : coTheLay.max(BigDecimal.ZERO);
+        Integer lo = loIds.stream().filter(l -> kk.getOrDefault(l, BigDecimal.ZERO).signum() > 0).findFirst().orElse(null);
+        if (lo == null) return null;
+
+        Integer dot;
+        Integer ke = null;
+        if (tt.dotToanKho != null) {
+            dot = tt.dotToanKho;
+        } else {
+            Integer dm = tt.danhMuc.isEmpty() ? null : danhMucCuaLo(List.of(lo)).get(lo);
+            if (dm != null && tt.danhMuc.containsKey(dm)) {
+                dot = tt.danhMuc.get(dm);
+            } else {
+                dot = null;
+                for (Integer viTri : soTrenKe(khoId, List.of(lo)).getOrDefault(lo, Map.of()).keySet()) {
+                    if (tt.capDangKhoa(viTri, lo)) {
+                        ke = viTri;
+                        dot = tt.dotCuaCap(viTri, lo);
+                        break;
+                    }
+                }
+                if (dot == null) dot = tt.maDot.keySet().stream().sorted().findFirst().orElse(null);
+            }
+        }
+        boolean toanKho = dot != null && dot.equals(tt.dotToanKho);
+        if (maSku == null || toanKho) {
+            LoiCoMaException e = loi(tt, dot, ke, lo, thaoTac);
+            return new ThieuDoKiemKe(e.getThongDiep(), e.getDuLieu(), toanKho);
+        }
+        String ma = dot == null ? null : tt.maDot.get(dot);
+        Object thaoTacDich = thaoTacTheoNgonNgu(thaoTac);
+        ThongDiep cau = lay.signum() > 0
+                ? ThongDiep.of("khoVanHanh.maChiConNgoaiKiemKe", maSku, so(lay), ma, so(can))
+                : ThongDiep.of("khoVanHanh.maDangKiemKe", maSku, ma, thaoTacDich);
+        Map<String, Object> duLieu = new LinkedHashMap<>();
+        if (dot != null) duLieu.put("dotKiemKeId", dot);
+        if (ma != null) duLieu.put("maDotKiemKe", ma);
+        return new ThieuDoKiemKe(cau, duLieu, false);
+    }
+
+    private static String so(BigDecimal v) {
+        return v.stripTrailingZeros().toPlainString();
+    }
+
+    // ───────────────────────────── Tóm tắt cho màn hình ─────────────────────────────
+
+    /** Một đợt đang giữ khóa của kho: đang kiểm (1) hoặc chờ duyệt (2). */
+    public record DotDangKiem(Integer id, String maDot, String loai, Integer trangThai) {
+    }
+
+    /**
+     * Các đợt đang giữ khóa của kho, đợt cũ trước. Chỉ để hiển thị (dải báo ở quầy bán…), đọc thường không khóa.
+     * CSDL chưa nâng cấp cho kiểm kê thì rỗng.
+     */
+    public List<DotDangKiem> dotDangKiem(Integer khoId) {
+        if (khoId == null || !sanSang.sanSang()) return List.of();
+        @SuppressWarnings("unchecked")
+        // trang_thai là tinyint(1): bộ nối MySQL đọc thành Boolean (2 thành true) — ép về số nguyên ngay trong câu
+        List<Object[]> rows = em.createNativeQuery("SELECT id, ma_dot_kiem_ke, loai_kiem_ke, CAST(trang_thai AS SIGNED) FROM dot_kiem_ke "
+                        + "WHERE kho_id = :kho AND trang_thai IN (1, 2) ORDER BY id")
+                .setParameter("kho", khoId).getResultList();
+        List<DotDangKiem> kq = new ArrayList<>();
+        for (Object[] r : rows) {
+            kq.add(new DotDangKiem(((Number) r[0]).intValue(), (String) r[1], (String) r[2], ((Number) r[3]).intValue()));
+        }
+        return kq;
     }
 
     private Map<Integer, BigDecimal> luongDangKiemKe(TrangThaiKhoa tt, Integer khoId, Map<Integer, BigDecimal> tonTheoLo) {
@@ -421,6 +536,11 @@ public class KhoaKiemKeGuard {
 
     LoiCoMaException loi(TrangThaiKhoa tt, Integer dotId, Integer viTriId, Integer loId, String thaoTac) {
         String ma = dotId == null ? null : tt.maDot.get(dotId);
+        // Đợt toàn kho: cả kho dừng, câu nói theo kho — không nêu mã lô / kệ (người bán hàng không biết mã lô)
+        if (dotId != null && dotId.equals(tt.dotToanKho)) {
+            viTriId = null;
+            loId = null;
+        }
         String maKe = null;
         String maLo = null;
         if (viTriId != null) {
@@ -473,6 +593,7 @@ public class KhoaKiemKeGuard {
             Map.entry("nhập hàng vào kho", "khoVanHanh.thaoTacNhapHangVaoKho"),
             Map.entry("xuất kho", "khoVanHanh.thaoTacXuatKho"),
             Map.entry("bán tại quầy", "khoVanHanh.thaoTacBanTaiQuay"),
+            Map.entry("nhận hàng khách trả", "khoVanHanh.thaoTacNhanHangKhachTra"),
             Map.entry("thêm kệ vào khu vực", "khoVanHanh.thaoTacThemKeVaoKhuVuc"),
             Map.entry("chuyển kệ vào khu vực", "khoVanHanh.thaoTacChuyenKeVaoKhuVuc"),
             Map.entry("sửa kệ", "khoVanHanh.thaoTacSuaKe"),
