@@ -194,6 +194,14 @@ public class DongGoiServiceImpl implements DongGoiService {
                 SauCommit.chay("Đồng bộ đóng gói xong sang Lazada (ready_to_ship)",
                         () -> kenhBanHangDongBoService.dongBoTrangThaiReadyToShipLazada(lazOrderId));
             }
+
+            if (don.getKenhBanHang() != null && OmnichannelOrderSyncJob.isTikTok(don.getKenhBanHang().getMaKenh())
+                    && don.getMaDonHangKenh() != null && !don.getMaDonHangKenh().isBlank()
+                    && kenhBanHangDongBoService != null) {
+                String ttOrderId = don.getMaDonHangKenh();
+                SauCommit.chay("Đồng bộ đóng gói xong sang TikTok Shop (ship package -> AWAITING_COLLECTION)",
+                        () -> kenhBanHangDongBoService.dongBoTrangThaiReadyToShipTikTok(ttOrderId));
+            }
         }
 
         ghiNhatKy(phieu, IHanhDong.hoan_tat_dong_goi, "trang_thai = 0 (Nháp)", "trang_thai = 6 (Chờ xuất - đã đóng gói)",

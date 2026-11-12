@@ -6086,6 +6086,130 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         }
     }
 
+    @Override
+    public boolean dongBoTrangThaiReadyToShipTikTok(String maDonHangKenh) {
+        if (maDonHangKenh == null || maDonHangKenh.isBlank()) {
+            return false;
+        }
+        String maKenh = OmnichannelOrderSyncJob.MA_KENH_TIKTOK;
+        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(maKenh)
+                .or(() -> kenhBanHangRepository.findByMaKenh(maKenh.toLowerCase()))
+                .orElse(null);
+        if (kenh == null || !Integer.valueOf(1).equals(kenh.getTrangThai())) {
+            log.warn("[TIKTOK-RTS] Kênh TikTok Shop chưa kích hoạt hoặc không tìm thấy");
+            return false;
+        }
+
+        String appKey = kenhBanHangService.getTikTokAppKey();
+        String appSecret = kenhBanHangService.getDecryptedTikTokAppSecret();
+        String token = kenhBanHangService.getDecryptedTikTokAccessToken();
+        String cipher = kenhBanHangService.getTikTokShopCipher();
+
+        if (appKey == null || appSecret == null || token == null) {
+            log.warn("[TIKTOK-RTS] Chưa cấu hình đủ thông tin xác thực TikTok Shop để ship package đơn {}", maDonHangKenh);
+            return false;
+        }
+
+        try {
+            DonBanHang don = donBanHangRepository.findByMaDonHangKenh(maDonHangKenh)
+                    .or(() -> donBanHangRepository.findBySoDonHang("TTS-" + maDonHangKenh))
+                    .orElse(null);
+
+            String packageId = null;
+            if (don != null && don.getGhiChu() != null) {
+                java.util.regex.Matcher m = java.util.regex.Pattern.compile("\\[KIỆN:\\s*([^\\]]+)\\]").matcher(don.getGhiChu());
+                if (m.find()) {
+                    packageId = m.group(1).trim();
+                }
+            }
+
+            if (packageId == null || packageId.isBlank()) {
+                com.dev.backend.dto.request.TikTokOrderSearchRequest req =
+                        com.dev.backend.dto.request.TikTokOrderSearchRequest.builder()
+                                .pageSize(10)
+                                .build();
+                var searchRes = getTikTokShopClient().searchOrders(appKey, appSecret, token, cipher, req);
+                if (searchRes != null && searchRes.getOrders() != null) {
+                    for (TikTokOrderDto o : searchRes.getOrders()) {
+                        if (maDonHangKenh.equalsIgnoreCase(o.getId())) {
+                            packageId = o.getFirstPackageId();
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (packageId == null || packageId.isBlank()) {
+                log.warn("[TIKTOK-RTS] Không tìm thấy package_id của đơn hàng {} để ship trên TikTok Shop", maDonHangKenh);
+                return false;
+            }
+
+            JsonNode shipRes = getTikTokShopClient().shipPackage(appKey, appSecret, token, cipher, packageId);
+            int code = shipRes != null ? shipRes.path("code").asInt(-1) : -1;
+            String msg = shipRes != null ? shipRes.path("message").asText("") : "";
+
+            if (code == 0) {
+                log.info("[TIKTOK-RTS] Đã ship thành công package {} đơn {} sang TikTok Shop (chuyển sang AWAITING_COLLECTION)",
+                        packageId, maDonHangKenh);
+
+                if (don != null) {
+                    String docUrl = getTikTokShopClient().getPackageShippingDocumentUrl(appKey, appSecret, token, cipher, packageId);
+                    String currentNote = don.getGhiChu() != null ? don.getGhiChu() : "";
+                    StringBuilder sb = new StringBuilder(currentNote);
+                    if (!currentNote.contains("[RTS]")) {
+                        if (!sb.isEmpty()) sb.append(" | ");
+                        sb.append("[RTS: Đã xác nhận chuẩn bị hàng]");
+                    }
+                    if (docUrl != null && !docUrl.isBlank() && !currentNote.contains("[PDF_AWB:")) {
+                        if (!sb.isEmpty()) sb.append(" | ");
+                        sb.append("[PDF_AWB: ").append(docUrl).append("]");
+                    }
+                    don.setGhiChu(sb.toString());
+                    don.setNgayCapNhat(Instant.now());
+                    donBanHangRepository.save(don);
+                }
+                return true;
+            } else {
+                if (msg.toLowerCase().contains("already") || msg.toLowerCase().contains("shipped")
+                        || msg.toLowerCase().contains("awaiting_collection") || code == 12051000) {
+                    log.info("[TIKTOK-RTS] Kiện hàng {} đơn {} đã ở trạng thái chờ lấy hàng trên TikTok Shop", packageId, maDonHangKenh);
+                    return true;
+                }
+                log.warn("[TIKTOK-RTS] TikTok Shop từ chối ship package {} đơn {}: code={}, msg={}", packageId, maDonHangKenh, code, msg);
+                return false;
+            }
+        } catch (Exception ex) {
+            log.error("[TIKTOK-RTS] Lỗi ngoại lệ khi ship package cho đơn {}: {}", maDonHangKenh, ex.getMessage());
+            return false;
+        }
+    }
+
+    @Override
+    public String layShippingDocumentUrlTikTok(String maDonHangKenh) {
+        if (maDonHangKenh == null || maDonHangKenh.isBlank()) return null;
+        String appKey = kenhBanHangService.getTikTokAppKey();
+        String appSecret = kenhBanHangService.getDecryptedTikTokAppSecret();
+        String token = kenhBanHangService.getDecryptedTikTokAccessToken();
+        String cipher = kenhBanHangService.getTikTokShopCipher();
+
+        if (appKey == null || appSecret == null || token == null) return null;
+
+        DonBanHang don = donBanHangRepository.findByMaDonHangKenh(maDonHangKenh)
+                .or(() -> donBanHangRepository.findBySoDonHang("TTS-" + maDonHangKenh))
+                .orElse(null);
+        String packageId = null;
+        if (don != null && don.getGhiChu() != null) {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("\\[KIỆN:\\s*([^\\]]+)\\]").matcher(don.getGhiChu());
+            if (m.find()) {
+                packageId = m.group(1).trim();
+            }
+        }
+        if (packageId != null && !packageId.isBlank()) {
+            return getTikTokShopClient().getPackageShippingDocumentUrl(appKey, appSecret, token, cipher, packageId);
+        }
+        return null;
+    }
+
     /** Trích xuất URL trang tiếp theo từ Header Link của Shopify (RFC 5988 cursor pagination) */
     public static String trichXuatUrlTrangSau(String linkHeader) {
         if (linkHeader == null || linkHeader.isBlank()) return null;

@@ -105,5 +105,16 @@ public interface KenhBanHangDongBoService {
     boolean dongBoTrangThaiPackedLazada(String maDonHangKenh);
 
     boolean dongBoTrangThaiReadyToShipLazada(String maDonHangKenh);
+
+    /**
+     * Đồng bộ chuyển đơn hàng TikTok Shop sang Đang chờ lấy hàng (AWAITING_COLLECTION)
+     * khi FCentric hoàn tất đóng gói ("Chờ xuất kho" - DA_DONG_GOI = 8).
+     */
+    boolean dongBoTrangThaiReadyToShipTikTok(String maDonHangKenh);
+
+    /**
+     * Lấy đường dẫn tải file PDF vận đơn chính thức (A6) từ TikTok Shop Open Platform.
+     */
+    String layShippingDocumentUrlTikTok(String maDonHangKenh);
 }
 

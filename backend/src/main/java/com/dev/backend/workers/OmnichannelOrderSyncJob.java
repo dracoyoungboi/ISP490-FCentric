@@ -891,6 +891,34 @@ public class OmnichannelOrderSyncJob {
                     donBanHangRepository.save(existing);
                     log.info("[JOB-01] Cập nhật mã vận đơn TikTok Shop {} ({}) cho đơn {}", order.getTrackingNumber(), order.getShippingProvider(), soDonHang);
                 }
+
+                // 4. Tự động khắc phục tổng tiền cho các đơn cũ từng bị lưu 0đ do thiếu map payment.total_amount
+                if (existing.getTongCong() == null || existing.getTongCong().compareTo(BigDecimal.ZERO) == 0) {
+                    try {
+                        String healedTotalStr = order.layTongTienThanhToan();
+                        String healedSfStr = order.layPhiVanChuyen();
+                        BigDecimal hTotal = new BigDecimal(healedTotalStr);
+                        BigDecimal hSf = new BigDecimal(healedSfStr);
+                        if (hTotal.compareTo(BigDecimal.ZERO) > 0) {
+                            existing.setTongCong(hTotal);
+                            existing.setPhiVanChuyen(hSf);
+                            existing.setTienHang(hTotal.subtract(hSf).max(BigDecimal.ZERO));
+                            existing.setNgayCapNhat(Instant.now());
+                            donBanHangRepository.save(existing);
+                            log.info("[JOB-01] Tự động cập nhật đúng tổng tiền cho đơn TikTok Shop {} từ 0đ -> {}đ", soDonHang, hTotal);
+                        }
+                    } catch (Exception ex) {
+                        log.warn("[JOB-01] Không thể khắc phục tổng tiền cho đơn {}: {}", soDonHang, ex.getMessage());
+                    }
+                }
+
+                // 5. Lưu package_id vào ghi chú nếu chưa có
+                String pkgId = order.getFirstPackageId();
+                if (pkgId != null && !pkgId.isBlank() && !existing.getGhiChu().contains("[KIỆN:")) {
+                    existing.setGhiChu((existing.getGhiChu() != null && !existing.getGhiChu().isBlank() ? existing.getGhiChu() + " | " : "") + "[KIỆN: " + pkgId + "]");
+                    existing.setNgayCapNhat(Instant.now());
+                    donBanHangRepository.save(existing);
+                }
             }
             return false;
         }
@@ -900,16 +928,18 @@ public class OmnichannelOrderSyncJob {
         KhachHang khachHang = resolveTikTokCustomer(order, addr, phone);
 
         BigDecimal totalPrice = BigDecimal.ZERO;
-        if (order.getTotalAmount() != null && !order.getTotalAmount().isBlank()) {
+        String rawTotal = order.layTongTienThanhToan();
+        if (rawTotal != null && !rawTotal.isBlank()) {
             try {
-                totalPrice = new BigDecimal(order.getTotalAmount().trim());
+                totalPrice = new BigDecimal(rawTotal.trim());
             } catch (Exception ignored) {}
         }
 
         BigDecimal shippingFee = BigDecimal.ZERO;
-        if (order.getShippingFee() != null && !order.getShippingFee().isBlank()) {
+        String rawSf = order.layPhiVanChuyen();
+        if (rawSf != null && !rawSf.isBlank()) {
             try {
-                shippingFee = new BigDecimal(order.getShippingFee().trim());
+                shippingFee = new BigDecimal(rawSf.trim());
             } catch (Exception ignored) {}
         }
         BigDecimal price = totalPrice.subtract(shippingFee).max(BigDecimal.ZERO);
@@ -922,6 +952,22 @@ public class OmnichannelOrderSyncJob {
         Instant ngayDat = order.getCreateTime() != null ? Instant.ofEpochMilli(order.getCreateTime() * 1000L) : Instant.now();
         int trangThai = TikTokOrderMapper.mapTrangThaiDonHang(order.getStatus());
         String ttThanhToan = TikTokOrderMapper.mapTrangThaiThanhToan(order.getStatus(), order.getPaidTime(), order.getPaymentMethodName());
+
+        StringBuilder noteBuilder = new StringBuilder();
+        if (order.laYeuCauHuy()) {
+            noteBuilder.append("[KHÁCH YÊU CẦU HỦY] ").append(order.getCancelReason() != null ? order.getCancelReason() : "").append(" | ");
+        }
+        noteBuilder.append("Đơn hàng đồng bộ tự động từ TikTok Shop #").append(orderId);
+        if (order.getFirstPackageId() != null && !order.getFirstPackageId().isBlank()) {
+            noteBuilder.append(" | [KIỆN: ").append(order.getFirstPackageId().trim()).append("]");
+        }
+        if (order.getTrackingNumber() != null && !order.getTrackingNumber().isBlank()) {
+            noteBuilder.append(" | [VẬN ĐƠN: ").append(order.getTrackingNumber().trim());
+            if (order.getShippingProvider() != null && !order.getShippingProvider().isBlank()) {
+                noteBuilder.append(" - ").append(order.getShippingProvider().trim());
+            }
+            noteBuilder.append("]");
+        }
 
         DonBanHang don = DonBanHang.builder()
                 .soDonHang(soDonHang)
@@ -937,7 +983,7 @@ public class OmnichannelOrderSyncJob {
                 .tongCong(totalPrice)
                 .trangThaiThanhToan(ttThanhToan)
                 .diaChiGiaoHang(address)
-                .ghiChu(order.laYeuCauHuy() ? "[KHÁCH YÊU CẦU HỦY] " + (order.getCancelReason() != null ? order.getCancelReason() : "") + " | Đơn hàng đồng bộ từ TikTok Shop #" + orderId : "Đơn hàng đồng bộ tự động từ TikTok Shop #" + orderId)
+                .ghiChu(noteBuilder.toString())
                 .build();
 
         DonBanHang savedOrder = donBanHangRepository.save(don);

@@ -1073,6 +1073,7 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
         String trackingCode = null;
         String carrierName = null;
         String packageId = null;
+        String shippingDocUrl = null;
 
         if (donGoc != null) {
             KhachHang kh = donGoc.getKhachHang();
@@ -1202,7 +1203,25 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                 }
             }
 
-            if (lazadaRoutingDecoder != null) {
+            String shippingDocUrl = null;
+            if (donGoc.getGhiChu() != null) {
+                java.util.regex.Matcher m = java.util.regex.Pattern.compile("\\[PDF_AWB:\\s*([^\\]]+)\\]").matcher(donGoc.getGhiChu());
+                if (m.find()) {
+                    shippingDocUrl = m.group(1).trim();
+                }
+            }
+
+            boolean isTikTok = kb != null && ("TIKTOK".equalsIgnoreCase(kb.getMaKenh()) || "TIKTOK_SHOP".equalsIgnoreCase(kb.getMaKenh()));
+            if (isTikTok) {
+                loaiDichVu = "Giao Nhanh 24H";
+                if (carrierName == null || carrierName.isBlank()) {
+                    donViPickup = "J&T EXPRESS";
+                    donViDelivery = "J&T EXPRESS";
+                }
+                maDinhTuyen = "473 / H024V02 / 018";
+                maTramPhat = null;
+                tagGiaoNhan = null;
+            } else if (lazadaRoutingDecoder != null) {
                 com.fasterxml.jackson.databind.JsonNode traceNode = null;
                 if (kb != null && ("LAZADA".equalsIgnoreCase(kb.getMaKenh()) || "LAZADA_SANDBOX".equalsIgnoreCase(kb.getMaKenh()))
                         && donGoc.getMaDonHangKenh() != null && lazadaClient != null && kenhBanHangService != null) {
@@ -1252,6 +1271,7 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                     .donViPickup(donViPickup)
                     .donViDelivery(donViDelivery)
                     .loaiDichVu(loaiDichVu)
+                    .shippingDocUrl(shippingDocUrl)
                     .build();
         }
 
@@ -1305,6 +1325,7 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                 .donViPickup(donBanHangDto != null ? donBanHangDto.getDonViPickup() : "BEST EXPRESS")
                 .donViDelivery(donBanHangDto != null ? donBanHangDto.getDonViDelivery() : "BEST EXPRESS")
                 .loaiDichVu(donBanHangDto != null ? donBanHangDto.getLoaiDichVu() : "STANDARD")
+                .shippingDocUrl(shippingDocUrl)
                 .build();
 
         List<ChiTietPhieuXuatKho> chiTietList = chiTietPhieuXuatKhoRepository.findByPhieuXuatKhoIdAndLoHangIsNull(phieu.getId());
