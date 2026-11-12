@@ -66,6 +66,13 @@
   text-align: left;
 }
 .pos-invoice-tab-select span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Nhãn "Hóa đơn N" không bao giờ co (số hóa đơn luôn đọc được); chỉ tên khách co và cắt "…". */
+.pos-invoice-tab-select .pos-invoice-tab-label { flex-shrink: 0; }
+.pos-invoice-tab-select .pos-invoice-tab-customer { flex: 0 100 auto; min-width: 0; margin-left: -4px; font-weight: 500; opacity: .75; }
+/* Giữ tay trên màn cảm ứng để mở menu: không bật menu chọn chữ / gọi lên của trình duyệt. */
+.pos-invoice-tab { -webkit-touch-callout: none; user-select: none; }
+/* Tab đang mở menu chuột phải (Radix gắn data-state="open" lên tab). */
+.pos-invoice-tab[data-state="open"] { outline: 2px dashed color-mix(in srgb, var(--color-bo-primary, #1677ff) 55%, transparent); outline-offset: -2px; }
 .pos-invoice-tab-select .pos-invoice-tab-count {
   flex-shrink: 0;
   min-width: 18px;
@@ -146,3 +153,16 @@
 .is-bar .pos-invoice-tab.is-active .pos-invoice-tab-close:hover { background: #d6e7ff; }
 .is-bar .pos-invoice-add { margin-bottom: 0; }
 .is-bar .pos-invoice-add:hover { background: #f1f5f9; }
+
+/*
+ * Tab có tên khách ("Hóa đơn 3 · Lan"): nới theo nội dung nhưng có trần, tên dài cắt "…".
+ * Không có trần thì tab nở theo cả họ tên dài (hơn 300px). Tab không có tên khách giữ nguyên như cũ.
+ */
+.pos-invoice-tab:has(.pos-invoice-tab-customer) { flex: 0 0 auto; min-width: 176px; max-width: 216px; }
+.pos-invoice-tab:has(.pos-invoice-tab-customer) .pos-invoice-tab-select { overflow: hidden; }
+.is-bar .pos-invoice-tab:has(.pos-invoice-tab-customer) { flex: 0 0 auto; min-width: 152px; max-width: 196px; }
+/* Điện thoại: tab hẹp, không đủ chỗ cho tên — ẩn tên (họ tên đầy đủ vẫn ở chú thích khi giữ / rê chuột). */
+@media (max-width: 640px) {
+  .pos-invoice-strip:not(.is-bar) .pos-invoice-tab-customer { display: none; }
+  .pos-invoice-strip:not(.is-bar) .pos-invoice-tab:has(.pos-invoice-tab-customer) { flex: 0 0 148px; min-width: auto; max-width: none; }
+}

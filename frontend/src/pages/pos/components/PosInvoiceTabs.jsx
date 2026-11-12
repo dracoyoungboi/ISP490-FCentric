@@ -1,27 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
-import { AlertTriangle, CheckCircle2, FileText, Lock, Plus, QrCode, X } from 'lucide-react';
-import { canTraLaiTienMat } from '../pos-payment';
+import { FileText, Plus, X } from 'lucide-react';
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from '@/components/ui/context-menu';
+import { getTabStatus, tenKhachTrenTab } from '../pos-invoice-status';
 import './pos-invoice-tabs.css';
 import { t } from "@/i18n";
 
-/** Trạng thái hiển thị trên tab để thu ngân nhìn là biết hóa đơn nào đang chờ/đã xong. */
-function getTabStatus(invoice) {
-  if (invoice.attempt?.status === 'succeeded') return { icon: CheckCircle2, label: t("Đã thanh toán"), className: 'text-emerald-600' };
-  if (invoice.payos?.trangThai === 'PENDING') return { icon: QrCode, label: t("Đang chờ chuyển khoản"), className: 'text-amber-600' };
-  // Trước PAID_ERROR: tiền về muộn sau khi hủy mã thì quầy vẫn phải trả lại tiền mặt khách đưa trước
-  if (canTraLaiTienMat(invoice.payos)) return { icon: AlertTriangle, label: t("Cần trả lại tiền mặt khách đưa trước"), className: 'text-red-600' };
-  if (invoice.payos?.trangThai === 'PAID_ERROR') return { icon: AlertTriangle, label: t("Đã nhận tiền, chờ quản lý xử lý"), className: 'text-red-600' };
-  if (invoice.attempt?.status === 'pending' || invoice.attempt?.status === 'unknown') return { icon: Lock, label: t("Đang xử lý thanh toán"), className: 'text-amber-600' };
-  return null;
-}
+const menuItemClass = 'gap-4 rounded-md px-2.5 py-1.5 text-[13px] text-bo-foreground focus:bg-bo-primary-soft focus:text-bo-primary';
 
 /**
  * Dải hóa đơn đang mở. variant:
  * - 'bar'  : nằm trên thanh trên cùng (màn từ 1280px — chốt Mẫu B), tab dạng viên, cuộn ngang khi nhiều.
  * - 'strip': hàng riêng dưới thanh trên cùng (màn hẹp hơn 1280px), giữ kiểu thẻ cũ.
  * Cả hai giữ nguyên hành vi: chọn/đóng/thêm, phím mũi tên/Home/End/Delete, tự cuộn tới hóa đơn đang chọn.
+ * Chuột phải (giữ tay trên màn cảm ứng, Shift+F10 / phím Menu) trên một tab: Đóng hóa đơn trống, Đóng tất cả
+ * và — khi vừa đóng hóa đơn có nội dung — Mở lại hóa đơn vừa đóng. Số đếm do getCloseCounts(số tab) tính.
  */
-export default function PosInvoiceTabs({ invoices, activeInvoice, disabled, onSelect, onClose, onAdd, variant = 'strip' }) {
+export default function PosInvoiceTabs({
+  invoices, activeInvoice, disabled, onSelect, onClose, onAdd, variant = 'strip',
+  walkInCustomerId = null, getCloseCounts, onCloseEmpty, onCloseAll, undoCount = 0, onUndoClose,
+}) {
   const tabRefs = useRef(new Map());
   const listRef = useRef(null);
   // Còn tab bị khuất bên trái/phải (nhiều hóa đơn): làm mờ mép tương ứng để thu ngân biết có thể cuộn.
@@ -54,6 +51,15 @@ export default function PosInvoiceTabs({ invoices, activeInvoice, disabled, onSe
     return () => window.removeEventListener('resize', revealActive);
   }, [activeInvoice]);
 
+  // Đóng menu chuột phải: lệnh vừa chọn có thể mở hộp hỏi (hộp đó giữ con trỏ) hoặc đổi tab đang chọn.
+  // Chờ một nhịp rồi mới trả con trỏ về tab ĐANG chọn, và chỉ khi con trỏ đang rơi ra ngoài (body).
+  const focusActiveTab = () => {
+    window.setTimeout(() => {
+      if (document.activeElement && document.activeElement !== document.body) return;
+      listRef.current?.querySelector('[role="tab"][aria-selected="true"]')?.focus();
+    }, 0);
+  };
+
   const handleKeyDown = (event, index) => {
     if (disabled) return;
     let nextIndex;
@@ -85,9 +91,12 @@ export default function PosInvoiceTabs({ invoices, activeInvoice, disabled, onSe
           const status = getTabStatus(invoice);
           const StatusIcon = status?.icon ?? FileText;
           const itemCount = invoice.cart.reduce((sum, line) => sum + line.quantity, 0);
-          const title = t("Hóa đơn {{number}}{{soSanPham}}{{trangThai}}", { number: invoice.number, soSanPham: itemCount ? t(" · {{count}} sản phẩm", { count: itemCount }) : '', trangThai: status ? ` · ${status.label}` : '' });
+          const tenKhach = tenKhachTrenTab(invoice.customer, walkInCustomerId);
+          const title = t("Hóa đơn {{number}}{{khach}}{{soSanPham}}{{trangThai}}", { number: invoice.number, khach: tenKhach ? ` · ${invoice.customer.name}` : '', soSanPham: itemCount ? t(" · {{count}} sản phẩm", { count: itemCount }) : '', trangThai: status ? ` · ${status.label}` : '' });
           return (
-            <div className={`pos-invoice-tab${active ? ' is-active' : ''}`} key={invoice.number}>
+            <ContextMenu key={invoice.number}>
+            <ContextMenuTrigger asChild disabled={disabled || !getCloseCounts}>
+            <div className={`pos-invoice-tab${active ? ' is-active' : ''}`}>
               <button
                 aria-controls="pos-invoice-panel"
                 aria-selected={active}
@@ -103,16 +112,48 @@ export default function PosInvoiceTabs({ invoices, activeInvoice, disabled, onSe
                 type="button"
               >
                 <StatusIcon aria-hidden="true" className={status?.className ?? 'pos-invoice-tab-icon'} size={15} strokeWidth={1.8} />
-                <span>{t("Hóa đơn {{number}}", { number: invoice.number })}</span>
+                <span className="pos-invoice-tab-label">{t("Hóa đơn {{number}}", { number: invoice.number })}</span>
+                {tenKhach ? <span className="pos-invoice-tab-customer">· {tenKhach}</span> : null}
                 {status ? <span className="sr-only">({status.label})</span> : null}
                 {itemCount ? <span className="pos-invoice-tab-count" aria-label={t("{{count}} sản phẩm", { count: itemCount })}>{itemCount}</span> : null}
               </button>
               <button aria-label={t("Đóng hóa đơn {{number}}", { number: invoice.number })} className="pos-invoice-tab-close" disabled={disabled} onClick={() => onClose(invoice.number)} title={t("Đóng hóa đơn {{number}}", { number: invoice.number })} type="button"><X aria-hidden="true" size={14} strokeWidth={1.8} /></button>
             </div>
+            </ContextMenuTrigger>
+            {getCloseCounts ? <TabMenu counts={getCloseCounts(invoice.number)} number={invoice.number} onCloseAll={onCloseAll} onCloseEmpty={onCloseEmpty} onRestoreFocus={focusActiveTab} onUndoClose={onUndoClose} undoCount={undoCount} /> : null}
+            </ContextMenu>
           );
         })}
       </div>
       <button aria-label={t("Thêm hóa đơn")} className="pos-invoice-add" disabled={disabled} onClick={onAdd} title={t("Thêm hóa đơn (F2)")} type="button"><Plus aria-hidden="true" size={19} strokeWidth={1.8} /></button>
     </div>
+  );
+}
+
+/**
+ * Menu chuột phải của một tab. Mục không có gì để làm thì mờ đi (không ẩn) để vị trí các mục không đổi.
+ * Radix không tự trả con trỏ về tab (lệnh có thể mở hộp hỏi cần giữ con trỏ): onRestoreFocus lo việc đó.
+ */
+function TabMenu({ number, counts, onCloseEmpty, onCloseAll, undoCount, onUndoClose, onRestoreFocus }) {
+  return (
+    <ContextMenuContent className="min-w-[196px] rounded-lg border-bo-border bg-bo-surface p-1 text-bo-foreground shadow-lg" onCloseAutoFocus={(event) => { event.preventDefault(); onRestoreFocus(); }}>
+      <ContextMenuItem className={menuItemClass} disabled={!counts.empty} onSelect={() => onCloseEmpty(number)}>
+        <span className="flex-1">{t("Đóng hóa đơn trống")}</span>
+        {counts.empty ? <span className="text-xs tabular-nums text-bo-muted">{counts.empty}</span> : null}
+      </ContextMenuItem>
+      <ContextMenuItem className={`${menuItemClass} focus:bg-red-50 focus:text-red-600`} disabled={!counts.all} onSelect={() => onCloseAll(number)}>
+        <span className="flex-1">{t("Đóng tất cả")}</span>
+        {counts.all ? <span className="text-xs tabular-nums text-bo-muted">{counts.all}</span> : null}
+      </ContextMenuItem>
+      {undoCount ? (
+        <>
+          <ContextMenuSeparator className="bg-bo-border" />
+          <ContextMenuItem className={menuItemClass} onSelect={() => onUndoClose()}>
+            <span className="flex-1">{t("Mở lại hóa đơn vừa đóng")}</span>
+            <span className="text-xs tabular-nums text-bo-muted">{undoCount}</span>
+          </ContextMenuItem>
+        </>
+      ) : null}
+    </ContextMenuContent>
   );
 }
