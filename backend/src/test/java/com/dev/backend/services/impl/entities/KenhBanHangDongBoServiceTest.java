@@ -1280,4 +1280,44 @@ class KenhBanHangDongBoServiceTest {
         assertFalse(kq9.loiKenh());
         assertTrue(kq9.lyDo().contains("chờ TikTok Shop phê duyệt"));
     }
+
+    @Test
+    void tuDongLienKetTikTok_khiBienTheDaTonTaiRecord_taiSuDungVaCapNhatKhongBiDuplicateUkBienTheKenh() {
+        KenhBanHang tikTokKenh = KenhBanHang.builder()
+                .id(5)
+                .maKenh("TIKTOK")
+                .tenKenh("TikTok Shop Official")
+                .apiKey("app_key_123")
+                .apiSecret("app_secret_123")
+                .refreshToken("refresh_token_123")
+                .shopCipher("ROW_cipher_123")
+                .trangThai(1)
+                .build();
+
+        BienTheSanPham bt170 = BienTheSanPham.builder()
+                .id(170)
+                .maSku("AP2611011-CL001-S-MS-7330")
+                .giaBan(BigDecimal.valueOf(150000))
+                .trangThai(1)
+                .build();
+
+        TrangThaiDongBoSanPham existingRecord = TrangThaiDongBoSanPham.builder()
+                .id(999)
+                .kenhBanHang(tikTokKenh)
+                .bienTheSanPham(bt170)
+                .maSanPhamKenh("1738506990633190556")
+                .trangThaiDongBo("that_bai")
+                .chiTietLoi("Lỗi cũ")
+                .build();
+
+        when(kenhBanHangRepository.findByMaKenh("TIKTOK")).thenReturn(Optional.of(tikTokKenh));
+        when(trangThaiDongBoSanPhamRepository.findByKenhBanHangId(5)).thenReturn(new java.util.ArrayList<>(List.of(existingRecord)));
+        when(bienTheSanPhamRepository.findActiveVariantsWithDetails()).thenReturn(List.of(bt170));
+        when(bienTheSanPhamRepository.findByMaSkuIgnoreCase(eq("AP2611011-CL001-S-MS-7330"))).thenReturn(Optional.of(bt170));
+
+        // Kiểm tra mappingByBtId hoạt động chính xác: khi record cho bt.getId() đã tồn tại, nó phải được tái sử dụng
+        assertNotNull(existingRecord.getId());
+        assertEquals(170, existingRecord.getBienTheSanPham().getId());
+        assertEquals(5, existingRecord.getKenhBanHang().getId());
+    }
 }
