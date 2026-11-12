@@ -296,34 +296,129 @@
     justify-content: flex-end;
 }
 
-/* Nút mở PDF chính thức từ TikTok Shop */
-.ttawb-external-pdf-banner {
+/* Nút và Toolbar mở PDF chính thức từ TikTok Shop */
+.ttawb-official-pdf-section {
+    width: 100%;
+    margin-bottom: 4mm;
+}
+
+.ttawb-official-pdf-toolbar {
     display: flex;
     align-items: center;
     justify-content: space-between;
     background: #f0fdf4;
-    border: 1px solid #86efac;
-    padding: 2mm 3mm;
-    margin-bottom: 2mm;
+    border: 1.5px solid #22c55e;
+    padding: 2.5mm 3.5mm;
+    border-radius: 6px;
+    margin-bottom: 3mm;
+}
+
+.ttawb-official-pdf-badge {
+    display: flex;
+    align-items: center;
+    gap: 2mm;
+    font-weight: 700;
+    font-size: 8pt;
+    color: #15803d;
+}
+
+.ttawb-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #22c55e;
+    box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.25);
+    display: inline-block;
+}
+
+.ttawb-official-pdf-actions {
+    display: flex;
+    gap: 2mm;
+}
+
+.ttawb-btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 1.5mm 3.5mm;
     border-radius: 4px;
+    font-size: 7.5pt;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.15s ease;
+}
+
+.ttawb-btn-primary {
+    background: #16a34a;
+    color: #ffffff;
+}
+
+.ttawb-btn-primary:hover {
+    background: #15803d;
+}
+
+.ttawb-btn-secondary {
+    background: #ffffff;
+    color: #16a34a;
+    border-color: #86efac;
+}
+
+.ttawb-btn-secondary:hover {
+    background: #f0fdf4;
+}
+
+.ttawb-official-pdf-embed-wrapper {
+    width: 100%;
+    height: 144mm;
+    border: 1.5px solid #000000;
+    border-radius: 4px;
+    overflow: hidden;
+    background: #f8fafc;
+}
+
+.ttawb-official-pdf-frame {
+    width: 100%;
+    height: 100%;
+    border: none;
+}
+
+/* Cảnh báo khi sàn chưa cấp PDF */
+.ttawb-warning-banner {
+    background: #fffbeb;
+    border: 1.5px solid #f59e0b;
+    border-radius: 6px;
+    padding: 2.5mm 3.5mm;
+    margin-bottom: 3mm;
     font-size: 8pt;
 }
 
-.ttawb-external-pdf-btn {
-    background: #16a34a;
-    color: #ffffff;
-    border: none;
-    border-radius: 3px;
-    padding: 1mm 3mm;
-    font-weight: 700;
-    font-size: 7.5pt;
-    cursor: pointer;
-    text-decoration: none;
+.ttawb-warning-title {
+    font-weight: 800;
+    color: #b45309;
+    margin-bottom: 1mm;
+}
+
+.ttawb-warning-desc {
+    color: #78350f;
+    line-height: 1.35;
+}
+
+.ttawb-simulated-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
 }
 
 @media print {
-    .ttawb-external-pdf-banner {
+    .ttawb-official-pdf-toolbar,
+    .ttawb-warning-banner {
         display: none !important;
+    }
+    .ttawb-official-pdf-embed-wrapper {
+        border: none !important;
+        width: 100% !important;
+        height: 100% !important;
     }
 }
 
