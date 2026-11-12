@@ -72,6 +72,10 @@ class PosCatalogServiceTest {
         ReflectionTestUtils.setField(service, "anhQuanAoRepository", anhQuanAoRepository);
         ReflectionTestUtils.setField(service, "phanQuyenNguoiDungKhoRepository", phanQuyenNguoiDungKhoRepository);
         ReflectionTestUtils.setField(service, "banDuocTaiQuayService", banDuocTaiQuayService);
+        // Danh mục / tra cứu gọi bản kèm cờ kiểm kê: trả đúng số của banDuocCuaMaDangGiu mà từng test cấu hình
+        lenient().when(banDuocTaiQuayService.banDuocCuaMaDangGiuKemKiemKe(any(), any())).thenAnswer(inv ->
+                new BanDuocTaiQuayService.BanDuocKemKiemKe(
+                        banDuocTaiQuayService.banDuocCuaMaDangGiu(inv.getArgument(0), inv.getArgument(1)), Set.of()));
     }
 
     @AfterEach

@@ -58,18 +58,48 @@ public class LoDangGiuService {
      */
     public Map<Integer, BigDecimal> dangGiuTheoLo(Integer khoId, Collection<Integer> loHangIds,
                                                   Integer boQuaPhieuNhatId, Integer boQuaPhieuXuatId) {
-        Map<Integer, BigDecimal> ketQua = new HashMap<>();
+        Map<Integer, BigDecimal> ketQua = dangGiuPhieu(khoId, loHangIds, boQuaPhieuNhatId, boQuaPhieuXuatId);
         if (khoId == null || loHangIds == null || loHangIds.isEmpty()) {
             return ketQua;
         }
-        cong(ketQua, phanBoLoNhatHangRepository.sumDangGiuTheoLo(khoId, loHangIds, boQuaPhieuNhatId));
-        cong(ketQua, chiTietPhieuXuatKhoRepository.sumDangGiuPhieuBanChuaXuat(khoId, loHangIds, boQuaPhieuXuatId));
         // Phần đang kiểm kê (kệ đang khóa, danh mục đang kiểm, kho kiểm toàn bộ) không được lấy: POS, phân bổ nhặt FIFO và
         // chọn lô tự lấy ở kệ tự do (đặc tả kiểm kê khoanh vùng AC-22)
         if (khoaKiemKeGuard != null) {
             khoaKiemKeGuard.luongDangKiemKe(khoId, loHangIds).forEach((lo, sl) -> ketQua.merge(lo, sl, BigDecimal::add));
         }
         return ketQua;
+    }
+
+    /** Phần phiếu nhặt đang mở + phiếu xuất bán chưa xuất giữ theo lô (chưa gồm phần đang kiểm kê). */
+    private Map<Integer, BigDecimal> dangGiuPhieu(Integer khoId, Collection<Integer> loHangIds,
+                                                  Integer boQuaPhieuNhatId, Integer boQuaPhieuXuatId) {
+        Map<Integer, BigDecimal> ketQua = new HashMap<>();
+        if (khoId == null || loHangIds == null || loHangIds.isEmpty()) {
+            return ketQua;
+        }
+        cong(ketQua, phanBoLoNhatHangRepository.sumDangGiuTheoLo(khoId, loHangIds, boQuaPhieuNhatId));
+        cong(ketQua, chiTietPhieuXuatKhoRepository.sumDangGiuPhieuBanChuaXuat(khoId, loHangIds, boQuaPhieuXuatId));
+        return ketQua;
+    }
+
+    /** Phần đang giữ theo lô tách hai vế: phiếu (nhặt / xuất bán) và đang kiểm kê. {@link #tong()} = dangGiuTheoLo. */
+    public record DangGiuTach(Map<Integer, BigDecimal> phieu, Map<Integer, BigDecimal> kiemKe) {
+        public Map<Integer, BigDecimal> tong() {
+            Map<Integer, BigDecimal> ketQua = new HashMap<>(phieu);
+            kiemKe.forEach((lo, sl) -> ketQua.merge(lo, sl, BigDecimal::add));
+            return ketQua;
+        }
+    }
+
+    /**
+     * Như dangGiuTheoLo (không bỏ qua phiếu nào) nhưng trả riêng phần đang kiểm kê: quầy biết mã nào bị kiểm kê làm
+     * giảm số bán được mà không phải đọc chốt chặn kiểm kê lần hai.
+     */
+    public DangGiuTach dangGiuTachKiemKe(Integer khoId, Collection<Integer> loHangIds) {
+        Map<Integer, BigDecimal> phieu = dangGiuPhieu(khoId, loHangIds, null, null);
+        Map<Integer, BigDecimal> kiemKe = khoaKiemKeGuard == null || khoId == null || loHangIds == null || loHangIds.isEmpty()
+                ? new HashMap<>() : khoaKiemKeGuard.luongDangKiemKe(khoId, loHangIds);
+        return new DangGiuTach(phieu, kiemKe);
     }
 
     /**

@@ -10,6 +10,7 @@ import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.customize.PosCatalogItemDto;
 import com.dev.backend.dto.response.customize.PosCheckoutRecoveryResponse;
 import com.dev.backend.dto.response.customize.PosCheckoutResponse;
+import com.dev.backend.dto.response.customize.PosKiemKeTrangThaiDto;
 import com.dev.backend.dto.response.entities.KhachHangDto;
 import com.dev.backend.dto.response.customize.PayosPaymentLinkDto;
 import com.dev.backend.dto.response.customize.PosPayosGiaoDichDto;
@@ -112,6 +113,31 @@ public class PosController {
                 ResponseData.<Map<Integer, BigDecimal>>builder()
                         .status(200)
                         .data(posCatalogService.getAvailableStock(khoId, ids))
+                        .message("Success")
+                        .error(null)
+                        .build()
+        );
+    }
+
+    /**
+     * Kho đang bán có đợt kiểm kê đang giữ khóa không (dải báo ở quầy; kiểm toàn kho thì tắt thanh toán). Cùng kiểm tra
+     * quyền kho như catalog.
+     */
+    @GetMapping("/kiem-ke")
+    @RequireAuth(
+            roles = {
+                    IRoleType.quan_tri_vien,
+                    IRoleType.quan_ly_kho,
+                    IRoleType.nhan_vien_kho,
+                    IRoleType.nhan_vien_ban_hang
+            },
+            rolesLogic = RequireAuth.LogicType.OR
+    )
+    public ResponseEntity<ResponseData<PosKiemKeTrangThaiDto>> getTrangThaiKiemKe(@RequestParam Integer khoId) {
+        return ResponseEntity.ok(
+                ResponseData.<PosKiemKeTrangThaiDto>builder()
+                        .status(200)
+                        .data(posCatalogService.trangThaiKiemKe(khoId))
                         .message("Success")
                         .error(null)
                         .build()

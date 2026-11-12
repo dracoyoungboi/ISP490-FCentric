@@ -73,6 +73,8 @@ function PosProductCard({
   const groupLabel = groupTitle(group);
   const totalLeft = variants.reduce((sum, variant) => sum + Math.max(0, knownStock(variant) ?? 0), 0);
   const allOut = variants.length > 0 && variants.every(isKnownOut);
+  // Hết mọi cỡ và có cỡ đang kiểm kê: ghi "Đang kiểm kê" (hàng vẫn còn, tạm chưa bán), không ghi "Hết hàng"
+  const outKiemKe = allOut && variants.some((variant) => variant.dangKiemKe);
   // Giá theo các cỡ còn bán và có giá (cỡ đã hết, giá 0 không kéo khoảng giá đi).
   const summary = useMemo(() => priceSummary(variants), [variants]);
   const priceLabel = priceLabelOf(summary);
@@ -177,7 +179,7 @@ function PosProductCard({
           {/* Màn hẹp: dòng phụ được xuống dòng (tối đa 2 dòng) thay vì cắt mất "còn N". */}
           <span className="line-clamp-2 text-[11px] leading-4 text-bo-muted sm:line-clamp-1">
             <ColorText group={group} />
-            {group.colorName || group.materialName ? ' · ' : ''}{t("{{count}} kích cỡ", { count: variants.length })} · {allOut ? t("hết hàng") : t("còn {{totalLeft}}", { totalLeft: formatCount(totalLeft) })}
+            {group.colorName || group.materialName ? ' · ' : ''}{t("{{count}} kích cỡ", { count: variants.length })} · {outKiemKe ? t("đang kiểm kê") : allOut ? t("hết hàng") : t("còn {{totalLeft}}", { totalLeft: formatCount(totalLeft) })}
           </span>
         </button>
         {stacked ? null : chips}
@@ -199,7 +201,7 @@ function PosProductCard({
             mặt người mẫu, không để hai dải trống). Ảnh to hơn có ở khay chọn cỡ. */}
         <PosProductImage className="h-full w-full" fit="fill" iconSize={28} src={group.image} />
         <span className={`absolute left-1.5 top-1.5 rounded px-1.5 py-0.5 text-[11px] font-medium shadow-sm ${allOut ? 'bg-slate-200 text-slate-600' : 'bg-white/95 text-slate-700'}`}>
-          {allOut ? t("Hết hàng") : t("Còn {{totalLeft}}", { totalLeft: formatCount(totalLeft) })}
+          {outKiemKe ? t("Đang kiểm") : allOut ? t("Hết hàng") : t("Còn {{totalLeft}}", { totalLeft: formatCount(totalLeft) })}
         </span>
       </span>
       <div className="flex flex-1 flex-col pt-2">

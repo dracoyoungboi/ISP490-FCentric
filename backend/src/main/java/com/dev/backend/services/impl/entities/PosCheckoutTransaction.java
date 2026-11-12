@@ -193,8 +193,8 @@ public class PosCheckoutTransaction {
         Map<Integer, BigDecimal> dangGiu = dangGiuTheoLo(request.getKhoId(), lockedLots);
         // dangGiu đã trừ phân bổ lô của phiếu nhặt chuyển kho đang mở: giữ chỗ chỉ tính phần còn lại (không trừ hai lần)
         Map<Integer, BigDecimal> giuChoChuyen = giuChoChuyenKhoService.taiKhoNgoaiPhieuNhat(request.getKhoId(), variantIds);
-        Map<Integer, List<LotAllocation>> allocationByVariant = allocateFifo(items, lotsByVariant, variants,
-                dangGiu, giuChoChuyen);
+        Map<Integer, List<LotAllocation>> allocationByVariant = allocateFifo(request.getKhoId(), items, lotsByVariant,
+                variants, dangGiu, giuChoChuyen);
 
         // 7. Sinh số chứng từ (count+1 — convention repo). Trùng số khi hai giao dịch đếm cùng
         //    lúc -> lỗi unique nổi lên, transaction rollback, caller thử lại bằng transaction
@@ -337,7 +337,7 @@ public class PosCheckoutTransaction {
         List<TonKhoTheoLo> lockedLots = lockLots(request.getKhoId(), variantIds);
         Map<Integer, List<TonKhoTheoLo>> lotsByVariant = lockedLots.stream()
                 .collect(Collectors.groupingBy(t -> t.getLoHang().getBienTheSanPham().getId()));
-        Map<Integer, List<LotAllocation>> allocations = allocateFifo(items, lotsByVariant, variants,
+        Map<Integer, List<LotAllocation>> allocations = allocateFifo(request.getKhoId(), items, lotsByVariant, variants,
                 dangGiuTheoLo(request.getKhoId(), lockedLots),
                 giuChoChuyenKhoService.taiKhoNgoaiPhieuNhat(request.getKhoId(), variantIds));
 
@@ -504,7 +504,8 @@ public class PosCheckoutTransaction {
      * bán được của mã. Tổng bán được dùng CHUNG công thức với danh mục POS (BanDuocTaiQuayService.banDuoc) để số
      * thu ngân thấy và số chặn ở đây không thể lệch nhau.
      */
-    private Map<Integer, List<LotAllocation>> allocateFifo(List<PosCheckoutCreating.PosCheckoutItemCreating> items,
+    private Map<Integer, List<LotAllocation>> allocateFifo(Integer khoId,
+                                                           List<PosCheckoutCreating.PosCheckoutItemCreating> items,
                                                            Map<Integer, List<TonKhoTheoLo>> lotsByVariant,
                                                            Map<Integer, BienTheSanPham> variants,
                                                            Map<Integer, BigDecimal> dangGiu,
@@ -512,6 +513,8 @@ public class PosCheckoutTransaction {
         Map<Integer, List<LotAllocation>> allocationByVariant = new LinkedHashMap<>();
         List<PosInsufficientStockInfo.PosInsufficientItem> insufficient = new ArrayList<>();
         List<ThongDiep> messages = new ArrayList<>();
+        // Thiếu vì cả kho đang kiểm kê toàn bộ: một câu cấp kho thay cho từng câu theo mã
+        ThongDiep cauToanKho = null;
         for (PosCheckoutCreating.PosCheckoutItemCreating item : items) {
             List<TonKhoTheoLo> rows = lotsByVariant.getOrDefault(item.getBienTheSanPhamId(), List.of());
             List<TonKhoTheoLo> fifo = rows.stream()
@@ -532,7 +535,18 @@ public class PosCheckoutTransaction {
                         .canBan(need)
                         .conLai(can)
                         .build());
-                messages.add(ThongDiep.of("banHang.khongDuTonTaiKho", maSku, plain(need), plain(can)));
+                // Thiếu chỉ vì phần đang kiểm kê (AC-22: quầy chỉ lấy ở kệ tự do): nói rõ đợt, không nói "không đủ tồn"
+                // Bỏ phần đang kiểm kê ra mà vẫn thiếu (phiếu khác / phiếu chuyển giữ) thì không đổ cho kiểm kê
+                BigDecimal giuChoMa = giuChoChuyen.get(item.getBienTheSanPhamId());
+                KhoaKiemKeGuard.ThieuDoKiemKe doKiemKe = khoaKiemKeGuard == null ? null
+                        : khoaKiemKeGuard.thieuDoKiemKe(khoId, rows.stream().map(t -> t.getLoHang().getId()).toList(),
+                        can, kk -> BanDuocTaiQuayService.banDuoc(rows, truBot(dangGiu, kk), giuChoMa),
+                        need, "bán tại quầy", maSku);
+                if (doKiemKe != null && doKiemKe.toanKho()) {
+                    cauToanKho = doKiemKe.cau();
+                }
+                messages.add(doKiemKe != null ? doKiemKe.cau()
+                        : ThongDiep.of("banHang.khongDuTonTaiKho", maSku, plain(need), plain(can)));
                 continue;
             }
 
@@ -549,6 +563,10 @@ public class PosCheckoutTransaction {
         }
         if (!insufficient.isEmpty()) {
             // Nhiều mã thiếu: nối các câu bằng "; " như cũ
+            if (cauToanKho != null) {
+                throw new CommonException(cauToanKho, HttpStatus.CONFLICT,
+                        PosInsufficientStockInfo.builder().insufficient(insufficient).build());
+            }
             ThongDiep cau = messages.get(0);
             for (int i = 1; i < messages.size(); i++) {
                 cau = ThongDiep.of("banHang.noiCau", cau, messages.get(i));
@@ -557,6 +575,13 @@ public class PosCheckoutTransaction {
                     PosInsufficientStockInfo.builder().insufficient(insufficient).build());
         }
         return allocationByVariant;
+    }
+
+    /** Phần giữ theo lô sau khi bỏ một phần ra (cắt về 0). */
+    private static Map<Integer, BigDecimal> truBot(Map<Integer, BigDecimal> dangGiu, Map<Integer, BigDecimal> bot) {
+        Map<Integer, BigDecimal> ketQua = new HashMap<>(dangGiu);
+        bot.forEach((lo, sl) -> ketQua.computeIfPresent(lo, (k, v) -> v.subtract(sl).max(BigDecimal.ZERO)));
+        return ketQua;
     }
 
     private String validateRequestId(String requestId) {

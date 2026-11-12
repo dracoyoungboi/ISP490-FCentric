@@ -1012,6 +1012,10 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
             // phiếu đã được trả khỏi so_luong_da_dat ở bước 1)
             BigDecimal conLai = LoDangGiuService.conLai(tonKho, dangGiu);
             if (item.getSoLuongXuat().compareTo(conLai) > 0) {
+                // Phần còn lại đang được kiểm kê (không phải phiếu khác giữ): nói rõ đợt
+                KhoaKiemKeGuard.ThieuDoKiemKe doKiemKe = khoaKiemKeGuard == null ? null
+                        : khoaKiemKeGuard.thieuDoKiemKe(khoId, List.of(loHang.getId()), conLai, item.getSoLuongXuat(), "xuất kho", null);
+                if (doKiemKe != null) throw doKiemKe.loi();
                 throw new CommonException(ThongDiep.of("chungTuKho.loChiConCoTheLay",
                         loHang.getMaLo(), conLai.max(BigDecimal.ZERO).stripTrailingZeros().toPlainString()), HttpStatus.CONFLICT, null);
             }

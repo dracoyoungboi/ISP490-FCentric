@@ -17,6 +17,9 @@ import com.dev.backend.repository.AnhQuanAoRepository;
 import com.dev.backend.repository.BienTheSanPhamRepository;
 import com.dev.backend.repository.PhanQuyenNguoiDungKhoRepository;
 import com.dev.backend.services.impl.multitable.BanDuocTaiQuayService;
+import com.dev.backend.services.impl.kiemke.KhoaKiemKeGuard;
+import com.dev.backend.constant.variables.IKiemKe;
+import com.dev.backend.dto.response.customize.PosKiemKeTrangThaiDto;
 import com.dev.backend.utils.PublicAssetUrl;
 import jakarta.persistence.EntityManager;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -88,6 +91,10 @@ public class PosCatalogService {
     @Autowired
     private BanDuocTaiQuayService banDuocTaiQuayService;
 
+    /** Null khi unit test dựng tay. */
+    @Autowired(required = false)
+    private KhoaKiemKeGuard khoaKiemKeGuard;
+
     /**
      * Danh mục POS GỘP KÍCH CỠ: mỗi phần tử là một mẫu + màu + chất liệu kèm đủ các kích cỡ
      * (PosCatalogNhomBuilder). Phân trang và bộ lọc tồn tính THEO NHÓM:
@@ -152,6 +159,20 @@ public class PosCatalogService {
         return result;
     }
 
+    /**
+     * Đợt kiểm kê đang giữ khóa của kho đang bán (dải báo ở quầy, tắt thanh toán khi kiểm toàn kho). Cùng kiểm tra quyền
+     * kho như danh mục.
+     */
+    @Transactional(readOnly = true)
+    public PosKiemKeTrangThaiDto trangThaiKiemKe(Integer khoId) {
+        Integer authorizedKhoId = authorizeWarehouse(khoId);
+        List<KhoaKiemKeGuard.DotDangKiem> dots = khoaKiemKeGuard == null ? List.of()
+                : khoaKiemKeGuard.dotDangKiem(authorizedKhoId);
+        boolean toanKho = dots.stream().anyMatch(d -> IKiemKe.TOAN_BO.equals(d.loai()));
+        return new PosKiemKeTrangThaiDto(!dots.isEmpty(), toanKho, dots.stream()
+                .map(d -> new PosKiemKeTrangThaiDto.Dot(d.maDot(), d.loai(), d.trangThai())).toList());
+    }
+
     /** null/rỗng -> tat_ca (tương thích client cũ); giá trị lạ -> lỗi 400 rõ ràng. */
     private String chuanHoaBoLocTon(String trangThaiTon) {
         if (trangThaiTon == null || trangThaiTon.isBlank()) {
@@ -193,16 +214,17 @@ public class PosCatalogService {
         Set<Integer> ids = new LinkedHashSet<>();
         khop.forEach(b -> ids.add(b.getBienTheSanPhamId()));
         dayDu.forEach(b -> ids.add(b.getBienTheSanPhamId()));
-        Map<Integer, BigDecimal> tinhLai = banDuocTaiQuayService.banDuocCuaMaDangGiu(khoId, ids);
-        if (tinhLai.isEmpty()) {
+        BanDuocTaiQuayService.BanDuocKemKiemKe tinhLai = banDuocTaiQuayService.banDuocCuaMaDangGiuKemKiemKe(khoId, ids);
+        if (tinhLai.soLuong().isEmpty()) {
             return;
         }
         for (List<PosCatalogBienTheDto> ds : List.of(khop, dayDu)) {
             for (PosCatalogBienTheDto b : ds) {
-                BigDecimal so = tinhLai.get(b.getBienTheSanPhamId());
+                BigDecimal so = tinhLai.soLuong().get(b.getBienTheSanPhamId());
                 if (so != null) {
                     b.setSoLuongKhaDung(so);
                 }
+                b.setDangKiemKe(tinhLai.dangKiemKe().contains(b.getBienTheSanPhamId()));
             }
         }
     }
@@ -212,13 +234,14 @@ public class PosCatalogService {
         if (items == null || items.isEmpty()) {
             return;
         }
-        Map<Integer, BigDecimal> tinhLai = banDuocTaiQuayService.banDuocCuaMaDangGiu(khoId,
+        BanDuocTaiQuayService.BanDuocKemKiemKe tinhLai = banDuocTaiQuayService.banDuocCuaMaDangGiuKemKiemKe(khoId,
                 items.stream().map(PosCatalogItemDto::getBienTheSanPhamId).toList());
         for (PosCatalogItemDto item : items) {
-            BigDecimal so = tinhLai.get(item.getBienTheSanPhamId());
+            BigDecimal so = tinhLai.soLuong().get(item.getBienTheSanPhamId());
             if (so != null) {
                 item.setSoLuongKhaDung(so);
             }
+            item.setDangKiemKe(tinhLai.dangKiemKe().contains(item.getBienTheSanPhamId()));
         }
     }
 

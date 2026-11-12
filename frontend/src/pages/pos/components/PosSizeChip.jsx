@@ -20,17 +20,21 @@ function sizeState(group, variant, inCart) {
   const low = !out && stock !== null && stock <= LOW_STOCK;
   const label = `${groupTitle(group)} · ${variant.tenSize}`;
   const inCartNote = inCart > 0 ? t(", đang có {{inCart}} trong hóa đơn", { inCart }) : '';
+  // Hết vì phần đang kiểm kê (hàng vẫn còn trên kệ, tạm chưa bán): ghi "Kiểm" thay cho "Hết" (khe Lưới chỉ ~30px chữ)
+  const kiemKe = out && Boolean(variant.dangKiemKe);
   let description;
-  if (out) description = t("{{label}}: hết hàng", { label });
+  if (kiemKe) description = t("{{label}}: đang kiểm kê, tạm chưa bán", { label });
+  else if (out) description = t("{{label}}: hết hàng", { label });
   else if (over) description = t("{{label}}: trong hóa đơn {{inCart}} nhưng chỉ còn {{stock}}", { label, inCart, stock: formatCount(stock) });
   else if (full) description = t("{{label}}: đã thêm đủ {{stock}} sản phẩm tồn", { label, stock: formatCount(stock) });
   else description = t("Thêm {{label}} ({{ton}}, giá {{price}}{{inCartNote}})", { label, ton: stock === null ? t("chưa có số tồn") : t("tồn {{stock}}", { stock: formatCount(stock) }), price: formatMoney(variant.price), inCartNote });
   return {
     out,
+    kiemKe,
     full,
     over,
     low,
-    stockLabel: out ? t("Hết") : over ? t("Còn {{stock}}", { stock: formatCount(stock) }) : full ? t("Đủ") : stock === null ? '—' : formatCount(stock),
+    stockLabel: kiemKe ? t("Kiểm") : out ? t("Hết") : over ? t("Còn {{stock}}", { stock: formatCount(stock) }) : full ? t("Đủ") : stock === null ? '—' : formatCount(stock),
     description,
   };
 }
@@ -72,7 +76,7 @@ export function SizeChip({ group, variant, inCart = 0, justAdded = false, matche
       type="button"
     >
       {/* Bố cục đã chia đủ khe cho nhãn; cắt chữ chỉ là chốt chặn khi font chưa tải xong. Khay thì xuống dòng. */}
-      <span className={`max-w-full ${dims.wrap ? 'break-words text-center' : 'truncate'} font-semibold leading-4 ${dims.label} ${state.out ? 'line-through' : ''}`}>{variant.tenSize}</span>
+      <span className={`max-w-full ${dims.wrap ? 'break-words text-center' : 'truncate'} font-semibold leading-4 ${dims.label} ${state.out && !state.kiemKe ? 'line-through' : ''}`}>{variant.tenSize}</span>
       <span className={`text-[10px] cam-ung:text-[11.5px] leading-3 tabular-nums ${countTone}`}>{state.stockLabel}</span>
       {showPrice ? (
         <span className={`mt-px text-[10px] font-semibold leading-3 tabular-nums ${state.out ? 'text-slate-400' : 'text-bo-primary-strong'}`}>{formatPriceShort(variant.price)}</span>

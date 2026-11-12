@@ -1048,5 +1048,19 @@
   "Chưa trả": "Not returned",
   "Trả một phần": "Partly returned",
   "Đang tải danh sách hóa đơn": "Loading invoices",
-  "Xem đầy đủ": "View full policy"
+  "Xem đầy đủ": "View full policy",
+  "Kho này đang kiểm kê toàn bộ (đợt {{ma}}).": "This warehouse is running a full stock take ({{ma}}).",
+  "Tạm dừng bán tại quầy tới khi đợt được duyệt hoặc hủy.": "POS sales are paused until the stock take is approved or cancelled.",
+  "Kho này đang kiểm kê một phần (đợt {{ma}}).": "This warehouse is running a partial stock take ({{ma}}).",
+  "Mã đang kiểm kê tạm chưa bán được, các mã khác bán bình thường.": "Items being counted can't be sold for now; other items sell as usual.",
+  "Đợt đã đếm xong, đang chờ duyệt.": "Counting is done and waiting for approval.",
+  "Kho đang kiểm kê toàn bộ": "Full stock take in progress",
+  "Tạm dừng bán tới khi đợt được duyệt hoặc hủy. Chọn bộ lọc Tất cả để tra giá cho khách.": "Sales are paused until the stock take is approved or cancelled. Choose the All filter to look up prices for customers.",
+  "{{label}}: đang kiểm kê, tạm chưa bán": "{{label}}: being counted, not for sale yet",
+  "Đang kiểm": "Counting",
+  "Kiểm": "Count",
+  "Có sản phẩm đang được kiểm kê — xóa dòng đó hoặc chờ đợt kiểm kê được duyệt.": "Some items are being counted. Remove them or wait for the stock take to be approved.",
+  "Kho đang kiểm kê toàn bộ — tạm dừng thanh toán tới khi đợt được duyệt hoặc hủy.": "A full stock take is in progress. Payment is paused until it's approved or cancelled.",
+  "{{name}} đang được kiểm kê, tạm chưa bán.": "{{name}} is being counted and can't be sold yet.",
+  "{{name}} đang được kiểm kê — số lượng giữ nguyên {{quantity}}.": "{{name}} is being counted. Quantity stays at {{quantity}}."
 }

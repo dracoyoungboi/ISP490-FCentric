@@ -138,7 +138,11 @@ function useSearchFocusReady(inputRef, enabled) {
 }
 
 /** Nội dung khi không có hàng nào khớp: nói rõ vì sao (từ khóa / bộ lọc tồn kho). */
-function emptyMessage({ search, stockFilter }) {
+function emptyMessage({ search, stockFilter, kiemKeToanKho }) {
+  // Kho đang kiểm toàn bộ: mọi mã tạm "hết" nên lọc Còn hàng ra rỗng — nói đúng lý do, chỉ cách tra giá
+  if (kiemKeToanKho && stockFilter === 'con_hang') {
+    return { title: t("Kho đang kiểm kê toàn bộ"), hint: t("Tạm dừng bán tới khi đợt được duyệt hoặc hủy. Chọn bộ lọc Tất cả để tra giá cho khách.") };
+  }
   if (search.trim()) {
     return { title: t("Không tìm thấy hàng hóa"), hint: stockFilter !== 'tat_ca' ? t("Thử đổi từ khóa hoặc xem tất cả hàng hóa.") : t("Thử đổi từ khóa khác.") };
   }
@@ -200,6 +204,8 @@ export default function PosProductCatalog({
   resultQuery,
   // Kho của hóa đơn đang mở: đổi kho thì cuộn về đầu và đóng khay chọn cỡ.
   warehouseId = null,
+  // Kho đang kiểm kê toàn bộ (trạng thái trống nói đúng lý do)
+  kiemKeToanKho = false,
 }) {
   const [view, setView] = useState(readInitialView);
   const scrollRef = useRef(null);
@@ -253,7 +259,7 @@ export default function PosProductCatalog({
     if (refocus) trayAnchorRef.current?.focus?.({ preventScroll: true });
   }, []);
 
-  const empty = emptyMessage({ search: resultQuery ?? search, stockFilter });
+  const empty = emptyMessage({ search: resultQuery ?? search, stockFilter, kiemKeToanKho });
   // Thẻ chỉ dựng lại khi danh sách / chế độ xem / bố cục / khay / giỏ đổi (onAdd ổn định) — gõ phím, mã
   // quét đi qua ô tìm kiếm không vẽ lại cả lưới; mỗi thẻ tự bỏ qua nếu số lượng trong giỏ của nó không đổi.
   // Đang tìm theo mã: ô kích cỡ có mã SKU / mã vạch chứa từ khóa được viền nổi (và được ưu tiên hiện khi
