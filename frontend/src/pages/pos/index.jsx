@@ -1,11 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { MonitorSmartphone } from 'lucide-react';
 import PosSalesPage from './PosSalesPage';
-import usePosTabLock from './usePosTabLock';
-import { getMineKhoList } from '@/services/khoService';
-import { laKhoBanTaiQuay } from '@/utils/kho';
-import { donBanHangService } from '@/services/donBanHangService';
-import { currentUserKey, toPosCustomer } from '@/services/posService';
+import { usePosDuLieuChung } from './pos-du-lieu-chung';
 import { Button } from '@/components/ui/button';
 import LoadingState from '@/components/shared/LoadingState';
 import ErrorState from '@/components/shared/ErrorState';
@@ -22,43 +18,32 @@ const CHECKOUT_ENABLED = import.meta.env.VITE_POS_CHECKOUT !== 'false';
 
 /**
  * Trang /pos — màn hình toàn màn hình riêng (ProtectedRoute + PosLayout, không sidebar).
- * Tải kho được phân quyền (POST /api/v1/kho/mine) + khách hàng hợp lệ
- * (GET /api/v1/khach-hang/for-sales-order) qua API client hiện có.
+ * Kho được phân quyền (POST /api/v1/kho/mine) + khách hàng hợp lệ (GET /api/v1/khach-hang/for-sales-order) do khung
+ * PosLayout tải và giữ (pos-du-lieu-chung.js).
  * Lỗi API KHÔNG fallback về dữ liệu mẫu — hiển thị lỗi kèm nút thử lại.
  */
 export default function PosPage() {
-  const [warehouses, setWarehouses] = useState([]);
-  const [customers, setCustomers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [reloadKey, setReloadKey] = useState(0);
-  // Một tab POS cho mỗi tài khoản: tab không giữ quyền thì không render màn bán (không ghi nháp).
-  const [userKey] = useState(currentUserKey);
-  const tabLock = usePosTabLock(userKey);
-
+  // Kho, khách và khóa tab giữ ở khung POS: lần đầu tải (hiện vòng chờ), quay lại từ màn trả hàng thì hiện ngay
+  // bản đã có và làm mới ngầm (khách vừa thêm ở quản trị, kho vừa đổi quyền).
+  const { kho, khach, khoaTab: tabLock } = usePosDuLieuChung();
+  const { tai: taiKho } = kho;
+  const { tai: taiKhach } = khach;
+  const { batDau: batDauKhoa } = tabLock;
   useEffect(() => {
-    Promise.all([
-      getMineKhoList(),
-      donBanHangService.getCustomersForCreate(),
-    ])
-      .then(([khoList, customerResponse]) => {
-        const customerRows = customerResponse?.data?.data ?? [];
-        // Kho tổng chỉ phân phối hàng, kho ảo và kho ngừng hoạt động không bán tại quầy
-        setWarehouses((khoList ?? []).filter(laKhoBanTaiQuay));
-        setCustomers(customerRows.map(toPosCustomer));
-        setLoading(false);
-        setError(null);
-      })
-      .catch((err) => {
-        setError(err);
-        setLoading(false);
-      });
-  }, [reloadKey]);
+    taiKho();
+    taiKhach();
+    // Một tab POS cho mỗi tài khoản: tab không giữ quyền thì không render màn bán (không ghi nháp).
+    batDauKhoa();
+  }, [taiKho, taiKhach, batDauKhoa]);
+
+  const warehouses = useMemo(() => kho.ds ?? [], [kho.ds]);
+  const customers = useMemo(() => khach.ds ?? [], [khach.ds]);
+  const error = kho.loi || khach.loi;
+  const loading = !error && (!kho.ds || !khach.ds);
 
   const retry = () => {
-    setLoading(true);
-    setError(null);
-    setReloadKey((key) => key + 1);
+    kho.thuLai();
+    khach.thuLai();
   };
 
   const initialWarehouseId = useMemo(() => {

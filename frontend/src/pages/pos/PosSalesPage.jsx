@@ -14,6 +14,7 @@ import PosDialogs from './components/PosDialogs';
 import PosProductCatalog from './components/PosProductCatalog';
 import { formatMoney } from './pos-format';
 import { noiDungManKhach } from './pos-man-khach';
+import { usePosDuLieuChung } from './pos-du-lieu-chung';
 import { DUONG_DAN_MAN_HINH_PHU, TEN_CUA_SO_MAN_HINH_PHU, useGuiManKhach } from './man-hinh-phu';
 import { createScanBurstTracker, hasNonAscii, isPrintableKey, isTextEntry, QTY_REVERT_EVENT, readFlag, writeFlag } from './pos-scan';
 import useOnlineStatus, { useOnReconnect, isNetworkError } from '@/hooks/useOnlineStatus';
@@ -97,6 +98,10 @@ const NO_CART_QUANTITIES = new Map();
 
 /** Trang danh mục rỗng (chưa chọn kho / đổi kho). */
 const EMPTY_CATALOG = { groups: [], items: [], totalElements: 0, page: 0, pageCount: 1, loading: false, error: null };
+
+/** Khóa bộ nhớ tạm (khung POS) của một trang danh mục. */
+const khoaDanhMuc = (khoId, q, trangThaiTon, trang) => `danhMuc|${khoId}|${trangThaiTon}|${trang}|${q}`;
+const KHOA_PHUONG_THUC_TT = 'phuongThucThanhToan';
 
 /**
  * Một trang danh mục gộp từ server -> { groups: dòng mẫu + màu cho lưới, items: mọi kích cỡ (SKU) của
@@ -375,7 +380,16 @@ export default function PosSalesPage({
   // Bộ lọc tồn kho của danh mục hàng (lọc ở server). Không lưu lại — mỗi lần mở POS về mặc định.
   const [stockFilter, setStockFilter] = useState(DEFAULT_STOCK_FILTER);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [catalog, setCatalog] = useState(EMPTY_CATALOG);
+  // Bộ nhớ tạm của khung POS: quay lại từ màn trả hàng thì danh mục hiện ngay bản lần trước, bản mới về thì thay
+  const { boNho } = usePosDuLieuChung();
+  // Tải lại danh mục có vòng chờ (sau thanh toán, server báo thiếu tồn, bấm Thử lại): bản nhớ tạm của kho có tồn cũ nên bỏ
+  const taiLaiDanhMuc = useCallback(() => {
+    boNho.xoaTheo('danhMuc|');
+    setRefreshKey((key) => key + 1);
+  }, [boNho]);
+  const [catalog, setCatalog] = useState(
+    () => boNho.lay(khoaDanhMuc(warehouseId, '', DEFAULT_STOCK_FILTER, 0)) ?? EMPTY_CATALOG,
+  );
   const catalogSeq = useRef(0);
   // Bản mới nhất của danh sách hóa đơn cho các lượt tải catalog (không đưa invoices vào deps
   // để sửa giỏ không kéo theo tải lại catalog).
@@ -454,7 +468,11 @@ export default function PosSalesPage({
     }
     const controller = new AbortController();
     const seq = ++catalogSeq.current;
-    setCatalog((prev) => ({ ...prev, loading: true, error: null }));
+    const khoa = khoaDanhMuc(warehouseId, debouncedSearch, stockFilter, catalogPage);
+    const daNho = boNho.lay(khoa);
+    // Tổ hợp đã xem (vừa quay lại từ màn trả hàng, quay về trang trước…): hiện ngay bản cũ, không vòng chờ.
+    // Tồn trong giỏ chỉ cập nhật theo bản mới bên dưới.
+    setCatalog((prev) => daNho ?? { ...prev, loading: true, error: null });
     posService.getCatalogGroups(warehouseId, {
       q: debouncedSearch,
       trangThaiTon: stockFilter,
@@ -470,7 +488,7 @@ export default function PosSalesPage({
           return;
         }
         const { groups, items } = readCatalogPage(pageData);
-        setCatalog({
+        const moi = {
           groups,
           items,
           totalElements: pageData?.totalElements ?? 0,
@@ -478,7 +496,9 @@ export default function PosSalesPage({
           pageCount: pageData?.totalPages ?? 1,
           loading: false,
           error: null,
-        });
+        };
+        setCatalog(moi);
+        boNho.ghi(khoa, moi);
         setInvoices((current) => withCartStock(current, warehouseId, items));
         refreshMissingCartStock(warehouseId, items, invoicesRef.current, setInvoices, controller.signal,
           () => seq === catalogSeq.current);
@@ -489,7 +509,7 @@ export default function PosSalesPage({
         setCatalog((prev) => ({ ...prev, loading: false, error }));
       });
     return () => controller.abort();
-  }, [warehouseId, debouncedSearch, stockFilter, catalogPage, refreshKey]);
+  }, [warehouseId, debouncedSearch, stockFilter, catalogPage, refreshKey, boNho]);
 
   // ===== Tải ngầm tồn: quay lại tab (focus/visibilitychange) và mỗi 30 giây khi tab đang hiển thị =====
   // Không bật trạng thái tải, giữ danh sách + vị trí cuộn; bỏ kết quả nếu người bán đã đổi
@@ -528,6 +548,15 @@ export default function PosSalesPage({
             pageCount: pageData?.totalPages ?? prev.pageCount,
             error: null,
           }));
+          boNho.ghi(khoaDanhMuc(warehouseId, debouncedSearch, stockFilter, catalogPage), {
+            groups,
+            items,
+            totalElements: pageData?.totalElements ?? 0,
+            page: pageData?.number ?? 0,
+            pageCount: pageData?.totalPages ?? 1,
+            loading: false,
+            error: null,
+          });
           setInvoices((invoicesNow) => withCartStock(invoicesNow, warehouseId, items));
           // Lượt tải ngầm không giữ controller tới khi hỏi tồn xong -> dùng catalogSeq để bỏ kết quả cũ.
           refreshMissingCartStock(warehouseId, items, invoicesRef.current, setInvoices, current.signal,
@@ -546,7 +575,7 @@ export default function PosSalesPage({
       window.clearInterval(timer);
       controller?.abort();
     };
-  }, [warehouseId, debouncedSearch, stockFilter, catalogPage]);
+  }, [warehouseId, debouncedSearch, stockFilter, catalogPage, boNho]);
 
   // ===== Sau F5: hỏi lại trạng thái các mã QR payOS đang chờ (tiền có thể đã về trong lúc tải lại) =====
   // và các giao dịch lỗi chờ quản lý (có thể đã được tạo đơn / hoàn tiền trong lúc tải lại),
@@ -621,7 +650,7 @@ export default function PosSalesPage({
           if (cancelled) return;
           if (res?.trangThai === 'SUCCESS' && res.result) {
             removePendingCheckoutId(target.requestId);
-            setRefreshKey((key) => key + 1);
+            taiLaiDanhMuc();
             if (target.invoiceNumber != null) {
               setAttempt(target.invoiceNumber, { status: 'succeeded', result: res.result, error: null });
               if (!resultShown) {
@@ -651,7 +680,7 @@ export default function PosSalesPage({
       }
     })();
     return () => { cancelled = true; };
-  }, [restoredDrafts]);
+  }, [restoredDrafts, taiLaiDanhMuc]);
 
   // Trang danh mục về 1 khi từ khóa (đã debounce) đổi — xem effect debounce ở trên.
   const onSearch = (value) => setSearch(value);
@@ -661,7 +690,7 @@ export default function PosSalesPage({
   // bỏ qua, nút sẽ không làm gì).
   const changeCatalogPage = (nextPage) => {
     const target = Math.max(0, nextPage);
-    if (target === catalogPage) setRefreshKey((key) => key + 1);
+    if (target === catalogPage) taiLaiDanhMuc();
     else setCatalogPage(target);
   };
 
@@ -1084,7 +1113,7 @@ export default function PosSalesPage({
     finishAttempt(invoiceNumber, { status: 'succeeded', result, error: null });
     removePendingCheckoutId(attemptState.requestId);
     // Cập nhật tồn hiển thị: refetch catalog của kho đang bán.
-    setRefreshKey((key) => key + 1);
+    taiLaiDanhMuc();
     openReceipt(invoiceNumber, result);
   };
 
@@ -1095,7 +1124,7 @@ export default function PosSalesPage({
     // tải lại tồn trên catalog; sau đó xử lý như lỗi xác định ở nhánh 4xx bên dưới.
     if (status === 409 && Array.isArray(envelope?.data?.insufficient)) {
       setInvoices((current) => withInsufficientStock(current, invoiceNumber, envelope.data.insufficient));
-      setRefreshKey((key) => key + 1);
+      taiLaiDanhMuc();
     }
     // 1. Giá đã đổi -> phản hồi có cấu trúc, yêu cầu xác nhận lại giá mới.
     if (status === 409 && envelope?.data?.priceChanged) {
@@ -1275,7 +1304,8 @@ export default function PosSalesPage({
   };
 
   // ===== Chuyển khoản payOS =====
-  const [payosEnabled, setPayosEnabled] = useState(false);
+  // Lần trước đã biết (quay lại từ màn trả hàng): dùng ngay, tránh nút Chuyển khoản hiện chậm một nhịp
+  const [payosEnabled, setPayosEnabled] = useState(() => Boolean(boNho.lay(KHOA_PHUONG_THUC_TT)?.payos));
   // Tải lỗi (vd. mở trang lúc mất mạng) -> tải lại khi có mạng, không ẩn hẳn Chuyển khoản tới lúc F5.
   const [paymentMethodsFailed, setPaymentMethodsFailed] = useState(false);
   const [paymentMethodsKey, setPaymentMethodsKey] = useState(0);
@@ -1285,6 +1315,7 @@ export default function PosSalesPage({
       .then((methods) => {
         if (cancelled) return;
         setPayosEnabled(Boolean(methods?.payos));
+        boNho.ghi(KHOA_PHUONG_THUC_TT, { payos: Boolean(methods?.payos) });
         setPaymentMethodsFailed(false);
       })
       .catch(() => {
@@ -1293,12 +1324,12 @@ export default function PosSalesPage({
         setPaymentMethodsFailed(true);
       });
     return () => { cancelled = true; };
-  }, [paymentMethodsKey]);
+  }, [paymentMethodsKey, boNho]);
 
   // Có mạng lại: tải lại những gì đã lỗi trong lúc mất mạng (danh sách hàng, phương thức thanh toán).
   // Mã QR đang chờ và giao dịch chưa rõ tự được hỏi lại bởi vòng polling / nút kiểm tra kết quả.
   useOnReconnect(() => {
-    if (catalog.error) setRefreshKey((key) => key + 1);
+    if (catalog.error) taiLaiDanhMuc();
     if (paymentMethodsFailed) setPaymentMethodsKey((key) => key + 1);
   });
 
@@ -1332,7 +1363,7 @@ export default function PosSalesPage({
     if (link.trangThai === 'PAID' && link.result) {
       // Tiền đã về, server đã tạo đơn + trừ kho -> hiện hóa đơn như thanh toán tiền mặt.
       finishAttempt(invoiceNumber, { status: 'succeeded', result: link.result, error: null });
-      setRefreshKey((key) => key + 1);
+      taiLaiDanhMuc();
       // Quản lý xử lý giao dịch lỗi sau vài phút/giờ: không kéo thu ngân khỏi hóa đơn đang bán dở.
       const mayTakeScreen = !ui.dialog && !ui.isSubmitting && previousStatus !== 'PAID_ERROR';
       if (isActive || mayTakeScreen) {
@@ -1415,7 +1446,7 @@ export default function PosSalesPage({
       } else {
         if (error?.response?.status === 409 && Array.isArray(envelope?.data?.insufficient)) {
           setInvoices((current) => withInsufficientStock(current, invoice.number, envelope.data.insufficient));
-          setRefreshKey((key) => key + 1);
+          taiLaiDanhMuc();
         }
         let message = isNetworkError(error) ? NETWORK_ERROR_MESSAGE : envelope?.message || t("Không tạo được mã QR. Kiểm tra kết nối rồi thử lại.");
         if (kemTienMat && error?.response?.status === 502 && chacChuaCoMa) {
@@ -2063,7 +2094,7 @@ export default function PosSalesPage({
           onShowScanMatches={showScanMatches}
           onToggleScanMode={toggleScanMode}
           onPageChange={changeCatalogPage}
-          onRetry={() => setRefreshKey((key) => key + 1)}
+          onRetry={() => taiLaiDanhMuc()}
           onSearch={onSearch}
           onStockFilterChange={onStockFilterChange}
           page={catalog.page}

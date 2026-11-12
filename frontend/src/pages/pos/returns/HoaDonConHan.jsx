@@ -4,6 +4,7 @@ import { traHangService } from '@/services/traHangService';
 import { getApiErrorMessage } from '@/utils/apiError';
 import LoadingState from '@/components/shared/LoadingState';
 import { formatMoney } from '../pos-format';
+import { usePosDuLieuChung } from '../pos-du-lieu-chung';
 import { t, tDuLieu } from "@/i18n";
 
 const HAN_TRA_MS = 3 * 24 * 60 * 60 * 1000;
@@ -54,20 +55,35 @@ export default function HoaDonConHan({ khoId, onChon, bayGio, tatCa, onDoiTatCa 
   const [lanTai, setLanTai] = useState(0);
   // Kết quả gắn với khóa của lần tải: khóa hiện tại khác khóa kết quả = đang tải (giữ danh sách cũ trong lúc chờ)
   const khoa = `${khoId}|${tatCa}|${lanTai}`;
+  // Bộ nhớ tạm của khung POS: quay lại màn này (từ màn bán, hoặc đóng một hóa đơn) thì hiện ngay danh sách lần trước
+  // trong lúc tải bản mới
+  const { boNho } = usePosDuLieuChung();
+  const khoaNho = `hoaDonConHan|${khoId}|${tatCa}`;
   const [ketQua, setKetQua] = useState({ khoa: null, loi: null, ds: [] });
-  const trang = { dangTai: ketQua.khoa !== khoa, loi: ketQua.khoa === khoa ? ketQua.loi : null, ds: ketQua.ds };
+  // Đang tải mà bộ nhớ có bản cũ của đúng cửa hàng / phạm vi này (kể cả danh sách rỗng): hiện bản đó, không vòng chờ.
+  // Không có thì giữ danh sách đang hiện trong lúc chờ như trước.
+  const banNho = ketQua.khoa !== khoa ? boNho.lay(khoaNho) : undefined;
+  const coBanNho = banNho !== undefined;
+  const trang = {
+    dangTai: ketQua.khoa !== khoa,
+    loi: ketQua.khoa === khoa ? ketQua.loi : null,
+    ds: coBanNho ? banNho : ketQua.ds,
+  };
 
   useEffect(() => {
     if (!khoId) return undefined;
     const controller = new AbortController();
     traHangService.ganDay(khoId, tatCa, { signal: controller.signal })
-      .then((ds) => setKetQua({ khoa, loi: null, ds }))
+      .then((ds) => {
+        setKetQua({ khoa, loi: null, ds });
+        boNho.ghi(khoaNho, ds);
+      })
       .catch((err) => {
         if (controller.signal.aborted) return;
         setKetQua({ khoa, loi: getApiErrorMessage(err, t("Không tải được danh sách hóa đơn.")), ds: [] });
       });
     return () => controller.abort();
-  }, [khoId, tatCa, khoa]);
+  }, [khoId, tatCa, khoa, khoaNho, boNho]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -105,7 +121,7 @@ export default function HoaDonConHan({ khoId, onChon, bayGio, tatCa, onDoiTatCa 
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto px-4 pb-4">
-        {trang.dangTai && !trang.ds.length ? (
+        {trang.dangTai && !trang.ds.length && !coBanNho ? (
           <div className="flex h-full min-h-40 items-center justify-center"><LoadingState label={t("Đang tải danh sách hóa đơn")} /></div>
         ) : trang.loi ? (
           <div className="flex min-h-40 flex-col items-center justify-center gap-2 text-center text-sm text-bo-muted">
