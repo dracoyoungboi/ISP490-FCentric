@@ -205,7 +205,10 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
     const tienToMaSanPham = danhMucDaChon ? vietTatDanhMuc(danhMucDaChon.tenDanhMuc) + ngayMa : "";
 
     const nhomBienThe = useMemo(() => tinhNhomBienThe(bienThe, sizes), [bienThe, sizes]);
-    const thongKe = useMemo(() => thongKeBienThe(nhomBienThe, bienThe.anhMau), [nhomBienThe, bienThe.anhMau]);
+    const thongKe = useMemo(
+        () => thongKeBienThe(nhomBienThe, bienThe.anhMau, bienThe.dangGo),
+        [nhomBienThe, bienThe.anhMau, bienThe.dangGo],
+    );
 
     const soMauDaChon = bienThe.mauDaChon.length;
     const soKichCoDaChon = bienThe.kichCoDaChon.length;
@@ -506,6 +509,11 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                                     </>
                                 ) : (
                                     t("Chưa có biến thể nào")
+                                )}
+                                {thongKe.soGiaBanThapHon > 0 && (
+                                    <span className="block text-xs font-medium text-bo-danger">
+                                        {t("{{count}} biến thể đang bán dưới giá vốn.", { count: thongKe.soGiaBanThapHon })}
+                                    </span>
                                 )}
                             </p>
                             <div className="flex items-center gap-2 max-sm:w-full">

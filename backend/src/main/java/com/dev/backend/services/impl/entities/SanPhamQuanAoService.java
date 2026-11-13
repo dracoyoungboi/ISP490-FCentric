@@ -133,6 +133,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
 
         /** Số biến thể tối đa của một sản phẩm khi tạo mới (form sinh tổ hợp Màu × Kích cỡ). */
         private static final int SO_BIEN_THE_TOI_DA = 100;
+        private static final BigDecimal NGHIN = BigDecimal.valueOf(1000);
 
         @Override
         protected EntityManager getEntityManager() {
@@ -194,9 +195,11 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                                         // Công thức 3: biến thể CHƯA có giá bán thì gợi ý Giá vốn * 1.2. Giá bán đã đặt
                                         // (màn Giá bán & tem mã vạch, form Sửa) giữ nguyên: tính lại mỗi lần nhập / xuất
                                         // kho sẽ xóa giá người dùng vừa đổi và làm tem đã in sai giá.
+                                        // Làm tròn LÊN hàng nghìn, khớp "giá sàn" form sản phẩm gợi ý (logicBienThe.giaBanGoiY).
                                         if (bienThe.getGiaBan() == null || bienThe.getGiaBan().signum() <= 0) {
                                                 bienThe.setGiaBan(giaVonTongVariant.multiply(new BigDecimal("1.2"))
-                                                        .setScale(0, RoundingMode.CEILING));
+                                                        .divide(NGHIN, 0, RoundingMode.CEILING)
+                                                        .multiply(NGHIN));
                                         }
                                         BigDecimal giaBanVariant = bienThe.getGiaBan();
 

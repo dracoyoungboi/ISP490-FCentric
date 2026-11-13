@@ -62,8 +62,8 @@ const coSo = (giaTri) => giaTri !== "" && giaTri != null && Number.isFinite(Numb
 
 /**
  * Giá bán gợi ý = giá vốn × 1,2 rồi làm tròn lên hàng nghìn (giá đẹp để in tem, vẫn lãi ít nhất 20%).
- * Đây chỉ là số gợi ý cho người dùng chọn: máy chủ (SanPhamQuanAoService.recalculatePriceAndStatus) vẫn tự điền
- * giá vốn × 1,2 làm tròn lên đồng khi biến thể chưa có giá bán. Tính bằng số nguyên (xu × 12 / 10^6 nghìn) để tránh
+ * Khớp số máy chủ tự điền khi biến thể chưa có giá bán (SanPhamQuanAoService.recalculatePriceAndStatus, cũng làm
+ * tròn lên nghìn). Tính bằng số nguyên (xu × 12 / 10^6 nghìn) để tránh
  * sai số dấu phẩy động.
  * @returns {number|null} null khi chưa có giá vốn.
  */
@@ -75,7 +75,7 @@ export function giaBanGoiY(giaVon) {
 }
 
 /** Dòng sẽ được lưu và sửa được giá bán (nhận giá gợi ý được). */
-const dongNhanGiaBan = (d) => !d.khoaGiaBan && (d.loai === "cu" || d.tao);
+export const dongNhanGiaBan = (d) => !d.khoaGiaBan && (d.loai === "cu" || d.tao);
 const dongSeLuu = (d) => d.loai === "cu" || d.tao;
 
 /**
@@ -84,15 +84,8 @@ const dongSeLuu = (d) => d.loai === "cu" || d.tao;
  */
 export const canNangGia = (giaBan, gia) => gia != null && (!coSo(giaBan) || Number(giaBan) < gia);
 
-/** Giá gợi ý của một dòng (bóng đèn trong ô giá bán). null khi không cần gợi ý. */
-export function goiYChoDong(d) {
-    if (!dongNhanGiaBan(d)) return null;
-    const goiY = giaBanGoiY(d.giaVon);
-    return canNangGia(d.giaBan, goiY) ? goiY : null;
-}
-
 /**
- * Giá gợi ý cả màu (hàng màu và nút Áp giá gợi ý chung): theo giá vốn cao nhất trong màu để cỡ nào cũng lãi ít nhất
+ * Giá gợi ý cả màu (hàng màu và nút Nâng giá lên giá sàn chung): theo giá vốn cao nhất trong màu để cỡ nào cũng lãi ít nhất
  * 20%. Đang nhập giá vốn nhóm thì dùng số đó thay cho các dòng sửa được giá vốn (dòng giá vốn khóa vẫn tính).
  * @returns {number|null} null khi màu không có dòng nhận giá bán hoặc chưa có giá vốn nào.
  */
@@ -109,6 +102,73 @@ export function goiYMau(dsDong, giaVonNhom = "") {
 /** Số dòng sẽ được nâng lên `gia` (dòng nhận giá bán đang trống hoặc thấp hơn). */
 export const demDongCanNang = (dsDong, gia) =>
     gia == null ? 0 : dsDong.filter((d) => dongNhanGiaBan(d) && canNangGia(d.giaBan, gia)).length;
+
+/** Giá bán từ bao nhiêu lần giá vốn trở lên thì nhắc kiểm tra lại (thường là gõ thừa số 0). */
+export const HE_SO_GIA_CAO = 5;
+
+/**
+ * Mức của giá bán so với giá vốn, quyết định màu bóng đèn trong ô giá bán:
+ * - "chuaVon": chưa có giá vốn (trống hoặc 0) nên không tính được lãi.
+ * - "trong": chưa có giá bán. Giá 0 cũng coi là trống, giống máy chủ (giá ≤ 0 thì tự đặt khi nhập kho).
+ * - "lo": thấp hơn giá vốn. "thap": lãi dưới 20% (so đúng giá vốn × 1,2, không theo giá sàn đã làm tròn lên nghìn,
+ *   để câu "Lãi N%, dưới mức tối thiểu 20%" không bao giờ ghi N ≥ 20).
+ * - "cao": từ HE_SO_GIA_CAO lần giá vốn trở lên. "dat": còn lại.
+ */
+export function mucGiaBan(giaVon, giaBan) {
+    if (!coSo(giaVon) || Number(giaVon) <= 0) return "chuaVon";
+    if (!coSo(giaBan) || Number(giaBan) <= 0) return "trong";
+    const von = Number(giaVon);
+    const ban = Number(giaBan);
+    if (ban < von) return "lo";
+    if (ban * 10 < von * 12) return "thap";
+    if (ban >= von * HE_SO_GIA_CAO) return "cao";
+    return "dat";
+}
+
+/** % lãi trên giá vốn, làm tròn xuống (lãi 19,9% hiện 19%, khớp mức "thap"). null khi chưa đủ giá. */
+export function phanTramLai(giaVon, giaBan) {
+    if (!coSo(giaVon) || Number(giaVon) <= 0 || !coSo(giaBan)) return null;
+    return Math.floor(((Number(giaBan) - Number(giaVon)) * 100) / Number(giaVon));
+}
+
+/** Độ nghiêm trọng của từng mức: hàng màu hiện mức nặng nhất trong các cỡ. */
+const DO_NANG = { dat: 0, chuaVon: 1, trong: 2, cao: 3, thap: 4, lo: 5 };
+
+/**
+ * Giá của dòng đã "chốt": dòng đang gõ (`dangGo`, ghi lúc con trỏ vào ô) dùng giá lúc bắt đầu gõ, để bóng đèn và các
+ * con số đếm không nhảy theo từng phím (gõ 60.000 thì 6, 60, 600 đều thấp hơn giá sàn). Rời ô thì dùng giá mới.
+ */
+export function giaDaChot(d, dangGo) {
+    if (!dangGo || dangGo.khoa !== d.khoa) return d;
+    return { ...d, giaVon: dangGo.giaVon, giaBan: dangGo.giaBan };
+}
+
+/** Mức của một dòng theo giá đã chốt; null khi dòng không sửa được giá bán (không có bóng đèn). */
+export function mucCuaDong(d, dangGo) {
+    if (!dongNhanGiaBan(d)) return null;
+    const g = giaDaChot(d, dangGo);
+    return mucGiaBan(g.giaVon, g.giaBan);
+}
+
+/** Mức nặng nhất trong các dòng của một màu; null khi màu không có dòng nào sửa được giá bán. */
+export function mucNangNhat(dsDong, dangGo) {
+    let ketQua = null;
+    for (const d of dsDong) {
+        const muc = mucCuaDong(d, dangGo);
+        if (muc && (ketQua == null || DO_NANG[muc] > DO_NANG[ketQua])) ketQua = muc;
+    }
+    return ketQua;
+}
+
+/** Số dòng theo từng mức (giá đã chốt), để ô nổi hàng màu tóm tắt. */
+export function demTheoMuc(dsDong, dangGo) {
+    const dem = { dat: 0, chuaVon: 0, trong: 0, cao: 0, thap: 0, lo: 0 };
+    for (const d of dsDong) {
+        const muc = mucCuaDong(d, dangGo);
+        if (muc) dem[muc] += 1;
+    }
+    return dem;
+}
 
 /**
  * Xử lý một lần sửa ô tiền đang hiện dạng 1.250.000.
@@ -167,6 +227,7 @@ export const trangThaiBanDau = () => ({
     anhMau: {}, // mauSacId -> { id, file, url }
     mauThuGon: [], // id màu đang thu gọn trong bảng
     giaChung: null, // giá chung đã áp dụng gần nhất; tổ hợp sinh thêm sau đó nhận luôn giá này
+    dangGo: null, // { khoa, giaVon, giaBan } dòng đang có con trỏ trong ô giá, giá lúc bắt đầu gõ (xem giaDaChot)
 });
 
 const dongMoi = (giaChung) => ({
@@ -277,6 +338,10 @@ export function bienTheReducer(state, action) {
             delete anhMau[action.mauSacId];
             return { ...state, anhMau };
         }
+        case "batDauGo":
+            return { ...state, dangGo: { khoa: action.khoa, giaVon: action.giaVon, giaBan: action.giaBan } };
+        case "ketThucGo":
+            return state.dangGo == null ? state : { ...state, dangGo: null };
         case "batTatThuGon":
             return { ...state, mauThuGon: batTat(state.mauThuGon, action.mauSacId) };
         case "thuGonTatCa":
@@ -309,7 +374,7 @@ export function tinhNhomBienThe(state, kichCoTheoThuTu) {
 export const daNhapBienThe = (state) =>
     state.mauDaChon.length > 0 || state.kichCoDaChon.length > 0 || Object.keys(state.anhMau).length > 0;
 
-export function thongKeBienThe(nhom, anhMau) {
+export function thongKeBienThe(nhom, anhMau, dangGo = null) {
     let soToHop = 0;
     let soTao = 0;
     let soGiaBanThapHon = 0;
@@ -318,7 +383,8 @@ export function thongKeBienThe(nhom, anhMau) {
         const dongTao = dong.filter((d) => d.tao);
         soToHop += dong.length;
         soTao += dongTao.length;
-        soGiaBanThapHon += dongTao.filter((d) => d.giaVon !== "" && d.giaBan !== "" && d.giaBan < d.giaVon).length;
+        // Theo giá đã chốt (rời ô) để số đếm không nhảy theo từng phím gõ.
+        soGiaBanThapHon += dongTao.filter((d) => mucCuaDong(d, dangGo) === "lo").length;
         if (dongTao.length > 0 && !anhMau[mauSacId]) mauThieuAnh.push(mauSacId);
     }
     const soMauCoBienThe = nhom.filter((n) => n.dong.some((d) => d.tao)).length;

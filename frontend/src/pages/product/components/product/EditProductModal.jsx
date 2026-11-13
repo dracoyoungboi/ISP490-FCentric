@@ -673,6 +673,11 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
                                 ) : (
                                     t("Có thay đổi chưa lưu")
                                 )}
+                                {sanPham && thongKe.soGiaBanThapHon > 0 && (
+                                    <span className="block text-xs font-medium text-bo-danger">
+                                        {t("{{count}} biến thể đang bán dưới giá vốn.", { count: thongKe.soGiaBanThapHon })}
+                                    </span>
+                                )}
                                 {sanPham && soDoiGiaBanConHang > 0 && (
                                     <span className="block text-xs font-medium text-bo-warning">
                                         {t("Sẽ đổi giá bán {{count}} biến thể còn tồn kho. Lưu xong nhớ in lại tem.", { count: soDoiGiaBanConHang })}

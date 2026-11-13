@@ -12,7 +12,7 @@
  *
  * File này không phụ thuộc React để dễ kiểm thử.
  */
-import { bienTheReducer, canNangGia, khoaBienThe, trangThaiBanDau } from "./logicBienThe.js";
+import { bienTheReducer, canNangGia, khoaBienThe, mucCuaDong, trangThaiBanDau } from "./logicBienThe.js";
 import { t } from "../../../../i18n/t.js";
 
 const KHOA_CU = "id:";
@@ -223,6 +223,7 @@ export function tinhNhomSua(state, kichCoTheoThuTu) {
                 trangThai: b.trangThai,
                 giaVon: b.giaVon,
                 giaBan: b.giaBan,
+                giaBanGoc: b.goc.giaBan, // giá đang lưu: ô nổi bóng đèn có nút Trả lại giá cũ
                 khoaGia: b.conTonKho,
                 khoaGiaBan: Boolean(state.khoaGiaBanCu),
                 maSku: b.maSku,
@@ -256,8 +257,9 @@ export function thongKeSua(nhom, state) {
         soTao += dongTao.length;
         soBoQua += dong.length - dongCu.length - dongTao.length;
         soGiaTrong += dongCu.filter((d) => d.giaVon === "" || d.giaBan === "").length;
+        // Theo giá đã chốt (rời ô) để số đếm không nhảy theo từng phím gõ.
         soGiaBanThapHon += [...dongCu.filter((d) => d.trangThai === 1), ...dongTao].filter(
-            (d) => d.giaVon !== "" && d.giaBan !== "" && d.giaBan < d.giaVon,
+            (d) => mucCuaDong(d, state.dangGo) === "lo",
         ).length;
         if (dongTao.length > 0 && !state.anhMau[mauSacId] && !state.anhMauCu[mauSacId]) mauThieuAnh.push(mauSacId);
     }
