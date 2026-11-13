@@ -1,4 +1,4 @@
-import { Minus, Plus, X } from "lucide-react";
+import { ArrowLeftRight, Minus, Plus } from "lucide-react";
 import AnhBienThe from "@/components/chung-tu/AnhBienThe";
 import MauKichCo from "@/components/chung-tu/MauKichCo";
 import { NutChu } from "@/components/chung-tu/DongThongBao";
@@ -56,28 +56,31 @@ function OSoLuong({ dong, giaTri, onDoi, onXong, loi }) {
 }
 
 /**
- * Cột "Từ kệ": đầu kệ nguồn (mã, trạng thái, vị trí, mức đang chứa) và bảng lô trên kệ, lô nhập trước xếp trên.
- * Khả dụng = tồn ở kệ − chờ nhặt (BR-BIN-02); lô đang kiểm kê ở kệ này không chuyển được.
+ * Nửa "Kệ nguồn" của khối lượt chuyển: đầu kệ (mã, trạng thái, vị trí, mức đang chứa, nút Đổi kệ), dòng "đã chọn / khả
+ * dụng" và bảng lô trên kệ, lô nhập trước xếp trên. Khả dụng = tồn ở kệ − chờ nhặt (BR-BIN-02): bảng chỉ hiện một cột
+ * Khả dụng, số chờ nhặt ghi phụ bên dưới khi có. Lô đang kiểm kê ở kệ này không chuyển được.
  */
 export default function CotTuKe({ ke, chon, loiDong, noiBat, onDatSo, onXong, onChonTatCa, onBoChon, onDoiKe }) {
   const coChon = Object.values(chon).some((v) => soNguyen(v) > 0);
   const chonDuoc = ke.dong.some((d) => d.khaDung > 0 && !d.khoaKiemKe);
+  const daChon = ke.dong.reduce((s, d) => s + soNguyen(chon[d.loHangId]), 0);
+  const khaDung = ke.dong.reduce((s, d) => s + (d.khoaKiemKe ? 0 : Math.max(0, d.khaDung)), 0);
   return (
-    <section className="min-w-0 rounded-lg border border-bo-border bg-bo-surface shadow-sm" aria-labelledby="ck-tu-ke">
-      <div className="flex flex-wrap items-start gap-x-4 gap-y-2 border-b border-bo-border px-4 py-3.5">
+    <div className="min-w-0" role="group" aria-labelledby="ck-tu-ke">
+      <div className="flex flex-wrap items-start gap-x-4 gap-y-2 border-b border-bo-border px-4 py-3.5 xl:min-h-[94px]">
         <div className="min-w-0 flex-1">
           <p id="ck-tu-ke" className="text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
             {t("Kệ nguồn")}
           </p>
           <p className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
-            <span className="font-mono text-lg font-semibold text-bo-heading">{ke.maViTri}</span>
+            <span className="font-mono text-lg font-semibold leading-7 text-bo-heading">{ke.maViTri}</span>
             <TrangThaiKe trangThai={ke.trangThai} />
             {ke.trangThai === "BAO_TRI" ? <span className="text-xs text-bo-muted">{t("Chỉ chuyển hàng đi, không nhận hàng")}</span> : null}
           </p>
-          {viTriKe(ke) ? <p className="text-[13px] text-bo-muted">{viTriKe(ke)}</p> : null}
+          {viTriKe(ke) ? <p className="truncate text-[13px] text-bo-muted">{viTriKe(ke)}</p> : null}
         </div>
         <div className="flex items-start gap-3">
-          <div className="w-48 pt-5">
+          <div className="w-36 pt-5 max-sm:hidden">
             <div className="mb-1 flex justify-between gap-2 whitespace-nowrap text-xs tabular-nums text-bo-muted">
               <span>{t("Đang chứa")}</span>
               <span>{chuSucChua(ke.dangChua, ke.sucChua)}</span>
@@ -87,28 +90,30 @@ export default function CotTuKe({ ke, chon, loiDong, noiBat, onDatSo, onXong, on
           <button
             type="button"
             onClick={onDoiKe}
-            aria-label={t("Đổi kệ nguồn")}
-            title={t("Đổi kệ nguồn")}
-            className="grid size-8 place-items-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+            title={t("Bỏ kệ này, quét kệ nguồn khác")}
+            className="mt-3 inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2 text-[13px] font-medium text-bo-primary-strong hover:bg-bo-primary-soft focus-visible:outline-2 focus-visible:outline-bo-primary"
           >
-            <X className="size-4" aria-hidden="true" />
+            <ArrowLeftRight className="size-3.5" aria-hidden="true" />
+            {t("Đổi kệ")}
           </button>
         </div>
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-bo-border bg-bo-surface-subtle px-4 py-2 text-[13px] text-bo-muted">
-        <span>{t("{{soLo}} lô · lô nhập trước xếp trên", { count: ke.dong.length, soLo: soVN(ke.dong.length) })}</span>
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-bo-border bg-bo-surface-subtle px-4 py-2 text-[13px] text-bo-muted">
+        <span>
+          {t("Đã chọn")} <b className="font-semibold tabular-nums text-bo-heading">{soVN(daChon)}</b>
+          {" / "}
+          {t("{{so}} khả dụng · {{soLo}} lô, lô nhập trước xếp trên", { so: soVN(khaDung), soLo: soVN(ke.dong.length), count: ke.dong.length })}
+        </span>
         <span className="flex items-center gap-3">
           {coChon ? <NutChu onClick={onBoChon}>{t("Bỏ chọn")}</NutChu> : null}
           {chonDuoc ? <NutChu onClick={onChonTatCa}>{t("Chọn toàn bộ kệ")}</NutChu> : null}
         </span>
       </div>
-      {/* Danh sách lô: máy tính 5 cột (sản phẩm · tồn ở kệ · chờ nhặt · khả dụng · chuyển); điện thoại xếp số và ô chuyển
-          xuống dưới tên hàng — không cuộn ngang, ô số lượng luôn trong màn */}
+      {/* Danh sách lô: máy tính 3 cột (sản phẩm · khả dụng · chuyển); điện thoại xếp số và ô chuyển xuống dưới tên
+          hàng — không cuộn ngang, ô số lượng luôn trong màn */}
       <div role="table" aria-label={t("Hàng trên kệ nguồn")}>
-        <div role="row" className="hidden grid-cols-[minmax(0,1fr)_64px_64px_68px_118px] items-center gap-3 border-b border-bo-border px-4 sm:grid">
+        <div role="row" className="hidden grid-cols-[minmax(0,1fr)_76px_118px] items-center gap-3 border-b border-bo-border px-4 sm:grid">
           <span role="columnheader" className={TH}>{t("Sản phẩm · lô")}</span>
-          <span role="columnheader" className={`${TH} text-right`}>{t("Tồn ở kệ")}</span>
-          <span role="columnheader" className={`${TH} text-right`}>{t("Chờ nhặt")}</span>
           <span role="columnheader" className={`${TH} text-right`}>{t("Khả dụng")}</span>
           <span role="columnheader" className={`${TH} text-right`}>{t("Chuyển")}</span>
         </div>
@@ -128,7 +133,7 @@ export default function CotTuKe({ ke, chon, loiDong, noiBat, onDatSo, onXong, on
               key={d.loHangId}
               role="row"
               className={cn(
-                "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 border-b border-bo-border px-4 py-3 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_64px_64px_68px_118px]",
+                "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 border-b border-bo-border px-4 py-3 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_76px_118px]",
                 so > 0 ? "bg-[#f3f7fe]" : "hover:bg-bo-surface-subtle",
                 khoa && "text-slate-400",
                 noiBat === d.loHangId && "outline-2 -outline-offset-2 outline-bo-primary/30",
@@ -145,20 +150,23 @@ export default function CotTuKe({ ke, chon, loiDong, noiBat, onDatSo, onXong, on
                   </p>
                 </div>
               </div>
-              {/* Điện thoại: một hàng số nhỏ bên trái, ô chuyển bên phải */}
+              {/* Điện thoại: số khả dụng (kèm chờ nhặt nếu có) bên trái, ô chuyển bên phải */}
               <p role="cell" className="text-xs text-bo-muted sm:hidden">
-                {t("Tồn {{ton}}", { ton: soVN(d.tonTaiKe) })}
-                {d.dangGiuNhat ? <span className="text-bo-warning"> · {t("chờ nhặt {{so}}", { so: soVN(d.dangGiuNhat) })}</span> : null} ·{" "}
-                <b className={cn("font-semibold", !khoa && "text-bo-heading")}>{t("khả dụng {{so}}", { so: soVN(d.khaDung) })}</b>
+                <b className={cn("font-semibold", !khoa && "text-bo-heading")}>{t("khả dụng {{so}}", { so: khoa ? "—" : soVN(d.khaDung) })}</b>
+                {d.dangGiuNhat ? <span className="text-bo-warning"> · {t("{{so}} chờ nhặt", { so: soVN(d.dangGiuNhat) })}</span> : null}
               </p>
-              <span role="cell" className="hidden text-right text-sm tabular-nums sm:block">{soVN(d.tonTaiKe)}</span>
-              <span role="cell" className={cn("hidden text-right text-sm tabular-nums sm:block", d.dangGiuNhat ? "font-medium text-bo-warning" : "text-slate-400")}>
-                {d.dangGiuNhat ? soVN(d.dangGiuNhat) : "—"}
+              <span role="cell" className="hidden text-right tabular-nums sm:block">
+                {/* Lô đang kiểm kê: không tính vào khả dụng (khớp dòng "đã chọn / khả dụng" phía trên) */}
+                <span className={cn("block text-sm font-semibold", !khoa && "text-bo-heading")}>{khoa ? "—" : soVN(d.khaDung)}</span>
+                {d.dangGiuNhat ? (
+                  <span className="block whitespace-nowrap text-xs text-bo-warning" title={t("Tồn ở kệ {{so}}", { so: soVN(d.tonTaiKe) })}>
+                    {t("{{so}} chờ nhặt", { so: soVN(d.dangGiuNhat) })}
+                  </span>
+                ) : null}
               </span>
-              <span role="cell" className={cn("hidden text-right text-sm font-semibold tabular-nums sm:block", !khoa && "text-bo-heading")}>{soVN(d.khaDung)}</span>
               <span role="cell" className="justify-self-end">{oChuyen}</span>
               {loi ? (
-                <p id={`ck-so-${d.loHangId}-loi`} className="col-span-2 text-[13px] text-bo-danger sm:col-span-5 sm:pl-12">
+                <p id={`ck-so-${d.loHangId}-loi`} className="col-span-2 text-[13px] text-bo-danger sm:col-span-3 sm:pl-12">
                   {loi}
                 </p>
               ) : null}
@@ -166,6 +174,6 @@ export default function CotTuKe({ ke, chon, loiDong, noiBat, onDatSo, onXong, on
           );
         })}
       </div>
-    </section>
+    </div>
   );
 }
