@@ -120,9 +120,6 @@ public class OmnichannelOrderSyncJob {
     @lombok.experimental.NonFinal
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     com.dev.backend.services.shopee.ShopeeMockEngine shopeeMockEngine;
-    @lombok.experimental.NonFinal
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    com.dev.backend.services.shopee.ShopeeThirdPartySignClient shopeeThirdPartySignClient;
     /** Nhật ký "Thêm khách hàng" khi đơn sàn tự tạo khách (test dựng tay không có thì bỏ qua). */
     @lombok.experimental.NonFinal
     @org.springframework.beans.factory.annotation.Autowired(required = false)
@@ -1507,54 +1504,6 @@ public class OmnichannelOrderSyncJob {
     public int syncRealShopeeOrders(KenhBanHang kenh, Instant tuNgay, Instant denNgay) {
         String maKenh = kenh != null ? kenh.getMaKenh() : MA_KENH_SHOPEE;
         Long shopId = kenhBanHangService.getShopeeShopId(maKenh);
-        String shopIdStr = (shopId != null) ? String.valueOf(shopId) : (kenh != null ? kenh.getClientId() : null);
-
-        // Kênh Shopee Shop ID kết nối trực tiếp qua Cổng ký chỉ cần Shop ID
-        if ("SHOPEE".equalsIgnoreCase(maKenh) && shopIdStr != null && !shopIdStr.isBlank() && shopeeThirdPartySignClient != null) {
-            int synced = 0;
-            try {
-                long timeFrom = tuNgay != null ? tuNgay.getEpochSecond() : (Instant.now().getEpochSecond() - 86400L);
-                long timeTo = denNgay != null ? denNgay.getEpochSecond() : Instant.now().getEpochSecond();
-
-                com.fasterxml.jackson.databind.JsonNode listRes = shopeeThirdPartySignClient.getOrderList(
-                        shopIdStr, timeFrom, timeTo, "READY_TO_SHIP", 50);
-
-                com.fasterxml.jackson.databind.JsonNode orderListNode = listRes.path("response").path("order_list");
-                List<String> orderSnList = new ArrayList<>();
-                if (orderListNode.isArray()) {
-                    for (com.fasterxml.jackson.databind.JsonNode oNode : orderListNode) {
-                        String sn = oNode.path("order_sn").asText("");
-                        if (!sn.isBlank()) orderSnList.add(sn);
-                    }
-                }
-
-                if (!orderSnList.isEmpty()) {
-                    // GOM CỤM THEO LÔ (Batching): Lấy chi tiết toàn bộ đơn hàng trong 1 request
-                    com.fasterxml.jackson.databind.JsonNode detailRes = shopeeThirdPartySignClient.getOrderDetail(shopIdStr, orderSnList);
-                    com.fasterxml.jackson.databind.JsonNode details = detailRes.path("response").path("order_list");
-                    if (details.isArray()) {
-                        batDauLuot();
-                        try {
-                            for (com.fasterxml.jackson.databind.JsonNode dNode : details) {
-                                com.dev.backend.dto.response.customize.ShopeeOrderDto dto =
-                                        objectMapper.convertValue(dNode, com.dev.backend.dto.response.customize.ShopeeOrderDto.class);
-                                if (dto != null && processSingleShopeeOrder(dto, kenh)) {
-                                    synced++;
-                                }
-                            }
-                        } finally {
-                            ketThucLuot(kenh, synced);
-                        }
-                    }
-                }
-                if (kenh.getId() != null) lanLayDonCuoi.put(kenh.getId(), Instant.now());
-                log.info("[JOB-01] Quét đơn Shopee Production qua Cổng ký bên thứ ba hoàn tất: {} đơn mới", synced);
-            } catch (Exception ex) {
-                log.error("[JOB-01] Lỗi khi quét đơn hàng Shopee Production qua Gateway: {}", ex.getMessage());
-            }
-            return synced;
-        }
-
         Long partnerId = kenhBanHangService.getShopeePartnerId(maKenh);
         String partnerKey = kenhBanHangService.getDecryptedShopeePartnerKey(maKenh);
         String accessToken = kenhBanHangService.getDecryptedShopeeAccessToken(maKenh);
@@ -1668,6 +1617,36 @@ public class OmnichannelOrderSyncJob {
                         thongBaoXuatKhoService.khachYeuCauHuy(existing, kenh);
                         if (existing.getKhoXuat() != null) thongBaoXuatKhoService.lamMoiDonChoXuat(existing.getKhoXuat().getId());
                     }
+                }
+            } else {
+                // 1. Đồng bộ trạng thái thanh toán nếu sàn đổi sang đã thanh toán
+                boolean daThanhToan = !"UNPAID".equalsIgnoreCase(order.getOrderStatus())
+                        && (order.getPaymentMethod() == null || !order.getPaymentMethod().toLowerCase().contains("cod") || "COMPLETED".equalsIgnoreCase(order.getOrderStatus()));
+                if (daThanhToan && !"da_thanh_toan".equals(existing.getTrangThaiThanhToan())) {
+                    existing.setTrangThaiThanhToan("da_thanh_toan");
+                    existing.setNgayCapNhat(Instant.now());
+                    donBanHangRepository.save(existing);
+                    log.info("[JOB-01] Đơn {} trên Shopee đã thanh toán -> Cập nhật trạng thái thanh toán = da_thanh_toan", soDonHang);
+                }
+
+                // 2. Đồng bộ trạng thái giao hàng / hoàn thành theo sàn Shopee
+                if (order.getOrderStatus() != null && !order.getOrderStatus().isBlank()) {
+                    try {
+                        donBanHangService.capNhatTrangThaiGiaoHangTuSan(existing.getId(), order.getOrderStatus());
+                    } catch (Exception ex) {
+                        log.error("[JOB-01] Lỗi khi cập nhật trạng thái giao hàng đơn {} theo Shopee: {}", soDonHang, ex.getMessage());
+                    }
+                }
+
+                // 3. Đồng bộ bổ sung mã vận đơn và đơn vị vận chuyển nếu có
+                String currentNote = existing.getGhiChu() != null ? existing.getGhiChu() : "";
+                if (!currentNote.contains("[VẬN ĐƠN:") && order.getTrackingNumber() != null && !order.getTrackingNumber().isBlank()) {
+                    String trackingInfo = "[VẬN ĐƠN: " + order.getTrackingNumber().trim() +
+                            (order.getShippingCarrier() != null && !order.getShippingCarrier().isBlank() ? " - " + order.getShippingCarrier().trim() : "") + "]";
+                    existing.setGhiChu((currentNote.isBlank() ? "" : currentNote + " | ") + trackingInfo);
+                    existing.setNgayCapNhat(Instant.now());
+                    donBanHangRepository.save(existing);
+                    log.info("[JOB-01] Cập nhật mã vận đơn Shopee {} ({}) cho đơn {}", order.getTrackingNumber(), order.getShippingCarrier(), soDonHang);
                 }
             }
             return false;
