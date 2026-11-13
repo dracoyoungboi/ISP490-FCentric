@@ -27,6 +27,7 @@ import com.dev.backend.utils.BienSoXe;
 import com.dev.backend.utils.HienThiBienThe;
 import com.dev.backend.utils.KhoDangChon;
 import com.dev.backend.utils.SoChungTu;
+import com.dev.backend.utils.TuKhoaTimKiem;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import jakarta.persistence.criteria.Subquery;
@@ -1133,6 +1134,51 @@ public class PhieuChuyenKhoService {
                 .size(page.getSize())
                 .soTheoTab(soTheoTab)
                 .build();
+    }
+
+    /**
+     * Tìm phiếu chuyển theo số phiếu / số lệnh điều động cho ô tìm kiếm toàn hệ thống: cùng phạm vi kho với
+     * {@link #danhSach} (Quản lý Kho tổng, quản trị viên: toàn mạng lưới; người khác: phiếu có kho đang chọn là một bên)
+     * nhưng không đếm tab, không tính hàng chưa xếp kệ. Từ khóa thoát ! % _ để gõ chữ nào khớp chữ đó.
+     */
+    @Transactional(readOnly = true)
+    public PhieuChuyenKhoDto.DanhSach timTheoSo(String tuKhoa, int soDong) {
+        NguoiDungAuthInfo user = SecurityContextHolder.getUser();
+        Integer khoDangChon = laQuanLyKhoTong(user) ? null : SecurityContextHolder.getKhoId();
+        if (!laQuanLyKhoTong(user) && khoDangChon == null) {
+            throw new CommonException(ThongDiep.of("chungTuKho.chonKhoDeXemPhieuChuyen"));
+        }
+        String mau = TuKhoaTimKiem.mau(tuKhoa == null ? "" : tuKhoa.trim(), false);
+        Specification<PhieuChuyenKho> loc = (root, query, cb) -> {
+            List<Predicate> p = new ArrayList<>();
+            if (khoDangChon != null) {
+                p.add(cb.or(cb.equal(root.get("khoXuat").get("id"), khoDangChon), cb.equal(root.get("khoNhap").get("id"), khoDangChon)));
+            }
+            p.add(cb.or(TuKhoaTimKiem.like(cb, root.get("soPhieuChuyen"), mau), TuKhoaTimKiem.like(cb, root.get("soLenhDieuDong"), mau)));
+            return cb.and(p.toArray(new Predicate[0]));
+        };
+        Page<PhieuChuyenKho> page = phieuChuyenKhoRepository.findAll(loc,
+                PageRequest.of(0, Math.min(Math.max(soDong, 1), 100), Sort.by(Sort.Order.desc("ngayTao"), Sort.Order.desc("id"))));
+        List<Integer> ids = page.getContent().stream().map(PhieuChuyenKho::getId).toList();
+        Set<Integer> biTuChoi = lichSuThayDoiService.idDaCoHanhDong(ITable.phieu_chuyen_kho,
+                page.getContent().stream().filter(p -> IChuyenKho.DA_HUY.equals(p.getTrangThai())).map(PhieuChuyenKho::getId).toList(),
+                IHanhDong.tu_choi_phieu_chuyen);
+        Set<Integer> coChenhLech = new HashSet<>();
+        if (!ids.isEmpty()) {
+            for (BienBanGiaoNhan bb : bienBanGiaoNhanRepository.findByPhieuChuyenKho_IdIn(ids)) {
+                if (IChuyenKho.GHI_GIAM_HAO_HUT.equals(bb.getPhuongAnXuLy())) coChenhLech.add(bb.getPhieuChuyenKho().getId());
+            }
+        }
+        List<PhieuChuyenKhoDto.DongDanhSach> dong = page.getContent().stream().map(p -> PhieuChuyenKhoDto.DongDanhSach.builder()
+                .id(p.getId())
+                .soPhieuChuyen(p.getSoPhieuChuyen())
+                .khoXuatTen(p.getKhoXuat().getTenKho())
+                .khoNhapTen(p.getKhoNhap().getTenKho())
+                .trangThai(p.getTrangThai())
+                .tuChoi(biTuChoi.contains(p.getId()))
+                .coChenhLech(IChuyenKho.HOAN_TAT.equals(p.getTrangThai()) && coChenhLech.contains(p.getId()))
+                .build()).toList();
+        return PhieuChuyenKhoDto.DanhSach.builder().content(dong).totalElements(page.getTotalElements()).build();
     }
 
     @Transactional(readOnly = true)
