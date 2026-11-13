@@ -8,6 +8,7 @@ import com.dev.backend.dto.TonKhoProjection;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.customize.TonKhoChiTietDTO;
 import com.dev.backend.mapper.TonKhoTheoLoMapper;
+import com.dev.backend.services.impl.kiemke.KiemKeTheoMaService;
 import com.dev.backend.services.impl.multitable.BaoCaoTonKhoService;
 import com.dev.backend.services.multitable.ThongKeHeThongService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +28,30 @@ public class ThongKeHeThongController {
     private TonKhoTheoLoMapper tonKhoTheoLoMapper;
     @Autowired
     private BaoCaoTonKhoService baoCaoTonKhoService;
+    @Autowired
+    private KiemKeTheoMaService kiemKeTheoMaService;
+
+    /**
+     * Phần đang kiểm kê theo (kho, mã hàng) để màn tồn hiện nhãn "Đang kiểm kê N" (số tồn giữ nguyên). Theo kho (Báo cáo
+     * tồn kho: cùng phạm vi kho như /ton-kho-tong-quan) hoặc theo một mã (ngăn tồn của sản phẩm, mọi kho).
+     */
+    @GetMapping("/dang-kiem-ke")
+    @RequireAuth(
+            roles = {
+                    IRoleType.quan_tri_vien,
+                    IRoleType.quan_ly_kho,
+                    IRoleType.nhan_vien_kho,
+                    IRoleType.nhan_vien_mua_hang,
+                    IRoleType.nhan_vien_ban_hang
+            },
+            rolesLogic = RequireAuth.LogicType.OR
+    )
+    public ResponseEntity<ResponseData<List<KiemKeTheoMaService.DongDangKiem>>> dangKiemKe(
+            @RequestParam(required = false) Integer khoId, @RequestParam(required = false) Integer bienTheId) {
+        if (bienTheId == null) baoCaoTonKhoService.kiemTraKhoXem(khoId);
+        return ResponseEntity.ok(ResponseData.<List<KiemKeTheoMaService.DongDangKiem>>builder()
+                .status(200).data(kiemKeTheoMaService.dangKiem(khoId, bienTheId)).message("Success").build());
+    }
 
     @GetMapping("/ton-kho")
     @RequireAuth(
