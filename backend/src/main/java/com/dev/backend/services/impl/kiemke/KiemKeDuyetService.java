@@ -254,6 +254,7 @@ public class KiemKeDuyetService {
         l.setNgayThucHien(bayGio);
         nhatKyRepo.save(l);
         thongBao.daDuyet(dot, phieu == null ? null : phieu.getSoPhieu(), nguoi);
+        thongBao.ketThuc(dot, true, nguoi);
         KiemKeDto.KetQuaLenh kq = KiemKeService.ketQua(dot, phieu);
         lenh.ghi(khoId, khoa, IKiemKe.LENH_PHE_DUYET, hash, kq);
         if (coOutbox) {

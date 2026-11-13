@@ -465,6 +465,7 @@ public class KiemKeService {
         ghiNhatKy(dot, IKiemKe.HD_BAT_DAU, "Chốt " + pv.dong().size() + " dòng lô–kệ (" + pv.tongSoLuong() + " sp) tại "
                 + soKe + " kệ; " + (IKiemKe.laKhoaToanKe(loai) ? "khóa toàn kệ" : "khóa mịn theo "
                 + pv.danhMuc().size() + " danh mục"), nguoi);
+        thongBao.batDau(dot, nguoi);
     }
 
     /** Một lỗi có mã cho danh sách vướng mắc; mã ưu tiên giao thoa → việc dở → phạm vi. */
@@ -817,6 +818,7 @@ public class KiemKeService {
         if (IKiemKe.dangGiuKhoa(truoc)) duyet.moKhoa(dot, nguoi);
         ghiNhatKy(dot, IKiemKe.HD_HUY, "Hủy: " + lyDo + (IKiemKe.dangGiuKhoa(truoc)
                 ? ". Mở khóa của đợt, không điều chỉnh tồn" : ""), nguoi);
+        if (IKiemKe.dangGiuKhoa(truoc)) thongBao.ketThuc(dot, false, nguoi);
         KiemKeDto.KetQuaLenh kq = ketQua(dot, null);
         lenh.ghi(dot.getKho().getId(), khoa, IKiemKe.LENH_HUY, hash, kq);
         return kq;
