@@ -37,7 +37,7 @@ export const CHANNELS = {
     INVOICE_PENDING: "Chờ hóa đơn",
   },
   TIKTOK: { id: 5, maKenh: "TIKTOK", tenKenh: "TikTok Shop" },
-  SHOPEE: { id: 4, maKenh: "SHOPEE", tenKenh: "Shopee (Cổng phụ)" },
+  SHOPEE: { id: 4, maKenh: "SHOPEE", tenKenh: "Shopee" },
   SHOPEE_OFFICIAL: { id: 8, maKenh: "SHOPEE_OFFICIAL", tenKenh: "Shopee" },
   SHOPEE_SANDBOX: { id: 7, maKenh: "SHOPEE_SANDBOX", tenKenh: "Shopee Sandbox" },
 };
@@ -49,7 +49,6 @@ export const MARKETPLACE_FILTER_OPTIONS = [
   { value: "lazada", label: "Lazada", id: CHANNELS.LAZADA.id },
   { value: "tiktok", label: "TikTok Shop", id: CHANNELS.TIKTOK.id },
   { value: "shopee_official", label: "Shopee", id: 8 },
-  { value: "shopee", label: "Shopee (Cổng phụ)", id: 4 },
   { value: "shopee_sandbox", label: "Shopee Sandbox", id: 7 },
 ];
 
@@ -71,7 +70,7 @@ const CHANNEL_NAMES = {
   LAZADA: "Lazada",
   LAZADA_SANDBOX: "Lazada Sandbox",
   TIKTOK: "TikTok Shop",
-  SHOPEE: "Shopee (Cổng phụ)",
+  SHOPEE: "Shopee",
   SHOPEE_OFFICIAL: "Shopee",
   SHOPEE_SANDBOX: "Shopee Sandbox",
   POS: "POS",
@@ -264,8 +263,7 @@ export const SAN_BAN_HANG = [
   { maKenh: "LAZADA", ten: "Lazada", duongDan: "/channels/lazada", hoTro: false, kieuKetNoi: "uy_quyen", tienToDon: "LZD", hanUyQuyenNgay: 50, anTam: true },
   { maKenh: "LAZADA_SANDBOX", ten: "Lazada Sandbox", duongDan: "/channels/lazada-sandbox", hoTro: false, kieuKetNoi: "uy_quyen", tienToDon: "LZD-SBX", hanUyQuyenNgay: 50, isSandbox: true, anTam: true },
   { maKenh: "TIKTOK", ten: "TikTok Shop", duongDan: "/channels/tiktok", hoTro: true, kieuKetNoi: "uy_quyen", tienToDon: "TTS", maThuCong: true },
-  // Kênh 1: Shopee (Kết nối nhanh bằng Shop ID) - Ẩn khỏi giao diện, giữ nguyên code
-  { maKenh: "SHOPEE", ten: "Shopee (Cổng phụ)", duongDan: "/channels/shopee", hoTro: true, kieuKetNoi: "ben_thu_ba", tienToDon: "SHP", hanUyQuyenNgay: 365, hienMenu: false, anTam: true },
+  { maKenh: "SHOPEE", ten: "Shopee", duongDan: "/channels/shopee", hoTro: false, kieuKetNoi: "uy_quyen", tienToDon: "SHP", hanUyQuyenNgay: 365, hienMenu: false, anTam: true },
   // Kênh 2: Shopee Chính Thức (Shopee Open Platform v2 Official)
   { maKenh: "SHOPEE_OFFICIAL", ten: "Shopee", duongDan: "/channels/shopee-official", hoTro: true, kieuKetNoi: "uy_quyen", tienToDon: "SHP", hanUyQuyenNgay: 30, hienMenu: true },
   { maKenh: "SHOPEE_SANDBOX", ten: "Shopee Sandbox", duongDan: "/channels/shopee-sandbox", hoTro: true, kieuKetNoi: "uy_quyen", tienToDon: "SHP", hanUyQuyenNgay: 365, isSandbox: true, hienMenu: true, anTam: true },
