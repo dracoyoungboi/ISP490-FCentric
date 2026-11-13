@@ -209,41 +209,27 @@ public class KenhBanHangController {
                             .build()
             );
         }
-        if ("SHOPEE".equals(ma) || "SHOPEE_SANDBOX".equals(ma)) {
-            com.dev.backend.entities.KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma).orElse(null);
-            if (kenh == null) {
-                kenh = com.dev.backend.entities.KenhBanHang.builder()
-                        .maKenh(ma)
-                        .tenKenh(ma.contains("SANDBOX") ? "Shopee Sandbox" : "Gian hàng Shopee")
-                        .loaiKenh("online")
-                        .apiUrl("https://partner.shopeemobile.com/api/v2")
-                        .trangThai(1)
-                        .build();
-            }
-            String shopId = request.getAppKey() != null ? request.getAppKey().trim() :
-                    (request.getClientId() != null ? request.getClientId().trim() :
-                    (request.getShopDomain() != null ? request.getShopDomain().trim() : ""));
-
-            if (!shopId.isBlank()) {
-                kenh.setClientId(shopId);
-                kenh.setShopDomain(shopId);
-                kenh.setApiUrl("https://vip-sign.minmintool.site/api/v1/sign");
-                kenh.setApiKey("shopee-payg-fb49e124f2284f");
-                kenh.setApiSecret(request.getApiSecret() != null ? request.getApiSecret().trim() : ("shopee_dev_" + shopId));
-                kenh.setTokenExpiresAt(java.time.Instant.now().plus(java.time.Duration.ofDays(365)));
-                kenh.setTrangThai(request.getTrangThai() != null ? request.getTrangThai() : 1);
-                if (request.getTenGianHang() != null && !request.getTenGianHang().isBlank()) {
+        if ("SHOPEE_SANDBOX".equals(ma) || "SHOPEE".equals(ma)) {
+            boolean isSandbox = "SHOPEE_SANDBOX".equals(ma);
+            com.dev.backend.dto.request.ShopeeConfigUpdating shopeeReq = com.dev.backend.dto.request.ShopeeConfigUpdating.builder()
+                    .partnerId(request.getAppKey())
+                    .partnerKey(request.getAppSecret())
+                    .trangThai(request.getTrangThai())
+                    .isSandbox(isSandbox)
+                    .build();
+            kenhBanHangService.updateShopeeConfig(ma, shopeeReq);
+            if (request.getTenGianHang() != null && !request.getTenGianHang().isBlank()) {
+                com.dev.backend.entities.KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma).orElse(null);
+                if (kenh != null) {
                     kenh.setTenKenh(request.getTenGianHang().trim());
+                    kenhBanHangRepository.save(kenh);
                 }
-            } else if (request.getTrangThai() != null) {
-                kenh.setTrangThai(request.getTrangThai());
             }
-            kenhBanHangRepository.save(kenh);
             return ResponseEntity.ok(
                     ResponseData.<ShopifyConfigResponse>builder()
                             .status(HttpStatus.OK.value())
                             .data(kenhBanHangService.getKetNoi(ma))
-                            .message(ThongDiep.dich("kenhBan.capNhatCauHinhSanThanhCong", (ma.contains("SANDBOX") ? "Shopee Sandbox" : "Shopee")))
+                            .message(ThongDiep.dich("kenhBan.capNhatCauHinhSanThanhCong", (isSandbox ? "Shopee Sandbox" : "Shopee")))
                             .build()
             );
         }
