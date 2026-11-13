@@ -247,11 +247,8 @@ public class OmnichannelOrderSyncJob {
                     }
                     syncShopifyOrders(kenh, intervalMins);
                 } else if (isLazada(maKenh)) {
-                    if (!KenhCauHinhDongBo.tuDongLayDon(dieuHanhHeThongService, maKenh)) {
-                        log.info("[JOB-01] Kênh {} đang tắt tự động lấy đơn, bỏ qua", maKenh);
-                        continue;
-                    }
-                    syncLazadaOrders(kenh, intervalMins);
+                    log.debug("[JOB-01] Kênh {} đã được vô hiệu hóa, bỏ qua", maKenh);
+                    continue;
                 } else if (isTikTok(maKenh)) {
                     if (!KenhCauHinhDongBo.tuDongLayDon(dieuHanhHeThongService, maKenh)) {
                         log.info("[JOB-01] Kênh {} đang tắt tự động lấy đơn, bỏ qua", maKenh);

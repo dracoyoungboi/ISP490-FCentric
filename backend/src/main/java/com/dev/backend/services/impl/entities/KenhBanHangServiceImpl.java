@@ -1682,24 +1682,6 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                 : getDecryptedTikTokAccessToken();
 
         // =========================================================================
-        // [SANDBOX MOCK BYPASS] - Hỗ trợ môi trường thử nghiệm khi chưa có Partner được duyệt
-        // Sau này khi lên Production 100%, bạn có thể giữ nguyên (chỉ kích hoạt khi token có tiền tố mock_)
-        // =========================================================================
-        if (accessToken != null && (accessToken.startsWith("mock_") || accessToken.toUpperCase().contains("SANDBOX"))) {
-            return TikTokTestConnectionResponse.builder()
-                    .connected(true)
-                    .message(ThongDiep.dich("kenhBan.ketNoiTikTokSandboxThanhCong"))
-                    .shopName("F-Centric Official Store (Sandbox)")
-                    .tenGianHang("F-Centric Official Store (Sandbox)")
-                    .shopId("mock_shop_id_01")
-                    .shopIdSan("mock_code_vn")
-                    .cipher("mock_cipher_fcentric_vn")
-                    .region("VN")
-                    .sellerType("CROSS_BORDER")
-                    .build();
-        }
-
-        // =========================================================================
         // [PRODUCTION FLOW] - Gọi trực tiếp TikTok Shop Open API qua TikTokShopClient
         // =========================================================================
         if (appKey == null || appKey.isBlank() || appSecret == null || appSecret.isBlank() || accessToken == null || accessToken.isBlank()) {
