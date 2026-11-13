@@ -19,9 +19,15 @@ import com.dev.backend.constant.variables.IHanhDong;
 import com.dev.backend.constant.variables.ITable;
 import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
 import com.dev.backend.i18n.ThongDiep;
+import com.dev.backend.dto.request.FilterCriteria;
+import com.dev.backend.utils.SoDienThoai;
+import com.dev.backend.utils.TuKhoaTimKiem;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.criteria.Expression;
+import jakarta.persistence.criteria.Predicate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -102,6 +108,46 @@ public class NhaCungCapService extends BaseServiceImpl<NhaCungCap, Integer> {
     @Override
     protected EntityManager getEntityManager() {
         return entityManager;
+    }
+
+    /** Trường lọc ảo tuKhoa (ô tìm toàn hệ thống): tách ra, phần còn lại lọc như cũ. */
+    @Override
+    protected Specification<NhaCungCap> createSpecification(List<FilterCriteria> filters) {
+        TuKhoaTimKiem.Tach tach = TuKhoaTimKiem.tach(filters);
+        if (!tach.coTruong()) {
+            return super.createSpecification(filters);
+        }
+        Specification<NhaCungCap> conLai = super.createSpecification(tach.conLai());
+        return tach.tuKhoa() == null ? conLai : conLai.and(theoTuKhoa(tach.tuKhoa(), tach.chinhXac()));
+    }
+
+    /**
+     * Nhà cung cấp khớp từ khóa. "Chứa": mã, tên, mã số thuế, email, người liên hệ (đủ các trường trang Nhà cung cấp
+     * đang lọc, thêm mã số thuế) và số điện thoại khi từ khóa có dáng số điện thoại. "Chính xác": mã, mã số thuế, email,
+     * số điện thoại.
+     */
+    static Specification<NhaCungCap> theoTuKhoa(String tuKhoa, boolean chinhXac) {
+        String mau = TuKhoaTimKiem.mau(tuKhoa, chinhXac);
+        String sdt = SoDienThoai.choTimKiem(tuKhoa);
+        return (root, query, cb) -> {
+            List<Predicate> hoac = new ArrayList<>();
+            hoac.add(TuKhoaTimKiem.like(cb, root.get("maNhaCungCap"), mau));
+            hoac.add(TuKhoaTimKiem.like(cb, root.get("maSoThue"), mau));
+            hoac.add(TuKhoaTimKiem.like(cb, root.get("email"), mau));
+            if (!chinhXac) {
+                hoac.add(TuKhoaTimKiem.like(cb, root.get("tenNhaCungCap"), mau));
+                hoac.add(TuKhoaTimKiem.like(cb, root.get("nguoiLienHe"), mau));
+            }
+            if (sdt != null) {
+                Expression<String> cotSdt = TuKhoaTimKiem.boNganCach(cb, root.get("soDienThoai"));
+                hoac.add(chinhXac ? cb.equal(cotSdt, sdt)
+                        : cb.like(cotSdt, "%" + TuKhoaTimKiem.thoat(sdt) + "%", TuKhoaTimKiem.KY_TU_THOAT));
+            } else if (!chinhXac) {
+                // Từ khóa không có dáng số điện thoại (vd. "091"): vẫn so chứa trên số như trang Nhà cung cấp
+                hoac.add(TuKhoaTimKiem.like(cb, root.get("soDienThoai"), mau));
+            }
+            return cb.or(hoac.toArray(new Predicate[0]));
+        };
     }
 
     /**
