@@ -1113,7 +1113,7 @@
   "{{soLo}} lô trên kệ · lô cũ xếp trước_other": "{{soLo}} lots on shelf · oldest first",
   "Số lượng khả dụng tại kệ chỉ còn {{x}}.": "Only {{x}} available to move from this shelf.",
   "Số trên kệ vừa được tải lại. Kiểm tra số lượng rồi quét lại kệ đích.": "Shelf stock was just reloaded. Check the quantities and scan the destination shelves again.",
-  "Chuyển hàng giữa kệ": "New shelf transfer",
+  "Tạo phiếu chuyển kệ": "New shelf transfer",
   "phiếu chuyển kệ": "transfers",
   "ĐỔI KỆ": "MOVED",
   "Lô {{lo}}: {{so}} sản phẩm_one": "Lot {{lo}}: {{so}} item",
