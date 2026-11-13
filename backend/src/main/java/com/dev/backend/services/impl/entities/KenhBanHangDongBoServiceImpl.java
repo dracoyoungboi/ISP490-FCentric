@@ -127,9 +127,6 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     @lombok.experimental.NonFinal
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     com.dev.backend.services.shopee.ShopeeMockEngine shopeeMockEngine;
-    @lombok.experimental.NonFinal
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    com.dev.backend.services.shopee.ShopeeThirdPartySignClient shopeeThirdPartySignClient;
 
     public TikTokShopClient getTikTokShopClient() {
         if (tiktokShopClient == null) {
@@ -5234,23 +5231,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             }
         } catch (Exception ignored) {}
         try {
-            JsonNode res;
-            boolean isThirdPartyShopee = "SHOPEE".equalsIgnoreCase(kenh.getMaKenh());
-            String shopIdStr = (kenh.getClientId() != null && !kenh.getClientId().isBlank())
-                    ? kenh.getClientId().trim()
-                    : ((kenh.getShopDomain() != null && !kenh.getShopDomain().isBlank()) ? kenh.getShopDomain().trim() : null);
-            if (isThirdPartyShopee && shopeeThirdPartySignClient != null) {
-                if (shopIdStr == null || shopIdStr.isBlank()) {
-                    log.warn("[SHOPEE-SYNC] Kênh Shopee chưa cấu hình Shop ID, không thể đẩy tồn SKU {}", bt.getMaSku());
-                    return KetQuaGuiTon.loiCaKenh(ThongDiep.vi("hienThiKenhPos.shopeeChuaCauHinhShopId"));
-                }
-                Map<String, Object> stockItem = new HashMap<>();
-                stockItem.put("model_id", modelId != null ? modelId : (588300000L + bt.getId()));
-                stockItem.put("normal_stock", soDay);
-                res = shopeeThirdPartySignClient.updateStockBatch(shopIdStr, itemId, List.of(stockItem));
-            } else {
-                res = client.updateStock(itemId, modelId, soDay);
-            }
+            JsonNode res = client.updateStock(itemId, modelId, soDay);
             if (res != null && res.path("error").asText("").isEmpty()) {
                 return KetQuaGuiTon.THANH_CONG;
             } else {
@@ -6473,15 +6454,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
     private TaiSanPhamResultDto taiSanPhamShopee(KenhBanHang kenh) {
         com.dev.backend.services.shopee.ShopeeClient client = getShopeeClient(kenh);
-        boolean isThirdPartyShopee = "SHOPEE".equalsIgnoreCase(kenh.getMaKenh());
         boolean isSandbox = "SHOPEE_SANDBOX".equalsIgnoreCase(kenh.getMaKenh());
-        String shopIdStr = (kenh.getClientId() != null && !kenh.getClientId().isBlank())
-                ? kenh.getClientId().trim()
-                : ((kenh.getShopDomain() != null && !kenh.getShopDomain().isBlank()) ? kenh.getShopDomain().trim() : null);
-
-        if (isThirdPartyShopee && (shopIdStr == null || shopIdStr.isBlank())) {
-            throw new CommonException(ThongDiep.of("kenhBan.chuaCauHinhShopIdKenh", kenh.getMaKenh()), HttpStatus.BAD_REQUEST, null);
-        }
 
         int soSku = 0;
         int soMoi = 0;
@@ -6500,12 +6473,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         }
 
         try {
-            JsonNode listRes;
-            if (isThirdPartyShopee && shopeeThirdPartySignClient != null) {
-                listRes = shopeeThirdPartySignClient.getItemList(shopIdStr, 0, 100);
-            } else {
-                listRes = client.getItemList(0, 100, "NORMAL");
-            }
+            JsonNode listRes = client.getItemList(0, 100, "NORMAL");
             JsonNode items = listRes.path("response").path("item");
             if (!items.isArray() || items.isEmpty()) {
                 items = listRes.path("response").path("item_list");
@@ -6553,12 +6521,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 return TaiSanPhamResultDto.builder().soSku(0).soMoi(0).soCapNhat(0).build();
             }
 
-            JsonNode detailRes;
-            if (isThirdPartyShopee && shopeeThirdPartySignClient != null) {
-                detailRes = shopeeThirdPartySignClient.getItemBaseInfo(shopIdStr, itemIds);
-            } else {
-                detailRes = client.getItemBaseInfo(itemIds);
-            }
+            JsonNode detailRes = client.getItemBaseInfo(itemIds);
             JsonNode itemList = detailRes.path("response").path("item_list");
             if (itemList.isArray()) {
                 for (JsonNode itemNode : itemList) {
@@ -6842,20 +6805,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
             try {
                 // Gọi API cập nhật tồn kho theo lô (Batching) cho sản phẩm cha
-                JsonNode res;
-                boolean isThirdPartyShopee = "SHOPEE".equalsIgnoreCase(kenh.getMaKenh());
-                String shopIdStr = (kenh.getClientId() != null && !kenh.getClientId().isBlank())
-                        ? kenh.getClientId().trim()
-                        : ((kenh.getShopDomain() != null && !kenh.getShopDomain().isBlank()) ? kenh.getShopDomain().trim() : null);
-                if (isThirdPartyShopee && shopeeThirdPartySignClient != null) {
-                    if (shopIdStr == null || shopIdStr.isBlank()) {
-                        log.warn("[SHOPEE-SYNC-BATCH] Kênh Shopee chưa cấu hình Shop ID, bỏ qua đẩy tồn lô sản phẩm {}", itemId);
-                        continue;
-                    }
-                    res = shopeeThirdPartySignClient.updateStockBatch(shopIdStr, itemId, stockList);
-                } else {
-                    res = client.updateStockBatch(itemId, stockList);
-                }
+                JsonNode res = client.updateStockBatch(itemId, stockList);
                 boolean ok = res != null && res.path("error").asText("").isEmpty();
 
                 for (DongCanCapNhatShopee item : nhomDong) {
