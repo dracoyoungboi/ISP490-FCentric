@@ -69,6 +69,8 @@ import com.dev.backend.services.multitable.NhatHangService;
 import lombok.extern.slf4j.Slf4j;
 import com.dev.backend.utils.SauCommit;
 import com.dev.backend.utils.SoChungTu;
+import com.dev.backend.utils.SoDienThoai;
+import com.dev.backend.utils.TuKhoaTimKiem;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Lazy;
 
@@ -191,6 +193,50 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
 
     public DonBanHangService(DonBanHangRepository repository) {
         super(repository);
+    }
+
+    /** Trường lọc ảo tuKhoa (ô tìm toàn hệ thống, ô tìm trang Đơn bán): tách ra, phần còn lại lọc như cũ. */
+    @Override
+    protected Specification<DonBanHang> createSpecification(List<FilterCriteria> filters) {
+        TuKhoaTimKiem.Tach tach = TuKhoaTimKiem.tach(filters);
+        if (!tach.coTruong()) {
+            return super.createSpecification(filters);
+        }
+        Specification<DonBanHang> conLai = super.createSpecification(tach.conLai());
+        return tach.tuKhoa() == null ? conLai : conLai.and(theoTuKhoa(tach.tuKhoa(), tach.chinhXac()));
+    }
+
+    /**
+     * Đơn (hoặc báo giá) khớp từ khóa: số đơn, mã đơn sàn; qua khách: số điện thoại đã bỏ ký tự ngăn cách (khi từ khóa có
+     * dáng số điện thoại) và tên khách (chỉ khi tìm "chứa"). Khách dùng EXISTS, không join, để đơn không có khách vẫn
+     * được tìm theo số đơn.
+     */
+    static Specification<DonBanHang> theoTuKhoa(String tuKhoa, boolean chinhXac) {
+        String mau = TuKhoaTimKiem.mau(tuKhoa, chinhXac);
+        String sdt = SoDienThoai.choTimKiem(tuKhoa);
+        return (root, query, cb) -> {
+            List<jakarta.persistence.criteria.Predicate> hoac = new ArrayList<>();
+            hoac.add(TuKhoaTimKiem.like(cb, root.get("soDonHang"), mau));
+            hoac.add(TuKhoaTimKiem.like(cb, root.get("maDonHangKenh"), mau));
+
+            List<jakarta.persistence.criteria.Predicate> theoKhach = new ArrayList<>();
+            jakarta.persistence.criteria.Subquery<Integer> khach = query.subquery(Integer.class);
+            Root<KhachHang> kh = khach.from(KhachHang.class);
+            if (sdt != null) {
+                Expression<String> cotSdt = TuKhoaTimKiem.boNganCach(cb, kh.get("soDienThoai"));
+                theoKhach.add(chinhXac ? cb.equal(cotSdt, sdt) : cb.like(cotSdt, "%" + TuKhoaTimKiem.thoat(sdt) + "%", TuKhoaTimKiem.KY_TU_THOAT));
+            }
+            if (!chinhXac) {
+                theoKhach.add(TuKhoaTimKiem.like(cb, kh.get("tenKhachHang"), mau));
+            }
+            if (!theoKhach.isEmpty()) {
+                khach.select(kh.get("id")).where(
+                        cb.equal(kh.get("id"), root.get("khachHang").get("id")),
+                        cb.or(theoKhach.toArray(new jakarta.persistence.criteria.Predicate[0])));
+                hoac.add(cb.exists(khach));
+            }
+            return cb.or(hoac.toArray(new jakarta.persistence.criteria.Predicate[0]));
+        };
     }
 
     @Override
