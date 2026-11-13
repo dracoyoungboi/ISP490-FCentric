@@ -237,35 +237,39 @@ public class OmnichannelOrderSyncJob {
 
         log.info("[JOB-01 Heartbeat] Bắt đầu quét đơn hàng mới từ các kênh bán (Chu kỳ cấu hình: {} phút)", intervalMins);
         for (KenhBanHang kenh : activeChannels) {
-            if (MA_KENH_SHOPIFY.equalsIgnoreCase(kenh.getMaKenh())) {
-                // Cấu hình theo kênh; chưa lưu thì mặc định bật như trước
-                if (!KenhCauHinhDongBo.tuDongLayDon(dieuHanhHeThongService, kenh.getMaKenh())) {
-                    log.info("[JOB-01] Kênh {} đang tắt tự động lấy đơn, bỏ qua", kenh.getMaKenh());
-                    continue;
-                }
-                try {
+            String maKenh = kenh.getMaKenh();
+            try {
+                if (MA_KENH_SHOPIFY.equalsIgnoreCase(maKenh)) {
+                    // Cấu hình theo kênh; chưa lưu thì mặc định bật như trước
+                    if (!KenhCauHinhDongBo.tuDongLayDon(dieuHanhHeThongService, maKenh)) {
+                        log.info("[JOB-01] Kênh {} đang tắt tự động lấy đơn, bỏ qua", maKenh);
+                        continue;
+                    }
                     syncShopifyOrders(kenh, intervalMins);
-                } catch (LoiCoMaException e) {
-                    log.warn("[JOB-01] Kênh {} bỏ qua đợt lấy đơn: {}", kenh.getMaKenh(), e.getMessage());
+                } else if (isLazada(maKenh)) {
+                    if (!KenhCauHinhDongBo.tuDongLayDon(dieuHanhHeThongService, maKenh)) {
+                        log.info("[JOB-01] Kênh {} đang tắt tự động lấy đơn, bỏ qua", maKenh);
+                        continue;
+                    }
+                    syncLazadaOrders(kenh, intervalMins);
+                } else if (isTikTok(maKenh)) {
+                    if (!KenhCauHinhDongBo.tuDongLayDon(dieuHanhHeThongService, maKenh)) {
+                        log.info("[JOB-01] Kênh {} đang tắt tự động lấy đơn, bỏ qua", maKenh);
+                        continue;
+                    }
+                    syncTikTokOrders(kenh, intervalMins);
+                } else if (isShopee(maKenh)) {
+                    if (!KenhCauHinhDongBo.tuDongLayDon(dieuHanhHeThongService, maKenh)) {
+                        log.info("[JOB-01] Kênh {} đang tắt tự động lấy đơn, bỏ qua", maKenh);
+                        continue;
+                    }
+                    syncShopeeOrders(kenh, intervalMins);
                 }
-            } else if (isLazada(kenh.getMaKenh())) {
-                if (!KenhCauHinhDongBo.tuDongLayDon(dieuHanhHeThongService, kenh.getMaKenh())) {
-                    log.info("[JOB-01] Kênh {} đang tắt tự động lấy đơn, bỏ qua", kenh.getMaKenh());
-                    continue;
-                }
-                syncLazadaOrders(kenh, intervalMins);
-            } else if (MA_KENH_TIKTOK.equalsIgnoreCase(kenh.getMaKenh())) {
-                if (!KenhCauHinhDongBo.tuDongLayDon(dieuHanhHeThongService, kenh.getMaKenh())) {
-                    log.info("[JOB-01] Kênh {} đang tắt tự động lấy đơn, bỏ qua", kenh.getMaKenh());
-                    continue;
-                }
-                syncTikTokOrders(kenh, intervalMins);
-            } else if (isShopee(kenh.getMaKenh())) {
-                if (!KenhCauHinhDongBo.tuDongLayDon(dieuHanhHeThongService, kenh.getMaKenh())) {
-                    log.info("[JOB-01] Kênh {} đang tắt tự động lấy đơn, bỏ qua", kenh.getMaKenh());
-                    continue;
-                }
-                syncShopeeOrders(kenh, intervalMins);
+            } catch (LoiCoMaException e) {
+                log.warn("[JOB-01] Kênh {} bỏ qua đợt lấy đơn: {}", maKenh, e.getMessage());
+            } catch (Exception ex) {
+                log.error("[JOB-01 Error] Lỗi bất ngờ khi quét đơn kênh {} (cô lập để không ảnh hưởng kênh khác): {}",
+                        maKenh, ex.getMessage(), ex);
             }
         }
     }
