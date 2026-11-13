@@ -487,11 +487,10 @@ public class ShopeeClient {
 
         Map<String, Object> body = new HashMap<>();
         body.put("item_id", itemId);
-        if (modelId != null && modelId > 0) {
-            body.put("stock_list", List.of(Map.of("model_id", modelId, "normal_stock", stock)));
-        } else {
-            body.put("stock_list", List.of(Map.of("normal_stock", stock)));
-        }
+        Map<String, Object> stockItem = new HashMap<>();
+        stockItem.put("model_id", (modelId != null && modelId > 0) ? modelId : 0L);
+        stockItem.put("normal_stock", stock);
+        body.put("stock_list", List.of(stockItem));
 
         return executePost(url, body);
     }
@@ -830,6 +829,31 @@ public class ShopeeClient {
             return mockHtml.getBytes(StandardCharsets.UTF_8);
         }
         try {
+            // Bước 1: Yêu cầu Shopee tạo tài liệu vận đơn AWB nếu chưa tạo
+            try {
+                createShippingDocument(partnerId, partnerKey, accessToken, shopId, orderSn, false);
+            } catch (Exception ex) {
+                log.info("[SHOPEE-DOC] createShippingDocument phản hồi: {}", ex.getMessage());
+            }
+
+            // Bước 2: Kiểm tra trạng thái sẵn sàng (polling tối đa 3 lần)
+            for (int i = 0; i < 3; i++) {
+                try {
+                    JsonNode statusRes = getShippingDocumentResult(partnerId, partnerKey, accessToken, shopId, orderSn, false);
+                    if (statusRes != null) {
+                        String st = statusRes.path("response").path("status").asText("");
+                        if ("READY".equalsIgnoreCase(st)) {
+                            break;
+                        }
+                    }
+                    Thread.sleep(500);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    break;
+                } catch (Exception ignored) {}
+            }
+
+            // Bước 3: Tải file nhị phân PDF/HTML phiếu vận đơn
             long timestamp = Instant.now().getEpochSecond();
             String base = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_DOWNLOAD_DOC, timestamp, accessToken, shopId);
             String sign = ShopeeSignatureHelper.sign(partnerKey, base);
