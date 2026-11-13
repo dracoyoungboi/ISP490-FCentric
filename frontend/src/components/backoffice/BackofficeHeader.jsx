@@ -35,9 +35,9 @@ import { demLuotChuaKhoa } from "@/utils/hangLoiTam";
 import { NutChonNgonNguThanhTren } from "@/components/shared/ChonNgonNgu";
 import { t } from "@/i18n";
 
-// Phím tắt mở ô tìm kiếm: ⌘ + K trên máy Mac, Ctrl + K trên Windows/Linux
+// Phím tắt mở ô tìm kiếm: ⌘ K trên máy Mac, Ctrl + K trên Windows/Linux (ghi luôn trong chữ gợi ý của ô tìm)
 const PHIM_TAT =
-  typeof navigator !== "undefined" && /Mac|iPhone|iPad/i.test(navigator.platform || "") ? "⌘ + K" : "Ctrl + K";
+  typeof navigator !== "undefined" && /Mac|iPhone|iPad/i.test(navigator.platform || "") ? "⌘ K" : "Ctrl + K";
 
 const ROLE_LABELS = {
   quan_tri_vien: t("Quản trị viên"),
@@ -163,7 +163,11 @@ export default function BackofficeHeader() {
             userId={userId}
             role={role}
             isPhone={isMobile}
-            placeholder={isMobile ? (khoLamViec ? t("Tìm") : t("Tìm kiếm")) : t("Tìm kiếm ({{phimTat}})", { phimTat: PHIM_TAT })}
+            placeholder={
+              isMobile
+                ? (khoLamViec ? t("Tìm") : t("Tìm kiếm"))
+                : t("Tìm kiếm ({{phimTat}})", { phimTat: PHIM_TAT })
+            }
           />
         </div>
 

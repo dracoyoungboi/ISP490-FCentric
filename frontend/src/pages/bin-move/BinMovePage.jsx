@@ -104,7 +104,6 @@ export default function BinMovePage() {
   const [dsDich, setDsDich] = useState([]);
   const [thieuCho, setThieuCho] = useState(null);
   const [lyDo, setLyDo] = useState(null);
-  const [moGhiChu, setMoGhiChu] = useState(false);
   const [ghiChu, setGhiChu] = useState("");
   const [dangGui, setDangGui] = useState(false);
   const [ketQua, setKetQua] = useState(null);
@@ -166,7 +165,6 @@ export default function BinMovePage() {
     setDsDich([]);
     setThieuCho(null);
     setLyDo(null);
-    setMoGhiChu(false);
     setGhiChu("");
     // Màn cảm ứng không tự đưa tiêu điểm vào ô quét (tránh bật bàn phím ảo)
     if (!document.documentElement.hasAttribute("data-cam-ung")) setTimeout(() => oQuetRef.current?.focus(), 0);
@@ -288,14 +286,15 @@ export default function BinMovePage() {
     const muc = toiDa != null ? { ke, vuot: true, toiDa } : { ke };
     setDsDich([...dsCu, muc]);
     setThieuCho(null);
+    // Câu dưới ô quét chỉ báo việc vừa làm; số còn thiếu chỗ đã có ở thanh tiến độ chân khối
     const sau = phanBoKeDich(tongMoi, [...dsCu, muc]);
-    const coVuotMoi = sau.phan.some((p) => p.vuot && p.nhan > conTrongCua(p.ke));
+    const cat = sau.phan.find((p) => p.ke.id === ke.id)?.nhan ?? 0;
+    // Kèm việc cần làm tiếp (người chỉ nhìn ô quét, nhất là trên điện thoại khi chân khối còn ở dưới)
+    const tiep = sau.conLai > 0 ? t("Quét kệ đích tiếp theo.") : t("Đủ chỗ, bấm Xác nhận chuyển kệ.");
     setPhanHoi(
-      sau.conLai <= 0 && coVuotMoi
-        ? { kieu: "canhBao", chu: t("Đã có chỗ cho {{so}} sản phẩm, có kệ cất vượt sức chứa. Kiểm tra lại rồi xác nhận.", { so: soVN(tongMoi), count: tongMoi }) }
-        : sau.conLai > 0
-        ? { kieu: "thongTin", chu: t("Còn {{so}} sản phẩm chưa có chỗ. Quét kệ đích tiếp theo.", { so: soVN(sau.conLai), count: sau.conLai }) }
-        : { kieu: "ok", chu: t("Đã đủ chỗ cho {{so}} sản phẩm. Kiểm tra lại rồi xác nhận.", { so: soVN(tongMoi), count: tongMoi }) },
+      toiDa != null
+        ? { kieu: "canhBao", chu: `${t("Đã thêm kệ {{ma}}: cất {{so}} sản phẩm, vượt sức chứa.", { ma: ke.maViTri, so: soVN(cat), count: cat })} ${tiep}` }
+        : { kieu: "ok", chu: `${t("Đã thêm kệ {{ma}}: cất {{so}} sản phẩm.", { ma: ke.maViTri, so: soVN(cat), count: cat })} ${tiep}` },
     );
     veOQuet();
   };
@@ -332,7 +331,7 @@ export default function BinMovePage() {
       // A3: không đủ sức chứa — xử lý ngay trong cột Sang kệ
       playScanBeep(false);
       setThieuCho({ ke, can: cl });
-      setPhanHoi({ kieu: "canhBao", chu: t("Kệ {{ma}} chỉ còn {{conTrong}} chỗ cho {{can}} sản phẩm. Chọn cách xử lý ở cột Kệ đích.", { ma: ke.maViTri, conTrong: soVN(conTrongCua(ke)), can: soVN(cl) }) });
+      setPhanHoi({ kieu: "canhBao", chu: t("Vừa quét {{ma}}: thiếu chỗ. Chọn cách xử lý ở cột Kệ đích.", { ma: ke.maViTri }) });
       return;
     }
     playScanBeep(true);
@@ -472,8 +471,6 @@ export default function BinMovePage() {
       : conLai > 0
         ? t("Quét mã hàng để cộng 1, hoặc quét mã kệ đích")
         : t("Quét thêm mã hàng, hoặc bấm Xác nhận chuyển kệ");
-  const soLo = dsChon.length;
-  const phanCo = phan.filter((p) => p.nhan > 0);
   const khongCoKho = !kho.dangTai && !kho.loi && kho.dsKho.length === 0;
 
   return (
@@ -536,51 +533,68 @@ export default function BinMovePage() {
           />
 
           {nguon ? (
-            <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(340px,1fr)]">
-              <CotTuKe
-                ke={nguon}
-                chon={chon}
-                loiDong={loiDong}
-                noiBat={noiBat}
-                onDatSo={datSo}
-                onXong={veOQuet}
-                onChonTatCa={chonTatCa}
-                onBoChon={() => {
-                  setChon({});
-                  setLoiDong({});
-                  setPhanHoi(null);
-                  veOQuet();
-                }}
-                onDoiKe={() => {
-                  lamMoi();
-                  setPhanHoi(null);
-                }}
-              />
-              <CotSangKe
-                coNguon
+            // Một khối cho cả lượt chuyển: Kệ nguồn | Kệ đích, chân khối tiến độ + lý do + xác nhận (dính đáy khi dài)
+            <section className={THE} aria-label={t("Lượt chuyển kệ")}>
+              <div className="grid xl:grid-cols-[minmax(0,1.45fr)_minmax(360px,1fr)]">
+                <CotTuKe
+                  ke={nguon}
+                  chon={chon}
+                  loiDong={loiDong}
+                  noiBat={noiBat}
+                  onDatSo={datSo}
+                  onXong={veOQuet}
+                  onChonTatCa={chonTatCa}
+                  onBoChon={() => {
+                    setChon({});
+                    setLoiDong({});
+                    setPhanHoi(null);
+                    veOQuet();
+                  }}
+                  onDoiKe={() => {
+                    lamMoi();
+                    setPhanHoi(null);
+                  }}
+                />
+                <CotSangKe
+                  coNguon
+                  tong={tong}
+                  conLai={conLai}
+                  phan={phan}
+                  goiY={goiY}
+                  dangTaiGoiY={Boolean(khoaGoiY) && goiYQ.loading}
+                  thieuCho={thieuCho}
+                  duocVuot={duocVuot}
+                  ban={dangTra || dangGui}
+                  onChonGoiY={chonGoiY}
+                  onBoDich={boDich}
+                  onTach={() => themDich(thieuCho.ke)}
+                  onDoiKe={() => {
+                    setPhanHoi({ kieu: "thongTin", chu: t("Quét vị trí kệ mới có sức chứa từ {{so}} trở lên.", { so: soVN(thieuCho?.can ?? conLai) }) });
+                    setThieuCho(null);
+                    veOQuet();
+                  }}
+                  onVuot={() => themDich(thieuCho.ke, thieuCho.can)}
+                  className="border-t border-bo-border xl:border-l xl:border-t-0"
+                />
+              </div>
+              <ThanhXacNhan
                 tong={tong}
-                conLai={conLai}
-                phan={phan}
-                goiY={goiY}
-                dangTaiGoiY={Boolean(khoaGoiY) && goiYQ.loading}
-                thieuCho={thieuCho}
-                duocVuot={duocVuot}
-                ban={dangTra || dangGui}
-                onChonGoiY={chonGoiY}
-                onBoDich={boDich}
-                onTach={() => themDich(thieuCho.ke)}
-                onDoiKe={() => {
-                  setPhanHoi({ kieu: "thongTin", chu: t("Quét vị trí kệ mới có sức chứa từ {{so}} trở lên.", { so: soVN(thieuCho?.can ?? conLai) }) });
-                  setThieuCho(null);
-                  veOQuet();
-                }}
-                onVuot={() => themDich(thieuCho.ke, thieuCho.can)}
+                coCho={tong - conLai}
+                san={duocGui}
+                dangGui={dangGui}
+                coVuot={coVuot}
+                lyDo={lyDo}
+                onLyDo={setLyDo}
+                ghiChu={ghiChu}
+                onGhiChu={setGhiChu}
+                onDongLyDo={veOQuet}
+                onXacNhan={xacNhan}
               />
-            </div>
+            </section>
           ) : (
             <>
               {ketQua ? <BienNhan ketQua={ketQua} /> : null}
-              <div className="grid gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(340px,1fr)]">
+              <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(360px,1fr)]">
                 <section className={`${THE} grid place-items-center px-6 py-12 text-center`}>
                   <div className="grid max-w-md justify-items-center gap-2">
                     <span className="grid size-12 place-items-center rounded-full bg-bo-primary-soft text-bo-primary">
@@ -606,7 +620,9 @@ export default function BinMovePage() {
                     ) : null}
                   </div>
                 </section>
-                <CotSangKe coNguon={false} tong={0} conLai={0} phan={[]} />
+                <section className={`${THE} self-stretch`}>
+                  <CotSangKe coNguon={false} tong={0} conLai={0} phan={[]} />
+                </section>
               </div>
               {luotGanDay.length ? (
                 <section className={THE} aria-labelledby="ck-gan-day">
@@ -650,39 +666,6 @@ export default function BinMovePage() {
               ) : null}
             </>
           )}
-
-          {nguon ? (
-            <ThanhXacNhan
-              tieuDe={
-                tong > 0
-                  ? `${t("{{so}} sản phẩm", { so: soVN(tong), count: tong })} · ${t("{{so}} lô", { so: soVN(soLo), count: soLo })}${
-                      phanCo.length && conLai === 0 ? ` → ${t("{{so}} kệ", { so: soVN(phanCo.length), count: phanCo.length })}` : ""
-                    }`
-                  : t("Chưa chọn hàng")
-              }
-              phu={
-                tong <= 0
-                  ? t("Nhập số lượng ở bảng hoặc quét mã hàng.")
-                  : conLai > 0
-                    ? t("Còn {{so}} sản phẩm chưa có kệ đích.", { so: soVN(conLai), count: conLai })
-                    : `${nguon.maViTri} → ${phanCo.map((p) => p.ke.maViTri).join(", ")}`
-              }
-              san={duocGui}
-              dangGui={dangGui}
-              lyDoMo={tong > 0}
-              lyDo={lyDo}
-              onLyDo={(x) => {
-                setLyDo(x);
-                veOQuet();
-              }}
-              moGhiChu={moGhiChu}
-              onMoGhiChu={() => setMoGhiChu(true)}
-              ghiChu={ghiChu}
-              onGhiChu={setGhiChu}
-              coVuot={coVuot}
-              onXacNhan={xacNhan}
-            />
-          ) : null}
         </>
       )}
     </PageContainer>

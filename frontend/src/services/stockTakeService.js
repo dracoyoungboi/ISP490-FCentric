@@ -67,8 +67,13 @@ export const batDau = async (id, phienBan, khoa) =>
   du(await apiClient.post(`${GOC}/${id}/bat-dau`, { phienBan }, voiKhoa(khoa)));
 
 /** Lưu số đếm một dòng: `soLuongThucTe` null = chưa đếm. `phienBan`: phiên bản của dòng lúc tải. */
-export const luuSoDem = async (id, dongId, { soLuongThucTe, lyDoChenhLech, bienPhapXuLy, phienBan }) =>
-  du(await apiClient.put(`${GOC}/${id}/dong/${dongId}`, { soLuongThucTe, lyDoChenhLech, bienPhapXuLy, phienBan }));
+/**
+ * Lưu số đếm một dòng. `khoId`: kho của đợt — gửi làm header kho_id cho riêng yêu cầu này (không đổi kho làm việc chung
+ * của các thẻ), nên đổi kho làm việc ở thẻ khác không làm lưu số thất bại. Không truyền thì dùng kho làm việc như cũ.
+ */
+export const luuSoDem = async (id, dongId, { soLuongThucTe, lyDoChenhLech, bienPhapXuLy, phienBan }, khoId) =>
+  du(await apiClient.put(`${GOC}/${id}/dong/${dongId}`, { soLuongThucTe, lyDoChenhLech, bienPhapXuLy, phienBan },
+    khoId ? { needKho: false, headers: { kho_id: String(khoId) } } : undefined));
 
 export const themPhatSinh = async (id, { viTriKhoId, loHangId, soLuongThucTe, lyDoChenhLech }) =>
   du(await apiClient.post(`${GOC}/${id}/phat-sinh`, { viTriKhoId, loHangId, soLuongThucTe, lyDoChenhLech }));
@@ -87,6 +92,9 @@ export const trinhDuyet = async (id, phienBan, khoa) =>
 
 export const demLai = async (id, { dongIds, lyDo, phienBan }, khoa) =>
   du(await apiClient.post(`${GOC}/${id}/dem-lai`, { dongIds, lyDo, phienBan }, voiKhoa(khoa)));
+
+/** Cảnh báo không chặn cho hộp Phê duyệt: mã đếm thiếu làm đơn chờ xuất / phiếu chuyển không còn đủ hàng. */
+export const layCanhBaoDuyet = async (id) => du(await apiClient.get(`${GOC}/${id}/canh-bao-duyet`)) ?? [];
 
 export const pheDuyet = async (id, phienBan, khoa) =>
   du(await apiClient.post(`${GOC}/${id}/phe-duyet`, { phienBan }, voiKhoa(khoa)));

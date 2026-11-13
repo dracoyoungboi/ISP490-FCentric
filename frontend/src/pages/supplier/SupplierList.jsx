@@ -25,6 +25,7 @@ import { laHoatDong } from "@/components/supplier/quyTacNhaCungCap";
 import { Button } from "@/components/ui/button";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
+import useTuKhoaTuUrl, { docTuKhoaUrl } from "@/hooks/useTuKhoaTuUrl";
 import { getAllSupplier } from "@/services/supplierService";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { ROLES, hasAnyRole } from "@/utils/roles";
@@ -55,11 +56,20 @@ const COT_AN_TREN_TABLET = new Set([0, 1, 4, 5]);
 const matchTab = (item, tab) =>
     tab === "tat-ca" || (tab === "hoat-dong" ? laHoatDong(item) : !laHoatDong(item));
 
+// Số điện thoại bỏ khoảng trắng, dấu chấm, gạch, ngoặc; "+84" / "84" (11 số) đầu số thành "0" — như ô tìm kiếm toàn hệ thống
+const chuanHoaSdt = (value) => {
+    const gon = String(value ?? "").replace(/[\s.()-]/g, "").replace(/^\+84/, "0");
+    return /^84\d{9}$/.test(gon) ? `0${gon.slice(2)}` : gon;
+};
+
 // Danh sách nhà cung cấp nhỏ: tải một lần, lọc ngay trên máy (không gọi lại API mỗi lần gõ).
+// Cùng các trường với nhóm Nhà cung cấp của ô tìm kiếm toàn hệ thống, để "Xem tất cả" ra đúng các dòng đã thấy.
 const matchSearch = (item, search) => {
     const keyword = search.trim().toLowerCase();
     if (!keyword) return true;
-    return [item.maNhaCungCap, item.tenNhaCungCap, item.nguoiLienHe, item.soDienThoai, item.email]
+    const sdt = chuanHoaSdt(keyword);
+    if (/^\d{4,}$/.test(sdt) && chuanHoaSdt(item.soDienThoai).includes(sdt)) return true;
+    return [item.maNhaCungCap, item.tenNhaCungCap, item.maSoThue, item.nguoiLienHe, item.soDienThoai, item.email]
         .some((value) => value?.toLowerCase().includes(keyword));
 };
 
@@ -70,7 +80,9 @@ export default function SupplierList() {
     const coTheQuanLy = hasAnyRole(QUYEN_QUAN_LY_NCC);
 
     const [suppliers,    setSuppliers]    = useState([]);
-    const [search,       setSearch]       = useState("");
+    // ?q= từ "Xem tất cả" của ô tìm kiếm toàn hệ thống: vào thẳng ô tìm của trang
+    const [search,       setSearch]       = useState(() => docTuKhoaUrl(window.location.search));
+    useTuKhoaTuUrl(setSearch);
     const [loading,      setLoading]      = useState(true);
     const [loadError,    setLoadError]    = useState(null);
     const [searchParams, setSearchParams] = useSearchParams();
@@ -253,7 +265,7 @@ export default function SupplierList() {
                         >
                             <SearchInput
                                 label={t("Tìm nhà cung cấp")}
-                                placeholder={t("Tìm mã, tên, liên hệ, SĐT...")}
+                                placeholder={t("Tìm mã, tên, MST, liên hệ, SĐT...")}
                                 value={search}
                                 onChange={(e) => changeSearch(e.target.value)}
                                 onClear={handleClearSearch}

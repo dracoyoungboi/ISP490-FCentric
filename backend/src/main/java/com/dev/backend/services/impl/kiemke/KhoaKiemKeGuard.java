@@ -135,12 +135,22 @@ public class KhoaKiemKeGuard {
     private static final String DOC_MOI = " FOR SHARE";
 
     public TrangThaiKhoa trangThai(Integer khoId) {
+        return trangThai(khoId, true);
+    }
+
+    /**
+     * {@code docMoi} false: đọc thường, không khóa chia sẻ — cho đường chỉ hiển thị / tính gợi ý không giữ mutex kho
+     * (gợi ý kho, màn tồn, chuyển kho, cảnh báo duyệt). Đọc có khóa ở đó có thể vòng chờ với một lần Bắt đầu đợt ở kho
+     * khác (khóa khoảng trên chỉ mục phạm vi đợt) khi lặp qua nhiều kho.
+     */
+    private TrangThaiKhoa trangThai(Integer khoId, boolean docMoi) {
+        String doc = docMoi ? DOC_MOI : "";
         TrangThaiKhoa tt = new TrangThaiKhoa();
         if (khoId == null || !sanSang.sanSang()) return tt;
         @SuppressWarnings("unchecked")
         List<Object[]> dots = em.createNativeQuery(
                         "SELECT id, ma_dot_kiem_ke, loai_kiem_ke FROM dot_kiem_ke WHERE kho_id = :kho AND trang_thai IN (1, 2)"
-                                + DOC_MOI)
+                                + doc)
                 .setParameter("kho", khoId).getResultList();
         if (dots.isEmpty()) return tt;
         List<Integer> ids = new ArrayList<>();
@@ -152,7 +162,7 @@ public class KhoaKiemKeGuard {
         }
         @SuppressWarnings("unchecked")
         List<Object[]> ke = em.createNativeQuery("SELECT vi_tri_kho_id, dot_kiem_ke_id, che_do_khoa FROM dot_kiem_ke_vi_tri "
-                        + "WHERE dot_kiem_ke_id IN (:ids) AND trang_thai_khoa = 1" + DOC_MOI)
+                        + "WHERE dot_kiem_ke_id IN (:ids) AND trang_thai_khoa = 1" + doc)
                 .setParameter("ids", ids).getResultList();
         for (Object[] r : ke) {
             Integer viTri = ((Number) r[0]).intValue();
@@ -161,19 +171,19 @@ public class KhoaKiemKeGuard {
         }
         @SuppressWarnings("unchecked")
         List<Object[]> cap = em.createNativeQuery("SELECT vi_tri_kho_id, lo_hang_id, dot_kiem_ke_id FROM dot_kiem_ke_khoa_lo "
-                        + "WHERE dot_kiem_ke_id IN (:ids) AND trang_thai_khoa = 1" + DOC_MOI)
+                        + "WHERE dot_kiem_ke_id IN (:ids) AND trang_thai_khoa = 1" + doc)
                 .setParameter("ids", ids).getResultList();
         for (Object[] r : cap) {
             tt.capKhoaMin.put(khoa(((Number) r[0]).intValue(), ((Number) r[1]).intValue()), ((Number) r[2]).intValue());
         }
         @SuppressWarnings("unchecked")
         List<Object[]> dm = em.createNativeQuery("SELECT danh_muc_id, dot_kiem_ke_id FROM dot_kiem_ke_danh_muc "
-                        + "WHERE dot_kiem_ke_id IN (:ids)" + DOC_MOI)
+                        + "WHERE dot_kiem_ke_id IN (:ids)" + doc)
                 .setParameter("ids", ids).getResultList();
         for (Object[] r : dm) tt.danhMuc.put(((Number) r[0]).intValue(), ((Number) r[1]).intValue());
         @SuppressWarnings("unchecked")
         List<Object[]> kv = em.createNativeQuery("SELECT khu_vuc_kho_id, dot_kiem_ke_id FROM dot_kiem_ke_khu_vuc "
-                        + "WHERE dot_kiem_ke_id IN (:ids)" + DOC_MOI)
+                        + "WHERE dot_kiem_ke_id IN (:ids)" + doc)
                 .setParameter("ids", ids).getResultList();
         for (Object[] r : kv) tt.khuVuc.put(((Number) r[0]).intValue(), ((Number) r[1]).intValue());
         return tt;
@@ -336,6 +346,101 @@ public class KhoaKiemKeGuard {
         return thieuDoKiemKe(khoId, loIds, BigDecimal.ZERO, kk -> BigDecimal.ONE, BigDecimal.ONE, thaoTac, maSku);
     }
 
+    // ───────────────────────────── Theo mã hàng (chọn kho, chuyển kho, màn tồn) ─────────────────────────────
+
+    /**
+     * Phần đang kiểm kê của từng mã hàng ở một kho: {@code soLuong} [biến thể → số], {@code dotCuaMa} [biến thể → mã đợt],
+     * {@code dotToanKho}: mã đợt kiểm toàn kho (null nếu không có). Rỗng khi kho không có đợt giữ khóa.
+     */
+    public record KiemKeTheoMa(Map<Integer, BigDecimal> soLuong, Map<Integer, String> dotCuaMa, String dotToanKho) {
+        public static final KiemKeTheoMa RONG = new KiemKeTheoMa(Map.of(), Map.of(), null);
+
+        public BigDecimal cua(Integer bienTheId) {
+            return bienTheId == null ? BigDecimal.ZERO : soLuong.getOrDefault(bienTheId, BigDecimal.ZERO);
+        }
+    }
+
+    /** Các kho đang có đợt giữ khóa (đang kiểm / chờ duyệt). Đọc thường, để biết kho nào cần tính thêm phần đang kiểm. */
+    public Set<Integer> khoDangKiemKe() {
+        if (!sanSang.sanSang()) return Set.of();
+        Set<Integer> kq = new HashSet<>();
+        for (Object r : em.createNativeQuery("SELECT DISTINCT kho_id FROM dot_kiem_ke WHERE trang_thai IN (1, 2)").getResultList()) {
+            if (r != null) kq.add(((Number) r).intValue());
+        }
+        return kq;
+    }
+
+    /**
+     * Phần đang kiểm kê theo mã hàng ở kho (cùng cách tính với {@link #luongDangKiemKe}: cả tồn khi kiểm toàn kho hoặc mã
+     * thuộc danh mục đang kiểm, còn lại là số trên kệ đang khóa). {@code bienTheIds} null: mọi mã có tồn ở kho.
+     */
+    public KiemKeTheoMa dangKiemKeTheoMa(Integer khoId, Collection<Integer> bienTheIds) {
+        if (khoId == null || !sanSang.sanSang() || (bienTheIds != null && bienTheIds.isEmpty())) return KiemKeTheoMa.RONG;
+        // Đọc thường: nơi gọi (gợi ý kho, màn tồn, chuyển kho) không giữ mutex kho, có khi lặp nhiều kho
+        TrangThaiKhoa tt = trangThai(khoId, false);
+        if (tt.trong()) return KiemKeTheoMa.RONG;
+        jakarta.persistence.Query q = em.createNativeQuery("SELECT t.lo_hang_id, l.bien_the_san_pham_id, t.so_luong_ton "
+                        + "FROM ton_kho_theo_lo t JOIN lo_hang l ON l.id = t.lo_hang_id WHERE t.kho_id = :kho AND t.so_luong_ton > 0"
+                        + (bienTheIds == null ? "" : " AND l.bien_the_san_pham_id IN (:ids)"))
+                .setParameter("kho", khoId);
+        if (bienTheIds != null) q.setParameter("ids", new ArrayList<>(new HashSet<>(bienTheIds)));
+        Map<Integer, BigDecimal> ton = new HashMap<>();
+        Map<Integer, Integer> maCuaLo = new HashMap<>();
+        for (Object dong : q.getResultList()) {
+            Object[] r = (Object[]) dong;
+            int lo = ((Number) r[0]).intValue();
+            ton.put(lo, r[2] == null ? BigDecimal.ZERO : (BigDecimal) r[2]);
+            maCuaLo.put(lo, ((Number) r[1]).intValue());
+        }
+        String toanKho = tt.dotToanKho == null ? null : tt.maDot.get(tt.dotToanKho);
+        if (ton.isEmpty()) return new KiemKeTheoMa(Map.of(), Map.of(), toanKho);
+        Map<Integer, BigDecimal> kk = luongDangKiemKe(tt, khoId, ton);
+        boolean canDot = tt.dotToanKho == null;
+        Map<Integer, Integer> dm = canDot && !tt.danhMuc.isEmpty() ? danhMucCuaLo(kk.keySet()) : Map.of();
+        Map<Integer, Map<Integer, Integer>> ke = canDot ? soTrenKe(khoId, kk.keySet()) : Map.of();
+        Map<Integer, BigDecimal> soLuong = new HashMap<>();
+        Map<Integer, String> dotCuaMa = new HashMap<>();
+        for (Map.Entry<Integer, BigDecimal> e : kk.entrySet()) {
+            if (e.getValue() == null || e.getValue().signum() <= 0) continue;
+            Integer lo = e.getKey();
+            Integer ma = maCuaLo.get(lo);
+            soLuong.merge(ma, e.getValue(), BigDecimal::add);
+            if (dotCuaMa.containsKey(ma)) continue;
+            Integer dot = canDot ? (dm.get(lo) == null ? null : tt.danhMuc.get(dm.get(lo))) : tt.dotToanKho;
+            if (dot == null) {
+                for (Integer viTri : ke.getOrDefault(lo, Map.of()).keySet()) {
+                    if (tt.capDangKhoa(viTri, lo)) {
+                        dot = tt.dotCuaCap(viTri, lo);
+                        break;
+                    }
+                }
+            }
+            if (dot != null) dotCuaMa.put(ma, tt.maDot.get(dot));
+        }
+        return new KiemKeTheoMa(soLuong, dotCuaMa, toanKho);
+    }
+
+    /**
+     * Lấy {@code can} của một mã ở kho {@code tenKho} chỉ được {@code coTheLay} (đã trừ phần đang kiểm kê); bỏ phần đang
+     * kiểm kê ra thì lấy được {@code layNeuBoKiemKe}. Đủ khi bỏ kiểm kê → lý do là kiểm kê: lỗi STK_LOCKED nêu kho, mã và
+     * đợt (kiểm toàn kho → câu cấp kho). Null khi không do kiểm kê (nơi gọi giữ câu thiếu hàng cũ).
+     */
+    public ThieuDoKiemKe thieuTheoMa(KiemKeTheoMa kk, Integer bienTheId, String maSku, String tenKho, BigDecimal coTheLay,
+                                     BigDecimal layNeuBoKiemKe, BigDecimal can, String thaoTac) {
+        if (kk == null || can == null || can.signum() <= 0 || layNeuBoKiemKe == null) return null;
+        BigDecimal lay = coTheLay == null ? BigDecimal.ZERO : coTheLay.max(BigDecimal.ZERO);
+        if (lay.compareTo(can) >= 0 || kk.cua(bienTheId).signum() <= 0 || layNeuBoKiemKe.compareTo(can) < 0) return null;
+        Object thaoTacDich = thaoTacTheoNgonNgu(thaoTac);
+        boolean toanKho = kk.dotToanKho() != null;
+        String ma = toanKho ? kk.dotToanKho() : kk.dotCuaMa().get(bienTheId);
+        ThongDiep cau = toanKho ? ThongDiep.of("khoVanHanh.khoTenDangKiemKe", tenKho, ma, thaoTacDich)
+                : lay.signum() > 0 ? ThongDiep.of("khoVanHanh.maOKhoChiConNgoaiKiemKe", maSku, tenKho, so(lay), ma, so(can))
+                : ThongDiep.of("khoVanHanh.maOKhoDangKiemKe", maSku, tenKho, ma, thaoTacDich);
+        Map<String, Object> duLieu = new LinkedHashMap<>();
+        if (ma != null) duLieu.put("maDotKiemKe", ma);
+        return new ThieuDoKiemKe(cau, duLieu, toanKho);
+    }
+
     private static String so(BigDecimal v) {
         return v.stripTrailingZeros().toPlainString();
     }
@@ -487,6 +592,14 @@ public class KhoaKiemKeGuard {
     }
 
     public void kiemTraKe(Integer viTriId, String thaoTac) {
+        kiemTraKe(viTriId, thaoTac, false);
+    }
+
+    /**
+     * Như trên; {@code choQuaKhoaMin}: kệ chỉ bị khóa mịn (đợt theo danh mục khóa vài lô trên kệ, kệ vẫn dùng cho hàng
+     * khác) thì cho qua — dùng khi sửa thông tin không ảnh hưởng số đếm (sức chứa), không đổi khu / trạng thái.
+     */
+    public void kiemTraKe(Integer viTriId, String thaoTac, boolean choQuaKhoaMin) {
         if (viTriId == null || !sanSang.sanSang()) return;
         @SuppressWarnings("unchecked")
         List<Object[]> r = em.createNativeQuery("SELECT kho_id, khu_vuc_kho_id FROM vi_tri_kho WHERE id = :id")
@@ -499,7 +612,7 @@ public class KhoaKiemKeGuard {
         Integer dot = tt.dotToanKho != null ? tt.dotToanKho
                 : tt.keToanKe.containsKey(viTriId) ? tt.keToanKe.get(viTriId)
                 : khuVuc != null && tt.khuVuc.containsKey(khuVuc) ? tt.khuVuc.get(khuVuc) : null;
-        if (dot == null && tt.keKhoaMin.contains(viTriId)) {
+        if (dot == null && !choQuaKhoaMin && tt.keKhoaMin.contains(viTriId)) {
             dot = tt.capKhoaMin.entrySet().stream().filter(e -> (int) (e.getKey() >> 32) == viTriId)
                     .map(Map.Entry::getValue).findFirst().orElse(tt.maDot.keySet().iterator().next());
         }
@@ -528,6 +641,32 @@ public class KhoaKiemKeGuard {
                         + "JOIN dot_kiem_ke d ON d.id = dm.dot_kiem_ke_id "
                         + "WHERE d.trang_thai IN (1, 2) AND dm.danh_muc_id IN (:ids) ORDER BY d.id LIMIT 1")
                 .setParameter("ids", ids).getResultList();
+        if (r.isEmpty()) return;
+        String ma = (String) r.get(0)[1];
+        throw new LoiCoMaException(HttpStatus.CONFLICT, MaLoi.STK_LOCKED,
+                ThongDiep.of("khoVanHanh.danhMucDangKiemKe", ma, thaoTacTheoNgonNgu(thaoTac)),
+                Map.of("dotKiemKeId", ((Number) r.get(0)[0]).intValue(), "maDotKiemKe", ma));
+    }
+
+    /**
+     * Đổi danh mục của một sản phẩm. Chặn khi danh mục cũ hoặc mới thuộc đợt kiểm kê theo danh mục đang mở ở một kho MÀ
+     * sản phẩm có tồn ở kho đó (đổi lúc này làm phạm vi đếm lệch với số chốt). Sản phẩm không có hàng ở kho đang kiểm thì
+     * đổi được. So khớp đúng danh mục như phạm vi đợt (danh mục con đã chốt lúc Bắt đầu); danh mục con tạo sau đó không
+     * thuộc phạm vi đếm nên đưa hàng vào / ra không làm lệch số.
+     */
+    public void kiemTraDoiDanhMucSanPham(Integer sanPhamId, Integer danhMucCu, Integer danhMucMoi, String thaoTac) {
+        if (sanPhamId == null || !sanSang.sanSang()) return;
+        Set<Integer> ids = new HashSet<>();
+        if (danhMucCu != null) ids.add(danhMucCu);
+        if (danhMucMoi != null) ids.add(danhMucMoi);
+        if (ids.isEmpty()) return;
+        @SuppressWarnings("unchecked")
+        List<Object[]> r = em.createNativeQuery("SELECT d.id, d.ma_dot_kiem_ke FROM dot_kiem_ke_danh_muc dm "
+                        + "JOIN dot_kiem_ke d ON d.id = dm.dot_kiem_ke_id "
+                        + "WHERE d.trang_thai IN (1, 2) AND dm.danh_muc_id IN (:ids) AND EXISTS (SELECT 1 FROM ton_kho_theo_lo t "
+                        + "JOIN lo_hang l ON l.id = t.lo_hang_id JOIN bien_the_san_pham bt ON bt.id = l.bien_the_san_pham_id "
+                        + "WHERE t.kho_id = d.kho_id AND bt.san_pham_id = :sp AND t.so_luong_ton > 0) ORDER BY d.id LIMIT 1")
+                .setParameter("ids", new ArrayList<>(ids)).setParameter("sp", sanPhamId).getResultList();
         if (r.isEmpty()) return;
         String ma = (String) r.get(0)[1];
         throw new LoiCoMaException(HttpStatus.CONFLICT, MaLoi.STK_LOCKED,
@@ -615,7 +754,12 @@ public class KhoaKiemKeGuard {
             Map.entry("chuyển hàng khỏi kệ", "khoVanHanh.thaoTacChuyenHangKhoiKe"),
             Map.entry("chuyển hàng lên kệ", "khoVanHanh.thaoTacChuyenHangLenKe"),
             Map.entry("hoàn kệ", "khoVanHanh.thaoTacHoanKe"),
-            Map.entry("nhặt ở kệ này", "khoVanHanh.thaoTacNhatOKeNay"));
+            Map.entry("nhặt ở kệ này", "khoVanHanh.thaoTacNhatOKeNay"),
+            Map.entry("chuyển kho", "khoVanHanh.thaoTacChuyenKho"),
+            Map.entry("tạo đơn bán", "khoVanHanh.thaoTacTaoDonBan"),
+            Map.entry("nhận hàng hoàn trả (hàng vẫn ở kho trung chuyển)", "khoVanHanh.thaoTacNhanHangHoanTra"),
+            Map.entry("đổi loại kho", "khoVanHanh.thaoTacDoiLoaiKho"),
+            Map.entry("đổi loại khu vực", "khoVanHanh.thaoTacDoiLoaiKhuVuc"));
 
     static Object thaoTacTheoNgonNgu(String thaoTac) {
         String khoa = thaoTac == null ? null : KHOA_THAO_TAC.get(thaoTac);

@@ -35,6 +35,7 @@ import { trangCuoiNeuVuot } from "@/lib/tinhTaiLai";
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
+import useTuKhoaTuUrl, { docTuKhoaUrl } from "@/hooks/useTuKhoaTuUrl";
 
 import {
     DropdownMenu,
@@ -80,14 +81,14 @@ function buildProductFilterPayload(filters) {
     // Payload nay duoc ProductController.filter nhan vao de xu ly phan trang + dieu kien tim kiem.
     const filterList = [];
 
+    // Trường lọc ảo của backend, chung với ô tìm kiếm toàn hệ thống: tên, mã sản phẩm, mã vạch, SKU, mã vạch biến thể,
+    // mã vạch nhà cung cấp — "Xem tất cả" từ ô tìm ra đúng các sản phẩm đã thấy ở đó
     if (filters.keyword?.trim()) {
-        ["tenSanPham", "moTa"].forEach((field) => {
-            filterList.push({
-                fieldName: field,
-                operation: "ILIKE",
-                value: filters.keyword.trim(),
-                logicType: "OR",
-            });
+        filterList.push({
+            fieldName: "tuKhoa",
+            operation: "LIKE",
+            value: filters.keyword.trim(),
+            logicType: "AND",
         });
     }
 
@@ -174,9 +175,13 @@ export default function ProductList() {
     const [loadError, setLoadError] = useState(null);
     const requestIdRef = useRef(0);
 
-    const [filters, setFilters] = useState(DEFAULT_FILTERS);
+    // Từ khóa "Xem tất cả" của ô tìm kiếm toàn hệ thống (?q=) vào thẳng bộ lọc, không tải một lượt không có từ khóa
+    const [filters, setFilters] = useState(() => ({ ...DEFAULT_FILTERS, keyword: docTuKhoaUrl(window.location.search) }));
     // Ô từ khóa / khoảng giá đổi ngay khi gõ; chỉ áp vào `filters` (gọi API, đếm tab) khi ngừng gõ.
-    const [draft, setDraft] = useState(EMPTY_DRAFT);
+    const [draft, setDraft] = useState(() => ({ ...EMPTY_DRAFT, keyword: docTuKhoaUrl(window.location.search) }));
+    // Đang ở trang mà bấm "Xem tất cả" lần nữa: đặt từ khóa mới, bộ lọc nhận sau khi ngừng gõ như thường
+    const nhanTuKhoaUrl = useCallback((q) => setDraft((prev) => ({ ...prev, keyword: q })), []);
+    useTuKhoaTuUrl(nhanTuKhoaUrl);
 
     // Tab trạng thái trên URL ?trangThai= (F5 / quay lại từ trang chi tiết vẫn đúng tab)
     const [tab, setTab] = useTabTrenUrl(STATUS_TAB_VALUES, TAB_MAC_DINH);
@@ -441,7 +446,7 @@ export default function ProductList() {
                     >
                         <SearchInput
                             label={t("Tìm sản phẩm")}
-                            placeholder={t("Tìm theo tên, mô tả sản phẩm...")}
+                            placeholder={t("Tìm tên, mã, SKU, mã vạch...")}
                             value={draft.keyword}
                             onChange={updateDraft("keyword")}
                             onClear={() => {

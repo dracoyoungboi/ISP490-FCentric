@@ -128,6 +128,13 @@ export default function DanhSachChonKho({
                 {kho.diaChi || "—"}
                 {tat ? t(" · bấm để xem mặt hàng thiếu") : null}
               </span>
+              {kho.maDotKiemKe ? (
+                <span className="col-start-2 text-[13px] font-medium leading-5 text-amber-700">
+                  {kho.kiemToanKho
+                    ? t("Đang kiểm kê toàn bộ kho (đợt {{ma}}): tạm không xuất được từ kho này.", { ma: kho.maDotKiemKe })
+                    : t("Đang kiểm kê (đợt {{ma}}): phần đang kiểm không tính vào tồn khả dụng.", { ma: kho.maDotKiemKe })}
+                </span>
+              ) : null}
               {ct ? (
                 <span id={idCt} className="col-span-full mt-2 grid gap-1 rounded-md bg-bo-surface-subtle px-3 py-2 sm:col-start-2">
                   {ct.hien.map((m) => (

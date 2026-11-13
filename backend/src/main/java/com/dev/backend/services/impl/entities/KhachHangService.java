@@ -21,14 +21,21 @@ import com.dev.backend.repository.KhachHangRepository;
 import com.dev.backend.services.impl.BaseServiceImpl;
 import com.dev.backend.services.impl.multitable.DieuHanhHeThongServiceImpl;
 import com.dev.backend.services.multitable.DieuHanhHeThongService;
+import com.dev.backend.dto.request.FilterCriteria;
+import com.dev.backend.utils.SoDienThoai;
+import com.dev.backend.utils.TuKhoaTimKiem;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.criteria.Expression;
+import jakarta.persistence.criteria.Predicate;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -89,6 +96,43 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
     @Override
     protected EntityManager getEntityManager() {
         return entityManager;
+    }
+
+    /** Trường lọc ảo tuKhoa (ô tìm toàn hệ thống, ô tìm trang Khách hàng): tách ra, phần còn lại lọc như cũ. */
+    @Override
+    protected Specification<KhachHang> createSpecification(List<FilterCriteria> filters) {
+        TuKhoaTimKiem.Tach tach = TuKhoaTimKiem.tach(filters);
+        if (!tach.coTruong()) {
+            return super.createSpecification(filters);
+        }
+        Specification<KhachHang> conLai = super.createSpecification(tach.conLai());
+        return tach.tuKhoa() == null ? conLai : conLai.and(theoTuKhoa(tach.tuKhoa(), tach.chinhXac()));
+    }
+
+    /**
+     * Khách khớp từ khóa. "Chứa": tên, mã, email (như ô tìm trang Khách hàng) và số điện thoại đã bỏ ký tự ngăn cách khi
+     * từ khóa có dáng số điện thoại. "Chính xác": mã, email, số điện thoại.
+     */
+    static Specification<KhachHang> theoTuKhoa(String tuKhoa, boolean chinhXac) {
+        String mau = TuKhoaTimKiem.mau(tuKhoa, chinhXac);
+        String sdt = SoDienThoai.choTimKiem(tuKhoa);
+        return (root, query, cb) -> {
+            List<Predicate> hoac = new ArrayList<>();
+            hoac.add(TuKhoaTimKiem.like(cb, root.get("maKhachHang"), mau));
+            hoac.add(TuKhoaTimKiem.like(cb, root.get("email"), mau));
+            if (!chinhXac) {
+                hoac.add(TuKhoaTimKiem.like(cb, root.get("tenKhachHang"), mau));
+            }
+            if (sdt != null) {
+                Expression<String> cotSdt = TuKhoaTimKiem.boNganCach(cb, root.get("soDienThoai"));
+                hoac.add(chinhXac ? cb.equal(cotSdt, sdt)
+                        : cb.like(cotSdt, "%" + TuKhoaTimKiem.thoat(sdt) + "%", TuKhoaTimKiem.KY_TU_THOAT));
+            } else if (!chinhXac) {
+                // Từ khóa không có dáng số điện thoại (vd. "0912 3"): vẫn so chứa trên số như ô tìm cũ
+                hoac.add(TuKhoaTimKiem.like(cb, root.get("soDienThoai"), mau));
+            }
+            return cb.or(hoac.toArray(new Predicate[0]));
+        };
     }
 
     // Function Customer Details (Cập nhật để trả về Full Lịch Sử Mua Hàng)
@@ -414,14 +458,7 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
 
     /** Bỏ khoảng trắng, dấu chấm, gạch, ngoặc; "+84…" đổi về "0…". Rỗng -> null. */
     static String chuanHoaSoDienThoai(String value) {
-        if (value == null) {
-            return null;
-        }
-        String gon = value.replaceAll("[\\s.()\\-]", "");
-        if (gon.startsWith("+84")) {
-            gon = "0" + gon.substring(3);
-        }
-        return gon.isEmpty() ? null : gon;
+        return SoDienThoai.chuanHoa(value);
     }
 
     private static void kiemTraMaSoThue(String maSoThue) {

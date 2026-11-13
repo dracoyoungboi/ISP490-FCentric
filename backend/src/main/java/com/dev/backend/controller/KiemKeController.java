@@ -214,6 +214,13 @@ public class KiemKeController {
         return ok(kiemKe.demLai(id, yc, khoa), ThongDiep.dich("khoVanHanh.daYeuCauDemLai"));
     }
 
+    /** Cảnh báo không chặn cho hộp Phê duyệt (đơn chờ xuất sẽ thiếu hàng sau điều chỉnh). */
+    @GetMapping("/{id}/canh-bao-duyet")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho})
+    public ResponseEntity<ResponseData<List<KiemKeDto.VanDe>>> canhBaoDuyet(@PathVariable Integer id) {
+        return ok(doc.canhBaoDuyet(id), ThongDiep.dich("khoVanHanh.layDotKiemKeThanhCong"));
+    }
+
     @PostMapping("/{id}/phe-duyet")
     @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho}, inWarehouse = true,
             permissions = {IPermissionType.dieu_chinh_ton_kho})

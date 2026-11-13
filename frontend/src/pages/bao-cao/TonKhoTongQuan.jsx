@@ -265,10 +265,21 @@ export default function TonKhoTongQuan() {
             if (khoId) params.khoId = khoId;
             if (kw) params.keyword = kw;
 
+            // Phần đang kiểm kê (nhãn phụ, không đổi số tồn) tải song song, không bắt bảng chờ; lỗi thì bỏ qua
+            const hoiKiemKe = thongKeHeThongService.getDangKiemKe(khoId ? { khoId } : {}).catch(() => null);
             const res = await thongKeHeThongService.getTonKhoTongQuan(params);
             if (requestId !== requestIdRef.current) return;
             const rows = res.data?.data ?? [];
             setData(rows);
+            hoiKiemKe.then((kiem) => {
+                const ds = kiem?.data?.data ?? [];
+                if (requestId !== requestIdRef.current || ds.length === 0) return;
+                const theoMa = new Map(ds.map((d) => [`${d.khoId}-${d.bienTheId}`, d]));
+                setData((cu) => cu.map((r) => {
+                    const d = theoMa.get(`${r.khoId}-${r.bienTheId}`);
+                    return d ? { ...r, dangKiemKe: d } : r;
+                }));
+            });
             setTuKhoaDaApDung(kw ?? "");
             setLoadError(null);
             setHasLoaded(true);
@@ -688,6 +699,9 @@ export default function TonKhoTongQuan() {
                                             </div>
                                         ))}
                                     </dl>
+                                    {item.dangKiemKe ? (
+                                        <p className="mt-1.5 text-[13px] font-medium text-amber-700">{nhanDangKiemKe(item.dangKiemKe)}</p>
+                                    ) : null}
                                     <div className={`mt-2 flex items-center justify-between gap-3 ${coNutNhap ? "min-h-9" : ""}`}>
                                         <span className="min-w-0 text-[13px] text-bo-muted">
                                             {t("Tối thiểu")} {trungChuyen || item.mucTonToiThieu == null ? "—" : formatNumber(item.mucTonToiThieu)}
@@ -803,6 +817,11 @@ export default function TonKhoTongQuan() {
 
                                         <td className="px-3 py-3 text-right tabular-nums">
                                             <SoLuong value={freeToUse} className="font-semibold text-bo-foreground" />
+                                            {item.dangKiemKe ? (
+                                                <span className="block whitespace-nowrap text-[11px] font-medium text-amber-700" title={nhanDangKiemKe(item.dangKiemKe)}>
+                                                    {t("Đang kiểm kê {{so}}", { so: formatNumber(item.dangKiemKe.soLuong) })}
+                                                </span>
+                                            ) : null}
                                         </td>
 
                                         <td className="px-3 py-3 text-right text-xs tabular-nums cam-ung:max-lg:hidden">
@@ -854,6 +873,14 @@ function soTon(item) {
     const freeToUse = item.freeToUse != null ? Number(item.freeToUse) : (onHand + incoming - outgoing);
     const giaTri = Number(item.tongGiaTri ?? item.giaTriTonKho ?? 0);
     return { onHand, incoming, outgoing, freeToUse, giaTri };
+}
+
+/** "Đang kiểm kê 12 (đợt KK-…)": phần của mã ở kho thuộc đợt kiểm kê đang mở, tạm không bán / xuất được. */
+function nhanDangKiemKe(d) {
+    return t("Đang kiểm kê {{so}} (đợt {{ma}}): tạm không bán, xuất hay chuyển được tới khi đợt kết thúc.", {
+        so: formatNumber(d.soLuong),
+        ma: d.maDotKiemKe ?? "—",
+    });
 }
 
 /** Số lượng trong bảng: chữ thường (không ô màu); 0 hiện xám, số âm hiện đỏ để nổi lên. */

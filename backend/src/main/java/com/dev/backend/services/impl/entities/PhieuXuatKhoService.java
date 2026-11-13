@@ -154,6 +154,22 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
         super(repository);
     }
 
+    /**
+     * Kho mà người dùng được xem phiếu xuất ở danh sách: null = mọi kho (quản trị viên); danh sách rỗng = không kho nào.
+     * Dùng chung cho danh sách phiếu xuất và ô tìm kiếm toàn hệ thống để hai nơi luôn cùng phạm vi.
+     */
+    @Transactional(readOnly = true)
+    public List<Integer> khoDuocXemDanhSach(NguoiDungAuthInfo currentUser) {
+        if (currentUser.getVaiTro().contains(IRoleType.quan_tri_vien)) {
+            return null;
+        }
+        return phanQuyenNguoiDungKhoRepository
+                .findByNguoiDungIdAndActive(currentUser.getId())
+                .stream()
+                .map(pq -> pq.getKho().getId())
+                .toList();
+    }
+
     /** {@code loaiXuat}: "ban_hang" / "chuyen_kho" để lọc một loại phiếu; null = cả hai loại. */
     public Page<PhieuXuatKho> getDanhSachThucXuatCustom(List<Integer> khoIds, String keyword, Integer trangThai, String tenKho, String loaiXuat, org.springframework.data.domain.Pageable pageable) {
         return ((PhieuXuatKhoRepository) repository).findDanhSachThucXuat(khoIds, keyword, trangThai, tenKho, loaiXuat, pageable);

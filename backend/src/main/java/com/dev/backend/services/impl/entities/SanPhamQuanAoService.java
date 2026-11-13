@@ -33,6 +33,7 @@ import com.dev.backend.services.multitable.DieuHanhHeThongService;
 import com.dev.backend.utils.GioiHanSoThapPhan;
 import com.dev.backend.utils.KiemTraTepTai;
 import com.dev.backend.utils.MaVachSku;
+import com.dev.backend.utils.TuKhoaTimKiem;
 import com.dev.backend.services.impl.kiemke.KhoaKiemKeGuard;
 import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.i18n.LoiChungException;
@@ -80,11 +81,14 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
         @Autowired(required = false)
         private NhatKyNghiepVu nhatKy;
 
-        /** Đổi danh mục của sản phẩm khi danh mục cũ hoặc mới đang được kiểm kê ở kho nào đó: dừng (Master Data Guard). */
-        private void kiemTraDoiDanhMucKhiKiemKe(DanhMucQuanAo cu, DanhMucQuanAo moi) {
+        /**
+         * Đổi danh mục của sản phẩm khi danh mục cũ hoặc mới (kể cả danh mục con tạo sau, xét theo cha) đang được kiểm kê ở
+         * kho mà sản phẩm có hàng: dừng (Master Data Guard). Sản phẩm không có hàng ở kho đang kiểm thì đổi được.
+         */
+        private void kiemTraDoiDanhMucKhiKiemKe(SanPhamQuanAo sanPham, DanhMucQuanAo cu, DanhMucQuanAo moi) {
                 if (khoaKiemKeGuard == null || cu == null || moi == null || cu.getId().equals(moi.getId())) return;
                 khoaKiemKeGuard.giuTatCaKho();
-                khoaKiemKeGuard.kiemTraDanhMuc(java.util.List.of(cu.getId(), moi.getId()), "đổi danh mục sản phẩm");
+                khoaKiemKeGuard.kiemTraDoiDanhMucSanPham(sanPham.getId(), cu.getId(), moi.getId(), "đổi danh mục sản phẩm");
         }
 
         @Autowired
@@ -657,7 +661,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 // ===================== GHI DỮ LIỆU =====================
                 // Ảnh chụp trước khi sửa (nhật ký chỉ giữ trường đổi); các mục biến thể / ảnh thêm vào sau
                 Map<String, Object> truocSua = anhSanPham(sanPhamQuanAo);
-                kiemTraDoiDanhMucKhiKiemKe(sanPhamQuanAo.getDanhMuc(), danhMucQuanAo);
+                kiemTraDoiDanhMucKhiKiemKe(sanPhamQuanAo, sanPhamQuanAo.getDanhMuc(), danhMucQuanAo);
                 sanPhamQuanAo.setTenSanPham(tenMoi);
                 sanPhamQuanAo.setDanhMuc(danhMucQuanAo);
                 // Giống PATCH /basic-info: ô để trống lưu null.
@@ -1205,7 +1209,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                                 () -> new CommonException(ThongDiep.of("sanPhamMuaHang.danhMucQuanAoKhongTimThay", dto.getDanhMucId()))
                         );
                         if (!danhMuc.getId().equals(sp.getDanhMuc().getId())) {
-                                kiemTraDoiDanhMucKhiKiemKe(sp.getDanhMuc(), danhMuc);
+                                kiemTraDoiDanhMucKhiKiemKe(sp, sp.getDanhMuc(), danhMuc);
                                 sp.setDanhMuc(danhMuc);
                         }
                 }
@@ -1484,6 +1488,12 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
         @Override
         protected org.springframework.data.jpa.domain.Specification<SanPhamQuanAo> createSpecification(
                 List<com.dev.backend.dto.request.FilterCriteria> filters) {
+                // Trường ảo tuKhoa (ô tìm toàn hệ thống, ô tìm trang Sản phẩm): tách ra trước, phần còn lại đi tiếp như cũ
+                TuKhoaTimKiem.Tach tach = TuKhoaTimKiem.tach(filters);
+                if (tach.coTruong()) {
+                        org.springframework.data.jpa.domain.Specification<SanPhamQuanAo> conLai = createSpecification(tach.conLai());
+                        return tach.tuKhoa() == null ? conLai : conLai.and(theoTuKhoa(tach.tuKhoa(), tach.chinhXac()));
+                }
                 if (filters == null || filters.stream().noneMatch(f -> TRUONG_LOC_GIA_BIEN_THE.equals(f.getFieldName()))) {
                         return super.createSpecification(filters);
                 }
@@ -1529,5 +1539,38 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                         return cb.exists(sub);
                 };
                 return super.createSpecification(conLai).and(theoGia);
+        }
+
+        /**
+         * Sản phẩm khớp từ khóa. "Chứa": tên, mã sản phẩm, mã vạch sản phẩm, hoặc có biến thể khớp SKU / mã vạch biến thể,
+         * hoặc có mã vạch nhà cung cấp khớp. "Chính xác": như trên nhưng bỏ tên (tên không phải mã). Biến thể và mã vạch
+         * NCC dùng EXISTS nên một sản phẩm không bị lặp dòng.
+         */
+        static org.springframework.data.jpa.domain.Specification<SanPhamQuanAo> theoTuKhoa(String tuKhoa, boolean chinhXac) {
+                String mau = TuKhoaTimKiem.mau(tuKhoa, chinhXac);
+                return (root, query, cb) -> {
+                        List<jakarta.persistence.criteria.Predicate> hoac = new ArrayList<>();
+                        if (!chinhXac) hoac.add(TuKhoaTimKiem.like(cb, root.get("tenSanPham"), mau));
+                        hoac.add(TuKhoaTimKiem.like(cb, root.get("maSanPham"), mau));
+                        hoac.add(TuKhoaTimKiem.like(cb, root.get("maVach"), mau));
+
+                        jakarta.persistence.criteria.Subquery<Integer> bienThe = query.subquery(Integer.class);
+                        jakarta.persistence.criteria.Root<BienTheSanPham> bt = bienThe.from(BienTheSanPham.class);
+                        bienThe.select(bt.get("id")).where(
+                                cb.equal(bt.get("sanPham"), root),
+                                cb.or(TuKhoaTimKiem.like(cb, bt.get("maSku"), mau),
+                                        TuKhoaTimKiem.like(cb, bt.get("maVachSku"), mau)));
+                        hoac.add(cb.exists(bienThe));
+
+                        jakarta.persistence.criteria.Subquery<Integer> vachNcc = query.subquery(Integer.class);
+                        jakarta.persistence.criteria.Root<com.dev.backend.entities.MaVachNhaCungCap> mv =
+                                vachNcc.from(com.dev.backend.entities.MaVachNhaCungCap.class);
+                        vachNcc.select(mv.get("id")).where(
+                                cb.equal(mv.get("bienTheSanPham").get("sanPham"), root),
+                                TuKhoaTimKiem.like(cb, mv.get("barcodeNcc"), mau));
+                        hoac.add(cb.exists(vachNcc));
+
+                        return cb.or(hoac.toArray(new jakarta.persistence.criteria.Predicate[0]));
+                };
         }
 }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { docSo } from "@/components/chung-tu/bangChungTu";
 import { luuSoDem } from "@/services/stockTakeService";
 import { getApiErrorCode, getApiErrorMessage } from "@/utils/apiError";
+import { getCurrentUserId } from "@/utils/roles";
 import { t } from "@/i18n";
 
 // Gõ số xong chờ ngần này rồi mới tự lưu (gõ liền "1", "12", "120" chỉ gửi một lần); Enter / rời ô thì lưu ngay
@@ -11,6 +12,39 @@ const CHO_LUU_LY_DO_MS = 1200;
 const VUA_LUU_MS = 4000;
 // luuHet: số vòng gửi lại tối đa (người dùng gõ chen vào lúc đang gửi)
 const SO_VONG_LUU_HET = 3;
+
+// Khôi phục số đang gõ dở (hết phiên, tải lại trang): gửi lại sau ngần này
+const CHO_GUI_KHOI_PHUC_MS = 300;
+
+/**
+ * Khóa lưu tạm số đang gõ dở của một người ở một đợt. Lưu ở sessionStorage (riêng từng thẻ, còn khi tải lại trang hay
+ * phải đăng nhập lại trong cùng thẻ): hai thẻ cùng đợt không đè nháp của nhau, đóng thẻ thì nháp tự mất.
+ */
+const khoaNhapTam = (dotId, nguoiDungId) => `fcentric:kiem-ke:nhap:${nguoiDungId}:${dotId}`;
+
+function docNhapTam(dotId) {
+  const nguoiDungId = getCurrentUserId();
+  if (nguoiDungId == null) return {};
+  try {
+    const s = sessionStorage.getItem(khoaNhapTam(dotId, nguoiDungId));
+    const v = s ? JSON.parse(s) : null;
+    return v && typeof v === "object" ? v : {};
+  } catch {
+    return {};
+  }
+}
+
+function ghiNhapTam(dotId, nhap) {
+  // Phiên vừa hết (đã xóa người dùng): không ghi vào khóa không rõ chủ; nháp đã ghi trước đó vẫn còn
+  const nguoiDungId = getCurrentUserId();
+  if (nguoiDungId == null) return;
+  try {
+    if (Object.keys(nhap).length) sessionStorage.setItem(khoaNhapTam(dotId, nguoiDungId), JSON.stringify(nhap));
+    else sessionStorage.removeItem(khoaNhapTam(dotId, nguoiDungId));
+  } catch {
+    // Bộ nhớ trình duyệt bị chặn / đầy: chỉ mất phần khôi phục, lưu lên máy chủ vẫn chạy
+  }
+}
 
 const soCua = (d) => (d.soLuongThucTe == null ? null : docSo(d.soLuongThucTe));
 const lyDoCua = (d) => String(d.lyDoChenhLech ?? "").trim();
@@ -26,8 +60,12 @@ const lyDoCua = (d) => String(d.lyDoChenhLech ?? "").trim();
  * - `trangThai[id]`: `{ dang, loi, vuaLuu }` — đang gửi, câu lỗi của lần gửi gần nhất, vừa lưu xong (tự tắt sau 4 giây).
  * - `luuHet()`: gửi hết và chờ xong thật (kể cả lần gửi đang dở); trả danh sách id còn chưa lưu được.
  * - Rời màn khi còn số chưa gửi: gửi nốt ngay (không chờ hẹn giờ).
+ * - Số đang gõ dở còn được lưu tạm trong thẻ (theo người, theo đợt, kèm phiên bản dòng lúc gõ): hết phiên đăng
+ *   nhập hay tải lại trang giữa lúc đếm thì mở lại màn sẽ khôi phục và gửi lại — chỉ khi dòng chưa bị máy khác lưu đè
+ *   (phiên bản còn nguyên), không ghi đè số mới hơn. `khoiPhuc`: chỉ khôi phục khi đợt còn đếm được (Đang kiểm kê).
+ * - `khoId`: kho của đợt, gửi kèm từng lần lưu (đổi kho làm việc ở thẻ khác không làm lưu số thất bại).
  */
-export default function useLuuSoDem({ dotId, dong, capNhatDong, onLoiDong }) {
+export default function useLuuSoDem({ dotId, dong, capNhatDong, onLoiDong, khoId, khoiPhuc = true }) {
   const [nhap, setNhap] = useState({});
   const [trangThai, setTrangThai] = useState({});
   const nhapRef = useRef({});
@@ -40,14 +78,27 @@ export default function useLuuSoDem({ dotId, dong, capNhatDong, onLoiDong }) {
   const goRef = useRef(false);
   const capNhatRef = useRef(capNhatDong);
   const loiDongRef = useRef(onLoiDong);
+  const khoIdRef = useRef(khoId);
+  // phiên bản dòng lúc bắt đầu gõ (để khôi phục an toàn)
+  const phienBanGoRef = useRef({});
   useEffect(() => {
     dongRef.current = dong;
     capNhatRef.current = capNhatDong;
     loiDongRef.current = onLoiDong;
+    khoIdRef.current = khoId;
   });
 
   const datNhap = (moi) => {
     nhapRef.current = moi;
+    const tam = {};
+    Object.entries(moi).forEach(([id, cho]) => {
+      if (!(id in phienBanGoRef.current)) phienBanGoRef.current[id] = dongRef.current.find((x) => String(x.id) === id)?.phienBan ?? null;
+      tam[id] = { ...cho, phienBan: phienBanGoRef.current[id] };
+    });
+    Object.keys(phienBanGoRef.current).forEach((id) => {
+      if (!(id in moi)) delete phienBanGoRef.current[id];
+    });
+    ghiNhapTam(dotId, tam);
     if (!goRef.current) setNhap(moi);
   };
   const boNhapCua = (id) => {
@@ -87,10 +138,14 @@ export default function useLuuSoDem({ dotId, dong, capNhatDong, onLoiDong }) {
           lyDoChenhLech: lyDo || null,
           bienPhapXuLy: d.bienPhapXuLy ?? null,
           phienBan: d.phienBan,
-        });
+        }, khoIdRef.current);
         dongRef.current = dongRef.current.map((x) => (x.id === id ? moi : x));
-        // Bỏ phần đã gửi nếu từ lúc gửi chưa gõ thêm
+        // Bỏ phần đã gửi nếu từ lúc gửi chưa gõ thêm; gõ thêm rồi thì nháp còn lại theo phiên bản mới của dòng
         if (nhapRef.current[id] === cho) boNhapCua(id);
+        else if (id in nhapRef.current) {
+          phienBanGoRef.current[id] = moi?.phienBan ?? null;
+          datNhap({ ...nhapRef.current });
+        }
         capNhatRef.current?.(moi);
         datTrangThai(id, { dang: false, loi: null, vuaLuu: true });
         setTimeout(() => {
@@ -154,6 +209,29 @@ export default function useLuuSoDem({ dotId, dong, capNhatDong, onLoiDong }) {
     }
     return [...new Set([...Object.keys(nhapRef.current), ...Object.keys(dangGuiRef.current)].map(Number))];
   };
+
+  // Khôi phục số gõ dở của lần trước (một lần, khi bảng đã có dòng): dòng còn đúng phiên bản lúc gõ thì đưa lại vào ô và
+  // gửi; dòng đã đổi ở nơi khác (hay không còn) thì bỏ — không đè số mới hơn
+  const daKhoiPhucRef = useRef(false);
+  useEffect(() => {
+    if (!khoiPhuc || daKhoiPhucRef.current || !Array.isArray(dong) || dong.length === 0) return;
+    daKhoiPhucRef.current = true;
+    const tam = docNhapTam(dotId);
+    const lai = {};
+    Object.entries(tam).forEach(([id, cho]) => {
+      const d = dong.find((x) => String(x.id) === id);
+      if (!d || cho == null || cho.phienBan !== d.phienBan) return;
+      const { phienBan: _pb, ...phan } = cho;
+      const so = "so" in phan ? phan.so : soCua(d);
+      const lyDo = String(("lyDo" in phan ? phan.lyDo : d.lyDoChenhLech) ?? "").trim();
+      if (so === soCua(d) && lyDo === lyDoCua(d)) return;
+      lai[id] = phan;
+      phienBanGoRef.current[id] = d.phienBan;
+    });
+    datNhap({ ...lai, ...nhapRef.current });
+    Object.keys(lai).forEach((id) => hen(Number(id), CHO_GUI_KHOI_PHUC_MS));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dong, dotId, khoiPhuc]);
 
   useEffect(() => {
     goRef.current = false;

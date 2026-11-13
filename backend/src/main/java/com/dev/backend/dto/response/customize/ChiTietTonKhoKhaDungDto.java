@@ -18,5 +18,7 @@ public class ChiTietTonKhoKhaDungDto {
     BigDecimal soLuongDat;
     BigDecimal tonKhaDung;
     Boolean duHang;
+    /** Phần của mã ở kho đang thuộc đợt kiểm kê (đã trừ khỏi tonKhaDung); 0 khi không kiểm. */
+    BigDecimal soLuongDangKiemKe;
 }
 

@@ -27,6 +27,7 @@ import com.dev.backend.utils.BienSoXe;
 import com.dev.backend.utils.HienThiBienThe;
 import com.dev.backend.utils.KhoDangChon;
 import com.dev.backend.utils.SoChungTu;
+import com.dev.backend.utils.TuKhoaTimKiem;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import jakarta.persistence.criteria.Subquery;
@@ -973,7 +974,7 @@ public class PhieuChuyenKhoService {
 
         String ghiChu = dck.getSoPhieu();
         if (IChuyenKho.GIAO_BU_HANG.equals(phuongAn) && !lechTheoBienThe.isEmpty()) {
-            kiemTraKhaDung(phieu.getKhoXuat(), lechTheoBienThe, bienThe, null);
+            kiemTraKhaDung(phieu.getKhoXuat(), lechTheoBienThe, bienThe, null, false);
             PhieuChuyenKho bu = phieuChuyenKhoRepository.save(PhieuChuyenKho.builder()
                     .soPhieuChuyen(soPhieuMoi())
                     .khoXuat(phieu.getKhoXuat())
@@ -1133,6 +1134,51 @@ public class PhieuChuyenKhoService {
                 .size(page.getSize())
                 .soTheoTab(soTheoTab)
                 .build();
+    }
+
+    /**
+     * Tìm phiếu chuyển theo số phiếu / số lệnh điều động cho ô tìm kiếm toàn hệ thống: cùng phạm vi kho với
+     * {@link #danhSach} (Quản lý Kho tổng, quản trị viên: toàn mạng lưới; người khác: phiếu có kho đang chọn là một bên)
+     * nhưng không đếm tab, không tính hàng chưa xếp kệ. Từ khóa thoát ! % _ để gõ chữ nào khớp chữ đó.
+     */
+    @Transactional(readOnly = true)
+    public PhieuChuyenKhoDto.DanhSach timTheoSo(String tuKhoa, int soDong) {
+        NguoiDungAuthInfo user = SecurityContextHolder.getUser();
+        Integer khoDangChon = laQuanLyKhoTong(user) ? null : SecurityContextHolder.getKhoId();
+        if (!laQuanLyKhoTong(user) && khoDangChon == null) {
+            throw new CommonException(ThongDiep.of("chungTuKho.chonKhoDeXemPhieuChuyen"));
+        }
+        String mau = TuKhoaTimKiem.mau(tuKhoa == null ? "" : tuKhoa.trim(), false);
+        Specification<PhieuChuyenKho> loc = (root, query, cb) -> {
+            List<Predicate> p = new ArrayList<>();
+            if (khoDangChon != null) {
+                p.add(cb.or(cb.equal(root.get("khoXuat").get("id"), khoDangChon), cb.equal(root.get("khoNhap").get("id"), khoDangChon)));
+            }
+            p.add(cb.or(TuKhoaTimKiem.like(cb, root.get("soPhieuChuyen"), mau), TuKhoaTimKiem.like(cb, root.get("soLenhDieuDong"), mau)));
+            return cb.and(p.toArray(new Predicate[0]));
+        };
+        Page<PhieuChuyenKho> page = phieuChuyenKhoRepository.findAll(loc,
+                PageRequest.of(0, Math.min(Math.max(soDong, 1), 100), Sort.by(Sort.Order.desc("ngayTao"), Sort.Order.desc("id"))));
+        List<Integer> ids = page.getContent().stream().map(PhieuChuyenKho::getId).toList();
+        Set<Integer> biTuChoi = lichSuThayDoiService.idDaCoHanhDong(ITable.phieu_chuyen_kho,
+                page.getContent().stream().filter(p -> IChuyenKho.DA_HUY.equals(p.getTrangThai())).map(PhieuChuyenKho::getId).toList(),
+                IHanhDong.tu_choi_phieu_chuyen);
+        Set<Integer> coChenhLech = new HashSet<>();
+        if (!ids.isEmpty()) {
+            for (BienBanGiaoNhan bb : bienBanGiaoNhanRepository.findByPhieuChuyenKho_IdIn(ids)) {
+                if (IChuyenKho.GHI_GIAM_HAO_HUT.equals(bb.getPhuongAnXuLy())) coChenhLech.add(bb.getPhieuChuyenKho().getId());
+            }
+        }
+        List<PhieuChuyenKhoDto.DongDanhSach> dong = page.getContent().stream().map(p -> PhieuChuyenKhoDto.DongDanhSach.builder()
+                .id(p.getId())
+                .soPhieuChuyen(p.getSoPhieuChuyen())
+                .khoXuatTen(p.getKhoXuat().getTenKho())
+                .khoNhapTen(p.getKhoNhap().getTenKho())
+                .trangThai(p.getTrangThai())
+                .tuChoi(biTuChoi.contains(p.getId()))
+                .coChenhLech(IChuyenKho.HOAN_TAT.equals(p.getTrangThai()) && coChenhLech.contains(p.getId()))
+                .build()).toList();
+        return PhieuChuyenKhoDto.DanhSach.builder().content(dong).totalElements(page.getTotalElements()).build();
     }
 
     @Transactional(readOnly = true)
@@ -1518,6 +1564,15 @@ public class PhieuChuyenKhoService {
     // ─────────────────────────────────────────────────────────────
 
     private void kiemTraKhaDung(Kho khoXuat, Map<Integer, Integer> soLuong, Map<Integer, BienTheSanPham> bienThe, Integer boQuaPhieuId) {
+        kiemTraKhaDung(khoXuat, soLuong, bienThe, boQuaPhieuId, true);
+    }
+
+    /**
+     * {@code truKiemKe} false (Giao bù khi xử lý chênh lệch BBGN): không tính phần đang kiểm kê — chặn ở đây hoàn tác cả
+     * bước xử lý chênh lệch; phiếu bù vẫn bị chặn ở bước nhặt / xuất phần đang kiểm.
+     */
+    private void kiemTraKhaDung(Kho khoXuat, Map<Integer, Integer> soLuong, Map<Integer, BienTheSanPham> bienThe, Integer boQuaPhieuId,
+                                boolean truKiemKe) {
         Map<Integer, KhaDungChuyen> khaDung = khaDungChuyenKhoService.theoBienThe(khoXuat.getId(), soLuong.keySet(), boQuaPhieuId);
         for (Map.Entry<Integer, Integer> e : soLuong.entrySet()) {
             if (e.getValue() == null || e.getValue() <= 0) {
@@ -1525,8 +1580,17 @@ public class PhieuChuyenKhoService {
             }
             KhaDungChuyen kd = khaDung.get(e.getKey());
             BigDecimal can = BigDecimal.valueOf(e.getValue());
-            if (kd == null || kd.khaDung().compareTo(can) < 0) {
-                BigDecimal co = kd == null ? BigDecimal.ZERO : kd.khaDung();
+            BigDecimal layDuoc = kd == null ? BigDecimal.ZERO : truKiemKe ? kd.khaDung() : kd.khaDungNeuBoKiemKe();
+            if (layDuoc.compareTo(can) < 0) {
+                BigDecimal co = layDuoc;
+                // Thiếu vì phần đang kiểm kê ở kho gửi: báo đợt ngay lúc tạo / duyệt, không lập phiếu giữ chỗ trên số
+                // không lấy được (phiếu sẽ kẹt ở bước nhặt tới khi đợt kết thúc)
+                if (truKiemKe && kd != null && khoaKiemKeGuard != null && kd.dangKiemKe().signum() > 0) {
+                    KhoaKiemKeGuard.ThieuDoKiemKe doKiemKe = khoaKiemKeGuard.thieuTheoMa(
+                            khaDungChuyenKhoService.dangKiemKe(khoXuat.getId(), List.of(e.getKey())), e.getKey(),
+                            bienThe.get(e.getKey()).getMaSku(), khoXuat.getTenKho(), co, kd.khaDungNeuBoKiemKe(), can, "chuyển kho");
+                    if (doKiemKe != null) throw doKiemKe.loi();
+                }
                 boolean coChoXuat = kd != null && kd.choXuat().signum() > 0;
                 boolean coGiuCho = kd != null && kd.giuChoChuyen().signum() > 0;
                 ThongDiep chiTiet = coChoXuat && coGiuCho
@@ -1590,7 +1654,9 @@ public class PhieuChuyenKhoService {
         // hàng vẫn ở trung chuyển. Hàng nhận vào kho chưa lên kệ (phần chưa có kệ), nên khóa kệ / khu vực không chặn.
         if (khoaKiemKeGuard != null) {
             khoaKiemKeGuard.giuKho(khoNhan.getId());
-            khoaKiemKeGuard.kiemTraNhapKho(khoNhan.getId(), loIds, "nhận hàng chuyển kho (hàng vẫn ở kho trung chuyển)");
+            // Nhập hoàn trả (hàng quay về kho gửi) nói đúng việc đang làm, không dùng chung cụm "nhận hàng chuyển kho"
+            khoaKiemKeGuard.kiemTraNhapKho(khoNhan.getId(), loIds, IChuyenKho.TIEN_TO_NHAP_HOAN_TRA.equals(tienToSo)
+                    ? "nhận hàng hoàn trả (hàng vẫn ở kho trung chuyển)" : "nhận hàng chuyển kho (hàng vẫn ở kho trung chuyển)");
         }
         List<Integer> idsCanKhoa = new ArrayList<>(tonKhoTheoLoRepository.findIdsByKhoAndLots(trungChuyen.getId(), loIds));
         idsCanKhoa.addAll(tonKhoTheoLoRepository.findIdsByKhoAndLots(khoNhan.getId(), loIds));

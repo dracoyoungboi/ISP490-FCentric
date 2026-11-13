@@ -54,6 +54,7 @@ import {
   demLai,
   huyDot,
   layDong,
+  layCanhBaoDuyet,
   layDot,
   layNhatKy,
   layPhieuDieuChinh,
@@ -195,6 +196,9 @@ function ManKiemKe({ dotId }) {
     dotId,
     dong: dongMayChu,
     capNhatDong,
+    // Lưu số gửi kèm kho của đợt: đổi kho làm việc ở thẻ khác không làm lưu số thất bại
+    khoId: dot?.kho?.id,
+    khoiPhuc: suaDuoc,
     onLoiDong: (_id, ma, cau) => {
       if (ma === "STK_INVALID_STATE") {
         // Đợt đã trình duyệt / dòng đã xác nhận ở nơi khác: tải lại cả đợt
@@ -475,6 +479,13 @@ function ManKiemKe({ dotId }) {
   const taiXemTruoc = useCallback(() => xemTruocPhamVi(phamViCuaDot(dot), dot.id), [dot]);
   const qXem = useTaiDuLieu(taiXemTruoc, `kiem-ke-xem-${dotId}-${dot?.phienBan}`, { enabled: coXemTruoc });
 
+  // Hộp Phê duyệt: cảnh báo (không chặn) mã đếm thiếu làm đơn chờ xuất / phiếu chuyển đang giữ chỗ không còn đủ hàng
+  const taiCanhBaoDuyet = useCallback(() => layCanhBaoDuyet(dot.id), [dot]);
+  const qCanhBaoDuyet = useTaiDuLieu(taiCanhBaoDuyet, `kiem-ke-canh-bao-duyet-${dotId}-${dot?.phienBan}`, {
+    enabled: hop === "duyet" && tt === TT_DOT.CHO_DUYET && Boolean(dot),
+  });
+  const canhBaoDuyet = hop === "duyet" && Array.isArray(qCanhBaoDuyet.data) ? qCanhBaoDuyet.data : [];
+
   // Kệ chọn được ở hộp lô phát sinh: đợt khóa toàn kệ → kệ của đợt; theo danh mục → mọi kệ đang dùng của kho
   const theoDanhMuc = dot?.loaiKiemKe === "theo_danh_muc";
   const khoIdDot = dot?.kho?.id ?? null;
@@ -720,7 +731,14 @@ function ManKiemKe({ dotId }) {
           </>
         }
       >
-        {khoa.kieu === "min" ? (
+        {dot.loaiKiemKe === "toan_bo" ? (
+          <>
+            {t("Đang kiểm toàn bộ kho: nhập, xuất, chuyển kho, nhặt hàng và bán tại quầy của cả kho tạm dừng tới khi duyệt hoặc hủy ({{soKe}} kệ đang khóa).", {
+              count: Number(dot.soKeKhoa) || 0,
+              soKe: soVN(dot.soKeKhoa),
+            })}
+          </>
+        ) : khoa.kieu === "min" ? (
           <>
             {t("Đang giữ hàng thuộc danh mục trên {{soKe}} kệ: hàng này tạm dừng xuất, chuyển kho và bán tại quầy. Hàng khác trên cùng kệ vẫn vận hành.", {
               count: Number(dot.soKeKhoa) || 0,
@@ -1015,6 +1033,20 @@ function ManKiemKe({ dotId }) {
         onXacNhan={lenhDuyet}
       >
         <TomTatHop tk={tk} />
+        {canhBaoDuyet.length ? (
+          <div className="grid gap-1.5">
+            <p className="m-0 text-[13px] font-medium leading-5 text-bo-foreground">
+              {t("Sau điều chỉnh, các chứng từ đang chờ sẽ thiếu hàng (vẫn duyệt được):")}
+            </p>
+            <ul className="m-0 grid list-none gap-1.5 p-0">
+              {canhBaoDuyet.map((v, i) => (
+                <li key={i} className="rounded-md border border-bo-warning/30 bg-bo-warning-soft px-2.5 py-2 text-[13px] leading-5 text-bo-foreground">
+                  {v.noiDung}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
         {vanDeHop.length ? (
           <ul className="m-0 grid list-none gap-1.5 p-0">
             {vanDeHop.map((v, i) => (

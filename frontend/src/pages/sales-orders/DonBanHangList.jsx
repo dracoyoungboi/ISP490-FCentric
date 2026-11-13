@@ -38,6 +38,7 @@ import { DON_BAN_HANG_DA_KET_THUC_KHONG_THU, DON_BAN_HANG_TABS, DON_BAN_HANG_THA
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useTaiLaiDanhSach from "@/hooks/useTaiLaiDanhSach";
+import useTuKhoaTuUrl, { docTuKhoaUrl } from "@/hooks/useTuKhoaTuUrl";
 import { trangCuoiNeuVuot } from "@/lib/tinhTaiLai";
 import { t } from "@/i18n";
 
@@ -95,9 +96,10 @@ function buildFilterList({ keyword, kenh, ngay, trangThai, thanhToan }) {
     }
   ];
 
+  // Trường lọc ảo của backend, chung với ô tìm kiếm toàn hệ thống: số đơn, mã đơn sàn, số điện thoại và tên khách
   if (keyword) {
     filterList.push({
-      fieldName: "soDonHang",
+      fieldName: "tuKhoa",
       operation: "LIKE",
       value: keyword,
     });
@@ -163,15 +165,17 @@ export default function DonBanHangList() {
 
   // ?thanhToan= trên URL (Báo cáo doanh thu mở danh sách Còn phải thu) chỉ dùng làm giá trị đầu
   const thanhToanParam = searchParams.get("thanhToan") || "";
-  const [filters, setFilters] = useState({
-    keyword: "",
+  // ?q= từ "Xem tất cả" của ô tìm kiếm toàn hệ thống: vào thẳng ô tìm của trang
+  const [filters, setFilters] = useState(() => ({
+    keyword: docTuKhoaUrl(window.location.search).trim(),
     ngayDatHang: "",
     thanhToan: THANH_TOAN_OPTIONS.some((o) => o.value === thanhToanParam) ? thanhToanParam : "",
     page: 0,
     size: SO_DONG_MAC_DINH,
-  });
+  }));
   // Ô tìm kiếm đổi ngay khi gõ; filters.keyword chỉ đổi khi ngừng gõ hoặc bấm Enter.
-  const [searchText, setSearchText] = useState("");
+  const [searchText, setSearchText] = useState(() => docTuKhoaUrl(window.location.search));
+  useTuKhoaTuUrl(setSearchText);
 
   const changeKenh = (value) => {
     setSearchParams((prev) => {
@@ -397,7 +401,7 @@ export default function DonBanHangList() {
           >
             <SearchInput
               label={t("Tìm đơn bán hàng")}
-              placeholder={t("Nhập số đơn hàng...")}
+              placeholder={t("Số đơn, mã đơn sàn, SĐT khách...")}
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               onKeyDown={(e) => {

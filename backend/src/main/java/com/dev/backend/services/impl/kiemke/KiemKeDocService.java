@@ -85,6 +85,47 @@ public class KiemKeDocService {
         return k == null ? null : new KiemKeDto.Ma(k.getId(), k.getMaKho(), k.getTenKho());
     }
 
+    /** Lượng có thể giao ở kho (tồn − đang giữ, chờ xuất, giữ chỗ chuyển) cho cảnh báo phê duyệt; null khi test dựng tay. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.dev.backend.services.impl.multitable.KhaDungChuyenKhoService khaDungChuyen;
+
+    /**
+     * Cảnh báo (không chặn) ở hộp Phê duyệt: mã đếm thiếu mà sau điều chỉnh, tồn còn giao được (tồn − đang giữ) không đủ
+     * cho đơn bán đang chờ xuất và phiếu chuyển đang giữ chỗ ở kho — các chứng từ đó sẽ không giao đủ. Rỗng khi đợt không
+     * ở Chờ duyệt hoặc không có mã nào như vậy.
+     */
+    @Transactional(readOnly = true)
+    public List<KiemKeDto.VanDe> canhBaoDuyet(Integer id) {
+        sanSang.batBuoc();
+        DotKiemKe dot = dotXemDuoc(id);
+        if (dot.getTrangThai() == null || dot.getTrangThai() != IKiemKe.CHO_DUYET || khaDungChuyen == null) return List.of();
+        Map<Integer, BigDecimal> giam = new LinkedHashMap<>();
+        Map<Integer, String> sku = new HashMap<>();
+        for (ChiTietKiemKe d : dongRepo.findByDotKiemKeId(id)) {
+            BienTheSanPham bt = d.getBienTheSanPham();
+            if (bt == null || d.getChenhLechSoLuong() == null || !KiemKeTinhToan.lech(d)) continue;
+            giam.merge(bt.getId(), d.getChenhLechSoLuong(), BigDecimal::add);
+            sku.putIfAbsent(bt.getId(), bt.getMaSku());
+        }
+        giam.values().removeIf(v -> v.signum() >= 0);
+        if (giam.isEmpty()) return List.of();
+        Map<Integer, com.dev.backend.services.impl.multitable.KhaDungChuyenKhoService.KhaDungChuyen> kd =
+                khaDungChuyen.theoBienThe(dot.getKho().getId(), giam.keySet());
+        List<KiemKeDto.VanDe> kq = new ArrayList<>();
+        for (Map.Entry<Integer, BigDecimal> e : giam.entrySet()) {
+            var k = kd.get(e.getKey());
+            if (k == null) continue;
+            BigDecimal can = k.choXuat().add(k.giuChoChuyen());
+            BigDecimal sau = k.tonTruGiu().add(e.getValue());
+            // Chỉ khi chính phần ghi giảm làm thiếu: trước đã thiếu sẵn thì không gán cho việc điều chỉnh
+            if (can.signum() <= 0 || sau.compareTo(can) >= 0 || k.tonTruGiu().compareTo(can) < 0) continue;
+            ThongDiep cau = ThongDiep.of("khoVanHanh.canhBaoDuyetThieuGiao", sku.get(e.getKey()),
+                    KiemKePhamViService.so(sau.max(BigDecimal.ZERO)), KiemKePhamViService.so(can));
+            kq.add(new KiemKeDto.VanDe(MaLoi.STK_APPROVE_WARNING, cau.theoNgonNgu(NgonNgu.hienTai()), cau.tiengViet()));
+        }
+        return kq;
+    }
+
     private DotKiemKe dotXemDuoc(Integer id) {
         DotKiemKe dot = dotRepo.findById(id)
                 .orElseThrow(() -> new LoiCoMaException(HttpStatus.NOT_FOUND, MaLoi.STK_INVALID_STATE, ThongDiep.of("khoVanHanh.dotKiemKeKhongTimThayId", id)));

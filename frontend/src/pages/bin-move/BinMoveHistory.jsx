@@ -1,7 +1,7 @@
 // src/pages/bin-move/BinMoveHistory.jsx
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowRight, ChevronDown, MoveRight, Warehouse } from "lucide-react";
+import { ArrowRight, ChevronDown, MoveRight, Plus, Warehouse } from "lucide-react";
 import PageContainer from "@/components/backoffice/PageContainer";
 import ListPageHeader from "@/components/shared/ListPageHeader";
 import TableShell from "@/components/shared/TableShell";
@@ -229,8 +229,8 @@ export default function BinMoveHistory() {
         title={t("Lịch sử chuyển kệ")}
         actions={
           <Button onClick={() => navigate(`/warehouse/bin-moves${khoId ? `?khoId=${khoId}` : ""}`)} className="h-9 gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover">
-            <MoveRight className="size-4" />
-            {t("Chuyển hàng giữa kệ")}
+            <Plus className="size-4" aria-hidden="true" />
+            {t("Tạo phiếu chuyển kệ")}
           </Button>
         }
       />

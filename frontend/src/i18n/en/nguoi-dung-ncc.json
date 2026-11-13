@@ -618,7 +618,7 @@
   "Đã cho phép \"{{tenNhaCungCap}}\" hoạt động lại": "\"{{tenNhaCungCap}}\" reactivated",
   "Đã ngừng hoạt động \"{{tenNhaCungCap}}\"": "\"{{tenNhaCungCap}}\" deactivated",
   "Lọc nhà cung cấp theo trạng thái": "Filter suppliers by status",
-  "Tìm mã, tên, liên hệ, SĐT...": "Search code, name, contact, phone...",
+  "Tìm mã, tên, MST, liên hệ, SĐT...": "Search code, name, tax code, contact, phone...",
   "Không tìm thấy nhà cung cấp phù hợp": "No matching suppliers found",
   "Chọn tab Tất cả để xem mọi nhà cung cấp.": "Choose the All tab to see every supplier.",
   "Chưa có nhà cung cấp": "No suppliers yet",

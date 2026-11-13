@@ -25,7 +25,6 @@ import com.dev.backend.dto.response.entities.TonKhoTheoLoDto;
 import com.dev.backend.entities.PhieuXuatKho;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.mapper.PhieuXuatKhoMapper;
-import com.dev.backend.repository.PhanQuyenNguoiDungKhoRepository;
 import com.dev.backend.repository.PhieuXuatKhoRepository;
 import com.dev.backend.services.impl.entities.PhieuXuatKhoService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,9 +50,6 @@ public class PhieuXuatKhoController {
 
     @Autowired
     private PhieuXuatKhoMapper phieuXuatKhoMapper;
-
-    @Autowired
-    private PhanQuyenNguoiDungKhoRepository phanQuyenNguoiDungKhoRepository;
 
     @PostMapping("/create")
     @RequireAuth(
@@ -250,17 +246,10 @@ public class PhieuXuatKhoController {
     )
     public ResponseEntity<ResponseData<Page<PhieuXuatKhoDto>>> filter(@RequestBody BaseFilterRequest request) {
         NguoiDungAuthInfo currentUser = SecurityContextHolder.getUser();
-        boolean isAdmin = currentUser.getVaiTro().contains(IRoleType.quan_tri_vien);
-        List<Integer> khoIds = null; // Admin truyền null để lấy tất cả
+        // null = quản trị viên, lấy mọi kho; còn lại là các kho người dùng phụ trách (dùng chung với ô tìm kiếm)
+        List<Integer> khoIds = phieuXuatKhoService.khoDuocXemDanhSach(currentUser);
 
-        if (!isAdmin) {
-            // Lấy danh sách ID kho user quản lý
-            khoIds = phanQuyenNguoiDungKhoRepository
-                    .findByNguoiDungIdAndActive(currentUser.getId())
-                    .stream()
-                    .map(pq -> pq.getKho().getId())
-                    .toList();
-
+        if (khoIds != null) {
             // Nếu không có quyền ở kho nào, trả về list rỗng luôn để tiết kiệm query
             if (khoIds.isEmpty()) {
                 return ResponseEntity.ok(

@@ -32,6 +32,7 @@ import com.dev.backend.mapper.DonBanHangMapper;
 import com.dev.backend.mapper.PhieuXuatKhoMapper;
 import com.dev.backend.repository.*;
 import com.dev.backend.services.impl.BaseServiceImpl;
+import com.dev.backend.services.impl.kiemke.KhoaKiemKeGuard;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Tuple;
 import jakarta.persistence.criteria.CriteriaBuilder;
@@ -68,6 +69,8 @@ import com.dev.backend.services.multitable.NhatHangService;
 import lombok.extern.slf4j.Slf4j;
 import com.dev.backend.utils.SauCommit;
 import com.dev.backend.utils.SoChungTu;
+import com.dev.backend.utils.SoDienThoai;
+import com.dev.backend.utils.TuKhoaTimKiem;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Lazy;
 
@@ -111,6 +114,10 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
 
     @Autowired(required = false)
     private ThongBaoXuatKhoService thongBaoXuatKhoService;
+
+    /** Phần đang kiểm kê theo mã ở kho (gợi ý kho, chốt báo giá thành đơn); null khi unit test dựng tay. */
+    @Autowired(required = false)
+    private KhoaKiemKeGuard khoaKiemKeGuard;
 
     @Autowired
     private PhieuXuatKhoMapper phieuXuatKhoMapper;
@@ -186,6 +193,50 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
 
     public DonBanHangService(DonBanHangRepository repository) {
         super(repository);
+    }
+
+    /** Trường lọc ảo tuKhoa (ô tìm toàn hệ thống, ô tìm trang Đơn bán): tách ra, phần còn lại lọc như cũ. */
+    @Override
+    protected Specification<DonBanHang> createSpecification(List<FilterCriteria> filters) {
+        TuKhoaTimKiem.Tach tach = TuKhoaTimKiem.tach(filters);
+        if (!tach.coTruong()) {
+            return super.createSpecification(filters);
+        }
+        Specification<DonBanHang> conLai = super.createSpecification(tach.conLai());
+        return tach.tuKhoa() == null ? conLai : conLai.and(theoTuKhoa(tach.tuKhoa(), tach.chinhXac()));
+    }
+
+    /**
+     * Đơn (hoặc báo giá) khớp từ khóa: số đơn, mã đơn sàn; qua khách: số điện thoại đã bỏ ký tự ngăn cách (khi từ khóa có
+     * dáng số điện thoại) và tên khách (chỉ khi tìm "chứa"). Khách dùng EXISTS, không join, để đơn không có khách vẫn
+     * được tìm theo số đơn.
+     */
+    static Specification<DonBanHang> theoTuKhoa(String tuKhoa, boolean chinhXac) {
+        String mau = TuKhoaTimKiem.mau(tuKhoa, chinhXac);
+        String sdt = SoDienThoai.choTimKiem(tuKhoa);
+        return (root, query, cb) -> {
+            List<jakarta.persistence.criteria.Predicate> hoac = new ArrayList<>();
+            hoac.add(TuKhoaTimKiem.like(cb, root.get("soDonHang"), mau));
+            hoac.add(TuKhoaTimKiem.like(cb, root.get("maDonHangKenh"), mau));
+
+            List<jakarta.persistence.criteria.Predicate> theoKhach = new ArrayList<>();
+            jakarta.persistence.criteria.Subquery<Integer> khach = query.subquery(Integer.class);
+            Root<KhachHang> kh = khach.from(KhachHang.class);
+            if (sdt != null) {
+                Expression<String> cotSdt = TuKhoaTimKiem.boNganCach(cb, kh.get("soDienThoai"));
+                theoKhach.add(chinhXac ? cb.equal(cotSdt, sdt) : cb.like(cotSdt, "%" + TuKhoaTimKiem.thoat(sdt) + "%", TuKhoaTimKiem.KY_TU_THOAT));
+            }
+            if (!chinhXac) {
+                theoKhach.add(TuKhoaTimKiem.like(cb, kh.get("tenKhachHang"), mau));
+            }
+            if (!theoKhach.isEmpty()) {
+                khach.select(kh.get("id")).where(
+                        cb.equal(kh.get("id"), root.get("khachHang").get("id")),
+                        cb.or(theoKhach.toArray(new jakarta.persistence.criteria.Predicate[0])));
+                hoac.add(cb.exists(khach));
+            }
+            return cb.or(hoac.toArray(new jakarta.persistence.criteria.Predicate[0]));
+        };
     }
 
     @Override
@@ -680,15 +731,24 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                 .distinct()
                 .toList();
 
-        // 1. Tồn khả dụng theo lô (tồn − đang giữ) theo (kho, biến thể); 2. lượng chờ xuất của các đơn khác
+        // 1. Tồn khả dụng theo lô (tồn − đang giữ) theo (kho, biến thể); 2. lượng chờ xuất của các đơn khác;
+        // 3. phần đang kiểm kê ở các kho có đợt mở (không lấy được tới khi đợt kết thúc, như POS và chuyển kho)
         Map<Integer, Map<Integer, BigDecimal>> onHandMap = bienTheIds.isEmpty() ? Map.of() : khaDungLoTheoKho(bienTheIds);
         Map<Integer, Map<Integer, BigDecimal>> outgoingMap = bienTheIds.isEmpty() ? Map.of() : choXuatTheoKho(bienTheIds, donHangId);
+        Map<Integer, KhoaKiemKeGuard.KiemKeTheoMa> kiemKeMap = new HashMap<>();
+        if (khoaKiemKeGuard != null && !bienTheIds.isEmpty()) {
+            for (Integer khoKiem : khoaKiemKeGuard.khoDangKiemKe()) {
+                kiemKeMap.put(khoKiem, khoaKiemKeGuard.dangKiemKeTheoMa(khoKiem, bienTheIds));
+            }
+        }
 
         List<KhoKhaDungDto> results = new ArrayList<>();
         for (Kho kho : activeKhos) {
             Integer kId = kho.getId();
             Map<Integer, BigDecimal> khoOnHand = onHandMap.getOrDefault(kId, Collections.emptyMap());
             Map<Integer, BigDecimal> khoOutgoing = outgoingMap.getOrDefault(kId, Collections.emptyMap());
+            KhoaKiemKeGuard.KiemKeTheoMa khoKiemKe = kiemKeMap.getOrDefault(kId, KhoaKiemKeGuard.KiemKeTheoMa.RONG);
+            String maDotKiemKe = khoKiemKe.dotToanKho();
 
             int matHangDuCount = 0;
             List<ChiTietTonKhoKhaDungDto> itemDtos = new ArrayList<>();
@@ -700,7 +760,9 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
 
                 BigDecimal onHand = (btId != null) ? khoOnHand.getOrDefault(btId, BigDecimal.ZERO) : BigDecimal.ZERO;
                 BigDecimal outgoing = (btId != null) ? khoOutgoing.getOrDefault(btId, BigDecimal.ZERO) : BigDecimal.ZERO;
-                BigDecimal tonKhaDung = onHand.subtract(outgoing).max(BigDecimal.ZERO);
+                BigDecimal dangKiem = khoKiemKe.cua(btId);
+                BigDecimal tonKhaDung = onHand.subtract(outgoing).subtract(dangKiem).max(BigDecimal.ZERO);
+                if (maDotKiemKe == null && dangKiem.signum() > 0) maDotKiemKe = khoKiemKe.dotCuaMa().get(btId);
 
                 boolean duHang = tonKhaDung.compareTo(soLuongDat) >= 0;
                 if (duHang) {
@@ -728,6 +790,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                         .soLuongDat(soLuongDat)
                         .tonKhaDung(tonKhaDung)
                         .duHang(duHang)
+                        .soLuongDangKiemKe(dangKiem)
                         .build());
             }
 
@@ -742,6 +805,8 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                     .soLuongMatHangDu(matHangDuCount)
                     .tongSoMatHang(chiTiets.size())
                     .chiTietTonKho(itemDtos)
+                    .maDotKiemKe(maDotKiemKe)
+                    .kiemToanKho(khoKiemKe.dotToanKho() != null)
                     .build());
         }
 
@@ -1177,11 +1242,19 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                 .map(ct -> ct.getBienTheSanPham().getId()).distinct().toList();
         Map<Integer, BigDecimal> khaDungKho = khaDungLoTheoKho(bienTheBaoGia).getOrDefault(kho.getId(), Map.of());
         Map<Integer, BigDecimal> choXuatKho = choXuatTheoKho(bienTheBaoGia, null).getOrDefault(kho.getId(), Map.of());
+        // Phần đang kiểm kê ở kho xuất không bán được tới khi đợt kết thúc: trừ ra, thiếu vì kiểm kê thì báo đợt
+        KhoaKiemKeGuard.KiemKeTheoMa kiemKe = khoaKiemKeGuard == null ? KhoaKiemKeGuard.KiemKeTheoMa.RONG
+                : khoaKiemKeGuard.dangKiemKeTheoMa(kho.getId(), bienTheBaoGia);
         for (ChiTietDonBanHang item : baoGia.getChiTietDonBanHangs()) {
             Integer btId = item.getBienTheSanPham().getId();
-            BigDecimal conBanDuoc = khaDungKho.getOrDefault(btId, BigDecimal.ZERO)
-                    .subtract(choXuatKho.getOrDefault(btId, BigDecimal.ZERO)).max(BigDecimal.ZERO);
+            BigDecimal boKiemKe = khaDungKho.getOrDefault(btId, BigDecimal.ZERO)
+                    .subtract(choXuatKho.getOrDefault(btId, BigDecimal.ZERO));
+            BigDecimal conBanDuoc = boKiemKe.subtract(kiemKe.cua(btId)).max(BigDecimal.ZERO);
             if (conBanDuoc.compareTo(item.getSoLuongDat()) < 0) {
+                KhoaKiemKeGuard.ThieuDoKiemKe doKiemKe = khoaKiemKeGuard == null ? null : khoaKiemKeGuard.thieuTheoMa(kiemKe, btId,
+                        item.getBienTheSanPham().getMaSku(), kho.getTenKho(), conBanDuoc, boKiemKe.max(BigDecimal.ZERO),
+                        item.getSoLuongDat(), "tạo đơn bán");
+                if (doKiemKe != null) throw doKiemKe.loi();
                 throw new CommonException(ThongDiep.of("banHang.sanPhamKhongDuHangTaoDon", item.getBienTheSanPham().getMaSku(),
                         kho.getTenKho(), item.getSoLuongDat().stripTrailingZeros().toPlainString(),
                         conBanDuoc.stripTrailingZeros().toPlainString()));
