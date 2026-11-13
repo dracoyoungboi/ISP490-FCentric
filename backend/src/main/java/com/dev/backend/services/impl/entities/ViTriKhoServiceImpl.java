@@ -167,6 +167,12 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
             khuVuc.setTenKhuVuc(request.getTenKhuVuc().trim());
         }
         if (request.getLoaiKhu() != null && !request.getLoaiKhu().isBlank()) {
+            // Loại khu là dữ liệu chủ của phạm vi đợt (đợt theo khu vực / toàn kho): giữ nguyên trong lúc đếm để sơ đồ khóa và
+            // biên bản kiểm kê khớp với lúc Bắt đầu; đổi tên / ghi chú vẫn được
+            if (khoaKiemKeGuard != null && !request.getLoaiKhu().equals(khuVuc.getLoaiKhu())) {
+                khoaKiemKeGuard.giuKho(khoId);
+                khoaKiemKeGuard.kiemTraKhuVuc(khuVuc.getId(), "đổi loại khu vực");
+            }
             khuVuc.setLoaiKhu(request.getLoaiKhu());
         }
         khuVuc.setGhiChu(request.getGhiChu());
@@ -388,10 +394,14 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
             throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.viTriKhongThuocKho"));
         }
         kiemTraTrangThaiGhiTay(request.getTrangThai());
-        // Master Data Guard: kệ đang thuộc phạm vi đợt kiểm kê không đổi khu / trạng thái / sức chứa được
+        // Master Data Guard: kệ đang thuộc phạm vi đợt kiểm kê không đổi khu / trạng thái / sức chứa được. Kệ chỉ khóa mịn
+        // (đợt theo danh mục khóa vài lô, kệ vẫn chứa hàng khác) thì vẫn sửa được sức chứa — không ảnh hưởng số đếm
         if (khoaKiemKeGuard != null) {
+            boolean doiKhu = request.getKhuVucId() != null && !request.getKhuVucId().equals(viTri.getKhuVucKho().getId());
+            boolean doiTrangThai = request.getTrangThai() != null && !request.getTrangThai().isBlank()
+                    && !request.getTrangThai().equals(viTri.getTrangThai());
             khoaKiemKeGuard.giuKho(khoId);
-            khoaKiemKeGuard.kiemTraKe(viTriId, "sửa kệ");
+            khoaKiemKeGuard.kiemTraKe(viTriId, "sửa kệ", !doiKhu && !doiTrangThai);
         }
         Map<String, Object> truocKe = anhViTri(viTri);
 

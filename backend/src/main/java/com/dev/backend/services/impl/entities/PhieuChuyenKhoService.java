@@ -973,7 +973,7 @@ public class PhieuChuyenKhoService {
 
         String ghiChu = dck.getSoPhieu();
         if (IChuyenKho.GIAO_BU_HANG.equals(phuongAn) && !lechTheoBienThe.isEmpty()) {
-            kiemTraKhaDung(phieu.getKhoXuat(), lechTheoBienThe, bienThe, null);
+            kiemTraKhaDung(phieu.getKhoXuat(), lechTheoBienThe, bienThe, null, false);
             PhieuChuyenKho bu = phieuChuyenKhoRepository.save(PhieuChuyenKho.builder()
                     .soPhieuChuyen(soPhieuMoi())
                     .khoXuat(phieu.getKhoXuat())
@@ -1608,7 +1608,9 @@ public class PhieuChuyenKhoService {
         // hàng vẫn ở trung chuyển. Hàng nhận vào kho chưa lên kệ (phần chưa có kệ), nên khóa kệ / khu vực không chặn.
         if (khoaKiemKeGuard != null) {
             khoaKiemKeGuard.giuKho(khoNhan.getId());
-            khoaKiemKeGuard.kiemTraNhapKho(khoNhan.getId(), loIds, "nhận hàng chuyển kho (hàng vẫn ở kho trung chuyển)");
+            // Nhập hoàn trả (hàng quay về kho gửi) nói đúng việc đang làm, không dùng chung cụm "nhận hàng chuyển kho"
+            khoaKiemKeGuard.kiemTraNhapKho(khoNhan.getId(), loIds, IChuyenKho.TIEN_TO_NHAP_HOAN_TRA.equals(tienToSo)
+                    ? "nhận hàng hoàn trả (hàng vẫn ở kho trung chuyển)" : "nhận hàng chuyển kho (hàng vẫn ở kho trung chuyển)");
         }
         List<Integer> idsCanKhoa = new ArrayList<>(tonKhoTheoLoRepository.findIdsByKhoAndLots(trungChuyen.getId(), loIds));
         idsCanKhoa.addAll(tonKhoTheoLoRepository.findIdsByKhoAndLots(khoNhan.getId(), loIds));

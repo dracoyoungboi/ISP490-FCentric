@@ -278,7 +278,16 @@ public class KiemKeService {
         dot.setPhienBanPhamVi(2);
         dot.setNgayTao(Instant.now());
         dot.setNgayCapNhat(Instant.now());
-        dot = dotRepo.save(dot);
+        try {
+            // Mã đợt lấy theo số lớn nhất trong ngày: hai người lập cùng lúc có thể ra cùng mã (cột ma_dot_kiem_ke UNIQUE).
+            // Ghi ngay để bắt trùng tại đây và báo rõ, thay cho lỗi 409 chung chung lúc commit
+            dot = dotRepo.saveAndFlush(dot);
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            String goc = String.valueOf(org.springframework.core.NestedExceptionUtils.getMostSpecificCause(e).getMessage());
+            if (!goc.contains("Duplicate") || !goc.contains("ma_dot_kiem_ke")) throw e;
+            throw new LoiCoMaException(HttpStatus.CONFLICT, MaLoi.STK_INVALID_STATE,
+                    ThongDiep.of("khoVanHanh.maDotVuaBiDung", dot.getMaDotKiemKe()));
+        }
         luuLuaChon(dot, lc);
         ghiNhatKy(dot, IKiemKe.HD_TAO, "Tạo đợt " + dot.getMaDotKiemKe() + " (Nháp), phạm vi " + moTaLoai(lc.loai()), nguoi);
         return dot;

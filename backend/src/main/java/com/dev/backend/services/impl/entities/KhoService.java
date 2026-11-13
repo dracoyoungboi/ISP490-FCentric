@@ -232,6 +232,11 @@ public class KhoService extends BaseServiceImpl<Kho, Integer> {
         // Sửa thông tin không đổi trạng thái (trangThai trong payload bị bỏ qua): form mở từ trước còn giữ trạng thái cũ,
         // lưu form sẽ lặng lẽ đảo lại thao tác Ngừng / Cho phép hoạt động. Trạng thái chỉ đổi qua doiTrangThai.
         kiemTraKhoTong(kho.getId(), updating.getMaKho(), loaiKho, kho.getTrangThai());
+        // Đổi loại kho (bán hàng ↔ kho tổng…) đổi luồng nhận đơn / đẩy tồn của kho: chờ đợt kiểm kê đang mở kết thúc
+        if (khoaKiemKeGuard != null && !Objects.equals(loaiKho, kho.getLoaiKho() != null ? kho.getLoaiKho() : KHO_BAN_HANG)) {
+            khoaKiemKeGuard.giuKho(kho.getId());
+            khoaKiemKeGuard.kiemTraKho(kho.getId(), "đổi loại kho");
+        }
         Map<String, Object> truoc = anhKho(kho);
         kho.setLoaiKho(loaiKho);
         kho.setMaKho(updating.getMaKho());

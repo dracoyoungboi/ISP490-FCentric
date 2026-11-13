@@ -80,11 +80,14 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
         @Autowired(required = false)
         private NhatKyNghiepVu nhatKy;
 
-        /** Đổi danh mục của sản phẩm khi danh mục cũ hoặc mới đang được kiểm kê ở kho nào đó: dừng (Master Data Guard). */
-        private void kiemTraDoiDanhMucKhiKiemKe(DanhMucQuanAo cu, DanhMucQuanAo moi) {
+        /**
+         * Đổi danh mục của sản phẩm khi danh mục cũ hoặc mới (kể cả danh mục con tạo sau, xét theo cha) đang được kiểm kê ở
+         * kho mà sản phẩm có hàng: dừng (Master Data Guard). Sản phẩm không có hàng ở kho đang kiểm thì đổi được.
+         */
+        private void kiemTraDoiDanhMucKhiKiemKe(SanPhamQuanAo sanPham, DanhMucQuanAo cu, DanhMucQuanAo moi) {
                 if (khoaKiemKeGuard == null || cu == null || moi == null || cu.getId().equals(moi.getId())) return;
                 khoaKiemKeGuard.giuTatCaKho();
-                khoaKiemKeGuard.kiemTraDanhMuc(java.util.List.of(cu.getId(), moi.getId()), "đổi danh mục sản phẩm");
+                khoaKiemKeGuard.kiemTraDoiDanhMucSanPham(sanPham.getId(), cu.getId(), moi.getId(), "đổi danh mục sản phẩm");
         }
 
         @Autowired
@@ -657,7 +660,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 // ===================== GHI DỮ LIỆU =====================
                 // Ảnh chụp trước khi sửa (nhật ký chỉ giữ trường đổi); các mục biến thể / ảnh thêm vào sau
                 Map<String, Object> truocSua = anhSanPham(sanPhamQuanAo);
-                kiemTraDoiDanhMucKhiKiemKe(sanPhamQuanAo.getDanhMuc(), danhMucQuanAo);
+                kiemTraDoiDanhMucKhiKiemKe(sanPhamQuanAo, sanPhamQuanAo.getDanhMuc(), danhMucQuanAo);
                 sanPhamQuanAo.setTenSanPham(tenMoi);
                 sanPhamQuanAo.setDanhMuc(danhMucQuanAo);
                 // Giống PATCH /basic-info: ô để trống lưu null.
@@ -1205,7 +1208,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                                 () -> new CommonException(ThongDiep.of("sanPhamMuaHang.danhMucQuanAoKhongTimThay", dto.getDanhMucId()))
                         );
                         if (!danhMuc.getId().equals(sp.getDanhMuc().getId())) {
-                                kiemTraDoiDanhMucKhiKiemKe(sp.getDanhMuc(), danhMuc);
+                                kiemTraDoiDanhMucKhiKiemKe(sp, sp.getDanhMuc(), danhMuc);
                                 sp.setDanhMuc(danhMuc);
                         }
                 }

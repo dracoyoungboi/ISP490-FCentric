@@ -592,6 +592,14 @@ public class KhoaKiemKeGuard {
     }
 
     public void kiemTraKe(Integer viTriId, String thaoTac) {
+        kiemTraKe(viTriId, thaoTac, false);
+    }
+
+    /**
+     * Như trên; {@code choQuaKhoaMin}: kệ chỉ bị khóa mịn (đợt theo danh mục khóa vài lô trên kệ, kệ vẫn dùng cho hàng
+     * khác) thì cho qua — dùng khi sửa thông tin không ảnh hưởng số đếm (sức chứa), không đổi khu / trạng thái.
+     */
+    public void kiemTraKe(Integer viTriId, String thaoTac, boolean choQuaKhoaMin) {
         if (viTriId == null || !sanSang.sanSang()) return;
         @SuppressWarnings("unchecked")
         List<Object[]> r = em.createNativeQuery("SELECT kho_id, khu_vuc_kho_id FROM vi_tri_kho WHERE id = :id")
@@ -604,7 +612,7 @@ public class KhoaKiemKeGuard {
         Integer dot = tt.dotToanKho != null ? tt.dotToanKho
                 : tt.keToanKe.containsKey(viTriId) ? tt.keToanKe.get(viTriId)
                 : khuVuc != null && tt.khuVuc.containsKey(khuVuc) ? tt.khuVuc.get(khuVuc) : null;
-        if (dot == null && tt.keKhoaMin.contains(viTriId)) {
+        if (dot == null && !choQuaKhoaMin && tt.keKhoaMin.contains(viTriId)) {
             dot = tt.capKhoaMin.entrySet().stream().filter(e -> (int) (e.getKey() >> 32) == viTriId)
                     .map(Map.Entry::getValue).findFirst().orElse(tt.maDot.keySet().iterator().next());
         }
@@ -633,6 +641,32 @@ public class KhoaKiemKeGuard {
                         + "JOIN dot_kiem_ke d ON d.id = dm.dot_kiem_ke_id "
                         + "WHERE d.trang_thai IN (1, 2) AND dm.danh_muc_id IN (:ids) ORDER BY d.id LIMIT 1")
                 .setParameter("ids", ids).getResultList();
+        if (r.isEmpty()) return;
+        String ma = (String) r.get(0)[1];
+        throw new LoiCoMaException(HttpStatus.CONFLICT, MaLoi.STK_LOCKED,
+                ThongDiep.of("khoVanHanh.danhMucDangKiemKe", ma, thaoTacTheoNgonNgu(thaoTac)),
+                Map.of("dotKiemKeId", ((Number) r.get(0)[0]).intValue(), "maDotKiemKe", ma));
+    }
+
+    /**
+     * Đổi danh mục của một sản phẩm. Chặn khi danh mục cũ hoặc mới thuộc đợt kiểm kê theo danh mục đang mở ở một kho MÀ
+     * sản phẩm có tồn ở kho đó (đổi lúc này làm phạm vi đếm lệch với số chốt). Sản phẩm không có hàng ở kho đang kiểm thì
+     * đổi được. So khớp đúng danh mục như phạm vi đợt (danh mục con đã chốt lúc Bắt đầu); danh mục con tạo sau đó không
+     * thuộc phạm vi đếm nên đưa hàng vào / ra không làm lệch số.
+     */
+    public void kiemTraDoiDanhMucSanPham(Integer sanPhamId, Integer danhMucCu, Integer danhMucMoi, String thaoTac) {
+        if (sanPhamId == null || !sanSang.sanSang()) return;
+        Set<Integer> ids = new HashSet<>();
+        if (danhMucCu != null) ids.add(danhMucCu);
+        if (danhMucMoi != null) ids.add(danhMucMoi);
+        if (ids.isEmpty()) return;
+        @SuppressWarnings("unchecked")
+        List<Object[]> r = em.createNativeQuery("SELECT d.id, d.ma_dot_kiem_ke FROM dot_kiem_ke_danh_muc dm "
+                        + "JOIN dot_kiem_ke d ON d.id = dm.dot_kiem_ke_id "
+                        + "WHERE d.trang_thai IN (1, 2) AND dm.danh_muc_id IN (:ids) AND EXISTS (SELECT 1 FROM ton_kho_theo_lo t "
+                        + "JOIN lo_hang l ON l.id = t.lo_hang_id JOIN bien_the_san_pham bt ON bt.id = l.bien_the_san_pham_id "
+                        + "WHERE t.kho_id = d.kho_id AND bt.san_pham_id = :sp AND t.so_luong_ton > 0) ORDER BY d.id LIMIT 1")
+                .setParameter("ids", new ArrayList<>(ids)).setParameter("sp", sanPhamId).getResultList();
         if (r.isEmpty()) return;
         String ma = (String) r.get(0)[1];
         throw new LoiCoMaException(HttpStatus.CONFLICT, MaLoi.STK_LOCKED,

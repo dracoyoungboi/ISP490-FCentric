@@ -412,14 +412,16 @@ public class KiemKePhamViService {
         // Chỉ giao dịch còn có thể giữ hàng: chờ khách trả (PENDING) hoặc tiền về lỗi chờ quản lý xử lý (PAID_ERROR).
         // Giao dịch đã thanh toán / đã đóng mà cờ còn bật là dữ liệu cũ (trước khi có cờ) — không chặn kiểm kê vì nó
         @SuppressWarnings("unchecked")
-        List<Object[]> qr = em.createNativeQuery("SELECT order_code, giu_cho_json FROM pos_payos_payment "
-                        + "WHERE kho_id = :kho AND dang_giu_cho = 1 AND trang_thai IN (:conGiu)")
+        List<Object[]> qr = em.createNativeQuery("SELECT p.order_code, p.giu_cho_json, p.so_tien, nd.ho_ten "
+                        + "FROM pos_payos_payment p LEFT JOIN nguoi_dung nd ON nd.id = p.nguoi_thu_ngan_id "
+                        + "WHERE p.kho_id = :kho AND p.dang_giu_cho = 1 AND p.trang_thai IN (:conGiu)")
                 .setParameter("kho", kho.getId())
                 .setParameter("conGiu", List.of(PosPayosPayment.PENDING, PosPayosPayment.PAID_ERROR))
                 .getResultList();
         if (!qr.isEmpty()) {
             Map<Integer, Integer> loCuaTon = new HashMap<>();
             Map<Long, Set<Integer>> tonTheoQr = new LinkedHashMap<>();
+            Map<Long, Object> moTaQr = new HashMap<>();
             for (Object[] r : qr) {
                 Set<Integer> tonIds = new HashSet<>();
                 try {
@@ -430,7 +432,12 @@ public class KiemKePhamViService {
                 } catch (Exception e) {
                     log.warn("[KIEM-KE] Không đọc được phần giữ chỗ của QR payOS {}: {}", r[0], e.getMessage());
                 }
-                tonTheoQr.put(((Number) r[0]).longValue(), tonIds);
+                long maQr = ((Number) r[0]).longValue();
+                tonTheoQr.put(maQr, tonIds);
+                // "QR 123 (150.000 ₫, thu ngân Nguyễn A)": người lập đợt biết nhờ ai hủy, không chỉ thấy mã QR
+                String tien = r[2] == null ? "0" : String.format(Locale.US, "%,d", ((Number) r[2]).longValue()).replace(',', '.');
+                String thuNgan = r[3] == null || ((String) r[3]).isBlank() ? "—" : ((String) r[3]).trim();
+                moTaQr.put(maQr, ThongDiep.of("khoVanHanh.mucQrPos", String.valueOf(maQr), tien, thuNgan));
             }
             Set<Integer> tatCaTon = tonTheoQr.values().stream().flatMap(Set::stream).collect(Collectors.toSet());
             if (!tatCaTon.isEmpty()) {
@@ -439,11 +446,11 @@ public class KiemKePhamViService {
                         .setParameter("ids", tatCaTon).getResultList();
                 m.forEach(x -> loCuaTon.put(((Number) x[0]).intValue(), ((Number) x[1]).intValue()));
             }
-            List<String> vuongQr = new ArrayList<>();
+            List<Object> vuongQr = new ArrayList<>();
             tonTheoQr.forEach((ma, tonIds) -> {
                 boolean vuong = toanKho || tonIds.stream().map(loCuaTon::get).filter(Objects::nonNull)
                         .anyMatch(lo -> loTrongPhamVi.contains(lo) || loDanhMuc.contains(lo));
-                if (vuong) vuongQr.add("QR " + ma);
+                if (vuong) vuongQr.add(moTaQr.get(ma));
             });
             if (!vuongQr.isEmpty()) {
                 kq.add(new VanDe(MaLoi.STK_PENDING_PICK, ThongDiep.of("khoVanHanh.vuongQrPos", gonTheoKhoa(vuongQr))));
