@@ -76,6 +76,10 @@ public class OmnichannelOrderSyncJob {
         return MA_KENH_LAZADA.equalsIgnoreCase(maKenh) || MA_KENH_LAZADA_SANDBOX.equalsIgnoreCase(maKenh);
     }
 
+    public static boolean isLazadaSandbox(String maKenh) {
+        return MA_KENH_LAZADA_SANDBOX.equalsIgnoreCase(maKenh);
+    }
+
     public static boolean isShopee(String maKenh) {
         return MA_KENH_SHOPEE.equalsIgnoreCase(maKenh)
                 || "SHOPEE_OFFICIAL".equalsIgnoreCase(maKenh)
@@ -244,8 +248,15 @@ public class OmnichannelOrderSyncJob {
                     }
                     syncShopifyOrders(kenh, intervalMins);
                 } else if (isLazada(maKenh)) {
-                    log.debug("[JOB-01] Kênh {} đã được vô hiệu hóa, bỏ qua", maKenh);
-                    continue;
+                    if (isLazadaSandbox(maKenh)) {
+                        log.debug("[JOB-01] Kênh {} (Sandbox) đã được vô hiệu hóa, bỏ qua", maKenh);
+                        continue;
+                    }
+                    if (!KenhCauHinhDongBo.tuDongLayDon(dieuHanhHeThongService, maKenh)) {
+                        log.info("[JOB-01] Kênh {} đang tắt tự động lấy đơn, bỏ qua", maKenh);
+                        continue;
+                    }
+                    syncLazadaOrders(kenh, intervalMins);
                 } else if (isTikTok(maKenh)) {
                     if (!KenhCauHinhDongBo.tuDongLayDon(dieuHanhHeThongService, maKenh)) {
                         log.info("[JOB-01] Kênh {} đang tắt tự động lấy đơn, bỏ qua", maKenh);

@@ -63,6 +63,19 @@ public class OmnichannelTokenRefreshJob {
                             baoLamMoiThatBai(kenh);
                         }
                     }
+                } else if ("LAZADA".equalsIgnoreCase(maKenh)) {
+                    Instant lazadaSapHetHan = now.plus(Duration.ofDays(7));
+                    if (kenh.getTokenExpiresAt().isBefore(lazadaSapHetHan)) {
+                        log.info("[TOKEN-REFRESH] Kênh Lazada Production sắp hết hạn ủy quyền (hạn: {}), tự động kích hoạt làm mới token...",
+                                kenh.getTokenExpiresAt());
+                        boolean ok = kenhBanHangService.refreshLazadaAccessToken(maKenh);
+                        if (ok) {
+                            log.info("[TOKEN-REFRESH] Làm mới token Lazada Production tự động thành công!");
+                        } else {
+                            log.warn("[TOKEN-REFRESH] Không thể tự động làm mới token Lazada, cần người dùng ủy quyền lại trên Seller Center!");
+                            baoLamMoiThatBai(kenh);
+                        }
+                    }
                 } else if (OmnichannelOrderSyncJob.isShopee(maKenh)) {
                     if (kenh.getTokenExpiresAt().isBefore(shopeeSapHetHan)) {
                         log.info("[TOKEN-REFRESH] Kênh {} Shopee sắp hết hạn access token (hạn: {}), tự động kích hoạt làm mới token...",

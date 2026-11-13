@@ -369,7 +369,7 @@ public class ThongBaoHeThongService {
      */
     static boolean laSanDayTon(KenhBanHang kenh) {
         String ma = kenh.getMaKenh() == null ? "" : kenh.getMaKenh().trim().toUpperCase(Locale.ROOT);
-        return Set.of("SHOPIFY", "TIKTOK", "SHOPEE", "SHOPEE_SANDBOX").contains(ma);
+        return Set.of("SHOPIFY", "LAZADA", "TIKTOK", "SHOPEE", "SHOPEE_OFFICIAL", "SHOPEE_SANDBOX").contains(ma);
     }
 
     /** Kênh giả lập thử nghiệm mang shop cipher "mock_". */
