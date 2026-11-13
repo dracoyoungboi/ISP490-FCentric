@@ -30,6 +30,14 @@ function KhoTonKhoPanel({ khoData }) {
                     <Warehouse className="h-4 w-4 text-[#b8860b]" />
                     <span className="text-sm font-semibold text-[#2f2a23]">{khoData.tenKho}</span>
                     <span className="text-xs text-[#9a8c79]">#{khoData.khoId}</span>
+                    {khoData.dangKiemKe ? (
+                        <span
+                            className="rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-700"
+                            title={t("Đợt {{ma}}: phần này tạm không bán, xuất hay chuyển được tới khi đợt kết thúc.", { ma: khoData.dangKiemKe.maDotKiemKe ?? "—" })}
+                        >
+                            {t("Đang kiểm kê {{so}}", { so: Number(khoData.dangKiemKe.soLuong ?? 0).toLocaleString("vi-VN") })}
+                        </span>
+                    ) : null}
                 </div>
                 <div className="flex items-center gap-4">
                     <div className="text-xs text-[#7a6e5f] hidden sm:flex gap-3">
@@ -117,10 +125,15 @@ function BienThePanel({ bienThe, initialTongTon = null }) {
         if (nextOpen && !loaded) {
             try {
                 setIsLoading(true);
-                const res = await thongKeHeThongService.getTonKhoBienThe(bienThe.id);
+                // Phần đang kiểm kê theo kho (nhãn phụ, số tồn giữ nguyên): lỗi thì bỏ qua
+                const [res, kiem] = await Promise.all([
+                    thongKeHeThongService.getTonKhoBienThe(bienThe.id),
+                    thongKeHeThongService.getDangKiemKe({ bienTheId: bienThe.id }).catch(() => null),
+                ]);
                 const serverResponse = res.data;
                 if (serverResponse?.status === 200) {
-                    setTonKhoList(serverResponse.data || []);
+                    const theoKho = new Map((kiem?.data?.data ?? []).map((d) => [d.khoId, d]));
+                    setTonKhoList((serverResponse.data || []).map((k) => (theoKho.has(k.khoId) ? { ...k, dangKiemKe: theoKho.get(k.khoId) } : k)));
                 }
             } catch (e) {
                 console.error("Lỗi khi tải tồn kho biến thể:", e);

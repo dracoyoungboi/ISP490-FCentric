@@ -88,6 +88,9 @@ export const trinhDuyet = async (id, phienBan, khoa) =>
 export const demLai = async (id, { dongIds, lyDo, phienBan }, khoa) =>
   du(await apiClient.post(`${GOC}/${id}/dem-lai`, { dongIds, lyDo, phienBan }, voiKhoa(khoa)));
 
+/** Cảnh báo không chặn cho hộp Phê duyệt: mã đếm thiếu làm đơn chờ xuất / phiếu chuyển không còn đủ hàng. */
+export const layCanhBaoDuyet = async (id) => du(await apiClient.get(`${GOC}/${id}/canh-bao-duyet`)) ?? [];
+
 export const pheDuyet = async (id, phienBan, khoa) =>
   du(await apiClient.post(`${GOC}/${id}/phe-duyet`, { phienBan }, voiKhoa(khoa)));
 

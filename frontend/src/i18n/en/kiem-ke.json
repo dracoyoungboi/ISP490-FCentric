@@ -778,5 +778,11 @@
   "Kiểm kê định kỳ": "Periodic stock take",
   "Lệch tồn với kênh bán": "Stock mismatch with sales channel",
   "Sau đợt nhập hàng lớn": "After a large receipt",
-  "Nghi thất thoát": "Suspected shrinkage"
+  "Nghi thất thoát": "Suspected shrinkage",
+  "Đang kiểm toàn bộ kho: nhập, xuất, chuyển kho, nhặt hàng và bán tại quầy của cả kho tạm dừng tới khi duyệt hoặc hủy ({{soKe}} kệ đang khóa)._one": "Full warehouse count: receiving, issuing, transfers, picking and POS sales for the whole warehouse are paused until it is approved or cancelled ({{soKe}} shelf locked).",
+  "Đang kiểm toàn bộ kho: nhập, xuất, chuyển kho, nhặt hàng và bán tại quầy của cả kho tạm dừng tới khi duyệt hoặc hủy ({{soKe}} kệ đang khóa)._other": "Full warehouse count: receiving, issuing, transfers, picking and POS sales for the whole warehouse are paused until it is approved or cancelled ({{soKe}} shelves locked).",
+  "Sau điều chỉnh, các chứng từ đang chờ sẽ thiếu hàng (vẫn duyệt được):": "After the adjustment, these pending documents will be short (you can still approve):",
+  "Đang kiểm kê {{so}}": "{{so}} in stock take",
+  "Đang kiểm kê {{so}} (đợt {{ma}}): tạm không bán, xuất hay chuyển được tới khi đợt kết thúc.": "{{so}} in stock take {{ma}}: can't be sold, issued or transferred until the stock take ends.",
+  "Đợt {{ma}}: phần này tạm không bán, xuất hay chuyển được tới khi đợt kết thúc.": "Stock take {{ma}}: this quantity can't be sold, issued or transferred until it ends."
 }

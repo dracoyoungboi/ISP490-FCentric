@@ -1062,5 +1062,7 @@
   "Có sản phẩm đang được kiểm kê — xóa dòng đó hoặc chờ đợt kiểm kê được duyệt.": "Some items are being counted. Remove them or wait for the stock take to be approved.",
   "Kho đang kiểm kê toàn bộ — tạm dừng thanh toán tới khi đợt được duyệt hoặc hủy.": "A full stock take is in progress. Payment is paused until it's approved or cancelled.",
   "{{name}} đang được kiểm kê, tạm chưa bán.": "{{name}} is being counted and can't be sold yet.",
-  "{{name}} đang được kiểm kê — số lượng giữ nguyên {{quantity}}.": "{{name}} is being counted. Quantity stays at {{quantity}}."
+  "{{name}} đang được kiểm kê — số lượng giữ nguyên {{quantity}}.": "{{name}} is being counted. Quantity stays at {{quantity}}.",
+  "Đang kiểm kê toàn bộ kho (đợt {{ma}}): tạm không xuất được từ kho này.": "Full stock take in progress ({{ma}}): nothing can ship from this warehouse for now.",
+  "Đang kiểm kê (đợt {{ma}}): phần đang kiểm không tính vào tồn khả dụng.": "Stock take in progress ({{ma}}): items being counted aren't included in available stock."
 }
