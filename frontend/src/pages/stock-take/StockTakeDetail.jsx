@@ -196,6 +196,9 @@ function ManKiemKe({ dotId }) {
     dotId,
     dong: dongMayChu,
     capNhatDong,
+    // Lưu số gửi kèm kho của đợt: đổi kho làm việc ở thẻ khác không làm lưu số thất bại
+    khoId: dot?.kho?.id,
+    khoiPhuc: suaDuoc,
     onLoiDong: (_id, ma, cau) => {
       if (ma === "STK_INVALID_STATE") {
         // Đợt đã trình duyệt / dòng đã xác nhận ở nơi khác: tải lại cả đợt
