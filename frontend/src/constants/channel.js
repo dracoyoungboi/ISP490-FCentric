@@ -47,7 +47,6 @@ export const MARKETPLACE_FILTER_OPTIONS = [
   { value: "", label: "Tất cả kênh" },
   { value: "shopify", label: "Shopify", id: CHANNELS.SHOPIFY.id },
   { value: "lazada", label: "Lazada", id: CHANNELS.LAZADA.id },
-  { value: "lazada_sandbox", label: "Lazada Sandbox", id: 6 },
   { value: "tiktok", label: "TikTok Shop", id: CHANNELS.TIKTOK.id },
   { value: "shopee_official", label: "Shopee", id: 8 },
   { value: "shopee", label: "Shopee (Cổng phụ)", id: 4 },
