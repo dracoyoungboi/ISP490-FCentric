@@ -55,14 +55,6 @@ public class OmnichannelTokenRefreshJob {
                             log.warn("[TOKEN-REFRESH] Không thể tự động làm mới token TikTok Shop, cần người dùng ủy quyền lại trên Seller Center!");
                             baoLamMoiThatBai(kenh);
                         }
-                    } else if ("LAZADA".equalsIgnoreCase(kenh.getMaKenh()) || "LAZADA_SANDBOX".equalsIgnoreCase(kenh.getMaKenh())) {
-                        boolean ok = kenhBanHangService.refreshLazadaAccessToken(kenh.getMaKenh());
-                        if (ok) {
-                            log.info("[TOKEN-REFRESH] Làm mới token {} tự động thành công!", kenh.getMaKenh());
-                        } else {
-                            log.warn("[TOKEN-REFRESH] Không thể tự động làm mới token {}, cần người dùng ủy quyền lại!", kenh.getMaKenh());
-                            baoLamMoiThatBai(kenh);
-                        }
                     }
                 }
             }
