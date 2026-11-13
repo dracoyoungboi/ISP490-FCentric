@@ -442,7 +442,9 @@ public class TongQuanAdminServiceImpl implements TongQuanAdminService {
             long khaDung = so(r.khaDung());
             KhaDungChuyen kt = laKhoTong ? null : khoTongCoTheChuyen.get(r.bienTheId());
             // Làm tròn xuống: với N nguyên, so sánh phần nguyên khớp phép so số thập phân khi tạo phiếu
-            Long khaDungKhoTong = kt == null ? null : kt.khaDung().setScale(0, RoundingMode.FLOOR).longValue();
+            // Theo số khi bỏ phần đang kiểm kê: Kho tổng kiểm kê vài ngày không đẩy mọi cửa hàng sang đặt nhà cung cấp
+            // (bấm Chuyển lúc đợt còn mở thì máy chủ báo rõ đợt)
+            Long khaDungKhoTong = kt == null ? null : kt.khaDungNeuBoKiemKe().setScale(0, RoundingMode.FLOOR).longValue();
             Long choXuatKhoTong = kt == null ? null : so(kt.choXuat());
             long canBoSung = soLuongDeXuat(khaDung, r.nguong());
             String deXuat = deXuat(laKhoTong, khaDungKhoTong, canBoSung);

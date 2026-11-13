@@ -1518,6 +1518,15 @@ public class PhieuChuyenKhoService {
     // ─────────────────────────────────────────────────────────────
 
     private void kiemTraKhaDung(Kho khoXuat, Map<Integer, Integer> soLuong, Map<Integer, BienTheSanPham> bienThe, Integer boQuaPhieuId) {
+        kiemTraKhaDung(khoXuat, soLuong, bienThe, boQuaPhieuId, true);
+    }
+
+    /**
+     * {@code truKiemKe} false (Giao bù khi xử lý chênh lệch BBGN): không tính phần đang kiểm kê — chặn ở đây hoàn tác cả
+     * bước xử lý chênh lệch; phiếu bù vẫn bị chặn ở bước nhặt / xuất phần đang kiểm.
+     */
+    private void kiemTraKhaDung(Kho khoXuat, Map<Integer, Integer> soLuong, Map<Integer, BienTheSanPham> bienThe, Integer boQuaPhieuId,
+                                boolean truKiemKe) {
         Map<Integer, KhaDungChuyen> khaDung = khaDungChuyenKhoService.theoBienThe(khoXuat.getId(), soLuong.keySet(), boQuaPhieuId);
         for (Map.Entry<Integer, Integer> e : soLuong.entrySet()) {
             if (e.getValue() == null || e.getValue() <= 0) {
@@ -1525,8 +1534,17 @@ public class PhieuChuyenKhoService {
             }
             KhaDungChuyen kd = khaDung.get(e.getKey());
             BigDecimal can = BigDecimal.valueOf(e.getValue());
-            if (kd == null || kd.khaDung().compareTo(can) < 0) {
-                BigDecimal co = kd == null ? BigDecimal.ZERO : kd.khaDung();
+            BigDecimal layDuoc = kd == null ? BigDecimal.ZERO : truKiemKe ? kd.khaDung() : kd.khaDungNeuBoKiemKe();
+            if (layDuoc.compareTo(can) < 0) {
+                BigDecimal co = layDuoc;
+                // Thiếu vì phần đang kiểm kê ở kho gửi: báo đợt ngay lúc tạo / duyệt, không lập phiếu giữ chỗ trên số
+                // không lấy được (phiếu sẽ kẹt ở bước nhặt tới khi đợt kết thúc)
+                if (truKiemKe && kd != null && khoaKiemKeGuard != null && kd.dangKiemKe().signum() > 0) {
+                    KhoaKiemKeGuard.ThieuDoKiemKe doKiemKe = khoaKiemKeGuard.thieuTheoMa(
+                            khaDungChuyenKhoService.dangKiemKe(khoXuat.getId(), List.of(e.getKey())), e.getKey(),
+                            bienThe.get(e.getKey()).getMaSku(), khoXuat.getTenKho(), co, kd.khaDungNeuBoKiemKe(), can, "chuyển kho");
+                    if (doKiemKe != null) throw doKiemKe.loi();
+                }
                 boolean coChoXuat = kd != null && kd.choXuat().signum() > 0;
                 boolean coGiuCho = kd != null && kd.giuChoChuyen().signum() > 0;
                 ThongDiep chiTiet = coChoXuat && coGiuCho

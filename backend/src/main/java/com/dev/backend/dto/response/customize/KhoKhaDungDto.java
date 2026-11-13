@@ -20,4 +20,8 @@ public class KhoKhaDungDto {
     Integer soLuongMatHangDu;
     Integer tongSoMatHang;
     List<ChiTietTonKhoKhaDungDto> chiTietTonKho;
+    /** Mã đợt kiểm kê đang mở ở kho (đang kiểm / chờ duyệt) làm giảm tồn khả dụng của đơn; null khi không có. */
+    String maDotKiemKe;
+    /** Đợt kiểm toàn bộ kho: kho tạm không xuất được mã nào. */
+    Boolean kiemToanKho;
 }

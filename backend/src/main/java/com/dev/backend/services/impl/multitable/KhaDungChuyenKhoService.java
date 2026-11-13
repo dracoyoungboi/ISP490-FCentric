@@ -4,6 +4,8 @@ import com.dev.backend.constant.variables.ITrangThaiDonBanHang;
 import com.dev.backend.repository.ChiTietDonBanHangRepository;
 import com.dev.backend.repository.ChiTietPhieuXuatKhoRepository;
 import com.dev.backend.repository.TonKhoTheoLoRepository;
+import com.dev.backend.services.impl.kiemke.KhoaKiemKeGuard;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -17,7 +19,9 @@ import java.util.Map;
 
 /**
  * Lượng có thể chuyển đi của từng mã ở một kho gửi (chỉ đọc, không khóa, không giữ hàng):
- * <pre>có thể chuyển = max(0, (tồn − đang giữ) − max(0, chờ xuất) − phiếu chuyển khác đang giữ chỗ)</pre>
+ * <pre>có thể chuyển = max(0, (tồn − đang giữ) − max(0, chờ xuất) − phiếu chuyển khác đang giữ chỗ − đang kiểm kê)</pre>
+ * Đang kiểm kê: phần của mã ở kho gửi thuộc phạm vi đợt kiểm kê đang mở (KhoaKiemKeGuard.dangKiemKeTheoMa) — không
+ * lấy được tới khi đợt kết thúc, nên không cho lập phiếu chuyển giữ chỗ trên số đó (phiếu sẽ kẹt ở bước nhặt).
  * Chờ xuất = đặt − đã xuất thật của đơn bán đang giữ hàng (ITrangThaiDonBanHang.DANG_GIU_HANG) có kho xuất là kho gửi,
  * không gồm báo giá: đúng phần của một kho trong tồn đẩy lên sàn (TonKhoTongHopRepository.sumTongFreeToUseToanChuoi),
  * giống gợi ý kho cho đơn bán. Không trừ thêm phần lô phiếu nhặt / phiếu xuất bán đang giữ: phần đó thuộc chính các
@@ -34,12 +38,23 @@ public class KhaDungChuyenKhoService {
      * @param choXuat   chờ xuất của đơn bán ở kho gửi, âm (dữ liệu lệch) tính 0
      * @param khaDung   lượng có thể chuyển, không âm
      * @param giuChoChuyen phiếu chuyển khác đang giữ chỗ ở kho gửi
+     * @param dangKiemKe phần đang kiểm kê ở kho gửi (đã trừ trong khaDung)
+     * @param khaDungNeuBoKiemKe lượng có thể chuyển nếu không có kiểm kê (để biết thiếu có phải do kiểm kê)
      */
-    public record KhaDungChuyen(BigDecimal tonTruGiu, BigDecimal choXuat, BigDecimal khaDung, BigDecimal giuChoChuyen) {
+    public record KhaDungChuyen(BigDecimal tonTruGiu, BigDecimal choXuat, BigDecimal khaDung, BigDecimal giuChoChuyen,
+                                BigDecimal dangKiemKe, BigDecimal khaDungNeuBoKiemKe) {
+        public KhaDungChuyen(BigDecimal tonTruGiu, BigDecimal choXuat, BigDecimal khaDung, BigDecimal giuChoChuyen) {
+            this(tonTruGiu, choXuat, khaDung, giuChoChuyen, BigDecimal.ZERO, khaDung);
+        }
+
         public KhaDungChuyen(BigDecimal tonTruGiu, BigDecimal choXuat, BigDecimal khaDung) {
             this(tonTruGiu, choXuat, khaDung, BigDecimal.ZERO);
         }
     }
+
+    /** Phần đang kiểm kê theo mã; null khi unit test dựng tay. */
+    @Autowired(required = false)
+    private KhoaKiemKeGuard khoaKiemKeGuard;
 
     private final TonKhoTheoLoRepository tonKhoTheoLoRepository;
     private final ChiTietDonBanHangRepository chiTietDonBanHangRepository;
@@ -87,13 +102,22 @@ public class KhaDungChuyenKhoService {
             }
         }
         Map<Integer, BigDecimal> giuCho = giuChoChuyenKhoService.taiKho(khoGuiId, ids, boQuaPhieuChuyenId);
+        KhoaKiemKeGuard.KiemKeTheoMa kk = dangKiemKe(khoGuiId, ids);
         for (Integer id : ids) {
             BigDecimal ton = tonTruGiu.getOrDefault(id, BigDecimal.ZERO);
             BigDecimal cho = choXuat.getOrDefault(id, BigDecimal.ZERO).max(BigDecimal.ZERO);
             BigDecimal chuyen = giuCho.getOrDefault(id, BigDecimal.ZERO);
-            ketQua.put(id, new KhaDungChuyen(ton, cho, ton.subtract(cho).subtract(chuyen).max(BigDecimal.ZERO), chuyen));
+            BigDecimal dangKiem = kk.cua(id);
+            BigDecimal boKiemKe = ton.subtract(cho).subtract(chuyen);
+            ketQua.put(id, new KhaDungChuyen(ton, cho, boKiemKe.subtract(dangKiem).max(BigDecimal.ZERO), chuyen, dangKiem,
+                    boKiemKe.max(BigDecimal.ZERO)));
         }
         return ketQua;
+    }
+
+    /** Phần đang kiểm kê theo mã ở kho (kèm mã đợt) — dùng để báo lý do khi thiếu. */
+    public KhoaKiemKeGuard.KiemKeTheoMa dangKiemKe(Integer khoId, Collection<Integer> bienTheIds) {
+        return khoaKiemKeGuard == null ? KhoaKiemKeGuard.KiemKeTheoMa.RONG : khoaKiemKeGuard.dangKiemKeTheoMa(khoId, bienTheIds);
     }
 
     private static BigDecimal soLuong(Object value) {

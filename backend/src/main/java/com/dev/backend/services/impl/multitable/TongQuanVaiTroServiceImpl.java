@@ -384,7 +384,8 @@ public class TongQuanVaiTroServiceImpl implements TongQuanVaiTroService {
             long khaDung = so(r.khaDung());
             KhaDungChuyen kt = khoTongChuyen.get(r.bienTheId());
             // Làm tròn xuống như Tổng quan quản trị: số điền sẵn ở nút "Chuyển" luôn tạo được phiếu
-            Long khaDungKhoTong = kt == null ? null : kt.khaDung().setScale(0, RoundingMode.FLOOR).longValue();
+            // Theo số khi bỏ phần đang kiểm kê, như Tổng quan quản trị (không đẩy sang yêu cầu nhập vì Kho tổng đang kiểm kê)
+            Long khaDungKhoTong = kt == null ? null : kt.khaDungNeuBoKiemKe().setScale(0, RoundingMode.FLOOR).longValue();
             long canBoSung = TongQuanAdminServiceImpl.soLuongDeXuat(khaDung, r.nguong());
             String deXuat = TongQuanAdminServiceImpl.deXuat(kho.laKhoTong(), khaDungKhoTong, canBoSung);
             YeuCauMo yc = yeuCau.get(r.bienTheId());
