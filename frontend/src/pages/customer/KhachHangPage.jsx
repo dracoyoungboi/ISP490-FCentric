@@ -25,6 +25,7 @@ import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
+import useTuKhoaTuUrl, { docTuKhoaUrl } from "@/hooks/useTuKhoaTuUrl";
 import { toast } from "@/lib/thongBaoNhanh";
 import { WALKIN_CUSTOMER_CODE } from "@/services/posService";
 import { ROLES, hasAnyRole } from "@/utils/roles";
@@ -73,15 +74,14 @@ function buildKhachHangFilters({ keyword, loai, trangThai }) {
         { fieldName: "maKhachHang", operation: "NOT_IN", value: [WALKIN_CUSTOMER_CODE], logicType: "AND" }
     ];
 
-    // Search filter - tìm theo tên, mã, số điện thoại, email
+    // Tìm theo tên, mã, email, số điện thoại (bỏ khoảng trắng, dấu chấm, "+84" như ô tìm kiếm toàn hệ thống):
+    // trường lọc ảo của backend dùng chung với ô tìm ở thanh trên cùng
     if (keyword) {
-        ["tenKhachHang", "maKhachHang", "soDienThoai", "email"].forEach((fieldName) => {
-            filters.push({
-                fieldName,
-                operation: "ILIKE",
-                value: `%${keyword}%`,
-                logicType: "OR"
-            });
+        filters.push({
+            fieldName: "tuKhoa",
+            operation: "LIKE",
+            value: keyword,
+            logicType: "AND"
         });
     }
 
@@ -127,9 +127,11 @@ export default function KhachHangPage() {
     const navigate = useNavigate();
     const coTheSua = hasAnyRole(QUYEN_SUA_KHACH);
     // Filter states
-    const [searchQuery, setSearchQuery] = useState("");
+    // ?q= từ "Xem tất cả" của ô tìm kiếm toàn hệ thống: vào thẳng ô tìm của trang
+    const [searchQuery, setSearchQuery] = useState(() => docTuKhoaUrl(window.location.search));
+    useTuKhoaTuUrl(setSearchQuery);
     // Từ khóa thực sự gửi lên server (trễ SEARCH_DEBOUNCE_MS sau lần gõ cuối, hoặc ngay khi Enter)
-    const [debouncedSearch, setDebouncedSearch] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState(() => docTuKhoaUrl(window.location.search).trim());
     // Tab loại khách hàng nằm trên URL ?loai= (F5 / quay lại từ chi tiết vẫn đúng tab)
     const [loaiKhachHang, setLoaiKhachHang] = useTabTrenUrl(LOAI_TAB_VALUES, LOAI_TAB_MAC_DINH, { ten: "loai" });
     const [trangThai, setTrangThai] = useState("all");
