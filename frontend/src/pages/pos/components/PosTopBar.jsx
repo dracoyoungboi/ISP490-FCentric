@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { jwtDecode } from 'jwt-decode';
 import { toast } from '@/lib/thongBaoNhanh';
 import {
-  ArrowLeft,
   ChevronDown,
   CircleHelp,
   LayoutDashboard,
@@ -144,14 +143,7 @@ export default function PosTopBar({ children, tabs = null, onHelp, helpLabel = n
   return (
     <>
       <header className="flex h-14 shrink-0 items-center gap-3 border-b border-bo-border bg-bo-surface px-3 sm:px-4">
-        <Link
-          aria-label={t("Về trang quản trị")}
-          className={iconButton}
-          title={t("Về trang quản trị (bản nháp hóa đơn vẫn được giữ)")}
-          to="/dashboard"
-        >
-          <ArrowLeft aria-hidden="true" size={16} />
-        </Link>
+        {/* Bỏ mũi tên về trang quản trị (13/11): trùng mục trong menu tài khoản, dễ bấm nhầm giữa lúc bán */}
         <h1 className="sr-only">{t("Bán hàng tại quầy")}</h1>
         <img alt="FCentric" className="size-8 shrink-0 object-contain" draggable={false} src="/branding/f-centric-icon.svg" />
 
@@ -223,10 +215,13 @@ export default function PosTopBar({ children, tabs = null, onHelp, helpLabel = n
                 <p className="mt-0.5 truncate text-xs text-bo-muted">{roleLabel}</p>
               </div>
               <DropdownMenuSeparator className="bg-bo-border" />
-              <DropdownMenuItem asChild className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-950">
+              <DropdownMenuItem asChild className="cursor-pointer items-start rounded-md px-2.5 py-2 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-950">
                 <Link to="/dashboard">
-                  <LayoutDashboard className="size-4 text-slate-500" />
-                  {t("Về trang quản trị")}
+                  <LayoutDashboard className="mt-0.5 size-4 text-slate-500" />
+                  <span>
+                    <span className="block">{t("Về trang quản trị")}</span>
+                    <span className="block text-xs text-bo-muted">{t("Hóa đơn nháp vẫn được giữ")}</span>
+                  </span>
                 </Link>
               </DropdownMenuItem>
               {onMoManHinhKhach ? (
