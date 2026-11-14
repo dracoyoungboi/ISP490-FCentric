@@ -7,9 +7,13 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.*;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
@@ -700,6 +704,13 @@ public class ShopeeClient {
             HttpEntity<Void> entity = new HttpEntity<>(headers);
             ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
             return objectMapper.readTree(response.getBody());
+        } catch (HttpStatusCodeException ex) {
+            log.warn("[SHOPEE-CLIENT-GET] Lỗi HTTP {} khi gọi GET {}: {}", ex.getStatusCode(), url, ex.getResponseBodyAsString());
+            try {
+                return objectMapper.readTree(ex.getResponseBodyAsString());
+            } catch (Exception parseEx) {
+                return objectMapper.createObjectNode().put("error", "HTTP_" + ex.getStatusCode().value()).put("message", ex.getResponseBodyAsString());
+            }
         } catch (Exception ex) {
             log.warn("[SHOPEE-CLIENT-GET] Lỗi khi gọi GET {}: {}", url, ex.getMessage());
             return objectMapper.createObjectNode().put("error", "API_ERROR").put("message", ex.getMessage());
@@ -715,8 +726,47 @@ public class ShopeeClient {
             HttpEntity<Object> entity = new HttpEntity<>(body, headers);
             ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
             return objectMapper.readTree(response.getBody());
+        } catch (HttpStatusCodeException ex) {
+            log.warn("[SHOPEE-CLIENT-POST] Lỗi HTTP {} khi gọi POST {}: {}", ex.getStatusCode(), url, ex.getResponseBodyAsString());
+            try {
+                return objectMapper.readTree(ex.getResponseBodyAsString());
+            } catch (Exception parseEx) {
+                return objectMapper.createObjectNode().put("error", "HTTP_" + ex.getStatusCode().value()).put("message", ex.getResponseBodyAsString());
+            }
         } catch (Exception ex) {
             log.warn("[SHOPEE-CLIENT-POST] Lỗi khi gọi POST {}: {}", url, ex.getMessage());
+            return objectMapper.createObjectNode().put("error", "API_ERROR").put("message", ex.getMessage());
+        }
+    }
+
+    private JsonNode executeMultipartPost(String url, byte[] imageBytes, String fileName) {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+            headers.setAccept(List.of(MediaType.APPLICATION_JSON));
+            headers.set(HttpHeaders.USER_AGENT, "ShopeeOpenAPI/2.0");
+
+            MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+            ByteArrayResource fileResource = new ByteArrayResource(imageBytes != null ? imageBytes : new byte[0]) {
+                @Override
+                public String getFilename() {
+                    return (fileName != null && !fileName.isBlank()) ? fileName : "product.jpg";
+                }
+            };
+            body.add("image", fileResource);
+
+            HttpEntity<MultiValueMap<String, Object>> entity = new HttpEntity<>(body, headers);
+            ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
+            return objectMapper.readTree(response.getBody());
+        } catch (HttpStatusCodeException ex) {
+            log.warn("[SHOPEE-CLIENT-UPLOAD] Lỗi HTTP {} khi upload ảnh {}: {}", ex.getStatusCode(), url, ex.getResponseBodyAsString());
+            try {
+                return objectMapper.readTree(ex.getResponseBodyAsString());
+            } catch (Exception parseEx) {
+                return objectMapper.createObjectNode().put("error", "HTTP_" + ex.getStatusCode().value()).put("message", ex.getResponseBodyAsString());
+            }
+        } catch (Exception ex) {
+            log.warn("[SHOPEE-CLIENT-UPLOAD] Lỗi khi upload ảnh {}: {}", url, ex.getMessage());
             return objectMapper.createObjectNode().put("error", "API_ERROR").put("message", ex.getMessage());
         }
     }
