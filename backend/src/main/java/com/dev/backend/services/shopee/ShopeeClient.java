@@ -1116,6 +1116,14 @@ public class ShopeeClient {
         return getShopInfo(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), this.isSandbox);
     }
 
+    public JsonNode getShopsByPartner(int pageNo, int pageSize) {
+        return getShopsByPartner(pIdStr(), pKeyStr(), pageNo, pageSize, this.isSandbox);
+    }
+
+    public JsonNode getShopsByPartner() {
+        return getShopsByPartner(1, 50);
+    }
+
     public String generateAuthUrl(String redirectUri) {
         return generateAuthUrl(pIdStr(), pKeyStr(), redirectUri, this.isSandbox);
     }
