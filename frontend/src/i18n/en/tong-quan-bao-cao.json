@@ -975,7 +975,6 @@
   "Hủy lô": "Cancel batch",
   "Lô đã hủy, chứng từ vào lô sau": "Batch cancelled; document goes into the next batch",
   "Hàng hoàn của đơn bán, xuất bán của đơn đã hủy… không có chứng từ trong lô. Kế toán lập tay trên AMIS trước khi nhập xuất kho khác và bán hàng, không thì AMIS báo xuất quá tồn.": "Returned goods of sales orders, sales issues of cancelled orders… have no document in the batch. Accounting enters them manually in AMIS before importing other issues and sales, otherwise AMIS reports issuing more than stock.",
-  "Đơn đã giao kế toán rồi bị hoàn trả trước ngày 14/11/2026 (chưa có nhật ký hoàn trả): kế toán lập Hàng bán trả lại trên AMIS.": "Orders handed to accounting and then returned before 14/11/2026 (no return log yet): accounting creates a Sales return in AMIS.",
   "Chênh lệch khác 0 khi có đơn hoàn trả hoặc phiếu trả tại quầy mà kế toán lập tay (đơn hoàn trả trước 14/11/2026, phiếu trả trước khi có chức năng tự dựng).": "The difference is non-zero when accounting entered returned orders or in-store returns manually (orders returned before 14/11/2026, in-store returns from before automatic documents).",
   "Hủy lúc {{luc}}": "Cancelled at {{luc}}",
   "Hàng bán bị trả lại": "Sales returns",
@@ -989,5 +988,7 @@
   "Hàng bán trả lại": "Sales return",
   "Trả hàng tại quầy": "In-store return",
   "Đơn hoàn trả": "Returned order",
-  "Lô đã hủy: tệp chỉ để đối chiếu, không nhập lại vào AMIS": "Cancelled batch: the file is for reconciliation only; don't import it into AMIS again"
+  "Lô đã hủy: tệp chỉ để đối chiếu, không nhập lại vào AMIS": "Cancelled batch: the file is for reconciliation only; don't import it into AMIS again",
+  "Chứng từ đã giao kế toán rồi có thay đổi: phiếu mua nay mới có hóa đơn, đơn bị hoàn trả trước ngày 14/11/2026. Kế toán làm trên AMIS theo từng dòng.": "Documents already sent to accounting that changed later: purchases whose invoice has now arrived, and orders returned before 14/11/2026. The accountant handles each line in AMIS.",
+  "+{{tien}} chờ hóa đơn": "+{{tien}} awaiting invoice"
 }
