@@ -335,6 +335,9 @@ function ChiTietDonBanHang({ id }) {
       v.nutTaoLai
         ? { ma: "taoLai", nhan: t("Tạo lại phiếu xuất"), icon: RefreshCw, dangChay: dangChay === "taoLai", khoa: Boolean(dangChay), onClick: taoLaiPhieuXuat }
         : null,
+      laSan && don?.trangThai !== TRANG_THAI_DON.DA_HUY
+        ? { ma: "inVanDonSan", nhan: t("In vận đơn sàn (A6)"), icon: Printer, onClick: inVanDonSan }
+        : null,
     ].filter(Boolean),
     choGoc,
   );
