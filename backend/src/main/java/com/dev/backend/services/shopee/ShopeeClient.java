@@ -390,6 +390,63 @@ public class ShopeeClient {
         return executeMultipartPost(url, imageBytes, fileName);
     }
 
+    public JsonNode getLogisticsChannelList(String partnerId, String partnerKey, String accessToken, String shopId, boolean isSandbox) {
+        if (isMockCredentials(partnerId, partnerKey)) {
+            ObjectNode res = objectMapper.createObjectNode();
+            res.put("error", "").put("message", "success");
+            ObjectNode resp = res.putObject("response");
+            ArrayNode arr = resp.putArray("logistics_channel_list");
+            arr.addObject().put("logistics_channel_id", 80001L).put("logistics_channel_name", "Nhanh").put("enabled", true);
+            return res;
+        }
+
+        long timestamp = Instant.now().getEpochSecond();
+        String base = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_LOGISTICS_GET_CHANNEL_LIST, timestamp, accessToken, shopId);
+        String sign = ShopeeSignatureHelper.sign(partnerKey, base);
+        String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s",
+                getHost(isSandbox), PATH_LOGISTICS_GET_CHANNEL_LIST, partnerId.trim(), timestamp, accessToken.trim(), shopId.trim(), sign);
+
+        return executeGet(url);
+    }
+
+    public JsonNode getCategoryList(String partnerId, String partnerKey, String accessToken, String shopId, String language, boolean isSandbox) {
+        if (isMockCredentials(partnerId, partnerKey)) {
+            ObjectNode res = objectMapper.createObjectNode();
+            res.put("error", "").put("message", "success");
+            ObjectNode resp = res.putObject("response");
+            ArrayNode arr = resp.putArray("category_list");
+            arr.addObject().put("category_id", 100017L).put("parent_category_id", 0L).put("original_category_name", "Thời Trang Nam").put("has_children", false);
+            return res;
+        }
+
+        long timestamp = Instant.now().getEpochSecond();
+        String base = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_PRODUCT_GET_CATEGORY, timestamp, accessToken, shopId);
+        String sign = ShopeeSignatureHelper.sign(partnerKey, base);
+        String lang = (language != null && !language.isBlank()) ? language : "vi";
+        String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s&language=%s",
+                getHost(isSandbox), PATH_PRODUCT_GET_CATEGORY, partnerId.trim(), timestamp, accessToken.trim(), shopId.trim(), sign, lang);
+
+        return executeGet(url);
+    }
+
+    public JsonNode getAttributes(String partnerId, String partnerKey, String accessToken, String shopId, long categoryId, String language, boolean isSandbox) {
+        if (isMockCredentials(partnerId, partnerKey)) {
+            ObjectNode res = objectMapper.createObjectNode();
+            res.put("error", "").put("message", "success");
+            res.putObject("response").putArray("attribute_list");
+            return res;
+        }
+
+        long timestamp = Instant.now().getEpochSecond();
+        String base = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_PRODUCT_GET_ATTRIBUTES, timestamp, accessToken, shopId);
+        String sign = ShopeeSignatureHelper.sign(partnerKey, base);
+        String lang = (language != null && !language.isBlank()) ? language : "vi";
+        String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s&category_id=%d&language=%s",
+                getHost(isSandbox), PATH_PRODUCT_GET_ATTRIBUTES, partnerId.trim(), timestamp, accessToken.trim(), shopId.trim(), sign, categoryId, lang);
+
+        return executeGet(url);
+    }
+
     public JsonNode getItemList(String partnerId, String partnerKey, String accessToken, String shopId,
                                 int offset, int pageSize, String itemStatus, boolean isSandbox) {
         if (isMockCredentials(partnerId, partnerKey)) {
