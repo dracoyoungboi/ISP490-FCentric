@@ -139,5 +139,63 @@ class ShopeeClientTest {
         assertTrue(calledUrl.contains("sign="));
         assertTrue(calledUrl.contains("/api/v2/product/add_item"));
     }
+
+    @Test
+    @DisplayName("updateStock: Gửi request chứa seller_stock chuẩn OpenAPI v2")
+    @SuppressWarnings("unchecked")
+    void updateStock_realCall_usesSellerStock() {
+        ShopeeClient realClient = new ShopeeClient(1253449L, "real_partner_key_1234567890abcdef", 99999L, "token_xyz", true);
+        ReflectionTestUtils.setField(realClient, "restTemplate", restTemplate);
+        ReflectionTestUtils.setField(realClient, "objectMapper", objectMapper);
+
+        String mockResponse = "{\"error\": \"\", \"message\": \"success\"}";
+        when(restTemplate.postForEntity(anyString(), any(HttpEntity.class), eq(String.class)))
+                .thenReturn(ResponseEntity.ok(mockResponse));
+
+        JsonNode res = realClient.updateStock(888L, 999L, 25);
+        assertNotNull(res);
+
+        ArgumentCaptor<HttpEntity> entityCaptor = ArgumentCaptor.forClass(HttpEntity.class);
+        verify(restTemplate).postForEntity(anyString(), entityCaptor.capture(), eq(String.class));
+
+        Map<String, Object> sentBody = (Map<String, Object>) entityCaptor.getValue().getBody();
+        assertNotNull(sentBody);
+        assertEquals(888L, sentBody.get("item_id"));
+        List<Map<String, Object>> stockList = (List<Map<String, Object>>) sentBody.get("stock_list");
+        assertNotNull(stockList);
+        assertEquals(1, stockList.size());
+        assertEquals(999L, stockList.get(0).get("model_id"));
+        List<Map<String, Object>> sellerStock = (List<Map<String, Object>>) stockList.get(0).get("seller_stock");
+        assertNotNull(sellerStock);
+        assertEquals(25, sellerStock.get(0).get("stock"));
+    }
+
+    @Test
+    @DisplayName("updateStockBatch: Chuẩn hóa normal_stock thành seller_stock chuẩn OpenAPI v2")
+    @SuppressWarnings("unchecked")
+    void updateStockBatch_normalizesNormalStockToSellerStock() {
+        ShopeeClient realClient = new ShopeeClient(1253449L, "real_partner_key_1234567890abcdef", 99999L, "token_xyz", true);
+        ReflectionTestUtils.setField(realClient, "restTemplate", restTemplate);
+        ReflectionTestUtils.setField(realClient, "objectMapper", objectMapper);
+
+        String mockResponse = "{\"error\": \"\", \"message\": \"success\"}";
+        when(restTemplate.postForEntity(anyString(), any(HttpEntity.class), eq(String.class)))
+                .thenReturn(ResponseEntity.ok(mockResponse));
+
+        Map<String, Object> legacyStockItem = Map.of("model_id", 101L, "normal_stock", 40);
+        JsonNode res = realClient.updateStockBatch(555L, List.of(legacyStockItem));
+        assertNotNull(res);
+
+        ArgumentCaptor<HttpEntity> entityCaptor = ArgumentCaptor.forClass(HttpEntity.class);
+        verify(restTemplate, atLeastOnce()).postForEntity(anyString(), entityCaptor.capture(), eq(String.class));
+
+        Map<String, Object> sentBody = (Map<String, Object>) entityCaptor.getValue().getBody();
+        assertNotNull(sentBody);
+        List<Map<String, Object>> stockList = (List<Map<String, Object>>) sentBody.get("stock_list");
+        assertNotNull(stockList);
+        List<Map<String, Object>> sellerStock = (List<Map<String, Object>>) stockList.get(0).get("seller_stock");
+        assertNotNull(sellerStock);
+        assertEquals(40, sellerStock.get(0).get("stock"));
+    }
 }
 
