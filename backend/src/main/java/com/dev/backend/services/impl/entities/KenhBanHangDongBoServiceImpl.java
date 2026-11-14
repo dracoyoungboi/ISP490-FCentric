@@ -6910,6 +6910,19 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         }
     }
 
+    private BigDecimal chuanHoaGiaShopee(BigDecimal giaGoc, boolean isSandbox) {
+        if (giaGoc == null || giaGoc.compareTo(BigDecimal.ZERO) <= 0) {
+            giaGoc = BigDecimal.valueOf(100000);
+        }
+        if (isSandbox) {
+            // Shopee Sandbox SPX Express áp dụng trần giá tối đa <= 50.000 VND
+            if (giaGoc.compareTo(BigDecimal.valueOf(45000)) > 0) {
+                return BigDecimal.valueOf(45000);
+            }
+        }
+        return giaGoc;
+    }
+
     private Long timCategoryIdShopee(SanPhamQuanAo sp) {
         if (sp != null) {
             String name = (sp.getTenSanPham() != null ? sp.getTenSanPham().toLowerCase(Locale.ROOT) : "");
@@ -6977,6 +6990,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         }
 
         Long categoryId = timCategoryIdShopee(sp);
+        boolean isSandbox = OmnichannelOrderSyncJob.isShopeeSandbox(kenh != null ? kenh.getMaKenh() : "");
 
         // Trường hợp sản phẩm chỉ có 1 biến thể (Single SKU)
         if (variants.size() == 1) {
@@ -6984,6 +6998,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             String sku = bt.getMaSku() != null ? bt.getMaSku().trim() : ("SKU-" + bt.getId());
             BigDecimal price = bt.getGiaBan() != null && bt.getGiaBan().compareTo(BigDecimal.ZERO) > 0
                     ? bt.getGiaBan() : BigDecimal.valueOf(100000);
+            price = chuanHoaGiaShopee(price, isSandbox);
             int qty = soTonDayTheoQuyTacDaLuu(kenh.getMaKenh(), khaDungToanChuoi(bt.getId()));
 
             Map<String, Object> body = new LinkedHashMap<>();
@@ -7043,6 +7058,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         BigDecimal minPrice = variants.stream()
                 .map(bt -> bt.getGiaBan() != null && bt.getGiaBan().compareTo(BigDecimal.ZERO) > 0 ? bt.getGiaBan() : BigDecimal.valueOf(100000))
                 .min(BigDecimal::compareTo).orElse(BigDecimal.valueOf(100000));
+        minPrice = chuanHoaGiaShopee(minPrice, isSandbox);
         String parentSku = (sp.getMaSanPham() != null && !sp.getMaSanPham().isBlank()) ? sp.getMaSanPham().trim() : ("SP-" + sp.getId());
 
         // 1. Tạo sản phẩm cha trên Shopee
@@ -7097,6 +7113,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             String sku = bt.getMaSku() != null ? bt.getMaSku().trim() : ("SKU-" + bt.getId());
             BigDecimal price = bt.getGiaBan() != null && bt.getGiaBan().compareTo(BigDecimal.ZERO) > 0
                     ? bt.getGiaBan() : minPrice;
+            price = chuanHoaGiaShopee(price, isSandbox);
             int qty = soTonDayTheoQuyTacDaLuu(kenh.getMaKenh(), khaDungToanChuoi(bt.getId()));
 
             List<Integer> tierIndex = new ArrayList<>();
