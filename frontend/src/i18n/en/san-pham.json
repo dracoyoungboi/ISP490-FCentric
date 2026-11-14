@@ -635,7 +635,6 @@
   "Bỏ lọc kỳ, kho": "Clear period and warehouse filter",
   "Đang lọc theo kỳ, kho của Báo cáo nhập xuất": "Filtered by the period and warehouse from the Stock movement report",
   "Lọc giao dịch theo loại": "Filter transactions by type",
-  "Tìm theo sản phẩm, SKU, lô, kho, người thực hiện...": "Search by product, SKU, lot, warehouse, performed by...",
   "Tìm theo sản phẩm, SKU, lô, kho, kệ, người thực hiện...": "Search by product, SKU, lot, warehouse, shelf, performed by...",
   "Đang tải lịch sử giao dịch kho": "Loading stock transaction history",
   "Không thể tải lịch sử giao dịch kho. Vui lòng thử lại.": "Couldn't load stock transaction history. Please try again.",

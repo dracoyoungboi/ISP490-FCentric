@@ -1,6 +1,6 @@
 // src/pages/lich-su-giao-dich-kho/LichSuGiaoDichKhoList.jsx
 import { createElement, useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
     Dialog, DialogContent, DialogTitle,
@@ -9,6 +9,7 @@ import {
     History, ArrowDownToLine, ArrowUpFromLine,
     ArrowLeftRight, SlidersHorizontal, Warehouse, Eye, MoveRight,
     CalendarDays, User2, FileText, Hash, Package, SearchX, X,
+    MapPin, ArrowRight, Info, ReceiptText, ChevronRight,
 } from "lucide-react";
 import { toast } from "@/lib/thongBaoNhanh";
 import PageContainer from "@/components/backoffice/PageContainer";
@@ -28,7 +29,8 @@ import { getLichSuGiaoDichKho, getChiTietLichSu } from "@/services/lichSuGiaoDic
 import { getMineKhoList } from "@/services/khoService";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { formatDateTime, formatNumber } from "@/utils/formatters";
-import { t } from "@/i18n";
+import { viTriKe } from "@/components/chuyen-ke/nhanKe";
+import { t, tDuLieu } from "@/i18n";
 
 // ── Constants ─────────────────────────────────────────────────────────────
 // "chuyen_kho" giữ để hiện nhãn cho dữ liệu cũ (nếu có); backend hiện chỉ ghi 3 loại còn lại.
@@ -67,7 +69,12 @@ const matchSearch = (item, search) => {
         item.maSku?.toLowerCase().includes(q) ||
         item.maLo?.toLowerCase().includes(q) ||
         item.tenKho?.toLowerCase().includes(q) ||
-        item.nguoiDungTen?.toLowerCase().includes(q);
+        (item.tenKho && tDuLieu(item.tenKho).toLowerCase().includes(q)) ||
+        item.nguoiDungTen?.toLowerCase().includes(q) ||
+        // Dòng chuyển kệ: tìm được theo mã kệ nguồn, kệ đích, mã phiếu MV
+        item.keNguon?.ma?.toLowerCase().includes(q) ||
+        item.keDich?.ma?.toLowerCase().includes(q) ||
+        item.maChungTu?.toLowerCase().includes(q);
 };
 
 // Bộ lọc kỳ, kho mở từ Báo cáo nhập xuất (?tu=yyyy-MM-dd&den=yyyy-MM-dd&kho=id): ngày theo giờ máy người xem
@@ -120,6 +127,33 @@ function LoaiGiaoDich({ loai }) {
     );
 }
 
+/** Dòng chuyển kệ: "kệ nguồn → kệ đích" một dòng chữ đơn sắc như SKU, lô (máy chủ tách từ câu sổ; dòng khác không có). */
+function LoTrinhKe({ item, className = "" }) {
+    if (!item.keNguon?.ma || !item.keDich?.ma) return null;
+    // Trình đọc màn hình đọc câu đủ chiều đi; phần mã kệ nhìn thấy thì ẩn khỏi trình đọc. Mã quá dài thì cắt "…" (thẻ điện thoại không tràn)
+    return (
+        <span className={`flex w-fit max-w-full min-w-0 items-center gap-1 whitespace-nowrap font-mono text-xs text-slate-600 ${className}`}>
+            <span className="sr-only">{t("Từ kệ {{tu}} sang kệ {{den}}", { tu: item.keNguon.ma, den: item.keDich.ma })}</span>
+            <MapPin className="size-3 shrink-0 text-slate-400" aria-hidden="true" />
+            <span className="min-w-0 truncate" aria-hidden="true" title={item.keNguon.ma}>{item.keNguon.ma}</span>
+            <ArrowRight className="size-3 shrink-0 text-slate-400" aria-hidden="true" />
+            <span className="min-w-0 truncate font-semibold text-slate-700" aria-hidden="true" title={item.keDich.ma}>{item.keDich.ma}</span>
+        </span>
+    );
+}
+
+/** Một kệ trong hộp chi tiết: nhãn, mã kệ, khu · dãy · hàng · tầng. */
+function OKe({ nhan, ke, dich = false }) {
+    const viTri = viTriKe(ke);
+    return (
+        <div className={`min-w-0 flex-1 rounded-lg border px-3.5 py-3 ${dich ? "border-bo-primary/30 bg-bo-primary-soft/50" : "border-bo-border bg-white"}`}>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-bo-muted">{nhan}</p>
+            <p className={`mt-1 break-all font-mono text-lg font-semibold ${dich ? "text-bo-primary-strong" : "text-bo-heading"}`}>{ke.ma}</p>
+            {viTri ? <p className="line-clamp-2 break-words text-xs text-bo-muted" title={viTri}>{viTri}</p> : null}
+        </div>
+    );
+}
+
 // ── Field helper ──────────────────────────────────────────────────────────
 function LightField({ icon: Icon, label, value, mono = false }) {
     return (
@@ -145,13 +179,21 @@ function DetailModal({ open, onClose, item, loading }) {
     const soLuongColor  = khongDoiTon ? "text-slate-700" : displaySoLuong > 0 ? "text-bo-success" : displaySoLuong < 0 ? "text-bo-danger" : "text-slate-600";
     const soLuongBg     = khongDoiTon ? "bg-bo-surface-subtle" : displaySoLuong > 0 ? "bg-bo-success-soft" : displaySoLuong < 0 ? "bg-bo-danger-soft" : "bg-bo-surface-subtle";
     const soLuongPrefix = khongDoiTon ? "" : displaySoLuong > 0 ? "+" : displaySoLuong < 0 ? "-" : "";
+    // Dòng chuyển kệ đọc được lộ trình: ô Phiếu chuyển kệ (mở phiếu) thay mã tham chiếu thô, khối Kệ nguồn → Kệ đích
+    // thay ba ô Trước / Đổi kệ / Sau, bỏ ghi chú máy tự ghi. Không tách được thì hiện như cũ.
+    const laChuyenKe = khongDoiTon && Boolean(item?.keNguon?.ma && item?.keDich?.ma);
+    const linkPhieu = laChuyenKe && item.maChungTu
+        ? `/warehouse/bin-moves/history?${new URLSearchParams({ ...(item.khoId ? { khoId: String(item.khoId) } : {}), tim: item.maChungTu })}`
+        : null;
 
     return (
         <Dialog open={open} onOpenChange={onClose}>
-            <DialogContent className="max-w-lg overflow-hidden rounded-lg border border-bo-border bg-bo-surface p-0 shadow-lg [&>button]:text-slate-500 [&>button]:hover:text-slate-700">
+            {/* grid-cols-[minmax(0,1fr)]: DialogContent là lưới cột tự giãn — chữ không xuống dòng (vị trí kệ dài) sẽ đẩy cột
+                rộng hơn hộp và bị cắt mép phải; khóa cột bằng bề ngang hộp để chữ dài tự cắt "…" */}
+            <DialogContent className="max-w-lg grid-cols-[minmax(0,1fr)] overflow-hidden rounded-lg border border-bo-border bg-bo-surface p-0 shadow-lg [&>button]:text-slate-500 [&>button]:hover:text-slate-700">
 
-                {/* ── Header ── (điện thoại: chừa chỗ bên phải cho nút đóng, loại giao dịch không đè lên nút) */}
-                <div className="flex items-center justify-between gap-3 border-b border-bo-border bg-bo-surface-subtle px-5 pb-4 pt-5 max-md:pr-14">
+                {/* ── Header ── (chừa chỗ bên phải cho nút đóng ở mọi cỡ màn, loại giao dịch không đè lên nút) */}
+                <div className="flex items-center justify-between gap-3 border-b border-bo-border bg-bo-surface-subtle pb-4 pl-5 pr-14 pt-5">
                     <DialogTitle className="flex items-center gap-2 text-base font-semibold text-bo-foreground">
                         <span className="flex size-8 items-center justify-center rounded-lg bg-bo-primary-soft">
                             <History className="size-4 text-bo-primary" />
@@ -179,18 +221,63 @@ function DetailModal({ open, onClose, item, loading }) {
                             <LightField icon={Package}      label={t("Sản phẩm")}        value={item.tenSanPham} />
                             <LightField icon={Hash}         label="SKU"             value={item.maSku} mono />
                             <LightField icon={FileText}     label={t("Lô hàng")}         value={item.maLo} mono />
-                            <LightField icon={Warehouse}    label={t("Kho")}             value={item.tenKho} />
+                            <LightField icon={Warehouse}    label={t("Kho")}             value={item.tenKho ? tDuLieu(item.tenKho) : null} />
                             <LightField icon={User2}        label={t("Người thực hiện")} value={item.nguoiDungTen} />
-                            <LightField icon={FileText}     label={t("Loại tham chiếu")} value={item.loaiThamChieu} />
-                            {item.idThamChieu && (
-                                <LightField icon={Hash}     label={t("ID tham chiếu")}   value={`#${item.idThamChieu}`} mono />
+                            {laChuyenKe ? (
+                                <div className="flex min-w-0 flex-col gap-1">
+                                    <span className="text-[10px] font-bold uppercase tracking-widest text-bo-muted">{t("Phiếu chuyển kệ")}</span>
+                                    {linkPhieu ? (
+                                        <Link
+                                            to={linkPhieu}
+                                            className="inline-flex w-fit items-center gap-1.5 rounded-sm font-mono text-sm font-semibold text-bo-primary-strong hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
+                                            title={t("Mở phiếu ở Lịch sử chuyển kệ")}
+                                        >
+                                            <ReceiptText className="size-3.5 shrink-0" aria-hidden="true" />
+                                            {item.maChungTu}
+                                            {/* Mở ngay trong thẻ này (không phải thẻ mới) nên dùng mũi tên, không dùng icon "mở ngoài" */}
+                                            <ChevronRight className="size-3.5 shrink-0" aria-hidden="true" />
+                                        </Link>
+                                    ) : (
+                                        <span className="text-sm font-medium text-slate-800">—</span>
+                                    )}
+                                </div>
+                            ) : (
+                                <>
+                                    <LightField icon={FileText}     label={t("Loại tham chiếu")} value={item.loaiThamChieu} />
+                                    {item.idThamChieu && (
+                                        <LightField icon={Hash}     label={t("ID tham chiếu")}   value={`#${item.idThamChieu}`} mono />
+                                    )}
+                                </>
                             )}
                             {item.tenKhoChuyenDen && (
-                                <LightField icon={ArrowLeftRight} label={t("Kho chuyển đến")} value={item.tenKhoChuyenDen} />
+                                <LightField icon={ArrowLeftRight} label={t("Kho chuyển đến")} value={tDuLieu(item.tenKhoChuyenDen)} />
                             )}
                         </div>
 
-                        {/* Số lượng 3 ô */}
+                        {laChuyenKe ? (
+                            /* Chuyển kệ: Kệ nguồn → số lượng → Kệ đích, kèm câu tồn lô giữ nguyên */
+                            <div>
+                                <div className="flex items-stretch gap-2">
+                                    <OKe nhan={t("Kệ nguồn")} ke={item.keNguon} />
+                                    <div className="flex shrink-0 flex-col items-center justify-center gap-0.5 px-1">
+                                        <span className="text-xl font-bold tabular-nums text-slate-700">{formatNumber(Math.abs(displaySoLuong))}</span>
+                                        <ArrowRight className="size-5 text-slate-400" aria-hidden="true" />
+                                        <span className="text-[11px] text-bo-muted">{t("sản phẩm", { count: Math.abs(soLuong) })}</span>
+                                    </div>
+                                    <OKe nhan={t("Kệ đích")} ke={item.keDich} dich />
+                                </div>
+                                <p className="mt-2 flex items-start gap-1.5 text-[13px] leading-5 text-bo-muted">
+                                    <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+                                    <span>
+                                        {t("Chỉ đổi chỗ trong kho. Tồn của lô ở {{kho}} giữ nguyên {{so}}.", {
+                                            kho: item.tenKho ? tDuLieu(item.tenKho) : "—",
+                                            so: formatNumber(item.soLuongSau ?? 0),
+                                        })}
+                                    </span>
+                                </p>
+                            </div>
+                        ) : (
+                        /* Số lượng 3 ô */
                         <div className="grid grid-cols-3 divide-x divide-bo-border overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
                             {[
                                 { label: t("TRƯỚC"),    value: item.soLuongTruoc ?? 0, color: "text-slate-700", bg: "bg-white",    prefix: "" },
@@ -203,9 +290,10 @@ function DetailModal({ open, onClose, item, loading }) {
                                 </div>
                             ))}
                         </div>
+                        )}
 
-                        {/* Ghi chú */}
-                        {item.ghiChu && (
+                        {/* Ghi chú (dòng chuyển kệ: câu máy tự ghi, đã hiện ở khối kệ và ô phiếu) */}
+                        {item.ghiChu && !laChuyenKe && (
                             <div className="rounded-lg border border-bo-warning/20 bg-bo-warning-soft px-4 py-3">
                                 <p className="mb-1 text-xs font-bold uppercase tracking-widest text-bo-warning">{t("Ghi chú")}</p>
                                 <p className="text-sm text-slate-700">{item.ghiChu}</p>
@@ -414,7 +502,7 @@ export default function LichSuGiaoDichKhoList() {
                     >
                         <SearchInput
                             label={t("Tìm kiếm")}
-                            placeholder={t("Tìm theo sản phẩm, SKU, lô, kho, người thực hiện...")}
+                            placeholder={t("Tìm theo sản phẩm, SKU, lô, kho, kệ, người thực hiện...")}
                             value={search}
                             onChange={(e) => changeSearch(e.target.value)}
                             onClear={handleClearSearch}
@@ -516,8 +604,9 @@ export default function LichSuGiaoDichKhoList() {
                                         </span>
                                         <span className="flex w-full min-w-0 items-center gap-1.5 text-[13px] text-bo-muted">
                                             <LoaiGiaoDich loai={item.loaiGiaoDich} />
-                                            <span className="min-w-0 truncate">· {item.tenKho || "—"}</span>
+                                            <span className="min-w-0 truncate">· {item.tenKho ? tDuLieu(item.tenKho) : "—"}</span>
                                         </span>
+                                        <LoTrinhKe item={item} />
                                         <span className="flex w-full min-w-0 items-baseline gap-2 font-mono text-xs">
                                             <span className="shrink-0 font-semibold text-slate-700">{item.maSku || "—"}</span>
                                             <span className="min-w-0 truncate text-bo-muted">{item.maLo || "—"}</span>
@@ -585,7 +674,9 @@ export default function LichSuGiaoDichKhoList() {
                                         </td>
 
                                         <td className="px-4 py-3.5 align-middle">
-                                            <span className="font-medium text-bo-foreground">{item.tenKho || "—"}</span>
+                                            <span className="font-medium text-bo-foreground">{item.tenKho ? tDuLieu(item.tenKho) : "—"}</span>
+                                            {/* PA A: kho và kệ cùng nói hàng nằm ở đâu — lộ trình kệ ngay dưới tên kho */}
+                                            <LoTrinhKe item={item} className="mt-1" />
                                             <div className="mt-0.5 hidden text-xs text-bo-muted cam-ung:max-lg:block">{item.nguoiDungTen || "—"}</div>
                                         </td>
 
