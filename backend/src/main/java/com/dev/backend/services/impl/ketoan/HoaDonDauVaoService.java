@@ -31,7 +31,9 @@ import java.util.regex.Pattern;
 
 /**
  * Hóa đơn nhà cung cấp của phiếu nhập mua hàng. Chỉ nhập cho phiếu đã hoàn tất (hàng đã vào kho, đơn giá đã chốt),
- * sửa được tới khi phiếu được xuất sang kế toán; sau đó bị khóa (mở khóa chứng từ trong lô thì sửa lại được).
+ * sửa được tới khi phiếu được xuất sang kế toán. Sau đó: phiếu đã xuất kèm hóa đơn (có / không có) thì khóa (mở khóa
+ * chứng từ trong lô thì sửa lại được); phiếu xuất lúc chưa có hóa đơn ("Không kèm hóa đơn") vẫn nhập được hóa đơn — không
+ * đổi chứng từ đã khóa, chỉ để màn Xuất dữ liệu kế toán nhắc kế toán Nhận hóa đơn trên AMIS (xem hoaDonSauXuat).
  *
  * <p>Ký hiệu theo hóa đơn điện tử: ký hiệu mẫu số 1 ký tự số (vd. 1), ký hiệu hóa đơn 6 ký tự (vd. C26TAA), số hóa đơn
  * tối đa 8 chữ số. Kiểm lỏng (chữ, số, / và -) để còn nhập được hóa đơn giấy cũ dạng 01GTKT0/001, AA/20E.</p>
@@ -85,15 +87,15 @@ public class HoaDonDauVaoService {
         // Xếp hàng sau lô đang tạo (tạo lô khóa dòng cấu hình trước): không để hóa đơn đổi giữa lúc dựng tệp và lúc khóa
         cauHinhKeToanRepository.findByIdForUpdate(CauHinhKeToan.ID);
         Optional<String> loKhoa = chungTuRepository.soLoDangKhoa(ChungTuXuatKeToan.LOAI_MUA_HANG, phieu.getId());
-        if (loKhoa.isPresent()) {
+        Optional<HoaDonDauVao> daCo = repository.findByPhieuNhapKho_Id(phieu.getId());
+        if (loKhoa.isPresent() && !nhapSauXuat(phieu.getId(), daCo.orElse(null))) {
             throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("keToanDuLieuVao.hoaDonDaXuatKeToan", loKhoa.get()));
         }
         if (req == null || req.getCoHoaDon() == null) {
             throw new CommonException(ThongDiep.of("keToanDuLieuVao.chonCoHoaDon"));
         }
 
-        HoaDonDauVao hd = repository.findByPhieuNhapKho_Id(phieu.getId())
-                .orElseGet(() -> HoaDonDauVao.builder().phieuNhapKho(phieu).build());
+        HoaDonDauVao hd = daCo.orElseGet(() -> HoaDonDauVao.builder().phieuNhapKho(phieu).build());
         String truoc = hd.getId() == null ? null : tomTat(hd);
         if (Boolean.TRUE.equals(req.getCoHoaDon())) {
             String mauSo = gon(req.getMauSo());
@@ -151,12 +153,26 @@ public class HoaDonDauVaoService {
         return toDto(phieu.getId(), hd);
     }
 
+    /**
+     * Phiếu đang khóa vẫn nhập hóa đơn được khi lúc xuất chưa có hóa đơn: chưa có dòng hóa đơn, hoặc dòng hóa đơn chính là
+     * dòng nhập sau lúc tạo lô khóa phiếu (trước đây hóa đơn không sửa được khi đang khóa, nên dòng cập nhật sau lúc tạo
+     * lô nghĩa là lúc xuất chưa có). Mở khóa rồi xuất lại thì lô mới tạo sau hóa đơn: khóa như thường.
+     */
+    boolean nhapSauXuat(Integer phieuId, HoaDonDauVao hd) {
+        if (hd == null) {
+            return true;
+        }
+        Optional<Instant> taoLo = chungTuRepository.ngayTaoLoDangKhoa(ChungTuXuatKeToan.LOAI_MUA_HANG, phieuId);
+        return taoLo.isPresent() && hd.getNgayCapNhat() != null && hd.getNgayCapNhat().isAfter(taoLo.get());
+    }
+
     private HoaDonDauVaoDto toDto(Integer phieuId, HoaDonDauVao hd) {
         Optional<String> loKhoa = chungTuRepository.soLoDangKhoa(ChungTuXuatKeToan.LOAI_MUA_HANG, phieuId);
         HoaDonDauVaoDto.HoaDonDauVaoDtoBuilder b = HoaDonDauVaoDto.builder()
                 .phieuNhapKhoId(phieuId)
                 .daNhap(hd != null)
                 .daKhoa(loKhoa.isPresent())
+                .nhapSauXuat(loKhoa.isPresent() && nhapSauXuat(phieuId, hd))
                 .soLoXuat(loKhoa.orElse(null));
         if (hd != null) {
             b.coHoaDon(hd.getCoHoaDon())
