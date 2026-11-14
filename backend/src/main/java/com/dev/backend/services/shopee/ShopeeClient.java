@@ -754,7 +754,7 @@ public class ShopeeClient {
         if ("pickup".equalsIgnoreCase(pickupOrDropoff)) {
             body.put("pickup", Map.of("address_id", 1001));
         } else {
-            body.put("dropoff", Map.of("branch_id", 1));
+            body.put("dropoff", Map.of());
         }
 
         return executePost(url, body);
