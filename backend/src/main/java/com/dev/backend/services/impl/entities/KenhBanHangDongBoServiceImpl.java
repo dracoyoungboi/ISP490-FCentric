@@ -6748,6 +6748,88 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 .build();
     }
 
+    private List<String> chuanBiVaUploadAnhShopee(
+            SanPhamQuanAo sp,
+            List<BienTheSanPham> variants,
+            com.dev.backend.services.shopee.ShopeeClient client,
+            Map<String, String> cdnCache) {
+        List<String> imageIds = new ArrayList<>();
+        String productName = sp.getTenSanPham() != null ? sp.getTenSanPham().trim() : "FCentric";
+
+        try {
+            List<AnhQuanAo> prodImages = anhQuanAoRepository.findActiveByQuanAoIds(List.of(sp.getId()));
+            if (prodImages != null && !prodImages.isEmpty()) {
+                List<AnhQuanAo> sortedImages = new ArrayList<>(prodImages);
+                sortedImages.sort((a, b) -> {
+                    int aMain = Integer.valueOf(1).equals(a.getAnhChinh()) ? 1 : 0;
+                    int bMain = Integer.valueOf(1).equals(b.getAnhChinh()) ? 1 : 0;
+                    return Integer.compare(bMain, aMain);
+                });
+
+                int imgLimit = Math.min(sortedImages.size(), 8);
+                for (int i = 0; i < imgLimit; i++) {
+                    AnhQuanAo curImg = sortedImages.get(i);
+                    if (curImg.getTepTin() != null && curImg.getTepTin().getTenLuuTru() != null) {
+                        TepTin tep = curImg.getTepTin();
+                        String fileKey = tep.getTenLuuTru();
+                        try {
+                            if (cdnCache.containsKey(fileKey)) {
+                                imageIds.add(cdnCache.get(fileKey));
+                            } else if (tep.getMoTa() != null && tep.getMoTa().startsWith("SHP_IMG:")) {
+                                String cachedId = tep.getMoTa().substring("SHP_IMG:".length()).trim();
+                                if (!cachedId.isBlank()) {
+                                    cdnCache.put(fileKey, cachedId);
+                                    imageIds.add(cachedId);
+                                }
+                            } else {
+                                byte[] bytes = minioService.download(fileKey);
+                                byte[] cleanJpeg = convertToLazadaCompliantJpeg(bytes, productName);
+                                if (cleanJpeg != null && cleanJpeg.length > 0) {
+                                    JsonNode imgRes = client.uploadImage(cleanJpeg, "sp_" + sp.getId() + "_" + i + ".jpg");
+                                    String imgId = imgRes.path("response").path("image_info").path("image_id").asText("");
+                                    if (!imgId.isBlank()) {
+                                        cdnCache.put(fileKey, imgId);
+                                        imageIds.add(imgId);
+                                        if (tepTinRepository != null) {
+                                            try {
+                                                tep.setMoTa("SHP_IMG:" + imgId);
+                                                tepTinRepository.save(tep);
+                                            } catch (Exception saveEx) {
+                                                log.warn("[SHOPEE-CDN-CACHE] Không thể lưu cache ảnh Shopee cho tệp {}: {}", tep.getId(), saveEx.getMessage());
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } catch (Exception downEx) {
+                            log.warn("[SHOPEE-UPLOAD-IMAGE] Lỗi tải/upload ảnh thứ {} của sản phẩm {}: {}", i, productName, downEx.getMessage());
+                        }
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("[SHOPEE-UPLOAD-IMAGE] Lỗi đọc ảnh sản phẩm {}: {}", productName, ex.getMessage());
+        }
+
+        // Nếu sản phẩm không có ảnh trong DB hoặc tải lỗi -> sinh ảnh mặc định chuẩn 800x800
+        if (imageIds.isEmpty()) {
+            try {
+                byte[] defaultImg = taoLazadaDefaultImage(productName);
+                if (defaultImg != null && defaultImg.length > 0) {
+                    JsonNode imgRes = client.uploadImage(defaultImg, "fcentric_product.jpg");
+                    String imgId = imgRes.path("response").path("image_info").path("image_id").asText("");
+                    if (!imgId.isBlank()) {
+                        imageIds.add(imgId);
+                    }
+                }
+            } catch (Exception imgEx) {
+                log.warn("[SHOPEE-UPLOAD-IMAGE] Không thể tạo/upload ảnh mặc định cho {}: {}", productName, imgEx.getMessage());
+            }
+        }
+
+        return imageIds;
+    }
+
     record DongCanCapNhatShopee(TrangThaiDongBoSanPham dong, int soDay) {}
 
     private DayTonResultDto dayTonShopeeToiUu(
