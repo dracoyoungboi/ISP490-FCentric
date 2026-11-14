@@ -1588,9 +1588,41 @@ public class OmnichannelOrderSyncJob {
         String orderId = order.getOrderSn().trim();
         String soDonHang = "SHP-" + orderId;
 
+        BigDecimal itemSubtotal = BigDecimal.ZERO;
+        if (order.getItemList() != null) {
+            for (com.dev.backend.dto.response.customize.ShopeeOrderDto.ShopeeOrderItemDto it : order.getItemList()) {
+                double p = it.getModelDiscountedPrice() != null ? it.getModelDiscountedPrice() : 0.0;
+                int q = it.getModelQuantityPurchased() != null ? it.getModelQuantityPurchased() : 1;
+                itemSubtotal = itemSubtotal.add(BigDecimal.valueOf(p).multiply(BigDecimal.valueOf(q)));
+            }
+        }
+
+        BigDecimal totalPrice = order.getTotalAmount() != null ? BigDecimal.valueOf(order.getTotalAmount()) : BigDecimal.ZERO;
+        BigDecimal shippingFee = BigDecimal.ZERO;
+
+        if (order.getActualShippingFee() != null && order.getActualShippingFee() > 0) {
+            shippingFee = BigDecimal.valueOf(order.getActualShippingFee());
+        } else if (order.getEstimatedShippingFee() != null && order.getEstimatedShippingFee() > 0) {
+            shippingFee = BigDecimal.valueOf(order.getEstimatedShippingFee());
+        }
+
+        BigDecimal price;
+        if (itemSubtotal.compareTo(BigDecimal.ZERO) > 0) {
+            price = itemSubtotal;
+            if (shippingFee.compareTo(BigDecimal.ZERO) == 0 && totalPrice.compareTo(price) > 0) {
+                shippingFee = totalPrice.subtract(price);
+            }
+            if (totalPrice.compareTo(BigDecimal.ZERO) == 0) {
+                totalPrice = price.add(shippingFee);
+            }
+        } else {
+            price = totalPrice.subtract(shippingFee).max(BigDecimal.ZERO);
+        }
+
         Optional<DonBanHang> existingOpt = donBanHangRepository.findBySoDonHang(soDonHang);
         if (existingOpt.isPresent()) {
             DonBanHang existing = existingOpt.get();
+
             if ("CANCELLED".equalsIgnoreCase(order.getOrderStatus())) {
                 if (existing.getTrangThai() != null && existing.getTrangThai() != ITrangThaiDonBanHang.DA_HUY) {
                     try {
@@ -1652,10 +1684,6 @@ public class OmnichannelOrderSyncJob {
         com.dev.backend.dto.response.customize.ShopeeOrderDto.ShopeeRecipientAddressDto addr = order.getRecipientAddress();
         String phone = addr != null && addr.getPhone() != null ? addr.getPhone().trim() : "";
         KhachHang khachHang = resolveShopeeCustomer(order, addr, phone);
-
-        BigDecimal totalPrice = order.getTotalAmount() != null ? BigDecimal.valueOf(order.getTotalAmount()) : BigDecimal.ZERO;
-        BigDecimal shippingFee = order.getActualShippingFee() != null ? BigDecimal.valueOf(order.getActualShippingFee()) : BigDecimal.ZERO;
-        BigDecimal price = totalPrice.subtract(shippingFee).max(BigDecimal.ZERO);
 
         String address = addr != null && addr.getFullAddress() != null ? addr.getFullAddress() : "";
         List<Kho> khoHoatDong = khoRepository.findByTrangThai(1);
