@@ -7069,6 +7069,16 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             log.info("[SHOPEE-CREATE] Đang tạo sản phẩm đơn SKU [{}] lên Shopee...", title);
             JsonNode addRes = client.addItem(body);
             String error = addRes.path("error").asText("");
+            if (!error.isBlank() && !"0".equals(error)) {
+                String errMsg = addRes.path("message").asText(error);
+                if ((errMsg.toLowerCase(Locale.ROOT).contains("category") || error.toLowerCase(Locale.ROOT).contains("category"))
+                        && !Long.valueOf(106705L).equals(body.get("category_id"))) {
+                    log.warn("[SHOPEE-CREATE] Single SKU CategoryId {} bị sàn từ chối ({}), tự động đổi sang danh mục an toàn 106705L và thử lại...", body.get("category_id"), errMsg);
+                    body.put("category_id", 106705L);
+                    addRes = client.addItem(body);
+                    error = addRes.path("error").asText("");
+                }
+            }
             if (error.isBlank() || "0".equals(error)) {
                 long itemId = addRes.path("response").path("item_id").asLong();
                 if (itemId > 0) {
@@ -7130,6 +7140,16 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         log.info("[SHOPEE-CREATE] Đang tạo sản phẩm cha [{}] với {} biến thể lên Shopee...", title, variants.size());
         JsonNode addRes = client.addItem(body);
         String error = addRes.path("error").asText("");
+        if (!error.isBlank() && !"0".equals(error)) {
+            String errMsg = addRes.path("message").asText(error);
+            if ((errMsg.toLowerCase(Locale.ROOT).contains("category") || error.toLowerCase(Locale.ROOT).contains("category"))
+                    && !Long.valueOf(106705L).equals(body.get("category_id"))) {
+                log.warn("[SHOPEE-CREATE] Multi-variant CategoryId {} bị sàn từ chối ({}), tự động đổi sang danh mục an toàn 106705L và thử lại...", body.get("category_id"), errMsg);
+                body.put("category_id", 106705L);
+                addRes = client.addItem(body);
+                error = addRes.path("error").asText("");
+            }
+        }
         if (!error.isBlank() && !"0".equals(error)) {
             String errMsg = addRes.path("message").asText(error);
             log.warn("[SHOPEE-CREATE] Shopee từ chối tạo sản phẩm cha [{}]: error={} - message={}", title, error, errMsg);
