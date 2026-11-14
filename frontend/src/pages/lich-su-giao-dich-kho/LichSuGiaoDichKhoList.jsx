@@ -1,15 +1,15 @@
 // src/pages/lich-su-giao-dich-kho/LichSuGiaoDichKhoList.jsx
-import { createElement, useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Link, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
-    Dialog, DialogContent, DialogTitle,
+    Dialog, DialogContent, DialogDescription, DialogTitle,
 } from "@/components/ui/dialog";
 import {
     History, ArrowDownToLine, ArrowUpFromLine,
-    ArrowLeftRight, SlidersHorizontal, Warehouse, Eye, MoveRight,
-    CalendarDays, User2, FileText, Hash, Package, SearchX, X,
-    MapPin, ArrowRight, Info, ReceiptText, ChevronRight,
+    ArrowLeftRight, SlidersHorizontal, Eye, MoveRight,
+    Package, SearchX, X,
+    MapPin, ArrowRight, ChevronRight,
 } from "lucide-react";
 import { toast } from "@/lib/thongBaoNhanh";
 import PageContainer from "@/components/backoffice/PageContainer";
@@ -28,8 +28,11 @@ import useTaiLaiDanhSach from "@/hooks/useTaiLaiDanhSach";
 import { getLichSuGiaoDichKho, getChiTietLichSu } from "@/services/lichSuGiaoDichKhoService";
 import { getMineKhoList } from "@/services/khoService";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
-import { formatDateTime, formatNumber } from "@/utils/formatters";
+import { formatDate, formatDateTime, formatNumber } from "@/utils/formatters";
 import { viTriKe } from "@/components/chuyen-ke/nhanKe";
+import { lamViecTaiKho, moDuocTaiKho } from "@/components/chuyen-kho/lamViecTaiKho";
+import { VAI_TRO_DON_BAN } from "@/components/backoffice/sidebar.config";
+import { hasAnyRole } from "@/utils/roles";
 import { t, tDuLieu } from "@/i18n";
 
 // ── Constants ─────────────────────────────────────────────────────────────
@@ -142,164 +145,261 @@ function LoTrinhKe({ item, className = "" }) {
     );
 }
 
-/** Một kệ trong hộp chi tiết: nhãn, mã kệ, khu · dãy · hàng · tầng. */
+/** Một kệ trong khối chuyển kệ: nhãn, mã kệ, khu · dãy · hàng · tầng. Kệ đích tô xanh. */
 function OKe({ nhan, ke, dich = false }) {
     const viTri = viTriKe(ke);
     return (
-        <div className={`min-w-0 flex-1 rounded-lg border px-3.5 py-3 ${dich ? "border-bo-primary/30 bg-bo-primary-soft/50" : "border-bo-border bg-white"}`}>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-bo-muted">{nhan}</p>
-            <p className={`mt-1 break-all font-mono text-lg font-semibold ${dich ? "text-bo-primary-strong" : "text-bo-heading"}`}>{ke.ma}</p>
-            {viTri ? <p className="line-clamp-2 break-words text-xs text-bo-muted" title={viTri}>{viTri}</p> : null}
+        <div className={`min-w-0 flex-1 rounded-lg border px-3 py-2.5 ${dich ? "border-bo-primary/30 bg-bo-primary-soft" : "border-bo-border bg-bo-surface"}`}>
+            <p className={`text-xs ${dich ? "text-bo-primary-strong" : "text-bo-muted"}`}>{nhan}</p>
+            <p className={`mt-0.5 break-all font-mono text-base font-semibold ${dich ? "text-bo-primary-strong" : "text-bo-heading"}`}>{ke.ma}</p>
+            {viTri ? <p className="mt-0.5 line-clamp-2 break-words text-xs text-slate-600" title={viTri}>{viTri}</p> : null}
         </div>
     );
 }
 
-// ── Field helper ──────────────────────────────────────────────────────────
-function LightField({ icon: Icon, label, value, mono = false }) {
+// ── Hộp chi tiết ──────────────────────────────────────────────────────────
+
+/** Việc làm ra dòng sổ (máy chủ trả mã nghiepVu): câu ngắn dưới chứng từ. Mã lạ thì không hiện. */
+const NGHIEP_VU = {
+    nhap_ncc: t("Nhập hàng từ nhà cung cấp"),
+    nhap_tra_ve: t("Nhập hàng trả về kho"),
+    khach_tra_tai_quay: t("Khách trả hàng tại quầy"),
+    nhan_chuyen_kho: t("Nhận hàng chuyển đến"),
+    nhan_chuyen_kho_chenh_lech: t("Nhận phần hàng đạt, phiếu chuyển có chênh lệch"),
+    hoan_tra_chuyen_kho: t("Hàng về lại kho gửi vì phiếu chuyển bị hủy khi đang đi đường"),
+    roi_trung_chuyen: t("Hàng rời kho trung chuyển để nhập vào kho nhận"),
+    hang_di_duong: t("Hàng chuyển kho đang đi đường"),
+    xuat_chuyen_kho: t("Xuất hàng chuyển sang kho khác"),
+    ban_tai_quay: t("Bán tại quầy"),
+    xuat_don_ban: t("Xuất hàng giao đơn bán"),
+    kiem_ke: t("Điều chỉnh theo số đếm kiểm kê"),
+    chenh_lech_chuyen_kho: t("Ghi giảm hàng thiếu, hỏng khi nhận chuyển kho"),
+};
+
+/** Tên chứng từ chính kèm mã. */
+const TEN_CHUNG_TU = {
+    phieu_nhap: (ma) => t("Phiếu nhập {{ma}}", { ma }),
+    phieu_xuat: (ma) => t("Phiếu xuất {{ma}}", { ma }),
+    phieu_dieu_chinh: (ma) => t("Phiếu điều chỉnh {{ma}}", { ma }),
+    phieu_chuyen_ke: (ma) => t("Phiếu chuyển kệ {{ma}}", { ma }),
+};
+
+/** Nhãn ô số lượng theo loại giao dịch. */
+const NHAN_SO_LUONG = {
+    nhap_kho: t("Số lượng nhập kho"),
+    xuat_kho: t("Số lượng xuất kho"),
+    dieu_chinh: t("Số lượng điều chỉnh"),
+    chuyen_ke_noi_bo: t("Số lượng đổi kệ"),
+};
+
+const khoTheoId = (id) => (id ? { id } : null);
+
+/**
+ * Trang mở chứng từ, và kho làm việc cần đứng trước khi mở (trang phiếu nhập, xuất, đợt kiểm kê kiểm theo kho làm việc).
+ * Null = hiện chữ: phiếu đã mất (không id), không có trang riêng (phiếu điều chỉnh của kiểm kê — mở qua đợt kiểm kê),
+ * hoặc người xem không được phân kho của phiếu.
+ */
+function duongMo(ct, item) {
+    if (!ct?.id) return null;
+    const oKhoPhieu = moDuocTaiKho(khoTheoId(ct.khoId));
+    const oKhoNhan = moDuocTaiKho(khoTheoId(ct.khoNhanId));
+    switch (ct.loai) {
+        case "phieu_nhap":
+            return oKhoPhieu ? { to: `/goods-receipts/${ct.id}`, khoId: ct.khoId } : null;
+        case "phieu_xuat":
+            // PX chuyển kho xem được từ kho gửi lẫn kho nhận
+            return oKhoPhieu || oKhoNhan ? { to: `/goods-issues/${ct.id}`, khoId: oKhoPhieu ? ct.khoId : ct.khoNhanId } : null;
+        case "phieu_chuyen_kho":
+            return oKhoPhieu || oKhoNhan ? { to: `/transfer-tickets/${ct.id}` } : null;
+        case "phieu_dieu_chinh":
+            return item.phieuChuyenKho && (oKhoPhieu || moDuocTaiKho(khoTheoId(item.phieuChuyenKho.khoId)) || moDuocTaiKho(khoTheoId(item.phieuChuyenKho.khoNhanId)))
+                ? { to: `/transfer-tickets/adjustments/${ct.id}` } : null;
+        case "dot_kiem_ke":
+            return oKhoPhieu ? { to: `/stock-take/${ct.id}`, khoId: ct.khoId } : null;
+        case "phieu_chuyen_ke": {
+            const q = new URLSearchParams({ ...(item.khoId ? { khoId: String(item.khoId) } : {}), tim: ct.ma });
+            return { to: `/warehouse/bin-moves/history?${q}` };
+        }
+        case "don_ban":
+            return hasAnyRole(VAI_TRO_DON_BAN) ? { to: `/sales-orders/${ct.id}` } : null;
+        default:
+            return null;
+    }
+}
+
+/** Mã chứng từ: mở được thì là liên kết (đứng sang đúng kho trước khi mở), không thì chữ thường. */
+function ChungTu({ ct, item, chu }) {
+    const duong = duongMo(ct, item);
+    const noiDung = chu ?? ct.ma;
+    if (!duong) return <span className="font-medium text-bo-foreground">{noiDung}</span>;
     return (
-        <div className="flex flex-col gap-1">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-bo-muted">{label}</span>
-            <div className="flex items-center gap-1.5">
-                {createElement(Icon, { className: "size-3.5 shrink-0 text-bo-muted" })}
-                <span className={`text-sm font-medium text-slate-800 ${mono ? "font-mono" : ""}`}>
-                    {value || "—"}
-                </span>
-            </div>
-        </div>
+        <Link
+            to={duong.to}
+            onClick={duong.khoId ? () => lamViecTaiKho(khoTheoId(duong.khoId)) : undefined}
+            className="inline-flex max-w-full items-start gap-1 rounded-sm font-semibold text-bo-primary-strong hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
+        >
+            <span className="min-w-0 break-words">{noiDung}</span>
+            {/* Mở ngay trong thẻ này nên dùng mũi tên, không dùng icon "mở ngoài" */}
+            <ChevronRight className="mt-[3px] size-3.5 shrink-0" aria-hidden="true" />
+        </Link>
     );
 }
 
-// ── Detail Modal ──────────────────────────────────────────────────────────
+/** Một dòng nhãn trái – giá trị phải. */
+function Dong({ nhan, children }) {
+    return (
+        <>
+            <dt className="text-bo-muted">{nhan}</dt>
+            <dd className="min-w-0 break-words text-bo-foreground">{children}</dd>
+        </>
+    );
+}
+
+const MONO = "font-mono text-[13px]";
+const hai2 = (n) => String(n).padStart(2, "0");
+
 function DetailModal({ open, onClose, item, loading }) {
-    const soLuong = Number(item?.soLuong ?? 0);
-    const isXuatKho = item?.loaiGiaoDich === "xuat_kho";
+    const cfg = item ? LOAI_GIAO_DICH_CONFIG[item.loaiGiaoDich] : null;
+    const IconLoai = cfg?.icon ?? History;
+    const ngay = item?.ngayGiaoDich ? new Date(item.ngayGiaoDich) : null;
+    const coNgay = ngay && !Number.isNaN(ngay.getTime());
+    const { displaySoLuong, soLuongColor, soLuongPrefix } = item ? soLuongCoDau(item) : {};
     const khongDoiTon = KHONG_DOI_TON.has(item?.loaiGiaoDich);
-    // Chuyển kệ: ô giữa ghi số đã đổi kệ (không dấu, màu trung tính) — trước = sau vì tồn kho không đổi
-    const displaySoLuong = isXuatKho ? -Math.abs(soLuong) : khongDoiTon ? Math.abs(soLuong) : soLuong;
-    const soLuongColor  = khongDoiTon ? "text-slate-700" : displaySoLuong > 0 ? "text-bo-success" : displaySoLuong < 0 ? "text-bo-danger" : "text-slate-600";
-    const soLuongBg     = khongDoiTon ? "bg-bo-surface-subtle" : displaySoLuong > 0 ? "bg-bo-success-soft" : displaySoLuong < 0 ? "bg-bo-danger-soft" : "bg-bo-surface-subtle";
-    const soLuongPrefix = khongDoiTon ? "" : displaySoLuong > 0 ? "+" : displaySoLuong < 0 ? "-" : "";
-    // Dòng chuyển kệ đọc được lộ trình: ô Phiếu chuyển kệ (mở phiếu) thay mã tham chiếu thô, khối Kệ nguồn → Kệ đích
-    // thay ba ô Trước / Đổi kệ / Sau, bỏ ghi chú máy tự ghi. Không tách được thì hiện như cũ.
     const laChuyenKe = khongDoiTon && Boolean(item?.keNguon?.ma && item?.keDich?.ma);
-    const linkPhieu = laChuyenKe && item.maChungTu
-        ? `/warehouse/bin-moves/history?${new URLSearchParams({ ...(item.khoId ? { khoId: String(item.khoId) } : {}), tim: item.maChungTu })}`
-        : null;
+    const tenKho = item?.tenKho ? tDuLieu(item.tenKho) : "—";
+    const coSo = (v) => v !== null && v !== undefined;
+    const ct = item?.chungTu;
+    const nghiepVu = item?.nghiepVu ? NGHIEP_VU[item.nghiepVu] : null;
+    // Ghi chú chỉ hiện khi câu chưa được tách thành các dòng riêng (dữ liệu cũ, câu lạ). Máy chủ cũ không gửi cờ:
+    // dòng chuyển kệ đã tách được thì vẫn ẩn như trước.
+    const hienGhiChu = Boolean(item?.ghiChu) && !(item.ghiChuDaTach ?? laChuyenKe);
 
     return (
         <Dialog open={open} onOpenChange={onClose}>
-            {/* grid-cols-[minmax(0,1fr)]: DialogContent là lưới cột tự giãn — chữ không xuống dòng (vị trí kệ dài) sẽ đẩy cột
-                rộng hơn hộp và bị cắt mép phải; khóa cột bằng bề ngang hộp để chữ dài tự cắt "…" */}
-            <DialogContent className="max-w-lg grid-cols-[minmax(0,1fr)] overflow-hidden rounded-lg border border-bo-border bg-bo-surface p-0 shadow-lg [&>button]:text-slate-500 [&>button]:hover:text-slate-700">
+            {/* grid-cols-[minmax(0,1fr)]: DialogContent là lưới cột tự giãn — chữ không xuống dòng sẽ đẩy cột rộng hơn hộp và bị
+                cắt mép phải. max-h + cuộn: nhiều dòng trên màn thấp (điện thoại xoay ngang) vẫn đọc hết. */}
+            <DialogContent className="max-h-[calc(100dvh-2rem)] grid-cols-[minmax(0,1fr)] gap-0 overflow-y-auto rounded-lg border border-bo-border bg-bo-surface p-0 shadow-lg [&>button]:top-3.5 [&>button]:right-3.5 [&>button]:flex [&>button]:size-8 [&>button]:items-center [&>button]:justify-center [&>button]:text-slate-500 [&>button]:hover:text-slate-700 max-sm:[&>button]:top-2.5 max-sm:[&>button]:right-2 max-sm:[&>button]:size-10">
 
-                {/* ── Header ── (chừa chỗ bên phải cho nút đóng ở mọi cỡ màn, loại giao dịch không đè lên nút) */}
-                <div className="flex items-center justify-between gap-3 border-b border-bo-border bg-bo-surface-subtle pb-4 pl-5 pr-14 pt-5">
-                    <DialogTitle className="flex items-center gap-2 text-base font-semibold text-bo-foreground">
-                        <span className="flex size-8 items-center justify-center rounded-lg bg-bo-primary-soft">
-                            <History className="size-4 text-bo-primary" />
-                        </span>
-                        {t("Chi tiết giao dịch")} {item ? (
-                            <span className="font-mono text-bo-primary">#{item.id}</span>
-                        ) : ""}
-                    </DialogTitle>
-                    {item && <LoaiGiaoDich loai={item.loaiGiaoDich} />}
+                {/* Đầu hộp: loại giao dịch + số giao dịch, thời gian (chừa chỗ bên phải cho nút đóng) */}
+                <div className="flex items-center gap-3 pb-4 pl-4 pr-14 pt-4 sm:pl-5 sm:pt-5">
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-bo-primary-soft text-bo-primary" aria-hidden="true">
+                        <IconLoai className="size-[18px]" />
+                    </span>
+                    <div className="min-w-0">
+                        <DialogTitle className="text-base font-semibold leading-[22px] text-bo-heading">
+                            {cfg ? cfg.label : item ? item.loaiGiaoDich || t("Chi tiết giao dịch") : t("Chi tiết giao dịch")}
+                        </DialogTitle>
+                        <DialogDescription className="mt-0.5 text-[13px] leading-[18px] text-bo-muted">
+                            {item
+                                ? (coNgay
+                                    ? t("Giao dịch #{{id}} · {{ngay}} lúc {{gio}}", { id: item.id, ngay: formatDate(ngay), gio: `${hai2(ngay.getHours())}:${hai2(ngay.getMinutes())}` })
+                                    : t("Giao dịch #{{id}}", { id: item.id }))
+                                : t("Đang tải chi tiết giao dịch")}
+                        </DialogDescription>
+                    </div>
                 </div>
 
                 {loading ? (
                     <LoadingState className="min-h-48 bg-bo-surface" label={t("Đang tải chi tiết giao dịch")} />
                 ) : item ? (
-                    <div className="space-y-4 bg-bo-surface px-5 py-4">
+                    <div className="flex flex-col gap-4 px-4 pb-4 sm:gap-5 sm:px-5 sm:pb-5">
 
-                        {/* Ngày giao dịch */}
-                        <div className="flex items-center gap-2 rounded-lg border border-bo-border bg-bo-surface-subtle px-4 py-2.5 text-sm text-slate-700">
-                            <CalendarDays className="size-4 shrink-0 text-bo-muted" />
-                            <span className="font-medium">{formatDateTime(item.ngayGiaoDich)}</span>
-                        </div>
-
-                        {/* Grid fields */}
-                        <div className="grid grid-cols-2 gap-x-6 gap-y-4 rounded-lg border border-bo-border bg-bo-surface-subtle px-4 py-4">
-                            <LightField icon={Package}      label={t("Sản phẩm")}        value={item.tenSanPham} />
-                            <LightField icon={Hash}         label="SKU"             value={item.maSku} mono />
-                            <LightField icon={FileText}     label={t("Lô hàng")}         value={item.maLo} mono />
-                            <LightField icon={Warehouse}    label={t("Kho")}             value={item.tenKho ? tDuLieu(item.tenKho) : null} />
-                            <LightField icon={User2}        label={t("Người thực hiện")} value={item.nguoiDungTen} />
-                            {laChuyenKe ? (
-                                <div className="flex min-w-0 flex-col gap-1">
-                                    <span className="text-[10px] font-bold uppercase tracking-widest text-bo-muted">{t("Phiếu chuyển kệ")}</span>
-                                    {linkPhieu ? (
-                                        <Link
-                                            to={linkPhieu}
-                                            className="inline-flex w-fit items-center gap-1.5 rounded-sm font-mono text-sm font-semibold text-bo-primary-strong hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
-                                            title={t("Mở phiếu ở Lịch sử chuyển kệ")}
-                                        >
-                                            <ReceiptText className="size-3.5 shrink-0" aria-hidden="true" />
-                                            {item.maChungTu}
-                                            {/* Mở ngay trong thẻ này (không phải thẻ mới) nên dùng mũi tên, không dùng icon "mở ngoài" */}
-                                            <ChevronRight className="size-3.5 shrink-0" aria-hidden="true" />
-                                        </Link>
+                        {/* Khối số: số lượng (to, có dấu) | tồn của lô ở kho trước → sau. Chuyển kệ: tồn giữ nguyên + Từ kệ → Sang kệ */}
+                        <div className="overflow-hidden rounded-[10px] border border-bo-border bg-bo-surface-subtle">
+                            <div className="grid grid-cols-2">
+                                <div className="min-w-0 px-3.5 py-3 sm:px-4">
+                                    <p className="text-xs text-bo-muted">{NHAN_SO_LUONG[item.loaiGiaoDich] ?? t("Số lượng")}</p>
+                                    <p className={`mt-1 text-[28px] font-bold leading-[34px] tabular-nums ${khongDoiTon ? "text-bo-heading" : soLuongColor}`}>
+                                        {soLuongPrefix === "-" ? "−" : soLuongPrefix}{formatNumber(Math.abs(displaySoLuong))}
+                                    </p>
+                                </div>
+                                <div className="min-w-0 border-l border-bo-border px-3.5 py-3 sm:px-4">
+                                    <p className="text-xs text-bo-muted">{t("Tồn của lô ở kho")}</p>
+                                    {khongDoiTon ? (
+                                        <p className="mt-1 flex flex-wrap items-baseline gap-x-2 leading-[34px]">
+                                            <span className="text-xl font-bold tabular-nums text-bo-heading">{coSo(item.soLuongSau) ? formatNumber(item.soLuongSau) : "—"}</span>
+                                            <span className="text-[13px] font-medium text-bo-muted">{t("giữ nguyên")}</span>
+                                        </p>
                                     ) : (
-                                        <span className="text-sm font-medium text-slate-800">—</span>
+                                        <p className="mt-1 flex flex-wrap items-center gap-x-2 text-lg leading-[34px] tabular-nums sm:text-xl">
+                                            <span className="sr-only">{t("Từ {{truoc}} thành {{sau}}", { truoc: coSo(item.soLuongTruoc) ? formatNumber(item.soLuongTruoc) : "—", sau: coSo(item.soLuongSau) ? formatNumber(item.soLuongSau) : "—" })}</span>
+                                            <span className="font-medium text-bo-muted" aria-hidden="true">{coSo(item.soLuongTruoc) ? formatNumber(item.soLuongTruoc) : "—"}</span>
+                                            <ArrowRight className="size-4 shrink-0 text-slate-400" aria-hidden="true" />
+                                            <span className="font-bold text-bo-heading" aria-hidden="true">{coSo(item.soLuongSau) ? formatNumber(item.soLuongSau) : "—"}</span>
+                                        </p>
                                     )}
                                 </div>
-                            ) : (
-                                <>
-                                    <LightField icon={FileText}     label={t("Loại tham chiếu")} value={item.loaiThamChieu} />
-                                    {item.idThamChieu && (
-                                        <LightField icon={Hash}     label={t("ID tham chiếu")}   value={`#${item.idThamChieu}`} mono />
-                                    )}
-                                </>
-                            )}
-                            {item.tenKhoChuyenDen && (
-                                <LightField icon={ArrowLeftRight} label={t("Kho chuyển đến")} value={tDuLieu(item.tenKhoChuyenDen)} />
-                            )}
-                        </div>
-
-                        {laChuyenKe ? (
-                            /* Chuyển kệ: Kệ nguồn → số lượng → Kệ đích, kèm câu tồn lô giữ nguyên */
-                            <div>
-                                <div className="flex items-stretch gap-2">
+                            </div>
+                            {laChuyenKe ? (
+                                <div className="flex items-stretch gap-2 border-t border-bo-border p-3">
                                     <OKe nhan={t("Kệ nguồn")} ke={item.keNguon} />
-                                    <div className="flex shrink-0 flex-col items-center justify-center gap-0.5 px-1">
-                                        <span className="text-xl font-bold tabular-nums text-slate-700">{formatNumber(Math.abs(displaySoLuong))}</span>
-                                        <ArrowRight className="size-5 text-slate-400" aria-hidden="true" />
-                                        <span className="text-[11px] text-bo-muted">{t("sản phẩm", { count: Math.abs(soLuong) })}</span>
-                                    </div>
+                                    <span className="flex shrink-0 items-center text-slate-400" aria-hidden="true">
+                                        <ArrowRight className="size-[18px]" />
+                                    </span>
                                     <OKe nhan={t("Kệ đích")} ke={item.keDich} dich />
                                 </div>
-                                <p className="mt-2 flex items-start gap-1.5 text-[13px] leading-5 text-bo-muted">
-                                    <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-                                    <span>
-                                        {t("Chỉ đổi chỗ trong kho. Tồn của lô ở {{kho}} giữ nguyên {{so}}.", {
-                                            kho: item.tenKho ? tDuLieu(item.tenKho) : "—",
-                                            so: formatNumber(item.soLuongSau ?? 0),
-                                        })}
-                                    </span>
-                                </p>
-                            </div>
-                        ) : (
-                        /* Số lượng 3 ô */
-                        <div className="grid grid-cols-3 divide-x divide-bo-border overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
-                            {[
-                                { label: t("TRƯỚC"),    value: item.soLuongTruoc ?? 0, color: "text-slate-700", bg: "bg-white",    prefix: "" },
-                                { label: khongDoiTon ? t("ĐỔI KỆ") : t("THAY ĐỔI"), value: Math.abs(displaySoLuong), color: soLuongColor,     bg: soLuongBg,     prefix: soLuongPrefix },
-                                { label: t("SAU"),      value: item.soLuongSau ?? 0,   color: "text-slate-700", bg: "bg-white",    prefix: "" },
-                            ].map(({ label, value, color, bg, prefix }) => (
-                                <div key={label} className={`flex flex-col items-center py-4 ${bg}`}>
-                                    <span className="mb-1 text-[10px] font-bold uppercase tracking-widest text-bo-muted">{label}</span>
-                                    <span className={`text-xl font-bold ${color}`}>{prefix}{value}</span>
-                                </div>
-                            ))}
+                            ) : null}
                         </div>
-                        )}
 
-                        {/* Ghi chú (dòng chuyển kệ: câu máy tự ghi, đã hiện ở khối kệ và ô phiếu) */}
-                        {item.ghiChu && !laChuyenKe && (
-                            <div className="rounded-lg border border-bo-warning/20 bg-bo-warning-soft px-4 py-3">
-                                <p className="mb-1 text-xs font-bold uppercase tracking-widest text-bo-warning">{t("Ghi chú")}</p>
-                                <p className="text-sm text-slate-700">{item.ghiChu}</p>
+                        {/* Sản phẩm */}
+                        <div className="flex items-center gap-3">
+                            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-bo-muted" aria-hidden="true">
+                                <Package className="size-[18px]" />
+                            </span>
+                            <div className="min-w-0">
+                                <p className="break-words text-[15px] font-semibold leading-5 text-bo-heading">{item.tenSanPham || "—"}</p>
+                                {item.maSku ? <p className="mt-0.5 break-all font-mono text-xs text-slate-600">{item.maSku}</p> : null}
                             </div>
-                        )}
+                        </div>
 
+                        {/* Thông tin: nhãn trái, giá trị phải */}
+                        <dl className="grid grid-cols-[112px_minmax(0,1fr)] gap-x-3 gap-y-3 border-t border-bo-border pt-4 text-sm leading-5 sm:grid-cols-[132px_minmax(0,1fr)] sm:gap-x-4">
+                            <Dong nhan={t("Lô hàng")}><span className={`break-all ${MONO}`}>{item.maLo || "—"}</span></Dong>
+                            <Dong nhan={t("Kho")}><span className="font-medium">{tenKho}</span></Dong>
+                            {!laChuyenKe && (item.ke?.ma || item.chuaCoKe) ? (
+                                <Dong nhan={t("Kệ")}>
+                                    {item.ke?.ma ? (
+                                        <>
+                                            <span className={`break-all ${MONO}`}>{item.ke.ma}</span>
+                                            {viTriKe(item.ke) ? <span className="block text-xs text-bo-muted">{viTriKe(item.ke)}</span> : null}
+                                        </>
+                                    ) : (
+                                        <span className="text-bo-muted">{t("Chưa xếp kệ")}</span>
+                                    )}
+                                </Dong>
+                            ) : null}
+                            {ct?.ma ? (
+                                <Dong nhan={t("Chứng từ")}>
+                                    <ChungTu ct={ct} item={item} chu={TEN_CHUNG_TU[ct.loai]?.(ct.ma)} />
+                                    {nghiepVu ? <span className="block text-xs text-bo-muted">{nghiepVu}</span> : null}
+                                </Dong>
+                            ) : nghiepVu ? (
+                                <Dong nhan={t("Nghiệp vụ")}>{nghiepVu}</Dong>
+                            ) : null}
+                            {item.phieuChuyenKho?.ma ? (
+                                <Dong nhan={t("Phiếu chuyển kho")}><ChungTu ct={item.phieuChuyenKho} item={item} /></Dong>
+                            ) : null}
+                            {item.dotKiemKe?.ma ? (
+                                <Dong nhan={t("Đợt kiểm kê")}><ChungTu ct={item.dotKiemKe} item={item} /></Dong>
+                            ) : null}
+                            {item.donBanHang?.ma ? (
+                                <Dong nhan={t("Đơn bán hàng")}><ChungTu ct={item.donBanHang} item={item} /></Dong>
+                            ) : null}
+                            {item.phieuTraHang ? (
+                                <Dong nhan={t("Phiếu trả hàng")}><span className="font-medium">{item.phieuTraHang}</span></Dong>
+                            ) : null}
+                            {item.maVanDon ? (
+                                <Dong nhan={t("Mã vận đơn")}><span className={`break-all ${MONO}`}>{item.maVanDon}</span></Dong>
+                            ) : null}
+                            {item.tenKhoChuyenDen ? (
+                                <Dong nhan={t("Kho chuyển đến")}><span className="font-medium">{tDuLieu(item.tenKhoChuyenDen)}</span></Dong>
+                            ) : null}
+                            <Dong nhan={t("Người thực hiện")}><span className="font-medium">{item.nguoiDungTen || "—"}</span></Dong>
+                            {hienGhiChu ? (
+                                // Câu sổ cũ / lạ chưa tách được: hiện nguyên văn (dữ liệu, không dịch)
+                                <Dong nhan={t("Ghi chú")}><span className="whitespace-pre-line">{tDuLieu(item.ghiChu)}</span></Dong>
+                            ) : null}
+                        </dl>
                     </div>
                 ) : null}
             </DialogContent>
@@ -318,6 +418,7 @@ export default function LichSuGiaoDichKhoList() {
     const [selectedId,     setSelectedId]     = useState(null);
     const [chiTiet,        setChiTiet]        = useState(null);
     const [loadingDetail,  setLoadingDetail]  = useState(false);
+    const dangMoRef = useRef(0);
     // Kho mình có quyền (null = chưa tải): lọc dòng + nhãn "Nơi làm việc" ở đầu trang
     const [khoCuaToi,      setKhoCuaToi]      = useState(null);
     const myWarehouseIds = useMemo(() => (khoCuaToi ?? []).map((k) => k.id), [khoCuaToi]);
@@ -450,17 +551,22 @@ export default function LichSuGiaoDichKhoList() {
         setSelectedId(item.id);
         setChiTiet(null);
         setLoadingDetail(true);
+        // Mỗi lần mở một số mới: kết quả của lần mở cũ (dòng khác, hoặc cùng dòng đã đóng rồi mở lại) bị bỏ
+        const lan = ++dangMoRef.current;
         try {
             const detail = await getChiTietLichSu(item.id);
-            setChiTiet(detail);
+            if (dangMoRef.current === lan) setChiTiet(detail);
         } catch {
+            if (dangMoRef.current !== lan) return;
             toast.error(t("Không thể tải chi tiết"));
+            // Không để hộp trống chỉ còn tiêu đề
+            setSelectedId(null);
         } finally {
-            setLoadingDetail(false);
+            if (dangMoRef.current === lan) setLoadingDetail(false);
         }
     };
 
-    const handleCloseModal = () => { setSelectedId(null); setChiTiet(null); };
+    const handleCloseModal = () => { dangMoRef.current += 1; setSelectedId(null); setChiTiet(null); setLoadingDetail(false); };
 
     const currentLoaiLabel = LOAI_TABS.find((x) => x.value === filterLoai)?.label;
 
@@ -502,11 +608,12 @@ export default function LichSuGiaoDichKhoList() {
                     >
                         <SearchInput
                             label={t("Tìm kiếm")}
-                            placeholder={t("Tìm theo sản phẩm, SKU, lô, kho, kệ, người thực hiện...")}
+                            // Gợi ý ngắn, ô rộng 300px như các trang danh sách khác (228px chữ); vẫn tìm được theo kho, người thực hiện, mã phiếu chuyển kệ (matchSearch)
+                            placeholder={t("Tìm sản phẩm, SKU, lô, kệ…")}
                             value={search}
                             onChange={(e) => changeSearch(e.target.value)}
                             onClear={handleClearSearch}
-                            className="sm:w-[380px]"
+                            className="sm:w-[300px]"
                         />
                     </ListToolbar>
                 }
