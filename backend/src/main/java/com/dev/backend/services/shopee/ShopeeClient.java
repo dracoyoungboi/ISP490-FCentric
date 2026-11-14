@@ -367,10 +367,7 @@ public class ShopeeClient {
             res.put("error", "").put("message", "success");
             ObjectNode resp = res.putObject("response");
 
-            List<Long> itemIds = mockEngine != null ? mockEngine.getMockItemIds() : List.of();
-            if (itemIds.isEmpty()) {
-                itemIds = List.of(1000101L, 1000102L);
-            }
+            List<Long> itemIds = List.of(1000101L, 1000102L);
 
             resp.put("has_next_page", false).put("total_count", itemIds.size());
             ArrayNode arr = resp.putArray("item");
