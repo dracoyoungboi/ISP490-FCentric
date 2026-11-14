@@ -46,7 +46,8 @@ import java.util.stream.Collectors;
  *   <li>BR-BIN-05: tổng cất vào một kệ đích ≤ sức chứa còn trống; vượt chỉ khi quản lý kho / quản trị viên bật
  *   {@code vuotSucChua}. Kệ đích đầy 100% chuyển DAY_HANG; kệ nguồn đang DAY_HANG còn chỗ thì về HOAT_DONG.</li>
  * </ul>
- * Thứ tự khóa như {@link SoTonKeService#chuyenKe}: mutex kho (chia sẻ) → dòng tồn lô → kệ → dòng sổ kệ.
+ * Thứ tự khóa (cùng các thao tác sổ kệ ở {@link SoTonKeService}): mutex kho (chia sẻ) → dòng tồn lô → kệ theo id
+ * tăng dần → dòng sổ kệ. Đây là đường duy nhất chuyển hàng giữa hai kệ (endpoint cũ /kiem-ke/chuyen-ke đã gỡ).
  */
 @Slf4j
 @Service

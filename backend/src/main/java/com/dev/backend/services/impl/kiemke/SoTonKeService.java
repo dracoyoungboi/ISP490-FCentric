@@ -30,7 +30,8 @@ import com.dev.backend.i18n.ThongDiep;
  *   <li>{@link #tru}: tồn lô giảm (xuất, bán) — trừ ở kệ của lô trước, rồi các kệ khác theo mã, cuối cùng phần chưa
  *   có kệ (chốt Đ3); bỏ qua kệ đang kiểm kê. Phần kệ phiếu nhặt đang giữ chỉ trừ sau cùng.</li>
  *   <li>{@link #cong}: nhập lên một kệ của đúng kho; kệ khác kho / không có kệ thì hàng vào phần chưa có kệ.</li>
- *   <li>{@link #xepKe} / {@link #chuyenKe}: đổi chỗ trong kho, tồn lô không đổi.</li>
+ *   <li>{@link #xepKe}: đổi chỗ trong kho, tồn lô không đổi. Chuyển giữa hai kệ đi qua ChuyenKeNoiBoService (có phiếu
+ *   MV và dòng sổ giao dịch kho).</li>
  * </ul>
  * Dòng sổ kệ khóa theo PK sau khi luồng đã khóa dòng tồn lô (cùng thứ tự ở mọi luồng thường); kiểm kê giữ mutex kho
  * nên không chạy xen.
@@ -281,52 +282,6 @@ public class SoTonKeService {
         LoHang lo = ton.getLoHang();
         if (lo.getViTriKho() == null) {
             lo.setViTriKho(viTri);
-            loHangRepository.save(lo);
-        }
-    }
-
-    /** Chuyển {@code soLuong} của lô từ kệ này sang kệ khác cùng kho; cả hai kệ không được đang kiểm kê. */
-    @Transactional(isolation = Isolation.READ_COMMITTED)
-    public void chuyenKe(Integer khoId, Integer loId, Integer tuViTriId, Integer denViTriId, int soLuong) {
-        if (soLuong <= 0) throw new CommonException(ThongDiep.of("khoVanHanh.soLuongChuyenKePhaiDuong"));
-        if (tuViTriId == null || denViTriId == null) {
-            throw new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("khoVanHanh.keDaChonKhongTimThay"));
-        }
-        if (Objects.equals(tuViTriId, denViTriId)) throw new CommonException(ThongDiep.of("khoVanHanh.chonKeDenKhacKeDangChua"));
-        guard.giuKho(khoId);
-        TonKhoTheoLo ton = khoaTonLo(khoId, loId);
-        // Khóa hai kệ theo id tăng dần (cùng thứ tự với Chuyển kệ nội bộ nhiều kệ) để hai luồng ngược chiều không chờ vòng
-        ViTriKho tu, den;
-        if (tuViTriId < denViTriId) {
-            tu = keCuaKho(khoId, tuViTriId);
-            den = keCuaKho(khoId, denViTriId);
-        } else {
-            den = keCuaKho(khoId, denViTriId);
-            tu = keCuaKho(khoId, tuViTriId);
-        }
-        guard.kiemTraXuat(khoId, Map.of(loId, BigDecimal.valueOf(soLuong)), Map.of(loId, ton.getSoLuongTon()), "chuyển hàng khỏi kệ");
-        if (guard.keDangKiemCuaLo(khoId, loId).contains(tuViTriId)) {
-            throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("khoVanHanh.keDangKiemKeChuaChuyen", tu.getMaViTri()));
-        }
-        guard.kiemTraNhapKe(khoId, denViTriId, List.of(loId), "chuyển hàng lên kệ");
-        khoaDong(khoId, loId);
-        TonKhoViTri nguon = tonKhoViTriRepository.khoaTheoKeVaLo(tuViTriId, loId)
-                .orElseThrow(() -> new CommonException(HttpStatus.CONFLICT, ThongDiep.of("khoVanHanh.keKhongCoLoNay", tu.getMaViTri())));
-        int co = nguon.getSoLuong() == null ? 0 : nguon.getSoLuong();
-        if (co < soLuong) {
-            throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("khoVanHanh.keChiConSanPhamCuaLo", tu.getMaViTri(), Math.max(0, co)));
-        }
-        int giuO = phanBoKeService == null ? 0 : phanBoKeService.giuTrenKeCuaLo(khoId, loId).getOrDefault(tuViTriId, 0);
-        if (giuO > 0 && soLuong > co - giuO) {
-            throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("khoVanHanh.keCoSanPhamDangPhanBoNhat", tu.getMaViTri(), giuO, Math.max(0, co - giuO)));
-        }
-        kiemTraSucChua(den, soLuong);
-        nguon.setSoLuong(co - soLuong);
-        tonKhoViTriRepository.save(nguon);
-        cong(khoId, den, ton.getLoHang(), ton.getLoHang().getBienTheSanPham(), BigDecimal.valueOf(soLuong));
-        LoHang lo = ton.getLoHang();
-        if (lo.getViTriKho() != null && tuViTriId.equals(lo.getViTriKho().getId()) && co == soLuong) {
-            lo.setViTriKho(den);
             loHangRepository.save(lo);
         }
     }
