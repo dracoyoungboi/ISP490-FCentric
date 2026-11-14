@@ -956,7 +956,11 @@ public class OmnichannelOrderSyncJob {
         Kho defaultKho = khoHoatDong.stream().filter(KhoService::laKhoTong).findFirst()
                 .orElse(khoHoatDong.stream().filter(k -> !KhoService.laKhoAo(k)).findFirst().orElse(null));
 
-        Instant ngayDat = order.getCreateTime() != null ? Instant.ofEpochMilli(order.getCreateTime() * 1000L) : Instant.now();
+        Instant ngayDat = Instant.now();
+        if (order.getCreateTime() != null) {
+            long ctVal = order.getCreateTime();
+            ngayDat = ctVal > 1_000_000_000_000L ? Instant.ofEpochMilli(ctVal) : Instant.ofEpochSecond(ctVal);
+        }
         int trangThai = TikTokOrderMapper.mapTrangThaiDonHang(order.getStatus());
         String ttThanhToan = TikTokOrderMapper.mapTrangThaiThanhToan(order.getStatus(), order.getPaidTime(), order.getPaymentMethodName());
 
@@ -1524,44 +1528,57 @@ public class OmnichannelOrderSyncJob {
             long timeTo = denNgay != null ? denNgay.getEpochSecond() : Instant.now().getEpochSecond();
             boolean isSandbox = isShopeeSandbox(maKenh);
 
-            com.fasterxml.jackson.databind.JsonNode listRes = shopeeClient.getOrderList(
-                    String.valueOf(partnerId), partnerKey, accessToken, String.valueOf(shopId),
-                    timeFrom, timeTo, "READY_TO_SHIP", 50, null, isSandbox);
-
-            com.fasterxml.jackson.databind.JsonNode orderListNode = listRes.path("response").path("order_list");
             List<String> orderSnList = new ArrayList<>();
-            if (orderListNode.isArray()) {
-                for (com.fasterxml.jackson.databind.JsonNode oNode : orderListNode) {
-                    String sn = oNode.path("order_sn").asText("");
-                    if (!sn.isBlank()) orderSnList.add(sn);
+            String cursor = null;
+            boolean hasMore = true;
+            int pageCount = 0;
+
+            while (hasMore && pageCount < 5) {
+                pageCount++;
+                com.fasterxml.jackson.databind.JsonNode listRes = shopeeClient.getOrderList(
+                        String.valueOf(partnerId), partnerKey, accessToken, String.valueOf(shopId),
+                        timeFrom, timeTo, null, 50, cursor, isSandbox);
+
+                com.fasterxml.jackson.databind.JsonNode orderListNode = listRes.path("response").path("order_list");
+                if (orderListNode.isArray()) {
+                    for (com.fasterxml.jackson.databind.JsonNode oNode : orderListNode) {
+                        String sn = oNode.path("order_sn").asText("");
+                        if (!sn.isBlank() && !orderSnList.contains(sn)) orderSnList.add(sn);
+                    }
                 }
+                hasMore = listRes.path("response").path("more").asBoolean(false);
+                cursor = listRes.path("response").path("next_cursor").asText(null);
+                if (cursor == null || cursor.isBlank()) break;
             }
 
             if (!orderSnList.isEmpty()) {
-                com.fasterxml.jackson.databind.JsonNode detailRes = shopeeClient.getOrderDetail(
-                        String.valueOf(partnerId), partnerKey, accessToken, String.valueOf(shopId),
-                        orderSnList, isSandbox);
+                batDauLuot();
+                try {
+                    for (int i = 0; i < orderSnList.size(); i += 50) {
+                        List<String> batch = orderSnList.subList(i, Math.min(i + 50, orderSnList.size()));
+                        com.fasterxml.jackson.databind.JsonNode detailRes = shopeeClient.getOrderDetail(
+                                String.valueOf(partnerId), partnerKey, accessToken, String.valueOf(shopId),
+                                batch, isSandbox);
 
-                com.fasterxml.jackson.databind.JsonNode details = detailRes.path("response").path("order_list");
-                if (details.isArray()) {
-                    batDauLuot();
-                    try {
-                        for (com.fasterxml.jackson.databind.JsonNode dNode : details) {
-                            com.dev.backend.dto.response.customize.ShopeeOrderDto dto =
-                                    objectMapper.convertValue(dNode, com.dev.backend.dto.response.customize.ShopeeOrderDto.class);
-                            if (dto != null && processSingleShopeeOrder(dto, kenh)) {
-                                synced++;
+                        com.fasterxml.jackson.databind.JsonNode details = detailRes.path("response").path("order_list");
+                        if (details.isArray()) {
+                            for (com.fasterxml.jackson.databind.JsonNode dNode : details) {
+                                com.dev.backend.dto.response.customize.ShopeeOrderDto dto =
+                                        objectMapper.convertValue(dNode, com.dev.backend.dto.response.customize.ShopeeOrderDto.class);
+                                if (dto != null && processSingleShopeeOrder(dto, kenh)) {
+                                    synced++;
+                                }
                             }
                         }
-                    } finally {
-                        ketThucLuot(kenh, synced);
                     }
+                } finally {
+                    ketThucLuot(kenh, synced);
                 }
             }
             if (kenh.getId() != null) lanLayDonCuoi.put(kenh.getId(), Instant.now());
-            log.info("[JOB-01] Quét đơn Shopee Production hoàn tất: {} đơn mới", synced);
+            log.info("[JOB-01] Quét đơn Shopee hoàn tất: {} đơn mới / cập nhật", synced);
         } catch (Exception ex) {
-            log.error("[JOB-01] Lỗi khi quét đơn hàng Shopee Production: {}", ex.getMessage());
+            log.error("[JOB-01] Lỗi khi quét đơn hàng Shopee: {}", ex.getMessage());
         }
         return synced;
     }
@@ -1645,7 +1662,11 @@ public class OmnichannelOrderSyncJob {
         Kho defaultKho = khoHoatDong.stream().filter(KhoService::laKhoTong).findFirst()
                 .orElse(khoHoatDong.stream().filter(k -> !KhoService.laKhoAo(k)).findFirst().orElse(null));
 
-        Instant ngayDat = order.getCreateTime() != null ? Instant.ofEpochMilli(order.getCreateTime() * 1000L) : Instant.now();
+        Instant ngayDat = Instant.now();
+        if (order.getCreateTime() != null) {
+            long ctVal = order.getCreateTime();
+            ngayDat = ctVal > 1_000_000_000_000L ? Instant.ofEpochMilli(ctVal) : Instant.ofEpochSecond(ctVal);
+        }
         int trangThai = mapShopeeOrderStatus(order.getOrderStatus());
         String ttThanhToan = "CASH_ON_DELIVERY".equalsIgnoreCase(order.getPaymentMethod()) ? "chua_thanh_toan" : "da_thanh_toan";
 
