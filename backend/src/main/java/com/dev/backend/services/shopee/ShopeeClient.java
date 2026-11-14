@@ -35,7 +35,7 @@ import java.util.*;
 public class ShopeeClient {
 
     public static final String PRODUCTION_HOST = "https://partner.shopeemobile.com";
-    public static final String SANDBOX_HOST = "https://partner.test-stable.shopeemobile.com";
+    public static final String SANDBOX_HOST = "https://openplatform.sandbox.test-stable.shopee.sg";
     public static final String DEFAULT_CALLBACK_URL = "https://fcentric.net/channels/shopee/callback";
 
     // 1. Auth & Shop Paths
