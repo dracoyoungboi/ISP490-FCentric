@@ -1830,6 +1830,16 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
             }
         }
 
+        String sortingCode = "1-SGN-HUB / AN LẠC";
+        String addrUpper = recipientAddress.toUpperCase();
+        if (addrUpper.contains("HÀ NỘI") || addrUpper.contains("HA NOI") || addrUpper.contains("HN")) {
+            sortingCode = "20-HAN-ĐĐ / ĐỐNG ĐA";
+        } else if (addrUpper.contains("ĐÀ NẴNG") || addrUpper.contains("DA NANG")) {
+            sortingCode = "50-DNG-HC / HẢI CHÂU";
+        } else if (addrUpper.contains("HỒ CHÍ MINH") || addrUpper.contains("HO CHI MINH") || addrUpper.contains("HCM") || addrUpper.contains("SÀI GÒN")) {
+            sortingCode = "1-SGN-HUB / BÌNH TÂN";
+        }
+
         boolean isCod = "chua_thanh_toan".equalsIgnoreCase(don.getTrangThaiThanhToan());
         String codText = isCod ? String.format("%,d ₫", don.getTongCong() != null ? don.getTongCong().longValue() : 0) : "0 ₫ (ĐÃ THANH TOÁN)";
 
@@ -1846,7 +1856,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                         .header-row { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #000; padding-bottom: 4px; margin-bottom: 6px; }
                         .logo-text { font-size: 20px; font-weight: 900; letter-spacing: -0.5px; color: #ee4d2d; }
                         .carrier-tag { font-size: 12px; font-weight: bold; background: #ee4d2d; color: #fff; padding: 3px 8px; border-radius: 3px; }
-                        .sorting-code { font-size: 20px; font-weight: 900; text-align: center; border: 2px dashed #000; padding: 5px; margin-bottom: 6px; letter-spacing: 1px; background: #fafafa; }
+                        .sorting-code { font-size: 18px; font-weight: 900; text-align: center; border: 2px dashed #000; padding: 5px; margin-bottom: 6px; letter-spacing: 1px; background: #fafafa; }
                         .barcode-box { text-align: center; margin: 4px 0 6px 0; border-bottom: 1px dashed #000; padding-bottom: 6px; }
                         .barcode-text { font-family: monospace; font-size: 14px; font-weight: bold; margin-top: 4px; letter-spacing: 1.5px; }
                         .info-section { margin-bottom: 6px; font-size: 11px; }
@@ -1863,7 +1873,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                                 <div class="logo-text">Shopee</div>
                                 <div class="carrier-tag">%s</div>
                             </div>
-                            <div class="sorting-code">20-HAN-ĐĐ / ĐỐNG ĐA</div>
+                            <div class="sorting-code">%s</div>
                             <div class="barcode-box">
                                 %s
                                 <div class="barcode-text">%s</div>
@@ -1912,6 +1922,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                 """.formatted(
                 orderId,
                 carrier,
+                sortingCode,
                 trackingBarcodeSvg,
                 trackingCode,
                 orderId,
