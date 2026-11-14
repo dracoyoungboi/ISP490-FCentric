@@ -338,7 +338,26 @@ function ChiTietDonBanHang({ id }) {
     ].filter(Boolean),
     choGoc,
   );
+  const inVanDonSan = async () => {
+    try {
+      const blob = await donBanHangService.layVanDonSan(id);
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, t("Không thể tải tem vận đơn sàn")));
+    }
+  };
+
   const menu = [
+    laSan && don?.trangThai !== TRANG_THAI_DON.DA_HUY
+      ? {
+        ma: "inVanDonSan",
+        nhan: t("In vận đơn sàn (A6)"),
+        moTa: t("Mở tem in vận chuyển chuẩn sàn"),
+        icon: Printer,
+        onSelect: inVanDonSan,
+      }
+      : null,
     v.menuHoanTra
       ? { ma: "hoanTra", nhan: t("Ghi nhận hoàn trả"), moTa: t("Khách trả lại cả đơn"), icon: Undo2, khoa: choGoc, onSelect: () => moHop("hoanTra") }
       : null,
