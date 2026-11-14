@@ -8,7 +8,8 @@ import java.time.LocalDate;
 
 /**
  * Hóa đơn nhà cung cấp của một phiếu nhập. daNhap = false: chưa nhập hóa đơn (các trường khác null).
- * daKhoa = true: phiếu đã xuất sang kế toán (soLoXuat), không sửa được nữa.
+ * daKhoa = true: phiếu đã xuất sang kế toán (soLoXuat). nhapSauXuat = true: phiếu xuất lúc chưa có hóa đơn, vẫn nhập /
+ * sửa hóa đơn được (không đổi chứng từ đã xuất, chỉ để nhắc kế toán Nhận hóa đơn trên AMIS); false thì không sửa được.
  */
 @Getter
 @Setter
@@ -25,6 +26,7 @@ public class HoaDonDauVaoDto {
     private LocalDate ngayHoaDon;
     private BigDecimal thueSuat;
     private boolean daKhoa;
+    private boolean nhapSauXuat;
     private String soLoXuat;
     private Instant ngayCapNhat;
 }

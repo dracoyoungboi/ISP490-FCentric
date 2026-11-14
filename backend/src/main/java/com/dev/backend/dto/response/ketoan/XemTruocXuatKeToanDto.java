@@ -50,6 +50,8 @@ public class XemTruocXuatKeToanDto {
         private int soDong;
         private BigDecimal truocThue;
         private BigDecimal thue;
+        /** Thuế của phiếu mua chưa có hóa đơn, kế toán ghi khi Nhận hóa đơn trên AMIS. */
+        private BigDecimal thueChoHoaDon;
         private BigDecimal tongCong;
     }
 
