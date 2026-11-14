@@ -6,7 +6,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 
-/** Một chứng từ trong lô xuất kế toán; trangThai da_xuat (đang khóa) hoặc da_mo_khoa. */
+/** Một chứng từ trong lô xuất kế toán; trangThai da_xuat (đang khóa), da_mo_khoa hoặc da_huy_lo (lô đã hủy). */
 @Getter
 @Setter
 @NoArgsConstructor

@@ -11,8 +11,9 @@ import java.time.LocalDate;
 
 /**
  * Cấu hình xuất dữ liệu kế toán — bảng một dòng (id luôn = 1).
- * Tài khoản mặc định lấy theo hệ thống tài khoản TT 99/2025 của AMIS Kế toán doanh nghiệp (156 và 511 không có
- * tài khoản con); kế toán sửa lại cho khớp danh mục tài khoản của doanh nghiệp (AMIS chỉ nhận tài khoản chi tiết nhất).
+ * Tài khoản mặc định lấy theo hệ thống tài khoản TT 99/2025 của AMIS Kế toán doanh nghiệp, đã nhập thử 14/11/2026: 111,
+ * 112, 156 không có tài khoản con; 511 và 521 có (AMIS từ chối tài khoản tổng hợp, nên mặc định 5111, 5211). Kế toán sửa
+ * lại cho khớp danh mục tài khoản của doanh nghiệp (AMIS chỉ nhận tài khoản chi tiết nhất).
  */
 @AllArgsConstructor
 @Getter
@@ -62,6 +63,15 @@ public class CauHinhKeToan {
     String tkPhaiTra;
     @NotNull @Size(max = 20) @Column(name = "tk_thue_dau_vao", nullable = false, length = 20)
     String tkThueDauVao;
+    /** Hàng bán bị trả lại (cột "TK trả lại" của chứng từ Hàng bán trả lại). */
+    @NotNull @Size(max = 20) @Column(name = "tk_tra_lai", nullable = false, length = 20)
+    String tkTraLai;
+    /** Tài sản thiếu chờ xử lý: TK Nợ của phiếu xuất kho khác (kiểm kê thiếu, hao hụt chuyển kho, xuất khác). */
+    @NotNull @Size(max = 20) @Column(name = "tk_hang_thieu", nullable = false, length = 20)
+    String tkHangThieu;
+    /** Tài sản thừa chờ giải quyết: TK Có của phiếu nhập kho khác (kiểm kê thừa, nhập khác). */
+    @NotNull @Size(max = 20) @Column(name = "tk_hang_thua", nullable = false, length = 20)
+    String tkHangThua;
 
     /** Mã hàng (tính chất Dịch vụ) của dòng phí vận chuyển thu khách trên chứng từ bán hàng. */
     @NotNull @Size(max = 50) @Column(name = "ma_dich_vu_van_chuyen", nullable = false, length = 50)
@@ -72,6 +82,14 @@ public class CauHinhKeToan {
     /** Hình thức của bước xuất chuyển kho (kho nguồn → kho Hàng đang chuyển) trên AMIS. */
     @NotNull @Size(max = 50) @Column(name = "hinh_thuc_chuyen_kho", nullable = false, length = 50)
     String hinhThucChuyenKho;
+
+    /**
+     * Mốc bắt đầu tự dựng phiếu nhập / xuất kho khác và chứng từ trả hàng tại quầy (migration 14/11/2026 ghi lúc chạy, khi
+     * đã có lô xuất). Biến động trước mốc này đã nằm ở danh sách "lập tay" của các lô cũ nên không dựng lại. NULL = tự dựng
+     * từ ngày mốc. Không sửa trên giao diện.
+     */
+    @Column(name = "tu_dong_tu")
+    Instant tuDongTu;
 
     /** Số tài khoản nhận tiền chuyển khoản tại quầy (cột "Nộp vào TK"); phải là tài khoản đã khai báo trên AMIS. */
     @Size(max = 30) @Column(name = "so_tk_ngan_hang_nhan", length = 30)

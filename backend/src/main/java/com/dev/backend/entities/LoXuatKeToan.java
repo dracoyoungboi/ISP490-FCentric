@@ -24,6 +24,10 @@ import java.time.LocalDate;
 @Entity
 @Table(name = "lo_xuat_ke_toan")
 public class LoXuatKeToan {
+    public static final String TRANG_THAI_HIEU_LUC = "hieu_luc";
+    /** Đã hủy: chứng từ của lô quay về "chưa xuất"; tệp nén giữ lại làm bằng chứng. */
+    public static final String TRANG_THAI_DA_HUY = "da_huy";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
@@ -92,4 +96,19 @@ public class LoXuatKeToan {
 
     @Column(name = "ngay_tao")
     Instant ngayTao;
+
+    @NotNull @Size(max = 20)
+    @Column(name = "trang_thai", nullable = false, length = 20)
+    String trangThai;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "nguoi_huy_id")
+    NguoiDung nguoiHuy;
+
+    @Column(name = "huy_luc")
+    Instant huyLuc;
+
+    @Size(max = 500)
+    @Column(name = "ly_do_huy", length = 500)
+    String lyDoHuy;
 }

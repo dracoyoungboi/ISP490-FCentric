@@ -770,8 +770,6 @@
   "Lưu hóa đơn": "Save invoice",
   "Ký hiệu": "Series",
   "Nhà cung cấp không xuất hóa đơn GTGT cho phiếu này.": "The supplier didn't issue a VAT invoice for this note.",
-  "Chưa nhập hóa đơn. Phiếu đã sang kế toán ở dạng \"Không kèm hóa đơn\", giá nhập tách thuế theo mức chung.": "No invoice entered. The note was sent to accounting as \"No invoice\", with tax split from the purchase price at the standard rate.",
-  "Chưa nhập hóa đơn. Nếu xuất sang kế toán lúc này, phiếu đi ở dạng \"Không kèm hóa đơn\" và giá nhập tách thuế theo mức chung.": "No invoice entered. If exported to accounting now, the note goes as \"No invoice\" and tax is split from the purchase price at the standard rate.",
   "Đã xuất sang kế toán ở lô {{soLoXuat}}, không sửa được. Quản trị viên mở khóa chứng từ ở màn Xuất dữ liệu kế toán nếu cần.": "Exported to accounting in batch {{soLoXuat}}; it can't be edited. An administrator can unlock the document on the Accounting export screen if needed.",
   "Bớt 1 {{nhan}}": "Decrease {{nhan}} by 1",
   "Thêm 1 {{nhan}}": "Increase {{nhan}} by 1",
@@ -1311,5 +1309,9 @@
   "Chưa xếp kệ": "Not shelved yet",
   "Nghiệp vụ": "Activity",
   "Phiếu trả hàng": "Return slip",
-  "Hàng rời kho trung chuyển để nhập vào kho nhận": "Left the transit warehouse for the receiving warehouse"
+  "Hàng rời kho trung chuyển để nhập vào kho nhận": "Left the transit warehouse for the receiving warehouse",
+  "Chưa nhập hóa đơn. Phiếu đã sang kế toán ở dạng \"Không kèm hóa đơn\": AMIS ghi giá trị hàng đã tách thuế theo mức chung, thuế chờ hóa đơn. Nhận được hóa đơn thì nhập ở đây để nhắc kế toán.": "No invoice yet. This receipt went to accounting as \"Received without invoice\": AMIS records the goods value with VAT split out at the standard rate, and the VAT waits for the invoice. Enter the invoice here when it arrives so the accountant is reminded.",
+  "Chưa nhập hóa đơn. Nếu xuất sang kế toán lúc này, phiếu đi ở dạng \"Không kèm hóa đơn\": AMIS ghi giá trị hàng đã tách thuế theo mức chung, thuế chờ hóa đơn.": "No invoice yet. If exported to accounting now, the receipt goes as \"Received without invoice\": AMIS records the goods value with VAT split out at the standard rate, and the VAT waits for the invoice.",
+  "Phiếu đã sang kế toán ở lô {{soLoXuat}} dạng \"Không kèm hóa đơn\". Lưu hóa đơn ở đây không đổi chứng từ đã xuất; lô xuất tiếp theo sẽ nhắc kế toán Nhận hóa đơn trên AMIS.": "This receipt went to accounting in batch {{soLoXuat}} as \"Received without invoice\". Saving the invoice here doesn't change the exported document; the next export batch reminds the accountant to receive the invoice in AMIS.",
+  "Đã xuất sang kế toán ở lô {{soLoXuat}} dạng \"Không kèm hóa đơn\". Hóa đơn nhập sau không đổi chứng từ đã xuất; lô xuất tiếp theo nhắc kế toán Nhận hóa đơn trên AMIS.": "Exported to accounting in batch {{soLoXuat}} as \"Received without invoice\". An invoice entered later doesn't change the exported document; the next export batch reminds the accountant to receive it in AMIS."
 }

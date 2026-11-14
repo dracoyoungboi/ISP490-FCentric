@@ -1,6 +1,6 @@
 import { Fragment, createElement, useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { AlertTriangle, Calendar, ChevronDown, ChevronRight, Download, FileSpreadsheet, Info, Loader2, Lock, LockOpen, Search, Settings, XCircle } from "lucide-react";
+import { AlertTriangle, Ban, Calendar, ChevronDown, ChevronRight, Download, FileSpreadsheet, Info, Loader2, Lock, LockOpen, Search, Settings, XCircle } from "lucide-react";
 import PageContainer from "@/components/backoffice/PageContainer";
 import TableShell from "@/components/shared/TableShell";
 import EmptyState from "@/components/shared/EmptyState";
@@ -20,10 +20,13 @@ import { keToanService } from "@/services/keToanService";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { formatCurrency, formatDateTime } from "@/utils/formatters";
 import {
+  coThue,
+  coTien,
   congTongHop,
   dinhDangKichThuoc,
   hienNgay,
   homQuaIso,
+  loCoTheHuy,
   ngayIso,
   nhomTheoLoai,
   tenLoai,
@@ -143,6 +146,90 @@ function HopMoKhoa({ chungTu, onDong, onXong, onLoiXungDot }) {
   );
 }
 
+/**
+ * Hộp hủy lô (chỉ lô còn hiệu lực mới nhất): bắt nhập lý do (ghi nhật ký) và xác nhận kế toán chưa nhập lô vào AMIS hoặc đã
+ * xóa các chứng từ của lô trên AMIS — không thì lô mới nhập vào bị trùng chứng từ.
+ */
+function HopHuyLo({ lo, onDong, onXong, onLoiXungDot }) {
+  const [lyDo, setLyDo] = useState("");
+  const [daKiem, setDaKiem] = useState(false);
+  const [dangHuy, setDangHuy] = useState(false);
+  const [loiXacNhan, setLoiXacNhan] = useState("");
+  const [loiLyDo, setLoiLyDo] = useState("");
+  const [loi, setLoi] = useState("");
+  const dangGuiRef = useRef(false);
+
+  const xacNhan = async (event) => {
+    event.preventDefault();
+    if (dangGuiRef.current) return;
+    // Kiểm theo đúng thứ tự trên màn: ô xác nhận rồi lý do
+    const thieuXacNhan = !daKiem ? t("Đánh dấu ô xác nhận trước khi hủy lô") : "";
+    const thieuLyDo = !lyDo.trim() ? t("Nhập lý do hủy lô") : "";
+    setLoiXacNhan(thieuXacNhan);
+    setLoiLyDo(thieuLyDo);
+    setLoi("");
+    if (thieuXacNhan || thieuLyDo) return;
+    dangGuiRef.current = true;
+    setDangHuy(true);
+    try {
+      const kq = await keToanService.huyLo(lo.id, lyDo.trim());
+      toast.success(t("Đã hủy lô {{soLo}}. Chứng từ của lô sẽ vào lô sau.", { soLo: lo.soLo }));
+      onXong(kq);
+    } catch (e) {
+      // Người khác vừa hủy lô này hoặc vừa tạo lô mới hơn: tải lại danh sách để thấy đúng lô hủy được
+      if (e?.response?.status === 409) onLoiXungDot();
+      setLoi(getApiErrorMessage(e, t("Không hủy được lô")));
+    } finally {
+      dangGuiRef.current = false;
+      setDangHuy(false);
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={(mo) => !mo && !dangHuy && onDong()}>
+      <DialogContent className="flex flex-col gap-0 rounded-xl border-bo-border p-0 sm:max-w-[540px]">
+        <form onSubmit={xacNhan} noValidate>
+          <div className="border-b border-bo-border px-6 py-4">
+            <DialogTitle className="text-base font-semibold text-bo-foreground">{t("Hủy lô {{soLo}}", { soLo: lo.soLo })}</DialogTitle>
+            <DialogDescription className="mt-1 text-[13px] leading-5 text-bo-muted">
+              {t("Mọi chứng từ của lô quay về \"chưa xuất\" và vào lô sau. Tệp nén vẫn giữ để đối chiếu. Lần hủy được ghi nhật ký.")}
+            </DialogDescription>
+          </div>
+          <div className="flex flex-col gap-3 px-6 py-4">
+            <div className="flex flex-col gap-1">
+              <label className="flex items-start gap-2 text-[13px] leading-5 text-bo-foreground">
+                <input type="checkbox" checked={daKiem} autoFocus
+                  onChange={(e) => { setDaKiem(e.target.checked); setLoiXacNhan(""); setLoi(""); }}
+                  className="mt-0.5 size-4 shrink-0 accent-bo-primary"
+                  aria-invalid={loiXacNhan ? true : undefined} aria-describedby={loiXacNhan ? "xac-nhan-huy-lo-loi" : undefined} />
+                <span>{t("Kế toán chưa nhập lô này vào AMIS, hoặc đã xóa trên AMIS mọi chứng từ của lô.")}</span>
+              </label>
+              {loiXacNhan ? <p id="xac-nhan-huy-lo-loi" role="alert" className="pl-6 text-xs text-bo-danger">{loiXacNhan}</p> : null}
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="ly-do-huy-lo" className="text-sm font-medium text-bo-foreground">{t("Lý do")}</label>
+              <Textarea id="ly-do-huy-lo" rows={3} maxLength={500} value={lyDo}
+                onChange={(e) => { setLyDo(e.target.value); setLoiLyDo(""); setLoi(""); }}
+                placeholder={t("VD: Nhập vào AMIS bị lỗi, cần sửa đơn rồi xuất lại")}
+                className="resize-y border-bo-border bg-white text-sm"
+                aria-invalid={loiLyDo ? true : undefined} aria-describedby={loiLyDo ? "ly-do-huy-lo-loi" : undefined} />
+              {loiLyDo ? <p id="ly-do-huy-lo-loi" role="alert" className="text-xs text-bo-danger">{loiLyDo}</p> : null}
+            </div>
+            {loi ? <p role="alert" className="text-xs text-bo-danger">{loi}</p> : null}
+          </div>
+          <div className="flex justify-end gap-2 border-t border-bo-border bg-bo-surface-subtle px-6 py-3">
+            <Button type="button" variant="outline" onClick={onDong} disabled={dangHuy} className={NUT_PHU}>{t("Quay lại")}</Button>
+            <Button type="submit" disabled={dangHuy} className="h-9 gap-2 bg-bo-danger px-4 text-white hover:bg-bo-danger-strong">
+              {dangHuy ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Ban className="size-4" aria-hidden="true" />}
+              {t("Hủy lô")}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 /** Chứng từ của một lô, nhóm theo loại; mỗi chứng từ còn khóa có nút mở khóa. */
 function ChungTuCuaLo({ lo, onDaMoKhoa }) {
   const [ds, setDs] = useState(null);
@@ -185,12 +272,17 @@ function ChungTuCuaLo({ lo, onDaMoKhoa }) {
               <tbody>
                 {nhom.chungTu.map((ct) => (
                   <tr key={ct.id} className="border-b border-slate-100 last:border-0">
-                    <td className="w-[220px] px-3 py-2 font-medium whitespace-nowrap">{ct.soChungTu}</td>
+                    <td className="w-[220px] px-3 py-2 font-medium whitespace-nowrap">
+                      {ct.soChungTu}
+                      {tenLoai(ct.loai) !== nhom.ten ? <span className="block text-[11px] font-normal text-bo-muted">{tenLoai(ct.loai)}</span> : null}
+                    </td>
                     <td className="w-[110px] px-3 py-2 tabular-nums">{hienNgay(ct.ngayHachToan)}</td>
                     <td className="w-[150px] px-3 py-2 text-right tabular-nums">{Number(ct.tongTien) ? tien(ct.tongTien) : ""}</td>
                     <td className="px-3 py-2">
                       {ct.trangThai === "da_xuat" ? (
                         <span className="inline-flex items-center gap-1 text-xs text-bo-muted"><Lock className="size-3.5" aria-hidden="true" />{t("Đang khóa")}</span>
+                      ) : ct.trangThai === "da_huy_lo" ? (
+                        <span className="text-xs text-bo-muted">{t("Lô đã hủy, chứng từ vào lô sau")}</span>
                       ) : (
                         <span className="text-xs text-bo-warning">
                           {t("Đã mở khóa")} {ct.moKhoaLuc ? formatDateTime(ct.moKhoaLuc) : ""}{ct.nguoiMoKhoa ? ` · ${ct.nguoiMoKhoa}` : ""}
@@ -249,6 +341,7 @@ export default function XuatDuLieuKeToan() {
   const [loiLo, setLoiLo] = useState(null);
   const [loMo, setLoMo] = useState(null);
   const [dangTai, setDangTai] = useState(null);
+  const [huyLo, setHuyLo] = useState(null);
 
   const kiemTra = useCallback(async () => {
     const lan = ++lanKiemRef.current;
@@ -322,6 +415,7 @@ export default function XuatDuLieuKeToan() {
   };
 
   const tong = xemTruoc ? congTongHop(xemTruoc.tongHop) : null;
+  const loHuyDuoc = dsLo ? loCoTheHuy(dsLo) : null;
   const ban = xemTruoc?.tongHop?.find((tt) => tt.loai === "ban_hang");
   const dc = xemTruoc?.doiChieu;
 
@@ -405,9 +499,14 @@ export default function XuatDuLieuKeToan() {
                         <td className={cn(TD, "font-medium")}>{t(tt.ten)}</td>
                         <td className={cn(TD, SO)}>{tt.soChungTu}</td>
                         <td className={cn(TD, SO)}>{tt.soDong}</td>
-                        <td className={cn(TD, SO)}>{tt.loai.startsWith("chuyen_kho") ? "—" : tien(tt.truocThue)}</td>
-                        <td className={cn(TD, SO)}>{tt.loai === "ban_hang" || tt.loai === "mua_hang" ? tien(tt.thue) : "—"}</td>
-                        <td className={cn(TD, SO)}>{tt.loai.startsWith("chuyen_kho") ? "—" : tien(tt.tongCong)}</td>
+                        <td className={cn(TD, SO)}>{coTien(tt.loai) ? tien(tt.truocThue) : "—"}</td>
+                        <td className={cn(TD, SO)}>
+                          {coThue(tt.loai) ? tien(tt.thue) : "—"}
+                          {Number(tt.thueChoHoaDon) > 0 ? (
+                            <span className="block text-[11px] text-bo-muted">{t("+{{tien}} chờ hóa đơn", { tien: tien(tt.thueChoHoaDon) })}</span>
+                          ) : null}
+                        </td>
+                        <td className={cn(TD, SO)}>{coTien(tt.loai) ? tien(tt.tongCong) : "—"}</td>
                       </tr>
                     ))}
                     {xemTruoc.tongHop.length === 0 ? (
@@ -423,9 +522,9 @@ export default function XuatDuLieuKeToan() {
             <NhomVanDe tone="canh" icon={AlertTriangle} ds={xemTruoc.canhBao} tieuDe={t("Cảnh báo")}
               moTa={t("Vẫn xuất, nhưng nên xem trước khi giao kế toán.")} />
             <NhomVanDe tone="canh" icon={AlertTriangle} ds={xemTruoc.bienDongKho} tieuDe={t("Biến động kho cần lập tay")}
-              moTa={t("Kiểm kê, xuất khác… không có chứng từ trong lô. Kế toán lập tay trên AMIS trước khi nhập bán hàng, không thì AMIS báo xuất quá tồn.")} />
+              moTa={t("Hàng hoàn của đơn bán, xuất bán của đơn đã hủy… không có chứng từ trong lô. Kế toán lập tay trên AMIS trước khi nhập xuất kho khác và bán hàng, không thì AMIS báo xuất quá tồn.")} />
             <NhomVanDe tone="tin" icon={Info} ds={xemTruoc.phatSinhSauXuat} tieuDe={t("Phát sinh sau khi xuất")}
-              moTa={t("Đơn đã giao kế toán rồi bị hoàn trả: kế toán lập Hàng bán trả lại trên AMIS.")} />
+              moTa={t("Chứng từ đã giao kế toán rồi có thay đổi: phiếu mua nay mới có hóa đơn, đơn bị hoàn trả trước ngày 14/11/2026. Kế toán làm trên AMIS theo từng dòng.")} />
 
             {dc ? (
               <section className="rounded-lg border border-bo-border bg-white px-4 py-3">
@@ -445,7 +544,7 @@ export default function XuatDuLieuKeToan() {
                   </dd>
                 </dl>
                 {Number(dc.chenhLech) !== 0 ? (
-                  <p className="mt-2 text-xs text-bo-muted">{t("Chênh lệch khác 0 khi có đơn đã giao kế toán rồi bị hoàn trả (báo cáo bỏ đơn đó, kế toán vẫn có).")}</p>
+                  <p className="mt-2 text-xs text-bo-muted">{t("Chênh lệch khác 0 khi có đơn hoàn trả hoặc phiếu trả tại quầy mà kế toán lập tay (đơn hoàn trả trước 14/11/2026, phiếu trả trước khi có chức năng tự dựng).")}</p>
                 ) : null}
               </section>
             ) : null}
@@ -503,9 +602,16 @@ export default function XuatDuLieuKeToan() {
                         </button>
                       </td>
                       <td className={cn(TD, "font-medium")}>
-                        <span className="whitespace-nowrap">{lo.soLo}</span>
+                        <span className={cn("whitespace-nowrap", lo.trangThai === "da_huy" && "text-bo-muted line-through")}>{lo.soLo}</span>
+                        {lo.trangThai === "da_huy" ? <span className="ml-2 rounded-[3px] bg-bo-danger-soft px-1.5 py-0.5 text-[11px] font-semibold whitespace-nowrap text-bo-danger">{t("Đã hủy")}</span> : null}
                         {lo.coTonDauKy ? <span className="ml-2 rounded-[3px] bg-bo-primary-soft px-1.5 py-0.5 text-[11px] font-semibold whitespace-nowrap text-bo-primary">{t("Có tồn đầu kỳ")}</span> : null}
                         {lo.ghiChu ? <span className="block text-xs font-normal text-bo-muted">{lo.ghiChu}</span> : null}
+                        {lo.trangThai === "da_huy" ? (
+                          <span className="block text-xs font-normal text-bo-muted">
+                            {t("Hủy lúc {{luc}}", { luc: formatDateTime(lo.huyLuc) })}{lo.nguoiHuy ? ` — ${lo.nguoiHuy}` : ""}
+                            {lo.lyDoHuy ? <span className="block">{lo.lyDoHuy}</span> : null}
+                          </span>
+                        ) : null}
                       </td>
                       <td className={cn(TD, "tabular-nums")}>{formatDateTime(lo.ngayTao)}<span className="block text-xs text-bo-muted">{lo.nguoiTao}</span></td>
                       <td className={cn(TD, "tabular-nums")}>{hienNgay(lo.denNgay)}</td>
@@ -519,11 +625,20 @@ export default function XuatDuLieuKeToan() {
                         </span>
                       </td>
                       <td className={cn(TD, "text-right")}>
-                        <Button variant="outline" size="sm" onClick={() => taiTep(lo)} disabled={dangTai === lo.id} className={NUT_PHU}
-                          aria-label={t("Tải tệp của lô {{soLo}}", { soLo: lo.soLo })}>
-                          {dangTai === lo.id ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Download className="size-4" aria-hidden="true" />}
-                          {t("Tải tệp")}
-                        </Button>
+                        <div className="flex flex-col items-end gap-1.5">
+                          <Button variant="outline" size="sm" onClick={() => taiTep(lo)} disabled={dangTai === lo.id} className={NUT_PHU}
+                            aria-label={t("Tải tệp của lô {{soLo}}", { soLo: lo.soLo })}
+                            title={lo.trangThai === "da_huy" ? t("Lô đã hủy: tệp chỉ để đối chiếu, không nhập lại vào AMIS") : undefined}>
+                            {dangTai === lo.id ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Download className="size-4" aria-hidden="true" />}
+                            {t("Tải tệp")}
+                          </Button>
+                          {loHuyDuoc?.id === lo.id ? (
+                            <button type="button" onClick={() => setHuyLo(lo)} aria-label={t("Hủy lô {{soLo}}", { soLo: lo.soLo })}
+                              className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium text-bo-danger hover:bg-bo-danger-soft focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bo-primary">
+                              <Ban className="size-3.5" aria-hidden="true" />{t("Hủy lô")}
+                            </button>
+                          ) : null}
+                        </div>
                       </td>
                     </tr>
                     {loMo === lo.id ? (
@@ -541,6 +656,24 @@ export default function XuatDuLieuKeToan() {
           </div>
         </TableShell>
       )}
+
+      {huyLo ? (
+        <HopHuyLo
+          lo={huyLo}
+          onDong={() => setHuyLo(null)}
+          onLoiXungDot={() => {
+            setXemTruoc(null);
+            taiDanhSachLo();
+          }}
+          onXong={(kq) => {
+            setDsLo((cu) => (cu ? cu.map((l) => (l.id === kq.id ? kq : l)) : cu));
+            setHuyLo(null);
+            // Chứng từ của lô quay về chưa xuất: kết quả kiểm tra cũ ở tab Tạo lô không còn đúng
+            setXemTruoc(null);
+            if (loMo === kq.id) setLoMo(null);
+          }}
+        />
+      ) : null}
 
       <ConfirmModal
         isOpen={moXacNhan}

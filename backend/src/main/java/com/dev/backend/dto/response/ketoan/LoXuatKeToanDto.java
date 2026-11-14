@@ -29,4 +29,9 @@ public class LoXuatKeToanDto {
     private String ghiChu;
     private String nguoiTao;
     private Instant ngayTao;
+    /** hieu_luc · da_huy */
+    private String trangThai;
+    private String nguoiHuy;
+    private Instant huyLuc;
+    private String lyDoHuy;
 }
