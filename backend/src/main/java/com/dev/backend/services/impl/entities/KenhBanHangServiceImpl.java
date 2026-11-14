@@ -816,7 +816,14 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
             }
 
             Long soNgayCon = null;
-            if (kenh.getTokenExpiresAt() != null) {
+            Instant hanUyQuyen = kenh.getTokenExpiresAt();
+            if ((isOfficial || isSandbox) && kenh.getRefreshToken() != null && !kenh.getRefreshToken().isBlank()) {
+                // Shopee OAuth cấp refresh token dài hạn (365 ngày), hệ thống tự động làm mới access token định kỳ
+                Instant batDau = kenh.getNgayCapNhat() != null ? kenh.getNgayCapNhat() : Instant.now();
+                hanUyQuyen = batDau.plus(Duration.ofDays(365));
+                long seconds = Duration.between(Instant.now(), hanUyQuyen).getSeconds();
+                soNgayCon = Math.max(0L, seconds / 86400L);
+            } else if (kenh.getTokenExpiresAt() != null) {
                 long seconds = Duration.between(Instant.now(), kenh.getTokenExpiresAt()).getSeconds();
                 soNgayCon = Math.max(0L, seconds / 86400L);
             } else if (!isOfficial && !isSandbox && hasShopId) {
@@ -841,7 +848,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                     .hasAccessToken(hasToken)
                     .accessTokenMasked(maskedToken)
                     .tokenExpiresAt(kenh.getTokenExpiresAt())
-                    .hanUyQuyen(kenh.getTokenExpiresAt())
+                    .hanUyQuyen(hanUyQuyen)
                     .soNgayConUyQuyen(soNgayCon)
                     .ngayUyQuyen(kenh.getNgayCapNhat())
                     .tenGianHang(kenh.getTenKenh())
