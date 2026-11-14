@@ -500,7 +500,12 @@ export default function XuatDuLieuKeToan() {
                         <td className={cn(TD, SO)}>{tt.soChungTu}</td>
                         <td className={cn(TD, SO)}>{tt.soDong}</td>
                         <td className={cn(TD, SO)}>{coTien(tt.loai) ? tien(tt.truocThue) : "—"}</td>
-                        <td className={cn(TD, SO)}>{coThue(tt.loai) ? tien(tt.thue) : "—"}</td>
+                        <td className={cn(TD, SO)}>
+                          {coThue(tt.loai) ? tien(tt.thue) : "—"}
+                          {Number(tt.thueChoHoaDon) > 0 ? (
+                            <span className="block text-[11px] text-bo-muted">{t("+{{tien}} chờ hóa đơn", { tien: tien(tt.thueChoHoaDon) })}</span>
+                          ) : null}
+                        </td>
                         <td className={cn(TD, SO)}>{coTien(tt.loai) ? tien(tt.tongCong) : "—"}</td>
                       </tr>
                     ))}
@@ -519,7 +524,7 @@ export default function XuatDuLieuKeToan() {
             <NhomVanDe tone="canh" icon={AlertTriangle} ds={xemTruoc.bienDongKho} tieuDe={t("Biến động kho cần lập tay")}
               moTa={t("Hàng hoàn của đơn bán, xuất bán của đơn đã hủy… không có chứng từ trong lô. Kế toán lập tay trên AMIS trước khi nhập xuất kho khác và bán hàng, không thì AMIS báo xuất quá tồn.")} />
             <NhomVanDe tone="tin" icon={Info} ds={xemTruoc.phatSinhSauXuat} tieuDe={t("Phát sinh sau khi xuất")}
-              moTa={t("Đơn đã giao kế toán rồi bị hoàn trả trước ngày 14/11/2026 (chưa có nhật ký hoàn trả): kế toán lập Hàng bán trả lại trên AMIS.")} />
+              moTa={t("Chứng từ đã giao kế toán rồi có thay đổi: phiếu mua nay mới có hóa đơn, đơn bị hoàn trả trước ngày 14/11/2026. Kế toán làm trên AMIS theo từng dòng.")} />
 
             {dc ? (
               <section className="rounded-lg border border-bo-border bg-white px-4 py-3">
