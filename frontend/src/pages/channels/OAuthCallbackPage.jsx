@@ -49,7 +49,7 @@ function TrangQuayVe({ san }) {
   // Có mã mà không có state: TikTok Shop bắt buộc state; Lazada và Shopee cho phép xử lý bằng mã code
   // vì mã code chỉ dùng được một lần và máy chủ xác thực chữ ký HMAC-SHA256 với Open Platform.
   const isLazadaAny = san.maKenh === "LAZADA" || san.maKenh === "LAZADA_SANDBOX";
-  const isShopeeAny = san.maKenh === "SHOPEE_OFFICIAL" || san.maKenh === "SHOPEE_SANDBOX";
+  const isShopeeAny = san.maKenh === "SHOPEE_OFFICIAL" || san.maKenh === "SHOPEE_SANDBOX" || san.maKenh === "SHOPEE";
   const thieuPhien = !ketQuaTruoc && !tuChoi && !maPhien && !isLazadaAny && !isShopeeAny;
   const [ketQua, setKetQua] = useState(null); // { loai: "xong" | "phien" | "khac" | "loi" | "tu_choi", dto?, message?, giaHan? }
   const guiRef = useRef(null);

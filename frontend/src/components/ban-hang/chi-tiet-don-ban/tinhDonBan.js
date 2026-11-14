@@ -75,7 +75,7 @@ export const laDonLazada = (don) => {
  * Đơn sàn Shopee / Shopee Sandbox: bắt buộc chỉ xuất từ Kho Tổng (khớp OmnichannelOrderSyncJob.isShopee). Chỉ nhận theo
  * mã kênh: Shopify và Shopee cùng tiền tố số đơn "SHP-", đoán theo số đơn sẽ khóa đơn Shopify vào Kho Tổng.
  */
-export const laDonShopee = (don) => ["SHOPEE", "SHOPEE_SANDBOX"].includes(maKenhCua(don));
+export const laDonShopee = (don) => ["SHOPEE", "SHOPEE_SANDBOX", "SHOPEE_OFFICIAL"].includes(maKenhCua(don));
 
 /** Tên sàn để ghép câu ("Shopify"); thiếu thì "sàn". */
 export const tenKenhCua = (don) => String(don?.kenhBanHang?.tenKenh ?? "").trim() || t("sàn");
