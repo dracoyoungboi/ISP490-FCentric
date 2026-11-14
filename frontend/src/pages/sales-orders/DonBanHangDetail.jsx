@@ -339,11 +339,28 @@ function ChiTietDonBanHang({ id }) {
     choGoc,
   );
   const inVanDonSan = async () => {
+    // Mở tab trước ngay lập tức khi click để trình duyệt không chặn popup
+    const popup = window.open("", "_blank");
+    if (popup) {
+      popup.document.write(`
+        <!DOCTYPE html><html><head><meta charset="utf-8"/><title>${t("Đang tải vận đơn...")}</title>
+        <style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f8fafc;color:#1e293b;}
+        .box{text-align:center;padding:24px 32px;border:1px solid #e2e8f0;background:#fff;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.06);max-width:400px;}
+        .spinner{width:36px;height:36px;border:3px solid #f1f5f9;border-top-color:#ee4d2d;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 16px auto;}
+        @keyframes spin{to{transform:rotate(360deg);}}</style></head>
+        <body><div class="box"><div class="spinner"></div><h3 style="margin:0 0 8px 0;font-size:16px;">${t("Đang kết nối tải vận đơn sàn A6...")}</h3><p style="margin:0;color:#64748b;font-size:13px;line-height:1.4;">${t("Hệ thống đang chuẩn bị tem vận chuyển chuẩn sàn. Vui lòng đợi trong giây lát...")}</p></div></body></html>
+      `);
+    }
     try {
       const blob = await donBanHangService.layVanDonSan(id);
       const url = URL.createObjectURL(blob);
-      window.open(url, "_blank");
+      if (popup) {
+        popup.location.href = url;
+      } else {
+        window.open(url, "_blank");
+      }
     } catch (err) {
+      if (popup) popup.close();
       toast.error(getApiErrorMessage(err, t("Không thể tải tem vận đơn sàn")));
     }
   };
