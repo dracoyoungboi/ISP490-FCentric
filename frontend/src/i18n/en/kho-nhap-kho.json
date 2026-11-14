@@ -1282,5 +1282,10 @@
   "Đã thêm kệ {{ma}}: cất {{so}} sản phẩm._one": "Added shelf {{ma}}: putting away {{so}} product.",
   "Đã thêm kệ {{ma}}: cất {{so}} sản phẩm._other": "Added shelf {{ma}}: putting away {{so}} products.",
   "Vừa quét {{ma}}: thiếu chỗ. Chọn cách xử lý ở cột Kệ đích.": "Scanned {{ma}}: not enough room. Choose what to do under Destination shelf.",
-  "Lượt chuyển kệ": "Shelf transfer"
+  "Lượt chuyển kệ": "Shelf transfer",
+  "Từ kệ {{tu}} sang kệ {{den}}": "From shelf {{tu}} to shelf {{den}}",
+  "Phiếu chuyển kệ": "Shelf transfer",
+  "Mở phiếu ở Lịch sử chuyển kệ": "Open this transfer in Shelf transfer history",
+  "Chỉ đổi chỗ trong kho. Tồn của lô ở {{kho}} giữ nguyên {{so}}.": "Moved within the warehouse only. Lot stock at {{kho}} stays at {{so}}.",
+  "sản phẩm_one": "product"
 }
