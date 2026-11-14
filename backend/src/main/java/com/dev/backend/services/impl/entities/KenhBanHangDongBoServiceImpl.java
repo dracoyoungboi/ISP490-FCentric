@@ -6669,6 +6669,59 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             log.warn("[SHOPEE-AUTO-LINK] Không thể lấy danh sách sản phẩm từ Shopee để ghép nối: {}", ex.getMessage());
         }
 
+        // 1. Xác định kênh vận chuyển Shopee khả dụng
+        Long logisticsChannelId = 80001L; // Mặc định Nhanh (Standard)
+        try {
+            JsonNode lRes = client.getLogisticsChannelList();
+            JsonNode channels = lRes.path("response").path("logistics_channel_list");
+            if (channels.isArray() && !channels.isEmpty()) {
+                for (JsonNode cNode : channels) {
+                    if (cNode.path("enabled").asBoolean(false)) {
+                        logisticsChannelId = cNode.path("logistics_channel_id").asLong();
+                        break;
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("[SHOPEE-LOGISTICS] Không thể lấy kênh vận chuyển từ Shopee, dùng mặc định {}: {}", logisticsChannelId, ex.getMessage());
+        }
+
+        // 2. Gom nhóm các biến thể FCentric theo sản phẩm cha (SanPhamQuanAo)
+        Map<SanPhamQuanAo, List<BienTheSanPham>> spGroupMap = activeVariants.stream()
+                .filter(bt -> bt.getSanPham() != null)
+                .collect(Collectors.groupingBy(BienTheSanPham::getSanPham, LinkedHashMap::new, Collectors.toList()));
+
+        int soTaoMoiTrenShopee = 0;
+        int soThatBai = 0;
+        Map<String, String> cdnCache = new HashMap<>();
+
+        // 3. Với các biến thể chưa có trên Shopee -> Tạo sản phẩm thật lên Shopee (Production & Sandbox)
+        for (Map.Entry<SanPhamQuanAo, List<BienTheSanPham>> entry : spGroupMap.entrySet()) {
+            SanPhamQuanAo sp = entry.getKey();
+            List<BienTheSanPham> spVariants = entry.getValue();
+
+            List<BienTheSanPham> variantsCanTao = new ArrayList<>();
+            for (BienTheSanPham bt : spVariants) {
+                if (bt.getMaSku() != null && !bt.getMaSku().isBlank()) {
+                    String norm = bt.getMaSku().trim().toLowerCase(Locale.ROOT);
+                    if (!skuToTargetId.containsKey(norm)) {
+                        variantsCanTao.add(bt);
+                    }
+                }
+            }
+
+            if (!variantsCanTao.isEmpty()) {
+                Map<String, String> createdMap = taoSanPhamLenShopee(
+                        kenh, sp, variantsCanTao, client, logisticsChannelId, cdnCache);
+                if (!createdMap.isEmpty()) {
+                    soTaoMoiTrenShopee++;
+                    skuToTargetId.putAll(createdMap);
+                } else {
+                    soThatBai += variantsCanTao.size();
+                }
+            }
+        }
+
         List<TrangThaiDongBoSanPham> existingMappings = trangThaiDongBoSanPhamRepository.findByKenhBanHangId(kenh.getId());
         Map<Integer, TrangThaiDongBoSanPham> mappingByBtId = new HashMap<>();
         for (TrangThaiDongBoSanPham m : existingMappings) {
@@ -6735,16 +6788,16 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             log.warn("[SHOPEE-SYNC] Tự động đẩy tồn sau khi liên kết gặp lỗi: {}", ex.getMessage());
         }
 
-        ghiNhatKy(kenh.getId(), IHanhDong.dong_bo_san_pham, "Tự động liên kết Shopee: đã ghép " + soDaGhep + " SKU, không khớp " + soKhongKhop + " SKU, đã đẩy tồn " + soTonKhoDaDay + " SKU");
+        ghiNhatKy(kenh.getId(), IHanhDong.dong_bo_san_pham, "Tự động liên kết Shopee: tạo mới " + soTaoMoiTrenShopee + " sản phẩm, đã ghép " + soDaGhep + " SKU, không khớp " + soKhongKhop + " SKU, đã đẩy tồn " + soTonKhoDaDay + " SKU");
 
         return TuDongLienKetResultDto.builder()
                 .soDaGhep(soDaGhep)
                 .soKhongKhop(soKhongKhop)
                 .soNhieuKhop(0)
-                .soTaoMoiTrenShopify(0)
+                .soTaoMoiTrenShopify(soTaoMoiTrenShopee)
                 .soCapNhatTrenShopify(0)
                 .soTonKhoDaDay(soTonKhoDaDay)
-                .soThatBai(0)
+                .soThatBai(soThatBai)
                 .build();
     }
 
