@@ -498,19 +498,32 @@ public class ShopeeClient {
             ObjectNode res = objectMapper.createObjectNode();
             res.put("error", "").put("message", "success");
             ObjectNode resp = res.putObject("response").put("item_id", itemId);
-            ArrayNode arr = resp.putArray("model_id_list");
+            ArrayNode arr = resp.putArray("model");
+            ArrayNode arrLegacy = resp.putArray("model_id_list");
             List<?> models = (List<?>) body.get("model");
             long mId = 2000001L;
             if (models != null) {
                 for (Object mObj : models) {
                     if (mObj instanceof Map<?,?> mMap) {
                         Object tIdx = mMap.get("tier_index");
+                        Object mSku = mMap.get("model_sku");
+                        long thisModelId = mId++;
+
                         ObjectNode node = arr.addObject();
-                        node.put("model_id", mId++);
+                        node.put("model_id", thisModelId);
+                        if (mSku != null) node.put("model_sku", String.valueOf(mSku));
+
+                        ObjectNode legacyNode = arrLegacy.addObject();
+                        legacyNode.put("model_id", thisModelId);
+
                         if (tIdx instanceof List<?> l) {
                             ArrayNode idxArr = node.putArray("tier_index");
+                            ArrayNode idxArrLegacy = legacyNode.putArray("tier_index");
                             for (Object o : l) {
-                                if (o instanceof Number n) idxArr.add(n.intValue());
+                                if (o instanceof Number n) {
+                                    idxArr.add(n.intValue());
+                                    idxArrLegacy.add(n.intValue());
+                                }
                             }
                         }
                     }
