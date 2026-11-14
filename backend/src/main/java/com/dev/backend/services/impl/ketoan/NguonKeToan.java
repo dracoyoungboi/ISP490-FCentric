@@ -18,20 +18,22 @@ public final class NguonKeToan {
      * đơn tại quầy đã thu đủ, null với đơn khác. laShopify: đơn kéo từ Shopify (kênh SHOPIFY, có mã đơn kênh). soPhieuXuat: các phiếu xuất
      * đã xuất của đơn, theo thứ tự xuất. tienMatDaThu / nganHangDaThu: tiền thu theo phương thức của đơn tại quầy (để
      * báo kế toán cách tách đơn trả kết hợp). thueSuatHoaDon: thuế suất in trên hóa đơn bán hàng (mức chung chụp lúc chốt
-     * đơn khi bật in thuế, chụp lại theo ngày giao khi xuất đủ hàng), null = hóa đơn không in thuế.
+     * đơn khi bật in thuế, chụp lại theo ngày giao khi xuất đủ hàng), null = hóa đơn không in thuế. maKenh: mã kênh bán
+     * (POS, SHOPIFY, LAZADA, SHOPEE…, null với đơn bán thường) — để gom khách sàn thành một mã khách khi xuất.
      */
     public record DonBan(int id, String soDon, Instant ngayGiaoHang, String maKhachHang, String tenKhachHang,
                          String diaChiKhachHang, String maSoThueKhachHang, String maKho, BigDecimal tienHang,
                          BigDecimal phiVanChuyen, BigDecimal tongCong, String phuongThucPos, boolean laShopify,
                          String maDonKenh, String tenKenh, String soPhieuXuat, BigDecimal tienMatDaThu,
-                         BigDecimal nganHangDaThu, BigDecimal thueSuatHoaDon) {
+                         BigDecimal nganHangDaThu, BigDecimal thueSuatHoaDon, String maKenh) {
 
         public DonBan(int id, String soDon, Instant ngayGiaoHang, String maKhachHang, String tenKhachHang,
                       String diaChiKhachHang, String maSoThueKhachHang, String maKho, BigDecimal tienHang,
                       BigDecimal phiVanChuyen, BigDecimal tongCong, String phuongThucPos, boolean laShopify,
                       String maDonKenh, String tenKenh, String soPhieuXuat) {
             this(id, soDon, ngayGiaoHang, maKhachHang, tenKhachHang, diaChiKhachHang, maSoThueKhachHang, maKho, tienHang,
-                    phiVanChuyen, tongCong, phuongThucPos, laShopify, maDonKenh, tenKenh, soPhieuXuat, null, null, null);
+                    phiVanChuyen, tongCong, phuongThucPos, laShopify, maDonKenh, tenKenh, soPhieuXuat, null, null, null,
+                    null);
         }
     }
 
@@ -90,6 +92,39 @@ public final class NguonKeToan {
 
     /** Đơn đã giao kế toán (còn khóa) nhưng sau đó bị hoàn trả. */
     public record SauXuat(int donId, String soDon, String soLo) {
+    }
+
+    /**
+     * Đơn đã giao kế toán (còn khóa) rồi bị hoàn trả, có ghi nhật ký lúc hoàn trả (từ 14/11/2026): dựng chứng từ Hàng bán
+     * trả lại ngược đúng chứng từ bán. ngayHoan: lúc chuyển đơn sang Bị hoàn trả.
+     */
+    public record DonHoan(DonBan don, Instant ngayHoan, String maKhachBan) {
+    }
+
+    /**
+     * Phiếu trả hàng tại quầy (phieu_tra_hang). donDaGiao: chứng từ bán của đơn gốc đang khóa trong một lô; laPos: đơn gốc
+     * bán tại quầy (có pos_payment hoặc kênh POS). phuongThucHoan: tien_mat / chuyen_khoan. soPhieuNhap: phiếu PN-RET nhập
+     * hàng đạt (null khi chỉ có hàng lỗi).
+     */
+    public record PhieuTraQuay(int id, String soPhieu, Instant ngay, int donId, String soDon, Instant ngayGiaoDon,
+                               boolean donDaGiao, String maKhachHang, String tenKhachHang, String diaChiKhachHang,
+                               String maSoThueKhachHang, String maKenh, boolean laPos, String maKhoNhan,
+                               String soPhieuNhap, BigDecimal tongTienHoan, String phuongThucHoan, String maKhachBan) {
+    }
+
+    /** Dòng trả hàng: tiền hoàn đã gồm thuế (giá thực trả sau giảm giá của dòng gốc). tinhTrang: dat / loi. */
+    public record DongTraQuay(int phieuId, String maSku, String tenHang, String donViTinh, Integer danhMucId,
+                              BigDecimal soLuong, BigDecimal thanhTienHoan, String tinhTrang) {
+    }
+
+    /**
+     * Một mã hàng ở một kho trong một chứng từ gốc của biến động kho, một chiều (huong tang / giam). Dựng phiếu nhập kho
+     * khác (tăng) hoặc xuất kho khác (giảm). loaiThamChieu: phieu_dieu_chinh_kho / phieu_xuat_kho / phieu_nhap_kho; nhom như
+     * BienDongKho. giaTri: tổng số lượng × giá vốn lô (đơn giá đơn mua, đã gồm thuế); thieuGia: số dòng sổ kho không có giá vốn.
+     */
+    public record DongKhoKhac(String huong, String loaiThamChieu, int idThamChieu, String soChungTu, String nhom,
+                              Instant ngay, String ghiChu, String maKho, String maSku, String tenHang, String donViTinh,
+                              BigDecimal soLuong, BigDecimal giaTri, int thieuGia) {
     }
 
     /**

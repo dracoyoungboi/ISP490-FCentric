@@ -45,39 +45,52 @@ public class KeToanNguonRepository {
 
     // ── Bán hàng ───────────────────────────────────────────────────────────
 
+    /** Cột của đơn bán (dùng chung cho đơn chưa xuất và đơn hoàn trả); đi kèm {@link #NOI_DON_BAN}. */
+    private static final String COT_DON_BAN = """
+            SELECT d.id, d.so_don_hang, d.ngay_giao_hang, d.tien_hang, d.phi_van_chuyen, d.tong_cong, d.thue_suat_gtgt,
+                   d.ma_don_hang_kenh, kb.ma_kenh, kb.ten_kenh,
+                   kh.ma_khach_hang, kh.ten_khach_hang, kh.dia_chi, kh.ma_so_thue,
+                   -- Đơn bán tại quầy (có pos_payment, luôn thu đủ tổng cộng): tiền mặt -> CASH (111), QR payOS
+                   -- -> PAYOS (112), tiền mặt trả trước + QR -> KET_HOP (tạm 131, kèm cảnh báo cách tách).
+                   -- Đơn khác -> NULL (131): tiền thu đơn thường (thanh_toan_don_ban) kế toán lập phiếu thu riêng.
+                   (SELECT CASE WHEN p.phuong_thuc = 'CASH' THEN 'CASH'
+                                WHEN COALESCE(p.tien_mat_truoc, 0) > 0 THEN 'KET_HOP'
+                                ELSE 'PAYOS' END
+                      FROM pos_payment p WHERE p.don_ban_hang_id = d.id
+                     ORDER BY p.id DESC LIMIT 1) AS phuong_thuc_pos,
+                   -- so_tien_hang (= tổng cộng), không lấy so_tien_thu: tiền mặt khách đưa gồm cả tiền thối
+                   (SELECT CASE WHEN p.phuong_thuc = 'PAYOS' THEN COALESCE(p.tien_mat_truoc, 0) ELSE p.so_tien_hang END
+                      FROM pos_payment p WHERE p.don_ban_hang_id = d.id
+                     ORDER BY p.id DESC LIMIT 1) AS tien_mat_da_thu,
+                   (SELECT CASE WHEN p.phuong_thuc = 'PAYOS' THEN p.so_tien_hang - COALESCE(p.tien_mat_truoc, 0) ELSE 0 END
+                      FROM pos_payment p WHERE p.don_ban_hang_id = d.id
+                     ORDER BY p.id DESC LIMIT 1) AS ngan_hang_da_thu,
+                   COALESCE(
+                     (SELECT k.ma_kho FROM phieu_xuat_kho p JOIN kho k ON k.id = p.kho_id
+                       WHERE p.don_ban_hang_id = d.id AND p.loai_xuat = 'ban_hang' AND p.trang_thai = 3
+                       ORDER BY p.ngay_xuat DESC, p.id DESC LIMIT 1),
+                     kx.ma_kho) AS ma_kho,
+                   (SELECT GROUP_CONCAT(p.so_phieu_xuat ORDER BY p.ngay_xuat, p.id SEPARATOR ', ')
+                      FROM phieu_xuat_kho p
+                     WHERE p.don_ban_hang_id = d.id AND p.loai_xuat = 'ban_hang' AND p.trang_thai = 3) AS so_phieu_xuat
+            """;
+    private static final String NOI_DON_BAN = """
+              FROM don_ban_hang d
+              JOIN khach_hang kh ON kh.id = d.khach_hang_id
+              LEFT JOIN kho kx ON kx.id = d.kho_xuat_id
+              LEFT JOIN kenh_ban_hang kb ON kb.id = d.kenh_ban_id
+            """;
+    /** Nhật ký "chuyển đơn sang Bị hoàn trả" (DonBanHangService.returnOrder, từ 14/11/2026). */
+    private static final String NHAT_KY_HOAN_TRA = """
+            SELECT id_tham_chieu, MIN(ngay_thuc_hien) AS ngay_hoan
+              FROM lich_su_thay_doi
+             WHERE loai_tham_chieu = 'don_ban_hang' AND hanh_dong = 'hoan_tra_don_ban'
+             GROUP BY id_tham_chieu
+            """;
+
     /** Đơn bán trạng thái 3, 5 (không lấy báo giá), giao đủ trong [tu, den), chưa xuất kế toán. */
     public List<NguonKeToan.DonBan> donBanChuaXuat(Instant tu, Instant den) {
-        String sql = """
-                SELECT d.id, d.so_don_hang, d.ngay_giao_hang, d.tien_hang, d.phi_van_chuyen, d.tong_cong, d.thue_suat_gtgt,
-                       d.ma_don_hang_kenh, kb.ma_kenh, kb.ten_kenh,
-                       kh.ma_khach_hang, kh.ten_khach_hang, kh.dia_chi, kh.ma_so_thue,
-                       -- Đơn bán tại quầy (có pos_payment, luôn thu đủ tổng cộng): tiền mặt -> CASH (111), QR payOS
-                       -- -> PAYOS (112), tiền mặt trả trước + QR -> KET_HOP (tạm 131, kèm cảnh báo cách tách).
-                       -- Đơn khác -> NULL (131): tiền thu đơn thường (thanh_toan_don_ban) kế toán lập phiếu thu riêng.
-                       (SELECT CASE WHEN p.phuong_thuc = 'CASH' THEN 'CASH'
-                                    WHEN COALESCE(p.tien_mat_truoc, 0) > 0 THEN 'KET_HOP'
-                                    ELSE 'PAYOS' END
-                          FROM pos_payment p WHERE p.don_ban_hang_id = d.id
-                         ORDER BY p.id DESC LIMIT 1) AS phuong_thuc_pos,
-                       -- so_tien_hang (= tổng cộng), không lấy so_tien_thu: tiền mặt khách đưa gồm cả tiền thối
-                       (SELECT CASE WHEN p.phuong_thuc = 'PAYOS' THEN COALESCE(p.tien_mat_truoc, 0) ELSE p.so_tien_hang END
-                          FROM pos_payment p WHERE p.don_ban_hang_id = d.id
-                         ORDER BY p.id DESC LIMIT 1) AS tien_mat_da_thu,
-                       (SELECT CASE WHEN p.phuong_thuc = 'PAYOS' THEN p.so_tien_hang - COALESCE(p.tien_mat_truoc, 0) ELSE 0 END
-                          FROM pos_payment p WHERE p.don_ban_hang_id = d.id
-                         ORDER BY p.id DESC LIMIT 1) AS ngan_hang_da_thu,
-                       COALESCE(
-                         (SELECT k.ma_kho FROM phieu_xuat_kho p JOIN kho k ON k.id = p.kho_id
-                           WHERE p.don_ban_hang_id = d.id AND p.loai_xuat = 'ban_hang' AND p.trang_thai = 3
-                           ORDER BY p.ngay_xuat DESC, p.id DESC LIMIT 1),
-                         kx.ma_kho) AS ma_kho,
-                       (SELECT GROUP_CONCAT(p.so_phieu_xuat ORDER BY p.ngay_xuat, p.id SEPARATOR ', ')
-                          FROM phieu_xuat_kho p
-                         WHERE p.don_ban_hang_id = d.id AND p.loai_xuat = 'ban_hang' AND p.trang_thai = 3) AS so_phieu_xuat
-                  FROM don_ban_hang d
-                  JOIN khach_hang kh ON kh.id = d.khach_hang_id
-                  LEFT JOIN kho kx ON kx.id = d.kho_xuat_id
-                  LEFT JOIN kenh_ban_hang kb ON kb.id = d.kenh_ban_id
+        String sql = COT_DON_BAN + NOI_DON_BAN + """
                   LEFT JOIN chung_tu_xuat_ke_toan c ON c.khoa_hieu_luc = CONCAT('ban_hang:', d.id)
                  WHERE d.loai_chung_tu = 'don_ban_hang'
                    AND d.trang_thai IN (3, 5)
@@ -85,7 +98,29 @@ public class KeToanNguonRepository {
                    AND c.id IS NULL
                  ORDER BY d.ngay_giao_hang, d.id
                 """;
-        return jdbc.query(sql, khoang(tu, den), (rs, i) -> new NguonKeToan.DonBan(
+        return jdbc.query(sql, khoang(tu, den), (rs, i) -> donBan(rs));
+    }
+
+    /**
+     * Đơn đã giao kế toán (chứng từ bán đang khóa) rồi bị hoàn trả (trạng thái 6), có nhật ký hoàn trả trong [tu, den),
+     * chưa có chứng từ trả lại. Đơn hoàn trả trước 14/11/2026 không có nhật ký: vẫn ở danh sách "Phát sinh sau khi xuất".
+     */
+    public List<NguonKeToan.DonHoan> donHoanChuaXuat(Instant tu, Instant den) {
+        String sql = COT_DON_BAN + ", h.ngay_hoan, cb.ma_khach AS ma_khach_ban" + NOI_DON_BAN + """
+                  JOIN (%s) h ON h.id_tham_chieu = d.id
+                  JOIN chung_tu_xuat_ke_toan cb ON cb.khoa_hieu_luc = CONCAT('ban_hang:', d.id)
+                  LEFT JOIN chung_tu_xuat_ke_toan c ON c.khoa_hieu_luc = CONCAT('tra_lai_don:', d.id)
+                 WHERE d.trang_thai = 6
+                   AND h.ngay_hoan >= :tu AND h.ngay_hoan < :den
+                   AND c.id IS NULL
+                 ORDER BY h.ngay_hoan, d.id
+                """.formatted(NHAT_KY_HOAN_TRA);
+        return jdbc.query(sql, khoang(tu, den), (rs, i) -> new NguonKeToan.DonHoan(donBan(rs), instant(rs, "ngay_hoan"),
+                rs.getString("ma_khach_ban")));
+    }
+
+    private static NguonKeToan.DonBan donBan(ResultSet rs) throws SQLException {
+        return new NguonKeToan.DonBan(
                 rs.getInt("id"),
                 rs.getString("so_don_hang"),
                 instant(rs, "ngay_giao_hang"),
@@ -106,7 +141,8 @@ public class KeToanNguonRepository {
                 rs.getString("so_phieu_xuat"),
                 so(rs, "tien_mat_da_thu"),
                 so(rs, "ngan_hang_da_thu"),
-                rs.getBigDecimal("thue_suat_gtgt")));
+                rs.getBigDecimal("thue_suat_gtgt"),
+                rs.getString("ma_kenh"));
     }
 
     public List<NguonKeToan.DongBan> dongDonBan(Collection<Integer> donIds) {
@@ -128,6 +164,72 @@ public class KeToanNguonRepository {
                 so(rs, "don_gia"),
                 so(rs, "thanh_tien"),
                 so(rs, "tien_giam_gia"))));
+    }
+
+    // ── Trả hàng tại quầy ──────────────────────────────────────────────────
+
+    /**
+     * Phiếu trả hàng tại quầy lập trong [tu, den), chưa xuất kế toán. donDaGiao: chứng từ bán của đơn gốc đang khóa trong
+     * một lô; laPos: đơn gốc bán tại quầy (có pos_payment hoặc kênh POS) — gom về khách lẻ như chứng từ bán.
+     */
+    public List<NguonKeToan.PhieuTraQuay> phieuTraQuayChuaXuat(Instant tu, Instant den) {
+        String sql = """
+                SELECT p.id, p.so_phieu, p.ngay_tao, p.tong_tien_hoan, p.phuong_thuc_hoan,
+                       d.id AS don_id, d.so_don_hang, d.ngay_giao_hang, cb.id IS NOT NULL AS don_da_giao, cb.ma_khach AS ma_khach_ban,
+                       kh.ma_khach_hang, kh.ten_khach_hang, kh.dia_chi, kh.ma_so_thue, kb.ma_kenh,
+                       (kb.ma_kenh = 'POS' OR EXISTS (SELECT 1 FROM pos_payment pp WHERE pp.don_ban_hang_id = d.id)) AS la_pos,
+                       kn.ma_kho AS ma_kho_nhan, pn.so_phieu_nhap
+                  FROM phieu_tra_hang p
+                  JOIN don_ban_hang d ON d.id = p.don_ban_hang_id
+                  JOIN khach_hang kh ON kh.id = d.khach_hang_id
+                  LEFT JOIN kenh_ban_hang kb ON kb.id = d.kenh_ban_id
+                  JOIN kho kn ON kn.id = p.kho_nhan_id
+                  LEFT JOIN phieu_nhap_kho pn ON pn.id = p.phieu_nhap_kho_id
+                  LEFT JOIN chung_tu_xuat_ke_toan cb ON cb.khoa_hieu_luc = CONCAT('ban_hang:', d.id)
+                  LEFT JOIN chung_tu_xuat_ke_toan c ON c.khoa_hieu_luc = CONCAT('tra_lai_quay:', p.id)
+                 WHERE p.ngay_tao >= :tu AND p.ngay_tao < :den
+                   AND c.id IS NULL
+                 ORDER BY p.ngay_tao, p.id
+                """;
+        return jdbc.query(sql, khoang(tu, den), (rs, i) -> new NguonKeToan.PhieuTraQuay(
+                rs.getInt("id"),
+                rs.getString("so_phieu"),
+                instant(rs, "ngay_tao"),
+                rs.getInt("don_id"),
+                rs.getString("so_don_hang"),
+                instant(rs, "ngay_giao_hang"),
+                rs.getBoolean("don_da_giao"),
+                rs.getString("ma_khach_hang"),
+                rs.getString("ten_khach_hang"),
+                rs.getString("dia_chi"),
+                rs.getString("ma_so_thue"),
+                rs.getString("ma_kenh"),
+                rs.getBoolean("la_pos"),
+                rs.getString("ma_kho_nhan"),
+                rs.getString("so_phieu_nhap"),
+                so(rs, "tong_tien_hoan"),
+                rs.getString("phuong_thuc_hoan"),
+                rs.getString("ma_khach_ban")));
+    }
+
+    public List<NguonKeToan.DongTraQuay> dongTraQuay(Collection<Integer> phieuIds) {
+        String sql = """
+                SELECT ct.phieu_tra_hang_id, bt.ma_sku, %s AS ten_hang, sp.don_vi_tinh, sp.danh_muc_id,
+                       ct.so_luong, ct.thanh_tien_hoan, ct.tinh_trang
+                  FROM chi_tiet_phieu_tra_hang ct
+                %s
+                 WHERE ct.phieu_tra_hang_id IN (:ids)
+                 ORDER BY ct.phieu_tra_hang_id, ct.id
+                """.formatted(TEN_HANG, NOI_HANG);
+        return theoLo(phieuIds, ids -> jdbc.query(sql, new MapSqlParameterSource("ids", ids), (rs, i) -> new NguonKeToan.DongTraQuay(
+                rs.getInt("phieu_tra_hang_id"),
+                rs.getString("ma_sku"),
+                rs.getString("ten_hang"),
+                rs.getString("don_vi_tinh"),
+                soNguyen(rs, "danh_muc_id"),
+                so(rs, "so_luong"),
+                so(rs, "thanh_tien_hoan"),
+                rs.getString("tinh_trang"))));
     }
 
     // ── Mua hàng ───────────────────────────────────────────────────────────
@@ -399,15 +501,21 @@ public class KeToanNguonRepository {
                 new NguonKeToan.KhoKt(rs.getString("ma_kho"), rs.getString("ten_kho"), rs.getString("dia_chi")));
     }
 
-    /** Khách đang hoạt động, cộng khách của các đơn trong lô (kể cả đã ngừng). */
+    /**
+     * Chỉ khách có chứng từ trong lô (kể cả đã ngừng). Trước 14/11/2026 gửi cả danh sách khách đang hoạt động: mỗi người
+     * mua trên sàn một mã nên danh mục AMIS phình hàng nghìn dòng; nay khách sàn đã gom theo sàn (DungChungTuAmis.khach).
+     */
     public List<NguonKeToan.KhachHangKt> khachHang(Collection<String> maDaDung) {
+        if (maDaDung.isEmpty()) {
+            return List.of();
+        }
         String sql = """
                 SELECT ma_khach_hang, ten_khach_hang, dia_chi, ma_so_thue, so_dien_thoai, email, nguoi_lien_he, loai_khach_hang
                   FROM khach_hang
-                 WHERE trang_thai = 1 OR ma_khach_hang IN (:ma)
+                 WHERE ma_khach_hang IN (:ma)
                  ORDER BY id
                 """;
-        return jdbc.query(sql, new MapSqlParameterSource("ma", maDaDung.isEmpty() ? List.of("") : maDaDung), (rs, i) ->
+        return jdbc.query(sql, new MapSqlParameterSource("ma", maDaDung), (rs, i) ->
                 new NguonKeToan.KhachHangKt(rs.getString("ma_khach_hang"), rs.getString("ten_khach_hang"),
                         rs.getString("dia_chi"), rs.getString("ma_so_thue"), rs.getString("so_dien_thoai"),
                         rs.getString("email"), rs.getString("nguoi_lien_he"), rs.getString("loai_khach_hang")));
@@ -440,22 +548,41 @@ public class KeToanNguonRepository {
 
     // ── Đối chiếu ──────────────────────────────────────────────────────────
 
-    /** Doanh thu theo cùng điều kiện Báo cáo doanh thu (đơn bán trạng thái 3, 5, theo ngày giao đủ) trong [tu, den). */
+    /**
+     * Doanh thu theo cùng điều kiện Báo cáo doanh thu trong [tu, den): đơn bán trạng thái 3, 5 theo ngày giao đủ, trừ tiền
+     * hoàn của phiếu trả hàng tại quầy theo ngày trả (Báo cáo doanh thu trừ như vậy từ 11/11/2026).
+     */
     public BigDecimal doanhThuBaoCao(Instant tu, Instant den) {
         String sql = """
-                SELECT COALESCE(SUM(d.tong_cong), 0) FROM don_ban_hang d
-                 WHERE d.loai_chung_tu = 'don_ban_hang' AND d.trang_thai IN (3, 5)
-                   AND d.ngay_giao_hang >= :tu AND d.ngay_giao_hang < :den
+                SELECT (SELECT COALESCE(SUM(d.tong_cong), 0) FROM don_ban_hang d
+                         WHERE d.loai_chung_tu = 'don_ban_hang' AND d.trang_thai IN (3, 5)
+                           AND d.ngay_giao_hang >= :tu AND d.ngay_giao_hang < :den)
+                     - (SELECT COALESCE(SUM(p.tong_tien_hoan), 0) FROM phieu_tra_hang p
+                         WHERE p.ngay_tao >= :tu AND p.ngay_tao < :den)
                 """;
         BigDecimal kq = jdbc.queryForObject(sql, khoang(tu, den), BigDecimal.class);
         return kq == null ? BigDecimal.ZERO : kq;
     }
 
-    /** Tổng tiền các đơn bán đã giao kế toán (còn khóa) có ngày hạch toán trong [tuNgay, denNgay]. */
+    /** Tiền hoàn của phiếu trả hàng tại quầy lập trong [tu, den) chưa có chứng từ trả lại đang khóa. */
+    public BigDecimal tienHoanTraQuayChuaXuat(Instant tu, Instant den) {
+        BigDecimal kq = jdbc.queryForObject("""
+                SELECT COALESCE(SUM(p.tong_tien_hoan), 0) FROM phieu_tra_hang p
+                  LEFT JOIN chung_tu_xuat_ke_toan c ON c.khoa_hieu_luc = CONCAT('tra_lai_quay:', p.id)
+                 WHERE p.ngay_tao >= :tu AND p.ngay_tao < :den AND c.id IS NULL
+                """, khoang(tu, den), BigDecimal.class);
+        return kq == null ? BigDecimal.ZERO : kq;
+    }
+
+    /**
+     * Doanh thu đã giao kế toán (chứng từ còn khóa) có ngày hạch toán trong [tuNgay, denNgay]: chứng từ bán trừ chứng từ
+     * hàng bán trả lại.
+     */
     public BigDecimal doanhThuDaGiao(java.time.LocalDate tuNgay, java.time.LocalDate denNgay) {
         String sql = """
-                SELECT COALESCE(SUM(c.tong_tien), 0) FROM chung_tu_xuat_ke_toan c
-                 WHERE c.loai = 'ban_hang' AND c.trang_thai = 'da_xuat'
+                SELECT COALESCE(SUM(CASE WHEN c.loai = 'ban_hang' THEN c.tong_tien ELSE -c.tong_tien END), 0)
+                  FROM chung_tu_xuat_ke_toan c
+                 WHERE c.loai IN ('ban_hang', 'tra_lai_quay', 'tra_lai_don') AND c.trang_thai = 'da_xuat'
                    AND c.ngay_hach_toan BETWEEN :tu AND :den
                 """;
         BigDecimal kq = jdbc.queryForObject(sql, new MapSqlParameterSource("tu", java.sql.Date.valueOf(tuNgay))
@@ -463,7 +590,10 @@ public class KeToanNguonRepository {
         return kq == null ? BigDecimal.ZERO : kq;
     }
 
-    /** Đơn đã giao kế toán (còn khóa) nhưng giờ ở trạng thái Bị hoàn trả (6). */
+    /**
+     * Đơn đã giao kế toán (còn khóa) nhưng giờ ở trạng thái Bị hoàn trả (6), không có nhật ký hoàn trả (hoàn trả trước
+     * 14/11/2026): kế toán lập Hàng bán trả lại tay. Đơn có nhật ký thì đã thành chứng từ trả lại (donHoanChuaXuat).
+     */
     public List<NguonKeToan.SauXuat> donDaXuatBiHoanTra() {
         String sql = """
                 SELECT d.id, d.so_don_hang, l.so_lo
@@ -471,61 +601,85 @@ public class KeToanNguonRepository {
                   JOIN lo_xuat_ke_toan l ON l.id = c.lo_xuat_id
                   JOIN don_ban_hang d ON d.id = c.id_nguon
                  WHERE c.loai = 'ban_hang' AND c.trang_thai = 'da_xuat' AND d.trang_thai = 6
+                   AND NOT EXISTS (SELECT 1 FROM lich_su_thay_doi h
+                                    WHERE h.loai_tham_chieu = 'don_ban_hang' AND h.id_tham_chieu = d.id
+                                      AND h.hanh_dong = 'hoan_tra_don_ban')
                  ORDER BY d.id
                 """;
         return jdbc.query(sql, (rs, i) -> new NguonKeToan.SauXuat(rs.getInt("id"), rs.getString("so_don_hang"),
                 rs.getString("so_lo")));
     }
 
+    /** Nhóm biến động kho tự dựng thành phiếu nhập / xuất kho khác (bảng nguồn là phiếu điều chỉnh, phiếu xuất, phiếu nhập). */
+    private static final String NHOM_TU_DONG = """
+            nhom IN ('kiem_ke', 'xuat_khac', 'nhap_khac', 'ghi_giam_chuyen_kho')
+            AND loai_tham_chieu IN ('phieu_dieu_chinh_kho', 'phieu_xuat_kho', 'phieu_nhap_kho')
+            AND id_tham_chieu IS NOT NULL
+            """;
+
+    /**
+     * Từng dòng sổ kho trong [tu, den), phân nhóm theo chứng từ gốc. nhom NULL = đã có chứng từ kế toán tương ứng (mua,
+     * bán, chuyển kho) hoặc là dòng của kho trung chuyển đã nằm trong chứng từ chuyển kho. tra_quay: phiếu nhập hàng đạt
+     * của phiếu trả hàng tại quầy (sang kế toán bằng chứng từ Hàng bán trả lại). Cần tham số :tu, :den, :moc.
+     */
+    private static final String DONG_BIEN_DONG = """
+            SELECT l.loai_tham_chieu, l.id_tham_chieu, k.ma_kho, l.ngay_giao_dich, l.bien_the_san_pham_id,
+                   COALESCE(NULLIF(l.gia_von, 0), lh.gia_von) AS gia_von,
+                   COALESCE(px.so_phieu_xuat, pn.so_phieu_nhap, dck.so_phieu, dkk.ma_dot_kiem_ke) AS so_chung_tu,
+                   LEFT(COALESCE(pn.ghi_chu, dck.ly_do, CONCAT('Đơn ', dx.so_don_hang)), 200) AS ghi_chu,
+                   CASE WHEN l.so_luong_truoc IS NOT NULL AND l.so_luong_sau IS NOT NULL THEN l.so_luong_sau - l.so_luong_truoc
+                        WHEN l.loai_giao_dich = 'xuat_kho' THEN -l.so_luong
+                        ELSE l.so_luong END AS chenh,
+                   CASE WHEN l.loai_tham_chieu = 'phieu_dieu_chinh_kho' AND dck.nguon = 'chuyen_kho' THEN 'ghi_giam_chuyen_kho'
+                        WHEN k.ma_kho = 'KHO_TRANSIT' THEN NULL
+                        WHEN l.loai_giao_dich = 'dieu_chinh' THEN 'kiem_ke'
+                        WHEN l.loai_tham_chieu = 'phieu_xuat_kho' AND px.loai_xuat NOT IN ('ban_hang', 'chuyen_kho') THEN 'xuat_khac'
+                        -- Xuất bán của đơn đã hủy / hoàn trả mà chưa từng sang kế toán: không có chứng từ bán hàng
+                        WHEN l.loai_tham_chieu = 'phieu_xuat_kho' AND px.loai_xuat = 'ban_hang' AND l.loai_giao_dich = 'xuat_kho'
+                             AND dx.trang_thai IN (4, 6) AND cb.id IS NULL THEN 'xuat_ban_khong_doanh_thu'
+                        WHEN l.loai_tham_chieu = 'phieu_xuat_kho' AND px.loai_xuat = 'ban_hang' AND l.loai_giao_dich = 'nhap_kho'
+                             AND px.ngay_xuat < :moc THEN 'nhap_lai_ban_truoc_moc'
+                        WHEN l.loai_tham_chieu = 'phieu_nhap_kho' AND pn.don_mua_hang_id IS NULL AND pn.phieu_chuyen_kho_id IS NULL
+                             AND pn.so_phieu_nhap LIKE 'PN-RET-%' THEN 'nhap_hang_hoan'
+                        WHEN l.loai_tham_chieu = 'phieu_nhap_kho' AND pn.don_mua_hang_id IS NULL AND pn.phieu_chuyen_kho_id IS NULL THEN 'nhap_khac'
+                        WHEN COALESCE(l.loai_tham_chieu, '') NOT IN ('phieu_nhap_kho', 'phieu_xuat_kho') THEN 'khac'
+                   END AS nhom,
+                   pn.id IS NOT NULL AND EXISTS (SELECT 1 FROM phieu_tra_hang pth WHERE pth.phieu_nhap_kho_id = pn.id) AS tra_quay
+              FROM lich_su_giao_dich_kho l
+              JOIN kho k ON k.id = l.kho_id
+              LEFT JOIN lo_hang lh ON lh.id = l.lo_hang_id
+              LEFT JOIN phieu_xuat_kho px ON l.loai_tham_chieu = 'phieu_xuat_kho' AND px.id = l.id_tham_chieu
+              LEFT JOIN don_ban_hang dx ON dx.id = px.don_ban_hang_id
+              LEFT JOIN chung_tu_xuat_ke_toan cb ON cb.khoa_hieu_luc = CONCAT('ban_hang:', dx.id)
+              LEFT JOIN phieu_nhap_kho pn ON l.loai_tham_chieu = 'phieu_nhap_kho' AND pn.id = l.id_tham_chieu
+              LEFT JOIN phieu_dieu_chinh_kho dck ON l.loai_tham_chieu = 'phieu_dieu_chinh_kho' AND dck.id = l.id_tham_chieu
+              LEFT JOIN dot_kiem_ke dkk ON l.loai_tham_chieu = 'kiem_ke' AND dkk.id = l.id_tham_chieu
+             WHERE l.ngay_giao_dich >= :tu AND l.ngay_giao_dich < :den
+               AND l.loai_giao_dich <> 'chuyen_ke_noi_bo'
+            """;
+
     /**
      * Biến động kho trong [tu, den) mà lô kế toán không có chứng từ tương ứng, để kế toán lập tay trên AMIS (không thì tồn
-     * AMIS lệch dần và phiếu xuất sau bị báo xuất quá tồn): điều chỉnh kiểm kê; phiếu xuất khác (không phải bán, chuyển
-     * kho); hàng của phiếu xuất bán trước ngày mốc nhập lại kho (lúc xuất đã nằm trong tồn đầu kỳ); phiếu nhập không từ
-     * đơn mua, không từ chuyển kho; ghi giảm hao hụt chuyển kho ở kho trung chuyển (thiếu, hỏng khi nhận lệch); phiếu
-     * xuất bán của đơn đã hủy / hoàn trả chưa từng sang kế toán (không có chứng từ bán hàng nào trừ kho); giao dịch khác. Các dòng khác của kho trung chuyển đã có trong chứng từ chuyển kho nên bỏ.
+     * AMIS lệch dần và phiếu xuất sau bị báo xuất quá tồn): hàng của phiếu xuất bán trước ngày mốc nhập lại kho; hàng hoàn
+     * của đơn bán (PN-RET); phiếu xuất bán của đơn đã hủy / hoàn trả chưa từng sang kế toán; giao dịch khác. Kiểm kê, hao
+     * hụt chuyển kho, xuất khác, nhập khác và phiếu nhập của trả hàng tại quầy phát sinh từ {@code tuDong} trở đi đã thành
+     * chứng từ (khoKhacChuaXuat, phieuTraQuayChuaXuat) nên bỏ; trước {@code tuDong} (lô tạo trước khi có chức năng tự dựng)
+     * vẫn liệt kê như cũ.
      */
-    public List<NguonKeToan.BienDongKho> bienDongKhoKhongCoChungTu(Instant tu, Instant den, Instant moc) {
+    public List<NguonKeToan.BienDongKho> bienDongKhoKhongCoChungTu(Instant tu, Instant den, Instant moc, Instant tuDong) {
         String sql = """
                 SELECT nhom, loai_tham_chieu, id_tham_chieu, ma_kho,
                        MAX(so_chung_tu) AS so_chung_tu, MAX(ghi_chu) AS ghi_chu, COUNT(*) AS so_dong,
                        SUM(GREATEST(chenh, 0)) AS tang, SUM(GREATEST(-chenh, 0)) AS giam, MIN(ngay_giao_dich) AS ngay
-                  FROM (
-                    SELECT l.loai_tham_chieu, l.id_tham_chieu, k.ma_kho, l.ngay_giao_dich,
-                           COALESCE(px.so_phieu_xuat, pn.so_phieu_nhap, dck.so_phieu, dkk.ma_dot_kiem_ke) AS so_chung_tu,
-                           LEFT(COALESCE(pn.ghi_chu, dck.ly_do, CONCAT('Đơn ', dx.so_don_hang)), 200) AS ghi_chu,
-                           CASE WHEN l.so_luong_truoc IS NOT NULL AND l.so_luong_sau IS NOT NULL THEN l.so_luong_sau - l.so_luong_truoc
-                                WHEN l.loai_giao_dich = 'xuat_kho' THEN -l.so_luong
-                                ELSE l.so_luong END AS chenh,
-                           CASE WHEN l.loai_tham_chieu = 'phieu_dieu_chinh_kho' AND dck.nguon = 'chuyen_kho' THEN 'ghi_giam_chuyen_kho'
-                                WHEN k.ma_kho = 'KHO_TRANSIT' THEN NULL
-                                WHEN l.loai_giao_dich = 'dieu_chinh' THEN 'kiem_ke'
-                                WHEN l.loai_tham_chieu = 'phieu_xuat_kho' AND px.loai_xuat NOT IN ('ban_hang', 'chuyen_kho') THEN 'xuat_khac'
-                                -- Xuất bán của đơn đã hủy / hoàn trả mà chưa từng sang kế toán: không có chứng từ bán hàng
-                                WHEN l.loai_tham_chieu = 'phieu_xuat_kho' AND px.loai_xuat = 'ban_hang' AND l.loai_giao_dich = 'xuat_kho'
-                                     AND dx.trang_thai IN (4, 6) AND cb.id IS NULL THEN 'xuat_ban_khong_doanh_thu'
-                                WHEN l.loai_tham_chieu = 'phieu_xuat_kho' AND px.loai_xuat = 'ban_hang' AND l.loai_giao_dich = 'nhap_kho'
-                                     AND px.ngay_xuat < :moc THEN 'nhap_lai_ban_truoc_moc'
-                                WHEN l.loai_tham_chieu = 'phieu_nhap_kho' AND pn.don_mua_hang_id IS NULL AND pn.phieu_chuyen_kho_id IS NULL
-                                     AND pn.so_phieu_nhap LIKE 'PN-RET-%' THEN 'nhap_hang_hoan'
-                                WHEN l.loai_tham_chieu = 'phieu_nhap_kho' AND pn.don_mua_hang_id IS NULL AND pn.phieu_chuyen_kho_id IS NULL THEN 'nhap_khac'
-                                WHEN COALESCE(l.loai_tham_chieu, '') NOT IN ('phieu_nhap_kho', 'phieu_xuat_kho') THEN 'khac'
-                           END AS nhom
-                      FROM lich_su_giao_dich_kho l
-                      JOIN kho k ON k.id = l.kho_id
-                      LEFT JOIN phieu_xuat_kho px ON l.loai_tham_chieu = 'phieu_xuat_kho' AND px.id = l.id_tham_chieu
-                      LEFT JOIN don_ban_hang dx ON dx.id = px.don_ban_hang_id
-                      LEFT JOIN chung_tu_xuat_ke_toan cb ON cb.khoa_hieu_luc = CONCAT('ban_hang:', dx.id)
-                      LEFT JOIN phieu_nhap_kho pn ON l.loai_tham_chieu = 'phieu_nhap_kho' AND pn.id = l.id_tham_chieu
-                      LEFT JOIN phieu_dieu_chinh_kho dck ON l.loai_tham_chieu = 'phieu_dieu_chinh_kho' AND dck.id = l.id_tham_chieu
-                      LEFT JOIN dot_kiem_ke dkk ON l.loai_tham_chieu = 'kiem_ke' AND dkk.id = l.id_tham_chieu
-                     WHERE l.ngay_giao_dich >= :tu AND l.ngay_giao_dich < :den
-                       AND l.loai_giao_dich <> 'chuyen_ke_noi_bo'
-                  ) x
+                  FROM (%s) x
                  WHERE nhom IS NOT NULL
+                   AND NOT (ngay_giao_dich >= :tuDong AND (tra_quay OR (%s)))
                  GROUP BY nhom, loai_tham_chieu, id_tham_chieu, ma_kho
                  ORDER BY MIN(ngay_giao_dich), id_tham_chieu
-                """;
-        return jdbc.query(sql, khoang(tu, den).addValue("moc", Timestamp.from(moc)), (rs, i) -> new NguonKeToan.BienDongKho(
+                """.formatted(DONG_BIEN_DONG, NHOM_TU_DONG);
+        MapSqlParameterSource thamSo = khoang(tu, den).addValue("moc", Timestamp.from(moc))
+                .addValue("tuDong", Timestamp.from(tuDong));
+        return jdbc.query(sql, thamSo, (rs, i) -> new NguonKeToan.BienDongKho(
                 rs.getString("nhom"),
                 rs.getString("loai_tham_chieu"),
                 soNguyen(rs, "id_tham_chieu"),
@@ -536,6 +690,54 @@ public class KeToanNguonRepository {
                 so(rs, "giam"),
                 instant(rs, "ngay"),
                 rs.getString("ghi_chu")));
+    }
+
+    /**
+     * Biến động kho tự dựng thành phiếu nhập / xuất kho khác: dòng sổ kho trong [tu, den) thuộc nhóm kiểm kê, hao hụt
+     * chuyển kho, xuất khác, nhập khác; gộp theo chiều (tăng / giảm), chứng từ gốc, kho, mã hàng; chưa xuất kế toán (khóa
+     * theo chiều và bảng nguồn, xem ChungTuXuatKeToan.LOAI_NHAP_KHAC_*). giaTri = Σ số lượng × giá vốn của dòng sổ kho
+     * (không có thì giá vốn lô).
+     */
+    public List<NguonKeToan.DongKhoKhac> khoKhacChuaXuat(Instant tu, Instant den, Instant moc) {
+        String sql = """
+                SELECT y.*, bt.ma_sku, %s AS ten_hang, sp.don_vi_tinh
+                  FROM (
+                    SELECT IF(chenh > 0, 'tang', 'giam') AS huong, loai_tham_chieu, id_tham_chieu, MAX(nhom) AS nhom,
+                           MAX(so_chung_tu) AS so_chung_tu, MIN(ngay_giao_dich) AS ngay, MAX(ghi_chu) AS ghi_chu, ma_kho,
+                           bien_the_san_pham_id, SUM(ABS(chenh)) AS so_luong,
+                           SUM(ABS(chenh) * COALESCE(gia_von, 0)) AS gia_tri,
+                           SUM(CASE WHEN gia_von IS NULL OR gia_von <= 0 THEN 1 ELSE 0 END) AS thieu_gia
+                      FROM (%s) x
+                     WHERE chenh <> 0 AND %s
+                     GROUP BY IF(chenh > 0, 'tang', 'giam'), loai_tham_chieu, id_tham_chieu, ma_kho, bien_the_san_pham_id
+                  ) y
+                  JOIN bien_the_san_pham bt ON bt.id = y.bien_the_san_pham_id
+                  JOIN san_pham_quan_ao sp ON sp.id = bt.san_pham_id
+                  LEFT JOIN mau_sac ms ON ms.id = bt.mau_sac_id
+                  LEFT JOIN size sz ON sz.id = bt.size_id
+                  LEFT JOIN chat_lieu cl ON cl.id = bt.chat_lieu_id
+                  LEFT JOIN chung_tu_xuat_ke_toan c ON c.khoa_hieu_luc = CONCAT(
+                        IF(y.huong = 'tang', 'nhap_khac_', 'xuat_khac_'),
+                        CASE y.loai_tham_chieu WHEN 'phieu_dieu_chinh_kho' THEN 'dck' WHEN 'phieu_xuat_kho' THEN 'pxk' ELSE 'pnk' END,
+                        ':', y.id_tham_chieu)
+                 WHERE c.id IS NULL
+                 ORDER BY y.ngay, y.id_tham_chieu, y.huong, y.ma_kho, bt.ma_sku
+                """.formatted(TEN_HANG, DONG_BIEN_DONG, NHOM_TU_DONG);
+        return jdbc.query(sql, khoang(tu, den).addValue("moc", Timestamp.from(moc)), (rs, i) -> new NguonKeToan.DongKhoKhac(
+                rs.getString("huong"),
+                rs.getString("loai_tham_chieu"),
+                rs.getInt("id_tham_chieu"),
+                rs.getString("so_chung_tu"),
+                rs.getString("nhom"),
+                instant(rs, "ngay"),
+                rs.getString("ghi_chu"),
+                rs.getString("ma_kho"),
+                rs.getString("ma_sku"),
+                rs.getString("ten_hang"),
+                rs.getString("don_vi_tinh"),
+                so(rs, "so_luong"),
+                so(rs, "gia_tri"),
+                rs.getInt("thieu_gia")));
     }
 
     // ── Tiện ích ───────────────────────────────────────────────────────────
