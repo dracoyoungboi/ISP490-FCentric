@@ -2301,6 +2301,22 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         if (shopId != null && shopId > 0) {
             kenh.setShopCipher(String.valueOf(shopId));
             kenh.setShopDomain(String.valueOf(shopId));
+            try {
+                com.dev.backend.services.shopee.ShopeeClient authedClient = new com.dev.backend.services.shopee.ShopeeClient(
+                        partnerId != null ? partnerId : 0L,
+                        partnerKey != null ? partnerKey : "",
+                        shopId,
+                        accessToken,
+                        MA_KENH_SHOPEE_SANDBOX.equals(ma)
+                );
+                com.fasterxml.jackson.databind.JsonNode shopInfo = authedClient.getShopInfo();
+                if (shopInfo != null && shopInfo.hasNonNull("shop_name")) {
+                    String realShopName = shopInfo.path("shop_name").asText("").trim();
+                    if (!realShopName.isBlank()) {
+                        kenh.setTenKenh(realShopName);
+                    }
+                }
+            } catch (Exception ignored) {}
         }
         kenh.setTrangThai(1);
         kenhBanHangRepository.save(kenh);
