@@ -27,6 +27,10 @@ public interface ChungTuXuatKeToanRepository extends JpaRepository<ChungTuXuatKe
     @Query("SELECT l.soLo FROM ChungTuXuatKeToan c JOIN c.loXuat l WHERE c.loai = :loai AND c.idNguon = :idNguon AND c.trangThai = 'da_xuat'")
     Optional<String> soLoDangKhoa(@Param("loai") String loai, @Param("idNguon") Integer idNguon);
 
+    /** Lúc tạo lô đang khóa chứng từ (loai, idNguon); rỗng nếu chưa khóa. */
+    @Query("SELECT l.ngayTao FROM ChungTuXuatKeToan c JOIN c.loXuat l WHERE c.loai = :loai AND c.idNguon = :idNguon AND c.trangThai = 'da_xuat'")
+    Optional<java.time.Instant> ngayTaoLoDangKhoa(@Param("loai") String loai, @Param("idNguon") Integer idNguon);
+
     @Query("SELECT l.soLo FROM ChungTuXuatKeToan c JOIN c.loXuat l WHERE c.id = :id")
     Optional<String> soLoCua(@Param("id") Integer id);
 
@@ -36,4 +40,9 @@ public interface ChungTuXuatKeToanRepository extends JpaRepository<ChungTuXuatKe
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT c FROM ChungTuXuatKeToan c WHERE c.id = :id")
     Optional<ChungTuXuatKeToan> findByIdForUpdate(@Param("id") Integer id);
+
+    /** Hủy lô: chứng từ còn khóa của lô quay về "chưa xuất" (khoa_hieu_luc thành NULL); chứng từ đã mở khóa giữ nguyên. */
+    @org.springframework.data.jpa.repository.Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("UPDATE ChungTuXuatKeToan c SET c.trangThai = 'da_huy_lo' WHERE c.loXuat.id = :loId AND c.trangThai = 'da_xuat'")
+    int huyTheoLo(@Param("loId") Integer loId);
 }

@@ -51,6 +51,10 @@ export const keToanService = {
     async moKhoa(chungTuId, lyDo) {
         return duLieu(await apiClient.post(`${BASE}/chung-tu-xuat/${chungTuId}/mo-khoa`, { lyDo }, { needKho: false }));
     },
+    /** Hủy lô còn hiệu lực mới nhất (chứng từ của lô quay về chưa xuất). Trả lô sau khi hủy. */
+    async huyLo(loId, lyDo) {
+        return duLieu(await apiClient.post(`${BASE}/lo-xuat/${loId}/huy`, { lyDo }, { needKho: false }));
+    },
 
     /**
      * Tải tệp nén của lô về máy (đúng bản đã giao kế toán). Lỗi máy chủ trả JSON trong Blob: đọc ra để báo đúng câu.

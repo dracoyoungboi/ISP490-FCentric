@@ -8,39 +8,77 @@ import { t } from "../../i18n/t.js";
 /** Thuế suất GTGT nhận được (%). */
 export const THUE_SUAT = [0, 5, 8, 10];
 
-/** Ba hình thức chuyển kho AMIS nhận (danh sách trong tệp mẫu Chuyển kho). */
+/**
+ * Ba hình thức chuyển kho AMIS nhận (danh sách trong tệp mẫu Chuyển kho); phần tử đầu là mặc định (trùng máy chủ).
+ * "Xuất kho kiêm vận chuyển nội bộ": AMIS coi là hóa đơn điện tử, bỏ trống số chứng từ khi nhập.
+ */
 // i18n-giu-nguyen: giá trị gửi máy chủ và so khớp (AMIS nhận đúng chữ Việt); nơi hiện ra màn hình tự bọc t()
 export const HINH_THUC_CHUYEN_KHO = [
+  "Xuất chuyển kho nội bộ", // i18n-giu-nguyen: giá trị gửi máy chủ
   "Xuất kho kiêm vận chuyển nội bộ", // i18n-giu-nguyen: giá trị gửi máy chủ
   "Xuất kho gửi bán đại lý", // i18n-giu-nguyen: giá trị gửi máy chủ
-  "Xuất chuyển kho nội bộ", // i18n-giu-nguyen: giá trị gửi máy chủ
 ];
 
-/** Tài khoản mặc định theo hệ thống tài khoản TT 99/2025 của AMIS Kế toán doanh nghiệp. */
+/**
+ * Tài khoản mặc định theo hệ thống tài khoản TT 99/2025 của AMIS Kế toán doanh nghiệp (nhập thử 14/11/2026: 511, 521 có
+ * tài khoản con nên dùng 5111, 5211; 111, 112, 156 không có con). Trùng giá trị mặc định ở CauHinhKeToanService.
+ */
 export const TAI_KHOAN = [
   { key: "tkTienMat", nhan: t("Tiền mặt"), goiY: "111", moTa: t("Bán tại quầy thu tiền mặt") },
   { key: "tkNganHang", nhan: t("Tiền gửi ngân hàng"), goiY: "112", moTa: t("Bán tại quầy chuyển khoản (payOS)") },
   { key: "tkPhaiThu", nhan: t("Phải thu khách hàng"), goiY: "131", moTa: t("Bán buôn, đơn Shopify, đơn tại quầy trả kết hợp (tạm)") },
-  { key: "tkDoanhThu", nhan: t("Doanh thu"), goiY: "511", moTa: t("Mọi chứng từ bán hàng") },
-  { key: "tkChietKhau", nhan: t("Chiết khấu"), goiY: "521", moTa: t("Giảm giá đơn Shopify") },
+  { key: "tkDoanhThu", nhan: t("Doanh thu"), goiY: "5111", moTa: t("Mọi chứng từ bán hàng") },
+  { key: "tkChietKhau", nhan: t("Chiết khấu"), goiY: "5211", moTa: t("Giảm giá đơn Shopify") },
   { key: "tkThueDauRa", nhan: t("Thuế GTGT đầu ra"), goiY: "33311", moTa: t("Thuế trên chứng từ bán hàng") },
   { key: "tkKho", nhan: t("Hàng hóa (kho)"), goiY: "156", moTa: t("Mua hàng, chuyển kho, giá vốn") },
   { key: "tkGiaVon", nhan: t("Giá vốn"), goiY: "632", moTa: t("AMIS tự tính tiền vốn") },
   { key: "tkPhaiTra", nhan: t("Phải trả nhà cung cấp"), goiY: "331", moTa: t("Mua hàng chưa thanh toán") },
   { key: "tkThueDauVao", nhan: t("Thuế GTGT đầu vào"), goiY: "1331", moTa: t("Hóa đơn nhà cung cấp") },
+  { key: "tkTraLai", nhan: t("Hàng bán bị trả lại"), goiY: "5212", moTa: t("Trả hàng tại quầy, đơn hoàn trả") },
+  { key: "tkHangThieu", nhan: t("Hàng thiếu chờ xử lý"), goiY: "1381", moTa: t("Kiểm kê thiếu, hao hụt chuyển kho") },
+  { key: "tkHangThua", nhan: t("Hàng thừa chờ xử lý"), goiY: "3381", moTa: t("Kiểm kê thừa, nhập kho khác") },
 ];
 
+/** Nhóm hiển thị theo thứ tự nhập vào AMIS (trùng XuatKeToanService.tongHopTheoLoai). */
 export const TEN_LOAI = {
   ton_dau_ky: t("Tồn đầu kỳ"),
   mua_hang: t("Mua hàng"),
   chuyen_kho_xuat: t("Chuyển kho (xuất đi)"),
   chuyen_kho_nhan: t("Chuyển kho (nhận về)"),
+  nhap_kho_khac: t("Nhập kho khác"),
+  xuat_kho_khac: t("Xuất kho khác"),
   ban_hang: t("Bán hàng"),
+  tra_lai: t("Hàng bán trả lại"),
   danh_muc: t("Danh mục"),
   bien_dong_kho: t("Biến động kho"),
 };
 
-export const tenLoai = (loai) => TEN_LOAI[loai] ?? loai ?? "";
+/** Tên riêng của loại chứng từ chi tiết (vấn đề, chứng từ trong lô). */
+const TEN_LOAI_CHI_TIET = {
+  tra_lai_quay: t("Trả hàng tại quầy"),
+  tra_lai_don: t("Đơn hoàn trả"),
+};
+
+/** Nhóm hiển thị của loại chứng từ: phiếu kho khác theo chiều (mọi bảng nguồn), hàng bán trả lại (quầy + đơn hoàn). */
+export function nhomHienThi(loai) {
+  if (!loai) return "";
+  if (loai.startsWith("nhap_khac_")) return "nhap_kho_khac";
+  if (loai.startsWith("xuat_khac_")) return "xuat_kho_khac";
+  if (loai.startsWith("tra_lai_")) return "tra_lai";
+  return loai;
+}
+
+export const tenLoai = (loai) => TEN_LOAI_CHI_TIET[loai] ?? TEN_LOAI[nhomHienThi(loai)] ?? loai ?? "";
+
+/** Loại có cột tiền trên bảng tổng hợp: chuyển kho và xuất kho khác để AMIS tự tính giá nên không có tiền. */
+export const coTien = (loai) => !String(loai ?? "").startsWith("chuyen_kho") && loai !== "xuat_kho_khac";
+/** Loại có thuế GTGT. */
+export const coThue = (loai) => loai === "ban_hang" || loai === "mua_hang" || loai === "tra_lai";
+
+/** Lô còn hiệu lực mới nhất trong danh sách (chỉ lô này được hủy); null khi không có. */
+export function loCoTheHuy(dsLo = []) {
+  return dsLo.filter((lo) => lo.trangThai !== "da_huy").reduce((moi, lo) => (moi == null || lo.id > moi.id ? lo : moi), null);
+}
 
 const TAI_KHOAN_REGEX = /^\d{3,20}$/;
 const MA_DICH_VU_REGEX = /^[A-Za-z0-9._-]{1,50}$/;
@@ -213,15 +251,23 @@ export function congTongHop(tongHop = []) {
   );
 }
 
-/** Nhóm chứng từ của một lô theo loại, giữ thứ tự nhập vào AMIS. */
+/**
+ * Nhóm chứng từ của một lô theo nhóm hiển thị, giữ thứ tự nhập vào AMIS (nhóm lạ xuống cuối); trong nhóm sắp theo ngày
+ * hạch toán rồi số chứng từ (một nhóm gộp nhiều loại chi tiết, vd. trả hàng tại quầy và đơn hoàn trả).
+ */
 export function nhomTheoLoai(chungTu = []) {
   const thuTu = Object.keys(TEN_LOAI);
+  const viTri = (loai) => (thuTu.includes(loai) ? thuTu.indexOf(loai) : thuTu.length);
+  const theoNgay = (a, b) =>
+    String(a.ngayHachToan ?? "").localeCompare(String(b.ngayHachToan ?? "")) ||
+    String(a.soChungTu ?? "").localeCompare(String(b.soChungTu ?? ""));
   const nhom = new Map();
   for (const ct of chungTu) {
-    if (!nhom.has(ct.loai)) nhom.set(ct.loai, []);
-    nhom.get(ct.loai).push(ct);
+    const khoa = nhomHienThi(ct.loai);
+    if (!nhom.has(khoa)) nhom.set(khoa, []);
+    nhom.get(khoa).push(ct);
   }
   return [...nhom.entries()]
-    .sort((a, b) => thuTu.indexOf(a[0]) - thuTu.indexOf(b[0]))
-    .map(([loai, ds]) => ({ loai, ten: tenLoai(loai), chungTu: ds }));
+    .sort((a, b) => viTri(a[0]) - viTri(b[0]))
+    .map(([loai, ds]) => ({ loai, ten: tenLoai(loai), chungTu: [...ds].sort(theoNgay) }));
 }

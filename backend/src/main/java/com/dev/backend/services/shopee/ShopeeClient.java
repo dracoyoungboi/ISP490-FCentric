@@ -47,6 +47,7 @@ public class ShopeeClient {
     public static final String PATH_TOKEN_REFRESH = "/api/v2/auth/access_token/get";
     public static final String PATH_SHOP_INFO = "/api/v2/shop/get_shop_info";
     public static final String PATH_SHOP_PROFILE = "/api/v2/shop/get_profile";
+    public static final String PATH_SHOPS_BY_PARTNER = "/api/v2/public/get_shops_by_partner";
 
     // 2. Order Paths
     public static final String PATH_ORDER_LIST = "/api/v2/order/get_order_list";
@@ -245,6 +246,30 @@ public class ShopeeClient {
         String sign = ShopeeSignatureHelper.sign(partnerKey, base);
         String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s",
                 getHost(isSandbox), PATH_SHOP_PROFILE, partnerId, timestamp, accessToken, shopId, sign);
+        return executeGet(url);
+    }
+
+    public JsonNode getShopsByPartner(String partnerId, String partnerKey, int pageNo, int pageSize, boolean isSandbox) {
+        if (isMockCredentials(partnerId, partnerKey)) {
+            ObjectNode res = objectMapper.createObjectNode();
+            res.put("error", "").put("message", "");
+            ArrayNode list = res.putArray("authed_shop_list");
+            ObjectNode shop = list.addObject();
+            shop.put("shop_id", 228021980L);
+            shop.put("region", "VN");
+            shop.put("auth_time", Instant.now().getEpochSecond() - 86400);
+            shop.put("expire_time", Instant.now().getEpochSecond() + 31536000);
+            return res;
+        }
+
+        String host = getHost(isSandbox);
+        long timestamp = Instant.now().getEpochSecond();
+        String baseString = ShopeeSignatureHelper.buildPublicBaseString(partnerId, PATH_SHOPS_BY_PARTNER, timestamp);
+        String sign = ShopeeSignatureHelper.sign(partnerKey, baseString);
+
+        String url = String.format("%s%s?partner_id=%s&timestamp=%d&sign=%s&page_no=%d&page_size=%d",
+                host, PATH_SHOPS_BY_PARTNER, partnerId.trim(), timestamp, sign, pageNo, pageSize);
+
         return executeGet(url);
     }
 
@@ -1089,6 +1114,14 @@ public class ShopeeClient {
 
     public JsonNode getShopInfo() {
         return getShopInfo(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), this.isSandbox);
+    }
+
+    public JsonNode getShopsByPartner(int pageNo, int pageSize) {
+        return getShopsByPartner(pIdStr(), pKeyStr(), pageNo, pageSize, this.isSandbox);
+    }
+
+    public JsonNode getShopsByPartner() {
+        return getShopsByPartner(1, 50);
     }
 
     public String generateAuthUrl(String redirectUri) {

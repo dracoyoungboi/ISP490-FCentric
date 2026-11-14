@@ -30,6 +30,12 @@ public final class HoSoAmis {
     public static final String MUA_HANG = "MUA_HANG";
     public static final String CHUYEN_KHO = "CHUYEN_KHO";
     public static final String BAN_HANG = "BAN_HANG";
+    /** Phiếu xuất kho (dùng loại "Xuất kho khác"). */
+    public static final String XUAT_KHO = "XUAT_KHO";
+    /** Phiếu nhập kho (dùng loại "Nhập kho khác"). */
+    public static final String NHAP_KHO = "NHAP_KHO";
+    /** Chứng từ hàng bán trả lại. */
+    public static final String TRA_LAI = "TRA_LAI";
 
     private static final String TAI_NGUYEN = "/ke-toan/amis-doanh-nghiep.json";
     private static final Map<String, Mau> MAU = docTaiNguyen();

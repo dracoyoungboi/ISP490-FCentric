@@ -816,7 +816,14 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
             }
 
             Long soNgayCon = null;
-            if (kenh.getTokenExpiresAt() != null) {
+            Instant hanUyQuyen = kenh.getTokenExpiresAt();
+            if ((isOfficial || isSandbox) && kenh.getRefreshToken() != null && !kenh.getRefreshToken().isBlank()) {
+                // Shopee OAuth cấp refresh token dài hạn (365 ngày), hệ thống tự động làm mới access token định kỳ
+                Instant batDau = kenh.getNgayCapNhat() != null ? kenh.getNgayCapNhat() : Instant.now();
+                hanUyQuyen = batDau.plus(Duration.ofDays(365));
+                long seconds = Duration.between(Instant.now(), hanUyQuyen).getSeconds();
+                soNgayCon = Math.max(0L, seconds / 86400L);
+            } else if (kenh.getTokenExpiresAt() != null) {
                 long seconds = Duration.between(Instant.now(), kenh.getTokenExpiresAt()).getSeconds();
                 soNgayCon = Math.max(0L, seconds / 86400L);
             } else if (!isOfficial && !isSandbox && hasShopId) {
@@ -841,7 +848,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                     .hasAccessToken(hasToken)
                     .accessTokenMasked(maskedToken)
                     .tokenExpiresAt(kenh.getTokenExpiresAt())
-                    .hanUyQuyen(kenh.getTokenExpiresAt())
+                    .hanUyQuyen(hanUyQuyen)
                     .soNgayConUyQuyen(soNgayCon)
                     .ngayUyQuyen(kenh.getNgayCapNhat())
                     .tenGianHang(kenh.getTenKenh())
@@ -2278,6 +2285,16 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                 shopId = tokenRes.path("shop_id").asLong();
             } else if (tokenRes.has("shop_id_list") && tokenRes.path("shop_id_list").isArray() && !tokenRes.path("shop_id_list").isEmpty()) {
                 shopId = tokenRes.path("shop_id_list").get(0).asLong(0);
+            } else {
+                try {
+                    com.fasterxml.jackson.databind.JsonNode shopsRes = client.getShopsByPartner(1, 50);
+                    if (shopsRes != null && shopsRes.path("error").asText("").isEmpty()) {
+                        com.fasterxml.jackson.databind.JsonNode sList = shopsRes.path("authed_shop_list");
+                        if (sList.isArray() && !sList.isEmpty()) {
+                            shopId = sList.get(0).path("shop_id").asLong(0);
+                        }
+                    }
+                } catch (Exception ignored) {}
             }
         }
 
@@ -2291,6 +2308,22 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         if (shopId != null && shopId > 0) {
             kenh.setShopCipher(String.valueOf(shopId));
             kenh.setShopDomain(String.valueOf(shopId));
+            try {
+                com.dev.backend.services.shopee.ShopeeClient authedClient = new com.dev.backend.services.shopee.ShopeeClient(
+                        partnerId != null ? partnerId : 0L,
+                        partnerKey != null ? partnerKey : "",
+                        shopId,
+                        accessToken,
+                        MA_KENH_SHOPEE_SANDBOX.equals(ma)
+                );
+                com.fasterxml.jackson.databind.JsonNode shopInfo = authedClient.getShopInfo();
+                if (shopInfo != null && shopInfo.hasNonNull("shop_name")) {
+                    String realShopName = shopInfo.path("shop_name").asText("").trim();
+                    if (!realShopName.isBlank()) {
+                        kenh.setTenKenh(realShopName);
+                    }
+                }
+            } catch (Exception ignored) {}
         }
         kenh.setTrangThai(1);
         kenhBanHangRepository.save(kenh);
@@ -2420,6 +2453,33 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
             try {
                 return Long.parseLong(kenh.getShopDomain().trim());
             } catch (Exception ignored) {}
+        }
+        // 3. Tự động truy vấn danh sách gian hàng đã ủy quyền từ Shopee Open Platform (/api/v2/public/get_shops_by_partner)
+        Long partnerId = getShopeePartnerId(ma);
+        String partnerKey = getDecryptedShopeePartnerKey(ma);
+        if (partnerId != null && partnerId > 0 && partnerKey != null && !partnerKey.isBlank()) {
+            try {
+                boolean isSandbox = MA_KENH_SHOPEE_SANDBOX.equals(ma);
+                com.dev.backend.services.shopee.ShopeeClient client = new com.dev.backend.services.shopee.ShopeeClient(
+                        partnerId, partnerKey, 0L, "", isSandbox
+                );
+                com.fasterxml.jackson.databind.JsonNode res = client.getShopsByPartner(1, 50);
+                if (res != null && res.path("error").asText("").isEmpty()) {
+                    com.fasterxml.jackson.databind.JsonNode shopList = res.path("authed_shop_list");
+                    if (shopList.isArray() && !shopList.isEmpty()) {
+                        long authedShopId = shopList.get(0).path("shop_id").asLong(0);
+                        if (authedShopId > 0) {
+                            log.info("[SHOPEE] Tự động phát hiện Shop ID {} từ đối tác Shopee cho kênh {}", authedShopId, ma);
+                            kenh.setShopCipher(String.valueOf(authedShopId));
+                            kenh.setShopDomain(String.valueOf(authedShopId));
+                            kenhBanHangRepository.save(kenh);
+                            return authedShopId;
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("[SHOPEE] Không thể tự động tra cứu Shop ID từ Shopee: {}", e.getMessage());
+            }
         }
         // TUYỆT ĐỐI KHÔNG fallback về clientId (partner_id) vì partner_id không phải là shop_id của người bán!
         return null;

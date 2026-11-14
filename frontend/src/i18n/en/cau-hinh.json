@@ -18,9 +18,7 @@
   "Dòng phí ship thu khách trên chứng từ bán hàng; không được trùng SKU.": "The shipping fee line charged to customers on sales documents; must not match any SKU.",
   "Tên dịch vụ": "Service name",
   "Hình thức bước xuất chuyển kho": "Transaction type for the transfer issue step",
-  "Bước nhận và hủy giữa đường luôn là \"Xuất chuyển kho nội bộ\".": "The receive and in-transit cancel steps always use \"Internal transfer issue\".",
   "Số tài khoản nhận chuyển khoản tại quầy": "Bank account for in-store transfers",
-  "Cột \"Nộp vào TK\"; phải là tài khoản đã khai báo trên AMIS. Để trống nếu chưa có.": "The \"Deposit to account\" column; must be an account set up in AMIS. Leave blank if you don't have one yet.",
   "Nộp vào TK:": "Deposit to account:",
   "chưa đặt": "not set",
   "Xuất dữ liệu kế toán": "Accounting data export",
@@ -847,5 +845,7 @@
   "Điều khoản & ghi chú": "Terms & notes",
   "Địa điểm giao hàng": "Delivery location",
   "Thu gọn {{ten}}": "Collapse {{ten}}",
-  "Mở rộng {{ten}}": "Expand {{ten}}"
+  "Mở rộng {{ten}}": "Expand {{ten}}",
+  "Bước nhận và hủy giữa đường luôn là \"Xuất chuyển kho nội bộ\". Chọn \"Xuất kho kiêm vận chuyển nội bộ\" thì AMIS bỏ trống số chứng từ, chờ phát hành hóa đơn điện tử.": "The receive and in-transit cancel steps always use \"Internal transfer issue\". With \"Goods issue with internal transport\", AMIS leaves the document number blank until the e-invoice is issued.",
+  "Bắt buộc khi có đơn bán tại quầy trả QR payOS: AMIS chỉ ghi sổ tài khoản ngân hàng khi có số tài khoản. Phải là tài khoản đã khai báo trên AMIS.": "Required for in-store payOS QR sales: AMIS only posts to the bank account when the account number is given. It must be an account set up in AMIS."
 }

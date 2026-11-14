@@ -20,7 +20,9 @@ final class GhiDoiChieu {
     private GhiDoiChieu() {
     }
 
-    record DongTongHop(String ten, int soChungTu, int soDong, BigDecimal truocThue, BigDecimal thue, BigDecimal tongCong) {
+    /** thueChoHoaDon: thuế của phiếu mua chưa có hóa đơn, ghi khi kế toán Nhận hóa đơn trên AMIS (trước thuế + thuế + chờ = tổng). */
+    record DongTongHop(String ten, int soChungTu, int soDong, BigDecimal truocThue, BigDecimal thue, BigDecimal thueChoHoaDon,
+                       BigDecimal tongCong) {
     }
 
     record DongVanDe(String muc, String loai, String soChungTu, String noiDung) {
@@ -41,7 +43,8 @@ final class GhiDoiChieu {
             o(s1, 0, 0, "ĐỐI CHIẾU LÔ " + soLo, kieuDam);
             o(s1, 1, 0, "Chứng từ có ngày hạch toán từ " + ngayMoc.format(GhiTepAmis.NGAY) + " đến hết "
                     + denNgay.format(GhiTepAmis.NGAY) + " chưa giao ở lô trước", null);
-            String[] tieuDe = {"Loại", "Số chứng từ", "Số dòng", "Trước thuế (sau chiết khấu)", "Thuế GTGT", "Tổng cộng"};
+            String[] tieuDe = {"Loại", "Số chứng từ", "Số dòng", "Trước thuế (sau chiết khấu)", "Thuế GTGT", "Thuế chờ hóa đơn",
+                    "Tổng cộng"};
             dongTieuDe(s1, 3, tieuDe, kieuDam);
             int r = 4;
             for (DongTongHop t : tongHop) {
@@ -51,7 +54,12 @@ final class GhiDoiChieu {
                 row.createCell(2).setCellValue(t.soDong());
                 so(row, 3, t.truocThue(), kieuSo);
                 so(row, 4, t.thue(), kieuSo);
-                so(row, 5, t.tongCong(), kieuSo);
+                so(row, 5, t.thueChoHoaDon(), kieuSo);
+                so(row, 6, t.tongCong(), kieuSo);
+            }
+            if (tongHop.stream().anyMatch(t -> t.thueChoHoaDon() != null && t.thueChoHoaDon().signum() != 0)) {
+                o(s1, r++, 0, "Thuế chờ hóa đơn: phiếu mua chưa có hóa đơn nhà cung cấp (\"Không kèm hóa đơn\"). AMIS ghi phần trước"
+                        + " thuế; kế toán ghi thuế khi Nhận hóa đơn trên AMIS (Mua hàng › Nhận hóa đơn).", null);
             }
             r++;
             o(s1, r++, 0, "Đối chiếu doanh thu với Báo cáo doanh thu", kieuDam);
@@ -63,7 +71,8 @@ final class GhiDoiChieu {
             for (int c = 0; c < tieuDe.length; c++) s1.setColumnWidth(c, c == 0 ? 48 * 256 : 22 * 256);
 
             Sheet s2 = wb.createSheet("Chứng từ");
-            dongTieuDe(s2, 0, new String[]{"Loại", "Số chứng từ", "Ngày hạch toán", "Số dòng", "Trước thuế", "Thuế GTGT", "Tổng tiền"}, kieuDam);
+            dongTieuDe(s2, 0, new String[]{"Loại", "Số chứng từ", "Ngày hạch toán", "Số dòng", "Trước thuế", "Thuế GTGT",
+                    "Thuế chờ hóa đơn", "Tổng tiền"}, kieuDam);
             r = 1;
             for (DungChungTuAmis.ChungTu ct : chungTu) {
                 Row row = s2.createRow(r++);
@@ -73,9 +82,10 @@ final class GhiDoiChieu {
                 row.createCell(3).setCellValue(ct.soDong());
                 so(row, 4, ct.truocThue(), kieuSo);
                 so(row, 5, ct.thue(), kieuSo);
-                so(row, 6, ct.tongTien(), kieuSo);
+                so(row, 6, ct.thueChoHoaDon(), kieuSo);
+                so(row, 7, ct.tongTien(), kieuSo);
             }
-            for (int c = 0; c < 7; c++) s2.setColumnWidth(c, (c == 0 ? 24 : 18) * 256);
+            for (int c = 0; c < 8; c++) s2.setColumnWidth(c, (c == 0 ? 24 : 18) * 256);
 
             Sheet s3 = wb.createSheet("Vấn đề");
             dongTieuDe(s3, 0, new String[]{"Mức", "Loại", "Số chứng từ", "Nội dung"}, kieuDam);

@@ -119,6 +119,17 @@ public class KeToanController {
                 .body(tep.noiDung());
     }
 
+    /**
+     * Hủy lô còn hiệu lực mới nhất: chứng từ của lô quay về chưa xuất, tệp nén giữ lại (đánh dấu đã hủy). Body: lyDo
+     * (bắt buộc, ghi nhật ký). Kế toán xóa trên AMIS các chứng từ của lô đã nhập trước khi nhập lô mới.
+     */
+    @PostMapping("/lo-xuat/{id}/huy")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
+    public ResponseEntity<ResponseData<LoXuatKeToanDto>> huyLo(@PathVariable Integer id,
+                                                              @RequestBody MoKhoaChungTuRequest request) {
+        return ok(xuatKeToanService.huyLo(id, request == null ? null : request.getLyDo()));
+    }
+
     @PostMapping("/chung-tu-xuat/{id}/mo-khoa")
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
     public ResponseEntity<ResponseData<ChungTuXuatKeToanDto>> moKhoa(@PathVariable Integer id,

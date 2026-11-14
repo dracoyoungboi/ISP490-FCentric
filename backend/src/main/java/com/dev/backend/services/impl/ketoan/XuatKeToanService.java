@@ -41,11 +41,13 @@ import java.util.zip.ZipOutputStream;
  *
  * <p>Một lô gồm mọi chứng từ đủ điều kiện mà chưa nằm trong lô nào còn hiệu lực, có ngày hạch toán từ ngày mốc đến hết
  * "ngày chốt" (chọn ngày chốt thay vì khoảng ngày để không sót chứng từ): tồn đầu kỳ (chỉ lô đầu), mua hàng, chuyển
- * kho hai bước, bán hàng, kèm danh mục đầy đủ (kế toán nhập ở chế độ Cập nhật). Chứng từ có lỗi chặn bị để lại cho lô
- * sau. Tạo lô thì khóa chứng từ (chung_tu_xuat_ke_toan, UNIQUE theo chứng từ còn hiệu lực) và lưu tệp nén kèm SHA-256.</p>
+ * kho hai bước, nhập / xuất kho khác (kiểm kê, hao hụt chuyển kho), bán hàng, hàng bán trả lại (trả hàng tại quầy, đơn
+ * đã giao kế toán rồi bị hoàn trả), kèm danh mục (kế toán nhập ở chế độ Cập nhật). Chứng từ có lỗi chặn bị để lại cho
+ * lô sau. Tạo lô thì khóa chứng từ (chung_tu_xuat_ke_toan, UNIQUE theo chứng từ còn hiệu lực) và lưu tệp nén kèm
+ * SHA-256. Hủy lô (chỉ lô mới nhất) trả chứng từ của lô về "chưa xuất".</p>
  *
- * <p>Đơn đã giao kế toán rồi bị hoàn trả vẫn được hoàn trả (chốt 25/10/2026): màn xuất liệt kê ở "Phát sinh sau khi
- * xuất" để kế toán lập Hàng bán trả lại trên AMIS (đợt 2 sẽ tự sinh chứng từ này).</p>
+ * <p>Đơn đã giao kế toán rồi bị hoàn trả vẫn được hoàn trả (chốt 25/10/2026). Đơn hoàn trả từ 14/11/2026 có nhật ký
+ * nên tự thành chứng từ Hàng bán trả lại; đơn cũ hơn vẫn liệt kê ở "Phát sinh sau khi xuất" để kế toán lập tay.</p>
  */
 @Service
 public class XuatKeToanService {
@@ -98,7 +100,8 @@ public class XuatKeToanService {
     /** Kết quả dựng một lô (dùng chung cho xem trước và tạo lô). */
     record Lo(CauHinhKeToan cauHinh, LocalDate denNgay, DungChungTuAmis.KetQua ketQua, boolean coTonDauKy,
               List<NguonKeToan.SauXuat> sauXuat, List<DungChungTuAmis.VanDe> bienDongKho,
-              XemTruocXuatKeToanDto.DoiChieu doiChieu, ThongDiep lyDoKhongTheTao) {
+              XemTruocXuatKeToanDto.DoiChieu doiChieu, ThongDiep lyDoKhongTheTao,
+              List<NguonKeToan.HoaDonSauXuat> hoaDonSauXuat) {
     }
 
     static final String LOAI_BIEN_DONG_KHO = "bien_dong_kho";
@@ -128,6 +131,11 @@ public class XuatKeToanService {
         if (lo.lyDoKhongTheTao() != null) {
             throw new CommonException(HttpStatus.CONFLICT, lo.lyDoKhongTheTao());
         }
+        // Lô đầu tiên của bản tự dựng chốt mốc tự dựng (đúng mốc vừa dùng để dựng lô này). Sau đó hủy lô cũng không dời
+        // mốc: chứng từ tự dựng bị chặn ở lô này vẫn quay lại lô sau, biến động trước mốc vẫn ở danh sách lập tay.
+        if (ch.getTuDongTu() == null) {
+            ch.setTuDongTu(mocTuDong(ch, ch.getNgayMoc().atStartOfDay(MUI_GIO).toInstant()));
+        }
         if (req.getDauVet() != null && !req.getDauVet().equals(dauVet(lo.ketQua()))) {
             throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("keToanDuLieuVao.duLieuDaThayDoi"));
         }
@@ -156,6 +164,7 @@ public class XuatKeToanService {
                 .ghiChu(ghiChu == null || ghiChu.isEmpty() ? null : ghiChu)
                 .nguoiTao(nguoi)
                 .ngayTao(Instant.now(dongHo))
+                .trangThai(LoXuatKeToan.TRANG_THAI_HIEU_LUC)
                 .build();
         entity = loXuatRepository.save(entity);
 
@@ -168,6 +177,7 @@ public class XuatKeToanService {
                     .soChungTu(cat(ct.soChungTu(), 60))
                     .ngayHachToan(ct.ngayHachToan())
                     .tongTien(ct.tongTien())
+                    .maKhach(ct.maKhach())
                     .trangThai(ChungTuXuatKeToan.TRANG_THAI_DA_XUAT)
                     .build());
         }
@@ -247,6 +257,9 @@ public class XuatKeToanService {
         }
         ChungTuXuatKeToan ct = chungTuRepository.findByIdForUpdate(chungTuId)
                 .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("keToanDuLieuVao.chungTuKhongTimThayTrongLo")));
+        if (ChungTuXuatKeToan.TRANG_THAI_DA_HUY_LO.equals(ct.getTrangThai())) {
+            throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("keToanDuLieuVao.chungTuThuocLoDaHuy", ct.getSoChungTu()));
+        }
         if (!ChungTuXuatKeToan.TRANG_THAI_DA_XUAT.equals(ct.getTrangThai())) {
             throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("keToanDuLieuVao.chungTuDaMoKhoa", ct.getSoChungTu()));
         }
@@ -275,7 +288,85 @@ public class XuatKeToanService {
                 .build();
     }
 
+    // ── Hủy lô ─────────────────────────────────────────────────────────────
+
+    /**
+     * Hủy lô còn hiệu lực mới nhất: mọi chứng từ đang khóa của lô quay về "chưa xuất" và vào lô sau; tệp nén giữ lại làm
+     * bằng chứng (vẫn tải được, đánh dấu đã hủy). Chỉ lô mới nhất: lô sau dựa vào chứng từ của lô trước trên AMIS (hàng
+     * phải vào kho trước khi xuất). Kế toán phải xóa trên AMIS các chứng từ của lô đã nhập trước khi nhập lô mới. Khóa
+     * dòng cấu hình như lúc tạo lô để hai thao tác không chạy chồng nhau. Ghi nhật ký kèm lý do.
+     */
+    @Transactional
+    public LoXuatKeToanDto huyLo(Integer loId, String lyDo) {
+        String gon = lyDo == null ? "" : lyDo.trim();
+        if (gon.isEmpty()) {
+            throw new CommonException(ThongDiep.of("keToanDuLieuVao.nhapLyDoHuyLo"));
+        }
+        if (gon.length() > LY_DO_TOI_DA) {
+            throw new CommonException(ThongDiep.of("keToanDuLieuVao.lyDoToiDa500"));
+        }
+        cauHinhKeToanRepository.findByIdForUpdate(CauHinhKeToan.ID)
+                .orElseThrow(() -> new CommonException(ThongDiep.of("keToanDuLieuVao.chuaCoCauHinhXuat")));
+        LoXuatKeToanDto lo = loXuatRepository.tomTat(loId)
+                .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("keToanDuLieuVao.loXuatKhongTimThay")));
+        if (!LoXuatKeToan.TRANG_THAI_HIEU_LUC.equals(lo.getTrangThai())) {
+            throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("keToanDuLieuVao.loDaHuy", lo.getSoLo()));
+        }
+        Integer moiNhat = loXuatRepository.idLoHieuLucMoiNhat();
+        if (!loId.equals(moiNhat)) {
+            String soLoMoiNhat = moiNhat == null ? "" : loXuatRepository.tomTat(moiNhat).map(LoXuatKeToanDto::getSoLo).orElse("");
+            throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("keToanDuLieuVao.chiHuyLoMoiNhat", soLoMoiNhat));
+        }
+        NguoiDung nguoi = cauHinhKeToanService.nguoiDangThucHien();
+        Instant bayGio = Instant.now(dongHo);
+        if (loXuatRepository.huy(loId, nguoi, bayGio, gon) != 1) {
+            throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("keToanDuLieuVao.loDaHuy", lo.getSoLo()));
+        }
+        int soChungTu = chungTuRepository.huyTheoLo(loId);
+        lichSuThayDoiService.create(LichSuThayDoi.builder()
+                .loaiThamChieu(ITable.lo_xuat_ke_toan)
+                .idThamChieu(loId)
+                .hanhDong(IHanhDong.huy_lo_xuat_ke_toan)
+                .giaTriCu("{\"trangThai\":\"hieu_luc\",\"soLo\":\"" + lo.getSoLo() + "\"}")
+                .giaTriMoi("{\"trangThai\":\"da_huy\",\"soChungTuTraVe\":" + soChungTu + ",\"maBam\":\"" + lo.getMaBam() + "\"}")
+                .nguoiThucHien(nguoi)
+                .ngayThucHien(bayGio)
+                .ghiChu(gon)
+                .build());
+        return loXuatRepository.tomTat(loId).orElseThrow();
+    }
+
     // ── Dựng lô ────────────────────────────────────────────────────────────
+
+    /**
+     * Chỗ danh sách "biến động kho chưa có chứng từ" của các lô còn hiệu lực đã liệt kê tới (lô sau liệt kê tiếp từ đây):
+     * đầu ngày sau ngày "xuất đến" muộn nhất; lô đó tạo khi chưa hết ngày "xuất đến" (xuất đến hết hôm nay) thì lúc tạo
+     * lô, vì biến động sau lúc đó chưa lô nào liệt kê. Chưa có lô thì là ngày mốc ({@code tu}).
+     */
+    private Instant ketThucLietKeLoTruoc(CauHinhKeToan ch, Instant tu) {
+        LocalDate denLoTruoc = loXuatRepository.denNgayMuonNhat();
+        if (denLoTruoc == null || denLoTruoc.isBefore(ch.getNgayMoc())) {
+            return tu;
+        }
+        Instant ketThuc = denLoTruoc.plusDays(1).atStartOfDay(MUI_GIO).toInstant();
+        Instant taoLoTruoc = loXuatRepository.ngayTaoLoDenMuonNhat();
+        if (taoLoTruoc != null && taoLoTruoc.isBefore(ketThuc)) {
+            ketThuc = taoLoTruoc.isBefore(tu) ? tu : taoLoTruoc;
+        }
+        return ketThuc;
+    }
+
+    /**
+     * Mốc tự dựng phiếu nhập / xuất kho khác và chứng từ trả hàng tại quầy. Cột tu_dong_tu chốt ở lô đầu tiên tạo bằng
+     * bản tự dựng (taoLo); trước đó suy từ các lô còn hiệu lực — đều do bản cũ tạo, kể cả lô tạo giữa lúc chạy migration
+     * và lúc lên backend mới: biến động các lô đó đã liệt kê để kế toán lập tay thì không dựng lại (khỏi ghi sổ hai lần).
+     */
+    Instant mocTuDong(CauHinhKeToan ch, Instant tu) {
+        if (ch.getTuDongTu() != null) {
+            return ch.getTuDongTu().isAfter(tu) ? ch.getTuDongTu() : tu;
+        }
+        return ketThucLietKeLoTruoc(ch, tu);
+    }
 
     Lo dung(CauHinhKeToan ch, LocalDate denNgay) {
         LocalDate homNay = LocalDate.now(dongHo);
@@ -294,6 +385,8 @@ public class XuatKeToanService {
         Instant tu = ch.getNgayMoc().atStartOfDay(MUI_GIO).toInstant();
         Instant den = denNgay.plusDays(1).atStartOfDay(MUI_GIO).toInstant();
         DungChungTuAmis bo = new DungChungTuAmis(ch, thueSuatService.boTra());
+        // Phiếu kho khác và trả hàng tại quầy chỉ tự dựng từ mốc tự dựng: phần trước đó các lô cũ đã liệt kê để kế toán lập tay
+        Instant tuDong = mocTuDong(ch, tu);
 
         boolean canTonDauKy = !chungTuRepository.existsByLoaiAndIdNguonAndTrangThai(
                 ChungTuXuatKeToan.LOAI_TON_DAU_KY, 0, ChungTuXuatKeToan.TRANG_THAI_DA_XUAT);
@@ -320,33 +413,67 @@ public class XuatKeToanService {
         chuyen.sort(Comparator.comparing(NguonKeToan.PhieuChuyen::ngay));
         bo.chuyenKho(chuyen, dongChuyen);
 
+        if (tuDong.isBefore(den)) {
+            bo.khoKhac(nguon.khoKhacChuaXuat(tuDong, den, tu));
+        }
+
         List<NguonKeToan.DonBan> don = nguon.donBanChuaXuat(tu, den);
         Map<Integer, List<NguonKeToan.DongBan>> dongBan = nguon.dongDonBan(ids(don, NguonKeToan.DonBan::id)).stream()
                 .collect(Collectors.groupingBy(NguonKeToan.DongBan::donId, LinkedHashMap::new, Collectors.toList()));
         bo.banHang(don, dongBan);
 
         DungChungTuAmis.KetQua kq = bo.ketQua();
+        Set<Integer> donTrongLo = kq.chungTu().stream()
+                .filter(c -> ChungTuXuatKeToan.LOAI_BAN_HANG.equals(c.loai()))
+                .map(DungChungTuAmis.ChungTu::idNguon).collect(Collectors.toSet());
+
+        List<NguonKeToan.PhieuTraQuay> traQuay = tuDong.isBefore(den) ? nguon.phieuTraQuayChuaXuat(tuDong, den) : List.of();
+        Map<Integer, List<NguonKeToan.DongTraQuay>> dongTra = nguon.dongTraQuay(ids(traQuay, NguonKeToan.PhieuTraQuay::id)).stream()
+                .collect(Collectors.groupingBy(NguonKeToan.DongTraQuay::phieuId, LinkedHashMap::new, Collectors.toList()));
+        bo.traLaiQuay(traQuay, dongTra, donTrongLo, ch.getNgayMoc());
+
+        List<NguonKeToan.DonHoan> donHoan = nguon.donHoanChuaXuat(tu, den);
+        Map<Integer, List<NguonKeToan.DongBan>> dongHoan = nguon.dongDonBan(donHoan.stream().map(h -> h.don().id()).toList()).stream()
+                .collect(Collectors.groupingBy(NguonKeToan.DongBan::donId, LinkedHashMap::new, Collectors.toList()));
+        bo.traLaiDon(donHoan, dongHoan);
+
         if (!kq.chungTu().isEmpty()) {
-            Set<String> maKhach = new HashSet<>();
-            Set<Integer> donTrongLo = kq.chungTu().stream()
-                    .filter(c -> ChungTuXuatKeToan.LOAI_BAN_HANG.equals(c.loai()))
-                    .map(DungChungTuAmis.ChungTu::idNguon).collect(Collectors.toSet());
-            for (NguonKeToan.DonBan d : don) {
-                if (donTrongLo.contains(d.id())) maKhach.add(d.maKhachHang());
+            // Danh mục khách: chỉ khách giữ mã riêng có chứng từ trong lô, cộng khách lẻ KHLE nếu có (dòng của CSDL);
+            // mã gom theo sàn dựng sẵn trong DungChungTuAmis.danhMuc
+            Set<String> maKhach = new LinkedHashSet<>(kq.maKhachRieng());
+            if (kq.maKhachNhom().contains(DungChungTuAmis.MA_KHACH_LE)) {
+                maKhach.add(DungChungTuAmis.MA_KHACH_LE);
             }
             bo.danhMuc(nguon.kho(), nguon.khachHang(maKhach), nguon.nhaCungCap(), nguon.hangHoa(), denNgay);
         }
 
-        // Đối chiếu với Báo cáo doanh thu cùng khoảng ngày
+        // Đối chiếu với Báo cáo doanh thu cùng khoảng ngày (bán trừ tiền hoàn của trả hàng tại quầy)
         Map<Integer, BigDecimal> tongDon = new HashMap<>();
         for (NguonKeToan.DonBan d : don) tongDon.put(d.id(), TachThue.dong(d.tongCong()));
+        Map<Integer, BigDecimal> tongTra = new HashMap<>();
+        for (NguonKeToan.PhieuTraQuay t : traQuay) tongTra.put(t.id(), TachThue.dong(t.tongTienHoan()));
+        Map<Integer, BigDecimal> tongHoan = new HashMap<>();
+        for (NguonKeToan.DonHoan h : donHoan) tongHoan.put(h.don().id(), TachThue.dong(h.don().tongCong()));
         BigDecimal baoCao = TachThue.dong(nguon.doanhThuBaoCao(tu, den));
         BigDecimal loTruoc = TachThue.dong(nguon.doanhThuDaGiao(ch.getNgayMoc(), denNgay));
-        BigDecimal trongLo = tongBan(kq.chungTu()).tongCong();
-        BigDecimal biChan = kq.chan().stream()
-                .filter(v -> ChungTuXuatKeToan.LOAI_BAN_HANG.equals(v.loai()) && v.idNguon() != null)
-                .map(v -> tongDon.getOrDefault(v.idNguon(), BigDecimal.ZERO))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal trongLo = doanhThuThuan(kq.chungTu());
+        BigDecimal biChan = BigDecimal.ZERO;
+        for (DungChungTuAmis.VanDe v : kq.chan()) {
+            if (v.idNguon() == null) continue;
+            if (ChungTuXuatKeToan.LOAI_BAN_HANG.equals(v.loai())) {
+                biChan = biChan.add(tongDon.getOrDefault(v.idNguon(), BigDecimal.ZERO));
+            } else if (ChungTuXuatKeToan.LOAI_TRA_LAI_QUAY.equals(v.loai())) {
+                biChan = biChan.subtract(tongTra.getOrDefault(v.idNguon(), BigDecimal.ZERO));
+            } else if (ChungTuXuatKeToan.LOAI_TRA_LAI_DON.equals(v.loai())) {
+                // Báo cáo doanh thu đã bỏ đơn hoàn trả, lô trước vẫn tính chứng từ bán: phần chưa trừ được nằm ở đây
+                biChan = biChan.subtract(tongHoan.getOrDefault(v.idNguon(), BigDecimal.ZERO));
+            }
+        }
+        // Trả hàng tại quầy trước mốc tự dựng chưa có chứng từ: kế toán lập tay theo danh sách biến động của lô cũ, không
+        // nằm trong lô nào nhưng Báo cáo doanh thu vẫn trừ
+        if (tuDong.isAfter(tu)) {
+            biChan = biChan.subtract(TachThue.dong(nguon.tienHoanTraQuayChuaXuat(tu, tuDong.isBefore(den) ? tuDong : den)));
+        }
         XemTruocXuatKeToanDto.DoiChieu doiChieu = XemTruocXuatKeToanDto.DoiChieu.builder()
                 .doanhThuBaoCao(baoCao)
                 .doanhThuLoTruoc(loTruoc)
@@ -363,25 +490,20 @@ public class XuatKeToanService {
             lyDo = ThongDiep.of("keToanDuLieuVao.khongCoChungTuMoi", denNgay.format(GhiTepAmis.NGAY));
         }
         // Biến động kho chưa có chứng từ: chỉ phần phát sinh sau lô trước (mỗi biến động hiện ở đúng một lô)
-        LocalDate denLoTruoc = loXuatRepository.denNgayMuonNhat();
-        Instant tuBienDong = tu;
-        if (denLoTruoc != null && !denLoTruoc.isBefore(ch.getNgayMoc())) {
-            tuBienDong = denLoTruoc.plusDays(1).atStartOfDay(MUI_GIO).toInstant();
-            // Lô trước tạo khi chưa hết ngày "xuất đến" của nó (xuất đến hết hôm nay): biến động sau lúc tạo lô đó chưa
-            // lô nào liệt kê, nên lô này liệt kê từ lúc tạo lô trước
-            Instant taoLoTruoc = loXuatRepository.ngayTaoLoDenMuonNhat();
-            if (taoLoTruoc != null && taoLoTruoc.isBefore(tuBienDong)) {
-                tuBienDong = taoLoTruoc.isBefore(tu) ? tu : taoLoTruoc;
-            }
-        }
+        Instant tuBienDong = ketThucLietKeLoTruoc(ch, tu);
         List<DungChungTuAmis.VanDe> bienDong = tuBienDong.isBefore(den)
-                ? nguon.bienDongKhoKhongCoChungTu(tuBienDong, den, tu).stream().map(XuatKeToanService::bienDong).toList()
+                ? nguon.bienDongKhoKhongCoChungTu(tuBienDong, den, tu, tuDong).stream().map(XuatKeToanService::bienDong).toList()
                 : List.of();
-        return new Lo(ch, denNgay, kq, canTonDauKy, nguon.donDaXuatBiHoanTra(), bienDong, doiChieu, lyDo);
+        // Phiếu mua đã giao dạng chưa có hóa đơn, nay mới có hóa đơn (hoặc ghi không có): nhắc kế toán làm trên AMIS
+        Instant taoLoMoiNhat = loXuatRepository.ngayTaoMoiNhat();
+        var traThue = thueSuatService.boTra();
+        List<NguonKeToan.HoaDonSauXuat> hoaDonSau = nguon.hoaDonSauXuat(taoLoMoiNhat == null ? Instant.EPOCH : taoLoMoiNhat)
+                .stream().map(h -> h.voiThueUoc(traThue.mucChung(h.ngayNhap().atZone(MUI_GIO).toLocalDate()))).toList();
+        return new Lo(ch, denNgay, kq, canTonDauKy, nguon.donDaXuatBiHoanTra(), bienDong, doiChieu, lyDo, hoaDonSau);
     }
 
     private Lo rong(CauHinhKeToan ch, LocalDate denNgay, ThongDiep lyDo) {
-        return new Lo(ch, denNgay, new DungChungTuAmis.KetQua(), false, List.of(), List.of(), null, lyDo);
+        return new Lo(ch, denNgay, new DungChungTuAmis.KetQua(), false, List.of(), List.of(), null, lyDo, List.of());
     }
 
     static DungChungTuAmis.VanDe bienDong(NguonKeToan.BienDongKho b) {
@@ -459,8 +581,9 @@ public class XuatKeToanService {
         sb.append("Lô ").append(soLo).append(" — tạo lúc ").append(luc.format(GIO)).append(" bởi ").append(nguoiTao).append(n);
         sb.append("Gồm chứng từ chưa giao có ngày hạch toán từ ").append(lo.cauHinh().getNgayMoc().format(GhiTepAmis.NGAY))
                 .append(" (ngày mốc) đến hết ").append(lo.denNgay().format(GhiTepAmis.NGAY)).append('.').append(n).append(n);
-        sb.append("Nhập ĐÚNG THỨ TỰ dưới đây. Hàng phải vào kho trước khi xuất: nhập hết mua hàng và chuyển kho trước bán").append(n)
-                .append("hàng, nếu không AMIS báo tồn âm (đang đặt \"không cho xuất quá số lượng tồn\").").append(n).append(n);
+        sb.append("Nhập ĐÚNG THỨ TỰ dưới đây. Hàng phải vào kho trước khi xuất: nhập hết mua hàng, chuyển kho, nhập kho khác").append(n)
+                .append("trước xuất kho khác và bán hàng, nếu không AMIS báo tồn âm (khi đặt \"không cho xuất quá số lượng tồn\").").append(n)
+                .append("Ở bước Chọn tệp: bỏ tick \"Tự động ghép cột với AVA Kế toán\" (tên cột trong tệp đã đúng mẫu AMIS).").append(n).append(n);
         int stt = 1;
         for (DungChungTuAmis.Tep t : lo.ketQua().tep()) {
             HoSoAmis.Mau mau = HoSoAmis.mau(t.mau());
@@ -472,12 +595,44 @@ public class XuatKeToanService {
             }
         }
         sb.append(n);
+        sb.append("GHI SỔ: chứng từ nhập từ Excel chưa ghi sổ. Nhập xong mỗi tệp chứng từ, mở danh sách tương ứng trên AMIS").append(n)
+                .append("(Mua hàng, Kho › Chuyển kho / Nhập kho / Xuất kho, Bán hàng, Trả lại hàng bán), chọn các chứng từ vừa nhập,").append(n)
+                .append("bấm Ghi sổ, theo đúng thứ tự tệp ở trên. Danh sách AMIS mặc định 20 dòng/trang: đặt Số dòng/trang = 100").append(n)
+                .append("hoặc ghi sổ từng trang, chứng từ ở trang sau không được chọn. Ghi sổ cả loạt mà AMIS báo \"vượt quá số lượng").append(n)
+                .append("tồn\" thì bấm Ghi sổ lại các chứng từ còn lại (AMIS xử lý cả loạt không theo thứ tự ngày). Màn kết quả nhập").append(n)
+                .append("của AMIS có lúc báo số dòng thành công sai: kiểm tra lại danh sách chứng từ trên AMIS.").append(n);
         sb.append("Danh mục: chọn phương thức nhập \"Cập nhật\" (mã đã có thì sửa theo tệp, mã mới thì thêm).").append(n);
+        sb.append("Khách hàng: đơn sàn ghi theo mã sàn (SAN_LAZADA, SAN_SHOPEE, SAN_TIKTOK, SAN_SHOPIFY), đơn tại quầy ghi").append(n)
+                .append("khách lẻ KHLE; chỉ khách có mã số thuế giữ mã riêng. Công nợ đơn sàn theo dõi theo sàn.").append(n);
+        sb.append("Tài khoản ").append(lo.cauHinh().getTkNganHang()).append(" (bán tại quầy trả QR payOS): AMIS bắt buộc tài khoản ngân hàng, số").append(n)
+                .append("tài khoản ở cột Nộp vào TK phải đã khai báo ở Danh mục › Tài khoản ngân hàng trên AMIS. Hoàn tiền chuyển").append(n)
+                .append("khoản cho khách trả hàng ghi giảm trừ công nợ; kế toán lập chứng từ chi tiền gửi riêng.").append(n);
+        sb.append("Hàng bán trả lại: ghi \"Không có hóa đơn\". Đơn gốc đã phát hành hóa đơn điện tử thì lập hóa đơn điều chỉnh").append(n)
+                .append("trên MISA meInvoice. Hàng lỗi khách trả là chứng từ riêng (số phiếu + \"-L\") không kèm phiếu nhập kho.").append(n);
         sb.append("Chứng từ: AMIS chỉ thêm mới. Muốn sửa chứng từ đã nhập: xóa trên AMIS, nhờ quản trị viên F Centric mở khóa").append(n)
-                .append("chứng từ đó ở màn Xuất dữ liệu kế toán, rồi tạo lô mới.").append(n);
+                .append("chứng từ đó (hoặc hủy cả lô nếu là lô mới nhất) ở màn Xuất dữ liệu kế toán, rồi tạo lô mới.").append(n);
         sb.append("Hóa đơn điện tử: tệp để trống số hóa đơn; kế toán phát hành trên MISA meInvoice.").append(n);
         sb.append("Giá vốn: để trống, AMIS tính theo phương pháp đã đăng ký (bình quân cuối kỳ).").append(n);
         sb.append("Đối chiếu sau khi nhập: 90_DoiChieu.xlsx. Mã băm SHA-256 của tệp nén xem ở màn Xuất dữ liệu kế toán.").append(n);
+        List<DungChungTuAmis.ChungTu> choHoaDon = lo.ketQua().chungTu().stream()
+                .filter(c -> c.thueChoHoaDon() != null && c.thueChoHoaDon().signum() > 0).toList();
+        if (!choHoaDon.isEmpty()) {
+            sb.append(n).append("PHIẾU MUA CHƯA CÓ HÓA ĐƠN (\"Không kèm hóa đơn\"): AMIS ghi giá trị hàng đã tách thuế theo mức chung, thuế").append(n)
+                    .append("để chờ hóa đơn. Khi nhận hóa đơn: Mua hàng › Nhận hóa đơn › Thêm, chọn nhà cung cấp, Lấy dữ liệu, tick phiếu,").append(n)
+                    .append("Đồng ý, nhập ký hiệu, số, ngày hóa đơn rồi Cất (AMIS tự điền thuế theo %, hóa đơn khác thuế suất thì sửa).").append(n)
+                    .append("Nhà cung cấp không xuất hóa đơn: ghi \"Không có hóa đơn\" ở phiếu nhập F Centric, xóa phiếu mua trên AMIS,").append(n)
+                    .append("nhờ quản trị viên mở khóa chứng từ rồi tạo lô mới (phiếu xuất lại theo giá đủ). Trong lô này:").append(n);
+            for (DungChungTuAmis.ChungTu c : choHoaDon) {
+                sb.append("  - ").append(c.soChungTu()).append(": thuế chờ hóa đơn ").append(tienVn(c.thueChoHoaDon())).append(" đ").append(n);
+            }
+        }
+        if (!lo.hoaDonSauXuat().isEmpty()) {
+            sb.append(n).append("Phiếu mua đã giao trước đây, nay có thay đổi hóa đơn (làm trên AMIS):").append(n);
+            for (NguonKeToan.HoaDonSauXuat h : lo.hoaDonSauXuat()) {
+                ThongDiep td = noiDungHoaDonSauXuat(h);
+                sb.append("  - ").append(h.soPhieu()).append(": ").append(td.theoNgonNgu(NgonNgu.VI)).append(n);
+            }
+        }
         if (!lo.sauXuat().isEmpty()) {
             sb.append(n).append("Đơn đã giao kế toán rồi bị hoàn trả (lập Hàng bán trả lại trên AMIS):").append(n);
             for (NguonKeToan.SauXuat s : lo.sauXuat()) {
@@ -485,7 +640,7 @@ public class XuatKeToanService {
             }
         }
         if (!lo.bienDongKho().isEmpty()) {
-            sb.append(n).append("Biến động kho không có chứng từ trong lô (lập tay trên AMIS trước khi nhập bán hàng):").append(n);
+            sb.append(n).append("Biến động kho không có chứng từ trong lô (lập tay trên AMIS trước khi nhập xuất kho khác và bán hàng):").append(n);
             for (DungChungTuAmis.VanDe v : lo.bienDongKho()) {
                 sb.append("  - ").append(v.soChungTu()).append(": ").append(v.noiDung()).append(n);
             }
@@ -503,6 +658,9 @@ public class XuatKeToanService {
             case HoSoAmis.MUA_HANG -> "Mua hàng › Mua hàng › Nhập từ Excel, loại \"Mua hàng trong nước\"";
             case HoSoAmis.CHUYEN_KHO -> "Kho › Nhập kho › Nhập từ Excel, loại \"Chuyển kho\"";
             case HoSoAmis.BAN_HANG -> "Bán hàng › Bán hàng › Nhập từ Excel, loại \"Bán hàng hóa\"";
+            case HoSoAmis.NHAP_KHO -> "Kho › Nhập kho › Nhập từ Excel, loại chứng từ \"Nhập kho\"";
+            case HoSoAmis.XUAT_KHO -> "Kho › Xuất kho › Nhập từ Excel, loại chứng từ \"Xuất kho\"";
+            case HoSoAmis.TRA_LAI -> "Bán hàng › Trả lại hàng bán › Nhập từ Excel";
             default -> mau;
         };
     }
@@ -515,8 +673,12 @@ public class XuatKeToanService {
         return switch (mau) {
             case HoSoAmis.KHACH_HANG, HoSoAmis.NHA_CUNG_CAP -> "Ở bước Ghép dữ liệu, bấm \"Ẩn/hiện thông tin\", tick Điện thoại,"
                     + " Là tổ chức/cá nhân, Họ và tên NLH, Email rồi Đồng ý (AMIS ẩn sẵn 4 cột này, không bật thì mất các thông tin đó).";
-            case HoSoAmis.VAT_TU_HANG_HOA -> "Ở bước Ghép dữ liệu, bấm \"Ẩn/hiện thông tin\", tick Là đơn giá bán sau thuế rồi Đồng ý"
-                    + " (đơn giá bán trong tệp đã gồm thuế GTGT).";
+            case HoSoAmis.VAT_TU_HANG_HOA -> "Ở bước Ghép dữ liệu, nếu \"Ẩn/hiện thông tin\" có cột Là đơn giá bán sau thuế (AMIS bật"
+                    + " bán theo đơn giá sau thuế) thì tick cột đó rồi Đồng ý. Không có cột này thì khi AMIS hỏi tiếp tục, chọn Có:"
+                    + " đơn giá bán trong danh mục chỉ là giá gợi ý, chứng từ bán đã ghi giá riêng.";
+            case HoSoAmis.BAN_HANG -> "Ở bước Ghép dữ liệu, bấm \"Ẩn/hiện thông tin\", tick Địa chỉ, Mã số thuế, Nộp vào TK rồi Đồng ý"
+                    + " (AMIS ẩn sẵn 3 cột này: không bật thì mất mã số thuế của khách công ty và tài khoản nhận tiền QR, chứng từ"
+                    + " QR không ghi sổ được).";
             default -> null;
         };
     }
@@ -531,6 +693,9 @@ public class XuatKeToanService {
             case HoSoAmis.MUA_HANG -> "MUA HÀNG TRONG NƯỚC NHẬP KHO";
             case HoSoAmis.CHUYEN_KHO -> "CHUYỂN KHO";
             case HoSoAmis.BAN_HANG -> "BÁN HÀNG HÓA KIÊM PHIẾU XUẤT KHO";
+            case HoSoAmis.NHAP_KHO -> "PHIẾU NHẬP KHO KHÁC";
+            case HoSoAmis.XUAT_KHO -> "PHIẾU XUẤT KHO KHÁC";
+            case HoSoAmis.TRA_LAI -> "HÀNG BÁN TRẢ LẠI";
             default -> mau;
         };
     }
@@ -542,7 +707,7 @@ public class XuatKeToanService {
         List<XemTruocXuatKeToanDto.TongHopLoai> tongHop = tongHopTheoLoai(kq).stream()
                 .map(t -> XemTruocXuatKeToanDto.TongHopLoai.builder()
                         .loai(t.loai()).ten(tenLoai(t.loai())).soChungTu(t.soChungTu()).soDong(t.soDong())
-                        .truocThue(t.truocThue()).thue(t.thue()).tongCong(t.tongCong()).build())
+                        .truocThue(t.truocThue()).thue(t.thue()).thueChoHoaDon(t.thueChoHoaDon()).tongCong(t.tongCong()).build())
                 .toList();
         return XemTruocXuatKeToanDto.builder()
                 .ngayMoc(lo.cauHinh().getNgayMoc())
@@ -552,10 +717,15 @@ public class XuatKeToanService {
                 .tongHop(tongHop)
                 .loiChan(kq.chan().stream().map(XuatKeToanService::vanDe).toList())
                 .canhBao(kq.canhBao().stream().map(XuatKeToanService::vanDe).toList())
-                .phatSinhSauXuat(lo.sauXuat().stream().map(s -> XemTruocXuatKeToanDto.VanDe.builder()
-                        .loai(ChungTuXuatKeToan.LOAI_BAN_HANG).idNguon(s.donId()).soChungTu(s.soDon())
-                        .noiDung(ThongDiep.dich("keToanDuLieuVao.phatSinhSauXuat", s.soLo()))
-                        .build()).toList())
+                .phatSinhSauXuat(java.util.stream.Stream.concat(
+                        lo.hoaDonSauXuat().stream().map(h -> XemTruocXuatKeToanDto.VanDe.builder()
+                                .loai(ChungTuXuatKeToan.LOAI_MUA_HANG).idNguon(h.phieuId()).soChungTu(h.soPhieu())
+                                .noiDung(noiDungHoaDonSauXuat(h).theoNgonNgu(NgonNgu.hienTai()))
+                                .build()),
+                        lo.sauXuat().stream().map(s -> XemTruocXuatKeToanDto.VanDe.builder()
+                                .loai(ChungTuXuatKeToan.LOAI_BAN_HANG).idNguon(s.donId()).soChungTu(s.soDon())
+                                .noiDung(ThongDiep.dich("keToanDuLieuVao.phatSinhSauXuat", s.soLo()))
+                                .build())).toList())
                 .bienDongKho(lo.bienDongKho().stream().map(XuatKeToanService::vanDe).toList())
                 .doiChieu(lo.doiChieu())
                 .coTheTaoLo(lo.lyDoKhongTheTao() == null)
@@ -578,33 +748,76 @@ public class XuatKeToanService {
                 .loai(v.loai()).idNguon(v.idNguon()).soChungTu(v.soChungTu()).noiDung(v.noiDung()).build();
     }
 
-    record TongLoai(String loai, int soChungTu, int soDong, BigDecimal truocThue, BigDecimal thue, BigDecimal tongCong) {
+    record TongLoai(String loai, int soChungTu, int soDong, BigDecimal truocThue, BigDecimal thue, BigDecimal thueChoHoaDon,
+                    BigDecimal tongCong) {
+    }
+
+    /**
+     * Việc kế toán làm trên AMIS cho phiếu mua đã giao dạng chưa có hóa đơn, nay có hóa đơn (cùng hoặc khác mức thuế đã
+     * dùng để tách lúc xuất) hoặc ghi không có hóa đơn.
+     */
+    static ThongDiep noiDungHoaDonSauXuat(NguonKeToan.HoaDonSauXuat h) {
+        String uoc = h.thueUoc() == null ? "?" : phanTram(h.thueUoc());
+        if (!h.coHoaDon()) {
+            return ThongDiep.of("keToanDuLieuVao.hoaDonSauXuatKhong", h.soLo(), h.soPhieu(), uoc);
+        }
+        String hd = (h.kyHieu() == null ? "" : h.kyHieu() + "/") + h.soHoaDon()
+                + (h.ngayHoaDon() == null ? "" : " (" + h.ngayHoaDon().format(GhiTepAmis.NGAY) + ")");
+        String ts = h.thueSuat() == null ? "?" : phanTram(h.thueSuat());
+        if (h.thueUoc() != null && h.thueSuat() != null && h.thueSuat().compareTo(h.thueUoc()) != 0) {
+            return ThongDiep.of("keToanDuLieuVao.hoaDonSauXuatKhacThue", h.soLo(), hd, ts, h.soPhieu(), uoc);
+        }
+        return ThongDiep.of("keToanDuLieuVao.hoaDonSauXuatCo", h.soLo(), hd, ts, h.soPhieu());
+    }
+
+    private static String phanTram(BigDecimal v) {
+        return v.stripTrailingZeros().toPlainString();
+    }
+
+    private static String tienVn(BigDecimal v) {
+        return String.format(java.util.Locale.ROOT, "%,.0f", v).replace(',', '.');
+    }
+
+    static final String NHOM_NHAP_KHO_KHAC = "nhap_kho_khac";
+    static final String NHOM_XUAT_KHO_KHAC = "xuat_kho_khac";
+    static final String NHOM_TRA_LAI = "tra_lai";
+
+    /** Nhóm hiển thị của loại chứng từ: phiếu kho khác theo chiều (mọi bảng nguồn), hàng bán trả lại (quầy + đơn hoàn). */
+    static String nhomHienThi(String loai) {
+        if (loai == null) return "";
+        if (loai.startsWith("nhap_khac_")) return NHOM_NHAP_KHO_KHAC;
+        if (loai.startsWith("xuat_khac_")) return NHOM_XUAT_KHO_KHAC;
+        if (loai.startsWith("tra_lai_")) return NHOM_TRA_LAI;
+        return loai;
     }
 
     /** Tổng theo loại, theo thứ tự nhập vào AMIS. */
     static List<TongLoai> tongHopTheoLoai(DungChungTuAmis.KetQua kq) {
         List<String> thuTu = List.of(ChungTuXuatKeToan.LOAI_TON_DAU_KY, ChungTuXuatKeToan.LOAI_MUA_HANG,
-                ChungTuXuatKeToan.LOAI_CHUYEN_KHO_XUAT, ChungTuXuatKeToan.LOAI_CHUYEN_KHO_NHAN, ChungTuXuatKeToan.LOAI_BAN_HANG);
+                ChungTuXuatKeToan.LOAI_CHUYEN_KHO_XUAT, ChungTuXuatKeToan.LOAI_CHUYEN_KHO_NHAN, NHOM_NHAP_KHO_KHAC,
+                NHOM_XUAT_KHO_KHAC, ChungTuXuatKeToan.LOAI_BAN_HANG, NHOM_TRA_LAI);
         List<TongLoai> ds = new ArrayList<>();
         for (String loai : thuTu) {
-            List<DungChungTuAmis.ChungTu> cua = kq.chungTu().stream().filter(c -> loai.equals(c.loai())).toList();
+            List<DungChungTuAmis.ChungTu> cua = kq.chungTu().stream().filter(c -> loai.equals(nhomHienThi(c.loai()))).toList();
             if (cua.isEmpty()) continue;
             ds.add(new TongLoai(loai, cua.size(), cua.stream().mapToInt(DungChungTuAmis.ChungTu::soDong).sum(),
                     tong(cua, DungChungTuAmis.ChungTu::truocThue), tong(cua, DungChungTuAmis.ChungTu::thue),
-                    tong(cua, DungChungTuAmis.ChungTu::tongTien)));
+                    tong(cua, DungChungTuAmis.ChungTu::thueChoHoaDon), tong(cua, DungChungTuAmis.ChungTu::tongTien)));
         }
         return ds;
     }
 
     private static List<GhiDoiChieu.DongTongHop> tongHopDoiChieu(DungChungTuAmis.KetQua kq) {
         return tongHopTheoLoai(kq).stream().map(t -> new GhiDoiChieu.DongTongHop(tenLoai(t.loai()), t.soChungTu(),
-                t.soDong(), t.truocThue(), t.thue(), t.tongCong())).toList();
+                t.soDong(), t.truocThue(), t.thue(), t.thueChoHoaDon(), t.tongCong())).toList();
     }
 
     private static List<GhiDoiChieu.DongVanDe> vanDeDoiChieu(Lo lo) {
         List<GhiDoiChieu.DongVanDe> ds = new ArrayList<>();
         lo.ketQua().chan().forEach(v -> ds.add(new GhiDoiChieu.DongVanDe("Để lại lô sau", tenLoai(v.loai()), v.soChungTu(), v.noiDung())));
         lo.ketQua().canhBao().forEach(v -> ds.add(new GhiDoiChieu.DongVanDe("Cảnh báo", tenLoai(v.loai()), v.soChungTu(), v.noiDung())));
+        lo.hoaDonSauXuat().forEach(h -> ds.add(new GhiDoiChieu.DongVanDe("Phát sinh sau khi xuất",
+                tenLoai(ChungTuXuatKeToan.LOAI_MUA_HANG), h.soPhieu(), noiDungHoaDonSauXuat(h).theoNgonNgu(NgonNgu.VI))));
         lo.sauXuat().forEach(s -> ds.add(new GhiDoiChieu.DongVanDe("Phát sinh sau khi xuất", tenLoai(ChungTuXuatKeToan.LOAI_BAN_HANG),
                 s.soDon(), "Đã giao ở lô " + s.soLo() + ", sau đó bị hoàn trả: lập Hàng bán trả lại trên AMIS.")));
         lo.bienDongKho().forEach(v -> ds.add(new GhiDoiChieu.DongVanDe("Biến động kho lập tay", tenLoai(v.loai()), v.soChungTu(), v.noiDung())));
@@ -614,14 +827,27 @@ public class XuatKeToanService {
     private static List<String[]> dongDoiChieu(XemTruocXuatKeToanDto.DoiChieu d) {
         if (d == null) return List.of();
         return List.of(
-                new String[]{"Doanh thu theo Báo cáo doanh thu (đơn đã xuất đủ / hoàn thành)", d.getDoanhThuBaoCao().toPlainString()},
+                new String[]{"Doanh thu theo Báo cáo doanh thu (đơn đã xuất đủ / hoàn thành, trừ tiền hoàn tại quầy)", d.getDoanhThuBaoCao().toPlainString()},
                 new String[]{"Đã giao kế toán ở các lô trước", d.getDoanhThuLoTruoc().toPlainString()},
                 new String[]{"Trong lô này", d.getDoanhThuTrongLo().toPlainString()},
                 new String[]{"Bị chặn, để lại lô sau", d.getDoanhThuBiChan().toPlainString()},
-                new String[]{"Chênh lệch (đơn đã giao rồi bị hoàn trả)", d.getChenhLech().toPlainString()});
+                new String[]{"Chênh lệch (đơn hoàn trả hoặc phiếu trả tại quầy kế toán lập tay)", d.getChenhLech().toPlainString()});
     }
 
     record TongBan(BigDecimal truocThue, BigDecimal thue, BigDecimal tongCong) {
+    }
+
+    /** Doanh thu thuần của các chứng từ: tổng tiền chứng từ bán trừ chứng từ hàng bán trả lại. */
+    static BigDecimal doanhThuThuan(List<DungChungTuAmis.ChungTu> ds) {
+        BigDecimal kq = BigDecimal.ZERO;
+        for (DungChungTuAmis.ChungTu c : ds) {
+            if (ChungTuXuatKeToan.LOAI_BAN_HANG.equals(c.loai())) {
+                kq = kq.add(c.tongTien());
+            } else if (NHOM_TRA_LAI.equals(nhomHienThi(c.loai()))) {
+                kq = kq.subtract(c.tongTien());
+            }
+        }
+        return kq;
     }
 
     static TongBan tongBan(List<DungChungTuAmis.ChungTu> ds) {
@@ -642,9 +868,14 @@ public class XuatKeToanService {
             case ChungTuXuatKeToan.LOAI_CHUYEN_KHO_XUAT -> "Chuyển kho (xuất đi)";
             case ChungTuXuatKeToan.LOAI_CHUYEN_KHO_NHAN -> "Chuyển kho (nhận về)";
             case ChungTuXuatKeToan.LOAI_TON_DAU_KY -> "Tồn đầu kỳ";
+            case NHOM_NHAP_KHO_KHAC -> "Nhập kho khác";
+            case NHOM_XUAT_KHO_KHAC -> "Xuất kho khác";
+            case NHOM_TRA_LAI -> "Hàng bán trả lại";
+            case ChungTuXuatKeToan.LOAI_TRA_LAI_QUAY -> "Trả hàng tại quầy";
+            case ChungTuXuatKeToan.LOAI_TRA_LAI_DON -> "Đơn hoàn trả";
             case "danh_muc" -> "Danh mục";
             case LOAI_BIEN_DONG_KHO -> "Biến động kho";
-            default -> loai;
+            default -> loai.startsWith("nhap_khac_") ? "Nhập kho khác" : loai.startsWith("xuat_khac_") ? "Xuất kho khác" : loai;
         };
     }
 

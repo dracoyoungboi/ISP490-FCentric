@@ -22,6 +22,9 @@ public class CauHinhKeToanRequest {
     private String tkGiaVon;
     private String tkPhaiTra;
     private String tkThueDauVao;
+    private String tkTraLai;
+    private String tkHangThieu;
+    private String tkHangThua;
     private String maDichVuVanChuyen;
     private String tenDichVuVanChuyen;
     private String hinhThucChuyenKho;
