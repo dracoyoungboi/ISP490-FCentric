@@ -111,6 +111,14 @@ public class ShopeeClient {
                 || channelCode.toUpperCase().contains("SANDBOX"));
     }
 
+    public String getHost(boolean isSandbox) {
+        return isSandbox ? SANDBOX_HOST : PRODUCTION_HOST;
+    }
+
+    public String getHost() {
+        return getHost(this.isSandbox);
+    }
+
     // =========================================================================
     // 1. AUTHENTICATION & SHOP APIS
     // =========================================================================
@@ -133,7 +141,7 @@ public class ShopeeClient {
     }
 
     public JsonNode getToken(String partnerId, String partnerKey, String code, String shopId, boolean isSandbox) {
-        if (isSandbox || isMockCredentials(partnerId, partnerKey)) {
+        if (isMockCredentials(partnerId, partnerKey)) {
             log.info("[SHOPEE-MOCK] Giả lập đổi token Shopee OAuth2 cho code={}", code);
             long now = Instant.now().getEpochSecond();
             return objectMapper.createObjectNode()
@@ -146,7 +154,7 @@ public class ShopeeClient {
                     .put("shop_id", Long.parseLong(shopId != null && shopId.matches("\\d+") ? shopId : "888666"));
         }
 
-        String host = PRODUCTION_HOST;
+        String host = getHost(isSandbox);
         long timestamp = Instant.now().getEpochSecond();
         String baseString = ShopeeSignatureHelper.buildPublicBaseString(partnerId, PATH_TOKEN_GET, timestamp);
         String sign = ShopeeSignatureHelper.sign(partnerKey, baseString);
@@ -164,7 +172,7 @@ public class ShopeeClient {
     }
 
     public JsonNode refreshToken(String partnerId, String partnerKey, String refreshToken, String shopId, boolean isSandbox) {
-        if (isSandbox || isMockCredentials(partnerId, partnerKey)) {
+        if (isMockCredentials(partnerId, partnerKey)) {
             log.info("[SHOPEE-MOCK] Giả lập làm mới Access Token Shopee");
             return objectMapper.createObjectNode()
                     .put("error", "")
@@ -176,7 +184,7 @@ public class ShopeeClient {
                     .put("shop_id", Long.parseLong(shopId != null && shopId.matches("\\d+") ? shopId : "888666"));
         }
 
-        String host = PRODUCTION_HOST;
+        String host = getHost(isSandbox);
         long timestamp = Instant.now().getEpochSecond();
         String baseString = ShopeeSignatureHelper.buildPublicBaseString(partnerId, PATH_TOKEN_REFRESH, timestamp);
         String sign = ShopeeSignatureHelper.sign(partnerKey, baseString);
@@ -194,7 +202,7 @@ public class ShopeeClient {
     }
 
     public JsonNode getShopInfo(String partnerId, String partnerKey, String accessToken, String shopId, boolean isSandbox) {
-        if (isSandbox || isMockCredentials(partnerId, partnerKey)) {
+        if (isMockCredentials(partnerId, partnerKey)) {
             ObjectNode res = objectMapper.createObjectNode();
             res.put("error", "").put("message", "success");
             ObjectNode resp = res.putObject("response");
@@ -212,12 +220,12 @@ public class ShopeeClient {
         String base = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_SHOP_INFO, timestamp, accessToken, shopId);
         String sign = ShopeeSignatureHelper.sign(partnerKey, base);
         String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s",
-                PRODUCTION_HOST, PATH_SHOP_INFO, partnerId, timestamp, accessToken, shopId, sign);
+                getHost(isSandbox), PATH_SHOP_INFO, partnerId, timestamp, accessToken, shopId, sign);
         return executeGet(url);
     }
 
     public JsonNode getProfile(String partnerId, String partnerKey, String accessToken, String shopId, boolean isSandbox) {
-        if (isSandbox || isMockCredentials(partnerId, partnerKey)) {
+        if (isMockCredentials(partnerId, partnerKey)) {
             ObjectNode res = objectMapper.createObjectNode();
             res.put("error", "").put("message", "success");
             ObjectNode resp = res.putObject("response");
@@ -230,7 +238,7 @@ public class ShopeeClient {
         String base = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_SHOP_PROFILE, timestamp, accessToken, shopId);
         String sign = ShopeeSignatureHelper.sign(partnerKey, base);
         String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s",
-                PRODUCTION_HOST, PATH_SHOP_PROFILE, partnerId, timestamp, accessToken, shopId, sign);
+                getHost(isSandbox), PATH_SHOP_PROFILE, partnerId, timestamp, accessToken, shopId, sign);
         return executeGet(url);
     }
 
@@ -240,7 +248,7 @@ public class ShopeeClient {
 
     public JsonNode getOrderList(String partnerId, String partnerKey, String accessToken, String shopId,
                                  long timeFrom, long timeTo, String orderStatus, int pageSize, String cursor, boolean isSandbox) {
-        if (isSandbox || isMockCredentials(partnerId, partnerKey)) {
+        if (isMockCredentials(partnerId, partnerKey)) {
             ObjectNode res = objectMapper.createObjectNode();
             res.put("error", "").put("message", "success");
             ObjectNode resp = res.putObject("response");
@@ -257,7 +265,7 @@ public class ShopeeClient {
         String base = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_ORDER_LIST, timestamp, accessToken, shopId);
         String sign = ShopeeSignatureHelper.sign(partnerKey, base);
         StringBuilder url = new StringBuilder(String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s&time_range_field=create_time&time_from=%d&time_to=%d&page_size=%d",
-                PRODUCTION_HOST, PATH_ORDER_LIST, partnerId, timestamp, accessToken, shopId, sign, timeFrom, timeTo, pageSize));
+                getHost(isSandbox), PATH_ORDER_LIST, partnerId, timestamp, accessToken, shopId, sign, timeFrom, timeTo, pageSize));
         if (orderStatus != null && !orderStatus.isBlank()) url.append("&order_status=").append(orderStatus);
         if (cursor != null && !cursor.isBlank()) url.append("&cursor=").append(cursor);
 
@@ -266,7 +274,7 @@ public class ShopeeClient {
 
     public JsonNode getOrderDetail(String partnerId, String partnerKey, String accessToken, String shopId,
                                    List<String> orderSnList, boolean isSandbox) {
-        if (isSandbox || isMockCredentials(partnerId, partnerKey)) {
+        if (isMockCredentials(partnerId, partnerKey)) {
             ObjectNode res = objectMapper.createObjectNode();
             res.put("error", "").put("message", "success");
             ObjectNode resp = res.putObject("response");
@@ -290,13 +298,13 @@ public class ShopeeClient {
         String sign = ShopeeSignatureHelper.sign(partnerKey, base);
         String snParam = String.join(",", orderSnList);
         String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s&order_sn_list=%s&response_optional_fields=buyer_user_id,buyer_username,recipient_address,item_list,shipping_carrier,total_amount",
-                PRODUCTION_HOST, PATH_ORDER_DETAIL, partnerId, timestamp, accessToken, shopId, sign, snParam);
+                getHost(isSandbox), PATH_ORDER_DETAIL, partnerId, timestamp, accessToken, shopId, sign, snParam);
         return executeGet(url);
     }
 
     public JsonNode cancelOrder(String partnerId, String partnerKey, String accessToken, String shopId,
                                 String orderSn, String cancelReason, Long itemId, Long modelId, boolean isSandbox) {
-        if (isSandbox || isMockCredentials(partnerId, partnerKey)) {
+        if (isMockCredentials(partnerId, partnerKey)) {
             log.info("[SHOPEE-MOCK] Giả lập hủy đơn Shopee #{} với lý do {}", orderSn, cancelReason);
             return objectMapper.createObjectNode().put("error", "").put("message", "success");
         }
@@ -305,7 +313,7 @@ public class ShopeeClient {
         String base = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_ORDER_CANCEL, timestamp, accessToken, shopId);
         String sign = ShopeeSignatureHelper.sign(partnerKey, base);
         String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s",
-                PRODUCTION_HOST, PATH_ORDER_CANCEL, partnerId, timestamp, accessToken, shopId, sign);
+                getHost(isSandbox), PATH_ORDER_CANCEL, partnerId, timestamp, accessToken, shopId, sign);
 
         Map<String, Object> body = new HashMap<>();
         body.put("order_sn", orderSn);
@@ -317,7 +325,7 @@ public class ShopeeClient {
 
     public JsonNode handleBuyerCancellation(String partnerId, String partnerKey, String accessToken, String shopId,
                                             String orderSn, String operation, boolean isSandbox) {
-        if (isSandbox || isMockCredentials(partnerId, partnerKey)) {
+        if (isMockCredentials(partnerId, partnerKey)) {
             log.info("[SHOPEE-MOCK] Giả lập phản hồi yêu cầu hủy đơn #{} thao tác={}", orderSn, operation);
             return objectMapper.createObjectNode().put("error", "").put("message", "success");
         }
@@ -326,7 +334,7 @@ public class ShopeeClient {
         String base = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_ORDER_HANDLE_CANCEL, timestamp, accessToken, shopId);
         String sign = ShopeeSignatureHelper.sign(partnerKey, base);
         String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s",
-                PRODUCTION_HOST, PATH_ORDER_HANDLE_CANCEL, partnerId, timestamp, accessToken, shopId, sign);
+                getHost(isSandbox), PATH_ORDER_HANDLE_CANCEL, partnerId, timestamp, accessToken, shopId, sign);
 
         Map<String, Object> body = Map.of(
                 "order_sn", orderSn,
@@ -337,7 +345,7 @@ public class ShopeeClient {
 
     public JsonNode setNote(String partnerId, String partnerKey, String accessToken, String shopId,
                             String orderSn, String note, boolean isSandbox) {
-        if (isSandbox || isMockCredentials(partnerId, partnerKey)) {
+        if (isMockCredentials(partnerId, partnerKey)) {
             log.info("[SHOPEE-MOCK] Lưu ghi chú đơn Shopee #{}: {}", orderSn, note);
             return objectMapper.createObjectNode().put("error", "").put("message", "success");
         }
@@ -346,7 +354,7 @@ public class ShopeeClient {
         String base = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_ORDER_SET_NOTE, timestamp, accessToken, shopId);
         String sign = ShopeeSignatureHelper.sign(partnerKey, base);
         String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s",
-                PRODUCTION_HOST, PATH_ORDER_SET_NOTE, partnerId, timestamp, accessToken, shopId, sign);
+                getHost(isSandbox), PATH_ORDER_SET_NOTE, partnerId, timestamp, accessToken, shopId, sign);
 
         Map<String, Object> body = Map.of("order_sn", orderSn, "note", note != null ? note : "");
         return executePost(url, body);
@@ -358,7 +366,7 @@ public class ShopeeClient {
 
     public JsonNode getItemList(String partnerId, String partnerKey, String accessToken, String shopId,
                                 int offset, int pageSize, String itemStatus, boolean isSandbox) {
-        if (isSandbox || isMockCredentials(partnerId, partnerKey)) {
+        if (isMockCredentials(partnerId, partnerKey)) {
             ObjectNode res = objectMapper.createObjectNode();
             res.put("error", "").put("message", "success");
             ObjectNode resp = res.putObject("response");
@@ -380,14 +388,14 @@ public class ShopeeClient {
         String base = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_PRODUCT_ITEM_LIST, timestamp, accessToken, shopId);
         String sign = ShopeeSignatureHelper.sign(partnerKey, base);
         String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s&offset=%d&page_size=%d&item_status=%s",
-                PRODUCTION_HOST, PATH_PRODUCT_ITEM_LIST, partnerId, timestamp, accessToken, shopId, sign, offset, pageSize,
+                getHost(isSandbox), PATH_PRODUCT_ITEM_LIST, partnerId, timestamp, accessToken, shopId, sign, offset, pageSize,
                 itemStatus != null ? itemStatus : "NORMAL");
         return executeGet(url);
     }
 
     public JsonNode getItemBaseInfo(String partnerId, String partnerKey, String accessToken, String shopId,
                                     List<Long> itemIdList, boolean isSandbox) {
-        if (isSandbox || isMockCredentials(partnerId, partnerKey)) {
+        if (isMockCredentials(partnerId, partnerKey)) {
             ObjectNode res = objectMapper.createObjectNode();
             res.put("error", "").put("message", "success");
             ObjectNode resp = res.putObject("response");
@@ -423,13 +431,13 @@ public class ShopeeClient {
         String sign = ShopeeSignatureHelper.sign(partnerKey, base);
         String ids = itemIdList.stream().map(String::valueOf).reduce((a, b) -> a + "," + b).orElse("");
         String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s&item_id_list=%s",
-                PRODUCTION_HOST, PATH_PRODUCT_BASE_INFO, partnerId, timestamp, accessToken, shopId, sign, ids);
+                getHost(isSandbox), PATH_PRODUCT_BASE_INFO, partnerId, timestamp, accessToken, shopId, sign, ids);
         return executeGet(url);
     }
 
     public JsonNode getModelList(String partnerId, String partnerKey, String accessToken, String shopId,
                                  Long itemId, boolean isSandbox) {
-        if (isSandbox || isMockCredentials(partnerId, partnerKey)) {
+        if (isMockCredentials(partnerId, partnerKey)) {
             ObjectNode res = objectMapper.createObjectNode();
             res.put("error", "").put("message", "success");
             ObjectNode resp = res.putObject("response");
@@ -464,13 +472,13 @@ public class ShopeeClient {
         String base = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_PRODUCT_MODEL_LIST, timestamp, accessToken, shopId);
         String sign = ShopeeSignatureHelper.sign(partnerKey, base);
         String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s&item_id=%d",
-                PRODUCTION_HOST, PATH_PRODUCT_MODEL_LIST, partnerId, timestamp, accessToken, shopId, sign, itemId);
+                getHost(isSandbox), PATH_PRODUCT_MODEL_LIST, partnerId, timestamp, accessToken, shopId, sign, itemId);
         return executeGet(url);
     }
 
     public JsonNode updateStock(String partnerId, String partnerKey, String accessToken, String shopId,
                                 Long itemId, Long modelId, int stock, boolean isSandbox) {
-        if (isSandbox || isMockCredentials(partnerId, partnerKey)) {
+        if (isMockCredentials(partnerId, partnerKey)) {
             log.info("[SHOPEE-MOCK-UPDATE-STOCK] Giả lập cập nhật tồn kho Shopee: item={}, model={}, stock={}", itemId, modelId, stock);
             if (mockEngine != null) {
                 mockEngine.updateStockFromFCentric(itemId, modelId, stock);
@@ -483,7 +491,7 @@ public class ShopeeClient {
         String sign = ShopeeSignatureHelper.sign(partnerKey, baseString);
 
         String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s",
-                PRODUCTION_HOST, PATH_UPDATE_STOCK, partnerId.trim(), timestamp, accessToken.trim(), shopId.trim(), sign);
+                getHost(isSandbox), PATH_UPDATE_STOCK, partnerId.trim(), timestamp, accessToken.trim(), shopId.trim(), sign);
 
         Map<String, Object> body = new HashMap<>();
         body.put("item_id", itemId);
@@ -497,7 +505,7 @@ public class ShopeeClient {
 
     public JsonNode updateStockBatch(String partnerId, String partnerKey, String accessToken, String shopId,
                                      Long itemId, List<Map<String, Object>> stockList, boolean isSandbox) {
-        if (isSandbox || isMockCredentials(partnerId, partnerKey)) {
+        if (isMockCredentials(partnerId, partnerKey)) {
             log.info("[SHOPEE-MOCK-UPDATE-STOCK-BATCH] Giả lập cập nhật tồn kho Shopee theo lô: item={}, số SKU={}", itemId, stockList != null ? stockList.size() : 0);
             if (mockEngine != null) {
                 mockEngine.updateStockBatchFromFCentric(itemId, stockList);
@@ -510,7 +518,7 @@ public class ShopeeClient {
         String sign = ShopeeSignatureHelper.sign(partnerKey, baseString);
 
         String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s",
-                PRODUCTION_HOST, PATH_UPDATE_STOCK, partnerId.trim(), timestamp, accessToken.trim(), shopId.trim(), sign);
+                getHost(isSandbox), PATH_UPDATE_STOCK, partnerId.trim(), timestamp, accessToken.trim(), shopId.trim(), sign);
 
         Map<String, Object> body = new HashMap<>();
         body.put("item_id", itemId);
@@ -521,7 +529,7 @@ public class ShopeeClient {
 
     public JsonNode updatePrice(String partnerId, String partnerKey, String accessToken, String shopId,
                                 Long itemId, Long modelId, BigDecimal price, boolean isSandbox) {
-        if (isSandbox || isMockCredentials(partnerId, partnerKey)) {
+        if (isMockCredentials(partnerId, partnerKey)) {
             log.info("[SHOPEE-MOCK-UPDATE-PRICE] Giả lập cập nhật giá Shopee: item={}, model={}, price={}", itemId, modelId, price);
             return objectMapper.createObjectNode().put("error", "").put("message", "success");
         }
@@ -531,7 +539,7 @@ public class ShopeeClient {
         String sign = ShopeeSignatureHelper.sign(partnerKey, baseString);
 
         String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s",
-                PRODUCTION_HOST, PATH_UPDATE_PRICE, partnerId.trim(), timestamp, accessToken.trim(), shopId.trim(), sign);
+                getHost(isSandbox), PATH_UPDATE_PRICE, partnerId.trim(), timestamp, accessToken.trim(), shopId.trim(), sign);
 
         Map<String, Object> body = new HashMap<>();
         body.put("item_id", itemId);
@@ -550,7 +558,7 @@ public class ShopeeClient {
 
     public JsonNode getShippingParameter(String partnerId, String partnerKey, String accessToken, String shopId,
                                          String orderSn, boolean isSandbox) {
-        if (isSandbox || isMockCredentials(partnerId, partnerKey)) {
+        if (isMockCredentials(partnerId, partnerKey)) {
             ObjectNode res = objectMapper.createObjectNode();
             res.put("error", "").put("message", "success");
             ObjectNode resp = res.putObject("response");
@@ -565,13 +573,13 @@ public class ShopeeClient {
         String base = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_SHIPPING_PARAM, timestamp, accessToken, shopId);
         String sign = ShopeeSignatureHelper.sign(partnerKey, base);
         String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s&order_sn=%s",
-                PRODUCTION_HOST, PATH_SHIPPING_PARAM, partnerId, timestamp, accessToken, shopId, sign, orderSn);
+                getHost(isSandbox), PATH_SHIPPING_PARAM, partnerId, timestamp, accessToken, shopId, sign, orderSn);
         return executeGet(url);
     }
 
     public JsonNode shipOrder(String partnerId, String partnerKey, String accessToken, String shopId,
                               String orderSn, String pickupOrDropoff, boolean isSandbox) {
-        if (isSandbox || isMockCredentials(partnerId, partnerKey)) {
+        if (isMockCredentials(partnerId, partnerKey)) {
             log.info("[SHOPEE-MOCK-SHIP] Giả lập ship order #{} kiểu={}", orderSn, pickupOrDropoff);
             return objectMapper.createObjectNode().put("error", "").put("message", "success");
         }
@@ -580,7 +588,7 @@ public class ShopeeClient {
         String base = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_SHIP_ORDER, timestamp, accessToken, shopId);
         String sign = ShopeeSignatureHelper.sign(partnerKey, base);
         String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s",
-                PRODUCTION_HOST, PATH_SHIP_ORDER, partnerId, timestamp, accessToken, shopId, sign);
+                getHost(isSandbox), PATH_SHIP_ORDER, partnerId, timestamp, accessToken, shopId, sign);
 
         Map<String, Object> body = new HashMap<>();
         body.put("order_sn", orderSn);
@@ -595,7 +603,7 @@ public class ShopeeClient {
 
     public JsonNode getTrackingNumber(String partnerId, String partnerKey, String accessToken, String shopId,
                                       String orderSn, boolean isSandbox) {
-        if (isSandbox || isMockCredentials(partnerId, partnerKey)) {
+        if (isMockCredentials(partnerId, partnerKey)) {
             ObjectNode res = objectMapper.createObjectNode();
             res.put("error", "").put("message", "success");
             res.putObject("response").put("tracking_number", "SPXVN" + orderSn);
@@ -606,13 +614,13 @@ public class ShopeeClient {
         String base = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_TRACKING_NUMBER, timestamp, accessToken, shopId);
         String sign = ShopeeSignatureHelper.sign(partnerKey, base);
         String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s&order_sn=%s",
-                PRODUCTION_HOST, PATH_TRACKING_NUMBER, partnerId, timestamp, accessToken, shopId, sign, orderSn);
+                getHost(isSandbox), PATH_TRACKING_NUMBER, partnerId, timestamp, accessToken, shopId, sign, orderSn);
         return executeGet(url);
     }
 
     public JsonNode getTrackingInfo(String partnerId, String partnerKey, String accessToken, String shopId,
                                     String orderSn, boolean isSandbox) {
-        if (isSandbox || isMockCredentials(partnerId, partnerKey)) {
+        if (isMockCredentials(partnerId, partnerKey)) {
             ObjectNode res = objectMapper.createObjectNode();
             res.put("error", "").put("message", "success");
             ObjectNode resp = res.putObject("response");
@@ -630,13 +638,13 @@ public class ShopeeClient {
         String base = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_TRACKING_INFO, timestamp, accessToken, shopId);
         String sign = ShopeeSignatureHelper.sign(partnerKey, base);
         String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s&order_sn=%s",
-                PRODUCTION_HOST, PATH_TRACKING_INFO, partnerId, timestamp, accessToken, shopId, sign, orderSn);
+                getHost(isSandbox), PATH_TRACKING_INFO, partnerId, timestamp, accessToken, shopId, sign, orderSn);
         return executeGet(url);
     }
 
     public JsonNode createShippingDocument(String partnerId, String partnerKey, String accessToken, String shopId,
                                            String orderSn, boolean isSandbox) {
-        if (isSandbox || isMockCredentials(partnerId, partnerKey)) {
+        if (isMockCredentials(partnerId, partnerKey)) {
             log.info("[SHOPEE-MOCK-DOC] Giả lập tạo phiếu vận đơn Shopee cho #{}", orderSn);
             ObjectNode res = objectMapper.createObjectNode();
             res.put("error", "").put("message", "success");
@@ -648,7 +656,7 @@ public class ShopeeClient {
         String base = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_CREATE_DOC, timestamp, accessToken, shopId);
         String sign = ShopeeSignatureHelper.sign(partnerKey, base);
         String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s",
-                PRODUCTION_HOST, PATH_CREATE_DOC, partnerId, timestamp, accessToken, shopId, sign);
+                getHost(isSandbox), PATH_CREATE_DOC, partnerId, timestamp, accessToken, shopId, sign);
 
         Map<String, Object> body = Map.of(
                 "order_list", List.of(Map.of("order_sn", orderSn)),
@@ -659,7 +667,7 @@ public class ShopeeClient {
 
     public JsonNode getShippingDocumentResult(String partnerId, String partnerKey, String accessToken, String shopId,
                                              String orderSn, boolean isSandbox) {
-        if (isSandbox || isMockCredentials(partnerId, partnerKey)) {
+        if (isMockCredentials(partnerId, partnerKey)) {
             ObjectNode res = objectMapper.createObjectNode();
             res.put("error", "").put("message", "success");
             res.putObject("response").put("status", "READY");
@@ -670,7 +678,7 @@ public class ShopeeClient {
         String base = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_GET_DOC_RESULT, timestamp, accessToken, shopId);
         String sign = ShopeeSignatureHelper.sign(partnerKey, base);
         String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s&order_sn=%s",
-                PRODUCTION_HOST, PATH_GET_DOC_RESULT, partnerId, timestamp, accessToken, shopId, sign, orderSn);
+                getHost(isSandbox), PATH_GET_DOC_RESULT, partnerId, timestamp, accessToken, shopId, sign, orderSn);
         return executeGet(url);
     }
 
@@ -680,7 +688,7 @@ public class ShopeeClient {
 
     public JsonNode getEscrowDetail(String partnerId, String partnerKey, String accessToken, String shopId,
                                     String orderSn, boolean isSandbox) {
-        if (isSandbox || isMockCredentials(partnerId, partnerKey)) {
+        if (isMockCredentials(partnerId, partnerKey)) {
             ObjectNode res = objectMapper.createObjectNode();
             res.put("error", "").put("message", "success");
             ObjectNode resp = res.putObject("response");
@@ -704,7 +712,7 @@ public class ShopeeClient {
         String base = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_ESCROW_DETAIL, timestamp, accessToken, shopId);
         String sign = ShopeeSignatureHelper.sign(partnerKey, base);
         String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s&order_sn=%s",
-                PRODUCTION_HOST, PATH_ESCROW_DETAIL, partnerId, timestamp, accessToken, shopId, sign, orderSn);
+                getHost(isSandbox), PATH_ESCROW_DETAIL, partnerId, timestamp, accessToken, shopId, sign, orderSn);
         return executeGet(url);
     }
 
@@ -782,14 +790,14 @@ public class ShopeeClient {
 
     public JsonNode setOrderNote(String partnerId, String partnerKey, String accessToken, String shopId,
                                 String orderSn, String note, boolean isSandbox) {
-        if (isSandbox || isMockCredentials(partnerId, partnerKey)) {
+        if (isMockCredentials(partnerId, partnerKey)) {
             return objectMapper.createObjectNode().put("error", "").put("message", "success");
         }
         long timestamp = Instant.now().getEpochSecond();
         String base = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_ORDER_SET_NOTE, timestamp, accessToken, shopId);
         String sign = ShopeeSignatureHelper.sign(partnerKey, base);
         String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s",
-                PRODUCTION_HOST, PATH_ORDER_SET_NOTE, partnerId, timestamp, accessToken, shopId, sign);
+                getHost(isSandbox), PATH_ORDER_SET_NOTE, partnerId, timestamp, accessToken, shopId, sign);
         Map<String, Object> body = Map.of("order_sn", orderSn, "note", note != null ? note : "");
         return executePost(url, body);
     }
@@ -816,7 +824,7 @@ public class ShopeeClient {
 
     public byte[] downloadShippingDocument(String partnerId, String partnerKey, String accessToken, String shopId,
                                           String orderSn, boolean isSandbox) {
-        if (isSandbox || isMockCredentials(partnerId, partnerKey)) {
+        if (isMockCredentials(partnerId, partnerKey)) {
             String mockHtml = "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Shopee AWB " + orderSn + "</title>"
                     + "<style>@page{size:100mm 150mm;margin:0;}body{font-family:sans-serif;margin:10mm;text-align:center;}"
                     + ".box{border:2px solid #000;padding:10px;border-radius:4px;}.barcode{font-family:monospace;font-size:24px;letter-spacing:4px;font-weight:bold;margin:15px 0;}"
@@ -831,7 +839,7 @@ public class ShopeeClient {
         try {
             // Bước 1: Yêu cầu Shopee tạo tài liệu vận đơn AWB nếu chưa tạo
             try {
-                createShippingDocument(partnerId, partnerKey, accessToken, shopId, orderSn, false);
+                createShippingDocument(partnerId, partnerKey, accessToken, shopId, orderSn, isSandbox);
             } catch (Exception ex) {
                 log.info("[SHOPEE-DOC] createShippingDocument phản hồi: {}", ex.getMessage());
             }
@@ -839,7 +847,7 @@ public class ShopeeClient {
             // Bước 2: Kiểm tra trạng thái sẵn sàng (polling tối đa 3 lần)
             for (int i = 0; i < 3; i++) {
                 try {
-                    JsonNode statusRes = getShippingDocumentResult(partnerId, partnerKey, accessToken, shopId, orderSn, false);
+                    JsonNode statusRes = getShippingDocumentResult(partnerId, partnerKey, accessToken, shopId, orderSn, isSandbox);
                     if (statusRes != null) {
                         String st = statusRes.path("response").path("status").asText("");
                         if ("READY".equalsIgnoreCase(st)) {
@@ -858,7 +866,7 @@ public class ShopeeClient {
             String base = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_DOWNLOAD_DOC, timestamp, accessToken, shopId);
             String sign = ShopeeSignatureHelper.sign(partnerKey, base);
             String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s&order_sn=%s",
-                    PRODUCTION_HOST, PATH_DOWNLOAD_DOC, partnerId, timestamp, accessToken, shopId, sign, orderSn);
+                    getHost(isSandbox), PATH_DOWNLOAD_DOC, partnerId, timestamp, accessToken, shopId, sign, orderSn);
             HttpHeaders headers = new HttpHeaders();
             headers.setAccept(List.of(MediaType.APPLICATION_OCTET_STREAM, MediaType.ALL));
             headers.set(HttpHeaders.USER_AGENT, "ShopeeOpenAPI/2.0");
