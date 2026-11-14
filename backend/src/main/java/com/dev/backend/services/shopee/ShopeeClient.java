@@ -647,9 +647,22 @@ public class ShopeeClient {
         String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s",
                 getHost(isSandbox), PATH_UPDATE_STOCK, partnerId.trim(), timestamp, accessToken.trim(), shopId.trim(), sign);
 
+        List<Map<String, Object>> normalizedStockList = new ArrayList<>();
+        if (stockList != null) {
+            for (Map<String, Object> st : stockList) {
+                Map<String, Object> copy = new HashMap<>(st);
+                if (!copy.containsKey("seller_stock") && copy.containsKey("normal_stock")) {
+                    Object normalStock = copy.remove("normal_stock");
+                    int sVal = (normalStock instanceof Number) ? ((Number) normalStock).intValue() : 0;
+                    copy.put("seller_stock", List.of(Map.of("stock", sVal)));
+                }
+                normalizedStockList.add(copy);
+            }
+        }
+
         Map<String, Object> body = new HashMap<>();
         body.put("item_id", itemId);
-        body.put("stock_list", stockList != null ? stockList : List.of());
+        body.put("stock_list", normalizedStockList);
 
         return executePost(url, body);
     }
