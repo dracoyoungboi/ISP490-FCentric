@@ -6910,6 +6910,31 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         }
     }
 
+    private Long timCategoryIdShopee(SanPhamQuanAo sp) {
+        if (sp != null) {
+            String name = (sp.getTenSanPham() != null ? sp.getTenSanPham().toLowerCase(Locale.ROOT) : "");
+            if (name.contains("khoác") || name.contains("jacket") || name.contains("blouson") || name.contains("bomber") || name.contains("cardigan")) {
+                return 106709L; // Áo khoác
+            }
+            if (name.contains("jean") || name.contains("bò") || name.contains("denim")) {
+                return 106714L; // Quần Jeans
+            }
+            if (name.contains("quần") || name.contains("pant") || name.contains("trousers") || name.contains("short")) {
+                return 106716L; // Quần dài / Quần ngắn
+            }
+            if (name.contains("polo")) {
+                return 106705L; // Áo Polo
+            }
+            if (name.contains("sơ mi") || name.contains("shirt")) {
+                return 106703L; // Áo sơ mi
+            }
+            if (name.contains("thun") || name.contains("t-shirt") || name.contains("tee")) {
+                return 106701L; // Áo thun
+            }
+        }
+        return 106705L; // Fallback danh mục lá hợp lệ Polo Shirts
+    }
+
     private Map<String, String> taoSanPhamLenShopee(
             KenhBanHang kenh,
             SanPhamQuanAo sp,
@@ -6951,6 +6976,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             return createdSkuMap;
         }
 
+        Long categoryId = timCategoryIdShopee(sp);
+
         // Trường hợp sản phẩm chỉ có 1 biến thể (Single SKU)
         if (variants.size() == 1) {
             BienTheSanPham bt = variants.get(0);
@@ -6964,7 +6991,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             body.put("description", desc);
             body.put("weight", 0.3);
             body.put("item_name", title);
-            body.put("category_id", 100017L);
+            body.put("category_id", categoryId);
             body.put("image", Map.of("image_id_list", imageIdList));
             body.put("logistic_info", List.of(Map.of("logistic_id", logisticsChannelId, "enabled", true)));
             body.put("brand", Map.of("brand_id", 0, "original_brand_name", "No Brand"));
@@ -7024,7 +7051,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         body.put("description", desc);
         body.put("weight", 0.3);
         body.put("item_name", title);
-        body.put("category_id", 100017L);
+        body.put("category_id", categoryId);
         body.put("image", Map.of("image_id_list", imageIdList));
         body.put("logistic_info", List.of(Map.of("logistic_id", logisticsChannelId, "enabled", true)));
         body.put("brand", Map.of("brand_id", 0, "original_brand_name", "No Brand"));
