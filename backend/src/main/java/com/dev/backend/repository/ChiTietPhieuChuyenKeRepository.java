@@ -19,4 +19,14 @@ public interface ChiTietPhieuChuyenKeRepository extends JpaRepository<ChiTietPhi
              ORDER BY c.phieuChuyenKe.id, c.id
             """)
     List<ChiTietPhieuChuyenKe> theoPhieu(@Param("phieuIds") Collection<Integer> phieuIds);
+
+    /** Dòng của một phiếu cho một lô, kèm hai kệ (chi tiết Lịch sử giao dịch kho tra vị trí theo đúng kệ đã chuyển). */
+    @Query("""
+            SELECT c FROM ChiTietPhieuChuyenKe c
+              JOIN FETCH c.keNguon kn LEFT JOIN FETCH kn.khuVucKho
+              JOIN FETCH c.keDich kd LEFT JOIN FETCH kd.khuVucKho
+             WHERE c.phieuChuyenKe.id = :phieuId AND c.loHang.id = :loHangId
+             ORDER BY c.id
+            """)
+    List<ChiTietPhieuChuyenKe> theoPhieuVaLo(@Param("phieuId") Integer phieuId, @Param("loHangId") Integer loHangId);
 }

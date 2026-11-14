@@ -108,6 +108,3 @@ export const huyDot = async (id, { lyDo, phienBan }, khoa) =>
  */
 export const xepKeNhieu = async (khoId, ds) =>
   du(await apiClient.post(`${GOC}/xep-ke-nhieu`, { ds }, { params: { khoId } })) ?? [];
-
-export const chuyenKe = async (khoId, { loHangId, tuViTriKhoId, denViTriKhoId, soLuong }) =>
-  du(await apiClient.post(`${GOC}/chuyen-ke`, { loHangId, tuViTriKhoId, denViTriKhoId, soLuong }, { params: { khoId } }));

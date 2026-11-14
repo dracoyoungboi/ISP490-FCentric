@@ -28,4 +28,27 @@ public class LichSuGiaoDichKhoDto {
     private BigDecimal soLuongSau;
     private String nguoiDungTen;
     private String ghiChu;
+
+    // Chỉ dòng chuyển kệ nội bộ (chuyen_ke_noi_bo): tách từ câu sổ "MV-…: kệ nguồn → kệ đích" do hệ thống tự ghi
+    /** Mã phiếu chuyển kệ (MV-YYYYMMDD-XXXX). */
+    private String maChungTu;
+    private KeGiaoDich keNguon;
+    private KeGiaoDich keDich;
+
+    /** Kệ của một dòng chuyển kệ. Danh sách chỉ có mã; chi tiết thêm khu, dãy, hàng, tầng (tra theo mã kệ trong kho). */
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class KeGiaoDich {
+        private String ma;
+        private String khuVuc;
+        private String dayKe;
+        private String hangKe;
+        private String tangKe;
+
+        public static KeGiaoDich chiMa(String ma) {
+            return new KeGiaoDich(ma, null, null, null, null);
+        }
+    }
 }

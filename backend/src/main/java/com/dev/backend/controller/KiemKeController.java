@@ -258,12 +258,6 @@ public class KiemKeController {
         long daXep = kq.stream().filter(KiemKeDto.KetQuaXepKe::daXep).count();
         return ok(kq, ThongDiep.dich("khoVanHanh.daXepPhanLenKe", daXep, kq.size()));
     }
-
-    @PostMapping("/chuyen-ke")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho}, inWarehouse = true)
-    public ResponseEntity<ResponseData<String>> chuyenKe(@RequestParam Integer khoId, @RequestBody KiemKeYeuCau.ChuyenKe yc) {
-        com.dev.backend.utils.KhoDangChon.kiemTra(com.dev.backend.entities.Kho.builder().id(khoId).build(), "Kho đang chọn");
-        soTonKe.chuyenKe(khoId, yc.loHangId(), yc.tuViTriKhoId(), yc.denViTriKhoId(), yc.soLuong() == null ? 0 : yc.soLuong());
-        return ok("Success", ThongDiep.dich("khoVanHanh.daChuyenKe"));
-    }
+    // Chuyển hàng giữa hai kệ chỉ đi qua phiếu chuyển kệ nội bộ (ChuyenKeNoiBoController, /api/v1/chuyen-ke):
+    // có phiếu MV và dòng sổ giao dịch kho. Endpoint cũ /kiem-ke/chuyen-ke (đổi kệ không phiếu, không ghi sổ) đã gỡ.
 }
