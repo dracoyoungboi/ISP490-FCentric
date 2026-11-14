@@ -187,7 +187,7 @@ export const kenhSanMock = {
   },
 
   /** `state` null: nhập tay mã của tài khoản thử (chỉ TikTok Shop, như channel.cho-phep-ma-thu-cong=true). */
-  async hoanTatUyQuyen(maKenh, { code, state: maPhien } = {}) {
+  async hoanTatUyQuyen(maKenh, { code, state: maPhien, shopId } = {}) {
     await mockDelay(900, 1400);
     const { ma, dto } = ketNoi(maKenh);
     if (!String(code ?? "").trim()) throw loiCoMa(400, "MA_UY_QUYEN_SAI", "Mã ủy quyền không hợp lệ hoặc đã dùng.");

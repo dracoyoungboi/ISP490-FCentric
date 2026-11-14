@@ -139,9 +139,9 @@ const realApi = {
       .then(data)
       .catch(() => apiClient.get(`${BASE}/lazada/auth-url`, { params: { ...(redirectUri ? { redirectUri } : {}), maKenh: maSan } }).then(data));
   },
-  /** { code, state } từ trang quay về; state null = mã nhập tay của tài khoản thử. */
-  hoanTatUyQuyen: (maKenh, { code, state } = {}) =>
-    apiClient.post(`${BASE}/${ma(maKenh)}/uy-quyen/hoan-tat`, { code, state: state ?? null }).then(data).catch(baoApiChuaCo(maKenh)),
+  /** { code, state, shopId } từ trang quay về; state null = mã nhập tay của tài khoản thử. */
+  hoanTatUyQuyen: (maKenh, { code, state, shopId } = {}) =>
+    apiClient.post(`${BASE}/${ma(maKenh)}/uy-quyen/hoan-tat`, { code, state: state ?? null, shopId: shopId ?? null }).then(data).catch(baoApiChuaCo(maKenh)),
   /** { connected, message, tenGianHang, shopIdSan, hanKhoa } */
   kiemTraKetNoi: (maKenh) => apiClient.post(`${BASE}/${ma(maKenh)}/kiem-tra-ket-noi`, {}).then(data).catch(baoApiChuaCo(maKenh)),
   lamMoiToken: (maKenh) => apiClient.post(`${BASE}/${ma(maKenh)}/lam-moi-token`).then(data).catch(baoApiChuaCo(maKenh)),
