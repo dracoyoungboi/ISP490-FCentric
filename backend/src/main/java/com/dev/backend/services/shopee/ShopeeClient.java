@@ -370,6 +370,26 @@ public class ShopeeClient {
     // 3. PRODUCT & INVENTORY APIS
     // =========================================================================
 
+    public JsonNode uploadImage(String partnerId, String partnerKey, String accessToken, String shopId,
+                                byte[] imageBytes, String fileName, boolean isSandbox) {
+        if (isMockCredentials(partnerId, partnerKey)) {
+            log.info("[SHOPEE-MOCK] Giả lập upload ảnh lên Shopee Media Space, size={} bytes", imageBytes != null ? imageBytes.length : 0);
+            ObjectNode res = objectMapper.createObjectNode();
+            res.put("error", "").put("message", "success");
+            String mockImgId = "vn-11134207-mock-" + System.currentTimeMillis();
+            res.putObject("response").putObject("image_info").put("image_id", mockImgId);
+            return res;
+        }
+
+        long timestamp = Instant.now().getEpochSecond();
+        String base = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_MEDIA_UPLOAD_IMAGE, timestamp, accessToken, shopId);
+        String sign = ShopeeSignatureHelper.sign(partnerKey, base);
+        String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s",
+                getHost(isSandbox), PATH_MEDIA_UPLOAD_IMAGE, partnerId.trim(), timestamp, accessToken.trim(), shopId.trim(), sign);
+
+        return executeMultipartPost(url, imageBytes, fileName);
+    }
+
     public JsonNode getItemList(String partnerId, String partnerKey, String accessToken, String shopId,
                                 int offset, int pageSize, String itemStatus, boolean isSandbox) {
         if (isMockCredentials(partnerId, partnerKey)) {
