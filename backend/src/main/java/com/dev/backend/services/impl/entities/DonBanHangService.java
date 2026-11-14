@@ -1875,9 +1875,19 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                 <body>
                     <div class="thermal-card">
                         <div>
-                            <div class="header-row">
-                                <div class="logo-text">Shopee</div>
-                                <div class="carrier-tag">%s</div>
+                            <div style="display:flex;border-bottom:2px solid #000;text-align:center;padding-bottom:4px;margin-bottom:6px;">
+                                <div style="flex:1;border-right:1px solid #000;padding:2px 4px;">
+                                    <div style="font-size:9px;font-weight:bold;text-transform:uppercase;color:#555;">PICKUP BY</div>
+                                    <div style="font-size:11px;font-weight:900;margin-top:2px;">SPX EXPRESS</div>
+                                </div>
+                                <div style="flex:1;border-right:1px solid #000;padding:2px 4px;">
+                                    <div style="font-size:9px;font-weight:bold;text-transform:uppercase;color:#555;">DELIVERY BY</div>
+                                    <div style="font-size:11px;font-weight:900;margin-top:2px;">SPX EXPRESS</div>
+                                </div>
+                                <div style="flex:1;padding:2px 4px;">
+                                    <div style="font-size:13px;font-weight:900;color:#ee4d2d;">Shopee</div>
+                                    <div style="font-size:9px;font-weight:bold;">%s</div>
+                                </div>
                             </div>
                             <div class="sorting-code">%s</div>
                             <div class="barcode-box">
