@@ -6923,6 +6923,37 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         return giaGoc;
     }
 
+    private record ShopeeCategoryLeaf(long id, String name, long parentId) {}
+    private static final List<ShopeeCategoryLeaf> SHOPEE_LEAF_CATEGORIES = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private static volatile boolean shopeeCategoriesLoaded = false;
+
+    private synchronized void taiDanhSachDanhMucShopee(com.dev.backend.services.shopee.ShopeeClient client) {
+        if (shopeeCategoriesLoaded || client == null) return;
+        try {
+            JsonNode catRes = client.getCategoryList("vi");
+            JsonNode catList = catRes.path("response").path("category_list");
+            if (catList.isArray() && !catList.isEmpty()) {
+                SHOPEE_LEAF_CATEGORIES.clear();
+                for (JsonNode c : catList) {
+                    boolean hasChildren = c.path("has_children").asBoolean(true);
+                    if (!hasChildren) {
+                        long catId = c.path("category_id").asLong();
+                        String name = c.path("original_category_name").asText(c.path("display_category_name").asText(""));
+                        long pId = c.path("parent_category_id").asLong();
+                        if (catId > 0 && !name.isBlank()) {
+                            SHOPEE_LEAF_CATEGORIES.add(new ShopeeCategoryLeaf(catId, name.toLowerCase(Locale.ROOT), pId));
+                        }
+                    }
+                }
+                log.info("[SHOPEE-CAT] Đã nạp {} danh mục lá hợp lệ từ sàn Shopee", SHOPEE_LEAF_CATEGORIES.size());
+            }
+        } catch (Exception ex) {
+            log.warn("[SHOPEE-CAT] Không thể nạp danh mục từ Shopee: {}", ex.getMessage());
+        } finally {
+            shopeeCategoriesLoaded = true;
+        }
+    }
+
     private Long timCategoryIdShopee(SanPhamQuanAo sp) {
         if (sp != null) {
             String name = (sp.getTenSanPham() != null ? sp.getTenSanPham().toLowerCase(Locale.ROOT) : "");
