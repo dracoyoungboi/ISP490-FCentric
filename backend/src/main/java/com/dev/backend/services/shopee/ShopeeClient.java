@@ -328,7 +328,7 @@ public class ShopeeClient {
         String base = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_ORDER_DETAIL, timestamp, accessToken, shopId);
         String sign = ShopeeSignatureHelper.sign(partnerKey, base);
         String snParam = String.join(",", orderSnList);
-        String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s&order_sn_list=%s&response_optional_fields=buyer_user_id,buyer_username,recipient_address,item_list,shipping_carrier,total_amount",
+        String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s&order_sn_list=%s&response_optional_fields=buyer_user_id,buyer_username,recipient_address,item_list,shipping_carrier,payment_method,total_amount,estimated_shipping_fee,actual_shipping_fee,cancel_reason,cancel_user,note,pay_time",
                 getHost(isSandbox), PATH_ORDER_DETAIL, partnerId, timestamp, accessToken, shopId, sign, snParam);
         return executeGet(url);
     }
