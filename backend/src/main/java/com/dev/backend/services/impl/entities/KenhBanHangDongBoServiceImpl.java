@@ -7263,11 +7263,13 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             }
 
             if (itemId == null || itemId <= 0) {
-                dong.setChiTietLoi("Chưa liên kết với Item ID Shopee");
+                if (dong.getChiTietLoi() == null || dong.getChiTietLoi().isBlank()) {
+                    dong.setChiTietLoi("Chưa liên kết với Item ID Shopee");
+                }
                 dong.setTrangThaiDongBo("that_bai");
                 trangThaiDongBoSanPhamRepository.save(dong);
                 soLoi++;
-                theoDoi.daDay(dong.getMaSanPhamKenh(), dong.getMaSanPhamKenh(), false, "Chưa liên kết Item ID Shopee");
+                theoDoi.daDay(dong.getMaSanPhamKenh(), dong.getMaSanPhamKenh(), false, dong.getChiTietLoi());
                 continue;
             }
             gomNhomTheoItemId.computeIfAbsent(itemId, k -> new ArrayList<>()).add(item);
