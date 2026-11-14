@@ -51,7 +51,13 @@ public class ShopeeClient {
     public static final String PATH_ORDER_HANDLE_CANCEL = "/api/v2/order/handle_buyer_cancellation";
     public static final String PATH_ORDER_SET_NOTE = "/api/v2/order/set_note";
 
-    // 3. Product Paths
+    // 3. Product & Media Paths
+    public static final String PATH_MEDIA_UPLOAD_IMAGE = "/api/v2/media_space/upload_image";
+    public static final String PATH_LOGISTICS_GET_CHANNEL_LIST = "/api/v2/logistics/get_channel_list";
+    public static final String PATH_PRODUCT_GET_CATEGORY = "/api/v2/product/get_category";
+    public static final String PATH_PRODUCT_GET_ATTRIBUTES = "/api/v2/product/get_attributes";
+    public static final String PATH_PRODUCT_ADD_ITEM = "/api/v2/product/add_item";
+    public static final String PATH_PRODUCT_INIT_TIER_VARIATION = "/api/v2/product/init_tier_variation";
     public static final String PATH_PRODUCT_ITEM_LIST = "/api/v2/product/get_item_list";
     public static final String PATH_PRODUCT_BASE_INFO = "/api/v2/product/get_item_base_info";
     public static final String PATH_PRODUCT_MODEL_LIST = "/api/v2/product/get_model_list";
