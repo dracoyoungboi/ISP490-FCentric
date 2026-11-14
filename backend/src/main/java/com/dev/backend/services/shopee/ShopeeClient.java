@@ -627,7 +627,7 @@ public class ShopeeClient {
         body.put("item_id", itemId);
         Map<String, Object> stockItem = new HashMap<>();
         stockItem.put("model_id", (modelId != null && modelId > 0) ? modelId : 0L);
-        stockItem.put("normal_stock", stock);
+        stockItem.put("seller_stock", List.of(Map.of("stock", stock)));
         body.put("stock_list", List.of(stockItem));
 
         return executePost(url, body);
