@@ -6954,29 +6954,50 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         }
     }
 
-    private Long timCategoryIdShopee(SanPhamQuanAo sp) {
-        if (sp != null) {
+    private Long timCategoryIdShopee(SanPhamQuanAo sp, com.dev.backend.services.shopee.ShopeeClient client) {
+        if (!shopeeCategoriesLoaded && client != null) {
+            taiDanhSachDanhMucShopee(client);
+        }
+        if (sp != null && !SHOPEE_LEAF_CATEGORIES.isEmpty()) {
             String name = (sp.getTenSanPham() != null ? sp.getTenSanPham().toLowerCase(Locale.ROOT) : "");
-            if (name.contains("khoác") || name.contains("jacket") || name.contains("blouson") || name.contains("bomber") || name.contains("cardigan")) {
-                return 106709L; // Áo khoác
-            }
-            if (name.contains("jean") || name.contains("bò") || name.contains("denim")) {
-                return 106714L; // Quần Jeans
-            }
-            if (name.contains("quần") || name.contains("pant") || name.contains("trousers") || name.contains("short")) {
-                return 106716L; // Quần dài / Quần ngắn
-            }
-            if (name.contains("polo")) {
-                return 106705L; // Áo Polo
-            }
-            if (name.contains("sơ mi") || name.contains("shirt")) {
-                return 106703L; // Áo sơ mi
-            }
-            if (name.contains("thun") || name.contains("t-shirt") || name.contains("tee")) {
-                return 106701L; // Áo thun
+            for (ShopeeCategoryLeaf cat : SHOPEE_LEAF_CATEGORIES) {
+                if (name.contains("khoác") || name.contains("jacket") || name.contains("blouson") || name.contains("bomber") || name.contains("cardigan")) {
+                    if (cat.name().contains("khoác") || cat.name().contains("jacket") || cat.name().contains("vest") || cat.name().contains("outerwear")) {
+                        return cat.id();
+                    }
+                }
+                if (name.contains("jean") || name.contains("bò") || name.contains("denim")) {
+                    if (cat.name().contains("jean") || cat.name().contains("denim") || cat.name().contains("bò")) {
+                        return cat.id();
+                    }
+                }
+                if (name.contains("quần") || name.contains("pant") || name.contains("trousers") || name.contains("short")) {
+                    if (cat.name().contains("quần") || cat.name().contains("pant") || cat.name().contains("trouser")) {
+                        return cat.id();
+                    }
+                }
+                if (name.contains("polo")) {
+                    if (cat.name().contains("polo")) {
+                        return cat.id();
+                    }
+                }
+                if (name.contains("sơ mi") || name.contains("shirt")) {
+                    if (cat.name().contains("sơ mi") || cat.name().contains("shirt")) {
+                        return cat.id();
+                    }
+                }
+                if (name.contains("thun") || name.contains("t-shirt") || name.contains("tee")) {
+                    if (cat.name().contains("thun") || cat.name().contains("phông") || cat.name().contains("t-shirt")) {
+                        return cat.id();
+                    }
+                }
             }
         }
-        return 106705L; // Fallback danh mục lá hợp lệ Polo Shirts
+        return 106705L; // Fallback an toàn tuyệt đối: Áo Polo (106705L là leaf category hợp lệ trên Shopee Sandbox)
+    }
+
+    private Long timCategoryIdShopee(SanPhamQuanAo sp) {
+        return timCategoryIdShopee(sp, null);
     }
 
     private Map<String, String> taoSanPhamLenShopee(
@@ -7020,7 +7041,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             return createdSkuMap;
         }
 
-        Long categoryId = timCategoryIdShopee(sp);
+        Long categoryId = timCategoryIdShopee(sp, client);
         boolean isSandbox = OmnichannelOrderSyncJob.isShopeeSandbox(kenh != null ? kenh.getMaKenh() : "");
 
         // Trường hợp sản phẩm chỉ có 1 biến thể (Single SKU)
