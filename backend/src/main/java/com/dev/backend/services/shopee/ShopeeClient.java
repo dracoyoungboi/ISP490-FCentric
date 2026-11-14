@@ -1089,6 +1089,27 @@ public class ShopeeClient {
         }
     }
 
+    private byte[] extractPdfFromZipOrRaw(byte[] bytes) {
+        if (bytes == null || bytes.length < 4) {
+            return bytes;
+        }
+        // Kiểm tra nếu là tệp ZIP (magic bytes PK: 0x50, 0x4B)
+        if (bytes[0] == 0x50 && bytes[1] == 0x4B) {
+            try (java.util.zip.ZipInputStream zis = new java.util.zip.ZipInputStream(new java.io.ByteArrayInputStream(bytes))) {
+                java.util.zip.ZipEntry entry;
+                while ((entry = zis.getNextEntry()) != null) {
+                    if (entry.getName().toLowerCase().endsWith(".pdf")) {
+                        log.info("[SHOPEE-ZIP] Đã trích xuất PDF vận đơn thành công từ tệp ZIP Shopee: {}", entry.getName());
+                        return zis.readAllBytes();
+                    }
+                }
+            } catch (Exception ex) {
+                log.warn("[SHOPEE-ZIP] Lỗi khi giải nén tài liệu vận đơn ZIP: {}", ex.getMessage());
+            }
+        }
+        return bytes;
+    }
+
     public JsonNode getEscrowDetail(String orderSn) {
         return getEscrowDetail(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), orderSn, this.isSandbox);
     }
