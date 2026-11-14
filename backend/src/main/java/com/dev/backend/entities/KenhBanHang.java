@@ -143,10 +143,28 @@ public class KenhBanHang {
      * Tiện ích lấy / gán Shop Domain hoặc Shop ID định danh (Shopify / Shopee)
      */
     public String getShopDomain() {
+        if (this.maKenh != null && this.maKenh.toUpperCase().contains("SHOPEE")) {
+            if (this.shopCipher != null && !this.shopCipher.isBlank() && this.shopCipher.matches("^\\d+$")) {
+                return this.shopCipher.trim();
+            }
+            if (this.apiUrl != null && this.apiUrl.matches("^\\d+$")) {
+                return this.apiUrl.trim();
+            }
+            return null;
+        }
         return this.apiUrl;
     }
 
     public void setShopDomain(String shopDomain) {
+        if (this.maKenh != null && this.maKenh.toUpperCase().contains("SHOPEE")) {
+            if (shopDomain != null && shopDomain.matches("^\\d+$")) {
+                this.shopCipher = shopDomain.trim();
+                return;
+            } else if (shopDomain == null || shopDomain.isBlank()) {
+                this.shopCipher = null;
+                return;
+            }
+        }
         this.apiUrl = shopDomain != null ? shopDomain.trim() : null;
     }
 }
