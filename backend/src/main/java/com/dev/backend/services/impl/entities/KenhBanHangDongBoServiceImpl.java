@@ -6461,6 +6461,11 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     }
 
     private TaiSanPhamResultDto taiSanPhamShopee(KenhBanHang kenh) {
+        Long shopId = kenhBanHangService.getShopeeShopId(kenh != null ? kenh.getMaKenh() : "SHOPEE");
+        if (shopId == null || shopId <= 0) {
+            log.warn("[SHOPEE-SYNC] Kênh {} chưa có Shop ID định danh gian hàng hợp lệ, bỏ qua tải sản phẩm.", kenh != null ? kenh.getMaKenh() : "SHOPEE");
+            return TaiSanPhamResultDto.builder().soSku(0).soMoi(0).soCapNhat(0).build();
+        }
         com.dev.backend.services.shopee.ShopeeClient client = getShopeeClient(kenh);
         boolean isSandbox = "SHOPEE_SANDBOX".equalsIgnoreCase(kenh.getMaKenh());
 
@@ -6605,6 +6610,13 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     }
 
     private TuDongLienKetResultDto tuDongLienKetShopee(KenhBanHang kenh) {
+        Long shopId = kenhBanHangService.getShopeeShopId(kenh != null ? kenh.getMaKenh() : "SHOPEE");
+        if (shopId == null || shopId <= 0) {
+            log.warn("[SHOPEE-SYNC] Kênh {} chưa có Shop ID định danh gian hàng hợp lệ, bỏ qua tự động liên kết.", kenh != null ? kenh.getMaKenh() : "SHOPEE");
+            return TuDongLienKetResultDto.builder()
+                    .soDaGhep(0).soKhongKhop(0).soNhieuKhop(0).soTaoMoiTrenShopify(0).soTonKhoDaDay(0).soThatBai(0)
+                    .build();
+        }
         List<BienTheSanPham> activeVariants = bienTheSanPhamRepository.findActiveVariantsWithDetails();
         if (activeVariants == null || activeVariants.isEmpty()) {
             activeVariants = bienTheSanPhamRepository.findByTrangThai(1);
@@ -6746,6 +6758,12 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             int tonDem,
             int nguongVe0,
             TheoDoiDayTon theoDoi) {
+
+        Long shopId = kenhBanHangService.getShopeeShopId(maKenh);
+        if (shopId == null || shopId <= 0) {
+            log.warn("[SHOPEE-SYNC] Kênh {} chưa có Shop ID định danh gian hàng hợp lệ, bỏ qua đẩy tồn.", maKenh);
+            return DayTonResultDto.builder().soDong(0).soLoi(0).soChuaDay(0).loiKenh("Chưa cấu hình Shop ID gian hàng").build();
+        }
 
         com.dev.backend.services.shopee.ShopeeClient client = getShopeeClient(kenh);
         Instant now = Instant.now();

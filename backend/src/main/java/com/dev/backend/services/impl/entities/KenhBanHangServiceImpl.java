@@ -823,6 +823,13 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                 soNgayCon = 365L;
             }
             String maskedToken = hasToken ? cheKhoa(kenh.getApiKey(), this::maskToken) : null;
+            String numericShopId = null;
+            if (kenh.getShopCipher() != null && kenh.getShopCipher().matches("^\\d+$")) {
+                numericShopId = kenh.getShopCipher().trim();
+            } else if (kenh.getShopDomain() != null && kenh.getShopDomain().matches("^\\d+$")) {
+                numericShopId = kenh.getShopDomain().trim();
+            }
+
             return ShopifyConfigResponse.builder()
                     .id(kenh.getId())
                     .maKenh(ma)
@@ -838,8 +845,8 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                     .soNgayConUyQuyen(soNgayCon)
                     .ngayUyQuyen(kenh.getNgayCapNhat())
                     .tenGianHang(kenh.getTenKenh())
-                    .shopIdSan(kenh.getShopDomain() != null ? kenh.getShopDomain() : (kenh.getClientId() != null ? kenh.getClientId() : kenh.getApiUrl()))
-                    .shopDomain(kenh.getShopDomain() != null ? kenh.getShopDomain() : kenh.getClientId())
+                    .shopIdSan(numericShopId)
+                    .shopDomain(numericShopId)
                     .trangThai(kenh.getTrangThai() != null ? kenh.getTrangThai() : 1)
                     .kieuKetNoi(isOfficial || isSandbox ? KIEU_UY_QUYEN : "ben_thu_ba")
                     .trangThaiKetNoi(trangThaiKetNoi)
@@ -1402,6 +1409,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
             kenh.setApiKey(null);
             kenh.setRefreshToken(null);
             kenh.setTokenExpiresAt(null);
+            kenh.setShopCipher(null);
             kenh.setTrangThai(0);
             kenhBanHangRepository.save(kenh);
 
@@ -2110,7 +2118,9 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
 
         Long shopId = null;
         try {
-            if (kenh.getShopDomain() != null && !kenh.getShopDomain().isBlank()) {
+            if (kenh.getShopCipher() != null && kenh.getShopCipher().matches("^\\d+$")) {
+                shopId = Long.parseLong(kenh.getShopCipher().trim());
+            } else if (kenh.getShopDomain() != null && kenh.getShopDomain().matches("^\\d+$")) {
                 shopId = Long.parseLong(kenh.getShopDomain().trim());
             }
         } catch (Exception ignored) {}
@@ -2162,8 +2172,9 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         if (request.getPartnerKey() != null && !request.getPartnerKey().isBlank()) {
             kenh.setApiSecret(paymentSecretCipher.encrypt(request.getPartnerKey().trim()));
         }
-        if (request.getShopId() != null) {
-            kenh.setShopDomain(String.valueOf(request.getShopId()));
+        if (request.getShopId() != null && !request.getShopId().isBlank() && request.getShopId().matches("^\\d+$")) {
+            kenh.setShopCipher(request.getShopId().trim());
+            kenh.setShopDomain(request.getShopId().trim());
         }
         if (request.getAccessToken() != null && !request.getAccessToken().isBlank()) {
             kenh.setApiKey(paymentSecretCipher.encrypt(request.getAccessToken().trim()));
@@ -2261,6 +2272,15 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         String refreshToken = tokenRes.path("refresh_token").asText();
         long expireIn = tokenRes.path("expire_in").asLong(14400);
 
+        // Trích xuất shop_id từ phản hồi sàn nếu query params chưa truyền
+        if (shopId == null || shopId == 0) {
+            if (tokenRes.hasNonNull("shop_id") && tokenRes.path("shop_id").asLong(0) > 0) {
+                shopId = tokenRes.path("shop_id").asLong();
+            } else if (tokenRes.has("shop_id_list") && tokenRes.path("shop_id_list").isArray() && !tokenRes.path("shop_id_list").isEmpty()) {
+                shopId = tokenRes.path("shop_id_list").get(0).asLong(0);
+            }
+        }
+
         KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma).orElseThrow(
                 () -> new CommonException(ThongDiep.of("kenhBan.khongTimThayKenh", ma), HttpStatus.NOT_FOUND, null)
         );
@@ -2268,7 +2288,8 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         kenh.setApiKey(paymentSecretCipher.encrypt(accessToken));
         kenh.setRefreshToken(paymentSecretCipher.encrypt(refreshToken));
         kenh.setTokenExpiresAt(Instant.now().plusSeconds(expireIn));
-        if (shopId != null) {
+        if (shopId != null && shopId > 0) {
+            kenh.setShopCipher(String.valueOf(shopId));
             kenh.setShopDomain(String.valueOf(shopId));
         }
         kenh.setTrangThai(1);
@@ -2323,6 +2344,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
             kenh.setApiKey(null);
             kenh.setRefreshToken(null);
             kenh.setTokenExpiresAt(null);
+            kenh.setShopCipher(null);
             kenh.setTrangThai(0);
             kenhBanHangRepository.save(kenh);
 
@@ -2384,16 +2406,22 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
     public Long getShopeeShopId(String maKenh) {
         String ma = (maKenh != null && !maKenh.isBlank()) ? maKenh.trim().toUpperCase() : MA_KENH_SHOPEE;
         KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma).orElse(null);
-        if (kenh != null && kenh.getShopDomain() != null && !kenh.getShopDomain().isBlank()) {
+        if (kenh == null) {
+            return null;
+        }
+        // 1. Kiểm tra shopCipher (nơi lưu shop_id định danh số của Shopee)
+        if (kenh.getShopCipher() != null && kenh.getShopCipher().matches("^\\d+$")) {
+            try {
+                return Long.parseLong(kenh.getShopCipher().trim());
+            } catch (Exception ignored) {}
+        }
+        // 2. Kiểm tra shopDomain (nếu là số)
+        if (kenh.getShopDomain() != null && kenh.getShopDomain().matches("^\\d+$")) {
             try {
                 return Long.parseLong(kenh.getShopDomain().trim());
             } catch (Exception ignored) {}
         }
-        if (kenh != null && kenh.getClientId() != null && !kenh.getClientId().isBlank()) {
-            try {
-                return Long.parseLong(kenh.getClientId().trim());
-            } catch (Exception ignored) {}
-        }
+        // TUYỆT ĐỐI KHÔNG fallback về clientId (partner_id) vì partner_id không phải là shop_id của người bán!
         return null;
     }
 
