@@ -28,17 +28,21 @@ import java.util.Objects;
 import java.util.regex.Pattern;
 
 /**
- * Cấu hình xuất kế toán (bảng một dòng). Giá trị mặc định theo hệ thống tài khoản TT 99/2025 thấy trên AMIS Kế toán
- * doanh nghiệp dùng thử (25/10/2026). Ngày mốc bị khóa khi đã có chứng từ đang khóa trong lô: đổi lúc đó thì tồn đầu kỳ
- * đã giao và chứng từ còn lại lệch nhau.
+ * Cấu hình xuất kế toán (bảng một dòng). Giá trị mặc định theo hệ thống tài khoản TT 99/2025 của AMIS Kế toán doanh
+ * nghiệp, đã nhập thử 14/11/2026 (511, 521 có tài khoản con nên dùng 5111, 5211; 111, 112, 156 không có con). Ngày mốc
+ * bị khóa khi đã có chứng từ đang khóa trong lô: đổi lúc đó thì tồn đầu kỳ đã giao và chứng từ còn lại lệch nhau.
  */
 @Service
 public class CauHinhKeToanService {
 
     public static final String HO_SO_AMIS_DOANH_NGHIEP = "AMIS_DOANH_NGHIEP";
-    /** Ba hình thức chuyển kho AMIS nhận (danh sách thả xuống trong tệp mẫu Chuyển kho). */
+    /**
+     * Ba hình thức chuyển kho AMIS nhận (danh sách thả xuống trong tệp mẫu Chuyển kho); phần tử đầu là mặc định. Không
+     * mặc định "Xuất kho kiêm vận chuyển nội bộ": AMIS coi phiếu đó là hóa đơn điện tử, bỏ trống số chứng từ khi nhập
+     * (thử 14/11/2026), nên kế toán không đối chiếu được với số phiếu xuất chuyển kho.
+     */
     public static final List<String> HINH_THUC_CHUYEN_KHO = List.of(
-            "Xuất kho kiêm vận chuyển nội bộ", "Xuất kho gửi bán đại lý", "Xuất chuyển kho nội bộ");
+            "Xuất chuyển kho nội bộ", "Xuất kho kiêm vận chuyển nội bộ", "Xuất kho gửi bán đại lý");
     /** Chặn gõ nhầm năm; ngày mốc thực tế phải trùng "Ngày bắt đầu dữ liệu" trên AMIS (bản dùng thử: 01/01/2026). */
     static final LocalDate NGAY_MOC_SOM_NHAT = LocalDate.of(2020, 1, 1);
 
@@ -112,6 +116,9 @@ public class CauHinhKeToanService {
         ch.setTkGiaVon(taiKhoan(req.getTkGiaVon(), ThongDiep.of("keToanDuLieuVao.tkGiaVonSai")));
         ch.setTkPhaiTra(taiKhoan(req.getTkPhaiTra(), ThongDiep.of("keToanDuLieuVao.tkPhaiTraSai")));
         ch.setTkThueDauVao(taiKhoan(req.getTkThueDauVao(), ThongDiep.of("keToanDuLieuVao.tkThueDauVaoSai")));
+        ch.setTkTraLai(taiKhoan(req.getTkTraLai(), ThongDiep.of("keToanDuLieuVao.tkTraLaiSai")));
+        ch.setTkHangThieu(taiKhoan(req.getTkHangThieu(), ThongDiep.of("keToanDuLieuVao.tkHangThieuSai")));
+        ch.setTkHangThua(taiKhoan(req.getTkHangThua(), ThongDiep.of("keToanDuLieuVao.tkHangThuaSai")));
 
         String maDv = gon(req.getMaDichVuVanChuyen());
         if (maDv == null || !MA_DICH_VU.matcher(maDv).matches()) {
@@ -176,6 +183,9 @@ public class CauHinhKeToanService {
                 .tkGiaVon(ch.getTkGiaVon())
                 .tkPhaiTra(ch.getTkPhaiTra())
                 .tkThueDauVao(ch.getTkThueDauVao())
+                .tkTraLai(ch.getTkTraLai())
+                .tkHangThieu(ch.getTkHangThieu())
+                .tkHangThua(ch.getTkHangThua())
                 .maDichVuVanChuyen(ch.getMaDichVuVanChuyen())
                 .tenDichVuVanChuyen(ch.getTenDichVuVanChuyen())
                 .hinhThucChuyenKho(ch.getHinhThucChuyenKho())
@@ -190,8 +200,9 @@ public class CauHinhKeToanService {
         return CauHinhKeToan.builder()
                 .id(CauHinhKeToan.ID)
                 .hoSo(HO_SO_AMIS_DOANH_NGHIEP)
-                .tkTienMat("111").tkNganHang("112").tkPhaiThu("131").tkDoanhThu("511").tkChietKhau("521")
+                .tkTienMat("111").tkNganHang("112").tkPhaiThu("131").tkDoanhThu("5111").tkChietKhau("5211")
                 .tkThueDauRa("33311").tkKho("156").tkGiaVon("632").tkPhaiTra("331").tkThueDauVao("1331")
+                .tkTraLai("5212").tkHangThieu("1381").tkHangThua("3381")
                 .maDichVuVanChuyen("PVC").tenDichVuVanChuyen("Phí vận chuyển")
                 .hinhThucChuyenKho(HINH_THUC_CHUYEN_KHO.get(0))
                 .version(1)
@@ -217,7 +228,7 @@ public class CauHinhKeToanService {
         return "{\"ngayMoc\":" + (ch.getNgayMoc() == null ? "null" : "\"" + ch.getNgayMoc() + "\"")
                 + ",\"tk\":\"" + String.join("/", ch.getTkTienMat(), ch.getTkNganHang(), ch.getTkPhaiThu(),
                 ch.getTkDoanhThu(), ch.getTkChietKhau(), ch.getTkThueDauRa(), ch.getTkKho(), ch.getTkGiaVon(),
-                ch.getTkPhaiTra(), ch.getTkThueDauVao()) + "\""
+                ch.getTkPhaiTra(), ch.getTkThueDauVao(), ch.getTkTraLai(), ch.getTkHangThieu(), ch.getTkHangThua()) + "\""
                 + ",\"maDichVuVanChuyen\":\"" + ch.getMaDichVuVanChuyen() + "\""
                 + ",\"hinhThucChuyenKho\":\"" + ch.getHinhThucChuyenKho() + "\""
                 + ",\"soTkNganHangNhan\":" + (ch.getSoTkNganHangNhan() == null ? "null" : "\"" + ch.getSoTkNganHangNhan() + "\"")
