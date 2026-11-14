@@ -30,6 +30,9 @@ public class ShopeeOrderDto {
     @JsonProperty("total_amount")
     Double totalAmount;
 
+    @JsonProperty("estimated_shipping_fee")
+    Double estimatedShippingFee;
+
     @JsonProperty("actual_shipping_fee")
     Double actualShippingFee;
 
