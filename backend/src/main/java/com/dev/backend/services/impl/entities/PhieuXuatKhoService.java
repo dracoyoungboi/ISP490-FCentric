@@ -1232,6 +1232,7 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
             }
 
             boolean isTikTok = kb != null && ("TIKTOK".equalsIgnoreCase(kb.getMaKenh()) || "TIKTOK_SHOP".equalsIgnoreCase(kb.getMaKenh()));
+            boolean isShopee = kb != null && ("SHOPEE".equalsIgnoreCase(kb.getMaKenh()) || "SHOPEE_SANDBOX".equalsIgnoreCase(kb.getMaKenh()));
             if (isTikTok) {
                 loaiDichVu = "Giao Nhanh 24H";
                 if (carrierName == null || carrierName.isBlank()) {
@@ -1257,6 +1258,19 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                     } catch (Exception ex) {
                         log.warn("[TIKTOK-AWB] Không thể lấy URL PDF vận đơn TikTok Shop cho đơn {}: {}", donGoc.getMaDonHangKenh(), ex.getMessage());
                     }
+                }
+            } else if (isShopee) {
+                loaiDichVu = "Sandbox SPX Express";
+                if (carrierName == null || carrierName.isBlank()) {
+                    donViPickup = "SPX EXPRESS";
+                    donViDelivery = "SPX EXPRESS";
+                }
+                maDinhTuyen = "1-SGN-HUB";
+                maTramPhat = "SG100A-00-00-01";
+                tagGiaoNhan = "WKD";
+
+                if ((shippingDocUrl == null || shippingDocUrl.isBlank()) && donGoc.getId() != null) {
+                    shippingDocUrl = "/api/v1/don-ban-hang/" + donGoc.getId() + "/van-don-san";
                 }
             } else if (lazadaRoutingDecoder != null) {
                 com.fasterxml.jackson.databind.JsonNode traceNode = null;
