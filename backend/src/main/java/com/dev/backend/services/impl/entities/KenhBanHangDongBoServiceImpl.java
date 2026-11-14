@@ -7097,12 +7097,12 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         // 2. Chuẩn bị bảng phân loại tier_variation
         List<Map<String, Object>> tierVariationList = new ArrayList<>();
         if (hasColor && hasSize) {
-            tierVariationList.add(Map.of("name", "Màu sắc", "options", colors.stream().map(c -> Map.of("option", c)).toList()));
-            tierVariationList.add(Map.of("name", "Kích cỡ", "options", sizes.stream().map(s -> Map.of("option", s)).toList()));
+            tierVariationList.add(Map.of("name", "Màu sắc", "option_list", colors.stream().map(c -> Map.of("option", c)).toList()));
+            tierVariationList.add(Map.of("name", "Kích cỡ", "option_list", sizes.stream().map(s -> Map.of("option", s)).toList()));
         } else if (hasColor) {
-            tierVariationList.add(Map.of("name", "Màu sắc", "options", colors.stream().map(c -> Map.of("option", c)).toList()));
+            tierVariationList.add(Map.of("name", "Màu sắc", "option_list", colors.stream().map(c -> Map.of("option", c)).toList()));
         } else {
-            tierVariationList.add(Map.of("name", "Kích cỡ", "options", sizes.stream().map(s -> Map.of("option", s)).toList()));
+            tierVariationList.add(Map.of("name", "Kích cỡ", "option_list", sizes.stream().map(s -> Map.of("option", s)).toList()));
         }
 
         // 3. Chuẩn bị danh sách model
@@ -7139,8 +7139,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
             Map<String, Object> modelMap = new LinkedHashMap<>();
             modelMap.put("tier_index", tierIndex);
-            modelMap.put("normal_price", price.doubleValue());
-            modelMap.put("stock", Math.max(0, qty));
+            modelMap.put("original_price", price.doubleValue());
+            modelMap.put("seller_stock", List.of(Map.of("stock", Math.max(0, qty))));
             modelMap.put("model_sku", sku);
             modelList.add(modelMap);
         }
