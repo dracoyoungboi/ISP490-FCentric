@@ -1713,6 +1713,22 @@ public class OmnichannelOrderSyncJob {
                 if (bt == null && !itemSku.isBlank()) {
                     bt = bienTheSanPhamRepository.findByMaSkuIgnoreCase(itemSku).orElse(null);
                 }
+                if (bt == null && it.getItemId() != null && kenh != null && kenh.getId() != null) {
+                    String strItemId = String.valueOf(it.getItemId());
+                    String strModelId = (it.getModelId() != null && it.getModelId() > 0) ? String.valueOf(it.getModelId()) : null;
+                    if (strModelId != null) {
+                        Optional<TrangThaiDongBoSanPham> mapping = trangThaiDongBoSanPhamRepository.findByKenhBanHangIdAndMaSanPhamKenh(kenh.getId(), strItemId + "_" + strModelId);
+                        if (mapping.isPresent() && mapping.get().getBienTheSanPham() != null) {
+                            bt = mapping.get().getBienTheSanPham();
+                        }
+                    }
+                    if (bt == null) {
+                        Optional<TrangThaiDongBoSanPham> mapping = trangThaiDongBoSanPhamRepository.findByKenhBanHangIdAndMaSanPhamKenh(kenh.getId(), strItemId);
+                        if (mapping.isPresent() && mapping.get().getBienTheSanPham() != null) {
+                            bt = mapping.get().getBienTheSanPham();
+                        }
+                    }
+                }
 
                 BigDecimal itemPrice = it.getModelDiscountedPrice() != null
                         ? BigDecimal.valueOf(it.getModelDiscountedPrice()) : BigDecimal.ZERO;
