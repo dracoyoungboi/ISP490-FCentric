@@ -206,14 +206,14 @@ export default function AccountingSettingsPage() {
                   <select id="kt-hinh-thuc" value={form.hinhThucChuyenKho} onChange={(e) => doi("hinhThucChuyenKho", e.target.value)} className={SELECT_CLASS}>
                     {HINH_THUC_CHUYEN_KHO.map((h) => <option key={h} value={h}>{t(h)}</option>)}
                   </select>
-                  <SettingsFieldHint error={loi.hinhThucChuyenKho}>{t("Bước nhận và hủy giữa đường luôn là \"Xuất chuyển kho nội bộ\".")}</SettingsFieldHint>
+                  <SettingsFieldHint error={loi.hinhThucChuyenKho}>{t("Bước nhận và hủy giữa đường luôn là \"Xuất chuyển kho nội bộ\". Chọn \"Xuất kho kiêm vận chuyển nội bộ\" thì AMIS bỏ trống số chứng từ, chờ phát hành hóa đơn điện tử.")}</SettingsFieldHint>
                 </div>
                 <div className="flex flex-col gap-1">
                   <label htmlFor="kt-so-tk" className="text-[13px] font-medium text-bo-foreground">{t("Số tài khoản nhận chuyển khoản tại quầy")}</label>
                   <Input id="kt-so-tk" value={form.soTkNganHangNhan} maxLength={30} inputMode="numeric"
                     onChange={(e) => doi("soTkNganHangNhan", e.target.value.replace(/[^A-Za-z0-9]/g, ""))}
                     className={settingsInputClass({ error: Boolean(loi.soTkNganHangNhan), className: "tabular-nums" })} />
-                  <SettingsFieldHint error={loi.soTkNganHangNhan}>{t("Cột \"Nộp vào TK\"; phải là tài khoản đã khai báo trên AMIS. Để trống nếu chưa có.")}</SettingsFieldHint>
+                  <SettingsFieldHint error={loi.soTkNganHangNhan}>{t("Bắt buộc khi có đơn bán tại quầy trả QR payOS: AMIS chỉ ghi sổ tài khoản ngân hàng khi có số tài khoản. Phải là tài khoản đã khai báo trên AMIS.")}</SettingsFieldHint>
                 </div>
               </>
             ) : (
