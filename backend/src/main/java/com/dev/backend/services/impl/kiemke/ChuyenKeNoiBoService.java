@@ -456,7 +456,8 @@ public class ChuyenKeNoiBoService {
                         .bienTheSanPham(bt).loHang(loHang).kho(nguon.getKho())
                         .soLuong(BigDecimal.valueOf(sl)).soLuongTruoc(ton.getSoLuongTon()).soLuongSau(ton.getSoLuongTon())
                         .nguoiDung(nguoi)
-                        // Dữ liệu sổ (không dịch): mã phiếu và đường đi
+                        // Dữ liệu sổ (không dịch): mã phiếu và đường đi. Lịch sử giao dịch kho tách lại câu này
+                        // (LichSuGiaoDichKhoMapper.LO_TRINH_KE): đổi mẫu câu thì đổi cả biểu thức ở đó
                         .ghiChu(phieu.getMaPhieu() + ": " + nguon.getMaViTri() + " → " + dich.getMaViTri())
                         .build());
                 tong += sl;
