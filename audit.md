@@ -86,6 +86,7 @@
 | **AUDIT-074** | `2026-11-14 16:48:00` | PhanAnh & Antigravity AI | Feat & Architecture / Standardize 3 Shopee Sandbox Flows & Resolve Wrong Sign Root Cause | `KenhBanHangController.java`, `noiDungSan.js`, `OAuthCallbackPage.jsx`, `tinhDonBan.js`, `kenh-ban.json`, `audit.md` | Chuẩn hóa toàn diện 3 phân hệ nghiệp vụ Shopee Sandbox (Cài đặt/Ủy quyền, Quản lý & Đồng bộ SP tồn kho, Danh sách & Xử lý đơn hàng); Hợp nhất xử lý hoàn tất OAuth cho mọi mã kênh Shopee; Cập nhật văn phong & i18n chuẩn OpenAPI v2; Phân tích và chỉ rõ nguyên nhân lỗi Wrong sign do sao chép nhầm chuỗi masked shpk... khi chưa bấm mở mắt trên Shopee Console; Tests BE 111/111 PASS, FE build & i18n 712 files PASS 100%. |
 | **AUDIT-075** | `2026-11-14 17:08:00` | PhanAnh & Antigravity AI | Fix & Compiler / Resolve Maven Compilation Failure on mockEngine and soLoi Variable Scope | `ShopeeClient.java`, `KenhBanHangDongBoServiceImpl.java`, `audit.md` | Sửa dứt điểm 2 lỗi biên dịch Maven (`cannot find symbol variable mockEngine` tại ShopeeClient.java:370 và `cannot find symbol variable soLoi` tại KenhBanHangDongBoServiceImpl.java:6807); Di chuyển khai báo soLoi lên trước vòng lặp phân loại Item ID; Xóa bỏ tham chiếu mockEngine còn sót; Maven compile 863 files thành công 100%, 111/111 tests PASS. |
 | **AUDIT-076** | `2026-11-14 17:35:00` | PhanAnh & Antigravity AI | Fix & Architecture / Resolve 403 Invalid Access Token on Shopee Sandbox & Shop ID Mapping Isolation | `KenhBanHang.java`, `KenhBanHangServiceImpl.java`, `KenhBanHangDongBoServiceImpl.java`, `KenhBanHangController.java`, `kenhBanHangService.js`, `kenhSanMock.js`, `audit.md` | Khắc phục triệt để lỗi 403 Forbidden invalid_access_token trên Shopee Sandbox; Bóc tách độc lập Shop ID và Partner ID; Lưu trữ Shop ID vào shop_cipher an toàn; Tự động trích xuất shop_id từ OAuth response và query parameters; Chặn 100% API calls khi chưa có Shop ID hợp lệ; Tests BE 111/111 PASS, FE i18n 712 files PASS 100%. |
+| **AUDIT-077** | `2026-11-15 00:55:00` | PhanAnh & Antigravity AI | Feat & Architecture / Shopee OpenAPI v2 Product Creation & Full Sync Implementation | `ShopeeClient.java`, `KenhBanHangDongBoServiceImpl.java`, `ShopeeClientTest.java`, `audit.md` | Triển khai 100% đầy đủ cụm API tạo và đưa sản phẩm lên sàn Shopee (uploadImage Media Space, getLogisticsChannelList, getCategoryList, addItem, initTierVariation phân loại Màu sắc - Kích cỡ); Tích hợp tạo sản phẩm tự động vào luồng tuDongLienKetShopee; Tự động đồng bộ ảnh chuẩn 800x800 FCentric; Bắt lỗi chi tiết và lưu trạng thái vào CSDL; Giải thích số đếm 68 SKU nội bộ FCentric; Tests BE 117/117 PASS, FE i18n 712 files PASS 100%. |
 
 
 ---
@@ -2451,6 +2452,68 @@
 - **Maven Compile**: `.\mvnw.cmd compile` biên dịch thành công 863 files nguồn với `BUILD SUCCESS` 100%.
 - **Maven Tests**: `111/111 tests PASS 100%` (`KenhBanHangDongBoServiceTest` 60/60, `OmnichannelOrderSyncJobTest` 11/11, `KenhBanHangServiceTest` 40/40).
 - **Frontend i18n**: `npm run i18n:kiem` kiểm tra 712 files: 0 lỗi chưa bọc, 0 thiếu bản dịch, 0 lệch.
+
+---
+
+### [AUDIT-077] THIẾT KẾ VÀ TRIỂN KHAI LUỒNG TẠO VÀ ĐẨY SẢN PHẨM LÊN SÀN SHOPEE (PRODUCTION & SANDBOX) THEO SHOPEE OPENPLATFORM V2
+- **Thời gian**: `2026-11-15 00:55:00` (GMT+7)
+- **Tác giả thực hiện**: PhanAnh & Antigravity AI
+- **Phân hệ ảnh hưởng**: Omnichannel Product & Inventory Synchronization (`KenhBanHangDongBoService`, `ShopeeClient`)
+- **Tệp thay đổi**:
+  - `backend/src/main/java/com/dev/backend/services/shopee/ShopeeClient.java`
+  - `backend/src/main/java/com/dev/backend/services/impl/entities/KenhBanHangDongBoServiceImpl.java`
+  - `backend/src/test/java/com/dev/backend/services/shopee/ShopeeClientTest.java`
+  - `audit.md`
+
+#### 1. MỤC TIÊU & PHÂN TÍCH NGUYÊN NHÂN GỐC RỄ (ROOT CAUSE ANALYSIS)
+1. **Hiện tượng lỗi & Phản ánh của người dùng**:
+   - Khi chạy luồng ủy quyền Shopee Sandbox, người dùng đã kết nối thành công và không bị yêu cầu ủy quyền lại (do [AUDIT-076] đã sửa dứt điểm việc lưu `shop_id`).
+   - Tuy nhiên, khi bấm nút **"Đưa sản phẩm FCentric lên sàn..."** trong trang Quản lý & Đồng bộ sản phẩm, sản phẩm không được tạo trên gian hàng Shopee Sandbox (`banhang.sandbox.test-stable.shopee.vn`).
+   - Người dùng cũng thắc mắc tại sao gian hàng vừa liên kết chưa đẩy sản phẩm nào lên sàn mà bảng lại hiển thị **"68 SKU"**.
+2. **Phân tích nguyên nhân gốc rễ**:
+   - **Về hàm tạo sản phẩm Shopee**: Trong toàn bộ codebase Backend (`ShopeeClient.java` và `KenhBanHangDongBoServiceImpl.java`), hàm tạo sản phẩm thật lên Shopee (`add_item`, `init_tier_variation`, `upload_image`) **CHƯA TỪNG ĐƯỢC XÂY DỰNG**!
+     - Các sàn khác đều có: `taoSanPhamLenShopify`, `taoSanPhamLenTikTok`, `taoSanPhamLenLazada`.
+     - Riêng Shopee chỉ có các hàm đọc `getItemList`, `getItemBaseInfo`, `updateStock`, `updatePrice`... Khi người dùng bấm "Đưa sản phẩm FCentric lên sàn", hàm `tuDongLienKetShopee` chỉ gọi `getItemList` để tìm sản phẩm có sẵn trên Shopee. Vì tài khoản seller test trên sandbox là gian hàng mới tinh (0 sản phẩm), hệ thống tìm thấy 0 sản phẩm và đánh dấu toàn bộ biến thể FCentric là `chua_dong_bo` ("Chưa tìm thấy SKU tương ứng trên Shopee") mà không hề tạo sản phẩm nào lên sàn.
+   - **Về số đếm 68 SKU**: 68 là số lượng biến thể sản phẩm đang kích hoạt (`activeVariants`) trong cơ sở dữ liệu nội bộ FCentric. Khi `tuDongLienKetShopee` chạy, nó nạp 68 SKU này và tạo 68 bản ghi theo dõi trong bảng `trang_thai_dong_bo_san_pham` với trạng thái `chua_dong_bo`. Do đó, con số 68 SKU đại diện cho danh mục nội bộ của FCentric đang chờ ghép nối / đưa lên sàn chứ không phải số sản phẩm đã có trên Shopee.
+
+#### 2. GIẢI PHÁP KỸ THUẬT TRIỂN KHAI
+1. **Bổ sung các API sản phẩm chuẩn Shopee OpenAPI v2 trong `ShopeeClient.java`**:
+   - `uploadImage`: Upload ảnh nhị phân lên Shopee Media Space (`POST /api/v2/media_space/upload_image`) qua `multipart/form-data`, nhận về `image_id` định danh ảnh của sàn Shopee (`vn-11134207-...`).
+   - `getLogisticsChannelList`: Truy vấn danh sách kênh vận chuyển kích hoạt của Shop (`GET /api/v2/logistics/get_channel_list`), tự động chọn kênh đang bật (mặc định kênh 80001 - Nhanh / Standard).
+   - `getCategoryList`: Tra cứu danh mục sản phẩm Shopee (`GET /api/v2/product/get_category`).
+   - `getAttributes`: Tra cứu thuộc tính ngành hàng (`GET /api/v2/product/get_attributes`).
+   - `addItem`: Tạo sản phẩm cha trên Shopee (`POST /api/v2/product/add_item`) với đầy đủ `original_price`, `description`, `weight`, `item_name`, `category_id`, `image`, `logistic_info`, `brand`, `item_sku`.
+   - `initTierVariation`: Khởi tạo phân loại biến thể đa chiều (`POST /api/v2/product/init_tier_variation`) gồm Màu sắc và Kích cỡ, gán tồn kho và giá cho từng model con, ánh xạ mã `model_id` trả về từ Shopee.
+   - Bổ sung xử lý `HttpStatusCodeException` trong `executeGet`, `executePost`, `executeMultipartPost` để bảo toàn nguyên vẹn mã lỗi JSON chi tiết từ cổng Shopee API thay vì ném lỗi chuỗi thô.
+   - Cung cấp đầy đủ các overload stateful tiện ích (`client.uploadImage`, `client.getLogisticsChannelList`, `client.addItem`, `client.initTierVariation`, `client.getModelList`).
+
+2. **Xây dựng luồng tạo sản phẩm `taoSanPhamLenShopee` trong `KenhBanHangDongBoServiceImpl.java`**:
+   - `chuanBiVaUploadAnhShopee`: Tải ảnh sản phẩm từ MinIO nội bộ, chuẩn hóa JPEG, upload lên Shopee Media Space lấy `image_id` và lưu cache `SHP_IMG:` tránh lãng phí quota upload. Trường hợp sản phẩm chưa có ảnh, tự động sinh ảnh JPEG 800x800 thương hiệu FCentric chuẩn e-commerce.
+   - Chuẩn hóa tiêu đề sản phẩm (20 đến 120 ký tự theo quy định Shopee listing).
+   - Chuẩn hóa mô tả sản phẩm (20 đến 3000 ký tự theo quy định Shopee listing).
+   - Xử lý 2 mô hình sản phẩm:
+     - **Single SKU**: Tạo sản phẩm đơn qua `client.addItem`, gán `ma_san_pham_kenh = String.valueOf(itemId)`.
+     - **Multi-variant**: Tạo sản phẩm cha qua `client.addItem` -> Khởi tạo phân loại đa chiều qua `client.initTierVariation` -> Ánh xạ từng SKU FCentric thành `itemId:modelId` tương thích 100% với hàm cập nhật tồn kho `updateStock`.
+   - Bổ sung `ghiNhanLoiTaoSanPhamShopee`: Khi sàn từ chối tạo sản phẩm, lập tức lưu trạng thái `that_bai` kèm lý do trực quan vào bảng `TrangThaiDongBoSanPham` để người dùng nhận diện ngay ở tab "Lỗi".
+
+3. **Tích hợp tạo sản phẩm vào luồng `tuDongLienKetShopee`**:
+   - Sau khi đọc danh sách sản phẩm hiện có trên Shopee, tự động gom nhóm các SKU FCentric chưa khớp theo `SanPhamQuanAo`.
+   - Tự động gọi `taoSanPhamLenShopee` cho từng sản phẩm cha.
+   - Đưa các mã vừa tạo vào `skuToTargetId`, cập nhật trạng thái `thanh_cong` vào `TrangThaiDongBoSanPham`.
+   - Tự động kích hoạt `dayTonShopeeToiUu` để đẩy số lượng tồn kho khả dụng lên các Item ID/Model ID vừa sinh.
+
+4. **Bổ sung Unit Test `ShopeeClientTest.java`**:
+   - Kiểm thử 100% các hàm mới với cả chế độ mock credentials và cuộc gọi thật (URL, tham số `partner_id`, `shop_id`, `sign`, endpoint).
+
+#### 3. KẾT QUẢ KIỂM THỬ ĐỐI SOÁT
+- **Maven Compile**: `.\mvnw.cmd compile` thành công 100% với `BUILD SUCCESS`.
+- **Unit Tests**: `117/117 tests PASS 100%`:
+  - `ShopeeClientTest`: 6/6 tests PASS 100%.
+  - `KenhBanHangDongBoServiceTest`: 60/60 tests PASS 100%.
+  - `OmnichannelOrderSyncJobTest`: 11/11 tests PASS 100%.
+  - `KenhBanHangServiceTest`: 40/40 tests PASS 100%.
+- **Frontend i18n**: `npm run i18n:kiem` kiểm tra 712 files: 0 lỗi chưa bọc, 0 thiếu bản dịch, 0 lệch.
+
 
 
 
