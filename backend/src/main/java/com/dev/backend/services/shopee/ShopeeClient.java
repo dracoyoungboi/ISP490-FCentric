@@ -1047,6 +1047,13 @@ public class ShopeeClient {
             return mockHtml.getBytes(StandardCharsets.UTF_8);
         }
         try {
+            // Bước 0: Chuẩn bị hàng (ship_order) nếu đơn còn ở trạng thái UNPROCESSED (Chờ xử lý)
+            try {
+                shipOrder(partnerId, partnerKey, accessToken, shopId, orderSn, "dropoff", isSandbox);
+            } catch (Exception shipEx) {
+                log.info("[SHOPEE-DOC] shipOrder phản hồi: {}", shipEx.getMessage());
+            }
+
             // Bước 1: Yêu cầu Shopee tạo tài liệu vận đơn AWB nếu chưa tạo
             try {
                 createShippingDocument(partnerId, partnerKey, accessToken, shopId, orderSn, isSandbox);
@@ -1054,35 +1061,48 @@ public class ShopeeClient {
                 log.info("[SHOPEE-DOC] createShippingDocument phản hồi: {}", ex.getMessage());
             }
 
-            // Bước 2: Kiểm tra trạng thái sẵn sàng (polling tối đa 3 lần)
-            for (int i = 0; i < 3; i++) {
+            // Bước 2: Kiểm tra trạng thái sẵn sàng (polling tối đa 4 lần, mỗi lần 600ms)
+            for (int i = 0; i < 4; i++) {
                 try {
                     JsonNode statusRes = getShippingDocumentResult(partnerId, partnerKey, accessToken, shopId, orderSn, isSandbox);
                     if (statusRes != null) {
                         String st = statusRes.path("response").path("status").asText("");
+                        if (st.isBlank() && statusRes.path("response").path("result_list").isArray()) {
+                            st = statusRes.path("response").path("result_list").path(0).path("status").asText("");
+                        }
                         if ("READY".equalsIgnoreCase(st)) {
                             break;
                         }
                     }
-                    Thread.sleep(500);
+                    Thread.sleep(600);
                 } catch (InterruptedException ie) {
                     Thread.currentThread().interrupt();
                     break;
                 } catch (Exception ignored) {}
             }
 
-            // Bước 3: Tải file nhị phân PDF/HTML phiếu vận đơn
+            // Bước 3: Tải file nhị phân PDF/ZIP phiếu vận đơn bằng POST
             long timestamp = Instant.now().getEpochSecond();
             String base = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_DOWNLOAD_DOC, timestamp, accessToken, shopId);
             String sign = ShopeeSignatureHelper.sign(partnerKey, base);
-            String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s&order_sn=%s",
-                    getHost(isSandbox), PATH_DOWNLOAD_DOC, partnerId, timestamp, accessToken, shopId, sign, orderSn);
+            String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s",
+                    getHost(isSandbox), PATH_DOWNLOAD_DOC, partnerId, timestamp, accessToken, shopId, sign);
+
+            Map<String, Object> body = Map.of(
+                    "shipping_document_type", "THERMAL_AIR_WAYBILL",
+                    "order_list", List.of(Map.of("order_sn", orderSn))
+            );
+
             HttpHeaders headers = new HttpHeaders();
-            headers.setAccept(List.of(MediaType.APPLICATION_OCTET_STREAM, MediaType.ALL));
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.setAccept(List.of(MediaType.APPLICATION_PDF, MediaType.APPLICATION_OCTET_STREAM, MediaType.ALL));
             headers.set(HttpHeaders.USER_AGENT, "ShopeeOpenAPI/2.0");
-            HttpEntity<Void> entity = new HttpEntity<>(headers);
-            ResponseEntity<byte[]> res = restTemplate.exchange(url, HttpMethod.GET, entity, byte[].class);
-            return res.getBody() != null ? res.getBody() : new byte[0];
+
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
+            ResponseEntity<byte[]> res = restTemplate.exchange(url, HttpMethod.POST, entity, byte[].class);
+            byte[] rawBytes = res.getBody() != null ? res.getBody() : new byte[0];
+
+            return extractPdfFromZipOrRaw(rawBytes);
         } catch (Exception ex) {
             log.warn("[SHOPEE-DOWNLOAD-DOC] Lỗi khi tải tài liệu in vận đơn: {}", ex.getMessage());
             return new byte[0];
