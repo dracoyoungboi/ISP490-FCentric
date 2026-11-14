@@ -265,17 +265,17 @@ public class KenhBanHangController {
                             .build()
             );
         }
-        if ("SHOPEE_OFFICIAL".equals(ma)) {
-            String authUrl = kenhBanHangService.getShopeeAuthUrl("SHOPEE_OFFICIAL", redirectUri);
+        if ("SHOPEE_OFFICIAL".equals(ma) || "SHOPEE_SANDBOX".equals(ma)) {
+            String authUrl = kenhBanHangService.getShopeeAuthUrl(ma, redirectUri);
             return ResponseEntity.ok(
                     ResponseData.<Map<String, String>>builder()
                             .status(HttpStatus.OK.value())
                             .data(Map.of("authUrl", authUrl))
-                            .message(ThongDiep.dich("kenhBan.sinhUrlUyQuyenThanhCong", "Shopee Chính Thống"))
+                            .message(ThongDiep.dich("kenhBan.sinhUrlUyQuyenThanhCong", ("SHOPEE_SANDBOX".equals(ma) ? "Shopee Sandbox" : "Shopee Chính Thống")))
                             .build()
             );
         }
-        if ("SHOPEE".equals(ma) || "SHOPEE_SANDBOX".equals(ma)) {
+        if ("SHOPEE".equals(ma)) {
             String partnerId = "1000888";
             String partnerKey = "mock_shopee_key";
             com.dev.backend.services.shopee.ShopeeClient client = new com.dev.backend.services.shopee.ShopeeClient();
@@ -285,7 +285,7 @@ public class KenhBanHangController {
                     ResponseData.<Map<String, String>>builder()
                             .status(HttpStatus.OK.value())
                             .data(Map.of("authUrl", authUrl))
-                            .message(ThongDiep.dich("kenhBan.sinhUrlUyQuyenThanhCong", (ma.contains("SANDBOX") ? "Shopee Sandbox" : "Shopee")))
+                            .message(ThongDiep.dich("kenhBan.sinhUrlUyQuyenThanhCong", "Shopee"))
                             .build()
             );
         }
@@ -322,23 +322,23 @@ public class KenhBanHangController {
                             .build()
             );
         }
-        if ("SHOPEE_OFFICIAL".equals(ma)) {
+        if ("SHOPEE_OFFICIAL".equals(ma) || "SHOPEE_SANDBOX".equals(ma)) {
             String shopId = request.getShopId() != null ? String.valueOf(request.getShopId()) : null;
-            kenhBanHangService.exchangeShopeeToken("SHOPEE_OFFICIAL", request.getCode(), shopId);
+            kenhBanHangService.exchangeShopeeToken(ma, request.getCode(), shopId);
             return ResponseEntity.ok(
                     ResponseData.<ShopifyConfigResponse>builder()
                             .status(HttpStatus.OK.value())
-                            .data(kenhBanHangService.getKetNoi("SHOPEE_OFFICIAL"))
-                            .message(ThongDiep.dich("kenhBan.uyQuyenGianHangThanhCong", "Shopee Chính Thống"))
+                            .data(kenhBanHangService.getKetNoi(ma))
+                            .message(ThongDiep.dich("kenhBan.uyQuyenGianHangThanhCong", ("SHOPEE_SANDBOX".equals(ma) ? "Shopee Sandbox" : "Shopee Chính Thống")))
                             .build()
             );
         }
-        if ("SHOPEE".equals(ma) || "SHOPEE_SANDBOX".equals(ma)) {
+        if ("SHOPEE".equals(ma)) {
             com.dev.backend.entities.KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma).orElse(null);
             if (kenh == null) {
                 kenh = com.dev.backend.entities.KenhBanHang.builder()
                         .maKenh(ma)
-                        .tenKenh(ma.contains("SANDBOX") ? "Shopee Sandbox" : "Gian hàng Shopee")
+                        .tenKenh("Gian hàng Shopee")
                         .loaiKenh("online")
                         .apiUrl("https://partner.shopeemobile.com/api/v2")
                         .trangThai(1)
@@ -352,7 +352,7 @@ public class KenhBanHangController {
                     ResponseData.<ShopifyConfigResponse>builder()
                             .status(HttpStatus.OK.value())
                             .data(kenhBanHangService.getKetNoi(ma))
-                            .message(ThongDiep.dich("kenhBan.uyQuyenGianHangThanhCong", (ma.contains("SANDBOX") ? "Shopee Sandbox" : "Shopee")))
+                            .message(ThongDiep.dich("kenhBan.uyQuyenGianHangThanhCong", "Shopee"))
                             .build()
             );
         }
