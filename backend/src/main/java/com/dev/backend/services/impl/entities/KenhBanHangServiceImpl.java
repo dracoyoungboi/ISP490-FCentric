@@ -2278,6 +2278,16 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                 shopId = tokenRes.path("shop_id").asLong();
             } else if (tokenRes.has("shop_id_list") && tokenRes.path("shop_id_list").isArray() && !tokenRes.path("shop_id_list").isEmpty()) {
                 shopId = tokenRes.path("shop_id_list").get(0).asLong(0);
+            } else {
+                try {
+                    com.fasterxml.jackson.databind.JsonNode shopsRes = client.getShopsByPartner(1, 50);
+                    if (shopsRes != null && shopsRes.path("error").asText("").isEmpty()) {
+                        com.fasterxml.jackson.databind.JsonNode sList = shopsRes.path("authed_shop_list");
+                        if (sList.isArray() && !sList.isEmpty()) {
+                            shopId = sList.get(0).path("shop_id").asLong(0);
+                        }
+                    }
+                } catch (Exception ignored) {}
             }
         }
 
