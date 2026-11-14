@@ -47,6 +47,7 @@ public class ShopeeClient {
     public static final String PATH_TOKEN_REFRESH = "/api/v2/auth/access_token/get";
     public static final String PATH_SHOP_INFO = "/api/v2/shop/get_shop_info";
     public static final String PATH_SHOP_PROFILE = "/api/v2/shop/get_profile";
+    public static final String PATH_SHOPS_BY_PARTNER = "/api/v2/public/get_shops_by_partner";
 
     // 2. Order Paths
     public static final String PATH_ORDER_LIST = "/api/v2/order/get_order_list";
