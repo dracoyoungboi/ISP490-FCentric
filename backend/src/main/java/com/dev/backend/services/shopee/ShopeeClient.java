@@ -836,9 +836,14 @@ public class ShopeeClient {
         long timestamp = Instant.now().getEpochSecond();
         String base = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_GET_DOC_RESULT, timestamp, accessToken, shopId);
         String sign = ShopeeSignatureHelper.sign(partnerKey, base);
-        String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s&order_sn=%s",
-                getHost(isSandbox), PATH_GET_DOC_RESULT, partnerId, timestamp, accessToken, shopId, sign, orderSn);
-        return executeGet(url);
+        String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s",
+                getHost(isSandbox), PATH_GET_DOC_RESULT, partnerId, timestamp, accessToken, shopId, sign);
+
+        Map<String, Object> body = Map.of(
+                "order_list", List.of(Map.of("order_sn", orderSn)),
+                "shipping_document_type", "THERMAL_AIR_WAYBILL"
+        );
+        return executePost(url, body);
     }
 
     // =========================================================================
