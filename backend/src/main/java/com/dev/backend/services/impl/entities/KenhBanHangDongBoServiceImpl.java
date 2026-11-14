@@ -7297,7 +7297,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
                 Map<String, Object> stockItem = new HashMap<>();
                 stockItem.put("model_id", modelId != null ? modelId : 0L);
-                stockItem.put("normal_stock", soDay);
+                stockItem.put("seller_stock", List.of(Map.of("stock", soDay)));
                 stockList.add(stockItem);
             }
 
