@@ -371,27 +371,6 @@ export default function ChannelOrdersPage() {
                 Icon: CalendarRange,
                 onChon: () => setMoLayDon(true),
               },
-              ...(SAN?.maKenh === "SHOPEE_SANDBOX"
-                ? [
-                    {
-                      ma: "sinh-don-shopee-mau",
-                      nhan: t("Sinh đơn Shopee mẫu…"),
-                      moTa: t("Tạo đơn hàng Shopee Sandbox mẫu với SKU thực tế trong kho."),
-                      Icon: ShoppingCart,
-                      onChon: async () => {
-                        try {
-                          const res = await kenhBanHangService.sinhDonShopeeMau(1, "READY_TO_SHIP");
-                          toast.success(t("Đã sinh đơn Shopee Sandbox mẫu ({{maDon}})", { maDon: res?.danhSachDonHang?.[0] || "SHP" }), {
-                            description: t("Đơn đã được đồng bộ tự động vào FCentric ở trạng thái Chờ nhặt hàng."),
-                          });
-                          taiLai();
-                        } catch (err) {
-                          toast.error(t("Không sinh được đơn Shopee mẫu: {{loi}}", { loi: err.message || t("Lỗi hệ thống") }));
-                        }
-                      },
-                    },
-                  ]
-                : []),
             ]}
           />
         }

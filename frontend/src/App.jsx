@@ -128,7 +128,6 @@ const ChannelSyncDashboard = taiTrang(() => import("./pages/channels/ChannelSync
 const ChannelOrdersPage = taiTrang(() => import("./pages/channels/ChannelOrdersPage"));
 const ChannelSettingsPage = taiTrang(() => import("./pages/channels/ChannelSettingsPage"));
 const OAuthCallbackPage = taiTrang(() => import("./pages/channels/OAuthCallbackPage"));
-const ShopeeSimulatorPage = taiTrang(() => import("./pages/channels/shopee-simulator/ShopeeSimulatorPage"));
 
 /*
  * Vai trò chặn đường dẫn mà menu không có mục riêng (hoặc menu hẹp hơn API vì trang khác có liên kết tới): khớp
@@ -537,8 +536,6 @@ const CAY_DUONG_DAN = (
       <Route element={<RequireRole roles={VAI_TRO_DON_BAN} />}>
         <Route path="/sales-orders/:id/invoice" element={<DonBanHangInvoice />} />
       </Route>
-      {/* Cổng Giả Lập Shopee Interactive Simulator v2 — Toàn màn hình ngoài BackofficeLayout */}
-      <Route path="/shopee-simulator" element={<ShopeeSimulatorPage />} />
     </Route>
 
     {/* ========== 404 ========== */}

@@ -145,8 +145,6 @@ const realApi = {
   /** { connected, message, tenGianHang, shopIdSan, hanKhoa } */
   kiemTraKetNoi: (maKenh) => apiClient.post(`${BASE}/${ma(maKenh)}/kiem-tra-ket-noi`, {}).then(data).catch(baoApiChuaCo(maKenh)),
   lamMoiToken: (maKenh) => apiClient.post(`${BASE}/${ma(maKenh)}/lam-moi-token`).then(data).catch(baoApiChuaCo(maKenh)),
-    sinhDonShopeeMau: (count = 1, status = "READY_TO_SHIP") =>
-    apiClient.post(`${BASE}/shopee/mock-order`, null, { params: { count, status, maKenh: "SHOPEE_SANDBOX" } }).then(data),
 
   // ── Shopee APIs chi tiết (Hỗ trợ cả SHOPEE production và SHOPEE_SANDBOX) ──
   huyDonShopee: (orderSn, cancelReason = "OUT_OF_STOCK", maKenh = "SHOPEE") =>
@@ -498,10 +496,6 @@ const mockApi = {
     await mockKiemTraDaKetNoi(maKenh);
     const res = await kenhBanHangMock.dayTon(idKetNoi(maKenh), quyTac);
     return { soDong: res.soDong, soLoi: 0, soChuaDay: 0, loiKenh: null };
-  },
-  sinhDonShopeeMau: async (count = 1, status = "READY_TO_SHIP") => {
-    await mockDelay();
-    return { soDonTao: count, danhSachDonHang: ["SHP-MOCK" + Date.now()], trangThaiGiaLap: status };
   },
   async layDon(maKenh, range) {
     await mockKiemTraDaKetNoi(maKenh);
