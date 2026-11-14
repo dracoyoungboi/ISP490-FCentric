@@ -71,10 +71,14 @@ public interface IHanhDong {
     //id_tham_chieu = id dòng cau_hinh_mau_in; gia_tri_cu / gia_tri_moi = ảnh chụp JSON cấu hình)
     String
             cap_nhat_mau_in = "cap_nhat_mau_in";
-    //Xuất dữ liệu kế toán: tạo lô (loai_tham_chieu = lo_xuat_ke_toan), mở khóa chứng từ (chung_tu_xuat_ke_toan,
-    //ghi_chu = lý do), đổi cấu hình / thuế suất, nhập hóa đơn nhà cung cấp (hoa_don_dau_vao, id = phiếu nhập)
+    //Xuất dữ liệu kế toán: tạo lô / hủy lô (loai_tham_chieu = lo_xuat_ke_toan, ghi_chu = lý do hủy), mở khóa chứng từ
+    //(chung_tu_xuat_ke_toan, ghi_chu = lý do), đổi cấu hình / thuế suất, nhập hóa đơn nhà cung cấp (hoa_don_dau_vao,
+    //id = phiếu nhập). hoan_tra_don_ban: đơn bán chuyển sang Bị hoàn trả (loai_tham_chieu = don_ban_hang) — xuất kế toán
+    //lấy ngày này làm ngày hạch toán của chứng từ Hàng bán trả lại
     String
             tao_lo_xuat_ke_toan = "tao_lo_xuat_ke_toan",
+            huy_lo_xuat_ke_toan = "huy_lo_xuat_ke_toan",
+            hoan_tra_don_ban = "hoan_tra_don_ban",
             mo_khoa_chung_tu_ke_toan = "mo_khoa_chung_tu_ke_toan",
             cap_nhat_cau_hinh_ke_toan = "cap_nhat_cau_hinh_ke_toan",
             cap_nhat_thue_suat = "cap_nhat_thue_suat",
