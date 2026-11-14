@@ -1,6 +1,5 @@
 package com.dev.backend.services.shopee;
 
-import com.dev.backend.entities.ShopeeMockProduct;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -84,9 +83,6 @@ public class ShopeeClient {
     String accessToken;
     @lombok.experimental.NonFinal
     boolean isSandbox;
-    @lombok.experimental.NonFinal
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    ShopeeMockEngine mockEngine;
 
     public ShopeeClient() {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
@@ -401,27 +397,12 @@ public class ShopeeClient {
             ObjectNode resp = res.putObject("response");
             ArrayNode arr = resp.putArray("item_list");
 
-            List<ShopeeMockProduct> prods = mockEngine != null ? mockEngine.getMockProductsByItemIds(itemIdList) : List.of();
-            if (prods.isEmpty()) {
-                for (Long id : (itemIdList != null ? itemIdList : List.of(1000101L))) {
-                    ObjectNode it = arr.addObject();
-                    it.put("item_id", id);
-                    it.put("item_name", "Áo Polo Thể Thao FCentric Cao Cấp #" + id);
-                    it.put("item_sku", "POLO-" + id);
-                    it.put("description", "Chất vải mè thể thao thoáng khí");
-                }
-            } else {
-                Map<Long, ShopeeMockProduct> seenItem = new LinkedHashMap<>();
-                for (ShopeeMockProduct p : prods) {
-                    seenItem.putIfAbsent(p.getItemId(), p);
-                }
-                for (ShopeeMockProduct p : seenItem.values()) {
-                    ObjectNode it = arr.addObject();
-                    it.put("item_id", p.getItemId());
-                    it.put("item_name", p.getItemName());
-                    it.put("item_sku", p.getItemSku() != null ? p.getItemSku() : ("POLO-" + p.getItemId()));
-                    it.put("description", "Sản phẩm thời trang cao cấp FCentric WMS");
-                }
+            for (Long id : (itemIdList != null && !itemIdList.isEmpty() ? itemIdList : List.of(1000101L))) {
+                ObjectNode it = arr.addObject();
+                it.put("item_id", id);
+                it.put("item_name", "Áo Polo Thể Thao FCentric Cao Cấp #" + id);
+                it.put("item_sku", "POLO-" + id);
+                it.put("description", "Chất vải mè thể thao thoáng khí");
             }
             return res;
         }
@@ -443,28 +424,15 @@ public class ShopeeClient {
             ObjectNode resp = res.putObject("response");
             ArrayNode arr = resp.putArray("model");
 
-            List<ShopeeMockProduct> models = mockEngine != null ? mockEngine.getMockModelsByItemId(itemId) : List.of();
-            if (models.isEmpty()) {
-                ObjectNode m1 = arr.addObject();
-                m1.put("model_id", 2000201L).put("model_sku", "POLO-BLK-M").put("model_name", "Đen / M");
-                m1.putObject("price_info").put("current_price", 280000);
-                m1.putObject("stock_info_v2").putObject("summary_info").put("total_available_stock", 50);
+            ObjectNode m1 = arr.addObject();
+            m1.put("model_id", 2000201L).put("model_sku", "POLO-BLK-M").put("model_name", "Đen / M");
+            m1.putObject("price_info").put("current_price", 280000);
+            m1.putObject("stock_info_v2").putObject("summary_info").put("total_available_stock", 50);
 
-                ObjectNode m2 = arr.addObject();
-                m2.put("model_id", 2000202L).put("model_sku", "POLO-BLK-L").put("model_name", "Đen / L");
-                m2.putObject("price_info").put("current_price", 280000);
-                m2.putObject("stock_info_v2").putObject("summary_info").put("total_available_stock", 35);
-            } else {
-                for (ShopeeMockProduct m : models) {
-                    ObjectNode node = arr.addObject();
-                    node.put("model_id", m.getModelId())
-                            .put("model_sku", m.getModelSku())
-                            .put("model_name", m.getTierVariation() != null ? m.getTierVariation() : "Tiêu chuẩn");
-                    node.putObject("price_info").put("current_price", m.getPrice() != null ? m.getPrice().doubleValue() : 250000.0);
-                    node.putObject("stock_info_v2").putObject("summary_info")
-                            .put("total_available_stock", m.getStockQuantity() != null ? m.getStockQuantity() : 0);
-                }
-            }
+            ObjectNode m2 = arr.addObject();
+            m2.put("model_id", 2000202L).put("model_sku", "POLO-BLK-L").put("model_name", "Đen / L");
+            m2.putObject("price_info").put("current_price", 280000);
+            m2.putObject("stock_info_v2").putObject("summary_info").put("total_available_stock", 35);
             return res;
         }
 
@@ -480,9 +448,6 @@ public class ShopeeClient {
                                 Long itemId, Long modelId, int stock, boolean isSandbox) {
         if (isMockCredentials(partnerId, partnerKey)) {
             log.info("[SHOPEE-MOCK-UPDATE-STOCK] Giả lập cập nhật tồn kho Shopee: item={}, model={}, stock={}", itemId, modelId, stock);
-            if (mockEngine != null) {
-                mockEngine.updateStockFromFCentric(itemId, modelId, stock);
-            }
             return objectMapper.createObjectNode().put("error", "").put("message", "success");
         }
 
@@ -507,9 +472,6 @@ public class ShopeeClient {
                                      Long itemId, List<Map<String, Object>> stockList, boolean isSandbox) {
         if (isMockCredentials(partnerId, partnerKey)) {
             log.info("[SHOPEE-MOCK-UPDATE-STOCK-BATCH] Giả lập cập nhật tồn kho Shopee theo lô: item={}, số SKU={}", itemId, stockList != null ? stockList.size() : 0);
-            if (mockEngine != null) {
-                mockEngine.updateStockBatchFromFCentric(itemId, stockList);
-            }
             return objectMapper.createObjectNode().put("error", "").put("message", "success");
         }
 
