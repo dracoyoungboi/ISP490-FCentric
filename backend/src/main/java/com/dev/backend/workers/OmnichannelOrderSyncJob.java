@@ -1623,6 +1623,20 @@ public class OmnichannelOrderSyncJob {
         if (existingOpt.isPresent()) {
             DonBanHang existing = existingOpt.get();
 
+            // Hiệu chỉnh lại tiền hàng và phí vận chuyển nếu đợt đồng bộ trước bị gộp phí VC vào tiền hàng
+            if (itemSubtotal.compareTo(BigDecimal.ZERO) > 0 && !price.equals(existing.getTienHang())) {
+                existing.setTienHang(price);
+                if (shippingFee.compareTo(BigDecimal.ZERO) > 0) {
+                    existing.setPhiVanChuyen(shippingFee);
+                }
+                if (totalPrice.compareTo(BigDecimal.ZERO) > 0) {
+                    existing.setTongCong(totalPrice);
+                }
+                existing.setNgayCapNhat(Instant.now());
+                donBanHangRepository.save(existing);
+                log.info("[JOB-01] Đã hiệu chỉnh lại tiền hàng đơn {}: tiền hàng={}, phí VC={}, tổng cộng={}", soDonHang, price, shippingFee, totalPrice);
+            }
+
             if ("CANCELLED".equalsIgnoreCase(order.getOrderStatus())) {
                 if (existing.getTrangThai() != null && existing.getTrangThai() != ITrangThaiDonBanHang.DA_HUY) {
                     try {
