@@ -106,12 +106,21 @@ public final class DungChungTuAmis {
 
     // ── Kết quả ────────────────────────────────────────────────────────────
 
-    /** Một chứng từ đưa vào lô (để ghi chung_tu_xuat_ke_toan và cộng tổng). maKhach: mã khách trên chứng từ (null nếu không có). */
+    /**
+     * Một chứng từ đưa vào lô (để ghi chung_tu_xuat_ke_toan và cộng tổng). maKhach: mã khách trên chứng từ (null nếu không
+     * có). thueChoHoaDon: phiếu mua chưa có hóa đơn ("Không kèm hóa đơn"), phần thuế ước theo mức chung chưa ghi — kế toán
+     * ghi khi Nhận hóa đơn trên AMIS; truocThue + thue + thueChoHoaDon = tongTien.
+     */
     public record ChungTu(String loai, int idNguon, String soChungTu, LocalDate ngayHachToan, BigDecimal tongTien,
-                          BigDecimal truocThue, BigDecimal thue, int soDong, String maKhach) {
+                          BigDecimal truocThue, BigDecimal thue, int soDong, String maKhach, BigDecimal thueChoHoaDon) {
         public ChungTu(String loai, int idNguon, String soChungTu, LocalDate ngayHachToan, BigDecimal tongTien,
                        BigDecimal truocThue, BigDecimal thue, int soDong) {
-            this(loai, idNguon, soChungTu, ngayHachToan, tongTien, truocThue, thue, soDong, null);
+            this(loai, idNguon, soChungTu, ngayHachToan, tongTien, truocThue, thue, soDong, null, BigDecimal.ZERO);
+        }
+
+        public ChungTu(String loai, int idNguon, String soChungTu, LocalDate ngayHachToan, BigDecimal tongTien,
+                       BigDecimal truocThue, BigDecimal thue, int soDong, String maKhach) {
+            this(loai, idNguon, soChungTu, ngayHachToan, tongTien, truocThue, thue, soDong, maKhach, BigDecimal.ZERO);
         }
     }
 
@@ -913,11 +922,7 @@ public final class DungChungTuAmis {
                 chan(ChungTuXuatKeToan.LOAI_MUA_HANG, p.id(), p.soPhieu(), loi);
                 continue;
             }
-            if (p.coHoaDon() == null) {
-                canhBao(ChungTuXuatKeToan.LOAI_MUA_HANG, p.id(), p.soPhieu(), "Chưa nhập hóa đơn nhà cung cấp: xuất dạng \""
-                        + KHONG_KEM_HOA_DON + "\", giá nhập tách thuế theo mức chung " + phanTram(tsTach)
-                        + "%. Nên nhập hóa đơn ở phiếu nhập trước khi xuất.");
-            } else if (Boolean.TRUE.equals(p.coHoaDon()) && (p.maSoThueNhaCungCap() == null || p.maSoThueNhaCungCap().isBlank())) {
+            if (Boolean.TRUE.equals(p.coHoaDon()) && (p.maSoThueNhaCungCap() == null || p.maSoThueNhaCungCap().isBlank())) {
                 canhBao(ChungTuXuatKeToan.LOAI_MUA_HANG, p.id(), p.soPhieu(),
                         "Nhà cung cấp " + p.maNhaCungCap() + " chưa có mã số thuế (cần cho hóa đơn đầu vào).");
             }
@@ -974,9 +979,18 @@ public final class DungChungTuAmis {
                 rows.add(r);
                 tong = tong.add(gop);
             }
+            // Chưa có hóa đơn: AMIS ghi giá trị hàng (phần trước thuế ước theo mức chung); thuế còn lại ghi khi kế toán Nhận
+            // hóa đơn trên AMIS (Mua hàng › Nhận hóa đơn tự điền thuế theo % — đã thử trên AMIS 14/11/2026)
+            BigDecimal thueCho = p.coHoaDon() == null ? tong.subtract(truocThue) : BigDecimal.ZERO;
+            if (p.coHoaDon() == null) {
+                canhBao(ChungTuXuatKeToan.LOAI_MUA_HANG, p.id(), p.soPhieu(), "Chưa nhập hóa đơn nhà cung cấp: xuất dạng \""
+                        + KHONG_KEM_HOA_DON + "\", AMIS ghi giá trị hàng " + tien(truocThue) + " đ (tách thuế "
+                        + phanTram(tsTach) + "%), thuế " + tien(thueCho) + " đ chờ hóa đơn. Khi nhận hóa đơn, kế toán vào Mua hàng"
+                        + " › Nhận hóa đơn trên AMIS và chọn phiếu này; đã có hóa đơn thì nên nhập ở phiếu nhập trước khi xuất.");
+            }
             kq.them("10_MuaHang", HoSoAmis.MUA_HANG, rows, ngay);
             kq.chungTu.add(new ChungTu(ChungTuXuatKeToan.LOAI_MUA_HANG, p.id(), p.soPhieu(), ngay, tong,
-                    truocThue, thue, rows.size()));
+                    truocThue, thue, rows.size(), null, thueCho));
         }
     }
 
