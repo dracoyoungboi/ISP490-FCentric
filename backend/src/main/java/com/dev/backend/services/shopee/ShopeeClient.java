@@ -279,6 +279,11 @@ public class ShopeeClient {
 
     public JsonNode getOrderList(String partnerId, String partnerKey, String accessToken, String shopId,
                                  long timeFrom, long timeTo, String orderStatus, int pageSize, String cursor, boolean isSandbox) {
+        return getOrderList(partnerId, partnerKey, accessToken, shopId, timeFrom, timeTo, "create_time", orderStatus, pageSize, cursor, isSandbox);
+    }
+
+    public JsonNode getOrderList(String partnerId, String partnerKey, String accessToken, String shopId,
+                                 long timeFrom, long timeTo, String timeRangeField, String orderStatus, int pageSize, String cursor, boolean isSandbox) {
         if (isMockCredentials(partnerId, partnerKey)) {
             ObjectNode res = objectMapper.createObjectNode();
             res.put("error", "").put("message", "success");
@@ -295,8 +300,9 @@ public class ShopeeClient {
         long timestamp = Instant.now().getEpochSecond();
         String base = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_ORDER_LIST, timestamp, accessToken, shopId);
         String sign = ShopeeSignatureHelper.sign(partnerKey, base);
-        StringBuilder url = new StringBuilder(String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s&time_range_field=create_time&time_from=%d&time_to=%d&page_size=%d",
-                getHost(isSandbox), PATH_ORDER_LIST, partnerId, timestamp, accessToken, shopId, sign, timeFrom, timeTo, pageSize));
+        String field = (timeRangeField != null && !timeRangeField.isBlank()) ? timeRangeField.trim() : "create_time";
+        StringBuilder url = new StringBuilder(String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s&time_range_field=%s&time_from=%d&time_to=%d&page_size=%d",
+                getHost(isSandbox), PATH_ORDER_LIST, partnerId, timestamp, accessToken, shopId, sign, field, timeFrom, timeTo, pageSize));
         if (orderStatus != null && !orderStatus.isBlank()) url.append("&order_status=").append(orderStatus);
         if (cursor != null && !cursor.isBlank()) url.append("&cursor=").append(cursor);
 
