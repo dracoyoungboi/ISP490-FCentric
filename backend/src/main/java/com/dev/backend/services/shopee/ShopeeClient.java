@@ -7,9 +7,13 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.*;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
@@ -51,7 +55,13 @@ public class ShopeeClient {
     public static final String PATH_ORDER_HANDLE_CANCEL = "/api/v2/order/handle_buyer_cancellation";
     public static final String PATH_ORDER_SET_NOTE = "/api/v2/order/set_note";
 
-    // 3. Product Paths
+    // 3. Product & Media Paths
+    public static final String PATH_MEDIA_UPLOAD_IMAGE = "/api/v2/media_space/upload_image";
+    public static final String PATH_LOGISTICS_GET_CHANNEL_LIST = "/api/v2/logistics/get_channel_list";
+    public static final String PATH_PRODUCT_GET_CATEGORY = "/api/v2/product/get_category";
+    public static final String PATH_PRODUCT_GET_ATTRIBUTES = "/api/v2/product/get_attributes";
+    public static final String PATH_PRODUCT_ADD_ITEM = "/api/v2/product/add_item";
+    public static final String PATH_PRODUCT_INIT_TIER_VARIATION = "/api/v2/product/init_tier_variation";
     public static final String PATH_PRODUCT_ITEM_LIST = "/api/v2/product/get_item_list";
     public static final String PATH_PRODUCT_BASE_INFO = "/api/v2/product/get_item_base_info";
     public static final String PATH_PRODUCT_MODEL_LIST = "/api/v2/product/get_model_list";
@@ -359,6 +369,139 @@ public class ShopeeClient {
     // =========================================================================
     // 3. PRODUCT & INVENTORY APIS
     // =========================================================================
+
+    public JsonNode uploadImage(String partnerId, String partnerKey, String accessToken, String shopId,
+                                byte[] imageBytes, String fileName, boolean isSandbox) {
+        if (isMockCredentials(partnerId, partnerKey)) {
+            log.info("[SHOPEE-MOCK] Giả lập upload ảnh lên Shopee Media Space, size={} bytes", imageBytes != null ? imageBytes.length : 0);
+            ObjectNode res = objectMapper.createObjectNode();
+            res.put("error", "").put("message", "success");
+            String mockImgId = "vn-11134207-mock-" + System.currentTimeMillis();
+            res.putObject("response").putObject("image_info").put("image_id", mockImgId);
+            return res;
+        }
+
+        long timestamp = Instant.now().getEpochSecond();
+        String base = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_MEDIA_UPLOAD_IMAGE, timestamp, accessToken, shopId);
+        String sign = ShopeeSignatureHelper.sign(partnerKey, base);
+        String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s",
+                getHost(isSandbox), PATH_MEDIA_UPLOAD_IMAGE, partnerId.trim(), timestamp, accessToken.trim(), shopId.trim(), sign);
+
+        return executeMultipartPost(url, imageBytes, fileName);
+    }
+
+    public JsonNode getLogisticsChannelList(String partnerId, String partnerKey, String accessToken, String shopId, boolean isSandbox) {
+        if (isMockCredentials(partnerId, partnerKey)) {
+            ObjectNode res = objectMapper.createObjectNode();
+            res.put("error", "").put("message", "success");
+            ObjectNode resp = res.putObject("response");
+            ArrayNode arr = resp.putArray("logistics_channel_list");
+            arr.addObject().put("logistics_channel_id", 80001L).put("logistics_channel_name", "Nhanh").put("enabled", true);
+            return res;
+        }
+
+        long timestamp = Instant.now().getEpochSecond();
+        String base = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_LOGISTICS_GET_CHANNEL_LIST, timestamp, accessToken, shopId);
+        String sign = ShopeeSignatureHelper.sign(partnerKey, base);
+        String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s",
+                getHost(isSandbox), PATH_LOGISTICS_GET_CHANNEL_LIST, partnerId.trim(), timestamp, accessToken.trim(), shopId.trim(), sign);
+
+        return executeGet(url);
+    }
+
+    public JsonNode getCategoryList(String partnerId, String partnerKey, String accessToken, String shopId, String language, boolean isSandbox) {
+        if (isMockCredentials(partnerId, partnerKey)) {
+            ObjectNode res = objectMapper.createObjectNode();
+            res.put("error", "").put("message", "success");
+            ObjectNode resp = res.putObject("response");
+            ArrayNode arr = resp.putArray("category_list");
+            arr.addObject().put("category_id", 100017L).put("parent_category_id", 0L).put("original_category_name", "Thời Trang Nam").put("has_children", false);
+            return res;
+        }
+
+        long timestamp = Instant.now().getEpochSecond();
+        String base = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_PRODUCT_GET_CATEGORY, timestamp, accessToken, shopId);
+        String sign = ShopeeSignatureHelper.sign(partnerKey, base);
+        String lang = (language != null && !language.isBlank()) ? language : "vi";
+        String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s&language=%s",
+                getHost(isSandbox), PATH_PRODUCT_GET_CATEGORY, partnerId.trim(), timestamp, accessToken.trim(), shopId.trim(), sign, lang);
+
+        return executeGet(url);
+    }
+
+    public JsonNode getAttributes(String partnerId, String partnerKey, String accessToken, String shopId, long categoryId, String language, boolean isSandbox) {
+        if (isMockCredentials(partnerId, partnerKey)) {
+            ObjectNode res = objectMapper.createObjectNode();
+            res.put("error", "").put("message", "success");
+            res.putObject("response").putArray("attribute_list");
+            return res;
+        }
+
+        long timestamp = Instant.now().getEpochSecond();
+        String base = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_PRODUCT_GET_ATTRIBUTES, timestamp, accessToken, shopId);
+        String sign = ShopeeSignatureHelper.sign(partnerKey, base);
+        String lang = (language != null && !language.isBlank()) ? language : "vi";
+        String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s&category_id=%d&language=%s",
+                getHost(isSandbox), PATH_PRODUCT_GET_ATTRIBUTES, partnerId.trim(), timestamp, accessToken.trim(), shopId.trim(), sign, categoryId, lang);
+
+        return executeGet(url);
+    }
+
+    public JsonNode addItem(String partnerId, String partnerKey, String accessToken, String shopId, Map<String, Object> body, boolean isSandbox) {
+        if (isMockCredentials(partnerId, partnerKey)) {
+            long mockItemId = 1000000L + (long)(Math.random() * 900000L);
+            log.info("[SHOPEE-MOCK] Giả lập thêm sản phẩm Shopee item_id={}", mockItemId);
+            ObjectNode res = objectMapper.createObjectNode();
+            res.put("error", "").put("message", "success");
+            res.putObject("response").put("item_id", mockItemId);
+            return res;
+        }
+
+        long timestamp = Instant.now().getEpochSecond();
+        String base = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_PRODUCT_ADD_ITEM, timestamp, accessToken, shopId);
+        String sign = ShopeeSignatureHelper.sign(partnerKey, base);
+        String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s",
+                getHost(isSandbox), PATH_PRODUCT_ADD_ITEM, partnerId.trim(), timestamp, accessToken.trim(), shopId.trim(), sign);
+
+        return executePost(url, body);
+    }
+
+    public JsonNode initTierVariation(String partnerId, String partnerKey, String accessToken, String shopId, Map<String, Object> body, boolean isSandbox) {
+        if (isMockCredentials(partnerId, partnerKey)) {
+            Long itemId = body.get("item_id") instanceof Number ? ((Number) body.get("item_id")).longValue() : 1000101L;
+            log.info("[SHOPEE-MOCK] Giả lập tạo phân loại (tier variation) Shopee cho item_id={}", itemId);
+            ObjectNode res = objectMapper.createObjectNode();
+            res.put("error", "").put("message", "success");
+            ObjectNode resp = res.putObject("response").put("item_id", itemId);
+            ArrayNode arr = resp.putArray("model_id_list");
+            List<?> models = (List<?>) body.get("model");
+            long mId = 2000001L;
+            if (models != null) {
+                for (Object mObj : models) {
+                    if (mObj instanceof Map<?,?> mMap) {
+                        Object tIdx = mMap.get("tier_index");
+                        ObjectNode node = arr.addObject();
+                        node.put("model_id", mId++);
+                        if (tIdx instanceof List<?> l) {
+                            ArrayNode idxArr = node.putArray("tier_index");
+                            for (Object o : l) {
+                                if (o instanceof Number n) idxArr.add(n.intValue());
+                            }
+                        }
+                    }
+                }
+            }
+            return res;
+        }
+
+        long timestamp = Instant.now().getEpochSecond();
+        String base = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_PRODUCT_INIT_TIER_VARIATION, timestamp, accessToken, shopId);
+        String sign = ShopeeSignatureHelper.sign(partnerKey, base);
+        String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s",
+                getHost(isSandbox), PATH_PRODUCT_INIT_TIER_VARIATION, partnerId.trim(), timestamp, accessToken.trim(), shopId.trim(), sign);
+
+        return executePost(url, body);
+    }
 
     public JsonNode getItemList(String partnerId, String partnerKey, String accessToken, String shopId,
                                 int offset, int pageSize, String itemStatus, boolean isSandbox) {
@@ -694,6 +837,13 @@ public class ShopeeClient {
             HttpEntity<Void> entity = new HttpEntity<>(headers);
             ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
             return objectMapper.readTree(response.getBody());
+        } catch (HttpStatusCodeException ex) {
+            log.warn("[SHOPEE-CLIENT-GET] Lỗi HTTP {} khi gọi GET {}: {}", ex.getStatusCode(), url, ex.getResponseBodyAsString());
+            try {
+                return objectMapper.readTree(ex.getResponseBodyAsString());
+            } catch (Exception parseEx) {
+                return objectMapper.createObjectNode().put("error", "HTTP_" + ex.getStatusCode().value()).put("message", ex.getResponseBodyAsString());
+            }
         } catch (Exception ex) {
             log.warn("[SHOPEE-CLIENT-GET] Lỗi khi gọi GET {}: {}", url, ex.getMessage());
             return objectMapper.createObjectNode().put("error", "API_ERROR").put("message", ex.getMessage());
@@ -709,8 +859,47 @@ public class ShopeeClient {
             HttpEntity<Object> entity = new HttpEntity<>(body, headers);
             ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
             return objectMapper.readTree(response.getBody());
+        } catch (HttpStatusCodeException ex) {
+            log.warn("[SHOPEE-CLIENT-POST] Lỗi HTTP {} khi gọi POST {}: {}", ex.getStatusCode(), url, ex.getResponseBodyAsString());
+            try {
+                return objectMapper.readTree(ex.getResponseBodyAsString());
+            } catch (Exception parseEx) {
+                return objectMapper.createObjectNode().put("error", "HTTP_" + ex.getStatusCode().value()).put("message", ex.getResponseBodyAsString());
+            }
         } catch (Exception ex) {
             log.warn("[SHOPEE-CLIENT-POST] Lỗi khi gọi POST {}: {}", url, ex.getMessage());
+            return objectMapper.createObjectNode().put("error", "API_ERROR").put("message", ex.getMessage());
+        }
+    }
+
+    private JsonNode executeMultipartPost(String url, byte[] imageBytes, String fileName) {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+            headers.setAccept(List.of(MediaType.APPLICATION_JSON));
+            headers.set(HttpHeaders.USER_AGENT, "ShopeeOpenAPI/2.0");
+
+            MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+            ByteArrayResource fileResource = new ByteArrayResource(imageBytes != null ? imageBytes : new byte[0]) {
+                @Override
+                public String getFilename() {
+                    return (fileName != null && !fileName.isBlank()) ? fileName : "product.jpg";
+                }
+            };
+            body.add("image", fileResource);
+
+            HttpEntity<MultiValueMap<String, Object>> entity = new HttpEntity<>(body, headers);
+            ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
+            return objectMapper.readTree(response.getBody());
+        } catch (HttpStatusCodeException ex) {
+            log.warn("[SHOPEE-CLIENT-UPLOAD] Lỗi HTTP {} khi upload ảnh {}: {}", ex.getStatusCode(), url, ex.getResponseBodyAsString());
+            try {
+                return objectMapper.readTree(ex.getResponseBodyAsString());
+            } catch (Exception parseEx) {
+                return objectMapper.createObjectNode().put("error", "HTTP_" + ex.getStatusCode().value()).put("message", ex.getResponseBodyAsString());
+            }
+        } catch (Exception ex) {
+            log.warn("[SHOPEE-CLIENT-UPLOAD] Lỗi khi upload ảnh {}: {}", url, ex.getMessage());
             return objectMapper.createObjectNode().put("error", "API_ERROR").put("message", ex.getMessage());
         }
     }
@@ -856,6 +1045,38 @@ public class ShopeeClient {
 
     public JsonNode updateStockBatch(Long itemId, List<Map<String, Object>> stockList) {
         return updateStockBatch(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), itemId, stockList, this.isSandbox);
+    }
+
+    public JsonNode uploadImage(byte[] imageBytes, String fileName) {
+        return uploadImage(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), imageBytes, fileName, this.isSandbox);
+    }
+
+    public JsonNode getLogisticsChannelList() {
+        return getLogisticsChannelList(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), this.isSandbox);
+    }
+
+    public JsonNode getCategoryList(String language) {
+        return getCategoryList(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), language, this.isSandbox);
+    }
+
+    public JsonNode getCategoryList() {
+        return getCategoryList("vi");
+    }
+
+    public JsonNode getAttributes(long categoryId, String language) {
+        return getAttributes(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), categoryId, language, this.isSandbox);
+    }
+
+    public JsonNode addItem(Map<String, Object> body) {
+        return addItem(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), body, this.isSandbox);
+    }
+
+    public JsonNode initTierVariation(Map<String, Object> body) {
+        return initTierVariation(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), body, this.isSandbox);
+    }
+
+    public JsonNode getModelList(Long itemId) {
+        return getModelList(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), itemId, this.isSandbox);
     }
 
     public JsonNode getAccessToken(String code, long shopId) {
