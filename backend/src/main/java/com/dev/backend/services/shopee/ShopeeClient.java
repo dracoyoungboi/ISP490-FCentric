@@ -1047,6 +1047,38 @@ public class ShopeeClient {
         return updateStockBatch(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), itemId, stockList, this.isSandbox);
     }
 
+    public JsonNode uploadImage(byte[] imageBytes, String fileName) {
+        return uploadImage(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), imageBytes, fileName, this.isSandbox);
+    }
+
+    public JsonNode getLogisticsChannelList() {
+        return getLogisticsChannelList(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), this.isSandbox);
+    }
+
+    public JsonNode getCategoryList(String language) {
+        return getCategoryList(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), language, this.isSandbox);
+    }
+
+    public JsonNode getCategoryList() {
+        return getCategoryList("vi");
+    }
+
+    public JsonNode getAttributes(long categoryId, String language) {
+        return getAttributes(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), categoryId, language, this.isSandbox);
+    }
+
+    public JsonNode addItem(Map<String, Object> body) {
+        return addItem(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), body, this.isSandbox);
+    }
+
+    public JsonNode initTierVariation(Map<String, Object> body) {
+        return initTierVariation(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), body, this.isSandbox);
+    }
+
+    public JsonNode getModelList(Long itemId) {
+        return getModelList(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), itemId, this.isSandbox);
+    }
+
     public JsonNode getAccessToken(String code, long shopId) {
         return getToken(pIdStr(), pKeyStr(), code, String.valueOf(shopId), this.isSandbox);
     }
