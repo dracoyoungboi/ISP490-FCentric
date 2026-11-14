@@ -447,6 +447,25 @@ public class ShopeeClient {
         return executeGet(url);
     }
 
+    public JsonNode addItem(String partnerId, String partnerKey, String accessToken, String shopId, Map<String, Object> body, boolean isSandbox) {
+        if (isMockCredentials(partnerId, partnerKey)) {
+            long mockItemId = 1000000L + (long)(Math.random() * 900000L);
+            log.info("[SHOPEE-MOCK] Giả lập thêm sản phẩm Shopee item_id={}", mockItemId);
+            ObjectNode res = objectMapper.createObjectNode();
+            res.put("error", "").put("message", "success");
+            res.putObject("response").put("item_id", mockItemId);
+            return res;
+        }
+
+        long timestamp = Instant.now().getEpochSecond();
+        String base = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_PRODUCT_ADD_ITEM, timestamp, accessToken, shopId);
+        String sign = ShopeeSignatureHelper.sign(partnerKey, base);
+        String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s",
+                getHost(isSandbox), PATH_PRODUCT_ADD_ITEM, partnerId.trim(), timestamp, accessToken.trim(), shopId.trim(), sign);
+
+        return executePost(url, body);
+    }
+
     public JsonNode getItemList(String partnerId, String partnerKey, String accessToken, String shopId,
                                 int offset, int pageSize, String itemStatus, boolean isSandbox) {
         if (isMockCredentials(partnerId, partnerKey)) {
