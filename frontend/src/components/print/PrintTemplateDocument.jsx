@@ -7,6 +7,7 @@ import PrintSignatures from "@/components/print/PrintSignatures";
 import PrintDocCode from "@/components/print/PrintDocCode";
 import LazadaAwbDocument from "@/components/print/LazadaAwbDocument";
 import TikTokShopAwbDocument from "@/components/print/TikTokShopAwbDocument";
+import ShopeeAwbDocument from "@/components/print/ShopeeAwbDocument";
 import { toBarcodeText, toQrText } from "@/components/print/maVach";
 import { dongKhoiTong, getByPath, isEmptyValue } from "@/components/print/khoiTongIn";
 import {
@@ -337,6 +338,9 @@ export default function PrintTemplateDocument({ documentType, config, model, com
     if (documentType === "ecommerce_packing_slip" && config.paperSize === "A6" && !editable) {
         if (model.isTikTok) {
             return <TikTokShopAwbDocument model={model} company={company} config={config} />;
+        }
+        if (model.isShopee) {
+            return <ShopeeAwbDocument model={model} company={company} config={config} />;
         }
         return <LazadaAwbDocument model={model} company={company} config={config} />;
     }
