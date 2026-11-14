@@ -6,6 +6,7 @@ import com.dev.backend.config.SecurityContextHolder;
 import com.dev.backend.constant.enums.FilterLogicType;
 import com.dev.backend.constant.enums.FilterOperation;
 import com.dev.backend.constant.variables.IRoleType;
+import com.dev.backend.constant.variables.IHanhDong;
 import com.dev.backend.constant.variables.ITable;
 import com.dev.backend.constant.variables.ITrangThaiDonBanHang;
 import com.dev.backend.constant.variables.ITrangThaiPhieuXuat;
@@ -1418,6 +1419,25 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         // Chuyển trạng thái thành Bị hoàn trả (6)
         don.setTrangThai(6);
         repository.save(don);
+        // Nhật ký lúc hoàn trả: xuất kế toán lấy làm ngày hạch toán của chứng từ Hàng bán trả lại (đơn đã giao kế toán).
+        // Ghi sau commit, giao dịch riêng: ghi lỗi thì đơn vẫn hoàn trả, xuất kế toán coi như đơn không có nhật ký và để kế
+        // toán lập tay (danh sách "Phát sinh sau khi xuất").
+        NguoiDungAuthInfo nguoiHoan = SecurityContextHolder.getUser();
+        if (nguoiHoan != null && nguoiHoan.getId() != null) {
+            Integer nguoiHoanId = nguoiHoan.getId();
+            Integer donHoanId = don.getId();
+            String giaTriHoan = "Đơn " + don.getSoDonHang() + " chuyển sang Bị hoàn trả";
+            Instant lucHoan = Instant.now();
+            SauCommit.chay("Ghi nhật ký hoàn trả đơn " + don.getSoDonHang(), () -> lichSuThayDoiService.createGiaoDichRieng(
+                    LichSuThayDoi.builder()
+                            .loaiThamChieu(ITable.don_ban_hang)
+                            .idThamChieu(donHoanId)
+                            .hanhDong(IHanhDong.hoan_tra_don_ban)
+                            .giaTriMoi(giaTriHoan)
+                            .nguoiThucHien(nguoiDungRepository.findById(nguoiHoanId).orElse(null))
+                            .ngayThucHien(lucHoan)
+                            .build()));
+        }
         // Phải thu về 0: tiền đã thu thành Cần hoàn tiền
         thanhToanDonBanService.tinhLaiSauDoiDon(don);
         // Đơn bị hoàn trả là lúc cần đối chứng: giữ bằng chứng đóng gói thêm một hạn lưu tính từ hôm nay
