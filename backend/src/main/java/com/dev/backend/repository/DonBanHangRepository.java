@@ -101,6 +101,9 @@ public interface DonBanHangRepository
 
     // Dùng để tìm kiếm khôi phục chứng từ khi Hủy đơn
     java.util.Optional<DonBanHang> findBySoDonHang(String soDonHang);
+
+    /** Đơn theo số đơn, không lỗi khi lỡ trùng số (cột không ràng buộc duy nhất): lấy đơn mới nhất. */
+    java.util.Optional<DonBanHang> findFirstBySoDonHangOrderByIdDesc(String soDonHang);
     java.util.Optional<DonBanHang> findByMaDonHangKenh(String maDonHangKenh);
 
     /** Đơn của kênh theo mã đơn trên sàn (id đơn Shopify là duy nhất trên toàn Shopify). */
