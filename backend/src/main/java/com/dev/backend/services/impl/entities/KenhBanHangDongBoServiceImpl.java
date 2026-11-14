@@ -7159,10 +7159,17 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             return createdSkuMap;
         }
 
-        JsonNode modelIdList = tierRes.path("response").path("model_id_list");
+        JsonNode modelIdList = tierRes.path("response").path("model");
+        if (!modelIdList.isArray() || modelIdList.isEmpty()) {
+            modelIdList = tierRes.path("response").path("model_id_list");
+        }
         if (modelIdList.isArray()) {
             for (JsonNode mNode : modelIdList) {
                 long modelId = mNode.path("model_id").asLong();
+                String modelSku = mNode.path("model_sku").asText("").trim();
+                if (!modelSku.isBlank()) {
+                    createdSkuMap.put(modelSku.toLowerCase(Locale.ROOT), itemId + ":" + modelId);
+                }
                 JsonNode idxArr = mNode.path("tier_index");
                 List<String> idxList = new ArrayList<>();
                 if (idxArr.isArray()) {
