@@ -1,5 +1,5 @@
 import { useEffect, useId, useState } from "react";
-import { FileText, Loader2, Lock, Pencil } from "lucide-react";
+import { FileText, Info, Loader2, Lock, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/lib/thongBaoNhanh";
@@ -125,7 +125,7 @@ export default function TheHoaDonNhaCungCap({ phieuNhapKhoId, coTheSua }) {
             {t("Đơn giá đơn mua đã gồm thuế. Khi xuất sang kế toán, thuế tách theo thuế suất trên hóa đơn này.")}
           </p>
         </div>
-        {!dangTai && !loiTai && !dangSua && coTheSua && !data?.daKhoa ? (
+        {!dangTai && !loiTai && !dangSua && coTheSua && (!data?.daKhoa || data?.nhapSauXuat) ? (
           <Button type="button" variant="outline" size="sm" onClick={batDauSua} className="gap-1.5 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle">
             <Pencil className="size-3.5" aria-hidden="true" />
             {data?.daNhap ? t("Sửa") : t("Nhập hóa đơn")}
@@ -183,6 +183,12 @@ export default function TheHoaDonNhaCungCap({ phieuNhapKhoId, coTheSua }) {
           ) : (
             <p className="text-xs text-bo-muted">{t("Toàn bộ đơn giá là giá nhập, không có thuế đầu vào được khấu trừ.")}</p>
           )}
+          {data?.daKhoa ? (
+            <p className="flex gap-2 text-xs text-bo-muted">
+              <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+              {t("Phiếu đã sang kế toán ở lô {{soLoXuat}} dạng \"Không kèm hóa đơn\". Lưu hóa đơn ở đây không đổi chứng từ đã xuất; lô xuất tiếp theo sẽ nhắc kế toán Nhận hóa đơn trên AMIS.", { soLoXuat: data.soLoXuat })}
+            </p>
+          ) : null}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => setDangSua(false)} disabled={dangLuu}
               className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle">
@@ -208,14 +214,19 @@ export default function TheHoaDonNhaCungCap({ phieuNhapKhoId, coTheSua }) {
             <p className="text-sm text-bo-foreground">{t("Nhà cung cấp không xuất hóa đơn GTGT cho phiếu này.")}</p>
           ) : data?.daKhoa ? (
             <p className="text-sm text-bo-muted">
-              {t("Chưa nhập hóa đơn. Phiếu đã sang kế toán ở dạng \"Không kèm hóa đơn\", giá nhập tách thuế theo mức chung.")}
+              {t("Chưa nhập hóa đơn. Phiếu đã sang kế toán ở dạng \"Không kèm hóa đơn\": AMIS ghi giá trị hàng đã tách thuế theo mức chung, thuế chờ hóa đơn. Nhận được hóa đơn thì nhập ở đây để nhắc kế toán.")}
             </p>
           ) : (
             <p className="text-sm text-bo-muted">
-              {t("Chưa nhập hóa đơn. Nếu xuất sang kế toán lúc này, phiếu đi ở dạng \"Không kèm hóa đơn\" và giá nhập tách thuế theo mức chung.")}
+              {t("Chưa nhập hóa đơn. Nếu xuất sang kế toán lúc này, phiếu đi ở dạng \"Không kèm hóa đơn\": AMIS ghi giá trị hàng đã tách thuế theo mức chung, thuế chờ hóa đơn.")}
             </p>
           )}
-          {data?.daKhoa ? (
+          {data?.daKhoa && data?.nhapSauXuat ? (
+            <p className="mt-3 flex gap-2 text-xs text-bo-muted">
+              <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+              {t("Đã xuất sang kế toán ở lô {{soLoXuat}} dạng \"Không kèm hóa đơn\". Hóa đơn nhập sau không đổi chứng từ đã xuất; lô xuất tiếp theo nhắc kế toán Nhận hóa đơn trên AMIS.", { soLoXuat: data.soLoXuat })}
+            </p>
+          ) : data?.daKhoa ? (
             <p className="mt-3 flex items-center gap-2 text-xs text-bo-muted">
               <Lock className="size-3.5" aria-hidden="true" />
               {t("Đã xuất sang kế toán ở lô {{soLoXuat}}, không sửa được. Quản trị viên mở khóa chứng từ ở màn Xuất dữ liệu kế toán nếu cần.", { soLoXuat: data.soLoXuat })}
