@@ -466,6 +466,43 @@ public class ShopeeClient {
         return executePost(url, body);
     }
 
+    public JsonNode initTierVariation(String partnerId, String partnerKey, String accessToken, String shopId, Map<String, Object> body, boolean isSandbox) {
+        if (isMockCredentials(partnerId, partnerKey)) {
+            Long itemId = body.get("item_id") instanceof Number ? ((Number) body.get("item_id")).longValue() : 1000101L;
+            log.info("[SHOPEE-MOCK] Giả lập tạo phân loại (tier variation) Shopee cho item_id={}", itemId);
+            ObjectNode res = objectMapper.createObjectNode();
+            res.put("error", "").put("message", "success");
+            ObjectNode resp = res.putObject("response").put("item_id", itemId);
+            ArrayNode arr = resp.putArray("model_id_list");
+            List<?> models = (List<?>) body.get("model");
+            long mId = 2000001L;
+            if (models != null) {
+                for (Object mObj : models) {
+                    if (mObj instanceof Map<?,?> mMap) {
+                        Object tIdx = mMap.get("tier_index");
+                        ObjectNode node = arr.addObject();
+                        node.put("model_id", mId++);
+                        if (tIdx instanceof List<?> l) {
+                            ArrayNode idxArr = node.putArray("tier_index");
+                            for (Object o : l) {
+                                if (o instanceof Number n) idxArr.add(n.intValue());
+                            }
+                        }
+                    }
+                }
+            }
+            return res;
+        }
+
+        long timestamp = Instant.now().getEpochSecond();
+        String base = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_PRODUCT_INIT_TIER_VARIATION, timestamp, accessToken, shopId);
+        String sign = ShopeeSignatureHelper.sign(partnerKey, base);
+        String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s",
+                getHost(isSandbox), PATH_PRODUCT_INIT_TIER_VARIATION, partnerId.trim(), timestamp, accessToken.trim(), shopId.trim(), sign);
+
+        return executePost(url, body);
+    }
+
     public JsonNode getItemList(String partnerId, String partnerKey, String accessToken, String shopId,
                                 int offset, int pageSize, String itemStatus, boolean isSandbox) {
         if (isMockCredentials(partnerId, partnerKey)) {
