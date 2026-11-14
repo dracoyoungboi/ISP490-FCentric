@@ -186,6 +186,9 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
     @Autowired
     private LazadaClient lazadaClient;
 
+    @Autowired(required = false)
+    private com.dev.backend.services.shopee.ShopeeClient shopeeClient;
+
 
     @Override
     protected EntityManager getEntityManager() {
@@ -1568,6 +1571,31 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
 
             return new VanDonSanDto(decodedBytes, mimeType, "awb-" + don.getSoDonHang());
         } else if (OmnichannelOrderSyncJob.isShopee(maKenh)) {
+            String orderSn = don.getMaDonHangKenh();
+            if (orderSn == null || orderSn.isBlank()) {
+                throw new CommonException(ThongDiep.of("banHang.donChuaCoMaShopee"), HttpStatus.BAD_REQUEST, null);
+            }
+            try {
+                if (shopeeClient != null && kenhBanHangService != null) {
+                    Long partnerId = kenhBanHangService.getShopeePartnerId(maKenh);
+                    String partnerKey = kenhBanHangService.getDecryptedShopeePartnerKey(maKenh);
+                    String accessToken = kenhBanHangService.getDecryptedShopeeAccessToken(maKenh);
+                    Long shopId = kenhBanHangService.getShopeeShopId(maKenh);
+                    boolean isSandbox = OmnichannelOrderSyncJob.isShopeeSandbox(maKenh);
+
+                    if (partnerId != null && partnerKey != null && accessToken != null && shopId != null) {
+                        byte[] docBytes = shopeeClient.downloadShippingDocument(
+                                String.valueOf(partnerId), partnerKey, accessToken, String.valueOf(shopId), orderSn, isSandbox);
+                        if (docBytes != null && docBytes.length > 50) {
+                            boolean isPdf = docBytes.length > 4 && docBytes[0] == '%' && docBytes[1] == 'P' && docBytes[2] == 'D' && docBytes[3] == 'F';
+                            String mime = isPdf ? "application/pdf" : "text/html; charset=utf-8";
+                            return new VanDonSanDto(docBytes, mime, "van-don-shopee-" + don.getSoDonHang() + (isPdf ? ".pdf" : ".html"));
+                        }
+                    }
+                }
+            } catch (Exception ex) {
+                log.info("[AWB-SHOPEE] Không thể tải tài liệu gốc từ Shopee: {}. Chuyển sang tạo tem A6 nội bộ...", ex.getMessage());
+            }
             return taoVanDonShopeeHtml(don, don.getMaDonHangKenh());
         }
 
