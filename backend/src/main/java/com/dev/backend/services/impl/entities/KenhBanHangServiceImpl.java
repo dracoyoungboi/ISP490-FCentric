@@ -2175,7 +2175,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
             kenh.setTrangThai(request.getTrangThai());
         }
 
-        String apiUrl = isSandbox ? "https://partner.test-stable.shopeemobile.com" : "https://partner.shopeemobile.com";
+        String apiUrl = isSandbox ? "https://openplatform.sandbox.test-stable.shopee.sg" : "https://partner.shopeemobile.com";
         kenh.setApiUrl(apiUrl);
 
         kenhBanHangRepository.save(kenh);
