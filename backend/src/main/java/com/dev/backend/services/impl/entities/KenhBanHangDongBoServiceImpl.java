@@ -6784,6 +6784,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
         theoDoi.batDauDay(dirtyList.size());
 
+        int soThanhCong = 0;
+        int soLoi = 0;
+
         // Gom nhóm biến thể theo itemId thực tế của Shopee
         Map<Long, List<DongCanCapNhatShopee>> gomNhomTheoItemId = new LinkedHashMap<>();
         for (DongCanCapNhatShopee item : dirtyList) {
@@ -6810,9 +6813,6 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             }
             gomNhomTheoItemId.computeIfAbsent(itemId, k -> new ArrayList<>()).add(item);
         }
-
-        int soThanhCong = 0;
-        int soLoi = 0;
 
         for (Map.Entry<Long, List<DongCanCapNhatShopee>> entry : gomNhomTheoItemId.entrySet()) {
             if (theoDoi.canDung()) {
