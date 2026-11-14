@@ -124,9 +124,6 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     @lombok.experimental.NonFinal
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     ChiTietDonBanHangRepository chiTietDonBanHangRepository;
-    @lombok.experimental.NonFinal
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    com.dev.backend.services.shopee.ShopeeMockEngine shopeeMockEngine;
 
     public TikTokShopClient getTikTokShopClient() {
         if (tiktokShopClient == null) {
@@ -5223,13 +5220,24 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             kenh = getKenhActive("SHOPEE_SANDBOX");
         }
         com.dev.backend.services.shopee.ShopeeClient client = getShopeeClient(kenh);
-        Long itemId = 1000L + bt.getId();
-        Long modelId = null;
-        try {
-            if (dong.getMaSanPhamKenh() != null && dong.getMaSanPhamKenh().matches("\\d+")) {
-                modelId = Long.parseLong(dong.getMaSanPhamKenh());
-            }
-        } catch (Exception ignored) {}
+        String mspk = dong.getMaSanPhamKenh() != null ? dong.getMaSanPhamKenh().trim() : "";
+        Long itemId = null;
+        Long modelId = 0L;
+        if (mspk.contains(":")) {
+            String[] parts = mspk.split(":");
+            try {
+                itemId = Long.parseLong(parts[0]);
+                modelId = Long.parseLong(parts[1]);
+            } catch (Exception ignored) {}
+        } else if (mspk.matches("\\d+")) {
+            try {
+                itemId = Long.parseLong(mspk);
+                modelId = 0L;
+            } catch (Exception ignored) {}
+        }
+        if (itemId == null || itemId <= 0) {
+            return KetQuaGuiTon.loiSku("Biến thể chưa liên kết với Item ID hợp lệ trên Shopee");
+        }
         try {
             JsonNode res = client.updateStock(itemId, modelId, soDay);
             if (res != null && res.path("error").asText("").isEmpty()) {
@@ -6486,38 +6494,6 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             }
 
             if (itemIds.isEmpty()) {
-                if (isSandbox) {
-                    var bienThes = bienTheSanPhamRepository.findAll();
-                    int limit = Math.min(bienThes.size(), 10);
-                    for (int i = 0; i < limit; i++) {
-                        var bt = bienThes.get(i);
-                        String skuKenh = bt.getMaSku() != null ? bt.getMaSku() : ("SHP-SKU-" + bt.getId());
-                        String maSanPhamKenh = "SHP_ITEM_" + (1000 + bt.getId());
-                        TrangThaiDongBoSanPham tt = null;
-                        if (bt.getId() != null && mappingByBtId.containsKey(bt.getId())) {
-                            tt = mappingByBtId.get(bt.getId());
-                        }
-                        if (tt == null && mappingByMaKenh.containsKey(maSanPhamKenh.toLowerCase(Locale.ROOT))) {
-                            tt = mappingByMaKenh.get(maSanPhamKenh.toLowerCase(Locale.ROOT));
-                        }
-                        if (tt != null) {
-                            soCapNhat++;
-                        } else {
-                            tt = new TrangThaiDongBoSanPham();
-                            tt.setKenhBanHang(kenh);
-                            tt.setMaSanPhamKenh(maSanPhamKenh);
-                            soMoi++;
-                        }
-                        tt.setGiaBanSan(bt.getGiaBan());
-                        tt.setBienTheSanPham(bt);
-                        tt.setTrangThaiDongBo("thanh_cong");
-                        trangThaiDongBoSanPhamRepository.save(tt);
-                        mappingByBtId.put(bt.getId(), tt);
-                        mappingByMaKenh.put(maSanPhamKenh.toLowerCase(Locale.ROOT), tt);
-                        soSku++;
-                    }
-                    return TaiSanPhamResultDto.builder().soSku(soSku).soMoi(soMoi).soCapNhat(soCapNhat).build();
-                }
                 return TaiSanPhamResultDto.builder().soSku(0).soMoi(0).soCapNhat(0).build();
             }
 
@@ -6542,7 +6518,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                                 price = BigDecimal.valueOf(priceInfo.get(0).path("original_price").asDouble(0.0));
                             }
 
-                            String maSanPhamKenh = String.valueOf(modelId);
+                            String maSanPhamKenh = itemId + ":" + modelId;
                             BienTheSanPham bt = bienTheSanPhamRepository.findByMaSkuIgnoreCase(modelSku).orElse(null);
 
                             TrangThaiDongBoSanPham tt = null;
@@ -6552,14 +6528,17 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                             if (tt == null && mappingByMaKenh.containsKey(maSanPhamKenh.toLowerCase(Locale.ROOT))) {
                                 tt = mappingByMaKenh.get(maSanPhamKenh.toLowerCase(Locale.ROOT));
                             }
+                            if (tt == null && mappingByMaKenh.containsKey(String.valueOf(modelId))) {
+                                tt = mappingByMaKenh.get(String.valueOf(modelId));
+                            }
                             if (tt != null) {
                                 soCapNhat++;
                             } else {
                                 tt = new TrangThaiDongBoSanPham();
                                 tt.setKenhBanHang(kenh);
-                                tt.setMaSanPhamKenh(maSanPhamKenh);
                                 soMoi++;
                             }
+                            tt.setMaSanPhamKenh(maSanPhamKenh);
                             if (bt != null) {
                                 tt.setBienTheSanPham(bt);
                                 tt.setTrangThaiDongBo("thanh_cong");
@@ -6597,9 +6576,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                         } else {
                             tt = new TrangThaiDongBoSanPham();
                             tt.setKenhBanHang(kenh);
-                            tt.setMaSanPhamKenh(maSanPhamKenh);
                             soMoi++;
                         }
+                        tt.setMaSanPhamKenh(maSanPhamKenh);
                         if (bt != null) {
                             tt.setBienTheSanPham(bt);
                             tt.setTrangThaiDongBo("thanh_cong");
@@ -6636,12 +6615,46 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     .build();
         }
 
-        Map<String, Long> skuToModelMap = new HashMap<>();
-        int soTaoMoiTrenShopee = 0;
-
-        if (OmnichannelOrderSyncJob.isShopeeSandbox(kenh.getMaKenh()) && shopeeMockEngine != null) {
-            skuToModelMap = shopeeMockEngine.addMockProductsFromVariants(activeVariants);
-            soTaoMoiTrenShopee = skuToModelMap.size();
+        Map<String, String> skuToTargetId = new HashMap<>();
+        com.dev.backend.services.shopee.ShopeeClient client = getShopeeClient(kenh);
+        try {
+            JsonNode listRes = client.getItemList(0, 100, "NORMAL");
+            JsonNode items = listRes.path("response").path("item");
+            if (!items.isArray() || items.isEmpty()) {
+                items = listRes.path("response").path("item_list");
+            }
+            List<Long> itemIds = new ArrayList<>();
+            if (items.isArray()) {
+                for (JsonNode it : items) {
+                    itemIds.add(it.path("item_id").asLong());
+                }
+            }
+            if (!itemIds.isEmpty()) {
+                JsonNode detailRes = client.getItemBaseInfo(itemIds);
+                JsonNode itemList = detailRes.path("response").path("item_list");
+                if (itemList.isArray()) {
+                    for (JsonNode itemNode : itemList) {
+                        long itemId = itemNode.path("item_id").asLong();
+                        JsonNode models = itemNode.path("model");
+                        if (models.isArray() && !models.isEmpty()) {
+                            for (JsonNode modelNode : models) {
+                                long modelId = modelNode.path("model_id").asLong();
+                                String modelSku = modelNode.path("model_sku").asText("").trim();
+                                if (!modelSku.isBlank()) {
+                                    skuToTargetId.put(modelSku.toLowerCase(Locale.ROOT), itemId + ":" + modelId);
+                                }
+                            }
+                        } else {
+                            String itemSku = itemNode.path("item_sku").asText("").trim();
+                            if (!itemSku.isBlank()) {
+                                skuToTargetId.put(itemSku.toLowerCase(Locale.ROOT), String.valueOf(itemId));
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("[SHOPEE-AUTO-LINK] Không thể lấy danh sách sản phẩm từ Shopee để ghép nối: {}", ex.getMessage());
         }
 
         List<TrangThaiDongBoSanPham> existingMappings = trangThaiDongBoSanPhamRepository.findByKenhBanHangId(kenh.getId());
@@ -6659,31 +6672,44 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         for (BienTheSanPham bt : activeVariants) {
             if (bt.getMaSku() == null || bt.getMaSku().isBlank()) continue;
             String normSku = bt.getMaSku().trim().toLowerCase(Locale.ROOT);
-            Long modelId = skuToModelMap.get(normSku);
-            String targetSkuId = modelId != null ? modelId.toString() : ("588300000" + bt.getId());
+            String targetSkuId = skuToTargetId.get(normSku);
 
             TrangThaiDongBoSanPham record = mappingByBtId.get(bt.getId());
-            boolean dangNgung = false;
-            if (record != null) {
-                dangNgung = TRANG_THAI_NGUNG.equals(record.getTrangThaiDongBo());
-                record.setMaSanPhamKenh(targetSkuId);
-                if (!dangNgung) {
-                    record.setTrangThaiDongBo("thanh_cong");
-                    record.setChiTietLoi(null);
+            if (targetSkuId != null) {
+                boolean dangNgung = false;
+                if (record != null) {
+                    dangNgung = TRANG_THAI_NGUNG.equals(record.getTrangThaiDongBo());
+                    record.setMaSanPhamKenh(targetSkuId);
+                    if (!dangNgung) {
+                        record.setTrangThaiDongBo("thanh_cong");
+                        record.setChiTietLoi(null);
+                    }
+                    record.setNgayDongBoCuoi(now);
+                } else {
+                    record = TrangThaiDongBoSanPham.builder()
+                            .kenhBanHang(kenh)
+                            .bienTheSanPham(bt)
+                            .maSanPhamKenh(targetSkuId)
+                            .trangThaiDongBo("thanh_cong")
+                            .chiTietLoi(null)
+                            .ngayDongBoCuoi(now)
+                            .build();
                 }
-                record.setNgayDongBoCuoi(now);
+                trangThaiDongBoSanPhamRepository.save(record);
+                soDaGhep++;
             } else {
-                record = TrangThaiDongBoSanPham.builder()
-                        .kenhBanHang(kenh)
-                        .bienTheSanPham(bt)
-                        .maSanPhamKenh(targetSkuId)
-                        .trangThaiDongBo("thanh_cong")
-                        .chiTietLoi(null)
-                        .ngayDongBoCuoi(now)
-                        .build();
+                if (record == null) {
+                    record = TrangThaiDongBoSanPham.builder()
+                            .kenhBanHang(kenh)
+                            .bienTheSanPham(bt)
+                            .trangThaiDongBo("chua_dong_bo")
+                            .chiTietLoi("Chưa tìm thấy SKU tương ứng trên Shopee")
+                            .ngayDongBoCuoi(now)
+                            .build();
+                    trangThaiDongBoSanPhamRepository.save(record);
+                }
+                soKhongKhop++;
             }
-            trangThaiDongBoSanPhamRepository.save(record);
-            soDaGhep++;
         }
 
         // Tự động đẩy tồn khả dụng cho các SKU vừa liên kết
@@ -6697,13 +6723,13 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             log.warn("[SHOPEE-SYNC] Tự động đẩy tồn sau khi liên kết gặp lỗi: {}", ex.getMessage());
         }
 
-        ghiNhatKy(kenh.getId(), IHanhDong.dong_bo_san_pham, "Tự động liên kết Shopee: đã ghép " + soDaGhep + " SKU, tạo mới " + soTaoMoiTrenShopee + " SKU, đã đẩy tồn " + soTonKhoDaDay + " SKU");
+        ghiNhatKy(kenh.getId(), IHanhDong.dong_bo_san_pham, "Tự động liên kết Shopee: đã ghép " + soDaGhep + " SKU, không khớp " + soKhongKhop + " SKU, đã đẩy tồn " + soTonKhoDaDay + " SKU");
 
         return TuDongLienKetResultDto.builder()
                 .soDaGhep(soDaGhep)
                 .soKhongKhop(soKhongKhop)
                 .soNhieuKhop(0)
-                .soTaoMoiTrenShopify(soTaoMoiTrenShopee)
+                .soTaoMoiTrenShopify(0)
                 .soCapNhatTrenShopify(0)
                 .soTonKhoDaDay(soTonKhoDaDay)
                 .soThatBai(0)
@@ -6758,47 +6784,60 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
         theoDoi.batDauDay(dirtyList.size());
 
-        // Gom nhóm biến thể theo sản phẩm cha (Batch stock update theo item_id chuẩn Shopee Open Platform)
-        Map<Integer, List<DongCanCapNhatShopee>> gomNhomTheoSp = new LinkedHashMap<>();
+        // Gom nhóm biến thể theo itemId thực tế của Shopee
+        Map<Long, List<DongCanCapNhatShopee>> gomNhomTheoItemId = new LinkedHashMap<>();
         for (DongCanCapNhatShopee item : dirtyList) {
             TrangThaiDongBoSanPham dong = item.dong();
-            int spId = (dong.getBienTheSanPham().getSanPham() != null && dong.getBienTheSanPham().getSanPham().getId() != null)
-                    ? dong.getBienTheSanPham().getSanPham().getId() : 0;
-            gomNhomTheoSp.computeIfAbsent(spId, k -> new ArrayList<>()).add(item);
+            String mspk = dong.getMaSanPhamKenh() != null ? dong.getMaSanPhamKenh().trim() : "";
+            Long itemId = null;
+            if (mspk.contains(":")) {
+                try {
+                    itemId = Long.parseLong(mspk.split(":")[0]);
+                } catch (Exception ignored) {}
+            } else if (mspk.matches("\\d+")) {
+                try {
+                    itemId = Long.parseLong(mspk);
+                } catch (Exception ignored) {}
+            }
+
+            if (itemId == null || itemId <= 0) {
+                dong.setChiTietLoi("Chưa liên kết với Item ID Shopee");
+                dong.setTrangThaiDongBo("that_bai");
+                trangThaiDongBoSanPhamRepository.save(dong);
+                soLoi++;
+                theoDoi.daDay(dong.getMaSanPhamKenh(), dong.getMaSanPhamKenh(), false, "Chưa liên kết Item ID Shopee");
+                continue;
+            }
+            gomNhomTheoItemId.computeIfAbsent(itemId, k -> new ArrayList<>()).add(item);
         }
 
         int soThanhCong = 0;
         int soLoi = 0;
 
-        for (Map.Entry<Integer, List<DongCanCapNhatShopee>> entry : gomNhomTheoSp.entrySet()) {
+        for (Map.Entry<Long, List<DongCanCapNhatShopee>> entry : gomNhomTheoItemId.entrySet()) {
             if (theoDoi.canDung()) {
                 break;
             }
 
-            Integer spId = entry.getKey();
+            Long itemId = entry.getKey();
             List<DongCanCapNhatShopee> nhomDong = entry.getValue();
-            Long itemId = spId > 0 ? (188200000L + spId * 100L) : 1000L;
 
             List<Map<String, Object>> stockList = new ArrayList<>();
 
             for (DongCanCapNhatShopee item : nhomDong) {
                 TrangThaiDongBoSanPham dong = item.dong();
-                BienTheSanPham bt = dong.getBienTheSanPham();
                 int soDay = item.soDay();
 
-                Long modelId = null;
-                try {
-                    if (dong.getMaSanPhamKenh() != null && dong.getMaSanPhamKenh().matches("\\d+")) {
-                        modelId = Long.parseLong(dong.getMaSanPhamKenh());
-                    } else {
-                        modelId = 588300000L + bt.getId();
-                    }
-                } catch (Exception ignored) {
-                    modelId = 588300000L + bt.getId();
+                Long modelId = 0L;
+                String mspk = dong.getMaSanPhamKenh() != null ? dong.getMaSanPhamKenh().trim() : "";
+                if (mspk.contains(":")) {
+                    try {
+                        modelId = Long.parseLong(mspk.split(":")[1]);
+                    } catch (Exception ignored) {}
                 }
 
                 Map<String, Object> stockItem = new HashMap<>();
-                stockItem.put("model_id", modelId);
+                stockItem.put("model_id", modelId != null ? modelId : 0L);
                 stockItem.put("normal_stock", soDay);
                 stockList.add(stockItem);
             }
@@ -6829,7 +6868,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     }
                 }
             } catch (Exception ex) {
-                log.error("[SHOPEE-STOCK-BATCH] Lỗi đẩy tồn theo lô cho sản phẩm ID {}: {}", spId, ex.getMessage());
+                log.error("[SHOPEE-STOCK-BATCH] Lỗi đẩy tồn theo lô cho Item ID {}: {}", itemId, ex.getMessage());
                 for (DongCanCapNhatShopee item : nhomDong) {
                     TrangThaiDongBoSanPham dong = item.dong();
                     dong.setChiTietLoi(ex.getMessage());

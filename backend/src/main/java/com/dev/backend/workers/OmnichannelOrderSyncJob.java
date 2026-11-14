@@ -121,9 +121,6 @@ public class OmnichannelOrderSyncJob {
     @lombok.experimental.NonFinal
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     com.dev.backend.services.shopee.ShopeeClient shopeeClient;
-    @lombok.experimental.NonFinal
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    com.dev.backend.services.shopee.ShopeeMockEngine shopeeMockEngine;
     /** Nhật ký "Thêm khách hàng" khi đơn sàn tự tạo khách (test dựng tay không có thì bỏ qua). */
     @lombok.experimental.NonFinal
     @org.springframework.beans.factory.annotation.Autowired(required = false)
@@ -1506,13 +1503,6 @@ public class OmnichannelOrderSyncJob {
     }
 
     public int syncShopeeOrders(KenhBanHang kenh, Instant tuNgay, Instant denNgay) {
-        if (isShopeeSandbox(kenh.getMaKenh())) {
-            String partnerKey = kenhBanHangService.getDecryptedShopeePartnerKey(kenh.getMaKenh());
-            if (partnerKey == null || partnerKey.isBlank() || partnerKey.contains("mock")) {
-                return syncMockShopeeOrders(kenh);
-            }
-            return syncRealShopeeOrders(kenh, tuNgay, denNgay);
-        }
         return syncRealShopeeOrders(kenh, tuNgay, denNgay);
     }
 
@@ -1572,32 +1562,6 @@ public class OmnichannelOrderSyncJob {
             log.info("[JOB-01] Quét đơn Shopee Production hoàn tất: {} đơn mới", synced);
         } catch (Exception ex) {
             log.error("[JOB-01] Lỗi khi quét đơn hàng Shopee Production: {}", ex.getMessage());
-        }
-        return synced;
-    }
-
-    public int syncMockShopeeOrders(KenhBanHang kenh) {
-        int synced = 0;
-        try {
-            com.dev.backend.services.shopee.ShopeeMockEngine engine = shopeeMockEngine;
-            List<com.dev.backend.dto.response.customize.ShopeeOrderDto> mockOrders = engine != null
-                    ? engine.getOrdersForSync("READY_TO_SHIP", 0L)
-                    : List.of();
-            if (mockOrders != null && !mockOrders.isEmpty()) {
-                batDauLuot();
-                try {
-                    for (com.dev.backend.dto.response.customize.ShopeeOrderDto order : mockOrders) {
-                        boolean ok = processSingleShopeeOrder(order, kenh);
-                        if (ok) synced++;
-                    }
-                } finally {
-                    ketThucLuot(kenh, synced);
-                }
-            }
-            lanLayDonCuoi.put(kenh.getId(), Instant.now());
-            log.info("[JOB-01] Quét đơn Shopee hoàn tất: {} đơn mới", synced);
-        } catch (Exception ex) {
-            log.error("[JOB-01] Lỗi khi quét đơn hàng từ Shopee: {}", ex.getMessage());
         }
         return synced;
     }
