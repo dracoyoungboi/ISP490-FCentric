@@ -26,6 +26,7 @@ const ICON_MENU_SAN = {
   TIKTOK: TiktokMenuIcon,
   SHOPEE: ShopeeMenuIcon,
   SHOPEE_OFFICIAL: ShopeeMenuIcon,
+  SHOPEE_SANDBOX: ShopeeMenuIcon,
 };
 import { SETTINGS_PAGES, SETTINGS_ROLES } from "@/components/settings/settings.config";
 import { canKho } from "@/components/nguoi-dung/phanQuyen";

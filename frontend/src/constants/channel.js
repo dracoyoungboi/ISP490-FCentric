@@ -6,38 +6,8 @@ export const CHANNELS = {
   SHOPIFY: { id: 2, maKenh: "SHOPIFY", tenKenh: "Shopify" },
   LAZADA: { id: 3, maKenh: "LAZADA", tenKenh: "Lazada" },
   LAZADA_SANDBOX: { id: 6, maKenh: "LAZADA_SANDBOX", tenKenh: "Lazada Sandbox" },
-  SHOPEE: {
-    UNPAID: "Chờ thanh toán",
-    READY_TO_SHIP: "Chờ lấy hàng",
-    PROCESSED: "Đã đóng gói",
-    SHIPPED: "Đang giao",
-    COMPLETED: "Hoàn thành",
-    IN_CANCEL: "Đang yêu cầu hủy",
-    CANCELLED: "Đã hủy",
-    INVOICE_PENDING: "Chờ hóa đơn",
-  },
-  SHOPEE_SANDBOX: {
-    UNPAID: "Chờ thanh toán",
-    READY_TO_SHIP: "Chờ lấy hàng",
-    PROCESSED: "Đã đóng gói",
-    SHIPPED: "Đang giao",
-    COMPLETED: "Hoàn thành",
-    IN_CANCEL: "Đang yêu cầu hủy",
-    CANCELLED: "Đã hủy",
-    INVOICE_PENDING: "Chờ hóa đơn",
-  },
-  SHOPEE_OFFICIAL: {
-    UNPAID: "Chờ thanh toán",
-    READY_TO_SHIP: "Chờ lấy hàng",
-    PROCESSED: "Đã đóng gói",
-    SHIPPED: "Đang giao",
-    COMPLETED: "Hoàn thành",
-    IN_CANCEL: "Đang yêu cầu hủy",
-    CANCELLED: "Đã hủy",
-    INVOICE_PENDING: "Chờ hóa đơn",
-  },
-  TIKTOK: { id: 5, maKenh: "TIKTOK", tenKenh: "TikTok Shop" },
   SHOPEE: { id: 4, maKenh: "SHOPEE", tenKenh: "Shopee" },
+  TIKTOK: { id: 5, maKenh: "TIKTOK", tenKenh: "TikTok Shop" },
   SHOPEE_OFFICIAL: { id: 8, maKenh: "SHOPEE_OFFICIAL", tenKenh: "Shopee" },
   SHOPEE_SANDBOX: { id: 7, maKenh: "SHOPEE_SANDBOX", tenKenh: "Shopee Sandbox" },
 };
@@ -266,7 +236,7 @@ export const SAN_BAN_HANG = [
   { maKenh: "SHOPEE", ten: "Shopee", duongDan: "/channels/shopee", hoTro: false, kieuKetNoi: "uy_quyen", tienToDon: "SHP", hanUyQuyenNgay: 365, hienMenu: false, anTam: true },
   // Kênh 2: Shopee Chính Thức (Shopee Open Platform v2 Official)
   { maKenh: "SHOPEE_OFFICIAL", ten: "Shopee", duongDan: "/channels/shopee-official", hoTro: true, kieuKetNoi: "uy_quyen", tienToDon: "SHP", hanUyQuyenNgay: 30, hienMenu: true },
-  { maKenh: "SHOPEE_SANDBOX", ten: "Shopee Sandbox", duongDan: "/channels/shopee-sandbox", hoTro: true, kieuKetNoi: "uy_quyen", tienToDon: "SHP", hanUyQuyenNgay: 365, isSandbox: true, hienMenu: true, anTam: true },
+  { maKenh: "SHOPEE_SANDBOX", ten: "Shopee Sandbox", duongDan: "/channels/shopee-sandbox", hoTro: true, kieuKetNoi: "uy_quyen", tienToDon: "SHP", hanUyQuyenNgay: 365, isSandbox: true, hienMenu: true },
 ];
 
 /** Sàn theo mã kênh ("LAZADA") hoặc đoạn cuối đường dẫn ("lazada"), không phân biệt hoa thường; không có thì null. */
@@ -344,6 +314,16 @@ const TRANG_THAI_SAN = {
     INVOICE_PENDING: "Chờ hóa đơn",
   },
   SHOPEE_OFFICIAL: {
+    UNPAID: "Chờ thanh toán",
+    READY_TO_SHIP: "Chờ lấy hàng",
+    PROCESSED: "Đã đóng gói",
+    SHIPPED: "Đang giao",
+    COMPLETED: "Hoàn thành",
+    IN_CANCEL: "Đang yêu cầu hủy",
+    CANCELLED: "Đã hủy",
+    INVOICE_PENDING: "Chờ hóa đơn",
+  },
+  SHOPEE_SANDBOX: {
     UNPAID: "Chờ thanh toán",
     READY_TO_SHIP: "Chờ lấy hàng",
     PROCESSED: "Đã đóng gói",
