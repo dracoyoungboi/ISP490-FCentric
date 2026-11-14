@@ -186,9 +186,11 @@ public class KenhBanHangController {
             );
         }
         if ("SHOPEE_OFFICIAL".equals(ma)) {
+            String shopId = (request.getShopDomain() != null && request.getShopDomain().matches("^\\d+$")) ? request.getShopDomain().trim() : null;
             com.dev.backend.dto.request.ShopeeConfigUpdating shopeeReq = com.dev.backend.dto.request.ShopeeConfigUpdating.builder()
                     .partnerId(request.getAppKey())
                     .partnerKey(request.getAppSecret())
+                    .shopId(shopId)
                     .trangThai(request.getTrangThai())
                     .isSandbox(false)
                     .build();
@@ -210,9 +212,11 @@ public class KenhBanHangController {
         }
         if ("SHOPEE_SANDBOX".equals(ma) || "SHOPEE".equals(ma)) {
             boolean isSandbox = "SHOPEE_SANDBOX".equals(ma);
+            String shopId = (request.getShopDomain() != null && request.getShopDomain().matches("^\\d+$")) ? request.getShopDomain().trim() : null;
             com.dev.backend.dto.request.ShopeeConfigUpdating shopeeReq = com.dev.backend.dto.request.ShopeeConfigUpdating.builder()
                     .partnerId(request.getAppKey())
                     .partnerKey(request.getAppSecret())
+                    .shopId(shopId)
                     .trangThai(request.getTrangThai())
                     .isSandbox(isSandbox)
                     .build();
