@@ -249,6 +249,30 @@ public class ShopeeClient {
         return executeGet(url);
     }
 
+    public JsonNode getShopsByPartner(String partnerId, String partnerKey, int pageNo, int pageSize, boolean isSandbox) {
+        if (isMockCredentials(partnerId, partnerKey)) {
+            ObjectNode res = objectMapper.createObjectNode();
+            res.put("error", "").put("message", "");
+            ArrayNode list = res.putArray("authed_shop_list");
+            ObjectNode shop = list.addObject();
+            shop.put("shop_id", 228021980L);
+            shop.put("region", "VN");
+            shop.put("auth_time", Instant.now().getEpochSecond() - 86400);
+            shop.put("expire_time", Instant.now().getEpochSecond() + 31536000);
+            return res;
+        }
+
+        String host = getHost(isSandbox);
+        long timestamp = Instant.now().getEpochSecond();
+        String baseString = ShopeeSignatureHelper.buildPublicBaseString(partnerId, PATH_SHOPS_BY_PARTNER, timestamp);
+        String sign = ShopeeSignatureHelper.sign(partnerKey, baseString);
+
+        String url = String.format("%s%s?partner_id=%s&timestamp=%d&sign=%s&page_no=%d&page_size=%d",
+                host, PATH_SHOPS_BY_PARTNER, partnerId.trim(), timestamp, sign, pageNo, pageSize);
+
+        return executeGet(url);
+    }
+
     // =========================================================================
     // 2. ORDER APIS
     // =========================================================================
