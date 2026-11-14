@@ -27,6 +27,10 @@ public interface ChungTuXuatKeToanRepository extends JpaRepository<ChungTuXuatKe
     @Query("SELECT l.soLo FROM ChungTuXuatKeToan c JOIN c.loXuat l WHERE c.loai = :loai AND c.idNguon = :idNguon AND c.trangThai = 'da_xuat'")
     Optional<String> soLoDangKhoa(@Param("loai") String loai, @Param("idNguon") Integer idNguon);
 
+    /** Lúc tạo lô đang khóa chứng từ (loai, idNguon); rỗng nếu chưa khóa. */
+    @Query("SELECT l.ngayTao FROM ChungTuXuatKeToan c JOIN c.loXuat l WHERE c.loai = :loai AND c.idNguon = :idNguon AND c.trangThai = 'da_xuat'")
+    Optional<java.time.Instant> ngayTaoLoDangKhoa(@Param("loai") String loai, @Param("idNguon") Integer idNguon);
+
     @Query("SELECT l.soLo FROM ChungTuXuatKeToan c JOIN c.loXuat l WHERE c.id = :id")
     Optional<String> soLoCua(@Param("id") Integer id);
 

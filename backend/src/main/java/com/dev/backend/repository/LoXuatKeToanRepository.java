@@ -45,6 +45,10 @@ public interface LoXuatKeToanRepository extends JpaRepository<LoXuatKeToan, Inte
             """)
     java.time.Instant ngayTaoLoDenMuonNhat();
 
+    /** Lúc tạo lô còn hiệu lực mới nhất (null = chưa có lô). */
+    @Query("SELECT MAX(l.ngayTao) FROM LoXuatKeToan l WHERE l.trangThai = 'hieu_luc'")
+    java.time.Instant ngayTaoMoiNhat();
+
     /** Lô còn hiệu lực mới nhất (chỉ lô này được hủy: các lô sau dựa vào chứng từ của lô trước trên AMIS). */
     @Query("SELECT MAX(l.id) FROM LoXuatKeToan l WHERE l.trangThai = 'hieu_luc'")
     Integer idLoHieuLucMoiNhat();

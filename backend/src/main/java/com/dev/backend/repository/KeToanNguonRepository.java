@@ -591,6 +591,37 @@ public class KeToanNguonRepository {
     }
 
     /**
+     * Phiếu mua đang khóa mà hóa đơn nhà cung cấp được nhập sau lúc tạo lô khóa nó (tức lúc xuất phiếu chưa có hóa đơn,
+     * HoaDonDauVaoService chỉ cho nhập hóa đơn sau khi xuất trong trường hợp này), cập nhật sau {@code sau} (lúc tạo lô
+     * còn hiệu lực mới nhất): mỗi thay đổi hiện ở đúng một lô.
+     */
+    public List<NguonKeToan.HoaDonSauXuat> hoaDonSauXuat(Instant sau) {
+        String sql = """
+                SELECT pn.id, pn.so_phieu_nhap, pn.ngay_nhap, l.so_lo, hd.co_hoa_don, hd.ky_hieu, hd.so_hoa_don,
+                       hd.ngay_hoa_don, hd.thue_suat
+                  FROM chung_tu_xuat_ke_toan c
+                  JOIN lo_xuat_ke_toan l ON l.id = c.lo_xuat_id
+                  JOIN phieu_nhap_kho pn ON pn.id = c.id_nguon
+                  JOIN hoa_don_dau_vao hd ON hd.phieu_nhap_kho_id = pn.id
+                 WHERE c.loai = 'mua_hang' AND c.trang_thai = 'da_xuat'
+                   AND hd.ngay_cap_nhat > l.ngay_tao
+                   AND hd.ngay_cap_nhat > :sau
+                 ORDER BY hd.ngay_cap_nhat, pn.id
+                """;
+        return jdbc.query(sql, new MapSqlParameterSource("sau", Timestamp.from(sau)), (rs, i) -> new NguonKeToan.HoaDonSauXuat(
+                rs.getInt("id"),
+                rs.getString("so_phieu_nhap"),
+                instant(rs, "ngay_nhap"),
+                rs.getString("so_lo"),
+                rs.getBoolean("co_hoa_don"),
+                rs.getString("ky_hieu"),
+                rs.getString("so_hoa_don"),
+                rs.getObject("ngay_hoa_don", java.time.LocalDate.class),
+                rs.getBigDecimal("thue_suat"),
+                null));
+    }
+
+    /**
      * Đơn đã giao kế toán (còn khóa) nhưng giờ ở trạng thái Bị hoàn trả (6), không có nhật ký hoàn trả (hoàn trả trước
      * 14/11/2026): kế toán lập Hàng bán trả lại tay. Đơn có nhật ký thì đã thành chứng từ trả lại (donHoanChuaXuat).
      */

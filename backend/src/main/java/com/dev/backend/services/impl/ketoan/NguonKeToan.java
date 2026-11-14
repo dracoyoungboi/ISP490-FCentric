@@ -95,6 +95,17 @@ public final class NguonKeToan {
     }
 
     /**
+     * Phiếu mua đã giao kế toán dạng chưa có hóa đơn ("Không kèm hóa đơn"), sau đó mới nhập hóa đơn ở phiếu nhập.
+     * thueUoc: mức chung đã dùng để tách thuế lúc xuất (theo ngày nhập).
+     */
+    public record HoaDonSauXuat(int phieuId, String soPhieu, Instant ngayNhap, String soLo, boolean coHoaDon, String kyHieu,
+                                String soHoaDon, LocalDate ngayHoaDon, BigDecimal thueSuat, BigDecimal thueUoc) {
+        public HoaDonSauXuat voiThueUoc(BigDecimal ts) {
+            return new HoaDonSauXuat(phieuId, soPhieu, ngayNhap, soLo, coHoaDon, kyHieu, soHoaDon, ngayHoaDon, thueSuat, ts);
+        }
+    }
+
+    /**
      * Đơn đã giao kế toán (còn khóa) rồi bị hoàn trả, có ghi nhật ký lúc hoàn trả (từ 14/11/2026): dựng chứng từ Hàng bán
      * trả lại ngược đúng chứng từ bán. ngayHoan: lúc chuyển đơn sang Bị hoàn trả.
      */
