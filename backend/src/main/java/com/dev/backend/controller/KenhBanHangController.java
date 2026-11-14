@@ -68,7 +68,6 @@ public class KenhBanHangController {
     com.dev.backend.repository.KenhBanHangRepository kenhBanHangRepository;
     com.dev.backend.repository.BienTheSanPhamRepository bienTheSanPhamRepository;
     com.dev.backend.workers.OmnichannelOrderSyncJob omnichannelOrderSyncJob;
-    com.dev.backend.services.shopee.ShopeeMockEngine shopeeMockEngine;
 
     @GetMapping("/shopify")
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
@@ -265,27 +264,13 @@ public class KenhBanHangController {
                             .build()
             );
         }
-        if ("SHOPEE_OFFICIAL".equals(ma) || "SHOPEE_SANDBOX".equals(ma)) {
+        if ("SHOPEE_OFFICIAL".equals(ma) || "SHOPEE_SANDBOX".equals(ma) || "SHOPEE".equals(ma)) {
             String authUrl = kenhBanHangService.getShopeeAuthUrl(ma, redirectUri);
             return ResponseEntity.ok(
                     ResponseData.<Map<String, String>>builder()
                             .status(HttpStatus.OK.value())
                             .data(Map.of("authUrl", authUrl))
-                            .message(ThongDiep.dich("kenhBan.sinhUrlUyQuyenThanhCong", ("SHOPEE_SANDBOX".equals(ma) ? "Shopee Sandbox" : "Shopee Chính Thống")))
-                            .build()
-            );
-        }
-        if ("SHOPEE".equals(ma)) {
-            String partnerId = "1000888";
-            String partnerKey = "mock_shopee_key";
-            com.dev.backend.services.shopee.ShopeeClient client = new com.dev.backend.services.shopee.ShopeeClient();
-            String redirect = redirectUri != null ? redirectUri : "http://localhost:5173/admin/channels/shopee/callback";
-            String authUrl = client.generateAuthUrl(partnerId, partnerKey, redirect, true);
-            return ResponseEntity.ok(
-                    ResponseData.<Map<String, String>>builder()
-                            .status(HttpStatus.OK.value())
-                            .data(Map.of("authUrl", authUrl))
-                            .message(ThongDiep.dich("kenhBan.sinhUrlUyQuyenThanhCong", "Shopee"))
+                            .message(ThongDiep.dich("kenhBan.sinhUrlUyQuyenThanhCong", ("SHOPEE_SANDBOX".equals(ma) ? "Shopee Sandbox" : "Shopee")))
                             .build()
             );
         }
@@ -1002,46 +987,6 @@ public class KenhBanHangController {
                         .build()
         );
     }
-    @PostMapping("/shopee/mock-order")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
-    @Operation(summary = "Sinh nhanh đơn hàng Shopee Sandbox mẫu để kiểm thử vận hành luồng kho")
-    public ResponseEntity<ResponseData<Map<String, Object>>> sinhDonShopeeMau(
-            @RequestParam(defaultValue = "1") int count,
-            @RequestParam(defaultValue = "READY_TO_SHIP") String status) {
-        String ma = "SHOPEE_SANDBOX";
-        com.dev.backend.entities.KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma)
-                .orElse(null);
-        if (kenh == null) {
-            kenh = kenhBanHangRepository.save(com.dev.backend.entities.KenhBanHang.builder()
-                    .maKenh(ma)
-                    .tenKenh("Shopee Sandbox (Môi trường Thử nghiệm)")
-                    .loaiKenh("online")
-                    .apiUrl("https://partner.shopeemobile.com/api/v2")
-                    .trangThai(1)
-                    .build());
-        }
-        com.dev.backend.services.shopee.ShopeeMockEngine engine = shopeeMockEngine;
-        java.util.List<com.dev.backend.dto.response.customize.ShopeeOrderDto> orders = engine.generateMockOrders(Math.min(Math.max(count, 1), 5), status);
-        int synced = 0;
-        java.util.List<String> orderNumbers = new java.util.ArrayList<>();
-        for (com.dev.backend.dto.response.customize.ShopeeOrderDto ord : orders) {
-            if (omnichannelOrderSyncJob.processSingleShopeeOrder(ord, kenh)) {
-                synced++;
-                orderNumbers.add("SHP-" + ord.getOrderSn());
-            }
-        }
-        return ResponseEntity.ok(
-                ResponseData.<Map<String, Object>>builder()
-                        .status(HttpStatus.OK.value())
-                        .data(Map.of(
-                                "soDonTao", synced,
-                                "danhSachDonHang", orderNumbers,
-                                "trangThaiGiaLap", status
-                        ))
-                        .message(ThongDiep.dich("kenhBan.sinhDonShopeeMauThanhCong", synced))
-                        .build()
-        );
-    }
 
     // ── Shopee REST Endpoints ──
 
@@ -1223,24 +1168,6 @@ public class KenhBanHangController {
             @RequestBody String payload) {
         log.info("[SHOPEE-WEBHOOK] Nhận tín hiệu sự kiện từ Shopee: payload={}", payload);
         return ResponseEntity.ok(Map.of("code", 0, "message", "success"));
-    }
-
-    @PostMapping("/shopee/mock-cancel")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
-    @Operation(summary = "Shopee: Giả lập người mua hủy đơn trên sàn để kiểm thử luồng đồng bộ hủy")
-    public ResponseEntity<ResponseData<Map<String, Object>>> mockBuyerCancelShopeeOrder(
-            @RequestParam String orderSn) {
-        return ResponseEntity.ok(
-                ResponseData.<Map<String, Object>>builder()
-                        .status(HttpStatus.OK.value())
-                        .data(Map.of(
-                                "orderSn", orderSn,
-                                "trangThaiMoi", "CANCELLED",
-                                "nguyenNhan", "Người mua đổi ý trên Shopee Sandbox"
-                        ))
-                        .message(ThongDiep.dich("kenhBan.giaLapHuyDonShopeeThanhCong"))
-                        .build()
-        );
     }
 
     private com.dev.backend.services.shopee.ShopeeClient getShopeeClientForController(KenhBanHang kenh, String maKenh) {
