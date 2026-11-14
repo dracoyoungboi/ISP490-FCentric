@@ -1507,7 +1507,11 @@ public class OmnichannelOrderSyncJob {
 
     public int syncShopeeOrders(KenhBanHang kenh, Instant tuNgay, Instant denNgay) {
         if (isShopeeSandbox(kenh.getMaKenh())) {
-            return syncMockShopeeOrders(kenh);
+            String partnerKey = kenhBanHangService.getDecryptedShopeePartnerKey(kenh.getMaKenh());
+            if (partnerKey == null || partnerKey.isBlank() || partnerKey.contains("mock")) {
+                return syncMockShopeeOrders(kenh);
+            }
+            return syncRealShopeeOrders(kenh, tuNgay, denNgay);
         }
         return syncRealShopeeOrders(kenh, tuNgay, denNgay);
     }
@@ -1528,10 +1532,11 @@ public class OmnichannelOrderSyncJob {
         try {
             long timeFrom = tuNgay != null ? tuNgay.getEpochSecond() : (Instant.now().getEpochSecond() - 86400L);
             long timeTo = denNgay != null ? denNgay.getEpochSecond() : Instant.now().getEpochSecond();
+            boolean isSandbox = isShopeeSandbox(maKenh);
 
             com.fasterxml.jackson.databind.JsonNode listRes = shopeeClient.getOrderList(
                     String.valueOf(partnerId), partnerKey, accessToken, String.valueOf(shopId),
-                    timeFrom, timeTo, "READY_TO_SHIP", 50, null, false);
+                    timeFrom, timeTo, "READY_TO_SHIP", 50, null, isSandbox);
 
             com.fasterxml.jackson.databind.JsonNode orderListNode = listRes.path("response").path("order_list");
             List<String> orderSnList = new ArrayList<>();
@@ -1545,7 +1550,7 @@ public class OmnichannelOrderSyncJob {
             if (!orderSnList.isEmpty()) {
                 com.fasterxml.jackson.databind.JsonNode detailRes = shopeeClient.getOrderDetail(
                         String.valueOf(partnerId), partnerKey, accessToken, String.valueOf(shopId),
-                        orderSnList, false);
+                        orderSnList, isSandbox);
 
                 com.fasterxml.jackson.databind.JsonNode details = detailRes.path("response").path("order_list");
                 if (details.isArray()) {
