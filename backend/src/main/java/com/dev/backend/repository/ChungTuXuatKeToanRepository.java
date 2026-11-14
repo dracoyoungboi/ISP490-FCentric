@@ -36,4 +36,9 @@ public interface ChungTuXuatKeToanRepository extends JpaRepository<ChungTuXuatKe
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT c FROM ChungTuXuatKeToan c WHERE c.id = :id")
     Optional<ChungTuXuatKeToan> findByIdForUpdate(@Param("id") Integer id);
+
+    /** Hủy lô: chứng từ còn khóa của lô quay về "chưa xuất" (khoa_hieu_luc thành NULL); chứng từ đã mở khóa giữ nguyên. */
+    @org.springframework.data.jpa.repository.Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("UPDATE ChungTuXuatKeToan c SET c.trangThai = 'da_huy_lo' WHERE c.loXuat.id = :loId AND c.trangThai = 'da_xuat'")
+    int huyTheoLo(@Param("loId") Integer loId);
 }
