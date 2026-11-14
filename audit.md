@@ -85,6 +85,7 @@
 | **AUDIT-073** | `2026-11-14 16:22:00` | PhanAnh & Antigravity AI | Refactor & Cleanup / Purge Shopee Simulator & Self-Built Mock, Reconnect Shopee Sandbox to 100% Real OpenAPI v2 | `ShopeeMockController.java`, `ShopeeMockEngine.java`, `ShopeeMockOrder.java`, `ShopeeMockProduct.java`, `ShopeeMockOrderRepository.java`, `ShopeeMockProductRepository.java`, `ShopeeSimulatorPage.jsx`, `shopeeSimulatorService.js`, `KenhBanHangDongBoServiceImpl.java`, `OmnichannelOrderSyncJob.java`, `KenhBanHangController.java`, `ShopeeClient.java`, `kenhBan.properties`, `kenhBan_en.properties`, `App.jsx`, `ChannelSettingsPage.jsx`, `ChannelSyncDashboard.jsx`, `ChannelOrdersPage.jsx`, `kenhBanHangService.js`, `audit.md` | Gỡ bỏ hoàn toàn trang Cổng Giả Lập Shopee Simulator và toàn bộ cụm mock tự chế (ShopeeMockEngine, ShopeeMockController, entities & repositories); Tái cấu trúc luồng Shopee Sandbox kết nối 100% trực tiếp API Shopee OpenAPI v2 (tải sản phẩm, tự động ghép nối SKU theo model_sku, đẩy tồn batch theo Item ID/Model ID thật, đồng bộ đơn hàng thật từ sàn); Tests BE 71/71 PASS, FE build & i18n 712 files PASS 100%. |
 | **AUDIT-074** | `2026-11-14 16:48:00` | PhanAnh & Antigravity AI | Feat & Architecture / Standardize 3 Shopee Sandbox Flows & Resolve Wrong Sign Root Cause | `KenhBanHangController.java`, `noiDungSan.js`, `OAuthCallbackPage.jsx`, `tinhDonBan.js`, `kenh-ban.json`, `audit.md` | Chuẩn hóa toàn diện 3 phân hệ nghiệp vụ Shopee Sandbox (Cài đặt/Ủy quyền, Quản lý & Đồng bộ SP tồn kho, Danh sách & Xử lý đơn hàng); Hợp nhất xử lý hoàn tất OAuth cho mọi mã kênh Shopee; Cập nhật văn phong & i18n chuẩn OpenAPI v2; Phân tích và chỉ rõ nguyên nhân lỗi Wrong sign do sao chép nhầm chuỗi masked shpk... khi chưa bấm mở mắt trên Shopee Console; Tests BE 111/111 PASS, FE build & i18n 712 files PASS 100%. |
 | **AUDIT-075** | `2026-11-14 17:08:00` | PhanAnh & Antigravity AI | Fix & Compiler / Resolve Maven Compilation Failure on mockEngine and soLoi Variable Scope | `ShopeeClient.java`, `KenhBanHangDongBoServiceImpl.java`, `audit.md` | Sửa dứt điểm 2 lỗi biên dịch Maven (`cannot find symbol variable mockEngine` tại ShopeeClient.java:370 và `cannot find symbol variable soLoi` tại KenhBanHangDongBoServiceImpl.java:6807); Di chuyển khai báo soLoi lên trước vòng lặp phân loại Item ID; Xóa bỏ tham chiếu mockEngine còn sót; Maven compile 863 files thành công 100%, 111/111 tests PASS. |
+| **AUDIT-076** | `2026-11-14 17:35:00` | PhanAnh & Antigravity AI | Fix & Architecture / Resolve 403 Invalid Access Token on Shopee Sandbox & Shop ID Mapping Isolation | `KenhBanHang.java`, `KenhBanHangServiceImpl.java`, `KenhBanHangDongBoServiceImpl.java`, `KenhBanHangController.java`, `kenhBanHangService.js`, `kenhSanMock.js`, `audit.md` | Khắc phục triệt để lỗi 403 Forbidden invalid_access_token trên Shopee Sandbox; Bóc tách độc lập Shop ID và Partner ID; Lưu trữ Shop ID vào shop_cipher an toàn; Tự động trích xuất shop_id từ OAuth response và query parameters; Chặn 100% API calls khi chưa có Shop ID hợp lệ; Tests BE 111/111 PASS, FE i18n 712 files PASS 100%. |
 
 
 ---
@@ -2402,6 +2403,55 @@
 #### 3. KẾT QUẢ KIỂM THỬ ĐỐI SOÁT
 - **Maven Compile**: `.\mvnw.cmd compile` biên dịch thành công toàn bộ 863 files nguồn với `BUILD SUCCESS` 100%.
 - **Maven Tests**: `111/111 tests PASS 100%` (`KenhBanHangDongBoServiceTest` 60/60, `OmnichannelOrderSyncJobTest` 11/11, `KenhBanHangServiceTest` 40/40).
+
+---
+
+### [AUDIT-076] KHẮC PHỤC TRIỆT ĐỂ LỖI 403 INVALID_ACCESS_TOKEN SHOPEE SANDBOX DO LẪN LỘN PARTNER ID VÀ SHOP ID
+- **Thời gian (GMT+7)**: 2026-11-14 17:35:00
+- **Tác giả thực hiện**: PhanAnh & Antigravity AI
+- **Phân hệ ảnh hưởng**: Omnichannel Shopee Sandbox & Production (`KenhBanHang.java`, `KenhBanHangServiceImpl.java`, `KenhBanHangDongBoServiceImpl.java`, `KenhBanHangController.java`, `kenhBanHangService.js`, `kenhSanMock.js`).
+- **Tệp thay đổi**:
+  - `backend/src/main/java/com/dev/backend/entities/KenhBanHang.java`
+  - `backend/src/main/java/com/dev/backend/services/impl/entities/KenhBanHangServiceImpl.java`
+  - `backend/src/main/java/com/dev/backend/services/impl/entities/KenhBanHangDongBoServiceImpl.java`
+  - `backend/src/main/java/com/dev/backend/controller/KenhBanHangController.java`
+  - `frontend/src/services/kenhBanHangService.js`
+  - `frontend/src/mocks/kenhSanMock.js`
+  - `audit.md`
+
+#### 1. MỤC TIÊU & PHÂN TÍCH NGUYÊN NHÂN GỐC RỄ (ROOT CAUSE ANALYSIS)
+1. **Hiện tượng lỗi**:
+   - Khi chạy luồng đồng bộ sản phẩm trên Shopee Sandbox, terminal xuất hiện cảnh báo lỗi HTTP 403 Forbidden:
+     `WARN c.d.b.services.shopee.ShopeeClient : [SHOPEE-CLIENT-GET] Lỗi khi gửi GET https://openplatform.sandbox.test-stable.shopee.sg/api/v2/product/get_item_list?partner_id=1253449&timestamp=...&access_token=544c6978...&shop_id=1253449&sign=...: 403 Forbidden on GET request for "https://openplatform.sandbox.test-stable.shopee.sg/api/v2/product/get_item_list": {"error":"invalid_access_token","message":"Invalid access_token, please have a check.","request_id":"c3e3c7f30039cbf5fca421b557610c00"}`
+2. **Phân tích nguyên nhân gốc rễ**:
+   - Nhìn vào URL yêu cầu: `partner_id=1253449` và `shop_id=1253449`. `1253449` là **Partner ID** (App Key của nhà phát triển), **hoàn toàn không phải là Shop ID** định danh gian hàng của người bán (ví dụ test shop account `sandbox.3e4878b469e...` trong Shopee Console có Shop ID riêng biệt).
+   - Trong `KenhBanHang.java`, phương thức `setShopDomain` và `getShopDomain` trước đây gán/đọc từ `this.apiUrl`. Sau đó khi lưu cấu hình, `kenh.setApiUrl("https://openplatform...")` đã ghi đè làm mất giá trị `shop_id`.
+   - Trong `KenhBanHangServiceImpl.java`, phương thức `getShopeeShopId(maKenh)` khi `Long.parseLong(kenh.getShopDomain())` gặp chuỗi URL đã ném ngoại lệ và rơi vào khối fallback sai lầm:
+     `if (kenh.getClientId() != null) return Long.parseLong(kenh.getClientId());` -> Trả về `1253449` (Partner ID)!
+   - Khi gửi `get_item_list` với `shop_id = 1253449`, Shopee Open Platform Gateway kiểm tra thấy `access_token` được cấp cho gian hàng người bán chứ không thuộc về `shop_id=1253449`, nên trả về `403 Forbidden: invalid_access_token`.
+   - Ngoài ra, ở phía Frontend `kenhBanHangService.js:hoanTatUyQuyen`, tham số `shopId` truyền từ `OAuthCallbackPage.jsx` (`searchParams.get("shop_id")`) bị bỏ sót không gửi lên API Backend `/uy-quyen/hoan-tat`.
+
+#### 2. GIẢI PHÁP KỸ THUẬT TRIỂN KHAI
+1. **`KenhBanHang.java`**:
+   - Điều chỉnh `getShopDomain()` và `setShopDomain()` cho các kênh Shopee: Sử dụng cột `shop_cipher` (VARCHAR 255) chuyên biệt để lưu `shop_id` dạng chuỗi số, không ghi đè vào `this.apiUrl` (nơi lưu Gateway URL).
+2. **`KenhBanHangServiceImpl.java`**:
+   - `getShopeeShopId`: Ưu tiên đọc `shopCipher` (nếu là số), sau đó đọc `shopDomain` (nếu là số). **Loại bỏ hoàn toàn fallback về `clientId` (partner_id)**.
+   - `getShopeeConfig` & `getKetNoi`: Đọc `numericShopId` chính xác từ `shopCipher`, loại bỏ việc để lộ URL hay partner_id sang `shopIdSan`.
+   - `updateShopeeConfig`: Lưu `shopId` từ request vào cả `shopCipher` và `shopDomain`.
+   - `exchangeShopeeToken`: Tự động trích xuất `shop_id` từ phản hồi của sàn Shopee (`tokenRes.path("shop_id")` hoặc `tokenRes.path("shop_id_list")`) nếu query parameter chưa có, và lưu vào `shopCipher`.
+   - `xoaKhoaShopee`: Reset `shopCipher = null` khi ngắt kết nối.
+3. **`KenhBanHangDongBoServiceImpl.java`**:
+   - Bổ sung guard kiểm tra `shopId == null || shopId <= 0` trong `taiSanPhamShopee`, `tuDongLienKetShopee`, và `dayTonShopeeToiUu`. Ngăn chặn 100% các cuộc gọi API không hợp lệ tới Shopee khi kênh chưa có Shop ID định danh.
+4. **`KenhBanHangController.java`**:
+   - Chuyển tiếp `request.getShopDomain()` (nếu là số) sang `shopeeReq.setShopId()` trong API `PUT /{maKenh}/ket-noi/khoa`.
+5. **`frontend/src/services/kenhBanHangService.js` & `kenhSanMock.js`**:
+   - Bổ sung tham số `shopId` vào payload gửi lên POST `/{maKenh}/uy-quyen/hoan-tat`.
+
+#### 3. KẾT QUẢ KIỂM THỬ ĐỐI SOÁT
+- **Maven Compile**: `.\mvnw.cmd compile` biên dịch thành công 863 files nguồn với `BUILD SUCCESS` 100%.
+- **Maven Tests**: `111/111 tests PASS 100%` (`KenhBanHangDongBoServiceTest` 60/60, `OmnichannelOrderSyncJobTest` 11/11, `KenhBanHangServiceTest` 40/40).
+- **Frontend i18n**: `npm run i18n:kiem` kiểm tra 712 files: 0 lỗi chưa bọc, 0 thiếu bản dịch, 0 lệch.
+
 
 
 
