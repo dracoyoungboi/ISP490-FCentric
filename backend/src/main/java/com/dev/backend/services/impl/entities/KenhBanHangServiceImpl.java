@@ -2447,6 +2447,33 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                 return Long.parseLong(kenh.getShopDomain().trim());
             } catch (Exception ignored) {}
         }
+        // 3. Tự động truy vấn danh sách gian hàng đã ủy quyền từ Shopee Open Platform (/api/v2/public/get_shops_by_partner)
+        Long partnerId = getShopeePartnerId(ma);
+        String partnerKey = getDecryptedShopeePartnerKey(ma);
+        if (partnerId != null && partnerId > 0 && partnerKey != null && !partnerKey.isBlank()) {
+            try {
+                boolean isSandbox = MA_KENH_SHOPEE_SANDBOX.equals(ma);
+                com.dev.backend.services.shopee.ShopeeClient client = new com.dev.backend.services.shopee.ShopeeClient(
+                        partnerId, partnerKey, 0L, "", isSandbox
+                );
+                com.fasterxml.jackson.databind.JsonNode res = client.getShopsByPartner(1, 50);
+                if (res != null && res.path("error").asText("").isEmpty()) {
+                    com.fasterxml.jackson.databind.JsonNode shopList = res.path("authed_shop_list");
+                    if (shopList.isArray() && !shopList.isEmpty()) {
+                        long authedShopId = shopList.get(0).path("shop_id").asLong(0);
+                        if (authedShopId > 0) {
+                            log.info("[SHOPEE] Tự động phát hiện Shop ID {} từ đối tác Shopee cho kênh {}", authedShopId, ma);
+                            kenh.setShopCipher(String.valueOf(authedShopId));
+                            kenh.setShopDomain(String.valueOf(authedShopId));
+                            kenhBanHangRepository.save(kenh);
+                            return authedShopId;
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("[SHOPEE] Không thể tự động tra cứu Shop ID từ Shopee: {}", e.getMessage());
+            }
+        }
         // TUYỆT ĐỐI KHÔNG fallback về clientId (partner_id) vì partner_id không phải là shop_id của người bán!
         return null;
     }
