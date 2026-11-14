@@ -1573,6 +1573,12 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         } else if (OmnichannelOrderSyncJob.isShopee(maKenh)) {
             String orderSn = don.getMaDonHangKenh();
             if (orderSn == null || orderSn.isBlank()) {
+                orderSn = don.getSoDonHang();
+            }
+            if (orderSn != null && orderSn.startsWith("SHP-")) {
+                orderSn = orderSn.substring(4).trim();
+            }
+            if (orderSn == null || orderSn.isBlank()) {
                 throw new CommonException(ThongDiep.of("banHang.donChuaCoMaShopee"), HttpStatus.BAD_REQUEST, null);
             }
             try {
