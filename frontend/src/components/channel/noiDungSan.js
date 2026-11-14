@@ -75,18 +75,19 @@ const NOI_DUNG = {
   SHOPEE_SANDBOX: {
     nhanIdSan: "Shop ID (Sandbox)",
     khachMacDinh: "Khách Shopee Sandbox", // i18n-giu-nguyen: tên khách hàng mặc định đã lưu trong DB
-    goiYAppKey: t("Môi trường giả lập Sandbox nội bộ: Không cần tài khoản Shopee thật."),
+    goiYAppKey: t("Partner ID ứng dụng đối tác trên Shopee Open Platform Console."),
     coServiceId: false,
     moTaUyQuyen:
-      t("Môi trường Sandbox nội bộ cho phép kích hoạt và thử nghiệm 1-chạm mà không cần tài khoản đối tác Shopee đã phê duyệt. Bấm Kết nối để sẵn sàng sinh đơn và đồng bộ."),
-    hanUyQuyen: t("Môi trường thử nghiệm Sandbox nội bộ có hiệu lực vĩnh viễn (365 ngày tự gia hạn)."),
+      t("Bấm Ủy quyền, Shopee mở trang đăng nhập Shopee Partner và hỏi bạn có cho FCentric đọc sản phẩm, đơn hàng và cập nhật tồn không. Đồng ý xong Shopee đưa bạn quay lại đây."),
+    hanUyQuyen:
+      t("Hạn ủy quyền Shopee Sandbox là 365 ngày (hệ thống tự động làm mới mã truy cập mỗi 4 giờ bằng mã làm mới)."),
     khoSan: {
       nhan: t("Kho trên Shopee Sandbox"),
-      moTa: t("Môi trường thử nghiệm: Đơn Shopee Sandbox mặc định xuất từ Kho Tổng FCentric."),
-      chiDoc: t("Kho Tổng (Sandbox)"),
+      moTa: t("Gian hàng một kho: Shopee nhận số vào kho mặc định, không cần chọn."),
+      chiDoc: t("Kho mặc định"),
     },
-    ghiChuTon: t("Đẩy tồn giả lập an toàn 100%, bảo toàn dữ liệu thực tế của hệ thống."),
-    ghiChuDon: t("Hỗ trợ sinh đơn mẫu tức thì với SKU có thật trong kho để kiểm thử toàn diện quy trình nhặt, đóng gói, xuất kho và in vận đơn SPX nhiệt A6."),
+    ghiChuTon: t("Cập nhật tồn kho trực tiếp qua Shopee Open Platform API v2 (/api/v2/product/update_stock)."),
+    ghiChuDon: t("Đồng bộ đơn hàng tự động qua Shopee Open Platform API v2 (/api/v2/order/get_order_list)."),
   },
   TIKTOK: {
     nhanIdSan: "Shop ID",

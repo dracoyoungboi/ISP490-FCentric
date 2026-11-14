@@ -690,6 +690,7 @@
   "Môi trường Sandbox nội bộ cho phép kích hoạt và thử nghiệm 1-chạm mà không cần tài khoản đối tác Shopee đã phê duyệt. Bấm Kết nối để sẵn sàng sinh đơn và đồng bộ.": "The internal Sandbox allows one-tap activation and testing without an approved Shopee partner account. Click Connect to get ready to generate orders and sync.",
   "Môi trường thử nghiệm Sandbox nội bộ có hiệu lực vĩnh viễn (365 ngày tự gia hạn).": "The internal Sandbox test environment never expires (renews every 365 days automatically).",
   "Kho trên Shopee Sandbox": "Shopee Sandbox warehouse",
+  "Hạn ủy quyền Shopee Sandbox là 365 ngày (hệ thống tự động làm mới mã truy cập mỗi 4 giờ bằng mã làm mới).": "Shopee Sandbox authorization expires in 365 days (the system automatically refreshes the access token every 4 hours using the refresh token).",
   "Môi trường thử nghiệm: Đơn Shopee Sandbox mặc định xuất từ Kho Tổng FCentric.": "Test environment: Shopee Sandbox orders are issued from the FCentric central warehouse by default.",
   "Kho Tổng (Sandbox)": "Central warehouse (Sandbox)",
   "Đẩy tồn giả lập an toàn 100%, bảo toàn dữ liệu thực tế của hệ thống.": "Simulated stock pushes are 100% safe and keep the system's real data intact.",
