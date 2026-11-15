@@ -1522,7 +1522,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                                 return bt.getMaSku() + ":" + (t != null && t.getTenLuuTru() != null ? t.getTenLuuTru() : "none");
                             })
                             .collect(Collectors.joining(","));
-                    CACHED_TIKTOK_PRODUCT_SIGNATURES.put(prodId, title.trim() + "||" + mainImagesSig + "||" + variantImagesSig);
+                    CACHED_TIKTOK_PRODUCT_SIGNATURES.put(prodId, title.trim() + "||" + v2CategoryId + "||" + mainImagesSig + "||" + variantImagesSig);
                 }
                 if (res.getData().getSkus() != null) {
                     for (TikTokProductCreateResponse.CreatedSku cSku : res.getData().getSkus()) {
@@ -1676,10 +1676,11 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 })
                 .collect(Collectors.joining(","));
 
-        String productSignature = title.trim() + "||" + mainImagesSig + "||" + variantImagesSig;
+        String v2CategoryId = xacDinhTikTokV2CategoryId(appKey, appSecret, token, cipher, title, desc, sp);
+        String productSignature = title.trim() + "||" + v2CategoryId + "||" + mainImagesSig + "||" + variantImagesSig;
         String lastSignature = CACHED_TIKTOK_PRODUCT_SIGNATURES.get(prodId);
         if (lastSignature != null && lastSignature.equals(productSignature)) {
-            log.info("[TIKTOK-UPDATE] Sản phẩm [{}] (ID: {}) không có thay đổi về tiêu đề và hình ảnh. Bỏ qua gọi API PUT để tránh kích hoạt kiểm duyệt sàn và bảo vệ Quota.",
+            log.info("[TIKTOK-UPDATE] Sản phẩm [{}] (ID: {}) không có thay đổi về tiêu đề, danh mục và hình ảnh. Bỏ qua gọi API PUT để tránh kích hoạt kiểm duyệt sàn và bảo vệ Quota.",
                     title, prodId);
             return false;
         }
@@ -1789,7 +1790,6 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             return false;
         }
 
-        String v2CategoryId = xacDinhTikTokV2CategoryId(appKey, appSecret, token, cipher, title, desc, sp);
         List<TikTokProductCreateRequest.ProductAttribute> productAttributes =
                 chuanBiProductAttributesTikTok(appKey, appSecret, token, cipher, v2CategoryId, sp);
         TikTokProductCreateRequest.SizeChart sizeChart =
@@ -1873,7 +1873,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         // 1. Thử gợi ý danh mục V2 bằng AI của TikTok Shop
         try {
             String aiCategoryId = getTikTokShopClient().recommendCategoryV2(appKey, appSecret, token, cipher, title, desc);
-            if (aiCategoryId != null && !aiCategoryId.isBlank()) {
+            if (aiCategoryId != null && !aiCategoryId.isBlank()
+                    && com.dev.backend.services.tiktok.TikTokShopClient.isPhuHopThoiTrangNamVaUnisex(aiCategoryId, null)) {
                 log.info("[TIKTOK-CAT-V2] AI gợi ý thành công Leaf Category ID [{}] cho sản phẩm [{}]", aiCategoryId, title);
                 return aiCategoryId;
             }
@@ -1917,9 +1918,18 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         if (combined.contains("sơ mi") || combined.contains("so mi") || combined.contains("shirt")) {
             return "1203984"; // Men's Clothing > Tops > Shirts
         }
-        // 2.8 Quần áo thể thao / Sportswear
+        // 2.8 Quần áo thể thao / Sportswear (TUYỆT ĐỐI KHÔNG DÙNG 603729 - Áo ngực thể thao!)
         if (combined.contains("thể thao") || combined.contains("sportware") || combined.contains("sportswear")) {
-            return "603729"; // Men's Clothing > Sportswear
+            if (combined.contains("quần") || combined.contains("pant") || combined.contains("short") || combined.contains("đùi")) {
+                return "603715"; // Men's Clothing > Bottoms > Shorts
+            }
+            if (combined.contains("khoác") || combined.contains("jacket") || combined.contains("gió")) {
+                return "603706"; // Men's Clothing > Outerwear & Jackets > Jackets & Coats
+            }
+            if (combined.contains("polo")) {
+                return "960776"; // Men's Clothing > Tops > Polo Shirts
+            }
+            return "603720"; // Men's Clothing > Tops > T-Shirts (Áo thun / Áo phông thể thao nam)
         }
         // 2.9 Áo thun / Áo phông / T-shirt
         if (combined.contains("thun") || combined.contains("t-shirt") || combined.contains("tee") || combined.contains("phông")) {
