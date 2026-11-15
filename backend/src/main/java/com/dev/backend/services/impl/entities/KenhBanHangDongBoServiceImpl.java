@@ -6969,6 +6969,37 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         taiDanhSachDanhMucShopee(client, client != null && client.isSandbox());
     }
 
+    private Long timFallbackCategoryIdShopee(com.dev.backend.services.shopee.ShopeeClient client, boolean isSandbox) {
+        if (isSandbox) {
+            return 106705L; // Leaf category an toàn tuyệt đối cho Shopee Sandbox (Áo Polo)
+        }
+        // Cho Shopee Official / Production:
+        List<ShopeeCategoryLeaf> leafList = SHOPEE_LEAF_CATEGORIES_BY_ENV.get(false);
+        if (leafList == null || leafList.isEmpty()) {
+            taiDanhSachDanhMucShopee(client, false);
+            leafList = SHOPEE_LEAF_CATEGORIES_BY_ENV.get(false);
+        }
+        if (leafList != null && !leafList.isEmpty()) {
+            for (ShopeeCategoryLeaf cat : leafList) {
+                if (cat.matches("polo") || cat.matches("có cổ")) {
+                    return cat.id();
+                }
+            }
+            for (ShopeeCategoryLeaf cat : leafList) {
+                if (cat.matches("áo") || cat.matches("shirt") || cat.matches("top") || cat.matches("thun")) {
+                    return cat.id();
+                }
+            }
+            for (ShopeeCategoryLeaf cat : leafList) {
+                if (cat.matches("thời trang") || cat.matches("quần") || cat.matches("nam") || cat.matches("fashion")) {
+                    return cat.id();
+                }
+            }
+            return leafList.get(0).id();
+        }
+        return 11035592L; // Fallback chuẩn ngành thời trang nam Shopee VN (Thời Trang Nam > Áo > Áo polo)
+    }
+
     private Long timCategoryIdShopee(SanPhamQuanAo sp, com.dev.backend.services.shopee.ShopeeClient client, boolean isSandbox) {
         if (client != null) {
             taiDanhSachDanhMucShopee(client, isSandbox);
@@ -7042,7 +7073,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 }
             }
         }
-        return 106705L; // Fallback an toàn tuyệt đối: Áo Polo (106705L là leaf category hợp lệ trên Shopee Sandbox)
+        return timFallbackCategoryIdShopee(client, isSandbox);
     }
 
     private Long timCategoryIdShopee(SanPhamQuanAo sp, com.dev.backend.services.shopee.ShopeeClient client) {
