@@ -92,8 +92,8 @@ Mọi kênh bán (Shopify, Lazada, Shopee, TikTok Shop) khi quét đơn về ph�
    - Theo quy định API v202309 cho khu vực Đông Nam Á (Việt Nam) và All-Region, tham số `category_version` BẮT BUỘC có giá trị `"v2"` và phải hiện diện ở CẢ HAI NƠI: **Query Parameter trên URL** (`POST /product/202309/products?category_version=v2`) và **Request Body JSON** (`"category_version": "v2"`). Thiếu query param sẽ gây lỗi `code=12052217: Invalid Parameter. Parameter category_version is invalid because all-region shops must use V2 categories.`
    - `category_id` BẮT BUỘC là mã danh mục lá (`is_leaf: true`) của cây V2 7 tầng. **TUYỆT ĐỐI KHÔNG** dùng mã giả định cũ `601234` hoặc ép danh mục Quần về từ khóa "áo".
    - **Quy trình xác định danh mục V2**:
-     - Bước 1: Ưu tiên AI Recommendation (`POST /product/202309/categories/recommend?category_version=v2`). Nếu trả về danh mục lá hợp lệ có quyền bán (`AVAILABLE`), sử dụng ngay.
-     - Bước 2: Khi AI không khả dụng hoặc chưa cấp quyền, tự động ánh xạ sang bảng danh mục lá V2 chuẩn thời trang nam TikTok Shop theo từ khóa:
+     - Bước 1: Ưu tiên AI Recommendation (`POST /product/202309/categories/recommend?category_version=v2`). BẮT BUỘC lọc qua `isPhuHopThoiTrangNamVaUnisex` để loại bỏ triệt để mã `603729` (Áo ngực thể thao) và các danh mục nhạy cảm/nội y/đồ lót/váy đầm nữ mà AI nhận nhầm từ từ khóa "sportware" hay "áo". Nếu trả về danh mục lá hợp lệ có quyền bán (`AVAILABLE`) và phù hợp thời trang nam, sử dụng ngay.
+     - Bước 2: Khi AI không khả dụng, chưa cấp quyền hoặc bị bộ lọc an toàn loại bỏ, tự động ánh xạ sang bảng danh mục lá V2 chuẩn thời trang nam TikTok Shop theo từ khóa:
        - Áo Polo nam: `960776`
        - Áo thun nam: `603720`
        - Áo sơ mi nam: `1203984`
@@ -102,8 +102,9 @@ Mọi kênh bán (Shopify, Lazada, Shopee, TikTok Shop) khi quét đơn về ph�
        - Quần jeans nam: `603713`
        - Quần short nam: `603715`
        - Quần dài / Kaki / Casual nam: `603716`
-       - Đồ thể thao: `603729`
+       - Đồ thể thao nam: Phân loại theo dáng áo/quần (Quần -> `603715`/`603716`, Áo khoác -> `603706`, Polo -> `960776`, Mặc định/Áo thun -> `603720`). **TUYỆT ĐỐI CẤM DÙNG `603729` (Áo ngực thể thao)**.
      - Bước 3: Fallback phân nhánh an toàn: Quần về `603713`, Áo về `960776`.
+     - **Cập nhật danh mục tự động qua Product Signature**: Bắt buộc gắn `v2CategoryId` vào `productSignature` (`title + "||" + v2CategoryId + "||" + mainImagesSig + "||" + variantImagesSig`) để khi sửa danh mục, hệ thống nhận diện thay đổi và tự động gọi `PUT /product/202309/products/{id}` (`editProduct`) đồng bộ danh mục mới lên TikTok Shop mà không bị chặn bởi Delta Sync cache.
 7. **Thuộc tính sản phẩm bắt buộc (Product Attributes & Quốc gia xuất xứ ID 100149)**:
    - Với các danh mục lá ngành thời trang và may mặc, TikTok Shop bắt buộc khai báo danh sách `product_attributes` trong payload tạo sản phẩm.
    - **Tên trường định danh thuộc tính BẮT BUỘC là `id`** (tuyệt đối không đặt tên `attribute_id` để tránh lỗi HTTP 400 mã `36009004: Id of ProductAttributes[0] is a required field and has not been provided`). Cấu trúc chuẩn: `[{"id": "100149", "values": [{"id": "1000854", "name": "Việt Nam"}]}]`.
