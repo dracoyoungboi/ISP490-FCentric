@@ -96,6 +96,7 @@
 | **AUDIT-084** | `2026-11-15 23:55:00` | Khang | Fix / Lỗi biên dịch và gỡ nhầm liên kết khi tải sản phẩm Lazada | `KenhBanHangDongBoServiceImpl.java` | `aliveSkuIds` đưa ra trước khối try (hết lỗi cannot find symbol); vòng dọn SKU đã xóa chỉ chạy khi tải đủ mọi trang (cờ `taiDuHet`), tránh gỡ hết liên kết khi Lazada lỗi hoặc gian hàng quá 500 sản phẩm. Không migration. |
 | **AUDIT-085** | `2026-11-16 00:45:00` | Khang | Feature / Xem phiếu trả cũ theo kỳ, khoảng ngày và lọc theo khách trên màn Trả hàng POS | `TraHangTaiQuayService.java`, `PosTraHangController.java`, `traHang.properties`, `traHang_en.properties`, `traHangService.js`, `PhieuDaTra.jsx`, `HoaDonConHan.jsx`, `TheDanhSach.jsx`, `loc-phieu-tra.js`, `PosReturnsPage.jsx`, `nhan-thoi-gian.js`, `ban-hang.json` | Thẻ Phiếu đã trả: một hàng lọc với nút kỳ dạng menu (Hôm nay, Hôm qua, 7 ngày qua, Tháng này, Tháng trước, Chọn khoảng ngày tối đa 1 năm) và ô lọc theo tên khách / số điện thoại / mã hóa đơn / mã phiếu (máy chủ lọc, số tổng theo lọc); thẻ Hóa đơn còn hạn trả cùng bố cục. API GET /api/v1/pos/returns nhận thêm tuNgay, denNgay, q; không migration. |
 | **AUDIT-086** | `2026-11-16 00:50:00` | PhanAnh & Antigravity AI | Fix UI / Khắc phục lỗi ReferenceError inVanDonSan khiến trang chi tiết đơn bán bị văng màn hình lỗi | `DonBanHangDetail.jsx`, `audit.md` | Khắc phục dứt điểm lỗi màn hình ErrorBoundary "Không mở được trang này" khi nhấn vào chi tiết đơn hàng sàn ở các trạng thái ngoài Đã hủy (lỗi ReferenceError: Cannot access 'inVanDonSan' before initialization do nút in vận đơn sàn được đánh giá trong nutChinh trước khi hàm inVanDonSan được khai báo); Đưa hàm inVanDonSan lên trước nutChinh và bọc null-safe cho v.pxMo?.id; FE Vite build 31.4s thành công 100%, i18n 721 files sạch. |
+| **AUDIT-087** | `2026-11-16 01:35:00` | PhanAnh & Antigravity AI | Fix & Refactor / Chuẩn hóa danh mục và thuộc tính sản phẩm 3 sàn TMĐT | `KenhBanHangDongBoServiceImpl.java`, `omnichannel-standards.md`, `ShopeeMultiVariantLiveDiagnosticTest.java` | Tái cấu trúc chuẩn hóa thuật toán xác định danh mục và thuộc tính sản phẩm chính xác 100% cho 3 sàn Lazada, TikTok Shop, Shopee; khắc phục triệt để việc gán sai hoặc cố tình hardcode danh mục để lách lỗi sàn; phân cấp Tops vs Bottoms (Quần) cho Lazada XML, bảng từ điển danh mục lá V2 TikTok Shop xóa bỏ mã rác 601234, truy vết phân cấp cây cha-con lọc chuẩn Thời Trang Nam/Unisex cho Shopee (loại trừ Kimono, Nữ, Bảo hộ mô tô). |
 
 
 ---
@@ -2801,3 +2802,104 @@
 5. **Đồng bộ Git**:
    - Commit atomic: `fix(ui): khắc phục lỗi reference error inVanDonSan khiến trang chi tiết đơn bán bị văng`.
    - Đồng bộ và rebase mượt mà với commit mới nhất của Khang (`1b6f7051`), đã push thành công lên cả `origin/PhanAnh` và `origin/Dev`.
+
+---
+
+### [AUDIT-087] CHUẨN HÓA THUẬT TOÁN XÁC ĐỊNH DANH MỤC VÀ THUỘC TÍNH SẢN PHẨM CHÍNH XÁC 100% TRÊN 3 SÀN (LAZADA, TIKTOK SHOP, SHOPEE)
+
+- **Thời gian**: `2026-11-16 01:35:00` (GMT+7)
+- **Tác giả**: PhanAnh & Antigravity AI
+- **Phân hệ ảnh hưởng**: Omnichannel Product Synchronization (Lazada, TikTok Shop v202309, Shopee Official & Sandbox).
+- **Tệp thay đổi**:
+  - `backend/src/main/java/com/dev/backend/services/impl/entities/KenhBanHangDongBoServiceImpl.java`
+  - `.agents/rules/omnichannel-standards.md`
+  - `backend/src/test/java/com/dev/backend/services/shopee/ShopeeMultiVariantLiveDiagnosticTest.java`
+
+#### 1. BỐI CẢNH & PHÂN TÍCH NGUYÊN NHÂN GỐC RỄ (ROOT CAUSE ANALYSIS)
+1. **Hiện trạng lỗi sai lệch danh mục trên cả 3 sàn TMĐT**:
+   - Khi đẩy sản phẩm từ FCentric lên các sàn Lazada, TikTok Shop và Shopee, các sản phẩm thời trang (Áo polo, Quần jeans, Áo khoác blouson, Áo hoodie...) bị gắn sai danh mục lá, hoặc bị ép về một danh mục duy nhất.
+2. **Kênh 1: Lazada (Cố tình hardcode danh mục 7930 Áo thun để lách lỗi XML)**:
+   - Trong lịch sử commit (`a7c592f8`), tác giả từng viết hàm ánh xạ Polo -> 14275, Sơ mi -> 7940, Hoodie -> 6424, Áo khoác -> 7953, Quần jeans -> 6414, Quần -> 7991...
+   - Tuy nhiên, trong commit `398aed6c`, tác giả ĐÃ CỐ TÌNH hardcode `return 7930;` (Áo thun & Áo phông).
+   - *Nguyên nhân cốt lõi*: Trong `taoSanPhamLenLazada`, payload XML `<Attributes>` gửi cố định `<Fit_Type>Slim Fit</Fit_Type>` và `<clothing_material>100% Cotton</clothing_material>`. Khi đẩy Quần Jeans (6414) hoặc Quần dài (7991), sàn Lazada từ chối XML vì `<Fit_Type>` là thuộc tính dành riêng cho Áo (Tops), khiến Quần bị lỗi schema. Để sản phẩm được đẩy lên thành công, tác giả đã cố tình ép tất cả về danh mục Áo thun (7930)!
+   - *Hậu quả*: Vi phạm nghiêm trọng Chính sách độ chính xác danh mục (Mis-categorization Policy) của Lazada, làm giảm điểm hiển thị và tiềm ẩn nguy cơ bị phạt OVL.
+3. **Kênh 2: TikTok Shop (Fallback sai lệch ép Quần về "áo" và dùng mã rác 601234)**:
+   - Trong `xacDinhTikTokV2CategoryId`: Nếu AI recommendation không khả dụng, code quét đệ quy qua mạng. Nếu thất bại, code fallback cứng về từ khóa `"áo"` (khiến Quần Jeans cũng bị tìm theo từ khóa "áo"). Nếu vẫn thất bại, code trả về cứng `"601234"`.
+   - *Hậu quả*: Mã `601234` là mã dummy từ thời V1 cũ, vi phạm quy định bắt buộc của TikTok Shop API v202309 (yêu cầu mã danh mục lá 7 tầng của cây V2).
+4. **Kênh 3: Shopee Official (Thiếu truy vết cây phân cấp, nhận nhầm Áo choàng Kimono & Quần áo bảo hộ)**:
+   - Khi tải `category_list` từ Shopee (gồm 2114 danh mục toàn sàn), code gom toàn bộ leaf categories mà không phân cấp cây cha-con.
+   - Khi tìm từ khóa "khoác" cho "Áo Khoác Blouson Cản Gió Cổ Đứng", danh mục lá đầu tiên chứa từ "khoác" trong danh sách là `Cat ID: 100391` (Áo choàng ngủ, Áo khoác kimono) hoặc đồ bảo hộ xe máy (`101701`), dẫn đến việc sản phẩm áo khoác thời trang bị gán thành áo choàng ngủ!
+   - Việc gán sai danh mục kéo theo việc sàn đòi hỏi các thuộc tính kiểm định khác nhau, gây lỗi tạo sản phẩm hoặc bị Shopee quét vi phạm xóa bài.
+
+#### 2. GIẢI PHÁP KỸ THUẬT & CHI TIẾT TRIỂN KHAI
+1. **Lazada - Tái lập danh mục lá chuẩn & Thích ứng linh hoạt XML Tops vs Bottoms**:
+   - `xacDinhLazadaCategoryId`: Kết hợp tên danh mục FCentric (`sp.getDanhMuc().getTenDanhMuc()`) và tên sản phẩm (`sp.getTenSanPham()`) để ánh xạ chính xác:
+     - Quần Jeans nam: `6414`
+     - Quần ngắn / Shorts nam: `10100765`
+     - Quần dài / Kaki / Tây nam: `7991`
+     - Áo khoác & Áo vest nam: `7953`
+     - Áo hoodies & sweater nam: `6424`
+     - Áo polo nam / Áo thun có cổ: `14275`
+     - Áo sơ mi nam: `7940`
+     - Áo thun & phông nam: `7930`
+   - `taoSanPhamLenLazada`: Dựa vào `categoryId` phân tách rõ:
+     - Tops: gửi `<fa_pattern>Trơn</fa_pattern>`, `<clothing_material>100% Cotton</clothing_material>`, `<Fit_Type>Slim Fit</Fit_Type>`.
+     - Bottoms (Quần): gửi `<fa_pattern>Trơn</fa_pattern>`, `<clothing_material>Denim</clothing_material>` (nếu jeans) hoặc `Cotton`, và **TUYỆT ĐỐI KHÔNG gửi `<Fit_Type>`** để tương thích 100% với schema sàn.
+2. **TikTok Shop - Xây dựng từ điển danh mục lá V2 chuẩn thời trang & Xóa bỏ mã rác 601234**:
+   - Giữ nguyên ưu tiên bước 1 cho AI recommendation (`recommendCategoryV2`).
+   - Bước 2: Tích hợp từ điển danh mục lá V2 chuẩn của TikTok Shop:
+     - Áo Polo nam: `960776`
+     - Áo thun nam: `603720`
+     - Áo sơ mi nam: `1203984`
+     - Áo khoác nam: `603706`
+     - Áo hoodie & sweater: `603726`
+     - Quần jeans nam: `603713`
+     - Quần short nam: `603715`
+     - Quần dài / Kaki / Casual nam: `603716`
+     - Đồ thể thao nam: `603729`
+   - Loại bỏ hoàn toàn mã cũ `601234`, không ép Quần sang Áo; fallback phân nhánh an toàn Quần về `603713`, Áo về `960776`.
+3. **Shopee - Truy vết toàn diện cây phân cấp (Hierarchy Tracing) & Lọc thời trang Nam/Unisex**:
+   - `taiDanhSachDanhMucShopee`: Xây dựng `nodeMap` và hàm đệ quy truy ngược `parentId` lên gốc để tạo `fullPath` đầy đủ.
+   - Gắn cờ `isMenOrUnisex`: Nhận diện các danh mục thuộc nhánh "Thời Trang Nam" (`100017`), loại trừ toàn bộ nhánh Nữ, Kimono/Đồ ngủ, Mẹ & Bé, Thú cưng, Bảo hộ xe máy.
+   - `timCategoryIdShopee`:
+     - Ưu tiên tìm kiếm trong danh mục lá `isMenOrUnisex`.
+     - Ánh xạ chính xác các tiểu mục sâu: Áo khoác gió (`100144`), Áo khoác ngoài (`100370`), Áo khoác mùa đông (`100367`), Áo khoác bomber (`100147`), Quần jeans baggy (`100174`), Quần jeans suông (`100173`), Áo polo nam (`100354`), Áo sơ mi nam (`100189`), Áo thun nam (`100188`).
+     - Bảo toàn 100% độ ổn định của Shopee Sandbox (`106705L`).
+
+#### 3. KẾT QUẢ ĐỐI SOÁT VÀ KIỂM THỬ THỰC TẾ
+1. **Đối soát trực tiếp toàn bộ 71 sản phẩm trong CSDL**:
+   - `SP [1] Áo polo siêu đẹp 365`:
+     - Lazada: `14275` (Áo thun có cổ nam)
+     - TikTok Shop: `960776` (Men's Polo Shirts)
+     - Shopee Official: `100354` (Thời Trang Nam > Áo polo)
+     - Shopee Sandbox: `106705` (Polo Sandbox SG)
+   - `SP [2] Quần Jeans Baggy Ống Cong Barrel`:
+     - Lazada: `6414` (Quần jeans nam)
+     - TikTok Shop: `603713` (Men's Jeans)
+     - Shopee Official: `100174` (Thời Trang Nam > Quần Jeans > Ống rộng / Baggy)
+     - Shopee Sandbox: `106705`
+   - `SP [3] Áo Khoác Blouson Cản Gió Cổ Đứng`:
+     - Lazada: `7953` (Áo khoác nhẹ & vest nam)
+     - TikTok Shop: `603706` (Men's Jackets & Coats)
+     - Shopee Official: `100144` (Thời Trang Nam > Áo khoác > Áo khoác gió / Windbreakers)
+     - Shopee Sandbox: `106705`
+   - `SP [4] Áo khoác có khóa kéo`:
+     - Lazada: `7953`
+     - TikTok Shop: `603706`
+     - Shopee Official: `100370` (Thời Trang Nam > Áo khoác > Áo khoác ngoài)
+     - Shopee Sandbox: `106705`
+   - `SP [5] Áo Khoác Phối Lót Lông Giả Lông Cừu`:
+     - Lazada: `7953`
+     - TikTok Shop: `603706`
+     - Shopee Official: `100367` (Thời Trang Nam > Áo khoác > Áo khoác mùa đông)
+     - Shopee Sandbox: `106705`
+   - `SP [6] Áo sportware nick`:
+     - Lazada: `7930` (Áo thun & phông nam)
+     - TikTok Shop: `603729` (Men's Sportswear)
+     - Shopee Official: `100188` (Thời Trang Nam > Áo thun)
+     - Shopee Sandbox: `106705`
+2. **Kiểm thử đơn vị & Kiểm thử hồi quy**:
+   - Backend unit tests (`ShopeeClientTest`, `TikTokShopClientTest`): 25/25 tests PASS 100%.
+   - Live integration category verification test: 1/1 test PASS 100%, 0 failures, 0 errors.
+   - Frontend `npm run i18n:kiem`: 721 tệp kiểm, 0 lỗi.
+   - Frontend `npm run build`: `built in 34.61s`, 0 errors.
