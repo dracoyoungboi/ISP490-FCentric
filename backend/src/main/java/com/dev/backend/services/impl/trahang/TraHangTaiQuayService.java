@@ -229,6 +229,18 @@ public class TraHangTaiQuayService {
                 p.getSoLuongDat(), p.getSoLuongLoi(), p.getTongTienHoan(), p.getGhiChu(), dong);
     }
 
+    /**
+     * Biên bản theo mã phiếu RET-YYYYMMDD-XXXX (khách cầm biên bản quay lại, quầy quét hoặc gõ mã vào ô tìm). Cùng
+     * quyền xem với {@link #phieu(Integer)}.
+     */
+    @Transactional(readOnly = true)
+    public TraHangDto.PhieuChiTiet phieuTheoMa(String ma) {
+        String soPhieu = ma == null ? "" : ma.trim().toUpperCase(Locale.ROOT);
+        PhieuTraHang p = soPhieu.isEmpty() ? null : phieuTraHangRepository.findBySoPhieu(soPhieu).orElse(null);
+        if (p == null) throw new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("traHang.phieuKhongTonTai"));
+        return phieu(p.getId());
+    }
+
     // ================= kiểm dùng chung =================
 
     /** Lúc thanh toán của hóa đơn POS: ngày giao (= lúc bán tại quầy), thiếu thì ngày đặt. */
