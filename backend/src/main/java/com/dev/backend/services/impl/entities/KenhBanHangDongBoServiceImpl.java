@@ -6976,36 +6976,69 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         List<ShopeeCategoryLeaf> leafList = SHOPEE_LEAF_CATEGORIES_BY_ENV.get(isSandbox);
         if (sp != null && leafList != null && !leafList.isEmpty()) {
             String name = (sp.getTenSanPham() != null ? sp.getTenSanPham().toLowerCase(Locale.ROOT) : "");
-            for (ShopeeCategoryLeaf cat : leafList) {
-                if (name.contains("khoác") || name.contains("jacket") || name.contains("blouson") || name.contains("bomber") || name.contains("cardigan")) {
-                    if (cat.matches("khoác") || cat.matches("jacket") || cat.matches("vest") || cat.matches("outerwear") || cat.matches("coat")) {
+
+            // 1. Áo khoác / Outerwear / Cardigan / Jacket / Hoodie / Sweater / Vest
+            if (name.contains("khoác") || name.contains("jacket") || name.contains("blouson") || name.contains("bomber")
+                    || name.contains("cardigan") || name.contains("hoodie") || name.contains("sweater") || name.contains("vest")) {
+                for (ShopeeCategoryLeaf cat : leafList) {
+                    if (cat.matches("khoác") || cat.matches("jacket") || cat.matches("vest") || cat.matches("outerwear")
+                            || cat.matches("coat") || cat.matches("hoodie") || cat.matches("sweater") || cat.matches("cardigan")) {
                         return cat.id();
                     }
                 }
-                if (name.contains("jean") || name.contains("bò") || name.contains("denim")) {
-                    if (cat.matches("jean") || cat.matches("denim") || cat.matches("bò")) {
+            }
+
+            // 2. Quần Jeans / Bò / Denim
+            if (name.contains("jean") || name.contains("bò") || name.contains("denim")) {
+                for (ShopeeCategoryLeaf cat : leafList) {
+                    if (cat.matches("jean") || cat.matches("bò") || cat.matches("denim")) {
                         return cat.id();
                     }
                 }
-                if (name.contains("quần") || name.contains("pant") || name.contains("trousers") || name.contains("short")) {
-                    if (cat.matches("quần") || cat.matches("pant") || cat.matches("trouser") || cat.matches("short")) {
+            }
+
+            // 3. Quần dài / Quần tây / Kaki / Pant / Trouser / Short / Jogger
+            if (name.contains("quần") || name.contains("pant") || name.contains("trouser") || name.contains("trousers")
+                    || name.contains("short") || name.contains("kaki") || name.contains("jogger")) {
+                for (ShopeeCategoryLeaf cat : leafList) {
+                    if (cat.matches("quần") || cat.matches("pant") || cat.matches("trouser") || cat.matches("short")
+                            || cat.matches("kaki") || cat.matches("jogger")) {
                         return cat.id();
                     }
                 }
-                if (name.contains("polo")) {
-                    if (cat.matches("polo")) {
+            }
+
+            // 4. Áo Polo / Có cổ
+            if (name.contains("polo") || name.contains("có cổ")) {
+                for (ShopeeCategoryLeaf cat : leafList) {
+                    if (cat.matches("polo") || cat.matches("có cổ")) {
                         return cat.id();
                     }
                 }
-                if (name.contains("sơ mi") || name.contains("shirt")) {
+            }
+
+            // 5. Áo sơ mi / Shirt
+            if (name.contains("sơ mi") || name.contains("shirt")) {
+                for (ShopeeCategoryLeaf cat : leafList) {
                     if (cat.matches("sơ mi") || cat.matches("shirt")) {
                         return cat.id();
                     }
                 }
-                if (name.contains("thun") || name.contains("t-shirt") || name.contains("tee")) {
+            }
+
+            // 6. Áo thun / Áo phông / T-shirt / Tee
+            if (name.contains("thun") || name.contains("t-shirt") || name.contains("tee") || name.contains("phông")) {
+                for (ShopeeCategoryLeaf cat : leafList) {
                     if (cat.matches("thun") || cat.matches("phông") || cat.matches("t-shirt") || cat.matches("tee")) {
                         return cat.id();
                     }
+                }
+            }
+
+            // 7. Thử so khớp lỏng lẻo theo từ khóa chung ngành may mặc
+            for (ShopeeCategoryLeaf cat : leafList) {
+                if (name.contains("áo") && (cat.matches("áo") || cat.matches("top") || cat.matches("shirt"))) {
+                    return cat.id();
                 }
             }
         }
