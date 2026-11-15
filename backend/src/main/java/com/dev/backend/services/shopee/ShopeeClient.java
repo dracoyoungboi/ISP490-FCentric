@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.AccessLevel;
+import lombok.Getter;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ByteArrayResource;
@@ -34,6 +35,7 @@ import java.util.*;
  */
 @Component
 @Slf4j
+@Getter
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class ShopeeClient {
 
@@ -120,6 +122,22 @@ public class ShopeeClient {
 
     public boolean isSandbox() {
         return this.isSandbox;
+    }
+
+    public Long getShopId() {
+        return this.shopId;
+    }
+
+    public Long getPartnerId() {
+        return this.partnerId;
+    }
+
+    public String getPartnerKey() {
+        return this.partnerKey;
+    }
+
+    public String getAccessToken() {
+        return this.accessToken;
     }
 
     public String getHost(boolean isSandbox) {
