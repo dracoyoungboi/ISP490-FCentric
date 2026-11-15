@@ -91,6 +91,7 @@
 | **AUDIT-079** | `2026-11-15 21:10:00` | Khang | UI / Thiết kế lại màn Xuất dữ liệu kế toán (PA D) | `XuatDuLieuKeToan.jsx`, `TaoLoKeToan.jsx`, `ChiTietLoKeToan.jsx`, `HopKeToan.jsx`, `tinhKeToan.js`, `XuatKeToanService.java`, `KeToanController.java`, `XemTruocXuatKeToanDto.java` | Tách màn một trang hai tab thành 3 trang theo khung chung của hệ thống: danh sách lô (như Phiếu nhập kho), Tạo lô xuất (tự kiểm tra, để lại lô sau, việc kế toán làm thêm), Chi tiết lô (chứng từ, mở khóa, hướng dẫn nhập AMIS). Máy chủ thêm tên tệp nhập theo loại và API đọc 00_HUONG_DAN.txt của lô. |
 | **AUDIT-081** | `2026-11-15 23:30:00` | Khang | UI / Tạo lô xuất kế toán theo khung chứng từ chung (PA E) | `TaoLoKeToan.jsx`, `XuatDuLieuKeToan.jsx`, `DauChungTu.jsx`, `tong-quan-bao-cao.json` | Trang Tạo lô xuất dựng lại bằng KhungChungTu hai cột (bảng bên trái, cột thuộc tính bên phải: lô sẽ tạo, đối chiếu doanh thu, tệp nhập AMIS theo thứ tự); danh sách lô giãn khung bảng hết chiều cao; DauChungTu thêm chỗ đặt ô nhập trước nút (`oPhai`). |
 | **AUDIT-082** | `2026-11-16 00:10:00` | Khang | UI / Chi tiết lô xuất kế toán theo khung chứng từ chung | `ChiTietLoKeToan.jsx`, `tong-quan-bao-cao.json` | Trang Chi tiết lô dựng lại bằng KhungChungTu hai cột như trang Tạo lô (AUDIT-081): đầu khối DauChungTu (Tải tệp, Sao chép hướng dẫn, ⋯ Hủy lô), bảng chứng từ theo kieuBang, cột thuộc tính Lô / Tệp / Hủy lô. |
+| **AUDIT-083** | `2026-11-16 00:30:00` | Khang | UI / Hộp Mở khóa và Hủy lô xuất kế toán dùng hộp xác nhận chung | `HopKeToan.jsx`, `tong-quan-bao-cao.json` | Hai hộp chuyển sang HopXacNhanChungTu (kiểu nguy hiểm, không nút ×, nút xác nhận khóa kèm lý do ở chân hộp, lỗi máy chủ hiện trong hộp). |
 
 
 ---
@@ -2628,3 +2629,26 @@
 - Giao diện: Vite + máy chủ giả trên Chrome: lô mới nhất (⋯ có Hủy lô, mở hướng dẫn, mở khóa hiện đúng), hủy lô (dải cảnh báo, nhóm Hủy lô, Tải tệp thành nút viền, ẩn Sao chép hướng dẫn và nút Mở khóa), lô không tồn tại, bề rộng 390px (không cuộn ngang, Tải tệp ở thanh đáy). Chưa thử với backend thật.
 - Còn lại: hộp Mở khóa / Hủy lô (HopKeToan.jsx) vẫn là hộp riêng có nút ×, chưa đổi sang HopXacNhanChungTu.
 - Chỉ frontend, không đổi máy chủ.
+
+### [AUDIT-083] HỘP MỞ KHÓA VÀ HỦY LÔ XUẤT KẾ TOÁN DÙNG HỘP XÁC NHẬN CHUNG
+- **Thời gian (GMT+7)**: 2026-11-16 00:30:00
+- **Tác giả thực hiện**: Khang
+- **Phân hệ ảnh hưởng**: Báo cáo › Xuất dữ liệu kế toán (danh sách lô, chi tiết lô).
+- **Tệp thay đổi**:
+  - `frontend/src/components/ke-toan/HopKeToan.jsx` (viết lại `HopMoKhoa`, `HopHuyLo`, giữ nguyên props)
+  - `frontend/src/i18n/en/tong-quan-bao-cao.json`
+  - `audit.md`
+
+#### 1. MỤC TIÊU & PHÂN TÍCH NGUYÊN NHÂN GỐC RỄ (ROOT CAUSE ANALYSIS)
+1. **Yêu cầu**: sau AUDIT-082 người dùng duyệt "Đổi hộp luôn": hai hộp vẫn là Dialog tự dựng từ màn cũ (nút ×, tiêu đề 16px, chân hộp nền xám, báo lỗi kiểm ô dưới từng ô) trong khi trang Tạo lô và các màn chứng từ khác dùng HopXacNhanChungTu.
+
+#### 2. GIẢI PHÁP KỸ THUẬT & CHI TIẾT TRIỂN KHAI
+1. **HopMoKhoa**: HopXacNhanChungTu kiểu nguy hiểm, tiêu đề "Mở khóa {{soChungTu}}?", giữ câu mô tả cũ; ô Lý do bắt buộc (nhãn *, "Bắt buộc · ghi vào nhật ký", đếm 0/500). Nút Mở khóa khóa tới khi có lý do, lý do khóa hiện ở chân hộp; lỗi máy chủ hiện trong hộp, 409 vẫn tải lại danh sách.
+2. **HopHuyLo**: cùng kiểu, tiêu đề "Hủy lô {{soLo}}?"; ô xác nhận "Kế toán chưa nhập lô này vào AMIS…" thành khung nền nhạt, rồi ô Lý do. Nút Hủy lô khóa với lý do theo thứ tự (chưa tick → "Đánh dấu ô xác nhận trước khi hủy lô", chưa nhập → "Nhập lý do hủy lô"). Hộp tự đặt tiêu điểm vào ô nhập đầu tiên, chặn đóng khi đang chạy.
+3. Props giữ nguyên nên danh sách lô và chi tiết lô không phải sửa.
+4. **i18n**: thêm 3 khóa ("Bắt buộc · ghi vào nhật ký", "Mở khóa {{soChungTu}}?", "Hủy lô {{soLo}}?").
+
+#### 3. KẾT QUẢ KIỂM THỬ & ĐỐI SOÁT HỒI QUY
+- `npm run i18n:kiem`: 720 tệp sạch. ESLint (HopKeToan, XuatDuLieuKeToan, ChiTietLoKeToan): sạch. `vite build` (ra ngoài repo): đạt.
+- Giao diện: Vite + máy chủ giả trên Chrome: Mở khóa (nút khóa khi trống, nhập lý do → chứng từ thành Đã mở khóa), Hủy lô ở chi tiết lô (lý do khóa đổi theo thứ tự tick / lý do, hủy xong hiện dải đã hủy), Hủy lô từ danh sách mở đúng hộp mới. Chưa thử với backend thật.
+- Chỉ frontend.
