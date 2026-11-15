@@ -1,5 +1,5 @@
 import {
-  Archive, BadgeCheck, Ban, Banknote, CalendarCheck, CalendarClock, CalendarOff, Camera, CheckCheck, ChevronsUp, CircleCheckBig, CircleHelp, CircleOff, CirclePause, ClipboardCheck, ClipboardList, Clock, Database, Flag, Grid2x2, Hand, Hourglass, KeyRound, Link, Lock, Mail, MessageSquareX, OctagonAlert, Package, PackageCheck, PackageMinus, PackageOpen, PackageX, PencilLine, Pin, PinOff, Radio, Receipt, RefreshCw, RotateCcw, ScanBarcode, Search, Send, SkipForward, Trash2, TrendingDown, TrendingUp, TriangleAlert, Truck, Undo2, Unlink, UserCheck, Video, Warehouse, Wrench,
+  Archive, BadgeCheck, Ban, Banknote, CalendarCheck, CalendarClock, CalendarOff, Camera, CheckCheck, ChevronsUp, CircleCheckBig, CircleHelp, CircleOff, CirclePause, ClipboardCheck, ClipboardList, Clock, Database, Flag, Grid2x2, Hand, Hourglass, KeyRound, Link, Lock, LockOpen, Mail, MessageSquareX, OctagonAlert, Package, PackageCheck, PackageMinus, PackageOpen, PackageX, PencilLine, Pin, PinOff, Radio, Receipt, RefreshCw, RotateCcw, ScanBarcode, Search, Send, SkipForward, Trash2, TrendingDown, TrendingUp, TriangleAlert, Truck, Undo2, Unlink, UserCheck, Video, Warehouse, Wrench,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NHOM_TRANG_THAI, dichNhanTrangThai, layCachVe, nhomCuaNhan } from "@/constants/trangThai";
@@ -43,7 +43,7 @@ function KeHang({ className, strokeWidth = 2, ...props }) {
 }
 
 const BIEU_TUONG = {
-  Archive, BadgeCheck, Ban, Banknote, CalendarCheck, CalendarClock, CalendarOff, Camera, CheckCheck, ChevronsUp, CircleCheckBig, CircleHelp, CircleOff, CirclePause, ClipboardCheck, ClipboardList, Clock, Database, Flag, Grid2x2, Hand, Hourglass, KeHang, KeyRound, Link, Lock, Mail, MessageSquareX, NuaVong, OctagonAlert, Package, PackageCheck, PackageMinus, PackageOpen, PackageX, PencilLine, Pin, PinOff, Radio, Receipt, RefreshCw, RotateCcw, ScanBarcode, Search, Send, SkipForward, Trash2, TrendingDown, TrendingUp, TriangleAlert, Truck, Undo2, Unlink, UserCheck, Video, Warehouse, Wrench,
+  Archive, BadgeCheck, Ban, Banknote, CalendarCheck, CalendarClock, CalendarOff, Camera, CheckCheck, ChevronsUp, CircleCheckBig, CircleHelp, CircleOff, CirclePause, ClipboardCheck, ClipboardList, Clock, Database, Flag, Grid2x2, Hand, Hourglass, KeHang, KeyRound, Link, Lock, LockOpen, Mail, MessageSquareX, NuaVong, OctagonAlert, Package, PackageCheck, PackageMinus, PackageOpen, PackageX, PencilLine, Pin, PinOff, Radio, Receipt, RefreshCw, RotateCcw, ScanBarcode, Search, Send, SkipForward, Trash2, TrendingDown, TrendingUp, TriangleAlert, Truck, Undo2, Unlink, UserCheck, Video, Warehouse, Wrench,
 };
 
 // Số đo (chốt 21/10, mục B review), cỡ md: mọi thẻ chữ 13px đậm 600 để khác chữ dữ liệu; khung cao 24px, khe 6px;
