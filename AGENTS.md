@@ -150,8 +150,9 @@ vào `Dev` / `main`. Báo đỏ thì xem log để biết dòng lỗi, sửa r�
 1. `CANCELLED`: Gọi `huyDonTuSan`.
 2. Khách yêu cầu hủy (`laYeuCauHuy`): Gắn cờ `[KHÁCH YÊU CẦU HỦY]` vào ghi chú.
 3. Thanh toán: Cập nhật `trangThaiThanhToan = "da_thanh_toan"` khi sàn xác nhận thanh toán.
-4. Giao hàng: Gọi `capNhatTrangThaiGiaoHangTuSan` khi sàn chuyển `shipped`/`in_transit` (Đã xuất) hoặc `delivered`/`completed`/`fulfilled` (Hoàn thành).
+4. Giao hàng: Gọi `capNhatTrangThaiGiaoHangTuSan` khi sàn chuyển `shipped`/`in_transit` hoặc `delivered`/`completed`/`fulfilled`; BẮT BUỘC kiểm tra nếu đơn hàng có phiếu xuất kho đang trong quy trình xuất (`CHO_XUAT` hoặc `NHAP`), giữ nguyên trạng thái kho của đơn (`DA_DONG_GOI` hoặc `CHO_DONG_GOI`), không được tự ý nhảy cóc sang Đã xuất kho khi thủ kho chưa xác nhận xuất kho thực tế.
 5. Vận đơn: Đồng bộ bổ sung `tracking_number` và `shipping_provider` vào ghi chú đơn hàng.
+6. Giới hạn lưu trữ đơn Shopee: Shopee chỉ lưu trữ và cho phép tra cứu dữ liệu đơn trong vòng 90 ngày (3 tháng); các hàm gọi `getOrderList` tự động chặn giới hạn trần 90 ngày và `time_to - time_from <= 15 ngày`.
 
 ### 4. Giao diện Sản phẩm sàn (Channel Mappings)
 - Biến `hoTroDuaLen` tại `ChannelMappingsPage.jsx` phải bao gồm cả `TIKTOK` / `TIKTOK_SHOP` để hiển thị nút "Đưa sản phẩm FCentric lên sàn" và "Tự động liên kết".
