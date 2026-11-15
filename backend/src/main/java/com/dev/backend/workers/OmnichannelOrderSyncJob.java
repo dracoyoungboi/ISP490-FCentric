@@ -10,6 +10,7 @@ import com.dev.backend.services.multitable.NhatHangService;
 import com.dev.backend.services.KenhBanHangDongBoService;
 import com.dev.backend.utils.SauCommit;
 import com.dev.backend.constant.variables.ITrangThaiDonBanHang;
+import com.dev.backend.constant.variables.ITrangThaiPhieuXuat;
 import com.dev.backend.constant.variables.IHanhDong;
 import com.dev.backend.constant.variables.INguonNhatKy;
 import com.dev.backend.constant.variables.ITable;
