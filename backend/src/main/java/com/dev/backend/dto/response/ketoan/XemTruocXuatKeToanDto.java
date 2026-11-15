@@ -37,6 +37,11 @@ public class XemTruocXuatKeToanDto {
     private String dauVet;
     /** Biến động kho từ sau lô trước không có chứng từ kế toán tương ứng (kiểm kê, xuất khác…): kế toán lập tay. */
     private List<VanDe> bienDongKho;
+    /**
+     * Các tệp Excel kế toán nhập vào AMIS, đúng thứ tự trong 00_HUONG_DAN.txt của lô (danh mục trước, chứng từ sau).
+     * Màn tạo lô hiện danh sách này để người tạo lô thấy trước kế toán sẽ nhập những gì.
+     */
+    private List<TepNhap> tepNhap;
 
     @Getter
     @Setter
@@ -55,6 +60,19 @@ public class XemTruocXuatKeToanDto {
         private BigDecimal tongCong;
         /** Tên tệp Excel chứa các chứng từ loại này trong tệp nén (vd. 30_BanHang_20261112_20261112.xlsx). */
         private String tenTep;
+    }
+
+    /** Một tệp Excel trong lô: tên tệp, nơi nhập trên AMIS, dòng tiêu đề, lưu ý khi ghép cột (null = không có). */
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class TepNhap {
+        private String ten;
+        private String noiNhap;
+        private int dongTieuDe;
+        private String luuY;
     }
 
     @Getter
