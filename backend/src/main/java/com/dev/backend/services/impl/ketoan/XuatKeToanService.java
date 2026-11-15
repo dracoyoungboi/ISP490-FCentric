@@ -53,6 +53,8 @@ import java.util.zip.ZipOutputStream;
 public class XuatKeToanService {
 
     public static final ZoneId MUI_GIO = DungChungTuAmis.MUI_GIO;
+    /** Tên tệp hướng dẫn trong tệp nén của lô. */
+    static final String TEP_HUONG_DAN = "00_HUONG_DAN.txt";
     private static final DateTimeFormatter NGAY_SO_LO = DateTimeFormatter.BASIC_ISO_DATE;
     private static final DateTimeFormatter GIO = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
     static final int LY_DO_TOI_DA = 500;
@@ -548,7 +550,7 @@ public class XuatKeToanService {
     byte[] dongGoi(String soLo, Lo lo, String nguoiTao, LocalDateTime luc) {
         DungChungTuAmis.KetQua kq = lo.ketQua();
         try (ByteArrayOutputStream ra = new ByteArrayOutputStream(); ZipOutputStream zip = new ZipOutputStream(ra, StandardCharsets.UTF_8)) {
-            ghiMuc(zip, "00_HUONG_DAN.txt", huongDan(soLo, lo, nguoiTao, luc).getBytes(StandardCharsets.UTF_8));
+            ghiMuc(zip, TEP_HUONG_DAN, huongDan(soLo, lo, nguoiTao, luc).getBytes(StandardCharsets.UTF_8));
             for (DungChungTuAmis.Tep t : kq.tep()) {
                 HoSoAmis.Mau mau = HoSoAmis.mau(t.mau());
                 List<String> dau = List.of(
