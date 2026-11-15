@@ -6879,6 +6879,29 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             log.warn("[SHOPEE-UPLOAD-IMAGE] Lỗi đọc ảnh sản phẩm {}: {}", productName, ex.getMessage());
         }
 
+        // Bổ sung ảnh từ cấp biến thể (AnhBienThe) vào album sản phẩm nếu còn chỗ (Shopee tối đa 9 ảnh)
+        if (imageIds.size() < 9 && variants != null && !variants.isEmpty()) {
+            try {
+                List<Integer> btIds = variants.stream().map(BienTheSanPham::getId).filter(Objects::nonNull).toList();
+                if (!btIds.isEmpty()) {
+                    List<AnhBienThe> abList = anhBienTheRepository.findActiveByBienTheIds(btIds);
+                    if (abList != null) {
+                        for (AnhBienThe ab : abList) {
+                            if (imageIds.size() >= 9) break;
+                            if (ab.getTepTin() != null) {
+                                String imgId = uploadAnhLenShopee(ab.getTepTin(), "bt_" + (ab.getBienThe() != null ? ab.getBienThe().getId() : ab.getId()) + ".jpg", productName, client, cdnCache);
+                                if (imgId != null && !imgId.isBlank() && !imageIds.contains(imgId)) {
+                                    imageIds.add(imgId);
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (Exception abEx) {
+                log.warn("[SHOPEE-UPLOAD-IMAGE] Lỗi nạp ảnh biến thể cho album sản phẩm {}: {}", productName, abEx.getMessage());
+            }
+        }
+
         // Nếu sản phẩm không có ảnh trong DB hoặc tải lỗi -> sinh ảnh mặc định chuẩn 800x800
         if (imageIds.isEmpty()) {
             try {
