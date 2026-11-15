@@ -6801,6 +6801,51 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 .build();
     }
 
+    private String uploadAnhLenShopee(
+            TepTin tep,
+            String tenTep,
+            String fallbackName,
+            com.dev.backend.services.shopee.ShopeeClient client,
+            Map<String, String> cdnCache) {
+        if (tep == null || tep.getTenLuuTru() == null || tep.getTenLuuTru().isBlank() || client == null) {
+            return null;
+        }
+        String fileKey = tep.getTenLuuTru();
+        if (cdnCache != null && cdnCache.containsKey(fileKey)) {
+            return cdnCache.get(fileKey);
+        }
+        if (tep.getMoTa() != null && tep.getMoTa().startsWith("SHP_IMG:")) {
+            String cachedId = tep.getMoTa().substring("SHP_IMG:".length()).trim();
+            if (!cachedId.isBlank()) {
+                if (cdnCache != null) cdnCache.put(fileKey, cachedId);
+                return cachedId;
+            }
+        }
+        try {
+            byte[] bytes = minioService.download(fileKey);
+            byte[] cleanJpeg = convertToLazadaCompliantJpeg(bytes, fallbackName);
+            if (cleanJpeg != null && cleanJpeg.length > 0) {
+                JsonNode imgRes = client.uploadImage(cleanJpeg, tenTep != null ? tenTep : "shopee_img.jpg");
+                String imgId = imgRes.path("response").path("image_info").path("image_id").asText("");
+                if (!imgId.isBlank()) {
+                    if (cdnCache != null) cdnCache.put(fileKey, imgId);
+                    if (tepTinRepository != null) {
+                        try {
+                            tep.setMoTa("SHP_IMG:" + imgId);
+                            tepTinRepository.save(tep);
+                        } catch (Exception saveEx) {
+                            log.warn("[SHOPEE-CDN-CACHE] Không thể lưu cache ảnh Shopee cho tệp {}: {}", tep.getId(), saveEx.getMessage());
+                        }
+                    }
+                    return imgId;
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("[SHOPEE-UPLOAD-IMAGE] Lỗi tải/upload ảnh {} lên Shopee: {}", fileKey, ex.getMessage());
+        }
+        return null;
+    }
+
     private List<String> chuanBiVaUploadAnhShopee(
             SanPhamQuanAo sp,
             List<BienTheSanPham> variants,
@@ -6822,40 +6867,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 int imgLimit = Math.min(sortedImages.size(), 8);
                 for (int i = 0; i < imgLimit; i++) {
                     AnhQuanAo curImg = sortedImages.get(i);
-                    if (curImg.getTepTin() != null && curImg.getTepTin().getTenLuuTru() != null) {
-                        TepTin tep = curImg.getTepTin();
-                        String fileKey = tep.getTenLuuTru();
-                        try {
-                            if (cdnCache.containsKey(fileKey)) {
-                                imageIds.add(cdnCache.get(fileKey));
-                            } else if (tep.getMoTa() != null && tep.getMoTa().startsWith("SHP_IMG:")) {
-                                String cachedId = tep.getMoTa().substring("SHP_IMG:".length()).trim();
-                                if (!cachedId.isBlank()) {
-                                    cdnCache.put(fileKey, cachedId);
-                                    imageIds.add(cachedId);
-                                }
-                            } else {
-                                byte[] bytes = minioService.download(fileKey);
-                                byte[] cleanJpeg = convertToLazadaCompliantJpeg(bytes, productName);
-                                if (cleanJpeg != null && cleanJpeg.length > 0) {
-                                    JsonNode imgRes = client.uploadImage(cleanJpeg, "sp_" + sp.getId() + "_" + i + ".jpg");
-                                    String imgId = imgRes.path("response").path("image_info").path("image_id").asText("");
-                                    if (!imgId.isBlank()) {
-                                        cdnCache.put(fileKey, imgId);
-                                        imageIds.add(imgId);
-                                        if (tepTinRepository != null) {
-                                            try {
-                                                tep.setMoTa("SHP_IMG:" + imgId);
-                                                tepTinRepository.save(tep);
-                                            } catch (Exception saveEx) {
-                                                log.warn("[SHOPEE-CDN-CACHE] Không thể lưu cache ảnh Shopee cho tệp {}: {}", tep.getId(), saveEx.getMessage());
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        } catch (Exception downEx) {
-                            log.warn("[SHOPEE-UPLOAD-IMAGE] Lỗi tải/upload ảnh thứ {} của sản phẩm {}: {}", i, productName, downEx.getMessage());
+                    if (curImg.getTepTin() != null) {
+                        String imgId = uploadAnhLenShopee(curImg.getTepTin(), "sp_" + sp.getId() + "_" + i + ".jpg", productName, client, cdnCache);
+                        if (imgId != null && !imgId.isBlank()) {
+                            imageIds.add(imgId);
                         }
                     }
                 }
