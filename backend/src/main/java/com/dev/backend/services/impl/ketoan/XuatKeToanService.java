@@ -709,7 +709,8 @@ public class XuatKeToanService {
         List<XemTruocXuatKeToanDto.TongHopLoai> tongHop = tongHopTheoLoai(kq).stream()
                 .map(t -> XemTruocXuatKeToanDto.TongHopLoai.builder()
                         .loai(t.loai()).ten(tenLoai(t.loai())).soChungTu(t.soChungTu()).soDong(t.soDong())
-                        .truocThue(t.truocThue()).thue(t.thue()).thueChoHoaDon(t.thueChoHoaDon()).tongCong(t.tongCong()).build())
+                        .truocThue(t.truocThue()).thue(t.thue()).thueChoHoaDon(t.thueChoHoaDon()).tongCong(t.tongCong())
+                        .tenTep(tenTepCuaLoai(kq, t.loai())).build())
                 .toList();
         return XemTruocXuatKeToanDto.builder()
                 .ngayMoc(lo.cauHinh().getNgayMoc())
@@ -734,6 +735,26 @@ public class XuatKeToanService {
                 .lyDoKhongTheTao(lo.lyDoKhongTheTao() == null ? null : lo.lyDoKhongTheTao().theoNgonNgu(NgonNgu.hienTai()))
                 .dauVet(lo.lyDoKhongTheTao() == null ? dauVet(kq) : null)
                 .build();
+    }
+
+    /** Mẫu AMIS chứa chứng từ của một nhóm hiển thị (nhóm ở tongHopTheoLoai); null khi nhóm không có tệp riêng. */
+    private static String mauCuaNhom(String nhom) {
+        if (ChungTuXuatKeToan.LOAI_TON_DAU_KY.equals(nhom)) return HoSoAmis.TON_DAU_KY;
+        if (ChungTuXuatKeToan.LOAI_MUA_HANG.equals(nhom)) return HoSoAmis.MUA_HANG;
+        if (ChungTuXuatKeToan.LOAI_CHUYEN_KHO_XUAT.equals(nhom) || ChungTuXuatKeToan.LOAI_CHUYEN_KHO_NHAN.equals(nhom)) return HoSoAmis.CHUYEN_KHO;
+        if (NHOM_NHAP_KHO_KHAC.equals(nhom)) return HoSoAmis.NHAP_KHO;
+        if (NHOM_XUAT_KHO_KHAC.equals(nhom)) return HoSoAmis.XUAT_KHO;
+        if (ChungTuXuatKeToan.LOAI_BAN_HANG.equals(nhom)) return HoSoAmis.BAN_HANG;
+        if (NHOM_TRA_LAI.equals(nhom)) return HoSoAmis.TRA_LAI;
+        return null;
+    }
+
+    /** Tên tệp Excel chứa chứng từ của một nhóm (nối bằng dấu phẩy nếu nhiều tệp); null khi không có. */
+    static String tenTepCuaLoai(DungChungTuAmis.KetQua kq, String nhom) {
+        String mau = mauCuaNhom(nhom);
+        if (mau == null) return null;
+        String ten = kq.tep().stream().filter(t -> mau.equals(t.mau())).map(t -> t.ten() + ".xlsx").collect(Collectors.joining(", "));
+        return ten.isEmpty() ? null : ten;
     }
 
     /** Dấu vết nội dung lô: băm danh sách chứng từ (loại, nguồn, tiền, số dòng) đã sắp xếp. */
