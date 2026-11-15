@@ -1527,6 +1527,11 @@ public class OmnichannelOrderSyncJob {
         try {
             long timeFrom = tuNgay != null ? tuNgay.getEpochSecond() : (Instant.now().getEpochSecond() - 86400L);
             long timeTo = denNgay != null ? denNgay.getEpochSecond() : Instant.now().getEpochSecond();
+            long ninetyDaysAgo = Instant.now().getEpochSecond() - (90L * 86400L);
+            if (timeFrom < ninetyDaysAgo) {
+                log.info("[JOB-01] Mốc thời gian quét đơn Shopee vượt quá giới hạn 90 ngày của sàn, tự động điều chỉnh về 90 ngày");
+                timeFrom = ninetyDaysAgo;
+            }
             boolean isSandbox = isShopeeSandbox(maKenh);
 
             List<String> orderSnList = new ArrayList<>();
