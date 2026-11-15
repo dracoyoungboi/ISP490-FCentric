@@ -118,6 +118,10 @@ public class ShopeeClient {
                 || channelCode.toUpperCase().contains("SANDBOX"));
     }
 
+    public boolean isSandbox() {
+        return this.isSandbox;
+    }
+
     public String getHost(boolean isSandbox) {
         return isSandbox ? SANDBOX_HOST : PRODUCTION_HOST;
     }
