@@ -581,6 +581,21 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         List<PhieuXuatKho> phieuList =
                 phieuXuatKhoRepository.findByDonBanHangId(id);
 
+        // Tự động căn chỉnh trạng thái đơn bán theo phiếu xuất kho (Self-healing):
+        // Nếu đơn đang ở DA_XUAT_TOAN_BO (3), nhưng phiếu xuất kho thực tế vẫn đang ở CHO_XUAT (6)
+        // và chưa có phiếu nào xuất thực tế (DA_XUAT), thì khôi phục đơn về DA_DONG_GOI (8 - Chờ xuất kho)
+        if (don.getTrangThai() != null && don.getTrangThai() == ITrangThaiDonBanHang.DA_XUAT_TOAN_BO) {
+            boolean coPhieuChoXuat = phieuList.stream().anyMatch(p -> p.getTrangThai() != null && p.getTrangThai() == ITrangThaiPhieuXuat.CHO_XUAT);
+            boolean coPhieuDaXuat = phieuList.stream().anyMatch(p -> p.getTrangThai() != null && p.getTrangThai() == ITrangThaiPhieuXuat.DA_XUAT);
+            if (coPhieuChoXuat && !coPhieuDaXuat) {
+                don.setTrangThai(ITrangThaiDonBanHang.DA_DONG_GOI);
+                don.setNgayCapNhat(Instant.now());
+                repository.save(don);
+                log.info("[DON-HANG] Tự động căn chỉnh đơn {} về Chờ xuất kho (8) vì phiếu xuất kho đang ở trạng thái Chờ xác nhận", don.getSoDonHang());
+                donDto = donBanHangMapper.toDto(don);
+            }
+        }
+
         List<PhieuXuatKhoSummaryDto> phieuDtos =
                 phieuList.stream()
                         .map(phieuXuatKhoMapper::toSummaryDto)
