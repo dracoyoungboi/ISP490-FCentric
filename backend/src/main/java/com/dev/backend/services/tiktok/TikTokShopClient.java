@@ -533,16 +533,13 @@ public class TikTokShopClient {
                         }
                     }
                     if (isLeaf && id != null && !id.isBlank() && available) {
-                        log.info("TikTok Shop gợi ý danh mục V2 leaf thành công: id={}, name={}",
-                                id, cat.path("local_display_name").asText(cat.path("name").asText("")));
-                        return id;
-                    }
-                }
-                // Fallback: Nếu không đánh dấu is_leaf nhưng có danh mục gợi ý
-                for (JsonNode cat : categoriesNode) {
-                    String id = cat.path("id").asText(null);
-                    if (id != null && !id.isBlank()) {
-                        return id;
+                        String catName = cat.path("local_display_name").asText(cat.path("name").asText(""));
+                        if (isPhuHopThoiTrangNamVaUnisex(id, catName)) {
+                            log.info("TikTok Shop gợi ý danh mục V2 leaf thành công: id={}, name={}", id, catName);
+                            return id;
+                        } else {
+                            log.warn("TikTok Shop gợi ý danh mục không phù hợp thời trang nam/unisex FCentric (id={}, name={}). Bỏ qua.", id, catName);
+                        }
                     }
                 }
             }
@@ -550,6 +547,28 @@ public class TikTokShopClient {
             log.warn("Không thể lấy danh mục gợi ý V2 từ TikTok Shop (title: {}): {}", productTitle, e.getMessage());
         }
         return null;
+    }
+
+    /**
+     * Kiểm tra tính hợp lệ của danh mục cho thời trang nam & unisex thương hiệu FCentric.
+     * Chặn triệt để các mã sai lệch như 603729 (Áo ngực thể thao - Sports bra) và các ngành hàng đồ lót, đồ nữ.
+     */
+    public static boolean isPhuHopThoiTrangNamVaUnisex(String id, String catName) {
+        if (id == null || id.isBlank()) return false;
+        // 603729: Áo ngực thể thao (Women's sports bra trong phân cấp Sports & Outdoor của TikTok Shop)
+        if ("603729".equals(id.trim())) {
+            return false;
+        }
+        if (catName != null) {
+            String lower = catName.toLowerCase(Locale.ROOT);
+            if (lower.contains("ngực") || lower.contains("bra") || lower.contains("đồ lót") || lower.contains("nội y")
+                    || lower.contains("underwear") || lower.contains("lingerie") || lower.contains("bikini")
+                    || lower.contains("váy") || lower.contains("đầm") || lower.contains("skirt") || lower.contains("dress")
+                    || lower.contains("bầu") || lower.contains("maternity")) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
