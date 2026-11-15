@@ -82,6 +82,26 @@ public final class TraHangDto {
                          String phuongThucHoan, String trangThaiTraHang) {
     }
 
+    // ───────────── Phiếu đã trả (lịch sử tại quầy) ─────────────
+
+    /**
+     * Một phiếu trả trong danh sách "Phiếu đã trả" của cửa hàng nhận. traCheo: hóa đơn gốc bán ở cửa hàng khác
+     * (khoBan). soLuongLoi: phần hàng Lỗi để riêng, phần còn lại là hàng Đạt đã nhập kho.
+     */
+    public record PhieuTomTat(Integer id, String soPhieu, Instant ngayTao, Integer donBanHangId, String soDonHang,
+                              String khachHang, String soDienThoai, boolean traCheo, String khoBan, boolean quaHan,
+                              BigDecimal tongSoLuong, BigDecimal soLuongLoi, BigDecimal tongTienHoan,
+                              String phuongThucHoan, String nguoiLap) {
+    }
+
+    /**
+     * Phiếu trả nhận tại một cửa hàng từ mốc {@code tu} (đầu ngày, giờ Việt Nam), mới nhất trước. Các số tổng tính
+     * trên mọi phiếu trong khoảng, kể cả khi danh sách bị cắt ở giới hạn dòng ({@code conNua} = true).
+     */
+    public record LichSuPhieu(Instant tu, List<PhieuTomTat> phieu, long soPhieu, BigDecimal tongSoLuong,
+                              BigDecimal tienMat, BigDecimal chuyenKhoan, BigDecimal tongHoan, boolean conNua) {
+    }
+
     // ───────────── Biên bản (in 02 liên) ─────────────
 
     public record PhieuChiTiet(Integer id, String soPhieu, Instant ngayTao, String soPhieuNhap, Integer donBanHangId,
