@@ -4410,6 +4410,25 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         return sanPhamId == null ? null : anhDaiDienTheoSanPham(List.of(sanPhamId)).get(sanPhamId);
     }
 
+    /**
+     * Ảnh đại diện của từng biến thể theo danh sách ID biến thể, một truy vấn cho cả trang.
+     * Biến thể nào chưa có ảnh riêng sẽ để trống để tự động fallback về ảnh sản phẩm cha.
+     */
+    private Map<Integer, String> anhDaiDienTheoBienThe(Collection<Integer> bienTheIds) {
+        if (bienTheIds == null || bienTheIds.isEmpty()) return Map.of();
+        Map<Integer, String> ketQua = new HashMap<>();
+        try {
+            for (AnhBienThe ab : anhBienTheRepository.findActiveByBienTheIds(bienTheIds)) {
+                if (ab.getBienThe() == null || ab.getTepTin() == null) continue;
+                String url = duongDanAnh(ab.getTepTin());
+                if (url != null) ketQua.putIfAbsent(ab.getBienThe().getId(), url);
+            }
+        } catch (Exception ex) {
+            log.warn("Không lấy được ảnh biến thể cho danh sách liên kết: {}", ex.getMessage());
+        }
+        return ketQua;
+    }
+
     /** URL ảnh đã đổi sang tên miền HTTPS, nếu không web HTTPS chặn ảnh từ IP MinIO (Mixed Content). */
     private String duongDanAnh(TepTin tep) {
         if (tep.getDuongDan() != null && !tep.getDuongDan().isBlank()) return PublicAssetUrl.toHttps(tep.getDuongDan());
