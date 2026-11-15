@@ -6921,6 +6921,54 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         return null;
     }
 
+    private static final Map<String, String> CACHED_SHOPEE_SIZE_CHART_ID_BY_SHOP = new ConcurrentHashMap<>();
+
+    /**
+     * Chuẩn bị và tải bảng quy đổi kích cỡ (Size Chart) lên Shopee Media Space theo quy định của Shopee Open Platform v2.
+     * Đối với ngành hàng thời trang may mặc (như Áo Polo, Quần Jeans, Áo khoác...), sàn bắt buộc cung cấp size_chart.
+     * Tự động cache image_id theo shopId + loại sản phẩm (Tops / Pants) để tối ưu lượt upload ảnh lên sàn.
+     */
+    private String chuanBiSizeChartShopee(
+            SanPhamQuanAo sp,
+            com.dev.backend.services.shopee.ShopeeClient client,
+            Map<String, String> cdnCache) {
+        if (client == null) return null;
+        String name = (sp != null && sp.getTenSanPham() != null) ? sp.getTenSanPham().toLowerCase(Locale.ROOT) : "";
+        boolean isPants = name.contains("quần") || name.contains("jean") || name.contains("pant")
+                || name.contains("short") || name.contains("kaki") || name.contains("trouser") || name.contains("jogger");
+        String typeSuffix = isPants ? "_PANTS" : "_TOPS";
+
+        String shopKey = (client.getShopId() != null ? client.getShopId().toString() : "DEFAULT")
+                + (client.isSandbox() ? "_SANDBOX" : "_OFFICIAL") + typeSuffix;
+        String cachedId = CACHED_SHOPEE_SIZE_CHART_ID_BY_SHOP.get(shopKey);
+        if (cachedId != null && !cachedId.isBlank()) {
+            return cachedId;
+        }
+
+        try {
+            byte[] sizeChartBytes = taoFCentricSizeChartImage(sp != null ? sp.getTenSanPham() : null);
+            if (sizeChartBytes != null && sizeChartBytes.length > 0) {
+                String fileName = "fcentric_size_chart" + typeSuffix.toLowerCase(Locale.ROOT) + ".jpg";
+                log.info("[SHOPEE-SIZE-CHART] Đang upload bảng quy đổi kích cỡ chuẩn FCentric ({}) lên Shopee Media Space...", fileName);
+                JsonNode imgRes = client.uploadImage(sizeChartBytes, fileName);
+                String imgId = imgRes.path("response").path("image_info").path("image_id").asText("");
+                if (!imgId.isBlank()) {
+                    log.info("[SHOPEE-SIZE-CHART] Upload size chart thành công lên Shopee! ImageId: {}", imgId);
+                    CACHED_SHOPEE_SIZE_CHART_ID_BY_SHOP.put(shopKey, imgId);
+                    if (cdnCache != null) {
+                        cdnCache.put("SHOPEE_SIZE_CHART_" + shopKey, imgId);
+                    }
+                    return imgId;
+                } else {
+                    log.warn("[SHOPEE-SIZE-CHART] Không nhận được image_id từ Shopee: {}", imgRes);
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("[SHOPEE-SIZE-CHART] Lỗi upload bảng kích cỡ lên Shopee: {}", ex.getMessage());
+        }
+        return null;
+    }
+
     private List<String> chuanBiVaUploadAnhShopee(
             SanPhamQuanAo sp,
             List<BienTheSanPham> variants,
