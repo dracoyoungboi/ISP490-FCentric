@@ -7270,10 +7270,26 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
         String rawDesc = (sp.getMoTa() != null && !sp.getMoTa().isBlank())
                 ? sp.getMoTa().trim() : title;
-        // Shopee quy định mô tả từ 20 đến 3000 ký tự
+        // Shopee Official quy định mô tả bắt buộc từ 100 đến 3000 ký tự (chống lỗi: Product description length must be between 100 and 3000 characters)
         String desc = rawDesc;
-        if (desc.length() < 20) {
-            desc = title + "\nChất liệu cao cấp, thoáng mát, form chuẩn thương hiệu thời trang FCentric.";
+        if (desc.length() < 100) {
+            StringBuilder sb = new StringBuilder(desc);
+            if (!desc.contains("Chất liệu")) {
+                sb.append("\n\n- Chất liệu: Vải cao cấp mềm mại, co giãn, thoáng khí và thấm hút mồ hôi tối ưu.");
+            }
+            if (!desc.contains("Kiểu dáng") && !desc.contains("Thiết kế")) {
+                sb.append("\n- Kiểu dáng: Thiết kế hiện đại, tôn dáng, chuẩn form thương hiệu thời trang FCentric.");
+            }
+            if (!desc.contains("Xuất xứ")) {
+                sb.append("\n- Xuất xứ: Sản xuất tại Việt Nam bởi Công ty Cổ phần Thời trang FCentric.");
+            }
+            if (!desc.contains("Hướng dẫn")) {
+                sb.append("\n- Hướng dẫn bảo quản: Giặt máy nhẹ nhàng, phơi nơi khô thoáng, tránh dùng chất tẩy mạnh.");
+            }
+            desc = sb.toString().trim();
+            if (desc.length() < 100) {
+                desc = desc + "\nCam kết sản phẩm FCentric chính hãng 100%, hỗ trợ đổi trả theo chính sách sàn Shopee.";
+            }
         }
         if (desc.length() > 3000) {
             desc = desc.substring(0, 3000);
