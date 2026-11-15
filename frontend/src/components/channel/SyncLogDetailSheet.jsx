@@ -7,7 +7,7 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import { LIEN_KET_STATUS, tinhSoTonDayLenSan } from "@/constants/channel";
 import { formatCurrency, formatNumberOrDash } from "@/utils/formatters";
 import { formatDateTime } from "@/utils/dateTime";
-import { t } from "@/i18n";
+import { t, tDuLieu } from "@/i18n";
 
 function Nhom({ ten, children }) {
   return (
@@ -59,7 +59,7 @@ export default function SyncLogDetailSheet({ lienKet, open, onOpenChange, quyTac
             <div className="flex-1 overflow-y-auto px-5 pb-4">
               {trangThai === "loi" ? (
                 <p role="alert" className="mt-4 rounded-lg bg-bo-danger-soft px-3 py-2.5 text-sm text-bo-danger">
-                  {lienKet.chiTietLoi || t("Không đẩy được tồn kho lên sàn.")}
+                  {tDuLieu(lienKet.chiTietLoi) || t("Không đẩy được tồn kho lên sàn.")}
                 </p>
               ) : null}
               <Nhom ten={t("Liên kết")}>

@@ -56,7 +56,7 @@ import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { getApiErrorCode, getApiErrorMessage } from "@/utils/apiError";
 import { cn } from "@/lib/utils";
 import { formatNumberOrDash } from "@/utils/formatters";
-import { t } from "@/i18n";
+import { t, tDuLieu } from "@/i18n";
 
 const TAB_MAS = LIEN_KET_TABS.map((tab) => tab.ma);
 const TAB_MAC_DINH = "tat-ca";
@@ -541,7 +541,7 @@ export default function ChannelMappingsPage() {
           capNhatDong(res);
           doiVuaBat([dong.id], false);
           tq.reload();
-          if (res?.trangThaiLienKet === "loi") toast.error(t("Vẫn lỗi: {{chiTiet}}", { chiTiet: res.chiTietLoi || t("không đẩy được tồn kho") }));
+          if (res?.trangThaiLienKet === "loi") toast.error(t("Vẫn lỗi: {{chiTiet}}", { chiTiet: tDuLieu(res.chiTietLoi) || t("không đẩy được tồn kho") }));
           else toast.success(t("Đã đẩy lại tồn {{maSku}}", { maSku: dong.maSku }));
         } catch (error) {
           khiMatKetNoi(error);
@@ -684,7 +684,7 @@ export default function ChannelMappingsPage() {
         {dong.trangThaiLienKet === "da_lien_ket" ? (
           <span className="sr-only">{t(meta.label)}</span>
         ) : laTamGiu ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 ring-1 ring-inset ring-amber-600/20" title={dong.chiTietLoi}>
+          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 ring-1 ring-inset ring-amber-600/20" title={tDuLieu(dong.chiTietLoi)}>
             <span className="size-1.5 rounded-full bg-amber-500" />
             {t("Tạm giữ sàn")}
           </span>
@@ -694,8 +694,8 @@ export default function ChannelMappingsPage() {
         {dong.trangThaiLienKet === "loi" ? (
           <div className="mt-1 flex max-w-[260px] items-baseline gap-2 text-xs">
             {dong.chiTietLoi ? (
-              <span className={cn("min-w-0 truncate", laTamGiu ? "text-amber-700 font-normal" : "text-bo-danger")} title={dong.chiTietLoi}>
-                {dong.chiTietLoi}
+              <span className={cn("min-w-0 truncate", laTamGiu ? "text-amber-700 font-normal" : "text-bo-danger")} title={tDuLieu(dong.chiTietLoi)}>
+                {tDuLieu(dong.chiTietLoi)}
               </span>
             ) : null}
             <button
@@ -1058,7 +1058,7 @@ export default function ChannelMappingsPage() {
                 <StatusBadge label={meta.label} />
               )}
               {dong.trangThaiLienKet === "loi" && dong.chiTietLoi ? (
-                <span className={cn("w-full text-xs leading-4", laLoiTamGiu(dong.chiTietLoi) ? "text-amber-700 font-normal" : "text-bo-danger")}>{dong.chiTietLoi}</span>
+                <span className={cn("w-full text-xs leading-4", laLoiTamGiu(dong.chiTietLoi) ? "text-amber-700 font-normal" : "text-bo-danger")}>{tDuLieu(dong.chiTietLoi)}</span>
               ) : null}
             </span>
           ) : null}

@@ -1,5 +1,5 @@
 import { formatNumber } from "../../utils/formatters.js";
-import { t } from "@/i18n";
+import { t, tDuLieu } from "@/i18n";
 
 /** Câu báo kết quả các thao tác bấm tay với sàn, dùng chung cho Thiết lập, Sản phẩm và Công cụ. */
 
@@ -54,7 +54,7 @@ export function ketQuaDayTon(res, tenSan) {
   const soLoi = Number(res?.soLoi || 0);
   const chuaDay = Number(res?.soChuaDay || 0);
   const tong = daDay + soLoi + chuaDay;
-  const loiKenh = res?.loiKenh || null;
+  const loiKenh = res?.loiKenh ? tDuLieu(res.loiKenh) : null;
 
   if (loiKenh && daDay === 0 && soLoi === 0) {
     return { ok: false, tone: "error", title: t("Không đẩy được tồn lên {{tenSan}}", { tenSan }), message: loiKenh };
