@@ -1,33 +1,16 @@
 import { useEffect, useState } from 'react';
-import { RefreshCw } from 'lucide-react';
 import { traHangService } from '@/services/traHangService';
 import { getApiErrorMessage } from '@/utils/apiError';
 import LoadingState from '@/components/shared/LoadingState';
 import { formatMoney } from '../pos-format';
 import { usePosDuLieuChung } from '../pos-du-lieu-chung';
 import { t, tDuLieu } from "@/i18n";
+import { nhanLuc as luc } from './nhan-thoi-gian';
+import { NutTaiLai } from './TheDanhSach';
 
 const HAN_TRA_MS = 3 * 24 * 60 * 60 * 1000;
 const MOT_NGAY_MS = 24 * 60 * 60 * 1000;
 const MOT_GIO_MS = 60 * 60 * 1000;
-
-const gioPhut = (d) => d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-
-/** "Hôm nay 12:58" / "Hôm qua 17:05" / "10/11 09:12": thu ngân đọc nhanh hơn ngày giờ đầy đủ. */
-function luc(iso, bayGio) {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  const homNay = new Date(bayGio);
-  homNay.setHours(0, 0, 0, 0);
-  const ngay = new Date(d);
-  ngay.setHours(0, 0, 0, 0);
-  const lech = Math.round((homNay - ngay) / MOT_NGAY_MS);
-  if (lech === 0) return t("Hôm nay {{gio}}", { gio: gioPhut(d) });
-  if (lech === 1) return t("Hôm qua {{gio}}", { gio: gioPhut(d) });
-  // Ghép tay dd/MM: toLocaleDateString vi-VN không có năm ra "09-11" ở một số trình duyệt
-  const hai = (n) => String(n).padStart(2, '0');
-  return `${hai(d.getDate())}/${hai(d.getMonth() + 1)} ${gioPhut(d)}`;
-}
 
 /** Hạn trả còn lại tính từ lúc thanh toán (máy chủ vẫn là chốt chặn thật khi mở đơn). */
 function hanTra(r, bayGio) {
@@ -44,14 +27,14 @@ const TRANG_THAI_TRA = {
 };
 const CHUA_TRA = ['Chưa trả', 'bg-slate-100 text-slate-600']; // i18n-giu-nguyen: nhãn hằng số, dịch lúc hiện
 
-const nutLoc = 'h-7 rounded-md px-2.5 text-[13px] transition focus-visible:outline-2 focus-visible:outline-bo-primary';
+const nutLoc = 'h-7 whitespace-nowrap rounded-md px-2.5 text-[13px] transition focus-visible:outline-2 focus-visible:outline-bo-primary';
 
 /**
  * Màn trả hàng chưa chọn hóa đơn: bảng hóa đơn bán tại quầy còn hạn trả (03 ngày), mới nhất trước — bấm một dòng để
  * mở như khi tìm theo mã. Mặc định chỉ cửa hàng đang nhận trả; "Mọi cửa hàng" cho khách trả chéo. Lựa chọn phạm vi
  * do trang giữ ({@code tatCa}) để mở rồi đóng một hóa đơn không đặt lại về "Cửa hàng này".
  */
-export default function HoaDonConHan({ khoId, onChon, bayGio, tatCa, onDoiTatCa }) {
+export default function HoaDonConHan({ khoId, onChon, bayGio, tatCa, onDoiTatCa, dauThe }) {
   const [lanTai, setLanTai] = useState(0);
   // Kết quả gắn với khóa của lần tải: khóa hiện tại khác khóa kết quả = đang tải (giữ danh sách cũ trong lúc chờ)
   const khoa = `${khoId}|${tatCa}|${lanTai}`;
@@ -87,37 +70,24 @@ export default function HoaDonConHan({ khoId, onChon, bayGio, tatCa, onDoiTatCa 
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 px-4 pb-2.5 pt-3.5">
-        <div className="min-w-0">
-          <h2 className="text-[15px] font-semibold text-bo-heading">{t("Hóa đơn còn hạn trả")}</h2>
-          <p className="text-xs text-bo-muted">{t("Bán tại quầy trong 03 ngày gần nhất · bấm một dòng để mở")}</p>
+      <div className="shrink-0 border-b border-bo-border px-4 pt-1.5">{dauThe}</div>
+      {/* Cùng bố cục với thẻ Phiếu đã trả: hàng thẻ chỉ để chuyển thẻ, bộ lọc ở hàng ngay dưới */}
+      <div className="flex shrink-0 flex-wrap items-center gap-2 px-4 py-3">
+        <div aria-label={t("Phạm vi hóa đơn")} className="flex gap-0.5 rounded-lg border border-bo-border p-0.5" role="radiogroup">
+          {[[false, t("Cửa hàng này")], [true, t("Mọi cửa hàng")]].map(([gt, nhan]) => (
+            <button
+              aria-checked={tatCa === gt}
+              className={`${nutLoc} ${tatCa === gt ? 'bg-bo-primary-soft font-medium text-bo-primary-strong' : 'text-bo-muted hover:text-bo-foreground'}`}
+              key={nhan}
+              onClick={() => onDoiTatCa(gt)}
+              role="radio"
+              type="button"
+            >
+              {nhan}
+            </button>
+          ))}
         </div>
-        <div className="flex items-center gap-1.5">
-          <div aria-label={t("Phạm vi hóa đơn")} className="flex gap-0.5 rounded-lg border border-bo-border p-0.5" role="radiogroup">
-            {[[false, t("Cửa hàng này")], [true, t("Mọi cửa hàng")]].map(([gt, nhan]) => (
-              <button
-                aria-checked={tatCa === gt}
-                className={`${nutLoc} ${tatCa === gt ? 'bg-bo-primary-soft font-medium text-bo-primary-strong' : 'text-bo-muted hover:text-bo-foreground'}`}
-                key={nhan}
-                onClick={() => onDoiTatCa(gt)}
-                role="radio"
-                type="button"
-              >
-                {nhan}
-              </button>
-            ))}
-          </div>
-          <button
-            aria-label={t("Tải lại danh sách")}
-            className="grid size-8 place-items-center rounded-lg border border-bo-border text-bo-muted transition hover:bg-bo-surface-subtle hover:text-bo-foreground disabled:opacity-50"
-            disabled={trang.dangTai}
-            onClick={() => setLanTai((n) => n + 1)}
-            title={t("Tải lại danh sách")}
-            type="button"
-          >
-            <RefreshCw aria-hidden="true" className={trang.dangTai ? 'animate-spin motion-reduce:animate-none' : ''} size={14} />
-          </button>
-        </div>
+        <NutTaiLai dangTai={trang.dangTai} onBam={() => setLanTai((n) => n + 1)} />
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto px-4 pb-4">

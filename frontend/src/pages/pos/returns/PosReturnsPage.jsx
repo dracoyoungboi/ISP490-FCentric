@@ -21,6 +21,11 @@ import { companyProfileService } from '@/services/companyProfileService';
 import { formatMoney } from '../pos-format';
 import DuyetQuaHanModal from './DuyetQuaHanModal';
 import HoaDonConHan from './HoaDonConHan';
+import PhieuDaTra from './PhieuDaTra';
+import { locBanDau } from './loc-phieu-tra';
+import KhungPhieuDaTra, { HopPhieuDaTra } from './ChiTietPhieuTra';
+import TheDanhSach, { THE_HOA_DON, THE_PHIEU } from './TheDanhSach';
+import { nhanLuc } from './nhan-thoi-gian';
 import {
   HOAN_CHUYEN_KHOAN,
   HOAN_TIEN_MAT,
@@ -84,6 +89,13 @@ export default function PosReturnsPage() {
   const [results, setResults] = useState([]);
   // Phạm vi danh sách hóa đơn còn hạn (cửa hàng này / mọi cửa hàng): giữ khi mở rồi đóng một hóa đơn
   const [tatCaGanDay, setTatCaGanDay] = useState(false);
+  // Thẻ khung trái khi chưa mở hóa đơn, bộ lọc của thẻ Phiếu đã trả (mốc kỳ, khoảng tự chọn, chữ lọc) và phiếu đang xem lại ở khung phải
+  // ({ id, banDau }: banDau là biên bản có sẵn khi vừa tìm theo mã RET). Giữ khi mở rồi đóng một hóa đơn.
+  const [theTrai, setTheTrai] = useState(THE_HOA_DON);
+  const [locPhieu, setLocPhieu] = useState(() => locBanDau(Date.now()));
+  const [phieuXem, setPhieuXem] = useState(null);
+  // Phiếu đã trả trước đó của hóa đơn đang mở, xem trong hộp (không rời hóa đơn)
+  const [phieuNhanh, setPhieuNhanh] = useState(null);
   const [don, setDon] = useState(null);
   const [loadingDon, setLoadingDon] = useState(false);
 
@@ -124,7 +136,9 @@ export default function PosReturnsPage() {
     requestRef.current = { id: null, khoa: null };
   }, []);
 
-  const moDon = useCallback(async (donBanHangId, kho = khoId) => {
+  // tuXemPhieu: mở từ phiếu đã trả chỉ để xem lại hóa đơn, không tự bật hộp xin duyệt quá hạn (thu ngân bấm
+  // "Xin quản lý duyệt" khi thật sự cần trả tiếp)
+  const moDon = useCallback(async (donBanHangId, kho = khoId, { tuXemPhieu = false } = {}) => {
     const seq = ++taiDonSeq.current;
     setLoadingDon(true);
     try {
@@ -134,7 +148,7 @@ export default function PosReturnsPage() {
       resetChon(d);
       setResults([]);
       // MSG-RET-02: đơn quá hạn mà chưa có duyệt hiệu lực
-      if (d?.quaHan && !d?.duyet) setModal('duyet');
+      if (d?.quaHan && !d?.duyet && !tuXemPhieu) setModal('duyet');
       return true;
     } catch (err) {
       if (seq === taiDonSeq.current) toast.error(getApiErrorMessage(err, t("Không tải được hóa đơn gốc.")));
@@ -150,6 +164,32 @@ export default function PosReturnsPage() {
     if (!q || !khoId || searching) return;
     setSearching(true);
     setKetQua(null);
+    // Mã phiếu trả (khách cầm biên bản quay lại): mở thẳng phiếu ở thẻ Phiếu đã trả
+    if (/^RET-/i.test(q)) {
+      // Như nút đóng hóa đơn: đang chọn món trả thì không bỏ ngang (phiếu trả không lưu nháp)
+      if (don && daChon.length > 0) {
+        setSearching(false);
+        toast.info(t("Bỏ hết các món đang chọn trước khi đóng hóa đơn"));
+        return;
+      }
+      // Lấy lượt như lần mở hóa đơn: kết quả hóa đơn đang tải dở (nếu có) không đè lên phiếu vừa tìm, và ngược lại
+      const seq = ++taiDonSeq.current;
+      setLoadingDon(false);
+      try {
+        const p = await traHangService.phieuTheoMa(q);
+        if (seq !== taiDonSeq.current) return;
+        setDon(null);
+        setResults([]);
+        resetChon(null);
+        setTheTrai(THE_PHIEU);
+        setPhieuXem({ id: p.id, banDau: p });
+      } catch (err) {
+        if (seq === taiDonSeq.current) toast.error(getApiErrorMessage(err, t("Không tìm thấy phiếu trả hàng.")));
+      } finally {
+        setSearching(false);
+      }
+      return;
+    }
     try {
       const ds = await traHangService.tim(khoId, q);
       if (ds.length === 1) {
@@ -171,6 +211,8 @@ export default function PosReturnsPage() {
   const doiKho = async (id) => {
     const cu = khoId;
     setKhoId(id);
+    // Danh sách Phiếu đã trả theo cửa hàng nhận: phiếu đang xem thuộc cửa hàng cũ
+    setPhieuXem(null);
     try { localStorage.setItem('selected_kho_id', String(id)); } catch { /* bỏ qua */ }
     // Kệ và quyền tính theo cửa hàng nhận: tải lại đơn đang mở cho kho mới (lựa chọn cũ gắn kệ kho cũ nên chọn lại)
     if (don && !(await moDon(don.donBanHangId, id))) {
@@ -246,6 +288,7 @@ export default function PosReturnsPage() {
       // Tồn và trạng thái trả của hóa đơn vừa đổi: bỏ bản nhớ tạm để màn bán và danh sách hóa đơn tải lại có vòng chờ
       boNho.xoaTheo('danhMuc|');
       boNho.xoaTheo('hoaDonConHan|');
+      boNho.xoaTheo('phieuDaTra|');
       setKetQua({ ...data, phuongThucHoan: payload.phuongThucHoan });
       setModal(null);
       setChuaRo(false);
@@ -354,6 +397,9 @@ export default function PosReturnsPage() {
   }
 
   const daChon = dongGoc.filter((d) => chon.find((c) => c.chiTietId === d.chiTietId)?.chon && conTra(d) > 0);
+  // Khung trái đang là danh sách Phiếu đã trả (chưa mở hóa đơn, không phải kết quả tìm nhiều hóa đơn)
+  const dangODsPhieu = !don && !loadingDon && results.length <= 1 && theTrai === THE_PHIEU;
+  const xemPhieuDaTra = dangODsPhieu && Boolean(phieuXem);
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col bg-bo-canvas text-bo-foreground">
@@ -376,7 +422,7 @@ export default function PosReturnsPage() {
                   disabled={submitting}
                   id="tra-hang-tim"
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder={t("Mã hóa đơn hoặc số điện thoại khách")}
+                  placeholder={t("Mã hóa đơn, mã phiếu trả hoặc số điện thoại khách")}
                   ref={searchRef}
                   value={query}
                 />
@@ -390,7 +436,13 @@ export default function PosReturnsPage() {
               <div className="flex flex-1 items-center justify-center p-6"><LoadingState label={t("Đang tải hóa đơn gốc")} /></div>
             ) : don ? (
               <>
-                <DauDon don={don} />
+                <DauDon
+                  bayGio={bayGio}
+                  coMonDangChon={daChon.length > 0}
+                  don={don}
+                  onDong={lamMoi}
+                  onXemPhieu={(id) => { setPhieuNhanh(id); setModal('phieuDaTra'); }}
+                />
                 <ul className="min-h-0 flex-1 divide-y divide-bo-border overflow-y-auto">
                   {dongGoc.map((d) => (
                     <DongHoaDon
@@ -404,17 +456,47 @@ export default function PosReturnsPage() {
               </>
             ) : results.length > 1 ? (
               <KetQuaTim onChon={(id) => moDon(id)} results={results} />
+            ) : theTrai === THE_PHIEU ? (
+              <PhieuDaTra
+                bayGio={bayGio}
+                chonId={phieuXem?.id}
+                dauThe={<TheDanhSach onDoi={setTheTrai} the={theTrai} />}
+                khoId={khoId}
+                onChon={(id) => setPhieuXem({ id })}
+                tenKho={warehouses.find((w) => w.id === khoId)?.tenKho}
+                loc={locPhieu}
+                onDoiLoc={(x) => setLocPhieu((cu) => ({ ...cu, ...x }))}
+              />
             ) : (
-              <HoaDonConHan bayGio={bayGio} khoId={khoId} onChon={(id) => moDon(id)} onDoiTatCa={setTatCaGanDay} tatCa={tatCaGanDay} />
+              <HoaDonConHan
+                bayGio={bayGio}
+                dauThe={<TheDanhSach onDoi={setTheTrai} the={theTrai} />}
+                khoId={khoId}
+                onChon={(id) => moDon(id)}
+                onDoiTatCa={setTatCaGanDay}
+                tatCa={tatCaGanDay}
+              />
             )}
           </section>
 
           {/* ───────── Phải: phiếu trả (như Hóa đơn hiện tại) ───────── */}
           <aside aria-label={t("Phiếu trả")} className="flex min-h-[420px] min-w-0 flex-col overflow-hidden rounded-lg border border-bo-border bg-bo-surface lg:min-h-0">
+            {xemPhieuDaTra ? (
+              <KhungPhieuDaTra
+                banDau={phieuXem.banDau}
+                bayGio={bayGio}
+                id={phieuXem.id}
+                key={phieuXem.id}
+                onDong={() => setPhieuXem(null)}
+                onIn={(id) => inBienBan(id)}
+                onMoHoaDon={(id) => moDon(id, khoId, { tuXemPhieu: true })}
+              />
+            ) : (
+            <>
             <div className="flex shrink-0 items-center justify-between gap-2 border-b border-bo-border px-4 py-3">
               <p className="text-sm font-semibold">
                 {t("Phiếu trả")}
-                {tong.tongSoLuong ? <span className="font-normal text-bo-muted"> · {t("{{n}} sản phẩm", { n: tong.tongSoLuong })}</span> : null}
+                {tong.tongSoLuong ? <span className="font-normal text-bo-muted"> · {t("{{count}} sản phẩm", { count: tong.tongSoLuong })}</span> : null}
               </p>
               {daChon.length ? (
                 <button className="text-xs text-bo-muted transition hover:text-bo-danger" onClick={() => chonTatCa(false)} type="button">{t("Bỏ hết")}</button>
@@ -457,7 +539,8 @@ export default function PosReturnsPage() {
               <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
                 <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center text-sm text-bo-muted">
                   <span className="grid size-12 place-items-center rounded-full bg-slate-100"><Undo2 aria-hidden="true" size={20} /></span>
-                  {don ? t("Bấm Trả ở món khách mang lại") : t("Chọn một hóa đơn để bắt đầu")}
+                  {don ? t("Bấm Trả ở món khách mang lại")
+                    : dangODsPhieu ? t("Chọn một phiếu để xem lại") : t("Chọn một hóa đơn để bắt đầu")}
                 </div>
                 {don ? null : <TomTatChinhSach onXemDayDu={() => setModal('chinhSach')} />}
               </div>
@@ -515,6 +598,8 @@ export default function PosReturnsPage() {
                 )}
               </div>
             ) : null}
+            </>
+            )}
           </aside>
         </main>
       )}
@@ -566,6 +651,10 @@ export default function PosReturnsPage() {
       ) : null}
 
       {modal === 'chinhSach' ? <ChinhSachModal onClose={() => setModal(null)} /> : null}
+
+      {modal === 'phieuDaTra' && phieuNhanh ? (
+        <HopPhieuDaTra bayGio={bayGio} id={phieuNhanh} onDong={() => { setModal(null); setPhieuNhanh(null); }} onIn={(id) => inBienBan(id)} />
+      ) : null}
     </div>
   );
 }
@@ -646,8 +735,13 @@ function KetQuaTim({ results, onChon }) {
   );
 }
 
-/** Thông tin hóa đơn gốc (đặc tả BA V.1): hai dòng chữ, không ô. */
-function DauDon({ don }) {
+/**
+ * Thông tin hóa đơn gốc (đặc tả BA V.1): hai dòng chữ, không ô. Hóa đơn đã trả một phần có thêm dòng "Đã trả trước
+ * đó" liệt kê các phiếu trả của hóa đơn (bấm để xem nhanh). Nút đóng về danh sách; đang chọn món trả thì khóa để
+ * không lỡ tay mất lựa chọn (bỏ hết các món trước).
+ */
+function DauDon({ don, bayGio, coMonDangChon, onDong, onXemPhieu }) {
+  const phieuDaTra = don.phieuDaTra ?? [];
   const conNgay = Math.max(0, 3 - Number(don.soNgay));
   const thongTin = [
     formatDateTime(don.thanhToanLuc),
@@ -657,17 +751,53 @@ function DauDon({ don }) {
     `${don.phuongThucGoc ? t(PHUONG_THUC_GOC[don.phuongThucGoc] ?? don.phuongThucGoc) : ''} ${formatMoney(don.tongCong)}`.trim(),
   ].filter(Boolean);
   return (
-    <div className="shrink-0 space-y-1 border-b border-bo-border px-4 py-3">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <h2 className="text-base font-semibold tabular-nums text-bo-heading">{don.soDonHang}</h2>
-        {don.quaHan
-          ? <TrangThai tone="late">{t("Quá hạn 03 ngày")}</TrangThai>
-          : <TrangThai tone="ok">{conNgay > 0 ? t("Trong hạn · còn {{n}} ngày", { n: conNgay }) : t("Trong hạn · hết hạn hôm nay")}</TrangThai>}
-        {don.traCheo ? <TrangThai tone="info">{t("Trả chéo từ {{kho}}", { kho: tDuLieu(don.khoBan) })}</TrangThai> : null}
-        {don.trangThaiTraHang === 'tra_mot_phan' ? <TrangThai tone="mute">{t("Đã trả một phần")}</TrangThai> : null}
+    <>
+      <div className="flex shrink-0 items-start gap-3 border-b border-bo-border px-4 py-3">
+        <div className="min-w-0 flex-1 space-y-1">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <h2 className="text-base font-semibold tabular-nums text-bo-heading">{don.soDonHang}</h2>
+            {don.quaHan
+              ? <TrangThai tone="late">{t("Quá hạn 03 ngày")}</TrangThai>
+              : <TrangThai tone="ok">{conNgay > 0 ? t("Trong hạn · còn {{n}} ngày", { n: conNgay }) : t("Trong hạn · hết hạn hôm nay")}</TrangThai>}
+            {don.traCheo ? <TrangThai tone="info">{t("Trả chéo từ {{kho}}", { kho: tDuLieu(don.khoBan) })}</TrangThai> : null}
+            {don.trangThaiTraHang === 'tra_mot_phan' ? <TrangThai tone="mute">{t("Đã trả một phần")}</TrangThai> : null}
+          </div>
+          <p className="text-[13px] text-bo-muted">{thongTin.join(' · ')}</p>
+        </div>
+        {/* Không dùng disabled: nút vẫn nhận bấm / bàn phím để báo lý do bằng thông báo (title không hiện với bàn phím) */}
+        <button
+          aria-label={t("Đóng hóa đơn")}
+          aria-disabled={coMonDangChon || undefined}
+          className="grid size-8 shrink-0 place-items-center rounded-lg border border-bo-border text-bo-muted transition hover:bg-bo-surface-subtle hover:text-bo-foreground aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
+          onClick={() => (coMonDangChon ? toast.info(t("Bỏ hết các món đang chọn trước khi đóng hóa đơn")) : onDong())}
+          title={coMonDangChon ? t("Bỏ hết các món đang chọn trước khi đóng hóa đơn") : t("Đóng hóa đơn")}
+          type="button"
+        >
+          <X aria-hidden="true" size={16} />
+        </button>
       </div>
-      <p className="text-[13px] text-bo-muted">{thongTin.join(' · ')}</p>
-    </div>
+      {phieuDaTra.length ? (
+        <div className="shrink-0 border-b border-bo-border bg-bo-surface-subtle px-4 py-2.5">
+          <p className="mb-1.5 text-xs font-semibold text-bo-muted">{t("Đã trả trước đó ({{n}})", { n: phieuDaTra.length })}</p>
+          <ul className="flex flex-wrap gap-2">
+            {phieuDaTra.map((p) => (
+              <li key={p.id}>
+                <button
+                  className="inline-flex h-7 items-center gap-2 rounded-md border border-bo-border bg-bo-surface px-2.5 text-xs transition hover:border-bo-primary focus-visible:outline-2 focus-visible:outline-bo-primary"
+                  onClick={() => onXemPhieu(p.id)}
+                  title={t("Xem phiếu {{ma}}", { ma: p.soPhieu })}
+                  type="button"
+                >
+                  <span className="font-semibold tabular-nums text-bo-primary-strong">{p.soPhieu}</span>
+                  <span className="tabular-nums text-bo-muted">{nhanLuc(p.ngayTao, bayGio)}</span>
+                  <span className="font-medium tabular-nums">{formatMoney(p.tongTienHoan)}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </>
   );
 }
 
