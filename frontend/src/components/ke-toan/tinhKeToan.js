@@ -317,3 +317,25 @@ export function viecKeToan(xemTruoc) {
     ...(xemTruoc.canhBao ?? []).map((v, i) => dong(v, v.loai === "mua_hang" ? "Nhận hóa đơn" : "Lưu ý", "cb", i)), // i18n-giu-nguyen: tên nhãn trạng thái
   ];
 }
+
+/** Số chứng từ theo nhóm hiển thị, đúng thứ tự nhập AMIS: [{ loai, ten, so }]. */
+export function demTheoLoai(chungTu = []) {
+  return nhomTheoLoai(chungTu).map((n) => ({ loai: n.loai, ten: n.ten, so: n.chungTu.length }));
+}
+
+/** Kỳ chứng từ của lô dạng "dd/MM – dd/MM/yyyy" (cùng năm) hoặc chỉ ngày cuối khi không có ngày đầu. */
+export function kyChungTu(tuNgay, denNgay) {
+  if (!tuNgay) return hienNgay(denNgay);
+  const tu = hienNgay(tuNgay);
+  const den = hienNgay(denNgay);
+  if (tuNgay === denNgay) return den;
+  return tuNgay.slice(0, 4) === String(denNgay ?? "").slice(0, 4) ? `${tu.slice(0, 5)} – ${den}` : `${tu} – ${den}`;
+}
+
+/** Lọc danh sách lô theo tab trạng thái ("tat_ca" | "hieu_luc" | "da_huy") và chữ tìm trong số lô, ghi chú. */
+export function locDanhSachLo(dsLo = [], tab = "tat_ca", tim = "") {
+  const chu = String(tim ?? "").trim().toLowerCase();
+  return dsLo.filter((lo) =>
+    (tab === "tat_ca" || lo.trangThai === tab) &&
+    (!chu || String(lo.soLo ?? "").toLowerCase().includes(chu) || String(lo.ghiChu ?? "").toLowerCase().includes(chu)));
+}
