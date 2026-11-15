@@ -1,8 +1,20 @@
 {
+    "files.associations": {
+        "*.java": "java"
+    },
     "java.debug.settings.onBuildFailureProceed": true,
     "java.compile.nullAnalysis.mode": "disabled",
     "java.configuration.updateBuildConfiguration": "automatic",
     "java.import.maven.enabled": true,
     "maven.pomPath": "backend/pom.xml",
-    "java.project.importOnFirstTimeStartup": "automatic"
+    "java.project.importOnFirstTimeStartup": "automatic",
+    "java.jdt.ls.java.home": "C:\\Program Files\\Java\\jdk-17",
+    "java.configuration.runtimes": [
+        {
+            "name": "JavaSE-17",
+            "path": "C:\\Program Files\\Java\\jdk-17",
+            "default": true
+        }
+    ],
+    "java.home": "C:\\Program Files\\Java\\jdk-17"
 }
