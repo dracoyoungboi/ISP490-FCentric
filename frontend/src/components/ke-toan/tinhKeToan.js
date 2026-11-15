@@ -271,3 +271,24 @@ export function nhomTheoLoai(chungTu = []) {
     .sort((a, b) => viTri(a[0]) - viTri(b[0]))
     .map(([loai, ds]) => ({ loai, ten: tenLoai(loai), chungTu: [...ds].sort(theoNgay) }));
 }
+
+// ── Danh sách lô, chi tiết lô, tạo lô (PA D) ──────────────────────────────
+
+/** Nhãn thẻ trạng thái của lô (StatusBadge tự dịch). */
+// i18n-giu-nguyen: tên nhãn trạng thái tra màu ở constants/trangThai.js, StatusBadge dịch lúc hiện
+export const NHAN_LO = { hieu_luc: "Đã giao kế toán", da_huy: "Đã hủy" };
+
+/** Nhãn thẻ trạng thái của một chứng từ trong lô. */
+// i18n-giu-nguyen: tên nhãn trạng thái tra màu ở constants/trangThai.js, StatusBadge dịch lúc hiện
+export const NHAN_CHUNG_TU = { da_xuat: "Đang khóa", da_mo_khoa: "Đã mở khóa", da_huy_lo: "Lô đã hủy" };
+
+/**
+ * Đường dẫn tới màn chi tiết của chứng từ nguồn (null khi loại đó chưa có màn chi tiết mở theo id):
+ * đơn bán (cả đơn hoàn trả) theo don_ban_hang.id, phiếu mua và phiếu nhập khác theo phieu_nhap_kho.id.
+ */
+export function duongDanChungTu(loai, idNguon) {
+  if (idNguon == null || idNguon === 0) return null;
+  if (loai === "ban_hang" || loai === "tra_lai_don") return `/sales-orders/${idNguon}`;
+  if (loai === "mua_hang" || loai === "nhap_khac_pnk") return `/goods-receipts/${idNguon}`;
+  return null;
+}
