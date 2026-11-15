@@ -94,6 +94,7 @@
 | **AUDIT-082** | `2026-11-16 00:10:00` | Khang | UI / Chi tiết lô xuất kế toán theo khung chứng từ chung | `ChiTietLoKeToan.jsx`, `tong-quan-bao-cao.json` | Trang Chi tiết lô dựng lại bằng KhungChungTu hai cột như trang Tạo lô (AUDIT-081): đầu khối DauChungTu (Tải tệp, Sao chép hướng dẫn, ⋯ Hủy lô), bảng chứng từ theo kieuBang, cột thuộc tính Lô / Tệp / Hủy lô. |
 | **AUDIT-083** | `2026-11-16 00:30:00` | Khang | UI / Hộp Mở khóa và Hủy lô xuất kế toán dùng hộp xác nhận chung | `HopKeToan.jsx`, `tong-quan-bao-cao.json` | Hai hộp chuyển sang HopXacNhanChungTu (kiểu nguy hiểm, không nút ×, nút xác nhận khóa kèm lý do ở chân hộp, lỗi máy chủ hiện trong hộp). |
 | **AUDIT-084** | `2026-11-15 23:55:00` | Khang | Fix / Lỗi biên dịch và gỡ nhầm liên kết khi tải sản phẩm Lazada | `KenhBanHangDongBoServiceImpl.java` | `aliveSkuIds` đưa ra trước khối try (hết lỗi cannot find symbol); vòng dọn SKU đã xóa chỉ chạy khi tải đủ mọi trang (cờ `taiDuHet`), tránh gỡ hết liên kết khi Lazada lỗi hoặc gian hàng quá 500 sản phẩm. Không migration. |
+| **AUDIT-085** | `2026-11-16 00:45:00` | Khang | Feature / Xem phiếu trả cũ theo kỳ, khoảng ngày và lọc theo khách trên màn Trả hàng POS | `TraHangTaiQuayService.java`, `PosTraHangController.java`, `traHang.properties`, `traHang_en.properties`, `traHangService.js`, `PhieuDaTra.jsx`, `HoaDonConHan.jsx`, `TheDanhSach.jsx`, `loc-phieu-tra.js`, `PosReturnsPage.jsx`, `nhan-thoi-gian.js`, `ban-hang.json` | Thẻ Phiếu đã trả: một hàng lọc với nút kỳ dạng menu (Hôm nay, Hôm qua, 7 ngày qua, Tháng này, Tháng trước, Chọn khoảng ngày tối đa 1 năm) và ô lọc theo tên khách / số điện thoại / mã hóa đơn / mã phiếu (máy chủ lọc, số tổng theo lọc); thẻ Hóa đơn còn hạn trả cùng bố cục. API GET /api/v1/pos/returns nhận thêm tuNgay, denNgay, q; không migration. |
 
 
 ---
@@ -2715,3 +2716,40 @@
 #### 3. KẾT QUẢ KIỂM THỬ & ĐỐI SOÁT HỒI QUY
 - `mvnw -o compile` trên bản sao mã nguồn ngoài repo (không ghi vào `backend/target` đang dùng bởi IntelliJ): đạt, không lỗi.
 - Chưa thử tải sản phẩm Lazada thật.
+
+### [AUDIT-085] XEM PHIẾU TRẢ CŨ THEO KỲ / KHOẢNG NGÀY VÀ LỌC THEO KHÁCH TRÊN MÀN TRẢ HÀNG POS (MỘT HÀNG LỌC, NÚT KỲ)
+- **Thời gian (GMT+7)**: 2026-11-16 00:45:00
+- **Tác giả thực hiện**: Khang
+- **Phân hệ ảnh hưởng**: POS › Trả hàng tại quầy (`/pos/returns`), thẻ *Phiếu đã trả* và *Hóa đơn còn hạn trả* (tiếp AUDIT-080).
+- **Tệp thay đổi**:
+  - `backend/src/main/java/com/dev/backend/services/impl/trahang/TraHangTaiQuayService.java` (`lichSu` nhận khoảng ngày + chữ lọc)
+  - `backend/src/main/java/com/dev/backend/controller/PosTraHangController.java` (`GET /api/v1/pos/returns`: `tuNgay`, `denNgay`, `q`)
+  - `backend/src/main/resources/i18n/thong-diep/traHang.properties`, `traHang_en.properties` (4 câu lỗi khoảng ngày)
+  - `frontend/src/services/traHangService.js`
+  - `frontend/src/pages/pos/returns/PhieuDaTra.jsx`, `HoaDonConHan.jsx`, `TheDanhSach.jsx`, `PosReturnsPage.jsx`, `nhan-thoi-gian.js`; mới: `loc-phieu-tra.js`
+  - `frontend/src/i18n/en/ban-hang.json`, `audit.md`
+
+#### 1. MỤC TIÊU & PHÂN TÍCH NGUYÊN NHÂN GỐC RỄ (ROOT CAUSE ANALYSIS)
+1. **Hiện tượng**: thẻ *Phiếu đã trả* (AUDIT-080) chỉ có mốc Hôm nay / 7 / 30 ngày. Phiếu cũ hơn 30 ngày chỉ tìm được khi biết mã `RET-…` hoặc mở được hóa đơn gốc; không xem được "mọi phiếu trả tháng trước" để đối soát tiền hoàn, và chưa nơi nào khác thống kê phiếu trả (tệp xuất kế toán chưa có phiếu trả).
+2. **Nguyên nhân**: API danh sách chỉ nhận `soNgay` (chặn 1–30), không có tham số khoảng ngày hay lọc theo khách.
+3. **Phương án**: người dùng chốt PA A (khoảng ngày tối đa 1 năm, mọi vai trò đang dùng màn trả hàng, có ô lọc). Bản đầu đặt nút mốc ở hàng thẻ và hai ô ngày ở hàng dưới; người dùng thấy chưa gọn (bộ lọc tách hai nơi, không thấy ngày của mốc, bố cục nhảy khi bật khoảng ngày, mốc "30 ngày" không khớp kỳ chốt sổ). Vẽ lại (artifact LpjZUHAVdizm3tZdoKwmvB), người dùng chốt theo khuyến nghị Đ1–Đ5: một hàng lọc, nút kỳ dạng menu; mốc Hôm nay · Hôm qua · 7 ngày qua · Tháng này · Tháng trước + Chọn khoảng ngày; hai ô ngày trong menu có nút Áp dụng; bỏ dòng chú thích, tên cửa hàng vào dòng tổng; thẻ Hóa đơn còn hạn trả cùng bố cục.
+
+#### 2. GIẢI PHÁP KỸ THUẬT & CHI TIẾT TRIỂN KHAI
+1. **Backend (không migration)**:
+   - `lichSu(khoId, soNgay, tuNgay, denNgay, q)`: có `tuNgay`/`denNgay` thì xem từ 00:00 `tuNgay` tới hết `denNgay` theo giờ Việt Nam (bỏ qua `soNgay`); thiếu một ngày, từ sau đến, đến sau hôm nay, dài từ 1 năm trở lên → 400 với câu `traHang.khoangNgay*` (đủ vi + en). Không có khoảng thì giữ mốc `soNgay` như cũ (tương thích).
+   - `q`: chuỗi dạng số điện thoại (8–15 chữ số, bỏ dấu cách / chấm / gạch, +84 → 0) khớp ĐỦ số với khách của đơn gốc, như ô tìm hóa đơn (không dò được số đang che từng phần); chuỗi khác khớp chứa (không phân biệt hoa thường) mã phiếu, mã hóa đơn gốc hoặc tên khách; ký tự `%` `_` được thoát (`escape '!'`).
+   - Một điều kiện dùng chung cho danh sách (tối đa 200 dòng) và số tổng, nên dòng tổng tiền mặt / chuyển khoản là của đúng tập đang lọc. Vẫn kiểm quyền `authorizeWarehouse(khoId)`, vẫn chỉ phiếu nhận tại cửa hàng đang chọn.
+2. **Frontend**:
+   - Hàng thẻ chỉ còn hai thẻ. Ngay dưới là một hàng lọc: nút kỳ → ô lọc → nút tải lại (`NutTaiLai` dùng chung trong `TheDanhSach.jsx`). Thẻ *Hóa đơn còn hạn trả* cùng bố cục: công tắc "Cửa hàng này | Mọi cửa hàng" + tải lại ở hàng lọc; bỏ dòng chú thích dưới hàng thẻ ở cả hai thẻ.
+   - Nút kỳ (Popover có sẵn `components/ui/popover`, vì menu thường không chứa được ô nhập): luôn ghi rõ ngày đang xem ("Tháng trước 01/10 – 31/10", khoảng tự chọn "01/09 – 16/11/2026"). Danh sách mốc `MOC_KY` trong `loc-phieu-tra.js` (Hôm nay, Hôm qua, 7 ngày qua, Tháng này, Tháng trước) tính từ ngày – đến ngày theo đồng hồ trang, mỗi mốc có ngày ở dòng phụ và dấu ✓ như nút kỳ ở các báo cáo. "Chọn khoảng ngày…" mở hai ô ngày trong khung, kiểm cùng luật với máy chủ, sai thì báo và khóa Áp dụng (không gọi máy chủ). Esc đóng và trả con trỏ về nút.
+   - Giao diện luôn gửi `tuNgay`, `denNgay`; khóa bộ nhớ tạm theo cửa hàng + khoảng + chữ lọc nên qua nửa đêm "Hôm nay" tự ra ngày mới và tải lại.
+   - Ô lọc *Tên khách, số điện thoại, mã hóa đơn*: gọi máy chủ sau 0,4 giây ngừng gõ hoặc khi Enter, nút xóa lọc. Bộ lọc (mốc, khoảng, chữ) do trang giữ nên mở rồi đóng một hóa đơn hay đổi thẻ không mất.
+   - Dòng tổng ghi tên cửa hàng đang chọn trước số phiếu. Câu trống theo ngữ cảnh (không khớp chữ lọc / Hôm nay / từ ngày đến ngày). Cột *Lúc trả* thêm năm khi phiếu khác năm hiện tại (`nhan-thoi-gian.js`).
+   - i18n `en/ban-hang.json`: thêm các câu mới (nút kỳ, khoảng ngày, ô lọc, câu trống), bỏ 6 câu không còn dùng (nhãn "Khoảng ngày", hai dòng chú thích, câu trống theo số ngày, hai câu gợi ý cũ).
+
+#### 3. KẾT QUẢ KIỂM THỬ & ĐỐI SOÁT HỒI QUY
+- Biên dịch backend bằng javac ra thư mục tạm (không ghi `backend/target`): đạt.
+- Chạy thật `TraHangTaiQuayService.lichSu` trên H2 (chế độ MySQL): 39/39 đạt — 18 bài cũ của mốc nhanh + khoảng 45–35 ngày trước, khoảng tới hôm nay, chỉ hôm qua, khoảng đè `soNgay`, đúng 365 ngày được phép; 5 trường hợp lỗi 400 (quá 1 năm, sau hôm nay, đảo ngày, thiếu từng ngày); lọc tên không phân biệt hoa thường kèm số tổng theo lọc, mã hóa đơn của khách lẻ, mã phiếu, số điện thoại có dấu cách và +84, không khớp số điện thoại một phần, `%` không thành ký tự đại diện, chữ lọc toàn dấu cách, lọc vẫn trong đúng cửa hàng.
+- Thử giao diện bằng trình duyệt với Vite + API giả (không nối CSDL), màn 1366px: menu kỳ đủ 5 mốc kèm ngày; Tháng trước gửi `tuNgay=2026-10-01&denNgay=2026-10-31`; Chọn khoảng ngày quá 1 năm báo lỗi và khóa Áp dụng, không gọi máy chủ; áp dụng 01/09 – 16/11 thấy phiếu 50 ngày trước và nút ghi đúng khoảng; Esc đóng menu, con trỏ về nút kỳ; đổi sang thẻ Hóa đơn (công tắc phạm vi ở hàng lọc) rồi quay lại vẫn giữ khoảng; ô lọc tên / số điện thoại (một lần gọi sau khi gõ xong); tiếng Anh; màn 375px không cuộn ngang.
+- `npm run i18n:kiem`: 721 tệp sạch; ESLint `pages/pos/returns` + `traHangService.js` sạch; `vite build` đạt.
+- Chưa thử với backend và CSDL thật (localhost dùng chung CSDL production). Triển khai backend cùng frontend, không migration.
