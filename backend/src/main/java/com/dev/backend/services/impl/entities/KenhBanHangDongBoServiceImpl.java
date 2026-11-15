@@ -7290,13 +7290,49 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
         log.info("[SHOPEE-CREATE] Tạo sản phẩm cha thành công trên Shopee (ItemId: {}). Đang khởi tạo bảng phân loại...", itemId);
 
-        // 2. Chuẩn bị bảng phân loại tier_variation
+        // Chuẩn bị ảnh cho từng màu sắc phân loại (Tier 1 variation)
+        Map<String, String> colorToImageId = new HashMap<>();
+        try {
+            List<Integer> btIds = variants.stream().map(BienTheSanPham::getId).filter(Objects::nonNull).toList();
+            if (!btIds.isEmpty()) {
+                List<AnhBienThe> abList = anhBienTheRepository.findActiveByBienTheIds(btIds);
+                if (abList != null) {
+                    for (AnhBienThe ab : abList) {
+                        if (ab.getBienThe() != null && ab.getTepTin() != null) {
+                            String colorName = (ab.getBienThe().getMauSac() != null && ab.getBienThe().getMauSac().getTenMau() != null)
+                                    ? ab.getBienThe().getMauSac().getTenMau().trim() : null;
+                            if (colorName != null && !colorName.isBlank() && !colorToImageId.containsKey(colorName)) {
+                                String imgId = uploadAnhLenShopee(ab.getTepTin(), "tier_" + ab.getBienThe().getId() + ".jpg", title, client, cdnCache);
+                                if (imgId != null && !imgId.isBlank()) {
+                                    colorToImageId.put(colorName, imgId);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("[SHOPEE-TIER-IMAGE] Lỗi nạp ảnh phân loại biến thể Shopee: {}", ex.getMessage());
+        }
+
+        // 2. Chuẩn bị bảng phân loại tier_variation kèm ảnh option cho Tier 1
         List<Map<String, Object>> tierVariationList = new ArrayList<>();
+        List<Map<String, Object>> colorOptionList = new ArrayList<>();
+        for (String c : colors) {
+            Map<String, Object> opt = new LinkedHashMap<>();
+            opt.put("option", c);
+            String imgId = colorToImageId.get(c);
+            if (imgId != null && !imgId.isBlank()) {
+                opt.put("image", Map.of("image_id", imgId));
+            }
+            colorOptionList.add(opt);
+        }
+
         if (hasColor && hasSize) {
-            tierVariationList.add(Map.of("name", "Màu sắc", "option_list", colors.stream().map(c -> Map.of("option", c)).toList()));
+            tierVariationList.add(Map.of("name", "Màu sắc", "option_list", colorOptionList));
             tierVariationList.add(Map.of("name", "Kích cỡ", "option_list", sizes.stream().map(s -> Map.of("option", s)).toList()));
         } else if (hasColor) {
-            tierVariationList.add(Map.of("name", "Màu sắc", "option_list", colors.stream().map(c -> Map.of("option", c)).toList()));
+            tierVariationList.add(Map.of("name", "Màu sắc", "option_list", colorOptionList));
         } else {
             tierVariationList.add(Map.of("name", "Kích cỡ", "option_list", sizes.stream().map(s -> Map.of("option", s)).toList()));
         }
