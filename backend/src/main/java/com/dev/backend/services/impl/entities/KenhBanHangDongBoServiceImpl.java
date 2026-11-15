@@ -7044,6 +7044,49 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         return imageIds;
     }
 
+    /**
+     * Chuẩn hóa và phân loại lỗi từ Shopee Open Platform sang thông điệp hướng dẫn trực quan bằng tiếng Việt.
+     * Chuyển đổi toàn bộ các mã lỗi kỹ thuật (size_chart, description length, category, token, rate limit...)
+     * thành câu thông báo thân thiện với người dùng.
+     */
+    public String phanLoaiLoiShopee(String error, String rawMessage) {
+        if (rawMessage == null) rawMessage = "";
+        String msgLower = rawMessage.toLowerCase(Locale.ROOT);
+        String errLower = (error != null ? error : "").toLowerCase(Locale.ROOT);
+        String combined = (errLower + " " + msgLower).trim();
+
+        if (combined.contains("size_chart") || combined.contains("size chart")) {
+            return "Danh mục yêu cầu bảng quy đổi kích cỡ (Size Chart). Hệ thống đã tự động tạo và tải bảng kích cỡ FCentric.";
+        }
+        if (combined.contains("description length") || combined.contains("description")) {
+            return "Mô tả sản phẩm trên Shopee phải từ 100 đến 3000 ký tự. Hệ thống đã tự động bổ sung thông tin chi tiết.";
+        }
+        if (combined.contains("category") || combined.contains("invalid category")) {
+            return "Mã ngành hàng Shopee không phù hợp hoặc đã thay đổi. Hệ thống đã tự động chuyển sang danh mục an toàn.";
+        }
+        if (combined.contains("access_token") || combined.contains("token") || combined.contains("expired") || combined.contains("authorize")) {
+            return "Phiên kết nối Shopee đã hết hạn hoặc không hợp lệ. Vui lòng ủy quyền lại gian hàng.";
+        }
+        if (combined.contains("rate limit") || combined.contains("too many") || combined.contains("429")) {
+            return "Shopee đang giới hạn tần suất gọi API. Hệ thống sẽ tự động thử lại sau.";
+        }
+        if (combined.contains("brand")) {
+            return "Thương hiệu sản phẩm chưa được phê duyệt hoặc cần kiểm tra trên Shopee.";
+        }
+        if (combined.contains("image")) {
+            return "Hình ảnh sản phẩm không đáp ứng quy chuẩn của Shopee (tối thiểu 1 ảnh, độ phân giải đạt chuẩn).";
+        }
+        if (combined.contains("price")) {
+            return "Giá bán sản phẩm không nằm trong khoảng giá hợp lệ trên sàn Shopee.";
+        }
+        return "Shopee từ chối tạo: " + rawMessage;
+    }
+
+    private void ghiNhanLoiTaoSanPhamShopee(KenhBanHang kenh, List<BienTheSanPham> variants, String error, String rawMessage) {
+        String lyDoLoi = phanLoaiLoiShopee(error, rawMessage);
+        ghiNhanLoiTaoSanPhamShopee(kenh, variants, lyDoLoi);
+    }
+
     private void ghiNhanLoiTaoSanPhamShopee(KenhBanHang kenh, List<BienTheSanPham> variants, String lyDoLoi) {
         if (kenh == null || variants == null || variants.isEmpty()) return;
         Instant now = Instant.now();
@@ -7365,7 +7408,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             }
             String errMsg = addRes.path("message").asText(error);
             log.warn("[SHOPEE-CREATE] Shopee từ chối tạo sản phẩm đơn [{}]: error={} - message={}", title, error, errMsg);
-            ghiNhanLoiTaoSanPhamShopee(kenh, variants, "Shopee từ chối tạo: " + errMsg);
+            ghiNhanLoiTaoSanPhamShopee(kenh, variants, error, errMsg);
             return createdSkuMap;
         }
 
@@ -7443,7 +7486,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         if (!error.isBlank() && !"0".equals(error)) {
             String errMsg = addRes.path("message").asText(error);
             log.warn("[SHOPEE-CREATE] Shopee từ chối tạo sản phẩm cha [{}]: error={} - message={}", title, error, errMsg);
-            ghiNhanLoiTaoSanPhamShopee(kenh, variants, "Shopee từ chối tạo: " + errMsg);
+            ghiNhanLoiTaoSanPhamShopee(kenh, variants, error, errMsg);
             return createdSkuMap;
         }
 
@@ -7553,7 +7596,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         if (!tError.isBlank() && !"0".equals(tError)) {
             String tErrMsg = tierRes.path("message").asText(tError);
             log.warn("[SHOPEE-CREATE] Lỗi khi tạo bảng phân loại cho item_id {}: error={} - message={}", itemId, tError, tErrMsg);
-            ghiNhanLoiTaoSanPhamShopee(kenh, variants, "Khởi tạo phân loại Shopee thất bại: " + tErrMsg);
+            ghiNhanLoiTaoSanPhamShopee(kenh, variants, tError, tErrMsg);
             return createdSkuMap;
         }
 
