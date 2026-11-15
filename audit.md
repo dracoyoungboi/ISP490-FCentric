@@ -92,6 +92,7 @@
 | **AUDIT-081** | `2026-11-15 23:30:00` | Khang | UI / Tạo lô xuất kế toán theo khung chứng từ chung (PA E) | `TaoLoKeToan.jsx`, `XuatDuLieuKeToan.jsx`, `DauChungTu.jsx`, `tong-quan-bao-cao.json` | Trang Tạo lô xuất dựng lại bằng KhungChungTu hai cột (bảng bên trái, cột thuộc tính bên phải: lô sẽ tạo, đối chiếu doanh thu, tệp nhập AMIS theo thứ tự); danh sách lô giãn khung bảng hết chiều cao; DauChungTu thêm chỗ đặt ô nhập trước nút (`oPhai`). |
 | **AUDIT-082** | `2026-11-16 00:10:00` | Khang | UI / Chi tiết lô xuất kế toán theo khung chứng từ chung | `ChiTietLoKeToan.jsx`, `tong-quan-bao-cao.json` | Trang Chi tiết lô dựng lại bằng KhungChungTu hai cột như trang Tạo lô (AUDIT-081): đầu khối DauChungTu (Tải tệp, Sao chép hướng dẫn, ⋯ Hủy lô), bảng chứng từ theo kieuBang, cột thuộc tính Lô / Tệp / Hủy lô. |
 | **AUDIT-083** | `2026-11-16 00:30:00` | Khang | UI / Hộp Mở khóa và Hủy lô xuất kế toán dùng hộp xác nhận chung | `HopKeToan.jsx`, `tong-quan-bao-cao.json` | Hai hộp chuyển sang HopXacNhanChungTu (kiểu nguy hiểm, không nút ×, nút xác nhận khóa kèm lý do ở chân hộp, lỗi máy chủ hiện trong hộp). |
+| **AUDIT-084** | `2026-11-15 23:55:00` | Khang | Fix / Lỗi biên dịch và gỡ nhầm liên kết khi tải sản phẩm Lazada | `KenhBanHangDongBoServiceImpl.java` | `aliveSkuIds` đưa ra trước khối try (hết lỗi cannot find symbol); vòng dọn SKU đã xóa chỉ chạy khi tải đủ mọi trang (cờ `taiDuHet`), tránh gỡ hết liên kết khi Lazada lỗi hoặc gian hàng quá 500 sản phẩm. Không migration. |
 
 
 ---
@@ -2652,3 +2653,26 @@
 - `npm run i18n:kiem`: 720 tệp sạch. ESLint (HopKeToan, XuatDuLieuKeToan, ChiTietLoKeToan): sạch. `vite build` (ra ngoài repo): đạt.
 - Giao diện: Vite + máy chủ giả trên Chrome: Mở khóa (nút khóa khi trống, nhập lý do → chứng từ thành Đã mở khóa), Hủy lô ở chi tiết lô (lý do khóa đổi theo thứ tự tick / lý do, hủy xong hiện dải đã hủy), Hủy lô từ danh sách mở đúng hộp mới. Chưa thử với backend thật.
 - Chỉ frontend.
+
+### [AUDIT-084] SỬA LỖI BIÊN DỊCH VÀ CHẶN GỠ NHẦM LIÊN KẾT KHI TẢI SẢN PHẨM LAZADA
+- **Thời gian (GMT+7)**: 2026-11-15 23:55:00
+- **Tác giả thực hiện**: Khang
+- **Phân hệ ảnh hưởng**: Kênh bán › Lazada › Tải sản phẩm từ sàn (bảng `trang_thai_dong_bo_san_pham`).
+- **Tệp thay đổi**:
+  - `backend/src/main/java/com/dev/backend/services/impl/entities/KenhBanHangDongBoServiceImpl.java` (hàm `taiSanPhamLazada`)
+  - `audit.md`
+
+#### 1. MỤC TIÊU & PHÂN TÍCH NGUYÊN NHÂN GỐC RỄ (ROOT CAUSE ANALYSIS)
+1. **Hiện tượng**: backend không biên dịch được sau commit `4206073d` (nhận diện sản phẩm đã xóa trên sàn): `KenhBanHangDongBoServiceImpl.java:[772,53] cannot find symbol: variable aliveSkuIds`.
+2. **Nguyên nhân**: `aliveSkuIds` khai báo bên trong khối `try` tải trang sản phẩm, còn vòng dọn SKU đã xóa đặt sau khối `try` nên biến đã hết phạm vi. Đoạn TikTok Shop cùng commit đặt cả hai trong `try` nên không lỗi.
+3. **Lỗi logic đi kèm**: chỉ đưa biến ra ngoài thì khi Lazada báo lỗi (`code != "0"` → `break`), ném ngoại lệ, hoặc gian hàng quá 500 sản phẩm (trần `offset < 500`), `aliveSkuIds` rỗng hoặc thiếu → vòng dọn coi mọi SKU đã liên kết là "đã bị xóa trên Lazada", xóa `maSanPhamKenh` và đưa về `chua_dong_bo`.
+
+#### 2. GIẢI PHÁP KỸ THUẬT & CHI TIẾT TRIỂN KHAI
+1. Khai báo `aliveSkuIds` trước khối `try`.
+2. Thêm cờ `taiDuHet`: chỉ đúng khi vòng tải thoát vì hết trang (`offset >= total_products` hoặc trang rỗng). Lazada báo lỗi, ngoại lệ hay chạm trần 500 thì cờ giữ `false`.
+3. Vòng dọn SKU đã xóa chỉ chạy khi `taiDuHet`; ngược lại ghi `log.warn` và giữ nguyên liên kết.
+4. Không đổi DTO, API, DB; không migration.
+
+#### 3. KẾT QUẢ KIỂM THỬ & ĐỐI SOÁT HỒI QUY
+- `mvnw -o compile` trên bản sao mã nguồn ngoài repo (không ghi vào `backend/target` đang dùng bởi IntelliJ): đạt, không lỗi.
+- Chưa thử tải sản phẩm Lazada thật.
