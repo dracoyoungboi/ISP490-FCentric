@@ -127,3 +127,21 @@ Mọi kênh bán (Shopify, Lazada, Shopee, TikTok Shop) khi quét đơn về ph�
 
 
 
+
+---
+
+## 10. QUY CHUẨN PHÂN LẬP DANH MỤC NGÀNH HÀNG SHOPEE OFFICIAL VÀ SANDBOX
+1. **Phân lập bộ nhớ đệm danh mục lá độc lập theo môi trường**:
+   - Sử dụng `SHOPEE_LEAF_CATEGORIES_BY_ENV` với khóa `Boolean isSandbox` để cô lập hoàn toàn danh mục giữa môi trường Test Sandbox và Kênh Shopee Official (Production).
+   - Tránh xung đột cache khi một môi trường được gọi trước khiến môi trường còn lại không thể nạp danh mục thực tế từ sàn.
+2. **Ngăn chặn rò rỉ mã danh mục test Sandbox**:
+   - Mã danh mục `106705L` (Áo Polo) là mã test nội bộ chỉ tồn tại trên hệ thống Sandbox Shopee SG.
+   - **TUYỆT ĐỐI KHÔNG** dùng `106705L` làm fallback hoặc mã thử lại trên Shopee Official (Production), vì sẽ gây lỗi HTTP 400 `Invalid category ID`.
+3. **Thuật toán so khớp danh mục thông minh đa ngôn ngữ**:
+   - Đối tượng `ShopeeCategoryLeaf` lưu trữ cả `display_category_name` (tiếng Việt) và `original_category_name` (tiếng Anh) để so khớp từ khóa 2 chiều linh hoạt.
+   - Quét tuần tự theo thứ tự ưu tiên: Áo khoác/Vest/Outerwear, Quần Jeans/Denim, Quần tây/Kaki/Short, Áo Polo/Có cổ, Áo sơ mi, Áo thun/T-shirt/Phông, và nhóm ngành thời trang chung.
+4. **Cơ chế Fallback an toàn cho Shopee Official**:
+   - Khi không tìm thấy danh mục lá phù hợp theo tên sản phẩm, ưu tiên lấy danh mục lá thời trang đầu tiên từ danh sách đã nạp thực tế từ Shopee Production.
+   - Fallback cứng chuẩn ngành thời trang nam Shopee VN: `11035592L` (Thời Trang Nam > Áo > Áo polo), đảm bảo sản phẩm luôn tạo thành công.
+5. **Bảo toàn 100% độ ổn định của luồng Shopee Sandbox**:
+   - Mọi xử lý dành cho Shopee Sandbox giữ nguyên mã `106705L` làm fallback và retry an toàn, tuyệt đối không bị ảnh hưởng bởi luồng Production.
