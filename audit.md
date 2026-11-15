@@ -89,6 +89,7 @@
 | **AUDIT-077** | `2026-11-14 22:30:00` | Khang | Feature & Fix / Xuất dữ liệu kế toán MISA đợt 2 | `DungChungTuAmis.java`, `XuatKeToanService.java`, `KeToanNguonRepository.java`, `migration-2026-11-14-xuat-ke-toan-dot-2.sql`, `XuatDuLieuKeToan.jsx` | Theo BA 14/11 và nhập thử AMIS thật: tài khoản 5111/5211 (511 bị AMIS từ chối, 1111/1561 không tồn tại), gom khách sàn SAN_*/KHLE, một tệp mỗi loại cho cả lô, tự dựng 22_NhapKhoKhac/25_XuatKhoKhac/31_HangTraLai (mốc tự dựng do backend chốt, chống ghi sổ hai lần), chặn đơn QR thiếu số tài khoản, hủy lô. |
 | **AUDIT-078** | `2026-11-15 00:30:00` | Khang | Fix / Phiếu mua chưa có hóa đơn khi xuất kế toán MISA | `DungChungTuAmis.java`, `XuatKeToanService.java`, `GhiDoiChieu.java`, `HoaDonDauVaoService.java`, `KeToanNguonRepository.java`, `TheHoaDonNhaCungCap.jsx`, `XuatDuLieuKeToan.jsx` | Thử AMIS thật: "Không kèm hóa đơn" + Mua hàng › Nhận hóa đơn tự cộng thuế (PN202611091 888.888 + 71.112 = 960.000). Thêm cột Thuế chờ hóa đơn cho tệp đối chiếu cân, hướng dẫn bước Nhận hóa đơn, cho nhập hóa đơn sau khi xuất (phiếu xuất lúc chưa có hóa đơn) và nhắc kế toán ở lô sau; sửa câu hướng dẫn "Là đơn giá bán sau thuế". |
 | **AUDIT-079** | `2026-11-15 21:10:00` | Khang | UI / Thiết kế lại màn Xuất dữ liệu kế toán (PA D) | `XuatDuLieuKeToan.jsx`, `TaoLoKeToan.jsx`, `ChiTietLoKeToan.jsx`, `HopKeToan.jsx`, `tinhKeToan.js`, `XuatKeToanService.java`, `KeToanController.java`, `XemTruocXuatKeToanDto.java` | Tách màn một trang hai tab thành 3 trang theo khung chung của hệ thống: danh sách lô (như Phiếu nhập kho), Tạo lô xuất (tự kiểm tra, để lại lô sau, việc kế toán làm thêm), Chi tiết lô (chứng từ, mở khóa, hướng dẫn nhập AMIS). Máy chủ thêm tên tệp nhập theo loại và API đọc 00_HUONG_DAN.txt của lô. |
+| **AUDIT-081** | `2026-11-15 23:30:00` | Khang | UI / Tạo lô xuất kế toán theo khung chứng từ chung (PA E) | `TaoLoKeToan.jsx`, `XuatDuLieuKeToan.jsx`, `DauChungTu.jsx`, `tong-quan-bao-cao.json` | Trang Tạo lô xuất dựng lại bằng KhungChungTu hai cột (bảng bên trái, cột thuộc tính bên phải: lô sẽ tạo, đối chiếu doanh thu, tệp nhập AMIS theo thứ tự); danh sách lô giãn khung bảng hết chiều cao; DauChungTu thêm chỗ đặt ô nhập trước nút (`oPhai`). |
 
 
 ---
@@ -2568,3 +2569,34 @@
 - Biên dịch backend (javac ngoài `backend/target`): đạt. Kiểm thử đơn vị backend: 1997 test, 1992 đạt; 2 lỗi có sẵn từ trước (`DonBanHangServiceTongQuanKhachTest`, `PhieuXuatKhoDispatchTest`), 3 bỏ qua do môi trường. Nhóm kế toán 36/36 (thêm 3 test tạm cho tên tệp theo loại, danh sách tệp nhập, đọc hướng dẫn: đúng tệp, bỏ BOM, thiếu tệp / sai mã băm / không có lô báo lỗi).
 - Frontend: `npm run i18n:kiem` 715 tệp sạch; ESLint các tệp sửa sạch; `node --test constants/trangThai.test.js` 22/22; `vite build` đạt.
 - Giao diện: chạy Vite với máy chủ giả (dữ liệu mẫu, không nối CSDL) trên Chrome: danh sách lô, tạo lô (mở bảng để lại lô sau, đối chiếu, hộp xác nhận, chuyển sang chi tiết, gọi tải tệp), chi tiết lô (lô mới nhất có ⋯ Hủy lô, lô cũ không có), hủy lô hiện dải đã hủy. Chưa thử với backend thật và chưa thử trên điện thoại thật.
+
+### [AUDIT-081] TẠO LÔ XUẤT KẾ TOÁN THEO KHUNG CHỨNG TỪ CHUNG (PA E) VÀ GIÃN KHUNG DANH SÁCH LÔ
+- **Thời gian (GMT+7)**: 2026-11-15 23:30:00
+- **Tác giả thực hiện**: Khang
+- **Phân hệ ảnh hưởng**: Báo cáo › Xuất dữ liệu kế toán (danh sách lô, tạo lô); đầu khối chứng từ dùng chung.
+- **Tệp thay đổi**:
+  - `frontend/src/pages/bao-cao/TaoLoKeToan.jsx` (viết lại), `frontend/src/pages/bao-cao/XuatDuLieuKeToan.jsx`
+  - `frontend/src/components/chung-tu/DauChungTu.jsx` (thêm prop `oPhai`)
+  - `frontend/src/i18n/en/tong-quan-bao-cao.json`
+  - `audit.md`
+
+#### 1. MỤC TIÊU & PHÂN TÍCH NGUYÊN NHÂN GỐC RỄ (ROOT CAUSE ANALYSIS)
+1. **Yêu cầu**: người dùng gửi ảnh trang Tạo lô xuất (bản PA D, AUDIT-079): "còn rất cấu, chưa clean và đồng bộ"; trang danh sách lô thì khung bảng dừng giữa màn, không giãn hết chiều cao "như các màn khác". Bản vẽ (artifact 7C1sPA5qW5hnX6RiLjEesj) đưa 2 phương án, người dùng chọn **PA E**.
+2. **Nguyên nhân**: trang Tạo lô ghép 4–5 thẻ rời như trang báo cáo, trong khi ~25 màn tạo / chi tiết chứng từ dùng KhungChungTu (một khối giãn hết màn, đầu khối có nút ← vuông, dòng thông báo viền trái, bảng theo kieuBang.js, cột thuộc tính 340px). Kèm theo: tiêu đề cột in hoa 11px kiểu cũ, dòng đỏ nền hồng câu dài, cột tên tệp chữ mono chiếm chỗ, ba dấu — ở Xuất kho khác, ghi chú việc kế toán dài 2–3 dòng. Danh sách lô thiếu `fill` ở PageContainer và TableShell.
+
+#### 2. GIẢI PHÁP KỸ THUẬT & CHI TIẾT TRIỂN KHAI
+1. **DauChungTu**: prop `oPhai` (ô nhập đặt trước các nút; điện thoại thành hàng riêng giãn hết ngang dưới tiêu đề vì nút chính đã xuống thanh đáy). Các màn khác không truyền nên không đổi.
+2. **TaoLoKeToan (PA E)**:
+   - KhungChungTu: đầu khối "Tạo lô xuất" + dòng phụ "Nối tiếp KT-… · Kỳ …", ô "Đến hết ngày", nút chính "Tạo lô và tải tệp" (khóa kèm lý do khi đang kiểm tra / lỗi / không tạo được).
+   - Dòng thông báo: "N chứng từ có lỗi sẽ để lại lô sau." + Xem/Ẩn (mở bảng Để lại lô sau); chênh lệch doanh thu khác 0 thêm dòng cảnh báo.
+   - Thân: Chứng từ theo loại (lớp kieuBang, dòng Cộng, chuyển kho / xuất kho khác ghi "AMIS tự tính giá"); Kế toán làm thêm trên AMIS (ghi chú thu 2 dòng, "Xem đủ" chỉ hiện khi chữ bị cắt, đo bằng ResizeObserver).
+   - Cột phải (CotThuocTinh): Lô sẽ tạo, Đối chiếu doanh thu (luôn thấy), Tệp nhập AMIS đánh số theo thứ tự kèm nơi nhập (`tepNhap` của máy chủ).
+   - Hộp xác nhận dùng HopXacNhanChungTu (ô ghi chú 0/500; lỗi máy chủ hiện trong hộp, 409 thì đóng hộp và kiểm tra lại).
+   - Khối hẹp (điện thoại): ẩn cột Trước thuế / Thuế GTGT, thuế chờ hóa đơn xuống dưới Tổng; Lý do / Ghi chú xuống dưới mã chứng từ.
+3. **XuatDuLieuKeToan**: `PageContainer fill` + `TableShell fill` như Phiếu nhập kho.
+4. **i18n**: thêm 16 khóa (có `_one`/`_other`), bỏ 9 khóa chỉ bản PA D dùng.
+
+#### 3. KẾT QUẢ KIỂM THỬ & ĐỐI SOÁT HỒI QUY
+- `npm run i18n:kiem`: 720 tệp sạch. ESLint các tệp sửa: sạch. `vite build` (ra ngoài repo): đạt.
+- Giao diện: Vite + máy chủ giả (dữ liệu mẫu, không nối CSDL) trên Chrome: trang tạo lô 1568px (mở bảng để lại lô sau, hộp xác nhận, ghi chú, tạo lô → chuyển sang chi tiết, gọi tải tệp bị chặn trong trang thử), bề rộng 390px (không cuộn ngang, nút chính ở thanh đáy), danh sách lô giãn hết chiều cao. Chưa thử với backend thật.
+- Không đổi máy chủ; deploy chỉ frontend (cùng đợt PA D thì theo lưu ý của AUDIT-079: BE cùng FE).
