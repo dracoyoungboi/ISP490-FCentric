@@ -88,6 +88,7 @@
 | **AUDIT-076** | `2026-11-14 17:35:00` | PhanAnh & Antigravity AI | Fix & Architecture / Resolve 403 Invalid Access Token on Shopee Sandbox & Shop ID Mapping Isolation | `KenhBanHang.java`, `KenhBanHangServiceImpl.java`, `KenhBanHangDongBoServiceImpl.java`, `KenhBanHangController.java`, `kenhBanHangService.js`, `kenhSanMock.js`, `audit.md` | Khắc phục triệt để lỗi 403 Forbidden invalid_access_token trên Shopee Sandbox; Bóc tách độc lập Shop ID và Partner ID; Lưu trữ Shop ID vào shop_cipher an toàn; Tự động trích xuất shop_id từ OAuth response và query parameters; Chặn 100% API calls khi chưa có Shop ID hợp lệ; Tests BE 111/111 PASS, FE i18n 712 files PASS 100%. |
 | **AUDIT-077** | `2026-11-14 22:30:00` | Khang | Feature & Fix / Xuất dữ liệu kế toán MISA đợt 2 | `DungChungTuAmis.java`, `XuatKeToanService.java`, `KeToanNguonRepository.java`, `migration-2026-11-14-xuat-ke-toan-dot-2.sql`, `XuatDuLieuKeToan.jsx` | Theo BA 14/11 và nhập thử AMIS thật: tài khoản 5111/5211 (511 bị AMIS từ chối, 1111/1561 không tồn tại), gom khách sàn SAN_*/KHLE, một tệp mỗi loại cho cả lô, tự dựng 22_NhapKhoKhac/25_XuatKhoKhac/31_HangTraLai (mốc tự dựng do backend chốt, chống ghi sổ hai lần), chặn đơn QR thiếu số tài khoản, hủy lô. |
 | **AUDIT-078** | `2026-11-15 00:30:00` | Khang | Fix / Phiếu mua chưa có hóa đơn khi xuất kế toán MISA | `DungChungTuAmis.java`, `XuatKeToanService.java`, `GhiDoiChieu.java`, `HoaDonDauVaoService.java`, `KeToanNguonRepository.java`, `TheHoaDonNhaCungCap.jsx`, `XuatDuLieuKeToan.jsx` | Thử AMIS thật: "Không kèm hóa đơn" + Mua hàng › Nhận hóa đơn tự cộng thuế (PN202611091 888.888 + 71.112 = 960.000). Thêm cột Thuế chờ hóa đơn cho tệp đối chiếu cân, hướng dẫn bước Nhận hóa đơn, cho nhập hóa đơn sau khi xuất (phiếu xuất lúc chưa có hóa đơn) và nhắc kế toán ở lô sau; sửa câu hướng dẫn "Là đơn giá bán sau thuế". |
+| **AUDIT-079** | `2026-11-15 21:10:00` | Khang | UI / Thiết kế lại màn Xuất dữ liệu kế toán (PA D) | `XuatDuLieuKeToan.jsx`, `TaoLoKeToan.jsx`, `ChiTietLoKeToan.jsx`, `HopKeToan.jsx`, `tinhKeToan.js`, `XuatKeToanService.java`, `KeToanController.java`, `XemTruocXuatKeToanDto.java` | Tách màn một trang hai tab thành 3 trang theo khung chung của hệ thống: danh sách lô (như Phiếu nhập kho), Tạo lô xuất (tự kiểm tra, để lại lô sau, việc kế toán làm thêm), Chi tiết lô (chứng từ, mở khóa, hướng dẫn nhập AMIS). Máy chủ thêm tên tệp nhập theo loại và API đọc 00_HUONG_DAN.txt của lô. |
 
 
 ---
@@ -2530,3 +2531,40 @@
 - Bản sao CSDL tạm (MySQL 3399): nhập hóa đơn sau khi xuất cho 3 phiếu đã khóa (8%, 10%, không có hóa đơn) → màn xem trước, hướng dẫn và 90_DoiChieu hiện đúng 3 câu; mở khóa một phiếu chưa có hóa đơn → tệp đối chiếu 92.593 + 0 + 7.407 = 100.000; khóa lô rồi xem trước lô sau → các dòng nhắc không lặp lại; đối chiếu doanh thu chênh 0.
 - AMIS dùng thử: lô KT-20261114-1 nhập 8/8 tệp và ghi sổ đủ 4 chứng từ (sau khi nhập phần mua hàng của lô KT-20261103-1 để có tồn); thử Nhận hóa đơn cho PN202611091 ra đúng 71.112 đ thuế.
 - `npm run i18n:kiem`: 712 tệp sạch; ESLint các tệp giao diện sửa sạch. Chưa thử giao diện trong ứng dụng (localhost dùng chung CSDL production).
+
+### [AUDIT-079] THIẾT KẾ LẠI MÀN XUẤT DỮ LIỆU KẾ TOÁN THEO KHUNG CHUNG CỦA HỆ THỐNG (PA D)
+- **Thời gian (GMT+7)**: 2026-11-15 21:10:00
+- **Tác giả thực hiện**: Khang
+- **Phân hệ ảnh hưởng**: Báo cáo › Xuất dữ liệu kế toán (danh sách lô, tạo lô, chi tiết lô); thẻ trạng thái dùng chung.
+- **Tệp thay đổi**:
+  - `backend/src/main/java/com/dev/backend/services/impl/ketoan/XuatKeToanService.java`, `controller/KeToanController.java`, `dto/response/ketoan/XemTruocXuatKeToanDto.java`
+  - `backend/src/main/resources/i18n/thong-diep/keToanDuLieuVao(.properties|_en.properties)`
+  - `frontend/src/pages/bao-cao/XuatDuLieuKeToan.jsx` (viết lại), `TaoLoKeToan.jsx` (mới), `ChiTietLoKeToan.jsx` (mới)
+  - `frontend/src/components/ke-toan/HopKeToan.jsx` (mới, dời hộp Mở khóa / Hủy lô từ trang cũ), `components/ke-toan/tinhKeToan.js`
+  - `frontend/src/App.jsx`, `components/backoffice/BackofficeLayout.jsx`, `services/keToanService.js`
+  - `frontend/src/constants/trangThai.js`, `components/shared/StatusBadge.jsx`, `i18n/en/tong-quan-bao-cao.json`, `i18n/en/trang-thai.json`
+  - `audit.md`
+
+#### 1. MỤC TIÊU & PHÂN TÍCH NGUYÊN NHÂN GỐC RỄ (ROOT CAUSE ANALYSIS)
+1. **Yêu cầu**: người dùng đánh giá màn Xuất dữ liệu kế toán "xấu, chưa clean, chưa đồng bộ với hệ thống" và yêu cầu làm cho dễ dùng, hợp lý. Hai vòng bản vẽ (artifact F6RMQxHek45a4568trmWi7): vòng 1 (A/B/C) bị chê; vòng 2 người dùng chọn **PA D**.
+2. **Vấn đề của màn cũ** (rà theo luồng quản trị viên kiểm tra → tạo lô → gửi tệp → kế toán nhập AMIS → hủy lô nếu lỗi):
+   - Mở màn chỉ thấy hộp trống "Chọn ngày rồi bấm Kiểm tra", không biết lần trước giao tới đâu, còn bao nhiêu chứng từ chờ, dù Kiểm tra chỉ đọc dữ liệu.
+   - Bốn hộp màu (để lại lô sau, cảnh báo, biến động lập tay, phát sinh sau xuất) xếp chồng và mở hết; không tách việc của người tạo lô với việc của kế toán; mã chứng từ không bấm được.
+   - Tạo lô xong chỉ nhảy sang tab danh sách; thứ tự nhập AMIS chỉ nằm trong 00_HUONG_DAN.txt.
+   - Tab, cột, thẻ không theo khung chung (tiêu đề + nút chính, dải chú ý một dòng, bảng có tab đếm số, cột Thao tác ô vuông, trang chi tiết có nút quay lại).
+
+#### 2. GIẢI PHÁP KỸ THUẬT & CHI TIẾT TRIỂN KHAI
+1. **Backend (không migration)**:
+   - `XemTruocXuatKeToanDto.TongHopLoai.tenTep`: tên tệp Excel chứa chứng từ của từng loại (`XuatKeToanService.tenTepCuaLoai`, tra mẫu AMIS theo nhóm hiển thị).
+   - `XemTruocXuatKeToanDto.tepNhap`: các tệp nhập theo đúng thứ tự và nơi nhập của 00_HUONG_DAN.txt (`tepNhap`).
+   - `GET /api/v1/ke-toan/lo-xuat/{id}/huong-dan` (quản trị viên): đọc 00_HUONG_DAN.txt trong tệp nén đã lưu (kiểm SHA-256 qua `taiTep`, bỏ BOM). Khóa thông điệp mới `keToanDuLieuVao.loKhongCoHuongDan`, `keToanDuLieuVao.khongDocDuocTepNen` (vi + en).
+2. **Frontend**:
+   - `/reports/accounting-export`: ListPageHeader (Thiết lập, Tạo lô xuất), AttentionBar "N chứng từ chưa giao kế toán, tính đến hết hôm qua" (kiểm tra chỉ đọc chạy nền), TableShell + StatusTabs (Tất cả / Đã giao kế toán / Đã hủy) + tìm số lô, ghi chú; cột Kỳ chứng từ thay "Chứng từ đến hết"; Thao tác: xem, tải tệp, hủy lô (chỉ lô còn hiệu lực mới nhất); phân trang; điện thoại dạng thẻ.
+   - `/reports/accounting-export/new`: tự kiểm tra khi mở và khi đổi ngày (đợi 350 ms, chỉ nhận kết quả lần mới nhất); dải 4 ô (nối tiếp lô, kỳ, chứng từ + số tệp, tiền khách trả); dòng đỏ "N chứng từ có lỗi, để lại lô sau" mở bảng lý do; thẻ Chứng từ theo loại có cột Tệp nhập, đối chiếu doanh thu còn một dòng (mở sẵn khi chênh khác 0); thẻ Kế toán làm thêm trên AMIS gom biến động lập tay, phát sinh sau khi xuất, cảnh báo với thẻ việc Nhận hóa đơn / Lập tay / Lưu ý; hộp xác nhận có ghi chú; tạo xong chuyển sang chi tiết lô và tải tệp.
+   - `/reports/accounting-export/:id`: tiêu đề số lô + thẻ trạng thái, Sao chép hướng dẫn, Tải tệp, ⋯ Hủy lô; dải thông tin (kỳ, chứng từ theo loại, tiền, người tạo, tệp + mã kiểm tra); bảng chứng từ có liên kết tới đơn bán / phiếu nhập và nút Mở khóa; khối Hướng dẫn nhập AMIS (mở sẵn khi vừa tạo lô).
+   - Nhãn trạng thái mới trong `constants/trangThai.js`: Đã giao kế toán, Đang khóa, Đã mở khóa, Lô đã hủy, Nhận hóa đơn, Lập tay, Lưu ý (thêm biểu tượng LockOpen cho StatusBadge). Bỏ 40 câu dịch chỉ màn cũ dùng.
+
+#### 3. KẾT QUẢ KIỂM THỬ & ĐỐI SOÁT HỒI QUY
+- Biên dịch backend (javac ngoài `backend/target`): đạt. Kiểm thử đơn vị backend: 1997 test, 1992 đạt; 2 lỗi có sẵn từ trước (`DonBanHangServiceTongQuanKhachTest`, `PhieuXuatKhoDispatchTest`), 3 bỏ qua do môi trường. Nhóm kế toán 36/36 (thêm 3 test tạm cho tên tệp theo loại, danh sách tệp nhập, đọc hướng dẫn: đúng tệp, bỏ BOM, thiếu tệp / sai mã băm / không có lô báo lỗi).
+- Frontend: `npm run i18n:kiem` 715 tệp sạch; ESLint các tệp sửa sạch; `node --test constants/trangThai.test.js` 22/22; `vite build` đạt.
+- Giao diện: chạy Vite với máy chủ giả (dữ liệu mẫu, không nối CSDL) trên Chrome: danh sách lô, tạo lô (mở bảng để lại lô sau, đối chiếu, hộp xác nhận, chuyển sang chi tiết, gọi tải tệp), chi tiết lô (lô mới nhất có ⋯ Hủy lô, lô cũ không có), hủy lô hiện dải đã hủy. Chưa thử với backend thật và chưa thử trên điện thoại thật.
