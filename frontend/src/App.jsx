@@ -195,7 +195,7 @@ function RootOAuthRedirect() {
     if (savedKenh.includes("tiktok") || stateLower.includes("tiktok") || stateLower.includes("tts")) {
       kenhSlug = "tiktok";
     } else if (savedKenh.includes("shopee-official") || stateLower.includes("shopee-official") || stateLower.includes("shopee_official")) {
-      kenhSlug = "shopee-official";
+      kenhSlug = "shopee";
     } else if (savedKenh.includes("shopee-sandbox") || stateLower.includes("shopee-sandbox") || stateLower.includes("shopee_sandbox")) {
       kenhSlug = "shopee-sandbox";
     } else if (savedKenh.includes("shopee") || stateLower.includes("shopee")) {
