@@ -7227,10 +7227,11 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         String error = addRes.path("error").asText("");
         if (!error.isBlank() && !"0".equals(error)) {
             String errMsg = addRes.path("message").asText(error);
+            Long fallbackCatId = timFallbackCategoryIdShopee(client, isSandbox);
             if ((errMsg.toLowerCase(Locale.ROOT).contains("category") || error.toLowerCase(Locale.ROOT).contains("category"))
-                    && !Long.valueOf(106705L).equals(body.get("category_id"))) {
-                log.warn("[SHOPEE-CREATE] Multi-variant CategoryId {} bị sàn từ chối ({}), tự động đổi sang danh mục an toàn 106705L và thử lại...", body.get("category_id"), errMsg);
-                body.put("category_id", 106705L);
+                    && !fallbackCatId.equals(body.get("category_id"))) {
+                log.warn("[SHOPEE-CREATE] Multi-variant CategoryId {} bị sàn từ chối ({}), tự động đổi sang danh mục an toàn {} và thử lại...", body.get("category_id"), errMsg, fallbackCatId);
+                body.put("category_id", fallbackCatId);
                 addRes = client.addItem(body);
                 error = addRes.path("error").asText("");
             }
