@@ -85,6 +85,8 @@ const BinMoveHistory = taiTrang(() => import("./pages/bin-move/BinMoveHistory"))
 const InKiemKe = taiTrang(() => import("./pages/stock-take/InKiemKe"));
 const BaoCaoDoanhThu = taiTrang(() => import("./pages/bao-cao/BaoCaoDoanhThu"));
 const XuatDuLieuKeToan = taiTrang(() => import("./pages/bao-cao/XuatDuLieuKeToan"));
+const TaoLoKeToan = taiTrang(() => import("./pages/bao-cao/TaoLoKeToan"));
+const ChiTietLoKeToan = taiTrang(() => import("./pages/bao-cao/ChiTietLoKeToan"));
 const KhachHangReport = taiTrang(() => import("./pages/bao-cao/KhachHangReport"));
 const NhatKyNhapXuat = taiTrang(() => import("./pages/bao-cao/NhatKyNhapXuat"));
 const BaoCaoSanPham = taiTrang(() => import("./pages/bao-cao/BaoCaoSanPham"));
@@ -414,6 +416,8 @@ const CAY_DUONG_DAN = (
       {/* Xuất dữ liệu kế toán (AMIS): API chỉ cho quản trị viên */}
       <Route element={<RequireRole roles={["quan_tri_vien"]} />}>
         <Route path="/reports/accounting-export" element={<XuatDuLieuKeToan />} />
+        <Route path="/reports/accounting-export/new" element={<TaoLoKeToan />} />
+        <Route path="/reports/accounting-export/:id" element={<ChiTietLoKeToan />} />
       </Route>
       <Route path="/reports/inventory" element={<TonKhoTongQuan />} />
       {/* Legacy: URL tiếng Việt cũ chuyển hướng sang URL mới */}
