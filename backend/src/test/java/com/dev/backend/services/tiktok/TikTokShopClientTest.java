@@ -235,7 +235,7 @@ class TikTokShopClientTest {
         String appSecret = "test_app_secret";
         String accessToken = "test_access_token";
         String shopCipher = "ROW_TEST_CIPHER";
-        String categoryId = "603729";
+        String categoryId = "603720";
 
         String mockResponse = """
                 {
@@ -271,7 +271,7 @@ class TikTokShopClientTest {
         assertEquals("100149", res.path("data").path("attributes").get(0).path("id").asText());
 
         String capturedUrl = urlCaptor.getValue();
-        assertTrue(capturedUrl.contains("/product/202309/categories/603729/attributes"));
+        assertTrue(capturedUrl.contains("/product/202309/categories/603720/attributes"));
         assertTrue(capturedUrl.contains("category_version=v2"));
         assertTrue(capturedUrl.contains("locale=vi-VN"));
         assertTrue(capturedUrl.contains("shop_cipher=" + shopCipher));
@@ -283,8 +283,8 @@ class TikTokShopClientTest {
     void createProduct_coProductAttributesQuocGiaXuatXu() throws Exception {
         TikTokProductCreateRequest payload = TikTokProductCreateRequest.builder()
                 .title("Nike Sportswear - Thời trang FCentric chính hãng")
-                .description("<p>Mô tả áo ngực thể thao</p>")
-                .categoryId("603729")
+                .description("<p>Mô tả áo thun thể thao</p>")
+                .categoryId("603720")
                 .categoryVersion("v2")
                 .brandId("0")
                 .mainImages(List.of(new TikTokProductCreateRequest.ImageUri("tos-maliva-i-o260ufnz6q-us/nike_sportswear")))
@@ -604,5 +604,28 @@ class TikTokShopClientTest {
         assertEquals("2630000", order.layTongTienThanhToan());
         assertEquals("30000", order.layPhiVanChuyen());
         assertEquals("PKG-587143735838410130", order.getFirstPackageId());
+    }
+
+    @Test
+    @DisplayName("isPhuHopThoiTrangNamVaUnisex: Chặn triệt để mã 603729 và các danh mục áo ngực, đồ lót, nữ")
+    void testIsPhuHopThoiTrangNamVaUnisex() {
+        // Mã 603729 là Áo ngực thể thao
+        assertFalse(TikTokShopClient.isPhuHopThoiTrangNamVaUnisex("603729", "Áo ngực thể thao"));
+        assertFalse(TikTokShopClient.isPhuHopThoiTrangNamVaUnisex("603729", "Sportswear"));
+        assertFalse(TikTokShopClient.isPhuHopThoiTrangNamVaUnisex("123456", "Áo ngực có gọng"));
+        assertFalse(TikTokShopClient.isPhuHopThoiTrangNamVaUnisex("123456", "Đồ lót & Nội y nữ"));
+        assertFalse(TikTokShopClient.isPhuHopThoiTrangNamVaUnisex("123456", "Váy đầm công sở"));
+        assertFalse(TikTokShopClient.isPhuHopThoiTrangNamVaUnisex(null, "Áo thun nam"));
+        assertFalse(TikTokShopClient.isPhuHopThoiTrangNamVaUnisex("", "Áo thun nam"));
+
+        // Các danh mục thời trang nam chuẩn phải được chấp nhận
+        assertTrue(TikTokShopClient.isPhuHopThoiTrangNamVaUnisex("603720", "Áo thun & Áo phông nam"));
+        assertTrue(TikTokShopClient.isPhuHopThoiTrangNamVaUnisex("960776", "Áo Polo nam"));
+        assertTrue(TikTokShopClient.isPhuHopThoiTrangNamVaUnisex("603706", "Áo khoác & Áo choàng nam"));
+        assertTrue(TikTokShopClient.isPhuHopThoiTrangNamVaUnisex("603713", "Quần jeans nam"));
+        assertTrue(TikTokShopClient.isPhuHopThoiTrangNamVaUnisex("603715", "Quần shorts nam"));
+        assertTrue(TikTokShopClient.isPhuHopThoiTrangNamVaUnisex("603716", "Quần dài thường ngày nam"));
+        assertTrue(TikTokShopClient.isPhuHopThoiTrangNamVaUnisex("603726", "Áo nỉ & Áo hoodie nam"));
+        assertTrue(TikTokShopClient.isPhuHopThoiTrangNamVaUnisex("1203984", "Áo sơ mi nam"));
     }
 }
