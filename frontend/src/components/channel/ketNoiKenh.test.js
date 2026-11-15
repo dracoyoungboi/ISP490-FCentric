@@ -104,25 +104,30 @@ test("timSan: theo mã kênh hoặc đoạn đường dẫn, không phân biệt
   assert.equal(timSan(""), null);
 });
 
-test("Shopee: phân biệt cổng phụ ẩn tạm và cổng chính thức ủy quyền", () => {
+test("Shopee: định tuyến /channels/shopee trực tiếp tới kênh chính thức và hỗ trợ bí danh", () => {
   const shopee = timSan("shopee");
-  assert.equal(shopee?.maKenh, "SHOPEE");
+  assert.equal(shopee?.maKenh, "SHOPEE_OFFICIAL");
   assert.equal(shopee.duongDan, "/channels/shopee");
-  assert.equal(shopee.kieuKetNoi, "ben_thu_ba");
-  assert.equal(shopee.anTam, true);
-  assert.equal(shopee.hienMenu, false);
+  assert.equal(shopee.kieuKetNoi, "uy_quyen");
+  assert.equal(shopee.hienMenu, true);
 
   const shopeeOfficial = timSan("shopee_official") || timSan("shopee-official");
   assert.equal(shopeeOfficial?.maKenh, "SHOPEE_OFFICIAL");
+  assert.equal(shopeeOfficial.duongDan, "/channels/shopee");
   assert.equal(shopeeOfficial.kieuKetNoi, "uy_quyen");
   assert.equal(shopeeOfficial.hienMenu, true);
+
+  const shopeeLegacy = timSan("shopee-legacy");
+  assert.equal(shopeeLegacy?.maKenh, "SHOPEE");
+  assert.equal(shopeeLegacy.anTam, true);
+  assert.equal(shopeeLegacy.hienMenu, false);
 
   // Danh sách sàn hiển thị ở menu trái (không bị ẩn tạm):
   assert.deepEqual(
     SAN_BAN_HANG.filter((san) => san.hoTro && !san.anTam).map((san) => san.maKenh),
-    ["SHOPIFY", "LAZADA", "LAZADA_SANDBOX", "TIKTOK", "SHOPEE_OFFICIAL"],
+    ["SHOPIFY", "LAZADA", "TIKTOK", "SHOPEE_OFFICIAL", "SHOPEE_SANDBOX"],
   );
-  assert.equal(timSan("SHOPEE"), shopee);
+  assert.equal(timSan("SHOPEE_OFFICIAL"), shopee);
 });
 
 test("ô tên miền Shopify chỉ đọc khi đã kết nối và máy chủ ngắt kết nối được; ngắt rồi thì sửa được", () => {
