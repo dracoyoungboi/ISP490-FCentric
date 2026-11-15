@@ -3234,20 +3234,24 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         return new TrangNhomLienKet(nhom, trangSanPham, trangId.getTotalElements(), tongSku);
     }
 
-    /** Một dòng liên kết cho giao diện; số khả dụng và ảnh lấy từ bảng đã tra sẵn cho cả trang (không truy vấn thêm). */
+    /** Một dòng liên kết cho giao diện; ưu tiên ảnh biến thể riêng, nếu không có thì lấy ảnh sản phẩm cha. */
     private LienKetSanPhamDto toLienKetDto(TrangThaiDongBoSanPham item, Map<Integer, BigDecimal> khaDungTheoBienThe,
-                                           Map<Integer, String> anhTheoSanPham) {
+                                           Map<Integer, String> anhTheoSanPham, Map<Integer, String> anhTheoBienThe) {
         BienTheSanPham bt = item.getBienTheSanPham();
         Integer sanPhamId = bt != null && bt.getSanPham() != null ? bt.getSanPham().getId() : null;
+        Integer bienTheId = bt != null ? bt.getId() : null;
         String tenSanPham = bt != null && bt.getSanPham() != null ? bt.getSanPham().getTenSanPham() : null;
         String tenBienThe = bt != null ? buildVariantName(bt) : null;
-        BigDecimal soLuongKhaDung = bt != null && bt.getId() != null
-                ? khaDungTheoBienThe.getOrDefault(bt.getId(), BigDecimal.ZERO)
+        BigDecimal soLuongKhaDung = bienTheId != null
+                ? khaDungTheoBienThe.getOrDefault(bienTheId, BigDecimal.ZERO)
                 : BigDecimal.ZERO;
 
         BigDecimal giaBanSan = item.getGiaBanSan() != null ? item.getGiaBanSan() : (bt != null ? bt.getGiaBan() : null);
         BigDecimal giaBan = bt != null ? bt.getGiaBan() : null;
         Boolean lechGia = (item.getGiaBanSan() != null && giaBan != null) ? item.getGiaBanSan().compareTo(giaBan) != 0 : Boolean.FALSE;
+
+        String anhBienThe = (bienTheId != null && anhTheoBienThe != null) ? anhTheoBienThe.get(bienTheId) : null;
+        String anhHienThi = (anhBienThe != null) ? anhBienThe : (sanPhamId != null && anhTheoSanPham != null ? anhTheoSanPham.get(sanPhamId) : null);
 
         return LienKetSanPhamDto.builder()
                 .id(item.getId())
@@ -3256,9 +3260,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 .tenBienTheSan(tenBienThe)
                 .giaBanSan(giaBanSan)
                 .lechGia(lechGia)
-                .bienTheSanPhamId(bt != null ? bt.getId() : null)
+                .bienTheSanPhamId(bienTheId)
                 .sanPhamId(sanPhamId)
-                .anhDaiDien(sanPhamId != null ? anhTheoSanPham.get(sanPhamId) : null)
+                .anhDaiDien(anhHienThi)
                 .maSku(bt != null ? bt.getMaSku() : null)
                 .tenSanPham(tenSanPham)
                 .tenBienThe(tenBienThe)
@@ -3271,6 +3275,11 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 .ngayDongBoCuoi(item.getNgayDongBoCuoi())
                 .chiTietLoi(item.getChiTietLoi())
                 .build();
+    }
+
+    private LienKetSanPhamDto toLienKetDto(TrangThaiDongBoSanPham item, Map<Integer, BigDecimal> khaDungTheoBienThe,
+                                           Map<Integer, String> anhTheoSanPham) {
+        return toLienKetDto(item, khaDungTheoBienThe, anhTheoSanPham, null);
     }
 
     /**
