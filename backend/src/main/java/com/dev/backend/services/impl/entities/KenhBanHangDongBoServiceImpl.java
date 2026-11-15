@@ -7304,6 +7304,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
         boolean isSandbox = OmnichannelOrderSyncJob.isShopeeSandbox(kenh != null ? kenh.getMaKenh() : "");
         Long categoryId = timCategoryIdShopee(sp, client, isSandbox);
+        String sizeChartId = chuanBiSizeChartShopee(sp, client, cdnCache);
 
         // Trường hợp sản phẩm chỉ có 1 biến thể (Single SKU)
         if (variants.size() == 1) {
@@ -7326,6 +7327,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             body.put("item_status", "NORMAL");
             body.put("seller_stock", List.of(Map.of("stock", Math.max(0, qty))));
             body.put("item_sku", sku);
+            if (sizeChartId != null && !sizeChartId.isBlank()) {
+                body.put("size_chart_info", Map.of("size_chart", sizeChartId));
+                body.put("size_chart", sizeChartId);
+            }
 
             log.info("[SHOPEE-CREATE] Đang tạo sản phẩm đơn SKU [{}] lên Shopee...", title);
             JsonNode addRes = client.addItem(body);
@@ -7339,6 +7344,15 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     body.put("category_id", fallbackCatId);
                     addRes = client.addItem(body);
                     error = addRes.path("error").asText("");
+                } else if ((errMsg.toLowerCase(Locale.ROOT).contains("size_chart") || error.toLowerCase(Locale.ROOT).contains("size_chart"))
+                        && !body.containsKey("size_chart_info")) {
+                    String retrySizeChart = chuanBiSizeChartShopee(sp, client, cdnCache);
+                    if (retrySizeChart != null && !retrySizeChart.isBlank()) {
+                        body.put("size_chart_info", Map.of("size_chart", retrySizeChart));
+                        body.put("size_chart", retrySizeChart);
+                        addRes = client.addItem(body);
+                        error = addRes.path("error").asText("");
+                    }
                 }
             }
             if (error.isBlank() || "0".equals(error)) {
@@ -7398,6 +7412,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         body.put("item_status", "NORMAL");
         body.put("seller_stock", List.of(Map.of("stock", 0))); // Tồn kho sẽ do Tier Variation quản lý
         body.put("item_sku", parentSku);
+        if (sizeChartId != null && !sizeChartId.isBlank()) {
+            body.put("size_chart_info", Map.of("size_chart", sizeChartId));
+            body.put("size_chart", sizeChartId);
+        }
 
         log.info("[SHOPEE-CREATE] Đang tạo sản phẩm cha [{}] với {} biến thể lên Shopee...", title, variants.size());
         JsonNode addRes = client.addItem(body);
@@ -7411,6 +7429,15 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 body.put("category_id", fallbackCatId);
                 addRes = client.addItem(body);
                 error = addRes.path("error").asText("");
+            } else if ((errMsg.toLowerCase(Locale.ROOT).contains("size_chart") || error.toLowerCase(Locale.ROOT).contains("size_chart"))
+                    && !body.containsKey("size_chart_info")) {
+                String retrySizeChart = chuanBiSizeChartShopee(sp, client, cdnCache);
+                if (retrySizeChart != null && !retrySizeChart.isBlank()) {
+                    body.put("size_chart_info", Map.of("size_chart", retrySizeChart));
+                    body.put("size_chart", retrySizeChart);
+                    addRes = client.addItem(body);
+                    error = addRes.path("error").asText("");
+                }
             }
         }
         if (!error.isBlank() && !"0".equals(error)) {
