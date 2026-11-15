@@ -21,6 +21,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.*;
 
 /**
@@ -35,6 +37,10 @@ public class TraHangTaiQuayService {
     public static final String DA_TRA_HET = "da_tra_het";
     private static final int TOI_DA_KET_QUA_TIM = 20;
     private static final int TOI_DA_GAN_DAY = 50;
+    private static final int TOI_DA_LICH_SU = 200;
+    /** Mốc xa nhất của danh sách Phiếu đã trả tại quầy (ngày lịch, tính cả hôm nay). */
+    private static final int TOI_DA_NGAY_LICH_SU = 30;
+    private static final ZoneId MUI_GIO = ZoneId.of("Asia/Ho_Chi_Minh");
 
     @Autowired
     private EntityManager em;
@@ -239,6 +245,125 @@ public class TraHangTaiQuayService {
         PhieuTraHang p = soPhieu.isEmpty() ? null : phieuTraHangRepository.findBySoPhieu(soPhieu).orElse(null);
         if (p == null) throw new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("traHang.phieuKhongTonTai"));
         return phieu(p.getId());
+    }
+
+    // ================= Phiếu đã trả (lịch sử tại quầy) =================
+
+    /**
+     * Phiếu trả NHẬN tại cửa hàng {@code khoNhanId} (nơi chi tiền hoàn, nhập hàng Đạt), theo lịch Việt Nam:
+     * <ul>
+     *   <li>mốc nhanh {@code soNgay}: 1 = từ 00:00 hôm nay, 7 = hôm nay và 6 ngày trước (chặn 1–30);</li>
+     *   <li>hoặc khoảng tùy chọn {@code tuNgay}–{@code denNgay} (cả hai ngày, tối đa 1 năm, không sau hôm nay) để
+     *       xem phiếu cũ hơn 30 ngày.</li>
+     * </ul>
+     * {@code q} lọc thêm theo mã hóa đơn gốc, mã phiếu, tên khách (chứa) hoặc số điện thoại khách (khớp đủ số, như ô tìm
+     * hóa đơn: không dò được số điện thoại đang che từng phần). Mới nhất trước, tối đa 200 dòng; số tổng (tiền mặt /
+     * chuyển khoản) tính trên cả khoảng sau lọc để đối soát tiền chi ra. Chỉ cửa hàng đang chọn: nhân viên không xem
+     * tiền hoàn của cửa hàng mình không phụ trách.
+     */
+    @Transactional(readOnly = true)
+    public TraHangDto.LichSuPhieu lichSu(Integer khoNhanId, int soNgay, LocalDate tuNgay, LocalDate denNgay, String q) {
+        posCatalogService.authorizeWarehouse(khoNhanId);
+        LocalDate homNay = LocalDate.now(MUI_GIO);
+        LocalDate tuLich;
+        LocalDate denLich;
+        if (tuNgay != null || denNgay != null) {
+            if (tuNgay == null || denNgay == null) throw loiKhoangNgay("traHang.khoangNgayThieu");
+            if (tuNgay.isAfter(denNgay)) throw loiKhoangNgay("traHang.khoangNgayNguoc");
+            if (denNgay.isAfter(homNay)) throw loiKhoangNgay("traHang.khoangNgayTuongLai");
+            if (!denNgay.isBefore(tuNgay.plusYears(1))) throw loiKhoangNgay("traHang.khoangNgayQuaDai");
+            tuLich = tuNgay;
+            denLich = denNgay;
+        } else {
+            int n = Math.max(1, Math.min(soNgay, TOI_DA_NGAY_LICH_SU));
+            tuLich = homNay.minusDays(n - 1L);
+            denLich = homNay;
+        }
+        Instant tu = tuLich.atStartOfDay(MUI_GIO).toInstant();
+        Instant den = denLich.plusDays(1).atStartOfDay(MUI_GIO).toInstant();
+
+        // Điều kiện lọc dùng chung cho danh sách và số tổng
+        StringBuilder dk = new StringBuilder(" from PhieuTraHang p where p.khoNhanId = :kho"
+                + " and p.ngayTao >= :tu and p.ngayTao < :den");
+        Map<String, Object> thamSo = new HashMap<>();
+        thamSo.put("kho", khoNhanId);
+        thamSo.put("tu", tu);
+        thamSo.put("den", den);
+        String tuKhoa = q == null ? "" : q.trim();
+        if (!tuKhoa.isEmpty()) {
+            String so = tuKhoa.replaceAll("[\\s.\\-]", "");
+            if (so.matches("\\+?\\d{8,15}")) {
+                if (so.startsWith("+84")) so = "0" + so.substring(3);
+                dk.append(" and exists (select 1 from DonBanHang d join d.khachHang k where d.id = p.donBanHangId"
+                        + " and replace(replace(replace(k.soDienThoai, ' ', ''), '.', ''), '-', '') = :sdt)");
+                thamSo.put("sdt", so);
+            } else {
+                dk.append(" and (lower(p.soPhieu) like :mau escape '!' or exists (select 1 from DonBanHang d"
+                        + " left join d.khachHang k where d.id = p.donBanHangId and (lower(d.soDonHang) like :mau escape '!'"
+                        + " or lower(k.tenKhachHang) like :mau escape '!')))");
+                String thoat = tuKhoa.toLowerCase(Locale.ROOT).replace("!", "!!").replace("%", "!%").replace("_", "!_");
+                thamSo.put("mau", "%" + thoat + "%");
+            }
+        }
+
+        var truyVanDs = em.createQuery("select p" + dk + " order by p.ngayTao desc, p.id desc", PhieuTraHang.class);
+        thamSo.forEach(truyVanDs::setParameter);
+        List<PhieuTraHang> ds = truyVanDs.setMaxResults(TOI_DA_LICH_SU + 1).getResultList();
+        boolean conNua = ds.size() > TOI_DA_LICH_SU;
+        if (conNua) ds = ds.subList(0, TOI_DA_LICH_SU);
+
+        var truyVanTong = em.createQuery("select count(p), sum(p.tongSoLuong),"
+                + " sum(case when p.phuongThucHoan = :tm then p.tongTienHoan else 0 end),"
+                + " sum(case when p.phuongThucHoan = :ck then p.tongTienHoan else 0 end)" + dk);
+        thamSo.forEach(truyVanTong::setParameter);
+        Object[] tong = (Object[]) truyVanTong
+                .setParameter("tm", PhieuTraHang.HOAN_TIEN_MAT).setParameter("ck", PhieuTraHang.HOAN_CHUYEN_KHOAN)
+                .getSingleResult();
+        BigDecimal tienMat = soThapPhan(tong[2]);
+        BigDecimal chuyenKhoan = soThapPhan(tong[3]);
+
+        // Đơn gốc (kèm khách) và người lập: mỗi loại một truy vấn, không hỏi từng phiếu
+        Map<Integer, DonBanHang> don = new HashMap<>();
+        Map<Integer, String> nguoi = new HashMap<>();
+        if (!ds.isEmpty()) {
+            Set<Integer> donIds = new HashSet<>();
+            Set<Integer> nguoiIds = new HashSet<>();
+            for (PhieuTraHang p : ds) {
+                donIds.add(p.getDonBanHangId());
+                nguoiIds.add(p.getNguoiLapId());
+            }
+            em.createQuery("select d from DonBanHang d left join fetch d.khachHang where d.id in :ids", DonBanHang.class)
+                    .setParameter("ids", donIds).getResultList().forEach(d -> don.put(d.getId(), d));
+            em.createQuery("select n from NguoiDung n where n.id in :ids", NguoiDung.class)
+                    .setParameter("ids", nguoiIds).getResultList().forEach(nd -> nguoi.put(nd.getId(), tenNguoi(nd)));
+        }
+        Map<Integer, String> tenKho = new HashMap<>();
+        List<TraHangDto.PhieuTomTat> kq = new ArrayList<>();
+        for (PhieuTraHang p : ds) {
+            DonBanHang d = don.get(p.getDonBanHangId());
+            KhachHang kh = d == null ? null : d.getKhachHang();
+            boolean traCheo = !Objects.equals(p.getKhoBanId(), p.getKhoNhanId());
+            kq.add(new TraHangDto.PhieuTomTat(p.getId(), p.getSoPhieu(), p.getNgayTao(), p.getDonBanHangId(),
+                    d == null ? null : d.getSoDonHang(),
+                    kh == null ? null : kh.getTenKhachHang(),
+                    kh == null ? null : TraHangQuyTac.cheSoDienThoai(kh.getSoDienThoai()),
+                    traCheo, traCheo ? tenKho.computeIfAbsent(p.getKhoBanId(), this::tenKho) : null,
+                    Boolean.TRUE.equals(p.getQuaHan()), p.getTongSoLuong(), p.getSoLuongLoi(), p.getTongTienHoan(),
+                    p.getPhuongThucHoan(), nguoi.get(p.getNguoiLapId())));
+        }
+        return new TraHangDto.LichSuPhieu(tu, kq, ((Number) tong[0]).longValue(), soThapPhan(tong[1]), tienMat,
+                chuyenKhoan, tienMat.add(chuyenKhoan), conNua);
+    }
+
+    private static CommonException loiKhoangNgay(String khoa) {
+        return new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of(khoa));
+    }
+
+    /** Tổng SUM của JPQL: null khi không có dòng, kiểu số tùy trình điều khiển. */
+    private static BigDecimal soThapPhan(Object v) {
+        if (v == null) return BigDecimal.ZERO;
+        if (v instanceof BigDecimal b) return b;
+        return new BigDecimal(v.toString());
     }
 
     // ================= kiểm dùng chung =================
