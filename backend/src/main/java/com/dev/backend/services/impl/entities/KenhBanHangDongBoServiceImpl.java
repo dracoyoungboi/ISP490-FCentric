@@ -6939,6 +6939,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         try {
             JsonNode catRes = client.getCategoryList("vi");
             JsonNode catList = catRes.path("response").path("category_list");
+            if (!catList.isArray() || catList.isEmpty()) {
+                catRes = client.getCategoryList("en");
+                catList = catRes.path("response").path("category_list");
+            }
             if (catList.isArray() && !catList.isEmpty()) {
                 List<ShopeeCategoryLeaf> leaves = new ArrayList<>();
                 for (JsonNode c : catList) {
