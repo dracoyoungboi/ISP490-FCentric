@@ -145,3 +145,17 @@ Mọi kênh bán (Shopify, Lazada, Shopee, TikTok Shop) khi quét đơn về ph�
    - Fallback cứng chuẩn ngành thời trang nam Shopee VN: `11035592L` (Thời Trang Nam > Áo > Áo polo), đảm bảo sản phẩm luôn tạo thành công.
 5. **Bảo toàn 100% độ ổn định của luồng Shopee Sandbox**:
    - Mọi xử lý dành cho Shopee Sandbox giữ nguyên mã `106705L` làm fallback và retry an toàn, tuyệt đối không bị ảnh hưởng bởi luồng Production.
+---
+
+## 11. QUY CHUẨN ĐỒNG BỘ ẢNH BIẾN THỂ VÀ PHÂN LOẠI SHOPEE (TIER VARIATION IMAGES)
+1. **Khắc phục lỗi toàn bộ biến thể nhận nhầm ảnh sản phẩm cha**:
+   - Theo đặc tả Shopee OpenPlatform v2, API `v2.product.init_tier_variation` cho phép đính kèm thuộc tính `image: {"image_id": "..."}` vào từng phần tử trong `option_list` của Tier 1 (phân loại Màu sắc).
+   - Nếu `option_list` chỉ gửi chuỗi `option` mà không gửi kèm `image`, sàn Shopee sẽ không gắn ảnh cho các biến thể và mặc định hiển thị duy nhất ảnh đại diện sản phẩm cha cho toàn bộ SKU.
+2. **Quy tắc tải và ánh xạ ảnh phân loại biến thể (`AnhBienThe`)**:
+   - Trước khi gọi `init_tier_variation`, hệ thống truy vấn `anhBienTheRepository.findActiveByBienTheIds` lấy ảnh thực tế của từng biến thể theo màu sắc.
+   - Tải ảnh biến thể lên Shopee Media Space (`v2.media_space.upload_image`) với cơ chế in-memory và database cache (`SHP_IMG:...`).
+   - Gán `image: {"image_id": ...}` cho từng màu sắc trong Tier 1 variation. Khi người mua bấm chọn Màu sắc trên Shopee, giao diện tự động chuyển đổi sang đúng ảnh thật của màu đó.
+3. **Bổ sung ảnh biến thể vào album ảnh sản phẩm cha**:
+   - Trong hàm `chuanBiVaUploadAnhShopee`, nếu album ảnh sản phẩm cha (`AnhQuanAo`) chưa đạt giới hạn 9 ảnh của Shopee, tự động nạp tiếp ảnh từ `AnhBienThe` để bộ sưu tập ảnh chính trên sàn hiển thị đầy đủ các gam màu thực tế.
+4. **Hiển thị giao diện FCentric (`toLienKetDto`)**:
+   - Luôn ưu tiên hiển thị ảnh riêng của biến thể (`AnhBienThe`), chỉ fallback về ảnh sản phẩm cha (`AnhQuanAo`) khi biến thể đó thực sự chưa có ảnh riêng.
