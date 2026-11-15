@@ -311,36 +311,6 @@ function ChiTietDonBanHang({ id }) {
       },
     });
 
-  // ── Đầu khối ────────────────────────────────────────────────────────────
-  const nguon = laPos ? t("Bán tại quầy") : laSan ? t("Đơn {{tenKenh}}", { tenKenh }) : t("Đơn bán hàng");
-  const nutChinh = khoaKhiChoGoc(
-    [
-      v.nutGuiKho
-        ? {
-            ma: "guiKho",
-            nhan: t("Gửi sang kho"),
-            icon: Send,
-            dangChay: dangChay === "guiKho",
-            khoa: Boolean(dangChay),
-            onClick: laSanXuatKhoTong ? guiKhoLazada : () => moHop("guiKho"),
-          }
-        : null,
-      v.nutDaGiao ? { ma: "daGiao", nhan: t("Xác nhận đã giao"), icon: CircleCheckBig, onClick: () => moHop("daGiao") } : null,
-      v.nutDongGoi
-        ? { ma: "dongGoi", nhan: t("Đóng gói"), icon: PackageCheck, dieuHuong: true, onClick: () => navigate(`/goods-issues/packing/${id}`) }
-        : null,
-      v.nutXuat
-        ? { ma: "xuat", nhan: t("Xuất kho"), icon: Truck, dieuHuong: true, onClick: () => navigate(`/goods-issues/${v.pxMo.id}`) }
-        : null,
-      v.nutTaoLai
-        ? { ma: "taoLai", nhan: t("Tạo lại phiếu xuất"), icon: RefreshCw, dangChay: dangChay === "taoLai", khoa: Boolean(dangChay), onClick: taoLaiPhieuXuat }
-        : null,
-      laSan && don?.trangThai !== TRANG_THAI_DON.DA_HUY
-        ? { ma: "inVanDonSan", nhan: t("In vận đơn sàn (A6)"), icon: Printer, onClick: inVanDonSan }
-        : null,
-    ].filter(Boolean),
-    choGoc,
-  );
   const inVanDonSan = async () => {
     // Mở tab trước ngay lập tức khi click để trình duyệt không chặn popup
     const popup = window.open("", "_blank");
@@ -367,6 +337,37 @@ function ChiTietDonBanHang({ id }) {
       toast.error(getApiErrorMessage(err, t("Không thể tải tem vận đơn sàn")));
     }
   };
+
+  // ── Đầu khối ────────────────────────────────────────────────────────────
+  const nguon = laPos ? t("Bán tại quầy") : laSan ? t("Đơn {{tenKenh}}", { tenKenh }) : t("Đơn bán hàng");
+  const nutChinh = khoaKhiChoGoc(
+    [
+      v.nutGuiKho
+        ? {
+            ma: "guiKho",
+            nhan: t("Gửi sang kho"),
+            icon: Send,
+            dangChay: dangChay === "guiKho",
+            khoa: Boolean(dangChay),
+            onClick: laSanXuatKhoTong ? guiKhoLazada : () => moHop("guiKho"),
+          }
+        : null,
+      v.nutDaGiao ? { ma: "daGiao", nhan: t("Xác nhận đã giao"), icon: CircleCheckBig, onClick: () => moHop("daGiao") } : null,
+      v.nutDongGoi
+        ? { ma: "dongGoi", nhan: t("Đóng gói"), icon: PackageCheck, dieuHuong: true, onClick: () => navigate(`/goods-issues/packing/${id}`) }
+        : null,
+      v.nutXuat
+        ? { ma: "xuat", nhan: t("Xuất kho"), icon: Truck, dieuHuong: true, onClick: () => navigate(`/goods-issues/${v.pxMo?.id}`) }
+        : null,
+      v.nutTaoLai
+        ? { ma: "taoLai", nhan: t("Tạo lại phiếu xuất"), icon: RefreshCw, dangChay: dangChay === "taoLai", khoa: Boolean(dangChay), onClick: taoLaiPhieuXuat }
+        : null,
+      laSan && don?.trangThai !== TRANG_THAI_DON.DA_HUY
+        ? { ma: "inVanDonSan", nhan: t("In vận đơn sàn (A6)"), icon: Printer, onClick: inVanDonSan }
+        : null,
+    ].filter(Boolean),
+    choGoc,
+  );
 
   const menu = [
     laSan && don?.trangThai !== TRANG_THAI_DON.DA_HUY
