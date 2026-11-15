@@ -97,6 +97,7 @@
 | **AUDIT-085** | `2026-11-16 00:45:00` | Khang | Feature / Xem phiếu trả cũ theo kỳ, khoảng ngày và lọc theo khách trên màn Trả hàng POS | `TraHangTaiQuayService.java`, `PosTraHangController.java`, `traHang.properties`, `traHang_en.properties`, `traHangService.js`, `PhieuDaTra.jsx`, `HoaDonConHan.jsx`, `TheDanhSach.jsx`, `loc-phieu-tra.js`, `PosReturnsPage.jsx`, `nhan-thoi-gian.js`, `ban-hang.json` | Thẻ Phiếu đã trả: một hàng lọc với nút kỳ dạng menu (Hôm nay, Hôm qua, 7 ngày qua, Tháng này, Tháng trước, Chọn khoảng ngày tối đa 1 năm) và ô lọc theo tên khách / số điện thoại / mã hóa đơn / mã phiếu (máy chủ lọc, số tổng theo lọc); thẻ Hóa đơn còn hạn trả cùng bố cục. API GET /api/v1/pos/returns nhận thêm tuNgay, denNgay, q; không migration. |
 | **AUDIT-086** | `2026-11-16 00:50:00` | PhanAnh & Antigravity AI | Fix UI / Khắc phục lỗi ReferenceError inVanDonSan khiến trang chi tiết đơn bán bị văng màn hình lỗi | `DonBanHangDetail.jsx`, `audit.md` | Khắc phục dứt điểm lỗi màn hình ErrorBoundary "Không mở được trang này" khi nhấn vào chi tiết đơn hàng sàn ở các trạng thái ngoài Đã hủy (lỗi ReferenceError: Cannot access 'inVanDonSan' before initialization do nút in vận đơn sàn được đánh giá trong nutChinh trước khi hàm inVanDonSan được khai báo); Đưa hàm inVanDonSan lên trước nutChinh và bọc null-safe cho v.pxMo?.id; FE Vite build 31.4s thành công 100%, i18n 721 files sạch. |
 | **AUDIT-087** | `2026-11-16 01:35:00` | PhanAnh & Antigravity AI | Fix & Refactor / Chuẩn hóa danh mục và thuộc tính sản phẩm 3 sàn TMĐT | `KenhBanHangDongBoServiceImpl.java`, `omnichannel-standards.md`, `ShopeeMultiVariantLiveDiagnosticTest.java` | Tái cấu trúc chuẩn hóa thuật toán xác định danh mục và thuộc tính sản phẩm chính xác 100% cho 3 sàn Lazada, TikTok Shop, Shopee; khắc phục triệt để việc gán sai hoặc cố tình hardcode danh mục để lách lỗi sàn; phân cấp Tops vs Bottoms (Quần) cho Lazada XML, bảng từ điển danh mục lá V2 TikTok Shop xóa bỏ mã rác 601234, truy vết phân cấp cây cha-con lọc chuẩn Thời Trang Nam/Unisex cho Shopee (loại trừ Kimono, Nữ, Bảo hộ mô tô). |
+| **AUDIT-088** | `2026-11-16 02:30:00` | PhanAnh & Antigravity AI | Fix & Architecture / Loại bỏ mã áo ngực 603729, thêm bộ lọc an toàn thời trang nam và kích hoạt cập nhật danh mục TikTok Shop | `TikTokShopClient.java`, `KenhBanHangDongBoServiceImpl.java`, `TikTokShopClientTest.java`, `ShopeeMultiVariantLiveDiagnosticTest.java`, `omnichannel-standards.md`, `audit.md` | Khắc phục dứt điểm sự cố TikTok Shop Seller Center hiển thị sản phẩm 'Áo sportware nick' thuộc hạng mục Áo ngực thể thao (603729); Phát hiện nguyên nhân do API AI Category Recommend của TikTok Shop nhận nhầm từ khóa sportware và trả về danh mục lá đồ lót nữ 603729; Xây dựng bộ lọc an toàn isPhuHopThoiTrangNamVaUnisex chặn đứng mã 603729 và các từ khóa nhạy cảm (bra, ngực, đồ lót, nữ, đầm); Ánh xạ chính xác đồ thể thao sang 603720 (Áo thun thể thao nam); Bổ sung v2CategoryId vào Product Signature để tự động gọi PUT editProduct cập nhật danh mục cho sản phẩm đã có; Đối soát 100% 71 sản phẩm trên 4 kênh chính xác. |
 
 
 ---
@@ -2903,3 +2904,61 @@
    - Live integration category verification test: 1/1 test PASS 100%, 0 failures, 0 errors.
    - Frontend `npm run i18n:kiem`: 721 tệp kiểm, 0 lỗi.
    - Frontend `npm run build`: `built in 34.61s`, 0 errors.
+
+
+---
+
+### [AUDIT-088] LOẠI BỎ MÃ ÁO NGỰC 603729, THÊM BỘ LỌC AN TOÀN THỜI TRANG NAM VÀ KÍCH HOẠT CẬP NHẬT DANH MỤC TIKTOK SHOP
+- **Thời gian**: 2026-11-16 02:30:00 (GMT+7)
+- **Tác giả**: PhanAnh & Antigravity AI
+- **Phân hệ ảnh hưởng**: Omnichannel Product Synchronization (TikTok Shop OpenAPI v202309, Shopee Official v2, Shopee Sandbox, Lazada VN Open Platform).
+- **Tệp thay đổi**:
+  - `backend/src/main/java/com/dev/backend/services/tiktok/TikTokShopClient.java`
+  - `backend/src/main/java/com/dev/backend/services/impl/entities/KenhBanHangDongBoServiceImpl.java`
+  - `backend/src/test/java/com/dev/backend/services/tiktok/TikTokShopClientTest.java`
+  - `backend/src/test/java/com/dev/backend/services/shopee/ShopeeMultiVariantLiveDiagnosticTest.java`
+  - `.agents/rules/omnichannel-standards.md`
+  - `audit.md`
+
+#### 1. BỐI CẢNH & PHÂN TÍCH NGUYÊN NHÂN GỐC RỄ (ROOT CAUSE ANALYSIS)
+1. **Hiện tượng lỗi**:
+   - Khi người dùng kiểm tra trên TikTok Shop Seller Center (`seller-vn.tiktok.com/product/edit/1738515223174677660`), sản phẩm **"Áo sportware nick - Thời trang FCentric chính hãng"** bị hiển thị sai hạng mục:
+     `Sports & Outdoor > Trang phục thể thao & hoạt động ngoài trời > Áo ngực thể thao` (category_id = `603729`).
+2. **Cơ chế dẫn đến sự cố**:
+   - **Bẫy thuật toán AI Category Recommend của TikTok Shop**:
+     Endpoint `POST /product/202309/categories/recommend?category_version=v2` của TikTok Shop nhận chuỗi `"Áo sportware nick - Thời trang FCentric chính hãng"`. Do từ khóa `sportware` ghép với `Áo`, mô hình AI của TikTok Shop tự động xếp vào Leaf Category ID `603729` ("Áo ngực thể thao").
+   - **Hệ thống chưa có bộ lọc an toàn giới tính / ngành hàng**:
+     Trước đây, mã nguồn FCentric tin tưởng 100% kết quả trả về từ API AI của sàn nếu `is_leaf: true`. Ngoài ra, trong bảng ánh xạ từ khóa fallback, từ khóa "thể thao/sportware" cũng vô tình gán về `603729` do nhầm lẫn là đồ thể thao chung.
+   - **Cơ chế chặn cập nhật (Delta Signature Cache)**:
+     Hàm `capNhatSanPhamLenTikTok` trước đây tính `productSignature = title + "||" + mainImagesSig + "||" + variantImagesSig` không bao gồm `v2CategoryId`. Do đó, khi danh mục được sửa từ `603729` sang `603720`, hệ thống coi như sản phẩm không đổi và bỏ qua gọi API `PUT /product/202309/products/{id}` (`editProduct`), khiến trên Seller Center sản phẩm vẫn giữ nguyên danh mục cũ.
+
+#### 2. GIẢI PHÁP KỸ THUẬT & CHI TIẾT TRIỂN KHAI
+1. **Xây dựng bộ lọc an toàn thời trang Nam & Unisex (`isPhuHopThoiTrangNamVaUnisex`)**:
+   - Tại `TikTokShopClient.java`: Bổ sung phương thức tĩnh kiểm tra an toàn:
+     - Chặn tuyệt đối mã `603729` (Áo ngực thể thao).
+     - Chặn bất kỳ danh mục nào chứa các từ khóa nhạy cảm: "ngực", "bra", "đồ lót", "nội y", "underwear", "lingerie", "bikini", "váy", "đầm", "skirt", "dress", "bầu", "maternity".
+   - Tại `recommendCategoryV2`: Lọc toàn bộ danh sách ứng viên do AI gợi ý qua `isPhuHopThoiTrangNamVaUnisex`. Nếu vi phạm, trả về `null` để chuyển sang bước ánh xạ có kiểm soát.
+   - Loại bỏ đoạn mã fallback trả về Category cấp 1 không phải lá (`603014` Sports & Outdoor) để tuân thủ nghiêm ngặt quy tắc `is_leaf: true` của TikTok Shop OpenAPI v202309.
+2. **Chuẩn hóa phân nhóm trang phục thể thao nam trong `KenhBanHangDongBoServiceImpl`**:
+   - Đồ thể thao nam được chia nhánh chi tiết theo dáng sản phẩm:
+     - Quần thể thao / short -> `603715` (Quần shorts nam) hoặc `603716` (Quần dài thường ngày nam).
+     - Áo khoác thể thao -> `603706` (Áo khoác & Áo choàng nam).
+     - Áo Polo thể thao -> `960776` (Áo Polo nam).
+     - Mặc định / Áo thun thể thao (như "Áo sportware nick") -> `603720` (Áo thun & Áo phông nam).
+     - Xóa sổ hoàn toàn mã `603729` khỏi toàn bộ mã nguồn.
+3. **Kích hoạt tự động cập nhật danh mục qua Product Content Signature**:
+   - Bổ sung `v2CategoryId` vào chuỗi chữ ký:
+     `productSignature = title.trim() + "||" + v2CategoryId + "||" + mainImagesSig + "||" + variantImagesSig`
+   - Khi danh mục thay đổi hoặc được chuẩn hóa lại, chữ ký thay đổi -> Kích hoạt gọi API `PUT /product/202309/products/{id}` (`editProduct`) cập nhật danh mục mới `603720` lên TikTok Shop Seller Center.
+4. **Đối soát danh mục 4 sàn TMĐT**:
+   - **TikTok Shop**: `603720` (Áo thun thể thao nam), `960776` (Polo), `603706` (Áo khoác), `603713` (Quần jeans).
+   - **Shopee Official**: `100188` (Thời Trang Nam > Áo thun), `100243`/`100187` (Polo), `100174` (Quần jeans Baggy), `100144`/`100370`/`100367` (Áo khoác).
+   - **Shopee Sandbox**: `106705L` (Polo whitelisted Sandbox SG).
+   - **Lazada VN**: `7930` (Áo thun & phông nam), `14275` (Áo thun có cổ nam), `6414` (Quần jeans nam), `7953` (Áo khoác nhẹ & vest).
+
+#### 3. KẾT QUẢ KIỂM THỬ VÀ ĐỐI SOÁT
+1. **Kiểm thử đơn vị TikTokShopClientTest**:
+   - 16/16 tests PASS 100%, bao gồm test case mới `testIsPhuHopThoiTrangNamVaUnisex` kiểm chứng việc chặn triệt để mã `603729`, áo ngực, đồ lót, đầm váy và chấp nhận 8 danh mục chuẩn thời trang nam.
+2. **Kiểm thử tích hợp chẩn đoán sàn ShopeeMultiVariantLiveDiagnosticTest**:
+   - `testInspectTikTokCategoriesLive`: AI gợi ý `603729` cho "Áo sportware nick" bị loại bỏ thành công, hệ thống fallback chuẩn xác sang `603720`.
+   - `testVerifyProductCategoryAccuracyAcrossAllChannels`: 71/71 sản phẩm trên CSDL khớp 100% danh mục chính xác, không còn bất kỳ sản phẩm nào dính mã `603729`.
