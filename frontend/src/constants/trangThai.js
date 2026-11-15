@@ -43,6 +43,7 @@ export const NHOM_TRANG_THAI = {
 /** Nhóm → các nhãn thuộc nhóm. Thêm nhãn mới thì thêm vào đúng MỘT nhóm (test kiểm tra không trùng). */
 export const NHAN_THEO_NHOM = {
   cho: [
+    "Lưu ý",
     "Nháp",
     "Chờ nhặt hàng",
     "Chờ đóng gói",
@@ -66,6 +67,8 @@ export const NHAN_THEO_NHOM = {
     "Chưa có hạn giao",
   ],
   canChuY: [
+    "Đã mở khóa",
+    "Lập tay",
     "Chờ duyệt",
     "Chờ báo giá",
     "Đã nhận báo giá",
@@ -97,6 +100,7 @@ export const NHAN_THEO_NHOM = {
     "Chưa có video",
   ],
   dang: [
+    "Nhận hóa đơn",
     "Đã duyệt",
     "Đã gửi",
     "Đã gửi yêu cầu báo giá",
@@ -113,6 +117,8 @@ export const NHAN_THEO_NHOM = {
     "Đang giữ",
   ],
   xong: [
+    "Đã giao kế toán",
+    "Đang khóa",
     "Đã chuyển thành đơn mua hàng",
     "Đã nhận đủ",
     "Đã nhập kho",
@@ -144,6 +150,7 @@ export const NHAN_THEO_NHOM = {
   ],
   dong: [
     "Đã hủy",
+    "Lô đã hủy",
     "Đã đóng (nhận thiếu)",
     "Đã xóa",
     "Từ chối",
@@ -192,6 +199,14 @@ export const BIEU_TUONG_THEO_NHAN = {
   "Hoàn tất (có chênh lệch)": "CircleCheckBig",
   "Chờ xử lý chênh lệch": "TriangleAlert",
   "Đã hủy": "Ban",
+  // Xuất dữ liệu kế toán: lô, chứng từ trong lô, việc kế toán làm thêm trên AMIS
+  "Đã giao kế toán": "Send",
+  "Đang khóa": "Lock",
+  "Đã mở khóa": "LockOpen",
+  "Lô đã hủy": "Ban",
+  "Nhận hóa đơn": "Receipt",
+  "Lập tay": "PencilLine",
+  "Lưu ý": "Flag",
   "Đã xóa": "Trash2",
   "Từ chối": "Ban",
   "Đã từ chối": "Ban",
