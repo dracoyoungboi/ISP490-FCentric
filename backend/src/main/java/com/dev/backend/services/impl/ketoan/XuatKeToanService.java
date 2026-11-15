@@ -22,6 +22,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -34,6 +35,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
 /**
@@ -240,6 +242,27 @@ public class XuatKeToanService {
             throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("keToanDuLieuVao.tepLoSaiMaBam", lo.getSoLo()));
         }
         return new TepTai(lo.getTenTep(), lo.getTep(), lo.getMaBam());
+    }
+
+    /**
+     * Nội dung 00_HUONG_DAN.txt trong tệp nén đã lưu của lô (đúng bản đã giao kế toán, bỏ ký tự BOM đầu tệp), để màn chi
+     * tiết lô hiện và sao chép hướng dẫn nhập AMIS.
+     */
+    @Transactional(readOnly = true)
+    public String huongDanCuaLo(Integer loId) {
+        TepTai tep = taiTep(loId);
+        try (ZipInputStream zin = new ZipInputStream(new ByteArrayInputStream(tep.noiDung()), StandardCharsets.UTF_8)) {
+            ZipEntry muc;
+            while ((muc = zin.getNextEntry()) != null) {
+                if (TEP_HUONG_DAN.equals(muc.getName())) {
+                    String noiDung = new String(zin.readAllBytes(), StandardCharsets.UTF_8);
+                    return noiDung.startsWith("﻿") ? noiDung.substring(1) : noiDung;
+                }
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException(ThongDiep.vi("keToanDuLieuVao.khongDocDuocTepNen"), e);
+        }
+        throw new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("keToanDuLieuVao.loKhongCoHuongDan", tep.ten()));
     }
 
     // ── Mở khóa ────────────────────────────────────────────────────────────
