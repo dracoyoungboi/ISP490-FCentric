@@ -230,6 +230,8 @@ function NutThaoTac({ nut, kieuMacDinh }) {
  * - `menu`: các mục ⋯ `{ nhan, icon, onSelect, moTa, nguyHiem, khoa }`; mục nguy hiểm chữ đỏ, có vạch ngăn phía trên.
  * - `saoChepMa`: `{ giaTri, nhan }` thêm mục "Sao chép…" đầu menu, báo theo config/thongBaoNhanh.js → nutSaoChep
  *   (giống DauTrangDonMua: "thong-bao" bật thông báo nhanh, "tai-cho" đổi chữ thành "Đã sao chép" rồi đóng menu).
+ * - `oPhai`: ô nhập đặt trước các nút (vd. ô ngày "Đến hết ngày" của Tạo lô xuất kế toán). Điện thoại: thành hàng riêng
+ *   giãn hết chiều ngang dưới tiêu đề (nút chính đã xuống thanh đáy).
  */
 export default function DauChungTu({
   ma,
@@ -244,6 +246,7 @@ export default function DauChungTu({
   nutChinh,
   menu,
   saoChepMa,
+  oPhai,
   nhanMenu = t("Thao tác khác"),
   className,
 }) {
@@ -453,10 +456,14 @@ export default function DauChungTu({
       </div>
 
       {nutODay ? (
-        // Thanh đáy sau tiêu đề trong DOM: thứ tự Tab là tiêu đề → ⋯ → nút chính
-        <ThanhThaoTacDay dsNut={dsNutThanh} menu={menuThaoTac} />
-      ) : !menuCanhNhan && (dsNutPhu.length || coMenu || dsNutChinh.length) ? (
+        <>
+          {oPhai ? <div className="w-full">{oPhai}</div> : null}
+          {/* Thanh đáy sau tiêu đề trong DOM: thứ tự Tab là tiêu đề → ⋯ → nút chính */}
+          <ThanhThaoTacDay dsNut={dsNutThanh} menu={menuThaoTac} />
+        </>
+      ) : !menuCanhNhan && (oPhai || dsNutPhu.length || coMenu || dsNutChinh.length) ? (
         <div className="flex flex-wrap items-center gap-2 max-sm:w-full">
+          {oPhai}
           {dsNutPhu.map((nut, i) => (
             <NutThaoTac key={nut.ma ?? i} nut={nut} kieuMacDinh="vien" />
           ))}
