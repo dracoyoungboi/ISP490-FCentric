@@ -6930,16 +6930,17 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     || (!originalName.isBlank() && originalName.contains(kw));
         }
     }
-    private static final List<ShopeeCategoryLeaf> SHOPEE_LEAF_CATEGORIES = new java.util.concurrent.CopyOnWriteArrayList<>();
-    private static volatile boolean shopeeCategoriesLoaded = false;
+    private static final Map<Boolean, List<ShopeeCategoryLeaf>> SHOPEE_LEAF_CATEGORIES_BY_ENV = new java.util.concurrent.ConcurrentHashMap<>();
 
-    private synchronized void taiDanhSachDanhMucShopee(com.dev.backend.services.shopee.ShopeeClient client) {
-        if (shopeeCategoriesLoaded || client == null) return;
+    private synchronized void taiDanhSachDanhMucShopee(com.dev.backend.services.shopee.ShopeeClient client, boolean isSandbox) {
+        if (client == null) return;
+        List<ShopeeCategoryLeaf> existing = SHOPEE_LEAF_CATEGORIES_BY_ENV.get(isSandbox);
+        if (existing != null && !existing.isEmpty()) return;
         try {
             JsonNode catRes = client.getCategoryList("vi");
             JsonNode catList = catRes.path("response").path("category_list");
             if (catList.isArray() && !catList.isEmpty()) {
-                SHOPEE_LEAF_CATEGORIES.clear();
+                List<ShopeeCategoryLeaf> leaves = new ArrayList<>();
                 for (JsonNode c : catList) {
                     boolean hasChildren = c.path("has_children").asBoolean(true);
                     if (!hasChildren) {
@@ -6948,26 +6949,30 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                         String dispName = c.path("display_category_name").asText("").trim().toLowerCase(Locale.ROOT);
                         long pId = c.path("parent_category_id").asLong();
                         if (catId > 0 && (!origName.isBlank() || !dispName.isBlank())) {
-                            SHOPEE_LEAF_CATEGORIES.add(new ShopeeCategoryLeaf(catId, origName, dispName, pId));
+                            leaves.add(new ShopeeCategoryLeaf(catId, origName, dispName, pId));
                         }
                     }
                 }
-                log.info("[SHOPEE-CAT] Đã nạp {} danh mục lá hợp lệ từ sàn Shopee", SHOPEE_LEAF_CATEGORIES.size());
+                SHOPEE_LEAF_CATEGORIES_BY_ENV.put(isSandbox, leaves);
+                log.info("[SHOPEE-CAT] Đã nạp {} danh mục lá hợp lệ từ sàn Shopee (isSandbox={})", leaves.size(), isSandbox);
             }
         } catch (Exception ex) {
-            log.warn("[SHOPEE-CAT] Không thể nạp danh mục từ Shopee: {}", ex.getMessage());
-        } finally {
-            shopeeCategoriesLoaded = true;
+            log.warn("[SHOPEE-CAT] Không thể nạp danh mục từ Shopee (isSandbox={}): {}", isSandbox, ex.getMessage());
         }
     }
 
-    private Long timCategoryIdShopee(SanPhamQuanAo sp, com.dev.backend.services.shopee.ShopeeClient client) {
-        if (!shopeeCategoriesLoaded && client != null) {
-            taiDanhSachDanhMucShopee(client);
+    private synchronized void taiDanhSachDanhMucShopee(com.dev.backend.services.shopee.ShopeeClient client) {
+        taiDanhSachDanhMucShopee(client, client != null && client.isSandbox());
+    }
+
+    private Long timCategoryIdShopee(SanPhamQuanAo sp, com.dev.backend.services.shopee.ShopeeClient client, boolean isSandbox) {
+        if (client != null) {
+            taiDanhSachDanhMucShopee(client, isSandbox);
         }
-        if (sp != null && !SHOPEE_LEAF_CATEGORIES.isEmpty()) {
+        List<ShopeeCategoryLeaf> leafList = SHOPEE_LEAF_CATEGORIES_BY_ENV.get(isSandbox);
+        if (sp != null && leafList != null && !leafList.isEmpty()) {
             String name = (sp.getTenSanPham() != null ? sp.getTenSanPham().toLowerCase(Locale.ROOT) : "");
-            for (ShopeeCategoryLeaf cat : SHOPEE_LEAF_CATEGORIES) {
+            for (ShopeeCategoryLeaf cat : leafList) {
                 if (name.contains("khoác") || name.contains("jacket") || name.contains("blouson") || name.contains("bomber") || name.contains("cardigan")) {
                     if (cat.matches("khoác") || cat.matches("jacket") || cat.matches("vest") || cat.matches("outerwear") || cat.matches("coat")) {
                         return cat.id();
@@ -7003,8 +7008,12 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         return 106705L; // Fallback an toàn tuyệt đối: Áo Polo (106705L là leaf category hợp lệ trên Shopee Sandbox)
     }
 
+    private Long timCategoryIdShopee(SanPhamQuanAo sp, com.dev.backend.services.shopee.ShopeeClient client) {
+        return timCategoryIdShopee(sp, client, client != null && client.isSandbox());
+    }
+
     private Long timCategoryIdShopee(SanPhamQuanAo sp) {
-        return timCategoryIdShopee(sp, null);
+        return timCategoryIdShopee(sp, null, true);
     }
 
     private Map<String, String> taoSanPhamLenShopee(
