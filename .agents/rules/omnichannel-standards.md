@@ -159,3 +159,19 @@ Mọi kênh bán (Shopify, Lazada, Shopee, TikTok Shop) khi quét đơn về ph�
    - Trong hàm `chuanBiVaUploadAnhShopee`, nếu album ảnh sản phẩm cha (`AnhQuanAo`) chưa đạt giới hạn 9 ảnh của Shopee, tự động nạp tiếp ảnh từ `AnhBienThe` để bộ sưu tập ảnh chính trên sàn hiển thị đầy đủ các gam màu thực tế.
 4. **Hiển thị giao diện FCentric (`toLienKetDto`)**:
    - Luôn ưu tiên hiển thị ảnh riêng của biến thể (`AnhBienThe`), chỉ fallback về ảnh sản phẩm cha (`AnhQuanAo`) khi biến thể đó thực sự chưa có ảnh riêng.
+
+---
+
+## 12. QUY CHUẨN BẢNG QUY ĐỔI KÍCH CỠ (SIZE CHART) VÀ MÔ TẢ SẢN PHẨM SHOPEE (API v2)
+1. **Bắt buộc cung cấp Size Chart cho ngành hàng thời trang**:
+   - Shopee Open Platform v2 áp dụng chính sách bắt buộc có bảng quy đổi kích cỡ (`size_chart` hoặc `size_chart_info.size_chart`) đối với các ngành hàng thời trang (Áo Polo `11035592L`, Quần Jeans, Áo khoác...).
+   - Thiếu tham số này sẽ bị Shopee từ chối với mã lỗi `Size Chart is required for selected category. Please fill in it or change the category.`
+   - Hệ thống tự động sinh ảnh đồ họa bảng quy đổi kích cỡ 800x800 chuẩn e-commerce cho thương hiệu FCentric (phân loại riêng Tops và Pants/Bottoms), tải lên Shopee Media Space (`v2.media_space.upload_image`) và lưu bộ nhớ đệm RAM (`CACHED_SHOPEE_SIZE_CHART_ID_BY_SHOP`).
+   - Đính kèm đồng thời `size_chart_info: {"size_chart": image_id}` và `size_chart: image_id` vào body của cả Single SKU và Multi-variant để tương thích tuyệt đối mọi phiên bản API của sàn.
+2. **Quy chuẩn độ dài mô tả sản phẩm (100 đến 3000 ký tự)**:
+   - Shopee Official yêu cầu độ dài mô tả bắt buộc từ 100 đến 3000 ký tự (`Product description length must be between 100 and 3000 characters. Please adjust it.`).
+   - Mọi sản phẩm có mô tả `< 100` ký tự BẮT BUỘC tự động đệm thông tin tiêu chuẩn: Chất liệu, Kiểu dáng, Xuất xứ chính hãng FCentric, Hướng dẫn bảo quản và cam kết đổi trả Shopee.
+3. **Chuẩn hóa thông điệp lỗi trực quan (`phanLoaiLoiShopee`)**:
+   - Lọc và chuyển đổi toàn bộ mã lỗi kỹ thuật từ Shopee (Size Chart, Description length, Category, Access Token, Rate Limit, Image, Brand) thành thông điệp tiếng Việt thân thiện, rõ ràng, hướng dẫn cụ thể cho người bán.
+4. **Định tuyến giao diện Shopee Official**:
+   - Kênh Shopee Official sử dụng đường dẫn chuẩn `/channels/shopee` (thay vì `/channels/shopee-official`), hỗ trợ bí danh `shopee-official` để tự động chuyển hướng mượt mà không làm đứt gãy liên kết cũ.
