@@ -4397,25 +4397,47 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         BienTheSanPham bt = tt.getBienTheSanPham();
         BigDecimal soLuongKhaDung = BigDecimal.ZERO;
         if (bt != null) {
+            KenhBanHang kenhCuaDong = tt.getKenhBanHang();
+
+            // Nếu biến thể chưa có mã sản phẩm trên sàn (do lần tạo trước bị sàn từ chối):
+            // Tự động gọi tạo/liên kết lại sản phẩm trên sàn thay vì cố đẩy tồn làm xuất hiện lỗi kỹ thuật Item ID
+            if (tt.getMaSanPhamKenh() == null || tt.getMaSanPhamKenh().isBlank()) {
+                if (kenhCuaDong != null && OmnichannelOrderSyncJob.isShopee(kenhCuaDong.getMaKenh())) {
+                    log.info("[SHOPEE-RETRY] Biến thể SKU {} chưa có Item ID trên Shopee, tự động tạo/liên kết lại sản phẩm...", bt.getMaSku());
+                    tuDongLienKetShopee(kenhCuaDong);
+                    tt = trangThaiDongBoSanPhamRepository.findById(lienKetId).orElse(tt);
+                } else if (kenhCuaDong != null && OmnichannelOrderSyncJob.isTikTok(kenhCuaDong.getMaKenh())) {
+                    log.info("[TIKTOK-RETRY] Biến thể SKU {} chưa có Product ID trên TikTok Shop, tự động tạo/liên kết lại...", bt.getMaSku());
+                    tuDongLienKetTikTok(kenhCuaDong);
+                    tt = trangThaiDongBoSanPhamRepository.findById(lienKetId).orElse(tt);
+                } else if (kenhCuaDong != null && OmnichannelOrderSyncJob.isLazada(kenhCuaDong.getMaKenh())) {
+                    log.info("[LAZADA-RETRY] Biến thể SKU {} chưa có Item ID trên Lazada, tự động tạo/liên kết lại...", bt.getMaSku());
+                    tuDongLienKetLazada(kenhCuaDong);
+                    tt = trangThaiDongBoSanPhamRepository.findById(lienKetId).orElse(tt);
+                }
+            }
+
             soLuongKhaDung = khaDungToanChuoi(bt.getId());
 
-            // Lỗi cả gian hàng: báo lỗi, giữ nguyên dòng. Lỗi riêng SKU: dòng sang Lỗi kèm lý do Shopify trả về
-            KenhBanHang kenhCuaDong = tt.getKenhBanHang();
-            KetNoiDayTon ketNoi = moKetNoiDayTon(kenhCuaDong);
-            if (ketNoi.lyDoLoi() != null) {
-                throw new CommonException(ketNoi.lyDoLoi(), HttpStatus.BAD_REQUEST, null);
+            // Nếu sau khi thử liên kết vẫn chưa có mã sản phẩm kênh (sàn tiếp tục từ chối tạo):
+            // Giữ nguyên lý do lỗi từ chối tạo của sàn, không gọi đẩy tồn để tránh ghi đè lỗi kỹ thuật
+            if (tt.getMaSanPhamKenh() != null && !tt.getMaSanPhamKenh().isBlank()) {
+                KetNoiDayTon ketNoi = moKetNoiDayTon(kenhCuaDong);
+                if (ketNoi.lyDoLoi() != null) {
+                    throw new CommonException(ketNoi.lyDoLoi(), HttpStatus.BAD_REQUEST, null);
+                }
+                int soDay = soTonDayTheoQuyTacDaLuu(kenhCuaDong.getMaKenh(), soLuongKhaDung);
+                KetQuaGuiTon kq = dayTonChoDong(tt, ketNoi, soDay);
+                if (kq.loiKenh()) {
+                    throw new CommonException(kq.lyDo(), HttpStatus.BAD_REQUEST, null);
+                }
+                if (kq.thanhCong()) {
+                    lanDayTonCuoi.put(kenhCuaDong.getId(), Instant.now());
+                } else {
+                    log.warn("Thử lại đồng bộ SKU {} thất bại: {}", bt.getMaSku(), kq.lyDo());
+                }
+                trangThaiDongBoSanPhamRepository.save(tt);
             }
-            int soDay = soTonDayTheoQuyTacDaLuu(kenhCuaDong.getMaKenh(), soLuongKhaDung);
-            KetQuaGuiTon kq = dayTonChoDong(tt, ketNoi, soDay);
-            if (kq.loiKenh()) {
-                throw new CommonException(kq.lyDo(), HttpStatus.BAD_REQUEST, null);
-            }
-            if (kq.thanhCong()) {
-                lanDayTonCuoi.put(kenhCuaDong.getId(), Instant.now());
-            } else {
-                log.warn("Thử lại đồng bộ SKU {} thất bại: {}", bt.getMaSku(), kq.lyDo());
-            }
-            trangThaiDongBoSanPhamRepository.save(tt);
         }
 
         Integer sanPhamIdCuaDong = bt != null && bt.getSanPham() != null ? bt.getSanPham().getId() : null;
@@ -6744,25 +6766,23 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             log.warn("[SHOPEE-AUTO-LINK] Không thể lấy danh sách sản phẩm từ Shopee để ghép nối: {}", ex.getMessage());
         }
 
-        // 1. Xác định kênh vận chuyển Shopee khả dụng
-        Long logisticsChannelId = 80001L; // Mặc định Nhanh (Standard)
-        try {
-            JsonNode lRes = client.getLogisticsChannelList();
-            JsonNode channels = lRes.path("response").path("logistics_channel_list");
-            if (channels.isArray() && !channels.isEmpty()) {
-                for (JsonNode cNode : channels) {
-                    if (cNode.path("enabled").asBoolean(false)) {
-                        logisticsChannelId = cNode.path("logistics_channel_id").asLong();
-                        break;
-                    }
-                }
-            }
-        } catch (Exception ex) {
-            log.warn("[SHOPEE-LOGISTICS] Không thể lấy kênh vận chuyển từ Shopee, dùng mặc định {}: {}", logisticsChannelId, ex.getMessage());
-        }
+        // 1. Xác định toàn bộ danh sách kênh vận chuyển Shopee đang kích hoạt trên gian hàng
+        List<Map<String, Object>> logisticInfoList = layDanhSachKenhVanChuyenShopee(client);
 
         // 2. Gom nhóm các biến thể FCentric theo sản phẩm cha (SanPhamQuanAo)
-        Map<SanPhamQuanAo, List<BienTheSanPham>> spGroupMap = activeVariants.stream()
+        // Đồng thời đối soát với bảng liên kết hiện có để không bỏ sót biến thể nào
+        List<TrangThaiDongBoSanPham> existingMappings = trangThaiDongBoSanPhamRepository.findByKenhBanHangId(kenh.getId());
+        Set<Integer> activeBtIds = activeVariants.stream().map(BienTheSanPham::getId).collect(Collectors.toSet());
+        List<BienTheSanPham> mergedVariants = new ArrayList<>(activeVariants);
+        for (TrangThaiDongBoSanPham m : existingMappings) {
+            if (m.getBienTheSanPham() != null && !activeBtIds.contains(m.getBienTheSanPham().getId())
+                    && !TRANG_THAI_NGUNG.equals(m.getTrangThaiDongBo())) {
+                mergedVariants.add(m.getBienTheSanPham());
+                activeBtIds.add(m.getBienTheSanPham().getId());
+            }
+        }
+
+        Map<SanPhamQuanAo, List<BienTheSanPham>> spGroupMap = mergedVariants.stream()
                 .filter(bt -> bt.getSanPham() != null)
                 .collect(Collectors.groupingBy(BienTheSanPham::getSanPham, LinkedHashMap::new, Collectors.toList()));
 
@@ -6787,17 +6807,18 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
             if (!variantsCanTao.isEmpty()) {
                 Map<String, String> createdMap = taoSanPhamLenShopee(
-                        kenh, sp, variantsCanTao, client, logisticsChannelId, cdnCache);
+                        kenh, sp, variantsCanTao, client, logisticInfoList, cdnCache);
                 if (!createdMap.isEmpty()) {
                     soTaoMoiTrenShopee++;
                     skuToTargetId.putAll(createdMap);
                 } else {
                     soThatBai += variantsCanTao.size();
+                    // Đồng thời ghi nhận lỗi cho toàn bộ biến thể của sản phẩm này
+                    ghiNhanLoiTaoSanPhamShopee(kenh, spVariants, "Shopee từ chối tạo sản phẩm cha hoặc phân loại biến thể");
                 }
             }
         }
 
-        List<TrangThaiDongBoSanPham> existingMappings = trangThaiDongBoSanPhamRepository.findByKenhBanHangId(kenh.getId());
         Map<Integer, TrangThaiDongBoSanPham> mappingByBtId = new HashMap<>();
         for (TrangThaiDongBoSanPham m : existingMappings) {
             if (m.getBienTheSanPham() != null) {
@@ -6809,7 +6830,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         int soKhongKhop = 0;
         Instant now = Instant.now();
 
-        for (BienTheSanPham bt : activeVariants) {
+        for (BienTheSanPham bt : mergedVariants) {
             if (bt.getMaSku() == null || bt.getMaSku().isBlank()) continue;
             String normSku = bt.getMaSku().trim().toLowerCase(Locale.ROOT);
             String targetSkuId = skuToTargetId.get(normSku);
@@ -6922,6 +6943,112 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     }
 
     private static final Map<String, String> CACHED_SHOPEE_SIZE_CHART_ID_BY_SHOP = new ConcurrentHashMap<>();
+    private static final Map<String, List<Map<String, Object>>> CACHED_LOGISTICS_BY_SHOP = new ConcurrentHashMap<>();
+    private static final Map<String, List<Map<String, Object>>> CACHED_MANDATORY_ATTRIBUTES = new ConcurrentHashMap<>();
+
+    /**
+     * Xác định toàn bộ danh sách kênh vận chuyển Shopee đang kích hoạt trên gian hàng.
+     * Quy định Shopee Open Platform API v2: Bất kỳ kênh vận chuyển nào không được truyền trong
+     * logistic_info sẽ bị Shopee coi là TẮT. Nếu shop có kênh force-enabled (như SPX Express, Điểm nhận hàng),
+     * việc thiếu kênh sẽ làm sàn từ chối với lỗi "cannot disable a force-enabled channel" (mã 1326),
+     * dẫn đến thông báo "Invalid product setting. Please verify."
+     */
+    private List<Map<String, Object>> layDanhSachKenhVanChuyenShopee(com.dev.backend.services.shopee.ShopeeClient client) {
+        if (client == null) return List.of(Map.of("logistic_id", 5001L, "enabled", true));
+        String shopKey = (client.getShopId() != null ? client.getShopId().toString() : "DEFAULT")
+                + (client.isSandbox() ? "_SANDBOX" : "_OFFICIAL");
+        List<Map<String, Object>> cached = CACHED_LOGISTICS_BY_SHOP.get(shopKey);
+        if (cached != null && !cached.isEmpty()) {
+            return cached;
+        }
+
+        List<Map<String, Object>> logisticInfoList = new ArrayList<>();
+        try {
+            JsonNode lRes = client.getLogisticsChannelList();
+            JsonNode channels = lRes.path("response").path("logistics_channel_list");
+            if (channels.isArray() && !channels.isEmpty()) {
+                for (JsonNode cNode : channels) {
+                    if (cNode.path("enabled").asBoolean(false)) {
+                        logisticInfoList.add(Map.of(
+                                "logistic_id", cNode.path("logistics_channel_id").asLong(),
+                                "enabled", true
+                        ));
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("[SHOPEE-LOGISTICS] Không thể lấy danh sách kênh vận chuyển từ Shopee: {}", ex.getMessage());
+        }
+
+        if (logisticInfoList.isEmpty()) {
+            logisticInfoList.add(Map.of("logistic_id", 5001L, "enabled", true));
+        }
+        CACHED_LOGISTICS_BY_SHOP.put(shopKey, logisticInfoList);
+        log.info("[SHOPEE-LOGISTICS] Đã nạp {} kênh vận chuyển kích hoạt cho shop {}", logisticInfoList.size(), shopKey);
+        return logisticInfoList;
+    }
+
+    /**
+     * Tự động tra cứu và thiết lập các thuộc tính bắt buộc (Mandatory Attributes) theo ngành hàng Shopee.
+     * Tránh lỗi classification.attribute.mandatory (mã 100010237), ví dụ: Giới tính (Gender - id 100022).
+     */
+    private List<Map<String, Object>> layThuocTinhBatBuocShopee(com.dev.backend.services.shopee.ShopeeClient client, Long categoryId) {
+        if (client == null || categoryId == null || categoryId <= 0) return Collections.emptyList();
+        String cacheKey = (client.isSandbox() ? "SB_" : "PROD_") + categoryId;
+        List<Map<String, Object>> cached = CACHED_MANDATORY_ATTRIBUTES.get(cacheKey);
+        if (cached != null) return cached;
+
+        List<Map<String, Object>> result = new ArrayList<>();
+        try {
+            JsonNode treeRes = client.getAttributeTree(categoryId);
+            JsonNode treeList = treeRes.path("response").path("attribute_tree_list");
+            if (!treeList.isArray() || treeList.isEmpty()) {
+                treeList = treeRes.path("response").path("attribute_list");
+            }
+            if (treeList.isArray()) {
+                for (JsonNode attr : treeList) {
+                    boolean isMandatory = attr.path("is_mandatory").asBoolean(false);
+                    if (isMandatory) {
+                        long attrId = attr.path("attribute_id").asLong();
+                        JsonNode valList = attr.path("attribute_value_list");
+                        if (valList.isArray() && !valList.isEmpty()) {
+                            JsonNode selectedVal = valList.get(0);
+                            for (JsonNode v : valList) {
+                                String vName = v.path("original_value_name").asText("").toLowerCase(Locale.ROOT);
+                                String vDisplay = v.path("display_value_name").asText("").toLowerCase(Locale.ROOT);
+                                if (vName.contains("unisex") || vDisplay.contains("unisex")
+                                        || vName.contains("men") || vDisplay.contains("nam")) {
+                                    selectedVal = v;
+                                    break;
+                                }
+                            }
+                            long valId = selectedVal.path("value_id").asLong();
+                            String origValName = selectedVal.path("original_value_name").asText("");
+                            result.add(Map.of(
+                                    "attribute_id", attrId,
+                                    "attribute_value_list", List.of(Map.of(
+                                            "value_id", valId,
+                                            "original_value_name", origValName
+                                    ))
+                            ));
+                        }
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("[SHOPEE-ATTR] Không thể lấy thuộc tính bắt buộc cho category {}: {}", categoryId, ex.getMessage());
+        }
+
+        if (result.isEmpty() && !client.isSandbox()) {
+            result.add(Map.of(
+                    "attribute_id", 100022L,
+                    "attribute_value_list", List.of(Map.of("value_id", 674L, "original_value_name", "Unisex"))
+            ));
+        }
+
+        CACHED_MANDATORY_ATTRIBUTES.put(cacheKey, result);
+        return result;
+    }
 
     /**
      * Chuẩn bị và tải bảng quy đổi kích cỡ (Size Chart) lên Shopee Media Space theo quy định của Shopee Open Platform v2.
@@ -7055,6 +7182,12 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         String errLower = (error != null ? error : "").toLowerCase(Locale.ROOT);
         String combined = (errLower + " " + msgLower).trim();
 
+        if (combined.contains("invalid product setting") || combined.contains("logistics.channel") || combined.contains("force_enable") || combined.contains("1326")) {
+            return "Cấu hình kênh vận chuyển hoặc kích thước sản phẩm chưa tương thích với Shopee. Hệ thống đã tự động bật đầy đủ kênh vận chuyển gian hàng.";
+        }
+        if (combined.contains("attribute is mandatory") || combined.contains("mandatory: id:") || combined.contains("100010237") || combined.contains("gender")) {
+            return "Danh mục Shopee yêu cầu thuộc tính bắt buộc (Giới tính, Xuất xứ...). Hệ thống đã tự động bổ sung thuộc tính chuẩn.";
+        }
         if (combined.contains("size_chart") || combined.contains("size chart")) {
             return "Danh mục yêu cầu bảng quy đổi kích cỡ (Size Chart). Hệ thống đã tự động tạo và tải bảng kích cỡ FCentric.";
         }
@@ -7201,7 +7334,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             }
             return leafList.get(0).id();
         }
-        return 11035592L; // Fallback chuẩn ngành thời trang nam Shopee VN (Thời Trang Nam > Áo > Áo polo)
+        return 101758L; // Fallback leaf category chuẩn ngành thời trang nam Shopee VN (Áo polo)
     }
 
     private Long timCategoryIdShopee(SanPhamQuanAo sp, com.dev.backend.services.shopee.ShopeeClient client, boolean isSandbox) {
@@ -7293,7 +7426,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             SanPhamQuanAo sp,
             List<BienTheSanPham> variants,
             com.dev.backend.services.shopee.ShopeeClient client,
-            Long logisticsChannelId,
+            List<Map<String, Object>> logisticInfoList,
             Map<String, String> cdnCache) {
         Map<String, String> createdSkuMap = new HashMap<>();
         if (sp == null || variants == null || variants.isEmpty()) {
@@ -7362,10 +7495,11 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             body.put("original_price", price.doubleValue());
             body.put("description", desc);
             body.put("weight", 0.3);
+            body.put("dimension", Map.of("package_length", 25, "package_width", 20, "package_height", 5));
             body.put("item_name", title);
             body.put("category_id", categoryId);
             body.put("image", Map.of("image_id_list", imageIdList));
-            body.put("logistic_info", List.of(Map.of("logistic_id", logisticsChannelId, "enabled", true)));
+            body.put("logistic_info", logisticInfoList);
             body.put("brand", Map.of("brand_id", 0, "original_brand_name", "No Brand"));
             body.put("item_status", "NORMAL");
             body.put("seller_stock", List.of(Map.of("stock", Math.max(0, qty))));
@@ -7373,6 +7507,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             if (sizeChartId != null && !sizeChartId.isBlank()) {
                 body.put("size_chart_info", Map.of("size_chart", sizeChartId));
                 body.put("size_chart", sizeChartId);
+            }
+            List<Map<String, Object>> mandatoryAttrs = layThuocTinhBatBuocShopee(client, categoryId);
+            if (!mandatoryAttrs.isEmpty()) {
+                body.put("attribute_list", mandatoryAttrs);
             }
 
             log.info("[SHOPEE-CREATE] Đang tạo sản phẩm đơn SKU [{}] lên Shopee...", title);
@@ -7385,6 +7523,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                         && !fallbackCatId.equals(body.get("category_id"))) {
                     log.warn("[SHOPEE-CREATE] Single SKU CategoryId {} bị sàn từ chối ({}), tự động đổi sang danh mục an toàn {} và thử lại...", body.get("category_id"), errMsg, fallbackCatId);
                     body.put("category_id", fallbackCatId);
+                    List<Map<String, Object>> retryAttrs = layThuocTinhBatBuocShopee(client, fallbackCatId);
+                    if (!retryAttrs.isEmpty()) {
+                        body.put("attribute_list", retryAttrs);
+                    }
                     addRes = client.addItem(body);
                     error = addRes.path("error").asText("");
                 } else if ((errMsg.toLowerCase(Locale.ROOT).contains("size_chart") || error.toLowerCase(Locale.ROOT).contains("size_chart"))
@@ -7447,10 +7589,11 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         body.put("original_price", minPrice.doubleValue());
         body.put("description", desc);
         body.put("weight", 0.3);
+        body.put("dimension", Map.of("package_length", 25, "package_width", 20, "package_height", 5));
         body.put("item_name", title);
         body.put("category_id", categoryId);
         body.put("image", Map.of("image_id_list", imageIdList));
-        body.put("logistic_info", List.of(Map.of("logistic_id", logisticsChannelId, "enabled", true)));
+        body.put("logistic_info", logisticInfoList);
         body.put("brand", Map.of("brand_id", 0, "original_brand_name", "No Brand"));
         body.put("item_status", "NORMAL");
         body.put("seller_stock", List.of(Map.of("stock", 0))); // Tồn kho sẽ do Tier Variation quản lý
@@ -7458,6 +7601,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         if (sizeChartId != null && !sizeChartId.isBlank()) {
             body.put("size_chart_info", Map.of("size_chart", sizeChartId));
             body.put("size_chart", sizeChartId);
+        }
+        List<Map<String, Object>> mandatoryAttrs = layThuocTinhBatBuocShopee(client, categoryId);
+        if (!mandatoryAttrs.isEmpty()) {
+            body.put("attribute_list", mandatoryAttrs);
         }
 
         log.info("[SHOPEE-CREATE] Đang tạo sản phẩm cha [{}] với {} biến thể lên Shopee...", title, variants.size());
@@ -7470,6 +7617,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     && !fallbackCatId.equals(body.get("category_id"))) {
                 log.warn("[SHOPEE-CREATE] Multi-variant CategoryId {} bị sàn từ chối ({}), tự động đổi sang danh mục an toàn {} và thử lại...", body.get("category_id"), errMsg, fallbackCatId);
                 body.put("category_id", fallbackCatId);
+                List<Map<String, Object>> retryAttrs = layThuocTinhBatBuocShopee(client, fallbackCatId);
+                if (!retryAttrs.isEmpty()) {
+                    body.put("attribute_list", retryAttrs);
+                }
                 addRes = client.addItem(body);
                 error = addRes.path("error").asText("");
             } else if ((errMsg.toLowerCase(Locale.ROOT).contains("size_chart") || error.toLowerCase(Locale.ROOT).contains("size_chart"))
