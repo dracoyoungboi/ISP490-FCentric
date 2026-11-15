@@ -90,8 +90,20 @@ Mọi kênh bán (Shopify, Lazada, Shopee, TikTok Shop) khi quét đơn về ph�
    - Quét cả ảnh cấp sản phẩm (`AnhQuanAo`) và ảnh cấp biến thể (`AnhBienThe`). Khi sản phẩm không có ảnh, tự động sinh ảnh JPEG 800x800 chuẩn e-commerce (thương hiệu FCENTRIC + tên sản phẩm) và upload thật lên TikTok CDN để nhận URI hợp lệ (chống lỗi 12052300).
 6. **Phiên bản danh mục V2 (Category Version v2)**:
    - Theo quy định API v202309 cho khu vực Đông Nam Á (Việt Nam) và All-Region, tham số `category_version` BẮT BUỘC có giá trị `"v2"` và phải hiện diện ở CẢ HAI NƠI: **Query Parameter trên URL** (`POST /product/202309/products?category_version=v2`) và **Request Body JSON** (`"category_version": "v2"`). Thiếu query param sẽ gây lỗi `code=12052217: Invalid Parameter. Parameter category_version is invalid because all-region shops must use V2 categories.`
-   - `category_id` BẮT BUỘC là mã danh mục lá (`is_leaf: true`) của cây V2 7 tầng. Tuyệt đối không dùng mã V1 cũ (như `601234`).
-   - Ưu tiên tự động xác định `category_id` qua AI Recommendation (`POST /product/202309/categories/recommend?category_version=v2`) dựa trên tiêu đề và mô tả, kết hợp tìm kiếm danh mục lá theo từ khóa (`GET /product/202309/categories?category_version=v2&locale=vi-VN`).
+   - `category_id` BẮT BUỘC là mã danh mục lá (`is_leaf: true`) của cây V2 7 tầng. **TUYỆT ĐỐI KHÔNG** dùng mã giả định cũ `601234` hoặc ép danh mục Quần về từ khóa "áo".
+   - **Quy trình xác định danh mục V2**:
+     - Bước 1: Ưu tiên AI Recommendation (`POST /product/202309/categories/recommend?category_version=v2`). Nếu trả về danh mục lá hợp lệ có quyền bán (`AVAILABLE`), sử dụng ngay.
+     - Bước 2: Khi AI không khả dụng hoặc chưa cấp quyền, tự động ánh xạ sang bảng danh mục lá V2 chuẩn thời trang nam TikTok Shop theo từ khóa:
+       - Áo Polo nam: `960776`
+       - Áo thun nam: `603720`
+       - Áo sơ mi nam: `1203984`
+       - Áo khoác & Jackets nam: `603706`
+       - Áo hoodie & Sweater nam: `603726`
+       - Quần jeans nam: `603713`
+       - Quần short nam: `603715`
+       - Quần dài / Kaki / Casual nam: `603716`
+       - Đồ thể thao: `603729`
+     - Bước 3: Fallback phân nhánh an toàn: Quần về `603713`, Áo về `960776`.
 7. **Thuộc tính sản phẩm bắt buộc (Product Attributes & Quốc gia xuất xứ ID 100149)**:
    - Với các danh mục lá ngành thời trang và may mặc, TikTok Shop bắt buộc khai báo danh sách `product_attributes` trong payload tạo sản phẩm.
    - **Tên trường định danh thuộc tính BẮT BUỘC là `id`** (tuyệt đối không đặt tên `attribute_id` để tránh lỗi HTTP 400 mã `36009004: Id of ProductAttributes[0] is a required field and has not been provided`). Cấu trúc chuẩn: `[{"id": "100149", "values": [{"id": "1000854", "name": "Việt Nam"}]}]`.
@@ -137,14 +149,23 @@ Mọi kênh bán (Shopify, Lazada, Shopee, TikTok Shop) khi quét đơn về ph�
 2. **Ngăn chặn rò rỉ mã danh mục test Sandbox**:
    - Mã danh mục `106705L` (Áo Polo) là mã test nội bộ chỉ tồn tại trên hệ thống Sandbox Shopee SG.
    - **TUYỆT ĐỐI KHÔNG** dùng `106705L` làm fallback hoặc mã thử lại trên Shopee Official (Production), vì sẽ gây lỗi HTTP 400 `Invalid category ID`.
-3. **Thuật toán so khớp danh mục thông minh đa ngôn ngữ**:
-   - Đối tượng `ShopeeCategoryLeaf` lưu trữ cả `display_category_name` (tiếng Việt) và `original_category_name` (tiếng Anh) để so khớp từ khóa 2 chiều linh hoạt.
-   - Quét tuần tự theo thứ tự ưu tiên: Áo khoác/Vest/Outerwear, Quần Jeans/Denim, Quần tây/Kaki/Short, Áo Polo/Có cổ, Áo sơ mi, Áo thun/T-shirt/Phông, và nhóm ngành thời trang chung.
-4. **Cơ chế Fallback an toàn cho Shopee Official**:
-   - Khi không tìm thấy danh mục lá phù hợp theo tên sản phẩm, ưu tiên lấy danh mục lá thời trang đầu tiên từ danh sách đã nạp thực tế từ Shopee Production.
-   - Fallback cứng chuẩn ngành thời trang nam Shopee VN: `11035592L` (Thời Trang Nam > Áo > Áo polo), đảm bảo sản phẩm luôn tạo thành công.
-5. **Bảo toàn 100% độ ổn định của luồng Shopee Sandbox**:
-   - Mọi xử lý dành cho Shopee Sandbox giữ nguyên mã `106705L` làm fallback và retry an toàn, tuyệt đối không bị ảnh hưởng bởi luồng Production.
+3. **Truy vết cây phân cấp danh mục Shopee (Multi-Level Hierarchy Tracing)**:
+   - Khi tải toàn bộ danh mục từ `GET /api/v2/product/get_category`, hệ thống xây dựng cây quan hệ cha - con và truy ngược `parent_category_id` lên tới gốc để tính toán đường dẫn phân cấp đầy đủ (`fullPath`, ví dụ: `Thời Trang Nam > Quần Jeans > Ống rộng / Baggy`).
+   - Tự động gắn cờ `isMenOrUnisex` cho các danh mục lá thuộc nhánh Thời Trang Nam và Unisex, loại trừ triệt để các ngành Thời trang nữ, Đồ ngủ/Kimonos, Mẹ & Bé, Thú cưng, Bảo hộ xe máy nhằm chống hoàn toàn lỗi nhận nhầm danh mục (như Áo khoác bị gán thành Áo choàng ngủ Kimono mã 100391 hay đồ bảo hộ mô tô mã 101701).
+4. **Thuật toán so khớp danh mục thông minh đa ngôn ngữ**:
+   - Kết hợp cả tên danh mục FCentric (`sp.getDanhMuc().getTenDanhMuc()`) và tên sản phẩm (`sp.getTenSanPham()`).
+   - Ưu tiên tìm kiếm trong tập danh mục lá đã lọc `isMenOrUnisex` trước khi duyệt tập mở rộng.
+   - Phân loại chính xác các tiểu mục:
+     - Áo khoác gió / Windbreakers (`100144` cho Blouson cản gió), Áo khoác ngoài (`100370`), Áo khoác mùa đông (`100367`), Áo khoác bomber (`100147`).
+     - Quần jeans Baggy / Ống rộng (`100174`), Ống suông (`100173`), Quần jeans nam chung (`100103`).
+     - Áo polo nam (`100354` / `100187`).
+     - Áo sơ mi nam (`100189`), Áo thun nam (`100188`).
+5. **Cơ chế Fallback an toàn phân nhánh theo loại trang phục**:
+   - Đối với Shopee Sandbox: Giữ nguyên `106705L` làm fallback tuyệt đối an toàn.
+   - Đối với Shopee Official: Phân nhánh rõ ràng:
+     - Nếu là Quần (Jeans, Shorts, Trousers): fallback về `100103L` (Quần jeans nam).
+     - Nếu là Áo (Tops, Polo, T-shirts): fallback về `100187L` (Áo polo nam).
+     - Tuyệt đối không để sản phẩm Quần bị fallback nhầm về danh mục Áo polo!
 ---
 
 ## 11. QUY CHUẨN ĐỒNG BỘ ẢNH BIẾN THỂ VÀ PHÂN LOẠI SHOPEE (TIER VARIATION IMAGES)
@@ -175,3 +196,21 @@ Mọi kênh bán (Shopify, Lazada, Shopee, TikTok Shop) khi quét đơn về ph�
    - Lọc và chuyển đổi toàn bộ mã lỗi kỹ thuật từ Shopee (Size Chart, Description length, Category, Access Token, Rate Limit, Image, Brand) thành thông điệp tiếng Việt thân thiện, rõ ràng, hướng dẫn cụ thể cho người bán.
 4. **Định tuyến giao diện Shopee Official**:
    - Kênh Shopee Official sử dụng đường dẫn chuẩn `/channels/shopee` (thay vì `/channels/shopee-official`), hỗ trợ bí danh `shopee-official` để tự động chuyển hướng mượt mà không làm đứt gãy liên kết cũ.
+
+---
+
+## 13. QUY CHUẨN DANH MỤC VÀ THÍCH ỨNG THUỘC TÍNH SÀN LAZADA (XML ATTRIBUTES)
+1. **Ánh xạ danh mục lá thời trang Lazada VN**:
+   - Tuyệt đối không ép cứng danh mục 7930 (Áo thun) cho toàn bộ sản phẩm. Ánh xạ chính xác theo bảng danh mục chuẩn:
+     - Quần Jeans nam: `6414` (Quần áo nam > Quần > Quần jeans)
+     - Quần ngắn / Shorts nam: `10100765` (Quần áo nam > Quần > Quần ngắn)
+     - Quần dài / Kaki / Tây nam: `7991` (Quần áo nam > Quần > Quần)
+     - Áo khoác & Áo vest nam: `7953` (Quần áo nam > Áo > Áo khoác nhẹ & Áo vest)
+     - Áo hoodies & sweater nam: `6424` (Quần áo nam > Áo > Áo hoodies & sweater nam)
+     - Áo thun có cổ / Áo polo nam: `14275` (Quần áo nam > Áo > Áo thun có cổ nam)
+     - Áo sơ mi nam: `7940` (Quần áo nam > Áo > Áo sơ mi)
+     - Áo thun & Áo phông nam: `7930` (Quần áo nam > Áo > Áo thun & Áo phông)
+2. **Thích ứng thuộc tính XML theo nhóm trang phục (Tops vs Bottoms)**:
+   - Các thuộc tính chung bắt buộc: `<name>`, `<brand>`, `<description>` (bọc trong thẻ `<p>`), `<short_description>`, `<warranty_type>No Warranty</warranty_type>`, `<fa_pattern>Trơn</fa_pattern>`.
+   - Đối với nhóm Áo (Tops - 7930, 14275, 7940, 7953, 6424): Bổ sung `<clothing_material>100% Cotton</clothing_material>` và `<Fit_Type>Slim Fit</Fit_Type>`.
+   - Đối với nhóm Quần (Bottoms - 6414, 7991, 10100765): Gửi `<clothing_material>` tương ứng (`Denim` cho jeans, `100% Cotton` cho quần khác). **TUYỆT ĐỐI KHÔNG gửi `<Fit_Type>`** cho danh mục Quần để chống lỗi từ chối XML schema từ sàn Lazada.
