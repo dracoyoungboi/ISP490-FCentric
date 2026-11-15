@@ -6923,7 +6923,13 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         return giaGoc;
     }
 
-    private record ShopeeCategoryLeaf(long id, String name, long parentId) {}
+    private record ShopeeCategoryLeaf(long id, String originalName, String displayName, long parentId) {
+        boolean matches(String keyword) {
+            String kw = keyword.toLowerCase(Locale.ROOT);
+            return (!displayName.isBlank() && displayName.contains(kw))
+                    || (!originalName.isBlank() && originalName.contains(kw));
+        }
+    }
     private static final List<ShopeeCategoryLeaf> SHOPEE_LEAF_CATEGORIES = new java.util.concurrent.CopyOnWriteArrayList<>();
     private static volatile boolean shopeeCategoriesLoaded = false;
 
@@ -6938,10 +6944,11 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     boolean hasChildren = c.path("has_children").asBoolean(true);
                     if (!hasChildren) {
                         long catId = c.path("category_id").asLong();
-                        String name = c.path("original_category_name").asText(c.path("display_category_name").asText(""));
+                        String origName = c.path("original_category_name").asText("").trim().toLowerCase(Locale.ROOT);
+                        String dispName = c.path("display_category_name").asText("").trim().toLowerCase(Locale.ROOT);
                         long pId = c.path("parent_category_id").asLong();
-                        if (catId > 0 && !name.isBlank()) {
-                            SHOPEE_LEAF_CATEGORIES.add(new ShopeeCategoryLeaf(catId, name.toLowerCase(Locale.ROOT), pId));
+                        if (catId > 0 && (!origName.isBlank() || !dispName.isBlank())) {
+                            SHOPEE_LEAF_CATEGORIES.add(new ShopeeCategoryLeaf(catId, origName, dispName, pId));
                         }
                     }
                 }
@@ -6962,32 +6969,32 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             String name = (sp.getTenSanPham() != null ? sp.getTenSanPham().toLowerCase(Locale.ROOT) : "");
             for (ShopeeCategoryLeaf cat : SHOPEE_LEAF_CATEGORIES) {
                 if (name.contains("khoác") || name.contains("jacket") || name.contains("blouson") || name.contains("bomber") || name.contains("cardigan")) {
-                    if (cat.name().contains("khoác") || cat.name().contains("jacket") || cat.name().contains("vest") || cat.name().contains("outerwear")) {
+                    if (cat.matches("khoác") || cat.matches("jacket") || cat.matches("vest") || cat.matches("outerwear") || cat.matches("coat")) {
                         return cat.id();
                     }
                 }
                 if (name.contains("jean") || name.contains("bò") || name.contains("denim")) {
-                    if (cat.name().contains("jean") || cat.name().contains("denim") || cat.name().contains("bò")) {
+                    if (cat.matches("jean") || cat.matches("denim") || cat.matches("bò")) {
                         return cat.id();
                     }
                 }
                 if (name.contains("quần") || name.contains("pant") || name.contains("trousers") || name.contains("short")) {
-                    if (cat.name().contains("quần") || cat.name().contains("pant") || cat.name().contains("trouser")) {
+                    if (cat.matches("quần") || cat.matches("pant") || cat.matches("trouser") || cat.matches("short")) {
                         return cat.id();
                     }
                 }
                 if (name.contains("polo")) {
-                    if (cat.name().contains("polo")) {
+                    if (cat.matches("polo")) {
                         return cat.id();
                     }
                 }
                 if (name.contains("sơ mi") || name.contains("shirt")) {
-                    if (cat.name().contains("sơ mi") || cat.name().contains("shirt")) {
+                    if (cat.matches("sơ mi") || cat.matches("shirt")) {
                         return cat.id();
                     }
                 }
                 if (name.contains("thun") || name.contains("t-shirt") || name.contains("tee")) {
-                    if (cat.name().contains("thun") || cat.name().contains("phông") || cat.name().contains("t-shirt")) {
+                    if (cat.matches("thun") || cat.matches("phông") || cat.matches("t-shirt") || cat.matches("tee")) {
                         return cat.id();
                     }
                 }
