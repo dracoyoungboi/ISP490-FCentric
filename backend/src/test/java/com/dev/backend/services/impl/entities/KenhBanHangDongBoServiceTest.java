@@ -1326,4 +1326,35 @@ class KenhBanHangDongBoServiceTest {
         assertEquals(170, existingRecord.getBienTheSanPham().getId());
         assertEquals(5, existingRecord.getKenhBanHang().getId());
     }
+
+    @Test
+    void taoFCentricSizeChartImage_sinhAnhByteChuanChoCaTopVaBottom() {
+        byte[] topImg = KenhBanHangDongBoServiceImpl.taoFCentricSizeChartImage("Áo polo siêu đẹp 365");
+        assertNotNull(topImg);
+        assertTrue(topImg.length > 1000, "Ảnh bảng size áo polo phải có dung lượng nhị phân hợp lệ");
+        assertEquals((byte) 0xFF, topImg[0], "Magic byte 0 của JPEG phải là 0xFF");
+        assertEquals((byte) 0xD8, topImg[1], "Magic byte 1 của JPEG phải là 0xD8");
+
+        byte[] pantsImg = KenhBanHangDongBoServiceImpl.taoFCentricSizeChartImage("Quần Jeans Baggy Ống Cong Barrel");
+        assertNotNull(pantsImg);
+        assertTrue(pantsImg.length > 1000, "Ảnh bảng size quần jean phải có dung lượng nhị phân hợp lệ");
+        assertEquals((byte) 0xFF, pantsImg[0]);
+        assertEquals((byte) 0xD8, pantsImg[1]);
+    }
+
+    @Test
+    void phanLoaiLoiShopee_chuanHoaCacMaLoiSangTiengVietTrucQuan() {
+        String msgSizeChart = service.phanLoaiLoiShopee("error_param", "Size Chart is required for selected category. Please fill in it or change the category.");
+        assertTrue(msgSizeChart.contains("Size Chart"), "Thông báo lỗi size chart phải trực quan");
+        assertTrue(msgSizeChart.contains("bảng quy đổi kích cỡ"));
+
+        String msgDesc = service.phanLoaiLoiShopee("error_param", "Product description length must be between 100 and 3000 characters. Please adjust it.");
+        assertTrue(msgDesc.contains("100 đến 3000 ký tự"), "Thông báo lỗi độ dài mô tả phải hướng dẫn rõ ràng");
+
+        String msgCat = service.phanLoaiLoiShopee("error_category", "Invalid category ID");
+        assertTrue(msgCat.contains("ngành hàng"), "Thông báo lỗi ngành hàng phải rõ ràng");
+
+        String msgToken = service.phanLoaiLoiShopee("error_auth", "access_token is expired");
+        assertTrue(msgToken.contains("hết hạn"), "Thông báo token phải yêu cầu kết nối lại");
+    }
 }
