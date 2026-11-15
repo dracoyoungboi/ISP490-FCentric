@@ -22,6 +22,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Client toàn diện kết nối Shopee Open Platform API v2.
@@ -63,7 +64,9 @@ public class ShopeeClient {
     public static final String PATH_LOGISTICS_GET_CHANNEL_LIST = "/api/v2/logistics/get_channel_list";
     public static final String PATH_PRODUCT_GET_CATEGORY = "/api/v2/product/get_category";
     public static final String PATH_PRODUCT_GET_ATTRIBUTES = "/api/v2/product/get_attributes";
+    public static final String PATH_PRODUCT_GET_ATTRIBUTE_TREE = "/api/v2/product/get_attribute_tree";
     public static final String PATH_PRODUCT_ADD_ITEM = "/api/v2/product/add_item";
+    public static final String PATH_PRODUCT_DELETE_ITEM = "/api/v2/product/delete_item";
     public static final String PATH_PRODUCT_INIT_TIER_VARIATION = "/api/v2/product/init_tier_variation";
     public static final String PATH_PRODUCT_ITEM_LIST = "/api/v2/product/get_item_list";
     public static final String PATH_PRODUCT_BASE_INFO = "/api/v2/product/get_item_base_info";
@@ -513,6 +516,42 @@ public class ShopeeClient {
                 getHost(isSandbox), PATH_PRODUCT_GET_ATTRIBUTES, partnerId.trim(), timestamp, accessToken.trim(), shopId.trim(), sign, categoryId, lang);
 
         return executeGet(url);
+    }
+
+    public JsonNode getAttributeTree(String partnerId, String partnerKey, String accessToken, String shopId, List<Long> categoryIdList, String language, boolean isSandbox) {
+        if (isMockCredentials(partnerId, partnerKey)) {
+            ObjectNode res = objectMapper.createObjectNode();
+            res.put("error", "").put("message", "success");
+            res.putObject("response").putArray("attribute_tree_list");
+            return res;
+        }
+
+        long timestamp = Instant.now().getEpochSecond();
+        String base = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_PRODUCT_GET_ATTRIBUTE_TREE, timestamp, accessToken, shopId);
+        String sign = ShopeeSignatureHelper.sign(partnerKey, base);
+        String lang = (language != null && !language.isBlank()) ? language : "vi";
+        String catIds = categoryIdList != null ? categoryIdList.stream().map(String::valueOf).collect(Collectors.joining(",")) : "";
+        String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s&category_id_list=%s&language=%s",
+                getHost(isSandbox), PATH_PRODUCT_GET_ATTRIBUTE_TREE, partnerId.trim(), timestamp, accessToken.trim(), shopId.trim(), sign, catIds, lang);
+
+        return executeGet(url);
+    }
+
+    public JsonNode deleteItem(String partnerId, String partnerKey, String accessToken, String shopId, long itemId, boolean isSandbox) {
+        if (isMockCredentials(partnerId, partnerKey)) {
+            ObjectNode res = objectMapper.createObjectNode();
+            res.put("error", "").put("message", "success");
+            res.putObject("response");
+            return res;
+        }
+
+        long timestamp = Instant.now().getEpochSecond();
+        String base = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_PRODUCT_DELETE_ITEM, timestamp, accessToken, shopId);
+        String sign = ShopeeSignatureHelper.sign(partnerKey, base);
+        String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s",
+                getHost(isSandbox), PATH_PRODUCT_DELETE_ITEM, partnerId.trim(), timestamp, accessToken.trim(), shopId.trim(), sign);
+
+        return executePost(url, Map.of("item_id", itemId));
     }
 
     public JsonNode addItem(String partnerId, String partnerKey, String accessToken, String shopId, Map<String, Object> body, boolean isSandbox) {
@@ -1205,6 +1244,18 @@ public class ShopeeClient {
 
     public JsonNode getAttributes(long categoryId, String language) {
         return getAttributes(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), categoryId, language, this.isSandbox);
+    }
+
+    public JsonNode getAttributeTree(List<Long> categoryIdList, String language) {
+        return getAttributeTree(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), categoryIdList, language, this.isSandbox);
+    }
+
+    public JsonNode getAttributeTree(long categoryId) {
+        return getAttributeTree(List.of(categoryId), "vi");
+    }
+
+    public JsonNode deleteItem(long itemId) {
+        return deleteItem(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), itemId, this.isSandbox);
     }
 
     public JsonNode addItem(Map<String, Object> body) {

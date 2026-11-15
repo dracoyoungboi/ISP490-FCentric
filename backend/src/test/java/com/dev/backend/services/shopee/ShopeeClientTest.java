@@ -197,5 +197,22 @@ class ShopeeClientTest {
         assertNotNull(sellerStock);
         assertEquals(40, sellerStock.get(0).get("stock"));
     }
+
+    @Test
+    @DisplayName("getAttributeTree: Mock credentials trả về mảng attribute_tree_list")
+    void getAttributeTree_mockCredentials() {
+        JsonNode res = client.getAttributeTree(101758L);
+        assertNotNull(res);
+        assertEquals("", res.path("error").asText());
+        assertTrue(res.path("response").path("attribute_tree_list").isArray());
+    }
+
+    @Test
+    @DisplayName("deleteItem: Mock credentials trả về success")
+    void deleteItem_mockCredentials() {
+        JsonNode res = client.deleteItem(12345L);
+        assertNotNull(res);
+        assertEquals("", res.path("error").asText());
+    }
 }
 
