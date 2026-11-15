@@ -282,8 +282,23 @@ public class ShopeeClient {
         return getOrderList(partnerId, partnerKey, accessToken, shopId, timeFrom, timeTo, "create_time", orderStatus, pageSize, cursor, isSandbox);
     }
 
+    /**
+     * Tra cứu danh sách đơn hàng Shopee OpenAPI v2 (/api/v2/order/get_order_list).
+     * <p>RÀNG BUỘC SHOPEE OPENPLATFORM:
+     * <ul>
+     *   <li>Dữ liệu đơn hàng quá 3 tháng (90 ngày) không thể tìm kiếm hoặc tải về (Data range searchable cannot exceed 90 days).</li>
+     *   <li>Khoảng thời gian tra cứu tối đa cho 1 request: time_to - time_from <= 15 ngày.</li>
+     * </ul>
+     */
     public JsonNode getOrderList(String partnerId, String partnerKey, String accessToken, String shopId,
                                  long timeFrom, long timeTo, String timeRangeField, String orderStatus, int pageSize, String cursor, boolean isSandbox) {
+        // Tự động kiểm tra trần 90 ngày (Shopee 3 months retention policy)
+        long ninetyDaysAgo = Instant.now().getEpochSecond() - (90L * 86400L);
+        if (timeFrom < ninetyDaysAgo) {
+            log.warn("[SHOPEE-CLIENT] time_from ({}) vượt quá 90 ngày (Shopee 3 months limit), tự động điều chỉnh về mốc 90 ngày", timeFrom);
+            timeFrom = ninetyDaysAgo;
+        }
+
         if (isMockCredentials(partnerId, partnerKey)) {
             ObjectNode res = objectMapper.createObjectNode();
             res.put("error", "").put("message", "success");
