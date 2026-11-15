@@ -49,6 +49,22 @@ export const traHangService = {
     const res = await apiClient.get(`/api/v1/pos/returns/${id}`, { signal });
     return res.data?.data ?? null;
   },
+
+  /** Biên bản theo mã phiếu RET-YYYYMMDD-XXXX (gõ hoặc quét ở ô tìm). Không có: lỗi 404. */
+  async phieuTheoMa(ma, { signal } = {}) {
+    const res = await apiClient.get("/api/v1/pos/returns/lookup", { params: { ma }, signal });
+    return res.data?.data ?? null;
+  },
+
+  /**
+   * Phiếu trả nhận tại cửa hàng khoId trong soNgay ngày gần nhất (1 = hôm nay) hoặc khoảng tuNgay–denNgay (yyyy-MM-dd,
+   * tối đa 1 năm); q lọc theo tên / số điện thoại khách, mã hóa đơn, mã phiếu. Mới nhất trước, kèm tổng tiền hoàn
+   * tiền mặt / chuyển khoản.
+   */
+  async lichSu(khoId, { soNgay, tuNgay, denNgay, q } = {}, { signal } = {}) {
+    const res = await apiClient.get("/api/v1/pos/returns", { params: { khoId, soNgay, tuNgay, denNgay, q }, signal });
+    return res.data?.data ?? null;
+  },
 };
 
 export const newReturnRequestId = () => (
