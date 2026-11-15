@@ -2285,9 +2285,19 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
     /**
      * Tự động sinh ảnh đồ họa bảng quy đổi kích cỡ thời trang chuẩn 800x800 cho thương hiệu FCentric.
-     * Thỏa mãn 100% chính sách listing hình ảnh của TikTok Shop và bảo vệ người dùng không bị thiếu size chart.
+     * Thỏa mãn 100% chính sách listing hình ảnh của TikTok Shop và Shopee (Open Platform v2).
      */
     private static byte[] taoTikTokSizeChartImage(String tenSp) {
+        return taoFCentricSizeChartImage(tenSp);
+    }
+
+    /**
+     * Tự động sinh ảnh đồ họa bảng quy đổi kích cỡ thời trang chuẩn 800x800 cho thương hiệu FCentric.
+     * Hỗ trợ tự động phân nhánh bảng kích cỡ theo chủng loại sản phẩm:
+     * - Quần / Đáy (Pants / Jeans / Kaki / Shorts / Trousers): Vòng eo, Vòng mông, Dài quần, Cân nặng.
+     * - Áo / Thân trên (Tops / Polo / T-shirt / Jackets / Outerwear): Chiều cao, Cân nặng, Vòng ngực, Dài áo.
+     */
+    public static byte[] taoFCentricSizeChartImage(String tenSp) {
         try {
             int width = 800;
             int height = 800;
@@ -2312,9 +2322,17 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             g.setFont(new java.awt.Font("SansSerif", java.awt.Font.BOLD, 30));
             g.drawString("FCENTRIC - BẢNG QUY ĐỔI KÍCH CỠ", 90, 70);
 
+            String nameNorm = (tenSp != null ? tenSp : "").toLowerCase(Locale.ROOT);
+            boolean isPants = nameNorm.contains("quần") || nameNorm.contains("jean") || nameNorm.contains("pant")
+                    || nameNorm.contains("short") || nameNorm.contains("kaki") || nameNorm.contains("trouser") || nameNorm.contains("jogger");
+
             g.setFont(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 18));
             g.setColor(new java.awt.Color(219, 234, 254));
-            g.drawString("BẢNG THÔNG SỐ CHỌN SIZE QUẦN ÁO CHUẨN FORM", 160, 105);
+            if (isPants) {
+                g.drawString("BẢNG THÔNG SỐ CHỌN SIZE QUẦN CHUẨN FORM CHÍNH HÃNG", 125, 105);
+            } else {
+                g.drawString("BẢNG THÔNG SỐ CHỌN SIZE QUẦN ÁO CHUẨN FORM CHÍNH HÃNG", 120, 105);
+            }
 
             // Tên sản phẩm phụ đề
             g.setColor(new java.awt.Color(51, 65, 85));
@@ -2329,14 +2347,27 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             int tableW = 720;
             int rowH = 58;
 
-            String[] headers = {"Size", "Chiều cao (cm)", "Cân nặng (kg)", "Vòng ngực (cm)", "Dài áo (cm)"};
-            String[][] data = {
-                {"S", "155 - 165", "48 - 55", "88 - 92", "65"},
-                {"M", "165 - 170", "56 - 65", "92 - 96", "67"},
-                {"L", "170 - 175", "66 - 72", "96 - 100", "69"},
-                {"XL", "175 - 180", "73 - 80", "100 - 104", "71"},
-                {"XXL", "180 - 188", "81 - 90", "104 - 110", "73"}
-            };
+            String[] headers;
+            String[][] data;
+            if (isPants) {
+                headers = new String[]{"Size", "Vòng eo (cm)", "Vòng mông (cm)", "Dài quần (cm)", "Cân nặng (kg)"};
+                data = new String[][]{
+                    {"28 / S", "70 - 74", "88 - 92", "96", "48 - 55"},
+                    {"29 / M", "74 - 78", "92 - 96", "98", "56 - 63"},
+                    {"30 / L", "78 - 82", "96 - 100", "100", "64 - 70"},
+                    {"31 / XL", "82 - 86", "100 - 104", "102", "71 - 78"},
+                    {"32 / XXL", "86 - 92", "104 - 110", "104", "79 - 88"}
+                };
+            } else {
+                headers = new String[]{"Size", "Chiều cao (cm)", "Cân nặng (kg)", "Vòng ngực (cm)", "Dài áo (cm)"};
+                data = new String[][]{
+                    {"S", "155 - 165", "48 - 55", "88 - 92", "65"},
+                    {"M", "165 - 170", "56 - 65", "92 - 96", "67"},
+                    {"L", "170 - 175", "66 - 72", "96 - 100", "69"},
+                    {"XL", "175 - 180", "73 - 80", "100 - 104", "71"},
+                    {"XXL", "180 - 188", "81 - 90", "104 - 110", "73"}
+                };
+            }
 
             int colW = tableW / headers.length; // 144px mỗi cột
 
@@ -2415,7 +2446,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             javax.imageio.ImageIO.write(img, "jpg", baos);
             return baos.toByteArray();
         } catch (Exception e) {
-            log.warn("Không thể sinh ảnh size chart cho TikTok Shop: {}", e.getMessage());
+            log.warn("Không thể sinh ảnh size chart cho thương hiệu FCentric: {}", e.getMessage());
             return new byte[0];
         }
     }
