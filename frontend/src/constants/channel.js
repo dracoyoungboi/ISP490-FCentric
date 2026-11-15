@@ -233,9 +233,9 @@ export const SAN_BAN_HANG = [
   { maKenh: "LAZADA", ten: "Lazada", duongDan: "/channels/lazada", hoTro: true, kieuKetNoi: "uy_quyen", tienToDon: "LZD", hanUyQuyenNgay: 50 },
   { maKenh: "LAZADA_SANDBOX", ten: "Lazada Sandbox", duongDan: "/channels/lazada-sandbox", hoTro: false, kieuKetNoi: "uy_quyen", tienToDon: "LZD-SBX", hanUyQuyenNgay: 50, isSandbox: true, anTam: true },
   { maKenh: "TIKTOK", ten: "TikTok Shop", duongDan: "/channels/tiktok", hoTro: true, kieuKetNoi: "uy_quyen", tienToDon: "TTS", maThuCong: true },
-  { maKenh: "SHOPEE", ten: "Shopee", duongDan: "/channels/shopee", hoTro: false, kieuKetNoi: "uy_quyen", tienToDon: "SHP", hanUyQuyenNgay: 365, hienMenu: false, anTam: true },
+  { maKenh: "SHOPEE", ten: "Shopee", duongDan: "/channels/shopee-legacy", hoTro: false, kieuKetNoi: "uy_quyen", tienToDon: "SHP", hanUyQuyenNgay: 365, hienMenu: false, anTam: true },
   // Kênh 2: Shopee Chính Thức (Shopee Open Platform v2 Official)
-  { maKenh: "SHOPEE_OFFICIAL", ten: "Shopee", duongDan: "/channels/shopee-official", hoTro: true, kieuKetNoi: "uy_quyen", tienToDon: "SHP", hanUyQuyenNgay: 30, hienMenu: true },
+  { maKenh: "SHOPEE_OFFICIAL", ten: "Shopee", duongDan: "/channels/shopee", hoTro: true, kieuKetNoi: "uy_quyen", tienToDon: "SHP", hanUyQuyenNgay: 30, hienMenu: true, biDanh: ["shopee-official"] },
   { maKenh: "SHOPEE_SANDBOX", ten: "Shopee Sandbox", duongDan: "/channels/shopee-sandbox", hoTro: true, kieuKetNoi: "uy_quyen", tienToDon: "SHP", hanUyQuyenNgay: 365, isSandbox: true, hienMenu: true },
 ];
 
@@ -243,7 +243,12 @@ export const SAN_BAN_HANG = [
 export function timSan(maKenh) {
   const ma = String(maKenh ?? "").trim().toLowerCase();
   if (!ma) return null;
-  return SAN_BAN_HANG.find((san) => san.maKenh.toLowerCase() === ma || san.duongDan?.split("/").pop() === ma) ?? null;
+  // Ưu tiên khớp theo đường dẫn hoặc bí danh trước (để /channels/shopee luôn trỏ tới SHOPEE_OFFICIAL)
+  const theoDuongDan = SAN_BAN_HANG.find(
+    (san) => san.duongDan?.split("/").pop() === ma || san.biDanh?.some((b) => b.toLowerCase() === ma),
+  );
+  if (theoDuongDan) return theoDuongDan;
+  return SAN_BAN_HANG.find((san) => san.maKenh.toLowerCase() === ma) ?? null;
 }
 
 /**
