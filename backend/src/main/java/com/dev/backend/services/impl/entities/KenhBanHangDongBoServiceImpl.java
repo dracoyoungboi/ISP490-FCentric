@@ -3170,9 +3170,17 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 .map(SanPhamQuanAo::getId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet()));
+        List<Integer> btIds = page.getContent().stream()
+                .map(TrangThaiDongBoSanPham::getBienTheSanPham)
+                .filter(Objects::nonNull)
+                .map(BienTheSanPham::getId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Integer, String> anhTheoBienThe = anhDaiDienTheoBienThe(btIds);
         Map<Integer, BigDecimal> khaDung = khaDungTheoBienThe(page.getContent());
 
-        return page.map(item -> toLienKetDto(item, khaDung, anhTheoSanPham));
+        return page.map(item -> toLienKetDto(item, khaDung, anhTheoSanPham, anhTheoBienThe));
     }
 
     @Override
@@ -3200,6 +3208,14 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
         List<TrangThaiDongBoSanPham> dong = trangThaiDongBoSanPhamRepository.findTheoKenhVaSanPham(
                 kenh.getId(), sanPhamIds, trangThaiLoc, tuKhoa);
+        List<Integer> btIds = dong.stream()
+                .map(TrangThaiDongBoSanPham::getBienTheSanPham)
+                .filter(Objects::nonNull)
+                .map(BienTheSanPham::getId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Integer, String> anhTheoBienThe = anhDaiDienTheoBienThe(btIds);
         Map<Integer, BigDecimal> khaDung = khaDungTheoBienThe(dong);
         Map<Integer, String> anhTheoSanPham = anhDaiDienTheoSanPham(sanPhamIds);
         // Đang lọc thì nhóm chỉ còn các SKU khớp: đếm riêng tổng SKU để giao diện ghi "x/y phân loại"
@@ -3221,7 +3237,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             // Liên kết vừa bị xóa giữa hai truy vấn: bỏ qua thay vì trả nhóm rỗng
             if (dsDong == null || dsDong.isEmpty()) continue;
             List<LienKetSanPhamDto> bienThe = dsDong.stream()
-                    .map(item -> toLienKetDto(item, khaDung, anhTheoSanPham))
+                    .map(item -> toLienKetDto(item, khaDung, anhTheoSanPham, anhTheoBienThe))
                     .toList();
             nhom.add(NhomLienKetDto.builder()
                     .sanPhamId(sanPhamId)
