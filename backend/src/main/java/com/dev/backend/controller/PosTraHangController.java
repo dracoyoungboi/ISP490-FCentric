@@ -12,10 +12,12 @@ import com.dev.backend.services.impl.trahang.TraHangXacNhanService;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -53,6 +55,29 @@ public class PosTraHangController {
     public ResponseEntity<ResponseData<List<TraHangDto.DonTomTat>>> ganDay(@RequestParam Integer khoId,
                                                                           @RequestParam(defaultValue = "false") boolean tatCa) {
         return ok(traHangService.ganDay(khoId, tatCa), "Success");
+    }
+
+    @GetMapping
+    @Operation(summary = "Phiếu trả nhận tại cửa hàng khoId trong soNgay ngày gần nhất (1 = hôm nay, tối đa 30) "
+            + "hoặc khoảng tuNgay–denNgay (yyyy-MM-dd, tối đa 1 năm); q lọc theo mã hóa đơn, mã phiếu, tên hoặc "
+            + "số điện thoại khách. Mới nhất trước, kèm tổng tiền hoàn tiền mặt / chuyển khoản")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_ban_hang},
+            rolesLogic = RequireAuth.LogicType.OR)
+    public ResponseEntity<ResponseData<TraHangDto.LichSuPhieu>> lichSu(
+            @RequestParam Integer khoId,
+            @RequestParam(defaultValue = "1") int soNgay,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate tuNgay,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate denNgay,
+            @RequestParam(required = false) String q) {
+        return ok(traHangService.lichSu(khoId, soNgay, tuNgay, denNgay, q), "Success");
+    }
+
+    @GetMapping("/lookup")
+    @Operation(summary = "Biên bản trả hàng theo mã phiếu RET-YYYYMMDD-XXXX")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_ban_hang},
+            rolesLogic = RequireAuth.LogicType.OR)
+    public ResponseEntity<ResponseData<TraHangDto.PhieuChiTiet>> phieuTheoMa(@RequestParam String ma) {
+        return ok(traHangService.phieuTheoMa(ma), "Success");
     }
 
     @GetMapping("/orders/{donBanHangId}")
