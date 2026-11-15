@@ -90,6 +90,7 @@
 | **AUDIT-078** | `2026-11-15 00:30:00` | Khang | Fix / Phiếu mua chưa có hóa đơn khi xuất kế toán MISA | `DungChungTuAmis.java`, `XuatKeToanService.java`, `GhiDoiChieu.java`, `HoaDonDauVaoService.java`, `KeToanNguonRepository.java`, `TheHoaDonNhaCungCap.jsx`, `XuatDuLieuKeToan.jsx` | Thử AMIS thật: "Không kèm hóa đơn" + Mua hàng › Nhận hóa đơn tự cộng thuế (PN202611091 888.888 + 71.112 = 960.000). Thêm cột Thuế chờ hóa đơn cho tệp đối chiếu cân, hướng dẫn bước Nhận hóa đơn, cho nhập hóa đơn sau khi xuất (phiếu xuất lúc chưa có hóa đơn) và nhắc kế toán ở lô sau; sửa câu hướng dẫn "Là đơn giá bán sau thuế". |
 | **AUDIT-079** | `2026-11-15 21:10:00` | Khang | UI / Thiết kế lại màn Xuất dữ liệu kế toán (PA D) | `XuatDuLieuKeToan.jsx`, `TaoLoKeToan.jsx`, `ChiTietLoKeToan.jsx`, `HopKeToan.jsx`, `tinhKeToan.js`, `XuatKeToanService.java`, `KeToanController.java`, `XemTruocXuatKeToanDto.java` | Tách màn một trang hai tab thành 3 trang theo khung chung của hệ thống: danh sách lô (như Phiếu nhập kho), Tạo lô xuất (tự kiểm tra, để lại lô sau, việc kế toán làm thêm), Chi tiết lô (chứng từ, mở khóa, hướng dẫn nhập AMIS). Máy chủ thêm tên tệp nhập theo loại và API đọc 00_HUONG_DAN.txt của lô. |
 | **AUDIT-081** | `2026-11-15 23:30:00` | Khang | UI / Tạo lô xuất kế toán theo khung chứng từ chung (PA E) | `TaoLoKeToan.jsx`, `XuatDuLieuKeToan.jsx`, `DauChungTu.jsx`, `tong-quan-bao-cao.json` | Trang Tạo lô xuất dựng lại bằng KhungChungTu hai cột (bảng bên trái, cột thuộc tính bên phải: lô sẽ tạo, đối chiếu doanh thu, tệp nhập AMIS theo thứ tự); danh sách lô giãn khung bảng hết chiều cao; DauChungTu thêm chỗ đặt ô nhập trước nút (`oPhai`). |
+| **AUDIT-082** | `2026-11-16 00:10:00` | Khang | UI / Chi tiết lô xuất kế toán theo khung chứng từ chung | `ChiTietLoKeToan.jsx`, `tong-quan-bao-cao.json` | Trang Chi tiết lô dựng lại bằng KhungChungTu hai cột như trang Tạo lô (AUDIT-081): đầu khối DauChungTu (Tải tệp, Sao chép hướng dẫn, ⋯ Hủy lô), bảng chứng từ theo kieuBang, cột thuộc tính Lô / Tệp / Hủy lô. |
 
 
 ---
@@ -2600,3 +2601,30 @@
 - `npm run i18n:kiem`: 720 tệp sạch. ESLint các tệp sửa: sạch. `vite build` (ra ngoài repo): đạt.
 - Giao diện: Vite + máy chủ giả (dữ liệu mẫu, không nối CSDL) trên Chrome: trang tạo lô 1568px (mở bảng để lại lô sau, hộp xác nhận, ghi chú, tạo lô → chuyển sang chi tiết, gọi tải tệp bị chặn trong trang thử), bề rộng 390px (không cuộn ngang, nút chính ở thanh đáy), danh sách lô giãn hết chiều cao. Chưa thử với backend thật.
 - Không đổi máy chủ; deploy chỉ frontend (cùng đợt PA D thì theo lưu ý của AUDIT-079: BE cùng FE).
+
+### [AUDIT-082] CHI TIẾT LÔ XUẤT KẾ TOÁN THEO KHUNG CHỨNG TỪ CHUNG
+- **Thời gian (GMT+7)**: 2026-11-16 00:10:00
+- **Tác giả thực hiện**: Khang
+- **Phân hệ ảnh hưởng**: Báo cáo › Xuất dữ liệu kế toán › Chi tiết lô.
+- **Tệp thay đổi**:
+  - `frontend/src/pages/bao-cao/ChiTietLoKeToan.jsx` (viết lại)
+  - `frontend/src/i18n/en/tong-quan-bao-cao.json`
+  - `audit.md`
+
+#### 1. MỤC TIÊU & PHÂN TÍCH NGUYÊN NHÂN GỐC RỄ (ROOT CAUSE ANALYSIS)
+1. **Yêu cầu**: sau khi trang Tạo lô chuyển sang khung chứng từ (AUDIT-081), người dùng duyệt "Làm Chi tiết lô" để hai trang cùng kiểu.
+2. **Nguyên nhân**: trang Chi tiết lô (PA D, AUDIT-079) vẫn là các thẻ rời (dải 5 ô, thẻ bảng, thẻ hướng dẫn) với nút quay lại dạng chữ, tiêu đề cột in hoa kiểu cũ, menu ⋯ tự dựng; tạo lô xong chuyển sang trang này thấy khác hẳn trang vừa rời.
+
+#### 2. GIẢI PHÁP KỸ THUẬT & CHI TIẾT TRIỂN KHAI
+1. **Đầu khối (DauChungTu)**: số lô + thẻ trạng thái, dòng phụ "Kỳ … · N chứng từ"; nút chính Tải tệp (lô đã hủy thành nút viền vì tệp chỉ để đối chiếu); nút phụ Sao chép hướng dẫn (ẩn khi lô đã hủy); ⋯ gồm Sao chép số lô và Hủy lô (chỉ lô còn hiệu lực mới nhất, có dòng mô tả lý do). Điện thoại: Tải tệp ở thanh đáy, các nút khác vào ⋯ (DauChungTu tự làm).
+2. **Thông báo**: lô đã hủy hiện DongThongBao cảnh báo; chi tiết người hủy / lúc / lý do ở cột phải.
+3. **Thân**: Chứng từ trong lô theo kieuBang (liên kết đơn bán / phiếu nhập, trạng thái khóa / mở khóa kèm người, lúc, lý do mở khóa, nút Mở khóa); khối hẹp ẩn cột Loại / Ngày / Trạng thái, đưa xuống dưới số chứng từ. Hướng dẫn nhập AMIS thành mục thu gọn trong khối (mở sẵn khi vừa tạo lô).
+4. **Cột phải (CotThuocTinh)**: Lô (kỳ, có tồn đầu kỳ, số chứng từ theo loại, tiền khách trả, người tạo, lúc tạo, ghi chú), Tệp (tên, dung lượng, mã kiểm tra có nút sao chép), Hủy lô khi đã hủy.
+5. **Tải / lỗi**: KhungDangTai và KhungLoiChungTu như các màn chi tiết chứng từ khác ("Không tìm thấy lô xuất kế toán", nút về Xuất dữ liệu kế toán).
+6. **i18n**: thêm 7 khóa, bỏ 4 khóa không còn dùng.
+
+#### 3. KẾT QUẢ KIỂM THỬ & ĐỐI SOÁT HỒI QUY
+- `npm run i18n:kiem`: 720 tệp sạch. ESLint: sạch. `vite build` (ra ngoài repo): đạt.
+- Giao diện: Vite + máy chủ giả trên Chrome: lô mới nhất (⋯ có Hủy lô, mở hướng dẫn, mở khóa hiện đúng), hủy lô (dải cảnh báo, nhóm Hủy lô, Tải tệp thành nút viền, ẩn Sao chép hướng dẫn và nút Mở khóa), lô không tồn tại, bề rộng 390px (không cuộn ngang, Tải tệp ở thanh đáy). Chưa thử với backend thật.
+- Còn lại: hộp Mở khóa / Hủy lô (HopKeToan.jsx) vẫn là hộp riêng có nút ×, chưa đổi sang HopXacNhanChungTu.
+- Chỉ frontend, không đổi máy chủ.
