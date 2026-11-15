@@ -53,6 +53,8 @@ public class XemTruocXuatKeToanDto {
         /** Thuế của phiếu mua chưa có hóa đơn, kế toán ghi khi Nhận hóa đơn trên AMIS. */
         private BigDecimal thueChoHoaDon;
         private BigDecimal tongCong;
+        /** Tên tệp Excel chứa các chứng từ loại này trong tệp nén (vd. 30_BanHang_20261112_20261112.xlsx). */
+        private String tenTep;
     }
 
     @Getter
