@@ -730,6 +730,7 @@ public class XuatKeToanService {
                                 .noiDung(ThongDiep.dich("keToanDuLieuVao.phatSinhSauXuat", s.soLo()))
                                 .build())).toList())
                 .bienDongKho(lo.bienDongKho().stream().map(XuatKeToanService::vanDe).toList())
+                .tepNhap(tepNhap(kq))
                 .doiChieu(lo.doiChieu())
                 .coTheTaoLo(lo.lyDoKhongTheTao() == null)
                 .lyDoKhongTheTao(lo.lyDoKhongTheTao() == null ? null : lo.lyDoKhongTheTao().theoNgonNgu(NgonNgu.hienTai()))
@@ -755,6 +756,13 @@ public class XuatKeToanService {
         if (mau == null) return null;
         String ten = kq.tep().stream().filter(t -> mau.equals(t.mau())).map(t -> t.ten() + ".xlsx").collect(Collectors.joining(", "));
         return ten.isEmpty() ? null : ten;
+    }
+
+    /** Các tệp Excel theo đúng thứ tự và nội dung của mục nhập trong 00_HUONG_DAN.txt. */
+    static List<XemTruocXuatKeToanDto.TepNhap> tepNhap(DungChungTuAmis.KetQua kq) {
+        return kq.tep().stream().map(t -> XemTruocXuatKeToanDto.TepNhap.builder()
+                .ten(t.ten() + ".xlsx").noiNhap(noiNhap(t.mau())).dongTieuDe(HoSoAmis.mau(t.mau()).dongTieuDe())
+                .luuY(luuYGhepCot(t.mau())).build()).toList();
     }
 
     /** Dấu vết nội dung lô: băm danh sách chứng từ (loại, nguồn, tiền, số dòng) đã sắp xếp. */
