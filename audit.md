@@ -89,6 +89,7 @@
 | **AUDIT-077** | `2026-11-14 22:30:00` | Khang | Feature & Fix / Xuất dữ liệu kế toán MISA đợt 2 | `DungChungTuAmis.java`, `XuatKeToanService.java`, `KeToanNguonRepository.java`, `migration-2026-11-14-xuat-ke-toan-dot-2.sql`, `XuatDuLieuKeToan.jsx` | Theo BA 14/11 và nhập thử AMIS thật: tài khoản 5111/5211 (511 bị AMIS từ chối, 1111/1561 không tồn tại), gom khách sàn SAN_*/KHLE, một tệp mỗi loại cho cả lô, tự dựng 22_NhapKhoKhac/25_XuatKhoKhac/31_HangTraLai (mốc tự dựng do backend chốt, chống ghi sổ hai lần), chặn đơn QR thiếu số tài khoản, hủy lô. |
 | **AUDIT-078** | `2026-11-15 00:30:00` | Khang | Fix / Phiếu mua chưa có hóa đơn khi xuất kế toán MISA | `DungChungTuAmis.java`, `XuatKeToanService.java`, `GhiDoiChieu.java`, `HoaDonDauVaoService.java`, `KeToanNguonRepository.java`, `TheHoaDonNhaCungCap.jsx`, `XuatDuLieuKeToan.jsx` | Thử AMIS thật: "Không kèm hóa đơn" + Mua hàng › Nhận hóa đơn tự cộng thuế (PN202611091 888.888 + 71.112 = 960.000). Thêm cột Thuế chờ hóa đơn cho tệp đối chiếu cân, hướng dẫn bước Nhận hóa đơn, cho nhập hóa đơn sau khi xuất (phiếu xuất lúc chưa có hóa đơn) và nhắc kế toán ở lô sau; sửa câu hướng dẫn "Là đơn giá bán sau thuế". |
 | **AUDIT-079** | `2026-11-15 21:10:00` | Khang | UI / Thiết kế lại màn Xuất dữ liệu kế toán (PA D) | `XuatDuLieuKeToan.jsx`, `TaoLoKeToan.jsx`, `ChiTietLoKeToan.jsx`, `HopKeToan.jsx`, `tinhKeToan.js`, `XuatKeToanService.java`, `KeToanController.java`, `XemTruocXuatKeToanDto.java` | Tách màn một trang hai tab thành 3 trang theo khung chung của hệ thống: danh sách lô (như Phiếu nhập kho), Tạo lô xuất (tự kiểm tra, để lại lô sau, việc kế toán làm thêm), Chi tiết lô (chứng từ, mở khóa, hướng dẫn nhập AMIS). Máy chủ thêm tên tệp nhập theo loại và API đọc 00_HUONG_DAN.txt của lô. |
+| **AUDIT-080** | `2026-11-15 21:45:00` | Khang | Feature / Xem lại phiếu đã trả trên màn Trả hàng POS | `TraHangDto.java`, `PhieuTraHangRepository.java`, `TraHangTaiQuayService.java`, `PosTraHangController.java`, `traHangService.js`, `PosReturnsPage.jsx`, `HoaDonConHan.jsx`, `PhieuDaTra.jsx`, `ChiTietPhieuTra.jsx`, `usePhieuTra.js`, `TheDanhSach.jsx`, `nhan-thoi-gian.js`, `ban-hang.json` | Thẻ Phiếu đã trả (Hôm nay / 7 / 30 ngày, phiếu nhận trả tại cửa hàng đang chọn, dòng tổng tiền mặt / chuyển khoản), xem lại và in lại phiếu ở khung phải, ô F3 tìm mã RET, dòng Đã trả trước đó khi mở hóa đơn gốc. API mới GET /api/v1/pos/returns và /lookup; không migration. |
 | **AUDIT-081** | `2026-11-15 23:30:00` | Khang | UI / Tạo lô xuất kế toán theo khung chứng từ chung (PA E) | `TaoLoKeToan.jsx`, `XuatDuLieuKeToan.jsx`, `DauChungTu.jsx`, `tong-quan-bao-cao.json` | Trang Tạo lô xuất dựng lại bằng KhungChungTu hai cột (bảng bên trái, cột thuộc tính bên phải: lô sẽ tạo, đối chiếu doanh thu, tệp nhập AMIS theo thứ tự); danh sách lô giãn khung bảng hết chiều cao; DauChungTu thêm chỗ đặt ô nhập trước nút (`oPhai`). |
 | **AUDIT-082** | `2026-11-16 00:10:00` | Khang | UI / Chi tiết lô xuất kế toán theo khung chứng từ chung | `ChiTietLoKeToan.jsx`, `tong-quan-bao-cao.json` | Trang Chi tiết lô dựng lại bằng KhungChungTu hai cột như trang Tạo lô (AUDIT-081): đầu khối DauChungTu (Tải tệp, Sao chép hướng dẫn, ⋯ Hủy lô), bảng chứng từ theo kieuBang, cột thuộc tính Lô / Tệp / Hủy lô. |
 | **AUDIT-083** | `2026-11-16 00:30:00` | Khang | UI / Hộp Mở khóa và Hủy lô xuất kế toán dùng hộp xác nhận chung | `HopKeToan.jsx`, `tong-quan-bao-cao.json` | Hai hộp chuyển sang HopXacNhanChungTu (kiểu nguy hiểm, không nút ×, nút xác nhận khóa kèm lý do ở chân hộp, lỗi máy chủ hiện trong hộp). |
@@ -2572,6 +2573,44 @@
 - Biên dịch backend (javac ngoài `backend/target`): đạt. Kiểm thử đơn vị backend: 1997 test, 1992 đạt; 2 lỗi có sẵn từ trước (`DonBanHangServiceTongQuanKhachTest`, `PhieuXuatKhoDispatchTest`), 3 bỏ qua do môi trường. Nhóm kế toán 36/36 (thêm 3 test tạm cho tên tệp theo loại, danh sách tệp nhập, đọc hướng dẫn: đúng tệp, bỏ BOM, thiếu tệp / sai mã băm / không có lô báo lỗi).
 - Frontend: `npm run i18n:kiem` 715 tệp sạch; ESLint các tệp sửa sạch; `node --test constants/trangThai.test.js` 22/22; `vite build` đạt.
 - Giao diện: chạy Vite với máy chủ giả (dữ liệu mẫu, không nối CSDL) trên Chrome: danh sách lô, tạo lô (mở bảng để lại lô sau, đối chiếu, hộp xác nhận, chuyển sang chi tiết, gọi tải tệp), chi tiết lô (lô mới nhất có ⋯ Hủy lô, lô cũ không có), hủy lô hiện dải đã hủy. Chưa thử với backend thật và chưa thử trên điện thoại thật.
+
+### [AUDIT-080] XEM LẠI PHIẾU ĐÃ TRẢ TRÊN MÀN TRẢ HÀNG POS (THẺ PHIẾU ĐÃ TRẢ, IN LẠI, TÌM MÃ RET)
+- **Thời gian (GMT+7)**: 2026-11-15 21:45:00
+- **Tác giả thực hiện**: Khang
+- **Phân hệ ảnh hưởng**: POS › Trả hàng tại quầy (`/pos/returns`).
+- **Tệp thay đổi**:
+  - `backend/src/main/java/com/dev/backend/dto/trahang/TraHangDto.java` (record `PhieuTomTat`, `LichSuPhieu`)
+  - `backend/src/main/java/com/dev/backend/repository/PhieuTraHangRepository.java` (`findBySoPhieu`)
+  - `backend/src/main/java/com/dev/backend/services/impl/trahang/TraHangTaiQuayService.java` (`lichSu`, `phieuTheoMa`)
+  - `backend/src/main/java/com/dev/backend/controller/PosTraHangController.java` (`GET /api/v1/pos/returns`, `GET /api/v1/pos/returns/lookup`)
+  - `frontend/src/services/traHangService.js`
+  - `frontend/src/pages/pos/returns/PosReturnsPage.jsx`, `HoaDonConHan.jsx`; mới: `PhieuDaTra.jsx`, `ChiTietPhieuTra.jsx`, `usePhieuTra.js`, `TheDanhSach.jsx`, `nhan-thoi-gian.js`
+  - `frontend/src/i18n/en/ban-hang.json`, `audit.md`
+
+#### 1. MỤC TIÊU & PHÂN TÍCH NGUYÊN NHÂN GỐC RỄ (ROOT CAUSE ANALYSIS)
+1. **Hiện tượng**: thu ngân hỏi "màn trả hàng thì lịch sử ở đâu". Màn `/pos/returns` chỉ có bảng *Hóa đơn còn hạn trả* (hóa đơn bán trong 03 ngày); phiếu trả `RET-…` chỉ hiện ở màn *Đã hoàn tất trả hàng*. Bấm "Trả đơn khác" là mất lối quay lại; muốn in lại phải tự gõ `/pos/returns/<id>/print`.
+2. **Nguyên nhân**: máy chủ không có API liệt kê phiếu trả (chỉ `GET /{id}`). `DonGoc.phieuDaTra` đã trả về các phiếu của một hóa đơn nhưng giao diện chưa hiện. Không có cách đối soát tiền hoàn đã chi tại quầy theo ngày.
+3. **Phương án**: demo artifact T9Z5UiSv5FFG1i4Q9nsA3U, người dùng chốt theo khuyến nghị Đ1–Đ6 (thẻ trong khung trái; Hôm nay / 7 ngày / 30 ngày; chỉ phiếu nhận trả tại cửa hàng đang chọn; ô F3 tìm mã RET; dòng tổng tiền hoàn; "Đã trả trước đó" khi mở hóa đơn).
+
+#### 2. GIẢI PHÁP KỸ THUẬT & CHI TIẾT TRIỂN KHAI
+1. **Backend (không migration, dùng chỉ mục sẵn có `idx_pth_kho_nhan_ngay`)**:
+   - `GET /api/v1/pos/returns?khoId&soNgay`: phiếu có `kho_nhan_id = khoId` từ 00:00 (giờ Việt Nam) của `soNgay` ngày gần nhất (chặn 1–30), mới nhất trước, tối đa 200 dòng (`conNua`). Số tổng (số phiếu, số sản phẩm, tiền mặt, chuyển khoản, tổng hoàn) tính bằng một truy vấn gộp trên cả khoảng. Đơn gốc + khách và người lập nạp mỗi loại một truy vấn. Số điện thoại khách che như các API trả hàng khác. Kiểm quyền `posCatalogService.authorizeWarehouse(khoId)` như `/recent`, `/search`.
+   - `GET /api/v1/pos/returns/lookup?ma=RET-…`: tìm phiếu theo `so_phieu` (UNIQUE) rồi dùng lại `phieu(id)` (quyền cửa hàng nhận hoặc cửa hàng bán). Không thấy: 404 `traHang.phieuKhongTonTai` (khóa sẵn có, đủ vi + en).
+2. **Frontend**:
+   - Khung trái có hai thẻ *Hóa đơn còn hạn trả* | *Phiếu đã trả* (`TheDanhSach`). Thẻ phiếu (`PhieuDaTra`): mốc Hôm nay / 7 ngày / 30 ngày, bảng Mã phiếu (nhãn Trả chéo, Quá hạn · đã duyệt), Lúc trả, Hóa đơn gốc, Khách, SL (số lỗi), Tiền hoàn (kèm hình thức), Người lập; dưới 1280px bỏ cột Hóa đơn gốc và Người lập. Dòng tổng tiền mặt / chuyển khoản / tổng hoàn. Bộ nhớ tạm theo cửa hàng + mốc + ngày (qua nửa đêm tự tải lại); đang tải không hiện số của cửa hàng / mốc khác.
+   - Bấm phiếu: khung phải hiện phiếu chỉ xem (`ChiTietPhieuTra`): thông tin, từng món Đạt (kệ) / Lỗi (nhóm lỗi), lý do, số tổng, nút *Mở hóa đơn gốc* (không tự bật hộp xin duyệt quá hạn) và *In lại biên bản* (trang in sẵn có).
+   - Ô F3: chuỗi bắt đầu `RET-` mở thẳng phiếu ở thẻ Phiếu đã trả; lấy lượt cùng lần mở hóa đơn để kết quả tải dở không đè nhau; đang chọn món trả thì không bỏ ngang.
+   - Đầu hóa đơn gốc: dòng *Đã trả trước đó (n)* từ `phieuDaTra`, bấm mở hộp xem nhanh (Esc đóng) để không mất các món đang chọn; nút đóng hóa đơn (đang chọn món thì báo "Bỏ hết các món đang chọn trước khi đóng hóa đơn").
+   - Sửa kèm: câu "{{n}} sản phẩm" ở khung Phiếu trả đổi sang khóa số nhiều `{{count}} sản phẩm` (tiếng Anh từng ra "1 items").
+   - i18n: 33 câu mới trong `en/ban-hang.json`; câu gợi ý ô tìm đổi thành "Mã hóa đơn, mã phiếu trả hoặc số điện thoại khách".
+
+#### 3. KẾT QUẢ KIỂM THỬ & ĐỐI SOÁT HỒI QUY
+- Biên dịch backend bằng javac ra thư mục tạm (không ghi `backend/target`): đạt.
+- Chạy thật `TraHangTaiQuayService.lichSu` trên H2 (chế độ MySQL, bảng tạo từ thực thể): 18/18 đạt — lọc đúng cửa hàng nhận, mốc hôm nay / 7 / 30 ngày theo giờ Việt Nam, chặn `soNgay` ngoài 1–30, tổng tiền mặt / chuyển khoản, trả chéo, quá hạn, khách lẻ, che số điện thoại, cửa hàng không có phiếu.
+- Rà soát đối kháng (agent riêng): quyền, JPQL, múi giờ, tuyến `/lookup` và `/{id}` không vấn đề; 5 lỗi giao diện tìm ra (mở hóa đơn từ phiếu bật hộp duyệt, tìm RET đè lần tải hóa đơn, số tổng của mốc cũ hiện tạm, tìm RET bỏ ngang món đang chọn, "Hôm nay" cũ sau nửa đêm) đã sửa.
+- Thử giao diện bằng trình duyệt với Vite + API giả (không nối CSDL): 7/7 tình huống đạt (hai thẻ, đổi mốc + số tổng, xem phiếu, mở hóa đơn gốc + hộp đã trả trước đó, tìm RET đúng / sai, tiếng Anh, điện thoại 375px). Sau đó sửa thêm cột bảng ở 1024px, Esc của hộp, nhãn tiếng Anh; phần sửa sau chưa chạy lại trên trình duyệt.
+- `npm run i18n:kiem`: 720 tệp sạch; ESLint thư mục `pages/pos/returns` sạch; `vite build` đạt.
+- Chưa thử với backend và CSDL thật (localhost dùng chung CSDL production). Triển khai backend cùng frontend, không migration.
 
 ### [AUDIT-081] TẠO LÔ XUẤT KẾ TOÁN THEO KHUNG CHỨNG TỪ CHUNG (PA E) VÀ GIÃN KHUNG DANH SÁCH LÔ
 - **Thời gian (GMT+7)**: 2026-11-15 23:30:00
