@@ -1017,6 +1017,15 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
             if (trangThaiHienTai == ITrangThaiDonBanHang.DA_XUAT_TOAN_BO
                     || trangThaiHienTai == ITrangThaiDonBanHang.DA_DONG_GOI
                     || trangThaiHienTai == ITrangThaiDonBanHang.CHO_DONG_GOI) {
+                List<PhieuXuatKho> phieuList = phieuXuatKhoRepository.findByDonBanHangId(don.getId());
+                boolean coPhieuChuaXuat = phieuList != null && phieuList.stream()
+                        .anyMatch(p -> p.getTrangThai() != null &&
+                                (p.getTrangThai() == ITrangThaiPhieuXuat.CHO_XUAT || p.getTrangThai() == ITrangThaiPhieuXuat.NHAP));
+                if (coPhieuChuaXuat) {
+                    log.warn("[CHANNEL-DELIVERY] Đơn {} sàn báo {}, nhưng kho FCentric có phiếu xuất chưa hoàn tất xuất kho -> Giữ nguyên trạng thái kho {}",
+                            don.getSoDonHang(), trangThaiSan, trangThaiHienTai);
+                    return false;
+                }
                 don.setTrangThai(ITrangThaiDonBanHang.HOAN_THANH);
                 don.setTrangThaiThanhToan("da_thanh_toan");
                 don.setNgayCapNhat(Instant.now());
@@ -1027,7 +1036,18 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
             }
         } else if (st.contains("shipped") || st.contains("in_transit")) {
             // Sàn đã xuất giao (shipped / in_transit) -> nếu đang đóng gói (8) hoặc chờ đóng gói (7) thì chuyển sang Đã xuất kho (3)
+            // TUY NHIÊN: Nếu đơn có phiếu xuất kho đang chờ duyệt/xác nhận (CHO_XUAT hoặc NHAP),
+            // thì BẮT BUỘC giữ nguyên trạng thái kho nội bộ, không được tự ý nhảy cóc sang Đã xuất kho!
             if (trangThaiHienTai == ITrangThaiDonBanHang.DA_DONG_GOI || trangThaiHienTai == ITrangThaiDonBanHang.CHO_DONG_GOI) {
+                List<PhieuXuatKho> phieuList = phieuXuatKhoRepository.findByDonBanHangId(don.getId());
+                boolean coPhieuChuaXuat = phieuList != null && phieuList.stream()
+                        .anyMatch(p -> p.getTrangThai() != null &&
+                                (p.getTrangThai() == ITrangThaiPhieuXuat.CHO_XUAT || p.getTrangThai() == ITrangThaiPhieuXuat.NHAP));
+                if (coPhieuChuaXuat) {
+                    log.info("[CHANNEL-SHIPPED] Đơn {} sàn báo {}, nhưng kho FCentric có phiếu xuất đang chờ duyệt/xác nhận -> Giữ nguyên trạng thái kho {}",
+                            don.getSoDonHang(), trangThaiSan, trangThaiHienTai);
+                    return false;
+                }
                 don.setTrangThai(ITrangThaiDonBanHang.DA_XUAT_TOAN_BO);
                 don.setNgayCapNhat(Instant.now());
                 repository.save(don);
