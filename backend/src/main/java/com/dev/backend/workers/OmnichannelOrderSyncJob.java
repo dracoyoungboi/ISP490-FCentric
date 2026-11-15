@@ -1638,6 +1638,21 @@ public class OmnichannelOrderSyncJob {
                 log.info("[JOB-01] Đã hiệu chỉnh lại tiền hàng đơn {}: tiền hàng={}, phí VC={}, tổng cộng={}", soDonHang, price, shippingFee, totalPrice);
             }
 
+            // Tự động căn chỉnh trạng thái đơn bán theo phiếu xuất kho nếu bị nhảy sớm sang Đã xuất kho
+            if (existing.getTrangThai() != null && existing.getTrangThai() == ITrangThaiDonBanHang.DA_XUAT_TOAN_BO) {
+                List<PhieuXuatKho> phieuList = phieuXuatKhoRepository.findByDonBanHangId(existing.getId());
+                boolean coPhieuChoXuat = phieuList != null && phieuList.stream()
+                        .anyMatch(p -> p.getTrangThai() != null && p.getTrangThai() == ITrangThaiPhieuXuat.CHO_XUAT);
+                boolean coPhieuDaXuat = phieuList != null && phieuList.stream()
+                        .anyMatch(p -> p.getTrangThai() != null && p.getTrangThai() == ITrangThaiPhieuXuat.DA_XUAT);
+                if (coPhieuChoXuat && !coPhieuDaXuat) {
+                    existing.setTrangThai(ITrangThaiDonBanHang.DA_DONG_GOI);
+                    existing.setNgayCapNhat(Instant.now());
+                    donBanHangRepository.save(existing);
+                    log.info("[JOB-01] Đơn {} có phiếu xuất kho đang chờ xác nhận -> Hiệu chỉnh lại trạng thái về Chờ xuất kho (8)", soDonHang);
+                }
+            }
+
             if ("CANCELLED".equalsIgnoreCase(order.getOrderStatus())) {
                 if (existing.getTrangThai() != null && existing.getTrangThai() != ITrangThaiDonBanHang.DA_HUY) {
                     try {
