@@ -144,5 +144,10 @@
   "Trạng thái khác ({{so}})": "Other status ({{so}})",
   ", chưa bắt đầu": ", not started",
   ", bước {{buoc}} trên {{tong}}": ", step {{buoc}} of {{tong}}",
-  ", giữa bước {{truoc}} và {{sau}} trên {{tong}}": ", between step {{truoc}} and {{sau}} of {{tong}}"
+  ", giữa bước {{truoc}} và {{sau}} trên {{tong}}": ", between step {{truoc}} and {{sau}} of {{tong}}",
+  "Đã giao kế toán": "Sent to accounting",
+  "Lô đã hủy": "Batch cancelled",
+  "Nhận hóa đơn": "Receive invoice",
+  "Lập tay": "Enter manually",
+  "Lưu ý": "Note"
 }
