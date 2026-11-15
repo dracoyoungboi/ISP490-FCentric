@@ -280,6 +280,16 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
             title: t("Xuất dữ liệu kế toán"),
         },
         {
+            key: "TAO_LO_KE_TOAN",
+            match: (path) => path === "/reports/accounting-export/new",
+            title: t("Tạo lô xuất"),
+        },
+        {
+            key: "CHI_TIET_LO_KE_TOAN",
+            match: (path) => /^\/reports\/accounting-export\/\d+$/.test(path),
+            title: t("Chi tiết lô xuất kế toán"),
+        },
+        {
             key: "PHIEU_NHAP_KHO_PRINT",
             match: (path) => /^\/goods-receipts\/\d+\/print$/.test(path),
             title: t("In phiếu nhập kho"),
