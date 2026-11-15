@@ -244,6 +244,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         int soSku = 0;
         int soMoi = 0;
         int soCapNhat = 0;
+        Set<String> aliveVariantIds = new HashSet<>();
 
         String currentUrl = "https://" + domain + "/admin/api/" + DEFAULT_API_VERSION + "/products.json?limit=250";
         try {
@@ -277,6 +278,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                                     soSku++;
                                     String variantId = varNode.path("id").asText();
                                     String sku = varNode.path("sku").asText("");
+                                    if (!variantId.isBlank()) aliveVariantIds.add(variantId.trim().toLowerCase(Locale.ROOT));
+                                    if (!sku.isBlank()) aliveVariantIds.add(sku.trim().toLowerCase(Locale.ROOT));
 
                                     BigDecimal priceOnChannel = null;
                                     if (varNode.hasNonNull("price")) {
@@ -328,6 +331,19 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     }
                 }
                 currentUrl = trichXuatUrlTrangSau(response.getHeaders().getFirst("Link"));
+            }
+
+            // Tự động nhận diện các sản phẩm đã bị xóa hoặc ngừng bán trên Shopify (chuẩn WHM/Sapo)
+            List<TrangThaiDongBoSanPham> existingList = trangThaiDongBoSanPhamRepository.findByKenhBanHangId(kenh.getId());
+            for (TrangThaiDongBoSanPham item : existingList) {
+                String mspk = item.getMaSanPhamKenh();
+                if (mspk != null && !mspk.isBlank() && !aliveVariantIds.contains(mspk.trim().toLowerCase(Locale.ROOT))) {
+                    item.setMaSanPhamKenh(null);
+                    item.setTrangThaiDongBo("chua_dong_bo");
+                    item.setChiTietLoi("Sản phẩm đã bị xóa hoặc ngừng bán trên Shopify");
+                    item.setNgayDongBoCuoi(Instant.now());
+                    trangThaiDongBoSanPhamRepository.save(item);
+                }
             }
         } catch (Exception e) {
             log.error("Lỗi khi tải sản phẩm từ Shopify [{}]: {}", maKenh, e.getMessage());
@@ -549,6 +565,28 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 }
             }
 
+            // Tự động nhận diện các sản phẩm đã bị xóa hoặc ngừng bán trên sàn TikTok Shop (chuẩn WHM/Sapo)
+            Set<String> aliveSkuIds = new HashSet<>();
+            for (TikTokProductDto prod : products) {
+                if (prod.getStatus() != null && "DELETED".equalsIgnoreCase(prod.getStatus().trim())) continue;
+                if (prod.getSkus() != null) {
+                    for (TikTokSkuDto s : prod.getSkus()) {
+                        if (s.getId() != null) aliveSkuIds.add(s.getId().trim().toLowerCase(Locale.ROOT));
+                        if (s.getSellerSku() != null) aliveSkuIds.add(s.getSellerSku().trim().toLowerCase(Locale.ROOT));
+                    }
+                }
+            }
+            for (TrangThaiDongBoSanPham item : existingList) {
+                String mspk = item.getMaSanPhamKenh();
+                if (mspk != null && !mspk.isBlank() && !aliveSkuIds.contains(mspk.trim().toLowerCase(Locale.ROOT))) {
+                    item.setMaSanPhamKenh(null);
+                    item.setTrangThaiDongBo("chua_dong_bo");
+                    item.setChiTietLoi("Sản phẩm đã bị xóa hoặc ngừng bán trên TikTok Shop");
+                    item.setNgayDongBoCuoi(Instant.now());
+                    trangThaiDongBoSanPhamRepository.save(item);
+                }
+            }
+
             ghiNhatKy(kenh.getId(), IHanhDong.cap_nhat_kenh_ban,
                     String.format("Tải sản phẩm từ TikTok Shop: %s SKU (%s mới, %s cập nhật)", soSku, soMoi, soCapNhat));
 
@@ -598,6 +636,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             int offset = 0;
             int limit = 50;
             boolean hasMore = true;
+            Set<String> aliveSkuIds = new HashSet<>();
 
             while (hasMore && offset < 500) {
                 JsonNode res = lazadaClient.getProducts(appKey, appSecret, token, "all", limit, offset);
@@ -631,6 +670,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                             String normSellerSku = sellerSku.toLowerCase(Locale.ROOT);
                             String normShopSku = !shopSku.isBlank() ? shopSku.toLowerCase(Locale.ROOT) : null;
                             String normSkuId = !skuId.isBlank() ? skuId.toLowerCase(Locale.ROOT) : null;
+
+                            aliveSkuIds.add(normSellerSku);
+                            if (normShopSku != null) aliveSkuIds.add(normShopSku);
+                            if (normSkuId != null) aliveSkuIds.add(normSkuId);
 
                             BigDecimal price = null;
                             try {
@@ -720,6 +763,18 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                         soSku++;
                     }
                 }
+            }
+        }
+
+        // Tự động nhận diện các sản phẩm đã bị xóa hoặc ngừng bán trên sàn Lazada (chuẩn WHM/Sapo)
+        for (TrangThaiDongBoSanPham item : existingList) {
+            String mspk = item.getMaSanPhamKenh();
+            if (mspk != null && !mspk.isBlank() && !aliveSkuIds.contains(mspk.trim().toLowerCase(Locale.ROOT))) {
+                item.setMaSanPhamKenh(null);
+                item.setTrangThaiDongBo("chua_dong_bo");
+                item.setChiTietLoi("Sản phẩm đã bị xóa hoặc ngừng bán trên Lazada");
+                item.setNgayDongBoCuoi(Instant.now());
+                trangThaiDongBoSanPhamRepository.save(item);
             }
         }
 
@@ -3673,11 +3728,20 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 }
             } else {
                 String errorMsg = loiKenh != null ? loiKenh : "Cập nhật tồn thất bại trên TikTok Shop";
+                String errLower = errorMsg.toLowerCase(Locale.ROOT);
+                boolean biXoaTrenSan = errLower.contains("not found") || errLower.contains("không tìm thấy")
+                        || errLower.contains("12052001") || errLower.contains("deleted");
                 for (DongCanCapNhat item : validItems) {
-                    item.dong().setTrangThaiDongBo("that_bai");
-                    item.dong().setChiTietLoi(errorMsg);
+                    if (biXoaTrenSan) {
+                        item.dong().setMaSanPhamKenh(null);
+                        item.dong().setTrangThaiDongBo("chua_dong_bo");
+                        item.dong().setChiTietLoi("Sản phẩm đã bị xóa hoặc ngừng bán trên TikTok Shop. Hệ thống đã tự động hủy liên kết.");
+                    } else {
+                        item.dong().setTrangThaiDongBo("that_bai");
+                        item.dong().setChiTietLoi(errorMsg);
+                    }
                     soLoi++;
-                    theoDoi.daDay(item.sellerSku(), tenHienThi(item.dong().getBienTheSanPham()), false, errorMsg);
+                    theoDoi.daDay(item.sellerSku(), tenHienThi(item.dong().getBienTheSanPham()), false, item.dong().getChiTietLoi());
                 }
             }
 
@@ -3882,11 +3946,19 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     }
 
                     String friendlyMsg = dichLoiLazada(code, msg);
+                    boolean biXoaTrenSan = "ERR_ITEM_NOT_FOUND".equalsIgnoreCase(code)
+                            || (msg != null && (msg.toLowerCase(Locale.ROOT).contains("not found") || msg.toLowerCase(Locale.ROOT).contains("does not exist") || msg.toLowerCase(Locale.ROOT).contains("deleted")));
                     for (DongCanCapNhat item : batch) {
-                        item.dong().setTrangThaiDongBo("that_bai");
-                        item.dong().setChiTietLoi(friendlyMsg);
+                        if (biXoaTrenSan) {
+                            item.dong().setMaSanPhamKenh(null);
+                            item.dong().setTrangThaiDongBo("chua_dong_bo");
+                            item.dong().setChiTietLoi("Sản phẩm đã bị xóa hoặc ngừng bán trên Lazada. Hệ thống đã tự động hủy liên kết.");
+                        } else {
+                            item.dong().setTrangThaiDongBo("that_bai");
+                            item.dong().setChiTietLoi(friendlyMsg);
+                        }
                         soLoi++;
-                        theoDoi.daDay(item.sellerSku(), tenHienThi(item.dong().getBienTheSanPham()), false, friendlyMsg);
+                        theoDoi.daDay(item.sellerSku(), tenHienThi(item.dong().getBienTheSanPham()), false, item.dong().getChiTietLoi());
                     }
                 }
             } catch (Exception ex) {
@@ -5299,8 +5371,17 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             dong.setNgayDayTonCuoi(now);
             dong.setNgayDongBoCuoi(now);
         } else if (!kq.loiKenh()) {
-            dong.setTrangThaiDongBo("that_bai");
-            dong.setChiTietLoi(kq.lyDo());
+            String lyDo = kq.lyDo() != null ? kq.lyDo().toLowerCase(Locale.ROOT) : "";
+            boolean biXoaTrenSan = lyDo.contains("không tìm thấy") || lyDo.contains("not found")
+                    || lyDo.contains("does not exist") || lyDo.contains("deleted");
+            if (biXoaTrenSan) {
+                dong.setMaSanPhamKenh(null);
+                dong.setTrangThaiDongBo("chua_dong_bo");
+                dong.setChiTietLoi(kq.lyDo() + " (Đã tự động hủy liên kết để tránh lỗi đẩy tồn)");
+            } else {
+                dong.setTrangThaiDongBo("that_bai");
+                dong.setChiTietLoi(kq.lyDo());
+            }
             dong.setNgayDongBoCuoi(now);
         }
         return kq;
@@ -6608,7 +6689,22 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 for (JsonNode itemNode : itemList) {
                     long itemId = itemNode.path("item_id").asLong();
                     String itemName = itemNode.path("item_name").asText("Sản phẩm Shopee");
-                    JsonNode models = itemNode.path("model");
+                    boolean hasModel = itemNode.path("has_model").asBoolean(false);
+                    JsonNode models = null;
+                    if (hasModel) {
+                        try {
+                            JsonNode modelRes = client.getModelList(itemId);
+                            models = modelRes.path("response").path("model");
+                            if (!models.isArray() || models.isEmpty()) {
+                                models = modelRes.path("response").path("model_list");
+                            }
+                        } catch (Exception mEx) {
+                            log.warn("[SHOPEE-SYNC] Lỗi lấy model_list cho item {}: {}", itemId, mEx.getMessage());
+                        }
+                    }
+                    if (models == null || !models.isArray() || models.isEmpty()) {
+                        models = itemNode.path("model");
+                    }
 
                     if (models.isArray() && !models.isEmpty()) {
                         for (JsonNode modelNode : models) {
@@ -6701,6 +6797,27 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     }
                 }
             }
+
+            // Tự động nhận diện các sản phẩm đã bị xóa hoặc ngừng bán trên sàn Shopee (chuẩn WHM/Sapo)
+            Set<Long> aliveItemIds = new HashSet<>(itemIds);
+            for (TrangThaiDongBoSanPham item : existingList) {
+                String mspk = item.getMaSanPhamKenh();
+                if (mspk != null && !mspk.isBlank()) {
+                    Long oldItemId = null;
+                    if (mspk.contains(":")) {
+                        try { oldItemId = Long.parseLong(mspk.split(":")[0]); } catch (Exception ignored) {}
+                    } else if (mspk.matches("\\d+")) {
+                        try { oldItemId = Long.parseLong(mspk); } catch (Exception ignored) {}
+                    }
+                    if (oldItemId != null && !aliveItemIds.contains(oldItemId)) {
+                        item.setMaSanPhamKenh(null);
+                        item.setTrangThaiDongBo("chua_dong_bo");
+                        item.setChiTietLoi("Sản phẩm đã bị xóa hoặc ngừng bán trên Shopee");
+                        item.setNgayDongBoCuoi(Instant.now());
+                        trangThaiDongBoSanPhamRepository.save(item);
+                    }
+                }
+            }
         } catch (Exception e) {
             log.error("[SHOPEE-SYNC] Lỗi tải sản phẩm Shopee: {}", e.getMessage(), e);
             throw new CommonException(ThongDiep.of("kenhBan.loiTaiSanPhamShopee", e.getMessage()), HttpStatus.INTERNAL_SERVER_ERROR, null);
@@ -6747,7 +6864,22 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 if (itemList.isArray()) {
                     for (JsonNode itemNode : itemList) {
                         long itemId = itemNode.path("item_id").asLong();
-                        JsonNode models = itemNode.path("model");
+                        boolean hasModel = itemNode.path("has_model").asBoolean(false);
+                        JsonNode models = null;
+                        if (hasModel) {
+                            try {
+                                JsonNode modelRes = client.getModelList(itemId);
+                                models = modelRes.path("response").path("model");
+                                if (!models.isArray() || models.isEmpty()) {
+                                    models = modelRes.path("response").path("model_list");
+                                }
+                            } catch (Exception mEx) {
+                                log.warn("[SHOPEE-AUTO-LINK] Lỗi lấy model_list cho item {}: {}", itemId, mEx.getMessage());
+                            }
+                        }
+                        if (models == null || !models.isArray() || models.isEmpty()) {
+                            models = itemNode.path("model");
+                        }
                         if (models.isArray() && !models.isEmpty()) {
                             for (JsonNode modelNode : models) {
                                 long modelId = modelNode.path("model_id").asLong();
@@ -7475,6 +7607,13 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
         String rawName = sp.getTenSanPham() != null && !sp.getTenSanPham().isBlank()
                 ? sp.getTenSanPham().trim() : "Sản phẩm thời trang FCentric";
+        // Khử các từ khóa nhạy cảm / nghi ngờ hàng giả theo chính sách Shopee
+        rawName = rawName.replaceAll("(?i)\\bnick\\b", "Active");
+        rawName = rawName.replaceAll("(?i)giả\\s+lông\\s+cừu", "Lông Cừu Nhân Tạo");
+        rawName = rawName.replaceAll("(?i)\\bgiả\\b", "Nhân Tạo");
+        rawName = rawName.replaceAll("(?i)\\bclimawarm\\b", "ClimaWarm FCentric");
+        rawName = rawName.replaceAll("(?i)\\bclot\\b", "Streetwear");
+
         // Shopee quy định tiêu đề từ 20 đến 120 ký tự
         String title = rawName;
         if (title.length() < 20) {
@@ -7559,17 +7698,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             if (!error.isBlank() && !"0".equals(error)) {
                 String errMsg = addRes.path("message").asText(error);
                 if (errMsg.toLowerCase(Locale.ROOT).contains("duplicate") || error.toLowerCase(Locale.ROOT).contains("duplicate")) {
-                    String retryTitle = title;
-                    if (retryTitle.length() + sku.length() + 3 <= 120) {
-                        retryTitle = retryTitle + " - " + sku;
-                    } else {
-                        retryTitle = retryTitle.substring(0, Math.min(retryTitle.length(), 120 - sku.length() - 3)) + " - " + sku;
-                    }
-                    body.put("item_name", retryTitle);
-                    log.warn("[SHOPEE-CREATE] Single SKU bị trùng lặp tên trên sàn, tự động đổi tên thành [{}] và thử lại...", retryTitle);
-                    addRes = client.addItem(body);
-                    error = addRes.path("error").asText("");
-                    errMsg = addRes.path("message").asText(error);
+                    log.warn("[SHOPEE-CREATE] Single SKU [{}] đã tồn tại trên Shopee (trùng lặp). Ngừng tạo mới để chống vi phạm chính sách Duplicate Listing.", title);
+                    ghiNhanLoiTaoSanPhamShopee(kenh, variants, "Sản phẩm đã tồn tại trên Shopee (trùng lặp bài đăng)");
+                    return createdSkuMap;
                 }
                 Long fallbackCatId = timFallbackCategoryIdShopee(client, isSandbox);
                 if (!error.isBlank() && !"0".equals(error) && (errMsg.toLowerCase(Locale.ROOT).contains("category") || error.toLowerCase(Locale.ROOT).contains("category"))
@@ -7682,17 +7813,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         if (!error.isBlank() && !"0".equals(error)) {
             String errMsg = addRes.path("message").asText(error);
             if (errMsg.toLowerCase(Locale.ROOT).contains("duplicate") || error.toLowerCase(Locale.ROOT).contains("duplicate")) {
-                String retryTitle = title;
-                if (retryTitle.length() + parentSku.length() + 3 <= 120) {
-                    retryTitle = retryTitle + " - " + parentSku;
-                } else {
-                    retryTitle = retryTitle.substring(0, Math.min(retryTitle.length(), 120 - parentSku.length() - 3)) + " - " + parentSku;
-                }
-                body.put("item_name", retryTitle);
-                log.warn("[SHOPEE-CREATE] Multi-variant bị trùng lặp tên trên sàn, tự động đổi tên thành [{}] và thử lại...", retryTitle);
-                addRes = client.addItem(body);
-                error = addRes.path("error").asText("");
-                errMsg = addRes.path("message").asText(error);
+                log.warn("[SHOPEE-CREATE] Multi-variant [{}] đã tồn tại trên Shopee (trùng lặp). Ngừng tạo mới để chống vi phạm chính sách Duplicate Listing.", title);
+                ghiNhanLoiTaoSanPhamShopee(kenh, variants, "Sản phẩm đã tồn tại trên Shopee (trùng lặp bài đăng)");
+                return createdSkuMap;
             }
             Long fallbackCatId = timFallbackCategoryIdShopee(client, isSandbox);
             if (!error.isBlank() && !"0".equals(error) && (errMsg.toLowerCase(Locale.ROOT).contains("category") || error.toLowerCase(Locale.ROOT).contains("category"))
@@ -8036,24 +8159,44 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                         soThanhCong++;
                         theoDoi.daDay(dong.getMaSanPhamKenh(), null, true, null);
                     } else {
-                        String err = res != null ? phanLoaiLoiShopee(res.path("error").asText(""), res.path("message").asText("Lỗi cập nhật tồn Shopee")) : "Không có phản hồi từ Shopee";
+                        String rawErr = res != null ? res.path("error").asText("") : "";
+                        String rawMsg = res != null ? res.path("message").asText("Lỗi cập nhật tồn Shopee") : "";
+                        String combined = (rawErr + " " + rawMsg).toLowerCase(Locale.ROOT);
+                        boolean biXoaTrenSan = combined.contains("not_found") || combined.contains("not exist")
+                                || combined.contains("does not exist") || combined.contains("deleted")
+                                || combined.contains("item_status_deleted") || combined.contains("100010041");
+
+                        String err = phanLoaiLoiShopee(rawErr, rawMsg);
                         dong.setChiTietLoi(err);
-                        dong.setTrangThaiDongBo("that_bai");
+                        if (biXoaTrenSan) {
+                            dong.setMaSanPhamKenh(null);
+                            dong.setTrangThaiDongBo("chua_dong_bo");
+                            dong.setChiTietLoi("Sản phẩm đã bị xóa hoặc ngừng bán trên Shopee. Hệ thống đã tự động hủy liên kết để tránh lỗi đẩy tồn.");
+                        } else {
+                            dong.setTrangThaiDongBo("that_bai");
+                        }
                         trangThaiDongBoSanPhamRepository.save(dong);
                         soLoi++;
-                        theoDoi.daDay(dong.getMaSanPhamKenh(), dong.getMaSanPhamKenh(), false, err);
+                        theoDoi.daDay(dong.getMaSanPhamKenh(), dong.getMaSanPhamKenh(), false, dong.getChiTietLoi());
                     }
                 }
             } catch (Exception ex) {
                 log.error("[SHOPEE-STOCK-BATCH] Lỗi đẩy tồn theo lô cho Item ID {}: {}", itemId, ex.getMessage());
                 String err = phanLoaiLoiShopee("EXCEPTION", ex.getMessage());
+                boolean biXoaTrenSan = ex.getMessage() != null && (ex.getMessage().toLowerCase(Locale.ROOT).contains("not found") || ex.getMessage().toLowerCase(Locale.ROOT).contains("404"));
                 for (DongCanCapNhatShopee item : nhomDong) {
                     TrangThaiDongBoSanPham dong = item.dong();
-                    dong.setChiTietLoi(err);
-                    dong.setTrangThaiDongBo("that_bai");
+                    if (biXoaTrenSan) {
+                        dong.setMaSanPhamKenh(null);
+                        dong.setTrangThaiDongBo("chua_dong_bo");
+                        dong.setChiTietLoi("Sản phẩm không tìm thấy trên Shopee (đã bị xóa). Hệ thống đã tự động hủy liên kết.");
+                    } else {
+                        dong.setChiTietLoi(err);
+                        dong.setTrangThaiDongBo("that_bai");
+                    }
                     trangThaiDongBoSanPhamRepository.save(dong);
                     soLoi++;
-                    theoDoi.daDay(dong.getMaSanPhamKenh(), dong.getMaSanPhamKenh(), false, err);
+                    theoDoi.daDay(dong.getMaSanPhamKenh(), dong.getMaSanPhamKenh(), false, dong.getChiTietLoi());
                 }
             }
         }
