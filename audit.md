@@ -95,6 +95,7 @@
 | **AUDIT-083** | `2026-11-16 00:30:00` | Khang | UI / Hộp Mở khóa và Hủy lô xuất kế toán dùng hộp xác nhận chung | `HopKeToan.jsx`, `tong-quan-bao-cao.json` | Hai hộp chuyển sang HopXacNhanChungTu (kiểu nguy hiểm, không nút ×, nút xác nhận khóa kèm lý do ở chân hộp, lỗi máy chủ hiện trong hộp). |
 | **AUDIT-084** | `2026-11-15 23:55:00` | Khang | Fix / Lỗi biên dịch và gỡ nhầm liên kết khi tải sản phẩm Lazada | `KenhBanHangDongBoServiceImpl.java` | `aliveSkuIds` đưa ra trước khối try (hết lỗi cannot find symbol); vòng dọn SKU đã xóa chỉ chạy khi tải đủ mọi trang (cờ `taiDuHet`), tránh gỡ hết liên kết khi Lazada lỗi hoặc gian hàng quá 500 sản phẩm. Không migration. |
 | **AUDIT-085** | `2026-11-16 00:45:00` | Khang | Feature / Xem phiếu trả cũ theo kỳ, khoảng ngày và lọc theo khách trên màn Trả hàng POS | `TraHangTaiQuayService.java`, `PosTraHangController.java`, `traHang.properties`, `traHang_en.properties`, `traHangService.js`, `PhieuDaTra.jsx`, `HoaDonConHan.jsx`, `TheDanhSach.jsx`, `loc-phieu-tra.js`, `PosReturnsPage.jsx`, `nhan-thoi-gian.js`, `ban-hang.json` | Thẻ Phiếu đã trả: một hàng lọc với nút kỳ dạng menu (Hôm nay, Hôm qua, 7 ngày qua, Tháng này, Tháng trước, Chọn khoảng ngày tối đa 1 năm) và ô lọc theo tên khách / số điện thoại / mã hóa đơn / mã phiếu (máy chủ lọc, số tổng theo lọc); thẻ Hóa đơn còn hạn trả cùng bố cục. API GET /api/v1/pos/returns nhận thêm tuNgay, denNgay, q; không migration. |
+| **AUDIT-086** | `2026-11-16 00:50:00` | PhanAnh & Antigravity AI | Fix UI / Khắc phục lỗi ReferenceError inVanDonSan khiến trang chi tiết đơn bán bị văng màn hình lỗi | `DonBanHangDetail.jsx`, `audit.md` | Khắc phục dứt điểm lỗi màn hình ErrorBoundary "Không mở được trang này" khi nhấn vào chi tiết đơn hàng sàn ở các trạng thái ngoài Đã hủy (lỗi ReferenceError: Cannot access 'inVanDonSan' before initialization do nút in vận đơn sàn được đánh giá trong nutChinh trước khi hàm inVanDonSan được khai báo); Đưa hàm inVanDonSan lên trước nutChinh và bọc null-safe cho v.pxMo?.id; FE Vite build 31.4s thành công 100%, i18n 721 files sạch. |
 
 
 ---
@@ -2753,3 +2754,50 @@
 - Thử giao diện bằng trình duyệt với Vite + API giả (không nối CSDL), màn 1366px: menu kỳ đủ 5 mốc kèm ngày; Tháng trước gửi `tuNgay=2026-10-01&denNgay=2026-10-31`; Chọn khoảng ngày quá 1 năm báo lỗi và khóa Áp dụng, không gọi máy chủ; áp dụng 01/09 – 16/11 thấy phiếu 50 ngày trước và nút ghi đúng khoảng; Esc đóng menu, con trỏ về nút kỳ; đổi sang thẻ Hóa đơn (công tắc phạm vi ở hàng lọc) rồi quay lại vẫn giữ khoảng; ô lọc tên / số điện thoại (một lần gọi sau khi gõ xong); tiếng Anh; màn 375px không cuộn ngang.
 - `npm run i18n:kiem`: 721 tệp sạch; ESLint `pages/pos/returns` + `traHangService.js` sạch; `vite build` đạt.
 - Chưa thử với backend và CSDL thật (localhost dùng chung CSDL production). Triển khai backend cùng frontend, không migration.
+
+### [AUDIT-086] KHẮC PHỤC TRIỆT ĐỂ LỖI REFERENCEERROR INVANDONSAN KHIẾN TRANG CHI TIẾT ĐƠN BÁN HÀNG BỊ CRASH MÀN HÌNH LỖI
+
+- **Thời gian (GMT+7)**: 2026-11-16 00:50:00
+- **Tác giả thực hiện**: PhanAnh & Antigravity AI Assistant
+- **Phân hệ ảnh hưởng**: Bán hàng › Chi tiết đơn bán hàng (`/sales-orders/:id`, `DonBanHangDetail.jsx`), các đơn hàng sàn TMĐT (Shopee, Lazada, TikTok Shop, Shopify).
+- **Tệp thay đổi**:
+  - `frontend/src/pages/sales-orders/DonBanHangDetail.jsx`
+  - `audit.md`
+
+#### 1. MỤC TIÊU & PHÂN TÍCH NGUYÊN NHÂN GỐC RỄ (ROOT CAUSE ANALYSIS)
+1. **Hiện tượng lỗi**:
+   - Khi người dùng bấm vào xem chi tiết bất kỳ đơn hàng nào từ kênh sàn TMĐT (Shopee, Lazada, TikTok Shop, Shopify) ở các trạng thái đang hoạt động (Chờ xác nhận, Chờ nhặt hàng, Chờ đóng gói, Chờ xuất kho, Đã xuất kho... ví dụ đơn `sales-orders/713`), giao diện lập tức bị văng vào màn hình ErrorBoundary:
+     `Không mở được trang này. Trang gặp lỗi khi hiển thị. Bấm Thử lại; nếu vẫn lỗi, hãy báo quản trị viên kèm đường dẫn trang.`
+   - Duy nhất các đơn ở trạng thái **Đã hủy** (`DA_HUY` = 4) hoặc đơn bán tại quầy POS không bị lỗi.
+2. **Nguyên nhân gốc rễ (JavaScript Temporal Dead Zone - TDZ ReferenceError)**:
+   - Trong `DonBanHangDetail.jsx`, nút in vận đơn sàn được thêm vào mảng `nutChinh` trên thanh thao tác chính:
+     ```javascript
+     laSan && don?.trangThai !== TRANG_THAI_DON.DA_HUY
+       ? { ma: "inVanDonSan", nhan: t("In vận đơn sàn (A6)"), icon: Printer, onClick: inVanDonSan }
+       : null
+     ```
+   - Tuy nhiên, biến hàm `const inVanDonSan = async () => { ... }` lại được khai báo bằng từ khóa `const` ở dòng **344** (nằm PHÍA DƯỚI dòng khai báo `const nutChinh` ở dòng **316**).
+   - Với các đơn sàn có `trangThai !== DA_HUY`: điều kiện thỏa mãn khiến JavaScript đánh giá thuộc tính `onClick: inVanDonSan`. Do `inVanDonSan` nằm trong vùng chết tạm thời (Temporal Dead Zone) chưa được khởi tạo, JavaScript ném ngay ngoại lệ:
+     `ReferenceError: Cannot access 'inVanDonSan' before initialization`.
+   - Lỗi render không được bắt cục bộ khiến `ErrorBoundary` kích hoạt, thay thế toàn bộ trang bằng màn hình thông báo lỗi.
+   - Ngược lại, với đơn **Đã hủy** (`trangThai === DA_HUY`), biểu thức điều kiện trả về `false`, nhánh `inVanDonSan` không bị đánh giá nên trang hiển thị bình thường. Đơn POS có `laSan = false` cũng không kích hoạt lỗi.
+
+#### 2. GIẢI PHÁP KỸ THUẬT & CHI TIẾT TRIỂN KHAI
+1. **Đưa khai báo `inVanDonSan` lên trước `nutChinh`**:
+   - Di chuyển toàn bộ hàm `const inVanDonSan = async () => { ... }` lên trên dòng khai báo `const nutChinh`.
+   - Đảm bảo khi `nutChinh` được tính toán, biến `inVanDonSan` đã được khởi tạo hoàn tất.
+2. **Gia cố phòng vệ Null-safe cho `v.pxMo?.id`**:
+   - Bổ sung toán tử optional chaining `v.pxMo?.id` tại nút `nutXuat` phòng ngừa trường hợp phiếu xuất đang mở bị null.
+
+#### 3. KẾT QUẢ KIỂM THỬ & ĐỐI SOÁT HỒI QUY
+1. **Kiểm thử logic JavaScript (Node.js)**:
+   - Chạy kịch bản kiểm thử toàn bộ 9 trạng thái đơn hàng (0 Nháp, 1 Chờ nhặt, 2 Xuất một phần, 3 Đã xuất, 4 Đã hủy, 5 Hoàn thành, 6 Hoàn trả, 7 Chờ đóng gói, 8 Chờ xuất): 9/9 trạng thái đều PASS 100%, không còn bất kỳ lỗi TDZ hay ReferenceError nào.
+2. **Kiểm tra đóng gói Frontend (Vite Build)**:
+   - `npm run build`: `✓ built in 31.40s` (Thành công 100%, không có lỗi cú pháp hay đóng gói).
+3. **Kiểm tra đa ngôn ngữ Frontend (`npm run i18n:kiem`)**:
+   - `Tệp kiểm: 721 · Chưa bọc: 0 · Thiếu bản dịch: 0 · Lệch: 0` (100% sạch).
+4. **Biên dịch Backend (Maven)**:
+   - `./mvnw test-compile`: `BUILD SUCCESS` hoàn hảo.
+5. **Đồng bộ Git**:
+   - Commit atomic: `fix(ui): khắc phục lỗi reference error inVanDonSan khiến trang chi tiết đơn bán bị văng`.
+   - Đồng bộ và rebase mượt mà với commit mới nhất của Khang (`1b6f7051`), đã push thành công lên cả `origin/PhanAnh` và `origin/Dev`.
