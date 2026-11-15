@@ -19,6 +19,12 @@ public interface AnhBienTheRepository extends JpaRepository<AnhBienThe, Integer>
             "order by ab.bienThe.id, ab.id")
     List<AnhBienThe> findActiveByBienTheIds(@Param("bienTheIds") Collection<Integer> bienTheIds);
 
+    /** Ảnh biến thể đang hoạt động theo danh sách sản phẩm cha — 1 query batch tối ưu. */
+    @Query("select ab from AnhBienThe ab join fetch ab.tepTin join fetch ab.bienThe bt join fetch bt.sanPham sp " +
+            "where sp.id in :sanPhamIds and ab.trangThai = 1 and bt.trangThai = 1 " +
+            "order by sp.id, bt.id, ab.id")
+    List<AnhBienThe> findActiveBySanPhamIds(@Param("sanPhamIds") Collection<Integer> sanPhamIds);
+
     /** Số ảnh biến thể đang trỏ tới một tệp: các biến thể cùng màu dùng chung một tệp ảnh. */
     long countByTepTin_Id(Integer tepTinId);
 }
