@@ -45,9 +45,9 @@ Mọi kênh bán (Shopify, Lazada, Shopee, TikTok Shop) khi quét đơn về ph�
    - **Giai đoạn 1 - Hủy đơn (`CANCELLED`)**: Gọi `donBanHangService.huyDonTuSan` để hủy đơn và hoàn trả tồn kho.
    - **Giai đoạn 2 - Khách yêu cầu hủy (`laYeuCauHuy`)**: Gắn cờ `[KHÁCH YÊU CẦU HỦY]` vào ghi chú, chặn gom vào Pick List.
    - **Giai đoạn 3 - Đổi trạng thái thanh toán**: Cập nhật `trangThaiThanhToan = "da_thanh_toan"` khi sàn xác nhận thanh toán.
-   - **Giai đoạn 4 - Đổi trạng thái vận chuyển**:
-     - `IN_TRANSIT` / `shipped`: Chuyển đơn sang `DA_XUAT_TOAN_BO` (3).
-     - `DELIVERED` / `COMPLETED` / `fulfilled`: Chuyển đơn sang `HOAN_THANH` (5).
+   - **Giai đoạn 4 - Đổi trạng thái vận chuyển (Tuân thủ tiến trình Phiếu xuất kho WMS)**:
+     - `IN_TRANSIT` / `shipped`: Chuyển đơn sang `DA_XUAT_TOAN_BO` (3). **Ràng buộc bắt buộc**: Nếu đơn hàng có phiếu xuất kho đang trong quy trình xuất (`CHO_XUAT` hoặc `NHAP`), BẮT BUỘC giữ nguyên trạng thái kho của đơn (`DA_DONG_GOI` = 8 - Chờ xuất kho hoặc `CHO_DONG_GOI` = 7), TUYỆT ĐỐI KHÔNG tự ý chuyển sang `DA_XUAT_TOAN_BO` khi thủ kho chưa bấm xác nhận xuất kho thực tế.
+     - `DELIVERED` / `COMPLETED` / `fulfilled`: Chuyển đơn sang `HOAN_THANH` (5) khi đã hoàn tất xuất kho. Nếu kho chưa xuất, giữ nguyên trạng thái kho.
      - `failed_delivery` / `returned`: Chuyển đơn sang `BI_HOAN_TRA` (6).
    - **Giai đoạn 5 - Mã vận đơn (Tracking Code)**: Luôn cập nhật bổ sung `tracking_number` và `shipping_provider` vào đơn hàng nếu trước đó chưa có.
 
