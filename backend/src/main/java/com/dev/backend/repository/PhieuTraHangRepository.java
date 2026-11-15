@@ -15,6 +15,8 @@ public interface PhieuTraHangRepository extends JpaRepository<PhieuTraHang, Inte
 
     List<PhieuTraHang> findByDonBanHangIdOrderByIdAsc(Integer donBanHangId);
 
+    Optional<PhieuTraHang> findBySoPhieu(String soPhieu);
+
     /** Số đuôi lớn nhất của tiền tố RET-YYYYMMDD- (null = chưa có phiếu nào trong ngày). */
     @Query(value = """
         SELECT MAX(CAST(SUBSTRING(so_phieu, CHAR_LENGTH(:tienTo) + 1) AS UNSIGNED))
