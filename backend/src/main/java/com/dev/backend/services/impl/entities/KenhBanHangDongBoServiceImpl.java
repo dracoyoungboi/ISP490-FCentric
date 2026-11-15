@@ -632,11 +632,16 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             }
         }
 
+        // Mã SKU còn sống trên Lazada, dùng để nhận diện SKU đã bị xóa ở cuối hàm.
+        // Chỉ tin danh sách này khi đã tải hết mọi trang mà không lỗi (taiDuHet = true):
+        // nếu sàn báo lỗi giữa chừng mà vẫn dọn thì mọi liên kết sẽ bị coi là đã xóa.
+        Set<String> aliveSkuIds = new HashSet<>();
+        boolean taiDuHet = false;
+
         try {
             int offset = 0;
             int limit = 50;
             boolean hasMore = true;
-            Set<String> aliveSkuIds = new HashSet<>();
 
             while (hasMore && offset < 500) {
                 JsonNode res = lazadaClient.getProducts(appKey, appSecret, token, "all", limit, offset);
@@ -649,6 +654,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 JsonNode dataNode = res.path("data");
                 JsonNode products = dataNode.path("products");
                 if (!products.isArray() || products.isEmpty()) {
+                    // Trang rỗng = đã hết sản phẩm, không phải lỗi.
+                    hasMore = false;
                     break;
                 }
 
@@ -732,6 +739,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     hasMore = false;
                 }
             }
+            // Thoát vòng vì hết trang (không phải vì sàn báo lỗi hay chạm trần 500 sản phẩm).
+            taiDuHet = !hasMore;
         } catch (Exception e) {
             log.error("[LAZADA-PRODUCTS] Lỗi khi tải sản phẩm từ Lazada: {}", e.getMessage(), e);
         }
@@ -766,16 +775,21 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             }
         }
 
-        // Tự động nhận diện các sản phẩm đã bị xóa hoặc ngừng bán trên sàn Lazada (chuẩn WHM/Sapo)
-        for (TrangThaiDongBoSanPham item : existingList) {
-            String mspk = item.getMaSanPhamKenh();
-            if (mspk != null && !mspk.isBlank() && !aliveSkuIds.contains(mspk.trim().toLowerCase(Locale.ROOT))) {
-                item.setMaSanPhamKenh(null);
-                item.setTrangThaiDongBo("chua_dong_bo");
-                item.setChiTietLoi("Sản phẩm đã bị xóa hoặc ngừng bán trên Lazada");
-                item.setNgayDongBoCuoi(Instant.now());
-                trangThaiDongBoSanPhamRepository.save(item);
+        // Tự động nhận diện các sản phẩm đã bị xóa hoặc ngừng bán trên sàn Lazada (chuẩn WHM/Sapo).
+        // Bỏ qua khi chưa tải đủ danh sách, tránh gỡ nhầm liên kết lúc sàn lỗi.
+        if (taiDuHet) {
+            for (TrangThaiDongBoSanPham item : existingList) {
+                String mspk = item.getMaSanPhamKenh();
+                if (mspk != null && !mspk.isBlank() && !aliveSkuIds.contains(mspk.trim().toLowerCase(Locale.ROOT))) {
+                    item.setMaSanPhamKenh(null);
+                    item.setTrangThaiDongBo("chua_dong_bo");
+                    item.setChiTietLoi("Sản phẩm đã bị xóa hoặc ngừng bán trên Lazada");
+                    item.setNgayDongBoCuoi(Instant.now());
+                    trangThaiDongBoSanPhamRepository.save(item);
+                }
             }
+        } else {
+            log.warn("[LAZADA-PRODUCTS] Chưa tải đủ danh sách sản phẩm từ kênh {}, bỏ qua bước dọn SKU đã xóa", kenh.getId());
         }
 
         ghiNhatKy(kenh.getId(), IHanhDong.dong_bo_san_pham, "Tải sản phẩm từ Lazada: " + soSku + " SKU (" + soMoi + " mới, " + soCapNhat + " cập nhật)");
