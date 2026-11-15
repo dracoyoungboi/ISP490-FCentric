@@ -2896,7 +2896,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                         record.setChiTietLoi(null);
                     } else {
                         record.setTrangThaiDongBo("that_bai");
-                        record.setChiTietLoi("Chưa xác định được SkuId trên Lazada cho SKU: " + bt.getMaSku());
+                        record.setChiTietLoi("Chưa xác định được mã phân loại SKU trên Lazada.");
                     }
                 }
                 record.setNgayDongBoCuoi(Instant.now());
@@ -2906,7 +2906,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                         .bienTheSanPham(bt)
                         .maSanPhamKenh(targetSkuId)
                         .trangThaiDongBo(hasNumericSkuId ? "thanh_cong" : "that_bai")
-                        .chiTietLoi(hasNumericSkuId ? null : "Chưa xác định được SkuId trên Lazada cho SKU: " + bt.getMaSku())
+                        .chiTietLoi(hasNumericSkuId ? null : "Chưa xác định được mã phân loại SKU trên Lazada.")
                         .ngayDongBoCuoi(Instant.now())
                         .build();
             }
@@ -3590,7 +3590,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                         skuToSkuId.getOrDefault(item.skuSan(), item.skuSan()));
                 boolean isValidSkuId = actualSkuId != null && actualSkuId.matches("\\d+");
                 if (!isValidSkuId) {
-                    String errorMsg = ThongDiep.vi("hienThiKenhPos.tiktokKhongTimThaySkuId", item.sellerSku());
+                    String errorMsg = ThongDiep.vi("hienThiKenhPos.tiktokKhongTimThaySkuIdChung");
                     item.dong().setTrangThaiDongBo("that_bai");
                     item.dong().setChiTietLoi(errorMsg);
                     item.dong().setNgayDongBoCuoi(now);
@@ -3891,12 +3891,12 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 }
             } catch (Exception ex) {
                 log.warn("[LAZADA-SYNC-BATCH] Lỗi mạng khi gọi updatePriceQuantity cho batch {}: {}", i / BATCH_SIZE, ex.getMessage());
-                loiKenh = "Lỗi kết nối tới Lazada: " + ex.getMessage();
+                loiKenh = "Lỗi kết nối tới sàn Lazada. Hệ thống sẽ tự động thử lại sau.";
                 for (DongCanCapNhat item : batch) {
                     item.dong().setTrangThaiDongBo("that_bai");
-                    item.dong().setChiTietLoi("Lỗi kết nối: " + ex.getMessage());
+                    item.dong().setChiTietLoi("Lỗi kết nối tới sàn Lazada. Hệ thống sẽ tự động thử lại sau.");
                     soLoi++;
-                    theoDoi.daDay(item.sellerSku(), tenHienThi(item.dong().getBienTheSanPham()), false, ex.getMessage());
+                    theoDoi.daDay(item.sellerSku(), tenHienThi(item.dong().getBienTheSanPham()), false, "Lỗi kết nối tới sàn Lazada");
                 }
             }
 
@@ -5337,10 +5337,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         }
         try {
             JsonNode res = client.updateStock(itemId, modelId, soDay);
-            if (res != null && res.path("error").asText("").isEmpty()) {
+            if (res != null && (res.path("error").asText("").isEmpty() || "0".equals(res.path("error").asText("")))) {
                 return KetQuaGuiTon.THANH_CONG;
             } else {
-                String err = res != null ? res.path("message").asText("Lỗi cập nhật tồn Shopee") : ThongDiep.vi("hienThiKenhPos.shopeeKhongCoPhanHoi");
+                String err = res != null ? phanLoaiLoiShopee(res.path("error").asText(""), res.path("message").asText("Lỗi cập nhật tồn Shopee")) : ThongDiep.vi("hienThiKenhPos.shopeeKhongCoPhanHoi");
                 return KetQuaGuiTon.loiSku(err);
             }
         } catch (Exception ex) {
@@ -5567,7 +5567,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         if (lower.contains("negative sellable")) {
             return "Lazada đang tạm giữ tồn cho đơn chờ thanh toán hoặc chiến dịch khuyến mãi. Hệ thống sẽ tự động đồng bộ khi sàn giải phóng tồn.";
         }
-        if (code.contains("AppCallLimit") || lower.contains("exceeds the limit") || lower.contains("call limit")) {
+        if (code.contains("AppCallLimit") || lower.contains("exceeds the limit") || lower.contains("call limit") || lower.contains("429")) {
             return "Sàn Lazada tạm thời quá tải tần suất gọi API. Hệ thống sẽ tự động thử lại sau ít phút.";
         }
         if (lower.contains("incomplete sku") || lower.contains("package") || lower.contains("missing required")) {
@@ -5575,6 +5575,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         }
         if (lower.contains("invalid access token") || lower.contains("token expired") || lower.contains("illegal access token")) {
             return "Ủy quyền kết nối Lazada đã hết hạn. Vui lòng bấm 'Ủy quyền lại' ở đầu trang.";
+        }
+        if (lower.contains("timeout") || lower.contains("connect") || lower.contains("connection")) {
+            return "Lỗi kết nối tới sàn Lazada. Hệ thống sẽ tự động thử lại sau.";
         }
         return "Lazada từ chối (" + code + "): " + rawMsg;
     }
@@ -5645,7 +5648,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 if (res != null && res.getStatusCode().is2xxSuccessful()) {
                     return KetQuaGuiTon.THANH_CONG;
                 }
-                return KetQuaGuiTon.loiSku("Shopify không nhận số tồn (mã " + (res != null ? res.getStatusCode().value() : "?") + ")");
+                return KetQuaGuiTon.loiSku("Shopify không nhận số tồn kho.");
             } catch (HttpStatusCodeException e) {
                 if (e.getStatusCode().value() == 429 && retryCount < maxRetries) {
                     retryCount++;
@@ -5674,7 +5677,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 return KetQuaGuiTon.loiCaKenh("Không kết nối được Shopify, vui lòng thử lại sau");
             } catch (Exception e) {
                 log.warn("Lỗi khi set inventory level cho item [{}]: {}", inventoryItemId, e.getMessage());
-                return KetQuaGuiTon.loiSku(e.getMessage() != null ? e.getMessage() : "Lỗi không xác định khi đẩy tồn");
+                return KetQuaGuiTon.loiSku("Lỗi kết nối tới sàn Shopify. Hệ thống sẽ tự động thử lại.");
             }
         }
     }
@@ -5688,7 +5691,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             return KetQuaGuiTon.loiCaKenh("Shopify đang giới hạn số lần gọi, vui lòng thử lại sau ít phút");
         }
         if (ma >= 500) {
-            return KetQuaGuiTon.loiCaKenh("Shopify đang gặp sự cố (mã " + ma + "), vui lòng thử lại sau");
+            return KetQuaGuiTon.loiCaKenh("Shopify đang gặp sự cố kết nối, vui lòng thử lại sau");
         }
         String chiTiet = loiTuShopify(body);
         if (chiTiet != null) {
@@ -5699,7 +5702,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 chiTiet = "Biến thể chưa được kích hoạt theo dõi tại vị trí kho mặc định trên Shopify.";
             }
         }
-        return KetQuaGuiTon.loiSku("Shopify từ chối số tồn" + (chiTiet != null ? ": " + chiTiet : " (mã " + ma + ")"));
+        return KetQuaGuiTon.loiSku(chiTiet != null ? "Shopify từ chối số tồn: " + chiTiet : "Shopify từ chối cập nhật số tồn kho.");
     }
 
     /** Câu lỗi trong body JSON của Shopify: {"errors": "..."}, {"errors": [...]} hoặc {"errors": {"truong": [...]}}. */
@@ -7201,11 +7204,17 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         String errLower = (error != null ? error : "").toLowerCase(Locale.ROOT);
         String combined = (errLower + " " + msgLower).trim();
 
+        if (combined.contains("still being created") || combined.contains("wait 5 seconds") || combined.contains("creating variation")) {
+            return "Sản phẩm đang được Shopee khởi tạo ngầm. Vui lòng bấm Thử lại sau giây lát.";
+        }
         if (combined.contains("invalid product setting") || combined.contains("logistics.channel") || combined.contains("force_enable") || combined.contains("1326")) {
             return "Cấu hình kênh vận chuyển hoặc kích thước sản phẩm chưa tương thích với Shopee. Hệ thống đã tự động bật đầy đủ kênh vận chuyển gian hàng.";
         }
         if (combined.contains("attribute is mandatory") || combined.contains("mandatory: id:") || combined.contains("100010237") || combined.contains("gender")) {
             return "Danh mục Shopee yêu cầu thuộc tính bắt buộc (Giới tính, Xuất xứ...). Hệ thống đã tự động bổ sung thuộc tính chuẩn.";
+        }
+        if (combined.contains("not mapped with the category") || combined.contains("remove it")) {
+            return "Thuộc tính sản phẩm không tương thích với danh mục Shopee. Hệ thống đã tự động lọc bỏ thuộc tính không phù hợp.";
         }
         if (combined.contains("size_chart") || combined.contains("size chart")) {
             return "Danh mục yêu cầu bảng quy đổi kích cỡ (Size Chart). Hệ thống đã tự động tạo và tải bảng kích cỡ FCentric.";
@@ -7228,17 +7237,20 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         if (combined.contains("image")) {
             return "Hình ảnh sản phẩm không đáp ứng quy chuẩn của Shopee (tối thiểu 1 ảnh, độ phân giải đạt chuẩn).";
         }
+        if (combined.contains("weight") || combined.contains("dimension")) {
+            return "Kích thước hoặc trọng lượng sản phẩm không hợp lệ theo quy định của Shopee.";
+        }
         if (combined.contains("price_ratio") || combined.contains("price ratio") || combined.contains("exceeds 5")) {
             return "Tỷ lệ giá giữa các biến thể chênh lệch quá 5 lần theo quy định Shopee. Hệ thống đã tự động điều chỉnh giá sàn an toàn.";
         }
         if (combined.contains("duplicate") || combined.contains("trùng lặp")) {
             return "Sản phẩm bị trùng lặp với bài đăng đã có trên Shopee. Hệ thống đã tự động đổi tên phân biệt.";
         }
-        if (combined.contains("not mapped with the category") || combined.contains("remove it")) {
-            return "Thuộc tính sản phẩm không tương thích với danh mục Shopee. Hệ thống đã tự động lọc bỏ thuộc tính không phù hợp.";
-        }
         if (combined.contains("price")) {
             return "Giá bán sản phẩm không nằm trong khoảng giá hợp lệ trên sàn Shopee.";
+        }
+        if (combined.contains("stock") || combined.contains("seller_stock")) {
+            return "Số lượng tồn kho đẩy lên sàn Shopee không hợp lệ.";
         }
         return "Shopee từ chối tạo: " + rawMessage;
     }
@@ -7822,8 +7834,35 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
         JsonNode tierRes = client.initTierVariation(tierBody);
         String tError = tierRes.path("error").asText("");
+        String tErrMsg = tierRes.path("message").asText(tError);
+
+        // Shopee Open Platform API v2: Đối với một số sản phẩm (nhất là khi upload nhanh hoặc CDN cache sẵn),
+        // Shopee cần 3-5 giây để hoàn tất đồng bộ nội bộ item_id trước khi cho phép gắn biến thể.
+        // Sàn trả về: "The item is still being created. Please wait 5 seconds before creating variation."
+        int maxRetries = 2;
+        int retryCount = 0;
+        while (!tError.isBlank() && !"0".equals(tError) && retryCount < maxRetries) {
+            String combinedErr = (tError + " " + tErrMsg).toLowerCase(Locale.ROOT);
+            if (combinedErr.contains("still being created") || combinedErr.contains("wait 5 seconds") || combinedErr.contains("creating variation")) {
+                retryCount++;
+                long sleepMs = retryCount == 1 ? 5500L : 4000L;
+                log.info("[SHOPEE-CREATE] Shopee đang khởi tạo ngầm sản phẩm {} (lần thử {}/{}). Chờ {}ms trước khi gọi lại initTierVariation...",
+                        itemId, retryCount, maxRetries, sleepMs);
+                try {
+                    Thread.sleep(sleepMs);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+                tierRes = client.initTierVariation(tierBody);
+                tError = tierRes.path("error").asText("");
+                tErrMsg = tierRes.path("message").asText(tError);
+            } else {
+                break;
+            }
+        }
+
         if (!tError.isBlank() && !"0".equals(tError)) {
-            String tErrMsg = tierRes.path("message").asText(tError);
             log.warn("[SHOPEE-CREATE] Lỗi khi tạo bảng phân loại cho item_id {}: error={} - message={}", itemId, tError, tErrMsg);
             // Xóa ngay sản phẩm cha mồ côi trên Shopee để chống rác shop và tránh lỗi duplicate khi thử lại
             try {
@@ -7997,7 +8036,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                         soThanhCong++;
                         theoDoi.daDay(dong.getMaSanPhamKenh(), null, true, null);
                     } else {
-                        String err = res != null ? res.path("message").asText("Lỗi cập nhật tồn Shopee") : "Không có phản hồi";
+                        String err = res != null ? phanLoaiLoiShopee(res.path("error").asText(""), res.path("message").asText("Lỗi cập nhật tồn Shopee")) : "Không có phản hồi từ Shopee";
                         dong.setChiTietLoi(err);
                         dong.setTrangThaiDongBo("that_bai");
                         trangThaiDongBoSanPhamRepository.save(dong);
@@ -8007,13 +8046,14 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 }
             } catch (Exception ex) {
                 log.error("[SHOPEE-STOCK-BATCH] Lỗi đẩy tồn theo lô cho Item ID {}: {}", itemId, ex.getMessage());
+                String err = phanLoaiLoiShopee("EXCEPTION", ex.getMessage());
                 for (DongCanCapNhatShopee item : nhomDong) {
                     TrangThaiDongBoSanPham dong = item.dong();
-                    dong.setChiTietLoi(ex.getMessage());
+                    dong.setChiTietLoi(err);
                     dong.setTrangThaiDongBo("that_bai");
                     trangThaiDongBoSanPhamRepository.save(dong);
                     soLoi++;
-                    theoDoi.daDay(dong.getMaSanPhamKenh(), dong.getMaSanPhamKenh(), false, ex.getMessage());
+                    theoDoi.daDay(dong.getMaSanPhamKenh(), dong.getMaSanPhamKenh(), false, err);
                 }
             }
         }
