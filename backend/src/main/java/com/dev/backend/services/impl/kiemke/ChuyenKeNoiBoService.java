@@ -153,7 +153,10 @@ public class ChuyenKeNoiBoService {
         return moTaKe(khoId, ke);
     }
 
-    /** Các kệ của kho (gợi ý khi gõ mã kệ), theo mã. */
+    /**
+     * Các kệ của kho theo mã (sơ đồ kệ ở màn Chuyển kệ và gợi ý khi gõ mã kệ). Kèm dãy / hàng / tầng để xếp lên sơ đồ và
+     * lý do khóa thật ({@link #khoaCuaKe}): kệ bị khóa theo đợt kiểm kê đang mở hiện là khóa ngay, không phải chờ quét.
+     */
     @Transactional(readOnly = true)
     public List<ChuyenKeDto.KeGon> dsKe(Integer khoId) {
         batBuocSanSang();
@@ -161,10 +164,12 @@ public class ChuyenKeNoiBoService {
         for (Object[] r : tonKeRepo.dangChuaDuongTheoKho(khoId)) {
             dang.put(((Number) r[0]).intValue(), ((Number) r[1]).intValue());
         }
+        // Chỉ để hiển thị (máy chủ kiểm lại khóa khi chốt): đọc thường, không giữ khóa chia sẻ
+        KhoaKiemKeGuard.TrangThaiKhoa tt = guard.trangThaiHienThi(khoId);
         return viTriRepo.findByKho_IdOrderByMaViTriAsc(khoId).stream().map(v -> new ChuyenKeDto.KeGon(v.getId(), v.getMaViTri(),
-                v.getKhuVucKho() == null ? null : v.getKhuVucKho().getTenKhuVuc(), v.getTrangThai(),
-                v.getSucChuaToiDa() != null && v.getSucChuaToiDa() > 0 ? v.getSucChuaToiDa() : null,
-                dang.getOrDefault(v.getId(), 0))).toList();
+                v.getKhuVucKho() == null ? null : v.getKhuVucKho().getTenKhuVuc(), v.getDayKe(), v.getHangKe(), v.getTangKe(),
+                v.getTrangThai(), v.getSucChuaToiDa() != null && v.getSucChuaToiDa() > 0 ? v.getSucChuaToiDa() : null,
+                dang.getOrDefault(v.getId(), 0), khoaCuaKe(v, tt))).toList();
     }
 
     static final int SO_GOI_Y = 5;

@@ -30,8 +30,13 @@ public final class ChuyenKeDto {
                              Instant ngayNhap, int tonTaiKe, int dangGiuNhat, int khaDung, boolean khoaKiemKe) {
     }
 
-    /** Một kệ trong danh sách gợi ý mã kệ (gõ tay khi không có máy quét). */
-    public record KeGon(Integer id, String maViTri, String khuVuc, String trangThai, Integer sucChua, int dangChua) {
+    /**
+     * Một kệ trong danh sách kệ của kho (sơ đồ kệ và gợi ý khi gõ mã kệ). {@code dayKe}, {@code hangKe}, {@code tangKe}
+     * để xếp kệ lên sơ đồ (null với kệ đặt tên riêng). {@code khoa}: cùng nghĩa với {@link Ke#khoa()}, tính cả khóa theo
+     * đợt kiểm kê đang mở của kho chứ không chỉ trạng thái lưu trên kệ.
+     */
+    public record KeGon(Integer id, String maViTri, String khuVuc, String dayKe, String hangKe, String tangKe,
+                        String trangThai, Integer sucChua, int dangChua, String khoa) {
     }
 
     /**
