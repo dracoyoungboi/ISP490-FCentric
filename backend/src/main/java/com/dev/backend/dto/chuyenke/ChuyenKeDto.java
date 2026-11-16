@@ -33,10 +33,11 @@ public final class ChuyenKeDto {
     /**
      * Một kệ trong danh sách kệ của kho (sơ đồ kệ và gợi ý khi gõ mã kệ). {@code dayKe}, {@code hangKe}, {@code tangKe}
      * để xếp kệ lên sơ đồ (null với kệ đặt tên riêng). {@code khoa}: cùng nghĩa với {@link Ke#khoa()}, tính cả khóa theo
-     * đợt kiểm kê đang mở của kho chứ không chỉ trạng thái lưu trên kệ.
+     * đợt kiểm kê đang mở của kho chứ không chỉ trạng thái lưu trên kệ. {@code choNhat}: phần đang giữ cho phiếu nhặt trên
+     * kệ (tổng theo lô, mỗi lô không quá tồn ở kệ) — số lấy được = dangChua − choNhat.
      */
     public record KeGon(Integer id, String maViTri, String khuVuc, String dayKe, String hangKe, String tangKe,
-                        String trangThai, Integer sucChua, int dangChua, String khoa) {
+                        String trangThai, Integer sucChua, int dangChua, String khoa, int choNhat) {
     }
 
     /**

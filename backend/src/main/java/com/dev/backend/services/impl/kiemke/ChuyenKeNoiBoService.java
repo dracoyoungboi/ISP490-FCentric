@@ -164,12 +164,14 @@ public class ChuyenKeNoiBoService {
         for (Object[] r : tonKeRepo.dangChuaDuongTheoKho(khoId)) {
             dang.put(((Number) r[0]).intValue(), ((Number) r[1]).intValue());
         }
+        Map<Integer, Integer> giu = phanBoKe.giuTheoKeCuaKho(khoId);
         // Chỉ để hiển thị (máy chủ kiểm lại khóa khi chốt): đọc thường, không giữ khóa chia sẻ
         KhoaKiemKeGuard.TrangThaiKhoa tt = guard.trangThaiHienThi(khoId);
         return viTriRepo.findByKho_IdOrderByMaViTriAsc(khoId).stream().map(v -> new ChuyenKeDto.KeGon(v.getId(), v.getMaViTri(),
                 v.getKhuVucKho() == null ? null : v.getKhuVucKho().getTenKhuVuc(), v.getDayKe(), v.getHangKe(), v.getTangKe(),
                 v.getTrangThai(), v.getSucChuaToiDa() != null && v.getSucChuaToiDa() > 0 ? v.getSucChuaToiDa() : null,
-                dang.getOrDefault(v.getId(), 0), khoaCuaKe(v, tt))).toList();
+                dang.getOrDefault(v.getId(), 0), khoaCuaKe(v, tt),
+                Math.min(giu.getOrDefault(v.getId(), 0), dang.getOrDefault(v.getId(), 0)))).toList();
     }
 
     static final int SO_GOI_Y = 5;
