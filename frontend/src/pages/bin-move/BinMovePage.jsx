@@ -896,7 +896,7 @@ export default function BinMovePage() {
   const khongCoKho = !kho.dangTai && !kho.loi && kho.dsKho.length === 0;
 
   return (
-    <PageContainer fill className="gap-4">
+    <PageContainer className="flex flex-col gap-4">
       <ListPageHeader
         title={t("Chuyển kệ nội bộ")}
         actions={
