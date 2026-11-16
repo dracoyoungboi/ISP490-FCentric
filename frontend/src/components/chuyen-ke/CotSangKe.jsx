@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeftRight, Layers, Loader2, MapPin, PackageOpen, Split, X } from "lucide-react";
+import { ArrowLeftRight, LayoutGrid, Layers, List, Loader2, MapPin, PackageOpen, Split, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { soVN } from "@/components/chung-tu/bangChungTu";
 import { cn } from "@/lib/utils";
@@ -13,11 +13,22 @@ const NUT_PHU_NHO = "h-8 gap-1.5 border-bo-border bg-white text-[13px] text-bo-f
 const NHAN = "text-[11px] font-semibold uppercase tracking-wide text-bo-muted";
 /** Số kệ gợi ý hiện sẵn; còn lại mở bằng "Xem thêm". */
 const GOI_Y_HIEN = 3;
+/** Số lô hiện sẵn dưới mỗi kệ đích; còn lại mở bằng "Xem thêm". */
+const LO_HIEN = 4;
 
 /** Một kệ gợi ý: mã, vị trí (hoặc "đang chứa cùng mã hàng"), số chỗ còn trống. Bấm = chọn kệ đó như khi quét mã. */
-function KeGoiY({ k, onChon, ban }) {
+function KeGoiY({ k, onChon, ban, tenMa, soMa }) {
+  const khop = k.bienTheKhop ?? [];
+  // Máy chủ trả danh sách mã khớp: ghi rõ mã nào (một mã) hoặc bao nhiêu mã (nhiều mã); bản cũ chỉ có cờ cungMa
+  const chuKhop = khop.length
+    ? khop.length === 1 && tenMa?.get(khop[0])
+      ? t("Đang chứa: {{ten}}", { ten: tenMa.get(khop[0]) })
+      : t("Đang chứa {{so}}/{{tong}} mã đang chuyển", { so: soVN(khop.length), tong: soVN(Math.max(soMa ?? 0, khop.length)) })
+    : k.cungMa
+      ? t("Đang chứa cùng mã hàng")
+      : null;
   const phu = [
-    k.cungMa ? t("Đang chứa cùng mã hàng") : null,
+    chuKhop,
     k.khuVuc ? tDuLieu(k.khuVuc) : null,
     k.dayKe ? t("Dãy {{so}}", { so: k.dayKe }) : null,
     k.tangKe ? t("Tầng {{so}}", { so: k.tangKe }) : null,
@@ -43,19 +54,24 @@ function KeGoiY({ k, onChon, ban }) {
   );
 }
 
-/** Một kệ đích đã chọn: mã, nhãn sẽ đầy / vượt, vị trí, mức lấp đầy sau khi cất, số cất thêm, nút bỏ. */
-function DongKeDich({ p, i, onBo }) {
+/**
+ * Một kệ đích đã chọn: mã, nhãn sẽ đầy / vượt / vừa đổi, vị trí, mức lấp đầy sau khi cất, số cất thêm, nút bỏ, và lô
+ * nào sẽ đặt lên kệ này (`lo`: `[{ loHangId, ten, maLo, soLuong }]`) để người cầm xe đẩy đặt đúng chỗ.
+ */
+function DongKeDich({ p, i, lo, onBo }) {
+  const [moLo, setMoLo] = useState(false);
   const ke = p.ke;
   const vuot = p.vuot && p.nhan > conTrongCua(ke);
   const day = ke.sucChua && ke.dangChua + p.nhan >= ke.sucChua;
   const viTri = viTriKe(ke);
   return (
-    <div className="flex items-center gap-3 border-b border-bo-border px-4 py-2.5 last:border-b-0">
+    <div className={cn("flex gap-3 border-b border-bo-border px-4 py-2.5 last:border-b-0", lo?.length ? "items-start" : "items-center")}>
       <span className="grid size-6 shrink-0 place-items-center rounded-md bg-bo-primary-soft text-xs font-bold text-bo-primary-strong">{i + 1}</span>
       <div className="min-w-0 flex-1">
         <p className="flex flex-wrap items-center gap-x-2">
           <span className="font-mono text-sm font-semibold text-bo-heading">{ke.maViTri}</span>
           {vuot ? <ChamNhan tone="bad">{t("Vượt sức chứa")}</ChamNhan> : day && p.nhan > 0 ? <ChamNhan tone="warn">{t("Sẽ đầy")}</ChamNhan> : null}
+          {p.vuaDoi ? <ChamNhan tone="warn">{t("Vừa thay đổi")}</ChamNhan> : null}
         </p>
         <div className="mt-1 flex items-center gap-2 text-xs text-bo-muted">
           {viTri ? <span className="min-w-0 truncate">{viTri}</span> : null}
@@ -70,6 +86,25 @@ function DongKeDich({ p, i, onBo }) {
             <span className="ml-auto shrink-0">{t("Không giới hạn sức chứa")}</span>
           )}
         </div>
+        {lo?.length ? (
+          <ul className="mt-1.5 grid grid-cols-[minmax(0,1fr)] gap-0.5 text-xs">
+            {(moLo ? lo : lo.slice(0, LO_HIEN)).map((x) => (
+              <li key={x.loHangId} className="flex items-baseline justify-between gap-2">
+                <span className="min-w-0 truncate text-slate-600">
+                  {x.ten} <span className="font-mono text-bo-muted">{x.maLo}</span>
+                </span>
+                <b className="shrink-0 font-semibold tabular-nums text-bo-heading">{soVN(x.soLuong)}</b>
+              </li>
+            ))}
+            {lo.length > LO_HIEN ? (
+              <li>
+                <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => setMoLo((v) => !v)} className="font-medium text-bo-primary-strong hover:underline">
+                  {moLo ? t("Thu gọn") : t("Xem thêm {{so}} lô", { so: soVN(lo.length - LO_HIEN), count: lo.length - LO_HIEN })}
+                </button>
+              </li>
+            ) : null}
+          </ul>
+        ) : null}
       </div>
       <span className={cn("min-w-10 text-right font-semibold tabular-nums", p.nhan > 0 ? "text-bo-heading" : "text-slate-400")}>+{soVN(p.nhan)}</span>
       <button
@@ -85,7 +120,7 @@ function DongKeDich({ p, i, onBo }) {
 }
 
 /** Danh sách kệ gợi ý chia hai nhóm theo số còn phải cất: đủ chỗ / ít chỗ hơn. Hiện {@link GOI_Y_HIEN} kệ đầu. */
-function GoiYKeDich({ ds, can, dangTai, ban, onChon, coVienTren }) {
+function GoiYKeDich({ ds, can, dangTai, ban, onChon, coVienTren, tenMa, soMa }) {
   // "Xem thêm" gắn với đúng danh sách lúc bấm: danh sách đổi (đổi kệ nguồn, hàng, vừa chọn một kệ) thì tự thu gọn
   const khoa = ds.map((k) => k.id).join(",");
   const [moKhoa, setMoKhoa] = useState(null);
@@ -111,7 +146,7 @@ function GoiYKeDich({ ds, can, dangTai, ban, onChon, coVienTren }) {
             <>
               <p className="px-3 pt-1 text-xs font-medium text-bo-success">{t("Đủ chỗ cho {{so}} sản phẩm", { so: soVN(can), count: can })}</p>
               {duHien.map((k) => (
-                <KeGoiY key={k.id} k={k} onChon={onChon} ban={ban} />
+                <KeGoiY key={k.id} k={k} onChon={onChon} ban={ban} tenMa={tenMa} soMa={soMa} />
               ))}
             </>
           ) : null}
@@ -119,7 +154,7 @@ function GoiYKeDich({ ds, can, dangTai, ban, onChon, coVienTren }) {
             <>
               <p className="px-3 pt-2 text-xs font-medium text-bo-muted">{t("Ít chỗ hơn")}</p>
               {itHien.map((k) => (
-                <KeGoiY key={k.id} k={k} onChon={onChon} ban={ban} />
+                <KeGoiY key={k.id} k={k} onChon={onChon} ban={ban} tenMa={tenMa} soMa={soMa} />
               ))}
             </>
           ) : null}
@@ -141,7 +176,28 @@ function GoiYKeDich({ ds, can, dangTai, ban, onChon, coVienTren }) {
  * đổi kệ, quản lý kho được cất vượt) và kệ gợi ý. Tiến độ "đã có kệ đích" nằm ở chân khối, không lặp ở đây.
  * `tong`: số đang chọn; `conLai`: số chưa có chỗ. `coNguon=false`: chỗ giữ chỗ ở màn mở đầu (chưa quét kệ nguồn).
  */
-export default function CotSangKe({ coNguon, tong, conLai, phan, goiY, dangTaiGoiY, thieuCho, duocVuot, ban, onChonGoiY, onBoDich, onTach, onDoiKe, onVuot, className }) {
+export default function CotSangKe({
+  coNguon,
+  tong,
+  conLai,
+  phan,
+  loTheoKe,
+  tenMa,
+  soMa,
+  goiY,
+  dangTaiGoiY,
+  thieuCho,
+  duocVuot,
+  ban,
+  cheDoXem = "goi-y",
+  onCheDoXem,
+  onChonGoiY,
+  onBoDich,
+  onTach,
+  onDoiKe,
+  onVuot,
+  className,
+}) {
   const dsGoiY = (goiY ?? []).filter((k) => !phan.some((p) => p.ke.id === k.id) && k.id !== thieuCho?.ke?.id);
   // Đếm đúng số dòng kệ đang liệt kê (kể cả kệ "+0" khi vừa giảm số lượng) để số ở đầu khớp số thứ tự các dòng
   const soKe = phan.length;
@@ -150,14 +206,42 @@ export default function CotSangKe({ coNguon, tong, conLai, phan, goiY, dangTaiGo
     : tong <= 0
       ? t("Chọn số lượng ở bảng bên trái trước.")
       : conLai > 0
-        ? t("Quét mã kệ hoặc chọn kệ gợi ý")
+        ? cheDoXem === "so-do"
+          ? t("Quét mã kệ hoặc chọn trên sơ đồ bên dưới")
+          : t("Quét mã kệ hoặc chọn kệ gợi ý")
         : t("Cất theo thứ tự từ trên xuống");
+  const coChonCheDo = coNguon && tong > 0 && onCheDoXem;
   return (
     <div className={cn("min-w-0", className)} role="group" aria-labelledby="ck-sang-ke">
       <div className="border-b border-bo-border px-4 py-3.5 xl:min-h-[94px]">
-        <p id="ck-sang-ke" className={NHAN}>
-          {t("Kệ đích")}
-        </p>
+        <div className="flex items-start justify-between gap-2">
+          <p id="ck-sang-ke" className={NHAN}>
+            {t("Kệ đích")}
+          </p>
+          {coChonCheDo ? (
+            <div className="-my-1 flex rounded-md border border-bo-border bg-white p-0.5 text-[12px]" role="group" aria-label={t("Cách chọn kệ đích")}>
+              {[
+                ["goi-y", <List key="i" className="size-3.5" aria-hidden="true" />, t("Gợi ý")],
+                ["so-do", <LayoutGrid key="i" className="size-3.5" aria-hidden="true" />, t("Sơ đồ")],
+              ].map(([ma, icon, ten]) => (
+                <button
+                  key={ma}
+                  type="button"
+                  aria-pressed={cheDoXem === ma}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => onCheDoXem(ma)}
+                  className={cn(
+                    "flex h-7 items-center gap-1.5 rounded px-2.5",
+                    cheDoXem === ma ? "bg-bo-primary-soft font-medium text-bo-primary-strong" : "text-slate-600 hover:bg-slate-50",
+                  )}
+                >
+                  {icon}
+                  {ten}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
         <p className={cn("mt-0.5 text-lg font-semibold leading-7", soKe ? "text-bo-heading" : "text-slate-400")}>
           {soKe ? t("{{so}} kệ", { so: soVN(soKe), count: soKe }) : t("Chưa chọn kệ")}
         </p>
@@ -178,7 +262,7 @@ export default function CotSangKe({ coNguon, tong, conLai, phan, goiY, dangTaiGo
       {phan.length ? (
         <div>
           {phan.map((p, i) => (
-            <DongKeDich key={p.ke.id} p={p} i={i} onBo={onBoDich} />
+            <DongKeDich key={p.ke.id} p={p} i={i} lo={loTheoKe?.get(p.ke.id)} onBo={onBoDich} />
           ))}
         </div>
       ) : null}
@@ -220,8 +304,17 @@ export default function CotSangKe({ coNguon, tong, conLai, phan, goiY, dangTaiGo
         </div>
       ) : null}
 
-      {coNguon && tong > 0 && conLai > 0 ? (
-        <GoiYKeDich ds={dsGoiY} can={conLai} dangTai={dangTaiGoiY} ban={ban} onChon={onChonGoiY} coVienTren={Boolean(phan.length || thieuCho)} />
+      {coNguon && tong > 0 && conLai > 0 && cheDoXem !== "so-do" ? (
+        <GoiYKeDich
+          ds={dsGoiY}
+          can={conLai}
+          dangTai={dangTaiGoiY}
+          ban={ban}
+          onChon={onChonGoiY}
+          coVienTren={Boolean(phan.length || thieuCho)}
+          tenMa={tenMa}
+          soMa={soMa}
+        />
       ) : null}
     </div>
   );
