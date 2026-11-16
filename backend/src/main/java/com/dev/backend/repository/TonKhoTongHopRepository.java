@@ -252,6 +252,96 @@ public interface TonKhoTongHopRepository extends JpaRepository<BienTheSanPham, I
     }
 
     /**
+     * Tồn khả dụng Free to Use theo một kho cụ thể (khoId) phục vụ mô hình đa kho phân tán (Multi-Warehouse):
+     *   Σ (tồn - đang giữ) ở kho chỉ định
+     *   - lượng chờ xuất của đơn bán thuộc kho đó
+     *   + lượng đã xuất thật của phiếu xuất thuộc kho đó
+     */
+    @Query("""
+        SELECT bt.id,
+               CAST(GREATEST(
+                   COALESCE(
+                       (SELECT SUM(tkl.soLuongKhaDung)
+                        FROM TonKhoTheoLo tkl
+                        WHERE tkl.loHang.bienTheSanPham = bt
+                          AND tkl.kho.id = :khoId), 0
+                   )
+                   -
+                   COALESCE(
+                       (SELECT SUM(ctdbh.soLuongDat)
+                        FROM ChiTietDonBanHang ctdbh
+                        WHERE ctdbh.bienTheSanPham = bt
+                          AND ctdbh.donBanHang.loaiChungTu = 'don_ban_hang'
+                          AND ctdbh.donBanHang.kho.id = :khoId
+                          AND ctdbh.donBanHang.trangThai IN :trangThaiGiuHang), 0
+                   )
+                   +
+                   COALESCE(
+                       (SELECT SUM(ctpx.soLuongXuat)
+                        FROM ChiTietPhieuXuatKho ctpx
+                        WHERE ctpx.bienTheSanPham = bt
+                          AND ctpx.loHang IS NOT NULL
+                          AND ctpx.phieuXuatKho.kho.id = :khoId
+                          AND ctpx.phieuXuatKho.loaiXuat IN ('ban_hang', 'kenh_ban')
+                          AND ctpx.phieuXuatKho.trangThai = 3), 0
+                   ),
+                   0
+               ) AS BigDecimal)
+        FROM BienTheSanPham bt
+        WHERE bt.id IN :bienTheIds
+    """)
+    List<Object[]> sumFreeToUseTheoKho(
+            @Param("khoId") Integer khoId,
+            @Param("bienTheIds") List<Integer> bienTheIds,
+            @Param("trangThaiGiuHang") List<Integer> trangThaiGiuHang
+    );
+
+    /**
+     * Hàng phiếu chuyển kho đang giữ chỗ tại kho xuất chỉ định.
+     */
+    @Query(value = """
+        SELECT ct.bien_the_san_pham_id,
+               SUM(GREATEST(ct.so_luong_chuyen - COALESCE((
+                   SELECT SUM(c.so_luong_xuat)
+                   FROM phieu_xuat_kho px
+                   JOIN chi_tiet_phieu_xuat_kho c ON c.phieu_xuat_kho_id = px.id AND c.lo_hang_id IS NOT NULL
+                   WHERE px.phieu_chuyen_kho_id = p.id AND px.loai_xuat = 'chuyen_kho' AND px.trang_thai = 0
+                     AND c.bien_the_san_pham_id = ct.bien_the_san_pham_id), 0), 0))
+        FROM chi_tiet_phieu_chuyen_kho ct
+        JOIN phieu_chuyen_kho p ON p.id = ct.phieu_chuyen_kho_id
+        WHERE p.kho_xuat_id = :khoId
+          AND p.trang_thai IN ('CHO_DUYET', 'DA_DUYET')
+          AND ct.bien_the_san_pham_id IN (:bienTheIds)
+        GROUP BY ct.bien_the_san_pham_id
+    """, nativeQuery = true)
+    List<Object[]> giuChoChuyenKhoTheoKho(@Param("khoId") Integer khoId, @Param("bienTheIds") List<Integer> bienTheIds);
+
+    /**
+     * Tồn khả dụng Free to Use của danh sách biến thể theo một kho cụ thể, đã trừ hàng giữ chỗ chuyển kho tại kho đó.
+     */
+    default List<Object[]> sumFreeToUseTheoKhoVaBienTheIds(Integer khoId, List<Integer> bienTheIds) {
+        if (khoId == null || khoId <= 0 || bienTheIds == null || bienTheIds.isEmpty()) return List.of();
+        List<Object[]> ketQua = sumFreeToUseTheoKho(khoId, bienTheIds, ITrangThaiDonBanHang.DANG_GIU_HANG);
+        if (ketQua.isEmpty()) return ketQua;
+        Map<Integer, BigDecimal> giuCho = new HashMap<>();
+        for (Object[] row : giuChoChuyenKhoTheoKho(khoId, bienTheIds)) {
+            if (row[0] != null && row[1] != null) giuCho.put(((Number) row[0]).intValue(), new BigDecimal(row[1].toString()));
+        }
+        if (giuCho.isEmpty()) return ketQua;
+        List<Object[]> daTru = new ArrayList<>(ketQua.size());
+        for (Object[] row : ketQua) {
+            BigDecimal tru = row[0] == null ? null : giuCho.get(((Number) row[0]).intValue());
+            if (tru == null || row[1] == null) {
+                daTru.add(row);
+                continue;
+            }
+            BigDecimal khaDung = row[1] instanceof BigDecimal bd ? bd : new BigDecimal(row[1].toString());
+            daTru.add(new Object[]{row[0], khaDung.subtract(tru).max(BigDecimal.ZERO)});
+        }
+        return daTru;
+    }
+
+    /**
      * Overload tiện lợi: lấy tất cả kho, không lọc keyword.
      */
     default List<TonKhoProjection> findTonKhoTongHop() {
