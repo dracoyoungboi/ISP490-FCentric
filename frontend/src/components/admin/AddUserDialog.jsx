@@ -584,7 +584,7 @@ function AddUserForm({ onClose, onCreated }) {
                                 type="text"
                                 inputMode="email"
                                 maxLength={MAX_LENGTH.email}
-                                placeholder={t("Ví dụ: an.nguyen@tencuahang.vn")}
+                                placeholder={t("VD: an.nguyen@tencuahang.vn")}
                                 spellCheck={false}
                                 autoCapitalize="none"
                                 onChange={(event) => changeField("email", event.target.value)}
@@ -597,7 +597,6 @@ function AddUserForm({ onClose, onCreated }) {
                                 type="tel"
                                 inputMode="numeric"
                                 maxLength={10}
-                                placeholder={t("VD: {{viDu}}", { viDu: "0912345678" })}
                                 onChange={(event) => changeField("soDienThoai", sanitizePhoneInput(event.target.value))}
                             />
                         </Field>
