@@ -742,6 +742,24 @@ public class LazadaClient {
     }
 
     /**
+     * Lấy danh sách danh mục gợi ý dựa theo tên sản phẩm (/product/category/suggestion/get).
+     */
+    public JsonNode getCategorySuggestion(String appKey, String appSecret, String accessToken, String productName) {
+        String apiPath = "/product/category/suggestion/get";
+        Map<String, String> params = new HashMap<>();
+        params.put("app_key", appKey.trim());
+        params.put("access_token", accessToken.trim());
+        params.put("product_name", productName.trim());
+        params.put("timestamp", String.valueOf(System.currentTimeMillis()));
+        params.put("sign_method", LazadaSignatureHelper.SIGN_METHOD_SHA256);
+
+        String sign = LazadaSignatureHelper.calculateSignature(apiPath, params, appSecret);
+        params.put("sign", sign);
+
+        return executeGet(API_GATEWAY_VN + apiPath, params);
+    }
+
+    /**
      * Lấy toàn bộ cây danh mục sản phẩm từ Lazada (/category/tree/get).
      */
     public JsonNode getCategoryTree(String appKey, String appSecret, String accessToken, String languageCode) {
