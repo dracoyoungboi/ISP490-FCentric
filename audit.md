@@ -104,6 +104,7 @@
 | **AUDIT-092** | `2026-11-16 18:25:00` | PhanAnh & Antigravity AI | Fix & Architecture / Sửa lỗi biên dịch mandatoryAttrs, khắc phục lỗi Lazada E501 SellerSku và TikTok Shop 12052557 | `KenhBanHangDongBoServiceImpl.java`, `hienThiKenhPos.properties`, `hienThiKenhPos_en.properties`, `ShopeeSyncUpsertTest.java`, `audit.md` | Khắc phục dứt điểm lỗi biên dịch Duplicate local variable mandatoryAttrs tại dòng 8584 và 8699; Khắc phục lỗi Lazada E501 'The SellerSku parameter is no longer supported' bằng cách chuyển đổi lưu trữ SkuId số, loại bỏ SellerSku trong XML cập nhật tồn giá và tự động tải SkuId đối soát; Khắc phục lỗi TikTok Shop 12052557 'the SKU ID does not belong to the product' bằng cơ chế Auto-Healing giải phóng SKU ID lệch và vô hiệu hóa RAM cache khi bài đăng bị xóa/tạo lại; 20/20 tests PASS 100%, i18n 722 files sạch. |
 | **AUDIT-093** | `2026-11-16 18:23:00` | Khang | Fix / Siết kiểm dữ liệu hộp Thêm người dùng (tên đăng nhập, email, ô SĐT) | `NguoiDungService.java`, `heThong.properties`, `heThong_en.properties`, `AddUserDialog.jsx`, `nguoi-dung-ncc.json`, `quyTacNhaCungCap.js`, `audit.md` | Máy chủ kiểm tên đăng nhập như giao diện (chữ không dấu, số, . _ -; bắt đầu bằng chữ/số; 3–50 ký tự) khi tạo và khi quản trị viên đổi tên; siết mẫu email hai phía (không dấu chấm ở đầu/cuối/liền nhau trước @, phần tên miền bắt đầu và kết thúc bằng chữ/số) và chặn email quá 100 ký tự trước regex; bỏ gợi ý mờ ở ô SĐT theo AGENTS.md; placeholder email đổi "Ví dụ:" thành "VD:". |
 | **AUDIT-094** | `2026-11-16 19:25:00` | PhanAnh & Antigravity AI | Fix & Concurrency Defense / Xóa bỏ transaction dài gây deadlock khóa đồng thời máy khác, ReentrantLock per-channel, sửa thuộc tính áo khoác Lazada và kiểm tra Shopee abnormal qua getItemBaseInfo | `KenhBanHangDongBoServiceImpl.java`, `chung.properties`, `chung_en.properties`, `audit.md` | Giải phóng Transaction Boundary khỏi luồng I/O mạng sàn trong tuDongLienKet và thuLai, triệt tiêu hoàn toàn lỗi ConcurrencyFailureException ('thao tác ở máy khác' do MySQL row-lock deadlock); Áp dụng ReentrantLock độc lập cho từng kênh (kenhId) có timeout 5s, cho phép nhiều máy/kênh chạy song song không nghẽn nhau; Nâng cấp kiểm tra trạng thái Shopee bằng v2.product.get_item_base_info kiểm tra item_status NORMAL để kích hoạt tạo mới nếu bị xóa; Sửa lỗi schema Lazada cho áo khoác (categoryId 7953: loại bỏ Fit_Type của áo thun, nhận diện Polyester), tự động khôi phục SkuId khi trùng lặp và lưu trữ chi tiết lỗi trực quan; 20/20 tests PASS 100%, i18n 722 files sạch. |
+| **AUDIT-095** | `2026-11-16 21:25:00` | PhanAnh & Antigravity AI | Fix & Architecture / Khắc phục lỗi đẩy sản phẩm Lazada, sửa nhầm danh mục Polo thành Quần ngắn, chuẩn hóa Color Family và Auto-Healing SkuId | `BienTheSanPhamRepository.java`, `LazadaClient.java`, `KenhBanHangDongBoServiceImpl.java`, `LazadaSyncDiagnosticTest.java`, `audit.md` | Khắc phục triệt để lỗi 'Biến thể chưa có mã SkuId số trên Lazada' (lỗi 69 SKU tab Lỗi Lazada); Sửa lỗi phân loại danh mục nghiêm trọng khiến 'Áo polo bảo hộ lao động ngắn tay' bị gán nhầm thành Quần ngắn (10100765) do từ khóa 'ngắn', chuẩn hóa danh mục Áo Polo nam (14275); Chuẩn hóa mapLazadaColorFamily sang danh mục enum tiếng Anh hợp lệ của Lazada VN; Bọc short_description trong ul/li và thêm package_content bắt buộc vào SKU XML payload; Bóc tách SkuId từ composite shop_sku (itemId_VN-skuId); Loại bỏ hoàn toàn fallback lưu SellerSku thô vào maSanPhamKenh; Triển khai Auto-Healing SkuId trong guiTonLenLazada khi bấm 'Thử lại' tự động tra cứu qua getProductsBySellerSkus hoặc tạo mới sản phẩm; Khắc phục lỗi biên dịch findBySanPhamIdAndTrangThai; Chặn đẩy tồn cho SKU chưa có SkuId số để không ghi đè lỗi sàn; 18/18 tests PASS 100%, i18n 722 files sạch. |
 | **AUDIT-096** | `2026-11-16 14:44:00` | Khang | UI / Bỏ nút Sao chép hướng dẫn và khung Hướng dẫn nhập AMIS ở Chi tiết lô xuất kế toán | `ChiTietLoKeToan.jsx`, `TaoLoKeToan.jsx`, `keToanService.js`, `tong-quan-bao-cao.json`, `KeToanController.java`, `XuatKeToanService.java`, `keToanDuLieuVao.properties`, `keToanDuLieuVao_en.properties` | Hướng dẫn đã có sẵn trong tệp nén của lô (`00_HUONG_DAN.txt`) nên bỏ nút sao chép và khung hiện hướng dẫn trên trang; gỡ luôn API `GET /lo-xuat/{id}/huong-dan` không còn nơi gọi. |
 
 
@@ -3306,6 +3307,82 @@
 1. **Kiểm thử đơn vị JUnit**: Chạy toàn bộ 20 unit tests (`ShopeeSyncUpsertTest`, `ShopifyStatusSyncTest`, `DonBanHangServiceGiaoHangSanTest`) -> **20/20 tests PASS 100%**.
 2. **Maven Compile & Test Compile**: 863 file source và 146 file test biên dịch thành công 100% (`BUILD SUCCESS`).
 3. **Kiểm tra đa ngôn ngữ Frontend `npm run i18n:kiem`**: 722 tệp kiểm tra, 0 chưa bọc, 0 thiếu bản dịch, 0 lệch.
+
+---
+### [AUDIT-095] KHẮC PHỤC LỖI ĐẨY SẢN PHẨM LAZADA, SỬA NHẦM DANH MỤC POLO THÀNH QUẦN NGẮN, CHUẨN HÓA COLOR FAMILY VÀ AUTO-HEALING SKUID
+- **Thời gian**: `2026-11-16 21:25:00` (GMT+7)
+- **Tác giả**: PhanAnh & Antigravity AI
+- **Phân hệ ảnh hưởng**: Omnichannel Sync Engine, Đẩy sản phẩm & Tồn kho Lazada (`LazadaClient`, `KenhBanHangDongBoServiceImpl`).
+- **Tệp thay đổi**:
+  - `backend/src/main/java/com/dev/backend/repository/BienTheSanPhamRepository.java`
+  - `backend/src/main/java/com/dev/backend/services/lazada/LazadaClient.java`
+  - `backend/src/main/java/com/dev/backend/services/impl/entities/KenhBanHangDongBoServiceImpl.java`
+  - `backend/src/test/java/com/dev/backend/services/lazada/LazadaSyncDiagnosticTest.java`
+  - `audit.md`
+
+#### 1. MỤC TIÊU & PHÂN TÍCH NGUYÊN NHÂN GỐC RỄ (ROOT CAUSE ANALYSIS)
+1. **Hiện tượng lỗi trên giao diện tab Lỗi Lazada (69 SKU)**:
+   - Toàn bộ biến thể của sản phẩm "Áo polo bảo hộ lao động ngắn tay" (12 biến thể) và "Áo khoác gió công năng phong cách Âu" (5 biến thể) cùng các sản phẩm khác bị báo lỗi: *"Biến thể chưa có mã SkuId số trên Lazada. Vui lòng bấm Tự động liên kết để đồng bộ."*
+   - Cột SKU Lazada hiển thị mã định dạng chuỗi `SellerSku` nội bộ (ví dụ: `Lazada AK2610192-CL005-S-MS-2691`) thay vì mã số `SkuId` sàn Lazada.
+2. **Nguyên nhân kỹ thuật sâu xa**:
+   - **Lỗi nhận diện danh mục tai hại (Category Misclassification)**:
+     - Trong hàm `xacDinhLazadaCategoryId(SanPhamQuanAo sp)`: Rule phân loại Quần ngắn (`10100765`) trước đây kiểm tra `combined.contains("ngắn")`.
+     - Vì tên sản phẩm là "Áo polo bảo hộ lao động **ngắn tay**", nó chứa chữ "ngắn", dẫn đến hệ thống nhận diện nhầm sản phẩm áo Polo thành Quần ngắn nam!
+     - Khi gửi payload XML sang Lazada với danh mục Quần ngắn, Lazada kiểm tra và từ chối tạo sản phẩm do sai lệch hoàn toàn cây thuộc tính của áo polo.
+   - **Lazada từ chối giá trị `color_family` tiếng Việt**:
+     - Hàm `mapLazadaColorFamily` trước đây trả về chuỗi tiếng Việt thô (ví dụ: "Trắng", "Xám", "Đen", "Xanh than").
+     - Schema API của Lazada Vietnam bắt buộc `color_family` phải là giá trị enum tiếng Anh chuẩn (`Black`, `White`, `Grey`, `Dark Blue`, `Blue`, `Green`, `Red`, `Yellow`, `Orange`, `Pink`, `Purple`, `Brown`, `Beige`, `Multicolor`). Gửi tiếng Việt dẫn đến lỗi từ chối tạo bài.
+   - **Thiếu thẻ bắt buộc trong XML payload tạo sản phẩm**:
+     - Lazada yêu cầu `<short_description>` phải được định dạng HTML danh sách `<ul><li>...</li></ul>`.
+     - Lazada yêu cầu mỗi thẻ `<Sku>` phải có `<package_content>` (ví dụ: `1 x Áo polo bảo hộ lao động ngắn tay`).
+   - **Bóc tách SkuId từ composite `shop_sku`**:
+     - Với một số API response tạo sản phẩm Lazada VN, SkuId được trả về qua trường `shop_sku` dạng ghép: `{itemId}_VN-{skuId}` (ví dụ: `3069252927_VN-15298395971`). Hệ thống cũ không phân tích tách phần số phía sau dẫn đến không nhận diện được SkuId.
+   - **Cơ chế Fallback tai hại ghi đè lỗi thật**:
+     - Khi `taoSanPhamLenLazada` thất bại và trả về map rỗng, hệ thống fallback lưu `SellerSku` thô (`bt.getMaSku()`) vào cột `maSanPhamKenh`.
+     - Sau đó luồng `dayTonLazadaToiUu` kiểm tra `maSanPhamKenh.matches("\\d+")` thấy không phải dạng số, liền ghi đè lỗi thành *"Biến thể chưa có mã SkuId số trên Lazada..."*, xóa mất thông báo lỗi thực sự từ sàn.
+
+#### 2. GIẢI PHÁP KỸ THUẬT & CHI TIẾT TRIỂN KHAI
+1. **Sửa dứt điểm phân loại danh mục Lazada (`xacDinhLazadaCategoryId`)**:
+   - Khóa chặt điều kiện Quần ngắn: Bắt buộc phải có từ khóa quần (`"quần ngắn"`, `"quần short"`, `"quần đùi"` hoặc `quần` kết hợp `ngắn`). "Áo polo ... ngắn tay" được phân loại chính xác 100% vào danh mục Áo Polo (`14275`).
+2. **Chuẩn hóa danh mục màu sắc tiếng Anh (`mapLazadaColorFamily`)**:
+   - Ánh xạ đầy đủ bảng màu từ tiếng Việt sang enum tiếng Anh chuẩn của Lazada VN:
+     - Đen -> `Black`
+     - Trắng -> `White`
+     - Xám / Ghi -> `Grey`
+     - Xanh than / Xanh navy / Tối màu -> `Dark Blue`
+     - Xanh dương / Xanh lam -> `Blue`
+     - Xanh lá / Rêu -> `Green`
+     - Đỏ / Đô -> `Red`
+     - Vàng / Bò / Cam / Hồng / Tím / Nâu / Be -> tương ứng chuẩn quốc tế.
+3. **Chuẩn hóa XML Payload `taoSanPhamLenLazada`**:
+   - Bọc `<short_description>` vào `<ul><li>` chuẩn Rich Text của Lazada.
+   - Thêm `<package_content>1 x ` + escapeXml(productName) + `</package_content>` vào mọi thẻ `<Sku>`.
+   - Bổ sung `<saleProp><color_family>...</color_family><size>...</size></saleProp>` bên cạnh thẻ trực tiếp.
+4. **Bóc tách SkuId thông minh & Loại bỏ hoàn toàn Fallback chuỗi SellerSku**:
+   - Kiểm tra đa tầng trường SkuId: `sku_id`, `SkuId`, `skuId`, và tách từ chuỗi `shop_sku` (`_VN-(\\d+)`).
+   - Tuyệt đối không fallback lưu `SellerSku` vào `maSanPhamKenh` khi sàn chưa cấp `SkuId` số thật.
+5. **Bổ sung API `getProductsBySellerSkus` cho `LazadaClient`**:
+   - Gọi endpoint `GET /products/get` với tham số `sku_seller_list` dạng JSON array để tra cứu tức thời thông tin sản phẩm và SkuId chính xác của các SKU FCentric mà không cần duyệt phân trang 500 sản phẩm.
+6. **Triển khai Auto-Healing SkuId khi người dùng bấm "Thử lại" (`guiTonLenLazada`)**:
+   - Khi người dùng bấm "Thử lại" trên giao diện cho một biến thể:
+     - Nếu `maSanPhamKenh` không phải chuỗi số: Tự động tra cứu SkuId từ Lazada bằng `traCuuLazadaSkuId`.
+     - Nếu Lazada chưa có sản phẩm: Tự động kích hoạt gọi `taoSanPhamLenLazada` để tạo sản phẩm sạch lên Lazada và cập nhật SkuId số vào CSDL.
+     - Sau khi có SkuId số hợp lệ, lập tức đẩy tồn kho lên sàn.
+     - Nếu việc tạo mới bị sàn từ chối: Lưu nguyên vẹn lý do lỗi từ sàn vào `chiTietLoi`, không bao giờ hiển thị câu lỗi generic gây hiểu nhầm.
+7. **Bảo vệ luồng đẩy tồn không ghi đè lỗi (`tuDongLienKetLazada`)**:
+   - Trong `tuDongLienKetLazada`, chỉ tiến hành đẩy tồn cho các dòng có `maSanPhamKenh` là chuỗi số hợp lệ, ngăn chặn việc đẩy tồn làm mất thông báo lỗi tạo sản phẩm chi tiết.
+
+#### 3. KẾT QUẢ KIỂM THỬ VÀ ĐỐI SOÁT
+1. **Kiểm thử chẩn đoán mới `LazadaSyncDiagnosticTest`**:
+   - `testMapLazadaColorFamily`: Kiểm tra 14 sắc thái màu sắc ánh xạ chuẩn xác sang enum Lazada.
+   - `testXacDinhLazadaCategoryId`: Kiểm tra "Áo polo bảo hộ lao động ngắn tay" được phân loại đúng vào `14275` (Áo polo), "Áo khoác gió" vào `7953` (Áo khoác nhẹ).
+   - `testDichLoiLazada`: Kiểm tra dịch lỗi trực quan.
+   - `testSkuIdExtractionFromShopSku`: Kiểm tra tách `15298395971` từ `3069252927_VN-15298395971`.
+   - Kết quả: **4/4 tests PASS 100%**.
+2. **Kiểm thử hồi quy toàn bộ luồng Omnichannel**:
+   - `LazadaSyncDiagnosticTest` (4 tests) + `ShopeeSyncUpsertTest` (9 tests) + `ShopifyStatusSyncTest` (5 tests) = **18/18 tests PASS 100%**.
+3. **Kiểm tra đa ngôn ngữ Frontend `npm run i18n:kiem`**: 722 tệp kiểm tra, 0 chưa bọc, 0 thiếu bản dịch, 0 lệch.
+4. **Biên dịch Java Backend**: `mvnw.cmd test-compile` thành công 100% không phát sinh lỗi hay cảnh báo.
 
 ---
 ### [AUDIT-096] BỎ NÚT SAO CHÉP HƯỚNG DẪN VÀ KHUNG HƯỚNG DẪN NHẬP AMIS Ở CHI TIẾT LÔ XUẤT KẾ TOÁN
