@@ -68,13 +68,24 @@ public class ChuyenKeNoiBoController {
         return ok(service.goiYKe(khoId, keNguonId, bienTheIds, can), ThongDiep.dich("khoVanHanh.chuyenKeLayKeThanhCong"));
     }
 
-    @PostMapping
-    @Operation(summary = "Xác nhận chuyển kệ: giao dịch nguyên tử trừ kệ nguồn, cộng các kệ đích, sinh phiếu MV")
+    @GetMapping("/tim-hang")
+    @Operation(summary = "Quét mã hàng (mã vạch, SKU hoặc mã lô) ở bước đầu: các kệ của kho đang chứa hàng đó")
     @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho, IRoleType.nhan_vien_ban_hang},
             inWarehouse = true)
-    public ResponseEntity<ResponseData<ChuyenKeDto.KetQua>> thucHien(@RequestParam Integer khoId, @RequestBody ChuyenKeYeuCau yc) {
+    public ResponseEntity<ResponseData<ChuyenKeDto.HangTim>> timHang(@RequestParam Integer khoId, @RequestParam String ma) {
         kiemTraKho(khoId);
-        ChuyenKeDto.KetQua kq = ThuLaiKhiTrungSo.chay(() -> service.thucHien(khoId, yc));
+        return ok(service.timHang(khoId, ma), ThongDiep.dich("khoVanHanh.chuyenKeDaTimHang"));
+    }
+
+    @PostMapping
+    @Operation(summary = "Xác nhận chuyển kệ: giao dịch nguyên tử trừ kệ nguồn, cộng các kệ đích, sinh phiếu MV. Header "
+            + "Idempotency-Key (tùy chọn): gửi lại cùng khóa, cùng nội dung thì trả lại phiếu đã tạo")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho, IRoleType.nhan_vien_ban_hang},
+            inWarehouse = true)
+    public ResponseEntity<ResponseData<ChuyenKeDto.KetQua>> thucHien(@RequestParam Integer khoId, @RequestBody ChuyenKeYeuCau yc,
+                                                                     @RequestHeader(value = "Idempotency-Key", required = false) String khoa) {
+        kiemTraKho(khoId);
+        ChuyenKeDto.KetQua kq = ThuLaiKhiTrungSo.chay(() -> service.thucHien(khoId, yc, khoa));
         return ok(kq, ThongDiep.dich("khoVanHanh.chuyenKeDaChuyen", kq.tongSoLuong(), kq.maPhieu()));
     }
 
