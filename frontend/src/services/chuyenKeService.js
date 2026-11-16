@@ -12,15 +12,37 @@ const du = (res) => res.data.data;
 /** Kệ theo mã quét / gõ: thông tin, sức chứa, hàng trên kệ theo lô kèm số khả dụng chuyển. */
 export const traKe = async (khoId, ma) => du(await apiClient.get(`${GOC}/ke`, { params: { khoId, ma } }));
 
+/**
+ * Quét mã hàng (mã vạch, SKU hoặc mã lô) khi chưa có kệ nguồn: hàng đó và các kệ của kho đang chứa nó
+ * `{ tenSanPham, mau, kichCo, maSku, maLo, ke: [{ id, maViTri, soLuong, layDuoc, khoa }] }`. Không phải mã hàng → 404.
+ */
+export const timHang = async (khoId, ma) => du(await apiClient.get(`${GOC}/tim-hang`, { params: { khoId, ma } }));
+
+/** Khóa chống gửi lặp cho một lần xác nhận (giữ nguyên khi gửi lại cùng nội dung). */
+export function taoKhoaLenh() {
+  const ngauNhien =
+    typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+  return `ck-${ngauNhien}`;
+}
+
 /** Các kệ của kho (gợi ý khi gõ mã kệ). */
 export const layDsKe = async (khoId) => du(await apiClient.get(`${GOC}/ds-ke`, { params: { khoId } })) ?? [];
 
 /**
  * Xác nhận chuyển kệ. `dong`: `[{ loHangId, keDichId, soLuong }]` cùng một kệ nguồn; `vuotSucChua` chỉ quản lý kho.
- * Trả `{ id, maPhieu, soDong, tongSoLuong }`.
+ * `khoaLenh` (header Idempotency-Key): gửi lại cùng khóa, cùng nội dung thì máy chủ trả lại phiếu đã tạo, không chuyển
+ * lần nữa. Trả `{ id, maPhieu, soDong, tongSoLuong }`. Chờ quá {@link CHO_XAC_NHAN_MS} thì bỏ chờ (màn hình coi là chưa rõ
+ * kết quả và cho gửi lại cùng khóa), không treo nút Xác nhận mãi.
  */
-export const xacNhanChuyenKe = async (khoId, { keNguonId, dong, ghiChu, vuotSucChua }) =>
-  du(await apiClient.post(GOC, { keNguonId, dong, ghiChu, vuotSucChua }, { params: { khoId } }));
+export const CHO_XAC_NHAN_MS = 40000;
+export const xacNhanChuyenKe = async (khoId, { keNguonId, dong, ghiChu, vuotSucChua }, khoaLenh) =>
+  du(
+    await apiClient.post(
+      GOC,
+      { keNguonId, dong, ghiChu, vuotSucChua },
+      { params: { khoId }, timeout: CHO_XAC_NHAN_MS, ...(khoaLenh ? { headers: { "Idempotency-Key": khoaLenh } } : {}) },
+    ),
+  );
 
 /** Lịch sử phiếu chuyển kệ của kho: `{ ds, tong, trang, kichThuoc }`. */
 export const layLichSuChuyenKe = async (khoId, { tim, tuNgay, denNgay, trang = 0, kichThuoc = 20 } = {}) =>
