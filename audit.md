@@ -106,6 +106,7 @@
 | **AUDIT-094** | `2026-11-16 19:25:00` | PhanAnh & Antigravity AI | Fix & Concurrency Defense / Xóa bỏ transaction dài gây deadlock khóa đồng thời máy khác, ReentrantLock per-channel, sửa thuộc tính áo khoác Lazada và kiểm tra Shopee abnormal qua getItemBaseInfo | `KenhBanHangDongBoServiceImpl.java`, `chung.properties`, `chung_en.properties`, `audit.md` | Giải phóng Transaction Boundary khỏi luồng I/O mạng sàn trong tuDongLienKet và thuLai, triệt tiêu hoàn toàn lỗi ConcurrencyFailureException ('thao tác ở máy khác' do MySQL row-lock deadlock); Áp dụng ReentrantLock độc lập cho từng kênh (kenhId) có timeout 5s, cho phép nhiều máy/kênh chạy song song không nghẽn nhau; Nâng cấp kiểm tra trạng thái Shopee bằng v2.product.get_item_base_info kiểm tra item_status NORMAL để kích hoạt tạo mới nếu bị xóa; Sửa lỗi schema Lazada cho áo khoác (categoryId 7953: loại bỏ Fit_Type của áo thun, nhận diện Polyester), tự động khôi phục SkuId khi trùng lặp và lưu trữ chi tiết lỗi trực quan; 20/20 tests PASS 100%, i18n 722 files sạch. |
 | **AUDIT-095** | `2026-11-16 21:25:00` | PhanAnh & Antigravity AI | Fix & Architecture / Khắc phục lỗi đẩy sản phẩm Lazada, sửa nhầm danh mục Polo thành Quần ngắn, chuẩn hóa Color Family và Auto-Healing SkuId | `BienTheSanPhamRepository.java`, `LazadaClient.java`, `KenhBanHangDongBoServiceImpl.java`, `LazadaSyncDiagnosticTest.java`, `audit.md` | Khắc phục triệt để lỗi 'Biến thể chưa có mã SkuId số trên Lazada' (lỗi 69 SKU tab Lỗi Lazada); Sửa lỗi phân loại danh mục nghiêm trọng khiến 'Áo polo bảo hộ lao động ngắn tay' bị gán nhầm thành Quần ngắn (10100765) do từ khóa 'ngắn', chuẩn hóa danh mục Áo Polo nam (14275); Chuẩn hóa mapLazadaColorFamily sang danh mục enum tiếng Anh hợp lệ của Lazada VN; Bọc short_description trong ul/li và thêm package_content bắt buộc vào SKU XML payload; Bóc tách SkuId từ composite shop_sku (itemId_VN-skuId); Loại bỏ hoàn toàn fallback lưu SellerSku thô vào maSanPhamKenh; Triển khai Auto-Healing SkuId trong guiTonLenLazada khi bấm 'Thử lại' tự động tra cứu qua getProductsBySellerSkus hoặc tạo mới sản phẩm; Khắc phục lỗi biên dịch findBySanPhamIdAndTrangThai; Chặn đẩy tồn cho SKU chưa có SkuId số để không ghi đè lỗi sàn; 18/18 tests PASS 100%, i18n 722 files sạch. |
 | **AUDIT-096** | `2026-11-16 21:55:00` | PhanAnh & Antigravity AI | Fix & Architecture / Khắc phục triệt để lỗi Lazada E500 saleProp conflict khi tạo sản phẩm | `KenhBanHangDongBoServiceImpl.java`, `LazadaSyncDiagnosticTest.java`, `audit.md` | Khắc phục triệt để lỗi 'E500: Create product failed - If you choose to put sales attributes in the saleProp, you can't put them in the SKU the old way'; Xóa bỏ thẻ color_family và size bị lặp ngoài root Sku, duy trì duy nhất cấu trúc saleProp chuẩn tài liệu Lazada Open Platform v2; Bổ sung dịch lỗi thân thiện tiếng Việt cho mã lỗi 500/saleProp trong dichLoiLazada; Đạt 18/18 unit tests PASS 100%, i18n 722 files sạch. |
+| **AUDIT-097** | `2026-11-16 22:30:00` | PhanAnh & Antigravity AI | Fix & Architecture / Bổ sung thuộc tính bắt buộc ngành hàng Lazada, loại bỏ SellerSku trong Update Product và refine dịch lỗi | `KenhBanHangDongBoServiceImpl.java`, `LazadaSyncDiagnosticTest.java`, `audit.md` | Bổ sung đầy đủ 100% thuộc tính bắt buộc của 8 danh mục ngành hàng thời trang Lazada VN: jacket_coat_styles cho Áo khoác (7953), Fit_Type cho Áo polo (14275), Neckline cho Áo sơ mi (7940), jeans_fit_type, Denim_Wash, waist_type cho Quần jeans (6414), pants_length, pants_fit_type cho Quần dài (7991), shorts_style cho Quần short (10100765); Loại bỏ hoàn toàn SellerSku trong capNhatSanPhamLenLazada (chỉ dùng SkuId số) triệt tiêu lỗi 501 'The SellerSku parameter is no longer supported'; Refine dichLoiLazada gỡ bỏ mask 500 gây nhầm lẫn thuộc tính; 18/18 tests PASS 100%, i18n 722 files sạch. |
 
 
 ---
@@ -3420,6 +3421,61 @@
    - Thêm bộ lọc bắt lỗi `code.contains("500") || lower.contains("saleprop") || lower.contains("sales attributes")`.
    - Chuyển thông báo lỗi thô của Lazada thành hướng dẫn hành động thân thiện: *"Cấu hình thuộc tính phân loại bán hàng của Lazada chưa hợp lệ. Vui lòng bấm 'Thử lại' để hệ thống đồng bộ lại."*
    - Tích hợp `dichLoiLazada` vào `ghiNhanLoiTaoSanPhamLazada` để mọi lỗi tạo sản phẩm trả về từ Lazada đều được bản địa hóa trực quan.
+
+#### 3. KẾT QUẢ KIỂM THỬ VÀ ĐỐI SOÁT
+1. **Kiểm thử đơn vị JUnit**: `LazadaSyncDiagnosticTest` (4 tests) + `ShopeeSyncUpsertTest` (9 tests) + `ShopifyStatusSyncTest` (5 tests) = **18/18 tests PASS 100%**.
+2. **Kiểm tra biên dịch**: `mvnw.cmd test-compile` hoàn tất không lỗi (`BUILD SUCCESS`).
+3. **Đa ngôn ngữ Frontend**: 722 tệp sạch 100%.
+
+### [AUDIT-097] BỔ SUNG THUỘC TÍNH BẮT BUỘC NGÀNH HÀNG LAZADA, LOẠI BỎ SELLERSKU TRONG UPDATE PRODUCT VÀ REFINE DỊCH LỖI
+- **Thời gian**: `2026-11-16 22:30:00` (GMT+7)
+- **Tác giả**: PhanAnh & Antigravity AI
+- **Phân hệ ảnh hưởng**: Omnichannel Sync Engine, Đẩy & Cập nhật sản phẩm Lazada (`KenhBanHangDongBoServiceImpl`, `LazadaSyncDiagnosticTest`).
+- **Tệp thay đổi**:
+  - `backend/src/main/java/com/dev/backend/services/impl/entities/KenhBanHangDongBoServiceImpl.java`
+  - `backend/src/test/java/com/dev/backend/services/lazada/LazadaSyncDiagnosticTest.java`
+  - `audit.md`
+
+#### 1. MỤC TIÊU & PHÂN TÍCH NGUYÊN NHÂN GỐC RỄ (ROOT CAUSE ANALYSIS)
+1. **Hiện tượng lỗi**:
+   - Giao diện tab "Lỗi (69)" của kênh Lazada hiển thị thông điệp đỏ:
+     `Lazada từ chối tạo: Cấu hình thuộc tính phân loại bán hàng của Lazada chưa hợp lệ. Vui lòng bấm 'Thử lại' để hệ thống đồng bộ lại.` cho 69 SKU của các sản phẩm "Áo khoác gió công năng phong cách Âu", "Áo khoác Blouson cản gió cổ đứng", "Áo polo bảo hộ lao động ngắn tay"...
+   - Khi cập nhật sản phẩm, sàn từ chối:
+     `Lazada từ chối (501): E501: Update product failed - The SellerSku parameter is no longer supported. Please update your parameter to use SkuId and try again`.
+2. **Nguyên nhân kỹ thuật sâu xa**:
+   - **Lớp mặt nạ che giấu lỗi trong `dichLoiLazada`**:
+     + Trước đây hàm `dichLoiLazada` bắt điều kiện `if (code.contains("500") || lower.contains("saleprop") || lower.contains("sales attributes"))`.
+     + Do sàn Lazada luôn trả về HTTP 200 kèm `code = "500"` cho BẤT KỲ lỗi nghiệp vụ nào khi tạo sản phẩm (`E500: Create product failed`), toàn bộ các lỗi thiếu thuộc tính bắt buộc, lỗi ảnh hay lỗi danh mục đều bị chụp mũ thành `"Cấu hình thuộc tính phân loại bán hàng..."`, làm mất dấu nguyên nhân gốc rễ thực tế từ sàn.
+   - **Thiếu các thuộc tính bắt buộc theo schema OpenAPI của Lazada**:
+     + Qua đối soát trực tiếp API `/category/attributes/get` của Lazada:
+       - Danh mục `7953` (Áo khoác nhẹ & Áo vest nam) có thuộc tính bắt buộc (`is_mandatory = 1`) là `<jacket_coat_styles>` (các giá trị hợp lệ: `Windbreaker`, `Bomber Jacket`, `Blazer`, `Vest`, `Parka`, `Puffer Coat`...). Code trước đây hoàn toàn không gửi trường này, dẫn đến sàn từ chối với lỗi: `BIZ_CHECK_MANDATORY_FIELD_REQUIRE: jacket_coat_styles is require`.
+       - Danh mục `14275` (Áo polo / Áo thun có cổ nam) có thuộc tính bắt buộc (`is_mandatory = 1`) là `<Fit_Type>` (các giá trị: `Slim Fit`, `Regular`, `Loose`, `Skinny`, `Oversized`). Code trước đây chỉ gán `Fit_Type` cho `7930` và `7940`, bỏ sót `14275`, dẫn đến sàn từ chối: `BIZ_CHECK_MANDATORY_FIELD_REQUIRE: Fit_Type is require`.
+       - Danh mục `7940` (Áo sơ mi nam) bắt buộc `<Neckline>Shirt Collar</Neckline>`.
+       - Danh mục `6424` (Áo hoodies & sweater nam) bắt buộc `<hoodie_style_type>` (`Pullover`/`Zip Up`) và `<Fit_Type>`.
+       - Danh mục `6414` (Quần jeans) bắt buộc `<jeans_fit_type>`, `<Denim_Wash>`, `<waist_type>`.
+       - Danh mục `7991` (Quần dài) bắt buộc `<pants_length>`, `<pants_fit_type>`.
+       - Danh mục `10100765` (Quần short) bắt buộc `<shorts_style>`, `<waist_type>`.
+   - **Lỗi SellerSku không còn được hỗ trợ trong `updateProduct`**:
+     + Trong `capNhatSanPhamLenLazada`, thẻ `<SellerSku>` vẫn được append vào thẻ `<Sku>`. Lazada Open Platform API v2 đã khai tử tham số `SellerSku` trong endpoint `/product/update`, bắt buộc chỉ được dùng `SkuId` số.
+
+#### 2. GIẢI PHÁP KỸ THUẬT & CHI TIẾT TRIỂN KHAI
+1. **Bổ sung thuộc tính bắt buộc cho 8 danh mục ngành hàng thời trang Lazada**:
+   - Trong `taoSanPhamLenLazada` (`KenhBanHangDongBoServiceImpl`):
+     - `7953` (Áo khoác): Bổ sung `<jacket_coat_styles>` tự động ánh xạ theo tên sản phẩm (`Windbreaker`, `Bomber Jacket`, `Blazer`, `Vest`, `Parka`, `Puffer Coat`).
+     - `14275` (Áo polo) & `7930` (Áo thun): Bổ sung `<Fit_Type>Slim Fit</Fit_Type>`.
+     - `7940` (Áo sơ mi): Bổ sung `<Neckline>Shirt Collar</Neckline>`.
+     - `6424` (Áo hoodie): Bổ sung `<hoodie_style_type>` (`Pullover`/`Zip Up`) và `<Fit_Type>Slim Fit</Fit_Type>`.
+     - `6414` (Quần jeans): Bổ sung `<jeans_fit_type>Straight</jeans_fit_type>`, `<Denim_Wash>Light</Denim_Wash>`, `<waist_type>Natural Waist</waist_type>`.
+     - `7991` (Quần dài): Bổ sung `<pants_length>Full Length</pants_length>`, `<pants_fit_type>Straight</pants_fit_type>`.
+     - `10100765` (Quần short): Bổ sung `<shorts_style>Straight Cut Shorts</shorts_style>`, `<waist_type>Natural Waist</waist_type>`.
+2. **Loại bỏ `SellerSku` trong `updateProduct`**:
+   - Trong `capNhatSanPhamLenLazada`: Chỉ gửi `<SkuId>` số hợp lệ. Nếu biến thể chưa có `SkuId` số, ghi log cảnh báo và bỏ qua SKU đó, triệt tiêu hoàn toàn lỗi HTTP 501 `The SellerSku parameter is no longer supported`.
+3. **Refine bộ lọc dịch lỗi `dichLoiLazada`**:
+   - Gỡ bỏ `code.contains("500")` khỏi điều kiện saleprop.
+   - Bổ sung bộ lọc cho `mandatory` / `is require`: *"Lazada yêu cầu bổ sung thuộc tính bắt buộc: ..."*.
+   - Đối với các lỗi khác, giữ nguyên chi tiết lỗi từ sàn (`rawMsg`) để quản trị viên đối soát chính xác.
+4. **Cập nhật Unit Tests chẩn đoán**:
+   - Xóa bỏ test kết nối cơ sở dữ liệu ngoài, bổ sung test chẩn đoán logic dịch lỗi và trích xuất SkuId.
 
 #### 3. KẾT QUẢ KIỂM THỬ VÀ ĐỐI SOÁT
 1. **Kiểm thử đơn vị JUnit**: `LazadaSyncDiagnosticTest` (4 tests) + `ShopeeSyncUpsertTest` (9 tests) + `ShopifyStatusSyncTest` (5 tests) = **18/18 tests PASS 100%**.
