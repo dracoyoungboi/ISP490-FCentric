@@ -1144,32 +1144,65 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         xml.append("<warranty_type>No Warranty</warranty_type>");
         xml.append("<fa_pattern>Trơn</fa_pattern>");
 
-        // Phân loại thuộc tính Lazada theo ngành hàng Quần (Bottoms), Áo khoác (Jackets), và Áo thun/sơ mi (Tops)
-        // Quần Jeans (6414) và Quần dài/ngắn (7991, 10100765) không nhận Fit_Type của Áo để tránh lỗi schema sàn
-        // Áo khoác (7953) không nhận Fit_Type của Áo thun để tránh lỗi sàn từ chối
-        boolean laQuanLazada = (categoryId == 6414 || categoryId == 7991 || categoryId == 10100765);
-        boolean laAoKhoacLazada = (categoryId == 7953 || categoryId == 6424);
-        boolean nhanFitType = (categoryId == 7930 || categoryId == 7940);
-
+        // Ánh xạ thuộc tính bắt buộc của từng danh mục lá theo chuẩn Lazada Open Platform API
         String tenSp = sp.getTenSanPham() != null ? sp.getTenSanPham() : "";
-        boolean laPoly = tenSp.toLowerCase(Locale.ROOT).contains("poly")
-                || tenSp.toLowerCase(Locale.ROOT).contains("gió")
-                || tenSp.toLowerCase(Locale.ROOT).contains("dù")
+        String tenSpLower = tenSp.toLowerCase(Locale.ROOT);
+        boolean laPoly = tenSpLower.contains("poly")
+                || tenSpLower.contains("gió")
+                || tenSpLower.contains("dù")
                 || variants.stream().anyMatch(v -> v.getChatLieu() != null && v.getChatLieu().getTenChatLieu() != null
                         && v.getChatLieu().getTenChatLieu().toLowerCase(Locale.ROOT).contains("poly"));
 
-        if (laQuanLazada) {
-            String materialQuan = (categoryId == 6414) ? "Denim" : (laPoly ? "Polyester" : "100% Cotton");
-            xml.append("<clothing_material>").append(materialQuan).append("</clothing_material>");
-        } else if (laAoKhoacLazada) {
+        if (categoryId == 7953) {
+            // Áo khoác nhẹ & Áo vest nam (7953): Bắt buộc jacket_coat_styles
             String materialKhoac = laPoly ? "Polyester" : "100% Cotton";
             xml.append("<clothing_material>").append(materialKhoac).append("</clothing_material>");
-        } else {
+            String style = "Windbreaker";
+            if (tenSpLower.contains("bomber")) style = "Bomber Jacket";
+            else if (tenSpLower.contains("blazer")) style = "Blazer";
+            else if (tenSpLower.contains("vest")) style = "Vest";
+            else if (tenSpLower.contains("parka")) style = "Parka";
+            else if (tenSpLower.contains("puffer") || tenSpLower.contains("phao")) style = "Puffer Coat";
+            xml.append("<jacket_coat_styles>").append(style).append("</jacket_coat_styles>");
+        } else if (categoryId == 6424) {
+            // Áo hoodies & sweater nam (6424): Bắt buộc hoodie_style_type và Fit_Type
+            xml.append("<clothing_material>100% Cotton</clothing_material>");
+            String hoodieStyle = (tenSpLower.contains("zip") || tenSpLower.contains("khóa")) ? "Zip Up" : "Pullover";
+            xml.append("<hoodie_style_type>").append(hoodieStyle).append("</hoodie_style_type>");
+            xml.append("<Fit_Type>Slim Fit</Fit_Type>");
+        } else if (categoryId == 14275 || categoryId == 7930) {
+            // Áo thun có cổ / Áo polo (14275) hoặc Áo thun cổ tròn (7930): Bắt buộc Fit_Type
             String materialAo = laPoly ? "Polyester" : "100% Cotton";
             xml.append("<clothing_material>").append(materialAo).append("</clothing_material>");
-            if (nhanFitType) {
-                xml.append("<Fit_Type>Slim Fit</Fit_Type>");
-            }
+            xml.append("<Fit_Type>Slim Fit</Fit_Type>");
+        } else if (categoryId == 7940) {
+            // Áo sơ mi nam (7940): Bắt buộc Neckline
+            String materialAo = laPoly ? "Polyester" : "100% Cotton";
+            xml.append("<clothing_material>").append(materialAo).append("</clothing_material>");
+            xml.append("<Neckline>Shirt Collar</Neckline>");
+        } else if (categoryId == 6414) {
+            // Quần jeans nam (6414): Bắt buộc jeans_fit_type, Denim_Wash, waist_type
+            xml.append("<clothing_material>Denim</clothing_material>");
+            xml.append("<jeans_fit_type>Straight</jeans_fit_type>");
+            xml.append("<Denim_Wash>Light</Denim_Wash>");
+            xml.append("<waist_type>Natural Waist</waist_type>");
+        } else if (categoryId == 7991) {
+            // Quần dài nam (7991): Bắt buộc pants_length, pants_fit_type
+            String materialQuan = laPoly ? "Polyester" : "100% Cotton";
+            xml.append("<clothing_material>").append(materialQuan).append("</clothing_material>");
+            xml.append("<pants_length>Full Length</pants_length>");
+            xml.append("<pants_fit_type>Straight</pants_fit_type>");
+        } else if (categoryId == 10100765) {
+            // Quần ngắn / short nam (10100765): Bắt buộc shorts_style, waist_type
+            String materialQuan = laPoly ? "Polyester" : "100% Cotton";
+            xml.append("<clothing_material>").append(materialQuan).append("</clothing_material>");
+            xml.append("<shorts_style>Straight Cut Shorts</shorts_style>");
+            xml.append("<waist_type>Natural Waist</waist_type>");
+        } else {
+            // Danh mục Tops khác mặc định
+            String materialAo = laPoly ? "Polyester" : "100% Cotton";
+            xml.append("<clothing_material>").append(materialAo).append("</clothing_material>");
+            xml.append("<Fit_Type>Slim Fit</Fit_Type>");
         }
         xml.append("</Attributes>");
 
@@ -1350,12 +1383,13 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             if (sku.isBlank()) continue;
 
             String skuId = lazadaSkuToSkuIdMap.get(sku.toLowerCase(Locale.ROOT));
+            if (skuId == null || !skuId.matches("\\d+")) {
+                log.warn("[LAZADA-UPDATE] Biến thể SKU [{}] chưa có SkuId số trên Lazada, bỏ qua cập nhật SKU này để tránh lỗi 501 (SellerSku deprecated)", sku);
+                continue;
+            }
 
             xml.append("<Sku>");
-            if (skuId != null && !skuId.isBlank() && skuId.matches("\\d+")) {
-                xml.append("<SkuId>").append(escapeXml(skuId)).append("</SkuId>");
-            }
-            xml.append("<SellerSku>").append(escapeXml(sku)).append("</SellerSku>");
+            xml.append("<SkuId>").append(escapeXml(skuId)).append("</SkuId>");
 
             List<String> skuImages = new ArrayList<>();
             String varImgUrl = imgResult.variantImages().get(bt.getId());
@@ -5979,13 +6013,17 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         if (code.contains("501") || lower.contains("sellersku parameter is no longer supported") || lower.contains("use skuid")) {
             return "Lazada yêu cầu sử dụng mã SkuId số. Hệ thống đang tự động tra cứu SkuId từ sàn để đồng bộ lại.";
         }
-        if (code.contains("500") || lower.contains("saleprop") || lower.contains("sales attributes")) {
+        if (lower.contains("saleprop_and_old_param_repeat") || lower.contains("old way")
+                || (lower.contains("saleprop") && lower.contains("repeat"))) {
             return "Cấu hình thuộc tính phân loại bán hàng của Lazada chưa hợp lệ. Vui lòng bấm 'Thử lại' để hệ thống đồng bộ lại.";
+        }
+        if (lower.contains("mandatory") || lower.contains("is require")) {
+            return "Lazada yêu cầu bổ sung thuộc tính bắt buộc: " + rawMsg;
         }
         if (lower.contains("timeout") || lower.contains("connect") || lower.contains("connection")) {
             return "Lỗi kết nối tới sàn Lazada. Hệ thống sẽ tự động thử lại sau.";
         }
-        return "Lazada từ chối (" + code + "): " + rawMsg;
+        return rawMsg.startsWith("E") || rawMsg.startsWith("Lazada") ? rawMsg : ("Lazada từ chối (" + code + "): " + rawMsg);
     }
 
     private Map<String, String> layMapSellerSkuToSkuIdLazada(String appKey, String appSecret, String token) {
