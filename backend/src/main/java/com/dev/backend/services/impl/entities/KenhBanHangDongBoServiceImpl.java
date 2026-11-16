@@ -1221,8 +1221,6 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             xml.append("<color_family>").append(escapeXml(mappedColor)).append("</color_family>");
             xml.append("<size>").append(escapeXml(sizeVal)).append("</size>");
             xml.append("</saleProp>");
-            xml.append("<color_family>").append(escapeXml(mappedColor)).append("</color_family>");
-            xml.append("<size>").append(escapeXml(sizeVal)).append("</size>");
 
             xml.append("</Sku>");
         }
@@ -1300,7 +1298,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     }
                 }
                 if (createdSkuMap.isEmpty()) {
-                    ghiNhanLoiTaoSanPhamLazada(kenh, variants, "Lazada từ chối tạo: " + errorMsg);
+                    ghiNhanLoiTaoSanPhamLazada(kenh, variants, "Lazada từ chối tạo: " + dichLoiLazada(code, errorMsg));
                 }
             }
         } catch (Exception e) {
@@ -5980,6 +5978,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         }
         if (code.contains("501") || lower.contains("sellersku parameter is no longer supported") || lower.contains("use skuid")) {
             return "Lazada yêu cầu sử dụng mã SkuId số. Hệ thống đang tự động tra cứu SkuId từ sàn để đồng bộ lại.";
+        }
+        if (code.contains("500") || lower.contains("saleprop") || lower.contains("sales attributes")) {
+            return "Cấu hình thuộc tính phân loại bán hàng của Lazada chưa hợp lệ. Vui lòng bấm 'Thử lại' để hệ thống đồng bộ lại.";
         }
         if (lower.contains("timeout") || lower.contains("connect") || lower.contains("connection")) {
             return "Lỗi kết nối tới sàn Lazada. Hệ thống sẽ tự động thử lại sau.";
