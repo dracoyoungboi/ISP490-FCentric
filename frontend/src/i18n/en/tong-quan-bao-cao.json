@@ -1015,5 +1015,8 @@
   "Hủy lúc": "Cancelled at",
   "Bắt buộc · ghi vào nhật ký": "Required · saved to the log",
   "Mở khóa {{soChungTu}}?": "Unlock {{soChungTu}}?",
-  "Hủy lô {{soLo}}?": "Cancel batch {{soLo}}?"
+  "Hủy lô {{soLo}}?": "Cancel batch {{soLo}}?",
+  "{{count}} đã mở khóa_one": "{{count}} unlocked",
+  "{{count}} đã mở khóa_other": "{{count}} unlocked",
+  "Hơn {{nguong}} chứng từ nên đang thu gọn theo loại. Bấm một loại để xem từng chứng từ.": "More than {{nguong}} documents, so they are collapsed by type. Click a type to see its documents."
 }
