@@ -6120,6 +6120,319 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         return false;
     }
 
+    @Override
+    public boolean dongBoTrangThaiDangThucHienShopify(String maDonHangKenh) {
+        if (maDonHangKenh == null || maDonHangKenh.isBlank()) {
+            return false;
+        }
+
+        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(MA_KENH_SHOPIFY)
+                .or(() -> kenhBanHangRepository.findByMaKenh(MA_KENH_SHOPIFY.toLowerCase()))
+                .orElse(null);
+        if (kenh == null) return false;
+
+        String token = kenhBanHangService.getDecryptedShopifyAccessToken();
+        if (token == null || token.isBlank()) {
+            log.warn("[SHOPIFY-IN_PROGRESS] Không có Access Token hợp lệ cho đơn {}", maDonHangKenh);
+            return false;
+        }
+
+        String domain = extractDomainFromApiUrl(kenh.getApiUrl());
+        if (domain.isBlank()) {
+            return false;
+        }
+
+        RestTemplate restTemplate = createRestTemplate();
+        HttpHeaders headers = createHeaders(token);
+
+        try {
+            // 1. Lấy danh sách fulfillment orders của đơn hàng
+            String foUrl = "https://" + domain + "/admin/api/" + DEFAULT_API_VERSION + "/orders/" + maDonHangKenh + "/fulfillment_orders.json";
+            ResponseEntity<String> foRes = restTemplate.exchange(foUrl, HttpMethod.GET, new HttpEntity<>(headers), String.class);
+            if (foRes.getStatusCode().is2xxSuccessful() && foRes.getBody() != null) {
+                JsonNode root = objectMapper.readTree(foRes.getBody());
+                JsonNode foList = root.path("fulfillment_orders");
+                if (foList.isArray()) {
+                    for (JsonNode fo : foList) {
+                        String st = fo.path("status").asText("").trim().toLowerCase(Locale.ROOT);
+                        long foId = fo.path("id").asLong();
+                        if ("open".equalsIgnoreCase(st) && foId > 0) {
+                            // Gọi GraphQL fulfillmentOrderReportProgress để chuyển status sang IN_PROGRESS
+                            try {
+                                String gqlUrl = "https://" + domain + "/admin/api/" + DEFAULT_API_VERSION + "/graphql.json";
+                                String gqlQuery = "mutation { fulfillmentOrderReportProgress(id: \"gid://shopify/FulfillmentOrder/" + foId
+                                        + "\", progressReport: { reasonNotes: \"Đang xử lý nhặt và đóng gói tại kho FCentric\" }) { fulfillmentOrder { id status } userErrors { field message } } }";
+                                Map<String, String> gqlBody = Map.of("query", gqlQuery);
+                                HttpEntity<Map<String, String>> gqlEntity = new HttpEntity<>(gqlBody, headers);
+                                restTemplate.exchange(gqlUrl, HttpMethod.POST, gqlEntity, String.class);
+                                log.info("[SHOPIFY-IN_PROGRESS] Báo tiến trình kho GraphQL cho fulfillment order {} đơn {}", foId, maDonHangKenh);
+                            } catch (Exception ex) {
+                                log.debug("[SHOPIFY-IN_PROGRESS] Không gọi được GraphQL reportProgress, thử REST accept: {}", ex.getMessage());
+                            }
+
+                            // Fallback thử REST fulfillment_request/accept
+                            try {
+                                String acceptUrl = "https://" + domain + "/admin/api/" + DEFAULT_API_VERSION + "/fulfillment_orders/" + foId + "/fulfillment_request/accept.json";
+                                Map<String, Object> acceptBody = Map.of("message", "Đã tiếp nhận xử lý tại kho FCentric");
+                                restTemplate.exchange(acceptUrl, HttpMethod.POST, new HttpEntity<>(acceptBody, headers), String.class);
+                                log.info("[SHOPIFY-IN_PROGRESS] Accept fulfillment order {} đơn {}", foId, maDonHangKenh);
+                            } catch (Exception ignored) {}
+                        }
+                    }
+                }
+            }
+
+            // 2. Bổ sung tag "Đang thực hiện" trên đơn hàng Shopify để hiển thị rõ ràng trên giao diện quản trị Shopify
+            capNhatTagShopify(domain, token, maDonHangKenh, "Đang thực hiện", List.of("Đã xuất kho", "Đã giao"));
+            log.info("[SHOPIFY-IN_PROGRESS] Cập nhật thành công trạng thái Đang thực hiện cho đơn hàng {} trên Shopify", maDonHangKenh);
+            return true;
+        } catch (Exception e) {
+            log.warn("[SHOPIFY-IN_PROGRESS] Lỗi khi cập nhật trạng thái Đang thực hiện đơn {}: {}", maDonHangKenh, e.getMessage());
+            return false;
+        }
+    }
+
+    @Override
+    public boolean dongBoTrangThaiFulfilledShopify(Integer donId, String maDonHangKenh) {
+        if (maDonHangKenh == null || maDonHangKenh.isBlank()) {
+            return false;
+        }
+
+        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(MA_KENH_SHOPIFY)
+                .or(() -> kenhBanHangRepository.findByMaKenh(MA_KENH_SHOPIFY.toLowerCase()))
+                .orElse(null);
+        if (kenh == null) return false;
+
+        String token = kenhBanHangService.getDecryptedShopifyAccessToken();
+        if (token == null || token.isBlank()) {
+            log.warn("[SHOPIFY-FULFILL] Không có Access Token hợp lệ cho đơn {}", maDonHangKenh);
+            return false;
+        }
+
+        String domain = extractDomainFromApiUrl(kenh.getApiUrl());
+        if (domain.isBlank()) {
+            return false;
+        }
+
+        RestTemplate restTemplate = createRestTemplate();
+        HttpHeaders headers = createHeaders(token);
+
+        try {
+            // 1. Lấy danh sách fulfillment orders có thể hoàn tất
+            String foUrl = "https://" + domain + "/admin/api/" + DEFAULT_API_VERSION + "/orders/" + maDonHangKenh + "/fulfillment_orders.json";
+            ResponseEntity<String> foRes = restTemplate.exchange(foUrl, HttpMethod.GET, new HttpEntity<>(headers), String.class);
+            List<Long> availableFoIds = new ArrayList<>();
+            if (foRes.getStatusCode().is2xxSuccessful() && foRes.getBody() != null) {
+                JsonNode root = objectMapper.readTree(foRes.getBody());
+                JsonNode foList = root.path("fulfillment_orders");
+                if (foList.isArray()) {
+                    for (JsonNode fo : foList) {
+                        String st = fo.path("status").asText("").trim().toLowerCase(Locale.ROOT);
+                        if ("open".equalsIgnoreCase(st) || "in_progress".equalsIgnoreCase(st)) {
+                            availableFoIds.add(fo.path("id").asLong());
+                        }
+                    }
+                }
+            }
+
+            if (availableFoIds.isEmpty()) {
+                log.info("[SHOPIFY-FULFILL] Đơn hàng {} không có fulfillment order nào ở trạng thái open/in_progress (có thể đã fulfilled)", maDonHangKenh);
+                capNhatTagShopify(domain, token, maDonHangKenh, "Đã hoàn tất", List.of("Đang thực hiện"));
+                return true;
+            }
+
+            // 2. Tìm thông tin vận đơn
+            DonBanHang don = donId != null ? donBanHangRepository.findById(donId).orElse(null) : null;
+            String trackingNumber = null;
+            String trackingCompany = "FCentric Logistics";
+            if (don != null && don.getGhiChu() != null) {
+                java.util.regex.Matcher m = java.util.regex.Pattern.compile("\\[VẬN ĐƠN:\\s*([^\\-\\]]+)(?:\\s*-\\s*([^\\]]+))?\\]").matcher(don.getGhiChu());
+                if (m.find()) {
+                    trackingNumber = m.group(1).trim();
+                    if (m.group(2) != null && !m.group(2).isBlank()) {
+                        trackingCompany = m.group(2).trim();
+                    }
+                }
+            }
+            if (trackingNumber == null || trackingNumber.isBlank()) {
+                trackingNumber = "FCX-" + (don != null ? don.getSoDonHang() : maDonHangKenh);
+            }
+
+            // 3. Tạo fulfillment trên Shopify
+            String fulfillUrl = "https://" + domain + "/admin/api/" + DEFAULT_API_VERSION + "/fulfillments.json";
+            List<Map<String, Object>> lineItemsByFo = availableFoIds.stream()
+                    .map(id -> Map.<String, Object>of("fulfillment_order_id", id))
+                    .toList();
+
+            Map<String, Object> fulfillmentObj = new LinkedHashMap<>();
+            fulfillmentObj.put("message", "Đã xuất kho toàn bộ từ kho FCentric");
+            fulfillmentObj.put("notify_customer", false);
+            fulfillmentObj.put("tracking_info", Map.of(
+                    "company", trackingCompany,
+                    "number", trackingNumber
+            ));
+            fulfillmentObj.put("line_items_by_fulfillment_order", lineItemsByFo);
+
+            Map<String, Object> reqBody = Map.of("fulfillment", fulfillmentObj);
+            ResponseEntity<String> res = restTemplate.exchange(fulfillUrl, HttpMethod.POST, new HttpEntity<>(reqBody, headers), String.class);
+            if (res.getStatusCode().is2xxSuccessful()) {
+                log.info("[SHOPIFY-FULFILL] Tạo fulfillment thành công cho đơn {} trên Shopify (tracking: {}, carrier: {})",
+                        maDonHangKenh, trackingNumber, trackingCompany);
+                capNhatTagShopify(domain, token, maDonHangKenh, "Đã hoàn tất", List.of("Đang thực hiện"));
+                return true;
+            }
+        } catch (org.springframework.web.client.HttpStatusCodeException e) {
+            if (e.getStatusCode() == HttpStatus.UNPROCESSABLE_ENTITY && e.getResponseBodyAsString().contains("already")) {
+                log.info("[SHOPIFY-FULFILL] Đơn hàng {} đã được fulfilled trước đó trên Shopify", maDonHangKenh);
+                capNhatTagShopify(domain, token, maDonHangKenh, "Đã hoàn tất", List.of("Đang thực hiện"));
+                return true;
+            }
+            log.warn("[SHOPIFY-FULFILL] Lỗi HTTP khi tạo fulfillment đơn {}: {} - {}", maDonHangKenh, e.getStatusCode(), e.getResponseBodyAsString());
+        } catch (Exception e) {
+            log.error("[SHOPIFY-FULFILL] Lỗi kết nối khi tạo fulfillment đơn {}: {}", maDonHangKenh, e.getMessage());
+        }
+        return false;
+    }
+
+    @Override
+    public boolean dongBoTrangThaiDeliveredShopify(String maDonHangKenh) {
+        if (maDonHangKenh == null || maDonHangKenh.isBlank()) {
+            return false;
+        }
+
+        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(MA_KENH_SHOPIFY)
+                .or(() -> kenhBanHangRepository.findByMaKenh(MA_KENH_SHOPIFY.toLowerCase()))
+                .orElse(null);
+        if (kenh == null) return false;
+
+        String token = kenhBanHangService.getDecryptedShopifyAccessToken();
+        if (token == null || token.isBlank()) {
+            log.warn("[SHOPIFY-DELIVERED] Không có Access Token hợp lệ cho đơn {}", maDonHangKenh);
+            return false;
+        }
+
+        String domain = extractDomainFromApiUrl(kenh.getApiUrl());
+        if (domain.isBlank()) {
+            return false;
+        }
+
+        RestTemplate restTemplate = createRestTemplate();
+        HttpHeaders headers = createHeaders(token);
+
+        try {
+            // 1. Lấy danh sách fulfillment của đơn hàng
+            String getFulfillmentsUrl = "https://" + domain + "/admin/api/" + DEFAULT_API_VERSION + "/orders/" + maDonHangKenh + "/fulfillments.json";
+            ResponseEntity<String> res = restTemplate.exchange(getFulfillmentsUrl, HttpMethod.GET, new HttpEntity<>(headers), String.class);
+            if (res.getStatusCode().is2xxSuccessful() && res.getBody() != null) {
+                JsonNode root = objectMapper.readTree(res.getBody());
+                JsonNode fulfillments = root.path("fulfillments");
+                if (fulfillments.isArray()) {
+                    for (JsonNode f : fulfillments) {
+                        long fId = f.path("id").asLong();
+                        if (fId > 0) {
+                            String eventUrl = "https://" + domain + "/admin/api/" + DEFAULT_API_VERSION + "/orders/" + maDonHangKenh + "/fulfillments/" + fId + "/events.json";
+                            Map<String, Object> eventObj = Map.of(
+                                    "status", "delivered",
+                                    "happened_at", Instant.now().toString(),
+                                    "message", "Đã giao thành công tới khách hàng (FCentric)"
+                            );
+                            Map<String, Object> body = Map.of("event", eventObj);
+                            try {
+                                restTemplate.exchange(eventUrl, HttpMethod.POST, new HttpEntity<>(body, headers), String.class);
+                                log.info("[SHOPIFY-DELIVERED] Gửi sự kiện delivered cho fulfillment {} đơn {}", fId, maDonHangKenh);
+                            } catch (Exception ex) {
+                                log.warn("[SHOPIFY-DELIVERED] Không tạo được event delivered cho fulfillment {}: {}", fId, ex.getMessage());
+                            }
+                        }
+                    }
+                }
+            }
+
+            capNhatTagShopify(domain, token, maDonHangKenh, "Đã giao", List.of("Đang thực hiện"));
+            log.info("[SHOPIFY-DELIVERED] Cập nhật thành công trạng thái Đã giao cho đơn hàng {} trên Shopify", maDonHangKenh);
+            return true;
+        } catch (Exception e) {
+            log.warn("[SHOPIFY-DELIVERED] Lỗi khi cập nhật trạng thái Đã giao đơn {}: {}", maDonHangKenh, e.getMessage());
+            return false;
+        }
+    }
+
+    @Override
+    public boolean dongBoTrangThaiReturnedShopify(String maDonHangKenh) {
+        if (maDonHangKenh == null || maDonHangKenh.isBlank()) {
+            return false;
+        }
+
+        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(MA_KENH_SHOPIFY)
+                .or(() -> kenhBanHangRepository.findByMaKenh(MA_KENH_SHOPIFY.toLowerCase()))
+                .orElse(null);
+        if (kenh == null) return false;
+
+        String token = kenhBanHangService.getDecryptedShopifyAccessToken();
+        if (token == null || token.isBlank()) {
+            log.warn("[SHOPIFY-RETURN] Không có Access Token hợp lệ cho đơn {}", maDonHangKenh);
+            return false;
+        }
+
+        String domain = extractDomainFromApiUrl(kenh.getApiUrl());
+        if (domain.isBlank()) {
+            return false;
+        }
+
+        try {
+            capNhatTagShopify(domain, token, maDonHangKenh, "Bị hoàn trả", null);
+            log.info("[SHOPIFY-RETURN] Cập nhật thành công tag hoàn trả đơn {} trên Shopify", maDonHangKenh);
+            return true;
+        } catch (Exception e) {
+            log.warn("[SHOPIFY-RETURN] Lỗi khi cập nhật hoàn trả đơn {}: {}", maDonHangKenh, e.getMessage());
+            return false;
+        }
+    }
+
+    private void capNhatTagShopify(String domain, String token, String orderId, String tagToAdd, List<String> tagsToRemove) {
+        if (orderId == null || orderId.isBlank()) return;
+        long parsedOrderId;
+        try {
+            parsedOrderId = Long.parseLong(orderId.trim());
+        } catch (Exception ex) {
+            return;
+        }
+
+        try {
+            RestTemplate restTemplate = createRestTemplate();
+            HttpHeaders headers = createHeaders(token);
+            String orderUrl = "https://" + domain + "/admin/api/" + DEFAULT_API_VERSION + "/orders/" + parsedOrderId + ".json?fields=id,tags";
+            ResponseEntity<String> getRes = restTemplate.exchange(orderUrl, HttpMethod.GET, new HttpEntity<>(headers), String.class);
+            if (!getRes.getStatusCode().is2xxSuccessful() || getRes.getBody() == null) return;
+
+            JsonNode root = objectMapper.readTree(getRes.getBody());
+            String existingTags = root.path("order").path("tags").asText("");
+            Set<String> tagSet = new LinkedHashSet<>();
+            if (!existingTags.isBlank()) {
+                for (String t : existingTags.split(",")) {
+                    if (!t.trim().isBlank()) tagSet.add(t.trim());
+                }
+            }
+            if (tagsToRemove != null) {
+                for (String tr : tagsToRemove) {
+                    tagSet.remove(tr);
+                }
+            }
+            if (tagToAdd != null && !tagToAdd.isBlank()) {
+                tagSet.add(tagToAdd.trim());
+            }
+
+            String newTags = String.join(", ", tagSet);
+            if (!newTags.equals(existingTags)) {
+                String putUrl = "https://" + domain + "/admin/api/" + DEFAULT_API_VERSION + "/orders/" + parsedOrderId + ".json";
+                Map<String, Object> orderPayload = Map.of("order", Map.of("id", parsedOrderId, "tags", newTags));
+                restTemplate.exchange(putUrl, HttpMethod.PUT, new HttpEntity<>(orderPayload, headers), String.class);
+            }
+        } catch (Exception e) {
+            log.debug("[SHOPIFY-TAGS] Không thể cập nhật tag đơn {}: {}", orderId, e.getMessage());
+        }
+    }
+
     private String xacDinhMaKenhLazada(String maDonHangKenh) {
         if (maDonHangKenh != null && donBanHangRepository != null) {
             DonBanHang don = donBanHangRepository.findByMaDonHangKenh(maDonHangKenh).orElse(null);

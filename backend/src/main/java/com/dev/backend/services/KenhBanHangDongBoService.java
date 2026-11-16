@@ -116,5 +116,29 @@ public interface KenhBanHangDongBoService {
      * Lấy đường dẫn tải file PDF vận đơn chính thức (A6) từ TikTok Shop Open Platform.
      */
     String layShippingDocumentUrlTikTok(String maDonHangKenh);
+
+    /**
+     * Đồng bộ chuyển đơn hàng Shopify sang Đang thực hiện (in_progress)
+     * khi FCentric bắt đầu quy trình kho (Chờ nhặt hàng, Chờ đóng gói, Chờ xuất kho).
+     */
+    boolean dongBoTrangThaiDangThucHienShopify(String maDonHangKenh);
+
+    /**
+     * Đồng bộ chuyển đơn hàng Shopify sang Đã hoàn tất (fulfilled)
+     * khi FCentric hoàn tất xuất kho vật lý (Đã xuất kho - DA_XUAT_TOAN_BO = 3).
+     */
+    boolean dongBoTrangThaiFulfilledShopify(Integer donId, String maDonHangKenh);
+
+    /**
+     * Đồng bộ chuyển đơn hàng Shopify sang Đã giao (delivered)
+     * khi FCentric xác nhận đơn hàng thành công (Hoàn thành - HOAN_THANH = 5).
+     */
+    boolean dongBoTrangThaiDeliveredShopify(String maDonHangKenh);
+
+    /**
+     * Đồng bộ ghi nhận hoàn trả đơn hàng trên Shopify
+     * khi FCentric chuyển đơn sang Bị hoàn trả (BI_HOAN_TRA = 6).
+     */
+    boolean dongBoTrangThaiReturnedShopify(String maDonHangKenh);
 }
 
