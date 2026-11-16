@@ -78,6 +78,7 @@ public class ChuyenKeNoiBoService {
     private final PhieuChuyenKeRepository phieuRepo;
     private final ChiTietPhieuChuyenKeRepository chiTietRepo;
     private final LichSuGiaoDichKhoRepository lichSuRepo;
+    private final BienTheSanPhamRepository bienTheRepo;
 
     private volatile boolean sanSang;
     private volatile long lanKiemCuoi;
@@ -86,7 +87,8 @@ public class ChuyenKeNoiBoService {
                                 ViTriKhoRepository viTriRepo, TonKhoViTriRepository tonKeRepo,
                                 TonKhoTheoLoRepository tonLoRepo, LoHangRepository loRepo,
                                 NguoiDungRepository nguoiDungRepo, PhieuChuyenKeRepository phieuRepo,
-                                ChiTietPhieuChuyenKeRepository chiTietRepo, LichSuGiaoDichKhoRepository lichSuRepo) {
+                                ChiTietPhieuChuyenKeRepository chiTietRepo, LichSuGiaoDichKhoRepository lichSuRepo,
+                                BienTheSanPhamRepository bienTheRepo) {
         this.jdbc = jdbc;
         this.guard = guard;
         this.soTonKe = soTonKe;
@@ -99,6 +101,7 @@ public class ChuyenKeNoiBoService {
         this.phieuRepo = phieuRepo;
         this.chiTietRepo = chiTietRepo;
         this.lichSuRepo = lichSuRepo;
+        this.bienTheRepo = bienTheRepo;
     }
 
     // ───────────────────────────── Sẵn sàng (đã chạy migration chưa) ─────────────────────────────
@@ -151,6 +154,80 @@ public class ChuyenKeNoiBoService {
                 .or(() -> viTriRepo.findFirstByKho_IdAndMaViTriIgnoreCase(khoId, m))
                 .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("khoVanHanh.chuyenKeKhongTimThayKe", m)));
         return moTaKe(khoId, ke);
+    }
+
+    /**
+     * Quét mã hàng thay vì mã kệ ở bước đầu: mã vạch / SKU của biến thể, hoặc mã lô. Trả hàng đó và các kệ của kho đang
+     * chứa nó (số trên kệ, số lấy được sau khi trừ phần phiếu nhặt giữ và lô đang khóa kiểm kê), kệ lấy được nhiều trước.
+     * Không khớp mã nào → 404. Khớp mà không nằm trên kệ nào → danh sách kệ rỗng.
+     */
+    @Transactional(readOnly = true)
+    public ChuyenKeDto.HangTim timHang(Integer khoId, String ma) {
+        batBuocSanSang();
+        String m = ma == null ? "" : ma.trim();
+        if (m.isEmpty()) throw new CommonException(ThongDiep.of("khoVanHanh.chuyenKeNhapMaKe"));
+        // Mã vạch (UNIQUE đang tạm gỡ) và mã lô (chỉ duy nhất theo biến thể) có thể trùng: lấy cái đang nằm trên kệ của kho
+        // này nhiều nhất, không có thì cái đầu tiên
+        Integer btId = idUuTienKho(khoId, m, "bien_the_san_pham", "ma_vach_sku", "bien_the_san_pham_id");
+        BienTheSanPham bt = btId != null ? bienTheRepo.findById(btId).orElse(null) : bienTheRepo.findByMaSkuIgnoreCase(m).orElse(null);
+        Integer loTim = bt == null ? idUuTienKho(khoId, m, "lo_hang", "ma_lo", "lo_hang_id") : null;
+        LoHang lo = loTim == null ? null : loRepo.findById(loTim).orElse(null);
+        if (bt == null && lo == null) {
+            throw new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("khoVanHanh.chuyenKeKhongThayMa", m));
+        }
+        if (lo != null) bt = lo.getBienTheSanPham();
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = em.createNativeQuery("""
+                SELECT t.vi_tri_kho_id, t.lo_hang_id, SUM(t.so_luong) FROM ton_kho_vi_tri t
+                  JOIN vi_tri_kho v ON v.id = t.vi_tri_kho_id
+                 WHERE v.kho_id = :kho AND t.so_luong > 0 AND
+                """ + (lo != null ? "t.lo_hang_id = :ma" : "t.bien_the_san_pham_id = :ma") + """
+                 GROUP BY t.vi_tri_kho_id, t.lo_hang_id
+                """).setParameter("kho", khoId).setParameter("ma", lo != null ? lo.getId() : bt.getId()).getResultList();
+        KhoaKiemKeGuard.TrangThaiKhoa tt = guard.trangThaiHienThi(khoId);
+        Set<Integer> cacLo = new HashSet<>();
+        for (Object[] r : rows) cacLo.add(((Number) r[1]).intValue());
+        Map<Integer, Integer> dmLo = tt.danhMuc.isEmpty() ? Map.of() : guard.danhMucCuaLo(new ArrayList<>(cacLo));
+        Map<Integer, Map<Integer, Integer>> giuTheoLo = new HashMap<>();
+        for (Integer l : cacLo) giuTheoLo.put(l, phanBoKe.giuTrenKeCuaLo(khoId, l));
+        Map<Integer, int[]> theoKe = new LinkedHashMap<>();
+        for (Object[] r : rows) {
+            int keId = ((Number) r[0]).intValue(), loId = ((Number) r[1]).intValue(), ton = ((Number) r[2]).intValue();
+            int giu = Math.min(ton, giuTheoLo.get(loId).getOrDefault(keId, 0));
+            Integer dm = dmLo.get(loId);
+            boolean khoaLo = tt.capDangKhoa(keId, loId) || (dm != null && tt.danhMuc.containsKey(dm));
+            int[] x = theoKe.computeIfAbsent(keId, k -> new int[2]);
+            x[0] += ton;
+            x[1] += khoaLo ? 0 : ton - giu;
+        }
+        List<ChuyenKeDto.KeCoHang> ke = new ArrayList<>();
+        for (ViTriKho v : viTriRepo.findAllById(theoKe.keySet())) {
+            int[] x = theoKe.get(v.getId());
+            String khoa = khoaCuaKe(v, tt);
+            ke.add(new ChuyenKeDto.KeCoHang(v.getId(), v.getMaViTri(), v.getKhuVucKho() == null ? null : v.getKhuVucKho().getTenKhuVuc(),
+                    v.getDayKe(), v.getHangKe(), v.getTangKe(), v.getTrangThai(),
+                    v.getSucChuaToiDa() != null && v.getSucChuaToiDa() > 0 ? v.getSucChuaToiDa() : null,
+                    x[0], KHOA_KIEM_KE.equals(khoa) ? 0 : x[1], khoa));
+        }
+        ke.sort(Comparator.comparing((ChuyenKeDto.KeCoHang k) -> -k.layDuoc()).thenComparing(ChuyenKeDto.KeCoHang::maViTri));
+        return new ChuyenKeDto.HangTim(bt == null ? null : bt.getId(), bt == null ? null : bt.getMaSku(),
+                bt == null ? null : bt.getMaVachSku(), HienThiBienThe.tenSanPham(bt), HienThiBienThe.tenMau(bt),
+                HienThiBienThe.maMauHex(bt), HienThiBienThe.kichCo(bt), HienThiBienThe.anh(bt),
+                lo == null ? null : lo.getId(), lo == null ? null : lo.getMaLo(), ke);
+    }
+
+    /**
+     * id dòng của {@code bang} có cột {@code cot} = {@code ma}, ưu tiên dòng đang có hàng trên kệ của kho nhiều nhất
+     * ({@code cotTon}: cột nối ở ton_kho_vi_tri). Tên bảng / cột là hằng trong lớp này, không lấy từ người dùng.
+     */
+    private Integer idUuTienKho(Integer khoId, String ma, String bang, String cot, String cotTon) {
+        List<?> ds = em.createNativeQuery("SELECT x.id FROM " + bang + " x LEFT JOIN (SELECT t." + cotTon + " id, SUM(t.so_luong) sl"
+                        + " FROM ton_kho_vi_tri t JOIN vi_tri_kho v ON v.id = t.vi_tri_kho_id WHERE v.kho_id = :kho AND t.so_luong > 0"
+                        + " GROUP BY t." + cotTon + ") c ON c.id = x.id WHERE x." + cot + " = :ma ORDER BY c.sl IS NULL, c.sl DESC, x.id LIMIT 1")
+                .setParameter("kho", khoId)
+                .setParameter("ma", ma)
+                .getResultList();
+        return ds.isEmpty() ? null : ((Number) ds.get(0)).intValue();
     }
 
     /**
