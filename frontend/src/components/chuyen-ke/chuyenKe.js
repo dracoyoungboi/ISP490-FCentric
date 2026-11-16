@@ -103,6 +103,180 @@ export function ghepGhiChu(lyDo, ghiChu) {
   return s ? s.slice(0, TOI_DA_GHI_CHU) : null;
 }
 
+// ───────────────────────── Sơ đồ kệ (màn mở đầu và bước Kệ đích) ─────────────────────────
+
+/** So sánh dãy / hàng / tầng / mã theo thứ tự tự nhiên ("2" trước "10"). */
+const tuNhien = (a, b) => String(a ?? "").localeCompare(String(b ?? ""), "vi", { numeric: true });
+const coGiaTri = (x) => x != null && String(x).trim() !== "";
+
+/**
+ * Xếp kệ của kho lên sơ đồ: khu (theo tên, kệ chưa gán khu xếp cuối) → dãy → lưới hàng × tầng, tầng cao ở trên (tầng
+ * 1 sát sàn, như trang Vị trí kho). Kệ thiếu dãy, hàng hoặc tầng (đặt tên riêng) và kệ trùng ô vào nhóm `khac` của khu,
+ * xếp theo mã. Trả `[{ khu, soKe, dsDay: [{ day, hang: [...], tang: [...], o: Map("hang|tang" → kệ) }], khac: [kệ] }]`.
+ */
+export function xepSoDoKe(ds) {
+  const theoKhu = new Map();
+  for (const k of ds ?? []) {
+    const khu = k?.khuVuc || "";
+    if (!theoKhu.has(khu)) theoKhu.set(khu, []);
+    theoKhu.get(khu).push(k);
+  }
+  return [...theoKhu.entries()]
+    .sort(([a], [b]) => Number(!a) - Number(!b) || tuNhien(a, b))
+    .map(([khu, dsKhu]) => {
+      const theoDay = new Map();
+      const khac = [];
+      for (const k of dsKhu) {
+        if (!coGiaTri(k.dayKe) || !coGiaTri(k.hangKe) || !coGiaTri(k.tangKe)) {
+          khac.push(k);
+          continue;
+        }
+        const day = String(k.dayKe).trim();
+        if (!theoDay.has(day)) theoDay.set(day, new Map());
+        const o = theoDay.get(day);
+        const khoa = `${String(k.hangKe).trim()}|${String(k.tangKe).trim()}`;
+        if (o.has(khoa)) khac.push(k);
+        else o.set(khoa, k);
+      }
+      const dsDay = [...theoDay.entries()]
+        .sort(([a], [b]) => tuNhien(a, b))
+        .map(([day, o]) => {
+          const cap = [...o.keys()].map((x) => x.split("|"));
+          return {
+            day,
+            hang: [...new Set(cap.map((x) => x[0]))].sort(tuNhien),
+            tang: [...new Set(cap.map((x) => x[1]))].sort((a, b) => tuNhien(b, a)),
+            o,
+          };
+        });
+      return { khu, soKe: dsKhu.length, dsDay, khac: khac.sort((a, b) => tuNhien(a.maViTri, b.maViTri)) };
+    });
+}
+
+/**
+ * Các khu của kho để lọc sơ đồ: `[{ khu, soKe, soViec }]` theo tên (khu "" = kệ chưa gán khu, xếp cuối); `soViec` = số
+ * kệ cần xử lý trong khu (bảo trì còn hàng, vượt sức chứa).
+ */
+export function tomTatKhu(ds) {
+  const m = new Map();
+  for (const k of ds ?? []) {
+    const khu = k?.khuVuc || "";
+    if (!m.has(khu)) m.set(khu, { khu, soKe: 0, soViec: 0 });
+    const x = m.get(khu);
+    x.soKe += 1;
+    const l = loaiKeNguon(k);
+    if (l === "bao-tri" || l === "vuot") x.soViec += 1;
+  }
+  return [...m.values()].sort((a, b) => Number(!a.khu) - Number(!b.khu) || tuNhien(a.khu, b.khu));
+}
+
+/** Số lấy được của kệ: đang chứa trừ phần giữ cho phiếu nhặt (`choNhat`, máy chủ chưa trả thì coi là 0). */
+export const layDuocCua = (ke) => Math.max(0, (ke?.dangChua ?? 0) - (ke?.choNhat ?? 0));
+
+/** Kệ đang chứa quá sức chứa (quản lý kho đã cho cất vượt). */
+export const vuotSucChua = (ke) => coGioiHan(ke) && (ke.dangChua ?? 0) > ke.sucChua;
+
+/**
+ * Loại kệ ở bước Kệ nguồn (chọn kệ để lấy hàng): "khoa" (đang kiểm kê) · "trong" · "giu-het" (toàn bộ đang giữ cho
+ * phiếu nhặt) · "bao-tri" · "vuot" · "co-hang". Ba loại đầu không chọn được.
+ */
+export function loaiKeNguon(ke) {
+  if (lyDoKhoaGoiY(ke, "nguon") === "KIEM_KE") return "khoa";
+  if ((ke?.dangChua ?? 0) <= 0) return "trong";
+  if (layDuocCua(ke) <= 0) return "giu-het";
+  if (ke.khoa === "BAO_TRI" || ke.trangThai === "BAO_TRI") return "bao-tri";
+  if (vuotSucChua(ke)) return "vuot";
+  return "co-hang";
+}
+
+export const KE_NGUON_KHONG_CHON = new Set(["khoa", "trong", "giu-het"]);
+
+/** Bộ lọc của sơ đồ ở bước Kệ nguồn: "tat-ca" · "co-hang" (lấy được hàng) · "bao-tri" · "vuot". */
+export function khopLocNguon(ke, loc) {
+  const l = loaiKeNguon(ke);
+  if (loc === "co-hang") return !KE_NGUON_KHONG_CHON.has(l);
+  if (loc === "bao-tri" || loc === "vuot") return l === loc;
+  return true;
+}
+
+/**
+ * Kệ cần xử lý ở màn mở đầu: kệ bảo trì còn hàng lấy được (chuyển đi để sửa kệ) và kệ vượt sức chứa (chuyển bớt phần
+ * dư). Bỏ kệ đang kiểm kê. Trả `[{ loai: "bao-tri" | "vuot", ke, so }]`, `so` = số lấy được / số dư.
+ */
+export function keCanXuLy(ds) {
+  const kq = [];
+  for (const k of ds ?? []) {
+    const l = loaiKeNguon(k);
+    if (l === "bao-tri") kq.push({ loai: "bao-tri", ke: k, so: layDuocCua(k) });
+    else if (l === "vuot") kq.push({ loai: "vuot", ke: k, so: k.dangChua - k.sucChua });
+  }
+  return kq.sort((a, b) => Number(a.loai !== "bao-tri") - Number(b.loai !== "bao-tri") || tuNhien(a.ke.maViTri, b.ke.maViTri));
+}
+
+/**
+ * Loại kệ ở bước Kệ đích khi còn `can` sản phẩm chưa có chỗ: "nguon" · "khoa" (đang kiểm kê) · "khong-nhan" (bảo trì,
+ * trạng thái khác) · "day" (hết chỗ: quản lý kho vẫn cất vượt được) · "du" · "thieu" (ít chỗ hơn, hỏi tách cất).
+ */
+export function loaiKeDich(ke, { keNguonId, can = 0 } = {}) {
+  if (ke?.id === keNguonId) return "nguon";
+  const khoa = lyDoKhoaGoiY({ ...ke, sucChua: null }, "dich");
+  if (khoa === "KIEM_KE") return "khoa";
+  if (khoa) return "khong-nhan";
+  if (!coGioiHan(ke)) return "du";
+  const con = conTrongCua(ke);
+  return con <= 0 ? "day" : con >= can ? "du" : "thieu";
+}
+
+/**
+ * Sau khi máy chủ từ chối vì số trên kệ đã đổi: cập nhật các kệ đích đã chọn theo danh sách kệ vừa tải (`dsKeMoi`,
+ * dạng ds-ke). Bỏ kệ đã bị khóa, kệ không còn chỗ (trừ kệ quản lý kho cho cất vượt); kệ còn lại giữ nguyên thứ tự,
+ * đánh dấu `vuaDoi` nếu ít chỗ hơn lúc chọn. Kệ không có trong danh sách mới giữ nguyên. Trả `{ dsDich, bo: [mã kệ] }`.
+ */
+export function capNhatKeDich(dsDich, dsKeMoi) {
+  const moi = new Map((dsKeMoi ?? []).map((k) => [k.id, k]));
+  const bo = [];
+  const giu = [];
+  for (const d of dsDich ?? []) {
+    const k = moi.get(d.ke?.id);
+    if (!k) {
+      giu.push(d);
+      continue;
+    }
+    const ke = { ...d.ke, trangThai: k.trangThai, khoa: k.khoa ?? null, sucChua: k.sucChua, dangChua: k.dangChua, conTrong: k.sucChua ? Math.max(0, k.sucChua - k.dangChua) : null };
+    const khoa = lyDoKhoaGoiY({ ...ke, sucChua: null }, "dich");
+    if (khoa || (!d.vuot && conTrongCua(ke) <= 0)) {
+      bo.push(ke.maViTri);
+      continue;
+    }
+    giu.push({ ...d, ke, vuaDoi: conTrongCua(ke) < conTrongCua(d.ke) });
+  }
+  return { dsDich: giu, bo };
+}
+
+/** Số còn lại của từng lô sau khi gửi `dongGui` (chuyển phần đã có chỗ): `{ [loHangId]: so }`, bỏ lô đã hết. */
+export function conLaiTheoLo(dsChon, dongGui) {
+  const da = {};
+  for (const d of dongGui ?? []) da[d.loHangId] = (da[d.loHangId] ?? 0) + d.soLuong;
+  const kq = {};
+  for (const d of dsChon ?? []) {
+    const con = d.soLuong - (da[d.loHangId] ?? 0);
+    if (con > 0) kq[d.loHangId] = con;
+  }
+  return kq;
+}
+
+/** Gom dòng đã gửi theo kệ đích (giữ thứ tự cất): `[{ keDichId, dong: [...], tong }]`. */
+export function gomTheoKeDich(dong) {
+  const theoKe = new Map();
+  for (const d of dong ?? []) {
+    if (!theoKe.has(d.keDichId)) theoKe.set(d.keDichId, { keDichId: d.keDichId, dong: [], tong: 0 });
+    const g = theoKe.get(d.keDichId);
+    g.dong.push(d);
+    g.tong += d.soLuong;
+  }
+  return [...theoKe.values()];
+}
+
 /** Danh sách kệ dùng gần đây (mới nhất trước, không trùng, tối đa `toiDa`). */
 export function themKeGanDay(ds, ma, toiDa = 5) {
   const m = String(ma ?? "").trim();
@@ -120,8 +294,10 @@ const SO_GOI_Y_LOC = 30;
  */
 export function lyDoKhoaGoiY(ke, vaiTro) {
   const tt = ke?.trangThai;
-  if (tt === "KHOA_KIEM_KE") return "KIEM_KE";
+  // `khoa` từ máy chủ tính cả khóa theo đợt kiểm kê đang mở (kệ chưa đổi trạng thái vẫn bị khóa)
+  if (ke?.khoa === "KIEM_KE" || tt === "KHOA_KIEM_KE") return "KIEM_KE";
   if (vaiTro === "dich") {
+    if (ke?.khoa === "BAO_TRI" || ke?.khoa === "KHAC") return ke.khoa;
     if (tt === "BAO_TRI") return "BAO_TRI";
     if (tt && tt !== "HOAT_DONG" && tt !== "DAY_HANG") return "KHAC";
     if (ke.sucChua && ke.dangChua >= ke.sucChua) return "DAY";
