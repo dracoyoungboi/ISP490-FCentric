@@ -1124,15 +1124,32 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         xml.append("<warranty_type>No Warranty</warranty_type>");
         xml.append("<fa_pattern>Trơn</fa_pattern>");
 
-        // Phân loại thuộc tính Lazada theo ngành hàng Quần (Bottoms) và Áo (Tops)
+        // Phân loại thuộc tính Lazada theo ngành hàng Quần (Bottoms), Áo khoác (Jackets), và Áo thun/sơ mi (Tops)
         // Quần Jeans (6414) và Quần dài/ngắn (7991, 10100765) không nhận Fit_Type của Áo để tránh lỗi schema sàn
+        // Áo khoác (7953) không nhận Fit_Type của Áo thun để tránh lỗi sàn từ chối
         boolean laQuanLazada = (categoryId == 6414 || categoryId == 7991 || categoryId == 10100765);
+        boolean laAoKhoacLazada = (categoryId == 7953 || categoryId == 6424);
+        boolean nhanFitType = (categoryId == 7930 || categoryId == 7940 || categoryId == 14275);
+
+        String tenSp = sp.getTenSanPham() != null ? sp.getTenSanPham() : "";
+        boolean laPoly = tenSp.toLowerCase(Locale.ROOT).contains("poly")
+                || tenSp.toLowerCase(Locale.ROOT).contains("gió")
+                || tenSp.toLowerCase(Locale.ROOT).contains("dù")
+                || variants.stream().anyMatch(v -> v.getChatLieu() != null && v.getChatLieu().getTenChatLieu() != null
+                        && v.getChatLieu().getTenChatLieu().toLowerCase(Locale.ROOT).contains("poly"));
+
         if (laQuanLazada) {
-            String materialQuan = (categoryId == 6414) ? "Denim" : "100% Cotton";
+            String materialQuan = (categoryId == 6414) ? "Denim" : (laPoly ? "Polyester" : "100% Cotton");
             xml.append("<clothing_material>").append(materialQuan).append("</clothing_material>");
+        } else if (laAoKhoacLazada) {
+            String materialKhoac = laPoly ? "Polyester" : "100% Cotton";
+            xml.append("<clothing_material>").append(materialKhoac).append("</clothing_material>");
         } else {
-            xml.append("<clothing_material>100% Cotton</clothing_material>");
-            xml.append("<Fit_Type>Slim Fit</Fit_Type>");
+            String materialAo = laPoly ? "Polyester" : "100% Cotton";
+            xml.append("<clothing_material>").append(materialAo).append("</clothing_material>");
+            if (nhanFitType) {
+                xml.append("<Fit_Type>Slim Fit</Fit_Type>");
+            }
         }
         xml.append("</Attributes>");
 
@@ -1217,6 +1234,25 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     errorMsg += " - " + createRes.path("detail").get(0).path("message").asText("");
                 }
                 log.warn("[LAZADA-CREATE] Lazada từ chối tạo sản phẩm [{}]: code={} - {}", productName, code, errorMsg);
+
+                boolean alreadyExists = errorMsg.toLowerCase(Locale.ROOT).contains("duplicate")
+                        || errorMsg.toLowerCase(Locale.ROOT).contains("exist")
+                        || code.toLowerCase(Locale.ROOT).contains("duplicate");
+                if (alreadyExists) {
+                    Map<String, String> recoveredMap = layMapSellerSkuToSkuIdLazada(appKey, appSecret, token);
+                    for (BienTheSanPham bt : variants) {
+                        if (bt.getMaSku() != null) {
+                            String norm = bt.getMaSku().trim().toLowerCase(Locale.ROOT);
+                            String recSkuId = recoveredMap.get(norm);
+                            if (recSkuId != null && recSkuId.matches("\\d+")) {
+                                createdSkuMap.put(norm, recSkuId);
+                            }
+                        }
+                    }
+                }
+                if (createdSkuMap.isEmpty()) {
+                    ghiNhanLoiTaoSanPhamLazada(kenh, variants, "Lazada từ chối tạo: " + errorMsg);
+                }
             }
         } catch (Exception e) {
             log.error("[LAZADA-CREATE] Lỗi khi tạo sản phẩm [{}] lên Lazada: {}", productName, e.getMessage());
@@ -3043,7 +3079,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                         record.setChiTietLoi(null);
                     } else {
                         record.setTrangThaiDongBo("that_bai");
-                        record.setChiTietLoi("Chưa xác định được mã phân loại SKU trên Lazada.");
+                        if (record.getChiTietLoi() == null || record.getChiTietLoi().isBlank()) {
+                            record.setChiTietLoi("Chưa xác định được SkuId trên Lazada. Vui lòng bấm 'Đưa sản phẩm FCentric lên Lazada' để tạo lại.");
+                        }
                     }
                 }
                 record.setNgayDongBoCuoi(Instant.now());
@@ -3053,7 +3091,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                         .bienTheSanPham(bt)
                         .maSanPhamKenh(targetSkuId)
                         .trangThaiDongBo(hasNumericSkuId ? "thanh_cong" : "that_bai")
-                        .chiTietLoi(hasNumericSkuId ? null : "Chưa xác định được mã phân loại SKU trên Lazada.")
+                        .chiTietLoi(hasNumericSkuId ? null : "Chưa xác định được SkuId trên Lazada. Vui lòng bấm 'Đưa sản phẩm FCentric lên Lazada' để tạo lại.")
                         .ngayDongBoCuoi(Instant.now())
                         .build();
             }
@@ -3092,18 +3130,26 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public TuDongLienKetResultDto tuDongLienKet(String maKenh) {
         KenhBanHang kenh = getKenhActive(maKenh);
-        if (OmnichannelOrderSyncJob.isLazada(kenh.getMaKenh())) {
-            return tuDongLienKetLazada(kenh);
+        ReentrantLock khoa = khoaDayTon.computeIfAbsent(kenh.getId(), id -> new ReentrantLock());
+        boolean daKhoa = false;
+        try {
+            daKhoa = khoa.tryLock(5, TimeUnit.SECONDS);
+        } catch (InterruptedException ignored) {}
+        if (!daKhoa) {
+            throw new CommonException("Kênh " + kenh.getTenKenh() + " đang có tiến trình đồng bộ khác đang chạy. Vui lòng chờ đợt hiện tại hoàn tất.", HttpStatus.CONFLICT, null);
         }
-        if (OmnichannelOrderSyncJob.isTikTok(kenh.getMaKenh())) {
-            return tuDongLienKetTikTok(kenh);
-        }
-        if (OmnichannelOrderSyncJob.isShopee(kenh.getMaKenh())) {
-            return tuDongLienKetShopee(kenh);
-        }
+        try {
+            if (OmnichannelOrderSyncJob.isLazada(kenh.getMaKenh())) {
+                return tuDongLienKetLazada(kenh);
+            }
+            if (OmnichannelOrderSyncJob.isTikTok(kenh.getMaKenh())) {
+                return tuDongLienKetTikTok(kenh);
+            }
+            if (OmnichannelOrderSyncJob.isShopee(kenh.getMaKenh())) {
+                return tuDongLienKetShopee(kenh);
+            }
         kiemTraDaKetNoi(kenh);
         String token = kenhBanHangService.getDecryptedShopifyAccessToken();
         String domain = extractDomainFromApiUrl(kenh.getApiUrl());
@@ -3318,16 +3364,21 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                         + soTaoMoiTrenShopify + " tạo mới Shopify, " + soCapNhatTrenShopify + " cập nhật Shopify, "
                         + soTonKhoDaDay + " cập nhật tồn kho, " + soAnhDaDay + " ảnh đã đồng bộ");
 
-        return TuDongLienKetResultDto.builder()
-                .soDaGhep(soDaGhep)
-                .soKhongKhop(0)
-                .soNhieuKhop(0)
-                .soTaoMoiTrenShopify(soTaoMoiTrenShopify)
-                .soCapNhatTrenShopify(soCapNhatTrenShopify)
-                .soTonKhoDaDay(soTonKhoDaDay)
-                .soAnhDaDay(soAnhDaDay)
-                .soThatBai(soThatBai)
-                .build();
+            return TuDongLienKetResultDto.builder()
+                    .soDaGhep(soDaGhep)
+                    .soKhongKhop(0)
+                    .soNhieuKhop(0)
+                    .soTaoMoiTrenShopify(soTaoMoiTrenShopify)
+                    .soCapNhatTrenShopify(soCapNhatTrenShopify)
+                    .soTonKhoDaDay(soTonKhoDaDay)
+                    .soAnhDaDay(soAnhDaDay)
+                    .soThatBai(soThatBai)
+                    .build();
+        } finally {
+            if (daKhoa) {
+                khoa.unlock();
+            }
+        }
     }
 
     @Override
@@ -3989,7 +4040,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
             for (DongCanCapNhat invalidItem : invalidBatch) {
                 invalidItem.dong().setTrangThaiDongBo("that_bai");
-                invalidItem.dong().setChiTietLoi("Chưa xác định được SkuId số trên Lazada. Vui lòng bấm Tự động liên kết để đồng bộ.");
+                if (invalidItem.dong().getChiTietLoi() == null || invalidItem.dong().getChiTietLoi().isBlank()
+                        || invalidItem.dong().getChiTietLoi().contains("Tự động liên kết")) {
+                    invalidItem.dong().setChiTietLoi("Sản phẩm chưa được tạo thành công trên Lazada. Vui lòng bấm 'Đưa sản phẩm FCentric lên Lazada' để tạo lại.");
+                }
                 soLoi++;
                 theoDoi.daDay(invalidItem.sellerSku(), tenHienThi(invalidItem.dong().getBienTheSanPham()), false, invalidItem.dong().getChiTietLoi());
             }
@@ -4613,80 +4667,94 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public LienKetSanPhamDto thuLai(Integer lienKetId) {
         TrangThaiDongBoSanPham tt = trangThaiDongBoSanPhamRepository.findById(lienKetId)
                 .orElseThrow(() -> new CommonException(ThongDiep.of("kenhBan.khongTimThayLienKet", lienKetId), HttpStatus.NOT_FOUND, null));
         kiemTraDaKetNoi(tt.getKenhBanHang());
 
-        BienTheSanPham bt = tt.getBienTheSanPham();
-        BigDecimal soLuongKhaDung = BigDecimal.ZERO;
-        if (bt != null) {
-            KenhBanHang kenhCuaDong = tt.getKenhBanHang();
-
-            // Nếu biến thể chưa có mã sản phẩm trên sàn (do lần tạo trước bị sàn từ chối):
-            // Tự động gọi tạo/liên kết lại sản phẩm trên sàn thay vì cố đẩy tồn làm xuất hiện lỗi kỹ thuật Item ID
-            if (tt.getMaSanPhamKenh() == null || tt.getMaSanPhamKenh().isBlank()) {
-                if (kenhCuaDong != null && OmnichannelOrderSyncJob.isShopee(kenhCuaDong.getMaKenh())) {
-                    log.info("[SHOPEE-RETRY] Biến thể SKU {} chưa có Item ID trên Shopee, tự động tạo/liên kết lại sản phẩm...", bt.getMaSku());
-                    tuDongLienKetShopee(kenhCuaDong);
-                    tt = trangThaiDongBoSanPhamRepository.findById(lienKetId).orElse(tt);
-                } else if (kenhCuaDong != null && OmnichannelOrderSyncJob.isTikTok(kenhCuaDong.getMaKenh())) {
-                    log.info("[TIKTOK-RETRY] Biến thể SKU {} chưa có Product ID trên TikTok Shop, tự động tạo/liên kết lại...", bt.getMaSku());
-                    tuDongLienKetTikTok(kenhCuaDong);
-                    tt = trangThaiDongBoSanPhamRepository.findById(lienKetId).orElse(tt);
-                } else if (kenhCuaDong != null && OmnichannelOrderSyncJob.isLazada(kenhCuaDong.getMaKenh())) {
-                    log.info("[LAZADA-RETRY] Biến thể SKU {} chưa có Item ID trên Lazada, tự động tạo/liên kết lại...", bt.getMaSku());
-                    tuDongLienKetLazada(kenhCuaDong);
-                    tt = trangThaiDongBoSanPhamRepository.findById(lienKetId).orElse(tt);
-                }
-            }
-
-            soLuongKhaDung = khaDungToanChuoi(bt.getId());
-
-            // Nếu sau khi thử liên kết vẫn chưa có mã sản phẩm kênh (sàn tiếp tục từ chối tạo):
-            // Giữ nguyên lý do lỗi từ chối tạo của sàn, không gọi đẩy tồn để tránh ghi đè lỗi kỹ thuật
-            if (tt.getMaSanPhamKenh() != null && !tt.getMaSanPhamKenh().isBlank()) {
-                KetNoiDayTon ketNoi = moKetNoiDayTon(kenhCuaDong);
-                if (ketNoi.lyDoLoi() != null) {
-                    throw new CommonException(ketNoi.lyDoLoi(), HttpStatus.BAD_REQUEST, null);
-                }
-                int soDay = soTonDayTheoQuyTacDaLuu(kenhCuaDong.getMaKenh(), soLuongKhaDung);
-                KetQuaGuiTon kq = dayTonChoDong(tt, ketNoi, soDay);
-                if (kq.loiKenh()) {
-                    throw new CommonException(kq.lyDo(), HttpStatus.BAD_REQUEST, null);
-                }
-                if (kq.thanhCong()) {
-                    lanDayTonCuoi.put(kenhCuaDong.getId(), Instant.now());
-                } else {
-                    log.warn("Thử lại đồng bộ SKU {} thất bại: {}", bt.getMaSku(), kq.lyDo());
-                }
-                trangThaiDongBoSanPhamRepository.save(tt);
+        KenhBanHang kenhCuaDong = tt.getKenhBanHang();
+        ReentrantLock khoa = kenhCuaDong != null ? khoaDayTon.computeIfAbsent(kenhCuaDong.getId(), id -> new ReentrantLock()) : null;
+        boolean daKhoa = false;
+        if (khoa != null) {
+            try {
+                daKhoa = khoa.tryLock(5, TimeUnit.SECONDS);
+            } catch (InterruptedException ignored) {}
+            if (!daKhoa) {
+                throw new CommonException("Kênh " + (kenhCuaDong != null ? kenhCuaDong.getTenKenh() : "") + " đang có tiến trình đồng bộ khác đang chạy. Vui lòng chờ vài giây rồi thử lại.", HttpStatus.CONFLICT, null);
             }
         }
+        try {
+            BienTheSanPham bt = tt.getBienTheSanPham();
+            BigDecimal soLuongKhaDung = BigDecimal.ZERO;
+            if (bt != null) {
+                // Nếu biến thể chưa có mã sản phẩm trên sàn (do lần tạo trước bị sàn từ chối):
+                // Tự động gọi tạo/liên kết lại sản phẩm trên sàn thay vì cố đẩy tồn làm xuất hiện lỗi kỹ thuật Item ID
+                if (tt.getMaSanPhamKenh() == null || tt.getMaSanPhamKenh().isBlank()) {
+                    if (kenhCuaDong != null && OmnichannelOrderSyncJob.isShopee(kenhCuaDong.getMaKenh())) {
+                        log.info("[SHOPEE-RETRY] Biến thể SKU {} chưa có Item ID trên Shopee, tự động tạo/liên kết lại sản phẩm...", bt.getMaSku());
+                        tuDongLienKetShopee(kenhCuaDong);
+                        tt = trangThaiDongBoSanPhamRepository.findById(lienKetId).orElse(tt);
+                    } else if (kenhCuaDong != null && OmnichannelOrderSyncJob.isTikTok(kenhCuaDong.getMaKenh())) {
+                        log.info("[TIKTOK-RETRY] Biến thể SKU {} chưa có Product ID trên TikTok Shop, tự động tạo/liên kết lại...", bt.getMaSku());
+                        tuDongLienKetTikTok(kenhCuaDong);
+                        tt = trangThaiDongBoSanPhamRepository.findById(lienKetId).orElse(tt);
+                    } else if (kenhCuaDong != null && OmnichannelOrderSyncJob.isLazada(kenhCuaDong.getMaKenh())) {
+                        log.info("[LAZADA-RETRY] Biến thể SKU {} chưa có Item ID trên Lazada, tự động tạo/liên kết lại...", bt.getMaSku());
+                        tuDongLienKetLazada(kenhCuaDong);
+                        tt = trangThaiDongBoSanPhamRepository.findById(lienKetId).orElse(tt);
+                    }
+                }
 
-        Integer sanPhamIdCuaDong = bt != null && bt.getSanPham() != null ? bt.getSanPham().getId() : null;
-        return LienKetSanPhamDto.builder()
-                .id(tt.getId())
-                .skuSan(tt.getMaSanPhamKenh())
-                .tenSanPhamSan(bt != null && bt.getSanPham() != null ? bt.getSanPham().getTenSanPham() : null)
-                .tenBienTheSan(bt != null ? buildVariantName(bt) : null)
-                .giaBanSan(bt != null ? bt.getGiaBan() : null)
-                .bienTheSanPhamId(bt != null ? bt.getId() : null)
-                .sanPhamId(sanPhamIdCuaDong)
-                .anhDaiDien(anhDaiDienCuaSanPham(sanPhamIdCuaDong))
-                .maSku(bt != null ? bt.getMaSku() : null)
-                .tenSanPham(bt != null && bt.getSanPham() != null ? bt.getSanPham().getTenSanPham() : null)
-                .tenBienThe(bt != null ? buildVariantName(bt) : null)
-                .giaBan(bt != null ? bt.getGiaBan() : null)
-                .soLuongKhaDung(soLuongKhaDung)
-                .soLuongDaDay(soDaDay(tt))
-                .ngayDayTonCuoi(tt.getNgayDayTonCuoi())
-                .choPhepDongBo(true)
-                .trangThaiLienKet(mapStatusToFrontend(tt.getTrangThaiDongBo()))
-                .ngayDongBoCuoi(tt.getNgayDongBoCuoi())
-                .chiTietLoi(tt.getChiTietLoi())
-                .build();
+                soLuongKhaDung = khaDungToanChuoi(bt.getId());
+
+                // Nếu sau khi thử liên kết vẫn chưa có mã sản phẩm kênh (sàn tiếp tục từ chối tạo):
+                // Giữ nguyên lý do lỗi từ chối tạo của sàn, không gọi đẩy tồn để tránh ghi đè lỗi kỹ thuật
+                if (tt.getMaSanPhamKenh() != null && !tt.getMaSanPhamKenh().isBlank()) {
+                    KetNoiDayTon ketNoi = moKetNoiDayTon(kenhCuaDong);
+                    if (ketNoi.lyDoLoi() != null) {
+                        throw new CommonException(ketNoi.lyDoLoi(), HttpStatus.BAD_REQUEST, null);
+                    }
+                    int soDay = soTonDayTheoQuyTacDaLuu(kenhCuaDong.getMaKenh(), soLuongKhaDung);
+                    KetQuaGuiTon kq = dayTonChoDong(tt, ketNoi, soDay);
+                    if (kq.loiKenh()) {
+                        throw new CommonException(kq.lyDo(), HttpStatus.BAD_REQUEST, null);
+                    }
+                    if (kq.thanhCong()) {
+                        lanDayTonCuoi.put(kenhCuaDong.getId(), Instant.now());
+                    } else {
+                        log.warn("Thử lại đồng bộ SKU {} thất bại: {}", bt.getMaSku(), kq.lyDo());
+                    }
+                    trangThaiDongBoSanPhamRepository.save(tt);
+                }
+            }
+
+            Integer sanPhamIdCuaDong = bt != null && bt.getSanPham() != null ? bt.getSanPham().getId() : null;
+            return LienKetSanPhamDto.builder()
+                    .id(tt.getId())
+                    .skuSan(tt.getMaSanPhamKenh())
+                    .tenSanPhamSan(bt != null && bt.getSanPham() != null ? bt.getSanPham().getTenSanPham() : null)
+                    .tenBienTheSan(bt != null ? buildVariantName(bt) : null)
+                    .giaBanSan(bt != null ? bt.getGiaBan() : null)
+                    .bienTheSanPhamId(bt != null ? bt.getId() : null)
+                    .sanPhamId(sanPhamIdCuaDong)
+                    .anhDaiDien(anhDaiDienCuaSanPham(sanPhamIdCuaDong))
+                    .maSku(bt != null ? bt.getMaSku() : null)
+                    .tenSanPham(bt != null && bt.getSanPham() != null ? bt.getSanPham().getTenSanPham() : null)
+                    .tenBienThe(bt != null ? buildVariantName(bt) : null)
+                    .giaBan(bt != null ? bt.getGiaBan() : null)
+                    .soLuongKhaDung(soLuongKhaDung)
+                    .soLuongDaDay(soDaDay(tt))
+                    .ngayDayTonCuoi(tt.getNgayDayTonCuoi())
+                    .choPhepDongBo(true)
+                    .trangThaiLienKet(mapStatusToFrontend(tt.getTrangThaiDongBo()))
+                    .ngayDongBoCuoi(tt.getNgayDongBoCuoi())
+                    .chiTietLoi(tt.getChiTietLoi())
+                    .build();
+        } finally {
+            if (daKhoa && khoa != null) {
+                khoa.unlock();
+            }
+        }
     }
 
     /**
@@ -7677,6 +7745,25 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     }
                 }
 
+                if (isAlive) {
+                    try {
+                        JsonNode baseRes = client.getItemBaseInfo(List.of(existingItemId));
+                        JsonNode itList = baseRes != null ? baseRes.path("response").path("item_list") : null;
+                        if (itList == null || !itList.isArray() || itList.isEmpty()) {
+                            isAlive = false;
+                            errorStr = "Không tìm thấy thông tin sản phẩm trên Shopee (đã bị xóa)";
+                        } else {
+                            String itemStatus = itList.get(0).path("item_status").asText("");
+                            if (!itemStatus.isBlank() && !"NORMAL".equalsIgnoreCase(itemStatus)) {
+                                isAlive = false;
+                                errorStr = "Sản phẩm trên Shopee ở trạng thái: " + itemStatus + " (không hoạt động)";
+                            }
+                        }
+                    } catch (Exception bEx) {
+                        log.warn("[SHOPEE-BASE-INFO] Lỗi kiểm tra item_status cho Item ID {}: {}", existingItemId, bEx.getMessage());
+                    }
+                }
+
                 if (!isAlive) {
                     log.warn("[SHOPEE-UPSERT] Sản phẩm Item ID {} trên Shopee đã bị xóa hoặc ở trạng thái bất thường ({}). Tự động hủy liên kết cũ và chuyển sang tạo mới...",
                             existingItemId, errorStr);
@@ -8254,6 +8341,33 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 trangThaiDongBoSanPhamRepository.save(record);
             } catch (Exception ex) {
                 log.warn("[SHOPEE-SYNC] Không thể lưu trạng thái lỗi tạo sản phẩm cho SKU {}: {}", bt.getMaSku(), ex.getMessage());
+            }
+        }
+    }
+
+    private void ghiNhanLoiTaoSanPhamLazada(KenhBanHang kenh, List<BienTheSanPham> variants, String lyDoLoi) {
+        if (kenh == null || variants == null || variants.isEmpty()) return;
+        Instant now = Instant.now();
+        for (BienTheSanPham bt : variants) {
+            if (bt == null || bt.getId() == null) continue;
+            try {
+                TrangThaiDongBoSanPham record = trangThaiDongBoSanPhamRepository.findByKenhBanHangIdAndBienTheSanPhamId(kenh.getId(), bt.getId()).orElse(null);
+                if (record == null) {
+                    record = TrangThaiDongBoSanPham.builder()
+                            .kenhBanHang(kenh)
+                            .bienTheSanPham(bt)
+                            .trangThaiDongBo("that_bai")
+                            .chiTietLoi(lyDoLoi)
+                            .ngayDongBoCuoi(now)
+                            .build();
+                } else {
+                    record.setTrangThaiDongBo("that_bai");
+                    record.setChiTietLoi(lyDoLoi);
+                    record.setNgayDongBoCuoi(now);
+                }
+                trangThaiDongBoSanPhamRepository.save(record);
+            } catch (Exception ex) {
+                log.warn("[LAZADA-SYNC] Không thể lưu trạng thái lỗi tạo sản phẩm cho SKU {}: {}", bt.getMaSku(), ex.getMessage());
             }
         }
     }
