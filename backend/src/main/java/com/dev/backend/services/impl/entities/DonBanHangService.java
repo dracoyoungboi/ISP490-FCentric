@@ -678,6 +678,14 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         don.setNgayCapNhat(Instant.now());
         repository.save(don);
 
+        if (don.getKenhBanHang() != null && OmnichannelOrderSyncJob.isShopify(don.getKenhBanHang().getMaKenh())
+                && don.getMaDonHangKenh() != null && !don.getMaDonHangKenh().isBlank()
+                && kenhBanHangDongBoService != null) {
+            String shopifyOrderId = don.getMaDonHangKenh();
+            SauCommit.chay("Đồng bộ gửi sang kho sang Shopify (in_progress)",
+                    () -> kenhBanHangDongBoService.dongBoTrangThaiDangThucHienShopify(shopifyOrderId));
+        }
+
         // Ghi Audit Trail (lich_su_thay_doi)
         try {
             NguoiDungAuthInfo auth = SecurityContextHolder.getUser();
@@ -1027,7 +1035,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         }
 
         String st = trangThaiSan.toLowerCase();
-        if (st.contains("delivered") || st.contains("fulfilled") || st.contains("completed")) {
+        if (st.contains("delivered") || st.contains("completed")) {
             // Cho phép từ DA_XUAT_TOAN_BO (3), DA_DONG_GOI (8), CHO_DONG_GOI (7)
             if (trangThaiHienTai == ITrangThaiDonBanHang.DA_XUAT_TOAN_BO
                     || trangThaiHienTai == ITrangThaiDonBanHang.DA_DONG_GOI
@@ -1049,11 +1057,13 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                 log.info("[CHANNEL-DELIVERY] Đơn {} đã giao thành công trên sàn -> Chuyển Hoàn thành (5)", don.getSoDonHang());
                 return true;
             }
-        } else if (st.contains("shipped") || st.contains("in_transit")) {
-            // Sàn đã xuất giao (shipped / in_transit) -> nếu đang đóng gói (8) hoặc chờ đóng gói (7) thì chuyển sang Đã xuất kho (3)
+        } else if (st.contains("shipped") || st.contains("in_transit") || st.contains("fulfilled") || st.contains("to_confirm_receive")) {
+            // Sàn đã xuất giao (shipped / in_transit / fulfilled / to_confirm_receive) -> nếu đang đóng gói (8), chờ đóng gói (7) hoặc chờ nhặt (1) thì chuyển sang Đã xuất kho (3)
             // TUY NHIÊN: Nếu đơn có phiếu xuất kho đang chờ duyệt/xác nhận (CHO_XUAT hoặc NHAP),
             // thì BẮT BUỘC giữ nguyên trạng thái kho nội bộ, không được tự ý nhảy cóc sang Đã xuất kho!
-            if (trangThaiHienTai == ITrangThaiDonBanHang.DA_DONG_GOI || trangThaiHienTai == ITrangThaiDonBanHang.CHO_DONG_GOI) {
+            if (trangThaiHienTai == ITrangThaiDonBanHang.DA_DONG_GOI 
+                    || trangThaiHienTai == ITrangThaiDonBanHang.CHO_DONG_GOI
+                    || trangThaiHienTai == ITrangThaiDonBanHang.CHO_NHAT_HANG) {
                 List<PhieuXuatKho> phieuList = phieuXuatKhoRepository.findByDonBanHangId(don.getId());
                 boolean coPhieuChuaXuat = phieuList != null && phieuList.stream()
                         .anyMatch(p -> p.getTrangThai() != null &&
@@ -1066,15 +1076,16 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                 don.setTrangThai(ITrangThaiDonBanHang.DA_XUAT_TOAN_BO);
                 don.setNgayCapNhat(Instant.now());
                 repository.save(don);
-                ghiNhatKyDon(don, "xuat_kho_tu_san", "Sàn cập nhật đang vận chuyển (" + trangThaiSan + ")");
+                ghiNhatKyDon(don, "xuat_kho_tu_san", "Sàn cập nhật đã xuất giao (" + trangThaiSan + ")");
                 log.info("[CHANNEL-SHIPPED] Đơn {} đang vận chuyển trên sàn -> Chuyển Đã xuất toàn bộ (3)", don.getSoDonHang());
                 return true;
             }
-        } else if (st.contains("failed_delivery") || st.contains("returned") || st.contains("refunded")) {
+        } else if (st.contains("failed_delivery") || st.contains("returned") || st.contains("refunded") || st.contains("to_return")) {
             // Chỉ hoàn trả khi đơn đã xuất hoặc đã hoàn thành
             if (trangThaiHienTai == ITrangThaiDonBanHang.DA_XUAT_TOAN_BO
                     || trangThaiHienTai == ITrangThaiDonBanHang.HOAN_THANH
-                    || trangThaiHienTai == ITrangThaiDonBanHang.DA_DONG_GOI) {
+                    || trangThaiHienTai == ITrangThaiDonBanHang.DA_DONG_GOI
+                    || trangThaiHienTai == ITrangThaiDonBanHang.DANG_XUAT_KHO) {
                 don.setTrangThai(ITrangThaiDonBanHang.BI_HOAN_TRA);
                 don.setNgayCapNhat(Instant.now());
                 repository.save(don);
@@ -1432,6 +1443,14 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
             thueGtgtService.chupLaiTheoNgayGiao(don);
         }
         repository.save(don);
+
+        if (don.getKenhBanHang() != null && OmnichannelOrderSyncJob.isShopify(don.getKenhBanHang().getMaKenh())
+                && don.getMaDonHangKenh() != null && !don.getMaDonHangKenh().isBlank()
+                && kenhBanHangDongBoService != null) {
+            String shopifyOrderId = don.getMaDonHangKenh();
+            SauCommit.chay("Đồng bộ giao hàng thành công sang Shopify (delivered)",
+                    () -> kenhBanHangDongBoService.dongBoTrangThaiDeliveredShopify(shopifyOrderId));
+        }
         // Khiếu nại số lượng / chất lượng tính từ ngày giao (Luật Thương mại Điều 318): giữ bằng chứng đóng gói tới
         // ngày giao + hạn lưu (ngày xuất kho + hạn lưu có thể sớm hơn nếu giao chậm)
         bangChungDongGoiService.giaHanLuuTu(don.getId(), don.getNgayGiaoHang());
@@ -1457,6 +1476,14 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         // Chuyển trạng thái thành Bị hoàn trả (6)
         don.setTrangThai(6);
         repository.save(don);
+
+        if (don.getKenhBanHang() != null && OmnichannelOrderSyncJob.isShopify(don.getKenhBanHang().getMaKenh())
+                && don.getMaDonHangKenh() != null && !don.getMaDonHangKenh().isBlank()
+                && kenhBanHangDongBoService != null) {
+            String shopifyOrderId = don.getMaDonHangKenh();
+            SauCommit.chay("Đồng bộ hoàn trả sang Shopify",
+                    () -> kenhBanHangDongBoService.dongBoTrangThaiReturnedShopify(shopifyOrderId));
+        }
         // Nhật ký lúc hoàn trả: xuất kế toán lấy làm ngày hạch toán của chứng từ Hàng bán trả lại (đơn đã giao kế toán).
         // Ghi sau commit, giao dịch riêng: ghi lỗi thì đơn vẫn hoàn trả, xuất kế toán coi như đơn không có nhật ký và để kế
         // toán lập tay (danh sách "Phát sinh sau khi xuất").

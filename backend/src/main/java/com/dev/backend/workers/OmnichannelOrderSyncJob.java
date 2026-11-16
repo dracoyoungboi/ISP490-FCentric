@@ -73,6 +73,10 @@ public class OmnichannelOrderSyncJob {
     public static final String MA_KENH_SHOPEE = "SHOPEE";
     public static final String MA_KENH_SHOPEE_SANDBOX = "SHOPEE_SANDBOX";
 
+    public static boolean isShopify(String maKenh) {
+        return MA_KENH_SHOPIFY.equalsIgnoreCase(maKenh);
+    }
+
     public static boolean isLazada(String maKenh) {
         return MA_KENH_LAZADA.equalsIgnoreCase(maKenh) || MA_KENH_LAZADA_SANDBOX.equalsIgnoreCase(maKenh);
     }
@@ -418,23 +422,46 @@ public class OmnichannelOrderSyncJob {
                     log.info("[JOB-01] Đơn {} trên Shopify đã thanh toán -> Cập nhật trạng thái thanh toán = da_thanh_toan", soDonHang);
                 }
 
-                // 2. Đồng bộ trạng thái giao hàng / hoàn thành / hoàn trả
-                if ("fulfilled".equalsIgnoreCase(fulfillmentStatus)) {
+                // 2. Đồng bộ trạng thái giao hàng / xuất kho / hoàn trả theo sàn Shopify
+                JsonNode fulfillments = orderNode.path("fulfillments");
+                boolean hasDeliveredFulfillment = false;
+                if (fulfillments.isArray() && !fulfillments.isEmpty()) {
+                    for (JsonNode f : fulfillments) {
+                        String shipmentStatus = f.path("shipment_status").asText("").trim().toLowerCase();
+                        if ("delivered".equals(shipmentStatus)) {
+                            hasDeliveredFulfillment = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (hasDeliveredFulfillment) {
                     try {
-                        donBanHangService.capNhatTrangThaiGiaoHangTuSan(existing.getId(), "fulfilled");
+                        donBanHangService.capNhatTrangThaiGiaoHangTuSan(existing.getId(), "delivered");
                     } catch (Exception ex) {
                         log.error("[JOB-01] Lỗi khi cập nhật giao hàng đơn {} theo Shopify: {}", soDonHang, ex.getMessage());
                     }
-                } else if ("refunded".equalsIgnoreCase(financialStatus)) {
+                } else if ("fulfilled".equalsIgnoreCase(fulfillmentStatus)) {
+                    try {
+                        donBanHangService.capNhatTrangThaiGiaoHangTuSan(existing.getId(), "fulfilled");
+                    } catch (Exception ex) {
+                        log.error("[JOB-01] Lỗi khi cập nhật xuất kho đơn {} theo Shopify: {}", soDonHang, ex.getMessage());
+                    }
+                }
+
+                // 2.1 Kiểm tra trả hàng / hoàn tiền từ Shopify
+                if ("refunded".equalsIgnoreCase(financialStatus)
+                        || "partially_refunded".equalsIgnoreCase(financialStatus)
+                        || (orderNode.path("returns").isArray() && !orderNode.path("returns").isEmpty())
+                        || (orderNode.path("refunds").isArray() && !orderNode.path("refunds").isEmpty())) {
                     try {
                         donBanHangService.capNhatTrangThaiGiaoHangTuSan(existing.getId(), "refunded");
                     } catch (Exception ex) {
-                        log.error("[JOB-01] Lỗi khi cập nhật hoàn tiền đơn {} theo Shopify: {}", soDonHang, ex.getMessage());
+                        log.error("[JOB-01] Lỗi khi cập nhật hoàn tiền/trả hàng đơn {} theo Shopify: {}", soDonHang, ex.getMessage());
                     }
                 }
 
                 // 3. Trích xuất mã vận đơn và đơn vị vận chuyển từ fulfillments nếu chưa có
-                JsonNode fulfillments = orderNode.path("fulfillments");
                 if (fulfillments.isArray() && !fulfillments.isEmpty()) {
                     for (JsonNode f : fulfillments) {
                         String trackingNum = f.path("tracking_number").asText("").trim();
