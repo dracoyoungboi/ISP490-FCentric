@@ -122,8 +122,9 @@ function NutLyDo({ lyDo, onLyDo, ghiChu, onGhiChu, onDong }) {
 /**
  * Chân khối lượt chuyển (dính đáy khi khối dài hơn màn hình): tiến độ "đã có kệ đích", nút Lý do và nút
  * "Xác nhận chuyển kệ". `tong`: số đang chọn; `coCho`: số đã có kệ đích; `coVuot`: có kệ cất vượt sức chứa.
+ * `onChuyenPhan`: khi chỉ một phần có chỗ (kho không đủ chỗ cho cả giỏ), chuyển phần đó trước, phần còn lại ở lại kệ.
  */
-export default function ThanhXacNhan({ tong, coCho, san, dangGui, coVuot, lyDo, onLyDo, ghiChu, onGhiChu, onDongLyDo, onXacNhan }) {
+export default function ThanhXacNhan({ tong, coCho, san, dangGui, coVuot, lyDo, onLyDo, ghiChu, onGhiChu, onDongLyDo, onXacNhan, onChuyenPhan }) {
   const du = tong > 0 && coCho >= tong;
   const phanTram = tong > 0 ? Math.min(100, (coCho / tong) * 100) : 0;
   return (
@@ -165,8 +166,18 @@ export default function ThanhXacNhan({ tong, coCho, san, dangGui, coVuot, lyDo, 
           <p className="text-sm text-bo-muted">{t("Chưa chọn hàng")}</p>
         )}
       </div>
-      <div className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
+      <div className="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
         {tong > 0 ? <NutLyDo lyDo={lyDo} onLyDo={onLyDo} ghiChu={ghiChu} onGhiChu={onGhiChu} onDong={onDongLyDo} /> : null}
+        {onChuyenPhan && coCho > 0 && coCho < tong ? (
+          <Button
+            variant="outline"
+            onClick={onChuyenPhan}
+            disabled={dangGui}
+            className="h-10 gap-2 border-bo-border bg-bo-surface px-3 text-bo-foreground hover:bg-bo-surface-subtle max-sm:h-11"
+          >
+            {t("Chỉ chuyển {{so}} đã có chỗ", { so: soVN(coCho), count: coCho })}
+          </Button>
+        ) : null}
         <Button onClick={onXacNhan} disabled={!san || dangGui} className="h-10 flex-1 gap-2 bg-bo-primary px-5 text-white hover:bg-bo-primary-hover sm:flex-none max-sm:h-11">
           {dangGui ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Check className="size-4" aria-hidden="true" />}
           {t("Xác nhận chuyển kệ")}
