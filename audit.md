@@ -99,6 +99,7 @@
 | **AUDIT-087** | `2026-11-16 01:35:00` | PhanAnh & Antigravity AI | Fix & Refactor / Chuẩn hóa danh mục và thuộc tính sản phẩm 3 sàn TMĐT | `KenhBanHangDongBoServiceImpl.java`, `omnichannel-standards.md`, `ShopeeMultiVariantLiveDiagnosticTest.java` | Tái cấu trúc chuẩn hóa thuật toán xác định danh mục và thuộc tính sản phẩm chính xác 100% cho 3 sàn Lazada, TikTok Shop, Shopee; khắc phục triệt để việc gán sai hoặc cố tình hardcode danh mục để lách lỗi sàn; phân cấp Tops vs Bottoms (Quần) cho Lazada XML, bảng từ điển danh mục lá V2 TikTok Shop xóa bỏ mã rác 601234, truy vết phân cấp cây cha-con lọc chuẩn Thời Trang Nam/Unisex cho Shopee (loại trừ Kimono, Nữ, Bảo hộ mô tô). |
 | **AUDIT-088** | `2026-11-16 02:30:00` | PhanAnh & Antigravity AI | Fix & Architecture / Loại bỏ mã áo ngực 603729, thêm bộ lọc an toàn thời trang nam và kích hoạt cập nhật danh mục TikTok Shop | `TikTokShopClient.java`, `KenhBanHangDongBoServiceImpl.java`, `TikTokShopClientTest.java`, `ShopeeMultiVariantLiveDiagnosticTest.java`, `omnichannel-standards.md`, `audit.md` | Khắc phục dứt điểm sự cố TikTok Shop Seller Center hiển thị sản phẩm 'Áo sportware nick' thuộc hạng mục Áo ngực thể thao (603729); Phát hiện nguyên nhân do API AI Category Recommend của TikTok Shop nhận nhầm từ khóa sportware và trả về danh mục lá đồ lót nữ 603729; Xây dựng bộ lọc an toàn isPhuHopThoiTrangNamVaUnisex chặn đứng mã 603729 và các từ khóa nhạy cảm (bra, ngực, đồ lót, nữ, đầm); Ánh xạ chính xác đồ thể thao sang 603720 (Áo thun thể thao nam); Bổ sung v2CategoryId vào Product Signature để tự động gọi PUT editProduct cập nhật danh mục cho sản phẩm đã có; Đối soát 100% 71 sản phẩm trên 4 kênh chính xác. |
 | **AUDIT-089** | `2026-11-16 09:10:00` | PhanAnh & Antigravity AI | Feature & Architecture / Cơ chế Upsert đồng bộ Shopee chống Duplicate Listing, chuẩn hóa in tem A6 PDF sàn vào module Khang | `KenhBanHangDongBoServiceImpl.java`, `ShopeeSyncUpsertTest.java`, `PrintRoutePage.jsx`, `TikTokShopAwbDocument.jsx`, `SalesOrderPackingSlipPrint.jsx`, `DonBanHangDetail.jsx`, `App.jsx`, `ban-hang.json`, `kenh-ban.json`, `audit.md` | Triển khai cơ chế UPSERT thông minh cho sàn Shopee: lưu cache RAM danh mục 30 phút, kiểm tra sản phẩm đã tồn tại trên Shopee (qua mapping DB, SKU catalog, tiêu đề sản phẩm, parent SKU) để đối soát model và cập nhật tồn kho bằng updateStockBatch, TUYỆT ĐỐI không gọi addItem tạo bài trùng gây spam/xóa bài; thêm delay an toàn 5.5s chống lỗi 'The item is still being created'; chuẩn hóa nhánh gốc Thời Trang Nam Shopee VN (100011) với fallback Polo 100243, Jeans 100047; tích hợp toàn diện vận đơn sàn vào module in Khang (PrintRoutePage), loại bỏ popup window.open, tinh gọn template TikTok Shop A6 PDF và kích hoạt in trực tiếp qua nút in Khang. |
+| **AUDIT-090** | `2026-11-16 16:35:00` | PhanAnh & Antigravity AI | Feat & Fix / Khớp nối vòng đời trạng thái hai chiều FCentric - Shopify theo bảng chuẩn và kiểm chứng Upsert Shopee | `OmnichannelOrderSyncJob.java`, `KenhBanHangDongBoService.java`, `KenhBanHangDongBoServiceImpl.java`, `DonBanHangService.java`, `NhatHangServiceImpl.java`, `DongGoiServiceImpl.java`, `PhieuXuatKhoService.java`, `DonBanHangServiceGiaoHangSanTest.java`, `ShopifyStatusSyncTest.java`, `audit.md` | Khớp nối chuẩn xác 100% vòng đời trạng thái đơn hàng 2 chiều giữa FCentric và Shopify theo bảng mapping hệ thống: (1) Đẩy trạng thái 'Đang thực hiện' (in_progress) sang Shopify ở các bước Chờ Nhặt Hàng (1), Chờ Đóng Gói (7), Chờ Xuất Kho (8); (2) Đẩy trạng thái 'Đã hoàn tất' (fulfilled) sang Shopify kèm mã vận đơn khi Đã xuất kho (3); (3) Khắc phục triệt để lỗi khi Shopify chuyển 'Đã hoàn tất' khiến FCentric nhảy cóc sang Hoàn thành (5), phân tách chính xác fulfilled -> Đã xuất kho (3) và delivered -> Hoàn thành (5); (4) Đẩy trạng thái 'Đã giao' (delivered) sang Shopify khi đơn Hoàn thành (5); (5) Nối luồng Trả hàng (refunded/returns) với Bị hoàn trả (6) hai chiều; Kiểm chứng toàn diện cơ chế UPSERT và bộ API Shopee; Đạt 77/77 tests backend PASS 100%, i18n 722 files sạch, frontend build thành công. |
 
 
 ---
@@ -3026,3 +3027,60 @@
 3. **Kiểm thử hồi quy toàn diện `KenhBanHangDongBoServiceTest`**: 62/62 tests PASS 100%.
 4. **Kiểm tra đa ngôn ngữ `npm run i18n:kiem`**: 722 tệp kiểm tra, 0 chưa bọc, 0 thiếu bản dịch, 0 lệch.
 5. **Đóng gói production frontend `npm run build`**: Hoàn tất thành công không lỗi (`built in 41.47s`).
+
+---
+
+### [AUDIT-090] KHỚP NỐI VÒNG ĐỜI TRẠNG THÁI HAI CHIỀU FCENTRIC - SHOPIFY THEO BẢNG CHUẨN VÀ KIỂM CHỨNG UPSERT SHOPEE
+- **Thời gian**: `2026-11-16 16:35:00`
+- **Tác giả**: PhanAnh & Antigravity AI
+- **Phân hệ ảnh hưởng**:
+  - `backend`: Vòng đời đơn hàng đa sàn, Đồng bộ Shopify REST & GraphQL Fulfillment, Trạng thái đơn bán hàng, Phiếu xuất kho, Đợt nhặt hàng, Đóng gói, Bộ test đơn vị.
+- **Tệp thay đổi**:
+  - `backend/src/main/java/com/dev/backend/workers/OmnichannelOrderSyncJob.java`
+  - `backend/src/main/java/com/dev/backend/services/KenhBanHangDongBoService.java`
+  - `backend/src/main/java/com/dev/backend/services/impl/entities/KenhBanHangDongBoServiceImpl.java`
+  - `backend/src/main/java/com/dev/backend/services/impl/entities/DonBanHangService.java`
+  - `backend/src/main/java/com/dev/backend/services/impl/multitable/NhatHangServiceImpl.java`
+  - `backend/src/main/java/com/dev/backend/services/impl/multitable/DongGoiServiceImpl.java`
+  - `backend/src/main/java/com/dev/backend/services/impl/entities/PhieuXuatKhoService.java`
+  - `backend/src/test/java/com/dev/backend/services/impl/entities/DonBanHangServiceGiaoHangSanTest.java`
+  - `backend/src/test/java/com/dev/backend/services/shopify/ShopifyStatusSyncTest.java`
+  - `audit.md`
+
+#### 1. MỤC TIÊU & PHÂN TÍCH NGUYÊN NHÂN GỐC RỄ (ROOT CAUSE ANALYSIS)
+1. **Lệch pha trạng thái Shopify -> FCentric (`fulfilled` vs `delivered`)**:
+   - Trong `DonBanHangService.java:1030`, điều kiện kiểm tra trạng thái sàn gộp chung `fulfilled` với `delivered` và `completed`:
+     `if (st.contains("delivered") || st.contains("fulfilled") || st.contains("completed")) { don.setTrangThai(ITrangThaiDonBanHang.HOAN_THANH); }`
+   - Theo đặc tả thương mại điện tử quốc tế của Shopify, trạng thái `fulfilled` là "Đã hoàn tất đóng gói và xuất giao từ phía người bán/kho", tương ứng với trạng thái **`Đã xuất kho` (3 - `DA_XUAT_TOAN_BO`)** của FCentric, KHÔNG PHẢI là `Hoàn thành` (5 - `HOAN_THANH`). Việc gán nhầm khiến đơn hàng chưa giao tới tay người mua đã bị đóng hoàn tất, gây sai lệch doanh thu và báo cáo kho vận.
+2. **Thiếu chiều đẩy trạng thái FCentric -> Shopify (Outbound Sync)**:
+   - Khi thủ kho FCentric thực hiện các thao tác: Gửi sang kho (`CHO_NHAT_HANG` = 1), Hoàn tất nhặt hàng (`CHO_DONG_GOI` = 7), Đóng gói (`DA_DONG_GOI` = 8 - Chờ xuất kho), hệ thống chưa gửi tín hiệu tiến trình kho sang Shopify khiến đơn hàng trên Shopify vẫn ở trạng thái tĩnh `unfulfilled` ("Chưa hoàn tất").
+   - Khi phiếu xuất kho được thủ kho bấm xác nhận xuất kho vật lý (`DA_XUAT_TOAN_BO` = 3), hệ thống chưa gọi `POST /admin/api/2024-01/fulfillments.json` để chuyển đơn Shopify sang "Đã hoàn tất" (`fulfilled`).
+   - Khi nhân viên bán hàng bấm "Xác nhận đã giao" (`HOAN_THANH` = 5), hệ thống chưa gọi `POST /admin/api/2024-01/orders/{order_id}/fulfillments/{fulfillment_id}/events.json` với `status: delivered` để chuyển đơn Shopify sang "Đã giao" (`delivered`).
+   - Khi đơn bị khách hoàn trả (`BI_HOAN_TRA` = 6), hệ thống chưa cập nhật tag và ghi chú trả hàng lên Shopify.
+3. **Thiếu kết nối trạng thái Trả hàng / Hoàn tiền (Shopify Returns / Refunds -> FCentric)**:
+   - Trong `OmnichannelOrderSyncJob.java`, việc kiểm tra trả hàng chỉ xem xét `financial_status == "refunded"`, bỏ sót mảng `returns` của Shopify và `partially_refunded` / `refunds`, đồng thời chưa hỗ trợ các trạng thái hoàn trả chi tiết.
+
+#### 2. GIẢI PHÁP KỸ THUẬT & CHI TIẾT TRIỂN KHAI
+1. **Khớp nối chuẩn xác 100% hai chiều FCentric <-> Shopify theo bảng ma trận trạng thái**:
+   - **Chiều Outbound (FCentric -> Shopify)**:
+     - `CHO_NHAT_HANG` (1), `CHO_DONG_GOI` (7), `DA_DONG_GOI` (8): Gọi `kenhBanHangDongBoService.dongBoTrangThaiDangThucHienShopify(shopifyOrderId)`. Phương thức này truy vấn `fulfillment_orders.json`, kích hoạt GraphQL mutation `fulfillmentOrderReportProgress` (gán ghi chú `"Đang xử lý nhặt và đóng gói tại kho FCentric"`) chuyển trạng thái sang **`in_progress`**, đồng thời gắn tag `"Đang thực hiện"` lên đơn hàng Shopify qua REST API.
+     - `DA_XUAT_TOAN_BO` (3 - Đã xuất kho): Trong `PhieuXuatKhoService.updateTrangThaiDonBanHang`, khi toàn bộ hàng đã xuất kho thực tế, kích hoạt `dongBoTrangThaiFulfilledShopify(donId, shopifyOrderId)`. Phương thức này trích xuất mã vận đơn (`[VẬN ĐƠN: ...]`) và đơn vị vận chuyển từ ghi chú đơn hàng hoặc phiếu xuất kho, gọi `POST /admin/api/2024-01/fulfillments.json` với `line_items_by_fulfillment_order` và `tracking_info`, chuyển đơn Shopify sang **`fulfilled` ("Đã hoàn tất")**, tự động dỡ tag `"Đang thực hiện"` và thêm tag `"Đã hoàn tất"`.
+     - `HOAN_THANH` (5 - Hoàn thành): Trong `DonBanHangService.markAsDelivered`, khi đơn được xác nhận giao thành công, kích hoạt `dongBoTrangThaiDeliveredShopify(shopifyOrderId)`. Phương thức này lấy danh sách fulfillments, gọi `POST /admin/api/2024-01/orders/{id}/fulfillments/{fId}/events.json` với `{"event": {"status": "delivered"}}`, chuyển trạng thái vận chuyển Shopify sang **`delivered` ("Đã giao")**, và gắn tag `"Đã giao"`.
+     - `BI_HOAN_TRA` (6 - Bị hoàn trả): Trong `DonBanHangService.returnOrder`, kích hoạt `dongBoTrangThaiReturnedShopify(shopifyOrderId)`, cập nhật tag `"Bị hoàn trả"` và ghi chú lên đơn hàng Shopify.
+   - **Chiều Inbound (Shopify -> FCentric)**:
+     - Sửa lại hàm `DonBanHangService.capNhatTrangThaiGiaoHangTuSan`:
+       + `st.contains("delivered") || st.contains("completed")`: Chuyển sang `HOAN_THANH` (5) và đánh dấu `da_thanh_toan`.
+       + `st.contains("shipped") || st.contains("in_transit") || st.contains("fulfilled") || st.contains("to_confirm_receive")`: Chuyển sang `DA_XUAT_TOAN_BO` (3), TUYỆT ĐỐI không nhảy sang Hoàn thành (5). Bảo vệ nghiêm ngặt: nếu đơn có phiếu xuất kho đang chờ duyệt (`CHO_XUAT` hoặc `NHAP`), giữ nguyên trạng thái kho nội bộ.
+       + `st.contains("failed_delivery") || st.contains("returned") || st.contains("refunded") || st.contains("to_return")`: Chuyển sang `BI_HOAN_TRA` (6).
+     - Trong `OmnichannelOrderSyncJob.java`: Quét mảng `fulfillments`, nếu bất kỳ fulfillment nào có `shipment_status == "delivered"`, gọi với `"delivered"`. Nếu chỉ có `fulfillment_status == "fulfilled"`, gọi với `"fulfilled"`. Quét mảng `returns` và `financial_status == "refunded"` để chuyển Bị hoàn trả (6).
+2. **Kiểm chứng cơ chế Shopee UPSERT và toàn bộ API Shopee**:
+   - Đối soát cơ chế 4 tầng của Shopee UPSERT (`mappingByBtId`, `catalog.skuToTargetId`, `catalog.titleToItemId`, `catalog.parentSkuToItemId`): Nếu sản phẩm đã có trên sàn Shopee, hệ thống tự động ánh xạ `itemId:modelId` và gọi `updateStockBatch`, TUYỆT ĐỐI không gọi `addItem` tạo bài trùng (chống spam listing và chống bị Shopee khóa tài khoản).
+   - Xác nhận toàn bộ 10 endpoint API Shopee (Hủy đơn, xử lý hủy từ khách, cập nhật ghi chú đơn, thông số giao hàng, ship order, lấy mã vận đơn, tracking info, tải nhãn A6 PDF, thông tin thanh toán ký quỹ escrow, webhook) đều tích hợp HMAC-SHA256 signature hợp lệ.
+
+#### 3. KẾT QUẢ KIỂM THỬ VÀ ĐỐI SOÁT
+1. **Kiểm thử đơn vị `DonBanHangServiceGiaoHangSanTest`**: 6/6 tests PASS 100% (kiểm thử fulfilled chuyển sang 3 Đã xuất kho không nhảy sang 5; delivered chuyển sang 5 Hoàn thành; refunded chuyển sang 6 Bị hoàn trả; bảo vệ phiếu xuất kho đang chờ không nhảy cóc; Shopee TO_CONFIRM_RECEIVE chuyển sang 3).
+2. **Kiểm thử đơn vị mới `ShopifyStatusSyncTest`**: 5/5 tests PASS 100% (kiểm thử an toàn tham số trống, null token, dispatch Đang thực hiện, Đã hoàn tất, Đã giao, Bị hoàn trả).
+3. **Kiểm thử đơn vị `ShopeeSyncUpsertTest`**: 4/4 tests PASS 100% (Upsert cache RAM 30 phút, phân loại lỗi async variation, chặn duplicate listing, chuẩn hóa danh mục nam 100011).
+4. **Kiểm thử hồi quy toàn diện `KenhBanHangDongBoServiceTest`**: 62/62 tests PASS 100%. Tổng cộng 77/77 tests backend PASS 100%.
+5. **Kiểm tra đa ngôn ngữ `npm run i18n:kiem`**: 722 tệp kiểm tra, 0 chưa bọc, 0 thiếu bản dịch, 0 lệch.
+6. **Đóng gói production frontend `npm run build`**: 3498 modules transformed, hoàn tất thành công 100% không cảnh báo lỗi (`built in 57.16s`).
