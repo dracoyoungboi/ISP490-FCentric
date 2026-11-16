@@ -23,7 +23,7 @@ import { KE_NGUON_KHONG_CHON, conTrongCua, keCanXuLy, khopLocNguon, layDuocCua, 
  */
 
 const O =
-  "relative flex h-[60px] w-full min-w-0 flex-col justify-between gap-1 rounded-md border px-2.5 py-2 text-left text-[11px] leading-4 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/40";
+  "relative flex w-full min-w-0 flex-col justify-between gap-1 rounded-md border px-2.5 py-2 text-left text-[11px] leading-4 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/40";
 const NHAN = "text-[11px] font-semibold uppercase tracking-wide text-bo-muted";
 const soTang = (x) => (Number.isFinite(Number(x)) ? Number(x) : x);
 
@@ -34,14 +34,19 @@ function mauMucDay(ke) {
   return tone === "bad" ? "bg-bo-danger" : tone === "warn" ? "bg-amber-600" : "bg-bo-primary";
 }
 
-/** Thanh mức chứa ở đáy ô: phần đang chứa (`mau`) và phần sắp cất thêm (xanh). */
-function ThanhO({ ke, them = 0, mau = "bg-slate-400" }) {
+/** Thanh mức chứa ở đáy ô: phần đang chứa (`mau`) và phần sắp cất thêm (xanh). `cao`: lớp chiều cao thanh. */
+function ThanhO({ ke, them = 0, mau = "bg-slate-400", cao = "h-1.5", className }) {
   if (!ke.sucChua)
-    return <span className="block h-1.5 rounded-full bg-[repeating-linear-gradient(90deg,#cbd5e1_0_3px,transparent_3px_6px)]" aria-hidden="true" />;
+    return (
+      <span
+        className={cn("block rounded-full bg-[repeating-linear-gradient(90deg,#cbd5e1_0_3px,transparent_3px_6px)]", cao, className)}
+        aria-hidden="true"
+      />
+    );
   const pDang = Math.min(100, ((ke.dangChua ?? 0) / ke.sucChua) * 100);
   const pThem = Math.max(0, Math.min(100, (((ke.dangChua ?? 0) + them) / ke.sucChua) * 100) - pDang);
   return (
-    <span className="flex h-1.5 overflow-hidden rounded-full bg-[#e9eef4]" aria-hidden="true">
+    <span className={cn("flex overflow-hidden rounded-full bg-[#e9eef4]", cao, className)} aria-hidden="true">
       <span className={mau} style={{ width: `${pDang}%` }} />
       {pThem > 0 ? <span className="bg-bo-primary" style={{ width: `${pThem}%` }} /> : null}
     </span>
@@ -202,8 +207,10 @@ function CapNhatLuc({ luc, dangTai, onTaiLai }) {
 /**
  * Lưới sơ đồ. `ds`: kệ dạng ds-ke; `veO(ke, nav)`: vẽ một ô, rải `nav` (tabIndex, onFocus, data-o) lên nút.
  * Roving tabindex: một điểm dừng Tab cho cả sơ đồ, mũi tên đi trong dãy (nhóm "kệ khác" đi trái / phải).
+ * Khung dãy rộng vừa số hàng (ô 96px–`rongO`), các dãy xếp liền nhau; khung chỉ có nền nhạt, không viền.
  */
-export function BanDoKe({ ds, veO, nhan }) {
+const KHUNG_DAY = "min-w-0 max-w-full rounded-lg bg-bo-surface-subtle p-3";
+export function BanDoKe({ ds, veO, nhan, rongO = 116 }) {
   const soDo = useMemo(() => xepSoDoKe(ds), [ds]);
   const [dangDung, setDangDung] = useState(null);
   const gocRef = useRef(null);
@@ -241,21 +248,17 @@ export function BanDoKe({ ds, veO, nhan }) {
             {tenKhu(khu.khu)}
             <span className="font-normal normal-case tracking-normal">· {t("{{so}} kệ", { so: soVN(khu.soKe), count: khu.soKe })}</span>
           </p>
-          <div
-            className="grid gap-3"
-            style={{
-              gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 480px), 1fr))",
-            }}
-          >
+          {/* min-w-0: dãy rộng hơn màn (điện thoại) co lại và vuốt ngang trong khung dãy, không đẩy cả thẻ rộng ra */}
+          <div className="flex min-w-0 flex-wrap items-start gap-3">
             {khu.dsDay.map((day) => (
-              <div key={day.day} className="min-w-0 rounded-lg border border-bo-border bg-bo-surface-subtle/60 p-3">
+              <div key={day.day} className={KHUNG_DAY}>
                 <p className="mb-2 text-[13px] font-semibold text-bo-heading">{t("Dãy {{so}}", { so: day.day })}</p>
                 {/* Ô tối thiểu 96px để mã kệ không bị cắt; dãy rộng hơn màn (điện thoại) thì vuốt ngang trong khung này */}
                 <div className="-mx-1 overflow-x-auto px-1 pb-1">
                   <div
-                    className="grid gap-2"
+                    className="grid gap-1.5"
                     style={{
-                      gridTemplateColumns: `44px repeat(${day.hang.length}, minmax(96px, 1fr))`,
+                      gridTemplateColumns: `44px repeat(${day.hang.length}, minmax(96px, ${rongO}px))`,
                     }}
                   >
                     <span />
@@ -285,16 +288,11 @@ export function BanDoKe({ ds, veO, nhan }) {
             ))}
           </div>
           {khu.khac.length ? (
-            <div className="rounded-lg border border-bo-border bg-bo-surface-subtle/60 p-3">
+            <div className={cn(KHUNG_DAY, "justify-self-start")}>
               <p className="mb-2 text-[13px] font-semibold text-bo-heading">{t("Kệ đặt tên riêng")}</p>
-              <div
-                className="grid gap-2"
-                style={{
-                  gridTemplateColumns: "repeat(auto-fill, minmax(112px, 1fr))",
-                }}
-              >
+              <div className="flex flex-wrap gap-1.5">
                 {khu.khac.map((ke, i) => (
-                  <div key={ke.id} className="min-w-0">
+                  <div key={ke.id} className="min-w-0 shrink-0" style={{ width: rongO }}>
                     {veO(ke, nav(ke, `${ik}:#~0~${i}`))}
                   </div>
                 ))}
@@ -307,20 +305,23 @@ export function BanDoKe({ ds, veO, nhan }) {
   );
 }
 
-/** Ô kệ ở bước Kệ nguồn: số đậm = số lấy được (đang chứa khi máy chủ chưa trả phần giữ cho phiếu nhặt). */
+/**
+ * Ô kệ ở bước Kệ nguồn (2 dòng): mã kệ + số đậm = số lấy được (đang chứa khi máy chủ chưa trả phần giữ cho phiếu nhặt),
+ * dưới là thanh mức chứa. Chữ ở dòng dưới chỉ khi có chuyện (giữ cho phiếu nhặt, vượt sức chứa, bảo trì, kiểm kê); sức
+ * chứa xem ở chú thích khi rê chuột. Kệ trống vẽ nhạt (nét đứt, không số 0, không thanh) để mắt dừng ở kệ có hàng.
+ */
 function ONguon({ ke, mo, doi, soHang, ban, onChon, nav }) {
   const loai = loaiKeNguon(ke);
   const tat = KE_NGUON_KHONG_CHON.has(loai);
   const giu = ke.choNhat ?? 0;
-  const phu = {
-    khoa: <span className="text-slate-500">{t("Đang kiểm kê")}</span>,
-    trong: <span className="text-slate-500">{t("Trống")}</span>,
+  const ghi = {
+    khoa: <span className="truncate text-slate-500">{t("Đang kiểm kê")}</span>,
     "giu-het": (
       <span className="truncate text-bo-warning" title={t("Toàn bộ đang giữ cho phiếu nhặt")}>
         {t("Đã giữ hết")}
       </span>
     ),
-    "bao-tri": <span className="truncate text-slate-600">{giu ? t("Bảo trì · giữ {{so}}", { so: soVN(giu) }) : t("Bảo trì")}</span>,
+    "bao-tri": <span className="min-w-0 truncate text-slate-600">{giu ? t("Bảo trì · giữ {{so}}", { so: soVN(giu) }) : t("Bảo trì")}</span>,
     vuot: (
       <span className="truncate font-medium tabular-nums text-bo-danger">
         {t("{{dang}}/{{suc}} · dư {{du}}", {
@@ -330,16 +331,11 @@ function ONguon({ ke, mo, doi, soHang, ban, onChon, nav }) {
         })}
       </span>
     ),
-    "co-hang": (
-      <span className="truncate tabular-nums text-bo-muted">
-        {giu ? <span className="text-bo-warning">{t("giữ {{so}}", { so: soVN(giu) })} · </span> : null}
-        {ke.sucChua ? t("sức chứa {{so}}", { so: soVN(ke.sucChua) }) : t("Không giới hạn")}
-      </span>
-    ),
+    "co-hang": giu ? <span className="shrink-0 tabular-nums text-bo-warning">{t("giữ {{so}}", { so: soVN(giu) })}</span> : null,
   }[loai];
   const vien = {
     khoa: "cursor-not-allowed border-slate-200 bg-slate-100",
-    trong: "cursor-not-allowed border-bo-border bg-white",
+    trong: "cursor-not-allowed flex-row items-center border-dashed border-slate-200 bg-transparent",
     "giu-het": "cursor-not-allowed border-bo-border bg-white",
     "bao-tri": "border-dashed border-slate-400 bg-bo-surface-subtle hover:bg-slate-100",
     vuot: "border-red-300 bg-white hover:bg-red-50/50",
@@ -354,29 +350,39 @@ function ONguon({ ke, mo, doi, soHang, ban, onChon, nav }) {
       {doi > 0 ? `+${soVN(doi)}` : `−${soVN(-doi)}`}
     </span>
   ) : null;
+  const chuThich = [ke.maViTri, viTriKe(ke), ke.sucChua ? t("sức chứa {{so}}", { so: soVN(ke.sucChua) }) : t("Không giới hạn")];
   return (
     <button
       type="button"
       {...nav}
       aria-disabled={tat || ban || undefined}
-      title={[ke.maViTri, viTriKe(ke)].filter(Boolean).join(" · ")}
+      title={chuThich.filter(Boolean).join(" · ")}
       onMouseDown={giuOQuet}
       onClick={() => (tat || ban ? null : onChon(ke))}
-      className={cn(O, vien, doi && "ring-2 ring-amber-300", mo && "opacity-25")}
+      className={cn(O, "h-12 gap-0", vien, doi && "ring-2 ring-amber-300", mo && "opacity-25")}
     >
-      <span className="flex items-baseline justify-between gap-1.5">
-        <span className={cn("truncate font-mono text-xs font-semibold", tat ? "text-slate-500" : "text-bo-heading")}>{ke.maViTri}</span>
-        {loai === "khoa" ? (
-          <Lock className="size-3.5 shrink-0 text-slate-500" aria-label={t("Đang kiểm kê")} />
-        ) : (
-          <b className={cn("text-[13px] font-semibold tabular-nums", tat ? "text-slate-400" : "text-bo-heading")}>{soVN(layDuocCua(ke))}</b>
-        )}
-      </span>
-      <span className="flex min-w-0 items-center justify-between gap-1">
-        {phu}
-        {nhanDoi}
-      </span>
-      {loai === "khoa" ? <span className="h-1.5" aria-hidden="true" /> : <ThanhO ke={ke} mau={mauMucDay(ke)} />}
+      {loai === "trong" ? (
+        <>
+          <span className="truncate font-mono text-xs font-medium text-slate-400">{ke.maViTri}</span>
+          {nhanDoi ?? <span className="shrink-0 text-slate-400">{t("Trống")}</span>}
+        </>
+      ) : (
+        <>
+          <span className="flex items-baseline justify-between gap-1.5">
+            <span className={cn("truncate font-mono text-xs font-semibold", tat ? "text-slate-500" : "text-bo-heading")}>{ke.maViTri}</span>
+            {loai === "khoa" ? (
+              <Lock className="size-3.5 shrink-0 text-slate-500" aria-label={t("Đang kiểm kê")} />
+            ) : (
+              <b className={cn("text-[13px] font-semibold tabular-nums", tat ? "text-slate-400" : "text-bo-heading")}>{soVN(layDuocCua(ke))}</b>
+            )}
+          </span>
+          <span className="flex min-w-0 items-center gap-1.5">
+            {ghi}
+            {loai === "co-hang" || loai === "bao-tri" ? <ThanhO ke={ke} mau={mauMucDay(ke)} cao="h-1" className="min-w-6 flex-1" /> : null}
+            {nhanDoi}
+          </span>
+        </>
+      )}
     </button>
   );
 }
@@ -620,7 +626,7 @@ export function TheSoDoNguon({ khoId, q, ds, dangTai, lanDau, loi, capNhatLuc, o
               {t("{{so}} kệ khớp ở khu khác · Xem tất cả khu", { so: soVN(soKhopKhuKhac), count: soKhopKhuKhac })}
             </button>
           ) : null}
-          <ChuGiaiMucDay className="sm:ml-auto" />
+          <ChuGiaiMucDay trongNetDut className="sm:ml-auto" />
         </div>
         <div className="p-4">
           <BanDoKe
@@ -723,7 +729,7 @@ function ODich({ ke, loai, goiY, daChon, ban, onChon, nav }) {
       }
       onMouseDown={giuOQuet}
       onClick={() => (tat || ban || daChon ? null : onChon(ke))}
-      className={cn(O, vien)}
+      className={cn(O, "h-[60px]", vien)}
     >
       {daChon ? (
         <span
@@ -813,6 +819,8 @@ export function SoDoKeDich({ ds, keNguonId, can, goiY, phan, ban, capNhatLuc, da
         <BanDoKe
           ds={dsHien}
           nhan={t("Sơ đồ kệ đích")}
+          // Ô kệ đích 3 dòng ("Gợi ý · cùng mã hàng", "→ 30/40") cần rộng hơn ô kệ nguồn
+          rongO={136}
           veO={(ke, nav) => {
             const l = loaiCua(ke);
             return <ODich ke={ke} nav={nav} loai={l} goiY={goiYNoi.get(ke.id)} daChon={daChon.get(ke.id)} ban={ban} onChon={onChon} />;
