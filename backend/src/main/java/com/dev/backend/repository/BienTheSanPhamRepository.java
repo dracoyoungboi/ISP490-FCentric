@@ -20,6 +20,8 @@ public interface BienTheSanPhamRepository extends JpaRepository<BienTheSanPham, 
 
     List<BienTheSanPham> findBySanPham_Id(Integer sanPhamId);
 
+    List<BienTheSanPham> findBySanPham_IdAndTrangThai(Integer sanPhamId, Integer trangThai);
+
     boolean existsByMaSku(String maSku);
 
     boolean existsByMaSkuAndIdNot(String maSku, Integer id);
