@@ -43,6 +43,22 @@ public final class ChuyenKeDto {
                          int dangChua, Integer conTrong, boolean cungMa, boolean cungKhu, boolean duCho) {
     }
 
+    /**
+     * Kết quả quét mã hàng ở bước đầu (chưa có kệ nguồn): mã vạch / SKU khớp một biến thể, hoặc mã lô khớp một lô
+     * ({@code maLo} khác null). {@code ke}: các kệ của kho đang chứa hàng này, kệ lấy được nhiều nhất trước.
+     */
+    public record HangTim(Integer bienTheId, String maSku, String maVach, String tenSanPham, String mau, String maMauHex,
+                          String kichCo, String anh, Integer loHangId, String maLo, List<KeCoHang> ke) {
+    }
+
+    /**
+     * Một kệ đang chứa hàng vừa quét. {@code soLuong}: số trên kệ; {@code layDuoc}: trừ phần phiếu nhặt đang giữ và
+     * lô đang khóa kiểm kê. {@code khoa}: như {@link Ke#khoa()}.
+     */
+    public record KeCoHang(Integer id, String maViTri, String khuVuc, String dayKe, String hangKe, String tangKe,
+                           String trangThai, Integer sucChua, int soLuong, int layDuoc, String khoa) {
+    }
+
     /** Kết quả chốt chuyển kệ. */
     public record KetQua(Integer id, String maPhieu, int soDong, int tongSoLuong) {
     }
