@@ -373,7 +373,6 @@
   "Mỗi người 1 kho, quyền theo mẫu của vai trò.": "One warehouse per person; permissions follow the role template.",
   "Đang tải danh sách kho...": "Loading warehouses...",
   "Chưa có kho đang hoạt động": "No active warehouses",
-  "Ví dụ: an.nguyen@tencuahang.vn": "e.g. an.nguyen@yourstore.com",
   "VD: an.nguyen@tencuahang.vn": "e.g. an.nguyen@yourstore.com",
   "Hệ thống gửi tới email trên một liên kết để người dùng tự đặt mật khẩu (dùng một lần, hết hạn sau {{han}}).": "A link will be sent to the email above so the user can set their own password (single use, expires after {{han}}).",
   "Không đổi được": "Can't be changed",
