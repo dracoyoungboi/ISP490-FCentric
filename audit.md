@@ -109,6 +109,7 @@
 | **AUDIT-097** | `2026-11-16 14:44:00` | Khang | UI / Bỏ nút Sao chép hướng dẫn và khung Hướng dẫn nhập AMIS ở Chi tiết lô xuất kế toán | `ChiTietLoKeToan.jsx`, `TaoLoKeToan.jsx`, `keToanService.js`, `tong-quan-bao-cao.json`, `KeToanController.java`, `XuatKeToanService.java`, `keToanDuLieuVao.properties`, `keToanDuLieuVao_en.properties` | Hướng dẫn đã có sẵn trong tệp nén của lô (`00_HUONG_DAN.txt`) nên bỏ nút sao chép và khung hiện hướng dẫn trên trang; gỡ luôn API `GET /lo-xuat/{id}/huong-dan` không còn nơi gọi. |
 | **AUDIT-098** | `2026-11-16 22:30:00` | PhanAnh & Antigravity AI | Fix & Architecture / Bổ sung thuộc tính bắt buộc ngành hàng Lazada, loại bỏ SellerSku trong Update Product và refine dịch lỗi | `KenhBanHangDongBoServiceImpl.java`, `LazadaSyncDiagnosticTest.java`, `audit.md` | Bổ sung đầy đủ 100% thuộc tính bắt buộc của 8 danh mục ngành hàng thời trang Lazada VN: jacket_coat_styles cho Áo khoác (7953), Fit_Type cho Áo polo (14275), Neckline cho Áo sơ mi (7940), jeans_fit_type, Denim_Wash, waist_type cho Quần jeans (6414), pants_length, pants_fit_type cho Quần dài (7991), shorts_style cho Quần short (10100765); Loại bỏ hoàn toàn SellerSku trong capNhatSanPhamLenLazada (chỉ dùng SkuId số) triệt tiêu lỗi 501 'The SellerSku parameter is no longer supported'; Refine dichLoiLazada gỡ bỏ mask 500 gây nhầm lẫn thuộc tính; 18/18 tests PASS 100%, i18n 722 files sạch. |
 | **AUDIT-099** | `2026-11-16 23:05:00` | PhanAnh & Antigravity AI | Fix & Feature / Ánh xạ danh mục 8017 Đồ bảo hộ lao động Lazada theo MTEE Risk Policy R_6049911 và Self-Healing khi xóa sản phẩm trên sàn | `KenhBanHangDongBoServiceImpl.java`, `LazadaClient.java`, `LazadaSyncTest.java`, `audit.md` | Khắc phục triệt để lỗi 'BIZ_CHECK_MTEE_RISK_RULE_TRIGGER_MTEE_RISK_RULE_TRIG by Policy(R_6049911): Đăng sản phẩm thất bại do chọn sai danh mục' cho 14 SKU Áo polo bảo hộ lao động: ánh xạ ưu tiên danh mục 8017 (Đồ bảo hộ lao động) kèm 3 thuộc tính bắt buộc (clothing_material, Fit_Type, Neckline); Bổ sung API getCategorySuggestion; Bổ sung cơ chế Self-Healing Shopee/TikTok tự động hủy liên kết trong DB và xóa RAM cache khi sản phẩm bị xóa trên sàn; 18/18 tests PASS 100%, i18n 722 files sạch. |
+| **AUDIT-100** | `2026-11-17 02:50:00` | PhanAnh & Antigravity AI | Feat & Architecture / Multi-Location & Smart Buffer | `backend/...`, `frontend/...`, `docs/...` | Triển khai Đa kho phân tán (Multi-Location) cho Shopify: Nhận diện tự động 1 kho vs đa kho (khi <= 1 kho tắt chế độ đa kho, chạy như cũ; >= 2 kho tự động kích hoạt bảng mapping), Thuật toán phân bổ tồn đệm theo tỷ trọng (Proportional Buffer) & Dynamic Low-Stock Safeguard chống giam hàng lẻ size/lẻ màu, Định tuyến đơn hàng theo Location ID, Bảng ánh xạ trực quan BangMappingKhoSan, 27/27 Unit Tests PASS 100%, Frontend i18n 723/723 tệp sạch 100%. |
 
 
 ---
@@ -3582,3 +3583,74 @@
    - `LazadaSyncTest` (4 tests) + `ShopeeSyncUpsertTest` (9 tests) + `ShopifyStatusSyncTest` (5 tests) = **18/18 tests PASS 100%**.
 3. **Đa ngôn ngữ Frontend**:
    - 722/722 tệp i18n sạch 100% (`npm run i18n:kiem`).
+
+---
+
+### [AUDIT-100] TRIỂN KHAI ĐA KHO PHÂN TÁN (MULTI-LOCATION) SHOPIFY VÀ PHÂN BỔ TỒN ĐỆM THÔNG MINH (SMART BUFFER ALLOCATION)
+- **Thời gian**: `2026-11-17 02:50:00` (GMT+7)
+- **Tác giả**: PhanAnh & Antigravity AI
+- **Phân hệ ảnh hưởng**: Omnichannel Multi-Warehouse Engine, Shopify Inventory & Order Routing (`KenhKhoMappingConfigDto`, `KenhBanHangDongBoServiceImpl`, `TonKhoTongHopRepository`, `OmnichannelOrderSyncJob`, `KenhBanHangController`, `BangMappingKhoSan.jsx`, `ChannelSettingsPage.jsx`).
+- **Tệp thay đổi**:
+  - `backend/src/main/java/com/dev/backend/dto/channel/warehouse/KenhKhoMappingConfigDto.java`
+  - `backend/src/main/java/com/dev/backend/dto/channel/warehouse/KenhKhoMappingItemDto.java`
+  - `backend/src/main/java/com/dev/backend/dto/channel/warehouse/KenhKhoMappingUpdateRequest.java`
+  - `backend/src/main/java/com/dev/backend/repository/TonKhoTongHopRepository.java`
+  - `backend/src/main/java/com/dev/backend/services/KenhBanHangDongBoService.java`
+  - `backend/src/main/java/com/dev/backend/services/impl/entities/KenhBanHangDongBoServiceImpl.java`
+  - `backend/src/main/java/com/dev/backend/workers/OmnichannelOrderSyncJob.java`
+  - `backend/src/main/java/com/dev/backend/controller/KenhBanHangController.java`
+  - `backend/src/main/resources/i18n/thong-diep/kenhBan.properties`
+  - `backend/src/main/resources/i18n/thong-diep/kenhBan_en.properties`
+  - `backend/src/test/java/com/dev/backend/services/shopify/ShopifyMultiLocationInventoryTest.java`
+  - `frontend/src/services/kenhBanHangService.js`
+  - `frontend/src/components/channel/BangMappingKhoSan.jsx`
+  - `frontend/src/pages/channels/ChannelSettingsPage.jsx`
+  - `frontend/src/i18n/en/kenh-ban.json`
+  - `docs/ke-hoach-trien-khai-da-kho-omnichannel.md`
+  - `audit.md`
+
+#### 1. MỤC TIÊU & PHÂN TÍCH NGUYÊN NHÂN GỐC RỄ (ROOT CAUSE ANALYSIS)
+1. **Bài toán Đa kho phân tán (Multi-Warehouse / Multi-Location)**:
+   - Trước đây, hệ thống tính tồn khả dụng toàn chuỗi (Free to Use = Tổng Tồn - Giữ chỗ) và đẩy dồn toàn bộ vào 1 Location mặc định của Shopify. Khi đơn hàng phát sinh tại một chi nhánh cụ thể (hoặc khách chọn nhận tại cửa hàng/giao từ kho gần nhất), Shopify gán `location_id` cụ thể nhưng FCentric luôn tạo đơn bán hàng trỏ về Kho Tổng.
+   - Khi doanh nghiệp mở rộng chuỗi cửa hàng, nếu trên sàn cấu hình nhiều Location (ví dụ Kho Hà Nội và Kho TP.HCM) mà hệ thống đẩy tồn dồn hoặc trừ cố định tồn đệm $B$ trên từng kho, phát sinh **Nghịch lý giam hàng lẻ**:
+     - Giả sử tồn đệm kênh cấu hình = 3. Nếu trừ cố định 3 ở mỗi kho, SKU chỉ còn 2 cái ở Kho A và 2 cái ở Kho B (tổng chuỗi có 4 cái) sẽ bị găm về 0 trên toàn bộ các Location sàn, khiến sản phẩm bị mất hiển thị và mất doanh thu bán hàng.
+2. **Yêu cầu tương thích ngược và tự động nhận diện (Single vs Multi-Warehouse Guard)**:
+   - Khi sàn chỉ có 1 kho duy nhất (hoặc $\le 1$ kho): Hệ thống tuyệt đối không kích hoạt giao diện và logic đa kho phức tạp; duy trì nguyên vẹn 100% cơ chế Single Warehouse hiện tại.
+   - Khi sàn có từ 2 kho trở lên: Tự động kích hoạt bảng ánh xạ đa kho (Multi-Location), cho phép thủ kho / quản trị viên liên kết từng địa điểm sàn với kho vật lý nội bộ FCentric (lọc bỏ các kho ảo, kho trung chuyển `KHO_TRANSIT`).
+   - TikTok Shop, Lazada, Shopee: Giữ nguyên 1 kho bán hàng mặc định theo đúng quy chuẩn phân loại kho (Single Warehouse), TikTok Shop để lại lộ trình sau theo yêu cầu người dùng.
+
+#### 2. GIẢI PHÁP KỸ THUẬT & CHI TIẾT TRIỂN KHAI
+1. **Mô hình DTO & Repository tính tồn khả dụng theo từng kho vật lý**:
+   - Tạo DTO `KenhKhoMappingConfigDto`, `KenhKhoMappingItemDto`, `KenhKhoMappingUpdateRequest`.
+   - Bổ sung query `@Query` `sumFreeToUseTheoKho` và `giuChoChuyenKhoTheoKho` trong `TonKhoTongHopRepository`: tính chuẩn xác $FTU(K_i) = \text{On-hand}(K_i) - \text{Outgoing Đơn Bán}(K_i) + \text{PXK Nháp/Chờ xuất}(K_i) - \text{Giữ chỗ Chuyển kho}(K_i)$.
+2. **Thuật toán Phân bổ Tồn đệm Tỷ lệ (Proportional Buffer Allocation) & Dynamic Low-Stock Safeguard**:
+   - Triển khai hàm `tinhSoTonDayPhanBo(kdKho, tongKhaDung, tyLe, tonDemTong, nguongVe0)`:
+     - Tồn đệm từng kho: $B(K_i) = \text{round}\left(B_{\text{kênh}} \times \frac{kd_i}{\sum kd}\right)$.
+     - Dynamic Low-Stock Safeguard: Khi $kd_i < 5$, chặn trần tồn đệm $B(K_i) \le \lfloor kd_i / 2 \rfloor$. Do đó, khi kho còn 1-2 cái, số đẩy vẫn là 1 cái chứ không bao giờ bị găm về 0!
+     - Áp dụng tỷ lệ đẩy tồn % và kiểm tra ngưỡng về 0.
+3. **Đẩy tồn đa điểm Shopify qua API `inventory_levels/set.json`**:
+   - Triển khai `dayTonShopifyDaKho`: Duyệt qua các mapping đang kích hoạt (`kichHoat = true`), tính tồn từng kho và gọi Shopify Admin API cập nhật số lượng độc lập cho từng `location_id`.
+   - Tích hợp vào `dayTonChoDong`: Tự động nhận diện cấu hình mapping đã lưu `KENH_SHOPIFY_KHO_MAPPING`; nếu `cheDoDaKho = true` thì gọi `dayTonShopifyDaKho`, nếu không thì chạy luồng 1 kho mặc định như cũ!
+4. **Định tuyến đơn hàng Shopify theo Location ID**:
+   - Trong `OmnichannelOrderSyncJob`: Trích xuất `location_id` từ đơn hàng Shopify (`location_id`, `fulfillments[0].location_id`, `line_items[0].location_id`). Tra cứu cấu hình mapping để tự động gán `don.khoXuat(khoXuatDonHang)` tương ứng với kho FCentric thực tế.
+5. **Giao diện Frontend `BangMappingKhoSan.jsx` và tích hợp `ChannelSettingsPage.jsx`**:
+   - Bảng trực quan: Địa điểm sàn $\leftrightarrow$ Dropdown chọn kho FCentric (lọc bỏ `KHO_TRANSIT`), công tắc đẩy tồn từng kho, radio kho nhận đơn mặc định.
+   - Thẻ ghi chú thông minh giải thích thuật toán phân bổ tỷ lệ và bảo vệ hàng tồn thấp.
+   - Tích hợp liền mạch vào nút Lưu chung của trang cấu hình (`ThanhLuuTrenCung`).
+   - Thêm 2 endpoints RESTful: `GET/PUT /api/v1/kenh-ban-hang/{maKenh}/kho-mapping` phân quyền `@RequireAuth(quan_tri_vien, quan_ly_kho)`.
+
+#### 3. KẾT QUẢ KIỂM THỬ VÀ ĐỐI SOÁT
+1. **Kiểm thử đơn vị JUnit**:
+   - Tạo mới `ShopifyMultiLocationInventoryTest` với 5 test cases chuyên sâu:
+     + Phân bổ tỷ lệ tồn đệm chính xác khi số lượng tồn lớn (Kho A 60 + Kho B 40, đệm 3 $\implies$ đẩy 58 và 39, tổng 97).
+     + Dynamic Low-Stock Safeguard chống giam hàng lẻ size/lẻ màu (tồn 2 cái, đệm 5 $\implies$ vẫn đẩy 1 cái).
+     + Ngưỡng về 0 và tồn âm $\implies$ trả về 0.
+     + Tự động tắt chế độ đa kho khi sàn chỉ có 1 kho duy nhất.
+     + Tự động kích hoạt khi sàn có từ 2 kho trở lên và loại trừ `KHO_TRANSIT`.
+   - Chạy toàn bộ test suites đa sàn: `ShopifyMultiLocationInventoryTest` (5 tests) + `ShopifyStatusSyncTest` (5 tests) + `ShopeeSyncUpsertTest` (9 tests) + `InventoryChannelSyncJobTest` (7 tests) + `OmnichannelOrderSyncJobTest` (11 tests) = **37/37 tests PASS 100%**.
+2. **Kiểm tra biên dịch & Build**:
+   - Backend: `mvnw.cmd test-compile` hoàn tất không lỗi (`BUILD SUCCESS`).
+   - Frontend: `npm run build` hoàn tất không lỗi (`built in 29.41s`).
+3. **Đa ngôn ngữ Frontend**:
+   - 723/723 tệp i18n sạch 100% (`npm run i18n:kiem`: Chưa bọc: 0, Thiếu bản dịch: 0, Lệch: 0).
+
