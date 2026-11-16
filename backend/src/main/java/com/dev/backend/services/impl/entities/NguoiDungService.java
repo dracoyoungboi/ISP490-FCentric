@@ -147,6 +147,30 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
     private static final Pattern VIETNAM_PHONE_PATTERN = Pattern.compile("^0[35789][0-9]{8}$");
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
 
+    // Tên đăng nhập: cùng luật với AddUserDialog.jsx. Cột ten_dang_nhap dùng collation không phân biệt hoa/thường và
+    // dấu nên chỉ cho chữ không dấu; bắt đầu bằng chữ hoặc số (không nhận "...", ".admin").
+    private static final Pattern TEN_DANG_NHAP_KY_TU = Pattern.compile("^[A-Za-z0-9._-]+$");
+    private static final Pattern TEN_DANG_NHAP_BAT_DAU = Pattern.compile("^[A-Za-z0-9]");
+    private static final int TEN_DANG_NHAP_TOI_THIEU = 3;
+    // Bằng độ dài cột ten_dang_nhap
+    private static final int TEN_DANG_NHAP_TOI_DA = 50;
+
+    /** Nhận chuỗi đã cắt khoảng trắng hai đầu, khác rỗng. */
+    private static void validateTenDangNhap(String tenDangNhap) {
+        if (!TEN_DANG_NHAP_KY_TU.matcher(tenDangNhap).matches()) {
+            throw new CommonException(ThongDiep.of("heThong.tenDangNhapKyTu"));
+        }
+        if (!TEN_DANG_NHAP_BAT_DAU.matcher(tenDangNhap).find()) {
+            throw new CommonException(ThongDiep.of("heThong.tenDangNhapBatDau"));
+        }
+        if (tenDangNhap.length() < TEN_DANG_NHAP_TOI_THIEU) {
+            throw new CommonException(ThongDiep.of("heThong.tenDangNhapNgan", TEN_DANG_NHAP_TOI_THIEU));
+        }
+        if (tenDangNhap.length() > TEN_DANG_NHAP_TOI_DA) {
+            throw new CommonException(ThongDiep.of("heThong.tenDangNhapDai", TEN_DANG_NHAP_TOI_DA));
+        }
+    }
+
     // SĐT là tùy chọn: null/blank hợp lệ; có giá trị thì phải đúng định dạng
     private static void validatePhone(String phone) {
         if (phone != null
@@ -444,6 +468,8 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
                 if (!isAdmin) {
                     throw new CommonException(ThongDiep.of("heThong.khongDoiDuocTenDangNhap"));
                 }
+                // Chỉ kiểm khi đổi tên: tài khoản cũ giữ nguyên tên vẫn lưu hồ sơ được
+                validateTenDangNhap(newUsername);
                 if (nguoiDungRepository.existsByTenDangNhap(newUsername)) {
                     throw new CommonException(ThongDiep.of("heThong.tenDangNhapDaTonTaiHeThong"));
                 }
@@ -1116,6 +1142,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
             throw new CommonException(ThongDiep.of("heThong.tenDangNhapTrong"));
         }
         String tenDangNhap = request.getTenDangNhap().trim();
+        validateTenDangNhap(tenDangNhap);
         if (nguoiDungRepository.existsByTenDangNhap(tenDangNhap)) {
             throw new CommonException(ThongDiep.of("heThong.tenDangNhapDaTonTai"));
         }
