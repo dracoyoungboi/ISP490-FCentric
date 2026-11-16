@@ -104,6 +104,7 @@
 | **AUDIT-092** | `2026-11-16 18:25:00` | PhanAnh & Antigravity AI | Fix & Architecture / Sửa lỗi biên dịch mandatoryAttrs, khắc phục lỗi Lazada E501 SellerSku và TikTok Shop 12052557 | `KenhBanHangDongBoServiceImpl.java`, `hienThiKenhPos.properties`, `hienThiKenhPos_en.properties`, `ShopeeSyncUpsertTest.java`, `audit.md` | Khắc phục dứt điểm lỗi biên dịch Duplicate local variable mandatoryAttrs tại dòng 8584 và 8699; Khắc phục lỗi Lazada E501 'The SellerSku parameter is no longer supported' bằng cách chuyển đổi lưu trữ SkuId số, loại bỏ SellerSku trong XML cập nhật tồn giá và tự động tải SkuId đối soát; Khắc phục lỗi TikTok Shop 12052557 'the SKU ID does not belong to the product' bằng cơ chế Auto-Healing giải phóng SKU ID lệch và vô hiệu hóa RAM cache khi bài đăng bị xóa/tạo lại; 20/20 tests PASS 100%, i18n 722 files sạch. |
 | **AUDIT-093** | `2026-11-16 18:23:00` | Khang | Fix / Siết kiểm dữ liệu hộp Thêm người dùng (tên đăng nhập, email, ô SĐT) | `NguoiDungService.java`, `heThong.properties`, `heThong_en.properties`, `AddUserDialog.jsx`, `nguoi-dung-ncc.json`, `quyTacNhaCungCap.js`, `audit.md` | Máy chủ kiểm tên đăng nhập như giao diện (chữ không dấu, số, . _ -; bắt đầu bằng chữ/số; 3–50 ký tự) khi tạo và khi quản trị viên đổi tên; siết mẫu email hai phía (không dấu chấm ở đầu/cuối/liền nhau trước @, phần tên miền bắt đầu và kết thúc bằng chữ/số) và chặn email quá 100 ký tự trước regex; bỏ gợi ý mờ ở ô SĐT theo AGENTS.md; placeholder email đổi "Ví dụ:" thành "VD:". |
 | **AUDIT-094** | `2026-11-16 19:25:00` | PhanAnh & Antigravity AI | Fix & Concurrency Defense / Xóa bỏ transaction dài gây deadlock khóa đồng thời máy khác, ReentrantLock per-channel, sửa thuộc tính áo khoác Lazada và kiểm tra Shopee abnormal qua getItemBaseInfo | `KenhBanHangDongBoServiceImpl.java`, `chung.properties`, `chung_en.properties`, `audit.md` | Giải phóng Transaction Boundary khỏi luồng I/O mạng sàn trong tuDongLienKet và thuLai, triệt tiêu hoàn toàn lỗi ConcurrencyFailureException ('thao tác ở máy khác' do MySQL row-lock deadlock); Áp dụng ReentrantLock độc lập cho từng kênh (kenhId) có timeout 5s, cho phép nhiều máy/kênh chạy song song không nghẽn nhau; Nâng cấp kiểm tra trạng thái Shopee bằng v2.product.get_item_base_info kiểm tra item_status NORMAL để kích hoạt tạo mới nếu bị xóa; Sửa lỗi schema Lazada cho áo khoác (categoryId 7953: loại bỏ Fit_Type của áo thun, nhận diện Polyester), tự động khôi phục SkuId khi trùng lặp và lưu trữ chi tiết lỗi trực quan; 20/20 tests PASS 100%, i18n 722 files sạch. |
+| **AUDIT-096** | `2026-11-16 14:44:00` | Khang | UI / Bỏ nút Sao chép hướng dẫn và khung Hướng dẫn nhập AMIS ở Chi tiết lô xuất kế toán | `ChiTietLoKeToan.jsx`, `TaoLoKeToan.jsx`, `keToanService.js`, `tong-quan-bao-cao.json`, `KeToanController.java`, `XuatKeToanService.java`, `keToanDuLieuVao.properties`, `keToanDuLieuVao_en.properties` | Hướng dẫn đã có sẵn trong tệp nén của lô (`00_HUONG_DAN.txt`) nên bỏ nút sao chép và khung hiện hướng dẫn trên trang; gỡ luôn API `GET /lo-xuat/{id}/huong-dan` không còn nơi gọi. |
 
 
 ---
@@ -3305,3 +3306,40 @@
 1. **Kiểm thử đơn vị JUnit**: Chạy toàn bộ 20 unit tests (`ShopeeSyncUpsertTest`, `ShopifyStatusSyncTest`, `DonBanHangServiceGiaoHangSanTest`) -> **20/20 tests PASS 100%**.
 2. **Maven Compile & Test Compile**: 863 file source và 146 file test biên dịch thành công 100% (`BUILD SUCCESS`).
 3. **Kiểm tra đa ngôn ngữ Frontend `npm run i18n:kiem`**: 722 tệp kiểm tra, 0 chưa bọc, 0 thiếu bản dịch, 0 lệch.
+
+---
+### [AUDIT-096] BỎ NÚT SAO CHÉP HƯỚNG DẪN VÀ KHUNG HƯỚNG DẪN NHẬP AMIS Ở CHI TIẾT LÔ XUẤT KẾ TOÁN
+- **Thời gian**: `2026-11-16 14:44:00` (GMT+7)
+- **Tác giả**: Khang
+- **Phân hệ ảnh hưởng**:
+  - `frontend`: trang Chi tiết lô xuất kế toán (`/reports/accounting-export/:id`), bước chuyển trang sau khi tạo lô; bản dịch tiếng Anh.
+  - `backend`: bỏ API `GET /api/v1/ke-toan/lo-xuat/{id}/huong-dan` (chỉ quản trị viên). Việc ghi `00_HUONG_DAN.txt` vào tệp nén khi tạo lô giữ nguyên.
+- **Tệp thay đổi**:
+  - `frontend/src/pages/bao-cao/ChiTietLoKeToan.jsx`
+  - `frontend/src/pages/bao-cao/TaoLoKeToan.jsx`
+  - `frontend/src/services/keToanService.js`
+  - `frontend/src/i18n/en/tong-quan-bao-cao.json`
+  - `backend/src/main/java/com/dev/backend/controller/KeToanController.java`
+  - `backend/src/main/java/com/dev/backend/services/impl/ketoan/XuatKeToanService.java`
+  - `backend/src/main/resources/i18n/thong-diep/keToanDuLieuVao.properties`
+  - `backend/src/main/resources/i18n/thong-diep/keToanDuLieuVao_en.properties`
+  - `audit.md`
+
+#### 1. MỤC TIÊU & PHÂN TÍCH NGUYÊN NHÂN GỐC RỄ (ROOT CAUSE ANALYSIS)
+1. **Trùng nội dung**: khung "Hướng dẫn nhập AMIS" và nút "Sao chép hướng dẫn" chỉ đọc lại `00_HUONG_DAN.txt` từ tệp nén đã lưu của lô (`XuatKeToanService.huongDanCuaLo`). Kế toán nhận tệp nén nên đã có đúng bản này; mỗi tệp Excel trong tệp nén còn in sẵn vài dòng hướng dẫn trên dòng tiêu đề.
+2. **Lý do mở sẵn khung không còn**: khung tự mở khi vừa tạo lô (cờ `vuaTao`) để người tạo gửi ngay cho kế toán, nhưng trang Tạo lô đã tự tải tệp nén về ngay sau khi tạo.
+3. **Đầu trang và thân trang rối**: nút phụ cạnh "Tải tệp" và khung dài dưới bảng chứng từ làm trang chi tiết lô nặng mà không thêm thông tin.
+
+#### 2. GIẢI PHÁP KỸ THUẬT & CHI TIẾT TRIỂN KHAI
+1. **`ChiTietLoKeToan.jsx`**: bỏ `nutPhu` "Sao chép hướng dẫn" ở `DauChungTu`; bỏ mục thu gọn "Hướng dẫn nhập AMIS"; bỏ state `moHuongDan`, `huongDan`, `loiHuongDan`, `dangChep`, hàm `layHuongDan`, `chepHuongDan` và hiệu ứng tải hướng dẫn; bỏ import không dùng (`useCallback`, `useLocation`, `Copy`, `ChevronDown`, `Loader2`, `Button`, `useSaoChep`); sửa chú thích đầu hàm. Lô đã hủy vẫn tải được tệp để đối chiếu.
+2. **`TaoLoKeToan.jsx`**: bỏ `state: { vuaTao: true }` khi chuyển sang trang lô vừa tạo.
+3. **`keToanService.js`**: bỏ `huongDanCuaLo`.
+4. **i18n frontend**: bỏ 6 khóa không còn nơi dùng ("Sao chép hướng dẫn", "Sao chép hướng dẫn nhập AMIS", "Hướng dẫn nhập AMIS", "Đúng bản 00_HUONG_DAN.txt trong tệp nén của lô", "Đang tải hướng dẫn", "Không tải được hướng dẫn của lô").
+5. **Backend**: bỏ endpoint `huongDanCuaLo` ở `KeToanController`, hàm `huongDanCuaLo` ở `XuatKeToanService` cùng import `ByteArrayInputStream`, `ZipInputStream`; bỏ 2 khóa `keToanDuLieuVao.loKhongCoHuongDan`, `keToanDuLieuVao.khongDocDuocTepNen` ở cả tệp tiếng Việt và tiếng Anh. Hằng `TEP_HUONG_DAN` và hàm `huongDan(...)` ghi tệp vào tệp nén giữ nguyên.
+
+#### 3. KẾT QUẢ KIỂM THỬ VÀ ĐỐI SOÁT
+1. **Rà chỗ dùng**: không còn mã nguồn hay test nào gọi `huongDanCuaLo`, `/huong-dan` hay 2 khóa thông điệp đã bỏ.
+2. **Biên dịch backend** (javac vào thư mục tạm, không ghi `backend/target` vì IntelliJ đang mở): `KeToanController.java`, `XuatKeToanService.java` biên dịch sạch.
+3. **ESLint** `ChiTietLoKeToan.jsx`, `TaoLoKeToan.jsx`, `keToanService.js`: sạch.
+4. **Đa ngôn ngữ frontend `npm run i18n:kiem`**: 722 tệp, 0 chưa bọc, 0 thiếu bản dịch, 0 lệch.
+5. **Chưa thử trên trình duyệt** (không có máy chủ dev chạy lúc sửa).
