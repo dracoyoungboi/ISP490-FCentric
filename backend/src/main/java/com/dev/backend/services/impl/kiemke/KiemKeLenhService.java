@@ -7,6 +7,8 @@ import com.dev.backend.exception.customize.MaLoi;
 import com.dev.backend.repository.KiemKeLenhRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
@@ -15,6 +17,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Optional;
 import java.util.regex.Pattern;
 import com.dev.backend.i18n.ThongDiep;
@@ -36,6 +39,9 @@ public class KiemKeLenhService {
 
     private final KiemKeLenhRepository repository;
     private final ObjectMapper objectMapper;
+
+    @PersistenceContext
+    private EntityManager em;
 
     public KiemKeLenhService(KiemKeLenhRepository repository, ObjectMapper objectMapper) {
         this.repository = repository;
@@ -64,22 +70,54 @@ public class KiemKeLenhService {
     }
 
     public Optional<KiemKeDto.KetQuaLenh> daXuLy(Integer khoId, String khoa, String loaiLenh, String hash) {
+        return daXuLy(khoId, khoa, loaiLenh, hash, KiemKeDto.KetQuaLenh.class);
+    }
+
+    /** Như {@link #daXuLy(Integer, String, String, String)} cho lệnh không phải kiểm kê (vd. chuyển kệ): kết quả kiểu {@code kieu}. */
+    public <T> Optional<T> daXuLy(Integer khoId, String khoa, String loaiLenh, String hash, Class<T> kieu) {
         if (khoa == null) return Optional.empty();
         Optional<KiemKeLenh> co = repository.findByKhoIdAndIdempotencyKey(khoId, khoa);
         if (co.isEmpty()) return Optional.empty();
         KiemKeLenh l = co.get();
-        if (!loaiLenh.equals(l.getLoaiLenh()) || !hash.equals(l.getPayloadHash())) {
+        return Optional.of(docKetQua(l.getLoaiLenh(), l.getPayloadHash(), l.getKetQua(), loaiLenh, hash, kieu));
+    }
+
+    /**
+     * Như {@link #daXuLy(Integer, String, String, String, Class)} nhưng đọc có khóa (FOR SHARE) nên thấy dòng của lần gửi
+     * song song vừa commit, kể cả khi giao dịch này đã đọc ảnh chụp cũ (REPEATABLE READ). Gọi sau khi đã khóa các dòng mà
+     * lần gửi cùng nội dung cũng phải khóa (vd. dòng tồn lô): tới lúc đó lần kia đã commit xong.
+     */
+    public <T> Optional<T> daXuLyMoiNhat(Integer khoId, String khoa, String loaiLenh, String hash, Class<T> kieu) {
+        if (khoa == null) return Optional.empty();
+        List<?> ds = em.createNativeQuery("""
+                        SELECT loai_lenh, payload_hash, CAST(ket_qua AS CHAR) FROM kiem_ke_lenh
+                        WHERE kho_id = :kho AND idempotency_key = :khoa FOR SHARE""")
+                .setParameter("kho", khoId)
+                .setParameter("khoa", khoa)
+                .getResultList();
+        if (ds.isEmpty()) return Optional.empty();
+        Object[] r = (Object[]) ds.get(0);
+        return Optional.of(docKetQua(String.valueOf(r[0]), String.valueOf(r[1]), String.valueOf(r[2]), loaiLenh, hash, kieu));
+    }
+
+    private <T> T docKetQua(String loaiLuu, String hashLuu, String ketQua, String loaiLenh, String hash, Class<T> kieu) {
+        if (!loaiLenh.equals(loaiLuu) || !hash.equals(hashLuu)) {
             throw new LoiCoMaException(HttpStatus.CONFLICT, MaLoi.STK_VERSION_CONFLICT,
                     ThongDiep.of("khoVanHanh.maYeuCauDaDung"));
         }
         try {
-            return Optional.of(objectMapper.readValue(l.getKetQua(), KiemKeDto.KetQuaLenh.class));
+            return objectMapper.readValue(ketQua, kieu);
         } catch (JsonProcessingException e) {
             throw new LoiTrangThaiException(ThongDiep.of("khoVanHanh.ketQuaLenhKhongDocDuoc"), e);
         }
     }
 
     public void ghi(Integer khoId, String khoa, String loaiLenh, String hash, KiemKeDto.KetQuaLenh ketQua) {
+        ghi(khoId, khoa, loaiLenh, hash, ketQua, ketQua.dotKiemKeId());
+    }
+
+    /** Ghi kết quả lệnh kiểu bất kỳ (vd. chuyển kệ, {@code dotKiemKeId} null) trong cùng giao dịch trước khi commit. */
+    public void ghi(Integer khoId, String khoa, String loaiLenh, String hash, Object ketQua, Integer dotKiemKeId) {
         if (khoa == null) return;
         try {
             repository.save(KiemKeLenh.builder()
@@ -87,7 +125,7 @@ public class KiemKeLenhService {
                     .idempotencyKey(khoa)
                     .loaiLenh(loaiLenh)
                     .payloadHash(hash)
-                    .dotKiemKeId(ketQua.dotKiemKeId())
+                    .dotKiemKeId(dotKiemKeId)
                     .ketQua(objectMapper.writeValueAsString(ketQua))
                     .ngayTao(Instant.now())
                     .build());

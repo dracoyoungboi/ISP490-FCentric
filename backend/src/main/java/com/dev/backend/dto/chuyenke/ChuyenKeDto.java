@@ -30,17 +30,41 @@ public final class ChuyenKeDto {
                              Instant ngayNhap, int tonTaiKe, int dangGiuNhat, int khaDung, boolean khoaKiemKe) {
     }
 
-    /** Một kệ trong danh sách gợi ý mã kệ (gõ tay khi không có máy quét). */
-    public record KeGon(Integer id, String maViTri, String khuVuc, String trangThai, Integer sucChua, int dangChua) {
+    /**
+     * Một kệ trong danh sách kệ của kho (sơ đồ kệ và gợi ý khi gõ mã kệ). {@code dayKe}, {@code hangKe}, {@code tangKe}
+     * để xếp kệ lên sơ đồ (null với kệ đặt tên riêng). {@code khoa}: cùng nghĩa với {@link Ke#khoa()}, tính cả khóa theo
+     * đợt kiểm kê đang mở của kho chứ không chỉ trạng thái lưu trên kệ. {@code choNhat}: phần đang giữ cho phiếu nhặt trên
+     * kệ (tổng theo lô, mỗi lô không quá tồn ở kệ) — số lấy được = dangChua − choNhat.
+     */
+    public record KeGon(Integer id, String maViTri, String khuVuc, String dayKe, String hangKe, String tangKe,
+                        String trangThai, Integer sucChua, int dangChua, String khoa, int choNhat) {
     }
 
     /**
      * Kệ đích gợi ý cho lượt chuyển. {@code conTrong} null = không giới hạn sức chứa. {@code cungMa}: kệ đang chứa một
      * biến thể đang chuyển (cất về đây là dồn kệ); {@code cungKhu}: cùng khu vực với kệ nguồn; {@code duCho}: còn đủ chỗ
      * cho toàn bộ số đang cần cất. Không gồm kệ nguồn, kệ đang kiểm kê / bảo trì / trạng thái khác, kệ đã đầy.
+     * {@code bienTheKhop}: các biến thể đang chuyển mà kệ đang chứa (rỗng khi {@code cungMa} false).
      */
     public record KeGoiY(Integer id, String maViTri, String khuVuc, String dayKe, String tangKe, Integer sucChua,
-                         int dangChua, Integer conTrong, boolean cungMa, boolean cungKhu, boolean duCho) {
+                         int dangChua, Integer conTrong, boolean cungMa, boolean cungKhu, boolean duCho,
+                         List<Integer> bienTheKhop) {
+    }
+
+    /**
+     * Kết quả quét mã hàng ở bước đầu (chưa có kệ nguồn): mã vạch / SKU khớp một biến thể, hoặc mã lô khớp một lô
+     * ({@code maLo} khác null). {@code ke}: các kệ của kho đang chứa hàng này, kệ lấy được nhiều nhất trước.
+     */
+    public record HangTim(Integer bienTheId, String maSku, String maVach, String tenSanPham, String mau, String maMauHex,
+                          String kichCo, String anh, Integer loHangId, String maLo, List<KeCoHang> ke) {
+    }
+
+    /**
+     * Một kệ đang chứa hàng vừa quét. {@code soLuong}: số trên kệ; {@code layDuoc}: trừ phần phiếu nhặt đang giữ và
+     * lô đang khóa kiểm kê. {@code khoa}: như {@link Ke#khoa()}.
+     */
+    public record KeCoHang(Integer id, String maViTri, String khuVuc, String dayKe, String hangKe, String tangKe,
+                           String trangThai, Integer sucChua, int soLuong, int layDuoc, String khoa) {
     }
 
     /** Kết quả chốt chuyển kệ. */

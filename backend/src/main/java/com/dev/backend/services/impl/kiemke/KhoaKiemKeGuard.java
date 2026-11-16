@@ -138,6 +138,11 @@ public class KhoaKiemKeGuard {
         return trangThai(khoId, true);
     }
 
+    /** Trạng thái khóa cho đường chỉ hiển thị (đọc thường, không khóa chia sẻ), vd. sơ đồ kệ ở màn Chuyển kệ. */
+    public TrangThaiKhoa trangThaiHienThi(Integer khoId) {
+        return trangThai(khoId, false);
+    }
+
     /**
      * {@code docMoi} false: đọc thường, không khóa chia sẻ — cho đường chỉ hiển thị / tính gợi ý không giữ mutex kho
      * (gợi ý kho, màn tồn, chuyển kho, cảnh báo duyệt). Đọc có khóa ở đó có thể vòng chờ với một lần Bắt đầu đợt ở kho

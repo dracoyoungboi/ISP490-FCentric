@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, ChevronUp, CircleCheck, Loader2, Tag, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -122,56 +122,98 @@ function NutLyDo({ lyDo, onLyDo, ghiChu, onGhiChu, onDong }) {
 /**
  * Chân khối lượt chuyển (dính đáy khi khối dài hơn màn hình): tiến độ "đã có kệ đích", nút Lý do và nút
  * "Xác nhận chuyển kệ". `tong`: số đang chọn; `coCho`: số đã có kệ đích; `coVuot`: có kệ cất vượt sức chứa.
+ * `onChuyenPhan`: khi chỉ một phần có chỗ (kho không đủ chỗ cho cả giỏ), chuyển phần đó trước, phần còn lại ở lại kệ.
  */
-export default function ThanhXacNhan({ tong, coCho, san, dangGui, coVuot, lyDo, onLyDo, ghiChu, onGhiChu, onDongLyDo, onXacNhan }) {
+export default function ThanhXacNhan({ tong, coCho, san, dangGui, coVuot, lyDo, onLyDo, ghiChu, onGhiChu, onDongLyDo, onXacNhan, onChuyenPhan }) {
   const du = tong > 0 && coCho >= tong;
   const phanTram = tong > 0 ? Math.min(100, (coCho / tong) * 100) : 0;
+  const { mocRef, dinh } = useDinhDay();
   return (
-    <div className="sticky bottom-0 z-10 flex flex-wrap items-center gap-x-6 gap-y-3 rounded-b-lg border-t border-bo-border bg-bo-surface px-4 py-3 shadow-[0_-8px_16px_-14px_rgba(15,30,60,.4)]">
-      <div className="min-w-0 flex-1 sm:min-w-[240px] sm:flex-none">
-        {tong > 0 ? (
-          <>
-            <p className="flex flex-wrap items-center gap-x-1.5 text-sm">
-              <span className={cn("font-semibold tabular-nums", du ? (coVuot ? "text-bo-warning" : "text-bo-success") : "text-bo-heading")}>
-                {soVN(coCho)}/{soVN(tong)}
-              </span>
-              <span className={du && !coVuot ? "text-bo-success" : "text-bo-muted"}>{t("sản phẩm đã có kệ đích", { count: tong })}</span>
-              {du ? (
-                coVuot ? (
-                  <span className="inline-flex items-center gap-1 text-bo-warning">
-                    <TriangleAlert className="size-4" aria-hidden="true" />
-                    {t("có kệ cất vượt sức chứa")}
-                  </span>
-                ) : (
-                  <CircleCheck className="size-4 text-bo-success" aria-hidden="true" />
-                )
-              ) : null}
-            </p>
-            <div
-              className="mt-1.5 h-1.5 w-64 max-w-full overflow-hidden rounded-full bg-slate-100"
-              role="progressbar"
-              aria-valuemin={0}
-              aria-valuemax={tong}
-              aria-valuenow={coCho}
-              aria-label={t("sản phẩm đã có kệ đích", { count: tong })}
-            >
-              <span
-                className={cn("block h-full rounded-full transition-[width]", du ? (coVuot ? "bg-amber-500" : "bg-bo-success") : "bg-bo-primary")}
-                style={{ width: `${coCho > 0 ? Math.max(3, phanTram) : 0}%` }}
-              />
-            </div>
-          </>
-        ) : (
-          <p className="text-sm text-bo-muted">{t("Chưa chọn hàng")}</p>
+    <>
+      {/* Mốc ngay trên thanh, không chiếm chỗ: dùng để biết thanh có đang dính đáy không */}
+      <div ref={mocRef} className="-mt-px h-px" aria-hidden="true" />
+      <div
+        className={cn(
+          "sticky bottom-0 z-10 flex flex-wrap items-center gap-x-6 gap-y-3 rounded-b-lg border-t border-bo-border bg-bo-surface px-4 py-3 transition-shadow",
+          // Bóng hắt lên chỉ khi còn nội dung khuất dưới thanh; khối ngắn chỉ còn đường kẻ, không thành vệt xám
+          dinh && "shadow-[0_-8px_16px_-14px_rgba(15,30,60,.4)]",
         )}
+      >
+        <div className="min-w-0 flex-1 sm:min-w-[240px] sm:flex-none">
+          {tong > 0 ? (
+            <>
+              <p className="flex flex-wrap items-center gap-x-1.5 text-sm">
+                <span className={cn("font-semibold tabular-nums", du ? (coVuot ? "text-bo-warning" : "text-bo-success") : "text-bo-heading")}>
+                  {soVN(coCho)}/{soVN(tong)}
+                </span>
+                <span className={du && !coVuot ? "text-bo-success" : "text-bo-muted"}>{t("sản phẩm đã có kệ đích", { count: tong })}</span>
+                {du ? (
+                  coVuot ? (
+                    <span className="inline-flex items-center gap-1 text-bo-warning">
+                      <TriangleAlert className="size-4" aria-hidden="true" />
+                      {t("có kệ cất vượt sức chứa")}
+                    </span>
+                  ) : (
+                    <CircleCheck className="size-4 text-bo-success" aria-hidden="true" />
+                  )
+                ) : null}
+              </p>
+              <div
+                className="mt-1.5 h-1.5 w-64 max-w-full overflow-hidden rounded-full bg-slate-100"
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={tong}
+                aria-valuenow={coCho}
+                aria-label={t("sản phẩm đã có kệ đích", { count: tong })}
+              >
+                <span
+                  className={cn("block h-full rounded-full transition-[width]", du ? (coVuot ? "bg-amber-500" : "bg-bo-success") : "bg-bo-primary")}
+                  style={{ width: `${coCho > 0 ? Math.max(3, phanTram) : 0}%` }}
+                />
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-bo-muted">{t("Chưa chọn hàng")}</p>
+          )}
+        </div>
+        <div className="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
+          {tong > 0 ? <NutLyDo lyDo={lyDo} onLyDo={onLyDo} ghiChu={ghiChu} onGhiChu={onGhiChu} onDong={onDongLyDo} /> : null}
+          {onChuyenPhan && coCho > 0 && coCho < tong ? (
+            <Button
+              variant="outline"
+              onClick={onChuyenPhan}
+              disabled={dangGui}
+              className="h-10 gap-2 border-bo-border bg-bo-surface px-3 text-bo-foreground hover:bg-bo-surface-subtle max-sm:h-11"
+            >
+              {t("Chỉ chuyển {{so}} đã có chỗ", { so: soVN(coCho), count: coCho })}
+            </Button>
+          ) : null}
+          <Button onClick={onXacNhan} disabled={!san || dangGui} className="h-10 flex-1 gap-2 bg-bo-primary px-5 text-white hover:bg-bo-primary-hover sm:flex-none max-sm:h-11">
+            {dangGui ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Check className="size-4" aria-hidden="true" />}
+            {t("Xác nhận chuyển kệ")}
+          </Button>
+        </div>
       </div>
-      <div className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
-        {tong > 0 ? <NutLyDo lyDo={lyDo} onLyDo={onLyDo} ghiChu={ghiChu} onGhiChu={onGhiChu} onDong={onDongLyDo} /> : null}
-        <Button onClick={onXacNhan} disabled={!san || dangGui} className="h-10 flex-1 gap-2 bg-bo-primary px-5 text-white hover:bg-bo-primary-hover sm:flex-none max-sm:h-11">
-          {dangGui ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Check className="size-4" aria-hidden="true" />}
-          {t("Xác nhận chuyển kệ")}
-        </Button>
-      </div>
-    </div>
+    </>
   );
+}
+
+/**
+ * Thanh `sticky bottom-0` có đang dính đáy không: theo dõi mốc đặt ngay trên thanh trong vùng cuộn gần nhất (main của
+ * backoffice). Mốc nằm dưới mép dưới vùng nhìn = thanh đang đè lên phần chưa cuộn tới.
+ */
+function useDinhDay() {
+  const mocRef = useRef(null);
+  const [dinh, setDinh] = useState(false);
+  useEffect(() => {
+    const moc = mocRef.current;
+    if (!moc || typeof IntersectionObserver === "undefined") return undefined;
+    const io = new IntersectionObserver(
+      ([e]) => setDinh(!e.isIntersecting && e.boundingClientRect.top >= (e.rootBounds?.bottom ?? window.innerHeight)),
+      { root: moc.closest("main") },
+    );
+    io.observe(moc);
+    return () => io.disconnect();
+  }, []);
+  return { mocRef, dinh };
 }

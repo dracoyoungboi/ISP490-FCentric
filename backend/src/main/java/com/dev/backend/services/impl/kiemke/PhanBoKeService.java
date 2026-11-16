@@ -161,6 +161,38 @@ public class PhanBoKeService {
         return kq;
     }
 
+    /**
+     * Phần đang giữ cho phiếu nhặt trên từng kệ của kho (một câu truy vấn cho cả kho): tổng theo lô của
+     * min(phần giữ, tồn của lô ở kệ) — cùng cách tính số khả dụng khi tra một kệ. Kệ không có phần giữ không có trong map.
+     */
+    public Map<Integer, Integer> giuTheoKeCuaKho(Integer khoId) {
+        if (!batDuoc() || khoId == null) return Map.of();
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = em.createNativeQuery("""
+                SELECT g.vi_tri_kho_id, SUM(LEAST(g.giu, COALESCE(t.ton, 0)))
+                  FROM (SELECT pv.vi_tri_kho_id, pb.lo_hang_id, SUM(pv.so_luong) AS giu
+                          FROM phan_bo_lo_nhat_hang_vi_tri pv
+                          JOIN phan_bo_lo_nhat_hang pb ON pb.id = pv.phan_bo_lo_nhat_hang_id
+                          JOIN chi_tiet_nhat_hang ct ON ct.id = pb.chi_tiet_nhat_hang_id
+                          JOIN danh_sach_nhat_hang ds ON ds.id = ct.danh_sach_nhat_hang_id
+                         WHERE ds.kho_xuat_id = :kho AND
+                """ + PHIEU_CON_GIU + """
+                         GROUP BY pv.vi_tri_kho_id, pb.lo_hang_id) g
+                  LEFT JOIN (SELECT tk.vi_tri_kho_id, tk.lo_hang_id, SUM(tk.so_luong) AS ton FROM ton_kho_vi_tri tk
+                               JOIN vi_tri_kho vk ON vk.id = tk.vi_tri_kho_id
+                              WHERE vk.kho_id = :kho AND tk.so_luong > 0 GROUP BY tk.vi_tri_kho_id, tk.lo_hang_id) t
+                         ON t.vi_tri_kho_id = g.vi_tri_kho_id AND t.lo_hang_id = g.lo_hang_id
+                 GROUP BY g.vi_tri_kho_id
+                """).setParameter("kho", khoId).getResultList();
+        Map<Integer, Integer> kq = new HashMap<>();
+        for (Object[] r : rows) {
+            // Làm tròn như giuTrenKe để số trên sơ đồ khớp số khi mở kệ
+            int giu = r[1] == null ? 0 : soNguyen(new BigDecimal(r[1].toString()));
+            if (giu > 0) kq.put(((Number) r[0]).intValue(), giu);
+        }
+        return kq;
+    }
+
     /** Phần trên từng kệ của lô mà mọi phiếu nhặt đang giữ (sổ kệ trừ phần này trước khi đụng tới). */
     public Map<Integer, Integer> giuTrenKeCuaLo(Integer khoId, Integer loId) {
         if (!batDuoc() || khoId == null || loId == null) return Map.of();

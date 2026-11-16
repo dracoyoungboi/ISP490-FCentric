@@ -176,7 +176,7 @@ export default function StockTakeLockMap() {
   const dangTaiSoDo = kho.dangTai || (q.loading && !q.dungKhoa);
 
   return (
-    <PageContainer fill className="space-y-4">
+    <PageContainer className="space-y-4">
       <ListPageHeader
         title={t("Sơ đồ khóa kiểm kê")}
         actions={

@@ -61,6 +61,8 @@ public class ChuyenKeNoiBoService {
     static final int TOI_DA_SO_LUONG = 1_000_000;
     static final int TOI_DA_GHI_CHU = 255;
     static final String KHOA_KIEM_KE = "KIEM_KE", KHOA_BAO_TRI = "BAO_TRI", KHOA_KHAC = "KHAC";
+    /** Loại lệnh lưu ở bảng khóa lệnh (kiem_ke_lenh) khi gửi kèm Idempotency-Key. */
+    static final String LENH_CHUYEN_KE = "chuyen_ke";
     private static final long KIEM_LAI_SAU_MS = 30_000;
 
     @PersistenceContext
@@ -78,15 +80,20 @@ public class ChuyenKeNoiBoService {
     private final PhieuChuyenKeRepository phieuRepo;
     private final ChiTietPhieuChuyenKeRepository chiTietRepo;
     private final LichSuGiaoDichKhoRepository lichSuRepo;
+    private final BienTheSanPhamRepository bienTheRepo;
+    private final KiemKeLenhService lenh;
 
     private volatile boolean sanSang;
     private volatile long lanKiemCuoi;
+    private volatile boolean coBangLenh;
+    private volatile long lanKiemBangLenh;
 
     public ChuyenKeNoiBoService(JdbcTemplate jdbc, KhoaKiemKeGuard guard, SoTonKeService soTonKe, PhanBoKeService phanBoKe,
                                 ViTriKhoRepository viTriRepo, TonKhoViTriRepository tonKeRepo,
                                 TonKhoTheoLoRepository tonLoRepo, LoHangRepository loRepo,
                                 NguoiDungRepository nguoiDungRepo, PhieuChuyenKeRepository phieuRepo,
-                                ChiTietPhieuChuyenKeRepository chiTietRepo, LichSuGiaoDichKhoRepository lichSuRepo) {
+                                ChiTietPhieuChuyenKeRepository chiTietRepo, LichSuGiaoDichKhoRepository lichSuRepo,
+                                BienTheSanPhamRepository bienTheRepo, KiemKeLenhService lenh) {
         this.jdbc = jdbc;
         this.guard = guard;
         this.soTonKe = soTonKe;
@@ -99,6 +106,8 @@ public class ChuyenKeNoiBoService {
         this.phieuRepo = phieuRepo;
         this.chiTietRepo = chiTietRepo;
         this.lichSuRepo = lichSuRepo;
+        this.bienTheRepo = bienTheRepo;
+        this.lenh = lenh;
     }
 
     // ───────────────────────────── Sẵn sàng (đã chạy migration chưa) ─────────────────────────────
@@ -133,6 +142,35 @@ public class ChuyenKeNoiBoService {
         return sanSang;
     }
 
+    /**
+     * Có bảng khóa lệnh kiem_ke_lenh chưa (thuộc migration kiểm kê khoanh vùng 03/11). Chưa có thì chuyển kệ vẫn chạy, chỉ
+     * không chống gửi lặp theo Idempotency-Key. Nhớ khi đã thấy; chưa thấy thì kiểm lại mỗi 30 giây.
+     */
+    boolean coBangLenh() {
+        if (coBangLenh) return true;
+        // Một luồng kiểm một lúc: lần gửi đến cùng lúc ngay sau khởi động chờ kết quả, không chạy thiếu khóa chống gửi lặp
+        synchronized (this) {
+            return kiemBangLenh();
+        }
+    }
+
+    private boolean kiemBangLenh() {
+        if (coBangLenh) return true;
+        long bayGio = System.currentTimeMillis();
+        if (lanKiemBangLenh != 0 && bayGio - lanKiemBangLenh < KIEM_LAI_SAU_MS) return false;
+        lanKiemBangLenh = bayGio;
+        try {
+            Integer n = jdbc.queryForObject("""
+                    SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'kiem_ke_lenh'
+                    """, Integer.class);
+            coBangLenh = n != null && n > 0;
+            if (!coBangLenh) log.warn("[CHUYEN-KE] Chưa có bảng kiem_ke_lenh: xác nhận chuyển kệ chạy không có khóa chống gửi lặp");
+        } catch (RuntimeException e) {
+            log.warn("[CHUYEN-KE] Không kiểm được bảng kiem_ke_lenh: {}", e.getMessage());
+        }
+        return coBangLenh;
+    }
+
     private void batBuocSanSang() {
         if (!sanSang()) {
             throw new CommonException(HttpStatus.SERVICE_UNAVAILABLE, ThongDiep.of("khoVanHanh.chuyenKeChuaNangCap"));
@@ -153,7 +191,84 @@ public class ChuyenKeNoiBoService {
         return moTaKe(khoId, ke);
     }
 
-    /** Các kệ của kho (gợi ý khi gõ mã kệ), theo mã. */
+    /**
+     * Quét mã hàng thay vì mã kệ ở bước đầu: mã vạch / SKU của biến thể, hoặc mã lô. Trả hàng đó và các kệ của kho đang
+     * chứa nó (số trên kệ, số lấy được sau khi trừ phần phiếu nhặt giữ và lô đang khóa kiểm kê), kệ lấy được nhiều trước.
+     * Không khớp mã nào → 404. Khớp mà không nằm trên kệ nào → danh sách kệ rỗng.
+     */
+    @Transactional(readOnly = true)
+    public ChuyenKeDto.HangTim timHang(Integer khoId, String ma) {
+        batBuocSanSang();
+        String m = ma == null ? "" : ma.trim();
+        if (m.isEmpty()) throw new CommonException(ThongDiep.of("khoVanHanh.chuyenKeNhapMaKe"));
+        // Mã vạch (UNIQUE đang tạm gỡ) và mã lô (chỉ duy nhất theo biến thể) có thể trùng: lấy cái đang nằm trên kệ của kho
+        // này nhiều nhất, không có thì cái đầu tiên
+        Integer btId = idUuTienKho(khoId, m, "bien_the_san_pham", "ma_vach_sku", "bien_the_san_pham_id");
+        BienTheSanPham bt = btId != null ? bienTheRepo.findById(btId).orElse(null) : bienTheRepo.findByMaSkuIgnoreCase(m).orElse(null);
+        Integer loTim = bt == null ? idUuTienKho(khoId, m, "lo_hang", "ma_lo", "lo_hang_id") : null;
+        LoHang lo = loTim == null ? null : loRepo.findById(loTim).orElse(null);
+        if (bt == null && lo == null) {
+            throw new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("khoVanHanh.chuyenKeKhongThayMa", m));
+        }
+        if (lo != null) bt = lo.getBienTheSanPham();
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = em.createNativeQuery("""
+                SELECT t.vi_tri_kho_id, t.lo_hang_id, SUM(t.so_luong) FROM ton_kho_vi_tri t
+                  JOIN vi_tri_kho v ON v.id = t.vi_tri_kho_id
+                 WHERE v.kho_id = :kho AND t.so_luong > 0 AND
+                """ + (lo != null ? "t.lo_hang_id = :ma" : "t.bien_the_san_pham_id = :ma") + """
+                 GROUP BY t.vi_tri_kho_id, t.lo_hang_id
+                """).setParameter("kho", khoId).setParameter("ma", lo != null ? lo.getId() : bt.getId()).getResultList();
+        KhoaKiemKeGuard.TrangThaiKhoa tt = guard.trangThaiHienThi(khoId);
+        Set<Integer> cacLo = new HashSet<>();
+        for (Object[] r : rows) cacLo.add(((Number) r[1]).intValue());
+        Map<Integer, Integer> dmLo = tt.danhMuc.isEmpty() ? Map.of() : guard.danhMucCuaLo(new ArrayList<>(cacLo));
+        Map<Integer, Map<Integer, Integer>> giuTheoLo = new HashMap<>();
+        for (Integer l : cacLo) giuTheoLo.put(l, phanBoKe.giuTrenKeCuaLo(khoId, l));
+        Map<Integer, int[]> theoKe = new LinkedHashMap<>();
+        for (Object[] r : rows) {
+            int keId = ((Number) r[0]).intValue(), loId = ((Number) r[1]).intValue(), ton = ((Number) r[2]).intValue();
+            int giu = Math.min(ton, giuTheoLo.get(loId).getOrDefault(keId, 0));
+            Integer dm = dmLo.get(loId);
+            boolean khoaLo = tt.capDangKhoa(keId, loId) || (dm != null && tt.danhMuc.containsKey(dm));
+            int[] x = theoKe.computeIfAbsent(keId, k -> new int[2]);
+            x[0] += ton;
+            x[1] += khoaLo ? 0 : ton - giu;
+        }
+        List<ChuyenKeDto.KeCoHang> ke = new ArrayList<>();
+        for (ViTriKho v : viTriRepo.findAllById(theoKe.keySet())) {
+            int[] x = theoKe.get(v.getId());
+            String khoa = khoaCuaKe(v, tt);
+            ke.add(new ChuyenKeDto.KeCoHang(v.getId(), v.getMaViTri(), v.getKhuVucKho() == null ? null : v.getKhuVucKho().getTenKhuVuc(),
+                    v.getDayKe(), v.getHangKe(), v.getTangKe(), v.getTrangThai(),
+                    v.getSucChuaToiDa() != null && v.getSucChuaToiDa() > 0 ? v.getSucChuaToiDa() : null,
+                    x[0], KHOA_KIEM_KE.equals(khoa) ? 0 : x[1], khoa));
+        }
+        ke.sort(Comparator.comparing((ChuyenKeDto.KeCoHang k) -> -k.layDuoc()).thenComparing(ChuyenKeDto.KeCoHang::maViTri));
+        return new ChuyenKeDto.HangTim(bt == null ? null : bt.getId(), bt == null ? null : bt.getMaSku(),
+                bt == null ? null : bt.getMaVachSku(), HienThiBienThe.tenSanPham(bt), HienThiBienThe.tenMau(bt),
+                HienThiBienThe.maMauHex(bt), HienThiBienThe.kichCo(bt), HienThiBienThe.anh(bt),
+                lo == null ? null : lo.getId(), lo == null ? null : lo.getMaLo(), ke);
+    }
+
+    /**
+     * id dòng của {@code bang} có cột {@code cot} = {@code ma}, ưu tiên dòng đang có hàng trên kệ của kho nhiều nhất
+     * ({@code cotTon}: cột nối ở ton_kho_vi_tri). Tên bảng / cột là hằng trong lớp này, không lấy từ người dùng.
+     */
+    private Integer idUuTienKho(Integer khoId, String ma, String bang, String cot, String cotTon) {
+        List<?> ds = em.createNativeQuery("SELECT x.id FROM " + bang + " x LEFT JOIN (SELECT t." + cotTon + " id, SUM(t.so_luong) sl"
+                        + " FROM ton_kho_vi_tri t JOIN vi_tri_kho v ON v.id = t.vi_tri_kho_id WHERE v.kho_id = :kho AND t.so_luong > 0"
+                        + " GROUP BY t." + cotTon + ") c ON c.id = x.id WHERE x." + cot + " = :ma ORDER BY c.sl IS NULL, c.sl DESC, x.id LIMIT 1")
+                .setParameter("kho", khoId)
+                .setParameter("ma", ma)
+                .getResultList();
+        return ds.isEmpty() ? null : ((Number) ds.get(0)).intValue();
+    }
+
+    /**
+     * Các kệ của kho theo mã (sơ đồ kệ ở màn Chuyển kệ và gợi ý khi gõ mã kệ). Kèm dãy / hàng / tầng để xếp lên sơ đồ và
+     * lý do khóa thật ({@link #khoaCuaKe}): kệ bị khóa theo đợt kiểm kê đang mở hiện là khóa ngay, không phải chờ quét.
+     */
     @Transactional(readOnly = true)
     public List<ChuyenKeDto.KeGon> dsKe(Integer khoId) {
         batBuocSanSang();
@@ -161,10 +276,14 @@ public class ChuyenKeNoiBoService {
         for (Object[] r : tonKeRepo.dangChuaDuongTheoKho(khoId)) {
             dang.put(((Number) r[0]).intValue(), ((Number) r[1]).intValue());
         }
+        Map<Integer, Integer> giu = phanBoKe.giuTheoKeCuaKho(khoId);
+        // Chỉ để hiển thị (máy chủ kiểm lại khóa khi chốt): đọc thường, không giữ khóa chia sẻ
+        KhoaKiemKeGuard.TrangThaiKhoa tt = guard.trangThaiHienThi(khoId);
         return viTriRepo.findByKho_IdOrderByMaViTriAsc(khoId).stream().map(v -> new ChuyenKeDto.KeGon(v.getId(), v.getMaViTri(),
-                v.getKhuVucKho() == null ? null : v.getKhuVucKho().getTenKhuVuc(), v.getTrangThai(),
-                v.getSucChuaToiDa() != null && v.getSucChuaToiDa() > 0 ? v.getSucChuaToiDa() : null,
-                dang.getOrDefault(v.getId(), 0))).toList();
+                v.getKhuVucKho() == null ? null : v.getKhuVucKho().getTenKhuVuc(), v.getDayKe(), v.getHangKe(), v.getTangKe(),
+                v.getTrangThai(), v.getSucChuaToiDa() != null && v.getSucChuaToiDa() > 0 ? v.getSucChuaToiDa() : null,
+                dang.getOrDefault(v.getId(), 0), khoaCuaKe(v, tt),
+                Math.min(giu.getOrDefault(v.getId(), 0), dang.getOrDefault(v.getId(), 0)))).toList();
     }
 
     static final int SO_GOI_Y = 5;
@@ -183,15 +302,20 @@ public class ChuyenKeNoiBoService {
         for (Object[] r : tonKeRepo.dangChuaDuongTheoKho(khoId)) {
             dang.put(((Number) r[0]).intValue(), ((Number) r[1]).intValue());
         }
-        Set<Integer> cungMa = new HashSet<>();
+        // Kệ đang chứa biến thể nào trong số đang chuyển (dồn kệ, BA 1.1): kệ khớp nhiều mã hơn xếp trước
+        Map<Integer, List<Integer>> khop = new HashMap<>();
         List<Integer> bt = bienTheIds == null ? List.of() : bienTheIds.stream().filter(Objects::nonNull).distinct().toList();
         if (!bt.isEmpty()) {
             @SuppressWarnings("unchecked")
-            List<Object> rows = em.createNativeQuery("""
-                    SELECT DISTINCT t.vi_tri_kho_id FROM ton_kho_vi_tri t JOIN vi_tri_kho v ON v.id = t.vi_tri_kho_id
+            List<Object[]> rows = em.createNativeQuery("""
+                    SELECT DISTINCT t.vi_tri_kho_id, t.bien_the_san_pham_id FROM ton_kho_vi_tri t
+                      JOIN vi_tri_kho v ON v.id = t.vi_tri_kho_id
                      WHERE v.kho_id = :kho AND t.so_luong > 0 AND t.bien_the_san_pham_id IN (:bt)
+                     ORDER BY t.bien_the_san_pham_id
                     """).setParameter("kho", khoId).setParameter("bt", bt).getResultList();
-            for (Object r : rows) cungMa.add(((Number) r).intValue());
+            for (Object[] r : rows) {
+                khop.computeIfAbsent(((Number) r[0]).intValue(), k -> new ArrayList<>()).add(((Number) r[1]).intValue());
+            }
         }
         KhoaKiemKeGuard.TrangThaiKhoa tt = guard.trangThai(khoId);
         int canCat = Math.max(0, can);
@@ -204,10 +328,10 @@ public class ChuyenKeNoiBoService {
             if (conTrong != null && conTrong == 0) continue;
             boolean cungKhuVuc = khuNguon != null && v.getKhuVucKho() != null && khuNguon.equals(v.getKhuVucKho().getId());
             ds.add(new ChuyenKeDto.KeGoiY(v.getId(), v.getMaViTri(), v.getKhuVucKho() == null ? null : v.getKhuVucKho().getTenKhuVuc(),
-                    v.getDayKe(), v.getTangKe(), sucChua, dc, conTrong, cungMa.contains(v.getId()), cungKhuVuc,
-                    conTrong == null || conTrong >= canCat));
+                    v.getDayKe(), v.getTangKe(), sucChua, dc, conTrong, khop.containsKey(v.getId()), cungKhuVuc,
+                    conTrong == null || conTrong >= canCat, khop.getOrDefault(v.getId(), List.of())));
         }
-        ds.sort(Comparator.comparing((ChuyenKeDto.KeGoiY k) -> !k.cungMa())
+        ds.sort(Comparator.comparing((ChuyenKeDto.KeGoiY k) -> -k.bienTheKhop().size())
                 .thenComparing(k -> !k.duCho())
                 .thenComparing(k -> !k.cungKhu())
                 .thenComparing(k -> k.conTrong() == null ? Integer.MAX_VALUE : k.conTrong())
@@ -297,6 +421,18 @@ public class ChuyenKeNoiBoService {
      */
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public ChuyenKeDto.KetQua thucHien(Integer khoId, ChuyenKeYeuCau yc) {
+        return thucHien(khoId, yc, null);
+    }
+
+    /**
+     * Như {@link #thucHien(Integer, ChuyenKeYeuCau)} kèm khóa chống gửi lặp {@code khoaLenh} (header Idempotency-Key):
+     * gửi lại cùng khóa, cùng nội dung (mất mạng lúc chờ phản hồi, bấm hai lần) → trả lại đúng phiếu đã tạo, không chuyển
+     * lần nữa; cùng khóa khác nội dung → 409. Khóa tra SAU khi đã khóa các dòng tồn lô (cùng nội dung thì cùng lô) nên lần
+     * gửi lặp chờ lần đầu commit rồi mới đọc; kết quả ghi trong cùng giao dịch tạo phiếu. Không gửi khóa (hoặc CSDL chưa có
+     * bảng khóa lệnh) → chạy như cũ.
+     */
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public ChuyenKeDto.KetQua thucHien(Integer khoId, ChuyenKeYeuCau yc, String khoaLenh) {
         batBuocSanSang();
         if (khoId == null) throw new CommonException(ThongDiep.of("khoVanHanh.khoKhongCoLoDaChon"));
         if (yc == null || yc.keNguonId() == null || yc.dong() == null || yc.dong().isEmpty()) {
@@ -339,11 +475,23 @@ public class ChuyenKeNoiBoService {
             cong(vaoKeDich, keDich, sl);
         }));
 
+        String khoaGui = coBangLenh() ? lenh.chuanHoa(khoaLenh) : null;
+        String bam = khoaGui == null ? null : lenh.bam(LENH_CHUYEN_KE, yc);
+
         // 1. Mutex kho (kiểm kê không bắt đầu / phê duyệt xen giữa) → 2. dòng tồn lô (thứ tự id)
         guard.giuKho(khoId);
         List<Integer> loIds = new ArrayList<>(canTheoLo.keySet());
         List<Integer> tonIds = tonLoRepo.findIdsByKhoAndLots(khoId, loIds);
         List<TonKhoTheoLo> tonLo = tonIds.isEmpty() ? List.of() : tonLoRepo.lockLotsForUpdateByIds(tonIds);
+        // Gửi lặp cùng khóa: cùng nội dung nên cùng các dòng tồn lô vừa khóa. Lần gửi song song (mutex kho chỉ là khóa đọc,
+        // không xếp hàng) chờ ở đây tới khi lần đầu commit; đọc có khóa để thấy kết quả vừa ghi thay vì ảnh chụp cũ
+        if (khoaGui != null) {
+            Optional<ChuyenKeDto.KetQua> daLam = lenh.daXuLyMoiNhat(khoId, khoaGui, LENH_CHUYEN_KE, bam, ChuyenKeDto.KetQua.class);
+            if (daLam.isPresent()) {
+                log.info("[CHUYEN-KE] Gửi lặp khóa {} kho {}: trả lại phiếu {}", khoaGui, khoId, daLam.get().maPhieu());
+                return daLam.get();
+            }
+        }
         Map<Integer, TonKhoTheoLo> tonTheoLo = new HashMap<>();
         for (TonKhoTheoLo t : tonLo) {
             em.refresh(t, LockModeType.PESSIMISTIC_WRITE);
@@ -480,7 +628,9 @@ public class ChuyenKeNoiBoService {
         for (ViTriKho v : ke.values()) capNhatDayKe(v);
         log.info("[CHUYEN-KE] {} kho {}: {} dòng, {} sản phẩm từ {}{}", phieu.getMaPhieu(), khoId, soDong, tong,
                 nguon.getMaViTri(), vuot ? " (vượt sức chứa)" : "");
-        return new ChuyenKeDto.KetQua(phieu.getId(), phieu.getMaPhieu(), soDong, tong);
+        ChuyenKeDto.KetQua ketQua = new ChuyenKeDto.KetQua(phieu.getId(), phieu.getMaPhieu(), soDong, tong);
+        lenh.ghi(khoId, khoaGui, LENH_CHUYEN_KE, bam, ketQua, null);
+        return ketQua;
     }
 
     /** Kệ đang HOAT_DONG / DAY_HANG có giới hạn sức chứa: đặt lại theo số đang chứa. Kệ bảo trì, đang kiểm kê giữ nguyên. */

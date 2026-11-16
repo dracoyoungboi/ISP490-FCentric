@@ -1,13 +1,12 @@
 // src/pages/bin-move/BinMovePage.jsx
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, History, ScanBarcode, Warehouse } from "lucide-react";
+import { History, Warehouse, WifiOff } from "lucide-react";
 import PageContainer from "@/components/backoffice/PageContainer";
 import ListPageHeader from "@/components/shared/ListPageHeader";
 import EmptyState from "@/components/shared/EmptyState";
 import ErrorState from "@/components/shared/ErrorState";
 import { Button } from "@/components/ui/button";
-import DongThongBao, { NutChu } from "@/components/chung-tu/DongThongBao";
 import { soVN } from "@/components/chung-tu/bangChungTu";
 import ChonKhoKiemKe from "@/components/kiem-ke/ChonKhoKiemKe";
 import useKhoKiemKe from "@/components/kiem-ke/useKhoKiemKe";
@@ -15,12 +14,16 @@ import ThanhQuet from "@/components/chuyen-ke/ThanhQuet";
 import CotTuKe from "@/components/chuyen-ke/CotTuKe";
 import CotSangKe from "@/components/chuyen-ke/CotSangKe";
 import ThanhXacNhan from "@/components/chuyen-ke/ThanhXacNhan";
-import { hienGhiChu } from "@/components/chuyen-ke/nhanKe";
+import BienNhanChuyenKe from "@/components/chuyen-ke/BienNhanChuyenKe";
+import { SoDoKeDich, TheSoDoNguon } from "@/components/chuyen-ke/SoDoKeChuyen";
 import {
+  capNhatKeDich,
+  conLaiTheoLo,
   conTrongCua,
   dongDaChon,
   dongTheoMaQuet,
   ghepGhiChu,
+  gomTheoKeDich,
   lyDoKhongDung,
   phanBoKeDich,
   soNguyen,
@@ -30,15 +33,14 @@ import {
 } from "@/components/chuyen-ke/chuyenKe";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import { toast } from "@/lib/thongBaoNhanh";
-import { formatDateTime } from "@/utils/dateTime";
-import { goiYKeDich, layDsKe, layLichSuChuyenKe, traKe, xacNhanChuyenKe } from "@/services/chuyenKeService";
+import { goiYKeDich, layDsKe, taoKhoaLenh, timHang, traKe, xacNhanChuyenKe } from "@/services/chuyenKeService";
+import { VAI_TRO_KHO } from "@/components/backoffice/sidebar.config";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { getKhoLamViecId, setKhoLamViecId } from "@/utils/khoLamViec";
 import { ROLES, hasAnyRole } from "@/utils/roles";
 import { playScanBeep } from "@/utils/scanBeep";
 import { t, tDuLieu } from "@/i18n";
 
-const TH = "h-10 pr-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
 const THE = "rounded-lg border border-bo-border bg-bo-surface shadow-sm";
 const NUT_PHU = "h-9 gap-2 border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle";
 
@@ -69,6 +71,74 @@ function ghiKeGanDay(khoId, ds) {
   }
 }
 
+// Lượt chuyển đang dở (chưa xác nhận), lưu theo thẻ trình duyệt và kho: tải lại trang thì hỏi làm tiếp. sessionStorage
+// để không mang sang thẻ khác / ngày khác và hai thẻ không đè nhau.
+const khoaLuotDo = (khoId) => `fcentric.chuyen-ke.luot-do.${khoId}`;
+const LUOT_DO_HET_HAN_MS = 12 * 60 * 60 * 1000;
+function docLuotDo(khoId) {
+  try {
+    const v = JSON.parse(sessionStorage.getItem(khoaLuotDo(khoId)) ?? "null");
+    return v && typeof v.ma === "string" && Date.now() - (v.luc ?? 0) < LUOT_DO_HET_HAN_MS ? v : null;
+  } catch {
+    return null;
+  }
+}
+function ghiLuotDo(khoId, v) {
+  try {
+    if (v) sessionStorage.setItem(khoaLuotDo(khoId), JSON.stringify(v));
+    else sessionStorage.removeItem(khoaLuotDo(khoId));
+  } catch {
+    // Trình duyệt chặn lưu: chỉ mất phần làm tiếp sau khi tải lại trang
+  }
+}
+
+// Lần gửi chưa rõ kết quả (đã bấm Xác nhận, chưa nhận trả lời): ghi TRƯỚC khi chờ máy chủ, xóa khi máy chủ trả lời. Tải lại
+// trang giữa chừng vẫn gửi lại được đúng nội dung, đúng khóa chống gửi lặp (không tạo phiếu thứ hai).
+const khoaDangGui = (khoId) => `fcentric.chuyen-ke.dang-gui.${khoId}`;
+function docDangGui(khoId) {
+  try {
+    const v = JSON.parse(sessionStorage.getItem(khoaDangGui(khoId)) ?? "null");
+    return v && v.khoId === khoId && v.yeuCau && v.khoa && Date.now() - (v.luc ?? 0) < LUOT_DO_HET_HAN_MS ? v : null;
+  } catch {
+    return null;
+  }
+}
+function ghiDangGui(khoId, v) {
+  try {
+    if (v) sessionStorage.setItem(khoaDangGui(khoId), JSON.stringify(v));
+    else sessionStorage.removeItem(khoaDangGui(khoId));
+  } catch {
+    // Trình duyệt chặn lưu: tải lại trang thì mất lần gửi treo, kiểm tra ở Lịch sử
+  }
+}
+
+/**
+ * Lỗi mà máy chủ có thể đã chuyển xong: không có phản hồi (mất mạng, hết giờ chờ), cổng / proxy báo lỗi (502, 504,
+ * Cloudflare 52x) hoặc lỗi 5xx không phải thân trả lời của máy chủ. Còn lại là máy chủ đã trả lời "không chuyển".
+ */
+function chuaRoKetQua(e) {
+  const r = e?.response;
+  if (!r) return true;
+  const coThan = r.data != null && typeof r.data === "object";
+  return r.status === 502 || r.status === 504 || r.status >= 520 || (r.status >= 500 && !coThan);
+}
+
+// Cách chọn kệ đích người dùng chọn lần trước ("goi-y" | "so-do"), nhớ trên máy này
+const KHOA_CHE_DO_DICH = "fcentric.chuyen-ke.che-do-dich";
+function docCheDoDich() {
+  try {
+    return localStorage.getItem(KHOA_CHE_DO_DICH) === "so-do" ? "so-do" : "goi-y";
+  } catch {
+    return "goi-y";
+  }
+}
+
+/** Tên một lô để hiện: tên sản phẩm · màu · cỡ (dữ liệu, dịch nếu có), hoặc mã SKU. */
+function tenLo(lo) {
+  if (!lo) return "";
+  return [lo.tenSanPham ? tDuLieu(lo.tenSanPham) : lo.maSku, ...[lo.mau, lo.kichCo].filter(Boolean).map((x) => tDuLieu(x))].join(" · ");
+}
+
 /** Giá trị trễ `ms` (gọi gợi ý kệ sau khi người dùng ngừng đổi số lượng). */
 function useTre(giaTri, ms) {
   const [v, setV] = useState(giaTri);
@@ -84,6 +154,8 @@ function useTre(giaTri, ms) {
  * Một ô quét cho cả lượt: mã kệ đầu tiên là kệ nguồn; sau đó mã hàng / lô trên kệ cộng 1, mã kệ khác là kệ đích (chưa
  * chọn hàng thì là đổi kệ nguồn). Kệ đích thiếu chỗ xử lý ngay trong cột "Kệ đích" (A3: tách cất hoặc đổi kệ). Xác nhận
  * ở thanh dưới cùng, máy chủ ghi một phiếu MV-YYYYMMDD-XXXX trong một giao dịch.
+ * Màn mở đầu là sơ đồ kệ của kho (bấm ô = quét mã kệ đó) kèm mục Cần xử lý; ở bước Kệ đích có thể chọn kệ trên sơ đồ.
+ * Sau khi chốt, kệ nguồn còn hàng thì giữ nguyên để chuyển tiếp.
  */
 export default function BinMovePage() {
   const navigate = useNavigate();
@@ -108,6 +180,16 @@ export default function BinMovePage() {
   const [dangGui, setDangGui] = useState(false);
   const [ketQua, setKetQua] = useState(null);
   const [keGanDay, setKeGanDay] = useState([]);
+  const [cheDoDich, setCheDoDich] = useState(docCheDoDich);
+  // Đợt 2: kết quả quét mã hàng ở bước đầu. Đợt 3: lượt dở chờ hỏi làm tiếp; lần gửi mất kết nối chưa rõ kết quả
+  const [hangTim, setHangTim] = useState(null);
+  const [luotDo, setLuotDo] = useState(null);
+  const [chuaRo, setChuaRo] = useState(null);
+  // Khóa chống gửi lặp của nội dung đang gửi: `{ noiDung, khoa }`, đổi nội dung thì sinh khóa mới
+  const khoaLenhRef = useRef(null);
+  // Kho của lần lưu lượt dở trước: lần vẽ đổi kho vẫn còn kệ nguồn của kho cũ, không ghi nó vào khóa của kho mới
+  const khoLuotDoRef = useRef(khoId);
+  const coViTriKho = hasAnyRole(VAI_TRO_KHO);
 
   const dsChon = useMemo(() => dongDaChon(nguon?.dong, chon), [nguon, chon]);
   const tong = tongSoLuong(dsChon);
@@ -124,19 +206,46 @@ export default function BinMovePage() {
     setTimeout(() => oQuetRef.current?.focus(), 0);
   };
 
-  // ── Dữ liệu phụ: mã kệ cho ô gõ tay, lượt chuyển gần đây, kệ gợi ý ──
+  // ── Dữ liệu phụ: các kệ của kho (sơ đồ, gợi ý khi gõ mã kệ), kệ gợi ý ──
   const taiDsKe = useCallback(() => layDsKe(khoId), [khoId]);
   const dsKeQ = useTaiDuLieu(taiDsKe, `chuyen-ke-ds-ke-${khoId}`, { enabled: khoId != null });
   const dsKe = useMemo(() => (dsKeQ.dungKhoa && Array.isArray(dsKeQ.data) ? dsKeQ.data : []), [dsKeQ.dungKhoa, dsKeQ.data]);
-  const taiGanDay = useCallback(() => layLichSuChuyenKe(khoId, { kichThuoc: 4 }), [khoId]);
-  const ganDayQ = useTaiDuLieu(taiGanDay, `chuyen-ke-gan-day-${khoId}`, { enabled: khoId != null });
-  const luotGanDay = ganDayQ.dungKhoa ? ganDayQ.data?.ds ?? [] : [];
+  const taiLaiDsKe = dsKeQ.reload;
+  // Quay lại cửa sổ khi chưa mở kệ nguồn: người khác có thể vừa chuyển hàng, tải lại số trên sơ đồ
+  useEffect(() => {
+    const khiHien = () => {
+      if (document.visibilityState === "visible" && !moiNhat.current.nguon) taiLaiDsKe?.();
+    };
+    document.addEventListener("visibilitychange", khiHien);
+    return () => document.removeEventListener("visibilitychange", khiHien);
+  }, [taiLaiDsKe]);
+
+  // Tên từng mã hàng trong giỏ (gợi ý kệ đích ghi "Đang chứa: …") và số mã đang chuyển
+  const tenMa = useMemo(() => {
+    const m = new Map();
+    for (const d of dsChon) if (d.bienTheId != null && !m.has(d.bienTheId)) m.set(d.bienTheId, tenLo(d));
+    return m;
+  }, [dsChon]);
+
+  // Lô nào sẽ đặt lên kệ đích nào (cùng phép chia gửi máy chủ), để người cầm xe đẩy đặt đúng chỗ
+  const loTheoKe = useMemo(() => {
+    const theoLo = Object.fromEntries((nguon?.dong ?? []).map((d) => [d.loHangId, d]));
+    const m = new Map();
+    for (const g of gomTheoKeDich(taoDongGui(dsChon, phan.filter((p) => p.nhan > 0)))) {
+      m.set(
+        g.keDichId,
+        g.dong.map((d) => ({ loHangId: d.loHangId, ten: tenLo(theoLo[d.loHangId]), maLo: theoLo[d.loHangId]?.maLo, soLuong: d.soLuong })),
+      );
+    }
+    return m;
+  }, [nguon, dsChon, phan]);
 
   // Gợi ý kệ: chỉ tải lại khi đổi kệ nguồn / tập mã hàng (không theo từng lần +1); "đủ chỗ" và thứ tự tính lại ở đây theo
   // số còn phải cất, cùng thứ tự máy chủ: cùng mã hàng → đủ chỗ → cùng khu → ít chỗ trống trước → mã kệ
   const bienTheIds = useMemo(() => [...new Set(dsChon.map((d) => d.bienTheId).filter(Boolean))].sort((a, b) => a - b).join(","), [dsChon]);
   const coGoiY = Boolean(nguon) && tong > 0 && conLai > 0;
-  const khoaGoiY = useTre(nguon && bienTheIds ? `${khoId}|${nguon.id}|${bienTheIds}` : "", 300);
+  const khoaGoiYMoi = nguon && bienTheIds ? `${khoId}|${nguon.id}|${bienTheIds}` : "";
+  const khoaGoiY = useTre(khoaGoiYMoi, 300);
   const taiGoiY = useCallback(() => {
     const [k, ke, bt] = khoaGoiY.split("|");
     return goiYKeDich(Number(k), { keNguonId: Number(ke), bienTheIds: bt, can: 0 });
@@ -151,7 +260,7 @@ export default function BinMovePage() {
     if (!ds) return undefined;
     return ds
       .map((k) => ({ ...k, duCho: k.conTrong == null || k.conTrong >= conLai }))
-      .sort((a, b) => Number(b.cungMa) - Number(a.cungMa) || Number(b.duCho) - Number(a.duCho) || Number(b.cungKhu) - Number(a.cungKhu)
+      .sort((a, b) => (b.bienTheKhop?.length ?? Number(b.cungMa)) - (a.bienTheKhop?.length ?? Number(a.cungMa)) || Number(b.duCho) - Number(a.duCho) || Number(b.cungKhu) - Number(a.cungKhu)
         || (a.conTrong ?? Infinity) - (b.conTrong ?? Infinity) || String(a.maViTri).localeCompare(String(b.maViTri)));
   }, [goiYQ.dungKhoa, goiYQ.data, nguon, khoId, conLai]);
 
@@ -166,6 +275,8 @@ export default function BinMovePage() {
     setThieuCho(null);
     setLyDo(null);
     setGhiChu("");
+    setHangTim(null);
+    // Không xóa chuaRo: lần gửi chưa rõ kết quả còn đó tới khi gửi lại hoặc người dùng bỏ
     // Màn cảm ứng không tự đưa tiêu điểm vào ô quét (tránh bật bàn phím ảo)
     if (!document.documentElement.hasAttribute("data-cam-ung")) setTimeout(() => oQuetRef.current?.focus(), 0);
   }, []);
@@ -176,7 +287,33 @@ export default function BinMovePage() {
     setKetQua(null);
     setPhanHoi(null);
     setKeGanDay(khoId == null ? [] : docKeGanDay(khoId));
+    setLuotDo(khoId == null ? null : docLuotDo(khoId));
+    // Lần gửi trước khi tải lại trang chưa rõ kết quả: hỏi gửi lại (lamMoi ở trên vừa xóa chuaRo, lệnh này chạy sau)
+    setChuaRo(khoId == null ? null : docDangGui(khoId));
+    khoaLenhRef.current = null;
   }, [khoId, lamMoi]);
+
+  // Lưu lượt đang dở mỗi khi đổi (chưa mở kệ nguồn thì không đụng tới: còn chờ hỏi làm tiếp)
+  useEffect(() => {
+    if (khoLuotDoRef.current !== khoId) {
+      khoLuotDoRef.current = khoId;
+      return;
+    }
+    if (khoId == null || !nguon) return;
+    if (tong <= 0 && !dsDich.length) {
+      ghiLuotDo(khoId, null);
+      return;
+    }
+    ghiLuotDo(khoId, {
+      ma: nguon.maViTri,
+      chon,
+      dich: dsDich.map((d) => ({ ma: d.ke.maViTri, vuot: Boolean(d.vuot), toiDa: d.toiDa ?? null })),
+      lyDo,
+      ghiChu,
+      tong,
+      luc: Date.now(),
+    });
+  }, [khoId, nguon, chon, dsDich, lyDo, ghiChu, tong]);
 
   // Đổi số lượng hoặc bỏ một kệ đích: khối "kệ thiếu chỗ" tính theo số cũ, bỏ để quét / chọn lại
   useEffect(() => {
@@ -199,11 +336,12 @@ export default function BinMovePage() {
   };
 
   // ── Kệ nguồn ──
+  /** Mở `ke` làm kệ nguồn; trả false khi kệ không lấy hàng được (đã báo lỗi). */
   const datNguon = (ke) => {
     if (lyDoKhongDung(ke, "nguon")) {
       baoLoi();
       setPhanHoi({ kieu: "loi", chu: ke.lyDoKhoa ?? t("Vị trí {{ma}} đang trong phiên kiểm kê định kỳ hoặc đang bảo dưỡng. Thao tác bị từ chối.", { ma: ke.maViTri }) });
-      return;
+      return false;
     }
     if (!(ke.dong ?? []).some((d) => d.khaDung > 0 && !d.khoaKiemKe)) {
       baoLoi();
@@ -213,10 +351,12 @@ export default function BinMovePage() {
           ? t("Kệ {{ma}} không có hàng. Quét kệ khác.", { ma: ke.maViTri })
           : t("Hàng trên kệ {{ma}} đang chờ nhặt hoặc đang kiểm kê, chưa chuyển được.", { ma: ke.maViTri }),
       });
-      return;
+      return false;
     }
     playScanBeep(true);
     setNguon(ke);
+    setHangTim(null);
+    setLuotDo(null);
     setChon({});
     setLoiDong({});
     setNoiBat(null);
@@ -227,6 +367,7 @@ export default function BinMovePage() {
     setKeGanDay(moi);
     ghiKeGanDay(khoId, moi);
     setPhanHoi({ kieu: "ok", chu: t("Đã mở kệ {{ma}} · {{soLo}} lô. Quét mã hàng hoặc nhập số lượng cần chuyển.", { ma: ke.maViTri, soLo: soVN(ke.dong.length), count: ke.dong.length }) });
+    return true;
   };
 
   /** Đặt số lượng một lô; vượt khả dụng thì tự điền lại số tối đa và báo (A2). */
@@ -269,14 +410,42 @@ export default function BinMovePage() {
     });
   };
 
-  const chonTatCa = () => {
+  /** Chọn toàn bộ số khả dụng trên kệ `ke` (mặc định kệ nguồn đang mở). */
+  const chonTatCa = (ke = nguon) => {
     const moi = {};
-    for (const d of nguon?.dong ?? []) if (!d.khoaKiemKe && d.khaDung > 0) moi[d.loHangId] = String(d.khaDung);
+    for (const d of ke?.dong ?? []) if (!d.khoaKiemKe && d.khaDung > 0) moi[d.loHangId] = String(d.khaDung);
     const so = Object.values(moi).reduce((s, v) => s + Number(v), 0);
     setChon(moi);
     setLoiDong({});
     setPhanHoi({ kieu: "thongTin", chu: t("Đã chọn toàn bộ {{so}} sản phẩm khả dụng trên kệ.", { so: soVN(so), count: so }) });
     veOQuet();
+  };
+
+  /**
+   * Mở kệ từ sơ đồ hoặc mục Cần xử lý (như quét mã kệ đó). `viec`: "bao-tri" chọn cả kệ và điền lý do Bảo trì kệ;
+   * "vuot" nhắc số cần chuyển bớt.
+   */
+  const moKe = async (maKe, viec = null) => {
+    const khoLuc = moiNhat.current.khoId;
+    try {
+      const ke = await tra(maKe);
+      if (moiNhat.current.khoId !== khoLuc) return;
+      if (!datNguon(ke)) return;
+      if (viec?.loai === "bao-tri") {
+        chonTatCa(ke);
+        setLyDo("Bảo trì kệ"); // i18n-giu-nguyen: giá trị lưu vào ghi chú phiếu (LY_DO_CHUYEN_KE)
+      } else if (viec?.loai === "vuot") {
+        setPhanHoi({ kieu: "thongTin", chu: t("Kệ {{ma}} dư {{so}} sản phẩm: nhập số cần chuyển bớt ở bảng bên dưới.", { ma: ke.maViTri, so: soVN(viec.so), count: viec.so }) });
+      } else if (viec?.loai === "hang") {
+        const dong = (ke.dong ?? []).find((d) => (viec.loHangId ? d.loHangId === viec.loHangId : d.bienTheId === viec.bienTheId) && d.khaDung > 0 && !d.khoaKiemKe);
+        if (dong) setNoiBat(dong.loHangId);
+      }
+    } catch (e) {
+      baoLoi();
+      setPhanHoi({ kieu: "loi", chu: getApiErrorMessage(e, t("Không tra được kệ. Thử lại.")) });
+    } finally {
+      veOQuet();
+    }
   };
 
   // ── Kệ đích ──
@@ -383,6 +552,42 @@ export default function BinMovePage() {
       }
     }
     const khoLuc = moiNhat.current.khoId;
+    // Chưa có kệ nguồn và mã không trùng kệ nào của kho (đã tải): quét mã hàng → các kệ đang chứa hàng đó
+    const laMaKe = (dsKe ?? []).some((k) => String(k.maViTri).toLowerCase() === m.toLowerCase());
+    if (!ng && dsKe.length && !laMaKe) {
+      try {
+        const h = await (async () => {
+          dongBoKho();
+          setDangTra(true);
+          try {
+            return await timHang(khoId, m);
+          } finally {
+            setDangTra(false);
+          }
+        })();
+        if (moiNhat.current.khoId !== khoLuc || moiNhat.current.nguon) return;
+        const ten = [h.tenSanPham, h.mau, h.kichCo].filter(Boolean).map((x) => tDuLieu(x)).join(" · ") || m;
+        if (!h.ke?.length) {
+          baoLoi();
+          setHangTim(null);
+          setPhanHoi({ kieu: "canhBao", chu: t("{{ten}} không nằm trên kệ nào của kho này.", { ten }) });
+        } else {
+          playScanBeep(true);
+          setHangTim(h);
+          setPhanHoi({ kieu: "ok", chu: t("{{ten}} đang ở {{so}} kệ. Chọn kệ để lấy hàng.", { ten, so: soVN(h.ke.length), count: h.ke.length }) });
+        }
+        veOQuet();
+        return;
+      } catch (e) {
+        // Không phải mã hàng: thử như mã kệ (kệ vừa tạo chưa có trong danh sách đã tải)
+        if (e?.response?.status !== 404) {
+          baoLoi();
+          setPhanHoi({ kieu: "loi", chu: getApiErrorMessage(e, t("Không tra được kệ. Thử lại.")) });
+          veOQuet();
+          return;
+        }
+      }
+    }
     try {
       const ke = await tra(m);
       if (moiNhat.current.khoId !== khoLuc) return; // đã đổi kho trong lúc tra: bỏ kết quả của kho cũ
@@ -396,7 +601,9 @@ export default function BinMovePage() {
         kieu: "loi",
         chu: khongThay && ng
           ? t("Mã {{ma}} không có trên kệ {{ke}} và không phải mã kệ của kho.", { ma: m, ke: ng.maViTri })
-          : getApiErrorMessage(e, t("Không tra được kệ. Thử lại.")),
+          : khongThay
+            ? t("Không tìm thấy mã {{ma}}: không phải mã kệ hay mã hàng.", { ma: m })
+            : getApiErrorMessage(e, t("Không tra được kệ. Thử lại.")),
       });
     } finally {
       veOQuet();
@@ -404,36 +611,129 @@ export default function BinMovePage() {
   };
 
   // ── Xác nhận ──
+  const coCho = tong - conLai;
   const duocGui = Boolean(nguon) && tong > 0 && conLai === 0 && !dangGui;
-  const xacNhan = async () => {
-    if (!duocGui) return;
+  /**
+   * Chốt lượt chuyển. `chiPhanCoCho`: kho không đủ chỗ cho cả giỏ, chuyển phần đã có kệ đích trước (phần còn lại vẫn chọn
+   * ở kệ nguồn). Xong: kệ nguồn còn hàng lấy được thì giữ nguyên để chuyển tiếp; không thì về màn mở đầu.
+   */
+  const xacNhan = (chiPhanCoCho = false) => {
+    // Lần gửi trước chưa rõ kết quả: chỉ "Gửi lại" đúng nội dung đó (gửi nội dung khác sẽ ra khóa khác, có thể chuyển đôi)
+    if (dangGui || chuaRo || !nguon || tong <= 0 || (chiPhanCoCho ? coCho <= 0 : conLai !== 0)) return;
     const phanCo = phan.filter((p) => p.nhan > 0);
     const dong = taoDongGui(dsChon, phanCo);
+    const coVuotGui = phanCo.some((p) => p.vuot && p.nhan > conTrongCua(p.ke));
+    const ghi = ghepGhiChu(lyDo, ghiChu);
+    const keNguon = nguon;
+    const yeuCau = { keNguonId: keNguon.id, dong, ghiChu: ghi, vuotSucChua: coVuotGui || undefined };
+    // Cùng nội dung → cùng khóa (bấm lại sau lỗi không chuyển hai lần); đổi nội dung → khóa mới
+    const noiDung = JSON.stringify(yeuCau);
+    if (khoaLenhRef.current?.noiDung !== noiDung) khoaLenhRef.current = { noiDung, khoa: taoKhoaLenh() };
+    const theoLo = Object.fromEntries(keNguon.dong.map((d) => [d.loHangId, d]));
+    const keTheoId = Object.fromEntries(phanCo.map((p) => [p.ke.id, p.ke]));
+    // Mọi thứ cần sau khi gửi nằm trong `goi` (không đọc giỏ hiện tại): gửi lại sau khi tải trang vẫn dựng đúng biên nhận
+    return gui({
+      khoId,
+      yeuCau,
+      khoa: khoaLenhRef.current.khoa,
+      chiPhanCoCho,
+      tu: keNguon.maViTri,
+      keNguonId: keNguon.id,
+      lyDo: ghi,
+      tong: chiPhanCoCho ? coCho : tong,
+      chuaChuyen: chiPhanCoCho ? tong - coCho : 0,
+      conChon: chiPhanCoCho ? conLaiTheoLo(dsChon, dong) : {},
+      baoTriNguon: keNguon.khoa === "BAO_TRI" || keNguon.trangThai === "BAO_TRI",
+      nhom: gomTheoKeDich(dong).map((g) => ({
+        ...g,
+        ma: keTheoId[g.keDichId]?.maViTri,
+        truoc: keTheoId[g.keDichId]?.dangChua ?? 0,
+        suc: keTheoId[g.keDichId]?.sucChua ?? null,
+        dong: g.dong.map((d) => ({ ...d, ten: tenLo(theoLo[d.loHangId]), maLo: theoLo[d.loHangId]?.maLo })),
+      })),
+      luc: Date.now(),
+    });
+  };
+
+  /** Gửi một lượt đã chốt nội dung (`goi` từ xacNhan, hoặc lần gửi chưa rõ kết quả để gửi lại cùng khóa). */
+  const gui = async (goi) => {
+    if (dangGui) return;
+    const { khoId: khoGui, chiPhanCoCho } = goi;
+    // Ghi trước khi chờ: tải lại trang lúc đang chờ vẫn còn đúng nội dung và khóa để gửi lại
+    ghiDangGui(khoGui, goi);
     setDangGui(true);
+    setChuaRo(null);
     dongBoKho();
     try {
-      const kq = await xacNhanChuyenKe(khoId, { keNguonId: nguon.id, dong, ghiChu: ghepGhiChu(lyDo, ghiChu), vuotSucChua: coVuot || undefined });
+      const kq = await xacNhanChuyenKe(khoGui, goi.yeuCau, goi.khoa);
       playScanBeep(true);
-      const theoLo = Object.fromEntries(nguon.dong.map((d) => [d.loHangId, d]));
-      const tenKe = Object.fromEntries(phanCo.map((p) => [p.ke.id, p.ke.maViTri]));
-      setKetQua({
-        ...kq,
-        tu: nguon.maViTri,
-        den: phanCo.map((p) => p.ke.maViTri),
-        lyDo: ghepGhiChu(lyDo, ghiChu),
-        dong: dong.map((d, i) => ({ ...d, i, lo: theoLo[d.loHangId], keDich: tenKe[d.keDichId] })),
-        luc: new Date().toISOString(),
-      });
-      setPhanHoi(null);
-      lamMoi();
-      ganDayQ.reload?.();
-      dsKeQ.reload?.();
+      khoaLenhRef.current = null;
+      ghiDangGui(khoGui, null);
+      ghiLuotDo(khoGui, null);
+      // Gửi lại sau khi tải trang: lượt dở đã lưu chính là lượt vừa chuyển, không hỏi làm tiếp nữa
+      if (moiNhat.current.khoId === khoGui) setLuotDo(null);
+      const ketQuaMoi = { ...kq, tu: goi.tu, lyDo: goi.lyDo, luc: new Date().toISOString(), nhom: goi.nhom, conLai: 0, baoTriTrong: false };
+      taiLaiDsKe?.();
+      // Kệ nguồn sau khi chuyển: còn hàng lấy được thì giữ (kèm phần chưa có chỗ nếu chỉ chuyển một phần)
+      let keSau = null;
+      try {
+        keSau = await traKe(khoGui, goi.tu);
+      } catch {
+        // Không tra lại được: coi như xong lượt, quét lại kệ nếu cần
+      }
+      if (moiNhat.current.khoId !== khoGui) return;
+      // Trong lúc gửi người dùng đã đổi / bỏ kệ nguồn (hoặc gửi lại sau khi tải trang): chỉ hiện biên nhận, không mở lại kệ
+      if (moiNhat.current.nguon?.id !== goi.keNguonId) {
+        setKetQua(ketQuaMoi);
+        return;
+      }
+      const khaDungSau = (keSau?.dong ?? []).reduce((tg, d) => tg + (d.khoaKiemKe ? 0 : Math.max(0, d.khaDung)), 0);
+      if (keSau && !lyDoKhongDung(keSau, "nguon") && khaDungSau > 0) {
+        const conChon = goi.conChon ?? {};
+        const chonMoi = {};
+        for (const d of keSau.dong) {
+          const so = Math.min(conChon[d.loHangId] ?? 0, d.khoaKiemKe ? 0 : d.khaDung);
+          if (so > 0) chonMoi[d.loHangId] = String(so);
+        }
+        setNguon(keSau);
+        setChon(chonMoi);
+        setLoiDong({});
+        setNoiBat(null);
+        setDsDich([]);
+        setThieuCho(null);
+        if (!chiPhanCoCho) {
+          setLyDo(null);
+          setGhiChu("");
+        }
+        ketQuaMoi.conLai = khaDungSau;
+        // Cùng kệ nguồn, cùng mã hàng: khóa gợi ý không đổi nên phải tự tải lại (kệ vừa cất có thể đã đầy)
+        goiYQ.reload?.();
+        setPhanHoi(null);
+        veOQuet();
+      } else {
+        // Chỉ chuyển một phần mà không mở lại được kệ nguồn: báo phần chưa chuyển để quét lại
+        if (chiPhanCoCho) ketQuaMoi.chuaChuyen = goi.chuaChuyen;
+        ketQuaMoi.baoTriTrong = Boolean(goi.baoTriNguon) && keSau != null && (keSau.dangChua ?? 0) === 0;
+        setPhanHoi(null);
+        lamMoi();
+      }
+      setKetQua(ketQuaMoi);
     } catch (e) {
       baoLoi();
+      // Mất mạng, hết giờ chờ, cổng báo lỗi: chưa biết máy chủ đã chuyển chưa. Giữ lần gửi (đã lưu) để gửi lại đúng nội
+      // dung, đúng khóa; không tải lại, không kẹp số
+      if (chuaRoKetQua(e)) {
+        if (moiNhat.current.khoId === khoGui) setChuaRo(goi);
+        return;
+      }
+      // Máy chủ đã trả lời là không chuyển: bỏ lần gửi đã lưu
+      ghiDangGui(khoGui, null);
       toast.error(getApiErrorMessage(e, t("Không chuyển được kệ. Thử lại.")));
-      // Số trên kệ / sức chứa kệ đích có thể đã đổi: tải lại kệ nguồn, kẹp số đã chọn theo khả dụng mới, bỏ các kệ đích
+      // Số trên kệ / sức chứa kệ đích có thể đã đổi: tải lại kệ nguồn (kẹp số đã chọn theo khả dụng mới) và các kệ đích
+      // (chỉ bỏ kệ đã khóa / hết chỗ, giữ kệ còn dùng được)
       try {
-        const moi = await traKe(khoId, nguon.maViTri);
+        const [moi, dsMoi] = await Promise.all([traKe(khoGui, goi.tu), layDsKe(khoGui).catch(() => null)]);
+        if (moiNhat.current.khoId !== khoGui || moiNhat.current.nguon?.id !== goi.keNguonId) return;
         if (lyDoKhongDung(moi, "nguon")) {
           lamMoi();
           setPhanHoi({ kieu: "loi", chu: moi.lyDoKhoa ?? t("Vị trí {{ma}} đang trong phiên kiểm kê định kỳ hoặc đang bảo dưỡng. Thao tác bị từ chối.", { ma: moi.maViTri }) });
@@ -452,9 +752,27 @@ export default function BinMovePage() {
         setNguon(moi);
         setChon(kep);
         setLoiDong(loiMoi);
-        setDsDich([]);
         setThieuCho(null);
-        setPhanHoi({ kieu: "thongTin", chu: t("Số trên kệ vừa được tải lại. Kiểm tra số lượng rồi quét lại kệ đích.") });
+        if (dsMoi) {
+          const { dsDich: giu, bo } = capNhatKeDich(moiNhat.current.dsDich, dsMoi);
+          setDsDich(giu);
+          dsKeQ.setData?.(() => dsMoi);
+          const daDoi = bo.length > 0 || giu.some((d) => d.vuaDoi) || Object.keys(loiMoi).length > 0;
+          // Lỗi không do số liệu (mạng, quyền…): thông báo của máy chủ đã hiện, không báo nhầm "số vừa thay đổi"
+          setPhanHoi(
+            !daDoi
+              ? null
+              : {
+                  kieu: "canhBao",
+                  chu: bo.length
+                    ? t("Số trên kệ vừa thay đổi. Đã bỏ kệ {{ds}} (đã khóa hoặc hết chỗ): giữ hàng trên xe, chưa đặt lên các kệ này. Kiểm tra lại rồi xác nhận.", { ds: bo.join(", ") })
+                    : t("Số trên kệ vừa thay đổi. Kiểm tra lại số lượng và kệ đích rồi xác nhận."),
+                },
+          );
+        } else {
+          setDsDich([]);
+          setPhanHoi({ kieu: "thongTin", chu: t("Số trên kệ vừa được tải lại. Kiểm tra số lượng rồi quét lại kệ đích.") });
+        }
         veOQuet();
       } catch {
         // giữ nguyên kệ đang hiện
@@ -463,6 +781,110 @@ export default function BinMovePage() {
       setDangGui(false);
     }
   };
+
+  /** Mở lại lượt đang dở đã lưu: tra lại kệ nguồn và kệ đích, kẹp số theo khả dụng mới, bỏ kệ đích đã khóa / hết chỗ. */
+  const lamTiep = async () => {
+    const luu = luotDo;
+    setLuotDo(null);
+    if (!luu || khoId == null) return;
+    const khoLuc = khoId;
+    // Khóa ô quét suốt lúc mở lại (tra cả kệ đích): quét xen vào sẽ bị ghi đè khi lượt cũ dựng xong
+    dongBoKho();
+    setDangTra(true);
+    try {
+      const ke = await traKe(khoLuc, luu.ma);
+      if (moiNhat.current.khoId !== khoLuc) return;
+      if (!datNguon(ke)) {
+        ghiLuotDo(khoLuc, null);
+        return;
+      }
+      const chonMoi = {};
+      for (const d of ke.dong ?? []) {
+        const so = Math.min(soNguyen(luu.chon?.[d.loHangId]), d.khoaKiemKe ? 0 : d.khaDung);
+        if (so > 0) chonMoi[d.loHangId] = String(so);
+      }
+      setChon(chonMoi);
+      const giu = [];
+      const bo = [];
+      for (const d of luu.dich ?? []) {
+        try {
+          const k = await traKe(khoLuc, d.ma);
+          if (k.id === ke.id || lyDoKhongDung(k, "dich") || (!d.vuot && conTrongCua(k) <= 0)) bo.push(d.ma);
+          else giu.push(d.vuot ? { ke: k, vuot: true, toiDa: d.toiDa ?? undefined } : { ke: k });
+        } catch {
+          bo.push(d.ma);
+        }
+      }
+      if (moiNhat.current.khoId !== khoLuc || moiNhat.current.nguon?.id !== ke.id) return;
+      setDsDich(giu);
+      setLyDo(luu.lyDo ?? null);
+      setGhiChu(luu.ghiChu ?? "");
+      setPhanHoi(
+        bo.length
+          ? { kieu: "canhBao", chu: t("Đã mở lại lượt đang dở ở kệ {{ma}}. Đã bỏ kệ {{ds}} (đã khóa hoặc hết chỗ).", { ma: ke.maViTri, ds: bo.join(", ") }) }
+          : { kieu: "ok", chu: t("Đã mở lại lượt đang dở ở kệ {{ma}}. Kiểm tra lại rồi xác nhận.", { ma: ke.maViTri }) },
+      );
+    } catch (e) {
+      baoLoi();
+      ghiLuotDo(khoLuc, null);
+      setPhanHoi({ kieu: "loi", chu: getApiErrorMessage(e, t("Không mở lại được lượt đang dở. Quét lại kệ nguồn.")) });
+    } finally {
+      setDangTra(false);
+      veOQuet();
+    }
+  };
+
+  /** Bỏ lần gửi chưa rõ kết quả (người dùng đã xem Lịch sử): xóa bản lưu, cho xác nhận lượt khác. */
+  const boDangGui = () => {
+    ghiDangGui(khoId, null);
+    setChuaRo(null);
+    khoaLenhRef.current = null;
+    veOQuet();
+  };
+
+  // Lần gửi chưa rõ kết quả: hiện ở cả màn mở đầu (sau khi tải lại trang) lẫn trong lượt đang làm. Nút Xác nhận khóa tới
+  // khi gửi lại hoặc bỏ, vì gửi nội dung khác sẽ ra khóa khác
+  const khoiChuaRo = chuaRo ? (
+    <div className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-200 bg-bo-warning-soft px-3 py-2.5 text-[13px] text-amber-900" role="alert">
+      <WifiOff className="size-4 shrink-0 text-bo-warning" aria-hidden="true" />
+      <span className="mr-auto min-w-0">
+        <b className="font-semibold">{t("Chưa rõ đã chuyển chưa")}</b>{" "}
+        {t("Lượt chuyển {{so}} sản phẩm từ kệ {{ma}} bị ngắt kết nối lúc gửi. Gửi lại an toàn: cùng mã lượt nên không tạo phiếu thứ hai.", {
+          so: soVN(chuaRo.tong ?? 0),
+          ma: chuaRo.tu,
+          count: chuaRo.tong ?? 0,
+        })}
+      </span>
+      <Button
+        variant="outline"
+        onClick={() => navigate(`/warehouse/bin-moves/history?khoId=${khoId}`)}
+        className="h-8 gap-1.5 border-bo-border bg-white px-2.5 text-[13px] text-bo-foreground hover:bg-slate-50"
+      >
+        <History className="size-3.5" aria-hidden="true" />
+        {t("Kiểm tra lịch sử")}
+      </Button>
+      <Button
+        variant="outline"
+        onClick={boDangGui}
+        disabled={dangGui}
+        title={t("Chỉ bỏ khi Lịch sử đã có phiếu của lượt này, hoặc bạn chắc hàng chưa chuyển.")}
+        className="h-8 border-bo-border bg-white px-2.5 text-[13px] text-bo-foreground hover:bg-slate-50"
+      >
+        {t("Bỏ lần gửi")}
+      </Button>
+      <Button onClick={() => gui(chuaRo)} disabled={dangGui} className="h-8 gap-1.5 bg-bo-primary px-3 text-[13px] text-white hover:bg-bo-primary-hover">
+        {t("Gửi lại")}
+      </Button>
+    </div>
+  ) : null;
+
+  // Kệ vừa đổi số trong lượt vừa chuyển (đánh dấu trên sơ đồ màn mở đầu tới lượt sau)
+  const doiTheoKe = useMemo(() => {
+    if (!ketQua) return null;
+    const d = { [ketQua.tu]: -ketQua.tongSoLuong };
+    for (const g of ketQua.nhom) if (g.ma) d[g.ma] = (d[g.ma] ?? 0) + g.tong;
+    return d;
+  }, [ketQua]);
 
   const goiYO = !nguon
     ? t("Quét hoặc nhập mã kệ cần lấy hàng, VD: A-01-02")
@@ -474,7 +896,7 @@ export default function BinMovePage() {
   const khongCoKho = !kho.dangTai && !kho.loi && kho.dsKho.length === 0;
 
   return (
-    <PageContainer fill className="gap-4">
+    <PageContainer className="flex flex-col gap-4">
       <ListPageHeader
         title={t("Chuyển kệ nội bộ")}
         actions={
@@ -499,18 +921,15 @@ export default function BinMovePage() {
       ) : (
         <>
           {ketQua ? (
-            <DongThongBao
-              tone="ok"
-              actions={<NutChu onClick={() => navigate(`/warehouse/bin-moves/history?khoId=${khoId}&tim=${encodeURIComponent(ketQua.maPhieu)}`)}>{t("Xem phiếu")}</NutChu>}
-            >
-              {t("Phiếu {{ma}}: đã chuyển {{so}} sản phẩm từ {{tu}} sang {{den}}. Tồn kho của kho không đổi.", {
-                ma: ketQua.maPhieu,
-                so: soVN(ketQua.tongSoLuong),
-                count: ketQua.tongSoLuong,
-                tu: ketQua.tu,
-                den: ketQua.den.join(", "),
-              })}
-            </DongThongBao>
+            <BienNhanChuyenKe
+              ketQua={ketQua}
+              coViTriKho={coViTriKho}
+              onXemPhieu={() => navigate(`/warehouse/bin-moves/history?khoId=${khoId}&tim=${encodeURIComponent(ketQua.maPhieu)}`)}
+              onDong={() => {
+                setKetQua(null);
+                veOQuet();
+              }}
+            />
           ) : null}
 
           <ThanhQuet
@@ -533,7 +952,8 @@ export default function BinMovePage() {
           />
 
           {nguon ? (
-            // Một khối cho cả lượt chuyển: Kệ nguồn | Kệ đích, chân khối tiến độ + lý do + xác nhận (dính đáy khi dài)
+            // Một khối cho cả lượt chuyển: Kệ nguồn | Kệ đích, sơ đồ kệ đích (nếu chọn), chân khối tiến độ + lý do + xác nhận
+            // (dính đáy khi dài, kể cả lúc cuộn sơ đồ)
             <section className={THE} aria-label={t("Lượt chuyển kệ")}>
               <div className="grid xl:grid-cols-[minmax(0,1.45fr)_minmax(360px,1fr)]">
                 <CotTuKe
@@ -543,7 +963,7 @@ export default function BinMovePage() {
                   noiBat={noiBat}
                   onDatSo={datSo}
                   onXong={veOQuet}
-                  onChonTatCa={chonTatCa}
+                  onChonTatCa={() => chonTatCa()}
                   onBoChon={() => {
                     setChon({});
                     setLoiDong({});
@@ -552,7 +972,10 @@ export default function BinMovePage() {
                   }}
                   onDoiKe={() => {
                     lamMoi();
+                    ghiLuotDo(khoId, null);
+                    khoaLenhRef.current = null;
                     setPhanHoi(null);
+                    taiLaiDsKe?.();
                   }}
                 />
                 <CotSangKe
@@ -560,11 +983,24 @@ export default function BinMovePage() {
                   tong={tong}
                   conLai={conLai}
                   phan={phan}
+                  loTheoKe={loTheoKe}
+                  tenMa={tenMa}
+                  soMa={tenMa.size}
                   goiY={goiY}
-                  dangTaiGoiY={Boolean(khoaGoiY) && goiYQ.loading}
+                  // Còn trong khoảng chờ 300ms hoặc đang tải: hiện "đang tải", không báo nhầm "không còn kệ nào trống"
+                  dangTaiGoiY={coGoiY && (khoaGoiY !== khoaGoiYMoi || !goiYQ.dungKhoa || goiYQ.loading)}
                   thieuCho={thieuCho}
                   duocVuot={duocVuot}
                   ban={dangTra || dangGui}
+                  cheDoXem={cheDoDich}
+                  onCheDoXem={(m) => {
+                    setCheDoDich(m);
+                    try {
+                      localStorage.setItem(KHOA_CHE_DO_DICH, m);
+                    } catch {
+                      // Không lưu được: lần sau về mặc định Gợi ý
+                    }
+                  }}
                   onChonGoiY={chonGoiY}
                   onBoDich={boDich}
                   onTach={() => themDich(thieuCho.ke)}
@@ -577,10 +1013,27 @@ export default function BinMovePage() {
                   className="border-t border-bo-border xl:border-l xl:border-t-0"
                 />
               </div>
+              {cheDoDich === "so-do" && tong > 0 ? (
+                <SoDoKeDich
+                  key={khoId}
+                  ds={dsKe}
+                  keNguonId={nguon.id}
+                  can={conLai}
+                  goiY={goiY}
+                  phan={phan}
+                  ban={dangTra || dangGui}
+                  capNhatLuc={dsKeQ.capNhatLuc}
+                  dangTai={dsKeQ.loading}
+                  onTaiLai={taiLaiDsKe}
+                  onChon={(ke) => chonGoiY(ke.maViTri)}
+                  onVeOQuet={veOQuet}
+                />
+              ) : null}
+              {chuaRo ? <div className="mx-4 mb-3 mt-1">{khoiChuaRo}</div> : null}
               <ThanhXacNhan
                 tong={tong}
-                coCho={tong - conLai}
-                san={duocGui}
+                coCho={coCho}
+                san={duocGui && !chuaRo}
                 dangGui={dangGui}
                 coVuot={coVuot}
                 lyDo={lyDo}
@@ -588,128 +1041,68 @@ export default function BinMovePage() {
                 ghiChu={ghiChu}
                 onGhiChu={setGhiChu}
                 onDongLyDo={veOQuet}
-                onXacNhan={xacNhan}
+                onXacNhan={() => xacNhan()}
+                onChuyenPhan={chuaRo ? undefined : () => xacNhan(true)}
               />
             </section>
           ) : (
             <>
-              {ketQua ? <BienNhan ketQua={ketQua} /> : null}
-              <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(360px,1fr)]">
-                <section className={`${THE} grid place-items-center px-6 py-12 text-center`}>
-                  <div className="grid max-w-md justify-items-center gap-2">
-                    <span className="grid size-12 place-items-center rounded-full bg-bo-primary-soft text-bo-primary">
-                      <ScanBarcode className="size-6" aria-hidden="true" />
-                    </span>
-                    <h2 className="text-base font-semibold text-bo-heading">{t("Quét mã kệ đang chứa hàng cần chuyển")}</h2>
-                    <p className="text-sm text-bo-muted">{t("Hệ thống hiện hàng trên kệ theo lô và số được chuyển (đã trừ hàng đang chờ nhặt). Kệ đang kiểm kê sẽ bị từ chối.")}</p>
-                    {keGanDay.length ? (
-                      <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
-                        <span className="text-[13px] text-bo-muted">{t("Kệ dùng gần đây:")}</span>
-                        {keGanDay.map((k) => (
-                          <button
-                            key={k}
-                            type="button"
-                            disabled={dangTra}
-                            onClick={() => quet(k)}
-                            className="h-7 rounded-md border border-bo-border bg-white px-2.5 font-mono text-[13px] text-bo-foreground hover:bg-slate-50"
-                          >
-                            {k}
-                          </button>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-                </section>
-                <section className={`${THE} self-stretch`}>
-                  <CotSangKe coNguon={false} tong={0} conLai={0} phan={[]} />
-                </section>
+            {chuaRo ? khoiChuaRo : null}
+            {luotDo && !chuaRo ? (
+              <div className="flex flex-wrap items-center gap-3 rounded-lg border border-bo-primary/30 bg-bo-primary-soft/50 px-4 py-2.5 text-[13px]" role="status">
+                <History className="size-4 shrink-0 text-bo-primary" aria-hidden="true" />
+                <span className="mr-auto min-w-0">
+                  {t("Lượt chuyển đang dở ở kệ {{ma}}: đã chọn {{so}} sản phẩm, {{soKe}} kệ đích. Mở lại để làm tiếp?", {
+                    ma: luotDo.ma,
+                    so: soVN(luotDo.tong ?? 0),
+                    soKe: soVN(luotDo.dich?.length ?? 0),
+                    count: luotDo.tong ?? 0,
+                  })}
+                </span>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    ghiLuotDo(khoId, null);
+                    setLuotDo(null);
+                    veOQuet();
+                  }}
+                  className="h-8 border-bo-border bg-white px-3 text-[13px] text-bo-foreground hover:bg-slate-50"
+                >
+                  {t("Bỏ lượt này")}
+                </Button>
+                <Button onClick={lamTiep} disabled={dangTra} className="h-8 bg-bo-primary px-3 text-[13px] text-white hover:bg-bo-primary-hover">
+                  {t("Làm tiếp")}
+                </Button>
               </div>
-              {luotGanDay.length ? (
-                <section className={THE} aria-labelledby="ck-gan-day">
-                  <div className="flex items-center justify-between border-b border-bo-border px-4 py-3">
-                    <h2 id="ck-gan-day" className="text-sm font-semibold text-bo-heading">
-                      {t("Lượt chuyển gần đây")}
-                    </h2>
-                    <NutChu onClick={() => navigate(`/warehouse/bin-moves/history?khoId=${khoId}`)}>{t("Xem tất cả")}</NutChu>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[560px] text-sm">
-                      <thead>
-                        <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                          <th className={`${TH} w-[200px] pl-4 text-left`}>{t("Mã phiếu chuyển kệ")}</th>
-                          <th className={`${TH} text-left`}>{t("Kệ nguồn → kệ đích")}</th>
-                          <th className={`${TH} text-left`}>{t("Người thực hiện")}</th>
-                          <th className={`${TH} w-24 text-right`}>{t("Số lượng")}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {luotGanDay.map((p) => (
-                          <tr key={p.id} className="border-b border-bo-border last:border-b-0 hover:bg-bo-surface-subtle">
-                            <td className="py-2.5 pl-4 pr-4 font-mono text-[13px] text-bo-primary-strong">{p.maPhieu}</td>
-                            <td className="py-2.5 pr-4">
-                              <span className="inline-flex flex-wrap items-center gap-1.5 font-mono text-[13px]">
-                                {p.keNguon.join(", ")}
-                                <ArrowRight className="size-3.5 text-slate-400" aria-hidden="true" />
-                                {p.keDich.join(", ")}
-                              </span>
-                            </td>
-                            <td className="py-2.5 pr-4 text-[13px] text-bo-muted">
-                              {p.nguoiThucHien ? tDuLieu(p.nguoiThucHien) : "—"} · {formatDateTime(p.ngayThucHien)}
-                            </td>
-                            <td className="py-2.5 pr-4 text-right font-semibold tabular-nums">{soVN(p.tongSoLuong)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </section>
-              ) : null}
+            ) : null}
+            <TheSoDoNguon
+              key={khoId}
+              khoId={khoId}
+              onVeOQuet={veOQuet}
+              q={ma}
+              ds={dsKe}
+              dangTai={dsKeQ.loading}
+              // Đổi kho: dữ liệu kho cũ không dùng được, coi như tải lần đầu (không báo nhầm "chưa có kệ")
+              lanDau={dsKeQ.initialLoading || (dsKeQ.loading && !dsKeQ.dungKhoa)}
+              loi={dsKeQ.error}
+              capNhatLuc={dsKeQ.capNhatLuc}
+              onTaiLai={taiLaiDsKe}
+              doi={doiTheoKe}
+              ban={dangTra || dangGui}
+              coViTriKho={coViTriKho}
+              onChonKe={(ke) => (hangTim ? moKe(ke.maViTri, { loai: "hang", bienTheId: hangTim.bienTheId, loHangId: hangTim.loHangId }) : moKe(ke.maViTri))}
+              onXuLy={(x) => moKe(x.ke.maViTri, x)}
+              hangTim={hangTim}
+              onBoHangTim={() => {
+                setHangTim(null);
+                setPhanHoi(null);
+                veOQuet();
+              }}
+            />
             </>
           )}
         </>
       )}
     </PageContainer>
-  );
-}
-
-/** Biên nhận lượt vừa chuyển: từng lô sang kệ nào (hiện tới khi quét kệ nguồn cho lượt mới). */
-function BienNhan({ ketQua }) {
-  return (
-    <section className={THE} aria-labelledby="ck-bien-nhan">
-      <div className="border-b border-bo-border px-4 py-3">
-        <h2 id="ck-bien-nhan" className="text-sm font-semibold text-bo-heading">
-          {t("Chi tiết phiếu {{ma}}", { ma: ketQua.maPhieu })}
-        </h2>
-        <p className="text-[13px] text-bo-muted">
-          {formatDateTime(ketQua.luc)}
-          {ketQua.lyDo ? ` · ${hienGhiChu(ketQua.lyDo)}` : ""}
-        </p>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[560px] text-sm">
-          <thead>
-            <tr className="border-b border-bo-border bg-bo-surface-subtle">
-              <th className={`${TH} pl-4 text-left`}>{t("Sản phẩm")}</th>
-              <th className={`${TH} text-left`}>{t("Lô")}</th>
-              <th className={`${TH} text-left`}>{t("Kệ đích")}</th>
-              <th className={`${TH} text-right`}>{t("Số lượng")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {ketQua.dong.map((d) => (
-              <tr key={d.i} className="border-b border-bo-border last:border-b-0">
-                <td className="py-2.5 pl-4 pr-4">
-                  {d.lo?.tenSanPham ? tDuLieu(d.lo.tenSanPham) : d.lo?.maSku}
-                  {d.lo?.mau || d.lo?.kichCo ? <span className="text-bo-muted"> · {[d.lo.mau, d.lo.kichCo].filter(Boolean).map((x) => tDuLieu(x)).join(" · ")}</span> : null}
-                </td>
-                <td className="py-2.5 pr-4 font-mono text-[13px]">{d.lo?.maLo}</td>
-                <td className="py-2.5 pr-4 font-mono text-[13px] text-bo-primary-strong">{d.keDich}</td>
-                <td className="py-2.5 pr-4 text-right font-semibold tabular-nums">{soVN(d.soLuong)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </section>
   );
 }
