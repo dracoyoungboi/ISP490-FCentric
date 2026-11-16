@@ -186,4 +186,81 @@ public class ShopeeSyncUpsertTest {
         assertSame(cache, cachedSecond);
         verifyNoInteractions(shopeeClient);
     }
+
+    @Test
+    @DisplayName("phanLoaiLoiShopee: Chuyển đổi mã lỗi status is abnormal thành câu hướng dẫn người dùng")
+    void testPhanLoaiLoiShopeeStatusAbnormal() {
+        String rawErr = "error_param";
+        String rawMsg = "All the fields cannot be updated because the product 45971776365 status is abnormal";
+        String result = dongBoService.phanLoaiLoiShopee(rawErr, rawMsg);
+
+        assertNotNull(result);
+        assertEquals("Sản phẩm trên Shopee đã bị xóa hoặc tạm khóa (trạng thái bất thường). Hệ thống đã tự động gỡ liên kết cũ, vui lòng bấm 'Đưa sản phẩm lên sàn' để đăng bán lại.", result);
+    }
+
+    @Test
+    @DisplayName("xuLySanPhamBiXoaHoacBatThuongShopee: Tự động gỡ liên kết trong DB và xóa cache RAM khi sàn báo lỗi abnormal")
+    void testXuLySanPhamBiXoaHoacBatThuongShopee() {
+        KenhBanHang kenh = KenhBanHang.builder().id(10).maKenh("SHOPEE").trangThai(1).build();
+        long itemId = 45971776365L;
+
+        com.dev.backend.entities.TrangThaiDongBoSanPham mapping = com.dev.backend.entities.TrangThaiDongBoSanPham.builder()
+                .id(101)
+                .kenhBanHang(kenh)
+                .maSanPhamKenh("45971776365:436739002410")
+                .trangThaiDongBo("that_bai")
+                .chiTietLoi("Lỗi cũ")
+                .build();
+
+        when(trangThaiDongBoSanPhamRepository.findByKenhBanHangId(10)).thenReturn(java.util.List.of(mapping));
+
+        dongBoService.xuLySanPhamBiXoaHoacBatThuongShopee(kenh, itemId, "10_OFFICIAL");
+
+        assertNull(mapping.getMaSanPhamKenh(), "maSanPhamKenh phải được gỡ về null");
+        assertEquals("chua_dong_bo", mapping.getTrangThaiDongBo(), "Trạng thái phải chuyển về chua_dong_bo");
+        assertTrue(mapping.getChiTietLoi().contains("trạng thái bất thường"));
+        verify(trangThaiDongBoSanPhamRepository).save(mapping);
+    }
+
+    @Test
+    @DisplayName("kiemTraHopLeTruocKhiTaoShopee: Tiền kiểm tra tiêu đề, mô tả và làm sạch từ khóa nhạy cảm")
+    void testKiemTraHopLeTruocKhiTaoShopee() {
+        KenhBanHang kenh = KenhBanHang.builder().id(10).maKenh("SHOPEE_SANDBOX").trangThai(1).build();
+        SanPhamQuanAo sp = SanPhamQuanAo.builder()
+                .id(1)
+                .tenSanPham("Áo sportware nick giả lông cừu climawarm")
+                .moTa("Mô tả ngắn")
+                .build();
+
+        BienTheSanPham bt = BienTheSanPham.builder().id(11).maSku("SKU-TEST-01").sanPham(sp).build();
+
+        KenhBanHangDongBoServiceImpl.KetQuaKiemTraTruocKhiTaoShopee result = dongBoService.kiemTraHopLeTruocKhiTaoShopee(
+                kenh, sp, java.util.List.of(bt), shopeeClient, new java.util.HashMap<>());
+
+        assertNotNull(result);
+        assertTrue(result.tieuDeChuan().contains("Active"), "Từ khóa nhạy cảm 'nick' phải được thay bằng 'Active'");
+        assertTrue(result.tieuDeChuan().contains("Lông Cừu Nhân Tạo"), "Từ 'giả lông cừu' phải được thay bằng 'Lông Cừu Nhân Tạo'");
+        assertTrue(result.tieuDeChuan().contains("ClimaWarm FCentric"), "Từ 'climawarm' phải được thay bằng 'ClimaWarm FCentric'");
+        assertTrue(result.moTaChuan().length() >= 100, "Mô tả phải được tự động đệm để đạt chuẩn Shopee >= 100 ký tự");
+    }
+
+    @Test
+    @DisplayName("phanLoaiLoiTikTok: Nhận diện mã 12052557 SKU ID không thuộc sản phẩm và dịch tiếng Việt trực quan")
+    void testPhanLoaiLoiTikTokSkuKhongThuocSanPham() {
+        var res = dongBoService.phanLoaiLoiTikTok(12052557,
+                "(12052557): Operation Not Allowed. Cannot perform this operation for the provided SKU ID: the SKU ID does not belong to the product",
+                null);
+        assertNotNull(res);
+        assertFalse(res.thanhCong());
+        assertTrue(res.lyDo().contains("không thuộc sản phẩm này"), "Thông báo phải giải thích rõ SKU không thuộc sản phẩm và hướng dẫn tự động liên kết");
+    }
+
+    @Test
+    @DisplayName("dichLoiLazada: Bắt lỗi E501 SellerSku parameter is no longer supported và yêu cầu SkuId")
+    void testDichLoiLazadaSellerSkuDeprecated() {
+        String res = KenhBanHangDongBoServiceImpl.dichLoiLazada("501",
+                "E501: Update product failed - The SellerSku parameter is no longer supported. Please update your parameter to use SkuId and try again.");
+        assertNotNull(res);
+        assertTrue(res.contains("SkuId"), "Lỗi E501 phải được dịch trực quan yêu cầu SkuId số");
+    }
 }
