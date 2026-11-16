@@ -166,19 +166,33 @@ export default function PrintRoutePage({
         !config ||
         !company;
 
+    const handlePrint = useCallback(() => {
+        const pdfFrame = document.querySelector(".pdoc-pdf-frame, iframe.ttawb-official-pdf-frame");
+        if (pdfFrame && pdfFrame.contentWindow) {
+            try {
+                pdfFrame.contentWindow.focus();
+                pdfFrame.contentWindow.print();
+                return;
+            } catch (e) {
+                console.warn("Unable to trigger iframe PDF print, falling back to window.print():", e);
+            }
+        }
+        window.print();
+    }, []);
+
     const daTuIn = useRef(false);
     useEffect(() => {
         if (!autoPrint || disablePrint || daTuIn.current) return undefined;
         daTuIn.current = true;
-        const hen = window.setTimeout(() => window.print(), 300);
+        const hen = window.setTimeout(() => handlePrint(), 300);
         return () => window.clearTimeout(hen);
-    }, [autoPrint, disablePrint]);
+    }, [autoPrint, disablePrint, handlePrint]);
 
     return (
         <PrintLayout
             title={title}
             onBack={goBack}
-            onPrint={() => window.print()}
+            onPrint={handlePrint}
             disablePrint={disablePrint}
             paper={paper}
             pageFooter={model ? getPageFooterText(model) : null}

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { QRCodeSVG } from "qrcode.react";
 import PrintDocCode from "@/components/print/PrintDocCode";
 import { t } from "@/i18n";
@@ -6,13 +6,11 @@ import "@/components/print/tiktokShopAwb.css";
 
 /**
  * Bản in Vận Đơn TikTok Shop Chuẩn Sàn AWB (Air Waybill) khổ tem nhiệt A6 (100 × 150 mm).
- * 1. Khi có file PDF chính thức từ TikTok Shop API: Hiển thị trực tiếp tem PDF chuẩn sàn do sàn cấp.
- * 2. Khi sàn chưa cấp PDF: Hiển thị cảnh báo và bản xem trước mô phỏng A6.
+ * 1. Khi có file PDF chính thức từ TikTok Shop API: Hiển thị trực tiếp tem PDF chuẩn sàn do sàn cấp trong iframe (hỗ trợ in trực tiếp qua nút in của Khang).
+ * 2. Khi sàn chưa cấp PDF: Hiển thị bản xem trước mô phỏng chuẩn sàn A6.
  */
 export default function TikTokShopAwbDocument({ model, company }) {
     if (!model) return null;
-
-    const [showSimulated, setShowSimulated] = useState(false);
 
     const channelInfo = model.channelOrderInfo || {};
     const recipient = model.recipient || {};
@@ -32,64 +30,19 @@ export default function TikTokShopAwbDocument({ model, company }) {
 
     return (
         <div className="ttawb-wrapper">
-            {/* 1. Nếu có file PDF chính thức từ TikTok Shop API */}
+            {/* 1. Nếu có file PDF chính thức từ TikTok Shop API: hiển thị gọn gàng trọn vẹn khổ tem A6 */}
             {shippingDocUrl ? (
                 <div className="ttawb-official-pdf-section">
-                    <div className="ttawb-official-pdf-toolbar">
-                        <div className="ttawb-official-pdf-badge">
-                            <span className="ttawb-status-dot"></span>
-                            <span>{t("Vận đơn AWB chính thức TikTok Shop (PDF chuẩn sàn)")}</span>
-                        </div>
-                        <div className="ttawb-official-pdf-actions">
-                            <a
-                                href={shippingDocUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="ttawb-btn ttawb-btn-primary"
-                            >
-                                {t("Mở PDF trong tab mới")}
-                            </a>
-                            <a
-                                href={shippingDocUrl}
-                                download={`AWB_${trackingCode}.pdf`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="ttawb-btn ttawb-btn-secondary"
-                            >
-                                {t("Tải PDF A6")}
-                            </a>
-                            <button
-                                type="button"
-                                onClick={() => setShowSimulated((prev) => !prev)}
-                                className="ttawb-btn ttawb-btn-secondary"
-                            >
-                                {showSimulated ? t("Ẩn xem trước") : t("Xem bản mô phỏng")}
-                            </button>
-                        </div>
-                    </div>
-
                     <div className="ttawb-official-pdf-embed-wrapper">
                         <iframe
                             src={shippingDocUrl}
                             title={t("Vận đơn AWB chính thức TikTok Shop")}
-                            className="ttawb-official-pdf-frame"
+                            className="ttawb-official-pdf-frame pdoc-pdf-frame"
                         />
                     </div>
                 </div>
             ) : (
-                /* 2. Cảnh báo khi sàn chưa cấp file PDF */
-                <div className="ttawb-warning-banner">
-                    <div className="ttawb-warning-title">
-                        {t("⚠️ Sàn chưa cấp file PDF vận đơn chính hãng")}
-                    </div>
-                    <div className="ttawb-warning-desc">
-                        {t("TikTok Shop yêu cầu đơn hàng phải ở trạng thái sẵn sàng giao để cấp tem AWB chính thức. Bên dưới là bản xem trước mô phỏng.")}
-                    </div>
-                </div>
-            )}
-
-            {/* Khung HTML mô phỏng (hiển thị khi chưa có PDF hoặc khi người dùng bấm bật xem) */}
-            {(!shippingDocUrl || showSimulated) && (
+                /* 2. Khung HTML mô phỏng chuẩn sàn A6 khi đơn hàng chưa cấp file PDF */
                 <div className="ttawb-simulated-container">
                     {/* 2 cạnh viền watermark mã vận đơn */}
                     <div className="ttawb-watermark-left">

@@ -93,6 +93,7 @@ const BaoCaoSanPham = taiTrang(() => import("./pages/bao-cao/BaoCaoSanPham"));
 const PhieuNhapKhoPrint = taiTrang(() => import("./pages/receipt/PhieuNhapKhoPrint"));
 const PhieuXuatKhoPrint = taiTrang(() => import("./pages/issue/PhieuXuatKhoPrint"));
 const EcommercePackingSlipPrint = taiTrang(() => import("./pages/issue/EcommercePackingSlipPrint"));
+const SalesOrderPackingSlipPrint = taiTrang(() => import("./pages/sales-orders/SalesOrderPackingSlipPrint"));
 const Dashboard = taiTrang(() => import("@/pages/dashboard/Dashboard"));
 const TonKhoTongQuan = taiTrang(() => import("./pages/bao-cao/TonKhoTongQuan"));
 const LichSuGiaoDichKhoList = taiTrang(() => import("./pages/lich-su-giao-dich-kho/LichSuGiaoDichKhoList"));
@@ -539,6 +540,7 @@ const CAY_DUONG_DAN = (
       </Route>
       <Route element={<RequireRole roles={VAI_TRO_DON_BAN} />}>
         <Route path="/sales-orders/:id/invoice" element={<DonBanHangInvoice />} />
+        <Route path="/sales-orders/:id/print-packing-slip" element={<SalesOrderPackingSlipPrint />} />
       </Route>
     </Route>
 
