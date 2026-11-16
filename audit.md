@@ -105,6 +105,7 @@
 | **AUDIT-093** | `2026-11-16 18:23:00` | Khang | Fix / Siết kiểm dữ liệu hộp Thêm người dùng (tên đăng nhập, email, ô SĐT) | `NguoiDungService.java`, `heThong.properties`, `heThong_en.properties`, `AddUserDialog.jsx`, `nguoi-dung-ncc.json`, `quyTacNhaCungCap.js`, `audit.md` | Máy chủ kiểm tên đăng nhập như giao diện (chữ không dấu, số, . _ -; bắt đầu bằng chữ/số; 3–50 ký tự) khi tạo và khi quản trị viên đổi tên; siết mẫu email hai phía (không dấu chấm ở đầu/cuối/liền nhau trước @, phần tên miền bắt đầu và kết thúc bằng chữ/số) và chặn email quá 100 ký tự trước regex; bỏ gợi ý mờ ở ô SĐT theo AGENTS.md; placeholder email đổi "Ví dụ:" thành "VD:". |
 | **AUDIT-094** | `2026-11-16 19:25:00` | PhanAnh & Antigravity AI | Fix & Concurrency Defense / Xóa bỏ transaction dài gây deadlock khóa đồng thời máy khác, ReentrantLock per-channel, sửa thuộc tính áo khoác Lazada và kiểm tra Shopee abnormal qua getItemBaseInfo | `KenhBanHangDongBoServiceImpl.java`, `chung.properties`, `chung_en.properties`, `audit.md` | Giải phóng Transaction Boundary khỏi luồng I/O mạng sàn trong tuDongLienKet và thuLai, triệt tiêu hoàn toàn lỗi ConcurrencyFailureException ('thao tác ở máy khác' do MySQL row-lock deadlock); Áp dụng ReentrantLock độc lập cho từng kênh (kenhId) có timeout 5s, cho phép nhiều máy/kênh chạy song song không nghẽn nhau; Nâng cấp kiểm tra trạng thái Shopee bằng v2.product.get_item_base_info kiểm tra item_status NORMAL để kích hoạt tạo mới nếu bị xóa; Sửa lỗi schema Lazada cho áo khoác (categoryId 7953: loại bỏ Fit_Type của áo thun, nhận diện Polyester), tự động khôi phục SkuId khi trùng lặp và lưu trữ chi tiết lỗi trực quan; 20/20 tests PASS 100%, i18n 722 files sạch. |
 | **AUDIT-095** | `2026-11-16 21:25:00` | PhanAnh & Antigravity AI | Fix & Architecture / Khắc phục lỗi đẩy sản phẩm Lazada, sửa nhầm danh mục Polo thành Quần ngắn, chuẩn hóa Color Family và Auto-Healing SkuId | `BienTheSanPhamRepository.java`, `LazadaClient.java`, `KenhBanHangDongBoServiceImpl.java`, `LazadaSyncDiagnosticTest.java`, `audit.md` | Khắc phục triệt để lỗi 'Biến thể chưa có mã SkuId số trên Lazada' (lỗi 69 SKU tab Lỗi Lazada); Sửa lỗi phân loại danh mục nghiêm trọng khiến 'Áo polo bảo hộ lao động ngắn tay' bị gán nhầm thành Quần ngắn (10100765) do từ khóa 'ngắn', chuẩn hóa danh mục Áo Polo nam (14275); Chuẩn hóa mapLazadaColorFamily sang danh mục enum tiếng Anh hợp lệ của Lazada VN; Bọc short_description trong ul/li và thêm package_content bắt buộc vào SKU XML payload; Bóc tách SkuId từ composite shop_sku (itemId_VN-skuId); Loại bỏ hoàn toàn fallback lưu SellerSku thô vào maSanPhamKenh; Triển khai Auto-Healing SkuId trong guiTonLenLazada khi bấm 'Thử lại' tự động tra cứu qua getProductsBySellerSkus hoặc tạo mới sản phẩm; Khắc phục lỗi biên dịch findBySanPhamIdAndTrangThai; Chặn đẩy tồn cho SKU chưa có SkuId số để không ghi đè lỗi sàn; 18/18 tests PASS 100%, i18n 722 files sạch. |
+| **AUDIT-096** | `2026-11-16 21:55:00` | PhanAnh & Antigravity AI | Fix & Architecture / Khắc phục triệt để lỗi Lazada E500 saleProp conflict khi tạo sản phẩm | `KenhBanHangDongBoServiceImpl.java`, `LazadaSyncDiagnosticTest.java`, `audit.md` | Khắc phục triệt để lỗi 'E500: Create product failed - If you choose to put sales attributes in the saleProp, you can't put them in the SKU the old way'; Xóa bỏ thẻ color_family và size bị lặp ngoài root Sku, duy trì duy nhất cấu trúc saleProp chuẩn tài liệu Lazada Open Platform v2; Bổ sung dịch lỗi thân thiện tiếng Việt cho mã lỗi 500/saleProp trong dichLoiLazada; Đạt 18/18 unit tests PASS 100%, i18n 722 files sạch. |
 
 
 ---
@@ -3383,3 +3384,44 @@
    - `LazadaSyncDiagnosticTest` (4 tests) + `ShopeeSyncUpsertTest` (9 tests) + `ShopifyStatusSyncTest` (5 tests) = **18/18 tests PASS 100%**.
 3. **Kiểm tra đa ngôn ngữ Frontend `npm run i18n:kiem`**: 722 tệp kiểm tra, 0 chưa bọc, 0 thiếu bản dịch, 0 lệch.
 4. **Biên dịch Java Backend**: `mvnw.cmd test-compile` thành công 100% không phát sinh lỗi hay cảnh báo.
+
+---
+
+### [AUDIT-096] KHẮC PHỤC TRIỆT ĐỂ LỖI LAZADA E500 SALEPROP CONFLICT KHI TẠO SẢN PHẨM
+- **Thời gian**: `2026-11-16 21:55:00` (GMT+7)
+- **Tác giả**: PhanAnh & Antigravity AI
+- **Phân hệ ảnh hưởng**: Omnichannel Sync Engine, Đẩy sản phẩm Lazada (`KenhBanHangDongBoServiceImpl`).
+- **Tệp thay đổi**:
+  - `backend/src/main/java/com/dev/backend/services/impl/entities/KenhBanHangDongBoServiceImpl.java`
+  - `backend/src/test/java/com/dev/backend/services/lazada/LazadaSyncDiagnosticTest.java`
+  - `audit.md`
+
+#### 1. MỤC TIÊU & PHÂN TÍCH NGUYÊN NHÂN GỐC RỄ (ROOT CAUSE ANALYSIS)
+1. **Hiện tượng lỗi**:
+   - Khi tạo sản phẩm "Áo khoác gió công năng phong cách Âu" và "Áo polo bảo hộ lao động ngắn tay" lên Lazada, sàn trả về lỗi HTTP 500:
+     `Lazada từ chối tạo: E500: Create product failed - If you choose to put sales attributes in the saleProp, you can't put them in the SKU the old way`
+2. **Nguyên nhân kỹ thuật sâu xa**:
+   - Theo chuẩn tài liệu Lazada Open Platform (API `CreateProduct` v2):
+     + Các thuộc tính phân loại biến thể bán hàng (Sales Attributes / Variation Properties) như `color_family` và `size` bắt buộc phải nằm duy nhất bên trong thẻ `<saleProp>` của từng `<Sku>`.
+     + Nếu người dùng đã mở thẻ `<saleProp>` để khai báo biến thể, hệ thống **tuyệt đối không được lặp lại** các thẻ `<color_family>` hay `<size>` ở cấp độ ngoài root `<Sku>` ("the old way").
+     + Đoạn code cũ trong `taoSanPhamLenLazada` đã vô tình append cả 2 lần (1 lần trong `<saleProp>` và 1 lần ngoài `<Sku>`), vi phạm quy tắc validation `BIZ_CHECK_SALEPROP_AND_OLD_PARAM_REPEAT` của Lazada, dẫn đến mã lỗi E500 từ sàn.
+
+#### 2. GIẢI PHÁP KỸ THUẬT & CHI TIẾT TRIỂN KHAI
+1. **Loại bỏ thẻ lặp ngoài root `<Sku>` trong XML Payload**:
+   - Trong `taoSanPhamLenLazada`: Xóa bỏ 2 dòng `xml.append("<color_family>...")` và `xml.append("<size>...")` nằm ngoài `<saleProp>`.
+   - Giữ lại duy nhất thẻ chuẩn:
+     ```xml
+     <saleProp>
+         <color_family>Black</color_family>
+         <size>S</size>
+     </saleProp>
+     ```
+2. **Bổ sung dịch lỗi thân thiện trong `dichLoiLazada`**:
+   - Thêm bộ lọc bắt lỗi `code.contains("500") || lower.contains("saleprop") || lower.contains("sales attributes")`.
+   - Chuyển thông báo lỗi thô của Lazada thành hướng dẫn hành động thân thiện: *"Cấu hình thuộc tính phân loại bán hàng của Lazada chưa hợp lệ. Vui lòng bấm 'Thử lại' để hệ thống đồng bộ lại."*
+   - Tích hợp `dichLoiLazada` vào `ghiNhanLoiTaoSanPhamLazada` để mọi lỗi tạo sản phẩm trả về từ Lazada đều được bản địa hóa trực quan.
+
+#### 3. KẾT QUẢ KIỂM THỬ VÀ ĐỐI SOÁT
+1. **Kiểm thử đơn vị JUnit**: `LazadaSyncDiagnosticTest` (4 tests) + `ShopeeSyncUpsertTest` (9 tests) + `ShopifyStatusSyncTest` (5 tests) = **18/18 tests PASS 100%**.
+2. **Kiểm tra biên dịch**: `mvnw.cmd test-compile` hoàn tất không lỗi (`BUILD SUCCESS`).
+3. **Đa ngôn ngữ Frontend**: 722 tệp sạch 100%.
