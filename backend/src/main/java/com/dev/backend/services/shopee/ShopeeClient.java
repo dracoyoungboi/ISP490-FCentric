@@ -73,6 +73,7 @@ public class ShopeeClient {
     public static final String PATH_PRODUCT_MODEL_LIST = "/api/v2/product/get_model_list";
     public static final String PATH_UPDATE_STOCK = "/api/v2/product/update_stock";
     public static final String PATH_UPDATE_PRICE = "/api/v2/product/update_price";
+    public static final String PATH_PRODUCT_UPDATE_ITEM = "/api/v2/product/update_item";
 
     // 4. Logistics Paths
     public static final String PATH_SHIPPING_PARAM = "/api/v2/logistics/get_shipping_parameter";
@@ -787,6 +788,23 @@ public class ShopeeClient {
         return executePost(url, body);
     }
 
+    public JsonNode updateItem(String partnerId, String partnerKey, String accessToken, String shopId,
+                               Map<String, Object> body, boolean isSandbox) {
+        if (isMockCredentials(partnerId, partnerKey)) {
+            log.info("[SHOPEE-MOCK-UPDATE-ITEM] Giả lập cập nhật thông tin sản phẩm Shopee: item_id={}", body != null ? body.get("item_id") : null);
+            return objectMapper.createObjectNode().put("error", "").put("message", "success");
+        }
+
+        long timestamp = Instant.now().getEpochSecond();
+        String baseString = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_PRODUCT_UPDATE_ITEM, timestamp, accessToken, shopId);
+        String sign = ShopeeSignatureHelper.sign(partnerKey, baseString);
+
+        String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s",
+                getHost(isSandbox), PATH_PRODUCT_UPDATE_ITEM, partnerId.trim(), timestamp, accessToken.trim(), shopId.trim(), sign);
+
+        return executePost(url, body);
+    }
+
     // =========================================================================
     // 4. LOGISTICS & FULFILLMENT APIS
     // =========================================================================
@@ -1224,6 +1242,14 @@ public class ShopeeClient {
 
     public JsonNode updateStockBatch(Long itemId, List<Map<String, Object>> stockList) {
         return updateStockBatch(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), itemId, stockList, this.isSandbox);
+    }
+
+    public JsonNode updatePrice(Long itemId, Long modelId, BigDecimal price) {
+        return updatePrice(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), itemId, modelId, price, this.isSandbox);
+    }
+
+    public JsonNode updateItem(Map<String, Object> body) {
+        return updateItem(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), body, this.isSandbox);
     }
 
     public JsonNode uploadImage(byte[] imageBytes, String fileName) {

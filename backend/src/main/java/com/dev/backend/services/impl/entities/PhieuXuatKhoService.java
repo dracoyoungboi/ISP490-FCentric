@@ -25,6 +25,7 @@ import com.dev.backend.services.impl.kiemke.PhanBoKeService;
 import com.dev.backend.services.impl.kiemke.SoTonKeService;
 import com.dev.backend.constant.enums.TrangThaiPhieuNhap;
 import com.dev.backend.services.KenhBanHangDongBoService;
+import com.dev.backend.workers.OmnichannelOrderSyncJob;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import org.springframework.beans.factory.annotation.Autowired;

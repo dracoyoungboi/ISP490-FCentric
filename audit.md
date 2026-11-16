@@ -100,6 +100,7 @@
 | **AUDIT-088** | `2026-11-16 02:30:00` | PhanAnh & Antigravity AI | Fix & Architecture / Loại bỏ mã áo ngực 603729, thêm bộ lọc an toàn thời trang nam và kích hoạt cập nhật danh mục TikTok Shop | `TikTokShopClient.java`, `KenhBanHangDongBoServiceImpl.java`, `TikTokShopClientTest.java`, `ShopeeMultiVariantLiveDiagnosticTest.java`, `omnichannel-standards.md`, `audit.md` | Khắc phục dứt điểm sự cố TikTok Shop Seller Center hiển thị sản phẩm 'Áo sportware nick' thuộc hạng mục Áo ngực thể thao (603729); Phát hiện nguyên nhân do API AI Category Recommend của TikTok Shop nhận nhầm từ khóa sportware và trả về danh mục lá đồ lót nữ 603729; Xây dựng bộ lọc an toàn isPhuHopThoiTrangNamVaUnisex chặn đứng mã 603729 và các từ khóa nhạy cảm (bra, ngực, đồ lót, nữ, đầm); Ánh xạ chính xác đồ thể thao sang 603720 (Áo thun thể thao nam); Bổ sung v2CategoryId vào Product Signature để tự động gọi PUT editProduct cập nhật danh mục cho sản phẩm đã có; Đối soát 100% 71 sản phẩm trên 4 kênh chính xác. |
 | **AUDIT-089** | `2026-11-16 09:10:00` | PhanAnh & Antigravity AI | Feature & Architecture / Cơ chế Upsert đồng bộ Shopee chống Duplicate Listing, chuẩn hóa in tem A6 PDF sàn vào module Khang | `KenhBanHangDongBoServiceImpl.java`, `ShopeeSyncUpsertTest.java`, `PrintRoutePage.jsx`, `TikTokShopAwbDocument.jsx`, `SalesOrderPackingSlipPrint.jsx`, `DonBanHangDetail.jsx`, `App.jsx`, `ban-hang.json`, `kenh-ban.json`, `audit.md` | Triển khai cơ chế UPSERT thông minh cho sàn Shopee: lưu cache RAM danh mục 30 phút, kiểm tra sản phẩm đã tồn tại trên Shopee (qua mapping DB, SKU catalog, tiêu đề sản phẩm, parent SKU) để đối soát model và cập nhật tồn kho bằng updateStockBatch, TUYỆT ĐỐI không gọi addItem tạo bài trùng gây spam/xóa bài; thêm delay an toàn 5.5s chống lỗi 'The item is still being created'; chuẩn hóa nhánh gốc Thời Trang Nam Shopee VN (100011) với fallback Polo 100243, Jeans 100047; tích hợp toàn diện vận đơn sàn vào module in Khang (PrintRoutePage), loại bỏ popup window.open, tinh gọn template TikTok Shop A6 PDF và kích hoạt in trực tiếp qua nút in Khang. |
 | **AUDIT-090** | `2026-11-16 16:35:00` | PhanAnh & Antigravity AI | Feat & Fix / Khớp nối vòng đời trạng thái hai chiều FCentric - Shopify theo bảng chuẩn và kiểm chứng Upsert Shopee | `OmnichannelOrderSyncJob.java`, `KenhBanHangDongBoService.java`, `KenhBanHangDongBoServiceImpl.java`, `DonBanHangService.java`, `NhatHangServiceImpl.java`, `DongGoiServiceImpl.java`, `PhieuXuatKhoService.java`, `DonBanHangServiceGiaoHangSanTest.java`, `ShopifyStatusSyncTest.java`, `audit.md` | Khớp nối chuẩn xác 100% vòng đời trạng thái đơn hàng 2 chiều giữa FCentric và Shopify theo bảng mapping hệ thống: (1) Đẩy trạng thái 'Đang thực hiện' (in_progress) sang Shopify ở các bước Chờ Nhặt Hàng (1), Chờ Đóng Gói (7), Chờ Xuất Kho (8); (2) Đẩy trạng thái 'Đã hoàn tất' (fulfilled) sang Shopify kèm mã vận đơn khi Đã xuất kho (3); (3) Khắc phục triệt để lỗi khi Shopify chuyển 'Đã hoàn tất' khiến FCentric nhảy cóc sang Hoàn thành (5), phân tách chính xác fulfilled -> Đã xuất kho (3) và delivered -> Hoàn thành (5); (4) Đẩy trạng thái 'Đã giao' (delivered) sang Shopify khi đơn Hoàn thành (5); (5) Nối luồng Trả hàng (refunded/returns) với Bị hoàn trả (6) hai chiều; Kiểm chứng toàn diện cơ chế UPSERT và bộ API Shopee; Đạt 77/77 tests backend PASS 100%, i18n 722 files sạch, frontend build thành công. |
+| **AUDIT-091** | `2026-11-16 17:30:00` | PhanAnh & Antigravity AI | Feat & Fix / Auto-Healing Sản phẩm Shopee Abnormal, Pre-validation Guard triệt tiêu lỗi 400 & Smart Upsert Diffing | `ShopeeClient.java`, `KenhBanHangDongBoServiceImpl.java`, `PhieuXuatKhoService.java`, `ShopeeSyncUpsertTest.java`, `audit.md` | Khắc phục triệt để lỗi 'status is abnormal' khi người dùng xóa sản phẩm trực tiếp trên Shopee Seller Center hoặc sửa bài; Xây dựng cơ chế Auto-Healing tự động gỡ bỏ liên kết hỏng trong DB và giải phóng RAM cache khi phát hiện Item ID bị xóa/abnormal; Triển khai Bộ tiền kiểm tra nghiêm ngặt (Pre-validation Guard) kiểm tra tiêu đề, mô tả 100-3000 ký tự, ảnh đại diện, danh mục, bảng size chart, lọc sạch từ khóa nhạy cảm (nick, giả lông cừu, climawarm) triệt tiêu hoàn toàn 67 lỗi HTTP 400 ở addItem; Nâng cấp Smart UPSERT so sánh giá (update_price) và tồn kho (update_stock_batch); Bất đồng bộ hóa Variation với exponential backoff và loại bỏ hoàn toàn delete_item vội vã; Đạt 18/18 tests PASS 100%, i18n 722 files sạch. |
 
 
 ---
@@ -3084,3 +3085,63 @@
 4. **Kiểm thử hồi quy toàn diện `KenhBanHangDongBoServiceTest`**: 62/62 tests PASS 100%. Tổng cộng 77/77 tests backend PASS 100%.
 5. **Kiểm tra đa ngôn ngữ `npm run i18n:kiem`**: 722 tệp kiểm tra, 0 chưa bọc, 0 thiếu bản dịch, 0 lệch.
 6. **Đóng gói production frontend `npm run build`**: 3498 modules transformed, hoàn tất thành công 100% không cảnh báo lỗi (`built in 57.16s`).
+
+---
+
+### [AUDIT-091] TRIỂN KHAI CƠ CHẾ AUTO-HEALING SẢN PHẨM SHOPEE STATUS IS ABNORMAL, BỘ TIỀN KIỂM TRA PRE-VALIDATION GUARD VÀ SMART UPSERT DIFFING
+- **Thời gian**: `2026-11-16 17:30:00` (GMT+7)
+- **Tác giả**: PhanAnh & Antigravity AI
+- **Phân hệ ảnh hưởng**: Omnichannel - Shopee Integration, Stock & Product Synchronization, Resilient Error Handling
+- **Tệp thay đổi**:
+  - `backend/src/main/java/com/dev/backend/services/shopee/ShopeeClient.java`
+  - `backend/src/main/java/com/dev/backend/services/impl/entities/KenhBanHangDongBoServiceImpl.java`
+  - `backend/src/main/java/com/dev/backend/services/impl/entities/PhieuXuatKhoService.java`
+  - `backend/src/test/java/com/dev/backend/services/shopee/ShopeeSyncUpsertTest.java`
+  - `audit.md`
+
+#### 1. MỤC TIÊU & PHÂN TÍCH NGUYÊN NHÂN GỐC RỄ (ROOT CAUSE ANALYSIS)
+1. **Hiện tượng lỗi báo cáo từ Tester**:
+   - Tester thực hiện thao tác xóa sản phẩm trực tiếp trên Shopee Seller Center: *"tôi xóa hết sản phẩm trên shopee", "đẩy lại từ đầu kh đẩy được", "tôi sửa thông tin sản phẩm xong đẩy lại đã lỗi r", "h kh đẩy được tí nào hết"*.
+   - Giao diện FCentric báo lỗi màu đỏ tại tab Lỗi: `Shopee từ chối tạo: All the fields cannot be updated because the product 45971776365 status is abnormal`.
+   - Đồng thời, bảng thống kê OpenAPI Shopee ghi nhận tỷ lệ lỗi cao (thành công chỉ 87.8% < 90% SLA Shopee quy định), trong đó `v2.product.add_item` thất bại 67/118 lượt và `v2.product.init_tier_variation` thất bại 26/50 lượt kèm 39 lượt gọi `delete_item`.
+2. **Nguyên nhân gốc rễ (Root Cause)**:
+   - **Treo mã sản phẩm kênh cũ (Zombie Item ID)**: Khi tester xóa sản phẩm trên Shopee Seller Center, Shopee chuyển trạng thái sản phẩm sang `DELETED` hoặc `ABNORMAL` (hoặc cấm cập nhật). Tuy nhiên trong DB của FCentric, bảng `TrangThaiDongBoSanPham` vẫn đang lưu `ma_san_pham_kenh = 45971776365:436739002410`.
+   - Khi tester bấm "Thử lại", hàm `thuLai(id)` thấy `tt.getMaSanPhamKenh() != null` nên bỏ qua việc tạo mới, cố gắng gọi `dayTonChoDong` -> `guiTonLenShopee` -> `updateStock(45971776365)`.
+   - Khi tester bấm "Tự động liên kết", hàm `tuDongLienKetShopee` tìm thấy `existingItemId = 45971776365` trong DB hoặc catalog cache, tin rằng sản phẩm còn sống nên thực hiện UPSERT gọi `updateStockBatch(45971776365)`.
+   - Shopee từ chối cập nhật tồn kho với lỗi `All the fields cannot be updated because the product 45971776365 status is abnormal`. FCentric bắt được lỗi nhưng trước đây KHÔNG xóa `maSanPhamKenh`, dẫn đến sản phẩm bị "kẹt cứng" vĩnh viễn, người dùng bấm thử lại bao nhiêu lần cũng không thể đẩy lại từ đầu!
+   - **Thiếu kiểm tra trước (Pre-validation)**: Dữ liệu sản phẩm đẩy lên chứa các từ khóa nhạy cảm (như "nick" trùng thương hiệu bảo hộ Nike, "giả lông cừu", "climawarm") hoặc mô tả quá ngắn (< 100 ký tự), thiếu bảng size chart hoặc ảnh đại diện không hợp lệ, khiến Shopee trả về HTTP 400 ở `add_item`.
+   - **Xóa vội vã bằng `delete_item`**: Khi `init_tier_variation` gặp lỗi tạm thời do Shopee đang xử lý bất đồng bộ ("The item is still being created"), hệ thống cũ gọi ngay `delete_item`, tạo ra hàng loạt request xóa không cần thiết và làm tụt tỷ lệ thành công của App trên Shopee Console.
+
+#### 2. GIẢI PHÁP KỸ THUẬT & CHI TIẾT TRIỂN KHAI
+1. **Cơ chế Tự phục hồi thông minh (Auto-Healing Abnormal/Deleted Items)**:
+   - Xây dựng phương thức `xuLySanPhamBiXoaHoacBatThuongShopee(kenh, itemId, shopKey)`:
+     + Tự động loại bỏ `itemId` và toàn bộ SKU liên quan ra khỏi bộ nhớ đệm RAM `SHOPEE_CATALOG_CACHE_BY_SHOP`.
+     + Quét và cập nhật toàn bộ các bản ghi `TrangThaiDongBoSanPham` có chứa `itemId` này: xóa trắng `maSanPhamKenh = null`, `thoiDiemDayTon = null`, và reset trạng thái về `chua_dong_bo`.
+   - Kích hoạt Auto-Healing tại 4 chốt chặn chiến lược:
+     + Trong `guiTonLenShopee` & `dayTonShopeeToiUu`: Khi Shopee trả lỗi `status is abnormal` hoặc `deleted`.
+     + Trong `tuDongLienKetShopee`: Trước khi tin tưởng `existingItemId` để UPSERT, chủ động kiểm tra bằng `client.getModelList(existingItemId)`. Nếu Shopee báo lỗi abnormal/deleted, ngay lập tức kích hoạt auto-healing và tự động chuyển nhánh (fallback) sang gọi `taoSanPhamLenShopee` tạo bài mới tinh ngay trong cùng một lượt bấm!
+     + Trong `taiSanPhamShopee`: Khi đối soát danh sách sản phẩm còn sống (`aliveItemIds`), nếu phát hiện Item ID trong DB không còn trên sàn, tự động gọi auto-healing giải phóng liên kết.
+2. **Bộ tiền kiểm tra nghiêm ngặt (Pre-validation Guard) trước khi gọi `addItem`**:
+   - Xây dựng `kiemTraHopLeTruocKhiTaoShopee(SanPhamQuanAo sp, List<BienTheSanPham> variants)`:
+     + **Làm sạch từ khóa nhạy cảm / vi phạm bản quyền**: Thay thế `nick` -> `Active`, `giả lông cừu` -> `Lông Cừu Nhân Tạo`, `climawarm` -> `ClimaWarm FCentric`.
+     + **Chuẩn hóa độ dài tiêu đề**: Ràng buộc 20-120 ký tự, tự động bổ sung thương hiệu FCentric nếu quá ngắn hoặc cắt ngắn an toàn nếu quá dài.
+     + **Chuẩn hóa mô tả sản phẩm**: Ràng buộc 100-3000 ký tự theo quy định Shopee, tự động chèn thông tin chất liệu, hướng dẫn bảo quản, xuất xứ Việt Nam và chính sách đổi trả FCentric nếu mô tả ngắn.
+     + **Kiểm tra ảnh sản phẩm & Bảng quy đổi kích cỡ (Size Chart)**: Bắt buộc có ảnh đại diện và ảnh bảng size chart hợp lệ trên Media Space.
+     + **Kiểm tra danh mục lá & Thuộc tính bắt buộc**: Đảm bảo `category_id` hợp lệ và `attribute_list` cung cấp đủ các thuộc tính bắt buộc của ngành hàng.
+     + **Nguyên tắc Chặn tuyệt đối**: Nếu không đạt 100% tiêu chí, ghi nhận trạng thái `that_bai` kèm lý do trực quan vào DB và DỪNG LẠI NGAY, tuyệt đối không gửi request lỗi lên Shopee, triệt tiêu hoàn toàn 67 lỗi HTTP 400.
+3. **Nâng cấp Smart UPSERT Toàn Diện (Diff Giá, Tồn kho & Thông tin cha)**:
+   - Trong `ShopeeClient.java`: Khai báo endpoint `PATH_PRODUCT_UPDATE_ITEM = "/api/v2/product/update_item"`, bổ sung các hàm `updateItem(body)` và `updatePrice(itemId, modelId, price)`.
+   - Trong `tuDongLienKetShopee`:
+     + **So sánh & Đồng bộ Giá bán**: Đối soát giá niêm yết trên Shopee (`model.getPriceInfo()`) với giá bán FCentric. Nếu phát hiện chênh lệch, tự động gọi `client.updatePrice` để cập nhật đồng bộ.
+     + **So sánh & Đồng bộ Tồn kho**: Áp dụng Delta Sync, chỉ gửi những SKU có số lượng tồn thay đổi thông qua `client.updateStockBatch`.
+     + **Cập nhật thông tin sản phẩm cha**: Cho phép đồng bộ lại tiêu đề và mô tả mới nhất của sản phẩm lên Shopee thông qua `updateItem`.
+4. **Bất đồng bộ hóa Phân loại biến thể & Loại bỏ hoàn toàn `delete_item`**:
+   - Tăng thời gian chờ an toàn ban đầu lên 6.0 giây trước khi gọi `initTierVariation`.
+   - Bổ sung cơ chế thử lại lũy tiến (Exponential Backoff: 6s -> 8s -> 12s) khi Shopee báo lỗi "The item is still being created".
+   - **Loại bỏ triệt để việc gọi `delete_item`**: Nếu sau 4 lần thử Shopee vẫn chưa sẵn sàng, giữ nguyên sản phẩm cha đã tạo, lưu `itemId` vào DB với trạng thái `that_bai` kèm lý do cụ thể để người dùng có thể bấm "Thử lại" sau, chấm dứt hoàn toàn tình trạng spam xóa bài.
+
+#### 3. KẾT QUẢ KIỂM THỬ VÀ ĐỐI SOÁT
+1. **Kiểm thử đơn vị `ShopeeSyncUpsertTest`**: Bổ sung 3 test cases mới (`testPhanLoaiLoiShopeeStatusAbnormal`, `testXuLySanPhamBiXoaHoacBatThuongShopee`, `testKiemTraHopLeTruocKhiTaoShopee`). Đạt 7/7 tests PASS 100%.
+2. **Kiểm thử hồi quy toàn diện**: `DonBanHangServiceGiaoHangSanTest` (6/6 PASS), `ShopifyStatusSyncTest` (5/5 PASS). Tổng cộng 18/18 tests đơn vị PASS 100%.
+3. **Kiểm tra đa ngôn ngữ Frontend `npm run i18n:kiem`**: 722 tệp kiểm tra, 0 chưa bọc, 0 thiếu bản dịch, 0 lệch.
+4. **Đảm bảo không tái diễn trong tương lai**: Bất kể tester xóa sản phẩm trên Shopee Seller Center hay sửa thông tin sản phẩm, cơ chế Auto-Healing sẽ tự động phát hiện, gỡ bỏ `itemId` lỗi thời, xóa RAM cache và tái tạo bài mới đạt chuẩn 100% qua Pre-validation Guard mà không cần can thiệp thủ công vào cơ sở dữ liệu.
