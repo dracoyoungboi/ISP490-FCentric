@@ -48,10 +48,6 @@ export const keToanService = {
     async chungTuCuaLo(loId, { signal } = {}) {
         return duLieu(await apiClient.get(`${BASE}/lo-xuat/${loId}/chung-tu`, { signal, needKho: false })) ?? [];
     },
-    /** Nội dung 00_HUONG_DAN.txt trong tệp nén đã lưu của lô (chuỗi). */
-    async huongDanCuaLo(loId, { signal } = {}) {
-        return duLieu(await apiClient.get(`${BASE}/lo-xuat/${loId}/huong-dan`, { signal, needKho: false }));
-    },
     async moKhoa(chungTuId, lyDo) {
         return duLieu(await apiClient.post(`${BASE}/chung-tu-xuat/${chungTuId}/mo-khoa`, { lyDo }, { needKho: false }));
     },

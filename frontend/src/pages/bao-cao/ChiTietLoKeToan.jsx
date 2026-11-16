@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useId, useState } from "react";
-import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { Ban, ChevronDown, Copy, Download, Loader2, LockOpen } from "lucide-react";
+import { useEffect, useId, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { Ban, Download, LockOpen } from "lucide-react";
 import PageContainer from "@/components/backoffice/PageContainer";
 import CotThuocTinh, { BangThuocTinh, GiaTriSaoChep, NhomThuocTinh } from "@/components/chung-tu/CotThuocTinh";
 import DauChungTu from "@/components/chung-tu/DauChungTu";
@@ -21,7 +21,6 @@ import {
 } from "@/components/chung-tu/kieuBang";
 import { RowActionButton } from "@/components/shared/RowActions";
 import StatusBadge from "@/components/shared/StatusBadge";
-import { Button } from "@/components/ui/button";
 import { HopHuyLo, HopMoKhoa } from "@/components/ke-toan/HopKeToan";
 import {
   NHAN_CHUNG_TU,
@@ -35,7 +34,6 @@ import {
   nhomTheoLoai,
   tenLoai,
 } from "@/components/ke-toan/tinhKeToan";
-import useSaoChep from "@/hooks/useSaoChep";
 import { toast } from "@/lib/thongBaoNhanh";
 import { cn } from "@/lib/utils";
 import { keToanService } from "@/services/keToanService";
@@ -57,15 +55,13 @@ function TieuDeMuc({ id, children, phu }) {
 
 /**
  * Chi tiết một lô xuất kế toán (khung chứng từ hai cột như Chi tiết phiếu chuyển kho): thân là chứng từ trong lô (mở khóa
- * từng chứng từ) và hướng dẫn nhập AMIS đúng bản trong tệp nén; cột phải là thông tin lô, tệp, việc hủy. Nút chính Tải tệp,
- * Sao chép hướng dẫn gửi kế toán; Hủy lô ở ⋯, chỉ lô còn hiệu lực mới nhất. Chỉ quản trị viên.
+ * từng chứng từ); cột phải là thông tin lô, tệp, việc hủy. Hướng dẫn nhập AMIS không hiện ở đây: đã có sẵn trong tệp nén
+ * (00_HUONG_DAN.txt). Nút chính Tải tệp; Hủy lô ở ⋯, chỉ lô còn hiệu lực mới nhất. Chỉ quản trị viên.
  */
 export default function ChiTietLoKeToan() {
   const { id } = useParams();
   const idMuc = useId();
   const navigate = useNavigate();
-  const { state } = useLocation();
-  const { saoChep } = useSaoChep();
   const loId = Number(id);
 
   const [dsLo, setDsLo] = useState(null);
@@ -75,11 +71,6 @@ export default function ChiTietLoKeToan() {
   const [dangTaiTep, setDangTaiTep] = useState(false);
   const [moKhoa, setMoKhoa] = useState(null);
   const [huyLo, setHuyLo] = useState(false);
-  // Hướng dẫn nhập AMIS: mở sẵn khi vừa tạo lô (người tạo gửi ngay cho kế toán)
-  const [moHuongDan, setMoHuongDan] = useState(Boolean(state?.vuaTao));
-  const [huongDan, setHuongDan] = useState(null);
-  const [loiHuongDan, setLoiHuongDan] = useState(null);
-  const [dangChep, setDangChep] = useState(false);
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -95,23 +86,6 @@ export default function ChiTietLoKeToan() {
       .catch((e) => !ctrl.signal.aborted && setLoi(e));
     return () => ctrl.abort();
   }, [loId, lanTai]);
-
-  const layHuongDan = useCallback(async () => {
-    if (huongDan != null) return huongDan;
-    try {
-      const noiDung = await keToanService.huongDanCuaLo(loId);
-      setHuongDan(noiDung ?? "");
-      setLoiHuongDan(null);
-      return noiDung ?? "";
-    } catch (e) {
-      setLoiHuongDan(getApiErrorMessage(e, t("Không tải được hướng dẫn của lô")));
-      return null;
-    }
-  }, [huongDan, loId]);
-
-  useEffect(() => {
-    if (moHuongDan && huongDan == null && !loiHuongDan) queueMicrotask(layHuongDan);
-  }, [moHuongDan, huongDan, loiHuongDan, layHuongDan]);
 
   const taiLai = () => {
     setLoi(null);
@@ -132,17 +106,6 @@ export default function ChiTietLoKeToan() {
       toast.error(getApiErrorMessage(e, t("Không tải được tệp của lô")));
     } finally {
       setDangTaiTep(false);
-    }
-  };
-
-  const chepHuongDan = async () => {
-    setDangChep(true);
-    try {
-      const noiDung = await layHuongDan();
-      if (noiDung != null) await saoChep(noiDung, { nhan: t("Sao chép hướng dẫn nhập AMIS") });
-      else toast.error(t("Không tải được hướng dẫn của lô"));
-    } finally {
-      setDangChep(false);
     }
   };
 
@@ -173,12 +136,6 @@ export default function ChiTietLoKeToan() {
       onQuayLai={veDanhSach}
       nhanQuayLai={t("Về Xuất dữ liệu kế toán")}
       saoChepMa={{ giaTri: lo.soLo, nhan: t("Sao chép số lô") }}
-      nutPhu={daHuy ? undefined : {
-        nhan: t("Sao chép hướng dẫn"),
-        icon: Copy,
-        dangChay: dangChep,
-        onClick: chepHuongDan,
-      }}
       nutChinh={{
         nhan: t("Tải tệp"),
         icon: Download,
@@ -263,32 +220,6 @@ export default function ChiTietLoKeToan() {
             </table>
           </div>
         )}
-      </section>
-
-      <section className="border-t border-bo-border">
-        <button type="button" onClick={() => setMoHuongDan((m) => !m)} aria-expanded={moHuongDan}
-          className="flex w-full items-center justify-between gap-4 px-4 py-4 text-left hover:bg-bo-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-bo-primary/30 sm:px-6">
-          <span>
-            <span className="block text-base font-semibold leading-6 text-bo-foreground">{t("Hướng dẫn nhập AMIS")}</span>
-            <span className="block text-[13px] leading-5 text-bo-muted">{t("Đúng bản 00_HUONG_DAN.txt trong tệp nén của lô")}</span>
-          </span>
-          <ChevronDown className={cn("size-4 shrink-0 text-bo-muted transition-transform", moHuongDan && "rotate-180")} aria-hidden="true" />
-        </button>
-        {moHuongDan ? (
-          <div className="border-t border-slate-100 px-4 py-4 sm:px-6">
-            {loiHuongDan ? (
-              <p className="flex flex-wrap items-center gap-3 text-sm text-bo-danger">
-                {loiHuongDan}
-                <Button variant="outline" size="sm" className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle" onClick={() => setLoiHuongDan(null)}>{t("Thử lại")}</Button>
-              </p>
-            ) : huongDan == null ? (
-              <p className="flex items-center gap-2 text-sm text-bo-muted"><Loader2 className="size-4 animate-spin" aria-hidden="true" />{t("Đang tải hướng dẫn")}</p>
-            ) : (
-              /* i18n-giu-nguyen: nội dung tệp hướng dẫn gửi kế toán (tiếng Việt, theo menu AMIS) */
-              <pre className="max-h-[480px] overflow-auto whitespace-pre-wrap break-words font-sans text-[13px] leading-6 text-bo-foreground">{huongDan}</pre>
-            )}
-          </div>
-        ) : null}
       </section>
     </div>
   );

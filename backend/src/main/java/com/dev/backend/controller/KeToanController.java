@@ -119,13 +119,6 @@ public class KeToanController {
                 .body(tep.noiDung());
     }
 
-    /** Nội dung tệp hướng dẫn nhập AMIS (00_HUONG_DAN.txt) trong tệp nén đã lưu của lô. */
-    @GetMapping("/lo-xuat/{id}/huong-dan")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien})
-    public ResponseEntity<ResponseData<String>> huongDanCuaLo(@PathVariable Integer id) {
-        return ok(xuatKeToanService.huongDanCuaLo(id));
-    }
-
     /**
      * Hủy lô còn hiệu lực mới nhất: chứng từ của lô quay về chưa xuất, tệp nén giữ lại (đánh dấu đã hủy). Body: lyDo
      * (bắt buộc, ghi nhật ký). Kế toán xóa trên AMIS các chứng từ của lô đã nhập trước khi nhập lô mới.
