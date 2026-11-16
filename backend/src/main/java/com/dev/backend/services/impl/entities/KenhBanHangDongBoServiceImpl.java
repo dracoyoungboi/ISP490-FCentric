@@ -814,6 +814,12 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 ? sp.getDanhMuc().getTenDanhMuc().toLowerCase(Locale.ROOT) : "";
         String combined = (tenDm + " " + tenSp).trim();
 
+        // 0. Đồ bảo hộ lao động / Đồng phục bảo hộ (Lazada bắt buộc Category 8017 theo Policy R_6049911)
+        if (combined.contains("bảo hộ") || combined.contains("lao động") || combined.contains("workwear")
+                || combined.contains("bao ho") || combined.contains("lao dong")) {
+            return 8017; // Quần áo nam > Đồ bảo hộ lao động
+        }
+
         // 1. Quần Jeans / Bò / Denim
         if (combined.contains("jean") || combined.contains("bò") || combined.contains("denim")) {
             return 6414; // Quần áo nam > Quần > Quần jeans
@@ -1153,7 +1159,14 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 || variants.stream().anyMatch(v -> v.getChatLieu() != null && v.getChatLieu().getTenChatLieu() != null
                         && v.getChatLieu().getTenChatLieu().toLowerCase(Locale.ROOT).contains("poly"));
 
-        if (categoryId == 7953) {
+        if (categoryId == 8017) {
+            // Đồ bảo hộ lao động (8017): Lazada MTEE Risk Policy R_6049911 bắt buộc clothing_material, Fit_Type, Neckline
+            String material = laPoly ? "Polyester" : "100% Cotton";
+            xml.append("<clothing_material>").append(material).append("</clothing_material>");
+            xml.append("<Fit_Type>Slim Fit</Fit_Type>");
+            String neckline = (tenSpLower.contains("polo") || tenSpLower.contains("có cổ")) ? "Polo" : "Round Neck";
+            xml.append("<Neckline>").append(neckline).append("</Neckline>");
+        } else if (categoryId == 7953) {
             // Áo khoác nhẹ & Áo vest nam (7953): Bắt buộc jacket_coat_styles
             String materialKhoac = laPoly ? "Polyester" : "100% Cotton";
             xml.append("<clothing_material>").append(materialKhoac).append("</clothing_material>");
@@ -7997,7 +8010,15 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                                         BigDecimal curShopeePrice = (BigDecimal) m.getOrDefault("current_price", BigDecimal.ZERO);
                                         if (curShopeePrice == null || curShopeePrice.compareTo(BigDecimal.ZERO) == 0 || curShopeePrice.compareTo(newTargetPrice) != 0) {
                                             try {
-                                                client.updatePrice(existingItemId, mId, newTargetPrice);
+                                                JsonNode pRes = client.updatePrice(existingItemId, mId, newTargetPrice);
+                                                String pErr = pRes != null ? pRes.path("error").asText("") : "";
+                                                String pMsg = pRes != null ? pRes.path("message").asText("") : "";
+                                                String combinedErr = (pErr + " " + pMsg).toLowerCase(Locale.ROOT);
+                                                if (combinedErr.contains("status is abnormal") || combinedErr.contains("abnormal")) {
+                                                    xuLySanPhamBiXoaHoacBatThuongShopee(kenh, existingItemId, shopKey);
+                                                    existingItemId = null;
+                                                    break;
+                                                }
                                                 log.info("[SHOPEE-UPSERT] Cập nhật giá mới cho Item {} Model {}: {} VND", existingItemId, mId, newTargetPrice);
                                             } catch (Exception pEx) {
                                                 log.warn("[SHOPEE-UPSERT] Lỗi cập nhật giá cho Item {}: {}", existingItemId, pEx.getMessage());
