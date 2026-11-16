@@ -818,8 +818,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         if (combined.contains("jean") || combined.contains("bò") || combined.contains("denim")) {
             return 6414; // Quần áo nam > Quần > Quần jeans
         }
-        // 2. Quần short / Quần đùi / Ngắn
-        if (combined.contains("short") || combined.contains("ngắn") || combined.contains("đùi")) {
+        // 2. Quần short / Quần đùi / Quần ngắn (chú ý: không dùng 'ngắn' đơn độc tránh nhầm với 'ngắn tay' của áo)
+        if (combined.contains("short") || combined.contains("quần short") || combined.contains("quần đùi")
+                || combined.contains("quần ngắn") || (combined.contains("quần") && combined.contains("ngắn"))) {
             return 10100765; // Quần áo nam > Quần > Quần ngắn
         }
         // 3. Quần dài / Quần tây / Kaki / Jogger / Trouser
@@ -846,6 +847,25 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         }
         // 8. Áo thun / Áo phông / T-shirt / Mặc định Tops
         return 7930; // Quần áo nam > Áo > Áo thun & Áo phông
+    }
+
+    public static String mapLazadaColorFamily(String vietnameseColor) {
+        if (vietnameseColor == null || vietnameseColor.isBlank()) return "Black";
+        String lower = vietnameseColor.trim().toLowerCase(Locale.ROOT);
+        if (lower.contains("đen") || lower.contains("black")) return "Black";
+        if (lower.contains("trắng") || lower.contains("white")) return "White";
+        if (lower.contains("xám") || lower.contains("ghi") || lower.contains("grey") || lower.contains("gray")) return "Grey";
+        if (lower.contains("navy") || lower.contains("than") || lower.contains("xanh đen")) return "Dark Blue";
+        if (lower.contains("dương") || lower.contains("biển") || lower.contains("blue") || lower.contains("xanh nước")) return "Blue";
+        if (lower.contains("lá") || lower.contains("rêu") || lower.contains("green") || lower.contains("cốm")) return "Green";
+        if (lower.contains("đỏ") || lower.contains("red") || lower.contains("huyết")) return "Red";
+        if (lower.contains("vàng") || lower.contains("yellow")) return "Yellow";
+        if (lower.contains("cam") || lower.contains("orange")) return "Orange";
+        if (lower.contains("hồng") || lower.contains("pink")) return "Pink";
+        if (lower.contains("tím") || lower.contains("purple")) return "Purple";
+        if (lower.contains("nâu") || lower.contains("brown") || lower.contains("bò")) return "Brown";
+        if (lower.contains("be") || lower.contains("kem") || lower.contains("beige")) return "Beige";
+        return "Multicolor";
     }
 
     private static byte[] convertToLazadaCompliantJpeg(byte[] rawBytes, String productName) {
@@ -1120,7 +1140,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         xml.append("<name>").append(escapeXml(productName)).append("</name>");
         xml.append("<brand>").append(escapeXml(brandName)).append("</brand>");
         xml.append("<description><![CDATA[<p>").append(desc).append("</p>]]></description>");
-        xml.append("<short_description><![CDATA[").append(desc).append("]]></short_description>");
+        xml.append("<short_description><![CDATA[<ul><li>").append(desc).append("</li></ul>]]></short_description>");
         xml.append("<warranty_type>No Warranty</warranty_type>");
         xml.append("<fa_pattern>Trơn</fa_pattern>");
 
@@ -1129,7 +1149,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         // Áo khoác (7953) không nhận Fit_Type của Áo thun để tránh lỗi sàn từ chối
         boolean laQuanLazada = (categoryId == 6414 || categoryId == 7991 || categoryId == 10100765);
         boolean laAoKhoacLazada = (categoryId == 7953 || categoryId == 6424);
-        boolean nhanFitType = (categoryId == 7930 || categoryId == 7940 || categoryId == 14275);
+        boolean nhanFitType = (categoryId == 7930 || categoryId == 7940);
 
         String tenSp = sp.getTenSanPham() != null ? sp.getTenSanPham() : "";
         boolean laPoly = tenSp.toLowerCase(Locale.ROOT).contains("poly")
@@ -1170,6 +1190,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             xml.append("<package_width>15</package_width>");
             xml.append("<package_height>5</package_height>");
             xml.append("<package_weight>0.3</package_weight>");
+            xml.append("<package_content>1 x ").append(escapeXml(productName)).append("</package_content>");
 
             List<String> skuImages = new ArrayList<>();
             String varImgUrl = imgResult.variantImages().get(bt.getId());
@@ -1192,12 +1213,16 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 xml.append("</Images>");
             }
 
-            if (bt.getMauSac() != null && bt.getMauSac().getTenMau() != null && !bt.getMauSac().getTenMau().isBlank()) {
-                xml.append("<color_family>").append(escapeXml(bt.getMauSac().getTenMau().trim())).append("</color_family>");
-            }
-            if (bt.getSize() != null && bt.getSize().getTenSize() != null && !bt.getSize().getTenSize().isBlank()) {
-                xml.append("<size>").append(escapeXml(bt.getSize().getTenSize().trim())).append("</size>");
-            }
+            String mappedColor = mapLazadaColorFamily(bt.getMauSac() != null ? bt.getMauSac().getTenMau() : null);
+            String sizeVal = (bt.getSize() != null && bt.getSize().getTenSize() != null && !bt.getSize().getTenSize().isBlank())
+                    ? bt.getSize().getTenSize().trim() : "Free Size";
+
+            xml.append("<saleProp>");
+            xml.append("<color_family>").append(escapeXml(mappedColor)).append("</color_family>");
+            xml.append("<size>").append(escapeXml(sizeVal)).append("</size>");
+            xml.append("</saleProp>");
+            xml.append("<color_family>").append(escapeXml(mappedColor)).append("</color_family>");
+            xml.append("<size>").append(escapeXml(sizeVal)).append("</size>");
 
             xml.append("</Sku>");
         }
@@ -1215,18 +1240,42 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 if (skuList.isArray() && !skuList.isEmpty()) {
                     for (JsonNode itemNode : skuList) {
                         String sSku = itemNode.path("seller_sku").asText("").trim();
+                        if (sSku.isBlank()) sSku = itemNode.path("SellerSku").asText("").trim();
+                        if (sSku.isBlank()) sSku = itemNode.path("sellerSku").asText("").trim();
+
                         String sId = itemNode.path("sku_id").asText("").trim();
-                        if (!sSku.isBlank() && !sId.isBlank()) {
+                        if (sId.isBlank()) sId = itemNode.path("SkuId").asText("").trim();
+                        if (sId.isBlank()) sId = itemNode.path("skuId").asText("").trim();
+                        if (sId.isBlank() || !sId.matches("\\d+")) {
+                            String shopSku = itemNode.path("shop_sku").asText("").trim();
+                            if (shopSku.isBlank()) shopSku = itemNode.path("ShopSku").asText("").trim();
+                            if (shopSku.contains("-")) {
+                                String tail = shopSku.substring(shopSku.lastIndexOf('-') + 1).trim();
+                                if (tail.matches("\\d+")) {
+                                    sId = tail;
+                                }
+                            }
+                        }
+
+                        if (!sSku.isBlank() && !sId.isBlank() && sId.matches("\\d+")) {
                             createdSkuMap.put(sSku.toLowerCase(Locale.ROOT), sId);
                         }
                     }
                 }
                 if (createdSkuMap.isEmpty()) {
+                    Map<String, String> recoveredMap = layMapSellerSkuToSkuIdLazada(appKey, appSecret, token);
                     for (BienTheSanPham bt : variants) {
                         if (bt.getMaSku() != null) {
-                            createdSkuMap.put(bt.getMaSku().trim().toLowerCase(Locale.ROOT), bt.getMaSku().trim());
+                            String norm = bt.getMaSku().trim().toLowerCase(Locale.ROOT);
+                            String recSkuId = recoveredMap.get(norm);
+                            if (recSkuId != null && recSkuId.matches("\\d+")) {
+                                createdSkuMap.put(norm, recSkuId);
+                            }
                         }
                     }
+                }
+                if (createdSkuMap.isEmpty()) {
+                    ghiNhanLoiTaoSanPhamLazada(kenh, variants, "Sản phẩm đã tạo trên Lazada nhưng chưa tra cứu được SkuId số. Vui lòng bấm 'Thử lại' sau ít phút.");
                 }
             } else {
                 String errorMsg = createRes.path("message").asText(createRes.path("sub_message").asText("Lazada từ chối"));
@@ -3064,8 +3113,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             String normSku = bt.getMaSku().trim().toLowerCase(Locale.ROOT);
             String targetSkuId = lazadaSkuToSkuIdMap.get(normSku);
             boolean hasNumericSkuId = targetSkuId != null && targetSkuId.matches("\\d+");
-            if (targetSkuId == null || targetSkuId.isBlank()) {
-                targetSkuId = bt.getMaSku().trim();
+            if (!hasNumericSkuId) {
+                targetSkuId = null;
             }
 
             TrangThaiDongBoSanPham record = mappingByBtId.get(bt.getId());
@@ -3079,8 +3128,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                         record.setChiTietLoi(null);
                     } else {
                         record.setTrangThaiDongBo("that_bai");
-                        if (record.getChiTietLoi() == null || record.getChiTietLoi().isBlank()) {
-                            record.setChiTietLoi("Chưa xác định được SkuId trên Lazada. Vui lòng bấm 'Đưa sản phẩm FCentric lên Lazada' để tạo lại.");
+                        if (record.getChiTietLoi() == null || record.getChiTietLoi().isBlank()
+                                || record.getChiTietLoi().contains("Tự động liên kết")) {
+                            record.setChiTietLoi("Sản phẩm chưa được tạo thành công trên Lazada. Vui lòng bấm 'Đưa sản phẩm FCentric lên Lazada' để tạo lại.");
                         }
                     }
                 }
@@ -3091,18 +3141,25 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                         .bienTheSanPham(bt)
                         .maSanPhamKenh(targetSkuId)
                         .trangThaiDongBo(hasNumericSkuId ? "thanh_cong" : "that_bai")
-                        .chiTietLoi(hasNumericSkuId ? null : "Chưa xác định được SkuId trên Lazada. Vui lòng bấm 'Đưa sản phẩm FCentric lên Lazada' để tạo lại.")
+                        .chiTietLoi(hasNumericSkuId ? null : "Sản phẩm chưa được tạo thành công trên Lazada. Vui lòng bấm 'Đưa sản phẩm FCentric lên Lazada' để tạo lại.")
                         .ngayDongBoCuoi(Instant.now())
                         .build();
             }
             trangThaiDongBoSanPhamRepository.save(record);
-            soDaGhep++;
+            if (hasNumericSkuId) {
+                soDaGhep++;
+            } else {
+                soKhongKhop++;
+            }
         }
 
         KetNoiDayTon ketNoi = moKetNoiDayTon(kenh);
         if (ketNoi.lyDoLoi() == null) {
             List<TrangThaiDongBoSanPham> dongCanDay = trangThaiDongBoSanPhamRepository.findByKenhBanHangId(kenh.getId())
-                    .stream().filter(KenhBanHangDongBoServiceImpl::duocDayTon).toList();
+                    .stream()
+                    .filter(KenhBanHangDongBoServiceImpl::duocDayTon)
+                    .filter(d -> d.getMaSanPhamKenh() != null && d.getMaSanPhamKenh().matches("\\d+"))
+                    .toList();
             for (TrangThaiDongBoSanPham dong : dongCanDay) {
                 BienTheSanPham bt = dong.getBienTheSanPham();
                 if (bt == null) continue;
@@ -5673,10 +5730,43 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 skuIdKenh = resolvedSkuId;
                 dong.setMaSanPhamKenh(skuIdKenh);
                 trangThaiDongBoSanPhamRepository.save(dong);
+            } else {
+                SanPhamQuanAo sp = bt.getSanPham();
+                KenhBanHang kenh = dong.getKenhBanHang();
+                if (sp != null && kenh != null) {
+                    log.info("[LAZADA-AUTO-HEAL] Biến thể [{}] chưa có SkuId số. Tự động gọi tạo sản phẩm [{}] lên Lazada...", maSku, sp.getTenSanPham());
+                    List<BienTheSanPham> spVars = bienTheSanPhamRepository.findBySanPhamIdAndTrangThai(sp.getId(), 1);
+                    if (spVars == null || spVars.isEmpty()) {
+                        spVars = List.of(bt);
+                    }
+                    Map<String, String> created = taoSanPhamLenLazada(kenh, sp, spVars, appKey, appSecret, token, new HashMap<>());
+                    String createdId = created.get(maSku.toLowerCase(Locale.ROOT));
+                    if (createdId != null && createdId.matches("\\d+")) {
+                        skuIdKenh = createdId;
+                        dong.setMaSanPhamKenh(skuIdKenh);
+                        trangThaiDongBoSanPhamRepository.save(dong);
+                        for (BienTheSanPham otherBt : spVars) {
+                            if (otherBt.getId() != null && !otherBt.getId().equals(bt.getId()) && otherBt.getMaSku() != null) {
+                                String oId = created.get(otherBt.getMaSku().toLowerCase(Locale.ROOT));
+                                if (oId != null && oId.matches("\\d+")) {
+                                    trangThaiDongBoSanPhamRepository.findByKenhBanHangIdAndBienTheSanPhamId(kenh.getId(), otherBt.getId())
+                                            .ifPresent(oDong -> {
+                                                oDong.setMaSanPhamKenh(oId);
+                                                trangThaiDongBoSanPhamRepository.save(oDong);
+                                            });
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
         if (skuIdKenh.isBlank() || !skuIdKenh.matches("\\d+")) {
-            return KetQuaGuiTon.loiSku("Biến thể chưa có mã SkuId số trên Lazada. Vui lòng bấm Tự động liên kết để đồng bộ.");
+            String lyDoHienTai = dong.getChiTietLoi();
+            if (lyDoHienTai != null && !lyDoHienTai.isBlank() && !lyDoHienTai.contains("Tự động liên kết")) {
+                return KetQuaGuiTon.loiSku(lyDoHienTai);
+            }
+            return KetQuaGuiTon.loiSku("Sản phẩm chưa được tạo thành công trên Lazada. Vui lòng bấm 'Đưa sản phẩm FCentric lên Lazada' để tạo lại.");
         }
 
         StringBuilder skuXml = new StringBuilder();
@@ -5910,9 +6000,19 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     if (skus.isArray()) {
                         for (JsonNode skuNode : skus) {
                             String sSku = skuNode.path("SellerSku").asText("").trim();
+                            if (sSku.isBlank()) sSku = skuNode.path("seller_sku").asText("").trim();
                             if (sSku.isBlank()) sSku = skuNode.path("ShopSku").asText("").trim();
+
                             String skuId = skuNode.path("SkuId").asText("").trim();
                             if (skuId.isBlank()) skuId = skuNode.path("sku_id").asText("").trim();
+                            if ((skuId.isBlank() || !skuId.matches("\\d+")) && skuNode.hasNonNull("ShopSku")) {
+                                String shopSku = skuNode.path("ShopSku").asText("").trim();
+                                if (shopSku.contains("-")) {
+                                    String tail = shopSku.substring(shopSku.lastIndexOf('-') + 1).trim();
+                                    if (tail.matches("\\d+")) skuId = tail;
+                                }
+                            }
+
                             if (!sSku.isBlank() && !skuId.isBlank() && skuId.matches("\\d+")) {
                                 map.put(sSku.toLowerCase(Locale.ROOT), skuId);
                             }
@@ -5932,6 +6032,37 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         if (sellerSku == null || sellerSku.isBlank()) return null;
         String target = sellerSku.trim().toLowerCase(Locale.ROOT);
         try {
+            // 1. Thử tra cứu nhanh trực tiếp qua API /products/get với sku_seller_list
+            JsonNode quickRes = lazadaClient.getProductsBySellerSkus(appKey, appSecret, token, List.of(sellerSku.trim()));
+            if (quickRes != null && "0".equals(quickRes.path("code").asText(""))) {
+                JsonNode products = quickRes.path("data").path("products");
+                if (products.isArray() && !products.isEmpty()) {
+                    for (JsonNode prodNode : products) {
+                        JsonNode skus = prodNode.path("skus");
+                        if (skus.isArray()) {
+                            for (JsonNode skuNode : skus) {
+                                String sSku = skuNode.path("SellerSku").asText("").trim();
+                                if (sSku.isBlank()) sSku = skuNode.path("seller_sku").asText("").trim();
+                                if (sSku.isBlank()) sSku = skuNode.path("ShopSku").asText("").trim();
+                                if (target.equalsIgnoreCase(sSku)) {
+                                    String skuId = skuNode.path("SkuId").asText("").trim();
+                                    if (skuId.isBlank()) skuId = skuNode.path("sku_id").asText("").trim();
+                                    if ((skuId.isBlank() || !skuId.matches("\\d+")) && skuNode.hasNonNull("ShopSku")) {
+                                        String shopSku = skuNode.path("ShopSku").asText("").trim();
+                                        if (shopSku.contains("-")) {
+                                            String tail = shopSku.substring(shopSku.lastIndexOf('-') + 1).trim();
+                                            if (tail.matches("\\d+")) skuId = tail;
+                                        }
+                                    }
+                                    if (!skuId.isBlank() && skuId.matches("\\d+")) return skuId;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 2. Fallback duyệt phân trang danh sách sản phẩm
             int offset = 0;
             int limit = 50;
             while (offset < 500) {
@@ -5944,11 +6075,19 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     if (skus.isArray()) {
                         for (JsonNode skuNode : skus) {
                             String sSku = skuNode.path("SellerSku").asText("").trim();
+                            if (sSku.isBlank()) sSku = skuNode.path("seller_sku").asText("").trim();
                             if (sSku.isBlank()) sSku = skuNode.path("ShopSku").asText("").trim();
                             if (target.equalsIgnoreCase(sSku)) {
                                 String skuId = skuNode.path("SkuId").asText("").trim();
                                 if (skuId.isBlank()) skuId = skuNode.path("sku_id").asText("").trim();
-                                if (!skuId.isBlank()) return skuId;
+                                if ((skuId.isBlank() || !skuId.matches("\\d+")) && skuNode.hasNonNull("ShopSku")) {
+                                    String shopSku = skuNode.path("ShopSku").asText("").trim();
+                                    if (shopSku.contains("-")) {
+                                        String tail = shopSku.substring(shopSku.lastIndexOf('-') + 1).trim();
+                                        if (tail.matches("\\d+")) skuId = tail;
+                                    }
+                                }
+                                if (!skuId.isBlank() && skuId.matches("\\d+")) return skuId;
                             }
                         }
                     }
