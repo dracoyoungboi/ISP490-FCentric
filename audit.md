@@ -102,7 +102,8 @@
 | **AUDIT-090** | `2026-11-16 16:35:00` | PhanAnh & Antigravity AI | Feat & Fix / Khớp nối vòng đời trạng thái hai chiều FCentric - Shopify theo bảng chuẩn và kiểm chứng Upsert Shopee | `OmnichannelOrderSyncJob.java`, `KenhBanHangDongBoService.java`, `KenhBanHangDongBoServiceImpl.java`, `DonBanHangService.java`, `NhatHangServiceImpl.java`, `DongGoiServiceImpl.java`, `PhieuXuatKhoService.java`, `DonBanHangServiceGiaoHangSanTest.java`, `ShopifyStatusSyncTest.java`, `audit.md` | Khớp nối chuẩn xác 100% vòng đời trạng thái đơn hàng 2 chiều giữa FCentric và Shopify theo bảng mapping hệ thống: (1) Đẩy trạng thái 'Đang thực hiện' (in_progress) sang Shopify ở các bước Chờ Nhặt Hàng (1), Chờ Đóng Gói (7), Chờ Xuất Kho (8); (2) Đẩy trạng thái 'Đã hoàn tất' (fulfilled) sang Shopify kèm mã vận đơn khi Đã xuất kho (3); (3) Khắc phục triệt để lỗi khi Shopify chuyển 'Đã hoàn tất' khiến FCentric nhảy cóc sang Hoàn thành (5), phân tách chính xác fulfilled -> Đã xuất kho (3) và delivered -> Hoàn thành (5); (4) Đẩy trạng thái 'Đã giao' (delivered) sang Shopify khi đơn Hoàn thành (5); (5) Nối luồng Trả hàng (refunded/returns) với Bị hoàn trả (6) hai chiều; Kiểm chứng toàn diện cơ chế UPSERT và bộ API Shopee; Đạt 77/77 tests backend PASS 100%, i18n 722 files sạch, frontend build thành công. |
 | **AUDIT-091** | `2026-11-16 17:30:00` | PhanAnh & Antigravity AI | Feat & Fix / Auto-Healing Sản phẩm Shopee Abnormal, Pre-validation Guard triệt tiêu lỗi 400 & Smart Upsert Diffing | `ShopeeClient.java`, `KenhBanHangDongBoServiceImpl.java`, `PhieuXuatKhoService.java`, `ShopeeSyncUpsertTest.java`, `audit.md` | Khắc phục triệt để lỗi 'status is abnormal' khi người dùng xóa sản phẩm trực tiếp trên Shopee Seller Center hoặc sửa bài; Xây dựng cơ chế Auto-Healing tự động gỡ bỏ liên kết hỏng trong DB và giải phóng RAM cache khi phát hiện Item ID bị xóa/abnormal; Triển khai Bộ tiền kiểm tra nghiêm ngặt (Pre-validation Guard) kiểm tra tiêu đề, mô tả 100-3000 ký tự, ảnh đại diện, danh mục, bảng size chart, lọc sạch từ khóa nhạy cảm (nick, giả lông cừu, climawarm) triệt tiêu hoàn toàn 67 lỗi HTTP 400 ở addItem; Nâng cấp Smart UPSERT so sánh giá (update_price) và tồn kho (update_stock_batch); Bất đồng bộ hóa Variation với exponential backoff và loại bỏ hoàn toàn delete_item vội vã; Đạt 18/18 tests PASS 100%, i18n 722 files sạch. |
 | **AUDIT-092** | `2026-11-16 18:25:00` | PhanAnh & Antigravity AI | Fix & Architecture / Sửa lỗi biên dịch mandatoryAttrs, khắc phục lỗi Lazada E501 SellerSku và TikTok Shop 12052557 | `KenhBanHangDongBoServiceImpl.java`, `hienThiKenhPos.properties`, `hienThiKenhPos_en.properties`, `ShopeeSyncUpsertTest.java`, `audit.md` | Khắc phục dứt điểm lỗi biên dịch Duplicate local variable mandatoryAttrs tại dòng 8584 và 8699; Khắc phục lỗi Lazada E501 'The SellerSku parameter is no longer supported' bằng cách chuyển đổi lưu trữ SkuId số, loại bỏ SellerSku trong XML cập nhật tồn giá và tự động tải SkuId đối soát; Khắc phục lỗi TikTok Shop 12052557 'the SKU ID does not belong to the product' bằng cơ chế Auto-Healing giải phóng SKU ID lệch và vô hiệu hóa RAM cache khi bài đăng bị xóa/tạo lại; 20/20 tests PASS 100%, i18n 722 files sạch. |
-| **AUDIT-093** | `2026-11-16 19:25:00` | PhanAnh & Antigravity AI | Fix & Concurrency Defense / Xóa bỏ transaction dài gây deadlock khóa đồng thời máy khác, ReentrantLock per-channel, sửa thuộc tính áo khoác Lazada và kiểm tra Shopee abnormal qua getItemBaseInfo | `KenhBanHangDongBoServiceImpl.java`, `chung.properties`, `chung_en.properties`, `audit.md` | Giải phóng Transaction Boundary khỏi luồng I/O mạng sàn trong tuDongLienKet và thuLai, triệt tiêu hoàn toàn lỗi ConcurrencyFailureException ('thao tác ở máy khác' do MySQL row-lock deadlock); Áp dụng ReentrantLock độc lập cho từng kênh (kenhId) có timeout 5s, cho phép nhiều máy/kênh chạy song song không nghẽn nhau; Nâng cấp kiểm tra trạng thái Shopee bằng v2.product.get_item_base_info kiểm tra item_status NORMAL để kích hoạt tạo mới nếu bị xóa; Sửa lỗi schema Lazada cho áo khoác (categoryId 7953: loại bỏ Fit_Type của áo thun, nhận diện Polyester), tự động khôi phục SkuId khi trùng lặp và lưu trữ chi tiết lỗi trực quan; 20/20 tests PASS 100%, i18n 722 files sạch. |
+| **AUDIT-093** | `2026-11-16 18:23:00` | Khang | Fix / Siết kiểm dữ liệu hộp Thêm người dùng (tên đăng nhập, email, ô SĐT) | `NguoiDungService.java`, `heThong.properties`, `heThong_en.properties`, `AddUserDialog.jsx`, `nguoi-dung-ncc.json`, `quyTacNhaCungCap.js`, `audit.md` | Máy chủ kiểm tên đăng nhập như giao diện (chữ không dấu, số, . _ -; bắt đầu bằng chữ/số; 3–50 ký tự) khi tạo và khi quản trị viên đổi tên; siết mẫu email hai phía (không dấu chấm ở đầu/cuối/liền nhau trước @, phần tên miền bắt đầu và kết thúc bằng chữ/số) và chặn email quá 100 ký tự trước regex; bỏ gợi ý mờ ở ô SĐT theo AGENTS.md; placeholder email đổi "Ví dụ:" thành "VD:". |
+| **AUDIT-094** | `2026-11-16 19:25:00` | PhanAnh & Antigravity AI | Fix & Concurrency Defense / Xóa bỏ transaction dài gây deadlock khóa đồng thời máy khác, ReentrantLock per-channel, sửa thuộc tính áo khoác Lazada và kiểm tra Shopee abnormal qua getItemBaseInfo | `KenhBanHangDongBoServiceImpl.java`, `chung.properties`, `chung_en.properties`, `audit.md` | Giải phóng Transaction Boundary khỏi luồng I/O mạng sàn trong tuDongLienKet và thuLai, triệt tiêu hoàn toàn lỗi ConcurrencyFailureException ('thao tác ở máy khác' do MySQL row-lock deadlock); Áp dụng ReentrantLock độc lập cho từng kênh (kenhId) có timeout 5s, cho phép nhiều máy/kênh chạy song song không nghẽn nhau; Nâng cấp kiểm tra trạng thái Shopee bằng v2.product.get_item_base_info kiểm tra item_status NORMAL để kích hoạt tạo mới nếu bị xóa; Sửa lỗi schema Lazada cho áo khoác (categoryId 7953: loại bỏ Fit_Type của áo thun, nhận diện Polyester), tự động khôi phục SkuId khi trùng lặp và lưu trữ chi tiết lỗi trực quan; 20/20 tests PASS 100%, i18n 722 files sạch. |
 
 
 ---
@@ -3194,8 +3195,58 @@
 3. **Maven Compile & Test Compile**: Thành công 100% không còn bất kỳ lỗi duplicate variable nào.
 
 ---
+### [AUDIT-093] SIẾT KIỂM DỮ LIỆU HỘP THÊM NGƯỜI DÙNG: TÊN ĐĂNG NHẬP, EMAIL VÀ Ô SỐ ĐIỆN THOẠI
+- **Thời gian**: `2026-11-16 18:23:00` (GMT+7)
+- **Tác giả**: Khang
+- **Phân hệ ảnh hưởng**:
+  - `backend`: Tạo tài khoản bởi quản trị viên (`POST /api/v1/admin/add-user`), cập nhật người dùng (`update`) khi đổi tên đăng nhập, thêm email lần đầu.
+  - `frontend`: Hộp thoại Thêm người dùng trên trang Danh sách người dùng; bản dịch tiếng Anh.
+- **Tệp thay đổi**:
+  - `backend/src/main/java/com/dev/backend/services/impl/entities/NguoiDungService.java`
+  - `backend/src/main/resources/i18n/thong-diep/heThong.properties`
+  - `backend/src/main/resources/i18n/thong-diep/heThong_en.properties`
+  - `frontend/src/components/admin/AddUserDialog.jsx`
+  - `frontend/src/i18n/en/nguoi-dung-ncc.json`
+  - `frontend/src/components/supplier/quyTacNhaCungCap.js` (chỉ sửa chú thích)
+  - `audit.md`
 
-### [AUDIT-093] XÓA BỎ TRANSACTION DÀI GÂY DEADLOCK KHÓA ĐỒNG THỜI MÁY KHÁC, REENTRANTLOCK PER-CHANNEL, SỬA THUỘC TÍNH ÁO KHOÁC LAZADA VÀ KIỂM TRA SHOPEE ABNORMAL QUA GET_ITEM_BASE_INFO
+#### 1. MỤC TIÊU & PHÂN TÍCH NGUYÊN NHÂN GỐC RỄ (ROOT CAUSE ANALYSIS)
+1. **Máy chủ không kiểm định dạng tên đăng nhập**: `createInternalUserByAdmin` chỉ kiểm trống và trùng. Luật "chữ không dấu, số, . _ -, ít nhất 3 ký tự" chỉ có ở `AddUserDialog.jsx`. Gọi API trực tiếp tạo được tên có dấu, có dấu cách hoặc 1 ký tự; tên dài hơn 50 ký tự (độ dài cột `ten_dang_nhap`) rơi vào lỗi ràng buộc chung chung.
+2. **Tên đăng nhập chỉ toàn ký tự đặc biệt**: luật cũ nhận `...`, `---`, `_._`, `.admin`.
+3. **Mẫu email quá lỏng** (giống nhau ở `NguoiDungService.EMAIL_PATTERN` và `AddUserDialog.jsx`): nhận `.an@gmail.com`, `an.@gmail.com`, `an..b@gmail.com`, `an@gmail..com`, `an@-gmail.com`, `an@.gmail.com`. Những địa chỉ này không nhận được thư, nên tài khoản được tạo nhưng liên kết đặt mật khẩu (E2) không tới người dùng. Email dài hơn 100 ký tự lọt qua regex rồi mới lỗi ở cột `email`.
+4. **Gợi ý mờ ở ô Số điện thoại** (`VD: 0912345678`): trái quy định AGENTS.md "Ô số điện thoại không dùng placeholder kiểu 090…". Gợi ý này bị thêm lại ở commit e252c3be (12/10) khi chuyển sang hộp thoại.
+5. **Văn phong không đồng nhất**: ô Email ghi "Ví dụ:", các ô khác ghi "VD:".
+
+#### 2. GIẢI PHÁP KỸ THUẬT & CHI TIẾT TRIỂN KHAI
+1. **Backend – `NguoiDungService`**:
+   - Thêm `validateTenDangNhap`, kiểm theo thứ tự: ký tự `^[A-Za-z0-9._-]+$` → bắt đầu bằng chữ hoặc số → tối thiểu 3 → tối đa 50 (bằng cột). Gọi trong `createInternalUserByAdmin` sau khi cắt khoảng trắng, trước khi kiểm trùng; gọi trong `update()` chỉ khi quản trị viên đổi sang tên khác (so không phân biệt hoa/thường). Tài khoản cũ giữ nguyên tên vẫn lưu được.
+   - `EMAIL_PATTERN` mới: phần trước @ gồm các đoạn `[A-Za-z0-9_%+-]+` nối bằng một dấu chấm; mỗi phần tên miền bắt đầu và kết thúc bằng chữ hoặc số; đuôi cuối là chữ, từ 2 ký tự.
+   - `validateEmail` chặn email dài hơn 100 ký tự trước khi chạy regex. `validateEmail` chỉ chạy khi tạo tài khoản và khi thêm email cho tài khoản chưa có email, nên email đang dùng không bị kiểm lại.
+2. **Backend – thông điệp (vi + en)**: thêm `heThong.tenDangNhapKyTu`, `heThong.tenDangNhapBatDau`, `heThong.tenDangNhapNgan` (`{0}` = 3), `heThong.tenDangNhapDai` (`{0}` = 50), `heThong.emailDai` (`{0}` = 100). Câu tiếng Việt chứa "tên đăng nhập" / "email" nên `fieldOfServerMessage` của hộp thoại gắn đúng ô.
+3. **Frontend – `AddUserDialog.jsx`**:
+   - `EMAIL_REGEX` dùng đúng mẫu của máy chủ.
+   - Thêm `USERNAME_START_REGEX` và câu lỗi "Bắt đầu bằng chữ cái hoặc số" (vừa một dòng dưới ô nửa cột).
+   - Bỏ `placeholder` của ô Số điện thoại; placeholder email đổi thành "VD: an.nguyen@tencuahang.vn".
+4. **i18n frontend**: thêm "Bắt đầu bằng chữ cái hoặc số"; đổi khóa "Ví dụ: an.nguyen@tencuahang.vn" thành "VD: an.nguyen@tencuahang.vn" (khóa cũ không còn nơi dùng).
+5. **`quyTacNhaCungCap.js`**: sửa chú thích "trùng regex email của form người dùng", giờ không còn đúng. Nhà cung cấp vẫn dùng mẫu riêng, khớp với `NhaCungCapCreating.EMAIL_PATTERN`.
+
+#### 3. KẾT QUẢ KIỂM THỬ VÀ ĐỐI SOÁT
+1. **Biên dịch backend** (javac vào thư mục tạm, không ghi `backend/target`): `NguoiDungService.java` biên dịch sạch. Ghi chú: HEAD hiện không biên dịch được vì `PhieuXuatKhoService.java:764` dùng `OmnichannelOrderSyncJob.isShopify` mà thiếu `import com.dev.backend.workers.OmnichannelOrderSyncJob` (từ commit 99a4bae3, không thuộc đợt này; Dev đã thêm import ở cc47fc09); bản kiểm thử tạm thêm import vào bản sao để chạy test.
+2. **Kiểm thử đơn vị hiện có**: 101/101 đạt (`NguoiDungServiceAuthHardeningTest` 54, `NguoiDungServiceCapNhatThongTinTest` 7, `NguoiDungServiceResetPasswordTest` 28, `NguoiDungServiceAvatarTest` 8, `NguoiDungServiceKhoPhuTrachTest` 4).
+3. **Kiểm thử bổ sung (lớp tạm, không đưa vào repo)**: 57/57 đạt. Tên đăng nhập `...`, `.admin`, `_a1`, `-ab` → `tenDangNhapBatDau`; `nguyen van`, `nguyễn` → `tenDangNhapKyTu`; `ab` → `tenDangNhapNgan`; 51 ký tự → `tenDangNhapDai`; `abc`, `Khang79`, `an.nguyen`, `a_b-c`, 50 ký tự qua được. Tám email sai dạng → `emailSaiDinhDang`; 101 ký tự → `emailDai`; `an@gmail.com`, `a@b.co`, `an+tag@mail.fpt.edu.vn`, `AN@GMAIL.COM`, email có khoảng trắng hai đầu qua được. Đường `update()`: quản trị viên đổi sang `.bad` bị chặn, không lưu; tài khoản cũ có tên không hợp luật mới gửi lại đúng tên cũ thì không bị kiểm; người không phải quản trị viên vẫn nhận `khongDoiDuocTenDangNhap`. Lỗi kiểm dạng không gọi `existsBy*` hay `save`.
+4. **Đối chiếu regex Java và JS** (`AddUserDialog.jsx`): 66 email, 33 tên đăng nhập cho kết quả giống hệt. Chuỗi tấn công dài khoảng 10 nghìn ký tự: JS dưới 0,1 ms. Regex email Java gặp StackOverflowError khi chuỗi dài vài nghìn ký tự có nhiều dấu chấm, nên bước chặn trên 100 ký tự luôn chạy trước regex (đã ghi chú bắt buộc ngay tại hằng `EMAIL_TOI_DA`).
+5. **Thông điệp**: 5 khóa mới có đủ ở `heThong.properties` và `heThong_en.properties` (mỗi tệp 180 khóa, không lệch); `{0}` hiển thị đúng 3 / 50 / 100 ở cả hai ngôn ngữ.
+6. **Đa ngôn ngữ frontend `npm run i18n:kiem`**: 722 tệp, 0 chưa bọc, 0 thiếu bản dịch, 0 lệch. **ESLint** `AddUserDialog.jsx`: sạch.
+7. **Soát diff độc lập**: không có lỗi chặn.
+8. **Chạy lại trên bản cuối**: biên dịch lại `NguoiDungService.java`, chạy cả 6 lớp test (mục 2 + mục 3): 158/158 đạt.
+9. **Thử hộp thoại trên trình duyệt**: dựng riêng `AddUserDialog` trên Vite dev (không đăng nhập, không có máy chủ), mọi lệnh gửi đi vào bộ giả lập nên không chạm cơ sở dữ liệu. Kết quả:
+   - Ô SĐT không còn gợi ý mờ; ô Email hiện "VD: an.nguyen@tencuahang.vn".
+   - 12 tên đăng nhập, 13 email, 4 SĐT báo lỗi đúng khi rời ô; câu "Bắt đầu bằng chữ cái hoặc số" nằm một dòng.
+   - Danh sách kho chỉ còn kho đang hoạt động, không có kho ảo.
+   - Bấm Tạo: dữ liệu gửi đã cắt khoảng trắng. 6 câu lỗi máy chủ mới (gồm 2 câu tiếng Anh kèm câu gốc) đều hiện dưới đúng ô và con trỏ nhảy vào ô đó.
+10. **Test frontend `node --test`** (79 tệp): 872/873 đạt. Bài hỏng `logicSuaBienThe.test.js` là tệp test cục bộ không được git theo dõi, gọi hàm `demBienTheConTon` không còn trong `logicSuaBienThe.js`; không liên quan đợt này.
+
+### [AUDIT-094] XÓA BỎ TRANSACTION DÀI GÂY DEADLOCK KHÓA ĐỒNG THỜI MÁY KHÁC, REENTRANTLOCK PER-CHANNEL, SỬA THUỘC TÍNH ÁO KHOÁC LAZADA VÀ KIỂM TRA SHOPEE ABNORMAL QUA GET_ITEM_BASE_INFO
 - **Thời gian**: `2026-11-16 19:25:00` (GMT+7)
 - **Tác giả**: PhanAnh & Antigravity AI
 - **Phân hệ ảnh hưởng**: Omnichannel Sync Engine, Đẩy tồn & Liên kết (Lazada, Shopee, TikTok Shop, Shopify), Concurrency Control.

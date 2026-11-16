@@ -25,7 +25,7 @@ export const MAX_LENGTH = {
 };
 
 const MA_REGEX = /^[A-Za-z0-9._-]+$/;
-// Trùng regex email của form người dùng / backend.
+// Trùng NhaCungCapCreating.EMAIL_PATTERN (backend). Form Thêm người dùng đã siết luật riêng, không còn giống regex này.
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 // Doanh nghiệp hay dùng số bàn hoặc tổng đài, không chỉ di động:
 // di động 10 số (03/05/07/08/09), cố định 11 số (02…), tổng đài 1800/1900 (8–10 số).
