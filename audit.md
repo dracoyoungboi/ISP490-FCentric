@@ -101,6 +101,7 @@
 | **AUDIT-089** | `2026-11-16 09:10:00` | PhanAnh & Antigravity AI | Feature & Architecture / Cơ chế Upsert đồng bộ Shopee chống Duplicate Listing, chuẩn hóa in tem A6 PDF sàn vào module Khang | `KenhBanHangDongBoServiceImpl.java`, `ShopeeSyncUpsertTest.java`, `PrintRoutePage.jsx`, `TikTokShopAwbDocument.jsx`, `SalesOrderPackingSlipPrint.jsx`, `DonBanHangDetail.jsx`, `App.jsx`, `ban-hang.json`, `kenh-ban.json`, `audit.md` | Triển khai cơ chế UPSERT thông minh cho sàn Shopee: lưu cache RAM danh mục 30 phút, kiểm tra sản phẩm đã tồn tại trên Shopee (qua mapping DB, SKU catalog, tiêu đề sản phẩm, parent SKU) để đối soát model và cập nhật tồn kho bằng updateStockBatch, TUYỆT ĐỐI không gọi addItem tạo bài trùng gây spam/xóa bài; thêm delay an toàn 5.5s chống lỗi 'The item is still being created'; chuẩn hóa nhánh gốc Thời Trang Nam Shopee VN (100011) với fallback Polo 100243, Jeans 100047; tích hợp toàn diện vận đơn sàn vào module in Khang (PrintRoutePage), loại bỏ popup window.open, tinh gọn template TikTok Shop A6 PDF và kích hoạt in trực tiếp qua nút in Khang. |
 | **AUDIT-090** | `2026-11-16 16:35:00` | PhanAnh & Antigravity AI | Feat & Fix / Khớp nối vòng đời trạng thái hai chiều FCentric - Shopify theo bảng chuẩn và kiểm chứng Upsert Shopee | `OmnichannelOrderSyncJob.java`, `KenhBanHangDongBoService.java`, `KenhBanHangDongBoServiceImpl.java`, `DonBanHangService.java`, `NhatHangServiceImpl.java`, `DongGoiServiceImpl.java`, `PhieuXuatKhoService.java`, `DonBanHangServiceGiaoHangSanTest.java`, `ShopifyStatusSyncTest.java`, `audit.md` | Khớp nối chuẩn xác 100% vòng đời trạng thái đơn hàng 2 chiều giữa FCentric và Shopify theo bảng mapping hệ thống: (1) Đẩy trạng thái 'Đang thực hiện' (in_progress) sang Shopify ở các bước Chờ Nhặt Hàng (1), Chờ Đóng Gói (7), Chờ Xuất Kho (8); (2) Đẩy trạng thái 'Đã hoàn tất' (fulfilled) sang Shopify kèm mã vận đơn khi Đã xuất kho (3); (3) Khắc phục triệt để lỗi khi Shopify chuyển 'Đã hoàn tất' khiến FCentric nhảy cóc sang Hoàn thành (5), phân tách chính xác fulfilled -> Đã xuất kho (3) và delivered -> Hoàn thành (5); (4) Đẩy trạng thái 'Đã giao' (delivered) sang Shopify khi đơn Hoàn thành (5); (5) Nối luồng Trả hàng (refunded/returns) với Bị hoàn trả (6) hai chiều; Kiểm chứng toàn diện cơ chế UPSERT và bộ API Shopee; Đạt 77/77 tests backend PASS 100%, i18n 722 files sạch, frontend build thành công. |
 | **AUDIT-091** | `2026-11-16 17:30:00` | PhanAnh & Antigravity AI | Feat & Fix / Auto-Healing Sản phẩm Shopee Abnormal, Pre-validation Guard triệt tiêu lỗi 400 & Smart Upsert Diffing | `ShopeeClient.java`, `KenhBanHangDongBoServiceImpl.java`, `PhieuXuatKhoService.java`, `ShopeeSyncUpsertTest.java`, `audit.md` | Khắc phục triệt để lỗi 'status is abnormal' khi người dùng xóa sản phẩm trực tiếp trên Shopee Seller Center hoặc sửa bài; Xây dựng cơ chế Auto-Healing tự động gỡ bỏ liên kết hỏng trong DB và giải phóng RAM cache khi phát hiện Item ID bị xóa/abnormal; Triển khai Bộ tiền kiểm tra nghiêm ngặt (Pre-validation Guard) kiểm tra tiêu đề, mô tả 100-3000 ký tự, ảnh đại diện, danh mục, bảng size chart, lọc sạch từ khóa nhạy cảm (nick, giả lông cừu, climawarm) triệt tiêu hoàn toàn 67 lỗi HTTP 400 ở addItem; Nâng cấp Smart UPSERT so sánh giá (update_price) và tồn kho (update_stock_batch); Bất đồng bộ hóa Variation với exponential backoff và loại bỏ hoàn toàn delete_item vội vã; Đạt 18/18 tests PASS 100%, i18n 722 files sạch. |
+| **AUDIT-092** | `2026-11-16 18:25:00` | PhanAnh & Antigravity AI | Fix & Architecture / Sửa lỗi biên dịch mandatoryAttrs, khắc phục lỗi Lazada E501 SellerSku và TikTok Shop 12052557 | `KenhBanHangDongBoServiceImpl.java`, `hienThiKenhPos.properties`, `hienThiKenhPos_en.properties`, `ShopeeSyncUpsertTest.java`, `audit.md` | Khắc phục dứt điểm lỗi biên dịch Duplicate local variable mandatoryAttrs tại dòng 8584 và 8699; Khắc phục lỗi Lazada E501 'The SellerSku parameter is no longer supported' bằng cách chuyển đổi lưu trữ SkuId số, loại bỏ SellerSku trong XML cập nhật tồn giá và tự động tải SkuId đối soát; Khắc phục lỗi TikTok Shop 12052557 'the SKU ID does not belong to the product' bằng cơ chế Auto-Healing giải phóng SKU ID lệch và vô hiệu hóa RAM cache khi bài đăng bị xóa/tạo lại; 20/20 tests PASS 100%, i18n 722 files sạch. |
 
 
 ---
@@ -3145,3 +3146,48 @@
 2. **Kiểm thử hồi quy toàn diện**: `DonBanHangServiceGiaoHangSanTest` (6/6 PASS), `ShopifyStatusSyncTest` (5/5 PASS). Tổng cộng 18/18 tests đơn vị PASS 100%.
 3. **Kiểm tra đa ngôn ngữ Frontend `npm run i18n:kiem`**: 722 tệp kiểm tra, 0 chưa bọc, 0 thiếu bản dịch, 0 lệch.
 4. **Đảm bảo không tái diễn trong tương lai**: Bất kể tester xóa sản phẩm trên Shopee Seller Center hay sửa thông tin sản phẩm, cơ chế Auto-Healing sẽ tự động phát hiện, gỡ bỏ `itemId` lỗi thời, xóa RAM cache và tái tạo bài mới đạt chuẩn 100% qua Pre-validation Guard mà không cần can thiệp thủ công vào cơ sở dữ liệu.
+
+---
+
+### [AUDIT-092] SỬA LỖI BIÊN DỊCH DUPLICATE VARIABLE MANDATORYATTRS, KHẮC PHỤC TRIỆT ĐỂ LỖI LAZADA E501 SELLERSKU VÀ TIKTOK SHOP 12052557
+- **Thời gian**: `2026-11-16 18:25:00` (GMT+7)
+- **Tác giả**: PhanAnh & Antigravity AI
+- **Phân hệ ảnh hưởng**: Omnichannel - Shopee Compilation, Lazada SkuId Deprecation, TikTok Shop Auto-Healing & RAM Cache Architecture
+- **Tệp thay đổi**:
+  - `backend/src/main/java/com/dev/backend/services/impl/entities/KenhBanHangDongBoServiceImpl.java`
+  - `backend/src/main/resources/i18n/thong-diep/hienThiKenhPos.properties`
+  - `backend/src/main/resources/i18n/thong-diep/hienThiKenhPos_en.properties`
+  - `backend/src/test/java/com/dev/backend/services/shopee/ShopeeSyncUpsertTest.java`
+  - `audit.md`
+
+#### 1. MỤC TIÊU & PHÂN TÍCH NGUYÊN NHÂN GỐC RỄ (ROOT CAUSE ANALYSIS)
+1. **Lỗi biên dịch `Duplicate local variable mandatoryAttrs`**:
+   - Khi máy khác pull code về, IDE / Maven báo lỗi biên dịch tại `KenhBanHangDongBoServiceImpl.java` dòng 8584 và 8699.
+   - *Nguyên nhân*: Biến `List<Map<String, Object>> mandatoryAttrs` đã được khai báo ở đầu hàm `taoSanPhamLenShopee` (dòng 8555: `mandatoryAttrs = check.mandatoryAttrs()`), nhưng ở 2 nhánh single SKU và multi-variant cha lại tiếp tục khai báo lại `List<Map<String, Object>> mandatoryAttrs = layThuocTinhBatBuocShopee(...)`, vi phạm quy tắc scope biến của Java.
+2. **Lỗi Lazada `(501): E501: Update product failed - The SellerSku parameter is no longer supported. Please update your parameter to use SkuId and try again`**:
+   - *Nguyên nhân*: Lazada Open Platform đã ngừng hỗ trợ tham số `SellerSku` trong API `/product/price_quantity/update` và bắt buộc phải dùng `SkuId` số. Trong hệ thống FCentric, hàm `taiSanPhamLazada` (dòng 714) trước đây lại lưu `sellerSku` (chuỗi mã SKU FCentric như `AK2610192-CL005-S-MS-2691`) vào cột `maSanPhamKenh` trong DB thay vì lưu `SkuId` số. Khi gọi `buildLazadaBatchXml` hoặc `guiTonLenLazada`, do mã không phải chuỗi số, hệ thống không gắn thẻ `<SkuId>` mà lại gửi `<SellerSku>AK2610192-...</SellerSku>`, dẫn đến việc sàn Lazada từ chối toàn bộ batch với lỗi E501.
+3. **Lỗi TikTok Shop `(12052557): Operation Not Allowed. Cannot perform this operation for the provided SKU ID: the SKU ID does not belong to the product`**:
+   - *Nguyên nhân kiến trúc (Drawback của RAM cache)*: Khi server bị restart (tắt task, pull code mới, chạy lại), bộ nhớ đệm RAM `TikTokCatalogCache` bị giải phóng sạch về `null`. Nếu tester lên sàn TikTok Shop xóa sản phẩm đi và tạo lại bài mới (hoặc chỉnh sửa phân loại): bài mới trên TikTok Shop có Product ID mới và các SKU ID mới. Tuy nhiên trong DB FCentric, dòng biến thể vẫn đang lưu `ma_san_pham_kenh = SKU_ID_CŨ`. Khi luồng đẩy tồn gom nhóm, nó ghép Product ID mới với SKU ID cũ đã chết, khiến TikTok Shop phát hiện SKU ID không thuộc về Product ID đó và ném lỗi 12052557.
+
+#### 2. GIẢI PHÁP KỸ THUẬT & CHI TIẾT TRIỂN KHAI
+1. **Sửa dứt điểm lỗi biên dịch `mandatoryAttrs`**:
+   - Xóa bỏ việc khai báo trùng lặp tại dòng 8584 và 8699 trong `KenhBanHangDongBoServiceImpl.java`. Tái sử dụng trực tiếp biến `mandatoryAttrs` đã được thẩm định an toàn từ `check.mandatoryAttrs()`.
+2. **Chuẩn hóa toàn diện SkuId cho sàn Lazada (Triệt tiêu lỗi E501)**:
+   - Trong `taiSanPhamLazada`: Sửa logic lưu `maSanPhamKenh`: luôn ưu tiên lưu `SkuId` số từ `skuNode.path("SkuId")` thay vì lưu `sellerSku`.
+   - Trong `dayTonLazadaToiUu`:
+     + Xây dựng cơ chế tự động chuyển đổi SkuId (`layMapSellerSkuToSkuIdLazada`): Trước khi gửi batch, nếu phát hiện biến thể nào có `maSanPhamKenh` chưa phải chuỗi số, hệ thống tự động tải danh sách sản phẩm từ Lazada, map `sellerSku -> SkuId`, cập nhật lại DB và gán SkuId số cho batch.
+     + Trong `buildLazadaBatchXml` và `guiTonLenLazada`: Loại bỏ hoàn toàn tham số `<SellerSku>` trong payload XML cập nhật tồn/giá. Chỉ gửi thẻ `<SkuId>`, `<Quantity>`, `<Price>`.
+     + Lọc bỏ các SKU không có SkuId số ra khỏi XML để tránh làm hỏng cả batch.
+     + Trong `dichLoiLazada`: Dịch thân thiện mã 501: *"Lazada yêu cầu sử dụng mã SkuId số. Hệ thống đang tự động tra cứu SkuId từ sàn để đồng bộ lại."*
+3. **Cơ chế Auto-Healing cho lỗi TikTok Shop 12052557**:
+   - Trong `phanLoaiLoiTikTok`: Bổ sung nhận diện mã 12052557 và thông điệp `not belong to the product`. Thêm thông điệp i18n song ngữ `hienThiKenhPos.tiktokSkuKhongThuocSanPham`.
+   - Trong `dayTonTikTokToiUu` và `guiTonLenTikTok`: Khi gặp lỗi 12052557, lập tức kích hoạt tự phục hồi:
+     + Xóa trắng `maSanPhamKenh = null` cho các SKU bị lệch trong DB.
+     + Reset trạng thái đồng bộ về `chua_dong_bo`.
+     + Giải phóng RAM cache: `tikTokCatalogCacheRef.set(null)` để ép hệ thống tải lại toàn bộ danh mục mới nhất từ sàn.
+     + Nhờ đó, tester hoặc người dùng chỉ cần bấm "Tự động liên kết", hệ thống sẽ tự động ghép nối với SKU ID mới trên sản phẩm mới mà không bao giờ bị nghẽn lại.
+
+#### 3. KẾT QUẢ KIỂM THỬ VÀ ĐỐI SOÁT
+1. **Kiểm thử đơn vị JUnit**: Bổ sung 2 test cases mới `testPhanLoaiLoiTikTokSkuKhongThuocSanPham` và `testDichLoiLazadaSellerSkuDeprecated`. Tổng cộng 20/20 unit tests PASS 100%.
+2. **Kiểm tra đa ngôn ngữ Frontend `npm run i18n:kiem`**: 722 tệp kiểm tra, 0 chưa bọc, 0 thiếu bản dịch, 0 lệch.
+3. **Maven Compile & Test Compile**: Thành công 100% không còn bất kỳ lỗi duplicate variable nào.

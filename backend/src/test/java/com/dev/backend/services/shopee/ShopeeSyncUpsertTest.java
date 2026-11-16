@@ -243,4 +243,24 @@ public class ShopeeSyncUpsertTest {
         assertTrue(result.tieuDeChuan().contains("ClimaWarm FCentric"), "Từ 'climawarm' phải được thay bằng 'ClimaWarm FCentric'");
         assertTrue(result.moTaChuan().length() >= 100, "Mô tả phải được tự động đệm để đạt chuẩn Shopee >= 100 ký tự");
     }
+
+    @Test
+    @DisplayName("phanLoaiLoiTikTok: Nhận diện mã 12052557 SKU ID không thuộc sản phẩm và dịch tiếng Việt trực quan")
+    void testPhanLoaiLoiTikTokSkuKhongThuocSanPham() {
+        var res = dongBoService.phanLoaiLoiTikTok(12052557,
+                "(12052557): Operation Not Allowed. Cannot perform this operation for the provided SKU ID: the SKU ID does not belong to the product",
+                null);
+        assertNotNull(res);
+        assertFalse(res.thanhCong());
+        assertTrue(res.lyDo().contains("không thuộc sản phẩm này"), "Thông báo phải giải thích rõ SKU không thuộc sản phẩm và hướng dẫn tự động liên kết");
+    }
+
+    @Test
+    @DisplayName("dichLoiLazada: Bắt lỗi E501 SellerSku parameter is no longer supported và yêu cầu SkuId")
+    void testDichLoiLazadaSellerSkuDeprecated() {
+        String res = KenhBanHangDongBoServiceImpl.dichLoiLazada("501",
+                "E501: Update product failed - The SellerSku parameter is no longer supported. Please update your parameter to use SkuId and try again.");
+        assertNotNull(res);
+        assertTrue(res.contains("SkuId"), "Lỗi E501 phải được dịch trực quan yêu cầu SkuId số");
+    }
 }
