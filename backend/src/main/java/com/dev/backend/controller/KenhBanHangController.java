@@ -814,6 +814,35 @@ public class KenhBanHangController {
         );
     }
 
+    @GetMapping("/{maKenh}/kho-mapping")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @Operation(summary = "Lấy cấu hình ánh xạ kho sàn với kho FCentric (tự động nhận diện 1 kho vs đa kho)")
+    public ResponseEntity<ResponseData<com.dev.backend.dto.channel.warehouse.KenhKhoMappingConfigDto>> getKhoMapping(
+            @PathVariable String maKenh) {
+        return ResponseEntity.ok(
+                ResponseData.<com.dev.backend.dto.channel.warehouse.KenhKhoMappingConfigDto>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(kenhBanHangDongBoService.layCauHinhKhoMapping(maKenh))
+                        .message(ThongDiep.dich("kenhBan.layCauHinhKhoMappingThanhCong"))
+                        .build()
+        );
+    }
+
+    @PutMapping("/{maKenh}/kho-mapping")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @Operation(summary = "Cập nhật cấu hình ánh xạ kho sàn với kho FCentric")
+    public ResponseEntity<ResponseData<com.dev.backend.dto.channel.warehouse.KenhKhoMappingConfigDto>> luuKhoMapping(
+            @PathVariable String maKenh,
+            @Valid @RequestBody com.dev.backend.dto.channel.warehouse.KenhKhoMappingUpdateRequest request) {
+        return ResponseEntity.ok(
+                ResponseData.<com.dev.backend.dto.channel.warehouse.KenhKhoMappingConfigDto>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(kenhBanHangDongBoService.luuCauHinhKhoMapping(maKenh, request))
+                        .message(ThongDiep.dich("kenhBan.luuCauHinhKhoMappingThanhCong"))
+                        .build()
+        );
+    }
+
     @GetMapping("/{maKenh}/cau-hinh-dong-bo")
     @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
     @Operation(summary = "Lấy cấu hình đồng bộ của kênh (tự đẩy tồn, tự lấy đơn, quy tắc tồn)")

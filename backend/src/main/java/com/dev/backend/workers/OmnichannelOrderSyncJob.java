@@ -503,6 +503,44 @@ public class OmnichannelOrderSyncJob {
         Kho defaultKho = khoHoatDong.stream().filter(KhoService::laKhoTong).findFirst()
                 .orElse(khoHoatDong.stream().filter(k -> !KhoService.laKhoAo(k)).findFirst().orElse(null));
 
+        // Định tuyến đa kho cho Shopify: Nếu đơn hàng mang location_id, tự động gán kho FCentric tương ứng
+        Kho khoXuatDonHang = defaultKho;
+        try {
+            String shopifyLocationId = null;
+            if (orderNode.hasNonNull("location_id")) {
+                shopifyLocationId = orderNode.path("location_id").asText("").trim();
+            }
+            if ((shopifyLocationId == null || shopifyLocationId.isBlank()) && orderNode.path("fulfillments").isArray() && !orderNode.path("fulfillments").isEmpty()) {
+                shopifyLocationId = orderNode.path("fulfillments").get(0).path("location_id").asText("").trim();
+            }
+            if ((shopifyLocationId == null || shopifyLocationId.isBlank()) && orderNode.path("line_items").isArray() && !orderNode.path("line_items").isEmpty()) {
+                shopifyLocationId = orderNode.path("line_items").get(0).path("location_id").asText("").trim();
+            }
+            if (shopifyLocationId != null && !shopifyLocationId.isBlank()) {
+                String mappingJson = dieuHanhHeThongService.getCauHinhString("KENH_SHOPIFY_KHO_MAPPING", null);
+                if (mappingJson != null && !mappingJson.isBlank()) {
+                    com.dev.backend.dto.channel.warehouse.KenhKhoMappingConfigDto mapCfg = objectMapper.readValue(mappingJson, com.dev.backend.dto.channel.warehouse.KenhKhoMappingConfigDto.class);
+                    if (mapCfg != null && Boolean.TRUE.equals(mapCfg.getCheDoDaKho()) && mapCfg.getDanhSachKho() != null) {
+                        final String locIdCheck = shopifyLocationId;
+                        Integer matchedKhoId = mapCfg.getDanhSachKho().stream()
+                                .filter(m -> m.getMaKhoSan() != null && (m.getMaKhoSan().equals(locIdCheck) || m.getMaKhoSan().endsWith("/" + locIdCheck)))
+                                .map(com.dev.backend.dto.channel.warehouse.KenhKhoMappingItemDto::getKhoIdFCentric)
+                                .filter(Objects::nonNull)
+                                .findFirst().orElse(null);
+                        if (matchedKhoId != null) {
+                            Kho found = khoHoatDong.stream().filter(k -> k.getId().equals(matchedKhoId)).findFirst().orElse(null);
+                            if (found != null) {
+                                khoXuatDonHang = found;
+                                log.info("[JOB-01] Định tuyến đơn Shopify {} về kho vật lý {} (theo Location {})", soDonHang, found.getTenKho(), locIdCheck);
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("[JOB-01] Lỗi tra cứu định tuyến kho cho đơn Shopify {}: {}", soDonHang, ex.getMessage());
+        }
+
         String initTracking = null;
         String initCarrier = null;
         JsonNode newFulfillments = orderNode.path("fulfillments");
@@ -530,7 +568,7 @@ public class OmnichannelOrderSyncJob {
                 .maDonHangKenh(orderId)
                 .kenhBanHang(kenh)
                 .khachHang(khachHang)
-                .khoXuat(defaultKho)
+                .khoXuat(khoXuatDonHang)
                 .loaiChungTu("don_ban_hang")
                 .ngayDatHang(Instant.now())
                 .trangThai(0) // 0 = Chờ xử lý (Pending - SRS 8.1.1)

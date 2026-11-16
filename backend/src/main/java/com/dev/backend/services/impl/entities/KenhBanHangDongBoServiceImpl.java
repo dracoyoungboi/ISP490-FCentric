@@ -3,6 +3,9 @@ package com.dev.backend.services.impl.entities;
 import com.dev.backend.config.SecurityContextHolder;
 import com.dev.backend.constant.variables.IHanhDong;
 import com.dev.backend.constant.variables.ITable;
+import com.dev.backend.dto.channel.warehouse.KenhKhoMappingConfigDto;
+import com.dev.backend.dto.channel.warehouse.KenhKhoMappingItemDto;
+import com.dev.backend.dto.channel.warehouse.KenhKhoMappingUpdateRequest;
 import com.dev.backend.dto.request.CapNhatLienKetRequest;
 import com.dev.backend.dto.request.DayTonKenhRequest;
 import com.dev.backend.dto.request.TikTokInventoryUpdateRequest;
@@ -18,6 +21,7 @@ import com.dev.backend.entities.AnhQuanAo;
 import com.dev.backend.entities.BienTheSanPham;
 import com.dev.backend.entities.DonBanHang;
 import com.dev.backend.entities.KenhBanHang;
+import com.dev.backend.entities.Kho;
 import com.dev.backend.entities.LichSuThayDoi;
 import com.dev.backend.entities.NguoiDung;
 import com.dev.backend.entities.SanPhamQuanAo;
@@ -4661,6 +4665,181 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         return getTongQuan(maKenh);
     }
 
+    public KenhKhoMappingConfigDto layCauHinhKhoMappingDaLuu(String maKenh) {
+        if (maKenh == null || maKenh.isBlank()) return null;
+        String json = dieuHanhHeThongService.getCauHinhString("KENH_" + maKenh.trim().toUpperCase() + "_KHO_MAPPING", null);
+        if (json == null || json.isBlank()) return null;
+        try {
+            return objectMapper.readValue(json, KenhKhoMappingConfigDto.class);
+        } catch (Exception e) {
+            log.warn("[KHO-MAPPING] Lỗi parse cấu hình ánh xạ kho cho kênh {}: {}", maKenh, e.getMessage());
+            return null;
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public KenhKhoMappingConfigDto layCauHinhKhoMapping(String maKenh) {
+        KenhBanHang kenh = getKenhActive(maKenh);
+        List<ShopifyLocationDto> dsKhoSan = getLocations(maKenh);
+        int soKhoSanHopLe = (dsKhoSan != null) ? dsKhoSan.size() : 0;
+
+        // Lấy danh sách kho nội bộ FCentric đang hoạt động, loại trừ KHO_TRANSIT
+        List<Kho> khoHoatDong = khoRepository.findByTrangThai(1).stream()
+                .filter(k -> k.getMaKho() == null || !"KHO_TRANSIT".equalsIgnoreCase(k.getMaKho()))
+                .filter(k -> k.getTenKho() == null || !k.getTenKho().toLowerCase(Locale.ROOT).contains("transit"))
+                .toList();
+
+        List<KenhKhoMappingConfigDto.KhoOptionDto> dsKhoFCentricOpt = khoHoatDong.stream()
+                .map(k -> KenhKhoMappingConfigDto.KhoOptionDto.builder()
+                        .id(k.getId())
+                        .maKho(k.getMaKho())
+                        .tenKho(k.getTenKho())
+                        .diaChi(k.getDiaChi())
+                        .build())
+                .toList();
+
+        // Xác định kho mặc định hiện tại
+        Integer khoIdMacDinh = null;
+        String savedKhoId = (dieuHanhHeThongService != null) ? dieuHanhHeThongService.getCauHinhString("KENH_" + maKenh.toUpperCase(Locale.ROOT) + "_KHO_ID", null) : null;
+        if (savedKhoId != null && !savedKhoId.isBlank()) {
+            try {
+                khoIdMacDinh = Integer.parseInt(savedKhoId.trim());
+            } catch (Exception ignored) {}
+        }
+        if (khoIdMacDinh == null || khoIdMacDinh <= 0) {
+            khoIdMacDinh = khoHoatDong.stream().filter(KhoService::laKhoTong).map(Kho::getId).findFirst()
+                    .orElse(khoHoatDong.isEmpty() ? 1 : khoHoatDong.get(0).getId());
+        }
+        final Integer defaultKhoId = khoIdMacDinh;
+        String tenKhoMacDinh = khoHoatDong.stream().filter(k -> k.getId().equals(defaultKhoId)).map(Kho::getTenKho).findFirst().orElse("Kho Tổng");
+
+        // Đọc cấu hình đã lưu trong DB (nếu có)
+        KenhKhoMappingConfigDto savedCfg = layCauHinhKhoMappingDaLuu(maKenh);
+        KenhKhoMappingConfigDto result = KenhKhoMappingConfigDto.builder()
+                .maKenh(maKenh.toUpperCase(Locale.ROOT))
+                .soKhoSanHopLe(soKhoSanHopLe)
+                .khoIdMacDinh(defaultKhoId)
+                .tenKhoMacDinh(tenKhoMacDinh)
+                .dsKhoFCentricKhaDung(dsKhoFCentricOpt)
+                .build();
+
+        // Quy tắc kích hoạt Đa kho tự động:
+        // - Khi sàn chỉ có 1 kho (hoặc <= 1): BẮT BUỘC cheDoDaKho = false
+        // - Khi sàn có từ 2 kho trở lên: cheDoDaKho theo cấu hình người dùng bật, mặc định bật nếu chưa lưu
+        if (soKhoSanHopLe <= 1) {
+            result.setCheDoDaKho(false);
+            if (dsKhoSan != null && !dsKhoSan.isEmpty()) {
+                ShopifyLocationDto single = dsKhoSan.get(0);
+                result.setDanhSachKho(List.of(KenhKhoMappingItemDto.builder()
+                        .maKhoSan(single.getMaKhoSan())
+                        .tenKhoSan(single.getTenKhoSan())
+                        .loaiKhoSan(single.getLoai() != null ? single.getLoai() : "fulfillment")
+                        .khoIdFCentric(defaultKhoId)
+                        .tenKhoFCentric(tenKhoMacDinh)
+                        .kichHoat(true)
+                        .laMacDinh(true)
+                        .build()));
+            }
+            return result;
+        }
+
+        // Sàn có từ 2 kho trở lên: nếu đã lưu thì lấy giá trị đã lưu, nếu lần đầu phát hiện >= 2 kho thì mặc định bật
+        boolean daKho = savedCfg != null ? Boolean.TRUE.equals(savedCfg.getCheDoDaKho()) : true;
+        result.setCheDoDaKho(daKho);
+
+        Map<String, KenhKhoMappingItemDto> savedMap = new HashMap<>();
+        if (savedCfg != null && savedCfg.getDanhSachKho() != null) {
+            for (KenhKhoMappingItemDto item : savedCfg.getDanhSachKho()) {
+                if (item.getMaKhoSan() != null) {
+                    savedMap.put(item.getMaKhoSan().trim(), item);
+                }
+            }
+        }
+
+        List<KenhKhoMappingItemDto> mergedList = new ArrayList<>();
+        if (dsKhoSan != null) {
+            for (int i = 0; i < dsKhoSan.size(); i++) {
+                ShopifyLocationDto sLoc = dsKhoSan.get(i);
+                String maSan = sLoc.getMaKhoSan() != null ? sLoc.getMaKhoSan().trim() : "";
+                KenhKhoMappingItemDto existing = savedMap.get(maSan);
+                if (existing != null) {
+                    if (existing.getKhoIdFCentric() != null) {
+                        khoHoatDong.stream().filter(k -> k.getId().equals(existing.getKhoIdFCentric())).findFirst()
+                                .ifPresent(k -> existing.setTenKhoFCentric(k.getTenKho()));
+                    }
+                    mergedList.add(existing);
+                } else {
+                    Integer assignedKhoId = defaultKhoId;
+                    if (i < khoHoatDong.size()) {
+                        assignedKhoId = khoHoatDong.get(i).getId();
+                    }
+                    final Integer aId = assignedKhoId;
+                    String assignedName = khoHoatDong.stream().filter(k -> k.getId().equals(aId)).map(Kho::getTenKho).findFirst().orElse(tenKhoMacDinh);
+                    mergedList.add(KenhKhoMappingItemDto.builder()
+                            .maKhoSan(maSan)
+                            .tenKhoSan(sLoc.getTenKhoSan())
+                            .loaiKhoSan(sLoc.getLoai() != null ? sLoc.getLoai() : "sales")
+                            .khoIdFCentric(assignedKhoId)
+                            .tenKhoFCentric(assignedName)
+                            .kichHoat(true)
+                            .laMacDinh(sLoc.isMacDinh() || i == 0)
+                            .build());
+                }
+            }
+        }
+        result.setDanhSachKho(mergedList);
+
+        if (savedCfg != null && savedCfg.getKhoTraHang() != null) {
+            result.setKhoTraHang(savedCfg.getKhoTraHang());
+        }
+
+        return result;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public KenhKhoMappingConfigDto luuCauHinhKhoMapping(String maKenh, KenhKhoMappingUpdateRequest request) {
+        KenhBanHang kenh = getKenhActive(maKenh);
+        if (request == null) {
+            throw new CommonException(ThongDiep.of("kenhBan.cauHinhKhongHopLe"), HttpStatus.BAD_REQUEST, null);
+        }
+
+        List<Kho> khoHoatDong = khoRepository.findByTrangThai(1);
+        Set<Integer> validKhoIds = khoHoatDong.stream().map(Kho::getId).collect(Collectors.toSet());
+
+        if (request.getDanhSachKho() != null) {
+            for (KenhKhoMappingItemDto item : request.getDanhSachKho()) {
+                if (item.getKhoIdFCentric() != null && !validKhoIds.contains(item.getKhoIdFCentric())) {
+                    throw new CommonException(ThongDiep.of("kenhBan.khoKhongTonTai", item.getKhoIdFCentric()), HttpStatus.BAD_REQUEST, null);
+                }
+            }
+        }
+
+        // Đảm bảo nếu bật đa kho thì có ít nhất 1 kho mặc định
+        if (Boolean.TRUE.equals(request.getCheDoDaKho()) && request.getDanhSachKho() != null && !request.getDanhSachKho().isEmpty()) {
+            boolean hasDefault = request.getDanhSachKho().stream().anyMatch(item -> Boolean.TRUE.equals(item.getLaMacDinh()));
+            if (!hasDefault) {
+                request.getDanhSachKho().get(0).setLaMacDinh(true);
+            }
+        }
+
+        // Lưu vào cấu hình hệ thống
+        try {
+            String json = objectMapper.writeValueAsString(request);
+            dieuHanhHeThongService.setCauHinhString("KENH_" + maKenh.trim().toUpperCase(Locale.ROOT) + "_KHO_MAPPING", json);
+        } catch (Exception e) {
+            log.error("[KHO-MAPPING] Lỗi lưu cấu hình ánh xạ kho cho kênh {}: {}", maKenh, e.getMessage());
+            throw new CommonException(ThongDiep.of("kenhBan.loiLuuCauHinhKho"), HttpStatus.INTERNAL_SERVER_ERROR, null);
+        }
+
+        ghiNhatKy(kenh.getId(), IHanhDong.cap_nhat_kenh_ban,
+                String.format("Lưu cấu hình ánh xạ kho kênh %s: Đa kho = %s, Số kho = %d",
+                        maKenh, request.getCheDoDaKho(), request.getDanhSachKho() != null ? request.getDanhSachKho().size() : 0));
+
+        return layCauHinhKhoMapping(maKenh);
+    }
+
     @Override
     @Transactional(readOnly = true)
     public Page<NhatKyDongBoDto> filterNhatKy(String maKenh, String loai, String trangThai, String search, Pageable pageable) {
@@ -5682,9 +5861,17 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             BienTheSanPham bt = dong.getBienTheSanPham();
             String maSku = bt != null ? bt.getMaSku() : null;
             ShopifyVariantInfo vInfo = maSku == null ? null : ketNoi.skuMap().get(maSku.trim().toLowerCase());
-            kq = (vInfo == null || vInfo.getInventoryItemId() == null || vInfo.getInventoryItemId() <= 0)
-                    ? KetQuaGuiTon.loiSku("Không tìm thấy SKU " + maSku + " trên Shopify")
-                    : guiTonLenShopify(ketNoi.domain(), ketNoi.token(), ketNoi.locationId(), vInfo.getInventoryItemId(), soDay);
+            if (vInfo == null || vInfo.getInventoryItemId() == null || vInfo.getInventoryItemId() <= 0) {
+                kq = KetQuaGuiTon.loiSku("Không tìm thấy SKU " + maSku + " trên Shopify");
+            } else {
+                KenhKhoMappingConfigDto mappingCfg = layCauHinhKhoMappingDaLuu("SHOPIFY");
+                if (mappingCfg != null && Boolean.TRUE.equals(mappingCfg.getCheDoDaKho())
+                        && mappingCfg.getDanhSachKho() != null && mappingCfg.getDanhSachKho().size() >= 2) {
+                    kq = dayTonShopifyDaKho(dong, ketNoi, vInfo, mappingCfg);
+                } else {
+                    kq = guiTonLenShopify(ketNoi.domain(), ketNoi.token(), ketNoi.locationId(), vInfo.getInventoryItemId(), soDay);
+                }
+            }
         }
         Instant now = Instant.now();
         if (kq.thanhCong()) {
@@ -5699,6 +5886,122 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             dong.setNgayDongBoCuoi(now);
         }
         return kq;
+    }
+
+    /**
+     * Thuật toán phân bổ tồn đệm tỷ lệ (Proportional Buffer Allocation) & Safeguard chống giam tồn.
+     */
+    public static int tinhSoTonDayPhanBo(
+            BigDecimal kdKho,
+            BigDecimal tongKhaDung,
+            BigDecimal tyLe,
+            int tonDemTong,
+            int nguongVe0) {
+        if (kdKho == null || kdKho.compareTo(BigDecimal.ZERO) <= 0) return 0;
+        BigDecimal tl = tyLe != null ? tyLe : BigDecimal.valueOf(100);
+
+        // 1. Tính tồn đệm phân bổ tỷ lệ cho kho này
+        int tonDemKho = 0;
+        if (tonDemTong > 0 && tongKhaDung != null && tongKhaDung.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal tiTrong = kdKho.divide(tongKhaDung, 4, RoundingMode.HALF_UP);
+            tonDemKho = BigDecimal.valueOf(tonDemTong).multiply(tiTrong).setScale(0, RoundingMode.HALF_UP).intValue();
+        }
+
+        // 2. Co giãn tồn đệm an toàn khi hàng ít (Dynamic Low-Stock Safeguard)
+        // Nếu kho có dưới 5 cái, tồn đệm tối đa không vượt quá floor(kdKho / 2) để không chặn hàng bán
+        if (kdKho.compareTo(BigDecimal.valueOf(5)) < 0) {
+            int maxDem = kdKho.divide(BigDecimal.valueOf(2), 0, RoundingMode.FLOOR).intValue();
+            tonDemKho = Math.min(tonDemKho, Math.max(0, maxDem));
+        }
+
+        // 3. Số tồn đẩy = floor(kdKho * tyLe / 100) - tonDemKho
+        BigDecimal so = kdKho.multiply(tl).divide(BigDecimal.valueOf(100), 0, RoundingMode.FLOOR)
+                .subtract(BigDecimal.valueOf(tonDemKho));
+
+        if (so.compareTo(BigDecimal.valueOf(nguongVe0)) <= 0 || so.signum() < 0) {
+            return 0;
+        }
+        return so.min(BigDecimal.valueOf(Integer.MAX_VALUE)).intValue();
+    }
+
+    KetQuaGuiTon dayTonShopifyDaKho(
+            TrangThaiDongBoSanPham dong,
+            KetNoiDayTon ketNoi,
+            ShopifyVariantInfo vInfo,
+            KenhKhoMappingConfigDto mappingCfg) {
+        BienTheSanPham bt = dong.getBienTheSanPham();
+        if (bt == null || bt.getId() == null) {
+            return KetQuaGuiTon.loiSku("Biến thể không hợp lệ");
+        }
+
+        List<KenhKhoMappingItemDto> activeMappings = mappingCfg.getDanhSachKho().stream()
+                .filter(m -> Boolean.TRUE.equals(m.getKichHoat()) && m.getKhoIdFCentric() != null && m.getMaKhoSan() != null)
+                .toList();
+
+        if (activeMappings.isEmpty()) {
+            return guiTonLenShopify(ketNoi.domain(), ketNoi.token(), ketNoi.locationId(), vInfo.getInventoryItemId(), 0);
+        }
+
+        // 1. Lấy tồn khả dụng thực tế của từng kho FCentric được ánh xạ
+        Map<Integer, BigDecimal> tonKhaDungTheoKhoMap = new HashMap<>();
+        BigDecimal tongKhaDungCacKho = BigDecimal.ZERO;
+
+        for (KenhKhoMappingItemDto m : activeMappings) {
+            Integer khoId = m.getKhoIdFCentric();
+            if (!tonKhaDungTheoKhoMap.containsKey(khoId)) {
+                List<Object[]> stocks = tonKhoTongHopRepository.sumFreeToUseTheoKhoVaBienTheIds(khoId, List.of(bt.getId()));
+                BigDecimal kd = (!stocks.isEmpty() && stocks.get(0)[1] != null) ? (BigDecimal) stocks.get(0)[1] : BigDecimal.ZERO;
+                tonKhaDungTheoKhoMap.put(khoId, kd);
+            }
+            tongKhaDungCacKho = tongKhaDungCacKho.add(tonKhaDungTheoKhoMap.get(khoId));
+        }
+
+        // 2. Đọc quy tắc tồn của kênh
+        DayTonKenhRequest q = quyTacDaLuu("SHOPIFY");
+        BigDecimal tyLe = q.getTyLeDayTon() != null ? q.getTyLeDayTon() : BigDecimal.valueOf(100);
+        int tonDemTong = q.getTonDem();
+        int nguongVe0 = q.getNguongVe0();
+
+        // 3. Phân bổ tồn đệm và đẩy lên từng Location Shopify
+        boolean coItNhatMotKhoThanhCong = false;
+        String loiCuoiCung = null;
+        int tongSoDayThucTe = 0;
+
+        for (KenhKhoMappingItemDto m : activeMappings) {
+            Long locationId;
+            try {
+                String maSanStr = m.getMaKhoSan().trim();
+                if (maSanStr.contains("/")) {
+                    maSanStr = maSanStr.substring(maSanStr.lastIndexOf('/') + 1);
+                }
+                locationId = Long.parseLong(maSanStr);
+            } catch (Exception ex) {
+                log.warn("[SHOPIFY-MULTI-WH] Mã kho sàn không hợp lệ: {}", m.getMaKhoSan());
+                continue;
+            }
+
+            BigDecimal kdKho = tonKhaDungTheoKhoMap.getOrDefault(m.getKhoIdFCentric(), BigDecimal.ZERO);
+            int soDayKho = tinhSoTonDayPhanBo(kdKho, tongKhaDungCacKho, tyLe, tonDemTong, nguongVe0);
+
+            KetQuaGuiTon subKq = guiTonLenShopify(ketNoi.domain(), ketNoi.token(), locationId, vInfo.getInventoryItemId(), soDayKho);
+            if (subKq.thanhCong()) {
+                coItNhatMotKhoThanhCong = true;
+                tongSoDayThucTe += soDayKho;
+                log.info("[SHOPIFY-MULTI-WH] Đẩy tồn thành công cho SKU {} lên Location {} (Kho FCentric {}): {} sp",
+                        bt.getMaSku(), locationId, m.getKhoIdFCentric(), soDayKho);
+            } else {
+                loiCuoiCung = subKq.lyDo();
+                log.warn("[SHOPIFY-MULTI-WH] Lỗi đẩy tồn SKU {} lên Location {}: {}",
+                        bt.getMaSku(), locationId, subKq.lyDo());
+            }
+        }
+
+        if (coItNhatMotKhoThanhCong) {
+            dong.setSoLuongDaDay(tongSoDayThucTe);
+            return KetQuaGuiTon.THANH_CONG;
+        } else {
+            return KetQuaGuiTon.loiSku(loiCuoiCung != null ? loiCuoiCung : "Không thể cập nhật tồn lên các địa điểm Shopify");
+        }
     }
 
     KetQuaGuiTon guiTonLenShopee(TrangThaiDongBoSanPham dong, int soDay) {

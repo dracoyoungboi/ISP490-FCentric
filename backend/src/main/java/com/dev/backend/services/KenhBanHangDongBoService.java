@@ -140,5 +140,15 @@ public interface KenhBanHangDongBoService {
      * khi FCentric chuyển đơn sang Bị hoàn trả (BI_HOAN_TRA = 6).
      */
     boolean dongBoTrangThaiReturnedShopify(String maDonHangKenh);
+
+    /**
+     * Lấy cấu hình ánh xạ kho sàn với kho FCentric (tự động phát hiện 1 kho vs đa kho).
+     */
+    com.dev.backend.dto.channel.warehouse.KenhKhoMappingConfigDto layCauHinhKhoMapping(String maKenh);
+
+    /**
+     * Cập nhật cấu hình ánh xạ kho sàn với kho FCentric.
+     */
+    com.dev.backend.dto.channel.warehouse.KenhKhoMappingConfigDto luuCauHinhKhoMapping(String maKenh, com.dev.backend.dto.channel.warehouse.KenhKhoMappingUpdateRequest request);
 }
 
