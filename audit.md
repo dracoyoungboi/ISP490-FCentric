@@ -98,6 +98,7 @@
 | **AUDIT-086** | `2026-11-16 00:50:00` | PhanAnh & Antigravity AI | Fix UI / Khắc phục lỗi ReferenceError inVanDonSan khiến trang chi tiết đơn bán bị văng màn hình lỗi | `DonBanHangDetail.jsx`, `audit.md` | Khắc phục dứt điểm lỗi màn hình ErrorBoundary "Không mở được trang này" khi nhấn vào chi tiết đơn hàng sàn ở các trạng thái ngoài Đã hủy (lỗi ReferenceError: Cannot access 'inVanDonSan' before initialization do nút in vận đơn sàn được đánh giá trong nutChinh trước khi hàm inVanDonSan được khai báo); Đưa hàm inVanDonSan lên trước nutChinh và bọc null-safe cho v.pxMo?.id; FE Vite build 31.4s thành công 100%, i18n 721 files sạch. |
 | **AUDIT-087** | `2026-11-16 01:35:00` | PhanAnh & Antigravity AI | Fix & Refactor / Chuẩn hóa danh mục và thuộc tính sản phẩm 3 sàn TMĐT | `KenhBanHangDongBoServiceImpl.java`, `omnichannel-standards.md`, `ShopeeMultiVariantLiveDiagnosticTest.java` | Tái cấu trúc chuẩn hóa thuật toán xác định danh mục và thuộc tính sản phẩm chính xác 100% cho 3 sàn Lazada, TikTok Shop, Shopee; khắc phục triệt để việc gán sai hoặc cố tình hardcode danh mục để lách lỗi sàn; phân cấp Tops vs Bottoms (Quần) cho Lazada XML, bảng từ điển danh mục lá V2 TikTok Shop xóa bỏ mã rác 601234, truy vết phân cấp cây cha-con lọc chuẩn Thời Trang Nam/Unisex cho Shopee (loại trừ Kimono, Nữ, Bảo hộ mô tô). |
 | **AUDIT-088** | `2026-11-16 02:30:00` | PhanAnh & Antigravity AI | Fix & Architecture / Loại bỏ mã áo ngực 603729, thêm bộ lọc an toàn thời trang nam và kích hoạt cập nhật danh mục TikTok Shop | `TikTokShopClient.java`, `KenhBanHangDongBoServiceImpl.java`, `TikTokShopClientTest.java`, `ShopeeMultiVariantLiveDiagnosticTest.java`, `omnichannel-standards.md`, `audit.md` | Khắc phục dứt điểm sự cố TikTok Shop Seller Center hiển thị sản phẩm 'Áo sportware nick' thuộc hạng mục Áo ngực thể thao (603729); Phát hiện nguyên nhân do API AI Category Recommend của TikTok Shop nhận nhầm từ khóa sportware và trả về danh mục lá đồ lót nữ 603729; Xây dựng bộ lọc an toàn isPhuHopThoiTrangNamVaUnisex chặn đứng mã 603729 và các từ khóa nhạy cảm (bra, ngực, đồ lót, nữ, đầm); Ánh xạ chính xác đồ thể thao sang 603720 (Áo thun thể thao nam); Bổ sung v2CategoryId vào Product Signature để tự động gọi PUT editProduct cập nhật danh mục cho sản phẩm đã có; Đối soát 100% 71 sản phẩm trên 4 kênh chính xác. |
+| **AUDIT-089** | `2026-11-16 09:10:00` | PhanAnh & Antigravity AI | Feature & Architecture / Cơ chế Upsert đồng bộ Shopee chống Duplicate Listing, chuẩn hóa in tem A6 PDF sàn vào module Khang | `KenhBanHangDongBoServiceImpl.java`, `ShopeeSyncUpsertTest.java`, `PrintRoutePage.jsx`, `TikTokShopAwbDocument.jsx`, `SalesOrderPackingSlipPrint.jsx`, `DonBanHangDetail.jsx`, `App.jsx`, `ban-hang.json`, `kenh-ban.json`, `audit.md` | Triển khai cơ chế UPSERT thông minh cho sàn Shopee: lưu cache RAM danh mục 30 phút, kiểm tra sản phẩm đã tồn tại trên Shopee (qua mapping DB, SKU catalog, tiêu đề sản phẩm, parent SKU) để đối soát model và cập nhật tồn kho bằng updateStockBatch, TUYỆT ĐỐI không gọi addItem tạo bài trùng gây spam/xóa bài; thêm delay an toàn 5.5s chống lỗi 'The item is still being created'; chuẩn hóa nhánh gốc Thời Trang Nam Shopee VN (100011) với fallback Polo 100243, Jeans 100047; tích hợp toàn diện vận đơn sàn vào module in Khang (PrintRoutePage), loại bỏ popup window.open, tinh gọn template TikTok Shop A6 PDF và kích hoạt in trực tiếp qua nút in Khang. |
 
 
 ---
@@ -2962,3 +2963,66 @@
 2. **Kiểm thử tích hợp chẩn đoán sàn ShopeeMultiVariantLiveDiagnosticTest**:
    - `testInspectTikTokCategoriesLive`: AI gợi ý `603729` cho "Áo sportware nick" bị loại bỏ thành công, hệ thống fallback chuẩn xác sang `603720`.
    - `testVerifyProductCategoryAccuracyAcrossAllChannels`: 71/71 sản phẩm trên CSDL khớp 100% danh mục chính xác, không còn bất kỳ sản phẩm nào dính mã `603729`.
+
+---
+
+### [AUDIT-089] TRIỂN KHAI CƠ CHẾ UPSERT ĐỒNG BỘ SHOPEE CHỐNG DUPLICATE LISTING, TÍCH HỢP IN VẬN ĐƠN SÀN TRỰC TIẾP VÀO MODULE IN A6 CỦA KHANG VÀ CHUẨN HÓA DANH MỤC THỜI TRANG NAM 100011
+- **Thời gian**: 2026-11-16 09:10:00 (GMT+7)
+- **Tác giả**: PhanAnh & Antigravity AI
+- **Phân hệ ảnh hưởng**: Omnichannel Product Synchronization (Shopee Open Platform v2), Outbound Shipping & AWB Printing Module (`PrintRoutePage`, `PrintTemplateDocument`, `SalesOrderPackingSlipPrint`).
+- **Tệp thay đổi**:
+  - `backend/src/main/java/com/dev/backend/services/impl/entities/KenhBanHangDongBoServiceImpl.java`
+  - `backend/src/test/java/com/dev/backend/services/shopee/ShopeeSyncUpsertTest.java`
+  - `frontend/src/App.jsx`
+  - `frontend/src/components/print/PrintRoutePage.jsx`
+  - `frontend/src/components/print/TikTokShopAwbDocument.jsx`
+  - `frontend/src/pages/sales-orders/SalesOrderPackingSlipPrint.jsx`
+  - `frontend/src/pages/sales-orders/DonBanHangDetail.jsx`
+  - `frontend/src/i18n/en/ban-hang.json`
+  - `frontend/src/i18n/en/kenh-ban.json`
+  - `audit.md`
+
+#### 1. BỐI CẢNH & PHÂN TÍCH NGUYÊN NHÂN GỐC RỄ (ROOT CAUSE ANALYSIS)
+1. **Hiện tượng lỗi Shopee xóa bài / Cảnh báo Duplicate Listing**:
+   - Người dùng bị Shopee xóa toàn bộ sản phẩm do sàn nghi ngờ hàng giả hoặc tải lên nhiều lần làm dính chính sách chống spam / duplicate listings.
+   - Trong `tuDongLienKetShopee`, khi bất kỳ biến thể nào của một sản phẩm chưa nằm trong `skuToTargetId`, hệ thống gom các biến thể đó thành `variantsCanTao` và gọi `taoSanPhamLenShopee` -> `client.addItem(body)` tạo ra một bài đăng mới trên sàn với cùng tiêu đề và hình ảnh. Việc này dẫn đến một sản phẩm thực tế bị chẻ nhỏ thành nhiều bài trên Shopee, hoặc mỗi lần người dùng bấm đồng bộ lại bị nhân bản bài mới, kích hoạt bot kiểm duyệt của Shopee khóa và xóa sản phẩm.
+2. **Hiện tượng lỗi "The item is still being created. Please wait 5 seconds before creating variation."**:
+   - Shopee Open Platform API v2 xử lý tạo sản phẩm bất đồng bộ trên cụm cơ sở dữ liệu phân tán. Ngay sau khi `addItem` trả về mã `item_id`, dữ liệu nội bộ của item chưa kịp đồng bộ hoàn toàn; nếu hệ thống gọi ngay `initTierVariation` trong vòng vài giây, sàn trả về lỗi `The item is still being created. Please wait 5 seconds before creating variation.` Khi thử lại không thành công, hàm trước đây gọi `deleteItem` xóa luôn sản phẩm cha mồ côi và lưu lỗi vào CSDL.
+3. **Nhánh gốc cây danh mục Shopee VN Thời Trang Nam**:
+   - Cây danh mục Shopee VN có gốc Thời Trang Nữ là `100017`, trong khi gốc Thời Trang Nam là **`100011`**. Mã cũ dùng `100103` (Quần jeans nữ) và `100187` (Polo nữ) làm fallback khiến bài đăng nam bị sàn từ chối hoặc xếp nhầm giới tính.
+4. **Trải nghiệm in vận đơn sàn bị phân mảnh**:
+   - Vận đơn Lazada và TikTok Shop trước đây mở ra tab mới qua `window.open` với trang trắng tải stream nhị phân, không nằm trong module in của Khang (`PrintRoutePage`).
+   - Giao diện `TikTokShopAwbDocument.jsx` bị vướng toolbar rườm rà (nút mở tab mới, tải PDF, xem mô phỏng) và nút "In phiếu" trên thanh điều hướng của Khang gọi `window.print()` của cửa sổ ngoài thay vì in trực tiếp nội dung PDF trong iframe A6.
+
+#### 2. GIẢI PHÁP KỸ THUẬT & CHI TIẾT TRIỂN KHAI
+1. **Cơ chế Shopee Catalog Cache & UPSERT thông minh**:
+   - Xây dựng `ShopeeCatalogCache` (lưu trữ RAM 30 phút theo Shop ID + môi trường):
+     - `skuToTargetId`: ánh xạ mã SKU -> `itemId:modelId`.
+     - `titleToItemId`: ánh xạ tiêu đề chuẩn hóa -> `itemId` (loại bỏ hậu tố thương hiệu, ký tự đặc biệt).
+     - `parentSkuToItemId`: ánh xạ parent SKU -> `itemId`.
+     - `itemModels`: danh sách biến thể / models đã có trên Shopee.
+   - **Quy tắc UPSERT tuyệt đối**:
+     - Trước khi tạo mới, kiểm tra 4 tầng đối soát: (1) Mapping trong DB, (2) SKU trong catalog, (3) Tiêu đề chuẩn hóa, (4) Parent SKU.
+     - Nếu tìm thấy `existingItemId`: **TUYỆT ĐỐI KHÔNG GỌI `addItem`**. Hệ thống đối soát biến thể FCentric với models trên sàn, map `itemId:modelId`, cập nhật trạng thái `thanh_cong` và gọi `client.updateStockBatch(existingItemId, stockUpdateList)` để đẩy số lượng tồn kho khả dụng.
+     - Chỉ gọi `addItem` khi sản phẩm hoàn toàn mới chưa có mặt trên Shopee, và tạo đầy đủ 100% biến thể active trong một lần duy nhất.
+2. **Cơ chế Safe Wait 5.5s & Backoff Retry 4 lần cho Tier Variation**:
+   - Sau khi `addItem` trả về thành công, tiến hành chờ an toàn 5500ms (`Thread.sleep(5500L)`) trước khi gọi `initTierVariation` lần đầu tiên.
+   - Nếu sàn vẫn thông báo `still being created`, tự động thử lại tối đa 4 lần với khoảng nghỉ 5000ms mỗi lần, giải quyết dứt điểm lỗi khởi tạo ngầm của Shopee.
+3. **Chuẩn hóa danh mục lá Thời Trang Nam Shopee VN (100011)**:
+   - Nhánh gốc `100011` (Thời Trang Nam):
+     - Áo polo nam: `100243L`.
+     - Quần jean nam: `100047L`.
+     - Áo khoác / Blouson cản gió: `100230L` / `100229L`.
+4. **Tích hợp toàn diện vận đơn sàn vào Module in A6 của Khang**:
+   - Xóa bỏ popup `window.open` trong `DonBanHangDetail.jsx`. Điều hướng trực tiếp tới `/goods-issues/:id/print-packing-slip` (khi đã có phiếu xuất) hoặc `/sales-orders/:id/print-packing-slip` (khi in từ đơn bán hàng).
+   - Tạo mới `SalesOrderPackingSlipPrint.jsx` sử dụng `PrintRoutePage` và adapter `toEcommercePrintModel`.
+   - Tinh gọn `TikTokShopAwbDocument.jsx`: Gỡ bỏ toàn bộ toolbar rườm rà; hiển thị trực tiếp iframe PDF A6 (`pdoc-pdf-frame`) trọn vẹn khổ 100 × 150 mm.
+   - Nâng cấp `PrintRoutePage.jsx`: Hàm `handlePrint` kiểm tra nếu có iframe `.pdoc-pdf-frame`, tự động kích hoạt `pdfFrame.contentWindow.print()` để in ngay PDF của sàn, mang lại trải nghiệm in 1 nút bấm nhất quán trên toàn bộ hệ thống.
+   - Bổ sung song ngữ Anh - Việt đầy đủ cho mọi thông điệp lỗi và nhãn in trong `ban-hang.json` và `kenh-ban.json`.
+
+#### 3. KẾT QUẢ KIỂM THỬ VÀ ĐỐI SOÁT
+1. **Kiểm thử đơn vị chuyên biệt `ShopeeSyncUpsertTest`**: 4/4 tests PASS 100% (kiểm thử cache RAM 30 phút, phân loại lỗi async variation, chặn duplicate listing, và chuẩn hóa danh mục nam 100011).
+2. **Kiểm thử đơn vị `ShopeeClientTest`**: 10/10 tests PASS 100%.
+3. **Kiểm thử hồi quy toàn diện `KenhBanHangDongBoServiceTest`**: 62/62 tests PASS 100%.
+4. **Kiểm tra đa ngôn ngữ `npm run i18n:kiem`**: 722 tệp kiểm tra, 0 chưa bọc, 0 thiếu bản dịch, 0 lệch.
+5. **Đóng gói production frontend `npm run build`**: Hoàn tất thành công không lỗi (`built in 41.47s`).
