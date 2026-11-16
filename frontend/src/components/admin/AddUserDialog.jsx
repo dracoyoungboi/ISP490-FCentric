@@ -42,10 +42,16 @@ import { chuanHoaHoTen, loiHoTen } from "@/validations/hoTen";
 import { t } from "@/i18n";
 import { cauGocMayChu } from "@/i18n/cauGoc";
 
-// Trùng regex của backend (NguoiDungService.EMAIL_PATTERN) để hai phía báo lỗi giống nhau.
-const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+// Trùng regex của backend (NguoiDungService.EMAIL_PATTERN) để hai phía báo lỗi giống nhau; sửa một bên thì sửa cả bên kia.
+// Phần trước @ không bắt đầu/kết thúc bằng dấu chấm, không hai dấu chấm liền nhau; từng phần tên miền bắt đầu và kết thúc
+// bằng chữ hoặc số. Địa chỉ như ".an@gmail.com", "an..b@gmail.com", "an@-gmail.com" không nhận được thư đặt mật khẩu.
+const EMAIL_REGEX =
+    /^[A-Za-z0-9_%+-]+(?:\.[A-Za-z0-9_%+-]+)*@[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)*\.[A-Za-z]{2,}$/;
 // Cột ten_dang_nhap dùng collation không phân biệt hoa/thường và dấu → chỉ cho chữ không dấu.
+// Cùng luật với máy chủ (NguoiDungService.validateTenDangNhap).
 const USERNAME_REGEX = /^[A-Za-z0-9._-]+$/;
+// Không nhận tên chỉ có ký tự đặc biệt hoặc mở đầu bằng dấu chấm ("...", ".admin")
+const USERNAME_START_REGEX = /^[A-Za-z0-9]/;
 const USERNAME_MIN_LENGTH = 3;
 // Bằng độ dài cột trong bảng nguoi_dung; vượt quá thì backend báo lỗi chung chung.
 // Họ tên không đặt maxLength: trình duyệt đếm theo đơn vị UTF-16 trước chuẩn hóa nên cắt mất chữ khi dán tên có dấu
@@ -74,6 +80,7 @@ const VALIDATORS = {
         const username = value.trim();
         if (!username) return t("Vui lòng nhập tên đăng nhập");
         if (!USERNAME_REGEX.test(username)) return t("Chỉ dùng chữ không dấu, số và các ký tự . _ -");
+        if (!USERNAME_START_REGEX.test(username)) return t("Bắt đầu bằng chữ cái hoặc số");
         if (username.length < USERNAME_MIN_LENGTH) {
             return t("Tên đăng nhập cần ít nhất {{count}} ký tự", { count: USERNAME_MIN_LENGTH });
         }
