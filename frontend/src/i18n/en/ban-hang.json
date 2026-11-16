@@ -1109,5 +1109,7 @@
   "Bỏ hết các món đang chọn trước khi đóng hóa đơn": "Clear the selected items before closing the receipt",
   "Đã trả trước đó ({{n}})": "Earlier returns ({{n}})",
   "Phiếu đã trả": "Return slips",
-  "Danh sách trả hàng": "Return lists"
+  "Danh sách trả hàng": "Return lists",
+  "Không tìm thấy đơn hàng": "Order not found",
+  "Đơn hàng có thể đã bị xóa hoặc bạn không có quyền truy cập.": "The order may have been deleted or you do not have permission to access it."
 }

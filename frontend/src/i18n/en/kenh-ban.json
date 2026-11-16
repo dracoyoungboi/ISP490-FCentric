@@ -951,5 +951,9 @@
   "Không tìm thấy SKU ID hợp lệ trên TikTok Shop": "Valid SKU ID not found on TikTok Shop.",
   "Lỗi không xác định từ TikTok Shop": "Unknown error from TikTok Shop.",
   "Biến thể chưa có mã SKU": "Variant does not have an SKU code.",
-  "không đẩy được tồn kho": "could not push stock"
+  "không đẩy được tồn kho": "could not push stock",
+  "Shopee từ chối tạo sản phẩm cha hoặc phân loại biến thể": "Shopee declined to create the parent product or variations.",
+  "Sản phẩm đã tồn tại trên Shopee (trùng lặp bài đăng)": "Product already exists on Shopee (duplicate listing).",
+  "Thiếu ảnh sản phẩm hợp lệ theo quy chuẩn Shopee": "Missing valid product images per Shopee standards.",
+  "Shopee từ chối tạo: The item is still being created. Please wait 5 seconds before creating variation.": "Shopee declined: The item is still being created. Please wait 5 seconds before creating variation."
 }
