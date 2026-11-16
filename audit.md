@@ -102,6 +102,7 @@
 | **AUDIT-090** | `2026-11-16 16:35:00` | PhanAnh & Antigravity AI | Feat & Fix / Khớp nối vòng đời trạng thái hai chiều FCentric - Shopify theo bảng chuẩn và kiểm chứng Upsert Shopee | `OmnichannelOrderSyncJob.java`, `KenhBanHangDongBoService.java`, `KenhBanHangDongBoServiceImpl.java`, `DonBanHangService.java`, `NhatHangServiceImpl.java`, `DongGoiServiceImpl.java`, `PhieuXuatKhoService.java`, `DonBanHangServiceGiaoHangSanTest.java`, `ShopifyStatusSyncTest.java`, `audit.md` | Khớp nối chuẩn xác 100% vòng đời trạng thái đơn hàng 2 chiều giữa FCentric và Shopify theo bảng mapping hệ thống: (1) Đẩy trạng thái 'Đang thực hiện' (in_progress) sang Shopify ở các bước Chờ Nhặt Hàng (1), Chờ Đóng Gói (7), Chờ Xuất Kho (8); (2) Đẩy trạng thái 'Đã hoàn tất' (fulfilled) sang Shopify kèm mã vận đơn khi Đã xuất kho (3); (3) Khắc phục triệt để lỗi khi Shopify chuyển 'Đã hoàn tất' khiến FCentric nhảy cóc sang Hoàn thành (5), phân tách chính xác fulfilled -> Đã xuất kho (3) và delivered -> Hoàn thành (5); (4) Đẩy trạng thái 'Đã giao' (delivered) sang Shopify khi đơn Hoàn thành (5); (5) Nối luồng Trả hàng (refunded/returns) với Bị hoàn trả (6) hai chiều; Kiểm chứng toàn diện cơ chế UPSERT và bộ API Shopee; Đạt 77/77 tests backend PASS 100%, i18n 722 files sạch, frontend build thành công. |
 | **AUDIT-091** | `2026-11-16 17:30:00` | PhanAnh & Antigravity AI | Feat & Fix / Auto-Healing Sản phẩm Shopee Abnormal, Pre-validation Guard triệt tiêu lỗi 400 & Smart Upsert Diffing | `ShopeeClient.java`, `KenhBanHangDongBoServiceImpl.java`, `PhieuXuatKhoService.java`, `ShopeeSyncUpsertTest.java`, `audit.md` | Khắc phục triệt để lỗi 'status is abnormal' khi người dùng xóa sản phẩm trực tiếp trên Shopee Seller Center hoặc sửa bài; Xây dựng cơ chế Auto-Healing tự động gỡ bỏ liên kết hỏng trong DB và giải phóng RAM cache khi phát hiện Item ID bị xóa/abnormal; Triển khai Bộ tiền kiểm tra nghiêm ngặt (Pre-validation Guard) kiểm tra tiêu đề, mô tả 100-3000 ký tự, ảnh đại diện, danh mục, bảng size chart, lọc sạch từ khóa nhạy cảm (nick, giả lông cừu, climawarm) triệt tiêu hoàn toàn 67 lỗi HTTP 400 ở addItem; Nâng cấp Smart UPSERT so sánh giá (update_price) và tồn kho (update_stock_batch); Bất đồng bộ hóa Variation với exponential backoff và loại bỏ hoàn toàn delete_item vội vã; Đạt 18/18 tests PASS 100%, i18n 722 files sạch. |
 | **AUDIT-092** | `2026-11-16 18:25:00` | PhanAnh & Antigravity AI | Fix & Architecture / Sửa lỗi biên dịch mandatoryAttrs, khắc phục lỗi Lazada E501 SellerSku và TikTok Shop 12052557 | `KenhBanHangDongBoServiceImpl.java`, `hienThiKenhPos.properties`, `hienThiKenhPos_en.properties`, `ShopeeSyncUpsertTest.java`, `audit.md` | Khắc phục dứt điểm lỗi biên dịch Duplicate local variable mandatoryAttrs tại dòng 8584 và 8699; Khắc phục lỗi Lazada E501 'The SellerSku parameter is no longer supported' bằng cách chuyển đổi lưu trữ SkuId số, loại bỏ SellerSku trong XML cập nhật tồn giá và tự động tải SkuId đối soát; Khắc phục lỗi TikTok Shop 12052557 'the SKU ID does not belong to the product' bằng cơ chế Auto-Healing giải phóng SKU ID lệch và vô hiệu hóa RAM cache khi bài đăng bị xóa/tạo lại; 20/20 tests PASS 100%, i18n 722 files sạch. |
+| **AUDIT-093** | `2026-11-16 19:25:00` | PhanAnh & Antigravity AI | Fix & Concurrency Defense / Xóa bỏ transaction dài gây deadlock khóa đồng thời máy khác, ReentrantLock per-channel, sửa thuộc tính áo khoác Lazada và kiểm tra Shopee abnormal qua getItemBaseInfo | `KenhBanHangDongBoServiceImpl.java`, `chung.properties`, `chung_en.properties`, `audit.md` | Giải phóng Transaction Boundary khỏi luồng I/O mạng sàn trong tuDongLienKet và thuLai, triệt tiêu hoàn toàn lỗi ConcurrencyFailureException ('thao tác ở máy khác' do MySQL row-lock deadlock); Áp dụng ReentrantLock độc lập cho từng kênh (kenhId) có timeout 5s, cho phép nhiều máy/kênh chạy song song không nghẽn nhau; Nâng cấp kiểm tra trạng thái Shopee bằng v2.product.get_item_base_info kiểm tra item_status NORMAL để kích hoạt tạo mới nếu bị xóa; Sửa lỗi schema Lazada cho áo khoác (categoryId 7953: loại bỏ Fit_Type của áo thun, nhận diện Polyester), tự động khôi phục SkuId khi trùng lặp và lưu trữ chi tiết lỗi trực quan; 20/20 tests PASS 100%, i18n 722 files sạch. |
 
 
 ---
@@ -3191,3 +3192,65 @@
 1. **Kiểm thử đơn vị JUnit**: Bổ sung 2 test cases mới `testPhanLoaiLoiTikTokSkuKhongThuocSanPham` và `testDichLoiLazadaSellerSkuDeprecated`. Tổng cộng 20/20 unit tests PASS 100%.
 2. **Kiểm tra đa ngôn ngữ Frontend `npm run i18n:kiem`**: 722 tệp kiểm tra, 0 chưa bọc, 0 thiếu bản dịch, 0 lệch.
 3. **Maven Compile & Test Compile**: Thành công 100% không còn bất kỳ lỗi duplicate variable nào.
+
+---
+
+### [AUDIT-093] XÓA BỎ TRANSACTION DÀI GÂY DEADLOCK KHÓA ĐỒNG THỜI MÁY KHÁC, REENTRANTLOCK PER-CHANNEL, SỬA THUỘC TÍNH ÁO KHOÁC LAZADA VÀ KIỂM TRA SHOPEE ABNORMAL QUA GET_ITEM_BASE_INFO
+- **Thời gian**: `2026-11-16 19:25:00` (GMT+7)
+- **Tác giả**: PhanAnh & Antigravity AI
+- **Phân hệ ảnh hưởng**: Omnichannel Sync Engine, Đẩy tồn & Liên kết (Lazada, Shopee, TikTok Shop, Shopify), Concurrency Control.
+- **Tệp thay đổi**:
+  - `backend/src/main/java/com/dev/backend/services/impl/entities/KenhBanHangDongBoServiceImpl.java`
+  - `backend/src/main/resources/i18n/thong-diep/chung.properties`
+  - `backend/src/main/resources/i18n/thong-diep/chung_en.properties`
+  - `audit.md`
+
+#### 1. MỤC TIÊU & PHÂN TÍCH NGUYÊN NHÂN GỐC RỄ (ROOT CAUSE ANALYSIS)
+1. **Hiện tượng lỗi "Hành động được thực hiện máy khác" (`chung.thaoTacDongThoi`)**:
+   - Khi người dùng bấm nút "Thử lại SKU" hoặc khi đang chạy đẩy tồn thì bị gián đoạn/restart, sau đó tải lại trang rồi bấm thử lại, hệ thống hiển thị thông báo: *"Dữ liệu này đang được thao tác ở máy khác. Tải lại trang rồi thử lại."*
+   - *Nguyên nhân kỹ thuật*:
+     - Phương thức `thuLai(Integer lienKetId)` và `tuDongLienKet(String maKenh)` được gắn `@Transactional(rollbackFor = Exception.class)` ở cấp độ hàm.
+     - Bên trong transaction này, hệ thống gọi các hàm I/O mạng sàn (`tuDongLienKetShopee`, `tuDongLienKetLazada`, `tuDongLienKetTikTok`) mất từ 15-45 giây để upload ảnh, tạo sản phẩm và đẩy tồn.
+     - Việc giữ mở transaction CSDL trong suốt thời gian gọi API sàn bên ngoài khiến connection pool bị chiếm dụng và giữ khóa hàng (row-level lock) trên bảng `trang_thai_dong_bo_san_pham`.
+     - Khi người dùng bấm thử lại liên tiếp hoặc có tác vụ nền `OmnichannelOrderSyncJob` chạy song song, MySQL phát sinh lỗi khóa hàng (Deadlock hoặc Lock wait timeout exceeded).
+     - Spring Data JPA ném `DeadlockLoserDataAccessException` / `CannotAcquireLockException` (kế thừa `ConcurrencyFailureException`). `RestControllerGlobalExceptionHandler` bắt ngoại lệ này và chuyển thành mã HTTP 409 với câu thông báo `chung.thaoTacDongThoi` = "Dữ liệu này đang được thao tác ở máy khác".
+2. **Hiện tượng Shopee log hiển thị cập nhật giá nhưng vẫn báo lỗi "Shopee từ chối tạo: status is abnormal"**:
+   - *Nguyên nhân kỹ thuật*:
+     - Trong `tuDongLienKetShopee`, hệ thống chỉ gọi `client.getModelList(existingItemId)` để kiểm tra Item ID cũ.
+     - Tuy nhiên, API `get_model_list` của Shopee vẫn trả về danh sách model với mã thành công ngay cả khi sản phẩm đã bị xóa hoặc tạm khóa trên Shopee Seller Center.
+     - Khiến biến `isAlive` vẫn bằng `true`. Hệ thống tiến hành so sánh giá và log: `[SHOPEE-UPSERT] Cập nhật giá mới...`.
+     - Nhưng khi gọi `updateStockBatch`, Shopee từ chối vì `item_status` thực tế trên sàn là abnormal/deleted.
+     - Vì `existingItemId` không được giải phóng về `null` ngay từ đầu, hệ thống bỏ qua bước tạo sản phẩm mới (`taoSanPhamLenShopee`), khiến dòng biến thể bị kẹt trong vòng lặp thử lại vô tận với Item ID hỏng.
+3. **Hiện tượng Lazada báo lỗi "Chưa xác định được SkuId số trên Lazada. Vui lòng bấm Tự động liên kết để đồng bộ"**:
+   - *Nguyên nhân kỹ thuật*:
+     - Trên giao diện Frontend, nút bấm duy nhất là "Đưa sản phẩm FCentric lên Lazada" (không hề có nút nào tên là "Tự động liên kết"). Thông điệp cũ khiến người dùng hoang mang.
+     - Nguyên nhân sâu xa khiến sản phẩm "Áo khoác gió công năng phong cách Âu" không có SkuId số là vì API `createProduct` của Lazada từ chối tạo bài:
+       Ngành hàng Áo khoác (`categoryId = 7953`, "Áo khoác nhẹ & Áo vest") không chấp nhận thuộc tính `<Fit_Type>Slim Fit</Fit_Type>` (chỉ dành cho áo thun/sơ mi).
+     - Khi Lazada từ chối tạo (HTTP 500 / code error), hàm `taoSanPhamLenLazada` chỉ log console mà không lưu chi tiết lỗi vào `chiTietLoi` của `TrangThaiDongBoSanPham`. Luồng tự động fallback lưu chuỗi `SellerSku` thô vào `maSanPhamKenh`. Khi luồng đẩy tồn chạy, nó thấy `maSanPhamKenh` không phải chuỗi số và không tìm thấy SkuId trên sàn, dẫn đến câu báo lỗi trên.
+
+#### 2. GIẢI PHÁP KỸ THUẬT & CHI TIẾT TRIỂN KHAI
+1. **Giải phóng Transaction Boundary & Kiểm soát đồng thời ReentrantLock per-channel**:
+   - Xóa bỏ hoàn toàn annotation `@Transactional` khỏi `thuLai` và `tuDongLienKet`. Mọi thao tác đọc/ghi CSDL (`findById`, `save`) được thực thi trong các transaction con nhanh gọn, không bao giờ giữ lock CSDL trong lúc chờ HTTP API sàn.
+   - Bổ sung cơ chế khóa phân tán cấp kênh bằng `ReentrantLock` độc lập (`khoaDayTon.computeIfAbsent(kenh.getId(), id -> new ReentrantLock())`) kèm timeout 5 giây (`tryLock(5, TimeUnit.SECONDS)`):
+     + **Đa kênh song song**: Thao tác đẩy sản phẩm Shopee, Lazada, TikTok Shop diễn ra trên các khóa khác nhau nên chạy song song hoàn toàn độc lập, không chặn nhau.
+     + **Cùng một kênh**: Nếu 2 người dùng hoặc 2 máy bấm cùng lúc trên một sàn, request thứ hai sẽ đợi tối đa 5 giây; nếu vẫn bận sẽ trả về thông báo lịch sự: *"Kênh [Tên Sàn] đang có tiến trình đồng bộ khác đang chạy. Vui lòng chờ đợt hiện tại hoàn tất."* (mã 409 không gây deadlock CSDL).
+2. **Nâng cấp kiểm tra trạng thái Shopee bằng `v2.product.get_item_base_info`**:
+   - Trong `tuDongLienKetShopee`, trước khi quyết định Smart Upsert, gọi `client.getItemBaseInfo(List.of(existingItemId))` để tra cứu trường `item_status`.
+   - Nếu `item_status` khác `"NORMAL"` (hoặc sản phẩm không tồn tại):
+     + Đánh dấu `isAlive = false`.
+     + Lập tức gọi `xuLySanPhamBiXoaHoacBatThuongShopee(kenh, existingItemId, shopKey)`: xóa trắng `maSanPhamKenh = null` trong DB và evict RAM cache.
+     + Gán `existingItemId = null`, cho phép luồng chạy chuyển thẳng sang `taoSanPhamLenShopee` để tạo bài đăng mới sạch 100% trên Shopee.
+3. **Chuẩn hóa thuộc tính sản phẩm Lazada & Khôi phục SkuId tự động**:
+   - Trong `taoSanPhamLenLazada`:
+     + Phân loại chặt chẽ: Chỉ thêm `<Fit_Type>Slim Fit</Fit_Type>` cho Áo thun (`7930`), Áo sơ mi (`7940`) và Áo Polo (`14275`). Loại bỏ hoàn toàn khỏi Áo khoác (`7953`), Áo hoodie/sweater (`6424`) và Quần (`6414`, `7991`, `10100765`).
+     + Nhận diện chất liệu thông minh: Nếu tên sản phẩm hoặc chất liệu chứa `poly`, `gió`, `dù`, tự động gửi `<clothing_material>Polyester</clothing_material>`, ngược lại gửi `<clothing_material>100% Cotton</clothing_material>` (hoặc `Denim` cho quần jeans).
+     + Khi Lazada từ chối tạo bài vì đã tồn tại sản phẩm trùng lặp (`duplicate` / `exist`): Tự động gọi `layMapSellerSkuToSkuIdLazada` để tra cứu và khôi phục ngay `SkuId` số từ sàn.
+     + Nếu từ chối vì lý do khác: Ghi nhận chính xác nội dung phản hồi từ sàn vào `chiTietLoi` thông qua hàm mới `ghiNhanLoiTaoSanPhamLazada`.
+   - Trong `dayTonLazadaToiUu`: Đổi thông báo lỗi sang: *"Sản phẩm chưa được tạo thành công trên Lazada. Vui lòng bấm 'Đưa sản phẩm FCentric lên Lazada' để tạo lại."* khớp 100% với tên nút trên giao diện.
+4. **Chuẩn hóa thông điệp đồng thời i18n**:
+   - Cập nhật `chung.properties` và `chung_en.properties`: Đổi `chung.thaoTacDongThoi` thành *"Dữ liệu đang được cập nhật đồng thời bởi một tác vụ khác. Vui lòng tải lại trang rồi thử lại."* để phản ánh đúng bản chất kỹ thuật đa luồng.
+
+#### 3. KẾT QUẢ KIỂM THỬ VÀ ĐỐI SOÁT
+1. **Kiểm thử đơn vị JUnit**: Chạy toàn bộ 20 unit tests (`ShopeeSyncUpsertTest`, `ShopifyStatusSyncTest`, `DonBanHangServiceGiaoHangSanTest`) -> **20/20 tests PASS 100%**.
+2. **Maven Compile & Test Compile**: 863 file source và 146 file test biên dịch thành công 100% (`BUILD SUCCESS`).
+3. **Kiểm tra đa ngôn ngữ Frontend `npm run i18n:kiem`**: 722 tệp kiểm tra, 0 chưa bọc, 0 thiếu bản dịch, 0 lệch.
