@@ -190,15 +190,20 @@ public class ChuyenKeNoiBoService {
         for (Object[] r : tonKeRepo.dangChuaDuongTheoKho(khoId)) {
             dang.put(((Number) r[0]).intValue(), ((Number) r[1]).intValue());
         }
-        Set<Integer> cungMa = new HashSet<>();
+        // Kệ đang chứa biến thể nào trong số đang chuyển (dồn kệ, BA 1.1): kệ khớp nhiều mã hơn xếp trước
+        Map<Integer, List<Integer>> khop = new HashMap<>();
         List<Integer> bt = bienTheIds == null ? List.of() : bienTheIds.stream().filter(Objects::nonNull).distinct().toList();
         if (!bt.isEmpty()) {
             @SuppressWarnings("unchecked")
-            List<Object> rows = em.createNativeQuery("""
-                    SELECT DISTINCT t.vi_tri_kho_id FROM ton_kho_vi_tri t JOIN vi_tri_kho v ON v.id = t.vi_tri_kho_id
+            List<Object[]> rows = em.createNativeQuery("""
+                    SELECT DISTINCT t.vi_tri_kho_id, t.bien_the_san_pham_id FROM ton_kho_vi_tri t
+                      JOIN vi_tri_kho v ON v.id = t.vi_tri_kho_id
                      WHERE v.kho_id = :kho AND t.so_luong > 0 AND t.bien_the_san_pham_id IN (:bt)
+                     ORDER BY t.bien_the_san_pham_id
                     """).setParameter("kho", khoId).setParameter("bt", bt).getResultList();
-            for (Object r : rows) cungMa.add(((Number) r).intValue());
+            for (Object[] r : rows) {
+                khop.computeIfAbsent(((Number) r[0]).intValue(), k -> new ArrayList<>()).add(((Number) r[1]).intValue());
+            }
         }
         KhoaKiemKeGuard.TrangThaiKhoa tt = guard.trangThai(khoId);
         int canCat = Math.max(0, can);
@@ -211,10 +216,10 @@ public class ChuyenKeNoiBoService {
             if (conTrong != null && conTrong == 0) continue;
             boolean cungKhuVuc = khuNguon != null && v.getKhuVucKho() != null && khuNguon.equals(v.getKhuVucKho().getId());
             ds.add(new ChuyenKeDto.KeGoiY(v.getId(), v.getMaViTri(), v.getKhuVucKho() == null ? null : v.getKhuVucKho().getTenKhuVuc(),
-                    v.getDayKe(), v.getTangKe(), sucChua, dc, conTrong, cungMa.contains(v.getId()), cungKhuVuc,
-                    conTrong == null || conTrong >= canCat));
+                    v.getDayKe(), v.getTangKe(), sucChua, dc, conTrong, khop.containsKey(v.getId()), cungKhuVuc,
+                    conTrong == null || conTrong >= canCat, khop.getOrDefault(v.getId(), List.of())));
         }
-        ds.sort(Comparator.comparing((ChuyenKeDto.KeGoiY k) -> !k.cungMa())
+        ds.sort(Comparator.comparing((ChuyenKeDto.KeGoiY k) -> -k.bienTheKhop().size())
                 .thenComparing(k -> !k.duCho())
                 .thenComparing(k -> !k.cungKhu())
                 .thenComparing(k -> k.conTrong() == null ? Integer.MAX_VALUE : k.conTrong())

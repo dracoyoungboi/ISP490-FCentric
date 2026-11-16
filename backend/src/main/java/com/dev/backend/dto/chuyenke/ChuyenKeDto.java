@@ -44,9 +44,11 @@ public final class ChuyenKeDto {
      * Kệ đích gợi ý cho lượt chuyển. {@code conTrong} null = không giới hạn sức chứa. {@code cungMa}: kệ đang chứa một
      * biến thể đang chuyển (cất về đây là dồn kệ); {@code cungKhu}: cùng khu vực với kệ nguồn; {@code duCho}: còn đủ chỗ
      * cho toàn bộ số đang cần cất. Không gồm kệ nguồn, kệ đang kiểm kê / bảo trì / trạng thái khác, kệ đã đầy.
+     * {@code bienTheKhop}: các biến thể đang chuyển mà kệ đang chứa (rỗng khi {@code cungMa} false).
      */
     public record KeGoiY(Integer id, String maViTri, String khuVuc, String dayKe, String tangKe, Integer sucChua,
-                         int dangChua, Integer conTrong, boolean cungMa, boolean cungKhu, boolean duCho) {
+                         int dangChua, Integer conTrong, boolean cungMa, boolean cungKhu, boolean duCho,
+                         List<Integer> bienTheKhop) {
     }
 
     /**
