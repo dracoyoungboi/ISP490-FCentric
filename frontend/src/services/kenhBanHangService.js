@@ -175,6 +175,9 @@ const realApi = {
   // ── Cấu hình đồng bộ theo kênh ──
   getCauHinhDongBo: (maKenh) => apiClient.get(`${BASE}/${ma(maKenh)}/cau-hinh-dong-bo`).then(data),
   luuCauHinhDongBo: (maKenh, payload) => apiClient.put(`${BASE}/${ma(maKenh)}/cau-hinh-dong-bo`, payload).then(data),
+  // ── Ánh xạ kho sàn (Đa kho phân tán) ──
+  getKhoMapping: (maKenh) => apiClient.get(`${BASE}/${ma(maKenh)}/kho-mapping`).then(data),
+  luuKhoMapping: (maKenh, payload) => apiClient.put(`${BASE}/${ma(maKenh)}/kho-mapping`, payload).then(data),
 
   // ── Số liệu ──
   getTongQuan: (maKenh) => apiClient.get(`${BASE}/${ma(maKenh)}/tong-quan`).then(data),
@@ -447,6 +450,24 @@ const mockApi = {
     };
   },
   getKhoSan: (maKenh) => (laShopify(maKenh) ? kenhBanHangMock.getKhoSan(idKetNoi(maKenh)) : kenhSanMock.getKhoSan(maKenh)),
+  getKhoMapping: async (maKenh) => {
+    await mockDelay();
+    return {
+      maKenh: maMau(maKenh),
+      cheDoDaKho: false,
+      soKhoSanHopLe: 1,
+      khoIdMacDinh: 1,
+      // i18n-giu-nguyen: Ten kho mau FCentric
+      tenKhoMacDinh: "Kho Tổng",
+      danhSachKho: [],
+      // i18n-giu-nguyen: Ten kho mau FCentric
+      dsKhoFCentricKhaDung: [{ id: 1, maKho: "KT", tenKho: "Kho Tổng" }],
+    };
+  },
+  luuKhoMapping: async (maKenh, payload) => {
+    await mockDelay(200, 400);
+    return { maKenh: maMau(maKenh), ...payload };
+  },
   async getThongKeDon(maKenh, { tu, den } = {}) {
     await mockDelay();
     return mockThongKeDon(maKenh, tu, den);

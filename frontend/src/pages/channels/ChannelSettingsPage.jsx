@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { KeyRound, ListRestart, Loader2, MoreHorizontal, RefreshCw, Unplug } from "lucide-react";
 import { toast } from "@/lib/thongBaoNhanh";
@@ -16,6 +16,7 @@ import ShopifyConfigDialog from "@/components/channel/ShopifyConfigDialog";
 import KhoaUngDungDialog from "@/components/channel/KhoaUngDungDialog";
 import TheGianHangUyQuyen from "@/components/channel/TheGianHangUyQuyen";
 import DongKhoSan from "@/components/channel/DongKhoSan";
+import BangMappingKhoSan from "@/components/channel/BangMappingKhoSan";
 import { TrangThaiCham } from "@/components/channel/HienThiKenh";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { TheCaiDat, ThanhLuuTrenCung, VUNG_CHAM_CONG_TAC } from "@/components/channel/KhuonCaiDat";
@@ -71,6 +72,11 @@ export default function ChannelSettingsPage() {
     { enabled: ketNoi },
   );
   const khoSan = tenDiaDiemNhanTon(kho);
+  const khoMapping = useTaiDuLieu(
+    () => kenhBanHangService.getKhoMapping(SAN.maKenh).catch(() => null),
+    `kho-mapping|${SAN.maKenh}`,
+    { enabled: ketNoi && SAN.maKenh === "SHOPIFY" },
+  );
 
   if (cfg.initialLoading || ch.initialLoading) {
     return (
@@ -109,6 +115,7 @@ export default function ChannelSettingsPage() {
       cauHinh={ch.data}
       khoSan={khoSan}
       dsKhoSan={kho}
+      khoMapping={khoMapping}
       onConfigSaved={cfg.setData}
       onCauHinhSaved={ch.setData}
       onTaiLaiKetNoi={cfg.reload}
@@ -116,7 +123,7 @@ export default function ChannelSettingsPage() {
   );
 }
 
-function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, onConfigSaved, onCauHinhSaved, onTaiLaiKetNoi }) {
+function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, khoMapping, onConfigSaved, onCauHinhSaved, onTaiLaiKetNoi }) {
   const SAN = useSanHienTai();
   const TIEU_DE = t("Cấu hình {{ten}}", { ten: SAN.ten });
   const navigate = useNavigate();
@@ -127,6 +134,14 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, onConfigSaved, onCauH
   const [errors, setErrors] = useState({});
   const [dongBoGianHang, setDongBoGianHang] = useState(() => Number(config?.trangThai) === 1);
   const [maKhoSan, setMaKhoSan] = useState(null);
+  const [khoMappingConfig, setKhoMappingConfig] = useState(() => khoMapping?.data);
+
+  useEffect(() => {
+    if (khoMapping?.data) {
+      setKhoMappingConfig(khoMapping.data);
+    }
+  }, [khoMapping?.data]);
+
   const [ketQuaKetNoi, setKetQuaKetNoi] = useState(null);
   const [moDoiKhoa, setMoDoiKhoa] = useState(false);
   const [hoiNgat, setHoiNgat] = useState(false);
@@ -147,7 +162,12 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, onConfigSaved, onCauH
   const doiKho = uyQuyen && Boolean(khoChon) && khoChon !== (config?.maKhoSan ?? khoDangLuu);
   const doiGianHang = dongBoGianHang !== (Number(config?.trangThai) === 1);
   const doiCauHinh = coThayDoiCauHinh(values, cauHinh);
-  const coThayDoi = doiGianHang || doiCauHinh || doiKho;
+  const doiKhoMapping = Boolean(
+    SAN.maKenh === "SHOPIFY" &&
+    khoMapping?.data &&
+    JSON.stringify(khoMappingConfig) !== JSON.stringify(khoMapping?.data)
+  );
+  const coThayDoi = doiGianHang || doiCauHinh || doiKho || doiKhoMapping;
 
   // Còn thay đổi chưa lưu: đóng tab / tải lại trang hỏi bằng hộp của trình duyệt; bấm menu trái, link trong trang,
   // Back / Forward thì hỏi bằng ConfirmModal bên dưới
@@ -203,6 +223,9 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, onConfigSaved, onCauH
     setErrors({});
     setDongBoGianHang(Number(config?.trangThai) === 1);
     setMaKhoSan(null);
+    if (khoMapping?.data) {
+      setKhoMappingConfig(khoMapping.data);
+    }
   };
 
   const luu = () =>
@@ -233,6 +256,14 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, onConfigSaved, onCauH
           // PUT cai-dat không trả KetNoiKenhDto: gộp kho vừa lưu vào kết nối đang có
           onConfigSaved((cu) => ({ ...cu, ...khoMoi }));
           setMaKhoSan(null);
+        }
+        if (doiKhoMapping && khoMappingConfig) {
+          const dto = await kenhBanHangService.luuKhoMapping(SAN.maKenh, {
+            cheDoDaKho: khoMappingConfig.cheDoDaKho,
+            danhSachKho: khoMappingConfig.danhSachKho,
+          });
+          khoMapping?.setData(dto);
+          setKhoMappingConfig(dto);
         }
         if (doiGianHang) {
           const dto = uyQuyen || SAN.kieuKetNoi === "ben_thu_ba"
@@ -533,6 +564,16 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, onConfigSaved, onCauH
             ghiChu={noiDung?.ghiChuDon}
           />
         </div>
+
+        {SAN.maKenh === "SHOPIFY" && khoMappingConfig && khoMappingConfig.soKhoSanHopLe >= 2 ? (
+          <BangMappingKhoSan
+            maKenh={SAN.maKenh}
+            tenSan={SAN.ten}
+            mappingConfig={khoMappingConfig}
+            onChange={setKhoMappingConfig}
+            disabled={khoa}
+          />
+        ) : null}
       </div>
 
       <ThanhLuuTrenCung hien={coThayDoi} dangLuu={dangChay === "luu"} khoa={khoa} onHuy={huyThayDoi} onLuu={luu} />
