@@ -195,6 +195,14 @@ public class DongGoiServiceImpl implements DongGoiService {
                         () -> kenhBanHangDongBoService.dongBoTrangThaiReadyToShipLazada(lazOrderId));
             }
 
+            if (don.getKenhBanHang() != null && OmnichannelOrderSyncJob.isShopify(don.getKenhBanHang().getMaKenh())
+                    && don.getMaDonHangKenh() != null && !don.getMaDonHangKenh().isBlank()
+                    && kenhBanHangDongBoService != null) {
+                String shopifyOrderId = don.getMaDonHangKenh();
+                SauCommit.chay("Đồng bộ đóng gói xong sang Shopify (in_progress)",
+                        () -> kenhBanHangDongBoService.dongBoTrangThaiDangThucHienShopify(shopifyOrderId));
+            }
+
             if (don.getKenhBanHang() != null && OmnichannelOrderSyncJob.isTikTok(don.getKenhBanHang().getMaKenh())
                     && don.getMaDonHangKenh() != null && !don.getMaDonHangKenh().isBlank()
                     && kenhBanHangDongBoService != null) {

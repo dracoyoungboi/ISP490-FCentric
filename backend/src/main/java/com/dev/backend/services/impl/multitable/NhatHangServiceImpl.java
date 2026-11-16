@@ -1887,6 +1887,14 @@ public class NhatHangServiceImpl implements NhatHangService {
                             () -> kenhBanHangDongBoService.dongBoTrangThaiPackedLazada(lazOrderId));
                 }
 
+                if (dbh.getKenhBanHang() != null && OmnichannelOrderSyncJob.isShopify(dbh.getKenhBanHang().getMaKenh())
+                        && dbh.getMaDonHangKenh() != null && !dbh.getMaDonHangKenh().isBlank()
+                        && kenhBanHangDongBoService != null) {
+                    String shopifyOrderId = dbh.getMaDonHangKenh();
+                    SauCommit.chay("Đồng bộ nhặt hàng xong sang Shopify (in_progress)",
+                            () -> kenhBanHangDongBoService.dongBoTrangThaiDangThucHienShopify(shopifyOrderId));
+                }
+
                 if (dbh.getKenhBanHang() != null && OmnichannelOrderSyncJob.isTikTok(dbh.getKenhBanHang().getMaKenh())
                         && dbh.getMaDonHangKenh() != null && !dbh.getMaDonHangKenh().isBlank()
                         && kenhBanHangDongBoService != null) {

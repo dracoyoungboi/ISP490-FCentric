@@ -761,6 +761,14 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                 // Thuế suất tính theo lúc giao hàng: đơn chốt trước ngày đổi thuế mà giao sau thì in theo mức lúc giao
                 if (thueGtgtService != null) thueGtgtService.chupLaiTheoNgayGiao(don);
             }
+            if (don.getKenhBanHang() != null && OmnichannelOrderSyncJob.isShopify(don.getKenhBanHang().getMaKenh())
+                    && don.getMaDonHangKenh() != null && !don.getMaDonHangKenh().isBlank()
+                    && kenhBanHangDongBoService != null) {
+                String shopifyOrderId = don.getMaDonHangKenh();
+                Integer donId = don.getId();
+                SauCommit.chay("Đồng bộ xuất kho xong sang Shopify (fulfilled)",
+                        () -> kenhBanHangDongBoService.dongBoTrangThaiFulfilledShopify(donId, shopifyOrderId));
+            }
         } else if (!allZero) {
             don.setTrangThai(ITrangThaiDonBanHang.DANG_XUAT_KHO); // 2: Có hàng đã xuất nhưng chưa đủ -> Đã xuất một phần
         } else {
