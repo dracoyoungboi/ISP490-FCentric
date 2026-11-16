@@ -10,13 +10,16 @@ const MUC = [
   { ten: t("Bảo trì"), o: "border-dashed border-slate-400 bg-bo-surface-subtle" },
 ];
 
-/** Chú giải màu mức đầy dùng chung cho sơ đồ kệ và mặt bằng. */
-export default function ChuGiaiMucDay({ className }) {
+/**
+ * Chú giải màu mức đầy dùng chung cho sơ đồ kệ và mặt bằng. `trongNetDut`: sơ đồ vẽ kệ trống bằng viền nét đứt (màn
+ * Chuyển kệ) thì ô mẫu "Trống" cũng nét đứt.
+ */
+export default function ChuGiaiMucDay({ className, trongNetDut = false }) {
   return (
     <ul aria-label={t("Chú giải mức đầy")} className={cn("flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-bo-muted", className)}>
-      {MUC.map((m) => (
+      {MUC.map((m, i) => (
         <li key={m.ten} className="flex items-center gap-1.5">
-          <span aria-hidden="true" className={cn("inline-block size-3 rounded-[3px] border", m.o)} />
+          <span aria-hidden="true" className={cn("inline-block size-3 rounded-[3px] border", m.o, trongNetDut && i === 0 && "border-dashed")} />
           {m.ten}
         </li>
       ))}
