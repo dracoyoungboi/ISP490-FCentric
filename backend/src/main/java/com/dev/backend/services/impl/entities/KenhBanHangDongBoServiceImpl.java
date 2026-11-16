@@ -5735,7 +5735,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 KenhBanHang kenh = dong.getKenhBanHang();
                 if (sp != null && kenh != null) {
                     log.info("[LAZADA-AUTO-HEAL] Biến thể [{}] chưa có SkuId số. Tự động gọi tạo sản phẩm [{}] lên Lazada...", maSku, sp.getTenSanPham());
-                    List<BienTheSanPham> spVars = bienTheSanPhamRepository.findBySanPhamIdAndTrangThai(sp.getId(), 1);
+                    List<BienTheSanPham> spVars = bienTheSanPhamRepository.findBySanPham_Id(sp.getId()).stream()
+                            .filter(v -> v != null && v.getTrangThai() != null && v.getTrangThai() == 1)
+                            .toList();
                     if (spVars == null || spVars.isEmpty()) {
                         spVars = List.of(bt);
                     }
