@@ -955,5 +955,20 @@
   "Shopee từ chối tạo sản phẩm cha hoặc phân loại biến thể": "Shopee declined to create the parent product or variations.",
   "Sản phẩm đã tồn tại trên Shopee (trùng lặp bài đăng)": "Product already exists on Shopee (duplicate listing).",
   "Thiếu ảnh sản phẩm hợp lệ theo quy chuẩn Shopee": "Missing valid product images per Shopee standards.",
-  "Shopee từ chối tạo: The item is still being created. Please wait 5 seconds before creating variation.": "Shopee declined: The item is still being created. Please wait 5 seconds before creating variation."
+  "Shopee từ chối tạo: The item is still being created. Please wait 5 seconds before creating variation.": "Shopee declined: The item is still being created. Please wait 5 seconds before creating variation.",
+  "Ánh xạ kho phân tán (Multi-Location)": "Distributed warehouse mapping (Multi-Location)",
+  "Liên kết từng địa điểm kho của {{tenSan}} với các kho vật lý nội bộ FCentric để phân bổ tồn và định tuyến đơn hàng.": "Map each {{tenSan}} warehouse location with internal FCentric physical warehouses for inventory allocation and order routing.",
+  "Kích hoạt chế độ đồng bộ đa kho": "Enable multi-location inventory sync",
+  "{{tenSan}} hiện chỉ có 1 kho hoạt động. Chế độ đồng bộ đa kho sẽ tự động kích hoạt khi có từ 2 kho trở lên.": "{{tenSan}} currently has only 1 active warehouse. Multi-location sync will activate automatically when 2 or more warehouses are detected.",
+  "Đẩy số tồn riêng biệt cho từng địa điểm và tự động xuất kho theo đúng địa điểm phát sinh đơn hàng.": "Push independent inventory levels to each location and automatically fulfill orders from the designated warehouse.",
+  "Kho trên {{tenSan}}": "Location on {{tenSan}}",
+  "Kho FCentric liên kết": "Mapped FCentric warehouse",
+  "Đẩy tồn": "Push stock",
+  "Mặc định đơn": "Default for orders",
+  "Mặc định sàn": "Channel default",
+  "Chọn kho FCentric...": "Select FCentric warehouse...",
+  "Đẩy tồn kho {{ten}}": "Push stock for warehouse {{ten}}",
+  "Kho mặc định nhận đơn cho {{ten}}": "Default receiving warehouse for {{ten}}",
+  "Cơ chế Phân bổ Tồn đệm Thông minh (Smart Buffer Allocation):": "Smart Buffer Allocation Mechanism:",
+  "Hệ thống tự động phân bổ tỷ lệ tồn đệm theo tồn thực tế của từng kho, tránh nhân số lượng giữ tồn gây thiếu hàng ảo trên sàn. Với các sản phẩm lẻ size/lẻ màu (tồn < 5 cái), thuật toán tự động giảm tồn đệm để bảo toàn khả năng bán.": "The system automatically allocates inventory buffers proportionally based on actual stock at each warehouse, avoiding duplicated reserves that cause artificial stockouts. For low-stock variants (< 5 units), the algorithm safely scales down reserves to preserve sales availability."
 }
