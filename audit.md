@@ -108,6 +108,7 @@
 | **AUDIT-096** | `2026-11-16 21:55:00` | PhanAnh & Antigravity AI | Fix & Architecture / Khắc phục triệt để lỗi Lazada E500 saleProp conflict khi tạo sản phẩm | `KenhBanHangDongBoServiceImpl.java`, `LazadaSyncDiagnosticTest.java`, `audit.md` | Khắc phục triệt để lỗi 'E500: Create product failed - If you choose to put sales attributes in the saleProp, you can't put them in the SKU the old way'; Xóa bỏ thẻ color_family và size bị lặp ngoài root Sku, duy trì duy nhất cấu trúc saleProp chuẩn tài liệu Lazada Open Platform v2; Bổ sung dịch lỗi thân thiện tiếng Việt cho mã lỗi 500/saleProp trong dichLoiLazada; Đạt 18/18 unit tests PASS 100%, i18n 722 files sạch. |
 | **AUDIT-097** | `2026-11-16 14:44:00` | Khang | UI / Bỏ nút Sao chép hướng dẫn và khung Hướng dẫn nhập AMIS ở Chi tiết lô xuất kế toán | `ChiTietLoKeToan.jsx`, `TaoLoKeToan.jsx`, `keToanService.js`, `tong-quan-bao-cao.json`, `KeToanController.java`, `XuatKeToanService.java`, `keToanDuLieuVao.properties`, `keToanDuLieuVao_en.properties` | Hướng dẫn đã có sẵn trong tệp nén của lô (`00_HUONG_DAN.txt`) nên bỏ nút sao chép và khung hiện hướng dẫn trên trang; gỡ luôn API `GET /lo-xuat/{id}/huong-dan` không còn nơi gọi. |
 | **AUDIT-098** | `2026-11-16 22:30:00` | PhanAnh & Antigravity AI | Fix & Architecture / Bổ sung thuộc tính bắt buộc ngành hàng Lazada, loại bỏ SellerSku trong Update Product và refine dịch lỗi | `KenhBanHangDongBoServiceImpl.java`, `LazadaSyncDiagnosticTest.java`, `audit.md` | Bổ sung đầy đủ 100% thuộc tính bắt buộc của 8 danh mục ngành hàng thời trang Lazada VN: jacket_coat_styles cho Áo khoác (7953), Fit_Type cho Áo polo (14275), Neckline cho Áo sơ mi (7940), jeans_fit_type, Denim_Wash, waist_type cho Quần jeans (6414), pants_length, pants_fit_type cho Quần dài (7991), shorts_style cho Quần short (10100765); Loại bỏ hoàn toàn SellerSku trong capNhatSanPhamLenLazada (chỉ dùng SkuId số) triệt tiêu lỗi 501 'The SellerSku parameter is no longer supported'; Refine dichLoiLazada gỡ bỏ mask 500 gây nhầm lẫn thuộc tính; 18/18 tests PASS 100%, i18n 722 files sạch. |
+| **AUDIT-099** | `2026-11-16 23:05:00` | PhanAnh & Antigravity AI | Fix & Feature / Ánh xạ danh mục 8017 Đồ bảo hộ lao động Lazada theo MTEE Risk Policy R_6049911 và Self-Healing khi xóa sản phẩm trên sàn | `KenhBanHangDongBoServiceImpl.java`, `LazadaClient.java`, `LazadaSyncTest.java`, `audit.md` | Khắc phục triệt để lỗi 'BIZ_CHECK_MTEE_RISK_RULE_TRIGGER_MTEE_RISK_RULE_TRIG by Policy(R_6049911): Đăng sản phẩm thất bại do chọn sai danh mục' cho 14 SKU Áo polo bảo hộ lao động: ánh xạ ưu tiên danh mục 8017 (Đồ bảo hộ lao động) kèm 3 thuộc tính bắt buộc (clothing_material, Fit_Type, Neckline); Bổ sung API getCategorySuggestion; Bổ sung cơ chế Self-Healing Shopee/TikTok tự động hủy liên kết trong DB và xóa RAM cache khi sản phẩm bị xóa trên sàn; 18/18 tests PASS 100%, i18n 722 files sạch. |
 
 
 ---
@@ -3426,6 +3427,8 @@
 2. **Kiểm tra biên dịch**: `mvnw.cmd test-compile` hoàn tất không lỗi (`BUILD SUCCESS`).
 3. **Đa ngôn ngữ Frontend**: 722 tệp sạch 100%.
 
+---
+
 ### [AUDIT-097] BỎ NÚT SAO CHÉP HƯỚNG DẪN VÀ KHUNG HƯỚNG DẪN NHẬP AMIS Ở CHI TIẾT LÔ XUẤT KẾ TOÁN
 - **Thời gian**: `2026-11-16 14:44:00` (GMT+7)
 - **Tác giả**: Khang
@@ -3518,3 +3521,64 @@
 1. **Kiểm thử đơn vị JUnit**: `LazadaSyncDiagnosticTest` (4 tests) + `ShopeeSyncUpsertTest` (9 tests) + `ShopifyStatusSyncTest` (5 tests) = **18/18 tests PASS 100%**.
 2. **Kiểm tra biên dịch**: `mvnw.cmd test-compile` hoàn tất không lỗi (`BUILD SUCCESS`).
 3. **Đa ngôn ngữ Frontend**: 722 tệp sạch 100%.
+
+---
+
+### [AUDIT-099] ÁNH XẠ DANH MỤC 8017 ĐỒ BẢO HỘ LAO ĐỘNG LAZADA THEO CHÍNH SÁCH MTEE RISK R_6049911 VÀ CƠ CHẾ SELF-HEALING KHI XÓA SẢN PHẨM TRÊN SÀN
+- **Thời gian**: `2026-11-16 23:05:00` (GMT+7)
+- **Tác giả**: PhanAnh & Antigravity AI
+- **Phân hệ ảnh hưởng**: Omnichannel Sync Engine, Đẩy & Đồng bộ sản phẩm Lazada & Shopee (`KenhBanHangDongBoServiceImpl`, `LazadaClient`, `LazadaSyncTest`).
+- **Tệp thay đổi**:
+  - `backend/src/main/java/com/dev/backend/services/impl/entities/KenhBanHangDongBoServiceImpl.java`
+  - `backend/src/main/java/com/dev/backend/services/lazada/LazadaClient.java`
+  - `backend/src/test/java/com/dev/backend/services/lazada/LazadaSyncTest.java`
+  - `audit.md`
+
+#### 1. MỤC TIÊU & PHÂN TÍCH NGUYÊN NHÂN GỐC RỄ (ROOT CAUSE ANALYSIS)
+1. **Hiện tượng lỗi Lazada Policy(R_6049911)**:
+   - Sau khi cập nhật AUDIT-098, 55 SKU của Áo khoác gió đã chuyển sang tab "Đang đồng bộ" thành công rực rỡ, số lỗi giảm từ 69 xuống còn đúng 14 lỗi.
+   - 14 lỗi còn lại thuộc về sản phẩm *"Áo polo bảo hộ lao động ngắn tay"* (12 phân loại), hiển thị thông điệp đỏ:
+     `Lazada từ chối tạo: E500: Create product failed - BIZ_CHECK_MTEE_RISK_RULE_TRIGGER_MTEE_RISK_RULE_TRIG by Policy(R_6049911): Đăng sản phẩm thất bại do chọn sai danh mục. Vui lòng cập nhật lại danh mục dựa theo đề xuất của hệ thống và thử lại.`
+2. **Nguyên nhân kỹ thuật sâu xa**:
+   - Trong hàm `xacDinhLazadaCategoryId`, sản phẩm chứa từ khóa `"polo"` bị gán vào danh mục `14275` (Quần áo nam > Áo > Áo thun có cổ nam).
+   - Tuy nhiên, tên sản phẩm có chứa cụm từ `"bảo hộ lao động"`. Sàn Lazada có bộ quy tắc kiểm soát rủi ro hàng hóa MTEE Risk Policy `R_6049911`: **Nghiêm cấm đăng sản phẩm bảo hộ lao động vào danh mục thời trang nam thông thường (14275)**, bắt buộc phải thuộc danh mục lá **`8017` ("Đồ bảo hộ lao động")**.
+   - Khi gửi thử nghiệm trực tiếp lên API Lazada Open Platform với `PrimaryCategory = 8017`, sàn yêu cầu 3 thuộc tính bắt buộc:
+     1. `<clothing_material>`: 100% Cotton hoặc Polyester
+     2. `<Fit_Type>`: Slim Fit
+     3. `<Neckline>`: Polo hoặc Round Neck
+   - Khi đáp ứng đủ 3 thuộc tính trên, Lazada trả về HTTP 200: `{"data":{"item_id":13511719830,"item_status":"Active"},"code":"0"}` thành công 100%!
+3. **Hiện tượng lỗi Shopee và TikTok Shop khi tester xóa sản phẩm trên sàn**:
+   - Khi tester hoặc người bán chủ động xóa sản phẩm trên Shopee/TikTok Seller Center:
+     - Trong cơ sở dữ liệu FCentric, bản ghi `TrangThaiDongBoSanPham` vẫn còn lưu `maSanPhamKenh` (Item ID cũ của Shopee hoặc SKU ID cũ của TikTok).
+     - Khi người dùng bấm "Thử lại" hoặc hệ thống chạy job đồng bộ, FCentric nhận diện sản phẩm đã từng liên kết nên thực hiện luồng UPDATE (UPSERT) vào ID cũ đó.
+     - Shopee từ chối vì sản phẩm đã bị xóa hoặc tạm khóa: `All the fields cannot be updated because the product {id} status is abnormal`.
+     - TikTok Shop từ chối: `(12052557): Operation Not Allowed. Cannot perform this operation for the provided SKU ID: the SKU ID does not belong to the product`.
+   - **Bản chất của RAM Cache**:
+     - FCentric sử dụng in-memory cache (`ConcurrentHashMap`) cho Catalog sàn nhằm tuân thủ quy chuẩn Omnichannel Rule mục 2 (bảo vệ Quota API, tránh quét phân trang hàng ngàn SKU mỗi lần đẩy lẻ).
+     - Khi tắt server hoặc kéo code mới về chạy lại, RAM cache bị reset về rỗng. Tuy nhiên, mapping trong DB vẫn tồn tại.
+     - Cần bổ sung cơ chế tự phục hồi (Self-Healing) bắt lỗi `status is abnormal` ở toàn bộ các hàm update (cả `updatePrice` và `updateStockBatch`) để tự động gỡ liên kết DB, xóa cache và kích hoạt tạo mới.
+
+#### 2. GIẢI PHÁP KỸ THUẬT & CHI TIẾT TRIỂN KHAI
+1. **Ánh xạ danh mục 8017 (Đồ bảo hộ lao động) cho Lazada**:
+   - Trong `KenhBanHangDongBoServiceImpl.xacDinhLazadaCategoryId`: Đặt quy tắc ưu tiên hàng đầu (Rule 0): nếu tên sản phẩm hoặc danh mục chứa `"bảo hộ"`, `"lao động"`, `"workwear"`, `"bao ho"`, `"lao dong"` -> trả về ngay `8017`.
+2. **Cung cấp đủ thuộc tính bắt buộc danh mục 8017 trong `taoSanPhamLenLazada`**:
+   - Thêm khối `categoryId == 8017`:
+     - `<clothing_material>`: Tự động gán `"Polyester"` (nếu có poly/gió) hoặc `"100% Cotton"`.
+     - `<Fit_Type>Slim Fit</Fit_Type>`.
+     - `<Neckline>`: Tự động gán `"Polo"` (nếu tên có polo/có cổ) hoặc `"Round Neck"`.
+     - Giữ nguyên `<fa_pattern>Trơn</fa_pattern>`.
+3. **Bổ sung API `getCategorySuggestion` trong `LazadaClient.java`**:
+   - Gọi endpoint `/product/category/suggestion/get` của Lazada Open Platform để hỗ trợ AI/hệ thống tự động tra cứu danh mục gợi ý khi cần thiết.
+4. **Gia cố Self-Healing Shopee trong `updatePrice`**:
+   - Bổ sung kiểm tra kết quả `pRes` của `client.updatePrice(existingItemId, mId, newTargetPrice)`.
+   - Nếu phát hiện lỗi `status is abnormal` hoặc `abnormal`, lập tức gọi `xuLySanPhamBiXoaHoacBatThuongShopee(kenh, existingItemId, shopKey)`: gỡ bỏ `maSanPhamKenh = null` trong DB, xóa RAM cache, đặt `existingItemId = null` và chuyển ngay sang luồng tạo mới (`addItem`).
+5. **Cập nhật Unit Tests**:
+   - Cập nhật `LazadaSyncTest`: kiểm tra "Áo polo bảo hộ lao động ngắn tay" trả về `8017`, áo polo thời trang trả về `14275`.
+
+#### 3. KẾT QUẢ KIỂM THỬ VÀ ĐỐI SOÁT
+1. **Kiểm thử trực tiếp với API Lazada Open Platform**:
+   - Đăng thử sản phẩm với Category 8017 và 3 thuộc tính chuẩn -> Lazada duyệt thành công ngay lập tức: `item_id = 13511719830`, `item_status = Active`!
+2. **Kiểm thử đơn vị JUnit**:
+   - `LazadaSyncTest` (4 tests) + `ShopeeSyncUpsertTest` (9 tests) + `ShopifyStatusSyncTest` (5 tests) = **18/18 tests PASS 100%**.
+3. **Đa ngôn ngữ Frontend**:
+   - 722/722 tệp i18n sạch 100% (`npm run i18n:kiem`).
