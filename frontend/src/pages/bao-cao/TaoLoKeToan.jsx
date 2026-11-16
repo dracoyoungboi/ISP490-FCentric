@@ -175,7 +175,7 @@ export default function TaoLoKeToan() {
       // Tạo lô theo đúng ngày đã kiểm tra; dấu vết để máy chủ từ chối nếu dữ liệu đổi sau lần kiểm tra
       const lo = await keToanService.taoLo({ denNgay: xemTruoc.denNgay, ghiChu: ghiChu.trim() || null, dauVet: xemTruoc.dauVet });
       toast.success(t("Đã tạo lô {{soLo}} ({{count}} chứng từ). Đang tải tệp.", { soLo: lo.soLo, count: Number(lo.soChungTu) || 0 }));
-      navigate(`/reports/accounting-export/${lo.id}`, { replace: true, state: { vuaTao: true } });
+      navigate(`/reports/accounting-export/${lo.id}`, { replace: true });
       keToanService.taiTep(lo).catch((e) => toast.error(getApiErrorMessage(e, t("Không tải được tệp của lô"))));
     } catch (e) {
       // Dữ liệu đổi sau lần kiểm tra (hoặc chứng từ vừa vào lô khác): đóng hộp, kiểm tra lại để thấy đúng nội dung lô
