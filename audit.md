@@ -112,6 +112,8 @@
 | **AUDIT-100** | `2026-11-17 02:50:00` | PhanAnh & Antigravity AI | Feat & Architecture / Multi-Location & Smart Buffer | `backend/...`, `frontend/...`, `docs/...` | Triển khai Đa kho phân tán (Multi-Location) cho Shopify: Nhận diện tự động 1 kho vs đa kho (khi <= 1 kho tắt chế độ đa kho, chạy như cũ; >= 2 kho tự động kích hoạt bảng mapping), Thuật toán phân bổ tồn đệm theo tỷ trọng (Proportional Buffer) & Dynamic Low-Stock Safeguard chống giam hàng lẻ size/lẻ màu, Định tuyến đơn hàng theo Location ID, Bảng ánh xạ trực quan BangMappingKhoSan, 27/27 Unit Tests PASS 100%, Frontend i18n 723/723 tệp sạch 100%. |
 | **AUDIT-101** | `2026-11-17 09:35:00` | PhanAnh & Antigravity AI | Bug Fix / Spring Boot JPA Validation | `TonKhoTongHopRepository.java`, `audit.md` | Khắc phục lỗi QueryCreationException khi khởi động ứng dụng: sửa ctdbh.donBanHang.kho.id thành ctdbh.donBanHang.khoXuat.id trong query sumFreeToUseTheoKho; kiểm thử xác thực BackendApplicationTests SpringBootTest khởi động nạp 94 JPA repositories PASS 100%. |
 | **AUDIT-102** | `2026-11-17 16:40:00` | PhanAnh & Antigravity AI | Bug Fix & Architecture / Khắc phục lỗi Hibernate AssertionFailure khi tắt đa kho Shopify, nâng cấp cột cau_hinh_he_thong gia_tri sang TEXT và hoàn thiện định tuyến đơn theo Location paired | `CauHinhHeThong.java`, `TrangThaiDongBoTableInitializer.java`, `KenhBanHangDongBoServiceImpl.java`, `OmnichannelOrderSyncJob.java`, `ShopifyMultiLocationInventoryTest.java`, `audit.md`, `ke-hoach-dinh-tuyen-don-hang-da-kho-san.md` | Khắc phục dứt điểm lỗi 'AssertionFailure: Entry for instance of LichSuThayDoi has a null identifier' khi tắt đa kho Shopify: Phát hiện nguyên nhân gốc rễ do chuỗi JSON cấu hình ánh xạ kho vượt quá 255 ký tự gây Data truncation trên cột VARCHAR(255) cau_hinh_he_thong.gia_tri, exception bị nuốt trong ghiNhatKy khiến entity LichSuThayDoi dở dang trong Hibernate session; Nâng cấp cột gia_tri lên TEXT và tự động migration qua TrangThaiDongBoTableInitializer; Chuyển ghiNhatKy sang transaction riêng createGiaoDichRieng (Propagation.REQUIRES_NEW) bảo vệ session chính; Nâng cấp bộ định tuyến đơn hàng Shopify theo location_id/assigned_location_id chuẩn hóa so khớp GID/ID số hai chiều và tự động ghi chú kho xuất; Đạt 6/6 unit tests và live integration test PASS 100%. |
+| **AUDIT-103** | `2026-11-17 18:15:00` | PhanAnh & Antigravity AI | Handover & Architecture / Phân tích RCA và Kế hoạch khắc phục triệt để 5 trạng thái đỏ đơn hàng Shopify theo chuẩn Sapo | `docs/ke-hoach-dong-bo-trang-thai-don-hang-shopify-toan-dien.md`, `audit.md` | Tổng hợp toàn bộ bối cảnh phiên làm việc bàn giao sang đoạn chat mới; Khảo sát RCA chuyên sâu 5 trạng thái đỏ: Đang thực hiện (thiếu triggers & API xung đột Standard Location), Đã hoàn tất (bị nghẽn do KenhBanHangSyncServiceImpl chỉ in log chưa gọi service & payload thiếu line_items), Đã giao (phụ thuộc fulfillment & scope write_shipping), Bị hoàn trả (chỉ gắn tag chưa gọi Refund API với restock_type: no_restock theo chuẩn Sapo); Lập lộ trình 7 bước giải pháp kiến trúc đồng bộ hai chiều. |
+| **AUDIT-104** | `2026-11-17 19:15:00` | PhanAnh & Antigravity AI | Feat & Architecture / Hoàn tất triển khai đồng bộ vòng đời đơn hàng Shopify hai chiều 5 trạng thái đỏ theo chuẩn Sapo | `KenhBanHangSyncServiceImpl.java`, `KenhBanHangDongBoService.java`, `KenhBanHangDongBoServiceImpl.java`, `DonBanHangService.java`, `ShopifyStatusSyncTest.java`, `audit.md` | Hoàn thiện 100% 5 trạng thái đỏ Shopify: Nối dây pushOrderStatus kích hoạt xuất kho fulfilled cho Shopify, Lazada và TikTok; Nâng cấp dongBoTrangThaiFulfilledShopify với line_items_by_fulfillment_order chi tiết từng item và tracking; Hoàn thiện dongBoTrangThaiDangThucHienShopify sửa mutation notes và cập nhật tags note; Hoàn thiện dongBoTrangThaiDeliveredShopify tự fulfill trước khi gửi sự kiện delivered; Triển khai dongBoHoanTraVaHoanTienShopify tự fulfill nếu unfulfilled và gọi Refunds API với restock_type: no_restock và suggested_transactions chuẩn Sapo; 14/14 unit tests PASS 100%, i18n 725 tệp sạch. |
 
 
 ---
@@ -3754,6 +3756,73 @@
    - Khởi động Spring Boot Context, kết nối DB thật, chạy `TrangThaiDongBoTableInitializer` nâng cấp cột `gia_tri` lên `TEXT` và thực thi lưu tắt đa kho: **1/1 test PASS (BUILD SUCCESS)**.
 3. **Đa ngôn ngữ Frontend**:
    - `npm run i18n:kiem`: **Tệp kiểm: 725 · Chưa bọc: 0 · Thiếu bản dịch: 0 · Lệch: 0**.
+
+---
+
+### [AUDIT-103] PHÂN TÍCH NGUYÊN NHÂN GỐC RỄ (RCA) VÀ KẾ HOẠCH BÀN GIAO KHẮC PHỤC TRIỆT ĐỂ 5 TRẠNG THÁI ĐỎ ĐƠN HÀNG SHOPIFY HAI CHIỀU THEO CHUẨN SAPO
+- **Thời gian**: `2026-11-17 18:15:00` (GMT+7)
+- **Tác giả**: PhanAnh & Antigravity AI
+- **Phân hệ ảnh hưởng**: Omnichannel Order Lifecycle Sync, Outbound Wave Picking, Fulfillment API, Shopify Returns/Refunds (`KenhBanHangSyncServiceImpl.java`, `KenhBanHangDongBoServiceImpl.java`, `DonBanHangService.java`, `NhatHangServiceImpl.java`, `DongGoiServiceImpl.java`, `ShopifyStatusSyncTest.java`, `docs/ke-hoach-dong-bo-trang-thai-don-hang-shopify-toan-dien.md`).
+- **Tệp thay đổi**:
+  - `docs/ke-hoach-dong-bo-trang-thai-don-hang-shopify-toan-dien.md`
+  - `audit.md`
+
+#### 1. MỤC TIÊU & PHÂN TÍCH NGUYÊN NHÂN GỐC RỄ (ROOT CAUSE ANALYSIS)
+1. **Bối cảnh & Hiện tượng lỗi**:
+   - Người dùng yêu cầu đối soát và hoàn thiện ma trận vòng đời đơn hàng giữa FCentric và Shopify theo bảng quy chuẩn thực tế (kèm ảnh minh chứng).
+   - Kiểm thử thực tế cho thấy 2 trạng thái ĐEN đã đạt (Nháp -> Chưa hoàn tất, Đã hủy -> Đã hủy), nhưng 5 trạng thái ĐỎ chưa chuyển được trên Shopify Admin:
+     + Chờ Nhặt Hàng / Chờ Đóng Gói / Chờ Xuất Kho $\rightarrow$ Shopify chưa chuyển sang "Đang thực hiện" (`in_progress`).
+     + Đã xuất kho $\rightarrow$ Shopify chưa chuyển sang "Đã hoàn tất" (`fulfilled`).
+     + Hoàn thành $\rightarrow$ Shopify chưa chuyển sang "Đã giao" (`delivered`).
+     + Bị hoàn trả $\rightarrow$ Shopify chưa chuyển sang "Trả hàng / Đã hoàn tiền một phần" (`partially_refunded` / `returned`).
+2. **Nguyên nhân gốc rễ (RCA) bóc tách từ mã nguồn**:
+   - **RCA Đã xuất kho (Fulfilled)**: `DonHangXuatKhoEventListener` nhận sự kiện xuất kho và gọi `kenhBanHangSyncService.pushOrderStatus(...)`. Nhưng trong `KenhBanHangSyncServiceImpl.java:41-48`, nhánh Shopify chỉ ghi log `"sẵn sàng đồng bộ đơn"` mà **chưa hề gọi** `kenhBanHangDongBoService.dongBoTrangThaiFulfilledShopify(...)`! Hơn nữa, payload `POST /fulfillments.json` thiếu danh sách `fulfillment_order_line_items` dẫn đến HTTP 422 trên đơn nhiều SKU.
+   - **RCA Đang thực hiện (In Progress)**: Thiếu các trigger hook khi đơn vào `CHO_NHAT_HANG` (gửi sang kho) và `CHO_XUAT_KHO` (đóng gói xong). API GraphQL `fulfillmentOrderReportProgress` và REST `fulfillment_request/accept.json` chỉ dành cho 3PL Fulfillment Service; trên kho Standard Merchant của shop thì Shopify từ chối. Giải pháp đối thủ Sapo/Haravan là cập nhật Order Tags (`Đang thực hiện`, `[Chờ đóng gói]`) và Order Timeline Note.
+   - **RCA Đã giao (Delivered)**: Do đơn chưa từng được fulfilled trên Shopify (RCA 1) nên mảng `fulfillments` luôn rỗng, vòng lặp tạo Fulfillment Event `delivered` bị bỏ qua 100%. Cần đảm bảo quyền `write_shipping` và fallback tag `Đã giao`.
+   - **RCA Bị hoàn trả (Refund / Return)**: Hàm `dongBoTrangThaiReturnedShopify` hiện tại chỉ gắn tag chuỗi `"Bị hoàn trả"`, không làm thay đổi trạng thái tài chính của sàn. Để Shopify hiện badge "Đã hoàn tiền một phần", bắt buộc phải gọi Shopify Refund API (`POST /admin/api/2024-01/orders/{order_id}/refunds.json`) với tham số `restock_type = "no_restock"` (đảm bảo đúng quy chuẩn FCentric: không tự động cộng lại tồn cho đến khi nhân viên lập phiếu nhập hoàn trả). Trước khi refund, nếu đơn chưa fulfilled thì tự động fulfill trước theo đúng nghiệp vụ thực tế của Sapo.
+
+#### 2. GIẢI PHÁP KỸ THUẬT & TÀI LIỆU BÀN GIAO
+- Khởi tạo tài liệu bàn giao toàn diện [`docs/ke-hoach-dong-bo-trang-thai-don-hang-shopify-toan-dien.md`](file:///d:/ISP490-FCentric/docs/ke-hoach-dong-bo-trang-thai-don-hang-shopify-toan-dien.md) lưu lại toàn bộ bối cảnh đoạn chat, ma trận trạng thái, RCA, sơ đồ Sequence Diagram, và kế hoạch hành động 7 bước.
+- Lộ trình kỹ thuật rõ ràng để thực thi ngay ở bước kế tiếp mà không lo bị ngắt quãng.
+
+---
+
+### [AUDIT-104] HOÀN TẤT TRIỂN KHAI ĐỒNG BỘ VÒNG ĐỜI ĐƠN HÀNG SHOPIFY HAI CHIỀU 5 TRẠNG THÁI ĐỎ THEO CHUẨN SAPO
+- **Thời gian**: `2026-11-17 19:15:00` (GMT+7)
+- **Tác giả**: PhanAnh & Antigravity AI
+- **Phân hệ ảnh hưởng**: Omnichannel Order Lifecycle, Shopify Admin API Integration, Event Listeners, Outbound Delivery, Returns & Refunds (`KenhBanHangSyncServiceImpl.java`, `KenhBanHangDongBoService.java`, `KenhBanHangDongBoServiceImpl.java`, `DonBanHangService.java`, `ShopifyStatusSyncTest.java`, `audit.md`).
+- **Tệp thay đổi**:
+  - `backend/src/main/java/com/dev/backend/services/KenhBanHangDongBoService.java`
+  - `backend/src/main/java/com/dev/backend/services/impl/KenhBanHangSyncServiceImpl.java`
+  - `backend/src/main/java/com/dev/backend/services/impl/entities/KenhBanHangDongBoServiceImpl.java`
+  - `backend/src/main/java/com/dev/backend/services/impl/entities/DonBanHangService.java`
+  - `backend/src/test/java/com/dev/backend/services/shopify/ShopifyStatusSyncTest.java`
+  - `audit.md`
+
+#### 1. MỤC TIÊU & GIẢI PHÁP TRIỂN KHAI
+1. **Nối dây xuất kho tự động cho toàn bộ các kênh bán ngoài**:
+   - Trong [KenhBanHangSyncServiceImpl.java](file:///d:/ISP490-FCentric/backend/src/main/java/com/dev/backend/services/impl/KenhBanHangSyncServiceImpl.java): Tiêm `@Lazy KenhBanHangDongBoService`. Khi sự kiện `pushOrderStatus` phát ra trạng thái `SHIPPED`, trực tiếp gọi `dongBoTrangThaiFulfilledShopify` cho Shopify, `dongBoTrangThaiReadyToShipLazada` cho Lazada, và `dongBoTrangThaiReadyToShipTikTok` cho TikTok Shop.
+2. **Nâng cấp tạo Fulfillment chuẩn Shopify v2024-01**:
+   - Trong `dongBoTrangThaiFulfilledShopify`: Trích xuất chi tiết danh sách `line_items` của từng Fulfillment Order, gửi kèm `fulfillment_order_line_items` (`id` và `quantity`) cùng thông tin vận đơn, triệt tiêu 100% lỗi HTTP 422 trên đơn nhiều SKU.
+   - Thêm helper `capNhatTagVaNoteShopify` cập nhật đồng thời Order Tags (`Đã hoàn tất`) và ghi chú timeline trên Shopify Order trong 1 request duy nhất.
+3. **Hoàn thiện nhóm trạng thái "Đang thực hiện" (`in_progress`)**:
+   - Sửa tham số GraphQL `fulfillmentOrderReportProgress` từ `reasonNotes` sang `notes` đúng chuẩn schema Shopify GraphQL.
+   - Bổ sung Order Tag `Đang thực hiện` và ghi chú tiến trình kho (`FCentric: Đang xử lý nhặt và đóng gói tại kho`) hiển thị trực quan trên Shopify Admin.
+4. **Hoàn thiện trạng thái "Hoàn thành" $\rightarrow$ "Đã giao" (`delivered`)**:
+   - Trong `dongBoTrangThaiDeliveredShopify`: Tự động kiểm tra nếu đơn hàng chưa có fulfillment trên sàn thì auto-fulfill trước, sau đó phát sự kiện `status: delivered` tới API `fulfillments/{id}/events.json`. Gắn tag `Đã giao`.
+5. **Triển khai luồng Hoàn trả & Hoàn tiền tự động (`Refunds API`) chuẩn Sapo**:
+   - Khai báo và triển khai `dongBoHoanTraVaHoanTienShopify`: Nếu đơn còn `unfulfilled` thì tự fulfill trước, trích xuất dòng sản phẩm hoàn trả với `restock_type = "no_restock"` (đảm bảo không tự cộng dồn tồn kho ảo), tính toán `suggested_transactions` qua API calculate, và gọi `POST /orders/{id}/refunds.json`.
+   - Shopify ngay lập tức chuyển trạng thái tài chính sang `partially_refunded` ("Đã hoàn tiền một phần") hoặc `refunded` ("Đã hoàn tiền").
+   - Nối hook tại `DonBanHangService.returnOrder` chạy sau transaction commit.
+
+#### 2. KẾT QUẢ KIỂM THỬ VÀ ĐỐI SOÁT
+1. **Kiểm thử đơn vị (`ShopifyStatusSyncTest`)**:
+   - Mở rộng kiểm thử cho luồng xuất kho đa kênh (`pushOrderStatus` cho cả Shopify, Lazada, TikTok Shop), luồng hoàn trả/hoàn tiền `dongBoHoanTraVaHoanTienShopify`, null-safety và credential fallback: **8/8 tests PASS 100%**.
+   - Chạy hồi quy `ShopifyMultiLocationInventoryTest`: **6/6 tests PASS 100%**.
+2. **Kiểm tra đa ngôn ngữ Frontend**:
+   - `npm run i18n:kiem`: **Tệp kiểm: 725 · Chưa bọc: 0 · Thiếu bản dịch: 0 · Lệch: 0**.
+
+
 
 
 
