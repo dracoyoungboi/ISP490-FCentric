@@ -301,3 +301,4 @@ sequenceDiagram
 7. `backend/src/test/java/com/dev/backend/services/shopify/ShopifyStatusSyncTest.java` (Kiểm thử đơn vị mở rộng)
 8. `audit.md` (Ghi nhận mã kiểm toán AUDIT-103)
 9. `docs/ke-hoach-dong-bo-trang-thai-don-hang-shopify-toan-dien.md` (Tài liệu bàn giao toàn diện)
+
