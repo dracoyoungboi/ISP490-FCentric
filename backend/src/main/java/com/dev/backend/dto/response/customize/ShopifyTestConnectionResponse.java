@@ -18,5 +18,8 @@ public class ShopifyTestConnectionResponse implements Serializable {
     String shopEmail;
     String myshopifyDomain;
     String message;
+    /** null: permission check unavailable; true/false: confirmed from Shopify's granted scopes. */
+    Boolean orderProgressReady;
+    String orderProgressWarning;
 }
 
