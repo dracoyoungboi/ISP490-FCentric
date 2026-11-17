@@ -86,8 +86,9 @@ public class CauHinhMauInController {
         );
     }
 
+    // Sửa mẫu in chỉ quản trị viên; quản lý kho chỉ xem
     @PutMapping("/{documentType}/{templateId}")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     public ResponseEntity<ResponseData<PrintTemplateConfigDto>> upsertConfig(
             @PathVariable String documentType,
             @PathVariable String templateId,
@@ -102,7 +103,7 @@ public class CauHinhMauInController {
     }
 
     @DeleteMapping("/{documentType}/{templateId}")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     public ResponseEntity<ResponseData<String>> resetConfig(
             @PathVariable String documentType,
             @PathVariable String templateId) {
@@ -117,7 +118,7 @@ public class CauHinhMauInController {
     }
 
     @PutMapping("/{documentType}/active")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     public ResponseEntity<ResponseData<MauInDangApDung>> setActive(
             @PathVariable String documentType,
             @RequestBody ActiveTemplateRequest request) {
@@ -131,7 +132,7 @@ public class CauHinhMauInController {
     }
 
     @PostMapping("/migrate")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     public ResponseEntity<ResponseData<Map<String, Object>>> migrate(@RequestBody MigratePrintConfigsRequest request) {
         return ResponseEntity.ok(
                 ResponseData.<Map<String, Object>>builder()

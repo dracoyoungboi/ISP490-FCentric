@@ -43,8 +43,9 @@ public class ThongTinCongTyController {
         );
     }
 
+    // Sửa thông tin cửa hàng chỉ quản trị viên; quản lý kho chỉ xem
     @PutMapping
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     public ResponseEntity<ResponseData<ThongTinCongTyDto>> updateProfile(@RequestBody ThongTinCongTyRequest request) {
         return ResponseEntity.ok(
                 ResponseData.<ThongTinCongTyDto>builder()
@@ -56,7 +57,7 @@ public class ThongTinCongTyController {
     }
 
     @PostMapping(value = "/logo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     public ResponseEntity<ResponseData<ThongTinCongTyDto>> updateLogo(@RequestPart("file") MultipartFile file) {
         return ResponseEntity.ok(
                 ResponseData.<ThongTinCongTyDto>builder()
@@ -68,7 +69,7 @@ public class ThongTinCongTyController {
     }
 
     @DeleteMapping("/logo")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     public ResponseEntity<ResponseData<ThongTinCongTyDto>> removeLogo() {
         return ResponseEntity.ok(
                 ResponseData.<ThongTinCongTyDto>builder()
