@@ -110,6 +110,7 @@
 | **AUDIT-098** | `2026-11-16 22:30:00` | PhanAnh & Antigravity AI | Fix & Architecture / Bổ sung thuộc tính bắt buộc ngành hàng Lazada, loại bỏ SellerSku trong Update Product và refine dịch lỗi | `KenhBanHangDongBoServiceImpl.java`, `LazadaSyncDiagnosticTest.java`, `audit.md` | Bổ sung đầy đủ 100% thuộc tính bắt buộc của 8 danh mục ngành hàng thời trang Lazada VN: jacket_coat_styles cho Áo khoác (7953), Fit_Type cho Áo polo (14275), Neckline cho Áo sơ mi (7940), jeans_fit_type, Denim_Wash, waist_type cho Quần jeans (6414), pants_length, pants_fit_type cho Quần dài (7991), shorts_style cho Quần short (10100765); Loại bỏ hoàn toàn SellerSku trong capNhatSanPhamLenLazada (chỉ dùng SkuId số) triệt tiêu lỗi 501 'The SellerSku parameter is no longer supported'; Refine dichLoiLazada gỡ bỏ mask 500 gây nhầm lẫn thuộc tính; 18/18 tests PASS 100%, i18n 722 files sạch. |
 | **AUDIT-099** | `2026-11-16 23:05:00` | PhanAnh & Antigravity AI | Fix & Feature / Ánh xạ danh mục 8017 Đồ bảo hộ lao động Lazada theo MTEE Risk Policy R_6049911 và Self-Healing khi xóa sản phẩm trên sàn | `KenhBanHangDongBoServiceImpl.java`, `LazadaClient.java`, `LazadaSyncTest.java`, `audit.md` | Khắc phục triệt để lỗi 'BIZ_CHECK_MTEE_RISK_RULE_TRIGGER_MTEE_RISK_RULE_TRIG by Policy(R_6049911): Đăng sản phẩm thất bại do chọn sai danh mục' cho 14 SKU Áo polo bảo hộ lao động: ánh xạ ưu tiên danh mục 8017 (Đồ bảo hộ lao động) kèm 3 thuộc tính bắt buộc (clothing_material, Fit_Type, Neckline); Bổ sung API getCategorySuggestion; Bổ sung cơ chế Self-Healing Shopee/TikTok tự động hủy liên kết trong DB và xóa RAM cache khi sản phẩm bị xóa trên sàn; 18/18 tests PASS 100%, i18n 722 files sạch. |
 | **AUDIT-100** | `2026-11-17 02:50:00` | PhanAnh & Antigravity AI | Feat & Architecture / Multi-Location & Smart Buffer | `backend/...`, `frontend/...`, `docs/...` | Triển khai Đa kho phân tán (Multi-Location) cho Shopify: Nhận diện tự động 1 kho vs đa kho (khi <= 1 kho tắt chế độ đa kho, chạy như cũ; >= 2 kho tự động kích hoạt bảng mapping), Thuật toán phân bổ tồn đệm theo tỷ trọng (Proportional Buffer) & Dynamic Low-Stock Safeguard chống giam hàng lẻ size/lẻ màu, Định tuyến đơn hàng theo Location ID, Bảng ánh xạ trực quan BangMappingKhoSan, 27/27 Unit Tests PASS 100%, Frontend i18n 723/723 tệp sạch 100%. |
+| **AUDIT-101** | `2026-11-17 09:35:00` | PhanAnh & Antigravity AI | Bug Fix / Spring Boot JPA Validation | `TonKhoTongHopRepository.java`, `audit.md` | Khắc phục lỗi QueryCreationException khi khởi động ứng dụng: sửa ctdbh.donBanHang.kho.id thành ctdbh.donBanHang.khoXuat.id trong query sumFreeToUseTheoKho; kiểm thử xác thực BackendApplicationTests SpringBootTest khởi động nạp 94 JPA repositories PASS 100%. |
 
 
 ---
@@ -3653,4 +3654,41 @@
    - Frontend: `npm run build` hoàn tất không lỗi (`built in 29.41s`).
 3. **Đa ngôn ngữ Frontend**:
    - 723/723 tệp i18n sạch 100% (`npm run i18n:kiem`: Chưa bọc: 0, Thiếu bản dịch: 0, Lệch: 0).
+
+---
+
+### [AUDIT-101] KHẮC PHỤC LỖI QUERYCREATIONEXCEPTION TRONG SUMFREETOUSETHEOKHO VÀ VALIDATE SPRING BOOT CONTEXT
+- **Thời gian**: `2026-11-17 09:35:00` (GMT+7)
+- **Tác giả**: PhanAnh & Antigravity AI
+- **Phân hệ ảnh hưởng**: Omnichannel Multi-Warehouse Repository, Spring Data JPA Repository Validation (`TonKhoTongHopRepository.java`).
+- **Tệp thay đổi**:
+  - `backend/src/main/java/com/dev/backend/repository/TonKhoTongHopRepository.java`
+  - `audit.md`
+
+#### 1. MỤC TIÊU & PHÂN TÍCH NGUYÊN NHÂN GỐC RỄ (ROOT CAUSE ANALYSIS)
+1. **Hiện tượng lỗi**:
+   - Khi chạy ứng dụng Spring Boot (`java -jar` hoặc `mvnw.cmd package`), Spring Application Context thất bại trong giai đoạn khởi tạo Bean:
+     ```
+     UnsatisfiedDependencyException: Error creating bean with name 'dongGoiController' -> 'dongGoiServiceImpl' -> 'kenhBanHangDongBoServiceImpl' -> 'tonKhoTongHopRepository':
+     Could not create query for method public abstract java.util.List com.dev.backend.repository.TonKhoTongHopRepository.sumFreeToUseTheoKho(java.lang.Integer,java.util.List,java.util.List);
+     Reason: Validation failed for query for method public abstract java.util.List com.dev.backend.repository.TonKhoTongHopRepository.sumFreeToUseTheoKho(...)
+     ```
+2. **Nguyên nhân kỹ thuật sâu xa**:
+   - Trong câu lệnh HQL/JPQL của phương thức `sumFreeToUseTheoKho` tại [TonKhoTongHopRepository.java](file:///d:/ISP490-FCentric/backend/src/main/java/com/dev/backend/repository/TonKhoTongHopRepository.java), điều kiện lọc kho của `ChiTietDonBanHang` viết là `ctdbh.donBanHang.kho.id = :khoId`.
+   - Tuy nhiên, Entity `DonBanHang` không có trường thuộc tính `kho` mà khai báo trường liên kết kho xuất là `Kho khoXuat;`.
+   - Khi chạy test đơn lẻ với mockito (`@ExtendWith(MockitoExtension.class)`), Spring Context không nạp nên HQL parser không kiểm tra. Khi ứng dụng thực tế khởi động, `JpaRepositoriesRegistrar` phân tích cây AST của câu HQL và báo lỗi vi phạm schema đối tượng.
+
+#### 2. GIẢI PHÁP KỸ THUẬT & CHI TIẾT TRIỂN KHAI
+1. **Sửa trường thuộc tính trong HQL**:
+   - Thay thế `ctdbh.donBanHang.kho.id = :khoId` bằng `ctdbh.donBanHang.khoXuat.id = :khoId`.
+   - Đồng bộ điều kiện `ChiTietPhieuXuatKho`: `ctpx.phieuXuatKho.kho.id = :khoId`, `ctpx.phieuXuatKho.trangThai = 3`, `ctpx.phieuXuatKho.donBanHang.loaiChungTu = 'don_ban_hang'` và `ctpx.phieuXuatKho.donBanHang.trangThai IN :trangThaiGiuHang` khớp chuẩn 100% với công thức toàn chuỗi.
+
+#### 3. KẾT QUẢ KIỂM THỬ VÀ ĐỐI SOÁT
+1. **Kiểm thử tích hợp Spring Boot (`@SpringBootTest`)**:
+   - Chạy `BackendApplicationTests` với Spring Boot Context thực tế: Nạp và validate thành công toàn bộ **94 JPA Repositories**, khởi động Hibernate EntityManagerFactory và Fail-safe seed: **1/1 test PASS (Time elapsed: 27.53 s, BUILD SUCCESS)**.
+2. **Kiểm thử đơn vị đa kho**:
+   - `ShopifyMultiLocationInventoryTest`: 5/5 tests PASS.
+3. **Đóng gói Artifact**:
+   - `mvnw.cmd -DskipTests package` hoàn tất xuất sắc (`BUILD SUCCESS`).
+
 
