@@ -43,3 +43,4 @@ public class KenhKhoMappingItemDto implements Serializable {
     /** Tồn khả dụng thực tế hiện tại của kho FCentric tương ứng (phục vụ hiển thị trên UI) */
     private Integer tonKhaDungHienTai;
 }
+

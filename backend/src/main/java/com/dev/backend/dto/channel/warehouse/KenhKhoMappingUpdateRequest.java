@@ -36,3 +36,4 @@ public class KenhKhoMappingUpdateRequest implements Serializable {
     /** ID kho FCentric mặc định dự phòng */
     private Integer khoIdMacDinh;
 }
+

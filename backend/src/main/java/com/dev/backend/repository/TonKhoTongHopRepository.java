@@ -272,7 +272,7 @@ public interface TonKhoTongHopRepository extends JpaRepository<BienTheSanPham, I
                         FROM ChiTietDonBanHang ctdbh
                         WHERE ctdbh.bienTheSanPham = bt
                           AND ctdbh.donBanHang.loaiChungTu = 'don_ban_hang'
-                          AND ctdbh.donBanHang.kho.id = :khoId
+                          AND ctdbh.donBanHang.khoXuat.id = :khoId
                           AND ctdbh.donBanHang.trangThai IN :trangThaiGiuHang), 0
                    )
                    +
@@ -282,8 +282,9 @@ public interface TonKhoTongHopRepository extends JpaRepository<BienTheSanPham, I
                         WHERE ctpx.bienTheSanPham = bt
                           AND ctpx.loHang IS NOT NULL
                           AND ctpx.phieuXuatKho.kho.id = :khoId
-                          AND ctpx.phieuXuatKho.loaiXuat IN ('ban_hang', 'kenh_ban')
-                          AND ctpx.phieuXuatKho.trangThai = 3), 0
+                          AND ctpx.phieuXuatKho.trangThai = 3
+                          AND ctpx.phieuXuatKho.donBanHang.loaiChungTu = 'don_ban_hang'
+                          AND ctpx.phieuXuatKho.donBanHang.trangThai IN :trangThaiGiuHang), 0
                    ),
                    0
                ) AS BigDecimal)

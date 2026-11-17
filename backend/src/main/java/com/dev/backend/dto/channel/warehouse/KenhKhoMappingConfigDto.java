@@ -59,3 +59,4 @@ public class KenhKhoMappingConfigDto implements Serializable {
         private String diaChi;
     }
 }
+
