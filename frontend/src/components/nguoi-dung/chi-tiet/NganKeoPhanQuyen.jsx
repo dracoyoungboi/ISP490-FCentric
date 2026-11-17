@@ -121,11 +121,21 @@ const KY_HIEU = {
   bo: { k: "−", lop: "text-red-700" },
 };
 
-/** Một dòng quyền: ô chọn, tên, biểu tượng nhạy cảm (xám), nhãn "mẫu" (xám), mô tả, chữ "vừa thêm / vừa bỏ". */
+/**
+ * Một dòng quyền: ô chọn, tên, biểu tượng nhạy cảm (xám), nhãn "mẫu" (xám), mô tả, chữ "vừa thêm / vừa bỏ".
+ * Quyền ngoài trần của vai trò (`d.ngoaiTran`): không tích thêm được, chỉ bỏ được nếu đang có.
+ */
 function DongQuyen({ d, doi, coMau, onDoi }) {
+  const khoa = d.ngoaiTran && !d.cap;
   return (
-    <label className="flex cursor-pointer items-start gap-2.5 border-t border-slate-100 px-3 py-2 first:border-t-0 hover:bg-bo-surface-subtle">
-      <input type="checkbox" checked={d.cap} onChange={onDoi} className="mt-0.5 size-4 shrink-0 accent-bo-primary" />
+    <label
+      className={cn(
+        "flex items-start gap-2.5 border-t border-slate-100 px-3 py-2 first:border-t-0",
+        khoa ? "cursor-not-allowed opacity-60" : "cursor-pointer hover:bg-bo-surface-subtle",
+      )}
+      title={khoa ? t("Vai trò này không được cấp quyền này") : undefined}
+    >
+      <input type="checkbox" checked={d.cap} disabled={khoa} onChange={onDoi} className="mt-0.5 size-4 shrink-0 accent-bo-primary" />
       <span className="min-w-0 flex-1">
         <span className="flex flex-wrap items-center gap-1.5 text-[13px] font-medium leading-5">
           {d.ten}
@@ -180,8 +190,15 @@ export default function NganKeoPhanQuyen({
   const goc = useMemo(() => banNhapTuNguoiDung(nguoiDung), [nguoiDung]);
   const pqGoc = useMemo(() => phanQuyenHienCo(nguoiDung).pq, [nguoiDung]);
   // Trang cha đặt `key` mới mỗi lần mở, nên giá trị ban đầu chỉ tính một lần cho mỗi lần mở
+  // Trần quyền của vai trò (máy chủ bản cũ không trả: null = không giới hạn). Mẫu lưu từ trước có thể còn quyền ngoài
+  // trần: bỏ khi điền mẫu để không tự cấp quyền máy chủ sẽ từ chối
+  const tranCua = (vaiTro) => (Array.isArray(cauHinh?.tranQuyen?.[vaiTro]) ? cauHinh.tranQuyen[vaiTro] : null);
+  const locTran = (ids, vaiTro) => {
+    const tran = tranCua(vaiTro);
+    return tran ? ids.filter((id) => tran.includes(id)) : ids;
+  };
   const mauBanDau =
-    dienMauKhiMo && goc.khoId != null && canKho(goc.vaiTro) ? (cauHinh?.mauQuyen?.[goc.vaiTro] ?? []) : [];
+    dienMauKhiMo && goc.khoId != null && canKho(goc.vaiTro) ? locTran(cauHinh?.mauQuyen?.[goc.vaiTro] ?? [], goc.vaiTro) : [];
   const [nhap, setNhap] = useState(() =>
     mauBanDau.length ? { ...goc, quyenIds: [...mauBanDau].sort((a, b) => a - b) } : goc,
   );
@@ -215,7 +232,7 @@ export default function NganKeoPhanQuyen({
     return k ? k.tenKho || k.maKho : `kho #${id}`;
   };
 
-  const mauCua = (vaiTro) => cauHinh?.mauQuyen?.[vaiTro] ?? [];
+  const mauCua = (vaiTro) => locTran(cauHinh?.mauQuyen?.[vaiTro] ?? [], vaiTro);
   const mau = mauCua(nhap.vaiTro);
   const ngu = {
     dsQuyen,
@@ -224,6 +241,7 @@ export default function NganKeoPhanQuyen({
     nhayCam: cauHinh?.quyenNhayCam ?? [],
     daApDung: cauHinh?.quyenDaApDung ?? null,
     menu,
+    tran: tranCua(nhap.vaiTro),
   };
   const danhGia = danhGiaQuyen({ vaiTro: nhap.vaiTro, quyenIds: nhap.quyenIds, ...ngu });
   const kiemTra = kiemTraBanNhap(nhap, ngu);
@@ -320,8 +338,9 @@ export default function NganKeoPhanQuyen({
   };
 
   const soMan = (vaiTro) => soManHinh(menu, vaiTro);
-  // Quyền dùng được với vai trò đang chọn: hiện trong các nhóm. Quyền không dùng được: gom vào một khung gập
-  const dungDuoc = (d) => quyenCoTacDung(d.ma, nhap.vaiTro, menu);
+  // Quyền dùng được với vai trò đang chọn: hiện trong các nhóm. Quyền không dùng được (vai trò không mở màn hình dùng
+  // quyền, hoặc quyền ngoài trần của vai trò): gom vào một khung gập
+  const dungDuoc = (d) => !d.ngoaiTran && quyenCoTacDung(d.ma, nhap.vaiTro, menu);
   const dongVoHieu = danhGia.nhom.flatMap((n) => n.dong).filter((d) => !dungDuoc(d));
   const soVoHieuCap = dongVoHieu.filter((d) => d.cap).length;
   const coMauSoSanh = Boolean(cauHinh) && mau.length > 0;
@@ -375,7 +394,8 @@ export default function NganKeoPhanQuyen({
                       chon={nhap.vaiTro === vt.ma}
                       tat={tat}
                       title={tat ? t("Bạn không tự đổi vai trò của mình được") : undefined}
-                      onChon={() => sua({ vaiTro: vt.ma })}
+                      // Đổi vai trò: bỏ quyền ngoài trần của vai trò mới (máy chủ sẽ từ chối lưu)
+                      onChon={() => sua({ vaiTro: vt.ma, quyenIds: locTran(nhap.quyenIds, vt.ma) })}
                     >
                       {({ onChange, disabled, checked }) => (
                         <>
@@ -694,7 +714,11 @@ export default function NganKeoPhanQuyen({
                                   ? t("{{count}} quyền đang cấp nhưng không dùng được với {{vaiTro}}", { count: soVoHieuCap, vaiTro: tenVaiTro(nhap.vaiTro) })
                                   : t("{{count}} quyền khác không dùng được với {{vaiTro}}", { count: dongVoHieu.length, vaiTro: tenVaiTro(nhap.vaiTro) })}
                               </div>
-                              <div className="text-xs leading-4 text-bo-muted">{t("Vai trò này không mở màn hình dùng các quyền đó.")}</div>
+                              <div className="text-xs leading-4 text-bo-muted">
+                                {dongVoHieu.some((d) => d.ngoaiTran)
+                                  ? t("Vai trò này không được cấp hoặc không mở màn hình dùng các quyền đó.")
+                                  : t("Vai trò này không mở màn hình dùng các quyền đó.")}
+                              </div>
                             </div>
                             {soVoHieuCap ? (
                               <Button

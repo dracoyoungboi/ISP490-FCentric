@@ -25,7 +25,7 @@ import QuyenTruyCap from "@/components/nguoi-dung/chi-tiet/QuyenTruyCap";
 import LichSuPhanQuyen from "@/components/nguoi-dung/chi-tiet/LichSuPhanQuyen";
 import ThuocTinhNguoiDung from "@/components/nguoi-dung/chi-tiet/ThuocTinhNguoiDung";
 import NganKeoPhanQuyen from "@/components/nguoi-dung/chi-tiet/NganKeoPhanQuyen";
-import { danhGiaQuyen, gopLichSuNguoiDung, phanQuyenHienCo, vanDeCanXemLai } from "@/components/nguoi-dung/phanQuyen";
+import { danhGiaQuyen, gopLichSuNguoiDung, locMauTheoTran, phanQuyenHienCo, vanDeCanXemLai } from "@/components/nguoi-dung/phanQuyen";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import { toast } from "@/lib/thongBaoNhanh";
@@ -181,10 +181,15 @@ function ChiTietNguoiDung({ id }) {
                 quyenIds: pq ? quyenIds : [],
                 dsQuyen: thamChieu?.dsQuyen ?? [],
                 // Không đọc được cấu hình: null để không ghi nhầm "vai trò chưa có mẫu"
-                mau: thamChieu && !thamChieu.cauHinh ? null : (thamChieu?.cauHinh?.mauQuyen?.[nguoiDung?.vaiTro] ?? []),
+                // Mẫu lưu trước khi có trần quyền có thể còn quyền ngoài trần: so với phần trong trần (như ngăn kéo)
+                mau: thamChieu && !thamChieu.cauHinh ? null : locMauTheoTran(
+                    thamChieu?.cauHinh?.mauQuyen?.[nguoiDung?.vaiTro] ?? [],
+                    thamChieu?.cauHinh?.tranQuyen?.[nguoiDung?.vaiTro],
+                ),
                 nhayCam: thamChieu?.cauHinh?.quyenNhayCam ?? [],
                 daApDung: thamChieu?.cauHinh?.quyenDaApDung ?? null,
                 menu: SIDEBAR_MENU,
+                tran: thamChieu?.cauHinh?.tranQuyen?.[nguoiDung?.vaiTro] ?? null,
             }),
         [nguoiDung, pq, quyenIds, thamChieu],
     );

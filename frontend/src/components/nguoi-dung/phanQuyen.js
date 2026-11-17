@@ -227,8 +227,11 @@ export function phanQuyenHienCo(nguoiDung) {
  * - `daApDung`: mã quyền máy chủ đang kiểm; `null` khi không đọc được (không gắn "Chưa áp dụng"). Máy chủ luôn kiểm
  *   ít nhất một quyền, nên mảng rỗng cũng coi là không đọc được (máy chủ bản cũ trả rỗng khi quét lỗi).
  */
-export function danhGiaQuyen({ vaiTro, quyenIds, dsQuyen, mau = [], nhayCam = [], daApDung = null, menu = [] }) {
+export function danhGiaQuyen({ vaiTro, quyenIds, dsQuyen, mau = [], nhayCam = [], daApDung = null, menu = [], tran = null }) {
   const co = new Set(quyenIds ?? []);
+  // Trần quyền của vai trò (id quyền được cấp, theo ma trận phân quyền SRS 4.4; máy chủ trả ở cauHinh.tranQuyen).
+  // null = máy chủ bản cũ chưa có trần: không quyền nào bị coi là ngoài trần
+  const tranSet = Array.isArray(tran) && vaiTro !== QUAN_TRI_VIEN ? new Set(tran) : null;
   const trongMau = new Set(mau ?? []);
   // Vai trò chưa có mẫu (hoặc không tải được cấu hình) thì không so với mẫu: không quyền nào "Ngoài mẫu"
   const coMauCauHinh = trongMau.size > 0;
@@ -253,7 +256,9 @@ export function danhGiaQuyen({ vaiTro, quyenIds, dsQuyen, mau = [], nhayCam = []
         trongMau: trongMau.has(q.id),
         ngoaiMau: cap && coMauCauHinh && !trongMau.has(q.id),
         nhayCam: nhay.has(q.id),
-        voHieu: cap && !tacDung(q.maQuyen),
+        // Vai trò không được cấp quyền này (máy chủ từ chối lưu): khóa ô chọn, chỉ cho bỏ nếu đang có
+        ngoaiTran: tranSet !== null && !tranSet.has(q.id),
+        voHieu: cap && !(tranSet !== null && !tranSet.has(q.id)) && !tacDung(q.maQuyen),
         chuaApDung: cap && apDung !== null && !apDung.has(q.maQuyen),
       };
     });
@@ -269,11 +274,21 @@ export function danhGiaQuyen({ vaiTro, quyenIds, dsQuyen, mau = [], nhayCam = []
     ngoaiMau: tatCa.filter((d) => d.ngoaiMau),
     thieuMau: tatCa.filter((d) => !d.cap && d.trongMau),
     voHieu: tatCa.filter((d) => d.voHieu),
+    ngoaiTran: tatCa.filter((d) => d.cap && d.ngoaiTran),
     chuaApDung: tatCa.filter((d) => d.chuaApDung),
     capTrung: CAP_TAO_DUYET.filter((c) => maCo.has(c.tao) && maCo.has(c.duyet)),
     soMau: trongMau.size,
     khongDocDuocMau: mau === null,
   };
+}
+
+/**
+ * Mẫu quyền chỉ gồm quyền trong trần của vai trò (`tran`: id quyền, từ cauHinh.tranQuyen). Mẫu lưu trước khi có trần có
+ * thể còn quyền ngoài trần; `tran` không phải mảng (máy chủ bản cũ) thì giữ nguyên mẫu.
+ */
+export function locMauTheoTran(mau, tran) {
+  const ds = Array.isArray(mau) ? mau : [];
+  return Array.isArray(tran) ? ds.filter((id) => tran.includes(id)) : ds;
 }
 
 const vietHoaDau = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
@@ -290,6 +305,14 @@ export function vanDeCanXemLai({ vaiTro, coKho, danhGia }) {
     return [{ ma: "chuaCap", chinh: t("Chưa cấp quyền nào"), phu: t("người này chưa làm được việc gì ở kho"), maQuyen: [] }];
   }
   const ds = [];
+  if (danhGia.ngoaiTran?.length) {
+    ds.push({
+      ma: "ngoaiTran",
+      chinh: t("{{count}} quyền vai trò này không được cấp", { count: danhGia.ngoaiTran.length }),
+      phu: danhGia.ngoaiTran.map((d) => d.ten).join(", "),
+      maQuyen: danhGia.ngoaiTran.map((d) => d.ma),
+    });
+  }
   if (danhGia.capTrung.length) {
     ds.push({
       ma: "taoDuyet",
@@ -522,7 +545,7 @@ export function quyenNhayCamCapThem(goc, nhap, { dsQuyen = [], nhayCam = [], men
  */
 export function kiemTraBanNhap(
   nhap,
-  { dsQuyen = [], mau = [], nhayCam = [], daApDung = null, menu = [], homNay = sangNgayNhap(new Date()) } = {},
+  { dsQuyen = [], mau = [], nhayCam = [], daApDung = null, menu = [], tran = null, homNay = sangNgayNhap(new Date()) } = {},
 ) {
   const muc = [];
   const them = (loai, tieuDe, moTa) => muc.push({ loai, tieuDe, moTa });
@@ -547,7 +570,16 @@ export function kiemTraBanNhap(
       chanLuu = true;
       them("canhBao", t("Ngày hết hiệu lực đã qua"), t("Chọn từ hôm nay trở đi, hoặc đổi sang Không thời hạn."));
     }
-    const dg = danhGiaQuyen({ vaiTro, quyenIds: nhap.quyenIds, dsQuyen, mau, nhayCam, daApDung, menu });
+    const dg = danhGiaQuyen({ vaiTro, quyenIds: nhap.quyenIds, dsQuyen, mau, nhayCam, daApDung, menu, tran });
+    if (dg.ngoaiTran.length) {
+      // Máy chủ từ chối lưu quyền ngoài trần của vai trò: phải bỏ trước khi lưu
+      chanLuu = true;
+      them(
+        "canhBao",
+        t("{{count}} quyền vai trò này không được cấp", { count: dg.ngoaiTran.length }),
+        t("Theo ma trận phân quyền, {{tenVt}} không được cấp: {{dsQuyen}}. Bỏ chọn rồi lưu.", { tenVt, dsQuyen: dg.ngoaiTran.map((d) => d.ten).join(", ") }),
+      );
+    }
     if (dg.capTrung.length) {
       them(
         "canhBao",
