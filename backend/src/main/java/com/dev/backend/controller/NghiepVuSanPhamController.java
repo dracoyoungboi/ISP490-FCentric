@@ -35,22 +35,13 @@ public class NghiepVuSanPhamController {
     @Autowired
     private HangNhapKhoTongService hangNhapKhoTongService;
 
-    // Tạo yêu cầu nhập hàng để cho quản lý duyệt
+    // Tạo yêu cầu nhập hàng để cho quản lý duyệt. SRS 4.4 "Purchase Request – Create / Edit / Submit": quản lý kho và
+    // nhân viên kho tại kho của mình (nhân viên mua hàng chỉ xem, nhân viên bán hàng không có). Không đòi quyền
+    // tao_don_mua_hang: mã quyền đó là "tạo đơn mua" của nhân viên mua hàng, không phải lập yêu cầu nhập.
     @PostMapping("/yeu-cau-mua-hang/create")
     @RequireAuth(
-        roles = {
-                IRoleType.quan_tri_vien,
-                IRoleType.nhan_vien_ban_hang,
-                IRoleType.nhan_vien_mua_hang,
-                IRoleType.nhan_vien_kho
-
-        },
-                permissions = {
-                        IPermissionType.tao_don_mua_hang
-                },
-                inWarehouse = true,
-                rolesLogic = RequireAuth.LogicType.OR,
-                permissionsLogic = RequireAuth.LogicType.AND
+            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho},
+            inWarehouse = true
     )
     public ResponseEntity<ResponseData<YeuCauMuaHangDto>> createYeuCauMuaHang(@RequestBody YeuCauMuaHangCreating creating) {
         return yeuCauMuaHangService.create(creating);
@@ -60,18 +51,8 @@ public class NghiepVuSanPhamController {
     // ở Kho tổng (khoId trống: Kho tổng đầu tiên). Cùng quyền với tạo yêu cầu.
     @GetMapping("/yeu-cau-mua-hang/hang-kho-tong")
     @RequireAuth(
-            roles = {
-                    IRoleType.quan_tri_vien,
-                    IRoleType.nhan_vien_ban_hang,
-                    IRoleType.nhan_vien_mua_hang,
-                    IRoleType.nhan_vien_kho
-            },
-            permissions = {
-                    IPermissionType.tao_don_mua_hang
-            },
-            inWarehouse = true,
-            rolesLogic = RequireAuth.LogicType.OR,
-            permissionsLogic = RequireAuth.LogicType.AND
+            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho},
+            inWarehouse = true
     )
     public ResponseEntity<ResponseData<HangNhapKhoTongResponse>> hangKhoTong(
             @RequestParam(required = false) Integer khoId) {
@@ -115,33 +96,18 @@ public class NghiepVuSanPhamController {
 
     // Gửi yêu cầu báo giá đến nhiều nhà cung cấp khác nhau.
     // Danh sách vai trò phải trùng IRoleType.GUI_YEU_CAU_BAO_GIA (annotation không nhận Set; có test đối chiếu).
+    // SRS 4.4 "RFQ – Create / View / Process": chỉ nhân viên mua hàng.
     // 409 THIEU_THONG_TIN_CUA_HANG khi thiếu tên đăng ký kinh doanh / địa chỉ đăng ký; 409 YEU_CAU_DA_GUI khi bấm 2 lần.
     @PostMapping("/don-mua-hang/gui-yeu-cau-bao-gia")
-    @RequireAuth(
-            roles = {
-                    IRoleType.quan_tri_vien,
-                    IRoleType.quan_ly_kho,
-                    IRoleType.nhan_vien_mua_hang,
-                    IRoleType.nhan_vien_kho
-            },
-            rolesLogic = RequireAuth.LogicType.OR
-    )
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.nhan_vien_mua_hang})
     public ResponseEntity<ResponseData<String>> guiYeuCauDenNhaCungCap(@RequestBody YeuCauDenNhaCungCapCreating yeuCau){
         return donMuaHangService.guiYeuCauBaoGiaDenNhaCungCap(yeuCau);
     }
 
-    // K11: gửi lại email yêu cầu báo giá (đúng mã đơn cũ) khi lần đầu chưa gửi được. Cùng 4 vai trò với API gửi
+    // K11: gửi lại email yêu cầu báo giá (đúng mã đơn cũ) khi lần đầu chưa gửi được. Cùng vai trò với API gửi
     // (phải trùng IRoleType.GUI_YEU_CAU_BAO_GIA, có test đối chiếu). 409 KHONG_GUI_LAI_DUOC khi không đủ điều kiện.
     @PostMapping("/don-mua-hang/{id}/gui-lai-yeu-cau")
-    @RequireAuth(
-            roles = {
-                    IRoleType.quan_tri_vien,
-                    IRoleType.quan_ly_kho,
-                    IRoleType.nhan_vien_mua_hang,
-                    IRoleType.nhan_vien_kho
-            },
-            rolesLogic = RequireAuth.LogicType.OR
-    )
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.nhan_vien_mua_hang})
     public ResponseEntity<ResponseData<GuiLaiYeuCauDto>> guiLaiYeuCauBaoGia(@PathVariable Integer id) {
         return ResponseEntity.ok(
                 ResponseData.<GuiLaiYeuCauDto>builder()

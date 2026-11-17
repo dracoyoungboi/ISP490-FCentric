@@ -56,11 +56,14 @@ import java.util.function.Supplier;
 @RequiredArgsConstructor
 public class ThongBaoMuaHangService {
 
-    /** Vai trò gửi được yêu cầu báo giá (khớp NghiepVuSanPhamController, frontend vaiTroGuiYeuCauBaoGia.js). */
-    static final Set<String> VAI_TRO_GUI_YEU_CAU_BAO_GIA = Set.of(IRoleType.quan_tri_vien, IRoleType.quan_ly_kho,
-            IRoleType.nhan_vien_mua_hang, IRoleType.nhan_vien_kho);
+    /**
+     * Vai trò gửi được yêu cầu báo giá: SRS 4.4 "RFQ" chỉ nhân viên mua hàng (và quản trị viên). Dùng chung
+     * IRoleType.GUI_YEU_CAU_BAO_GIA (khớp NghiepVuSanPhamController, frontend constants/vaiTroTheoNghiepVu.js).
+     */
+    static final Set<String> VAI_TRO_GUI_YEU_CAU_BAO_GIA = IRoleType.GUI_YEU_CAU_BAO_GIA;
     /** Vai trò mở được màn báo giá /quotation/:id (khớp DonMuaHangController.getById). */
-    static final Set<String> VAI_TRO_XEM_BAO_GIA = VAI_TRO_GUI_YEU_CAU_BAO_GIA;
+    static final Set<String> VAI_TRO_XEM_BAO_GIA = Set.of(IRoleType.quan_tri_vien, IRoleType.quan_ly_kho,
+            IRoleType.nhan_vien_mua_hang, IRoleType.nhan_vien_kho);
     /** Vai trò có nút Chấp nhận / Không chấp nhận báo giá (khớp VAI_TRO_CHOT_BAO_GIA ở QuotationDetail.jsx). */
     static final Set<String> VAI_TRO_CHOT_BAO_GIA = Set.of(IRoleType.quan_tri_vien, IRoleType.nhan_vien_mua_hang);
 
@@ -129,7 +132,7 @@ public class ThongBaoMuaHangService {
                 String daDuyet = tenNguoiXet == null ? cau("daDuyet") : cau("nguoiDaDuyet", tenNguoiXet);
                 // Cả hai câu là một khóa: tên người có thể có ". " (vd. "Nguyễn V. An"), tách câu sẽ cắt nhầm
                 String nhac = tenNguoiXet == null ? cau("daDuyetNhacBaoGia") : cau("nguoiDaDuyetNhacBaoGia", tenNguoiXet);
-                // Người lập không gửi được yêu cầu báo giá (vd. nhân viên bán hàng): không nhắc việc họ không làm được,
+                // Người lập không gửi được yêu cầu báo giá (quản lý kho, nhân viên kho): không nhắc việc họ không làm được,
                 // báo nhân viên mua hàng của kho nhập làm tiếp
                 if (nguoiTaoId == null || coVaiTro(VAI_TRO_GUI_YEU_CAU_BAO_GIA, vaiTro(nguoiTaoId))) {
                     return List.of(new GuiDi(nguoiLap, nguoiXetId, noiDungDuyet(tieuDe, nhac, duongDan, id, khoId, khoa)));

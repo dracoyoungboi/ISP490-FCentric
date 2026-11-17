@@ -27,17 +27,9 @@ public class YeuCauMuaHangController {
 
     // Xem chi tiết yêu cầu nhập hàng (kèm lý do từ chối / ngày duyệt từ lịch sử).
     // Bắt buộc đăng nhập: dữ liệu có email, SĐT người tạo và quản lý kho.
+    // SRS 4.4 "Purchase Request": quản lý kho, nhân viên kho; nhân viên mua hàng chỉ xem
     @GetMapping("/get-by-id/{id}")
-    @RequireAuth(
-            roles = {
-                    IRoleType.quan_tri_vien,
-                    IRoleType.quan_ly_kho,
-                    IRoleType.nhan_vien_mua_hang,
-                    IRoleType.nhan_vien_kho,
-                    IRoleType.nhan_vien_ban_hang
-            },
-            rolesLogic = RequireAuth.LogicType.OR
-    )
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho, IRoleType.nhan_vien_mua_hang})
     public ResponseEntity<ResponseData<YeuCauMuaHangDto>> getById(@PathVariable Integer id) {
         return ResponseEntity.ok(
                 ResponseData.<YeuCauMuaHangDto>builder()
@@ -62,16 +54,7 @@ public class YeuCauMuaHangController {
 
     // Filter yêu cầu nhập hàng theo các trường của entity (bắt buộc đăng nhập)
     @PostMapping("/filter")
-    @RequireAuth(
-            roles = {
-                    IRoleType.quan_tri_vien,
-                    IRoleType.quan_ly_kho,
-                    IRoleType.nhan_vien_mua_hang,
-                    IRoleType.nhan_vien_kho,
-                    IRoleType.nhan_vien_ban_hang
-            },
-            rolesLogic = RequireAuth.LogicType.OR
-    )
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho, IRoleType.nhan_vien_mua_hang})
     public ResponseEntity<ResponseData<Page<YeuCauMuaHangDto>>> filter(@RequestBody BaseFilterRequest filter) {
         return ResponseEntity.ok(
                 ResponseData.<Page<YeuCauMuaHangDto>>builder()
