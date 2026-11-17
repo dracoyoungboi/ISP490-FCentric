@@ -28,8 +28,9 @@ public class LoHangController {
     private LoHangMapper loHangMapper;
 
 
+    // Không lọc theo kho được phân và giao diện không gọi: chỉ quản trị viên
     @GetMapping("/all")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     public ResponseEntity<ResponseData<List<LoHangDto>>> getAll() {
         return ResponseEntity.ok(
                 ResponseData.<List<LoHangDto>>builder()
@@ -41,7 +42,7 @@ public class LoHangController {
     }
 
     @GetMapping("/get-by-id/{id}")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     public ResponseEntity<ResponseData<LoHangDto>> getById(@PathVariable Integer id) {
         return ResponseEntity.ok(
                 ResponseData.<LoHangDto>builder()
@@ -54,7 +55,7 @@ public class LoHangController {
     }
 
     @PostMapping("/filter")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     public ResponseEntity<ResponseData<Page<LoHangDto>>> filter(@RequestBody BaseFilterRequest filter) {
         return ResponseEntity.ok(
                 ResponseData.<Page<LoHangDto>>builder()
