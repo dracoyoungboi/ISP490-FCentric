@@ -38,6 +38,7 @@ import { DON_BAN_HANG_DA_KET_THUC_KHONG_THU, DON_BAN_HANG_TABS, DON_BAN_HANG_THA
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useTaiLaiDanhSach from "@/hooks/useTaiLaiDanhSach";
+import useDonHangRealtime from "@/hooks/useDonHangRealtime";
 import useTuKhoaTuUrl, { docTuKhoaUrl } from "@/hooks/useTuKhoaTuUrl";
 import { trangCuoiNeuVuot } from "@/lib/tinhTaiLai";
 import { t } from "@/i18n";
@@ -336,6 +337,12 @@ export default function DonBanHangList() {
     },
     bat: !loading,
   });
+
+  useDonHangRealtime(async () => {
+    tabCounts.reload();
+    donNhap.reload();
+    await fetchData({ silent: true });
+  }, { bat: !isChannelOrderMock });
 
   // Số chỉ hiện khi đếm xong và danh sách không lỗi (R9); số 0 tự ẩn trong StatusTabs
   const statusTabs = DON_BAN_HANG_TABS.map((tb) => ({

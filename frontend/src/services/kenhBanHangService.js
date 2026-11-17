@@ -84,6 +84,7 @@ const realApi = {
         return apiClient.put(`${BASE}/shopify`, payload).then(data);
       }),
   testShopifyConnection: (payload) => apiClient.post(`${BASE}/shopify/test-connection`, payload).then(data),
+  batNhanThayDoiShopify: () => apiClient.post(`${BASE}/shopify/nhan-thay-doi`).then(data),
   /** Cấp lại khóa: POST /SHOPIFY/lam-moi-token (KetNoiKenhDto); máy chủ chưa có thì POST /shopify/refresh-token như trước. */
   refreshShopifyToken: () =>
     apiClient
@@ -389,6 +390,7 @@ const mockApi = {
   getShopifyConfig: kenhBanHangMock.getShopifyConfig,
   updateShopifyConfig: (payload) => kenhBanHangMock.updateShopifyConfig(payload).then(ketNoiShopifyMau),
   testShopifyConnection: kenhBanHangMock.testShopifyConnection,
+  batNhanThayDoiShopify: async () => ({ ready: false, message: t("Chế độ dữ liệu mẫu không nhận thay đổi từ Shopify.") }),
   refreshShopifyToken: () => kenhBanHangMock.refreshShopifyToken().then(ketNoiShopifyMau),
 
   async getDanhSachKetNoi() {

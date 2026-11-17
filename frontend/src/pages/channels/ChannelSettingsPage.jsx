@@ -328,6 +328,15 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, khoMapping, onConfigS
       }
     });
 
+  const batNhanThayDoi = () => chay("nhan-thay-doi", async () => {
+    try {
+      const res = await kenhBanHangService.batNhanThayDoiShopify();
+      setKetQuaKetNoi({ ok: true, warning: !res.ready, text: res.message });
+    } catch (error) {
+      setKetQuaKetNoi({ ok: false, text: getApiErrorMessage(error, t("Không bật được cập nhật tức thì")) });
+    }
+  });
+
   const capLaiKhoa = () =>
     chay("cap-lai-khoa", async () => {
       try {
@@ -459,6 +468,11 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, khoMapping, onConfigS
                     {dangChay === "kiem-tra" ? <Loader2 className="size-4 animate-spin" /> : null}
                     {t("Kiểm tra kết nối")}
                   </Button>
+                  {SAN.maKenh === "SHOPIFY" ? (
+                    <Button type="button" variant="outline" disabled={khoa} onClick={batNhanThayDoi} className="h-8 max-sm:h-11">
+                      {t("Bật cập nhật tức thì")}
+                    </Button>
+                  ) : null}
                   <DropdownMenu modal={false}>
                     <DropdownMenuTrigger asChild>
                       <Button

@@ -53,6 +53,7 @@ import { TRANG_THAI_DON } from "@/constants/trangThaiXuatBan";
 import useQuayLai from "@/hooks/useQuayLai";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
+import useDonHangRealtime from "@/hooks/useDonHangRealtime";
 import { toast } from "@/lib/thongBaoNhanh";
 import { donBanHangService } from "@/services/donBanHangService";
 import { donBanHangKenhService, isChannelOrderMock } from "@/services/donBanHangKenhService";
@@ -146,6 +147,7 @@ function ChiTietDonBanHang({ id }) {
 
   // Quay lại tab thì tải lại ngầm (kho đổi trạng thái khi nhặt, đóng gói, xuất); không tải khi đang thao tác
   useTaiLaiKhiQuayLai(() => q.reload(), { bat: Boolean(ct) && !q.loading && !dangChay && !hop, lanCuoi: q.capNhatLuc });
+  useDonHangRealtime(() => q.reload(), { bat: Boolean(ct) && !dangChay && !hop });
 
   // ── Tính toán ───────────────────────────────────────────────────────────
   const dong = useMemo(() => dongHangBan(ct?.chiTiet), [ct]);
