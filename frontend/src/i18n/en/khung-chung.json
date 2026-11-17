@@ -561,5 +561,17 @@
   "N_don_vi": "K",
   "Phân loại_nut": "Classify",
   "Cập nhật_ngay": "Last updated",
-  "Số đơn_dem": "Orders"
+  "Số đơn_dem": "Orders",
+  "Sao chép mã số thuế": "Copy tax ID",
+  "Ngừng hoặc cho phép hoạt động ở nút ⋯ trên trang khách hàng.": "Deactivate or reactivate from the ⋯ menu on the customer page.",
+  "Mã số thuế in ở mục Người mua trên hóa đơn; cần khi khách lấy hóa đơn GTGT": "The tax ID is printed in the Buyer section of the invoice and is needed when the customer requests a VAT invoice",
+  "In ở mục Người mua trên hóa đơn; cần khi khách lấy hóa đơn GTGT.": "Printed in the Buyer section of the invoice; needed when the customer requests a VAT invoice.",
+  "Mã cố định sau khi tạo": "The code can't be changed after creation",
+  "Tự tạo khi lưu": "Generated on save",
+  "Để trống thì hệ thống tự tạo mã. Chỉ nhập khi cần giữ mã từ sổ cũ.": "Leave blank to generate a code. Only enter one to keep a code from your old records.",
+  "Nhập di động, máy bàn hoặc số 1800/1900": "Enter a mobile, landline or 1800/1900 number",
+  "Nhập di động 10 số hoặc máy bàn 11 số": "Enter a 10-digit mobile or 11-digit landline number",
+  "In trên hóa đơn và tự điền vào báo giá; sửa được ở từng báo giá.": "Printed on invoices and filled into quotations; editable on each quotation.",
+  "Tự điền vào báo giá; sửa được ở từng báo giá.": "Filled into quotations; editable on each quotation.",
+  "Chưa có liên hệ": "No contact info"
 }
