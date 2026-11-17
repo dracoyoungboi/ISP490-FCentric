@@ -14,6 +14,7 @@ import { PRINT_DOCUMENT_GROUPS, PRINT_DOCUMENT_TYPES } from "@/components/print/
 import { isThermalPaper } from "@/components/print/paperStyles";
 import { printTemplateConfigService } from "@/services/printTemplateConfigService";
 import DongMauTem from "@/components/settings/DongMauTem";
+import { useSettingsPage } from "@/components/settings/useSettingsPage";
 import { t } from "@/i18n";
 
 /** "Khổ A4 · dọc", "Khổ K80 · máy in nhiệt". */
@@ -30,6 +31,8 @@ function moTaKhoGiay(schema, config) {
  * Tem sản phẩm là một dòng cùng khuôn ở cuối nhóm Kho (DongMauTem), sửa trong hộp riêng.
  */
 export default function PrintTemplateListPage() {
+  // Sửa mẫu in chỉ quản trị viên (CauHinhMauInController); quản lý kho xem danh sách mẫu đang dùng
+  const { canEdit } = useSettingsPage();
   const [rows, setRows] = useState(null);
   const [status, setStatus] = useState("loading");
   const [errorStatus, setErrorStatus] = useState(null);
@@ -38,7 +41,8 @@ export default function PrintTemplateListPage() {
     setStatus("loading");
     setErrorStatus(null);
     try {
-      await printTemplateConfigService.migrateLegacyLocalIfNeeded();
+      // Chuyển dữ liệu mẫu in đời cũ lên máy chủ là một lần ghi: chỉ người được sửa mới chạy
+      if (canEdit) await printTemplateConfigService.migrateLegacyLocalIfNeeded();
       const configs = await Promise.all(
         PRINT_DOCUMENT_TYPES.map((schema) => printTemplateConfigService.getActiveTemplate(schema.key)),
       );
@@ -54,7 +58,7 @@ export default function PrintTemplateListPage() {
       setErrorStatus(error?.response?.status ?? null);
       setStatus("error");
     }
-  }, []);
+  }, [canEdit]);
 
   useEffect(() => {
     let active = true;
@@ -110,7 +114,11 @@ export default function PrintTemplateListPage() {
         <SettingsCardHeader
           title={t("Mẫu chứng từ")}
           titleId="mau-in-tieu-de"
-          note={t("{{count}} loại chứng từ và tem sản phẩm, mỗi loại một mẫu đang dùng. Bấm tên để xem trước và sửa.", { count: rows.length })}
+          note={
+            canEdit
+              ? t("{{count}} loại chứng từ và tem sản phẩm, mỗi loại một mẫu đang dùng. Bấm tên để xem trước và sửa.", { count: rows.length })
+              : t("{{count}} loại chứng từ và tem sản phẩm, mỗi loại một mẫu đang dùng. Chỉ quản trị viên sửa được mẫu in.", { count: rows.length })
+          }
         />
 
         {groups.map((group, groupIndex) => (
@@ -132,12 +140,16 @@ export default function PrintTemplateListPage() {
                 >
                   <FileText className="size-[18px] shrink-0 text-[#7a8594]" aria-hidden="true" />
                   <div className="min-w-0 flex-1">
-                    <Link
-                      to={`/settings/print-templates/${schema.slug}`}
-                      className="text-sm leading-5 font-medium text-bo-foreground hover:text-bo-primary focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bo-primary"
-                    >
-                      {t(schema.label)}
-                    </Link>
+                    {canEdit ? (
+                      <Link
+                        to={`/settings/print-templates/${schema.slug}`}
+                        className="text-sm leading-5 font-medium text-bo-foreground hover:text-bo-primary focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bo-primary"
+                      >
+                        {t(schema.label)}
+                      </Link>
+                    ) : (
+                      <p className="text-sm leading-5 font-medium text-bo-foreground">{t(schema.label)}</p>
+                    )}
                     {schema.description ? (
                       <p className="mt-0.5 text-[13px] leading-5 text-bo-muted">{t(schema.description)}</p>
                     ) : null}
@@ -145,14 +157,16 @@ export default function PrintTemplateListPage() {
                     <p className="text-[13px] leading-5 text-[#5b6676] sm:hidden">{paper}</p>
                   </div>
                   <span className="hidden shrink-0 text-[13px] leading-5 whitespace-nowrap text-[#5b6676] sm:inline">{paper}</span>
-                  <Link
-                    to={`/settings/print-templates/${schema.slug}`}
-                    aria-label={t("Sửa mẫu {{ten}}", { ten: t(schema.label).toLowerCase() })}
-                    className="-mr-2.5 inline-flex h-8 shrink-0 items-center gap-1 rounded-md px-2.5 text-sm font-medium whitespace-nowrap text-bo-primary hover:bg-bo-primary-soft hover:text-bo-primary-hover focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bo-primary"
-                  >
-                    {t("Sửa mẫu")}
-                    <ChevronRight className="size-3.5" aria-hidden="true" />
-                  </Link>
+                  {canEdit ? (
+                    <Link
+                      to={`/settings/print-templates/${schema.slug}`}
+                      aria-label={t("Sửa mẫu {{ten}}", { ten: t(schema.label).toLowerCase() })}
+                      className="-mr-2.5 inline-flex h-8 shrink-0 items-center gap-1 rounded-md px-2.5 text-sm font-medium whitespace-nowrap text-bo-primary hover:bg-bo-primary-soft hover:text-bo-primary-hover focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bo-primary"
+                    >
+                      {t("Sửa mẫu")}
+                      <ChevronRight className="size-3.5" aria-hidden="true" />
+                    </Link>
+                  ) : null}
                 </li>
               ))}
               {group.key === "kho" ? <DongMauTem coVachTren={group.rows.length > 0} /> : null}

@@ -22,10 +22,10 @@ export const SETTINGS_GROUPS = [
 ];
 
 export const SETTINGS_PAGES = [
-  // ThongTinCongTyController: GET/PUT/logo cho QTV và QLK
-  { key: "store", label: t("Thông tin cửa hàng"), to: "/settings/store", group: "cua-hang", icon: Store, roles: [QTV, QLK], editRoles: [QTV, QLK] },
-  // CauHinhMauInController: QTV và QLK
-  { key: "print", label: t("Mẫu in"), to: "/settings/print-templates", group: "cua-hang", icon: Printer, roles: [QTV, QLK], editRoles: [QTV, QLK] },
+  // ThongTinCongTyController: GET cho QTV và QLK; PUT, logo chỉ QTV (quản lý kho chỉ xem)
+  { key: "store", label: t("Thông tin cửa hàng"), to: "/settings/store", group: "cua-hang", icon: Store, roles: [QTV, QLK], editRoles: [QTV] },
+  // CauHinhMauInController: GET cho QTV và QLK; sửa, kích hoạt, xóa mẫu chỉ QTV (quản lý kho chỉ xem)
+  { key: "print", label: t("Mẫu in"), to: "/settings/print-templates", group: "cua-hang", icon: Printer, roles: [QTV, QLK], editRoles: [QTV] },
   // Sản phẩm, Nhập kho, Tồn kho, Khách hàng, Đồng bộ kênh bán: GET /dieu-hanh-he-thong/cau-hinh cho QTV và QLK; PUT chỉ QTV
   { key: "product", label: t("Sản phẩm"), to: "/settings/product", group: "kho", icon: Barcode, roles: [QTV, QLK], editRoles: [QTV] },
   { key: "inbound", label: t("Nhập kho"), to: "/settings/inbound", group: "kho", icon: PackageCheck, roles: [QTV, QLK], editRoles: [QTV] },
@@ -34,12 +34,14 @@ export const SETTINGS_PAGES = [
   { key: "transfer", label: t("Chuyển kho"), to: "/settings/transfer", group: "kho", icon: ArrowLeftRight, roles: [QTV, QLK], editRoles: [QTV] },
   // Giấy đi đường XKNB của phiếu chuyển kho (XKNB_KY_HIEU_MAC_DINH, XKNB_CHE_DO) qua /dieu-hanh-he-thong/cau-hinh
   { key: "documents", label: t("Chứng từ và hóa đơn"), to: "/settings/documents", group: "kho", icon: FileText, roles: [QTV, QLK], editRoles: [QTV] },
-  { key: "customer", label: t("Khách hàng"), to: "/settings/customer", group: "ban-hang", icon: IdCard, roles: [QTV, QLK], editRoles: [QTV] },
+  // Mã khách hàng: SRS 4.4 "Customer" không cho quản lý kho
+  { key: "customer", label: t("Khách hàng"), to: "/settings/customer", group: "ban-hang", icon: IdCard, roles: [QTV], editRoles: [QTV] },
   // CauHinhThanhToanController: chỉ QTV
   { key: "payment", label: t("Thanh toán"), to: "/settings/payment", group: "ban-hang", icon: CreditCard, roles: [QTV], editRoles: [QTV] },
   // VAT_BAT qua /dieu-hanh-he-thong/cau-hinh, bảng thuế suất qua /ke-toan/thue-suat: GET cho QTV và QLK; ghi chỉ QTV
   { key: "vat", label: t("Thuế GTGT"), to: "/settings/vat", group: "ban-hang", icon: Percent, roles: [QTV, QLK], editRoles: [QTV] },
-  { key: "sync", label: t("Đồng bộ kênh bán"), to: "/settings/sync", group: "ban-hang", icon: RefreshCcw, roles: [QTV, QLK], editRoles: [QTV] },
+  // Đồng bộ kênh bán: SRS 4.4 "Omnichannel Integration" chỉ quản trị viên
+  { key: "sync", label: t("Đồng bộ kênh bán"), to: "/settings/sync", group: "ban-hang", icon: RefreshCcw, roles: [QTV], editRoles: [QTV] },
   // KeToanController: chỉ QTV (chưa có vai trò kế toán)
   { key: "accounting", label: t("Xuất kế toán"), to: "/settings/accounting", group: "ke-toan", icon: Calculator, roles: [QTV], editRoles: [QTV] },
 ];
