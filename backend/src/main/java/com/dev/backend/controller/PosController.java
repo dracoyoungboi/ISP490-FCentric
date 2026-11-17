@@ -179,15 +179,9 @@ public class PosController {
      * giữ nguyên khi retry sau timeout; server chặn race bằng unique constraint.
      * Trả 409 có cấu trúc (data.priceChanged) khi giá hiển thị đã đổi.
      */
+    // SRS 4.4 "Sales Order", "POS Payment": chỉ nhân viên bán hàng (quản lý kho không bán tại quầy)
     @PostMapping("/checkout")
-    @RequireAuth(
-            roles = {
-                    IRoleType.quan_tri_vien,
-                    IRoleType.quan_ly_kho,
-                    IRoleType.nhan_vien_ban_hang
-            },
-            rolesLogic = RequireAuth.LogicType.OR
-    )
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.nhan_vien_ban_hang})
     public ResponseEntity<ResponseData<PosCheckoutResponse>> checkout(
             @RequestBody PosCheckoutCreating request
     ) {
@@ -215,14 +209,7 @@ public class PosController {
 
     /** Phương thức thanh toán đang bật ở quầy: {cash: true, payos: true/false}. */
     @GetMapping("/payment-methods")
-    @RequireAuth(
-            roles = {
-                    IRoleType.quan_tri_vien,
-                    IRoleType.quan_ly_kho,
-                    IRoleType.nhan_vien_ban_hang
-            },
-            rolesLogic = RequireAuth.LogicType.OR
-    )
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.nhan_vien_ban_hang})
     public ResponseEntity<ResponseData<Map<String, Boolean>>> paymentMethods() {
         return ResponseEntity.ok(ResponseData.<Map<String, Boolean>>builder()
                 .status(200).data(posPayosService.paymentMethods()).message("Success").error(null).build());
@@ -233,14 +220,7 @@ public class PosController {
      * (requestId, khoId, khachHangId, items, note); phần payment bị bỏ qua.
      */
     @PostMapping("/payos/payment-links")
-    @RequireAuth(
-            roles = {
-                    IRoleType.quan_tri_vien,
-                    IRoleType.quan_ly_kho,
-                    IRoleType.nhan_vien_ban_hang
-            },
-            rolesLogic = RequireAuth.LogicType.OR
-    )
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.nhan_vien_ban_hang})
     public ResponseEntity<ResponseData<PayosPaymentLinkDto>> createPayosLink(@RequestBody PosCheckoutCreating request) {
         if (!checkoutEnabled) {
             throw new CommonException(ThongDiep.of("banHang.posChuaKichHoat"),
@@ -258,14 +238,7 @@ public class PosController {
 
     /** Trạng thái giao dịch chuyển khoản (màn POS hỏi mỗi vài giây). PAID -> kèm kết quả đơn. */
     @GetMapping("/payos/payment-links/{orderCode}")
-    @RequireAuth(
-            roles = {
-                    IRoleType.quan_tri_vien,
-                    IRoleType.nhan_vien_ban_hang,
-                    IRoleType.quan_ly_kho
-            },
-            rolesLogic = RequireAuth.LogicType.OR
-    )
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.nhan_vien_ban_hang})
     public ResponseEntity<ResponseData<PayosPaymentLinkDto>> getPayosLink(@PathVariable Long orderCode) {
         return ResponseEntity.ok(ResponseData.<PayosPaymentLinkDto>builder()
                 .status(200).data(posPayosService.getStatus(orderCode)).message("Success").error(null).build());
@@ -408,14 +381,7 @@ public class PosController {
      * của người khác. Không tìm thấy = kết quả chưa rõ (được phép thử lại cùng key).
      */
     @GetMapping("/checkout-requests/{requestId}")
-    @RequireAuth(
-            roles = {
-                    IRoleType.quan_tri_vien,
-                    IRoleType.nhan_vien_ban_hang,
-                    IRoleType.quan_ly_kho
-            },
-            rolesLogic = RequireAuth.LogicType.OR
-    )
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.nhan_vien_ban_hang})
     public ResponseEntity<ResponseData<PosCheckoutRecoveryResponse>> getCheckoutRequest(
             @PathVariable String requestId
     ) {

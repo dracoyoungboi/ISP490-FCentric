@@ -41,7 +41,7 @@ public class PosTraHangController {
 
     @GetMapping("/search")
     @Operation(summary = "Tìm hóa đơn POS gốc theo mã hóa đơn hoặc số điện thoại khách")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_ban_hang},
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.nhan_vien_ban_hang},
             rolesLogic = RequireAuth.LogicType.OR)
     public ResponseEntity<ResponseData<List<TraHangDto.DonTomTat>>> tim(@RequestParam Integer khoId,
                                                                        @RequestParam String q) {
@@ -50,7 +50,7 @@ public class PosTraHangController {
 
     @GetMapping("/recent")
     @Operation(summary = "Hóa đơn POS còn hạn trả (03 ngày), mới nhất trước; tatCa = true lấy mọi cửa hàng")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_ban_hang},
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.nhan_vien_ban_hang},
             rolesLogic = RequireAuth.LogicType.OR)
     public ResponseEntity<ResponseData<List<TraHangDto.DonTomTat>>> ganDay(@RequestParam Integer khoId,
                                                                           @RequestParam(defaultValue = "false") boolean tatCa) {
@@ -61,7 +61,7 @@ public class PosTraHangController {
     @Operation(summary = "Phiếu trả nhận tại cửa hàng khoId trong soNgay ngày gần nhất (1 = hôm nay, tối đa 30) "
             + "hoặc khoảng tuNgay–denNgay (yyyy-MM-dd, tối đa 1 năm); q lọc theo mã hóa đơn, mã phiếu, tên hoặc "
             + "số điện thoại khách. Mới nhất trước, kèm tổng tiền hoàn tiền mặt / chuyển khoản")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_ban_hang},
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.nhan_vien_ban_hang},
             rolesLogic = RequireAuth.LogicType.OR)
     public ResponseEntity<ResponseData<TraHangDto.LichSuPhieu>> lichSu(
             @RequestParam Integer khoId,
@@ -74,7 +74,7 @@ public class PosTraHangController {
 
     @GetMapping("/lookup")
     @Operation(summary = "Biên bản trả hàng theo mã phiếu RET-YYYYMMDD-XXXX")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_ban_hang},
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.nhan_vien_ban_hang},
             rolesLogic = RequireAuth.LogicType.OR)
     public ResponseEntity<ResponseData<TraHangDto.PhieuChiTiet>> phieuTheoMa(@RequestParam String ma) {
         return ok(traHangService.phieuTheoMa(ma), "Success");
@@ -82,7 +82,7 @@ public class PosTraHangController {
 
     @GetMapping("/orders/{donBanHangId}")
     @Operation(summary = "Thông tin đơn gốc và các dòng hàng còn trả được, tính cho cửa hàng nhận khoId")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_ban_hang},
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.nhan_vien_ban_hang},
             rolesLogic = RequireAuth.LogicType.OR)
     public ResponseEntity<ResponseData<TraHangDto.DonGoc>> donGoc(@PathVariable Integer donBanHangId,
                                                                  @RequestParam Integer khoId) {
@@ -91,7 +91,7 @@ public class PosTraHangController {
 
     @PostMapping("/approval-requests")
     @Operation(summary = "Yêu cầu quản lý cửa hàng duyệt trả hàng quá 03 ngày (gửi mã PIN qua email)")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_ban_hang},
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.nhan_vien_ban_hang},
             rolesLogic = RequireAuth.LogicType.OR)
     public ResponseEntity<ResponseData<TraHangDto.YeuCauDuyetKetQua>> guiYeuCauDuyet(
             @RequestBody TraHangDto.YeuCauDuyetRequest req) {
@@ -101,7 +101,7 @@ public class PosTraHangController {
 
     @PostMapping("/approval-requests/{id}/verify")
     @Operation(summary = "Nhập mã PIN quản lý để mở khóa trả hàng quá hạn")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_ban_hang},
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.nhan_vien_ban_hang},
             rolesLogic = RequireAuth.LogicType.OR)
     public ResponseEntity<ResponseData<TraHangDto.DuyetHieuLuc>> nhapMa(@PathVariable Integer id,
                                                                        @RequestBody TraHangDto.NhapMaRequest req) {
@@ -111,7 +111,7 @@ public class PosTraHangController {
 
     @PostMapping
     @Operation(summary = "Xác nhận hoàn trả: lập RET, PN-RET, cộng tồn hàng Đạt, cập nhật đơn gốc")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_ban_hang},
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.nhan_vien_ban_hang},
             rolesLogic = RequireAuth.LogicType.OR)
     public ResponseEntity<ResponseData<TraHangDto.KetQua>> xacNhan(@RequestBody TraHangDto.XacNhanRequest req) {
         kiemCongTac();
@@ -122,7 +122,7 @@ public class PosTraHangController {
 
     @GetMapping("/{id}")
     @Operation(summary = "Biên bản trả hàng (in 02 liên)")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_ban_hang},
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.nhan_vien_ban_hang},
             rolesLogic = RequireAuth.LogicType.OR)
     public ResponseEntity<ResponseData<TraHangDto.PhieuChiTiet>> phieu(@PathVariable Integer id) {
         return ok(traHangService.phieu(id), "Success");

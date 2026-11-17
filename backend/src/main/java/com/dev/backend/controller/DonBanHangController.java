@@ -64,16 +64,9 @@ public class DonBanHangController {
         );
     }
 
+    // Có doanh thu hôm nay toàn hệ thống: chỉ quản trị viên, nhân viên bán hàng (UC 11.3); giao diện hiện không gọi
     @GetMapping("/kpi-hom-nay")
-    @RequireAuth(
-            roles = {
-                    IRoleType.quan_tri_vien,
-                    IRoleType.quan_ly_kho,
-                    IRoleType.nhan_vien_kho,
-                    IRoleType.nhan_vien_ban_hang
-            },
-            rolesLogic = RequireAuth.LogicType.OR
-    )
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.nhan_vien_ban_hang})
     public ResponseEntity<ResponseData<DonBanHangKpiHomNayDto>> getKpiHomNay() {
         return ResponseEntity.ok(
                 ResponseData.<DonBanHangKpiHomNayDto>builder()
