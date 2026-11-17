@@ -1,6 +1,7 @@
 package com.dev.backend.services.shopify;
 
 import com.dev.backend.services.KenhBanHangService;
+import com.dev.backend.constant.variables.ITrangThaiDonBanHang;
 import com.dev.backend.workers.OmnichannelOrderSyncJob;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -35,7 +36,7 @@ public class ShopifyWebhookWorker {
     }
 
     // The request also calls kick immediately. This timer recovers after restarts, rejected submissions or failures.
-    @Scheduled(fixedDelay = 1000, initialDelay = 5000)
+    @Scheduled(fixedDelay = 1000, initialDelay = 5000, scheduler = "shopifyRealtimeScheduler")
     public void kick() {
         if (!running.compareAndSet(false, true)) return;
         try { executor.execute(this::drain); }
@@ -81,8 +82,9 @@ public class ShopifyWebhookWorker {
         } finally { running.set(false); }
     }
 
-    @Scheduled(fixedDelay = 3_600_000, initialDelay = 60_000)
+    @Scheduled(fixedDelay = 3_600_000, initialDelay = 60_000, scheduler = "shopifyRealtimeScheduler")
     public void cleanup() { inbox.cleanup(); }
 
-    private static final java.util.Set<Integer> WAITING_STATES = java.util.Set.of(1, 7, 8);
+    private static final java.util.Set<Integer> WAITING_STATES = java.util.Set.of(
+            ITrangThaiDonBanHang.CHO_NHAT_HANG, ITrangThaiDonBanHang.CHO_DONG_GOI, ITrangThaiDonBanHang.DA_DONG_GOI);
 }

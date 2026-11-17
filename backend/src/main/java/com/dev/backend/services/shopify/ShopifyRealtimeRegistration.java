@@ -6,8 +6,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.context.event.EventListener;
 import org.springframework.http.*;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -20,20 +18,18 @@ import java.util.*;
 public class ShopifyRealtimeRegistration {
     private final ShopifyRealtimeConnection connection;
     private final KenhBanHangService credentials;
+    private final ShopifyWebhookInbox inbox;
     private final RestTemplate rest = new RestTemplate(ShopifyOrderSnapshotClient.factory());
     private final ObjectMapper mapper;
     private final String publicBase;
 
     public ShopifyRealtimeRegistration(ShopifyRealtimeConnection connection, KenhBanHangService credentials,
-            ObjectMapper mapper, @Value("${shopify.webhook.public-base-url:https://fcentric.net}") String publicBase) {
-        this.connection = connection; this.credentials = credentials; this.mapper = mapper;
+            ShopifyWebhookInbox inbox, ObjectMapper mapper, @Value("${shopify.webhook.public-base-url:https://fcentric.net}") String publicBase) {
+        this.connection = connection; this.credentials = credentials; this.inbox = inbox; this.mapper = mapper;
         this.publicBase = publicBase.replaceAll("/+$", "").replaceFirst("/api$", "");
     }
 
-    @EventListener(ApplicationReadyEvent.class)
-    public void onReady() { autoRegister(); }
-
-    @Scheduled(fixedDelay = 300_000, initialDelay = 30_000)
+    @Scheduled(fixedDelay = 300_000, initialDelay = 5000, scheduler = "shopifyRealtimeScheduler")
     public void autoRegister() {
         // Retry registration after deployment/restart, not on every order operation.
         try { register(); } catch (Exception error) { log.warn("[SHOPIFY-WEBHOOK] Registration pending ({})", error.getClass().getSimpleName()); }
@@ -44,6 +40,10 @@ public class ShopifyRealtimeRegistration {
             var channel = connection.current();
             String domain = connection.domain(channel);
             if (domain.isBlank() || connection.signingSecret(channel) == null) return result(false, 0, "kenhBan.shopifyRealtimeCanKhoaBiMat");
+            try { inbox.checkStorage(); }
+            catch (org.springframework.dao.DataAccessException unavailable) {
+                return result(false, 0, "kenhBan.shopifyRealtimeCanBangDuLieu");
+            }
             String token = credentials.getDecryptedShopifyAccessToken();
             if (token == null || token.isBlank()) return result(false, 0, "kenhBan.chuaCoAdminAccessToken");
             if (!publicBase.startsWith("https://")) return result(false, 0, "kenhBan.shopifyRealtimeChuaTrienKhai");

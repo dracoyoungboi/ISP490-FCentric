@@ -1,6 +1,7 @@
 package com.dev.backend.services.shopify;
 
 import jakarta.annotation.PostConstruct;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -13,17 +14,28 @@ import java.util.List;
 
 /** Durable identifiers only: webhook customer/payment payloads are never stored. */
 @Repository
+@Slf4j
 public class ShopifyWebhookInbox {
     private final JdbcTemplate jdbc;
     public ShopifyWebhookInbox(JdbcTemplate jdbc) { this.jdbc = jdbc; }
 
     @PostConstruct
     void initialize() {
-        new ResourceDatabasePopulator(new ClassPathResource("db/shopify_realtime.sql")).execute(
-                java.util.Objects.requireNonNull(jdbc.getDataSource()));
+        try {
+            new ResourceDatabasePopulator(new ClassPathResource("db/shopify_realtime.sql")).execute(
+                    java.util.Objects.requireNonNull(jdbc.getDataSource()));
+        } catch (org.springframework.dao.DataAccessException failure) {
+            // A missing CREATE permission for this optional integration must not stop other sales channels.
+            // Receipts still return 503 if INSERT cannot persist; deployment can apply the bundled SQL separately.
+            log.warn("[SHOPIFY-WEBHOOK] Apply db/shopify_realtime.sql before enabling delivery ({})", failure.getClass().getSimpleName());
+        }
     }
 
     public record Delivery(long id, String shop, String type, String reference, int attempts) {}
+
+    public void checkStorage() {
+        jdbc.queryForList("SELECT id FROM shopify_webhook_inbox LIMIT 1");
+    }
 
     @org.springframework.transaction.annotation.Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public void accept(String key, String shop, String type, String reference) {

@@ -24,7 +24,7 @@ public class DonHangRealtime {
 
     public void changed() { listeners.forEach(e -> send(e, "orders-changed")); }
 
-    @Scheduled(fixedDelay = 20_000)
+    @Scheduled(fixedDelay = 20_000, scheduler = "shopifyRealtimeScheduler")
     public void heartbeat() { listeners.forEach(e -> send(e, "heartbeat")); }
 
     private void send(SseEmitter emitter, String event) {
