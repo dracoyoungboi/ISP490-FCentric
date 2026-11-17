@@ -73,14 +73,16 @@ public class TimKiemService {
                     IRoleType.nhan_vien_mua_hang, IRoleType.nhan_vien_ban_hang),
             DON_BAN, Set.of(IRoleType.quan_tri_vien, IRoleType.nhan_vien_ban_hang, IRoleType.nhan_vien_kho, IRoleType.quan_ly_kho),
             KHACH_HANG, Set.of(IRoleType.quan_tri_vien, IRoleType.nhan_vien_ban_hang),
-            NHA_CUNG_CAP, Set.of(IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_mua_hang));
+            NHA_CUNG_CAP, Set.of(IRoleType.quan_tri_vien, IRoleType.nhan_vien_mua_hang));
 
     /** Vai trò được vào trang danh sách của từng loại chứng từ. */
     static final Map<String, Set<String>> VAI_TRO_CHUNG_TU = new LinkedHashMap<>();
 
     static {
         VAI_TRO_CHUNG_TU.put("phieuXuat", VAI_TRO_KHO);
-        VAI_TRO_CHUNG_TU.put("phieuNhap", VAI_TRO_KHO);
+        // Nhân viên mua hàng xem phiếu nhập chỉ đọc (SRS 4.4 "Goods Receipt")
+        VAI_TRO_CHUNG_TU.put("phieuNhap", Set.of(IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho,
+                IRoleType.nhan_vien_mua_hang));
         VAI_TRO_CHUNG_TU.put("phieuChuyen", VAI_TRO_KHO);
         VAI_TRO_CHUNG_TU.put("donMua", Set.of(IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_mua_hang, IRoleType.nhan_vien_kho));
         VAI_TRO_CHUNG_TU.put("yeuCauNhap", Set.of(IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho, IRoleType.nhan_vien_mua_hang));
