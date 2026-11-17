@@ -1415,6 +1415,39 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
 
     // ==================== In tem theo phiếu nhập ====================
 
+    /**
+     * Danh sách phiếu nhập (màn Phiếu nhập kho, ô tìm kiếm toàn hệ thống): người không phải quản trị viên chỉ thấy phiếu
+     * của kho mình được phân (SRS 4.4 "Goods Receipt" Restricted), cùng quy tắc {@link KhoDangChon#duocXem} của trang
+     * chi tiết. Trước đây bộ lọc chung không lọc kho nên danh sách hiện cả phiếu kho khác, bấm vào thì bị chặn.
+     * Gọi nội bộ (không qua HTTP) hoặc quản trị viên: không giới hạn.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<PhieuNhapKho> filter(com.dev.backend.dto.request.BaseFilterRequest request) {
+        com.dev.backend.dto.response.entities.NguoiDungAuthInfo nguoiDung = SecurityContextHolder.getUser();
+        if (nguoiDung == null || request == null
+                || (nguoiDung.getVaiTro() != null && nguoiDung.getVaiTro().contains(IRoleType.quan_tri_vien))) {
+            return super.filter(request);
+        }
+        List<Integer> khoIds = new ArrayList<>();
+        if (nguoiDung.getPhanQuyenNguoiDungKhos() != null) {
+            nguoiDung.getPhanQuyenNguoiDungKhos().forEach(pq -> {
+                if (pq != null && pq.getKho() != null && pq.getKho().getId() != null) khoIds.add(pq.getKho().getId());
+            });
+        }
+        if (khoIds.isEmpty()) khoIds.add(-1);
+        List<com.dev.backend.dto.request.FilterCriteria> dieuKien = new ArrayList<>(
+                request.getFilters() == null ? List.of() : request.getFilters());
+        dieuKien.add(com.dev.backend.dto.request.FilterCriteria.builder()
+                .fieldName("kho.id")
+                .operation(com.dev.backend.constant.enums.FilterOperation.IN)
+                .value(khoIds)
+                .logicType(com.dev.backend.constant.enums.FilterLogicType.AND)
+                .build());
+        request.setFilters(dieuKien);
+        return super.filter(request);
+    }
+
     /** Số phiếu tối đa trong hộp "In tem theo phiếu nhập". */
     private static final int SO_PHIEU_IN_TEM_TOI_DA = 50;
 
