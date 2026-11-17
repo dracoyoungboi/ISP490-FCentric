@@ -388,24 +388,23 @@ public class OmnichannelOrderSyncJob {
         String orderNumber = orderNode.path("order_number").asText(orderId);
         String soDonHang = "SHP-" + orderNumber;
 
-        // Đơn đã có: tìm theo id đơn Shopify trước (duy nhất trên toàn Shopify). Số đơn hiển thị thì mỗi cửa hàng
-        // đánh số riêng (từ #1001), nên sau khi đổi sang cửa hàng khác, SHP-<số> có thể là đơn của cửa hàng cũ
+        // External IDs are unique within their channel, not across marketplaces. Never fall back to a global ID lookup.
         Optional<DonBanHang> existingOpt = kenh.getId() != null
                 ? donBanHangRepository.findByKenhBanHangIdAndMaDonHangKenh(kenh.getId(), orderId)
                 : Optional.empty();
         if (existingOpt.isEmpty()) {
-            existingOpt = donBanHangRepository.findByMaDonHangKenh(orderId);
-        }
-        if (existingOpt.isEmpty()) {
             Optional<DonBanHang> trungSo = donBanHangRepository.findBySoDonHang(soDonHang);
             if (trungSo.isPresent()) {
                 String maCu = trungSo.get().getMaDonHangKenh();
-                if (maCu == null || maCu.isBlank() || maCu.equals(orderId)) {
-                    // Đơn cũ chưa lưu id trên sàn: coi là cùng đơn như trước, không sinh đơn trùng
+                KenhBanHang kenhCu = trungSo.get().getKenhBanHang();
+                boolean cungKenh = kenhCu != null && isShopify(kenhCu.getMaKenh())
+                        && java.util.Objects.equals(kenhCu.getId(), kenh.getId());
+                if (cungKenh && (maCu == null || maCu.isBlank() || maCu.equals(orderId))) {
+                    // Only adopt a legacy display number when its Shopify channel is known to match.
                     existingOpt = trungSo;
                 } else {
                     soDonHang = soDonHangKhongTrung(soDonHang, orderId);
-                    log.info("[JOB-01] {} đã thuộc đơn Shopify khác (cửa hàng cũ), đơn {} lấy số {}", "SHP-" + orderNumber, orderId, soDonHang);
+                    log.info("[JOB-01] Display number {} belongs to another order/channel; Shopify order {} uses {}", "SHP-" + orderNumber, orderId, soDonHang);
                 }
             }
         }
