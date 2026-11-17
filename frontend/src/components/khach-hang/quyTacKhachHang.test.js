@@ -4,6 +4,7 @@ import {
   CAN_LIEN_HE,
   FORM_THEM,
   MA_SO_THUE_MESSAGE,
+  SO_DIEN_THOAI_KHACH_LE_MESSAGE,
   SO_DIEN_THOAI_MESSAGE,
   cacOThayDoi,
   canKiemTrung,
@@ -54,7 +55,7 @@ test("số điện thoại: bỏ dấu cách, chấm, gạch, ngoặc; +84 đổ
   assert.equal(chuanHoaSoDienThoaiKhiNhap("(0236) 3888-999"), "02363888999");
   // Không cắt ngầm: dán thừa chữ số thì giữ nguyên để luật kiểm báo sai
   assert.equal(chuanHoaSoDienThoaiKhiNhap("0236388899912"), "0236388899912");
-  assert.equal(kiemTraForm({ ...FORM_THEM, tenKhachHang: "An", soDienThoai: "0236388899912" }).soDienThoai, SO_DIEN_THOAI_MESSAGE);
+  assert.equal(kiemTraForm({ ...FORM_THEM, tenKhachHang: "An", soDienThoai: "0236388899912" }).soDienThoai, SO_DIEN_THOAI_KHACH_LE_MESSAGE);
   assert.equal(chuanHoaSoDienThoaiKhiNhap("abc"), "");
 });
 
@@ -106,8 +107,13 @@ test("thêm: tên bắt buộc, cần số điện thoại hoặc email", () => 
   assert.deepEqual(kiemTraForm(them({ tenKhachHang: "Shop Hoa Mai", soDienThoai: "0912345678" })), {});
 });
 
-test("số điện thoại nhận di động, máy bàn, tổng đài; sai thì báo câu rõ ràng", () => {
-  const ok = (soDienThoai) => kiemTraForm(them({ tenKhachHang: "A", soDienThoai })).soDienThoai;
+test("số điện thoại khách sỉ nhận di động, máy bàn, tổng đài; khách lẻ không nhận tổng đài", () => {
+  const ok = (soDienThoai) => kiemTraForm(them({ loaiKhachHang: "si", tenKhachHang: "Shop An", soDienThoai })).soDienThoai;
+  const le = (soDienThoai) => kiemTraForm(them({ loaiKhachHang: "le", tenKhachHang: "An", soDienThoai })).soDienThoai;
+  assert.equal(le("0912345678"), undefined);
+  assert.equal(le("02363888999"), undefined);
+  assert.equal(le("19001234"), SO_DIEN_THOAI_KHACH_LE_MESSAGE);
+  assert.equal(le("1800123456"), SO_DIEN_THOAI_KHACH_LE_MESSAGE);
   assert.equal(ok("0912345678"), undefined);
   assert.equal(ok("0359876543"), undefined);
   assert.equal(ok("02363888999"), undefined);

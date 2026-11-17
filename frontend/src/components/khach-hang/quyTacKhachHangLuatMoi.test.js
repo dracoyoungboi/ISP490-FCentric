@@ -4,6 +4,7 @@ import {
   FORM_THEM,
   MA_SO_THUE_MESSAGE,
   MA_SO_THUE_SAI_SO,
+  SO_DIEN_THOAI_KHACH_LE_MESSAGE,
   SO_DIEN_THOAI_MESSAGE,
   cacOThayDoi,
   canKiemTrung,
@@ -131,12 +132,15 @@ test("mã khách nhập tay: mở đầu bằng chữ hoặc số; không tự c
   assert.equal(loi({ maKhachHang: "A".repeat(51) }).maKhachHang, "Mã khách hàng tối đa 50 ký tự");
 });
 
-test("POS thêm nhanh dùng chung luật: SĐT di động / máy bàn / tổng đài, tên khách lẻ", () => {
+test("POS thêm nhanh dùng luật khách lẻ: SĐT di động / máy bàn (không tổng đài), tên khách lẻ", () => {
   assert.equal(loiSoDienThoai("0912345678"), "");
   assert.equal(loiSoDienThoai("02838123456"), "");
-  assert.equal(loiSoDienThoai("19001234"), "");
-  assert.equal(loiSoDienThoai("0123456789"), SO_DIEN_THOAI_MESSAGE);
-  assert.equal(loiSoDienThoai("0412345678"), SO_DIEN_THOAI_MESSAGE);
+  assert.equal(loiSoDienThoai("19001234"), SO_DIEN_THOAI_KHACH_LE_MESSAGE);
+  assert.equal(loiSoDienThoai("0123456789"), SO_DIEN_THOAI_KHACH_LE_MESSAGE);
+  assert.equal(loiSoDienThoai("0412345678"), SO_DIEN_THOAI_KHACH_LE_MESSAGE);
+  assert.equal(loiSoDienThoai("19001234", "doanh_nghiep"), "");
+  assert.equal(loiSoDienThoai("19001234", ""), "");
+  assert.equal(loiSoDienThoai("0412345678", "si"), SO_DIEN_THOAI_MESSAGE);
   assert.equal(loiTenKhachHang("Nguyễn Văn A", "le"), "");
   assert.notEqual(loiTenKhachHang("Khách 1", "le"), "");
 });
@@ -149,4 +153,19 @@ test("câu lỗi máy chủ → ô: xét đầu câu trước khi dò chứa", (
   assert.equal(oCuaThongBaoMayChu("Cần số điện thoại hoặc email để liên hệ khách hàng"), "soDienThoai");
   assert.equal(oCuaThongBaoMayChu("Số điện thoại đã thuộc khách hàng Email Shop (KH5)"), "soDienThoai");
   assert.equal(oCuaThongBaoMayChu("Khách lẻ là khách mặc định của hệ thống"), null);
+  assert.equal(oCuaThongBaoMayChu("Nhập di động 10 số hoặc máy bàn 11 số"), "soDienThoai");
+  assert.equal(oCuaThongBaoMayChu("Nhập di động, máy bàn hoặc số 1800/1900"), "soDienThoai");
+});
+
+test("sửa: đổi sang khách lẻ mà giữ số tổng đài thì chặn; số cũ định dạng khác không chặn", () => {
+  const cu = formTuKhachHang({ id: 9, maKhachHang: "KH9", tenKhachHang: "Nguyễn An", loaiKhachHang: "si", soDienThoai: "1900 1234" });
+  const tuyChon = { laSua: true, banDau: cu };
+  assert.equal(kiemTraForm({ ...cu, loaiKhachHang: "le" }, tuyChon).soDienThoai, SO_DIEN_THOAI_KHACH_LE_MESSAGE);
+  // Không đổi loại: số tổng đài cũ không chặn việc sửa ô khác
+  assert.equal(kiemTraForm({ ...cu, diaChi: "Đà Nẵng" }, tuyChon).soDienThoai, undefined);
+  const cuSan = formTuKhachHang({ id: 10, maKhachHang: "KH10", tenKhachHang: "Nguyễn An", loaiKhachHang: "si", soDienThoai: "+84 912 345 678" });
+  assert.equal(kiemTraForm({ ...cuSan, loaiKhachHang: "le" }, { laSua: true, banDau: cuSan }).soDienThoai, undefined);
+  // Số cũ có chữ kèm: máy chủ không coi là tổng đài thì form cũng không chặn
+  const cuChu = formTuKhachHang({ id: 11, maKhachHang: "KH11", tenKhachHang: "Nguyễn An", loaiKhachHang: "si", soDienThoai: "1900 1234 (CSKH)" });
+  assert.equal(kiemTraForm({ ...cuChu, loaiKhachHang: "le" }, { laSua: true, banDau: cuChu }).soDienThoai, undefined);
 });
