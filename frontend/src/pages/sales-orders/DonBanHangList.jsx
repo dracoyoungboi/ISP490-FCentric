@@ -342,7 +342,7 @@ export default function DonBanHangList() {
     tabCounts.reload();
     donNhap.reload();
     await fetchData({ silent: true });
-  }, { bat: !isChannelOrderMock });
+  }, { bat: !isChannelOrderMock && (!kenh || kenh === "shopify") });
 
   // Số chỉ hiện khi đếm xong và danh sách không lỗi (R9); số 0 tự ẩn trong StatusTabs
   const statusTabs = DON_BAN_HANG_TABS.map((tb) => ({

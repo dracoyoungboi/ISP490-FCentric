@@ -147,7 +147,7 @@ function ChiTietDonBanHang({ id }) {
 
   // Quay lại tab thì tải lại ngầm (kho đổi trạng thái khi nhặt, đóng gói, xuất); không tải khi đang thao tác
   useTaiLaiKhiQuayLai(() => q.reload(), { bat: Boolean(ct) && !q.loading && !dangChay && !hop, lanCuoi: q.capNhatLuc });
-  useDonHangRealtime(() => q.reload(), { bat: Boolean(ct) && !dangChay && !hop });
+  useDonHangRealtime(() => q.reload(), { bat: !isChannelOrderMock && don?.kenhBanHang?.maKenh === "SHOPIFY" && !dangChay && !hop });
 
   // ── Tính toán ───────────────────────────────────────────────────────────
   const dong = useMemo(() => dongHangBan(ct?.chiTiet), [ct]);
