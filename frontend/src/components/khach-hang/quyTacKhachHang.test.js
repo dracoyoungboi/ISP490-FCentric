@@ -52,7 +52,9 @@ test("số điện thoại: bỏ dấu cách, chấm, gạch, ngoặc; +84 đổ
   assert.equal(chuanHoaSoDienThoaiKhiNhap("0912 345 678"), "0912345678");
   assert.equal(chuanHoaSoDienThoaiKhiNhap("+84 912.345-678"), "0912345678");
   assert.equal(chuanHoaSoDienThoaiKhiNhap("(0236) 3888-999"), "02363888999");
-  assert.equal(chuanHoaSoDienThoaiKhiNhap("0236388899912"), "02363888999");
+  // Không cắt ngầm: dán thừa chữ số thì giữ nguyên để luật kiểm báo sai
+  assert.equal(chuanHoaSoDienThoaiKhiNhap("0236388899912"), "0236388899912");
+  assert.equal(kiemTraForm({ ...FORM_THEM, tenKhachHang: "An", soDienThoai: "0236388899912" }).soDienThoai, SO_DIEN_THOAI_MESSAGE);
   assert.equal(chuanHoaSoDienThoaiKhiNhap("abc"), "");
 });
 
@@ -125,13 +127,13 @@ test("email, mã nhập tay, độ dài tối đa", () => {
     diaChi: "z".repeat(501),
   }));
   assert.equal(loi.tenKhachHang, "Tên khách hàng tối đa 200 ký tự");
-  assert.equal(loi.maKhachHang, "Mã chỉ gồm chữ không dấu, số và . _ -");
+  assert.equal(loi.maKhachHang, "Mã gồm chữ không dấu, số và . _ -, mở đầu bằng chữ hoặc số");
   assert.equal(loi.nguoiLienHe, "Người liên hệ tối đa 100 ký tự");
   assert.equal(loi.email, "Email chưa đúng, VD: ten@congty.vn");
   assert.equal(loi.diaChi, "Địa chỉ tối đa 500 ký tự");
   assert.equal(kiemTraForm(them({ tenKhachHang: "A", email: "a@b.vn", maKhachHang: "KH-CU_01.2" })).maKhachHang, undefined);
   assert.equal(kiemTraForm(them({ tenKhachHang: "A", email: "a@b.vn", maKhachHang: "KHÁCH01" })).maKhachHang,
-    "Mã chỉ gồm chữ không dấu, số và . _ -");
+    "Mã gồm chữ không dấu, số và . _ -, mở đầu bằng chữ hoặc số");
 });
 
 test("sửa: dữ liệu cũ không đổi thì không kiểm lại; không kiểm mã", () => {
@@ -221,27 +223,28 @@ test("chỉ kiểm trùng khi có giá trị hợp lệ và (khi sửa) đã đ�
 test("mã số thuế: hiện với khách sỉ / doanh nghiệp, nhận 10 số, 10-3 số hoặc 12 số như máy chủ", () => {
   assert.equal(hienMaSoThue(them({ loaiKhachHang: "le" }), FORM_THEM), false);
   assert.equal(hienMaSoThue(them({ loaiKhachHang: "si" }), FORM_THEM), true);
-  assert.equal(hienMaSoThue(them({ loaiKhachHang: "le" }), { ...FORM_THEM, maSoThue: "0312345678" }), true);
+  assert.equal(hienMaSoThue(them({ loaiKhachHang: "le" }), { ...FORM_THEM, maSoThue: "0312345673" }), true);
   const dn = them({ tenKhachHang: "Công ty A", email: "a@congty.vn", loaiKhachHang: "doanh_nghiep" });
-  assert.deepEqual(kiemTraForm({ ...dn, maSoThue: "0312345678" }), {});
-  assert.deepEqual(kiemTraForm({ ...dn, maSoThue: "0312345678-001" }), {});
+  assert.deepEqual(kiemTraForm({ ...dn, maSoThue: "0312345673" }), {});
+  assert.deepEqual(kiemTraForm({ ...dn, maSoThue: "0312345673-001" }), {});
   assert.deepEqual(kiemTraForm({ ...dn, maSoThue: "001203004567" }), {});
   assert.equal(kiemTraForm({ ...dn, maSoThue: "03123" }).maSoThue, MA_SO_THUE_MESSAGE);
   // Sửa: mã cũ sai định dạng không chặn việc sửa ô khác
   const cu = formTuKhachHang({ ...DOANH_NGHIEP, maSoThue: "123" });
   assert.deepEqual(kiemTraForm({ ...cu, tenKhachHang: "Tên mới" }, { laSua: true, banDau: cu }), {});
-  assert.equal(chuanHoaMaSoThueKhiNhap(" 0312.345.678-001 "), "0312345678-001");
+  assert.equal(chuanHoaMaSoThueKhiNhap(" 0312.345.673-001 "), "0312345673-001");
   assert.equal(oCuaThongBaoMayChu(MA_SO_THUE_MESSAGE), "maSoThue");
-  assert.equal(payloadThem({ ...dn, maSoThue: " 0312345678 " }).maSoThue, "0312345678");
+  assert.equal(payloadThem({ ...dn, maSoThue: " 0312345673 " }).maSoThue, "0312345673");
 });
 
 test("mã số thuế dán vào: hàm chuẩn hóa tự giới hạn độ dài sau khi bỏ dấu (ô nhập không đặt maxLength)", () => {
-  // Ô nhập không đặt maxLength: trình duyệt cắt "0312.345.678-001" (16 ký tự) còn 14 trước khi bỏ dấu chấm
-  assert.equal(chuanHoaMaSoThueKhiNhap("0312.345.678-001"), "0312345678-001");
-  assert.equal(chuanHoaMaSoThueKhiNhap("MST: 0312 345 678-001"), "0312345678-001");
-  assert.equal(chuanHoaMaSoThueKhiNhap("0312345678-001999").length, 14);
+  // Ô nhập không đặt maxLength: trình duyệt cắt "0312.345.673-001" (16 ký tự) còn 14 trước khi bỏ dấu chấm
+  assert.equal(chuanHoaMaSoThueKhiNhap("0312.345.673-001"), "0312345673-001");
+  assert.equal(chuanHoaMaSoThueKhiNhap("MST: 0312 345 673-001"), "0312345673-001");
+  assert.equal(chuanHoaMaSoThueKhiNhap("0312345673-001999"), "0312345673-001999");
+  assert.equal(kiemTraForm({ ...FORM_THEM, tenKhachHang: "An", soDienThoai: "0912345678", maSoThue: "0312345673-0012" }).maSoThue, MA_SO_THUE_MESSAGE);
   assert.deepEqual(
-    kiemTraForm(them({ tenKhachHang: "Công ty A", email: "a@congty.vn", maSoThue: chuanHoaMaSoThueKhiNhap("0312.345.678-001") })),
+    kiemTraForm(them({ tenKhachHang: "Công ty A", email: "a@congty.vn", maSoThue: chuanHoaMaSoThueKhiNhap("0312.345.673-001") })),
     {},
   );
 });
