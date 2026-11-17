@@ -9,15 +9,32 @@ import SettingsLayout from "./pages/settings/SettingsLayout";
 import { SETTINGS_ROLES } from "./components/settings/settings.config";
 import RequireRole from "./components/auth/RequireRole";
 import {
+  VAI_TRO_BAN_TAI_QUAY,
+  VAI_TRO_BAO_CAO_DOANH_THU,
+  VAI_TRO_BAO_CAO_KHACH_HANG,
+  VAI_TRO_BAO_CAO_NHAP_XUAT,
+  VAI_TRO_BAO_CAO_SAN_PHAM,
+  VAI_TRO_CHUYEN_KE,
+  VAI_TRO_DANH_MUC,
   VAI_TRO_DANH_SACH_KHO,
   VAI_TRO_DON_BAN,
   VAI_TRO_DON_MUA,
-  VAI_TRO_CHUYEN_KE,
+  VAI_TRO_GHI_DON_BAN,
+  VAI_TRO_GUI_YEU_CAU_BAO_GIA,
+  VAI_TRO_IN_TEM,
+  VAI_TRO_KENH_BAN,
+  VAI_TRO_KHACH_HANG,
   VAI_TRO_KHO,
   VAI_TRO_NGUOI_DUNG,
-} from "./components/backoffice/sidebar.config";
-import { VAI_TRO_TAO_YEU_CAU_NHAP } from "./constants/vaiTroTaoYeuCauNhap";
-import { VAI_TRO_GUI_YEU_CAU_BAO_GIA } from "./constants/vaiTroGuiYeuCauBaoGia";
+  VAI_TRO_NHA_CUNG_CAP,
+  VAI_TRO_TAO_DON_MUA,
+  VAI_TRO_TAO_YEU_CAU_NHAP,
+  VAI_TRO_XEM_PHIEU_NHAP,
+  VAI_TRO_XEM_PHIEU_XUAT,
+  VAI_TRO_XEM_YEU_CAU_BAO_GIA,
+  VAI_TRO_XEM_YEU_CAU_NHAP,
+  VAI_TRO_XUAT_KE_TOAN,
+} from "./constants/vaiTroTheoNghiepVu";
 import PosPage from "./pages/pos";
 import PosLayout from "./pages/pos/PosLayout";
 import KenhHopLe from "./pages/channels/KenhHopLe";
@@ -133,19 +150,11 @@ const ChannelSettingsPage = taiTrang(() => import("./pages/channels/ChannelSetti
 const OAuthCallbackPage = taiTrang(() => import("./pages/channels/OAuthCallbackPage"));
 
 /*
- * Vai trò chặn đường dẫn mà menu không có mục riêng (hoặc menu hẹp hơn API vì trang khác có liên kết tới): khớp
- * @RequireAuth của API chính mà trang gọi. Mục có trong menu thì dùng chung danh sách xuất từ sidebar.config.js.
+ * Vai trò chặn đường dẫn lấy từ constants/vaiTroTheoNghiepVu.js (ma trận phân quyền SRS 4.4), cùng nguồn với menu,
+ * khớp @RequireAuth của API chính mà trang gọi.
  */
-// Báo giá bán, khách hàng: API đọc cho cả quản lý kho, nhân viên kho (xem từ đơn bán, báo cáo khách hàng); chỉ chặn
-// nhân viên mua hàng (máy chủ trả 403)
-const VAI_TRO_XEM_BAO_GIA_BAN = ["quan_tri_vien", "nhan_vien_ban_hang", "quan_ly_kho", "nhan_vien_kho"];
-const VAI_TRO_KHACH_HANG = ["quan_tri_vien", "quan_ly_kho", "nhan_vien_ban_hang", "nhan_vien_kho"];
-// Ghi đơn bán, tạo báo giá: POST /don-ban-hang/create, PUT /don-ban-hang/{id}/convert-to-order
-const VAI_TRO_GHI_DON_BAN = ["quan_tri_vien", "nhan_vien_ban_hang"];
-// Tạo đơn mua hàng = chốt báo giá: PUT /nghiep-vu/don-mua-hang/duyet-don (nhân viên kho không chốt giá)
-const VAI_TRO_TAO_DON_MUA = ["quan_tri_vien", "quan_ly_kho", "nhan_vien_mua_hang"];
-// Xem phiếu xuất dạng chỉ đọc (GET /phieu-xuat-kho/{id}/view): vai trò kho và nhân viên bán hàng (mở từ đơn bán)
-const VAI_TRO_XEM_PHIEU_XUAT = [...VAI_TRO_KHO, "nhan_vien_ban_hang"];
+// Báo giá bán: cùng vai trò xem đơn bán (quản lý kho, nhân viên kho chỉ xem; nhân viên mua hàng bị chặn)
+const VAI_TRO_XEM_BAO_GIA_BAN = VAI_TRO_DON_BAN;
 
 /** Đường dẫn cũ /supplier/view/:id → trang chi tiết /supplier/:id (giống /customers/:id, /users/:id). */
 function SupplierViewRedirect() {
@@ -264,19 +273,22 @@ const CAY_DUONG_DAN = (
         />
       </Route>
 
-      {/* Attributes */}
+      {/* Danh mục, thuộc tính (màu, size, chất liệu, thương hiệu): SRS 4.4 chỉ quản trị viên, kể cả xem trang quản lý.
+          Vai trò khác vẫn đọc danh mục, thuộc tính qua ô chọn / bộ lọc ở màn sản phẩm. */}
       <Route path="/attribute" element={<Navigate to="/attributes" replace />} />
-      <Route path="/attributes" element={<ProductAttributeHub />} />
+      <Route element={<RequireRole roles={VAI_TRO_DANH_MUC} />}>
+        <Route path="/attributes" element={<ProductAttributeHub />} />
+        <Route path="/categories" element={<DanhMucQuanAoTree />} />
+      </Route>
 
       {/* Product */}
       <Route path="/products" element={<ProductList />} />
-      {/* Giá bán & tem mã vạch: API danh sách cho quản trị viên và quản lý kho (đổi giá chỉ quản trị viên) */}
-      <Route element={<RequireRole roles={["quan_tri_vien", "quan_ly_kho"]} />}>
+      {/* Giá bán & tem mã vạch: in tem cho quản lý kho, nhân viên kho, nhân viên bán hàng; đổi giá chỉ quản trị viên */}
+      <Route element={<RequireRole roles={VAI_TRO_IN_TEM} />}>
         <Route path="/products/gia-ban-tem" element={<GiaBanTemPage />} />
       </Route>
       {/* Legacy: màn "Biến thể SKU & giá" cũ */}
       <Route path="/sku-builder" element={<Navigate to="/products/gia-ban-tem" replace />} />
-      <Route path="/categories" element={<DanhMucQuanAoTree />} />
       {/* Legacy: URL tiếng Việt cũ chuyển hướng sang URL mới, giữ bookmark không bị hỏng */}
       <Route path="/danh-muc-quan-ao" element={<Navigate to="/categories" replace />} />
       <Route path="/products/:id" element={<ProductDetail />} />
@@ -289,20 +301,23 @@ const CAY_DUONG_DAN = (
       </Route>
 
       {/* Purchase Order */}
-      {/* Yêu cầu nhập hàng (danh sách, chi tiết): không chặn — API đọc cho cả 5 vai trò, nhân viên bán hàng lập yêu cầu
-          xong được đưa về chi tiết / danh sách (menu Mua hàng không hiện cho vai trò này) */}
-      <Route path="/purchase-requests" element={<PurchaseRequestList />} />
-      {/* Yêu cầu báo giá (danh sách, chi tiết): không chặn — nhân viên bán hàng theo dõi yêu cầu mình lập từ chi tiết yêu
-          cầu nhập; máy chủ đã bỏ giá mua với vai trò không xem đơn mua và màn tự ẩn cột giá */}
-      <Route path="/quotation-requests" element={<QuotationRequestList />} />
-      <Route path="/quotation-requests/:id" element={<QuotationRequestDetail />} />
+      {/* Yêu cầu nhập hàng (danh sách, chi tiết): quản lý kho, nhân viên kho; nhân viên mua hàng chỉ xem (SRS 4.4) */}
+      <Route element={<RequireRole roles={VAI_TRO_XEM_YEU_CAU_NHAP} />}>
+        <Route path="/purchase-requests" element={<PurchaseRequestList />} />
+      </Route>
+      {/* Yêu cầu báo giá (danh sách, chi tiết): nhân viên mua hàng; quản lý kho xem để so báo giá trước khi chốt đơn mua.
+          Máy chủ bỏ giá mua với vai trò không xem đơn mua và màn tự ẩn cột giá */}
+      <Route element={<RequireRole roles={VAI_TRO_XEM_YEU_CAU_BAO_GIA} />}>
+        <Route path="/quotation-requests" element={<QuotationRequestList />} />
+        <Route path="/quotation-requests/:id" element={<QuotationRequestDetail />} />
+      </Route>
       <Route element={<RequireRole roles={VAI_TRO_DON_MUA} />}>
         <Route path="/purchase-orders" element={<PurchaseOrder />} />
         <Route path="/purchase-orders/:id" element={<PurchaseOrderDetail />} />
         {/* Báo giá của nhà cung cấp (có giá mua): cùng vai trò xem đơn mua */}
         <Route path="/quotation/:id" element={<QuotationDetail />} />
       </Route>
-      {/* Tạo yêu cầu nhập hàng: đúng 4 vai trò máy chủ cho lập (quản lý kho chỉ duyệt) */}
+      {/* Tạo yêu cầu nhập hàng: quản lý kho, nhân viên kho tại kho của mình (khớp POST /nghiep-vu/yeu-cau-mua-hang/create) */}
       <Route element={<RequireRole roles={VAI_TRO_TAO_YEU_CAU_NHAP} />}>
         <Route path="/purchase-requests/create" element={<CreatePurchaseRequestPage />} />
       </Route>
@@ -315,32 +330,39 @@ const CAY_DUONG_DAN = (
       <Route element={<RequireRole roles={VAI_TRO_TAO_DON_MUA} />}>
         <Route path="/purchase-orders/create" element={<PurchaseOrderCreateManual />} />
       </Route>
-      <Route path="/purchase-requests/:id" element={<PurchaseRequestDetail />} />
+      <Route element={<RequireRole roles={VAI_TRO_XEM_YEU_CAU_NHAP} />}>
+        <Route path="/purchase-requests/:id" element={<PurchaseRequestDetail />} />
+      </Route>
 
 
-      {/* Supplier — Thêm / Sửa là popup; giữ đường dẫn cũ để link cũ không hỏng */}
-      <Route path="/supplier" element={<SupplierList />} />
-      <Route path="/supplier/new" element={<Navigate to="/supplier" replace state={{ openCreateSupplier: true }} />} />
-      <Route path="/supplier/view/:id" element={<SupplierViewRedirect />} />
-      <Route path="/supplier/:id" element={<SupplierDetailView />} />
+      {/* Supplier — SRS 4.4 "Supplier": quản trị viên, nhân viên mua hàng. Thêm / Sửa là popup; giữ đường dẫn cũ để link
+          cũ không hỏng */}
+      <Route element={<RequireRole roles={VAI_TRO_NHA_CUNG_CAP} />}>
+        <Route path="/supplier" element={<SupplierList />} />
+        <Route path="/supplier/new" element={<Navigate to="/supplier" replace state={{ openCreateSupplier: true }} />} />
+        <Route path="/supplier/view/:id" element={<SupplierViewRedirect />} />
+        <Route path="/supplier/:id" element={<SupplierDetailView />} />
+      </Route>
       <Route
         element={<RequireRole roles={["quan_tri_vien", "quan_ly_kho", "nhan_vien_kho", "nhan_vien_mua_hang"]} />}
       >
         <Route path="/supplier-barcodes" element={<MaVachNhaCungCapPage />} />
       </Route>
 
-      {/* Customer: khớp KhachHangController (quản lý kho, nhân viên kho mở từ đơn bán, báo cáo khách hàng) */}
+      {/* Customer: khớp KhachHangController — SRS 4.4 "Customer": quản trị viên, nhân viên bán hàng */}
       <Route element={<RequireRole roles={VAI_TRO_KHACH_HANG} />}>
         <Route path="/customers" element={<KhachHangPage />} />
         <Route path="/customers/:id" element={<KhachHangDetails />} />
       </Route>
       <Route path="/customers/:id/edit" element={<SuaKhachHangRedirect />} />
 
-      {/* Receipt: vai trò kho (PhieuNhapKhoController) */}
-      <Route element={<RequireRole roles={VAI_TRO_KHO} />}>
-        <Route path="/goods-receipts/create" element={<PhieuNhapKhoCreate />} />
+      {/* Receipt: vai trò kho (PhieuNhapKhoController); danh sách và chi tiết cho thêm nhân viên mua hàng chỉ xem */}
+      <Route element={<RequireRole roles={VAI_TRO_XEM_PHIEU_NHAP} />}>
         <Route path="/goods-receipts" element={<PhieuNhapKhoList />} />
         <Route path="/goods-receipts/:id" element={<PhieuNhapKhoDetail />} />
+      </Route>
+      <Route element={<RequireRole roles={VAI_TRO_KHO} />}>
+        <Route path="/goods-receipts/create" element={<PhieuNhapKhoCreate />} />
         <Route path="/goods-receipts/:phieuNhapKhoId/lot-input/:bienTheSanPhamId" element={<KhaiBaoLo />} />
         {/* FO-097/098: kiểm đếm & khóa lô một biến thể của phiếu nhập từ đơn mua */}
         <Route path="/goods-receipts/:phieuNhapKhoId/receive/:bienTheSanPhamId" element={<KiemDemLo />} />
@@ -386,7 +408,7 @@ const CAY_DUONG_DAN = (
 
       {/* Kiểm kê kho hàng: đúng vai trò máy chủ cho (KiemKeController). Lập / sửa đợt: quản trị viên, quản lý kho và nhân
           viên kho có quyền "Lập đợt kiểm kê" — trang Tạo đợt tự chặn người không có quyền (components/kiem-ke/quyenLapDot) */}
-      <Route element={<RequireRole roles={["quan_tri_vien", "quan_ly_kho", "nhan_vien_kho"]} />}>
+      <Route element={<RequireRole roles={VAI_TRO_KHO} />}>
         <Route path="/stock-take/new" element={<StockTakeCreate />} />
         <Route path="/stock-take/:id/edit" element={<StockTakeCreate />} />
         <Route path="/stock-take" element={<StockTakeList />} />
@@ -403,19 +425,22 @@ const CAY_DUONG_DAN = (
         <Route path="/warehouse/bin-moves/history" element={<BinMoveHistory />} />
       </Route>
 
-      {/* Báo cáo doanh thu, sản phẩm: quản trị viên, quản lý kho và nhân viên bán hàng (FO-090; nhân viên bán hàng chỉ
-          cửa hàng mình làm, máy chủ không gửi giá vốn / lợi nhuận). Khách hàng, nhập xuất: API chỉ cho quản trị viên và
-          quản lý kho (@RequireAuth ở backend), menu cũng chỉ hiện cho hai vai trò này. */}
-      <Route element={<RequireRole roles={["quan_tri_vien", "quan_ly_kho", "nhan_vien_ban_hang"]} />}>
+      {/* Báo cáo (UC 11.3–11.5): doanh thu, sản phẩm bán chạy, khách hàng cho quản trị viên và nhân viên bán hàng (cửa
+          hàng mình, máy chủ không gửi giá vốn / lợi nhuận); nhập xuất cho quản trị viên, quản lý kho, nhân viên kho */}
+      <Route element={<RequireRole roles={VAI_TRO_BAO_CAO_DOANH_THU} />}>
         <Route path="/reports/revenue" element={<BaoCaoDoanhThu />} />
+      </Route>
+      <Route element={<RequireRole roles={VAI_TRO_BAO_CAO_SAN_PHAM} />}>
         <Route path="/reports/products" element={<BaoCaoSanPham />} />
       </Route>
-      <Route element={<RequireRole roles={["quan_tri_vien", "quan_ly_kho"]} />}>
+      <Route element={<RequireRole roles={VAI_TRO_BAO_CAO_KHACH_HANG} />}>
         <Route path="/reports/customers" element={<KhachHangReport />} />
+      </Route>
+      <Route element={<RequireRole roles={VAI_TRO_BAO_CAO_NHAP_XUAT} />}>
         <Route path="/reports/stock-movements" element={<NhatKyNhapXuat />} />
       </Route>
       {/* Xuất dữ liệu kế toán (AMIS): API chỉ cho quản trị viên */}
-      <Route element={<RequireRole roles={["quan_tri_vien"]} />}>
+      <Route element={<RequireRole roles={VAI_TRO_XUAT_KE_TOAN} />}>
         <Route path="/reports/accounting-export" element={<XuatDuLieuKeToan />} />
         <Route path="/reports/accounting-export/new" element={<TaoLoKeToan />} />
         <Route path="/reports/accounting-export/:id" element={<ChiTietLoKeToan />} />
@@ -460,8 +485,9 @@ const CAY_DUONG_DAN = (
       </Route>
 
       {/* Trình sửa mẫu in một màn (xem trước + chỉnh sửa): toàn chiều rộng, ngoài khung Cấu hình.
-          Đường dẫn cũ (trang xem mẫu, /edit, theo định danh mẫu) chuyển về trình sửa của loại chứng từ. */}
-      <Route element={<RequireRole roles={["quan_tri_vien", "quan_ly_kho"]} />}>
+          Đường dẫn cũ (trang xem mẫu, /edit, theo định danh mẫu) chuyển về trình sửa của loại chứng từ.
+          Chỉ quản trị viên (sửa mẫu in); quản lý kho xem danh sách mẫu ở Cấu hình › Mẫu in. */}
+      <Route element={<RequireRole roles={["quan_tri_vien"]} />}>
         <Route path="/settings/print-templates/:documentType" element={<PrintTemplateEditorPage />} />
         <Route path="/settings/print-templates/:documentType/edit" element={<MauInRedirect />} />
         <Route path="/settings/print-templates/:documentType/:templateId" element={<MauInRedirect />} />
@@ -470,7 +496,7 @@ const CAY_DUONG_DAN = (
 
       {/* Xuất kho theo Pick List (FO-045–047) — vai trò kho, khớp @RequireAuth của NhatHangController.
           Đường dẫn tĩnh được ưu tiên hơn /goods-issues/:id nên không đè chi tiết phiếu xuất. */}
-      <Route element={<RequireRole roles={["quan_tri_vien", "quan_ly_kho", "nhan_vien_kho"]} />}>
+      <Route element={<RequireRole roles={VAI_TRO_KHO} />}>
         <Route path="/goods-issues/pending-orders" element={<DonChoXuatPage />} />
         <Route path="/goods-issues/pick-lists" element={<PickListList />} />
         <Route path="/goods-issues/pick-lists/:id" element={<PickListDetail />} />
@@ -483,7 +509,7 @@ const CAY_DUONG_DAN = (
       </Route>
 
       {/* Kênh bán hàng (FO-073–077) — chỉ quản trị viên (backend cũng chặn bằng @RequireAuth) */}
-      <Route element={<RequireRole roles={["quan_tri_vien"]} />}>
+      <Route element={<RequireRole roles={VAI_TRO_KENH_BAN} />}>
         <Route path="/channels" element={<ChannelsPage />} />
         {/* Mỗi sàn (shopify, lazada, tiktok) cùng bộ trang; sàn chờ cấp API (shopee) chỉ có màn giới thiệu, trang con
             chuyển về đó; mã sàn lạ thì KenhHopLe hiện "Không tìm thấy trang" */}
@@ -504,7 +530,7 @@ const CAY_DUONG_DAN = (
           (không sidebar/header quản trị). Vẫn dưới ProtectedRoute; chỉ quản trị viên
           + nhân viên bán hàng (khớp sidebar; backend vẫn là chốt chặn thật). */}
       <Route element={<PosLayout />}>
-        <Route element={<RequireRole roles={["quan_tri_vien", "nhan_vien_ban_hang"]} />}>
+        <Route element={<RequireRole roles={VAI_TRO_BAN_TAI_QUAY} />}>
           <Route path="/pos" element={<PosPage />} />
           {/* Trả hàng tại quầy theo hóa đơn POS gốc (đặc tả BA "Trả hàng / Đổi hàng tại POS") */}
           <Route path="/pos/returns" element={<PosReturnsPage />} />
@@ -512,16 +538,22 @@ const CAY_DUONG_DAN = (
       </Route>
 
       {/* In phiếu — ngoài BackofficeLayout (không sidebar/header, không bị shell clipping); cùng vai trò với trang chi tiết */}
-      <Route element={<RequireRole roles={["quan_tri_vien", "nhan_vien_ban_hang"]} />}>
+      <Route element={<RequireRole roles={VAI_TRO_BAN_TAI_QUAY} />}>
         <Route path="/pos/returns/:id/print" element={<PosReturnPrintPage />} />
       </Route>
-      <Route path="/purchase-requests/:id/print" element={<PurchaseRequestPrint />} />
-      <Route element={<RequireRole roles={VAI_TRO_DON_MUA} />}>
+      <Route element={<RequireRole roles={VAI_TRO_XEM_YEU_CAU_NHAP} />}>
+        <Route path="/purchase-requests/:id/print" element={<PurchaseRequestPrint />} />
+      </Route>
+      <Route element={<RequireRole roles={VAI_TRO_XEM_YEU_CAU_BAO_GIA} />}>
         <Route path="/quotation-requests/:id/print" element={<QuotationRequestPrint />} />
+      </Route>
+      <Route element={<RequireRole roles={VAI_TRO_DON_MUA} />}>
         <Route path="/purchase-orders/:id/print" element={<PurchaseOrderPrint />} />
       </Route>
-      <Route element={<RequireRole roles={VAI_TRO_KHO} />}>
+      <Route element={<RequireRole roles={VAI_TRO_XEM_PHIEU_NHAP} />}>
         <Route path="/goods-receipts/:id/print" element={<PhieuNhapKhoPrint />} />
+      </Route>
+      <Route element={<RequireRole roles={VAI_TRO_KHO} />}>
         <Route path="/goods-issues/:id/print" element={<PhieuXuatKhoPrint />} />
         <Route path="/goods-issues/:id/print-packing-slip" element={<EcommercePackingSlipPrint />} />
         {/* Chuyển kho nội bộ: loai = yeu-cau | lenh-dieu-dong | xknb | bien-ban; phiếu điều chỉnh kho in riêng */}
@@ -529,7 +561,7 @@ const CAY_DUONG_DAN = (
         <Route path="/transfer-tickets/adjustments/:id/print" element={<InChuyenKho dieuChinh />} />
       </Route>
       {/* Kiểm kê: biên bản cùng vai trò với chi tiết đợt; phiếu điều chỉnh có giá vốn nên chỉ quản trị viên, quản lý kho */}
-      <Route element={<RequireRole roles={["quan_tri_vien", "quan_ly_kho", "nhan_vien_kho"]} />}>
+      <Route element={<RequireRole roles={VAI_TRO_KHO} />}>
         <Route path="/stock-take/:id/print" element={<InKiemKe loai="bien-ban" />} />
       </Route>
       <Route element={<RequireRole roles={["quan_tri_vien", "quan_ly_kho"]} />}>
@@ -538,8 +570,11 @@ const CAY_DUONG_DAN = (
       <Route element={<RequireRole roles={VAI_TRO_XEM_BAO_GIA_BAN} />}>
         <Route path="/sales-quotations/:id/print" element={<BaoGiaPrint />} />
       </Route>
-      <Route element={<RequireRole roles={VAI_TRO_DON_BAN} />}>
+      {/* Hóa đơn bán hàng: SRS 4.4 "Invoice" chỉ nhân viên bán hàng (và quản trị viên) */}
+      <Route element={<RequireRole roles={VAI_TRO_GHI_DON_BAN} />}>
         <Route path="/sales-orders/:id/invoice" element={<DonBanHangInvoice />} />
+      </Route>
+      <Route element={<RequireRole roles={VAI_TRO_DON_BAN} />}>
         <Route path="/sales-orders/:id/print-packing-slip" element={<SalesOrderPackingSlipPrint />} />
       </Route>
     </Route>

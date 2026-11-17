@@ -31,6 +31,30 @@ const ICON_MENU_SAN = {
 import { SETTINGS_PAGES, SETTINGS_ROLES } from "@/components/settings/settings.config";
 import { canKho } from "@/components/nguoi-dung/phanQuyen";
 import { t } from "@/i18n";
+import {
+  TAT_CA_VAI_TRO,
+  VAI_TRO_BAN_TAI_QUAY,
+  VAI_TRO_BAO_CAO_DOANH_THU,
+  VAI_TRO_BAO_CAO_KHACH_HANG,
+  VAI_TRO_BAO_CAO_NHAP_XUAT,
+  VAI_TRO_BAO_CAO_SAN_PHAM,
+  VAI_TRO_CHUYEN_KE,
+  VAI_TRO_DANH_MUC,
+  VAI_TRO_DANH_SACH_KHO,
+  VAI_TRO_DON_BAN,
+  VAI_TRO_DON_MUA,
+  VAI_TRO_GHI_DON_BAN,
+  VAI_TRO_GUI_YEU_CAU_BAO_GIA,
+  VAI_TRO_IN_TEM,
+  VAI_TRO_KENH_BAN,
+  VAI_TRO_KHACH_HANG,
+  VAI_TRO_KHO,
+  VAI_TRO_NGUOI_DUNG,
+  VAI_TRO_NHA_CUNG_CAP,
+  VAI_TRO_XEM_PHIEU_NHAP,
+  VAI_TRO_XEM_YEU_CAU_NHAP,
+  VAI_TRO_XUAT_KE_TOAN,
+} from "@/constants/vaiTroTheoNghiepVu";
 
 // Nhóm hiển thị trên sidebar — thứ tự khai báo cũng là thứ tự render.
 // Label chỉ hiển thị khi sidebar mở rộng; khi thu gọn chỉ còn divider + khoảng cách.
@@ -68,30 +92,19 @@ export const NHOM_MO_SAN_THEO_VAI_TRO = {
   nhan_vien_ban_hang: t("Bán hàng"),
 };
 
-const TAT_CA_VAI_TRO = [
-  "quan_tri_vien",
-  "quan_ly_kho",
-  "nhan_vien_kho",
-  "nhan_vien_mua_hang",
-  "nhan_vien_ban_hang",
-];
-
 /*
- * Vai trò của các mục menu mà App.jsx cũng dùng để chặn đường dẫn (RequireRole): menu và đường dẫn chung một danh sách
- * nên không lệch nhau. Mỗi danh sách khớp @RequireAuth của API chính trang đó gọi.
+ * Vai trò của các mục menu lấy từ constants/vaiTroTheoNghiepVu.js (theo ma trận phân quyền SRS 4.4); App.jsx dùng
+ * chung danh sách đó để chặn đường dẫn (RequireRole) nên menu và đường dẫn không lệch nhau. Xuất lại ở đây cho các
+ * tệp đang import từ sidebar.config.js.
  */
-// Người dùng: AdminController
-export const VAI_TRO_NGUOI_DUNG = ["quan_tri_vien"];
-// Phiếu nhập, xuất, chuyển kho, vị trí kệ, lịch sử giao dịch kho
-export const VAI_TRO_KHO = ["quan_tri_vien", "quan_ly_kho", "nhan_vien_kho"];
-// Chuyển kệ nội bộ (UC-7.4): BA cho cả nhân viên bán hàng kiêm kho cửa hàng (ChuyenKeNoiBoController)
-export const VAI_TRO_CHUYEN_KE = [...VAI_TRO_KHO, "nhan_vien_ban_hang"];
-// Đơn mua hàng (GET /don-mua-hang/get-by-id, /filter); cũng là vai trò xem được giá mua ở yêu cầu báo giá, báo giá
-export const VAI_TRO_DON_MUA = ["quan_tri_vien", "quan_ly_kho", "nhan_vien_mua_hang", "nhan_vien_kho"];
-// Danh sách kho: GET /kho/{id}/tom-tat
-export const VAI_TRO_DANH_SACH_KHO = ["quan_tri_vien", "quan_ly_kho"];
-// Đơn bán hàng: POST /don-ban-hang/filter, GET /don-ban-hang/{id}/detail
-export const VAI_TRO_DON_BAN = ["quan_tri_vien", "nhan_vien_ban_hang", "nhan_vien_kho", "quan_ly_kho"];
+export {
+  VAI_TRO_CHUYEN_KE,
+  VAI_TRO_DANH_SACH_KHO,
+  VAI_TRO_DON_BAN,
+  VAI_TRO_DON_MUA,
+  VAI_TRO_KHO,
+  VAI_TRO_NGUOI_DUNG,
+};
 
 // Mục con khai báo `nhom` ("chung-tu" | "du-lieu"): BackofficeSidebar kẻ một đường mảnh giữa chứng từ và dữ liệu gốc
 // (nhà cung cấp, khách hàng, kho, vị trí kệ). Mỗi nhóm tối đa một đường kẻ.
@@ -134,10 +147,10 @@ export const SIDEBAR_MENU = [
       {
         label: t("Giá bán & tem mã vạch"),
         to: "/products/gia-ban-tem",
-        roles: ["quan_tri_vien", "quan_ly_kho"],
+        roles: VAI_TRO_IN_TEM,
       },
-      { label: t("Danh mục"), to: "/categories" },
-      { label: t("Thuộc tính"), to: "/attributes" },
+      { label: t("Danh mục"), to: "/categories", roles: VAI_TRO_DANH_MUC },
+      { label: t("Thuộc tính"), to: "/attributes", roles: VAI_TRO_DANH_MUC },
     ],
   },
 
@@ -146,24 +159,19 @@ export const SIDEBAR_MENU = [
     label: t("Mua hàng"),
     icon: ArrowDownToLine,
     section: "main",
-    roles: [
-      "quan_tri_vien",
-      "quan_ly_kho",
-      "nhan_vien_mua_hang",
-      "nhan_vien_kho",
-    ],
+    roles: VAI_TRO_DON_MUA,
     children: [
       {
         label: t("Yêu cầu nhập hàng"),
         to: "/purchase-requests",
         nhom: CHUNG_TU,
-        roles: ["quan_tri_vien", "quan_ly_kho", "nhan_vien_kho", "nhan_vien_mua_hang"],
+        roles: VAI_TRO_XEM_YEU_CAU_NHAP,
       },
       {
         label: t("Yêu cầu báo giá"),
         to: "/quotation-requests",
         nhom: CHUNG_TU,
-        roles: ["quan_tri_vien", "nhan_vien_mua_hang"],
+        roles: VAI_TRO_GUI_YEU_CAU_BAO_GIA,
       },
       {
         label: t("Đơn mua hàng"),
@@ -175,7 +183,7 @@ export const SIDEBAR_MENU = [
         label: t("Nhà cung cấp"),
         to: "/supplier",
         nhom: DU_LIEU,
-        roles: ["quan_tri_vien", "quan_ly_kho", "nhan_vien_mua_hang"],
+        roles: VAI_TRO_NHA_CUNG_CAP,
       },
       // FO-095: tra mã vạch trên tem NCC ↔ biến thể (liên kết tạo khi kiểm đếm hàng nhập)
       {
@@ -193,10 +201,11 @@ export const SIDEBAR_MENU = [
     label: t("Kho hàng"),
     icon: Warehouse,
     section: "main",
-    // Nhân viên bán hàng chỉ thấy mục Chuyển kệ nội bộ: các mục khác ghi rõ VAI_TRO_KHO
-    roles: VAI_TRO_CHUYEN_KE,
+    // Nhân viên bán hàng chỉ thấy mục Chuyển kệ nội bộ, nhân viên mua hàng chỉ thấy Phiếu nhập kho (chỉ xem): các mục
+    // khác ghi rõ VAI_TRO_KHO
+    roles: [...new Set([...VAI_TRO_CHUYEN_KE, ...VAI_TRO_XEM_PHIEU_NHAP])],
     children: [
-      { label: t("Phiếu nhập kho"), to: "/goods-receipts", nhom: CHUNG_TU, roles: VAI_TRO_KHO },
+      { label: t("Phiếu nhập kho"), to: "/goods-receipts", nhom: CHUNG_TU, roles: VAI_TRO_XEM_PHIEU_NHAP },
       // Xuất kho theo Pick List (FO-045–047): Đơn chờ xuất → Pick List → Phiếu xuất kho
       { label: t("Đơn chờ xuất"), to: "/goods-issues/pending-orders", nhom: CHUNG_TU, roles: VAI_TRO_KHO },
       { label: t("Phiếu nhặt hàng"), to: "/goods-issues/pick-lists", nhom: CHUNG_TU, roles: VAI_TRO_KHO },
@@ -241,16 +250,13 @@ export const SIDEBAR_MENU = [
     label: t("Bán hàng"),
     icon: ShoppingCart,
     section: "main",
-    roles: [
-      "quan_tri_vien",
-      "nhan_vien_ban_hang", "nhan_vien_kho", "quan_ly_kho"
-    ],
+    roles: VAI_TRO_DON_BAN,
     children: [
       {
         label: t("Báo giá"),
         to: "/sales-quotations",
         nhom: CHUNG_TU,
-        roles: ["quan_tri_vien", "nhan_vien_ban_hang"],
+        roles: VAI_TRO_GHI_DON_BAN,
       },
       {
         label: t("Đơn bán hàng"),
@@ -271,7 +277,7 @@ export const SIDEBAR_MENU = [
         label: t("Khách hàng"),
         to: "/customers",
         nhom: DU_LIEU,
-        roles: ["quan_tri_vien", "nhan_vien_ban_hang"],
+        roles: VAI_TRO_KHACH_HANG,
       },
     ],
   },
@@ -287,13 +293,13 @@ export const SIDEBAR_MENU = [
         // Nhân viên bán hàng: cửa hàng mình làm, không có giá vốn / lợi nhuận (FO-090)
         label: t("Báo cáo doanh thu"),
         to: "/reports/revenue",
-        roles: ["quan_tri_vien", "quan_ly_kho", "nhan_vien_ban_hang"],
+        roles: VAI_TRO_BAO_CAO_DOANH_THU,
       },
       {
-        // Bán chạy, sắp hết, dư hàng, không bán theo sản phẩm: API cùng quyền với Báo cáo doanh thu
+        // Bán chạy, dư hàng, không bán theo sản phẩm (UC 11.4). Quản lý kho, nhân viên kho xem hàng sắp hết ở Báo cáo tồn kho
         label: t("Báo cáo sản phẩm"),
         to: "/reports/products",
-        roles: ["quan_tri_vien", "quan_ly_kho", "nhan_vien_ban_hang"],
+        roles: VAI_TRO_BAO_CAO_SAN_PHAM,
       },
       {
         label: t("Báo cáo tồn kho"),
@@ -303,18 +309,18 @@ export const SIDEBAR_MENU = [
       {
         label: t("Báo cáo nhập xuất"),
         to: "/reports/stock-movements",
-        roles: ["quan_tri_vien", "quan_ly_kho"],
+        roles: VAI_TRO_BAO_CAO_NHAP_XUAT,
       },
       {
         label: t("Báo cáo khách hàng"),
         to: "/reports/customers",
-        roles: ["quan_tri_vien", "quan_ly_kho"],
+        roles: VAI_TRO_BAO_CAO_KHACH_HANG,
       },
       {
         // Xuất sang AMIS Kế toán doanh nghiệp: KeToanController chỉ cho quản trị viên
         label: t("Xuất dữ liệu kế toán"),
         to: "/reports/accounting-export",
-        roles: ["quan_tri_vien"],
+        roles: VAI_TRO_XUAT_KE_TOAN,
       },
       {
         label: t("Lịch sử giao dịch kho"),
@@ -334,7 +340,7 @@ export const SIDEBAR_MENU = [
     hienThi: "nut-them",
     nhanNut: t("Kết nối kênh bán hàng"),
     to: "/channels",
-    roles: ["quan_tri_vien"],
+    roles: VAI_TRO_KENH_BAN,
     // Trang quay về sau ủy quyền tính vào Tất cả kênh
     match: (path) => path === "/channels" || path.startsWith("/channels/oauth/"),
     // Trang của sàn chưa kết nối (giới thiệu, thiết lập) cũng tính vào Tất cả kênh vì sàn đó chưa có mục riêng
@@ -355,27 +361,27 @@ export const SIDEBAR_MENU = [
     icon: TaiQuayMenuIcon,
     section: "channels",
     to: "/pos",
-    roles: ["quan_tri_vien", "nhan_vien_ban_hang"],
+    roles: VAI_TRO_BAN_TAI_QUAY,
   },
   // Sinh từ SAN_BAN_HANG; `maKenh`: BackofficeSidebar chỉ hiện sàn đã kết nối (danh sách tải ở BackofficeLayout)
   ...SAN_BAN_HANG.filter((san) => san.hoTro && !san.anTam).map((san) => ({
     label: san.ten,
     icon: ICON_MENU_SAN[san.maKenh] ?? Store,
     section: "channels",
-    roles: ["quan_tri_vien"],
+    roles: VAI_TRO_KENH_BAN,
     maKenh: san.maKenh,
     children: [
       {
         label: t("Tổng quan"),
         to: san.duongDan,
-        roles: ["quan_tri_vien"],
+        roles: VAI_TRO_KENH_BAN,
         // Chỉ đúng trang Tổng quan. Thiết lập (/channels/<sàn>/setup) không có mục riêng: nhóm sàn vẫn mở,
         // không mục con nào sáng (nhóm đang đóng hoặc menu thu gọn thì cả nhóm được tô như mọi nhóm khác)
         match: (path) => path === san.duongDan,
       },
-      { label: t("Sản phẩm"), to: `${san.duongDan}/products`, roles: ["quan_tri_vien"] },
-      { label: t("Đơn hàng"), to: `${san.duongDan}/orders`, roles: ["quan_tri_vien"] },
-      { label: t("Cấu hình"), to: `${san.duongDan}/settings`, roles: ["quan_tri_vien"] },
+      { label: t("Sản phẩm"), to: `${san.duongDan}/products`, roles: VAI_TRO_KENH_BAN },
+      { label: t("Đơn hàng"), to: `${san.duongDan}/orders`, roles: VAI_TRO_KENH_BAN },
+      { label: t("Cấu hình"), to: `${san.duongDan}/settings`, roles: VAI_TRO_KENH_BAN },
     ],
   })),
   // Sàn chờ cấp API bật `hienMenu` (Shopee): một mục mở màn giới thiệu, không có mục con vì trang con chuyển về đó;
@@ -385,7 +391,7 @@ export const SIDEBAR_MENU = [
     icon: ICON_MENU_SAN[san.maKenh] ?? Store,
     section: "channels",
     to: san.duongDan,
-    roles: ["quan_tri_vien"],
+    roles: VAI_TRO_KENH_BAN,
   })),
 
   // ================= CẤU HÌNH (ghim ở đáy sidebar) =================
