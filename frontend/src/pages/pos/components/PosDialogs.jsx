@@ -22,6 +22,8 @@ import {
 import MoneyInput from '@/components/shared/MoneyInput';
 import PayosLogo from '@/components/shared/PayosLogo';
 import PosModal from './PosModal';
+import { chuanHoaSoDienThoaiKhiNhap, loiSoDienThoai, loiTenKhachHang } from '@/components/khach-hang/quyTacKhachHang';
+import { chuanHoaHoTen } from '@/validations/hoTen';
 import { WALKIN_CUSTOMER_CODE, posService, toPosCustomer } from '@/services/posService';
 import { formatMoney } from '../pos-format';
 import { canTraLaiTienMat, chiaThanhToanKetHop, kiemTienMatTruocQr, msToiHetHan, phaMaQr, tienMatTruocCua } from '../pos-payment';
@@ -150,11 +152,11 @@ function FooterButtons({ onClose, onConfirm, confirmText = t("Xác nhận"), can
   );
 }
 
-function Field({ id, label, value, onChange, placeholder, autoFocus = false }) {
+function Field({ id, label, value, onChange, onBlur, placeholder, autoFocus = false }) {
   return (
     <label className="block text-sm font-medium text-bo-foreground" htmlFor={id}>
       {label}
-      <input autoFocus={autoFocus} className={fieldClass} id={id} onChange={onChange} placeholder={placeholder} type="text" value={value} />
+      <input autoFocus={autoFocus} className={fieldClass} id={id} onBlur={onBlur} onChange={onChange} placeholder={placeholder} type="text" value={value} />
     </label>
   );
 }
@@ -455,14 +457,21 @@ function CustomerDialog({ state, actions, onClose }) {
   const openQuickAdd = () => {
     // Điền sẵn từ ô tìm kiếm: toàn chữ số -> SĐT, còn lại -> tên.
     const keyword = customerSearch.trim();
-    if (/^[\d\s.-]+$/.test(keyword)) setQuickPhone(keyword);
+    if (/^[+\d\s.()-]+$/.test(keyword)) setQuickPhone(keyword);
     else if (keyword) setQuickName(keyword);
     setQuickError('');
     setQuickExisting(null);
     setQuickAddOpen(true);
   };
-  const phoneDigits = quickPhone.replace(/[\s.-]/g, '');
-  const quickInvalid = !quickName.trim() || !/^0\d{9}$/.test(phoneDigits);
+  // Cùng luật với form Thêm khách hàng: tên khách lẻ như họ tên; SĐT bỏ dấu ngăn cách, +84 về 0, nhận di động / máy bàn / tổng đài.
+  const phoneDigits = chuanHoaSoDienThoaiKhiNhap(quickPhone);
+  const quickNameError = quickName.trim() ? loiTenKhachHang(quickName, 'le') : '';
+  const quickPhoneError = phoneDigits ? loiSoDienThoai(phoneDigits) : '';
+  // Báo lỗi khi đã rời ô hoặc đã gõ đủ dài, không báo đỏ ngay từ chữ / chữ số đầu tiên
+  const [daRoi, setDaRoi] = useState({ ten: false, sdt: false });
+  const hienLoiTen = quickNameError && (daRoi.ten || [...chuanHoaHoTen(quickName)].length >= 2);
+  const hienLoiSdt = quickPhoneError && (daRoi.sdt || phoneDigits.length >= 10);
+  const quickInvalid = !quickName.trim() || !phoneDigits || Boolean(quickNameError || quickPhoneError);
   const submitQuickAdd = async (event) => {
     event.preventDefault();
     if (quickInvalid || quickBusy) return;
@@ -470,7 +479,7 @@ function CustomerDialog({ state, actions, onClose }) {
     setQuickError('');
     setQuickExisting(null);
     try {
-      await actions.onQuickCreateCustomer({ name: quickName.trim(), phone: phoneDigits });
+      await actions.onQuickCreateCustomer({ name: chuanHoaHoTen(quickName), phone: phoneDigits });
       closeCustomerDialog();
     } catch (error) {
       const envelope = error?.response?.data;
@@ -508,10 +517,11 @@ function CustomerDialog({ state, actions, onClose }) {
         <form className="mt-4 rounded-lg border border-bo-border p-3" onSubmit={submitQuickAdd}>
           <p className="text-sm font-semibold text-bo-foreground">{t("Thêm khách hàng mới")}</p>
           <div className="mt-2 grid gap-3 sm:grid-cols-2">
-            <Field autoFocus={!quickName} id="quick-customer-name" label={t("Tên khách hàng *")} onChange={(event) => setQuickName(event.target.value)} placeholder={t("VD: Nguyễn Văn A")} value={quickName} />
-            <Field autoFocus={Boolean(quickName)} id="quick-customer-phone" label={t("Số điện thoại *")} onChange={(event) => setQuickPhone(event.target.value)} placeholder={t("VD: 0912345678")} value={quickPhone} />
+            <Field autoFocus={!quickName} id="quick-customer-name" label={t("Tên khách hàng *")} onBlur={() => setDaRoi((cu) => ({ ...cu, ten: true }))} onChange={(event) => setQuickName(event.target.value)} placeholder={t("VD: Nguyễn Văn A")} value={quickName} />
+            <Field autoFocus={Boolean(quickName)} id="quick-customer-phone" label={t("Số điện thoại *")} onBlur={() => setDaRoi((cu) => ({ ...cu, sdt: true }))} onChange={(event) => setQuickPhone(event.target.value)} value={quickPhone} />
           </div>
-          {quickPhone && !/^0\d{9}$/.test(phoneDigits) ? <p className="mt-2 text-xs text-red-600">{t("Số điện thoại gồm 10 chữ số, bắt đầu bằng 0.")}</p> : null}
+          {hienLoiTen ? <p className="mt-2 text-xs text-red-600">{quickNameError}</p> : null}
+          {hienLoiSdt ? <p className="mt-2 text-xs text-red-600">{quickPhoneError}</p> : null}
           {quickError ? (
             <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">
               <span>{quickError}</span>
