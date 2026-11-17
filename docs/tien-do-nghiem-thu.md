@@ -1,6 +1,6 @@
 # Tiến độ triển khai và nghiệm thu FCentric
 
-Cập nhật: 18/11/2026 (GMT+7), AUDIT-106. Đây là bảng theo dõi hiện hành; audit lưu lịch sử thay đổi, không thay thế biên bản nghiệm thu.
+Cập nhật: 18/11/2026 (GMT+7), AUDIT-107. Đây là bảng theo dõi hiện hành; audit lưu lịch sử thay đổi, không thay thế biên bản nghiệm thu.
 
 **Hiện trạng mới:** Đã xác minh khóa đang lưu có quyền đọc/ghi fulfillment order do cửa hàng quản lý và quyền vận chuyển. FCentric có thể gọi cập nhật tiến trình ngay sau thao tác. Chiều Shopify → FCentric đã có mã nhận sự kiện trực tiếp, nhưng chưa kích hoạt trên hệ thống thật: thiếu khóa bí mật ứng dụng trong cấu hình và điểm nhận công khai hiện trả HTTP 404.
 
@@ -26,6 +26,30 @@ Cập nhật: 18/11/2026 (GMT+7), AUDIT-106. Đây là bảng theo dõi hiện h
 | Shopee, Lazada, TikTok Shop | Có tích hợp | Có các bộ kiểm thử sẵn; không coi đợt này là nghiệm thu ba sàn | Chưa | Chưa xác nhận |
 | Báo cáo, xuất dữ liệu AMIS | Có | Không kiểm lại toàn phân hệ trong đợt này | Chưa | Chưa xác nhận |
 | Đa ngôn ngữ, đóng gói frontend | Có | i18n, ESLint phần sửa, kiểm thử frontend và build | Chưa duyệt giao diện qua trình duyệt trong đợt này | Chưa xác nhận giao diện nghiệp vụ |
+
+## Rà soát ảnh hưởng và tuân thủ (AUDIT-107)
+
+Rà soát lại mã AUDIT-106 cùng những đường nghiệp vụ dùng lại. Có điểm cần sửa; không coi kết quả 254 bài trước đó là bằng chứng đã cô lập mọi kênh.
+
+| Phát hiện | Ảnh hưởng có thể xảy ra | Kết quả sửa và bằng chứng |
+|---|---|---|
+| Tra đơn Shopify có bước tìm mã đơn toàn hệ thống và nhận số hiển thị chưa kiểm đúng kênh | Chọn nhầm đơn Shopee/Lazada/TikTok hoặc kênh Shopify khác khi trùng ID/số đơn; cập nhật nhầm thanh toán/hủy | Bỏ tìm ID toàn cục, chỉ nhận đơn đúng kênh; số trùng ở kênh khác tạo số riêng. 9 ca chống trùng tái hiện lỗi trước sửa và đạt sau sửa. Đây là lỗ hổng nhận diện đã có ở đường Shopify cũ, được phát hiện khi rà đường webhook mới dùng lại nó. |
+| Lịch Shopify dùng chung lịch nền; cấu hình production tăng số luồng chung | Đăng ký qua mạng có thể chiếm lịch của quét tồn/đơn; thay đổi cách tác vụ các kênh chạy đồng thời | Tách scheduler Shopify theo tên, giữ executor/scheduler mặc định của Boot; bỏ cấu hình tăng pool chung và bỏ gọi mạng đồng bộ trong sự kiện khởi động. Test thực sự chiếm hết luồng Shopify vẫn cho tác vụ mô phỏng kênh khác chạy. |
+| Lỗi tạo bảng hộp nhận lan ra lúc khởi tạo bean | Máy chủ có thể không khởi động chỉ vì DB chưa cấp quyền tạo bảng Shopify | Cô lập lỗi tạo bảng, hướng dẫn áp dụng script riêng. Chặn đăng ký nếu bảng chưa truy vấn được; ghi nhận sự kiện vẫn trả 503 nếu không lưu được. Có test lỗi quyền DDL và test không báo sẵn sàng khi thiếu bảng. |
+| Truy vấn tiến trình trả `order: null`, thiếu trạng thái hoặc sai ID vẫn có thể được coi là xử lý xong | Mất cơ hội thử lại thay đổi tiến trình | Kiểm ID và trạng thái đầy đủ trước khi trả snapshot; 3 ca tái hiện trước sửa và đạt sau sửa. |
+| SSE mở trên cả chi tiết đơn khác kênh và chế độ mẫu | Tải lại dư dữ liệu POS/kênh khác khi Shopify thay đổi | Chỉ mở chi tiết Shopify thật; danh sách chỉ nghe khi đang xem tất cả hoặc Shopify. Không thêm thay đổi nghiệp vụ cho các kênh khác. |
+
+Đối chiếu rule/skill trong phạm vi này:
+
+- Tái sử dụng nghiệp vụ đơn/kho và thư viện đã có; không thêm dependency hay sửa mã sản phẩm/kho của Shopee/Lazada/TikTok. Thay số trạng thái mới viết cứng bằng `ITrangThaiDonBanHang`.
+- API quản trị dùng `ResponseData` và `@RequireAuth`; SSE dùng đăng nhập, API tải dữ liệu vẫn kiểm quyền. Webhook đối tác dùng HMAC trên byte gốc thay JWT nhân viên; phản hồi webhook và SSE tuân giao thức riêng, ngoại lệ này đã ghi trong mã và audit.
+- Thông báo mới có VI/EN; kiểm i18n, thông điệp backend, lint và build đều đạt. Giao dịch nhận đơn và retry sau commit giữ nguyên ràng buộc; không thêm đường trừ tồn/hoàn tiền tự động.
+- Tham chiếu `java-pro`, `api-design-principles`, coding/omnichannel rules; chỉ rà bảo mật phòng thủ trong mã và kiểm thử cục bộ, không thực hiện quy trình khai thác của `hunt-springboot`/`api-security` trên website thật.
+- Webhook, hộp nhận bền vững, đăng ký sự kiện và SSE phục vụ yêu cầu hai chiều/tự hiển thị; không thêm nền tảng đồng bộ tổng quát, hàng đợi ngoài hoặc thư viện giao diện. Các phần mở rộng quá phạm vi đã thu hẹp là lịch nền chung và việc tải lại đơn khác kênh.
+
+Spring hỗ trợ chỉ định scheduler riêng cho từng tác vụ qua [thuộc tính `scheduler`](https://docs.spring.io/spring-framework/docs/6.2.x/javadoc-api/org/springframework/scheduling/annotation/Scheduled.html). Kết luận cô lập ở đây dựa thêm vào kiểm thử context và thực thi tác vụ của dự án, không chỉ dựa vào tài liệu.
+
+Đơn cũ thiếu thông tin kênh không được tự nhận diện chỉ từ số `SHP-...`; cần đối soát/gán đúng kênh trước khi lấy lại để tránh nhầm với đơn khác. Chưa có kiểm chứng đa tiến trình SSE, tải lớn, hoặc nghiệm thu website thật.
 
 ## Nguyên nhân Shopify kẹt ở “Chưa hoàn tất”
 
@@ -65,7 +89,7 @@ flowchart LR
 - **Dữ liệu hiện hành:** Payload cũ hoặc đến sai thứ tự không được dùng làm trạng thái để ghi đè. Hệ thống đọc lại đơn hiện tại. Sự kiện báo tiến trình chỉ có mã fulfillment order được tra về mã đơn; không nhầm mã fulfillment order thành mã đơn. Xử lý đơn trong giao dịch có khóa; lỗi phải được ném ra để giữ bản ghi chờ thử lại. Không phát tiến trình ngược lại Shopify từ đường nhận này, tránh vòng lặp.
 - **Ràng buộc kho:** Shopify báo đang xử lý chỉ đưa đơn nháp đủ điều kiện sang Chờ nhặt, không tạo phiếu nhặt, đóng gói hoặc xuất vật lý. Nếu FCentric đã ở bước đóng gói/xuất thì giữ đúng tiến trình. Shopify báo giao/xuất khi FCentric còn phiếu xuất chưa xác nhận vẫn không được nhảy cóc kho. Đánh dấu chưa hoàn tất lại trên Shopify không tự xóa công việc kho đã bắt đầu.
 - **Màn hình:** Danh sách và chi tiết đơn mở luồng SSE có Bearer JWT; chỉ nhận tín hiệu cần tải lại, không nhận nội dung đơn/khách qua luồng này. API tải dữ liệu vẫn kiểm quyền kho/vai trò. Khi ngắt kết nối, luồng nối lại; tín hiệu sẵn sàng tải lại dữ liệu để bù khoảng ngắt. Không làm mới chi tiết trong lúc đang thao tác hoặc mở hộp thoại.
-- **Đăng ký sự kiện:** Backend kiểm điểm nhận công khai đúng phiên bản rồi mới đăng ký webhook. Không đăng ký vào SPA/HTTP 404. Có kiểm danh sách hiện có, chỉ thêm loại còn thiếu; quyền trả hàng thiếu không làm mất các loại đã đăng ký. Khởi động và lịch 5 phút kiểm lại cấu hình; quản trị viên có thể bấm **Bật cập nhật tức thì** để làm ngay. Thông báo cấp quyền/cấu hình đều có VI/EN.
+- **Đăng ký sự kiện:** Backend kiểm bảng hộp nhận và điểm nhận công khai đúng phiên bản rồi mới đăng ký webhook. Không đăng ký vào SPA/HTTP 404. Có kiểm danh sách hiện có, chỉ thêm loại còn thiếu; quyền trả hàng thiếu không làm mất các loại đã đăng ký. Tác vụ riêng chạy lần đầu sau 5 giây, rồi kiểm lại mỗi 5 phút; quản trị viên có thể bấm **Bật cập nhật tức thì** để làm ngay. Thông báo cấp quyền/cấu hình đều có VI/EN.
 
 “Ngay” nghĩa là không cố ý đợi lịch quét. Vẫn có thời gian mạng, Shopify giao sự kiện, xử lý và hiển thị; lỗi/giới hạn tần suất phải thử lại, không thể cam kết độ trễ tuyệt đối bằng 0. Xem [xác thực và xử lý trùng của Shopify](https://shopify.dev/docs/apps/build/webhooks/verify-deliveries).
 
@@ -91,6 +115,7 @@ Không đánh đồng các trạng thái: `IN_PROGRESS` là tiến trình fulfil
 
 1. Quyền xử lý đơn đã được cấp và xác minh. Còn cần lưu **Khóa bí mật của ứng dụng** (Client secret của đúng ứng dụng cấp khóa đang dùng) tại phần kết nối nâng cao Shopify của FCentric. Không đưa khóa vào tài liệu hay chat. Người dùng đã chọn hoàn thiện mã và ghi rõ bước này, chưa cung cấp cấu hình.
 2. Triển khai backend và frontend mới ở `https://fcentric.net`; biến `SHOPIFY_WEBHOOK_PUBLIC_BASE_URL` mặc định là địa chỉ này. Điểm nhận phải là `https://fcentric.net/api/v1/shopify/webhook`; phép GET hiện tại trả HTTP 404, bản mới phải trả mã nhận diện `fcentric-shopify-realtime-v1`. Vào cấu hình Shopify, bấm **Kiểm tra kết nối**, sau đó **Bật cập nhật tức thì**. API kích hoạt chỉ quản trị viên gọi được. Với nhóm trả hàng, bổ sung quyền đọc trả hàng nếu kết quả chỉ bật được một phần. Nếu dùng nginx, giữ luồng SSE không buffer (backend trả `X-Accel-Buffering: no`).
+   Nếu tài khoản DB không có quyền tạo bảng, quản trị viên áp dụng `backend/src/main/resources/db/shopify_realtime.sql` bằng công cụ quản trị DB trước khi bật. Lỗi riêng này không được làm dừng các kênh khác; chưa lưu được sự kiện thì không xác nhận nhận thành công.
 3. Dùng đơn thử có thanh toán thử. Thực hiện từng bước trong ma trận, ghi mã đơn hai bên và ảnh trạng thái gốc; tag không được dùng thay bằng chứng.
 4. Với đơn cũ đang kẹt, chọn khoảng ngày có đơn và lấy lại đơn. Chỉ thao tác lại việc lấy đơn, không chuyển lùi trạng thái kho hoặc phát hành lại phiếu xuất.
 5. Kiểm tra rollback: giao dịch kho bị hủy thì không gửi tiến trình; lỗi Shopify không được đảo ngược giao dịch xuất kho đã commit. Kiểm tra 403, 429, mất mạng và bấm hai lần.
@@ -101,7 +126,7 @@ Chưa phát hành mutation trên đơn thật, đăng ký webhook thật hoặc 
 
 ## Kết quả kiểm tra đợt sửa
 
-- Backend: 254/254 bài đạt trong bộ kiểm thử mục tiêu, gồm client GraphQL/HTTP, webhook, H2/hộp nhận, retry sau commit, cô lập bộ xử lý, trạng thái kho và hồi quy POS/xuất kho; đóng gói Maven đạt. Không phải toàn bộ test backend hay nghiệm thu với MySQL thật.
+- Backend: **387/387 bài đạt**, đóng gói Maven đạt. Bộ hồi quy mở rộng AUDIT-107 gồm client GraphQL/HTTP, webhook, H2/hộp nhận, retry sau commit, cô lập lịch chạy, trạng thái kho, POS/xuất kho, phân quyền và các kênh Shopee/Lazada/TikTok. Không phải toàn bộ test backend hay nghiệm thu với MySQL thật.
 - Frontend: 694 bài, 693 đạt, 1 bỏ qua, không lỗi; gồm hai bài phân tích SSE.
 - Đa ngôn ngữ frontend: 728 tệp, 0 chưa bọc, 0 thiếu bản dịch, 0 lệch.
 - Bộ kiểm thông điệp backend trên phần sửa: không có câu sót, khóa thiếu hay lỗi kho câu.

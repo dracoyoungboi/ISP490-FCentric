@@ -8,6 +8,8 @@
 
 > **Cập nhật AUDIT-106:** Quyền Shopify mới đã hoạt động. Mã đồng bộ trực tiếp hai chiều đã có và được kiểm thử; chưa bật trên website thật do chưa lưu khóa bí mật ứng dụng và chưa triển khai điểm nhận mới.
 
+> **Rà soát AUDIT-107:** Bổ sung bảo vệ chọn đúng kênh khi trùng mã đơn, cô lập scheduler và lỗi DDL Shopify, kiểm dữ liệu tiến trình đầy đủ, thu hẹp SSE. Bộ hồi quy mở rộng 387 bài backend đạt; chưa thay thế nghiệm thu website thật.
+
 ---
 
 ## BẢNG TỔNG HỢP NHẬT KÝ THAY ĐỔI (AUDIT LOGS)
@@ -120,6 +122,7 @@
 | **AUDIT-104** | `2026-11-17 19:15:00` | PhanAnh & Antigravity AI | Feat & Architecture / Hoàn tất triển khai đồng bộ vòng đời đơn hàng Shopify hai chiều 5 trạng thái đỏ theo chuẩn Sapo | `KenhBanHangSyncServiceImpl.java`, `KenhBanHangDongBoService.java`, `KenhBanHangDongBoServiceImpl.java`, `DonBanHangService.java`, `ShopifyStatusSyncTest.java`, `audit.md` | Hoàn thiện 100% 5 trạng thái đỏ Shopify: Nối dây pushOrderStatus kích hoạt xuất kho fulfilled cho Shopify, Lazada và TikTok; Nâng cấp dongBoTrangThaiFulfilledShopify với line_items_by_fulfillment_order chi tiết từng item và tracking; Hoàn thiện dongBoTrangThaiDangThucHienShopify sửa mutation notes và cập nhật tags note; Hoàn thiện dongBoTrangThaiDeliveredShopify tự fulfill trước khi gửi sự kiện delivered; Triển khai dongBoHoanTraVaHoanTienShopify tự fulfill nếu unfulfilled và gọi Refunds API với restock_type: no_restock và suggested_transactions chuẩn Sapo; 14/14 unit tests PASS 100%, i18n 725 tệp sạch. |
 | **AUDIT-105** | `2026-11-18 02:55:00` | Codex / PhanAnh | Fix / Shopify & nghiệm thu | Client, service, DTO, UI, i18n, tests, docs | Sửa API tiến trình gốc 2026-04 và reasonNotes, chặn báo thành công sai, đối soát sau commit, xác nhận thiếu quyền Shopify thật; bảng nghiệm thu riêng và kiểm thử hồi quy. |
 | **AUDIT-106** | `2026-11-18 04:10:00` | Codex / PhanAnh | Feat / Shopify trực tiếp hai chiều | Webhook, DB inbox, service, controllers, SSE, cấu hình, UI, i18n, tests, docs | Nhận thay đổi có chữ ký, lưu bền vững và xử lý ngay; thử lại tiến trình sau commit; cập nhật màn hình qua SSE. 254 bài backend đạt; quyền mới xác minh được, còn thiếu khóa bí mật và triển khai công khai. |
+| **AUDIT-107** | `2026-11-18 04:25:00` | Codex / PhanAnh | Review & fix / Cô lập Shopify | Tra đơn, scheduler, inbox, client, UI, i18n, tests, docs | Tái hiện 12 ca lỗi và sửa chọn nhầm kênh/phản hồi thiếu; tách lịch Shopify, chặn lỗi DDL lan tới khởi động, giới hạn SSE. 387 bài backend đạt, 693 bài frontend đạt và 1 bỏ qua. |
 
 
 ---
@@ -3919,6 +3922,55 @@ Rà soát hồi quy còn phát hiện nhánh fulfilled cũ có thể coi danh s�
 - Frontend: **694 bài, 693 đạt, 1 bỏ qua, 0 lỗi**; gồm hai ca phân tích SSE. ESLint phần sửa đạt. i18n **728 tệp sạch**; kiểm thông điệp backend không còn câu sót/khóa thiếu. Build frontend đạt, còn cảnh báo kích thước bundle đã có.
 - Kiểm tra thật chỉ đọc: DB/kết nối Shopify truy cập được, quyền mới có hiệu lực; **khóa bí mật ứng dụng chưa lưu**, **URL công khai 404**. Không tạo đăng ký webhook thật, không đổi trạng thái đơn thật, không ghi tồn/tiền, không tạo hoàn tiền hay chỉnh khóa kết nối.
 - Còn cần: triển khai backend/frontend mới, lưu **Khóa bí mật của ứng dụng** tại kết nối nâng cao, kiểm tra kết nối và bấm **Bật cập nhật tức thì**; bổ sung quyền trả hàng nếu báo một phần. Sau đó mới thử hai chiều từng trạng thái, đo độ trễ và đối chiếu tồn/tiền theo ma trận. Hoàn một phần từng dòng vẫn là phần nghiệp vụ chưa hoàn thiện; chưa có biên bản nghiệm thu xuyên suốt.
+
+### [AUDIT-107] RÀ SOÁT VÀ CÔ LẬP TÁC ĐỘNG SHOPIFY VỚI CÁC KÊNH VÀ LUỒNG KHO
+
+#### Metadata
+
+- **Thời gian:** 18/11/2026 04:25 (GMT+7).
+- **Tác giả:** Codex / PhanAnh.
+- **Phân hệ:** Shopify, nhận diện đơn đa kênh, lập lịch nền, khởi động DB, giao diện đơn và kiểm thử hồi quy.
+- **Phạm vi rà soát:** Thay đổi AUDIT-106 (`99bffc54..4568c00a`) và đường nghiệp vụ Shopify dùng lại từ AUDIT-105; đối chiếu `AGENTS.md`, `.agents/rules/coding-standards.md`, `.agents/rules/omnichannel-standards.md`, skill `java-pro` và `api-design-principles`. Các skill `hunt-springboot`/`api-security` được tham chiếu phạm vi, chỉ áp dụng nhận xét phòng thủ trong mã, không chạy workflow khai thác hoặc thăm dò website.
+- **Tệp sửa:**
+  - `backend/src/main/java/com/dev/backend/config/ShopifyRealtimeConfig.java`.
+  - `backend/src/main/java/com/dev/backend/workers/OmnichannelOrderSyncJob.java`, `backend/src/main/java/com/dev/backend/services/impl/entities/DonBanHangService.java`.
+  - Trong `backend/src/main/java/com/dev/backend/services/shopify/`: `ShopifyOrderSnapshotClient.java`, `ShopifyRealtimeRegistration.java`, `ShopifyWebhookInbox.java`, `ShopifyWebhookWorker.java`, `DonHangRealtime.java`.
+  - `backend/src/main/resources/i18n/thong-diep/kenhBan.properties`, `kenhBan_en.properties`.
+  - `production/Fashion-Management/application.properties`.
+  - `frontend/src/pages/sales-orders/DonBanHangList.jsx`, `DonBanHangDetail.jsx`.
+  - Tests: `OmnichannelOrderSyncJobTest`, `ShopifyOrderSnapshotClientTest`, `ShopifyRealtimeConfigTest`, `ShopifyWebhookInboxTest`, `ShopifyRealtimeRegistrationTest`.
+  - Tài liệu: `docs/tien-do-nghiem-thu.md`, `audit.md`.
+
+#### Mục tiêu và phân tích nguyên nhân gốc rễ
+
+Người dùng yêu cầu kiểm lại tác động tới các kênh khác, luồng liên quan, tuân thủ rule/skill và phạm vi có lan man hay không. Rà soát tìm thấy các điểm sau thay vì chỉ dựa vào kết quả 254 bài trước đó:
+
+1. **Chọn nhầm đơn khác kênh:** Đường nhận đơn Shopify cũ, được webhook mới dùng lại, có fallback `findByMaDonHangKenh` toàn hệ thống; nhánh `findBySoDonHang` nhận đơn có mã sàn trống/cùng mã mà chưa kiểm kênh. Mã đơn chỉ duy nhất trong phạm vi kênh, tiền tố `SHP-` cũng dùng bởi Shopee. Có thể cập nhật nhầm thanh toán hoặc gọi hủy đơn khác kênh khi trùng ID/số hiển thị.
+2. **Lịch chạy và khởi động:** Các `@Scheduled` mới dùng lịch nền mặc định; đăng ký webhook có nhiều lời gọi mạng, còn `ApplicationReadyEvent` gọi đồng bộ và production thêm pool chung = 5. Tác vụ Shopify có thể chiếm lịch của tác vụ khác hoặc đổi cách các job cũ chạy đồng thời, ngoài phạm vi sửa Shopify.
+3. **Lỗi DDL lan toàn ứng dụng:** `@PostConstruct` tạo bảng hộp nhận không bắt lỗi truy cập DB; thiếu quyền tạo bảng có thể khiến bean không khởi tạo và dừng backend, ảnh hưởng cả kênh khác dù lỗi thuộc tích hợp Shopify.
+4. **Thiếu dữ liệu vẫn hoàn tất sự kiện:** Snapshot chỉ kiểm lỗi GraphQL cấp gốc; `data.order = null`, thiếu trạng thái hoặc ID không khớp vẫn được diễn giải thành không `IN_PROGRESS` và worker có thể đánh dấu đã xử lý.
+5. **Tải lại dư:** SSE được mở cả ở chi tiết POS/kênh khác và danh sách đã lọc riêng sàn khác; thay đổi Shopify kéo theo tải lại không cần thiết. Trạng thái số mới viết cứng cũng chưa tận dụng hằng số có sẵn.
+
+Không phát sinh stack trace sự cố vận hành thật. Bộ kiểm thử tái hiện trước sửa chạy **35 bài, 12 ca thất bại**: 5 ca trùng ID giữa kênh, 4 ca trùng số hiển thị chưa có ID, 3 ca phản hồi tiến trình thiếu/sai. Các ca này đạt sau sửa. Đây là bằng chứng lỗi trong mã/kiểm thử cục bộ, không phải khẳng định đã gây hỏng dữ liệu thực tế.
+
+#### Giải pháp kỹ thuật và chi tiết triển khai
+
+- **Tra đơn:** Bỏ fallback ID toàn cục trong xử lý Shopify. Ưu tiên cặp `(kenhId, maDonHangKenh)`; chỉ nhận lại số hiển thị cũ khi cùng ID kênh Shopify và ID đơn cũ tương thích. Số trùng ở kênh khác dùng số riêng cho đơn Shopify. Giữ các nhánh xử lý Shopee/Lazada/TikTok và quy tắc kho riêng của chúng. Dữ liệu cũ thiếu kênh không được tự nhận chỉ từ tiền tố, cần đối soát trước khi lấy lại.
+- **Cô lập lịch:** Thêm `shopifyRealtimeScheduler` riêng, `defaultCandidate=false`; chỉ bốn tác vụ Shopify chỉ định scheduler này. Giữ `applicationTaskExecutor`/`taskScheduler` mặc định, không sửa lịch các job cũ. Bỏ cấu hình tăng pool toàn cục trong production và bỏ gọi mạng đồng bộ qua `ApplicationReadyEvent`; đăng ký chạy lần đầu sau 5 giây trên lịch riêng. Cách chọn scheduler đối chiếu [API Spring 6.2](https://docs.spring.io/spring-framework/docs/6.2.x/javadoc-api/org/springframework/scheduling/annotation/Scheduled.html).
+- **DB và sẵn sàng:** Bắt lỗi truy cập khi tạo bảng phụ trợ, ghi log thao tác cần làm mà không lộ thông tin kết nối. Nếu thiếu quyền DDL, quản trị viên áp dụng script đã có bằng công cụ DB. Đăng ký kiểm tra bảng có thể truy vấn trước khi gọi Shopify; thiếu bảng trả hướng dẫn VI/EN, không báo sẵn sàng. Ghi nhận sự kiện vẫn giữ nguyên quy tắc lưu bền vững trước ACK, không lưu được trả 503.
+- **Client:** Kiểm đúng GID đơn và trạng thái không trống từ truy vấn tiến trình. Dữ liệu thiếu/sai ném lỗi nội bộ cho worker giữ lại/thử lại; không phát thông báo đã cập nhật.
+- **UI và phạm vi:** Chỉ mở SSE tại chi tiết đơn Shopify thật; danh sách nghe khi chọn tất cả hoặc Shopify. Giữ nguyên cách tải lại/thao tác của đơn POS/kênh khác. Thay số trạng thái trong phần mới bằng `ITrangThaiDonBanHang`, không refactor toàn bộ service lớn hay đổi nghĩa dữ liệu.
+- **Tuân thủ:** Không thêm thư viện; không chỉnh client/catalog/warehouse của các sàn khác, không đổi schema tồn/tiền. API quản trị có `@RequireAuth`, `ResponseData`; webhook đối tác dùng HMAC và SSE dùng giao thức streaming là ngoại lệ cần thiết với envelope JSON/JWT nhân viên, đã được ghi rõ trong mã/AUDIT-106. Giao dịch sau commit, giới hạn xuất kho vật lý và ràng buộc không tự nhập hoàn tiếp tục được giữ.
+- **Đánh giá trọng tâm:** Webhook, hộp nhận bền vững, retry, đăng ký và SSE cần cho yêu cầu hai chiều/tự hiển thị. Hai điểm mở rộng quá phạm vi là thay cấu hình lịch dùng chung và tải lại cả đơn khác kênh đã được thu hẹp. Không xây thêm nền tảng hàng đợi chung, event bus ngoài, hoặc viết lại quy trình các sàn.
+
+#### Kết quả kiểm thử và đối soát hồi quy
+
+- **Backend: Maven offline package đạt, 387 bài đạt, 0 lỗi, 0 bỏ qua.** Bộ chạy gồm `Shopify*Test`, `OmnichannelOrderSyncJobTest`, `DonBanHangServiceGiaoHangSanTest`, `KenhBanHangServiceTest`, `PhieuXuatKhoDispatchTest`, `InventoryChannelSyncJobTest`, `PosCheckoutServiceTest`, `PosBanDuocTaiQuayTest`, `NhatHangChuyenKhoTest`, `BangChungDongGoiServiceTest`, `LazadaSyncTest`, `ShopeeClientTest`, `ShopeeSyncUpsertTest`, `TikTokShopClientTest`, `DonBanHangServiceCancellationTest`, `DonBanHangServiceSendToWarehouseTest`, `DonBanHangPhamViTest`, `PosCheckoutTransactionTest`, `PhieuXuatKhoServiceDetailTest`.
+- Trong đó: Lazada schema/sync **4**, Shopee client **10** + upsert **9**, TikTok client **16**, phạm vi đơn/kho **10**, hủy đơn **10**, gửi kho **16** đều đạt. Không chạy các lớp chẩn đoán live (`LazadaSyncDiagnosticTest`, `ShopeeMultiVariantLiveDiagnosticTest`) hay fixture tích hợp có thể ghi/xóa dữ liệu vận hành.
+- Test context Boot xác nhận executor và scheduler mặc định còn tồn tại. Test thực thi chiếm hết luồng scheduler Shopify bằng latch vẫn cho tác vụ mô phỏng kênh khác hoàn thành trên scheduler mặc định. Test lỗi DDL không làm hỏng khởi tạo, song INSERT vẫn thất bại; test đăng ký không báo sẵn sàng khi bảng chưa có.
+- **Frontend: 694 bài, 693 đạt, 1 bỏ qua, 0 lỗi**. i18n **728 tệp, 0 lỗi**; ESLint sáu tệp nguồn của phần Shopify trực tiếp đạt. Build frontend đạt; còn cảnh báo bundle lớn đã có từ trước.
+- Bộ kiểm thông điệp backend: **14 tệp nguồn, 0 câu sót, 0 khóa thiếu, 0 lỗi kho câu; 2.299 khóa**. Thông báo mới được thêm cả VI/EN.
+- Không phát hiện hồi quy trong phạm vi bộ chạy trên; không khẳng định toàn bộ hệ thống không thể có lỗi. Chưa chạy MySQL HTTP toàn tuyến, trình duyệt với Shopify thật, tải lớn hoặc nhiều bản sao SSE. Điều kiện triển khai/khóa bí mật còn thiếu và giới hạn hoàn một phần của AUDIT-106 tiếp tục được ghi ở bảng nghiệm thu. Không thao tác website thật hay thay khóa/giao dịch đơn/tiền trong đợt review này.
 
 
 
