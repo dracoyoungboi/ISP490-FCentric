@@ -33,7 +33,7 @@ import {
     tinhBuocYeuCau,
 } from "@/components/order/chi-tiet-yeu-cau/tinhYeuCau";
 import { getDonMuaHangStatus } from "@/constants/donMuaHang";
-import { VAI_TRO_GUI_YEU_CAU_BAO_GIA } from "@/constants/vaiTroGuiYeuCauBaoGia";
+import { VAI_TRO_GUI_YEU_CAU_BAO_GIA, VAI_TRO_XEM_YEU_CAU_BAO_GIA } from "@/constants/vaiTroTheoNghiepVu";
 import { getYeuCauNhapHangStatus } from "@/constants/yeuCauNhapHang";
 import useQuayLai from "@/hooks/useQuayLai";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
@@ -141,7 +141,7 @@ function ChiTietYeuCauNhapHang({ id }) {
     });
     const choDuyet = tt === TRANG_THAI_YEU_CAU.CHO_DUYET;
     const hienDuyet = choDuyet && quyen.duocDuyet;
-    // Gửi yêu cầu báo giá: đúng 4 vai trò máy chủ cho gửi (IRoleType.GUI_YEU_CAU_BAO_GIA)
+    // Gửi yêu cầu báo giá: đúng vai trò máy chủ cho gửi (IRoleType.GUI_YEU_CAU_BAO_GIA: quản trị viên, nhân viên mua hàng)
     const hienGui = tt === TRANG_THAI_YEU_CAU.DA_DUYET && hasAnyRole(VAI_TRO_GUI_YEU_CAU_BAO_GIA);
 
     // ── Chứng từ liên quan ──────────────────────────────────────────────────
@@ -149,6 +149,8 @@ function ChiTietYeuCauNhapHang({ id }) {
     const coYeuCauBaoGia = baoGia.length > 0
         || tt === TRANG_THAI_YEU_CAU.DA_GUI_BAO_GIA
         || tt === TRANG_THAI_YEU_CAU.DA_CHUYEN_DON_MUA;
+    // Màn Yêu cầu báo giá: nhân viên mua hàng, quản lý kho (so báo giá). Nhân viên kho thấy dòng chứng từ, không có liên kết
+    const xemYeuCauBaoGia = hasAnyRole(VAI_TRO_XEM_YEU_CAU_BAO_GIA);
     // Nhân viên bán hàng xem được yêu cầu nhưng máy chủ chặn (403) đơn mua: hiện chữ thường, không link
     const xemDonMua = hasAnyRole(VAI_TRO_XEM_DON_MUA);
     const lienQuan = [
@@ -157,7 +159,7 @@ function ChiTietYeuCauNhapHang({ id }) {
                 khoa: "yeu-cau-bao-gia",
                 loai: t("Yêu cầu báo giá"),
                 ma: baoGia.length ? t("Gửi {{soNcc}} nhà cung cấp", { count: baoGia.length, soNcc: soVN(baoGia.length) }) : ma,
-                to: `/quotation-requests/${yc.id}`,
+                to: xemYeuCauBaoGia ? `/quotation-requests/${yc.id}` : undefined,
             }
             : null,
         ...baoGiaDaChot(yc).map((don) => ({
@@ -287,7 +289,7 @@ function ChiTietYeuCauNhapHang({ id }) {
                         nutPhu={{ nhan: t("In yêu cầu"), icon: Printer, onClick: () => navigate(`/purchase-requests/${id}/print`) }}
                         saoChepMa={{ giaTri: yc.soYeuCauMuaHang, nhan: t("Sao chép mã yêu cầu") }}
                         menu={
-                            coYeuCauBaoGia
+                            coYeuCauBaoGia && xemYeuCauBaoGia
                                 ? [{
                                     ma: "yeu-cau-bao-gia",
                                     nhan: t("Mở yêu cầu báo giá"),

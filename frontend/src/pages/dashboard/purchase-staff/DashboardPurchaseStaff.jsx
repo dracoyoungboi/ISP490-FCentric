@@ -10,6 +10,8 @@ import { phimTab } from "@/pages/dashboard/vai-tro/banPhim";
 import { THU_TU } from "@/pages/dashboard/vai-tro/lop";
 import { buocQuyTrinh, duongDanYeuCauNhap, lichTheoNgay, tenBienThe, theSoMuaHang } from "@/pages/dashboard/vai-tro/soLieuVaiTro";
 import { t } from "@/i18n";
+import { VAI_TRO_TAO_YEU_CAU_NHAP } from "@/constants/vaiTroTheoNghiepVu";
+import { hasAnyRole } from "@/utils/roles";
 
 /**
  * Tổng quan của NHÂN VIÊN MUA HÀNG (mọi kho). Hàng 1: 4 ô số. Hàng 2 (rộng hết trang): quy trình mua 4 bước, mỗi
@@ -266,8 +268,13 @@ function CanMuaThem({ cm, className, loading, error, onRetry }) {
                       <Link to={`/purchase-requests/${r.yeuCauMoId}`} className={cn(FOCUS, "whitespace-nowrap rounded text-[13px] leading-8 text-bo-muted hover:text-bo-foreground hover:underline")}>
                         {r.yeuCauMoMa ? t("Đã có {{yeuCauMoMa}}", { yeuCauMoMa: r.yeuCauMoMa }) : t("Đã có yêu cầu nhập")}
                       </Link>
-                    ) : (
+                    ) : hasAnyRole(VAI_TRO_TAO_YEU_CAU_NHAP) ? (
                       <Nut to={duongDanYeuCauNhap(r, cm.khoTongId)}>{t("Yêu cầu nhập")} {formatSo(r.soLuongDeXuat)}</Nut>
+                    ) : (
+                      // Nhân viên mua hàng không lập yêu cầu nhập (SRS 4.4: chỉ xem); kho lập, quản lý kho duyệt rồi mới mua
+                      <span className="whitespace-nowrap text-[13px] leading-8 text-bo-muted">
+                        {t("Cần mua thêm {{soLuongDeXuat}}", { soLuongDeXuat: formatSo(r.soLuongDeXuat) })}
+                      </span>
                     )
                   }
                 />

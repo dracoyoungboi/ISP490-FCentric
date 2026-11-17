@@ -28,7 +28,7 @@ import { YEU_CAU_BAO_GIA_TABS, getYeuCauNhapHangStatus } from "@/constants/yeuCa
 import { getBaoGiaNccStatus } from "@/constants/donMuaHang";
 import { laDaChot, ngayGuiYeuCau, nhanTrangThaiBaoGia } from "@/components/order/chi-tiet-bao-gia/tinhBaoGia";
 import { VAI_TRO_XEM_DON_MUA } from "@/components/order/chi-tiet-yeu-cau/tinhYeuCau";
-import { VAI_TRO_GUI_YEU_CAU_BAO_GIA } from "@/constants/vaiTroGuiYeuCauBaoGia";
+import { VAI_TRO_GUI_YEU_CAU_BAO_GIA } from "@/constants/vaiTroTheoNghiepVu";
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useTaiLaiDanhSach from "@/hooks/useTaiLaiDanhSach";

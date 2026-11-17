@@ -37,14 +37,14 @@ import { trangCuoiNeuVuot } from '@/lib/tinhTaiLai';
 import purchaseRequestService from '@/services/purchaseRequestService';
 import apiClient from '@/services/apiClient';
 import { getMineKhoList } from '@/services/khoService';
-import { VAI_TRO_TAO_YEU_CAU_NHAP } from '@/constants/vaiTroTaoYeuCauNhap';
-import { KHO_LAM_VIEC_EVENT, coQuyenTaiKhoLamViec } from '@/utils/khoLamViec';
+import { VAI_TRO_TAO_YEU_CAU_NHAP } from "@/constants/vaiTroTheoNghiepVu";
+import { KHO_LAM_VIEC_EVENT } from '@/utils/khoLamViec';
 import { hasAnyRole } from '@/utils/roles';
 import { t } from "@/i18n";
 
-// Nút "Tạo yêu cầu nhập hàng": đúng điều kiện máy chủ (POST /nghiep-vu/yeu-cau-mua-hang/create) — vai trò lập yêu cầu
-// kèm quyền tao_don_mua_hang ở nơi làm việc (quản trị viên luôn có)
-const coQuyenTaoYeuCau = () => hasAnyRole(VAI_TRO_TAO_YEU_CAU_NHAP) && coQuyenTaiKhoLamViec('tao_don_mua_hang');
+// Nút "Tạo yêu cầu nhập hàng": đúng điều kiện máy chủ (POST /nghiep-vu/yeu-cau-mua-hang/create) — quản lý kho, nhân
+// viên kho tại kho của mình (SRS 4.4 "Purchase Request"); máy chủ không đòi thêm quyền chi tiết
+const coQuyenTaoYeuCau = () => hasAnyRole(VAI_TRO_TAO_YEU_CAU_NHAP);
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function parseJwt(token) {

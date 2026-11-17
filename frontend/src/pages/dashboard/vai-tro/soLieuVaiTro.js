@@ -367,7 +367,8 @@ function duongDanViecQuanLyKho(loai, kho) {
  * Hành động của một dòng "Cần bổ sung":
  * - chuyển từ Kho tổng (số Kho tổng có thể chuyển đã kiểm như khi tạo phiếu) → mở sẵn form chuyển kho;
  * - đã có yêu cầu nhập hàng đang mở có mã này → mở yêu cầu đó;
- * - còn lại: chỉ ghi chữ (quản lý kho không tạo yêu cầu nhập hàng; việc mua do nhân viên mua hàng).
+ * - Kho tổng hết hàng: lập yêu cầu nhập hàng (SRS 4.4 "Purchase Request": quản lý kho lập yêu cầu tại kho mình);
+ * - cửa hàng mà Kho tổng không đủ: chỉ ghi chữ (cửa hàng không nhập thẳng từ nhà cung cấp).
  */
 export function hanhDongBoSung(d, kho) {
   if (d.deXuat === "chuyen_kho" && kho.khoTongId != null) {
@@ -385,7 +386,14 @@ export function hanhDongBoSung(d, kho) {
   if (d.yeuCauMoId != null) {
     return { kieu: "lienKet", chu: d.yeuCauMoMa ? t("Đã có {{yeuCauMoMa}}", { yeuCauMoMa: d.yeuCauMoMa }) : t("Đã có yêu cầu nhập"), to: `/purchase-requests/${d.yeuCauMoId}` };
   }
-  return { kieu: "chu", chu: kho.laKhoTong ? t("Cần mua thêm {{soLuongDeXuat}}", { soLuongDeXuat: formatSo(d.soLuongDeXuat) }) : t("Kho tổng không đủ hàng") };
+  if (kho.laKhoTong) {
+    return {
+      kieu: "nut",
+      chu: t("Yêu cầu nhập {{soLuongDeXuat}}", { soLuongDeXuat: formatSo(d.soLuongDeXuat) }),
+      to: duongDanYeuCauNhap(d, kho.id),
+    };
+  }
+  return { kieu: "chu", chu: t("Kho tổng không đủ hàng") };
 }
 
 /** Dòng phụ của một mã cần bổ sung. */

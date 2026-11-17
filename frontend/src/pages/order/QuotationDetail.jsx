@@ -40,7 +40,7 @@ import {
 } from "@/components/order/chi-tiet-bao-gia/tinhBaoGia";
 import { locCauMayChuMuaHang } from "@/components/order/chi-tiet-yeu-cau/tinhYeuCau";
 import { getBaoGiaNccStatus, getDonMuaHangStatus } from "@/constants/donMuaHang";
-import { VAI_TRO_GUI_YEU_CAU_BAO_GIA } from "@/constants/vaiTroGuiYeuCauBaoGia";
+import { VAI_TRO_GUI_YEU_CAU_BAO_GIA, VAI_TRO_XEM_YEU_CAU_BAO_GIA } from "@/constants/vaiTroTheoNghiepVu";
 import { YEU_CAU_NHAP_HANG_STATUS } from "@/constants/yeuCauNhapHang";
 import useQuayLai from "@/hooks/useQuayLai";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
@@ -118,7 +118,14 @@ function ChiTietBaoGia({ id }) {
     const dong = useMemo(() => dongBaoGia(don?.chiTietDonMuaHangs), [don]);
     const bang = useBangChungTu(dong);
     const ycId = don?.yeuCauMuaHang?.id ?? null;
-    const quayLai = useQuayLai(ycId != null ? `/quotation-requests/${ycId}` : "/quotation-requests");
+    // So sánh báo giá (màn Yêu cầu báo giá): nhân viên mua hàng, quản lý kho. Nhân viên kho (tới đây từ thông báo báo giá
+    // của yêu cầu mình lập) quay về yêu cầu nhập hàng
+    const xemSoSanh = hasAnyRole(VAI_TRO_XEM_YEU_CAU_BAO_GIA);
+    const quayLai = useQuayLai(
+        ycId != null
+            ? (xemSoSanh ? `/quotation-requests/${ycId}` : `/purchase-requests/${ycId}`)
+            : (xemSoSanh ? "/quotation-requests" : "/purchase-orders"),
+    );
 
     const tongMayChu = docSo(don?.tongTien);
     // Chỉ để gỡ lỗi khi phát triển: bản chạy thật không ghi console mỗi lần tải ngầm
@@ -146,8 +153,8 @@ function ChiTietBaoGia({ id }) {
                     loi={q.error}
                     tenChungTu={t("báo giá")}
                     locCauMayChu={locCauMayChuMuaHang}
-                    onVeDanhSach={() => navigate("/quotation-requests")}
-                    nhanVeDanhSach={t("Về danh sách yêu cầu báo giá")}
+                    onVeDanhSach={() => navigate(xemSoSanh ? "/quotation-requests" : "/purchase-orders")}
+                    nhanVeDanhSach={xemSoSanh ? t("Về danh sách yêu cầu báo giá") : t("Về danh sách đơn mua hàng")}
                     onThuLai={q.reload}
                 />
             </PageContainer>
@@ -324,7 +331,7 @@ function ChiTietBaoGia({ id }) {
     const lienQuan = ycId != null
         ? [
             { khoa: "yeu-cau-nhap", loai: t("Yêu cầu nhập hàng"), ma: yeuCau.soYeuCauMuaHang || `#${ycId}`, to: `/purchase-requests/${ycId}` },
-            { khoa: "so-sanh", loai: t("So sánh báo giá"), ma: t("Các nhà cung cấp cùng yêu cầu"), to: `/quotation-requests/${ycId}` },
+            { khoa: "so-sanh", loai: t("So sánh báo giá"), ma: t("Các nhà cung cấp cùng yêu cầu"), to: xemSoSanh ? `/quotation-requests/${ycId}` : undefined },
         ]
         : [];
 
@@ -353,10 +360,10 @@ function ChiTietBaoGia({ id }) {
                             bang.rong ? null : <span key="sl">{t("tổng số lượng")} <b className="font-semibold text-bo-foreground">{soVN(bang.tong.soLuong)}</b></span>,
                         ]}
                         onQuayLai={quayLai}
-                        nhanQuayLai={t("Về so sánh báo giá")}
+                        nhanQuayLai={xemSoSanh ? t("Về so sánh báo giá") : t("Quay lại")}
                         saoChepMa={{ giaTri: don.soDonMua, nhan: t("Sao chép mã báo giá") }}
                         menu={
-                            ycId != null
+                            ycId != null && xemSoSanh
                                 ? [{
                                     ma: "so-sanh",
                                     nhan: t("Mở so sánh báo giá"),

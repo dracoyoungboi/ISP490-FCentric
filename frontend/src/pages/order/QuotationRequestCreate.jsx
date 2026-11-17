@@ -23,15 +23,16 @@ import { soVN } from "@/components/chung-tu/bangChungTu";
 import {
     AN_DIEN_THOAI, BANG, CHI_DIEN_THOAI, DONG, DONG_SANG, DONG_TIEU_DE, KHUNG_CUON, O, O_CUOI, O_DAU, O_TIEU_DE,
 } from "@/components/chung-tu/kieuBang";
-import { TRANG_THAI_YEU_CAU, VAI_TRO_XEM_DON_MUA } from "@/components/order/chi-tiet-yeu-cau/tinhYeuCau";
+import { TRANG_THAI_YEU_CAU } from "@/components/order/chi-tiet-yeu-cau/tinhYeuCau";
+import { VAI_TRO_GUI_YEU_CAU_BAO_GIA } from "@/constants/vaiTroTheoNghiepVu";
 import { chanGuiBaoGia, maYeuCau, tongSoLuongDat } from "@/components/order/gui-bao-gia/tinhGuiBaoGia";
 import { t } from "@/i18n";
 
 /**
  * Vai trò gửi được yêu cầu báo giá: trùng @RequireAuth của POST /nghiep-vu/don-mua-hang/gui-yeu-cau-bao-gia
- * (IRoleType.GUI_YEU_CAU_BAO_GIA) — cùng bộ vai trò xem đơn mua. Nhân viên bán hàng xem được yêu cầu nhưng không gửi được.
+ * (IRoleType.GUI_YEU_CAU_BAO_GIA: quản trị viên, nhân viên mua hàng — SRS 4.4 "RFQ").
  */
-const VAI_TRO_GUI = VAI_TRO_XEM_DON_MUA;
+const VAI_TRO_GUI = VAI_TRO_GUI_YEU_CAU_BAO_GIA;
 const duongGui = (id) => `/purchase-requests/${id}/send-quotation`;
 
 /**
