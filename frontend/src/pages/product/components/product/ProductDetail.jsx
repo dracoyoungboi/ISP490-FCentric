@@ -20,13 +20,13 @@ import LoadingState from "@/components/shared/LoadingState";
 import { trangThaiLa } from "@/constants/trangThaiChung";
 import NganKeoLichSu from "@/components/nhat-ky/NganKeoLichSu";
 import { layLichSuSanPham } from "@/services/nhatKyService";
-import { ROLES, hasAnyRole } from "@/utils/roles";
+import { hasAnyRole } from "@/utils/roles";
 import { t } from "@/i18n";
-
-// Lịch sử thay đổi sản phẩm: quản trị viên, quản lý kho (khớp @RequireAuth của GET /san-pham-quan-ao/{id}/lich-su)
-const VAI_TRO_XEM_LICH_SU = [ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO];
-// Giá vốn là số nội bộ: khớp backend utils/XemGiaVon.DUOC_XEM (nhân viên bán hàng không thấy, máy chủ trả null)
-const VAI_TRO_XEM_GIA_VON = [ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO, ROLES.NHAN_VIEN_KHO, ROLES.NHAN_VIEN_MUA_HANG];
+// Lịch sử sản phẩm (quản trị viên, quản lý kho) và giá vốn (nhân viên bán hàng không thấy): theo constants/vaiTroTheoNghiepVu
+import {
+  VAI_TRO_XEM_GIA_VON,
+  VAI_TRO_XEM_LICH_SU_SAN_PHAM as VAI_TRO_XEM_LICH_SU,
+} from "@/constants/vaiTroTheoNghiepVu";
 
 export default function ProductDetail() {
     const { id } = useParams();

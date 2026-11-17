@@ -56,6 +56,7 @@ import { getApiErrorMessage } from "@/utils/apiError";
 import { ROLES, hasAnyRole } from "@/utils/roles";
 import { formatNumberOrDash } from "@/utils/formatters";
 import { t } from "@/i18n";
+import { VAI_TRO_KHO, VAI_TRO_XEM_GIA_VON, VAI_TRO_XEM_LICH_SU_SAN_PHAM } from "@/constants/vaiTroTheoNghiepVu";
 
 const TAB_MAS = TAB_GIA_BAN.map((tab) => tab.value);
 const TAB_MAC_DINH = "tat-ca";
@@ -110,6 +111,11 @@ function NhanBienThe({ dong, className }) {
  */
 export default function GiaBanTemPage() {
   const laQuanTriVien = hasAnyRole([ROLES.QUAN_TRI_VIEN]);
+  // Trang mở cho người in tem (quản lý kho, nhân viên kho, nhân viên bán hàng). Nhân viên bán hàng không thấy giá vốn
+  // (máy chủ không gửi), không in theo phiếu nhập (chứng từ kho); lịch sử giá chỉ quản trị viên, quản lý kho
+  const xemGiaVon = hasAnyRole(VAI_TRO_XEM_GIA_VON);
+  const xemLichSuGia = hasAnyRole(VAI_TRO_XEM_LICH_SU_SAN_PHAM);
+  const inTheoPhieuNhap = hasAnyRole(VAI_TRO_KHO);
   const location = useLocation();
   const navigate = useNavigate();
   const [maDatGia] = useState(() => (typeof location.state?.datGiaMa === "string" ? location.state.datGiaMa.trim() : ""));
@@ -476,14 +482,20 @@ export default function GiaBanTemPage() {
         <td className={cn("whitespace-nowrap px-3 py-2.5 text-right tabular-nums", Number(d.tonKho) === 0 ? "text-slate-400" : "text-bo-foreground")}>
           {formatNumberOrDash(d.tonKho)}
         </td>
-        <td className="whitespace-nowrap px-3 py-2.5 text-right tabular-nums text-bo-muted cam-ung:max-lg:hidden">{formatNumberOrDash(d.giaVon)}</td>
+        {xemGiaVon ? (
+          <td className="whitespace-nowrap px-3 py-2.5 text-right tabular-nums text-bo-muted cam-ung:max-lg:hidden">{formatNumberOrDash(d.giaVon)}</td>
+        ) : null}
         <td className="whitespace-nowrap px-3 py-2.5 text-right">
           {oGiaDong(d)}
-          <p className="hidden text-xs tabular-nums text-bo-muted cam-ung:max-lg:block">{t("Vốn {{giaVon}}", { giaVon: formatNumberOrDash(d.giaVon) })}</p>
+          {xemGiaVon ? (
+            <p className="hidden text-xs tabular-nums text-bo-muted cam-ung:max-lg:block">{t("Vốn {{giaVon}}", { giaVon: formatNumberOrDash(d.giaVon) })}</p>
+          ) : null}
         </td>
         <td className="w-24 px-2 py-2.5">
           <RowActions>
-            <RowActionButton icon={History} label={t("Lịch sử giá {{maSku}}", { maSku: d.maSku })} onClick={() => setLichSuGia(d)} />
+            {xemLichSuGia ? (
+              <RowActionButton icon={History} label={t("Lịch sử giá {{maSku}}", { maSku: d.maSku })} onClick={() => setLichSuGia(d)} />
+            ) : null}
             <RowActionButton
               icon={Printer}
               label={ngung ? t("SKU ngừng hoạt động") : t("In tem {{maSku}}", { maSku: d.maSku })}
@@ -540,9 +552,11 @@ export default function GiaBanTemPage() {
         </td>
         <td className={cn("px-3 py-2.5 cam-ung:max-lg:hidden", o)} />
         <td className={cn("whitespace-nowrap px-3 py-2.5 text-right font-medium tabular-nums text-bo-heading", o)}>{formatNumberOrDash(tt.tongTon)}</td>
-        <td className={cn("whitespace-nowrap px-3 py-2.5 text-right tabular-nums text-bo-muted cam-ung:max-lg:hidden", o)}>
-          {tt.giaVonChung !== null ? formatNumberOrDash(tt.giaVonChung) : null}
-        </td>
+        {xemGiaVon ? (
+          <td className={cn("whitespace-nowrap px-3 py-2.5 text-right tabular-nums text-bo-muted cam-ung:max-lg:hidden", o)}>
+            {tt.giaVonChung !== null ? formatNumberOrDash(tt.giaVonChung) : null}
+          </td>
+        ) : null}
         <td className={cn("whitespace-nowrap px-3 py-2.5 text-right", o)}>
           {laQuanTriVien && soHoatDong > 0 ? (
             <OGiaBan
@@ -560,7 +574,7 @@ export default function GiaBanTemPage() {
           ) : (
             <ChuGia hienThi={hienThi} />
           )}
-          {tt.giaVonChung !== null ? (
+          {xemGiaVon && tt.giaVonChung !== null ? (
             <p className="hidden text-xs tabular-nums text-bo-muted cam-ung:max-lg:block">{t("Vốn {{giaVon}}", { giaVon: formatNumberOrDash(tt.giaVonChung) })}</p>
           ) : null}
         </td>
@@ -628,15 +642,17 @@ export default function GiaBanTemPage() {
             <div className="flex shrink-0 items-center text-sm">
               {oGiaDong(d)}
               {nutIn(ngung ? t("SKU ngừng hoạt động") : t("In tem {{maSku}}", { maSku: d.maSku }), () => moInTem("chon", [d]), ngung)}
-              <button
-                type="button"
-                aria-label={t("Lịch sử giá {{maSku}}", { maSku: d.maSku })}
-                title={t("Lịch sử giá {{maSku}}", { maSku: d.maSku })}
-                onClick={() => setLichSuGia(d)}
-                className="grid size-9 shrink-0 place-items-center rounded-md text-bo-muted hover:bg-slate-100 hover:text-bo-primary"
-              >
-                <History className="size-[18px]" aria-hidden="true" />
-              </button>
+              {xemLichSuGia ? (
+                <button
+                  type="button"
+                  aria-label={t("Lịch sử giá {{maSku}}", { maSku: d.maSku })}
+                  title={t("Lịch sử giá {{maSku}}", { maSku: d.maSku })}
+                  onClick={() => setLichSuGia(d)}
+                  className="grid size-9 shrink-0 place-items-center rounded-md text-bo-muted hover:bg-slate-100 hover:text-bo-primary"
+                >
+                  <History className="size-[18px]" aria-hidden="true" />
+                </button>
+              ) : null}
             </div>
           </div>
           <p className="truncate text-[12.5px] text-bo-muted">
@@ -644,7 +660,7 @@ export default function GiaBanTemPage() {
           </p>
           <p className="text-[12.5px] tabular-nums text-bo-muted">
             {t("Tồn")} <span className={Number(d.tonKho) === 0 ? "text-slate-400" : "font-medium text-bo-foreground"}>{formatNumberOrDash(d.tonKho)}</span>
-            {" · "}{t("Vốn {{giaVon}}", { giaVon: formatNumberOrDash(d.giaVon) })}
+            {xemGiaVon ? <>{" · "}{t("Vốn {{giaVon}}", { giaVon: formatNumberOrDash(d.giaVon) })}</> : null}
           </p>
         </div>
       </li>
@@ -689,7 +705,7 @@ export default function GiaBanTemPage() {
           </div>
           <div className="flex items-center justify-between gap-2 pl-[52px]">
             <span className="min-w-0 truncate text-[12.5px] tabular-nums text-bo-muted">
-              {tt.giaVonChung !== null ? t("Vốn {{giaVon}}", { giaVon: formatNumberOrDash(tt.giaVonChung) }) : null}
+              {xemGiaVon && tt.giaVonChung !== null ? t("Vốn {{giaVon}}", { giaVon: formatNumberOrDash(tt.giaVonChung) }) : null}
             </span>
             <span className="flex shrink-0 items-center text-sm">
               {laQuanTriVien && soHoatDong > 0 ? (
@@ -725,10 +741,12 @@ export default function GiaBanTemPage() {
     <PageContainer fill className="space-y-4">
       <ListPageHeader
         actions={
-          <Button type="button" variant="outline" onClick={() => setHopChonPhieu(true)} className={NUT_DAU_TRANG}>
-            <FileText className="size-4" aria-hidden="true" />
-            {t("In tem theo phiếu nhập")}
-          </Button>
+          inTheoPhieuNhap ? (
+            <Button type="button" variant="outline" onClick={() => setHopChonPhieu(true)} className={NUT_DAU_TRANG}>
+              <FileText className="size-4" aria-hidden="true" />
+              {t("In tem theo phiếu nhập")}
+            </Button>
+          ) : null
         }
       />
 
@@ -929,7 +947,7 @@ export default function GiaBanTemPage() {
                 <th className={`${TH} text-left`}>{t("Sản phẩm")}</th>
                 <th className={`${TH} w-[250px] text-left cam-ung:max-lg:hidden`}>{t("SKU · Mã vạch")}</th>
                 <th className={`${TH} w-24 text-right`}>{t("Tồn kho")}</th>
-                <th className={`${TH} w-[120px] text-right cam-ung:max-lg:hidden`}>{t("Giá vốn")}</th>
+                {xemGiaVon ? <th className={`${TH} w-[120px] text-right cam-ung:max-lg:hidden`}>{t("Giá vốn")}</th> : null}
                 <th className={`${TH} w-40 text-right`}>{t("Giá bán")}</th>
                 <th className={`${TH} w-24`}>
                   <span className="sr-only">{t("Thao tác")}</span>
