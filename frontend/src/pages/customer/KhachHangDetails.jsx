@@ -27,9 +27,10 @@ import { WALKIN_CUSTOMER_CODE } from "@/services/posService";
 import { getApiErrorStatus, getApiErrorMessage } from "@/utils/apiError";
 import { ROLES, hasAnyRole } from "@/utils/roles";
 import { t } from "@/i18n";
+import { VAI_TRO_KHACH_HANG } from "@/constants/vaiTroTheoNghiepVu";
 
-// Khớp quyền ở backend (KhachHangController): sửa hồ sơ và đổi trạng thái.
-const QUYEN_SUA_KHACH = [ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO, ROLES.NHAN_VIEN_BAN_HANG];
+// Khớp quyền ở backend (KhachHangController): sửa hồ sơ và đổi trạng thái (SRS 4.4 "Customer").
+const QUYEN_SUA_KHACH = VAI_TRO_KHACH_HANG;
 // DonBanHangController: tạo báo giá / đơn bán (create, convert-to-order).
 const QUYEN_BAN_HANG = [ROLES.QUAN_TRI_VIEN, ROLES.NHAN_VIEN_BAN_HANG];
 const VAI_TRO_KHO = [ROLES.QUAN_LY_KHO, ROLES.NHAN_VIEN_KHO];

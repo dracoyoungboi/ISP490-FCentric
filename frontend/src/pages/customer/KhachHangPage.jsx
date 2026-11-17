@@ -28,11 +28,12 @@ import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import useTuKhoaTuUrl, { docTuKhoaUrl } from "@/hooks/useTuKhoaTuUrl";
 import { toast } from "@/lib/thongBaoNhanh";
 import { WALKIN_CUSTOMER_CODE } from "@/services/posService";
-import { ROLES, hasAnyRole } from "@/utils/roles";
+import { hasAnyRole } from "@/utils/roles";
 import { t } from "@/i18n";
+import { VAI_TRO_KHACH_HANG } from "@/constants/vaiTroTheoNghiepVu";
 
-// Khớp quyền ở backend (KhachHangController): thêm, sửa, đổi trạng thái khách hàng.
-const QUYEN_SUA_KHACH = [ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO, ROLES.NHAN_VIEN_BAN_HANG];
+// Khớp quyền ở backend (KhachHangController): thêm, sửa, đổi trạng thái khách hàng (SRS 4.4 "Customer").
+const QUYEN_SUA_KHACH = VAI_TRO_KHACH_HANG;
 // Dòng khách vừa thêm được tô nền vài giây rồi trở lại bình thường.
 const TO_DONG_MOI_MS = 4000;
 
