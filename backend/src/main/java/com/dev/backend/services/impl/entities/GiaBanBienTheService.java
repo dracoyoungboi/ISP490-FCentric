@@ -83,7 +83,10 @@ public class GiaBanBienTheService {
         int soDong = req.getSize() != null && SO_SAN_PHAM_MOI_TRANG.contains(req.getSize()) ? req.getSize() : SO_SAN_PHAM_MAC_DINH;
         String tuKhoa = tuKhoaLike(req.getTuKhoa());
         String tab = chuanHoaTab(req.getTrangThai());
-        boolean canXuLy = Boolean.TRUE.equals(req.getCanXuLyGia());
+        // "Cần xử lý giá" gồm SKU bán dưới giá vốn: chỉ người được xem giá vốn mới lọc và nhận số đếm (nhân viên bán hàng
+        // mở màn này để in tem, không suy ra được mã nào bán dưới giá vốn)
+        boolean xemGiaVon = XemGiaVon.nguoiDangNhapDuocXem();
+        boolean canXuLy = xemGiaVon && Boolean.TRUE.equals(req.getCanXuLyGia());
 
         Page<Integer> trangId = giaBanRepository.trangSanPhamId(tuKhoa, canXuLy, tab, PageRequest.of(trang, soDong));
         List<Integer> sanPhamIds = trangId.getContent();
@@ -96,7 +99,7 @@ public class GiaBanBienTheService {
                 .tongSanPham(trangId.getTotalElements())
                 .tongSku(tongSku)
                 .demTheoTab(demTheoTab(tuKhoa, canXuLy))
-                .canXuLy(demCanXuLy())
+                .canXuLy(xemGiaVon ? demCanXuLy() : null)
                 .build();
     }
 
