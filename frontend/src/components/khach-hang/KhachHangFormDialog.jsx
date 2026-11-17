@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import * as RadioGroupPrimitive from "@radix-ui/react-radio-group";
-import { AlertCircle, Info, Loader2, Pencil, Plus, UserPlus, X } from "lucide-react";
+import { AlertCircle, Info, Loader2, Lock, Pencil, Plus, UserPlus, X } from "lucide-react";
 
 import {
   AlertDialog,
@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { themKhachHang, timKhachTrungLienHe, updateKhachHang } from "@/services/khachHangService";
 import { getApiErrorMessage } from "@/utils/apiError";
@@ -31,6 +32,7 @@ import {
   chuanHoaSoDienThoaiKhiNhap,
   formThemCoNhap,
   formTuKhachHang,
+  goiYDiaChi,
   goiYTen,
   hienMaSoThue,
   hienNguoiLienHe,
@@ -48,23 +50,26 @@ const CONTROL_CLASS =
 const CONTROL_ERROR_CLASS = "border-bo-danger focus-visible:border-bo-danger focus-visible:ring-bo-danger/15";
 const NUT_VIEN = "border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle";
 // Hai ô liên hệ ràng buộc nhau ("cần ít nhất một"): sửa ô này thì kiểm tra lại cả ô kia.
-// Luật tên phụ thuộc loại khách: đổi loại thì kiểm lại ô tên.
-const LIEN_QUAN = { soDienThoai: ["email"], email: ["soDienThoai"], loaiKhachHang: ["tenKhachHang"] };
+// Luật tên và số điện thoại phụ thuộc loại khách: đổi loại thì kiểm lại hai ô này.
+const LIEN_QUAN = { soDienThoai: ["email"], email: ["soDienThoai"], loaiKhachHang: ["tenKhachHang", "soDienThoai"] };
 // Ô kiểm trùng với khách khác khi rời ô (máy chủ cũng chặn khi lưu).
 const O_KIEM_TRUNG = ["soDienThoai", "email", "maSoThue"];
 
-function Field({ id, label, required = false, optional = false, hint, error, kiemTra, extra, className, children }) {
+// Cả form chỉ đánh dấu ô bắt buộc (*); ô không đánh dấu là để trống được. `labelExtra`: phần thêm sau nhãn (nút ⓘ).
+function Field({ id, label, required = false, labelExtra, hint, error, kiemTra, extra, className, children }) {
   return (
     <div className={cn("min-w-0 space-y-1.5", className)}>
-      <Label htmlFor={id} className="gap-0.5 text-sm font-medium text-bo-foreground">
-        {label}
-        {required ? (
-          <span aria-hidden="true" className="text-bo-danger">
-            *
-          </span>
-        ) : null}
-        {optional ? <span className="ml-1 font-normal text-bo-muted">{t("(không bắt buộc)")}</span> : null}
-      </Label>
+      <div className="flex items-center gap-1">
+        <Label htmlFor={id} className="gap-0.5 text-sm font-medium text-bo-foreground">
+          {label}
+          {required ? (
+            <span aria-hidden="true" className="text-bo-danger">
+              *
+            </span>
+          ) : null}
+        </Label>
+        {labelExtra}
+      </div>
       {children}
       {error ? (
         <p id={`${id}-message`} className="flex items-start gap-1.5 text-xs leading-5 text-bo-danger">
@@ -198,12 +203,16 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
     }
     // Ô đã báo lỗi: kiểm tra lại ngay (lỗi trùng / lỗi máy chủ cũng mất khi giá trị đổi).
     const loi = kiemTraForm(next, tuyChon);
+    // Đổi loại không đổi số: số đang báo trùng với khách khác vẫn trùng, giữ câu báo trùng.
+    const loiO = (field) => loi[field] || (field !== name && trung[field] ? thongBaoTrung(field, trung[field]) : "");
     [name, ...(LIEN_QUAN[name] ?? [])].forEach((field) => {
-      if (errors[field]) setFieldError(field, loi[field] || "");
+      if (errors[field]) setFieldError(field, loiO(field));
     });
-    // Đổi sang Khách lẻ mà tên đang nhập có số / ký tự của tên cửa hàng: báo ngay, không đợi bấm Lưu.
-    if (name === "loaiKhachHang" && String(next.tenKhachHang ?? "").trim() && loi.tenKhachHang) {
-      setFieldError("tenKhachHang", loi.tenKhachHang);
+    // Đổi sang Khách lẻ mà tên có số / ký tự của tên cửa hàng, hay số là tổng đài 1800/1900: báo ngay, không đợi bấm Lưu.
+    if (name === "loaiKhachHang") {
+      ["tenKhachHang", "soDienThoai"].forEach((field) => {
+        if (String(next[field] ?? "").trim() && loi[field]) setFieldError(field, loi[field]);
+      });
     }
   };
 
@@ -376,13 +385,9 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
               {laSua ? t("Sửa khách hàng") : t("Thêm khách hàng")}
             </DialogTitle>
             <DialogDescription className="text-sm text-bo-muted">
-              {laSua ? (
-                <>
-                  {t("Mã")} <span className="font-mono font-semibold text-slate-700">{khachHang.maKhachHang}</span> {t("cố định sau khi tạo. Trạng thái đổi ở nút ⋯ trên trang khách hàng.")}
-                </>
-              ) : (
-                t("Khách mới ở trạng thái Hoạt động, chọn được ngay khi tạo báo giá, bán tại quầy.")
-              )}
+              {laSua
+                ? t("Ngừng hoặc cho phép hoạt động ở nút ⋯ trên trang khách hàng.")
+                : t("Khách mới ở trạng thái Hoạt động, chọn được ngay khi tạo báo giá, bán tại quầy.")}
             </DialogDescription>
           </DialogHeader>
           <button
@@ -462,46 +467,45 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
             ) : null}
           </div>
 
+          {/* Khách lẻ: Tên | Mã. Khách sỉ / doanh nghiệp (hoặc khách đã có mã số thuế): Tên trải hết hàng (tên công ty dài),
+              Mã số thuế | Mã chung hàng dưới. Thêm và Sửa cùng bố cục: khi sửa, mã hiện ở ô khóa. */}
           <div className="mt-4 grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
             <Field
               id={fieldId("tenKhachHang")}
               label={t("Tên khách hàng")}
               required
               error={errors.tenKhachHang}
-              className={laSua ? "sm:col-span-2" : undefined}
+              className={coMaSoThue ? "sm:col-span-2" : undefined}
             >
               <Input {...textInputProps("tenKhachHang")} aria-required="true" placeholder={goiYTen(form.loaiKhachHang)} />
             </Field>
-            {!laSua ? (
-              <Field
-                id={fieldId("maKhachHang")}
-                label={t("Mã khách hàng")}
-                optional
-                error={errors.maKhachHang}
-                hint={t("Để trống thì hệ thống tự tạo mã khi lưu. Chỉ nhập khi cần giữ mã từ sổ cũ.")}
-              >
-                <Input
-                  {...textInputProps("maKhachHang", true)}
-                  placeholder={t("Để trống để tự tạo")}
-                  spellCheck={false}
-                  autoCapitalize="characters"
-                  className={cn(CONTROL_CLASS, "font-mono placeholder:font-sans", errors.maKhachHang && CONTROL_ERROR_CLASS)}
-                  onChange={(event) => changeField("maKhachHang", chuanHoaMaKhiNhap(event.target.value))}
-                />
-              </Field>
-            ) : null}
             {coMaSoThue ? (
               <Field
                 id={fieldId("maSoThue")}
                 label={t("Mã số thuế")}
-                optional
+                labelExtra={
+                  // Popover (bấm / chạm để mở), không dùng Tooltip: tooltip không mở khi chạm trên điện thoại.
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label={t("Mã số thuế in ở mục Người mua trên hóa đơn; cần khi khách lấy hóa đơn GTGT")}
+                        className="-m-1 inline-flex rounded p-1 text-slate-400 hover:text-bo-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
+                      >
+                        <Info className="size-3.5" aria-hidden="true" />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent side="top" align="start" className="w-64 p-3 text-xs leading-5 text-bo-foreground">
+                      {t("In ở mục Người mua trên hóa đơn; cần khi khách lấy hóa đơn GTGT.")}
+                    </PopoverContent>
+                  </Popover>
+                }
                 error={errors.maSoThue}
                 kiemTra={dangKiem.maSoThue ? t("Đang kiểm tra trùng mã số thuế...") : ""}
-                hint={t("In ở mục Người mua trên hóa đơn bán hàng")}
                 extra={moKhachTrung("maSoThue")}
               >
                 <Input
-                  {...textInputProps("maSoThue", true)}
+                  {...textInputProps("maSoThue")}
                   // Không dùng inputMode="numeric": bàn phím số của iOS không có dấu "-" để gõ mã đơn vị phụ thuộc.
                   placeholder={t("VD: {{viDu}}", { viDu: "0312345673" })}
                   spellCheck={false}
@@ -510,6 +514,36 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
                 />
               </Field>
             ) : null}
+            {laSua ? (
+              <Field id={fieldId("maKhachHang")} label={t("Mã khách hàng")}>
+                <div className="relative">
+                  <Input
+                    id={fieldId("maKhachHang")}
+                    value={khachHang.maKhachHang ?? ""}
+                    readOnly
+                    aria-readonly="true"
+                    title={t("Mã cố định sau khi tạo")}
+                    className={cn(CONTROL_CLASS, "bg-bo-surface-subtle pr-9 font-mono font-semibold text-slate-700")}
+                  />
+                  <Lock
+                    className="pointer-events-none absolute top-1/2 right-3 size-3.5 -translate-y-1/2 text-slate-400"
+                    aria-hidden="true"
+                  />
+                </div>
+              </Field>
+            ) : (
+              <Field id={fieldId("maKhachHang")} label={t("Mã khách hàng")} error={errors.maKhachHang}>
+                <Input
+                  {...textInputProps("maKhachHang")}
+                  placeholder={t("Tự tạo khi lưu")}
+                  title={t("Để trống thì hệ thống tự tạo mã. Chỉ nhập khi cần giữ mã từ sổ cũ.")}
+                  spellCheck={false}
+                  autoCapitalize="characters"
+                  className={cn(CONTROL_CLASS, "font-mono placeholder:font-sans", errors.maKhachHang && CONTROL_ERROR_CLASS)}
+                  onChange={(event) => changeField("maKhachHang", chuanHoaMaKhiNhap(event.target.value))}
+                />
+              </Field>
+            )}
           </div>
 
           <section aria-labelledby={fieldId("lien-he")} className="mt-5 border-t border-bo-border pt-4">
@@ -537,11 +571,10 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
                 label={t("Số điện thoại")}
                 error={errors.soDienThoai}
                 kiemTra={dangKiem.soDienThoai ? t("Đang kiểm tra trùng số...") : ""}
-                hint={t("Di động, máy bàn hoặc tổng đài 1800/1900")}
                 extra={moKhachTrung("soDienThoai")}
               >
                 <Input
-                  {...textInputProps("soDienThoai", true)}
+                  {...textInputProps("soDienThoai")}
                   type="tel"
                   inputMode="numeric"
                   className={cn(CONTROL_CLASS, "tabular-nums", errors.soDienThoai && CONTROL_ERROR_CLASS)}
@@ -570,7 +603,7 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
                 id={fieldId("diaChi")}
                 label={nhanDiaChi(form.loaiKhachHang)}
                 error={errors.diaChi}
-                hint={t("Tự điền làm địa chỉ giao hàng khi tạo báo giá cho khách này; sửa được trên từng báo giá.")}
+                hint={goiYDiaChi(form.loaiKhachHang)}
                 className="sm:col-span-2"
               >
                 <Textarea
