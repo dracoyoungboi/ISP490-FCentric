@@ -220,8 +220,10 @@ public class SanPhamQuanAoController {
          * Màn "Giá bán & tem mã vạch": sản phẩm (phân trang theo sản phẩm) kèm các biến thể khớp bộ lọc, tồn mọi kho,
          * lần đổi giá gần nhất; số đếm theo tab và số SKU cần xử lý giá. Quản lý kho xem để in tem.
          */
+        // Màn Giá bán & tem mã vạch: in tem cho quản lý kho, nhân viên kho, nhân viên bán hàng (SRS 4.4 "Barcode",
+        // UC 2.7). Nhân viên bán hàng không nhận giá vốn (cùng quy tắc màn Chi tiết sản phẩm).
         @PostMapping("/gia-ban/filter")
-        @RequireAuth(roles = { IRoleType.quan_tri_vien, IRoleType.quan_ly_kho })
+        @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho, IRoleType.nhan_vien_ban_hang})
         public ResponseEntity<ResponseData<TrangGiaBanDto>> locGiaBan(@RequestBody(required = false) LocGiaBanRequest request) {
                 return ResponseEntity.ok(ResponseData.<TrangGiaBanDto>builder()
                         .status(HttpStatus.OK.value())

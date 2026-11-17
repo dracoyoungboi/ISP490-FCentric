@@ -22,8 +22,9 @@ public class TemSanPhamController {
     @Autowired
     private TemSanPhamService temSanPhamService;
 
+    // In tem mã vạch (SRS 4.4 "Barcode", UC 2.7): quản lý kho, nhân viên kho, nhân viên bán hàng
     @GetMapping("/cau-hinh")
-    @RequireAuth(roles = { IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho })
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho, IRoleType.nhan_vien_ban_hang})
     public ResponseEntity<ResponseData<CauHinhTemDto>> cauHinh() {
         return ResponseEntity.ok(ResponseData.<CauHinhTemDto>builder()
                 .status(HttpStatus.OK.value())
@@ -34,7 +35,7 @@ public class TemSanPhamController {
 
     /** Quét mã để thêm 1 tem: khớp đúng mã vạch hoặc SKU; không có SKU nào thì data = null. */
     @GetMapping("/tra-ma")
-    @RequireAuth(roles = { IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho })
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho, IRoleType.nhan_vien_ban_hang})
     public ResponseEntity<ResponseData<DongInTemDto>> traMa(@RequestParam("ma") String ma) {
         return ResponseEntity.ok(ResponseData.<DongInTemDto>builder()
                 .status(HttpStatus.OK.value())
