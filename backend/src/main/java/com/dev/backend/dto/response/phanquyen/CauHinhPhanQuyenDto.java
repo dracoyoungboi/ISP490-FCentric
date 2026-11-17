@@ -29,4 +29,9 @@ public class CauHinhPhanQuyenDto {
      * giao diện coi danh sách rỗng cũng như null (máy chủ bản cũ trả rỗng khi quét lỗi).
      */
     List<String> quyenDaApDung;
+    /**
+     * Vai trò → id các quyền được cấp cho vai trò đó (trần theo ma trận SRS 4.4, {@code IPermissionType.TRAN_THEO_VAI_TRO}).
+     * Quyền ngoài trần: ngăn kéo không cho chọn, máy chủ từ chối lưu. Null với máy chủ bản cũ (chưa có trần).
+     */
+    Map<String, List<Integer>> tranQuyen;
 }
