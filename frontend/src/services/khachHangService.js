@@ -72,20 +72,16 @@ export const themKhachHang = async (values) => {
 };
 
 /**
- * Khách khác đang dùng số điện thoại / email này (kiểm tra khi rời ô, trước khi lưu); không có thì null.
- * `truong`: "soDienThoai" | "email"; `boQuaId`: khách đang sửa.
+ * Khách khác đang dùng số điện thoại / email / mã số thuế này (kiểm tra khi rời ô, trước khi lưu); không có thì null.
+ * Máy chủ so như lúc lưu: số điện thoại đã bỏ dấu ngăn cách, "+84" về "0" (khách tạo từ đơn sàn lưu "+84 912…").
+ * `truong`: "soDienThoai" | "email" | "maSoThue"; `boQuaId`: khách đang sửa.
  */
 export const timKhachTrungLienHe = async (truong, giaTri, { boQuaId, signal } = {}) => {
+  // POST để số điện thoại / email không nằm trên URL (nhật ký truy cập, lịch sử trình duyệt)
   const response = await apiClient.post(
-    "/api/v1/khach-hang/filter",
-    {
-      filters: [{ fieldName: truong, operation: "EQUALS", value: giaTri, logicType: "AND" }],
-      sorts: [],
-      page: 0,
-      size: 2,
-    },
+    "/api/v1/khach-hang/kiem-trung",
+    { truong, giaTri, boQuaId: boQuaId ?? null },
     { signal },
   );
-  const ds = response.data?.data?.content ?? [];
-  return ds.find((kh) => String(kh.id) !== String(boQuaId)) ?? null;
+  return response.data?.data ?? null;
 };
