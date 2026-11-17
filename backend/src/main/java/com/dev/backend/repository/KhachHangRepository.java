@@ -24,6 +24,33 @@ public interface KhachHangRepository extends JpaRepository<KhachHang, Integer>, 
 
     Optional<KhachHang> findFirstByEmailAndIdNot(String email, Integer id);
 
+    Optional<KhachHang> findFirstByMaSoThue(String maSoThue);
+
+    Optional<KhachHang> findFirstByMaSoThueAndIdNot(String maSoThue, Integer id);
+
+    /**
+     * Khách khác (bỏ qua boQuaId, null = không bỏ) có cùng số điện thoại sau khi bỏ dấu cách, chấm, gạch, ngoặc và đổi
+     * "+84" về "0" (như TuKhoaTimKiem.boNganCach): khách tạo từ đơn sàn lưu số nguyên dạng sàn gửi ("+84 912 345 678").
+     * Thêm dạng "84912345678" không có dấu cộng (chỉ khi sdt bắt đầu bằng 0: tổng đài 1900… không có dạng 84).
+     */
+    default Optional<KhachHang> timTrungSoDienThoai(String sdt, Integer boQuaId) {
+        String dang84 = sdt.startsWith("0") ? "84" + sdt.substring(1) : sdt;
+        return timTrungSoDienThoaiHaiDang(sdt, dang84, boQuaId);
+    }
+
+    /** Xem timTrungSoDienThoai; dang84 = sdt khi không có dạng 84. */
+    @Query(value = """
+        select * from khach_hang k
+        where (:boQuaId is null or k.id <> :boQuaId)
+          and replace(replace(replace(replace(replace(replace(k.so_dien_thoai,
+                ' ', ''), '.', ''), '-', ''), '(', ''), ')', ''), '+84', '0')
+              in (:sdt, :dang84)
+        order by k.id
+        limit 1
+        """, nativeQuery = true)
+    Optional<KhachHang> timTrungSoDienThoaiHaiDang(@Param("sdt") String sdt, @Param("dang84") String dang84,
+                                                   @Param("boQuaId") Integer boQuaId);
+
     boolean existsByMaKhachHang(String maKhachHang);
 
     Optional<KhachHang> findByMaKhachHang(String maKhachHang);
