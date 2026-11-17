@@ -1481,8 +1481,9 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                 && don.getMaDonHangKenh() != null && !don.getMaDonHangKenh().isBlank()
                 && kenhBanHangDongBoService != null) {
             String shopifyOrderId = don.getMaDonHangKenh();
-            SauCommit.chay("Đồng bộ hoàn trả sang Shopify",
-                    () -> kenhBanHangDongBoService.dongBoTrangThaiReturnedShopify(shopifyOrderId));
+            Integer donId = don.getId();
+            SauCommit.chay("Đồng bộ hoàn trả và hoàn tiền sang Shopify",
+                    () -> kenhBanHangDongBoService.dongBoHoanTraVaHoanTienShopify(donId, shopifyOrderId));
         }
         // Nhật ký lúc hoàn trả: xuất kế toán lấy làm ngày hạch toán của chứng từ Hàng bán trả lại (đơn đã giao kế toán).
         // Ghi sau commit, giao dịch riêng: ghi lỗi thì đơn vẫn hoàn trả, xuất kế toán coi như đơn không có nhật ký và để kế
