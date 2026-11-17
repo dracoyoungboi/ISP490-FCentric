@@ -5,6 +5,7 @@ import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.customizeanotation.RequireAuth;
 import com.dev.backend.dto.request.BaseFilterRequest;
 import com.dev.backend.dto.request.KhachHangCreating;
+import com.dev.backend.dto.request.KhachHangKiemTrung;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.customize.KhachHangDetailDto;
 import com.dev.backend.dto.response.customize.TongQuanMuaHangKhachDto;
@@ -79,6 +80,21 @@ public class KhachHangController {
                 .status(HttpStatus.OK.value())
                 .message(ThongDiep.dich("banHang.daThemKhachHang"))
                 .data(dto)
+                .build());
+    }
+
+    /**
+     * Kiểm trùng trước khi lưu (form Thêm / Sửa khách báo ngay khi rời ô): truong = soDienThoai | email | maSoThue.
+     * So như lúc lưu (số điện thoại đã bỏ dấu ngăn cách, +84 về 0). data = khách đang dùng giá trị, null nếu chưa ai dùng.
+     * POST để số điện thoại / email không nằm trên URL (nhật ký truy cập, lịch sử trình duyệt).
+     */
+    @PostMapping("/kiem-trung")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.nhan_vien_ban_hang})
+    public ResponseEntity<ResponseData<KhachHangDto>> kiemTrung(@RequestBody KhachHangKiemTrung yeuCau) {
+        return ResponseEntity.ok(ResponseData.<KhachHangDto>builder()
+                .status(HttpStatus.OK.value())
+                .message("Success")
+                .data(khachHangService.timKhachTrung(yeuCau.getTruong(), yeuCau.getGiaTri(), yeuCau.getBoQuaId()))
                 .build());
     }
 
