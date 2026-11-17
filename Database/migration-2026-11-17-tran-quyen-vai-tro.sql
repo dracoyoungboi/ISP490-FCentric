@@ -14,6 +14,7 @@
 -- THỨ TỰ KHI TRIỂN KHAI: chạy cùng lúc triển khai backend mới (trước hay sau vài phút đều được), rồi frontend mới.
 -- Chạy lại nhiều lần được: lần sau không còn dòng nào để gỡ.
 -- Cách chạy: mysql --default-character-set=utf8mb4 fashion_system < tệp này
+--            hoặc mở trong MySQL Workbench rồi chạy cả tệp (tệp tự tắt "safe update" trong phiên).
 -- =====================================================================
 
 SET NAMES utf8mb4;
@@ -64,6 +65,11 @@ LEFT JOIN tran_quyen_vai_tro t ON t.vai_tro = nd.vai_tro AND t.ma_quyen = q.ma_q
 WHERE ct.trang_thai = 1 AND nd.vai_tro <> 'quan_tri_vien' AND t.ma_quyen IS NULL
 ORDER BY nd.id, q.ma_quyen;
 
+-- MySQL Workbench mặc định bật "safe update", chặn DELETE/UPDATE nối bảng dưới đây (lỗi 1175).
+-- Tắt riêng trong phiên này, cuối tệp bật lại như cũ.
+SET @safe_updates_cu = @@SESSION.sql_safe_updates;
+SET SESSION sql_safe_updates = 0;
+
 -- 1. Mẫu quyền
 DELETE m FROM mau_quyen_vai_tro m
 JOIN quyen_han q ON q.id = m.quyen_han_id
@@ -89,3 +95,4 @@ LEFT JOIN tran_quyen_vai_tro t ON t.vai_tro = nd.vai_tro AND t.ma_quyen = q.ma_q
 WHERE ct.trang_thai = 1 AND nd.vai_tro <> 'quan_tri_vien' AND t.ma_quyen IS NULL;
 
 DROP TEMPORARY TABLE IF EXISTS tran_quyen_vai_tro;
+SET SESSION sql_safe_updates = @safe_updates_cu;
