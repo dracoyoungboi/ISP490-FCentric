@@ -74,8 +74,9 @@ public class SanPhamQuanAoController {
                         .build());
         }
 
+        // SRS 4.4 "Product – Create / Edit / Activate / Deactivate": chỉ quản trị viên
         @PostMapping(value = "/create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-        @RequireAuth(roles = { IRoleType.quan_tri_vien, IRoleType.quan_ly_kho })
+        @RequireAuth(roles = {IRoleType.quan_tri_vien})
         public ResponseEntity<ResponseData<SanPhamQuanAoDto>> create(
                 @RequestPart("creating") SanPhamQuanAoCreating creating,
                 @RequestPart(value = "anhSanPhams", required = false) List<MultipartFile> anhSanPhams,
@@ -86,7 +87,7 @@ public class SanPhamQuanAoController {
         }
 
         @PutMapping(value = "/update", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-        @RequireAuth(roles = { IRoleType.quan_tri_vien, IRoleType.quan_ly_kho })
+        @RequireAuth(roles = {IRoleType.quan_tri_vien})
         public ResponseEntity<ResponseData<SanPhamQuanAoDto>> update(
                 @RequestPart SanPhamQuanAoUpdating updating,
                 @RequestPart(value = "anhSanPhams", required = false) List<MultipartFile> anhSanPhams,
@@ -116,7 +117,7 @@ public class SanPhamQuanAoController {
         }
 
         @PatchMapping("/basic-info/{id}")
-        @RequireAuth(roles = { IRoleType.quan_tri_vien, IRoleType.quan_ly_kho })
+        @RequireAuth(roles = {IRoleType.quan_tri_vien})
         public ResponseEntity<ResponseData<SanPhamQuanAoDto>> updateBasicInfo(
                 @PathVariable Integer id,
                 @RequestBody SanPhamQuanAoBasicInfoUpdating dto) {
@@ -191,7 +192,7 @@ public class SanPhamQuanAoController {
          * PATCH /status. Còn tồn, đơn bán / đơn mua / phiếu chuyển dở dang hoặc đang kiểm kê thì máy chủ trả 409.
          */
         @DeleteMapping("/soft-delete/{id}")
-        @RequireAuth(roles = { IRoleType.quan_tri_vien, IRoleType.quan_ly_kho })
+        @RequireAuth(roles = {IRoleType.quan_tri_vien})
         public ResponseEntity<ResponseData<String>> softDelete(@PathVariable Integer id) {
                 sanPhamQuanAoService.changeStatus(id, 2);
                 return ResponseEntity.ok(
@@ -203,7 +204,7 @@ public class SanPhamQuanAoController {
         }
 
         @PatchMapping("/status/{id}")
-        @RequireAuth(roles = { IRoleType.quan_tri_vien, IRoleType.quan_ly_kho })
+        @RequireAuth(roles = {IRoleType.quan_tri_vien})
         public ResponseEntity<ResponseData<String>> updateStatus(@PathVariable Integer id,
                                                                  @RequestParam Integer status) {
                 // API đổi trạng thái nhanh cho sản phẩm.

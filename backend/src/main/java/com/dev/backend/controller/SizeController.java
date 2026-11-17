@@ -70,11 +70,9 @@ public class SizeController {
                         .build());
     }
 
+    // SRS 4.4 "Color / Size / Material": thêm, sửa, xóa chỉ quản trị viên
     @PostMapping("/create")
-    @RequireAuth(
-            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho},
-            rolesLogic = RequireAuth.LogicType.OR
-    )
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     public ResponseEntity<ResponseData<SizeDto>> create(@RequestBody SizeCreating creating) {
         // Chuyển DTO sang Entity trước khi gọi service
         Size entity = sizeMapper.toEntity(creating);
@@ -88,10 +86,7 @@ public class SizeController {
     }
 
     @PostMapping("/update")
-    @RequireAuth(
-            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho},
-            rolesLogic = RequireAuth.LogicType.OR
-    )
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     public ResponseEntity<ResponseData<SizeDto>> update(@RequestBody SizeUpdating updating) {
         // Chuyển DTO sang Entity và gọi service với (ID, Entity)
         Size entity = sizeMapper.toEntity(updating);
@@ -105,10 +100,7 @@ public class SizeController {
     }
 
     @DeleteMapping("/delete/{id}")
-    @RequireAuth(
-            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho},
-            rolesLogic = RequireAuth.LogicType.OR
-    )
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     public ResponseEntity<ResponseData<String>> delete(@PathVariable Integer id) {
         Optional<Size> finding = sizeService.getOne(id);
         if (finding.isEmpty()) {

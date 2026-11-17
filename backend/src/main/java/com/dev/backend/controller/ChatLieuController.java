@@ -84,14 +84,10 @@ public class ChatLieuController {
     }
 
     // Add Material - POST /api/material
-    // Roles: quan_ly_kho, quan_tri_vien
+    // Roles: quan_tri_vien
+    // SRS 4.4 "Color / Size / Material": thêm, sửa, xóa chỉ quản trị viên
     @PostMapping
-    @RequireAuth(
-            roles = {
-                    IRoleType.quan_ly_kho,
-                    IRoleType.quan_tri_vien
-            }
-    )
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     public ResponseEntity<ResponseData> create(@RequestBody ChatLieuCreating creating) {
         ChatLieuDto dto = service.create(creating);
         return ResponseEntity.ok(ResponseData.builder()
@@ -102,14 +98,9 @@ public class ChatLieuController {
     }
 
     // Edit Material - PUT /api/material/{id}
-    // Roles: quan_ly_kho, quan_tri_vien
+    // Roles: quan_tri_vien
     @PutMapping("/{id}")
-    @RequireAuth(
-            roles = {
-                    IRoleType.quan_ly_kho,
-                    IRoleType.quan_tri_vien
-            }
-    )
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     public ResponseEntity<ResponseData> update(@PathVariable Integer id, @RequestBody ChatLieuUpdating updating) {
         ChatLieuDto dto = service.update(id, updating);
         return ResponseEntity.ok(ResponseData.builder()
@@ -120,14 +111,9 @@ public class ChatLieuController {
     }
 
     // Delete Material - DELETE /api/material/{id}
-    // Roles: quan_ly_kho, quan_tri_vien
+    // Roles: quan_tri_vien
     @DeleteMapping("/{id}")
-    @RequireAuth(
-            roles = {
-                    IRoleType.quan_ly_kho,
-                    IRoleType.quan_tri_vien
-            }
-    )
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     public ResponseEntity<ResponseData> delete(@PathVariable Integer id) {
         service.delete(id);
         return ResponseEntity.ok(ResponseData.builder()
