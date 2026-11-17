@@ -142,6 +142,12 @@ public interface KenhBanHangDongBoService {
     boolean dongBoTrangThaiReturnedShopify(String maDonHangKenh);
 
     /**
+     * Đồng bộ hoàn trả và hoàn tiền đơn hàng trên Shopify (Refunds API - partially_refunded/refunded)
+     * với cơ chế tự động fulfill nếu đơn chưa fulfilled và restock_type = no_restock theo chuẩn Sapo.
+     */
+    boolean dongBoHoanTraVaHoanTienShopify(Integer donBanHangId, String maDonHangKenh);
+
+    /**
      * Lấy cấu hình ánh xạ kho sàn với kho FCentric (tự động phát hiện 1 kho vs đa kho).
      */
     com.dev.backend.dto.channel.warehouse.KenhKhoMappingConfigDto layCauHinhKhoMapping(String maKenh);

@@ -3,21 +3,29 @@ package com.dev.backend.services.impl;
 import com.dev.backend.entities.DonBanHang;
 import com.dev.backend.exception.customize.LoiCoMaException;
 import com.dev.backend.repository.DonBanHangRepository;
+import com.dev.backend.services.KenhBanHangDongBoService;
+import com.dev.backend.services.KenhBanHangService;
 import com.dev.backend.services.KenhBanHangSyncService;
-import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
-import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 @Service
 @Slf4j
-@RequiredArgsConstructor
-@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class KenhBanHangSyncServiceImpl implements KenhBanHangSyncService {
 
-    DonBanHangRepository donBanHangRepository;
-    com.dev.backend.services.KenhBanHangService kenhBanHangService;
+    private final DonBanHangRepository donBanHangRepository;
+    private final KenhBanHangService kenhBanHangService;
+    private final KenhBanHangDongBoService kenhBanHangDongBoService;
+
+    public KenhBanHangSyncServiceImpl(
+            DonBanHangRepository donBanHangRepository,
+            KenhBanHangService kenhBanHangService,
+            @Lazy KenhBanHangDongBoService kenhBanHangDongBoService) {
+        this.donBanHangRepository = donBanHangRepository;
+        this.kenhBanHangService = kenhBanHangService;
+        this.kenhBanHangDongBoService = kenhBanHangDongBoService;
+    }
 
     @Override
     public void pushOrderStatus(Integer donBanHangId, String channelStatus, String maVanDon, String donViVanChuyen) {
@@ -44,7 +52,10 @@ public class KenhBanHangSyncServiceImpl implements KenhBanHangSyncService {
                 if (token == null || token.isBlank()) {
                     log.warn("KenhBanHangSync: Kênh bán Shopify chưa cấu hình Admin Access Token trong DB, bỏ qua gọi API ngoài.");
                 } else {
-                    log.info("KenhBanHangSync: Đã nạp thành công Credential Shopify (API: {}), sẵn sàng đồng bộ đơn {}", apiUrl, don.getSoDonHang());
+                    log.info("KenhBanHangSync: Đã nạp thành công Credential Shopify (API: {}), bắt đầu đồng bộ xuất kho đơn {}", apiUrl, don.getSoDonHang());
+                    if (don.getMaDonHangKenh() != null && !don.getMaDonHangKenh().isBlank() && kenhBanHangDongBoService != null) {
+                        kenhBanHangDongBoService.dongBoTrangThaiFulfilledShopify(don.getId(), don.getMaDonHangKenh());
+                    }
                 }
             } else if ("LAZADA".equalsIgnoreCase(maKenh) || "LAZADA_SANDBOX".equalsIgnoreCase(maKenh)) {
                 String appKey = kenhBanHangService.getLazadaAppKey(maKenh);
@@ -53,6 +64,9 @@ public class KenhBanHangSyncServiceImpl implements KenhBanHangSyncService {
                     log.warn("KenhBanHangSync: Kênh bán {} chưa cấu hình Access Token trong DB, bỏ qua gọi API ngoài.", maKenh);
                 } else {
                     log.info("KenhBanHangSync: Đã nạp thành công Credential {} (AppKey: {}), sẵn sàng đồng bộ trạng thái đơn {} sang {}", maKenh, appKey, don.getSoDonHang(), maKenh);
+                    if (don.getMaDonHangKenh() != null && !don.getMaDonHangKenh().isBlank() && kenhBanHangDongBoService != null) {
+                        kenhBanHangDongBoService.dongBoTrangThaiReadyToShipLazada(don.getMaDonHangKenh());
+                    }
                 }
             } else if ("TIKTOK".equalsIgnoreCase(maKenh) || "TIKTOK_SHOP".equalsIgnoreCase(maKenh)) {
                 String appKey = kenhBanHangService.getTikTokAppKey();
@@ -61,6 +75,9 @@ public class KenhBanHangSyncServiceImpl implements KenhBanHangSyncService {
                     log.warn("KenhBanHangSync: Kênh bán TikTok Shop chưa cấu hình Access Token trong DB, bỏ qua gọi API ngoài.");
                 } else {
                     log.info("KenhBanHangSync: Đã nạp thành công Credential TikTok Shop (AppKey: {}), sẵn sàng xác nhận xuất kho cho đơn {}", appKey, don.getSoDonHang());
+                    if (don.getMaDonHangKenh() != null && !don.getMaDonHangKenh().isBlank() && kenhBanHangDongBoService != null) {
+                        kenhBanHangDongBoService.dongBoTrangThaiReadyToShipTikTok(don.getMaDonHangKenh());
+                    }
                 }
             }
 
