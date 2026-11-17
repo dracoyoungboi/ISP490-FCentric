@@ -625,7 +625,7 @@ public class KenhBanHangController {
     }
 
     @PostMapping("/{maKenh}/tai-san-pham")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Tải toàn bộ danh mục sản phẩm từ kênh bán hàng về FCentric")
     public ResponseEntity<ResponseData<TaiSanPhamResultDto>> taiSanPhamTuKenh(@PathVariable String maKenh) {
         return ResponseEntity.ok(
@@ -638,7 +638,7 @@ public class KenhBanHangController {
     }
 
     @PostMapping("/{maKenh}/tu-dong-lien-ket")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Tự động ghép nối SKU trùng nhau giữa FCentric và kênh bán")
     public ResponseEntity<ResponseData<TuDongLienKetResultDto>> tuDongLienKet(@PathVariable String maKenh) {
         return ResponseEntity.ok(
@@ -651,7 +651,7 @@ public class KenhBanHangController {
     }
 
     @GetMapping("/{maKenh}/lien-ket")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Lấy danh sách liên kết sản phẩm của kênh bán hàng phân trang")
     public ResponseEntity<ResponseData<Page<LienKetSanPhamDto>>> filterLienKet(
             @PathVariable String maKenh,
@@ -668,7 +668,7 @@ public class KenhBanHangController {
     }
 
     @GetMapping("/{maKenh}/lien-ket/theo-san-pham")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Danh sách liên kết của kênh phân trang theo sản phẩm (mỗi phần tử là một sản phẩm kèm đủ SKU)")
     public ResponseEntity<ResponseData<Page<NhomLienKetDto>>> filterLienKetTheoSanPham(
             @PathVariable String maKenh,
@@ -685,7 +685,7 @@ public class KenhBanHangController {
     }
 
     @PutMapping("/lien-ket/{id}")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Cập nhật ghép nối thủ công hoặc hủy ghép nối cho 1 liên kết")
     public ResponseEntity<ResponseData<LienKetSanPhamDto>> capNhatLienKet(
             @PathVariable Integer id,
@@ -700,7 +700,7 @@ public class KenhBanHangController {
     }
 
     @PostMapping("/{maKenh}/day-ton")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Đẩy tồn kho khả dụng lên kênh bán hàng theo chính sách tồn kho")
     public ResponseEntity<ResponseData<DayTonResultDto>> dayTonKho(
             @PathVariable String maKenh,
@@ -720,7 +720,7 @@ public class KenhBanHangController {
     }
 
     @GetMapping("/{maKenh}/tong-quan")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Lấy chỉ số KPI tổng quan đồng bộ của kênh")
     public ResponseEntity<ResponseData<DongBoTongQuanDto>> getTongQuan(@PathVariable String maKenh) {
         return ResponseEntity.ok(
@@ -733,7 +733,7 @@ public class KenhBanHangController {
     }
 
     @GetMapping("/tong-quan")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Lấy chỉ số KPI tổng quan đồng bộ toàn hệ thống")
     public ResponseEntity<ResponseData<DongBoTongQuanDto>> getTongQuanHeThong() {
         return ResponseEntity.ok(
@@ -746,7 +746,7 @@ public class KenhBanHangController {
     }
 
     @GetMapping("/bien-the/tim-kiem")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Tìm kiếm biến thể FCentric phục vụ ghép nối SKU")
     public ResponseEntity<ResponseData<java.util.List<BienTheOptionDto>>> timBienThe(
             @RequestParam(required = false, defaultValue = "") String q,
@@ -761,7 +761,7 @@ public class KenhBanHangController {
     }
 
     @GetMapping("/tiktok/locations")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Lấy danh sách kho logistics từ TikTok Shop Open Platform")
     public ResponseEntity<ResponseData<List<ShopifyLocationDto>>> layDanhSachKhoTikTok() {
         return ResponseEntity.ok(
@@ -774,7 +774,7 @@ public class KenhBanHangController {
     }
 
     @GetMapping("/{maKenh}/kho-san")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Lấy danh sách kho bán hàng thực tế từ sàn")
     public ResponseEntity<ResponseData<List<ShopifyLocationDto>>> getKhoSan(@PathVariable String maKenh) {
         return ResponseEntity.ok(
@@ -787,7 +787,7 @@ public class KenhBanHangController {
     }
 
     @GetMapping("/{maKenh}/locations")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Lấy danh sách vị trí kho từ kênh bán hàng")
     public ResponseEntity<ResponseData<List<ShopifyLocationDto>>> getLocations(@PathVariable String maKenh) {
         return ResponseEntity.ok(
@@ -800,7 +800,7 @@ public class KenhBanHangController {
     }
 
     @PutMapping("/{maKenh}/cai-dat")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Lưu cấu hình kết nối đồng bộ kho và quy tắc tồn")
     public ResponseEntity<ResponseData<DongBoTongQuanDto>> luuCaiDat(
             @PathVariable String maKenh,
@@ -815,7 +815,7 @@ public class KenhBanHangController {
     }
 
     @GetMapping("/{maKenh}/kho-mapping")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Lấy cấu hình ánh xạ kho sàn với kho FCentric (tự động nhận diện 1 kho vs đa kho)")
     public ResponseEntity<ResponseData<com.dev.backend.dto.channel.warehouse.KenhKhoMappingConfigDto>> getKhoMapping(
             @PathVariable String maKenh) {
@@ -829,7 +829,7 @@ public class KenhBanHangController {
     }
 
     @PutMapping("/{maKenh}/kho-mapping")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Cập nhật cấu hình ánh xạ kho sàn với kho FCentric")
     public ResponseEntity<ResponseData<com.dev.backend.dto.channel.warehouse.KenhKhoMappingConfigDto>> luuKhoMapping(
             @PathVariable String maKenh,
@@ -844,7 +844,7 @@ public class KenhBanHangController {
     }
 
     @GetMapping("/{maKenh}/cau-hinh-dong-bo")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Lấy cấu hình đồng bộ của kênh (tự đẩy tồn, tự lấy đơn, quy tắc tồn)")
     public ResponseEntity<ResponseData<KenhCauHinhDongBoDto>> layCauHinhDongBo(@PathVariable String maKenh) {
         return ResponseEntity.ok(
@@ -857,7 +857,7 @@ public class KenhBanHangController {
     }
 
     @GetMapping("/{maKenh}/thong-ke-don")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Số liệu đơn hàng của kênh theo ngày (tối đa 92 ngày) và số đơn theo trạng thái")
     public ResponseEntity<ResponseData<KenhThongKeDonDto>> thongKeDon(
             @PathVariable String maKenh,
@@ -873,7 +873,7 @@ public class KenhBanHangController {
     }
 
     @PutMapping("/{maKenh}/cau-hinh-dong-bo")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Lưu cấu hình đồng bộ của kênh; trường để trống giữ nguyên giá trị cũ")
     public ResponseEntity<ResponseData<KenhCauHinhDongBoDto>> luuCauHinhDongBo(
             @PathVariable String maKenh,
@@ -888,7 +888,7 @@ public class KenhBanHangController {
     }
 
     @GetMapping("/{maKenh}/nhat-ky")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Lấy danh sách sự kiện nhật ký đồng bộ phân trang")
     public ResponseEntity<ResponseData<Page<NhatKyDongBoDto>>> filterNhatKy(
             @PathVariable String maKenh,
@@ -906,7 +906,7 @@ public class KenhBanHangController {
     }
 
     @GetMapping("/nhat-ky/{id}")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Lấy chi tiết sự kiện nhật ký đồng bộ")
     public ResponseEntity<ResponseData<NhatKyDongBoDto>> getNhatKyDetail(@PathVariable Integer id) {
         return ResponseEntity.ok(
@@ -919,7 +919,7 @@ public class KenhBanHangController {
     }
 
     @PostMapping("/{maKenh}/lay-don")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Chủ động lấy đơn hàng mới từ sàn theo khoảng thời gian")
     public ResponseEntity<ResponseData<LayDonResultDto>> layDonHang(
             @PathVariable String maKenh,
@@ -934,7 +934,7 @@ public class KenhBanHangController {
     }
 
     @PostMapping("/{maKenh}/dong-bo-ngay")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Bắt đầu đồng bộ tay chạy nền (đẩy tồn theo quy tắc đã lưu rồi lấy đơn 24 giờ qua); đang chạy thì trả đợt đang chạy")
     public ResponseEntity<ResponseData<DongBoNgayDto>> batDauDongBoNgay(@PathVariable String maKenh) {
         return ResponseEntity.ok(
@@ -947,7 +947,7 @@ public class KenhBanHangController {
     }
 
     @GetMapping("/{maKenh}/dong-bo-ngay")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Tiến độ đợt đồng bộ tay gần nhất của kênh (null nếu chưa có đợt nào từ khi máy chủ khởi động)")
     public ResponseEntity<ResponseData<DongBoNgayDto>> layDongBoNgay(@PathVariable String maKenh) {
         return ResponseEntity.ok(
@@ -960,7 +960,7 @@ public class KenhBanHangController {
     }
 
     @PostMapping("/{maKenh}/dong-bo-ngay/dung")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Dừng đợt đồng bộ tay đang chạy sau SKU đang đẩy (bỏ bước lấy đơn)")
     public ResponseEntity<ResponseData<DongBoNgayDto>> dungDongBoNgay(@PathVariable String maKenh) {
         return ResponseEntity.ok(
@@ -973,7 +973,7 @@ public class KenhBanHangController {
     }
 
     @PostMapping("/dong-bo-tat-ca")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Chạy đợt đồng bộ tồn kho và đơn hàng cho toàn bộ các gian hàng active")
     public ResponseEntity<ResponseData<DayTonResultDto>> dongBoTatCa() {
         return ResponseEntity.ok(
@@ -986,7 +986,7 @@ public class KenhBanHangController {
     }
 
     @PostMapping("/lien-ket/{id}/thu-lai")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Thử lại đẩy tồn cho một liên kết bị lỗi")
     public ResponseEntity<ResponseData<LienKetSanPhamDto>> thuLai(@PathVariable Integer id) {
         return ResponseEntity.ok(
@@ -1001,7 +1001,7 @@ public class KenhBanHangController {
     // ── Shopee REST Endpoints ──
 
     @PostMapping("/shopee/orders/cancel")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Shopee: Hủy đơn hàng từ phía nhà bán hàng (/api/v2/order/cancel_order)")
     public ResponseEntity<ResponseData<JsonNode>> cancelShopeeOrder(
             @RequestParam(required = false, defaultValue = "SHOPEE_SANDBOX") String maKenh,
@@ -1020,7 +1020,7 @@ public class KenhBanHangController {
     }
 
     @PostMapping("/shopee/orders/handle-cancellation")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Shopee: Xử lý chấp nhận hoặc từ chối yêu cầu hủy của người mua (/api/v2/order/handle_buyer_cancellation)")
     public ResponseEntity<ResponseData<JsonNode>> handleShopeeBuyerCancellation(
             @RequestParam(required = false, defaultValue = "SHOPEE_SANDBOX") String maKenh,
@@ -1039,7 +1039,7 @@ public class KenhBanHangController {
     }
 
     @PostMapping("/shopee/orders/{orderSn}/note")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Shopee: Cập nhật ghi chú người bán cho đơn hàng (/api/v2/order/set_note)")
     public ResponseEntity<ResponseData<JsonNode>> setShopeeOrderNote(
             @PathVariable String orderSn,
@@ -1154,7 +1154,7 @@ public class KenhBanHangController {
     }
 
     @GetMapping("/shopee/orders/{orderSn}/escrow")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Shopee: Tra cứu đối soát chi tiết thanh toán và tiền về ví (/api/v2/payment/get_escrow_detail)")
     public ResponseEntity<ResponseData<JsonNode>> getShopeeEscrowDetail(
             @PathVariable String orderSn,
