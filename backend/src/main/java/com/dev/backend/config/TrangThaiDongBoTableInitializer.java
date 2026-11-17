@@ -23,6 +23,9 @@ public class TrangThaiDongBoTableInitializer implements ApplicationRunner {
         themCotNeuChuaTonTai("so_luong_da_day", "INT DEFAULT NULL");
         themCotNeuChuaTonTai("ngay_day_ton_cuoi", "DATETIME DEFAULT NULL");
         nangCapKieuCotKenhBanHang();
+        nangCapCotSangText("cau_hinh_he_thong", "gia_tri");
+        themCotBangLichSuThayDoi("ma_doi_tuong", "VARCHAR(100) NULL");
+        themCotBangLichSuThayDoi("nguon", "VARCHAR(30) NULL");
         themKenhShopeeOfficialNeuChuaCo();
     }
 
@@ -62,6 +65,21 @@ public class TrangThaiDongBoTableInitializer implements ApplicationRunner {
             }
         } catch (Exception e) {
             log.warn("[TABLE-INIT] Không thể tự động bổ sung cột `{}` vào bảng `kenh_ban_hang`: {}", tenCot, e.getMessage());
+        }
+    }
+
+    private void themCotBangLichSuThayDoi(String tenCot, String kieuDuLieu) {
+        try {
+            String checkSql = "SELECT COUNT(*) FROM information_schema.COLUMNS " +
+                    "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'lich_su_thay_doi' AND COLUMN_NAME = ?";
+            Integer count = jdbcTemplate.queryForObject(checkSql, Integer.class, tenCot);
+            if (count == null || count == 0) {
+                String alterSql = "ALTER TABLE lich_su_thay_doi ADD COLUMN " + tenCot + " " + kieuDuLieu;
+                jdbcTemplate.execute(alterSql);
+                log.info("[TABLE-INIT] Đã bổ sung tự động cột `{}` vào bảng `lich_su_thay_doi`", tenCot);
+            }
+        } catch (Exception e) {
+            log.warn("[TABLE-INIT] Không thể tự động bổ sung cột `{}` vào bảng `lich_su_thay_doi`: {}", tenCot, e.getMessage());
         }
     }
 

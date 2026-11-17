@@ -19,7 +19,7 @@ public class CauHinhHeThong {
     @Column(name = "ma_cau_hinh", length = 100, nullable = false)
     private String maCauHinh;
 
-    @Column(name = "gia_tri", length = 255, nullable = false)
+    @Column(name = "gia_tri", columnDefinition = "TEXT", nullable = false)
     private String giaTri;
 
     @Column(name = "kieu_du_lieu", nullable = false)
