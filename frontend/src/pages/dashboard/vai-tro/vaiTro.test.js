@@ -1,7 +1,11 @@
 // Chạy: node --test src/pages/dashboard/vai-tro/vaiTro.test.js
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import * as VT from "../../../constants/vaiTroTheoNghiepVu.js";
+import { ROLES } from "../../../utils/roles.js";
 import {
+  NHOM_VIEC_CHUNG,
   bienDongDiem,
   bienDongO,
   boDau,
@@ -9,6 +13,7 @@ import {
   chuYDon,
   diemTheoGio,
   dongViecQuanLyKho,
+  duongDanYeuCauNhap,
   giaBan,
   guiLuc,
   hanhDongBoSung,
@@ -185,7 +190,19 @@ test("cần bổ sung: chuyển từ Kho tổng mở sẵn form; đã có yêu c
   assert.equal(moTaBoSung(daCo, CUA_HANG), "Còn 5 · Kho tổng còn 0");
   const thieu = { ...daCo, yeuCauMoId: null, yeuCauMoMa: null };
   assert.deepEqual(hanhDongBoSung(thieu, CUA_HANG), { kieu: "chu", chu: "Kho tổng không đủ hàng" });
-  assert.deepEqual(hanhDongBoSung({ ...thieu, khaDungKhoTong: null }, KHO_TONG), { kieu: "chu", chu: "Cần mua thêm 15" });
+  // Kho tổng hết hàng: quản lý kho lập yêu cầu nhập (SRS 4.4 "Purchase Request")
+  const lapYeuCau = hanhDongBoSung({ ...thieu, khaDungKhoTong: null }, KHO_TONG);
+  assert.equal(lapYeuCau.kieu, "nut");
+  assert.equal(lapYeuCau.chu, "Yêu cầu nhập 15");
+  assert.equal(lapYeuCau.to, duongDanYeuCauNhap({ ...thieu, khaDungKhoTong: null }, 22));
+  const thamSo = new URL(lapYeuCau.to, "http://x").searchParams;
+  assert.equal(new URL(lapYeuCau.to, "http://x").pathname, "/purchase-requests/create");
+  assert.deepEqual([thamSo.get("khoId"), thamSo.get("bienTheId"), thamSo.get("soLuong")], ["22", "6", "15"]);
+  // Cửa hàng không lập yêu cầu nhập từ đây, kể cả khi Kho tổng hết hàng
+  assert.equal(hanhDongBoSung({ ...thieu, khaDungKhoTong: null }, CUA_HANG).kieu, "chu");
+  // Đã có yêu cầu đang mở ở Kho tổng: mở yêu cầu đó thay vì lập yêu cầu mới
+  assert.equal(hanhDongBoSung(daCo, KHO_TONG).kieu, "lienKet");
+  assert.equal(hanhDongBoSung({ ...daCo, yeuCauMoMa: null }, KHO_TONG).chu, "Đã có yêu cầu nhập");
   assert.equal(moTaBoSung({ ...thieu, khaDungKhoTong: null }, KHO_TONG), "Còn 5 · ngưỡng 10");
 });
 
@@ -352,4 +369,131 @@ test("bán hàng – ghi chú đơn, giá bán, bỏ dấu", () => {
   assert.equal(gon(giaBan({ giaThapNhat: 199000, giaCaoNhat: 199000 })), "199.000 ₫");
   assert.equal(giaBan({ giaThapNhat: null, giaCaoNhat: null }), "");
   assert.equal(boDau("Áo ĐŨI"), "ao dui");
+});
+
+/* ───────── Phân quyền theo SRS 4.4: Tổng quan không dẫn tới trang vai trò không mở được ───────── */
+
+const APP = readFileSync(new URL("../../../App.jsx", import.meta.url), "utf8");
+const TUYEN = [...APP.matchAll(/path="([^"]+)"/g)].map((m) => m[1]).filter((p) => p.startsWith("/"));
+
+/** Route của App.jsx khớp đường dẫn (bỏ phần ?…); route tĩnh thắng route có tham số như React Router. */
+function tuyenCua(lienKet) {
+  const duong = lienKet.split("?")[0];
+  const mau = (p) => new RegExp(`^${p.split("/").map((s) => (s.startsWith(":") ? "[^/]+" : s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))).join("/")}$`);
+  const khop = TUYEN.filter((p) => mau(p).test(duong));
+  assert.ok(khop.length > 0, `App.jsx không có trang cho ${lienKet}`);
+  const soThamSo = (p) => (p.match(/:/g) ?? []).length;
+  return [...khop].sort((a, b) => soThamSo(a) - soThamSo(b))[0];
+}
+
+/** Vai trò mở được trang: nhóm <RequireRole roles={…}> bao quanh route trong App.jsx (không có nhóm: mọi vai trò). */
+function vaiTroMoTrang(lienKet) {
+  const tuyen = tuyenCua(lienKet);
+  const truoc = APP.slice(0, APP.indexOf(`path="${tuyen}"`));
+  const moNhom = truoc.lastIndexOf("<RequireRole roles={");
+  if (moNhom < 0 || truoc.indexOf("</Route>", moNhom) >= 0) return VT.TAT_CA_VAI_TRO;
+  const ten = /^<RequireRole roles=\{(\w+)\}/.exec(truoc.slice(moNhom))?.[1];
+  assert.ok(ten && VT[ten], `${tuyen}: nhóm vai trò ${ten} không có trong constants/vaiTroTheoNghiepVu.js`);
+  return VT[ten];
+}
+
+function kiemLienKet(vaiTro, ds) {
+  const loi = ds.filter(Boolean).filter((to) => !vaiTroMoTrang(to).includes(vaiTro));
+  assert.deepEqual(loi, [], `${vaiTro} không mở được: ${loi.join(", ")}`);
+  return ds.filter(Boolean).length;
+}
+
+test("đọc route của App.jsx: route tĩnh thắng route tham số, nhóm vai trò đúng", () => {
+  assert.equal(tuyenCua("/goods-issues/pending-orders"), "/goods-issues/pending-orders");
+  assert.equal(tuyenCua("/goods-issues/9?x=1"), "/goods-issues/:id");
+  assert.equal(tuyenCua("/purchase-requests/create?khoId=22"), "/purchase-requests/create");
+  assert.equal(vaiTroMoTrang("/purchase-requests/create"), VT.VAI_TRO_TAO_YEU_CAU_NHAP);
+  assert.equal(vaiTroMoTrang("/purchase-requests/7"), VT.VAI_TRO_XEM_YEU_CAU_NHAP);
+  assert.equal(vaiTroMoTrang("/goods-receipts/4"), VT.VAI_TRO_XEM_PHIEU_NHAP);
+  assert.equal(vaiTroMoTrang("/goods-issues/9/view"), VT.VAI_TRO_XEM_PHIEU_XUAT);
+  assert.equal(vaiTroMoTrang("/reports/revenue"), VT.VAI_TRO_BAO_CAO_DOANH_THU);
+  assert.equal(vaiTroMoTrang("/reports/inventory"), VT.TAT_CA_VAI_TRO, "báo cáo tồn kho: mọi vai trò xem kho mình");
+  assert.throws(() => tuyenCua("/khong-co-trang"));
+});
+
+test("quản lý kho: máy chủ không gửi doanh thu (UC 11.3) thì ô đầu là nhập kho, không dẫn tới Báo cáo doanh thu", () => {
+  assert.ok(!vaiTroMoTrang("/reports/revenue").includes(ROLES.QUAN_LY_KHO), "quản lý kho không xem Báo cáo doanh thu");
+  const d = { ...QLK, chiSo: { ...QLK.chiSo, doanhThu: null } };
+  const ch = theSoQuanLyKho(d, CUA_HANG, CAU_HINH, BAY_GIO);
+  assert.deepEqual(ch.map((x) => x.key), ["nhap", "xuat", "donChoXuat", "tonKho"]);
+  assert.equal(ch[0].to, "/goods-receipts?trangThai=da-nhap-kho");
+  assert.ok(ch.every((x) => x.to !== "/reports/revenue"));
+});
+
+test("quản lý kho: mọi đường dẫn trên Tổng quan (cửa hàng và Kho tổng) đều mở được", () => {
+  const nghiepVu = {
+    ...QLK.nghiepVu,
+    xuatKho: { phieuChoXuat: 1, chuyenChoXuat: 1 },
+    kiemKeDangMo: 1,
+  };
+  const viec = ["duyet_yeu_cau_nhap", "duyet_phieu_chuyen", "xac_nhan_bien_ban_chuyen", "xu_ly_chenh_lech_chuyen",
+    "gom_phieu_nhat", "phan_cong_nhat", "hoan_tat_kiem_ke"].map((loai) => ({ loai, so: 1, cuNhat: null, moTa: null, gap: false }));
+  const boSung = [
+    { bienTheId: 5, deXuat: "chuyen_kho", soLuongDeXuat: 20, khaDung: 0, nguong: 10, khaDungKhoTong: 100 },
+    { bienTheId: 6, deXuat: "yeu_cau_nhap", soLuongDeXuat: 15, khaDung: 5, nguong: 10, khaDungKhoTong: 0, yeuCauMoId: 7, yeuCauMoMa: "YC-7" },
+    { bienTheId: 6, deXuat: "yeu_cau_nhap", soLuongDeXuat: 15, khaDung: 5, nguong: 10, khaDungKhoTong: null },
+  ];
+  let dem = 0;
+  for (const kho of [CUA_HANG, KHO_TONG]) {
+    const ds = [];
+    theSoQuanLyKho({ ...QLK, chiSo: { ...QLK.chiSo, doanhThu: null } }, kho, CAU_HINH, BAY_GIO).forEach((x) => ds.push(x.to));
+    for (const o of oNghiepVu(nghiepVu, kho, CAU_HINH)) {
+      ds.push(o.to, o.tao?.to, ...o.chip.map((c) => c.to));
+    }
+    dongViecQuanLyKho(viec, kho, BAY_GIO).forEach((v) => ds.push(v.to));
+    boSung.forEach((b) => ds.push(hanhDongBoSung(b, kho).to));
+    dem += kiemLienKet(ROLES.QUAN_LY_KHO, ds);
+  }
+  assert.ok(dem >= 40, `phải kiểm đủ đường dẫn, mới ${dem}`);
+});
+
+test("nhân viên kho: mọi đường dẫn việc chung, nhóm việc, hàng sắp về đều mở được", () => {
+  const viec = ["phieu_nhap_chuyen_kho", "phieu_nhap", "phieu_nhat", "don_ban", "phieu_xuat", "phieu_chuyen", "kiem_ke", "la"]
+    .map((loai, i) => viecChungDong({ loai, id: i + 1, doiTac: null, soDon: 1, soLuong: 1 }).to);
+  const sapVe = nhomHangSapVe(
+    [
+      { loai: "don_mua", id: 1, ma: "DM-1", doiTac: "NCC Một", soLuong: 6, ngay: "2026-10-15", tre: true },
+      { loai: "phieu_chuyen", id: 3, ma: "PCK-3", doiTac: "Kho tổng", soLuong: 20, ngay: "2026-10-17", tre: false },
+    ],
+    BAY_GIO,
+  ).flatMap((g) => g.ds.map((x) => x.to));
+  const dem = kiemLienKet(ROLES.NHAN_VIEN_KHO, [...viec, ...NHOM_VIEC_CHUNG.map((n) => n.to), ...sapVe]);
+  assert.equal(dem, 8 + NHOM_VIEC_CHUNG.length + 2);
+});
+
+test("mua hàng: ô số, quy trình, lịch hàng về đều mở được; nút lập yêu cầu nhập phải ẩn với nhân viên mua hàng", () => {
+  const cs = {
+    datMua: { tong: 1, kyTruoc: 1, tamTuan: [] },
+    dangVe: { soLuong: 1, soDon: 1 },
+    giaoDungHan: { dungHan: 1, denHan: 1, dungHanTruoc: 1, denHanTruoc: 1 },
+    choBaoGia: { tong: 1, quaHan: 1, soNhaCungCap: 1 },
+  };
+  const ds = [
+    ...theSoMuaHang(cs, CAU_HINH, BAY_GIO).map((x) => x.to),
+    ...buocQuyTrinh({ daDuyet: 1, choBaoGia: 1, choBaoGiaQuaHan: 1, choChotDon: 1, dangGiao: 1, dangGiaoTre: 1 }, CAU_HINH).map((b) => b.to),
+    ...lichTheoNgay([{ id: 1, ma: "DM-1", nhaCungCap: "NCC", conLai: 1, ngayGiao: "2026-10-15", tre: true }], BAY_GIO)
+      .flatMap((n) => n.ds.map((x) => x.to)),
+  ];
+  assert.ok(kiemLienKet(ROLES.NHAN_VIEN_MUA_HANG, ds) >= 6);
+  // SRS 4.4 "Purchase Request": nhân viên mua hàng chỉ xem; Tổng quan chỉ hiện nút cho VAI_TRO_TAO_YEU_CAU_NHAP
+  const lap = duongDanYeuCauNhap({ bienTheId: 1, soLuongDeXuat: 3 }, 22);
+  assert.ok(!vaiTroMoTrang(lap).includes(ROLES.NHAN_VIEN_MUA_HANG));
+  assert.ok(vaiTroMoTrang(lap).includes(ROLES.QUAN_LY_KHO));
+  assert.ok(vaiTroMoTrang("/quotation-requests?trangThai=da-gui-yeu-cau-bao-gia").includes(ROLES.NHAN_VIEN_MUA_HANG));
+});
+
+test("bán hàng: ô số không dẫn đi đâu (báo cáo, danh sách đơn của nhân viên bán hàng chỉ phần của mình)", () => {
+  const cs = {
+    doanhThu: { homNay: 1, cungGioTruoc: 1, bayNgay: bay([0, 0, 0, 0, 0, 0, 1]), soChungTu: 1 },
+    donHomNay: { soDon: 1, taiQuay: 1, cungGioTruoc: 1, bayNgay: bay([0, 0, 0, 0, 0, 0, 1]) },
+    trungBinhDon: { homNay: 1, bayNgayTruoc: 1, bayNgay: bay([0, 0, 0, 0, 0, 0, 1]) },
+    donCuaToi: { tong: 1, canChuY: 0, giaTri: 1 },
+  };
+  assert.deepEqual(theSoBanHang(cs, BAY_GIO).map((x) => x.to), [null, null, null, null]);
+  assert.deepEqual(theSoBanHang(null, BAY_GIO), []);
 });
