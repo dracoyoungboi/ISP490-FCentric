@@ -304,13 +304,9 @@ public class TongQuanVaiTroServiceImpl implements TongQuanVaiTroService {
             long[] soPhieu = repo.soPhieuNhapXuat(k, bc.dauNgay, bc.bayGio);
             SoHomNay nhap = new SoHomNay(cuoi(nhap7), homQua[0], nhap7, soPhieu[0]);
             SoHomNay xuat = new SoHomNay(cuoi(xuat7), homQua[1], xuat7, soPhieu[1]);
-            SoHomNay doanhThu = null;
-            if (!kho.laKhoTong()) {
-                HomNayDong h = admin.homNay(bc.bayGio, k);
-                List<Diem> dt7 = bayNgayDoanhThu(bc, admin.doanhThuTheoNgay(bc.ngay(-6), bc.ngay(1), k), so(h.doanhThu()));
-                doanhThu = new SoHomNay(so(h.doanhThu()), so(h.doanhThuCungGioTuanTruoc()), dt7, h.soDonGiao());
-            }
-            return new ChiSoKho(nhap, xuat, doanhThu, repo.donChoXuat(k, bc.mocChoLau));
+            // Không trả doanh thu: báo cáo doanh thu chỉ cho quản trị viên và nhân viên bán hàng (SRS UC 11.3), quản lý kho
+            // theo dõi tồn và nhập xuất. Giao diện đã ẩn thẻ khi doanhThu null (như ở kho tổng).
+            return new ChiSoKho(nhap, xuat, null, repo.donChoXuat(k, bc.mocChoLau));
         });
 
         TonKhoTongHopDong tongHop = bc.chay(KHOI_TON_KHO, () -> admin.tonKhoTongHop(k, bc.nguong, bc.heSoDu));
