@@ -102,7 +102,7 @@ class KhachHangServiceTest {
                 .loaiKhachHang("si")
                 .build());
 
-        verify(repository, never()).findFirstBySoDienThoai(anyString());
+        verify(repository, never()).timTrungSoDienThoai(anyString(), any());
         KhachHang saved = savedEntity();
         assertEquals("KH002", saved.getMaKhachHang());
         assertNull(saved.getSoDienThoai());
@@ -126,7 +126,7 @@ class KhachHangServiceTest {
     void create_khongGuiLoai_macDinhKhachLe() {
         when(repository.existsByMaKhachHang("KH003")).thenReturn(false);
 
-        service.create(KhachHangCreating.builder().maKhachHang("KH003").tenKhachHang("A").soDienThoai("0901234567").build());
+        service.create(KhachHangCreating.builder().maKhachHang("KH003").tenKhachHang("An").soDienThoai("0901234567").build());
 
         assertEquals("le", savedEntity().getLoaiKhachHang());
     }
@@ -153,7 +153,7 @@ class KhachHangServiceTest {
         when(repository.existsByMaKhachHang("KHS000007")).thenReturn(false);
 
         assertEquals("KHS000007", service.create(KhachHangCreating.builder()
-                .maKhachHang("   ").tenKhachHang("A").soDienThoai("0901234567").build()).getMaKhachHang());
+                .maKhachHang("   ").tenKhachHang("An").soDienThoai("0901234567").build()).getMaKhachHang());
     }
 
     @Test
@@ -164,7 +164,7 @@ class KhachHangServiceTest {
         when(repository.existsByMaKhachHang("KH000124-1")).thenReturn(false);
 
         assertEquals("KH000124-1", service.create(KhachHangCreating.builder()
-                .tenKhachHang("A").soDienThoai("0901234567").build()).getMaKhachHang());
+                .tenKhachHang("An").soDienThoai("0901234567").build()).getMaKhachHang());
     }
 
     @Test
@@ -174,15 +174,15 @@ class KhachHangServiceTest {
         when(repository.existsByMaKhachHang("KH000005")).thenReturn(false);
 
         assertEquals("KH000005", service.create(KhachHangCreating.builder()
-                .tenKhachHang("A").soDienThoai("0901234567").build()).getMaKhachHang());
+                .tenKhachHang("An").soDienThoai("0901234567").build()).getMaKhachHang());
     }
 
     @Test
     void create_maNhapTayCoKhoangTrangHoacDau_bao400() {
         assertThrows(CommonException.class, () -> service.create(KhachHangCreating.builder()
-                .maKhachHang("KH 01").tenKhachHang("A").soDienThoai("0901234567").build()));
+                .maKhachHang("KH 01").tenKhachHang("An").soDienThoai("0901234567").build()));
         assertThrows(CommonException.class, () -> service.create(KhachHangCreating.builder()
-                .maKhachHang("KHÁCH01").tenKhachHang("A").soDienThoai("0901234567").build()));
+                .maKhachHang("KHÁCH01").tenKhachHang("An").soDienThoai("0901234567").build()));
         verify(repository, never()).save(any());
     }
 
@@ -192,8 +192,8 @@ class KhachHangServiceTest {
     void create_sdtMayBanVaTongDai_hopLe() {
         when(repository.existsByMaKhachHang(anyString())).thenReturn(false);
 
-        service.create(KhachHangCreating.builder().maKhachHang("KH020").tenKhachHang("A").soDienThoai("02363888999").build());
-        service.create(KhachHangCreating.builder().maKhachHang("KH021").tenKhachHang("B").soDienThoai("19001234").build());
+        service.create(KhachHangCreating.builder().maKhachHang("KH020").tenKhachHang("An").soDienThoai("02363888999").build());
+        service.create(KhachHangCreating.builder().maKhachHang("KH021").tenKhachHang("Bình").soDienThoai("19001234").build());
 
         verify(repository, times(2)).save(any(KhachHang.class));
     }
@@ -202,16 +202,16 @@ class KhachHangServiceTest {
     void create_sdtCoDauCachVaDauCong84_chuanHoaVe0() {
         when(repository.existsByMaKhachHang("KH022")).thenReturn(false);
 
-        service.create(KhachHangCreating.builder().maKhachHang("KH022").tenKhachHang("A").soDienThoai("+84 912.345-678").build());
+        service.create(KhachHangCreating.builder().maKhachHang("KH022").tenKhachHang("An").soDienThoai("+84 912.345-678").build());
 
-        verify(repository).findFirstBySoDienThoai("0912345678");
+        verify(repository).timTrungSoDienThoai("0912345678", null);
         assertEquals("0912345678", savedEntity().getSoDienThoai());
     }
 
     @Test
     void create_sdtSai_bao400() {
         CommonException ex = assertThrows(CommonException.class, () -> service.create(KhachHangCreating.builder()
-                .maKhachHang("KH023").tenKhachHang("A").soDienThoai("0123").build()));
+                .maKhachHang("KH023").tenKhachHang("An").soDienThoai("0123").build()));
 
         assertTrue(ex.getMessage().startsWith("Số điện thoại không hợp lệ"));
         verify(repository, never()).save(any());
@@ -220,11 +220,11 @@ class KhachHangServiceTest {
     @Test
     void create_trungSdt_bao409NeuTenKhachDangDung() {
         when(repository.existsByMaKhachHang("KH004")).thenReturn(false);
-        when(repository.findFirstBySoDienThoai("0901234567"))
+        when(repository.timTrungSoDienThoai("0901234567", null))
                 .thenReturn(Optional.of(khachHang(1, "KH001", "Nguyễn Văn A", "0901234567", null)));
 
         CommonException ex = assertThrows(CommonException.class, () -> service.create(KhachHangCreating.builder()
-                .maKhachHang("KH004").tenKhachHang("B").soDienThoai("0901234567").build()));
+                .maKhachHang("KH004").tenKhachHang("Bình").soDienThoai("0901234567").build()));
 
         assertEquals(HttpStatus.CONFLICT, ex.getHttpStatus());
         assertTrue(ex.getMessage().contains("Nguyễn Văn A"));
@@ -238,7 +238,7 @@ class KhachHangServiceTest {
                 .thenReturn(Optional.of(khachHang(1, "KH001", "Nguyễn Văn A", null, "a@shop.vn")));
 
         CommonException ex = assertThrows(CommonException.class, () -> service.create(KhachHangCreating.builder()
-                .maKhachHang("KH005").tenKhachHang("B").email("a@shop.vn").build()));
+                .maKhachHang("KH005").tenKhachHang("Bình").email("a@shop.vn").build()));
 
         assertEquals(HttpStatus.CONFLICT, ex.getHttpStatus());
         assertTrue(ex.getMessage().startsWith("Email"));
@@ -249,7 +249,7 @@ class KhachHangServiceTest {
         when(repository.existsByMaKhachHang("KH001")).thenReturn(true);
 
         CommonException ex = assertThrows(CommonException.class, () -> service.create(KhachHangCreating.builder()
-                .maKhachHang("KH001").tenKhachHang("B").email("b@shop.vn").build()));
+                .maKhachHang("KH001").tenKhachHang("Bình").email("b@shop.vn").build()));
 
         assertEquals(HttpStatus.CONFLICT, ex.getHttpStatus());
         assertTrue(ex.getMessage().startsWith("Mã khách hàng KH001"));
@@ -261,9 +261,9 @@ class KhachHangServiceTest {
         assertThrows(CommonException.class, () -> service.create(KhachHangCreating.builder()
                 .maKhachHang("KH006").tenKhachHang("  ").email("b@shop.vn").build()));
         assertThrows(CommonException.class, () -> service.create(KhachHangCreating.builder()
-                .maKhachHang("KH006").tenKhachHang("B").email("khong-phai-email").build()));
+                .maKhachHang("KH006").tenKhachHang("Bình").email("khong-phai-email").build()));
         CommonException loai = assertThrows(CommonException.class, () -> service.create(KhachHangCreating.builder()
-                .maKhachHang("KH006").tenKhachHang("B").email("b@shop.vn").loaiKhachHang("vip").build()));
+                .maKhachHang("KH006").tenKhachHang("Bình").email("b@shop.vn").loaiKhachHang("vip").build()));
         assertEquals("Loại khách hàng không hợp lệ", loai.getMessage());
         verify(repository, never()).save(any());
     }
@@ -281,7 +281,7 @@ class KhachHangServiceTest {
                 .tenKhachHang("C mới").soDienThoai("+84901234567").email("c@shop.vn").loaiKhachHang("doanh_nghiep")
                 .build());
 
-        verify(repository, never()).findFirstBySoDienThoaiAndIdNot(anyString(), anyInt());
+        verify(repository, never()).timTrungSoDienThoai(anyString(), any());
         verify(repository, never()).findFirstByEmailAndIdNot(anyString(), anyInt());
         KhachHang saved = updatedEntity();
         assertEquals("C mới", saved.getTenKhachHang());
@@ -333,7 +333,7 @@ class KhachHangServiceTest {
 
         service.update(14, KhachHangUpdating.builder().soDienThoai("0236 3888 999").build());
 
-        verify(repository).findFirstBySoDienThoaiAndIdNot("02363888999", 14);
+        verify(repository).timTrungSoDienThoai("02363888999", 14);
         assertEquals("02363888999", updatedEntity().getSoDienThoai());
     }
 
@@ -386,7 +386,7 @@ class KhachHangServiceTest {
     void update_doiSangSdtCuaKhachKhac_bao409() {
         KhachHang entity = khachHang(10, "KH010", "F", "0901111111", null);
         when(repository.findById(10)).thenReturn(Optional.of(entity));
-        when(repository.findFirstBySoDienThoaiAndIdNot("0902222222", 10))
+        when(repository.timTrungSoDienThoai("0902222222", 10))
                 .thenReturn(Optional.of(khachHang(11, "KH011", "Trần Thị G", "0902222222", null)));
 
         CommonException ex = assertThrows(CommonException.class, () -> service.update(10,
@@ -423,19 +423,19 @@ class KhachHangServiceTest {
 
         service.create(KhachHangCreating.builder()
                 .maKhachHang("KH011").tenKhachHang("Công ty B").email("b@congty.vn")
-                .maSoThue(" 0312345678-001 ").loaiKhachHang("doanh_nghiep").build());
+                .maSoThue(" 0312345673-001 ").loaiKhachHang("doanh_nghiep").build());
 
-        assertEquals("0312345678-001", savedEntity().getMaSoThue());
+        assertEquals("0312345673-001", savedEntity().getMaSoThue());
     }
 
     @Test
     void update_maSoThueMoiSaiDinhDang_bao400KhongLuu() {
         KhachHang entity = khachHang(20, "KH020", "Công ty N", "0901111111", null);
-        entity.setMaSoThue("0312345678");
+        entity.setMaSoThue("0312345673");
         when(repository.findById(20)).thenReturn(Optional.of(entity));
 
         CommonException ex = assertThrows(CommonException.class, () -> service.update(20,
-                KhachHangUpdating.builder().maSoThue("0312345678-1").build()));
+                KhachHangUpdating.builder().maSoThue("0312345673-1").build()));
 
         assertEquals(KhachHangService.MA_SO_THUE_MESSAGE, ex.getMessage());
         verify(repository, never()).saveAndFlush(any());
@@ -459,7 +459,7 @@ class KhachHangServiceTest {
     @Test
     void update_maSoThueChuoiRong_xoaVeNull() {
         KhachHang entity = khachHang(22, "KH022", "Công ty P", "0901111111", null);
-        entity.setMaSoThue("0312345678");
+        entity.setMaSoThue("0312345673");
         when(repository.findById(22)).thenReturn(Optional.of(entity));
         when(repository.saveAndFlush(any(KhachHang.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -471,12 +471,12 @@ class KhachHangServiceTest {
     @Test
     void update_khongGuiMaSoThue_giuNguyen() {
         KhachHang entity = khachHang(23, "KH023", "Công ty Q", "0901111111", null);
-        entity.setMaSoThue("0312345678-001");
+        entity.setMaSoThue("0312345673-001");
         when(repository.findById(23)).thenReturn(Optional.of(entity));
         when(repository.saveAndFlush(any(KhachHang.class))).thenAnswer(inv -> inv.getArgument(0));
 
         service.update(23, KhachHangUpdating.builder().tenKhachHang("Công ty Q mới").build());
 
-        assertEquals("0312345678-001", updatedEntity().getMaSoThue());
+        assertEquals("0312345673-001", updatedEntity().getMaSoThue());
     }
 }
