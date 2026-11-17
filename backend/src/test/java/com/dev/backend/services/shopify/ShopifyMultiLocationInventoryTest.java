@@ -44,6 +44,12 @@ public class ShopifyMultiLocationInventoryTest {
     @Mock
     private DieuHanhHeThongService dieuHanhHeThongService;
 
+    @Mock
+    private com.dev.backend.services.impl.entities.LichSuThayDoiService lichSuThayDoiService;
+
+    @Mock
+    private com.dev.backend.repository.NguoiDungRepository nguoiDungRepository;
+
     @InjectMocks
     private KenhBanHangDongBoServiceImpl dongBoService;
 
@@ -56,6 +62,8 @@ public class ShopifyMultiLocationInventoryTest {
         ReflectionTestUtils.setField(dongBoService, "kenhBanHangService", kenhBanHangService);
         ReflectionTestUtils.setField(dongBoService, "khoRepository", khoRepository);
         ReflectionTestUtils.setField(dongBoService, "dieuHanhHeThongService", dieuHanhHeThongService);
+        ReflectionTestUtils.setField(dongBoService, "lichSuThayDoiService", lichSuThayDoiService);
+        ReflectionTestUtils.setField(dongBoService, "nguoiDungRepository", nguoiDungRepository);
     }
 
     @Test
@@ -181,5 +189,53 @@ public class ShopifyMultiLocationInventoryTest {
         // Đảm bảo KHO_TRANSIT bị loại trừ khỏi dsKhoFCentricKhaDung
         assertEquals(2, result.getDsKhoFCentricKhaDung().size());
         assertTrue(result.getDsKhoFCentricKhaDung().stream().noneMatch(k -> "KHO_TRANSIT".equalsIgnoreCase(k.getMaKho())));
+    }
+
+    @Test
+    @DisplayName("luuCauHinhKhoMapping: Tắt đa kho lưu cấu hình thành công không lỗi Hibernate AssertionFailure")
+    void testLuuCauHinhKhoMapping_TatDaKho() {
+        KenhBanHang kenh = KenhBanHang.builder()
+                .id(1)
+                .maKenh("SHOPIFY")
+                .tenKenh("Shopify")
+                .trangThai(1)
+                .build();
+        when(kenhBanHangRepository.findByMaKenh("SHOPIFY")).thenReturn(Optional.of(kenh));
+
+        Kho khoHN = Kho.builder().id(1).maKho("KHN").tenKho("Kho Hà Nội").trangThai(1).build();
+        Kho khoHCM = Kho.builder().id(2).maKho("KHCM").tenKho("Kho Sài Gòn").trangThai(1).build();
+        when(khoRepository.findByTrangThai(1)).thenReturn(List.of(khoHN, khoHCM));
+
+        java.util.concurrent.atomic.AtomicReference<String> savedJson = new java.util.concurrent.atomic.AtomicReference<>();
+        doAnswer(inv -> {
+            savedJson.set(inv.getArgument(1));
+            return null;
+        }).when(dieuHanhHeThongService).setCauHinhString(eq("KENH_SHOPIFY_KHO_MAPPING"), anyString());
+        when(dieuHanhHeThongService.getCauHinhString(eq("KENH_SHOPIFY_KHO_MAPPING"), any()))
+                .thenAnswer(inv -> savedJson.get() != null ? savedJson.get() : inv.getArgument(1));
+
+        KenhBanHangDongBoServiceImpl spyService = spy(dongBoService);
+        ShopifyLocationDto loc1 = ShopifyLocationDto.builder().maKhoSan("11111").tenKhoSan("Kho Hà Nội").build();
+        ShopifyLocationDto loc2 = ShopifyLocationDto.builder().maKhoSan("22222").tenKhoSan("Kho HCM").build();
+        doReturn(List.of(loc1, loc2)).when(spyService).getLocations("SHOPIFY");
+
+        com.dev.backend.dto.channel.warehouse.KenhKhoMappingUpdateRequest req =
+                com.dev.backend.dto.channel.warehouse.KenhKhoMappingUpdateRequest.builder()
+                        .cheDoDaKho(false)
+                        .danhSachKho(List.of(
+                                com.dev.backend.dto.channel.warehouse.KenhKhoMappingItemDto.builder()
+                                        .maKhoSan("11111")
+                                        .tenKhoSan("Kho Hà Nội")
+                                        .khoIdFCentric(1)
+                                        .laMacDinh(true)
+                                        .kichHoat(true)
+                                        .build()
+                        ))
+                        .build();
+
+        KenhKhoMappingConfigDto saved = spyService.luuCauHinhKhoMapping("SHOPIFY", req);
+        assertNotNull(saved);
+        assertFalse(saved.getCheDoDaKho(), "Sau khi tắt đa kho, cheDoDaKho phải là false");
+        verify(dieuHanhHeThongService, atLeastOnce()).setCauHinhString(eq("KENH_SHOPIFY_KHO_MAPPING"), anyString());
     }
 }
