@@ -377,7 +377,6 @@
   "Nhập tên khách hàng": "Enter the customer name",
   "Tên khách hàng tối đa 200 ký tự": "Customer name can be at most 200 characters",
   "Mã khách hàng tối đa 50 ký tự": "Customer code can be at most 50 characters",
-  "Mã chỉ gồm chữ không dấu, số và . _ -": "Code can only contain unaccented letters, digits and . _ -",
   "Người liên hệ tối đa 100 ký tự": "Contact person can be at most 100 characters",
   "Email tối đa 100 ký tự": "Email can be at most 100 characters",
   "Email chưa đúng, VD: ten@congty.vn": "Invalid email, e.g. name@company.com",
