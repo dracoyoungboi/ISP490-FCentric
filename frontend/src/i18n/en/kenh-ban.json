@@ -1,4 +1,7 @@
 {
+  "Bật cập nhật tức thì": "Enable live updates",
+  "Không bật được cập nhật tức thì": "Could not enable live updates",
+  "Chế độ dữ liệu mẫu không nhận thay đổi từ Shopify.": "Live Shopify updates are unavailable in demo mode.",
   "Lệch giá: FCentric {{giaBan}}đ vs {{tenSan}} {{giaBanSan}}đ": "Price mismatch: FCentric {{giaBan}}đ vs {{tenSan}} {{giaBanSan}}đ",
   "Lệch giá": "Price mismatch",
   "{{ten}} đã nhận lúc {{gioRieng}}": "{{ten}} received at {{gioRieng}}",
