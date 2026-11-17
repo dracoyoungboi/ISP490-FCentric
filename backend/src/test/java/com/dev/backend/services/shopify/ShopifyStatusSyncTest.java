@@ -36,6 +36,9 @@ public class ShopifyStatusSyncTest {
     @Mock
     private DonBanHangRepository donBanHangRepository;
 
+    @Mock
+    private ShopifyOrderProgressClient progressClient;
+
     @InjectMocks
     private KenhBanHangDongBoServiceImpl dongBoService;
 
@@ -47,6 +50,7 @@ public class ShopifyStatusSyncTest {
         ReflectionTestUtils.setField(dongBoService, "kenhBanHangRepository", kenhBanHangRepository);
         ReflectionTestUtils.setField(dongBoService, "kenhBanHangService", kenhBanHangService);
         ReflectionTestUtils.setField(dongBoService, "donBanHangRepository", donBanHangRepository);
+        ReflectionTestUtils.setField(dongBoService, "shopifyOrderProgressClient", progressClient);
     }
 
     @Test
@@ -72,6 +76,20 @@ public class ShopifyStatusSyncTest {
 
         boolean result = dongBoService.dongBoTrangThaiDangThucHienShopify("12345");
         assertFalse(result, "Phải trả về false khi token null");
+    }
+
+    @Test
+    void progressResultMustComeFromNativeShopifyState() {
+        KenhBanHang kenh = KenhBanHang.builder().id(1).maKenh("SHOPIFY")
+                .apiUrl("https://fcentric-test.myshopify.com").build();
+        when(kenhBanHangRepository.findByMaKenh("SHOPIFY")).thenReturn(Optional.of(kenh));
+        when(kenhBanHangService.getDecryptedShopifyAccessToken()).thenReturn("test-key");
+        when(progressClient.reportProgress("fcentric-test.myshopify.com", "test-key", "123"))
+                .thenReturn(false, true);
+
+        assertFalse(dongBoService.dongBoTrangThaiDangThucHienShopify("123"));
+        assertTrue(dongBoService.dongBoTrangThaiDangThucHienShopify("123"));
+        verify(progressClient, times(2)).reportProgress("fcentric-test.myshopify.com", "test-key", "123");
     }
 
     @Test

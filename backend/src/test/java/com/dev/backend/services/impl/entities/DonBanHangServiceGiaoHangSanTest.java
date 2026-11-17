@@ -141,6 +141,19 @@ class DonBanHangServiceGiaoHangSanTest {
     }
 
     @Test
+    void partialRefundFromShopifyRecordsReturnWithoutRewritingOriginalInvoice() {
+        DonBanHang don = DonBanHang.builder().id(106).soDonHang("SPF-106")
+                .trangThai(ITrangThaiDonBanHang.DA_XUAT_TOAN_BO)
+                .tongCong(new java.math.BigDecimal("100000.00"))
+                .trangThaiThanhToan("da_thanh_toan").build();
+        when(donBanHangRepository.findById(106)).thenReturn(Optional.of(don));
+        assertTrue(donBanHangService.capNhatTrangThaiGiaoHangTuSan(106, "partially_refunded"));
+        assertEquals(ITrangThaiDonBanHang.BI_HOAN_TRA, don.getTrangThai());
+        assertEquals(new java.math.BigDecimal("100000.00"), don.getTongCong());
+        assertEquals("da_thanh_toan", don.getTrangThaiThanhToan());
+    }
+
+    @Test
     @DisplayName("Shopee: Khi sàn báo TO_CONFIRM_RECEIVE -> Chuyển sang Đã xuất kho (3)")
     void testCapNhatTrangThai_shopeeToConfirmReceive_chuyenSangDaXuatKho() {
         DonBanHang don = DonBanHang.builder()

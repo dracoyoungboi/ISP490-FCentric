@@ -129,6 +129,7 @@ class PhieuXuatKhoDispatchTest {
     @Test
     void test_xacNhanXuatKho_banHang_thanhCong() {
         // Given
+        don.setPhiVanChuyen(new BigDecimal("12000.00")); // Phí đã chốt thu của khách trên hóa đơn.
         XacNhanXuatKhoRequest req = XacNhanXuatKhoRequest.builder()
                 .donViVanChuyen("GHTK")
                 .maVanDon("GHTK-HN-8849201")
@@ -182,7 +183,8 @@ class PhieuXuatKhoDispatchTest {
         // Then: 4. Kiểm tra trạng thái phiếu và đơn
         assertEquals(3, phieu.getTrangThai(), "Phiếu xuất phải sang trạng thái 3 (Đã xuất)");
         assertEquals(ITrangThaiDonBanHang.DA_XUAT_TOAN_BO, don.getTrangThai(), "Đơn bán hàng phải sang trạng thái 3 (Đã xuất toàn bộ / Đang giao)");
-        assertEquals(new BigDecimal("35000.00"), don.getPhiVanChuyen(), "Cước vận chuyển phải được cập nhật vào đơn hàng");
+        assertEquals(new BigDecimal("12000.00"), don.getPhiVanChuyen(), "Xuất kho phải giữ nguyên phí vận chuyển đã thu của khách");
+        assertEquals(new BigDecimal("35000.00"), phieu.getPhiVanChuyenThucTe(), "Chi phí trả đơn vị vận chuyển phải được lưu riêng trên phiếu xuất");
 
         // Then: 5. Kiểm tra phát sự kiện Omnichannel Push
         ArgumentCaptor<DonHangXuatKhoEvent> eventCaptor = ArgumentCaptor.forClass(DonHangXuatKhoEvent.class);

@@ -11,6 +11,8 @@ import com.dev.backend.services.KenhBanHangService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -48,6 +50,45 @@ class OmnichannelOrderSyncJobTest {
 
     private OmnichannelOrderSyncJob job;
     private final ObjectMapper mapper = new ObjectMapper();
+
+    @ParameterizedTest
+    @ValueSource(ints = {1, 7, 8})
+    void retriesNativeProgressForExistingWaitingOrdersOnlyAfterCommit(int warehouseState) throws Exception {
+        var sync = mock(com.dev.backend.services.KenhBanHangDongBoService.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(job, "kenhBanHangDongBoService", sync);
+        var kenh = KenhBanHang.builder().id(1).maKenh("SHOPIFY").build();
+        var don = DonBanHang.builder().id(9).trangThai(warehouseState).maDonHangKenh("123")
+                .trangThaiThanhToan("da_thanh_toan").build();
+        when(donBanHangRepository.findByKenhBanHangIdAndMaDonHangKenh(1, "123")).thenReturn(Optional.of(don));
+        var node = mapper.readTree("{\"id\":123,\"cancelled_at\":null,\"financial_status\":\"paid\",\"fulfillment_status\":null}");
+
+        org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
+        try {
+            assertFalse(job.processSingleOrder(node, kenh));
+            verifyNoInteractions(sync);
+            var callbacks = org.springframework.transaction.support.TransactionSynchronizationManager.getSynchronizations();
+            callbacks.forEach(org.springframework.transaction.support.TransactionSynchronization::afterCommit);
+            callbacks.forEach(c -> c.afterCompletion(org.springframework.transaction.support.TransactionSynchronization.STATUS_COMMITTED));
+            verify(sync, times(1)).dongBoTrangThaiDangThucHienShopify("123");
+            assertEquals(warehouseState, don.getTrangThai());
+            verifyNoInteractions(chiTietDonBanHangRepository, trangThaiDongBoSanPhamRepository);
+        } finally {
+            org.springframework.transaction.support.TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 3, 4, 5, 6})
+    void neverReportsProgressForDraftOrTerminalOrders(int warehouseState) throws Exception {
+        var sync = mock(com.dev.backend.services.KenhBanHangDongBoService.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(job, "kenhBanHangDongBoService", sync);
+        var kenh = KenhBanHang.builder().id(1).maKenh("SHOPIFY").build();
+        var don = DonBanHang.builder().id(9).trangThai(warehouseState).maDonHangKenh("123")
+                .trangThaiThanhToan("da_thanh_toan").build();
+        when(donBanHangRepository.findByKenhBanHangIdAndMaDonHangKenh(1, "123")).thenReturn(Optional.of(don));
+        assertFalse(job.processSingleOrder(mapper.readTree("{\"id\":123,\"cancelled_at\":null,\"financial_status\":\"paid\"}"), kenh));
+        verifyNoInteractions(sync);
+    }
 
     @BeforeEach
     void setUp() {
