@@ -73,6 +73,40 @@ class OmnichannelOrderSyncJobTest {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"SHOPEE", "SHOPEE_OFFICIAL", "LAZADA", "TIKTOK", "SHOPIFY"})
+    void shopifyWebhookMustNeverUpdateAnotherChannelWithTheSameExternalOrderId(String otherCode) throws Exception {
+        var channel = KenhBanHang.builder().id(1).maKenh("SHOPIFY").build();
+        var foreign = DonBanHang.builder().id(88).kenhBanHang(KenhBanHang.builder().id(9).maKenh(otherCode).build())
+                .maDonHangKenh("123").trangThai(1).trangThaiThanhToan("chua_thanh_toan").build();
+        when(donBanHangRepository.findByMaDonHangKenh("123")).thenReturn(Optional.of(foreign));
+
+        job.processShopifyWebhookOrder(mapper.readTree("{\"id\":123,\"order_number\":1024,\"financial_status\":\"paid\",\"line_items\":[]}"), channel, false);
+
+        assertEquals("chua_thanh_toan", foreign.getTrangThaiThanhToan());
+        verify(donBanHangRepository, never()).save(foreign);
+        var saved = ArgumentCaptor.forClass(DonBanHang.class);
+        verify(donBanHangRepository).save(saved.capture());
+        assertSame(channel, saved.getValue().getKenhBanHang());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"SHOPEE", "LAZADA", "TIKTOK", "SHOPIFY"})
+    void displayNumberWithoutAnExternalIdMustNotAdoptAnOrderFromAnotherChannel(String otherCode) throws Exception {
+        var channel = KenhBanHang.builder().id(1).maKenh("SHOPIFY").build();
+        var foreign = DonBanHang.builder().id(88).soDonHang("SHP-1024")
+                .kenhBanHang(KenhBanHang.builder().id(9).maKenh(otherCode).build()).trangThai(1).build();
+        when(donBanHangRepository.findBySoDonHang("SHP-1024")).thenReturn(Optional.of(foreign));
+
+        job.processShopifyWebhookOrder(mapper.readTree("{\"id\":123,\"order_number\":1024,\"cancelled_at\":\"2026-11-18T00:00:00Z\",\"line_items\":[]}"), channel, false);
+
+        verify(donBanHangService, never()).huyDonTuSan(eq(88), anyString());
+        var saved = ArgumentCaptor.forClass(DonBanHang.class);
+        verify(donBanHangRepository).save(saved.capture());
+        assertSame(channel, saved.getValue().getKenhBanHang());
+        assertNotEquals(foreign.getSoDonHang(), saved.getValue().getSoDonHang());
+    }
+
+    @ParameterizedTest
     @ValueSource(ints = {1, 7, 8})
     void retriesNativeProgressForExistingWaitingOrdersOnlyAfterCommit(int warehouseState) throws Exception {
         var sync = mock(com.dev.backend.services.KenhBanHangDongBoService.class);
@@ -225,6 +259,7 @@ class OmnichannelOrderSyncJobTest {
                 .id(99)
                 .soDonHang("SHP-1024")
                 .maDonHangKenh("5512345678")
+                .kenhBanHang(kenh)
                 .trangThai(1) // Chờ nhặt hàng (có thể đang nằm trong phiếu nhặt)
                 .build();
 
@@ -243,7 +278,8 @@ class OmnichannelOrderSyncJobTest {
         String json = """
         { "id": 5512345678, "order_number": 1024, "cancelled_at": "2026-10-12T15:00:00Z", "financial_status": "voided" }
         """;
-        DonBanHang existingOrder = DonBanHang.builder().id(99).soDonHang("SHP-1024").trangThai(4).build();
+        DonBanHang existingOrder = DonBanHang.builder().id(99).soDonHang("SHP-1024").trangThai(4)
+                .kenhBanHang(KenhBanHang.builder().id(1).maKenh("SHOPIFY").build()).build();
         when(donBanHangRepository.findBySoDonHang("SHP-1024")).thenReturn(Optional.of(existingOrder));
 
         assertFalse(job.processSingleOrder(mapper.readTree(json), KenhBanHang.builder().id(1).maKenh("SHOPIFY").build()));

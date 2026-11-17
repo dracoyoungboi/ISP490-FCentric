@@ -35,4 +35,17 @@ class ShopifyOrderSnapshotClientTest {
         assertThrows(IllegalStateException.class, () -> new ShopifyOrderSnapshotClient(rest, new ObjectMapper()).fetch("test.myshopify.com", "test-key", "Order", "123"));
         server.verify();
     }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"null", "{}", "{\"id\":\"gid://shopify/Order/999\",\"displayFulfillmentStatus\":\"IN_PROGRESS\"}"})
+    void missingOrMismatchedProgressOrderMustRemainRetryable(String progressOrder) {
+        RestTemplate rest = new RestTemplate();
+        var server = MockRestServiceServer.bindTo(rest).build();
+        String base = "https://test.myshopify.com/admin/api/2026-04/";
+        server.expect(requestTo(base + "orders/123.json")).andRespond(withSuccess("{\"order\":{\"id\":123}}", MediaType.APPLICATION_JSON));
+        server.expect(requestTo(base + "graphql.json"))
+                .andRespond(withSuccess("{\"data\":{\"order\":" + progressOrder + "}}", MediaType.APPLICATION_JSON));
+        assertThrows(IllegalStateException.class, () -> new ShopifyOrderSnapshotClient(rest, new ObjectMapper()).fetch("test.myshopify.com", "test-key", "Order", "123"));
+        server.verify();
+    }
 }

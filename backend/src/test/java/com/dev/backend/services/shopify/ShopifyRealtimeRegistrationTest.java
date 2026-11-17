@@ -20,6 +20,7 @@ class ShopifyRealtimeRegistrationTest {
     private static final String CALLBACK = "https://fcentric.net/api/v1/shopify/webhook";
     private final ShopifyRealtimeConnection connection = mock(ShopifyRealtimeConnection.class);
     private final KenhBanHangService credentials = mock(KenhBanHangService.class);
+    private final ShopifyWebhookInbox inbox = mock(ShopifyWebhookInbox.class);
     private final ObjectMapper mapper = new ObjectMapper();
     private ShopifyRealtimeRegistration registration;
     private MockRestServiceServer server;
@@ -27,7 +28,7 @@ class ShopifyRealtimeRegistrationTest {
     @BeforeEach void setup() {
         RestTemplate rest = new RestTemplate();
         server = MockRestServiceServer.bindTo(rest).build();
-        registration = new ShopifyRealtimeRegistration(connection, credentials, mapper, "https://fcentric.net/api/");
+        registration = new ShopifyRealtimeRegistration(connection, credentials, inbox, mapper, "https://fcentric.net/api/");
         ReflectionTestUtils.setField(registration, "rest", rest);
         when(connection.current()).thenReturn(channel);
         when(connection.domain(channel)).thenReturn("test.myshopify.com");
@@ -60,6 +61,15 @@ class ShopifyRealtimeRegistrationTest {
     @Test void missingSecretCannotEnableUnsignedDelivery() {
         when(connection.signingSecret(channel)).thenReturn(null);
         assertEquals(false, registration.register().get("ready"));
+        verifyNoInteractions(credentials);
+        server.verify();
+    }
+
+    @Test void missingInboxTableMustNotRegisterDeliveryOrClaimReadiness() {
+        doThrow(new org.springframework.dao.DataAccessResourceFailureException("Inbox unavailable")).when(inbox).checkStorage();
+        var result = registration.register();
+        assertEquals(false, result.get("ready"));
+        assertEquals(0, result.get("activeTopics"));
         verifyNoInteractions(credentials);
         server.verify();
     }

@@ -67,4 +67,13 @@ class ShopifyWebhookInboxTest {
                         }));
         assertEquals(1, new ShopifyWebhookInbox(jdbc).pending().size());
     }
+
+    @Test void missingDdlPermissionMustNotPreventOtherModulesFromStarting() throws Exception {
+        var dataSource = org.mockito.Mockito.mock(javax.sql.DataSource.class);
+        org.mockito.Mockito.when(dataSource.getConnection()).thenThrow(new java.sql.SQLException("CREATE permission denied"));
+        var unavailableInbox = new ShopifyWebhookInbox(new JdbcTemplate(dataSource));
+        assertDoesNotThrow(unavailableInbox::initialize);
+        assertThrows(org.springframework.dao.DataAccessException.class,
+                () -> unavailableInbox.accept("key", "test.myshopify.com", "Order", "123"));
+    }
 }
