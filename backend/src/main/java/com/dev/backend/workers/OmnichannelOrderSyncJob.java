@@ -367,6 +367,23 @@ public class OmnichannelOrderSyncJob {
 
     @Transactional(rollbackFor = Exception.class)
     public boolean processSingleOrder(JsonNode orderNode, KenhBanHang kenh) {
+        return processSingleOrder(orderNode, kenh, true);
+    }
+
+    /** Authenticated webhook path: failures must roll back and be retried; do not echo Shopify updates back to Shopify. */
+    @Transactional(rollbackFor = Exception.class)
+    public void processShopifyWebhookOrder(JsonNode orderNode, KenhBanHang kenh, boolean inProgress) {
+        // Network reads are finished before entering this transaction. Serialize with warehouse actions,
+        // and load the existing row under lock before any payment/status update can flush a stale entity.
+        donBanHangRepository.khoaDonShopify(kenh.getId(), orderNode.path("id").asText());
+        processSingleOrder(orderNode, kenh, false);
+        if (inProgress && !orderNode.hasNonNull("cancelled_at")
+                && !orderNode.path("financial_status").asText("").contains("refunded")) {
+            donBanHangService.batDauXuLyTuShopify(kenh.getId(), orderNode.path("id").asText());
+        }
+    }
+
+    private boolean processSingleOrder(JsonNode orderNode, KenhBanHang kenh, boolean reconcileOutbound) {
         String orderId = orderNode.path("id").asText();
         String orderNumber = orderNode.path("order_number").asText(orderId);
         String soDonHang = "SHP-" + orderNumber;
@@ -397,7 +414,7 @@ public class OmnichannelOrderSyncJob {
             DonBanHang existing = existingOpt.get();
             String financialStatus = orderNode.path("financial_status").asText("").trim().toLowerCase();
             String fulfillmentStatus = orderNode.path("fulfillment_status").asText("").trim().toLowerCase();
-            boolean isCancelled = "cancelled".equalsIgnoreCase(financialStatus) || !orderNode.path("cancelled_at").isNull();
+            boolean isCancelled = "cancelled".equalsIgnoreCase(financialStatus) || orderNode.hasNonNull("cancelled_at");
 
             if (isCancelled) {
                 // Xử lý trong giao dịch riêng của DonBanHangService (nạp lại đơn, phiếu nhặt, phiếu xuất) — không
@@ -410,6 +427,7 @@ public class OmnichannelOrderSyncJob {
                             log.info("[JOB-01] Đơn {} đã bị hủy trên Shopify -> Cập nhật trạng thái FCentric = 4", soDonHang);
                         }
                     } catch (Exception ex) {
+                        if (!reconcileOutbound) throw new IllegalStateException("Shopify cancellation pending retry", ex);
                         log.error("[JOB-01] Lỗi khi hủy đơn {} theo sàn (giữ nguyên, thử lại lượt sau): {}", soDonHang, ex.getMessage());
                     }
                 }
@@ -439,12 +457,14 @@ public class OmnichannelOrderSyncJob {
                     try {
                         donBanHangService.capNhatTrangThaiGiaoHangTuSan(existing.getId(), "delivered");
                     } catch (Exception ex) {
+                        if (!reconcileOutbound) throw new IllegalStateException("Shopify delivery pending retry", ex);
                         log.error("[JOB-01] Lỗi khi cập nhật giao hàng đơn {} theo Shopify: {}", soDonHang, ex.getMessage());
                     }
                 } else if ("fulfilled".equalsIgnoreCase(fulfillmentStatus)) {
                     try {
                         donBanHangService.capNhatTrangThaiGiaoHangTuSan(existing.getId(), "fulfilled");
                     } catch (Exception ex) {
+                        if (!reconcileOutbound) throw new IllegalStateException("Shopify fulfillment pending retry", ex);
                         log.error("[JOB-01] Lỗi khi cập nhật xuất kho đơn {} theo Shopify: {}", soDonHang, ex.getMessage());
                     }
                 }
@@ -457,6 +477,7 @@ public class OmnichannelOrderSyncJob {
                     try {
                         donBanHangService.capNhatTrangThaiGiaoHangTuSan(existing.getId(), "refunded");
                     } catch (Exception ex) {
+                        if (!reconcileOutbound) throw new IllegalStateException("Shopify return pending retry", ex);
                         log.error("[JOB-01] Lỗi khi cập nhật hoàn tiền/trả hàng đơn {} theo Shopify: {}", soDonHang, ex.getMessage());
                     }
                 }
@@ -464,7 +485,7 @@ public class OmnichannelOrderSyncJob {
                 // Sửa cả đơn đã kẹt trước khi nâng cấp; không cần đổi trạng thái kho qua lại để kích hoạt hook.
                 // Chỉ báo tiến trình, không tạo fulfillment, không thay đổi tồn hay tiền.
                 Integer trangThaiKho = existing.getTrangThai();
-                if (kenhBanHangDongBoService != null
+                if (reconcileOutbound && kenhBanHangDongBoService != null
                         && List.of(ITrangThaiDonBanHang.CHO_NHAT_HANG,
                                 ITrangThaiDonBanHang.CHO_DONG_GOI, ITrangThaiDonBanHang.DA_DONG_GOI).contains(trangThaiKho == null ? -1 : trangThaiKho)
                         && !hasDeliveredFulfillment && !"fulfilled".equals(fulfillmentStatus)

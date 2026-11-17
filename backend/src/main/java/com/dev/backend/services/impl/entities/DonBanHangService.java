@@ -1023,6 +1023,20 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         if (don.getKenhBanHang() != null) thongBaoXuatKhoService.lamMoiDonSanCho(don.getKenhBanHang());
     }
 
+    /** System-only ingress after verifying Shopify signature and fetching its current state. Never creates packing/export documents. */
+    @Transactional(rollbackFor = Exception.class)
+    public void batDauXuLyTuShopify(Integer channelId, String shopifyOrderId) {
+        DonBanHang don = ((DonBanHangRepository) repository).khoaDonShopify(channelId, shopifyOrderId).orElse(null);
+        if (don == null || !Integer.valueOf(0).equals(don.getTrangThai())
+                || don.getKenhBanHang() == null || !OmnichannelOrderSyncJob.isShopify(don.getKenhBanHang().getMaKenh())
+                || !"don_ban_hang".equals(don.getLoaiChungTu()) || don.getKhoXuat() == null
+                || !Integer.valueOf(1).equals(don.getKhoXuat().getTrangThai()) || KhoService.laKhoAo(don.getKhoXuat())) return;
+        don.setTrangThai(ITrangThaiDonBanHang.CHO_NHAT_HANG);
+        don.setNgayCapNhat(Instant.now());
+        repository.save(don);
+        ghiNhatKyDon(don, "tien_trinh_tu_shopify", "Shopify xác nhận đang xử lý; đơn chuyển sang chờ nhặt");
+    }
+
     @Transactional
     public boolean capNhatTrangThaiGiaoHangTuSan(Integer donId, String trangThaiSan) {
         DonBanHang don = repository.findById(donId).orElse(null);

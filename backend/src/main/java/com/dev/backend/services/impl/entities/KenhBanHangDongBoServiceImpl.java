@@ -103,6 +103,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     public static final String DEFAULT_API_VERSION = "2024-01";
 
     ShopifyOrderProgressClient shopifyOrderProgressClient = new ShopifyOrderProgressClient();
+    @lombok.experimental.NonFinal
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    com.dev.backend.services.shopify.ShopifyWebhookInbox shopifyWebhookInbox;
 
     KenhBanHangRepository kenhBanHangRepository;
     TrangThaiDongBoSanPhamRepository trangThaiDongBoSanPhamRepository;
@@ -6837,6 +6840,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         // Chỉ coi là đã đồng bộ khi Shopify xác nhận trạng thái gốc IN_PROGRESS.
         // Tag/ghi chú không thay đổi trạng thái fulfillment và không phải phương án dự phòng.
         if (!shopifyOrderProgressClient.reportProgress(domain, token, maDonHangKenh)) {
+            if (shopifyWebhookInbox != null) shopifyWebhookInbox.retryProgress(domain, maDonHangKenh);
             log.warn("[SHOPIFY-IN_PROGRESS] Chưa đồng bộ tiến trình đơn {}. Kiểm tra quyền xử lý đơn của kết nối Shopify.", maDonHangKenh);
             return false;
         }

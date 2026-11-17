@@ -109,6 +109,10 @@ public interface DonBanHangRepository
     /** Đơn của kênh theo mã đơn trên sàn (id đơn Shopify là duy nhất trên toàn Shopify). */
     java.util.Optional<DonBanHang> findByKenhBanHangIdAndMaDonHangKenh(Integer kenhBanHangId, String maDonHangKenh);
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select d from DonBanHang d where d.kenhBanHang.id=:kenhId and d.maDonHangKenh=:orderId")
+    java.util.Optional<DonBanHang> khoaDonShopify(@Param("kenhId") Integer kenhId, @Param("orderId") String orderId);
+
     List<DonBanHang> findByKhoXuat_IdAndTrangThaiAndDanhSachNhatHangIsNull(Integer khoId, Integer trangThai);
 
     List<DonBanHang> findByIdInAndKhoXuat_Id(List<Integer> ids, Integer khoId);
