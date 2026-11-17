@@ -55,7 +55,12 @@ public class ShopifyOrderSnapshotClient {
         JsonNode order = mapper.readTree(response.getBody()).path("order");
         if (!order.isObject() || !orderId.equals(order.path("id").asText())) throw new IllegalStateException("Unexpected Shopify order");
         JsonNode progress = graphql(base, headers, "query($id:ID!){order(id:$id){id displayFulfillmentStatus}}", Map.of("id", "gid://shopify/Order/" + orderId));
-        return new Snapshot(order, "IN_PROGRESS".equals(progress.path("order").path("displayFulfillmentStatus").asText()));
+        JsonNode progressOrder = progress.path("order");
+        if (!("gid://shopify/Order/" + orderId).equals(progressOrder.path("id").asText())
+                || progressOrder.path("displayFulfillmentStatus").asText("").isBlank()) {
+            throw new IllegalStateException("Shopify order progress unavailable");
+        }
+        return new Snapshot(order, "IN_PROGRESS".equals(progressOrder.path("displayFulfillmentStatus").asText()));
     }
 
     JsonNode graphql(String base, HttpHeaders headers, String query, Map<String, ?> variables) throws Exception {
