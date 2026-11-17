@@ -111,6 +111,7 @@
 | **AUDIT-099** | `2026-11-16 23:05:00` | PhanAnh & Antigravity AI | Fix & Feature / Ánh xạ danh mục 8017 Đồ bảo hộ lao động Lazada theo MTEE Risk Policy R_6049911 và Self-Healing khi xóa sản phẩm trên sàn | `KenhBanHangDongBoServiceImpl.java`, `LazadaClient.java`, `LazadaSyncTest.java`, `audit.md` | Khắc phục triệt để lỗi 'BIZ_CHECK_MTEE_RISK_RULE_TRIGGER_MTEE_RISK_RULE_TRIG by Policy(R_6049911): Đăng sản phẩm thất bại do chọn sai danh mục' cho 14 SKU Áo polo bảo hộ lao động: ánh xạ ưu tiên danh mục 8017 (Đồ bảo hộ lao động) kèm 3 thuộc tính bắt buộc (clothing_material, Fit_Type, Neckline); Bổ sung API getCategorySuggestion; Bổ sung cơ chế Self-Healing Shopee/TikTok tự động hủy liên kết trong DB và xóa RAM cache khi sản phẩm bị xóa trên sàn; 18/18 tests PASS 100%, i18n 722 files sạch. |
 | **AUDIT-100** | `2026-11-17 02:50:00` | PhanAnh & Antigravity AI | Feat & Architecture / Multi-Location & Smart Buffer | `backend/...`, `frontend/...`, `docs/...` | Triển khai Đa kho phân tán (Multi-Location) cho Shopify: Nhận diện tự động 1 kho vs đa kho (khi <= 1 kho tắt chế độ đa kho, chạy như cũ; >= 2 kho tự động kích hoạt bảng mapping), Thuật toán phân bổ tồn đệm theo tỷ trọng (Proportional Buffer) & Dynamic Low-Stock Safeguard chống giam hàng lẻ size/lẻ màu, Định tuyến đơn hàng theo Location ID, Bảng ánh xạ trực quan BangMappingKhoSan, 27/27 Unit Tests PASS 100%, Frontend i18n 723/723 tệp sạch 100%. |
 | **AUDIT-101** | `2026-11-17 09:35:00` | PhanAnh & Antigravity AI | Bug Fix / Spring Boot JPA Validation | `TonKhoTongHopRepository.java`, `audit.md` | Khắc phục lỗi QueryCreationException khi khởi động ứng dụng: sửa ctdbh.donBanHang.kho.id thành ctdbh.donBanHang.khoXuat.id trong query sumFreeToUseTheoKho; kiểm thử xác thực BackendApplicationTests SpringBootTest khởi động nạp 94 JPA repositories PASS 100%. |
+| **AUDIT-102** | `2026-11-17 16:40:00` | PhanAnh & Antigravity AI | Bug Fix & Architecture / Khắc phục lỗi Hibernate AssertionFailure khi tắt đa kho Shopify, nâng cấp cột cau_hinh_he_thong gia_tri sang TEXT và hoàn thiện định tuyến đơn theo Location paired | `CauHinhHeThong.java`, `TrangThaiDongBoTableInitializer.java`, `KenhBanHangDongBoServiceImpl.java`, `OmnichannelOrderSyncJob.java`, `ShopifyMultiLocationInventoryTest.java`, `audit.md`, `ke-hoach-dinh-tuyen-don-hang-da-kho-san.md` | Khắc phục dứt điểm lỗi 'AssertionFailure: Entry for instance of LichSuThayDoi has a null identifier' khi tắt đa kho Shopify: Phát hiện nguyên nhân gốc rễ do chuỗi JSON cấu hình ánh xạ kho vượt quá 255 ký tự gây Data truncation trên cột VARCHAR(255) cau_hinh_he_thong.gia_tri, exception bị nuốt trong ghiNhatKy khiến entity LichSuThayDoi dở dang trong Hibernate session; Nâng cấp cột gia_tri lên TEXT và tự động migration qua TrangThaiDongBoTableInitializer; Chuyển ghiNhatKy sang transaction riêng createGiaoDichRieng (Propagation.REQUIRES_NEW) bảo vệ session chính; Nâng cấp bộ định tuyến đơn hàng Shopify theo location_id/assigned_location_id chuẩn hóa so khớp GID/ID số hai chiều và tự động ghi chú kho xuất; Đạt 6/6 unit tests và live integration test PASS 100%. |
 
 
 ---
@@ -3690,5 +3691,69 @@
    - `ShopifyMultiLocationInventoryTest`: 5/5 tests PASS.
 3. **Đóng gói Artifact**:
    - `mvnw.cmd -DskipTests package` hoàn tất xuất sắc (`BUILD SUCCESS`).
+
+---
+
+### [AUDIT-102] KHẮC PHỤC LỖI HIBERNATE ASSERTIONFAILURE KHI TẮT ĐA KHO SHOPIFY, NÂNG CẤP CỘT GIA_TRI VÀ HOÀN THIỆN ĐỊNH TUYẾN ĐƠN THEO KHO PAIRED
+- **Thời gian**: `2026-11-17 16:40:00` (GMT+7)
+- **Tác giả**: PhanAnh & Antigravity AI
+- **Phân hệ ảnh hưởng**: Omnichannel Multi-Warehouse, Dynamic Configuration, Audit Logging, Order Routing (`CauHinhHeThong.java`, `TrangThaiDongBoTableInitializer.java`, `KenhBanHangDongBoServiceImpl.java`, `OmnichannelOrderSyncJob.java`, `ShopifyMultiLocationInventoryTest.java`).
+- **Tệp thay đổi**:
+  - `backend/src/main/java/com/dev/backend/entities/CauHinhHeThong.java`
+  - `backend/src/main/java/com/dev/backend/config/TrangThaiDongBoTableInitializer.java`
+  - `backend/src/main/java/com/dev/backend/services/impl/entities/KenhBanHangDongBoServiceImpl.java`
+  - `backend/src/main/java/com/dev/backend/workers/OmnichannelOrderSyncJob.java`
+  - `backend/src/test/java/com/dev/backend/services/shopify/ShopifyMultiLocationInventoryTest.java`
+  - `audit.md`
+
+#### 1. MỤC TIÊU & PHÂN TÍCH NGUYÊN NHÂN GỐC RỄ (ROOT CAUSE ANALYSIS)
+1. **Hiện tượng lỗi**:
+   - Khi người dùng gạt tắt công tắc "Kích hoạt chế độ đồng bộ đa kho" tại trang Cấu hình kênh Shopify (`ChannelSettingsPage.jsx`) và bấm "Lưu thay đổi", máy chủ ném lỗi HTTP 500:
+     ```
+     ERROR org.hibernate.AssertionFailure: Entry for instance of 'com.dev.backend.entities.LichSuThayDoi' has a null identifier (this can happen if the session is flushed after an exception occurs)
+     at org.hibernate.event.internal.DefaultFlushEntityEventListener.checkId(DefaultFlushEntityEventListener.java:78)
+     at org.hibernate.event.internal.DefaultFlushEntityEventListener.onFlushEntity(...)
+     at org.hibernate.internal.SessionImpl.autoFlushIfRequired(...)
+     Lỗi chưa xử lý tại PUT /api/v1/kenh-ban-hang/SHOPIFY/kho-mapping
+     ```
+2. **Căn nguyên kỹ thuật sâu xa (Root Cause)**:
+   - Khi lưu cấu hình `PUT /api/v1/kenh-ban-hang/SHOPIFY/kho-mapping`, hàm `luuCauHinhKhoMapping` tuần tự hóa đối tượng `KenhKhoMappingUpdateRequest` thành chuỗi JSON:
+     `dieuHanhHeThongService.setCauHinhString("KENH_SHOPIFY_KHO_MAPPING", json);`
+   - Cấu hình JSON chứa danh sách các địa điểm kho của Shopify có độ dài > 255 ký tự (khoảng 260 - 500+ ký tự).
+   - Tuy nhiên, trong thực thể [CauHinhHeThong.java](file:///d:/ISP490-FCentric/backend/src/main/java/com/dev/backend/entities/CauHinhHeThong.java) và cơ sở dữ liệu MySQL, cột `gia_tri` của bảng `cau_hinh_he_thong` bị giới hạn kiểu `VARCHAR(255)`.
+   - Lệnh lưu kích hoạt lỗi MySQL:
+     `Data truncation: Data too long for column 'gia_tri' at row 1`.
+   - Ngay sau đó, hàm gọi `ghiNhatKy(...)` $\rightarrow$ `lichSuThayDoiService.create(entity)`.
+   - Lệnh `create()` thuộc cùng session/transaction chính, buộc Hibernate phải thực thi flush hàng đợi câu lệnh đang chờ (gồm cả lệnh lưu `cau_hinh_he_thong`), ném `SQL Data truncation exception`.
+   - Khối `try ... catch (Exception e)` trong `ghiNhatKy` bắt và nuốt lỗi (`log.warn`), nhưng thực thể `LichSuThayDoi` đã nằm dở dang trong Hibernate `PersistenceContext` với `id == null`.
+   - Sau đó hàm gọi tiếp: `return layCauHinhKhoMapping(maKenh)`.
+   - Câu lệnh truy vấn `khoRepository.findByTrangThai(1)` kích hoạt Hibernate **Auto-Flush**.
+   - Trình nghe Auto-Flush kiểm tra `entry.getId()` của `LichSuThayDoi` thấy giá trị null và kích hoạt `AssertionFailure`.
+
+#### 2. GIẢI PHÁP KỸ THUẬT & CHI TIẾT TRIỂN KHAI
+1. **Nâng cấp cột `cau_hinh_he_thong.gia_tri` lên `TEXT`**:
+   - Chỉnh sửa entity [CauHinhHeThong.java](file:///d:/ISP490-FCentric/backend/src/main/java/com/dev/backend/entities/CauHinhHeThong.java): `@Column(name = "gia_tri", columnDefinition = "TEXT", nullable = false)`.
+   - Bổ sung migration tự động trong [TrangThaiDongBoTableInitializer.java](file:///d:/ISP490-FCentric/backend/src/main/java/com/dev/backend/config/TrangThaiDongBoTableInitializer.java):
+     `nangCapCotSangText("cau_hinh_he_thong", "gia_tri")` (`ALTER TABLE cau_hinh_he_thong MODIFY COLUMN gia_tri TEXT NULL`), đảm bảo các chuỗi JSON cấu hình dài không bao giờ bị cắt ngắn.
+   - Bổ sung kiểm tra an toàn đảm bảo bảng `lich_su_thay_doi` có đủ cột `ma_doi_tuong` và `nguon`.
+2. **Cô lập giao dịch ghi nhật ký kiểm toán (`Propagation.REQUIRES_NEW`)**:
+   - Thay đổi phương thức `ghiNhatKy` trong [KenhBanHangDongBoServiceImpl.java](file:///d:/ISP490-FCentric/backend/src/main/java/com/dev/backend/services/impl/entities/KenhBanHangDongBoServiceImpl.java) sang sử dụng `lichSuThayDoiService.createGiaoDichRieng(...)`.
+   - Nhật ký kiểm toán chạy trong transaction độc lập riêng biệt, triệt tiêu 100% rủi ro làm hỏng Hibernate Session của giao dịch nghiệp vụ chính.
+3. **Hoàn thiện Bộ Định Tuyến Đơn Hàng theo Kho Paired (Order Routing by Location)**:
+   - Trong [OmnichannelOrderSyncJob.java](file:///d:/ISP490-FCentric/backend/src/main/java/com/dev/backend/workers/OmnichannelOrderSyncJob.java):
+     + Mở rộng trích xuất Location ID theo thứ tự ưu tiên: `location_id` cấp Order $\rightarrow$ `fulfillments[].location_id` $\rightarrow$ `fulfillment_orders[].assigned_location_id` $\rightarrow$ `line_items[].location_id`.
+     + Chuẩn hóa đối soát định danh Location ID hai chiều: Hỗ trợ cả số nguyên thô (ví dụ: `105741615418`) lẫn GraphQL GID (`gid://shopify/Location/105741615418`).
+     + Tự động gán `don.setKhoXuat(khoFCentric)` theo cặp mapping đã được kích hoạt.
+     + Bổ sung thông tin trực quan vào ghi chú đơn hàng: `[ĐỊNH TUYẾN KHO: TenKhoSan -> TenKhoFCentric]`.
+     + Khi tắt đa kho hoặc sàn <= 1 kho: Tự động rơi về kho mặc định của kênh hoặc Kho Tổng FCentric, bảo toàn tương thích ngược 100%.
+
+#### 3. KẾT QUẢ KIỂM THỬ VÀ ĐỐI SOÁT
+1. **Kiểm thử đơn vị (`ShopifyMultiLocationInventoryTest`)**:
+   - Bổ sung test `testLuuCauHinhKhoMapping_TatDaKho()` kiểm tra việc tắt đa kho và xác nhận `cheDoDaKho = false`: **6/6 tests PASS 100%**.
+2. **Kiểm thử tích hợp thực tế với Live Database (`TatDaKhoShopifyLiveTest`)**:
+   - Khởi động Spring Boot Context, kết nối DB thật, chạy `TrangThaiDongBoTableInitializer` nâng cấp cột `gia_tri` lên `TEXT` và thực thi lưu tắt đa kho: **1/1 test PASS (BUILD SUCCESS)**.
+3. **Đa ngôn ngữ Frontend**:
+   - `npm run i18n:kiem`: **Tệp kiểm: 725 · Chưa bọc: 0 · Thiếu bản dịch: 0 · Lệch: 0**.
+
 
 
