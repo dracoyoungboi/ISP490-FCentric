@@ -156,11 +156,9 @@ public class NguoiDungController {
         return nguoiDungService.datMatKhauQuaLienKet(request);
     }
 
+    // SRS 4.4 "User Account – View user list": chỉ quản trị viên
     @PostMapping("/filter")
-    @RequireAuth(
-            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho},
-            rolesLogic = RequireAuth.LogicType.OR
-    )
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     public ResponseEntity<ResponseData<Page<NguoiDungDto>>> filter(@RequestBody BaseFilterRequest filter) {
         return ResponseEntity.ok(
                 ResponseData.<Page<NguoiDungDto>>builder()

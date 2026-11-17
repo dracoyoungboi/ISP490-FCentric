@@ -1,6 +1,5 @@
 package com.dev.backend.controller;
 
-import com.dev.backend.constant.variables.IPermissionType;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.customizeanotation.RequireAuth;
 import com.dev.backend.dto.request.CauHinhHeThongBulkUpdateRequest;
@@ -44,12 +43,9 @@ class DieuHanhHeThongController {
     private PhanQuyenNguoiDungService phanQuyenNguoiDungService;
 
 
-    //Lấy danh sách quyền hạn trong hệ thống
+    // Lấy danh sách quyền hạn trong hệ thống. SRS 4.4 "Role & Permission": chỉ quản trị viên
     @GetMapping("/quyen-han/all")
-    @RequireAuth(
-            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho},
-            rolesLogic = RequireAuth.LogicType.OR
-    )
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     public ResponseEntity<ResponseData<List<QuyenHanDto>>> getAll() {
         return ResponseEntity.ok(
                 ResponseData.<List<QuyenHanDto>>builder()
@@ -61,14 +57,9 @@ class DieuHanhHeThongController {
     }
 
     // Gán quyền cho một user trong hệ thống vào một kho nào đó (luồng cũ; giao diện dùng PUT /admin/users/{id}/phan-quyen).
-    // Quản lý kho có quyền cap_quyen_nhan_vien chỉ phân được nhân viên trong kho đang chọn, không vượt quyền của mình.
+    // SRS 4.4 "Role & Permission – Assign role / warehouse permission": chỉ quản trị viên (quản lý kho không cấp quyền).
     @PostMapping("/quyen-han/gan-quyen")
-    @RequireAuth(
-            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho},
-            permissions = {IPermissionType.cap_quyen_nhan_vien},
-            inWarehouse = true,
-            permissionsLogic = RequireAuth.LogicType.OR
-    )
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     public ResponseEntity<ResponseData<String>> ganQuyenNhanVienKho(
             @RequestHeader(value = "kho_id", required = false) Integer khoIdDangChon,
             @RequestBody PhanQuyenNguoiDungKhoCreating pqndkCreating) {
@@ -76,14 +67,9 @@ class DieuHanhHeThongController {
         return dieuHanhHeThongService.ganQuyenNhanVienKho(pqndkCreating);
     }
 
-    // Thu hồi phân quyền kho của 1 user (không xóa hẳn, có ghi lịch sử)
+    // Thu hồi phân quyền kho của 1 user (không xóa hẳn, có ghi lịch sử). SRS 4.4: chỉ quản trị viên
     @DeleteMapping("/quyen-han/xoa-quyen/{id}")
-    @RequireAuth(
-            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho},
-            permissions = {IPermissionType.cap_quyen_nhan_vien},
-            inWarehouse = true,
-            permissionsLogic = RequireAuth.LogicType.OR
-    )
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     public ResponseEntity<ResponseData<String>> xoaQuyenNhanVienKho(
             @RequestHeader(value = "kho_id", required = false) Integer khoIdDangChon,
             @PathVariable Integer id
