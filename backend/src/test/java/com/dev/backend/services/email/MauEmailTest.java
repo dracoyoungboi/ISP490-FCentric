@@ -252,6 +252,11 @@ class MauEmailTest {
         Map<String, String> nhan = Map.of("nhan_vien_kho", "Nhân viên kho", "quan_ly_kho", "Quản lý kho",
                 "nhan_vien_ban_hang", "Nhân viên bán hàng", "nhan_vien_mua_hang", "Nhân viên mua hàng",
                 "quan_tri_vien", "Quản trị viên");
+        // SRS 4.4 "RFQ – Create / View / Process": chỉ nhân viên mua hàng (và quản trị viên) gửi yêu cầu báo giá, nên
+        // chỉ họ được báo thông tin liên hệ của mình hiện trong email gửi nhà cung cấp. Viết tay, không đọc lại hằng số.
+        Set<String> guiBaoGia = Set.of("quan_tri_vien", "nhan_vien_mua_hang");
+        assertEquals(guiBaoGia, com.dev.backend.constant.variables.IRoleType.GUI_YEU_CAU_BAO_GIA,
+                "dòng trong E2 phải theo cùng tập vai trò với API gửi yêu cầu báo giá");
         nhan.forEach((vt, ten) -> {
             BanThu thu = f.dung(s -> s.guiTaiKhoanMoi(MauEmailFixture.nhanSu(vt), MauEmailFixture.MA_LIEN_KET,
                     MauEmailFixture.HET_HAN_LIEN_KET),
@@ -259,9 +264,12 @@ class MauEmailTest {
             String chu = chuHien(thu.html());
             assertTrue(chu.contains("Vai trò " + ten), vt);
             assertEquals(!vt.equals("quan_tri_vien"), chu.contains("Nơi làm việc và quyền của bạn"), vt);
-            assertEquals(!vt.equals("nhan_vien_ban_hang"), chu.contains("Khi bạn gửi yêu cầu báo giá"), vt);
+            assertEquals(guiBaoGia.contains(vt), chu.contains("Khi bạn gửi yêu cầu báo giá"), vt);
             assertEquals(!vt.equals("quan_tri_vien"), thu.text().contains("Nơi làm việc và quyền của bạn"), vt);
-            assertEquals(!vt.equals("nhan_vien_ban_hang"), thu.text().contains("Khi bạn gửi yêu cầu báo giá"), vt);
+            assertEquals(guiBaoGia.contains(vt), thu.text().contains("Khi bạn gửi yêu cầu báo giá"), vt);
+            // Vai trò không gửi yêu cầu báo giá: không nhắc tới email gửi nhà cung cấp ở bất kỳ chỗ nào trong thư
+            assertEquals(guiBaoGia.contains(vt), chu.contains("email gửi nhà cung cấp"), vt);
+            assertEquals(guiBaoGia.contains(vt), thu.text().contains("email gửi nhà cung cấp"), vt);
             assertTrue(chu.contains("Tài khoản FCentric của bạn đã được tạo"), "tiêu đề trong thân trùng tiêu đề thư");
             assertLienKetDatMatKhau(thu, false);
         });

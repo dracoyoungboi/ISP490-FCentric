@@ -79,7 +79,19 @@ class PhanQuyenNguoiDungServiceImplTest {
             "xem_bao_cao_ton_kho", "xem_bao_cao_nhap_xuat", "xem_bao_cao_doanh_thu", "xuat_bao_cao",
             "quan_ly_nhan_vien_kho", "cap_quyen_nhan_vien", "quan_ly_san_pham", "quan_ly_nha_cung_cap",
             "quan_ly_khach_hang"};
-    private static final List<Integer> MAU_NHAN_VIEN_KHO = List.of(1, 2, 4, 7, 12, 15);
+    // Mẫu nhân viên kho nằm trong trần quyền (IPermissionType.TRAN_THEO_VAI_TRO): không còn xem_bao_cao_ton_kho (15)
+    private static final List<Integer> MAU_NHAN_VIEN_KHO = List.of(1, 2, 4, 7, 12);
+
+    private static final String QLK = IRoleType.quan_ly_kho;
+    private static final String NVK = IRoleType.nhan_vien_kho;
+    private static final String NVMH = IRoleType.nhan_vien_mua_hang;
+    private static final String NVBH = IRoleType.nhan_vien_ban_hang;
+    /** Trần quyền theo id của MA_QUYEN (ma trận SRS 4.4), viết tay để đối chiếu với IPermissionType.TRAN_THEO_VAI_TRO. */
+    private static final Map<String, List<Integer>> TRAN_ID = Map.of(
+            QLK, List.of(1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 13, 14, 15, 16, 18),
+            NVK, List.of(1, 2, 4, 7, 8, 9, 12, 13, 16, 18),
+            NVMH, List.of(1, 5, 6, 18, 22),
+            NVBH, List.of(1, 10, 11, 17, 18, 23));
 
     private final Map<Integer, NguoiDung> nguoiDung = new LinkedHashMap<>();
     private final Map<Integer, Kho> kho = new LinkedHashMap<>();
@@ -260,6 +272,14 @@ class PhanQuyenNguoiDungServiceImplTest {
         return LuuPhanQuyenRequest.builder().vaiTro(vaiTro).khoId(khoId).quyenHanIds(quyenIds).build();
     }
 
+    /** Yêu cầu của API gán quyền cũ (POST /quyen-han/gan-quyen): mọi quyền gửi lên đều bật. */
+    private PhanQuyenNguoiDungKhoCreating ganQuyen(int nguoiDungId, int khoId, Integer... quyenIds) {
+        Set<ChiTietQuyenKhoCreating> ct = new java.util.LinkedHashSet<>();
+        for (Integer id : quyenIds) ct.add(ChiTietQuyenKhoCreating.builder().quyenHanId(id).trangThai(1).build());
+        return PhanQuyenNguoiDungKhoCreating.builder().nguoiDungId(nguoiDungId).khoId(khoId).laQuanLyKho(0)
+                .chiTietQuyenKhos(ct).build();
+    }
+
     @Test
     @DisplayName("Làm việc theo kho: quản lý kho và 3 vai trò nhân viên; không gồm quản trị viên và vai trò lạ")
     void lamViecTheoKho() {
@@ -279,7 +299,7 @@ class PhanQuyenNguoiDungServiceImplTest {
     class LuuPhanQuyen {
 
         @Test
-        @DisplayName("Bỏ 17 quyền ngoài mẫu: chỉ còn 6 quyền, ghi đúng một dòng lịch sử có 17 quyền bị thu hồi")
+        @DisplayName("Bỏ 18 quyền ngoài mẫu: chỉ còn 5 quyền, ghi đúng một dòng lịch sử có 18 quyền bị thu hồi")
         void apMau_thuHoiQuyenThua() {
             PhanQuyenNguoiDungKho p = phanKhoSan(nhanVien, khoTong, tatCa());
 
@@ -293,6 +313,24 @@ class PhanQuyenNguoiDungServiceImplTest {
             assertEquals(52, l.getIdThamChieu());
             assertSame(admin, l.getNguoiThucHien());
             assertTrue(l.getGiaTriMoi().contains("\"quyen\":[\"chuyen_kho\""), l.getGiaTriMoi());
+        }
+
+        @Test
+        @DisplayName("Trần quyền theo vai trò (SRS 4.4): quyền ngoài trần bị từ chối, không đổi gì")
+        void quyenNgoaiTran_biTuChoi() {
+            PhanQuyenNguoiDungKho p = phanKhoSan(nhanVien, khoTong, List.of(1));
+            // Nhân viên bán hàng không được cấp "tạo phiếu nhập" (7); nhân viên kho không được "xem báo cáo tồn kho" (15)
+            CommonException loi = assertThrows(CommonException.class,
+                    () -> service.luuPhanQuyen(52, yeuCau(IRoleType.nhan_vien_ban_hang, 22, List.of(1, 7))));
+            assertTrue(loi.getMessage().contains("Tên tao_phieu_nhap"), loi.getMessage());
+            assertThrows(CommonException.class,
+                    () -> service.luuPhanQuyen(52, yeuCau(IRoleType.nhan_vien_kho, 22, List.of(1, 15))));
+            assertEquals(IRoleType.nhan_vien_kho, nhanVien.getVaiTro());
+            assertEquals(List.of(1), quyenDangBat(p));
+            assertTrue(lichSu.isEmpty());
+            // Trong trần thì lưu được
+            service.luuPhanQuyen(52, yeuCau(IRoleType.nhan_vien_kho, 22, List.of(1, 7, 16)));
+            assertEquals(List.of(1, 7, 16), quyenDangBat(p));
         }
 
         @Test
@@ -324,14 +362,14 @@ class PhanQuyenNguoiDungServiceImplTest {
         void doiKho() {
             PhanQuyenNguoiDungKho cu = phanKhoSan(nhanVien, khoTong, MAU_NHAN_VIEN_KHO);
 
-            service.luuPhanQuyen(52, yeuCau(IRoleType.nhan_vien_kho, 23, List.of(1, 15)));
+            service.luuPhanQuyen(52, yeuCau(IRoleType.nhan_vien_kho, 23, List.of(1, 16)));
 
             assertEquals(0, cu.getTrangThai());
             assertEquals(BAY_GIO, cu.getNgayKetThuc());
             assertTrue(quyenDangBat(cu).isEmpty());
             PhanQuyenNguoiDungKho moi = phanQuyen.stream().filter(x -> x.getKho() == khoHaNoi).findFirst().orElseThrow();
             assertEquals(1, moi.getTrangThai());
-            assertEquals(List.of(1, 15), quyenDangBat(moi));
+            assertEquals(List.of(1, 16), quyenDangBat(moi));
             assertEquals(1, phanQuyenRepository.findByNguoiDungIdAndActive(52).size());
         }
 
@@ -474,11 +512,11 @@ class PhanQuyenNguoiDungServiceImplTest {
         @DisplayName("Đổi kho: mọi quyền tại kho mới là cấp mới")
         void doiKho() {
             phanKhoSan(nhanVien, khoTong, List.of(1, 2));
-            service.luuPhanQuyen(52, yeuCau(IRoleType.nhan_vien_kho, 23, List.of(1, 15)));
+            service.luuPhanQuyen(52, yeuCau(IRoleType.nhan_vien_kho, 23, List.of(1, 16)));
             LichSuPhanQuyenDto d = service.layLichSuPhanQuyen(52).get(0);
             assertEquals("KHO_TONG", d.getKhoCu().getMaKho());
             assertEquals("KHO_HN", d.getKhoMoi().getMaKho());
-            assertEquals(List.of("Tên xem_ton_kho", "Tên xem_bao_cao_ton_kho"), d.getQuyenThem());
+            assertEquals(List.of("Tên xem_ton_kho", "Tên xem_bao_cao_nhap_xuat"), d.getQuyenThem());
             assertTrue(d.getQuyenBo().isEmpty());
         }
 
@@ -533,7 +571,11 @@ class PhanQuyenNguoiDungServiceImplTest {
             assertEquals(MAU_NHAN_VIEN_KHO, c.getMauQuyen().get(IRoleType.nhan_vien_kho));
             assertTrue(c.getMauQuyen().get(IRoleType.quan_ly_kho).isEmpty());
             assertEquals(List.of(3, 6, 8), c.getQuyenNhayCam());
-            assertEquals(List.of(IPermissionType.huy_phieu_nhap, IPermissionType.tao_phieu_nhap), c.getQuyenDaApDung());
+            // Trần quyền nhân viên kho theo id của danh sách quyền giả (MA_QUYEN đánh số từ 1)
+            assertEquals(List.of(1, 2, 4, 7, 8, 9, 12, 13, 16, 18), c.getTranQuyen().get(IRoleType.nhan_vien_kho));
+            assertFalse(c.getTranQuyen().get(IRoleType.quan_ly_kho).contains(20), "quản lý kho không cấp quyền nhân viên");
+            assertEquals(List.of(IPermissionType.dieu_chinh_ton_kho, IPermissionType.huy_phieu_nhap,
+                    IPermissionType.tao_dot_kiem_ke, IPermissionType.tao_phieu_nhap), c.getQuyenDaApDung());
 
             service.layCauHinhPhanQuyen();
             verify(applicationContext, times(1)).getBean("requestMappingHandlerMapping", RequestMappingHandlerMapping.class);
@@ -558,7 +600,8 @@ class PhanQuyenNguoiDungServiceImplTest {
 
             reset(applicationContext);
             ganAnhXaGia();
-            assertEquals(List.of(IPermissionType.huy_phieu_nhap, IPermissionType.tao_phieu_nhap),
+            assertEquals(List.of(IPermissionType.dieu_chinh_ton_kho, IPermissionType.huy_phieu_nhap,
+                    IPermissionType.tao_dot_kiem_ke, IPermissionType.tao_phieu_nhap),
                     service.layCauHinhPhanQuyen().getQuyenDaApDung(), "lần lỗi không được giữ lại");
         }
 
@@ -567,6 +610,9 @@ class PhanQuyenNguoiDungServiceImplTest {
         void capNhatMau() {
             assertThrows(CommonException.class, () -> service.capNhatMauQuyen(IRoleType.quan_tri_vien, List.of(1)));
             assertThrows(CommonException.class, () -> service.capNhatMauQuyen(IRoleType.nhan_vien_kho, List.of(1, 99)));
+            // Mẫu chỉ gồm quyền trong trần của vai trò: nhân viên kho không có "xem báo cáo tồn kho" (15)
+            assertThrows(CommonException.class, () -> service.capNhatMauQuyen(IRoleType.nhan_vien_kho, List.of(1, 15)));
+            verify(mauRepository, never()).thayMau(any(), any());
 
             service.capNhatMauQuyen(IRoleType.nhan_vien_kho, List.of(7, 1, 7));
 
@@ -699,13 +745,6 @@ class PhanQuyenNguoiDungServiceImplTest {
                     .vaiTro(IRoleType.quan_ly_kho).trangThai(1).build());
         }
 
-        private PhanQuyenNguoiDungKhoCreating ganQuyen(int nguoiDungId, int khoId, Integer... quyenIds) {
-            Set<ChiTietQuyenKhoCreating> ct = new java.util.LinkedHashSet<>();
-            for (Integer id : quyenIds) ct.add(ChiTietQuyenKhoCreating.builder().quyenHanId(id).trangThai(1).build());
-            return PhanQuyenNguoiDungKhoCreating.builder().nguoiDungId(nguoiDungId).khoId(khoId).laQuanLyKho(0)
-                    .chiTietQuyenKhos(ct).build();
-        }
-
         @Test
         @DisplayName("B1: lưu xong thì flush + clear phiên JPA để controller đọc lại đủ quyền")
         void flushVaClear() throws Exception {
@@ -815,11 +854,12 @@ class PhanQuyenNguoiDungServiceImplTest {
             PhanQuyenNguoiDungKho p = phanKhoSan(nhanVien, khoTong, List.of(1, 7));
             service.doiVaiTro(52, IRoleType.nhan_vien_mua_hang);
             assertEquals(IRoleType.nhan_vien_mua_hang, nhanVien.getVaiTro());
-            assertEquals(List.of(1, 7), quyenDangBat(p));
+            // tao_phieu_nhap (7) ngoài trần quyền của nhân viên mua hàng: tự bỏ khi đổi vai trò
+            assertEquals(List.of(1), quyenDangBat(p));
             assertEquals("Vai trò không hợp lệ", assertThrows(CommonException.class,
                     () -> service.doiVaiTro(52, "khach_hang")).getMessage());
             assertEquals(IRoleType.nhan_vien_mua_hang, nhanVien.getVaiTro(), "vai trò không hợp lệ thì không đổi gì");
-            assertEquals(List.of(1, 7), quyenDangBat(p));
+            assertEquals(List.of(1), quyenDangBat(p));
             service.doiVaiTro(52, IRoleType.quan_tri_vien);
             assertEquals(0, p.getTrangThai());
             assertEquals(2, lichSu.size());
@@ -848,7 +888,8 @@ class PhanQuyenNguoiDungServiceImplTest {
             phanKhoSan(nhanVien, khoTong, List.of(1));
             dangNhap(nhanVien);
             ganAnhXaGia();
-            assertEquals(List.of(IPermissionType.huy_phieu_nhap, IPermissionType.tao_phieu_nhap),
+            assertEquals(List.of(IPermissionType.dieu_chinh_ton_kho, IPermissionType.huy_phieu_nhap,
+                    IPermissionType.tao_dot_kiem_ke, IPermissionType.tao_phieu_nhap),
                     service.layQuyenCuaToi().getQuyenDaApDung());
         }
 
@@ -865,8 +906,215 @@ class PhanQuyenNguoiDungServiceImplTest {
 
             reset(applicationContext);
             ganAnhXaGia();
-            assertEquals(List.of(IPermissionType.huy_phieu_nhap, IPermissionType.tao_phieu_nhap),
+            assertEquals(List.of(IPermissionType.dieu_chinh_ton_kho, IPermissionType.huy_phieu_nhap,
+                    IPermissionType.tao_dot_kiem_ke, IPermissionType.tao_phieu_nhap),
                     service.layQuyenCuaToi().getQuyenDaApDung());
+        }
+    }
+
+    // ───────── Trần quyền theo vai trò (SRS 4.4) ─────────
+
+    @Nested
+    @DisplayName("Trần quyền theo vai trò ở mọi đường ghi quyền")
+    class TranQuyenTheoVaiTro {
+
+        private List<Integer> ngoaiTran(String vaiTro) {
+            return tatCa().stream().filter(id -> !TRAN_ID.get(vaiTro).contains(id)).toList();
+        }
+
+        private NguoiDung nguoiMoi(int id, String vaiTro) {
+            return them(NguoiDung.builder().id(id).tenDangNhap("nv" + id).hoTen("Nhân viên " + id).vaiTro(vaiTro)
+                    .trangThai(1).build());
+        }
+
+        @Test
+        @DisplayName("Bảng id trần trong test khớp IPermissionType.trongTran theo mã quyền")
+        void bangIdKhopMa() {
+            for (String vt : TRAN_ID.keySet()) {
+                for (int id = 1; id <= MA_QUYEN.length; id++) {
+                    assertEquals(TRAN_ID.get(vt).contains(id), IPermissionType.trongTran(vt, MA_QUYEN[id - 1]),
+                            vt + " / " + MA_QUYEN[id - 1]);
+                }
+            }
+        }
+
+        @Test
+        @DisplayName("Lưu phân quyền: mỗi vai trò lưu được đủ trần của mình, cùng kho thì giữ một phân quyền")
+        void luu_duTran() {
+            for (String vt : List.of(QLK, NVK, NVMH, NVBH)) {
+                service.luuPhanQuyen(52, yeuCau(vt, 22, TRAN_ID.get(vt)));
+                assertEquals(vt, nhanVien.getVaiTro());
+                assertEquals(TRAN_ID.get(vt), quyenDangBat(phanQuyen.get(0)), vt);
+                assertEquals(QLK.equals(vt) ? 1 : 0, phanQuyen.get(0).getLaQuanLyKho(), vt);
+            }
+            assertEquals(1, phanQuyen.size());
+            assertEquals(4, lichSu.size());
+        }
+
+        @Test
+        @DisplayName("Lưu phân quyền: từng quyền ngoài trần của từng vai trò đều bị từ chối, nêu tên quyền, không đổi gì")
+        void luu_tungQuyenNgoaiTran() {
+            PhanQuyenNguoiDungKho p = phanKhoSan(nhanVien, khoTong, List.of(1));
+            int dem = 0;
+            for (String vt : TRAN_ID.keySet()) {
+                for (Integer id : ngoaiTran(vt)) {
+                    CommonException loi = assertThrows(CommonException.class,
+                            () -> service.luuPhanQuyen(52, yeuCau(vt, 22, List.of(1, id))), vt + " / " + MA_QUYEN[id - 1]);
+                    assertTrue(loi.getMessage().contains("\"Tên " + MA_QUYEN[id - 1] + "\""), loi.getMessage());
+                    dem++;
+                }
+            }
+            assertEquals(8 + 13 + 18 + 17, dem, "23 quyền trừ trần 15 / 10 / 5 / 6");
+            assertEquals(NVK, nhanVien.getVaiTro());
+            assertEquals(List.of(1), quyenDangBat(p));
+            assertTrue(lichSu.isEmpty());
+        }
+
+        @Test
+        @DisplayName("Không vai trò nào được cấp quản lý nhân viên kho, cấp quyền nhân viên, quản lý sản phẩm")
+        void quyenChiQuanTriVien() {
+            phanKhoSan(nhanVien, khoTong, List.of(1));
+            for (String vt : TRAN_ID.keySet()) {
+                for (Integer id : List.of(19, 20, 21)) {
+                    assertThrows(CommonException.class, () -> service.luuPhanQuyen(52, yeuCau(vt, 22, List.of(id))),
+                            vt + " / " + MA_QUYEN[id - 1]);
+                    assertThrows(CommonException.class, () -> service.capNhatMauQuyen(vt, List.of(id)),
+                            "mẫu " + vt + " / " + MA_QUYEN[id - 1]);
+                }
+            }
+            verify(mauRepository, never()).thayMau(any(), any());
+        }
+
+        @Test
+        @DisplayName("Dữ liệu cũ ngoài trần: lưu lại trong trần thì thu hồi quyền cũ và ghi lịch sử")
+        void duLieuCu_luuLaiThuHoi() {
+            nguoiMoi(70, NVBH);
+            PhanQuyenNguoiDungKho p = phanKhoSan(nguoiDung.get(70), khoHaNoi, List.of(1, 7, 10, 12));
+            service.luuPhanQuyen(70, yeuCau(NVBH, 23, List.of(1, 10)));
+            assertEquals(List.of(1, 10), quyenDangBat(p));
+            assertEquals(1, lichSu.size());
+            assertTrue(lichSu.get(0).getGiaTriCu().contains("tao_phieu_nhap"), lichSu.get(0).getGiaTriCu());
+            assertFalse(lichSu.get(0).getGiaTriMoi().contains("tao_phieu_nhap"), lichSu.get(0).getGiaTriMoi());
+        }
+
+        @Test
+        @DisplayName("Quản trị viên không dùng quyền chi tiết: quyền gửi kèm bị bỏ qua, không báo ngoài trần")
+        void quanTriVien_khongXetTran() {
+            PhanQuyenNguoiDungKho p = phanKhoSan(nhanVien, khoTong, List.of(1, 7));
+            service.luuPhanQuyen(52, yeuCau(IRoleType.quan_tri_vien, null, List.of(19, 20, 21)));
+            assertEquals(IRoleType.quan_tri_vien, nhanVien.getVaiTro());
+            assertEquals(0, p.getTrangThai());
+            assertTrue(quyenDangBat(p).isEmpty());
+        }
+
+        @Test
+        @DisplayName("Tạo tài khoản: điền mẫu của vai trò, bỏ quyền ngoài trần còn sót trong mẫu cũ thay vì chặn tạo")
+        void taiKhoanMoi_locMauCu() {
+            when(mauRepository.layTatCa()).thenReturn(Map.of(NVBH, List.of(1, 7, 10, 23), NVK, MAU_NHAN_VIEN_KHO));
+            nguoiMoi(70, NVBH);
+            service.phanKhoTaiKhoanMoi(70, NVBH, 23);
+            assertEquals(1, phanQuyen.size());
+            assertSame(khoHaNoi, phanQuyen.get(0).getKho());
+            assertEquals(List.of(1, 10, 23), quyenDangBat(phanQuyen.get(0)));
+        }
+
+        @Test
+        @DisplayName("Tạo tài khoản: vai trò chưa có mẫu thì phân kho không quyền; quản trị viên không phân kho; thiếu kho thì báo lỗi")
+        void taiKhoanMoi_bien() {
+            nguoiMoi(71, NVMH);
+            service.phanKhoTaiKhoanMoi(71, NVMH, 22);
+            assertEquals(1, phanQuyen.size());
+            assertTrue(quyenDangBat(phanQuyen.get(0)).isEmpty());
+
+            nguoiMoi(72, IRoleType.quan_tri_vien);
+            service.phanKhoTaiKhoanMoi(72, IRoleType.quan_tri_vien, 22);
+            assertEquals(1, phanQuyen.size(), "quản trị viên không làm việc theo kho");
+
+            assertThrows(CommonException.class, () -> service.phanKhoTaiKhoanMoi(52, NVK, null));
+        }
+
+        @Test
+        @DisplayName("Mẫu quyền: mỗi vai trò lưu được đủ trần; một quyền ngoài trần thì cả mẫu bị từ chối")
+        void mau_moiVaiTro() {
+            Map<String, Integer> ngoai = Map.of(QLK, 17, NVK, 3, NVMH, 7, NVBH, 12);
+            for (String vt : List.of(QLK, NVK, NVMH, NVBH)) {
+                CommonException loi = assertThrows(CommonException.class,
+                        () -> service.capNhatMauQuyen(vt, List.of(1, ngoai.get(vt))), vt);
+                assertTrue(loi.getMessage().contains("Tên " + MA_QUYEN[ngoai.get(vt) - 1]), loi.getMessage());
+                verify(mauRepository, never()).thayMau(eq(vt), any());
+
+                service.capNhatMauQuyen(vt, TRAN_ID.get(vt));
+                verify(mauRepository).thayMau(eq(vt),
+                        argThat(ids -> new java.util.TreeSet<>(ids).equals(new java.util.TreeSet<>(TRAN_ID.get(vt)))));
+            }
+            assertEquals(4, lichSu.size());
+        }
+
+        @Test
+        @DisplayName("Mẫu quyền rỗng lưu được (tài khoản mới chưa có quyền nào)")
+        void mau_rong() {
+            service.capNhatMauQuyen(NVBH, List.of());
+            verify(mauRepository).thayMau(eq(NVBH), argThat(Collection::isEmpty));
+        }
+
+        @Test
+        @DisplayName("API gán quyền cũ: kể cả quản trị viên cũng không cấp được quyền ngoài trần của người nhận")
+        void ganQuyenCu_admin_ngoaiTran() {
+            CommonException loi = assertThrows(CommonException.class,
+                    () -> service.kiemTraGanQuyenCu(null, ganQuyen(52, 22, 1, 15)));
+            assertTrue(loi.getMessage().contains("Tên xem_bao_cao_ton_kho"), loi.getMessage());
+
+            nguoiMoi(70, NVBH);
+            assertThrows(CommonException.class, () -> service.kiemTraGanQuyenCu(null, ganQuyen(70, 23, 1, 12)));
+            assertDoesNotThrow(() -> service.kiemTraGanQuyenCu(null, ganQuyen(70, 23, 1, 10, 17)));
+
+            // Quyền gửi kèm trạng thái tắt không tính là cấp
+            PhanQuyenNguoiDungKhoCreating coQuyenTat = ganQuyen(52, 22, 1);
+            coQuyenTat.getChiTietQuyenKhos().add(ChiTietQuyenKhoCreating.builder().quyenHanId(15).trangThai(0).build());
+            assertDoesNotThrow(() -> service.kiemTraGanQuyenCu(null, coQuyenTat));
+        }
+
+        @Test
+        @DisplayName("API gán quyền cũ: quản lý kho đang giữ quyền vẫn không cấp được cho nhân viên nếu ngoài trần nhân viên")
+        void ganQuyenCu_quanLy_ngoaiTranNhanVien() {
+            NguoiDung quanLy = nguoiMoi(60, QLK);
+            phanKhoSan(quanLy, khoTong, List.of(1, 3, 14));
+            dangNhap(quanLy);
+            CommonException loi = assertThrows(CommonException.class,
+                    () -> service.kiemTraGanQuyenCu(22, ganQuyen(52, 22, 1, 3)));
+            assertTrue(loi.getMessage().contains("Tên dieu_chinh_ton_kho"), loi.getMessage());
+            loi = assertThrows(CommonException.class, () -> service.kiemTraGanQuyenCu(22, ganQuyen(52, 22, 14)));
+            assertTrue(loi.getMessage().contains("Tên huy_phieu_xuat"), loi.getMessage());
+            assertDoesNotThrow(() -> service.kiemTraGanQuyenCu(22, ganQuyen(52, 22, 1)));
+        }
+
+        @Test
+        @DisplayName("Đổi vai trò (API cũ): giữ kho, chỉ giữ quyền nằm trong trần của vai trò mới")
+        void doiVaiTro_chuoi() {
+            PhanQuyenNguoiDungKho p = phanKhoSan(nhanVien, khoTong, TRAN_ID.get(NVK));
+            service.doiVaiTro(52, QLK);
+            assertEquals(TRAN_ID.get(NVK), quyenDangBat(p), "trần nhân viên kho nằm gọn trong trần quản lý kho");
+            assertEquals(1, p.getLaQuanLyKho());
+
+            service.doiVaiTro(52, NVBH);
+            assertEquals(List.of(1, 18), quyenDangBat(p), "chỉ còn xem tồn kho, xuất báo cáo");
+            assertEquals(0, p.getLaQuanLyKho());
+
+            service.doiVaiTro(52, NVMH);
+            assertEquals(List.of(1, 18), quyenDangBat(p));
+            assertSame(khoTong, p.getKho());
+            assertEquals(1, p.getTrangThai());
+            assertEquals(3, lichSu.size());
+        }
+
+        @Test
+        @DisplayName("Cấu hình gửi giao diện: trần theo id cho đủ 4 vai trò, không có quản trị viên; mẫu đang lưu nằm trong trần")
+        void cauHinh_tranMoiVaiTro() {
+            CauHinhPhanQuyenDto c = service.layCauHinhPhanQuyen();
+            assertEquals(List.of(QLK, NVK, NVMH, NVBH), new ArrayList<>(c.getTranQuyen().keySet()));
+            TRAN_ID.forEach((vt, ids) -> assertEquals(ids, c.getTranQuyen().get(vt), vt));
+            assertFalse(c.getTranQuyen().containsKey(IRoleType.quan_tri_vien));
+            c.getMauQuyen().forEach((vt, ids) -> assertTrue(c.getTranQuyen().get(vt).containsAll(ids), vt));
         }
     }
 }
