@@ -46,9 +46,9 @@ import { formatDateTime } from "@/utils/formatters";
 import { getKhoLamViecId } from "@/utils/khoLamViec";
 import { ROLES, hasAnyRole } from "@/utils/roles";
 import { t } from "@/i18n";
+import { VAI_TRO_XEM_PHIEU_NHAP } from "@/constants/vaiTroTheoNghiepVu";
 
 // Ai được tạo phiếu nhập kho từ đơn mua (giữ như trước): quản trị viên, quản lý kho, nhân viên kho.
-// Cũng là các vai trò backend cho xem phiếu nhập kho (PhieuNhapKhoController: filter, detail).
 const VAI_TRO_TAO_PHIEU_NHAP = [ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO, ROLES.NHAN_VIEN_KHO];
 // Ai xem được số đơn mua của nhà cung cấp (vai trò xem mọi kho, quản lý nhà cung cấp).
 const VAI_TRO_XEM_SO_DON_NCC = [ROLES.QUAN_TRI_VIEN, ROLES.NHAN_VIEN_MUA_HANG];
@@ -83,8 +83,9 @@ export default function PurchaseOrderDetail() {
     const don = donQ.data && String(donQ.data.id) === String(id) ? donQ.data : null;
 
     // ── Các phiếu nhập kho của đơn (không chặn trang khi lỗi) ───────────────
-    // NV mua hàng xem được đơn nhưng không được gọi API phiếu nhập (backend trả 403): không gọi, bảng chỉ có số của đơn.
-    const xemDotNhan = hasAnyRole(VAI_TRO_TAO_PHIEU_NHAP);
+    // Nhân viên mua hàng xem phiếu nhập chỉ đọc (SRS 4.4 "Goods Receipt") để theo dõi hàng về; máy chủ chỉ trả phiếu của
+    // kho người xem được phân
+    const xemDotNhan = hasAnyRole(VAI_TRO_XEM_PHIEU_NHAP);
     const taiDot = useCallback(() => phieuNhapKhoService.layTheoDonMua(id), [id]);
     const dotQ = useTaiDuLieu(taiDot, `dot-nhan-${id}`, { enabled: Boolean(id) && xemDotNhan });
 

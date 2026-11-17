@@ -35,6 +35,7 @@ import { ROLES, hasAnyRole } from "@/utils/roles";
 import { chuanHoaDongInTem } from "@/components/print/tinhTem";
 import HopInTem from "@/pages/product/components/product/HopInTem";
 import { t } from "@/i18n";
+import { VAI_TRO_KHO } from "@/constants/vaiTroTheoNghiepVu";
 
 const TH = "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
 
@@ -142,8 +143,10 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
   const bienBanLech = Boolean(data.bienBanLech);
   const xuLyLoiXong = !data.safetyLock;
   const coTheXacNhan = nhap && kiemXong && xuLyLoiXong;
+  // Kiểm đếm, lập biên bản, xác nhận, hủy: vai trò kho. Nhân viên mua hàng chỉ xem phiếu (SRS 4.4 "Goods Receipt")
+  const xuLyKho = hasAnyRole(VAI_TRO_KHO);
   // In tem theo phiếu đã nhập kho: số tem = số lượng thực nhận (đạt kiểm đếm) của từng biến thể
-  const coTheInTem = daNhap && hasAnyRole([ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO, ROLES.NHAN_VIEN_KHO]);
+  const coTheInTem = daNhap && xuLyKho;
   const [dongInTem, setDongInTem] = useState(null);
   const [dangLayTem, setDangLayTem] = useState(false);
   const moInTem = async () => {
@@ -241,6 +244,8 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
 
   let moTa2;
   let nut2 = null;
+  // Nút "Xem biên bản" chỉ đọc: nhân viên mua hàng vẫn xem được biên bản đã phát hành
+  let nut2ChiXem = false;
   if (bienBanLech && nhap) {
     moTa2 = !tong.loi
       ? t("Biên bản {{maBienBanRtv}} ghi {{tongLoiBienBan}} sản phẩm lỗi nhưng không còn lô nào có hàng lỗi. Hủy biên bản trước khi nhập kho.", { maBienBanRtv: data.maBienBanRtv, count: Number(data.tongLoiBienBan) || 0, tongLoiBienBan: formatNumber(data.tongLoiBienBan) })
@@ -261,6 +266,7 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
   else if (coBienBan) {
     moTa2 = t("Biên bản {{maBienBanRtv}} · {{loi}} sản phẩm{{phanPhuongAn}}.{{phanMau}}", { maBienBanRtv: data.maBienBanRtv, count: tong.loi, loi: formatNumber(tong.loi), phanPhuongAn: tenPhuongAn ? ` · ${t(tenPhuongAn)}` : "", phanMau: bienBanTraHangService.mau ? t(" (Dữ liệu mẫu, chưa lưu máy chủ.)") : "" });
     nut2 = <Button variant="outline" onClick={() => setMoBienBan(true)} className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">{t("Xem biên bản")}</Button>;
+    nut2ChiXem = true;
   } else if (bienBanTraHangService.hoTro) {
     moTa2 = t("{{loi}} sản phẩm lỗi phải lập biên bản trả nhà cung cấp trước khi nhập kho.{{phanMau}}", { count: tong.loi, loi: formatNumber(tong.loi), phanMau: bienBanTraHangService.mau ? t(" (Biên bản là dữ liệu mẫu, chưa lưu máy chủ.)") : "" });
     nut2 = (
@@ -271,6 +277,8 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
   } else {
     moTa2 = t("{{loi}} sản phẩm lỗi. {{thongBao}}", { count: tong.loi, loi: formatNumber(tong.loi), thongBao: THONG_BAO_CHUA_HO_TRO_BIEN_BAN });
   }
+
+  if (!xuLyKho && !nut2ChiXem) nut2 = null;
 
   const soLoKe = new Set(Object.values(lo.data ?? {}).flat().filter(Boolean).map((l) => l.maLo)).size;
   const moTa3 = daNhap
@@ -316,7 +324,7 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
               <Printer className="size-4" /> {t("In phiếu")}
             </Button>
           ) : null}
-          {nhap ? (
+          {nhap && xuLyKho ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" aria-label={t("Thao tác khác")} className="text-bo-muted hover:bg-slate-100 hover:text-bo-foreground">
@@ -364,7 +372,7 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
             hanhDong={
               kiemXong || daNhap ? (
                 <span className="text-xs text-bo-muted">{t("Đã kiểm hết hàng theo đơn mua")}</span>
-              ) : bienTheTiepTheo ? (
+              ) : bienTheTiepTheo && xuLyKho ? (
                 <Button onClick={() => moKiemDem(bienTheTiepTheo.bienTheSanPhamId)} className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover">
                   <ScanLine className="size-4" /> {t("Kiểm biến thể tiếp theo")}
                 </Button>
@@ -381,7 +389,7 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
             hanhDong={
               daNhap ? (
                 <span className="text-xs text-bo-muted">{t("Hoàn tất")}</span>
-              ) : (
+              ) : !xuLyKho ? null : (
                 <Button
                   disabled={!coTheXacNhan || dangXuLy}
                   onClick={() => setMoXacNhan(true)}
@@ -449,13 +457,15 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
                     )}
                     {soLo ? ` · ${soLo}` : ""}
                   </span>
-                  <Button
-                    variant="outline"
-                    onClick={() => moKiemDem(d.bienTheSanPhamId)}
-                    className="h-9 shrink-0 border-bo-border bg-bo-surface px-3 text-sm text-bo-foreground hover:border-bo-primary hover:text-bo-primary"
-                  >
-                    {nhanNut}
-                  </Button>
+                  {xuLyKho ? (
+                    <Button
+                      variant="outline"
+                      onClick={() => moKiemDem(d.bienTheSanPhamId)}
+                      className="h-9 shrink-0 border-bo-border bg-bo-surface px-3 text-sm text-bo-foreground hover:border-bo-primary hover:text-bo-primary"
+                    >
+                      {nhanNut}
+                    </Button>
+                  ) : null}
                 </div>
               </li>
             );
@@ -514,14 +524,16 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
                   </td>
                   <td className="px-4 py-2"><StatusBadge quyTrinh="kiemDem" label={d.trangThai.label} /></td>
                   <td className="px-4 py-2 text-right">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => moKiemDem(d.bienTheSanPhamId)}
-                      className="min-w-[120px] border-bo-border bg-bo-surface text-xs text-bo-foreground hover:border-bo-primary hover:text-bo-primary"
-                    >
-                      {nhanNut}
-                    </Button>
+                    {xuLyKho ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => moKiemDem(d.bienTheSanPhamId)}
+                        className="min-w-[120px] border-bo-border bg-bo-surface text-xs text-bo-foreground hover:border-bo-primary hover:text-bo-primary"
+                      >
+                        {nhanNut}
+                      </Button>
+                    ) : null}
                   </td>
                 </tr>
               );

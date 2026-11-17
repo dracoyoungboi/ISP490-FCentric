@@ -32,9 +32,10 @@ import {
   GOODS_RECEIPT_TABS,
   getGoodsReceiptStatus,
 } from "@/constants/goodsReceipt";
-import { ROLES, getCurrentUserId } from "@/utils/roles";
+import { ROLES, getCurrentUserId, hasAnyRole } from "@/utils/roles";
 import { formatDate } from "@/utils/formatters";
 import { t } from "@/i18n";
+import { VAI_TRO_KHO } from "@/constants/vaiTroTheoNghiepVu";
 
 // Tab trạng thái (bố cục A+G) — mã tab nằm trên URL ?trangThai=
 const TAB_MAS = GOODS_RECEIPT_TABS.map((tab) => tab.ma);
@@ -244,11 +245,14 @@ export default function PhieuNhapKhoList() {
     <PageContainer fill className="space-y-4">
       <ListPageHeader
         actions={
-          <Button asChild className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover">
-            <Link to="/goods-receipts/create">
-              <Plus className="size-4" /> {t("Tạo phiếu nhập kho")}
-            </Link>
-          </Button>
+          // Nhân viên mua hàng chỉ xem phiếu nhập (SRS 4.4 "Goods Receipt"): không tạo phiếu
+          hasAnyRole(VAI_TRO_KHO) ? (
+            <Button asChild className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover">
+              <Link to="/goods-receipts/create">
+                <Plus className="size-4" /> {t("Tạo phiếu nhập kho")}
+              </Link>
+            </Button>
+          ) : null
         }
       />
 

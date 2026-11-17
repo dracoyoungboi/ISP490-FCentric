@@ -28,6 +28,8 @@ import { formatDateTime } from "@/utils/dateTime";
 import BangHangNhan from "./BangHangNhan";
 import { LOAI_PHIEU_NHAP, cauChoNhap, demLo, dongPhieuNhap, moTaXacNhan, quyTacPhieuNhap } from "./tinhPhieuNhapChuyenKho";
 import { t } from "@/i18n";
+import { VAI_TRO_KHO } from "@/constants/vaiTroTheoNghiepVu";
+import { hasAnyRole } from "@/utils/roles";
 
 const B = ({ children }) => <b className="font-semibold text-bo-foreground">{children}</b>;
 
@@ -122,7 +124,11 @@ export default function ChiTietNhapChuyenKho({ data, onReload }) {
 
   const khachTra = quyTac.loai === LOAI_PHIEU_NHAP.KHACH_TRA;
   let nutChinh = null;
-  if (quyTac.apiNhan && quyTac.choNhap) {
+  // Nhân viên mua hàng xem phiếu nhập chỉ đọc (SRS 4.4 "Goods Receipt"): không xác nhận nhập, không mở phiếu chuyển kho
+  const xuLyKho = hasAnyRole(VAI_TRO_KHO);
+  if (!xuLyKho) {
+    nutChinh = null;
+  } else if (quyTac.apiNhan && quyTac.choNhap) {
     nutChinh = {
       ma: "nhap",
       nhan: quyTac.nhanNut,
@@ -194,7 +200,8 @@ export default function ChiTietNhapChuyenKho({ data, onReload }) {
                 khoa: "phieu-chuyen",
                 loai: t("Phiếu chuyển kho nội bộ"),
                 ma: data.soPhieuChuyenKhoGoc || t("Mở phiếu chuyển kho"),
-                to: `/transfer-tickets/${data.phieuXuatGocId}`,
+                // Nhân viên mua hàng không mở được phiếu chuyển kho (chứng từ kho): chỉ hiện số phiếu
+                to: xuLyKho ? `/transfer-tickets/${data.phieuXuatGocId}` : undefined,
               }] : []}
             />
           </CotThuocTinh>
