@@ -36,9 +36,10 @@ public class PhieuNhapKhoController {
     @Autowired
     private PhieuNhapKhoMapper phieuNhapKhoMapper;
 
+    // SRS 4.4 "Goods Receipt": nhân viên mua hàng chỉ xem (theo dõi hàng về của đơn mua)
     @PostMapping("/filter")
     @RequireAuth(
-            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho},
+            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho, IRoleType.nhan_vien_mua_hang},
             inWarehouse = true,
             rolesLogic = RequireAuth.LogicType.OR
     )
@@ -61,7 +62,7 @@ public class PhieuNhapKhoController {
 
     @GetMapping("/{id}/detail")
     @RequireAuth(
-            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho},
+            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho, IRoleType.nhan_vien_mua_hang},
             inWarehouse = true,
             rolesLogic = RequireAuth.LogicType.OR
     )
@@ -156,9 +157,10 @@ public class PhieuNhapKhoController {
         );
     }
 
+    // Lô đã khai báo của một biến thể (chỉ đọc): nhân viên mua hàng xem cùng chi tiết phiếu nhập
     @GetMapping("/{phieuNhapKhoId}/bien-the/{bienTheSanPhamId}/lo-hang")
     @RequireAuth(
-            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho},
+            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho, IRoleType.nhan_vien_mua_hang},
             inWarehouse = true,
             rolesLogic = RequireAuth.LogicType.OR
     )

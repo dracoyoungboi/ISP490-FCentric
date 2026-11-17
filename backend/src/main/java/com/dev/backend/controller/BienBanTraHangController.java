@@ -24,9 +24,10 @@ public class BienBanTraHangController {
 
     BienBanTraHangService bienBanTraHangService;
 
+    // Xem biên bản trả hàng của phiếu nhập: nhân viên mua hàng chỉ xem (SRS 4.4 "Goods Receipt")
     @GetMapping("/api/v1/phieu-nhap-kho/{phieuNhapKhoId}/bien-ban-tra-hang")
     @RequireAuth(
-            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho},
+            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho, IRoleType.nhan_vien_mua_hang},
             inWarehouse = true,
             rolesLogic = RequireAuth.LogicType.OR
     )
