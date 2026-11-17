@@ -318,7 +318,7 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, khoMapping, onConfigS
         const res = await kenhBanHangService.testShopifyConnection({ shopDomain: config.shopDomain, accessToken: null });
         setKetQuaKetNoi(
           res?.connected
-            ? { ok: true, text: [t("Kết nối tốt"), res.shopName].filter(Boolean).join(" · ") }
+            ? { ok: true, warning: Boolean(res.orderProgressWarning), text: res.orderProgressWarning || [t("Kết nối tốt"), res.shopName].filter(Boolean).join(" · ") }
             : { ok: false, text: res?.message || t("Kết nối thất bại") },
         );
         if (!res?.connected) await docLaiSauKiemTra();
@@ -420,7 +420,7 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, khoMapping, onConfigS
                   </p>
                   {ketQuaKetNoi ? (
                     <p role="status" className="mt-1">
-                      <TrangThaiCham label={ketQuaKetNoi.text} tone={ketQuaKetNoi.ok ? "success" : "danger"} />
+                      <TrangThaiCham label={ketQuaKetNoi.text} tone={ketQuaKetNoi.warning ? "warning" : ketQuaKetNoi.ok ? "success" : "danger"} className="whitespace-normal" />
                     </p>
                   ) : null}
                 </div>

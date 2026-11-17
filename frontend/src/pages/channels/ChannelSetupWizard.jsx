@@ -578,6 +578,7 @@ function BuocKetNoi({ config, onHuy, onXong, onDoiKetNoi }) {
           setResult({ ok: false, title: t("Chưa kết nối được"), message: kiemTra?.message || t("Shopify không chấp nhận khóa này.") });
           return;
         }
+        if (kiemTra.orderProgressWarning) toast.warning(kiemTra.orderProgressWarning);
         const dto = await kenhBanHangService.updateShopifyConfig(payload);
         toast.success(t("Đã kết nối {{cuaHang}}", { cuaHang: kiemTra.shopName || payload.shopDomain }));
         onXong(dto);

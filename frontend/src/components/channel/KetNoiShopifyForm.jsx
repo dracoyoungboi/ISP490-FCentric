@@ -46,7 +46,7 @@ export default function KetNoiShopifyForm({ values, errors = {}, onChange, confi
       });
       onResult?.(
         res?.connected
-          ? { ok: true, title: t("Kết nối tốt"), message: res.shopName || res.myshopifyDomain || domain }
+          ? { ok: true, warning: Boolean(res.orderProgressWarning), title: t("Kết nối tốt"), message: res.orderProgressWarning || res.shopName || res.myshopifyDomain || domain }
           : { ok: false, title: t("Kết nối thất bại"), message: res?.message || t("Shopify không chấp nhận khóa này.") },
       );
     } catch (error) {
@@ -173,7 +173,7 @@ export default function KetNoiShopifyForm({ values, errors = {}, onChange, confi
           <span role="status" className="min-w-0">
             <TrangThaiCham
               label={[result.title, result.message].filter(Boolean).join(" · ")}
-              tone={result.ok ? "success" : "danger"}
+              tone={result.warning ? "warning" : result.ok ? "success" : "danger"}
               className="whitespace-normal"
             />
           </span>
