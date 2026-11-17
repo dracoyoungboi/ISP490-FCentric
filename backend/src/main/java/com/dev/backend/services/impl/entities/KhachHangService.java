@@ -68,9 +68,15 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
     private static final Pattern MA_KHACH_HANG_PATTERN = Pattern.compile("^[A-Za-z0-9][A-Za-z0-9._-]*$");
     /**
      * Như nhà cung cấp: di động 10 số (03/05/07/08/09), máy bàn 11 số (02…), tổng đài 1800/1900.
-     * Khách doanh nghiệp hay dùng số bàn, nên không chỉ nhận di động. Thêm nhanh ở quầy POS dùng cùng luật.
+     * Khách doanh nghiệp hay dùng số bàn, nên không chỉ nhận di động.
      */
     private static final Pattern SO_DIEN_THOAI_PATTERN = Pattern.compile("^(0[35789][0-9]{8}|02[0-9]{9}|1[89]00[0-9]{4,6})$");
+    /**
+     * Khách lẻ là một người: chỉ di động và máy bàn. Số 1800/1900 là tổng đài chỉ gọi vào (không nhắn tin, không gọi
+     * lại đúng người, tra khách ở quầy theo số vô nghĩa). Thêm nhanh ở quầy POS dùng luật này.
+     */
+    private static final Pattern SO_DIEN_THOAI_KHACH_LE_PATTERN = Pattern.compile("^(0[35789][0-9]{8}|02[0-9]{9})$");
+    private static final Pattern SO_TONG_DAI_PATTERN = Pattern.compile("^1[89]00[0-9]{4,6}$");
     /** Tên khách lẻ (một người): như luật họ tên, chữ cái và dấu cách, ' ’ . -; mở đầu bằng chữ cái. */
     private static final Pattern TEN_KHACH_LE_PATTERN = Pattern.compile("^\\p{L}[\\p{L}\\p{M} '’.\\-]*$");
     /**
@@ -223,7 +229,7 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
         kiemTraNguoiLienHe(nguoiLienHe);
         kiemTraMaSoThue(maSoThue);
         kiemTraDiaChi(diaChi);
-        kiemTraLienHe(sdt, email);
+        kiemTraLienHe(sdt, email, loai);
         if (sdt == null && email == null) {
             throw new CommonException(ThongDiep.of("banHang.canLienHeKhachHang"));
         }
@@ -279,8 +285,8 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
 
     /**
      * Thêm nhanh khách hàng tại quầy POS (tên + SĐT).
-     * - Tên theo luật tên khách lẻ; SĐT chuẩn hóa như form khách hàng (bỏ dấu ngăn cách, +84 về 0) và cùng luật
-     *   di động / máy bàn / tổng đài.
+     * - Tên theo luật tên khách lẻ; SĐT chuẩn hóa như form khách hàng (bỏ dấu ngăn cách, +84 về 0) và theo luật số của
+     *   khách lẻ (di động / máy bàn, không nhận tổng đài).
      * - SĐT đã tồn tại (so trên số đã bỏ dấu ngăn cách) -> 409, data = khách hàng hiện có để thu ngân chọn lại.
      * - Mã khách hàng sinh tự động: KH + SĐT (thêm hậu tố nếu mã đã bị dùng).
      */
@@ -293,9 +299,10 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
             throw new CommonException(ThongDiep.of("banHang.nhapTenKhachHang"));
         }
         kiemTraTen(ten, "le");
-        if (sdt == null || !SO_DIEN_THOAI_PATTERN.matcher(sdt).matches()) {
-            throw new CommonException(ThongDiep.of("banHang.soDienThoaiKhongHopLe"));
+        if (sdt == null) {
+            throw new CommonException(ThongDiep.of("banHang.soDienThoaiKhachLeSai"));
         }
+        kiemTraSoDienThoai(sdt, "le");
 
         KhachHang existing = repository.timTrungSoDienThoai(sdt, null).orElse(null);
         if (existing != null) {
@@ -378,7 +385,12 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
         // việc sửa các trường khác của khách hàng.
         String sdtMoi = Objects.equals(sdt, entity.getSoDienThoai()) ? null : sdt;
         String emailMoi = Objects.equals(email, entity.getEmail()) ? null : email;
-        kiemTraLienHe(sdtMoi, emailMoi);
+        kiemTraLienHe(sdtMoi, emailMoi, loai);
+        // Đổi sang Khách lẻ mà giữ số tổng đài: chặn như khi nhập số mới. Số cũ định dạng khác (VD "+84 912…" từ đơn sàn)
+        // không chặn, chỉ xét sau khi chuẩn hóa có phải 1800/1900 không.
+        if (sdtMoi == null && doiSangKhachLe && laSoTongDai(sdt)) {
+            throw new CommonException(ThongDiep.of("banHang.soDienThoaiKhachLeSai"));
+        }
         // Không cho xóa cả số điện thoại lẫn email; khách cũ vốn không có cả hai thì vẫn sửa được các ô khác.
         boolean truocCoLienHe = boTrong(entity.getSoDienThoai()) != null || boTrong(entity.getEmail()) != null;
         if (sdt == null && email == null && truocCoLienHe) {
@@ -574,11 +586,32 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
         }
     }
 
-    /** Chỉ gọi với giá trị mới (tạo mới hoặc vừa đổi): dữ liệu cũ không bị chặn khi sửa ô khác. */
-    private static void kiemTraLienHe(String sdt, String email) {
-        if (sdt != null && !SO_DIEN_THOAI_PATTERN.matcher(sdt).matches()) {
+    /**
+     * Số điện thoại đã chuẩn hóa (null = để trống) theo loại khách: khách lẻ chỉ di động / máy bàn; khách sỉ, doanh
+     * nghiệp, chưa phân loại nhận thêm tổng đài 1800/1900.
+     */
+    static void kiemTraSoDienThoai(String sdt, String loai) {
+        if (sdt == null) {
+            return;
+        }
+        if ("le".equals(loai)) {
+            if (!SO_DIEN_THOAI_KHACH_LE_PATTERN.matcher(sdt).matches()) {
+                throw new CommonException(ThongDiep.of("banHang.soDienThoaiKhachLeSai"));
+            }
+        } else if (!SO_DIEN_THOAI_PATTERN.matcher(sdt).matches()) {
             throw new CommonException(ThongDiep.of("banHang.soDienThoaiKhongHopLe"));
         }
+    }
+
+    /** Số đang lưu (có thể chưa chuẩn hóa) là tổng đài 1800/1900. */
+    private static boolean laSoTongDai(String sdt) {
+        String gon = chuanHoaSoDienThoai(sdt);
+        return gon != null && SO_TONG_DAI_PATTERN.matcher(gon).matches();
+    }
+
+    /** Chỉ gọi với giá trị mới (tạo mới hoặc vừa đổi): dữ liệu cũ không bị chặn khi sửa ô khác. */
+    private static void kiemTraLienHe(String sdt, String email, String loai) {
+        kiemTraSoDienThoai(sdt, loai);
         if (email != null && (email.length() > EMAIL_TOI_DA || !EMAIL_PATTERN.matcher(email).matches())) {
             throw new CommonException(ThongDiep.of("banHang.emailKhongHopLe"));
         }
