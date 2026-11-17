@@ -31,7 +31,7 @@ import static org.mockito.Mockito.*;
  * Tạo / sửa khách hàng (POST /api/v1/khach-hang/create, PUT /api/v1/khach-hang/{id}):
  * SĐT / email trống không bị coi là trùng nhau, trùng thật thì báo 409 nêu rõ khách đang dùng,
  * dữ liệu cũ không bị sửa thì không bị kiểm tra lại; mã để trống thì tự tạo theo tiền tố trong Cấu hình hệ thống;
- * cần ít nhất số điện thoại hoặc email; số điện thoại nhận di động, máy bàn, tổng đài.
+ * cần ít nhất số điện thoại hoặc email; số điện thoại nhận di động, máy bàn (khách sỉ / doanh nghiệp thêm tổng đài).
  */
 @ExtendWith(MockitoExtension.class)
 class KhachHangServiceTest {
@@ -193,7 +193,8 @@ class KhachHangServiceTest {
         when(repository.existsByMaKhachHang(anyString())).thenReturn(false);
 
         service.create(KhachHangCreating.builder().maKhachHang("KH020").tenKhachHang("An").soDienThoai("02363888999").build());
-        service.create(KhachHangCreating.builder().maKhachHang("KH021").tenKhachHang("Bình").soDienThoai("19001234").build());
+        service.create(KhachHangCreating.builder().maKhachHang("KH021").tenKhachHang("Shop Bình").loaiKhachHang("si")
+                .soDienThoai("19001234").build());
 
         verify(repository, times(2)).save(any(KhachHang.class));
     }
@@ -213,7 +214,7 @@ class KhachHangServiceTest {
         CommonException ex = assertThrows(CommonException.class, () -> service.create(KhachHangCreating.builder()
                 .maKhachHang("KH023").tenKhachHang("An").soDienThoai("0123").build()));
 
-        assertTrue(ex.getMessage().startsWith("Số điện thoại không hợp lệ"));
+        assertEquals("Nhập di động 10 số hoặc máy bàn 11 số", ex.getMessage());
         verify(repository, never()).save(any());
     }
 

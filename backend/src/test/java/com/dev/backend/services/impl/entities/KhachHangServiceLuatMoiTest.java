@@ -238,7 +238,11 @@ class KhachHangServiceLuatMoiTest {
     void posThemNhanh_cungLuatSdtVaTen() {
         assertTrue(assertThrows(CommonException.class, () -> service.quickCreateForPos(
                 PosQuickCustomerCreating.builder().tenKhachHang("Nam").soDienThoai("0123456789").build()))
-                .getMessage().startsWith("Số điện thoại không hợp lệ"));
+                .getMessage().equals("Nhập di động 10 số hoặc máy bàn 11 số"));
+        // Khách lẻ ở quầy: không nhận số tổng đài
+        assertEquals("Nhập di động 10 số hoặc máy bàn 11 số", assertThrows(CommonException.class,
+                () -> service.quickCreateForPos(PosQuickCustomerCreating.builder()
+                        .tenKhachHang("Nam").soDienThoai("1900 1234").build())).getMessage());
         assertEquals("Tên khách lẻ chỉ gồm chữ cái và dấu cách", assertThrows(CommonException.class,
                 () -> service.quickCreateForPos(PosQuickCustomerCreating.builder()
                         .tenKhachHang("Khách 1").soDienThoai("0912345678").build())).getMessage());
@@ -258,6 +262,41 @@ class KhachHangServiceLuatMoiTest {
         CommonException ex = assertThrows(CommonException.class, () -> service.quickCreateForPos(
                 PosQuickCustomerCreating.builder().tenKhachHang("Lê Hoa").soDienThoai("+84912345678").build()));
         assertEquals(HttpStatus.CONFLICT, ex.getHttpStatus());
+    }
+
+    // ── Số điện thoại theo loại khách ──
+
+    @Test
+    void them_khachLeKhongNhanTongDai_khachSiDoanhNghiepNhan() {
+        assertEquals("Nhập di động 10 số hoặc máy bàn 11 số", loiTao(KhachHangCreating.builder()
+                .tenKhachHang("Nguyễn An").loaiKhachHang("le").soDienThoai("19001234").build()));
+        assertEquals("Nhập di động, máy bàn hoặc số 1800/1900", loiTao(KhachHangCreating.builder()
+                .tenKhachHang("Shop An").loaiKhachHang("si").soDienThoai("0412345678").build()));
+
+        when(repository.existsByMaKhachHang(anyString())).thenReturn(false);
+        assertDoesNotThrow(() -> service.create(KhachHangCreating.builder()
+                .tenKhachHang("Công ty An").loaiKhachHang("doanh_nghiep").soDienThoai("1800 123 456").build()));
+        assertDoesNotThrow(() -> service.create(KhachHangCreating.builder()
+                .tenKhachHang("Nguyễn An").loaiKhachHang("le").soDienThoai("02363888999").build()));
+    }
+
+    @Test
+    void sua_doiSangKhachLeMaGiuSoTongDai_chan() {
+        KhachHang cu = khach(14, "Nguyễn Văn Nam", "si");
+        cu.setSoDienThoai("1900 1234");
+        when(repository.findById(14)).thenReturn(Optional.of(cu));
+        assertEquals("Nhập di động 10 số hoặc máy bàn 11 số", assertThrows(CommonException.class,
+                () -> service.update(14, KhachHangUpdating.builder().loaiKhachHang("le").build())).getMessage());
+        // Không đổi loại: số tổng đài cũ không chặn việc sửa ô khác
+        assertDoesNotThrow(() -> service.update(14, KhachHangUpdating.builder().diaChi("Đà Nẵng").build()));
+    }
+
+    @Test
+    void sua_doiSangKhachLeSoCuDangPlus84_khongChan() {
+        KhachHang cu = khach(15, "Nguyễn Văn Nam", "si");
+        cu.setSoDienThoai("+84 912 345 678");
+        when(repository.findById(15)).thenReturn(Optional.of(cu));
+        assertDoesNotThrow(() -> service.update(15, KhachHangUpdating.builder().loaiKhachHang("le").build()));
     }
 
     @Test
