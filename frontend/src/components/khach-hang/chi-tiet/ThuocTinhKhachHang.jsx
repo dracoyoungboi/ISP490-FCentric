@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { Mail, Phone } from "lucide-react";
 import NutSaoChep from "@/components/shared/NutSaoChep";
 import { formatDateTime } from "@/utils/formatters";
-import { laHoatDong, moTaKenhMua, nhanDiaChi, nhanLoaiKhach } from "./tinhKhachHang";
+import { moTaKenhMua, nhanDiaChi, nhanLoaiKhach } from "./tinhKhachHang";
 import { t } from "@/i18n";
 
 const NUT_ICON =
@@ -44,7 +44,8 @@ function DongLienHe({ nhan, giaTri, trong, href, nhanMo, icon, kieu, onThem }) {
 }
 
 /**
- * Cột thông tin bên phải (cùng kiểu Chi tiết nhà cung cấp): Liên hệ và Thông tin.
+ * Cột thông tin bên phải (cùng kiểu Chi tiết nhà cung cấp): Liên hệ và Thông tin (có mã số thuế của khách sỉ /
+ * doanh nghiệp; trạng thái không nhắc lại vì đầu trang đã có huy hiệu và dải xám khi ngừng hoạt động).
  * Thiếu số điện thoại / email / địa chỉ hay chưa phân loại: ghi rõ "Chưa có …", kèm "Thêm" / "Phân loại" khi có quyền sửa.
  * `onChinhSua(o)` mở popup Sửa khách hàng, đặt con trỏ vào đúng ô `o` ("soDienThoai", "email", "diaChi", "loaiKhachHang").
  * `kenhMua`: các kênh khách đã mua qua (từ số tổng hợp); `undefined` khi chưa tải được.
@@ -59,6 +60,9 @@ export default function ThuocTinhKhachHang({ khachHang, kenhMua, onChinhSua }) {
   const hienNguoiLienHe = nguoiLienHe && chuanTen(nguoiLienHe) !== chuanTen(khachHang.tenKhachHang);
   const loai = nhanLoaiKhach(khachHang.loaiKhachHang);
   const nhanDc = nhanDiaChi(khachHang.loaiKhachHang);
+  const maSoThue = khachHang.maSoThue?.trim() || "";
+  // Như form: mã số thuế dành cho khách sỉ / doanh nghiệp, hoặc khách đã có mã.
+  const hienMaSoThue = Boolean(maSoThue) || khachHang.loaiKhachHang === "si" || khachHang.loaiKhachHang === "doanh_nghiep";
 
   return (
     <aside
@@ -120,14 +124,33 @@ export default function ThuocTinhKhachHang({ khachHang, kenhMua, onChinhSua }) {
               </>
             )}
           </dd>
+          {hienMaSoThue ? (
+            <>
+              <dt className="text-bo-muted">{t("Mã số thuế")}</dt>
+              <dd className="m-0 min-w-0">
+                {maSoThue ? (
+                  <span className="inline-flex items-center gap-0.5">
+                    <span className="break-all tabular-nums text-bo-foreground">{maSoThue}</span>
+                    <NutSaoChep giaTri={maSoThue} nhan={t("Sao chép mã số thuế")} className="-my-1 size-6" />
+                  </span>
+                ) : (
+                  <span className="text-bo-muted">
+                    {t("Chưa có")}
+                    {onChinhSua ? (
+                      <>
+                        {" · "}
+                        <button type="button" onClick={them("maSoThue")} className={NUT_CHU}>
+                          {t("Thêm")}
+                        </button>
+                      </>
+                    ) : null}
+                  </span>
+                )}
+              </dd>
+            </>
+          ) : null}
           <dt className="text-bo-muted">{t("Mua qua")}</dt>
           <dd className="m-0 min-w-0 text-bo-foreground">{kenhMua === undefined ? "—" : moTaKenhMua(kenhMua)}</dd>
-          <dt className="text-bo-muted">{t("Trạng thái")}</dt>
-          <dd className="m-0 min-w-0 text-bo-foreground">
-            {laHoatDong(khachHang)
-              ? t("Chọn được khi tạo báo giá, bán tại quầy")
-              : t("Không chọn được khi tạo báo giá, bán tại quầy")}
-          </dd>
           <dt className="text-bo-muted">{t("Ngày tạo")}</dt>
           <dd className="m-0 min-w-0 tabular-nums text-bo-foreground">{formatDateTime(khachHang.ngayTao)}</dd>
           <dt className="text-bo-muted">{t("Cập nhật", { context: "ngay" })}</dt>
