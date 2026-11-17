@@ -38,8 +38,9 @@ public class KhachHangReportController {
      * @param denNam   (bắt buộc khi loai=nam)
      * @param khoId    null = tất cả kho
      */
+    // Báo cáo khách hàng: theo SRS 4.4 "Customer", quản trị viên và nhân viên bán hàng
     @GetMapping
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.nhan_vien_ban_hang})
     public ResponseEntity<ResponseData<BaoCaoKhachHangDTO>> getBaoCaoKhachHang(
             @RequestParam String loai,
             @RequestParam(required = false) String  tuNgay,
@@ -67,7 +68,7 @@ public class KhachHangReportController {
      * trước. nhom: tat_ca | mot_lan | mua_lai; q: tìm theo tên, mã, số điện thoại; page tính từ 0.
      */
     @GetMapping("/khach-mua")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.nhan_vien_ban_hang})
     public ResponseEntity<ResponseData<BaoCaoKhachHangService.DanhSachKhachMua>> getKhachMua(
             @RequestParam String loai,
             @RequestParam(required = false) String  tuNgay,
@@ -98,7 +99,7 @@ public class KhachHangReportController {
      * khách mua trong kỳ. Cần quyền Xuất báo cáo ở kho làm việc.
      */
     @GetMapping("/xuat-excel")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho},
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.nhan_vien_ban_hang},
             permissions = {IPermissionType.xuat_bao_cao}, inWarehouse = true)
     public ResponseEntity<byte[]> xuatExcel(
             @RequestParam String loai,

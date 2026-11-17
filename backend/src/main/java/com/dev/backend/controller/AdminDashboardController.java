@@ -90,7 +90,7 @@ public class AdminDashboardController {
     }
 
     @GetMapping("/bao-cao/doanh-thu")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     public ResponseEntity<ResponseData<List<DoanhThuChartDTO>>> getBaoCaoDoanhThu(
             @RequestParam String    loai,       // ngay | tuan | thang | nam | so_sanh
             @RequestParam(required = false)  String    tuNgay,     // yyyy-MM-dd  (dùng cho loai=ngay)
@@ -149,11 +149,11 @@ public class AdminDashboardController {
 
     /**
      * Doanh thu kèm cùng kỳ năm trước (màn Báo cáo doanh thu). loai: ngay (tuNgay, denNgay) | thang (nam) | nam (tuNam,
-     * denNam). Kỳ này cắt tới hôm nay; kèm theo kênh và theo nhân viên của cả kỳ. Quản lý kho, nhân viên bán hàng chỉ xem
-     * các cửa hàng mình được phân công; nhân viên bán hàng không nhận số giá vốn, lợi nhuận gộp.
+     * denNam). Kỳ này cắt tới hôm nay; kèm theo kênh và theo nhân viên của cả kỳ. UC 11.3: quản trị viên và nhân viên
+     * bán hàng; nhân viên bán hàng chỉ xem cửa hàng mình được phân công, không nhận số giá vốn, lợi nhuận gộp.
      */
     @GetMapping("/bao-cao/doanh-thu/tong-hop")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_ban_hang})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.nhan_vien_ban_hang})
     public ResponseEntity<ResponseData<DoanhThuTongHopDTO>> getDoanhThuTongHop(
             @RequestParam String loai,
             @RequestParam(required = false) String tuNgay,
@@ -171,8 +171,9 @@ public class AdminDashboardController {
     }
 
     /** Tệp Excel (.xlsx) của Báo cáo doanh thu, cùng tham số với /bao-cao/doanh-thu/tong-hop. Cần quyền Xuất báo cáo. */
+    // Excel có giá vốn, lợi nhuận gộp: chỉ quản trị viên (nhân viên bán hàng không có giá vốn nên tệp sẽ ra số sai)
     @GetMapping("/bao-cao/doanh-thu/xuat-excel")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho},
+    @RequireAuth(roles = {IRoleType.quan_tri_vien},
             permissions = {IPermissionType.xuat_bao_cao}, inWarehouse = true)
     public ResponseEntity<byte[]> xuatExcelDoanhThu(
             @RequestParam String loai,
@@ -191,11 +192,11 @@ public class AdminDashboardController {
     /**
      * Báo cáo sản phẩm (màn /reports/products): số bán, doanh thu hàng, giá vốn, hoàn theo sản phẩm và mã SKU trong
      * [tuNgay, denNgay] (tối đa 1 năm, cắt tới hôm nay) so với kỳ liền trước, kèm khả dụng và đang về hiện tại.
-     * kenh: trống = mọi kênh, POS, TRUC_TIEP hoặc id kênh bán. Quản lý kho, nhân viên bán hàng chỉ xem các cửa hàng mình
-     * được phân công; nhân viên bán hàng không nhận số giá vốn, lợi nhuận gộp, giá trị tồn.
+     * kenh: trống = mọi kênh, POS, TRUC_TIEP hoặc id kênh bán. UC 11.4: quản trị viên và nhân viên bán hàng; nhân viên
+     * bán hàng chỉ xem cửa hàng mình được phân công, không nhận số giá vốn, lợi nhuận gộp, giá trị tồn.
      */
     @GetMapping("/bao-cao/san-pham")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_ban_hang})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.nhan_vien_ban_hang})
     public ResponseEntity<ResponseData<BaoCaoSanPhamDTO>> getBaoCaoSanPham(
             @RequestParam String tuNgay,
             @RequestParam String denNgay,
@@ -208,8 +209,9 @@ public class AdminDashboardController {
     }
 
     /** Tệp Excel (.xlsx) của Báo cáo sản phẩm, cùng tham số với /bao-cao/san-pham. Cần quyền Xuất báo cáo. */
+    // Excel có giá vốn, lợi nhuận gộp, giá trị tồn: chỉ quản trị viên (như Excel báo cáo doanh thu)
     @GetMapping("/bao-cao/san-pham/xuat-excel")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho},
+    @RequireAuth(roles = {IRoleType.quan_tri_vien},
             permissions = {IPermissionType.xuat_bao_cao}, inWarehouse = true)
     public ResponseEntity<byte[]> xuatExcelSanPham(
             @RequestParam String tuNgay,
@@ -222,10 +224,10 @@ public class AdminDashboardController {
 
     /**
      * Tiền thu trong kỳ của Báo cáo doanh thu (theo ngày thu tiền): tiền mặt, chuyển khoản, hoàn, sàn thu hộ, còn phải
-     * thu. Cùng tham số với /bao-cao/doanh-thu; quản lý kho, nhân viên bán hàng chỉ xem các cửa hàng mình được phân công.
+     * thu. Cùng tham số với /bao-cao/doanh-thu; nhân viên bán hàng chỉ xem cửa hàng mình được phân công.
      */
     @GetMapping("/bao-cao/tien-thu")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_ban_hang})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.nhan_vien_ban_hang})
     public ResponseEntity<ResponseData<TienThuDTO>> getTienThu(
             @RequestParam String loai,
             @RequestParam(required = false) String tuNgay,

@@ -33,8 +33,9 @@ public class NhatKyNhapXuatController {
     private BaoCaoNhapXuatService baoCaoNhapXuatService;
 
     /** Tồn đầu kỳ + Nhập − Xuất = Tồn cuối kỳ, nhập từ đâu, xuất đi đâu, theo kỳ, theo kho, theo sản phẩm. */
+    // UC 11.5 Báo cáo nhập xuất: quản trị viên, quản lý kho, nhân viên kho (kho mình)
     @GetMapping("/tong-hop")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho})
     public ResponseEntity<ResponseData<NhapXuatTongHopDTO>> tongHop(
             @RequestParam                   String  loai,
             @RequestParam(required = false) String  tuNgay,
@@ -61,7 +62,7 @@ public class NhatKyNhapXuatController {
      * đa 1 năm). Cần quyền Xuất báo cáo ở kho làm việc.
      */
     @GetMapping("/xuat-excel")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho},
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho},
             permissions = {IPermissionType.xuat_bao_cao}, inWarehouse = true)
     public ResponseEntity<byte[]> xuatExcel(
             @RequestParam                   String  loai,
