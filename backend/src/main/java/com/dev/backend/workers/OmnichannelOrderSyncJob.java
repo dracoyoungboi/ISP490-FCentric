@@ -505,6 +505,7 @@ public class OmnichannelOrderSyncJob {
 
         // Định tuyến đa kho cho Shopify: Nếu đơn hàng mang location_id, tự động gán kho FCentric tương ứng
         Kho khoXuatDonHang = defaultKho;
+        String tenKhoSanDinhTuyen = null;
         try {
             String shopifyLocationId = null;
             if (orderNode.hasNonNull("location_id")) {
@@ -512,6 +513,9 @@ public class OmnichannelOrderSyncJob {
             }
             if ((shopifyLocationId == null || shopifyLocationId.isBlank()) && orderNode.path("fulfillments").isArray() && !orderNode.path("fulfillments").isEmpty()) {
                 shopifyLocationId = orderNode.path("fulfillments").get(0).path("location_id").asText("").trim();
+            }
+            if ((shopifyLocationId == null || shopifyLocationId.isBlank()) && orderNode.path("fulfillment_orders").isArray() && !orderNode.path("fulfillment_orders").isEmpty()) {
+                shopifyLocationId = orderNode.path("fulfillment_orders").get(0).path("assigned_location_id").asText("").trim();
             }
             if ((shopifyLocationId == null || shopifyLocationId.isBlank()) && orderNode.path("line_items").isArray() && !orderNode.path("line_items").isEmpty()) {
                 shopifyLocationId = orderNode.path("line_items").get(0).path("location_id").asText("").trim();
@@ -522,16 +526,16 @@ public class OmnichannelOrderSyncJob {
                     com.dev.backend.dto.channel.warehouse.KenhKhoMappingConfigDto mapCfg = objectMapper.readValue(mappingJson, com.dev.backend.dto.channel.warehouse.KenhKhoMappingConfigDto.class);
                     if (mapCfg != null && Boolean.TRUE.equals(mapCfg.getCheDoDaKho()) && mapCfg.getDanhSachKho() != null) {
                         final String locIdCheck = shopifyLocationId;
-                        Integer matchedKhoId = mapCfg.getDanhSachKho().stream()
-                                .filter(m -> m.getMaKhoSan() != null && (m.getMaKhoSan().equals(locIdCheck) || m.getMaKhoSan().endsWith("/" + locIdCheck)))
-                                .map(com.dev.backend.dto.channel.warehouse.KenhKhoMappingItemDto::getKhoIdFCentric)
-                                .filter(Objects::nonNull)
+                        com.dev.backend.dto.channel.warehouse.KenhKhoMappingItemDto matchedItem = mapCfg.getDanhSachKho().stream()
+                                .filter(m -> m.getMaKhoSan() != null && (m.getMaKhoSan().equals(locIdCheck) || m.getMaKhoSan().endsWith("/" + locIdCheck) || locIdCheck.endsWith("/" + m.getMaKhoSan())))
+                                .filter(m -> m.getKhoIdFCentric() != null)
                                 .findFirst().orElse(null);
-                        if (matchedKhoId != null) {
-                            Kho found = khoHoatDong.stream().filter(k -> k.getId().equals(matchedKhoId)).findFirst().orElse(null);
+                        if (matchedItem != null && matchedItem.getKhoIdFCentric() != null) {
+                            Kho found = khoHoatDong.stream().filter(k -> k.getId().equals(matchedItem.getKhoIdFCentric())).findFirst().orElse(null);
                             if (found != null) {
                                 khoXuatDonHang = found;
-                                log.info("[JOB-01] Định tuyến đơn Shopify {} về kho vật lý {} (theo Location {})", soDonHang, found.getTenKho(), locIdCheck);
+                                tenKhoSanDinhTuyen = matchedItem.getTenKhoSan();
+                                log.info("[JOB-01] Định tuyến đơn Shopify {} về kho vật lý {} (theo Location {} - {})", soDonHang, found.getTenKho(), locIdCheck, tenKhoSanDinhTuyen);
                             }
                         }
                     }
@@ -559,6 +563,9 @@ public class OmnichannelOrderSyncJob {
         }
 
         String shopifyNote = "Đơn hàng đồng bộ tự động từ Shopify #" + orderNumber;
+        if (tenKhoSanDinhTuyen != null && khoXuatDonHang != null) {
+            shopifyNote += " | [ĐỊNH TUYẾN KHO: " + tenKhoSanDinhTuyen + " -> " + khoXuatDonHang.getTenKho() + "]";
+        }
         if (initTracking != null && !initTracking.isBlank()) {
             shopifyNote += " | [VẬN ĐƠN: " + initTracking + (initCarrier != null && !initCarrier.isBlank() ? " - " + initCarrier : "") + "]";
         }

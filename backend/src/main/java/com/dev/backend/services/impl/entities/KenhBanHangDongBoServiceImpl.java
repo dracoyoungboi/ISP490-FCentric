@@ -5259,7 +5259,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 actor = nguoiDungRepository.findById(auth.getId()).orElse(null);
             }
             if (actor != null) {
-                lichSuThayDoiService.create(
+                lichSuThayDoiService.createGiaoDichRieng(
                         LichSuThayDoi.builder()
                                 .loaiThamChieu(ITable.kenh_ban_hang)
                                 .idThamChieu(kenhId)
