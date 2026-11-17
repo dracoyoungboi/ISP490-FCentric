@@ -6,6 +6,8 @@
 
 > **Tiến độ hiện hành (18/11/2026):** Xem [bảng triển khai và nghiệm thu](docs/tien-do-nghiem-thu.md). Các kết luận hoàn tất trong mục cũ là báo cáo của lần triển khai đó, không thay thế nghiệm thu thực tế. AUDIT-105 sửa lại nguyên nhân và cách đồng bộ trạng thái Shopify được mô tả ở AUDIT-103/104.
 
+> **Cập nhật AUDIT-106:** Quyền Shopify mới đã hoạt động. Mã đồng bộ trực tiếp hai chiều đã có và được kiểm thử; chưa bật trên website thật do chưa lưu khóa bí mật ứng dụng và chưa triển khai điểm nhận mới.
+
 ---
 
 ## BẢNG TỔNG HỢP NHẬT KÝ THAY ĐỔI (AUDIT LOGS)
@@ -117,6 +119,7 @@
 | **AUDIT-103** | `2026-11-17 18:15:00` | PhanAnh & Antigravity AI | Handover & Architecture / Phân tích RCA và Kế hoạch khắc phục triệt để 5 trạng thái đỏ đơn hàng Shopify theo chuẩn Sapo | `docs/ke-hoach-dong-bo-trang-thai-don-hang-shopify-toan-dien.md`, `audit.md` | Tổng hợp toàn bộ bối cảnh phiên làm việc bàn giao sang đoạn chat mới; Khảo sát RCA chuyên sâu 5 trạng thái đỏ: Đang thực hiện (thiếu triggers & API xung đột Standard Location), Đã hoàn tất (bị nghẽn do KenhBanHangSyncServiceImpl chỉ in log chưa gọi service & payload thiếu line_items), Đã giao (phụ thuộc fulfillment & scope write_shipping), Bị hoàn trả (chỉ gắn tag chưa gọi Refund API với restock_type: no_restock theo chuẩn Sapo); Lập lộ trình 7 bước giải pháp kiến trúc đồng bộ hai chiều. |
 | **AUDIT-104** | `2026-11-17 19:15:00` | PhanAnh & Antigravity AI | Feat & Architecture / Hoàn tất triển khai đồng bộ vòng đời đơn hàng Shopify hai chiều 5 trạng thái đỏ theo chuẩn Sapo | `KenhBanHangSyncServiceImpl.java`, `KenhBanHangDongBoService.java`, `KenhBanHangDongBoServiceImpl.java`, `DonBanHangService.java`, `ShopifyStatusSyncTest.java`, `audit.md` | Hoàn thiện 100% 5 trạng thái đỏ Shopify: Nối dây pushOrderStatus kích hoạt xuất kho fulfilled cho Shopify, Lazada và TikTok; Nâng cấp dongBoTrangThaiFulfilledShopify với line_items_by_fulfillment_order chi tiết từng item và tracking; Hoàn thiện dongBoTrangThaiDangThucHienShopify sửa mutation notes và cập nhật tags note; Hoàn thiện dongBoTrangThaiDeliveredShopify tự fulfill trước khi gửi sự kiện delivered; Triển khai dongBoHoanTraVaHoanTienShopify tự fulfill nếu unfulfilled và gọi Refunds API với restock_type: no_restock và suggested_transactions chuẩn Sapo; 14/14 unit tests PASS 100%, i18n 725 tệp sạch. |
 | **AUDIT-105** | `2026-11-18 02:55:00` | Codex / PhanAnh | Fix / Shopify & nghiệm thu | Client, service, DTO, UI, i18n, tests, docs | Sửa API tiến trình gốc 2026-04 và reasonNotes, chặn báo thành công sai, đối soát sau commit, xác nhận thiếu quyền Shopify thật; bảng nghiệm thu riêng và kiểm thử hồi quy. |
+| **AUDIT-106** | `2026-11-18 04:10:00` | Codex / PhanAnh | Feat / Shopify trực tiếp hai chiều | Webhook, DB inbox, service, controllers, SSE, cấu hình, UI, i18n, tests, docs | Nhận thay đổi có chữ ký, lưu bền vững và xử lý ngay; thử lại tiến trình sau commit; cập nhật màn hình qua SSE. 254 bài backend đạt; quyền mới xác minh được, còn thiếu khóa bí mật và triển khai công khai. |
 
 
 ---
@@ -3871,6 +3874,51 @@ Rà soát hồi quy còn phát hiện nhánh fulfilled cũ có thể coi danh s�
 - Bộ kiểm thông điệp backend trên bốn tệp nguồn sửa: 0 câu sót, 0 khóa thiếu, 0 lỗi kho câu. Đóng gói backend đạt.
 - Đã kết nối đọc DB thật và kiểm tra quyền Shopify thật, xác nhận thiếu quyền xử lý fulfillment order do cửa hàng tự quản lý. Người dùng chọn tiếp tục sửa mã, ghi rõ bước cấp quyền còn thiếu; chưa nghiệm thu đổi trạng thái/hoàn tiền thật.
 - Kiểm thử xuyên suốt kho qua MySQL riêng chưa chạy: Docker Engine chưa hoạt động; không chạy fixture có xóa dữ liệu lên DB vận hành. Không có kết luận hoàn tất nghiệm thu toàn bộ dự án.
+
+### [AUDIT-106] ĐỒNG BỘ SHOPIFY HAI CHIỀU NGAY THEO SỰ KIỆN VÀ GHI RÕ ĐIỀU KIỆN KÍCH HOẠT
+
+#### Metadata
+
+- **Thời gian:** 18/11/2026 04:10 (GMT+7).
+- **Tác giả:** Codex / PhanAnh.
+- **Phân hệ:** Shopify, đơn bán hàng, kho vận, thông báo trực tiếp, cấu hình kết nối và nghiệm thu.
+- **Tệp thay đổi:**
+  - DB/config: `backend/src/main/resources/db/shopify_realtime.sql`, `backend/src/main/java/com/dev/backend/config/ShopifyRealtimeConfig.java`, `backend/src/main/resources/application.properties`, `production/Fashion-Management/application.properties`.
+  - Tích hợp/service trong `backend/src/main/java/com/dev/backend/services/shopify/`: `ShopifyOrderSnapshotClient.java`, `ShopifyRealtimeConnection.java`, `ShopifyRealtimeRegistration.java`, `ShopifyWebhookInbox.java`, `ShopifyWebhookService.java`, `ShopifyWebhookWorker.java`, `DonHangRealtime.java`.
+  - Nghiệp vụ: `DonBanHangRepository.java`, `DonBanHangService.java`, `KenhBanHangDongBoServiceImpl.java`, `OmnichannelOrderSyncJob.java`.
+  - Controller: `ShopifyWebhookController.java`, `ShopifyRealtimeController.java`, `DonHangRealtimeController.java`.
+  - Backend i18n: `kenhBan.properties`, `kenhBan_en.properties`.
+  - Frontend: `frontend/src/hooks/useDonHangRealtime.js`, `frontend/src/services/docSuKienDonHang.js`, `frontend/src/services/kenhBanHangService.js`, `ChannelSettingsPage.jsx`, `DonBanHangList.jsx`, `DonBanHangDetail.jsx`, `frontend/src/i18n/en/kenh-ban.json`.
+  - Kiểm thử: `ShopifyWebhookServiceTest`, `ShopifyWebhookInboxTest`, `ShopifyWebhookWorkerTest`, `ShopifyOrderSnapshotClientTest`, `ShopifyRealtimeRegistrationTest`, `ShopifyRealtimeConfigTest`, `ShopifyStatusSyncTest`, `OmnichannelOrderSyncJobTest`, `DonBanHangServiceGiaoHangSanTest`, `frontend/src/services/docSuKienDonHang.test.js`.
+  - Tài liệu: `docs/tien-do-nghiem-thu.md`, `audit.md`.
+
+#### Mục tiêu và phân tích nguyên nhân gốc rễ
+
+- Sau AUDIT-105, FCentric đã có hook gửi tiến trình sau commit nhưng chiều Shopify về FCentric vẫn phụ thuộc quét định kỳ. Giao diện không có luồng nhận tín hiệu thay đổi từ máy chủ; nhân viên có thể tiếp tục thấy dữ liệu cũ.
+- Người dùng đã mở quyền xử lý fulfillment order của cửa hàng. Kiểm tra **chỉ đọc** xác nhận khóa hiện hành có `write_merchant_managed_fulfillment_orders`, quyền đọc tương ứng và quyền vận chuyển; truy vấn GraphQL 2026-04 dùng `reasonNotes` được chấp nhận. Thiếu quyền merchant của lần kiểm tra cũ không còn là kết luận hiện hành.
+- Cấu hình DB vẫn chưa có khóa bí mật ứng dụng để xác thực chữ ký. Địa chỉ người dùng xác nhận là `https://fcentric.net` qua `/api`; GET `https://fcentric.net/api/v1/shopify/webhook` trả **404**, chứng minh điểm nhận bản mới chưa được triển khai công khai. Không có stack trace lỗi nghiệp vụ thật được tạo bằng giao dịch đơn/tiền trong đợt này.
+- Người dùng chọn **hoàn thiện mã và ghi rõ bước cấu hình còn thiếu**. Không yêu cầu gửi bí mật vào chat và không đánh dấu đã kích hoạt/đã nghiệm thu.
+
+#### Giải pháp kỹ thuật và chi tiết triển khai
+
+1. **Nhận sự kiện đúng chữ ký:** POST raw byte kiểm HMAC-SHA256 theo khóa bí mật ứng dụng đã mã hóa trong cấu hình, so sánh constant-time và đối chiếu đúng gian hàng. Từ chối thiếu/sai chữ ký, thiếu mã lần giao, dữ liệu không hợp lệ; lỗi ghi DB trả 503. Controller giữ đúng mã HTTP kể cả khi có bộ bắt lỗi chung. Đây là endpoint vận chuyển của Shopify, dùng chữ ký thay JWT nhân viên, tương tự webhook thanh toán; GET chỉ công bố mã phiên bản vô hại. API kích hoạt yêu cầu quản trị viên, API SSE yêu cầu vai trò được đọc đơn.
+2. **Lưu trước khi xác nhận:** Bổ sung bảng `shopify_webhook_inbox` bằng script `CREATE TABLE IF NOT EXISTS` tại khởi tạo. Chỉ lưu hash, mã lần xử lý/tham chiếu, gian hàng, hạn giữ xử lý và thời gian; không lưu raw payload chứa thông tin khách/thanh toán. Khóa hash gồm gian hàng, loại sự kiện, mã lần giao và raw body để chống giao trùng nhưng vẫn nhận lần thay đổi mới có cùng nội dung. Ghi nhận trong giao dịch riêng trước khi phản hồi nhận thành công.
+3. **Xử lý ngay, có khôi phục:** Khi nhận xong gọi bộ xử lý riêng ngay; lịch mỗi giây chỉ hỗ trợ khôi phục/retry. Lease có chủ sở hữu ngăn lấy trùng, thử lại tăng dần tối đa 5 phút, dọn bản ghi hoàn thành sau 7 ngày. Tác vụ cũ của gian hàng khác không được dùng khóa gian hàng mới. Executor đặt `defaultCandidate=false` để không vô hiệu hóa executor mặc định của Spring Boot.
+4. **Đọc dữ liệu hiện hành:** Không ghi trạng thái từ payload cũ trực tiếp vào đơn. Tra fulfillment order/return về đơn khi cần, đọc đơn hiện tại từ Shopify và truy vấn trạng thái tiến trình gốc. Không nhầm GID fulfillment order thành mã đơn. Lỗi GraphQL hoặc thiếu dữ liệu phải giữ sự kiện chờ thử lại.
+5. **Giữ giao dịch kho:** Đường webhook khóa đơn hiện có trước khi sửa dữ liệu; lỗi phải rollback và được ném ra cho hộp nhận thử lại. Không đối soát gửi ngược tiến trình từ đường nhận này để tránh vòng lặp. `IN_PROGRESS` chỉ chuyển nháp hợp lệ sang chờ nhặt, không tự sinh chứng từ hay trừ tồn. Các bước chờ đóng gói/chờ xuất giữ nguyên; ràng buộc chặn bỏ qua xác nhận xuất vật lý vẫn có hiệu lực. Sửa kiểm tra `cancelled_at` bằng `hasNonNull` để trường thiếu không bị hiểu thành đã hủy.
+6. **Gửi sang Shopify:** Tái sử dụng hook ngay sau commit đã có cho các thao tác kho. Khi gửi tiến trình gốc thất bại, lưu yêu cầu thử lại trong giao dịch mới; coalesce theo đơn, bỏ qua khi đơn đã ra khỏi các trạng thái chờ. Kiểm thử chứng minh ghi retry vẫn tồn tại khi gọi từ `afterCommit`. Hàng đợi tiến trình này không tự tạo lại hoàn tiền.
+7. **Đăng ký và cấu hình:** Đăng ký 15 nhóm sự kiện đơn, fulfillment, giao hàng, tiến trình và trả hàng bằng GraphQL 2026-04. Chỉ đăng ký sau khi URL HTTPS công khai trả đúng mã phiên bản; phân trang danh sách có sẵn, chỉ thêm loại thiếu, không xóa đăng ký khác. Nhóm thiếu quyền không làm mất nhóm đã đăng ký. Có kiểm tra lúc khởi động/định kỳ và nút **Bật cập nhật tức thì** để quản trị viên chạy ngay; thông báo cả VI/EN, không báo sẵn sàng khi mới bật một phần.
+8. **Màn hình:** Luồng SSE dùng Bearer header, không đặt khóa đăng nhập vào URL; chỉ phát tín hiệu tải lại, không đẩy nội dung đơn/khách. Danh sách cập nhật số lượng và dữ liệu; chi tiết giữ dữ liệu hiện tại khi tải lại, không ngắt thao tác/hộp thoại đang mở. Có heartbeat, nối lại, tải bù khi nhận tín hiệu sẵn sàng; dừng khi hết quyền. Bộ phân tích hỗ trợ frame tách khúc/CRLF và hủy đọc khi đóng trang.
+9. **Tiến độ trung thực:** Bảng chung tách đã viết mã / tự động / thử thật / nghiệm thu. Thời gian mạng và giao sự kiện của Shopify vẫn tồn tại, không cam kết độ trễ 0 ms. SSE hiện dành cho một tiến trình backend; nhiều bản sao cần kiểm chứng phát tín hiệu giữa tiến trình.
+
+#### Kết quả kiểm thử và đối soát hồi quy
+
+- Maven offline **package đạt; 254 bài, 0 lỗi, 0 bỏ qua** trong bộ mục tiêu `Shopify*Test`, `OmnichannelOrderSyncJobTest`, `DonBanHangServiceGiaoHangSanTest`, `KenhBanHangServiceTest`, `PhieuXuatKhoDispatchTest`, `InventoryChannelSyncJobTest`, `PosCheckoutServiceTest`, `PosBanDuocTaiQuayTest`, `NhatHangChuyenKhoTest`, `BangChungDongGoiServiceTest`. Không tuyên bố đây là toàn bộ test backend.
+- Có kiểm thử MockMvc thực tế với bộ bắt lỗi chung: raw JSON hợp lệ được nhận và chữ ký sai giữ HTTP 401. HTTP Shopify dùng giả lập; không thực thi mutation lên gian hàng thật.
+- H2 chế độ MySQL kiểm DDL/JDBC, chống trùng, lease, khôi phục hộp nhận, backoff/coalesce và giao dịch riêng sau commit. Không thay cho kiểm thử toàn tuyến với MySQL thật. Kiểm thử context xác nhận executor mặc định của Boot vẫn tồn tại.
+- Frontend: **694 bài, 693 đạt, 1 bỏ qua, 0 lỗi**; gồm hai ca phân tích SSE. ESLint phần sửa đạt. i18n **728 tệp sạch**; kiểm thông điệp backend không còn câu sót/khóa thiếu. Build frontend đạt, còn cảnh báo kích thước bundle đã có.
+- Kiểm tra thật chỉ đọc: DB/kết nối Shopify truy cập được, quyền mới có hiệu lực; **khóa bí mật ứng dụng chưa lưu**, **URL công khai 404**. Không tạo đăng ký webhook thật, không đổi trạng thái đơn thật, không ghi tồn/tiền, không tạo hoàn tiền hay chỉnh khóa kết nối.
+- Còn cần: triển khai backend/frontend mới, lưu **Khóa bí mật của ứng dụng** tại kết nối nâng cao, kiểm tra kết nối và bấm **Bật cập nhật tức thì**; bổ sung quyền trả hàng nếu báo một phần. Sau đó mới thử hai chiều từng trạng thái, đo độ trễ và đối chiếu tồn/tiền theo ma trận. Hoàn một phần từng dòng vẫn là phần nghiệp vụ chưa hoàn thiện; chưa có biên bản nghiệm thu xuyên suốt.
 
 
 
