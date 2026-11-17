@@ -25,18 +25,18 @@ import java.util.Map;
 @Slf4j
 public class PhanQuyenTableInitializer implements ApplicationRunner {
 
-    /** Mẫu ban đầu, theo mã quyền trong bảng quyen_han. Chỉ dùng khi bảng mẫu còn rỗng. */
+    /**
+     * Mẫu ban đầu, theo mã quyền trong bảng quyen_han. Chỉ dùng khi bảng mẫu còn rỗng. Mỗi mẫu nằm trong trần quyền
+     * của vai trò (IPermissionType.TRAN_THEO_VAI_TRO, ma trận SRS 4.4).
+     */
     static final Map<String, List<String>> MAU_BAN_DAU = Map.of(
             "quan_ly_kho", List.of("xem_ton_kho", "xem_chi_tiet_lo", "dieu_chinh_ton_kho", "chuyen_kho",
                     "duyet_phieu_nhap", "huy_phieu_nhap", "duyet_phieu_xuat", "huy_phieu_xuat",
-                    "xem_bao_cao_ton_kho", "xem_bao_cao_nhap_xuat", "xem_bao_cao_doanh_thu", "xuat_bao_cao",
-                    "quan_ly_nhan_vien_kho", "cap_quyen_nhan_vien"),
+                    "xem_bao_cao_ton_kho", "xem_bao_cao_nhap_xuat", "xuat_bao_cao"),
             "nhan_vien_kho", List.of("xem_ton_kho", "xem_chi_tiet_lo", "chuyen_kho",
-                    "tao_phieu_nhap", "tao_phieu_xuat", "xem_bao_cao_ton_kho"),
-            "nhan_vien_mua_hang", List.of("xem_ton_kho", "tao_don_mua_hang", "xem_bao_cao_ton_kho",
-                    "quan_ly_nha_cung_cap"),
-            "nhan_vien_ban_hang", List.of("xem_ton_kho", "tao_don_ban_hang", "xem_bao_cao_ton_kho",
-                    "quan_ly_khach_hang"));
+                    "tao_phieu_nhap", "tao_phieu_xuat"),
+            "nhan_vien_mua_hang", List.of("xem_ton_kho", "tao_don_mua_hang", "quan_ly_nha_cung_cap"),
+            "nhan_vien_ban_hang", List.of("xem_ton_kho", "tao_don_ban_hang", "quan_ly_khach_hang"));
 
     /** Quyền nhạy cảm ban đầu: duyệt, hủy, điều chỉnh tồn, báo cáo tiền, quản lý và cấp quyền nhân viên. */
     static final List<String> NHAY_CAM_BAN_DAU = List.of("dieu_chinh_ton_kho", "duyet_don_mua_hang",

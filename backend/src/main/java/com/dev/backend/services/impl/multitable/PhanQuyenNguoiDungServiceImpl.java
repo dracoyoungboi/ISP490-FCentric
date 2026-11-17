@@ -2,6 +2,7 @@ package com.dev.backend.services.impl.multitable;
 
 import com.dev.backend.config.SecurityContextHolder;
 import com.dev.backend.constant.variables.IHanhDong;
+import com.dev.backend.constant.variables.IPermissionType;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.constant.variables.ITable;
 import com.dev.backend.services.impl.utils.NhatKyNghiepVu;
@@ -161,7 +162,12 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
         }
         // Như chọn kho lần đầu trong ngăn kéo: điền sẵn mẫu quyền của vai trò (vai trò chưa có mẫu thì chưa có quyền nào).
         // Không báo "quyền đã đổi" cho tài khoản chưa đăng nhập lần nào (câu "đăng nhập lại" sai ngữ cảnh).
-        List<Integer> mau = mauQuyenVaiTroRepository.layTatCa().getOrDefault(vaiTro, List.of());
+        // Mẫu lưu từ trước khi có trần quyền có thể còn quyền ngoài trần: bỏ qua quyền đó thay vì chặn tạo tài khoản.
+        List<Integer> mauDaLuu = mauQuyenVaiTroRepository.layTatCa().getOrDefault(vaiTro, List.of());
+        List<Integer> mau = mauDaLuu.isEmpty() ? List.of() : quyenHanRepository.findAllById(mauDaLuu).stream()
+                .filter(q -> IPermissionType.trongTran(vaiTro, q.getMaQuyen()))
+                .map(QuyenHan::getId)
+                .toList();
         luuPhanQuyen(nguoiDungId, new LuuPhanQuyenRequest(vaiTro, khoId, null, mau), false);
     }
 
@@ -186,6 +192,7 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
         Instant bayGio = clock.instant();
         boolean dungKho = lamViecTheoKho(vaiTroMoi);
         Map<Integer, QuyenHan> quyenMoi = dungKho ? layQuyenHopLe(request.getQuyenHanIds()) : new LinkedHashMap<>();
+        kiemTranQuyen(vaiTroMoi, quyenMoi.values());
 
         // Kể cả phân quyền hẹn ngày bắt đầu ở tương lai: đều tính vào quy tắc tối đa một kho
         List<PhanQuyenNguoiDungKho> dangCo = phanQuyenNguoiDungKhoRepository.findGiuChoByNguoiDungId(nguoiDung.getId(), bayGio);
@@ -377,6 +384,18 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
         return ketQua;
     }
 
+    /**
+     * Chặn quyền ngoài trần của vai trò ({@link IPermissionType#TRAN_THEO_VAI_TRO}, theo ma trận SRS 4.4): VD cấp
+     * "Duyệt phiếu xuất" cho nhân viên bán hàng. Báo quyền đầu tiên vi phạm để quản trị viên bỏ chọn.
+     */
+    static void kiemTranQuyen(String vaiTro, java.util.Collection<QuyenHan> quyen) {
+        for (QuyenHan q : quyen) {
+            if (!IPermissionType.trongTran(vaiTro, q.getMaQuyen())) {
+                throw new CommonException(ThongDiep.of("khoVanHanh.quyenNgoaiVaiTro", q.getTenQuyen()));
+            }
+        }
+    }
+
     private AnhChup chup(String vaiTro, PhanQuyenNguoiDungKho pq) {
         if (pq == null) {
             return new AnhChup(vaiTro, null, null, new TreeSet<>());
@@ -470,8 +489,10 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
             luuPhanQuyen(nguoiDungId, new LuuPhanQuyenRequest(vaiTroMoi, null, null, List.of()));
             return;
         }
+        // Giữ kho và quyền đang bật, trừ quyền ngoài trần của vai trò mới (như ngăn kéo Phân quyền khi đổi vai trò)
         List<Integer> quyenDangBat = chiTietQuyenKhoRepository.findByPhanQuyenNguoiDungKhoId(pq.getId()).stream()
                 .filter(ct -> Integer.valueOf(1).equals(ct.getTrangThai()))
+                .filter(ct -> IPermissionType.trongTran(vaiTroMoi, ct.getQuyenHan().getMaQuyen()))
                 .map(ct -> ct.getQuyenHan().getId())
                 .toList();
         luuPhanQuyen(nguoiDungId, new LuuPhanQuyenRequest(vaiTroMoi, pq.getKho().getId(), pq.getNgayKetThuc(), quyenDangBat));
@@ -510,6 +531,12 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
         if (request.getNgayKetThuc() != null && !request.getNgayKetThuc().isAfter(bayGio)) {
             throw new CommonException(ThongDiep.of("khoVanHanh.ngayHetHieuLucPhaiSau"));
         }
+        List<Integer> idCap = request.getChiTietQuyenKhos() == null ? List.of() : request.getChiTietQuyenKhos().stream()
+                .filter(ct -> ct != null && Integer.valueOf(1).equals(ct.getTrangThai()))
+                .map(ChiTietQuyenKhoCreating::getQuyenHanId)
+                .toList();
+        Map<Integer, QuyenHan> quyenCap = layQuyenHopLe(idCap);
+        kiemTranQuyen(nguoiDung.getVaiTro(), quyenCap.values());
         if (IRoleType.quan_tri_vien.equals(nguoiThucHien.getVaiTro())) {
             return;
         }
@@ -532,11 +559,7 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
                 .filter(ct -> Integer.valueOf(1).equals(ct.getTrangThai()))
                 .map(ct -> ct.getQuyenHan().getMaQuyen())
                 .collect(Collectors.toSet());
-        List<Integer> idCap = request.getChiTietQuyenKhos() == null ? List.of() : request.getChiTietQuyenKhos().stream()
-                .filter(ct -> ct != null && Integer.valueOf(1).equals(ct.getTrangThai()))
-                .map(ChiTietQuyenKhoCreating::getQuyenHanId)
-                .toList();
-        for (QuyenHan quyen : layQuyenHopLe(idCap).values()) {
+        for (QuyenHan quyen : quyenCap.values()) {
             if (!quyenCuaToi.contains(quyen.getMaQuyen())) {
                 throw new CommonException(ThongDiep.of("khoVanHanh.khongCapQuyenMinhKhongCo", quyen.getTenQuyen()));
             }
@@ -777,10 +800,21 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
         for (String vaiTro : VAI_TRO_CO_MAU) {
             mau.put(vaiTro, daLuu.getOrDefault(vaiTro, List.of()));
         }
+        // Trần quyền theo vai trò, đổi sang id như mẫu quyền (giao diện so khớp theo id)
+        List<QuyenHan> tatCaQuyen = quyenHanRepository.findAll();
+        Map<String, List<Integer>> tran = new LinkedHashMap<>();
+        for (String vaiTro : VAI_TRO_CO_MAU) {
+            tran.put(vaiTro, tatCaQuyen.stream()
+                    .filter(q -> IPermissionType.trongTran(vaiTro, q.getMaQuyen()))
+                    .map(QuyenHan::getId)
+                    .sorted()
+                    .toList());
+        }
         return CauHinhPhanQuyenDto.builder()
                 .mauQuyen(mau)
                 .quyenNhayCam(mauQuyenVaiTroRepository.layIdQuyenNhayCam())
                 .quyenDaApDung(quyenDaApDung())
+                .tranQuyen(tran)
                 .build();
     }
 
@@ -792,6 +826,7 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
         }
         NguoiDung nguoiThucHien = nguoiDangDangNhap();
         Map<Integer, QuyenHan> quyen = layQuyenHopLe(quyenHanIds);
+        kiemTranQuyen(vaiTro, quyen.values());
         List<Integer> cu = mauQuyenVaiTroRepository.layTatCa().getOrDefault(vaiTro, List.of());
         mauQuyenVaiTroRepository.thayMau(vaiTro, quyen.keySet());
 
@@ -828,7 +863,8 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
     List<String> quyenDaApDung() {
         List<String> daQuet = quyenDaApDungDaQuet;
         if (daQuet != null) return daQuet;
-        Set<String> ma = new TreeSet<>();
+        // Quyền kiểm trong service (không nằm trên @RequireAuth): KiemKeQuyen.duocLapDot, KiemKeQuyen.duocDuyet
+        Set<String> ma = new TreeSet<>(List.of(IPermissionType.tao_dot_kiem_ke, IPermissionType.dieu_chinh_ton_kho));
         try {
             RequestMappingHandlerMapping anhXa = applicationContext.getBean(
                     "requestMappingHandlerMapping", RequestMappingHandlerMapping.class);
