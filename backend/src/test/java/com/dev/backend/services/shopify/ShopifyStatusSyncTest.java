@@ -94,5 +94,80 @@ public class ShopifyStatusSyncTest {
         assertFalse(dongBoService.dongBoTrangThaiReturnedShopify(null));
         assertFalse(dongBoService.dongBoTrangThaiReturnedShopify(""));
     }
+
+    @Test
+    @DisplayName("dongBoHoanTraVaHoanTienShopify: Bỏ qua khi mã đơn trống")
+    void testHoanTraVaHoanTien_maDonTrong() {
+        assertFalse(dongBoService.dongBoHoanTraVaHoanTienShopify(1, null));
+        assertFalse(dongBoService.dongBoHoanTraVaHoanTienShopify(1, "   "));
+    }
+
+    @Test
+    @DisplayName("dongBoHoanTraVaHoanTienShopify: Bỏ qua an toàn khi chưa cấu hình token")
+    void testHoanTraVaHoanTien_chuaCauHinhToken() {
+        KenhBanHang kenh = KenhBanHang.builder()
+                .id(1)
+                .maKenh("SHOPIFY")
+                .apiUrl("https://fcentric-test.myshopify.com")
+                .build();
+        when(kenhBanHangRepository.findByMaKenh("SHOPIFY")).thenReturn(Optional.of(kenh));
+        when(kenhBanHangService.getDecryptedShopifyAccessToken()).thenReturn(null);
+
+        boolean result = dongBoService.dongBoHoanTraVaHoanTienShopify(1, "12345");
+        assertFalse(result, "Phải trả về false khi token null");
+    }
+
+    @Test
+    @DisplayName("KenhBanHangSyncService.pushOrderStatus: Kích hoạt đồng bộ xuất kho cho Shopify, Lazada và TikTok")
+    void testPushOrderStatus_kichHoatDongBoCacKenh() {
+        com.dev.backend.services.KenhBanHangDongBoService mockDongBoService = mock(com.dev.backend.services.KenhBanHangDongBoService.class);
+        com.dev.backend.services.impl.KenhBanHangSyncServiceImpl syncService =
+                new com.dev.backend.services.impl.KenhBanHangSyncServiceImpl(donBanHangRepository, kenhBanHangService, mockDongBoService);
+
+        // 1. Kênh Shopify
+        KenhBanHang kenhShopify = KenhBanHang.builder().id(1).maKenh("SHOPIFY").tenKenh("Shopify Store").build();
+        DonBanHang donShopify = DonBanHang.builder()
+                .id(101)
+                .soDonHang("DH-SP-001")
+                .maDonHangKenh("SHOP-999")
+                .kenhBanHang(kenhShopify)
+                .build();
+        when(donBanHangRepository.findById(101)).thenReturn(Optional.of(donShopify));
+        when(kenhBanHangService.getDecryptedShopifyAccessToken()).thenReturn("shpat_valid_token");
+        when(kenhBanHangService.getShopifyApiUrl()).thenReturn("https://fcentric-test.myshopify.com");
+
+        syncService.pushOrderStatus(101, "SHIPPED", "VD-01", "GHTK");
+        verify(mockDongBoService, times(1)).dongBoTrangThaiFulfilledShopify(101, "SHOP-999");
+
+        // 2. Kênh Lazada
+        KenhBanHang kenhLazada = KenhBanHang.builder().id(2).maKenh("LAZADA").tenKenh("Lazada Mall").build();
+        DonBanHang donLazada = DonBanHang.builder()
+                .id(102)
+                .soDonHang("DH-LZ-002")
+                .maDonHangKenh("LAZ-888")
+                .kenhBanHang(kenhLazada)
+                .build();
+        when(donBanHangRepository.findById(102)).thenReturn(Optional.of(donLazada));
+        when(kenhBanHangService.getLazadaAppKey("LAZADA")).thenReturn("app_key_123");
+        when(kenhBanHangService.getDecryptedLazadaAccessToken("LAZADA")).thenReturn("laz_valid_token");
+
+        syncService.pushOrderStatus(102, "SHIPPED", "VD-02", "LEX");
+        verify(mockDongBoService, times(1)).dongBoTrangThaiReadyToShipLazada("LAZ-888");
+
+        // 3. Kênh TikTok Shop
+        KenhBanHang kenhTikTok = KenhBanHang.builder().id(3).maKenh("TIKTOK").tenKenh("TikTok Shop").build();
+        DonBanHang donTikTok = DonBanHang.builder()
+                .id(103)
+                .soDonHang("DH-TT-003")
+                .maDonHangKenh("TT-777")
+                .kenhBanHang(kenhTikTok)
+                .build();
+        when(donBanHangRepository.findById(103)).thenReturn(Optional.of(donTikTok));
+        when(kenhBanHangService.getTikTokAppKey()).thenReturn("tiktok_key_123");
+        when(kenhBanHangService.getDecryptedTikTokAccessToken()).thenReturn("tiktok_valid_token");
+
+        syncService.pushOrderStatus(103, "SHIPPED", "VD-03", "J&T");
+        verify(mockDongBoService, times(1)).dongBoTrangThaiReadyToShipTikTok("TT-777");
+    }
 }
 
