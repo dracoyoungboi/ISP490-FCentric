@@ -22,7 +22,6 @@ import { themKhachHang, timKhachTrungLienHe, updateKhachHang } from "@/services/
 import { getApiErrorMessage } from "@/utils/apiError";
 import {
   LOAI_KHACH_HANG,
-  MAX_LENGTH,
   NHAN_O,
   THU_TU_O,
   cacOThayDoi,
@@ -49,8 +48,10 @@ const CONTROL_CLASS =
 const CONTROL_ERROR_CLASS = "border-bo-danger focus-visible:border-bo-danger focus-visible:ring-bo-danger/15";
 const NUT_VIEN = "border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle";
 // Hai ô liên hệ ràng buộc nhau ("cần ít nhất một"): sửa ô này thì kiểm tra lại cả ô kia.
-const LIEN_QUAN = { soDienThoai: ["email"], email: ["soDienThoai"] };
-const O_KIEM_TRUNG = ["soDienThoai", "email"];
+// Luật tên phụ thuộc loại khách: đổi loại thì kiểm lại ô tên.
+const LIEN_QUAN = { soDienThoai: ["email"], email: ["soDienThoai"], loaiKhachHang: ["tenKhachHang"] };
+// Ô kiểm trùng với khách khác khi rời ô (máy chủ cũng chặn khi lưu).
+const O_KIEM_TRUNG = ["soDienThoai", "email", "maSoThue"];
 
 function Field({ id, label, required = false, optional = false, hint, error, kiemTra, extra, className, children }) {
   return (
@@ -93,7 +94,7 @@ function Field({ id, label, required = false, optional = false, hint, error, kie
  * - Không có ô trạng thái: khách mới luôn Hoạt động; ngừng / cho phép hoạt động là thao tác riêng (nút ⋯).
  * - Loại khách lên đầu: đổi gợi ý tên, hiện Người liên hệ cho khách sỉ / doanh nghiệp, đổi nhãn địa chỉ.
  *   Khách chưa phân loại không bị chọn sẵn Khách lẻ.
- * - Lỗi hiện ngay dưới từng ô; trùng số điện thoại / email báo ngay khi rời ô, kèm link mở khách đã có.
+ * - Lỗi hiện ngay dưới từng ô; trùng số điện thoại / email / mã số thuế báo ngay khi rời ô, kèm link mở khách đã có.
  * - Sửa: chỉ gửi các ô đã đổi; chưa đổi gì thì nút Lưu mờ.
  * - Đóng (✕, Hủy, Esc, bấm ra ngoài) khi có thay đổi thì hỏi lại; đang lưu thì không đóng được.
  * - `oMoDau`: ô đặt con trỏ khi mở (VD "email" khi bấm "Chưa có email · Thêm").
@@ -200,6 +201,10 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
     [name, ...(LIEN_QUAN[name] ?? [])].forEach((field) => {
       if (errors[field]) setFieldError(field, loi[field] || "");
     });
+    // Đổi sang Khách lẻ mà tên đang nhập có số / ký tự của tên cửa hàng: báo ngay, không đợi bấm Lưu.
+    if (name === "loaiKhachHang" && String(next.tenKhachHang ?? "").trim() && loi.tenKhachHang) {
+      setFieldError("tenKhachHang", loi.tenKhachHang);
+    }
   };
 
   const kiemTrung = async (name, giaTri) => {
@@ -310,7 +315,6 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
     onBlur: () => handleBlur(name),
     readOnly: submitting,
     autoComplete: "off",
-    maxLength: MAX_LENGTH[name],
     "aria-invalid": errors[name] ? true : undefined,
     "aria-describedby": describedBy(name, coGoiY),
     className: cn(CONTROL_CLASS, errors[name] && CONTROL_ERROR_CLASS),
@@ -492,15 +496,14 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
                 label={t("Mã số thuế")}
                 optional
                 error={errors.maSoThue}
+                kiemTra={dangKiem.maSoThue ? t("Đang kiểm tra trùng mã số thuế...") : ""}
                 hint={t("In ở mục Người mua trên hóa đơn bán hàng")}
+                extra={moKhachTrung("maSoThue")}
               >
                 <Input
                   {...textInputProps("maSoThue", true)}
-                  // Không đặt maxLength: dán "0312.345.678-001" thì trình duyệt cắt còn 14 ký tự trước khi bỏ dấu
-                  // chấm; chuanHoaMaSoThueKhiNhap đã giới hạn độ dài. Không dùng inputMode="numeric": bàn phím số
-                  // của iOS không có dấu "-" để gõ mã đơn vị phụ thuộc.
-                  maxLength={undefined}
-                  placeholder={t("VD: {{viDu}}", { viDu: "0312345678" })}
+                  // Không dùng inputMode="numeric": bàn phím số của iOS không có dấu "-" để gõ mã đơn vị phụ thuộc.
+                  placeholder={t("VD: {{viDu}}", { viDu: "0312345673" })}
                   spellCheck={false}
                   className={cn(CONTROL_CLASS, "tabular-nums", errors.maSoThue && CONTROL_ERROR_CLASS)}
                   onChange={(event) => changeField("maSoThue", chuanHoaMaSoThueKhiNhap(event.target.value))}
@@ -541,10 +544,6 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
                   {...textInputProps("soDienThoai", true)}
                   type="tel"
                   inputMode="numeric"
-                  // Không đặt maxLength: dán "+84 912 345 678" thì trình duyệt cắt trước khi bỏ dấu;
-                  // chuanHoaSoDienThoaiKhiNhap đã giới hạn số chữ số.
-                  maxLength={undefined}
-                  placeholder={t("VD: {{viDu}}", { viDu: "0912345678" })}
                   className={cn(CONTROL_CLASS, "tabular-nums", errors.soDienThoai && CONTROL_ERROR_CLASS)}
                   onChange={(event) => changeField("soDienThoai", chuanHoaSoDienThoaiKhiNhap(event.target.value))}
                 />
