@@ -24,6 +24,20 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class DonBanHangServiceGiaoHangSanTest {
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {0, 1, 7, 8, 3, 4, 5, 6})
+    void shopifyProgressNeverFabricatesPackingOrPhysicalDispatch(int initialState) {
+        var channel = com.dev.backend.entities.KenhBanHang.builder().id(2).maKenh("SHOPIFY").build();
+        var warehouse = com.dev.backend.entities.Kho.builder().id(1).trangThai(1).maKho("KHO_TONG").build();
+        var order = DonBanHang.builder().id(106).trangThai(initialState).kenhBanHang(channel).khoXuat(warehouse)
+                .loaiChungTu("don_ban_hang").tongCong(new java.math.BigDecimal("100000")).build();
+        when(donBanHangRepository.khoaDonShopify(2, "123")).thenReturn(Optional.of(order));
+        donBanHangService.batDauXuLyTuShopify(2, "123");
+        assertEquals(initialState == 0 ? 1 : initialState, order.getTrangThai());
+        assertEquals(new java.math.BigDecimal("100000"), order.getTongCong());
+        verifyNoInteractions(phieuXuatKhoRepository);
+    }
+
     @Mock
     private DonBanHangRepository donBanHangRepository;
 

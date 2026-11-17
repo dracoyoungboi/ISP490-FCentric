@@ -51,6 +51,27 @@ class OmnichannelOrderSyncJobTest {
     private OmnichannelOrderSyncJob job;
     private final ObjectMapper mapper = new ObjectMapper();
 
+    @Test
+    void webhookProgressDoesNotEchoBackAndMovesOnlyDraftToWaitingThroughSystemService() throws Exception {
+        var sync = mock(com.dev.backend.services.KenhBanHangDongBoService.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(job, "kenhBanHangDongBoService", sync);
+        var channel = KenhBanHang.builder().id(1).maKenh("SHOPIFY").build();
+        var order = DonBanHang.builder().id(9).trangThai(1).trangThaiThanhToan("da_thanh_toan").build();
+        when(donBanHangRepository.findByKenhBanHangIdAndMaDonHangKenh(1, "123")).thenReturn(Optional.of(order));
+        job.processShopifyWebhookOrder(mapper.readTree("{\"id\":123,\"financial_status\":\"paid\",\"cancelled_at\":null}"), channel, true);
+        verify(donBanHangService).batDauXuLyTuShopify(1, "123");
+        verifyNoInteractions(sync);
+    }
+
+    @Test
+    void webhookDatabaseFailureMustEscapeSoDeliveryCanRetry() throws Exception {
+        var channel = KenhBanHang.builder().id(1).maKenh("SHOPIFY").build();
+        var order = DonBanHang.builder().id(9).trangThai(1).build();
+        when(donBanHangRepository.findByKenhBanHangIdAndMaDonHangKenh(1, "123")).thenReturn(Optional.of(order));
+        doThrow(new IllegalStateException("rollback")).when(donBanHangService).huyDonTuSan(eq(9), anyString());
+        assertThrows(IllegalStateException.class, () -> job.processShopifyWebhookOrder(mapper.readTree("{\"id\":123,\"cancelled_at\":\"2026-11-18T00:00:00Z\"}"), channel, false));
+    }
+
     @ParameterizedTest
     @ValueSource(ints = {1, 7, 8})
     void retriesNativeProgressForExistingWaitingOrdersOnlyAfterCommit(int warehouseState) throws Exception {

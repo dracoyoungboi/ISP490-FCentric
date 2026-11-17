@@ -38,6 +38,8 @@ public class ShopifyStatusSyncTest {
 
     @Mock
     private ShopifyOrderProgressClient progressClient;
+    @Mock
+    private ShopifyWebhookInbox inbox;
 
     @InjectMocks
     private KenhBanHangDongBoServiceImpl dongBoService;
@@ -51,6 +53,7 @@ public class ShopifyStatusSyncTest {
         ReflectionTestUtils.setField(dongBoService, "kenhBanHangService", kenhBanHangService);
         ReflectionTestUtils.setField(dongBoService, "donBanHangRepository", donBanHangRepository);
         ReflectionTestUtils.setField(dongBoService, "shopifyOrderProgressClient", progressClient);
+        ReflectionTestUtils.setField(dongBoService, "shopifyWebhookInbox", inbox);
     }
 
     @Test
@@ -90,6 +93,7 @@ public class ShopifyStatusSyncTest {
         assertFalse(dongBoService.dongBoTrangThaiDangThucHienShopify("123"));
         assertTrue(dongBoService.dongBoTrangThaiDangThucHienShopify("123"));
         verify(progressClient, times(2)).reportProgress("fcentric-test.myshopify.com", "test-key", "123");
+        verify(inbox, times(1)).retryProgress("fcentric-test.myshopify.com", "123");
     }
 
     @Test
