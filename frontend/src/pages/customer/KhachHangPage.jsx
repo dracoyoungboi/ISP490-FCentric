@@ -590,13 +590,22 @@ export default function KhachHangPage() {
                                         {getLoaiKhachHangBadge(khachHang.loaiKhachHang)}
                                     </td>
                                     <td className="px-3 py-3">
-                                        <div className="flex flex-col gap-1 text-xs text-bo-muted">
-                                            <div className="flex items-center gap-1.5">
-                                                <Phone className="size-3 shrink-0" /> {khachHang.soDienThoai || "—"}
-                                            </div>
-                                            <div className="flex items-center gap-1.5">
-                                                <Mail className="size-3 shrink-0" /> {khachHang.email || "—"}
-                                            </div>
+                                        {/* Chỉ hiện thông tin khách có (không xếp hai dấu "—"); số điện thoại hay dùng nhất nên chữ đậm hơn */}
+                                        <div className="flex min-w-0 flex-col gap-1 text-xs text-bo-muted">
+                                            {khachHang.soDienThoai ? (
+                                                <div className="flex items-center gap-1.5 tabular-nums text-bo-foreground">
+                                                    <Phone className="size-3 shrink-0 text-bo-muted" aria-hidden="true" /> {khachHang.soDienThoai}
+                                                </div>
+                                            ) : null}
+                                            {khachHang.email ? (
+                                                <div className="flex min-w-0 items-center gap-1.5">
+                                                    <Mail className="size-3 shrink-0" aria-hidden="true" />
+                                                    <span className="min-w-0 truncate">{khachHang.email}</span>
+                                                </div>
+                                            ) : null}
+                                            {!khachHang.soDienThoai && !khachHang.email ? (
+                                                <span className="text-slate-400">{t("Chưa có liên hệ")}</span>
+                                            ) : null}
                                         </div>
                                     </td>
                                     <td className="px-3 py-3">
