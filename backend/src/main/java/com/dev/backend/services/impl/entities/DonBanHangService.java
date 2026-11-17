@@ -1027,7 +1027,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
     @Transactional(rollbackFor = Exception.class)
     public void batDauXuLyTuShopify(Integer channelId, String shopifyOrderId) {
         DonBanHang don = ((DonBanHangRepository) repository).khoaDonShopify(channelId, shopifyOrderId).orElse(null);
-        if (don == null || !Integer.valueOf(0).equals(don.getTrangThai())
+        if (don == null || !Integer.valueOf(ITrangThaiDonBanHang.NHAP).equals(don.getTrangThai())
                 || don.getKenhBanHang() == null || !OmnichannelOrderSyncJob.isShopify(don.getKenhBanHang().getMaKenh())
                 || !"don_ban_hang".equals(don.getLoaiChungTu()) || don.getKhoXuat() == null
                 || !Integer.valueOf(1).equals(don.getKhoXuat().getTrangThai()) || KhoService.laKhoAo(don.getKhoXuat())) return;
