@@ -847,5 +847,7 @@
   "Thu gọn {{ten}}": "Collapse {{ten}}",
   "Mở rộng {{ten}}": "Expand {{ten}}",
   "Bước nhận và hủy giữa đường luôn là \"Xuất chuyển kho nội bộ\". Chọn \"Xuất kho kiêm vận chuyển nội bộ\" thì AMIS bỏ trống số chứng từ, chờ phát hành hóa đơn điện tử.": "The receive and in-transit cancel steps always use \"Internal transfer issue\". With \"Goods issue with internal transport\", AMIS leaves the document number blank until the e-invoice is issued.",
-  "Bắt buộc khi có đơn bán tại quầy trả QR payOS: AMIS chỉ ghi sổ tài khoản ngân hàng khi có số tài khoản. Phải là tài khoản đã khai báo trên AMIS.": "Required for in-store payOS QR sales: AMIS only posts to the bank account when the account number is given. It must be an account set up in AMIS."
+  "Bắt buộc khi có đơn bán tại quầy trả QR payOS: AMIS chỉ ghi sổ tài khoản ngân hàng khi có số tài khoản. Phải là tài khoản đã khai báo trên AMIS.": "Required for in-store payOS QR sales: AMIS only posts to the bank account when the account number is given. It must be an account set up in AMIS.",
+  "{{count}} loại chứng từ và tem sản phẩm, mỗi loại một mẫu đang dùng. Chỉ quản trị viên sửa được mẫu in._one": "{{count}} document type and product labels, one active template each. Only administrators can edit print templates.",
+  "{{count}} loại chứng từ và tem sản phẩm, mỗi loại một mẫu đang dùng. Chỉ quản trị viên sửa được mẫu in._other": "{{count}} document types and product labels, one active template each. Only administrators can edit print templates."
 }

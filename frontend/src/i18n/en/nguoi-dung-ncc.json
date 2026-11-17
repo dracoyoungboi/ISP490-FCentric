@@ -927,5 +927,10 @@
   "Thêm/sửa/xóa nhà cung cấp": "Add/edit/delete suppliers",
   "Thêm/sửa/xóa khách hàng": "Add/edit/delete customers",
   "Đơn_mot": "Order",
-  "Đã đặt_ncc": "Ordered"
+  "Đã đặt_ncc": "Ordered",
+  "Vai trò này không được cấp quyền này": "This role can't be granted this permission",
+  "Vai trò này không được cấp hoặc không mở màn hình dùng các quyền đó.": "This role can't be granted these permissions or doesn't open any screen that uses them.",
+  "{{count}} quyền vai trò này không được cấp_one": "{{count}} permission this role can't be granted",
+  "{{count}} quyền vai trò này không được cấp_other": "{{count}} permissions this role can't be granted",
+  "Theo ma trận phân quyền, {{tenVt}} không được cấp: {{dsQuyen}}. Bỏ chọn rồi lưu.": "Under the permission matrix, {{tenVt}} can't be granted: {{dsQuyen}}. Clear them, then save."
 }
