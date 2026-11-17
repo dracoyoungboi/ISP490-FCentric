@@ -9,6 +9,8 @@ import { NhomKhoNhan } from "@/components/order/chi-tiet-yeu-cau/ThuocTinhYeuCau
 import { formatDate } from "@/utils/formatters";
 import { nguoiChotBaoGia } from "./tinhBaoGia";
 import { t } from "@/i18n";
+import { hasAnyRole } from "@/utils/roles";
+import { VAI_TRO_NHA_CUNG_CAP } from "@/constants/vaiTroTheoNghiepVu";
 
 /**
  * Cột phải của Chi tiết báo giá: nhà cung cấp (mở Chi tiết nhà cung cấp; số điện thoại, email sao chép được),
@@ -25,7 +27,8 @@ export default function ThuocTinhBaoGia({ don, lienQuan }) {
       <NhomThuocTinh nhan={t("Nhà cung cấp")}>
         {ncc ? (
           <>
-            {ncc.id != null ? (
+            {/* Trang nhà cung cấp: quản trị viên, nhân viên mua hàng (SRS 4.4); vai trò khác chỉ thấy tên */}
+            {ncc.id != null && hasAnyRole(VAI_TRO_NHA_CUNG_CAP) ? (
               <Link
                 to={`/supplier/${ncc.id}`}
                 className="inline-block text-sm font-semibold text-bo-primary hover:text-bo-primary-hover hover:underline"

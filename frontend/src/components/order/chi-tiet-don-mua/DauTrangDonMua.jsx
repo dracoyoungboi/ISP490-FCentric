@@ -16,6 +16,8 @@ import { useClaimPageTitle } from "@/components/backoffice/pageTitle";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { getDonMuaHangStatus } from "@/constants/donMuaHang";
 import { CAU_HINH_THONG_BAO_NHANH } from "@/config/thongBaoNhanh";
+import { hasAnyRole } from "@/utils/roles";
+import { VAI_TRO_NHA_CUNG_CAP } from "@/constants/vaiTroTheoNghiepVu";
 import useSaoChep from "@/hooks/useSaoChep";
 import { formatCurrency, formatDate } from "@/utils/formatters";
 import { t } from "@/i18n";
@@ -116,9 +118,13 @@ export default function DauTrangDonMua({ don, taoPhieu, ketThuc, onQuayLai, onIn
             {ncc ? (
               <>
                 {" · "}
-                <Link to={`/supplier/${ncc.id}`} className="text-bo-primary hover:text-bo-primary-hover hover:underline">
-                  {ncc.tenNhaCungCap || ncc.maNhaCungCap}
-                </Link>
+                {hasAnyRole(VAI_TRO_NHA_CUNG_CAP) ? (
+                  <Link to={`/supplier/${ncc.id}`} className="text-bo-primary hover:text-bo-primary-hover hover:underline">
+                    {ncc.tenNhaCungCap || ncc.maNhaCungCap}
+                  </Link>
+                ) : (
+                  ncc.tenNhaCungCap || ncc.maNhaCungCap
+                )}
               </>
             ) : null}
             {kho?.tenKho ? ` · ${kho.tenKho}` : null}

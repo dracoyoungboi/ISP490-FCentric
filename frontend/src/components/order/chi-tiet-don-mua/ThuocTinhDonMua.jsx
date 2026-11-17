@@ -3,6 +3,8 @@ import { cn } from "@/lib/utils";
 import NutSaoChep from "@/components/shared/NutSaoChep";
 import { formatDate } from "@/utils/formatters";
 import { t } from "@/i18n";
+import { hasAnyRole } from "@/utils/roles";
+import { VAI_TRO_NHA_CUNG_CAP } from "@/constants/vaiTroTheoNghiepVu";
 
 function NhanNhom({ children }) {
   return <div className="text-xs font-medium leading-4 text-bo-muted">{children}</div>;
@@ -46,12 +48,16 @@ export default function ThuocTinhDonMua({ don, giao, soDonCuaNcc }) {
         <NhanNhom>{t("Nhà cung cấp")}</NhanNhom>
         {ncc ? (
           <>
-            <Link
-              to={`/supplier/${ncc.id}`}
-              className="mt-2 inline-block font-semibold text-bo-primary hover:text-bo-primary-hover hover:underline"
-            >
-              {ncc.tenNhaCungCap || "—"}
-            </Link>
+            {hasAnyRole(VAI_TRO_NHA_CUNG_CAP) ? (
+              <Link
+                to={`/supplier/${ncc.id}`}
+                className="mt-2 inline-block font-semibold text-bo-primary hover:text-bo-primary-hover hover:underline"
+              >
+                {ncc.tenNhaCungCap || "—"}
+              </Link>
+            ) : (
+              <div className="mt-2 font-semibold text-bo-foreground">{ncc.tenNhaCungCap || "—"}</div>
+            )}
             <div className="mt-0.5 text-[13px] text-bo-muted">
               {ncc.maNhaCungCap ? <span className="font-mono">{ncc.maNhaCungCap}</span> : null}
               {soDonCuaNcc != null ? `${ncc.maNhaCungCap ? " · " : ""}${t("{{count}} đơn mua", { count: soDonCuaNcc })}` : null}
