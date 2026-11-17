@@ -44,7 +44,8 @@ import { thongKeHeThongService } from "@/services/thongKeHeThongService";
 import { laKhoAo, laKhoGiaoDich, laKhoHoatDong } from "@/utils/kho";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { formatCurrency, formatNumber } from "@/utils/formatters";
-import { VAI_TRO_TAO_YEU_CAU_NHAP } from "@/constants/vaiTroTaoYeuCauNhap";
+import { VAI_TRO_CANH_BAO_TON, VAI_TRO_TAO_YEU_CAU_NHAP } from "@/constants/vaiTroTheoNghiepVu";
+import { hasAnyRole } from "@/utils/roles";
 import { t } from "@/i18n";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -106,7 +107,7 @@ function canSeeKhoTrungChuyen(roles) {
     return roles.some(r => ROLES_XEM_KHO_TRUNG_CHUYEN.includes(r));
 }
 
-// Nút "Nhập kho" mở màn Tạo yêu cầu nhập hàng: cùng danh sách vai trò với màn đó (quản lý kho chỉ duyệt, không lập)
+// Nút "Nhập kho" mở màn Tạo yêu cầu nhập hàng: cùng danh sách vai trò với màn đó (quản lý kho, nhân viên kho)
 function canNhapKho(roles) {
     return roles.some(r => VAI_TRO_TAO_YEU_CAU_NHAP.includes(r));
 }
@@ -143,6 +144,10 @@ const TRANG_THAI_FILTERS = [
     { value: "du-hang", key: "du_hang", label: t("Dư hàng") },
 ];
 const TAB_VALUES = TRANG_THAI_FILTERS.map(tt => tt.value);
+// Hết hàng / Sắp hết hàng là cảnh báo tồn thấp (SRS 4.4 "Low Stock"): chỉ quản trị viên, quản lý kho, nhân viên kho.
+// Nhân viên mua hàng, bán hàng vẫn xem tồn và cột Tình trạng, không có thẻ lọc và ô cảnh báo.
+const TAB_CANH_BAO = ["het-hang", "thieu-hang"];
+const TAB_VALUES_KHONG_CANH_BAO = TAB_VALUES.filter(v => !TAB_CANH_BAO.includes(v));
 const TAB_MAC_DINH = "tat-ca";
 
 // Dòng thuộc tab nào: cùng một hàm cho bảng và số trên tab (R1)
@@ -174,8 +179,10 @@ export default function TonKhoTongQuan() {
     const [keyword, setKeyword] = useState("");
     // Từ khóa của dữ liệu đang hiện (ô tìm kiếm chỉ áp dụng khi bấm Enter, như cũ)
     const [tuKhoaDaApDung, setTuKhoaDaApDung] = useState("");
+    const xemCanhBao = hasAnyRole(VAI_TRO_CANH_BAO_TON);
     // Tab tình trạng trên URL (?tinhTrang=); giữ nguyên ?kho= từ Tổng quan
-    const [trangThaiFilter, setTrangThaiFilter] = useTabTrenUrl(TAB_VALUES, TAB_MAC_DINH, { ten: "tinhTrang" });
+    const [trangThaiFilter, setTrangThaiFilter] = useTabTrenUrl(
+        xemCanhBao ? TAB_VALUES : TAB_VALUES_KHONG_CANH_BAO, TAB_MAC_DINH, { ten: "tinhTrang" });
 
     // ── Data state ──────────────────────────────────────────────────────────
     const [data, setData] = useState([]);
@@ -377,7 +384,7 @@ export default function TonKhoTongQuan() {
 
     // Số trên tab = số dòng thấy khi bấm tab, trên dữ liệu đã lọc kho + từ khóa (R1);
     // đang tải / lỗi / chưa tải thì không hiện số (R9)
-    const statusTabs = TRANG_THAI_FILTERS.map(tt => ({
+    const statusTabs = TRANG_THAI_FILTERS.filter(tt => xemCanhBao || !TAB_CANH_BAO.includes(tt.value)).map(tt => ({
         value: tt.value,
         label: tt.label,
         count: loading || loadError || !hasLoaded ? null : data.filter(item => khopTab(item, tt.value, laTrungChuyen(item))).length,
@@ -556,12 +563,16 @@ export default function TonKhoTongQuan() {
                                     value={formatCurrency(filteredData.reduce((s, i) => s + Number(i.tongGiaTri ?? i.giaTriTonKho ?? 0), 0))}
                                     valueClass="text-bo-success"
                                 />
-                                <Divider />
-                                <SummaryItem
-                                    label={t("Cảnh báo (hết / sắp hết)")}
-                                    value={`${filteredData.filter(i => ["het_hang", "thieu_hang"].includes(trangThaiTon(i, laTrungChuyen(i)))).length} SKU`}
-                                    valueClass="text-bo-danger"
-                                />
+                                {xemCanhBao ? (
+                                    <>
+                                        <Divider />
+                                        <SummaryItem
+                                            label={t("Cảnh báo (hết / sắp hết)")}
+                                            value={`${filteredData.filter(i => ["het_hang", "thieu_hang"].includes(trangThaiTon(i, laTrungChuyen(i)))).length} SKU`}
+                                            valueClass="text-bo-danger"
+                                        />
+                                    </>
+                                ) : null}
                                 {/* Hàng đang đi đường (Kho Trung Chuyển) khi xem Tất cả kho; chọn riêng kho này thì đã bằng Tổng tồn kho */}
                                 {!selectedKhoId && canSeeKhoTrungChuyen(userRoles) && filteredData.some(laTrungChuyen) && (
                                     <>
