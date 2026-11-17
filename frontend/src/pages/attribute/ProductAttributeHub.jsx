@@ -42,6 +42,7 @@ import NganKeoLichSu from "@/components/nhat-ky/NganKeoLichSu";
 import { layLichSuDanhMuc } from "@/services/nhatKyService";
 import { ROLES, hasAnyRole } from "@/utils/roles";
 import { t } from "@/i18n";
+import { VAI_TRO_DANH_MUC } from "@/constants/vaiTroTheoNghiepVu";
 
 // loai_tham_chieu của nhật ký theo tab (khớp ITable ở máy chủ)
 const LOAI_NHAT_KY = { color: "mau_sac", size: "size", material: "chat_lieu", brand: "thuong_hieu" };
@@ -80,13 +81,13 @@ const BRAND_STATUS_OPTIONS = [
     { value: "0", label: t("Ngừng hoạt động") },
 ];
 const DEFAULT_FILTERS = { keyword: "", page: 0, size: SO_DONG_MAC_DINH, trangThai: "ALL" };
-// Vai trò được thêm / sửa / xóa theo từng loại, khớp @RequireAuth của API ghi: màu sắc, kích cỡ, chất liệu cho quản trị
-// viên + quản lý kho; thương hiệu chỉ quản trị viên. Vai trò khác chỉ xem (bấm dòng mở hộp Xem).
+// Vai trò được thêm / sửa / xóa theo từng loại, khớp @RequireAuth của API ghi: SRS 4.4 "Color / Size / Material" chỉ
+// quản trị viên, thương hiệu cũng vậy. Vai trò khác chỉ xem (bấm dòng mở hộp Xem).
 const VAI_TRO_SUA = {
-    color: [ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO],
-    size: [ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO],
-    material: [ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO],
-    brand: [ROLES.QUAN_TRI_VIEN],
+    color: VAI_TRO_DANH_MUC,
+    size: VAI_TRO_DANH_MUC,
+    material: VAI_TRO_DANH_MUC,
+    brand: VAI_TRO_DANH_MUC,
 };
 
 // Hàng tab loại thuộc tính (bố cục A+G) — giữ trên URL ?loai= bằng mã không dấu;

@@ -13,7 +13,7 @@ import EditProductModal from "@/pages/product/components/product/EditProductModa
 import HopXacNhanChungTu from "@/components/chung-tu/HopXacNhanChungTu";
 import { formatDate } from "@/utils/formatters";
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
-import { ROLES, hasAnyRole } from "@/utils/roles";
+import { hasAnyRole } from "@/utils/roles";
 import { dinhDangKhoangGia } from "@/pages/product/components/product/khoangGiaBienThe";
 
 import PageContainer from "@/components/backoffice/PageContainer";
@@ -44,6 +44,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { t } from "@/i18n";
+import { VAI_TRO_SUA_SAN_PHAM } from "@/constants/vaiTroTheoNghiepVu";
 
 // Tab trạng thái (bố cục A+G): mã tab nằm trên URL ?trangThai=, `trangThai` là giá trị gửi API.
 // "Hết hàng" ở đây = hết trên mọi kho (backend tự tính lại 1/0 theo tồn kho các biến thể),
@@ -61,8 +62,8 @@ const trangThaiCuaTab = (ma) => STATUS_TABS.find((tab) => tab.value === ma)?.tra
 const SEARCH_DEBOUNCE_MS = 500;
 const LOAD_ERROR_MESSAGE = t("Không thể tải danh sách sản phẩm. Vui lòng thử lại.");
 
-// Thêm / sửa / ngừng kinh doanh sản phẩm: khớp @RequireAuth của POST /create, PUT /update, DELETE /soft-delete
-const VAI_TRO_SUA_SAN_PHAM = [ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO];
+// Thêm / sửa / ngừng kinh doanh sản phẩm (SRS 4.4 "Product – Create / Edit / Activate / Deactivate"): khớp
+// @RequireAuth của POST /create, PUT /update, DELETE /soft-delete — chỉ quản trị viên; vai trò khác chỉ xem
 
 // Bộ lọc ngoài tab trạng thái (trạng thái lấy từ URL).
 const DEFAULT_FILTERS = {
