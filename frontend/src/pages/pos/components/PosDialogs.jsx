@@ -463,7 +463,7 @@ function CustomerDialog({ state, actions, onClose }) {
     setQuickExisting(null);
     setQuickAddOpen(true);
   };
-  // Cùng luật với form Thêm khách hàng: tên khách lẻ như họ tên; SĐT bỏ dấu ngăn cách, +84 về 0, nhận di động / máy bàn / tổng đài.
+  // Cùng luật với form Thêm khách hàng: tên khách lẻ như họ tên; SĐT bỏ dấu ngăn cách, +84 về 0, luật số của khách lẻ (di động / máy bàn, không nhận tổng đài).
   const phoneDigits = chuanHoaSoDienThoaiKhiNhap(quickPhone);
   const quickNameError = quickName.trim() ? loiTenKhachHang(quickName, 'le') : '';
   const quickPhoneError = phoneDigits ? loiSoDienThoai(phoneDigits) : '';

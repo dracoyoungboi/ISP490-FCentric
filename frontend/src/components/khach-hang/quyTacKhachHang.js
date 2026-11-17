@@ -34,7 +34,8 @@ const LOAI_HOP_LE = LOAI_KHACH_HANG.map((loai) => loai.value);
 export const LOAI_MAC_DINH_KHI_THEM = "le";
 
 /** Thứ tự ô trên màn hình: bấm Lưu mà có lỗi thì con trỏ nhảy tới ô sai đầu tiên theo thứ tự này. */
-export const THU_TU_O = ["loaiKhachHang", "tenKhachHang", "maKhachHang", "maSoThue", "nguoiLienHe", "soDienThoai", "email", "diaChi"];
+// Khách sỉ / doanh nghiệp: Mã số thuế đứng trước Mã khách trên cùng một hàng.
+export const THU_TU_O = ["loaiKhachHang", "tenKhachHang", "maSoThue", "maKhachHang", "nguoiLienHe", "soDienThoai", "email", "diaChi"];
 
 /** Tên ô trong dòng "Đã sửa: …" ở chân popup. */
 export const NHAN_O = {
@@ -62,14 +63,24 @@ const TEN_TO_CHUC_REGEX = /^[\p{L}0-9][\p{L}\p{M}0-9 &,.()/'’-]*$/u;
 const MO_DAU_TO_CHUC_REGEX = /^[\p{L}0-9]/u;
 const CO_CHU_CAI_REGEX = /\p{L}/u;
 // Như nhà cung cấp: di động 10 số (03/05/07/08/09), máy bàn 11 số (02…), tổng đài 1800/1900.
+// Khách lẻ là một người: không nhận số tổng đài (chỉ gọi vào, không nhắn tin, tra khách ở quầy theo số vô nghĩa).
 const SO_DIEN_THOAI_REGEX = /^(0[35789][0-9]{8}|02[0-9]{9}|1[89]00[0-9]{4,6})$/;
+const SO_DIEN_THOAI_KHACH_LE_REGEX = /^(0[35789][0-9]{8}|02[0-9]{9})$/;
+const SO_TONG_DAI_REGEX = /^1[89]00[0-9]{4,6}$/;
+// Số đang lưu là tổng đài: chuẩn hóa đúng như SoDienThoai.chuanHoa của máy chủ (chỉ bỏ khoảng trắng ASCII . ( ) -,
+// "+84" về "0"), để số cũ có chữ kèm ("1900 1234 (CSKH)") không bị form chặn mà máy chủ lại cho qua.
+const laSoTongDaiDangLuu = (sdt) => {
+  const bo = String(sdt ?? "").replace(/[ \t\n\v\f\r.()-]/g, "");
+  return SO_TONG_DAI_REGEX.test(bo.startsWith("+84") ? `0${bo.slice(3)}` : bo);
+};
 // Mã số thuế: luật ở validations/maSoThue.js (trùng utils/MaSoThue.java của backend).
 export const MA_SO_THUE_MESSAGE = t("Mã số thuế gồm 10 số (đơn vị phụ thuộc thêm -3 số) hoặc 12 số");
 export const MA_SO_THUE_SAI_SO = t("Mã số thuế không hợp lệ, kiểm tra lại từng chữ số");
 
 export const CAN_LIEN_HE = t("Cần số điện thoại hoặc email để liên hệ khách hàng");
-export const SO_DIEN_THOAI_MESSAGE =
-  t("Số điện thoại chưa đúng: di động 10 số, máy bàn 11 số (02…) hoặc tổng đài 1800/1900");
+// Một dòng dưới ô nửa hộp; trùng banHang.soDienThoaiKhongHopLe / soDienThoaiKhachLeSai của máy chủ.
+export const SO_DIEN_THOAI_MESSAGE = t("Nhập di động, máy bàn hoặc số 1800/1900");
+export const SO_DIEN_THOAI_KHACH_LE_MESSAGE = t("Nhập di động 10 số hoặc máy bàn 11 số");
 
 const gon = (value) => String(value ?? "").normalize("NFC").trim();
 // Tên khách và người liên hệ chuẩn hóa như họ tên (NFC, bỏ ký tự vô hình, gộp khoảng trắng), như máy chủ lưu.
@@ -101,8 +112,14 @@ function loiNguoiLienHe(value) {
   return TEN_NGUOI_REGEX.test(ten) ? "" : t("Người liên hệ chỉ gồm chữ cái và dấu cách");
 }
 
-/** Câu lỗi của số điện thoại đã chuẩn hóa (không trống), "" khi hợp lệ. Dùng cả ở thêm nhanh khách tại quầy POS. */
-export const loiSoDienThoai = (sdt) => (SO_DIEN_THOAI_REGEX.test(gon(sdt)) ? "" : SO_DIEN_THOAI_MESSAGE);
+/**
+ * Câu lỗi của số điện thoại đã chuẩn hóa (không trống) theo loại khách, "" khi hợp lệ. Mặc định khách lẻ
+ * (thêm nhanh khách tại quầy POS); sỉ / doanh nghiệp / chưa phân loại nhận thêm tổng đài 1800/1900.
+ */
+export function loiSoDienThoai(sdt, loai = "le") {
+  if (loai === "le") return SO_DIEN_THOAI_KHACH_LE_REGEX.test(gon(sdt)) ? "" : SO_DIEN_THOAI_KHACH_LE_MESSAGE;
+  return SO_DIEN_THOAI_REGEX.test(gon(sdt)) ? "" : SO_DIEN_THOAI_MESSAGE;
+}
 
 /** Gõ / dán số điện thoại: bỏ khoảng trắng, dấu chấm, gạch, ngoặc; "+84…" đổi về "0…"; chỉ giữ chữ số. */
 export function chuanHoaSoDienThoaiKhiNhap(value) {
@@ -155,6 +172,12 @@ export function goiYTen(loai) {
   return t("VD: Nguyễn Văn An");
 }
 
+/** Gợi ý dưới ô địa chỉ, khớp nhãn: doanh nghiệp là địa chỉ trụ sở (in trên hóa đơn), còn lại là địa chỉ giao hàng. */
+export function goiYDiaChi(loai) {
+  if (loai === "doanh_nghiep") return t("In trên hóa đơn và tự điền vào báo giá; sửa được ở từng báo giá.");
+  return t("Tự điền vào báo giá; sửa được ở từng báo giá.");
+}
+
 /** Người liên hệ: hiện với khách sỉ, doanh nghiệp, hoặc khi khách đã có dữ liệu (đổi sang Khách lẻ không làm mất). */
 export function hienNguoiLienHe(form, banDau) {
   return (
@@ -188,7 +211,7 @@ export const formThemCoNhap = (form) => THU_TU_O.some((name) => gon(form[name]) 
 
 /**
  * Kiểm tra cả form; trả { tenO: câu báo lỗi }. Sửa: số điện thoại / email / địa chỉ không đổi thì không kiểm lại
- * (dữ liệu cũ không chặn việc sửa ô khác), giống backend.
+ * (dữ liệu cũ không chặn việc sửa ô khác), giống backend. Số điện thoại kiểm theo loại khách.
  */
 export function kiemTraForm(form, { laSua = false, banDau = FORM_THEM } = {}) {
   const loi = {};
@@ -223,7 +246,13 @@ export function kiemTraForm(form, { laSua = false, banDau = FORM_THEM } = {}) {
 
   const sdt = gon(form.soDienThoai);
   const email = gon(form.email);
-  if (sdt && !giuNguyen("soDienThoai") && !SO_DIEN_THOAI_REGEX.test(sdt)) loi.soDienThoai = SO_DIEN_THOAI_MESSAGE;
+  if (sdt && !giuNguyen("soDienThoai")) {
+    const loiSdt = loiSoDienThoai(sdt, form.loaiKhachHang);
+    if (loiSdt) loi.soDienThoai = loiSdt;
+  } else if (sdt && doiSangKhachLe && laSoTongDaiDangLuu(sdt)) {
+    // Đổi sang Khách lẻ mà giữ số tổng đài: chặn như số mới (số cũ định dạng khác thì không chặn), như máy chủ.
+    loi.soDienThoai = SO_DIEN_THOAI_KHACH_LE_MESSAGE;
+  }
   if (email && !giuNguyen("email")) {
     if (email.length > MAX_LENGTH.email) loi.email = t("Email tối đa 100 ký tự");
     else if (!EMAIL_REGEX.test(email)) loi.email = t("Email chưa đúng, VD: ten@congty.vn");
@@ -274,6 +303,7 @@ const DAU_CAU_MAY_CHU = [
   ["tên ", "tenKhachHang"], // i18n-giu-nguyen: tra cứu câu gốc của máy chủ
   ["người liên hệ", "nguoiLienHe"], // i18n-giu-nguyen: tra cứu câu gốc của máy chủ
   ["cần số điện thoại hoặc email", "soDienThoai"], // i18n-giu-nguyen: tra cứu câu gốc của máy chủ
+  ["nhập di động", "soDienThoai"], // i18n-giu-nguyen: tra cứu câu gốc của máy chủ
   ["số điện thoại", "soDienThoai"], // i18n-giu-nguyen: tra cứu câu gốc của máy chủ
   ["email", "email"],
   ["địa chỉ", "diaChi"], // i18n-giu-nguyen: tra cứu câu gốc của máy chủ
