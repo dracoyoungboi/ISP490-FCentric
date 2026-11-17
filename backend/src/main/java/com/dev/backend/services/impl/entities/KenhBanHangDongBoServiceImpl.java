@@ -46,6 +46,7 @@ import com.dev.backend.repository.TonKhoTongHopRepository;
 import com.dev.backend.repository.TrangThaiDongBoSanPhamRepository;
 import com.dev.backend.services.KenhBanHangDongBoService;
 import com.dev.backend.services.KenhBanHangService;
+import com.dev.backend.services.shopify.ShopifyOrderProgressClient;
 import com.dev.backend.services.MinioService;
 import java.time.temporal.ChronoUnit;
 import com.dev.backend.services.multitable.DieuHanhHeThongService;
@@ -100,6 +101,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
     public static final String MA_KENH_SHOPIFY = "SHOPIFY";
     public static final String DEFAULT_API_VERSION = "2024-01";
+
+    ShopifyOrderProgressClient shopifyOrderProgressClient = new ShopifyOrderProgressClient();
 
     KenhBanHangRepository kenhBanHangRepository;
     TrangThaiDongBoSanPhamRepository trangThaiDongBoSanPhamRepository;
@@ -3244,7 +3247,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             daKhoa = khoa.tryLock(5, TimeUnit.SECONDS);
         } catch (InterruptedException ignored) {}
         if (!daKhoa) {
-            throw new CommonException("Kênh " + kenh.getTenKenh() + " đang có tiến trình đồng bộ khác đang chạy. Vui lòng chờ đợt hiện tại hoàn tất.", HttpStatus.CONFLICT, null);
+            throw new CommonException(ThongDiep.of("kenhBan.dangCoTienTrinhDongBo", kenh.getTenKenh()), HttpStatus.CONFLICT, null);
         }
         try {
             if (OmnichannelOrderSyncJob.isLazada(kenh.getMaKenh())) {
@@ -4961,7 +4964,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 daKhoa = khoa.tryLock(5, TimeUnit.SECONDS);
             } catch (InterruptedException ignored) {}
             if (!daKhoa) {
-                throw new CommonException("Kênh " + (kenhCuaDong != null ? kenhCuaDong.getTenKenh() : "") + " đang có tiến trình đồng bộ khác đang chạy. Vui lòng chờ vài giây rồi thử lại.", HttpStatus.CONFLICT, null);
+                throw new CommonException(ThongDiep.of("kenhBan.dangCoTienTrinhDongBo", kenhCuaDong.getTenKenh()), HttpStatus.CONFLICT, null);
             }
         }
         try {
@@ -6831,60 +6834,14 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             return false;
         }
 
-        RestTemplate restTemplate = createRestTemplate();
-        HttpHeaders headers = createHeaders(token);
-
-        try {
-            // 1. Lấy danh sách fulfillment orders của đơn hàng
-            String foUrl = "https://" + domain + "/admin/api/" + DEFAULT_API_VERSION + "/orders/" + maDonHangKenh + "/fulfillment_orders.json";
-            ResponseEntity<String> foRes = restTemplate.exchange(foUrl, HttpMethod.GET, new HttpEntity<>(headers), String.class);
-            if (foRes.getStatusCode().is2xxSuccessful() && foRes.getBody() != null) {
-                JsonNode root = objectMapper.readTree(foRes.getBody());
-                JsonNode foList = root.path("fulfillment_orders");
-                if (foList.isArray()) {
-                    for (JsonNode fo : foList) {
-                        String st = fo.path("status").asText("").trim().toLowerCase(Locale.ROOT);
-                        long foId = fo.path("id").asLong();
-                        if ("open".equalsIgnoreCase(st) && foId > 0) {
-                            // Gọi GraphQL fulfillmentOrderReportProgress để báo tiến trình kho
-                            try {
-                                String gqlUrl = "https://" + domain + "/admin/api/" + DEFAULT_API_VERSION + "/graphql.json";
-                                String gqlQuery = "mutation { fulfillmentOrderReportProgress(id: \"gid://shopify/FulfillmentOrder/" + foId
-                                        + "\", progressReport: { notes: \"Đang xử lý nhặt và đóng gói tại kho FCentric\" }) { fulfillmentOrder { id status } userErrors { field message } } }";
-                                Map<String, String> gqlBody = Map.of("query", gqlQuery);
-                                HttpEntity<Map<String, String>> gqlEntity = new HttpEntity<>(gqlBody, headers);
-                                ResponseEntity<String> gqlRes = restTemplate.exchange(gqlUrl, HttpMethod.POST, gqlEntity, String.class);
-                                if (gqlRes.getBody() != null && gqlRes.getBody().contains("userErrors") && !gqlRes.getBody().contains("\"userErrors\":[]")) {
-                                    log.debug("[SHOPIFY-IN_PROGRESS] GraphQL reportProgress thông báo (chuẩn cho fulfillment service): {}", gqlRes.getBody());
-                                } else {
-                                    log.info("[SHOPIFY-IN_PROGRESS] Báo tiến trình kho GraphQL cho fulfillment order {} đơn {}", foId, maDonHangKenh);
-                                }
-                            } catch (Exception ex) {
-                                log.debug("[SHOPIFY-IN_PROGRESS] Không gọi được GraphQL reportProgress: {}", ex.getMessage());
-                            }
-
-                            // Fallback thử REST fulfillment_request/accept
-                            try {
-                                String acceptUrl = "https://" + domain + "/admin/api/" + DEFAULT_API_VERSION + "/fulfillment_orders/" + foId + "/fulfillment_request/accept.json";
-                                Map<String, Object> acceptBody = Map.of("message", "Đã tiếp nhận xử lý tại kho FCentric");
-                                restTemplate.exchange(acceptUrl, HttpMethod.POST, new HttpEntity<>(acceptBody, headers), String.class);
-                                log.info("[SHOPIFY-IN_PROGRESS] Accept fulfillment order {} đơn {}", foId, maDonHangKenh);
-                            } catch (Exception ignored) {}
-                        }
-                    }
-                }
-            }
-
-            // 2. Bổ sung tag "Đang thực hiện" và Order Note trên đơn hàng Shopify theo chuẩn SaaS ERP
-            capNhatTagVaNoteShopify(domain, token, maDonHangKenh, "Đang thực hiện",
-                    List.of("Nháp", "Đã xuất kho", "Đã giao"),
-                    "FCentric: Đang xử lý nhặt và đóng gói tại kho");
-            log.info("[SHOPIFY-IN_PROGRESS] Cập nhật thành công trạng thái Đang thực hiện cho đơn hàng {} trên Shopify", maDonHangKenh);
-            return true;
-        } catch (Exception e) {
-            log.warn("[SHOPIFY-IN_PROGRESS] Lỗi khi cập nhật trạng thái Đang thực hiện đơn {}: {}", maDonHangKenh, e.getMessage());
+        // Chỉ coi là đã đồng bộ khi Shopify xác nhận trạng thái gốc IN_PROGRESS.
+        // Tag/ghi chú không thay đổi trạng thái fulfillment và không phải phương án dự phòng.
+        if (!shopifyOrderProgressClient.reportProgress(domain, token, maDonHangKenh)) {
+            log.warn("[SHOPIFY-IN_PROGRESS] Chưa đồng bộ tiến trình đơn {}. Kiểm tra quyền xử lý đơn của kết nối Shopify.", maDonHangKenh);
             return false;
         }
+        log.info("[SHOPIFY-IN_PROGRESS] Shopify xác nhận IN_PROGRESS cho đơn {}", maDonHangKenh);
+        return true;
     }
 
     @Override
@@ -6936,6 +6893,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                                     }
                                 }
                             }
+                            if (foLineItems.isEmpty()) continue;
                             Map<String, Object> foEntry = new LinkedHashMap<>();
                             foEntry.put("fulfillment_order_id", foId);
                             if (!foLineItems.isEmpty()) {
@@ -6948,7 +6906,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             }
 
             if (lineItemsByFo.isEmpty()) {
-                log.info("[SHOPIFY-FULFILL] Đơn hàng {} không có fulfillment order nào ở trạng thái open/in_progress (có thể đã fulfilled)", maDonHangKenh);
+                // Không có dòng đủ điều kiện cũng có thể do thiếu quyền hoặc đơn đang bị giữ.
+                // Chỉ nhận đã hoàn tất khi trạng thái gốc của đơn xác nhận điều đó.
+                if (!shopifyDaHoanTatDon(restTemplate, domain, headers, maDonHangKenh)) return false;
                 capNhatTagVaNoteShopify(domain, token, maDonHangKenh, "Đã hoàn tất",
                         List.of("Đang thực hiện", "Chờ đóng gói", "Chờ xuất kho"),
                         "FCentric: Đã xác nhận hoàn tất đơn hàng");
@@ -6985,7 +6945,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
             Map<String, Object> reqBody = Map.of("fulfillment", fulfillmentObj);
             ResponseEntity<String> res = restTemplate.exchange(fulfillUrl, HttpMethod.POST, new HttpEntity<>(reqBody, headers), String.class);
-            if (res.getStatusCode().is2xxSuccessful()) {
+            if (res.getStatusCode().is2xxSuccessful() && res.getBody() != null
+                    && "success".equals(objectMapper.readTree(res.getBody()).path("fulfillment").path("status").asText())) {
                 log.info("[SHOPIFY-FULFILL] Tạo fulfillment thành công cho đơn {} trên Shopify (tracking: {}, carrier: {})",
                         maDonHangKenh, trackingNumber, trackingCompany);
                 capNhatTagVaNoteShopify(domain, token, maDonHangKenh, "Đã hoàn tất",
@@ -6995,6 +6956,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             }
         } catch (org.springframework.web.client.HttpStatusCodeException e) {
             if (e.getStatusCode() == HttpStatus.UNPROCESSABLE_ENTITY && e.getResponseBodyAsString().contains("already")) {
+                if (!shopifyDaHoanTatDon(restTemplate, domain, headers, maDonHangKenh)) return false;
                 log.info("[SHOPIFY-FULFILL] Đơn hàng {} đã được fulfilled trước đó trên Shopify", maDonHangKenh);
                 capNhatTagVaNoteShopify(domain, token, maDonHangKenh, "Đã hoàn tất",
                         List.of("Đang thực hiện", "Chờ đóng gói", "Chờ xuất kho"),
@@ -7006,6 +6968,18 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             log.error("[SHOPIFY-FULFILL] Lỗi kết nối khi tạo fulfillment đơn {}: {}", maDonHangKenh, e.getMessage());
         }
         return false;
+    }
+
+    private boolean shopifyDaHoanTatDon(RestTemplate restTemplate, String domain, HttpHeaders headers, String orderId) {
+        try {
+            String url = "https://" + domain + "/admin/api/" + DEFAULT_API_VERSION
+                    + "/orders/" + orderId + ".json?fields=id,fulfillment_status";
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, new HttpEntity<>(headers), String.class);
+            return response.getStatusCode().is2xxSuccessful() && response.getBody() != null
+                    && "fulfilled".equals(objectMapper.readTree(response.getBody()).path("order").path("fulfillment_status").asText());
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     @Override
@@ -7052,7 +7026,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             // Nếu đơn chưa từng được fulfill trên sàn, tự động gọi fulfill trước rồi mới tạo event delivered
             if (fulfillmentIds.isEmpty()) {
                 log.info("[SHOPIFY-DELIVERED] Đơn hàng {} chưa có fulfillment trên Shopify, tự động fulfill trước", maDonHangKenh);
-                dongBoTrangThaiFulfilledShopify(null, maDonHangKenh);
+                if (!dongBoTrangThaiFulfilledShopify(null, maDonHangKenh)) return false;
                 try {
                     Thread.sleep(300);
                 } catch (InterruptedException ignored) {}
@@ -7070,6 +7044,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 }
             }
 
+            if (fulfillmentIds.isEmpty()) return false;
+
             // 2. Gửi sự kiện delivered cho từng fulfillment
             for (Long fId : fulfillmentIds) {
                 String eventUrl = "https://" + domain + "/admin/api/" + DEFAULT_API_VERSION + "/orders/" + maDonHangKenh + "/fulfillments/" + fId + "/events.json";
@@ -7080,10 +7056,13 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 );
                 Map<String, Object> body = Map.of("event", eventObj);
                 try {
-                    restTemplate.exchange(eventUrl, HttpMethod.POST, new HttpEntity<>(body, headers), String.class);
+                    ResponseEntity<String> eventResponse = restTemplate.exchange(eventUrl, HttpMethod.POST, new HttpEntity<>(body, headers), String.class);
+                    if (!eventResponse.getStatusCode().is2xxSuccessful() || eventResponse.getBody() == null
+                            || !"delivered".equals(objectMapper.readTree(eventResponse.getBody()).path("fulfillment_event").path("status").asText())) return false;
                     log.info("[SHOPIFY-DELIVERED] Gửi sự kiện delivered cho fulfillment {} đơn {}", fId, maDonHangKenh);
                 } catch (Exception ex) {
                     log.warn("[SHOPIFY-DELIVERED] Không tạo được event delivered cho fulfillment {}: {}", fId, ex.getMessage());
+                    return false;
                 }
             }
 

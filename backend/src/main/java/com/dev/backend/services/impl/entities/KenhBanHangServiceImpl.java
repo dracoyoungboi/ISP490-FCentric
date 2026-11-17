@@ -517,6 +517,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                 String name = shopNode.path("name").asText(domain);
                 String email = shopNode.path("email").asText("");
                 String myshopifyDomain = shopNode.path("myshopify_domain").asText(domain);
+                Boolean orderProgressReady = kiemTraQuyenTienTrinhShopify(restTemplate, domain, headers);
 
                 return ShopifyTestConnectionResponse.builder()
                         .connected(true)
@@ -524,6 +525,10 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                         .shopEmail(email)
                         .myshopifyDomain(myshopifyDomain)
                         .message(ThongDiep.dich("kenhBan.ketNoiCuaHangShopifyThanhCong", name))
+                        .orderProgressReady(orderProgressReady)
+                        .orderProgressWarning(Boolean.TRUE.equals(orderProgressReady) ? null : ThongDiep.dich(
+                                orderProgressReady == null ? "kenhBan.shopifyChuaKiemTraQuyenTienTrinh"
+                                        : "kenhBan.shopifyThieuQuyenTienTrinh"))
                         .build();
             } else {
                 return ShopifyTestConnectionResponse.builder()
@@ -544,6 +549,23 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                     .connected(false)
                     .message(ThongDiep.dich("kenhBan.khongTheKetNoiShopify"))
                     .build();
+        }
+    }
+
+    private Boolean kiemTraQuyenTienTrinhShopify(RestTemplate restTemplate, String domain, HttpHeaders headers) {
+        try {
+            ResponseEntity<String> response = restTemplate.exchange("https://" + domain + "/admin/oauth/access_scopes.json",
+                    HttpMethod.GET, new HttpEntity<>(headers), String.class);
+            if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) return null;
+            JsonNode scopes = objectMapper.readTree(response.getBody()).path("access_scopes");
+            if (!scopes.isArray()) return null;
+            for (JsonNode scope : scopes) {
+                if ("write_merchant_managed_fulfillment_orders".equals(scope.path("handle").asText())) return true;
+            }
+            return false;
+        } catch (Exception e) {
+            log.warn("Không kiểm tra được quyền xử lý đơn Shopify ({})", e.getClass().getSimpleName());
+            return null;
         }
     }
 
