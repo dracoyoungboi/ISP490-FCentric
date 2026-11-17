@@ -47,9 +47,11 @@ Mọi kênh bán (Shopify, Lazada, Shopee, TikTok Shop) khi quét đơn về ph�
    - **Giai đoạn 3 - Đổi trạng thái thanh toán**: Cập nhật `trangThaiThanhToan = "da_thanh_toan"` khi sàn xác nhận thanh toán.
    - **Giai đoạn 4 - Đổi trạng thái vận chuyển (Tuân thủ tiến trình Phiếu xuất kho WMS)**:
      - `IN_TRANSIT` / `shipped`: Chuyển đơn sang `DA_XUAT_TOAN_BO` (3). **Ràng buộc bắt buộc**: Nếu đơn hàng có phiếu xuất kho đang trong quy trình xuất (`CHO_XUAT` hoặc `NHAP`), BẮT BUỘC giữ nguyên trạng thái kho của đơn (`DA_DONG_GOI` = 8 - Chờ xuất kho hoặc `CHO_DONG_GOI` = 7), TUYỆT ĐỐI KHÔNG tự ý chuyển sang `DA_XUAT_TOAN_BO` khi thủ kho chưa bấm xác nhận xuất kho thực tế.
-     - `DELIVERED` / `COMPLETED` / `fulfilled`: Chuyển đơn sang `HOAN_THANH` (5) khi đã hoàn tất xuất kho. Nếu kho chưa xuất, giữ nguyên trạng thái kho.
+     - `DELIVERED` / `COMPLETED`: Chuyển đơn sang `HOAN_THANH` (5) khi đã hoàn tất xuất kho. Nếu kho chưa xuất, giữ nguyên trạng thái kho. Riêng Shopify, `fulfilled` chỉ tương ứng `DA_XUAT_TOAN_BO` (3), không phải đã giao.
      - `failed_delivery` / `returned`: Chuyển đơn sang `BI_HOAN_TRA` (6).
    - **Giai đoạn 5 - Mã vận đơn (Tracking Code)**: Luôn cập nhật bổ sung `tracking_number` và `shipping_provider` vào đơn hàng nếu trước đó chưa có.
+
+**Shopify — tiến trình xử lý đơn (AUDIT-105, 18/11/2026):** Chờ nhặt (1), chờ đóng gói (7), chờ xuất (8) phải đồng bộ trạng thái gốc `IN_PROGRESS` bằng `fulfillmentOrderReportProgress` từ API `2026-04`, đầu vào `progressReport.reasonNotes`; kho tự quản lý cần `write_merchant_managed_fulfillment_orders`. Phân tích JSON `errors` và `userErrors`, kiểm tra `supportedActions` và trạng thái trả về; không coi HTTP 200 hoặc tag là thành công. Không tạo fulfillment trước khi kho xuất thật. Theo dõi nghiệm thu tại `docs/tien-do-nghiem-thu.md`.
 
 ---
 

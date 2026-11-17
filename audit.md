@@ -4,6 +4,8 @@
 > **Mục đích**: Ghi nhận toàn bộ các thay đổi phát sinh trên hệ thống (Thêm mới, Chỉnh sửa, Tái cấu trúc, Sửa lỗi, Cấu hình).  
 > **Nguyên tắc**: Bất kỳ sự thay đổi nào đối với mã nguồn, tài liệu hoặc cấu hình đều phải được bổ sung vào tệp này theo thứ tự thời gian.  
 
+> **Tiến độ hiện hành (18/11/2026):** Xem [bảng triển khai và nghiệm thu](docs/tien-do-nghiem-thu.md). Các kết luận hoàn tất trong mục cũ là báo cáo của lần triển khai đó, không thay thế nghiệm thu thực tế. AUDIT-105 sửa lại nguyên nhân và cách đồng bộ trạng thái Shopify được mô tả ở AUDIT-103/104.
+
 ---
 
 ## BẢNG TỔNG HỢP NHẬT KÝ THAY ĐỔI (AUDIT LOGS)
@@ -114,6 +116,7 @@
 | **AUDIT-102** | `2026-11-17 16:40:00` | PhanAnh & Antigravity AI | Bug Fix & Architecture / Khắc phục lỗi Hibernate AssertionFailure khi tắt đa kho Shopify, nâng cấp cột cau_hinh_he_thong gia_tri sang TEXT và hoàn thiện định tuyến đơn theo Location paired | `CauHinhHeThong.java`, `TrangThaiDongBoTableInitializer.java`, `KenhBanHangDongBoServiceImpl.java`, `OmnichannelOrderSyncJob.java`, `ShopifyMultiLocationInventoryTest.java`, `audit.md`, `ke-hoach-dinh-tuyen-don-hang-da-kho-san.md` | Khắc phục dứt điểm lỗi 'AssertionFailure: Entry for instance of LichSuThayDoi has a null identifier' khi tắt đa kho Shopify: Phát hiện nguyên nhân gốc rễ do chuỗi JSON cấu hình ánh xạ kho vượt quá 255 ký tự gây Data truncation trên cột VARCHAR(255) cau_hinh_he_thong.gia_tri, exception bị nuốt trong ghiNhatKy khiến entity LichSuThayDoi dở dang trong Hibernate session; Nâng cấp cột gia_tri lên TEXT và tự động migration qua TrangThaiDongBoTableInitializer; Chuyển ghiNhatKy sang transaction riêng createGiaoDichRieng (Propagation.REQUIRES_NEW) bảo vệ session chính; Nâng cấp bộ định tuyến đơn hàng Shopify theo location_id/assigned_location_id chuẩn hóa so khớp GID/ID số hai chiều và tự động ghi chú kho xuất; Đạt 6/6 unit tests và live integration test PASS 100%. |
 | **AUDIT-103** | `2026-11-17 18:15:00` | PhanAnh & Antigravity AI | Handover & Architecture / Phân tích RCA và Kế hoạch khắc phục triệt để 5 trạng thái đỏ đơn hàng Shopify theo chuẩn Sapo | `docs/ke-hoach-dong-bo-trang-thai-don-hang-shopify-toan-dien.md`, `audit.md` | Tổng hợp toàn bộ bối cảnh phiên làm việc bàn giao sang đoạn chat mới; Khảo sát RCA chuyên sâu 5 trạng thái đỏ: Đang thực hiện (thiếu triggers & API xung đột Standard Location), Đã hoàn tất (bị nghẽn do KenhBanHangSyncServiceImpl chỉ in log chưa gọi service & payload thiếu line_items), Đã giao (phụ thuộc fulfillment & scope write_shipping), Bị hoàn trả (chỉ gắn tag chưa gọi Refund API với restock_type: no_restock theo chuẩn Sapo); Lập lộ trình 7 bước giải pháp kiến trúc đồng bộ hai chiều. |
 | **AUDIT-104** | `2026-11-17 19:15:00` | PhanAnh & Antigravity AI | Feat & Architecture / Hoàn tất triển khai đồng bộ vòng đời đơn hàng Shopify hai chiều 5 trạng thái đỏ theo chuẩn Sapo | `KenhBanHangSyncServiceImpl.java`, `KenhBanHangDongBoService.java`, `KenhBanHangDongBoServiceImpl.java`, `DonBanHangService.java`, `ShopifyStatusSyncTest.java`, `audit.md` | Hoàn thiện 100% 5 trạng thái đỏ Shopify: Nối dây pushOrderStatus kích hoạt xuất kho fulfilled cho Shopify, Lazada và TikTok; Nâng cấp dongBoTrangThaiFulfilledShopify với line_items_by_fulfillment_order chi tiết từng item và tracking; Hoàn thiện dongBoTrangThaiDangThucHienShopify sửa mutation notes và cập nhật tags note; Hoàn thiện dongBoTrangThaiDeliveredShopify tự fulfill trước khi gửi sự kiện delivered; Triển khai dongBoHoanTraVaHoanTienShopify tự fulfill nếu unfulfilled và gọi Refunds API với restock_type: no_restock và suggested_transactions chuẩn Sapo; 14/14 unit tests PASS 100%, i18n 725 tệp sạch. |
+| **AUDIT-105** | `2026-11-18 02:55:00` | Codex / PhanAnh | Fix / Shopify & nghiệm thu | Client, service, DTO, UI, i18n, tests, docs | Sửa API tiến trình gốc 2026-04 và reasonNotes, chặn báo thành công sai, đối soát sau commit, xác nhận thiếu quyền Shopify thật; bảng nghiệm thu riêng và kiểm thử hồi quy. |
 
 
 ---
@@ -3821,6 +3824,53 @@
    - Chạy hồi quy `ShopifyMultiLocationInventoryTest`: **6/6 tests PASS 100%**.
 2. **Kiểm tra đa ngôn ngữ Frontend**:
    - `npm run i18n:kiem`: **Tệp kiểm: 725 · Chưa bọc: 0 · Thiếu bản dịch: 0 · Lệch: 0**.
+
+---
+
+### [AUDIT-105] SỬA ĐỒNG BỘ TRẠNG THÁI GỐC SHOPIFY VÀ TÁCH TRIỂN KHAI KHỎI NGHIỆM THU
+
+- **Thời gian**: `2026-11-18 02:55:00` (GMT+7).
+- **Tác giả thực hiện**: Codex, theo yêu cầu PhanAnh.
+- **Phân hệ ảnh hưởng**: Shopify, đơn bán, tiến trình kho, kiểm tra kết nối, đa ngôn ngữ và tài liệu nghiệm thu.
+- **Tệp thay đổi**:
+  - `backend/src/main/java/com/dev/backend/services/shopify/ShopifyOrderProgressClient.java`.
+  - `backend/src/main/java/com/dev/backend/services/impl/entities/KenhBanHangDongBoServiceImpl.java`.
+  - `backend/src/main/java/com/dev/backend/services/impl/entities/KenhBanHangServiceImpl.java`.
+  - `backend/src/main/java/com/dev/backend/workers/OmnichannelOrderSyncJob.java`.
+  - `backend/src/main/java/com/dev/backend/dto/response/customize/ShopifyTestConnectionResponse.java`.
+  - `backend/src/main/resources/i18n/thong-diep/kenhBan.properties`, `kenhBan_en.properties`, `keToanDuLieuVao_en.properties`.
+  - `backend/src/test/java/com/dev/backend/services/shopify/ShopifyOrderProgressClientTest.java`, `ShopifyFulfillmentContractTest.java`, `ShopifyStatusSyncTest.java`.
+  - `backend/src/test/java/com/dev/backend/services/impl/entities/ShopifyConnectionPermissionTest.java`, `DonBanHangServiceGiaoHangSanTest.java`, `PhieuXuatKhoDispatchTest.java`.
+  - `backend/src/test/java/com/dev/backend/workers/OmnichannelOrderSyncJobTest.java`.
+  - `frontend/src/components/channel/KetNoiShopifyForm.jsx`.
+  - `frontend/src/pages/channels/ChannelSettingsPage.jsx`, `ChannelSetupWizard.jsx`.
+  - `docs/tien-do-nghiem-thu.md`, `docs/ke-hoach-dong-bo-trang-thai-don-hang-shopify-toan-dien.md`, `.agents/rules/omnichannel-standards.md`, `README.md`, `audit.md`.
+
+#### Mục tiêu và phân tích nguyên nhân gốc rễ
+
+Người dùng phản ánh đơn FCentric chờ nhặt, chờ đóng gói vẫn hiện Chưa hoàn tất trên Shopify, dù AUDIT-104 ghi hoàn tất triển khai. Mã cũ gọi mutation báo tiến trình qua `2024-01`, dùng sai `progressReport.notes`, kiểm lỗi bằng so sánh chuỗi JSON rồi vẫn trả thành công sau khi gắn tag. Tài liệu Shopify hiện hành xác nhận mutation hỗ trợ kho tự quản lý từ `2026-04`, dùng `reasonNotes`; tag không đổi trạng thái fulfillment gốc.
+
+Kiểm tra **chỉ đọc** trên DB vận hành và Shopify đang cấu hình: quyền truy cập hợp lệ (HTTP 200), nhưng chỉ có `read_fulfillments`, `write_fulfillments`, `write_orders` trong nhóm quyền liên quan; GraphQL 2026-04 trả `ACCESS_DENIED` cho `fulfillmentOrders`. Thiếu `write_merchant_managed_fulfillment_orders` là rào cản thực tế còn phải cấp lại ở Shopify. Không có lỗi SQL hay stack trace DB trong kiểm tra này. Không in khóa, dữ liệu khách hoặc ghi đơn/tồn/tiền trong phép đối chiếu.
+
+Rà soát hồi quy còn phát hiện nhánh fulfilled cũ có thể coi danh sách fulfillment order rỗng là đã hoàn tất, và nhánh delivered có thể nuốt lỗi tạo sự kiện rồi vẫn báo đã giao. Một kỳ vọng test xuất kho cũ nhập nhằng phí thu khách với cước thực trả hãng vận chuyển.
+
+#### Giải pháp kỹ thuật và chi tiết triển khai
+
+1. Tách `ShopifyOrderProgressClient`, ghim API `2026-04`; query có phân trang, biến GraphQL và `supportedActions`; mutation dùng `reasonNotes`. Chỉ thành công khi mọi fulfillment order còn xử lý được xác nhận `IN_PROGRESS`; đã ở trạng thái này thì không phát mutation lần nữa. Từ chối lỗi HTTP, GraphQL `errors`, `userErrors`, dữ liệu thiếu và thành công một phần. Không chấp nhận chuyển hướng HTTP mang khóa sang nơi khác.
+2. Dùng client mới trong các hook kho đã có. Đối soát lại đơn trạng thái 1/7/8 khi lấy đơn, sau commit; không đổi tồn hay tiền. Không quét ngoài khoảng ngày yêu cầu. Bỏ phương án giả trạng thái bằng tag và gọi accept dành cho 3PL.
+3. Chỉ coi fulfilled/delivered thành công khi dữ liệu Shopify xác nhận. Không gửi toàn bộ dòng ngầm định nếu danh sách lượng còn xuất rỗng; không gắn Đã giao sau lỗi sự kiện.
+4. Kiểm tra kết nối trả riêng `orderProgressReady` (true/false/null) và câu hướng dẫn thiếu quyền/không kiểm được quyền; giao diện hiển thị cảnh báo, không đánh đồng kết nối tốt với được phép cập nhật đơn.
+5. Bổ sung thông điệp VI/EN; sửa hai câu lỗi khóa đồng bộ và khóa cấu hình còn thiếu do bộ kiểm phát hiện; viết đôi dấu nháy MessageFormat trong một thông điệp kế toán tiếng Anh.
+6. Bổ sung kiểm thử GraphQL/HTTP, đối soát sau commit, hoàn trả `no_restock`, nhận hoàn tiền một phần giữ hóa đơn gốc; sửa test để phí thu khách và cước thực tế nằm riêng. Không triển khai giả nghiệp vụ xuất hoàn một phần bằng cách hoàn toàn đơn.
+7. Lập bảng tiến độ chung và ma trận Shopify theo ảnh yêu cầu, phân biệt mã/test tự động/thử thật/nghiệm thu. Đánh dấu giới hạn hoàn từng dòng, Return riêng, chống hoàn tiền lặp và kiểm thử HTTP trên MySQL test. Giữ audit cũ như lịch sử, bổ sung thông tin đính chính trong tài liệu bàn giao.
+
+#### Kết quả kiểm thử và đối soát hồi quy
+
+- Backend: 214 bài kiểm thử mục tiêu đạt, không lỗi hoặc bỏ qua; kiểm tra client, quyền kết nối, trạng thái, tồn đa kho, nhận đơn, xuất kho, POS, nhặt chuyển kho, bằng chứng đóng gói. Kiểm thử HTTP Shopify dùng máy chủ giả, không phải mutation lên gian hàng thật.
+- Frontend sau nhập cập nhật Dev `b3df8fae`: 692 bài, 691 đạt, 1 bỏ qua, không lỗi; i18n 726 tệp sạch; ESLint ba JSX sửa và build đạt.
+- Bộ kiểm thông điệp backend trên bốn tệp nguồn sửa: 0 câu sót, 0 khóa thiếu, 0 lỗi kho câu. Đóng gói backend đạt.
+- Đã kết nối đọc DB thật và kiểm tra quyền Shopify thật, xác nhận thiếu quyền xử lý fulfillment order do cửa hàng tự quản lý. Người dùng chọn tiếp tục sửa mã, ghi rõ bước cấp quyền còn thiếu; chưa nghiệm thu đổi trạng thái/hoàn tiền thật.
+- Kiểm thử xuyên suốt kho qua MySQL riêng chưa chạy: Docker Engine chưa hoạt động; không chạy fixture có xóa dữ liệu lên DB vận hành. Không có kết luận hoàn tất nghiệm thu toàn bộ dự án.
 
 
 

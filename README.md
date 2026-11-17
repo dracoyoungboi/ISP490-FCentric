@@ -15,5 +15,7 @@ The software is developed under the project:
 - Manage stock across multiple warehouses.
 - Integrate point-of-sale operations and in-store sales.
 - Synchronize orders and inventory in real time.
-- Support future integrations with Shopee, Lazada, and Shopify.
+- Integrate Shopify, Shopee, Lazada, and TikTok Shop for product, inventory, and order synchronization.
 - Provide a centralized platform for fashion retail and warehouse management.
+
+Implementation and acceptance are tracked separately in [the current progress and acceptance matrix](docs/tien-do-nghiem-thu.md). Shopify order progress updates require the app's merchant-managed fulfillment order permission.

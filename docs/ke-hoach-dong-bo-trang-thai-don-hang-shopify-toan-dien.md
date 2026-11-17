@@ -1,5 +1,7 @@
 # KẾ HOẠCH & TÀI LIỆU BÀN GIAO: ĐỒNG BỘ TRẠNG THÁI ĐƠN HÀNG SHOPIFY HAI CHIỀU TOÀN DIỆN
 
+> **Cập nhật 18/11/2026 — AUDIT-105:** Đây là kế hoạch lịch sử ngày 17/11, không phải xác nhận nghiệm thu. Kết luận cũ rằng API báo tiến trình chỉ dành cho kho thuê ngoài và gắn tag có thể thay thế trạng thái gốc đã lỗi thời. API `2026-04` hỗ trợ kho do cửa hàng tự quản lý; đầu vào đúng là `progressReport.reasonNotes`. Kết nối thật hiện thiếu quyền `write_merchant_managed_fulfillment_orders`. Theo dõi kết quả và phần chưa đạt tại [bảng tiến độ, ma trận nghiệm thu hiện hành](tien-do-nghiem-thu.md).
+
 > **Dự án**: FCentric Omnichannel Retail & Warehouse Management System  
 > **Tài liệu**: Handover & Implementation Blueprint - Omnichannel Shopify Order Lifecycle Synchronization  
 > **Thời gian khởi tạo**: 17/11/2026  
