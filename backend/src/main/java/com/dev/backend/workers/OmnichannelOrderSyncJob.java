@@ -1928,9 +1928,10 @@ public class OmnichannelOrderSyncJob {
             case "UNPAID" -> ITrangThaiDonBanHang.NHAP;
             case "READY_TO_SHIP" -> ITrangThaiDonBanHang.CHO_NHAT_HANG;
             case "PROCESSED" -> ITrangThaiDonBanHang.CHO_DONG_GOI;
-            case "SHIPPED" -> ITrangThaiDonBanHang.DA_XUAT_TOAN_BO;
+            case "SHIPPED", "TO_CONFIRM_RECEIVE" -> ITrangThaiDonBanHang.DA_XUAT_TOAN_BO;
             case "COMPLETED" -> ITrangThaiDonBanHang.HOAN_THANH;
             case "CANCELLED", "IN_CANCEL" -> ITrangThaiDonBanHang.DA_HUY;
+            case "TO_RETURN", "RETURNED", "RETURN_REFUND" -> ITrangThaiDonBanHang.BI_HOAN_TRA;
             default -> ITrangThaiDonBanHang.CHO_NHAT_HANG;
         };
     }

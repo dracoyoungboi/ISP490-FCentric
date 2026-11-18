@@ -1097,11 +1097,13 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                 log.info("[CHANNEL-SHIPPED] Đơn {} đang vận chuyển trên sàn -> Chuyển Đã xuất toàn bộ (3)", don.getSoDonHang());
                 return true;
             }
-        } else if (st.contains("failed_delivery") || st.contains("returned") || st.contains("refunded") || st.contains("to_return")) {
-            // Chỉ hoàn trả khi đơn đã xuất hoặc đã hoàn thành
+        } else if (st.contains("failed_delivery") || st.contains("returned") || st.contains("refunded")
+                || st.contains("to_return") || st.contains("return_refund")) {
+            // Chỉ hoàn trả khi đơn đã xuất hoặc đã hoàn thành, hoặc đang chuẩn bị hàng/chờ đóng gói
             if (trangThaiHienTai == ITrangThaiDonBanHang.DA_XUAT_TOAN_BO
                     || trangThaiHienTai == ITrangThaiDonBanHang.HOAN_THANH
                     || trangThaiHienTai == ITrangThaiDonBanHang.DA_DONG_GOI
+                    || trangThaiHienTai == ITrangThaiDonBanHang.CHO_DONG_GOI
                     || trangThaiHienTai == ITrangThaiDonBanHang.DANG_XUAT_KHO) {
                 don.setTrangThai(ITrangThaiDonBanHang.BI_HOAN_TRA);
                 don.setNgayCapNhat(Instant.now());
