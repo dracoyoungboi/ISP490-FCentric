@@ -1578,4 +1578,164 @@ class KenhBanHangDongBoServiceTest {
 
         assertTrue(ok);
     }
+
+    @Test
+    @DisplayName("TikTok Shop: Tự động trích xuất mã 12052533 từ message khi code = -1 và dịch thân thiện")
+    void phanLoaiLoiTikTok_khiCodeTru1VaChua12052533_trichXuatDungMaLoiVaHuongDanKhoGoc() {
+        var kq = service.phanLoaiLoiTikTok(-1,
+                "Lỗi từ TikTok Shop (12052533): Operation Not Allowed. Cannot remove, add, or change warehouses for SKU(s) '1738587264603882652': warehouse changes are not permitted for these SKUs. Please specify the original warehouse for each listed SKU and retry.",
+                null);
+        assertFalse(kq.thanhCong());
+        assertFalse(kq.loiKenh());
+        assertTrue(kq.lyDo().contains("12052533") && kq.lyDo().contains("kho gốc"));
+    }
+
+    @Test
+    @DisplayName("TikTok Shop: Khi gặp lỗi kho gốc 12052533, tự động gọi getProduct lấy warehouse_id gốc và thử đẩy tồn lại thành công")
+    void guiTonLenTikTok_khiGapLoi12052533_tuDongLayKhoGocQuaGetProductVaRetryThanhCong() {
+        var mockClient = mock(com.dev.backend.services.tiktok.TikTokShopClient.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "tiktokShopClient", mockClient);
+
+        KenhBanHang tikTokKenh = KenhBanHang.builder().id(5).maKenh("TIKTOK").trangThai(1).build();
+        BienTheSanPham bt = BienTheSanPham.builder().id(171).maSku("AP2611011-CL001-M-MS-0905").build();
+        TrangThaiDongBoSanPham dong = TrangThaiDongBoSanPham.builder()
+                .id(501)
+                .kenhBanHang(tikTokKenh)
+                .bienTheSanPham(bt)
+                .maSanPhamKenh("1738587264603882652")
+                .trangThaiDongBo("that_bai")
+                .build();
+
+        when(kenhBanHangService.getTikTokAppKey()).thenReturn("app_k");
+        when(kenhBanHangService.getDecryptedTikTokAppSecret()).thenReturn("app_s");
+        when(kenhBanHangService.getDecryptedTikTokAccessToken()).thenReturn("tok_1");
+        when(kenhBanHangService.getTikTokShopCipher()).thenReturn("ROW_CIPHER");
+        when(dieuHanhHeThongService.getCauHinhString(eq("KENH_TIKTOK_MA_KHO_SAN"), any())).thenReturn("wh_moi_999");
+
+        // searchProducts ban đầu trả về sản phẩm chưa có mảng inventory (giả lập cache cũ)
+        var skuNoInv = com.dev.backend.dto.response.customize.TikTokSkuDto.builder()
+                .id("1738587264603882652")
+                .sellerSku("AP2611011-CL001-M-MS-0905")
+                .build();
+        var prodNoInv = com.dev.backend.dto.response.customize.TikTokProductDto.builder()
+                .id("100001")
+                .title("Áo polo bảo hộ")
+                .status("ACTIVATE")
+                .skus(List.of(skuNoInv))
+                .build();
+        var searchResp = new com.dev.backend.dto.response.customize.TikTokProductSearchResponse();
+        var searchData = new com.dev.backend.dto.response.customize.TikTokProductSearchResponse.ProductSearchData();
+        searchData.setProducts(List.of(prodNoInv));
+        searchResp.setData(searchData);
+        when(mockClient.searchProducts(any(), any(), any(), any(), anyInt(), any())).thenReturn(searchResp);
+
+        // getProduct trả về warehouse_id gốc thực tế của SKU trên sàn là wh_goc_111
+        var skuWithInv = com.dev.backend.dto.response.customize.TikTokSkuDto.builder()
+                .id("1738587264603882652")
+                .sellerSku("AP2611011-CL001-M-MS-0905")
+                .inventory(List.of(new com.dev.backend.dto.response.customize.TikTokSkuDto.Inventory("wh_goc_111", 4)))
+                .build();
+        var prodWithInv = com.dev.backend.dto.response.customize.TikTokProductDto.builder()
+                .id("100001")
+                .status("ACTIVATE")
+                .skus(List.of(skuWithInv))
+                .build();
+        when(mockClient.getProduct(any(), any(), any(), any(), eq("100001"))).thenReturn(prodWithInv);
+
+        // Lần 1 gửi với wh_moi_999 bị lỗi 12052533; lần 2 gửi với wh_goc_111 thành công
+        var okResp = new com.dev.backend.dto.response.customize.TikTokInventoryUpdateResponse();
+        okResp.setCode(0);
+        when(mockClient.updateProductInventory(any(), any(), any(), any(), eq("100001"), any()))
+                .thenAnswer(inv -> {
+                    var req = (com.dev.backend.dto.request.TikTokInventoryUpdateRequest) inv.getArgument(5);
+                    String whSent = req.getSkus().get(0).getInventory().get(0).getWarehouseId();
+                    if ("wh_moi_999".equals(whSent)) {
+                        throw new com.dev.backend.exception.customize.LoiCoMaException(
+                                org.springframework.http.HttpStatus.BAD_REQUEST,
+                                com.dev.backend.exception.customize.MaLoi.TIKTOK_API_ERROR,
+                                "Lỗi từ TikTok Shop (12052533): Operation Not Allowed. Cannot remove, add, or change warehouses for SKU(s) '1738587264603882652': warehouse changes are not permitted");
+                    }
+                    return okResp;
+                });
+
+        var kq = service.guiTonLenTikTok(dong, 9);
+
+        assertTrue(kq.thanhCong(), "Phải tự động phục hồi và đẩy tồn thành công với kho gốc wh_goc_111");
+        org.mockito.ArgumentCaptor<com.dev.backend.dto.request.TikTokInventoryUpdateRequest> reqCaptor =
+                org.mockito.ArgumentCaptor.forClass(com.dev.backend.dto.request.TikTokInventoryUpdateRequest.class);
+        verify(mockClient, times(2)).updateProductInventory(any(), any(), any(), any(), eq("100001"), reqCaptor.capture());
+        assertEquals("wh_goc_111", reqCaptor.getAllValues().get(1).getSkus().get(0).getInventory().get(0).getWarehouseId());
+        assertEquals(9, reqCaptor.getAllValues().get(1).getSkus().get(0).getInventory().get(0).getQuantity());
+    }
+
+    @Test
+    @DisplayName("TikTok Shop: Khi đẩy lô gặp lỗi 12052557, tách lẻ tự phục hồi Product ID và giữ nguyên maSanPhamKenh")
+    void dayTonTikTokToiUu_khiGapLoi12052557_tachLeTuSuaKhongXoaTrangMaSanPhamKenh() {
+        var mockClient = mock(com.dev.backend.services.tiktok.TikTokShopClient.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "tiktokShopClient", mockClient);
+
+        KenhBanHang tikTokKenh = KenhBanHang.builder().id(5).maKenh("TIKTOK").tenKenh("TikTok Shop").trangThai(1).build();
+        BienTheSanPham bt = BienTheSanPham.builder().id(172).maSku("AK2610121-CL-4036-S-MS-7330").build();
+        TrangThaiDongBoSanPham dong = TrangThaiDongBoSanPham.builder()
+                .id(502)
+                .kenhBanHang(tikTokKenh)
+                .bienTheSanPham(bt)
+                .maSanPhamKenh("1738587175936623772")
+                .soLuongDaDay(10)
+                .trangThaiDongBo("thanh_cong")
+                .choPhepDongBo(true)
+                .build();
+
+        when(kenhBanHangRepository.findByMaKenh("TIKTOK")).thenReturn(Optional.of(tikTokKenh));
+        when(trangThaiDongBoSanPhamRepository.findByKenhBanHangId(5)).thenReturn(List.of(dong));
+        when(tonKhoTongHopRepository.sumTongFreeToUseToanHeThongByBienTheIds(List.of(172)))
+                .thenReturn(List.<Object[]>of(new Object[]{172, BigDecimal.valueOf(48)}));
+
+        when(kenhBanHangService.getTikTokAppKey()).thenReturn("app_k");
+        when(kenhBanHangService.getDecryptedTikTokAppSecret()).thenReturn("app_s");
+        when(kenhBanHangService.getDecryptedTikTokAccessToken()).thenReturn("tok_1");
+        when(kenhBanHangService.getTikTokShopCipher()).thenReturn("ROW_CIPHER");
+        when(dieuHanhHeThongService.getCauHinhString(eq("KENH_TIKTOK_MA_KHO_SAN"), any())).thenReturn("wh_goc_111");
+
+        // Cache ban đầu ánh xạ SKU vào productId cũ 99999
+        var sku = com.dev.backend.dto.response.customize.TikTokSkuDto.builder()
+                .id("1738587175936623772")
+                .sellerSku("AK2610121-CL-4036-S-MS-7330")
+                .inventory(List.of(new com.dev.backend.dto.response.customize.TikTokSkuDto.Inventory("wh_goc_111", 43)))
+                .build();
+        var oldProd = com.dev.backend.dto.response.customize.TikTokProductDto.builder()
+                .id("99999").status("ACTIVATE").skus(List.of(sku)).build();
+        var oldSearchResp = new com.dev.backend.dto.response.customize.TikTokProductSearchResponse();
+        var oldData = new com.dev.backend.dto.response.customize.TikTokProductSearchResponse.ProductSearchData();
+        oldData.setProducts(List.of(oldProd));
+        oldSearchResp.setData(oldData);
+
+        var newProd = com.dev.backend.dto.response.customize.TikTokProductDto.builder()
+                .id("88888").status("ACTIVATE").skus(List.of(sku)).build();
+        var newSearchResp = new com.dev.backend.dto.response.customize.TikTokProductSearchResponse();
+        var newData = new com.dev.backend.dto.response.customize.TikTokProductSearchResponse.ProductSearchData();
+        newData.setProducts(List.of(newProd));
+        newSearchResp.setData(newData);
+
+        when(mockClient.searchProducts(any(), any(), any(), any(), anyInt(), any())).thenReturn(oldSearchResp);
+        when(mockClient.searchProducts(any(), any(), any(), any(), anyInt(), any(), any(), any())).thenReturn(newSearchResp);
+
+        var okResp = new com.dev.backend.dto.response.customize.TikTokInventoryUpdateResponse();
+        okResp.setCode(0);
+        when(mockClient.updateProductInventory(any(), any(), any(), any(), eq("99999"), any()))
+                .thenThrow(new com.dev.backend.exception.customize.LoiCoMaException(
+                        org.springframework.http.HttpStatus.BAD_REQUEST,
+                        com.dev.backend.exception.customize.MaLoi.TIKTOK_API_ERROR,
+                        "Lỗi từ TikTok Shop (12052557): sku_id not belong to the product"));
+        when(mockClient.updateProductInventory(any(), any(), any(), any(), eq("88888"), any()))
+                .thenReturn(okResp);
+
+        DayTonResultDto result = service.dayTonKhoLenKenh("TIKTOK", DayTonKenhRequest.builder().tyLeDayTon(BigDecimal.valueOf(100)).tonDem(0).nguongVe0(0).build());
+
+        assertEquals(0, result.getSoLoi());
+        assertNull(result.getLoiKenh());
+        assertEquals("1738587175936623772", dong.getMaSanPhamKenh(), "Tuyệt đối không xóa trắng maSanPhamKenh khi gặp 12052557");
+        assertEquals("thanh_cong", dong.getTrangThaiDongBo());
+        assertEquals(48, dong.getSoLuongDaDay());
+    }
 }

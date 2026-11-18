@@ -712,4 +712,92 @@ class TikTokShopClientTest {
         assertEquals(com.dev.backend.exception.customize.MaLoi.TIKTOK_TOKEN_EXPIRED, ex.getMa());
         assertEquals(HttpStatus.UNAUTHORIZED, ex.getStatus());
     }
+
+    @Test
+    @DisplayName("searchProducts: Parse đầy đủ skus[].inventory[] chứa warehouse_id gốc và quantity")
+    void searchProducts_docDungInventoryWarehouseIdVaQuantity() {
+        String mockResponseBody = """
+                {
+                    "code": 0,
+                    "message": "Success",
+                    "data": {
+                        "products": [
+                            {
+                                "id": "1729584739281726354",
+                                "title": "Áo polo bảo hộ lao động ngắn tay",
+                                "status": "ACTIVATE",
+                                "skus": [
+                                    {
+                                        "id": "1738587264603882652",
+                                        "seller_sku": "AP2611011-CL001-M-MS-0905",
+                                        "inventory": [
+                                            {
+                                                "warehouse_id": "7702121381413914388",
+                                                "quantity": 9
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                }
+                """;
+
+        when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(), eq(String.class)))
+                .thenReturn(new ResponseEntity<>(mockResponseBody, HttpStatus.OK));
+
+        var res = client.searchProducts("app_k", "app_s", "tok", "ROW_CIPHER", 20, null);
+        assertNotNull(res);
+        assertEquals(1, res.getProducts().size());
+        var sku = res.getProducts().get(0).getSkus().get(0);
+        assertEquals("1738587264603882652", sku.getId());
+        assertNotNull(sku.getInventory());
+        assertEquals(1, sku.getInventory().size());
+        assertEquals("7702121381413914388", sku.getInventory().get(0).getWarehouseId());
+        assertEquals(9, sku.getInventory().get(0).getQuantity());
+    }
+
+    @Test
+    @DisplayName("getProduct: Lấy chi tiết sản phẩm kèm warehouse_id gốc của từng SKU")
+    void getProduct_docDungSkuVaWarehouseGoc() {
+        String productId = "1729584739281726354";
+        String mockResponseBody = """
+                {
+                    "code": 0,
+                    "message": "Success",
+                    "data": {
+                        "id": "1729584739281726354",
+                        "title": "Áo Khoác Blouson Cản Gió Cổ Đứng",
+                        "status": "ACTIVATE",
+                        "skus": [
+                            {
+                                "id": "1738587175936623772",
+                                "seller_sku": "AK2610121-CL-4036-S-MS-7330",
+                                "inventory": [
+                                    {
+                                        "warehouse_id": "7702121381413914001",
+                                        "quantity": 43
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                }
+                """;
+
+        ArgumentCaptor<String> urlCaptor = ArgumentCaptor.forClass(String.class);
+        when(restTemplate.exchange(urlCaptor.capture(), eq(HttpMethod.GET), any(), eq(String.class)))
+                .thenReturn(new ResponseEntity<>(mockResponseBody, HttpStatus.OK));
+
+        var prod = client.getProduct("app_k", "app_s", "tok", "ROW_CIPHER", productId);
+
+        assertNotNull(prod);
+        assertEquals(productId, prod.getId());
+        assertNotNull(prod.getSkus());
+        assertEquals(1, prod.getSkus().size());
+        assertEquals("1738587175936623772", prod.getSkus().get(0).getId());
+        assertEquals("7702121381413914001", prod.getSkus().get(0).getInventory().get(0).getWarehouseId());
+        assertTrue(urlCaptor.getValue().contains("/product/202309/products/" + productId));
+    }
 }
