@@ -8,6 +8,7 @@ import com.dev.backend.dto.response.entities.LienKetSanPhamDto;
 import com.dev.backend.entities.AnhQuanAo;
 import com.dev.backend.entities.BienTheSanPham;
 import com.dev.backend.entities.DanhMucQuanAo;
+import com.dev.backend.entities.DonBanHang;
 import com.dev.backend.entities.KenhBanHang;
 import com.dev.backend.entities.SanPhamQuanAo;
 import com.dev.backend.entities.TepTin;
@@ -85,6 +86,8 @@ class KenhBanHangDongBoServiceTest {
     private com.dev.backend.workers.OmnichannelOrderSyncJob omnichannelOrderSyncJob;
     @Mock
     private DieuHanhHeThongService dieuHanhHeThongService;
+    @Mock
+    private DonBanHangRepository donBanHangRepository;
 
     private KenhBanHangDongBoServiceImpl service;
 
@@ -110,6 +113,7 @@ class KenhBanHangDongBoServiceTest {
                 omnichannelOrderSyncJob,
                 dieuHanhHeThongService
         );
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "donBanHangRepository", donBanHangRepository);
 
         shopifyKenh = KenhBanHang.builder()
                 .id(1)
@@ -1511,5 +1515,67 @@ class KenhBanHangDongBoServiceTest {
         // Shopee không bị ảnh hưởng
         assertTrue(mappingShopee.getChoPhepDongBo(), "Sàn B vẫn giữ nguyên cho phép đồng bộ");
         assertEquals("thanh_cong", mappingShopee.getTrangThaiDongBo(), "Sàn B vẫn giữ nguyên trạng thái thành công");
+    }
+
+    @Test
+    @DisplayName("Shopee: Đồng bộ trạng thái Người bán đang chuẩn bị hàng (PROCESSED) và lấy mã vận đơn SPX")
+    void dongBoTrangThaiChuanBiHangShopee_thanhCong_capNhatVanDon() {
+        KenhBanHang shopee = KenhBanHang.builder().id(4).maKenh("SHOPEE").trangThai(1).build();
+        DonBanHang don = DonBanHang.builder().id(88).soDonHang("SHP-241105999888").maDonHangKenh("241105999888").kenhBanHang(shopee).ghiChu("Đơn Shopee").build();
+        when(donBanHangRepository.findByMaDonHangKenh("241105999888")).thenReturn(Optional.of(don));
+        when(kenhBanHangRepository.findByMaKenh("SHOPEE")).thenReturn(Optional.of(shopee));
+
+        boolean ok = service.dongBoTrangThaiChuanBiHangShopee("241105999888");
+
+        assertTrue(ok);
+        verify(donBanHangRepository).save(don);
+        assertTrue(don.getGhiChu().contains("[VẬN ĐƠN:"));
+    }
+
+    @Test
+    @DisplayName("Shopee: Đồng bộ trạng thái Xuất kho vật lý")
+    void dongBoTrangThaiXuatKhoShopee_thanhCong() {
+        KenhBanHang shopee = KenhBanHang.builder().id(4).maKenh("SHOPEE").trangThai(1).build();
+        DonBanHang don = DonBanHang.builder().id(88).soDonHang("SHP-241105999888").maDonHangKenh("241105999888").kenhBanHang(shopee).ghiChu("Đơn Shopee").build();
+        when(donBanHangRepository.findById(88)).thenReturn(Optional.of(don));
+        when(donBanHangRepository.findByMaDonHangKenh("241105999888")).thenReturn(Optional.of(don));
+        when(kenhBanHangRepository.findByMaKenh("SHOPEE")).thenReturn(Optional.of(shopee));
+
+        boolean ok = service.dongBoTrangThaiXuatKhoShopee(88, "241105999888");
+
+        assertTrue(ok);
+    }
+
+    @Test
+    @DisplayName("Shopee: Đồng bộ trạng thái Giao hàng thành công")
+    void dongBoTrangThaiGiaoThanhCongShopee_thanhCong() {
+        KenhBanHang shopee = KenhBanHang.builder().id(4).maKenh("SHOPEE").trangThai(1).build();
+        when(kenhBanHangRepository.findByMaKenh("SHOPEE")).thenReturn(Optional.of(shopee));
+
+        boolean ok = service.dongBoTrangThaiGiaoThanhCongShopee("241105999888");
+
+        assertTrue(ok);
+    }
+
+    @Test
+    @DisplayName("Shopee: Hủy đơn hàng trên Shopee")
+    void huyDonHangTrenShopee_thanhCong() {
+        KenhBanHang shopee = KenhBanHang.builder().id(4).maKenh("SHOPEE").trangThai(1).build();
+        when(kenhBanHangRepository.findByMaKenh("SHOPEE")).thenReturn(Optional.of(shopee));
+
+        boolean ok = service.huyDonHangTrenShopee("241105999888", "Hết hàng");
+
+        assertTrue(ok);
+    }
+
+    @Test
+    @DisplayName("Shopee: Đồng bộ trạng thái Bị hoàn trả")
+    void dongBoTrangThaiHoanTraShopee_thanhCong() {
+        KenhBanHang shopee = KenhBanHang.builder().id(4).maKenh("SHOPEE").trangThai(1).build();
+        when(kenhBanHangRepository.findByMaKenh("SHOPEE")).thenReturn(Optional.of(shopee));
+
+        boolean ok = service.dongBoTrangThaiHoanTraShopee("241105999888");
+
+        assertTrue(ok);
     }
 }

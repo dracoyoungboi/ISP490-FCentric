@@ -396,4 +396,22 @@ class OmnichannelOrderSyncJobTest {
                 () -> job.syncShopifyOrders(kenhShopify(), Instant.now().minusSeconds(86_400), Instant.now()));
         assertEquals(MaLoi.LAM_MOI_KHOA_LOI, loi.getMa());
     }
+
+    @Test
+    void mapShopeeOrderStatus_chuanHoaDu8TrangThaiBaoGomHoanTra() throws Exception {
+        java.lang.reflect.Method mapMethod = OmnichannelOrderSyncJob.class.getDeclaredMethod("mapShopeeOrderStatus", String.class);
+        mapMethod.setAccessible(true);
+
+        assertEquals(0, mapMethod.invoke(null, "UNPAID"), "UNPAID -> 0 (Nháp)");
+        assertEquals(1, mapMethod.invoke(null, "READY_TO_SHIP"), "READY_TO_SHIP -> 1 (Chờ nhặt hàng)");
+        assertEquals(7, mapMethod.invoke(null, "PROCESSED"), "PROCESSED -> 7 (Chờ đóng gói)");
+        assertEquals(3, mapMethod.invoke(null, "SHIPPED"), "SHIPPED -> 3 (Đã xuất toàn bộ)");
+        assertEquals(3, mapMethod.invoke(null, "TO_CONFIRM_RECEIVE"), "TO_CONFIRM_RECEIVE -> 3 (Đã xuất toàn bộ)");
+        assertEquals(5, mapMethod.invoke(null, "COMPLETED"), "COMPLETED -> 5 (Hoàn thành)");
+        assertEquals(4, mapMethod.invoke(null, "CANCELLED"), "CANCELLED -> 4 (Đã hủy)");
+        assertEquals(4, mapMethod.invoke(null, "IN_CANCEL"), "IN_CANCEL -> 4 (Đã hủy)");
+        assertEquals(6, mapMethod.invoke(null, "TO_RETURN"), "TO_RETURN -> 6 (Bị hoàn trả)");
+        assertEquals(6, mapMethod.invoke(null, "RETURNED"), "RETURNED -> 6 (Bị hoàn trả)");
+        assertEquals(6, mapMethod.invoke(null, "RETURN_REFUND"), "RETURN_REFUND -> 6 (Bị hoàn trả)");
+    }
 }
