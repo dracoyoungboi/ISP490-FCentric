@@ -1414,4 +1414,19 @@ class KenhBanHangDongBoServiceTest {
         assertFalse(existing.getChoPhepDongBo(), "Entity lưu vào DB phải có choPhepDongBo = false");
         assertEquals("chua_dong_bo", existing.getTrangThaiDongBo());
     }
+
+    @Test
+    void xoaLienKet_tonTai_xoaKhoiDbVaGhiNhatKy() {
+        TrangThaiDongBoSanPham mapping = TrangThaiDongBoSanPham.builder()
+                .id(20)
+                .kenhBanHang(KenhBanHang.builder().id(1).maKenh("SHOPIFY").build())
+                .maSanPhamKenh("SHOP-SKU-99")
+                .bienTheSanPham(BienTheSanPham.builder().id(101).maSku("SKU-99").build())
+                .build();
+        when(trangThaiDongBoSanPhamRepository.findById(20)).thenReturn(Optional.of(mapping));
+
+        service.xoaLienKet(20);
+
+        verify(trangThaiDongBoSanPhamRepository).delete(mapping);
+    }
 }
