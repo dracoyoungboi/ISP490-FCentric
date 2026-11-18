@@ -99,6 +99,8 @@ public class PhieuChuyenKhoService {
     @Autowired(required = false)
     @Lazy
     private HangChuaCoKeService hangChuaCoKeService;
+    @Autowired(required = false)
+    private org.springframework.context.ApplicationEventPublisher eventPublisher;
     private final ChiTietPhieuDieuChinhRepository chiTietPhieuDieuChinhRepository;
     private final PhieuXuatKhoRepository phieuXuatKhoRepository;
     private final ChiTietPhieuXuatKhoRepository chiTietPhieuXuatKhoRepository;
@@ -197,6 +199,7 @@ public class PhieuChuyenKhoService {
         }
         ghiNhatKy(phieu, IHanhDong.tao_phieu_chuyen, null, IChuyenKho.CHO_DUYET, null, nguoiTao);
         thongBaoChuyenKhoService.choDuyet(phieu, nguoiTao);
+        phatSuKienDongBoTonKho(khoXuat, soLuongTheoBienThe.keySet());
         return phieu;
     }
 
@@ -410,6 +413,11 @@ public class PhieuChuyenKhoService {
         phieuChuyenKhoRepository.save(phieu);
         ghiNhatKy(phieu, hanhDong, truoc, IChuyenKho.DA_HUY, lyDo, nguoi);
         thongBaoChuyenKhoService.daHuy(phieu, truoc, nguoi, IHanhDong.tu_choi_phieu_chuyen.equals(hanhDong));
+        if (!IChuyenKho.DANG_VAN_CHUYEN.equals(truoc)) {
+            Set<Integer> btIds = chiTietPhieuChuyenKhoRepository.findByPhieuChuyenKho_IdOrderByIdAsc(phieu.getId())
+                    .stream().map(ct -> ct.getBienTheSanPham().getId()).collect(Collectors.toSet());
+            phatSuKienDongBoTonKho(phieu.getKhoXuat(), btIds);
+        }
     }
 
     /** Kho xuất nhập hàng hoàn trả từ kho trung chuyển cho phiếu bị hủy khi đang vận chuyển (A5 bước 2): PN-RET. */
@@ -1003,6 +1011,7 @@ public class PhieuChuyenKhoService {
                 thongBaoChuyenKhoService.choDuyet(bu, quanLy);
                 ghiChu += ", phiếu giao bù " + bu.getSoPhieuChuyen() + " chờ duyệt";
             }
+            phatSuKienDongBoTonKho(phieu.getKhoXuat(), lechTheoBienThe.keySet());
         }
         ghiNhatKy(phieu, IHanhDong.xu_ly_chenh_lech, IChuyenKho.CHO_XU_LY_LECH, IChuyenKho.HOAN_TAT, ghiChu, quanLy);
         thongBaoChuyenKhoService.daXuLyChenhLech(phieu);
@@ -1727,6 +1736,8 @@ public class PhieuChuyenKhoService {
         pn.setTongTien(tongTien);
         phieuNhapKhoRepository.save(pn);
         sanPhamIds.forEach(sanPhamQuanAoService::recalculatePriceAndStatus);
+        Set<Integer> btIds = dong.stream().map(d -> d.bienThe().getId()).collect(Collectors.toSet());
+        phatSuKienDongBoTonKho(khoNhan, btIds);
         return pn;
     }
 
@@ -1927,6 +1938,20 @@ public class PhieuChuyenKhoService {
                     .build());
         } catch (Exception e) {
             log.warn("Lỗi ghi nhật ký phiếu chuyển {}: {}", p.getSoPhieuChuyen(), e.getMessage());
+        }
+    }
+
+    private void phatSuKienDongBoTonKho(Kho kho, Collection<Integer> bienTheIds) {
+        if (eventPublisher == null || bienTheIds == null || bienTheIds.isEmpty()) return;
+        Integer khoId = kho != null ? kho.getId() : null;
+        for (Integer btId : bienTheIds) {
+            if (btId != null) {
+                try {
+                    eventPublisher.publishEvent(new com.dev.backend.event.InventoryRestockedEvent(this, btId, BigDecimal.ONE, khoId));
+                } catch (Exception e) {
+                    log.warn("Không thể phát sự kiện đồng bộ tồn kho cho SKU {} khi chuyển kho: {}", btId, e.getMessage());
+                }
+            }
         }
     }
 }
