@@ -1649,7 +1649,7 @@ public class OmnichannelOrderSyncJob {
                 pageCount++;
                 com.fasterxml.jackson.databind.JsonNode listRes = shopeeClient.getOrderList(
                         String.valueOf(partnerId), partnerKey, accessToken, String.valueOf(shopId),
-                        timeFrom, timeTo, null, 50, cursor, isSandbox);
+                        timeFrom, timeTo, "update_time", null, 50, cursor, isSandbox);
 
                 com.fasterxml.jackson.databind.JsonNode orderListNode = listRes.path("response").path("order_list");
                 if (orderListNode.isArray()) {
@@ -1764,34 +1764,47 @@ public class OmnichannelOrderSyncJob {
                 }
             }
 
-            if ("CANCELLED".equalsIgnoreCase(order.getOrderStatus())) {
+            String shopeeStatus = order.getOrderStatus() != null ? order.getOrderStatus().trim().toUpperCase() : "";
+            boolean laHuy = "CANCELLED".equals(shopeeStatus) || "IN_CANCEL".equals(shopeeStatus);
+            boolean laHoanTra = "TO_RETURN".equals(shopeeStatus) || "RETURNED".equals(shopeeStatus) || "RETURN_REFUND".equals(shopeeStatus);
+
+            if (laHuy) {
                 if (existing.getTrangThai() != null && existing.getTrangThai() != ITrangThaiDonBanHang.DA_HUY) {
                     try {
                         String lyDoHuy = order.getCancelReason() != null && !order.getCancelReason().isBlank()
-                                ? order.getCancelReason() : "Hủy từ sàn Shopee";
+                                ? order.getCancelReason() : ("Hủy từ sàn Shopee (" + shopeeStatus + ")");
                         donBanHangService.huyDonTuSan(existing.getId(), lyDoHuy);
-                        log.info("[JOB-01] Đơn {} đã bị hủy trên Shopee -> Cập nhật trạng thái FCentric = 4", soDonHang);
+                        log.info("[JOB-01] Đơn {} đã bị hủy trên Shopee -> Cập nhật trạng thái FCentric qua huyDonTuSan", soDonHang);
                     } catch (Exception ex) {
                         log.error("[JOB-01] Lỗi khi hủy đơn {} theo sàn Shopee: {}", soDonHang, ex.getMessage());
                     }
                 }
-            } else if (order.getCancelReason() != null && !order.getCancelReason().isBlank()) {
-                String ghiChuCu = existing.getGhiChu() != null ? existing.getGhiChu() : "";
-                if (!ghiChuCu.contains("[KHÁCH YÊU CẦU HỦY]")) {
-                    String lyDo = order.getCancelReason();
-                    existing.setGhiChu("[KHÁCH YÊU CẦU HỦY] " + lyDo + " | " + ghiChuCu);
-                    existing.setNgayCapNhat(Instant.now());
-                    donBanHangRepository.save(existing);
-                    log.warn("[JOB-01] Đơn {} có cờ khách yêu cầu hủy từ Shopee: {}", soDonHang, lyDo);
-                    if (thongBaoXuatKhoService != null) {
-                        thongBaoXuatKhoService.khachYeuCauHuy(existing, kenh);
-                        if (existing.getKhoXuat() != null) thongBaoXuatKhoService.lamMoiDonChoXuat(existing.getKhoXuat().getId());
-                    }
+            } else if (laHoanTra) {
+                try {
+                    donBanHangService.capNhatTrangThaiGiaoHangTuSan(existing.getId(), shopeeStatus);
+                    log.info("[JOB-01] Đơn {} có trạng thái hoàn trả trên Shopee ({}) -> Cập nhật Bị hoàn trả (6)", soDonHang, shopeeStatus);
+                } catch (Exception ex) {
+                    log.error("[JOB-01] Lỗi khi cập nhật hoàn trả đơn {} theo Shopee: {}", soDonHang, ex.getMessage());
                 }
             } else {
+                if (order.getCancelReason() != null && !order.getCancelReason().isBlank()) {
+                    String ghiChuCu = existing.getGhiChu() != null ? existing.getGhiChu() : "";
+                    if (!ghiChuCu.contains("[KHÁCH YÊU CẦU HỦY]")) {
+                        String lyDo = order.getCancelReason();
+                        existing.setGhiChu("[KHÁCH YÊU CẦU HỦY] " + lyDo + " | " + ghiChuCu);
+                        existing.setNgayCapNhat(Instant.now());
+                        donBanHangRepository.save(existing);
+                        log.warn("[JOB-01] Đơn {} có cờ khách yêu cầu hủy từ Shopee: {}", soDonHang, lyDo);
+                        if (thongBaoXuatKhoService != null) {
+                            thongBaoXuatKhoService.khachYeuCauHuy(existing, kenh);
+                            if (existing.getKhoXuat() != null) thongBaoXuatKhoService.lamMoiDonChoXuat(existing.getKhoXuat().getId());
+                        }
+                    }
+                }
+
                 // 1. Đồng bộ trạng thái thanh toán nếu sàn đổi sang đã thanh toán
-                boolean daThanhToan = !"UNPAID".equalsIgnoreCase(order.getOrderStatus())
-                        && (order.getPaymentMethod() == null || !order.getPaymentMethod().toLowerCase().contains("cod") || "COMPLETED".equalsIgnoreCase(order.getOrderStatus()));
+                boolean daThanhToan = !"UNPAID".equalsIgnoreCase(shopeeStatus)
+                        && (order.getPaymentMethod() == null || !order.getPaymentMethod().toLowerCase().contains("cod") || "COMPLETED".equalsIgnoreCase(shopeeStatus));
                 if (daThanhToan && !"da_thanh_toan".equals(existing.getTrangThaiThanhToan())) {
                     existing.setTrangThaiThanhToan("da_thanh_toan");
                     existing.setNgayCapNhat(Instant.now());
@@ -1800,9 +1813,9 @@ public class OmnichannelOrderSyncJob {
                 }
 
                 // 2. Đồng bộ trạng thái giao hàng / hoàn thành theo sàn Shopee
-                if (order.getOrderStatus() != null && !order.getOrderStatus().isBlank()) {
+                if (!shopeeStatus.isBlank()) {
                     try {
-                        donBanHangService.capNhatTrangThaiGiaoHangTuSan(existing.getId(), order.getOrderStatus());
+                        donBanHangService.capNhatTrangThaiGiaoHangTuSan(existing.getId(), shopeeStatus);
                     } catch (Exception ex) {
                         log.error("[JOB-01] Lỗi khi cập nhật trạng thái giao hàng đơn {} theo Shopee: {}", soDonHang, ex.getMessage());
                     }

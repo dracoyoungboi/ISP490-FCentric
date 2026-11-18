@@ -959,13 +959,14 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         if (don.getMaDonHangKenh() != null && !don.getMaDonHangKenh().isBlank() && kenhBanHangDongBoService != null) {
             String maDonHangKenh = don.getMaDonHangKenh();
             KenhBanHang kenh = don.getKenhBanHang();
-            if (kenh != null && OmnichannelOrderSyncJob.isLazada(kenh.getMaKenh())) {
+            String maKenh = kenh != null ? kenh.getMaKenh() : null;
+            if (OmnichannelOrderSyncJob.isLazada(maKenh) || (maKenh == null && maDonHangKenh.startsWith("LZD"))) {
                 SauCommit.chay("Đồng bộ hủy đơn " + maDonHangKenh + " sang Lazada",
                         () -> kenhBanHangDongBoService.huyDonHangTrenLazada(maDonHangKenh, "Hủy từ FCentric"));
-            } else if (kenh != null && OmnichannelOrderSyncJob.isShopee(kenh.getMaKenh())) {
+            } else if (OmnichannelOrderSyncJob.isShopee(maKenh) || (maKenh == null && (maDonHangKenh.startsWith("SPX") || (don.getSoDonHang() != null && don.getSoDonHang().startsWith("SHP-") && !maDonHangKenh.startsWith("SHOPIFY"))))) {
                 SauCommit.chay("Đồng bộ hủy đơn " + maDonHangKenh + " sang Shopee",
                         () -> kenhBanHangDongBoService.huyDonHangTrenShopee(maDonHangKenh, "Hủy từ FCentric"));
-            } else if (kenh != null && OmnichannelOrderSyncJob.isShopify(kenh.getMaKenh())) {
+            } else if (OmnichannelOrderSyncJob.isShopify(maKenh) || (maKenh == null && (maDonHangKenh.startsWith("SHOPIFY") || (don.getSoDonHang() != null && don.getSoDonHang().startsWith("SPF-"))))) {
                 SauCommit.chay("Đồng bộ hủy đơn " + maDonHangKenh + " sang Shopify",
                         () -> kenhBanHangDongBoService.huyDonHangTrenShopify(maDonHangKenh, "Hủy từ FCentric"));
             }
@@ -991,12 +992,18 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                 || trangThai == ITrangThaiDonBanHang.HOAN_THANH || trangThai == ITrangThaiDonBanHang.BI_HOAN_TRA))
                 || phieuXuatKhoRepository.existsByDonBanHangIdAndTrangThai(donId, ITrangThaiPhieuXuat.DA_XUAT);
         if (daXuat) {
-            log.warn("[CHANNEL-CANCEL] Sàn báo hủy đơn {} nhưng đơn đã xuất kho (trạng thái {}) — giữ nguyên, cần xử lý hoàn trả",
+            if (trangThai != null && trangThai == ITrangThaiDonBanHang.BI_HOAN_TRA) {
+                return false;
+            }
+            don.setTrangThai(ITrangThaiDonBanHang.BI_HOAN_TRA);
+            don.setNgayCapNhat(Instant.now());
+            repository.save(don);
+            log.warn("[CHANNEL-CANCEL] Sàn báo hủy đơn {} sau khi đơn đã xuất kho (trạng thái {}) — chuyển sang Bị hoàn trả (6)",
                     don.getSoDonHang(), trangThai);
-            ghiNhatKyDon(don, "huy_don_tu_san", "Sàn báo hủy nhưng đơn đã xuất kho — giữ nguyên trạng thái, cần xử lý hoàn trả. " + lyDo);
+            ghiNhatKyDon(don, "hoan_tra_tu_san", "Sàn báo hủy sau khi đơn đã xuất kho — chuyển Bị hoàn trả để nhận hoàn. " + lyDo);
             // Báo quản trị viên + quản lý kho xuất (đồng bộ chạy lại nhiều lần vẫn chỉ một thông báo)
             if (thongBaoXuatKhoService != null) thongBaoXuatKhoService.sanHuyDonDaXuat(don, lyDo);
-            return false;
+            return true;
         }
 
         boolean trongPhieuNhat = don.getDanhSachNhatHang() != null;
@@ -1099,7 +1106,11 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
             }
         } else if (st.contains("failed_delivery") || st.contains("returned") || st.contains("refunded")
                 || st.contains("to_return") || st.contains("return_refund")) {
-            // Chỉ hoàn trả khi đơn đã xuất hoặc đã hoàn thành, hoặc đang chuẩn bị hàng/chờ đóng gói
+            // Nếu đơn chưa đóng gói/chưa xuất (đang ở Chờ nhặt hoặc Nháp) mà sàn báo hoàn trả -> hủy đơn và giải phóng tạm giữ tồn
+            if (trangThaiHienTai == ITrangThaiDonBanHang.CHO_NHAT_HANG || trangThaiHienTai == ITrangThaiDonBanHang.NHAP) {
+                return huyDonTuSan(donId, "Sàn cập nhật hoàn trả trước khi xuất kho (" + trangThaiSan + ")");
+            }
+            // Đơn đã xuất, hoàn thành hoặc đang chuẩn bị hàng/đóng gói -> Chuyển sang Bị hoàn trả (6)
             if (trangThaiHienTai == ITrangThaiDonBanHang.DA_XUAT_TOAN_BO
                     || trangThaiHienTai == ITrangThaiDonBanHang.HOAN_THANH
                     || trangThaiHienTai == ITrangThaiDonBanHang.DA_DONG_GOI
