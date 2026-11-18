@@ -931,9 +931,61 @@ public class OmnichannelOrderSyncJob {
             lanLayDonCuoi.put(kenh.getId(), Instant.now());
             log.info("[JOB-01] Quét đơn TikTok Shop hoàn tất: {} đơn mới", synced);
         } catch (Exception ex) {
-            log.error("[JOB-01] Lỗi khi quét đơn hàng từ TikTok Shop: {}", ex.getMessage());
+            if (laLoiTokenTikTok(ex)) {
+                log.warn("[JOB-01] Access Token TikTok Shop hết hạn hoặc không hợp lệ (401). Tự động làm mới token...");
+                boolean refreshed = kenhBanHangService.refreshTikTokAccessToken();
+                if (refreshed) {
+                    String newAccessToken = kenhBanHangService.getDecryptedTikTokAccessToken();
+                    if (newAccessToken != null && !newAccessToken.isBlank()) {
+                        try {
+                            TikTokShopClient client = tiktokShopClient != null ? tiktokShopClient : new TikTokShopClient();
+                            com.dev.backend.dto.response.customize.TikTokOrderSearchResponse retryRes =
+                                    client.searchOrders(appKey, appSecret, newAccessToken, shopCipher, req);
+                            if (retryRes != null && retryRes.getOrders() != null) {
+                                batDauLuot();
+                                try {
+                                    for (TikTokOrderDto order : retryRes.getOrders()) {
+                                        boolean ok = processSingleTikTokOrder(order, kenh);
+                                        if (ok) synced++;
+                                    }
+                                } finally {
+                                    ketThucLuot(kenh, synced);
+                                }
+                            }
+                            lanLayDonCuoi.put(kenh.getId(), Instant.now());
+                            log.info("[JOB-01] Quét đơn TikTok Shop hoàn tất sau khi refresh token: {} đơn mới", synced);
+                            return synced;
+                        } catch (Exception retryEx) {
+                            log.error("[JOB-01] Quét lại đơn TikTok Shop sau khi refresh token thất bại: {}", retryEx.getMessage());
+                        }
+                    }
+                } else {
+                    log.error("[JOB-01] Tự động làm mới Access Token TikTok Shop thất bại. Vui lòng ủy quyền lại gian hàng.");
+                }
+            } else {
+                log.error("[JOB-01] Lỗi khi quét đơn hàng từ TikTok Shop: {}", ex.getMessage());
+            }
         }
         return synced;
+    }
+
+    private boolean laLoiTokenTikTok(Throwable ex) {
+        if (ex == null) return false;
+        if (ex instanceof com.dev.backend.exception.customize.LoiCoMaException lcme) {
+            if (com.dev.backend.exception.customize.MaLoi.TIKTOK_TOKEN_EXPIRED.equals(lcme.getMa())) return true;
+            if (org.springframework.http.HttpStatus.UNAUTHORIZED.equals(lcme.getTrangThai())) return true;
+        }
+        if (ex instanceof org.springframework.web.client.HttpStatusCodeException hsce) {
+            if (hsce.getStatusCode() == org.springframework.http.HttpStatus.UNAUTHORIZED) return true;
+        }
+        String msg = ex.getMessage();
+        if (msg != null) {
+            String lower = msg.toLowerCase(java.util.Locale.ROOT);
+            if (lower.contains("401") || lower.contains("unauthorized") || lower.contains("105001") || lower.contains("105002") || lower.contains("token")) {
+                return true;
+            }
+        }
+        return ex.getCause() != null && laLoiTokenTikTok(ex.getCause());
     }
 
     @Transactional(rollbackFor = Exception.class)
