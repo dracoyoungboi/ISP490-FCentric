@@ -296,38 +296,81 @@ public class TikTokShopClient {
             if (productsNode.isArray()) {
                 java.util.List<TikTokProductDto> prodList = new java.util.ArrayList<>();
                 for (JsonNode p : productsNode) {
-                    TikTokProductDto prodDto = new TikTokProductDto();
-                    prodDto.setId(p.path("id").asText(null));
-                    prodDto.setTitle(p.path("title").asText(null));
-                    prodDto.setStatus(p.path("status").asText(null));
-
-                    JsonNode skusNode = p.path("skus");
-                    if (skusNode.isArray()) {
-                        java.util.List<TikTokSkuDto> skuList = new java.util.ArrayList<>();
-                        for (JsonNode skuItem : skusNode) {
-                            TikTokSkuDto skuDto = new TikTokSkuDto();
-                            skuDto.setId(skuItem.path("id").asText(null));
-                            skuDto.setSellerSku(skuItem.path("seller_sku").asText(null));
-
-                            JsonNode priceNode = skuItem.path("price");
-                            if (priceNode.isObject()) {
-                                TikTokSkuDto.Price price = new TikTokSkuDto.Price(
-                                        priceNode.path("currency").asText(null),
-                                        priceNode.path("tax_exclusive_price").asText(null)
-                                );
-                                skuDto.setPrice(price);
-                            }
-                            skuList.add(skuDto);
-                        }
-                        prodDto.setSkus(skuList);
-                    }
-                    prodList.add(prodDto);
+                    prodList.add(parseTikTokProductNode(p));
                 }
                 data.setProducts(prodList);
             }
             response.setData(data);
         }
         return response;
+    }
+
+    /**
+     * Lấy chi tiết sản phẩm (bao gồm danh sách SKU và warehouse_id gốc trong inventory[]) từ TikTok Shop (v202309).
+     * Endpoint: GET /product/202309/products/{product_id}
+     */
+    public TikTokProductDto getProduct(String appKey, String appSecret, String accessToken,
+                                       String shopCipher, String productId) {
+        if (accessToken == null || accessToken.isBlank()) {
+            throw new LoiThamSoException(ThongDiep.of("kenhBan.accessTokenTrongKhiTimSanPhamTikTok"));
+        }
+        if (shopCipher == null || shopCipher.isBlank()) {
+            throw new LoiThamSoException(ThongDiep.of("kenhBan.shopCipherTrongKhiTimSanPhamTikTok"));
+        }
+        if (productId == null || productId.isBlank()) {
+            throw new LoiThamSoException(ThongDiep.of("kenhBan.productIdTrongKhiCapNhatTonTikTok"));
+        }
+
+        String apiPath = "/product/202309/products/" + productId.trim();
+        String fullSignedUrl = buildUrlWithSign(TikTokShopConstants.BASE_URL, apiPath, Map.of(), null, appKey, appSecret, shopCipher);
+        JsonNode root = executeGet(fullSignedUrl, accessToken);
+        JsonNode dataNode = root.path("data");
+        if (!dataNode.isObject()) {
+            return null;
+        }
+        return parseTikTokProductNode(dataNode);
+    }
+
+    private TikTokProductDto parseTikTokProductNode(JsonNode p) {
+        TikTokProductDto prodDto = new TikTokProductDto();
+        prodDto.setId(p.path("id").asText(null));
+        prodDto.setTitle(p.path("title").asText(null));
+        prodDto.setStatus(p.path("status").asText(null));
+
+        JsonNode skusNode = p.path("skus");
+        if (skusNode.isArray()) {
+            java.util.List<TikTokSkuDto> skuList = new java.util.ArrayList<>();
+            for (JsonNode skuItem : skusNode) {
+                TikTokSkuDto skuDto = new TikTokSkuDto();
+                skuDto.setId(skuItem.path("id").asText(null));
+                skuDto.setSellerSku(skuItem.path("seller_sku").asText(null));
+
+                JsonNode priceNode = skuItem.path("price");
+                if (priceNode.isObject()) {
+                    TikTokSkuDto.Price price = new TikTokSkuDto.Price(
+                            priceNode.path("currency").asText(null),
+                            priceNode.path("tax_exclusive_price").asText(null)
+                    );
+                    skuDto.setPrice(price);
+                }
+
+                JsonNode invNode = skuItem.path("inventory");
+                if (invNode.isArray()) {
+                    java.util.List<TikTokSkuDto.Inventory> invList = new java.util.ArrayList<>();
+                    for (JsonNode invItem : invNode) {
+                        String whId = invItem.hasNonNull("warehouse_id") ? invItem.path("warehouse_id").asText(null) : null;
+                        int qty = invItem.path("quantity").asInt(0);
+                        if (whId != null && !whId.isBlank()) {
+                            invList.add(new TikTokSkuDto.Inventory(whId.trim(), qty));
+                        }
+                    }
+                    skuDto.setInventory(invList);
+                }
+                skuList.add(skuDto);
+            }
+            prodDto.setSkus(skuList);
+        }
+        return prodDto;
     }
 
     /**
