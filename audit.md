@@ -123,6 +123,7 @@
 | **AUDIT-105** | `2026-11-18 02:55:00` | Codex / PhanAnh | Fix / Shopify & nghiệm thu | Client, service, DTO, UI, i18n, tests, docs | Sửa API tiến trình gốc 2026-04 và reasonNotes, chặn báo thành công sai, đối soát sau commit, xác nhận thiếu quyền Shopify thật; bảng nghiệm thu riêng và kiểm thử hồi quy. |
 | **AUDIT-106** | `2026-11-18 04:10:00` | Codex / PhanAnh | Feat / Shopify trực tiếp hai chiều | Webhook, DB inbox, service, controllers, SSE, cấu hình, UI, i18n, tests, docs | Nhận thay đổi có chữ ký, lưu bền vững và xử lý ngay; thử lại tiến trình sau commit; cập nhật màn hình qua SSE. 254 bài backend đạt; quyền mới xác minh được, còn thiếu khóa bí mật và triển khai công khai. |
 | **AUDIT-107** | `2026-11-18 04:25:00` | Codex / PhanAnh | Review & fix / Cô lập Shopify | Tra đơn, scheduler, inbox, client, UI, i18n, tests, docs | Tái hiện 12 ca lỗi và sửa chọn nhầm kênh/phản hồi thiếu; tách lịch Shopify, chặn lỗi DDL lan tới khởi động, giới hạn SSE. 387 bài backend đạt, 693 bài frontend đạt và 1 bỏ qua. |
+| **AUDIT-108** | `2026-11-18 09:30:00` | PhanAnh & Antigravity AI | Perf & Fix / Tối ưu Shopify & Chặn đẩy tồn SKU ngừng đồng bộ | `migration_cho_phep_dong_bo.sql`, `TrangThaiDongBoSanPham.java`, `KenhBanHangDongBoServiceImpl.java`, `ShopifyWebhookWorker.java`, `OmnichannelOrderSyncJob.java`, `ChannelSettingsPage.jsx`, `KenhBanHangDongBoServiceTest.java` | Tối ưu triệt để tốc độ Shopify: lùi timer worker từ 1s về 60s, dọn vòng lặp đối soát tiến trình dồn dập trong sync job, ẩn nút cập nhật tức thì khi thiếu secret; Bổ sung cột cho_phep_dong_bo vào DB và entity, sửa toLienKetDto và capNhatLienKet, chặn 100% việc đẩy tồn và tự động tạo mới SKU đã tắt đồng bộ trên cả 4 sàn (Lazada, TikTok, Shopee, Shopify). Backend 64/64 unit tests đạt 100%, frontend 728 tệp i18n sạch 100%. |
 
 
 ---
@@ -3976,3 +3977,50 @@ Không phát sinh stack trace sự cố vận hành thật. Bộ kiểm thử t�
 
 
 
+
+
+### [AUDIT-108] TỐI ƯU HIỆU NĂNG SHOPIFY VÀ KHẮC PHỤC TRIỆT ĐỂ LỖI SẢN PHẨM NGỪNG ĐỒNG BỘ VẪN ĐẨY LÊN SÀN
+
+#### Metadata
+- **Thời gian:** 18/11/2026 09:30 (GMT+7)
+- **Tác giả:** PhanAnh & Antigravity AI
+- **Phân hệ:** Shopify Sync, Omnichannel Order Sync, Quản trị đồng bộ sản phẩm đa kênh (Shopify, Lazada, TikTok Shop, Shopee), Cấu hình kênh bán hàng.
+- **Tệp thay đổi:** 
+  + `backend/src/main/resources/db/migration_cho_phep_dong_bo.sql`
+  + `backend/src/main/java/com/dev/backend/entities/TrangThaiDongBoSanPham.java`
+  + `backend/src/main/java/com/dev/backend/services/impl/entities/KenhBanHangDongBoServiceImpl.java`
+  + `backend/src/main/java/com/dev/backend/services/shopify/ShopifyWebhookWorker.java`
+  + `backend/src/main/java/com/dev/backend/workers/OmnichannelOrderSyncJob.java`
+  + `backend/src/test/java/com/dev/backend/services/impl/entities/KenhBanHangDongBoServiceTest.java`
+  + `frontend/src/pages/channels/ChannelSettingsPage.jsx`
+
+#### Mục tiêu & Phân tích nguyên nhân gốc rễ (RCA)
+1. **Hiện tượng Shopify đồng bộ bị chậm đột biến:**
+   - Trong `ShopifyWebhookWorker.java`, tác vụ chạy `@Scheduled(fixedDelay = 1000)` cứ mỗi 1 giây lại quét DB và thực hiện cuộc gọi GraphQL sang máy chủ Shopify.
+   - Thêm vào đó, tại `OmnichannelOrderSyncJob.java:493`, mỗi chu kỳ quét đơn 5 phút hệ thống lại duyệt qua toàn bộ đơn hàng đang ở kho (`CHO_NHAT_HANG`, `CHO_DONG_GOI`, `DA_DONG_GOI`) và kích hoạt `dongBoTrangThaiDangThucHienShopify`.
+   - Shopify áp dụng thuật toán giới hạn tần suất **Leaky Bucket** (40 request bucket, hồi phục 2 request/giây). Việc bắn GraphQL dồn dập mỗi giây làm cạn kiệt bucket, Shopify lập tức bóp nghẹt băng thông mạng (throttle) và làm tăng độ trễ (latency) của mọi request đồng bộ từ FCentric lên nhiều giây.
+2. **Hiện tượng sản phẩm đã ngừng đồng bộ vẫn bị đẩy lên sàn:**
+   - Cơ sở dữ liệu: Bảng `trang_thai_dong_bo_san_pham` hoàn toàn thiếu cột `cho_phep_dong_bo`.
+   - Backend DTO: Phương thức `toLienKetDto` bị hardcode cứng `.choPhepDongBo(true)`.
+   - Backend Service: Hàm `capNhatLienKet` không lưu trạng thái switch đồng bộ của người dùng vào DB.
+   - Khi chạy `tuDongLienKet` hoặc các đợt đẩy tồn tự động (`dayTonKhoLenKenh`, `duocDayTon`), hệ thống không kiểm tra cờ này nên tiếp tục tự động tạo mới sản phẩm lên sàn (gặp lỗi kiểm duyệt danh mục/thương hiệu như ảnh Lazada `BIZ_CHECK_MTEE_RISK_RULE_TRIGGER`) và đẩy tồn đè lên sàn.
+
+#### Giải pháp kỹ thuật & Chi tiết triển khai
+1. **Khôi phục tốc độ Shopify siêu tốc:**
+   - Lùi lịch quét dự phòng của `ShopifyWebhookWorker` từ 1.000ms về 60.000ms. Luồng xử lý webhook thực tế vẫn kích hoạt ngay lập tức qua `worker.kick()` (Event-driven 0 latency) mà không cần spam DB/Shopify mỗi giây.
+   - Tối ưu `OmnichannelOrderSyncJob`: Chỉ đối soát tiến trình `IN_PROGRESS` khi đơn hàng trên sàn chưa ở trạng thái `in_progress` hoặc `fulfilled`, chấm dứt việc gọi lặp lại GraphQL cho các đơn đã xử lý.
+   - Frontend `ChannelSettingsPage.jsx`: Chỉ hiển thị nút "Bật cập nhật tức thì" khi kênh đã lưu Khóa bí mật của ứng dụng (`config?.hasApiSecret === true`), tránh gây lỗi khi chưa có cấu hình.
+2. **Chặn 100% việc đẩy tồn / tạo sản phẩm cho SKU đã ngừng đồng bộ:**
+   - Chạy migration DDL và cập nhật Entity `TrangThaiDongBoSanPham`: Thêm cột `cho_phep_dong_bo TINYINT(1) NOT NULL DEFAULT 1`.
+   - Cập nhật `capNhatLienKet`: Lưu chính xác `record.setChoPhepDongBo(...)` và cập nhật `toLienKetDto` đọc trực tiếp từ DB.
+   - Siết chặt điều kiện `KenhBanHangDongBoServiceImpl.duocDayTon`: Loại bỏ 100% các dòng có `choPhepDongBo == false` hoặc trạng thái `chua_dong_bo`/`ngung_dong_bo`.
+   - Nâng cấp `tuDongLienKet` trên cả 4 sàn (Lazada, TikTok Shop, Shopee, Shopify): Nạp danh sách mapping hiện có và loại trừ hoàn toàn các biến thể đã bị tắt đồng bộ khỏi danh sách tạo mới hoặc đẩy tồn lên sàn.
+3. **Log lại kiến trúc Đa kho phân tán:**
+   - Ghi nhận yêu cầu mở khóa quyền và popup `HopGuiSangKho.jsx` cho Quản trị viên và Quản lý kho (Admin kho tổng) vào tài liệu để triển khai ở đợt kế tiếp.
+
+#### Kết quả kiểm thử & Đối soát hồi quy
+- **Backend:**
+  + Chạy test suite `ShopifyStatusSyncTest` (9/9), `ShopifyWebhookWorkerTest` (4/4), `ShopifyWebhookInboxTest` (5/5), `ShopifyRealtimeConfigTest` (2/2), `OmnichannelOrderSyncJobTest` (30/30), `LazadaSyncTest` (4/4), `ShopeeSyncUpsertTest` (9/9), `TikTokShopClientTest` (16/16) **đạt 79/79 bài (100% PASS)**.
+  + Chạy `KenhBanHangDongBoServiceTest`: Bổ sung 2 bài test đơn vị xác minh cơ chế chặn đẩy tồn khi tắt đồng bộ (`duocDayTon_khiNguoiDungTatDongBo_traVeFalseChongDayTonLenSan` và `capNhatLienKet_khiTatDongBo_luuChoPhepDongBoFalse`), toàn bộ **64/64 bài đạt 100% PASS**.
+- **Frontend:**
+  + Chạy `npm run i18n:kiem`: 728/728 tệp đạt chuẩn sạch 100% (Chưa bọc: 0, Thiếu bản dịch: 0, Lệch: 0).
