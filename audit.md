@@ -128,6 +128,7 @@
 | **AUDIT-110** | `2026-11-18 10:50:00` | PhanAnh & Antigravity AI | Audit & Test / Xác thực tính cô lập đa kênh (Channel Isolation) khi Hủy liên kết hoặc Ngừng hoạt động | `KenhBanHangDongBoServiceImpl.java`, `TrangThaiDongBoSanPhamRepository.java`, `KenhBanHangDongBoServiceTest.java` | Rà soát toàn diện cơ chế cô lập dữ liệu giữa các sàn TMĐT: khẳng định 100% khi Hủy liên kết, tắt đồng bộ hoặc sản phẩm ngừng hoạt động trên Sàn A thì Sàn B hoàn toàn KHÔNG bị hủy, không bị đổi trạng thái do mô hình dữ liệu lưu độc lập theo kenh_ban_id; Bổ sung 2 bài unit tests xác thực tính cô lập, đạt 67/67 tests PASS 100%. |
 | **AUDIT-111** | `2026-11-18 12:20:00` | PhanAnh & Antigravity AI | Feat, Fix & Test / Đồng bộ toàn diện hai chiều trạng thái đơn hàng sàn Shopee theo ma trận vòng đời kho FCentric và chuẩn Sapo | `KenhBanHangDongBoService.java`, `KenhBanHangDongBoServiceImpl.java`, `NhatHangServiceImpl.java`, `DongGoiServiceImpl.java`, `PhieuXuatKhoService.java`, `KenhBanHangSyncServiceImpl.java`, `DonBanHangService.java`, `OmnichannelOrderSyncJob.java`, `channel.js`, `hang-so.json`, `KenhBanHangDongBoServiceTest.java`, `OmnichannelOrderSyncJobTest.java`, `audit.md` | Hoàn thiện 100% đồng bộ 8 trạng thái Shopee hai chiều theo đúng ma trận quy chuẩn (Nháp -> Chờ xác nhận, Chờ nhặt -> Chờ lấy hàng, Chờ đóng gói & Chờ xuất kho -> Người bán đang chuẩn bị hàng / PROCESSED kèm lấy mã vận đơn SPX, Đã xuất kho -> Đơn vị VC lấy hàng thành công / SHIPPED, Hoàn thành -> Giao hàng thành công / COMPLETED, Đã hủy -> CANCELLED, Bị hoàn trả -> TO_RETURN / Trả hàng Hoàn tiền không tự động cộng tồn ảo); Vá lỗi nghiêm trọng cancel gọi nhầm sang Shopify; Đạt 103/103 backend tests PASS 100%, frontend 728/728 tệp i18n sạch 100%. |
 | **AUDIT-112** | `2026-11-18 13:10:00` | PhanAnh & Antigravity AI | Fix, Feat & UI / Khắc phục triệt để lỗi đơ trạng thái đơn Shopee bị hủy / hoàn trả, mở in vận đơn A6 chính thức từ Shopee OpenAPI và ẩn nút in vận đơn cho Shopify | `OmnichannelOrderSyncJob.java`, `DonBanHangService.java`, `OmnichannelOrderSyncJobTest.java`, `DonBanHangServiceCancellationTest.java`, `tinhDonBan.js`, `ecommercePrintAdapter.js`, `ban-hang.json`, `DonBanHangDetail.jsx`, `DongGoiPage.jsx`, `PhieuXuatKhoDetail.jsx`, `audit.md` | Khắc phục triệt để lỗi polling Shopee dùng update_time thay vì create_time; Khi đơn đã xuất kho mà sàn báo hủy, tự động chuyển sang Bị hoàn trả (6) thay vì giữ nguyên Đã xuất kho (3); Bắt trọn các trạng thái hoàn trả TO_RETURN, RETURNED, RETURN_REFUND; Nút In vận đơn sàn A6 gọi trực tiếp API Shopee OpenAPI downloadShippingDocument mở tem A6 chính thức; Sửa ecommercePrintAdapter nhận diện SHOPEE_OFFICIAL chống render nhầm sang layout Lazada; Ẩn hoàn toàn nút in vận đơn sàn đối với đơn Shopify trên cả 3 màn hình. Backend 116/116 tests PASS 100%, Frontend 728 tệp i18n sạch 100%. |
+| **AUDIT-113** | `2026-11-18 13:50:00` | PhanAnh & Antigravity AI | Bug Fix, Security & Architecture / Khắc phục dứt điểm lỗi mất SKU ID, Cache Miss Product ID và tự động refresh token 401 trên TikTok Shop | `TikTokShopClient.java`, `KenhBanHangDongBoServiceImpl.java`, `OmnichannelOrderSyncJob.java`, `kenhBan.properties`, `kenhBan_en.properties`, `TikTokShopClientTest.java`, `audit.md` | Khắc phục dứt điểm 3 lỗi trọng yếu trên kênh TikTok Shop: (1) Ngăn chặn triệt để mất SKU ID sàn (ma_san_pham_kenh bị null do đối soát thiếu trang trong taiSanPhamTikTok và bẫy lỗi 12052557 khi đẩy tồn); (2) Triển khai cơ chế On-Demand Lookup Product ID qua seller_skus và keyword trên TikTok Shop OpenAPI v202309 khi cache miss, mở rộng catalog phân trang 100 item/trang lên 5.000 sản phẩm, tự động phục hồi mã SKU FCentric nếu bị trống; (3) Tự động refresh access token bằng refresh_token khi gặp lỗi HTTP 401 Unauthorized / 105001 / 105002 trong OmnichannelOrderSyncJob và luồng đẩy tồn, loại bỏ hoàn toàn lỗi nghẽn log và popup đỏ Product ID. Đạt 19/19 TikTok tests và 88/88 backend tests PASS 100%, Frontend 728/728 tệp i18n sạch 100%. |
 
 
 ---
@@ -4263,6 +4264,67 @@ Không phát sinh stack trace sự cố vận hành thật. Bộ kiểm thử t�
 - **Frontend:**
   + Chạy `npm run i18n:kiem`: **728/728 tệp đạt chuẩn sạch 100%** (Chưa bọc: 0, Thiếu bản dịch: 0, Lệch: 0).
   + Bổ sung bản dịch tiếng Anh song song `"Không thể tải tem vận đơn từ sàn: {{error}}": "Could not download shipping label from marketplace: {{error}}"` trong `frontend/src/i18n/en/ban-hang.json`.
+
+---
+
+### [AUDIT-113] KHẮC PHỤC DỨT ĐIỂM LỖI MẤT SKU ID, CACHE MISS PRODUCT ID VÀ TỰ ĐỘNG REFRESH TOKEN 401 TRÊN TIKTOK SHOP
+
+#### Metadata
+- **Thời gian:** 18/11/2026 13:50 (GMT+7)
+- **Tác giả:** PhanAnh & Antigravity AI
+- **Phân hệ:** TikTok Shop Partner OpenAPI v202309 Integration, Product Catalog Cache, Inventory Sync & Auto OAuth Refresh.
+- **Tệp thay đổi:**
+  + `backend/src/main/java/com/dev/backend/services/tiktok/TikTokShopClient.java`
+  + `backend/src/main/java/com/dev/backend/services/impl/entities/KenhBanHangDongBoServiceImpl.java`
+  + `backend/src/main/java/com/dev/backend/workers/OmnichannelOrderSyncJob.java`
+  + `backend/src/main/resources/i18n/thong-diep/kenhBan.properties`
+  + `backend/src/main/resources/i18n/thong-diep/kenhBan_en.properties`
+  + `backend/src/test/java/com/dev/backend/services/tiktok/TikTokShopClientTest.java`
+  + `audit.md`
+
+#### Mục tiêu & Phân tích nguyên nhân gốc rễ (Root Cause Analysis - RCA)
+1. **Hiện tượng lỗi 1 — SKU bị mất Sku ID (`ma_san_pham_kenh` bị xóa/null trong DB):**
+   - **RCA 1 (Vòng lặp dọn dẹp sai trong `taiSanPhamTikTok`):**
+     Tại `KenhBanHangDongBoServiceImpl.java:590-599`, hàm `taiDanhSachSanPhamTikTokTheoToken` bị giới hạn cứng tối đa 10 trang (tối đa 500 sản phẩm). Khi gian hàng có nhiều hơn 500 sản phẩm, các SKU ở trang sau không nằm trong tập hợp `aliveSkuIds`. Vòng lặp `for (TrangThaiDongBoSanPham item : existingList)` tự động chạy `item.setMaSanPhamKenh(null)` và gán thông báo lỗi *"Sản phẩm đã bị xóa hoặc ngừng bán trên TikTok Shop"*. Hậu quả là người dùng bị mất trắng SKU ID sàn của hàng loạt sản phẩm đã liên kết trước đó.
+   - **RCA 2 (Tự tiện xóa `maSanPhamKenh` khi gặp lỗi sàn 12052557):**
+     Tại `KenhBanHangDongBoServiceImpl.java:6301`, khi đẩy tồn kho mà TikTok Shop báo lỗi `12052557` (*"SKU not belong to the product"* - do cache mapping nhầm `prodId` với biến thể anh em), code cũ tự tiện thực hiện `dong.setMaSanPhamKenh(null)` và lưu vào DB.
+   - $\rightarrow$ *Khắc phục*:
+     + Xóa bỏ hoàn toàn vòng lặp duyệt `existingList` để xóa `setMaSanPhamKenh(null)`. Chỉ cập nhật trạng thái khi sản phẩm thực sự có `status == "DELETED"` trong payload sàn trả về.
+     + Khi gặp lỗi `12052557`, chỉ xóa cache RAM `tikTokCatalogCacheRef.set(null)` và kích hoạt cơ chế On-Demand Lookup tìm Product ID mới, tuyệt đối không xóa `maSanPhamKenh` của người dùng.
+
+2. **Hiện tượng lỗi 2 — Popup đỏ "Chưa liên kết với Product ID hợp lệ trên TikTok Shop":**
+   - **RCA:**
+     TikTok Shop OpenAPI v202309 quy định endpoint cập nhật tồn kho là `POST /product/202309/products/{product_id}/inventory/update`, tức bắt buộc phải có `product_id`.
+     Hệ thống phụ thuộc 100% vào `TikTokCatalogCache` lưu trong RAM. Khi SKU chưa được nạp vào cache (do nằm ngoài 500 sản phẩm hoặc cache rỗng), `prodId` bị null. Hệ thống hoàn toàn không có cơ chế tìm kiếm bổ sung (fallback) mà lập tức ném lỗi `hienThiKenhPos.tiktokKhongTimThayProductId`.
+     Đồng thời, cơ chế Quota Guard 2 phút chặn cứng không cho `forceRefresh` khiến người dùng bấm đẩy tồn lại vẫn tiếp tục bị lỗi.
+   - $\rightarrow$ *Khắc phục*:
+     + Mở rộng `TikTokShopClient.searchProducts` hỗ trợ truyền `seller_skus` và `keyword` trong body JSON theo chuẩn OpenAPI v202309.
+     + Triển khai cơ chế **On-Demand Hydration** (`traCuuOnDemandTikTokProduct`): Khi cache miss, hệ thống tự động gọi API tìm kiếm chính xác theo Seller SKU `maSku` hoặc `dong.getMaSanPhamKenh()`, trích xuất đúng `product_id` và `sku_id`, nạp ngay vào cache RAM và cập nhật vào DB rồi tiếp tục đẩy tồn thành công.
+     + Mở khóa Quota Guard 2 phút khi người dùng chủ động bấm làm mới (`forceRefresh = true`).
+     + Nâng phân trang catalog lên `pageSize = 100`, duyệt tối đa 50 trang (5.000 sản phẩm).
+     + Hợp nhất (merge) dữ liệu từ cache cũ để không bị mất các SKU của các đợt quét trước.
+     + Tự động phục hồi SKU FCentric (`tuSinhMaSkuChoBienThe`) nếu biến thể bị trống mã SKU trong DB, đảm bảo hiển thị đầy đủ và đẩy tồn thành công.
+
+3. **Hiện tượng lỗi 3 — Lỗi 401 Unauthorized khi quét đơn và đẩy tồn:**
+   - **RCA:**
+     Khi Access Token TikTok Shop hết hạn, API trả về HTTP 401 Unauthorized hoặc mã lỗi `105001`, `105002`.
+     Trong `OmnichannelOrderSyncJob` và `KenhBanHangDongBoServiceImpl`, exception chỉ được ghi log mà không kích hoạt hàm `kenhBanHangService.refreshTikTokAccessToken()`, dẫn đến lỗi 401 lặp đi lặp lại ở mọi đợt quét đơn tiếp theo.
+   - $\rightarrow$ *Khắc phục*:
+     + Chuẩn hóa bắt lỗi HTTP 401 và mã `105001`, `105002` trong `TikTokShopClient`, ném `LoiCoMaException(HttpStatus.UNAUTHORIZED, MaLoi.TIKTOK_TOKEN_EXPIRED, ...)`.
+     + Bổ sung helper `laLoiTokenTikTok`: Tự động nhận diện lỗi 401 trong cả `OmnichannelOrderSyncJob` và `KenhBanHangDongBoServiceImpl`, kích hoạt ngay hàm `refreshTikTokAccessToken()`, lấy access token mới và retry request 1 lần.
+
+#### Kết quả kiểm thử & Đối soát hồi quy
+- **Backend:**
+  + Chạy `mvn test -Dtest=TikTokShopClientTest,KenhBanHangDongBoServiceTest`: **88/88 tests PASS 100%** (19 tests trong `TikTokShopClientTest` và 72 tests trong `KenhBanHangDongBoServiceTest`).
+  + Bổ sung 3 test cases mới trong `TikTokShopClientTest`:
+    * `searchProducts_kemSellerSkusVaKeyword`: Xác thực payload gửi lên sàn chứa `seller_skus` và `keyword` phục vụ tra cứu on-demand.
+    * `searchProducts_loi401_nemLoiTokenExpired`: Xác thực HTTP 401 Unauthorized được chuẩn hóa thành `MaLoi.TIKTOK_TOKEN_EXPIRED`.
+    * `parseAndValidateResponse_code105001_nemLoiTokenExpired`: Xác thực response code 105001 được chuẩn hóa thành `MaLoi.TIKTOK_TOKEN_EXPIRED`.
+- **Frontend & i18n:**
+  + Chạy `npm run i18n:kiem`: **728/728 tệp đạt chuẩn sạch 100%** (Chưa bọc: 0, Thiếu bản dịch: 0, Lệch: 0).
+  + Bổ sung khóa thông điệp backend song song:
+    * `kenhBan.tiktokTokenHetHan=Access Token TikTok Shop đã hết hạn hoặc không hợp lệ (401 Unauthorized)` trong `kenhBan.properties`.
+    * `kenhBan.tiktokTokenHetHan=TikTok Shop Access Token has expired or is invalid (401 Unauthorized)` trong `kenhBan_en.properties`.
 
 
 
