@@ -468,7 +468,7 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, khoMapping, onConfigS
                     {dangChay === "kiem-tra" ? <Loader2 className="size-4 animate-spin" /> : null}
                     {t("Kiểm tra kết nối")}
                   </Button>
-                  {SAN.maKenh === "SHOPIFY" ? (
+                  {SAN.maKenh === "SHOPIFY" && config?.hasApiSecret ? (
                     <Button type="button" variant="outline" disabled={khoa} onClick={batNhanThayDoi} className="h-8 max-sm:h-11">
                       {t("Bật cập nhật tức thì")}
                     </Button>
