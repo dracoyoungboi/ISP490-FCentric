@@ -150,6 +150,35 @@ public interface KenhBanHangDongBoService {
     boolean dongBoHoanTraVaHoanTienShopify(Integer donBanHangId, String maDonHangKenh);
 
     /**
+     * Đồng bộ chuyển đơn hàng Shopee sang Người bán đang chuẩn bị hàng (PROCESSED)
+     * khi FCentric hoàn tất nhặt hàng hoặc đóng gói ("Chờ đóng gói" - 7 / "Chờ xuất kho" - 8).
+     */
+    boolean dongBoTrangThaiChuanBiHangShopee(String maDonHangKenh);
+
+    /**
+     * Đồng bộ xác nhận đơn hàng Shopee đã xuất kho vật lý
+     * khi FCentric xác nhận xuất kho (Đã xuất kho - DA_XUAT_TOAN_BO = 3).
+     */
+    boolean dongBoTrangThaiXuatKhoShopee(Integer donId, String maDonHangKenh);
+
+    /**
+     * Đồng bộ ghi nhận đơn hàng Shopee giao thành công
+     * khi FCentric chuyển trạng thái sang Hoàn thành (HOAN_THANH = 5).
+     */
+    boolean dongBoTrangThaiGiaoThanhCongShopee(String maDonHangKenh);
+
+    /**
+     * Gửi yêu cầu hủy đơn hàng sang sàn Shopee khi đơn FCentric bị hủy (Đã hủy - DA_HUY = 4).
+     */
+    boolean huyDonHangTrenShopee(String maDonHangKenh, String lyDoHuy);
+
+    /**
+     * Đồng bộ ghi nhận đơn hàng Shopee bị hoàn trả
+     * khi FCentric chuyển trạng thái sang Bị hoàn trả (BI_HOAN_TRA = 6).
+     */
+    boolean dongBoTrangThaiHoanTraShopee(String maDonHangKenh);
+
+    /**
      * Lấy cấu hình ánh xạ kho sàn với kho FCentric (tự động phát hiện 1 kho vs đa kho).
      */
     com.dev.backend.dto.channel.warehouse.KenhKhoMappingConfigDto layCauHinhKhoMapping(String maKenh);

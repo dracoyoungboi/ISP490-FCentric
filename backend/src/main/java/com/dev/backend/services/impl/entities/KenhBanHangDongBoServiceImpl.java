@@ -7962,6 +7962,164 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         }
     }
 
+    private KenhBanHang xacDinhKenhShopee(String maDonHangKenh) {
+        if (maDonHangKenh != null && donBanHangRepository != null) {
+            DonBanHang don = donBanHangRepository.findByMaDonHangKenh(maDonHangKenh)
+                    .or(() -> donBanHangRepository.findBySoDonHang("SHP-" + maDonHangKenh))
+                    .orElse(null);
+            if (don != null && don.getKenhBanHang() != null && OmnichannelOrderSyncJob.isShopee(don.getKenhBanHang().getMaKenh())) {
+                return don.getKenhBanHang();
+            }
+        }
+        return kenhBanHangRepository.findByMaKenh("SHOPEE")
+                .or(() -> kenhBanHangRepository.findByMaKenh("SHOPEE_SANDBOX"))
+                .or(() -> kenhBanHangRepository.findByMaKenh("SHOPEE_OFFICIAL"))
+                .orElse(null);
+    }
+
+    @Override
+    public boolean dongBoTrangThaiChuanBiHangShopee(String maDonHangKenh) {
+        if (maDonHangKenh == null || maDonHangKenh.isBlank()) return false;
+        KenhBanHang kenh = xacDinhKenhShopee(maDonHangKenh);
+        if (kenh == null) {
+            log.warn("[SHOPEE-PREPARE] Không tìm thấy kênh Shopee cho đơn {}", maDonHangKenh);
+            return false;
+        }
+        com.dev.backend.services.shopee.ShopeeClient client = getShopeeClient(kenh);
+        try {
+            // 1. Gọi ship_order với dropoff để chuyển Shopee sang PROCESSED (Người bán đang chuẩn bị hàng)
+            JsonNode shipRes = client.shipOrder(maDonHangKenh.trim(), "dropoff");
+            String err = shipRes != null ? shipRes.path("error").asText("") : "";
+            String msg = shipRes != null ? shipRes.path("message").asText("") : "";
+            boolean isOk = err.isBlank() || "success".equalsIgnoreCase(msg)
+                    || msg.toLowerCase().contains("already") || msg.toLowerCase().contains("processed");
+
+            log.info("[SHOPEE-PREPARE] Gọi shipOrder cho đơn {}: error='{}', message='{}'", maDonHangKenh, err, msg);
+
+            // 2. Tra cứu mã vận đơn SPX / đơn vị vận chuyển và lưu vào đơn hàng FCentric
+            try {
+                JsonNode trackRes = client.getTrackingNumber(maDonHangKenh.trim());
+                String trackingNo = trackRes != null ? trackRes.path("response").path("tracking_number").asText("") : "";
+                if (trackingNo != null && !trackingNo.isBlank()) {
+                    DonBanHang don = donBanHangRepository.findByMaDonHangKenh(maDonHangKenh.trim())
+                            .or(() -> donBanHangRepository.findBySoDonHang("SHP-" + maDonHangKenh.trim()))
+                            .orElse(null);
+                    if (don != null) {
+                        String currentNote = don.getGhiChu() != null ? don.getGhiChu() : "";
+                        if (!currentNote.contains("[VẬN ĐƠN:")) {
+                            String trackingInfo = "[VẬN ĐƠN: " + trackingNo.trim() + " - Shopee Xpress]";
+                            don.setGhiChu((currentNote.isBlank() ? "" : currentNote + " | ") + trackingInfo);
+                            don.setNgayCapNhat(Instant.now());
+                            donBanHangRepository.save(don);
+                            log.info("[SHOPEE-PREPARE] Đã gắn mã vận đơn Shopee {} vào đơn {}", trackingNo, don.getSoDonHang());
+                        }
+                    }
+                }
+            } catch (Exception trackEx) {
+                log.warn("[SHOPEE-PREPARE] Không thể lấy mã vận đơn cho đơn {}: {}", maDonHangKenh, trackEx.getMessage());
+            }
+
+            return isOk;
+        } catch (Exception ex) {
+            log.error("[SHOPEE-PREPARE] Lỗi ngoại lệ khi chuẩn bị hàng cho đơn {}: {}", maDonHangKenh, ex.getMessage());
+            return false;
+        }
+    }
+
+    @Override
+    public boolean dongBoTrangThaiXuatKhoShopee(Integer donId, String maDonHangKenh) {
+        if (maDonHangKenh == null || maDonHangKenh.isBlank()) return false;
+        KenhBanHang kenh = xacDinhKenhShopee(maDonHangKenh);
+        if (kenh == null) return false;
+        com.dev.backend.services.shopee.ShopeeClient client = getShopeeClient(kenh);
+        try {
+            // Đảm bảo đơn đã được ship_order
+            try {
+                client.shipOrder(maDonHangKenh.trim(), "dropoff");
+            } catch (Exception e) {
+                // bỏ qua nếu đã ship
+            }
+            // Ghi chú trạng thái xuất kho
+            client.setOrderNote(maDonHangKenh.trim(), "FCentric: Đơn hàng đã xuất kho vật lý, sẵn sàng bàn giao bưu tá");
+            log.info("[SHOPEE-DISPATCH] Đã ghi nhận xuất kho cho đơn Shopee {}", maDonHangKenh);
+
+            // Tra cứu mã vận đơn bổ sung nếu đơn hàng FCentric chưa có
+            if (donId != null && donBanHangRepository != null) {
+                donBanHangRepository.findById(donId).ifPresent(don -> {
+                    String currentNote = don.getGhiChu() != null ? don.getGhiChu() : "";
+                    if (!currentNote.contains("[VẬN ĐƠN:")) {
+                        try {
+                            JsonNode trackRes = client.getTrackingNumber(maDonHangKenh.trim());
+                            String trackingNo = trackRes != null ? trackRes.path("response").path("tracking_number").asText("") : "";
+                            if (trackingNo != null && !trackingNo.isBlank()) {
+                                don.setGhiChu((currentNote.isBlank() ? "" : currentNote + " | ") + "[VẬN ĐƠN: " + trackingNo.trim() + " - Shopee Xpress]");
+                                don.setNgayCapNhat(Instant.now());
+                                donBanHangRepository.save(don);
+                            }
+                        } catch (Exception ignored) {}
+                    }
+                });
+            }
+            return true;
+        } catch (Exception ex) {
+            log.error("[SHOPEE-DISPATCH] Lỗi ngoại lệ khi xuất kho đơn {}: {}", maDonHangKenh, ex.getMessage());
+            return false;
+        }
+    }
+
+    @Override
+    public boolean dongBoTrangThaiGiaoThanhCongShopee(String maDonHangKenh) {
+        if (maDonHangKenh == null || maDonHangKenh.isBlank()) return false;
+        KenhBanHang kenh = xacDinhKenhShopee(maDonHangKenh);
+        if (kenh == null) return false;
+        com.dev.backend.services.shopee.ShopeeClient client = getShopeeClient(kenh);
+        try {
+            client.setOrderNote(maDonHangKenh.trim(), "FCentric: Giao hàng thành công");
+            log.info("[SHOPEE-DELIVERED] Đã ghi nhận giao hàng thành công cho đơn Shopee {}", maDonHangKenh);
+            return true;
+        } catch (Exception ex) {
+            log.warn("[SHOPEE-DELIVERED] Không thể cập nhật ghi chú giao hàng thành công đơn {}: {}", maDonHangKenh, ex.getMessage());
+            return false;
+        }
+    }
+
+    @Override
+    public boolean huyDonHangTrenShopee(String maDonHangKenh, String lyDoHuy) {
+        if (maDonHangKenh == null || maDonHangKenh.isBlank()) return false;
+        KenhBanHang kenh = xacDinhKenhShopee(maDonHangKenh);
+        if (kenh == null) return false;
+        com.dev.backend.services.shopee.ShopeeClient client = getShopeeClient(kenh);
+        try {
+            JsonNode res = client.cancelOrder(maDonHangKenh.trim(), "OUT_OF_STOCK");
+            String err = res != null ? res.path("error").asText("") : "";
+            String msg = res != null ? res.path("message").asText("") : "";
+            log.info("[SHOPEE-CANCEL] Hủy đơn {} trên Shopee: error='{}', message='{}'", maDonHangKenh, err, msg);
+            if (!err.isBlank() && !"success".equalsIgnoreCase(msg)) {
+                client.setOrderNote(maDonHangKenh.trim(), "FCentric: Yêu cầu hủy đơn (" + (lyDoHuy != null ? lyDoHuy : "Hết hàng") + ")");
+            }
+            return true;
+        } catch (Exception ex) {
+            log.error("[SHOPEE-CANCEL] Lỗi khi hủy đơn {} trên Shopee: {}", maDonHangKenh, ex.getMessage());
+            return false;
+        }
+    }
+
+    @Override
+    public boolean dongBoTrangThaiHoanTraShopee(String maDonHangKenh) {
+        if (maDonHangKenh == null || maDonHangKenh.isBlank()) return false;
+        KenhBanHang kenh = xacDinhKenhShopee(maDonHangKenh);
+        if (kenh == null) return false;
+        com.dev.backend.services.shopee.ShopeeClient client = getShopeeClient(kenh);
+        try {
+            client.setOrderNote(maDonHangKenh.trim(), "FCentric: Ghi nhận đơn hàng bị hoàn trả, chờ nhập kho hoàn trả");
+            log.info("[SHOPEE-RETURN] Đã ghi nhận trạng thái hoàn trả cho đơn Shopee {}", maDonHangKenh);
+            return true;
+        } catch (Exception ex) {
+            log.warn("[SHOPEE-RETURN] Không thể cập nhật ghi chú hoàn trả đơn {}: {}", maDonHangKenh, ex.getMessage());
+            return false;
+        }
+    }
+
     // ── Shopee Catalog & Stock Synchronization ──
 
     public com.dev.backend.services.shopee.ShopeeClient getShopeeClient(KenhBanHang kenh) {
