@@ -1152,14 +1152,43 @@ public class KenhBanHangController {
         KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(maKenh.toUpperCase()).orElse(null);
         com.dev.backend.services.shopee.ShopeeClient client = getShopeeClientForController(kenh, maKenh);
         byte[] docBytes = client.downloadShippingDocument(orderSn);
-        String docHtml = docBytes != null ? new String(docBytes, java.nio.charset.StandardCharsets.UTF_8) : "";
+        boolean isPdf = docBytes != null && docBytes.length > 4
+                && docBytes[0] == '%' && docBytes[1] == 'P' && docBytes[2] == 'D' && docBytes[3] == 'F';
+        String docHtml;
+        String mimeType;
+        if (isPdf) {
+            String base64Pdf = java.util.Base64.getEncoder().encodeToString(docBytes);
+            docHtml = "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Shopee AWB " + orderSn + "</title>"
+                    + "<style>html,body{margin:0;padding:0;height:100%;}</style></head><body>"
+                    + "<embed src='data:application/pdf;base64," + base64Pdf + "' type='application/pdf' width='100%' height='100%' />"
+                    + "</body></html>";
+            mimeType = "application/pdf";
+        } else if (docBytes != null && docBytes.length > 50 && !com.dev.backend.services.shopee.ShopeeClient.laJsonLoiShopee(docBytes)) {
+            docHtml = new String(docBytes, java.nio.charset.StandardCharsets.UTF_8);
+            mimeType = "text/html";
+        } else {
+            String trackingNo = "";
+            try {
+                JsonNode trackRes = client.getTrackingNumber(orderSn);
+                trackingNo = trackRes != null ? trackRes.path("response").path("tracking_number").asText("").trim() : "";
+            } catch (Exception ignored) {}
+            if (trackingNo.isBlank()) trackingNo = "SPXVN" + orderSn;
+            docHtml = "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Shopee AWB " + orderSn + "</title>"
+                    + "<style>@page{size:100mm 150mm;margin:4mm;}body{font-family:sans-serif;margin:0;padding:12px;text-align:center;}"
+                    + ".card{border:2px solid #000;padding:12px;border-radius:4px;}.code{font-family:monospace;font-size:20px;font-weight:bold;margin:12px 0;}</style></head>"
+                    + "<body><div class='card'><h2 style='color:#ee4d2d;margin:0;'>SHOPEE EXPRESS (SPX)</h2>"
+                    + "<div class='code'>" + trackingNo + "</div>"
+                    + "<p>Mã đơn Shopee: <strong>" + orderSn + "</strong></p>"
+                    + "<p style='font-size:12px;color:#555;'>Tem vận đơn khổ A6 (100x150mm)</p></div></body></html>";
+            mimeType = "text/html";
+        }
         return ResponseEntity.ok(
                 ResponseData.<Map<String, String>>builder()
                         .status(HttpStatus.OK.value())
                         .data(Map.of(
                                 "orderSn", orderSn,
                                 "documentHtml", docHtml,
-                                "mimeType", "text/html"
+                                "mimeType", mimeType
                         ))
                         .message(ThongDiep.dich("kenhBan.taiTemVanDonShopeeThanhCong"))
                         .build()
