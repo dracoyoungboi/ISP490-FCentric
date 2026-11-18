@@ -1109,5 +1109,6 @@
   "Phiếu đã trả": "Return slips",
   "Danh sách trả hàng": "Return lists",
   "Không tìm thấy đơn hàng": "Order not found",
-  "Đơn hàng có thể đã bị xóa hoặc bạn không có quyền truy cập.": "The order may have been deleted or you do not have permission to access it."
+  "Đơn hàng có thể đã bị xóa hoặc bạn không có quyền truy cập.": "The order may have been deleted or you do not have permission to access it.",
+  "Không thể tải tem vận đơn từ sàn: {{error}}": "Could not download shipping label from marketplace: {{error}}"
 }
