@@ -127,6 +127,7 @@
 | **AUDIT-109** | `2026-11-18 10:15:00` | PhanAnh & Antigravity AI | Feat, Perf & Fix / Delta Sync Shopify, sửa bộ lọc kênh, hủy liên kết & hoàn thiện 8 trạng thái | `TrangThaiDongBoSanPhamRepository.java`, `KenhBanHangDongBoServiceImpl.java`, `KenhBanHangController.java`, `kenhBanHangService.js`, `ChannelMappingsPage.jsx`, `kenhBan.properties`, `kenhBan_en.properties`, `kenh-ban.json`, `KenhBanHangDongBoServiceTest.java` | Triển khai Delta Sync Shopify giảm 95% API calls (chỉ đẩy SKU đổi tồn, bypass SKU không đổi); Sửa bộ lọc tab liên kết (da_lien_ket, chua_lien_ket, loi) đồng bộ với DB; Thêm API và nút Hủy liên kết SKU khỏi sàn; Hoàn thiện đồng bộ 8 trạng thái đơn hàng Shopify (In Progress, Fulfilled, Delivered, Cancelled, Returned / Refund) chuẩn Sapo/Haravan. Backend 65/65 tests đạt, Frontend 728 tệp i18n sạch 100%. |
 | **AUDIT-110** | `2026-11-18 10:50:00` | PhanAnh & Antigravity AI | Audit & Test / Xác thực tính cô lập đa kênh (Channel Isolation) khi Hủy liên kết hoặc Ngừng hoạt động | `KenhBanHangDongBoServiceImpl.java`, `TrangThaiDongBoSanPhamRepository.java`, `KenhBanHangDongBoServiceTest.java` | Rà soát toàn diện cơ chế cô lập dữ liệu giữa các sàn TMĐT: khẳng định 100% khi Hủy liên kết, tắt đồng bộ hoặc sản phẩm ngừng hoạt động trên Sàn A thì Sàn B hoàn toàn KHÔNG bị hủy, không bị đổi trạng thái do mô hình dữ liệu lưu độc lập theo kenh_ban_id; Bổ sung 2 bài unit tests xác thực tính cô lập, đạt 67/67 tests PASS 100%. |
 | **AUDIT-111** | `2026-11-18 12:20:00` | PhanAnh & Antigravity AI | Feat, Fix & Test / Đồng bộ toàn diện hai chiều trạng thái đơn hàng sàn Shopee theo ma trận vòng đời kho FCentric và chuẩn Sapo | `KenhBanHangDongBoService.java`, `KenhBanHangDongBoServiceImpl.java`, `NhatHangServiceImpl.java`, `DongGoiServiceImpl.java`, `PhieuXuatKhoService.java`, `KenhBanHangSyncServiceImpl.java`, `DonBanHangService.java`, `OmnichannelOrderSyncJob.java`, `channel.js`, `hang-so.json`, `KenhBanHangDongBoServiceTest.java`, `OmnichannelOrderSyncJobTest.java`, `audit.md` | Hoàn thiện 100% đồng bộ 8 trạng thái Shopee hai chiều theo đúng ma trận quy chuẩn (Nháp -> Chờ xác nhận, Chờ nhặt -> Chờ lấy hàng, Chờ đóng gói & Chờ xuất kho -> Người bán đang chuẩn bị hàng / PROCESSED kèm lấy mã vận đơn SPX, Đã xuất kho -> Đơn vị VC lấy hàng thành công / SHIPPED, Hoàn thành -> Giao hàng thành công / COMPLETED, Đã hủy -> CANCELLED, Bị hoàn trả -> TO_RETURN / Trả hàng Hoàn tiền không tự động cộng tồn ảo); Vá lỗi nghiêm trọng cancel gọi nhầm sang Shopify; Đạt 103/103 backend tests PASS 100%, frontend 728/728 tệp i18n sạch 100%. |
+| **AUDIT-112** | `2026-11-18 13:10:00` | PhanAnh & Antigravity AI | Fix, Feat & UI / Khắc phục triệt để lỗi đơ trạng thái đơn Shopee bị hủy / hoàn trả, mở in vận đơn A6 chính thức từ Shopee OpenAPI và ẩn nút in vận đơn cho Shopify | `OmnichannelOrderSyncJob.java`, `DonBanHangService.java`, `OmnichannelOrderSyncJobTest.java`, `DonBanHangServiceCancellationTest.java`, `tinhDonBan.js`, `ecommercePrintAdapter.js`, `ban-hang.json`, `DonBanHangDetail.jsx`, `DongGoiPage.jsx`, `PhieuXuatKhoDetail.jsx`, `audit.md` | Khắc phục triệt để lỗi polling Shopee dùng update_time thay vì create_time; Khi đơn đã xuất kho mà sàn báo hủy, tự động chuyển sang Bị hoàn trả (6) thay vì giữ nguyên Đã xuất kho (3); Bắt trọn các trạng thái hoàn trả TO_RETURN, RETURNED, RETURN_REFUND; Nút In vận đơn sàn A6 gọi trực tiếp API Shopee OpenAPI downloadShippingDocument mở tem A6 chính thức; Sửa ecommercePrintAdapter nhận diện SHOPEE_OFFICIAL chống render nhầm sang layout Lazada; Ẩn hoàn toàn nút in vận đơn sàn đối với đơn Shopify trên cả 3 màn hình. Backend 116/116 tests PASS 100%, Frontend 728 tệp i18n sạch 100%. |
 
 
 ---
@@ -4207,6 +4208,62 @@ Không phát sinh stack trace sự cố vận hành thật. Bộ kiểm thử t�
   + Không có bất kỳ regression hay lỗi biên dịch nào.
 - **Frontend:**
   + Chạy `npm run i18n:kiem`: **728/728 tệp đạt chuẩn sạch 100%** (Chưa bọc: 0, Thiếu bản dịch: 0, Lệch: 0).
+
+---
+
+### [AUDIT-112] KHẮC PHỤC TRIỆT ĐỂ LỖI ĐƠ TRẠNG THÁI ĐƠN SHOPEE BỊ HỦY / HOÀN TRẢ, MỞ IN VẬN ĐƠN A6 CHÍNH THỨC TỪ SHOPEE OPENAPI VÀ ẨN NÚT IN VẬN ĐƠN CHO SHOPIFY
+
+#### Metadata
+- **Thời gian:** 18/11/2026 13:10 (GMT+7)
+- **Tác giả:** PhanAnh & Antigravity AI
+- **Phân hệ:** Omnichannel Order Lifecycle Sync (Shopee OpenAPI v2), Inbound Reverse Logistics, Shipping Document Printing (Shopee A6 Thermal Label), Sales Order UI.
+- **Tệp thay đổi:**
+  + `backend/src/main/java/com/dev/backend/workers/OmnichannelOrderSyncJob.java`
+  + `backend/src/main/java/com/dev/backend/services/impl/entities/DonBanHangService.java`
+  + `backend/src/test/java/com/dev/backend/workers/OmnichannelOrderSyncJobTest.java`
+  + `backend/src/test/java/com/dev/backend/services/impl/entities/DonBanHangServiceCancellationTest.java`
+  + `frontend/src/components/ban-hang/chi-tiet-don-ban/tinhDonBan.js`
+  + `frontend/src/components/print/adapters/ecommercePrintAdapter.js`
+  + `frontend/src/i18n/en/ban-hang.json`
+  + `frontend/src/pages/sales-orders/DonBanHangDetail.jsx`
+  + `frontend/src/pages/issue/DongGoiPage.jsx`
+  + `frontend/src/pages/issue/PhieuXuatKhoDetail.jsx`
+  + `audit.md`
+
+#### Mục tiêu & Phân tích nguyên nhân gốc rễ (Root Cause Analysis - RCA)
+1. **Hiện tượng lỗi 1 — Đơn hủy bên sàn Shopee nhưng FCentric "cứ đơ ra đấy không đổi trạng thái":**
+   - **RCA 1 (API Polling Shopee không kéo được đơn cập nhật):**
+     Tại `OmnichannelOrderSyncJob.java:1650`, hàm gọi `shopeeClient.getOrderList` với 10 tham số và `time_range_field` bị gán mặc định là `"create_time"`. Khi job định kỳ 5 phút quét `timeFrom = now - 60 phút`, Shopee OpenAPI chỉ trả về các đơn **được tạo** trong 60 phút qua. Các đơn được tạo từ trước đó và vừa bị hủy trên Shopee hoàn toàn KHÔNG được Shopee trả về trong danh sách kết quả polling.
+     $\rightarrow$ *Khắc phục*: Đổi tham số `time_range_field` sang `"update_time"`, đảm bảo mọi đơn có biến động trạng thái (khách hủy, sàn duyệt hủy, SPX quét kiện) trong khoảng thời gian quét đều được kéo về ngay lập tức.
+   - **RCA 2 (Logic `huyDonTuSan` khi đơn đã xuất kho):**
+     Tại `DonBanHangService.java:990-1000`, khi sàn báo hủy (`CANCELLED`) mà đơn đã xuất kho (`daXuat = true` bao gồm trạng thái 3 - Đã xuất toàn bộ, 5 - Hoàn thành hoặc đã có phiếu xuất kho đã xuất): code cũ ghi nhận log cảnh báo rồi `return false;` mà KHÔNG THAY ĐỔI TRẠNG THÁI GÌ CẢ. Đơn hàng bị đơ nguyên ở trạng thái 3 ("Đã xuất kho").
+     $\rightarrow$ *Khắc phục*: Khi đơn đã xuất kho vật lý mà sàn báo hủy, hệ thống BẮT BUỘC tự động chuyển sang **Bị hoàn trả (6)** (`BI_HOAN_TRA`), ghi nhật ký đơn và phát thông báo đến thủ kho xuất để sẵn sàng nhận kiện hàng hoàn trả, đồng thời tuân thủ nghiêm ngặt quy tắc không cộng lại tồn kho ảo (chờ tạo phiếu nhập hoàn trả thực tế).
+   - **RCA 3 (Bỏ sót các trạng thái hủy/hoàn trả khác):**
+     Trong `OmnichannelOrderSyncJob.java:1767`, code cũ chỉ kiểm tra duy nhất `if ("CANCELLED".equalsIgnoreCase(...))`. Nếu đơn ở trạng thái `IN_CANCEL`, `TO_RETURN`, `RETURNED`, `RETURN_REFUND` hoặc có `cancelReason`, đơn bị chặn ở nhánh `else if (cancelReason != null)` và không bao giờ gọi `capNhatTrangThaiGiaoHangTuSan`.
+     $\rightarrow$ *Khắc phục*: Tách bạch phân nhánh `laHuy` (`CANCELLED`, `IN_CANCEL`) gọi `huyDonTuSan` và `laHoanTra` (`TO_RETURN`, `RETURNED`, `RETURN_REFUND`) gọi `capNhatTrangThaiGiaoHangTuSan`, đảm bảo gắn cờ `[KHÁCH YÊU CẦU HỦY]` mà không chặn việc đồng bộ thanh toán và giao hàng.
+
+2. **Hiện tượng lỗi 2 — Bấm in vận đơn Shopee lại ra mẫu form của sàn Lazada:**
+   - **RCA 1:** Trong `ecommercePrintAdapter.js:58`, biến `isShopee` chỉ kiểm tra `SHOPEE` và `SHOPEE_SANDBOX`, thiếu `SHOPEE_OFFICIAL`. Do đó khi đơn thuộc kênh `SHOPEE_OFFICIAL` và không có tiền tố `SHP-`, `isShopee` trả về `false`, rơi vào fallback `LazadaAwbDocument` trong `PrintTemplateDocument.jsx`.
+   - **RCA 2 (Nút bấm trên UI):** Tại `DonBanHangDetail.jsx:316`, hàm `inVanDonSan` điều hướng sang route `/sales-orders/${id}/print-packing-slip` (mẫu in SVG nội bộ tự render) thay vì gọi API lấy tem vận đơn chính thức từ sàn. Trong khi Backend đã có sẵn endpoint chuẩn `GET /api/v1/don-ban-hang/{id}/van-don-san` gọi OpenAPI Shopee `download_shipping_document`.
+   - $\rightarrow$ *Khắc phục*:
+     + Nút "In vận đơn sàn (A6)" trên `DonBanHangDetail.jsx` gọi trực tiếp `donBanHangService.layVanDonSan(id)` để tải nhị phân A6 chính thức (PDF/HTML thermal A6 100x150mm) từ Shopee OpenAPI và mở cửa sổ in ấn trực tiếp.
+     + Cập nhật `ecommercePrintAdapter.js` hỗ trợ đầy đủ `SHOPEE_OFFICIAL`, `maKenhUpper.includes("SHOPEE")` chống nhầm lẫn template.
+
+3. **Hiện tượng lỗi 3 — Shopify không có vận đơn sàn nhưng vẫn hiển thị nút in vận đơn sàn (A6):**
+   - Shopify là nền tảng thương mại điện tử độc lập, người bán tự liên kết hãng vận chuyển riêng hoặc tự giao, Shopify API không phát hành tem AWB bưu kiện như sàn Shopee/Lazada/TikTok.
+   - $\rightarrow$ *Khắc phục*: Khai báo helper `laDonShopify` và ẩn hoàn toàn nút "In vận đơn sàn (A6)" trên cả 3 màn hình: Chi tiết đơn bán hàng (`DonBanHangDetail.jsx`), Màn hình đóng gói (`DongGoiPage.jsx`) và Chi tiết phiếu xuất kho (`PhieuXuatKhoDetail.jsx`).
+
+#### Kết quả kiểm thử & Đối soát hồi quy
+- **Backend:**
+  + Chạy `mvn test -Dtest=KenhBanHangDongBoServiceTest,OmnichannelOrderSyncJobTest,DonBanHangServiceCancellationTest`: **116/116 tests PASS 100%**.
+  + Bổ sung 2 test cases mới trong `OmnichannelOrderSyncJobTest`:
+    * `processSingleShopeeOrder_khiDonBiHuyTrenShopee_goiHuyDonTuSan`: Xác thực khi Shopee gửi `CANCELLED`, FCentric gọi `huyDonTuSan`.
+    * `processSingleShopeeOrder_khiDonHoanTraTrenShopee_goiCapNhatTrangThaiGiaoHangTuSan`: Xác thực khi Shopee gửi `TO_RETURN`, FCentric cập nhật sang Bị hoàn trả (6).
+  + Cập nhật `DonBanHangServiceCancellationTest`: Xác thực đơn đã xuất kho khi sàn báo hủy sẽ chuyển sang Bị hoàn trả (6).
+- **Frontend:**
+  + Chạy `npm run i18n:kiem`: **728/728 tệp đạt chuẩn sạch 100%** (Chưa bọc: 0, Thiếu bản dịch: 0, Lệch: 0).
+  + Bổ sung bản dịch tiếng Anh song song `"Không thể tải tem vận đơn từ sàn: {{error}}": "Could not download shipping label from marketplace: {{error}}"` trong `frontend/src/i18n/en/ban-hang.json`.
+
 
 
 
