@@ -126,6 +126,7 @@
 | **AUDIT-108** | `2026-11-18 09:30:00` | PhanAnh & Antigravity AI | Perf & Fix / Tối ưu Shopify & Chặn đẩy tồn SKU ngừng đồng bộ | `migration_cho_phep_dong_bo.sql`, `TrangThaiDongBoSanPham.java`, `KenhBanHangDongBoServiceImpl.java`, `ShopifyWebhookWorker.java`, `OmnichannelOrderSyncJob.java`, `ChannelSettingsPage.jsx`, `KenhBanHangDongBoServiceTest.java` | Tối ưu triệt để tốc độ Shopify: lùi timer worker từ 1s về 60s, dọn vòng lặp đối soát tiến trình dồn dập trong sync job, ẩn nút cập nhật tức thì khi thiếu secret; Bổ sung cột cho_phep_dong_bo vào DB và entity, sửa toLienKetDto và capNhatLienKet, chặn 100% việc đẩy tồn và tự động tạo mới SKU đã tắt đồng bộ trên cả 4 sàn (Lazada, TikTok, Shopee, Shopify). Backend 64/64 unit tests đạt 100%, frontend 728 tệp i18n sạch 100%. |
 | **AUDIT-109** | `2026-11-18 10:15:00` | PhanAnh & Antigravity AI | Feat, Perf & Fix / Delta Sync Shopify, sửa bộ lọc kênh, hủy liên kết & hoàn thiện 8 trạng thái | `TrangThaiDongBoSanPhamRepository.java`, `KenhBanHangDongBoServiceImpl.java`, `KenhBanHangController.java`, `kenhBanHangService.js`, `ChannelMappingsPage.jsx`, `kenhBan.properties`, `kenhBan_en.properties`, `kenh-ban.json`, `KenhBanHangDongBoServiceTest.java` | Triển khai Delta Sync Shopify giảm 95% API calls (chỉ đẩy SKU đổi tồn, bypass SKU không đổi); Sửa bộ lọc tab liên kết (da_lien_ket, chua_lien_ket, loi) đồng bộ với DB; Thêm API và nút Hủy liên kết SKU khỏi sàn; Hoàn thiện đồng bộ 8 trạng thái đơn hàng Shopify (In Progress, Fulfilled, Delivered, Cancelled, Returned / Refund) chuẩn Sapo/Haravan. Backend 65/65 tests đạt, Frontend 728 tệp i18n sạch 100%. |
 | **AUDIT-110** | `2026-11-18 10:50:00` | PhanAnh & Antigravity AI | Audit & Test / Xác thực tính cô lập đa kênh (Channel Isolation) khi Hủy liên kết hoặc Ngừng hoạt động | `KenhBanHangDongBoServiceImpl.java`, `TrangThaiDongBoSanPhamRepository.java`, `KenhBanHangDongBoServiceTest.java` | Rà soát toàn diện cơ chế cô lập dữ liệu giữa các sàn TMĐT: khẳng định 100% khi Hủy liên kết, tắt đồng bộ hoặc sản phẩm ngừng hoạt động trên Sàn A thì Sàn B hoàn toàn KHÔNG bị hủy, không bị đổi trạng thái do mô hình dữ liệu lưu độc lập theo kenh_ban_id; Bổ sung 2 bài unit tests xác thực tính cô lập, đạt 67/67 tests PASS 100%. |
+| **AUDIT-111** | `2026-11-18 12:20:00` | PhanAnh & Antigravity AI | Feat, Fix & Test / Đồng bộ toàn diện hai chiều trạng thái đơn hàng sàn Shopee theo ma trận vòng đời kho FCentric và chuẩn Sapo | `KenhBanHangDongBoService.java`, `KenhBanHangDongBoServiceImpl.java`, `NhatHangServiceImpl.java`, `DongGoiServiceImpl.java`, `PhieuXuatKhoService.java`, `KenhBanHangSyncServiceImpl.java`, `DonBanHangService.java`, `OmnichannelOrderSyncJob.java`, `channel.js`, `hang-so.json`, `KenhBanHangDongBoServiceTest.java`, `OmnichannelOrderSyncJobTest.java`, `audit.md` | Hoàn thiện 100% đồng bộ 8 trạng thái Shopee hai chiều theo đúng ma trận quy chuẩn (Nháp -> Chờ xác nhận, Chờ nhặt -> Chờ lấy hàng, Chờ đóng gói & Chờ xuất kho -> Người bán đang chuẩn bị hàng / PROCESSED kèm lấy mã vận đơn SPX, Đã xuất kho -> Đơn vị VC lấy hàng thành công / SHIPPED, Hoàn thành -> Giao hàng thành công / COMPLETED, Đã hủy -> CANCELLED, Bị hoàn trả -> TO_RETURN / Trả hàng Hoàn tiền không tự động cộng tồn ảo); Vá lỗi nghiêm trọng cancel gọi nhầm sang Shopify; Đạt 103/103 backend tests PASS 100%, frontend 728/728 tệp i18n sạch 100%. |
 
 
 ---
@@ -4121,5 +4122,91 @@ Không phát sinh stack trace sự cố vận hành thật. Bộ kiểm thử t�
   + `KenhBanHangDongBoServiceTest`: **67/67 bài tests PASS 100%**.
 - **Frontend:**
   + `npm run i18n:kiem`: **728/728 tệp đạt chuẩn sạch 100%**.
+
+### [AUDIT-111] ĐỒNG BỘ TOÀN DIỆN HAI CHIỀU TRẠNG THÁI ĐƠN HÀNG SÀN SHOPEE THEO MA TRẬN VÒNG ĐỜI KHO FCENTRIC VÀ CHUẨN SAPO
+
+#### Metadata
+- **Thời gian:** 18/11/2026 12:20 (GMT+7)
+- **Tác giả:** PhanAnh & Antigravity AI
+- **Phân hệ:** Omnichannel Order Lifecycle Sync, Outbound Wave Picking, Scan-to-Pack, Dispatch, Reverse Logistics (Returns/Refunds).
+- **Tệp thay đổi:**
+  + `backend/src/main/java/com/dev/backend/services/KenhBanHangDongBoService.java`
+  + `backend/src/main/java/com/dev/backend/services/impl/entities/KenhBanHangDongBoServiceImpl.java`
+  + `backend/src/main/java/com/dev/backend/services/impl/multitable/NhatHangServiceImpl.java`
+  + `backend/src/main/java/com/dev/backend/services/impl/multitable/DongGoiServiceImpl.java`
+  + `backend/src/main/java/com/dev/backend/services/impl/entities/PhieuXuatKhoService.java`
+  + `backend/src/main/java/com/dev/backend/services/impl/KenhBanHangSyncServiceImpl.java`
+  + `backend/src/main/java/com/dev/backend/services/impl/entities/DonBanHangService.java`
+  + `backend/src/main/java/com/dev/backend/workers/OmnichannelOrderSyncJob.java`
+  + `frontend/src/constants/channel.js`
+  + `frontend/src/i18n/en/hang-so.json`
+  + `backend/src/test/java/com/dev/backend/services/impl/entities/KenhBanHangDongBoServiceTest.java`
+  + `backend/src/test/java/com/dev/backend/workers/OmnichannelOrderSyncJobTest.java`
+  + `audit.md`
+
+#### Mục tiêu & Phân tích nguyên nhân gốc rễ (Root Cause Analysis - RCA)
+1. **Câu hỏi nghiệp vụ & Mối lo ngại của người dùng:**
+   - *Tại sao bên Shopee lại không đồng bộ được trạng thái cũng như thiếu trạng thái?*
+   - *Kiểm tra lại trạng thái đơn hàng thế nào, đã có đồng bộ khi nhấn nút chuyển các bước như là Shopify cũng như các sàn khác chưa?*
+   - *Shopee có trạng thái "Bị hoàn trả" không?*
+   - *Kiểm tra và sửa lại sao cho sàn Shopee được mapping và đồng bộ đúng như bảng mapping trạng thái trên hình theo cả chiều hệ thống lên Shopee và từ Shopee về hệ thống.*
+2. **Phân tích nguyên nhân gốc rễ (RCA):**
+   - **Chiều từ FCentric lên Shopee (Outbound)**:
+     + Trước đây `KenhBanHangDongBoService` và `KenhBanHangDongBoServiceImpl` hoàn toàn không có bất kỳ method nào dành cho Shopee. Khi thủ kho thực hiện các thao tác:
+       * Hoàn tất nhặt hàng (`NhatHangServiceImpl:1880`): Đơn chuyển sang Chờ đóng gói (7), chỉ hook sang Lazada/Shopify/TikTok, bỏ rơi hoàn toàn Shopee.
+       * Hoàn tất đóng gói (`DongGoiServiceImpl:190`): Đơn chuyển sang Chờ xuất kho (8), bỏ rơi hoàn toàn Shopee.
+       * Xác nhận xuất kho vật lý (`PhieuXuatKhoService:765` & `KenhBanHangSyncServiceImpl:82`): Đơn chuyển sang Đã xuất kho (3), chỉ gọi Shopify, bỏ rơi Shopee.
+       * Hủy đơn (`DonBanHangService:958-969`): Xuất hiện lỗi sai phân nhánh nghiêm trọng: Khi hủy đơn hàng không phải Lazada, code mặc định `else` ép gọi `kenhBanHangDongBoService.huyDonHangTrenShopify(maDonHangKenh, "Hủy từ FCentric")`! Do đó đơn hàng của Shopee khi bị hủy lại gọi nhầm sang API Shopify.
+       * Đánh dấu giao hàng thành công & Hoàn trả: Bỏ rơi Shopee.
+   - **Chiều từ Shopee về FCentric (Inbound)**:
+     + Trong `OmnichannelOrderSyncJob.java:1925` (`mapShopeeOrderStatus`), hàm switch-case chỉ khai báo các trạng thái cơ bản (`UNPAID`, `READY_TO_SHIP`, `PROCESSED`, `SHIPPED`, `COMPLETED`, `CANCELLED`, `IN_CANCEL`), hoàn toàn **THIẾU** `TO_RETURN`, `RETURNED`, `RETURN_REFUND` và `TO_CONFIRM_RECEIVE`.
+     + Khi Shopee gửi về trạng thái `TO_RETURN` (Người mua yêu cầu trả hàng/hoàn tiền), do thiếu case trong switch, hàm rơi vào `default -> ITrangThaiDonBanHang.CHO_NHAT_HANG (1)`. Kết quả là đơn hàng trả lại bị biến thành "Chờ nhặt hàng" sai lệch nghiêm trọng.
+   - **Xác thực câu hỏi: "Shopee có trạng thái Bị hoàn trả không?"**:
+     + **CÓ 100%**. Trên Shopee Open Platform v2, khi người mua yêu cầu trả hàng/hoàn tiền, Shopee cập nhật `order_status = "TO_RETURN"`. Phân hệ hoàn trả (Returns API) có các trạng thái chi tiết: `REQUESTED`, `PROCESSING`, `SELLER_ACCEPTED`, `REFUND_PAID`, `CLOSED`.
+
+#### Giải pháp kỹ thuật & Chi tiết triển khai
+1. **Khớp nối Ma trận 8 trạng thái Shopee hai chiều theo đúng chuẩn:**
+   - **Nháp (0)** $\leftrightarrow$ Shopee: **Chờ xác nhận** (`UNPAID` / Chờ thanh toán).
+   - **Chờ Nhặt Hàng (1)** $\leftrightarrow$ Shopee: **Chờ lấy hàng** (`READY_TO_SHIP`).
+   - **Chờ Đóng Gói (7)** $\leftrightarrow$ Shopee: **Người bán đang chuẩn bị hàng** (`PROCESSED`).
+   - **Chờ Xuất Kho (8)** $\leftrightarrow$ Shopee: **Người bán đang chuẩn bị hàng** (`PROCESSED`).
+   - **Đã xuất kho (3)** $\leftrightarrow$ Shopee: **Đơn vị vận chuyển lấy hàng thành công** (`SHIPPED` / `TO_CONFIRM_RECEIVE`).
+   - **Hoàn thành (5)** $\leftrightarrow$ Shopee: **Giao hàng thành công** (`COMPLETED`).
+   - **Đã huỷ (4)** $\leftrightarrow$ Shopee: **Đã hủy** (`CANCELLED` / `IN_CANCEL`).
+   - **Bị hoàn trả (6)** $\leftrightarrow$ Shopee: **Trả hàng / Hoàn tiền** (`TO_RETURN` / `RETURN_REFUND` / `RETURNED`).
+
+2. **Khai báo và triển khai 5 method đồng bộ Shopee trong Service:**
+   - `dongBoTrangThaiChuanBiHangShopee(maDonHangKenh)`: Gọi `client.shipOrder(orderSn, "dropoff")` để Shopee chuyển sang `PROCESSED` (Người bán đang chuẩn bị hàng); tự động tra cứu mã vận đơn SPX qua `client.getTrackingNumber(orderSn)` và gắn vào ghi chú đơn hàng FCentric (`[VẬN ĐƠN: SPXVN...] [ĐƠN VỊ: Shopee Xpress]`).
+   - `dongBoTrangThaiXuatKhoShopee(donId, maDonHangKenh)`: Xác nhận đơn đã xuất kho vật lý, gửi ghi chú `client.setOrderNote(orderSn, "FCentric: Đơn hàng đã xuất kho vật lý, sẵn sàng bàn giao bưu tá")`.
+   - `dongBoTrangThaiGiaoThanhCongShopee(maDonHangKenh)`: Gửi ghi chú xác nhận giao thành công lên Shopee (`COMPLETED`).
+   - `huyDonHangTrenShopee(maDonHangKenh, lyDoHuy)`: Gọi `client.cancelOrder(orderSn, "OUT_OF_STOCK")` và ghi chú hủy đơn nếu sàn yêu cầu.
+   - `dongBoTrangThaiHoanTraShopee(maDonHangKenh)`: Ghi nhận đơn hàng bị hoàn trả lên Shopee (`TO_RETURN`).
+
+3. **Gắn hook vào toàn bộ tiến trình vòng đời kho (Outbound):**
+   - `NhatHangServiceImpl.java`: Khi hoàn tất nhặt hàng (chuyển trạng thái 7), gọi `dongBoTrangThaiChuanBiHangShopee`.
+   - `DongGoiServiceImpl.java`: Khi hoàn tất đóng gói (chuyển trạng thái 8), gọi `dongBoTrangThaiChuanBiHangShopee`.
+   - `PhieuXuatKhoService.java` & `KenhBanHangSyncServiceImpl.java`: Khi xuất kho hoàn tất (chuyển trạng thái 3), gọi `dongBoTrangThaiXuatKhoShopee`.
+   - `DonBanHangService.java`:
+     * Khi hủy đơn: Phân nhánh rõ ràng `isShopee` gọi `huyDonHangTrenShopee` (sửa triệt để lỗi gọi nhầm sang Shopify).
+     * Khi giao thành công: Gọi `dongBoTrangThaiGiaoThanhCongShopee`.
+     * Khi hoàn trả đơn hàng: Gọi `dongBoTrangThaiHoanTraShopee`.
+
+4. **Chuẩn hóa chiều kéo đơn từ Shopee về FCentric (Inbound):**
+   - Cập nhật `OmnichannelOrderSyncJob.java:mapShopeeOrderStatus`:
+     * `TO_RETURN`, `RETURNED`, `RETURN_REFUND` $\rightarrow$ `ITrangThaiDonBanHang.BI_HOAN_TRA` (6).
+     * `TO_CONFIRM_RECEIVE` $\rightarrow$ `ITrangThaiDonBanHang.DA_XUAT_TOAN_BO` (3).
+   - Nâng cấp `DonBanHangService.java:capNhatTrangThaiGiaoHangTuSan`: Cho phép chuyển `BI_HOAN_TRA` (6) khi sàn gửi tín hiệu hoàn trả, đồng thời tuân thủ nghiêm ngặt nguyên tắc **KHÔNG tự động cộng lại tồn kho ảo** (chờ thủ kho kiểm tra hàng vật lý và lập phiếu nhập hoàn trả).
+
+5. **Giao diện & Đa ngôn ngữ (Frontend & i18n):**
+   - Bổ sung các trạng thái `TO_RETURN`, `RETURNED`, `RETURN_REFUND` ("Trả hàng / Hoàn tiền") và `TO_CONFIRM_RECEIVE` ("Đang giao") vào `TRANG_THAI_SAN` của `SHOPEE`, `SHOPEE_OFFICIAL`, `SHOPEE_SANDBOX` trong `frontend/src/constants/channel.js`.
+   - Bổ sung bản dịch tiếng Anh song song `"Trả hàng / Hoàn tiền": "Return / Refund"` trong `frontend/src/i18n/en/hang-so.json`.
+
+#### Kết quả kiểm thử & Đối soát hồi quy
+- **Backend:**
+  + Chạy `mvn test -Dtest=KenhBanHangDongBoServiceTest,OmnichannelOrderSyncJobTest`: **103/103 tests PASS 100%** (72 tests trong `KenhBanHangDongBoServiceTest` và 31 tests trong `OmnichannelOrderSyncJobTest`).
+  + Không có bất kỳ regression hay lỗi biên dịch nào.
+- **Frontend:**
+  + Chạy `npm run i18n:kiem`: **728/728 tệp đạt chuẩn sạch 100%** (Chưa bọc: 0, Thiếu bản dịch: 0, Lệch: 0).
+
 
 
