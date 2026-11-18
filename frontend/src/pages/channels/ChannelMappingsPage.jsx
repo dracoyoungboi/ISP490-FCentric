@@ -64,7 +64,7 @@ const SEARCH_DEBOUNCE_MS = 350;
 const TH = "h-10 whitespace-nowrap px-3 text-[11px] font-semibold uppercase tracking-wide text-bo-muted";
 const CHECKBOX_CLASS =
   "border-slate-300 bg-white data-[state=checked]:border-bo-primary data-[state=checked]:bg-bo-primary data-[state=indeterminate]:border-bo-primary data-[state=indeterminate]:bg-bo-primary data-[state=indeterminate]:text-white";
-const dangDongBo = (dong) => dong.trangThaiLienKet !== "chua_lien_ket";
+const dangDongBo = (dong) => Boolean(dong.choPhepDongBo ?? (dong.trangThaiLienKet !== "chua_lien_ket"));
 // Giá bán FCentric khác giá trên sàn (máy chủ đánh dấu lechGia, hoặc hai giá đều có mà khác nhau)
 const coLechGia = (dong) =>
   Boolean(dong.lechGia || (dong.giaBanSan != null && dong.giaBan != null && Number(dong.giaBanSan) !== Number(dong.giaBan)));
@@ -227,6 +227,7 @@ export default function ChannelMappingsPage() {
   // SKU vừa bật lại ở trang này mà chưa có lần đẩy nào sau đó: hiện "→ sẽ đẩy N"; tải lại bảng thì bỏ
   const [vuaBat, setVuaBat] = useState(() => new Set());
   const [hoiNgung, setHoiNgung] = useState(null); // { tieuDe, dong: [...], xong? }
+  const [hoiXoaLienKet, setHoiXoaLienKet] = useState(null); // { dong }
   const bangRef = useRef(null);
   // Điện thoại (< 768px): danh sách thẻ thay cho bảng
   const laDienThoai = useIsMobile();
@@ -444,6 +445,22 @@ export default function ChannelMappingsPage() {
       },
       dong.id,
     );
+  };
+
+  /** Hủy liên kết một SKU khỏi gian hàng. */
+  const xacNhanXoaLienKet = async () => {
+    if (!hoiXoaLienKet?.dong) return;
+    const dong = hoiXoaLienKet.dong;
+    return chay("xoa-lien-ket", async () => {
+      try {
+        await kenhBanHangService.xoaLienKet(dong.id);
+        setHoiXoaLienKet(null);
+        toast.success(t("Đã hủy liên kết {{sku}}", { sku: dong.maSku || dong.skuSan }));
+        taiLaiTatCa();
+      } catch (error) {
+        toast.error(getApiErrorMessage(error, t("Không hủy được liên kết")));
+      }
+    });
   };
 
   /** Bật hoặc ngừng nhiều dòng (chọn nhiều, công tắc hàng sản phẩm). `xong`: gọi sau khi chạy (VD bỏ chọn). */
@@ -764,6 +781,14 @@ export default function ChannelMappingsPage() {
                   </DropdownMenuItem>
                 </>
               ) : null}
+              <DropdownMenuSeparator className="bg-bo-border" />
+              <DropdownMenuItem
+                disabled={khoaBang}
+                onSelect={() => setHoiXoaLienKet({ dong })}
+                className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-bo-danger hover:bg-red-50 hover:text-red-700 focus:bg-red-50 focus:text-red-700"
+              >
+                {t("Hủy liên kết")}
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </span>
@@ -1453,6 +1478,25 @@ export default function ChannelMappingsPage() {
         description={t("Các sản phẩm đang bán ở FCentric mà {{ten}} chưa có sẽ được tạo mới trên gian hàng thật, kèm ảnh và số tồn. Sản phẩm đã có được cập nhật thương hiệu, loại và thẻ.", { ten: SAN.ten })}
         confirmText={t("Đưa lên")}
         cancelText={t("Hủy bỏ")}
+      />
+
+      <ConfirmModal
+        isOpen={Boolean(hoiXoaLienKet)}
+        onClose={() => setHoiXoaLienKet(null)}
+        onConfirm={xacNhanXoaLienKet}
+        isLoading={dangChay?.ten === "xoa-lien-ket"}
+        variant="destructive"
+        title={t("Hủy liên kết SKU khỏi {{ten}}?", { ten: SAN.ten })}
+        description={
+          hoiXoaLienKet
+            ? t("Hệ thống sẽ gỡ thông tin liên kết của SKU {{sku}} khỏi gian hàng {{ten}}. Bạn có thể ghép nối lại sau.", {
+                sku: hoiXoaLienKet.dong.maSku || hoiXoaLienKet.dong.skuSan,
+                ten: SAN.ten,
+              })
+            : ""
+        }
+        confirmText={t("Hủy liên kết")}
+        cancelText={t("Giữ lại")}
       />
     </PageContainer>
   );

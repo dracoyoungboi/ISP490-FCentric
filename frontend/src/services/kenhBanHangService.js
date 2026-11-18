@@ -224,6 +224,7 @@ const realApi = {
   },
   capNhatLienKet: (lienKetId, payload) =>
     apiClient.put(`${BASE}/lien-ket/${lienKetId}`, payload).then(data).then(chuanHoaLienKet),
+  xoaLienKet: (lienKetId) => apiClient.delete(`${BASE}/lien-ket/${lienKetId}`).then(data),
   thuLaiLienKet: (lienKetId) => apiClient.post(`${BASE}/lien-ket/${lienKetId}/thu-lai`).then(data).then(chuanHoaLienKet),
   timBienThe: (q = "", limit = 20) =>
     apiClient.get(`${BASE}/bien-the/tim-kiem`, { params: { q, limit } }).then(data),
@@ -506,6 +507,7 @@ const mockApi = {
     return { ...trang, content: trang.content.map((nhom) => chuanHoaNhom(nhom)) };
   },
   capNhatLienKet: (lienKetId, payload) => kenhBanHangMock.capNhatLienKet(lienKetId, payload).then(chuanHoaLienKet),
+  xoaLienKet: (lienKetId) => kenhBanHangMock.capNhatLienKet(lienKetId, { bienTheSanPhamId: null, choPhepDongBo: false }),
   async thuLaiLienKet(lienKetId) {
     await mockDelay();
     const maKenh = Object.keys(MOCK_KET_NOI_ID).find((k) => Math.floor(Number(lienKetId) / 1000) === MOCK_KET_NOI_ID[k]) ?? "SHOPIFY";
