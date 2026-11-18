@@ -79,6 +79,11 @@ public class KenhBanHangSyncServiceImpl implements KenhBanHangSyncService {
                         kenhBanHangDongBoService.dongBoTrangThaiReadyToShipTikTok(don.getMaDonHangKenh());
                     }
                 }
+            } else if (OmnichannelOrderSyncJob.isShopee(maKenh)) {
+                log.info("KenhBanHangSync: Bắt đầu đồng bộ xuất kho đơn {} sang Shopee", don.getSoDonHang());
+                if (don.getMaDonHangKenh() != null && !don.getMaDonHangKenh().isBlank() && kenhBanHangDongBoService != null) {
+                    kenhBanHangDongBoService.dongBoTrangThaiXuatKhoShopee(don.getId(), don.getMaDonHangKenh());
+                }
             }
 
             // Ghi nhận trạng thái push thành công vào log

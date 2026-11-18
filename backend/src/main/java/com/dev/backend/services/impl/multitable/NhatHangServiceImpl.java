@@ -1903,6 +1903,14 @@ public class NhatHangServiceImpl implements NhatHangService {
                             () -> kenhBanHangDongBoService.layShippingDocumentUrlTikTok(ttOrderId));
                 }
 
+                if (dbh.getKenhBanHang() != null && OmnichannelOrderSyncJob.isShopee(dbh.getKenhBanHang().getMaKenh())
+                        && dbh.getMaDonHangKenh() != null && !dbh.getMaDonHangKenh().isBlank()
+                        && kenhBanHangDongBoService != null) {
+                    String shopeeOrderId = dbh.getMaDonHangKenh();
+                    SauCommit.chay("Đồng bộ nhặt hàng xong sang Shopee (Người bán đang chuẩn bị hàng)",
+                            () -> kenhBanHangDongBoService.dongBoTrangThaiChuanBiHangShopee(shopeeOrderId));
+                }
+
                 if (!daCoPhieu) {
                     long seq = phieuXuatKhoRepository.countBySoPhieuXuatStartingWith("PXK-") + 1;
                     String soPxk = String.format("PXK-%s-%03d",

@@ -955,14 +955,17 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         phatSuKienHoanTon(don);
         lamMoiThongBaoDonCho(don);
 
-        // Đơn từ sàn (Shopify / Lazada): gọi Order Cancel API SAU KHI commit — giao dịch rollback thì không hủy trên sàn
-        if (don.getMaDonHangKenh() != null && !don.getMaDonHangKenh().isBlank()) {
+        // Đơn từ sàn (Shopify / Lazada / Shopee): gọi Order Cancel API SAU KHI commit — giao dịch rollback thì không hủy trên sàn
+        if (don.getMaDonHangKenh() != null && !don.getMaDonHangKenh().isBlank() && kenhBanHangDongBoService != null) {
             String maDonHangKenh = don.getMaDonHangKenh();
             KenhBanHang kenh = don.getKenhBanHang();
             if (kenh != null && OmnichannelOrderSyncJob.isLazada(kenh.getMaKenh())) {
                 SauCommit.chay("Đồng bộ hủy đơn " + maDonHangKenh + " sang Lazada",
                         () -> kenhBanHangDongBoService.huyDonHangTrenLazada(maDonHangKenh, "Hủy từ FCentric"));
-            } else {
+            } else if (kenh != null && OmnichannelOrderSyncJob.isShopee(kenh.getMaKenh())) {
+                SauCommit.chay("Đồng bộ hủy đơn " + maDonHangKenh + " sang Shopee",
+                        () -> kenhBanHangDongBoService.huyDonHangTrenShopee(maDonHangKenh, "Hủy từ FCentric"));
+            } else if (kenh != null && OmnichannelOrderSyncJob.isShopify(kenh.getMaKenh())) {
                 SauCommit.chay("Đồng bộ hủy đơn " + maDonHangKenh + " sang Shopify",
                         () -> kenhBanHangDongBoService.huyDonHangTrenShopify(maDonHangKenh, "Hủy từ FCentric"));
             }
@@ -1465,6 +1468,13 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
             SauCommit.chay("Đồng bộ giao hàng thành công sang Shopify (delivered)",
                     () -> kenhBanHangDongBoService.dongBoTrangThaiDeliveredShopify(shopifyOrderId));
         }
+        if (don.getKenhBanHang() != null && OmnichannelOrderSyncJob.isShopee(don.getKenhBanHang().getMaKenh())
+                && don.getMaDonHangKenh() != null && !don.getMaDonHangKenh().isBlank()
+                && kenhBanHangDongBoService != null) {
+            String shopeeOrderId = don.getMaDonHangKenh();
+            SauCommit.chay("Đồng bộ giao hàng thành công sang Shopee (completed)",
+                    () -> kenhBanHangDongBoService.dongBoTrangThaiGiaoThanhCongShopee(shopeeOrderId));
+        }
         // Khiếu nại số lượng / chất lượng tính từ ngày giao (Luật Thương mại Điều 318): giữ bằng chứng đóng gói tới
         // ngày giao + hạn lưu (ngày xuất kho + hạn lưu có thể sớm hơn nếu giao chậm)
         bangChungDongGoiService.giaHanLuuTu(don.getId(), don.getNgayGiaoHang());
@@ -1498,6 +1508,13 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
             Integer donId = don.getId();
             SauCommit.chay("Đồng bộ hoàn trả và hoàn tiền sang Shopify",
                     () -> kenhBanHangDongBoService.dongBoHoanTraVaHoanTienShopify(donId, shopifyOrderId));
+        }
+        if (don.getKenhBanHang() != null && OmnichannelOrderSyncJob.isShopee(don.getKenhBanHang().getMaKenh())
+                && don.getMaDonHangKenh() != null && !don.getMaDonHangKenh().isBlank()
+                && kenhBanHangDongBoService != null) {
+            String shopeeOrderId = don.getMaDonHangKenh();
+            SauCommit.chay("Đồng bộ hoàn trả đơn hàng sang Shopee",
+                    () -> kenhBanHangDongBoService.dongBoTrangThaiHoanTraShopee(shopeeOrderId));
         }
         // Nhật ký lúc hoàn trả: xuất kế toán lấy làm ngày hạch toán của chứng từ Hàng bán trả lại (đơn đã giao kế toán).
         // Ghi sau commit, giao dịch riêng: ghi lỗi thì đơn vẫn hoàn trả, xuất kế toán coi như đơn không có nhật ký và để kế
