@@ -42,6 +42,10 @@ public class TrangThaiDongBoSanPham {
     @Builder.Default
     String trangThaiDongBo = "chua_dong_bo";
 
+    @Column(name = "cho_phep_dong_bo", nullable = false)
+    @Builder.Default
+    Boolean choPhepDongBo = true;
+
     @Column(name = "chi_tiet_loi", columnDefinition = "TEXT")
     String chiTietLoi;
 
