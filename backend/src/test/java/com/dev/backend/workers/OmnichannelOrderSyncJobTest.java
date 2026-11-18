@@ -403,8 +403,8 @@ class OmnichannelOrderSyncJobTest {
         mapMethod.setAccessible(true);
 
         assertEquals(0, mapMethod.invoke(null, "UNPAID"), "UNPAID -> 0 (Nháp)");
-        assertEquals(1, mapMethod.invoke(null, "READY_TO_SHIP"), "READY_TO_SHIP -> 1 (Chờ nhặt hàng)");
-        assertEquals(7, mapMethod.invoke(null, "PROCESSED"), "PROCESSED -> 7 (Chờ đóng gói)");
+        assertEquals(0, mapMethod.invoke(null, "READY_TO_SHIP"), "READY_TO_SHIP -> 0 (Nháp chờ gửi sang kho)");
+        assertEquals(1, mapMethod.invoke(null, "PROCESSED"), "PROCESSED -> 1 (Chờ nhặt hàng / Người bán đang chuẩn bị hàng)");
         assertEquals(3, mapMethod.invoke(null, "SHIPPED"), "SHIPPED -> 3 (Đã xuất toàn bộ)");
         assertEquals(3, mapMethod.invoke(null, "TO_CONFIRM_RECEIVE"), "TO_CONFIRM_RECEIVE -> 3 (Đã xuất toàn bộ)");
         assertEquals(5, mapMethod.invoke(null, "COMPLETED"), "COMPLETED -> 5 (Hoàn thành)");
@@ -475,5 +475,26 @@ class OmnichannelOrderSyncJobTest {
         job.processShopifyWebhookOrder(mapper.readTree(payload), channel, false);
 
         verify(donBanHangService).capNhatTrangThaiGiaoHangTuSan(305, "return_requested");
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("Shopee: Đơn đã gửi sang kho trên FCentric (1) nhưng sàn vẫn READY_TO_SHIP phải tự đẩy sang PROCESSED")
+    void processSingleShopeeOrder_khiDonDaGuiSangKhoNhungSanConReadyToShip_goiDongBoChuanBiHang() {
+        var sync = mock(com.dev.backend.services.KenhBanHangDongBoService.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(job, "kenhBanHangDongBoService", sync);
+
+        var kenh = KenhBanHang.builder().id(8).maKenh("SHOPEE_OFFICIAL").tenKenh("Shopee").build();
+        var don = DonBanHang.builder().id(401).soDonHang("SHP-261119XYZ").maDonHangKenh("261119XYZ")
+                .trangThai(com.dev.backend.constant.variables.ITrangThaiDonBanHang.CHO_NHAT_HANG).build();
+        when(donBanHangRepository.findBySoDonHang("SHP-261119XYZ")).thenReturn(Optional.of(don));
+
+        var orderDto = new com.dev.backend.dto.response.customize.ShopeeOrderDto();
+        orderDto.setOrderSn("261119XYZ");
+        orderDto.setOrderStatus("READY_TO_SHIP");
+
+        boolean result = job.processSingleShopeeOrder(orderDto, kenh);
+
+        assertFalse(result);
+        verify(sync).dongBoTrangThaiChuanBiHangShopee("261119XYZ");
     }
 }

@@ -185,5 +185,34 @@ class DonBanHangServiceGiaoHangSanTest {
         assertEquals(ITrangThaiDonBanHang.DA_XUAT_TOAN_BO, don.getTrangThai(), "TO_CONFIRM_RECEIVE chuyển sang Đã xuất kho (3)");
         verify(donBanHangRepository, times(1)).save(don);
     }
+
+    @Test
+    @DisplayName("Shopee: READY_TO_SHIP không tự nhảy đơn Nháp (0) sang Chờ nhặt; gửi sang kho (sendToWarehouse) mới đẩy PROCESSED lên Shopee")
+    void sendToWarehouse_donShopee_chuyenChoNhatVaGoiDongBoChuanBiHangShopee() {
+        var kenhShopee = com.dev.backend.entities.KenhBanHang.builder().id(8).maKenh("SHOPEE_OFFICIAL").tenKenh("Shopee").build();
+        var khoTong = com.dev.backend.entities.Kho.builder().id(1).maKho("KHO_TONG").tenKho("Kho Tổng").loaiKho("kho_tong").trangThai(1).build();
+        DonBanHang don = DonBanHang.builder()
+                .id(107)
+                .soDonHang("SHP-261119ABC")
+                .maDonHangKenh("261119ABC")
+                .kenhBanHang(kenhShopee)
+                .khoXuat(khoTong)
+                .loaiChungTu("don_ban_hang")
+                .trangThai(ITrangThaiDonBanHang.NHAP)
+                .build();
+
+        var dongBoService = mock(com.dev.backend.services.KenhBanHangDongBoService.class);
+        ReflectionTestUtils.setField(donBanHangService, "kenhBanHangDongBoService", dongBoService);
+        when(donBanHangRepository.findById(107)).thenReturn(Optional.of(don));
+
+        assertFalse(donBanHangService.capNhatTrangThaiGiaoHangTuSan(107, "READY_TO_SHIP"),
+                "Đơn Shopee mới (READY_TO_SHIP) ở trạng thái Nháp phải giữ ở Nháp chờ Gửi sang kho");
+
+        donBanHangService.sendToWarehouse(107, null);
+
+        assertEquals(ITrangThaiDonBanHang.CHO_NHAT_HANG, don.getTrangThai());
+        verify(donBanHangRepository, times(1)).save(don);
+        verify(dongBoService).dongBoTrangThaiChuanBiHangShopee("261119ABC");
+    }
 }
 
