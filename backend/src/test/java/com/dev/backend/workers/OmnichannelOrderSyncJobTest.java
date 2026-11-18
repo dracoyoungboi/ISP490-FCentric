@@ -414,4 +414,37 @@ class OmnichannelOrderSyncJobTest {
         assertEquals(6, mapMethod.invoke(null, "RETURNED"), "RETURNED -> 6 (Bị hoàn trả)");
         assertEquals(6, mapMethod.invoke(null, "RETURN_REFUND"), "RETURN_REFUND -> 6 (Bị hoàn trả)");
     }
+
+    @Test
+    void processSingleShopeeOrder_khiDonBiHuyTrenShopee_goiHuyDonTuSan() {
+        var kenh = KenhBanHang.builder().id(2).maKenh("SHOPEE").tenKenh("Shopee Store").build();
+        var don = DonBanHang.builder().id(201).soDonHang("SHP-241105123456").maDonHangKenh("241105123456").trangThai(1).build();
+        when(donBanHangRepository.findBySoDonHang("SHP-241105123456")).thenReturn(Optional.of(don));
+
+        var orderDto = new com.dev.backend.dto.response.customize.ShopeeOrderDto();
+        orderDto.setOrderSn("241105123456");
+        orderDto.setOrderStatus("CANCELLED");
+        orderDto.setCancelReason("Khách đổi ý");
+
+        boolean result = job.processSingleShopeeOrder(orderDto, kenh);
+
+        assertFalse(result, "Cập nhật đơn đã tồn tại trả về false (không tính vào đơn mới tạo)");
+        verify(donBanHangService).huyDonTuSan(201, "Khách đổi ý");
+    }
+
+    @Test
+    void processSingleShopeeOrder_khiDonHoanTraTrenShopee_goiCapNhatTrangThaiGiaoHangTuSan() {
+        var kenh = KenhBanHang.builder().id(2).maKenh("SHOPEE").tenKenh("Shopee Store").build();
+        var don = DonBanHang.builder().id(202).soDonHang("SHP-241105654321").maDonHangKenh("241105654321").trangThai(3).build();
+        when(donBanHangRepository.findBySoDonHang("SHP-241105654321")).thenReturn(Optional.of(don));
+
+        var orderDto = new com.dev.backend.dto.response.customize.ShopeeOrderDto();
+        orderDto.setOrderSn("241105654321");
+        orderDto.setOrderStatus("TO_RETURN");
+
+        boolean result = job.processSingleShopeeOrder(orderDto, kenh);
+
+        assertFalse(result);
+        verify(donBanHangService).capNhatTrangThaiGiaoHangTuSan(202, "TO_RETURN");
+    }
 }

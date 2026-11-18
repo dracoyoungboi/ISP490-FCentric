@@ -68,6 +68,7 @@ class DonBanHangServiceCancellationTest {
                 .id(id)
                 .soDonHang("SHP-" + id)
                 .maDonHangKenh("SHOPIFY-" + id)
+                .kenhBanHang(KenhBanHang.builder().id(1).maKenh("SHOPIFY").tenKenh("Shopify").build())
                 .loaiChungTu("don_ban_hang")
                 .trangThai(trangThai)
                 .danhSachNhatHang(pickList)
@@ -192,29 +193,37 @@ class DonBanHangServiceCancellationTest {
     }
 
     @Test
-    void huyDonTuSan_donDaXuatHoanThanhHoanTra_giuNguyen() {
-        for (int trangThai : List.of(3, 5, 6)) {
+    void huyDonTuSan_donDaXuatHoanThanh_chuyenSangBiHoanTra() {
+        for (int trangThai : List.of(3, 5)) {
             DonBanHang don = don(107, trangThai, null);
             when(donBanHangRepository.findById(107)).thenReturn(Optional.of(don));
 
-            assertFalse(service.huyDonTuSan(107, "Hủy từ sàn Shopify: "));
+            assertTrue(service.huyDonTuSan(107, "Hủy từ sàn Shopee: CANCELLED"));
 
-            assertEquals(trangThai, don.getTrangThai(), "sàn hủy đơn đã xuất không được ghi đè thành Đã hủy");
+            assertEquals(6, don.getTrangThai(), "sàn báo hủy đơn đã xuất phải tự động chuyển sang Bị hoàn trả (6)");
+            verify(donBanHangRepository).save(don);
         }
-        verify(donBanHangRepository, never()).save(any());
-        verifyNoInteractions(nhatHangService, phieuXuatKhoService, eventPublisher);
     }
 
     @Test
-    void huyDonTuSan_donDaXuatMotPhan_giuNguyen() {
+    void huyDonTuSan_donDaBiHoanTra_khongLapLai() {
+        DonBanHang don = don(107, 6, null);
+        when(donBanHangRepository.findById(107)).thenReturn(Optional.of(don));
+
+        assertFalse(service.huyDonTuSan(107, "Hủy từ sàn Shopee: CANCELLED"));
+        assertEquals(6, don.getTrangThai());
+    }
+
+    @Test
+    void huyDonTuSan_donCoPhieuXuatDaXuat_chuyenSangBiHoanTra() {
         DonBanHang don = don(108, 2, null);
         when(donBanHangRepository.findById(108)).thenReturn(Optional.of(don));
         when(phieuXuatKhoRepository.existsByDonBanHangIdAndTrangThai(108, 3)).thenReturn(true);
 
-        assertFalse(service.huyDonTuSan(108, "Hủy từ sàn Shopify: "));
+        assertTrue(service.huyDonTuSan(108, "Hủy từ sàn Shopee: "));
 
-        assertEquals(2, don.getTrangThai());
-        verify(donBanHangRepository, never()).save(any());
+        assertEquals(6, don.getTrangThai());
+        verify(donBanHangRepository).save(don);
     }
 
     @Test
