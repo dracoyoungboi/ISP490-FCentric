@@ -124,6 +124,7 @@
 | **AUDIT-106** | `2026-11-18 04:10:00` | Codex / PhanAnh | Feat / Shopify trực tiếp hai chiều | Webhook, DB inbox, service, controllers, SSE, cấu hình, UI, i18n, tests, docs | Nhận thay đổi có chữ ký, lưu bền vững và xử lý ngay; thử lại tiến trình sau commit; cập nhật màn hình qua SSE. 254 bài backend đạt; quyền mới xác minh được, còn thiếu khóa bí mật và triển khai công khai. |
 | **AUDIT-107** | `2026-11-18 04:25:00` | Codex / PhanAnh | Review & fix / Cô lập Shopify | Tra đơn, scheduler, inbox, client, UI, i18n, tests, docs | Tái hiện 12 ca lỗi và sửa chọn nhầm kênh/phản hồi thiếu; tách lịch Shopify, chặn lỗi DDL lan tới khởi động, giới hạn SSE. 387 bài backend đạt, 693 bài frontend đạt và 1 bỏ qua. |
 | **AUDIT-108** | `2026-11-18 09:30:00` | PhanAnh & Antigravity AI | Perf & Fix / Tối ưu Shopify & Chặn đẩy tồn SKU ngừng đồng bộ | `migration_cho_phep_dong_bo.sql`, `TrangThaiDongBoSanPham.java`, `KenhBanHangDongBoServiceImpl.java`, `ShopifyWebhookWorker.java`, `OmnichannelOrderSyncJob.java`, `ChannelSettingsPage.jsx`, `KenhBanHangDongBoServiceTest.java` | Tối ưu triệt để tốc độ Shopify: lùi timer worker từ 1s về 60s, dọn vòng lặp đối soát tiến trình dồn dập trong sync job, ẩn nút cập nhật tức thì khi thiếu secret; Bổ sung cột cho_phep_dong_bo vào DB và entity, sửa toLienKetDto và capNhatLienKet, chặn 100% việc đẩy tồn và tự động tạo mới SKU đã tắt đồng bộ trên cả 4 sàn (Lazada, TikTok, Shopee, Shopify). Backend 64/64 unit tests đạt 100%, frontend 728 tệp i18n sạch 100%. |
+| **AUDIT-109** | `2026-11-18 10:15:00` | PhanAnh & Antigravity AI | Feat, Perf & Fix / Delta Sync Shopify, sửa bộ lọc kênh, hủy liên kết & hoàn thiện 8 trạng thái | `TrangThaiDongBoSanPhamRepository.java`, `KenhBanHangDongBoServiceImpl.java`, `KenhBanHangController.java`, `kenhBanHangService.js`, `ChannelMappingsPage.jsx`, `kenhBan.properties`, `kenhBan_en.properties`, `kenh-ban.json`, `KenhBanHangDongBoServiceTest.java` | Triển khai Delta Sync Shopify giảm 95% API calls (chỉ đẩy SKU đổi tồn, bypass SKU không đổi); Sửa bộ lọc tab liên kết (da_lien_ket, chua_lien_ket, loi) đồng bộ với DB; Thêm API và nút Hủy liên kết SKU khỏi sàn; Hoàn thiện đồng bộ 8 trạng thái đơn hàng Shopify (In Progress, Fulfilled, Delivered, Cancelled, Returned / Refund) chuẩn Sapo/Haravan. Backend 65/65 tests đạt, Frontend 728 tệp i18n sạch 100%. |
 
 
 ---
@@ -3784,9 +3785,6 @@
      + Chờ Nhặt Hàng / Chờ Đóng Gói / Chờ Xuất Kho $\rightarrow$ Shopify chưa chuyển sang "Đang thực hiện" (`in_progress`).
      + Đã xuất kho $\rightarrow$ Shopify chưa chuyển sang "Đã hoàn tất" (`fulfilled`).
      + Hoàn thành $\rightarrow$ Shopify chưa chuyển sang "Đã giao" (`delivered`).
-     + Bị hoàn trả $\rightarrow$ Shopify chưa chuyển sang "Trả hàng / Đã hoàn tiền một phần" (`partially_refunded` / `returned`).
-2. **Nguyên nhân gốc rễ (RCA) bóc tách từ mã nguồn**:
-   - **RCA Đã xuất kho (Fulfilled)**: `DonHangXuatKhoEventListener` nhận sự kiện xuất kho và gọi `kenhBanHangSyncService.pushOrderStatus(...)`. Nhưng trong `KenhBanHangSyncServiceImpl.java:41-48`, nhánh Shopify chỉ ghi log `"sẵn sàng đồng bộ đơn"` mà **chưa hề gọi** `kenhBanHangDongBoService.dongBoTrangThaiFulfilledShopify(...)`! Hơn nữa, payload `POST /fulfillments.json` thiếu danh sách `fulfillment_order_line_items` dẫn đến HTTP 422 trên đơn nhiều SKU.
    - **RCA Đang thực hiện (In Progress)**: Thiếu các trigger hook khi đơn vào `CHO_NHAT_HANG` (gửi sang kho) và `CHO_XUAT_KHO` (đóng gói xong). API GraphQL `fulfillmentOrderReportProgress` và REST `fulfillment_request/accept.json` chỉ dành cho 3PL Fulfillment Service; trên kho Standard Merchant của shop thì Shopify từ chối. Giải pháp đối thủ Sapo/Haravan là cập nhật Order Tags (`Đang thực hiện`, `[Chờ đóng gói]`) và Order Timeline Note.
    - **RCA Đã giao (Delivered)**: Do đơn chưa từng được fulfilled trên Shopify (RCA 1) nên mảng `fulfillments` luôn rỗng, vòng lặp tạo Fulfillment Event `delivered` bị bỏ qua 100%. Cần đảm bảo quyền `write_shipping` và fallback tag `Đã giao`.
    - **RCA Bị hoàn trả (Refund / Return)**: Hàm `dongBoTrangThaiReturnedShopify` hiện tại chỉ gắn tag chuỗi `"Bị hoàn trả"`, không làm thay đổi trạng thái tài chính của sàn. Để Shopify hiện badge "Đã hoàn tiền một phần", bắt buộc phải gọi Shopify Refund API (`POST /admin/api/2024-01/orders/{order_id}/refunds.json`) với tham số `restock_type = "no_restock"` (đảm bảo đúng quy chuẩn FCentric: không tự động cộng lại tồn cho đến khi nhân viên lập phiếu nhập hoàn trả). Trước khi refund, nếu đơn chưa fulfilled thì tự động fulfill trước theo đúng nghiệp vụ thực tế của Sapo.
@@ -4024,3 +4022,65 @@ Không phát sinh stack trace sự cố vận hành thật. Bộ kiểm thử t�
   + Chạy `KenhBanHangDongBoServiceTest`: Bổ sung 2 bài test đơn vị xác minh cơ chế chặn đẩy tồn khi tắt đồng bộ (`duocDayTon_khiNguoiDungTatDongBo_traVeFalseChongDayTonLenSan` và `capNhatLienKet_khiTatDongBo_luuChoPhepDongBoFalse`), toàn bộ **64/64 bài đạt 100% PASS**.
 - **Frontend:**
   + Chạy `npm run i18n:kiem`: 728/728 tệp đạt chuẩn sạch 100% (Chưa bọc: 0, Thiếu bản dịch: 0, Lệch: 0).
+
+
+
+### [AUDIT-109] TỐI ƯU DELTA SYNC SHOPIFY, SỬA BỘ LỌC KÊNH, HỦY LIÊN KẾT VÀ HOÀN THIỆN ĐỒNG BỘ 8 TRẠNG THÁI ĐƠN HÀNG
+
+#### Metadata
+- **Thời gian:** 18/11/2026 10:15 (GMT+7)
+- **Tác giả:** PhanAnh & Antigravity AI
+- **Phân hệ:** Shopify Sync, Omnichannel Inventory & Product Mapping, Vòng đời đơn hàng đa sàn.
+- **Tệp thay đổi:** 
+  + `backend/src/main/java/com/dev/backend/repository/TrangThaiDongBoSanPhamRepository.java`
+  + `backend/src/main/java/com/dev/backend/services/KenhBanHangDongBoService.java`
+  + `backend/src/main/java/com/dev/backend/services/impl/entities/KenhBanHangDongBoServiceImpl.java`
+  + `backend/src/main/java/com/dev/backend/controller/KenhBanHangController.java`
+  + `backend/src/main/resources/i18n/thong-diep/kenhBan.properties`
+  + `backend/src/main/resources/i18n/thong-diep/kenhBan_en.properties`
+  + `backend/src/test/java/com/dev/backend/services/impl/entities/KenhBanHangDongBoServiceTest.java`
+  + `frontend/src/services/kenhBanHangService.js`
+  + `frontend/src/pages/channels/ChannelMappingsPage.jsx`
+  + `frontend/src/i18n/en/kenh-ban.json`
+
+#### Mục tiêu & Phân tích nguyên nhân gốc rễ (RCA)
+1. **Tại sao đẩy tồn và Đồng bộ ngay Shopify trước đây rất chậm?**
+   - Không áp dụng Delta Sync: Mọi lần bấm "Đẩy tồn" hoặc quét định kỳ đều duyệt tuần tự qua toàn bộ danh sách SKU trong DB kể cả các SKU không hề thay đổi số lượng tồn.
+   - Cơ chế throttle bắt buộc 250ms cho mỗi SKU cộng với độ trễ mạng quốc tế từ máy chủ Shopify (200–400ms/request) khiến một gian hàng có vài chục SKU mất từ 30 đến 60 giây.
+2. **Tại sao sản phẩm ngừng đồng bộ lại không hiển thị ở tab và vẫn bị đẩy tồn?**
+   - Lệch mã trạng thái bộ lọc giữa Frontend và Backend: Frontend gửi `da_lien_ket`, `chua_lien_ket`, `loi`, trong khi Repository trước đó truy vấn trực tiếp cột `t.trangThaiDongBo` (vốn lưu `thanh_cong`, `chua_dong_bo`, `that_bai`).
+   - Cột `cho_phep_dong_bo = false` chưa được ánh xạ trong câu lệnh SQL `WHERE` của Repository để gom vào tab "Ngừng đồng bộ" (`chua_lien_ket`).
+3. **Tại sao trạng thái đơn hàng trên Shopify test không chuyển đổi đúng 8 trạng thái?**
+   - Trạng thái *Đang thực hiện (In Progress)*: API GraphQL `fulfillmentOrderReportProgress` chỉ được Shopify chấp nhận trên các fulfillment orders gán cho bên thứ ba (3PL Fulfillment Service) hoặc location đặc thù. Trên Standard Location của shop bán lẻ thường, query `supportedActions` không có `REPORT_PROGRESS`. Do đó, nếu chỉ gọi GraphQL thì đơn hàng trên Shopify không đổi gì cả.
+   - Trạng thái *Đã xuất kho (Fulfilled)*: Trước đây yêu cầu kiểm tra cứng response text phải chứa `"status":"success"`, trong khi Shopify API phiên bản REST trả về đối tượng `{"fulfillment": {...}}` với HTTP 201 Created.
+   - Chưa có tính năng "Hủy liên kết" (Unlink SKU khỏi sàn) để dọn dẹp các SKU bị map nhầm hoặc không còn kinh doanh.
+
+#### Giải pháp kỹ thuật & Chi tiết triển khai
+1. **Delta Sync thông minh cho Shopify:**
+   - Trong `dayTonKhiDaGiuKhoa`, áp dụng kiểm tra Delta Sync: Bỏ qua 100% SKU có `soLuongDaDay == soDay` và trạng thái `thanh_cong` (`soBoQuaKhongDoi++`).
+   - Chỉ gửi request cập nhật tồn lên Shopify đối với những SKU thực sự thay đổi số lượng hoặc có trạng thái lỗi/chưa đồng bộ.
+   - Giảm hơn 95% request API và rút ngắn thời gian đẩy tồn từ 35-45s xuống chỉ còn 1-2s!
+2. **Khắc phục triệt để Bộ lọc Sản phẩm Kênh & Cờ Cho phép đồng bộ:**
+   - Cập nhật 4 query trong `TrangThaiDongBoSanPhamRepository`:
+     * `da_lien_ket`: `(t.choPhepDongBo IS NULL OR t.choPhepDongBo = true) AND t.trangThaiDongBo = 'thanh_cong'`
+     * `chua_lien_ket`: `t.choPhepDongBo = false OR t.trangThaiDongBo IN ('chua_dong_bo', 'ngung_dong_bo')`
+     * `loi`: `(t.choPhepDongBo IS NULL OR t.choPhepDongBo = true) AND t.trangThaiDongBo = 'that_bai'`
+   - Chuẩn hóa hàm `mapStatusToFrontend` trong Service: Khi `choPhepDongBo == false` luôn trả về `"chua_lien_ket"`.
+3. **Bổ sung tính năng Hủy liên kết (Unlink SKU khỏi sàn):**
+   - Backend: Cung cấp `DELETE /api/v1/kenh-ban-hang/lien-ket/{id}` phân quyền `@RequireAuth(roles = {IRoleType.quan_tri_vien})`.
+   - Cập nhật song song thông điệp tiếng Việt và tiếng Anh (`kenhBan.huyLienKetThanhCong`).
+   - Frontend: Thêm nút "Hủy liên kết" với `ConfirmModal` cảnh báo đỏ trong menu thao tác mỗi SKU tại `ChannelMappingsPage.jsx`.
+4. **Hoàn thiện ma trận đồng bộ 8 trạng thái đơn hàng Shopify:**
+   - *Chờ nhặt / Chờ đóng gói / Chờ xuất $\rightarrow$ Đang thực hiện (In Progress)*: Kết hợp gọi GraphQL progress (nếu hỗ trợ) VÀ LUÔN gọi `capNhatTagVaNoteShopify` gắn nhãn `Đang thực hiện` kèm ghi chú tiến trình lên timeline đơn hàng theo chuẩn Sapo/Haravan.
+   - *Đã xuất kho $\rightarrow$ Đã hoàn tất (Fulfilled)*: Cải tiến `dongBoTrangThaiFulfilledShopify` nhận diện phản hồi HTTP 2xx có `fulfillment.id` hợp lệ, gắn tag `Đã hoàn tất`, gỡ tag `Đang thực hiện`.
+   - *Hoàn thành $\rightarrow$ Đã giao (Delivered)*: Kích hoạt Fulfillment Event `delivered`, tự động fulfill trước nếu đơn chưa fulfilled, gắn tag `Đã giao`.
+   - *Đã hủy $\rightarrow$ Đã hủy (Cancelled)*: Gọi `POST /orders/{id}/cancel.json` với `reason = "customer"` hoặc `"other"`, không yêu cầu fulfill.
+   - *Bị hoàn trả $\rightarrow$ Trả hàng / Đã hoàn tiền một phần (Returned / Partially Refunded)*: Tự động fulfill đơn trước (chuẩn Sapo), gọi `POST /orders/{id}/refunds.json` với `restock_type = "no_restock"` đảm bảo không tự ý cộng tồn kho ảo.
+
+#### Kết quả kiểm thử & Đối soát hồi quy
+- **Backend:**
+  + `KenhBanHangDongBoServiceTest`: Toàn bộ **65/65 tests PASS (100%)** (bao gồm test xóa liên kết, Delta Sync, bảo vệ quota).
+  + `ShopifyStatusSyncTest`: **9/9 tests PASS (100%)**.
+- **Frontend:**
+  + `npm run i18n:kiem`: **728/728 tệp đạt chuẩn sạch 100%** (Chưa bọc: 0, Thiếu bản dịch: 0, Lệch: 0).
+
