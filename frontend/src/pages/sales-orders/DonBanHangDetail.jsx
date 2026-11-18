@@ -138,6 +138,8 @@ function ChiTietDonBanHang({ id }) {
   const [lyDoHuy, setLyDoHuy] = useState("");
   // Hết thời hạn mà máy chủ có thể vẫn đang làm: khóa nút thao tác tới khi lời gọi gốc kết thúc (khiGocKetThuc)
   const [choGoc, setChoGoc] = useState(false);
+  // Đang tải tem vận đơn sàn (A6); phải khai báo trước lệnh return sớm lúc đang tải
+  const [dangTaiVanDon, setDangTaiVanDon] = useState(false);
   const huyChoGocRef = useRef(null);
   const daGoRef = useRef(false);
   useEffect(() => {
@@ -315,8 +317,6 @@ function ChiTietDonBanHang({ id }) {
         else toast.success(cau, { description: t("Dùng lại lô đã nhặt, đơn chuyển sang Chờ đóng gói.") });
       },
     });
-
-  const [dangTaiVanDon, setDangTaiVanDon] = useState(false);
 
   const inVanDonSan = async () => {
     try {
