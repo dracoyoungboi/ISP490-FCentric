@@ -36,7 +36,11 @@ public interface TrangThaiDongBoSanPhamRepository extends JpaRepository<TrangTha
         JOIN FETCH t.bienTheSanPham bt
         JOIN FETCH bt.sanPham sp
         WHERE t.kenhBanHang.id = :kenhBanId
-        AND (:trangThai IS NULL OR t.trangThaiDongBo = :trangThai)
+        AND (:trangThai IS NULL
+             OR (:trangThai = 'da_lien_ket' AND (t.choPhepDongBo IS NULL OR t.choPhepDongBo = true) AND t.trangThaiDongBo = 'thanh_cong')
+             OR (:trangThai = 'chua_lien_ket' AND (t.choPhepDongBo = false OR t.trangThaiDongBo = 'chua_dong_bo' OR t.trangThaiDongBo = 'ngung_dong_bo'))
+             OR (:trangThai = 'loi' AND (t.choPhepDongBo IS NULL OR t.choPhepDongBo = true) AND t.trangThaiDongBo = 'that_bai')
+             OR t.trangThaiDongBo = :trangThai)
         AND (:search IS NULL OR LOWER(bt.maSku) LIKE LOWER(CONCAT('%', :search, '%'))
              OR LOWER(sp.tenSanPham) LIKE LOWER(CONCAT('%', :search, '%'))
              OR LOWER(t.maSanPhamKenh) LIKE LOWER(CONCAT('%', :search, '%')))
@@ -57,7 +61,11 @@ public interface TrangThaiDongBoSanPhamRepository extends JpaRepository<TrangTha
         JOIN t.bienTheSanPham bt
         JOIN bt.sanPham sp
         WHERE t.kenhBanHang.id = :kenhBanId
-        AND (:trangThai IS NULL OR t.trangThaiDongBo = :trangThai)
+        AND (:trangThai IS NULL
+             OR (:trangThai = 'da_lien_ket' AND (t.choPhepDongBo IS NULL OR t.choPhepDongBo = true) AND t.trangThaiDongBo = 'thanh_cong')
+             OR (:trangThai = 'chua_lien_ket' AND (t.choPhepDongBo = false OR t.trangThaiDongBo = 'chua_dong_bo' OR t.trangThaiDongBo = 'ngung_dong_bo'))
+             OR (:trangThai = 'loi' AND (t.choPhepDongBo IS NULL OR t.choPhepDongBo = true) AND t.trangThaiDongBo = 'that_bai')
+             OR t.trangThaiDongBo = :trangThai)
         AND (:search IS NULL OR LOWER(bt.maSku) LIKE LOWER(CONCAT('%', :search, '%'))
              OR LOWER(sp.tenSanPham) LIKE LOWER(CONCAT('%', :search, '%'))
              OR LOWER(t.maSanPhamKenh) LIKE LOWER(CONCAT('%', :search, '%')))
@@ -68,7 +76,11 @@ public interface TrangThaiDongBoSanPhamRepository extends JpaRepository<TrangTha
         JOIN t.bienTheSanPham bt
         JOIN bt.sanPham sp
         WHERE t.kenhBanHang.id = :kenhBanId
-        AND (:trangThai IS NULL OR t.trangThaiDongBo = :trangThai)
+        AND (:trangThai IS NULL
+             OR (:trangThai = 'da_lien_ket' AND (t.choPhepDongBo IS NULL OR t.choPhepDongBo = true) AND t.trangThaiDongBo = 'thanh_cong')
+             OR (:trangThai = 'chua_lien_ket' AND (t.choPhepDongBo = false OR t.trangThaiDongBo = 'chua_dong_bo' OR t.trangThaiDongBo = 'ngung_dong_bo'))
+             OR (:trangThai = 'loi' AND (t.choPhepDongBo IS NULL OR t.choPhepDongBo = true) AND t.trangThaiDongBo = 'that_bai')
+             OR t.trangThaiDongBo = :trangThai)
         AND (:search IS NULL OR LOWER(bt.maSku) LIKE LOWER(CONCAT('%', :search, '%'))
              OR LOWER(sp.tenSanPham) LIKE LOWER(CONCAT('%', :search, '%'))
              OR LOWER(t.maSanPhamKenh) LIKE LOWER(CONCAT('%', :search, '%')))
@@ -89,7 +101,11 @@ public interface TrangThaiDongBoSanPhamRepository extends JpaRepository<TrangTha
         JOIN t.bienTheSanPham bt
         JOIN bt.sanPham sp
         WHERE t.kenhBanHang.id = :kenhBanId
-        AND (:trangThai IS NULL OR t.trangThaiDongBo = :trangThai)
+        AND (:trangThai IS NULL
+             OR (:trangThai = 'da_lien_ket' AND (t.choPhepDongBo IS NULL OR t.choPhepDongBo = true) AND t.trangThaiDongBo = 'thanh_cong')
+             OR (:trangThai = 'chua_lien_ket' AND (t.choPhepDongBo = false OR t.trangThaiDongBo = 'chua_dong_bo' OR t.trangThaiDongBo = 'ngung_dong_bo'))
+             OR (:trangThai = 'loi' AND (t.choPhepDongBo IS NULL OR t.choPhepDongBo = true) AND t.trangThaiDongBo = 'that_bai')
+             OR t.trangThaiDongBo = :trangThai)
         AND (:search IS NULL OR LOWER(bt.maSku) LIKE LOWER(CONCAT('%', :search, '%'))
              OR LOWER(sp.tenSanPham) LIKE LOWER(CONCAT('%', :search, '%'))
              OR LOWER(t.maSanPhamKenh) LIKE LOWER(CONCAT('%', :search, '%')))
@@ -114,7 +130,11 @@ public interface TrangThaiDongBoSanPhamRepository extends JpaRepository<TrangTha
         JOIN FETCH bt.chatLieu cl
         WHERE t.kenhBanHang.id = :kenhBanId
         AND sp.id IN :sanPhamIds
-        AND (:trangThai IS NULL OR t.trangThaiDongBo = :trangThai)
+        AND (:trangThai IS NULL
+             OR (:trangThai = 'da_lien_ket' AND (t.choPhepDongBo IS NULL OR t.choPhepDongBo = true) AND t.trangThaiDongBo = 'thanh_cong')
+             OR (:trangThai = 'chua_lien_ket' AND (t.choPhepDongBo = false OR t.trangThaiDongBo = 'chua_dong_bo' OR t.trangThaiDongBo = 'ngung_dong_bo'))
+             OR (:trangThai = 'loi' AND (t.choPhepDongBo IS NULL OR t.choPhepDongBo = true) AND t.trangThaiDongBo = 'that_bai')
+             OR t.trangThaiDongBo = :trangThai)
         AND (:search IS NULL OR LOWER(bt.maSku) LIKE LOWER(CONCAT('%', :search, '%'))
              OR LOWER(sp.tenSanPham) LIKE LOWER(CONCAT('%', :search, '%'))
              OR LOWER(t.maSanPhamKenh) LIKE LOWER(CONCAT('%', :search, '%')))
