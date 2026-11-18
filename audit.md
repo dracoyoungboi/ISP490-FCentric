@@ -132,6 +132,7 @@
 | **AUDIT-114** | `2026-11-18 20:45:00` | PhanAnh & Antigravity AI | Bug Fix, Sync & Integration / Khắc phục triệt để lỗi kho gốc SKU TikTok Shop (12052533), đồng nhất tự phục hồi luồng đẩy lô (12052557), tự hiệu chỉnh kho bán hàng và phát sự kiện đồng bộ khi chuyển kho | `TikTokShopClient.java`, `KenhBanHangDongBoServiceImpl.java`, `PhieuChuyenKhoService.java`, `hienThiKenhPos.properties`, `hienThiKenhPos_en.properties`, `TikTokShopClientTest.java`, `KenhBanHangDongBoServiceTest.java`, `audit.md` | Kéo đồng bộ bản vá từ Dev (`a04154e5`, `9673babe`) của Khang (sửa lỗi Rules of Hooks trên `DonBanHangDetail.jsx` và regex token TikTok); Xử lý triệt để lỗi `12052533` (*warehouse changes are not permitted*): bổ sung parse `skus[].inventory[]` và API `getProduct` trong `TikTokShopClient`, lưu cache `skuToInventories` (bảo toàn kho gốc của từng SKU), tự động tải kho gốc qua `GET /product/{id}` và thử lại ngay khi gặp `12052533`; Đồng nhất `dayTonTikTokToiUu` với `guiTonLenTikTok` (on-demand lookup, tự làm mới token, kiểm tra `failed_skus`, tách lẻ tự sửa khi gặp `12052557` và xóa bỏ đoạn xóa trắng `maSanPhamKenh`); Sửa trích xuất mã lỗi số trong `phanLoaiLoiTikTok`; Bổ sung phát `InventoryRestockedEvent` trong `PhieuChuyenKhoService` khi tạo/hủy/từ chối/nhận hàng chuyển kho; Bổ sung 5 unit tests mới, đạt 203/203 backend tests PASS 100% và Frontend 728/728 tệp i18n sạch 100%. |
 | **AUDIT-115** | `2026-11-18 21:35:00` | PhanAnh & Antigravity AI | Bug Fix, Sync & Warehouse Switch / Xử lý triệt để cơ chế chọn & chuyển kho bán hàng TikTok Shop, reset Delta Sync & tự phục hồi `editProduct` | `KenhBanHangDongBoServiceImpl.java`, `KenhBanHangDongBoServiceTest.java`, `audit.md` | Giải đáp giới hạn Read-only của TikTok Seller Center `is_default` trên `GET /logistics/202309/warehouses`; Sửa `getLocations("TIKTOK")` không gắn trùng nhãn `" (Kho bán hàng mặc định)"` khi có >= 2 kho bán hàng và lưu đủ `MA_KHO_SAN` + `TEN_KHO_SAN`; Nâng cấp `luuCaiDat` khi đổi `maKhoSan` để đồng bộ `KENH_<MA>_KHO_MAPPING`, xóa `CACHED_TIKTOK_PRODUCT_SIGNATURES`, reset `soLuongDaDay = null` vượt qua Delta Sync và đẩy tồn ngay sang kho mới; Đưa `warehouseId` vào `productSignature` và bổ sung tự phục hồi `12052533` kèm cập nhật cache `skuToInventories` trong `capNhatSanPhamLenTikTok`; Bổ sung 2 unit tests, đạt 205/205 backend tests PASS 100% và Frontend 728/728 tệp i18n sạch 100%. |
 | **AUDIT-116** | `2026-11-19 00:22:00` | PhanAnh & Antigravity AI | Fix, Feat & UX / Khắc phục lỗi in vận đơn Shopee `shipping_document_should_print_first`, chuyển kho chuẩn Sapo cho TikTok Shop & Shopee + Pop-up xác nhận, đồng bộ tức thời hoàn trả Shopify & đối soát 2 chiều Shopee | `ShopeeClient.java`, `DonBanHangService.java`, `KenhBanHangController.java`, `ShopifyOrderSnapshotClient.java`, `OmnichannelOrderSyncJob.java`, `KenhBanHangServiceImpl.java`, `KenhBanHangDongBoServiceImpl.java`, `noiDungSan.js`, `ChannelSettingsPage.jsx`, `kenh-ban.json`, `ShopeeClientTest.java`, `KenhBanHangDongBoServiceTest.java`, `OmnichannelOrderSyncJobTest.java`, `audit.md` | Giải quyết triệt để lỗi `logistics.shipping_document_should_print_first` khi in vận đơn A6 Shopee (`shipOrderAuto`, truyền `tracking_number` vào `create_shipping_document`, fallback `NORMAL_AIR_WAYBILL`, chặn PDF trả JSON lỗi 200 qua `laJsonLoiShopee`); Triển khai chuyển đổi kho chuẩn Sapo cho TikTok Shop (gọi `editProduct` với `sku.id = null` gắn SKU sang kho mới, cập nhật `maSanPhamKenh`, tự phục hồi `12052533` nếu bị sàn khóa) và Shopee (`get_warehouse_detail`, `get_address_list`, chọn kho FCentric nguồn, truyền `location_id` đa kho); Hiển thị Pop-up xác nhận chuyển sản phẩm sang kho mới (`ConfirmModal`) trên `ChannelSettingsPage.jsx`; Đồng bộ tức thời yêu cầu hoàn trả Shopify (`returnStatus = RETURN_REQUESTED / IN_PROGRESS`) sang `Bị hoàn trả (6)`; Nâng cấp hủy/giao Shopee 2 chiều (`getOrderDetail` + `IN_CANCEL`); 250/250 backend omnichannel unit tests & 728/728 frontend i18n check PASS 100%. |
+| **AUDIT-117** | `2026-11-19 01:18:00` | PhanAnh & Antigravity AI | Fix & Sync / Khắc phục lỗi biên dịch `HashMap`, đồng bộ trạng thái "Gửi sang kho" Shopee -> `PROCESSED` và sửa luồng in vận đơn A6 Shopee (`SHOPEE_OFFICIAL`, xác thực JWT, unwrap `ResponseData`) | `OmnichannelOrderSyncJob.java`, `DonBanHangService.java`, `NhatHangServiceImpl.java`, `PhieuXuatKhoService.java`, `SalesOrderPackingSlipPrint.jsx`, `ShopeeAwbDocument.jsx`, `DonBanHangServiceGiaoHangSanTest.java`, `OmnichannelOrderSyncJobTest.java`, `audit.md` | Bổ sung `import java.util.HashMap;` khắc phục lỗi biên dịch tại `OmnichannelOrderSyncJob.java:389`; Đổi ánh xạ đơn Shopee `READY_TO_SHIP -> 0 (Nháp)` và `PROCESSED -> 1 (Chờ nhặt hàng)`, đồng bộ ngay `dongBoTrangThaiChuanBiHangShopee` (chuyển Shopee sang `PROCESSED` - Người bán đang chuẩn bị hàng) ngay lúc "Gửi sang kho" (`sendToWarehouse`) thay vì đợi hoàn tất nhặt hàng, kèm đối soát tiến trình và kích hoạt bảo vệ khi tạo Pick List (`taoPickList`); Sửa 3 điểm nghẽn in tem A6 Shopee: bổ sung `SHOPEE_OFFICIAL` trong `PhieuXuatKhoService` (tránh fallback Lazada), unwrap `ResponseData` trong `SalesOrderPackingSlipPrint.jsx`, và gọi `apiClient` đính JWT + mặc định hiển thị tem A6 trong `ShopeeAwbDocument.jsx`; Đạt 252/252 backend omnichannel tests, `vite build` & 728/728 frontend `i18n:kiem` PASS 100%. |
 
 
 ---
@@ -3697,29 +3698,6 @@
 2. **Nguyên nhân kỹ thuật sâu xa**:
    - Trong câu lệnh HQL/JPQL của phương thức `sumFreeToUseTheoKho` tại [TonKhoTongHopRepository.java](file:///d:/ISP490-FCentric/backend/src/main/java/com/dev/backend/repository/TonKhoTongHopRepository.java), điều kiện lọc kho của `ChiTietDonBanHang` viết là `ctdbh.donBanHang.kho.id = :khoId`.
    - Tuy nhiên, Entity `DonBanHang` không có trường thuộc tính `kho` mà khai báo trường liên kết kho xuất là `Kho khoXuat;`.
-   - Khi chạy test đơn lẻ với mockito (`@ExtendWith(MockitoExtension.class)`), Spring Context không nạp nên HQL parser không kiểm tra. Khi ứng dụng thực tế khởi động, `JpaRepositoriesRegistrar` phân tích cây AST của câu HQL và báo lỗi vi phạm schema đối tượng.
-
-#### 2. GIẢI PHÁP KỸ THUẬT & CHI TIẾT TRIỂN KHAI
-1. **Sửa trường thuộc tính trong HQL**:
-   - Thay thế `ctdbh.donBanHang.kho.id = :khoId` bằng `ctdbh.donBanHang.khoXuat.id = :khoId`.
-   - Đồng bộ điều kiện `ChiTietPhieuXuatKho`: `ctpx.phieuXuatKho.kho.id = :khoId`, `ctpx.phieuXuatKho.trangThai = 3`, `ctpx.phieuXuatKho.donBanHang.loaiChungTu = 'don_ban_hang'` và `ctpx.phieuXuatKho.donBanHang.trangThai IN :trangThaiGiuHang` khớp chuẩn 100% với công thức toàn chuỗi.
-
-#### 3. KẾT QUẢ KIỂM THỬ VÀ ĐỐI SOÁT
-1. **Kiểm thử tích hợp Spring Boot (`@SpringBootTest`)**:
-   - Chạy `BackendApplicationTests` với Spring Boot Context thực tế: Nạp và validate thành công toàn bộ **94 JPA Repositories**, khởi động Hibernate EntityManagerFactory và Fail-safe seed: **1/1 test PASS (Time elapsed: 27.53 s, BUILD SUCCESS)**.
-2. **Kiểm thử đơn vị đa kho**:
-   - `ShopifyMultiLocationInventoryTest`: 5/5 tests PASS.
-3. **Đóng gói Artifact**:
-   - `mvnw.cmd -DskipTests package` hoàn tất xuất sắc (`BUILD SUCCESS`).
-
----
-
-### [AUDIT-102] KHẮC PHỤC LỖI HIBERNATE ASSERTIONFAILURE KHI TẮT ĐA KHO SHOPIFY, NÂNG CẤP CỘT GIA_TRI VÀ HOÀN THIỆN ĐỊNH TUYẾN ĐƠN THEO KHO PAIRED
-- **Thời gian**: `2026-11-17 16:40:00` (GMT+7)
-- **Tác giả**: PhanAnh & Antigravity AI
-     at org.hibernate.event.internal.DefaultFlushEntityEventListener.checkId(DefaultFlushEntityEventListener.java:78)
-     at org.hibernate.event.internal.DefaultFlushEntityEventListener.onFlushEntity(...)
-     at org.hibernate.internal.SessionImpl.autoFlushIfRequired(...)
      Lỗi chưa xử lý tại PUT /api/v1/kenh-ban-hang/SHOPIFY/kho-mapping
      ```
 2. **Căn nguyên kỹ thuật sâu xa (Root Cause)**:
@@ -4372,63 +4350,6 @@ Không phát sinh stack trace sự cố vận hành thật. Bộ kiểm thử t�
     * `OmnichannelOrderSyncJobTest`: **33/33 PASS**.
 - **Frontend & i18n (`npm run i18n:kiem`):**
   + **728/728 tệp đạt chuẩn sạch 100%** (Chưa bọc: 0, Thiếu bản dịch: 0, Lệch: 0).
-
----
-
-### [AUDIT-116] KHẮC PHỤC LỖI IN VẬN ĐƠN SHOPEE (`shipping_document_should_print_first`), CHUYỂN KHO CHUẨN SAPO (TIKTOK SHOP & SHOPEE + POP-UP XÁC NHẬN), HOÀN TRẢ SHOPIFY TỨC THỜI & ĐỐI SOÁT ĐỒNG BỘ HAI CHIỀU SHOPEE
-
-#### Metadata
-- **Thời gian:** 19/11/2026 00:22 (GMT+7)
-- **Tác giả:** PhanAnh & Antigravity AI
-- **Phân hệ:** Shopee Logistics & Order Sync (`ShopeeClient`, `DonBanHangService`, `KenhBanHangController`), TikTok Shop & Shopee Warehouse Switching + Frontend Pop-up (`KenhBanHangDongBoServiceImpl`, `KenhBanHangServiceImpl`, `ChannelSettingsPage.jsx`, `noiDungSan.js`), Shopify Immediate Return Sync (`ShopifyOrderSnapshotClient`, `OmnichannelOrderSyncJob`).
-- **Tệp thay đổi:**
-  + `backend/src/main/java/com/dev/backend/services/shopee/ShopeeClient.java`
-  + `backend/src/main/java/com/dev/backend/services/impl/entities/DonBanHangService.java`
-  + `backend/src/main/java/com/dev/backend/controller/KenhBanHangController.java`
-  + `backend/src/main/java/com/dev/backend/services/shopify/ShopifyOrderSnapshotClient.java`
-  + `backend/src/main/java/com/dev/backend/workers/OmnichannelOrderSyncJob.java`
-  + `backend/src/main/java/com/dev/backend/services/impl/entities/KenhBanHangServiceImpl.java`
-  + `backend/src/main/java/com/dev/backend/services/impl/entities/KenhBanHangDongBoServiceImpl.java`
-  + `frontend/src/components/channel/noiDungSan.js`
-  + `frontend/src/pages/channels/ChannelSettingsPage.jsx`
-  + `frontend/src/i18n/en/kenh-ban.json`
-  + `backend/src/test/java/com/dev/backend/services/shopee/ShopeeClientTest.java`
-  + `backend/src/test/java/com/dev/backend/services/impl/entities/KenhBanHangDongBoServiceTest.java`
-  + `backend/src/test/java/com/dev/backend/workers/OmnichannelOrderSyncJobTest.java`
-  + `audit.md`
-
-#### Mục tiêu & Phân tích nguyên nhân gốc rễ (Root Cause Analysis - RCA)
-1. **Lỗi in vận đơn Shopee (`{"error":"logistics.shipping_document_should_print_first","message":"The package should print first. Detail: these orders: 261118MS884CUY should print"}`):**
-   - `ShopeeClient.shipOrder` trước đây hardcode `"dropoff"` nên các đơn cấu hình bưu tá đến lấy (`pickup` với `address_id`) chưa được xác nhận ship thành công; `createShippingDocument` không truyền `tracking_number` (bắt buộc ở nhiều ĐVVC như SPX/GHN/J&T trên Shopee v2) và không fallback từ `THERMAL_AIR_WAYBILL` sang `NORMAL_AIR_WAYBILL`.
-   - Khi Shopee trả về JSON lỗi với HTTP 200 (độ dài > 50 bytes), `downloadShippingDocument`, `layVanDonSan` và `KenhBanHangController.downloadShopeeShippingDocument` chưa kiểm tra `laJsonLoiShopee(byte[])`, dẫn đến việc trả thẳng chuỗi JSON lỗi ra màn hình in thay vì fallback tem A6 sạch.
-2. **Chuyển đổi kho bán hàng theo hướng hệ thống đa kênh chuẩn (Sapo) cho TikTok Shop & Shopee + Pop-up xác nhận:**
-   - **TikTok Shop:** Chỉ đổi `MA_KHO_SAN` và đẩy `/inventory/update` bị sàn chặn lỗi `12052533` vì SKU đang neo vào kho cũ (`warehouse_id` cũ). Theo cơ chế `PUT /product/202309/products/{product_id}`, muốn chuyển SKU sang kho mới cần gửi `CreateSku.id = null` kèm `inventory` là kho đích để sàn tạo binding mới dưới cùng `product_id` (đồng thời lưu lại `maSanPhamKenh` mới trả về; nếu sản phẩm có đơn/chiến dịch đang khóa gây `12052533`, tự động khôi phục SKU ID gốc và kho gốc).
-   - **Shopee:** Trước đây `noiDungSan.js` khóa `chiDoc: t("Kho mặc định")` và `getLocations` trả cứng 1 dòng. Theo chuẩn đa kênh: hỗ trợ đọc Shopee Multi-Warehouse (`get_warehouse_detail`), danh sách địa chỉ lấy hàng (`get_address_list`), và với shop 1 kho cho phép chọn kho vật lý FCentric nguồn (`fcentric-kho-<id>`, loại trừ `KHO_TRANSIT`) để chuyển nguồn tồn đồng bộ.
-   - **Frontend Pop-up:** Bổ sung `ConfirmModal` hỏi xác nhận người dùng ngay khi chọn kho khác trên các kênh hỗ trợ chuyển kho (`TikTok Shop`, `Shopee`, `Shopee Sandbox`…), tự động gọi API lưu cài đặt + đồng bộ lại sản phẩm và đẩy tồn ngay khi xác nhận, hoặc giữ nguyên kho cũ khi hủy.
-3. **Trạng thái hoàn trả Shopify không nhảy ngay khi người mua gửi yêu cầu trả hàng:**
-   - Shopify Admin REST API `orders.json` chỉ có mảng `refunds` (phát sinh **sau** khi xử lý hoàn tiền xong), hoàn toàn không trả về yêu cầu hoàn trả đang chờ/đang xử lý (`returnStatus = RETURN_REQUESTED / IN_PROGRESS`).
-   - Do đó cả `ShopifyOrderSnapshotClient` và `OmnichannelOrderSyncJob` cần truy vấn thêm trường scalar `returnStatus` qua GraphQL Admin (`read_orders`) và kích hoạt ngay `capNhatTrangThaiGiaoHangTuSan(don.getId(), "return_requested")` để chuyển FCentric sang `Bị hoàn trả (6)` ngay khi buyer mở yêu cầu trả hàng.
-4. **Rà soát đồng bộ hai chiều FCentric ↔ Shopee:**
-   - Bổ sung nhánh `ready_to_ship` / `processed` (`NHAP` -> `CHO_NHAT_HANG`) và các mã hoàn trả tức thời (`return_requested`, `return_in_progress`, `return_approved`, `inspection_complete`) trong `DonBanHangService.capNhatTrangThaiGiaoHangTuSan`.
-   - Nâng cấp `dongBoTrangThaiChuanBiHangShopee` (dùng `shipOrderAuto` theo `shipping_parameter`, poll tracking và tạo trước chứng từ A6 `createShippingDocument`), `dongBoTrangThaiXuatKhoShopee` (`shipOrderAuto`), và `huyDonHangTrenShopee` (`getOrderDetail` lấy `item_list`, tự gọi `handleBuyerCancellation(..., "ACCEPT")` nếu đơn đang `IN_CANCEL`).
-
-#### Giải pháp kỹ thuật & Chi tiết triển khai
-1. **Shopee Shipping Document & Error Guard (`ShopeeClient.java`, `DonBanHangService.java`, `KenhBanHangController.java`):**
-   - Bổ sung `laJsonLoiShopee(byte[])`, `shipOrderAuto`, `getWarehouseDetail`, `getAddressList`, `getOrderDetail(orderSn)`, `cancelOrder(..., itemList)`, `updateStock(..., locationId)`, và nâng cấp `downloadShippingDocument` với quy trình `shipOrderAuto` -> poll `getTrackingNumber` (3 lần) -> `THERMAL_AIR_WAYBILL` + fallback `NORMAL_AIR_WAYBILL` + poll `getShippingDocumentResult`.
-   - `DonBanHangService.layVanDonSan` và `KenhBanHangController.downloadShopeeShippingDocument` kiểm tra `%PDF` / HTML hợp lệ, loại bỏ JSON lỗi và render tem A6 HTML dự phòng có mã vận đơn thực tế.
-2. **TikTok Shop & Shopee Warehouse Switching + Frontend Pop-up (`KenhBanHangDongBoServiceImpl.java`, `KenhBanHangServiceImpl.java`, `noiDungSan.js`, `ChannelSettingsPage.jsx`, `kenh-ban.json`):**
-   - Bổ sung overload 12 tham số `capNhatSanPhamLenTikTok(..., boolean chuyenKho)` cùng `capNhatMaSanPhamKenhSauChuyenKhoTikTok` và `chuyenKhoSanPhamTikTok` trong `xuLySauKhiDoiKhoTikTok`.
-   - Triển khai `layDanhSachKhoShopee`, `xuLySauKhiDoiKhoShopee`, `layLocationIdShopeeDaLuu`, `layPreferredAddressIdShopee` và `tinhKhaDungTheoKhoKenh` trong `KenhBanHangDongBoServiceImpl`.
-   - Mở chọn kho cho Shopee (`chiDoc: null` tại `noiDungSan.js`), thêm `ConfirmModal` xác nhận chuyển sản phẩm sang kho mới tại `ChannelSettingsPage.jsx` và 7 khóa dịch tiếng Anh tại `kenh-ban.json`.
-3. **Shopify Immediate Return Sync (`ShopifyOrderSnapshotClient.java`, `OmnichannelOrderSyncJob.java`):**
-   - Bổ sung `returnStatus` vào câu query GraphQL của `ShopifyOrderSnapshotClient` và hàm batch `boSungTrangThaiHoanTraShopifyQuaGraphQL` (`nodes(ids: $ids)`), cùng kiểm tra `coYeuCauHoanTraTuShopify` trong cả luồng Webhook và Polling để gọi `capNhatTrangThaiGiaoHangTuSan(..., "return_requested")` tức thời.
-
-#### Kết quả kiểm thử & Đối soát hồi quy
-- **Backend chuyên biệt (`./mvnw.cmd test -Dtest="ShopeeClientTest,TikTokShopClientTest,KenhBanHangDongBoServiceTest,OmnichannelOrderSyncJobTest,ShopifyStatusSyncTest,ShopifyOrderSnapshotClientTest,DonBanHangServiceGiaoHangSanTest,PhieuChuyenKhoServiceTest"`):**
-  + **250/250 tests PASS 100%** (0 failures, 0 errors, 0 skipped), gồm 6 unit tests mới kiểm chứng `laJsonLoiShopee`, `updateStock(..., locationId)`, Shopee `getLocations` đa kho + chuyển kho FCentric, TikTok `editProduct` chuyển SKU sang kho mới, và Shopify `return_status = RETURN_REQUESTED`.
-- **Frontend & i18n:**
-  + `npm run i18n:kiem`: **728/728 tệp đạt chuẩn sạch 100%** (Chưa bọc: 0, Thiếu bản dịch: 0, Lệch: 0).
-  + `npm run build`: **BUILD SUCCESS**.
   + Bổ sung khóa i18n song ngữ `hienThiKenhPos.tiktokKhongChoPhepDoiKhoSku` trong `hienThiKenhPos.properties` và `hienThiKenhPos_en.properties`.
 
 ---
@@ -4533,6 +4454,54 @@ Không phát sinh stack trace sự cố vận hành thật. Bộ kiểm thử t�
 - **Frontend & i18n:**
   + `npm run i18n:kiem`: **728/728 tệp đạt chuẩn sạch 100%** (Chưa bọc: 0, Thiếu bản dịch: 0, Lệch: 0).
   + `npm run build`: **BUILD SUCCESS**.
+
+---
+
+### [AUDIT-117] KHẮC PHỤC LỖI BIÊN DỊCH `HashMap`, CHUẨN HÓA ĐỒNG BỘ TRẠNG THÁI "GỬI SANG KHO" SHOPEE (`PROCESSED`) VÀ SỬA LUỒNG IN VẬN ĐƠN A6 SHOPEE
+
+#### Metadata
+- **Thời gian:** 19/11/2026 01:18 (GMT+7)
+- **Tác giả:** PhanAnh & Antigravity AI
+- **Phân hệ:** Shopee Order Lifecycle (`OmnichannelOrderSyncJob`, `DonBanHangService`, `NhatHangServiceImpl`) & Shopee A6 Shipping Label Print (`PhieuXuatKhoService`, `SalesOrderPackingSlipPrint.jsx`, `ShopeeAwbDocument.jsx`).
+- **Tệp thay đổi:**
+  + `backend/src/main/java/com/dev/backend/workers/OmnichannelOrderSyncJob.java`
+  + `backend/src/main/java/com/dev/backend/services/impl/entities/DonBanHangService.java`
+  + `backend/src/main/java/com/dev/backend/services/impl/multitable/NhatHangServiceImpl.java`
+  + `backend/src/main/java/com/dev/backend/services/impl/entities/PhieuXuatKhoService.java`
+  + `frontend/src/pages/sales-orders/SalesOrderPackingSlipPrint.jsx`
+  + `frontend/src/components/print/ShopeeAwbDocument.jsx`
+  + `backend/src/test/java/com/dev/backend/services/impl/entities/DonBanHangServiceGiaoHangSanTest.java`
+  + `backend/src/test/java/com/dev/backend/workers/OmnichannelOrderSyncJobTest.java`
+  + `audit.md`
+
+#### Mục tiêu & Phân tích nguyên nhân gốc rễ (Root Cause Analysis - RCA)
+1. **Lỗi biên dịch `HashMap cannot be resolved to a type` tại `OmnichannelOrderSyncJob.java:389`:**
+   - Khi bổ sung hàm `boSungTrangThaiHoanTraShopifyQuaGraphQL` sử dụng `new HashMap<>()`, khối import của `OmnichannelOrderSyncJob.java` chỉ mới có `ArrayList`, `LinkedHashMap`, `List`, `Map`, chưa có `import java.util.HashMap;`.
+2. **Đơn Shopee phải bấm xong "Nhặt hàng" mới chuyển sàn sang "Người bán đang chuẩn bị hàng", không đồng bộ ngay khi "Gửi sang kho":**
+   - `OmnichannelOrderSyncJob.mapShopeeOrderStatus` trước đây ánh xạ `READY_TO_SHIP -> CHO_NHAT_HANG (1)` nên đơn mới về đã ở trạng thái `1`, bỏ qua nút **"Gửi sang kho"** (chỉ hiện ở `0 Nháp`), hoặc nếu ở `0 Nháp` thì `DonBanHangService.sendToWarehouse` chỉ mới đẩy trạng thái `in_progress` cho Shopify mà chưa gọi `dongBoTrangThaiChuanBiHangShopee` cho Shopee (Shopee chỉ mới được gọi muộn lúc `hoanTatNhatHang` và đóng gói).
+3. **3 lỗi khiến luồng in vận đơn A6 Shopee hiển thị sai form Lazada hoặc tải PDF 401:**
+   - `PhieuXuatKhoService.getDetail` (dòng 1252) kiểm tra `SHOPEE` và `SHOPEE_SANDBOX` nhưng thiếu `SHOPEE_OFFICIAL` (kênh Shopee chính thức hiện dùng), làm phiếu của đơn `SHOPEE_OFFICIAL` bị fallback sang mẫu Lazada (`BEST EXPRESS` / `3-BNO-TAP`).
+   - `SalesOrderPackingSlipPrint.jsx` nhận `ResponseData` từ `donBanHangService.getDetail(id)` nhưng chưa bóc tách `res.data.donBanHang` và `res.data.chiTiet`.
+   - `ShopeeAwbDocument.jsx` mặc định `showSimulated = false` khiến bản in nhiệt A6 bị ẩn khi có `shippingDocUrl`, đồng thời gắn `<a href="/api/v1/don-ban-hang/{id}/van-don-san">` trần không đính kèm JWT header nên trình duyệt nhận HTTP 401 khi bấm mở/tải PDF.
+
+#### Giải pháp kỹ thuật & Chi tiết triển khai
+1. **Sửa biên dịch (`OmnichannelOrderSyncJob.java`):** Thêm `import java.util.HashMap;`.
+2. **Chuẩn hóa luồng Shopee `Gửi sang kho -> PROCESSED` (`DonBanHangService.java`, `OmnichannelOrderSyncJob.java`, `NhatHangServiceImpl.java`):**
+   - `OmnichannelOrderSyncJob.mapShopeeOrderStatus`: `UNPAID`, `READY_TO_SHIP -> NHAP (0)` (chờ bấm "Gửi sang kho"); `PROCESSED -> CHO_NHAT_HANG (1)`.
+   - `DonBanHangService.sendToWarehouse`: khi gửi đơn Shopee sang kho (`0 -> 1`), gọi `SauCommit.chay(..., () -> kenhBanHangDongBoService.dongBoTrangThaiChuanBiHangShopee(shopeeOrderId))` để kích hoạt `shipOrderAuto` + poll tracking + tạo trước chứng từ A6 trên Shopee ngay lập tức.
+   - `DonBanHangService.capNhatTrangThaiGiaoHangTuSan`: thu hẹp điều kiện `ready_to_ship || processed` xuống chỉ `processed` để không tự đẩy đơn `READY_TO_SHIP` khỏi `NHAP (0)` trước khi bán hàng bấm "Gửi sang kho".
+   - `OmnichannelOrderSyncJob.processSingleShopeeOrder`: bổ sung đối soát tiến trình — nếu đơn đang ở kho (`1, 7, 8`) mà sàn còn `READY_TO_SHIP` thì tự đồng bộ lại `dongBoTrangThaiChuanBiHangShopee`; `NhatHangServiceImpl.taoPickList` cũng gọi idempotent khi gom đơn Shopee vào phiếu nhặt.
+3. **Sửa toàn diện in A6 Shopee (`PhieuXuatKhoService.java`, `SalesOrderPackingSlipPrint.jsx`, `ShopeeAwbDocument.jsx`):**
+   - Dùng `OmnichannelOrderSyncJob.isShopee(kb.getMaKenh())` trong `PhieuXuatKhoService` (bao gồm `SHOPEE`, `SHOPEE_OFFICIAL`, `SHOPEE_SANDBOX`).
+   - Unwrap đúng `res.data.donBanHang` & `res.data.chiTiet` trong `SalesOrderPackingSlipPrint.jsx`.
+   - Bật sẵn `showSimulated = true` và tải `/api/v1/don-ban-hang/{id}/van-don-san` qua `apiClient` (kèm JWT) trong `ShopeeAwbDocument.jsx`.
+
+#### Kết quả kiểm thử & Đối soát hồi quy
+- **Backend Omnichannel Suite (`./mvnw.cmd test -Dtest="ShopeeClientTest,TikTokShopClientTest,KenhBanHangDongBoServiceTest,OmnichannelOrderSyncJobTest,ShopifyStatusSyncTest,ShopifyOrderSnapshotClientTest,DonBanHangServiceGiaoHangSanTest,PhieuChuyenKhoServiceTest"`):**
+  + **252/252 tests PASS 100%** (0 failures, 0 errors, 0 skipped): `DonBanHangServiceGiaoHangSanTest` 16/16, `KenhBanHangDongBoServiceTest` 80/80, `PhieuChuyenKhoServiceTest` 74/74, `ShopeeClientTest` 12/12, `ShopifyOrderSnapshotClientTest` 5/5, `ShopifyStatusSyncTest` 9/9, `TikTokShopClientTest` 21/21, `OmnichannelOrderSyncJobTest` 35/35.
+- **Frontend:**
+  + `npm run i18n:kiem`: **728/728 tệp sạch 100%** (Chưa bọc: 0, Thiếu bản dịch: 0, Lệch: 0).
+  + `npm run build`: **BUILD SUCCESS** (`vite build` hoàn tất trong 19.02s).
 
 
 
